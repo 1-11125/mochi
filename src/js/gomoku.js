@@ -664,7 +664,10 @@
           if (panel.hidden) return;
           for (let i = 0; i < SIBLING_IDS.length; i++) {
             const el = document.getElementById(SIBLING_IDS[i]);
-            if (el && !el.hidden) { closePanel(); break; }
+            // #427：hidden=false 但零渲染盒＝残留态（页面早已切走，视觉上没开着），
+            // 不能当「兄弟面板开着」把本面板误关——否则表现为面板刚打开就自动消失回聊天、
+            // 反复重开反复被关（刷新才恢复）
+            if (el && !el.hidden && el.getClientRects().length > 0) { closePanel(); break; }
           }
         });
         SIBLING_IDS.forEach((id) => { const el = document.getElementById(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ['hidden'] }); });

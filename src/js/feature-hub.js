@@ -1,14 +1,16 @@
 // ===== 功能：功能大全（设置 → 功能大全，#305）=====
 // 需求（用户 2026-09-11）：设置里新增一个和【回音机】【功能大全】一样的功能——
 // 全应用功能的可搜索索引页，点条目直达对应功能。灵感来源：回音机。
-// 与「功能介绍与可二传二改许可」页（page-about，静态说明）互补：本页是「找得到、跳得过去」的入口目录。
-//
+// #305b 重构（用户 2026-09-13 反馈「打开后一页 84 行太杂」）：默认「全部分组平铺」改为
+// 「热门直达 + 7 分类宫格首页 → 点分类进该组列表」，顶部 tag 在列表态可互相切换/回首页；
+// 搜索保持全局跨组（命中行按组显示），清空搜索回到进入前的视图。
 // 跳转机制：go 数组里的选择器按顺序逐个 .click()——各功能的打开逻辑都绑定在既有入口元素上
 //（桌面图标 .app[data-app=…] / 设置行 #row-* / 聊天更多面板按钮 #more-* / 字卡库列表项 #li-*），
 // 且均为同步 handler、首个元素的处理函数都会切页，链式点击即完整复现用户的操作路径，
 // 本文件不重复实现任何打开逻辑（功能入口变了跟着改 go 数组即可）。
 // where：没有可靠直达入口的功能，点击弹位置提示，不乱跳。
-// 纯本地、无网络请求；不写任何存储键。
+// 纯本地、无网络请求；唯一写入键 xy-home-v2:fhub-freq（常用功能点击计数，LS+IDB 双写，
+// 全局键不区分联系人——目录索引与跳转目标都是全局的）。
 (function () {
   // ---- 目录数据：g 组名 / n 名称 / d 一句话 / k 搜索关键词（含别名） / go 入口选择器链 / where 位置提示 ----
   const HUB = [
@@ -55,7 +57,10 @@
       { n: '同频', d: 'TA 此刻状态字卡 + 敲三下暗号', k: '同频 暗号 此刻 状态', go: ['.app[data-app="tongpin"]'] },
       { n: '伸手', d: '摸摸身边，三种触感 + 悄悄话', k: '伸手 摸摸 触感', go: ['.app[data-app="shenshou"]'] },
       { n: '此间', d: '每位梦角的世界时间与在场状态', k: '此间 梦角 时辰 在场', go: ['.app[data-app="cjian"]'] },
-      { n: '房间（双人小屋）', d: '21 种家具互动、舒适度升级、按 TA 分屋', k: '房间 小屋 家具', go: ['.app[data-app="room"]'] }
+      { n: '房间（双人小屋）', d: '21 种家具互动、舒适度升级、按 TA 分屋', k: '房间 小屋 家具', go: ['.app[data-app="room"]'] },
+      { n: '音乐', d: '本地/链接上传、歌单、一起听歌、播放队列', k: '音乐 歌曲 播放 歌单', go: ['.app[data-app="music"]'] },
+      { n: '信箱', d: '和 TA 写信/回信，支持图文信件', k: '信箱 写信 信件 邮件', go: ['.app[data-app="mail"]'] },
+      { n: '朋友圈', d: '发动态/点赞评论/TA 也会发', k: '朋友圈 动态 点评 转发', go: ['.app[data-app="feed"]'] }
     ] },
     { g: '小游戏', items: [
       { n: '猜拳', d: '和 TA 猜拳，累计战绩', k: '猜拳 石头剪刀布 游戏', go: ['.app[data-app="chat"]', '#more-rps'] },
@@ -80,8 +85,6 @@
       { n: '吃什么', d: '随机抽菜/转盘，问 TA 征求意见', k: '吃什么 吃饭 菜 转盘', go: ['.app[data-app="eat"]'] },
       { n: '存钱罐', d: '存取+小心愿目标，TA 当监督人', k: '存钱罐 攒钱 心愿', go: ['.app[data-app="piggy"]'] },
       { n: '番茄钟', d: '专注/小憩/长休计时，陪伴模式', k: '番茄钟 专注 计时', go: ['.app[data-app="pomo"]'] },
-      { n: '经期记录', d: '经期/排卵期预测、症状体温情绪记录、TA 的关心', k: '经期 生理期 排卵 月经', go: ['.app[data-app="period"]'] },
-      { n: '记账', d: '收支分类/预算/图表/流水搜索', k: '记账 收支 预算 账本', go: ['.app[data-app="accounting"]'] },
       { n: '花园', d: '种花杂交/花束工坊/成就年报，TA 代管', k: '花园 种花 花', go: ['.app[data-app="garden"]'] }
     ] },
     { g: '记录与统计', items: [
@@ -91,9 +94,8 @@
       { n: '查岗打卡', d: 'TA 的查岗打卡与位置记录', k: '查岗 打卡 定位', go: ['.app[data-app="checkin"]'] },
       { n: '日历', d: 'TA 的每日留言、情话、我的备忘与心情', k: '日历 留言 签到', go: ['.app[data-app="calendar"]'] },
       { n: '纪念', d: '纪念日/倒数日与相伴天数', k: '纪念 倒计时 周年', go: ['.app[data-app="memory"]'] },
-      { n: '信箱', d: '和 TA 写信/回信，支持图文信件', k: '信箱 写信 信件 邮件', go: ['.app[data-app="mail"]'] },
-      { n: '朋友圈', d: '发动态/点赞评论/TA 也会发', k: '朋友圈 动态 点评 转发', go: ['.app[data-app="feed"]'] },
-      { n: '音乐', d: '本地/链接上传、歌单、一起听歌、播放队列', k: '音乐 歌曲 播放 歌单', go: ['.app[data-app="music"]'] },
+      { n: '经期记录', d: '经期/排卵期预测、症状体温情绪记录、TA 的关心', k: '经期 生理期 排卵 月经', go: ['.app[data-app="period"]'] },
+      { n: '记账', d: '收支分类/预算/图表/流水搜索', k: '记账 收支 预算 账本', go: ['.app[data-app="accounting"]'] },
       { n: '梦角档案', d: '认识 TA：九个分区 + 发现卡片 + 共同记录', k: '梦角档案 档案 认识', go: ['.app[data-app="memo-arc"]'] },
       { n: '我的档案', d: '写给 TA 的自我说明与 IF 世界设定', k: '我的档案 自我 if 世界', go: ['.app[data-app="my-arc"]'] },
       { n: '心情日记', d: '每天记心情，月度曲线对照、TA 的关心', k: '心情日记 心情 情绪 日记', go: ['.app[data-app="calendar"]'] }
@@ -112,107 +114,182 @@
     ] }
   ];
 
-  // ---- 顶部分类 tab 样式（自包含注入，不动 base.css；深色模式走全局配色变量） ----
+  // ---- 分类图标（描边风格与设置页一致；stroke=currentColor + .fhub-cat-ico 色走 var(--ink)，深色自动跟随） ----
+  const CAT_ICO = [
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="19" height="10" rx="5"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="12" r=".9"/><circle cx="18" cy="14" r=".9"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 8.5V21h14V8.5"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>'
+  ];
+  // ---- 首页「常用」直达：取使用频次前 4（数据来自 fhub-freq，无数据整行隐藏） ----
+
+  // ---- 样式（自包含注入，不动 base.css；配色走全局变量 --ink/--muted，深色模式自动跟随） ----
   const hubStyle = document.createElement('style');
-  hubStyle.textContent = '.fhub-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}.fhub-tabs::-webkit-scrollbar{display:none}.fhub-tag{flex:0 0 auto;padding:6px 13px;border-radius:20px;font-size:12px;color:var(--muted,#666);background:rgba(0,0,0,.055);white-space:nowrap;cursor:pointer;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}.fhub-tag:active{transform:scale(.97)}.fhub-tag.on{color:#fff;background:#111}';
+  hubStyle.textContent =
+    '.fhub-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}.fhub-tabs::-webkit-scrollbar{display:none}' +
+    '.fhub-tag{flex:0 0 auto;padding:6px 13px;border-radius:20px;font-size:12px;color:var(--muted,#666);background:rgba(0,0,0,.055);white-space:nowrap;cursor:pointer;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}.fhub-tag:active{transform:scale(.97)}.fhub-tag.on{color:#fff;background:#111}' +
+    '.fhub-hot{display:flex;gap:8px;align-items:center;padding:10px 2px 0}.fhub-hot-label{flex:0 0 auto;font-size:12px;color:var(--muted,#999)}' +
+    '.fhub-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 0 4px}' +
+    '.fhub-cat{position:relative;padding:12px;border-radius:16px;cursor:pointer;-webkit-tap-highlight-color:transparent}.fhub-cat:active{transform:scale(.97)}' +
+    '.fhub-cat-ico{width:36px;height:36px;border-radius:10px;background:rgba(0,0,0,.055);display:flex;align-items:center;justify-content:center;margin-bottom:9px}' +
+    '.fhub-cat-ico svg{width:20px;height:20px;stroke:var(--ink,#111)}' +
+    '.fhub-cat-name{font-size:14px;font-weight:600;line-height:1.3;padding-right:30px}' +
+    '.fhub-cat-n{position:absolute;top:10px;right:10px;font-size:11px;color:var(--muted,#999);background:rgba(0,0,0,.05);border-radius:10px;padding:2px 8px;font-weight:600}' +
+    '[data-theme="dark"] .fhub-tag{background:rgba(255,255,255,.09)}' +
+    '[data-theme="dark"] .fhub-tag.on{background:var(--ink,#eee);color:var(--card-bg,#1e1e1e)}' +
+    '[data-theme="dark"] .fhub-cat-ico{background:rgba(255,255,255,.09)}' +
+    '[data-theme="dark"] .fhub-cat-n{background:rgba(255,255,255,.09)}';
   document.head.appendChild(hubStyle);
 
   // ---- 渲染 ----
   const body = document.getElementById('fhub-body');
   const page = document.getElementById('page-featurehub');
   if (!body || !page) return;
+  const tags = document.getElementById('fhub-tags');
+  const input = document.getElementById('fhub-search');
+  const empty = document.getElementById('fhub-empty');
   const ARROW = '<div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
 
-  function entryRow(it, gi) {
+  function entryRow(it) {
     const row = document.createElement('div');
     row.className = 'set-row';
     row.innerHTML = '<div class="txt">' + it.n + '<span class="sub">' + it.d + '</span></div>' + ARROW;
     row.addEventListener('click', () => jump(it));
     return row;
   }
-  function groupBlock(grp, gi, open) {
+  function groupBlock(grp) {
     const wrap = document.createElement('div');
     const title = document.createElement('div');
     title.className = 'gs-title';
     title.textContent = grp.g;
     const card = document.createElement('div');
     card.className = 'set-group glass';
-    grp.items.forEach(it => card.appendChild(entryRow(it, gi)));
+    grp.items.forEach(it => card.appendChild(entryRow(it)));
     wrap.appendChild(title);
     wrap.appendChild(card);
-    if (!open) wrap.style.display = 'none';
+    wrap.style.display = 'none';
     return wrap;
   }
 
-  // 默认按组全部平铺；顶部分类 tag 点击只显示对应组
-  let groups = [];
-  HUB.forEach((grp, gi) => { grp.items.forEach(it => { it._g = gi; }); groups.push(groupBlock(grp, gi, true)); });
+  // ---- 首页「常用」行：按点击频次自动置顶；无使用数据时整行不显示 ----
+  const FREQ_KEY = 'xy-home-v2:fhub-freq';
+  const HOT_N = 4;
+  const home = document.createElement('div');
+  const hot = document.createElement('div');
+  hot.className = 'fhub-hot';
+  home.appendChild(hot);
+  const byName = {};
+  HUB.forEach(grp => grp.items.forEach(it => { if (!byName[it.n]) byName[it.n] = it; }));
+  let freq = {};
+  function renderHot() {
+    const names = Object.keys(freq).filter(n => byName[n] && freq[n] > 0)
+      .sort((a, b) => freq[b] - freq[a]).slice(0, HOT_N);
+    hot.style.display = names.length ? '' : 'none';
+    hot.innerHTML = names.length ? '<span class="fhub-hot-label">常用</span>' : '';
+    names.forEach(nm => {
+      const it = byName[nm];
+      const c = document.createElement('div');
+      c.className = 'fhub-tag';
+      c.textContent = it.n;
+      c.addEventListener('click', () => jump(it));
+      hot.appendChild(c);
+    });
+  }
+  function loadFreq() {
+    try { freq = JSON.parse(localStorage.getItem(FREQ_KEY)) || {}; } catch (e) { freq = {}; }
+    renderHot();
+    // IDB 为准（idb.js 启动回填会用 IDB 刷 LS；idbGet 挂起时静默，用 LS 初值即可）
+    if (typeof window.idbGet === 'function') {
+      try { window.idbGet(FREQ_KEY).then(v => { if (v && typeof v === 'object' && Object.keys(v).length) { freq = v; renderHot(); } }).catch(() => {}); } catch (e) {}
+    }
+  }
+  function bumpFreq(it) {
+    freq[it.n] = (freq[it.n] || 0) + 1;
+    try { localStorage.setItem(FREQ_KEY, JSON.stringify(freq)); } catch (e) { /* 存储满不影响跳转 */ }
+    if (typeof window.idbSet === 'function') { try { window.idbSet(FREQ_KEY, freq).catch(() => {}); } catch (e) {} }
+    renderHot();
+  }
+  renderHot();
+  loadFreq();
+  const grid = document.createElement('div');
+  grid.className = 'fhub-grid';
+  HUB.forEach((grp, gi) => {
+    const tile = document.createElement('div');
+    tile.className = 'fhub-cat glass';
+    tile.innerHTML = '<div class="fhub-cat-n">' + grp.items.length + '</div>' +
+      '<div class="fhub-cat-ico">' + (CAT_ICO[gi] || '') + '</div>' +
+      '<div class="fhub-cat-name">' + grp.g + '</div>';
+    tile.addEventListener('click', () => { if (input) input.value = ''; view = gi; update(); });
+    grid.appendChild(tile);
+  });
+  home.appendChild(grid);
+  body.appendChild(home);
+
+  // 分组列表：默认全部隐藏，由 update() 按当前视图显隐
+  const groups = [];
+  HUB.forEach(grp => groups.push(groupBlock(grp)));
   groups.forEach(el => body.appendChild(el));
 
-  // ---- 顶部分类切换：全部 / 聊天传讯 / 字卡库 / … ----
-  const tags = document.getElementById('fhub-tags');
-  let activeGi = -1; // -1 = 全部
-  function setGroup(gi) {
-    activeGi = gi;
-    if (tags) Array.prototype.forEach.call(tags.children, (t, i) => t.classList.toggle('on', i - 1 === gi));
-    groups.forEach((el, i) => { el.style.display = (gi === -1 || i === gi) ? '' : 'none'; });
-  }
+  // ---- 视图状态：'home'=分类宫格首页；数字=某分类列表；搜索时全局跨组忽略视图 ----
+  let view = 'home';
+
+  // ---- 顶部 tag：首页 + 各分类（列表态显示，用于快速切换/回首页） ----
   if (tags) {
-    [['全部', -1]].concat(HUB.map((g, i) => [g.g, i])).forEach((pair) => {
-      const label = pair[0], gi = pair[1];
+    [['首页', 'home']].concat(HUB.map((g, i) => [g.g, i])).forEach((pair) => {
       const d = document.createElement('div');
       d.className = 'fhub-tag';
-      d.textContent = label;
-      d.addEventListener('click', () => {
-        if (input && input.value) { input.value = ''; applyFilter(); }
-        setGroup(gi);
-        empty.hidden = true;
-      });
+      d.textContent = pair[0];
+      d.addEventListener('click', () => { if (input) input.value = ''; view = pair[1]; update(); });
       tags.appendChild(d);
     });
   }
-  setGroup(-1);
 
-  // ---- 搜索：命中名称/描述/关键词时只显示命中的行与所在组 ----
-  const input = document.getElementById('fhub-search');
-  const empty = document.getElementById('fhub-empty');
   function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }
-  function applyFilter() {
-    const q = norm(input.value);
-    if (!q) {
-      // 清空 → 恢复顶部分类切换（setGroup 复显当前分类并复位行显隐）
-      Array.prototype.forEach.call(body.querySelectorAll('.set-row'), r => { r.style.display = ''; });
-      empty.hidden = true;
-      setGroup(activeGi);
-      return;
-    }
-    // 搜索命中名称/描述/关键词：全局范围内过滤（忽略当前分类），顶部分类高亮回到「全部」
-    if (tags) Array.prototype.forEach.call(tags.children, (t, i) => t.classList.toggle('on', i === 0));
-    let hits = 0;
-    HUB.forEach((grp, gi) => {
-      let gHit = 0;
-      grp.items.forEach((it, ii) => {
-        const hay = norm(it.n + it.d + (it.k || '') + (it.g || ''));
-        // 行序与 grp.items 一一对应：直接按子元素索引取
-        const rows = cardRows(gi);
-        const el = rows[ii];
-        const show = hay.indexOf(q) >= 0;
-        if (el) el.style.display = show ? '' : 'none';
-        if (show) { gHit++; hits++; }
-      });
-      if (groups[gi]) groups[gi].style.display = gHit ? '' : 'none';
-    });
-    empty.hidden = hits > 0;
-  }
   function cardRows(gi) {
     const card = groups[gi] ? groups[gi].querySelector('.set-group') : null;
     return card ? Array.prototype.slice.call(card.children) : [];
   }
-  if (input) {
-    input.addEventListener('input', applyFilter);
+
+  // ---- 唯一显隐出口：搜索态全局跨组只显命中行；非搜索态按视图显首页或单组 ----
+  function update() {
+    if (empty) empty.hidden = true;
+    const q = input ? norm(input.value) : '';
+    if (q) {
+      if (home) home.style.display = 'none';
+      if (tags) tags.style.display = 'none';
+      let hits = 0;
+      HUB.forEach((grp, gi) => {
+        let gHit = 0;
+        const rows = cardRows(gi);
+        grp.items.forEach((it, ii) => {
+          const hay = norm(it.n + it.d + (it.k || '') + (it.g || ''));
+          const show = hay.indexOf(q) >= 0;
+          const el = rows[ii];
+          if (el) el.style.display = show ? '' : 'none';
+          if (show) { gHit++; hits++; }
+        });
+        if (groups[gi]) groups[gi].style.display = gHit ? '' : 'none';
+      });
+      if (empty) empty.hidden = hits > 0;
+      return;
+    }
+    // 清空搜索 → 复位所有行显隐，再按当前视图显首页或单组
+    Array.prototype.forEach.call(body.querySelectorAll('.set-row'), r => { r.style.display = ''; });
+    if (home) home.style.display = view === 'home' ? '' : 'none';
+    if (tags) {
+      tags.style.display = view === 'home' ? 'none' : '';
+      Array.prototype.forEach.call(tags.children, (t, i) => t.classList.toggle('on', i - 1 === view));
+    }
+    groups.forEach((el, i) => { el.style.display = i === view ? '' : 'none'; });
   }
 
-  // ---- 跳转：链式点击既有入口；无 go 的弹位置提示 ----
+  // ---- 搜索 ----
+  if (input) input.addEventListener('input', update);
+
+  // ---- 跳转：链式点击既有入口；一个都没点中 = 入口丢失，弹位置提示不再静默 ----
   function toast(msg) {
     let t = document.getElementById('cc-toast');
     if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -222,12 +299,15 @@
   function jump(it) {
     if (it.go && it.go.length) {
       try {
+        let clicked = 0;
         it.go.forEach(sel => {
           const el = document.querySelector(sel);
-          if (el && typeof el.click === 'function') el.click();
+          if (el && typeof el.click === 'function') { el.click(); clicked++; }
         });
-        return;
+        if (clicked) { bumpFreq(it); return; }
       } catch (e) { /* 落到位置提示 */ }
+      toast('「' + it.n + '」的位置：' + (it.where || it.g) + '（入口暂不可达，如有需要请在对应页面寻找）');
+      return;
     }
     toast('「' + it.n + '」的位置：' + (it.where || it.g));
   }
@@ -242,13 +322,17 @@
     });
   }
 
-  // ---- 设置页入口行 ----
+  // ---- 设置页入口行：每次进入复位到宫格首页并清空搜索 ----
   const row = document.getElementById('row-featurehub');
   if (row) {
     row.addEventListener('click', () => {
       document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
       page.hidden = false;
-      if (input) { input.value = ''; applyFilter(); }
+      if (input) input.value = '';
+      view = 'home';
+      update();
     });
   }
+
+  update();
 })();

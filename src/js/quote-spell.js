@@ -11,7 +11,8 @@
 //   每条气泡/单气泡下都显示「词典拼字」tag。
 // 纯本地，无网络请求。
 // 数据源：DEFAULT_CARD_DATA.dict 全部分组（语录 + 词库 + 自建词条；#370 定稿词典里
-// 所有字卡都能抽用）；受分类开关 dc-cat-dict 与单卡开关 dc-off-dict:* 控制。
+// 所有字卡都能抽用）；受单卡开关 dc-off-dict:* 控制（#427：词典已独立成页，旧分类
+// 开关键 dc-cat-dict 无写入 UI 且存量 '0' 会永久误杀抽卡池，不再读取）。
 // 设置项（回复设置 → 聊天 tab「词典拼字」组，见 reply-settings.js DEFAULTS）：
 //   qs-en    总开关（1=开）
 //   qs-prob  拼字概率（%，每条回复掷一次；0=不触发）
@@ -29,7 +30,8 @@
   function quotePool() {
     let quotes = [];
     try {
-      if (window.defaultCardCat && window.defaultCardCat('dict') === false) return quotes;
+      // #427：不再读 dc-cat-dict（遗留键无写入 UI，存量 '0' 会永久误判「词典分类被关」）；
+      //   词典启用由 dict-use-chat / dict-overall / dc-off-dict:* 负责
       const grps = (window.getDefaultCardGroups && window.getDefaultCardGroups('dict')) || [];
       grps.forEach(g => {
         (g[1] || []).forEach(q => { if (typeof q === 'string') quotes.push(q); });
@@ -47,7 +49,7 @@
     });
   }
   // v3.36.x：词典语录单条只读取口（供写信/朋友圈按各自场景开关+概率混入）——
-  //   复用 quotePool（自带分类开关 dc-cat-dict 与单卡开关过滤），空池返回 null
+  //   复用 quotePool（自带单卡开关过滤），空池返回 null
   window.dictQuoteOne = function () {
     try {
       const p = quotePool();

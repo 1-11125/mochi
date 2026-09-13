@@ -422,15 +422,89 @@
   }
   // quick=true（离页/切群保写）：跳过令牌化与池 flush 直接同步落盘——令牌化是真实异步
   //（sha256+IDB 查池），unload 窗口内可能完不成导致丢写；池有独立的 hidden flush 兜底
+  // ---- v3.42.x #426 群聊大键口径对齐聊天页（chat.js v3.26.x OOM 同族，实测单键可达数百 MB）----
+  // 此前落盘整包 JSON.stringify：①每次保存都全量串化一遍（大库堆尖峰+秒级阻塞）；②LS 兜底
+  // 直写全量无上限（QuotaExceeded 静默失败＝大库 LS 副本永远为空）。收口两件事：
+  // ① IDB：估算 ≤GC_STR_THRESHOLD 沿用字符串（与旧数据完全一致）；>阈值改 structured clone
+  //   数组直存（免整包串化/解析），数组路径失败回退字符串，绝不丢数据；读取端双形态兼容。
+  // ② LS 兜底：改 liteSnap 减裁（剥图片/语音/长文负载、留 _lsLite 标记与占位）+ 超限从最旧
+  //   折半丢弃（最多 5 轮），快照恒 ≤2MB（同 chat.js LS_SNAP_LIMIT/#180 口径）。
+  const GC_STR_THRESHOLD = 3 * 1024 * 1024;
+  const GC_SNAP_LIMIT = 2 * 1024 * 1024;
+  // 群聊消息字节浅层估算（不拷贝/串化数据本身）：图片/表情/语音载荷都在 text（type+text 形态），
+  // 组合消息在 parts[].v，引用图在 quote.imgs
+  function gcMsgsBytes(arr) {
+    if (!Array.isArray(arr)) return 0;
+    let n = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const m = arr[i];
+      if (!m || typeof m !== 'object') { n += 32; continue; }
+      if (typeof m.text === 'string') n += m.text.length;
+      if (Array.isArray(m.parts)) { for (let j = 0; j < m.parts.length; j++) { const p = m.parts[j]; if (p && typeof p.v === 'string') n += p.v.length; } }
+      if (m.quote && typeof m.quote === 'object' && Array.isArray(m.quote.imgs)) { for (let j = 0; j < m.quote.imgs.length; j++) { if (typeof m.quote.imgs[j] === 'string') n += m.quote.imgs[j].length; } }
+      n += 64;
+    }
+    return n;
+  }
+  // LS lite 快照：超限记录剥掉大负载（保留占位与 _lsLite 标记），快照只兜「文本没丢」
+  function gcLiteSnapArray(arr) {
+    if (gcMsgsBytes(arr) <= GC_SNAP_LIMIT) return arr; // 小记录：全量快照
+    return arr.map(m => {
+      if (!m || typeof m !== 'object') return m;
+      const bigText = typeof m.text === 'string' && m.text.length > 8192;
+      const bigParts = Array.isArray(m.parts) && m.parts.some(p => p && typeof p.v === 'string' && (p.k === 'img' || p.k === 'voice' || p.v.length > 8192));
+      const bigQuote = !!(m.quote && typeof m.quote === 'object' && Array.isArray(m.quote.imgs) && m.quote.imgs.some(v => typeof v === 'string' && v.length > 8192));
+      if (!bigText && !bigParts && !bigQuote) return m;
+      const c = Object.assign({}, m);
+      c._lsLite = 1;
+      if (bigText) c.text = '[内容已省略]';
+      if (bigParts) {
+        c.parts = m.parts.map(p => {
+          if (!p || typeof p !== 'object' || typeof p.v !== 'string') return p;
+          if (p.k === 'img' || p.k === 'voice' || p.v.length > 8192) {
+            const pc = Object.assign({}, p);
+            if (p.k === 'img' || p.k === 'voice') pc.v = '';
+            else pc.v = '[内容已省略]';
+            return pc;
+          }
+          return p;
+        });
+      }
+      if (bigQuote) c.quote = Object.assign({}, m.quote, { imgs: m.quote.imgs.map(v => (typeof v === 'string' && v.length > 8192) ? '' : v) });
+      return c;
+    });
+  }
+  function gcWriteLsSnapshot(key) {
+    try {
+      let snapArr = gcLiteSnapArray(msgs);
+      let snap = JSON.stringify(snapArr);
+      let round = 0;
+      while (snap.length > GC_SNAP_LIMIT && snapArr.length > 1 && round < 5) {
+        round++;
+        const keep = Math.max(1, Math.floor(snapArr.length / 2));
+        snapArr = gcLiteSnapArray(msgs.slice(msgs.length - keep));
+        snap = JSON.stringify(snapArr);
+      }
+      if (snap.length <= GC_SNAP_LIMIT) localStorage.setItem(key, snap);
+    } catch (e) {}
+  }
   async function gcWriteMsgs(quick) {
     if (!quick) {
       try { await gcNormalizeMedia(); } catch (e) {}
       try { if (window.mochiMediaFlush) await window.mochiMediaFlush(); } catch (e) {} // #142：池先落盘，引用后落盘
     }
-    const data = JSON.stringify(msgs);
     const key = groupMsgKey(curGid);
-    try { localStorage.setItem(key, data); } catch (e) {}
-    try { if (window.idbSet) window.idbSet(key, data); } catch (e) {}
+    gcWriteLsSnapshot(key);
+    if (!msgs.length || gcMsgsBytes(msgs) <= GC_STR_THRESHOLD) {
+      const data = JSON.stringify(msgs || []);
+      try { if (window.idbSet) window.idbSet(key, data); } catch (e) {}
+      return;
+    }
+    // 大记录：数组直存（structured clone），失败回退字符串——绝不丢数据
+    try {
+      const ok = window.idbSet ? await window.idbSet(key, msgs) : false;
+      if (!ok) await window.idbSet(key, JSON.stringify(msgs));
+    } catch (e) { try { if (window.idbSet) window.idbSet(key, JSON.stringify(msgs)); } catch (e2) {} }
   }
   function saveMsgs() {
     gSchedulePersist(gcWriteMsgs);
@@ -453,7 +527,11 @@
           // 保存回写进新群的存储键（A 群历史灌进 B 群）
           if (key !== groupMsgKey(curGid)) return;
           if (v === undefined || v === null) return;
-          try { const a = JSON.parse(v); if (Array.isArray(a) && a.length >= msgs.length) { msgs = a; renderAll(); } } catch (e) {}
+          // #426：IDB 值双形态兼容——小记录为 JSON 字符串（与旧数据一致），大记录为数组直存
+          let a = null;
+          if (Array.isArray(v)) a = v;
+          else { try { const p = JSON.parse(v); if (Array.isArray(p)) a = p; } catch (e2) {} }
+          if (a && a.length >= msgs.length) { msgs = a; renderAll(); }
         }).catch(() => {});
       }
     } catch (e) {}

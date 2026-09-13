@@ -4,6 +4,8 @@
 // 与现有上传压缩同标准（chatcard.js 字卡图 720px JPEG0.85 / 表情 480px PNG；
 // personalize.js 壁纸 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px）——
 // 只把「明显偏大」的存量图重压到新上传同样的清晰标准，保证视觉效果一致。
+// v3.42.x #427：JPEG 目标在支持 WebP 编码的浏览器上改存 WebP（同质量体积更小，
+// 编码级探测、不支持自动回退 JPEG；表情 PNG 不变），见 webpSupported()/compressOne。
 // 数据安全底线：
 //   · 只处理本地 base64 大图：动图(GIF)不动（重压丢动画）、媒体池令牌 @@m: 不动（与聊天共享，
 //     池由媒体池 GC 管理）、远程链接/语音不动、已较小的图不动（阈值见 KIND）；
@@ -63,6 +65,21 @@
     if (!kd) return false;
     return dataUrl.length > kd.thr;
   }
+  // v3.42.x #427：照片类优先 WebP——同质量比 JPEG 再省约 25~50% 存储（媒体池/字卡库都是
+  // base64 常驻 IDB 的大头）。能力探测必须是「编码级」：不支持的浏览器（旧 Safari 等）
+  // toDataURL('image/webp') 会静默回退返回 PNG 前缀 → 判不支持，自动沿用原 JPEG 路径，
+  // 行为与旧版完全一致；探测结果缓存（每会话一次）。表情 PNG（cc-stk）与透明保留路径不受影响；
+  // 产物是合法 data:image/webp，媒体池（data:image/* 通配）与渲染端 <img> 均直接兼容。
+  let __webpOk = null;
+  function webpSupported() {
+    if (__webpOk !== null) return __webpOk;
+    try {
+      const c = document.createElement('canvas');
+      c.width = 1; c.height = 1;
+      __webpOk = c.toDataURL('image/webp', 0.8).indexOf('data:image/webp') === 0;
+    } catch (e) { __webpOk = false; }
+    return __webpOk;
+  }
   // 单图重压：返回 { data, skip }；data 为 null = 跳过（解码失败/超大像素）
   function compressOne(dataUrl, kind) {
     return new Promise(function (resolve) {
@@ -76,13 +93,15 @@
           const w = Math.max(1, Math.round(img.width * scale));
           const h = Math.max(1, Math.round(img.height * scale));
           // 表情包固定 PNG（保留透明）；美化图源是 PNG 时保留 PNG 只缩尺寸（防透明变黑底）；
-          // 其余 JPEG（同上传路径，白底填充防透明区变黑）
+          // 其余 JPEG 目标在支持 WebP 编码的环境改 WebP（#427，同质量更小；白底填充同 JPEG）；
+          // 不支持 WebP 的环境沿用 JPEG，与旧版行为一致
           const keepPng = kind === 'cc-stk' || (/^data:image\/png/i.test(dataUrl) && kd.format === 'image/jpeg');
-          const format = keepPng ? 'image/png' : kd.format;
+          let format = keepPng ? 'image/png' : kd.format;
+          if (format === 'image/jpeg' && webpSupported()) format = 'image/webp';
           const c = document.createElement('canvas');
           c.width = w; c.height = h;
           const ctx = c.getContext('2d');
-          if (format === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
+          if (format === 'image/jpeg' || format === 'image/webp') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
           ctx.drawImage(img, 0, 0, w, h);
           const out = c.toDataURL(format, kd.quality);
           resolve(out ? { data: out, skip: 'ok' } : { data: null, skip: 'encode' });
@@ -281,7 +300,7 @@
         '· 字卡库上传的图片：' + (cc.n || 0) + ' 张，约 ' + fmtBytes(cc.bytes || 0),
         '· 美化里上传的图片：' + (b.n || 0) + ' 张，约 ' + fmtBytes(b.bytes || 0),
         '',
-        '压缩规则：把偏大的存量图按「新上传」相同的清晰标准重压（字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85）。压缩产物不小于原图时不替换；动图（GIF）与媒体池共享图不动，超大原图（>8MB）为防崩溃不解码。',
+        '压缩规则：把偏大的存量图按「新上传」相同的清晰标准重压（字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85）。支持 WebP 的浏览器照片类自动改存 WebP，同清晰度体积更小；表情包仍为 PNG。压缩产物不小于原图时不替换；动图（GIF）与媒体池共享图不动，超大原图（>8MB）为防崩溃不解码。',
         '',
         '⚠️ 压缩会覆盖原图（替换成更小的版本），原图不留底、不可撤销。建议先导出备份：设置 → 数据备份 → 导出（或云端备份），备份里保留压缩前的原图。',
         '',

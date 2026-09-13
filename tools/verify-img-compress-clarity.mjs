@@ -10,6 +10,8 @@
 //          （JPEG q0.85 对照片级图的典型水平 36~42dB；<34 说明有可见糊/色块）
 //   C4     表情 PNG 保留透明：压缩后仍是 PNG，且 alpha 通道仍存在 0 像素（没被白底填充）
 //   C5     像素量级守恒：压缩后图面积 ≥ 原图面积 25%（720 缩 2000 = 13% 边，面积 ~13%；防缩成指甲盖）
+//   C6     WebP 档（#431）：支持 WebP 编码的环境照片类产物必须是 image/webp；
+//          不支持的环境（旧 Safari 等）回退 image/jpeg（与旧行为一致）。表情 PNG 不受影响
 //   A1     全程无 JS 运行时错误
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -270,6 +272,8 @@ const probe = JSON.parse(await evalJs(`(async function(){
     out.wall = wall;
     if (out.orig) out.compSize = await sizeOf(out.orig);
     if (out.wall) out.wallSize = await sizeOf(out.wall);
+    out.imgFmt = out.orig ? String(out.orig).split(';')[0] : null;
+    out.webpProbe = (function () { try { var c = document.createElement('canvas'); c.width = 1; c.height = 1; return c.toDataURL('image/webp', 0.8).indexOf('data:image/webp') === 0; } catch (e) { return false; } })();
     return JSON.stringify(out);
   } catch (e) { out.err = 'probe-err:' + e.message; return JSON.stringify(out); }
 })()`));
@@ -280,6 +284,10 @@ check('C2a 字卡图压缩后最长边 ≤ 720 且 ≥ 710（720px 目标）',
   probe.compSize && probe.compSize.w <= 720 && probe.compSize.w >= 710, 'w=' + (probe.compSize && probe.compSize.w) + ' h=' + (probe.compSize && probe.compSize.h));
 check('C2b 壁纸压缩后最长边 ≤ 2880 且 ≥ 2870（2880px 目标）',
   probe.wallSize && probe.wallSize.w <= 2880 && probe.wallSize.w >= 2870, 'w=' + (probe.wallSize && probe.wallSize.w) + ' h=' + (probe.wallSize && probe.wallSize.h));
+
+// C6 WebP 档（#431）
+check('C6a 支持 WebP 编码时照片类产物为 image/webp（#431）', !probe.webpProbe || probe.imgFmt === 'data:image/webp', 'probe=' + probe.webpProbe + ' fmt=' + probe.imgFmt);
+check('C6b 不支持 WebP 时回退 image/jpeg（与旧行为一致）', !!probe.webpProbe || probe.imgFmt === 'data:image/jpeg', 'fmt=' + probe.imgFmt);
 
 // C3 清晰度核心：快照原图(2000x1500) vs 压缩后读回图(720x540) 画到同尺寸逐像素 PSNR
 await evalJs(`(async function(){

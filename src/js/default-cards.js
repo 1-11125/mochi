@@ -4,7 +4,28 @@
 // v3.16.x：功能触发字卡（摸鱼/吃饭/经期/喝水/花园/同频/伸手/此间/房间/存钱罐/
 // 漂流瓶/互动回应）从「聊天默认字卡」页拆出，独立成「其他互动功能字卡」页——
 // 这些字卡不是聊天通用回复，是触发对应功能时联系人才会使用。
-(function () {
+  // #427：dc-cat-dict 是词典独立成页前的遗留分类开关键，现行版本已无任何写入 UI；
+  // 老用户存储里残留的 '0' 会让词典拼字自检/抽卡池永远判「词典分类被关」且无处打开
+  //（多机型同报，纯数据态问题）。启动即清除全部命名空间的该键（LS + IDB，幂等），
+  // 防 idbRestore 每次开屏把 IDB 旧值回填回来。放在页面锚点守卫之前，保证必执行。
+  (function () {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && /^xy-home-v2:(?:[^:]+:)?dc-cat-dict$/.test(k)) localStorage.removeItem(k);
+      }
+    } catch (e) {}
+    try {
+      if (window.idbGetAllKeys && window.idbDelete) {
+        window.idbGetAllKeys().then(function (keys) {
+          (keys || []).forEach(function (k) {
+            if (/^xy-home-v2:(?:[^:]+:)?dc-cat-dict$/.test(k)) { try { window.idbDelete(k); } catch (e) {} }
+          });
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  })();
+  (function () {
   const list = document.getElementById('dc-list');
   const tabsWrap = document.getElementById('dc-tabs');
   const enabledEl = document.getElementById('dc-enabled');

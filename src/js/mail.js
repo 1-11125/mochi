@@ -49,7 +49,7 @@
   function stripLetterImg(l) {
     if (!l || typeof l !== 'object') return l;
     const c = Object.assign({}, l);
-    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]'); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
+    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]'); t = mailCleanDisplay(t); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
     c.content = strip(c.content);
     if (c.myReply) { c.myReply = Object.assign({}, c.myReply); c.myReply.content = strip(c.myReply.content); }
     if (c.partnerReply) { c.partnerReply = Object.assign({}, c.partnerReply); c.partnerReply.content = strip(c.partnerReply.content); }
@@ -195,7 +195,9 @@
   //   与带 sticker:/image: 前缀的外链图，统一渲染为缩略图（解决聊天正常、信箱墨水/信
   //   件表情包只显示文字）。无附图前缀的 http 链接仍当普通文本（不误判正文网址）。
   function renderBody(content, fit) {
-    const s = String(content || '');
+    // FIX 2026-09-13 #429 渲染端清洗：剥存量落盘信件的「名称|||」前缀残留与 audio 等非图片
+    //   base64（只洗显示不改历史数据，同 #426 calCleanMsg 口径）；图片 dataURL/令牌仍走下方 RE 内联渲染
+    const s = mailCleanDisplay(String(content || ''));
     const seg = (t) => {
       t = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       return (fit && window.taFit) ? window.taFit(t) : t;
@@ -213,7 +215,8 @@
   // v3.9.x：补 HTML 转义——shortDesc 结果直接拼 innerHTML（render 列表项），未转义
   //   可被含 < > 的信件内容注入 HTML（导入恶意备份 XSS）
   function shortDesc(s, fit) {
-    const str = String(s || '');
+    // FIX 2026-09-13 #429 补「名称|||」前缀残留与非图片 base64 剥除（同 renderBody 口径）
+    const str = mailCleanDisplay(String(s || ''));
     const cleaned = str
       .replace(/(?:sticker|image):data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
       .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
@@ -656,6 +659,27 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
   // v3.7.x：补池受「信箱使用」场景开关控制（默认字卡-设置页可关闭）
   // v3.8.x：默认字卡不再只当「空池兜底」——即使有自定义字卡，写信时每张卡也会按
   //   「整体概率 + 分类占比」（聊天默认字卡-设置页）混入默认字卡，与聊天回复一致
+  // v3.42.x #429 信件纯文字口径（OPPO Reno16 Via/Edge 报「信件乱码＝联系人字卡库图片令牌」，多机型同族 #426）：
+  // ①选卡过滤收敛——#388 只守了自定义字卡循环且用全串锚定的 mochiMediaIsToken（令牌嵌长文本测不出），
+  //   默认主字卡三循环（defText/defKaomoji/defEmoji）零过滤，贴纸/语音型默认卡（「名称|||@@m:hash」
+  //   「名称|||data:…」）与裸令牌混排照样进池拼进信件持久化成乱码；统一 indexOf 口径过滤两路循环。
+  // ②渲染端清洗——存量已落盘信件含「名称|||」前缀残留与 audio 等非图片 base64，renderBody/shortDesc
+  //   直出乱码；只洗显示不改历史数据（同 #426 calCleanMsg 口径）。
+  // 判定用 indexOf('@@m:') 而非 mochiMediaIsToken：后者全串锚定，令牌嵌在长文本里测不出。
+  function mailTextOnly(c) {
+    if (typeof c !== 'string' || !c) return false;
+    if (c.indexOf('data:') === 0) return false;
+    if (c.indexOf('|||') >= 0) return false;
+    if (c.indexOf('@@m:') >= 0) return false;
+    return true;
+  }
+  // 渲染端剥「名称|||」前缀残留 + 非图片 dataURL（语音等）成 [附件]——只洗显示
+  function mailCleanDisplay(s) {
+    if (typeof s !== 'string') return s;
+    return s.replace(/[^\s|]{0,40}\|\|\|/g, '')
+      .replace(/(data:)?audio\/?[a-zA-Z0-9.+-]*;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+      .replace(/data:(?!image\/)[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+  }
   function mailCardPool(cid) {
     const custom = cid ? (window.getCustomCardsFor ? window.getCustomCardsFor(cid) : []) : ((window.getCustomCards && window.getCustomCards()) || []);
     const pokeSet = (function () {
@@ -676,15 +700,15 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
         const catOn = a ? a.cat : (window.defaultCardCat || (() => true));
         if (catOn('main') && !defText.length) {
           const dg = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
-          dg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('main', c)) return; if (typeof c === 'string' && c) defText.push(c); }));
+          dg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('main', c)) return; if (!mailTextOnly(c)) return; defText.push(c); }));
         }
         if (catOn('kaomoji') && !defKaomoji.length) {
           const kg = (window.getDefaultCardGroups && window.getDefaultCardGroups('kaomoji')) || [];
-          kg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('kaomoji', c)) return; if (typeof c === 'string' && c) defKaomoji.push(c); }));
+          kg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('kaomoji', c)) return; if (!mailTextOnly(c)) return; defKaomoji.push(c); }));
         }
         if (catOn('emoji') && !defEmoji.length) {
           const eg = (window.getDefaultCardGroups && window.getDefaultCardGroups('emoji')) || [];
-          eg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('emoji', c)) return; if (typeof c === 'string' && c) defEmoji.push(c); }));
+          eg.forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('emoji', c)) return; if (!mailTextOnly(c)) return; defEmoji.push(c); }));
         }
       } catch (e) {}
     };
@@ -696,7 +720,8 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       //   否则整段音频 base64 会被当文字写进信件
       if (s.indexOf('|||') >= 0) return;
       // FIX 2026-09-13 #388 媒体池令牌卡不进信件文字池（同 chat.js #383 第三道守卫）
-      if (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return;
+      // FIX 2026-09-13 #429 过滤收敛到 mailTextOnly（补裸令牌混排；默认卡三循环同口径）
+      if (!mailTextOnly(s)) return;
       let isEmoji = false;
       for (const ch of s) {
         const c = ch.codePointAt(0);

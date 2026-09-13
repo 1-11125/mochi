@@ -502,10 +502,37 @@
     }
     saveGroupsNow(groups);
   }
+  // FIX 2026-09-14 #434 字卡库媒体字卡「添加后退出浏览器重进丢失」落盘确认（荣耀10/Edge
+  // 多机型同发，与 chat.js 我的表情包 #434 同根）：大库（>200KB，含表情包/图片 dataURL）
+  // xyStore.set 只写 IDB 且是 fire-and-forget；Edge 杀进程回滚最近未落盘提交 + 挂起内核
+  // IDB 事务偶发不提交 → 加完马上退出浏览器＝数据无任何持久副本。这里对大值把「已发起写」
+  // 升级为「已确认落盘」：idbSet 结果为失败信号时按 1.5s×n 退避重发（每次取当前库快照，
+  // 绝不用旧快照覆盖新数据），穷尽后提示；flushCcSave（离页/回前台）有未确认落盘变更再补发。
+  // 只对 >200KB 大值生效——小值有 LS 同步快照 + WRJ 写日志双防线，不值得多一次全库事务。
+  let ccDurableTimer = null;
+  let ccDurablePending = false;
+  let ccDurableWarned = false;
+  function ccEnsureDurable(tries) {
+    if (!window.idbSet) return;
+    clearTimeout(ccDurableTimer);
+    let json = '';
+    try { json = JSON.stringify(groups); } catch (e0) { return; }
+    window.idbSet(curFullKey(), json).then(ok => {
+      if (ok) { ccDurablePending = false; ccDurableWarned = false; return; }
+      ccDurablePending = true;
+      if (tries < 5) { ccDurableTimer = setTimeout(function () { ccEnsureDurable(tries + 1); }, 1500 * (tries + 1)); return; }
+      if (!ccDurableWarned) {
+        ccDurableWarned = true;
+        try { toast('字卡库暂时没能写入本机存储，稍后回到本页会自动补写；重要字卡请尽快导出备份'); } catch (e1) {}
+      }
+    });
+  }
   function saveGroupsNow(groups) {
     // 统一走适配层：localStorage 快照 + IndexedDB 权威（配额满也不丢，启动自动恢复）
     // v3.11.x：按当前作用域写入对应键
-    curStore().set(curKey(), JSON.stringify(groups));
+    const ccJson = JSON.stringify(groups);
+    curStore().set(curKey(), ccJson);
+    if (ccJson.length > 200 * 1024) ccEnsureDurable(0); // #434：大值 IDB-only，确认落盘
     pubInvalidate();
     refreshLibCounts(true);
     ccDirty = false; // 本次待写已落盘（LS 同步 + IDB 异步发起）
@@ -869,6 +896,8 @@
   // 幂等：无待写变更（ccDirty=false）时零开销直接返回，不重复序列化大库。
   function flushCcSave() {
     if (editSaveTimer) { clearTimeout(editSaveTimer); editSaveTimer = null; }
+    // #434：有未确认落盘的库变更（含上一轮 idbSet 失败挂起的补发）先再发一次
+    if (ccDurablePending) ccEnsureDurable(0);
     if (!ccDirty) return;
     try { saveGroups(groups); } catch (e) {}
   }

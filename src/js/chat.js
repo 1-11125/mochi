@@ -7961,6 +7961,41 @@ if (ok !== true) return;
 try { const raw = myEmojiStore().get('my-emoji-groups'); if (raw) myeApplyIdb(raw); } catch (e) {}
 });
 }
+function myeSaveJson() { try { return JSON.stringify(myGroups || []); } catch (e) { return '[]'; } }
+// FIX 2026-09-14 #434 我的表情包「添加后退出浏览器重进全丢」（荣耀10/Edge 多机型同发，
+// 用户已关自动清数据）：Edge 杀进程会把最近一批未落盘提交整体回滚（idb.js #82/#88/#226/#229
+// 家族，WRJ 写日志只护 ≤64KB 小键，表情包媒体键不在保护范围），叠加这些内核 IDB 事务偶发
+// 挂起——xyStore.set 的 IDB 写是 fire-and-forget，加完马上退出浏览器时 LS 回滚+IDB 未提交
+// ＝数据无任何持久副本。这里把「已发起写」升级为「已确认落盘」：保存后用 idbSet 结果作
+// 持久性信号，失败按 1.5s×n 退避重发（每次重发取当前 myGroups 快照，绝不覆盖新数据），
+// 穷尽后明确提示；回前台/离页（visibilitychange/pagehide）有未确认落盘的变更再补一发。
+// 幂等：同一份数据多 put 一次无害；健康设备上仅多一次 IDB 事务（媒体添加是低频用户动作）。
+let myeDurableTimer = null;
+let myeDurablePending = false;
+let myeDurableWarned = false;
+let myeGateRetry = 0;
+function myeEnsureDurable(tries) {
+if (!window.idbSet) return;
+clearTimeout(myeDurableTimer);
+const json = myeSaveJson();
+window.idbSet(MYE_KEY(), json).then(ok => {
+if (ok) { myeDurablePending = false; myeDurableWarned = false; return; }
+myeDurablePending = true;
+if (tries < 5) { myeDurableTimer = setTimeout(function () { myeEnsureDurable(tries + 1); }, 1500 * (tries + 1)); return; }
+if (!myeDurableWarned) {
+myeDurableWarned = true;
+try { toast('表情包暂时没能写入本机存储，稍后回到本页会自动补写；重要表情请尽快导出备份'); } catch (e0) {}
+}
+});
+}
+// 离页/回前台补写闸（#434）：有未确认落盘的变更就在离页事件里再发一次写
+function myeDurableFlush() { if (myeDurablePending) myeEnsureDurable(0); }
+(function () {
+try {
+document.addEventListener('visibilitychange', myeDurableFlush);
+window.addEventListener('pagehide', myeDurableFlush);
+} catch (e) {}
+})();
 function myEmojiSave() {
 // #172 防覆盖闸门：挂起名单仍含本键 = 本会话没恢复过全量，盲写会顶掉 IDB 全量
 // FIX 2026-09-10 #281：启动取回延迟后（见下方 bootRestore 调度），「尚未成功应用过 IDB
@@ -7970,7 +8005,16 @@ if (window.idbHydrateKey &&
 (window.__xyIdbDeferredKeys && window.__xyIdbDeferredKeys.indexOf(MYE_KEY()) >= 0))) {
 window.idbHydrateKey(MYE_KEY()).then(ok => {
 // 取回失败不写回——防用小包覆盖 IDB 全量；键保持挂起，本会话内下次保存/开面板再试
-if (ok === false) return;
+// FIX #434：不再静默丢——失败退避重试整条保存链（重走闸门取回+合并+落笔），穷尽后提示
+if (ok === false) {
+myeDurablePending = true;
+if (!myeDurableWarned) {
+myeDurableWarned = true;
+try { toast('表情包正在后台补写，请稍等几秒再退出本页'); } catch (e1) {}
+}
+if ((myeGateRetry || 0) < 4) { myeGateRetry = (myeGateRetry || 0) + 1; setTimeout(myEmojiSave, 1500 * myeGateRetry); }
+return;
+}
 if (ok === true) {
 try {
 const full = JSON.parse(myEmojiStore().get('my-emoji-groups') || 'null');
@@ -7987,11 +8031,14 @@ g[1].forEach(item => { if (t[1].indexOf(item) < 0) t[1].push(item); });
 // FIX 2026-09-10 #281：true=取回合并完成；null=健康连接确认 IDB 无此键（新用户空库）。
 // 两者之后内存值都可安全落笔，本会话不再走盲写闸门
 window.__myeIdbApplied = true;
-myEmojiStore().set('my-emoji-groups', JSON.stringify(myGroups));
+myeGateRetry = 0;
+myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myeEnsureDurable(0);
 });
 return true;
 }
-myEmojiStore().set('my-emoji-groups', JSON.stringify(myGroups));
+myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myeEnsureDurable(0);
 return true;
 }
 // FIX 2026-09-04 #154 朋友圈评论「我的表情包」与聊天面板不同步——把 chat 维护的

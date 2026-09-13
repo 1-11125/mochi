@@ -602,6 +602,13 @@
     const tail = k.slice('xy-home-v2:'.length);
     return tail === 'chat-msgs' || /^[^:]+:chat-msgs$/.test(tail);
   }
+  // v3.42.x #426：群聊消息键（全局 xy-home-v2:group-chat-msgs / 自定义群 xy-home-v2:gc-msgs-<gid>，
+  // 键名生成见 group-chat.js groupMsgKey）。与 chat-msgs 同族：IDB 权威 + LS lite 快照
+  //（gcWriteMsgs 维护），大记录（>3MB）为结构化数组直存。
+  function isGroupMsgsKey(k) {
+    if (!k || typeof k !== 'string') return false;
+    return k === 'xy-home-v2:group-chat-msgs' || /^xy-home-v2:gc-msgs-.+$/.test(k);
+  }
 
   // 恢复：从 IndexedDB 读回 localStorage 缺失的键（初始化时调用）
   // v3.14.x OOM 防线（修复荣耀等安卓真机「开屏卡住→网页崩溃」）：
@@ -675,6 +682,10 @@
         //（xy-home-v2:default:chat-msgs），改用 isChatMsgsKey 同时排除旧顶层键
         // 与各联系人命名空间键
         !isChatMsgsKey(k) &&
+        // v3.42.x #426：群聊消息键不回填（v3.6.x chat-msgs 同款理由）——loadMsgs 直接
+        // IDB 权威读，LS 有 gcWriteMsgs 自己维护的 lite 快照；回填会对 #426 起的数组
+        // 直存值整包 JSON.stringify（启动期堆尖峰）并在 memoryCache 死驻留一份串化副本
+        !isGroupMsgsKey(k) &&
         // v3.7.0：自动备份副本键不回填——它是 data-backup.js 写入的全量 JSON 快照，
         // 体积可能几 MB，回填到 localStorage 会撑爆 5MB 配额，且不是业务数据
         k !== 'xy-home-v2:__auto-backup-snapshot' &&
@@ -1070,6 +1081,10 @@
         // 连唯一备份都没了（vivo S16 Edge 实测：收藏/音乐/字卡/信/朋友圈都在
         //（LS+IDB 双写），唯独聊天记录整体消失——聊天是唯一只写 IDB 的数据）
         if (isChatMsgsKey(k)) continue;
+        // v3.42.x #426：群聊消息 LS lite 快照同理绝不迁移——lite 快照是「剥过媒体负载的
+        // 减裁副本」，IDB 同键是全量权威（大记录为结构化数组）；这里无条件 idbSet 覆盖会把
+        // 权威值打回精简版＝老消息永久剥坏，随后删 LS 连兜底一起没
+        if (isGroupMsgsKey(k)) continue;
         // v3.29.x：已下线的自动备份副本键绝不参与迁移——它以 LS 形态存在时（远古版本或
         // 手工改过的备份包）必然远超 LS_BIG_LIMIT，一旦被收进 bigKeys，下面的循环会整包读进
         // 内存 + 写回 IDB + 常驻 memoryCache（idb.js:930），等于把 data-backup.js 刚清理掉的

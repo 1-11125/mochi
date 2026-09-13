@@ -1171,7 +1171,7 @@ const FIX_SENTINELS = [
   { name: '#391 文字题答案池剔令牌（删则问问TA答案直出令牌串）', file: 'js/ta-ask.js', needle: 'window.mochiMediaIsToken(s)));' },
   { name: '#391 查岗回应文字池剔令牌（删则查岗回复直出令牌串）', file: 'js/chat.js', needle: "c.indexOf('data:') !== 0 && !(window.mochiMediaIsToken" },
   { name: '#391 每日留言池剔令牌（#426 收敛为 calTextOnly 统一口径，自定义字卡循环锚点；删则日历留言直出令牌串）', file: 'js/calendar.js', needle: 'if (calTextOnly(c)) cards.push(c);' },
-  { name: '#391 信件补池剔令牌（删则来信正文拼令牌卡）', file: 'js/mail.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return;' },
+  { name: '#391 信件补池剔令牌（#429 收敛为 mailTextOnly 统一口径，自定义字卡循环锚点；删则来信正文拼令牌卡）', file: 'js/mail.js', needle: 'if (!mailTextOnly(s)) return;' },
   // ==== 2026-09-13 #392 二级锁↔词典关系看不懂（用户实报：词典开关都开了没效果，不懂和开屏二级密码的关系）——三处把因果讲成人话：词典独立页红条（锁定时当场提示+去哪解锁）、回复设置自检首闸文案「二级锁→防未成年人锁·锁定中·词典被锁停」、开屏锁卡 tip 补锁定影响面清单 ====
   { name: '#392 词典页二级锁关系提示条（删则锁定时词典开关全开却无效仍零解释）', file: 'js/default-cards.js', needle: 'function renderDictLockHint() {' },
   { name: '#392 词典页提示条锚点（删则提示无处渲染）', file: 'template.html', needle: 'id="dict-lock-hint"' },
@@ -1269,16 +1269,57 @@ const FIX_SENTINELS = [
   // ==== 2026-09-13 #425 头像启动间歇性不显示（华为畅享70Pro/红米K80 等多机型「刚点进网站头像时不时加载不出来」：
   //      cs-avatar-* 大图键常驻 IDB-only 区，avatar-lib 收敛基线在 idbRestore 回填前初始化读空被污染，
   //      回填完成的 restore-done 只刷桌面圈/聊天顶栏，convergeAvatars 因基线相等永不触发 → 气泡头像一直空）====
-  { name: '#425 头像收敛挂钩回填完成（restore-done 清基线强制 convergeAvatars 重刷；删则晚到回填后气泡头像停留占位，基线污染永久跳过）', file: 'js/avatar-lib.js', needle: "document.addEventListener('mochi-restore-done', function () {\n    appliedPh = null; appliedUh = null;" },
+  { name: '#425 头像收敛挂钩回填完成（restore-done 清基线强制 convergeAvatars 重刷；删则晚到回填后气泡头像停留占位，基线污染永久跳过）——构建者收口修正：原 needle 带 4 空格缩进多行形态，minifyJs 剥行首缩进后永不匹配产物（2026-09-13 首次构建即红实锤），改单行逻辑锚点，同一语句', file: 'js/avatar-lib.js', needle: 'appliedPh = null; appliedUh = null;' },
   // ==== 2026-09-13 #426 日历留言乱码（OPPO Reno6/雨见浏览器报「日记留言应该只能用文字字卡，乱码是图片」，多机型同族；
   //      #388 只守了自定义字卡循环、默认主字卡循环漏过滤，贴纸/语音默认卡的「名称|||@@m:hash」拼进留言持久化成乱码；
   //      且 #388 前已落盘的存量留言渲染直出令牌）====
   { name: '#426 日历留言纯文字选卡过滤（calTextOnly 收敛两循环口径含裸令牌混排；删则媒体令牌卡继续进每日留言池持久化成乱码）', file: 'js/calendar.js', needle: 'function calTextOnly(c) {' },
   { name: '#426 日历留言渲染端令牌清洗（calCleanMsg 剥存量落盘留言的 @@m:/dataURL 成 [图片]；删则 #388 前生成的历史留言永远直出乱码）', file: 'js/calendar.js', needle: ".replace(/@@m:[0-9a-f]{32}/g, '[图片]')" },
+  // ==== 2026-09-13 #429 信件乱码（OPPO Reno16 Via/Edge 报「信件乱码＝联系人字卡库图片令牌」，多机型同族 #426；
+  //      mailCardPool 默认主字卡三循环零过滤、自定义循环 mochiMediaIsToken 全串锚定测不出裸令牌混排，
+  //      贴纸/语音默认卡「名称|||@@m:hash/名称|||data:」拼进信件持久化；渲染端不剥「名称|||」残留与 audio base64）====
+  { name: '#429 信件纯文字选卡过滤（mailTextOnly 收敛自定义+默认三循环口径含裸令牌混排；删则媒体令牌卡继续进信件池持久化成乱码）', file: 'js/mail.js', needle: 'function mailTextOnly(c) {' },
+  { name: '#429 信件渲染端清洗（mailCleanDisplay 剥存量落盘信件的「名称|||」残留与非图片 base64；删则历史信件直出乱码/巨型 base64 文本）', file: 'js/mail.js', needle: ".replace(/[^\\s|]{0,40}\\|\\|\\|/g, '')" },
+  // ==== 2026-09-14 #433 保活 WebRTC 锚点启动阻塞主线程（vivo Y78 自带浏览器报「一进网站就非常卡」，
+  //      实测帧率 2fps、每 ~2.2s 一个 2.1~2.4s 长任务，多机型同现；无头 CPU 采样探针实锤
+  //      new RTCPeerConnection() 单次构造 6x 节流桌面核阻塞 ~1.5s，低端安卓核放大到 2s+：
+  //      #260 同步建一对＝开屏路径叠加秒级长任务，瞬态 disconnected 立即拆+30s 固定重建＝抖动机型反复卡；
+  //      修复=启动 10s 延迟建锚+断连 8s 自愈观察窗+重建指数退避 30s→15min 封顶，锚点能力不删）====
+  { name: '#433 保活 WebRTC 延迟建锚（deferred 闸 keepEnabled+hidden 跳过；删则退回开屏同步构造＝低端机一进网站秒级卡死复发）', file: 'js/bg-keep.js', needle: 'if (!keepEnabled || kaPc1 || kaPc2) return;' },
+  { name: '#433 保活 WebRTC 重建指数退避（30s 起步 900000 封顶；删则抖动机型每 30s 付一次秒级构造成本反复卡）', file: 'js/bg-keep.js', needle: 'kaWebrtcRebuildDelay = kaWebrtcRebuildDelay ? Math.min(kaWebrtcRebuildDelay * 2, 900000) : 30000;' },
+  { name: '#433 保活 WebRTC 断连 8s 自愈观察窗（disconnected 先观察再拆；删则 ICE 例行重连被当死亡立即重建＝无谓长任务）', file: 'js/bg-keep.js', needle: 'kaWebrtcDiscTimer = setTimeout(function () {' },
+  // ==== 2026-09-13 #427 小游戏全屏抗键盘停靠内联残留 + 兄弟互斥零盒误关（vivo S60 自带浏览器报
+  //      「五子棋点全屏自动回退聊天、刷新网页才能再次打开」，用户明说其他机型也有：kbDockPanels 给面板写
+  //      内联 position:absolute/bottom/left/right/top/max-height，国产内核 vv 收起事件不可靠时 kbUndockPanels
+  //      不执行 → 内联残留压过 .game-fs/pong-fs/snake-fs/brick-fs 规则、⛶ 全屏坏；改 !important 四长手只压
+  //      停靠内联属性（停靠语义不变）+ inset 改长手兼容 Chromium<87 老内核 + gomoku 兄弟互斥只认真可见面板）====
+  { name: '#427 共享全屏规则抗内联残留（.poke-card.game-fs !important 定位；删则键盘停靠内联残留把全屏面板钉回底半框，「点全屏没反应/自动回退/刷新才恢复」跨机型复发，波及 8 游戏+猜拳）', file: 'css/chat-pages.css', needle: '.poke-card.game-fs { position:fixed !important;' },
+  { name: '#427 Pong 全屏同族抗内联残留（删则同 #427 在 Pong 复发）', file: 'css/chat-pages.css', needle: '#chat-pong-panel.pong-fs { position:fixed !important;' },
+  { name: '#427 打砖块全屏同族抗内联残留（删则同 #427 在打砖块复发）', file: 'css/chat-pages.css', needle: '#chat-brick-panel.brick-fs { position:fixed !important;' },
+  { name: '#427 贪吃蛇全屏同族抗内联残留（删则同 #427 在贪吃蛇复发）', file: 'css/chat-pages.css', needle: '#chat-snake-panel.snake-fs { position:fixed !important;' },
+  { name: '#427 五子棋兄弟互斥只认真可见面板（hidden=false 但零渲染盒＝残留态不触发误关；删则残留兄弟把刚打开的棋盘反复自动关掉＝「打开就消失回聊天、刷新才恢复」）', file: 'js/gomoku.js', needle: 'getClientRects().length > 0) { closePanel(); break; }' },
+  // ==== 2026-09-13 #428 寻踪「看看TA在哪」全屏位置面板抬到提醒条之上（vivo S60 等多机型报「点看看ta在哪
+  //      页面卡死，只能退出刷新」：面板 z-78 低于顶部提醒条 z-998，备份提醒条显形期间（距上次导出超 2 天即弹、
+  //      #355 收短后极常见）正好压住头部返回按钮＝面板关不掉+body 滚动锁＝整页像卡死；z 抬 9999，
+  //      仍低于 modal-mask 99999 / 应用锁 999999）====
+  { name: '#428 全屏位置面板盖过提醒条（.loc-panel.loc-full z-9999；删则备份提醒条压住返回按钮，「看看TA在哪」全屏面板关不掉像卡死，多机型复发）', file: 'css/chat-pages.css', needle: 'background:#fff; z-index:9999;' },
   { name: '#416 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
   { name: '#416 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
   { name: '#416 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },
   { name: '#418 屏幕适配自动监视·开屏未进入/数据未就绪跳过采集（sdTick 守卫；删则开屏加载期 inner 短报瞬态刷「底部少填/顶部重叠」假阳性污染错误环+反复强制重排，iPhone13 Safari「总卡卡/开屏划不动」复发）', file: 'js/device.js', needle: "_splash && !_splash.classList.contains('hide')" },
+  // ==== 2026-09-14 #430 群聊大键口径对齐聊天页（存储优化：大群聊整包 stringify 堆尖峰族 + lite 快照被迁移覆盖丢数据族）====
+  { name: '#430 群聊大键阈值分支（>3MB structured clone 数组直存、失败回退字符串；删则大群聊回退整包 stringify＝堆尖峰/秒级阻塞族复发）', file: 'js/group-chat.js', needle: 'gcMsgsBytes(msgs) <= GC_STR_THRESHOLD' },
+  { name: '#430 群聊键排除 LS→IDB 大键迁移（删则 lite 快照被无条件 idbSet 覆盖数组权威＝老消息永久剥坏且 LS 兜底同没了）', file: 'js/idb.js', needle: 'if (isGroupMsgsKey(k)) continue;' },
+  { name: '#430 群聊键排除启动回填（删则数组直存值回填时整包 JSON.stringify＝启动堆尖峰+memoryCache 死驻留）', file: 'js/idb.js', needle: '!isGroupMsgsKey(k) &&' },
+  // ==== 2026-09-14 #431 压缩照片类 WebP 档（存储优化：同质量比 JPEG 再省约 25~50%）====
+  // ==== 2026-09-14 #432 词典拼字「词典分类被关」永久误报（iQOO12Pro/Via 报「词典分类被关但什么都打开了、二级密码已解锁」，用户明说其他机型也有：dc-cat-dict 是词典独立成页前的遗留分类开关键，现行版本无任何写入 UI，老用户存量 '0' 让自检闸②与拼字抽卡池永久误杀且无处打开，纯数据态与机型无关；修复=删除两处 dc-cat-dict 读取（词典启用由 dict-use/dict-overall/dc-off-dict 负责）+ default-cards.js 启动清除全部命名空间残留键 LS+IDB 幂等）====
+  { name: '#432 遗留 dc-cat-dict 残留键启动清除（LS+IDB 全命名空间幂等；删则老用户存量 0 被 idbRestore 每次开屏回填，词典拼字永久误报「词典分类被关」）', file: 'js/default-cards.js', needle: '/^xy-home-v2:(?:[^:]+:)?dc-cat-dict$/' },
+  // ==== 2026-09-14 #434 表情包添加后退出浏览器重进丢失（荣耀10/Edge 报「添加表情包退出再进数据没了」多机型同发，已关自动清数据；根因=idb.js #82/#88/#226/#229 Edge 杀进程回滚最近未落盘提交 + 挂起内核 IDB 事务偶发不提交，WRJ 写日志只护 ≤64KB 小键、表情包媒体键不在保护范围，xyStore.set 的 IDB 写 fire-and-forget 无落盘确认；修复=保存后 idbSet 结果作持久性信号失败退避重发+离页/回前台补写+穷尽明确提示，myeSave 闸门取回失败不再静默丢、字卡库大值(>200KB IDB-only)同款确认）====
+  { name: '#434 我的表情包落盘确认重发（idbSet 结果作持久性信号+退避重试；删则 Edge 杀进程回滚+IDB 挂起时添加的表情无任何持久副本，「加完退出重进全丢」复发）', file: 'js/chat.js', needle: 'window.idbSet(MYE_KEY(), json).then(ok =>' },
+  { name: '#434 我的表情包闸门取回失败不再静默丢（退避重走保存链；删则 IDB 挂起窗口内添加的表情静默蒸发且无提示）', file: 'js/chat.js', needle: 'setTimeout(myEmojiSave, 1500 * myeGateRetry)' },
+  { name: '#434 我的表情包离页/回前台补写闸（myeDurableFlush 单口；删则穷尽失败后回前台无人补发＝补写链断）', file: 'js/chat.js', needle: 'function myeDurableFlush() { if (myeDurablePending) myeEnsureDurable(0); }' },
+  { name: '#434 字卡库大值落盘确认（>200KB IDB-only 才确认，小值仍走 LS+WRJ 双防线不多付全库事务；删则字卡库表情包/图片同族「加完退出重进丢」复发）', file: 'js/chatcard.js', needle: 'ccJson.length > 200 * 1024) ccEnsureDurable(0);' },
+  { name: '#434 字卡库离页补写接 flushCcSave（ccDurablePending；删则 flushCcSave 只认 ccDirty、上一轮失败挂起的补发无人再发）', file: 'js/chatcard.js', needle: 'if (ccDurablePending) ccEnsureDurable(0);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
