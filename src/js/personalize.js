@@ -4506,6 +4506,11 @@ try {
   function ensureDeskPeriodP3Order() {
     ensureDeskPeriod();
     try {
+      // FIX 2026-09-13 #405：换序只在未装修（无 desk-layout）桌面兜底——原逻辑每次启动都把
+      // 第三页经期卡强制排到备忘卡前面，用户装修「上移/下移/拖拽」调换两卡顺序后刷新/切桌面
+      // 即被打回（同 #380/#400「迁移覆盖用户显式操作」家族）；有布局一律尊重（applyDeskLayout
+      // 已按存储排序，#380 先例）。
+      if (deskLayout()) return;
       const p3 = pagesBox.querySelectorAll('.page-slide')[2];
       if (!p3) return;
       const dp = p3.querySelector('[data-desk-widget="desk-period"]');
@@ -4561,6 +4566,13 @@ try {
   //    用户手动拖出成独立组件 / 移除进隐藏池的尊重不找回。
   // 每联系人桌面独立（desk-layout 按桌面命名空间存储，切联系人各自触发）。
   function ensureP2SecondRowIcons() {
+    // FIX 2026-09-13 #405：p3→p2 救回迁移只跑一次——原逻辑每次启动/切联系人都把仍在
+    // 第三页网格的花园/同频/伸手拽回第二页，用户故意把图标拖回第三页网格后刷新即被拽回
+    //（同 #380/#400 家族）。当前模板静态花园已在 p2-grid、同频/伸手由 p2-features 直落
+    // p2-grid，本函数对存量用户已是空转兜底，首跑（无论是否实际搬动）打标记
+    // p2icons-p3-mig=1，此后尊重用户摆放不再扫描拽回。
+    if (store.get('p2icons-p3-mig') === '1') return;
+    store.set('p2icons-p3-mig', '1');
     const p2g = document.querySelector('.app-grid.p2-grid');
     const p3g = document.querySelector('.app-grid.p3-grid');
     if (!p2g) return;
@@ -4598,13 +4610,23 @@ try {
     const pj = lay.findIndex(page => (page || []).indexOf('p2apps') >= 0);
     if (pi < 0 || pj !== pi) return; // weekend 不在任何页(已移除)或两组不在同一页：尊重现状
     const pw = lay[pi] || [];
+    // FIX 2026-09-13 #405：存储换序只跑一次（补一次性迁移语义）——原逻辑每次启动/切桌面
+    // 都把 p2apps 强制换回 weekend 下方，用户装修把 p2apps 挪到摸鱼卡上方后刷新/切联系人
+    // 即被改回（同 #380/#400「迁移覆盖用户显式操作」家族）。有布局的首跑即打标记
+    // p2apps-order-mig=1（无论当次顺序是否需要换序，保证「首跑恰逢顺序正确」的用户之后
+    // 挪动也受尊重；必须在下方 ni>wi 早退分支之前落盘——首版放在早退之后被探针
+    // verify-desk-order-respect P1 抓包），首跑且顺序错误时执行一次换序迁移，此后一律
+    // 尊重 desk-layout 用户排序（上方「存储已正确只校正 DOM」分支不受影响，仍幂等）。
+    const p2migDone = store.get('p2apps-order-mig') === '1';
+    if (!p2migDone) store.set('p2apps-order-mig', '1');
     const wi = pw.indexOf('weekend'), ni = pw.indexOf('p2apps');
     if (ni < 0 || wi < 0 || ni > wi) {
       // 存储已正确但 DOM 仍错位（如老版本写入顺序）：只校正 DOM
       if (domBefore) node.parentNode.insertBefore(node, we.nextSibling);
       return;
     }
-    // 存储换序：摘出 p2apps 插到 weekend 后一位
+    if (p2migDone) return;
+    // 首跑换序迁移：摘出 p2apps 插到 weekend 后一位
     lay[pi] = pw.filter(w => w !== 'p2apps');
     lay[pi].splice((lay[pi].indexOf('weekend')) + 1, 0, 'p2apps');
     store.set('desk-layout', JSON.stringify(lay));

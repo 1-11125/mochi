@@ -216,6 +216,9 @@ const FIX_SENTINELS = [
   { name: '#400 ensureDeskPeriod 读移除标记跳过补位（删掉＝用户删掉的经期卡每次启动/切桌面被拉回+多建一页）', file: 'js/personalize.js', needle: "get('desk-period-removed') === '1'" },
   { name: '#400 组件库显式加回群聊图标写位置意图标记（applyGroupChatMode 默认强制拽回聊天右侧＝用户挪到其他页留不住）', file: 'js/personalize.js', needle: "set('group-chat-desk-pin', '1')" },
   { name: '#400 applyGroupChatMode 读群聊位置标记豁免强制归位（删掉＝装修加到其他页的群聊图标退装修即被拽回）', file: 'js/personalize.js', needle: "get('group-chat-desk-pin') === '1'" },
+  { name: '#405 ensureDeskPeriodP3Order 有布局一律尊重不换序（删掉＝用户装修调换第三页经期/备忘卡顺序后每次启动被打回，#380 同族）', file: 'js/personalize.js', needle: 'if (deskLayout()) return;' },
+  { name: '#405 p2apps 强制换到摸鱼卡下方改一次性迁移（删掉标记门＝用户把 p2apps 挪到摸鱼卡上方后每次启动/切桌面被改回）', file: 'js/personalize.js', needle: "get('p2apps-order-mig') === '1'" },
+  { name: '#405 p3→p2 图标救回迁移改一次性（删掉标记门＝用户故意把花园/同频/伸手拖回第三页网格后每次启动被拽回）', file: 'js/personalize.js', needle: "get('p2icons-p3-mig') === '1'" },
   { name: '#390 TA的心情分享 10% 概率 tag 显示「你的心情」（TA 有时发这张卡实为想问对方心情，tag 恒「TA的心情」表达不清；概率分支删掉即回归）', file: 'js/chat.js', needle: "? '你的心情' : 'TA的心情';" },
   { name: '#145 聊天表情按钮再点关闭（window.closeEmojiPanelForInsert 导出，群聊切换关闭复用）', file: 'js/chat.js', needle: 'window.closeEmojiPanelForInsert' },
   { name: '#145 群聊表情按钮再点关闭（面板已开先关不重开）', file: 'js/group-chat.js', needle: 'window.closeEmojiPanelForInsert &&' },
@@ -579,7 +582,7 @@ const FIX_SENTINELS = [
   { name: '#150 后台来电系统通知（bgNotifyCheck force 通道：一次性来电事件绕过 15s 过渡期/去重闸门）', file: 'js/bg-keep.js', needle: 'const force = !!extra.force;' },
   { name: '#150 后台命中来电不再放弃（maybeIncoming hidden 分支：写未接记录+系统消息+系统通知）', file: 'js/call.js', needle: 'if (document.hidden) {' },
   { name: '#150+#161 后台来电通知辅助（bgCallNotify：SW 链路弹「XX来电」，force+avFixed；#161 加 hint 尾缀；#204 加 avOverride 参数）', file: 'js/call.js', needle: 'function bgCallNotify(name, hint, avOverride) {' },
-  { name: '#161 响铃挂起写入（holdIncomingCall：后台来电存 call-hold 全局根键+发可接听通知，不再即判未接）', file: 'js/call.js', needle: 'function holdIncomingCall(name, cid, avOverride) {' },
+  { name: '#161 响铃挂起写入（holdIncomingCall：后台来电存 call-hold 全局根键+发可接听通知，不再即判未接）', file: 'js/call.js', needle: "bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);" },
   { name: '#204 挂起接口暴露（callHoldIncoming：跨桌面来电后台命中同走响铃挂起）', file: 'js/call.js', needle: 'window.callHoldIncoming = holdIncomingCall;' },
   { name: '#204 跨桌面后台来电改走挂起（incoming-requests hidden 分支不再只发通知即丢弃）', file: 'js/incoming-requests.js', needle: 'if (window.callHoldIncoming) window.callHoldIncoming(name, req.cid, av);' },
   { name: '#161 挂起恢复（resumeHeldCall：回前台/冷启动有效挂起重响来电，超时补写未接）', file: 'js/call.js', needle: 'function resumeHeldCall() {' },
@@ -632,7 +635,7 @@ const FIX_SENTINELS = [
   { name: '#173 桌面美化导入补回粘贴文本通道（textarea+文件并存，修 standalone 文件选择器不弹=无法导入）', file: 'js/personalize.js', needle: '粘贴美化方案文本' },
   { name: '#173 聊天美化导出接统一导出链（裸 a[download] 降为兜底）', file: 'js/chat-settings.js', needle: "window.mochiExportFile(json, fname, 'mochi聊天美化方案')" },
   { name: '#180 刷新重开丢最近聊天·同步尾巴日志（每条新消息先同步落 LS <cid>:chat-tail 再交低频整包落盘；删掉 append 调用此行即消失）', file: 'js/chat.js', needle: 'chatTailAppend(rec); // #180：同步尾巴日志先落 LS，再交低频整包落盘' },
-  { name: '#180 尾巴日志权威就绪后回放（读库成功合并未落盘的最近消息；拆掉 merge 调用此行即消失）', file: 'js/chat.js', needle: 'chatTailMerge(); } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）' },
+  { name: '#180 尾巴日志权威就绪后回放（读库成功合并未落盘的最近消息；拆掉 merge 调用此行即消失）', file: 'js/chat.js', needle: 'chatTailMerge() > 0) changed = true; } catch (e) {} // #180' },
   { name: '#180 LS 快照超限保尾不弃写（折半丢最旧保最近；改回静默 return 此循环即消失）', file: 'js/chat.js', needle: 'while (snap.length > LS_SNAP_LIMIT && snapArr.length > 1 && round < 5)' },
   { name: '#181 气泡 CSS 通用映射导出（单聊/群聊共用；删掉导出则两处注入全瘫）', file: 'js/chat.js', needle: 'window.mochiMapBubbleCss = function' },
   { name: '#181 单聊气泡 CSS 走通用映射（未认出模板类名时整包声明兜底，修上传零变化；换回旧映射此行即消失）', file: 'js/chat-settings.js', needle: "window.mochiMapBubbleCss(css, '')" },
@@ -1121,6 +1124,7 @@ const FIX_SENTINELS = [
   { name: '#404 开屏解锁等 IDB 确认 open 再刷新（删则夸克内核 reload 中止在途事务＝解锁刷新即回锁）', file: 'js/clock.js', needle: "cardLockConfirmPersisted('open', goReloadAfterPersist)" },
   { name: '#404 重锁等 IDB 确认 locked 再刷新（删则重锁丢失＝未成年人保护失效）', file: 'js/clock.js', needle: "cardLockConfirmPersisted('locked', goReloadAfterPersist)" },
   { name: '#404 诊断体检 cardlock-state 全局根键三层值（删则解锁丢失类报障无法判读，per-cid 探针恒缺失误导）', file: 'js/device.js', needle: "const ROOT_KEYS = ['cardlock-state'];" },
+  { name: '#404 restore 完成复核解锁态翻转（删则 retainValue 先回填 memoryCache 时 wrj 合并不广播 heal，开屏锁卡停留「输入密码解锁」假象——LS 配额满设备 IDB 唯一值源路径实测复现）', file: 'js/card-lock.js', needle: "addEventListener('mochi-restore-done'" },
   // ==== 2026-09-12 #382 屏幕适配诊断报告「导出docx」点了毫无反应（iQOO neo10pro Chrome 报障，多机型全现）——#333 时 diagExportDocx 在主诊断闭包、屏幕适配诊断闭包跨 IIFE 引用恒 ReferenceError 被 openModal 按钮 try/catch 吞掉；同调用 4 参对 3 形参 legacy 分支必抛 failToast is not a function ====
   { name: '#382 诊断导出跨闭包挂载 window.mochiDiagExportDocx（删则屏幕适配诊断导出恒 ReferenceError 静默失败）', file: 'js/device.js', needle: 'window.mochiDiagExportDocx = diagExportDocx;' },
   { name: '#382 屏幕适配诊断导出改走 window 挂载 + 形参收窄（failMsg,toastFn）', file: 'js/device.js', needle: "(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'" },
@@ -1196,6 +1200,10 @@ const FIX_SENTINELS = [
   { name: '#403 TA 瓶三道来源全空回退内置兜底（删则 dcf 关断+无历史时出空白信纸）', file: 'js/drift-bottle.js', needle: "note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);" },
   { name: '#403 普通/特殊瓶文案永不落空（删则 dcf 关断时 normal/special 瓶空白）', file: 'js/drift-bottle.js', needle: "note = poolLine('海风', 'sea') || rnd(FB.sea);" },
   { name: '#400 收藏分类内容优先（改回信任存储 type 则误存语音的图片收藏又变语音条）', file: 'js/chat.js', needle: 'const isVoice = looksVoice;' },
+  // ==== 2026-09-13 #404 后台来电点开通知无弹窗也无未接消息（OPPO Reno14 Edge 实报，多机型同族；诊断「LS 写入失败 QuotaExceededError」实锤）——holdIncomingCall 的 LS setItem 与 idbSet 同处一个 try，LS 配额满一抛整块中止、IDB 也不写＝后台只有通知没有挂起；且 resumeHeldCall 只读 LS、后台触发的来电（跨桌面/后台定时命中）重响从不补首发「打来了语音通话」系统消息。修复=①挂起双写拆开各吃各的 try，LS 失败 IDB 仍落；②resumeHeldCall 先读 LS 读不到再回读 IDB（holdBusy 防双处理）；③挂起携带 msg 已写标记，后台来电重响补首发系统消息 ====
+  { name: '#404 挂起双写拆开（删则 LS 配额满一抛整块中止、IDB 也不写＝通知照发回前台什么也没有）', file: 'js/call.js', needle: 'window.idbSet(CALL_HOLD_KEY, h);' },
+  { name: '#404 回前台/冷启动挂起回读 IDB 兜底（删则 LS 配额满时挂起只落 IDB、回前台读不到＝无弹窗也无未接）', file: 'js/call.js', needle: 'window.idbGet(CALL_HOLD_KEY)' },
+  { name: '#404 后台来电重响补首发系统消息（删/改回 !isReplay 则后台触发来电聊天里永远没有来电系统消息）', file: 'js/call.js', needle: '(!isReplay || !msgWritten) && window.chatAddSystem' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
