@@ -245,9 +245,48 @@
   // 音频照旧；不做机型白名单。
   let kaPc1 = null, kaPc2 = null, kaWebrtcTimer = null;
   let kaCand1 = [], kaCand2 = [];
+  // FIX 2026-09-13 #433 WebRTC 锚点「启动延迟 + 断连自愈窗 + 重建退避」（vivo Y78 自带浏览器
+  //   等低端机「一进网站就非常卡」，实测帧率 2fps、每 ~2.2s 一个 2.1~2.4s 长任务，多机型同现）：
+  //   实锤（无头 CPU 采样探针）：new RTCPeerConnection() 本身是重主线程操作——6x 节流的
+  //   桌面核单次构造阻塞 ~1.5s（对应 1711/1887ms 长任务），低端安卓核放大到 ~2-2.5s，与
+  //   真机诊断长任务尺寸完全吻合；#260 原来在 startKeepAlive 里**同步**建一对＝开屏关键
+  //   路径上叠加两个秒级长任务。且 p1 瞬态 'disconnected'（ICE 例行重连，规范明示可恢复）
+  //   也被当死亡立即拆+30s 重建＝网络抖动机型反复支付构造成本。改法（锚点能力不删，只改
+  //   时机与节奏，防跨机型回归）：
+  //   ① startKeepAlive 改 10s 后延迟建锚（保活音频/mediaSession/wakeLock 主锚点原样即时
+  //     生效，WebRTC 只是第二豁免信号，晚到不回退 #260 的冻结防线；页面刚进前台也不冻结）；
+  //   ② 'disconnected' 先给 8s 自愈观察窗，恢复即零成本，仍断才拆+排重建；
+  //   ③ 重建间隔指数退避 30s→60s→…→15min 封顶，连接稳定满 5min 才复位——抖动机型
+  //     不再每 30s 付一次构造成本；
+  //   ④ 回前台补建（healKeepAlive）也走 3s 延迟——resume 瞬间主线程正忙（重渲/回填）。
+  let kaWebrtcBootTimer = null;   // 启动延迟建锚定时器
+  let kaWebrtcDiscTimer = null;   // disconnected 自愈观察窗定时器
+  let kaWebrtcRebuildDelay = 0;   // 下次重建间隔 ms（指数退避轨道）；0=不在轨道
+  let kaWebrtcOkAt = 0;           // 最近一次进入 connected 的时刻（稳定判定用）
+  function kaWebrtcDeferredStart(delayMs) {
+    if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+    kaWebrtcBootTimer = setTimeout(function () {
+      kaWebrtcBootTimer = null;
+      if (!keepEnabled || kaPc1 || kaPc2) return;
+      // 已后台则不建：后台建锚同样阻塞主线程且无感知收益，回前台 healKeepAlive 兜底补建
+      if (document.hidden) return;
+      kaWebrtcStart();
+    }, delayMs);
+  }
+  function kaWebrtcScheduleRebuild() {
+    // 距上次 connected 稳定满 5min 才断＝环境性偶发，退避从头计；短命连接持续加码
+    if (kaWebrtcOkAt && Date.now() - kaWebrtcOkAt > 300000) kaWebrtcRebuildDelay = 0;
+    kaWebrtcRebuildDelay = kaWebrtcRebuildDelay ? Math.min(kaWebrtcRebuildDelay * 2, 900000) : 30000;
+    if (keepEnabled && !kaWebrtcTimer) kaWebrtcTimer = setTimeout(function () {
+      kaWebrtcTimer = null;
+      kaWebrtcStart();
+    }, kaWebrtcRebuildDelay);
+  }
   function kaWebrtcStart() {
     if (kaPc1 || kaPc2) return;
     if (kaWebrtcTimer) { clearTimeout(kaWebrtcTimer); kaWebrtcTimer = null; }
+    if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+    if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
     if (typeof RTCPeerConnection === 'undefined') return;
     try {
       const p1 = new RTCPeerConnection(), p2 = new RTCPeerConnection();
@@ -266,16 +305,31 @@
         // SDP 交换完成后统一 flush 缓存的 ICE 候选
         try { for (let i = 0; i < kaCand2.length; i++) p1.addIceCandidate(kaCand2[i]); } catch (e) {}
         try { for (let i = 0; i < kaCand1.length; i++) p2.addIceCandidate(kaCand1[i]); } catch (e) {}
-      }).catch(function () { kaWebrtcStop(); });
+      }).catch(function () { kaWebrtcStop(); kaWebrtcScheduleRebuild(); });
       p1.onconnectionstatechange = function () {
         const st = p1.connectionState;
-        if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+        if (st === 'connected') {
+          kaWebrtcOkAt = Date.now();
+          if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
+          return;
+        }
+        if (st === 'disconnected') {
+          // FIX 2026-09-13 #433：瞬态断连先观察 8s（ICE 例行自愈，规范可恢复），
+          // 恢复则零成本；仍断才拆+退避重建。原逻辑立即拆+30s 固定重建＝抖动机型反复卡
+          if (kaWebrtcDiscTimer) return;
+          kaWebrtcDiscTimer = setTimeout(function () {
+            kaWebrtcDiscTimer = null;
+            if (!kaPc1) return;
+            const s2 = kaPc1.connectionState;
+            if (s2 === 'connected') { kaWebrtcOkAt = Date.now(); return; }
+            kaWebrtcStop();
+            kaWebrtcScheduleRebuild();
+          }, 8000);
+          return;
+        }
+        if (st === 'failed' || st === 'closed') {
           kaWebrtcStop();
-          // 挂后台被系统回收是常态：断了 30s 后静默重建，不在冻结边缘空转
-          if (keepEnabled && !kaWebrtcTimer) kaWebrtcTimer = setTimeout(function () {
-            kaWebrtcTimer = null;
-            kaWebrtcStart();
-          }, 30000);
+          kaWebrtcScheduleRebuild();
         }
       };
       kaPc1 = p1; kaPc2 = p2;
@@ -283,6 +337,8 @@
   }
   function kaWebrtcStop() {
     if (kaWebrtcTimer) { clearTimeout(kaWebrtcTimer); kaWebrtcTimer = null; }
+    if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+    if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
     try { if (kaPc1) kaPc1.close(); } catch (e) {}
     try { if (kaPc2) kaPc2.close(); } catch (e) {}
     kaPc1 = kaPc2 = null;
@@ -339,6 +395,7 @@
       audio: audio,
       ms: ms,
       pc: kaPc1 ? (kaPc1.connectionState || 'new') : 'off',
+      pcNext: kaWebrtcTimer ? kaWebrtcRebuildDelay : 0,
       hb: kaHb ? { n: kaHb.n, hid: kaHb.hid, ts: kaHb.ts, resumed: kaHb.resumed, trail: (kaHb.trail || []).slice() } : null
     };
   };
@@ -378,8 +435,10 @@
       // v3.9.x：音乐播放时让位——music-player 已设置歌曲 metadata + 控制 handler，
       // 这里不覆盖（否则通知栏变成"后台保活"且按钮空响应，无法控制音乐）
       setKeepMediaSession();
-      // #260：WebRTC 第二冻结豁免锚点同步建立
-      kaWebrtcStart();
+      // #260：WebRTC 第二冻结豁免锚点——FIX 2026-09-13 #433 改启动 10s 后延迟建锚
+      //（new RTCPeerConnection 构造是重主线程操作，同步建＝开屏路径叠加秒级长任务，
+      //低端机「一进网站就非常卡」实锤元凶；音频主锚点不受影响）
+      kaWebrtcDeferredStart(10000);
 
       // 用户首次交互时恢复播放（浏览器自动播放策略要求）
       const resumeOnInteraction = function () {
@@ -492,8 +551,13 @@
     if (!keepEnabled) return;
     // v3.13.x：回前台立即清零退避轨道——用户切回来了，补播不再退避，马上恢复
     kaResetBackoff();
-    // #260：后台冻结/挂起后 WebRTC 通道可能已断——回前台补建（kaWebrtcStart 幂等）
-    if (!kaPc1) kaWebrtcStart();
+    // #260：后台冻结/挂起后 WebRTC 通道可能已断——回前台补建（幂等）
+    // FIX 2026-09-13 #433：改 3s 延迟 + 排程不抢占——resume 瞬间主线程正忙（重渲/回填），
+    // 立即构造 RTCPeerConnection 会叠加秒级长任务；且部分内核加载期会冒一次
+    // visibilitychange→visible（无头实测 3s 即建＝绕过启动 10s 延迟），重建退避排期也会
+    // 被这里提前插队。故仅在「无现役锚且启动/重建排程都没挂期」时才补建：
+    // 加载期由启动延迟负责、断连由退避排期负责，这里只兜「排程全空但锚不在」的真缺口。
+    if (!kaPc1 && !kaWebrtcTimer && !kaWebrtcBootTimer) kaWebrtcDeferredStart(3000);
     // 1) 恢复被挂起的保活音频（回前台瞬间可能仍被浏览器阻塞，延迟再试几次）
     //    v3.10.x：音乐在播时跳过——保活音频让位中，不抢音频
     if (!musicNowPlaying() && keepAudio && keepAudio.el && keepAudio.el.paused) {
