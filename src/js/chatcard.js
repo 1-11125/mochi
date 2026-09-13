@@ -98,8 +98,21 @@
   // · 身份守卫：异步落令牌回写前核对卡原文未变（编辑/失效竞态不覆盖新内容）；
   // · 每次会话重做（哈希内容寻址幂等）：池键若被 GC 清理，下次构建时重新落池即可。
   const CC_MEDIA_TOKEN_THRESHOLD = 64 * 1024;
+  // FIX 2026-09-13 #398 令牌化管线串行化 + 会话哈希备忘（iPhone 14 Pro/16 Safari「持续卡顿动不了」
+  // 等多机型；与「最近两三天」起病时间吻合＝#377 上线）——旧实现对每张大卡并发发起
+  // mochiMediaTokenize（每张都 TextEncoder 全量编码 + SHA-256），大库一建缓存就是几百个编码
+  // 任务同挤主线程＝持续卡死；且每次缓存重建（切联系人/写库 pubInvalidate）都全量重算。
+  // 改为：①收集任务后串行执行、每张之间 setTimeout(0) 让出主线程（总时长不变但 UI 可交互）；
+  // ②会话内 body→token 备忘（FIFO 字符预算淘汰，上限 8M 字符≈16MB，不破坏 #377 瘦身目标），
+  // 重复构建零重算；③世代计数——pubInvalidate 重建后旧 pass 自动作废，memo 让重跑便宜。
+  let ccTokRun = 0;
+  const ccTokMemo = new Map();
+  let ccTokMemoChars = 0;
+  const CC_TOK_MEMO_MAX_CHARS = 8 * 1024 * 1024;
   function ccTokenizeGiantMedia(g) {
     if (!window.mochiMediaTokenize) return;
+    const gen = ++ccTokRun;
+    const jobs = [];
     ['sticker', 'image'].forEach(function (t) {
       (g[t] || []).forEach(function (grp) {
         if (!Array.isArray(grp) || !Array.isArray(grp[1])) return;
@@ -108,13 +121,33 @@
           const bar = card.indexOf('|||');
           const body = bar >= 0 ? card.slice(bar + 3) : card;
           if (body.length < CC_MEDIA_TOKEN_THRESHOLD || body.indexOf('data:image/') !== 0) return;
-          Promise.resolve(window.mochiMediaTokenize(body, { noCache: true })).then(function (tok) {
-            if (!tok || grp[1][i] !== card) return;
-            grp[1][i] = bar >= 0 ? (card.slice(0, bar + 3) + tok) : tok;
-          }).catch(function () {});
+          jobs.push({ grp: grp, i: i, card: card, bar: bar, body: body });
         });
       });
     });
+    if (!jobs.length) return;
+    (async function () {
+      for (let k = 0; k < jobs.length; k++) {
+        if (gen !== ccTokRun) return; // 缓存已重建/失效，本次 pass 作废（memo 让重跑便宜）
+        const j = jobs[k];
+        let tok = ccTokMemo.get(j.body);
+        if (!tok) {
+          try { tok = await window.mochiMediaTokenize(j.body, { noCache: true }); } catch (e) { tok = null; }
+          if (gen !== ccTokRun) return;
+          if (tok) {
+            ccTokMemo.set(j.body, tok); ccTokMemoChars += j.body.length;
+            while (ccTokMemoChars > CC_TOK_MEMO_MAX_CHARS && ccTokMemo.size) {
+              const fk = ccTokMemo.keys().next().value;
+              ccTokMemoChars -= fk.length; ccTokMemo.delete(fk);
+            }
+          }
+        }
+        await new Promise(function (r) { setTimeout(r, 0); }); // 每张之间让出主线程，UI 可交互
+        if (gen !== ccTokRun) return;
+        if (!tok || j.grp[1][j.i] !== j.card) continue; // 身份守卫：卡原文已变则不覆盖
+        j.grp[1][j.i] = j.bar >= 0 ? (j.card.slice(0, j.bar + 3) + tok) : tok;
+      }
+    })();
   }
   function pubGroupsRaw() {
     if (!pubCache) {

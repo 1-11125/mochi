@@ -1177,6 +1177,8 @@ const FIX_SENTINELS = [
   { name: '#399 幽灵锚点零布局足迹·高度钳死（删则页面级 min-height 再反压 height:1px!important，退场锚点变实高盒子）', file: 'css/base.css', needle: 'min-height:0 !important; max-height:none !important;' },
   { name: '#399 幽灵锚点钉在包含块角上（删 top/left 则 absolute 沿用流内静态位置，深内容页再撑出 .phone 幻影溢出）', file: 'css/base.css', needle: 'position:absolute; top:0; left:0; width:1px !important; height:1px !important;' },
   { name: '#399 .phone 非滚动容器（overflow:clip；删则内核「把聚焦元素滚进视野」可再次整体滚走手机壳）', file: 'css/base.css', needle: 'overflow:hidden; overflow:clip;' },
+  // ==== 2026-09-13 #398 令牌化管线并发风暴（iPhone 14 Pro/16 Safari「持续卡顿动不了」多机型；起病时间= #377 上线）——ccTokenizeGiantMedia 对每张大卡并发 mochiMediaTokenize（全量 TextEncoder+SHA-256 同挤主线程）且每次缓存重建全量重算；修复=串行+每张让出主线程+会话哈希备忘（FIFO 字符预算 8M）+世代计数防跨重建覆盖 ====
+  { name: '#398 令牌化管线串行化+世代计数（改回并发 Promise 链则大库设备持续卡死）', file: 'js/chatcard.js', needle: 'const gen = ++ccTokRun;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
