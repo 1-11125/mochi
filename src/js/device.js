@@ -2747,6 +2747,16 @@ window.mochiViewportForm = function (sig) {
     try {
       if (document.visibilityState !== 'visible') return;
       if (!window.__collectScreenDiag) return;
+      // #418：开屏未进入 / 数据未就绪期跳过自动采集——该阶段 .phone 高度由
+      // --mochi-ios-h 写入时序主导、布局未稳，每秒/每 5s 的全量几何采集必刷
+      // 假阳性「底部少填/顶部重叠」（iPhone13 Safari 实测 inner=797 瞬态，
+      // 844 稳定后自愈），既污染错误环（顶掉真 JS 错误）又添无谓强制重排。
+      // 纯状态守卫、零机型分支：Splash 已隐藏（=用户已进入）且数据就绪才采。
+      try {
+        var _splash = document.getElementById('splash');
+        if (_splash && !_splash.classList.contains('hide')) return;
+        if (!window.__mochiDataReady) return;
+      } catch (eG) {}
       // #179：键盘会话/输入聚焦期是瞬态（.phone 被内联高接管、状态栏位移），
       // 监视跳过——否则会误报「顶部重叠/平移残留」刷屏错误环（14 Pro 实测）
       try { var _ae = document.activeElement; if (_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable)) return; } catch (eF) {}
@@ -2789,6 +2799,14 @@ window.mochiViewportForm = function (sig) {
       const now = Date.now();
       if (now - _sdLeaveT < 3000) return;
       if (!window.__collectScreenDiag) return;
+      // #418：与 sdTick 同守卫——开屏未进入/数据未就绪时跳过离页抢拍。
+      // 开屏加载期切后台正是「inner=797 底部少填」假阳性的高频来源（iPhone13
+      // Safari 实测），该阶段布局未稳，抢拍必误报且增加无谓重排。
+      try {
+        var _sp = document.getElementById('splash');
+        if (_sp && !_sp.classList.contains('hide')) return;
+        if (!window.__mochiDataReady) return;
+      } catch (eS) {}
       // 只看双端键盘探针，不看 activeElement——#197 族「收键盘不派 blur」时
       // activeElement 仍留在输入框，那正是要抓的残留现场，按焦点守卫必漏
       try { var _k2 = window.__mochiIosKb ? window.__mochiIosKb() : null; if (_k2 && _k2.kbActive) return; } catch (eK3) {}

@@ -1239,6 +1239,8 @@ const FIX_SENTINELS = [
   { name: '#414 短链解析核心（resolveNetShortLink 跟随 302/API 代理取回 song ID；删函数则主源拿不到 ID、存量短链曲目播放再也不解析）', file: 'js/music-player.js', needle: 'function resolveNetShortLink(ln, cb) {' },
   { name: '#403 桌面弹窗清洗链补令牌（删则弹窗横幅直出 @@m:hash 乱码）', file: 'js/chat.js', needle: "if (t.indexOf('@@m:') >= 0) t = t.replace(/@@m:[0-9a-f]{32}/g, '[图片]');" },
   { name: '#403 信箱弹窗正文剥令牌/附件（删则信件通知横幅直出乱码）', file: 'js/mail.js', needle: "给你寄来了一封信：' + String(content" },
+  { name: '#415 查看存储·扫描字卡分组后长文本不超屏（.storage-row span 允许在自身宽度内折行；删则分组名/多库合计长文本又顶出屏幕）', file: 'css/setting.css', needle: '.storage-row span { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }' },
+  { name: '#415 查看存储·扫描结果体积列右对齐可折行（.storage-row b 同族；删则多库合计长文本整行不折又超屏）', file: 'css/setting.css', needle: '.storage-row b { font-weight:600; font-size:12.5px; text-align:right; flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -308,4 +308,51 @@
       return n;
     })();
   };
+  // FIX 2026-09-14 媒体池核对（校验「图片丢失」是『备份没带池』还是『链路没写回』）：
+  // 导入完整备份后跑一次，比对「聊天/收藏/群聊/尾巴引用到的唯一令牌数」vs「池里真正存在的条数」。
+  // 返回 { referenced:引用令牌总数, inPool:池内在数, missing:池内缺数, missingSamples:个别缺串 }。
+  // 诊断口径：inPool≈referenced 且 missing=0 → 数据链完好，占位会随重渲染自愈；
+  //           missing 大 → 池键确实没回来（要么备份是文字降级包，要么源端本就没池数据），
+  //           需重导「含图片的完整备份」；inPool=0 → 备份完全没带池键。
+  // 只读、纯查（不写不删）；批 40 查池规避 IDB 风暴（与 GC/runLookups 同纪律）。
+  window.mochiMediaCoverage = function () {
+    return (async function () {
+      const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
+      if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+      const SCAN_RE = /@@m:([0-9a-f]{32})/g;
+      let keys;
+      try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
+      if (!Array.isArray(keys)) { out.reason = '键清单非法'; return out; }
+      // 引用面 = IDB 的聊天/收藏/群聊/尾巴键 + localStorage 同名键（含 #186 LS 快照/尾巴）
+      const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
+      try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk && REFS.test(lk)) refKeys.push('__ls__' + lk); } } catch (e) {}
+      const refs = new Set();
+      for (let i = 0; i < refKeys.length; i++) {
+        let v;
+        const rk = refKeys[i]; const isLs = rk.indexOf('__ls__') === 0;
+        if (isLs) { try { v = localStorage.getItem(rk.slice(6)); } catch (e2) { v = undefined; } }
+        else { try { v = await window.idbGet(rk); } catch (e2) { v = undefined; } }
+        if (v === undefined || v === null) continue;
+        let s = '';
+        try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { continue; }
+        SCAN_RE.lastIndex = 0; let m;
+        while ((m = SCAN_RE.exec(s))) refs.add(m[1]);
+      }
+      const uniq = Array.from(refs);
+      out.referenced = uniq.length;
+      const bad = [];
+      for (let i = 0; i < uniq.length; i += 40) {
+        const batch = uniq.slice(i, i + 40);
+        let vals = {};
+        try { vals = (await window.idbGetMany(batch.map(function (h) { return FULL + h; }))) || {}; } catch (e3) { vals = {}; }
+        batch.forEach(function (h) { const v = vals[FULL + h]; if (typeof v !== 'string' || v.indexOf('data:') !== 0) bad.push(h); });
+      }
+      out.inPool = uniq.length - bad.length;
+      out.missing = bad.length;
+      out.missingSamples = bad.slice(0, 8);
+      out.ok = true;
+      return out;
+    })().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), referenced: 0, inPool: 0, missing: 0, missingSamples: [] }; });
+  };
 })();

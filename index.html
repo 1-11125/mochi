@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789302880253">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.653</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 20:34<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789304270278">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.654</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 20:57<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.653</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.654</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10957,7 +10957,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.653</span>
+              <span class="lic-ver">v3.26.654</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -16956,6 +16956,11 @@ function sdTick() {
 try {
 if (document.visibilityState !== 'visible') return;
 if (!window.__collectScreenDiag) return;
+try {
+var _splash = document.getElementById('splash');
+if (_splash && !_splash.classList.contains('hide')) return;
+if (!window.__mochiDataReady) return;
+} catch (eG) {}
 try { var _ae = document.activeElement; if (_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable)) return; } catch (eF) {}
 try { var _kst = window.__mochiIosKb ? window.__mochiIosKb() : null; if (_kst && _kst.kbActive) return; } catch (eK) {}
 const r = window.__collectScreenDiag();
@@ -16985,6 +16990,11 @@ try {
 const now = Date.now();
 if (now - _sdLeaveT < 3000) return;
 if (!window.__collectScreenDiag) return;
+try {
+var _sp = document.getElementById('splash');
+if (_sp && !_sp.classList.contains('hide')) return;
+if (!window.__mochiDataReady) return;
+} catch (eS) {}
 try { var _k2 = window.__mochiIosKb ? window.__mochiIosKb() : null; if (_k2 && _k2.kbActive) return; } catch (eK3) {}
 try { var _ka2 = window.__mochiAndroidKb ? window.__mochiAndroidKb() : null; if (_ka2 && (_ka2.kbActive || _ka2.prov)) return; } catch (eK4) {}
 const r = window.__collectScreenDiag();
@@ -19637,6 +19647,45 @@ if (ok) { map.delete(list[i].slice(FULL.length)); n++; }
 }
 return n;
 })();
+};
+window.mochiMediaCoverage = function () {
+return (async function () {
+const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
+if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
+const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+const SCAN_RE = /@@m:([0-9a-f]{32})/g;
+let keys;
+try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
+if (!Array.isArray(keys)) { out.reason = '键清单非法'; return out; }
+const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
+try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk && REFS.test(lk)) refKeys.push('__ls__' + lk); } } catch (e) {}
+const refs = new Set();
+for (let i = 0; i < refKeys.length; i++) {
+let v;
+const rk = refKeys[i]; const isLs = rk.indexOf('__ls__') === 0;
+if (isLs) { try { v = localStorage.getItem(rk.slice(6)); } catch (e2) { v = undefined; } }
+else { try { v = await window.idbGet(rk); } catch (e2) { v = undefined; } }
+if (v === undefined || v === null) continue;
+let s = '';
+try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { continue; }
+SCAN_RE.lastIndex = 0; let m;
+while ((m = SCAN_RE.exec(s))) refs.add(m[1]);
+}
+const uniq = Array.from(refs);
+out.referenced = uniq.length;
+const bad = [];
+for (let i = 0; i < uniq.length; i += 40) {
+const batch = uniq.slice(i, i + 40);
+let vals = {};
+try { vals = (await window.idbGetMany(batch.map(function (h) { return FULL + h; }))) || {}; } catch (e3) { vals = {}; }
+batch.forEach(function (h) { const v = vals[FULL + h]; if (typeof v !== 'string' || v.indexOf('data:') !== 0) bad.push(h); });
+}
+out.inPool = uniq.length - bad.length;
+out.missing = bad.length;
+out.missingSamples = bad.slice(0, 8);
+out.ok = true;
+return out;
+})().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), referenced: 0, inPool: 0, missing: 0, missingSamples: [] }; });
 };
 })();
 } catch (__e) { try { console.error("[JS] media-pool.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
@@ -91904,4 +91953,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzsqigt -->
+<!-- __MOCHI_EOF__ mtztkb0m -->
