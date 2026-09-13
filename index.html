@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789291590617">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.643</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 17:26<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789295723862">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.646</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 18:35<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10644,6 +10644,13 @@ transition-duration: .01ms !important;
           <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
+        <!-- v3.26.x #411：卡顿自检 · 一键优化——字卡库数据过大（如公用库 44MB）是 iOS/安卓
+             间歇卡顿的主因，本行扫描分级 + 非破坏预热（取回挂起大键 + 令牌化回复池，不删数据） -->
+        <div class="set-row" id="row-perf-optimize">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+          <div class="txt">卡顿自检 · 一键优化<span class="sub">字卡库数据过大导致卡顿时，扫描分级并一键预热修复</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
       </div>
       <div class="set-group glass">
         <div class="set-row" id="row-reset">
@@ -10651,7 +10658,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.643</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.646</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10946,7 +10953,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.643</span>
+              <span class="lic-ver">v3.26.646</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -19408,6 +19415,7 @@ const MISS_READ_MAX = 8;
 window.mochiMediaTokenMissing = function (s) { const m = TOKEN_RE.exec(s || ''); return !!(m && missing.has(m[1])); };
 const markQueue = new Set();
 let markT = null;
+const MISS_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="100%" height="100%" fill="#ececec"/><text x="50%" y="50%" font-size="14" fill="#9a9a9a" text-anchor="middle" dominant-baseline="middle">图片缺失</text></svg>');
 function flushMissingMarks() {
 markT = null;
 if (!markQueue.size) return;
@@ -19417,7 +19425,7 @@ try { nodes = document.querySelectorAll('img[src^="' + TOK + '"]'); } catch (e) 
 Array.prototype.forEach.call(nodes, function (el) {
 let m; try { m = TOKEN_RE.exec(el.getAttribute('src') || ''); } catch (e2) { m = null; }
 if (!m || list.indexOf(m[1]) < 0) return;
-try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e3) {}
+try { el.classList.add('media-tok-missing'); el.alt = '图片缺失'; el.src = MISS_PLACEHOLDER; } catch (e3) {}
 });
 }
 function markMissing(h) {
@@ -19689,6 +19697,44 @@ let s = '';
 try { s = JSON.stringify(g); } catch (e) { return false; }
 try { window.xyStore(prefix).set(key, s); } catch (e) { return false; }
 return true;
+})();
+};
+})();
+(function () {
+window.mochiPerfLevel = function (totalBytes, bigGroups) {
+const mb = (Number(totalBytes) || 0) / 1048576;
+const bg = Number(bigGroups) || 0;
+if (mb > 16 || bg >= 6) return '重';
+if (mb > 5 || bg >= 2) return '中';
+return '轻';
+};
+window.mochiPerfAgg = function (rep) {
+const agg = { ok: !!(rep && rep.ok), level: '轻', libs: 0, totalBytes: 0, biggestBytes: 0, bigGroups: 0, reason: (rep && rep.reason) || '' };
+if (!rep || !rep.ok) return agg;
+((rep.libs) || []).forEach(function (l) { agg.libs += 1; agg.totalBytes += (l.bytes || 0); });
+((rep.groups) || []).forEach(function (g) {
+const b = g.bytes || 0;
+if (b > agg.biggestBytes) agg.biggestBytes = b;
+if (b > 1048576) agg.bigGroups += 1; // 单分组 >1MB 通常是整组大图/动图媒体
+});
+agg.level = window.mochiPerfLevel(agg.totalBytes, agg.bigGroups);
+return agg;
+};
+window.mochiPerfHeal = function () {
+return (async function () {
+const out = { ok: false, hydrated: 0, warmed: 0, reason: '' };
+try {
+if (window.hydrateLibScopes) {
+try { await window.hydrateLibScopes(['public', 'own']); out.hydrated = 2; }
+catch (e) { out.reason = '取回:' + ((e && e.message) || e); }
+}
+if (window.getCustomCards) {
+try { const cards = window.getCustomCards(); out.warmed = Array.isArray(cards) ? cards.length : 0; }
+catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '预热:' + ((e && e.message) || e); }
+}
+out.ok = true;
+} catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); }
+return out;
 })();
 };
 })();
@@ -26989,6 +27035,72 @@ if (!row) return;
 row.classList.toggle('open');
 });
 }
+})();
+(function () {
+const row = document.getElementById('row-perf-optimize');
+if (!row) return;
+function pfmt(n) {
+n = Number(n) || 0;
+if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+return n + ' B';
+}
+const LEVEL_CN = { 轻: '轻量', 中: '中度', 重: '较重' };
+function perfToast(msg) {
+try {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._pT); t._pT = setTimeout(function () { t.className = 'cc-toast'; }, 3200);
+} catch (e) {}
+}
+function promptHeal(agg) {
+if (!window.openModal || !window.mochiPerfHeal) { perfToast('当前环境不支持，请在支持 IndexedDB 的设备上使用'); return; }
+const mb = (agg.totalBytes || 0) / 1048576;
+let lines = [];
+if (agg.ok) {
+lines.push('扫描结果：字卡库共 ' + agg.libs + ' 个作用域，占用约 ' + pfmt(agg.totalBytes) + '（' + LEVEL_CN[agg.level] + '）。');
+if (mb > 5) lines.push('其中最大分组约 ' + pfmt(agg.biggestBytes) + '，大分组 ' + agg.bigGroups + ' 个——这是切换/打开聊天卡顿的大头。');
+} else {
+lines.push('扫描未完成：' + ((agg && agg.reason) || '未知原因') + '。');
+}
+lines.push('「一键优化」会：取回被挂起的大库 + 预热回复池，把耗时移到这次点击里完成，之后的聊天/回复会明显顺滑。');
+lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
+window.openModal('卡顿自检 · 一键优化', '', function () {
+perfToast('正在优化（字卡库较大会稍等片刻）…');
+window.mochiPerfHeal().then(function (res) {
+if (res && res.ok) perfToast('优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '，部分' : ''));
+else perfToast('优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试');
+});
+}, { noInput: true, staticText: lines.join('\n') });
+}
+row.addEventListener('click', function () {
+if (!window.mochiCcSlimScan) { perfToast('当前环境不支持，请在支持 IndexedDB 的设备上使用'); return; }
+perfToast('正在扫描字卡库（较大会稍等）…');
+window.mochiCcSlimScan().then(function (rep) {
+const agg = window.mochiPerfAgg ? window.mochiPerfAgg(rep) : null;
+promptHeal(agg || rep || {});
+}).catch(function () { perfToast('扫描异常，请稍后重试'); });
+});
+const PERF_REMIND_KEY = 'perf-opt-remind';
+function maybePerfPrompt() {
+try {
+if (!window.mochiCcSlimScan || !window.mochiPerfAgg) return;
+const last = Number(localStorage.getItem('xy-home-v2:' + PERF_REMIND_KEY)) || 0;
+if (Date.now() - last < 3 * 864e5) return;
+setTimeout(function () {
+window.mochiCcSlimScan().then(function (rep) {
+if (!rep || !rep.ok) return;
+const agg = window.mochiPerfAgg(rep);
+if (agg.level !== '重') return; // 只有真正的大库才主动打扰
+try { localStorage.setItem('xy-home-v2:' + PERF_REMIND_KEY, String(Date.now())); } catch (e) {}
+promptHeal(agg);
+}).catch(function () {});
+}, 2500); // 启动让出主线程再扫，避免加剧启动帧
+} catch (e) {}
+}
+if (window.__mochiDataReady) { try { setTimeout(maybePerfPrompt, 2000); } catch (e) {} }
+else { document.addEventListener('mochi-restore-done', function h() { document.removeEventListener('mochi-restore-done', h); setTimeout(maybePerfPrompt, 2000); }); }
 })();
 const callSettingsRow = document.getElementById('row-call-settings');
 if (callSettingsRow) {
@@ -91271,4 +91383,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzm0jbt -->
+<!-- __MOCHI_EOF__ mtzoh4k6 -->

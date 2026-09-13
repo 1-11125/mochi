@@ -1218,6 +1218,12 @@ const FIX_SENTINELS = [
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
   { name: '#408 聊天美化导入接入自救解析+诊断现场+空文本提示（删则「无反应」与「解析失败」无真因）', file: 'js/chat-settings.js', needle: "'[聊天美化导入] '" },
   { name: '#401 后台通知正文令牌串→[图片]（删则含令牌消息的预览在通知栏直出乱码）', file: 'js/bg-keep.js', needle: "@@m:[0-9a-f]{32}/g, '[图片]')" },
+  // ==== 2026-09-13 #411 卡顿自检 · 一键优化（只优化不删除；iPhone 15 Pro Max + Chrome 等多机型实测健康帧率仍报卡顿——诊断实锤主因是公用/专属字卡库单键可达 44MB，大库解析/按需取回是间歇冻结点。storage-slim 数据层分级 + 非破坏预热；personalize 设置行 + 启动大库主动弹；不碰不删任何用户数据，跨设备零语义变化）====
+  { name: '#411 卡顿自检·分级判定器（mochiPerfLevel 纯函数，删则自检分级失效；44MB 字卡库是 iOS/安卓间歇卡顿主因）', file: 'js/storage-slim.js', needle: 'window.mochiPerfLevel = function (totalBytes, bigGroups) {' },
+  { name: '#411 卡顿自愈·非破坏预热（mochiPerfHeal 取回挂起大键库+预热令牌化回复池；只优化不删除，删则「一键优化」空转）', file: 'js/storage-slim.js', needle: 'window.mochiPerfHeal = function () {' },
+  { name: '#411 卡顿自检设置行入口（row-perf-optimize 锚点；删则设置页无「一键优化」入口）', file: 'template.html', needle: 'id="row-perf-optimize"' },
+  { name: '#411 自检·仅大库才主动弹提示（level 门控；删则不判级 轻/中 也弹=骚扰）', file: 'js/personalize.js', needle: "if (agg.level !== '重') return;" },
+  { name: '#402 缺失令牌占位换内联 SVG（删则令牌 src 被当相对 URL 请求 404＝iOS 裂图问号黑块）', file: 'js/media-pool.js', needle: 'const MISS_PLACEHOLDER' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

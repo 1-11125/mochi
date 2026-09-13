@@ -54,6 +54,9 @@
   // 坏图成片的设备（池数据没跟过来的大库）一次渲染几十次查询＝主线程尖峰；改为攒批 + 单次扫描。
   const markQueue = new Set();
   let markT = null;
+  // FIX 2026-09-13 #402 缺失占位换成内联 SVG（原方案保留令牌 src＝浏览器当相对 URL 去请求
+  // 404＝iOS 裂图问号黑块；占位后不再发无效请求，池补回后新渲染元素照常解图）
+  const MISS_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="100%" height="100%" fill="#ececec"/><text x="50%" y="50%" font-size="14" fill="#9a9a9a" text-anchor="middle" dominant-baseline="middle">图片缺失</text></svg>');
   function flushMissingMarks() {
     markT = null;
     if (!markQueue.size) return;
@@ -63,7 +66,7 @@
     Array.prototype.forEach.call(nodes, function (el) {
       let m; try { m = TOKEN_RE.exec(el.getAttribute('src') || ''); } catch (e2) { m = null; }
       if (!m || list.indexOf(m[1]) < 0) return;
-      try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e3) {}
+      try { el.classList.add('media-tok-missing'); el.alt = '图片缺失'; el.src = MISS_PLACEHOLDER; } catch (e3) {}
     });
   }
   function markMissing(h) {
