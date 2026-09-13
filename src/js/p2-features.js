@@ -612,11 +612,12 @@ function renderCheckinHistory() {
     store.set('checkin-current', JSON.stringify(ck));
     renderCheckinUI(ck);
     const name = store.get('lbl-partner') || 'TA';
-    // v3.42.x #421：寻踪「日常」发送到聊天总开关（reply-ck-chat-en，随联系人桌面隔离）——
-    // 关闭后不在聊天里推「更新了一条日常 / 日常内容 / 提醒你来寻踪」三条消息；寻踪页与
-    // 记录照常生成。默认开（缺省=开），与设置页「回复设置→其他→TA 的日常」开关联动。
+    // v3.42.x #422：寻踪「日常」是否推到聊天统一走「其他互动功能字卡」里的寻踪日常概率
+    // （dcf-checkin，默认 100%＝每次都推，0%＝彻底不进聊天；随联系人桌面隔离）。关闭后
+    // 寻踪页与记录照常生成，只是不再在聊天里推「更新了一条日常 / 日常内容 / 提醒你来寻踪」
+    // 三条消息。原 #421 的 reply-ck-chat-en 开关已并入此行，见 WORKLOG。
     let ckChatOn = true;
-    try { ckChatOn = store.get('reply-ck-chat-en') !== '0'; } catch (e) {}
+    try { ckChatOn = Math.random() * 100 < (window.dcfGet ? window.dcfGet('checkin') : 100); } catch (e) {}
     if (ckChatOn) {
       // 更新提示系统消息：先发「联系人 更新了一条日常」（v3.7.x 调整顺序——
       // 原先是字卡文字消息先发、系统提示后发，与用户预期相反）
@@ -3159,7 +3160,9 @@ if (ckRefresh) {
       }
       pomoIdleAt(brk);
       pomoShowMsg(POMO_MODES[brk].name + ' ' + pomoModeMin(brk) + ' 分钟 · ' + praise + (comp ? '（补偿摸鱼 +' + comp + '）' : ''));
-      if (!wasPmp && pomoSendOn() && window.chatAddIn) { try { window.chatAddIn('🍅 完成了 ' + mins + ' 分钟专注，去休息一会儿' + (comp ? '（奖励补偿摸鱼 +' + comp + '）' : '')); } catch (e) {} }
+      // v3.42.x #422：番茄钟完成消息在自带「发到聊天」开关（pomo-send-chat）之上，
+      // 追加「其他互动功能字卡」里的番茄钟概率门控（dcf-pomo，默认 100%＝原行为，0%＝不发）。
+      if (!wasPmp && pomoSendOn() && Math.random() * 100 < (window.dcfGet ? window.dcfGet('pomo') : 100) && window.chatAddIn) { try { window.chatAddIn('🍅 完成了 ' + mins + ' 分钟专注，去休息一会儿' + (comp ? '（奖励补偿摸鱼 +' + comp + '）' : '')); } catch (e) {} }
     } else {
       pomoIdleAt('focus');
       pomoShowMsg('休息好了，来下一个番茄吧');

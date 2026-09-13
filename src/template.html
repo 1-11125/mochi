@@ -2610,13 +2610,6 @@
             <div class="gs-row"><span>跨桌面来电概率</span><div class="stepper" data-k="desk-call-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="desk-call-prob-val" readonly><button class="stp-max">+</button></div></div>
           </div>
           <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动给你来电，冷却与查岗一致 30 分钟。全局开关在 设置 →「开启 联系人跨桌面打电话」</div>
-          <!-- v3.42.x #421：寻踪「日常」发送到聊天——联系人更新日常时默认在聊天里推三条消息
-               （更新提示+日常内容+概率「提醒你来寻踪」）；关掉后寻踪页照常生成记录，仅不推聊天 -->
-          <div class="gs-title" style="margin-top:10px">TA 的日常（寻踪）</div>
-          <div class="set-group glass">
-            <div class="gs-row"><span>在聊天里发送日常</span><label class="toggle"><input type="checkbox" id="ck-chat-en" checked><span class="tk"></span></label></div>
-          </div>
-          <div class="gs-sub" style="padding:0 14px 2px">联系人每次更新「TA 的日常」时，默认会在聊天里发「更新了一条日常」+ 日常内容 + 概率「提醒你来寻踪」。关闭开关后联系人照常更新日常（寻踪页/记录仍显示），只是不再发到聊天。寻踪今日/日常内容可在 字卡库 →「寻踪 日常 位置」里逐张开关或自定义</div>
         </div>
         <!-- v3.6.x：保存设置按钮——点击把当前所有概率/开关写入本地并提示 -->
         <button class="ta-add-btn gs-save-btn" id="reply-save-btn" style="width:100%;margin:6px 0 10px">
@@ -2827,7 +2820,7 @@
         </span>
         <span class="ch-name">其他互动功能字卡</span>
       </div>
-      <div class="sm-set-hint" style="padding:8px 16px 0">说明：以下为各功能（摸鱼 / 吃饭 / 经期 / 喝水 / 花园 / 同频 / 伸手 / 此间 / 房间 / 存钱罐 / 漂流瓶 / 互动回应）触发时联系人会使用的自搓字卡，非聊天通用字卡，可逐张开启或关闭。页面底部的「使用概率」为各类字卡触发的概率，可自由调整。</div>
+      <div class="sm-set-hint" style="padding:8px 16px 0">说明：以下为各功能（摸鱼 / 吃饭 / 经期 / 喝水 / 花园 / 同频 / 伸手 / 此间 / 房间 / 存钱罐 / 漂流瓶 / 互动回应 / 寻踪日常 / 番茄钟）触发时联系人会使用的自搓字卡或发进聊天的消息，非聊天通用字卡，可逐张开启或关闭。每一项右侧的「使用概率」为该功能触发的概率，可自由调整（0% 即不再出现）；每行都有「功能说明」可点开看触发详情。</div>
       <!-- v3.33.x：总开关——其他互动功能字卡可整体开启/关闭（dcf-enabled 键，默认开启）；
            关闭后各功能触发字卡都不再随机出现，各分类概率（底部 dcf-prob-*）仍可独立调整；
            不影响独立入口「联系人跨桌面查岗」。 -->
@@ -2878,6 +2871,10 @@
         <div class="gs-row"><span>漂流瓶字卡概率</span><div class="stepper" id="dcf-prob-drift" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-drift-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>互动回应字卡概率</span><div class="stepper" id="dcf-prob-interact" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-interact-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>音乐字卡概率</span><div class="stepper" id="dcf-prob-music" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-music-val" readonly><button class="stp-max">+</button></div></div>
+        <!-- v3.42.x #422：寻踪日常推送 / 番茄钟完成消息——只读式「发到聊天」概率门控，无独立字卡池，
+             不参与上方案引卡管理；0%=不进聊天，100%=原行为。功能说明标签由 default-cards.js 注入。 -->
+        <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>番茄钟完成发到聊天</span><div class="stepper" id="dcf-prob-pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-val" readonly><button class="stp-max">+</button></div></div>
       </div>
     </div>
 

@@ -72,10 +72,6 @@
     // v3.20.x：跨桌面查岗默认概率 8% → 2%（用户要求降低，含把已写盘的旧值 8 一并迁移为 2，
     // 见文件尾的旧值迁移逻辑）
     'ckq-en': 1, 'ckq-prob': 2, 'ckq-popup-prob': 70, 'ckq-cool': 30,
-    // v3.42.x #421：ck-chat-en 寻踪「日常」发送到聊天总开关（默认开）——关闭后联系人更新
-    // 日常时不再在聊天里发「更新了一条日常/日常内容/提醒你来寻踪」三条消息（见 p2-features.js
-    // doCheckin 消费）；寻踪页照常生成并记录日常，仅不推聊天。供用户不想看到日常刷屏时关掉。
-    'ck-chat-en': 1,
     // v3.20.x：跨桌面来电独立概率（reply-desk-call-prob，随联系人隔离；跨桌面来电与
     // 跨桌面查岗对齐：默认 2% + 独立 30 分钟冷却，触发逻辑在 incoming-requests.js）
     'desk-call-prob': 2,
@@ -227,7 +223,7 @@
       }
     });
     // 开关
-    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -336,7 +332,7 @@
     'ml-kaomoji-en': '信箱颜文字', 'ml-emoji-en': '信箱emoji', 'ml-sticker-en': '信箱表情包',
     'cs-normal': '让对方继续说', 'cs-trigger-name': '昵称触发继续说', 'cs-trigger-bar': '聊天栏继续说按钮',
     'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
-    'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'ck-chat-en': '寻踪日常发送到聊天', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
+    'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
     'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
     'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
     'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
@@ -365,7 +361,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -514,7 +510,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

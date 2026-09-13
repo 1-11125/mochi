@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789306613047">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.656</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 21:36<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789307871556">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.657</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 21:57<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.656</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.657</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10959,7 +10959,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.656</span>
+              <span class="lic-ver">v3.26.657</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11706,13 +11706,6 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>跨桌面来电概率</span><div class="stepper" data-k="desk-call-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="desk-call-prob-val" readonly><button class="stp-max">+</button></div></div>
           </div>
           <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动给你来电，冷却与查岗一致 30 分钟。全局开关在 设置 →「开启 联系人跨桌面打电话」</div>
-          <!-- v3.42.x #421：寻踪「日常」发送到聊天——联系人更新日常时默认在聊天里推三条消息
-               （更新提示+日常内容+概率「提醒你来寻踪」）；关掉后寻踪页照常生成记录，仅不推聊天 -->
-          <div class="gs-title" style="margin-top:10px">TA 的日常（寻踪）</div>
-          <div class="set-group glass">
-            <div class="gs-row"><span>在聊天里发送日常</span><label class="toggle"><input type="checkbox" id="ck-chat-en" checked><span class="tk"></span></label></div>
-          </div>
-          <div class="gs-sub" style="padding:0 14px 2px">联系人每次更新「TA 的日常」时，默认会在聊天里发「更新了一条日常」+ 日常内容 + 概率「提醒你来寻踪」。关闭开关后联系人照常更新日常（寻踪页/记录仍显示），只是不再发到聊天。寻踪今日/日常内容可在 字卡库 →「寻踪 日常 位置」里逐张开关或自定义</div>
         </div>
         <!-- v3.6.x：保存设置按钮——点击把当前所有概率/开关写入本地并提示 -->
         <button class="ta-add-btn gs-save-btn" id="reply-save-btn" style="width:100%;margin:6px 0 10px">
@@ -11923,7 +11916,7 @@ transition-duration: .01ms !important;
         </span>
         <span class="ch-name">其他互动功能字卡</span>
       </div>
-      <div class="sm-set-hint" style="padding:8px 16px 0">说明：以下为各功能（摸鱼 / 吃饭 / 经期 / 喝水 / 花园 / 同频 / 伸手 / 此间 / 房间 / 存钱罐 / 漂流瓶 / 互动回应）触发时联系人会使用的自搓字卡，非聊天通用字卡，可逐张开启或关闭。页面底部的「使用概率」为各类字卡触发的概率，可自由调整。</div>
+      <div class="sm-set-hint" style="padding:8px 16px 0">说明：以下为各功能（摸鱼 / 吃饭 / 经期 / 喝水 / 花园 / 同频 / 伸手 / 此间 / 房间 / 存钱罐 / 漂流瓶 / 互动回应 / 寻踪日常 / 番茄钟）触发时联系人会使用的自搓字卡或发进聊天的消息，非聊天通用字卡，可逐张开启或关闭。每一项右侧的「使用概率」为该功能触发的概率，可自由调整（0% 即不再出现）；每行都有「功能说明」可点开看触发详情。</div>
       <!-- v3.33.x：总开关——其他互动功能字卡可整体开启/关闭（dcf-enabled 键，默认开启）；
            关闭后各功能触发字卡都不再随机出现，各分类概率（底部 dcf-prob-*）仍可独立调整；
            不影响独立入口「联系人跨桌面查岗」。 -->
@@ -11974,6 +11967,10 @@ transition-duration: .01ms !important;
         <div class="gs-row"><span>漂流瓶字卡概率</span><div class="stepper" id="dcf-prob-drift" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-drift-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>互动回应字卡概率</span><div class="stepper" id="dcf-prob-interact" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-interact-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>音乐字卡概率</span><div class="stepper" id="dcf-prob-music" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-music-val" readonly><button class="stp-max">+</button></div></div>
+        <!-- v3.42.x #422：寻踪日常推送 / 番茄钟完成消息——只读式「发到聊天」概率门控，无独立字卡池，
+             不参与上方案引卡管理；0%=不进聊天，100%=原行为。功能说明标签由 default-cards.js 注入。 -->
+        <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>番茄钟完成发到聊天</span><div class="stepper" id="dcf-prob-pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-val" readonly><button class="stp-max">+</button></div></div>
       </div>
     </div>
 
@@ -20040,6 +20037,7 @@ window.mochiImgCompress(source).then(function (res) {
 if (!res || !res.ok) { toast('压缩未完成：' + ((res && res.reason) || '未知原因')); return; }
 toast('已压缩 ' + res.processed + ' 张，释放约 ' + fmtBytes(res.saved) + (res.skipped ? '（跳过 ' + res.skipped + ' 张：动图/已较小/压缩后不更小则不替换）' : ''));
 refreshRowAfter(res, source);
+try { if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite(); } catch (e) {}
 try { document.dispatchEvent(new CustomEvent('mochi-img-compressed')); } catch (e) {}
 }).catch(function () { toast('压缩异常，请稍后重试'); });
 }
@@ -20063,6 +20061,8 @@ const lines = [
 '· 美化里上传的图片：' + (b.n || 0) + ' 张，约 ' + fmtBytes(b.bytes || 0),
 '',
 '压缩规则：把偏大的存量图按「新上传」相同的清晰标准重压（字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85）。压缩产物不小于原图时不替换；动图（GIF）与媒体池共享图不动，超大原图（>8MB）为防崩溃不解码。',
+'',
+'⚠️ 压缩会覆盖原图（替换成更小的版本），原图不留底、不可撤销。建议先导出备份：设置 → 数据备份 → 导出（或云端备份），备份里保留压缩前的原图。',
 '',
 '压缩后图片依旧清晰，存储占用明显变小；「查看存储」的总占用会同步刷新。',
 '',
@@ -39880,6 +39880,13 @@ if (!ccDirty) return;
 try { saveGroups(groups); } catch (e) {}
 }
 window.ccFlushSave = flushCcSave;
+window.ccReloadGroupsAfterExternalWrite = function () {
+pubInvalidate();
+libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
+try { groups = loadGroups(); } catch (e) {}
+try { renderGroupsBar(); render(); } catch (e) {}
+refreshLibCounts(true);
+};
 try {
 window.addEventListener('beforeunload', flushCcSave);
 window.addEventListener('pagehide', flushCcSave);
@@ -44114,7 +44121,6 @@ const DEFAULTS = {
 'ai-cuddle-en': 1, 'ai-cuddle-prob': 5,
 'ai-cc-en': 1, 'ai-cc-prob': 4,
 'ckq-en': 1, 'ckq-prob': 2, 'ckq-popup-prob': 70, 'ckq-cool': 30,
-'ck-chat-en': 1,
 'desk-call-prob': 2,
 'ml-min-cards': 20, 'ml-max-cards': 50,
 'ml-write-prob': 30, 'ml-write-min': 1, 'ml-write-max': 480,
@@ -44212,7 +44218,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -44302,7 +44308,7 @@ const TOGGLE_NAMES = {
 'ml-kaomoji-en': '信箱颜文字', 'ml-emoji-en': '信箱emoji', 'ml-sticker-en': '信箱表情包',
 'cs-normal': '让对方继续说', 'cs-trigger-name': '昵称触发继续说', 'cs-trigger-bar': '聊天栏继续说按钮',
 'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
-'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'ck-chat-en': '寻踪日常发送到聊天', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
+'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
 'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
 'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
 'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
@@ -44327,7 +44333,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -44450,7 +44456,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'ck-chat-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -45746,14 +45752,15 @@ valEl.value = String(nv); dcProbSet(k, nv);
 toast('默认字卡' + label + '占比：' + nv + '%');
 });
 });
-const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50 };
+const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100 };
+const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟' };
 function dcfEnabled() {
 try { const v = window.activeStore().get('dcf-enabled'); return v === null ? true : v === '1'; } catch (e) { return true; }
 }
 function dcfEnableSet(on) { try { window.activeStore().set('dcf-enabled', on ? '1' : '0'); } catch (e) {} }
 window.dcfEnabled = dcfEnabled;
 function dcfVal(k) {
-if (FUNC_KEYS.indexOf(k) >= 0 && !dcfEnabled()) return 0;
+if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo') && !dcfEnabled()) return 0;
 if (!(k in DCF_DEF)) return 100;
 try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
 return DCF_DEF[k];
@@ -45789,6 +45796,60 @@ toast('字卡使用概率（' + k + '）：' + nv + '%');
 });
 }
 bindDcfProb();
+const DCF_DESC = {
+fish: '【摸鱼】联系人按你摸鱼/钓鱼的时长、心情推算后，主动来聊天里插科打诨、关心你的字卡。\n概率 = 功能正常触发的这一次，出现字卡的概率（0% 则完全不出现）。\n想彻底关：调 0% 即可；也可本页找到对应字卡逐张关闭。',
+eat: '【吃饭】到饭点/「吃什么」决断时，联系人先发提醒、并按概率隔一会儿再补一句「追问关心」（夜宵时段用「夜宵关心」话术）的字卡。\n概率 = 触发后出现这些内容的概率，0% = 不吃喝提醒。',
+period: '【经期】预测到经期/排卵期的前后，联系人发的温柔关心语（温柔前缀 / 动作 / 经期关心）。\n概率 = 触发后出现的概率，0% = 不发经期关心。\n还想更彻底：到「经期记录」页把「梦角关心」也关掉即可。',
+water: '【喝水】每天 6:00–23:00 时段，联系人按间隔来聊天里催你喝水；当天已打卡达标时降为约 1/4 概率改发夸奖。一天最多约 4 条、至少隔约 50 分钟。\n概率 = 每次判定能否催水的概率，0% = 完全不催。',
+garden: '【花园】你在花园播种/浇水/收成等互动时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不出字卡。',
+sync: '【同频】两个人「同频」页面里的日常投递字卡。\n概率 = 投递时出现字卡的概率，0% = 不投字卡（页面功能本身不受影响）。',
+reach: '【伸手】「伸手」小动作互动里，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 只飘字不留卡。',
+cjian: '【此间】「此间」感知播报（TA 推测你在做什么）时，联系人说的话术字卡。\n概率 = 播报时出现字卡的概率，0% = 播报不出字卡。',
+room: '【房间】你在「我们的房间」里点互动时，联系人回应的字卡。\n概率 = 点击后出字卡的概率，0% = 点了也不出字卡。',
+piggy: '【存钱罐】存钱/取款后，联系人发来的关心/追问（含「取款关心」），可内联回一句。\n概率 = 取款后追问出现的概率，0% = 不追问。',
+drift: '【漂流瓶】捞起漂流瓶时，瓶内联系人附上的话术字卡。\n概率 = 瓶内出字卡的概率，0% = 不出字卡（仍有信纸兜底，不会空白）。',
+interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不回应字卡。',
+music: '【音乐】听歌 / 点歌 / 分享歌互动时，联系人回应的字卡。\n概率 = 互动时出现字卡的概率，0% = 互动不出字卡。',
+checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在 / 在做什么 / 想对你说）时，推送到聊天里的三条消息：更新提示 + 日常内容 + 概率「提醒你来寻踪」。\n概率 = 本次更新是否推送到聊天的概率，100% = 每次都发，0% = 完全不发。\n关闭后，寻踪页与历史记录照常生成，只是不再进聊天刷屏。',
+pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。'
+};
+(function () {
+function injBox(boxId, ks) {
+var box = document.getElementById(boxId);
+if (!box) return;
+ks.forEach(function (k) {
+var stp = document.getElementById('dcf-prob-' + k);
+if (!stp) return;
+var row = stp.closest('.gs-row');
+if (!row) return;
+var label = row.querySelector(':scope > span');
+if (!label || label.querySelector('.tag')) return;
+var tag = document.createElement('span');
+tag.className = 'tag';
+tag.setAttribute('data-fdesc', k);
+tag.setAttribute('data-dname', DCF_DEF_NAME[k] || k);
+tag.setAttribute('role', 'button');
+tag.setAttribute('tabindex', '0');
+tag.textContent = '功能说明';
+label.style.cssText += ';display:flex;align-items:center;gap:6px;';
+label.appendChild(tag);
+});
+}
+injBox('dcf-prob-box', Object.keys(DCF_DEF).filter(function (k) { return k !== 'deskcheck'; }));
+injBox('dcf-prob-box-dk', ['deskcheck']);
+})();
+document.addEventListener('click', function (e) {
+var t = e.target && e.target.closest ? e.target.closest('[data-fdesc]') : null;
+if (!t) return;
+var k = t.getAttribute('data-fdesc');
+var txt = DCF_DESC[k];
+if (!txt) return;
+var n = dcfVal(k);
+var title = '【' + (t.getAttribute('data-dname') || k) + '】功能说明';
+if (window.openModal) {
+window.openModal(title, '', function () {}, { noInput: true, staticText: txt + '\n\n当前使用概率：' + n + '%' });
+}
+});
 document.addEventListener('mochi-wrj-heal', function () {
 try {
 enabledEl.checked = getEnabled();
@@ -64932,7 +64993,7 @@ store.set('checkin-current', JSON.stringify(ck));
 renderCheckinUI(ck);
 const name = store.get('lbl-partner') || 'TA';
 let ckChatOn = true;
-try { ckChatOn = store.get('reply-ck-chat-en') !== '0'; } catch (e) {}
+try { ckChatOn = Math.random() * 100 < (window.dcfGet ? window.dcfGet('checkin') : 100); } catch (e) {}
 if (ckChatOn) {
 if (window.chatAddSystem) {
 window.chatAddSystem(name + ' 更新了一条日常');
@@ -67181,7 +67242,7 @@ pmpDetach();
 }
 pomoIdleAt(brk);
 pomoShowMsg(POMO_MODES[brk].name + ' ' + pomoModeMin(brk) + ' 分钟 · ' + praise + (comp ? '（补偿摸鱼 +' + comp + '）' : ''));
-if (!wasPmp && pomoSendOn() && window.chatAddIn) { try { window.chatAddIn('🍅 完成了 ' + mins + ' 分钟专注，去休息一会儿' + (comp ? '（奖励补偿摸鱼 +' + comp + '）' : '')); } catch (e) {} }
+if (!wasPmp && pomoSendOn() && Math.random() * 100 < (window.dcfGet ? window.dcfGet('pomo') : 100) && window.chatAddIn) { try { window.chatAddIn('🍅 完成了 ' + mins + ' 分钟专注，去休息一会儿' + (comp ? '（奖励补偿摸鱼 +' + comp + '）' : '')); } catch (e) {} }
 } else {
 pomoIdleAt('focus');
 pomoShowMsg('休息好了，来下一个番茄吧');
@@ -92023,4 +92084,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzuyipj -->
+<!-- __MOCHI_EOF__ mtzvphs4 -->

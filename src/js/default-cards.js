@@ -290,7 +290,12 @@
   //   stepper，存键 dcf-<分类>（per-cid，随桌面命名空间）。未设置时回退该分类的
   //   历史默认值（= 改版前代码里写死的触发概率），行为不变；设 0 即该分类字卡
   //   触发后不再随机出现。消费方统一走 window.dcfGet(分类) 读。
-  const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50 };
+  // v3.42.x #422：DCF_DEF 增补两个「发到聊天型」功能——checkin 寻踪日常推送、pomo 番茄钟完成消息。
+  //   它们不参与本页字卡管理（无独立字卡池），只挂概率门控：消费方 window.dcfGet('checkin'/'pomo')，
+  //   0%=彻底不进聊天，100%=原行为。deskcheck 跨桌面查岗回应为独立入口，不进本页概率列表总开关。
+  const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100 };
+  // v3.42.x #422：功能说明弹窗标题用的人类可读名（与概率行标签一致）。
+  const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟' };
   // v3.33.x：功能字卡总开关——【其他互动功能字卡】可整体开启/关闭（dcf-enabled 键，默认开启）。
   //   开启/关闭分别存 '1'/'0'；关闭后 FUNC_KEYS 各功能触发字卡都不再随机出现（dcfVal 返回 0），
   //   各分类概率（dcf-prob-*）仍保留。独立入口「联系人跨桌面查岗」(deskcheck) 不受此开关约束。
@@ -300,7 +305,9 @@
   function dcfEnableSet(on) { try { window.activeStore().set('dcf-enabled', on ? '1' : '0'); } catch (e) {} }
   window.dcfEnabled = dcfEnabled;
   function dcfVal(k) {
-    if (FUNC_KEYS.indexOf(k) >= 0 && !dcfEnabled()) return 0;
+    // v3.42.x #422：总开关同时覆盖新增的两个「发到聊天型」功能（checkin/pomo）——关总开关即
+    //   连寻踪日常推送与番茄钟完成消息一起停掉；deskcheck 是独立入口，仍不受总开关约束。
+    if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo') && !dcfEnabled()) return 0;
     if (!(k in DCF_DEF)) return 100;
     try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
     return DCF_DEF[k];
@@ -337,6 +344,65 @@
     });
   }
   bindDcfProb();
+  // v3.42.x #422：每个功能分类的【功能说明】标签（template 里 .gs-row .tag[data-fdesc]）——
+  //   点击弹 openModal 静态说明，讲清该功能何时触发、概率控制什么、如何彻底关。用事件委托避免
+  //   为每个分类单独绑监听。
+  const DCF_DESC = {
+    fish: '【摸鱼】联系人按你摸鱼/钓鱼的时长、心情推算后，主动来聊天里插科打诨、关心你的字卡。\n概率 = 功能正常触发的这一次，出现字卡的概率（0% 则完全不出现）。\n想彻底关：调 0% 即可；也可本页找到对应字卡逐张关闭。',
+    eat: '【吃饭】到饭点/「吃什么」决断时，联系人先发提醒、并按概率隔一会儿再补一句「追问关心」（夜宵时段用「夜宵关心」话术）的字卡。\n概率 = 触发后出现这些内容的概率，0% = 不吃喝提醒。',
+    period: '【经期】预测到经期/排卵期的前后，联系人发的温柔关心语（温柔前缀 / 动作 / 经期关心）。\n概率 = 触发后出现的概率，0% = 不发经期关心。\n还想更彻底：到「经期记录」页把「梦角关心」也关掉即可。',
+    water: '【喝水】每天 6:00–23:00 时段，联系人按间隔来聊天里催你喝水；当天已打卡达标时降为约 1/4 概率改发夸奖。一天最多约 4 条、至少隔约 50 分钟。\n概率 = 每次判定能否催水的概率，0% = 完全不催。',
+    garden: '【花园】你在花园播种/浇水/收成等互动时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不出字卡。',
+    sync: '【同频】两个人「同频」页面里的日常投递字卡。\n概率 = 投递时出现字卡的概率，0% = 不投字卡（页面功能本身不受影响）。',
+    reach: '【伸手】「伸手」小动作互动里，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 只飘字不留卡。',
+    cjian: '【此间】「此间」感知播报（TA 推测你在做什么）时，联系人说的话术字卡。\n概率 = 播报时出现字卡的概率，0% = 播报不出字卡。',
+    room: '【房间】你在「我们的房间」里点互动时，联系人回应的字卡。\n概率 = 点击后出字卡的概率，0% = 点了也不出字卡。',
+    piggy: '【存钱罐】存钱/取款后，联系人发来的关心/追问（含「取款关心」），可内联回一句。\n概率 = 取款后追问出现的概率，0% = 不追问。',
+    drift: '【漂流瓶】捞起漂流瓶时，瓶内联系人附上的话术字卡。\n概率 = 瓶内出字卡的概率，0% = 不出字卡（仍有信纸兜底，不会空白）。',
+    interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不回应字卡。',
+    music: '【音乐】听歌 / 点歌 / 分享歌互动时，联系人回应的字卡。\n概率 = 互动时出现字卡的概率，0% = 互动不出字卡。',
+    checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在 / 在做什么 / 想对你说）时，推送到聊天里的三条消息：更新提示 + 日常内容 + 概率「提醒你来寻踪」。\n概率 = 本次更新是否推送到聊天的概率，100% = 每次都发，0% = 完全不发。\n关闭后，寻踪页与历史记录照常生成，只是不再进聊天刷屏。',
+    pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。'
+  };
+  // 注入「功能说明」标签到每个概率行（含新启用的 checkin/pomo）——复用 .gs-row .tag 样式，
+  // 标签带 data-fdesc/<data-dname，交给下方 document 级事件委托。
+  (function () {
+    function injBox(boxId, ks) {
+      var box = document.getElementById(boxId);
+      if (!box) return;
+      ks.forEach(function (k) {
+        var stp = document.getElementById('dcf-prob-' + k);
+        if (!stp) return;
+        var row = stp.closest('.gs-row');
+        if (!row) return;
+        var label = row.querySelector(':scope > span');
+        if (!label || label.querySelector('.tag')) return;
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.setAttribute('data-fdesc', k);
+        tag.setAttribute('data-dname', DCF_DEF_NAME[k] || k);
+        tag.setAttribute('role', 'button');
+        tag.setAttribute('tabindex', '0');
+        tag.textContent = '功能说明';
+        label.style.cssText += ';display:flex;align-items:center;gap:6px;';
+        label.appendChild(tag);
+      });
+    }
+    injBox('dcf-prob-box', Object.keys(DCF_DEF).filter(function (k) { return k !== 'deskcheck'; }));
+    injBox('dcf-prob-box-dk', ['deskcheck']);
+  })();
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-fdesc]') : null;
+    if (!t) return;
+    var k = t.getAttribute('data-fdesc');
+    var txt = DCF_DESC[k];
+    if (!txt) return;
+    var n = dcfVal(k);
+    var title = '【' + (t.getAttribute('data-dname') || k) + '】功能说明';
+    if (window.openModal) {
+      window.openModal(title, '', function () {}, { noInput: true, staticText: txt + '\n\n当前使用概率：' + n + '%' });
+    }
+  });
   // v3.26.x：小键写日志异步合并（idb.js mochi-wrj-heal）把 dc-* 键修正后，重同步
   // 总开关/场景开关/分类开关的 UI——修荣耀 Edge 杀进程回滚 LS 后「开关退出重进变回去」
   // 且已打开的设置页仍显示旧值的问题
