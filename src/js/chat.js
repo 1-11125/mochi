@@ -2316,10 +2316,10 @@ const prevPendingOut = pendingOutScroll;
 batchRendering = true;
 for (let u = 0; u < idxs.length; u++) {
 const ui = idxs[u];
-const old = body.querySelector('.msg[data-idx="' + ui + '"]');
-if (!old) { batchRendering = false; restoreInplaceDrafts();
-  try { var _an = body.querySelector('[data-idx="' + ui + '"]'); (window.__patch402Log = window.__patch402Log || []).push('fail-node@' + ui + ' cls=' + (_an ? _an.className : 'none')); } catch (e2) {}
-  return false; }
+// 不限定 .msg 类——拍一拍/红包等消息节点类名各异（msg-poke/msg-rp…），data-idx 才是
+// 渲染路径统一写入的定位属性（旧版 fail-node@0 cls=msg-poke 实证）
+const old = body.querySelector('[data-idx="' + ui + '"]');
+if (!old) { batchRendering = false; restoreInplaceDrafts(); __plog('fail-node@' + ui); return false; }
 let nu = null;
 try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
 if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); __plog('fail-render@' + ui); return false; }
@@ -3181,7 +3181,9 @@ if (t.indexOf('data:') === 0) t = phOf();
 else if (t.indexOf('data:') > 0) t = t.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
 else if (t.indexOf('|||') >= 0) t = t.split('|||')[0].replace(/\.[^.]+$/, '').trim() || '[语音]';
 else if (t.indexOf('<svg') >= 0) t = t.replace(/<[^>]*>/g, '').trim();
-else if (t.length > 40) t = t.slice(0, 40) + '…';
+// FIX 2026-09-13 #403 桌面弹窗清洗链补媒体池令牌（含令牌消息预览不再直出 @@m:hash 乱码）
+if (t.indexOf('@@m:') >= 0) t = t.replace(/@@m:[0-9a-f]{32}/g, '[图片]');
+if (t.length > 40) t = t.slice(0, 40) + '…';
 let notifyT = t;
 if (opts.img && notifyT.indexOf('[图片]') < 0 && notifyT.indexOf('[表情包]') < 0 && notifyT.indexOf('[语音]') < 0 && notifyT.indexOf('[附件]') < 0) {
 notifyT = notifyT + ' ' + phOf();
@@ -4094,9 +4096,12 @@ setTimeout(() => { if (!sameCid()) return; toast('TA 收藏了你的一条消息
 if (chain && chain.length) {
 const typeName = { mood: '情绪', heart: '心意', intent: '交流意图' };
 setTimeout(() => {
-if (!sameCid()) return;
-const bm = m.querySelector('.msg-bubble');
-if (bm) {
+	// FIX 2026-09-13 #412 情绪链崩溃：m 可能为 null（addRec 实时去重命中时返回 null）
+	// ——定时器触发时对 null 调 querySelector＝page-chat「Cannot read properties of null
+	// (reading 'querySelector')」反复报错（荣耀/OPPO/华为等多机型同现，诊断实测）
+	if (!sameCid() || !m) return;
+	const bm = m.querySelector('.msg-bubble');
+	if (bm) {
 let mm = bm.querySelector('.msg-moods');
 if (!mm) {
 mm = document.createElement('div');
@@ -4122,9 +4127,10 @@ saveMsgs();
 try { window.periodCheckCare && window.periodCheckCare(); } catch (e) {}
 }
 if (hit(c['rc-prob'])) {
-setTimeout(() => {
-if (!sameCid()) return;
-partialRetractMsg(m, 'in');
+	setTimeout(() => {
+	// FIX 2026-09-13 #412 同源守卫：m 为 null（去重命中）时 partialRetractMsg 读 dataset 也会崩
+	if (!sameCid() || !m) return;
+	partialRetractMsg(m, 'in');
 if (c['rc-en'] !== 0 && hit(c['rc-refix'])) {
 showTyping();
 setTimeout(() => { if (!sameCid()) return; hideTyping(); replyOnce(c, null); }, 600);
@@ -8083,6 +8089,28 @@ scheduleReply();
 }
 closeEmojiPanel();
 }
+// v3.42.x 表情面板图片懒加载——与字卡库同一机制（data-src + IntersectionObserver）：
+// 联系人/公用户组里几十上百张全尺寸表情一次全量解码 = 低端/中端机型主线程卡死、图渲染不出
+//（vivoX200S+Edge 跨机型报障：面板表情图加载不出，字卡库（懒加载）与聊天气泡（单张）却正常）。
+// 只给进入视口的图补 src；dataURL 延迟解码，令牌 src 交给 media-pool 文档观察器解图。
+const emojiImgObserver = (('IntersectionObserver' in window) && emojiList)
+  ? new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      const img = en.target;
+      if (img && img.dataset && img.dataset.src && !img.getAttribute('src')) {
+        img.setAttribute('src', img.dataset.src);
+        img.removeAttribute('data-src');
+      }
+      try { emojiImgObserver.unobserve(img); } catch (e) {}
+    }
+  }, { root: emojiList, rootMargin: '300px 0px' })
+  : null;
+function emojiAttachLazy(img) {
+  if (!img) return;
+  if (emojiImgObserver) { try { emojiImgObserver.observe(img); } catch (e) {} }
+  else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
+}
 function renderEmojiGroupsBar() {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -8124,11 +8152,12 @@ d.className = 'emoji-item';
 if (mode === 'mine' && myBatchMode) {
 const k = gname + '\u0001' + i;
 const on = mySel.has(k);
-d.classList.toggle('sel', on);
-const img = document.createElement('img');
-img.src = src;
-img.alt = '表情';
-d.appendChild(img);
+	d.classList.toggle('sel', on);
+	const img = document.createElement('img');
+	img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
+	img.alt = '表情';
+	d.appendChild(img);
+	emojiAttachLazy(img);
 if (on) {
 const ck = document.createElement('span');
 ck.className = 'emoji-check';
@@ -8148,11 +8177,12 @@ ck.remove();
 });
 } else {
 const img = document.createElement('img');
-img.src = src;
-img.alt = '表情';
-d.appendChild(img);
-d.addEventListener('click', () => {
-if (emojiInsertCb) {
+	img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
+	img.alt = '表情';
+	d.appendChild(img);
+	emojiAttachLazy(img);
+	d.addEventListener('click', () => {
+	if (emojiInsertCb) {
 if (!/^data:/i.test(src) && !emojiInsertAllowUrl) { toast('链接保存的表情暂不支持插入信纸，请发送消息使用'); return; }
 const cb = emojiInsertCb;
 emojiInsertCb = null;
@@ -8182,7 +8212,8 @@ if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的表情包';
 if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
 renderEmojiGroupsBar();
-emojiList.innerHTML = '';
+	if (emojiImgObserver) emojiList.querySelectorAll('img[data-src]').forEach(im => { try { emojiImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
+	emojiList.innerHTML = '';
 if (emojiMode !== 'mine') {
 const isPub = emojiMode === 'public';
 const groups = (window.getScopedGroups && window.getScopedGroups('sticker', isPub ? 'public' : 'own')) || [];

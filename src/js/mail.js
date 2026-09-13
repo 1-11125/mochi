@@ -472,7 +472,8 @@
         notifyMailToChat(cid, name + ' 给你回了信', { mailNotice: true });
         // v3.5.107：TA 回信且不在信箱页 → 前台桌面弹窗（仅当前激活桌面才弹，用户能看到）
         if (cid === (window.__activeCid || 'default') && window.showDeskPopup && !mailPageVisible()) {
-          window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + p.content, onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+          // FIX 2026-09-13 #403 弹窗正文剥媒体池令牌/附件（原样传信件正文＝通知横幅直出乱码）
+window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String(p.content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
         }
         changed = true;
       });
@@ -868,7 +869,7 @@
         updateBadge();
         render();
         if (window.showDeskPopup && !mailPageVisible()) {
-          window.showDeskPopup({ name: '信箱', text: '给你寄来了一封信：' + content, onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+          window.showDeskPopup({ name: '信箱', text: '给你寄来了一封信：' + String(content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
         }
       }
     } catch (e) {}

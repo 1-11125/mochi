@@ -1234,6 +1234,11 @@ const FIX_SENTINELS = [
   //      只删其他站点键、不碰本应用任何数据）====
   { name: '#413 同域其他站点数据清理入口（row 锚点；删则设置→查看存储无「同域其他站点数据」行，无法一键清 ml2_*）', file: 'template.html', needle: 'id="st-slim-other"' },
   { name: '#413 同域其他站点数据扫描+一键清理（scanOtherLS/renderOtherSlim；删则无法按前缀安全清理外来键）', file: 'js/personalize.js', needle: "function scanOtherLS() {" },
+  // ==== 2026-09-13 #414 网易云分享短链 163cn.tv 导入即全部"播放失败"（vivo iQOO Z11 Edge 实报，多机型同现）——分享短链 URL 里没有歌曲数字 ID，数字藏在 302 重定向后的 music.163.com 页面里，extractNeteaseSongId 认不出、被当普通直链入库→audio.src 指向 HTML 跳转页而非音频→全失败。修复=只认官方短链宿主 163cn.tv，用 CORS 代理跟随跳转取回最终页面正则抠出 song ID，best-effort 静默回退（任何一步失败原样保留、绝不误改已有可播链接）；接入「链接添加 / 批量导入」两个入口 + 播放时刻对存量短链曲目再解析一次 ====
+  { name: '#414 163cn.tv 短链宿主识别（删正则则短链又被当普通直链、播放时绕开解析→播放失败复发）', file: 'js/music-player.js', needle: "return /(?:^|[\\s/])163cn\\.tv\\/[\\w-]+/i" },
+  { name: '#414 短链解析核心（resolveNetShortLink 跟随 302/API 代理取回 song ID；删函数则主源拿不到 ID、存量短链曲目播放再也不解析）', file: 'js/music-player.js', needle: 'function resolveNetShortLink(ln, cb) {' },
+  { name: '#403 桌面弹窗清洗链补令牌（删则弹窗横幅直出 @@m:hash 乱码）', file: 'js/chat.js', needle: "if (t.indexOf('@@m:') >= 0) t = t.replace(/@@m:[0-9a-f]{32}/g, '[图片]');" },
+  { name: '#403 信箱弹窗正文剥令牌/附件（删则信件通知横幅直出乱码）', file: 'js/mail.js', needle: "给你寄来了一封信：' + String(content" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
