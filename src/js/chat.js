@@ -695,14 +695,17 @@ function dupGapMs(m) {
   if (!m) return DUP_GAP_TEXT;
   if (m.img || m.voice || m.special) return DUP_GAP_MEDIA;
   if ((m.type === 'sticker' || m.type === 'image' || m.type === 'voice') && (m.side || '') === 'in') return DUP_GAP_MEDIA;
-  // FIX 2026-09-12 #359 发送侧媒体消息（表情包/图片/语音字卡）去重窗口 2500ms→8000ms：
-  // 低端安卓长任务 100~270ms、点完表情面板无即时反馈，用户 2.5~8s 内补点同一条＝「发一遍
-  // 出现 2 个」且刷新也不收敛（归一化同窗口放行）（摩托罗拉 G100 / 华为 P50E Edge 多机型，
-  // 无头实证：150ms 双派发被吞、3.6s 重发成 2 条永久入库）。收件侧 60000ms 不变；发件侧
-  // 8000ms 只吞 8 秒内同内容重发，#256「人为连发不吞」的口径仅从 2.5s 放宽到此。
-  if (m.type === 'sticker' || m.type === 'image' || m.type === 'voice') return 8000;
-  // parts 型纯图片消息（相册发送，text 为空/说明文字）同窗口
-  if (Array.isArray(m.parts) && m.parts.some(p => p && p.k === 'img') && (m.side || '') === 'out') return 8000;
+  // FIX 2026-09-12 #359 → 2026-09-14 #437 口径演进（发送侧媒体：表情包/图片/语音字卡）：
+  // 2500ms→8000ms（#359：摩托罗拉 G100/华为 P50E 无反馈补点「发一遍出 2 个」）→800ms（#437：
+  // 用户确认「同一时间发同样的内容必须能发出去」，多机型同报误吞）。表情面板发完即关，人为重发
+  // 必须重开面板再点同一条 ≈≥1s，800ms 只吞机械双派发/双击（#359 无头实证 150ms 双派发、
+  // #401 低端机长任务 606ms 延迟均 <800ms，与 #401 发件侧纯文本 800ms 同一口径），有意重发
+  // 一律放行；collapseRapidDups/normCollapseRange 共用本窗口＝刷新归一化不回吞（屏上所见即
+  // 刷新后所见，#256 原则不动）。收件侧 60000ms 不变（#256 TA 多字卡回复批 1.2~2.8s 间隔
+  // 防同款两张照旧）；命中吞并时 addRec 给 toast 反馈不再静默（#437，静默吞＝「发不出去」报障源）。
+  if (m.type === 'sticker' || m.type === 'image' || m.type === 'voice') return 800;
+  // parts 型纯图片消息（相册发送，text 为空/说明文字）同窗口：同图快速重发属合法行为
+  if (Array.isArray(m.parts) && m.parts.some(p => p && p.k === 'img') && (m.side || '') === 'out') return 800;
   // FIX 2026-09-13 #401 发件侧纯文本去重窗口 2500ms→800ms：发守卫（userEditedAfterClear）
   // 已放行的「用户真实重打同文本」仍撞进本窗被静默吞掉＝「点发送消息没了」（红米 K80
   // 报障同族复发——v3.17.x 只修了守卫层误吞，addRec 这第二层漏网；无头实证：重打同文本
@@ -2561,10 +2564,34 @@ if (!im.isConnected || !im.complete) return;
 if (im.naturalWidth !== 0) return;
 const s = im.getAttribute('src') || '';
 const isTok = window.mochiMediaIsToken && window.mochiMediaIsToken(s);
-if (isTok && window.mochiMediaExpand && window.mochiMediaExpand(s)) return; // 池有数据，观察器稍后会改写
+if (isTok) {
+// FIX 2026-09-14 #439 池权威判定：令牌 src 404 只是浏览器把令牌当 URL 请求失败的噪音，
+// 池解图走观察器异步取回（慢机/大库/#397 取回限流下 1.5s 远不够）——旧逻辑凭 1.5s 超时
+// 即替换＝把「取回慢」误杀成「数据丢失」（红米K80 等「图片依旧说丢失」的主体），且占位
+// 换掉后 #423 重建自愈只重写 img 摸不到占位＝「点了重建还是丢失」。改为轮询池官方判定：
+// 解出→观察器已改写不动；确认缺失→才换占位并登记（mochiMediaPhRegister，池补回后由
+// mochiMediaPhRestore 原位换回真图自愈）；4s 仍无判定→保留 img 交给观察器/下次渲染。
+const h = s.slice(4);
+let n = 0;
+const iv = setInterval(() => {
+if (!im.isConnected) { clearInterval(iv); return; }
+if (window.mochiMediaExpand && window.mochiMediaExpand(s)) { clearInterval(iv); return; }
+if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(s)) {
+clearInterval(iv);
 const ph = document.createElement('span');
 ph.style.cssText = 'opacity:.5;font-size:12px';
-ph.textContent = isTok ? '（图片丢失：媒体数据缺失，可到设置→查看存储→媒体池「重建媒体池」恢复，或导入含图片的完整备份）' : '（表情/图片加载失败：网络不通或原图已失效）';
+ph.textContent = '（图片丢失：媒体数据缺失，可到设置→查看存储→媒体池「重建媒体池」恢复，或导入含图片的完整备份）';
+im.replaceWith(ph);
+try { if (window.mochiMediaPhRegister) window.mochiMediaPhRegister(h, ph, im); } catch (e2) {}
+return;
+}
+if (++n >= 8) clearInterval(iv);
+}, 500);
+return;
+}
+const ph = document.createElement('span');
+ph.style.cssText = 'opacity:.5;font-size:12px';
+ph.textContent = '（表情/图片加载失败：网络不通或原图已失效）';
 im.replaceWith(ph);
 }, 1500);
 });
@@ -3393,7 +3420,13 @@ if ((p.side || '') !== (rec.side || '')) continue;
 if (!!p.img !== !!rec.img) continue;
 if (!mediaTxtEq(p.text, rec.text)) continue;
 const dts = (rec.ts || 0) - (p.ts || 0);
-if (dts >= 0 && dts <= dupGapMs(rec)) { saveMsgs(); return null; }
+if (dts >= 0 && dts <= dupGapMs(rec)) {
+saveMsgs();
+// FIX 2026-09-14 #437：发件侧命中去重给反馈不再静默——#401 家族教训「守卫放行、去重吞掉、
+// 音效照放、气泡 0 条＝用户以为发送坏了」。收件侧（TA 自动回复批）与静默补投递照旧无声。
+try { if ((rec.side || '') === 'out' && !rec.silent && typeof toast === 'function') toast('同样的内容刚发送过，未重复发送'); } catch (e) {}
+return null;
+}
 }
 msgs.push(rec);
 chatTailAppend(rec); // #180：同步尾巴日志先落 LS，再交低频整包落盘
@@ -8154,23 +8187,68 @@ closeEmojiPanel();
 // 联系人/公用户组里几十上百张全尺寸表情一次全量解码 = 低端/中端机型主线程卡死、图渲染不出
 //（vivoX200S+Edge 跨机型报障：面板表情图加载不出，字卡库（懒加载）与聊天气泡（单张）却正常）。
 // 只给进入视口的图补 src；dataURL 延迟解码，令牌 src 交给 media-pool 文档观察器解图。
+// FIX 2026-09-14 #435 面板图「加载慢/迟迟不显示」（多机型同发，上一轮懒加载后仍现）：
+// ①rootMargin 300px 是按字卡库近全屏列表定的，面板滚动区仅 max-height:40vh——上下各
+//   300px 外扩后触发窗口≈3 屏，打开分组瞬间 40+ 张图同时进解码管线＝主线程长任务接连，
+//   图反而迟迟画不出。收窄到 120px（面板小容器仍够预读半屏）；
+// ②IO 回调一次性把触发区全部图同步补 src——改成泵式分批：进区图的排队列，每 50ms 补
+//   一小批（4 张）让出主线程，先到先解码先显示，滚动时泵自然续上（能力不删、无 IO 兜底
+//   全量补照旧，零机型分支）。
+const emojiLazyQueue = [];   // 已进入触发区待补 src 的 img（FIFO）
+let emojiLazyT = null;       // 泵定时器（null=未在泵）
+function emojiLazyEnqueue(img) {
+  if (emojiLazyQueue.indexOf(img) >= 0) return;
+  emojiLazyQueue.push(img);
+  if (!emojiLazyT) emojiLazyT = setTimeout(emojiLazyPump, 50);
+}
+function emojiLazyPump() {
+  emojiLazyT = null;
+  for (let n = 0; n < 4 && emojiLazyQueue.length; n++) {
+    const img = emojiLazyQueue.shift();
+    if (!img || !img.isConnected) continue; // 重渲染已丢弃的节点不再补
+    if (img.dataset && img.dataset.src && !img.getAttribute('src')) {
+      img.setAttribute('src', img.dataset.src);
+      img.removeAttribute('data-src');
+    }
+    try { emojiImgObserver.unobserve(img); } catch (e) {}
+  }
+  if (emojiLazyQueue.length && emojiImgObserver) emojiLazyT = setTimeout(emojiLazyPump, 50);
+}
 const emojiImgObserver = (('IntersectionObserver' in window) && emojiList)
   ? new IntersectionObserver((entries) => {
     for (const en of entries) {
       if (!en.isIntersecting) continue;
       const img = en.target;
-      if (img && img.dataset && img.dataset.src && !img.getAttribute('src')) {
-        img.setAttribute('src', img.dataset.src);
-        img.removeAttribute('data-src');
-      }
-      try { emojiImgObserver.unobserve(img); } catch (e) {}
+      if (img && img.dataset && img.dataset.src) emojiLazyEnqueue(img);
     }
-  }, { root: emojiList, rootMargin: '300px 0px' })
+  }, { root: emojiList, rootMargin: '120px 0px' })
   : null;
 function emojiAttachLazy(img) {
   if (!img) return;
   if (emojiImgObserver) { try { emojiImgObserver.observe(img); } catch (e) {} }
   else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
+}
+// FIX 2026-09-14 #435 面板 img 统一创建：补 decoding="async"（字卡库 img 一直有、面板漏了
+// ——大 dataURL 解码不再阻塞主线程渲染帧）
+function emojiNewImg(src) {
+  const img = document.createElement('img');
+  img.decoding = 'async';
+  img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
+  img.alt = '表情';
+  return img;
+}
+// FIX 2026-09-14 #435 组内令牌批量预热：TA/公用大库贴纸卡以 @@m:hash 存在，面板图原路径
+// =IO 补 src→media-pool 观察器→miss 读 IDB（8 并发排队）→重写 src→再解码，五段异步串行
+// ＝冷启动图慢半拍。渲染分组后把组内令牌交给媒体池批量预热（map 命中后观察器同步重写）。
+// 延迟 250ms 起——不与面板首屏解码抢主线程；接口内部分批读+会话内去重，重渲染零重复读。
+function emojiWarmGroupTokens(arr) {
+  if (!window.mochiMediaWarmTokens || !Array.isArray(arr)) return;
+  const toks = [];
+  for (let i = 0; i < arr.length; i++) {
+    const s = arr[i];
+    if (typeof s === 'string' && s.indexOf('@@m:') === 0) toks.push(s.slice(4));
+  }
+  if (toks.length) setTimeout(function () { try { window.mochiMediaWarmTokens(toks); } catch (e) {} }, 250);
 }
 function renderEmojiGroupsBar() {
 if (!emojiGroupsBar) return;
@@ -8207,17 +8285,16 @@ emojiGroupsBar.appendChild(c);
 function renderEmojiGroup(gname, arr, mode) {
 const grid = document.createElement('div');
 grid.className = 'emoji-grid';
+emojiWarmGroupTokens(arr); // #435：组内令牌提前批量预热，不等逐图 miss 读排队
 arr.forEach((src, i) => {
 const d = document.createElement('div');
 d.className = 'emoji-item';
 if (mode === 'mine' && myBatchMode) {
 const k = gname + '\u0001' + i;
 const on = mySel.has(k);
-	d.classList.toggle('sel', on);
-	const img = document.createElement('img');
-	img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
-	img.alt = '表情';
-	d.appendChild(img);
+		d.classList.toggle('sel', on);
+const img = emojiNewImg(src); // #435：统一创建（decoding=async + 懒加载）
+		d.appendChild(img);
 	emojiAttachLazy(img);
 if (on) {
 const ck = document.createElement('span');
@@ -8237,9 +8314,7 @@ ck.remove();
 }
 });
 } else {
-const img = document.createElement('img');
-	img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
-	img.alt = '表情';
+const img = emojiNewImg(src); // #435：统一创建（decoding=async + 懒加载）
 	d.appendChild(img);
 	emojiAttachLazy(img);
 	d.addEventListener('click', () => {
@@ -8274,6 +8349,8 @@ if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
 renderEmojiGroupsBar();
 	if (emojiImgObserver) emojiList.querySelectorAll('img[data-src]').forEach(im => { try { emojiImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
+	emojiLazyQueue.length = 0; // #435：重绘丢弃旧节点，待补队列与泵一并作废，防止补到游离节点
+	if (emojiLazyT) { clearTimeout(emojiLazyT); emojiLazyT = null; }
 	emojiList.innerHTML = '';
 if (emojiMode !== 'mine') {
 const isPub = emojiMode === 'public';
@@ -9485,6 +9562,9 @@ input._mClearTxt = '';
 const addMsg = (text) => {
 const t0 = (text || '').trim();
 if (t0 && t0 === lastSendTxt && Date.now() - lastSendTs < SEND_GUARD_MS && !userEditedAfterClear()) {
+// FIX 2026-09-14 #437：双击发送命中防重发守卫同样给反馈不再静默（守卫语义不变：机械双击
+// 仍只发 1 条，防内核幽灵双 click＝#115/#215 家族防线；只是让「为什么没发出去」看得见）
+try { toast('同样的内容刚发送过，未重复发送'); } catch (e) {}
 clearChatInput();
 draftImgs = [];
 renderDraft();

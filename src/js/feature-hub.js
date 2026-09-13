@@ -27,11 +27,15 @@
       { n: '引用回复', d: '引用某条消息回复，可带表情包+文字', k: '引用 回复', where: '聊天里长按任意消息' },
       { n: '通话', d: '拨打/接听电话，可设自定义铃声与背景', k: '电话 通话 打电话', go: ['.app[data-app="chat"]', '#more-call'] },
       { n: '邀请 TA', d: '发邀请字卡（预设+自定义，可重复发送）', k: '邀请 约会', go: ['.app[data-app="chat"]', '#more-invite'] },
-      { n: '问问 TA / TA 的提问', d: '让 TA 现在问你一次，或向 TA 发问', k: '提问 问问 问题', go: ['.app[data-app="chat"]', '#more-ask'] },
-      { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] }
+      { n: '问问 TA / TA 的提问', d: '让 TA 现在问你一次（提问/选择题/好奇/吐槽），或向 TA 发问', k: '提问 问问 问题 选择题 好奇 吐槽 现在', go: ['.app[data-app="chat"]', '#more-ask'] },
+      { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] },
+      { n: '收藏设置', d: 'TA 自动收藏消息/字卡/信件/动态的概率与统计', k: '收藏 设置 概率 自动收藏', go: ['.app[data-app="note"]', '#fav-settings-btn'] },
+      { n: '词典拼字', d: '语录字卡按概率拼成单气泡/逐条连发，两形态可开关', k: '拼字 词典 语录 连发', go: ['#row-general'] },
+      { n: '梦角自由造句', d: 'TA 按概率截词重造句，语料来源与权重可调', k: '造句 自由造句 梦角 截词', go: ['#row-general'] }
     ] },
     { g: '字卡库', items: [
       { n: '字卡库', d: '全部字卡的统一入口：公用/专属/预设/情绪/回应…', k: '字卡库 词库', go: ['.tab[data-page="page-chatcard"]'] },
+      { n: '词典字卡', d: '独立词典大分类：TA 说话的词库来源管理', k: '词典 词库 大分类', go: ['.tab[data-page="page-chatcard"]', '#li-dict-cards'] },
       { n: '公用 / 专属自定义字卡', d: '自建字卡：公用全桌面共享，专属仅当前 TA', k: '自定义 公用 专属', go: ['.tab[data-page="page-chatcard"]', '#li-custom-cards'] },
       { n: '系统预设字卡', d: '内置词库逐句开关，含词典语录分类', k: '预设 内置 词典 语录', go: ['.tab[data-page="page-chatcard"]', '#li-default-cards'] },
       { n: '聊天情绪字卡', d: '情绪/心意/交流意图词库，按心情匹配', k: '情绪 心意 交流意图', go: ['.tab[data-page="page-chatcard"]', '#li-mood-cards'] },
@@ -39,6 +43,10 @@
       { n: '语录字卡', d: '今日情话等语录内容管理', k: '语录 情话', go: ['.tab[data-page="page-chatcard"]', '#li-quote-cards'] },
       { n: '其他互动功能字卡', d: '摸鱼/吃饭/经期/喝水/花园等功能触发字卡', k: '互动 功能字卡 摸鱼 经期 喝水', go: ['.tab[data-page="page-chatcard"]', '#li-fun-cards'] },
       { n: 'TA 的提问字卡', d: '询问/小问题/好奇/吐槽/邀请 题库自定义', k: '提问 题库 询问 好奇 吐槽', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask'] },
+      { n: 'TA 的心情字卡', d: 'TA 聊天中主动分享心情/状态的概率与词库', k: '心情 状态 主动分享', go: ['.tab[data-page="page-chatcard"]', '#li-ta-mood'] },
+      { n: 'TA 的选择题字卡', d: 'TA 出选择题考你/让你选的题库自定义', k: '选择题 提问 选择', go: ['.tab[data-page="page-chatcard"]', '#li-ta-choose'] },
+      { n: 'TA 的好奇字卡', d: 'TA 好奇问你问题的题库自定义', k: '好奇 提问 问题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-curious'] },
+      { n: 'TA 的吐槽字卡', d: 'TA 吐槽/调侃内容的题库自定义', k: '吐槽 调侃', go: ['.tab[data-page="page-chatcard"]', '#li-ta-roast'] },
       { n: '查岗互动字卡', d: '温柔关心式查岗问题卡内容自定义', k: '查岗 定位', go: ['.tab[data-page="page-chatcard"]', '#li-ta-checkin'] },
       { n: '寻踪日常字卡', d: 'TA 的日常/在哪里/在做什么/想对你说 内容', k: '寻踪 日常 位置', go: ['.tab[data-page="page-chatcard"]', '#li-loc-cards'] },
       { n: '桌面查岗字卡', d: '联系人跨桌面查岗的系统预设字卡管理', k: '桌面查岗 跨桌面', go: ['.tab[data-page="page-chatcard"]', '#li-deskcheck'] },

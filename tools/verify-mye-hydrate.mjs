@@ -28,7 +28,25 @@ const srcApply = cut('function myeApplyIdb', 'function myeHydrateFallback');
 const srcHyd = cut('function myeHydrateFallback', 'function myEmojiSave');
 const srcSave = cut('function myEmojiSave', 'window.getMyEmojiGroups = function');
 const srcReload = cut('function reloadMyEmojiFromIdb', "document.addEventListener('contact-switched'");
-const srcTry = cut('function tryRestore', 'tryRestore();');
+// #281 起启动链被包进 IIFE 且调用改 setTimeout(tryRestore, 4000)（旧锚 'tryRestore();' 已不存在，抽取恒失败）。
+// IIFE 会把 tryRestore 关进自身作用域（工厂体 return 取不到），故只按括号平衡截取函数体本身；
+// 闭包变量 retry 由工厂注入（下方 let retry = 0，语义同原实现），行为断言由 api.tryRestore() 手动驱动。
+const fnBody = (s, from) => {
+  const st = s.indexOf('{', from);
+  let d = 0, i = st;
+  for (; i < s.length; i++) {
+    const c = s[i];
+    if (c === "'" || c === '"' || c === '`') { const q = c; i++; while (i < s.length && s[i] !== q) { if (s[i] === '\\') i++; i++; } continue; }
+    if (c === '/' && s[i + 1] === '/') { while (i < s.length && s[i] !== '\n') i++; continue; }
+    if (c === '{') d++;
+    else if (c === '}') { d--; if (!d) return i; }
+  }
+  return -1;
+};
+const srcTryA = text.indexOf('function tryRestore');
+const srcTryB = srcTryA < 0 ? -1 : fnBody(text, srcTryA);
+if (srcTryA < 0 || srcTryB < 0) { console.error('抽取失败：tryRestore 函数体不在位'); process.exit(1); }
+const srcTry = text.slice(srcTryA, srcTryB + 1);
 
 const KEY = 'xy-home-v2:my-emoji-groups';
 const img = (n) => 'data:image/gif;base64,IMG' + n;
@@ -63,7 +81,8 @@ function makeEnv(cfg) {
   };
   const factory = new Function('env', `
     const window = env.window, myEmojiStore = env.myEmojiStore, MYE_KEY = env.MYE_KEY,
-          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel;
+          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel,
+          document = env.document; // #434 后 myEmojiSave 旁路补写闸监听 document/window
     let myGroups = env.initial;
     let retry = 0; // tryRestore 外层 IIFE 的闭包变量（源码同名）
     ${srcApply}
@@ -78,6 +97,7 @@ function makeEnv(cfg) {
   `);
   const api = factory({
     window: win,
+    document: { addEventListener: function () {} },
     // 真实 xyStore.get/set 在内部拼前缀（业务侧传裸键名，IDB/挂起名单用全键）
     myEmojiStore: () => ({
       get: (k) => (store.has('xy-home-v2:' + k) ? store.get('xy-home-v2:' + k) : null),
@@ -104,7 +124,8 @@ function makeEnv(cfg) {
 {
   const factory = new Function('env', `
     const window = env.window, myEmojiStore = env.myEmojiStore, MYE_KEY = env.MYE_KEY,
-          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel;
+          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel,
+          document = env.document; // #434 后 myEmojiSave 旁路补写闸监听 document/window
     let myGroups = env.initial;
     ${srcApply}
     return { myeApplyIdb, get: () => myGroups };
@@ -132,7 +153,8 @@ function makeEnv(cfg) {
   const LOCAL6 = groups([['A', 2, 'l'], ['B', 2, 'l'], ['D', 2, 'l']]);
   const factory = new Function('env', `
     const window = env.window, myEmojiStore = env.myEmojiStore, MYE_KEY = env.MYE_KEY,
-          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel;
+          emojiPanel = env.emojiPanel, renderEmojiPanel = env.renderEmojiPanel,
+          document = env.document; // #434 后 myEmojiSave 旁路补写闸监听 document/window
     let myGroups = env.initial;
     ${srcApply}
     return { myeApplyIdb, get: () => myGroups };
@@ -175,13 +197,20 @@ function makeEnv(cfg) {
   ok(last && last[0] === KEY && cntOf(JSON.parse(last[1])) === 1, "T6' hydrate=null（IDB 确认无键）→ 直接写内存态", 'sets=' + calls.sets.length);
 }
 
-// T7 正常路径：键已恢复（不在挂起名单）→ 直接写内存态、零 hydrate 开销
+// T7（#281/#434 口径更新——旧断言「首写零 hydrate」是 #281 闸门扩展前的过期期望）：
+// 未应用过权威值的首写必须先取回合并再落笔（hyd=1，防盲写顶掉 IDB 全量）；
+// 已应用过权威值后的第二次保存走直接写、零 hydrate（快路径保留）
 {
   const { api, calls } = makeEnv({ deferred: false, idbValue: undefined, hydrateResult: true, hydrateValue: FULL, initial: NEWADD });
   api.myEmojiSave();
   await flush();
+  const merged = calls.sets[calls.sets.length - 1];
+  ok(calls.hydrates.length === 1 && merged && cntOf(JSON.parse(merged[1])) === 6, 'T7 首写未应用权威值 → 先取回合并再落笔（#281 口径，6=FULL5+新1）', 'hyd=' + calls.hydrates.length);
+  api.set([['新组', [img('n_0')]]]);
+  api.myEmojiSave();
+  await flush();
   const last = calls.sets[calls.sets.length - 1];
-  ok(calls.hydrates.length === 0 && last && last[0] === KEY && cntOf(JSON.parse(last[1])) === 1, 'T7 已恢复 → 直接写内存态、不 hydrate', 'hyd=' + calls.hydrates.length);
+  ok(calls.hydrates.length === 1 && last && last[0] === KEY && cntOf(JSON.parse(last[1])) === 1, 'T7 已应用过权威值 → 二次保存直接写、零 hydrate（快路径）', 'hyd=' + calls.hydrates.length);
 }
 
 // T8 tryRestore 启动自愈：3 次重试全空 → 穷尽后走 hydrate 兜底（桩 setTimeout 同步推进退避）

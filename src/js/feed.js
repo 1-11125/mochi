@@ -432,6 +432,25 @@
       if (snap.length <= LS_BIG_LIMIT) localStorage.setItem('xy-home-v2:default:' + SNAP_KEY, snap);
     } catch (e) {}
   }
+  // v3.42.x 点赞卡顿：persistSnap 每次全量 stringify 兆级动态（剥图版），与 save 主键的
+  //   全量 stringify 同帧叠加＝点赞/评论一次两个长任务（手机端数百 ms，整页跟着卡）。
+  //   快照只是 IDB/LS 丢失后的兜底，改 800ms 尾随合并落盘：连续点赞/评论只付一次；
+  //   pagehide/切后台强制刷盘保兜底时效；主键 feedGuardWrite 仍即时写，不受影响。
+  let snapTimer = null, snapPending = null;
+  function flushSnap() {
+    if (!snapTimer) return;
+    clearTimeout(snapTimer); snapTimer = null;
+    if (snapPending) { try { persistSnap(snapPending); } catch (e) {} snapPending = null; }
+  }
+  function scheduleSnap(arr) {
+    snapPending = arr;
+    if (snapTimer) return;
+    snapTimer = setTimeout(() => { snapTimer = null; flushSnap(); }, 800);
+  }
+  try {
+    window.addEventListener('pagehide', flushSnap);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSnap(); });
+  } catch (e) {}
   function save(list) {
     const arr = list || [];
     // v3.10.x：清理存量评论/回复的 authorAv（旧数据存了头像 dataURL，撑大主键 >200KB
@@ -465,9 +484,10 @@
     // 清空时同步清掉旧快照（防清空后又被陈旧快照"恢复"出已删除的动态）
     if (!arr.length) {
       try { localStorage.removeItem('xy-home-v2:default:' + SNAP_KEY); } catch (e) {}
+      if (snapTimer) { clearTimeout(snapTimer); snapTimer = null; snapPending = null; }
       return;
     }
-    persistSnap(arr);
+    scheduleSnap(arr);
   }
   function avHtml(data, cls) {
     const c = cls || 'feed-av';
@@ -1118,10 +1138,11 @@
   //   全部事件重绑，重度图片数据下发一条评论就卡顿数百 ms~秒级（手机端明显）。
   //   改为只替换该动态的卡片节点，其余卡片 DOM 原地不动（不解码图片、不重绑事件）；
   //   卡片不在当前列表（刚发布/已删除/空态）时回退全量渲染兜底。
-  function refreshPostCard(pid) {
+  function refreshPostCard(pid, preload) {
     const el = document.getElementById('feed-post-' + pid);
     if (!el) { renderVisible(); return; }
-    const p = load().find(x => x.id === pid);
+    // v3.42.x 点赞卡顿：调用方（点赞/回赞）刚 load() 过就传 preload，省一次兆级全量 parse
+    const p = (preload && preload.id === pid) ? preload : load().find(x => x.id === pid);
     if (!p) { renderVisible(); return; }
     // 「全部朋友圈」页卡片模板与主列表略有差异（点赞行样式/作者取 feedAllCid），按所在列表选模板
     const html = el.closest('#feed-all-list') ? postCardHtmlAll(p) : postCardHtml(p, partnerName());
@@ -1159,7 +1180,7 @@
       const wasMe = i >= 0;
       if (wasMe) p.likes.splice(i, 1); else p.likes.push(nm);
       save(list);
-      refreshPostCard(b.dataset.like);
+      refreshPostCard(b.dataset.like, p);
       if (!wasMe && (p.role || p.by) === 'me' && Math.random() * 100 < feedCfgFor(p.owner || 'default').likeback) {
         // v3.7.x：回赞的是动态所属桌面 TA，用该桌面设置
         const cfg = feedCfgFor(p.owner || 'default');
@@ -1170,7 +1191,7 @@
           p2.likes = p2.likes || [];
           if (p2.likes.indexOf(p2.taName || taFeedNameFor(p2.owner || 'default')) < 0) p2.likes.push(p2.taName || taFeedNameFor(p2.owner || 'default'));
           save(list2);
-          refreshPostCard(p.id);
+          refreshPostCard(p.id, p2);
           addNotice('like', p2.id, (p2.taName || taFeedNameFor(p2.owner || 'default')) + ' 赞了你的动态', p2.owner || 'default');
         }, (cfg.likeSpeedMin + Math.random() * Math.max(1, cfg.likeSpeedMax - cfg.likeSpeedMin)) * 1000);
       }

@@ -74,6 +74,33 @@
     if (markT) return;
     markT = setTimeout(flushMissingMarks, 120);
   }
+  // FIX 2026-09-14 #439 文字占位登记自愈——chat.js 按本模块官方判定（mochiMediaTokenMissing
+  // 确认缺失）把「图片丢失」文字占位换掉 img 后，观察器/rebuild 的自愈都只重写 img[src^=@@m:]，
+  // 摸不到已替换的占位＝「点了重建媒体池还是丢失」。这里按 hash 登记 {占位, 原 img}，池补回时
+  // 原位换回真图（resolveImg 成功路径与 mochiMediaRebuild heal 均触发 mochiMediaPhRestore）。
+  const phReg = new Map();          // hash -> [占位 span（.__mochiImg=原 img）]
+  window.mochiMediaPhRegister = function (h, ph, img) {
+    if (!ph || !ph.nodeType || !TOKEN_RE.test(TOK + h)) return;
+    let list = phReg.get(h);
+    if (!list) { list = []; phReg.set(h, list); }
+    if (list.indexOf(ph) < 0) { ph.__mochiImg = img || null; list.push(ph); }
+  };
+  window.mochiMediaPhRestore = function (h, v) {
+    const list = phReg.get(h);
+    if (!list || typeof v !== 'string' || v.indexOf('data:image/') !== 0) return;
+    phReg.delete(h);
+    list.forEach(function (ph) {
+      try {
+        const im = ph.__mochiImg;
+        if (im) {
+          try { ph.replaceWith(im); } catch (e2) {}
+          im.classList.remove('media-tok-missing');
+          im.removeAttribute('alt');
+          im.src = v;
+        }
+      } catch (e) {}
+    });
+  };
   const inflight = {};              // hash -> true（渲染侧单飞取回）
   let writeBuf = [];                // 待落池 [{k,v}]
   let flushT = null;
@@ -187,6 +214,7 @@
       if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) { missing.add(h); markMissing(h); return; }
       missing.delete(h); // 后续读到有效值＝池已补回（导入完整备份等），解除剔除/占位
       map.set(h, v2);
+      try { window.mochiMediaPhRestore(h, v2); } catch (ePH) {} // #439 已换文字占位的原位换回自愈
       let nodes;
       try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
       Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
@@ -220,6 +248,52 @@
   function bootScan() { scanRoot(document); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootScan);
   else bootScan();
+
+  // ===== FIX 2026-09-14 #435 令牌批量预热（渲染方主动调，首个消费方=聊天表情面板）=====
+  // 背景：面板一次渲染几十张令牌图，原路径＝懒加载逐图补 src → 观察器逐个 resolveImg →
+  // miss 读 idbGet（MISS_READ_MAX=8 并发排队）→ 重写 src → 再解码，五段异步串行＝冷启动
+  // 图慢半拍、低端机迟迟不出图。预热＝渲染方把整组 hash 一次性交来：过滤 map 已有/在飞/
+  // 已确认缺失/本会话已预热过的，剩余分批 idbGetMany（单事务批量读，每批 8 个，批间让出
+  // 主线程），读到有效值走 resolveImg 完成态同款语义（map.set + missing.delete + 全文档
+  // 重写匹配 img）。与观察器互斥：预热在飞期间占 inflight[h]，观察器对同 hash 不再重复
+  // 打 IDB；读到脏值不 markMissing（占位仍交观察器原逻辑），只记已试防整组重渲染重扫
+  //（#397 防风暴同款纪律）。
+  const warmSeen = new Set();
+  const warmQueue = [];
+  let warmT = null;
+  function warmPump() {
+    warmT = null;
+    const batch = warmQueue.splice(0, 8);
+    if (!batch.length) return;
+    window.idbGetMany(batch.map(function (h) { return FULL + h; })).then(function (vals) {
+      vals = vals || {};
+      batch.forEach(function (h) {
+        delete inflight[h];
+        const v = vals[FULL + h];
+        if (typeof v !== 'string' || v.indexOf('data:image/') !== 0) return; // 脏值/缺失：不进 map 不占位
+        missing.delete(h);
+        if (!map.has(h)) map.set(h, v);
+        let nodes;
+        try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
+        Array.prototype.forEach.call(nodes, function (el) { el.src = v; });
+      });
+      if (warmQueue.length) warmT = setTimeout(warmPump, 0);
+    }).catch(function () {
+      batch.forEach(function (h) { delete inflight[h]; }); // 整批失败：放行观察器原路径自愈
+    });
+  }
+  window.mochiMediaWarmTokens = function (hashes) {
+    if (!Array.isArray(hashes)) return;
+    for (let i = 0; i < hashes.length; i++) {
+      const h = String(hashes[i] || '');
+      if (!/^[0-9a-f]{32}$/.test(h) || warmSeen.has(h)) continue;
+      warmSeen.add(h);
+      if (map.has(h) || missing.has(h) || inflight[h]) continue;
+      inflight[h] = true;
+      warmQueue.push(h);
+    }
+    if (warmQueue.length && !warmT) warmT = setTimeout(warmPump, 0);
+  };
 
   // ===== v3.26.x 存储优化：孤儿媒体 GC（mark-and-sweep）=====
   // 背景：#142 v1 池只增不删——消息/收藏删除后池内图片永留，长账用户池底越滚越大。
@@ -469,7 +543,7 @@
       function heal(p) {
         const h = String(p.k).slice(FULL.length);
         valid.add(h);
-        if (p.v.indexOf('data:image/') === 0) map.set(h, p.v); // 音频不进热缓存（#283 内存纪律）
+        if (p.v.indexOf('data:image/') === 0) { map.set(h, p.v); try { window.mochiMediaPhRestore(h, p.v); } catch (ePH2) {} } // 音频不进热缓存（#283 内存纪律）；#439 占位原位换回
         missing.delete(h);
         out.written++;
       }

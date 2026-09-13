@@ -1098,7 +1098,15 @@
         try { idbKeys.forEach(k => { backupKeySet[k] = true; }); } catch (e) {}
         const retainStep = (window.idbListKeys && window.idbGetMany)
           ? window.idbListKeys().then(function (curKeys) {
-              if (!Array.isArray(curKeys)) return []; // 清单读取失败/超时 → 不保留（无法确定哪些该保留）
+              // FIX 2026-09-14 #440 清单读不到（idbListKeys 严格版 null＝「未知」）绝不能按
+              // 「无需保留」继续：保留清单是 #118 防 clear 丢数据的唯一防线，「只备份文字」
+              // 备份不含媒体池键，此处放行＝idbReplaceAll clear 把整个媒体池抹掉＝全部图片
+              // 变「图片丢失」且随导入跨设备扩散（红米K80 等多机型反复图片丢失的传播口子）。
+              // 改为中止导入（resolve(false) 走下方既有失败分支：进度遮罩+「原有数据已保留」
+              // 提示，原数据一字不动），稍后存储空闲重试——与 idb.js 严格版契约一致：
+              // 「null 只能当未知，绝不据此落盘覆盖」。retain 值批量读失败同理（清单在、
+              // 值拿不到＝保留不了，照样会 clear 掉这些键）。
+              if (!Array.isArray(curKeys)) return { abort: true };
               const retain = curKeys.filter(function (k) {
                 return k && k.indexOf('xy-home-v2:') === 0 &&
                   k !== SNAPSHOT_KEY &&
@@ -1112,10 +1120,12 @@
                   if (v !== undefined && v !== null) kept.push({ k: k, v: v });
                 });
                 return kept;
-              }).catch(function () { return []; });
-            }).catch(function () { return []; })
+              }).catch(function () { return { abort: true }; });
+            }).catch(function () { return { abort: true }; })
           : Promise.resolve([]);
-        retainStep.then(function (keptPairs) {
+        retainStep.then(function (kept) {
+          if (kept && kept.abort) { resolve(false); return; } // #440 清单未知＝无法安全替换式导入 → 中止（原数据保留）
+          const keptPairs = kept || [];
           const allPairs = keptPairs.length ? pairs.concat(keptPairs) : pairs;
           window.idbReplaceAll(allPairs).then(ok => {
             if (ok) impShow('正在导入…', '大文件写入完成' + (keptPairs.length ? '（已保留备份未含的 ' + keptPairs.length + ' 个旧键）' : ''), 60);

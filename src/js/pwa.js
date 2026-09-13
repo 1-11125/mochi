@@ -172,6 +172,10 @@
     let lastCheck = 0;
     let failCount = 0;
     function checkVersion() {
+      // FIX 2026-09-14 #436 后台发热减负：保活音频豁免让本轮询在后台不节流——原先后台照跑＝
+      // 每 15s 一次 version.json 网络请求，整夜周期性唤醒射频＝后台发热/耗电的纯浪费源。
+      // 版本提醒条只对看得见屏幕的用户有意义：回前台有 visibilitychange/pageshow 即时检查兜底。
+      if (document.visibilityState !== 'visible') return;
       const now = Date.now();
       // v3.10.x：轮询 30s → 15s；检测失败后 5s 快速重试（GitHub Pages 国内弱网抖动时尽快恢复）
       const interval = failCount > 0 ? 5000 : 15000;

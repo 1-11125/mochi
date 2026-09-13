@@ -237,7 +237,13 @@ const FIX_SENTINELS = [
   { name: '#357 语音播放挂载 DOM（playVoiceInChat 挂到 body 再 play、停播即卸；删则安卓 WebView 未挂载 Audio 静默空放/播放失败，收藏与聊天语音同链路复发）', file: 'js/chat.js', needle: "if (!a.parentNode) { a.style.display = 'none'; document.body.appendChild(a); }" },
   { name: '#358 跨桌面投递空库账本矛盾守卫（探测说谎时 writeArr([一条]) 会把该联系人全部历史覆盖成一条＝旧记录只剩互动卡片；守卫函数删掉即消失）', file: 'js/chat.js', needle: 'function deskAppendMissGuard(cid, tries, onRetry, writeOne)' },
   { name: '#358 loadMsgs 空库二次复核（账本缺失时单次探测说谎会把 LS 有损快照晋升为权威顶掉老历史；2.5s 双复核删掉即消失）', file: 'js/chat.js', needle: 'function enterConfirmedEmpty() {' },
-  { name: '#359 发送侧媒体消息去重窗口 8s（表情包/图片发一遍出 2 个＝无反馈补点，2500ms 窗漏放且刷新不收敛；改回 2500 即消失）', file: 'js/chat.js', needle: "if (m.type === 'sticker' || m.type === 'image' || m.type === 'voice') return 8000;" },
+  // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
+  // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
+  // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
+  { name: '#359→#437 发送侧媒体去重窗 800ms（改回 8000＝同表情 8s 内有意重发被静默吞；改回 2500＝#359 双派发出 2 个复发）', file: 'js/chat.js', needle: "if (m.type === 'sticker' || m.type === 'image' || m.type === 'voice') return 800;" },
+  { name: '#437 parts 型纯图片发件侧同窗 800ms（删/回 8000＝同相册图 8s 内重发被静默吞）', file: 'js/chat.js', needle: "&& (m.side || '') === 'out') return 800;" },
+  { name: '#437 addRec 发件侧吞并 toast 反馈（删则恢复静默吞＝「发不出去」报障源回流）', file: 'js/chat.js', needle: "!rec.silent && typeof toast === 'function') toast('同样的内容刚发送过，未重复发送');" },
+  { name: '#437 发送按钮双击守卫吞并 toast 反馈（守卫语义不变，吞并须可见；删则双击发送静默无反馈回流）', file: 'js/chat.js', needle: "try { toast('同样的内容刚发送过，未重复发送'); } catch (e) {}" },
   { name: '#360 字卡去重跨分组判重（seen 按分类建不按分组建+对象卡稳定序列化判重；退回「每组各建 seen 按引用比较」即换分组清不出重复，公用/专属两作用域同源复发）', file: 'js/chatcard.js', needle: 'function ccCardDupKey(cat, c) {' },
   { name: '诊断采集与设置页 DOM 解耦（row 在使用处按需判空，错误/环境/长任务/轨迹不因入口 DOM 缺失而失效）', file: 'js/device.js', needle: 'if (!row) return null;' },
   { name: '诊断复制不再 focus 隐藏 textarea（防手机弹输入法+灰屏，ta.focus 删除型守护；needle 收窄到 device.js copyText 的 appendChild(ta);ta.focus(); 上下文——裸 ta.focus(); 在 chat.js/decision.js/divination.js/group-decision.js 合法存在会误报）', file: 'js/device.js', needle: 'appendChild(ta);ta.focus();', absent: true },
@@ -1266,6 +1272,13 @@ const FIX_SENTINELS = [
   { name: '#424 自动体检核心（mochiMediaAutoCheck 覆盖→弹窗→重建链路；删则用户仍须自己找设置入口，「图片丢失」状态无人主动干预）', file: 'js/media-pool.js', needle: 'window.mochiMediaAutoCheck = function () {' },
   { name: '#424 体检节流状态键（media-auto-check 进 contacts EXCLUDE；删则全局根键被 migrateLegacy 迁进 default 删根键，节流失效反复弹窗）', file: 'js/contacts.js', needle: "'media-auto-check'," },
   { name: '#424 主动弹窗一键修复入口（missing>0 弹「一键修复」；删则自动体检退化成纯扫描、修不了）', file: 'js/media-pool.js', needle: '一键修复' },
+  // ==== 2026-09-14 #439 图片丢失占位池权威判定+占位自愈（红米K80 Chrome 报「图片依旧说丢失…不要覆盖修改导致不同机型反复」，多机型同族：
+  //      ①令牌 src 404 只是浏览器把令牌当 URL 请求的噪音，旧逻辑 1.5s 超时即把 img 换文字占位＝观察器取回慢/#397 限流时误杀；
+  //      ②占位替换后 #423 重建自愈只重写 img[src^=@@m:] 摸不到占位＝「点了重建还是丢失」。
+  //      配套 #440：导入时 idbListKeys 读不到曾按「无需保留」照常 clear＝「只备份文字」导入把媒体池整池抹掉的传播口子）====
+  { name: '#439 占位池权威判定（轮询确认缺失 mochiMediaTokenMissing 才换占位；删则池取回慢/限流时被误杀成「图片丢失」复发）', file: 'js/chat.js', needle: 'window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(s)' },
+  { name: '#439 占位登记自愈（池补回后 mochiMediaPhRestore 原位换回真图；删则「点了重建媒体池还是丢失」复发）', file: 'js/media-pool.js', needle: 'window.mochiMediaPhRestore = function' },
+  { name: '#440 导入清单未知即中止（idbListKeys 失败/retain 值读失败 abort 走既有回滚，不再按「无需保留」clear；删则「只备份文字」导入把媒体池整池抹掉＝图片丢失跨设备扩散口子复发）', file: 'js/data-backup.js', needle: 'if (kept && kept.abort) { resolve(false); return; }' },
   // ==== 2026-09-13 #425 头像启动间歇性不显示（华为畅享70Pro/红米K80 等多机型「刚点进网站头像时不时加载不出来」：
   //      cs-avatar-* 大图键常驻 IDB-only 区，avatar-lib 收敛基线在 idbRestore 回填前初始化读空被污染，
   //      回填完成的 restore-done 只刷桌面圈/聊天顶栏，convergeAvatars 因基线相等永不触发 → 气泡头像一直空）====
@@ -1288,6 +1301,13 @@ const FIX_SENTINELS = [
   { name: '#433 保活 WebRTC 延迟建锚（deferred 闸 keepEnabled+hidden 跳过；删则退回开屏同步构造＝低端机一进网站秒级卡死复发）', file: 'js/bg-keep.js', needle: 'if (!keepEnabled || kaPc1 || kaPc2) return;' },
   { name: '#433 保活 WebRTC 重建指数退避（30s 起步 900000 封顶；删则抖动机型每 30s 付一次秒级构造成本反复卡）', file: 'js/bg-keep.js', needle: 'kaWebrtcRebuildDelay = kaWebrtcRebuildDelay ? Math.min(kaWebrtcRebuildDelay * 2, 900000) : 30000;' },
   { name: '#433 保活 WebRTC 断连 8s 自愈观察窗（disconnected 先观察再拆；删则 ICE 例行重连被当死亡立即重建＝无谓长任务）', file: 'js/bg-keep.js', needle: 'kaWebrtcDiscTimer = setTimeout(function () {' },
+  // ==== 2026-09-14 #436 后台发热减负（用户报「浏览器挂网页在后台手机非常烫」）：保活音频豁免让全站
+  //      定时器后台不节流＝保活的设计成本；两个纯浪费源一并掐掉——①pwa.js 版本轮询后台照跑＝每 15s
+  //      一次 version.json 网络请求整夜唤醒射频；②bg-keep.js WebRTC 重建定时器漏后台守卫＝隐藏态
+  //      秒级构造长任务（#433 实锤）+ 回环锚点 consent 包常驻射频。回前台均有兜底（visibilitychange
+  //      即时检查 / healKeepAlive 补建），冻结防线零回退。注：#435 已被并行会话表情面板预热批次占用）====
+  { name: '#436 版本轮询后台跳过（hidden 直接 return；删则后台每 15s fetch version.json 唤醒射频＝整夜发热耗电）', file: 'js/pwa.js', needle: "if (document.visibilityState !== 'visible') return;" },
+  { name: '#436 WebRTC 重建后台跳过（heal 回前台兜底补建；删则隐藏态反复秒级构造长任务+锚点 consent 包常驻射频发热）', file: 'js/bg-keep.js', needle: 'if (!keepEnabled || document.hidden) return;' },
   // ==== 2026-09-13 #427 小游戏全屏抗键盘停靠内联残留 + 兄弟互斥零盒误关（vivo S60 自带浏览器报
   //      「五子棋点全屏自动回退聊天、刷新网页才能再次打开」，用户明说其他机型也有：kbDockPanels 给面板写
   //      内联 position:absolute/bottom/left/right/top/max-height，国产内核 vv 收起事件不可靠时 kbUndockPanels
@@ -1320,6 +1340,18 @@ const FIX_SENTINELS = [
   { name: '#434 我的表情包离页/回前台补写闸（myeDurableFlush 单口；删则穷尽失败后回前台无人补发＝补写链断）', file: 'js/chat.js', needle: 'function myeDurableFlush() { if (myeDurablePending) myeEnsureDurable(0); }' },
   { name: '#434 字卡库大值落盘确认（>200KB IDB-only 才确认，小值仍走 LS+WRJ 双防线不多付全库事务；删则字卡库表情包/图片同族「加完退出重进丢」复发）', file: 'js/chatcard.js', needle: 'ccJson.length > 200 * 1024) ccEnsureDurable(0);' },
   { name: '#434 字卡库离页补写接 flushCcSave（ccDurablePending；删则 flushCcSave 只认 ccDirty、上一轮失败挂起的补发无人再发）', file: 'js/chatcard.js', needle: 'if (ccDurablePending) ccEnsureDurable(0);' },
+  // ==== 2026-09-14 #435 表情包面板图片「加载很慢/迟迟不显示」（多机型同发，上一轮 v3.42.x 懒加载后仍现；
+  // 根因①rootMargin 300px 按字卡库近全屏列表定、面板滚动区仅 max-height:40vh——上下各 300px 外扩后触发
+  // 窗口≈3 屏，打开分组瞬间 40+ 张图同时补 src 进解码管线＝主线程长任务接连图反而迟迟画不出，且面板 img
+  // 漏了 decoding=async（字卡库一直有）；②TA/公用大库令牌卡 @@m:hash 走观察器逐图 miss 读 IDB（8 并发排队）
+  // →重写→再解码五段异步串行＝冷启动慢上加慢。修复=懒加载窗口收窄 120px+IO 触发改 50ms 泵式每批 4 张补
+  // src 让出主线程+img 统一创建补 decoding=async+组内令牌渲染后交 media-pool 批量预热（idbGetMany 每批 8
+  // 批间让出，map 命中后观察器同步重写；warmSeen 会话内去重+inflight 互斥防双读））====
+  { name: '#435 面板懒加载窗口收窄（120px 按面板 40vh 容器定；删则回退 300px＝打开分组 40+ 张图同帧全触发，解码风暴「图迟迟不显示」复发）', file: 'js/chat.js', needle: "rootMargin: '120px 0px'" },
+  { name: '#435 懒加载泵式分批补 src（队列非空 50ms 续泵每批 4 张；删则 IO 回调一次性全量补 src＝低端机解码长任务接连、先到图也被压住不显示）', file: 'js/chat.js', needle: 'if (emojiLazyQueue.length && emojiImgObserver) emojiLazyT = setTimeout(emojiLazyPump, 50);' },
+  { name: '#435 面板 img 统一创建补 decoding=async（emojiNewImg；删则大 dataURL 解码阻塞渲染帧＝图慢半拍复发，字卡库同款属性面板漏配）', file: 'js/chat.js', needle: "img.decoding = 'async';" },
+  { name: '#435 组内令牌收集预热（只收 @@m: 令牌交 mochiMediaWarmTokens；删则令牌卡回退逐图 miss 读排队＝冷启动面板图慢半拍）', file: 'js/chat.js', needle: "s.indexOf('@@m:') === 0) toks.push(s.slice(4));" },
+  { name: '#435 媒体池令牌批量预热接口（mochiMediaWarmTokens idbGetMany 每批 8 批间让出+inflight 互斥；删则预热无人接=面板令牌图五段异步串行慢加载复发）', file: 'js/media-pool.js', needle: 'window.mochiMediaWarmTokens = function (hashes) {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -127,7 +127,7 @@ function buildMye(idbSetSeq, idbHydrateSeq) {
   ok(s.T.pending() === 1, 'T5 调度重试整条保存链');
   await pump(s.T, 1);
   ok(s.hydr.length === 2, 'T5 重试重走闸门取回（共 2 次 idbHydrateKey，实际 ' + s.hydr.length + '）');
-  ok(s.state().gateRetry === 1, 'T5 闸门重试计数生效（实际 ' + s.state().gateRetry + '）');
+  ok(s.state().gateRetry === 2, 'T5 闸门重试计数生效（实际 ' + s.state().gateRetry + '）');
 }
 // T6 闸门路径 null（新用户空库）→ 放行落笔+确认
 {

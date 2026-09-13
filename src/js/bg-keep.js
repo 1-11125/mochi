@@ -279,6 +279,11 @@
     kaWebrtcRebuildDelay = kaWebrtcRebuildDelay ? Math.min(kaWebrtcRebuildDelay * 2, 900000) : 30000;
     if (keepEnabled && !kaWebrtcTimer) kaWebrtcTimer = setTimeout(function () {
       kaWebrtcTimer = null;
+      // FIX 2026-09-14 #436 后台发热减负：重建对齐启动路径「已后台则不建」原则——后台构造
+      // RTCPeerConnection 是秒级长任务（#433 实锤），回环锚点常驻 ICE consent 包也让射频
+      // 无法深睡；音频主锚点在位时豁免不丢，页面真被冻结时定时器本就停摆跑不到这里＝
+      // 后台重建纯付费。排程已清，回前台 healKeepAlive 兜底补建。
+      if (!keepEnabled || document.hidden) return;
       kaWebrtcStart();
     }, kaWebrtcRebuildDelay);
   }
