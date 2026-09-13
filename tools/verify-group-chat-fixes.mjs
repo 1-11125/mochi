@@ -1,4 +1,4 @@
-﻿// ===== 专项验证：群聊四项修复（group-chat.js，用户反馈）=====
+// ===== 专项验证：群聊四项修复（group-chat.js，用户反馈）=====
 // ① 成员回复带心意字卡（情绪/心意/交流意图，triggerEmotionChain 同链）
 // ② 群聊设置可开关「成员昵称显示在头像上方」（show-name）
 // ③ 停留页内收发消息自动滚到底部（回看历史时不打扰；发送本身强制回底为常规设计）
@@ -164,7 +164,10 @@ await evalJs("(function(){var a=document.querySelector('.app[data-app=\"group-ch
 await sleep(1500);
 await evalJs("(function(){var i=document.getElementById('gc-input');i.innerText='回看历史不打扰测试';document.getElementById('gc-send').click();return true;})()");
 await sleep(150); // 发送强制回底发生后，立刻滚回顶部制造「回看中」场景
-await evalJs("(function(){var el=document.getElementById('gc-body');el.scrollTop=0;return el.scrollTop;})()");
+// #378/#416：跟底闸只认「用户触摸接管」（gcUserGcScrollTouched）——纯程序化 scrollTop=0
+// 不置位接管标记，回复落地 followGcBottom 照常拽底（测试假阴性）。先派发 touchstart
+// 模拟真实触摸上翻，接管标记置位后 scrollTop=0 才是有效的「回看中」状态。
+await evalJs("(function(){var el=document.getElementById('gc-body');try{el.dispatchEvent(new Event('touchstart'));}catch(e){}el.scrollTop=0;return el.scrollTop;})()");
 await sleep(6000); // 等回复落地
 let m2 = J(await evalJs("(function(){var msgs=window.groupChatGetMsgs();var last=msgs[msgs.length-1];var el=document.getElementById('gc-body');return JSON.stringify({lastSide:last.side,distFromBottom:el.scrollHeight-el.scrollTop-el.clientHeight});})()"));
 check('T4 回看顶部期间收到回复不强制拽底', m2.lastSide === 'in' && m2.distFromBottom > 150, 'last=' + m2.lastSide + ' dist=' + Math.round(m2.distFromBottom));
