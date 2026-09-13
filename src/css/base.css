@@ -424,7 +424,12 @@ html { margin:0; padding:0; }
   height:min(844px, calc(100dvh - 48px));
   height:min(844px, calc(100vh - 48px));
   border-radius:44px; padding:16px 18px 18px;
-  display:flex; flex-direction:column; overflow:hidden;
+  display:flex; flex-direction:column;
+  /* v3.26.x #399：整壳是【永不滚动】的裁剪框——overflow:clip 让 .phone 不再是滚动
+     容器，内核「滚进视野」的滚动链到此为止（回信页整壳被内核滚走的根因见 .ce-ghost
+     同编号注释；内容本就不该由 .phone 滚，历史无任何代码读它 scrollTop）。clip 前
+     保留 hidden 作老内核兜底（不认识 clip 的浏览器行为与改动前完全一致）。 */
+  overflow:hidden; overflow:clip;
   box-shadow:0 30px 70px rgba(0,0,0,.1), inset 0 0 0 1px var(--phone-inset);
   /* v3.6.x：去掉 radial 微黑晕——原三个 radial-gradient（尤其 30% 90% 处
      rgba(0,0,0,.05)）叠加在渐变上，页面底部（底部导航栏悬浮卡片左右的
@@ -887,9 +892,20 @@ body.scroll-lock .page { overflow:hidden; }
 .ce-box:empty::before {
   content:attr(data-ph); color:var(--hint-ink); pointer-events:none;
 }
+/* v3.26.x #399：幽灵锚点必须【零布局足迹】。原规则只钳 width/height，两个洞：
+   ①页面级 min-height 反压——.mail-compose-input{min-height:220px} 胜过
+     height:1px!important（min-height 与 height 是两个属性），退场锚点实际是 220px 高；
+   ②position:absolute 未给定位 → 沿用流内静态位置。回信页原信很长时，锚点落到
+   .cal-scroll 滚动内容深处，而它的包含块是 .phone（position:relative）＝逃出滚动容器
+   裁剪，把 .phone 的可滚动溢出撑到 1317px（随原信长度线性增长；写信页/聊天页原信短
+   或无原信＝幻影 0，所以只有回信页中招）。内核「把聚焦元素滚进视野」（光标显露 /
+   scrollIntoView）的滚动链会一路滚到 .phone，整壳上移且无处复位＝用户所见
+   「回信页滑不动、一直弹来弹去」。改：min/max-height 一并钳死 + top/left 钉到包含块
+   角上，任何祖先的可滚动溢出都不再被它撑大。 */
 input.ce-ghost, textarea.ce-ghost {
-  position:absolute; width:1px !important; height:1px !important; opacity:0;
-  pointer-events:none; padding:0; border:0;
+  position:absolute; top:0; left:0; width:1px !important; height:1px !important;
+  min-height:0 !important; max-height:none !important;
+  overflow:hidden; opacity:0; pointer-events:none; padding:0; border:0;
 }
 /* 浮层内部滚动不穿透到背景（滚到底/到顶不再带动底层页面） */
 #tc-mask, #call-mask, #feed-notice-panel, #poke-card, #emoji-panel, #chat-ask-panel, #qa-mask {

@@ -3844,6 +3844,12 @@ try {
       else if (v === 'out') {
         // v3.6.x：移出前记住来源页，移出后同步空白页提示（空页在装修模式重新显示提示）
         const fromSlide = widgetEl.closest('.page-slide');
+        // FIX 2026-09-13 #400：显式移出经期倒计时卡写移除标记——ensureDeskPeriod 的
+        // 「布局不含即自动补位/加新页」迁移没有一次性语义，移出后每次启动/切桌面被拉回
+        //（还会新建一页，同 #380 memo-row 强迁家族）；组件库显式加回时清标记。
+        if (widgetEl.getAttribute('data-desk-widget') === 'desk-period') {
+          try { store.set('desk-period-removed', '1'); } catch (e) {}
+        }
         ensureWidgetPool().appendChild(widgetEl);
         saveDeskLayout();
         syncPageHint(fromSlide);
@@ -4466,6 +4472,12 @@ try {
       return;
     }
     if (lay.some(page => (page || []).indexOf('desk-period') >= 0)) return; // 已含
+    // FIX 2026-09-13 #400：用户装修「移出此页」显式删过经期卡（desk-period-removed=1）时
+    // 不再自动补位——原迁移逻辑无一次性语义，移出后每次启动/切桌面都被拉回、还会新建
+    // 一页（实测 3 页变 4 页，#380 memo-row 强迁同族）；组件库显式加回时清标记。
+    let dpRemoved = false;
+    try { dpRemoved = store.get('desk-period-removed') === '1'; } catch (e) {}
+    if (dpRemoved) return;
     if (deskPageCount() >= DESK_PAGE_MAX) return; // 达上限不加页
     store.set('desk-page-count', String(deskPageCount() + 1));
     buildDeskPages();
@@ -4650,6 +4662,10 @@ try {
       // 默认语义（下次开启重新隐藏，可再次显式加回）。
       let divPin = false;
       try { divPin = store.get('divination-desk-pin') === '1'; } catch (e) {}
+      // FIX 2026-09-13 #400：群聊图标位置意图标记——用户从组件库显式加到其他页（pin=1）时
+      // 不再强制拽回聊天右侧（只保证可见）；群聊关闭时清标记恢复默认语义。
+      let gcPin = false;
+      try { gcPin = store.get('group-chat-desk-pin') === '1'; } catch (e) {}
       const mainGrid = document.querySelector('.app-grid[data-app="main"]');
       const pool = ensureWidgetPool();
       const chatBtn = document.querySelector('.app[data-app="chat"]');
@@ -4657,12 +4673,16 @@ try {
       const divBtn = document.querySelector('.app[data-app="divination"]');
       const memBtn = document.querySelector('.app[data-app="memory"]');
       if (en) {
-        // 群聊按钮：强制移到第一页 app-grid 的 chat 后面并显示
+        // 群聊按钮：默认强制移到第一页 app-grid 的 chat 后面并显示；
+        // FIX 2026-09-13 #400：用户从组件库显式加到其他页（group-chat-desk-pin=1）时
+        // 尊重摆放不再拽回（同 #393 占卜意图标记约定），仅保证可见。
         if (gcBtn) {
-          if (mainGrid && chatBtn && gcBtn.parentNode !== mainGrid) {
-            mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
-          } else if (mainGrid && chatBtn && gcBtn.previousElementSibling !== chatBtn) {
-            mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
+          if (!gcPin) {
+            if (mainGrid && chatBtn && gcBtn.parentNode !== mainGrid) {
+              mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
+            } else if (mainGrid && chatBtn && gcBtn.previousElementSibling !== chatBtn) {
+              mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
+            }
           }
           gcBtn.hidden = false;
         }
@@ -4679,6 +4699,8 @@ try {
       } else {
         // 群聊关闭：清除占卜显式加回标记（恢复 v3.8 默认语义；只在标记存在时写，避免每次切换联系人空写）
         if (divPin) { try { store.set('divination-desk-pin', '0'); } catch (e) {} }
+        // FIX 2026-09-13 #400：群聊关闭同样清除群聊图标位置标记（下次开启回聊天右侧默认位）
+        if (gcPin) { try { store.set('group-chat-desk-pin', '0'); } catch (e) {} }
         // 群聊按钮：移到隐藏池（脱离 app-grid 避免占位）
         if (gcBtn && gcBtn.parentNode !== pool) {
           pool.appendChild(gcBtn);
@@ -4798,6 +4820,12 @@ try {
       // 退出装修即被收回，「装修拉出来也加不上」）。标记 per-cid（store=activeStore），各桌面独立；
       // 群聊关闭时由 applyGroupChatMode 清除，恢复默认隐藏语义。
       if (wid === 'app-divination') { try { store.set('divination-desk-pin', '1'); } catch (e) {} }
+      // FIX 2026-09-13 #400：组件库显式加回群聊图标＝用户自选位置——写意图标记，
+      // applyGroupChatMode 不再强制拽回聊天按钮右侧（群聊关闭时清标记恢复默认）。
+      else if (wid === 'app-group-chat') { try { store.set('group-chat-desk-pin', '1'); } catch (e) {} }
+      // FIX 2026-09-13 #400：组件库显式加回经期倒计时卡＝撤销删除意图——清移除标记，
+      // ensureDeskPeriod 恢复其「布局缺卡自动补位」的迁移语义。
+      else if (wid === 'desk-period') { try { store.set('desk-period-removed', '0'); } catch (e) {} }
       syncPageHint(pageSlide);
       saveDeskLayout();
       if (window.deskRebuild) window.deskRebuild();

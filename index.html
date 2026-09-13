@@ -364,7 +364,8 @@ width:390px; max-width:100vw; flex-shrink:0; position:relative;
 height:min(844px, calc(100dvh - 48px));
 height:min(844px, calc(100vh - 48px));
 border-radius:44px; padding:16px 18px 18px;
-display:flex; flex-direction:column; overflow:hidden;
+display:flex; flex-direction:column;
+overflow:hidden; overflow:clip;
 box-shadow:0 30px 70px rgba(0,0,0,.1), inset 0 0 0 1px var(--phone-inset);
 background:
 linear-gradient(168deg, var(--bg-a, #ffffff) 0%, var(--bg-b, #f2f2f2) 100%);
@@ -578,8 +579,9 @@ caret-color:var(--ink); line-height:1.5;
 content:attr(data-ph); color:var(--hint-ink); pointer-events:none;
 }
 input.ce-ghost, textarea.ce-ghost {
-position:absolute; width:1px !important; height:1px !important; opacity:0;
-pointer-events:none; padding:0; border:0;
+position:absolute; top:0; left:0; width:1px !important; height:1px !important;
+min-height:0 !important; max-height:none !important;
+overflow:hidden; opacity:0; pointer-events:none; padding:0; border:0;
 }
 #tc-mask, #call-mask, #feed-notice-panel, #poke-card, #emoji-panel, #chat-ask-panel, #qa-mask {
 overscroll-behavior:contain;
@@ -9368,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789282459154">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.632</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 14:54<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789283396949">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.634</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 15:09<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10649,7 +10651,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.632</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.634</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10944,7 +10946,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.632</span>
+              <span class="lic-ver">v3.26.634</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -24016,6 +24018,9 @@ pills: parts.map(p => ({ label: p.label + (store.get(widgetTextKey(type, p.key))
 else if (v === 'down') moveWidget('down');
 else if (v === 'out') {
 const fromSlide = widgetEl.closest('.page-slide');
+if (widgetEl.getAttribute('data-desk-widget') === 'desk-period') {
+try { store.set('desk-period-removed', '1'); } catch (e) {}
+}
 ensureWidgetPool().appendChild(widgetEl);
 saveDeskLayout();
 syncPageHint(fromSlide);
@@ -24509,6 +24514,9 @@ try { renderDeskWidgets(); } catch (e) {}
 return;
 }
 if (lay.some(page => (page || []).indexOf('desk-period') >= 0)) return; // 已含
+let dpRemoved = false;
+try { dpRemoved = store.get('desk-period-removed') === '1'; } catch (e) {}
+if (dpRemoved) return;
 if (deskPageCount() >= DESK_PAGE_MAX) return; // 达上限不加页
 store.set('desk-page-count', String(deskPageCount() + 1));
 buildDeskPages();
@@ -24639,6 +24647,8 @@ let en = false;
 try { const v = window.xyStore ? window.xyStore('xy-home-v2').get('group-chat-enabled') : null; if (v !== null && v !== undefined) en = v === '1'; else en = store.get('group-chat-enabled') === '1'; } catch (e) {}
 let divPin = false;
 try { divPin = store.get('divination-desk-pin') === '1'; } catch (e) {}
+let gcPin = false;
+try { gcPin = store.get('group-chat-desk-pin') === '1'; } catch (e) {}
 const mainGrid = document.querySelector('.app-grid[data-app="main"]');
 const pool = ensureWidgetPool();
 const chatBtn = document.querySelector('.app[data-app="chat"]');
@@ -24647,10 +24657,12 @@ const divBtn = document.querySelector('.app[data-app="divination"]');
 const memBtn = document.querySelector('.app[data-app="memory"]');
 if (en) {
 if (gcBtn) {
+if (!gcPin) {
 if (mainGrid && chatBtn && gcBtn.parentNode !== mainGrid) {
 mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
 } else if (mainGrid && chatBtn && gcBtn.previousElementSibling !== chatBtn) {
 mainGrid.insertBefore(gcBtn, chatBtn.nextSibling);
+}
 }
 gcBtn.hidden = false;
 }
@@ -24659,6 +24671,7 @@ pool.appendChild(divBtn);
 }
 } else {
 if (divPin) { try { store.set('divination-desk-pin', '0'); } catch (e) {} }
+if (gcPin) { try { store.set('group-chat-desk-pin', '0'); } catch (e) {} }
 if (gcBtn && gcBtn.parentNode !== pool) {
 pool.appendChild(gcBtn);
 }
@@ -24754,6 +24767,8 @@ if (addBtn) pageSlide.insertBefore(node, addBtn);
 else pageSlide.appendChild(node);
 }
 if (wid === 'app-divination') { try { store.set('divination-desk-pin', '1'); } catch (e) {} }
+else if (wid === 'app-group-chat') { try { store.set('group-chat-desk-pin', '1'); } catch (e) {} }
+else if (wid === 'desk-period') { try { store.set('desk-period-removed', '0'); } catch (e) {} }
 syncPageHint(pageSlide);
 saveDeskLayout();
 if (window.deskRebuild) window.deskRebuild();
@@ -90949,4 +90964,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzgktg2 -->
+<!-- __MOCHI_EOF__ mtzh4x1x -->

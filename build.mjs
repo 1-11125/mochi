@@ -212,6 +212,10 @@ const FIX_SENTINELS = [
   { name: '#393 群聊模式下装修组件库显式加回占卜写意图标记（删掉＝退出装修即被收池，「装修拉出来也加不上」复发）', file: 'js/personalize.js', needle: "set('divination-desk-pin', '1')" },
   { name: '#393 applyGroupChatMode 读占卜意图标记豁免强制收池（删掉条件＝群聊开启期间用户加回的占卜被重新收回）', file: 'js/personalize.js', needle: "get('divination-desk-pin') === '1'" },
   { name: '#393 装修组件库摸鱼小组件命名含「摸鱼」（原「周末倒计时」无摸鱼字样搜不到＝「缺少摸鱼小组件」）', file: 'js/personalize.js', needle: "weekend: '摸鱼倒计时（周末）'" },
+  { name: '#400 装修移出经期倒计时卡写移除标记（ensureDeskPeriod 布局缺卡自动补位无一次性语义＝移出后刷新被拉回还新建一页，#380 memo-row 强迁同族）', file: 'js/personalize.js', needle: "set('desk-period-removed', '1')" },
+  { name: '#400 ensureDeskPeriod 读移除标记跳过补位（删掉＝用户删掉的经期卡每次启动/切桌面被拉回+多建一页）', file: 'js/personalize.js', needle: "get('desk-period-removed') === '1'" },
+  { name: '#400 组件库显式加回群聊图标写位置意图标记（applyGroupChatMode 默认强制拽回聊天右侧＝用户挪到其他页留不住）', file: 'js/personalize.js', needle: "set('group-chat-desk-pin', '1')" },
+  { name: '#400 applyGroupChatMode 读群聊位置标记豁免强制归位（删掉＝装修加到其他页的群聊图标退装修即被拽回）', file: 'js/personalize.js', needle: "get('group-chat-desk-pin') === '1'" },
   { name: '#390 TA的心情分享 10% 概率 tag 显示「你的心情」（TA 有时发这张卡实为想问对方心情，tag 恒「TA的心情」表达不清；概率分支删掉即回归）', file: 'js/chat.js', needle: "? '你的心情' : 'TA的心情';" },
   { name: '#145 聊天表情按钮再点关闭（window.closeEmojiPanelForInsert 导出，群聊切换关闭复用）', file: 'js/chat.js', needle: 'window.closeEmojiPanelForInsert' },
   { name: '#145 群聊表情按钮再点关闭（面板已开先关不重开）', file: 'js/group-chat.js', needle: 'window.closeEmojiPanelForInsert &&' },
@@ -1103,11 +1107,11 @@ const FIX_SENTINELS = [
   { name: '#378 单聊手动滚回贴底回钉（解钉后自动跟底可恢复）', file: 'js/chat.js', needle: 'else if (!chatPinnedBottom && body.scrollHeight - body.scrollTop - body.clientHeight < 120)' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
-  { name: '#378 群聊轻点不杀跟底 + 滚回贴底解除接管（#396 随行补锚定摘除，锚随重构更新）', file: 'js/group-chat.js', needle: 'if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false;' },
-  // ==== 2026-09-13 #396 聊天/群聊滑动屏幕「弹一下」（红米 K80 Chrome 报障，多机型同族）——两根因：①单聊 loadOlderIncremental 补偿式 beforeTop+anchor.offsetTop 读的是插入后首元素 offsetTop=插入高度+.chat-body padding-top，每批上翻固定多推 14px=视觉跳一下（#316 锚定只兜图片迟到解码兜不住这 14px，无头实测 Δsh=8903 误差恒-14px）；②#316 只给单聊解钉开回滚动锚定，gc-body 共享 .chat-body 的 overflow-anchor:none 却从未挂回 scroll-anchor-auto=图多群聊历史上翻被解码撑高推走 ====
-  { name: '#396 单聊上翻补偿改锚点差值（删则每批上翻固定视觉上跳 padding-top 14px=滑动弹一下）', file: 'js/chat.js', needle: 'body.scrollTop = beforeTop + (anchor.offsetTop - anchorTopBefore);' },
-  { name: '#396 群聊解钉开滚动锚定（删则图多群聊历史上翻被解码撑高推走，#316 同根因群聊侧）', file: 'js/group-chat.js', needle: "body.classList.add('scroll-anchor-auto')" },
-  { name: '#396 群聊回钉摘锚定（钉住态 #199 none 语义不变，防锚定与 JS 显式滚动对打）', file: 'js/group-chat.js', needle: "body.classList.remove('scroll-anchor-auto')" },
+  { name: '#378 群聊轻点不杀跟底 + 滚回贴底解除接管（#400 随行补锚定摘除，锚随重构更新）', file: 'js/group-chat.js', needle: 'if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false;' },
+  // ==== 2026-09-13 #400 聊天/群聊滑动屏幕「弹一下」（红米 K80 Chrome 报障，多机型同族）——两根因：①单聊 loadOlderIncremental 补偿式 beforeTop+anchor.offsetTop 读的是插入后首元素 offsetTop=插入高度+.chat-body padding-top，每批上翻固定多推 14px=视觉跳一下（#316 锚定只兜图片迟到解码兜不住这 14px，无头实测 Δsh=8903 误差恒-14px）；②#316 只给单聊解钉开回滚动锚定，gc-body 共享 .chat-body 的 overflow-anchor:none 却从未挂回 scroll-anchor-auto=图多群聊历史上翻被解码撑高推走 ====
+  { name: '#400 单聊上翻补偿改锚点差值（删则每批上翻固定视觉上跳 padding-top 14px=滑动弹一下）', file: 'js/chat.js', needle: 'body.scrollTop = beforeTop + (anchor.offsetTop - anchorTopBefore);' },
+  { name: '#400 群聊解钉开滚动锚定（删则图多群聊历史上翻被解码撑高推走，#316 同根因群聊侧）', file: 'js/group-chat.js', needle: "body.classList.add('scroll-anchor-auto')" },
+  { name: '#400 群聊回钉摘锚定（钉住态 #199 none 语义不变，防锚定与 JS 显式滚动对打）', file: 'js/group-chat.js', needle: "body.classList.remove('scroll-anchor-auto')" },
   // ==== 2026-09-12 #382 屏幕适配诊断报告「导出docx」点了毫无反应（iQOO neo10pro Chrome 报障，多机型全现）——#333 时 diagExportDocx 在主诊断闭包、屏幕适配诊断闭包跨 IIFE 引用恒 ReferenceError 被 openModal 按钮 try/catch 吞掉；同调用 4 参对 3 形参 legacy 分支必抛 failToast is not a function ====
   { name: '#382 诊断导出跨闭包挂载 window.mochiDiagExportDocx（删则屏幕适配诊断导出恒 ReferenceError 静默失败）', file: 'js/device.js', needle: 'window.mochiDiagExportDocx = diagExportDocx;' },
   { name: '#382 屏幕适配诊断导出改走 window 挂载 + 形参收窄（failMsg,toastFn）', file: 'js/device.js', needle: "(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'" },
@@ -1169,6 +1173,10 @@ const FIX_SENTINELS = [
   { name: '#397 缺失读并发上限（删则坏图成片时一次打出几十个 IDB 读）', file: 'js/media-pool.js', needle: 'let missReads = 0;' },
   { name: '#397 缺失占位批量打标（改回逐 hash 全文档查询则坏图成片时尖峰）', file: 'js/media-pool.js', needle: 'const markQueue = new Set();' },
   { name: '#397 恢复事件清缺失负缓存（删则导入完整备份后坏图要等冷却/重启才恢复）', file: 'js/media-pool.js', needle: "mochi-restore-done', function () { missing.clear(); }" },
+  // ==== 2026-09-13 #399 回信页滑不动/弹来弹去（用户实报，多机型同族）——安卓 ceConvert 退场的幽灵 textarea 未真正脱离布局流：.mail-compose-input{min-height:220px} 反压 height:1px!important，且 absolute 无定位＝沿用流内静态位置，回信页原信越长锚点落得越深、把 .phone 的幻影可滚动溢出撑到 1317px（写信页/聊天页 0）；内核「滚进视野」连带滚走 .phone＝整壳上移不弹回 ====
+  { name: '#399 幽灵锚点零布局足迹·高度钳死（删则页面级 min-height 再反压 height:1px!important，退场锚点变实高盒子）', file: 'css/base.css', needle: 'min-height:0 !important; max-height:none !important;' },
+  { name: '#399 幽灵锚点钉在包含块角上（删 top/left 则 absolute 沿用流内静态位置，深内容页再撑出 .phone 幻影溢出）', file: 'css/base.css', needle: 'position:absolute; top:0; left:0; width:1px !important; height:1px !important;' },
+  { name: '#399 .phone 非滚动容器（overflow:clip；删则内核「把聚焦元素滚进视野」可再次整体滚走手机壳）', file: 'css/base.css', needle: 'overflow:hidden; overflow:clip;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
