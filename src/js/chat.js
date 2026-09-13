@@ -701,6 +701,14 @@ function dupGapMs(m) {
   if (m.type === 'sticker' || m.type === 'image' || m.type === 'voice') return 8000;
   // parts 型纯图片消息（相册发送，text 为空/说明文字）同窗口
   if (Array.isArray(m.parts) && m.parts.some(p => p && p.k === 'img') && (m.side || '') === 'out') return 8000;
+  // FIX 2026-09-13 #401 发件侧纯文本去重窗口 2500ms→800ms：发守卫（userEditedAfterClear）
+  // 已放行的「用户真实重打同文本」仍撞进本窗被静默吞掉＝「点发送消息没了」（红米 K80
+  // 报障同族复发——v3.17.x 只修了守卫层误吞，addRec 这第二层漏网；无头实证：重打同文本
+  // 1.2s 后再发，守卫放行、addRec 吞掉，输入框被清+音效照放+TA 照回，气泡 0 条）。
+  // 机械双击两次 click 间隔几乎恒 <800ms（含低端机长任务 606ms 延迟）仍被本窗兜底 +
+  // 发守卫双层防护；真人「清框→重打→再点发送」不可能 <800ms。收件侧/媒体窗口一律不动
+  // （#256 屏上所见即刷新后所见：normCollapseRange/collapseRapidDups 同口径收窄，一致）。
+  if ((m.side || '') === 'out' && (m.type === 'text' || !m.type) && !m.img && !m.voice && !m.special) return 800;
   return DUP_GAP_TEXT;
 }
 function normCollapseRange(from, to) {
@@ -740,6 +748,7 @@ function runDeferredNormalization() {
   // 闪动」的第二来源（偶发＝仅当历史里存在待迁移数据时 finish 才走渲染）。屏上数据
   // 真的变了仍整窗重渲；sysNick 清扫与相邻重复删除（下标位移）按保守整窗处理。
   let changedHi = -1, removedAll = 0, sysNickChanged = false;
+  normChangedIdxs = []; // FIX 2026-09-13 #402：本轮归一化改动下标清单（原位补丁用）
   const N = msgs.length;
   if (!N) { normPrefix = null; return; }
   const finish = () => {
@@ -759,11 +768,22 @@ function runDeferredNormalization() {
     // #211：改动全部在渲染窗口之外时跳过整窗重建（防打开聊天闪一下）；屏上有改动才重渲
     // #220：走「屏上重渲」或改动落在窗口内时，屏上窗口已不再是「与 msgs 一致的旧貌」，
     // windowStale 置真——权威读库收尾的同窗补丁据此跳过（这里已重渲过，无需再补）。
+    // FIX 2026-09-13 #402（进聊天跳动一下·多机型偶发，#352 无头诊断实锤）：窗口内改动
+    // 旧路径 renderWindow 整窗重建＝rem+add ~200 节点同批＝进入聊天 ~0.5s 后整屏跳一下。
+    // 现改为：无结构删除（removedAll===0，normCell 只原地改记录、下标全程稳定）且非
+    // sysNick 全局改名时，优先 patchChangedInPlace 对命中下标原位换节点（其余节点零
+    // 重建）；任一守卫不满足回退原整窗渲染，行为与旧版一致。sysNick 改名/结构删除
+    // （下标位移）仍保守整窗（原路径不动）。
     try {
     if (chatVisible() && msgs.length &&
     (sysNickChanged || removedAll > 0 || changedHi >= renderStart)) {
+    if (!(sysNickChanged || removedAll > 0) &&
+    patchChangedInPlace(normChangedIdxs, renderStart)) {
+    // 原位补丁完成：贴底跟随/滚动差值补偿在 patch 内部处理，不再 scrollChatBottom 强拉
+    } else {
     renderWindow(false, true);
     scrollChatBottom();
+    }
     } else if (changed && changedHi >= renderStart) {
     windowStale = true;
     }
@@ -774,7 +794,7 @@ function runDeferredNormalization() {
     try { nowPre = window.activePrefix(); } catch (e) { nowPre = ''; }
     if (nowPre !== normPrefix) { normPrefix = null; return; }
     const end = Math.min(N, idx + NORM_CHUNK);
-    for (let i = idx; i < end; i++) { if (normCell(msgs[i])) { changed = true; changedHi = Math.max(changedHi, i); } }
+    for (let i = idx; i < end; i++) { if (normCell(msgs[i])) { changed = true; changedHi = Math.max(changedHi, i); if (normChangedIdxs.indexOf(i) < 0) normChangedIdxs.push(i); } }
     const _rm = normCollapseRange(idx, end + 1, msgs);
     if (_rm) { changed = true; removedAll += _rm; }
     if (end < N) { idx = end; setTimeout(tick, 0); }
@@ -2082,6 +2102,11 @@ let renderEnd = 0;        // v3.10.x：渲染窗口终点（msgs 下标，开区
 let windowRenderedN = 0;
 let windowRenderedPrefix = null;
 let windowStale = false;
+// FIX 2026-09-13 #402（进聊天跳动一下·多机型偶发）：归一化窗口内改动的下标清单。
+// runDeferredNormalization 的 tick 逐 chunk 填写（无结构删除时下标全程稳定），
+// finish 收尾据此对命中下标原位换节点（patchChangedInPlace），不再整窗重建。
+// 模块级声明：跨 chunk 持续累积 + 哨兵锚稳定；换桌面/清窗路径随 windowStale 一并复位。
+let normChangedIdxs = null;
 // #245：整窗渲染时登记窗口内含精简快照残留（_lsLite/img==='' /voice===''）的下标——
 // 权威读库收尾据此对这些下标原位换节点补真实媒体（见 inplacePatchIfSameWindow）。
 // 必须在渲染时刻登记：权威合并后 msgs 已是全量数据，事后扫描扫不出「屏上渲的是精简」。
@@ -2243,6 +2268,57 @@ for (let r = 0; r < Math.ceil(grown / LOAD_STEP) + 1 && renderEnd < len; r++) lo
 if (renderEnd !== len) return false;
 windowRenderedN = len; // 凭据随增量补齐——loadNewerIncremental 只更 renderEnd，不补此处则下次收尾 grown 错位仍整窗（自纠）
 }
+return true;
+}
+// FIX 2026-09-13 #402：归一化收尾的窗口内原位补丁——只重渲 normChangedIdxs 命中且在
+// 屏上窗口内的下标（renderMsg + replaceChild 同步换节点，同一同步任务无中间绘制），
+// 其余节点零重建＝不触发整窗重解码重排，视口不跳。守卫链对齐 inplacePatchIfSameWindow：
+// ① DOM [data-idx] 恰为 start..windowRenderedN-1 齐整（有裁剪/位移/脏节点即放弃）；
+// ② 存在 pendingRead 已读占位节点则放弃（占位收尾属 inplacePatchIfSameWindow 职责）；
+// ③ 任一节点渲染异常即恢复现场返回 false，调用方整窗重建兜底（状态自洽）。
+// 高度差补偿与 #245 liteUpgrade 同口径：原在底部→贴底跟随；不在底部→scrollTop 按高度差
+// 平移，视口内内容不动。返回 true=已原位补丁（或屏上无命中无需动）；false=整窗兜底。
+function patchChangedInPlace(changedIdxs, start) {
+if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
+let n = start;
+let hasPending = false;
+for (let k = 0; k < body.children.length; k++) {
+const el = body.children[k];
+if (!el.dataset || el.dataset.idx === undefined) continue;
+if (Number(el.dataset.idx) !== n) return false;
+if (el.dataset.pendingRead === '1') hasPending = true;
+n++;
+}
+if (n !== windowRenderedN) return false;
+if (hasPending) return false;
+const idxs = changedIdxs.filter(i => i >= start && i < windowRenderedN && i < msgs.length).sort((a, b) => a - b);
+if (!idxs.length) return true; // 改动都不在屏上窗口＝无需动 DOM
+collectInplaceDrafts();
+const wasNearBottom = chatNearBottom();
+const prevTop = body.scrollTop;
+const prevH = body.scrollHeight;
+const prevPendingOut = pendingOutScroll;
+batchRendering = true;
+for (let u = 0; u < idxs.length; u++) {
+const ui = idxs[u];
+const old = body.querySelector('.msg[data-idx="' + ui + '"]');
+if (!old) { batchRendering = false; restoreInplaceDrafts(); return false; }
+let nu = null;
+try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
+if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); return false; }
+nu.dataset.idx = ui;
+old.parentNode.replaceChild(nu, old);
+if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.filter(x => x !== ui);
+}
+batchRendering = false;
+pendingOutScroll = prevPendingOut;
+restoreInplaceDrafts();
+const dH = body.scrollHeight - prevH;
+if (dH) {
+if (wasNearBottom) scrollChatBottom(); // 原在底部：升级后保持贴底
+else body.scrollTop = prevTop + dH; // 不在底部：按高度差补偿，视口内内容不跳
+}
+suppressScrollUntil = Date.now() + 200;
 return true;
 }
 function loadOlderIncremental() {
@@ -3024,7 +3100,7 @@ sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0; // v3.6.x：分页窗口起点复位（消息已清空）
 // v3.26.x #220：消息清空＝屏上窗口作废（#220 同窗补丁凭据一并复位，防误判同窗）
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null;
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; // FIX #402 随窗复位
 cancelPersist();
 // v3.26.x #90：用户主动清空＝合法归零，账本必须同步（否则缩水守卫会一直拒绝后续保存）
 try { chatLedger[window.activePrefix()] = 0; } catch (e) {}
@@ -3046,7 +3122,7 @@ sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0;
 // v3.26.x #220：整包导入替换＝屏上窗口作废（同窗补丁凭据复位）
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null;
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; // FIX #402 随窗复位
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 try { if (window.idbSet) persistMsgsToIdb(window.activePrefix() + ':chat-msgs', msgs); } catch (e) {}

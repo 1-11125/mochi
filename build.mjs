@@ -1107,11 +1107,15 @@ const FIX_SENTINELS = [
   { name: '#378 单聊手动滚回贴底回钉（解钉后自动跟底可恢复）', file: 'js/chat.js', needle: 'else if (!chatPinnedBottom && body.scrollHeight - body.scrollTop - body.clientHeight < 120)' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
-  { name: '#378 群聊轻点不杀跟底 + 滚回贴底解除接管（#400 随行补锚定摘除，锚随重构更新）', file: 'js/group-chat.js', needle: 'if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false;' },
-  // ==== 2026-09-13 #400 聊天/群聊滑动屏幕「弹一下」（红米 K80 Chrome 报障，多机型同族）——两根因：①单聊 loadOlderIncremental 补偿式 beforeTop+anchor.offsetTop 读的是插入后首元素 offsetTop=插入高度+.chat-body padding-top，每批上翻固定多推 14px=视觉跳一下（#316 锚定只兜图片迟到解码兜不住这 14px，无头实测 Δsh=8903 误差恒-14px）；②#316 只给单聊解钉开回滚动锚定，gc-body 共享 .chat-body 的 overflow-anchor:none 却从未挂回 scroll-anchor-auto=图多群聊历史上翻被解码撑高推走 ====
-  { name: '#400 单聊上翻补偿改锚点差值（删则每批上翻固定视觉上跳 padding-top 14px=滑动弹一下）', file: 'js/chat.js', needle: 'body.scrollTop = beforeTop + (anchor.offsetTop - anchorTopBefore);' },
-  { name: '#400 群聊解钉开滚动锚定（删则图多群聊历史上翻被解码撑高推走，#316 同根因群聊侧）', file: 'js/group-chat.js', needle: "body.classList.add('scroll-anchor-auto')" },
-  { name: '#400 群聊回钉摘锚定（钉住态 #199 none 语义不变，防锚定与 JS 显式滚动对打）', file: 'js/group-chat.js', needle: "body.classList.remove('scroll-anchor-auto')" },
+  { name: '#378 群聊轻点不杀跟底 + 滚回贴底解除接管（#396 随行补锚定摘除，锚随重构更新）', file: 'js/group-chat.js', needle: 'if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false;' },
+  // ==== 2026-09-13 #396 聊天/群聊滑动屏幕「弹一下」（红米 K80 Chrome 报障，多机型同族）——两根因：①单聊 loadOlderIncremental 补偿式 beforeTop+anchor.offsetTop 读的是插入后首元素 offsetTop=插入高度+.chat-body padding-top，每批上翻固定多推 14px=视觉跳一下（#316 锚定只兜图片迟到解码兜不住这 14px，无头实测 Δsh=8903 误差恒-14px）；②#316 只给单聊解钉开回滚动锚定，gc-body 共享 .chat-body 的 overflow-anchor:none 却从未挂回 scroll-anchor-auto=图多群聊历史上翻被解码撑高推走 ====
+  { name: '#396 单聊上翻补偿改锚点差值（删则每批上翻固定视觉上跳 padding-top 14px=滑动弹一下）', file: 'js/chat.js', needle: 'body.scrollTop = beforeTop + (anchor.offsetTop - anchorTopBefore);' },
+  { name: '#396 群聊解钉开滚动锚定（删则图多群聊历史上翻被解码撑高推走，#316 同根因群聊侧）', file: 'js/group-chat.js', needle: "body.classList.add('scroll-anchor-auto')" },
+  { name: '#396 群聊回钉摘锚定（钉住态 #199 none 语义不变，防锚定与 JS 显式滚动对打）', file: 'js/group-chat.js', needle: "body.classList.remove('scroll-anchor-auto')" },
+  // ==== 2026-09-13 #401 点【发送】消息被吞（红米 K80 Chrome 报障同族复发，多机型通用纯逻辑）——两根因：①发守卫（#115 userEditedAfterClear）放行的「用户真实重打同文本」撞进 addRec 文本去重窗 2500ms 被静默吞（v3.17.x 只修守卫层误吞，addRec 第二层漏网；无头实证：重打 1.2s 后再发，输入框清空+音效照放+TA 照回，气泡 0 条）；②群聊 addMsg(input.innerText) 无 #215 撕文本快照兜底（Edge/Chromium 部分内核点发送瞬间零事件撕空组合文本→双读空→静默 return，单聊 #215 修过群聊侧同族漏修） ====
+  { name: '#401 发件侧纯文本去重窗收窄 800ms（删/回 2500ms＝重打同文本 0.8~2.5s 内再发被静默吞，机械双击兜底+守卫双层仍在）', file: 'js/chat.js', needle: "&& !m.img && !m.voice && !m.special) return 800;" },
+  { name: '#401 群聊发送取值快照兜底（删则撕文本内核群聊点发送消息静默消失，#215 群聊侧同族）', file: 'js/group-chat.js', needle: "input._gcLastTyped = input.innerText || '';" },
+  { name: '#401 群聊清空同步作废快照（删则程序化清空后误点发送幻影重发上一条）', file: 'js/group-chat.js', needle: "input._gcLastTyped = '';" },
   // ==== 2026-09-12 #382 屏幕适配诊断报告「导出docx」点了毫无反应（iQOO neo10pro Chrome 报障，多机型全现）——#333 时 diagExportDocx 在主诊断闭包、屏幕适配诊断闭包跨 IIFE 引用恒 ReferenceError 被 openModal 按钮 try/catch 吞掉；同调用 4 参对 3 形参 legacy 分支必抛 failToast is not a function ====
   { name: '#382 诊断导出跨闭包挂载 window.mochiDiagExportDocx（删则屏幕适配诊断导出恒 ReferenceError 静默失败）', file: 'js/device.js', needle: 'window.mochiDiagExportDocx = diagExportDocx;' },
   { name: '#382 屏幕适配诊断导出改走 window 挂载 + 形参收窄（failMsg,toastFn）', file: 'js/device.js', needle: "(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'" },
@@ -1179,6 +1183,13 @@ const FIX_SENTINELS = [
   { name: '#399 .phone 非滚动容器（overflow:clip；删则内核「把聚焦元素滚进视野」可再次整体滚走手机壳）', file: 'css/base.css', needle: 'overflow:hidden; overflow:clip;' },
   // ==== 2026-09-13 #398 令牌化管线并发风暴（iPhone 14 Pro/16 Safari「持续卡顿动不了」多机型；起病时间= #377 上线）——ccTokenizeGiantMedia 对每张大卡并发 mochiMediaTokenize（全量 TextEncoder+SHA-256 同挤主线程）且每次缓存重建全量重算；修复=串行+每张让出主线程+会话哈希备忘（FIFO 字符预算 8M）+世代计数防跨重建覆盖 ====
   { name: '#398 令牌化管线串行化+世代计数（改回并发 Promise 链则大库设备持续卡死）', file: 'js/chatcard.js', needle: 'const gen = ++ccTokRun;' },
+  // ==== 2026-09-13 #402 进聊天界面跳动一下（多机型偶发，#352 无头诊断实锤）——归一化收尾对「窗口内改动」走 renderWindow 整窗重建＝rem+add ~200 节点同批＝进入聊天 ~0.5s 后整屏跳一下；修复=无结构删除时对 normChangedIdxs 命中下标原位换节点（patchChangedInPlace），其余节点零重建 ====
+  { name: '#402 归一化收尾原位补丁函数（删则窗口内改动回退整窗重建＝进聊天整屏跳一下复发）', file: 'js/chat.js', needle: 'function patchChangedInPlace(changedIdxs, start) {' },
+  { name: '#402 归一化改动下标登记（删则原位补丁拿不到命中清单＝静默回退整窗）', file: 'js/chat.js', needle: 'if (normChangedIdxs.indexOf(i) < 0) normChangedIdxs.push(i); } }' },
+  { name: '#402 收尾优先原位补丁分支（删/改回无条件 renderWindow 则闪跳复发）', file: 'js/chat.js', needle: 'patchChangedInPlace(normChangedIdxs, renderStart)' },
+  // ==== 2026-09-13 #403 漂流瓶都是空白没有留言（多机型）——dcf-drift 概率/总开关关断时 poolLine 返回空串，normal/special/TA 兜底全落空＝瓶子装空白信纸；修复=三道来源全空回退内置兜底话术（FB），瓶内文案永不落空 ====
+  { name: '#403 TA 瓶三道来源全空回退内置兜底（删则 dcf 关断+无历史时出空白信纸）', file: 'js/drift-bottle.js', needle: "note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);" },
+  { name: '#403 普通/特殊瓶文案永不落空（删则 dcf 关断时 normal/special 瓶空白）', file: 'js/drift-bottle.js', needle: "note = poolLine('海风', 'sea') || rnd(FB.sea);" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

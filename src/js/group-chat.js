@@ -873,7 +873,7 @@
     renderMsg(rec);
     followGcBottom(true);
     if (window.playSfx) window.playSfx('out');
-    if (input) input.textContent = '';
+    if (input) { input.textContent = ''; try { input._gcLastTyped = ''; } catch (e2) {} } // #401 清空同步作废快照（程序化清空不派发 input 事件，防幻影重发）
     gcDraftImgs = [];
     renderGcDraft();
     scheduleReply(t);
@@ -1344,9 +1344,34 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
 
   // ---- 发送按钮 ----
   // v3.30.x：点发送不收输入法（同单聊 chat.js，FIX-REGRESSION #127）——mousedown preventDefault 防焦点被按钮抢走
+  // FIX 2026-09-13 #401：取值走 gcReadSendText()——对齐单聊 #215 口径：部分 Edge/Chromium
+  // 内核点发送瞬间把未提交的组合文本整体撕掉（DOM 直接清空、零事件），innerText/textContent
+  // 双读空 → addMsg 空串 buildGcParts 为空静默 return＝「点了发送消息没了、字无踪」
+  //（华为 P50E+Edge 家族在单聊已修、群聊侧同族漏修）。恢复依据 = 真实输入活动期间维护的
+  // 最近输入快照 _gcLastTyped（15s 新鲜度）；正常路径与既有逻辑零改动。
+  let gcLastUserEditAt = 0;
+  function gcReadSendText() {
+    try {
+      const t = (input.innerText || '').trim() || (input.textContent || '').trim();
+      if (t) return t;
+    } catch (e) {}
+    try {
+      const snap = (input._gcLastTyped || '').trim();
+      if (snap && Date.now() - gcLastUserEditAt < 15000) return snap;
+    } catch (e) {}
+    return '';
+  }
+  if (input) {
+    try {
+      input.addEventListener('keydown', () => { gcLastUserEditAt = Date.now(); }, true);
+      input.addEventListener('compositionstart', () => { gcLastUserEditAt = Date.now(); }, true);
+      input.addEventListener('beforeinput', (e) => { if (!e || typeof e.inputType !== 'string' || e.inputType.indexOf('insert') === 0) gcLastUserEditAt = Date.now(); }, true);
+      input.addEventListener('input', function () { try { input._gcLastTyped = input.innerText || ''; } catch (e) {} }, true);
+    } catch (e) {}
+  }
   if (sendBtn) {
     sendBtn.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    sendBtn.addEventListener('click', () => { addMsg(input.innerText); try { input.focus(); } catch (e) {} });
+    sendBtn.addEventListener('click', () => { addMsg(gcReadSendText()); try { input.focus(); } catch (e) {} });
   }
   if (input) input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
@@ -1354,7 +1379,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       // 与 chat.js 同一语义同一键）；contenteditable 换行由浏览器默认行为完成
       try { if (window.activeStore().get('cs-enter-send') === 'off') return; } catch (err) {}
       e.preventDefault();
-      addMsg(input.innerText);
+      addMsg(gcReadSendText());
     }
   });
 
