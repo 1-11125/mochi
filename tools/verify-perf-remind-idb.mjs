@@ -47,11 +47,11 @@ function extractFn(src, name) {
     setItem: () => { throw new Object.assign(new Error('QuotaExceededError'), { name: 'QuotaExceededError' }); },
   };
   const perfRemindRead = new Function('window', 'localStorage', 'PERF_REMIND_KEY',
-    extractFn(pers, 'perfRemindRead') + '\nreturn perfRemindRead;')('xy-home-v2:perf-opt-remind', windowMock, lsMock);
+    extractFn(pers, 'perfRemindRead') + '\nreturn perfRemindRead;')(windowMock, lsMock, 'xy-home-v2:perf-opt-remind');
   const perfRemindWrite = new Function('window', 'localStorage', 'PERF_REMIND_KEY',
-    extractFn(pers, 'perfRemindWrite') + '\nreturn perfRemindWrite;')('xy-home-v2:perf-opt-remind', windowMock, lsMock);
+    extractFn(pers, 'perfRemindWrite') + '\nreturn perfRemindWrite;')(windowMock, lsMock, 'xy-home-v2:perf-opt-remind');
   const perfRemindWriteFailing = new Function('window', 'localStorage', 'PERF_REMIND_KEY',
-    extractFn(pers, 'perfRemindWrite') + '\nreturn perfRemindWrite;')('xy-home-v2:perf-opt-remind', windowMock, lsFailing);
+    extractFn(pers, 'perfRemindWrite') + '\nreturn perfRemindWrite;')(windowMock, lsFailing, 'xy-home-v2:perf-opt-remind');
 
   const r1 = await new Promise(res => perfRemindRead(res));
   ok('R1 IDB 较新则取 IDB 值', r1 === 2000);
@@ -59,9 +59,9 @@ function extractFn(src, name) {
   const r2 = await new Promise(res => perfRemindRead(res));
   ok('R2 IDB 无值回退 LS 值', r2 === 1000);
   const w1 = perfRemindWrite(5555);
-  ok('W1 双路写入（LS+IDB）', lsStore['xy-home-v2:perf-opt-remind'] === '5555' && idbStore['xy-home-v2:perf-opt-remind'] === 5555 && w1 === undefined);
+  ok('W1 双路写入（LS+IDB）', lsStore['xy-home-v2:perf-opt-remind'] === '5555' && idbStore['xy-home-v2:perf-opt-remind'] === '5555' && w1 === undefined);
   perfRemindWriteFailing(6666); // LS setItem 抛 QuotaExceeded 不许外溢
-  ok('W2 LS 配额满时 IDB 写入不受阻（标记仍可持久化）', idbStore['xy-home-v2:perf-opt-remind'] === 6666);
+  ok('W2 LS 配额满时 IDB 写入不受阻（标记仍可持久化）', idbStore['xy-home-v2:perf-opt-remind'] === '6666');
 }
 
 // --- P 启动分级：尺寸门控免读大值，仅「重」级弹 ---
