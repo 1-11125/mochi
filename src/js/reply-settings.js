@@ -30,6 +30,11 @@
     // mjf-prob 触发概率（%）：梦角说话按概率「截断某几个字重新造句」，新句自动存进
     // 自定义聊天字卡新分类「梦角自由造句」（dream-free.js，chat.js replyOnce 消费）
     'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
+    // v3.41.x #413：梦角自由造句语料来源三选（默认全开=可用全部字卡）+ 各源权重（%）——
+    // mjf-src-cc 自定义聊天字卡（原唯一语料）/ mjf-src-def 默认聊天字卡 / mjf-src-dict 词典；
+    // 权重按归一化抽源（默认 50/25/25），权重 0 或开关关=该源不参与；三源全关=不触发
+    'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
+    'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
     // v3.33.x #364：mjf-pub 造句存公用库概率（%，默认 80）——多桌面联系人时新句按此概率
     // 进公用库、其余进专属库；仅 1 个联系人时固定进专属库（不受此项影响），dream-free.js 消费
     'mjf-pub': 80,
@@ -215,7 +220,7 @@
       }
     });
     // 开关
-    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -327,7 +332,9 @@
     'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
     'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
     'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
-    'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句', 'rc-en': '撤回后补发消息'
+    'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
+    'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
+    'rc-en': '撤回后补发消息'
   };
   // #388：cc-toast 元素全站懒创建（template.html 无静态元素，chat.js/device.js 等 20+ 文件
   //   都是「查不到就 createElement 补挂 body」）——本文件此前只查不建，用户直达回复设置页时
@@ -350,7 +357,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -499,7 +506,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

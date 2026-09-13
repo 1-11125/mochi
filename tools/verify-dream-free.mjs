@@ -23,10 +23,11 @@ const w = {};
 w.window = w;
 w.getCustomCards = () => ['今天也要好好爱自己', '晚安，好梦', '想和你一起看日落', '明天见啦', 'abcDEF', '短句', '今天也要好好爱自己'];
 // 合成词典词库（不依赖真实数据文件，断言确定性）：切词命中 今天/自己/好好/晚安/火锅
+// #413：main=默认聊天字卡模拟源（沙盒里唯一含「默认聊天字卡特有的句子一二三」的来源）
 w.getDefaultCardGroups = (cat) => (cat === 'dict' ? [
   ['语录', ['今天也要好好爱自己', '晚安，好梦', '想和你一起看日落']],
   ['词库', ['今天', '自己', '好好', '晚安', '火锅', '明天', '爱你', '想和你', '一起', '日落', '明天见']]
-] : []);
+] : cat === 'main' ? [['主卡', ['默认聊天字卡特有的句子一二三', '默认字卡二号的独立语句', '默认字卡三号也来凑个数']]] : []);
 vm.runInNewContext(readFileSync(join(root, 'src/js/dream-free.js'), 'utf8'), w, { filename: 'dream-free.js' });
 
 const pick = w.dreamFreePick;
@@ -149,6 +150,43 @@ for (let i = 0; i < 30; i++) {
 }
 ok(ownOnly === 30 && pubGroups.mjfree[0][1].every(x => x.indexOf('单联系人-') !== 0), 'C5 单联系人 100% 专属库（30/30，公用零写入）');
 
+// —— H #413 语料来源三选+权重（默认全开=全部字卡，按权重归一化抽源）——
+// 沙盒默认字卡 3 张全部「默认」前缀，断言按前缀判来源
+const DEF_PFX = '默认';
+const DICT_SENTS = ['今天也要好好爱自己', '晚安，好梦', '想和你一起看日落'];
+// H1 三源全关 → 不触发（第二道闸）
+let h1 = 0;
+for (let i = 0; i < 10; i++) {
+  if (pick({ 'mjf-en': 1, 'mjf-prob': 100, 'mjf-src-cc': 0, 'mjf-src-def': 0, 'mjf-src-dict': 0 }) === null) h1++;
+}
+ok(h1 === 10, 'H1 语料三源全关 → 不触发（10/10）');
+// H2 只开默认聊天字卡源 → 成功样本 src 全部来自默认字卡（偶发 null=防复读让位，允许 ≤2）
+let h2n = 0, h2bad = null;
+for (let i = 0; i < 20; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100, 'mjf-src-cc': 0, 'mjf-src-def': 1, 'mjf-src-dict': 0, 'mjf-w-def': 100 });
+  if (!r) continue;
+  h2n++;
+  if ((r.src || '').indexOf(DEF_PFX) !== 0) h2bad = h2bad || r.src;
+}
+ok(h2n >= 18 && h2bad === null, 'H2 只开默认聊天字卡源 → src 全来自默认字卡（' + h2n + ' 成功）', h2bad);
+// H3 cc 关、def+dict 开（权重缺省 25/25）→ src ∈ 默认卡 ∪ 词典语录，绝不来自自定义专属卡
+let h3n = 0, h3bad = null;
+const h3set = ['默认聊天字卡特有的句子一二三'].concat(DICT_SENTS, ['默认字卡二号的独立语句', '默认字卡三号也来凑个数']);
+for (let i = 0; i < 30; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100, 'mjf-src-cc': 0 });
+  if (!r) continue;
+  h3n++;
+  if (h3set.indexOf(r.src) < 0) h3bad = h3bad || r.src;
+}
+ok(h3n >= 26 && h3bad === null, 'H3 自定义源关闭 → src 只来自默认字卡/词典（' + h3n + ' 成功）', h3bad);
+// H4 默认（无来源键）= 三源全开 → 能抽到默认字卡句（60 掷内出现）
+let sawDef = false;
+for (let i = 0; i < 60 && !sawDef; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100 });
+  if (r && (r.src || '').indexOf(DEF_PFX) === 0) sawDef = true;
+}
+ok(sawDef, 'H4 缺省配置=三源全开 → 默认聊天字卡句可被抽为源');
+
 // —— D 接线（源码级）——
 const chat = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
 const rs = readFileSync(join(root, 'src/js/reply-settings.js'), 'utf8');
@@ -160,6 +198,9 @@ ok(cc.includes("const CC_FUNC_KEYS = ['fish', 'eat', 'period', 'water', 'garden'
 ok(chat.includes("tag: '梦角自由造句'") && chat.includes('window.dreamFreePick && window.dreamFreePick(c)'), 'D3 chat.js replyOnce 接入+tag');
 ok(rs.includes("'mjf-en': 0, 'mjf-prob': 20,") && rs.includes("'mjf-style': 1,"), 'D4 reply-settings DEFAULTS（mjf 三键）');
 ok(tpl.includes('id="mjf-en"') && tpl.includes('data-k="mjf-prob"') && tpl.includes('data-k="mjf-style"'), 'D5 template 回复设置「梦角自由造句」组（开关+概率+手法三选一）');
+// #413 语料来源三选+权重接线（DEFAULTS 六键 / template 三开关+三 stepper）
+ok(rs.includes("'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,") && rs.includes("'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,"), 'H5 reply-settings DEFAULTS 六个语料来源键（默认全开+权重 50/25/25）');
+ok(tpl.includes('id="mjf-src-cc"') && tpl.includes('id="mjf-src-def"') && tpl.includes('id="mjf-src-dict"') && tpl.includes('data-k="mjf-w-cc"') && tpl.includes('data-k="mjf-w-def"') && tpl.includes('data-k="mjf-w-dict"'), 'H6 template 语料来源三开关+三权重控件在位');
 ok(tpl.includes('id="rc-en"') && tpl.includes('id="qs-noLimit"') && rs.includes('"rc-en": 1'.replace(/"/g, String.fromCharCode(39))) && rs.includes('"qs-noLimit": 1'.replace(/"/g, String.fromCharCode(39))), 'D5c #351 撤回补发总开关+逐卡不受限开关（template+DEFAULTS 默认开）');
 ok(rs.includes('梦角自由造句开启失败') && rs.includes('梦角自由造句已开启') && rs.includes('mjf-probe'), 'D5b #324 开关切换 toast 提示（成功/失败）+存储探针在位');
 ok(tpl.includes('data-type="mjfree"'), 'D6 template 字卡库「梦角自由造句」tab');

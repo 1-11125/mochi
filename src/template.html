@@ -2429,10 +2429,17 @@
           <div class="set-group glass">
             <div class="gs-row"><span>梦角自由造句</span><label class="toggle"><input type="checkbox" id="mjf-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>触发概率</span><div class="stepper" data-k="mjf-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <!-- #413 语料来源三选（默认全开=可用全部字卡）+ 各源权重：按权重归一化抽源 -->
+            <div class="gs-row"><span>语料·自定义字卡</span><label class="toggle"><input type="checkbox" id="mjf-src-cc"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>自定义字卡权重</span><div class="stepper" data-k="mjf-w-cc" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-cc-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>语料·默认聊天字卡</span><label class="toggle"><input type="checkbox" id="mjf-src-def"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>默认字卡权重</span><div class="stepper" data-k="mjf-w-def" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-def-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>语料·词典</span><label class="toggle"><input type="checkbox" id="mjf-src-dict"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>词典权重</span><div class="stepper" data-k="mjf-w-dict" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-dict-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>造句手法（0语气词/1撤回/2换字卡）</span><div class="stepper" data-k="mjf-style" data-min="0" data-max="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="mjf-style-val" readonly><button class="stp-max">+</button></div></div>
             <!-- #364 存库概率：多桌面联系人时新句按此概率进公用库、其余进专属库；仅 1 个联系人固定进专属库 -->
             <div class="gs-row"><span>存公用库概率（多联系人）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。语料来自你自建的聊天字卡（至少 4 个汉字的文本卡）。概率 0 = 不触发。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
+            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
           </div>
           </div>
           <div class="gs-title">主动发送（联系人找你）</div>

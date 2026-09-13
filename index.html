@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789295723862">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.646</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 18:35<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789296896913">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.648</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 18:54<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10658,7 +10658,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.646</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.648</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10953,7 +10953,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.646</span>
+              <span class="lic-ver">v3.26.648</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11524,10 +11524,17 @@ transition-duration: .01ms !important;
           <div class="set-group glass">
             <div class="gs-row"><span>梦角自由造句</span><label class="toggle"><input type="checkbox" id="mjf-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>触发概率</span><div class="stepper" data-k="mjf-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <!-- #413 语料来源三选（默认全开=可用全部字卡）+ 各源权重：按权重归一化抽源 -->
+            <div class="gs-row"><span>语料·自定义字卡</span><label class="toggle"><input type="checkbox" id="mjf-src-cc"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>自定义字卡权重</span><div class="stepper" data-k="mjf-w-cc" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-cc-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>语料·默认聊天字卡</span><label class="toggle"><input type="checkbox" id="mjf-src-def"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>默认字卡权重</span><div class="stepper" data-k="mjf-w-def" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-def-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>语料·词典</span><label class="toggle"><input type="checkbox" id="mjf-src-dict"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>词典权重</span><div class="stepper" data-k="mjf-w-dict" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-dict-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>造句手法（0语气词/1撤回/2换字卡）</span><div class="stepper" data-k="mjf-style" data-min="0" data-max="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="mjf-style-val" readonly><button class="stp-max">+</button></div></div>
             <!-- #364 存库概率：多桌面联系人时新句按此概率进公用库、其余进专属库；仅 1 个联系人固定进专属库 -->
             <div class="gs-row"><span>存公用库概率（多联系人）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。语料来自你自建的聊天字卡（至少 4 个汉字的文本卡）。概率 0 = 不触发。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
+            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
           </div>
           </div>
           <div class="gs-title">主动发送（联系人找你）</div>
@@ -30812,7 +30819,7 @@ const chain = (window.triggerEmotionChain && window.triggerEmotionChain()) || nu
 if (chain && chain.length) {
 const typeName = { mood: '情绪', heart: '心意', intent: '交流意图' };
 setTimeout(() => {
-if (!sameCid()) return;
+if (!sameCid() || !m) return;
 const bm = m.querySelector('.msg-bubble');
 if (bm) {
 let mm = bm.querySelector('.msg-moods');
@@ -30840,7 +30847,7 @@ try { window.periodCheckCare && window.periodCheckCare(); } catch (e) {}
 }
 if (hit(c['rc-prob'])) {
 setTimeout(() => {
-if (!sameCid()) return;
+if (!sameCid() || !m) return;
 partialRetractMsg(m, 'in');
 if (c['rc-en'] !== 0 && hit(c['rc-refix'])) {
 showTyping();
@@ -43632,6 +43639,8 @@ const DEFAULTS = {
 'csp-cust': 50,
 'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
 'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
+'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
+'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
 'mjf-pub': 80,
 'as-en': 1, 'as-prob': 30, 'as-min': 5, 'as-max': 10,
 'as-count-min': 1, 'as-count-max': 2, 'dnd-en': 0,
@@ -43737,7 +43746,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -43830,7 +43839,9 @@ const TOGGLE_NAMES = {
 'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
 'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
 'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
-'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句', 'rc-en': '撤回后补发消息'
+'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
+'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
+'rc-en': '撤回后补发消息'
 };
 function ccToastEnsure() {
 let d = null;
@@ -43849,7 +43860,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -43972,7 +43983,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -45993,16 +46004,48 @@ i += len;
 return out;
 }
 const isWordTok = t => HAN.test(t); // 含汉字＝词 token（非汉字 token 视为标点/符号段）
-function corpusPool() {
-let cards = [];
-try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
-return cards.filter(function (s) {
+function filterCorpus(list) {
+return (list || []).filter(function (s) {
 if (typeof s !== 'string') return false;
 if (s.length < 4 || s.length > 30) return false;
 if (s.indexOf('data:') === 0 || s.indexOf('|||') >= 0) return false;
 if (/[\uD800-\uDBFF]/.test(s)) return false;
 return (s.match(/[\u4e00-\u9fff]/g) || []).length >= 4;
 });
+}
+function customPool() {
+let cards = [];
+try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
+return filterCorpus(cards);
+}
+function defaultPool() {
+try {
+const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
+const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
+return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('main', t))));
+} catch (e) { return []; }
+}
+function dictPool() {
+try {
+const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('dict')) || [];
+return filterCorpus(gs.reduce((a, g) => a.concat((g && g[1]) || []), []));
+} catch (e) { return []; }
+}
+function allCorpus() { return customPool().concat(defaultPool(), dictPool()); }
+function pickSourcePool(c) {
+const on = k => !(c && c[k] === 0); // 缺省=开（存量升级即得三源全开）
+const wt = (k, d) => { const n = Number(c && c[k]); return (isFinite(n) && n > 0) ? n : d; };
+const srcs = [];
+if (on('mjf-src-cc')) { const p = customPool(); if (p.length) srcs.push({ w: wt('mjf-w-cc', 50), pool: p }); }
+if (on('mjf-src-def')) { const p = defaultPool(); if (p.length) srcs.push({ w: wt('mjf-w-def', 25), pool: p }); }
+if (on('mjf-src-dict')) { const p = dictPool(); if (p.length) srcs.push({ w: wt('mjf-w-dict', 25), pool: p }); }
+if (!srcs.length) return null;
+let total = 0;
+srcs.forEach(s => { total += s.w; });
+if (total <= 0) return srcs[Math.floor(Math.random() * srcs.length)].pool;
+let r = Math.random() * total;
+for (let i = 0; i < srcs.length; i++) { r -= srcs[i].w; if (r < 0) return srcs[i].pool; }
+return srcs[srcs.length - 1].pool;
 }
 function recallCut(s) {
 const str = String(s == null ? '' : s);
@@ -46024,7 +46067,7 @@ return (out !== str && out.length >= 4) ? out : null;
 }
 function wordPool(excludeSrc) {
 const pool = [];
-corpusPool().forEach(card => {
+allCorpus().forEach(card => {
 if (card === excludeSrc) return;
 segment(card).forEach(t => {
 if (t.length >= 2 && isWordTok(t) && pool.indexOf(t) < 0) pool.push(t);
@@ -46090,8 +46133,8 @@ try {
 if (!c || c['mjf-en'] !== 1) return null;
 const prob = Number(c['mjf-prob']);
 if (!isFinite(prob) || prob <= 0 || Math.random() * 100 >= prob) return null;
-const pool = corpusPool();
-if (!pool.length) return null;
+const pool = pickSourcePool(c); // #413 三语料源按开关+权重抽
+if (!pool || !pool.length) return null;
 const style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));
 const pickOf = arr => arr[Math.floor(Math.random() * arr.length)];
 for (let t = 0; t < 8; t++) {
@@ -91383,4 +91426,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzoh4k6 -->
+<!-- __MOCHI_EOF__ mtzp69ox -->

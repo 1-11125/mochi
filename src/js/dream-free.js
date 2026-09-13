@@ -10,6 +10,12 @@
 // 词边界来自内置词典（DEFAULT_CARD_DATA.dict「词库*」分组，正向最大匹配切词）。
 // 入库规则（#324）：多联系人 80% 进公用库 / 20% 进专属库；单联系人 100% 专属库。
 // 设置项（回复设置 → 聊天 tab「梦角自由造句」组）：mjf-en（默认关）、mjf-prob（默认 20%）。
+// #413 语料来源扩展（默认=全部字卡，三源可选+权重可调）：
+//   mjf-src-cc 自定义聊天字卡（默认开，原唯一语料）/ mjf-src-def 默认聊天字卡（默认开）/
+//   mjf-src-dict 词典语录（默认开）；各源权重 mjf-w-cc / mjf-w-def / mjf-w-dict
+//   （默认 50/25/25，按权重归一化抽源；权重全 0 或某源关=不参与，全关=不触发）。
+//   默认聊天字卡只取主字卡文本（颜文字/emoji 天然被 ≥4 汉字过滤）并尊重逐张关闭；
+//   词典取 dict 全部分组文本（词库 2~3 字词被长度过滤，语录/长词做源句）。
 // 接线：build.mjs jsFiles；chat.js replyOnce 消费 window.dreamFreePick（气泡带「梦角自由造句」tag）。
 // 纯本地，无网络请求。
 (function () {
@@ -63,17 +69,56 @@
     return out;
   }
   const isWordTok = t => HAN.test(t); // 含汉字＝词 token（非汉字 token 视为标点/符号段）
-  // 语料池：自定义聊天字卡文本（≥4 个汉字才够截），剔 dataURL/媒体令牌/空白
-  function corpusPool() {
-    let cards = [];
-    try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
-    return cards.filter(function (s) {
+  // 语料通用过滤（≥4 个汉字才够截，剔 dataURL/媒体令牌/空白/孤立代理对）
+  function filterCorpus(list) {
+    return (list || []).filter(function (s) {
       if (typeof s !== 'string') return false;
       if (s.length < 4 || s.length > 30) return false;
       if (s.indexOf('data:') === 0 || s.indexOf('|||') >= 0) return false;
       if (/[\uD800-\uDBFF]/.test(s)) return false;
       return (s.match(/[\u4e00-\u9fff]/g) || []).length >= 4;
     });
+  }
+  // #413 三语料源：自定义聊天字卡（原唯一语料）
+  function customPool() {
+    let cards = [];
+    try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
+    return filterCorpus(cards);
+  }
+  // 默认聊天字卡：主字卡（main）全部分组文本展平，尊重单卡关闭（isDefaultCardOff）；
+  // 二级锁（#319）锁定时 getDefaultCardGroups 返回 []，天然为空池
+  function defaultPool() {
+    try {
+      const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
+      const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
+      return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('main', t))));
+    } catch (e) { return []; }
+  }
+  // 词典：dict 全部分组文本（语录整句最适合做源句；词库 2~3 字词被长度过滤自动排除）
+  function dictPool() {
+    try {
+      const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('dict')) || [];
+      return filterCorpus(gs.reduce((a, g) => a.concat((g && g[1]) || []), []));
+    } catch (e) { return []; }
+  }
+  // 全语料合并（#329 换字卡内容式的词素材池用——来源扩了，补词素材同步跟着扩）
+  function allCorpus() { return customPool().concat(defaultPool(), dictPool()); }
+  // #413 按开关+权重选语料源：有效源=开关开且池非空；权重取 cfg（缺省 50/25/25），
+  // 权重和为 0 时等权；无有效源返回 null（三个来源全关=不触发，总开关之外的第二道闸）
+  function pickSourcePool(c) {
+    const on = k => !(c && c[k] === 0); // 缺省=开（存量升级即得三源全开）
+    const wt = (k, d) => { const n = Number(c && c[k]); return (isFinite(n) && n > 0) ? n : d; };
+    const srcs = [];
+    if (on('mjf-src-cc')) { const p = customPool(); if (p.length) srcs.push({ w: wt('mjf-w-cc', 50), pool: p }); }
+    if (on('mjf-src-def')) { const p = defaultPool(); if (p.length) srcs.push({ w: wt('mjf-w-def', 25), pool: p }); }
+    if (on('mjf-src-dict')) { const p = dictPool(); if (p.length) srcs.push({ w: wt('mjf-w-dict', 25), pool: p }); }
+    if (!srcs.length) return null;
+    let total = 0;
+    srcs.forEach(s => { total += s.w; });
+    if (total <= 0) return srcs[Math.floor(Math.random() * srcs.length)].pool;
+    let r = Math.random() * total;
+    for (let i = 0; i < srcs.length; i++) { r -= srcs[i].w; if (r < 0) return srcs[i].pool; }
+    return srcs[srcs.length - 1].pool;
   }
   // 撤回式截断（#327 主手法）：词间隙随机选切点，切点之后的尾巴「撤回不要」，
   // 前缀成为新句。前缀至少保留 4 个汉字、至少 2 个词 token，且必须真的截掉了内容。
@@ -100,7 +145,7 @@
   // 不再用固定语气词——用户明确：补的应该是别的字卡内容）。excludeSrc=源句，防同句自补
   function wordPool(excludeSrc) {
     const pool = [];
-    corpusPool().forEach(card => {
+    allCorpus().forEach(card => {
       if (card === excludeSrc) return;
       segment(card).forEach(t => {
         if (t.length >= 2 && isWordTok(t) && pool.indexOf(t) < 0) pool.push(t);
@@ -173,8 +218,8 @@
       if (!c || c['mjf-en'] !== 1) return null;
       const prob = Number(c['mjf-prob']);
       if (!isFinite(prob) || prob <= 0 || Math.random() * 100 >= prob) return null;
-      const pool = corpusPool();
-      if (!pool.length) return null;
+      const pool = pickSourcePool(c); // #413 三语料源按开关+权重抽
+      if (!pool || !pool.length) return null;
       // #329 三种造句手法（mjf-style 选择，默认 1=撤回式）：
       //   0=语气词式：截词补语气词 / 加逗号 / 加空格 / 句尾加语气后缀 / 删句尾字（五选一）
       //   1=撤回式：撤回式截断 50% + 词间加逗号/空格各 25%
