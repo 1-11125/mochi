@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789287035779">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.639</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 16:10<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789288508024">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.640</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 16:35<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10622,7 +10622,7 @@ transition-duration: .01ms !important;
              不同机型各属其一：开启=声明本机为覆盖形态（恢复 env 顶部避让+全屏高度含 env），
              修「Mochi 行与系统时间重叠」；默认关=系统保留形态（修「底部白带」）。 -->
         <div class="set-row">
-          <div class="txt">顶部避让修正<span class="sub">顶部 Mochi 行与手机时间重叠时开启；底部出现白带时关闭（改后自动刷新）</span></div>
+          <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
         <div class="set-row" id="row-screen-diag">
@@ -10651,7 +10651,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.639</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.640</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10946,7 +10946,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.639</span>
+              <span class="lic-ver">v3.26.640</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -20895,6 +20895,58 @@ try { refreshDeskVisuals(); } catch (e) {}
 }, 1800);
 });
 } catch (e) {}
+window.mochiParsePastedJSON = function (raw) {
+const t0 = String(raw == null ? '' : raw);
+let lastErr = null;
+const ok = (s) => {
+try {
+const d = JSON.parse(s);
+if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+lastErr = new Error('内容不是方案对象');
+} catch (e) { lastErr = e; }
+return null;
+};
+let d = ok(t0); if (d) return d;
+const t1 = t0.replace(/[\uFEFF\u200B-\u200F\u2060\u202A-\u202E]/g, '').replace(/\u00A0/g, ' ').trim();
+d = ok(t1); if (d) return d;
+const a = t1.indexOf('{'), b = t1.lastIndexOf('}');
+if (a >= 0 && b > a) { d = ok(t1.slice(a, b + 1)); if (d) return d; }
+const scanNorm = (s) => {
+let out = '', inStr = false, esc = false;
+for (let i = 0; i < s.length; i++) {
+let c = s[i];
+if (inStr) {
+out += c;
+if (esc) esc = false;
+else if (c === '\\') esc = true;
+else if (c === '"') inStr = false;
+} else {
+if (c === '"') { inStr = true; out += c; continue; }
+if (c === '，' || c === '、') c = ',';
+else if (c === '：') c = ':';
+else if (c === '｛') c = '{';
+else if (c === '｝') c = '}';
+else if (c === '［') c = '[';
+else if (c === '］') c = ']';
+if (c === ',') {
+let j = i + 1;
+while (j < s.length && /\s/.test(s[j])) j++;
+if (j < s.length && (s[j] === '}' || s[j] === ']' || s[j] === '｝' || s[j] === '］')) continue;
+}
+out += c;
+}
+}
+return out;
+};
+const hasDq = t1.indexOf('"') >= 0;
+const variants = hasDq ? [t1] : [t1.replace(/[“”＂‟〝〞]/g, '"'), t1];
+for (let k = 0; k < variants.length; k++) {
+d = ok(scanNorm(variants[k])); if (d) return d;
+const a2 = variants[k].indexOf('{'), b2 = variants[k].lastIndexOf('}');
+if (a2 >= 0 && b2 > a2) { d = ok(scanNorm(variants[k].slice(a2, b2 + 1))); if (d) return d; }
+}
+throw (lastErr || new Error('不是有效的方案 JSON'));
+};
 (function () {
 const mask = document.getElementById('modal-mask');
 let _modalOpts = null;
@@ -22915,8 +22967,7 @@ if (!window.openModal) return;
 window.openModal('导入美化方案', '', (v) => {
 if (!v || !v.trim()) { toast('请先粘贴方案文本，或点「从文件导入」选择 .json 文件'); return; }
 try {
-const data = JSON.parse(v.trim());
-if (typeof data !== 'object' || Array.isArray(data)) { toast('格式错误'); return; }
+const data = window.mochiParsePastedJSON(v);
 try {
 const cur = collectBeautyFull();
 if (cur && Object.keys(cur).length > 0) {
@@ -22933,7 +22984,11 @@ try { pushBeautyUndo(); } catch (e) {}
 applyBeautyData(data);
 toast('已导入，刷新生效');
 setTimeout(() => location.reload(), 800);
-} catch (e) { toast('解析失败，请检查文本内容'); }
+} catch (e) {
+const _sv = String(v || '');
+try { if (window.__jsErrors) window.__jsErrors.push('[美化导入] ' + ((e && e.message) || e) + ' | 收到长度=' + _sv.length + ' | 开头: ' + _sv.replace(/[\uFEFF\u200B-\u200F]/g, '').slice(0, 100)); } catch (e1) {}
+toast('解析失败：' + ((e && e.message) || '请检查文本内容'));
+}
 }, { textarea: true, textareaPlaceholder: '粘贴美化方案文本（JSON），或点下方「从文件导入」选择 .json 文件', txtImport: true, txtImportAuto: true, staticText: '导入前会自动把当前美化保存为「导入前备份」方案；支持粘贴文本或从文件导入（选完文件自动应用）' });
 });
 }
@@ -29032,21 +29087,22 @@ windowRenderedN = len; // 凭据随增量补齐——loadNewerIncremental 只更
 return true;
 }
 function patchChangedInPlace(changedIdxs, start) {
-if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
+const __plog = function (tag) { try { (window.__patch402Log = window.__patch402Log || []).push(tag); } catch (e) {} };
+if (!Array.isArray(changedIdxs) || !changedIdxs.length) { __plog('noop-empty'); return true; }
 let n = start;
 let hasPending = false;
 for (let k = 0; k < body.children.length; k++) {
 const el = body.children[k];
 if (!el.dataset || el.dataset.idx === undefined) continue;
-if (Number(el.dataset.idx) !== n) return false;
+if (Number(el.dataset.idx) !== n) { __plog('fail-idx@' + k); return false; }
 if (el.dataset.pendingRead === '1') hasPending = true;
 n++;
 }
-if (n !== renderEnd - renderStart) return false;
-if (n > msgs.length) return false;
-if (hasPending) return false;
+if (n !== renderEnd - renderStart) { __plog('fail-range n=' + n + ' re=' + renderEnd + ' rs=' + renderStart); return false; }
+if (n > msgs.length) { __plog('fail-len'); return false; }
+if (hasPending) { __plog('fail-pending'); return false; }
 const idxs = changedIdxs.filter(i => i >= start && i < n && i < msgs.length).sort((a, b) => a - b);
-if (!idxs.length) return true; // 改动都不在屏上窗口＝无需动 DOM
+if (!idxs.length) { __plog('noop-outside'); return true; } // 改动都不在屏上窗口＝无需动 DOM
 collectInplaceDrafts();
 const wasNearBottom = chatNearBottom();
 const prevTop = body.scrollTop;
@@ -29055,15 +29111,16 @@ const prevPendingOut = pendingOutScroll;
 batchRendering = true;
 for (let u = 0; u < idxs.length; u++) {
 const ui = idxs[u];
-const old = body.querySelector('.msg[data-idx="' + ui + '"]');
-if (!old) { batchRendering = false; restoreInplaceDrafts(); return false; }
+const old = body.querySelector('[data-idx="' + ui + '"]');
+if (!old) { batchRendering = false; restoreInplaceDrafts(); __plog('fail-node@' + ui); return false; }
 let nu = null;
 try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
-if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); return false; }
+if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); __plog('fail-render@' + ui); return false; }
 nu.dataset.idx = ui;
 old.parentNode.replaceChild(nu, old);
 if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.filter(x => x !== ui);
 }
+__plog('ok:' + idxs.length);
 batchRendering = false;
 pendingOutScroll = prevPendingOut;
 restoreInplaceDrafts();
@@ -42890,14 +42947,17 @@ pills: pills,
 function chatSchemeImport() {
 if (!window.openModal) return;
 window.openModal('导入聊天美化方案', '', (v) => {
-if (!v || !v.trim()) return;
+if (!v || !v.trim()) { toast('请先粘贴方案文本，或点「从文件导入」选择 .json 文件'); return; }
 try {
-const data = JSON.parse(v.trim());
-if (typeof data !== 'object' || Array.isArray(data)) { toast('格式错误'); return; }
+const data = window.mochiParsePastedJSON(v);
 applyChatBeautyData(data);
 toast('已导入，当前聊天立即生效');
 window.openChatBeautySchemes();
-} catch (e) { toast('解析失败，请检查文本'); }
+} catch (e) {
+const _sv = String(v || '');
+try { if (window.__jsErrors) window.__jsErrors.push('[聊天美化导入] ' + ((e && e.message) || e) + ' | 收到长度=' + _sv.length + ' | 开头: ' + _sv.replace(/[\uFEFF\u200B-\u200F]/g, '').slice(0, 100)); } catch (e1) {}
+toast('解析失败：' + ((e && e.message) || '请检查文本'));
+}
 }, { textarea: true, textareaPlaceholder: '粘贴对方导出的聊天美化方案文本，或点下方「从文件导入」选择 .json 文件', txtImport: true });
 }
 function chatSchemeThumb(data) {
@@ -91188,4 +91248,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzjawsj -->
+<!-- __MOCHI_EOF__ mtzk6gs8 -->

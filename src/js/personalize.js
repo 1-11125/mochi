@@ -217,6 +217,69 @@ try {
       });
     } catch (e) {}
 
+  // ===== v3.26.x #408：粘贴导入 JSON 跨机型自救解析（IQOO Neo10 vivo 浏览器报障「美化导入解析失败」同族，多机型通用） =====
+  // 安卓各浏览器 ce-box（contenteditable）粘贴链路与聊天 App 转发链路会把方案 JSON 弄脏：
+  // BOM/零宽/双向控制字符、nbsp 空格、前后包裹说明文字、中文引号/全角标点（输入法/转发改写）、
+  // 尾逗号——JSON.parse 直接抛「解析失败」。统一自救：原文 → 清洗隐形字符 → 裁剪首{到末}
+  // → 字符串外全角标点归一；只在候选真正解析成功且为顶层对象时才采用（任何清洗不回写原文、
+  // 不污染字符串内的中文标点）；全部失败抛最后一次真实报错（诊断现场可自证机型链路）。
+  window.mochiParsePastedJSON = function (raw) {
+    const t0 = String(raw == null ? '' : raw);
+    let lastErr = null;
+    const ok = (s) => {
+      try {
+        const d = JSON.parse(s);
+        if (d && typeof d === 'object' && !Array.isArray(d)) return d;
+        lastErr = new Error('内容不是方案对象');
+      } catch (e) { lastErr = e; }
+      return null;
+    };
+    let d = ok(t0); if (d) return d;
+    // ① 隐形字符清洗：BOM/零宽/双向控制删除 + nbsp 转普通空格（contenteditable 粘贴常见）
+    const t1 = t0.replace(/[\uFEFF\u200B-\u200F\u2060\u202A-\u202E]/g, '').replace(/\u00A0/g, ' ').trim();
+    d = ok(t1); if (d) return d;
+    // ② 前后被说明文字/引号包裹（转发/复制带出）：裁剪首个 { 到末个 } 再试
+    const a = t1.indexOf('{'), b = t1.lastIndexOf('}');
+    if (a >= 0 && b > a) { d = ok(t1.slice(a, b + 1)); if (d) return d; }
+    // ③ 全角标点自救：只把「字符串外」的 ，、：｛｝［］ 换半角并丢弃 }]/] 前尾逗号——
+    //    逐字符扫描跳过字符串内部，中文值里的全角标点原样保留；没有半角引号时先归一中文引号
+    const scanNorm = (s) => {
+      let out = '', inStr = false, esc = false;
+      for (let i = 0; i < s.length; i++) {
+        let c = s[i];
+        if (inStr) {
+          out += c;
+          if (esc) esc = false;
+          else if (c === '\\') esc = true;
+          else if (c === '"') inStr = false;
+        } else {
+          if (c === '"') { inStr = true; out += c; continue; }
+          if (c === '，' || c === '、') c = ',';
+          else if (c === '：') c = ':';
+          else if (c === '｛') c = '{';
+          else if (c === '｝') c = '}';
+          else if (c === '［') c = '[';
+          else if (c === '］') c = ']';
+          if (c === ',') {
+            let j = i + 1;
+            while (j < s.length && /\s/.test(s[j])) j++;
+            if (j < s.length && (s[j] === '}' || s[j] === ']' || s[j] === '｝' || s[j] === '］')) continue;
+          }
+          out += c;
+        }
+      }
+      return out;
+    };
+    const hasDq = t1.indexOf('"') >= 0;
+    const variants = hasDq ? [t1] : [t1.replace(/[“”＂‟〝〞]/g, '"'), t1];
+    for (let k = 0; k < variants.length; k++) {
+      d = ok(scanNorm(variants[k])); if (d) return d;
+      const a2 = variants[k].indexOf('{'), b2 = variants[k].lastIndexOf('}');
+      if (a2 >= 0 && b2 > a2) { d = ok(scanNorm(variants[k].slice(a2, b2 + 1))); if (d) return d; }
+    }
+    throw (lastErr || new Error('不是有效的方案 JSON'));
+  };
+
   // 通用弹层：IAB 不支持 prompt/confirm，用页面内模态框替代；支持输入 / 色板
   (function () {
     const mask = document.getElementById('modal-mask');
@@ -2577,8 +2640,8 @@ try {
       window.openModal('导入美化方案', '', (v) => {
         if (!v || !v.trim()) { toast('请先粘贴方案文本，或点「从文件导入」选择 .json 文件'); return; }
         try {
-          const data = JSON.parse(v.trim());
-          if (typeof data !== 'object' || Array.isArray(data)) { toast('格式错误'); return; }
+          // #408：粘贴/文件导入统一走自救解析（安卓各机型浏览器粘贴链路会弄脏 JSON）
+          const data = window.mochiParsePastedJSON(v);
           // v3.27.x：导入前自动把「当前美化」保存成方案，避免被导入覆盖后丢失
           //（用户要求：导入不影响原本拥有的美化，原美化自动存为方案）
           try {
@@ -2597,7 +2660,12 @@ try {
           applyBeautyData(data);
           toast('已导入，刷新生效');
           setTimeout(() => location.reload(), 800);
-        } catch (e) { toast('解析失败，请检查文本内容'); }
+        } catch (e) {
+          // #408：带出真实原因 + 失败现场写诊断（设置页「复制诊断信息」可直接自证机型粘贴链路）
+          const _sv = String(v || '');
+          try { if (window.__jsErrors) window.__jsErrors.push('[美化导入] ' + ((e && e.message) || e) + ' | 收到长度=' + _sv.length + ' | 开头: ' + _sv.replace(/[\uFEFF\u200B-\u200F]/g, '').slice(0, 100)); } catch (e1) {}
+          toast('解析失败：' + ((e && e.message) || '请检查文本内容'));
+        }
       }, { textarea: true, textareaPlaceholder: '粘贴美化方案文本（JSON），或点下方「从文件导入」选择 .json 文件', txtImport: true, txtImportAuto: true, staticText: '导入前会自动把当前美化保存为「导入前备份」方案；支持粘贴文本或从文件导入（选完文件自动应用）' });
     });
   }

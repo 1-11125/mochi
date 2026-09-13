@@ -1150,14 +1150,20 @@
   function chatSchemeImport() {
     if (!window.openModal) return;
     window.openModal('导入聊天美化方案', '', (v) => {
-      if (!v || !v.trim()) return;
+      // #408：原「空文本静默 return」＝安卓 ce-box 读到空时导入「无反应」——补提示
+      if (!v || !v.trim()) { toast('请先粘贴方案文本，或点「从文件导入」选择 .json 文件'); return; }
       try {
-        const data = JSON.parse(v.trim());
-        if (typeof data !== 'object' || Array.isArray(data)) { toast('格式错误'); return; }
+        // #408：粘贴/文件导入统一走自救解析（安卓各机型浏览器粘贴链路会弄脏 JSON，实现见 personalize.js）
+        const data = window.mochiParsePastedJSON(v);
         applyChatBeautyData(data);
         toast('已导入，当前聊天立即生效');
         window.openChatBeautySchemes();
-      } catch (e) { toast('解析失败，请检查文本'); }
+      } catch (e) {
+        // #408：带出真实原因 + 失败现场写诊断（跨域改动，同族修复见 personalize.js）
+        const _sv = String(v || '');
+        try { if (window.__jsErrors) window.__jsErrors.push('[聊天美化导入] ' + ((e && e.message) || e) + ' | 收到长度=' + _sv.length + ' | 开头: ' + _sv.replace(/[\uFEFF\u200B-\u200F]/g, '').slice(0, 100)); } catch (e1) {}
+        toast('解析失败：' + ((e && e.message) || '请检查文本'));
+      }
     }, { textarea: true, textareaPlaceholder: '粘贴对方导出的聊天美化方案文本，或点下方「从文件导入」选择 .json 文件', txtImport: true });
   }
   // v3.25.x：方案缩略图——按方案数据渲染迷你聊天气泡预览

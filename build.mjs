@@ -1208,6 +1208,10 @@ const FIX_SENTINELS = [
   { name: '#406 挂起双写拆开（删则 LS 配额满一抛整块中止、IDB 也不写＝通知照发回前台什么也没有）', file: 'js/call.js', needle: 'window.idbSet(CALL_HOLD_KEY, h);' },
   { name: '#406 回前台/冷启动挂起回读 IDB 兜底（删则 LS 配额满时挂起只落 IDB、回前台读不到＝无弹窗也无未接）', file: 'js/call.js', needle: 'window.idbGet(CALL_HOLD_KEY)' },
   { name: '#406 后台来电重响补首发系统消息（删/改回 !isReplay 则后台触发来电聊天里永远没有来电系统消息）', file: 'js/call.js', needle: '(!isReplay || !msgWritten) && window.chatAddSystem' },
+  // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
+  { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
+  { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
+  { name: '#408 聊天美化导入接入自救解析+诊断现场+空文本提示（删则「无反应」与「解析失败」无真因）', file: 'js/chat-settings.js', needle: "'[聊天美化导入] '" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
