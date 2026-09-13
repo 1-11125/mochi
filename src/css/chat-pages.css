@@ -4366,6 +4366,8 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .tg-bubble.show { opacity:1; transform:translate(-50%,0); }
 /* 消消乐炸弹：💥 外圈警示环 */
 .m3-tile.m3-bomb { box-shadow:inset 0 0 0 2px #ff9d4d; }
+/* 消消乐直线道具（#453）：↔️/↕️ 外圈蓝环，与炸弹橙环区分 */
+.m3-tile.m3-line { box-shadow:inset 0 0 0 2px #6fb7ff; }
 /* 游乐室 */
 .arc-wrap { padding:4px 2px; display:flex; flex-direction:column; gap:10px; }
 /* 主页页游乐室入口卡（v3.26.x：点击进独立全屏游乐室页） */

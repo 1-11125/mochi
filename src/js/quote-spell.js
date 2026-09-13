@@ -92,8 +92,8 @@
       let one = true;
       if (multiOn) one = oneOn ? Math.random() >= 0.2 : false;
       // 抽卡条数：复用「多字卡回复」设置 py-min/py-max（默认 2~5 张）；
-      // #350：逐卡连发形态不受「回复条数最多」reply-max 限制（用户定稿默认行为）——
-      // 旧 #330 上限逻辑保留为可切换（qs-noLimit 默认 1=不受限），单气泡形态本就只发一条
+      // #443（翻案 #350）：逐卡连发本身是回复的一部分，默认按「回复条数最多」reply-max 收口
+      // （用户报「只设最多回复 2 条但联系人一直超」）；qs-noLimit 手动打开才不受限，单气泡形态本就只发一条
       const pmin = Math.max(1, Math.min(10, Number(c['py-min']) || 2));
       const pmax = Math.max(pmin, Math.min(10, Number(c['py-max']) || 5));
       let want = pmin + Math.floor(Math.random() * (pmax - pmin + 1));

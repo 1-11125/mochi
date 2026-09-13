@@ -25,7 +25,11 @@
     // 上轮迁移（标记=1）且当前值为 0 的桌面改回 1（上轮迁移后自行关闭的无法区分，会被
     // 一并打开一次，同 #310 时的取舍）；
     // qs-one 单气泡拼字（默认开）：命中拼字后 50% 掷成单气泡形态（词间空格一张卡+「词典拼字」tag）
-    'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
+    // v3.42.x #443：qs-noLimit「逐卡连发不受条数限制」默认 1→0（翻案 #350）——逐卡连发本身就是
+    // 回复的一部分，应计入「回复条数最多」（用户报「只设最多回复 2 条但联系人一直超」）；
+    // 旧默认已随「保存设置」全量写盘的存量由 migrateQsNoLimitOld 按标记键一次性收口，
+    // 此后用户手动再打开的 '1' 不再被迁移（标记式而非值式，原因见迁移函数注释）
+    'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
     // v3.28.x #317：梦角自由造句——mjf-en 总开关（默认关=用户点名「可自由选择开关」）、
     // mjf-prob 触发概率（%）：梦角说话按概率「截断某几个字重新造句」，新句自动存进
     // 自定义聊天字卡新分类「梦角自由造句」（dream-free.js，chat.js replyOnce 消费）
@@ -687,6 +691,32 @@
     } catch (e) {}
   }
   migrateQsCcOld();
+  // v3.42.x #443：逐卡连发「不受条数限制」旧默认 1→0 的一次性收口迁移——旧默认 '1' 会随
+  // 「保存设置」按钮全量写盘，仅翻 DEFAULTS 对已写盘设备不生效，这里把存量为 '1' 的桌面
+  // 改写为 '0'。必须用标记键（reply-qs-nl-migrated）只跑一轮、不能用 ckq/mail 那种
+  // 「值等旧默认即改写」式：'1' 既是旧默认值也是合法的手动选择，值式会在用户之后每一次
+  // 手动打开「不受限」时被加载反复改回。用户自己关过（'0'，本就受限）的值不动。
+  function migrateQsNoLimitOld() {
+    try {
+      if (!window.getContacts || !window.storeFor) return;
+      const cids = [window.__activeCid || 'default'];
+      (window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+      let changed = false;
+      cids.forEach(cid => {
+        try {
+          const s = window.storeFor(cid);
+          if (!s) return;
+          if (String(s.get('reply-qs-nl-migrated')) === '1') return;
+          if (String(s.get('reply-qs-noLimit')) === '1') { s.set('reply-qs-noLimit', '0'); changed = true; }
+          s.set('reply-qs-nl-migrated', '1');
+        } catch (e) {}
+      });
+      if (changed) {
+        try { if (window.console && console.log) console.log('[reply-settings] 已迁移逐卡连发不受条数限制旧默认 1→0（#443）'); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  migrateQsNoLimitOld();
 
   // ===== v3.27.x #218：互动频率引导提示（纯提醒，不改任何默认值） =====
   // 背景：系统设置默认全开（设计如此，见开屏公告第八章），但总有用户觉得「概率太高」；

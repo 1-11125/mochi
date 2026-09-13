@@ -326,6 +326,18 @@ html { margin:0; padding:0; }
   margin-top:16px; font-size:11px; color:var(--hint-ink); letter-spacing:1px;
 }
 .splash-enter-hint[hidden] { display:none; }
+/* #315c：年龄确认勾选行——label 包裹整行可点，checkbox 原生控件保证可访问性与举证形态 */
+.splash-age {
+  display:flex; align-items:flex-start; gap:7px;
+  margin-top:12px; padding:0 6px;
+  font-size:11px; line-height:1.5; color:var(--hint-ink);
+  cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.splash-age input[type="checkbox"] {
+  flex:none; width:15px; height:15px; margin:1px 0 0;
+  accent-color:var(--btn-bg); cursor:pointer;
+}
+.splash-age[hidden] { display:none; }
 /* v3.8.y：底部操作区——「点击进入」按钮（居中，间距由卡片 padding 控制） */
 .splash-btns {
   display:flex; align-items:center; justify-content:center; gap:10px;

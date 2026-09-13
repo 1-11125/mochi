@@ -7600,21 +7600,59 @@ try {
       }).catch(function () { perfToast('扫描异常，请稍后重试'); });
     });
     // 启动后（数据就绪）：若字卡库确为大库则主动弹一次（3 天内不重复打扰）
-    const PERF_REMIND_KEY = 'perf-opt-remind';
+    // #452 两处收口（iPhone 15 Pro Max Chrome 报「每次打开都有自检和优化，点击之后再次
+    // 打开仍然会有」+ 同机 iOS 卡顿；多机型同族）：
+    // ① 免打扰标记原用裸 localStorage.setItem——LS 配额满（本机诊断 5.1MB 顶满 iOS 配额、
+    //    写探针 QuotaExceededError）时被 catch 静默吞掉＝标记永远写不进＝每次启动都弹。
+    //    改 IDB 权威写（idbSet）+LS 兜底，读侧 IDB/LS 取较新。
+    // ② 启动扫描原走 mochiCcSlimScan 全量——把 44.59MB 公用库整串读进堆+JSON.parse+逐组
+    //    stringify（只为算字节）＝iOS 启动期秒级长任务/堆尖峰＝「一打开就卡/自动刷新重进」
+    //    主力之一，且因①每次启动必付一遍。改 __big-idx 尺寸分级（idbBigSize 免读大值）：
+    //    逐组明细仍保留在「卡顿自检 · 一键优化」设置行（用户主动点击才全量扫）。
+    const PERF_REMIND_KEY = 'xy-home-v2:perf-opt-remind';
+    function perfRemindRead(cb) {
+      let lsV = 0;
+      try { lsV = Number(localStorage.getItem(PERF_REMIND_KEY)) || 0; } catch (e) {}
+      if (window.idbGet) {
+        try {
+          window.idbGet(PERF_REMIND_KEY).then(function (v) {
+            const iv = Number(v) || 0;
+            cb(iv > lsV ? iv : lsV);
+          }).catch(function () { cb(lsV); });
+          return;
+        } catch (e) {}
+      }
+      cb(lsV);
+    }
+    function perfRemindWrite(t) {
+      try { localStorage.setItem(PERF_REMIND_KEY, String(t)); } catch (e) {}
+      try { if (window.idbSet) window.idbSet(PERF_REMIND_KEY, String(t)); } catch (e) {}
+    }
     function maybePerfPrompt() {
       try {
-        if (!window.mochiCcSlimScan || !window.mochiPerfAgg) return;
-        const last = Number(localStorage.getItem('xy-home-v2:' + PERF_REMIND_KEY)) || 0;
-        if (Date.now() - last < 3 * 864e5) return;
-        setTimeout(function () {
-          window.mochiCcSlimScan().then(function (rep) {
-            if (!rep || !rep.ok) return;
-            const agg = window.mochiPerfAgg(rep);
-            if (agg.level !== '重') return; // 只有真正的大库才主动打扰
-            try { localStorage.setItem('xy-home-v2:' + PERF_REMIND_KEY, String(Date.now())); } catch (e) {}
-            promptHeal(agg);
-          }).catch(function () {});
-        }, 2500); // 启动让出主线程再扫，避免加剧启动帧
+        perfRemindRead(function (last) {
+          if (Date.now() - last < 3 * 864e5) return;
+          setTimeout(function () {
+            if (!window.idbListKeys || !window.idbBigSize || !window.mochiPerfLevel) return;
+            window.idbListKeys().then(function (keys) {
+              if (!keys) return; // 清单读失败＝本轮不判（绝不为启动提示去读大值）
+              const re = /^xy-home-v2:(?:[^:]+:)?cc-groups(?:-public)?$/;
+              let libs = 0, totalBytes = 0, biggest = 0, bigGroups = 0;
+              (keys || []).forEach(function (k) {
+                k = String(k);
+                if (!re.test(k)) return;
+                const sz = window.idbBigSize(k);
+                if (typeof sz !== 'number') return; // ≤200KB 小库不构成卡顿源，忽略
+                libs++; totalBytes += sz;
+                if (sz > biggest) biggest = sz;
+                if (sz > 1048576) bigGroups++;
+              });
+              if (!libs || window.mochiPerfLevel(totalBytes, bigGroups) !== '重') return;
+              perfRemindWrite(Date.now());
+              promptHeal({ ok: true, libs: libs, totalBytes: totalBytes, biggestBytes: biggest, bigGroups: bigGroups, level: '重', reason: '' });
+            }).catch(function () {});
+          }, 2500); // 启动让出主线程再判，避免加剧启动帧
+        });
       } catch (e) {}
     }
     if (window.__mochiDataReady) { try { setTimeout(maybePerfPrompt, 2000); } catch (e) {} }

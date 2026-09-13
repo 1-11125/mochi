@@ -519,20 +519,29 @@
     return defs[Math.floor(Math.random() * defs.length)];
   };
 
-  // v3.32.x #335：文字题回应接通普通聊天回复链路（settings.useChatReply，默认关）——
-  // 用户反馈：问问TA文字题的回答只会用「询问·回应」预设池/字卡库，联系人用不上
-  // 系统预设字卡的默认聊天字卡和词典。开启后按普通聊天同源顺序生成回应：
-  // ① 默认聊天字卡：getDefaultCards('chat') 按「整体概率+分类占比」抽（尊重默认字卡
-  //    总开关/聊天场景开关/分类开关/单卡开关/#319 防未成年人锁），命中即整条回应；
-  // ② 词典拼字：quoteSpellPick(replyCfg()) 按「拼字概率 qs-prob」抽（qs-en 总开关），
-  //    命中把回应换成词典语录拼字卡——问答卡只回一条消息，固定单气泡形态（空格连成
-  //    一条），回复设置的 qs-one/qs-multi 双形态开关在问答卡路径不适用；
-  // ③ 两级都未命中＝返回 null，走原「询问·回应」预设池/字卡库 90/10 混合。
-  // 仅作用于文字题（openAskReply）；单选题点选项路径维持预设回应池不变。
+  // v3.32.x #335：互动卡片回应接通普通聊天回复链路（settings.useChatReply，默认关）——
+  // 用户反馈：问问TA的回答只会用「询问·回应」预设池/字卡库，联系人用不上普通聊天的
+  // 字卡体系和词典。开启后按普通聊天同源完整链路生成回应（v3.43.x #447 升级）：
+  // ① genChatStyleReply（chat.js 与 replyOnce 同序）：公用+专属字卡（getPool 按 py-en
+  //    概率抽卡）→ genReplyText 兜底 → 系统字卡（csp-cust 概率让位默认字卡）→ 表情贴图，
+  //    再词典拼字（quoteSpellPick）命中整条替换，固定单气泡形态；
+  // ② 生成器异常缺失时兜底旧链：getDefaultCards('chat') 系统字卡 → quoteSpellPick 词典拼字；
+  // ③ 都未产出＝返回 null，走原「询问·回应」预设池/字卡库 90/10 混合。
+  // v3.43.x #447：作用范围从「仅文字题」扩到「文字题 + 单选题点选项」（chat.js 单选按钮
+  // 路径经 window.taAskChatReplyOn 查询同一开关）。
+  window.taAskChatReplyOn = function () {
+    try { const d = taAskLoad(); return !!(d.settings && d.settings.useChatReply); } catch (e) { return false; }
+  };
   function taAskTextReply() {
     try {
       const d = taAskLoad();
       if (!(d.settings && d.settings.useChatReply)) return null;
+      // v3.43.x #447：普通聊天完整链路（公用+专属字卡→系统字卡→词典拼字，与 replyOnce 同序）
+      if (window.genChatStyleReply) {
+        const r = window.genChatStyleReply();
+        if (r) return r;
+      }
+      // 兜底：生成器缺失（旧构建混合加载）时退回旧链——仅系统字卡→词典拼字
       if (window.getDefaultCards) {
         const dc = window.getDefaultCards('chat');
         if (dc && dc.type !== 'poke' && typeof dc.text === 'string' && dc.text.trim()) return dc.text;
@@ -777,7 +786,7 @@
     const d = taAskLoad();
     d.settings.useChatReply = askChatCard.checked;
     taAskSave(d);
-    toast(askChatCard.checked ? '文字题回应已接通聊天字卡/词典' : '文字题回应已恢复预设池回应');
+    toast(askChatCard.checked ? '互动卡回应已接通聊天字卡/词典（文字+单选）' : '互动卡回应已恢复预设池回应');
   });
   const askProb = document.getElementById('ta-ask-prob');
   if (askProb) askProb.addEventListener('input', () => {

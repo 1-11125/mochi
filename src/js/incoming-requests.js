@@ -16,7 +16,7 @@
 //    设置页开关行由本文件动态插入（不动 template.html，避免跨域改 AI-B 文件）。
 // ⑤ v3.17.x：跨桌面通话——非激活桌面的联系人按各自 call-incoming 概率来电（kind:'call'），
 //    弹窗「接听/稍后」，接听切过去触发 triggerIncomingCall（通话归属该桌面，记录/系统消息正确）；
-//    全局开关 xy-home-v2:desk-call-en 默认开启、可关闭（关闭后不再有跨桌面来电）。
+//    全局开关 xy-home-v2:desk-call-en 默认关闭、需在设置手动开启（#448；开启后可再关闭）。
 // 归属：AI-A（业务功能）。依赖 idb.js/contacts.js/personalize.js(openModal)/chat.js/call.js。
 (function () {
   if (!window.activeStore || !window.getContacts) return;
@@ -51,9 +51,11 @@
   function deskCallEn() {
     try {
       const v = window.xyStore(ROOT).get(CALL_EN_KEY);
-      if (v === null || v === undefined || v === '') return true; // 默认开
+      // #448：跨桌面来电改默认关闭、需手动开启（用户点名）。已显式存过 '1'/'0' 的存量
+      // 用户不受影响（原样保留），只有从未碰过该开关的设备从此不再自动来电。
+      if (v === null || v === undefined || v === '') return false; // 默认关
       return v === '1';
-    } catch (e) { return true; }
+    } catch (e) { return false; }
   }
   window.setDeskCallEn = function (en) {
     try { window.xyStore(ROOT).set(CALL_EN_KEY, en ? '1' : '0'); } catch (e) {}
@@ -147,7 +149,7 @@
       title: '联系人跨桌面打电话',
       subTag: '功能说明',
       tagTitle: '联系人跨桌面打电话',
-      detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
+      detail: '开启后，其他桌面的联系人会主动给你打语音电话（本开关默认关闭，需要用请在下方手动打开；#448）；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
       get: deskCallEn,
       set: window.setDeskCallEn,
       toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
@@ -308,6 +310,9 @@
     q.forEach(function (x) {
       if (x.status === 'pending' && x.sid !== SESSION_ID && now - (x.ts || 0) > PENDING_TTL_MS) {
         x.status = 'seen'; x.ts = now; healed++;
+        // #441：跨会话孤儿的来电同样补记未接——弹窗随上个会话一起消失＝这通电话用户永远
+        // 无从得知，与「稍后/被顶」同口径落归属桌面记录+系统消息（healed 只走一次，幂等）
+        if (x.kind === 'call' && window.callRecordMissed) { try { window.callRecordMissed(x.cid, cName(x.cid)); } catch (e) {} }
       }
     });
     const filtered = q.filter(x => x.status !== 'seen' || now - (x.ts || 0) < seenKeepMs);

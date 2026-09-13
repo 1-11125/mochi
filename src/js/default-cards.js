@@ -345,6 +345,26 @@
       toast((el.checked ? '已开启' : '已关闭') + '：使用其他互动功能字卡');
     });
   })();
+  // v3.42.x #444：概率框折叠/展开——默认收起（首屏留给字卡列表，#239 同因防复发），点展开栏切换；
+  //   展开状态按桌面持久化（dcf-prob-open，'1'=展开），stepper/功能说明绑定与显隐无关照常生效。
+  (function () {
+    var bar = document.getElementById('dcf-prob-expander-row');
+    var box = document.getElementById('dcf-prob-box');
+    if (!bar || !box) return;
+    function apply(open) {
+      box.hidden = !open;
+      var ar = document.getElementById('dcf-prob-expander-arrow');
+      if (ar) ar.textContent = open ? '▴' : '▾';
+    }
+    var open = false;
+    try { open = window.activeStore().get('dcf-prob-open') === '1'; } catch (e) {}
+    apply(open);
+    bar.addEventListener('click', function () {
+      open = !open;
+      apply(open);
+      try { window.activeStore().set('dcf-prob-open', open ? '1' : '0'); } catch (e) {}
+    });
+  })();
   function bindDcfProb() {
     Object.keys(DCF_DEF).forEach((k) => {
       const box = document.getElementById('dcf-prob-' + k);

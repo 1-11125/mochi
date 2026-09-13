@@ -1,9 +1,11 @@
 // ===== 功能：消消乐（聊天页更多功能 → 小游戏） =====
 // 和 TA 轮流交换的经典三消：点一格再点相邻一格，交换后凑成同款三连即消除，
 // 上方补落、连锁连消；两人共用一张棋盘、共同冲目标分，不计输赢、记「默契分」。
-// #301 特殊棋子：四连→💣炸弹（在该格生成💥，被消除时炸掉周围 3×3，可连锁引爆）；
-//       五连及以上→🌈彩虹（与任意色交换=消掉全该色；彩虹互换=随机清两色）。
-//       彩虹不参与连线匹配；TA 出步枚举不使用彩虹（人式"不会用大招"）。
+// #453 模式拆分（头部下拉，按联系人记住）：简单（默认）＝纯经典三消、不生成任何道具；
+//       道具＝经典消消乐道具集——四连直线→↔️/↕️直线道具（被消除时清整行/整列）、
+//       L/T 同色交叉（合计≥5格）→💥炸弹（清周围 3×3）、五连及以上→🌈彩虹（换任意色全消、
+//       双彩虹随机清两色）；道具被消除时可连锁引爆其他道具。#301 炸弹/彩虹逻辑沿用。
+// 彩虹不参与连线匹配；TA 出步枚举不使用彩虹（人式"不会用大招"）。
 // TA 由代码控制（无真 AI）：每回合枚举全部可消交换步并打分，再抽行为状态——
 //   serious 走最优步 / normal 前五随机（人式不精确）/ sandbag 故意走最差的可消步 /
 //   blunder 先点一次无效交换（抖一下「点错了」）再随便走一步。
@@ -39,14 +41,16 @@
   }
   if (fsBtn) fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFs(); });
   const diffSel = document.getElementById('m3-diff');
+  const modeSel = document.getElementById('m3-mode'); // #453 简单/道具模式
   const partnerNameEl = document.getElementById('m3-partner-name');
 
   const N = 8, KIND_N = 6;
   const GAP = 3;                 // 格间距（fitBoard 哨兵表达式依赖）
   const SWAP_MS = 170, POP_MS = 220, FALL_MS = 300;  // 交换/消除/下落动画时长
   const KINDS = ['🍓', '🍋', '🍇', '🔔', '⭐', '🎈'];
-  const BOMB_BASE = 10;    // 10+c = 该色炸弹（💥）
+  const BOMB_BASE = 10;    // 10+c = 该色炸弹（💥，被消除炸 3×3）
   const RAINBOW = 20;      // 彩虹（🌈）
+  const LINE_H = 30, LINE_V = 40; // 30+c / 40+c = 该色直线道具（↔️被消除清整行 / ↕️清整列）#453
   const DIFFS = {
     casual: { target: 300, coin: 520, label: '🌱 休闲 · 300 分' },
     normal: { target: 600, coin: 1314, label: '🌙 普通 · 600 分' },
@@ -62,8 +66,16 @@
   function animMs(x) { return Math.round(x * fastMul()); }
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   function inBoard(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
-  // 彩虹没有颜色（不参与连线），炸弹按所携带颜色参与匹配
-  function colorOf(v) { return v >= BOMB_BASE && v < RAINBOW ? v - BOMB_BASE : (v >= RAINBOW ? -1 : v); }
+  // 彩虹没有颜色（不参与连线），炸弹/直线道具按所携带颜色参与匹配
+  function colorOf(v) {
+    if (v >= LINE_V) return v - LINE_V;
+    if (v >= LINE_H) return v - LINE_H;
+    if (v >= BOMB_BASE && v < RAINBOW) return v - BOMB_BASE;
+    return v >= RAINBOW ? -1 : v;
+  }
+  // 彩虹判定（值域 20~29；#453 起直线道具 30+/40+ 也 ≥RAINBOW，全站判彩虹必须走这里，
+  // 裸写 `>= RAINBOW` 会把直线道具误当彩虹）
+  function isRainbow(v) { return v >= RAINBOW && v < LINE_H; }
 
   // ---- 音效 ----
   let audioCtx = null, soundOn = true;
@@ -92,11 +104,13 @@
   let st = null;
   let thinkT = null;
 
-  function newState(diff) {
+  function newState(diff, mode) {
     return {
       diff: diff,
       target: DIFFS[diff].target,
-      grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹
+      grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹 / 30+c,40+c 直线道具
+      mode: mode === 'item' ? 'item' : 'simple', // #453 简单(默认,无道具)/道具
+      genSpecial: null,        // 最近一次生成的道具（verify 断言用）
       turn: 1,
       over: false,
       started: false,
@@ -110,7 +124,7 @@
   // ---- 战绩（每联系人独立） ----
   function statsKey() { return prefix() + ':match3-stats'; }
   function loadStats() {
-    const d = { clears: 0, bestChem: 0, lastDiff: 'normal' };
+    const d = { clears: 0, bestChem: 0, lastDiff: 'normal', lastMode: 'simple' };
     try {
       const raw = localStorage.getItem(statsKey());
       if (raw) { const v = JSON.parse(raw); if (v && typeof v === 'object') return Object.assign(d, v); }
@@ -131,7 +145,7 @@
         if (run >= 3 && colorOf(grid[r][c - 1]) >= 0) {
           const cells = [];
           for (let k = c - run; k < c; k++) cells.push([r, k]);
-          runs.push({ cells: cells, color: colorOf(grid[r][c - 1]), len: run });
+          runs.push({ cells: cells, color: colorOf(grid[r][c - 1]), len: run, dir: 'h' });
         }
         run = 1;
       }
@@ -144,7 +158,7 @@
         if (run >= 3 && colorOf(grid[r - 1][c]) >= 0) {
           const cells = [];
           for (let k = r - run; k < r; k++) cells.push([k, c]);
-          runs.push({ cells: cells, color: colorOf(grid[r - 1][c]), len: run });
+          runs.push({ cells: cells, color: colorOf(grid[r - 1][c]), len: run, dir: 'v' });
         }
         run = 1;
       }
@@ -173,7 +187,13 @@
       seen[p[0]][p[1]] = 'done';
       cleared.push([p[0], p[1]]);
       const v = grid[p[0]][p[1]];
-      if (v >= BOMB_BASE && v < RAINBOW) {
+      if (v >= LINE_V) {
+        // ↕️ 纵向直线道具：清整列（链式队列让被扫到的其他道具继续引爆）#453
+        for (let rr = 0; rr < N; rr++) { if (!seen[rr][p[1]]) { seen[rr][p[1]] = true; queue.push([rr, p[1]]); } }
+      } else if (v >= LINE_H) {
+        // ↔️ 横向直线道具：清整行 #453
+        for (let cc = 0; cc < N; cc++) { if (!seen[p[0]][cc]) { seen[p[0]][cc] = true; queue.push([p[0], cc]); } }
+      } else if (v >= BOMB_BASE && v < RAINBOW) {
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           const rr = p[0] + dr, cc = p[1] + dc;
           if (inBoard(rr, cc) && !seen[rr][cc]) { seen[rr][cc] = true; queue.push([rr, cc]); }
@@ -220,11 +240,11 @@
     const out = [];
     const dirs = [[0, 1], [1, 0]];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      if (grid[r][c] >= RAINBOW) continue;
+      if (isRainbow(grid[r][c])) continue;
       for (let d = 0; d < dirs.length; d++) {
         const r2 = r + dirs[d][0], c2 = c + dirs[d][1];
         if (r2 >= N || c2 >= N) continue;
-        if (grid[r2][c2] >= RAINBOW) continue;
+        if (isRainbow(grid[r2][c2])) continue;
         const g = grid.map((row) => row.slice());
         const t = g[r][c]; g[r][c] = g[r2][c2]; g[r2][c2] = t;
         const gain = simulateClear(g);
@@ -289,9 +309,11 @@
   let nextPid = 1;
   let cellPx = 40;
   function setGlyph(el, v) {
-    el.classList.remove('m3-bomb');
+    el.classList.remove('m3-bomb', 'm3-line');
     const g = el._g || el;
-    if (v >= RAINBOW) g.textContent = '🌈';
+    if (v >= LINE_V) { g.textContent = '↕️'; el.classList.add('m3-line'); }
+    else if (v >= LINE_H) { g.textContent = '↔️'; el.classList.add('m3-line'); }
+    else if (v >= RAINBOW) g.textContent = '🌈';
     else if (v >= BOMB_BASE) { g.textContent = '💥'; el.classList.add('m3-bomb'); }
     else g.textContent = KINDS[v];
   }
@@ -468,7 +490,9 @@
   function newGame() {
     clearTimeout(thinkT); thinkT = null;
     const diff = diffSel && DIFFS[diffSel.value] ? diffSel.value : 'normal';
-    st = newState(diff);
+    const mode = modeSel && modeSel.value === 'item' ? 'item' : 'simple';
+    st = newState(diff, mode);
+    try { const s2 = loadStats(); s2.lastMode = mode; saveStats(s2); } catch (e) {}
     st.grid = dealGrid();
     st.started = true;
     hideOverlay();
@@ -496,7 +520,7 @@
   function doSwap(a, b, byMe, cb) {
     st.lock = true;
     const va = st.grid[a[0]][a[1]], vb = st.grid[b[0]][b[1]];
-    const rbA = va >= RAINBOW, rbB = vb >= RAINBOW;
+    const rbA = isRainbow(va), rbB = isRainbow(vb);
     if (rbA || rbB) { doRainbowSwap(a, b, rbA && rbB, byMe, cb); return; }
     const t = st.grid[a[0]][a[1]];
     st.grid[a[0]][a[1]] = st.grid[b[0]][b[1]];
@@ -530,23 +554,45 @@
       const cells = clearWithSpecials(st.grid, seeds);
       const hadBoom = cells.some((p) => { const v = st.grid[p[0]][p[1]]; return v >= BOMB_BASE; });
       cells.forEach((p) => { st.grid[p[0]][p[1]] = -1; });
-      // #301 特殊生成：仅交换引发的首段消除——四连→炸弹、五连+→彩虹（放最长一道的交换格/中格）
+      // #301/#453 特殊生成：仅「道具模式」（st.mode==='item'）且交换引发的首段消除——
+      // 优先级 五连+→🌈彩虹 > L/T 同色交叉（合计≥5格）→💥炸弹 > 四连直线→↔️/↕️直线道具；
+      // 简单模式（默认）不生成任何道具＝纯经典三消
       let kept = null;
-      if (chain === 1) {
+      if (chain === 1 && st.mode === 'item') {
         const best = runs.slice().sort((x, y) => y.len - x.len)[0];
+        const atFor = (run) => run.cells.some((p) => p[0] === b[0] && p[1] === b[1]) ? b : run.cells[Math.floor(run.cells.length / 2)];
+        // L/T 检测：同色两道直线共享一格、合计 ≥5 格（一个交换同时凑出横竖两道）
+        let crossPair = null;
+        for (let i = 0; i < runs.length && !crossPair; i++) {
+          for (let j = i + 1; j < runs.length; j++) {
+            if (runs[i].color !== runs[j].color) continue;
+            const at = runs[i].cells.filter((p) => runs[j].cells.some((q) => q[0] === p[0] && q[1] === p[1]))[0];
+            if (at && runs[i].len + runs[j].len - 1 >= 5) { crossPair = { at: at, r1: runs[i], r2: runs[j] }; break; }
+          }
+        }
         if (best.len >= 5) {
-          const inBest = best.cells.some((p) => p[0] === b[0] && p[1] === b[1]);
-          const at2 = inBest ? b : best.cells[Math.floor(best.cells.length / 2)];
+          const at2 = atFor(best);
           st.grid[at2[0]][at2[1]] = RAINBOW;
           cells.push([at2[0], at2[1]]);
           kept = at2;
+          st.genSpecial = 'rainbow';
           taSay(pick(['🌈 彩虹出现了！', '快用彩虹，超好用']));
-        } else if (best.len === 4) {
-          const at2 = best.cells.some((p) => p[0] === b[0] && p[1] === b[1]) ? b : best.cells[Math.floor(best.cells.length / 2)];
-          st.grid[at2[0]][at2[1]] = BOMB_BASE + best.color;
+        } else if (crossPair) {
+          const inCross = crossPair.r1.cells.some((p) => p[0] === b[0] && p[1] === b[1]) || crossPair.r2.cells.some((p) => p[0] === b[0] && p[1] === b[1]);
+          const at2 = inCross ? b : crossPair.at;
+          st.grid[at2[0]][at2[1]] = BOMB_BASE + crossPair.r1.color;
           cells.push([at2[0], at2[1]]);
           kept = at2;
-          taSay(pick(['💣 炸弹生成！', '四连！收下这个💥']));
+          st.genSpecial = 'bomb';
+          taSay(pick(['💥 L/T 连消，炸弹生成！', '交叉消！收下这个💥']));
+        } else if (best.len === 4) {
+          // 横四连→↔️（清整行）、竖四连→↕️（清整列），与经典消消乐直线道具同款 #453
+          const at2 = atFor(best);
+          st.grid[at2[0]][at2[1]] = best.dir === 'h' ? LINE_H + best.color : LINE_V + best.color;
+          cells.push([at2[0], at2[1]]);
+          kept = at2;
+          st.genSpecial = best.dir === 'h' ? 'line-h' : 'line-v';
+          taSay(best.dir === 'h' ? pick(['↔️ 横向直线道具！', '四连！整行都清掉！']) : pick(['↕️ 纵向直线道具！', '四连！一列全消！']));
         }
       }
       const pts = cells.length * chain;
@@ -764,9 +810,13 @@
   }
   function showStartOverlay() {
     const s = loadStats();
+    const itemMode = !!(modeSel && modeSel.value === 'item');
     showOverlay('消消乐',
       '<div class="c4-start-tip">和 ' + T('TA') + ' 轮流交换相邻两格<br>凑成同款三连就消除，一起冲到目标分</div>' +
-      '<div class="c4-start-note">💣 四连生成炸弹 · 🌈 五连生成彩虹（换任意色全消）<br>🎲 ' + T('TA') + '每回合状态随机——最优步 / 前五挑一 / 放水 / 手滑</div>' +
+      '<div class="c4-start-note">' + (itemMode
+        ? '💣 道具模式：↔️↕️ 四连直线→清整行/整列 · L/T 交叉→💥炸弹 · 五连→🌈彩虹'
+        : '🌿 简单模式：经典三消、无道具（想出道具就在上方切「💣 道具」）') +
+      '<br>🎲 ' + T('TA') + '每回合状态随机——最优步 / 前五挑一 / 放水 / 手滑</div>' +
       (s.clears > 0 ? '<div class="pong-end-stat">累计通关 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem + '</div>' : ''),
       s.clears > 0 ? '再来一局' : '开始对局');
     if (endBtn) endBtn.hidden = true;
@@ -812,6 +862,9 @@
   if (diffSel) diffSel.addEventListener('change', () => {
     const s = loadStats(); s.lastDiff = diffSel.value; saveStats(s);
   });
+  if (modeSel) modeSel.addEventListener('change', () => {
+    const s = loadStats(); s.lastMode = modeSel.value === 'item' ? 'item' : 'simple'; saveStats(s);
+  });
   if (hintBtn) hintBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
@@ -843,7 +896,13 @@
   }
   window.openMatch3Panel = function () {
     try { if (isFs) toggleFs(); } catch (e) {}
-    if (!st || !st.started) { try { const s = loadStats(); if (DIFFS[s.lastDiff] && diffSel) diffSel.value = s.lastDiff; } catch (e) {} }
+    if (!st || !st.started) {
+      try {
+        const s = loadStats();
+        if (DIFFS[s.lastDiff] && diffSel) diffSel.value = s.lastDiff;
+        if (modeSel && (s.lastMode === 'item' || s.lastMode === 'simple')) modeSel.value = s.lastMode;
+      } catch (e) {}
+    }
     panel.hidden = false;
     try { setNames(); } catch (e) {}
     try { if (st && st.started) fitBoard(); } catch (e) {}
@@ -907,6 +966,7 @@
   window.__m3Debug = {
     st: () => st,
     newGame: newGame,
+    doSwap: doSwap,
     findRuns: findRuns,
     findMatches: findMatches,
     allMoves: allMoves,
@@ -914,8 +974,11 @@
     clearWithSpecials: clearWithSpecials,
     reshuffle: reshuffle,
     colorOf: colorOf,
+    isRainbow: isRainbow,
     BOMB_BASE: BOMB_BASE,
     RAINBOW: RAINBOW,
+    LINE_H: LINE_H,
+    LINE_V: LINE_V,
     fast: false
   };
 })();

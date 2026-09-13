@@ -85,6 +85,12 @@ for (const [g, e] of flat) {
 }
 ok(latinHits.length === 0, 'C3 中英混杂坏数据零残留（' + (latinHits.length ? latinHits.slice(0, 5).join(' / ') : '0') + '）');
 
+// 考试比喻（用户：感情不是考试）——排除词库学生生活词
+const EXAM_WB=new Set(['词库','常用词·双字','常用词·三字','常用词·四字']);
+const examHits=[];
+for(const [g,e] of flat){ if(EXAM_WB.has(g))continue; if(/考试|满分|开考|补考|考级|评分|抢答|毕业考|期末考|录取|持证/.test(e)) examHits.push(g+'|'+e); }
+ok(examHits.length===0, 'C4 考试比喻零残留（'+(examHits.length?examHits.slice(0,5).join(' / '):'0')+')');
+
 // 沟通修复组：按用户口径保留（重写版），须在位且词条充足
 const KEEP = ['不吵架的约定', '吵架冷静卡', '冷静的方法', '和好的仪式', '误会消散的过程', '好好说话', '沟通的慢车道', '安慰的说明书', '卡里的小心翼翼'];
 const missing = KEEP.filter(n => { const g = all.find(x => x[0] === n); return !g || (g[1] || []).length < 15; });

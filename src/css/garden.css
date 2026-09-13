@@ -393,6 +393,10 @@
 /* ===== 杂交按钮 ===== */
 .garden-tool.hybrid { background: rgba(156,39,176,.1); border-color: rgba(156,39,176,.3); }
 .garden-tool.hybrid:active { background: #9c27b0; }
+/* #446 开垦（扩建改自愿·资格确认）与补种（空地一键按上次品种补齐） */
+.garden-tool.reclaim { background: rgba(0,150,136,.1); border-color: rgba(0,150,136,.3); }
+.garden-tool.reclaim:active { background: #009688; }
+.garden-tool.replant.batch { background: rgba(76,175,80,.12); border-color: rgba(76,175,80,.3); }
 
 /* ===== 杂交配方列表 ===== */
 .garden-craft-sub { font-size: 13px; font-weight: 700; margin: 14px 0 8px; }

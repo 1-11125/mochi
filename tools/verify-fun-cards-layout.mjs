@@ -2,6 +2,8 @@
 // #132 概率框（13 行 stepper ~794px）插在 fc 页头部 + .card-list{flex:1;overflow-y:auto}
 // 的 flex 最小尺寸归 0 → 列表压成 6px、首屏全在视口外=「字卡看不到了，点击没内容」。
 // 修复：概率框移到列表下方（template.html）+ fc/dk 页整页滚动规则（chat-pages.css）。
+// v3.42.x #444：概率框移回页顶默认折叠（用户报「概率位置太靠后看不到」）——F2/F2b/S3 改为
+// 「在列表上方·默认折叠·展开栏可切换·展开后可达」，#239 的核心约束（首屏字卡列表可见、列表不塌缩）由 F1/F3 继续守。
 // v3.26.513 复发（2026-09-07 OPPO Reno6 5G/雨见 报障「下面无法滑动显示字卡」）：
 // 实为该机停留旧版 513（修复于 516）——同根因跨机型复发，S 段补 OPPO 同款 360×658
 // 小屏+滚动行为断言（往下滑必须能滚出更多字卡+概率框可滚入视口），SERVE_DIR 支持红绿对照。
@@ -49,13 +51,29 @@ const f1 = await page.evaluate(() => {
 });
 check('F1 打开fc页首屏存在可见字卡条目', f1.total > 0 && f1.inVp > 0, JSON.stringify(f1));
 
-// F2 概率框位于列表之后（DOM 序）
+// F2 概率框位置（v3.42.x #444 改版）：概率框在列表之前（DOM 序）且默认折叠、展开栏存在；
+//   16 行俱全（13 分类 + #422 checkin/pomo/care）。#239 的核心约束=首屏仍是字卡列表由 F1 保证。
 const f2 = await page.evaluate(() => {
   const box = document.getElementById('dcf-prob-box'), list = document.getElementById('fc-list');
-  if (!box || !list) return { ok: false };
-  return { ok: !!(box.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_PRECEDING), rows: box.querySelectorAll('.gs-row').length };
+  const bar = document.getElementById('dcf-prob-expander-row');
+  if (!box || !list || !bar) return { ok: false };
+  return {
+    ok: !!(box.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING) && box.hidden === true,
+    rows: box.querySelectorAll('.gs-row').length
+  };
 });
-check('F2 概率框在列表下方(DOM序)且13行俱全', f2.ok && f2.rows === 13, JSON.stringify(f2));
+check('F2 概率框在列表上方(DOM序)且默认折叠16行俱全', f2.ok && f2.rows === 16, JSON.stringify(f2));
+
+// F2b 点展开栏：概率框展开可见、再点收起
+const f2b = await page.evaluate(async () => {
+  const bar = document.getElementById('dcf-prob-expander-row'), box = document.getElementById('dcf-prob-box');
+  bar.click();
+  const opened = box.hidden === false;
+  bar.click();
+  const closed = box.hidden === true;
+  return { opened, closed };
+});
+check('F2b 展开栏点击切换概率框显隐', f2b.opened && f2b.closed, JSON.stringify(f2b));
 
 // F3 列表不再塌缩（高度远大于修复前的 6px）
 const f3 = await page.evaluate(() => {
@@ -152,15 +170,18 @@ const s2b = await page2.evaluate(() => {
 });
 check('S2 [360x658] 手势下滑滚动推进并滚出新字卡', s2b.st1 > 50 && s2b.visN > 0 && s2b.outAtFirst > 0, JSON.stringify({ st0: 0 }) + '→' + JSON.stringify(s2b));
 
-// S3 概率框（页面底部）可滚入视口——「下面」的内容都能看到
+// S3 概率框可滚入视口（#444 后在页顶展开栏下、默认折叠——展开后可达）
 const s3 = await page2.evaluate(() => {
-  const box = document.getElementById('dcf-prob-box');
+  const bar = document.getElementById('dcf-prob-expander-row'), box = document.getElementById('dcf-prob-box');
+  bar.click();
   box.scrollIntoView();
   const r = box.getBoundingClientRect();
   const vpH = innerHeight;
-  return { top: Math.round(r.top), bottom: Math.round(r.bottom), vpH, visible: r.top < vpH && r.bottom > 0 };
+  const visible = r.top < vpH && r.bottom > 0;
+  bar.click();
+  return { top: Math.round(r.top), bottom: Math.round(r.bottom), vpH, visible };
 });
-check('S3 [360x658] 概率框可滚入视口(页面底部内容可达)', s3.visible, JSON.stringify(s3));
+check('S3 [360x658] 概率框展开后可滚入视口', s3.visible, JSON.stringify(s3));
 
 await ctx2.close();
 

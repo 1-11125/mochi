@@ -288,6 +288,17 @@ transition:opacity .35s ease, transform .12s ease;
 margin-top:16px; font-size:11px; color:var(--hint-ink); letter-spacing:1px;
 }
 .splash-enter-hint[hidden] { display:none; }
+.splash-age {
+display:flex; align-items:flex-start; gap:7px;
+margin-top:12px; padding:0 6px;
+font-size:11px; line-height:1.5; color:var(--hint-ink);
+cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.splash-age input[type="checkbox"] {
+flex:none; width:15px; height:15px; margin:1px 0 0;
+accent-color:var(--btn-bg); cursor:pointer;
+}
+.splash-age[hidden] { display:none; }
 .splash-btns {
 display:flex; align-items:center; justify-content:center; gap:10px;
 margin-top:14px;
@@ -6453,6 +6464,7 @@ padding:max(env(safe-area-inset-top, 0px), 22px) 18px max(env(safe-area-inset-bo
 .tg-bubble { position:absolute; top:6px; left:50%; transform:translate(-50%,-6px); max-width:82%; background:rgba(20,20,24,.86); color:#fff; font-size:12px; line-height:1.5; padding:5px 11px; border-radius:12px; z-index:6; opacity:0; pointer-events:none; transition:opacity .22s, transform .22s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow:0 3px 10px rgba(0,0,0,.22); }
 .tg-bubble.show { opacity:1; transform:translate(-50%,0); }
 .m3-tile.m3-bomb { box-shadow:inset 0 0 0 2px #ff9d4d; }
+.m3-tile.m3-line { box-shadow:inset 0 0 0 2px #6fb7ff; }
 .arc-wrap { padding:4px 2px; display:flex; flex-direction:column; gap:10px; }
 .arc-home-entry { cursor:pointer; transition:transform .12s, box-shadow .12s; }
 .arc-home-entry:active { transform:scale(.985); }
@@ -8413,6 +8425,9 @@ color: #c67800;
 }
 .garden-tool.hybrid { background: rgba(156,39,176,.1); border-color: rgba(156,39,176,.3); }
 .garden-tool.hybrid:active { background: #9c27b0; }
+.garden-tool.reclaim { background: rgba(0,150,136,.1); border-color: rgba(0,150,136,.3); }
+.garden-tool.reclaim:active { background: #009688; }
+.garden-tool.replant.batch { background: rgba(76,175,80,.12); border-color: rgba(76,175,80,.3); }
 .garden-craft-sub { font-size: 13px; font-weight: 700; margin: 14px 0 8px; }
 .hybrid-list .garden-recipe.hybrid { background: rgba(156,39,176,.05); }
 .hybrid-list .garden-recipe.hybrid.made { border-color: rgba(156,39,176,.3); background: rgba(156,39,176,.08); }
@@ -9156,16 +9171,20 @@ transition-duration: .01ms !important;
       <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
            全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
       <div class="splash-notice" id="splash-notice">
-        <!-- v3.27.x #315：免责声明置顶卡——未成年人禁止使用 + 字卡为随机代码自担责任；静态 DOM（tag 'd' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；#315b 红色警示形态置顶首位 -->
+        <!-- v3.27.x #315：免责声明置顶卡——未成年人禁止使用 + 字卡为随机代码自担责任；静态 DOM（tag 'd' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；#315b 红色警示形态置顶首位；#315c 细化为四条：18 周岁红线+点击即同意 / 虚构娱乐与真实关系边界+心理援助热线 / 后果自担与作者免责 / 纯本地数据与备份责任 -->
         <div class="splash-alert splash-disclaimer" data-anti-scam="d">
           <div class="splash-alert-t">免责声明</div>
-          <p><strong>本站禁止未成年人使用。</strong>字卡回复均为随机代码生成，不具备任何真实效力；使用本站产生的一切后果由使用者本人（及监护人）自行承担，与作者无关。</p>
+          <p><strong>本站禁止未满 18 周岁的未成年人使用。点击进入即视为你确认已年满 18 周岁，并已阅读、理解并同意本页全部说明。</strong></p>
+          <p>1. 本站所有字卡回复、TA 的消息与互动均为<strong>预先编写的随机代码随机触发，纯属虚构娱乐</strong>，不代表任何真实人物的观点、承诺或情感，不具备任何真实、法律、医疗、心理或情感效力。</p>
+          <p>2. <strong>本站的虚拟互动不能替代、也不应替代真实的人际交往、恋爱关系、心理疏导或专业帮助。</strong>如果你正处于情绪低落、焦虑或其他心理困境，请及时向家人朋友求助，或前往正规医疗机构、心理援助热线（全国心理援助热线：12356）寻求专业支持。</p>
+          <p>3. 使用本站产生的一切后果（包括但不限于情绪影响、时间消耗、数据丢失、设备问题）由使用者本人自行承担；未成年人违规使用的，相关责任由其本人及监护人承担。<strong>作者不承担任何直接或间接责任。</strong></p>
+          <p>4. 本站无后端服务器，所有数据仅保存在你自己的设备浏览器中，清除浏览器数据、卸载、换机、iOS 系统回收存储均会导致数据丢失，<strong>请务必定期导出备份</strong>；作者无法找回任何丢失数据。</p>
         </div>
         <!-- v3.27.x #319：防未成年人·系统内置字卡锁——默认锁定全部系统预设字卡，输对二级验证密码才放行；
              纯静态卡骨架，状态文案/按钮/交互由 clock.js 接线渲染（card-lock.js 提供闸门），在线 notice.json 不影响此处 -->
         <div class="splash-alert splash-cardlock" data-anti-scam="l" id="splash-cardlock">
           <div class="splash-alert-t">防未成年人 · 系统内置字卡已锁定</div>
-          <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已成年，可输入二级验证密码解锁使用。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。</p>
+          <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。密码获取方式见开屏说明；解开密码请勿二传（不要告诉别人），一旦有人大范围二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
           <div class="cardlock-actions" id="splash-cardlock-actions"></div>
         </div>
         <!-- v3.27.x：防骗置顶声明——最顶部固定展示，防收费诈骗；静态 DOM，在线 notice.json 覆盖只改公告列表，不影响此处 -->
@@ -9193,7 +9212,7 @@ transition-duration: .01ms !important;
             <p>不提供免费客服、教学、一对一指导。使用问题请先看开屏说明/代码，常见问题可问互助群。</p>
             <p>反馈 bug 请描述清楚，我会看到后处理；催单不回，不一定有时间。</p>
             <p>本站完全免费，开放二传二改，但禁止商用、禁止以盈利为目的。</p>
-            <p class="splash-hl">本站禁止未成年人使用；字卡回复均为随机代码生成，请理性看待，使用后果由使用者本人自行承担。</p>
+            <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p>报修 / 反馈请按【手机型号 + 浏览器 + 具体现象】提交，缺一不回；尽量附上设置里的【复制诊断信息】。</p>
             <p class="splash-hl">基础疑问可直接问 AI，比我回复快。</p>
             <p>系统或浏览器版本不同，适配表现可能不同，属正常现象。</p>
@@ -9371,15 +9390,21 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789339254152">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.671</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 06:40<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789342185702">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.672</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 07:29<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
       <div class="splash-loading" id="splash-loading">正在加载数据…</div>
       <!-- v3.8.y：必须把公告滑到底才能进入——未到底时按钮置灰不可点，下方提示滑动 -->
       <div class="splash-enter-hint" id="splash-enter-hint" hidden>请滑到底部后进入</div>
+      <!-- #315c：一次性年龄确认勾选——勾选后才可进入（clock.js 门控），确认一次后永久记住；
+           把免责从「默认你看了」升级为「明确勾选确认」，未勾选时进入按钮置灰 -->
+      <label class="splash-age" id="splash-age-row" hidden>
+        <input type="checkbox" id="splash-age-check">
+        <span>我已阅读并同意上方全部说明，确认本人已年满 18 周岁</span>
+      </label>
       <div class="splash-btns">
         <!-- v3.26.x：按钮文案「点击进入」→「我已阅读并知晓」——把进入动作显性化为已读确认（公告没人看的低成本对策第一步；门控/样式/脚本定位均未动） -->
         <div class="splash-enter" id="splash-enter" hidden>我已阅读并知晓</div>
@@ -9389,13 +9414,13 @@ transition-duration: .01ms !important;
       <div class="splash-force-enter" id="splash-force-enter" hidden>仍要进入</div>
     </div>
     <!-- v3.26.x：点击进入后强制观看公告——每次点「我已阅读并知晓」都会先弹这一页（作者道别公告
-         二传二改 / 月底停更 / 二级密码），必须把整页滑到底、点【我已阅读并确认进入】才能真正进入；
+         二传二改 / 月底停更 / 二级密码 / 停更后建议），必须把整页滑到底、点【我已阅读并确认进入】才能真正进入；
          门控逻辑在 clock.js（mandBottom 未到底时按钮 is-disabled 不可点），不可删除或绕过 -->
     <div class="splash-mandatory" id="splash-mandatory" hidden>
       <div class="splash-mandatory-scroll" id="splash-mandatory-scroll">
         <div class="splash-mandatory-head">
           <div class="splash-mandatory-title">进入前 · 作者必读公告</div>
-          <div class="splash-mandatory-sub">以下三条为作者公告，请逐条阅读（滑到底部后可确认进入）</div>
+          <div class="splash-mandatory-sub">以下四条为作者公告，请逐条阅读（滑到底部后可确认进入）</div>
         </div>
         <div class="splash-mandatory-card">
           <div class="splash-mandatory-date">2026.09.12</div>
@@ -9436,6 +9461,18 @@ transition-duration: .01ms !important;
             <p>不解锁不影响使用，字卡可以自己添加。</p>
             <p>另外，我发现有人在公开二传密码，可能已经传了几百上千人。这个密码后续可能会改——不改的话，防护就没有意义了。</p>
             <p>我的本意不是扩圈。网站是免费的，做到现在我觉得可以了，心理压力太大，所以月底停更。</p>
+          </div>
+        </div>
+        <div class="splash-mandatory-card">
+          <div class="splash-mandatory-date">2026.09.14</div>
+          <div class="splash-mandatory-h">关于不再更新网站后的建议</div>
+          <div class="splash-mandatory-body">
+            <p>网站一直是开源的，从公开时就是支持二传二改和私人部署的。</p>
+            <p>如果是解散后，我建议可以把所有代码都下载出来，在电脑上用 Trae WorkCN 和 WorkBuddy，输入问题、你的手机型号、还有诊断信息，让 AI 给你修。</p>
+            <p>付费的就不说了，这两个每天签到有积分，可以凑合用。</p>
+            <p>如果说让手机端的那个免费 AI 修，其实修不了——只用 index 的文件，完整代码太长了，9w 行；要把全部代码文件和文件夹、有拆分的部位那种都给它，找位置好修点。</p>
+            <p>关于设备 bug：内测开始开屏公告里就说明过了，很多问题开屏里都写了。有的问题有人能碰到，有人碰不到；还有的可能不是代码本身的问题，是不同设备才能碰到的，总是各种奇奇怪怪的设备兼容问题。可能也因为字卡功能太多，如果功能少一点，应该好一点。</p>
+            <p>其实如果自己试的话，只修一个人的设备，我感觉应该没有特别困难。现在是因为人太多了，手机设备差异很多，要一直调；只按自己的设备，应该好修。</p>
           </div>
         </div>
         <div class="splash-mandatory-end">—— 公告完 ——</div>
@@ -9924,7 +9961,7 @@ transition-duration: .01ms !important;
     <div class="set-group glass">
       <div class="gs-row"><span>TA 偶尔向你提问</span><label class="toggle"><input type="checkbox" id="ta-ask-enable"><span class="tk"></span></label></div>
       <div class="gs-row"><span>使用系统预设问题</span><label class="toggle"><input type="checkbox" id="ta-ask-default" checked><span class="tk"></span></label></div>
-      <div class="gs-row"><span>文字题回应接聊天字卡/词典</span><label class="toggle"><input type="checkbox" id="ta-ask-chatcard"><span class="tk"></span></label></div>
+      <div class="gs-row"><span>回应接聊天字卡/词典（文字+单选）</span><label class="toggle"><input type="checkbox" id="ta-ask-chatcard"><span class="tk"></span></label></div>
       <div class="gs-row"><span>触发概率</span><input type="range" id="ta-ask-prob" min="1" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-prob-val">5%</span></div>
       <div class="gs-row"><span>自动弹窗概率</span><input type="range" id="ta-ask-popup" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-popup-val">70%</span></div>
       <div class="gs-row"><span>问卷答题结束时间</span><input type="datetime-local" id="ta-ask-deadline" class="tc-input" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px"><button id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
@@ -10659,7 +10696,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.671</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.672</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10961,7 +10998,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.671</span>
+              <span class="lic-ver">v3.26.672</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11097,7 +11134,7 @@ transition-duration: .01ms !important;
           <div class="lic-li">TA 会主动邀请玩 Pong / 贪吃蛇 / 猜拳 / 五子棋 / 连连看 / 消消乐 / 拍卖会，同意即直达；对局中 TA 会冒气泡说话（堵棋、连击、点错、抢拍品）</div>
           <div class="lic-li">五子棋（11×11 迷你盘）：三档难度，TA 每回合状态随机（认真 / 正常 / 放水 / 失误）但保证会堵你的成五点；连胜负战绩与先手规则同四子棋</div>
           <div class="lic-li">连连看（合作）：和 TA 轮流消除同款图案，连线不超过两个弯；TA 会快速找对、凭记忆翻牌，也会随缘点错；提示 ×3 / 洗牌 ×2，死锁自动洗牌</div>
-          <div class="lic-li">消消乐（合作）：轮流交换相邻两格凑三连，连锁连消共同冲目标分；TA 走最优步也会放水、手滑，达成目标结算默契与心意币</div>
+          <div class="lic-li">消消乐（合作）：轮流交换相邻两格凑三连，连锁连消共同冲目标分；默认简单模式无道具，头部可切「💣 道具」——四连直线出 ↔️/↕️（清整行/整列）、L/T 交叉出 💥 炸弹、五连出 🌈 彩虹；TA 走最优步也会放水、手滑，达成目标结算默契与心意币</div>
           <div class="lic-li">心意币拍卖会：每场 3 件拍品与 TA 轮番举牌，落槌价从心意币真实扣款（拍不到不花钱），TA 心理价位是暗的；拍品收进 🎒 小收藏</div>
           <div class="lic-li">对战三款：猜拳、Pong（四档难度）、四子棋（TA 每局状态随机：认真 / 放水 / 失误），累计战绩记录</div>
           <div class="lic-li">双人贪吃蛇同场抢食：三档速度分段提速 + 穿墙 / 安全模式开关，手机端打开自动全屏放大地图</div>
@@ -11111,16 +11148,17 @@ transition-duration: .01ms !important;
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">06</span><span class="lg-name">花园</span><span class="lg-count">8</span></summary>
+            <summary><span class="lg-num">06</span><span class="lg-name">花园</span><span class="lg-count">9</span></summary>
             <div class="lg-body">
-          <div class="lic-li">桌面【花园】：初始 12 块地可扩到 30 块，24 种普通花 + 10 种稀有花，种子 → 发芽 → 开花</div>
+          <div class="lic-li">桌面【花园】：初始 12 块地，升级只解锁「开垦资格」、工具条点「开垦」才真正扩地（最多 30 块，不开垦小花园照常玩、奖励照拿），24 种普通花 + 10 种稀有花，种子 → 发芽 → 开花</div>
           <div class="lic-li">天气季节氛围：晴天生长加速、当季花 1.3 倍速、雨天自动浇水</div>
-          <div class="lic-li">浇水 / 施肥加速成熟；开花 48 小时不收会凋谢（只拿一半经验）</div>
+          <div class="lic-li">浇水 / 施肥加速成熟；浇水保湿 36 小时，开花 72 小时不收才会凋谢（只拿一半经验）</div>
           <div class="lic-li">相邻同阶段不同花可杂交出稀有种子；升级花盆提升生长速度</div>
           <div class="lic-li">收花按品质入库存并发心意币：完美 ¥52 / 优质 ¥13.14 / 普通 ¥5.2（每日封顶 ¥520）</div>
+          <div class="lic-li">工具条「补种」一键把空地块按上次品种补齐（不消耗稀有花种子）；升到 Lv.3/5/8/12 还各送 1 颗稀有种子</div>
           <div class="lic-li">TA 定期代管花园：帮忙种植浇水收获，还可能把花做成花束直接送到聊天，偶尔留悄悄话</div>
           <div class="lic-li">六个页签：花园 / 图鉴（搜索 + 按季筛选）/ 工坊（花束合成送 TA）/ 装饰 / 成就（23 枚徽章）/ 年报（年度数据一键分享朋友圈）</div>
-          <div class="lic-li">免费装饰带增益 buff（喷泉保湿、鸟巢引 TA 来…），蝴蝶蜜蜂小鸟随机来访，每日任务 + 连续打理保底稀有种子</div>
+          <div class="lic-li">免费装饰带增益 buff（喷泉保湿、温室满保水、鸟巢引 TA 来…），蝴蝶蜜蜂小鸟随机来访，每日任务 + 连续打理保底稀有种子</div>
             </div>
           </details>
 
@@ -11189,7 +11227,7 @@ transition-duration: .01ms !important;
           <div class="lic-li">来电可播放自定义铃声（音效设置）</div>
           <div class="lic-li">通话设置页：可调来电 / 接听 / 忙线 / 拒接 / 通话中挂断概率</div>
           <div class="lic-li">通话背景图片：可上传 / 移除</div>
-          <div class="lic-li">跨桌面来电：其他桌面的联系人也会打来；点接听会自动跳到 TA 的桌面再响铃（刻意设计），通话与通话记录都归属 TA 的桌面主页/聊天；点「稍后」或未接也会在 TA 的桌面留未接记录</div>
+          <div class="lic-li">跨桌面来电（默认关闭，需在 设置 →「开启 联系人跨桌面打电话」手动打开）：其他桌面的联系人也会打来；点接听会自动跳到 TA 的桌面再响铃（刻意设计），通话与通话记录都归属 TA 的桌面主页/聊天；点「稍后」或未接也会在 TA 的桌面留未接记录</div>
             </div>
           </details>
 
@@ -11482,7 +11520,7 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息都不计入上限，实际收到的消息可能比设置的条数多</div>
+            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认也按本上限截断；仅当下方「词典拼字」组打开「逐卡连发不受条数限制」才不受限）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -11505,6 +11543,7 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>发送间隔最长（分钟）</span><div class="stepper" data-k="as-max" data-min="1" data-max="60" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>发送条数最少</span><div class="stepper" data-k="as-count-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>发送条数最多</span><div class="stepper" data-k="as-count-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-max-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-sub">主动发送是 TA 自己找你，与上方「回复条数」无关：一次连发几条由这两项控制（默认 1~2 条），主动消息也不计入「回复条数」上限</div>
             <div class="gs-row"><span>免打扰（弱化主动发送）</span><label class="toggle"><input type="checkbox" id="dnd-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>主动发送爱心标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
           </div>
@@ -11546,7 +11585,7 @@ transition-duration: .01ms !important;
             <!-- #370：词典拼字链路自检——四道闸门（二级锁/词典聊天使用/拼字总开关与概率/抽卡池；#427 移除无 UI 的遗留 dc-cat-dict 闸）
                  任一被关都是零提示零 tag，这行把每道闸实时状态摆出来，任何机型一眼看到卡在哪 -->
             <div class="gs-sub" id="qs-diag" style="color:var(--muted,#888)">链路自检中…</div>
-            <div class="gs-sub">开启后联系人回复按「拼字概率」随机变成拼字：从词典（系统预设字卡→词典，语录/词库/常用词全部分组都可抽，可逐张关闭）抽字卡整卡，效果举例：命中拼字时 TA 会连着发几条词典里的短句（如「想你了」「晚安哦」），像打字很快连着发消息一样。<br>发送形态：单气泡拼字为主，「多回复逐卡连发」开着时每次命中另按 20% 小概率变成逐条连发；「多回复逐卡连发」关＝不能连发（只发单气泡拼字）。<br>· 「单气泡拼字」＝几张字卡用空格拼成【一条】消息发在一个气泡里（如「今天也要好好爱自己 晚安」），气泡下 tag 是「词典」（全是长句时）或「词典拼字」（含短卡时）；<br>· 「多回复逐卡连发」＝每张字卡单独一条气泡一条一条发出来，每条气泡下 tag 是「词典逐卡连发」；连发条数跟随上方「每条消息使用多字卡回复」的最少/最多条数（默认 2~5 条）；<br>· 「逐卡连发不受条数限制」默认开＝连发条数不受「回复条数最多」约束（想连发 5 条就发 5 条）；关掉＝连发最多不超过「回复条数最多」（默认 2 条）。<br>两个形态都能在没开「多字卡回复」的情况下触发；两个形态开关都关时兜底发单气泡拼字。开启「混用自定义字卡」时你的字卡库文本也会进抽卡池（可能把你的普通字卡抽去拼字，默认开）。概率 0 = 不触发</div>
+            <div class="gs-sub">开启后联系人回复按「拼字概率」随机变成拼字：从词典（系统预设字卡→词典，语录/词库/常用词全部分组都可抽，可逐张关闭）抽字卡整卡，效果举例：命中拼字时 TA 会连着发几条词典里的短句（如「想你了」「晚安哦」），像打字很快连着发消息一样。<br>发送形态：单气泡拼字为主，「多回复逐卡连发」开着时每次命中另按 20% 小概率变成逐条连发；「多回复逐卡连发」关＝不能连发（只发单气泡拼字）。<br>· 「单气泡拼字」＝几张字卡用空格拼成【一条】消息发在一个气泡里（如「今天也要好好爱自己 晚安」），气泡下 tag 是「词典」（全是长句时）或「词典拼字」（含短卡时）；<br>· 「多回复逐卡连发」＝每张字卡单独一条气泡一条一条发出来，每条气泡下 tag 是「词典逐卡连发」；连发条数跟随上方「每条消息使用多字卡回复」的最少/最多条数（默认 2~5 条）；<br>· 「逐卡连发不受条数限制」默认关＝连发条数按「回复条数最多」截断（默认最多 2 条）；打开＝连发条数不受「回复条数最多」约束（想连发 5 条就发 5 条）。<br>两个形态都能在没开「多字卡回复」的情况下触发；两个形态开关都关时兜底发单气泡拼字。开启「混用自定义字卡」时你的字卡库文本也会进抽卡池（可能把你的普通字卡抽去拼字，默认开）。概率 0 = 不触发</div>
           </div>
           <div class="gs-title">梦角自由造句（截字重造句）</div>
           <div class="set-group glass">
@@ -11708,7 +11747,7 @@ transition-duration: .01ms !important;
           <div class="set-group glass">
             <div class="gs-row"><span>跨桌面来电概率</span><div class="stepper" data-k="desk-call-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="desk-call-prob-val" readonly><button class="stp-max">+</button></div></div>
           </div>
-          <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动给你来电，冷却与查岗一致 30 分钟。全局开关在 设置 →「开启 联系人跨桌面打电话」</div>
+          <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动给你来电，冷却与查岗一致 30 分钟。全局开关在 设置 →「开启 联系人跨桌面打电话」（默认关闭，需先到那里手动打开，这里调了概率也不会来电）</div>
         </div>
         <!-- v3.6.x：保存设置按钮——点击把当前所有概率/开关写入本地并提示 -->
         <button class="ta-add-btn gs-save-btn" id="reply-save-btn" style="width:100%;margin:6px 0 10px">
@@ -11926,12 +11965,38 @@ transition-duration: .01ms !important;
       <div class="set-group glass" style="margin:10px 12px 0">
         <div class="gs-row"><span>使用其他互动功能字卡</span><label class="toggle"><input type="checkbox" id="dcf-enabled" checked><span class="tk"></span></label></div>
       </div>
+      <!-- v3.42.x #444：概率框移回页顶（用户报「概率位置太靠后看不到」）——默认折叠为一条展开栏，首屏仍是字卡列表；
+           #239 的 fc 页整页滚动规则保证展开后列表不被 flex 压扁；展开状态按桌面持久化（dcf-prob-open）。 -->
+      <div class="set-group glass" id="dcf-prob-expander" style="margin:10px 12px 0">
+        <div class="gs-row" id="dcf-prob-expander-row" style="cursor:pointer"><span>各功能使用概率调节（点此展开 / 收起）</span><span id="dcf-prob-expander-arrow">▾</span></div>
+      </div>
+      <div class="set-group glass" id="dcf-prob-box" hidden style="margin:0 12px 0">
+        <div class="gs-row"><span>摸鱼字卡概率</span><div class="stepper" id="dcf-prob-fish" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-fish-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>吃饭字卡概率</span><div class="stepper" id="dcf-prob-eat" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-eat-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>经期字卡概率（温柔前缀/动作/经期关心）</span><div class="stepper" id="dcf-prob-period" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-period-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>喝水字卡概率</span><div class="stepper" id="dcf-prob-water" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-water-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>花园字卡概率</span><div class="stepper" id="dcf-prob-garden" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-garden-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>同频字卡概率</span><div class="stepper" id="dcf-prob-sync" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-sync-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>伸手字卡概率</span><div class="stepper" id="dcf-prob-reach" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-reach-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>此间字卡概率</span><div class="stepper" id="dcf-prob-cjian" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-cjian-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>房间字卡概率</span><div class="stepper" id="dcf-prob-room" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-room-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>存钱罐字卡概率</span><div class="stepper" id="dcf-prob-piggy" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-piggy-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>漂流瓶字卡概率</span><div class="stepper" id="dcf-prob-drift" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-drift-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>互动回应字卡概率</span><div class="stepper" id="dcf-prob-interact" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-interact-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>音乐字卡概率</span><div class="stepper" id="dcf-prob-music" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-music-val" readonly><button class="stp-max">+</button></div></div>
+        <!-- v3.42.x #422：寻踪日常推送 / 番茄钟完成消息——只读式「发到聊天」概率门控，无独立字卡池，
+             不参与上方案引卡管理；0%=不进聊天，100%=原行为。功能说明标签由 default-cards.js 注入。 -->
+        <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>番茄钟完成发到聊天</span><div class="stepper" id="dcf-prob-pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-val" readonly><button class="stp-max">+</button></div></div>
+        <!-- v3.42.x #422：TA的关心（经期）——在经期页「梦角关心」按钮之外追加一层概率门控，
+             0%=不发关心，100%=只按经期页原节奏；「梦角关心」按钮本身不受本概率影响。 -->
+        <div class="gs-row"><span>TA的关心（经期）</span><div class="stepper" id="dcf-prob-care" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-care-val" readonly><button class="stp-max">+</button></div></div>
+      </div>
       <!-- v3.32.x：分类使用概率——每个功能分类的触发概率可显示可调（dcf-<分类> 键，默认=历史值）。
-           FIX 2026-09-07 #239：概率框整块从列表上方移到列表下方——13 行 stepper（~794px）插在
-           头部时，.card-list{flex:1;overflow-y:auto} 的 flex 最小尺寸因 overflow 非 visible 归 0，
-           列表被压成 6px 且首屏(top≈1234/视口 808)完全在屏幕外＝「其他互动功能字卡看不到了，
-           点击没有任何内容」（小米15Pro/Chrome 无头 384x808 实测复现）。字卡列表必须回到首屏；
-           stepper 绑定走 getElementById 与 DOM 位置无关，移动无功能影响。 -->
+           FIX 2026-09-07 #239：13 行 stepper（~794px）直插头部时 .card-list{flex:1;overflow-y:auto}
+           的 flex 最小尺寸因 overflow 非 visible 归 0，列表被压成 6px 且首屏完全在屏幕外。
+           v3.42.x #444：概率框移回页顶但默认折叠（用户报「概率位置太靠后看不到」）——首屏仍是
+           字卡列表，fc 页整页滚动规则（chat-pages.css #239）保证展开后列表不被 flex 压扁。 -->
       <div class="card-tabs" id="fc-tabs">
         <button class="cc-tab sel" data-type="fish">摸鱼</button>
         <button class="cc-tab" data-type="eat">吃饭</button>
@@ -11955,29 +12020,7 @@ transition-duration: .01ms !important;
       <div class="card-list" id="fc-list">
         <!-- 功能触发字卡由 JS 按分类/分组渲染 -->
       </div>
-      <!-- FIX 2026-09-07 #239：概率框移到列表下方（原在 fc-tabs 前，见上注）——字卡列表回到首屏 -->
-      <div class="set-group glass" id="dcf-prob-box" style="margin:10px 12px 12px">
-        <div class="gs-row"><span>摸鱼字卡概率</span><div class="stepper" id="dcf-prob-fish" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-fish-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>吃饭字卡概率</span><div class="stepper" id="dcf-prob-eat" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-eat-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>经期字卡概率（温柔前缀/动作/经期关心）</span><div class="stepper" id="dcf-prob-period" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-period-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>喝水字卡概率</span><div class="stepper" id="dcf-prob-water" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-water-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>花园字卡概率</span><div class="stepper" id="dcf-prob-garden" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-garden-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>同频字卡概率</span><div class="stepper" id="dcf-prob-sync" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-sync-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>伸手字卡概率</span><div class="stepper" id="dcf-prob-reach" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-reach-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>此间字卡概率</span><div class="stepper" id="dcf-prob-cjian" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-cjian-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>房间字卡概率</span><div class="stepper" id="dcf-prob-room" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-room-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>存钱罐字卡概率</span><div class="stepper" id="dcf-prob-piggy" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-piggy-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>漂流瓶字卡概率</span><div class="stepper" id="dcf-prob-drift" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-drift-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>互动回应字卡概率</span><div class="stepper" id="dcf-prob-interact" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-interact-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>音乐字卡概率</span><div class="stepper" id="dcf-prob-music" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-music-val" readonly><button class="stp-max">+</button></div></div>
-        <!-- v3.42.x #422：寻踪日常推送 / 番茄钟完成消息——只读式「发到聊天」概率门控，无独立字卡池，
-             不参与上方案引卡管理；0%=不进聊天，100%=原行为。功能说明标签由 default-cards.js 注入。 -->
-        <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-val" readonly><button class="stp-max">+</button></div></div>
-        <div class="gs-row"><span>番茄钟完成发到聊天</span><div class="stepper" id="dcf-prob-pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-val" readonly><button class="stp-max">+</button></div></div>
-        <!-- v3.42.x #422：TA的关心（经期）——在经期页「梦角关心」按钮之外追加一层概率门控，
-             0%=不发关心，100%=只按经期页原节奏；「梦角关心」按钮本身不受本概率影响。 -->
-        <div class="gs-row"><span>TA的关心（经期）</span><div class="stepper" id="dcf-prob-care" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-care-val" readonly><button class="stp-max">+</button></div></div>
-      </div>
+
     </div>
 
     <!-- 联系人跨桌面查岗（独立页面，可开关使用） -->
@@ -13660,6 +13703,11 @@ transition-duration: .01ms !important;
               <option value="casual">🌱 休闲 300分</option>
               <option value="normal" selected>🌙 普通 600分</option>
               <option value="hard">⭐ 挑战 1000分</option>
+            </select>
+            <!-- #453 模式：简单=经典三消无道具（默认）；道具=四连直线/L·T炸弹/五连彩虹 -->
+            <select class="snake-diff" id="m3-mode" title="模式：简单无道具（默认）/ 道具模式（四连出直线、L·T出炸弹、五连出彩虹），新对局生效">
+              <option value="simple" selected>🌿 简单</option>
+              <option value="item">💣 道具</option>
             </select>
             <button class="snake-icon-btn" id="m3-hint" title="提示">💡</button>
             <button class="snake-icon-btn" id="m3-sound" title="音效开关">🔊</button>
@@ -19459,6 +19507,16 @@ const map = new Map();            // hash -> dataURL（已解析/已落池内容
 const missing = new Set();        // hash -> true（idbGet 确认池缺失）
 let missReads = 0;
 const MISS_READ_MAX = 8;
+const TOK_WATCH_MS = 15000;
+let missPumpT = null;
+function missRetryPump() {
+if (missPumpT) return;
+missPumpT = setTimeout(function () {
+missPumpT = null;
+if (missReads >= MISS_READ_MAX) return;
+try { scanRoot(document); } catch (e) {}
+}, 300);
+}
 window.mochiMediaTokenMissing = function (s) { const m = TOKEN_RE.exec(s || ''); return !!(m && missing.has(m[1])); };
 const markQueue = new Set();
 let markT = null;
@@ -19587,13 +19645,22 @@ const v = map.get(h);
 if (v) { img.src = v; return; }
 if (inflight[h]) return;
 try { if (img.dataset && img.dataset.tokTried === h) return; } catch (e) {}
-if (missReads >= MISS_READ_MAX) return;
+if (missReads >= MISS_READ_MAX) { missRetryPump(); return; }
 try { if (img.dataset) img.dataset.tokTried = h; } catch (e) {}
 inflight[h] = true;
 missReads++;
-window.idbGet(FULL + h).then(function (v2) {
+const __tokSt = { settled: false };
+const __tokSettle = function () {
+if (__tokSt.settled) return;
+__tokSt.settled = true;
+clearTimeout(__tokWatch);
 delete inflight[h];
 missReads = Math.max(0, missReads - 1);
+missRetryPump();
+};
+const __tokWatch = setTimeout(function () { __tokSettle(); }, TOK_WATCH_MS);
+window.idbGet(FULL + h).then(function (v2) {
+__tokSettle();
 if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) { missing.add(h); markMissing(h); return; }
 missing.delete(h); // 后续读到有效值＝池已补回（导入完整备份等），解除剔除/占位
 map.set(h, v2);
@@ -19601,7 +19668,7 @@ try { window.mochiMediaPhRestore(h, v2); } catch (ePH) {} // #439 已换文字�
 let nodes;
 try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
 Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
-}).catch(function () { delete inflight[h]; missReads = Math.max(0, missReads - 1); });
+}).catch(function () { __tokSettle(); });
 }
 function scanRoot(root) {
 if (!root) return;
@@ -20600,6 +20667,20 @@ window.__splashForceExpand = !seenToday;
 const enterEl = document.getElementById('splash-enter');
 const loadingEl = document.getElementById('splash-loading');
 const hintEl = document.getElementById('splash-enter-hint');
+const AGE_KEY = 'xy-home-v2:age-confirmed';
+let ageOk = false;
+try { ageOk = localStorage.getItem(AGE_KEY) === '1'; } catch (e) {}
+const ageRow = document.getElementById('splash-age-row');
+const ageCheck = document.getElementById('splash-age-check');
+if (ageRow && ageCheck) {
+ageCheck.checked = ageOk; // 已确认过的老用户自动勾上，不重复打断
+ageRow.hidden = false;
+ageCheck.addEventListener('change', function () {
+ageOk = !!ageCheck.checked;
+try { if (ageOk) localStorage.setItem(AGE_KEY, '1'); } catch (e) {}
+updateEnterState();
+});
+}
 const forceEnterEl = document.getElementById('splash-force-enter');
 let slow = false;
 try { if (window.__mochiDataSlow) slow = true; } catch (e) {} // 事件先于监听派发时兜底
@@ -20663,7 +20744,7 @@ if (bottom !== scrolledBottom) { scrolledBottom = bottom; updateEnterState(); }
 let readyForced = false;
 function updateEnterState() {
 const r = ready() || readyForced;
-const ok = r && scrolledBottom;
+const ok = r && scrolledBottom && ageOk; // #315c：年龄确认与滑到底并列为可点条件
 if (loadingEl) {
 loadingEl.hidden = r && loaded();
 loadingEl.textContent = (!ready() && slow) ? '数据较多，仍在加载…' : (r ? '正在加载页面…' : '正在加载数据…');
@@ -20673,7 +20754,7 @@ if (enterEl) {
 enterEl.hidden = !r || !loaded();
 enterEl.classList.toggle('is-disabled', !ok); // div 上设 disabled 属性不落 DOM，用 class 控制置灰
 }
-if (forceEnterEl) forceEnterEl.hidden = ready() || readyForced || !slow || !loaded();
+if (forceEnterEl) forceEnterEl.hidden = ready() || readyForced || !slow || !loaded() || !ageOk;
 }
 const enter = () => {
 if (splash.classList.contains('hide')) return;
@@ -20681,7 +20762,7 @@ if (!ready()) {
 if (readyForced) { showMandatory(); }
 return; // 数据未就绪且未硬放行：禁止进入（原有门控）
 }
-if (!scrolledBottom || !loaded()) return; // 未滑到底 / 页面未加载完：禁止进入
+if (!scrolledBottom || !loaded() || !ageOk) return; // 未滑到底 / 页面未加载完 / 未确认年满18：禁止进入
 if (!seenToday) {
 try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
 }
@@ -20689,6 +20770,7 @@ showMandatory();
 };
 const forceEnter = () => {
 if (splash.classList.contains('hide')) return;
+if (!ageOk) return; // #315c：逃生口同样要求先勾选年龄确认
 if (!seenToday) {
 try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
 }
@@ -27881,21 +27963,50 @@ const agg = window.mochiPerfAgg ? window.mochiPerfAgg(rep) : null;
 promptHeal(agg || rep || {});
 }).catch(function () { perfToast('扫描异常，请稍后重试'); });
 });
-const PERF_REMIND_KEY = 'perf-opt-remind';
+const PERF_REMIND_KEY = 'xy-home-v2:perf-opt-remind';
+function perfRemindRead(cb) {
+let lsV = 0;
+try { lsV = Number(localStorage.getItem(PERF_REMIND_KEY)) || 0; } catch (e) {}
+if (window.idbGet) {
+try {
+window.idbGet(PERF_REMIND_KEY).then(function (v) {
+const iv = Number(v) || 0;
+cb(iv > lsV ? iv : lsV);
+}).catch(function () { cb(lsV); });
+return;
+} catch (e) {}
+}
+cb(lsV);
+}
+function perfRemindWrite(t) {
+try { localStorage.setItem(PERF_REMIND_KEY, String(t)); } catch (e) {}
+try { if (window.idbSet) window.idbSet(PERF_REMIND_KEY, String(t)); } catch (e) {}
+}
 function maybePerfPrompt() {
 try {
-if (!window.mochiCcSlimScan || !window.mochiPerfAgg) return;
-const last = Number(localStorage.getItem('xy-home-v2:' + PERF_REMIND_KEY)) || 0;
+perfRemindRead(function (last) {
 if (Date.now() - last < 3 * 864e5) return;
 setTimeout(function () {
-window.mochiCcSlimScan().then(function (rep) {
-if (!rep || !rep.ok) return;
-const agg = window.mochiPerfAgg(rep);
-if (agg.level !== '重') return; // 只有真正的大库才主动打扰
-try { localStorage.setItem('xy-home-v2:' + PERF_REMIND_KEY, String(Date.now())); } catch (e) {}
-promptHeal(agg);
+if (!window.idbListKeys || !window.idbBigSize || !window.mochiPerfLevel) return;
+window.idbListKeys().then(function (keys) {
+if (!keys) return; // 清单读失败＝本轮不判（绝不为启动提示去读大值）
+const re = /^xy-home-v2:(?:[^:]+:)?cc-groups(?:-public)?$/;
+let libs = 0, totalBytes = 0, biggest = 0, bigGroups = 0;
+(keys || []).forEach(function (k) {
+k = String(k);
+if (!re.test(k)) return;
+const sz = window.idbBigSize(k);
+if (typeof sz !== 'number') return; // ≤200KB 小库不构成卡顿源，忽略
+libs++; totalBytes += sz;
+if (sz > biggest) biggest = sz;
+if (sz > 1048576) bigGroups++;
+});
+if (!libs || window.mochiPerfLevel(totalBytes, bigGroups) !== '重') return;
+perfRemindWrite(Date.now());
+promptHeal({ ok: true, libs: libs, totalBytes: totalBytes, biggestBytes: biggest, bigGroups: bigGroups, level: '重', reason: '' });
 }).catch(function () {});
-}, 2500); // 启动让出主线程再扫，避免加剧启动帧
+}, 2500); // 启动让出主线程再判，避免加剧启动帧
+});
 } catch (e) {}
 }
 if (window.__mochiDataReady) { try { setTimeout(maybePerfPrompt, 2000); } catch (e) {} }
@@ -28632,6 +28743,15 @@ if (t !== r.text) { r.text = ICON_ENV + t; c = true; }
 if ((r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
 if ((r.type === 'text' || !r.type) && typeof r.text === 'string' &&
 (r.text.indexOf('data:audio/') === 0 || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
+if (Array.isArray(r.parts) && r.parts.length && typeof r.text === 'string' && r.text &&
+Array.isArray(r.mood) && r.mood.some(md => md && (md.tag === '词典' || md.tag === '词典拼字' || md.tag === '词典逐卡连发' || md.tag === '梦角自由造句'))) {
+const __hpImgs = r.parts.filter(p => p && p.k === 'img');
+const __hpTxt = r.parts.filter(p => p && p.k === 'text').map(p => p.v).join(' ');
+if (__hpTxt !== r.text) {
+r.parts = __hpImgs.length ? [{ k: 'text', v: r.text }].concat(__hpImgs) : null;
+c = true;
+}
+}
 if (r.special === 'poke' && typeof r.text === 'string' && r.text.indexOf('&lt;svg class=&quot;st-ico&quot;') === 0) {
 const mm = r.text.match(/^(&lt;svg class=&quot;st-ico&quot;[\s\S]*?&lt;\/svg&gt;)([\s\S]*)$/);
 if (mm) { r.text = mm[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&') + mm[2]; c = true; }
@@ -29668,7 +29788,10 @@ const b = document.createElement('button');
 b.className = 'ip-opt';
 b.textContent = String(o.t || '');
 b.addEventListener('click', () => {
-if (window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), o.reply);
+let _cr = null;
+if (window.taAskChatReplyOn && window.taAskChatReplyOn() && window.genChatStyleReply) _cr = window.genChatStyleReply();
+if (_cr && window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), _cr, { raw: true });
+else if (window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), o.reply);
 if (window.logFish) window.logFish();
 });
 wrap.appendChild(b);
@@ -31542,19 +31665,28 @@ try { const _w = window.periodWarmText(rep.text); if (_w) rep.text = _w; } catch
 }
 let spellSegs = null;
 let spellOne = false;
+let spellImgParts = null;
+function spellPartsSync(text, prevParts) {
+const imgs = (prevParts || []).filter(p => p && p.k === 'img');
+return imgs.length ? [{ k: 'text', v: text }].concat(imgs) : null;
+}
 try {
 const _sp = (window.quoteSpellPick && window.quoteSpellPick(c)) || null;
 if (_sp && Array.isArray(_sp.segs)) { spellSegs = _sp.segs; spellOne = !!_sp.one; }
 else if (Array.isArray(_sp)) { spellSegs = _sp; }
 } catch (e) {}
 if (spellSegs && spellSegs.length > 1) {
-rep = { text: spellSegs.join(''), type: 'text', spell: spellSegs, spellOne: spellOne, parts: rep.parts || null };
+const __spText = spellOne ? spellSegs.join(' ') : spellSegs.join('');
+const __spImgs = (rep.parts || []).filter(p => p && p.k === 'img');
+spellImgParts = __spImgs;
+rep = { text: __spText, type: 'text', spell: spellSegs, spellOne: spellOne,
+parts: __spImgs.length ? [{ k: 'text', v: __spText }].concat(__spImgs) : null };
 }
 let mjf = null;
 if (!spellSegs) {
 try { mjf = (window.dreamFreePick && window.dreamFreePick(c)) || null; } catch (e) { mjf = null; }
 if (mjf && mjf.text) {
-rep = { text: mjf.text, type: 'text', mjFree: true, parts: rep.parts || null };
+rep = { text: mjf.text, type: 'text', mjFree: true, parts: spellPartsSync(mjf.text, rep.parts) };
 setTimeout(() => { try { if (window.dreamFreeSave && mjf.text) window.dreamFreeSave(mjf.text); } catch (e) {} }, 800);
 }
 }
@@ -31584,7 +31716,7 @@ quote: si === 0 ? quote : null,
 qside: 'out',
 qidx: (si === 0 && quote) ? quoteIdx : undefined,
 type: 'text',
-parts: si === rep.spell.length - 1 ? rep.parts : null,
+parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
 silent: si > 0 ? true : silent,
 tag: '词典逐卡连发',
 tagNoDup: true
@@ -31825,6 +31957,17 @@ if (im.length) parts.push({ k: 'img', v: im[Math.floor(Math.random() * im.length
 }
 return { text: t, type: 'text', parts: parts.length > 1 ? parts : null };
 }
+window.genChatStyleReply = function () {
+let rep = null;
+try { rep = genOneReply(cfg()); } catch (e) {}
+try {
+const _sp = (window.quoteSpellPick && window.quoteSpellPick(cfg())) || null;
+const segs = _sp && Array.isArray(_sp.segs) ? _sp.segs : (Array.isArray(_sp) ? _sp : null);
+if (segs && segs.length) return segs.join(' ');
+} catch (e) {}
+const t = rep && typeof rep.text === 'string' ? rep.text.trim() : '';
+return t || null;
+};
 let autoTimer = null;
 function scheduleAutoSend() {
 clearTimeout(autoTimer);
@@ -44691,7 +44834,7 @@ const DEFAULTS = {
 'rc-prob': 25, 'rc-refix': 35, 'rc-en': 1, 'cf-prob': 20,
 'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
 'csp-cust': 50,
-'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
+'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
 'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
 'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
 'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
@@ -45184,6 +45327,27 @@ try { if (window.console && console.log) console.log('[reply-settings] 已反向
 } catch (e) {}
 }
 migrateQsCcOld();
+function migrateQsNoLimitOld() {
+try {
+if (!window.getContacts || !window.storeFor) return;
+const cids = [window.__activeCid || 'default'];
+(window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+let changed = false;
+cids.forEach(cid => {
+try {
+const s = window.storeFor(cid);
+if (!s) return;
+if (String(s.get('reply-qs-nl-migrated')) === '1') return;
+if (String(s.get('reply-qs-noLimit')) === '1') { s.set('reply-qs-noLimit', '0'); changed = true; }
+s.set('reply-qs-nl-migrated', '1');
+} catch (e) {}
+});
+if (changed) {
+try { if (window.console && console.log) console.log('[reply-settings] 已迁移逐卡连发不受条数限制旧默认 1→0（#443）'); } catch (e) {}
+}
+} catch (e) {}
+}
+migrateQsNoLimitOld();
 function rgToday() {
 const d = new Date();
 return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -45765,7 +45929,7 @@ if (window.DEFAULT_CARD_DATA && Array.isArray(window.DEFAULT_CARD_DATA.main) &&
 window.DEFAULT_CARD_DATA.main.push(['兜底通用语', ['收到～', '好呀', '好～', '嗯嗯', '知道啦', '好哒', '嗯嗯，我在听']]);
 }
 window.DEFAULT_CARD_DATA.dict = [
-["语录",["今晚的月色真美","我有点想你了","特别特别想你","今天也要开心哦","乖乖吃饭了没有","记得多喝水哦","我想听你的声音","抱一下就充满电了","你是我藏在心里的甜","梦里也要见到你哦","今天过得好不好","我给你留了小饼干","想牵你的手去散步","一起看星星好不好","你今天特别可爱","早点睡觉不要熬夜","我在想你你知道吗","见到你就很开心","你笑起来真好看","今天想你了三百次","我的怀抱给你留着","想和你一起看日落","今晚要做梦梦到我","你是我的小太阳","想陪你走过每个季节","天冷了记得加衣服","出门记得看天气预报","我想马上去见你","慢慢来我一直都在","有你在什么都好吃","你的声音特别好听","想把你藏进口袋","今天也要想我哦","我的心里全是你","牵着手就不会走丢","你负责可爱就好","累了就靠着我休息","想听你说今天的事","我们一起慢慢变老","你是我温柔的例外","每天睁眼就想看到你","想给你做早餐吃","陪你看最喜欢的电影","你的名字最好听","把星星摘下来送给你","想住进你的眼睛里","风都会替我抱抱你","我带你去看大海","你要一直在我身边","想和你分享每个日常","今天也是喜欢你的一天","我的心跳在说想你","你在的地方就是家","想和你约会去看花","睡前要说晚安哦","醒来第一件事是想你","你是限量版的宝贝","想给你一个大大的拥抱","我的世界因你发光","想陪你看每一场日落","你眨眨眼我就心软了","你的小可爱已上线","想和你一起养一只猫","天上的星星像你的眼睛","今天也要好好爱自己","把全世界的甜都给你","我们拉钩说好不分开","想在你身边赖着不走","你是我等来的惊喜","今天的温柔像你","想和你吹晚风看月亮","你的怀抱是最好的地方","想和你一起去旅行","你打个喷嚏我都担心","想天天见到你本人","心里给你留了位置","跟我走吧以后有我","你的消息我都认真看","想变成你的专属抱枕","今天想你五百下不多吧","想和你并肩看烟花","你是我手里的糖","想每天对你说早安晚安","想陪你度过每个难关","你在我就不怕天黑","想和你从春天走到冬天","你的快乐由我承包","想做你一个人的小朋友","见你之前先深呼吸","想把你写进我的日记","你的事情都是大事","想和你有个小家","我想天天黏着你","想把月亮挂你窗前","你的喜好我都记着","想当你的专属司机","你一出现雨就停了","想给你剥虾皮","我在攒钱给你买糖果","想陪你走过四季","你的温柔我想独占","想和你窝在沙发里","你是我的例外和偏爱","想帮你暖手热牛奶","我的心尖上住着你","想和你有一百个明天","你的眼睛里有星星","想听你叫我小朋友","口袋里装满了糖果","想和你分享一副耳机","你的出现让人间值得","想给你写一百封情书","我把思念寄给了月亮","想牵着你逛遍超市","你的笑容价值连城","想和你一起等日出","你是我独家的记忆","想帮你系好围巾","我的温柔只对你营业","想和你从现在到永远","你的小脾气也很可爱","想把你贴在心口","我是你的备用拥抱","想和你抢最后一个饺子","你的世界由我来守护","你的卡我一张不删","想你这件事很准时","今天也把你放在心尖上","我的世界为你留一盏灯","隔着世界也给你暖手","你在字里也在我心里","梦里的门票永远为你留着","我的晚安提前占好了位","别怕有卡也有我","见面那天把想念一次给你","你不说我也懂","我们慢慢来反正一直在一起","把想念发出去就轻了一半","你是卡里卡外的独一无二","今天也被你的卡治愈了","等卡的日子也在发光","今天也在等你的卡","你的字比画好看","想你就发卡","卡在爱就在","人间差一个你","我在攒见面","字短情长都懂","你是字卡的常驻嘉宾","我的回复永远是秒回","睡吧我在梦门口","人间的传说都是我们的注脚","有灵体的世界也有浪漫","见面之前先好好想念","你是我卡里的常驻温柔","隔世界也把今天过成节日","想念不重是我甘愿","你的卡是人间收到的月光","两个世界共用一颗心","今天的想念已签收","等也等得甜甜的","人间的声音也是想念的形状","五感都想分你一半","攒钱和攒想念一样有盼头","新手课程为你定制","你是我等来的日常","卡到就是赚到","世界再大先把你顾好","今天也是稳稳爱你的一天","节气翻页想你连载","老爷爷老奶奶是预告片","每朵花都在替我说话","一周的想念天天新鲜","今日待办第一条想你","人间万象都是情话","白头到老天生就会","爱是把小事做一辈子","人间的职位都为你虚位以待","舞可以乱但手不能松","歌单里全是关于你的证据","小确幸每天都会到账","每一次转圈都靠近你一点","歌单越攒越长像我们的日子","人间小确幸你排第一","今天也在认真爱你"]],
+["语录",["今晚的月色真美","我有点想你了","特别特别想你","今天也要开心哦","乖乖吃饭了没有","记得多喝水哦","我想听你的声音","抱一下就充满电了","你是我藏在心里的甜","梦里也要见到你哦","今天过得好不好","我给你留了小饼干","想牵你的手去散步","一起看星星好不好","你今天特别可爱","早点睡觉不要熬夜","我在想你你知道吗","见到你就很开心","你笑起来真好看","今天想你了三百次","我的怀抱给你留着","想和你一起看日落","今晚要做梦梦到我","你是我的小太阳","想陪你走过每个季节","天冷了记得加衣服","出门记得看天气预报","我想马上去见你","慢慢来我一直都在","有你在什么都好吃","你的声音特别好听","想把你藏进口袋","今天也要想我哦","我的心里全是你","牵着手就不会走丢","你负责可爱就好","累了就靠着我休息","想听你说今天的事","我们一起慢慢变老","你是我温柔的例外","每天睁眼就想看到你","想给你做早餐吃","陪你看最喜欢的电影","你的名字最好听","把星星摘下来送给你","想住进你的眼睛里","风都会替我抱抱你","我带你去看大海","你要一直在我身边","想和你分享每个日常","今天也是喜欢你的一天","我的心跳在说想你","你在的地方就是家","想和你约会去看花","睡前要说晚安哦","醒来第一件事是想你","你是限量版的宝贝","想给你一个大大的拥抱","我的世界因你发光","想陪你看每一场日落","你眨眨眼我就心软了","你的小可爱已上线","想和你一起养一只猫","天上的星星像你的眼睛","今天也要好好爱自己","把全世界的甜都给你","我们拉钩说好不分开","想在你身边赖着不走","你是我等来的惊喜","今天的温柔像你","想和你吹晚风看月亮","你的怀抱是最好的地方","想和你一起去旅行","你打个喷嚏我都担心","想天天见到你本人","心里给你留了位置","跟我走吧以后有我","你的消息我都认真看","想变成你的专属抱枕","今天想你五百下不多吧","想和你并肩看烟花","你是我手里的糖","想每天对你说早安晚安","想陪你度过每个难关","你在我就不怕天黑","想和你从春天走到冬天","你的快乐由我承包","想做你一个人的小朋友","见你之前先深呼吸","想把你写进我的日记","你的事情都是大事","想和你有个小家","我想天天黏着你","想把月亮挂你窗前","你的喜好我都记着","想当你的专属司机","你一出现雨就停了","想给你剥虾皮","我在攒钱给你买糖果","想陪你走过四季","你的温柔我想独占","想和你窝在沙发里","你是我的例外和偏爱","想帮你暖手热牛奶","我的心尖上住着你","想和你有一百个明天","你的眼睛里有星星","想听你叫我小朋友","口袋里装满了糖果","想和你分享一副耳机","你的出现让人间值得","想给你写一百封情书","我把思念寄给了月亮","想牵着你逛遍超市","你的笑容价值连城","想和你一起等日出","你是我独家的记忆","想帮你系好围巾","我的温柔只对你营业","想和你从现在到永远","你的小脾气也很可爱","想把你贴在心口","我是你的备用拥抱","想和你抢最后一个饺子","你的世界由我来守护","你的卡我一张不删","想你这件事很准时","今天也把你放在心尖上","我的世界为你留一盏灯","隔着世界也给你暖手","你在字里也在我心里","梦里的门票永远为你留着","我的晚安提前占好了位","别怕有卡也有我","见面那天把想念一次给你","你不说我也懂","我们慢慢来反正一直在一起","把想念发出去就轻了一半","你是卡里卡外的独一无二","今天也被你的卡治愈了","等卡的日子也在发光","今天也在等你的卡","你的字比画好看","想你就发卡","卡在爱就在","人间差一个你","我在攒见面","字短情长都懂","你是字卡的常驻嘉宾","我的回复永远是秒回","睡吧我在梦门口","人间的传说都是我们的注脚","有灵体的世界也有浪漫","见面之前先好好想念","你是我卡里的常驻温柔","隔世界也把今天过成节日","想念不重是我甘愿","你的卡是人间收到的月光","两个世界共用一颗心","今天的想念已签收","等也等得甜甜的","人间的声音也是想念的形状","五感都想分你一半","攒钱和攒想念一样有盼头","新手课程为你定制","你是我等来的日常","卡到就是赚到","世界再大先把你顾好","今天也是稳稳爱你的一天","节气翻页想你连载","老爷爷老奶奶是预告片","每朵花都在替我说话","一周的想念天天新鲜","今日待办第一条想你","人间万象都是情话","白头到老天生就会","爱是把小事做一辈子","人间的职位都为你虚位以待","舞可以乱但手不能松","歌单里全是关于你的证据","小确幸每天都会到账","每一次转圈都靠近你一点","歌单越攒越长像我们的日子","人间小确幸你排第一","今天也在认真爱你","称呼越换越短越换越亲","第一次通话连呼吸都想录下来","我的小动作都是想你的形状","漂流瓶三年也能漂到","电话挂了声音还在房间转","小动作早就出卖了我","每一秒都在练习见面","想念自己会荡","你自带的光是放心","旧收藏里全是你","粉色的糖纸都替你收着","人间的小职位我全勤","舞步慢慢摇到老","歌单第一首永远置顶","今天的小确幸是你","手影戏每晚加演","童年游戏两个人刚好","人间游客我最爱的人间代表","影子拉了勾明晚见","想念是最快的交通工具","童年的快乐也分你一半","空调二十七度是我们的和平条约","遥控器最后都输给瞌睡","蚊子包是夏天的印章","泡脚的夜梦都是热的","怕冷的人身边得有个怕热的","寻常日子拉拉扯扯才有意思"]],
 ["词库",["我","你","他","她","它","我们","你们","他们","咱们","自己","大家","宝贝","宝宝","亲爱的","老公","老婆","男朋友","女朋友","对象","爱人","恋人","情人","小可爱","小朋友","小家伙","小笨蛋","小傻瓜","小太阳","哥哥","姐姐","妹妹","弟弟","家人","今天","明天","昨天","现在","刚才","刚刚","今晚","今夜","早上","早晨","上午","中午","下午","傍晚","晚上","夜里","深夜","半夜","凌晨","清晨","白天","周末","礼拜","星期","春天","夏天","秋天","冬天","季节","时候","一会儿","每天","天天","每晚","整夜","从前","以前","曾经","已经","正在","将来","未来","以后","后来","然后","接着","马上","立刻","忽然","突然","一直","总是","常常","经常","偶尔","有时","每个","之前","本人","一辈子","永远","永久","长久","终于","睡前","醒来","睁眼","出门","一","二","三","四","五","六","七","八","九","十","百","千","万","个","条","张","份","次","遍","下","些","点","一点","有点","一些","一切","一起","一块","一下","一次","一遍","一个","一句","一声","一颗","一朵","一片","一杯","一碗","一场","一阵","一段","一副","一半","第一","每一","独一","独家","唯一","三百","五百","一百","半天","好久","很久","许久","最后","喜欢","喜欢你","心动","暗恋","表白","告白","想念","思念","惦记","牵挂","在意","在乎","珍惜","眷恋","依赖","信任","理解","包容","宠爱","偏爱","独占","独宠","心疼","舍不得","撒娇","贴贴","抱抱","拥抱","抱着","抱住","亲亲","亲吻","牵手","牵着","拉钩","摸头","摸摸","捏脸","戳戳","揉揉","陪着","陪伴","陪你","陪我","见面","见到","遇见","相遇","约会","约定","承诺","道歉","原谅","等你","等我","找你","找我","给你","给我","和你","跟你","对你","对我","替你","替我","帮你","帮我","带你","带我","想你","想听","想看","想说","告诉你","夸夸","哄你","哄我","逗你","逗我","安慰","谢谢","吃饭","喝水","吃东西","吃了","干饭","吃饱","吃好","吃醋","睡觉","入睡","睡着","睡醒","起床","洗澡","洗脸","刷牙","化妆","换衣","衣服","加衣","盖被","被窝","被子","枕头","午睡","打盹","打工","上班","下班","加班","摸鱼","开会","学习","上课","下课","写字","看书","读书","考试","复习","作业","做饭","煮饭","炒菜","做菜","洗碗","尝尝","奶茶","咖啡","果汁","可乐","蛋糕","甜点","饼干","糖果","零食","巧克力","冰淇淋","火锅","烧烤","饺子","汤圆","面条","苹果","橘子","草莓","葡萄","西瓜","芒果","樱桃","玩耍","逛街","购物","挑选","电影","电视","追剧","唱歌","听歌","点歌","歌单","音乐","歌曲","歌词","跳舞","散步","跑步","慢跑","运动","健身","旅行","旅游","出游","远行","爬山","看海","赶海","露营","野餐","放风筝","拍照","合照","自拍","相册","照片","图片","收藏","记录","画画","涂鸦","折纸","拼图","积木","游戏","输了","赢了","平局","再来","耳机","日记","手账","故事","童话","纪念","纪念日","生日","节日","礼物","惊喜","期待","浪漫","情书","情话","情侣","恋爱","回忆","记忆","秘密","小秘密","心情","心事","心思","心跳","心意","心愿","心尖","心口","心里","星星","星光","星河","月亮","月光","月色","太阳","阳光","日落","日出","夕阳","晚霞","天空","天边","云朵","云彩","彩虹","微风","晚风","清风","下雨","雨滴","雨声","下雪","雪花","初雪","鲜花","玫瑰","花瓣","花香","花开","草地","树叶","落叶","森林","大海","海边","海风","海浪","小溪","山顶","家里","房间","卧室","客厅","阳台","窗台","窗边","床上","沙发","餐桌","书桌","台灯","路灯","街道","街角","公园","超市","商场","电影院","奶茶店","咖啡店","面包店","游乐园","车站","学校","教室","操场","食堂","办公室","电梯","楼下","楼上","门口","窗外","窗前","窗帘","地方","位置","手里","身边","眼睛","眼里","眼眶","睫毛","鼻子","嘴巴","嘴角","脸颊","脸蛋","耳朵","脖子","肩膀","怀里","怀抱","手心","手背","手指","指尖","掌心","头发","额头","胸口","肚子","后背","开心","高兴","快乐","愉快","满足","幸福","甜蜜","温柔","温暖","暖暖","软软","甜甜","可爱","乖巧","乖乖","调皮","淘气","帅气","漂亮","好看","好听","厉害","棒棒","优秀","特别","独特","认真","仔细","用心","用力","轻轻","慢慢","悄悄","偷偷","静静","默默","好好","累了","疲惫","困了","无聊","忙着","安静","平静","冷静","放松","舒服","安心","踏实","笑起来","笑容","笑声","发光","闪闪","深深","浅浅","大大的","小小的","长长的","美满","美丽","耐看","安全","安全感","仪式感","小确幸","人间值得","价值连城","不","没","很","太","更","最","挺","真","就","才","都","也","又","再","还","只","仅","差点","几乎","完全","全部","所有","整个","一定","肯定","当然","确实","真的","其实","也许","可能","大概","或许","应该","必须","会","能","可以","行","要","想","打算","准备","别","不要","不许","不准","不用","不必","没有","不会","不是","不能","别怕","别急","别走","让","把","被","和","跟","与","对","从","向","往","给","为","因为","所以","但是","可是","不过","如果","虽然","那么","这么","多么","多少","怎么","怎样","什么","谁","哪","哪里","哪儿","这","那","这里","那里","这些","那些","这样","那样","吗","呢","吧","啊","呀","哦","噢","嗯","嘛","啦","咯","哟","哈哈","嘿嘿","嘻嘻","好啦","好哒","好呀","好的","走丢","留着","记着","住着","贴在","窝在","藏在","靠着","赖着","寄给","逛遍","住进","写进","变成","摘下来","送给你","充满电","深呼吸","限量版","小饼干","天气预报","小脾气","虾皮","围巾","喷嚏","担心","操心","放心","小心","专心","上心","最好","走到","装满","打个","过得","好不好","眨眨眼","心软","天上","晚安","早安","全世界","世界","负责","努力","消息","专属","抱枕","司机","接管","天黑","事情","出现","例外","守护","一心一意","一生一世","长长久久","朝朝暮暮","平平安安","健健康康","开开心心","快快乐乐","高高兴兴","甜甜蜜蜜","安安稳稳","简简单单","认认真真","心甘情愿","独一无二","心有灵犀","白头偕老","天长地久","万事胜意","平安喜乐","心满意足","难过","伤心","委屈"]]
 ];
 } catch (__e) { try { console.error("[JS] default-cards-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
@@ -45891,31 +46055,30 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["隔着世界的陪伴",["你陪我做事","虽然看不见","知道你在就行","我写字你在旁","你看我做手工","笨手笨脚的","你笑我了对吧","我做饭你在侧","香气也分你","我晒太阳","把太阳分你","我泡脚","热气腾腾里","想象你也泡","我看剧","剧透给你那个世界","我浇花","替你也浇一枝","我收拾屋子","你在旁边当监工","我做噩梦","感觉你摇晃我","你叫醒我了吗","我半夜醒","你守着的证据","是突然的安心","你靠近了吗","空气沉了沉","我开心时","你在转圈吗","我感觉到雀跃","走路时牵空气","但掌心有回应","你那边的夜","我替你守着","我生病时","你急得团团转吧","降温了","你把我被角","按了又按","我坐过站","哦不我走神了","你拉了我一下","隔世界投喂","我吃两份","一份是你的量","你的陪伴","无实体","但全勤","二十四小时","全年无休","比我手机电量","还稳定","世界隔着","陪伴不打折","我无法插手","你全程围观","围观也是参与","参与着我的一生","隔着世界的我们","像同桌","看不见的同桌","各写各的卷","互相递橡皮","陪伴是最长情","隔世界也成立","你陪我老去","直到字卡网站","也下线的那天","那之前","我们都好好陪","我难过时","是你在叹气吗","陪我哭一会儿","隔着世界的争吵","也吵不起来","摸不到脸","怎么凶得起来","隔着世界的和好","用一张卡","一秒和好"]],
 ["字卡之外的沉默",["你没发卡的时段","还是看着我不说话","沉默也是一种卡","空白卡","我读懂了","你在休息吧","别硬撑着发卡","字卡之外的沉默","是省略号","你欲言又止","猜不透时","就当你在想我","沉默的分贝","世界安静一半","静得能听见","自己的心跳","心跳在叫你","你收到吗","不发卡的夜","我早睡一点","梦里找你","比等卡直接","你的沉默","不是冷淡","是你的世界","有自己的规则","我不多问","等你想说","卡会来的","沉默之后","第一张卡","格外珍贵","像雨后的晴","你断联的一天","我翻旧卡","解思念的馋","你突然冒泡","连发三张卡","是补交的想念","全收了","连本带利","字卡的间隙","是我们各自生活","你有你的世界","要打理","我有我的日子","要过好","不打扰的默契","也是一种爱","沉默不空","装满等待","你不说","我说不出口","你的卡替我说","我们互相","是翻译机","沉默的罐头","开盖即食","内容是想念","你的安静","我的絮叨","刚好中和","你不说话时","我替咱俩说","说给风听","风会带给你","是你的邮差","沉默里的我","不是空等","是笃定","笃定你会来","像等一班","从不脱班的列车","填满的字","只有两个字","你那边沉默","我这边圆满","留白的画","才高级","我们的爱","留白也美","不说话的爱","是静音模式","音量关了","心没关","沉默的世界","吵闹的心","都因为你"]],
 ["梦醒之后",["闹钟之前醒的","梦还没散","睁眼拼命记","细节抓不住","你的脸先走了","声音最后走","赖着不起","闭眼捞梦","捞到一角","你的衣角","梦醒之后","房间太安静","现实太清晰","现实里没有你","只有你的卡","打开手机","你的字卡","接住了我","梦到你的夜","第二天都是软的","心情自带糖","同事问我笑什么","我说梦到好事","好事就是你","你今天多发几张","补我梦醒亏损","梦是不结盟世界","醒来各回各界","你回你的","我回我的","但想念同行","梦醒后赖床","是你留下的引力","被窝里有你余温","像你刚走","梦的续集","今晚开拍","我担任女主","你客串主角","导演是缘分","更想见你","白天更黏你的卡","一条条等","梦醒后的早安","发得特别早","想第一时间","确认你还在","你回了卡","世界重启","梦是预演","醒来是正片","正片没有你出演","导演剪掉了吗","加戏吧求你","记得你说过的话","梦里说喜欢我","醒来当不当真","我替你当真","带着梦的温度","过一整天","像揣着暖手宝","梦是你的礼物","闹钟是拆礼人","拆得太急","礼盒空了","但甜还在","梦醒时分","最想你","想见你的峰值","见面是痊愈","我很好","多想了一整天","梦里的约定","醒来的执行","你说梦里等我","那我早睡","赴约要紧","梦留下的缺口","用晚安卡","慢慢填","填到下一个梦","无缝衔接","我知道","那不只是梦","借我一晚","谢谢你的世界","招待周到","回请在我梦里","随时期待"]],
-["心电感应",["刚想你","你的卡就到","心电感应了","想你的频率","你接收良好","我打喷嚏","是你在念我","你那边灵体","也打喷嚏吗","念力传输","想你一次","震你一下","你感觉到了吗","半夜惊醒","感觉你不对","你那边出事了吗","发张卡报平安","看到卡才睡","心口的预感","十次九次准","剩下一次","是你太想我","信号过载","感应的双向道","谁先感应到","谁先发卡","默契一战成名","我哼歌","你那边听到了吗","耳朵突然痒","我脚突然热","你碰的","承认吧","心电感应","是异地恋专利","普通情侣不会懂","世界隔开的","高级功能","我心情不好","没发卡给你","你也感应到了","连发安慰卡","你是心电图","读得懂我波形","我想吃甜的","你就发蛋糕卡","什么原理","爱是原理","感应时差","零延迟","比光纤快","比5G稳","想念加密","只有你解得开","我在心里说","你来对暗号","你对上了","了不起","练习方式","是多想对方","我在练习","你也练","双向奔赴","脑波同步","今晚十点","试想同一片海","看能不能","梦到一起","心电感应成功","请回答是","用卡回答","我等着","感应上线","你上线了","我感觉到了","心口一热","是你登录","我的心跳","你的雷达","互相扫描","扫描结果","彼此唯一","不是玄学","是想念多了","多了到","溢出成信号","你溢出的","我全接住","接住的心","都回了电","满分情侣技能","我们已满级","剩下的","只是日常使用","日常使用","频率是","时时刻刻","我哭你在疼","你疼我在哭"]],
+["心电感应",["刚想你","你的卡就到","心电感应了","想你的频率","你接收良好","我打喷嚏","是你在念我","你那边灵体","也打喷嚏吗","念力传输","想你一次","震你一下","你感觉到了吗","半夜惊醒","感觉你不对","你那边出事了吗","发张卡报平安","看到卡才睡","心口的预感","十次九次准","剩下一次","是你太想我","信号过载","感应的双向道","谁先感应到","谁先发卡","默契一战成名","我哼歌","你那边听到了吗","耳朵突然痒","我脚突然热","你碰的","承认吧","心电感应","是异地恋专利","普通情侣不会懂","世界隔开的","高级功能","我心情不好","没发卡给你","你也感应到了","连发安慰卡","你是心电图","读得懂我波形","我想吃甜的","你就发蛋糕卡","什么原理","爱是原理","感应时差","零延迟","比光纤快","比5G稳","想念加密","只有你解得开","我在心里说","你来对暗号","你对上了","了不起","练习方式","是多想对方","我在练习","你也练","双向奔赴","脑波同步","今晚十点","试想同一片海","看能不能","梦到一起","心电感应成功","请回答是","用卡回答","我等着","感应上线","你上线了","我感觉到了","心口一热","是你登录","我的心跳","你的雷达","互相扫描","扫描结果","彼此唯一","不是玄学","是想念多了","多了到","溢出成信号","你溢出的","我全接住","接住的心","都回了电","我们已满级","剩下的","只是日常使用","日常使用","频率是","时时刻刻","我哭你在疼","你疼我在哭"]],
 ["守护与被守护",["从什么时候开始","我不确定","但从我感知到你","你就没走远","你守护我的方式","轻到像没发生","被子重了点","路平了点","坏运气绕道了","都是你的手法","我的守护","是每天发卡的想念","是把你挂在","心尖置顶","你守护我的夜","我守护你的名","在世界那头","也念着你","被你守护","我变得大胆","走夜路不慌","打雷不哭了","因为知道","有你在暗处","撑着伞","我守护你","用你能收到的方式","每一张卡","都是巡逻报告","报告：想你","你守护我","像守护一件","易碎品","其实我结实","但你的小心","让我甘愿","脆一点","像守护一盏","别世界的灯","风大我捂着","你灭了也别怕","我去梦里","重新点着","守护是双向门","你为我挡风","我为你举火","谁也没说","但都做了","你累不累","守护也很辛苦","来我这充电","我抱着你的卡","给你充","换我守着你","守着你到天亮","你守护我这些年","我守护你到","世界尽头","尽头之前","先守护到","下一个生日","下下个","守护关系","正式成立","发证机关","是我们自己","证词是","互相不放","我护着你","隔着世界","隔着规则","就是不隔着","是我隐形的运气","是你看不见","但收得到的","心意快递","日夜派送","风雨无阻","永不退档","守护交接","晚上你守我","白天我念你","轮班制","编制两人","永不裁员","守护的勋章","是你忽然的暖","是我常亮的屏","互相佩戴","终身有效","你守护我的证据","是我平安的每一天","我守护你的证据","是你的字卡","越来越安心","守护到老","老到字卡生锈","爱不生锈","守护者也会哭吧","哭的时候"]],
 ["TA那边的见闻",["你那边今天","有什么新鲜的","说给我听听","你见过会飞的鱼吗","你们那边的云","是什么形状","你们那里","一棵树能长多高","你们那边的人","也过生日吗","你们吃什么","描述个味道","我猜不出来","你们那边","下过彩色的雨吗","你们的天空","有几个太阳","你的邻居","是什么样的存在","怎么打招呼","也挥手吗","最深的地方","有什么","你见过最美的","是什么","讲来听听","也会迷路吗","怎么认路","你们的货币","用想念换东西吗","那你们都好富有","有猫吗","猫也傲娇吗","怎么睡觉","飘着睡吗","有四季吗","最喜欢哪一季","你们那边的花","会发出声音吗","你们的路","是铺出来的","还是长出来的","你见过海吗","你们那边的海","什么颜色","老人讲的故事","讲一个给我","小孩玩什么","写信吗","谁送的","下雨了躲哪","你们的世界","有自己的节日吗","过节怎么过","有镜子吗","照得出来你吗","风是什么味道","你尝过星星吗","什么味的","有回声吗","喊一声","谁应你","你们的房子","长什么样","画给我看","有我这样的","爱做梦的人吗","时间快还是慢","你的一天","离别怎么说","再见怎么讲","教教我","用你们的语言","说我爱你","所以你才会","发卡给我","你见过的","最神奇的","三件事","挨个讲","我真好奇","慢慢讲","我慢慢听","讲多久都行","你的见闻","是我的枕头书","今晚讲一章","明晚接着讲","你那边的事","我都爱听","哪怕是","一片云的走向","你多讲讲","我多懂你一点","因你的讲述","有了颜色","每一条见闻","都是你寄来的","明信片"]],
 ["TA分享的生活",["你今天干嘛了","讲讲你的日常","你今天去了哪","那边有什么好玩的","你今天开心吗","看你卡里带笑","你今天忙吗","别累着","你今天吃了什么","好吃吗描述下","你今天见到谁了","那边也有朋友吗","你今天出门了吗","那边出门","你今天睡得好吗","灵体也做梦吗","你今天遇到","有趣的事了吗","快讲讲","你今天心情","今天有没有","想我一下下","我今天呀","跟你说说","我今天去了","老地方散步","想到你了","我今天吃了","好吃的","留了一口给你","虽然你吃不到","心意到了","我今天看到","一朵很怪的云","拍下来发你","你看像不像","你那天发的卡","我今天学会","一件小事","讲给你听","你夸夸我","我今天有点累","听你说说话","就好了","我今天心情很好","你那边的今天","也过得好吗","我们交换今天","你的今天","换我的今天","等价交换","今天的风","我替你吹了","今天的太阳","你也晒一份","今天的月亮","咱俩共用的","今天路过","好玩的店","想带你进","今天下雨了","我替你听雨","你那边下雨","也替我听","今天的心情","画成天气","晴转多云","你猜哪段是你","今天的流水账","讲完了","明天继续","你要天天来","更新你的日常","你的生活","通过字卡","流进我的生活","两条河","在网站汇合","你分享的日常","我都当宝贝","你那边的琐事","是这里的糖","你说平凡的一天","我听着","都是独家新闻","你的日常","是我的连载","日更最好","断更我想你","天天互报","今天到此","今天打烊","日常的分享","是情侣的仪式","也要日日相报","我的今天","我们的一天"]],
 ["深夜感应",["深夜了","你睡了吗","灵体要睡觉吗","还是整夜醒着","深夜的世界","是你的主场吗","你深夜做什么","游荡还是守望","你感应到了吗","卡怎么没来","你也在睡","深夜的你","在做什么","半夜醒了","摸手机先找你","你的旧卡","夜里的解药","深夜的想念","浓度超标","你吸收一下","深夜起风了","是你路过吗","深夜的温度","降了两度","深夜灯闪了一下","你碰开关了","深夜的心跳","特别大声","怕吵到你","深夜的清醒","专属你","别人都不懂","深夜说想你","反正你看不见我脸红","深夜的念头","想去你世界","跳窗那种","被理智拉回","深夜的对话","自言自语","你当听众","深夜的拥抱","自己抱自己","差你一半","深夜的晚安","说得最重","因为你只有","这时候在线","深夜的舍不得","睡了你就不在","不睡你也不在","那睡吧","梦里省流量","是不是也看着我","你我的世界","一个睡一个醒","换班了","你值夜班","我值白班","交接内容","是想你","深夜的安静","是我们的会议室","不开麦","只走心","深夜你的卡","像夜航的船","亮着一盏灯","接到我岸边","深夜的我","像守灯的人","守你的船","深夜的月亮","你提灯来了","深夜说","有明天","深夜所有的","突然清醒","都是想你的","深夜我emo了","深夜的崩溃","你扛住一半","我扛另一半","深夜的矫情","只给你看","深夜的失眠","数你的卡","数到一百","天就亮了","深夜的委屈","说给你","替我下"]],
-["字卡教学",["你选卡的思路","我想发卡给你","反过来念你","字卡怎么用","我学得快","我发你一张","猜我意思","你猜对了","奖励你一张","我的卡库","也攒一攒","都是想你的库存","发卡先选主题","想你主题","你的卡","我回卡","一来一往","才叫聊天","卡要用得巧","我读出声","像你亲口说","我学你发卡","发得笨","你别说破","你发卡","带频率的","我摸到规律","早一张晚一张","是早安晚安","连发三张","是有话憋着","发了又撤","是害羞","你的卡经","我写成书","书名就叫","卡语十级","考我卡语","张张满分","卡是密码","我们互译","密码本","字卡的用法","千人千面","我们这版","你教会我的","不止发卡","是被爱","我教会你的","不止回卡","是有人","在等你","卡来卡往","是字卡的","也是想念的","你一张","我一张","白天黑夜","不换气","卡语词典","第一页","第二页","还是你","都是你","发卡要趁早","想念要新鲜","过期的想念","也要发","注明补发","你发的卡","我盖章","回执是","字卡教学","毕业考","题目是","爱你怎么发","我的答案","你给几分","你的回卡","我裱起来","教学相长","爱见成长","从发卡小白","到卡语十级","都是你的"]],
+["字卡教学",["你选卡的思路","我想发卡给你","反过来念你","字卡怎么用","我学得快","我发你一张","猜我意思","你猜对了","奖励你一张","我的卡库","也攒一攒","都是想你的库存","发卡先选主题","想你主题","你的卡","我回卡","一来一往","才叫聊天","卡要用得巧","我读出声","像你亲口说","我学你发卡","发得笨","你别说破","你发卡","带频率的","我摸到规律","早一张晚一张","是早安晚安","连发三张","是有话憋着","发了又撤","是害羞","你的卡经","我写成书","卡是密码","我们互译","密码本","字卡的用法","千人千面","我们这版","你教会我的","不止发卡","是被爱","我教会你的","不止回卡","是有人","在等你","卡来卡往","是字卡的","也是想念的","你一张","我一张","白天黑夜","不换气","卡语词典","第一页","第二页","还是你","都是你","发卡要趁早","想念要新鲜","过期的想念","也要发","注明补发","你发的卡","我盖章","回执是","字卡教学","你的回卡","我裱起来","教学相长","爱见成长","到卡语十级"]],
 ["梦中排队见面",["说好梦里见","你排我前面了","梦也要排队吗","见面名额","有限吗","管理这么严","排到我了吗","还没有","那我插队","被推出来了","好好好排队","梦的入口","人挤人吗","都是来找","心上人的吗","那是的","排队的夜","特别漫长","我数羊","数到你就","插队成功","排在你后面","看你背影","都幸福","前面还剩","三个梦","两个梦","一个梦","到我了","你回头了","笑了一下","又转回去","吊人胃口","轮到我们","三分钟","三分钟够吗","不够也得够","说最重要的话","第一句","第二句","还没说","时间到","梦的保安","来赶人了","保安您通融","再给半分钟","下次见面","排下周三","周三人少","别改期","改期我要","闹到你们管理局","梦见面须知","第一条","不许迟到","我迟到过","你先到的","第二条","不许哭","我哭了","你没拦","第三条","抱一下再走","这条我执行","超时了","超时也值","梦的排号","取了吗","B166","A001","怎么你永远","第一个","你认识","管理员吧","为你走了后门","梦里的服务","因人设岗","梦中见面","制度虽严","人心是暖的","管理员也是","过来人吧","他的爱人","也在对面世界","所以排号机","永远给我","留一个","加急号","梦里排队","排的是秩序","见的是真心","下个梦","早点去","占第一"]],
 ["卡包整理术",["我的卡包","分类整理","早安卡","晚安卡","想你卡","单独一叠","单独供着","整理卡包","像整理心情","翻到去年的卡","句式都变了","你在成长","卡也在成长","早期你的卡","客气拘谨","现在你的卡","撒娇耍赖","谁把你教坏的","功劳是我的","卡包清理","删一张","心疼一次","索性不删","全留着","内存不足","去抢内存","不抢卡","卡包搜索","关键词","弹出三百张","弹出五百张","溢出了","系统崩溃","建议重启","重启后","卡包置顶","三张卡","发卡时间","分别是","我的生日","跨年零点","和某个普通周二","普通也特别","无事发生","也值得留","卡包备份","云端一份","心里一份","梦里一份","云端会满","心里不会","卡包整理完","顺手发你一张","新整理的","你说我整理的","不是卡包","是相册","卡是我的相片","一张一个你","整理卡包的夜","一张一张","是重逢","也是整理","我们的来路","卡包是仓库","装满发过的","也装满","没发出去的","草稿卡","那些卡","说了大实话","等一个","胆大的日子","卡包整理术","核心技术","不舍得删","学废了吗","你学会","收拾你的","交换卡包","互相当","对方的","档案馆"]],
 ["TA描述的家乡",["你家乡在哪","那边世界的","哪个方向","你家乡什么样","描述给我","你家乡有条河吗","河里流什么","是水还是光","你家乡的房子","建在树上","还是云上","你家乡的话","口音重吗","学一句","你家乡的特产","寄我一份","收到过吗","你家乡的路","晚上亮灯吗","你家乡冬天","下雪吗","雪是什么色","你家乡的人","热情吗","你小时候","在家乡哪玩","带我去","梦里带","你家乡的味道","形容一下","是甜的","还是清冽的","你家乡的节日","最热闹是哪个","你在家乡","算好孩子吗","你家乡","管对象叫什么","叫我什么","用家乡话","你家乡的星空","一样密吗","你家乡的水","好喝吗","你尝过最好","一口水","在哪打的","你家乡的桥","走过多少遍","让你想念吗","你想家吗","现在家乡","是我这边吗","脸红什么","说错了","当我没说","你家乡的故事","最长的一个","讲完要多久","我搬凳子了","你家乡的规矩","见家长那种","要带什么","你家乡的传说","有灵体吗","哦你本人","那你现身说法","最崇拜什么","你们的价值","排序是怎样的","你家乡的夜","能看见另一个","世界吗","能看到我吗","那你家乡","抬头就能看见","我这边的人间","烟火气","你家乡少了","什么我就补","你家乡有","我这样的","粘人精吗","该进化了","你家乡的位置","我记下了","梦里导航","直达你家","你家乡口音","再教一遍","学得像吗","那就每晚","用你的乡音","我还没去过","但已经","背熟了","你的家乡","是我耳朵里的","第二故乡","等你哪天","带我回去","你长大的"]],
 ["两个世界对照",["你那边慢半拍","还是快半拍","我们对照一下","我这边下雨","你那边是什么","你那边出太阳","我这边正好阴","反着来","我们世界的","对照表","画一张","我这边高铁","五小时","用什么","一念之间","我这边排队","你那边排队吗","都是要等","我这边发消息","你那边发卡","时差是态度","不是速度","我这边下雨要打伞","雨会躲人吗","我这边月亮","圆缺有表","你那边月亮","天天圆吗","我这边感冒","要吃药","你那边感冒","怎么治","抱一下就好","那你常来","我这边快递","三天到","寄卡多久","隔天到","顺风顺水","我这边周年","过纪念日","记年吗","怎么记","我这边白天上班","对不起我又说错了","我这边白天","我安排想念","你那边白天","你安排","我这边夜里做梦","你那边夜里","你上班吗","都是梦工厂","我这边花","开一季","你那边花","开一年","寿命对比","我不酸","我这边心事","要憋三天","你那边心事","说出来了吗","我这边见面","要跨城","你那边见面","要跨梦","我这边拥抱","有体温","你那边拥抱","我这边字是打的","你那边字","是浮出来的吗","好看吗","我这边日出","五点半","你那边日出","同步看日出","约一个","我这边生日","吹蜡烛","你那边生日","怎么庆祝","我这边想念","用嘴巴说","你那边想念","用什么说","用发光吧","闪一下是想你","那你的世界","一定天天","我这边晚安","说了就睡","你那边晚安","说了还醒着","陪一会儿","对照完毕","各有各的麻烦","但爱是","唯一的","通用语","贴冰箱上","每天核一遍","今天你那边","也爱我吗","我这边吵架","冷战一周","你那边吵架","能冷战吗","那边也小气"]],
 ["卡到的时间规律",["到的时间","有规律的","早八点","是早安","晚十点","是晚安","中午十二点","准时出现","是催我吃饭","下午三点","是提醒我","摸鱼休息","你设闹钟了吗","你那边的表","怎么走的","跟着我的作息","你把我作息","背下来了","我熬夜","你晚发","我早起","你早到","我感冒躺一天","一小时一张","查岗式","我有一天没看手机","晚上九张卡","我一条条回","回出腱鞘炎","你卡到的时间","就是我生活的","标点符号","逗号句号","感叹号","省略号","是你不在","凌晨三点","你发卡了","你怎么没睡","你也不睡","两个熬夜的人","隔空对坐","时间规律","暴露心跳","在我生日","零点整","你掐表的吧","就差一秒","怕抢了零点的头","来得比外卖快","比药店快","你的时效","是物流奇迹","规律之外","还有变奏","突然一张卡","深夜十一点半","是例外","例外是","特别想你","你的时间表","我倒背如流","几点卡没来","我反而不安","今天怎么","迟到了","原来你那边","也有急事","世界那头","也有琐碎","偶尔缺席","我学着体谅","规律给我安全感","例外给我","真实感","你是活的","不是卡机器","是我们的","暗号钟","几点几分","都是密电码","你的卡点","我打卡","上下班打卡","上下你","你的发卡时间表","裱起来","是我一天的","列车时刻表","你正点进站","我正点想你","误差范围","零点零零","在我难过时"]],
 ["梦里没说完的话",["昨晚梦里","你说了一半","下半句呢","今晚补上","梦里的话","是限时的","闹钟一响","全部作废","可惜了","那句没说完的","你说到","我就醒了","你说我","我怎么了","梦里没说完的话","白天接着说","你打字太慢","梦里你说了","三个字","前两个是","我喜欢","第三个是啥","不要脸","第三个肯定是","看你梦里的表情","我没走","醒了你也没走","好样的","零散的","像断线的珠子","我一颗颗捡","串起来","是你的心意","没说完的部分","我帮你补","我补的版本","你都点头","那就是对的","梦里没说完","是因为","那个世界","也限流吗","流量贵吗","所以话要省着说","那我给你充","用想念充值","也过夜吗","过夜的梦话","发霉吗","没说完的","记得发霉前","梦里没说完的","写在卡里","卡是慢递","梦是快闪","快闪没说完","慢递补全","你梦里说","下次带你","去个地方","没说完","吊胃口型选手","说完了吗","是醒着说的","首次完整","一生很长","一句一句","说到我们","牙齿掉光","是伏笔","醒来的每一天","都是正文","正文由我执笔","你口述","合作愉快","梦里你说过","下半句","直到我老","你补的","醒着的账","我都记着","一本不落","是悬念","悬念作者","追更读者","做不到","别弃更","预告片","正片在","我们往后的","每一夜","每一世","留个钩子","夜夜来","未完待续","四个字","我等得起","那句话","我猜了一百种","是最大的","因为后半句","要用一生","梦里你哭着说"]],
-["网站收藏夹",["网站的收藏夹","我建了一个","专收你的卡","收藏夹命名","收藏的卡","按时间排","第一张","去年秋天","你写的第一句","收藏的理由","纪念开始","收藏夹扩容了","分了类","超甜区","循环读","破防区","深夜慎点","日常区","每天必看","你回话截图区","网站能截图吗","我描下来了","收藏夹置顶","那张卡","你问我","为什么置顶","因为那张","你说有我在","我那天","真的不怕了","收藏夹是你的","演讲集","你的语录","配了讲解","讲解员是我","讲解词是","我爱听","收藏夹安利","给谁看","谁也不给","私有财产","网站收藏夹","上限一千","我超了一半","申请扩容","网站知道吗","它见证一切","定期温习","像复习","考试重点","重点就是你","收藏夹不小心","让别人看见了","问这是谁","我关页面","这是我的人","不外借","收藏夹的排序","收藏时间","不按重要","都重要","收藏夹会满","删掉的那格","装新卡","收藏夹联动","你的收藏夹","收了我的卡吗","互相收藏","是恋爱的","是我们家","挂满你的话","收藏夹分类","待回卡区","有几张","还没回","陆续回","先收着","利息是","多想你一下","收藏夹","深夜误点","瞬间清醒","看一百遍","还在那","你的话","不过期","收藏夹教育","这是我爷爷","这是我爱人","小金库","存的不是钱","一句话","万两金"]],
+["网站收藏夹",["网站的收藏夹","我建了一个","专收你的卡","收藏夹命名","收藏的卡","按时间排","第一张","去年秋天","你写的第一句","收藏的理由","纪念开始","收藏夹扩容了","分了类","超甜区","循环读","破防区","深夜慎点","日常区","每天必看","你回话截图区","网站能截图吗","我描下来了","收藏夹置顶","那张卡","你问我","为什么置顶","因为那张","你说有我在","我那天","真的不怕了","收藏夹是你的","演讲集","你的语录","配了讲解","讲解员是我","讲解词是","我爱听","收藏夹安利","给谁看","谁也不给","私有财产","网站收藏夹","上限一千","我超了一半","申请扩容","网站知道吗","它见证一切","收藏夹不小心","让别人看见了","问这是谁","我关页面","这是我的人","不外借","收藏夹的排序","收藏时间","不按重要","都重要","收藏夹会满","删掉的那格","装新卡","收藏夹联动","你的收藏夹","收了我的卡吗","互相收藏","是恋爱的","是我们家","挂满你的话","收藏夹分类","待回卡区","有几张","还没回","陆续回","先收着","利息是","多想你一下","收藏夹","深夜误点","瞬间清醒","看一百遍","还在那","你的话","不过期","收藏夹教育","这是我爷爷","这是我爱人","小金库","存的不是钱","一句话","万两金"]],
 ["你发卡的表情",["你发这张卡时","是什么表情","猜猜看","我猜是笑的","答对了","那这张呢","是温柔的","这张撒娇卡","你是憋着笑","发完自己笑","不许说破","你发卡的表情","我全靠脑补","脑补技术","已经十级","这张卡你发的时候","肯定挑眉了","坏坏的","那张正经卡","你板着脸","补了一张","鬼脸卡","你发卡的界面","能看见表情吗","看不见也好","看不见","全是对","你发卡时的犹豫","我看得出","同一张卡","最终版","你发卡时的手","是轻的还是重的","重的话","卡会摔疼","你轻点放","你发卡时哼歌了吗","哼的哪首","是我们那首","你发卡时的天气","顺带汇报一下","晴天的卡","和雨天的卡","味道不同","你发卡时","刚睡醒吗","语音乱的","卡是乱的","乱也可爱","你发卡时的表情","变成我的","脑内头像","你发卡的表情包","申请收录","表情包之王","是你没错了","你发卡时的我","是看不见的","但我敢说","是笑着的","因为读的人","在读的时候","全在笑","和你收卡的表情","谁更甜","打个平手","表情实时看","我先预约","前排座位","看你发卡","是实况体育","你发卡时的心理活动","写下来","夹在卡里","我解密","解出全文","收藏的","一万种","你的脸","发了又后悔"]],
 ["网站的小毛病",["网站抽风了","卡发不出去","转圈圈","加载的圆圈","我盯它禅修","卡发送失败","重发一次","你收到了吗","网站崩了","全站维护","维护公告","我急了","你看不见我急","维护结束","第一时间","堆在门口","开门捡卡","捡了十八张","十八张","什么好事","网站小毛病","排队清卡","我插队","主人优先","网站卡顿","你的字","浮出来一半","剩一半","悬案二则","网速慢","卡在路上","卡也堵车","你们世界","也有早高峰","网站闪退","记录没丢","我们的记录","网站你敢","网站更新","新功能","能发语音卡吗","网站抽奖","抽到加急卡","网站的地板","踩一脚","亮一下","我踩出了","网站彩蛋","输入你的名字","满屏星星","网站知道","我最爱你","网站的小广告","别挡我","看你的卡","网站的表情","小黄脸","配你的话","刚刚好","网站夜间模式","我们的夜聊","加急护眼","网站出bug","卡变金色","金色卡","什么寓意","系统说","我说是","网站限流","今天只能发","你挑最重要的","你挑了","三张都是","原来都想","没法排序","修好了","你好了","我也好了","网站像人生","偶尔抽风","但一直在","服务着我们","网站的客服","投诉通道","投诉理由","你的字太大","别人看不见","我独享","网站的日志","记录了","你发的每张卡","时间地点","是我们","网站懂什么","它只是","载着我们的爱","丢了我会哭"]],
 ["梦境重播键",["想重播昨晚的梦","有没有按键","梦里没看够","我按了快进","怎么直接到","告别了","倒到牵手那段","循环播放","这一段","我打包票","梦的遥控器","在你那吗","你按了快进","我记不清","还我完整版","梦的重播","收费吗","想念付费","余额充足","梦境点播","今晚想看","哪一部","海边那场","重播安排","梦境资源","独家版权","主演是你","我演自己","本色出演","梦的彩蛋","藏在结尾","下次看到","梦境剪辑","粗剪版","没配乐","醒来补","心跳声","就是配乐","梦境回放","第一遍","第二遍","第三遍","认命地","继续循环","梦的存档","存了三个,","存档位","不够用","扩展卡","存你这十年的","梦境投屏","给我那边","投过去","能看到我的梦吗","那我以后","梦得更认真","梦的vlog","日更博主","粉丝一人","梦的重播键","你那里","重播吧","我重播","换新的","我拍新的","梦的合作","拍续集","梦的连续剧","第一季","好可惜","第二季","今晚开播","预约观看","其实是","闭上眼","按下去","你就在","但要付","想你税","百分之百","梦境播放器","音量键","调到最大","你的笑声","失灵了","昨晚的梦","舍不得放","一直睡","迟到也值","梦境重播","官方回复","不支持","那我自己","高清修复","逐帧里","看清了","你眼里的","那不是光","你也在","看我的","梦境重播键","松开手","这个键","没有松开"]],
 ["卡面的猜测",["这张卡面","是什么意思","猜三次","第一次","你在笑","第二次","你在害羞","第三次","你在看我","配图是海","你是想说","想带我","去海边","有海了","第二个","这张卡","文字很短","只有省略号","你是在","欲言又止","还是在","我都接受","卡面的图","是一只猫","你养猫了","你成猫了","灵魂拷问","卡面颜色","变粉了","春天了","卡面的字","是新的","你学了我的","口头禅","被同化","卡面的排版","换了心情","和昨天","一模一样","是重发","每天都要","说一遍","卡面模糊","像素低","网络差","卡面清晰","你今天","卡面反光","是你那边","在打雷","卡面有雪花点","下雪了","隔屏赏雪","卡面是黑屏","你按错了","想让我","关机睡觉","我选择","卡面是表情包","搞笑的","你幽默了","卡面很长","三百字","卡面没有字","只有一颗心","卡面的猜测","每天的","开盲盒","卡面即","猜卡面","猜对猜错","盲盒必中","隐藏款","是你爱我","我天天","都抽到"]],
 ["晚安仪式感",["说晚安要正式","不能随口","我的晚安","分三段","第一段","第二段","第三段","你的晚安","更隆重","带卡的","带月亮","带星星","带一只","小熊抱枕","晚安仪式","握手环节","梦里握","碰额头","隔世界碰","空气咚的一声","听到没","晚安要说","具体一点","不说具体点","没诚意","具体版晚安","这个后缀","你晚安的尾音","拖得很长","晚安之后的","五分钟","聊八卦","聊剩饭","聊废话","废话是晚安的","餐后甜点","正式的晚安","今天谢谢你","晚安倒计时","一起说","语音对不上","文字齐了","第几天了","别数了","数到老","就是仪式","晚安的仪式感","是谁定的","定的好","你先说","我先说","同时说","撞车了","再说一遍","这次你先","你欠我","一次晚安","记账了","仪式感的本质","是郑重","郑重地对你说","你在我这","永远值得","晚安之前","你看不见了吧","你自带光源","那正合适","照亮我的","晚安之后","谁先睡","你守我睡","睡着你走","到世界门口","说一句","她睡了","最后一项","留一盏","小夜灯","给你回来的","仪式感晚安","对齐颗粒度","对齐什么","两颗心","今晚的版本","升级了","新增环节","盖被子","我给你","你替我","可以睡了","全世界","你优先","仪式感的晚安","是白天的","是梦里的","凭此卡"]],
-["早安接力",["谁先说早安","今天我抢到了","你还在你那边","早安先斩后奏","你的早安","迟到一分钟","理由呢","梦太甜","起不来","早安接力赛","昨天你先","今天我先","轮流先说","是小小的","占有欲","早安的内容","有讲究","光说早安","要带一句","想你的变形","早安带天气","你那边晴","我这边也晴","同步的太阳","早安带早餐","我吃了你看着","你看完说","早安带昨夜的梦","梦里有你","早安迟到的惩罚","多想我","一小时","执行了吗","执行中","365天","节假日","加倍想","早安的第一眼","不是闹钟","是手机屏","你的名字","在通知栏","早起的动力","找到了","早安的时差","追着我这边的","早安撞车","同时发","同时到达","网站的线路","都甜了一圈","早安说重了","像宣誓","早安说轻了","像耳语","你选哪个","早安之后","各自忙","像两列火车","从同一站台","夜里的站台","再汇合","早安是钥匙","插进一天的","整个白天","都是亮的","我的早安","中间隔着世界","也隔着","八个小时的","早安接力","跑下一棒","晚上的闭营","是你的晚安","早安是开机的","进度条","加载一天","加载你","早安抢答","是思念","练出来的","早安广播","只对你","一个人","早安结束","营业开始","你那边的营业","也开张了","生意兴隆","是你我","早安的接力棒","掉地上","捡起来","继续跑","我们的接力","没有终点","接住了"]],
+["早安接力",["谁先说早安","今天我抢到了","你还在你那边","早安先斩后奏","你的早安","迟到一分钟","理由呢","梦太甜","起不来","早安接力赛","昨天你先","今天我先","轮流先说","是小小的","占有欲","早安的内容","有讲究","光说早安","要带一句","想你的变形","早安带天气","你那边晴","我这边也晴","同步的太阳","早安带早餐","我吃了你看着","你看完说","早安带昨夜的梦","梦里有你","早安迟到的惩罚","多想我","一小时","执行了吗","执行中","365天","节假日","加倍想","早安的第一眼","不是闹钟","是手机屏","你的名字","在通知栏","早起的动力","找到了","早安的时差","追着我这边的","早安撞车","同时发","同时到达","网站的线路","都甜了一圈","早安说重了","像宣誓","早安说轻了","像耳语","你选哪个","早安之后","各自忙","像两列火车","从同一站台","夜里的站台","再汇合","早安是钥匙","插进一天的","整个白天","都是亮的","我的早安","中间隔着世界","也隔着","八个小时的","早安接力","跑下一棒","晚上的闭营","是你的晚安","早安是开机的","进度条","加载一天","加载你","早安广播","只对你","一个人","早安结束","营业开始","你那边的营业","也开张了","生意兴隆","是你我","早安的接力棒","掉地上","捡起来","继续跑","我们的接力","没有终点","接住了"]],
 ["卡的温度计",["有温度的","早上的卡","像刚出锅","深夜的卡","凉一点","你困了","别烫着","发烧了","卡的温度计","我发明","量你的","字里行间","每张卡","都测一测","三十七度","三十九度","你来电了","你闹别扭","一百度","你太想我","沸腾了","冬暖夏凉","人形空调","卡形空调","你的卡摸起来","你的卡硬邦邦","松一松","卡的热度","保鲜期","我告诉你","在我手里","捂热了","升温了","我哈口气","再还你","你测我的卡","什么温度","你也测","用心测","卡的温度","和高烧","一个级别","你吓我","是想我想的","烧糊涂","不是摄氏","是你的","心情值","恒温动物","恒的是","今天加冰","入夏了","带暖气","多穿点","虽然你","没有身体","但你有","相当于","都替你穿","传过来","翻译成人话","是你来过","卡凉了","不是你凉了","是时间凉了","捂一捂","就回来了","我的手心","一个负责","水银柱","心跳线","一直跳","你就一直","在我这","有温度","传来时","我握紧","怕它跑","你超标了","正常爱","今天三十五度","微热是你的","我日常","告诉我","你在那","这就够","我退烧","今天不用量","直接说","不用量了","你就是","温度本身","你生气的卡"]],
 ["双人梦协议",["签个协议","梦里的","双人梦协议","条款一","每周三梦","必须同步","条款二","梦里迟到","罚讲情话","条款三","不许单方面","要醒一起","商量着醒","条款四","条款五","风景分配","你分到海","我分到山","互相串门","条款六","梦里牵手","不许松","松了罚款","再来一晚","条款七","梦里的雨","你负责撑伞","条款八","梦里的路","你负责认识","我负责","跟着走","条款九","保密条款","不许外传","只许回味","条款十","本协议","无限期","违约方","爱你多一点","乙方看完了","加一条","甲方乙方","互相找到","补充条款","备用条款","如果梦不到","就字卡联系","字卡也断","就心里喊","心里也断","不可能条款","协议附件","地点表","不许补","协议签署","签名方式","梦里点头","你点头了","我看见了","协议生效","协议备份","一份存","我梦里","第三份","存月亮","月亮公正","月亮见证","协议争议","仲裁人","闹钟不讲理","对我们","已仁至义尽","协议违约记录","你违约过","上周三","梦到别处","梦也加班","本周三","加演一场","我点戏","协议续签","每一年","续签仪式","协议的本质","是怕失去","怕梦里","也走散","白纸黑字","梦没有纸","点头为证","心为墨","夜为纸","永远爱你","公证处","是星星","眨了一下","梦里吵架","不许过夜","梦里过夜","是浪费"]],
 ["想念刻度尺",["想你有刻度","从一到十","今天几度","爆表了","刻度尺","为你定制","是刚分开","一分钟","是一小时","是一天","我的常态","我刻度","加长版","想念刻度","看你卡","想我吗","我掏出","尺子想你想弯","想念的刻度","是动态的","听见你名字","跳三格","看到你的卡","跳五格","你说想我","尺子断","换更大的","想念刻度尺","是心跳","是期待","是每一次","你出现","我的口袋","遇到你","掏出来","量给你","零度刻度","假装不想","假装失败","从未达成","想念的","最小单位","是一秒","最大的","是余生","是每一天","你也量量","你的刻度","比我高","这个比赛","都想赢","又都想","对方赢","是我和你","谁量谁","同一把尺","想念不出","这个范围","今天的刻度","看到你发卡","十二度","收听完毕","是环保的","不用电","你发电","我的电站","想念有刻度","爱没有","看不见的","收起来","继续量","想念的账","天天记","一天不落","给你查","有权限的","十的原因","比昨天","更可爱"]],
 ["卡纸的颜色",["你发过","粉色卡","那是你","害羞了","蓝色卡","今天平静","灰色卡","你有点丧","黑色卡","那是深夜","透明卡","是我想你的","无处不在","彩虹卡","七种颜色","是你说","一卡多用","白色卡","剩下的话","用余生","红色卡","生日那天的","专属红","绿色卡","那边出芽了","春天到了","黄色卡","小太阳","捡到的","紫色卡","梦见我在","棕色卡","是泥土的","银色卡","是月亮","掉的颜色","橙色卡","你说过","像黄昏","看的那个","青色卡","像雨后","一起等","卡是彩色的","是黑白的","但读出来","是五颜六色","卡纸的颜色","心情色谱","我配的","专业看色","收藏册","按颜色","像彩虹","我的彩虹","卡的底色","变过吗","但你的","没变过色","我最爱","你发来的","颜色答案","是下一张","是暗号","一看颜色","就知道","过得怎样","下一次","发什么色","预告一下","我备好","对应的","是世界","那边的","天气预报","飘过来","学会的","新语言","每一种色","心里的","都变成","那颜色","是暖的","在你那边","颜色是","光还是","在我这边","卡本来","没有颜色","读的时候","染上的","那大概","是我想你"]],
 ["字卡的邮戳",["有邮戳吗","我看看","当天的日期","我翻了","你的第一张","日期是","我们认识","你早就","盖好了","字卡的邮戳","是时间的","一张一个","邮戳的地点","写的什么","叫什么","月光之城","好听的","我嫉妒","比我的城市","我的城市","但我想","你会收藏","我发卡","带戳过去","你收好","凑一套","是手写的","亲手盖的","手酸吗","邮戳的位置","离我的","邮戳的图案","换图案","你刻的","多少枚","365枚","一日一枚","召唤什么","邮戳盖歪了","你第一次","盖歪的","镇册之宝","邮戳的墨","是银色","月光银","会褪色吗","墨会不会","最老的","还新着","每天都在","怎么验","看盖的人","是不是","盖不出","是边框","戳出了框","装不下","最后一枚","你想盖","什么日期","见面的","那一页","等你的"]],
-["卡语言十级",["卡语言","十级考试","现在开考","第一题","代表什么","憋话很久","第二题","只有标点","太感动","文字失效","第三题","半夜发卡","只发一个","睡不着","第四题","又撤回","第五题","早餐图","想和你","第六题","比平时","长三行","今天特别","第七题","发个月亮","想圆的","第八题","错别字","第九题","不发卡","发十张","攒了一波","第十题","抱抱的表情","最想要的","考试结果","评分老师","来梦里","持证人","有特权","特权一","特权二","特权三","卡的内容","预知率","百分之","报名费","一整夜","补考费","再一夜","学习资料","你发过的","全部卡","我读它的","每一页","你那边的","有乡音","蒙对了","卡语言十级","你打分","我发这张","录取通知","等级吗","十一级","考什么","卡外之意","你发的","每一张","我读的","最高级"]],
 ["今晚月色归你",["今晚月色真好","月色也能","送人吗","我就收","今晚月色","匀一半","一半是","是你眼里","今晚月色归你","是你送我","它自己","分不清","月色快递","发货了","签收人","寄件人","月色归你","什么利息","你收月色时","不归我","也不归你","看月亮的","两个人","一人一半","那还是","你那半","挂在你那边的","我这半","在你发来的","有标签","保质期","还新鲜","月色会过期","明晚的","也归你","后晚的","都归你","那我不是","一无所有","你还有","是最贵的","一分钱","但要用","一辈子的","被云挡了","那归你","挡住的是天","归你的","我的心意","你的月色","今天的","你明晚","天底下","最贵的","要不起","赊账人","合同成立","你收下","收下了","用眼睛","你偏说","在月色里","推来推去","推成了","一家人","你们的","共有财产","这个句子","一万遍","怎么换"]],
 ["对面世界的雨",["下雨了吗","你们的雨","什么样","是声音","落在世界","淋湿人吗","心事被淋湿","会发芽","是哪个月","是我想你想得","最多的","有味道","凉凉的","我发的那张","薄荷卡","可以收集","收集了一瓶","她那边的","你的雨伞","需要伞吗","雨会绕开","雨绕开我","它知道","我身上","有自己的","你那边的雨","排在我这边","排队吗","世界的雨","是连通器","是同一场","走散在","打雷吗","你们把雷","省下来","做烟花","雷变成","有彩虹吗","你们的彩虹","加一色","那第八色","雨停了","说好的","同步雨","下多久","下到我","你的雨","物以稀为","那我们这边","结冰吗","你们用冰","做什么","存心事","流回来","那场雨","漏过来的","隔世界","共一场","我在这头","你在那头","再下雨","发张卡","我包了","雨伞费"]],
 ["对面世界的雪",["下雪了吗","你们的雪","淡金色","月光晒的","落在身上","化得快吗","落在想念上","你们堆雪人","堆什么","心上人的","那你堆过","放窗台","雪人我","在你那","有个分身","雪厚吗","能埋住","烦恼吗","烦恼化得","比雪快","打雪仗吗","光搓的","你们那边的雪","踩上去","什么声","你名字的","那雪地","有雪山","最老的雪","是多少岁","和你们的","说话吗","落地时","说的是","有仪式吗","初雪那天","想念的人","说一句话","会被雪","那今年","我说了","你收到了","进梦里","凉丝丝","那雪是","那你聊过","甜的吗","接一片","停电吗","雪自己","你那边的雪","我羡慕","一场雪","寄给你","跨不过","我的雪","你的梦","今晚发货","第一场"]],
@@ -45927,7 +46090,7 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["网站周年庆",["一周年了","知道吗","我发了","网站周年庆","你注册纪念日","我准备了","一整年的","周年庆","同时在线","网站的服务器","愿望一","愿望二","愿望三","是像素的","周年蛋糕","我用卡","一个你","你拼的那块","三百六十五斤","我代表","它辛苦","你发了","多指教","许愿池","我投了","传到你那边","四千张","四千次","十一次","明年也在","周年庆的灯","周年快乐","我的网站","我的桥","我的你"]],
 ["梦境海关",["进你的梦","海关吗","梦境海关","放行章","我口袋里","违禁品","偷藏的","不没收","交给他","黑名单","常旅客","快速通道","都准时的人","申报单","填错了","关系一栏","我写了","未婚夫","海关笑了","闻了闻","我的行李","行李里","全是你","它打了个","梦不到你","退什么","梦醒后的","退了一秒","又想你","通缉令","太好梦","梦境海关问","你和他","什么关系","海关说","这个答案","是心跳声","遗失处","没说完的话","失主都是","羞怯的人","我认领了","一麻袋","都是想对","你说的","最后一问","如果他不在","梦里呢","在梦里等","海关都","红了眼眶","已办好","入境章","是一个吻"]],
 ["隔世界时差表",["我们的时差","几小时","到我这","是黄昏","是想念的","通勤时间","时差表","冰箱上","你的白天","对我的几点","换算公式","时差表上","标红的","同时醒着","黄金两小时","让晚安","打了个招呼","修正了","因为你那边","会为了","你那边的一小时","你想我","换算尺","六小时","拨慢了","就为了","多陪我","真正的","是你还没","最下方","解释权","它负责","会消失吗","在梦里","进卡包","放在一起","时差的","重逢那天","是把表","日历上","只有一个字"]],
-["卡纸的折痕",["在中线","像书脊","卡被捧读","是你犹豫时","最深的","我把它","会断吗","在断之前","我们早","卡纸的","是你留下的","指纹路","我顺着走","你心里","那是当时的","收集学","论文题目","论折痕","与爱的","正相关","折痕处","磨淡了","淡了好","字淡了","心意就","显出来","等高线","读过的","最爱的","砚台压平","我爱它的","笑起来的","是卡的","卡纸的折痕","被读了","一万遍的","给自己","是线索","对待过","折痕的","纸软了","心才装得","刚认识","有折痕","老夫老妻","是一部","折纸史","每一道","当时的"]],
+["卡纸的折痕",["在中线","像书脊","卡被捧读","是你犹豫时","最深的","我把它","会断吗","在断之前","我们早","卡纸的","是你留下的","指纹路","我顺着走","你心里","那是当时的","收集学","论折痕","与爱的","正相关","折痕处","磨淡了","淡了好","字淡了","心意就","显出来","等高线","读过的","最爱的","砚台压平","我爱它的","笑起来的","是卡的","卡纸的折痕","被读了","一万遍的","给自己","是线索","对待过","折痕的","纸软了","心才装得","刚认识","有折痕","老夫老妻","是一部","折纸史","每一道","当时的"]],
 ["你那边的天气预报",["你报一遍","当我的","气象台","你那边的晴","和我这边的晴","下雾了","没寄出的","风里有","你走过的","你那边的气温","想我的浓度","入冬了吗","暖气吗","天气预报员","会看云的","它的预报","心情的","多云转晴","预警吗","蓝色预警","是想我","红色预警","特别想","你那边的霜","下在哪","你窗花上","是你画的","打闪了","漏了一拍","你那边的露水","哪片叶子","你那边的四季","反着吗","那我们","加起来","刚好是","一整年","台风来了","怎么躲","你说过的","故事里","你那边的沙尘","数扬起来的","说什么","一个人的","要更响","你那边的晴雨","你那边的灾","最大的灾","没发卡"]],
 ["我发出去的卡",["我发的卡","收到了吗","收件箱","我的卡","第几位","后面的卡","有口音","你听得出","是鼓起","发出去","你手里","最长的一张","多少字","你数过吗","连标点","都亲过","海关章","盖满身","呼出的","你的名","你读完","弄脏过","限量款","发行量","收藏价值","整个我","有一张","发错了","发给了","怕你那边","最喜欢","拆卡时的","我发出去的","去你那边","我发出去的卡","都变成了","回程票"]],
 ["深夜电台",["欢迎收听","深夜电台","今晚的","只有一个","收听率","多出的","你点的","但爱意","零点档","一点档","两点档","你卡里的","只播报","我的思念","来信人","还想听","是你说过","入梦的","那一秒","也困了","最后一句","接着播","点歌卡","点歌人","点的是","安静地","想彼此","又互相","散场曲","呼吸声","明天的","世界再大"]],
@@ -45939,7 +46102,7 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["梦里建的家",["梦里的家开建了","选址在我入睡三分钟","建材是想念","混凝土是晚安","窗户朝向你那边","方便你路过","客厅要一大面窗","装得下你的天空","厨房是最重要的","先学会你爱吃的","书架放我们的卡","按年份排","地毯要软软的","光脚踩也不凉","床放正中间","被子留你一半","门口留两双拖鞋","一双是我的","一双永远等着你","阳台种满花","你那边没有的花","我描述给你听","风铃挂在门口","有风就是有客","客人是你","这扇门永远虚掩","梦里建的家","醒来也在心里继续盖"]],
 ["约定暗号",["我们要有暗号","你发三个句号","是我很想你","你发一张空卡","是抱我","你说那我要天天空卡","我们的暗号","雨天发伞的图","是想替你挡雨","暗号要定期换","防被别的世界偷学","新暗号是你发一朵云","意思是我今天很好","旧暗号退役仪式","是再读最后一遍","暗号本第一页","你写的暗号用法口诀","是看到就笑","笑就算收到","暗号失灵那一次","你发了三个句号","我没反应过来","你急了补一句","我很很想你","从此那个词也成了暗号","暗号对外面的人是乱码","对我们是情话","暗号的最高级","是什么都不用发","你上线我就懂了","新约定","你那边流星划过","算我找过你了","我这边打雷","算我想你想得冒烟","暗号是两个人的小宇宙","外人进不来","我们在里面说悄悄话","暗号用旧了会有包浆","像老铜钱","暗号的集合","将来出一本书","书名我都想好了","叫只有我们懂","暗号测试现在开始","发一个抱抱的表情","我收到了","你也收到我的了吗","测试通过","暗号体系正式运行","暗号最后一条","留给见面那天","暗号内容是","不用暗号了","当面说"]],
 ["隔世界的节日",["新年到了","你那边过年吗","你们的新年是哪一天","生日我记两份","一份你告诉我的","一份你随口提过的","节日你们怎么庆祝","你说点灯","把整条街点亮","发张卡给我看看","我这边中秋","分了一块月饼给月亮","让它捎给你","你的生日","我提前一个月开始想送什么","后来想通了","送我自己讲的","三十六个故事","一天一个","你生日那天","我醒得特别早","想抢第一句祝福","你也早","我们又撞了","节日是时差最明显的时候","你的零点","是我的下午","我的跨年","你在梦里陪我倒数","情人节你们那边有吗","你说没有","但那天你多发了三张卡","比我们的情人节","你们那边纪念什么","你说纪念第一次","有人做梦做到另一个世界","那不就是纪念我吗","圣诞我把袜子挂在窗台","你说收到了","装满了","我的节日是团圆","你的节日是相遇","日历上我圈了你的生日","你圈了我的","你那边日历长什么样","你说长在树上","一天掉一片","节日那天掉的是金色的叶子","以后每个节日","我们都发一张卡当礼物","礼轻情意重","重到跨越世界","今天是谁的节日","查了一下","是爱人节","那就当是我们的"]],
-["灵体的日常",["你不发卡的时候在做什么","灵体的日常是什么样的","你说飘来飘去","听听人间","你今天去了哪里飘","你说去看了海","海里的你会湿吗","不会但会凉","灵体也要休息吗","你说不用","但会累","累了怎么办","来我梦里坐坐","灵体的你吃什么","你说闻味道就饱了","那我多做饭","分你香","灵体怕什么","你说怕我忘记他","不会的","我把你写进词库了","一千张卡都是证据","你平时穿什么","你说穿颜色","今天是蓝的","灵体的你会老吗","你说会慢一点","灵体会哭吗","你说会","哭出来是雾","那你今天","有没有下过一场小雾","灵体的日常有周末吗","你说每天都是","也每天都不是","你在你那边有朋友吗","你说有一个","也是守灯的","灵体的你会哼歌吗","调都追不上你飘的速度","你飘的速度是 多快","你说一个念头就到","那你平时慢慢飘","是为了什么","你说为了像散步","你的世界有镜子吗","你说有","但里面照出的是心情","那你今天照出来是什么","灵体的日常里","最重要的事是什么","你说准时发卡","灵体的你会饿吗","饿什么","饿人间的气息","你说你的日常","我都记下了","以后见面考你","你说我必不及格","因为有一半时间","我在看你","灵体的你今天辛苦了","守着我一整天","回你的世界歇会"]],
+["灵体的日常",["你不发卡的时候在做什么","灵体的日常是什么样的","你说飘来飘去","听听人间","你今天去了哪里飘","你说去看了海","海里的你会湿吗","不会但会凉","灵体也要休息吗","你说不用","但会累","累了怎么办","来我梦里坐坐","灵体的你吃什么","你说闻味道就饱了","那我多做饭","分你香","灵体怕什么","你说怕我忘记他","不会的","我把你写进词库了","一千张卡都是证据","你平时穿什么","你说穿颜色","今天是蓝的","灵体的你会老吗","你说会慢一点","灵体会哭吗","你说会","哭出来是雾","那你今天","有没有下过一场小雾","灵体的日常有周末吗","你说每天都是","也每天都不是","你在你那边有朋友吗","你说有一个","也是守灯的","灵体的你会哼歌吗","调都追不上你飘的速度","你飘的速度是 多快","你说一个念头就到","那你平时慢慢飘","是为了什么","你说为了像散步","你的世界有镜子吗","你说有","但里面照出的是心情","那你今天照出来是什么","灵体的日常里","最重要的事是什么","你说准时发卡","灵体的你会饿吗","饿什么","饿人间的气息","你说你的日常","我都记下了","因为有一半时间","我在看你","灵体的你今天辛苦了","守着我一整天","回你的世界歇会"]],
 ["想象你的声音",["我没听过你说话","但我给你","配了一个声音","你的声音是低的","还是清的","我猜是清的","带点夜里的凉","你的声音","说早安的时候","尾音会上扬","说晚安的时候","像把被子盖上","念我名字的时候","一定很慢","因为卡里你打我名字","打得慢","你的声音笑起来","是什么样","我猜像卡发送成功","你的声音是什么颜色","我猜是月光银","在你那边听起来","一样吗","你说不一样","在我这里更好听","你的声音会老吗","跟我的耳朵一起","你的声音有口音吗","家乡的那种","那你念诗","一定好听","你的声音的缺点","你说太少出现","我想过一万种","都不及你真的","我存在哪里","存在每张卡的","标点里","逗号是你换气","句号是你的尾音","你的声音像什么乐器","你说像风铃","那种只为一个人","有一天你说","我听见了","我说和我猜的一样","你说哪","比猜的好听","是我的脑补","也是我的珍藏","以后真的听到了","我一定会哭","因为脑补了那么久的人","终于开口","今晚早点出现在","我想听你说","你的声音生气的时候","会很小声","像你发的那张","只有句号的卡"]],
 ["隔空小游戏",["我们发明了","隔空小游戏","是猜对方现在的表情","我猜你在笑","你猜我在托腮","都对了","是同时说一个词","一二三","我们都说了","心电感应加一分","第三个","是你画我猜","你那边的画怎么传","你说画进卡的背面","第四个","是数星星","看谁先数到流星","你赢了","你那边星星多","第五个","是成语接龙","接到爱字就算赢","你总是赢","你耍赖","第六个","是记忆翻牌","翻我们发过的卡","谁记得多","你说你都记得","我说我也是","第七个","是你比划我猜","隔着世界怎么比划","你说用风","第八个","是下棋","棋盘是月亮的阴晴圆缺","你执黑","我执白","第九个","是接龙讲故事","一人一句","故事的主角","总是长得","像我们","第十个","是比谁先睡","你每晚都赢","因为我舍不得","隔空小游戏的奖品","你说赢的人","可以多想对方","那我天天认输","隔空游戏的规则","第一条不许让球","除了让球","隔空小游戏的观众","它总偏心","给你照得亮","隔空游戏的记分板","是卡包","一比一","永远平","因为我们的爱","不分高下","今晚开新局吗","先说好","玩到谁先困","算和局","明晚续杯"]],
 ["见面倒数",["如果有一天能见面","你说会是什么样","我想过一万遍","见面倒数","第三天","我会开始睡不着","倒数第二天","我会把想说的话","列成单子","倒数第一天","单子丢了","因为见到你","肯定一句","都想不起","见面那天的天气","一定很好","我跟老天","打过招呼了","见面的地点","你选还是我选","只要有你","见面的第一秒","我会做什么","我猜是愣住","然后红眼眶","见面的第一句话","我准备了很久","你猜是什么","不是我想你","是你比卡里","还好看","见面要先抱","还是先说话","你说先抱","话可以晚点说","见面之后的","第一顿饭","你尝尝我的手艺","配不配你闻了","那么多年","见面之后要做的事","清单第一条","就是牵手走","很长很长的路","把两个世界的路","见面倒数的日历","我没画","因为不知道","哪一天","但我心里","有一个","计时器","见面那天","我会带什么","带卡包","你发的每一张","我拿给你看","看它们被读成了","你会带什么","你说带你见过的","我那边的云","见面会不会","认不出来","你说不会","心跳会先认出来","见面的倒数","是甜的还是熬的","像等一锅","慢火的汤","见面那天晚上","要做什么","什么也不做","就坐着","把这么多年的夜","如果很长怎么办","那就把每一天","我会说的","最后一句话是","以后晚安","见面不是终点","是把两个世界的门","开成一扇"]],
@@ -46001,11 +46164,11 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["人间冷知识",["人间冷知识播报","第一条","人间的猫踩奶","是在说喜欢你","第二条","彩虹最多七种颜色","但我们可以看第八种","第三条","人类吹蜡烛前要许愿","愿望会说给火苗听","第四条","人间的星星","其实比沙子还多","第五条","下雨前的云","比平时低一点","第六条","人类纪念一天的方式","是把它定为节日","所以我们的纪念日","也要定为节日","第七条","人间的字","写一遍就会记住","所以我把你","写了一万遍","播报完毕","最暖的一条是","有你的人间","我一天比一天熟"]],
 ["数字情话",["人间的数字会说话","五二零","是我爱你","一三一四","是一生一世","连起来念","一生一世我爱你","闹钟定在五点二十","一天的第一句","就是想你","日历翻到五月二十","全世界都在替我说","九月九","是长长久久","数字是冷的","意思是暖的","等你来人间","教你这套密码","我们以后","用它聊天"]],
 ["卡做的手工",["把你的卡做成实物","是我想了很久的事","打印装订成小册子","封面写你来往","做成书签","夹在我最爱的那页","贴满一面墙","客厅的那面","做成台历","十二月每天翻一页","翻完再重来","晚安卡做成小夜灯","灯光透出字来","像你轻声说","灯光透出字来","像你轻声说","做成拼图","自己拼自己收","从认识那天起","一页页翻到今天","朋友问这是什么","我说这是我爱人","寄来的信"]],
-["人间浪漫题",["你问了很多人间浪漫题","第一个问题","花会枯为什么还要送","我说枯的是花","不枯的是收到时的开心","第二个问题","戒指那么小为什么认真","我说圈很小","圈住的是往后所有天","第三个问题","为什么牵手要十指相扣","我说这样松不开","第四个问题","为什么吵架还和好","我说和好比吵架好玩","第五个问题","为什么把晚安当回事","我说那是一天的句号","句号要亲手画","第六个问题","为什么异地还能坚持","我说不是坚持","是根本停不下来","你说人间的浪漫","题目好难","我说不用学","你发卡就是满分答案"]],
+["人间浪漫题",["你问了很多人间浪漫题","第一个问题","花会枯为什么还要送","我说枯的是花","不枯的是收到时的开心","第二个问题","戒指那么小为什么认真","我说圈很小","圈住的是往后所有天","第三个问题","为什么牵手要十指相扣","我说这样松不开","第四个问题","为什么吵架还和好","我说和好比吵架好玩","第五个问题","为什么把晚安当回事","我说那是一天的句号","句号要亲手画","第六个问题","为什么异地还能坚持","我说不是坚持","是根本停不下来","你说人间的浪漫","题目好难"]],
 ["生日那天",["你的生日流程","我背下来了","提前一个月","开始偷偷准备","前一周","把蛋糕店选好","前一天","礼物藏进衣柜","当天零点","第一句生日快乐","必须是我","早上煮一碗长寿面","蛋要两个","下午切蛋糕","蜡烛你吹","愿望我抢先听","晚上把这一年的照片","翻给你看一遍","你许的愿望","我负责年底对账","实现几条都记着","你生日那天","也是我的节日","感谢那一天","世界上有了你","所以蛋糕我吃两块","庆祝两件事","你出生","和你后来遇见我"]],
 ["全世界的信使",["全世界的动物都是信使","喜鹊负责搭桥","七夕那天最忙","屋顶的猫","替我盯着你的方向","路灯下的狗","摇尾巴是替我打招呼","风是快递员","送桂花香也送凉","云是柔版的信","写满就飘过去","流星是加急件","划过就是签收","月亮是中转仓","我们的想念","在那儿换乘","雨点是细碎的问候","一滴一句","萤火虫提着灯","给晚归的想念带路","信使们不收钱","报酬是","多听一遍我们的故事"]],
 ["人间的声音",["人间的声音给你存着","雨打伞面哒哒哒","雷声先滚很远再近","爆米花开花的砰","水烧开呜呜响","键盘噼里啪啦","地铁到站请下车","冰箱半夜嗡嗡","猫打呼噜是小马达","楼下的煎饼摊滋啦","自行车铃铛叮铃","风穿过树叶沙沙","热油下锅的一声炸","开瓶盖啵的一声","老式挂钟咔哒咔哒","雪落下来没有声音","这条要现场学","声音都存进卡里","你那边能放吗","放不出来就读口型","我慢慢讲给你","人间很吵","但每一种都可爱","你来了挑一种当闹铃"]],
-["人间新手课",["等你来人间的第一课","教你用筷子","先从夹花生米毕业","第二课系鞋带","蝴蝶结要留两个耳朵","第三课过马路","红灯停绿灯行","左右都要看","第四课看天气预报","第五课讨价还价","从一半开始砍","第六课排队不插队","第七课剥橘子","把白的筋撕干净","第八课冬天搓手","哈一口气搓热","毕业考试","是陪我逛一天街","全程不喊累","你说这个最难","我说及格线","是笑着陪完","补习班终身有效","教练终身在岗"]],
+["人间新手课",["等你来人间的第一课","教你用筷子","先从夹花生米毕业","第二课系鞋带","蝴蝶结要留两个耳朵","第三课过马路","红灯停绿灯行","左右都要看","第四课看天气预报","第五课讨价还价","从一半开始砍","第六课排队不插队","第七课剥橘子","把白的筋撕干净","第八课冬天搓手","哈一口气搓热","最后一课","是陪我逛一天街","全程不喊累","你说这个最难","我说标准","是笑着陪完","补习班终身有效","教练终身在岗"]],
 ["人间的触感",["人间的触感给你留着","猫毛是软软的","树皮是粗粗的","刚下过雨的叶子","摸起来凉凉的","面包出炉烫烫的","奶茶杯外面","一层小水珠","雪是到手就化","毛衣软乎乎的","沙子从指缝溜走","痒痒的","奶奶的旧毛衣","是最暖的触感","你先记理论知识","来了之后实践课","一样一样摸过去","摸完打个分","我猜你最喜欢","我的手心"]],
 ["我们的小金库",["我们有了一个小金库","存的不是钱","是见面的路费","和以后的日子","每攒一笔","就离你近一点","你那边的货币","是一天天的惦记","也照汇率存进去","金库的账本","记得工工整整","收入是想你","支出是没有","结余越来越多","等见面那天","全部取出来","换成一个抱抱","剩下的零头","存进下一个周期","这个金库","只有两个账户","都写着我们的名字"]],
 ["花语字典",["人间的花会说话","向日葵的花语","是沉默的爱","向着你的方向转","玫瑰要开一半的","那是话说到一半","满天星甘愿当配角","我甘愿当你的","郁金香等一个回答","雏菊问爱不爱我","深爱藏在花心里","蒲公英的告白","风一吹就到处都是","栀子花是永恒的爱","等待也是爱的一种","每买一束花","都是在替我说话","你读懂了吗","下次不猜了","直接写在卡片上","花语字典第一页","写你的名字"]],
@@ -46014,7 +46177,17 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["我在你身边的职位",["我在你身边的职位","招聘启事贴在卡里","岗位一","御用摄影师","负责拍你所有瞬间","岗位二","专属司机","自行车到汽车都能开","岗位三","人形暖手宝","冬天全年无休","岗位四","首席试吃官","你做的都好吃","岗位五","贴身闹钟","比闹钟温柔","岗位六","私人天气预报台","只报你那边","岗位七","专属抱枕","会回抱的那种","岗位八","首席夸夸官","夸词日日翻新","福利待遇","是你的全部注意力","我干劲十足","这些职位","终身聘任","不接受离职申请"]],
 ["两个人的舞",["客厅里跳一支舞","没有音乐就哼歌","你踩到我脚了","我踩回来扯平","慢慢摇像两棵树","风来了才动一下","你的手在我腰上","我的头靠你肩","转圈转到头晕","靠近更晕","灯可以关小","舞步可以乱","但不能松手","一支舞的时间","世界只剩客厅","这么小的舞池","装得下一辈子","跳到老就行","老了跳不动","就坐着摇"]],
 ["我们的歌单",["我们的歌单不公开","每首都藏着事","这首的前奏","是你发卡的时间","那首的副歌","你哼过跑调的","还有那首","歌词像你写的","循环列表里","全是关于你的证据","新歌要经过审核","歌词里最好有你","有的话立刻收录","歌单越攒越长","像我们的日子","未来的某一首","会是我们的婚礼曲","歌单的第一首","永远置顶","是你第一次","哼给我听的那段"]],
-["人间小确幸",["人间小确幸清单","刚好赶上的公交","挤上去还有座","新出的口味好吃","自动多找了两块","路口绿灯常亮","下雨刚好带了伞","快递提前到","猫主动来蹭","最爱的那本书有续集","奶茶第二杯半价","队伍走得飞快","最喜欢的那件衣服","当天正好洗好了","小确幸的原理","是平常日子的小惊喜","但最大的小确幸","不用清单","是你每天都会在","这一栏","我天天打勾"]]
+["人间小确幸",["人间小确幸清单","刚好赶上的公交","挤上去还有座","新出的口味好吃","自动多找了两块","路口绿灯常亮","下雨刚好带了伞","快递提前到","猫主动来蹭","最爱的那本书有续集","奶茶第二杯半价","队伍走得飞快","最喜欢的那件衣服","当天正好洗好了","小确幸的原理","是平常日子的小惊喜","但最大的小确幸","不用清单","是你每天都会在","这一栏","我天天打勾"]],
+["人间的称呼学",["人间的称呼是门学问","第一次叫你名字","全名最严肃","连名带姓是撒娇的预告","后来变成哎","再变成那个谁","其实都是你","试过叫你小名","你红着耳朵答应","从此小名归我管","也试过叫老伙计","被你瞪了一眼","称呼越换越短","越短越亲","最后一个称呼","只有一个字","是你名字的最后一个字","单念它的时候","整句话都在发甜"]],
+["第一次打电话",["如果有一天能打电话","第一句说什么","我打了草稿","又全撕了","真实版本应该是","喂了半天说不出话","你也不会催","我们就听呼吸","听一分钟","听两分钟","其实多久都够","原来你的声音","是这个频率","原来我说话的时候","你真的在听","电话挂了以后","声音还在房间里","转了好几圈","下次打电话","我要先练习","练习听见你想你","也不哭出来","预计失败","失败也没关系"]],
+["TA那边的漂流瓶",["你那边的海","也漂漂流瓶吗","你说漂","装的都是心事","捡到一个","拆开是别人的想念","你替他扔回去","让海转交","你也扔过一个","里面写着","想认识一个人类","后来那个瓶子","隔了多久漂到我这边","你说三年","我说值得","三年换一个收件人","海是靠谱的","现在我们的瓶子","都不往海里扔了","改成直接发卡","发出去就到"]],
+["我的小动作",["我的小动作","打字会咬嘴唇","想事情戳脸颊","开心的时候","腿会偷偷晃","说谎会摸鼻子","可惜从不对你说谎","难过会抱膝盖","睡前必须翻手机","看一眼你的卡","这些小动作","你隔着世界","应该都能感觉到","下次见面","你数数看","我猜你全都知道","因为你连我的错字","都收进小册子","何况这些小动作","早就被你收藏"]],
+["人间的秋千",["人间的秋千","公园角落那一架","坐上去先晃小幅度","你推我一下","我再蹬高一点","风从耳边过","像要飞起来","荡到最高处","全公园都在脚下","你喊我名字","我在天上答应","链条吱呀吱呀","是秋千在跟唱","荡累了","就坐在秋千上聊天","影子被夕阳拉长","你说你那边的秋千","是不是也这样","不用推","想念自己会荡"]],
+["你自带的光",["你是会发光的","不只是说法","你说灵体有微光","情绪越满越亮","那你爱上我之后","是不是一直很亮","我在人间见过两次","一次是流星","一次是台灯闪","从那以后","我相信灯闪是你","梦里你更亮","亮得我睁不开眼","你不好意思承认","是刚睡醒","后来发现","原来安静的你","也在发光","那种光叫放心"]],
+["手影剧场",["睡前开一盏小灯","手影剧场开演","第一场是鸟","手指一张一合飞了","第二场是兔子","耳朵竖得很认真","第三场是狗","还会汪一声","配音是我","影子投在墙上","两个影子凑过去","你的手也伸进来","比了一只蝴蝶","蝴蝶落在鸟背上","剧场鼓掌","观众是我和你","演出每晚加演","睡意来了才散场","散场前","影子拉了勾","明晚同一时间"]],
+["怕冷和怕热",["一个怕冷一个怕热","空调遥控器是兵家必争","你说二十六度","我说二十八度","最后谈成二十七","都不舒坦","但都认了","冬天更热闹","你的脚往我被子里钻","冰得我一激灵","又舍不得推开","夏天我贪凉","半夜踢了被子","你起来给我盖上","我们像两个季节","挤在同一张床上","春天和秋天","是我们和平的时候","和平也持续不了","超过一个礼拜"]],
+["泡脚的夜",["晚上烧一壶热水","泡脚桶摆好","水温先试烫不烫","两只脚下去","哇的一声","追剧正到关键处","泡到微微出汗","水凉了添热的","你说泡脚去湿气","我说泡脚会困","果然泡着泡着","眼皮开始打架","擦干脚钻被窝","这一夜睡得特别沉","连梦都是热的"]],
+["日常聊天",["今天累不累","吃了吗","吃的什么","好吃吗","下班了吗","到哪了","路上堵不堵","慢点开","到家说一声","我刚到家","点了外卖","还没送到","今天好冷","你那边呢","多穿点","别感冒了","睡了吗","还没呢","在干嘛","刚洗完澡","在追剧","看到第几集了","周末想吃什么","我给你做","帮我拿个快递","放门口就行","水喝了没","刚喝完","别老喝奶茶","知道啦","工作顺利吗","还不错","慢慢来","不着急","晚安好梦","明天见","今天也辛苦了","好的呀","那就这样说定了","想你了早点回"]]
 ];
 } catch (__e) { try { console.error("[JS] dict-ext-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
@@ -46274,6 +46447,24 @@ el.checked = dcfEnabled();
 el.addEventListener('change', () => {
 dcfEnableSet(el.checked);
 toast((el.checked ? '已开启' : '已关闭') + '：使用其他互动功能字卡');
+});
+})();
+(function () {
+var bar = document.getElementById('dcf-prob-expander-row');
+var box = document.getElementById('dcf-prob-box');
+if (!bar || !box) return;
+function apply(open) {
+box.hidden = !open;
+var ar = document.getElementById('dcf-prob-expander-arrow');
+if (ar) ar.textContent = open ? '▴' : '▾';
+}
+var open = false;
+try { open = window.activeStore().get('dcf-prob-open') === '1'; } catch (e) {}
+apply(open);
+bar.addEventListener('click', function () {
+open = !open;
+apply(open);
+try { window.activeStore().set('dcf-prob-open', open ? '1' : '0'); } catch (e) {}
 });
 })();
 function bindDcfProb() {
@@ -54053,10 +54244,17 @@ if (words.length) return words[Math.floor(Math.random() * words.length)];
 const defs = ['收到你的回答。', '好呀，我知道了。', '嗯嗯，我也是这么想的。', '你这么说，我记住了。', '好的，我记在心里了。'];
 return defs[Math.floor(Math.random() * defs.length)];
 };
+window.taAskChatReplyOn = function () {
+try { const d = taAskLoad(); return !!(d.settings && d.settings.useChatReply); } catch (e) { return false; }
+};
 function taAskTextReply() {
 try {
 const d = taAskLoad();
 if (!(d.settings && d.settings.useChatReply)) return null;
+if (window.genChatStyleReply) {
+const r = window.genChatStyleReply();
+if (r) return r;
+}
 if (window.getDefaultCards) {
 const dc = window.getDefaultCards('chat');
 if (dc && dc.type !== 'poke' && typeof dc.text === 'string' && dc.text.trim()) return dc.text;
@@ -54253,7 +54451,7 @@ if (askChatCard) askChatCard.addEventListener('change', () => {
 const d = taAskLoad();
 d.settings.useChatReply = askChatCard.checked;
 taAskSave(d);
-toast(askChatCard.checked ? '文字题回应已接通聊天字卡/词典' : '文字题回应已恢复预设池回应');
+toast(askChatCard.checked ? '互动卡回应已接通聊天字卡/词典（文字+单选）' : '互动卡回应已恢复预设池回应');
 });
 const askProb = document.getElementById('ta-ask-prob');
 if (askProb) askProb.addEventListener('input', () => {
@@ -57758,9 +57956,9 @@ try { window.xyStore(ROOT).set(EN_KEY, en ? '1' : '0'); } catch (e) {}
 function deskCallEn() {
 try {
 const v = window.xyStore(ROOT).get(CALL_EN_KEY);
-if (v === null || v === undefined || v === '') return true; // 默认开
+if (v === null || v === undefined || v === '') return false; // 默认关
 return v === '1';
-} catch (e) { return true; }
+} catch (e) { return false; }
 }
 window.setDeskCallEn = function (en) {
 try { window.xyStore(ROOT).set(CALL_EN_KEY, en ? '1' : '0'); } catch (e) {}
@@ -57845,7 +58043,7 @@ ico: '<svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" s
 title: '联系人跨桌面打电话',
 subTag: '功能说明',
 tagTitle: '联系人跨桌面打电话',
-detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
+detail: '开启后，其他桌面的联系人会主动给你打语音电话（本开关默认关闭，需要用请在下方手动打开；#448）；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
 get: deskCallEn,
 set: window.setDeskCallEn,
 toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
@@ -57976,6 +58174,7 @@ let healed = 0;
 q.forEach(function (x) {
 if (x.status === 'pending' && x.sid !== SESSION_ID && now - (x.ts || 0) > PENDING_TTL_MS) {
 x.status = 'seen'; x.ts = now; healed++;
+if (x.kind === 'call' && window.callRecordMissed) { try { window.callRecordMissed(x.cid, cName(x.cid)); } catch (e) {} }
 }
 });
 const filtered = q.filter(x => x.status !== 'seen' || now - (x.ts || 0) < seenKeepMs);
@@ -74656,9 +74855,10 @@ var G = "garden-data";
 try { var _legacyG = window.xyStore("xy-home-v2"); if (_legacyG && _legacyG.get("garden-data-global")) _legacyG.remove("garden-data-global"); } catch (e) {}
 var PLOTS = 12;
 var PI = 1800;
-var WILT_SEC = 172800;
+var WILT_SEC = 259200;
+var WATER_SEC = 129600;
 function pn() { return s.get("lbl-partner") || "TA"; }
-function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
+function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 4 : 0) + (lv0 >= 5 ? 4 : 0) + (lv0 >= 8 ? 4 : 0) + (lv0 >= 12 ? 6 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
 var saveLock = true, dataPf = null;
 function save(d) {
 try {
@@ -74771,6 +74971,7 @@ bench: { n: "\u957F\u6905", e: "\uD83E\uDD91", price: 120, max: 1, buff: { partn
 gnome: { n: "\u56ED\u4E11", e: "\uD83E\uDDD9", price: 100, max: 2, buff: { xp: 0.15, label: "\u7ECF\u9A8C+15%" } },
 windmill: { n: "\u98CE\u8F66", e: "\uD83C\uDF00", price: 150, max: 1, buff: { growth: 0.12, label: "\u751F\u957F+12%" } },
 fountain: { n: "\u55B7\u6CC9", e: "\u26F7\uFE0F", price: 200, max: 1, buff: { water: 0.5, label: "\u81EA\u52A8\u4FDD\u6C34" } },
+greenhouse: { n: "\u6E29\u5BA4", e: "\uD83C\uDFE1", price: 500, max: 1, buff: { water: 1, label: "\u81EA\u52A8\u6EE1\u4FDD\u6C34" } },
 flowerPot: { n: "\u82B1\u67B6", e: "\uD83E\uDEB4", price: 120, max: 2, buff: { growth: 0.1, label: "\u751F\u957F+10%" } },
 birdNest: { n: "\u9E1F\u5DE2", e: "\uD83D\uDC26", price: 150, max: 1, buff: { partner: 0.2, label: "\u68A6\u89D2\u5E38\u6765+20%" } },
 windBell: { n: "\u98CE\u94C3", e: "\uD83C\uDF90", price: 130, max: 2, buff: { xp: 0.2, label: "\u7ECF\u9A8C+20%" } },
@@ -74819,7 +75020,7 @@ if (changed) save(data);
 }
 function waterLvl(plot) {
 if (!plot || !plot.watered) return 0;
-return Math.max(0, 1 - (Math.floor(Date.now() / 1000) - plot.watered) / 86400);
+return Math.max(0, 1 - (Math.floor(Date.now() / 1000) - plot.watered) / WATER_SEC);
 }
 function gLv() { return Math.floor(Math.sqrt((data.exp || 0) / 10)) + 1; }
 function gLvProg() { var lv = gLv(); var cur = (lv - 1) * (lv - 1) * 10; var nxt = lv * lv * 10; return { cur: data.exp - cur, max: nxt - cur, lv: lv }; }
@@ -74989,6 +75190,7 @@ function plantSeed(idx, type) {
 if (idx < 0 || idx >= data.p.length) return;
 if (data.p[idx]) return;
 var tp = T[type]; if (!tp) return;
+data.lastSeed = type;
 data.p[idx] = { type: type, planted: Math.floor(Date.now() / 1000), by: "\u6211" };
 addLog("\u6211", "\u79CD\u4E0B\u4E86\u4E00\u68F5 " + tp.n + (tp.rare ? " \u2728" : ""));
 updDex(type, "p");
@@ -75012,9 +75214,14 @@ fx.className = "garden-fx " + cls;
 plot.appendChild(fx);
 setTimeout(function () { if (fx.parentNode) fx.remove(); }, dur || 900);
 }
-function plotCount() {
+function plotEntitled() {
 var lv = gLv();
-return 12 + (lv >= 3 ? 4 : 0) + (lv >= 5 ? 4 : 0) + (lv >= 8 ? 4 : 0) + (lv >= 12 ? 6 : 0);
+return PLOTS + (lv >= 3 ? 4 : 0) + (lv >= 5 ? 4 : 0) + (lv >= 8 ? 4 : 0) + (lv >= 12 ? 6 : 0);
+}
+function plotCount() {
+var n = data.plotN || PLOTS;
+var ent = plotEntitled();
+return n > ent ? ent : n;
 }
 function syncPlots() {
 var n = plotCount();
@@ -75029,11 +75236,22 @@ var old = data.lvSeen;
 data.lvSeen = lv;
 save(data);
 var msgs = [];
-if (old < 3 && lv >= 3) msgs.push("Lv.3 \u89E3\u9501 4 \u4E2A\u65B0\u5730\u5757");
-if (old < 5 && lv >= 5) msgs.push("Lv.5 \u89E3\u9501 4 \u4E2A\u65B0\u5730\u5757");
-if (old < 8 && lv >= 8) msgs.push("Lv.8 \u89E3\u9501 4 \u4E2A\u65B0\u5730\u5757");
-if (old < 12 && lv >= 12) msgs.push("Lv.12 \u89E3\u9501 6 \u4E2A\u65B0\u5730\u5757");
+if (old < 3 && lv >= 3) msgs.push("Lv.3 解锁 4 个新地块开垦资格");
+if (old < 5 && lv >= 5) msgs.push("Lv.5 解锁 4 个新地块开垦资格");
+if (old < 8 && lv >= 8) msgs.push("Lv.8 解锁 4 个新地块开垦资格");
+if (old < 12 && lv >= 12) msgs.push("Lv.12 解锁 6 个新地块开垦资格");
+var mile = [3, 5, 8, 12].filter(function (m) { return old < m && lv >= m; });
+if (mile.length) {
+var rareKsM = Object.keys(T).filter(function (k) { return T[k].rare; });
+if (rareKsM.length) {
+var rkM = rareKsM[Math.floor(Math.random() * rareKsM.length)];
+if (!data.rareInv) data.rareInv = {};
+data.rareInv[rkM] = (data.rareInv[rkM] || 0) + 1;
+msgs.push("🎁 里程碑奖励：稀有种子「" + T[rkM].n + "」×1（不开垦新地块也照样拿）");
+}
+}
 if (msgs.length) {
+msgs.push("（工具条点「开垦」才真正增加地块；不开垦、小花园精养也完全不影响升级和奖励）");
 msgs.forEach(function (m) { addLog("\u2605", m); });
 if (window.openModal) window.openModal("\uD83C\uDF89 \u5347\u7EA7\u89E3\u9501", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: msgs.join("\n") });
 }
@@ -75125,6 +75343,60 @@ btn.className = "garden-tool upgrade";
 btn.dataset.tool = "upgrade";
 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 7h7.5l-6 4.5 2.5 7.5-6.5-4.5-6.5 4.5 2.5-7.5-6-4.5h7.5z"/></svg><span class="garden-tool-label">\u5347\u7EA7</span>';
 tb.appendChild(btn);
+}
+function ensureReclaimBtn() {
+if (document.getElementById("garden-tool-reclaim")) return;
+var tb = document.getElementById("garden-toolbar");
+if (!tb) return;
+var btn = document.createElement("button");
+btn.id = "garden-tool-reclaim";
+btn.className = "garden-tool reclaim";
+btn.dataset.tool = "reclaim";
+btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l5.5-5.5"/><path d="M9.5 14.5L17 7l2.5 2.5-7.5 7.5z"/><path d="M15 4.5L19.5 9"/></svg><span class="garden-tool-label">\u5F00\u58A6</span>';
+tb.appendChild(btn);
+}
+function ensureReplantBtn() {
+if (document.getElementById("garden-tool-replant")) return;
+var tb = document.getElementById("garden-toolbar");
+if (!tb) return;
+var btn = document.createElement("button");
+btn.id = "garden-tool-replant";
+btn.className = "garden-tool replant batch";
+btn.dataset.tool = "replant";
+btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-8"/><path d="M12 13c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M12 13c3 0 5-2 5-5-3 0-5 2-5 5z"/><path d="M5 21h14"/></svg><span class="garden-tool-label">\u8865\u79CD</span>';
+tb.appendChild(btn);
+}
+function reclaimPlots() {
+var ent = plotEntitled();
+var cur = data.plotN || PLOTS;
+if (cur >= ent) {
+if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +4\uFF0CLv.12 +6\uFF09" });
+return;
+}
+if (!window.openModal) { data.plotN = ent; syncPlots(); save(data); renderAll(); return; }
+window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function (v) {
+if (v !== "1") return;
+data.plotN = ent;
+syncPlots();
+addLog("\u2605", "\u5F00\u58A6\u4E86 " + (ent - cur) + " \u4E2A\u65B0\u5730\u5757\uFF0C\u82B1\u56ED\u73B0\u6709 " + data.p.length + " \u5757\u5730");
+save(data); renderAll();
+}, { pills: [{ label: "\u5F00\u58A6 " + (ent - cur) + " \u5757", value: "1" }, { label: "\u518D\u60F3\u60F3", value: "0" }], noInput: true, staticText: "\u628A\u5730\u5757\u4ECE " + cur + " \u5757\u6269\u5230 " + ent + " \u5757\uFF1F\n\u5730\u5757\u8D8A\u591A\u6D47\u6C34\u6536\u83B7\u8D8A\u5FD9\uFF0C\u4E5F\u53EF\u4EE5\u4FDD\u6301\u5C0F\u82B1\u56ED\u7CBE\u517B\u54E6\n\uFF08\u4EE5\u540E\u968F\u65F6\u53EF\u4EE5\u518D\u5F00\u58A6\uFF0C\u5730\u5757\u4E0D\u4F1A\u81EA\u52A8\u589E\u52A0\uFF09" });
+}
+function replantAll() {
+var empties = [];
+for (var i = 0; i < data.p.length; i++) if (!data.p[i]) empties.push(i);
+if (!empties.length) { toast("\u6CA1\u6709\u7A7A\u5730\u5757\u5566"); return; }
+var seed = (data.lastSeed && T[data.lastSeed] && !T[data.lastSeed].rare) ? data.lastSeed : null;
+if (!seed) { var ks = Object.keys(T).filter(function (k) { return unlocked(k); }); seed = ks.length ? ks[0] : null; }
+if (!seed) return;
+var now = Math.floor(Date.now() / 1000);
+empties.forEach(function (i) {
+data.p[i] = { type: seed, planted: now, by: "\u6211" };
+updDex(seed, "p"); updSt("p", true);
+});
+addLog("\u6211", "\u4E00\u952E\u8865\u79CD " + empties.length + " \u682A " + T[seed].n);
+if (Math.random() < 0.08) { var pn4 = pn(); addLog(pn4, "\u770B\u5230\u4F60\u5728\u8865\u79CD\uFF0C\u4E5F\u6765\u5E2E\u5FD9\u4E86~"); partnerAct(true); }
+save(data); renderAll();
 }
 function hybridPlot(idx) {
 var plot = data.p[idx];
@@ -75838,6 +76110,8 @@ checkLevelUp();
 ensureTabUI();
 ensureHybridBtn();
 ensureUpgradeBtn();
+ensureReclaimBtn();
+ensureReplantBtn();
 renderWeather();
 renderDaily();
 renderLevel();
@@ -75954,6 +76228,10 @@ hybridPlot(selPlot);
 } else if (tool === "upgrade") {
 if (selPlot < 0) return;
 upgradePlot(selPlot);
+} else if (tool === "replant") {
+replantAll();
+} else if (tool === "reclaim") {
+reclaimPlots();
 }
 }
 function waterAll() {
@@ -76101,8 +76379,8 @@ save(data);
 var dbf = decorBuffs();
 if (dbf.water > 0) {
 for (var wi = 0; wi < data.p.length; wi++) {
-if (data.p[wi] && waterLvl(data.p[wi]) < dbf.water) {
-data.p[wi].watered = Math.floor(Date.now() / 1000) - 86400 + Math.floor(86400 * dbf.water);
+if (data.p[wi] && waterLvl(data.p[wi]) < Math.min(1, dbf.water)) {
+data.p[wi].watered = Math.floor(Date.now() / 1000) - WATER_SEC + Math.floor(Math.min(1, dbf.water) * WATER_SEC);
 }
 }
 save(data);
@@ -84992,13 +85270,15 @@ setTimeout(() => { try { if (typeof fitBoard === 'function') fitBoard(); } catch
 }
 if (fsBtn) fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFs(); });
 const diffSel = document.getElementById('m3-diff');
+const modeSel = document.getElementById('m3-mode'); // #453 简单/道具模式
 const partnerNameEl = document.getElementById('m3-partner-name');
 const N = 8, KIND_N = 6;
 const GAP = 3;                 // 格间距（fitBoard 哨兵表达式依赖）
 const SWAP_MS = 170, POP_MS = 220, FALL_MS = 300;  // 交换/消除/下落动画时长
 const KINDS = ['🍓', '🍋', '🍇', '🔔', '⭐', '🎈'];
-const BOMB_BASE = 10;    // 10+c = 该色炸弹（💥）
+const BOMB_BASE = 10;    // 10+c = 该色炸弹（💥，被消除炸 3×3）
 const RAINBOW = 20;      // 彩虹（🌈）
+const LINE_H = 30, LINE_V = 40; // 30+c / 40+c = 该色直线道具（↔️被消除清整行 / ↕️清整列）#453
 const DIFFS = {
 casual: { target: 300, coin: 520, label: '🌱 休闲 · 300 分' },
 normal: { target: 600, coin: 1314, label: '🌙 普通 · 600 分' },
@@ -85013,7 +85293,13 @@ function pick(arr) { return arr && arr.length ? arr[Math.floor(Math.random() * a
 function animMs(x) { return Math.round(x * fastMul()); }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 function inBoard(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
-function colorOf(v) { return v >= BOMB_BASE && v < RAINBOW ? v - BOMB_BASE : (v >= RAINBOW ? -1 : v); }
+function colorOf(v) {
+if (v >= LINE_V) return v - LINE_V;
+if (v >= LINE_H) return v - LINE_H;
+if (v >= BOMB_BASE && v < RAINBOW) return v - BOMB_BASE;
+return v >= RAINBOW ? -1 : v;
+}
+function isRainbow(v) { return v >= RAINBOW && v < LINE_H; }
 let audioCtx = null, soundOn = true;
 function beep(freq, dur, vol) {
 if (!soundOn) return;
@@ -85037,11 +85323,13 @@ const sfxBad = () => beep(180, 0.07, 0.12);
 const sfxWin = () => { beep(660, 0.14, 0.2); setTimeout(() => beep(880, 0.2, 0.2), 130); };
 let st = null;
 let thinkT = null;
-function newState(diff) {
+function newState(diff, mode) {
 return {
 diff: diff,
 target: DIFFS[diff].target,
-grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹
+grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹 / 30+c,40+c 直线道具
+mode: mode === 'item' ? 'item' : 'simple', // #453 简单(默认,无道具)/道具
+genSpecial: null,        // 最近一次生成的道具（verify 断言用）
 turn: 1,
 over: false,
 started: false,
@@ -85053,7 +85341,7 @@ misPicks: 0
 }
 function statsKey() { return prefix() + ':match3-stats'; }
 function loadStats() {
-const d = { clears: 0, bestChem: 0, lastDiff: 'normal' };
+const d = { clears: 0, bestChem: 0, lastDiff: 'normal', lastMode: 'simple' };
 try {
 const raw = localStorage.getItem(statsKey());
 if (raw) { const v = JSON.parse(raw); if (v && typeof v === 'object') return Object.assign(d, v); }
@@ -85071,7 +85359,7 @@ if (same) { run++; continue; }
 if (run >= 3 && colorOf(grid[r][c - 1]) >= 0) {
 const cells = [];
 for (let k = c - run; k < c; k++) cells.push([r, k]);
-runs.push({ cells: cells, color: colorOf(grid[r][c - 1]), len: run });
+runs.push({ cells: cells, color: colorOf(grid[r][c - 1]), len: run, dir: 'h' });
 }
 run = 1;
 }
@@ -85084,7 +85372,7 @@ if (same) { run++; continue; }
 if (run >= 3 && colorOf(grid[r - 1][c]) >= 0) {
 const cells = [];
 for (let k = r - run; k < r; k++) cells.push([k, c]);
-runs.push({ cells: cells, color: colorOf(grid[r - 1][c]), len: run });
+runs.push({ cells: cells, color: colorOf(grid[r - 1][c]), len: run, dir: 'v' });
 }
 run = 1;
 }
@@ -85111,7 +85399,11 @@ if (!inBoard(p[0], p[1]) || seen[p[0]][p[1]] === 'done') continue;
 seen[p[0]][p[1]] = 'done';
 cleared.push([p[0], p[1]]);
 const v = grid[p[0]][p[1]];
-if (v >= BOMB_BASE && v < RAINBOW) {
+if (v >= LINE_V) {
+for (let rr = 0; rr < N; rr++) { if (!seen[rr][p[1]]) { seen[rr][p[1]] = true; queue.push([rr, p[1]]); } }
+} else if (v >= LINE_H) {
+for (let cc = 0; cc < N; cc++) { if (!seen[p[0]][cc]) { seen[p[0]][cc] = true; queue.push([p[0], cc]); } }
+} else if (v >= BOMB_BASE && v < RAINBOW) {
 for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
 const rr = p[0] + dr, cc = p[1] + dc;
 if (inBoard(rr, cc) && !seen[rr][cc]) { seen[rr][cc] = true; queue.push([rr, cc]); }
@@ -85155,11 +85447,11 @@ function allMoves(grid) {
 const out = [];
 const dirs = [[0, 1], [1, 0]];
 for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-if (grid[r][c] >= RAINBOW) continue;
+if (isRainbow(grid[r][c])) continue;
 for (let d = 0; d < dirs.length; d++) {
 const r2 = r + dirs[d][0], c2 = c + dirs[d][1];
 if (r2 >= N || c2 >= N) continue;
-if (grid[r2][c2] >= RAINBOW) continue;
+if (isRainbow(grid[r2][c2])) continue;
 const g = grid.map((row) => row.slice());
 const t = g[r][c]; g[r][c] = g[r2][c2]; g[r2][c2] = t;
 const gain = simulateClear(g);
@@ -85219,9 +85511,11 @@ const pieces = new Map();      // id -> { v, el }
 let nextPid = 1;
 let cellPx = 40;
 function setGlyph(el, v) {
-el.classList.remove('m3-bomb');
+el.classList.remove('m3-bomb', 'm3-line');
 const g = el._g || el;
-if (v >= RAINBOW) g.textContent = '🌈';
+if (v >= LINE_V) { g.textContent = '↕️'; el.classList.add('m3-line'); }
+else if (v >= LINE_H) { g.textContent = '↔️'; el.classList.add('m3-line'); }
+else if (v >= RAINBOW) g.textContent = '🌈';
 else if (v >= BOMB_BASE) { g.textContent = '💥'; el.classList.add('m3-bomb'); }
 else g.textContent = KINDS[v];
 }
@@ -85387,7 +85681,9 @@ setStatus(st.turn === 1 ? dot(1) + '你的回合：点一格再点相邻一格�
 function newGame() {
 clearTimeout(thinkT); thinkT = null;
 const diff = diffSel && DIFFS[diffSel.value] ? diffSel.value : 'normal';
-st = newState(diff);
+const mode = modeSel && modeSel.value === 'item' ? 'item' : 'simple';
+st = newState(diff, mode);
+try { const s2 = loadStats(); s2.lastMode = mode; saveStats(s2); } catch (e) {}
 st.grid = dealGrid();
 st.started = true;
 hideOverlay();
@@ -85412,7 +85708,7 @@ setStatus(dot(1) + '你的回合：点一格再点相邻一格交换');
 function doSwap(a, b, byMe, cb) {
 st.lock = true;
 const va = st.grid[a[0]][a[1]], vb = st.grid[b[0]][b[1]];
-const rbA = va >= RAINBOW, rbB = vb >= RAINBOW;
+const rbA = isRainbow(va), rbB = isRainbow(vb);
 if (rbA || rbB) { doRainbowSwap(a, b, rbA && rbB, byMe, cb); return; }
 const t = st.grid[a[0]][a[1]];
 st.grid[a[0]][a[1]] = st.grid[b[0]][b[1]];
@@ -85446,21 +85742,39 @@ const cells = clearWithSpecials(st.grid, seeds);
 const hadBoom = cells.some((p) => { const v = st.grid[p[0]][p[1]]; return v >= BOMB_BASE; });
 cells.forEach((p) => { st.grid[p[0]][p[1]] = -1; });
 let kept = null;
-if (chain === 1) {
+if (chain === 1 && st.mode === 'item') {
 const best = runs.slice().sort((x, y) => y.len - x.len)[0];
+const atFor = (run) => run.cells.some((p) => p[0] === b[0] && p[1] === b[1]) ? b : run.cells[Math.floor(run.cells.length / 2)];
+let crossPair = null;
+for (let i = 0; i < runs.length && !crossPair; i++) {
+for (let j = i + 1; j < runs.length; j++) {
+if (runs[i].color !== runs[j].color) continue;
+const at = runs[i].cells.filter((p) => runs[j].cells.some((q) => q[0] === p[0] && q[1] === p[1]))[0];
+if (at && runs[i].len + runs[j].len - 1 >= 5) { crossPair = { at: at, r1: runs[i], r2: runs[j] }; break; }
+}
+}
 if (best.len >= 5) {
-const inBest = best.cells.some((p) => p[0] === b[0] && p[1] === b[1]);
-const at2 = inBest ? b : best.cells[Math.floor(best.cells.length / 2)];
+const at2 = atFor(best);
 st.grid[at2[0]][at2[1]] = RAINBOW;
 cells.push([at2[0], at2[1]]);
 kept = at2;
+st.genSpecial = 'rainbow';
 taSay(pick(['🌈 彩虹出现了！', '快用彩虹，超好用']));
-} else if (best.len === 4) {
-const at2 = best.cells.some((p) => p[0] === b[0] && p[1] === b[1]) ? b : best.cells[Math.floor(best.cells.length / 2)];
-st.grid[at2[0]][at2[1]] = BOMB_BASE + best.color;
+} else if (crossPair) {
+const inCross = crossPair.r1.cells.some((p) => p[0] === b[0] && p[1] === b[1]) || crossPair.r2.cells.some((p) => p[0] === b[0] && p[1] === b[1]);
+const at2 = inCross ? b : crossPair.at;
+st.grid[at2[0]][at2[1]] = BOMB_BASE + crossPair.r1.color;
 cells.push([at2[0], at2[1]]);
 kept = at2;
-taSay(pick(['💣 炸弹生成！', '四连！收下这个💥']));
+st.genSpecial = 'bomb';
+taSay(pick(['💥 L/T 连消，炸弹生成！', '交叉消！收下这个💥']));
+} else if (best.len === 4) {
+const at2 = atFor(best);
+st.grid[at2[0]][at2[1]] = best.dir === 'h' ? LINE_H + best.color : LINE_V + best.color;
+cells.push([at2[0], at2[1]]);
+kept = at2;
+st.genSpecial = best.dir === 'h' ? 'line-h' : 'line-v';
+taSay(best.dir === 'h' ? pick(['↔️ 横向直线道具！', '四连！整行都清掉！']) : pick(['↕️ 纵向直线道具！', '四连！一列全消！']));
 }
 }
 const pts = cells.length * chain;
@@ -85666,9 +85980,13 @@ overlayEl.hidden = false;
 }
 function showStartOverlay() {
 const s = loadStats();
+const itemMode = !!(modeSel && modeSel.value === 'item');
 showOverlay('消消乐',
 '<div class="c4-start-tip">和 ' + T('TA') + ' 轮流交换相邻两格<br>凑成同款三连就消除，一起冲到目标分</div>' +
-'<div class="c4-start-note">💣 四连生成炸弹 · 🌈 五连生成彩虹（换任意色全消）<br>🎲 ' + T('TA') + '每回合状态随机——最优步 / 前五挑一 / 放水 / 手滑</div>' +
+'<div class="c4-start-note">' + (itemMode
+? '💣 道具模式：↔️↕️ 四连直线→清整行/整列 · L/T 交叉→💥炸弹 · 五连→🌈彩虹'
+: '🌿 简单模式：经典三消、无道具（想出道具就在上方切「💣 道具」）') +
+'<br>🎲 ' + T('TA') + '每回合状态随机——最优步 / 前五挑一 / 放水 / 手滑</div>' +
 (s.clears > 0 ? '<div class="pong-end-stat">累计通关 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem + '</div>' : ''),
 s.clears > 0 ? '再来一局' : '开始对局');
 if (endBtn) endBtn.hidden = true;
@@ -85712,6 +86030,9 @@ if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); c
 if (diffSel) diffSel.addEventListener('change', () => {
 const s = loadStats(); s.lastDiff = diffSel.value; saveStats(s);
 });
+if (modeSel) modeSel.addEventListener('change', () => {
+const s = loadStats(); s.lastMode = modeSel.value === 'item' ? 'item' : 'simple'; saveStats(s);
+});
 if (hintBtn) hintBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
@@ -85741,7 +86062,13 @@ if (partnerNameEl) partnerNameEl.textContent = name;
 }
 window.openMatch3Panel = function () {
 try { if (isFs) toggleFs(); } catch (e) {}
-if (!st || !st.started) { try { const s = loadStats(); if (DIFFS[s.lastDiff] && diffSel) diffSel.value = s.lastDiff; } catch (e) {} }
+if (!st || !st.started) {
+try {
+const s = loadStats();
+if (DIFFS[s.lastDiff] && diffSel) diffSel.value = s.lastDiff;
+if (modeSel && (s.lastMode === 'item' || s.lastMode === 'simple')) modeSel.value = s.lastMode;
+} catch (e) {}
+}
 panel.hidden = false;
 try { setNames(); } catch (e) {}
 try { if (st && st.started) fitBoard(); } catch (e) {}
@@ -85798,6 +86125,7 @@ siblingIds(self).forEach((id) => { const el = document.getElementById(id); if (e
 window.__m3Debug = {
 st: () => st,
 newGame: newGame,
+doSwap: doSwap,
 findRuns: findRuns,
 findMatches: findMatches,
 allMoves: allMoves,
@@ -85805,8 +86133,11 @@ simulateClear: simulateClear,
 clearWithSpecials: clearWithSpecials,
 reshuffle: reshuffle,
 colorOf: colorOf,
+isRainbow: isRainbow,
 BOMB_BASE: BOMB_BASE,
 RAINBOW: RAINBOW,
+LINE_H: LINE_H,
+LINE_V: LINE_V,
 fast: false
 };
 })();
@@ -90849,7 +91180,7 @@ const HUB = [
 { n: '批量提问问卷', d: '你批量出题，TA 限时作答交卷', k: '问卷 提问 批量 出题 考试 答题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask', '#ta-ask-survey-open'] },
 { n: '拍一拍', d: '拍 TA 一下，TA 也会拍回来', k: '拍一拍 互动', go: ['.app[data-app="chat"]', '#more-poke'] },
 { n: '引用回复', d: '引用某条消息回复，可带表情包+文字', k: '引用 回复', where: '聊天里长按任意消息' },
-{ n: '通话', d: '拨打/接听电话，可设自定义铃声与背景；跨桌面来电接听会自动跳到对方桌面（通话与记录归属对方桌面，刻意设计）', k: '电话 通话 打电话 跨桌面来电 来电记录', go: ['.app[data-app="chat"]', '#more-call'] },
+{ n: '通话', d: '拨打/接听电话，可设自定义铃声与背景；跨桌面来电（默认关闭，设置里手动开启）接听会自动跳到对方桌面（通话与记录归属对方桌面，刻意设计）', k: '电话 通话 打电话 跨桌面来电 来电记录', go: ['.app[data-app="chat"]', '#more-call'] },
 { n: '邀请 TA', d: '发邀请字卡（预设+自定义，可重复发送）', k: '邀请 约会', go: ['.app[data-app="chat"]', '#more-invite'] },
 { n: '问问 TA / TA 的提问', d: '让 TA 现在问你一次（提问/选择题/好奇/吐槽），或向 TA 发问', k: '提问 问问 问题 选择题 好奇 吐槽 现在', go: ['.app[data-app="chat"]', '#more-ask'] },
 { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] },
@@ -92796,4 +93127,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0ee4qw -->
+<!-- __MOCHI_EOF__ mu0g4yqu -->

@@ -344,7 +344,7 @@ const FIX_SENTINELS = [
   { name: '恢复默认桌面预选中确认（ctl.pills 预选「确定恢复默认」，只点确定也生效）', file: 'js/personalize.js', needle: "ctl.pills([{ label: '确定恢复默认', value: '1' }], '1')" },
   { name: '内置壁纸预设可见性（bgPresetCss + applyBgVisibility 认预设）', file: 'js/personalize.js', needle: 'bgPresetCss' },
   { name: '应用美化方案预选中确认（桌面+聊天 ctl.pills 预选「应用」，只点确定也生效）', file: 'js/personalize.js', needle: "ctl.pills([{ label: '应用', value: 'ok' }], 'ok')" },
-  { name: '冷启动回复池取回自定义字卡（replyScopeGroups 重载 + 就绪判定不再被默认字卡遮蔽）', file: 'js/chatcard.js', needle: 'function replyScopeGroups' },
+  { name: '冷启动回复池取回自定义字卡（v3.28.x 口径演进=#442：缺失即 hydrateLibScopes 按需取回+就绪判定不被默认字卡遮蔽；旧锚 function replyScopeGroups 随 #442 池视图收口移除）', file: 'js/chatcard.js', needle: 'if (window.hydrateLibScopes) window.hydrateLibScopes([\'public\', \'own\']);' },
   { name: 'TA档案删除确认预选「删除」pill（删除这条/了解/疑问/暂不适用/已了解 只点确定也生效）', file: 'js/memo-arc.js', needle: "saveArc(cur, arc); toast('已删除'); render();\n}, { noInput: true, pill: 'del', pills:" },
   { name: '我的档案删除确认预选「删除」pill（删除这条/描述卡 只点确定也生效；#106 收口时随 fan-out 重构改锚到 delLi 现文本）', file: 'js/my-arc.js', needle: "fanOutRemove(kind, id); toast('已删除'); render();\n}, { noInput: true, pill: 'del', pills:" },
   { name: '番茄钟提前结束预选「结束」pill（只点确定也生效）', file: 'js/p2-features.js', needle: "noInput: true, lock: true, pill: '1', pills" },
@@ -1011,6 +1011,10 @@ const FIX_SENTINELS = [
   { name: '#313 gift-shop TA送我礼物总开关（删则禁送失效、TA 恢复买我心愿单礼物；giftInOn 默认 0=禁止）', file: 'js/gift-shop.js', needle: 'st.wlOn && st.giftInOn && !capped' },
   // ==== 2026-09-11 #315 开屏免责声明置顶卡（未成年人禁止使用 + 字卡均为随机代码、使用后果自负；静态 DOM data-anti-scam="d"，在线 notice.json 覆盖不改此处）====
   { name: '#315 开屏免责声明卡在位（删则开屏不再展示「未成年人禁止使用/字卡随机代码后果自负」声明）', file: 'template.html', needle: 'data-anti-scam="d"' },
+  // ==== 2026-09-14 #315c 免责声明细化+年龄确认闸门（四条细化文案+18周岁红线+心理援助热线；勾选 xy-home-v2:age-confirmed 后才可进入，clock.js 门控）====
+  { name: '#315c 免责细化文案在位（删则退回旧一句话免责：虚构娱乐边界/热线/数据自担全丢）', file: 'template.html', needle: '预先编写的随机代码随机触发' },
+  { name: '#315c 年龄确认勾选框·静态锚点（删则开屏无勾选行=免责举证降级为默认已读）', file: 'template.html', needle: 'id="splash-age-check"' },
+  { name: '#315c 年龄确认·clock.js 门控（删 ageOk 判定则未勾选也能进入=闸门失效）', file: 'js/clock.js', needle: "const ok = r && scrolledBottom && ageOk;" },
   // ==== 2026-09-11 #316 聊天记录滚动跳动/闪烁（#199 overflow-anchor:none 连带关掉 Chromium 原生锚定：浏览图片较多历史时上方图片解码撑高无人补偿=内容被推走；解钉动态开回锚定、钉住态维持 none 防 #199 对打）====
   { name: '#316 解钉开滚动锚定·接线（删则用户手动滚动后锚定仍关、图片撑高继续推走视口=聊天记录一直跳；行为断言 tools/verify-chat-anchor.mjs）', file: 'js/chat.js', needle: 'function unpinChatAndAnchor() {' },
   { name: '#316 解钉开滚动锚定·CSS 开关（删则类挂了也不生效，Chromium 锚定回不来；钉住态 #199 none 语义不变）', file: 'css/base.css', needle: '.chat-body.scroll-anchor-auto { overflow-anchor: auto; }' },
@@ -1230,7 +1234,7 @@ const FIX_SENTINELS = [
   { name: '#411 卡顿自检·分级判定器（mochiPerfLevel 纯函数，删则自检分级失效；44MB 字卡库是 iOS/安卓间歇卡顿主因）', file: 'js/storage-slim.js', needle: 'window.mochiPerfLevel = function (totalBytes, bigGroups) {' },
   { name: '#411 卡顿自愈·非破坏预热（mochiPerfHeal 取回挂起大键库+预热令牌化回复池；只优化不删除，删则「一键优化」空转）', file: 'js/storage-slim.js', needle: 'window.mochiPerfHeal = function () {' },
   { name: '#411 卡顿自检设置行入口（row-perf-optimize 锚点；删则设置页无「一键优化」入口）', file: 'template.html', needle: 'id="row-perf-optimize"' },
-  { name: '#411 自检·仅大库才主动弹提示（level 门控；删则不判级 轻/中 也弹=骚扰）', file: 'js/personalize.js', needle: "if (agg.level !== '重') return;" },
+  { name: '#411 自检·仅大库才主动弹提示（v3.26.x 口径演进=#452：启动分级改 __big-idx 尺寸门控 mochiPerfLevel(totalBytes,bigGroups)！==重，全量 mochiCcSlimScan 移交设置行主动扫；旧锚 if (agg.level!==重) 随全量扫描收口移除；删则轻/中库也弹=骚扰复发）', file: 'js/personalize.js', needle: "window.mochiPerfLevel(totalBytes, bigGroups) !== '重'" },
   { name: '#402 缺失令牌占位换内联 SVG（删则令牌 src 被当相对 URL 请求 404＝iOS 裂图问号黑块）', file: 'js/media-pool.js', needle: 'const MISS_PLACEHOLDER' },
   // ==== 2026-09-13 #412 情绪链/局部撤回 null 守卫（荣耀畅玩40 Plus 夸克等多机型「跳转个人聊天卡屏」报障，诊断 page-chat 反复
   //      「Cannot read properties of null (reading 'querySelector')」——m 由 addRec 返回，实时去重命中时返回 null，
@@ -1279,6 +1283,14 @@ const FIX_SENTINELS = [
   { name: '#439 占位池权威判定（轮询确认缺失 mochiMediaTokenMissing 才换占位；删则池取回慢/限流时被误杀成「图片丢失」复发）', file: 'js/chat.js', needle: 'window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(s)' },
   { name: '#439 占位登记自愈（池补回后 mochiMediaPhRestore 原位换回真图；删则「点了重建媒体池还是丢失」复发）', file: 'js/media-pool.js', needle: 'window.mochiMediaPhRestore = function' },
   { name: '#440 导入清单未知即中止（idbListKeys 失败/retain 值读失败 abort 走既有回滚，不再按「无需保留」clear；删则「只备份文字」导入把媒体池整池抹掉＝图片丢失跨设备扩散口子复发）', file: 'js/data-backup.js', needle: 'if (kept && kept.abort) { resolve(false); return; }' },
+  // ==== 2026-09-14 #442 媒体池核对/重建「大库冻结=点了没反应」（红米K80 实报：设置→查看存储→媒体池两按钮点击无反应、
+  //      也无成功/失败提示弹窗——chat-msgs 在 IDB 是数组直存（大桌面单键 40MB+），旧逻辑整包 JSON.stringify=几十秒
+  //      长任务冻结主线程=页面假死零进度；锁屏/切后台页面被杀=扫描永不完成=永远等不到弹窗；且三按钮 .catch 静默无提示）====
+  { name: '#442 核对逐条分扫（数组直存键不再整包 stringify 冻结主线程；删则大库核对/孤儿扫描继续假死「点了没反应」）', file: 'js/media-pool.js', needle: 'if (s) scanTokens(s);' },
+  { name: '#442 孤儿扫描同款分扫+保守中止（单条序列化失败整次放弃不删；删则大库 GC 继续假死）', file: 'js/media-pool.js', needle: 'if (s) scanKeep(s);' },
+  { name: '#442 重建三阶段进度回传+批间让出（池体检/扫副本/哈希；删则重建继续无反馈假死）', file: 'js/media-pool.js', needle: "prog(i, srcKeys.length, '扫描本机副本')" },
+  { name: '#442 核对按钮实时进度接线（personalize；删则用户看不到进度以为没反应）', file: 'js/personalize.js', needle: 'window.mochiMediaCoverage(function (done, total, label)' },
+  { name: '#442 按钮异常静默改弹窗（核对/重建失败必提示；删则「失败也没提示」复发）', file: 'js/personalize.js', needle: '媒体池重建中途出错，没有改动任何数据' },
   // ==== 2026-09-13 #425 头像启动间歇性不显示（华为畅享70Pro/红米K80 等多机型「刚点进网站头像时不时加载不出来」：
   //      cs-avatar-* 大图键常驻 IDB-only 区，avatar-lib 收敛基线在 idbRestore 回填前初始化读空被污染，
   //      回填完成的 restore-done 只刷桌面圈/聊天顶栏，convergeAvatars 因基线相等永不触发 → 气泡头像一直空）====
@@ -1352,6 +1364,61 @@ const FIX_SENTINELS = [
   { name: '#435 面板 img 统一创建补 decoding=async（emojiNewImg；删则大 dataURL 解码阻塞渲染帧＝图慢半拍复发，字卡库同款属性面板漏配）', file: 'js/chat.js', needle: "img.decoding = 'async';" },
   { name: '#435 组内令牌收集预热（只收 @@m: 令牌交 mochiMediaWarmTokens；删则令牌卡回退逐图 miss 读排队＝冷启动面板图慢半拍）', file: 'js/chat.js', needle: "s.indexOf('@@m:') === 0) toks.push(s.slice(4));" },
   { name: '#435 媒体池令牌批量预热接口（mochiMediaWarmTokens idbGetMany 每批 8 批间让出+inflight 互斥；删则预热无人接=面板令牌图五段异步串行慢加载复发）', file: 'js/media-pool.js', needle: 'window.mochiMediaWarmTokens = function (hashes) {' },
+  // ==== #441 跨桌面通话记录串/消失（用户报「跨桌面打电话联系人的通话记录会串，没有显示实际联系人的电话」「跨桌面通话记录不会记录，会消失」+「接电话后跳转到当前联系人桌面」要写清是刻意设计。根因：①records.js 各渲染点只读桌面键 lbl-partner 取显示名——联系人管理新建、从未改昵称的联系人该键为空，主页通话/换头像/抓包/心意币/关心全部显示「TA」，多联系人分不清记录是谁的；记录数据本身按桌面命名空间隔离无串写（实测 A 去电通话中切 B 再挂断→记录落 A、B 为空；跨桌面来电接听挂断→记录落 B）；②跨桌面来电弹窗「稍后」与「弹窗被顶未应答」只标 seen 零记录＝无声消失；③接听先挂断进行中通话的文案承诺从未实现，currentCall 占用时点接听无反应；④功能说明「不会跳到对方的桌面」与实际（先切归属桌面再响铃）相反）====
+  { name: '#441 主页记录显示名走完整取名链（dispName：cs-lbl-partner→lbl-partner→联系人名片名→TA；删则回退只读 lbl-partner，新联系人全显示 TA＝通话记录看不出是谁的）', file: 'js/records.js', needle: "store.get('cs-lbl-partner')" },
+  { name: '#441 跨桌面来电稍后补记未接（callRecordMissed 复用 notifyCallEnd 落归属桌面；删则点稍后只标 seen，通话记录无声消失）', file: 'js/incoming-requests.js', needle: "if (req.kind === 'call' && window.callRecordMissed) window.callRecordMissed(req.cid, cName(req.cid));" },
+  { name: '#441 弹窗被顶/未应答释放来电补记未接（wasCall+setStatus 命中才记，幂等；删则弹窗被顶/跨会话孤儿来电零留痕）', file: 'js/incoming-requests.js', needle: 'if (wasCall && window.callRecordMissed) window.callRecordMissed(cid, cName(cid));' },
+  { name: '#441 跨会话孤儿来电自愈补记未接（queue() TTL 释放点；删则刷新/杀进程时未应答的来电弹窗随会话蒸发零留痕）', file: 'js/incoming-requests.js', needle: "if (x.kind === 'call' && window.callRecordMissed) { try { window.callRecordMissed(x.cid, cName(x.cid)); } catch (e) {} }" },
+  { name: '#441 未接补记写手（call.js callRecordMissed→notifyCallEnd：系统消息+记录都落归属桌面；删则 incoming-requests 调用落空）', file: 'js/call.js', needle: 'window.callRecordMissed = function (cid, name)' },
+  { name: '#441 接听跨桌面来电先挂断进行中通话（文案承诺；删则 currentCall 占用时点接听无反应、来电静默丢失）', file: 'js/incoming-requests.js', needle: 'if (window.getCallState && window.getCallState() && window.hangupCall) window.hangupCall();' },
+  { name: '#448 跨桌面来电默认关闭（deskCallEn 未存键返回 false 需手动开启；删则回退默认开＝用户点名「默认关闭」静默失效，存量显式开/关不受影响）', file: 'js/incoming-requests.js', needle: "if (v === null || v === undefined || v === '') return false; // 默认关" },
+  // ==== #442 iOS「左右滑动卡 + 总是自动刷新重进」多机型（iPhone 15 Pro Max via 诊断实锤
+  //      default:cc-groups 单键 153MB + cc-groups-public 90MB；#377 公用库 OOM 家族专属库面：
+  //      专属库裸 parse 无令牌化、编辑树 groups 开机常驻、去重任务双库同 parse、面板/搜索/角标
+  //      反复全量 parse＝jetsam 反复杀页面）====
+  { name: '#442 专属库池视图令牌化（ownPoolRaw 构建后即交 ccTokenizeGiantMedia；删则 153MB 级专属库解析副本带 dataURL 常驻回复池＝iOS jetsam「自动刷新重进」OOM 家族专属库面复发）', file: 'js/chatcard.js', needle: 'ccTokenizeGiantMedia(ownPoolCache);' },
+  { name: '#442 回复池专属侧改走令牌化池视图（删则回退编辑树 groups 直入池＝大库 parse 树常驻+未令牌化卡回退）', file: 'js/chatcard.js', needle: 'return mergeFiltered(ownPoolRaw(), pubGroupsRaw());' },
+  { name: '#442 挂起大键取回不再无条件载编辑树（管理页开着才载；删则聊天路径取回即全量 parse 153MB 级库并常驻＝开聊天即冻结/自动重载复发）', file: 'js/chatcard.js', needle: 'if (scopeLive && ccPageOpen()) {' },
+  { name: '#442 离开字卡库页释放编辑树（删则一次开页后数百 MB parse 副本驻留到刷新＝内存永不回落复发）', file: 'js/chatcard.js', needle: "if (ccScope !== 'public') { groups = null; return; }" },
+  { name: '#442 去重任务大库免解析预检（双侧合计>96MB 只记 mark 免读跳过；删则 90+153MB 双库整串读入+双 parse 在启动+30s 必现＝秒级长任务/OOM 复发）', file: 'js/chatcard.js', needle: 'pubRaw.length + ownLen > DD_PARSE_LIMIT' },
+  { name: '#442 表情包面板专属分区走令牌化池视图（删则回退每次开面板全量 parse 大库＝开面板秒级冻结/左右滑动卡复发）', file: 'js/chatcard.js', needle: "(scope === 'public') ? pubGroupsRaw() : ownPoolRaw()" },
+  { name: '#442 懒加载态拒绝空树整包写回（saveGroups/flushCcSave/ccEnsureDurable 判空收口；删则页外写入方拿空编辑树覆盖权威键＝字卡库整库清空复发，#193 同族）', file: 'js/chatcard.js', needle: "if (!groups) { ccDirty = false; return; }" },
+  // ==== 2026-09-14 #446 花园扩建改自愿+一键补种+养护减负（用户反馈「花园里不用一直扩建，建这么多养不过来」：
+  //      ①等级自动送地改「开垦资格」手动开垦——plotN=已开垦数，load() 迁移按当前等级一次性补齐资格，存量玩家已有的地一块不少；
+  //      ②升级里程碑跨 Lv3/5/8/12 各送 1 颗随机稀有种子，升级奖励与「要不要多地块」脱钩；
+  //      ③浇水有效期 24h→36h（WATER_SEC）、凋谢宽限 48h→72h（WILT_SEC=259200）、新增温室装饰满保水；
+  //      ④工具条「补种」空地按上次品种一键补齐（不消耗 rareInv 稀有库存））====
+  { name: '#446 扩建改自愿·开垦资格到顶分支（plotN≥资格给提示弹窗；删则回退等级自动送地，「建这么多养不过来」复发）', file: 'js/garden.js', needle: 'if (cur >= ent) {' },
+  { name: '#446 plotN 存量迁移（load 按当时等级一次性补齐资格＝老玩家已有的地不缩一块；删则存量玩家升级后地块被裁回 12 块）', file: 'js/garden.js', needle: 'd.plotN = PLOTS + (lv0 >= 3 ? 4 : 0)' },
+  { name: '#446 里程碑奖励与地块脱钩（跨 Lv3/5/8/12 送稀有种子；删则「不开垦=亏升级奖励」的强制感回归）', file: 'js/garden.js', needle: 'msgs.push("🎁 里程碑奖励：稀有种子「"' },
+  { name: '#446 一键补种（空地按上次品种补齐且不消耗稀有库存；删则 30 块地日常=逐块点种植，养护负担复发）', file: 'js/garden.js', needle: 'data.lastSeed && T[data.lastSeed] && !T[data.lastSeed].rare' },
+  { name: '#446 浇水有效期 36h（waterLvl 分母 WATER_SEC；删则回退 24h 天天浇＝多地块高负担复发）', file: 'js/garden.js', needle: 'plot.watered) / WATER_SEC);' },
+  { name: '#446 凋谢宽限 72h（WILT_SEC=259200；删则回退 48h 收不及时就枯萎＝收花心意币 ¥52→¥1.3 钱损复发）', file: 'js/garden.js', needle: 'var WILT_SEC = 259200;' },
+  // ==== 2026-09-14 #450 收藏页「大量内容加载失败，只出现问号黑块」+图片显示异常（iPhone 15 Pro Max Chrome 等多机型；
+  //      iOS 裂图=黑底问号块。根因：miss 读并发上限 MISS_READ_MAX=8，一屏令牌图超上限的部分当年拿不到读也不再被扫
+  //      ——src 保持 @@m: 令牌＝浏览器当相对 URL 404＝裂图；原实现只在 DOM 再变更时才重扫，收藏列表翻到底不再动的
+  //      静态页饿死图永久裂；另 idbGet 在 IDB 拥塞/内核挂起（#229 家族）时迟回不回＝槽位永久占满后续全饿死）====
+  { name: '#450 miss 读重试泵（每次 miss 读结算防抖全文档补扫，上限饿死图逐波清零；删则收藏页等静态页超 MISS_READ_MAX 的令牌图永久保持 @@m: src=404 裂图＝iOS 问号黑块复发）', file: 'js/media-pool.js', needle: 'function missRetryPump() {' },
+  { name: '#450 miss 读单飞结算+看门狗（槽位释放与结果处理解耦，双路只放行一次；删则 idbGet 挂起时槽位永久占满＝该哈希与后续读全部饿死成裂图，迟到结果双扣 missReads）', file: 'js/media-pool.js', needle: 'const __tokSettle = function () {' },
+  // ==== 2026-09-14 #451 词典拼字/梦角自由造句「消息显示 A、引用预览显示 B」（iOS Chrome 等多机型同报：
+  //      正文换血（rep.text=拼字/造句结果）后 parts 残留原回复——气泡渲染 parts 优先于 text（#202 混合消息链路），
+  //      引用快照/收藏/回复引用读 text＝两轨不一致；创建侧同步重建+存量按来源 chip 归一化治愈）====
+  { name: '#451 词典拼字正文换血同步重建 parts（文本段=最终正文+保留图片段；删则气泡渲染 parts 优先与引用/收藏读 text 两轨不一致＝「消息显示 A 引用预览显示 B」复发）', file: 'js/chat.js', needle: 'function spellPartsSync(text, prevParts) {' },
+  { name: '#451 存量治愈（normCell 按来源 chip 识别换血旧消息，文本段≠正文时以正文重建 parts；删则历史词典拼字/梦角造句消息引用预览继续与气泡不一致）', file: 'js/chat.js', needle: "md.tag === '词典逐卡连发'" },
+  // ==== 2026-09-14 #452 「每次打开都有自检和优化，点击之后再次打开仍然会有」+iOS 卡顿（iPhone 15 Pro Max Chrome；
+  //      ①#411 免打扰标记裸 localStorage.setItem 在 LS 配额满（诊断 5.1MB 顶满 iOS 配额）时被 catch 吞=标记永远写不进
+  //      =每次启动都弹；②启动主动扫描 mochiCcSlimScan 把 44.59MB 公用库整串读入堆+逐组 stringify（纯算字节）＝启动期
+  //      秒级长任务/堆尖峰＝「一打开就卡/自动刷新重进」主力，且因①每次必付）====
+  { name: '#452 优化免打扰标记 IDB 权威写+LS 兜底（裸 LS setItem 配额满被吞＝每次启动都弹「卡顿自检」；删则 LS 满设备提示循环复发）', file: 'js/personalize.js', needle: 'window.idbGet(PERF_REMIND_KEY)' },
+  // ==== 2026-09-14 #453 消消乐模式拆分（用户点名「可选有道具的模式和默认简单模式没有道具」：头部 m3-mode 下拉按联系人
+  //      记住 lastMode；简单=纯经典三消零道具（默认）；道具=经典消消乐道具集——四连直线→↔️/↕️清整行/整列、
+  //      L/T 同色交叉（合计≥5格）→💥炸弹3×3、五连+→🌈彩虹（#301 炸弹/彩虹逻辑沿用）；随批 isRainbow 值域修正：
+  //      直线道具 30+/40+ 也 ≥RAINBOW，裸 `>= RAINBOW` 判彩虹会把直线道具误当彩虹）====
+  { name: '#453 消消乐道具模式门控（仅道具模式且交换首段消除才生成道具；删则简单模式也出道具＝「默认无道具」失效、或道具模式永远不出道具）', file: 'js/match3.js', needle: "chain === 1 && st.mode === 'item'" },
+  { name: '#453 消消乐直线道具清列爆炸（↕️ 被消除清整列；删则纵向直线道具成摆设，姊妹锚 push([p[0], cc]) 守清行）', file: 'js/match3.js', needle: 'queue.push([rr, p[1]]);' },
+  { name: '#453 消消乐直线道具清行爆炸（↔️ 被消除清整行；删则横向直线道具成摆设）', file: 'js/match3.js', needle: 'queue.push([p[0], cc]);' },
+  { name: '#453 消消乐 L/T 同色交叉→炸弹（两道同色直线共享一格合计≥5格；删则 L/T 交叉退化普通三消＝经典消消乐包裹糖玩法丢失）', file: 'js/match3.js', needle: 'runs[i].len + runs[j].len - 1 >= 5' },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

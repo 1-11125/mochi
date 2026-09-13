@@ -263,6 +263,24 @@
   const enterEl = document.getElementById('splash-enter');
   const loadingEl = document.getElementById('splash-loading');
   const hintEl = document.getElementById('splash-enter-hint');
+  // #315c：一次性年龄确认闸门——勾选「已年满 18 周岁并同意全部说明」后才可进入；
+  //   确认一次永久记住（xy-home-v2:age-confirmed），之后开屏自动勾上不重复打断。
+  //   与「滑到底」并列为进入前置条件：未勾选时按钮置灰（updateEnterState），
+  //   enter/forceEnter 双入口都拦截。checkbox 行为 label 包裹，点击文字即可勾选。
+  const AGE_KEY = 'xy-home-v2:age-confirmed';
+  let ageOk = false;
+  try { ageOk = localStorage.getItem(AGE_KEY) === '1'; } catch (e) {}
+  const ageRow = document.getElementById('splash-age-row');
+  const ageCheck = document.getElementById('splash-age-check');
+  if (ageRow && ageCheck) {
+    ageCheck.checked = ageOk; // 已确认过的老用户自动勾上，不重复打断
+    ageRow.hidden = false;
+    ageCheck.addEventListener('change', function () {
+      ageOk = !!ageCheck.checked;
+      try { if (ageOk) localStorage.setItem(AGE_KEY, '1'); } catch (e) {}
+      updateEnterState();
+    });
+  }
   // v3.26.x：数据加载较慢（idbRestore 12 秒保险丝触发）且未真就绪时显示的逃生口链接
   const forceEnterEl = document.getElementById('splash-force-enter');
   let slow = false;
@@ -362,7 +380,7 @@
   let readyForced = false;
   function updateEnterState() {
     const r = ready() || readyForced;
-    const ok = r && scrolledBottom;
+    const ok = r && scrolledBottom && ageOk; // #315c：年龄确认与滑到底并列为可点条件
     if (loadingEl) {
       // 数据未就绪 → 仍在加载数据；数据已就绪但页面资源未加载完 → 提示等待页面
       loadingEl.hidden = r && loaded();
@@ -373,8 +391,8 @@
       enterEl.hidden = !r || !loaded();
       enterEl.classList.toggle('is-disabled', !ok); // div 上设 disabled 属性不落 DOM，用 class 控制置灰
     }
-    // 仍要进入：仅在「页面已加载完成 + 较慢且未真就绪」时显示，真就绪后隐藏
-    if (forceEnterEl) forceEnterEl.hidden = ready() || readyForced || !slow || !loaded();
+    // 仍要进入：仅在「页面已加载完成 + 较慢且未真就绪 + 已确认年满18」时显示，真就绪后隐藏
+    if (forceEnterEl) forceEnterEl.hidden = ready() || readyForced || !slow || !loaded() || !ageOk;
   }
   const enter = () => {
     if (splash.classList.contains('hide')) return;
@@ -384,7 +402,7 @@
       if (readyForced) { showMandatory(); }
       return; // 数据未就绪且未硬放行：禁止进入（原有门控）
     }
-    if (!scrolledBottom || !loaded()) return; // 未滑到底 / 页面未加载完：禁止进入
+    if (!scrolledBottom || !loaded() || !ageOk) return; // 未滑到底 / 页面未加载完 / 未确认年满18：禁止进入
     // 今日首次进入（本次仍强制通读）→ 记下已读，当日再次打开不再展开全文
     if (!seenToday) {
       try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
@@ -397,6 +415,7 @@
   // 任何入口进入都先读公告；确认进入后由 finishEnter 提示数据可能不全
   const forceEnter = () => {
     if (splash.classList.contains('hide')) return;
+    if (!ageOk) return; // #315c：逃生口同样要求先勾选年龄确认
     if (!seenToday) {
       try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
     }

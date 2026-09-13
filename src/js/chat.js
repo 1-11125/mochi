@@ -653,6 +653,20 @@ function normCell(r) {
 // 名称形态）补 type='voice'，走语音气泡渲染（名称缺省「语音消息」），不再当纯文本直出
 if ((r.type === 'text' || !r.type) && typeof r.text === 'string' &&
 (r.text.indexOf('data:audio/') === 0 || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
+// #451 存量治愈：词典拼字/梦角自由造句旧消息「正文换血后 parts 残留原回复」——气泡渲染
+// parts 优先于 text（#202 混合消息链路），引用快照/收藏/回复引用读 text＝「消息显示 A、
+// 引用预览显示 B」（iOS Chrome 等多机型同报）。addIn 白名单不存 spell/mjFree 字段，
+// 来源 chip（mood tag）是唯一持久化标识；文本段≠正文时以正文重建 parts（保留图片段）。
+// 幂等：重建后文本段===text 不再触发。
+if (Array.isArray(r.parts) && r.parts.length && typeof r.text === 'string' && r.text &&
+Array.isArray(r.mood) && r.mood.some(md => md && (md.tag === '词典' || md.tag === '词典拼字' || md.tag === '词典逐卡连发' || md.tag === '梦角自由造句'))) {
+const __hpImgs = r.parts.filter(p => p && p.k === 'img');
+const __hpTxt = r.parts.filter(p => p && p.k === 'text').map(p => p.v).join(' ');
+if (__hpTxt !== r.text) {
+r.parts = __hpImgs.length ? [{ k: 'text', v: r.text }].concat(__hpImgs) : null;
+c = true;
+}
+}
     if (r.special === 'poke' && typeof r.text === 'string' && r.text.indexOf('&lt;svg class=&quot;st-ico&quot;') === 0) {
       const mm = r.text.match(/^(&lt;svg class=&quot;st-ico&quot;[\s\S]*?&lt;\/svg&gt;)([\s\S]*)$/);
       if (mm) { r.text = mm[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&') + mm[2]; c = true; }
@@ -1913,7 +1927,13 @@ const b = document.createElement('button');
 b.className = 'ip-opt';
 b.textContent = String(o.t || '');
 b.addEventListener('click', () => {
-if (window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), o.reply);
+// v3.43.x #447：单选题点选项——「回应接聊天字卡/词典」开关开启时同样走普通聊天完整链路
+//（公用+专属字卡+系统字卡+词典拼字，genChatStyleReply raw 直传），不再走 90/10 预设混合；
+// 未掷中/开关关＝原选项预设回应路径不变
+let _cr = null;
+if (window.taAskChatReplyOn && window.taAskChatReplyOn() && window.genChatStyleReply) _cr = window.genChatStyleReply();
+if (_cr && window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), _cr, { raw: true });
+else if (window.chatAskReply) window.chatAskReply(idx, String(o.t || ''), o.reply);
 if (window.logFish) window.logFish();
 });
 wrap.appendChild(b);
@@ -4031,13 +4051,29 @@ try { const _w = window.periodWarmText(rep.text); if (_w) rep.text = _w; } catch
 // 旧版返回纯数组仍兼容为逐卡连发。
 let spellSegs = null;
 let spellOne = false;
+// #451：spell 换血前的原回复图片段（表情/图片），逐卡连发末气泡重建 parts 时复用
+let spellImgParts = null;
+// #451：按最终正文重建 parts（文本段=正文，保留原回复图片段；无图片段返回 null 维持
+// 「纯文本消息不带 parts」的存储口径，气泡回落 text 分支与引用/收藏同源）
+function spellPartsSync(text, prevParts) {
+const imgs = (prevParts || []).filter(p => p && p.k === 'img');
+return imgs.length ? [{ k: 'text', v: text }].concat(imgs) : null;
+}
 try {
 const _sp = (window.quoteSpellPick && window.quoteSpellPick(c)) || null;
 if (_sp && Array.isArray(_sp.segs)) { spellSegs = _sp.segs; spellOne = !!_sp.one; }
 else if (Array.isArray(_sp)) { spellSegs = _sp; }
 } catch (e) {}
 if (spellSegs && spellSegs.length > 1) {
-rep = { text: spellSegs.join(''), type: 'text', spell: spellSegs, spellOne: spellOne, parts: rep.parts || null };
+// #451：正文换血必须同步重建 parts——气泡渲染 parts 优先于 text（#202 混合消息链路），
+// 引用快照/收藏/回复引用读 text，两轨不同步＝「消息显示 A、引用预览显示 B」（iOS Chrome
+// 等多机型同报，词典拼字/梦角自由造句同族）。口径：文本段=最终正文（与 addIn 文本一致，
+// 单气泡 join(' ')、逐卡连发末气泡=本卡），原回复掷中的表情/图片段原样保留。
+const __spText = spellOne ? spellSegs.join(' ') : spellSegs.join('');
+const __spImgs = (rep.parts || []).filter(p => p && p.k === 'img');
+spellImgParts = __spImgs;
+rep = { text: __spText, type: 'text', spell: spellSegs, spellOne: spellOne,
+parts: __spImgs.length ? [{ k: 'text', v: __spText }].concat(__spImgs) : null };
 }
 // #317 梦角自由造句：开关开启时按「触发概率」把本条回复换成「梦角语料抽卡→截断几字重造句」，
 // 新句异步入库（自定义聊天字卡「梦角自由造句」分类，下次可再被抽用）；气泡下挂
@@ -4046,7 +4082,8 @@ let mjf = null;
 if (!spellSegs) {
 try { mjf = (window.dreamFreePick && window.dreamFreePick(c)) || null; } catch (e) { mjf = null; }
 if (mjf && mjf.text) {
-rep = { text: mjf.text, type: 'text', mjFree: true, parts: rep.parts || null };
+// #451：同上——造句新句换血 text 后 parts 同步重建，杜绝气泡（parts）与引用/收藏（text）两轨
+rep = { text: mjf.text, type: 'text', mjFree: true, parts: spellPartsSync(mjf.text, rep.parts) };
 setTimeout(() => { try { if (window.dreamFreeSave && mjf.text) window.dreamFreeSave(mjf.text); } catch (e) {} }, 800);
 }
 }
@@ -4078,7 +4115,7 @@ quote: si === 0 ? quote : null,
 qside: 'out',
 qidx: (si === 0 && quote) ? quoteIdx : undefined,
 type: 'text',
-parts: si === rep.spell.length - 1 ? rep.parts : null,
+parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
 silent: si > 0 ? true : silent,
 // #350：逐卡连发的每条气泡挂「词典逐卡连发」tag（与单气泡的词典/词典拼字区分，
 // tagNoDup 不重复正文，chip 随消息持久化重进聊天仍在）
@@ -4347,6 +4384,22 @@ if (im.length) parts.push({ k: 'img', v: im[Math.floor(Math.random() * im.length
 }
 return { text: t, type: 'text', parts: parts.length > 1 ? parts : null };
 }
+// v3.43.x #447：互动卡片「接聊天字卡」同源回应生成器——ta-ask.js 文字题/单选题开启开关后
+// 按普通聊天完整链路生成一条回应（与 replyOnce 同序）：公用+专属字卡（getPool 按 py-en
+// 概率抽卡）→ genReplyText 兜底 → 系统字卡（csp-cust 概率让位默认字卡）→ 固定回复字卡/
+// 追问/表情贴图，再词典拼字（quoteSpellPick，qs-en 总开关）命中整条替换。返回纯文本
+//（拼字 segs 空格连，固定单气泡形态）；理论上 genOneReply 必有兜底文本，异常才返回 null。
+window.genChatStyleReply = function () {
+let rep = null;
+try { rep = genOneReply(cfg()); } catch (e) {}
+try {
+const _sp = (window.quoteSpellPick && window.quoteSpellPick(cfg())) || null;
+const segs = _sp && Array.isArray(_sp.segs) ? _sp.segs : (Array.isArray(_sp) ? _sp : null);
+if (segs && segs.length) return segs.join(' ');
+} catch (e) {}
+const t = rep && typeof rep.text === 'string' ? rep.text.trim() : '';
+return t || null;
+};
 let autoTimer = null;
 function scheduleAutoSend() {
 clearTimeout(autoTimer);

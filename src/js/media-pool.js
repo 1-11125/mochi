@@ -49,6 +49,26 @@
   //（iPhone 16 Safari「界面卡住点不动」，与其他机型同族）。
   let missReads = 0;
   const MISS_READ_MAX = 8;
+  // #450 miss 读在飞看门狗：IDB 拥塞/内核挂起（#229 家族）时 idbGet 可能迟回不回，
+  // 不释放槽位＝missReads 永久占满＝此后所有令牌图全部饿死成裂图。到期只放行「读槽」，
+  // 迟到的结果照常结算（settle 单飞防双扣）。15s 取「慢机一次大库读的数倍」量级。
+  const TOK_WATCH_MS = 15000;
+  // #450 miss 读重试泵：MISS_READ_MAX=8 并发上限下，一屏令牌图超过上限的部分（收藏页
+  // 大量旧收藏/字卡库大组首屏）拿不到读也不再被扫——src 保持 @@m: 令牌＝浏览器当相对
+  // URL 请求 404＝iOS 裂图问号黑块（#402 同款表现）。原实现只在「DOM 再变更」时才重扫，
+  // 静态页面（收藏列表翻到底不再动）饿死图永久裂＝「收藏大量内容加载失败，只出现问号
+  // 黑块」多机型同报。这里每次 miss 读结算后 300ms 防抖全文档补扫一轮：map 已热/inflight
+  // 在飞/tokTried 已试/missing 已占位的哈希天然跳过，只重试被上限饿死的图，逐波清零。
+  // 防抖幂等，无常驻定时器；上限满时本轮直接放弃（等下次结算再泵）。
+  let missPumpT = null;
+  function missRetryPump() {
+    if (missPumpT) return;
+    missPumpT = setTimeout(function () {
+      missPumpT = null;
+      if (missReads >= MISS_READ_MAX) return;
+      try { scanRoot(document); } catch (e) {}
+    }, 300);
+  }
   window.mochiMediaTokenMissing = function (s) { const m = TOKEN_RE.exec(s || ''); return !!(m && missing.has(m[1])); };
   // FIX 2026-09-13 #397 批量打占位——旧实现每个缺失 hash 各做一次全文档 querySelectorAll，
   // 坏图成片的设备（池数据没跟过来的大库）一次渲染几十次查询＝主线程尖峰；改为攒批 + 单次扫描。
@@ -199,13 +219,27 @@
     if (v) { img.src = v; return; }
     if (inflight[h]) return;
     try { if (img.dataset && img.dataset.tokTried === h) return; } catch (e) {}
-    if (missReads >= MISS_READ_MAX) return;
+    // #450 被上限饿死的图不再无声返回——登记一次防抖补扫（本轮上限没满时直接被下方
+    // 正常读走，泵空转一次无害）；饿死图未设 tokTried，泵补扫时会正常重试
+    if (missReads >= MISS_READ_MAX) { missRetryPump(); return; }
     try { if (img.dataset) img.dataset.tokTried = h; } catch (e) {}
     inflight[h] = true;
     missReads++;
-    window.idbGet(FULL + h).then(function (v2) {
+    // #450 单飞结算收口：释放槽位（inflight/missReads）与「处理结果」解耦——看门狗到期
+    // 或 idbGet 返回，谁先到谁结算，只结算一次（防 missReads 被超量扣减）；结算后泵一轮
+    // 补扫，把被上限饿死的图逐波清掉。迟到的 idbGet 结果照常按下方体检处理。
+    const __tokSt = { settled: false };
+    const __tokSettle = function () {
+      if (__tokSt.settled) return;
+      __tokSt.settled = true;
+      clearTimeout(__tokWatch);
       delete inflight[h];
       missReads = Math.max(0, missReads - 1);
+      missRetryPump();
+    };
+    const __tokWatch = setTimeout(function () { __tokSettle(); }, TOK_WATCH_MS);
+    window.idbGet(FULL + h).then(function (v2) {
+      __tokSettle();
       // FIX 2026-09-10 #275 池值体检：池里只可能存 data:image/ 字符串（tokenize 入口已保证）。
       // 读到空串/脏值（旧「只备份文字」备份把池 dataURL 剥成 "" 再导入所致）绝不能当有效数据：
       // 原 `typeof v2 !== 'string'` 放行空串 → map 永久缓存 '' + img.src=''（解析成页面 URL）
@@ -218,7 +252,7 @@
       let nodes;
       try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
       Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
-    }).catch(function () { delete inflight[h]; missReads = Math.max(0, missReads - 1); });
+    }).catch(function () { __tokSettle(); });
   }
   function scanRoot(root) {
     if (!root) return;
