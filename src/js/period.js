@@ -1152,6 +1152,10 @@
   function checkCare() {
     if (!notifyCfg.careEnabled) return;
     if (!window.chatAddIn) return;
+    // v3.42.x #422：在「梦角关心」开关之外，叠加「其他互动功能字卡」里的「TA的关心（经期）」
+    //   概率门控（dcf-care，默认 100%＝保持原节奏，0%＝不发关心）。总开关 dcf-enabled 也会覆盖它。
+    //   随联系人桌面隔离；经期页「梦角关心」按钮（careEnabled）仍独立生效，两者都关才真完全关。
+    try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('care') : 100)) return; } catch (e) {}
     var st = status();
     var today = todayStr();
     var shouldCare = false, ctx = '';

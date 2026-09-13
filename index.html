@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789307871556">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.657</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 21:57<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789308430716">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.658</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 22:07<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.657</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.658</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10959,7 +10959,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.657</span>
+              <span class="lic-ver">v3.26.658</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11971,6 +11971,9 @@ transition-duration: .01ms !important;
              不参与上方案引卡管理；0%=不进聊天，100%=原行为。功能说明标签由 default-cards.js 注入。 -->
         <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>番茄钟完成发到聊天</span><div class="stepper" id="dcf-prob-pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-val" readonly><button class="stp-max">+</button></div></div>
+        <!-- v3.42.x #422：TA的关心（经期）——在经期页「梦角关心」按钮之外追加一层概率门控，
+             0%=不发关心，100%=只按经期页原节奏；「梦角关心」按钮本身不受本概率影响。 -->
+        <div class="gs-row"><span>TA的关心（经期）</span><div class="stepper" id="dcf-prob-care" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-care-val" readonly><button class="stp-max">+</button></div></div>
       </div>
     </div>
 
@@ -19971,7 +19974,7 @@ await tick();
 if (changed) {
 let s = '';
 try { s = JSON.stringify(g); } catch (e) { reasons.push('字卡库「' + L.label + '」写回序列化失败，跳过'); continue; }
-try { window.xyStore(L.prefix).set(L.key, s); }
+try { window.xyStore(L.prefix.slice(0, -1)).set(L.key, s); }
 catch (e) { reasons.push('字卡库「' + L.label + '」写回失败：' + ((e && e.message) || e)); }
 }
 await tick();
@@ -19990,9 +19993,9 @@ if (!r.data) { out.skipped++; continue; }
 const oldLen = v.length;
 const newLen = r.data.length;
 if (newLen < oldLen * 0.9) {
-const prefix = k.slice(0, k.lastIndexOf(':') + 1);
-const bare = k.slice(prefix.length);
-try { window.xyStore(prefix).set(bare, r.data); out.processed++; out.saved += (oldLen - newLen) * 2; }
+const k0 = k.slice(0, k.lastIndexOf(':')); // 去尾冒号：xyStore 会自己拼 ':' + bare
+const bare = k.slice(k.lastIndexOf(':') + 1);
+try { window.xyStore(k0).set(bare, r.data); out.processed++; out.saved += (oldLen - newLen) * 2; }
 catch (e) { reasons.push('美化图片「' + bare + '」写回失败：' + ((e && e.message) || e)); }
 } else { out.skipped++; }
 await tick();
@@ -45752,15 +45755,15 @@ valEl.value = String(nv); dcProbSet(k, nv);
 toast('默认字卡' + label + '占比：' + nv + '%');
 });
 });
-const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100 };
-const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟' };
+const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100, care: 100 };
+const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟', care: 'TA的关心' };
 function dcfEnabled() {
 try { const v = window.activeStore().get('dcf-enabled'); return v === null ? true : v === '1'; } catch (e) { return true; }
 }
 function dcfEnableSet(on) { try { window.activeStore().set('dcf-enabled', on ? '1' : '0'); } catch (e) {} }
 window.dcfEnabled = dcfEnabled;
 function dcfVal(k) {
-if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo') && !dcfEnabled()) return 0;
+if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo' || k === 'care') && !dcfEnabled()) return 0;
 if (!(k in DCF_DEF)) return 100;
 try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
 return DCF_DEF[k];
@@ -45811,7 +45814,8 @@ drift: '【漂流瓶】捞起漂流瓶时，瓶内联系人附上的话术字卡
 interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不回应字卡。',
 music: '【音乐】听歌 / 点歌 / 分享歌互动时，联系人回应的字卡。\n概率 = 互动时出现字卡的概率，0% = 互动不出字卡。',
 checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在 / 在做什么 / 想对你说）时，推送到聊天里的三条消息：更新提示 + 日常内容 + 概率「提醒你来寻踪」。\n概率 = 本次更新是否推送到聊天的概率，100% = 每次都发，0% = 完全不发。\n关闭后，寻踪页与历史记录照常生成，只是不再进聊天刷屏。',
-pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。'
+pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。',
+care: '【TA的关心（经期）】预测到经期/排卵期的前后、或推迟≥5天时，联系人在聊天里发「经期关心」话术（附「经期关心」标签）。经期中每天最多一条，且按周期第几天有不同基数概率（第1-2天90%、第3-4天70%、第5+天55%；经期前提醒/推迟预警75%）。\n本概率 = 在那些基点之上是否额外放行：100% = 保持原节奏，0% = 完全不发关心。\n更彻底：到「经期记录」页把「梦角关心」按钮也关掉（两者都关才真的完全关）。'
 };
 (function () {
 function injBox(boxId, ks) {
@@ -72888,6 +72892,7 @@ return lines[Math.floor(Math.random() * lines.length)];
 function checkCare() {
 if (!notifyCfg.careEnabled) return;
 if (!window.chatAddIn) return;
+try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('care') : 100)) return; } catch (e) {}
 var st = status();
 var today = todayStr();
 var shouldCare = false, ctx = '';
@@ -76954,7 +76959,12 @@ else boot();
 } catch (__e) { try { console.error("[JS] drift-bottle.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
-const uid = window.activePrefix(); // 历史遗留声明（未使用），保留兼容
+let uid; try { uid = window.activePrefix(); } catch (e) { uid = null; } // 历史遗留声明（未使用）；v3.27.x#421b：顶层对 window 的急切调用加容错——原写法若加载瞬间全局未就绪，第一句即抛错、整文件报废、openDecision 永不绑定（用户报「帮我决定加载失败」跨机型反复出现）
+let decisionPanelRef = null;
+window.openDecision = function () {
+return decisionPanelRef ? decisionPanelRef.apply(window, arguments)
+: (toast('帮我决定加载失败'), false);
+};
 const store = window.xyStore('xy-home-v2');
 const HISTORY_KEY = 'decision-history';
 const SETTINGS_KEY = 'decision-settings';
@@ -77263,12 +77273,17 @@ el.innerHTML = h.length
 ).join('')
 : '<div class="ta-empty">暂无帮我决定记录</div>';
 }
-window.openDecision = openPanel;
+decisionPanelRef = openPanel;
 })();
 } catch (__e) { try { console.error("[JS] decision.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
-const store = window.xyStore('xy-home-v2');
+let store; try { store = window.xyStore('xy-home-v2'); } catch (e) { store = null; } // v3.27.x #421b：顶层对 window 急切调用加容错（防加载瞬间未就绪整文件报废；downstream store.get/set 均已自带 try/catch 降级）
+let groupDecisionPanelRef = null;
+window.openGroupDecision = function () {
+return groupDecisionPanelRef ? groupDecisionPanelRef.apply(window, arguments)
+: (toast('多人决定加载失败'), false);
+};
 const MEMBERS_KEY = 'gdec-members';
 const HISTORY_KEY = 'gdec-history';
 const SETTINGS_KEY = 'gdec-settings';
@@ -77663,7 +77678,7 @@ return '<div class="tc-listitem">' +
 }).join('')
 : '<div class="ta-empty">暂无多人决定记录</div>';
 }
-window.openGroupDecision = openPanel;
+groupDecisionPanelRef = openPanel;
 const closeBtn = document.getElementById('chat-gdecision-close');
 if (closeBtn) closeBtn.addEventListener('click', (e) => {
 e.stopPropagation();
@@ -92084,4 +92099,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzvphs4 -->
+<!-- __MOCHI_EOF__ mtzw1h8c -->

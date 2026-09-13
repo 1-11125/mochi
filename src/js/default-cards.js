@@ -290,12 +290,12 @@
   //   stepper，存键 dcf-<分类>（per-cid，随桌面命名空间）。未设置时回退该分类的
   //   历史默认值（= 改版前代码里写死的触发概率），行为不变；设 0 即该分类字卡
   //   触发后不再随机出现。消费方统一走 window.dcfGet(分类) 读。
-  // v3.42.x #422：DCF_DEF 增补两个「发到聊天型」功能——checkin 寻踪日常推送、pomo 番茄钟完成消息。
-  //   它们不参与本页字卡管理（无独立字卡池），只挂概率门控：消费方 window.dcfGet('checkin'/'pomo')，
+  // v3.42.x #422：DCF_DEF 增补「发到聊天型」功能——checkin 寻踪日常推送、pomo 番茄钟完成消息、care 经期关心。
+  //   它们不参与本页字卡管理（无独立字卡池），只挂概率门控：消费方 window.dcfGet('checkin'/'pomo'/'care')，
   //   0%=彻底不进聊天，100%=原行为。deskcheck 跨桌面查岗回应为独立入口，不进本页概率列表总开关。
-  const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100 };
+  const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100, care: 100 };
   // v3.42.x #422：功能说明弹窗标题用的人类可读名（与概率行标签一致）。
-  const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟' };
+  const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟', care: 'TA的关心' };
   // v3.33.x：功能字卡总开关——【其他互动功能字卡】可整体开启/关闭（dcf-enabled 键，默认开启）。
   //   开启/关闭分别存 '1'/'0'；关闭后 FUNC_KEYS 各功能触发字卡都不再随机出现（dcfVal 返回 0），
   //   各分类概率（dcf-prob-*）仍保留。独立入口「联系人跨桌面查岗」(deskcheck) 不受此开关约束。
@@ -305,9 +305,9 @@
   function dcfEnableSet(on) { try { window.activeStore().set('dcf-enabled', on ? '1' : '0'); } catch (e) {} }
   window.dcfEnabled = dcfEnabled;
   function dcfVal(k) {
-    // v3.42.x #422：总开关同时覆盖新增的两个「发到聊天型」功能（checkin/pomo）——关总开关即
-    //   连寻踪日常推送与番茄钟完成消息一起停掉；deskcheck 是独立入口，仍不受总开关约束。
-    if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo') && !dcfEnabled()) return 0;
+    // v3.42.x #422：总开关同时覆盖新增的「发到聊天型」功能（checkin/pomo/care）——关总开关即
+    //   连寻踪日常推送、番茄钟完成消息与经期关心一起停掉；deskcheck 是独立入口，仍不受总开关约束。
+    if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo' || k === 'care') && !dcfEnabled()) return 0;
     if (!(k in DCF_DEF)) return 100;
     try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
     return DCF_DEF[k];
@@ -362,7 +362,8 @@
     interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不回应字卡。',
     music: '【音乐】听歌 / 点歌 / 分享歌互动时，联系人回应的字卡。\n概率 = 互动时出现字卡的概率，0% = 互动不出字卡。',
     checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在 / 在做什么 / 想对你说）时，推送到聊天里的三条消息：更新提示 + 日常内容 + 概率「提醒你来寻踪」。\n概率 = 本次更新是否推送到聊天的概率，100% = 每次都发，0% = 完全不发。\n关闭后，寻踪页与历史记录照常生成，只是不再进聊天刷屏。',
-    pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。'
+    pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。',
+    care: '【TA的关心（经期）】预测到经期/排卵期的前后、或推迟≥5天时，联系人在聊天里发「经期关心」话术（附「经期关心」标签）。经期中每天最多一条，且按周期第几天有不同基数概率（第1-2天90%、第3-4天70%、第5+天55%；经期前提醒/推迟预警75%）。\n本概率 = 在那些基点之上是否额外放行：100% = 保持原节奏，0% = 完全不发关心。\n更彻底：到「经期记录」页把「梦角关心」按钮也关掉（两者都关才真的完全关）。'
   };
   // 注入「功能说明」标签到每个概率行（含新启用的 checkin/pomo）——复用 .gs-row .tag 样式，
   // 标签带 data-fdesc/<data-dname，交给下方 document 级事件委托。
