@@ -612,20 +612,27 @@ function renderCheckinHistory() {
     store.set('checkin-current', JSON.stringify(ck));
     renderCheckinUI(ck);
     const name = store.get('lbl-partner') || 'TA';
-    // 更新提示系统消息：先发「联系人 更新了一条日常」（v3.7.x 调整顺序——
-    // 原先是字卡文字消息先发、系统提示后发，与用户预期相反）
-    if (window.chatAddSystem) {
-      window.chatAddSystem(name + ' 更新了一条日常');
-    }
-    // 再发日常更新内容消息（普通气泡消息，持久化）
-    // v3.6.x：只拼接存在的字段，避免 "在咖啡店 · undefined" 写进聊天记录
-    if (window.chatAddIn) {
-      const line = [ck.place, ck.action, ck.msg].filter(Boolean).join(' · ');
-      if (line) window.chatAddIn(line);
-    }
-    // 概率触发「提醒你来寻踪」
-    if (Math.random() * 100 < 30) {
-      window.chatAddIn(name + ' 提醒你来寻踪.查岗');
+    // v3.42.x #421：寻踪「日常」发送到聊天总开关（reply-ck-chat-en，随联系人桌面隔离）——
+    // 关闭后不在聊天里推「更新了一条日常 / 日常内容 / 提醒你来寻踪」三条消息；寻踪页与
+    // 记录照常生成。默认开（缺省=开），与设置页「回复设置→其他→TA 的日常」开关联动。
+    let ckChatOn = true;
+    try { ckChatOn = store.get('reply-ck-chat-en') !== '0'; } catch (e) {}
+    if (ckChatOn) {
+      // 更新提示系统消息：先发「联系人 更新了一条日常」（v3.7.x 调整顺序——
+      // 原先是字卡文字消息先发、系统提示后发，与用户预期相反）
+      if (window.chatAddSystem) {
+        window.chatAddSystem(name + ' 更新了一条日常');
+      }
+      // 再发日常更新内容消息（普通气泡消息，持久化）
+      // v3.6.x：只拼接存在的字段，避免 "在咖啡店 · undefined" 写进聊天记录
+      if (window.chatAddIn) {
+        const line = [ck.place, ck.action, ck.msg].filter(Boolean).join(' · ');
+        if (line) window.chatAddIn(line);
+      }
+      // 概率触发「提醒你来寻踪」
+      if (Math.random() * 100 < 30) {
+        window.chatAddIn(name + ' 提醒你来寻踪.查岗');
+      }
     }
     recordCheckin(ck);
     store.set('checkin-last', String(Date.now()));
