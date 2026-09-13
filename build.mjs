@@ -1224,6 +1224,11 @@ const FIX_SENTINELS = [
   { name: '#411 卡顿自检设置行入口（row-perf-optimize 锚点；删则设置页无「一键优化」入口）', file: 'template.html', needle: 'id="row-perf-optimize"' },
   { name: '#411 自检·仅大库才主动弹提示（level 门控；删则不判级 轻/中 也弹=骚扰）', file: 'js/personalize.js', needle: "if (agg.level !== '重') return;" },
   { name: '#402 缺失令牌占位换内联 SVG（删则令牌 src 被当相对 URL 请求 404＝iOS 裂图问号黑块）', file: 'js/media-pool.js', needle: 'const MISS_PLACEHOLDER' },
+  // ==== 2026-09-13 #412 情绪链/局部撤回 null 守卫（荣耀畅玩40 Plus 夸克等多机型「跳转个人聊天卡屏」报障，诊断 page-chat 反复
+  //      「Cannot read properties of null (reading 'querySelector')」——m 由 addRec 返回，实时去重命中时返回 null，
+  //      定时器触发对 null 调 querySelector/dataset 即崩；补 !m 守卫，防 m 为 null 的崩溃面）====
+  { name: '#412 情绪链渲染 null 守卫（m 为 null 时不再 querySelector；删则 page-chat 崩溃回归）', file: 'js/chat.js', needle: "if (!sameCid() || !m) return;\nconst bm = m.querySelector('.msg-bubble');" },
+  { name: '#412 局部撤回 null 守卫（m 为 null 时不再读 dataset；删则同源崩溃回归）', file: 'js/chat.js', needle: "if (!sameCid() || !m) return;\npartialRetractMsg(m, 'in');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

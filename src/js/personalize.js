@@ -7378,6 +7378,80 @@ try {
     }
   })();
 
+  // ===== v3.26.x #411：卡顿自检 · 一键优化（只优化不删除） =====
+  // 数据过大（如公用库 44MB）是 iOS/安卓间歇卡顿主因（#377/#387/#398 内存内瘦身后，
+  // 大库解析/按需取回仍是冻结点）。本模块扫描分级 + 非破坏预热：不碰不删任何用户数据，
+  // 不写任何业务键，跨设备零语义变化。入口：#row-perf-optimize 设置行 + 启动后大库主动弹。
+  (function () {
+    const row = document.getElementById('row-perf-optimize');
+    if (!row) return;
+    function pfmt(n) {
+      n = Number(n) || 0;
+      if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+      if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+      return n + ' B';
+    }
+    const LEVEL_CN = { 轻: '轻量', 中: '中度', 重: '较重' };
+    function perfToast(msg) {
+      try {
+        let t = document.getElementById('cc-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+        t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+        clearTimeout(t._pT); t._pT = setTimeout(function () { t.className = 'cc-toast'; }, 3200);
+      } catch (e) {}
+    }
+    // 弹出「一键优化」确认——每次调用前传入已扫描的 agg
+    function promptHeal(agg) {
+      if (!window.openModal || !window.mochiPerfHeal) { perfToast('当前环境不支持，请在支持 IndexedDB 的设备上使用'); return; }
+      const mb = (agg.totalBytes || 0) / 1048576;
+      let lines = [];
+      if (agg.ok) {
+        lines.push('扫描结果：字卡库共 ' + agg.libs + ' 个作用域，占用约 ' + pfmt(agg.totalBytes) + '（' + LEVEL_CN[agg.level] + '）。');
+        if (mb > 5) lines.push('其中最大分组约 ' + pfmt(agg.biggestBytes) + '，大分组 ' + agg.bigGroups + ' 个——这是切换/打开聊天卡顿的大头。');
+      } else {
+        lines.push('扫描未完成：' + ((agg && agg.reason) || '未知原因') + '。');
+      }
+      lines.push('「一键优化」会：取回被挂起的大库 + 预热回复池，把耗时移到这次点击里完成，之后的聊天/回复会明显顺滑。');
+      lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
+      window.openModal('卡顿自检 · 一键优化', '', function () {
+        perfToast('正在优化（字卡库较大会稍等片刻）…');
+        window.mochiPerfHeal().then(function (res) {
+          if (res && res.ok) perfToast('优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '，部分' : ''));
+          else perfToast('优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试');
+        });
+      }, { noInput: true, staticText: lines.join('\n') });
+    }
+    // 设置行点击：即时扫描并弹出结果
+    row.addEventListener('click', function () {
+      if (!window.mochiCcSlimScan) { perfToast('当前环境不支持，请在支持 IndexedDB 的设备上使用'); return; }
+      perfToast('正在扫描字卡库（较大会稍等）…');
+      window.mochiCcSlimScan().then(function (rep) {
+        const agg = window.mochiPerfAgg ? window.mochiPerfAgg(rep) : null;
+        promptHeal(agg || rep || {});
+      }).catch(function () { perfToast('扫描异常，请稍后重试'); });
+    });
+    // 启动后（数据就绪）：若字卡库确为大库则主动弹一次（3 天内不重复打扰）
+    const PERF_REMIND_KEY = 'perf-opt-remind';
+    function maybePerfPrompt() {
+      try {
+        if (!window.mochiCcSlimScan || !window.mochiPerfAgg) return;
+        const last = Number(localStorage.getItem('xy-home-v2:' + PERF_REMIND_KEY)) || 0;
+        if (Date.now() - last < 3 * 864e5) return;
+        setTimeout(function () {
+          window.mochiCcSlimScan().then(function (rep) {
+            if (!rep || !rep.ok) return;
+            const agg = window.mochiPerfAgg(rep);
+            if (agg.level !== '重') return; // 只有真正的大库才主动打扰
+            try { localStorage.setItem('xy-home-v2:' + PERF_REMIND_KEY, String(Date.now())); } catch (e) {}
+            promptHeal(agg);
+          }).catch(function () {});
+        }, 2500); // 启动让出主线程再扫，避免加剧启动帧
+      } catch (e) {}
+    }
+    if (window.__mochiDataReady) { try { setTimeout(maybePerfPrompt, 2000); } catch (e) {} }
+    else { document.addEventListener('mochi-restore-done', function h() { document.removeEventListener('mochi-restore-done', h); setTimeout(maybePerfPrompt, 2000); }); }
+  })();
+
   // 通话设置：点设置行 → 全屏设置页
   const callSettingsRow = document.getElementById('row-call-settings');
   if (callSettingsRow) {

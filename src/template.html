@@ -1527,7 +1527,7 @@
              不同机型各属其一：开启=声明本机为覆盖形态（恢复 env 顶部避让+全屏高度含 env），
              修「Mochi 行与系统时间重叠」；默认关=系统保留形态（修「底部白带」）。 -->
         <div class="set-row">
-          <div class="txt">顶部避让修正<span class="sub">顶部 Mochi 行与手机时间重叠时开启；底部出现白带时关闭（改后自动刷新）</span></div>
+          <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
         <div class="set-row" id="row-screen-diag">
@@ -1547,6 +1547,13 @@
         <div class="set-row" id="row-storage-view">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
           <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <!-- v3.26.x #411：卡顿自检 · 一键优化——字卡库数据过大（如公用库 44MB）是 iOS/安卓
+             间歇卡顿的主因，本行扫描分级 + 非破坏预热（取回挂起大键 + 令牌化回复池，不删数据） -->
+        <div class="set-row" id="row-perf-optimize">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+          <div class="txt">卡顿自检 · 一键优化<span class="sub">字卡库数据过大导致卡顿时，扫描分级并一键预热修复</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>

@@ -90,3 +90,55 @@
     })();
   };
 })();
+// ===== #411 卡顿自检 · 一键优化（只优化不删除，数据层纯逻辑，verify 可直载） =====
+// 背景：iPhone 15 Pro Max + Chrome 等多机型报「卡顿」——诊断实锤主因是公用/专属字卡库
+// 单键可达 44MB（#377/#387/#398 已做内存内令牌化瘦身，但大库的解析/按需取回仍是间歇冻结点）。
+// 本模块只做「把大库预热/取回，移出用户关键路径」，绝不碰/删任何用户数据，跨设备零语义变化：
+//   · mochiPerfLevel(totalBytes, bigGroups)：纯判定 轻/中/重；
+//   · mochiPerfAgg(mochiCcSlimScan 结果)：聚合总占用与超大分组数，返回分级结论（无 DOM/IDB 依赖，可 verify）；
+//   · mochiPerfHeal()：非破坏自愈——按需取回被启动回填挂起的大键库 + 预热令牌化回复池，
+//     让后续打开聊天/字卡/回复不再触发 8s 慢读或 44MB 一次性解析（返回取回/预热摘要）。
+(function () {
+  window.mochiPerfLevel = function (totalBytes, bigGroups) {
+    const mb = (Number(totalBytes) || 0) / 1048576;
+    const bg = Number(bigGroups) || 0;
+    if (mb > 16 || bg >= 6) return '重';
+    if (mb > 5 || bg >= 2) return '中';
+    return '轻';
+  };
+  // rep = mochiCcSlimScan() 返回对象；不动 rep，只聚合
+  window.mochiPerfAgg = function (rep) {
+    const agg = { ok: !!(rep && rep.ok), level: '轻', libs: 0, totalBytes: 0, biggestBytes: 0, bigGroups: 0, reason: (rep && rep.reason) || '' };
+    if (!rep || !rep.ok) return agg;
+    ((rep.libs) || []).forEach(function (l) { agg.libs += 1; agg.totalBytes += (l.bytes || 0); });
+    ((rep.groups) || []).forEach(function (g) {
+      const b = g.bytes || 0;
+      if (b > agg.biggestBytes) agg.biggestBytes = b;
+      if (b > 1048576) agg.bigGroups += 1; // 单分组 >1MB 通常是整组大图/动图媒体
+    });
+    agg.level = window.mochiPerfLevel(agg.totalBytes, agg.bigGroups);
+    return agg;
+  };
+  // 非破坏自愈：取回挂起的大键 + 预热令牌化池。返回 { ok, hydrated, warmed, reason }。
+  window.mochiPerfHeal = function () {
+    return (async function () {
+      const out = { ok: false, hydrated: 0, warmed: 0, reason: '' };
+      try {
+        // ① 取回被启动回填预算挂起的大键库（公用 + 当前桌面专属），
+        //    IDB 连得上的设备后续打开/回复即跳过 8s 慢读与反复 hydrate。
+        if (window.hydrateLibScopes) {
+          try { await window.hydrateLibScopes(['public', 'own']); out.hydrated = 2; }
+          catch (e) { out.reason = '取回:' + ((e && e.message) || e); }
+        }
+        // ② 预热令牌化回复池：此处触发 44MB 解析+令牌化（#377/#398），
+        //    在用户主动点击「一键优化」时完成，移出之后的聊天/回复关键路径。
+        if (window.getCustomCards) {
+          try { const cards = window.getCustomCards(); out.warmed = Array.isArray(cards) ? cards.length : 0; }
+          catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '预热:' + ((e && e.message) || e); }
+        }
+        out.ok = true;
+      } catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); }
+      return out;
+    })();
+  };
+})();
