@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789308430716">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.658</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 22:07<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789311441532">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.660</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 22:57<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.658</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.660</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10713,7 +10713,9 @@ transition-duration: .01ms !important;
           <button class="storage-clear" id="st-media-gc" type="button">扫描并清理孤儿媒体</button>
           <div class="storage-row"><span>聊天引用的图片在池内完整度</span><b id="st-media-cov">未核对</b></div>
           <button class="storage-clear" id="st-media-cov-btn" type="button">核对图片是否齐全</button>
-          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。<br>「核对图片是否齐全」对比「聊天/收藏/群聊里引用的图片数」与「媒体池里实际存的条数」：引用数 > 池内数 = 有图片数据缺失（多为导入的备份未含图片，需从<b>有完整图片的源头设备</b>重新导出「完整备份」再导入恢复）；两边相等 = 数据链完好，占位会随重新渲染自愈。</div>
+          <div class="storage-row"><span>媒体池重建（缺失补回）</span><b id="st-media-rebuild">未重建</b></div>
+          <button class="storage-clear" id="st-media-rebuild-btn" type="button">重建媒体池（图片自愈）</button>
+          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。<br>「核对图片是否齐全」对比「聊天/收藏/群聊里引用的图片数」与「媒体池里实际存的条数」：引用数 > 池内数 = 有图片数据缺失（多为导入的备份未含图片，需从<b>有完整图片的源头设备</b>重新导出「完整备份」再导入恢复）；两边相等 = 数据链完好，占位会随重新渲染自愈。<br>「重建媒体池（图片自愈）」扫描<b>本机还留存的原图副本</b>（字卡库/收藏/表情分组/头像库/壁纸/备份快照等），按内容哈希把缺失/被旧「只备份文字」备份剥空的池条目补回——只补缺失、不覆盖有效数据、不删除任何数据；补不回的图片才需要源头设备完整备份。</div>
         </div>
         <!-- v3.26.x 存储优化：持久存储申请（navigator.storage.persist） -->
         <div class="cal-card glass">
@@ -10959,7 +10961,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.658</span>
+              <span class="lic-ver">v3.26.660</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -15747,6 +15749,11 @@ const lines = ['IndexedDB 大键明细：' + cand.length + ' 个候选，合计�
 real.slice(0, 10).forEach(function (it) {
 lines.push('· ' + String(it.k).slice('xy-home-v2:'.length) + '=' + (it.size >= 0 ? usageStr(it.size) : '?'));
 });
+try {
+let poolN = 0;
+(keys || []).forEach(function (k) { if (/^xy-home-v2:media:[0-9a-f]{32}$/.test(String(k))) poolN++; });
+lines.push('· 媒体池条目：' + poolN + ' 条（图片丢失时先到 设置→查看存储→媒体池 核对/重建）');
+} catch (e9) {}
 L[idbIdx] = lines.join('\n');
 } catch (e) { L[idbIdx] = 'IndexedDB 大键明细：统计失败'; }
 res();
@@ -19695,6 +19702,124 @@ out.missingSamples = bad.slice(0, 8);
 out.ok = true;
 return out;
 })().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), referenced: 0, inPool: 0, missing: 0, missingSamples: [] }; });
+};
+window.mochiMediaRebuild = function () {
+return (async function () {
+const out = { ok: false, reason: '', poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 };
+if (!window.idbListKeys || !window.idbGet || !window.idbGetMany || !window.idbSetAll || !window.idbSet) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
+try { await window.mochiMediaFlush(); } catch (e) {}
+let keys;
+try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
+if (!Array.isArray(keys)) { out.reason = '键清单非法'; return out; }
+const POOL_RE = /^xy-home-v2:media:[0-9a-f]{32}$/;
+const poolKeys = keys.filter(function (k) { return POOL_RE.test(String(k)); });
+out.poolN = poolKeys.length;
+const valid = new Set();
+for (let i = 0; i < poolKeys.length; i += 40) {
+const batch = poolKeys.slice(i, i + 40);
+let vals = {};
+try { vals = (await window.idbGetMany(batch)) || {}; } catch (e) { vals = {}; }
+batch.forEach(function (k) {
+const v = vals[k];
+if (typeof v === 'string' && (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0)) valid.add(String(k).slice(FULL.length));
+});
+}
+out.validN = valid.size;
+out.brokenN = poolKeys.length - valid.size;
+const DATA_RE = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]{1024,}/g;
+const found = new Map();
+let foundBytes = 0;
+function scanString(s) {
+if (typeof s !== 'string' || s.length < 1100) return;
+DATA_RE.lastIndex = 0;
+let m;
+while ((m = DATA_RE.exec(s))) {
+const d = m[0];
+if (!found.has(d)) { found.set(d, true); foundBytes += d.length * 2; }
+}
+}
+function scanValue(v) {
+if (typeof v === 'string') { scanString(v); return; }
+if (Array.isArray(v)) { // 聊天记录 IDB 直存数组——浅层扫字段（与 device.js sizeOf 同口径）
+for (let i = 0; i < v.length; i++) {
+const m = v[i];
+if (typeof m === 'string') { scanString(m); continue; }
+if (!m || typeof m !== 'object') continue;
+if (typeof m.text === 'string') scanString(m.text);
+if (typeof m.img === 'string') scanString(m.img);
+if (typeof m.voice === 'string') scanString(m.voice);
+const ps = m.parts;
+if (Array.isArray(ps)) { for (let j = 0; j < ps.length; j++) { const p = ps[j]; if (p && typeof p.v === 'string') scanString(p.v); } }
+}
+}
+}
+try {
+for (let i = 0; i < localStorage.length; i++) {
+const lk = localStorage.key(i);
+if (!lk) continue;
+let v = null;
+try { v = localStorage.getItem(lk); } catch (e2) { v = null; }
+if (v) scanString(v);
+}
+} catch (e) { out.reason = 'localStorage 读取失败（存储繁忙），本次只扫了部分来源'; }
+const srcKeys = keys.filter(function (k) {
+k = String(k);
+return !POOL_RE.test(k) && k.indexOf(':music-file:') < 0 && k.indexOf('__wr-j:') < 0;
+});
+for (let i = 0; i < srcKeys.length; i += 4) { // 批 4 读、逐个扫完即弃（峰值≈4×最大单键）
+const batch = srcKeys.slice(i, i + 4);
+let vals = {};
+try { vals = (await window.idbGetMany(batch)) || {}; } catch (e3) { vals = {}; }
+batch.forEach(function (k) { scanValue(vals[k]); vals[k] = null; });
+}
+out.foundN = found.size;
+out.bytes = foundBytes;
+const fill = [];
+const dataList = Array.from(found.keys());
+for (let i = 0; i < dataList.length; i++) {
+let h = '';
+try { h = await sha256Hex(dataList[i]); } catch (e4) { continue; }
+if (valid.has(h)) { out.alreadyOk++; continue; }
+fill.push({ k: FULL + h, v: dataList[i] });
+if ((i & 15) === 15) await new Promise(function (r) { setTimeout(r, 0); }); // 让出主线程
+}
+for (let i = 0; i < fill.length; i += 40) {
+const batch = fill.slice(i, i + 40);
+let ok = false;
+try { ok = await window.idbSetAll(batch); } catch (e5) { ok = false; }
+if (ok !== true) { // 整批失败退回逐键（idbSet 自带重试）
+for (let j = 0; j < batch.length; j++) {
+let ok1 = false;
+try { ok1 = await window.idbSet(batch[j].k, batch[j].v); } catch (e6) { ok1 = false; }
+if (ok1) heal(batch[j]); else out.writeFail++;
+}
+} else {
+batch.forEach(function (p) { heal(p); });
+}
+}
+function heal(p) {
+const h = String(p.k).slice(FULL.length);
+valid.add(h);
+if (p.v.indexOf('data:image/') === 0) map.set(h, p.v); // 音频不进热缓存（#283 内存纪律）
+missing.delete(h);
+out.written++;
+}
+if (out.written) {
+try {
+const nodes = document.querySelectorAll('img[src^="' + TOK + '"]');
+Array.prototype.forEach.call(nodes, function (el) {
+const m = TOKEN_RE.exec(el.getAttribute('src') || '');
+if (!m) return;
+const v = map.get(m[1]);
+if (!v) return;
+try { el.classList.remove('media-tok-missing'); el.removeAttribute('alt'); } catch (e7) {}
+el.src = v;
+});
+} catch (e8) {}
+}
+out.ok = true;
+return out;
+})().catch(function (e) { return { ok: false, reason: '重建异常：' + ((e && e.message) || e), poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 }; });
 };
 })();
 } catch (__e) { try { console.error("[JS] media-pool.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
@@ -27297,7 +27422,7 @@ tpl.push('当前设备媒体池里没有任何图片数据——聊天里引用�
 tpl.push('这几乎可以断定是导入的备份未包含图片数据（旧「只备份文字」或源头设备本就没池数据）。恢复办法：找一台还有这些图片的源头设备，在它上面导出「完整备份」（导出时选完整/全部，不要选「只备份文字」），再在本机导入。');
 } else {
 tpl.push('聊天/收藏/群聊引用 ' + rep.referenced + ' 张图，媒体池里只有 ' + rep.inPool + ' 张，缺失 ' + rep.missing + ' 张。');
-tpl.push('说明导入的备份只带回了部分图片。恢复办法：从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入，缺失的图片会补齐。');
+tpl.push('说明本机池数据不完整。可先点下方「重建媒体池（图片自愈）」：用本机还留存的原图副本（字卡库/收藏/头像库/备份快照等）按内容哈希把缺失池条目补回；补不回的图片才需要从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入。');
 }
 tpl.push('提示：图片数据本身无法在手机上凭空生成，代码只能保证「备份带全图→导入后自愈」的链路可靠。');
 if (window.openModal) {
@@ -27308,6 +27433,55 @@ covBtn.disabled = false;
 covBtn.textContent = oldTxt;
 if (covEl) covEl.textContent = '核对异常';
 });
+});
+}
+const rbBtn = document.getElementById('st-media-rebuild-btn');
+if (rbBtn) {
+rbBtn.addEventListener('click', function () {
+const rbEl = document.getElementById('st-media-rebuild');
+if (!window.mochiMediaRebuild) {
+if (window.openModal) window.openModal('本环境不支持', '', null, { noInput: true, staticText: '媒体池重建需要安全上下文（HTTPS）与 IndexedDB 支持，当前环境不可用。' });
+return;
+}
+const oldTxt = rbBtn.textContent;
+const doRebuild = function () {
+rbBtn.disabled = true;
+rbBtn.textContent = '重建中…（需通读本机数据，请稍候）';
+window.mochiMediaRebuild().then(function (rep) {
+rbBtn.disabled = false;
+rbBtn.textContent = oldTxt;
+if (!rep || !rep.ok) {
+if (rbEl) rbEl.textContent = '重建失败';
+if (window.openModal) window.openModal('重建未完成', '', null, { noInput: true, staticText: ((rep && rep.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可再试。' });
+return;
+}
+if (rbEl) rbEl.textContent = '补回 ' + rep.written + ' 张' + (rep.writeFail ? '（' + rep.writeFail + ' 张写失败）' : '');
+const tpl = [];
+tpl.push('本机池内原有 ' + rep.poolN + ' 条（有效 ' + rep.validN + '、缺失/空串 ' + rep.brokenN + '）。');
+tpl.push('本机扫描到 ' + rep.foundN + ' 张存留原图（约 ' + fmtBytes(rep.bytes) + '），其中 ' + rep.alreadyOk + ' 张池里本来就有，新补回 ' + rep.written + ' 条池条目' + (rep.writeFail ? '，' + rep.writeFail + ' 条写入失败（存储繁忙，可稍后再点一次重建）' : '') + '。');
+if (rep.written > 0) {
+tpl.push('已补回的部分：回到聊天/字卡库即可看到图片恢复（当前页面会自动刷新占位图）。');
+} else {
+tpl.push('没有可补回的条目——本机池本身完整，或存留原图与缺失令牌对不上。');
+}
+tpl.push('仍显示「图片丢失」的图 = 本机已没有任何该图副本，只能从有完整图片的源头设备导出「完整备份」（不要选「只备份文字」）再导入恢复。');
+if (window.openModal) window.openModal('媒体池重建结果', '', null, { noInput: true, staticText: tpl.join('\n') });
+}).catch(function () {
+rbBtn.disabled = false;
+rbBtn.textContent = oldTxt;
+if (rbEl) rbEl.textContent = '重建异常';
+});
+};
+if (window.openModal) {
+window.openModal('重建媒体池（图片自愈）？', '', function () {
+doRebuild();
+}, {
+noInput: true, okText: '开始重建',
+staticText: '本机聊天/收藏里的图片以「令牌」引用媒体池（IndexedDB）。若池条目缺失或被旧备份剥成空串，图片会显示「图片丢失」。\n\n重建 = 扫描本机还留存的原图副本（字卡库/收藏/表情分组/头像库/壁纸/备份快照等），按内容哈希把缺失的池条目补回。\n\n· 只补缺失/空串条目，不覆盖任何有效数据，不删除任何数据；\n· 补得回多少取决于本机还留有多少原图副本；补不回的仍需源头设备完整备份；\n· 大库扫描需要一些时间，期间请保持页面打开。'
+});
+} else {
+doRebuild();
+}
 });
 }
 function scanOtherLS() {
@@ -29863,7 +30037,7 @@ const isTok = window.mochiMediaIsToken && window.mochiMediaIsToken(s);
 if (isTok && window.mochiMediaExpand && window.mochiMediaExpand(s)) return; // 池有数据，观察器稍后会改写
 const ph = document.createElement('span');
 ph.style.cssText = 'opacity:.5;font-size:12px';
-ph.textContent = isTok ? '（图片丢失：媒体数据缺失，可用数据备份重新导入恢复）' : '（表情/图片加载失败：网络不通或原图已失效）';
+ph.textContent = isTok ? '（图片丢失：媒体数据缺失，可到设置→查看存储→媒体池「重建媒体池」恢复，或导入含图片的完整备份）' : '（表情/图片加载失败：网络不通或原图已失效）';
 im.replaceWith(ph);
 }, 1500);
 });
@@ -45755,15 +45929,15 @@ valEl.value = String(nv); dcProbSet(k, nv);
 toast('默认字卡' + label + '占比：' + nv + '%');
 });
 });
-const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100, care: 100 };
-const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟', care: 'TA的关心' };
+const DCF_DEF = { fish: 35, eat: 35, period: 25, water: 35, garden: 40, sync: 60, reach: 55, cjian: 100, room: 100, piggy: 100, drift: 100, interact: 100, music: 100, deskcheck: 50, checkin: 100, pomo: 100, care: 100, memo: 100, ask: 100 };
+const DCF_DEF_NAME = { fish: '摸鱼', eat: '吃饭', period: '经期', water: '喝水', garden: '花园', sync: '同频', reach: '伸手', cjian: '此间', room: '房间', piggy: '存钱罐', drift: '漂流瓶', interact: '互动回应', music: '音乐', deskcheck: '跨桌面查岗', checkin: '寻踪日常', pomo: '番茄钟', care: 'TA的关心', memo: '备忘提醒', ask: 'TA主动提问' };
 function dcfEnabled() {
 try { const v = window.activeStore().get('dcf-enabled'); return v === null ? true : v === '1'; } catch (e) { return true; }
 }
 function dcfEnableSet(on) { try { window.activeStore().set('dcf-enabled', on ? '1' : '0'); } catch (e) {} }
 window.dcfEnabled = dcfEnabled;
 function dcfVal(k) {
-if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo' || k === 'care') && !dcfEnabled()) return 0;
+if ((FUNC_KEYS.indexOf(k) >= 0 || k === 'checkin' || k === 'pomo' || k === 'care' || k === 'memo' || k === 'ask') && !dcfEnabled()) return 0;
 if (!(k in DCF_DEF)) return 100;
 try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
 return DCF_DEF[k];
@@ -45809,13 +45983,15 @@ sync: '【同频】两个人「同频」页面里的日常投递字卡。\n概�
 reach: '【伸手】「伸手」小动作互动里，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 只飘字不留卡。',
 cjian: '【此间】「此间」感知播报（TA 推测你在做什么）时，联系人说的话术字卡。\n概率 = 播报时出现字卡的概率，0% = 播报不出字卡。',
 room: '【房间】你在「我们的房间」里点互动时，联系人回应的字卡。\n概率 = 点击后出字卡的概率，0% = 点了也不出字卡。',
-piggy: '【存钱罐】存钱/取款后，联系人发来的关心/追问（含「取款关心」），可内联回一句。\n概率 = 取款后追问出现的概率，0% = 不追问。',
+piggy: '【存钱罐】存钱/取款后，联系人发来的关心/追问（含「取款关心」），可内联回一句；也控制 TA 偶尔往存钱罐「塞心意币」并发的聊天系统消息。\n概率 = 取款追问 / 塞币彩蛋出现的概率，0% = 不追问、也不塞币。',
 drift: '【漂流瓶】捞起漂流瓶时，瓶内联系人附上的话术字卡。\n概率 = 瓶内出字卡的概率，0% = 不出字卡（仍有信纸兜底，不会空白）。',
 interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n概率 = 回应出现字卡的概率，0% = 互动不回应字卡。',
 music: '【音乐】听歌 / 点歌 / 分享歌互动时，联系人回应的字卡。\n概率 = 互动时出现字卡的概率，0% = 互动不出字卡。',
 checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在 / 在做什么 / 想对你说）时，推送到聊天里的三条消息：更新提示 + 日常内容 + 概率「提醒你来寻踪」。\n概率 = 本次更新是否推送到聊天的概率，100% = 每次都发，0% = 完全不发。\n关闭后，寻踪页与历史记录照常生成，只是不再进聊天刷屏。',
 pomo: '【番茄钟】你用番茄钟完成一段专注后，联系人在聊天里发「休息一下」+（如有）「奖励摸鱼」的消息。\n概率 = 完成时发这条消息的概率，0% = 完成时不发。\n番茄钟页里的「发到聊天」开关是这层的额外开关，两者都开才发。',
-care: '【TA的关心（经期）】预测到经期/排卵期的前后、或推迟≥5天时，联系人在聊天里发「经期关心」话术（附「经期关心」标签）。经期中每天最多一条，且按周期第几天有不同基数概率（第1-2天90%、第3-4天70%、第5+天55%；经期前提醒/推迟预警75%）。\n本概率 = 在那些基点之上是否额外放行：100% = 保持原节奏，0% = 完全不发关心。\n更彻底：到「经期记录」页把「梦角关心」按钮也关掉（两者都关才真的完全关）。'
+care: '【TA的关心（经期）】预测到经期/排卵期的前后、或推迟≥5天时，联系人在聊天里发「经期关心」话术（附「经期关心」标签）。经期中每天最多一条，且按周期第几天有不同基数概率（第1-2天90%、第3-4天70%、第5+天55%；经期前提醒/推迟预警75%）。\n本概率 = 在那些基点之上是否额外放行：100% = 保持原节奏，0% = 完全不发关心。\n更彻底：到「经期记录」页把「梦角关心」按钮也关掉（两者都关才真的完全关）。',
+memo: '【备忘提醒】你有未完成的备忘时，联系人每隔一段时间（约 4 分钟一掷、命中才发）在聊天里催一件，带「备忘提醒」标签；同一天最多提醒一次、隔 2 天才再催、深夜静默。\n本概率 = 在备忘页自带的「备忘提醒」开关/概率之上是否放行：100% = 保持原节奏，0% = 完全不催备忘。\n备忘页里自己的开关仍独立有效。',
+ask: '【TA主动提问】联系人在聊天里主动发起的问题卡：关心询问 / 小问题 / 好奇卡片 / 互动 / 吐槽，带你作答选项。每类自带触发概率（默认 5%）且各带冷却，任意一问后 60 分钟内不再自动触发。\n本概率 = 在那套概率/闸门之上是否统一放行：100% = 保持原节奏，0% = 完全不主动提问。\n不影响查岗（查岗走自己的「跨桌面查岗」）。'
 };
 (function () {
 function injBox(boxId, ks) {
@@ -53403,6 +53579,7 @@ try { store.set(INTERACT_GATE_KEY, String(Date.now())); } catch (e) {}
 }
 window.interactGateOk = interactGateOk;
 window.interactGateMark = interactGateMark;
+function taAskDcfOk() { try { return Math.random() * 100 < (window.dcfGet ? window.dcfGet('ask') : 100); } catch (e) { return true; } }
 window.__interactGateInfo = function () {
 let last = 0;
 try { last = Number(store.get(INTERACT_GATE_KEY)) || 0; } catch (e) {}
@@ -53592,6 +53769,7 @@ if (s.enabled === false) return;
 if (askDeadlinePassed(d)) return;
 if (Date.now() - (d.lastAskAt || 0) < 45 * 60000) return;
 if (!interactGateOk()) return;
+if (!taAskDcfOk()) return;
 if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
 const q = taAskPick(d);
 if (!q) return;
@@ -54450,6 +54628,7 @@ if (s.enabled === false) return;
 if (_tcSessionTriggered) return;
 if (Date.now() - (d.lastChoiceAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
+if (!taAskDcfOk()) return;
 if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
 const q = tcPick(d);
 if (!q) return;
@@ -55195,6 +55374,7 @@ if (s.enabled === false) return;
 if (_tcuSessionTriggered) return;
 if (Date.now() - (d.lastCuriousAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
+if (!taAskDcfOk()) return;
 if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
 const q = tcuPick(d);
 if (!q) return;
@@ -55741,6 +55921,7 @@ if (s.enabled === false) return;
 if (_trSessionTriggered) return;
 if (Date.now() - (d.lastRoastAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
+if (!taAskDcfOk()) return;
 if (Math.random() * 100 < (typeof s.prob === 'number' ? s.prob : 5)) {
 const q = trPick(d, lastUserMsg());
 if (q) { interactGateMark(); trPush(q, { popupProb: askPopupProb(s) }); }
@@ -55777,6 +55958,7 @@ function maybeTriggerTACC() {
 try {
 if (ccCfg('ai-cc-en', 1) !== 1) return;
 if (!interactGateOk()) return;
+if (!taAskDcfOk()) return;
 const st = ccStateLoad();
 if (Date.now() - (st.lastCcAt || 0) < 90 * 60000) return;
 if (Math.random() * 100 >= ccCfg('ai-cc-prob', 4)) return;
@@ -67889,6 +68071,7 @@ ask: (p && typeof p.ask === 'number') ? p.ask : 0.04
 function piggyCoinProbSave(p) { const s = piggyStore(); if (s) try { s.set('piggy-coin-prob', JSON.stringify(p || {})); } catch (e) {} }
 function piggyCoinMaybeTa() {
 if (!piggyCoinIsCurrent()) return;
+try { if (window.dcfGet && !(Math.random() * 100 < window.dcfGet('piggy'))) return; } catch (e) {}
 const s = piggyCoinStore(); if (!s) return;
 let last = 0; try { last = parseInt(s.get('piggy-coin2-last-visit') || '0', 10) || 0; } catch (e) {}
 const gap = Date.now() - last; try { s.set('piggy-coin2-last-visit', '' + Date.now()); } catch (e) {}
@@ -70037,6 +70220,7 @@ if (memoRemindBtn) memoRemindBtn.textContent = '备忘提醒：' + (c.en ? '开'
 if (memoRemindProbBtn) memoRemindProbBtn.textContent = '提醒概率 ' + c.prob + '%';
 }
 function memoRemindFire() {
+try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('memo') : 100)) return; } catch (e) {}
 const undone = memoItems().filter(x => !x.done);
 if (!undone.length) return;
 const over = undone.filter(x => memoUrgent(x) === 'overdue');
@@ -92099,4 +92283,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzw1h8c -->
+<!-- __MOCHI_EOF__ mtzxu0e4 -->
