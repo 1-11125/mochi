@@ -539,17 +539,21 @@
   function heldMissedHtml(nm) {
     return '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' + nm + ' 来电 · 未接听';
   }
-  function holdIncomingCall(name, cid, avOverride) {
-    try {
-      // 覆盖前先处理上一条已超时未处理的挂起（页面冻结期间第二次来电的场景）
-      const prev = readCallHold();
-      if (prev && prev.cid && Date.now() - prev.ts > CALL_HOLD_MS) {
-        notifyCallEnd(prev.cid, heldMissedHtml(prev.name || partnerName()), 'in', '未接听');
-      }
-      const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default') };
-      localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h));
-      if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
-    } catch (e) {}
+  function holdIncomingCall(name, cid, avOverride, msgWritten) {
+    let prev = null;
+    try { prev = readCallHold(); } catch (e) {}
+    // 覆盖前先处理上一条已超时未处理的挂起（页面冻结期间第二次来电的场景）
+    if (prev && prev.cid && Date.now() - prev.ts > CALL_HOLD_MS) {
+      notifyCallEnd(prev.cid, heldMissedHtml(prev.name || partnerName()), 'in', '未接听');
+    }
+    // FIX 2026-09-13 #406 挂起双写拆开：原 LS setItem 与 idbSet 同处一个 try——LS 配额满
+    // QuotaExceededError 一抛整块中止、IDB 也不写＝后台只有通知没有挂起，回前台点开通知
+    // 无弹窗也无未接消息（OPPO Reno14 Edge 实报 + 多机型同族；诊断「LS 写入失败」实锤）。
+    // msgWritten＝来电系统消息「打来了语音通话」是否已写过（前台响铃已写传 true，
+    // 后台触发未写传 false，重响补首发见 resumeProcessHold/incomingCall）
+    const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten };
+    try { localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h)); } catch (e) {}
+    if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
     bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
   }
   // #204：暴露给 incoming-requests.js——跨桌面来电后台命中时同走「响铃挂起」（原只发
@@ -570,13 +574,28 @@
   // #291：归属桌面不是当前桌面时先切到归属联系人桌面再响铃（原直接判未接——用户点开
   // 通知/回到应用落在别的桌面，条件 h.cid===__activeCid 永不成立＝永远接不到来电）；
   // 过期/已在通话/归属联系人已不存在→补写未接（notifyCallEnd 跨桌面自动落到归属桌面）
+  // FIX 2026-09-13 #406：LS 配额满时挂起只落在 IDB（见 holdIncomingCall）——回前台/冷启动
+  // 先读 LS，读不到再回读 IDB，杜绝「通知照发、回来什么也没有」；holdBusy 防
+  // visibilitychange 重响与 20s 兜底定时器并发双处理（挂起消费必须恰好一次）
+  let holdBusy = false;
   function resumeHeldCall() {
+    if (holdBusy) return;
     const h = readCallHold();
-    if (!h) return;
-    clearCallHold();
+    if (h) { clearCallHold(); resumeProcessHold(h); return; }
+    if (window.idbGet) {
+      holdBusy = true;
+      window.idbGet(CALL_HOLD_KEY).then(function (ih) {
+        holdBusy = false;
+        if (!ih || !ih.ts) return;
+        clearCallHold();
+        resumeProcessHold(ih);
+      }).catch(function () { holdBusy = false; });
+    }
+  }
+  function resumeProcessHold(h) {
     const cur = window.__activeCid || 'default';
     if (Date.now() - h.ts <= CALL_HOLD_MS && !currentCall) {
-      if (h.cid === cur) { incomingCall(true); return; }
+      if (h.cid === cur) { incomingCall(true, !!h.msg); return; }
       // 跨桌面：目标必须在联系人名册内才自动切（防切到已删除桌面造成空命名空间），
       // 切换成功后立即在归属桌面重响
       if (h.cid && window.setActiveContact) {
@@ -584,7 +603,7 @@
         try { if (window.getContacts) known = window.getContacts().some(c => c && c.id === h.cid); } catch (e) {}
         if (known) {
           try { window.setActiveContact(h.cid); } catch (e) {}
-          if ((window.__activeCid || 'default') === h.cid) { incomingCall(true); return; }
+          if ((window.__activeCid || 'default') === h.cid) { incomingCall(true, !!h.msg); return; }
         }
       }
     }
@@ -605,8 +624,9 @@
     if (document.visibilityState === 'hidden' && currentCall && currentCall.status === 'ringing') {
       const cid = currentCall.cid || (window.__activeCid || 'default');
       const nm = currentCall.name || partnerName();
+      const msgOk = !!(currentCall.sysMsg); // FIX 2026-09-13 #406：续传「打来了语音通话」已写标记
       endCall('', true);
-      holdIncomingCall(nm, cid);
+      holdIncomingCall(nm, cid, undefined, msgOk);
     } else if (document.visibilityState === 'visible') {
       resumeHeldCall();
     }
@@ -621,7 +641,9 @@
   }
   // #161：isReplay——响铃挂起回前台重响时 true，不重复发「给你打来了语音通话」系统消息
   //（挂起前那次前台响铃已发过；后台触发路径则由重响首发，聊天记录两种路径都恰一条）
-  function incomingCall(isReplay) {
+  // FIX 2026-09-13 #406：重响是否首发该消息由挂起携带的 msg 决定（后台触发来电从未写过，
+  // 必须补首发；前台响铃已写 msg=true 则不重复）。currentCall.sysMsg 续传给再次切后台的挂起。
+  function incomingCall(isReplay, msgWritten) {
     if (currentCall) return;
     closeImageOverlay();
     // v3.5.60：来电播放设置的铃声音效
@@ -641,7 +663,12 @@
     if (durEl) durEl.textContent = '00:00';
     if (mask) mask.hidden = false;
     setMaskBtns('ringing');
-    if (!isReplay && window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 给你打来了语音通话');
+    let wroteSysMsg = false;
+    if ((!isReplay || !msgWritten) && window.chatAddSystem) {
+      window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 给你打来了语音通话');
+      wroteSysMsg = true;
+    }
+    if (currentCall) currentCall.sysMsg = !!msgWritten || wroteSysMsg;
     // 30 秒倒计时未接
     let count = 30;
     if (cdEl) { cdEl.hidden = false; cdEl.textContent = count + ' 秒后未接听'; }
