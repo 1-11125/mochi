@@ -88,9 +88,9 @@ try {
   // ---- 源码级断言（构建产物包含修复标记） ----
   const built = readFileSync(join(root, 'index.html'), 'utf8');
   check('S1 贪吃蛇按得分判胜负代码在产物中', built.includes("psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw'"));
-  check('S2a Pong 比分顺序 TA 在前你在后', built.includes("'<span class=\"pong-s-ta\">' + s.opponentScore + ' TA</span><span class=\"pong-s-sep\">:</span><span class=\"pong-s-you\">你 ' + s.playerScore"));
+  check('S2a Pong 比分顺序 TA 在前你在后（称呼跟随 taFit 契约）', built.includes("'<span class=\"pong-s-ta\">' + s.opponentScore + ' ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span class=\"pong-s-sep\">:</span><span class=\"pong-s-you\">你 ' + s.playerScore"));
   check('S2b Pong 提示改为右侧挡板', built.includes('你控制右侧挡板') && !built.includes('左半边上下拖动'));
-  check('S3 记账二级弹窗延迟开启', built.includes("setTimeout(function () {\n          window.openModal('添加'") || (built.match(/添加' \+ \(type === 'expense'/g) || []).length > 0);
+  check('S3 记账添加改内联表单（原 openModal 二级弹窗架构已移除，#acc-amount 直存直报）', built.includes("getElementById('acc-amount')") && built.includes("'acc-save'") && built.includes("toast('已记 '"));
   check('S4a 朋友圈回复渲染带 data-ri 定位', built.includes('.feed-reply" data-ri=') || built.includes('data-ri="\' + ri + \''));
   check('S4b TA 评论回应双路径都发通知', built.includes('回复了你的评论') && built.includes('评论了你的动态：'));
   check('S4c 通知缩略图实时取图', built.includes('noticeThumbOf') && built.includes('fn-thumb'));

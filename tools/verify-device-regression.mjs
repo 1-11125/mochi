@@ -16,18 +16,23 @@ const root = normalize(dirname(fileURLToPath(import.meta.url)) + '/..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
-const server = createServer((req, res) => {
-  try {
-    let p = normalize(join(root, decodeURIComponent(req.url.split('?')[0])));
-    if (!p.startsWith(root)) { res.writeHead(403); res.end(); return; }
-    if (statSync(p).isDirectory()) p = join(p, 'index.html');
-    const body = readFileSync(p);
-    res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
-    res.end(body);
-  } catch (e) { res.writeHead(404); res.end('nf'); }
-});
-await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const baseUrl = 'http://127.0.0.1:' + server.address().port;
+// 每个用例独立端口（独立 origin）：WebKit 无头里同 origin 的 SW/缓存会跨上下文污染
+// （实测：case1 注册 SW 后，后续部分上下文导航被拦成空文档＝mochiDevice 永不定义的假红），
+// 独立 origin 从根上隔离；SW 注册另在 init script 里禁用双保险。
+async function startServer() {
+  const sv = createServer((req, res) => {
+    try {
+      let p = normalize(join(root, decodeURIComponent(req.url.split('?')[0])));
+      if (!p.startsWith(root)) { res.writeHead(403); res.end(); return; }
+      if (statSync(p).isDirectory()) p = join(p, 'index.html');
+      const body = readFileSync(p);
+      res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
+      res.end(body);
+    } catch (e) { res.writeHead(404); res.end('nf'); }
+  });
+  await new Promise((r) => sv.listen(0, '127.0.0.1', r));
+  return sv;
+}
 
 const results = [];
 function check(desc, ok, detail) {
@@ -113,8 +118,14 @@ try { browser = await webkit.launch(); } catch (e) {
 
 for (const c of CASES) {
   let ctx = null;
+  const server = await startServer();
+  const baseUrl = 'http://127.0.0.1:' + server.address().port;
   try {
     ctx = await browser.newContext(c.ctx);
+    // Playwright WebKit 的 Service Worker 支持残缺：首个上下文注册 SW 后，同源后续
+    // 上下文的导航会被 SW 拦成空响应（页面 0 script、mochiDevice 永不定义＝假红）。
+    // 本脚本只测 device.js 判定链，与 SW 无关——统一禁掉注册。
+    await ctx.addInitScript("try { if (navigator.serviceWorker) navigator.serviceWorker.register = function () { return Promise.reject(new Error('sw-disabled-for-device-regression-test')); }; } catch (e) {}");
     if (c.inject) await ctx.addInitScript(c.inject);
     const page = await ctx.newPage();
     await page.goto(baseUrl + '/index.html', { waitUntil: 'load', timeout: 20000 });
@@ -136,10 +147,11 @@ for (const c of CASES) {
   } catch (e) {
     check(c.name + '：用例执行无异常', false, String(e && e.message));
     if (ctx) { try { await ctx.close(); } catch (e2) {} }
+  } finally {
+    try { server.close(); } catch (e2) {}
   }
 }
 try { await browser.close(); } catch (e) {}
-try { server.close(); } catch (e) {}
 
 const fails = results.filter((r) => !r.ok).length;
 console.log('\n结果：' + (results.length - fails) + '/' + results.length + ' 项通过');

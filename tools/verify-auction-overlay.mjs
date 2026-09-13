@@ -88,8 +88,17 @@ function chk(name, ok, detail) {
 let splashClosed = false;
 for (let i = 0; i < 30 && !splashClosed; i++) {
   const s = await evalJs(`(function(){
+    // #384 强制公告：点进入后先滑到底 + 点确认才真正关闭 splash
+    var mm = document.getElementById('splash-mandatory');
+    if (mm && !mm.hidden) {
+      var sc = document.getElementById('splash-mandatory-scroll');
+      if (sc) sc.scrollTop = sc.scrollHeight;
+      var men = document.getElementById('splash-mandatory-enter');
+      if (men && !men.classList.contains('is-disabled')) { men.click(); return 'mclicked'; }
+      return 'mwait';
+    }
     var sp = document.getElementById('splash');
-    if (sp && sp.classList.contains('hide')) return 'closed';
+    if (!sp || sp.classList.contains('hide')) return 'closed';
     var sb = document.getElementById('splash-box');
     if (sb) sb.scrollTop = sb.scrollHeight;
     var se = document.getElementById('splash-enter');
@@ -99,7 +108,14 @@ for (let i = 0; i < 30 && !splashClosed; i++) {
   splashClosed = s === 'closed';
   if (!splashClosed) await sleep(300);
 }
-chk('A0 开屏已关闭（否则命中断言全打到 splash）', splashClosed, '');
+const splashDiag = await evalJs(`(function(){
+  var sp = document.getElementById('splash');
+  var mm = document.getElementById('splash-mandatory');
+  return { splashExists: !!sp, hasHide: sp ? sp.classList.contains('hide') : null,
+           spHidden: sp ? sp.hidden : null, disp: sp ? getComputedStyle(sp).display : null,
+           mandHidden: mm ? mm.hidden : null, mandExists: !!mm };
+})()`);
+chk('A0 开屏已关闭（否则命中断言全打到 splash）', splashClosed || splashDiag.disp === 'none' || splashDiag.spHidden === true, JSON.stringify(splashDiag));
 await sleep(600);
 
 // 进聊天页 → 种足心意币（防余额 0 把出价按钮 disabled）→ 从「更多功能」入口打开拍卖会
@@ -126,15 +142,30 @@ const hitAt = (id) => `(function(){
 })()`;
 
 // A) 开场：教学层显示、帮助层必须真隐藏（坏产物里 help 盖在 intro 上层＝用户看到的是死页面）
+// 长跑期间 TA 主动行为（查岗 tc-mask/互动 qa-mask/来电 call-mask）会随机弹层抢 elementFromPoint——
+// 每次命中断言前统一清场（直接 hidden，不走各模块关闭动画）
+async function clearRandomMasks() {
+  await evalJs(`(function(){
+    ['tc-mask','qa-mask','call-mask','msg-actions','modal-mask'].forEach(function(id){
+      var m = document.getElementById(id); if (m && !m.hidden) m.hidden = true;
+    });
+    var tp = document.getElementById('tc-panel'); if (tp) tp.hidden = true;
+    return 1;
+  })()`);
+  await sleep(120);
+}
 const aIntro = await evalJs(disp('au-intro'));
 const aHelp = await evalJs(disp('au-help'));
 const aHelpAttr = await evalJs(`(function(){ var el = document.getElementById('au-help'); return el ? String(el.hidden) : 'no-el'; })()`);
 chk('A1 打开拍卖会开场教学层显示', aIntro !== 'none' && aIntro !== 'no-el', 'display=' + aIntro);
 chk('A2 帮助层 hidden=true 时 computed display=none（本修复核心；坏产物 flex=盖屏卡死）', aHelpAttr === 'true' && aHelp === 'none', 'hidden=' + aHelpAttr + ' display=' + aHelp);
+await clearRandomMasks();
 const aHit = await evalJs(hitAt('au-intro-start'));
-chk('A3 教学层「开始拍卖」按钮可命中（不被别的层拦）', typeof aHit === 'string' && aHit.indexOf('au-intro-start') >= 0, 'hit=' + aHit);
+const modalDiagA = await evalJs(`(function(){var m=document.getElementById('modal-mask');if(!m||m.hidden)return 'no-modal';var t=m.querySelector('.modal-title,cc-modal-title,.modal-box');return 'modal-open:'+(m.querySelector('.modal-title')?m.querySelector('.modal-title').textContent:(t?t.className:'?'));})()`);
+chk('A3 教学层「开始拍卖」按钮可命中（不被别的层拦）', typeof aHit === 'string' && aHit.indexOf('au-intro-start') >= 0, 'hit=' + aHit + ' ' + modalDiagA);
 
 // F) #341 「先不玩」出口：教学浮层盖住了头部 ✕，必须有自己的关闭出口
+await clearRandomMasks();
 const fHit = await evalJs(hitAt('au-intro-exit'));
 chk('F1 「先不玩」按钮在教学中可命中', typeof fHit === 'string' && fHit.indexOf('au-intro-exit') >= 0, 'hit=' + fHit);
 await evalJs(`(function(){ var b = document.getElementById('au-intro-exit'); if (b) b.click(); return 1; })()`);
@@ -151,6 +182,7 @@ await evalJs(`(function(){ var b = document.getElementById('au-intro-start'); if
 await sleep(300);
 const bIntro = await evalJs(disp('au-intro'));
 chk('B1 点开始拍卖后教学层 computed display=none（真收起）', bIntro === 'none', 'display=' + bIntro);
+await clearRandomMasks();
 const bHit = await evalJs(hitAt('au-bid1'));
 chk('B2 出价按钮不被浮层拦截（elementFromPoint 命中自身）', typeof bHit === 'string' && bHit.indexOf('au-bid1') >= 0, 'hit=' + bHit);
 const bDisabled = await evalJs(`(function(){ var b = document.getElementById('au-bid1'); return b ? String(b.disabled) : 'no-el'; })()`);
@@ -181,6 +213,7 @@ await evalJs(`(function(){ if (window.openAuctionPanel) window.openAuctionPanel(
 await sleep(400);
 const dIntro = await evalJs(disp('au-intro'));
 const dHelp = await evalJs(disp('au-help'));
+await clearRandomMasks();
 const dHit = await evalJs(hitAt('au-pass'));
 chk('D1 重开后教学/帮助层都不残留', dIntro === 'none' && dHelp === 'none', 'intro=' + dIntro + ' help=' + dHelp);
 chk('D2 重开后「放弃这件」可命中（半框可直接继续操作）', typeof dHit === 'string' && dHit.indexOf('au-pass') >= 0, 'hit=' + dHit);
@@ -244,6 +277,14 @@ const g3Bag = await evalJs(`(function(){
 })()`);
 chk('G3 送TA先弹确认弹窗（含拍品名）', g3Modal.open === true && g3Modal.text.indexOf('测试玫瑰') >= 0, g3Modal);
 chk('G3 确认后拍品真移出收藏', g3Bag === 0, 'bagLen=' + g3Bag);
+// 收尾清场：关掉可能残留的全站弹窗、退回竞价主视图（au-bag 是 toggle，盲点会把已关的背包又打开盖住出价键）
+await evalJs(`(function(){
+  var m = document.getElementById('modal-mask');
+  if (m && !m.hidden) { var c = document.getElementById('modal-cancel') || document.getElementById('modal-close'); if (c) c.click(); }
+  var s = document.getElementById('au-btn-start'); if (s) s.click();
+  return 1;
+})()`);
+await sleep(300);
 
 // G4) #346 余额不足给提示行（不再静默置灰）
 await evalJs(`(function(){ var b = document.getElementById('au-btn-start'); if (b) b.click(); return 1; })()`);
@@ -288,15 +329,35 @@ chk('G6 矮屏半框高度占比 ≥78%（旧版 68% 太挤）', (() => { try { 
 // H1) #348 长按出价键弹自定义出价，确认后直接压价
 // 确定性：开 fast 模式（TA 思考 42~87ms），压价值取「TA 心理价位+¥5」→ TA 必立即放手，
 // leader 保持 you、cur 精确等于压价值（taThink 两个分支都不改 cur）
-await evalJs(`(function(){ window.__auDebug.fast = true; return 1; })()`);
-await sleep(200);
-await evalJs(`(function(){ var b = document.getElementById('au-bid1'); b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); return 1; })()`);
-await sleep(800);
-const h1modal = await evalJs(`(function(){
-  var m = document.getElementById('modal-mask');
-  var t = document.getElementById('modal-title');
-  return JSON.stringify({ open: !!m && !m.hidden, title: t ? t.textContent : '' });
-})()`);
+// 前置保证：G 组跑完后本场可能已落槌（phase=done，出价键失效＝间歇红根因）——重试循环内
+// 每次先确保在竞价中（不在就 newSession），长按后校验弹窗；失败清按住态再试（最多 3 次）
+let h1modal = null;
+for (let attempt = 0; attempt < 3; attempt++) {
+  await evalJs(`(function(){
+    window.__auDebug.fast = true;
+    var s = window.__auDebug.st();
+    if (!s || !s.started || s.over || s.phase !== 'bidding') window.__auDebug.newSession();
+    return (window.__auDebug.st() || {}).phase;
+  })()`);
+  await sleep(600); // 等新一场首件拍品进入 bidding
+  await evalJs(`(function(){ var b = document.getElementById('au-bid1'); b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); return 1; })()`);
+  await sleep(800);
+  h1modal = await evalJs(`(function(){
+    var m = document.getElementById('modal-mask');
+    var t = document.getElementById('modal-title');
+    return JSON.stringify({ open: !!m && !m.hidden, title: t ? t.textContent : '' });
+  })()`);
+  let opened = false;
+  try { const o = JSON.parse(h1modal); opened = o.open && o.title.indexOf('自定义出价') >= 0; } catch (e) {}
+  if (opened) break;
+  // 清按住态与残留弹窗后重试
+  await evalJs(`(function(){
+    var b = document.getElementById('au-bid1'); if (b) b.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    var m = document.getElementById('modal-mask'); if (m && !m.hidden) { var c = document.getElementById('modal-cancel') || document.getElementById('modal-close'); if (c) c.click(); }
+    return 1;
+  })()`);
+  await sleep(300);
+}
 const h1before = await evalJs(`(function(){
   var s = window.__auDebug.st();
   var fen = Math.max(s.limit, s.cur + 100) + 500;

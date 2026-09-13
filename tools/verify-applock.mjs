@@ -293,7 +293,7 @@ const artifact = readFileSync(join(root, 'index.html'), 'utf8');
 const tpl = readFileSync(join(root, 'src', 'template.html'), 'utf8');
 const contacts = readFileSync(join(root, 'src', 'js', 'contacts.js'), 'utf8');
 check('H1 模板含设置入口开关 #applock-en', tpl.indexOf('id="applock-en"') >= 0);
-check('H2 contacts EXCLUDE 含应用锁+问答门键', contacts.indexOf("'applock-qa-en', 'applock-qalist', 'applock-qaskip']") >= 0);
+check('H2 contacts EXCLUDE 含应用锁+问答门键', contacts.indexOf("'applock-qa-en', 'applock-qalist', 'applock-qaskip'") >= 0);
 check('H3 产物含锁屏样式 .applock-mask', artifact.indexOf('.applock-mask') >= 0);
 check('H4 产物含脚本就绪标志 __applockReady', artifact.indexOf('window.__applockReady') >= 0);
 check('H5 产物含 FLOAT 注册 #applock-mask', artifact.indexOf('#applock-mask') >= 0);
@@ -321,8 +321,12 @@ check('I3 第一题通过进入第二题', st.shown === true && st.title.indexOf
 // 答对第二题 → 放行（无密码锁）
 await typeText('是');
 await clickSubmit();
+// #299：问答通过且本机未设密码锁时弹一次性「小提醒：应用锁」info pad——点【知道了】才算放行
+await sleep(300);
+await evalJs("(function(){var b=document.querySelector('#applock-mask .al-primary[data-ok=\"1\"]');if(b)b.click();return 1;})()");
+await sleep(200);
 st = JSON.parse(await lockState() || '{}');
-check('I4 全部答对解锁进入', st.shown === false, JSON.stringify(st));
+check('I4 全部答对解锁进入（含 #299 一次性小提醒放行）', st.shown === false, JSON.stringify(st));
 
 // v3.32.x 需求：问答门不吃本会话豁免 —— 同标签刷新必须重新答两道题
 // （对比 D1：数字密码锁仍是「同标签刷新不重锁」）
@@ -376,7 +380,7 @@ check('J4 密码对解锁进入', st.shown === false, JSON.stringify(st));
 
 // ---- K. 静态防线 ----
 check('K1 模板含问答门开关 #applock-qa-en', tpl.indexOf('id="applock-qa-en"') >= 0);
-check('K2 contacts EXCLUDE 含问答门三键', contacts.indexOf("'applock-qa-en', 'applock-qalist', 'applock-qaskip']") >= 0);
+check('K2 contacts EXCLUDE 含问答门三键', contacts.indexOf("'applock-qa-en', 'applock-qalist', 'applock-qaskip'") >= 0);
 check('K3 产物含问答门暗号 990815 常量', artifact.indexOf("QA_SKIP_CODE = '990815'") >= 0 || artifact.indexOf("'990815'") >= 0);
 check('K4 产物含问答屏入口 skipqa', artifact.indexOf('skipqa') >= 0);
 check('K5 产物不再含题目管理面板（data-qal 增删改按钮已移除）', artifact.indexOf('data-qal') < 0);

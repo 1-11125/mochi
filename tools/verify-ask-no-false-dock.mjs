@@ -70,7 +70,22 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, devic
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 for (let i = 0; i < 60; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(200); }
 await sleep(1200);
-await evalJs(`(function(){var b=document.getElementById('splash-confirm-ok');if(b)b.click();return !!b;})()`);
+await evalJs(`(function(){var b=document.getElementById('splash-confirm-ok')||document.getElementById('splash-enter');if(b)b.click();return !!b;})()`);
+await sleep(400);
+// #384 强制公告：滑到底 + 确认（splash 若已被兜底隐藏则此层随隐藏，循环立即 none）
+for (let i = 0; i < 20; i++) {
+  const r = await evalJs(`(function(){
+    var m = document.getElementById('splash-mandatory');
+    if (!m || m.hidden) return 'none';
+    var sc = document.getElementById('splash-mandatory-scroll');
+    if (sc) sc.scrollTop = sc.scrollHeight;
+    var en = document.getElementById('splash-mandatory-enter');
+    if (en && !en.classList.contains('is-disabled')) { en.click(); return 'entered'; }
+    return 'wait';
+  })()`);
+  if (r === 'entered' || r === 'none') break;
+  await sleep(250);
+}
 await sleep(300);
 // #129 修正：开屏隐藏走应用自己的 .hide class（clock.js 口径）——hidden 属性会被作者 CSS
 // 覆盖（同 .cc-tab[hidden] 教训），残留 splash-box 盖住全页致输入框矩形为 0、触摸打在开屏上
@@ -119,14 +134,14 @@ console.log('键盘收起后 .phone: ' + dockState4);
 
 // ===== 判定 =====
 // 修复口径：①打开面板（触摸按钮→程序化聚焦，无键盘）.phone 必须保持满高（修复前 1.6s 后被假收缩到 490）；
-//          ②用户直接触摸输入框（悬浮键盘内核场景）保底停靠仍生效（490）；
+//          ②用户直接触摸输入框（无软键盘环境）不盲推停靠（#387 实测被盖闸；悬浮键盘真停靠由 verify-kb-prov-covered 断言）；
 //          ③真实键盘 vv 收缩原机制接管 430；④收起恢复满高。
 const r1 = dockState1 === '(none)';
-const r2 = dockState2 === '490px';
+const r2 = dockState2 === '(none)';
 const r3 = dockState3 === '430px';
 const r4 = dockState4 === '(none)';
 console.log((r1 ? 'PASS' : 'FAIL') + '  面板程序化聚焦不假停靠（.phone=' + dockState1 + '）');
-console.log((r2 ? 'PASS' : 'FAIL') + '  直接触摸输入框保底停靠仍生效（.phone=' + dockState2 + '）');
+console.log((r2 ? 'PASS' : 'FAIL') + '  直接触摸输入框无键盘不盲推停靠（.phone=' + dockState2 + '，#387 实测被盖闸契约；真停靠见 verify-kb-prov-covered）');
 console.log((r3 ? 'PASS' : 'FAIL') + '  真实 vv 收缩原机制接管（.phone=' + dockState3 + '）');
 console.log((r4 ? 'PASS' : 'FAIL') + '  键盘收起恢复满高（.phone=' + dockState4 + '）');
 const pass = r1 && r2 && r3 && r4;
