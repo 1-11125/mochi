@@ -38,13 +38,38 @@
   // 不再纯白）。可自愈：idbGet 后续读到有效值即从 missing 除名（不学 #275 永久负缓存，
   // 导入完整备份补回池键后下次渲染即恢复）。
   const missing = new Set();        // hash -> true（idbGet 确认池缺失）
+  // FIX 2026-09-13 #397 缺失重试冷却——旧行为每次渲染/每次 DOM 变动都对缺失令牌再打一次
+  // idbGet，「池没带过来」的设备（iOS Safari/多机型大库）一屏几十个坏图＝每秒几十次 IDB
+  // 读 + 多次 querySelectorAll，主线程被占满＝「界面卡住点不动」（iPhone 16 Safari 报障，
+  // 与其他机型同族）。60s 冷却窗口内不再重读（导入完整备份时靠 mochi-restore-done 立即清空，
+  // 自愈语义不丢）；命中有效值仍即时除名。
+  // 防风暴（不影响自愈）——①同一 img 元素对同一令牌只尝试一次：观察器重扫/属性抖动不再
+  // 重复打 IDB，而新渲染的元素照常重试＝池补回后立即自愈（#275 语义保留，verify-media-pool
+  // T9 实证）；②全局在飞上限：坏图成片的设备不再一次打出几十个 IDB 读把主线程打满
+  //（iPhone 16 Safari「界面卡住点不动」，与其他机型同族）。
+  let missReads = 0;
+  const MISS_READ_MAX = 8;
   window.mochiMediaTokenMissing = function (s) { const m = TOKEN_RE.exec(s || ''); return !!(m && missing.has(m[1])); };
-  function markMissing(h) {
+  // FIX 2026-09-13 #397 批量打占位——旧实现每个缺失 hash 各做一次全文档 querySelectorAll，
+  // 坏图成片的设备（池数据没跟过来的大库）一次渲染几十次查询＝主线程尖峰；改为攒批 + 单次扫描。
+  const markQueue = new Set();
+  let markT = null;
+  function flushMissingMarks() {
+    markT = null;
+    if (!markQueue.size) return;
+    const list = Array.prototype.slice.call(markQueue); markQueue.clear();
     let nodes;
-    try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
+    try { nodes = document.querySelectorAll('img[src^="' + TOK + '"]'); } catch (e) { nodes = []; }
     Array.prototype.forEach.call(nodes, function (el) {
-      try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e2) {}
+      let m; try { m = TOKEN_RE.exec(el.getAttribute('src') || ''); } catch (e2) { m = null; }
+      if (!m || list.indexOf(m[1]) < 0) return;
+      try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e3) {}
     });
+  }
+  function markMissing(h) {
+    markQueue.add(h);
+    if (markT) return;
+    markT = setTimeout(flushMissingMarks, 120);
   }
   const inflight = {};              // hash -> true（渲染侧单飞取回）
   let writeBuf = [];                // 待落池 [{k,v}]
@@ -143,9 +168,14 @@
     const v = map.get(h);
     if (v) { img.src = v; return; }
     if (inflight[h]) return;
+    try { if (img.dataset && img.dataset.tokTried === h) return; } catch (e) {}
+    if (missReads >= MISS_READ_MAX) return;
+    try { if (img.dataset) img.dataset.tokTried = h; } catch (e) {}
     inflight[h] = true;
+    missReads++;
     window.idbGet(FULL + h).then(function (v2) {
       delete inflight[h];
+      missReads = Math.max(0, missReads - 1);
       // FIX 2026-09-10 #275 池值体检：池里只可能存 data:image/ 字符串（tokenize 入口已保证）。
       // 读到空串/脏值（旧「只备份文字」备份把池 dataURL 剥成 "" 再导入所致）绝不能当有效数据：
       // 原 `typeof v2 !== 'string'` 放行空串 → map 永久缓存 '' + img.src=''（解析成页面 URL）
@@ -157,7 +187,7 @@
       let nodes;
       try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
       Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
-    }).catch(function () { delete inflight[h]; });
+    }).catch(function () { delete inflight[h]; missReads = Math.max(0, missReads - 1); });
   }
   function scanRoot(root) {
     if (!root) return;
@@ -177,6 +207,11 @@
       }
     });
     obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  } catch (e) {}
+  // FIX 2026-09-13 #397 数据恢复时清空缺失负缓存与冷却——导入完整备份（携带池键）后，
+  // 原本判缺的令牌立即重试解析，不必等冷却窗口过期或重启
+  try {
+    document.addEventListener('mochi-restore-done', function () { missing.clear(); });
   } catch (e) {}
   // 观察器挂载前已存在的 DOM（本脚本先于 body 尾部业务渲染执行，正常为空）兜底扫一遍
   function bootScan() { scanRoot(document); }

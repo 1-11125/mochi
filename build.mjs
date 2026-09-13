@@ -1163,6 +1163,12 @@ const FIX_SENTINELS = [
   { name: '#395 语音型归一化补认「名称|||令牌」形态（删则带名令牌语音消息继续当文本直出令牌串）', file: 'js/chat.js', needle: "r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)" },
   { name: '#395 voicePartsOf 裸令牌防御（删则令牌串被显成语音名称）', file: 'js/chat.js', needle: 'mochiMediaIsToken(raw)) return { name:' },
   { name: '#395 群聊语音分支令牌防御（删则群聊语音条显令牌串）', file: 'js/group-chat.js', needle: 'mochiMediaIsToken(_vraw));' },
+  // ==== 2026-09-13 #397 收藏页图片被渲染成语音条 + iOS 卡顿点不动（iPhone 16 Safari 报障，多机型）——①#356 的语音判定正则含 ^ 分支＝裸令牌（图片载荷）被当语音；②缺失令牌每次渲染都重打 idbGet＋每个缺失 hash 各做一次全文档查询＝坏图成片设备主线程打满 ====
+  { name: '#397 收藏语音判定必须带 |||（改回含 ^ 分支则图片收藏又变语音条）', file: 'js/chat.js', needle: "f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)" },
+  { name: '#397 同元素同令牌只打一次 IDB（删则观察器重扫重复读＝坏图设备主线程打满卡住；新元素不受限故补池自愈保留）', file: 'js/media-pool.js', needle: "if (img.dataset && img.dataset.tokTried === h) return;" },
+  { name: '#397 缺失读并发上限（删则坏图成片时一次打出几十个 IDB 读）', file: 'js/media-pool.js', needle: 'let missReads = 0;' },
+  { name: '#397 缺失占位批量打标（改回逐 hash 全文档查询则坏图成片时尖峰）', file: 'js/media-pool.js', needle: 'const markQueue = new Set();' },
+  { name: '#397 恢复事件清缺失负缓存（删则导入完整备份后坏图要等冷却/重启才恢复）', file: 'js/media-pool.js', needle: "mochi-restore-done', function () { missing.clear(); }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

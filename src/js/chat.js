@@ -7536,8 +7536,10 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 // （文档级观察器解析），绝不能掉进文本分支把 @@m:串 当文字直出（=「不明代码」报障，
 // 摩托罗拉 G100 Edge 等多机型复现，与设备无关）。bare data:audio（无 ||| 名称段的
 // 旧存量）也归语音，避免被当 <img> 塞音频数据。
+// FIX 2026-09-13 #397 语音判定必须带 ||| 分隔符——旧正则含 ^ 分支，裸令牌（图片载荷）
+// 被误判成语音＝图片收藏渲染成语音条（iPhone 16 Safari 报障，多机型同现）
 const isVoice = f.type === 'voice' || (typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || /(?:^|\|\|\|)@@m:[0-9a-f]{32}$/.test(f.text)));
+(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text))));
 const isImg = f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
 (f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))));
 if (isVoice) {

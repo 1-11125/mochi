@@ -9368,9 +9368,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789281574365">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.631</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 14:39<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789282459154">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.632</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 14:54<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -9411,7 +9411,7 @@ transition-duration: .01ms !important;
           <div class="splash-mandatory-h">月底停更，说点心里话</div>
           <div class="splash-mandatory-body">
             <p>先说谢谢。</p>
-            <p>这个字卡从做出来到现在，用过的人、说过谢谢的人，我都记着。这不是客套。</p>
+            <p>这个字卡从做出来到现在，用过的人、说过谢谢的人，我都记着。</p>
             <p>有的人认真谢过，有的人只是取了东西就走，我心里有数。</p>
             <p>网站是我一个人做的，最开始是给自己做的。每天维护的时间，全是我自己的钱和自己的精力，从开始到现在都是这样。</p>
             <p>最近这段时间，每天要花大量时间回同样的问题、处理别人报的设备bug，我的作息已经乱了，最开始做这件事的劲头也耗完了。</p>
@@ -10649,7 +10649,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.631</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.632</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10944,7 +10944,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.631</span>
+              <span class="lic-ver">v3.26.632</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -19364,13 +19364,27 @@ window.mochiMediaIsToken = function (s) { return typeof s === 'string' && TOKEN_
 if (!OK) return;
 const map = new Map();            // hash -> dataURL（已解析/已落池内容，渲染热缓存）
 const missing = new Set();        // hash -> true（idbGet 确认池缺失）
+let missReads = 0;
+const MISS_READ_MAX = 8;
 window.mochiMediaTokenMissing = function (s) { const m = TOKEN_RE.exec(s || ''); return !!(m && missing.has(m[1])); };
-function markMissing(h) {
+const markQueue = new Set();
+let markT = null;
+function flushMissingMarks() {
+markT = null;
+if (!markQueue.size) return;
+const list = Array.prototype.slice.call(markQueue); markQueue.clear();
 let nodes;
-try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
+try { nodes = document.querySelectorAll('img[src^="' + TOK + '"]'); } catch (e) { nodes = []; }
 Array.prototype.forEach.call(nodes, function (el) {
-try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e2) {}
+let m; try { m = TOKEN_RE.exec(el.getAttribute('src') || ''); } catch (e2) { m = null; }
+if (!m || list.indexOf(m[1]) < 0) return;
+try { el.classList.add('media-tok-missing'); if (!el.alt) el.alt = '图片缺失'; } catch (e3) {}
 });
+}
+function markMissing(h) {
+markQueue.add(h);
+if (markT) return;
+markT = setTimeout(flushMissingMarks, 120);
 }
 const inflight = {};              // hash -> true（渲染侧单飞取回）
 let writeBuf = [];                // 待落池 [{k,v}]
@@ -19455,16 +19469,21 @@ const h = m[1];
 const v = map.get(h);
 if (v) { img.src = v; return; }
 if (inflight[h]) return;
+try { if (img.dataset && img.dataset.tokTried === h) return; } catch (e) {}
+if (missReads >= MISS_READ_MAX) return;
+try { if (img.dataset) img.dataset.tokTried = h; } catch (e) {}
 inflight[h] = true;
+missReads++;
 window.idbGet(FULL + h).then(function (v2) {
 delete inflight[h];
+missReads = Math.max(0, missReads - 1);
 if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) { missing.add(h); markMissing(h); return; }
 missing.delete(h); // 后续读到有效值＝池已补回（导入完整备份等），解除剔除/占位
 map.set(h, v2);
 let nodes;
 try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
 Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
-}).catch(function () { delete inflight[h]; });
+}).catch(function () { delete inflight[h]; missReads = Math.max(0, missReads - 1); });
 }
 function scanRoot(root) {
 if (!root) return;
@@ -19484,6 +19503,9 @@ for (let j = 0; j < mu.addedNodes.length; j++) scanRoot(mu.addedNodes[j]);
 }
 });
 obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+} catch (e) {}
+try {
+document.addEventListener('mochi-restore-done', function () { missing.clear(); });
 } catch (e) {}
 function bootScan() { scanRoot(document); }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootScan);
@@ -33869,7 +33891,7 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 });
 } else {
 const isVoice = f.type === 'voice' || (typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || /(?:^|\|\|\|)@@m:[0-9a-f]{32}$/.test(f.text)));
+(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text))));
 const isImg = f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
 (f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))));
 if (isVoice) {
@@ -90927,4 +90949,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzg1uql -->
+<!-- __MOCHI_EOF__ mtzgktg2 -->
