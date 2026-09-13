@@ -518,6 +518,8 @@ const FIX_SENTINELS = [
   { name: '#100 最近错误环形上限 5→20 且调用栈只给最近 3 条（5 条窗口用户报障时早已刷掉；全带栈会把报障文本撑到剪贴板截断）', file: 'js/device.js', needle: 'const ERR_CAP = 20;' },
   { name: '红米K80 切后台无法自动播下一首回归修复（后台非 NotAllowedError 拒绝不再烧一次性 https 重试链，恢复 scheduleBgResume 退避补播，源短暂恢复即接上）', file: 'js/music-player.js', needle: 'if (document.hidden) {\nbgBrokeAudio = true;\nplayRejected = true;\nscheduleBgResume();' },
   { name: '群聊里用【帮我决定/多人决定】结果发到群聊（gcSendDecisionText 系统消息入群聊消息流 + 群聊更多面板点这两项不切聊天页，修结果错发到聊天）', file: 'js/group-chat.js', needle: 'gcSendDecisionText' },
+  { name: '#421b 帮我决定入口顶置早绑定（decision.js 顶部先挂分派器 window.openDecision，真实实现 359 行回填 decisionPanelRef——防模块中途任一 init 抛错导致 openDecision 永不绑=按钮「帮我决定加载失败」，用户跨机型反复上报；改回整体覆盖或删分派器即报警）', file: 'js/decision.js', needle: 'decisionPanelRef = openPanel;' },
+  { name: '#421b 多人决定入口顶置早绑定（group-decision.js 顶部先挂分派器 window.openGroupDecision，真实实现回填 groupDecisionPanelRef——同上，防「多人决定加载失败」跨机型复发）', file: 'js/group-decision.js', needle: 'groupDecisionPanelRef = openPanel;' },
   { name: '#104 导出打包器按片段写 Blob + 值内逐元素下钻（单片段恒 ≤1M 字符，不再为单个大键整串分配；回归成整包 stringify 则 vivo X200s 806MB 设备 Invalid string length 复发）', file: 'js/data-backup.js', needle: 'createJsonPack' },
   { name: '#104 导出体积预估改廉价浅判（旧 byteLen 为量一个键的长度把整包 stringify 一遍＝再复制一份大键，是 OOM 的隐藏来源）', file: 'js/data-backup.js', needle: 'function overSmallLimit(v, limit)' },
   { name: '#104 导出异常边界收遮罩并如实报环节/键名/体积（旧实现裸调用 → RangeError 变未处理 promise rejection → impHide 永不执行 = 用户报的「一直在打包中」）', file: 'js/data-backup.js', needle: 'reportExportError' },
@@ -1112,10 +1114,10 @@ const FIX_SENTINELS = [
   { name: '#381 全屏浮层 hidden 救援（.pong-overlay 的 display:flex 压掉 UA [hidden]，#331 同因；删则关不掉全屏背包/记录）', file: 'css/chat-pages.css', needle: '#au-overlay.au-ov-fs[hidden] { display:none; }' },
   // ==== 2026-09-12 #378 聊天+群聊跟底闸改钉住标记 + 轻点不杀跟底（红米 K80 Chrome 单聊/群聊同报「联系人发消息不自动滚到最新，要手动滑」；①旧 nearGcBottom/chatNearBottom 距离闸在内核丢弃首写/图片迟到解码顶开后把后续每条来消息都误判成在看历史永不跟底；②轻点消息区（点气泡）即解钉且无法回钉，自动跟底被一次轻点永久杀死）====
   { name: '#378 单聊来消息跟底闸改按钉住标记（距离闸在首写被丢弃后永不跟底）', file: 'js/chat.js', needle: 'if (!out && !chatPinnedBottom) return;' },
-  { name: '#378/#417 单聊手动滚回贴底回钉（解钉后自动跟底可恢复；#417 起只认真的贴到底 ≤8px，防上翻读最新时误回钉拽底）', file: 'js/chat.js', needle: 'else if (!chatPinnedBottom && chatAtBottom())' },
+  { name: '#378/#416 单聊手动滚回贴底回钉（解钉后自动跟底可恢复；#416 起只认真的贴到底 ≤8px，防上翻读最新时误回钉拽底）', file: 'js/chat.js', needle: 'else if (!chatPinnedBottom && chatAtBottom())' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
-  { name: '#378/#417 群聊轻点不杀跟底 + 滚回贴底解除接管（#396 随行补锚定摘除；#417 起轻点回跟只认真的贴到底 ≤8px，防上翻读最新时一点气泡就恢复跟底被拽回）', file: 'js/group-chat.js', needle: 'if (dy < 10 && gcAtBottom()) { gcUserGcScrollTouched = false;' },
+  { name: '#378/#416 群聊轻点不杀跟底 + 滚回贴底解除接管（#396 随行补锚定摘除；#416 起轻点回跟只认真的贴到底 ≤8px，防上翻读最新时一点气泡就恢复跟底被拽回）', file: 'js/group-chat.js', needle: 'if (dy < 10 && gcAtBottom()) { gcUserGcScrollTouched = false;' },
   // ==== 2026-09-13 #396 聊天/群聊滑动屏幕「弹一下」（红米 K80 Chrome 报障，多机型同族）——两根因：①单聊 loadOlderIncremental 补偿式 beforeTop+anchor.offsetTop 读的是插入后首元素 offsetTop=插入高度+.chat-body padding-top，每批上翻固定多推 14px=视觉跳一下（#316 锚定只兜图片迟到解码兜不住这 14px，无头实测 Δsh=8903 误差恒-14px）；②#316 只给单聊解钉开回滚动锚定，gc-body 共享 .chat-body 的 overflow-anchor:none 却从未挂回 scroll-anchor-auto=图多群聊历史上翻被解码撑高推走 ====
   { name: '#396 单聊上翻补偿改锚点差值（删则每批上翻固定视觉上跳 padding-top 14px=滑动弹一下）', file: 'js/chat.js', needle: 'body.scrollTop = beforeTop + (anchor.offsetTop - anchorTopBefore);' },
   { name: '#396 群聊解钉开滚动锚定（删则图多群聊历史上翻被解码撑高推走，#316 同根因群聊侧）', file: 'js/group-chat.js', needle: "body.classList.add('scroll-anchor-auto')" },
@@ -1241,6 +1243,8 @@ const FIX_SENTINELS = [
   { name: '#403 信箱弹窗正文剥令牌/附件（删则信件通知横幅直出乱码）', file: 'js/mail.js', needle: "给你寄来了一封信：' + String(content" },
   { name: '#415 查看存储·扫描字卡分组后长文本不超屏（.storage-row span 允许在自身宽度内折行；删则分组名/多库合计长文本又顶出屏幕）', file: 'css/setting.css', needle: '.storage-row span { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }' },
   { name: '#415 查看存储·扫描结果体积列右对齐可折行（.storage-row b 同族；删则多库合计长文本整行不折又超屏）', file: 'css/setting.css', needle: '.storage-row b { font-weight:600; font-size:12.5px; text-align:right; flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }' },
+  { name: '#415b 压缩图片·压缩后字卡库缓存强制重载（删则压缩写回后本会话聊天回复池/字卡管理页继续发旧图）', file: 'js/chatcard.js', needle: 'window.ccReloadGroupsAfterExternalWrite = function () {' },
+  { name: '#415b 压缩图片·压缩前弹窗提醒先导出备份（删则压缩覆盖原图无提示，用户无备份意识）', file: 'js/img-compress.js', needle: '压缩会覆盖原图（替换成更小的版本），原图不留底、不可撤销' },
   // ==== 2026-09-14 图片丢失核对（OPPO Find X9/Edge 实报「图片显示异常」，其他设备型号也有；诊断实证媒体池空、
   //      聊天全是 @@m: 令牌→渲染占位「媒体数据缺失，可用数据备份重新导入恢复」。代码面防线已齐
   //      （#275 备份不带池不剥值 / #387 公用库写回堵口 / #397/#402 占位与自愈 / #186 写池回滚 / #118 导入保留旧键），
@@ -1248,9 +1252,18 @@ const FIX_SENTINELS = [
   //      查看存储页「核对图片是否齐全」按钮，引用数>池内数=备份没带图需源头重导完整备份，两边相等=数据链完好自愈）====
   { name: '#419 图片核对核心（mochiMediaCoverage 比对引用令牌数 vs 池内条数；删则用户无从分辨「图片丢失」是备份没带图还是链路没写回）', file: 'js/media-pool.js', needle: 'window.mochiMediaCoverage = function () {' },
   { name: '#419 查看存储·图片核对按钮（锚点；删则用户没有入口验证图片缺失原因）', file: 'template.html', needle: 'id="st-media-cov-btn"' },
-  { name: '#417 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
-  { name: '#417 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
-  { name: '#417 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },
+  // ==== 2026-09-13 #423 媒体池一键重建（图片自愈）（红米 K80 Chrome 报「字卡库纯白/表情包/聊天/头像图全不显示」，
+  //      其他手机同现；#275 实锤空池条目随完整备份跨设备传播、重导完整备份也救不回。池是内容寻址
+  //      （令牌=SHA-256(dataURL)），本机任何键里幸存的同一张原图都能按哈希补池自愈——新增
+  //      mochiMediaRebuild 只补缺失/空串条目、绝不覆盖有效池值、绝不删除任何数据）====
+  { name: '#423 媒体池重建核心（mochiMediaRebuild 扫描本机存留原图按哈希补池；删则「图片丢失」设备永远只能靠源头完整备份、本机幸存副本全浪费）', file: 'js/media-pool.js', needle: 'window.mochiMediaRebuild = function () {' },
+  { name: '#423 查看存储·重建媒体池按钮（锚点；删则用户没有重建入口）', file: 'template.html', needle: 'id="st-media-rebuild-btn"' },
+  { name: '#423 重建按钮接线（personalize 确认弹窗+结果报告；删则按钮无功能）', file: 'js/personalize.js', needle: '开始重建' },
+  { name: '#423 聊天图片丢失占位指向重建入口（删则用户只被告知「导入备份」而不知道本机可先重建自愈）', file: 'js/chat.js', needle: '可到设置→查看存储→媒体池' },
+  { name: '#423 诊断·媒体池条目数（旧大键明细候选清单不含 media: 键，报障诊断无法判断池是否存在；删则图片丢失类报障继续失明）', file: 'js/device.js', needle: '媒体池条目' },
+  { name: '#416 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
+  { name: '#416 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
+  { name: '#416 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },
   { name: '#418 屏幕适配自动监视·开屏未进入/数据未就绪跳过采集（sdTick 守卫；删则开屏加载期 inner 短报瞬态刷「底部少填/顶部重叠」假阳性污染错误环+反复强制重排，iPhone13 Safari「总卡卡/开屏划不动」复发）', file: 'js/device.js', needle: "_splash && !_splash.classList.contains('hide')" },
 ];
 try {

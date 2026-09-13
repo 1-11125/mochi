@@ -873,6 +873,16 @@
     try { saveGroups(groups); } catch (e) {}
   }
   window.ccFlushSave = flushCcSave;
+  // v3.33.x：外部直接写回字卡库后强制重载缓存（img-compress 压缩写回走 xyStore 三路同拍，
+  // 但本模块 pubCache/内存 groups 仍是旧 base64——不重载则聊天回复池/字卡管理页继续发旧图）。
+  // pubInvalidate 清公用库缓存；groups 按当前作用域重读存储；角标强制重算。聊天页下次取池即新图。
+  window.ccReloadGroupsAfterExternalWrite = function () {
+    pubInvalidate();
+    libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
+    try { groups = loadGroups(); } catch (e) {}
+    try { renderGroupsBar(); render(); } catch (e) {}
+    refreshLibCounts(true);
+  };
   try {
     window.addEventListener('beforeunload', flushCcSave);
     window.addEventListener('pagehide', flushCcSave);

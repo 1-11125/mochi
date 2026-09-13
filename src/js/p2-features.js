@@ -3853,8 +3853,10 @@ if (ckRefresh) {
   }
   function piggyCoinProbSave(p) { const s = piggyStore(); if (s) try { s.set('piggy-coin-prob', JSON.stringify(p || {})); } catch (e) {} }
   // TA 不定期塞心意币到共用存钱罐（越久未开概率越高，彩蛋不入 gift-wallet）；只在查看当前联系人时触发
+  // v3.42.x #422：塞币彩蛋接入「其他互动功能字卡」的存钱罐概率（dcf-piggy，默认 100%＝原行为，0%＝不塞币也不发系统消息）
   function piggyCoinMaybeTa() {
     if (!piggyCoinIsCurrent()) return;
+    try { if (window.dcfGet && !(Math.random() * 100 < window.dcfGet('piggy'))) return; } catch (e) {}
     const s = piggyCoinStore(); if (!s) return;
     let last = 0; try { last = parseInt(s.get('piggy-coin2-last-visit') || '0', 10) || 0; } catch (e) {}
     const gap = Date.now() - last; try { s.set('piggy-coin2-last-visit', '' + Date.now()); } catch (e) {}

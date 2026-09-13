@@ -188,7 +188,7 @@
           if (changed) {
             let s = '';
             try { s = JSON.stringify(g); } catch (e) { reasons.push('字卡库「' + L.label + '」写回序列化失败，跳过'); continue; }
-            try { window.xyStore(L.prefix).set(L.key, s); }
+            try { window.xyStore(L.prefix.slice(0, -1)).set(L.key, s); }
             catch (e) { reasons.push('字卡库「' + L.label + '」写回失败：' + ((e && e.message) || e)); }
           }
           await tick();
@@ -208,9 +208,9 @@
           const oldLen = v.length;
           const newLen = r.data.length;
           if (newLen < oldLen * 0.9) {
-            const prefix = k.slice(0, k.lastIndexOf(':') + 1);
-            const bare = k.slice(prefix.length);
-            try { window.xyStore(prefix).set(bare, r.data); out.processed++; out.saved += (oldLen - newLen) * 2; }
+            const k0 = k.slice(0, k.lastIndexOf(':')); // 去尾冒号：xyStore 会自己拼 ':' + bare
+            const bare = k.slice(k.lastIndexOf(':') + 1);
+            try { window.xyStore(k0).set(bare, r.data); out.processed++; out.saved += (oldLen - newLen) * 2; }
             catch (e) { reasons.push('美化图片「' + bare + '」写回失败：' + ((e && e.message) || e)); }
           } else { out.skipped++; }
           await tick();
@@ -256,6 +256,8 @@
       if (!res || !res.ok) { toast('压缩未完成：' + ((res && res.reason) || '未知原因')); return; }
       toast('已压缩 ' + res.processed + ' 张，释放约 ' + fmtBytes(res.saved) + (res.skipped ? '（跳过 ' + res.skipped + ' 张：动图/已较小/压缩后不更小则不替换）' : ''));
       refreshRowAfter(res, source);
+      // 字卡库内存缓存失效重载：聊天回复池/字卡管理页立即用压缩后的新图（否则本会话继续发旧图）
+      try { if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite(); } catch (e) {}
       // 同步「查看存储」：personalize 监听该事件重算总占用（页面可见时才刷新）
       try { document.dispatchEvent(new CustomEvent('mochi-img-compressed')); } catch (e) {}
     }).catch(function () { toast('压缩异常，请稍后重试'); });
@@ -280,6 +282,8 @@
         '· 美化里上传的图片：' + (b.n || 0) + ' 张，约 ' + fmtBytes(b.bytes || 0),
         '',
         '压缩规则：把偏大的存量图按「新上传」相同的清晰标准重压（字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85）。压缩产物不小于原图时不替换；动图（GIF）与媒体池共享图不动，超大原图（>8MB）为防崩溃不解码。',
+        '',
+        '⚠️ 压缩会覆盖原图（替换成更小的版本），原图不留底、不可撤销。建议先导出备份：设置 → 数据备份 → 导出（或云端备份），备份里保留压缩前的原图。',
         '',
         '压缩后图片依旧清晰，存储占用明显变小；「查看存储」的总占用会同步刷新。',
         '',

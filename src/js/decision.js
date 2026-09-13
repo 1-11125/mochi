@@ -4,7 +4,15 @@
 // 结果可发送到聊天（联系人回复样式）
 // 功能参考：小红书@FelixFelicis（9416318007）
 (function () {
-  const uid = window.activePrefix(); // 历史遗留声明（未使用），保留兼容
+  let uid; try { uid = window.activePrefix(); } catch (e) { uid = null; } // 历史遗留声明（未使用）；v3.27.x#421b：顶层对 window 的急切调用加容错——原写法若加载瞬间全局未就绪，第一句即抛错、整文件报废、openDecision 永不绑定（用户报「帮我决定加载失败」跨机型反复出现）
+  // v3.27.x #421b：入口顶置早绑定——本模块若中途任一 init 抛错（构建期 try/catch 会吞掉），
+  // 原设计在文件末 openPanel 定义后才绑 window.openDecision，结局＝按钮整块消失（加载失败）。
+  // 现改为顶部先挂一个可用的分派器，真实实现定义后由 359 行回填引用；任何情况下入口都在。
+  let decisionPanelRef = null;
+  window.openDecision = function () {
+    return decisionPanelRef ? decisionPanelRef.apply(window, arguments)
+      : (toast('帮我决定加载失败'), false);
+  };
   // v3.14.x：数据/历史改全局共享——store 走根命名空间 xy-home-v2，所有桌面互通一份，
   // 不再随联系人隔离（同 period/表情包/存钱罐的全局键先例）；昵称展示仍按当前桌面动态读
   const store = window.xyStore('xy-home-v2');
@@ -356,5 +364,6 @@
   }
 
   // 入口：聊天更多功能 → 帮我决定（chat.js 里 more-decide 调用）
-  window.openDecision = openPanel;
+  // v3.27.x #421b：不再整体覆盖 window.openDecision（顶部已挂分派器），回填真实实现引用即可
+  decisionPanelRef = openPanel;
 })();

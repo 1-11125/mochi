@@ -394,6 +394,9 @@
     if (memoRemindProbBtn) memoRemindProbBtn.textContent = '提醒概率 ' + c.prob + '%';
   }
   function memoRemindFire() {
+    // v3.42.x #422：备忘提醒在自带「备忘提醒」开关/概率之上，追加「其他互动功能字卡」里的
+    //   备忘提醒概率门控（dcf-memo，默认 100%＝保持原节奏，0%＝完全不催备忘；随联系人桌面隔离）。
+    try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('memo') : 100)) return; } catch (e) {}
     const undone = memoItems().filter(x => !x.done);
     if (!undone.length) return;
     const over = undone.filter(x => memoUrgent(x) === 'overdue');

@@ -327,6 +327,10 @@
   // 查岗卡（ck-question.js，后打包）经 window 调用同一道闸门；探针供回归/诊断只读
   window.interactGateOk = interactGateOk;
   window.interactGateMark = interactGateMark;
+  // v3.42.x #422：TA 主动提问（关心询问/小问题/好奇/互动/吐槽）统一走「其他互动功能字卡」里的
+  //   「TA主动提问」概率门控（dcf-ask，随联系人桌面隔离）：100%＝保持原节奏（仅受原冷却/闸门约束），
+  //   0%＝完全不主动提问。独立于查岗卡（查岗走自己的 dcf-deskcheck/ckq），故不改 interactGateOk 本体。
+  function taAskDcfOk() { try { return Math.random() * 100 < (window.dcfGet ? window.dcfGet('ask') : 100); } catch (e) { return true; } }
   window.__interactGateInfo = function () {
     let last = 0;
     try { last = Number(store.get(INTERACT_GATE_KEY)) || 0; } catch (e) {}
@@ -596,6 +600,7 @@
       if (Date.now() - (d.lastAskAt || 0) < 45 * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
+      if (!taAskDcfOk()) return;
       if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
       const q = taAskPick(d);
       if (!q) return;
@@ -1531,6 +1536,7 @@ const TC_DEFAULT = [
       if (Date.now() - (d.lastChoiceAt || 0) < 30 * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
+      if (!taAskDcfOk()) return;
       if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
       const q = tcPick(d);
       if (!q) return;
@@ -2333,6 +2339,7 @@ window.openTCPanel = openTCPanel;
       if (Date.now() - (d.lastCuriousAt || 0) < 30 * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
+      if (!taAskDcfOk()) return;
       if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
       const q = tcuPick(d);
       if (!q) return;
@@ -2926,6 +2933,7 @@ window.openTCPanel = openTCPanel;
       if (Date.now() - (d.lastRoastAt || 0) < 30 * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
+      if (!taAskDcfOk()) return;
       if (Math.random() * 100 < (typeof s.prob === 'number' ? s.prob : 5)) {
         const q = trPick(d, lastUserMsg());
         if (q) { interactGateMark(); trPush(q, { popupProb: askPopupProb(s) }); }
@@ -2971,6 +2979,7 @@ window.openTCPanel = openTCPanel;
       if (ccCfg('ai-cc-en', 1) !== 1) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
+      if (!taAskDcfOk()) return;
       const st = ccStateLoad();
       if (Date.now() - (st.lastCcAt || 0) < 90 * 60000) return;
       if (Math.random() * 100 >= ccCfg('ai-cc-prob', 4)) return;

@@ -6,7 +6,14 @@
 (function () {
   // v3.14.x：数据/历史改全局共享——store 走根命名空间 xy-home-v2，所有桌面互通一份
   //（成员名单/历史/设置均不再随联系人隔离，同 decision.js 的全局键先例）
-  const store = window.xyStore('xy-home-v2');
+  let store; try { store = window.xyStore('xy-home-v2'); } catch (e) { store = null; } // v3.27.x #421b：顶层对 window 急切调用加容错（防加载瞬间未就绪整文件报废；downstream store.get/set 均已自带 try/catch 降级）
+  // v3.27.x #421b：入口顶置早绑定——同 decision.js，防模块中途抛错导致 window.openGroupDecision
+  // 永远未绑（用户在聊天更多功能点「多人决定」报加载失败、跨机型反复）。真实实现由 445 行回填。
+  let groupDecisionPanelRef = null;
+  window.openGroupDecision = function () {
+    return groupDecisionPanelRef ? groupDecisionPanelRef.apply(window, arguments)
+      : (toast('多人决定加载失败'), false);
+  };
   const MEMBERS_KEY = 'gdec-members';
   const HISTORY_KEY = 'gdec-history';
   const SETTINGS_KEY = 'gdec-settings';
@@ -435,7 +442,8 @@
   }
 
   // 入口函数导出（桌面快捷方式等外部也可调用）
-  window.openGroupDecision = openPanel;
+  // v3.27.x #421b：不再整体覆盖 window.openGroupDecision（顶部已挂分派器），回填真实实现引用
+  groupDecisionPanelRef = openPanel;
 
   // 头部 × 关闭按钮（模板锚点在 panel 头部、不在 body 内，故在自绑定处补齐——
   // 帮我决定/占卜的关闭绑定在 chat.js 里，本功能不动 chat.js）
