@@ -405,10 +405,12 @@ for (const k in j.x) { if (Object.prototype.hasOwnProperty.call(j.x, k)) r[k] = 
 }
 add.push(r);
 }
-if (!add.length) return;
+if (!add.length) return 0;
 msgs = msgs.concat(add).sort((a, b) => ((a && a.ts) || 0) - ((b && b.ts) || 0));
 saveMsgs();
+return add.length; // FIX 2026-09-13 #403：回放条数上抛（插入/排序=下标位移，调用方据此标记 changed 重渲）
 } catch (e) {}
+return 0;
 }
 // v3.14.x：防「权威读取失败被当空历史」守卫状态——idbGet 的 4s+4s 超时兜底
 //（v3.9.x 防挂起）对「键存在但读取超时」也 resolve undefined，与「键不存在」不可区分；
@@ -1023,7 +1025,7 @@ chatDbReady = true;
 // v3.14.x：本命名空间已读到权威（此后空数组落盘才被允许——内存已含全部历史）
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
-try { chatTailMerge(); } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）
+try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #403 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
 // v3.26.x #90：账本基线＝刚读到的库内条数（同值不重复落盘，见 chatLedgerSave 节流）
 try { chatLedgerSave(myPrefix, idbArr.length, msgsBytes(idbArr)); } catch (e) {}
 try {
@@ -2280,6 +2282,7 @@ return true;
 // 平移，视口内内容不动。返回 true=已原位补丁（或屏上无命中无需动）；false=整窗兜底。
 function patchChangedInPlace(changedIdxs, start) {
 if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
+if (!windowRenderedN) return false; // 无屏上凭据（首渲场景）走原整窗渲染（#241 同门）
 let n = start;
 let hasPending = false;
 for (let k = 0; k < body.children.length; k++) {
@@ -3756,8 +3759,10 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + es
 }
 return finalReply;
 };
-function retractMsg(msgEl, side) {
-const idx = parseInt(msgEl.dataset.idx, 10);
+function retractMsg(msgEl, side, idxOverride) {
+// FIX 2026-09-13 #403：可选 idxOverride——菜单路径由 resolveActiveMsg 重定位后显式传入，
+// 防 msgs 重排后 msgEl.dataset.idx 陈旧撤错条；其他调用方不传参行为不变
+const idx = (typeof idxOverride === 'number' && idxOverride >= 0) ? idxOverride : parseInt(msgEl.dataset.idx, 10);
 let target = msgEl;
 if (!msgEl.isConnected && body) {
 const cur = body.querySelector('.msg[data-idx="' + idx + '"]');
@@ -6942,6 +6947,7 @@ if (pokeCard && !pokeCard.hidden && !pokeCard.contains(e.target)) closePokeCard(
 });
 const msgActions = document.getElementById('msg-actions');
 let activeMsgEl = null;   // 当前操作的消息 DOM
+let activeMsgSnap = null; // FIX 2026-09-13 #403：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
 function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
@@ -7178,6 +7184,7 @@ if (window.addTaFavItem(f)) setTimeout(() => toast('TA 收藏了你们的互动�
 function closeMsgActions() {
 if (msgActions) msgActions.hidden = true;
 activeMsgEl = null;
+activeMsgSnap = null; // FIX 2026-09-13 #403 随菜单关闭清身份快照
 }
 function quoteTextOf(m) {
 // #148：图片载荷判定加媒体池令牌（@@m:hash）——令牌化后的图片消息引用不出缩略图、
@@ -7275,6 +7282,14 @@ return { item, b };
 }
 function openMsgActionsAt(item, b) {
 activeMsgEl = item;
+// FIX 2026-09-13 #403 引用/收藏/编辑等按 data-idx 解析消息，但菜单打开后 msgs 可能被
+// 权威读库合并/尾巴日志回放重排（中段插入/删除 ⇒ 后续下标整体位移）而 DOM 未重渲
+//（不贴底跳过重渲的防闪路径），旧下标即指向另一条消息＝「引用预览显示的不是被引那条」
+//（华为 P50E Edge 等多机型报障）。打开时快照身份：对象引用 + ts/side/text 签名，
+// 执行动作时由 resolveActiveMsg 重新定位。
+const _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
+const _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
+activeMsgSnap = { idx: _qi, rec: _qr, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
 activeSide = item.classList.contains('msg-out') ? 'out' : 'in';
 if (!msgActions) return;
 msgActions.querySelectorAll('.ma-mine').forEach(b2 => b2.hidden = activeSide !== 'out');
@@ -7300,6 +7315,35 @@ const belowFits = below + ah <= vh - 8;
 y = aboveFits || !belowFits ? y : below;
 msgActions.style.left = x + 'px';
 msgActions.style.top = y + 'px';
+}
+// FIX 2026-09-13 #403：菜单动作执行时按身份快照重新定位消息，防「msgs 重排 + DOM 未重渲」
+// 窗口期里 data-idx 指向别的消息（引用预览串条/收藏串条/编辑串条/撤回错条）。解析顺序：
+// ① 快路径——下标处对象就是快照对象（数组没动过，零开销）；② 对象同一性——重排后对象
+// 仍在数组里（indexOf）；③ 签名唯一命中——权威读库合并会换成新解析对象（引用失效），
+// 按 ts+side+text 前缀 80 全数组扫描，命中唯一才采信（防同文案多条误绑）；④ 全部失配
+// 回退旧 data-idx 行为（宁可维持旧行为也不致无法操作）。
+function resolveActiveMsg() {
+const idx0 = activeMsgEl && activeMsgEl.dataset && activeMsgEl.dataset.idx !== undefined ? Number(activeMsgEl.dataset.idx) : -1;
+const snap = activeMsgSnap;
+if (idx0 >= 0 && msgs[idx0]) {
+if (!snap || msgs[idx0] === snap.rec) return { idx: idx0, rec: msgs[idx0] };
+}
+if (snap && snap.rec) {
+const i = msgs.indexOf(snap.rec);
+if (i >= 0) return { idx: i, rec: snap.rec };
+}
+if (snap && (snap.ts || snap.text || snap.side)) {
+let hit = -1, hits = 0;
+for (let i = 0; i < msgs.length; i++) {
+const m = msgs[i];
+if (!m || (m.ts || 0) !== snap.ts || (m.side || '') !== snap.side) continue;
+if (String(m.text || '').slice(0, 80) !== snap.text) continue;
+hit = i; hits++;
+if (hits > 1) break;
+}
+if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
+}
+return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
 }
 body.addEventListener('contextmenu', (e) => {
 // 长按/右键由应用接管：抑制系统默认菜单与文本选中，但不吞掉「引用气泡跳原消息」等其它元素自身行为
@@ -7340,8 +7384,10 @@ msgActions.addEventListener('click', (e) => {
 const btn = e.target.closest('.ma-btn');
 if (!btn) return;
 const act = btn.dataset.act;
-const idx = activeMsgEl ? Number(activeMsgEl.dataset.idx) : -1;
-const rec = (idx >= 0 && msgs[idx]) ? msgs[idx] : null;
+// FIX 2026-09-13 #403：按身份快照重定位（msgs 重排+DOM 未重渲窗口期 data-idx 会串条）
+const _act = resolveActiveMsg();
+const idx = _act.idx;
+const rec = _act.rec;
 if (act === 'quote') {
 if (rec) {
 const qsnap = quoteTextOf(rec);
@@ -7394,7 +7440,9 @@ toast(ok ? '已复制' : '复制失败');
 }
 closeMsgActions();
 } else if (act === 'retract') {
-if (activeMsgEl) retractMsg(activeMsgEl, 'out');
+// FIX 2026-09-13 #403：撤回同走身份重定位（retractMsg 内部按 msgEl.dataset.idx 解析，
+// 这里把 resolveActiveMsg 的正确下标显式传入，防 DOM 陈旧下标撤错条）
+if (activeMsgEl) retractMsg(activeMsgEl, 'out', idx);
 closeMsgActions();
 } else if (act === 'edit') {
 if (rec && window.openModal) {
@@ -7614,10 +7662,14 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 // 旧存量）也归语音，避免被当 <img> 塞音频数据。
 // FIX 2026-09-13 #397 语音判定必须带 ||| 分隔符——旧正则含 ^ 分支，裸令牌（图片载荷）
 // 被误判成语音＝图片收藏渲染成语音条（iPhone 16 Safari 报障，多机型同现）
-const isVoice = f.type === 'voice' || (typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text))));
-const isImg = f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
-(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))));
+// FIX 2026-09-13 #400 收藏分类改「内容优先」——不再信任存储的 type 字段（历史误存/旧包
+// 写坏的数据一律纠正）：只有内容真长得像语音（data:audio 或 名称|||令牌）才渲染语音条，
+// 其余一律按图片/文本渲染
+const looksVoice = typeof f.text === 'string' &&
+(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)));
+const isVoice = looksVoice;
+const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
+(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text)))));
 if (isVoice) {
 b.style.padding = '8px 10px';
 fillVoiceBubble(b, f.text);

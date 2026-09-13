@@ -1116,6 +1116,11 @@ const FIX_SENTINELS = [
   { name: '#401 发件侧纯文本去重窗收窄 800ms（删/回 2500ms＝重打同文本 0.8~2.5s 内再发被静默吞，机械双击兜底+守卫双层仍在）', file: 'js/chat.js', needle: "&& !m.img && !m.voice && !m.special) return 800;" },
   { name: '#401 群聊发送取值快照兜底（删则撕文本内核群聊点发送消息静默消失，#215 群聊侧同族）', file: 'js/group-chat.js', needle: "input._gcLastTyped = input.innerText || '';" },
   { name: '#401 群聊清空同步作废快照（删则程序化清空后误点发送幻影重发上一条）', file: 'js/group-chat.js', needle: "input._gcLastTyped = '';" },
+  // ==== 2026-09-13 #404 米15夸克 LS 配额满（同域 ml2_* 他方键占 20MB，写探针 QuotaExceededError）二级密码解锁刷新即回锁——解锁后盲等 900ms reload，夸克等内核杀进程会中止在途 IDB 事务＝权威值未提交；LS 配额满设备项目 LS 键恒空、IDB 是唯一凭证，一次提交失败必现。修复=解锁/重锁改「确认 IDB 落库再刷新」（cardLockConfirmPersisted 轮询 200ms×15 兜底），诊断体检补 cardlock-state 全局根键三层值 ====
+  { name: '#404 解锁/重锁落库确认接口（删则刷新回锁家族失去提交确认，回退盲等 900ms 竞态）', file: 'js/card-lock.js', needle: 'window.cardLockConfirmPersisted = function (expect, cb) {' },
+  { name: '#404 开屏解锁等 IDB 确认 open 再刷新（删则夸克内核 reload 中止在途事务＝解锁刷新即回锁）', file: 'js/clock.js', needle: "cardLockConfirmPersisted('open', goReloadAfterPersist)" },
+  { name: '#404 重锁等 IDB 确认 locked 再刷新（删则重锁丢失＝未成年人保护失效）', file: 'js/clock.js', needle: "cardLockConfirmPersisted('locked', goReloadAfterPersist)" },
+  { name: '#404 诊断体检 cardlock-state 全局根键三层值（删则解锁丢失类报障无法判读，per-cid 探针恒缺失误导）', file: 'js/device.js', needle: "const ROOT_KEYS = ['cardlock-state'];" },
   // ==== 2026-09-12 #382 屏幕适配诊断报告「导出docx」点了毫无反应（iQOO neo10pro Chrome 报障，多机型全现）——#333 时 diagExportDocx 在主诊断闭包、屏幕适配诊断闭包跨 IIFE 引用恒 ReferenceError 被 openModal 按钮 try/catch 吞掉；同调用 4 参对 3 形参 legacy 分支必抛 failToast is not a function ====
   { name: '#382 诊断导出跨闭包挂载 window.mochiDiagExportDocx（删则屏幕适配诊断导出恒 ReferenceError 静默失败）', file: 'js/device.js', needle: 'window.mochiDiagExportDocx = diagExportDocx;' },
   { name: '#382 屏幕适配诊断导出改走 window 挂载 + 形参收窄（failMsg,toastFn）', file: 'js/device.js', needle: "(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'" },
@@ -1190,6 +1195,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-13 #403 漂流瓶都是空白没有留言（多机型）——dcf-drift 概率/总开关关断时 poolLine 返回空串，normal/special/TA 兜底全落空＝瓶子装空白信纸；修复=三道来源全空回退内置兜底话术（FB），瓶内文案永不落空 ====
   { name: '#403 TA 瓶三道来源全空回退内置兜底（删则 dcf 关断+无历史时出空白信纸）', file: 'js/drift-bottle.js', needle: "note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);" },
   { name: '#403 普通/特殊瓶文案永不落空（删则 dcf 关断时 normal/special 瓶空白）', file: 'js/drift-bottle.js', needle: "note = poolLine('海风', 'sea') || rnd(FB.sea);" },
+  { name: '#400 收藏分类内容优先（改回信任存储 type 则误存语音的图片收藏又变语音条）', file: 'js/chat.js', needle: 'const isVoice = looksVoice;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

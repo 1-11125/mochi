@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789284663413">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.636</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 15:31<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789285197974">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.637</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 15:39<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10651,7 +10651,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.636</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.637</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10946,7 +10946,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.636</span>
+              <span class="lic-ver">v3.26.637</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -15769,6 +15769,7 @@ const P = G + cid + ':';
 const SP = G + cid;
 const fmt = function (v) { return v === null || v === undefined ? '缺失' : JSON.stringify(String(v)); };
 const KEYS = ['dc-enabled', 'dc-use-chat', 'dc-use-mail', 'dc-use-feed', 'dc-cat-main', 'cs-voice-send'];
+const ROOT_KEYS = ['cardlock-state'];
 const lines = ['开关持久化体检（当前桌面 ' + cid + '；\'1\'=开 \'0\'=关 缺失=默认值）：'];
 let probe = 'LS 写探针：正常';
 try {
@@ -19352,6 +19353,19 @@ stSet('locked');
 lastOpen = false;
 document.dispatchEvent(new Event('mochi-cardlock-locked'));
 };
+window.cardLockConfirmPersisted = function (expect, cb) {
+let tries = 0;
+(function poll() {
+try {
+if (window.idbGet) {
+window.idbGet(LS_KEY).then(function (v) {
+if (v === expect || ++tries > 15) { cb(); return; }
+setTimeout(poll, 200);
+}).catch(cb);
+} else { cb(); }
+} catch (e) { cb(); }
+})();
+};
 })();
 } catch (__e) { try { console.error("[JS] card-lock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
@@ -19776,7 +19790,9 @@ relock.textContent = '重新上锁';
 relock.addEventListener('click', function () {
 window.cardLockRelock();
 state.textContent = '已重新上锁，页面即将刷新…';
-setTimeout(function () { location.reload(); }, 900);
+const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('locked', goReloadAfterPersist);
+else setTimeout(function () { location.reload(); }, 900);
 });
 actions.appendChild(relock);
 } else {
@@ -19798,7 +19814,9 @@ const r = window.cardLockTryUnlock(String(v == null ? '' : v).trim());
 if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
 state.textContent = '验证通过，页面即将刷新…';
 if (mo) { try { mo.disconnect(); } catch (e) {} }
-setTimeout(function () { location.reload(); }, 900);
+const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
+else setTimeout(function () { location.reload(); }, 900);
 }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码非常简单，答案就在开屏里可以找到。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
 });
 actions.appendChild(unlock);
@@ -27683,6 +27701,7 @@ try { myPre = window.activePrefix(); } catch (e) { myPre = ''; }
 if (myPre !== normPrefix) { normPrefix = null; return; }
 let idx = 0, changed = false;
 let changedHi = -1, removedAll = 0, sysNickChanged = false;
+normChangedIdxs = []; // FIX 2026-09-13 #402：本轮归一化改动下标清单（原位补丁用）
 const N = msgs.length;
 if (!N) { normPrefix = null; return; }
 const finish = () => {
@@ -27698,8 +27717,12 @@ try { writeLsSnapshot(msgs, myPre, true); } catch (e) {}
 try {
 if (chatVisible() && msgs.length &&
 (sysNickChanged || removedAll > 0 || changedHi >= renderStart)) {
+if (!(sysNickChanged || removedAll > 0) &&
+patchChangedInPlace(normChangedIdxs, renderStart)) {
+} else {
 renderWindow(false, true);
 scrollChatBottom();
+}
 } else if (changed && changedHi >= renderStart) {
 windowStale = true;
 }
@@ -27710,7 +27733,7 @@ let nowPre;
 try { nowPre = window.activePrefix(); } catch (e) { nowPre = ''; }
 if (nowPre !== normPrefix) { normPrefix = null; return; }
 const end = Math.min(N, idx + NORM_CHUNK);
-for (let i = idx; i < end; i++) { if (normCell(msgs[i])) { changed = true; changedHi = Math.max(changedHi, i); } }
+for (let i = idx; i < end; i++) { if (normCell(msgs[i])) { changed = true; changedHi = Math.max(changedHi, i); if (normChangedIdxs.indexOf(i) < 0) normChangedIdxs.push(i); } }
 const _rm = normCollapseRange(idx, end + 1, msgs);
 if (_rm) { changed = true; removedAll += _rm; }
 if (end < N) { idx = end; setTimeout(tick, 0); }
@@ -28844,6 +28867,7 @@ let renderEnd = 0;        // v3.10.x：渲染窗口终点（msgs 下标，开区
 let windowRenderedN = 0;
 let windowRenderedPrefix = null;
 let windowStale = false;
+let normChangedIdxs = null;
 let windowRenderedLite = null;
 const TIME_DIVIDER_GAP = 5 * 60 * 1000;
 function maybeInsertDivider(idx) {
@@ -28973,6 +28997,50 @@ for (let r = 0; r < Math.ceil(grown / LOAD_STEP) + 1 && renderEnd < len; r++) lo
 if (renderEnd !== len) return false;
 windowRenderedN = len; // 凭据随增量补齐——loadNewerIncremental 只更 renderEnd，不补此处则下次收尾 grown 错位仍整窗（自纠）
 }
+return true;
+}
+function patchChangedInPlace(changedIdxs, start) {
+if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
+if (!windowRenderedN) return false; // 无屏上凭据（首渲场景）走原整窗渲染（#241 同门）
+let n = start;
+let hasPending = false;
+for (let k = 0; k < body.children.length; k++) {
+const el = body.children[k];
+if (!el.dataset || el.dataset.idx === undefined) continue;
+if (Number(el.dataset.idx) !== n) return false;
+if (el.dataset.pendingRead === '1') hasPending = true;
+n++;
+}
+if (n !== windowRenderedN) return false;
+if (hasPending) return false;
+const idxs = changedIdxs.filter(i => i >= start && i < windowRenderedN && i < msgs.length).sort((a, b) => a - b);
+if (!idxs.length) return true; // 改动都不在屏上窗口＝无需动 DOM
+collectInplaceDrafts();
+const wasNearBottom = chatNearBottom();
+const prevTop = body.scrollTop;
+const prevH = body.scrollHeight;
+const prevPendingOut = pendingOutScroll;
+batchRendering = true;
+for (let u = 0; u < idxs.length; u++) {
+const ui = idxs[u];
+const old = body.querySelector('.msg[data-idx="' + ui + '"]');
+if (!old) { batchRendering = false; restoreInplaceDrafts(); return false; }
+let nu = null;
+try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
+if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); return false; }
+nu.dataset.idx = ui;
+old.parentNode.replaceChild(nu, old);
+if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.filter(x => x !== ui);
+}
+batchRendering = false;
+pendingOutScroll = prevPendingOut;
+restoreInplaceDrafts();
+const dH = body.scrollHeight - prevH;
+if (dH) {
+if (wasNearBottom) scrollChatBottom(); // 原在底部：升级后保持贴底
+else body.scrollTop = prevTop + dH; // 不在底部：按高度差补偿，视口内内容不跳
+}
+suppressScrollUntil = Date.now() + 200;
 return true;
 }
 function loadOlderIncremental() {
@@ -29685,7 +29753,7 @@ pendingLocal = null;
 sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0; // v3.6.x：分页窗口起点复位（消息已清空）
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null;
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; // FIX #402 随窗复位
 cancelPersist();
 try { chatLedger[window.activePrefix()] = 0; } catch (e) {}
 try { store.remove('chat-msgs'); } catch (e) {}
@@ -29705,7 +29773,7 @@ pendingLocal = null;
 sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0;
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null;
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; // FIX #402 随窗复位
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 try { if (window.idbSet) persistMsgsToIdb(window.activePrefix() + ':chat-msgs', msgs); } catch (e) {}
@@ -33291,6 +33359,7 @@ if (pokeCard && !pokeCard.hidden && !pokeCard.contains(e.target)) closePokeCard(
 });
 const msgActions = document.getElementById('msg-actions');
 let activeMsgEl = null;   // 当前操作的消息 DOM
+let activeMsgSnap = null; // FIX 2026-09-13 #403：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
 function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
@@ -33906,10 +33975,11 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 });
 });
 } else {
-const isVoice = f.type === 'voice' || (typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text))));
-const isImg = f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
-(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))));
+const looksVoice = typeof f.text === 'string' &&
+(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)));
+const isVoice = looksVoice;
+const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
+(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text)))));
 if (isVoice) {
 b.style.padding = '8px 10px';
 fillVoiceBubble(b, f.text);
@@ -75624,12 +75694,12 @@ if (kind === 'ta') {
 d.dry = 0;                                        // 出了 TA 瓶，软保底计数清零
 d.day.taGot++;
 head = '💙 ' + pn() + '漂来的瓶子';
-note = sampleHistLine() || poolLine('TA的话', 'ta');
+note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);
 if (note) sig = '—— ' + pn();
 if (Math.random() < 0.2) gift = rnd(ITEMS);
 } else if (kind === 'special') {
 head = '✨ 一个特别的瓶子';
-note = poolLine('海风', 'sea');
+note = poolLine('海风', 'sea') || rnd(FB.sea);
 sig = '瓶身缠着小小的星星绳';
 } else if (kind === 'item') {
 gift = rnd(ITEMS);
@@ -75640,7 +75710,7 @@ head = '🫙 一只空瓶子';
 note = rnd(EMPTY_LINES);
 } else {
 head = '🫙 你捡到了一个漂流瓶';
-note = poolLine('海风', 'sea');
+note = poolLine('海风', 'sea') || rnd(FB.sea);
 }
 }
 const firstToday = d.day.picks === 0;
@@ -91011,4 +91081,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzhw29h -->
+<!-- __MOCHI_EOF__ mtzi7iqe -->
