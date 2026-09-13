@@ -797,7 +797,10 @@
   // v3.6.x：分类 tab 显示每个大分类的字卡数量（主字卡/颜文字/emoji/表情包/图片/拍一拍/语音）
   function renderTabCounts() {
     tabsWrap.querySelectorAll('.cc-tab').forEach(tab => {
-      const grps = groups[tab.dataset.type] || [];
+      // v3.42.x #442：懒加载态（groups=null）无库可计数——必须与 renderGroupsBar 同守卫。
+      // 缺这条时顶层首渲 render() 在此抛 null['text']，chatcard.js 整个 IIFE 初始化中断，
+      // 其后的字卡库顶部两大分类 tab 绑定/锁状态提示/搜索全部不挂（#453 各机型「系统预设字卡点不开」）
+      const grps = (groups && groups[tab.dataset.type]) || [];
       let n = 0;
       grps.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) n += g[1].length; });
       let em = tab.querySelector('.cc-tab-n');

@@ -9390,9 +9390,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789342185702">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.672</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 07:29<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789342441249">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.673</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 07:34<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10696,7 +10696,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.672</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.673</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10998,7 +10998,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.672</span>
+              <span class="lic-ver">v3.26.673</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -40470,7 +40470,7 @@ return '<div class="cc-txt"><div class="t">' + esc(c) + '</div></div>';
 }
 function renderTabCounts() {
 tabsWrap.querySelectorAll('.cc-tab').forEach(tab => {
-const grps = groups[tab.dataset.type] || [];
+const grps = (groups && groups[tab.dataset.type]) || [];
 let n = 0;
 grps.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) n += g[1].length; });
 let em = tab.querySelector('.cc-tab-n');
@@ -46187,7 +46187,7 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["手影剧场",["睡前开一盏小灯","手影剧场开演","第一场是鸟","手指一张一合飞了","第二场是兔子","耳朵竖得很认真","第三场是狗","还会汪一声","配音是我","影子投在墙上","两个影子凑过去","你的手也伸进来","比了一只蝴蝶","蝴蝶落在鸟背上","剧场鼓掌","观众是我和你","演出每晚加演","睡意来了才散场","散场前","影子拉了勾","明晚同一时间"]],
 ["怕冷和怕热",["一个怕冷一个怕热","空调遥控器是兵家必争","你说二十六度","我说二十八度","最后谈成二十七","都不舒坦","但都认了","冬天更热闹","你的脚往我被子里钻","冰得我一激灵","又舍不得推开","夏天我贪凉","半夜踢了被子","你起来给我盖上","我们像两个季节","挤在同一张床上","春天和秋天","是我们和平的时候","和平也持续不了","超过一个礼拜"]],
 ["泡脚的夜",["晚上烧一壶热水","泡脚桶摆好","水温先试烫不烫","两只脚下去","哇的一声","追剧正到关键处","泡到微微出汗","水凉了添热的","你说泡脚去湿气","我说泡脚会困","果然泡着泡着","眼皮开始打架","擦干脚钻被窝","这一夜睡得特别沉","连梦都是热的"]],
-["日常聊天",["今天累不累","吃了吗","吃的什么","好吃吗","下班了吗","到哪了","路上堵不堵","慢点开","到家说一声","我刚到家","点了外卖","还没送到","今天好冷","你那边呢","多穿点","别感冒了","睡了吗","还没呢","在干嘛","刚洗完澡","在追剧","看到第几集了","周末想吃什么","我给你做","帮我拿个快递","放门口就行","水喝了没","刚喝完","别老喝奶茶","知道啦","工作顺利吗","还不错","慢慢来","不着急","晚安好梦","明天见","今天也辛苦了","好的呀","那就这样说定了","想你了早点回"]]
+["日常聊天",["今天累不累","吃了吗","吃的什么","好吃吗","下班了吗","到哪了","路上堵不堵","慢点开","到家说一声","我刚到家","点了外卖","还没送到","今天好冷","你那边呢","多穿点","别感冒了","睡了吗","还没呢","在干嘛","刚洗完澡","在追剧","看到第几集了","周末想吃什么","水喝了没","刚喝完","别老喝奶茶","知道啦","工作顺利吗","还不错","慢慢来","不着急","晚安好梦","明天见","今天也辛苦了","好的呀","那就这样说定了","想你了早点回"]]
 ];
 } catch (__e) { try { console.error("[JS] dict-ext-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
@@ -93127,4 +93127,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0g4yqu -->
+<!-- __MOCHI_EOF__ mu0gafxd -->

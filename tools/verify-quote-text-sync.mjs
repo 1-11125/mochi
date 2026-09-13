@@ -63,7 +63,7 @@ const IMGV = '@@m:' + 'ab'.repeat(16);
 
 // --- N 存量治愈：normCell 真实实现（桩全局符号） ---
 {
-  const ICON_DUMMY = '';
+  const ICON_DUMMY = '___NEVER_MATCH___'; // 空串会让 indexOf('')>=0 恒真＝桩假阳性
   const windowMock = { mochiMediaIsToken: () => false };
   const normCell = new Function(
     'ICON_BELL', 'ICON_TEL', 'ICON_ENV', 'ICON_CQ_FIX', 'window',

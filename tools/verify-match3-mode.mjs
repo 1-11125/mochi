@@ -15,11 +15,14 @@ import { tmpdir } from 'os';
 
 const root = normalize(dirname(fileURLToPath(import.meta.url)) + '/..');
 
-// —— 与 build.mjs 同序内存拼装（不写产物） ——
+// —— 与 build.mjs 同序内存拼装（不写产物）；每文件独立 try/catch 包裹同 build 语义（单文件抛错不连坐） ——
 const bm = readFileSync(join(root, 'build.mjs'), 'utf8');
 const arr = (name) => new Function('return ' + bm.match(new RegExp('const ' + name + ' = (\\[.*?\\]);', 's'))[1])();
 const css = arr('cssFiles').map((f) => readFileSync(join(root, 'src', 'css', f), 'utf8')).join('\n');
-const js = arr('jsFiles').map((f) => readFileSync(join(root, 'src', 'js', f), 'utf8')).join('\n');
+const js = arr('jsFiles').map((f) => {
+  const code = readFileSync(join(root, 'src', 'js', f), 'utf8');
+  return '(function () { try {\n' + code + '\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} } })();';
+}).join('\n');
 let html = readFileSync(join(root, 'src', 'template.html'), 'utf8').replace('__APP_VERSION__', 'v3.26.0-test');
 html = html.replace('</head>', '<style>' + css + '</style></head>');
 html = html.replace('</body>', '<script>' + js + '<\/script></body>');
@@ -29,7 +32,9 @@ writeFileSync(tmpPage, html);
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errors = [];
+const cons = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+page.on('console', (m) => { if (m.type() === 'error') cons.push(m.text().slice(0, 160)); });
 
 let pass = 0, fail = 0;
 function check(name, ok, detail) {
@@ -70,7 +75,17 @@ function maxSpecial(grid) {
 }
 
 await page.goto('file://' + tmpPage);
-await page.waitForFunction(() => typeof window.openMatch3Panel === 'function', null, { timeout: 20000 });
+try {
+  await page.waitForFunction(() => typeof window.openMatch3Panel === 'function', null, { timeout: 20000 });
+} catch (e) {
+  const probe = await page.evaluate(() => ({
+    m3: typeof window.__m3Debug, idb: typeof window.idbSet, chat: typeof window.chatAddSystem,
+    panelHidden: (document.getElementById('chat-match3-panel') || {}).hidden
+  })).catch(() => ({}));
+  console.error('拼装页加载失败：', JSON.stringify(probe), '\npageerrors:', errors.slice(0, 5).join(' | '), '\nconsole.errors:', cons.slice(0, 8).join(' | '));
+  await browser.close();
+  process.exit(1);
+}
 await page.evaluate(() => { try { const s = document.getElementById('splash'); if (s) s.click(); } catch (e) {} });
 await page.waitForTimeout(800);
 await page.evaluate(() => {
