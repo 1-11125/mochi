@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789288508024">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.640</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 16:35<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789291590617">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.643</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 17:26<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10651,7 +10651,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.640</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.643</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10946,7 +10946,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.640</span>
+              <span class="lic-ver">v3.26.643</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -18037,6 +18037,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'market-custom', 'market-migrated',
 'market-migrated-v2', 'market-migrated-v3',
 'cjian-roster', 'cjian-state', 'cjian-seeded', 'cjian-rehome-v1',
+'cjian-belong-v2',
 'feed-notices', 'feed-app-unread', 'feed-cover-bg', 'feed-ta-cover',
 'feed-ta-name', 'feed-ta-avatar', 'feed-user-name', 'feed-user-avatar',
 'feed-last', 'feed-next', 'feed-day-count',
@@ -58372,6 +58373,7 @@ function normNotifyKey(raw) {
 let s = String(raw || '');
 if (s.length > 1024) s = s.slice(0, 1024); // 先截断再正则，避免超长 base64 全文替换开销
 s = s.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+.replace(/@@m:[0-9a-f]{32}/g, '[附件]') // FIX 2026-09-13 #401 令牌串入指纹同口径
 .replace(/\|\|\|.*$/, '')
 .replace(/<[^>]*>/g, '');
 return s.replace(/\s+/g, '').slice(0, 100);
@@ -58501,6 +58503,7 @@ t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStar
 }
 const body = String(text || '收到一条新消息')
 .replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+.replace(/@@m:[0-9a-f]{32}/g, '[图片]')
 .replace(/\|\|\|.*$/, '');
 const bodyFitted = window.taFit ? window.taFit(body) : body;
 const opts = { body: (t ? t + '  ' : '') + (bodyFitted && bodyFitted.length > 40 ? bodyFitted.slice(0, 40) + '…' : bodyFitted) };
@@ -88264,6 +88267,7 @@ return hits === 1 ? hit : '';
 function migrateSplit() {
 const r = rootStore();
 if (!r) return;
+if (!r.get('contacts')) return;
 let gr = null, gs = null;
 try { const v = r.get(ROSTER_KEY); gr = v ? JSON.parse(v) : null; } catch (e) {}
 try { const v = r.get(STATE_KEY); gs = v ? JSON.parse(v) : null; } catch (e) {}
@@ -88373,13 +88377,15 @@ try { regOk = !!r.get('contacts'); } catch (e) {}
 if (!regOk) return; // 注册表未就绪：contacts() 不全，等 mochi-restore-done
 const cidSet = {};
 contacts().forEach(ct => { cidSet[ct.id] = 1; });
+const rescueOnce = !r.get('cjian-belong-v2');
 const moves = []; // {from, to, id, name}
 contacts().forEach(ct => {
 const list = loadRoster(ct.id);
 if (!list.length) return;
 let dirty = false;
 list.forEach(c => {
-let home = homeCidForName(c.name);
+let home = '';
+if (rescueOnce) home = homeCidForName(c.name);
 if (!home) home = (c.cid && cidSet[c.cid]) ? c.cid : '';
 const target = home || ct.id;
 if (c.cid !== target) { c.cid = target; dirty = true; }
@@ -88387,6 +88393,7 @@ if (c.cid !== ct.id) moves.push({ from: ct.id, to: c.cid, id: c.id, name: c.name
 });
 if (dirty) saveRoster(list, ct.id);
 });
+if (rescueOnce) { try { r.set('cjian-belong-v2', '1'); } catch (e) {} } // 救回只跑一次：标记落盘在注册表就绪的成功路径上
 if (!moves.length) return;
 const rosters = {}, states = {};
 moves.forEach(m => {
@@ -88436,8 +88443,9 @@ const list = loadRoster(cid);
 if (list.length) { s.set(SEED_KEY, '1'); return; }
 let name = '';
 try {
-const lbl = s.get('lbl-partner');
-if (lbl) name = lbl;
+const cs = s.get('cs-lbl-partner');
+if (cs) name = cs;
+if (!name) { const lbl = s.get('lbl-partner'); if (lbl) name = lbl; }
 if (!name) name = contactName(cid);
 } catch (e) {}
 list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid });
@@ -89287,6 +89295,21 @@ reMigrated = true;
 try { migrateSplit(); } catch (e) {}
 try { rehomeMisfiled(); } catch (e) {}
 try { fixBelonging(); } catch (e) {}
+});
+document.addEventListener('contact-renamed', function (e) {
+try {
+const d = e.detail || {};
+const newName = String(d.name || '').trim(), oldName = String(d.oldName || '').trim();
+if (!d.id || !newName || !oldName || newName === oldName) return;
+const list = loadRoster(d.id);
+let dirty = false;
+list.forEach(c => { if (String(c.name || '').trim() === oldName) { c.name = newName; dirty = true; } });
+if (!dirty) return;
+saveRoster(list, d.id);
+todayCacheMap = {}; // 名字出现在今日预测里，一并作废
+const pg = document.getElementById('page-cjian');
+if (pg && !pg.hidden && typeof window.renderCjian === 'function') window.renderCjian(false);
+} catch (err) {}
 });
 setInterval(function () {
 tickApproach();
@@ -91248,4 +91271,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzk6gs8 -->
+<!-- __MOCHI_EOF__ mtzm0jbt -->

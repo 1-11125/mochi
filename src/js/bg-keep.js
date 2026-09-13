@@ -1102,6 +1102,7 @@
     let s = String(raw || '');
     if (s.length > 1024) s = s.slice(0, 1024); // 先截断再正则，避免超长 base64 全文替换开销
     s = s.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+      .replace(/@@m:[0-9a-f]{32}/g, '[附件]') // FIX 2026-09-13 #401 令牌串入指纹同口径
       .replace(/\|\|\|.*$/, '')
       .replace(/<[^>]*>/g, '');
     return s.replace(/\s+/g, '').slice(0, 100);
@@ -1296,6 +1297,8 @@
     // 并清除语音「名|||dataURL」里 ||| 之后的音频 dataURL，避免 base64 乱码
     const body = String(text || '收到一条新消息')
       .replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+      // FIX 2026-09-13 #401 媒体池令牌串→[图片]（含令牌的消息预览不再直出 @@m:hash 乱码）
+      .replace(/@@m:[0-9a-f]{32}/g, '[图片]')
       .replace(/\|\|\|.*$/, '');
     // v3.x.x：称呼跟随——通知正文里的 TA/他 按当前联系人性别替换（纯文本，安全）
     const bodyFitted = window.taFit ? window.taFit(body) : body;

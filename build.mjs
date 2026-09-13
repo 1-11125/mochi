@@ -407,6 +407,11 @@ const FIX_SENTINELS = [
   { name: '录音爆音修复（voiceMimePreferOpus：标准安卓 Chrome/Edge 走 webm/opus，修荣耀90 Edge 语音「滋啦滋啦」爆音；iOS/安卓 WebView 仍走 mp4/aac）', file: 'js/chat.js', needle: 'voiceMimePreferOpus' },
   { name: '此间梦角显式归属纠偏（fixBelonging 按 cid 搬回错放梦角，修不同联系人梦角串桌）', file: 'js/cjian.js', needle: 'function fixBelonging' },
   { name: '此间认亲匹配双名字（homeCidForName 同时匹配 TA 昵称与联系人名，修 lbl-partner 与联系人名不一致认不到家）', file: 'js/cjian.js', needle: 'idn === n || cn === n' },
+  { name: '#409 此间串桌修复·按名认亲降级一次性（cjian-belong-v2 标记后 cid 权威，修梦角名撞联系人名/改名认领后每次启动反复搬桌）', file: 'js/cjian.js', needle: "'cjian-belong-v2'" },
+  { name: '#409 此间串桌修复·迁移注册表就绪闸（未就绪不认亲不清根键，防错归属被固化）', file: 'js/cjian.js', needle: "if (!r.get('contacts')) return;" },
+  { name: '#409 此间串桌修复·联系人改名梦角跟随（contact-renamed 监听同步旧名梦角，防名字与身份漂移）', file: 'js/cjian.js', needle: "addEventListener('contact-renamed'" },
+  { name: '#409 此间串桌修复·播种昵称链对齐（cs-lbl-partner 优先，梦角名与聊天里看到的名字一致）', file: 'js/cjian.js', needle: "get('cs-lbl-partner')" },
+  { name: '#409 此间串桌修复·标记键全局豁免（EXCLUDE 登记，防 migrateLegacy 搬进 default 删根键致救回逻辑每刷重跑）', file: 'js/contacts.js', needle: "'cjian-belong-v2',\n" },
   { name: '桌面美化·全局字体快捷入口（复用聊天设置 cs-font 键，applyDeskCsFont 注入同款 @font-face，两边互通）', file: 'js/personalize.js', needle: 'applyDeskCsFont' },
   { name: '桌面美化·图标文字颜色（applyAppNameColor 注入 style 覆盖 .app .app-name color）', file: 'js/personalize.js', needle: 'applyAppNameColor' },
   { name: '桌面美化·颜色分区预览面板（desk-color-preview 各部位用 CSS 变量着色实时反映各项颜色）', file: 'template.html', needle: 'desk-color-preview' },
@@ -1212,6 +1217,7 @@ const FIX_SENTINELS = [
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
   { name: '#408 聊天美化导入接入自救解析+诊断现场+空文本提示（删则「无反应」与「解析失败」无真因）', file: 'js/chat-settings.js', needle: "'[聊天美化导入] '" },
+  { name: '#401 后台通知正文令牌串→[图片]（删则含令牌消息的预览在通知栏直出乱码）', file: 'js/bg-keep.js', needle: "@@m:[0-9a-f]{32}/g, '[图片]')" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
