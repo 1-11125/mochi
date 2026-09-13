@@ -147,7 +147,7 @@
       title: '联系人跨桌面打电话',
       subTag: '功能说明',
       tagTitle: '联系人跨桌面打电话',
-      detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。你接听后即可正常通话，接听会自动挂断当前通话、且不会跳到对方的桌面。关闭后不再有跨桌面来电。',
+      detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
       get: deskCallEn,
       set: window.setDeskCallEn,
       toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
@@ -286,7 +286,13 @@
       const ours = !!(mask && !mask.hidden && titleEl && titleEl.textContent === liveModals[cid]);
       if (ours) return;
       delete liveModals[cid];
-      if (setStatus(cid, 'seen')) noteRelease('弹窗消失未应答，释放 ' + cName(cid));
+      // #441：被顶掉/关闭未应答的跨桌面来电补记「未接听」（与「稍后」同口径——
+      // setStatus 命中才记，幂等不双写；归属联系人桌面）
+      var wasCall = queue().some(function (x) { return x.cid === cid && x.status === 'pending' && x.kind === 'call'; });
+      if (setStatus(cid, 'seen')) {
+        noteRelease('弹窗消失未应答，释放 ' + cName(cid));
+        if (wasCall && window.callRecordMissed) window.callRecordMissed(cid, cName(cid));
+      }
     });
   }
 
@@ -461,6 +467,9 @@
           try { if (window.chatAppendDeskCkTo) window.chatAppendDeskCkTo(req.cid, req.q); } catch (e) {}
           try { if (window.addCareRecordFor) window.addCareRecordFor(req.cid, 'desk-checkin', req.text, Date.now()); } catch (e) {}
         }
+        // #441：跨桌面来电点「稍后」不再无声消失——补记「未接听」到该联系人桌面
+        //（与桌内来电拒绝/超时有记录同口径；记录/系统消息归属 TA 自己的桌面）
+        if (req.kind === 'call' && window.callRecordMissed) window.callRecordMissed(req.cid, cName(req.cid));
         setStatus(req.cid, 'seen');
         return;
       }
@@ -485,6 +494,10 @@
     } catch (e) {}
     setStatus(cid, 'accepted');
     if (req.kind === 'call') {
+      // #441：接听跨桌面来电时若已有通话进行中（另一桌面的小框挂着）先挂断它
+      //（挂断记录按该通话归属桌面正常落账）——功能说明承诺的「接听会自动挂断当前通话」
+      // 此前从未实现：currentCall 占用时 incomingCall 直接 return，点接听毫无反应
+      try { if (window.getCallState && window.getCallState() && window.hangupCall) window.hangupCall(); } catch (e) {}
       // 来电：切桌面后直接触发来电（通话归属该桌面，call.js 用当前 store 读昵称/头像/冷却）
       setTimeout(function () { fire(req); }, 300);
       return;

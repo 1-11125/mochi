@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789338539332">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.670</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 06:28<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789339254152">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.671</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 06:40<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.670</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.671</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10961,7 +10961,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.670</span>
+              <span class="lic-ver">v3.26.671</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11182,13 +11182,14 @@ transition-duration: .01ms !important;
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">11</span><span class="lg-name">通话</span><span class="lg-count">5</span></summary>
+            <summary><span class="lg-num">11</span><span class="lg-name">通话</span><span class="lg-count">6</span></summary>
             <div class="lg-body">
           <div class="lic-li">联系人可主动拨打和挂断电话；我也可以拨打</div>
           <div class="lic-li">TA 会来电，可接听 / 拒绝，接通后缩为可拖动的迷你通话小框（位置记忆）</div>
           <div class="lic-li">来电可播放自定义铃声（音效设置）</div>
           <div class="lic-li">通话设置页：可调来电 / 接听 / 忙线 / 拒接 / 通话中挂断概率</div>
           <div class="lic-li">通话背景图片：可上传 / 移除</div>
+          <div class="lic-li">跨桌面来电：其他桌面的联系人也会打来；点接听会自动跳到 TA 的桌面再响铃（刻意设计），通话与通话记录都归属 TA 的桌面主页/聊天；点「稍后」或未接也会在 TA 的桌面留未接记录</div>
             </div>
           </details>
 
@@ -19664,6 +19665,7 @@ warmQueue.push(h);
 if (warmQueue.length && !warmT) warmT = setTimeout(warmPump, 0);
 };
 window.mochiMediaGC = function () {
+const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
 return (async function () {
 const out = { ok: false, reason: '', orphans: [], bytes: 0, poolN: 0, refN: 0 };
 if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文）'; return out; }
@@ -19684,6 +19686,8 @@ if (lk && REFS.test(lk)) refKeys.push('__ls__' + lk);
 }
 } catch (lErr) { out.reason = 'localStorage 读取失败（存储繁忙），为安全起见本次不清理'; return out; }
 out.refN = refKeys.length;
+const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+const scanKeep = function (s) { SCAN_RE.lastIndex = 0; let m; while ((m = SCAN_RE.exec(s))) keep.add(m[1]); };
 for (let i = 0; i < refKeys.length; i++) {
 let v;
 if (refKeys[i].indexOf('__ls__') === 0) {
@@ -19693,12 +19697,20 @@ if (v === undefined || v === null) continue; // 该 LS 键刚好被清＝无引�
 v = await window.idbGet(refKeys[i]);
 if (v === undefined || v === null) { out.reason = '有聊天记录/收藏没读到（存储繁忙？），为安全起见本次不清理'; return out; }
 }
+try { if (prog) prog(i + 1, refKeys.length, '读取引用'); } catch (eP1) {}
+if (typeof v === 'string') { scanKeep(v); }
+else if (Array.isArray(v)) {
+for (let j = 0; j < v.length; j++) {
+const mi = v[j];
 let s = '';
-try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
-SCAN_RE.lastIndex = 0;
-let m;
-while ((m = SCAN_RE.exec(s))) keep.add(m[1]);
-s = '';
+try { s = typeof mi === 'string' ? mi : (mi && typeof mi === 'object' ? JSON.stringify(mi) : ''); } catch (e8) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
+if (s) scanKeep(s);
+if ((j & 127) === 127) await yieldUI();
+}
+} else {
+try { scanKeep(JSON.stringify(v) || ''); } catch (e9) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
+}
+await yieldUI();
 }
 const poolKeys = keys.filter(function (k) { return String(k).indexOf(FULL) === 0; });
 out.poolN = poolKeys.length;
@@ -19732,6 +19744,7 @@ return n;
 })();
 };
 window.mochiMediaCoverage = function () {
+const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
 return (async function () {
 const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
 if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
@@ -19743,16 +19756,28 @@ if (!Array.isArray(keys)) { out.reason = '键清单非法'; return out; }
 const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
 try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk && REFS.test(lk)) refKeys.push('__ls__' + lk); } } catch (e) {}
 const refs = new Set();
+const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+const scanTokens = function (s) { SCAN_RE.lastIndex = 0; let m; while ((m = SCAN_RE.exec(s))) refs.add(m[1]); };
 for (let i = 0; i < refKeys.length; i++) {
 let v;
 const rk = refKeys[i]; const isLs = rk.indexOf('__ls__') === 0;
+try { if (prog) prog(i + 1, refKeys.length, isLs ? '本地快照' : '聊天/收藏'); } catch (eP2) {}
 if (isLs) { try { v = localStorage.getItem(rk.slice(6)); } catch (e2) { v = undefined; } }
 else { try { v = await window.idbGet(rk); } catch (e2) { v = undefined; } }
 if (v === undefined || v === null) continue;
+if (typeof v === 'string') { scanTokens(v); }
+else if (Array.isArray(v)) {
+for (let j = 0; j < v.length; j++) {
+const mg = v[j];
 let s = '';
-try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { continue; }
-SCAN_RE.lastIndex = 0; let m;
-while ((m = SCAN_RE.exec(s))) refs.add(m[1]);
+try { s = typeof mg === 'string' ? mg : (mg && typeof mg === 'object' ? JSON.stringify(mg) : ''); } catch (e3) { continue; }
+if (s) scanTokens(s);
+if ((j & 255) === 255) await yieldUI();
+}
+} else {
+try { scanTokens(JSON.stringify(v) || ''); } catch (e4) {}
+}
+await yieldUI();
 }
 const uniq = Array.from(refs);
 out.referenced = uniq.length;
@@ -19771,8 +19796,10 @@ return out;
 })().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), referenced: 0, inPool: 0, missing: 0, missingSamples: [] }; });
 };
 window.mochiMediaRebuild = function () {
+const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
 return (async function () {
 const out = { ok: false, reason: '', poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 };
+const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); }; // #441 阶段间让出主线程
 if (!window.idbListKeys || !window.idbGet || !window.idbGetMany || !window.idbSetAll || !window.idbSet) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
 try { await window.mochiMediaFlush(); } catch (e) {}
 let keys;
@@ -19790,6 +19817,8 @@ batch.forEach(function (k) {
 const v = vals[k];
 if (typeof v === 'string' && (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0)) valid.add(String(k).slice(FULL.length));
 });
+try { if (prog) prog(Math.min(poolKeys.length, i + 40), poolKeys.length, '核对池内条目'); } catch (eP3) {}
+await yieldUI(); // #441 批间让出主线程（池 741+ 条×大值，连读会冻结 UI）
 }
 out.validN = valid.size;
 out.brokenN = poolKeys.length - valid.size;
@@ -19834,16 +19863,19 @@ k = String(k);
 return !POOL_RE.test(k) && k.indexOf(':music-file:') < 0 && k.indexOf('__wr-j:') < 0;
 });
 for (let i = 0; i < srcKeys.length; i += 4) { // 批 4 读、逐个扫完即弃（峰值≈4×最大单键）
+try { if (prog) prog(i, srcKeys.length, '扫描本机副本'); } catch (eP4) {}
 const batch = srcKeys.slice(i, i + 4);
 let vals = {};
 try { vals = (await window.idbGetMany(batch)) || {}; } catch (e3) { vals = {}; }
 batch.forEach(function (k) { scanValue(vals[k]); vals[k] = null; });
+await yieldUI(); // #441 批间让出主线程防冻结
 }
 out.foundN = found.size;
 out.bytes = foundBytes;
 const fill = [];
 const dataList = Array.from(found.keys());
 for (let i = 0; i < dataList.length; i++) {
+try { if (prog) prog(i, dataList.length, '校验哈希'); } catch (eP5) {}
 let h = '';
 try { h = await sha256Hex(dataList[i]); } catch (e4) { continue; }
 if (valid.has(h)) { out.alreadyOk++; continue; }
@@ -27506,8 +27538,11 @@ return;
 }
 const oldTxt = gcBtn.textContent;
 gcBtn.disabled = true;
-gcBtn.textContent = '扫描中…（需通读聊天记录，请稍候）';
-window.mochiMediaGC().then(function (rep) {
+gcBtn.textContent = '扫描中… 0/?';
+try { if (typeof toast === 'function') toast('开始扫描：需通读聊天记录，大库约需一两分钟，请留在本页'); } catch (eT0) {}
+window.mochiMediaGC(function (done, total) {
+gcBtn.textContent = '扫描中… ' + done + '/' + total;
+}).then(function (rep) {
 gcBtn.disabled = false;
 gcBtn.textContent = oldTxt;
 if (orphanEl) orphanEl.textContent = (rep && rep.ok) ? (rep.orphans.length ? fmtBytes(rep.bytes) + '（' + rep.orphans.length + ' 条）' : '无孤儿，池很干净') : ((rep && rep.reason) || '扫描失败');
@@ -27533,6 +27568,7 @@ staticText: '扫描到 ' + rep.orphans.length + ' 条不再被任何聊天记录
 gcBtn.disabled = false;
 gcBtn.textContent = oldTxt;
 if (orphanEl) orphanEl.textContent = '扫描异常';
+if (window.openModal) window.openModal('扫描异常', '', null, { noInput: true, staticText: '孤儿媒体扫描中途出错，没有删除任何内容。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
 });
 });
 }
@@ -27546,8 +27582,11 @@ return;
 }
 const oldTxt = covBtn.textContent;
 covBtn.disabled = true;
-covBtn.textContent = '核对中…（需通读聊天记录，请稍候）';
-window.mochiMediaCoverage().then(function (rep) {
+covBtn.textContent = '核对中… 0/?';
+try { if (typeof toast === 'function') toast('开始核对：需通读聊天记录，大库约需一两分钟，请留在本页'); } catch (eT1) {}
+window.mochiMediaCoverage(function (done, total, label) {
+covBtn.textContent = '核对中… ' + done + '/' + total + (label ? '（' + label + '）' : '');
+}).then(function (rep) {
 covBtn.disabled = false;
 covBtn.textContent = oldTxt;
 if (!rep || !rep.ok) {
@@ -27575,6 +27614,7 @@ window.openModal('图片核对结果', '', null, { noInput: true, staticText: tp
 covBtn.disabled = false;
 covBtn.textContent = oldTxt;
 if (covEl) covEl.textContent = '核对异常';
+if (window.openModal) window.openModal('核对异常', '', null, { noInput: true, staticText: '图片核对中途出错，没有改动任何数据。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
 });
 });
 }
@@ -27589,8 +27629,11 @@ return;
 const oldTxt = rbBtn.textContent;
 const doRebuild = function () {
 rbBtn.disabled = true;
-rbBtn.textContent = '重建中…（需通读本机数据，请稍候）';
-window.mochiMediaRebuild().then(function (rep) {
+rbBtn.textContent = '重建中… 准备';
+try { if (typeof toast === 'function') toast('开始重建：扫描+哈希校验，大库约需几分钟，请留在本页'); } catch (eT2) {}
+window.mochiMediaRebuild(function (done, total, label) {
+rbBtn.textContent = '重建中… ' + (label || '准备') + (total ? ' ' + done + '/' + total : '');
+}).then(function (rep) {
 rbBtn.disabled = false;
 rbBtn.textContent = oldTxt;
 if (!rep || !rep.ok) {
@@ -27613,6 +27656,7 @@ if (window.openModal) window.openModal('媒体池重建结果', '', null, { noIn
 rbBtn.disabled = false;
 rbBtn.textContent = oldTxt;
 if (rbEl) rbEl.textContent = '重建异常';
+if (window.openModal) window.openModal('重建异常', '', null, { noInput: true, staticText: '媒体池重建中途出错，没有改动任何数据。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
 });
 };
 if (window.openModal) {
@@ -39754,7 +39798,7 @@ return out;
 } catch (e) { return g; }
 }
 let pubCache = null;
-function pubInvalidate() { pubCache = null; }
+function pubInvalidate() { pubCache = null; ownPoolCache = null; }
 const CC_MEDIA_TOKEN_THRESHOLD = 64 * 1024;
 let ccTokRun = 0;
 const ccTokMemo = new Map();
@@ -39812,7 +39856,14 @@ ccTokenizeGiantMedia(pubCache);
 }
 return pubCache;
 }
-function ownGroupsRaw() { return buildGroupsFrom(store.get('cc-groups')); }
+let ownPoolCache = null;
+function ownPoolRaw() {
+if (!ownPoolCache) {
+ownPoolCache = buildGroupsFrom(store.get('cc-groups'));
+ccTokenizeGiantMedia(ownPoolCache);
+}
+return ownPoolCache;
+}
 const CC_TYPES = ['text', 'kaomoji', 'emoji', 'sticker', 'image', 'poke', 'voice'];
 const CC_FUNC_KEYS = ['fish', 'eat', 'period', 'water', 'garden', 'sync', 'reach', 'cjian', 'room', 'piggy', 'drift', 'interact', 'music',
 'mjfree']; // #317 梦角自由造句：程序生成的重造句卡（dream-free.js），管理页可查看/删除，不进聊天通用池
@@ -39839,7 +39890,7 @@ CC_ALL_TYPES.forEach(t => { out[t] = (ownF[t] || []).concat(pubF[t] || []); });
 Object.keys(ownF).forEach(t => { if (!(t in out)) out[t] = ownF[t]; });
 return out;
 }
-function replyPoolGroups() { return mergeFiltered(replyScopeGroups(), pubGroupsRaw()); }
+function replyPoolGroups() { return mergeFiltered(ownPoolRaw(), pubGroupsRaw()); }
 function replyPoolGroupsFor(cid) {
 const raw = (window.storeFor && window.storeFor(cid) || window.xyStore('xy-home-v2:' + cid)).get('cc-groups');
 return mergeFiltered(buildGroupsFrom(raw), pubGroupsRaw());
@@ -40062,6 +40113,7 @@ function curFullKey() {
 return ccScope === 'public' ? (PUB_PREFIX + ':' + PUB_KEY) : (window.activePrefix() + ':cc-groups');
 }
 function saveGroups(groups) {
+if (!groups) { ccDirty = false; return; }
 if (!ccAuthSeen[ccScope] && window.idbHasKey) {
 ccDirty = true;
 rescueCcOverwrite();
@@ -40072,11 +40124,12 @@ saveGroupsNow(groups);
 let ccDurableTimer = null;
 let ccDurablePending = false;
 let ccDurableWarned = false;
-function ccEnsureDurable(tries) {
+function ccEnsureDurable(tries, jsonPre) {
 if (!window.idbSet) return;
 clearTimeout(ccDurableTimer);
 let json = '';
-try { json = JSON.stringify(groups); } catch (e0) { return; }
+try { json = typeof jsonPre === 'string' ? jsonPre : (groups ? JSON.stringify(groups) : ''); } catch (e0) { return; }
+if (!json || json === 'null') return;
 window.idbSet(curFullKey(), json).then(ok => {
 if (ok) { ccDurablePending = false; ccDurableWarned = false; return; }
 ccDurablePending = true;
@@ -40125,7 +40178,11 @@ return null;
 return null;
 }).then(() => { ccRescueInflight = null; });
 }
-let groups = loadGroups();
+let groups = null;
+function ccPageOpen() {
+const p = document.getElementById('page-custom-cards');
+return !!p && !p.hidden;
+}
 let cur = 'text';
 let q = '';
 let curGroup = ''; // '' = 全部
@@ -40186,6 +40243,7 @@ img.src = dataUrl;
 });
 }
 function renderGroupsBar() {
+if (!groups) return;
 if (!groupsBar) return;
 groupsBar.innerHTML = '';
 const grps = groups[cur] || [];
@@ -40375,14 +40433,17 @@ function flushCcSave() {
 if (editSaveTimer) { clearTimeout(editSaveTimer); editSaveTimer = null; }
 if (ccDurablePending) ccEnsureDurable(0);
 if (!ccDirty) return;
+if (!groups) { ccDirty = false; return; }
 try { saveGroups(groups); } catch (e) {}
 }
 window.ccFlushSave = flushCcSave;
 window.ccReloadGroupsAfterExternalWrite = function () {
 pubInvalidate();
 libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
+if (ccPageOpen()) {
 try { groups = loadGroups(); } catch (e) {}
-try { renderGroupsBar(); render(); } catch (e) {}
+try { renderGroupsBar(); render(); } catch (e2) {}
+}
 refreshLibCounts(true);
 };
 try {
@@ -40411,7 +40472,7 @@ libCounts.pub = n > 0 ? n : -1;
 libCounts.pubFun = countOfKeys(pubGroupsRaw(), CC_FUNC_KEYS);
 }
 if (libCounts.own < 0 || libCounts.fun < 0) {
-const og = ownGroupsRaw();
+const og = ownPoolRaw();
 if (libCounts.own < 0) {
 const n = countOf(og);
 libCounts.own = n > 0 ? n : -1;
@@ -40432,6 +40493,7 @@ if (oe) oe.textContent = libCounts.own < 0 ? 0 : libCounts.own;
 }
 document.addEventListener('mochi-restore-done', function () { refreshLibCounts(true); });
 function updateCountsOnly() {
+if (!groups) { refreshLibCounts(false); return; }
 renderTabCounts();
 renderGroupsBar();
 const total = totalCount(groups);
@@ -40631,7 +40693,7 @@ renderTabCounts();
 list.classList.toggle('cc-grid', cur === 'sticker');
 list.classList.toggle('cc-grid2', cur === 'image');
 list.classList.toggle('cc-grid6', cur === 'emoji');
-const grps = groups[cur] || [];
+const grps = (groups && groups[cur]) || [];
 let shown = grps;
 if (curGroup) shown = shown.filter(g => g[0] === curGroup);
 if (q) {
@@ -40782,7 +40844,7 @@ window.__cardSearchFns = window.__cardSearchFns || [];
 window.__cardSearchFns.push({ name: '自定义聊天字卡', fn: function (kw) {
 const out = [];
 try {
-const groups = mergeWithPublic(loadGroups());
+const groups = mergeWithPublic(ownPoolRaw());
 Object.keys(groups).forEach(function (type) {
 (groups[type] || []).forEach(function (grp) {
 const gname = grp[0]; const cards = grp[1] || [];
@@ -42220,20 +42282,6 @@ try {
 if (window.hydrateLibScopes) window.hydrateLibScopes(['public', 'own']);
 } catch (e) {}
 }
-function replyScopeGroups() {
-try {
-let hasAny = false;
-for (let i = 0; i < CC_TYPES.length; i++) { if ((groups[CC_TYPES[i]] || []).length) { hasAny = true; break; } }
-if (!hasAny) {
-const raw = curStore().get(curKey());
-if (raw) {
-const g = buildGroupsFrom(raw);
-for (let i = 0; i < CC_TYPES.length; i++) { if ((g[CC_TYPES[i]] || []).length) { groups = g; break; } }
-}
-}
-} catch (e) {}
-return groups;
-}
 window.getCustomCards = function () {
 maybeHydrateReplyPool();
 const g = replyPoolGroups();
@@ -42363,7 +42411,7 @@ setTimeout(warmShrunkCache, 300);
 });
 window.getScopedGroups = function (type, scope) {
 const src = filterGroupsByOff(
-(scope === 'public') ? pubGroupsRaw() : buildGroupsFrom(store.get('cc-groups')),
+(scope === 'public') ? pubGroupsRaw() : ownPoolRaw(),
 scope === 'public' ? 'public' : 'own'
 );
 const arr = (src[type] || []).slice();
@@ -42393,6 +42441,23 @@ if (cur === type && !document.getElementById('page-custom-cards').hidden) { try 
 }
 return added > 0;
 }
+if (!groups) {
+const g0 = buildGroupsFrom(store.get('cc-groups'));
+if (!g0[type]) g0[type] = [];
+let grp0 = g0[type].find(p => p[0] === group);
+if (!grp0) { grp0 = [group, []]; g0[type].push(grp0); }
+let added0 = 0;
+arr.forEach(c => { if (grp0[1].indexOf(c) < 0) { grp0[1].push(c); added0++; } });
+if (added0) {
+const j0 = JSON.stringify(g0);
+try { store.set('cc-groups', j0); } catch (e2) {}
+if (j0.length > 200 * 1024) ccEnsureDurable(0, j0); // #434 同款大值确认落盘
+pubInvalidate();
+libCounts.own = -1; libCounts.fun = -1;
+refreshLibCounts(false);
+}
+return added0 > 0;
+}
 if (!groups[type]) groups[type] = [];
 let g = groups[type].find(p => p[0] === group);
 if (!g) { g = [group, []]; groups[type].push(g); }
@@ -42419,9 +42484,10 @@ pubInvalidate();
 offInvalidate(); // v3.30.x：专属停用集合按联系人隔离，切桌面必须失效缓存
 ccAuthSeen.own = false; // v3.26.x #193：新桌面的权威键尚未取回，写守卫重新生效
 libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
-groups = loadGroups();
+if (ccPageOpen()) { try { groups = loadGroups(); } catch (e) {} }
+else groups = null;
 refreshLibCounts(false);
-try { renderGroupsBar(); render(); } catch (e) {}
+if (ccPageOpen()) { try { renderGroupsBar(); render(); } catch (e) {} }
 hydrateLibScopes(['public', 'own']);
 });
 window.getCustomCardsFor = function (cid) {
@@ -42481,7 +42547,7 @@ try { st.remove('cc-groups'); } catch (e2) {} // 迁走即清，防回复池公�
 if (isDefault) { try { gRoot.remove('cc-groups'); } catch (e2) {} }
 libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
 if (cid === (window.__activeCid || 'default')) {
-if (ccScope === 'own') { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
+if (ccScope === 'own' && ccPageOpen()) { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
 else refreshLibCounts(false);
 } else refreshLibCounts(false);
 try { gRoot.set('cc-scope-migrated', '1'); } catch (e2) {}
@@ -42515,7 +42581,7 @@ ownRestoreP.then(run);
 (function () {
 const DD_KEY = 'cc-dedupe-v1';
 const DD_REWRITE_LIMIT = 15 * 1024 * 1024;
-const DD_PARSE_LIMIT = 300 * 1024 * 1024;
+const DD_PARSE_LIMIT = 96 * 1024 * 1024;
 function ddLoad() {
 try {
 const o = JSON.parse(pubStore().get(DD_KEY) || '{}');
@@ -42532,7 +42598,7 @@ function refreshAfter(cid) {
 libCounts.own = -1; libCounts.fun = -1;
 if (cid === (window.__activeCid || 'default')) {
 pubInvalidate();
-if (ccScope === 'own') { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
+if (ccScope === 'own' && ccPageOpen()) { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
 else refreshLibCounts(false);
 } else refreshLibCounts(false);
 }
@@ -42544,10 +42610,23 @@ if (!window.idbGetAllKeys || !window.idbGet || !window.storeFor) return;
 window.idbGetAllKeys().then(function (allKeys) {
 const ownKeys = (allKeys || []).map(String).filter(k => /^xy-home-v2:[^:]+:cc-groups$/.test(k));
 if (!ownKeys.length) return;
-window.idbGet(PUB_PREFIX + ':' + PUB_KEY).then(function (pubRaw) {
-if (typeof pubRaw !== 'string' || pubRaw.length < 1024) return;
 const marks = ddLoad();
 let markDirty = false;
+const pubFullKey = PUB_PREFIX + ':' + PUB_KEY;
+const pubLenIdx = (window.idbBigSize && window.idbBigSize(pubFullKey)) || null;
+let allSettled = typeof pubLenIdx === 'number';
+if (allSettled) {
+for (let z = 0; z < ownKeys.length; z++) {
+const fk = ownKeys[z];
+const cid0 = fk.slice(PUB_PREFIX.length + 1, fk.length - ':cc-groups'.length);
+const ownLen0 = (window.idbBigSize && window.idbBigSize(fk)) || null;
+if (typeof ownLen0 !== 'number' ||
+!marks[cid0] || marks[cid0][0] !== pubLenIdx || marks[cid0][1] !== ownLen0) { allSettled = false; break; }
+}
+}
+if (allSettled) return;
+window.idbGet(pubFullKey).then(function (pubRaw) {
+if (typeof pubRaw !== 'string' || pubRaw.length < 1024) return;
 let i = 0;
 (function step() {
 if (i >= ownKeys.length) { if (markDirty) ddSave(marks); return; }
@@ -42555,8 +42634,14 @@ const full = ownKeys[i++];
 const cid = full.slice(PUB_PREFIX.length + 1, full.length - ':cc-groups'.length);
 const next = function () { setTimeout(step, 0); };
 const ownLen = (window.idbBigSize && window.idbBigSize(full)) || null;
-if (typeof ownLen !== 'number' || ownLen < 65536) { next(); return; }
+if (typeof ownLen !== 'number' || ownLen < 65536) {
+if (typeof ownLen === 'number' && typeof pubLenIdx === 'number') { marks[cid] = [pubLenIdx, ownLen]; markDirty = true; }
+next(); return;
+}
 if (marks[cid] && marks[cid][0] === pubRaw.length && marks[cid][1] === ownLen) { next(); return; }
+if (pubRaw.length + ownLen > DD_PARSE_LIMIT) {
+marks[cid] = [pubRaw.length, ownLen]; markDirty = true; next(); return;
+}
 window.idbGet(full).then(function (ownRaw) {
 try {
 if (typeof ownRaw !== 'string' || ownRaw.length < 1024) {
@@ -42691,7 +42776,7 @@ try {
 if (!(window.activeStore && window.activeStore().get && window.activeStore().set && window.openModal)) return;
 if (CC_FUNC_KEYS.indexOf(cur) >= 0) return; // 其他互动功能字卡入口不提醒
 let n = 0;
-[ownGroupsRaw(), pubGroupsRaw()].forEach(src => {
+[ownPoolRaw(), pubGroupsRaw()].forEach(src => {
 if (!src) return;
 CC_TYPES.forEach(t => { ((src[t] || []) || []).forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) n += g[1].length; }); });
 });
@@ -42744,9 +42829,9 @@ refreshLibCounts(false); // v3.15.x：懒加载取回后同步刷新列表页两
 }
 function leaveCcPageReset() {
 flushCcSave();
-if (ccScope !== 'public') return;
+if (ccScope !== 'public') { groups = null; return; }
 ccScope = 'own';
-try { groups = loadGroups(); } catch (e) {}
+groups = null;
 }
 const liPub = document.getElementById('li-custom-cards-public');
 if (liPub) liPub.addEventListener('click', () => openCcPage('public'));
@@ -42876,7 +42961,7 @@ if (fullKey === curFullKey()) ccAuthMark();
 pubInvalidate();
 libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
 const scopeLive = (scope === 'public') ? (ccScope === 'public') : (ccScope === 'own');
-if (scopeLive) {
+if (scopeLive && ccPageOpen()) {
 try { groups = loadGroups(); renderGroupsBar(); render(); } catch (e) {}
 }
 refreshLibCounts(false);
@@ -57760,7 +57845,7 @@ ico: '<svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" s
 title: '联系人跨桌面打电话',
 subTag: '功能说明',
 tagTitle: '联系人跨桌面打电话',
-detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。你接听后即可正常通话，接听会自动挂断当前通话、且不会跳到对方的桌面。关闭后不再有跨桌面来电。',
+detail: '开启后，其他桌面的联系人会主动给你打语音电话；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
 get: deskCallEn,
 set: window.setDeskCallEn,
 toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
@@ -57876,7 +57961,11 @@ Object.keys(liveModals).forEach(function (cid) {
 const ours = !!(mask && !mask.hidden && titleEl && titleEl.textContent === liveModals[cid]);
 if (ours) return;
 delete liveModals[cid];
-if (setStatus(cid, 'seen')) noteRelease('弹窗消失未应答，释放 ' + cName(cid));
+var wasCall = queue().some(function (x) { return x.cid === cid && x.status === 'pending' && x.kind === 'call'; });
+if (setStatus(cid, 'seen')) {
+noteRelease('弹窗消失未应答，释放 ' + cName(cid));
+if (wasCall && window.callRecordMissed) window.callRecordMissed(cid, cName(cid));
+}
 });
 }
 function queue() {
@@ -58004,6 +58093,7 @@ if (req.kind === 'checkin' && !deskQSeenRecently(req.cid, req.text)) {
 try { if (window.chatAppendDeskCkTo) window.chatAppendDeskCkTo(req.cid, req.q); } catch (e) {}
 try { if (window.addCareRecordFor) window.addCareRecordFor(req.cid, 'desk-checkin', req.text, Date.now()); } catch (e) {}
 }
+if (req.kind === 'call' && window.callRecordMissed) window.callRecordMissed(req.cid, cName(req.cid));
 setStatus(req.cid, 'seen');
 return;
 }
@@ -58025,6 +58115,7 @@ if (window.setActiveContact && cid !== (window.__activeCid || 'default')) window
 } catch (e) {}
 setStatus(cid, 'accepted');
 if (req.kind === 'call') {
+try { if (window.getCallState && window.getCallState() && window.hangupCall) window.hangupCall(); } catch (e) {}
 setTimeout(function () { fire(req); }, 300);
 return;
 }
@@ -60071,6 +60162,12 @@ const d = new Date(ts);
 const p = (n) => (n < 10 ? '0' + n : '' + n);
 return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
+function dispName() {
+return store.get('cs-lbl-partner')
+|| store.get('lbl-partner')
+|| (window.contactNameFor ? window.contactNameFor(window.__activeCid || 'default') : '')
+|| (window.taWord ? window.taWord() : 'TA');
+}
 function avatarsLoad() {
 try { return JSON.parse(store.get('records-avatar') || '[]'); } catch (e) { return []; }
 }
@@ -60104,7 +60201,7 @@ if (!document.getElementById('page-home').hidden) render();
 function renderCatch() {
 const el = document.getElementById('home-catch');
 if (!el) return;
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const list = catchesLoad();
 el.innerHTML = list.length
@@ -60123,7 +60220,7 @@ function renderCoinPanel(kind) {
 const el = document.getElementById(kind === 'ask' ? 'home-coinask' : 'home-coinearn');
 if (!el) return;
 const list = (window.giftCoinLedgerLoad ? window.giftCoinLedgerLoad(kind) : []) || [];
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const myName = store.get('lbl-user') || '我';
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 if (!list.length) {
@@ -60173,7 +60270,7 @@ s.set('records-care', JSON.stringify(list.slice(0, 100)));
 function renderCarePanel() {
 const el = document.getElementById('home-care');
 if (!el) return;
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const KIND_ICON = { checkin: '📋', period: '🌸', water: '💧', eat: '🍚', pomo: '🍅', deskcheck: '🏠' };
 const rows = [];
@@ -60216,7 +60313,7 @@ el.innerHTML = rows.map(r => '<div class="tc-listitem"><div class="tc-li-top"><s
 function renderRpPanel() {
 const el = document.getElementById('home-coinrp');
 if (!el) return;
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const myName = store.get('lbl-user') || '我';
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 let msgs = [];
@@ -60268,7 +60365,7 @@ window.renderFishHistory = function () {
 const el = document.getElementById('home-fish');
 if (!el) return;
 const h = (window.getFishHistory && window.getFishHistory()) || [];
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const myName = store.get('lbl-user') || '我';
 const tot = (window.getFishTotals && window.getFishTotals()) || { mine: 0, ta: 0 };
 const totalHtml =
@@ -60290,7 +60387,7 @@ window.renderWorkHistory = function () {
 const el = document.getElementById('home-work');
 if (!el) return;
 const h = (window.getWorkHistory && window.getWorkHistory()) || [];
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const myName = store.get('lbl-user') || '我';
 const tot = (window.getWorkTotals && window.getWorkTotals()) || { mine: 0, ta: 0 };
 const totalHtml =
@@ -60334,7 +60431,7 @@ if (showOnly === 'av') {
 const avEl = document.getElementById('home-av');
 if (avEl) {
 const list = avatarsLoad();
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 avEl.innerHTML = list.length
 ? list.map(x =>
@@ -60349,7 +60446,7 @@ if (showOnly === 'call') {
 const callEl = document.getElementById('home-call');
 if (callEl) {
 const list = callsLoad();
-const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = dispName();
 const icIn = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>';
 const icOut = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/><path d="M16 3v6M19 6h-6"/></svg>';
 callEl.innerHTML = list.length
@@ -60849,6 +60946,9 @@ if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
 bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
 }
 window.callHoldIncoming = holdIncomingCall;
+window.callRecordMissed = function (cid, name) {
+try { notifyCallEnd(cid || 'default', heldMissedHtml(name || partnerName()), 'in', '未接听'); } catch (e) {}
+};
 function readCallHold() {
 try {
 const h = JSON.parse(localStorage.getItem(CALL_HOLD_KEY) || 'null');
@@ -90749,7 +90849,7 @@ const HUB = [
 { n: '批量提问问卷', d: '你批量出题，TA 限时作答交卷', k: '问卷 提问 批量 出题 考试 答题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask', '#ta-ask-survey-open'] },
 { n: '拍一拍', d: '拍 TA 一下，TA 也会拍回来', k: '拍一拍 互动', go: ['.app[data-app="chat"]', '#more-poke'] },
 { n: '引用回复', d: '引用某条消息回复，可带表情包+文字', k: '引用 回复', where: '聊天里长按任意消息' },
-{ n: '通话', d: '拨打/接听电话，可设自定义铃声与背景', k: '电话 通话 打电话', go: ['.app[data-app="chat"]', '#more-call'] },
+{ n: '通话', d: '拨打/接听电话，可设自定义铃声与背景；跨桌面来电接听会自动跳到对方桌面（通话与记录归属对方桌面，刻意设计）', k: '电话 通话 打电话 跨桌面来电 来电记录', go: ['.app[data-app="chat"]', '#more-call'] },
 { n: '邀请 TA', d: '发邀请字卡（预设+自定义，可重复发送）', k: '邀请 约会', go: ['.app[data-app="chat"]', '#more-invite'] },
 { n: '问问 TA / TA 的提问', d: '让 TA 现在问你一次（提问/选择题/好奇/吐槽），或向 TA 发问', k: '提问 问问 问题 选择题 好奇 吐槽 现在', go: ['.app[data-app="chat"]', '#more-ask'] },
 { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] },
@@ -92696,4 +92796,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0dyt6s -->
+<!-- __MOCHI_EOF__ mu0ee4qw -->

@@ -559,6 +559,13 @@
   // #204：暴露给 incoming-requests.js——跨桌面来电后台命中时同走「响铃挂起」（原只发
   // 通知即丢弃，切回应用无来电 UI 也无未接记录）；avOverride 用归属联系人头像
   window.callHoldIncoming = holdIncomingCall;
+  // #441：暴露给 incoming-requests.js——跨桌面来电「稍后/弹窗被顶未应答」补记未接。
+  // 原路径只把 pending 标 seen，什么记录都不留（桌内来电拒绝/超时都有记录），
+  // 跨桌面来电就无声消失。复用 notifyCallEnd：系统消息 + 通话记录都落到归属联系人
+  // 桌面（cid 恰为当前桌面时自动走当前桌面链路），幂等性由调用方 setStatus 命中保证。
+  window.callRecordMissed = function (cid, name) {
+    try { notifyCallEnd(cid || 'default', heldMissedHtml(name || partnerName()), 'in', '未接听'); } catch (e) {}
+  };
   function readCallHold() {
     try {
       const h = JSON.parse(localStorage.getItem(CALL_HOLD_KEY) || 'null');

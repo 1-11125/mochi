@@ -8,6 +8,16 @@
     const p = (n) => (n < 10 ? '0' + n : '' + n);
     return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
+  // #441：主页各记录的联系人显示名统一走与聊天/通话一致的取名链（cs-lbl-partner → 桌面
+  // lbl-partner → 联系人名片名 → TA）。此前各渲染点只读桌面键 lbl-partner——联系人管理
+  // 新建、从未改过昵称的联系人该键为空，通话记录/换头像/抓包/心意币/关心全部显示「TA」，
+  // 多联系人下分不清记录属于谁，观感＝「跨桌面通话记录串了、没显示实际联系人的电话」。
+  function dispName() {
+    return store.get('cs-lbl-partner')
+      || store.get('lbl-partner')
+      || (window.contactNameFor ? window.contactNameFor(window.__activeCid || 'default') : '')
+      || (window.taWord ? window.taWord() : 'TA');
+  }
   // ---- 换头像记录（含事件文案 + 头像缩略图；最多 30 条） ----
   // 记录所有换头像事件：联系人主动换我的头像（直接换 / 邀请同意 / 邀请拒绝）、
   // 我手动换自己的头像等——统一由 chatSystem 写入，text 为聊天系统消息原文
@@ -49,7 +59,7 @@
   function renderCatch() {
     const el = document.getElementById('home-catch');
     if (!el) return;
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const list = catchesLoad();
     el.innerHTML = list.length
@@ -70,7 +80,7 @@
     const el = document.getElementById(kind === 'ask' ? 'home-coinask' : 'home-coinearn');
     if (!el) return;
     const list = (window.giftCoinLedgerLoad ? window.giftCoinLedgerLoad(kind) : []) || [];
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const myName = store.get('lbl-user') || '我';
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     if (!list.length) {
@@ -128,7 +138,7 @@
   function renderCarePanel() {
     const el = document.getElementById('home-care');
     if (!el) return;
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const KIND_ICON = { checkin: '📋', period: '🌸', water: '💧', eat: '🍚', pomo: '🍅', deskcheck: '🏠' };
     const rows = [];
@@ -182,7 +192,7 @@
   function renderRpPanel() {
     const el = document.getElementById('home-coinrp');
     if (!el) return;
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const myName = store.get('lbl-user') || '我';
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     let msgs = [];
@@ -240,7 +250,7 @@
     const el = document.getElementById('home-fish');
     if (!el) return;
     const h = (window.getFishHistory && window.getFishHistory()) || [];
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const myName = store.get('lbl-user') || '我';
     // 顶部历史累计（我的 + 联系人）
     const tot = (window.getFishTotals && window.getFishTotals()) || { mine: 0, ta: 0 };
@@ -265,7 +275,7 @@
     const el = document.getElementById('home-work');
     if (!el) return;
     const h = (window.getWorkHistory && window.getWorkHistory()) || [];
-    const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+    const name = dispName();
     const myName = store.get('lbl-user') || '我';
     const tot = (window.getWorkTotals && window.getWorkTotals()) || { mine: 0, ta: 0 };
     const totalHtml =
@@ -318,7 +328,7 @@
       const avEl = document.getElementById('home-av');
       if (avEl) {
         const list = avatarsLoad();
-        const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+        const name = dispName();
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         avEl.innerHTML = list.length
           ? list.map(x =>
@@ -334,7 +344,7 @@
       const callEl = document.getElementById('home-call');
       if (callEl) {
         const list = callsLoad();
-        const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+        const name = dispName();
         const icIn = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>';
         const icOut = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/><path d="M16 3v6M19 6h-6"/></svg>';
         callEl.innerHTML = list.length

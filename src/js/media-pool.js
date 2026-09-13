@@ -306,6 +306,8 @@
   //     → 整次放弃不删：没读到可能藏着唯一引用，删了就是永久坏图；
   //   · 只删池键，绝不动聊天/收藏；确认交互由调用方（查看存储页）负责。
   window.mochiMediaGC = function () {
+    // FIX 2026-09-14 #441 进度回传走 arguments[0]（零参签名保持不变，#423 哨兵锚点不动）
+    const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
     return (async function () {
       const out = { ok: false, reason: '', orphans: [], bytes: 0, poolN: 0, refN: 0 };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文）'; return out; }
@@ -332,6 +334,12 @@
         }
       } catch (lErr) { out.reason = 'localStorage 读取失败（存储繁忙），为安全起见本次不清理'; return out; }
       out.refN = refKeys.length;
+      // FIX 2026-09-14 #441 大库冻结修复：chat-msgs 在 IDB 是数组直存（大桌面单键 40MB+），
+      // 旧逻辑整包 JSON.stringify＝几十秒长任务冻结主线程＝页面假死、中途锁屏/切后台被杀
+      // 扫描永不完成＝「点了没反应、永远等不到弹窗」（红米K80 实报）。改为逐条小 stringify
+      //（令牌 44 字符完整落在单条消息内，按条切分不会切断令牌），每 128 条让出主线程。
+      const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+      const scanKeep = function (s) { SCAN_RE.lastIndex = 0; let m; while ((m = SCAN_RE.exec(s))) keep.add(m[1]); };
       for (let i = 0; i < refKeys.length; i++) {
         let v;
         if (refKeys[i].indexOf('__ls__') === 0) {
@@ -342,12 +350,20 @@
           v = await window.idbGet(refKeys[i]);
           if (v === undefined || v === null) { out.reason = '有聊天记录/收藏没读到（存储繁忙？），为安全起见本次不清理'; return out; }
         }
-        let s = '';
-        try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
-        SCAN_RE.lastIndex = 0;
-        let m;
-        while ((m = SCAN_RE.exec(s))) keep.add(m[1]);
-        s = '';
+        try { if (prog) prog(i + 1, refKeys.length, '读取引用'); } catch (eP1) {}
+        if (typeof v === 'string') { scanKeep(v); }
+        else if (Array.isArray(v)) {
+          for (let j = 0; j < v.length; j++) {
+            const mi = v[j];
+            let s = '';
+            try { s = typeof mi === 'string' ? mi : (mi && typeof mi === 'object' ? JSON.stringify(mi) : ''); } catch (e8) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
+            if (s) scanKeep(s);
+            if ((j & 127) === 127) await yieldUI();
+          }
+        } else {
+          try { scanKeep(JSON.stringify(v) || ''); } catch (e9) { out.reason = '引用数据序列化失败，本次不清理'; return out; }
+        }
+        await yieldUI();
       }
       const poolKeys = keys.filter(function (k) { return String(k).indexOf(FULL) === 0; });
       out.poolN = poolKeys.length;
@@ -390,6 +406,8 @@
   //           需重导「含图片的完整备份」；inPool=0 → 备份完全没带池键。
   // 只读、纯查（不写不删）；批 40 查池规避 IDB 风暴（与 GC/runLookups 同纪律）。
   window.mochiMediaCoverage = function () {
+    // FIX 2026-09-14 #441 进度回传走 arguments[0]（零参签名不变），调用方实时显示扫描进度
+    const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
     return (async function () {
       const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
@@ -402,16 +420,33 @@
       const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
       try { for (let i = 0; i < localStorage.length; i++) { const lk = localStorage.key(i); if (lk && REFS.test(lk)) refKeys.push('__ls__' + lk); } } catch (e) {}
       const refs = new Set();
+      // FIX 2026-09-14 #441 与 GC 同款大库冻结修复：chat-msgs 在 IDB 是数组直存（大桌面单键
+      // 40MB+），旧逻辑整包 JSON.stringify＝几十秒长任务冻结主线程＝页面假死、零进度反馈、
+      // 中途锁屏/切后台页面被杀扫描永不完成＝「核对/重建点了没反应、永远等不到结果弹窗」。
+      // 改为逐条小 stringify（令牌 44 字符完整落在单条消息内，按条切分不会切断令牌），
+      // 每 256 条让出主线程＋逐键进度回传，UI 全程可响应。
+      const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+      const scanTokens = function (s) { SCAN_RE.lastIndex = 0; let m; while ((m = SCAN_RE.exec(s))) refs.add(m[1]); };
       for (let i = 0; i < refKeys.length; i++) {
         let v;
         const rk = refKeys[i]; const isLs = rk.indexOf('__ls__') === 0;
+        try { if (prog) prog(i + 1, refKeys.length, isLs ? '本地快照' : '聊天/收藏'); } catch (eP2) {}
         if (isLs) { try { v = localStorage.getItem(rk.slice(6)); } catch (e2) { v = undefined; } }
         else { try { v = await window.idbGet(rk); } catch (e2) { v = undefined; } }
         if (v === undefined || v === null) continue;
-        let s = '';
-        try { s = typeof v === 'string' ? v : (JSON.stringify(v) || ''); } catch (e2) { continue; }
-        SCAN_RE.lastIndex = 0; let m;
-        while ((m = SCAN_RE.exec(s))) refs.add(m[1]);
+        if (typeof v === 'string') { scanTokens(v); }
+        else if (Array.isArray(v)) {
+          for (let j = 0; j < v.length; j++) {
+            const mg = v[j];
+            let s = '';
+            try { s = typeof mg === 'string' ? mg : (mg && typeof mg === 'object' ? JSON.stringify(mg) : ''); } catch (e3) { continue; }
+            if (s) scanTokens(s);
+            if ((j & 255) === 255) await yieldUI();
+          }
+        } else {
+          try { scanTokens(JSON.stringify(v) || ''); } catch (e4) {}
+        }
+        await yieldUI();
       }
       const uniq = Array.from(refs);
       out.referenced = uniq.length;
@@ -442,8 +477,11 @@
   //   · 补回后清缺失负缓存并直接重写已渲染占位 img（dataset.tokTried 会挡观察器重试，
   //     必须主动重写才算即时自愈）。
   window.mochiMediaRebuild = function () {
+    // FIX 2026-09-14 #441 进度回传走 arguments[0]（零参签名不变，#423 哨兵锚点不动）
+    const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
     return (async function () {
       const out = { ok: false, reason: '', poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 };
+      const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); }; // #441 阶段间让出主线程
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany || !window.idbSetAll || !window.idbSet) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
       try { await window.mochiMediaFlush(); } catch (e) {}
       let keys;
@@ -462,6 +500,8 @@
           const v = vals[k];
           if (typeof v === 'string' && (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0)) valid.add(String(k).slice(FULL.length));
         });
+        try { if (prog) prog(Math.min(poolKeys.length, i + 40), poolKeys.length, '核对池内条目'); } catch (eP3) {}
+        await yieldUI(); // #441 批间让出主线程（池 741+ 条×大值，连读会冻结 UI）
       }
       out.validN = valid.size;
       out.brokenN = poolKeys.length - valid.size;
@@ -509,10 +549,12 @@
         return !POOL_RE.test(k) && k.indexOf(':music-file:') < 0 && k.indexOf('__wr-j:') < 0;
       });
       for (let i = 0; i < srcKeys.length; i += 4) { // 批 4 读、逐个扫完即弃（峰值≈4×最大单键）
+        try { if (prog) prog(i, srcKeys.length, '扫描本机副本'); } catch (eP4) {}
         const batch = srcKeys.slice(i, i + 4);
         let vals = {};
         try { vals = (await window.idbGetMany(batch)) || {}; } catch (e3) { vals = {}; }
         batch.forEach(function (k) { scanValue(vals[k]); vals[k] = null; });
+        await yieldUI(); // #441 批间让出主线程防冻结
       }
       out.foundN = found.size;
       out.bytes = foundBytes;
@@ -520,6 +562,7 @@
       const fill = [];
       const dataList = Array.from(found.keys());
       for (let i = 0; i < dataList.length; i++) {
+        try { if (prog) prog(i, dataList.length, '校验哈希'); } catch (eP5) {}
         let h = '';
         try { h = await sha256Hex(dataList[i]); } catch (e4) { continue; }
         if (valid.has(h)) { out.alreadyOk++; continue; }

@@ -7229,8 +7229,12 @@ try {
         }
         const oldTxt = gcBtn.textContent;
         gcBtn.disabled = true;
-        gcBtn.textContent = '扫描中…（需通读聊天记录，请稍候）';
-        window.mochiMediaGC().then(function (rep) {
+        // FIX 2026-09-14 #441 大库扫描改分批让出主线程+实时进度（旧整包 stringify 冻结主线程＝假死「没反应」）
+        gcBtn.textContent = '扫描中… 0/?';
+        try { if (typeof toast === 'function') toast('开始扫描：需通读聊天记录，大库约需一两分钟，请留在本页'); } catch (eT0) {}
+        window.mochiMediaGC(function (done, total) {
+          gcBtn.textContent = '扫描中… ' + done + '/' + total;
+        }).then(function (rep) {
           gcBtn.disabled = false;
           gcBtn.textContent = oldTxt;
           if (orphanEl) orphanEl.textContent = (rep && rep.ok) ? (rep.orphans.length ? fmtBytes(rep.bytes) + '（' + rep.orphans.length + ' 条）' : '无孤儿，池很干净') : ((rep && rep.reason) || '扫描失败');
@@ -7256,6 +7260,7 @@ try {
           gcBtn.disabled = false;
           gcBtn.textContent = oldTxt;
           if (orphanEl) orphanEl.textContent = '扫描异常';
+          if (window.openModal) window.openModal('扫描异常', '', null, { noInput: true, staticText: '孤儿媒体扫描中途出错，没有删除任何内容。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
         });
       });
     }
@@ -7273,8 +7278,13 @@ try {
         }
         const oldTxt = covBtn.textContent;
         covBtn.disabled = true;
-        covBtn.textContent = '核对中…（需通读聊天记录，请稍候）';
-        window.mochiMediaCoverage().then(function (rep) {
+        // FIX 2026-09-14 #441 大库核对改分批让出主线程+实时进度（旧整包 stringify 冻结主线程＝
+        // 页面假死、锁屏/切后台被杀后永不完成＝「点了没反应、等不到弹窗」红米K80 实报）
+        covBtn.textContent = '核对中… 0/?';
+        try { if (typeof toast === 'function') toast('开始核对：需通读聊天记录，大库约需一两分钟，请留在本页'); } catch (eT1) {}
+        window.mochiMediaCoverage(function (done, total, label) {
+          covBtn.textContent = '核对中… ' + done + '/' + total + (label ? '（' + label + '）' : '');
+        }).then(function (rep) {
           covBtn.disabled = false;
           covBtn.textContent = oldTxt;
           if (!rep || !rep.ok) {
@@ -7302,6 +7312,7 @@ try {
           covBtn.disabled = false;
           covBtn.textContent = oldTxt;
           if (covEl) covEl.textContent = '核对异常';
+          if (window.openModal) window.openModal('核对异常', '', null, { noInput: true, staticText: '图片核对中途出错，没有改动任何数据。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
         });
       });
     }
@@ -7320,8 +7331,12 @@ try {
         const oldTxt = rbBtn.textContent;
         const doRebuild = function () {
           rbBtn.disabled = true;
-          rbBtn.textContent = '重建中…（需通读本机数据，请稍候）';
-          window.mochiMediaRebuild().then(function (rep) {
+          // FIX 2026-09-14 #441 重建三阶段（池体检/扫副本/哈希）分批让出主线程+实时进度
+          rbBtn.textContent = '重建中… 准备';
+          try { if (typeof toast === 'function') toast('开始重建：扫描+哈希校验，大库约需几分钟，请留在本页'); } catch (eT2) {}
+          window.mochiMediaRebuild(function (done, total, label) {
+            rbBtn.textContent = '重建中… ' + (label || '准备') + (total ? ' ' + done + '/' + total : '');
+          }).then(function (rep) {
             rbBtn.disabled = false;
             rbBtn.textContent = oldTxt;
             if (!rep || !rep.ok) {
@@ -7344,6 +7359,7 @@ try {
             rbBtn.disabled = false;
             rbBtn.textContent = oldTxt;
             if (rbEl) rbEl.textContent = '重建异常';
+            if (window.openModal) window.openModal('重建异常', '', null, { noInput: true, staticText: '媒体池重建中途出错，没有改动任何数据。\n\n可稍后重试；若反复出现请到「关于/诊断」导出诊断信息报障。' });
           });
         };
         if (window.openModal) {
