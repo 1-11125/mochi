@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789304270278">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.654</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 20:57<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789305991391">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.655</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 21:26<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.654</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.655</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10711,7 +10711,9 @@ transition-duration: .01ms !important;
           <div class="storage-row"><span>媒体池占用</span><b id="st-media">统计中…（IndexedDB）</b></div>
           <div class="storage-row"><span>孤儿媒体（已无任何聊天/收藏引用）</span><b id="st-media-orphan">未扫描</b></div>
           <button class="storage-clear" id="st-media-gc" type="button">扫描并清理孤儿媒体</button>
-          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。</div>
+          <div class="storage-row"><span>聊天引用的图片在池内完整度</span><b id="st-media-cov">未核对</b></div>
+          <button class="storage-clear" id="st-media-cov-btn" type="button">核对图片是否齐全</button>
+          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。<br>「核对图片是否齐全」对比「聊天/收藏/群聊里引用的图片数」与「媒体池里实际存的条数」：引用数 > 池内数 = 有图片数据缺失（多为导入的备份未含图片，需从<b>有完整图片的源头设备</b>重新导出「完整备份」再导入恢复）；两边相等 = 数据链完好，占位会随重新渲染自愈。</div>
         </div>
         <!-- v3.26.x 存储优化：持久存储申请（navigator.storage.persist） -->
         <div class="cal-card glass">
@@ -10957,7 +10959,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.654</span>
+              <span class="lic-ver">v3.26.655</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -27256,6 +27258,48 @@ if (orphanEl) orphanEl.textContent = '扫描异常';
 });
 });
 }
+const covBtn = document.getElementById('st-media-cov-btn');
+if (covBtn) {
+covBtn.addEventListener('click', function () {
+const covEl = document.getElementById('st-media-cov');
+if (!window.mochiMediaCoverage) {
+if (window.openModal) window.openModal('本环境不支持', '', null, { noInput: true, staticText: '图片核对需要安全上下文（HTTPS）与 IndexedDB 支持，当前环境不可用。' });
+return;
+}
+const oldTxt = covBtn.textContent;
+covBtn.disabled = true;
+covBtn.textContent = '核对中…（需通读聊天记录，请稍候）';
+window.mochiMediaCoverage().then(function (rep) {
+covBtn.disabled = false;
+covBtn.textContent = oldTxt;
+if (!rep || !rep.ok) {
+if (covEl) covEl.textContent = '核对失败';
+if (window.openModal) window.openModal('核对未完成', '', null, { noInput: true, staticText: ((rep && rep.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可再试。' });
+return;
+}
+if (covEl) covEl.textContent = rep.referenced + ' 张图 / 池内 ' + rep.inPool + (rep.missing ? '（缺 ' + rep.missing + '）' : '');
+const tpl = [];
+if (!rep.missing) {
+tpl.push('聊天/收藏/群聊引用的 ' + rep.referenced + ' 张图全部在池内，数据链完好。');
+tpl.push('若界面上仍有「图片缺失」占位，通常是渲染缓存问题：返回聊天页让图片重新渲染即可自愈；仍不显示可重启页面（关掉再打开）。');
+} else if (rep.inPool === 0) {
+tpl.push('当前设备媒体池里没有任何图片数据——聊天里引用的 ' + rep.referenced + ' 张图全部缺失。');
+tpl.push('这几乎可以断定是导入的备份未包含图片数据（旧「只备份文字」或源头设备本就没池数据）。恢复办法：找一台还有这些图片的源头设备，在它上面导出「完整备份」（导出时选完整/全部，不要选「只备份文字」），再在本机导入。');
+} else {
+tpl.push('聊天/收藏/群聊引用 ' + rep.referenced + ' 张图，媒体池里只有 ' + rep.inPool + ' 张，缺失 ' + rep.missing + ' 张。');
+tpl.push('说明导入的备份只带回了部分图片。恢复办法：从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入，缺失的图片会补齐。');
+}
+tpl.push('提示：图片数据本身无法在手机上凭空生成，代码只能保证「备份带全图→导入后自愈」的链路可靠。');
+if (window.openModal) {
+window.openModal('图片核对结果', '', null, { noInput: true, staticText: tpl.join('\n') });
+}
+}).catch(function () {
+covBtn.disabled = false;
+covBtn.textContent = oldTxt;
+if (covEl) covEl.textContent = '核对异常';
+});
+});
+}
 function scanOtherLS() {
 const rows = [];
 let size = 0;
@@ -28782,6 +28826,11 @@ const cb = document.getElementById('chat-body');
 if (!cb) return true;
 return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 }
+function chatAtBottom() {
+const cb = document.getElementById('chat-body');
+if (!cb) return true;
+return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
+}
 function maybeScrollChatBottom(side) {
 if (batchRendering) {
 if (side === 'out') pendingOutScroll = true;
@@ -29725,7 +29774,7 @@ loadOlderIncremental();
 } else if (renderEnd < msgs.length && body.scrollHeight - body.scrollTop - body.clientHeight < TOP_THRESHOLD) {
 loadNewerIncremental();
 }
-else if (!chatPinnedBottom && body.scrollHeight - body.scrollTop - body.clientHeight < 120) {
+else if (!chatPinnedBottom && chatAtBottom()) {
 scrollChatBottom();
 }
 }, 100);
@@ -29738,7 +29787,7 @@ unpinChatAndAnchor();
 body.addEventListener('touchend', function (e) {
 try {
 const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);
-if (dy < 10 && chatNearBottom()) scrollChatBottom();
+if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
@@ -36982,8 +37031,8 @@ try { body.scrollTop += body.scrollHeight - prevH; } catch (e) {}
 gcSyncEarlierBtn();
 }
 function scrollToBottom() { try { body.scrollTop = body.scrollHeight; } catch (e) {} }
-function nearGcBottom() {
-try { return body.scrollHeight - body.scrollTop - body.clientHeight < 150; } catch (e) { return true; }
+function gcAtBottom() {
+try { return body.scrollHeight - body.scrollTop - body.clientHeight <= 8; } catch (e) { return true; }
 }
 let gcUserGcScrollTouched = false;
 let gcUnpinTsY = 0;
@@ -36995,7 +37044,7 @@ try { body.classList.add('scroll-anchor-auto'); } catch (err) {}
 body.addEventListener('touchend', (e) => {
 try {
 const dy = Math.abs(e.changedTouches[0].clientY - gcUnpinTsY);
-if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 轻点回跟=回钉态摘锚定
+if (dy < 10 && gcAtBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 轻点回跟=回钉态摘锚定；#416 轻点回跟只认真的贴到底（旧 150px 容差让上翻读最新时一点气泡就恢复跟底被拽回）
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('wheel', () => { gcUserGcScrollTouched = true; try { body.classList.add('scroll-anchor-auto'); } catch (err) {} }, { passive: true });
@@ -37012,8 +37061,17 @@ setTimeout(rewrite, 150);
 gcUserGcScrollTouched = false;
 } catch (e) {}
 }
+let gcScrollTimer = null;
 body.addEventListener('scroll', () => {
-if (gcUserGcScrollTouched && nearGcBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 滚回贴底=回钉态摘锚定
+if (!gcUserGcScrollTouched) return;
+if (gcScrollTimer) return;
+gcScrollTimer = setTimeout(() => {
+gcScrollTimer = null;
+if (gcUserGcScrollTouched && gcAtBottom()) {
+gcUserGcScrollTouched = false;
+try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} // FIX #396 滚回贴底=回钉态摘锚定
+}
+}, 120);
 }, { passive: true });
 const GC_DOM_WINDOW = 400, GC_DOM_CUT = 320;
 function pruneGcDom() {
@@ -91953,4 +92011,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtztkb0m -->
+<!-- __MOCHI_EOF__ mtzul71b -->

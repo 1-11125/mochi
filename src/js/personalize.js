@@ -7259,6 +7259,52 @@ try {
         });
       });
     }
+    // FIX 2026-09-14 图片丢失核对：mochiMediaCoverage（media-pool.js）比对「聊天/收藏/群聊/尾巴
+    // 引用到的唯一令牌数」vs「池里真正存在的条数」，帮用户分辨「图片丢失」是备份没带池
+    //（引用数 > 池内数，需从源头设备重导含图片的完整备份）还是链路没写回（两边相等，自愈）。
+    // 纯只读查询，不写不删；与 mochiMediaGC 同页面同纪律。
+    const covBtn = document.getElementById('st-media-cov-btn');
+    if (covBtn) {
+      covBtn.addEventListener('click', function () {
+        const covEl = document.getElementById('st-media-cov');
+        if (!window.mochiMediaCoverage) {
+          if (window.openModal) window.openModal('本环境不支持', '', null, { noInput: true, staticText: '图片核对需要安全上下文（HTTPS）与 IndexedDB 支持，当前环境不可用。' });
+          return;
+        }
+        const oldTxt = covBtn.textContent;
+        covBtn.disabled = true;
+        covBtn.textContent = '核对中…（需通读聊天记录，请稍候）';
+        window.mochiMediaCoverage().then(function (rep) {
+          covBtn.disabled = false;
+          covBtn.textContent = oldTxt;
+          if (!rep || !rep.ok) {
+            if (covEl) covEl.textContent = '核对失败';
+            if (window.openModal) window.openModal('核对未完成', '', null, { noInput: true, staticText: ((rep && rep.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可再试。' });
+            return;
+          }
+          if (covEl) covEl.textContent = rep.referenced + ' 张图 / 池内 ' + rep.inPool + (rep.missing ? '（缺 ' + rep.missing + '）' : '');
+          const tpl = [];
+          if (!rep.missing) {
+            tpl.push('聊天/收藏/群聊引用的 ' + rep.referenced + ' 张图全部在池内，数据链完好。');
+            tpl.push('若界面上仍有「图片缺失」占位，通常是渲染缓存问题：返回聊天页让图片重新渲染即可自愈；仍不显示可重启页面（关掉再打开）。');
+          } else if (rep.inPool === 0) {
+            tpl.push('当前设备媒体池里没有任何图片数据——聊天里引用的 ' + rep.referenced + ' 张图全部缺失。');
+            tpl.push('这几乎可以断定是导入的备份未包含图片数据（旧「只备份文字」或源头设备本就没池数据）。恢复办法：找一台还有这些图片的源头设备，在它上面导出「完整备份」（导出时选完整/全部，不要选「只备份文字」），再在本机导入。');
+          } else {
+            tpl.push('聊天/收藏/群聊引用 ' + rep.referenced + ' 张图，媒体池里只有 ' + rep.inPool + ' 张，缺失 ' + rep.missing + ' 张。');
+            tpl.push('说明导入的备份只带回了部分图片。恢复办法：从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入，缺失的图片会补齐。');
+          }
+          tpl.push('提示：图片数据本身无法在手机上凭空生成，代码只能保证「备份带全图→导入后自愈」的链路可靠。');
+          if (window.openModal) {
+            window.openModal('图片核对结果', '', null, { noInput: true, staticText: tpl.join('\n') });
+          }
+        }).catch(function () {
+          covBtn.disabled = false;
+          covBtn.textContent = oldTxt;
+          if (covEl) covEl.textContent = '核对异常';
+        });
+      });
+    }
     // ===== v3.26.x 存储优化：持久存储（navigator.storage.persist——浏览器承诺不自动清库）=====
     // ===== v3.32.x 可清理空间 · 同域其他站点数据（ml2_* 等非本项目键占满配额，用户报障实锤）=====
     // 同 origin 下其他应用（GitHub Pages 同账号各项目共用配额）会写非 xy-home-v2: 前缀的键，

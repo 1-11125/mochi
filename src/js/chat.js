@@ -1356,6 +1356,16 @@ const cb = document.getElementById('chat-body');
 if (!cb) return true;
 return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 }
+// FIX #416（红米 K80 Chrome 等多机型报「聊天/群聊滑动页面，每次点滑动自动往最新消息最底下跳」）：
+// 回钉/接管判定必须认「真的贴到底」，不能认「离底 <120px」——最新一条消息（图/长文本）通常
+// 恰好落在离底 24~120px 区间，用户一上翻阅读、一轻点就误判回钉被拽回最底。贴底=距最大
+// scrollTop 只剩 ≤8px（.chat-body 底部还有 padding-bottom:24px 的呼吸区，用户读最新消息时
+// 离底必然 >24px，互不混淆）。
+function chatAtBottom() {
+const cb = document.getElementById('chat-body');
+if (!cb) return true;
+return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
+}
 function maybeScrollChatBottom(side) {
 if (batchRendering) {
 if (side === 'out') pendingOutScroll = true;
@@ -2444,7 +2454,9 @@ loadNewerIncremental();
 }
 // FIX #378：解钉后用户手动滚回贴底＝回钉，自动跟底恢复——旧口径解钉后只有自己发
 // 一条消息才会重新钉住，期间联系人来消息全部不跟底（表现「不自动滚到最新」）
-else if (!chatPinnedBottom && body.scrollHeight - body.scrollTop - body.clientHeight < 120) {
+// FIX #416：回钉只认「真的滚到底」（≤8px）——旧阈值 120px 把「上翻读最新一条就停下」
+// 也当回钉，每次点滑动都被拽回最底下（见 chatAtBottom 注释）
+else if (!chatPinnedBottom && chatAtBottom()) {
 scrollChatBottom();
 }
 }, 100);
@@ -2454,6 +2466,8 @@ scrollChatBottom();
 // FIX #378：解钉只认「真实滚动意图」——轻点消息区（点气泡/长按入口，位移<10px）且
 // 仍贴底时回钉，自动跟底不再被一次轻点永久杀死；拖动/惯性滚动仍正常解钉，滚回贴底
 // 由下方 scroll 监听回钉
+// FIX #416：轻点回钉同样只认「真的贴到底」——旧 chatNearBottom（离底<120px）让用户
+// 上翻看最新消息时随便一点气泡就被拽回最底
 let chatUnpinTsY = 0;
 body.addEventListener('touchstart', function (e) {
 try { chatUnpinTsY = e.touches[0].clientY; } catch (err) { chatUnpinTsY = 0; }
@@ -2462,7 +2476,7 @@ unpinChatAndAnchor();
 body.addEventListener('touchend', function (e) {
 try {
 const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);
-if (dy < 10 && chatNearBottom()) scrollChatBottom();
+if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });

@@ -1615,7 +1615,9 @@
           <div class="storage-row"><span>媒体池占用</span><b id="st-media">统计中…（IndexedDB）</b></div>
           <div class="storage-row"><span>孤儿媒体（已无任何聊天/收藏引用）</span><b id="st-media-orphan">未扫描</b></div>
           <button class="storage-clear" id="st-media-gc" type="button">扫描并清理孤儿媒体</button>
-          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。</div>
+          <div class="storage-row"><span>聊天引用的图片在池内完整度</span><b id="st-media-cov">未核对</b></div>
+          <button class="storage-clear" id="st-media-cov-btn" type="button">核对图片是否齐全</button>
+          <div class="storage-hint">聊天和收藏里的同一张图片/表情在池里只存一份；删除消息或收藏后，不再被引用的图片会成为「孤儿」。本操作只删孤儿池条目，<b>不改聊天记录和收藏本身</b>。扫描需通读全部聊天记录（大历史较慢），存储繁忙读不完会自动放弃、绝不盲删；删除不可撤销，建议先导出备份。<br>「核对图片是否齐全」对比「聊天/收藏/群聊里引用的图片数」与「媒体池里实际存的条数」：引用数 > 池内数 = 有图片数据缺失（多为导入的备份未含图片，需从<b>有完整图片的源头设备</b>重新导出「完整备份」再导入恢复）；两边相等 = 数据链完好，占位会随重新渲染自愈。</div>
         </div>
         <!-- v3.26.x 存储优化：持久存储申请（navigator.storage.persist） -->
         <div class="cal-card glass">

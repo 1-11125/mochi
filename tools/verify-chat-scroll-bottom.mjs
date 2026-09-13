@@ -38,7 +38,9 @@ const server = createServer((req, res) => {
   try {
     // v3.9.x：延迟图片端点——模拟真机图片异步解码（400ms 后才返回），
     // 用于验证「图片加载完成后消息高度变化 → 自动补滚到底」的补偿逻辑
-    if (req.url === '/slow.png') {
+    // /slow2.png 是 #416 同款端点：图消息去重窗（img 型 60000ms）会吞掉同 URL 的
+    // 第二条消息，翻历史场景需用唯一 URL 才能真实渲染出「图消息进来」的效果
+    if (req.url.indexOf('/slow') === 0) {
       const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
       setTimeout(() => { res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(png); }, 400);
       return;
@@ -152,7 +154,18 @@ s = JSON.parse(await snap() || '{}');
 check('上翻后发送消息 → 自动滚动到最新', Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
 
 // ---- 3. 大幅上翻（回看旧消息），TA 消息进来 —— 不打断阅读位置 ----
-await evalJs("(function(){var cb=document.getElementById('chat-body');cb.scrollTop=0;return cb.scrollTop;})()");
+// FIX #416：真实用户上翻必然先触摸（touchstart 解钉挂锚定）再拖动；旧脚本直接
+// 程序化 scrollTop=0 不派发触摸＝钉住态保持，TA 消息按「贴底钉住」正常跟底被误判
+// 为打断。补触摸模拟后才符合「用户已接管滚动」的真实语义（#378 钉住标记契约）。
+await evalJs(`(function(){
+  var b = document.getElementById('chat-body');
+  try {
+    var t = new Touch({ identifier: 1, target: b, clientX: 100, clientY: 700 });
+    b.dispatchEvent(new TouchEvent('touchstart', { touches: [t], targetTouches: [t], changedTouches: [t], bubbles: true, cancelable: true }));
+  } catch (e) { b.dispatchEvent(new Event('touchstart', { bubbles: true })); }
+  b.scrollTop = 0;
+  return b.scrollTop;
+})()`);
 await sleep(80);
 await evalJs("window.chatAddIn && window.chatAddIn('TA 的回复消息（此时在翻旧消息，不应被打断）');");
 await settle();
@@ -179,9 +192,19 @@ s = JSON.parse(await snap() || '{}');
 check('带图消息图片延迟加载完成后自动贴底', Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
 
 // ---- 6. 翻旧消息时带图消息进来 → 不打断阅读位置（守卫仍生效） ----
-await evalJs("(function(){var cb=document.getElementById('chat-body');cb.scrollTop=0;return cb.scrollTop;})()");
+// 同 #3：先触摸模拟「用户已接管滚动」；图用 /slow2.png（唯一 URL）避免被 #256
+// 图消息去重窗（60000ms）吞掉——旧脚本第二条 /slow.png 被静默去重不渲染＝假通过。
+await evalJs(`(function(){
+  var b = document.getElementById('chat-body');
+  try {
+    var t = new Touch({ identifier: 1, target: b, clientX: 100, clientY: 700 });
+    b.dispatchEvent(new TouchEvent('touchstart', { touches: [t], targetTouches: [t], changedTouches: [t], bubbles: true, cancelable: true }));
+  } catch (e) { b.dispatchEvent(new Event('touchstart', { bubbles: true })); }
+  b.scrollTop = 0;
+  return b.scrollTop;
+})()`);
 await sleep(80);
-await evalJs("window.chatAddIn('/slow.png', { img: '/slow.png' });");
+await evalJs("window.chatAddIn('/slow2.png', { img: '/slow2.png' });");
 await sleep(600); // 等图片加载完成——即使图片触发 onload，in 消息贴底守卫也应拦住
 s = JSON.parse(await snap() || '{}');
 check('翻旧消息时带图消息图片加载后仍不打断', Math.abs(s.top - s.max) >= 300, 'top=' + s.top + ' max=' + s.max);

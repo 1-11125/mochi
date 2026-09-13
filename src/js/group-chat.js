@@ -720,8 +720,13 @@
   function scrollToBottom() { try { body.scrollTop = body.scrollHeight; } catch (e) {} }
   // v3.16.x：新消息自动跟底——收发消息后调用；用户正回看历史（离底 >150px）时不打扰，
   // 贴底状态下始终跟随（此前只有 renderAll 进页时滚一次，停留页内收发都要手动下滑）
-  function nearGcBottom() {
-    try { return body.scrollHeight - body.scrollTop - body.clientHeight < 150; } catch (e) { return true; }
+  // FIX #416（红米 K80 Chrome 等多机型报「聊天/群聊滑动页面，每次点滑动自动往最新消息最底下跳」）：
+  // 解除「用户已接管滚动」只认「真的贴到底」（距最大 scrollTop ≤8px）——旧 nearGcBottom 的
+  // 150px 容差把「上翻读最新一条就停下」也当回到底部：群聊来消息 followGcBottom 又恢复跟底，
+  // 用户翻历史时被下一条成员回复不断拽回最底。贴底判定与单聊 chatAtBottom 同口径
+  //（.chat-body 底部 padding-bottom:24px，读最新消息时离底必然 >24px，互不混淆）。
+  function gcAtBottom() {
+    try { return body.scrollHeight - body.scrollTop - body.clientHeight <= 8; } catch (e) { return true; }
   }
   // FIX 群聊跟底 #370（红米 K80 Chrome 等多机型报「联系人发消息不自动滚到最新」）：
   // 单聊 #162 同根因——移动内核可能丢弃一次性 scrollTop 写入，或被迟到的布局变更
@@ -746,7 +751,7 @@
   body.addEventListener('touchend', (e) => {
     try {
       const dy = Math.abs(e.changedTouches[0].clientY - gcUnpinTsY);
-      if (dy < 10 && nearGcBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 轻点回跟=回钉态摘锚定
+      if (dy < 10 && gcAtBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 轻点回跟=回钉态摘锚定；#416 轻点回跟只认真的贴到底（旧 150px 容差让上翻读最新时一点气泡就恢复跟底被拽回）
     } catch (err) {}
   }, { passive: true });
   body.addEventListener('wheel', () => { gcUserGcScrollTouched = true; try { body.classList.add('scroll-anchor-auto'); } catch (err) {} }, { passive: true });
@@ -766,8 +771,22 @@
     } catch (e) {}
   }
   // FIX #378：用户手动滚回贴底＝解除接管，自动跟底恢复（旧口径解钉后无法恢复）
+  // FIX #416：滚回贴底的检测必须「停稳 + 真的到底」——旧逻辑在滚动手势的第一个 scroll
+  // 事件（上翻刚离底几像素，仍在 150px 内）就清掉接管标记＝用户刚上翻，下一条成员回复
+  // followGcBottom 就把视口拽回最底（每次点滑动都跳）。改 120ms 停稳 + gcAtBottom
+  //（≤8px）才解除接管：读历史期间接管保持、锚定类保持（#396/#316 图片解码补偿不丢），
+  // 只有真正滚回最底停下，自动跟底才恢复。
+  let gcScrollTimer = null;
   body.addEventListener('scroll', () => {
-    if (gcUserGcScrollTouched && nearGcBottom()) { gcUserGcScrollTouched = false; try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} } // FIX #396 滚回贴底=回钉态摘锚定
+    if (!gcUserGcScrollTouched) return;
+    if (gcScrollTimer) return;
+    gcScrollTimer = setTimeout(() => {
+      gcScrollTimer = null;
+      if (gcUserGcScrollTouched && gcAtBottom()) {
+        gcUserGcScrollTouched = false;
+        try { body.classList.remove('scroll-anchor-auto'); } catch (err) {} // FIX #396 滚回贴底=回钉态摘锚定
+      }
+    }, 120);
   }, { passive: true });
   // v3.12.x：停留页内实时追加的 DOM 窗口上限——renderAll 只在进页时收窄到 RENDER_MAX，
   // 之后每条收发都走 renderMsg 直接 append，长时间泡在群里 DOM（含每条一个 dataURL 头像
