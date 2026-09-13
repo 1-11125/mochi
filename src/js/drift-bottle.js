@@ -412,13 +412,16 @@
         head = '💙 ' + pn() + '漂来的瓶子';
         // 优先从当前桌面聊天记录抽 TA 说过的字卡（含混合气泡逐段拆出的每张）；
         // 记录为空/超大/全是图片语音时回退字卡库【漂流瓶·TA的话】
-        // v3.32.x #132：dcf-drift 关断时 poolLine 返回空串——按空瓶处理不出话术
-        note = sampleHistLine() || poolLine('TA的话', 'ta');
+        // v3.32.x #132：dcf-drift 关断时 poolLine 返回空串
+        // FIX 2026-09-13 #403：三道来源全空（dcf 总开关关断/概率 0 + 无历史候选 + 无字卡）
+        // 时回退内置兜底话术——绝不让瓶子装一张空白信纸（多机型「漂流瓶都是空白的没有留言」）
+        note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);
         if (note) sig = '—— ' + pn();
         if (Math.random() < 0.2) gift = rnd(ITEMS);
       } else if (kind === 'special') {
         head = '✨ 一个特别的瓶子';
-        note = poolLine('海风', 'sea');
+        // FIX 2026-09-13 #403：dcf-drift 关断时 poolLine 空串→内置兜底，不出空白信纸
+        note = poolLine('海风', 'sea') || rnd(FB.sea);
         sig = '瓶身缠着小小的星星绳';
       } else if (kind === 'item') {
         gift = rnd(ITEMS);
@@ -429,7 +432,8 @@
         note = rnd(EMPTY_LINES);
       } else {
         head = '🫙 你捡到了一个漂流瓶';
-        note = poolLine('海风', 'sea');
+        // FIX 2026-09-13 #403：同上，普通瓶文案永不落空（『空瓶』是独立 kind，另有所指）
+        note = poolLine('海风', 'sea') || rnd(FB.sea);
       }
     }
     // 心意币：每日首次捡瓶 +2；特殊瓶 +5（计入每日上限，不做成刷币工具）

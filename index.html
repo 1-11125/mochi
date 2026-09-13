@@ -9371,9 +9371,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789298661112">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.652</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 19:24<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789302880253">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.653</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 20:34<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10659,7 +10659,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.652</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.653</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10957,7 +10957,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.652</span>
+              <span class="lic-ver">v3.26.653</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11492,6 +11492,25 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>撤回补发概率</span><div class="stepper" data-k="rc-refix" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rc-refix-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">撤回后补发总开关（默认开）。效果举例：TA 发「今晚一起去吃火锅好不好」→ 撤回了一半 → 按「撤回补发概率」再发一条新的（如「明天去逛街吧」）。把本开关关闭＝TA 撤回后什么都不再发；开着＝TA 撤回后有「撤回补发概率」的机会补一条新消息（这条不计入「回复条数」上限）</div>
           </div>
+          <div class="gs-title">主动发送（联系人找你）</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>主动发送</span><label class="toggle"><input type="checkbox" id="as-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>主动发送概率</span><div class="stepper" data-k="as-prob" data-min="1" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="as-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>发送间隔最短（分钟）</span><div class="stepper" data-k="as-min" data-min="1" data-max="600" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-min-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>发送间隔最长（分钟）</span><div class="stepper" data-k="as-max" data-min="1" data-max="60" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-max-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>发送条数最少</span><div class="stepper" data-k="as-count-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-min-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>发送条数最多</span><div class="stepper" data-k="as-count-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-max-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>免打扰（弱化主动发送）</span><label class="toggle"><input type="checkbox" id="dnd-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>主动发送爱心标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
+          </div>
+          <div class="gs-title">让对方继续说</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>按正常回复时间</span><label class="toggle"><input type="checkbox" id="cs-normal"><span class="tk"></span></label></div>
+            <div class="gs-sub">（未开启设置时间的情况下是点击后联系人立即回复）</div>
+            <div class="gs-row"><span>点顶部昵称触发</span><label class="toggle"><input type="checkbox" id="cs-trigger-name"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>底部聊天栏按钮触发</span><label class="toggle"><input type="checkbox" id="cs-trigger-bar"><span class="tk"></span></label></div>
+            <div class="gs-sub">点顶部昵称/底部按钮会触发新一轮回复，条数仍按上面设置抽取，会叠在正常回复之外</div>
+          </div>
           <!-- #370b：字卡·拼字 父分组——把「多字卡回复 / 词典拼字 / 梦角自由造句」三个拼字/造句类设置归拢到一个父标题下，避免它们夹在基础概率之间显得零散难找 -->
           <div class="gs-sec">
             <div class="gs-sec-head">字卡 · 拼字</div>
@@ -11543,26 +11562,7 @@ transition-duration: .01ms !important;
             <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>「混合模式」（#414，默认关）：开启后每次造句先在三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
           </div>
           </div>
-          <div class="gs-title">主动发送（联系人找你）</div>
-          <div class="set-group glass">
-            <div class="gs-row"><span>主动发送</span><label class="toggle"><input type="checkbox" id="as-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>主动发送概率</span><div class="stepper" data-k="as-prob" data-min="1" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="as-prob-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-row"><span>发送间隔最短（分钟）</span><div class="stepper" data-k="as-min" data-min="1" data-max="600" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-min-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-row"><span>发送间隔最长（分钟）</span><div class="stepper" data-k="as-max" data-min="1" data-max="60" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-row"><span>发送条数最少</span><div class="stepper" data-k="as-count-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-min-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-row"><span>发送条数最多</span><div class="stepper" data-k="as-count-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-row"><span>免打扰（弱化主动发送）</span><label class="toggle"><input type="checkbox" id="dnd-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>主动发送爱心标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
           </div>
-          <div class="gs-title">让对方继续说</div>
-          <div class="set-group glass">
-            <div class="gs-row"><span>按正常回复时间</span><label class="toggle"><input type="checkbox" id="cs-normal"><span class="tk"></span></label></div>
-            <div class="gs-sub">（未开启设置时间的情况下是点击后联系人立即回复）</div>
-            <div class="gs-row"><span>点顶部昵称触发</span><label class="toggle"><input type="checkbox" id="cs-trigger-name"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>底部聊天栏按钮触发</span><label class="toggle"><input type="checkbox" id="cs-trigger-bar"><span class="tk"></span></label></div>
-            <div class="gs-sub">点顶部昵称/底部按钮会触发新一轮回复，条数仍按上面设置抽取，会叠在正常回复之外</div>
-          </div>
-        </div>
         <div class="gs-panel" data-rpanel="group" hidden>
           <div class="gs-title">被动回复（群聊里每个联系人回你）</div>
           <div class="gs-sub">发送消息后每个联系人按概率回你；也可在群聊里 @ 指定成员（@ 的成员必定回复）</div>
@@ -19752,6 +19752,279 @@ return out;
 };
 })();
 } catch (__e) { try { console.error("[JS] storage-slim.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
+(function () { try {
+(function () {
+const G = 'xy-home-v2:';
+const KIND = {
+'cc-img': { maxSide: 720,  format: 'image/jpeg', quality: 0.85, thr: 100 * 1024 }, // 字卡·图片分类
+'cc-stk': { maxSide: 480,  format: 'image/png',  quality: 0.85, thr: 100 * 1024 }, // 字卡·表情包分类
+wall:     { maxSide: 2880, format: 'image/jpeg', quality: 0.85, thr: 400 * 1024 }, // 手机壁纸/页面背景/聊天壁纸
+card:     { maxSide: 1000, format: 'image/jpeg', quality: 0.85, thr: 150 * 1024 }, // 卡片背景
+desk:     { maxSide: 1280, format: 'image/jpeg', quality: 0.85, thr: 200 * 1024 }, // 桌面图片组件
+avatar:   { maxSide: 256,  format: 'image/jpeg', quality: 0.85, thr: 80 * 1024 }   // 头像
+};
+const BEAUTY_RE = /(?:^|:)(?:phone-bg|phone-bg-item-(?!thb-)[A-Za-z0-9_-]+|page-bg-[0-9]+|card-bg-(?!mask-)[A-Za-z0-9_-]+|desk-image-src-[A-Za-z0-9_-]+|cs-bg|cs-bg-item-(?!thb-)[A-Za-z0-9_-]+|cs-avatar-(?:partner|user)|avatar-(?:partner|user))$/;
+function kindOf(key) {
+const k = String(key);
+if (k.indexOf('avatar') >= 0) return 'avatar';
+if (k.indexOf('desk-image-src') >= 0) return 'desk';
+if (k.indexOf('card-bg') >= 0) return 'card';
+if (k.indexOf('phone-bg') >= 0 || k.indexOf('page-bg') >= 0 || k.indexOf('cs-bg') >= 0) return 'wall';
+return null;
+}
+function ccLibs() {
+const out = [{ prefix: G, key: 'cc-groups-public', label: '公用字卡库' }];
+try {
+(window.getContacts ? window.getContacts() : []).forEach(function (c) {
+if (c && c.id) out.push({ prefix: G + c.id + ':', key: 'cc-groups', label: (c.name || c.id) + ' · 专属' });
+});
+} catch (e) {}
+out.push({ prefix: G, key: 'cc-groups', label: '旧版顶层字卡库（残留）' });
+return out;
+}
+function parseCc(raw) {
+try {
+const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+const g = JSON.parse(s || 'null');
+if (g && typeof g === 'object' && g.text) return g;
+} catch (e) {}
+return null;
+}
+function compressible(dataUrl, kind) {
+if (typeof dataUrl !== 'string') return false;
+if (dataUrl.indexOf('@@m:') === 0) return false;        // 媒体池令牌：数据在池里，池由 GC 管理
+if (dataUrl.indexOf('data:image/') !== 0) return false; // 只处理本地 base64 图（远程链接/语音不碰）
+if (/^data:image\/gif/i.test(dataUrl)) return false;    // 动图重压会丢动画
+if (dataUrl.length > 8 * 1024 * 1024) return false;     // 超大全站不解码（iOS 解码崩溃红线）
+const kd = KIND[kind];
+if (!kd) return false;
+return dataUrl.length > kd.thr;
+}
+function compressOne(dataUrl, kind) {
+return new Promise(function (resolve) {
+const kd = KIND[kind];
+if (!compressible(dataUrl, kind)) { resolve({ data: null, skip: 'not' }); return; }
+const img = new Image();
+img.onload = function () {
+try {
+if (img.width * img.height > 26000000) { resolve({ data: null, skip: 'pixels' }); return; }
+const scale = Math.min(1, kd.maxSide / Math.max(img.width, img.height));
+const w = Math.max(1, Math.round(img.width * scale));
+const h = Math.max(1, Math.round(img.height * scale));
+const keepPng = kind === 'cc-stk' || (/^data:image\/png/i.test(dataUrl) && kd.format === 'image/jpeg');
+const format = keepPng ? 'image/png' : kd.format;
+const c = document.createElement('canvas');
+c.width = w; c.height = h;
+const ctx = c.getContext('2d');
+if (format === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
+ctx.drawImage(img, 0, 0, w, h);
+const out = c.toDataURL(format, kd.quality);
+resolve(out ? { data: out, skip: 'ok' } : { data: null, skip: 'encode' });
+} catch (e) { resolve({ data: null, skip: 'err' }); }
+};
+img.onerror = function () { resolve({ data: null, skip: 'decode' }); };
+img.src = dataUrl;
+});
+}
+window.mochiImgScan = function () {
+return (async function () {
+const out = { ok: false, reason: '', cc: { n: 0, bytes: 0 }, beauty: { n: 0, bytes: 0 } };
+if (!window.idbListKeys || !window.idbGet) { out.reason = '接口不可用'; return out; }
+const keys = await window.idbListKeys();
+if (!keys) { out.reason = '键清单读取失败（存储繁忙），稍后再试'; return out; }
+const keySet = {};
+keys.forEach(function (k) { keySet[String(k)] = true; });
+const libs = ccLibs().filter(function (L) { return keySet[L.prefix + L.key]; });
+for (let i = 0; i < libs.length; i++) {
+const L = libs[i];
+const raw = await window.idbGet(L.prefix + L.key);
+if (raw === undefined || raw === null) { out.reason = out.reason || '字卡库「' + L.label + '」没读到（存储繁忙），结果可能不全'; continue; }
+const g = parseCc(raw);
+if (!g) continue;
+['sticker', 'image'].forEach(function (cat) {
+const arr = g[cat];
+if (!Array.isArray(arr)) return;
+const kind = cat === 'image' ? 'cc-img' : 'cc-stk';
+arr.forEach(function (tu) {
+if (!Array.isArray(tu) || !Array.isArray(tu[1])) return;
+tu[1].forEach(function (card) {
+if (compressible(card, kind)) { out.cc.n++; out.cc.bytes += card.length * 2; }
+});
+});
+});
+}
+const beautyKeys = keys.filter(function (k) { return BEAUTY_RE.test(String(k)); });
+for (let i = 0; i < beautyKeys.length; i++) {
+const k = String(beautyKeys[i]);
+const kind = kindOf(k);
+if (!kind) continue;
+const v = await window.idbGet(k);
+if (typeof v !== 'string' || !compressible(v, kind)) continue;
+out.beauty.n++;
+out.beauty.bytes += v.length * 2;
+}
+out.ok = true;
+return out;
+})().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), cc: { n: 0, bytes: 0 }, beauty: { n: 0, bytes: 0 } }; });
+};
+window.mochiImgCompress = function (source) {
+return (async function () {
+const out = { ok: false, reason: '', source: source, processed: 0, saved: 0, skipped: 0 };
+if (!window.idbListKeys || !window.idbGet || !window.xyStore) { out.reason = '接口不可用'; return out; }
+const keys = await window.idbListKeys();
+if (!keys) { out.reason = '键清单读取失败（存储繁忙），本次未压缩'; return out; }
+const keySet = {};
+keys.forEach(function (k) { keySet[String(k)] = true; });
+const tick = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+const reasons = [];
+if (source === 'all' || source === 'cc') {
+const libs = ccLibs().filter(function (L) { return keySet[L.prefix + L.key]; });
+for (let i = 0; i < libs.length; i++) {
+const L = libs[i];
+const raw = await window.idbGet(L.prefix + L.key);
+if (raw === undefined || raw === null) { reasons.push('字卡库「' + L.label + '」没读到，跳过'); continue; }
+const g = parseCc(raw);
+if (!g) continue;
+let changed = false;
+const cats = ['sticker', 'image'];
+for (let ci = 0; ci < cats.length; ci++) {
+const cat = cats[ci];
+const arr = g[cat];
+if (!Array.isArray(arr)) continue;
+const kind = cat === 'image' ? 'cc-img' : 'cc-stk';
+for (let gi = 0; gi < arr.length; gi++) {
+const tu = arr[gi];
+if (!Array.isArray(tu) || !Array.isArray(tu[1])) continue;
+const cards = tu[1];
+for (let j = 0; j < cards.length; j++) {
+const card = cards[j];
+if (!compressible(card, kind)) continue;
+const r = await compressOne(card, kind);
+if (!r.data) { out.skipped++; continue; }
+const oldLen = card.length;
+const newLen = r.data.length;
+if (newLen < oldLen * 0.9) { // 产物至少小 10% 才替换，绝不变大/变糊
+cards[j] = r.data;
+changed = true;
+out.processed++;
+out.saved += (oldLen - newLen) * 2;
+} else { out.skipped++; }
+await tick();
+}
+}
+}
+if (changed) {
+let s = '';
+try { s = JSON.stringify(g); } catch (e) { reasons.push('字卡库「' + L.label + '」写回序列化失败，跳过'); continue; }
+try { window.xyStore(L.prefix).set(L.key, s); }
+catch (e) { reasons.push('字卡库「' + L.label + '」写回失败：' + ((e && e.message) || e)); }
+}
+await tick();
+}
+}
+if (source === 'all' || source === 'beauty') {
+const beautyKeys = keys.filter(function (k) { return BEAUTY_RE.test(String(k)); });
+for (let i = 0; i < beautyKeys.length; i++) {
+const k = String(beautyKeys[i]);
+const kind = kindOf(k);
+if (!kind) continue;
+const v = await window.idbGet(k);
+if (typeof v !== 'string' || !compressible(v, kind)) continue;
+const r = await compressOne(v, kind);
+if (!r.data) { out.skipped++; continue; }
+const oldLen = v.length;
+const newLen = r.data.length;
+if (newLen < oldLen * 0.9) {
+const prefix = k.slice(0, k.lastIndexOf(':') + 1);
+const bare = k.slice(prefix.length);
+try { window.xyStore(prefix).set(bare, r.data); out.processed++; out.saved += (oldLen - newLen) * 2; }
+catch (e) { reasons.push('美化图片「' + bare + '」写回失败：' + ((e && e.message) || e)); }
+} else { out.skipped++; }
+await tick();
+}
+}
+if (reasons.length) out.reason = reasons.join('；');
+out.ok = true;
+return out;
+})().catch(function (e) { return { ok: false, reason: '压缩异常：' + ((e && e.message) || e), source: source, processed: 0, saved: 0, skipped: 0 }; });
+};
+function fmtBytes(n) {
+n = Number(n) || 0;
+if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+return n + ' B';
+}
+function toast(msg) {
+try {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._icT); t._icT = setTimeout(function () { t.className = 'cc-toast'; }, 3600);
+} catch (e) {}
+}
+function refreshRow(rep) {
+const el = document.getElementById('st-img-compress');
+if (!el || !rep) return;
+const cc = rep.cc || {}, b = rep.beauty || {};
+const n = (cc.n || 0) + (b.n || 0);
+el.textContent = n ? ('字卡库 ' + (cc.n || 0) + ' 张 · 美化 ' + (b.n || 0) + ' 张，共约 ' + fmtBytes((cc.bytes || 0) + (b.bytes || 0))) : '无（未发现偏大图片）';
+}
+function refreshRowAfter(res, source) {
+const el = document.getElementById('st-img-compress');
+if (!el || !res) return;
+const s = source === 'cc' ? '字卡库' : source === 'beauty' ? '美化' : '字卡库+美化';
+el.textContent = '已压缩 ' + res.processed + ' 张（' + s + '），释放约 ' + fmtBytes(res.saved) + '，可重新扫描';
+}
+function runCompress(source) {
+if (!window.mochiImgCompress) return;
+toast('正在压缩图片（图片较多时较慢，请勿离开本页）…');
+window.mochiImgCompress(source).then(function (res) {
+if (!res || !res.ok) { toast('压缩未完成：' + ((res && res.reason) || '未知原因')); return; }
+toast('已压缩 ' + res.processed + ' 张，释放约 ' + fmtBytes(res.saved) + (res.skipped ? '（跳过 ' + res.skipped + ' 张：动图/已较小/压缩后不更小则不替换）' : ''));
+refreshRowAfter(res, source);
+try { document.dispatchEvent(new CustomEvent('mochi-img-compressed')); } catch (e) {}
+}).catch(function () { toast('压缩异常，请稍后重试'); });
+}
+function scanThenModal() {
+if (!window.mochiImgScan || !window.mochiImgCompress || !window.openModal) { toast('当前环境不支持，请在支持 IndexedDB 的设备上使用'); return; }
+toast('正在扫描图片（大库较慢，请稍候）…');
+window.mochiImgScan().then(function (rep) {
+if (!rep || !rep.ok) {
+if (window.openModal) window.openModal('扫描未完成', '', null, { noInput: true, staticText: ((rep && rep.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可再试。' });
+return;
+}
+refreshRow(rep);
+const cc = rep.cc || {}, b = rep.beauty || {};
+if (!(cc.n || 0) && !(b.n || 0)) {
+if (window.openModal) window.openModal('压缩图片', '', null, { noInput: true, staticText: '没有可压缩的图片。\n\n只压缩「明显偏大」的存量图（字卡图片/表情约 >100KB、壁纸/背景约 >400KB、桌面图片约 >200KB 等）。动图（GIF）、已较小的图、媒体池共享图（聊天去重仓库）都不会被压缩。' });
+return;
+}
+const lines = [
+'扫描结果：',
+'· 字卡库上传的图片：' + (cc.n || 0) + ' 张，约 ' + fmtBytes(cc.bytes || 0),
+'· 美化里上传的图片：' + (b.n || 0) + ' 张，约 ' + fmtBytes(b.bytes || 0),
+'',
+'压缩规则：把偏大的存量图按「新上传」相同的清晰标准重压（字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85）。压缩产物不小于原图时不替换；动图（GIF）与媒体池共享图不动，超大原图（>8MB）为防崩溃不解码。',
+'',
+'压缩后图片依旧清晰，存储占用明显变小；「查看存储」的总占用会同步刷新。',
+'',
+'选择压缩范围：'
+];
+if (window.openModal) window.openModal('压缩图片', '', function (v) {
+runCompress(v || 'all');
+}, { noInput: true, staticText: lines.join('\n'), pills: [
+{ label: '全部压缩', value: 'all' },
+{ label: '仅字卡库图片', value: 'cc' },
+{ label: '仅美化图片', value: 'beauty' }
+], pill: 'all' });
+}).catch(function () { toast('扫描异常，请稍后重试'); });
+}
+const row = document.getElementById('row-img-compress');
+if (row) row.addEventListener('click', scanThenModal);
+const btn = document.getElementById('st-img-compress-btn');
+if (btn) btn.addEventListener('click', scanThenModal);
+})();
+} catch (__e) { try { console.error("[JS] img-compress.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
 const el = document.getElementById('clock');
@@ -52250,10 +52523,29 @@ if (avTabB) avTabB.classList.toggle('active', me);
 if (avPaneA) avPaneA.hidden = me;
 if (avPaneB) avPaneB.hidden = !me;
 }
+const avImgObserver = ('IntersectionObserver' in window)
+? new IntersectionObserver((entries) => {
+for (const en of entries) {
+if (!en.isIntersecting) continue;
+const img = en.target;
+if (img && img.dataset && img.dataset.src && !img.getAttribute('src')) {
+img.setAttribute('src', img.dataset.src);
+img.removeAttribute('data-src');
+}
+try { avImgObserver.unobserve(img); } catch (e) {}
+}
+}, { root: null, rootMargin: '300px 0px' })
+: null;
+function avAttachLazy(img) {
+if (!img) return;
+if (avImgObserver) { try { avImgObserver.observe(img); } catch (e) {} }
+else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
+}
 function renderGrid() {
 if (!avGrid) return;
 const lib = getLib();
 const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
+if (avImgObserver) avGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 avGrid.innerHTML = '';
 if (avCount) avCount.textContent = lib.length;
 if (avEmpty) avEmpty.hidden = lib.length > 0;
@@ -52261,8 +52553,9 @@ lib.forEach((src, idx) => {
 const d = document.createElement('div');
 d.className = 'avlib-cell' + (src === current ? ' avlib-now' : '');
 const img = document.createElement('img');
-img.src = src;
+img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码
 img.alt = '头像';
+avAttachLazy(img);
 const delBtn = document.createElement('button');
 delBtn.className = 'avlib-del';
 delBtn.textContent = '✕';
@@ -52285,6 +52578,7 @@ function renderMeGrid() {
 if (!avMeGrid) return;
 const lib = getMeLib();
 const current = store.get('cs-avatar-user') || store.get('avatar-user');
+if (avImgObserver) avMeGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 avMeGrid.innerHTML = '';
 if (avMeCount) avMeCount.textContent = lib.length;
 if (avMeEmpty) avMeEmpty.hidden = lib.length > 0;
@@ -52292,8 +52586,9 @@ lib.forEach((src, idx) => {
 const d = document.createElement('div');
 d.className = 'avlib-cell' + (src === current ? ' avlib-now' : '');
 const img = document.createElement('img');
-img.src = src;
+img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码
 img.alt = '头像';
+avAttachLazy(img);
 const delBtn = document.createElement('button');
 delBtn.className = 'avlib-del';
 delBtn.textContent = '✕';
@@ -91609,4 +91904,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzq82yg -->
+<!-- __MOCHI_EOF__ mtzsqigt -->

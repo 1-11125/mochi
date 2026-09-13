@@ -181,11 +181,33 @@
     if (avPaneA) avPaneA.hidden = me;
     if (avPaneB) avPaneB.hidden = !me;
   }
+  // v3.42.x 头像互动图片懒加载——与表情面板/字卡库同一机制（data-src + IntersectionObserver）：
+  // 头像池多张全尺寸图一次全量解码 = 中端机型主线程卡死、头像显示不出（跨机型报障同族）。
+  // 只给进入视口的图补 src；无 IntersectionObserver 的浏览器回退即时补 src（行为不变）。
+  const avImgObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const img = en.target;
+        if (img && img.dataset && img.dataset.src && !img.getAttribute('src')) {
+          img.setAttribute('src', img.dataset.src);
+          img.removeAttribute('data-src');
+        }
+        try { avImgObserver.unobserve(img); } catch (e) {}
+      }
+    }, { root: null, rootMargin: '300px 0px' })
+    : null;
+  function avAttachLazy(img) {
+    if (!img) return;
+    if (avImgObserver) { try { avImgObserver.observe(img); } catch (e) {} }
+    else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
+  }
   function renderGrid() {
     if (!avGrid) return;
     const lib = getLib();
     // v3.12.x：高亮当前生效的聊天头像（cs-avatar-partner 未设时回退桌面头像，与我的头像网格同口径）
     const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
+    if (avImgObserver) avGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
     avGrid.innerHTML = '';
     if (avCount) avCount.textContent = lib.length;
     if (avEmpty) avEmpty.hidden = lib.length > 0;
@@ -194,8 +216,9 @@
       d.className = 'avlib-cell' + (src === current ? ' avlib-now' : '');
       // v3.6.x：img src 用属性赋值（dataURL 里含引号时拼 innerHTML 会逃逸注入 HTML）
       const img = document.createElement('img');
-      img.src = src;
+      img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码
       img.alt = '头像';
+      avAttachLazy(img);
       const delBtn = document.createElement('button');
       delBtn.className = 'avlib-del';
       delBtn.textContent = '✕';
@@ -222,6 +245,7 @@
     const lib = getMeLib();
     // v3.9.x：高亮当前生效的聊天头像（cs-avatar-user 未设时回退桌面头像 avatar-user）
     const current = store.get('cs-avatar-user') || store.get('avatar-user');
+    if (avImgObserver) avMeGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
     avMeGrid.innerHTML = '';
     if (avMeCount) avMeCount.textContent = lib.length;
     if (avMeEmpty) avMeEmpty.hidden = lib.length > 0;
@@ -229,8 +253,9 @@
       const d = document.createElement('div');
       d.className = 'avlib-cell' + (src === current ? ' avlib-now' : '');
       const img = document.createElement('img');
-      img.src = src;
+      img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码
       img.alt = '头像';
+      avAttachLazy(img);
       const delBtn = document.createElement('button');
       delBtn.className = 'avlib-del';
       delBtn.textContent = '✕';

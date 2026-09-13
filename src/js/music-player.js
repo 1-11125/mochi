@@ -577,6 +577,50 @@
     if (m) return m[1];
     return '';
   }
+  // 网易云分享短链（163cn.tv/xxx）识别：#报障「导网易云免费音乐链接全部播放失败」——
+  // 分享短链 URL 里根本没有歌曲数字 ID，数字藏在 302 重定向后的 music.163.com 页面里，
+  // extractNeteaseSongId 认不出，整条被当普通直链入库 → audio.src 指向 HTML 跳转页
+  // 而非音频 → 全部"播放失败"。这里只认网易云官方短链宿主（163cn.tv），用 CORS 代理
+  // 跟随跳转取回最终页面，再正则抠出歌曲 ID。best-effort：任何一步失败都保持现有路径
+  // 不变（短链原样入库、由播放兜底提示），绝不因解析失败而误删/误改已有可播链接。
+  function isNetShortLink(line) {
+    if (!line || typeof line !== 'string') return false;
+    return /(?:^|[\s/])163cn\.tv\/[\w-]+/i.test(String(line).trim());
+  }
+  function resolveNetShortLink(ln, cb) {
+    if (typeof cb !== 'function') return;
+    const target = String(ln).trim().replace(/^http:\/\//i, 'https://');
+    let called = false;
+    const done = (id) => {
+      if (called) return;
+      called = true;
+      clearTimeout(hardTimer);
+      cb(id || '');
+    };
+    // 与 fetchV6Durations 同款 CORS 代理链（跟随 302 拿到最终页面 HTML）
+    const prox = [
+      { p: 'https://proxy.cors.sh/', enc: false },
+      { p: 'https://api.allorigins.win/raw?url=', enc: true }
+    ];
+    let pending = prox.length;
+    const hardTimer = setTimeout(done, 8000);
+    prox.forEach((pr) => {
+      let controller;
+      try { controller = new AbortController(); } catch (e) { controller = null; }
+      const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 7000);
+      fetch(pr.p + (pr.enc ? encodeURIComponent(target) : target), controller ? { signal: controller.signal } : undefined)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(txt => {
+          clearTimeout(timer);
+          // 最终页面里找网易云歌曲页/ID：?id=12345、#/song?id=12345、/song/12345、og:url
+          let m = String(txt || '').match(/music\.163\.com[^"'<>]*?\/song[^"'<>]*?(?:id=)?(\d{5,})/i);
+          if (!m) m = String(txt || '').match(/(?:song[\/?#]+id=|song\/)[^"'<>]{0,40}?(\d{5,})/i);
+          if (m && m[1]) { done(m[1]); }
+          else if (--pending <= 0) { done(''); }
+        })
+        .catch(() => { clearTimeout(timer); if (--pending <= 0) { done(''); } });
+    });
+  }
   // 网易云 meting 播放直链固定走 injahow（neteaseMetingUrl），封面同理归一到 injahow
   // 图片代理：#216 的 COVER_PROXY_RE 迁移链只认这个域名，会把代理 URL 解析成网易 CDN
   // 直链入库。各列表实例（qijieya/i-meto）自带的 pic 代理 URL 不改写就成了新的第三方
@@ -1357,6 +1401,33 @@
                   if (!batchMode) toast('已识别：' + info.name + (info.artist ? ' - ' + info.artist : ''));
                 }
               });
+            } else if (isNetShortLink(ln)) {
+              // 网易云分享短链：导入时异步解析出真实歌曲 ID，成功后复位该曲目的
+              // neteaseId/url/歌名；失败保持现状（原样短链 + 播放兜底提示），不误改。
+              resolveNetShortLink(ln, rid => {
+                if (!rid) return;
+                const m = findTrack(id);
+                if (m) {
+                  m.neteaseId = rid;
+                  m.url = neteaseMetingUrl(rid);
+                  enqueueDurProbe(m);
+                  ensureSongCover(m);
+                  fetchNeteaseInfo(rid, info => {
+                    const mm = findTrack(id);
+                    if (mm && info && info.name) {
+                      if (!mm.name || /^链接音乐$/.test(mm.name)) mm.name = info.name;
+                      if (info.artist) mm.artist = info.artist;
+                      if (info.duration && !mm.duration) mm.duration = info.duration;
+                      saveLibrary();
+                      renderPage();
+                      if (!batchMode) toast('已识别：' + info.name + (info.artist ? ' - ' + info.artist : ''));
+                    } else {
+                      saveLibrary();
+                      renderPage();
+                    }
+                  });
+                }
+              });
             }
           });
           if (!added) return;
@@ -1477,6 +1548,31 @@
                 if (info.duration && !mm.duration) { mm.duration = info.duration; updateDurUI(mm.id, mm.duration); }
                 saveLibrary();
                 renderPage();
+              }
+            });
+          } else if (isNetShortLink(url)) {
+            // 网易云分享短链：批量导入同样异步解析出真实歌曲 ID 后复位（失败保持现状）。
+            resolveNetShortLink(url, rid => {
+              if (!rid) return;
+              const bm = library.find(x => x.id === nid);
+              if (bm) {
+                bm.neteaseId = rid;
+                bm.url = neteaseMetingUrl(rid);
+                enqueueDurProbe(bm);
+                ensureSongCover(bm);
+                fetchNeteaseInfo(rid, info => {
+                  const bm2 = library.find(x => x.id === nid);
+                  if (bm2 && info && info.name) {
+                    if (!bm2.name || /^链接音乐$/.test(bm2.name)) bm2.name = info.name;
+                    if (info.artist) bm2.artist = info.artist;
+                    if (info.duration && !bm2.duration) bm2.duration = info.duration;
+                    saveLibrary();
+                    renderPage();
+                  } else {
+                    saveLibrary();
+                    renderPage();
+                  }
+                });
               }
             });
           }
@@ -2793,7 +2889,30 @@
       }
       return;
     }
-    audio = createAudio();;
+    // 网易云分享短链（历史已导入的 163cn.tv 曲目）：URL 里没歌曲 ID，旧包把它当普通
+    // 直链播必然失败。播放这一刻再异步解析一次真实 ID，成功后复位 neteaseId/url 并
+    // 重新走正式播放；失败（当前不发解析下一次也不重试）保持原样交给下方兜底提示。
+    // 只在网易云短链宿主且尚未解析过时触发，绝不拦截普通可播链接。
+    if (isNetShortLink(String(m.url || '')) && !m.neteaseId && !m._netShortDirty) {
+      m._netShortDirty = true; // 内存标记，避免每次点播都反复试（解析失败也不死循环）
+      resolveNetShortLink(m.url, rid => {
+        const cur = findTrack(currentId);
+        if (!cur || currentId !== m.id) return; // 已切歌
+        if (rid) {
+          cur.neteaseId = rid;
+          cur.url = neteaseMetingUrl(rid);
+          cur._netShortDirty = false;
+          saveLibrary();
+          renderLibrary();
+          playTrack(m.id, fromWidget);
+          return;
+        }
+        // 解析失败：恢复可重试（下次点播再试一次），并继续原样播放下方兜底
+        cur._netShortDirty = false;
+      });
+      return;
+    }
+    audio = createAudio();
     // v3.26.x：url 脏值守卫（如 '{}'/空串）——直接赋值会在控制台刷「资源加载失败」
     // 且永远播不出声。此类曲目判为坏链走 offerRemoveDamagedSong（连续失败后弹「移出音乐库」），
     // 不再把脏地址喂给 <audio>。blob:/data:（本地歌换源）与 http(s) 均放行。

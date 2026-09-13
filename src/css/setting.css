@@ -162,7 +162,9 @@
 
 /* v3.26.x：查看存储页 */
 .storage-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:7px 0; font-size:13px; color:var(--ink); }
-.storage-row b { font-weight:600; font-size:12.5px; text-align:right; flex-shrink:0; }
+/* v3.33.x：长文本（字卡分组名/多库合计）不超屏——左右两段都允许在自身宽度内折行 */
+.storage-row span { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.storage-row b { font-weight:600; font-size:12.5px; text-align:right; flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
 .storage-hint { font-size:11px; color:var(--muted); line-height:1.6; margin-top:8px; }
 .storage-cat-row { padding:9px 0; border-bottom:1px solid rgba(0,0,0,.05); font-size:13px; }
 .storage-cat-row:last-child { border-bottom:none; }

@@ -70,6 +70,21 @@
       }
     } catch (e) {}
   });
+  // #404 补强（米15夸克 LS 配额满实测）：解锁态也可能由 idbRestore 的 retainValue 在
+  //   restore 阶段直接回填进 memoryCache（LS 配额满设备项目 LS 键恒空、IDB 是唯一值源）
+  //   ——此时 IDB 值与写标记一致，wrjMergeFromIdb 的 healed 计数为 0、不广播
+  //   mochi-wrj-heal，开屏锁卡/字卡库会一直停在首屏的「输入密码解锁」假象（无头复现：
+  //   cardLockOpen() 已是 true 而锁卡 UI 仍锁定，且随读取竞态时好时坏）。restore 完成
+  //   时主动复核一次状态翻转；事件与 wrj-heal 链幂等（setupCardLockCard 重复触发安全）。
+  document.addEventListener('mochi-restore-done', function () {
+    try {
+      const open = isOpen();
+      if (open !== lastOpen) {
+        lastOpen = open;
+        document.dispatchEvent(new Event(open ? 'mochi-cardlock-open' : 'mochi-cardlock-locked'));
+      }
+    } catch (e) {}
+  });
   // 散列带盐校验（输错 5 次锁输入 60 秒，防小孩连试）
   let fails = 0, failUntil = 0;
   window.cardLockTryUnlock = function (pw) {
@@ -90,5 +105,25 @@
     stSet('locked');
     lastOpen = false;
     document.dispatchEvent(new Event('mochi-cardlock-locked'));
+  };
+  // FIX 2026-09-13 #404（米15夸克 LS 配额满家族）：解锁/上锁后 clock.js 原来盲等 900ms 就
+  //   location.reload()——xyStore 的 IDB 权威值/写标记是异步落库的，夸克等内核 reload 杀进程
+  //   时会中止在途 IDB 事务：值没提交成功，刷新后 retainValue/自愈链取不到新状态即回锁
+  //  （LS 配额满的设备上项目 LS 键恒为空，IDB 是唯一凭证，一次提交失败就必现）。
+  //   这里轮询 idbGet 权威值直到变为期望值再回调（200ms×15=3s 兜底，超时也放行刷新不卡 UI）。
+  //   期望值取反即安全：解锁时期待 'open'（旧值必是 locked/缺失），重锁时期待 'locked'，
+  //   读到旧值不会误判为已提交。
+  window.cardLockConfirmPersisted = function (expect, cb) {
+    let tries = 0;
+    (function poll() {
+      try {
+        if (window.idbGet) {
+          window.idbGet(LS_KEY).then(function (v) {
+            if (v === expect || ++tries > 15) { cb(); return; }
+            setTimeout(poll, 200);
+          }).catch(cb);
+        } else { cb(); }
+      } catch (e) { cb(); }
+    })();
   };
 })();

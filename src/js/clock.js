@@ -139,7 +139,10 @@
       relock.addEventListener('click', function () {
         window.cardLockRelock();
         state.textContent = '已重新上锁，页面即将刷新…';
-        setTimeout(function () { location.reload(); }, 900);
+        // #404 同款：等 'locked' 确认落进 IDB 再刷新（重锁丢失＝未成年人保护失效，更不能容忍）
+        const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+        if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('locked', goReloadAfterPersist);
+        else setTimeout(function () { location.reload(); }, 900);
       });
       actions.appendChild(relock);
     } else {
@@ -164,7 +167,12 @@
           if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
           state.textContent = '验证通过，页面即将刷新…';
           if (mo) { try { mo.disconnect(); } catch (e) {} }
-          setTimeout(function () { location.reload(); }, 900);
+          // FIX 2026-09-13 #404：等解锁值确认落进 IDB 再刷新（见 card-lock.js
+          // cardLockConfirmPersisted）——夸克等内核 reload 杀进程会中止在途 IDB 事务，
+          // 盲等 900ms 可能值未提交＝刷新即回锁；3s 兜底超时也照常刷新不卡 UI。
+          const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+          if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
+          else setTimeout(function () { location.reload(); }, 900);
         }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码非常简单，答案就在开屏里可以找到。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
       });
       actions.appendChild(unlock);

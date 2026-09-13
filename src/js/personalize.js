@@ -7175,6 +7175,7 @@ try {
       });
       renderDiagCount();
       renderPersist();
+      renderOtherSlim();
     }
     function clearDiag() {
       DIAG_KEYS.forEach(function (k) {
@@ -7259,6 +7260,58 @@ try {
       });
     }
     // ===== v3.26.x 存储优化：持久存储（navigator.storage.persist——浏览器承诺不自动清库）=====
+    // ===== v3.32.x 可清理空间 · 同域其他站点数据（ml2_* 等非本项目键占满配额，用户报障实锤）=====
+    // 同 origin 下其他应用（GitHub Pages 同账号各项目共用配额）会写非 xy-home-v2: 前缀的键，
+    // 把本应用配额挤到 QuotaExceededError（荣耀/小米等多机型实测）。这里列出来让用户自主清理，
+    // 只删 localStorage 里非本应用前缀的键、绝不碰本应用任何键（xy-home-v2: 开头）。
+    function scanOtherLS() {
+      const rows = [];
+      let size = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || k.indexOf(G) === 0) continue;
+          const sz = (k.length + String(localStorage.getItem(k) || '').length) * 2;
+          rows.push({ k: k, sz: sz });
+          size += sz;
+        }
+      } catch (e) {}
+      rows.sort(function (a, b) { return b.sz - a.sz; });
+      return { rows: rows, size: size };
+    }
+    function renderOtherSlim() {
+      const el = document.getElementById('st-other-slim');
+      const btn = document.getElementById('st-slim-other');
+      const lst = document.getElementById('st-other-slim-list');
+      if (!el) return;
+      const o = scanOtherLS();
+      el.textContent = o.rows.length ? fmtBytes(o.size) + '（' + o.rows.length + ' 键）' : '无';
+      btn.hidden = !o.rows.length;
+      btn.textContent = o.rows.length ? '一键清理（' + fmtBytes(o.size) + '，仅删其他站点）' : '无需清理';
+      if (lst) lst.textContent = o.rows.length ? '占用最多：' + o.rows.slice(0, 8).map(function (r) { return r.k + ' ' + fmtBytes(r.sz); }).join('、') : '';
+    }
+    const slimBtn = document.getElementById('st-slim-other');
+    if (slimBtn) {
+      slimBtn.addEventListener('click', function () {
+        const o = scanOtherLS();
+        if (!o.rows.length) { if (typeof toast === 'function') toast('没有可清理的同域其他站点数据'); return; }
+        const list = o.rows.slice(0, 12).map(function (r) { return r.k + ' ' + fmtBytes(r.sz); }).join('\n');
+        if (window.openModal) {
+          window.openModal('清理同域其他站点数据？', '', function () {
+            let n = 0;
+            o.rows.forEach(function (it) {
+              try { localStorage.removeItem(it.k); n++; } catch (e) {}
+            });
+            try { if (typeof toast === 'function') toast('已清理 ' + n + ' 键（约 ' + fmtBytes(o.size) + '）'); } catch (e) {}
+            renderOtherSlim();
+            renderStorage();
+          }, {
+            noInput: true,
+            staticText: '将删除存储里「非本应用」前缀的所有键（共 ' + o.rows.length + ' 键，约 ' + fmtBytes(o.size) + '）——通常来自同域名下的其他项目/应用（如 ml2_*），本应用的数据（xy-home-v2: 开头）完全不动。删除不可撤销，若你同时在用那些站点，可能影响它们。\n\n占用最多：\n' + list
+          });
+        }
+      });
+    }
     function renderPersist() {
       const el = document.getElementById('st-persist');
       const btn = document.getElementById('st-persist-btn');

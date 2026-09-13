@@ -1248,6 +1248,10 @@
         const SP = G + cid;
         const fmt = function (v) { return v === null || v === undefined ? '缺失' : JSON.stringify(String(v)); };
         const KEYS = ['dc-enabled', 'dc-use-chat', 'dc-use-mail', 'dc-use-feed', 'dc-cat-main', 'cs-voice-send'];
+        // FIX 2026-09-13 #404（米15夸克报障）：cardlock-state 是全局根键（无 per-cid 段），
+        //   per-cid 探针会读成 xy-home-v2:<cid>:cardlock-state 恒缺失，二级密码解锁丢失类
+        //   报障无法判读。单独走根键探针（LS/读取/IDB 三层同款）。
+        const ROOT_KEYS = ['cardlock-state'];
         const lines = ['开关持久化体检（当前桌面 ' + cid + '；\'1\'=开 \'0\'=关 缺失=默认值）：'];
         let probe = 'LS 写探针：正常';
         try {
@@ -1256,7 +1260,7 @@
           localStorage.removeItem(G + '__ls-probe');
         } catch (e3) { probe = 'LS 写探针：写入失败(' + ((e3 && e3.name) || '异常') + ')——配额满或存储被禁'; }
         lines.push(probe);
-        let pend = KEYS.length;
+        let pend = KEYS.length + ROOT_KEYS.length;
         const done = function () { L[swIdx] = lines.join('\n'); res(); };
         const one = function (short) {
           let lsV = null, memV = null;
@@ -1270,7 +1274,21 @@
             if (--pend <= 0) done();
           }).catch(function () { lines[li] = lines[li].replace('IDB=…', 'IDB=(读失败)'); if (--pend <= 0) done(); });
         };
+        // #404：全局根键探针（前缀不带 cid 段；xyStore 前缀参数不带尾冒号）
+        const oneRoot = function (short) {
+          let lsV = null, memV = null;
+          try { lsV = localStorage.getItem(G + short); } catch (e3) { lsV = '(读失败)'; }
+          try { memV = window.xyStore(G.slice(0, -1)).get(short); } catch (e3) { memV = '(读失败)'; }
+          const li = lines.length;
+          lines.push('· ' + short + '（全局根键）：LS=' + fmt(lsV) + ' 读取=' + fmt(memV) + ' IDB=…');
+          if (!window.idbGet) { lines[li] = lines[li].replace('IDB=…', 'IDB=(接口不可用)'); if (--pend <= 0) done(); return; }
+          window.idbGet(G + short).then(function (iv) {
+            lines[li] = lines[li].replace('IDB=…', 'IDB=' + (iv === undefined ? '(未写入·走默认)' : fmt(iv)));
+            if (--pend <= 0) done();
+          }).catch(function () { lines[li] = lines[li].replace('IDB=…', 'IDB=(读失败)'); if (--pend <= 0) done(); });
+        };
         KEYS.forEach(one);
+        ROOT_KEYS.forEach(oneRoot);
         if (!pend) done();
       }));
     } catch (e) { try { L.push('开关持久化体检：读取失败'); } catch (e2) {} }
