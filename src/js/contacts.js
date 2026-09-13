@@ -83,6 +83,10 @@
     // 同为根键——被迁进 default 会导致纠偏每次启动重跑，把用户后来手动放在别桌面的
     // 同名梦角也搬走
     'cjian-roster', 'cjian-state', 'cjian-seeded', 'cjian-rehome-v1',
+    // #409（跨域改动，AI-A cjian.js 会话登记 WORKLOG）：cjian-belong-v2 为按名认亲一次性
+    // 救回标记（cjian.js fixBelonging）——全局根键，漏排除会被 migrateLegacy 搬进 default
+    // 并删根键，标记丢失=救回逻辑每刷重跑、cid 权威失效（串桌修复回退复发）。
+    'cjian-belong-v2',
     // v3.13.x：朋友圈根命名空间键（feed.js 全部走 xy-home-v2 根 store，是现行设计不是
     // 旧顶层业务键）——此前漏排除，每次启动 migrateLegacy 把它们当旧键迁进 default:
     // 并删根键（default 已有陈旧副本时连迁移都不做直接删）→ 朋友圈通知列表/未读角标/

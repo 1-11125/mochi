@@ -316,6 +316,10 @@
   function migrateSplit() {
     const r = rootStore();
     if (!r) return;
+    // v3.33.x #409：注册表未就绪闸（LS 失效设备 IDB 回填未完成时 contacts() 只有 default
+    // 兜底）——此时按名认亲必认错，还会把错桌面固化进 cid 字段并清掉根键，restore-done
+    // 重跑扑空后错放永久化。未就绪本轮直接不跑：根键保留，等 mochi-restore-done/下次启动重试。
+    if (!r.get('contacts')) return;
     let gr = null, gs = null;
     try { const v = r.get(ROSTER_KEY); gr = v ? JSON.parse(v) : null; } catch (e) {}
     try { const v = r.get(STATE_KEY); gs = v ? JSON.parse(v) : null; } catch (e) {}
@@ -440,6 +444,15 @@
     if (!regOk) return; // 注册表未就绪：contacts() 不全，等 mochi-restore-done
     const cidSet = {};
     contacts().forEach(ct => { cidSet[ct.id] = 1; });
+    // v3.33.x #409（多联系人名字串桌根治）：按名认亲从「每次启动都跑」降级为「一次性存量
+    // 救回」（标记 xy-home-v2:cjian-belong-v2，全局根键已登记 contacts.js EXCLUDE）。原实现
+    // 每次启动都用梦角名覆盖显式 cid 归属——只要梦角名与任一联系人 TA 身份（lbl-partner/
+    // 注册名）唯一撞名，就每次启动被强行搬去那个桌面：典型触发=联系人改名后旧名被新联系人
+    // 认领、或用户把梦角改成了别的联系人的名字；用户删掉重加同一名，下次启动又被搬走，
+    // 表现为「不同联系人此间名字串了、反复出现、多机型都有」（纯逻辑 bug，与设备无关）。
+    // 标记落盘后 cid 字段权威：梦角留在被创建/最后一次确认的桌面，仅保留物理错位自愈；
+    // 存量错放数据在标记前的那一次跑里仍按名救回（老设备升级一次性纠偏，语义同 rehome-v1）。
+    const rescueOnce = !r.get('cjian-belong-v2');
     // 第一遍：补 cid 字段，收集需搬移的梦角
     const moves = []; // {from, to, id, name}
     contacts().forEach(ct => {
@@ -447,11 +460,10 @@
       if (!list.length) return;
       let dirty = false;
       list.forEach(c => {
-        // 归属判定：按名认亲优先——梦角名唯一命中某桌面 TA 身份（lbl-partner/联系人名）时，
-        // 那里才是它的家。早期迁移可能既把梦角物理放错桌面、又把它 cid 固化成了错的桌面
-        // （此时「cid 权威」会把串桌梦角永久冻在错桌面，跑多少次自愈都搬不回来），
-        // 但只要名字对得上就能纠正。认不到家才退回存储的 cid；cid 也无效最后兜底留当前桌面。
-        let home = homeCidForName(c.name);
+        // 归属判定：仅首次跑新版时按名认亲救存量错放；此后 cid 权威——认不到家的梦角
+        // 固化在物理所在桌面，绝不因撞名反复搬移（根治「串桌反复出现」）。
+        let home = '';
+        if (rescueOnce) home = homeCidForName(c.name);
         if (!home) home = (c.cid && cidSet[c.cid]) ? c.cid : '';
         const target = home || ct.id;
         if (c.cid !== target) { c.cid = target; dirty = true; }
@@ -459,6 +471,7 @@
       });
       if (dirty) saveRoster(list, ct.id);
     });
+    if (rescueOnce) { try { r.set('cjian-belong-v2', '1'); } catch (e) {} } // 救回只跑一次：标记落盘在注册表就绪的成功路径上
     if (!moves.length) return;
     // 第二遍：执行搬移（批量加载，避免遍历时修改）
     const rosters = {}, states = {};
@@ -512,10 +525,15 @@
       if (!s || s.get(SEED_KEY)) return;
       const list = loadRoster(cid);
       if (list.length) { s.set(SEED_KEY, '1'); return; }
+      // v3.33.x #409：播种名改走 effective 昵称链——cs-lbl-partner（聊天设置昵称，用户在
+      // 聊天里实际看到的名字）优先，回退桌面 lbl-partner → 联系人名片名，与 2026-09-03
+      // 全站昵称回退链约定对齐。旧链只看 lbl-partner/注册名：用户只设了聊天昵称时，
+      // 梦角名与聊天对不上，多联系人下观感就是「名字串了」。
       let name = '';
       try {
-        const lbl = s.get('lbl-partner');
-        if (lbl) name = lbl;
+        const cs = s.get('cs-lbl-partner');
+        if (cs) name = cs;
+        if (!name) { const lbl = s.get('lbl-partner'); if (lbl) name = lbl; }
         if (!name) name = contactName(cid);
       } catch (e) {}
       list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid });
@@ -1440,6 +1458,27 @@
       try { migrateSplit(); } catch (e) {}
       try { rehomeMisfiled(); } catch (e) {}
       try { fixBelonging(); } catch (e) {}
+    });
+    // v3.33.x #409：联系人改名跟随——联系人管理改名（contacts.js renameContact 派发的
+    // contact-renamed，此时该桌面 lbl-partner 已同步为新名）后，把该桌面名单里与旧名同名
+    // 的梦角（自动播种的那位）一并改成新名。修：改名后此间梦角还挂旧名，与聊天顶栏/桌面
+    // 显示对不上；且旧名一旦被别的联系人认领，旧逻辑会按名认亲把它反复搬桌（串桌根源之一，
+    // 已随 fixBelonging 一次性化根治，本跟随让名字与身份保持同步不再产生漂移）。
+    // 只跟随联系人管理改名；用户在梦角管理里手动改的名、别的桌面同名梦角都不动。
+    document.addEventListener('contact-renamed', function (e) {
+      try {
+        const d = e.detail || {};
+        const newName = String(d.name || '').trim(), oldName = String(d.oldName || '').trim();
+        if (!d.id || !newName || !oldName || newName === oldName) return;
+        const list = loadRoster(d.id);
+        let dirty = false;
+        list.forEach(c => { if (String(c.name || '').trim() === oldName) { c.name = newName; dirty = true; } });
+        if (!dirty) return;
+        saveRoster(list, d.id);
+        todayCacheMap = {}; // 名字出现在今日预测里，一并作废
+        const pg = document.getElementById('page-cjian');
+        if (pg && !pg.hidden && typeof window.renderCjian === 'function') window.renderCjian(false);
+      } catch (err) {}
     });
     setInterval(function () {
       tickApproach();
