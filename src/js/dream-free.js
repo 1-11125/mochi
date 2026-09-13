@@ -224,7 +224,10 @@
       //   0=语气词式：截词补语气词 / 加逗号 / 加空格 / 句尾加语气后缀 / 删句尾字（五选一）
       //   1=撤回式：撤回式截断 50% + 词间加逗号/空格各 25%
       //   2=换字卡内容式：截词补「别的字卡」的词 / 加逗号 / 加空格 / 句尾拼「别的字卡」的词 / 删句尾字
-      const style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));
+      // #414 混合模式（mjf-mix，默认关）：开启后每次造句先在三种手法里随机掷一个，
+      //   再按该手法的手法池出招——三种模式交替出现，不再固定单一风格
+      let style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));
+      if (c['mjf-mix'] === 1) style = Math.floor(Math.random() * 3);
       const pickOf = arr => arr[Math.floor(Math.random() * arr.length)];
       for (let t = 0; t < 8; t++) {
         const s = pool[Math.floor(Math.random() * pool.length)];

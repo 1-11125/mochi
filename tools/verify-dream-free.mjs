@@ -186,6 +186,26 @@ for (let i = 0; i < 60 && !sawDef; i++) {
   if (r && (r.src || '').indexOf(DEF_PFX) === 0) sawDef = true;
 }
 ok(sawDef, 'H4 缺省配置=三源全开 → 默认聊天字卡句可被抽为源');
+// H7 #414 混合模式（mjf-mix=1）：60 掷同时出现「截断类」（recall/tailcut，净化后是源句前缀且更短）
+// 与「加长类」（suffix/addtail/cutfill 换长词，净化后比源句长）——固定单一手法不可能两类齐现
+const cleanTxt = x => String(x).replace(/[，。！？、…～\s]/g, '');
+let mixN = 0, mixCut = 0, mixGrow = 0;
+for (let i = 0; i < 60; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100, 'mjf-mix': 1 });
+  if (!r) continue;
+  mixN++;
+  const a = cleanTxt(r.text), b = cleanTxt(r.src);
+  if (b.indexOf(a) === 0 && a.length < b.length) mixCut++;
+  if (a.length > b.length) mixGrow++;
+}
+ok(mixN >= 50 && mixCut >= 4 && mixGrow >= 4, 'H7 混合模式三手法随机齐现（60 掷 ' + mixN + '：截断 ' + mixCut + '/加长 ' + mixGrow + '）');
+// H8 关闭混合（缺省）= 固定撤回式 → 60 掷绝不出现「加长类」（style1 只有 recall/comma/space）
+let fixGrow = 0;
+for (let i = 0; i < 60; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100 });
+  if (r && cleanTxt(r.text).length > cleanTxt(r.src).length) fixGrow++;
+}
+ok(fixGrow === 0, 'H8 混合关闭（缺省 style=1）→ 不出现加长类变形（60 掷 0）');
 
 // —— D 接线（源码级）——
 const chat = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
@@ -201,6 +221,7 @@ ok(tpl.includes('id="mjf-en"') && tpl.includes('data-k="mjf-prob"') && tpl.inclu
 // #413 语料来源三选+权重接线（DEFAULTS 六键 / template 三开关+三 stepper）
 ok(rs.includes("'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,") && rs.includes("'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,"), 'H5 reply-settings DEFAULTS 六个语料来源键（默认全开+权重 50/25/25）');
 ok(tpl.includes('id="mjf-src-cc"') && tpl.includes('id="mjf-src-def"') && tpl.includes('id="mjf-src-dict"') && tpl.includes('data-k="mjf-w-cc"') && tpl.includes('data-k="mjf-w-def"') && tpl.includes('data-k="mjf-w-dict"'), 'H6 template 语料来源三开关+三权重控件在位');
+ok(rs.includes("'mjf-mix': 0,") && tpl.includes('id="mjf-mix"'), 'H9 #414 混合模式接线（DEFAULTS 默认关+template 开关）');
 ok(tpl.includes('id="rc-en"') && tpl.includes('id="qs-noLimit"') && rs.includes('"rc-en": 1'.replace(/"/g, String.fromCharCode(39))) && rs.includes('"qs-noLimit": 1'.replace(/"/g, String.fromCharCode(39))), 'D5c #351 撤回补发总开关+逐卡不受限开关（template+DEFAULTS 默认开）');
 ok(rs.includes('梦角自由造句开启失败') && rs.includes('梦角自由造句已开启') && rs.includes('mjf-probe'), 'D5b #324 开关切换 toast 提示（成功/失败）+存储探针在位');
 ok(tpl.includes('data-type="mjfree"'), 'D6 template 字卡库「梦角自由造句」tab');

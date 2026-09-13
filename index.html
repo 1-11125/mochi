@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789296896913">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.648</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 18:54<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789297759713">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.651</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 19:09<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10658,7 +10658,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.648</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.651</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10693,6 +10693,9 @@ transition-duration: .01ms !important;
           <div class="cal-card-title">可清理空间</div>
           <div class="storage-row"><span>本机音乐文件（可在播放器里清理）</span><b id="st-music">统计中…</b></div>
           <button class="storage-clear" id="st-goto-music" type="button">到音乐播放器清理</button>
+          <div class="storage-row"><span>同域其他站点的数据（非本应用）</span><b id="st-other-slim">读取中…</b></div>
+          <button class="storage-clear" id="st-slim-other" type="button" hidden>一键清理（仅删其他站点，不动本应用）</button>
+          <div class="storage-hint" id="st-other-slim-list"></div>
           <div class="storage-hint">本地音乐是唯一能安全大额释放空间的一项：删除本地音频文件并从歌单移除，外链 / 种子歌不受影响，之后需要还能重新添加。聊天记录（图片、语音）就是你明确要求保留的部分，不在清理范围；壁纸、头像、自定义表情各有各自的删除入口（在对应设置里），避免误删掉你设置好的外观。</div>
         </div>
         <div class="cal-card glass">
@@ -10953,7 +10956,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.648</span>
+              <span class="lic-ver">v3.26.651</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11532,9 +11535,11 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>语料·词典</span><label class="toggle"><input type="checkbox" id="mjf-src-dict"><span class="tk"></span></label></div>
             <div class="gs-row"><span>词典权重</span><div class="stepper" data-k="mjf-w-dict" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-w-dict-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>造句手法（0语气词/1撤回/2换字卡）</span><div class="stepper" data-k="mjf-style" data-min="0" data-max="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="mjf-style-val" readonly><button class="stp-max">+</button></div></div>
+            <!-- #414 混合模式：开启后每次造句三种手法随机掷一个，mjf-style 固定选择失效 -->
+            <div class="gs-row"><span>混合模式（三手法随机）</span><label class="toggle"><input type="checkbox" id="mjf-mix"><span class="tk"></span></label></div>
             <!-- #364 存库概率：多桌面联系人时新句按此概率进公用库、其余进专属库；仅 1 个联系人固定进专属库 -->
             <div class="gs-row"><span>存公用库概率（多联系人）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
+            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>「混合模式」（#414，默认关）：开启后每次造句先在三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
           </div>
           </div>
           <div class="gs-title">主动发送（联系人找你）</div>
@@ -26850,6 +26855,7 @@ mediaEl.textContent = res ? (mc ? fmtBytes(mc.size) + '（' + mc.n + ' 条）' :
 });
 renderDiagCount();
 renderPersist();
+renderOtherSlim();
 }
 function clearDiag() {
 DIAG_KEYS.forEach(function (k) {
@@ -26925,6 +26931,54 @@ gcBtn.disabled = false;
 gcBtn.textContent = oldTxt;
 if (orphanEl) orphanEl.textContent = '扫描异常';
 });
+});
+}
+function scanOtherLS() {
+const rows = [];
+let size = 0;
+try {
+for (let i = 0; i < localStorage.length; i++) {
+const k = localStorage.key(i);
+if (!k || k.indexOf(G) === 0) continue;
+const sz = (k.length + String(localStorage.getItem(k) || '').length) * 2;
+rows.push({ k: k, sz: sz });
+size += sz;
+}
+} catch (e) {}
+rows.sort(function (a, b) { return b.sz - a.sz; });
+return { rows: rows, size: size };
+}
+function renderOtherSlim() {
+const el = document.getElementById('st-other-slim');
+const btn = document.getElementById('st-slim-other');
+const lst = document.getElementById('st-other-slim-list');
+if (!el) return;
+const o = scanOtherLS();
+el.textContent = o.rows.length ? fmtBytes(o.size) + '（' + o.rows.length + ' 键）' : '无';
+btn.hidden = !o.rows.length;
+btn.textContent = o.rows.length ? '一键清理（' + fmtBytes(o.size) + '，仅删其他站点）' : '无需清理';
+if (lst) lst.textContent = o.rows.length ? '占用最多：' + o.rows.slice(0, 8).map(function (r) { return r.k + ' ' + fmtBytes(r.sz); }).join('、') : '';
+}
+const slimBtn = document.getElementById('st-slim-other');
+if (slimBtn) {
+slimBtn.addEventListener('click', function () {
+const o = scanOtherLS();
+if (!o.rows.length) { if (typeof toast === 'function') toast('没有可清理的同域其他站点数据'); return; }
+const list = o.rows.slice(0, 12).map(function (r) { return r.k + ' ' + fmtBytes(r.sz); }).join('\n');
+if (window.openModal) {
+window.openModal('清理同域其他站点数据？', '', function () {
+let n = 0;
+o.rows.forEach(function (it) {
+try { localStorage.removeItem(it.k); n++; } catch (e) {}
+});
+try { if (typeof toast === 'function') toast('已清理 ' + n + ' 键（约 ' + fmtBytes(o.size) + '）'); } catch (e) {}
+renderOtherSlim();
+renderStorage();
+}, {
+noInput: true,
+staticText: '将删除存储里「非本应用」前缀的所有键（共 ' + o.rows.length + ' 键，约 ' + fmtBytes(o.size) + '）——通常来自同域名下的其他项目/应用（如 ml2_*），本应用的数据（xy-home-v2: 开头）完全不动。删除不可撤销，若你同时在用那些站点，可能影响它们。\n\n占用最多：\n' + list
+});
+}
 });
 }
 function renderPersist() {
@@ -34574,6 +34628,24 @@ scheduleReply();
 }
 closeEmojiPanel();
 }
+const emojiImgObserver = (('IntersectionObserver' in window) && emojiList)
+? new IntersectionObserver((entries) => {
+for (const en of entries) {
+if (!en.isIntersecting) continue;
+const img = en.target;
+if (img && img.dataset && img.dataset.src && !img.getAttribute('src')) {
+img.setAttribute('src', img.dataset.src);
+img.removeAttribute('data-src');
+}
+try { emojiImgObserver.unobserve(img); } catch (e) {}
+}
+}, { root: emojiList, rootMargin: '300px 0px' })
+: null;
+function emojiAttachLazy(img) {
+if (!img) return;
+if (emojiImgObserver) { try { emojiImgObserver.observe(img); } catch (e) {} }
+else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
+}
 function renderEmojiGroupsBar() {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -34617,9 +34689,10 @@ const k = gname + '\u0001' + i;
 const on = mySel.has(k);
 d.classList.toggle('sel', on);
 const img = document.createElement('img');
-img.src = src;
+img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
 img.alt = '表情';
 d.appendChild(img);
+emojiAttachLazy(img);
 if (on) {
 const ck = document.createElement('span');
 ck.className = 'emoji-check';
@@ -34639,9 +34712,10 @@ ck.remove();
 });
 } else {
 const img = document.createElement('img');
-img.src = src;
+img.dataset.src = src; // v3.42.x 懒加载：进入视口才解码，避免整组全量解码卡主线程
 img.alt = '表情';
 d.appendChild(img);
+emojiAttachLazy(img);
 d.addEventListener('click', () => {
 if (emojiInsertCb) {
 if (!/^data:/i.test(src) && !emojiInsertAllowUrl) { toast('链接保存的表情暂不支持插入信纸，请发送消息使用'); return; }
@@ -34673,6 +34747,7 @@ if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的表情包';
 if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
 renderEmojiGroupsBar();
+if (emojiImgObserver) emojiList.querySelectorAll('img[data-src]').forEach(im => { try { emojiImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 emojiList.innerHTML = '';
 if (emojiMode !== 'mine') {
 const isPub = emojiMode === 'public';
@@ -43641,6 +43716,7 @@ const DEFAULTS = {
 'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
 'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
 'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
+'mjf-mix': 0,
 'mjf-pub': 80,
 'as-en': 1, 'as-prob': 30, 'as-min': 5, 'as-max': 10,
 'as-count-min': 1, 'as-count-max': 2, 'dnd-en': 0,
@@ -43746,7 +43822,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -43841,6 +43917,7 @@ const TOGGLE_NAMES = {
 'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
 'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
 'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
+'mjf-mix': '造句混合模式',
 'rc-en': '撤回后补发消息'
 };
 function ccToastEnsure() {
@@ -43860,7 +43937,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -43983,7 +44060,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -46135,7 +46212,8 @@ const prob = Number(c['mjf-prob']);
 if (!isFinite(prob) || prob <= 0 || Math.random() * 100 >= prob) return null;
 const pool = pickSourcePool(c); // #413 三语料源按开关+权重抽
 if (!pool || !pool.length) return null;
-const style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));
+let style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));
+if (c['mjf-mix'] === 1) style = Math.floor(Math.random() * 3);
 const pickOf = arr => arr[Math.floor(Math.random() * arr.length)];
 for (let t = 0; t < 8; t++) {
 const s = pool[Math.floor(Math.random() * pool.length)];
@@ -91426,4 +91504,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzp69ox -->
+<!-- __MOCHI_EOF__ mtzporfl -->

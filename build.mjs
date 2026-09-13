@@ -975,7 +975,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-11 #317 梦角自由造句（梦角语料抽卡→截断几字重造句→入库自定义字卡「梦角自由造句」分类）====
   { name: '#317 梦角自由造句抽句门·mjf-en/mjf-prob 生效（删则开关概率失效，梦角永不造句）', file: 'js/dream-free.js', needle: "if (!c || c['mjf-en'] !== 1) return null;" },
   { name: '#327 撤回式截断·词间隙切尾前缀成新句（删则造句变回随机截补＝句子离奇，用户明确否决）', file: 'js/dream-free.js', needle: "const out = toks.slice(0, gi).join('').replace(/[，、,\\s]+$/, '');" },
-  { name: '#329 造句手法三选一·mjf-style 语气词式/撤回式/换字卡内容式（删则手法选择失效＝三模式不可切，回退固定撤回式）', file: 'js/dream-free.js', needle: "const style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));" },
+  { name: '#329/#414 造句手法三选一·mjf-style 语气词式/撤回式/换字卡内容式（删则手法选择失效＝三模式不可切，回退固定撤回式；#414 改 let 供混合模式重掷）', file: 'js/dream-free.js', needle: "let style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));" },
   { name: '#326 词边界来源·内置词典正向最大匹配切词（删则插入点随机＝可能截在词中间出病句）', file: 'js/dream-free.js', needle: 'if (dict.has(str.slice(i, i + L))) { len = L; break; }' },
   { name: '#317/324 造句入库·ccAppendCards 双作用域写 mjfree 分类（删则新句不进「梦角自由造句」字卡分类；#324 加 scope 分库参数）', file: 'js/chatcard.js', needle: "window.ccAppendCards = function (type, group, cards, scope) {" },
   { name: '#324/#364 造句分库·dreamFreeSave 按 mjf-pub 概率分库、单联系人 100% 专属（删则全部写专属＝多桌面公用库不再积累梦角语料）', file: 'js/dream-free.js', needle: "const usePublic = cids > 1 && Math.random() * 100 < pubProb;" },
@@ -1229,6 +1229,11 @@ const FIX_SENTINELS = [
   //      定时器触发对 null 调 querySelector/dataset 即崩；补 !m 守卫，防 m 为 null 的崩溃面）====
   { name: '#412 情绪链渲染 null 守卫（m 为 null 时不再 querySelector；删则 page-chat 崩溃回归）', file: 'js/chat.js', needle: "if (!sameCid() || !m) return;\nconst bm = m.querySelector('.msg-bubble');" },
   { name: '#412 局部撤回 null 守卫（m 为 null 时不再读 dataset；删则同源崩溃回归）', file: 'js/chat.js', needle: "if (!sameCid() || !m) return;\npartialRetractMsg(m, 'in');" },
+  // ==== 2026-09-13 #413 可清理空间 · 同域其他站点数据（ml2_* 等非本项目键占满 localStorage 配额，用户报障多机型
+  //      同现；设置→查看存储→可清理空间加「同域其他站点数据」行，列出非 xy-home-v2: 前缀键并一键清理，
+  //      只删其他站点键、不碰本应用任何数据）====
+  { name: '#413 同域其他站点数据清理入口（row 锚点；删则设置→查看存储无「同域其他站点数据」行，无法一键清 ml2_*）', file: 'template.html', needle: 'id="st-slim-other"' },
+  { name: '#413 同域其他站点数据扫描+一键清理（scanOtherLS/renderOtherSlim；删则无法按前缀安全清理外来键）', file: 'js/personalize.js', needle: "function scanOtherLS() {" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
