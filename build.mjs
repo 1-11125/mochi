@@ -1170,7 +1170,7 @@ const FIX_SENTINELS = [
   { name: '#391 互动卡触发池剔令牌（删则互动卡话术直出令牌串）', file: 'js/ta-ask.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(t)) return false' },
   { name: '#391 文字题答案池剔令牌（删则问问TA答案直出令牌串）', file: 'js/ta-ask.js', needle: 'window.mochiMediaIsToken(s)));' },
   { name: '#391 查岗回应文字池剔令牌（删则查岗回复直出令牌串）', file: 'js/chat.js', needle: "c.indexOf('data:') !== 0 && !(window.mochiMediaIsToken" },
-  { name: '#391 每日留言池剔令牌（删则日历留言直出令牌串）', file: 'js/calendar.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(c))) cards.push(c);' },
+  { name: '#391 每日留言池剔令牌（#426 收敛为 calTextOnly 统一口径，自定义字卡循环锚点；删则日历留言直出令牌串）', file: 'js/calendar.js', needle: 'if (calTextOnly(c)) cards.push(c);' },
   { name: '#391 信件补池剔令牌（删则来信正文拼令牌卡）', file: 'js/mail.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return;' },
   // ==== 2026-09-13 #392 二级锁↔词典关系看不懂（用户实报：词典开关都开了没效果，不懂和开屏二级密码的关系）——三处把因果讲成人话：词典独立页红条（锁定时当场提示+去哪解锁）、回复设置自检首闸文案「二级锁→防未成年人锁·锁定中·词典被锁停」、开屏锁卡 tip 补锁定影响面清单 ====
   { name: '#392 词典页二级锁关系提示条（删则锁定时词典开关全开却无效仍零解释）', file: 'js/default-cards.js', needle: 'function renderDictLockHint() {' },
@@ -1270,6 +1270,11 @@ const FIX_SENTINELS = [
   //      cs-avatar-* 大图键常驻 IDB-only 区，avatar-lib 收敛基线在 idbRestore 回填前初始化读空被污染，
   //      回填完成的 restore-done 只刷桌面圈/聊天顶栏，convergeAvatars 因基线相等永不触发 → 气泡头像一直空）====
   { name: '#425 头像收敛挂钩回填完成（restore-done 清基线强制 convergeAvatars 重刷；删则晚到回填后气泡头像停留占位，基线污染永久跳过）', file: 'js/avatar-lib.js', needle: "document.addEventListener('mochi-restore-done', function () {\n    appliedPh = null; appliedUh = null;" },
+  // ==== 2026-09-13 #426 日历留言乱码（OPPO Reno6/雨见浏览器报「日记留言应该只能用文字字卡，乱码是图片」，多机型同族；
+  //      #388 只守了自定义字卡循环、默认主字卡循环漏过滤，贴纸/语音默认卡的「名称|||@@m:hash」拼进留言持久化成乱码；
+  //      且 #388 前已落盘的存量留言渲染直出令牌）====
+  { name: '#426 日历留言纯文字选卡过滤（calTextOnly 收敛两循环口径含裸令牌混排；删则媒体令牌卡继续进每日留言池持久化成乱码）', file: 'js/calendar.js', needle: 'function calTextOnly(c) {' },
+  { name: '#426 日历留言渲染端令牌清洗（calCleanMsg 剥存量落盘留言的 @@m:/dataURL 成 [图片]；删则 #388 前生成的历史留言永远直出乱码）', file: 'js/calendar.js', needle: ".replace(/@@m:[0-9a-f]{32}/g, '[图片]')" },
   { name: '#416 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
   { name: '#416 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
   { name: '#416 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },

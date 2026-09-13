@@ -61,6 +61,24 @@
   }
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+  // v3.42.x #426 日历留言纯文字口径（OPPO Reno6/雨见浏览器报「日历留言有乱码＝图片令牌」，多机型同族）：
+  // ①选卡过滤补齐——#388 只守了自定义字卡循环，默认主字卡循环漏过滤，贴纸/语音型默认卡
+  //   （「名称|||@@m:hash」「名称|||data:…」及裸令牌混排）照样拼进留言并持久化成乱码；
+  // ②渲染端清洗——#388 之前已落盘的 cal-YYYY-MM-DD 存量留言含令牌/dataURL，textContent 直出乱码，
+  //   统一剥成 [图片]（与 mail.js 剥图/#403 清洗链同口径），只洗显示、不改历史数据。
+  // 判定用 indexOf('@@m:') 而非 mochiMediaIsToken：后者全串锚定，令牌嵌在长文本里测不出。
+  function calTextOnly(c) {
+    if (typeof c !== 'string' || !c) return false;
+    if (c.indexOf('data:') === 0) return false;
+    if (c.indexOf('|||') >= 0) return false;
+    if (c.indexOf('@@m:') >= 0) return false;
+    return true;
+  }
+  function calCleanMsg(s) {
+    if (typeof s !== 'string') return s;
+    return s.replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]');
+  }
+
   // 留言：从自定义聊天字卡 + 默认字卡池随机拼 3~8 条（无 emoji）
   // v3.6.x：过滤语音/图片字卡——语音字卡存储格式为「文件名|||audio;base64,...」，
   //   以文件名开头（indexOf('data:') 不为 0），旧逻辑漏过滤会把整段音频 base64
@@ -77,10 +95,10 @@
       } catch (e) { return null; }
     })();
     custom.forEach(c => {
-      if (typeof c !== 'string') return;
       if (pokeSet && pokeSet.has(c)) return;
       // FIX 2026-09-13 #388 媒体池令牌卡不进每日留言池（同 chat.js #383 第三道守卫）
-      if (c.indexOf('data:') !== 0 && c.indexOf('|||') < 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(c))) cards.push(c);
+      // FIX 2026-09-13 #426 过滤收敛到 calTextOnly（补裸令牌混排；默认卡循环同口径）
+      if (calTextOnly(c)) cards.push(c);
     });
     const defs = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
     // v3.8.x：默认字卡总开关 + 分类开关——关闭后每日留言不混入系统默认主字卡
@@ -89,7 +107,7 @@
     const catOn = window.defaultCardCat ? window.defaultCardCat('main') : true;
     const isOff = window.isDefaultCardOff || null;
     if (dcfg.enabled !== false && catOn) {
-      defs.forEach(([g, arr]) => { if (Array.isArray(arr)) arr.forEach(c => { if (isOff && isOff('main', c)) return; if (typeof c === 'string' && c) cards.push(c); }); });
+      defs.forEach(([g, arr]) => { if (Array.isArray(arr)) arr.forEach(c => { if (isOff && isOff('main', c)) return; if (!calTextOnly(c)) return; cards.push(c); }); });
     }
     if (!cards.length) return '今天也想对你说点什么...';
     const maxCount = Math.min(8, cards.length);
@@ -501,7 +519,7 @@
     const actEl = document.getElementById('cal-activity');
     if (actEl) actEl.textContent = e ? (window.taFit ? window.taFit(e.activity) : e.activity) : '—';
     const msgEl = document.getElementById('cal-message');
-    if (msgEl) msgEl.textContent = e ? (window.taFit ? window.taFit(e.message) : e.message) : '这一天还没有留言';
+    if (msgEl) msgEl.textContent = e ? (window.taFit ? window.taFit(calCleanMsg(e.message)) : calCleanMsg(e.message)) : '这一天还没有留言';
     renderMyMessage();
     renderDayNotes(dd, isFuture);
     renderGrid();
@@ -691,7 +709,7 @@
         const md = window.moodDiaryToday ? window.moodDiaryToday() : null;
         if (md && md.ta) mdLine = '\n梦角（心情日记）：' + md.ta.e + ' ' + md.ta.n;
       } catch (e) { mdLine = ''; }
-      const gbody = '今日心情：' + e2.mood + '（' + e2.cat + '）\nTA 正在：' + e2.activity + '\n\nTA 留言：\n' + e2.message + mdLine;
+      const gbody = '今日心情：' + e2.mood + '（' + e2.cat + '）\nTA 正在：' + e2.activity + '\n\nTA 留言：\n' + calCleanMsg(e2.message) + mdLine;
       el._b.textContent = window.taFit ? window.taFit(gbody) : gbody;
       el.hidden = false;
       el.style.transition = 'none';
