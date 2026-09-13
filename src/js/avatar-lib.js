@@ -128,6 +128,16 @@
   // 基线初始化取当前存储值（启动时 chat.js 已按同口径填过一次头像）
   try { appliedPh = strHash(store.get('cs-avatar-partner') || store.get('avatar-partner') || ''); } catch (e) {}
   try { appliedUh = strHash(store.get('cs-avatar-user') || store.get('avatar-user') || ''); } catch (e) {}
+  // v3.42.x #425：基线初始化本身可能拿到空值——cs-avatar-* 是大图键，常驻 IDB-only 区，
+  //   本模块加载早于 idbRestore 回填，启动读空 → 基线被污染成「空=已应用」；回填完成后
+  //   personalize/chat 的 mochi-restore-done 只刷桌面圈和聊天顶栏（气泡还要求聊天页可见+贴底），
+  //   convergeAvatars 又因基线相等误判「没变化」跳过 → 「刚进网站头像时不时加载不出来」，
+  //   停在同一页面就一直空（多机型报障：华为畅享70Pro/红米K80 等）。回填完成时清基线强制
+  //   收敛一次：refreshChatAvatars 重建气泡 img + 顶栏，哈希基线随即对齐，重复事件零成本跳过。
+  document.addEventListener('mochi-restore-done', function () {
+    appliedPh = null; appliedUh = null;
+    setTimeout(convergeAvatars, 0);
+  });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') convergeAvatars();
   });
