@@ -2564,7 +2564,7 @@ const isTok = window.mochiMediaIsToken && window.mochiMediaIsToken(s);
 if (isTok && window.mochiMediaExpand && window.mochiMediaExpand(s)) return; // 池有数据，观察器稍后会改写
 const ph = document.createElement('span');
 ph.style.cssText = 'opacity:.5;font-size:12px';
-ph.textContent = isTok ? '（图片丢失：媒体数据缺失，可用数据备份重新导入恢复）' : '（表情/图片加载失败：网络不通或原图已失效）';
+ph.textContent = isTok ? '（图片丢失：媒体数据缺失，可到设置→查看存储→媒体池「重建媒体池」恢复，或导入含图片的完整备份）' : '（表情/图片加载失败：网络不通或原图已失效）';
 im.replaceWith(ph);
 }, 1500);
 });

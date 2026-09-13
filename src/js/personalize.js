@@ -7292,7 +7292,7 @@ try {
             tpl.push('这几乎可以断定是导入的备份未包含图片数据（旧「只备份文字」或源头设备本就没池数据）。恢复办法：找一台还有这些图片的源头设备，在它上面导出「完整备份」（导出时选完整/全部，不要选「只备份文字」），再在本机导入。');
           } else {
             tpl.push('聊天/收藏/群聊引用 ' + rep.referenced + ' 张图，媒体池里只有 ' + rep.inPool + ' 张，缺失 ' + rep.missing + ' 张。');
-            tpl.push('说明导入的备份只带回了部分图片。恢复办法：从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入，缺失的图片会补齐。');
+            tpl.push('说明本机池数据不完整。可先点下方「重建媒体池（图片自愈）」：用本机还留存的原图副本（字卡库/收藏/头像库/备份快照等）按内容哈希把缺失池条目补回；补不回的图片才需要从有完整图片的源头设备重新导出「完整备份」（不要选「只备份文字」）再导入。');
           }
           tpl.push('提示：图片数据本身无法在手机上凭空生成，代码只能保证「备份带全图→导入后自愈」的链路可靠。');
           if (window.openModal) {
@@ -7303,6 +7303,60 @@ try {
           covBtn.textContent = oldTxt;
           if (covEl) covEl.textContent = '核对异常';
         });
+      });
+    }
+    // FIX 2026-09-13 #423 媒体池一键重建（图片自愈）：mochiMediaRebuild（media-pool.js）扫描本机
+    // 存留的原始图片副本（字卡库/收藏/表情分组/头像库/壁纸/备份快照等），按内容哈希把
+    // 「缺失/被旧文字模式备份剥空的」池条目补回——池是内容寻址（SHA-256=令牌），任何一处
+    // 幸存副本都能让同名令牌恢复解析。只补缺失/空串条目，绝不覆盖有效池值、绝不删除任何数据。
+    const rbBtn = document.getElementById('st-media-rebuild-btn');
+    if (rbBtn) {
+      rbBtn.addEventListener('click', function () {
+        const rbEl = document.getElementById('st-media-rebuild');
+        if (!window.mochiMediaRebuild) {
+          if (window.openModal) window.openModal('本环境不支持', '', null, { noInput: true, staticText: '媒体池重建需要安全上下文（HTTPS）与 IndexedDB 支持，当前环境不可用。' });
+          return;
+        }
+        const oldTxt = rbBtn.textContent;
+        const doRebuild = function () {
+          rbBtn.disabled = true;
+          rbBtn.textContent = '重建中…（需通读本机数据，请稍候）';
+          window.mochiMediaRebuild().then(function (rep) {
+            rbBtn.disabled = false;
+            rbBtn.textContent = oldTxt;
+            if (!rep || !rep.ok) {
+              if (rbEl) rbEl.textContent = '重建失败';
+              if (window.openModal) window.openModal('重建未完成', '', null, { noInput: true, staticText: ((rep && rep.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可再试。' });
+              return;
+            }
+            if (rbEl) rbEl.textContent = '补回 ' + rep.written + ' 张' + (rep.writeFail ? '（' + rep.writeFail + ' 张写失败）' : '');
+            const tpl = [];
+            tpl.push('本机池内原有 ' + rep.poolN + ' 条（有效 ' + rep.validN + '、缺失/空串 ' + rep.brokenN + '）。');
+            tpl.push('本机扫描到 ' + rep.foundN + ' 张存留原图（约 ' + fmtBytes(rep.bytes) + '），其中 ' + rep.alreadyOk + ' 张池里本来就有，新补回 ' + rep.written + ' 条池条目' + (rep.writeFail ? '，' + rep.writeFail + ' 条写入失败（存储繁忙，可稍后再点一次重建）' : '') + '。');
+            if (rep.written > 0) {
+              tpl.push('已补回的部分：回到聊天/字卡库即可看到图片恢复（当前页面会自动刷新占位图）。');
+            } else {
+              tpl.push('没有可补回的条目——本机池本身完整，或存留原图与缺失令牌对不上。');
+            }
+            tpl.push('仍显示「图片丢失」的图 = 本机已没有任何该图副本，只能从有完整图片的源头设备导出「完整备份」（不要选「只备份文字」）再导入恢复。');
+            if (window.openModal) window.openModal('媒体池重建结果', '', null, { noInput: true, staticText: tpl.join('\n') });
+          }).catch(function () {
+            rbBtn.disabled = false;
+            rbBtn.textContent = oldTxt;
+            if (rbEl) rbEl.textContent = '重建异常';
+          });
+        };
+        if (window.openModal) {
+          // 与上方「删除孤儿媒体」同款 noInput 确认：回调不判值（#32 同因族，noInput 点确定 fire 传 null）
+          window.openModal('重建媒体池（图片自愈）？', '', function () {
+            doRebuild();
+          }, {
+            noInput: true, okText: '开始重建',
+            staticText: '本机聊天/收藏里的图片以「令牌」引用媒体池（IndexedDB）。若池条目缺失或被旧备份剥成空串，图片会显示「图片丢失」。\n\n重建 = 扫描本机还留存的原图副本（字卡库/收藏/表情分组/头像库/壁纸/备份快照等），按内容哈希把缺失的池条目补回。\n\n· 只补缺失/空串条目，不覆盖任何有效数据，不删除任何数据；\n· 补得回多少取决于本机还留有多少原图副本；补不回的仍需源头设备完整备份；\n· 大库扫描需要一些时间，期间请保持页面打开。'
+          });
+        } else {
+          doRebuild();
+        }
       });
     }
     // ===== v3.26.x 存储优化：持久存储（navigator.storage.persist——浏览器承诺不自动清库）=====

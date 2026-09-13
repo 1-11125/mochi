@@ -1186,6 +1186,13 @@
               real.slice(0, 10).forEach(function (it) {
                 lines.push('· ' + String(it.k).slice('xy-home-v2:'.length) + '=' + (it.size >= 0 ? usageStr(it.size) : '?'));
               });
+              // FIX 2026-09-13 #423：媒体池条目数——旧候选清单不含 media: 键，「图片丢失」报障
+              // 无法从诊断判断池是否存在；核对/重建入口在 设置→查看存储→媒体池
+              try {
+                let poolN = 0;
+                (keys || []).forEach(function (k) { if (/^xy-home-v2:media:[0-9a-f]{32}$/.test(String(k))) poolN++; });
+                lines.push('· 媒体池条目：' + poolN + ' 条（图片丢失时先到 设置→查看存储→媒体池 核对/重建）');
+              } catch (e9) {}
               L[idbIdx] = lines.join('\n');
             } catch (e) { L[idbIdx] = 'IndexedDB 大键明细：统计失败'; }
             res();

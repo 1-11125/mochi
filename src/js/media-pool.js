@@ -355,4 +355,140 @@
       return out;
     })().catch(function (e) { return { ok: false, reason: '扫描异常：' + ((e && e.message) || e), referenced: 0, inPool: 0, missing: 0, missingSamples: [] }; });
   };
+  // FIX 2026-09-13 #423 媒体池一键重建（图片自愈）：#275 实锤「多机型反复图片丢失的真相」——
+  // 旧「只备份文字」导出把池值剥成空串但留下键，空池条目随完整备份在多设备间传播；池键在、
+  // 值是 ''，令牌永远解不出图，且重导「完整备份」也救不回（源头池同样是空的）。
+  // 池是内容寻址（令牌 = SHA-256(dataURL) 前缀），本机任何键里还留着的同一张图原始 dataURL
+  //（字卡库/收藏/表情分组/头像库/壁纸/备份快照等）都是合法来源——扫出来按哈希把「缺失/空串」
+  // 池条目补回，同名令牌立即恢复解析。安全底线：
+  //   · 只写「池缺失或值非法」的条目，绝不覆盖有效池值；绝不删除任何键、绝不改业务数据；
+  //   · 来源扫描只读（LS 全键 + IDB 非池非音乐键；聊天记录数组走浅层字段扫，不做整包
+  //     stringify——几十 MB 长任务风险，与 device.js 诊断 sizeOf 同纪律）；
+  //   · 写池批 40 idbSetAll，整批失败退回逐键 idbSet（自带重试），再失败如实计 writeFail；
+  //   · 补回后清缺失负缓存并直接重写已渲染占位 img（dataset.tokTried 会挡观察器重试，
+  //     必须主动重写才算即时自愈）。
+  window.mochiMediaRebuild = function () {
+    return (async function () {
+      const out = { ok: false, reason: '', poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 };
+      if (!window.idbListKeys || !window.idbGet || !window.idbGetMany || !window.idbSetAll || !window.idbSet) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
+      try { await window.mochiMediaFlush(); } catch (e) {}
+      let keys;
+      try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
+      if (!Array.isArray(keys)) { out.reason = '键清单非法'; return out; }
+      const POOL_RE = /^xy-home-v2:media:[0-9a-f]{32}$/;
+      // ① 池体检：有效（data:image|audio 字符串）/ 破损（缺失、空串、非 data: 值）
+      const poolKeys = keys.filter(function (k) { return POOL_RE.test(String(k)); });
+      out.poolN = poolKeys.length;
+      const valid = new Set();
+      for (let i = 0; i < poolKeys.length; i += 40) {
+        const batch = poolKeys.slice(i, i + 40);
+        let vals = {};
+        try { vals = (await window.idbGetMany(batch)) || {}; } catch (e) { vals = {}; }
+        batch.forEach(function (k) {
+          const v = vals[k];
+          if (typeof v === 'string' && (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0)) valid.add(String(k).slice(FULL.length));
+        });
+      }
+      out.validN = valid.size;
+      out.brokenN = poolKeys.length - valid.size;
+      // ② 收集本机存留的原始图片 dataURL（任何键里的副本都算，按完整 dataURL 去重）
+      // 注：业务存储里 dataURL 全部在 JSON 引号/分隔符内（","body":"data:...），正则边界安全；
+      // 极端「零分隔相邻两个 dataURL」会把后者的 data 前缀吞进前者的游程（真实格式不存在）。
+      const DATA_RE = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]{1024,}/g;
+      const found = new Map();
+      let foundBytes = 0;
+      function scanString(s) {
+        if (typeof s !== 'string' || s.length < 1100) return;
+        DATA_RE.lastIndex = 0;
+        let m;
+        while ((m = DATA_RE.exec(s))) {
+          const d = m[0];
+          if (!found.has(d)) { found.set(d, true); foundBytes += d.length * 2; }
+        }
+      }
+      function scanValue(v) {
+        if (typeof v === 'string') { scanString(v); return; }
+        if (Array.isArray(v)) { // 聊天记录 IDB 直存数组——浅层扫字段（与 device.js sizeOf 同口径）
+          for (let i = 0; i < v.length; i++) {
+            const m = v[i];
+            if (typeof m === 'string') { scanString(m); continue; }
+            if (!m || typeof m !== 'object') continue;
+            if (typeof m.text === 'string') scanString(m.text);
+            if (typeof m.img === 'string') scanString(m.img);
+            if (typeof m.voice === 'string') scanString(m.voice);
+            const ps = m.parts;
+            if (Array.isArray(ps)) { for (let j = 0; j < ps.length; j++) { const p = ps[j]; if (p && typeof p.v === 'string') scanString(p.v); } }
+          }
+        }
+      }
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const lk = localStorage.key(i);
+          if (!lk) continue;
+          let v = null;
+          try { v = localStorage.getItem(lk); } catch (e2) { v = null; }
+          if (v) scanString(v);
+        }
+      } catch (e) { out.reason = 'localStorage 读取失败（存储繁忙），本次只扫了部分来源'; }
+      const srcKeys = keys.filter(function (k) {
+        k = String(k);
+        return !POOL_RE.test(k) && k.indexOf(':music-file:') < 0 && k.indexOf('__wr-j:') < 0;
+      });
+      for (let i = 0; i < srcKeys.length; i += 4) { // 批 4 读、逐个扫完即弃（峰值≈4×最大单键）
+        const batch = srcKeys.slice(i, i + 4);
+        let vals = {};
+        try { vals = (await window.idbGetMany(batch)) || {}; } catch (e3) { vals = {}; }
+        batch.forEach(function (k) { scanValue(vals[k]); vals[k] = null; });
+      }
+      out.foundN = found.size;
+      out.bytes = foundBytes;
+      // ③ 算哈希、只补缺失/空串条目（有效池值绝不重写）
+      const fill = [];
+      const dataList = Array.from(found.keys());
+      for (let i = 0; i < dataList.length; i++) {
+        let h = '';
+        try { h = await sha256Hex(dataList[i]); } catch (e4) { continue; }
+        if (valid.has(h)) { out.alreadyOk++; continue; }
+        fill.push({ k: FULL + h, v: dataList[i] });
+        if ((i & 15) === 15) await new Promise(function (r) { setTimeout(r, 0); }); // 让出主线程
+      }
+      for (let i = 0; i < fill.length; i += 40) {
+        const batch = fill.slice(i, i + 40);
+        let ok = false;
+        try { ok = await window.idbSetAll(batch); } catch (e5) { ok = false; }
+        if (ok !== true) { // 整批失败退回逐键（idbSet 自带重试）
+          for (let j = 0; j < batch.length; j++) {
+            let ok1 = false;
+            try { ok1 = await window.idbSet(batch[j].k, batch[j].v); } catch (e6) { ok1 = false; }
+            if (ok1) heal(batch[j]); else out.writeFail++;
+          }
+        } else {
+          batch.forEach(function (p) { heal(p); });
+        }
+      }
+      function heal(p) {
+        const h = String(p.k).slice(FULL.length);
+        valid.add(h);
+        if (p.v.indexOf('data:image/') === 0) map.set(h, p.v); // 音频不进热缓存（#283 内存纪律）
+        missing.delete(h);
+        out.written++;
+      }
+      // ④ 即时自愈：清负缓存 + 直接重写已渲染占位 img（tokTried 挡观察器重试，必须主动重写）
+      if (out.written) {
+        try {
+          const nodes = document.querySelectorAll('img[src^="' + TOK + '"]');
+          Array.prototype.forEach.call(nodes, function (el) {
+            const m = TOKEN_RE.exec(el.getAttribute('src') || '');
+            if (!m) return;
+            const v = map.get(m[1]);
+            if (!v) return;
+            try { el.classList.remove('media-tok-missing'); el.removeAttribute('alt'); } catch (e7) {}
+            el.src = v;
+          });
+        } catch (e8) {}
+      }
+      out.ok = true;
+      return out;
+    })().catch(function (e) { return { ok: false, reason: '重建异常：' + ((e && e.message) || e), poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 }; });
+  };
 })();
