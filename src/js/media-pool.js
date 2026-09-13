@@ -491,4 +491,82 @@
       return out;
     })().catch(function (e) { return { ok: false, reason: '重建异常：' + ((e && e.message) || e), poolN: 0, validN: 0, brokenN: 0, foundN: 0, written: 0, alreadyOk: 0, writeFail: 0, bytes: 0 }; });
   };
+  // ===== #424 媒体池自动体检 + 主动弹窗一键修复 =====
+  // 背景：#423 给了手动入口「设置→查看存储→媒体池」，但正处「图片丢失」状态的用户不知道要
+  // 自己去找入口——用户明确提出「不能自己识别出异常，弹出弹窗叫我点击修复吗」。本模块把体检
+  // 主动前移：等 IDB 回填就绪（__mochiDataReady）+ 开屏 splash 移除 + 页面可见且空闲后，跑一次
+  // 只读 mochiMediaCoverage；missing > 0 弹窗提供「一键修复」（即 mochiMediaRebuild）。节流纪律：
+  //   · 体检最多 24h 一次（全局根键 media-auto-check，走 xyStore 五件套，已登记 contacts EXCLUDE）；
+  //   · 弹窗出现即写 snooze=now+72h——点取消/关弹窗/切走都算「暂不」，不再打扰（顺带规避
+  //     #32 族「取消按钮无回调无法区分」坑：回调只处理点确定）；
+  //   · 点「一键修复」→ 重建成功后按剩余缺失更新记录（0 → 恢复正常 24h 节奏）；
+  //   · 体检失败（存储繁忙等）也算已体检（明天再试），避免每次启动都失败重扫。
+  const AC_KEY = 'media-auto-check';
+  function acWrite(o) { try { if (window.xyStore) window.xyStore('xy-home-v2').set(AC_KEY, JSON.stringify(o)); } catch (e) {} }
+  // 纯函数（可测）：当前状态下是否该跑自动体检
+  window.mochiMediaAutoShouldRun = function (st, now) {
+    if (!st || typeof st !== 'object') return true;
+    if (st.snooze && now < st.snooze) return false;
+    return !(typeof st.t === 'number' && (now - st.t) < 86400000);
+  };
+  window.mochiMediaAutoCheck = function () {
+    return (async function () {
+      const out = { ran: false, skipped: '', missing: 0, repaired: 0 };
+      const now = Date.now();
+      let st = null;
+      try { st = JSON.parse((window.xyStore && window.xyStore('xy-home-v2').get(AC_KEY)) || 'null'); } catch (e) { st = null; }
+      if (!window.mochiMediaAutoShouldRun(st, now)) { out.skipped = '24h节流/免打扰中'; return out; }
+      if (!window.mochiMediaCoverage || !window.mochiMediaRebuild) { out.skipped = '接口不可用'; return out; }
+      const rep = await window.mochiMediaCoverage();
+      if (!rep || !rep.ok) { acWrite({ t: now, missing: -1, snooze: 0 }); out.skipped = '体检未完成：' + ((rep && rep.reason) || ''); return out; }
+      acWrite({ t: now, missing: rep.missing, snooze: 0 });
+      out.ran = true;
+      out.missing = rep.missing;
+      if (!rep.missing || !window.openModal) return out;
+      acWrite({ t: now, missing: rep.missing, snooze: now + 72 * 3600000 });
+      await new Promise(function (res) {
+        window.openModal('发现 ' + rep.missing + ' 张图片数据缺失', '', function () { res(); }, {
+          noInput: true, okText: '一键修复',
+          staticText: '聊天/收藏/字卡库里有 ' + rep.missing + ' 张引用的图片不在媒体池里，会显示「图片丢失」。\n\n现在扫描本机还留存的原图副本（字卡库/收藏/表情分组/头像库/壁纸/备份快照等）自动补回缺失的池条目：\n· 只补缺失/空串条目，不改任何其他数据，不删除任何数据；\n· 补得回多少取决于本机还留有多少原图副本；\n· 扫描需通读本机数据，请保持页面打开。'
+        });
+      });
+      try { if (typeof toast === 'function') toast('正在重建媒体池，请稍候…'); } catch (e) {}
+      const rb = await window.mochiMediaRebuild();
+      if (!rb || !rb.ok) {
+        if (window.openModal) window.openModal('修复未完成', '', null, { noInput: true, staticText: ((rb && rb.reason) || '未知原因') + '\n\n没有改动任何数据，稍后存储空闲时可到 设置→查看存储→媒体池 再试。' });
+        return out;
+      }
+      acWrite({ t: Date.now(), missing: Math.max(0, rep.missing - rb.written), snooze: 0 });
+      out.repaired = rb.written;
+      const tpl = rb.written > 0
+        ? ['已修复 ' + rb.written + ' 张！聊天/字卡库里的图片会自动恢复（当前页面的占位图已即时刷新）。']
+        : ['本机没有可补回的原图副本。'];
+      if (rb.written === 0) tpl.push('这些图片只能从还有它们的设备上导出「完整备份」（不要选「只备份文字」），再在本机导入恢复。');
+      if (window.openModal) window.openModal('修复完成', '', null, { noInput: true, staticText: tpl.join('\n') });
+      return out;
+    })().catch(function () { return { ran: false, skipped: '异常', missing: 0, repaired: 0 }; });
+  };
+  // 自调度：等就绪（__mochiDataReady + splash 已移除，1s 轮询最多 10 分钟）→ 延 20s 让首屏
+  // 先渲染 → 可见且无弹窗时才真正跑（不可见等 visibilitychange；有弹窗隔 60s 重试最多 3 次）。
+  (function acKick(tries) {
+    if (typeof document === 'undefined') return;
+    if (!window.__mochiDataReady || document.getElementById('splash')) {
+      if ((tries || 0) < 600) setTimeout(function () { acKick((tries || 0) + 1); }, 1000);
+      return;
+    }
+    setTimeout(function () {
+      const go = function () { try { window.mochiMediaAutoCheck(); } catch (e) {} };
+      if (document.visibilityState !== 'visible') {
+        const once = function () { document.removeEventListener('visibilitychange', once); go(); };
+        document.addEventListener('visibilitychange', once);
+        return;
+      }
+      if (document.querySelector('.modal')) {
+        let n = 0;
+        const t = setInterval(function () { n++; if (n > 3 || !document.querySelector('.modal')) { clearInterval(t); if (n <= 3) go(); } }, 60000);
+        return;
+      }
+      go();
+    }, 20000);
+  })();
 })();

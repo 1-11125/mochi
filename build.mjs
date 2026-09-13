@@ -1261,6 +1261,15 @@ const FIX_SENTINELS = [
   { name: '#423 重建按钮接线（personalize 确认弹窗+结果报告；删则按钮无功能）', file: 'js/personalize.js', needle: '开始重建' },
   { name: '#423 聊天图片丢失占位指向重建入口（删则用户只被告知「导入备份」而不知道本机可先重建自愈）', file: 'js/chat.js', needle: '可到设置→查看存储→媒体池' },
   { name: '#423 诊断·媒体池条目数（旧大键明细候选清单不含 media: 键，报障诊断无法判断池是否存在；删则图片丢失类报障继续失明）', file: 'js/device.js', needle: '媒体池条目' },
+  // ==== 2026-09-13 #424 媒体池自动体检+主动弹窗一键修复（用户要求「不能自己识别异常弹窗叫我修复吗」；
+  //      就绪+splash 移除+可见空闲后自动跑只读 coverage，missing>0 弹「一键修复」，24h 节流+72h 免打扰）====
+  { name: '#424 自动体检核心（mochiMediaAutoCheck 覆盖→弹窗→重建链路；删则用户仍须自己找设置入口，「图片丢失」状态无人主动干预）', file: 'js/media-pool.js', needle: 'window.mochiMediaAutoCheck = function () {' },
+  { name: '#424 体检节流状态键（media-auto-check 进 contacts EXCLUDE；删则全局根键被 migrateLegacy 迁进 default 删根键，节流失效反复弹窗）', file: 'js/contacts.js', needle: "'media-auto-check'," },
+  { name: '#424 主动弹窗一键修复入口（missing>0 弹「一键修复」；删则自动体检退化成纯扫描、修不了）', file: 'js/media-pool.js', needle: '一键修复' },
+  // ==== 2026-09-13 #425 头像启动间歇性不显示（华为畅享70Pro/红米K80 等多机型「刚点进网站头像时不时加载不出来」：
+  //      cs-avatar-* 大图键常驻 IDB-only 区，avatar-lib 收敛基线在 idbRestore 回填前初始化读空被污染，
+  //      回填完成的 restore-done 只刷桌面圈/聊天顶栏，convergeAvatars 因基线相等永不触发 → 气泡头像一直空）====
+  { name: '#425 头像收敛挂钩回填完成（restore-done 清基线强制 convergeAvatars 重刷；删则晚到回填后气泡头像停留占位，基线污染永久跳过）', file: 'js/avatar-lib.js', needle: "document.addEventListener('mochi-restore-done', function () {\n    appliedPh = null; appliedUh = null;" },
   { name: '#416 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
   { name: '#416 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
   { name: '#416 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },

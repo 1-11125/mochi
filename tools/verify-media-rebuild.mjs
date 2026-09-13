@@ -164,6 +164,26 @@ const CC = 'xy-home-v2:cmt37eved7if:cc-groups';
   });
   eq('混合场景：补 2 跳 1，三池齐', { ok: e.r.ok, written: e.r.written, alreadyOk: e.r.alreadyOk, a: e.idbData[FULL + HA] === IMG_A, b: e.idbData[FULL + HB] === IMG_B, c: e.idbData[FULL + HC] === IMG_C }, { ok: true, written: 2, alreadyOk: 1, a: true, b: true, c: true });
 
+  // ===== #424 mochiMediaAutoShouldRun（自动体检节流纯函数）=====
+  const ssi = src.indexOf('window.mochiMediaAutoShouldRun = function');
+  if (ssi < 0) { console.error('FATAL: 找不到 mochiMediaAutoShouldRun 定义'); process.exit(1); }
+  let d2 = 0, sei = -1;
+  for (let i = src.indexOf('{', ssi); i < src.length; i++) {
+    if (src[i] === '{') d2++;
+    else if (src[i] === '}') { d2--; if (d2 === 0) { sei = i + 1; break; } }
+  }
+  if (sei < 0) { console.error('FATAL: mochiMediaAutoShouldRun 花括号未闭合'); process.exit(1); }
+  const shouldRun = new Function('return (' + src.slice(src.indexOf('function', ssi), sei) + ');')();
+  const DAY = 86400000, H72 = 72 * 3600000;
+  const now = 1_800_000_000_000;
+  eq('#424 无状态（首次）→ 跑', shouldRun(null, now), true);
+  eq('#424 无记录对象 → 跑', shouldRun(undefined, now), true);
+  eq('#424 检查于 23h 前 → 不跑（24h 节流）', shouldRun({ t: now - 23 * 3600000, missing: 0 }, now), false);
+  eq('#424 检查于 25h 前 → 跑', shouldRun({ t: now - 25 * 3600000, missing: 3 }, now), true);
+  eq('#424 snooze 未到期（哪怕超 24h）→ 不跑', shouldRun({ t: now - 3 * DAY, snooze: now + 1000, missing: 2 }, now), false);
+  eq('#424 snooze 已过期 → 跑（72h 免打扰结束）', shouldRun({ t: now - 3 * DAY, snooze: now - 1000, missing: 2 }, now), true);
+  eq('#424 snooze 为 0/缺失 → 只看 24h 节流', shouldRun({ t: now - 2 * DAY, snooze: 0 }, now), true);
+
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('脚本异常：', e); process.exit(1); });

@@ -61,6 +61,10 @@
     // 都是全局根键，绝不能被 migrateLegacy 当旧顶层业务键迁进 default 桌面
     // （否则全局键被搬走/删除：表情包"消失"+ 迁移标记丢失每次重跑）
     'my-emoji-groups', 'mye-global-migrated',
+    // #424（2026-09-13）：媒体池自动体检节流状态（media-pool.js mochiMediaAutoCheck）——
+    // {t,missing,snooze} 全局根键，丢/被迁走只会导致弹窗节奏错乱，但不排除会被 migrateLegacy
+    // 当旧顶层业务键迁进 default 并删根键，照例登记。
+    'media-auto-check',
     // v3.11.x：存钱罐改全局共享（两人共同金库，p2-features.js）——键 xy-home-v2:piggy-* 与
     // v3.26.x 心意币存钱独立账本 piggy-coin-* 都走根命名空间，绝不能被 migrateLegacy 迁进
     // default 桌面（否则非 default 桌面余额读空）
