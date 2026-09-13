@@ -408,7 +408,7 @@ add.push(r);
 if (!add.length) return 0;
 msgs = msgs.concat(add).sort((a, b) => ((a && a.ts) || 0) - ((b && b.ts) || 0));
 saveMsgs();
-return add.length; // FIX 2026-09-13 #403：回放条数上抛（插入/排序=下标位移，调用方据此标记 changed 重渲）
+return add.length; // FIX 2026-09-13 #407：回放条数上抛（插入/排序=下标位移，调用方据此标记 changed 重渲）
 } catch (e) {}
 return 0;
 }
@@ -1025,7 +1025,7 @@ chatDbReady = true;
 // v3.14.x：本命名空间已读到权威（此后空数组落盘才被允许——内存已含全部历史）
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
-try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #403 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
+try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
 // v3.26.x #90：账本基线＝刚读到的库内条数（同值不重复落盘，见 chatLedgerSave 节流）
 try { chatLedgerSave(myPrefix, idbArr.length, msgsBytes(idbArr)); } catch (e) {}
 try {
@@ -1045,6 +1045,11 @@ if (!inplacePatchIfSameWindow()) {
 renderWindow(false, true);
 scrollChatBottom();
 }
+} else if (chatVisible()) {
+// FIX 2026-09-13 #407：不贴底（用户正在翻历史）时 #220 有意不重渲防闪，但 msgs 已变
+// （下标可能位移）——屏上窗口凭据作废，防后续同窗补丁在陈旧 DOM 上误patch；
+// 用户可见的菜单动作（引用/收藏/编辑/撤回）已由 resolveActiveMsg 身份重定位兜底
+windowStale = true;
 }
 } else if (chatVisible() && msgs.length && !body.children.length) {
 // v3.26.x：冷加载（切桌面后 msgs=[]、无本地待合并，changed=false 原路径不会重渲）——
@@ -2281,21 +2286,28 @@ return true;
 // 高度差补偿与 #245 liteUpgrade 同口径：原在底部→贴底跟随；不在底部→scrollTop 按高度差
 // 平移，视口内内容不动。返回 true=已原位补丁（或屏上无命中无需动）；false=整窗兜底。
 function patchChangedInPlace(changedIdxs, start) {
-if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
-if (!windowRenderedN) return false; // 无屏上凭据（首渲场景）走原整窗渲染（#241 同门）
+// 诊断钩子（__mochiProf 同族）：记录每次收尾补丁的判定路径，供真机/无头排查
+const __plog = function (tag) { try { (window.__patch402Log = window.__patch402Log || []).push(tag); } catch (e) {} };
+if (!Array.isArray(changedIdxs) || !changedIdxs.length) { __plog('noop-empty'); return true; }
 let n = start;
 let hasPending = false;
 for (let k = 0; k < body.children.length; k++) {
 const el = body.children[k];
 if (!el.dataset || el.dataset.idx === undefined) continue;
-if (Number(el.dataset.idx) !== n) return false;
+if (Number(el.dataset.idx) !== n) { __plog('fail-idx@' + k); return false; }
 if (el.dataset.pendingRead === '1') hasPending = true;
 n++;
 }
-if (n !== windowRenderedN) return false;
-if (hasPending) return false;
-const idxs = changedIdxs.filter(i => i >= start && i < windowRenderedN && i < msgs.length).sort((a, b) => a - b);
-if (!idxs.length) return true; // 改动都不在屏上窗口＝无需动 DOM
+// FIX 2026-09-13 #402 自纠：屏上窗口可能是「整窗渲染后增量追加/上翻」的拼接态——凭据
+// windowRenderedN 只在整窗渲染时登记（loadNewerIncremental 只更 renderEnd 不补凭据），
+// 拿它当屏上窗口终点会把合法拼接态误判回退整窗重建（无头实测 rm303+ad200 复现）。
+// 改用 DOM 推导的连续 idx 终点 n，并要求与 renderStart..renderEnd 区间严格一致
+// （时间分隔线无 data-idx 不计；prune 前后两端区间与 DOM 恒同步）。
+if (n !== renderEnd - renderStart) { __plog('fail-range n=' + n + ' re=' + renderEnd + ' rs=' + renderStart); return false; }
+if (n > msgs.length) { __plog('fail-len'); return false; }
+if (hasPending) { __plog('fail-pending'); return false; }
+const idxs = changedIdxs.filter(i => i >= start && i < n && i < msgs.length).sort((a, b) => a - b);
+if (!idxs.length) { __plog('noop-outside'); return true; } // 改动都不在屏上窗口＝无需动 DOM
 collectInplaceDrafts();
 const wasNearBottom = chatNearBottom();
 const prevTop = body.scrollTop;
@@ -2305,14 +2317,17 @@ batchRendering = true;
 for (let u = 0; u < idxs.length; u++) {
 const ui = idxs[u];
 const old = body.querySelector('.msg[data-idx="' + ui + '"]');
-if (!old) { batchRendering = false; restoreInplaceDrafts(); return false; }
+if (!old) { batchRendering = false; restoreInplaceDrafts();
+  try { var _an = body.querySelector('[data-idx="' + ui + '"]'); (window.__patch402Log = window.__patch402Log || []).push('fail-node@' + ui + ' cls=' + (_an ? _an.className : 'none')); } catch (e2) {}
+  return false; }
 let nu = null;
 try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
-if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); return false; }
+if (!nu || nu.dataset.idx === undefined) { batchRendering = false; restoreInplaceDrafts(); __plog('fail-render@' + ui); return false; }
 nu.dataset.idx = ui;
 old.parentNode.replaceChild(nu, old);
 if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.filter(x => x !== ui);
 }
+__plog('ok:' + idxs.length);
 batchRendering = false;
 pendingOutScroll = prevPendingOut;
 restoreInplaceDrafts();
@@ -3760,7 +3775,7 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + es
 return finalReply;
 };
 function retractMsg(msgEl, side, idxOverride) {
-// FIX 2026-09-13 #403：可选 idxOverride——菜单路径由 resolveActiveMsg 重定位后显式传入，
+// FIX 2026-09-13 #407：可选 idxOverride——菜单路径由 resolveActiveMsg 重定位后显式传入，
 // 防 msgs 重排后 msgEl.dataset.idx 陈旧撤错条；其他调用方不传参行为不变
 const idx = (typeof idxOverride === 'number' && idxOverride >= 0) ? idxOverride : parseInt(msgEl.dataset.idx, 10);
 let target = msgEl;
@@ -6947,7 +6962,7 @@ if (pokeCard && !pokeCard.hidden && !pokeCard.contains(e.target)) closePokeCard(
 });
 const msgActions = document.getElementById('msg-actions');
 let activeMsgEl = null;   // 当前操作的消息 DOM
-let activeMsgSnap = null; // FIX 2026-09-13 #403：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
+let activeMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
 function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
@@ -7184,7 +7199,7 @@ if (window.addTaFavItem(f)) setTimeout(() => toast('TA 收藏了你们的互动�
 function closeMsgActions() {
 if (msgActions) msgActions.hidden = true;
 activeMsgEl = null;
-activeMsgSnap = null; // FIX 2026-09-13 #403 随菜单关闭清身份快照
+activeMsgSnap = null; // FIX 2026-09-13 #407 随菜单关闭清身份快照
 }
 function quoteTextOf(m) {
 // #148：图片载荷判定加媒体池令牌（@@m:hash）——令牌化后的图片消息引用不出缩略图、
@@ -7282,7 +7297,7 @@ return { item, b };
 }
 function openMsgActionsAt(item, b) {
 activeMsgEl = item;
-// FIX 2026-09-13 #403 引用/收藏/编辑等按 data-idx 解析消息，但菜单打开后 msgs 可能被
+// FIX 2026-09-13 #407 引用/收藏/编辑等按 data-idx 解析消息，但菜单打开后 msgs 可能被
 // 权威读库合并/尾巴日志回放重排（中段插入/删除 ⇒ 后续下标整体位移）而 DOM 未重渲
 //（不贴底跳过重渲的防闪路径），旧下标即指向另一条消息＝「引用预览显示的不是被引那条」
 //（华为 P50E Edge 等多机型报障）。打开时快照身份：对象引用 + ts/side/text 签名，
@@ -7316,7 +7331,7 @@ y = aboveFits || !belowFits ? y : below;
 msgActions.style.left = x + 'px';
 msgActions.style.top = y + 'px';
 }
-// FIX 2026-09-13 #403：菜单动作执行时按身份快照重新定位消息，防「msgs 重排 + DOM 未重渲」
+// FIX 2026-09-13 #407：菜单动作执行时按身份快照重新定位消息，防「msgs 重排 + DOM 未重渲」
 // 窗口期里 data-idx 指向别的消息（引用预览串条/收藏串条/编辑串条/撤回错条）。解析顺序：
 // ① 快路径——下标处对象就是快照对象（数组没动过，零开销）；② 对象同一性——重排后对象
 // 仍在数组里（indexOf）；③ 签名唯一命中——权威读库合并会换成新解析对象（引用失效），
@@ -7384,7 +7399,7 @@ msgActions.addEventListener('click', (e) => {
 const btn = e.target.closest('.ma-btn');
 if (!btn) return;
 const act = btn.dataset.act;
-// FIX 2026-09-13 #403：按身份快照重定位（msgs 重排+DOM 未重渲窗口期 data-idx 会串条）
+// FIX 2026-09-13 #407：按身份快照重定位（msgs 重排+DOM 未重渲窗口期 data-idx 会串条）
 const _act = resolveActiveMsg();
 const idx = _act.idx;
 const rec = _act.rec;
@@ -7440,7 +7455,7 @@ toast(ok ? '已复制' : '复制失败');
 }
 closeMsgActions();
 } else if (act === 'retract') {
-// FIX 2026-09-13 #403：撤回同走身份重定位（retractMsg 内部按 msgEl.dataset.idx 解析，
+// FIX 2026-09-13 #407：撤回同走身份重定位（retractMsg 内部按 msgEl.dataset.idx 解析，
 // 这里把 resolveActiveMsg 的正确下标显式传入，防 DOM 陈旧下标撤错条）
 if (activeMsgEl) retractMsg(activeMsgEl, 'out', idx);
 closeMsgActions();

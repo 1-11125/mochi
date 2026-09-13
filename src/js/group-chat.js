@@ -2896,9 +2896,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   // ---- 消息气泡操作菜单（v3.16.x：点气泡弹出「引用」，与聊天页 #msg-actions 同款交互）----
   const gcMsgActions = document.getElementById('gc-msg-actions');
   let gcActiveMsgEl = null;
+  let gcActiveMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 gcIdx 错位，对齐聊天页）
   function closeGcMsgActions() {
     if (gcMsgActions) gcMsgActions.hidden = true;
     gcActiveMsgEl = null;
+    gcActiveMsgSnap = null;
   }
   // 消息快照 → 待引用内容（与聊天页 quote 分支同构：语音/表情/图片转占位文案）
   function gcQuoteSnapOf(rec) {
@@ -2915,6 +2917,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     // v3.26.x：群聊消息操作菜单（引用）同样支持「长按 + 轻点」双手势，与聊天页保持一致
     function gcOpenMsgActions(item, bk) {
       gcActiveMsgEl = item;
+      // FIX 2026-09-13 #407：打开时快照身份（对象引用+ts/side/text 签名）——msgs 重排+
+      // DOM 未重渲窗口期里 dataset.gcIdx 陈旧会串条，动作执行时由 gcResolveActiveMsg 重定位
+      const _gi = (item && item.dataset && item.dataset.gcIdx !== undefined) ? Number(item.dataset.gcIdx) : -1;
+      const _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
+      gcActiveMsgSnap = { idx: _gi, rec: _gr, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
       // 对齐聊天页：删除按钮按「允许删除联系人消息」开关（cs-del-ta-msg）显隐，
       // 仅成员消息可删；开关默认关，在群聊设置→输入与消息 里开启
       const delBtn = gcMsgActions.querySelector('.ma-del-gc');
@@ -2947,6 +2954,31 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     let gcHoldTimer = null;
     let gcHoldEl = null;
     let gcSuppressClickUntil = 0;
+    // FIX 2026-09-13 #407：菜单动作执行时按身份快照重新定位（① 快路径 ② 对象同一性
+    // ③ ts+side+text 签名唯一命中 ④ 回退旧下标），防「msgs 重排 + DOM 未重渲」窗口期串条
+    function gcResolveActiveMsg() {
+      const idx0 = gcActiveMsgEl && gcActiveMsgEl.dataset && gcActiveMsgEl.dataset.gcIdx !== undefined ? Number(gcActiveMsgEl.dataset.gcIdx) : -1;
+      const snap = gcActiveMsgSnap;
+      if (idx0 >= 0 && msgs[idx0]) {
+        if (!snap || msgs[idx0] === snap.rec) return { idx: idx0, rec: msgs[idx0] };
+      }
+      if (snap && snap.rec) {
+        const i = msgs.indexOf(snap.rec);
+        if (i >= 0) return { idx: i, rec: snap.rec };
+      }
+      if (snap && (snap.ts || snap.text || snap.side)) {
+        let hit = -1, hits = 0;
+        for (let i = 0; i < msgs.length; i++) {
+          const m = msgs[i];
+          if (!m || (m.ts || 0) !== snap.ts || (m.side || '') !== snap.side) continue;
+          if (String(m.text || '').slice(0, 80) !== snap.text) continue;
+          hit = i; hits++;
+          if (hits > 1) break;
+        }
+        if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
+      }
+      return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
+    }
     body.addEventListener('contextmenu', (e) => {
       if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
     });
@@ -2988,8 +3020,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       const btn = e.target.closest('.ma-btn');
       if (!btn) return;
       if (btn.dataset.act === 'quote' && gcActiveMsgEl) {
-        const idx = Number(gcActiveMsgEl.dataset.gcIdx);
-        const rec = (idx >= 0 && msgs[idx]) ? msgs[idx] : null;
+        // FIX 2026-09-13 #407：按身份快照重定位（防 msgs 重排后 gcIdx 串条）
+        const _ra = gcResolveActiveMsg();
+        const idx = _ra.idx;
+        const rec = _ra.rec;
         if (rec) {
           gcLastQuote = gcQuoteSnapOf(rec);
           renderGcDraft();
@@ -2998,7 +3032,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       } else if (btn.dataset.act === 'del' && gcActiveMsgEl) {
         // 对齐聊天设置「允许删除联系人消息」（cs-del-ta-msg 开关，gcOpenMsgActions
         // 显隐同口径）——真删除该条成员消息，不可恢复
-        const idx = Number(gcActiveMsgEl.dataset.gcIdx);
+        const _rd = gcResolveActiveMsg(); // FIX 2026-09-13 #407：按身份快照重定位
+        const idx = _rd.idx;
         if (idx >= 0 && msgs[idx] && msgs[idx].side === 'in') {
           msgs.splice(idx, 1);
           saveMsgs();

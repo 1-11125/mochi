@@ -9370,9 +9370,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789285197974">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.637</b></span>
-        <span class="sv-deploy">部署于 2026-09-13 15:39<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789287035779">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.639</b></span>
+        <span class="sv-deploy">部署于 2026-09-13 16:10<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10651,7 +10651,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.637</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.639</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10946,7 +10946,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.637</span>
+              <span class="lic-ver">v3.26.639</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -15778,7 +15778,7 @@ if (localStorage.getItem(G + '__ls-probe') !== 'p') probe = 'LS 写探针：写�
 localStorage.removeItem(G + '__ls-probe');
 } catch (e3) { probe = 'LS 写探针：写入失败(' + ((e3 && e3.name) || '异常') + ')——配额满或存储被禁'; }
 lines.push(probe);
-let pend = KEYS.length;
+let pend = KEYS.length + ROOT_KEYS.length;
 const done = function () { L[swIdx] = lines.join('\n'); res(); };
 const one = function (short) {
 let lsV = null, memV = null;
@@ -15792,7 +15792,20 @@ lines[li] = lines[li].replace('IDB=…', 'IDB=' + (iv === undefined ? '(未写�
 if (--pend <= 0) done();
 }).catch(function () { lines[li] = lines[li].replace('IDB=…', 'IDB=(读失败)'); if (--pend <= 0) done(); });
 };
+const oneRoot = function (short) {
+let lsV = null, memV = null;
+try { lsV = localStorage.getItem(G + short); } catch (e3) { lsV = '(读失败)'; }
+try { memV = window.xyStore(G.slice(0, -1)).get(short); } catch (e3) { memV = '(读失败)'; }
+const li = lines.length;
+lines.push('· ' + short + '（全局根键）：LS=' + fmt(lsV) + ' 读取=' + fmt(memV) + ' IDB=…');
+if (!window.idbGet) { lines[li] = lines[li].replace('IDB=…', 'IDB=(接口不可用)'); if (--pend <= 0) done(); return; }
+window.idbGet(G + short).then(function (iv) {
+lines[li] = lines[li].replace('IDB=…', 'IDB=' + (iv === undefined ? '(未写入·走默认)' : fmt(iv)));
+if (--pend <= 0) done();
+}).catch(function () { lines[li] = lines[li].replace('IDB=…', 'IDB=(读失败)'); if (--pend <= 0) done(); });
+};
 KEYS.forEach(one);
+ROOT_KEYS.forEach(oneRoot);
 if (!pend) done();
 }));
 } catch (e) { try { L.push('开关持久化体检：读取失败'); } catch (e2) {} }
@@ -19325,6 +19338,15 @@ if (moved === 'open') stSet('open');
 let lastOpen = isOpen();
 window.cardLockOpen = isOpen;
 document.addEventListener('mochi-wrj-heal', function () {
+try {
+const open = isOpen();
+if (open !== lastOpen) {
+lastOpen = open;
+document.dispatchEvent(new Event(open ? 'mochi-cardlock-open' : 'mochi-cardlock-locked'));
+}
+} catch (e) {}
+});
+document.addEventListener('mochi-restore-done', function () {
 try {
 const open = isOpen();
 if (open !== lastOpen) {
@@ -24555,6 +24577,7 @@ ensureDeskPeriod();
 function ensureDeskPeriodP3Order() {
 ensureDeskPeriod();
 try {
+if (deskLayout()) return;
 const p3 = pagesBox.querySelectorAll('.page-slide')[2];
 if (!p3) return;
 const dp = p3.querySelector('[data-desk-widget="desk-period"]');
@@ -24590,6 +24613,8 @@ ensureMemoRowP3();
 setTimeout(ensureMemoRowP3, 150); // 等 buildDeskPages 的 setTimeout(ensureP3) 补齐第三页后兜底一次
 document.addEventListener('contact-switched', ensureMemoRowP3);
 function ensureP2SecondRowIcons() {
+if (store.get('p2icons-p3-mig') === '1') return;
+store.set('p2icons-p3-mig', '1');
 const p2g = document.querySelector('.app-grid.p2-grid');
 const p3g = document.querySelector('.app-grid.p3-grid');
 if (!p2g) return;
@@ -24624,11 +24649,14 @@ const pi = lay.findIndex(page => (page || []).indexOf('weekend') >= 0);
 const pj = lay.findIndex(page => (page || []).indexOf('p2apps') >= 0);
 if (pi < 0 || pj !== pi) return; // weekend 不在任何页(已移除)或两组不在同一页：尊重现状
 const pw = lay[pi] || [];
+const p2migDone = store.get('p2apps-order-mig') === '1';
+if (!p2migDone) store.set('p2apps-order-mig', '1');
 const wi = pw.indexOf('weekend'), ni = pw.indexOf('p2apps');
 if (ni < 0 || wi < 0 || ni > wi) {
 if (domBefore) node.parentNode.insertBefore(node, we.nextSibling);
 return;
 }
+if (p2migDone) return;
 lay[pi] = pw.filter(w => w !== 'p2apps');
 lay[pi].splice((lay[pi].indexOf('weekend')) + 1, 0, 'p2apps');
 store.set('desk-layout', JSON.stringify(lay));
@@ -27449,10 +27477,12 @@ for (const k in j.x) { if (Object.prototype.hasOwnProperty.call(j.x, k)) r[k] = 
 }
 add.push(r);
 }
-if (!add.length) return;
+if (!add.length) return 0;
 msgs = msgs.concat(add).sort((a, b) => ((a && a.ts) || 0) - ((b && b.ts) || 0));
 saveMsgs();
+return add.length; // FIX 2026-09-13 #407：回放条数上抛（插入/排序=下标位移，调用方据此标记 changed 重渲）
 } catch (e) {}
+return 0;
 }
 let authLoadedPrefix = null;
 let idbRetryTimer = null;
@@ -27928,7 +27958,7 @@ pendingLocal = null;
 chatDbReady = true;
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
-try { chatTailMerge(); } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）
+try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
 try { chatLedgerSave(myPrefix, idbArr.length, msgsBytes(idbArr)); } catch (e) {}
 try {
 lastIdbLoadPrefix = window.activePrefix();
@@ -27945,6 +27975,8 @@ if (!inplacePatchIfSameWindow()) {
 renderWindow(false, true);
 scrollChatBottom();
 }
+} else if (chatVisible()) {
+windowStale = true;
 }
 } else if (chatVisible() && msgs.length && !body.children.length) {
 renderWindow(false, true);
@@ -29001,7 +29033,6 @@ return true;
 }
 function patchChangedInPlace(changedIdxs, start) {
 if (!Array.isArray(changedIdxs) || !changedIdxs.length) return true;
-if (!windowRenderedN) return false; // 无屏上凭据（首渲场景）走原整窗渲染（#241 同门）
 let n = start;
 let hasPending = false;
 for (let k = 0; k < body.children.length; k++) {
@@ -29011,9 +29042,10 @@ if (Number(el.dataset.idx) !== n) return false;
 if (el.dataset.pendingRead === '1') hasPending = true;
 n++;
 }
-if (n !== windowRenderedN) return false;
+if (n !== renderEnd - renderStart) return false;
+if (n > msgs.length) return false;
 if (hasPending) return false;
-const idxs = changedIdxs.filter(i => i >= start && i < windowRenderedN && i < msgs.length).sort((a, b) => a - b);
+const idxs = changedIdxs.filter(i => i >= start && i < n && i < msgs.length).sort((a, b) => a - b);
 if (!idxs.length) return true; // 改动都不在屏上窗口＝无需动 DOM
 collectInplaceDrafts();
 const wasNearBottom = chatNearBottom();
@@ -30322,8 +30354,8 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + es
 }
 return finalReply;
 };
-function retractMsg(msgEl, side) {
-const idx = parseInt(msgEl.dataset.idx, 10);
+function retractMsg(msgEl, side, idxOverride) {
+const idx = (typeof idxOverride === 'number' && idxOverride >= 0) ? idxOverride : parseInt(msgEl.dataset.idx, 10);
 let target = msgEl;
 if (!msgEl.isConnected && body) {
 const cur = body.querySelector('.msg[data-idx="' + idx + '"]');
@@ -33359,7 +33391,7 @@ if (pokeCard && !pokeCard.hidden && !pokeCard.contains(e.target)) closePokeCard(
 });
 const msgActions = document.getElementById('msg-actions');
 let activeMsgEl = null;   // 当前操作的消息 DOM
-let activeMsgSnap = null; // FIX 2026-09-13 #403：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
+let activeMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
 function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
@@ -33574,6 +33606,7 @@ if (window.addTaFavItem(f)) setTimeout(() => toast('TA 收藏了你们的互动�
 function closeMsgActions() {
 if (msgActions) msgActions.hidden = true;
 activeMsgEl = null;
+activeMsgSnap = null; // FIX 2026-09-13 #407 随菜单关闭清身份快照
 }
 function quoteTextOf(m) {
 const isMedia = (s) => typeof s === 'string' && (s.indexOf('data:') === 0 || /^https?:\/\//i.test(s) || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
@@ -33662,6 +33695,9 @@ return { item, b };
 }
 function openMsgActionsAt(item, b) {
 activeMsgEl = item;
+const _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
+const _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
+activeMsgSnap = { idx: _qi, rec: _qr, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
 activeSide = item.classList.contains('msg-out') ? 'out' : 'in';
 if (!msgActions) return;
 msgActions.querySelectorAll('.ma-mine').forEach(b2 => b2.hidden = activeSide !== 'out');
@@ -33687,6 +33723,29 @@ const belowFits = below + ah <= vh - 8;
 y = aboveFits || !belowFits ? y : below;
 msgActions.style.left = x + 'px';
 msgActions.style.top = y + 'px';
+}
+function resolveActiveMsg() {
+const idx0 = activeMsgEl && activeMsgEl.dataset && activeMsgEl.dataset.idx !== undefined ? Number(activeMsgEl.dataset.idx) : -1;
+const snap = activeMsgSnap;
+if (idx0 >= 0 && msgs[idx0]) {
+if (!snap || msgs[idx0] === snap.rec) return { idx: idx0, rec: msgs[idx0] };
+}
+if (snap && snap.rec) {
+const i = msgs.indexOf(snap.rec);
+if (i >= 0) return { idx: i, rec: snap.rec };
+}
+if (snap && (snap.ts || snap.text || snap.side)) {
+let hit = -1, hits = 0;
+for (let i = 0; i < msgs.length; i++) {
+const m = msgs[i];
+if (!m || (m.ts || 0) !== snap.ts || (m.side || '') !== snap.side) continue;
+if (String(m.text || '').slice(0, 80) !== snap.text) continue;
+hit = i; hits++;
+if (hits > 1) break;
+}
+if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
+}
+return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
 }
 body.addEventListener('contextmenu', (e) => {
 if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
@@ -33726,8 +33785,9 @@ msgActions.addEventListener('click', (e) => {
 const btn = e.target.closest('.ma-btn');
 if (!btn) return;
 const act = btn.dataset.act;
-const idx = activeMsgEl ? Number(activeMsgEl.dataset.idx) : -1;
-const rec = (idx >= 0 && msgs[idx]) ? msgs[idx] : null;
+const _act = resolveActiveMsg();
+const idx = _act.idx;
+const rec = _act.rec;
 if (act === 'quote') {
 if (rec) {
 const qsnap = quoteTextOf(rec);
@@ -33776,7 +33836,7 @@ toast(ok ? '已复制' : '复制失败');
 }
 closeMsgActions();
 } else if (act === 'retract') {
-if (activeMsgEl) retractMsg(activeMsgEl, 'out');
+if (activeMsgEl) retractMsg(activeMsgEl, 'out', idx);
 closeMsgActions();
 } else if (act === 'edit') {
 if (rec && window.openModal) {
@@ -38266,9 +38326,11 @@ fi.click();
 if (atPanel) atPanel.addEventListener('click', (e) => { if (e.target === atPanel) atPanel.hidden = true; });
 const gcMsgActions = document.getElementById('gc-msg-actions');
 let gcActiveMsgEl = null;
+let gcActiveMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 gcIdx 错位，对齐聊天页）
 function closeGcMsgActions() {
 if (gcMsgActions) gcMsgActions.hidden = true;
 gcActiveMsgEl = null;
+gcActiveMsgSnap = null;
 }
 function gcQuoteSnapOf(rec) {
 let qimgs = (rec.parts || []).filter(p => p.k === 'img').map(p => p.v).slice(0, 3);
@@ -38283,6 +38345,9 @@ return { text: qtext, imgs: qimgs, idx: msgs.indexOf(rec) };
 if (body && gcMsgActions) {
 function gcOpenMsgActions(item, bk) {
 gcActiveMsgEl = item;
+const _gi = (item && item.dataset && item.dataset.gcIdx !== undefined) ? Number(item.dataset.gcIdx) : -1;
+const _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
+gcActiveMsgSnap = { idx: _gi, rec: _gr, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
 const delBtn = gcMsgActions.querySelector('.ma-del-gc');
 if (delBtn) {
 let delEn = false;
@@ -38312,6 +38377,29 @@ gcMsgActions.style.top = y + 'px';
 let gcHoldTimer = null;
 let gcHoldEl = null;
 let gcSuppressClickUntil = 0;
+function gcResolveActiveMsg() {
+const idx0 = gcActiveMsgEl && gcActiveMsgEl.dataset && gcActiveMsgEl.dataset.gcIdx !== undefined ? Number(gcActiveMsgEl.dataset.gcIdx) : -1;
+const snap = gcActiveMsgSnap;
+if (idx0 >= 0 && msgs[idx0]) {
+if (!snap || msgs[idx0] === snap.rec) return { idx: idx0, rec: msgs[idx0] };
+}
+if (snap && snap.rec) {
+const i = msgs.indexOf(snap.rec);
+if (i >= 0) return { idx: i, rec: snap.rec };
+}
+if (snap && (snap.ts || snap.text || snap.side)) {
+let hit = -1, hits = 0;
+for (let i = 0; i < msgs.length; i++) {
+const m = msgs[i];
+if (!m || (m.ts || 0) !== snap.ts || (m.side || '') !== snap.side) continue;
+if (String(m.text || '').slice(0, 80) !== snap.text) continue;
+hit = i; hits++;
+if (hits > 1) break;
+}
+if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
+}
+return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
+}
 body.addEventListener('contextmenu', (e) => {
 if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
 });
@@ -38353,15 +38441,17 @@ gcMsgActions.addEventListener('click', (e) => {
 const btn = e.target.closest('.ma-btn');
 if (!btn) return;
 if (btn.dataset.act === 'quote' && gcActiveMsgEl) {
-const idx = Number(gcActiveMsgEl.dataset.gcIdx);
-const rec = (idx >= 0 && msgs[idx]) ? msgs[idx] : null;
+const _ra = gcResolveActiveMsg();
+const idx = _ra.idx;
+const rec = _ra.rec;
 if (rec) {
 gcLastQuote = gcQuoteSnapOf(rec);
 renderGcDraft();
 try { if (input) input.focus(); } catch (err) {}
 }
 } else if (btn.dataset.act === 'del' && gcActiveMsgEl) {
-const idx = Number(gcActiveMsgEl.dataset.gcIdx);
+const _rd = gcResolveActiveMsg(); // FIX 2026-09-13 #407：按身份快照重定位
+const idx = _rd.idx;
 if (idx >= 0 && msgs[idx] && msgs[idx].side === 'in') {
 msgs.splice(idx, 1);
 saveMsgs();
@@ -59396,16 +59486,15 @@ const CALL_HOLD_KEY = 'xy-home-v2:call-hold';
 function heldMissedHtml(nm) {
 return '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' + nm + ' 来电 · 未接听';
 }
-function holdIncomingCall(name, cid, avOverride) {
-try {
-const prev = readCallHold();
+function holdIncomingCall(name, cid, avOverride, msgWritten) {
+let prev = null;
+try { prev = readCallHold(); } catch (e) {}
 if (prev && prev.cid && Date.now() - prev.ts > CALL_HOLD_MS) {
 notifyCallEnd(prev.cid, heldMissedHtml(prev.name || partnerName()), 'in', '未接听');
 }
-const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default') };
-localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h));
+const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten };
+try { localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h)); } catch (e) {}
 if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
-} catch (e) {}
 bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
 }
 window.callHoldIncoming = holdIncomingCall;
@@ -59419,19 +59508,31 @@ function clearCallHold() {
 try { localStorage.setItem(CALL_HOLD_KEY, '{"ts":0}'); } catch (e) {}
 if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, { ts: 0 }); } catch (e) {} }
 }
+let holdBusy = false;
 function resumeHeldCall() {
+if (holdBusy) return;
 const h = readCallHold();
-if (!h) return;
+if (h) { clearCallHold(); resumeProcessHold(h); return; }
+if (window.idbGet) {
+holdBusy = true;
+window.idbGet(CALL_HOLD_KEY).then(function (ih) {
+holdBusy = false;
+if (!ih || !ih.ts) return;
 clearCallHold();
+resumeProcessHold(ih);
+}).catch(function () { holdBusy = false; });
+}
+}
+function resumeProcessHold(h) {
 const cur = window.__activeCid || 'default';
 if (Date.now() - h.ts <= CALL_HOLD_MS && !currentCall) {
-if (h.cid === cur) { incomingCall(true); return; }
+if (h.cid === cur) { incomingCall(true, !!h.msg); return; }
 if (h.cid && window.setActiveContact) {
 let known = (h.cid === 'default');
 try { if (window.getContacts) known = window.getContacts().some(c => c && c.id === h.cid); } catch (e) {}
 if (known) {
 try { window.setActiveContact(h.cid); } catch (e) {}
-if ((window.__activeCid || 'default') === h.cid) { incomingCall(true); return; }
+if ((window.__activeCid || 'default') === h.cid) { incomingCall(true, !!h.msg); return; }
 }
 }
 }
@@ -59446,8 +59547,9 @@ document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'hidden' && currentCall && currentCall.status === 'ringing') {
 const cid = currentCall.cid || (window.__activeCid || 'default');
 const nm = currentCall.name || partnerName();
+const msgOk = !!(currentCall.sysMsg); // FIX 2026-09-13 #406：续传「打来了语音通话」已写标记
 endCall('', true);
-holdIncomingCall(nm, cid);
+holdIncomingCall(nm, cid, undefined, msgOk);
 } else if (document.visibilityState === 'visible') {
 resumeHeldCall();
 }
@@ -59458,7 +59560,7 @@ const iv = document.getElementById('img-view-mask');
 if (iv) iv.hidden = true;
 } catch (e) {}
 }
-function incomingCall(isReplay) {
+function incomingCall(isReplay, msgWritten) {
 if (currentCall) return;
 closeImageOverlay();
 if (window.playSfx) window.playSfx('ring');
@@ -59475,7 +59577,12 @@ if (statusEl) statusEl.textContent = '对方来电...';
 if (durEl) durEl.textContent = '00:00';
 if (mask) mask.hidden = false;
 setMaskBtns('ringing');
-if (!isReplay && window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 给你打来了语音通话');
+let wroteSysMsg = false;
+if ((!isReplay || !msgWritten) && window.chatAddSystem) {
+window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 给你打来了语音通话');
+wroteSysMsg = true;
+}
+if (currentCall) currentCall.sysMsg = !!msgWritten || wroteSysMsg;
 let count = 30;
 if (cdEl) { cdEl.hidden = false; cdEl.textContent = count + ' 秒后未接听'; }
 const t = setInterval(() => {
@@ -91081,4 +91188,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mtzi7iqe -->
+<!-- __MOCHI_EOF__ mtzjawsj -->

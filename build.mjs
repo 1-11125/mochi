@@ -1119,6 +1119,10 @@ const FIX_SENTINELS = [
   { name: '#401 发件侧纯文本去重窗收窄 800ms（删/回 2500ms＝重打同文本 0.8~2.5s 内再发被静默吞，机械双击兜底+守卫双层仍在）', file: 'js/chat.js', needle: "&& !m.img && !m.voice && !m.special) return 800;" },
   { name: '#401 群聊发送取值快照兜底（删则撕文本内核群聊点发送消息静默消失，#215 群聊侧同族）', file: 'js/group-chat.js', needle: "input._gcLastTyped = input.innerText || '';" },
   { name: '#401 群聊清空同步作废快照（删则程序化清空后误点发送幻影重发上一条）', file: 'js/group-chat.js', needle: "input._gcLastTyped = '';" },
+  // ==== 2026-09-13 #407 引用预览串条（华为 P50E Edge 报障「引用联系人的消息，输入栏预览显示的不是被引那条」，多机型同族）——菜单打开后 msgs 被权威读库合并/尾巴日志回放重排（中段插入/删除 ⇒ 后续下标整体位移）而 DOM 未重渲（#220 不贴底跳过重渲的防闪路径），点「引用」按陈旧 data-idx 解析＝msgs[idx] 指向另一条消息。修复=菜单打开时快照消息身份（对象引用+ts/side/text80 签名），动作执行时 resolveActiveMsg 四级重定位（①快路径 ②对象同一性 ③签名唯一命中 ④回退旧下标），引用/收藏/复制/编辑/撤回/删除全动作覆盖；群聊同族 gcResolveActiveMsg；chatTailMerge 回放条数并入 changed 走重渲；不贴底 changed 置 windowStale 作废同窗凭据 ====
+  { name: '#407 聊天菜单动作身份重定位（删则 msgs 重排+DOM 未重渲窗口期引用/收藏/编辑/撤回串条）', file: 'js/chat.js', needle: 'function resolveActiveMsg() {' },
+  { name: '#407 群聊菜单动作身份重定位（同族）', file: 'js/group-chat.js', needle: 'function gcResolveActiveMsg() {' },
+  { name: '#407 尾巴回放位移并入 changed（删则回放插入后不重渲＝屏上 data-idx 整体陈旧）', file: 'js/chat.js', needle: 'if (chatTailMerge() > 0) changed = true;' },
   // ==== 2026-09-13 #404 米15夸克 LS 配额满（同域 ml2_* 他方键占 20MB，写探针 QuotaExceededError）二级密码解锁刷新即回锁——解锁后盲等 900ms reload，夸克等内核杀进程会中止在途 IDB 事务＝权威值未提交；LS 配额满设备项目 LS 键恒空、IDB 是唯一凭证，一次提交失败必现。修复=解锁/重锁改「确认 IDB 落库再刷新」（cardLockConfirmPersisted 轮询 200ms×15 兜底），诊断体检补 cardlock-state 全局根键三层值 ====
   { name: '#404 解锁/重锁落库确认接口（删则刷新回锁家族失去提交确认，回退盲等 900ms 竞态）', file: 'js/card-lock.js', needle: 'window.cardLockConfirmPersisted = function (expect, cb) {' },
   { name: '#404 开屏解锁等 IDB 确认 open 再刷新（删则夸克内核 reload 中止在途事务＝解锁刷新即回锁）', file: 'js/clock.js', needle: "cardLockConfirmPersisted('open', goReloadAfterPersist)" },
@@ -1200,10 +1204,10 @@ const FIX_SENTINELS = [
   { name: '#403 TA 瓶三道来源全空回退内置兜底（删则 dcf 关断+无历史时出空白信纸）', file: 'js/drift-bottle.js', needle: "note = sampleHistLine() || poolLine('TA的话', 'ta') || rnd(FB.ta);" },
   { name: '#403 普通/特殊瓶文案永不落空（删则 dcf 关断时 normal/special 瓶空白）', file: 'js/drift-bottle.js', needle: "note = poolLine('海风', 'sea') || rnd(FB.sea);" },
   { name: '#400 收藏分类内容优先（改回信任存储 type 则误存语音的图片收藏又变语音条）', file: 'js/chat.js', needle: 'const isVoice = looksVoice;' },
-  // ==== 2026-09-13 #404 后台来电点开通知无弹窗也无未接消息（OPPO Reno14 Edge 实报，多机型同族；诊断「LS 写入失败 QuotaExceededError」实锤）——holdIncomingCall 的 LS setItem 与 idbSet 同处一个 try，LS 配额满一抛整块中止、IDB 也不写＝后台只有通知没有挂起；且 resumeHeldCall 只读 LS、后台触发的来电（跨桌面/后台定时命中）重响从不补首发「打来了语音通话」系统消息。修复=①挂起双写拆开各吃各的 try，LS 失败 IDB 仍落；②resumeHeldCall 先读 LS 读不到再回读 IDB（holdBusy 防双处理）；③挂起携带 msg 已写标记，后台来电重响补首发系统消息 ====
-  { name: '#404 挂起双写拆开（删则 LS 配额满一抛整块中止、IDB 也不写＝通知照发回前台什么也没有）', file: 'js/call.js', needle: 'window.idbSet(CALL_HOLD_KEY, h);' },
-  { name: '#404 回前台/冷启动挂起回读 IDB 兜底（删则 LS 配额满时挂起只落 IDB、回前台读不到＝无弹窗也无未接）', file: 'js/call.js', needle: 'window.idbGet(CALL_HOLD_KEY)' },
-  { name: '#404 后台来电重响补首发系统消息（删/改回 !isReplay 则后台触发来电聊天里永远没有来电系统消息）', file: 'js/call.js', needle: '(!isReplay || !msgWritten) && window.chatAddSystem' },
+  // ==== 2026-09-13 #406 后台来电点开通知无弹窗也无未接消息（OPPO Reno14 Edge 实报，多机型同族；诊断「LS 写入失败 QuotaExceededError」实锤）——holdIncomingCall 的 LS setItem 与 idbSet 同处一个 try，LS 配额满一抛整块中止、IDB 也不写＝后台只有通知没有挂起；且 resumeHeldCall 只读 LS、后台触发的来电（跨桌面/后台定时命中）重响从不补首发「打来了语音通话」系统消息。修复=①挂起双写拆开各吃各的 try，LS 失败 IDB 仍落；②resumeHeldCall 先读 LS 读不到再回读 IDB（holdBusy 防双处理）；③挂起携带 msg 已写标记，后台来电重响补首发系统消息 ====
+  { name: '#406 挂起双写拆开（删则 LS 配额满一抛整块中止、IDB 也不写＝通知照发回前台什么也没有）', file: 'js/call.js', needle: 'window.idbSet(CALL_HOLD_KEY, h);' },
+  { name: '#406 回前台/冷启动挂起回读 IDB 兜底（删则 LS 配额满时挂起只落 IDB、回前台读不到＝无弹窗也无未接）', file: 'js/call.js', needle: 'window.idbGet(CALL_HOLD_KEY)' },
+  { name: '#406 后台来电重响补首发系统消息（删/改回 !isReplay 则后台触发来电聊天里永远没有来电系统消息）', file: 'js/call.js', needle: '(!isReplay || !msgWritten) && window.chatAddSystem' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
