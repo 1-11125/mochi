@@ -988,7 +988,9 @@
 [data-theme="dark"] .cj-d-foot { color:#8a8a8a; }
 [data-theme="dark"] .cj-groups.stuck { background:#22222a; border-bottom-color:rgba(255,255,255,.08); box-shadow:0 4px 14px rgba(0,0,0,.4); }
 [data-theme="dark"] .cj-gchip { background:var(--dark-hover); border-color:var(--dark-border-12); color:#aaa; }
-[data-theme="dark"] .cj-gchip.on { color:#111; }
+/* v3.26.x #484：选中态原只改字色没改底色 → 深底(#3a3a3c)深字(#111)看不清；
+   补浅底（与全局「深色下选中=浅底深字」约定一致） */
+[data-theme="dark"] .cj-gchip.on { background:var(--ink,#f0f0f0); border-color:var(--ink,#f0f0f0); color:#111; }
 [data-theme="dark"] .cj-group-empty { color:#8a8a8a; }
 [data-theme="dark"] .cj-all-tip { color:#9a978f; }
 [data-theme="dark"] .cj-d-src { color:#9a978f; }
@@ -1012,3 +1014,40 @@
 [data-theme="dark"] .narc-btab.on{
   color: var(--card-bg, #1e1e1e);
 }
+
+/* ======================================================================
+   深色模式补漏（#484 全量深色审计，verify-dark-audit.mjs 135 步实测）：
+   以下为审计抓出的「深色下仍是白底/浅底导致内容看不见」的漏网组件。
+   ====================================================================== */
+
+/* ① 开关选中态滑块：深色下选中轨道=浅色(var(--ink))，但滑块仍是浅色的
+      #f0f0f0 → 浅轨道上白滑块，开关看不出开没开。选中态滑块改深色
+      （未选中态保持 #444 轨道 + #f0f0f0 滑块，见上方 v3.11 段）。
+      覆盖 setting.css .toggle 及各页 ccard-toggle/avlib-toggle/dc-toggle 同族 */
+[data-theme="dark"] .toggle input:checked + .tk::before { background:#111111; }
+
+/* ② 字卡库左侧菜单（.chat-item.glass 的 #li-* 14 项）：chat-pages.css 硬编码
+      rgba(255,255,255,.92) 白色图标块 + svg 描边 var(--ink)（深色下变浅）
+      → 白块浅图标看不见。容器 .glass 走变量已自动翻深，只补 .av 芯片 */
+[data-theme="dark"] .chat-item .av { background:#2a2a2a; border-color:var(--dark-border); }
+
+/* ③ 备忘录提醒快捷片：memo.css 白蒙底 rgba(255,255,255,.6) + var(--ink-soft) 灰字
+      → 深色下灰底灰字（--ink-soft 也被翻成 #aaa）。镜像链 +1 特异性压过 memo.css */
+[data-theme="dark"] .memo-rc { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.15); color:#bbbbbb; }
+
+/* ④ 拍一拍「存入」次级按钮：chat-main.css 白底 + var(--ink) 浅字 → 白底浅字 */
+[data-theme="dark"] .poke-input-save { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
+[data-theme="dark"] .poke-input-save:active { background:var(--dark-hover); }
+
+/* ⑤ 桌面签到小组件心形徽章：--widget-heart 深色下是浅色圆底 + 硬编码白心形 */
+[data-theme="dark"] .ck-heart { color:#111111; }
+
+/* ⑥ 心意市集（market.css 自带深色段但漏了这四处；浅色规则带 !important，
+      dark 侧必须同样 !important 才压得住；market.css 在本文件之前加载，同特异性靠后者胜） */
+/* 分类圆形入口：浅色 #f2f2f5 !important 白圆 + 选中 #1f1f1f 深圆（深色下与页面同色不可辨） */
+[data-theme="dark"] .market-cat-ico { background:#2e2e33 !important; }
+[data-theme="dark"] .market-cat.sel .market-cat-ico { background:#f0f0f0 !important; color:#111111; }
+/* 市集商品卡顶部：#page-market .gift-item-top 白底 !important → 每张卡一条白带 */
+[data-theme="dark"] #page-market .gift-item-top { background:transparent !important; }
+/* 心意柜 hero：深色底已覆盖但 color:#111 只在浅色规则里 → 图标/文字继承深色看不见 */
+[data-theme="dark"] .giftbox-hero { color:#f2f2f2; }

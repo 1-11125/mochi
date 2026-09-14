@@ -1,1457 +1,4606 @@
 [
  {
-  "step": "01-app-chat",
-  "visible": "",
-  "issues": []
+  "step": "app:chat",
+  "visible": "page-chat",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#chat-send",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#chat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "02-app-home",
+  "step": "app:home",
   "visible": "page-home",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-home>div.fav-tabs>button.fav-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-home>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "03-app-mail",
+  "step": "app:mail",
   "visible": "page-mail",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "04-app-feed",
+  "step": "app:feed",
   "visible": "page-feed",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "05-app-calendar",
+  "step": "app:calendar",
   "visible": "page-calendar",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#cal-grid>span.cal-cell.today.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cal-grid>span.cal-cell.today.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#cal-mood-ico",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cal-mood-ico",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
    }
   ]
  },
  {
-  "step": "06-app-memory",
+  "step": "app:memory",
   "visible": "page-memory",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#rel-type-row>button.mem-type-pill.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#rel-type-row>button.mem-type-pill.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "07-app-divination",
+  "step": "app:divination",
   "visible": "page-divine",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#div-modes>button.div-mode.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-modes>button.div-mode.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#div-counts>button.div-mode.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-counts>button.div-mode.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#div-draw",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-draw",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "08-app-note",
-  "visible": "",
-  "issues": []
+  "step": "app:note",
+  "visible": "page-fav",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fav-tab-mine",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fav-tab-mine",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fav-kind-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fav-kind-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "09-app-music",
+  "step": "app:music",
   "visible": "page-music",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
+     "fg": "rgb(170,170,170)",
+     "ratio": 2.04
+    }
    },
    {
     "type": "light-bg",
     "sel": "#page-music>div.fav-tabs>button.fav-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-music>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#music-lib-filter>button.mlf-chip.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#music-lib-filter>button.mlf-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "10-app-stats",
+  "step": "app:stats",
   "visible": "page-stats",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-stats>div.fav-tabs>button.fav-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-stats>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "11-app-interact",
+  "step": "app:interact",
   "visible": "page-interact",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-interact>div.fav-tabs>button.fav-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-interact>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "12-app-checkin",
+  "step": "app:checkin",
   "visible": "page-checkin",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "13-app-period",
+  "step": "app:garden",
+  "visible": "page-garden",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "app:cjian",
+  "visible": "page-cjian",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#cj-groups>button.cj-gchip.on",
+    "level": "high",
+    "detail": "fg=rgb(17, 17, 17) bg=rgb(27,27,27) ratio=1.09",
+    "verdict": "FAIL"
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cj-list>div.cj-card>div.cj-card-tags>span.cj-tag.cj-tag-p",
+    "level": "high",
+    "detail": "rgb(255, 247, 237)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-list>div.cj-card>div.cj-card-tags>span.cj-tag.cj-tag-p",
+     "fg": "rgb(183,121,31)",
+     "ratio": 3.43
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cj-list>div.cj-card>button.cj-go",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-list>div.cj-card>button.cj-go",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cj-perceive",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-perceive",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
+ },
+ {
+  "step": "app:tongpin",
+  "visible": "page-tongpin",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "app:shenshou",
+  "visible": "page-shenshou",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "app:period",
   "visible": "page-period",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "14-app-accounting",
+  "step": "app:accounting",
   "visible": "page-accounting",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#acc-view-tabs>button.acc-view-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-view-tabs>button.acc-view-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#acc-type-tabs>button.acc-type-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-type-tabs>button.acc-type-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#acc-cat-grid>button.acc-cat.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-cat-grid>button.acc-cat.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#acc-save",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-save",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#acc-filter-tabs>button.acc-filter-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-filter-tabs>button.acc-filter-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "15-app-garden",
-  "visible": "page-garden",
-  "issues": []
+  "step": "app:memo-arc",
+  "visible": "page-memo-arc",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#narc-root>div.narc-chips>button.narc-chip.on",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#narc-root>div.narc-chips>button.narc-chip.on",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "button.narc-mrow>span.nm-main>span.nm-title>i.nm-core",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "button.narc-mrow>span.nm-main>span.nm-title>i.nm-core",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
  },
  {
-  "step": "16-app-tongpin",
-  "visible": "page-tongpin",
-  "issues": []
+  "step": "app:my-arc",
+  "visible": "page-my-arc",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#myarc-root>div.narc-chips>button.narc-chip.on",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#myarc-root>div.narc-chips>button.narc-chip.on",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
  },
  {
-  "step": "17-app-shenshou",
-  "visible": "page-shenshou",
-  "issues": []
+  "step": "app:room",
+  "visible": "page-room",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "18-app-water",
+  "step": "app:water",
   "visible": "page-water",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "19-app-eat",
+  "step": "app:eat",
   "visible": "page-eat",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#eat-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#eat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "20-app-pomo",
-  "visible": "page-pomodoro",
-  "issues": []
- },
- {
-  "step": "21-app-piggy",
+  "step": "app:piggy",
   "visible": "page-piggy",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "22-app-memo",
+  "step": "app:pomo",
+  "visible": "page-pomodoro",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "app:memo",
   "visible": "page-memo",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#memo-add-btn",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#memo-add-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#memo-remind-chips>span.memo-rc",
+    "level": "high",
+    "detail": "fg=rgb(170, 170, 170) bg=rgb(158,158,158) ratio=1.16",
+    "verdict": "FAIL"
    }
   ]
  },
  {
-  "step": "23-app-market",
+  "step": "app:market",
   "visible": "page-market",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
     "level": "high",
-    "detail": "rgb(252, 228, 236)"
+    "detail": "rgb(242, 242, 245)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+     "fg": "rgb(255,255,255)",
+     "ratio": 16.48
+    }
    },
    {
     "type": "low-contrast",
     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
     "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(252,228,236) ratio=1.2"
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(242,242,245) ratio=1.12",
+    "verdict": "FAIL"
    },
    {
-    "type": "grayish-bg",
-    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
-    "level": "mid",
-    "detail": "rgb(255, 249, 196)"
+    "type": "light-bg",
+    "sel": "#market-grid>button.gift-item>div.gift-item-top",
+    "level": "high",
+    "detail": "rgb(255, 255, 255)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#market-grid>button.gift-item>div.gift-item-top",
+     "fg": "rgb(255,255,255)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#market-grid>button.gift-item>div.gift-item-top>div.gift-item-emoji",
+    "level": "high",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(255,255,255) ratio=1",
+    "verdict": "FAIL"
    }
   ]
  },
  {
-  "step": "24-app-giftbox",
+  "step": "app:giftbox",
   "visible": "page-giftbox",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "div.giftbox-hero>div.giftbox-stat-cards>div.giftbox-stat-card>div.giftbox-stat-ico",
+    "level": "high",
+    "detail": "fg=rgb(17, 17, 17) bg=rgb(42,42,44) ratio=1.32",
+    "verdict": "FAIL"
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-giftbox>div.giftbox-tabs>button.gb-tab.sel",
+    "level": "high",
+    "detail": "rgb(245, 245, 245)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-giftbox>div.giftbox-tabs>button.gb-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 17.32
+    }
+   }
+  ]
  },
  {
-  "step": "25-app-group-chat",
+  "step": "app:group-chat",
   "visible": "page-group-chat",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#gc-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#gc-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "26-setting",
-  "visible": "page-setting",
-  "issues": []
- },
- {
-  "step": "27-about",
-  "visible": "page-about",
-  "issues": []
- },
- {
-  "step": "28-license",
-  "visible": "page-license",
-  "issues": []
- },
- {
-  "step": "29-reply-settings",
-  "visible": "page-reply-settings",
+  "step": "page:page-phone",
+  "visible": "page-phone",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#page-reply-settings>div.fav-tabs>button.fav-tab.sel",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
+     "fg": "rgb(255,255,255)",
+     "ratio": 1.14
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
+    "level": "high",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(240,240,240) ratio=1.14",
+    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
-    "sel": "#reply-save-btn",
+    "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-btn",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#week-days>div.week-day.today",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#week-days>div.week-day.today",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#weekend-fish",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#weekend-fish",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "30-call-settings",
-  "visible": "page-call-settings",
-  "issues": []
- },
- {
-  "step": "31-sfx-settings",
-  "visible": "page-sfx-settings",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#sfx-ring-presets>button.sfx-preset.on",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#sfx-in-presets>button.sfx-preset.on",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#sfx-out-presets>button.sfx-preset.on",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "32-chatcard",
+  "step": "page:page-chatcard",
   "visible": "page-chatcard",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#page-chatcard>div.card-tabs.cc-top-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-chatcard>div.card-tabs.cc-top-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-custom-cards-public>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-custom-cards-public>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-custom-cards>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-custom-cards>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#li-fun-cards-public>div.av",
+    "level": "high",
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-fun-cards-public>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#li-fun-cards-mine>div.av",
+    "level": "high",
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-fun-cards-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-checkin-cards-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-checkin-cards-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-quote-cards-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-quote-cards-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-ta-ask-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-ask-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-ta-choose-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-choose-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-ta-curious-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-curious-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-ta-roast-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-roast-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    },
    {
     "type": "light-bg",
     "sel": "#li-ta-checkin-mine>div.av",
     "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)"
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-checkin-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#li-ta-invite-mine>div.av",
+    "level": "high",
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-ta-invite-mine>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#li-cc-full-export>div.av",
+    "level": "high",
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-cc-full-export>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#li-cc-full-import>div.av",
+    "level": "high",
+    "detail": "rgba(255, 255, 255, 0.92)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#li-cc-full-import>div.av",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.03
+    }
    }
   ]
  },
  {
-  "step": "33-custom-cards",
-  "visible": "page-custom-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#cc-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cc-groups-bar>span.cc-g-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "34-default-cards",
-  "visible": "page-default-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-default-cards>div.dc-toggle.glass>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#dc-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "35-mood-cards",
-  "visible": "page-mood-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-mood-cards>div.dc-toggle.glass>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#mc-groups-bar>span.cc-g-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#mc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "36-reply-cards",
-  "visible": "page-reply-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-reply-cards>div.dc-toggle.glass>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#rc-groups-bar>span.cc-g-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#rc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "37-quote-cards",
-  "visible": "page-quote-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#cq-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cq-sys-panel>div.gs-row>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cq-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "38-checkin-cards",
-  "visible": "page-checkin-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#page-checkin-cards>div.gs-scroll>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#ck-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cck-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "39-ta-ask",
+  "step": "page:page-ta-ask",
   "visible": "page-ta-ask",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#ta-ask-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ta-ask-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#ta-ask-survey-open",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ta-ask-survey-open",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#ta-ask-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ta-ask-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "40-ta-choose",
+  "step": "page:page-ta-ask-survey",
+  "visible": "page-ta-ask-survey",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#ta-survey-send",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ta-survey-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#ta-survey-reset",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ta-survey-reset",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-ta-choose",
   "visible": "page-ta-choose",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#tc-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tc-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#tc-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tc-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "41-ta-curious",
+  "step": "page:page-ta-curious",
   "visible": "page-ta-curious",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#tcu-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tcu-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#tcu-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tcu-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "42-ta-roast",
+  "step": "page:page-ta-roast",
   "visible": "page-ta-roast",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#tr-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tr-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#tr-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tr-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "43-ta-checkin",
+  "step": "page:page-ta-checkin",
   "visible": "page-ta-checkin",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#ckq-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ckq-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#ckq-tabs>button.cc-tab.sel",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ckq-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "44-fav",
-  "visible": "page-fav",
+  "step": "page:page-ta-invite",
+  "visible": "page-ta-invite",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#fav-tab-mine",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "45-fav-settings",
-  "visible": "page-fav-settings",
-  "issues": []
- },
- {
-  "step": "46-memory",
-  "visible": "page-memory",
-  "issues": []
- },
- {
-  "step": "47-stats",
-  "visible": "page-stats",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-stats>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "48-interact",
-  "visible": "page-interact",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-interact>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "49-accounting",
-  "visible": "page-accounting",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#acc-view-tabs>button.acc-view-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#acc-type-tabs>button.acc-type-tab.sel",
+    "sel": "#ti-now",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#acc-cat-grid>button.acc-cat.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#acc-save",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#acc-filter-tabs>button.acc-filter-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "50-garden",
-  "visible": "page-garden",
-  "issues": []
- },
- {
-  "step": "51-divine",
-  "visible": "page-divine",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#div-modes>button.div-mode.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#div-counts>button.div-mode.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#div-draw",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "52-music",
-  "visible": "page-music",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#page-music>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#music-lib-filter>button.mlf-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "53-calendar",
-  "visible": "page-calendar",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#cal-grid>span.cal-cell.today.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cal-mood-ico",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "54-period",
-  "visible": "page-period",
-  "issues": []
- },
- {
-  "step": "55-home",
-  "visible": "page-home",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-home>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "56-mail",
-  "visible": "page-mail",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "div.mail-item>div.mail-item-body>div.mail-item-title>span.mail-tag.new",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "57-mail-write",
-  "visible": "page-mail-write",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#mail-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "58-mail-reply",
-  "visible": "page-mail-reply",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#mail-reply-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "59-feed",
-  "visible": "page-feed",
-  "issues": []
- },
- {
-  "step": "60-feed-all",
-  "visible": "page-feed-all",
-  "issues": []
- },
- {
-  "step": "61-feed-friends",
-  "visible": "page-feed-friends",
-  "issues": []
- },
- {
-  "step": "62-checkin",
-  "visible": "page-checkin",
-  "issues": []
- },
- {
-  "step": "63-chat-settings",
-  "visible": "page-chat-settings",
-  "issues": []
- },
- {
-  "step": "64-group-chat",
-  "visible": "page-group-chat",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#gc-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "65-chat",
-  "visible": "page-chat",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "66-nav-theme",
-  "visible": "page-theme",
-  "issues": []
- },
- {
-  "step": "67-nav-reply-settings",
-  "visible": "page-reply-settings",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#page-reply-settings>div.fav-tabs>button.fav-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ti-now",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#ti-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ti-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-checkin-cards",
+  "visible": "page-checkin-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-checkin-cards>div.gs-scroll>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-checkin-cards>div.gs-scroll>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#ck-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#ck-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cck-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#cck-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-quote-cards",
+  "visible": "page-quote-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cq-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cq-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cq-sys-panel>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#cq-sys-panel>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cq-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#cq-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-loc-cards",
+  "visible": "page-loc-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-loc-cards>div.gs-scroll>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-loc-cards>div.gs-scroll>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#loc-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#loc-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cloc-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#cloc-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-custom-cards",
+  "visible": "page-custom-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cc-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cc-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cc-groups-bar>span.cc-g-chip.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cc-groups-bar>span.cc-g-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-setting",
+  "visible": "page-setting",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#sf-desk-checkin-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#sf-desk-checkin-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-storage",
+  "visible": "page-storage",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-goto-music",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-goto-music",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-slim-other",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-slim-other",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-clear-err",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-clear-err",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-media-gc",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-media-gc",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-media-cov-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-media-cov-btn",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-media-rebuild-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-media-rebuild-btn",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-persist-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-persist-btn",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#st-cc-scan",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#st-cc-scan",
+     "fg": "rgb(14,14,14)",
+     "ratio": 16.94
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-theme",
+  "visible": "page-theme",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.desk-cp-phone>div.desk-cp-apps>div.desk-cp-app>div.desk-cp-ico",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.desk-cp-phone>div.desk-cp-apps>div.desk-cp-app>div.desk-cp-ico",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#desk-color-preview>div.desk-cp-phone>div.desk-cp-card>button.desk-cp-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#desk-color-preview>div.desk-cp-phone>div.desk-cp-card>button.desk-cp-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#desk-color-preview>div.desk-cp-phone>button.desk-cp-theme",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#desk-color-preview>div.desk-cp-phone>button.desk-cp-theme",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-about",
+  "visible": "page-about",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.cal-card.glass>div.lic-hero>div.lic-hero-top>span.lic-badge",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "div.cal-card.glass>div.lic-hero>div.lic-hero-top>span.lic-badge",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-featurehub",
+  "visible": "page-featurehub",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-reply-settings",
+  "visible": "page-reply-settings",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-reply-settings>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-reply-settings>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#reply-save-btn",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#reply-save-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#reply-save-all-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#reply-save-all-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "68-nav-call-settings",
+  "step": "page:page-call-settings",
   "visible": "page-call-settings",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
  },
  {
-  "step": "69-nav-sfx-settings",
+  "step": "page:page-sfx-settings",
   "visible": "page-sfx-settings",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#sfx-ring-presets>button.sfx-preset.on",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#sfx-ring-presets>button.sfx-preset.on",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#sfx-in-presets>button.sfx-preset.on",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#sfx-in-presets>button.sfx-preset.on",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#sfx-out-presets>button.sfx-preset.on",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#sfx-out-presets>button.sfx-preset.on",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "70-nav-about",
-  "visible": "page-about",
-  "issues": []
- },
- {
-  "step": "71-nav-license",
-  "visible": "page-license",
-  "issues": []
- },
- {
-  "step": "72-nav-contacts-manage",
-  "visible": "page-setting",
+  "step": "page:page-default-cards",
+  "visible": "page-default-cards",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#contact-manager>div>button",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-default-cards>div.dc-toggle.glass>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-default-cards>div.dc-toggle.glass>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#dc-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#dc-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "73-base-chat",
+  "step": "page:page-dict-cards",
+  "visible": "page-dict-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-fun-cards",
+  "visible": "page-fun-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fc-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fc-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-deskcheck",
+  "visible": "page-deskcheck",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#dk-tabs>button.cc-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#dk-tabs>button.cc-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-mood-cards",
+  "visible": "page-mood-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-mood-cards>div.dc-toggle.glass>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-mood-cards>div.dc-toggle.glass>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#mc-groups-bar>span.cc-g-chip.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#mc-groups-bar>span.cc-g-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#mc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#mc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-ta-mood",
+  "visible": "page-ta-mood",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-ta-mood>div.dc-toggle.glass>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-ta-mood>div.dc-toggle.glass>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#tm-groups-bar>span.cc-g-chip.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#tm-groups-bar>span.cc-g-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#tm-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#tm-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-reply-cards",
+  "visible": "page-reply-cards",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-reply-cards>div.dc-toggle.glass>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-reply-cards>div.dc-toggle.glass>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#rc-groups-bar>span.cc-g-chip.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#rc-groups-bar>span.cc-g-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#rc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#rc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-calendar",
+  "visible": "page-calendar",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cal-grid>span.cal-cell.today.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cal-grid>span.cal-cell.today.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#cal-mood-ico",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cal-mood-ico",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-period",
+  "visible": "page-period",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-accounting",
+  "visible": "page-accounting",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#acc-view-tabs>button.acc-view-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-view-tabs>button.acc-view-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#acc-type-tabs>button.acc-type-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-type-tabs>button.acc-type-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#acc-cat-grid>button.acc-cat.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-cat-grid>button.acc-cat.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#acc-save",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-save",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#acc-filter-tabs>button.acc-filter-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#acc-filter-tabs>button.acc-filter-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-garden",
+  "visible": "page-garden",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-divine",
+  "visible": "page-divine",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#div-modes>button.div-mode.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-modes>button.div-mode.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#div-counts>button.div-mode.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-counts>button.div-mode.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#div-draw",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#div-draw",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-music",
+  "visible": "page-music",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
+     "fg": "rgb(170,170,170)",
+     "ratio": 2.04
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-music>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-music>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#music-lib-filter>button.mlf-chip.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#music-lib-filter>button.mlf-chip.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-stats",
+  "visible": "page-stats",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-stats>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-stats>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-interact",
+  "visible": "page-interact",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-interact>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-interact>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-home",
+  "visible": "page-home",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-home>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-home>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-arcade",
+  "visible": "page-arcade",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-mail",
+  "visible": "page-mail",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "div.mail-item>div.mail-item-body>div.mail-item-title>span.mail-tag.new",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "div.mail-item>div.mail-item-body>div.mail-item-title>span.mail-tag.new",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-mail-write",
+  "visible": "page-mail-write",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#mail-send",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#mail-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-mail-reply",
+  "visible": "page-mail-reply",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#mail-reply-send",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#mail-reply-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-feed",
+  "visible": "page-feed",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-feed-all",
+  "visible": "page-feed-all",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-feed-friends",
+  "visible": "page-feed-friends",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-checkin",
+  "visible": "page-checkin",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-memory",
+  "visible": "page-memory",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#rel-type-row>button.mem-type-pill.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#rel-type-row>button.mem-type-pill.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-fav",
+  "visible": "page-fav",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fav-tab-mine",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fav-tab-mine",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fav-kind-tabs>button.fav-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fav-kind-tabs>button.fav-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-fav-settings",
+  "visible": "page-fav-settings",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-chat",
   "visible": "page-chat",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "74-float-emoji-panel",
-  "visible": "page-chat +#emoji-panel",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#emoji-panel>div.emoji-head>div.emoji-tabs>button.emoji-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#chat-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#chat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "75-float-chat-more-panel",
-  "visible": "page-chat +#chat-more-panel",
+  "step": "page:page-cjian",
+  "visible": "page-cjian",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#cj-groups>button.cj-gchip.on",
+    "level": "high",
+    "detail": "fg=rgb(17, 17, 17) bg=rgb(27,27,27) ratio=1.09",
+    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
-    "sel": "#more-tab-fun",
+    "sel": "#cj-list>div.cj-card>div.cj-card-tags>span.cj-tag.cj-tag-p",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "76-float-chat-search",
-  "visible": "page-chat +#chat-search",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(255, 247, 237)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-list>div.cj-card>div.cj-card-tags>span.cj-tag.cj-tag-p",
+     "fg": "rgb(183,121,31)",
+     "ratio": 3.43
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#chat-search-go",
+    "sel": "#cj-list>div.cj-card>button.cj-go",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "77-float-msg-actions",
-  "visible": "page-chat +#msg-actions",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "78-panel-chat-gift-panel",
-  "visible": "page-chat +#chat-gift-panel",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "79-panel-chat-call-panel",
-  "visible": "page-chat +#chat-call-panel",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-list>div.cj-card>button.cj-go",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#call-panel-dial",
+    "sel": "#cj-perceive",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-perceive",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
    }
   ]
  },
  {
-  "step": "80-panel-chat-decision-panel",
-  "visible": "page-chat +#chat-decision-panel",
+  "step": "page:page-room",
+  "visible": "page-room",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "81-panel-chat-divine-panel",
-  "visible": "page-chat +#chat-divine-panel",
+  "step": "page:page-drift",
+  "visible": "page-drift",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-memo-arc",
+  "visible": "page-memo-arc",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#chat-divine-body>div.div-modes-wrap>span.div-mode.sel",
+    "sel": "#narc-root>div.narc-chips>button.narc-chip.on",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#narc-root>div.narc-chips>button.narc-chip.on",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#chat-divine-body>div.div-counts-wrap>span.div-mode.sel",
+    "sel": "button.narc-mrow>span.nm-main>span.nm-title>i.nm-core",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "button.narc-mrow>span.nm-main>span.nm-title>i.nm-core",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-mood",
+  "visible": "page-mood",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#mood-prev-m",
+    "level": "mid",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(164,164,164) ratio=2.48",
+    "verdict": "info"
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#mood-next-m",
+    "level": "mid",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(164,164,164) ratio=2.48",
+    "verdict": "info"
+   }
+  ]
+ },
+ {
+  "step": "page:page-my-arc",
+  "visible": "page-my-arc",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#div-chat-draw",
+    "sel": "#myarc-root>div.narc-chips>button.narc-chip.on",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#myarc-root>div.narc-chips>button.narc-chip.on",
+     "fg": "rgb(30,30,30)",
+     "ratio": 14.63
+    }
    }
   ]
  },
  {
-  "step": "82-panel-chat-rps-panel",
-  "visible": "page-chat +#chat-rps-panel",
+  "step": "page:page-group-chat",
+  "visible": "page-group-chat",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "83-panel-chat-snake-panel",
-  "visible": "page-chat +#chat-snake-panel",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#snake-canvas",
+    "sel": "#gc-send",
     "level": "high",
-    "detail": "rgb(246, 246, 248)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#gc-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-chat-settings",
+  "visible": "page-chat-settings",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-tongpin",
+  "visible": "page-tongpin",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-shenshou",
+  "visible": "page-shenshou",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-water",
+  "visible": "page-water",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "page:page-eat",
+  "visible": "page-eat",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
-    "sel": "#snake-start",
+    "sel": "#eat-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#eat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "84-panel-chat-pong-panel",
-  "visible": "page-chat +#chat-pong-panel",
+  "step": "page:page-pomodoro",
+  "visible": "page-pomodoro",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "85-panel-ck-panel",
-  "visible": "page-chat +#ck-panel",
+  "step": "page:page-piggy",
+  "visible": "page-piggy",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "86-panel-loc-panel",
-  "visible": "page-chat +#loc-panel",
+  "step": "page:page-pmp-chat",
+  "visible": "page-pmp-chat",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "87-panel-qa-mask",
-  "visible": "page-chat +#qa-mask",
+  "step": "page:page-memo",
+  "visible": "page-memo",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#memo-add-btn",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#memo-add-btn",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#memo-remind-chips>span.memo-rc",
+    "level": "high",
+    "detail": "fg=rgb(170, 170, 170) bg=rgb(158,158,158) ratio=1.16",
+    "verdict": "FAIL"
    }
   ]
  },
  {
-  "step": "88-panel-tc-mask",
-  "visible": "page-chat +#tc-mask",
+  "step": "page:page-market",
+  "visible": "page-market",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+    "level": "high",
+    "detail": "rgb(242, 242, 245)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+     "fg": "rgb(255,255,255)",
+     "ratio": 16.48
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+    "level": "high",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(242,242,245) ratio=1.12",
+    "verdict": "FAIL"
+   },
+   {
+    "type": "light-bg",
+    "sel": "#market-grid>button.gift-item>div.gift-item-top",
+    "level": "high",
+    "detail": "rgb(255, 255, 255)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#market-grid>button.gift-item>div.gift-item-top",
+     "fg": "rgb(255,255,255)",
+     "ratio": 1
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#market-grid>button.gift-item>div.gift-item-top>div.gift-item-emoji",
+    "level": "high",
+    "detail": "fg=rgb(255, 255, 255) bg=rgb(255,255,255) ratio=1",
+    "verdict": "FAIL"
    }
   ]
  },
  {
-  "step": "89-panel-poke-card",
+  "step": "page:page-giftbox",
+  "visible": "page-giftbox",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "div.giftbox-hero>div.giftbox-stat-cards>div.giftbox-stat-card>div.giftbox-stat-ico",
+    "level": "high",
+    "detail": "fg=rgb(17, 17, 17) bg=rgb(42,42,44) ratio=1.32",
+    "verdict": "FAIL"
+   },
+   {
+    "type": "light-bg",
+    "sel": "#page-giftbox>div.giftbox-tabs>button.gb-tab.sel",
+    "level": "high",
+    "detail": "rgb(245, 245, 245)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#page-giftbox>div.giftbox-tabs>button.gb-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 17.32
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#poke-card",
   "visible": "page-chat +#poke-card",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "90-panel-avlib-card",
-  "visible": "page-chat +#avlib-card",
-  "issues": [
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
    {
     "type": "light-bg",
     "sel": "#chat-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#chat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
+    "level": "high",
+    "detail": "rgb(255, 255, 255)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1.14
+    }
+   },
+   {
+    "type": "low-contrast",
+    "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
+    "level": "high",
+    "detail": "fg=rgb(240, 240, 240) bg=rgb(255,255,255) ratio=1.14",
+    "verdict": "FAIL"
+   },
+   {
+    "type": "light-bg",
+    "sel": "#poke-card>div.poke-input-row>button.poke-input-go",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#poke-card>div.poke-input-row>button.poke-input-go",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#emoji-panel",
+  "visible": " +#emoji-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#emoji-panel>div.emoji-head>div.emoji-tabs>button.emoji-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#emoji-panel>div.emoji-head>div.emoji-tabs>button.emoji-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-more-panel",
+  "visible": " +#chat-more-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#more-tabs>button.more-tab.sel",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#more-tabs>button.more-tab.sel",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-search",
+  "visible": " +#chat-search",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-ask-panel",
+  "visible": " +#chat-ask-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-decision-panel",
+  "visible": " +#chat-decision-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-divine-panel",
+  "visible": " +#chat-divine-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-rps-panel",
+  "visible": " +#chat-rps-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-snake-panel",
+  "visible": " +#chat-snake-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-pong-panel",
+  "visible": " +#chat-pong-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-gift-panel",
+  "visible": " +#chat-gift-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-call-panel",
+  "visible": " +#chat-call-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-linkup-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-match3-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-gomoku-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-c4-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-ms-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-auction-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-memory-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-fish-panel",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#avlib-card",
+  "visible": " +#avlib-card",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#avlib-tab-a",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#avlib-tab-a",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#avlib-pane-a>div.avlib-toggle>label.toggle>span.tk",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "FAIL",
+    "triage": {
+     "sel": "#avlib-pane-a>div.avlib-toggle>label.toggle>span.tk",
+     "fg": "rgb(240,240,240)",
+     "ratio": 1
+    }
    },
    {
     "type": "light-bg",
     "sel": "#avlib-upload",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#avlib-upload",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "91-modal-sample",
-  "visible": " +#modal-mask",
+  "step": "panel:#ck-panel",
+  "visible": " +#ck-panel",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#modal-ok",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "92-feed-comment",
-  "visible": "page-feed +#feed-comment-panel",
-  "issues": []
- },
- {
-  "step": "93-gc-settings",
-  "visible": "page-group-chat",
+  "step": "panel:#loc-panel",
+  "visible": " +#loc-panel",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#gc-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#fw-perceive",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#fw-perceive",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "94-contact-manager",
+  "step": "panel:#qa-mask",
+  "visible": " +#qa-mask",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#tc-mask",
+  "visible": " +#tc-mask",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#chat-rp-panel",
   "visible": "",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#contact-manager>div>button",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "95-chat-rp-panel",
-  "visible": "page-chat",
+  "step": "panel:#batch-panel",
+  "visible": "",
   "issues": [
    {
     "type": "light-bg",
-    "sel": "#chat-send",
+    "sel": "#splash-enter",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
-   {
-    "type": "light-bg",
-    "sel": "#chat-rp-panel>div.poke-card-scroll>div.rp-side-row>button.rp-side.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#rp-qixi-tag",
-    "level": "mid",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(170,170,170) ratio=2.32"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#rp-send-btn",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "96-batch-panel",
-  "visible": "page-chat",
-  "issues": [
    {
     "type": "light-bg",
     "sel": "#batch-text-add",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#batch-text-add",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
     "sel": "#batch-send-all",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#chat-send",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#batch-send-all",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "97-img-view-mask",
+  "step": "panel:#msg-actions",
+  "visible": " +#msg-actions",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#modal-mask",
+  "visible": " +#modal-mask",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
+    "sel": "#modal-ok",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#modal-ok",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#cc-export-mask",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#cc-scope-mask",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#call-mask",
+  "visible": " +#call-mask",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#feed-notice-panel",
+  "visible": " +#feed-notice-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#feed-comment-panel",
+  "visible": " +#feed-comment-panel",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "panel:#desk-image-viewer",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "moretab:互动",
   "visible": "page-chat",
   "issues": [
    {
     "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   },
+   {
+    "type": "light-bg",
     "sel": "#chat-send",
     "level": "high",
-    "detail": "rgb(240, 240, 240)"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#chat-send",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    }
   ]
  },
  {
-  "step": "98-cc-mg-mask",
-  "visible": "page-custom-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#cc-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cc-groups-bar>span.cc-g-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "99-cc-export-mask",
-  "visible": "page-custom-cards",
-  "issues": [
-   {
-    "type": "light-bg",
-    "sel": "#cc-tabs>button.cc-tab.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#cc-groups-bar>span.cc-g-chip.sel",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)"
-   }
-  ]
- },
- {
-  "step": "100-desk-lib",
+  "step": "moretab:工具",
   "visible": "",
-  "issues": []
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  },
  {
-  "step": "101-period-daypop",
-  "visible": "page-period",
-  "issues": []
+  "step": "moretab:小游戏",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
+ },
+ {
+  "step": "moretab:TA的提问",
+  "visible": "",
+  "issues": [
+   {
+    "type": "light-bg",
+    "sel": "#splash-enter",
+    "level": "high",
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#splash-enter",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
+   }
+  ]
  }
 ]

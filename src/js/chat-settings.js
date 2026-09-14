@@ -1381,6 +1381,24 @@
     show(tabs[0] ? tabs[0].dataset.tab : 'beautify');
   })();
 
+  // v3.29.x：功能页二级 tag 分类——点击 tag 只显示对应分组（gs-title/set-group 成对 data-tag），
+  // 「全部」恢复全显。默认全显，既有 verify 运行时锚（按 id/文本定位）不受影响。
+  (function initCsFuncTags() {
+    const tagsEl = document.getElementById('cs-func-tags');
+    const page = document.getElementById('page-chat-settings');
+    if (!tagsEl || !page) return;
+    const sec = page.querySelector('.them-sec[data-sec="function"]');
+    if (!sec) return;
+    const pairs = Array.from(sec.querySelectorAll('.gs-title[data-tag], .set-group[data-tag]'));
+    tagsEl.addEventListener('click', (e) => {
+      const t = e.target.closest('.them-tab');
+      if (!t) return;
+      tagsEl.querySelectorAll('.them-tab').forEach(x => x.classList.toggle('active', x === t));
+      const ft = t.dataset.ft || 'all';
+      pairs.forEach(el => { el.hidden = (ft !== 'all' && el.dataset.tag !== ft); });
+    });
+  })();
+
   // ================= 导出 / 导入聊天记录（数据，与清空同组） =================
   // 导出：打包为独立 JSON 下载（聊天记录可能含图片 dataURL，体积大也直接下载，不走 localStorage）
   const csExport = row('cs-export-msgs');

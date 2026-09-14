@@ -17,6 +17,10 @@
 [data-theme="dark"] .them-tabs { border-bottom-color:rgba(255,255,255,.12); }
 [data-theme="dark"] .them-tab { color:rgba(255,255,255,.38); }
 [data-theme="dark"] .them-tab.active { color:#fff; border-bottom-color:#fff; }
+/* v3.29.x：二级 tag 分类行（聊天设置「功能」页 #cs-func-tags / 群聊设置面板 .gc-set-tabs）：
+   非 sticky（不与主 tab 行/面板头重叠、避免吸顶叠罗汉），字号略小作层级区分 */
+.them-tabs.sub, .gc-set-tabs { position:static; padding:6px 4px 0; }
+.them-tabs.sub .them-tab, .gc-set-tabs .them-tab { font-size:12px; padding:8px 0 7px; }
 /* .them-sec 默认 display:block（不写），切换靠 hidden 属性原生 display:none */
 /* 页面是 flex 纵向滚动容器：设置块禁止被 flex 压缩，内容超高时应滚动而非裁切/重叠 */
 .set-group, .gs-title, .set-title { flex-shrink:0; }

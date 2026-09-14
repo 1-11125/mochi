@@ -3742,6 +3742,74 @@ window.chatAppendDeskRec = function (cid, rec) {
   };
   attempt();
 };
+// v3.26.x #482：问问TA/邀请TA 发出后，TA 的回应落地时用户已切到别的桌面——旧实现
+// sameCid() 直接 return＝回应被永久取消，切回后卡片永远停在「等待 TA 回答/回应…」
+//（用户报障：文字题联系人已回答，切桌面再切回变未回复）。现按 ts 定位原桌面的
+// pending 卡片落回答状态并补回应气泡（读改写骨架同 chatAppendDeskRec：读到 undefined
+// 先 idbHasKey 复核、解析失败/读取失败绝不写回）。补投递落库瞬间用户已切回原桌面时
+// 改走 onBack()（内存链路），两条路有且只有一条生效。
+window.chatDeskCardReply = function (cid, cardSpecial, cardTs, statusKey, patch, bubbles, onBack) {
+  if (cid === (window.__activeCid || 'default')) { if (onBack) onBack(); return; }
+  if (!window.idbGet || !window.idbSet || !cardTs) return;
+  const key = 'xy-home-v2:' + cid + ':chat-msgs';
+  let tries = 0;
+  const writeArr = function (arr) {
+    try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+    // v3.26.x #90：跨桌面写回后同步条数账本（同 chatAppendDeskRec）
+    try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
+  };
+  const attempt = function () {
+    tries++;
+    // 回到原桌面：放弃直写（内存链路接手），防双写/写错桌面
+    if ((window.__activeCid || 'default') === cid) { if (onBack) onBack(); return; }
+    window.idbGet(key).then(function (v) {
+      if (v !== undefined && v !== null) {
+        let arr = [];
+        let readOk = true;
+        try { arr = typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { arr = []; readOk = false; }
+        if (!Array.isArray(arr)) { arr = []; readOk = false; }
+        // v3.26.x #90：读到有值却解析失败＝库里有历史只是读不懂，写回等于删光，绝不写
+        if (!readOk) return;
+        let hit = null;
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const r = arr[i];
+          if (r && r.special === cardSpecial && r.ts === cardTs && !r.retracted) { hit = r; break; }
+        }
+        // 卡不在 / 已被回答过（幂等闸）＝无事可做，不凭空补气泡
+        if (!hit || hit[statusKey] === 'answered') return;
+        if (patch) patch(hit);
+        (bubbles || []).forEach(function (b) { arr.push(Object.assign({ side: 'in', ts: Date.now() }, b)); });
+        writeArr(arr);
+        return;
+      }
+      // undefined：确认真没历史＝卡片已随记录清空，无卡可答，放弃（不新建只含气泡的数组）
+    }).catch(function () { if (tries < 3) setTimeout(attempt, 1500); });
+  };
+  attempt();
+};
+// v3.26.x #482：把一条提问记录补写进指定桌面的 invite-ask-history（小键尽力而为：
+// LS 先读、空则 IDB 补读，写回 LS+IDB；失败静默——提问记录页少一条，不影响聊天）
+window.chatDeskHistPush = function (cid, entry) {
+  const key = 'xy-home-v2:' + cid + ':invite-ask-history';
+  const write = function (list) {
+    list.unshift(entry);
+    if (list.length > 200) list.length = 200;
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+    try { window.idbSet(key, JSON.stringify(list)); } catch (e) {}
+  };
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw !== null && raw !== undefined) { write(JSON.parse(raw) || []); return; }
+  } catch (e) {}
+  if (!window.idbGet) return;
+  window.idbGet(key).then(function (v) {
+    let list = [];
+    try { list = (typeof v === 'string' ? JSON.parse(v) : v) || []; } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    write(list);
+  }).catch(function () {});
+};
 // v3.19.x：把一张跨桌面查岗卡（带 deskCk + deskCkDir 双方向）写入指定联系人桌面聊天。
 // 后台收到查岗通知切回浏览器后，到该联系人即可看到并回答（incoming-requests 后台分支调用）。
 window.chatAppendDeskCkTo = function (cid, q) {
@@ -6371,12 +6439,23 @@ sendInviteContent(content);
 const isSingle = !!askOpts;
 addRec({ side: 'out', text: '问：' + content, special: 'ask', askQuestion: content, askType: isSingle ? 'single' : 'text', askOptions: askOpts, askStatus: 'pending' });
 const askIdx = msgs.length - 1;
+// v3.26.x #482：卡片 ts 作定位键——回答延迟窗内 loadMsgs 可能重建 msgs（索引错位，
+// 同 ta-ask.js locateCardIdx 的防御理由）；跨桌面补投递也按它定位
+const askRecTs = (msgs[askIdx] && msgs[askIdx].special === 'ask') ? msgs[askIdx].ts : 0;
+// v3.26.x #482：按 ts 重新定位未回答的提问卡，找不到再退回旧索引（顺带修索引陈旧指向别张卡）
+const locateAsk = () => {
+  if (askRecTs) {
+    for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'ask' && r.ts === askRecTs && !r.askStatus) return i; }
+  }
+  if (msgs[askIdx] && msgs[askIdx].special === 'ask' && !msgs[askIdx].askStatus) return askIdx;
+  return -1;
+};
 if (window.logFish) window.logFish();
 const recTs = Date.now();
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
-setTimeout(() => {
-if (!sameCid()) return;
+// v3.26.x #482：回应内容在发送时当场抽定——延迟落地时用户可能已在别的桌面，
+// 那时 getInteractPool/pickAskCardReply 抽的是别的联系人的池子
 const defs = window.getInteractPool
 ? window.getInteractPool('问问TA·回应', ['嗯嗯', '我想想…', '应该吧', '好呀', '我陪你', '可以的', '那挺好呀', '我觉得可以', '听你的', '当然可以', '我很乐意'])
 : ['嗯嗯', '我想想…', '应该吧', '好呀', '我陪你', '可以的', '那挺好呀', '我觉得可以', '听你的', '当然可以', '我很乐意'];
@@ -6387,12 +6466,24 @@ text = o.t;
 } else {
 text = (window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)]);
 }
-const rec = msgs[askIdx];
-if (rec && rec.special === 'ask') {
+setTimeout(() => {
+// v3.26.x #482：回应落地时已切到别的桌面——不再取消（旧实现 return＝回答永久丢失，
+// 切回后卡片永远「等待 TA 回答…」），改跨桌面补投递：原桌面卡片落 answered + 补回应
+// 气泡 + 提问记录；补投递期间切回则走内存链路（onBack），两条路只生效一条
+if (!sameCid()) {
+window.chatDeskCardReply(myCid, 'ask', askRecTs, 'askStatus', function (rec) { rec.askStatus = 'answered'; rec.askAnswer = text; }, [{ side: 'in', text: text }], applyAskAnswer);
+try { window.chatDeskHistPush(myCid, { type: 'ask', q: content, a: text, ts: recTs }); } catch (err) {}
+return;
+}
+function applyAskAnswer() {
+const i = locateAsk();
+const rec = i >= 0 ? msgs[i] : null;
+if (rec) {
 rec.askStatus = 'answered';
 rec.askAnswer = text;
 saveMsgs();
-const el = body.querySelector('.msg-ask[data-idx="' + askIdx + '"]');
+saveMsgsNow(); // v3.26.x #482：回答即落盘（同 chatAskReply 先例），切桌面 flush 前不止内存一份
+const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('问问TA') : '问问TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(text) : text) + '</div>' + favHeartHtml(rec) + '</div>';
 }
@@ -6400,12 +6491,17 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (w
 addIn(text);
 try {
 const list = JSON.parse(store.get('invite-ask-history') || '[]');
+// v3.26.x #482：按 ts 去重——跨桌面补投递路径可能已记过同一条
+if (!list.some(x => x && x.ts === recTs)) {
 list.unshift({ type: 'ask', q: content, a: text, ts: recTs });
 if (list.length > 200) list.length = 200;
 store.set('invite-ask-history', JSON.stringify(list));
+}
 } catch (err) {}
 if (window.renderAskRecords) window.renderAskRecords();
 setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
+}
+applyAskAnswer();
 }, 1500 + Math.random() * 2500);
 }
 }
@@ -6415,55 +6511,78 @@ function sendInviteContent(content) {
 closeChatAskPanel();
 addRec({ side: 'out', text: '邀请：' + content, special: 'invite', inviteContent: content, inviteStatus: 'pending' });
 const inviteIdx = msgs.length - 1;
+// v3.26.x #482：同 submitChatAsk——ts 定位键 + 索引重定位（延迟窗内 msgs 可能重建）
+const inviteRecTs = (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite') ? msgs[inviteIdx].ts : 0;
+const locateInvite = () => {
+if (inviteRecTs) {
+for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'invite' && r.ts === inviteRecTs && !r.inviteStatus) return i; }
+}
+if (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite' && !msgs[inviteIdx].inviteStatus) return inviteIdx;
+return -1;
+};
 if (window.logFish) window.logFish();
 const histKey = 'invite-ask-history';
 const recTs = Date.now();
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
-setTimeout(() => {
-if (!sameCid()) return;
+// v3.26.x #482：接受/拒绝与话术在发送时当场掷定（延迟落地时可能已在别的桌面，
+// pickAskCardReply/chatPartnerName 取的是别的联系人的池子/名字）
+const myName = chatPartnerName();
 const roll = Math.random();
-const name = chatPartnerName();
 let status, answer, reply = null;
 if (roll < 0.6) {
 status = '接受';
-answer = name + ' 接受了你的邀请';
+answer = myName + ' 接受了你的邀请';
 const pool = window.getInteractPool
 ? window.getInteractPool('邀请TA·接受', ['好，我答应你。', '可以呀。', '我陪你。', '走吧。', '嗯，陪你。'])
 : ['好，我答应你。', '可以呀。', '我陪你。', '走吧。', '嗯，陪你。'];
 reply = (window.pickAskCardReply ? window.pickAskCardReply(pool) : pool[Math.floor(Math.random() * pool.length)]);
-setTimeout(() => { if (!sameCid()) return; addIn(reply); }, 800);
 } else if (roll < 0.85) {
 status = '拒绝';
-answer = name + ' 拒绝了你的邀请';
+answer = myName + ' 拒绝了你的邀请';
 const pool = window.getInteractPool
 ? window.getInteractPool('邀请TA·拒绝', ['这次不行。', '下次吧。', '抱歉。', '今天不方便。'])
 : ['这次不行。', '下次吧。', '抱歉。', '今天不方便。'];
 reply = (window.pickAskCardReply ? window.pickAskCardReply(pool) : pool[Math.floor(Math.random() * pool.length)]);
-setTimeout(() => { if (!sameCid()) return; addIn(reply); }, 800);
 } else {
 status = '未回应';
-answer = name + ' 暂时没有回应';
+answer = myName + ' 暂时没有回应';
 }
-const rec = msgs[inviteIdx];
-if (rec && rec.special === 'invite') {
+setTimeout(() => {
+// v3.26.x #482：决定落地时已切桌面——跨桌面补投递（接受/拒绝的回应气泡一并落库）
+if (!sameCid()) {
+window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus', function (rec) { rec.inviteStatus = 'answered'; rec.inviteAnswer = answer; }, reply ? [{ side: 'in', text: reply }] : [], applyInviteResult);
+try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, ts: recTs }); } catch (err) {}
+return;
+}
+function applyInviteResult() {
+const i = locateInvite();
+const rec = i >= 0 ? msgs[i] : null;
+if (rec) {
 rec.inviteStatus = 'answered';
 rec.inviteAnswer = answer;
 saveMsgs();
+saveMsgsNow(); // v3.26.x #482：结果即落盘，切桌面 flush 前不止内存一份
 taFavCard(rec);
-const el = body.querySelector('.msg-ask[data-idx="' + inviteIdx + '"]');
+const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('邀请TA') : '邀请TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + escTxt(window.taFit ? window.taFit(answer) : answer) + '</div>' + favHeartHtml(rec) + '</div>';
 }
 }
+if (reply) setTimeout(() => { if (!sameCid()) return; addIn(reply); }, 800);
 try {
 const list = JSON.parse(store.get(histKey) || '[]');
+// v3.26.x #482：按 ts 去重——跨桌面补投递路径可能已记过同一条
+if (!list.some(x => x && x.ts === recTs)) {
 list.unshift({ type: 'invite', q: content, a: reply || status, ts: recTs });
 if (list.length > 200) list.length = 200;
 store.set(histKey, JSON.stringify(list));
+}
 } catch (err) {}
 if (window.renderAskRecords) window.renderAskRecords();
 setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
+}
+applyInviteResult();
 }, 1500 + Math.random() * 2500);
 }
 // ===================== 我的邀请（邀请TA 字卡库，仿「我的拍一拍」） =====================
@@ -7644,14 +7763,22 @@ const mt = e.changedTouches && e.changedTouches[0];
 if (!msgAnyTap || !mt) { msgTapStart = null; return; }
 if (Date.now() - msgAnyTap.t > 450 || (mt.clientX - msgAnyTap.x) * (mt.clientX - msgAnyTap.x) + (mt.clientY - msgAnyTap.y) * (mt.clientY - msgAnyTap.y) > 144) { msgTapStart = null; msgAnyTap = null; return; } // 滑动/长按不算轻点
 const ts = msgTapStart; msgTapStart = null; msgAnyTap = null;
-msgSuppressClickUntil = Date.now() + 800; // 吞引擎补发 click，防刚开即关/防重入
 if (ts) {
+// FIX 2026-09-15 #481：吞 click 窗口只在「本次轻点真的开了消息菜单」时布点。原实现无条件布点，
+// 轻点面板/空白处的普通 click 也被 body 层 stopPropagation 吞掉，document 层的面板外关闭监听
+// （更多功能/表情包/拍一拍等）永远收不到＝点外面关不掉面板（全机型回归，#480 引入）。
+msgSuppressClickUntil = Date.now() + 800; // 吞引擎补发 click，防刚开即关/防重入
 if (msgActions && !msgActions.hidden && activeMsgEl === ts.item) return; // 该气泡菜单已开，不重开
 openMsgActionsAt(ts.item, ts.b);
 return;
 }
-// 轻点在气泡/菜单之外：touch 直驱关菜单（click 被吞内核的对称关闭路）
-if (msgActions && !msgActions.hidden && !msgActions.contains(e.target) && !e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) closeMsgActions();
+// 轻点在气泡/菜单之外：touch 直驱关菜单（click 被吞内核的对称关闭路）。
+// 仅当菜单确实被本次 touch 关闭时才布吞 click 窗口（防补发 click 走气泡路重开菜单）；
+// 菜单没开＝与消息菜单无关的普通轻点，click 照常放行（#481）。
+if (msgActions && !msgActions.hidden && !msgActions.contains(e.target) && !e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) {
+msgSuppressClickUntil = Date.now() + 800;
+closeMsgActions();
+}
 });
 body.addEventListener('touchcancel', endMsgHold);
 body.addEventListener('click', (e) => {

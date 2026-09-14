@@ -194,6 +194,11 @@ check('R16 方案管理含 应用/改名/删除/导出/导入/预览 操作按�
 // 回到主视图（R7 已点进美化视图）
 await evalJs("(function(){var b=document.querySelector('#gc-set-body .gc-set-back');if(b){b.click();return 1;}return 0;})()");
 await sleep(400);
+// v3.29.x tag 分类：主视图顶部四个 tag，默认只显示「形象」段
+const tabState = await evalJs("(function(){var b=document.getElementById('gc-set-body');if(!b)return '{}';var tabs=Array.from(b.querySelectorAll('.gc-set-tabs .them-tab')).map(function(t){return t.textContent;});var vis=Array.from(b.querySelectorAll('.gc-set-sec')).filter(function(s){return !s.hidden;}).map(function(s){return s.dataset.gt;});return JSON.stringify({tabs:tabs,vis:vis});})()");
+let tst = {}; try { tst = JSON.parse(tabState); } catch (e) {}
+check('R21 主视图顶部四个 tag（形象/回复/通用/数据）', JSON.stringify(tst.tabs) === JSON.stringify(['形象','回复','通用','数据']), tabState);
+check('R22 默认只显示「形象」段', JSON.stringify(tst.vis) === JSON.stringify(['profile']), tabState);
 // R17 五个开关行在面板内且默认态正确（hide-ta-sticker 默认不勾、cs-enter-send 默认勾）
 const tgState = await evalJs("(function(){var b=document.getElementById('gc-set-body');if(!b)return '{}';var rows=Array.from(b.querySelectorAll('.gc-set-toggle'));return JSON.stringify({n:rows.length,labels:rows.map(function(r){return r.querySelector('.gc-set-name').textContent.split('\\n')[0];}),enter:rows[0]?rows[0].querySelector('input').checked:null});})()");
 let ts = {}; try { ts = JSON.parse(tgState); } catch (e) {}
@@ -207,7 +212,9 @@ check('R19 隐藏表情包开关点击写全局键 hide-ta-sticker=1', hts.index
 // 还原，避免污染其他用例
 await evalJs("(function(){var rows=Array.from(document.querySelectorAll('#gc-set-body .gc-set-toggle'));var r=rows.find(function(x){return x.innerText.indexOf('隐藏联系人的表情包')>=0});if(r){r.querySelector('input').click();}return 1;})()");
 await sleep(200);
-// R20 数据组三行渲染（导出/导入/删除全部）
+// R20 数据组三行渲染（导出/导入/删除全部）——v3.29.x 后数据组归「数据」tag，先切过去再验 innerText
+await evalJs("(function(){var t=document.querySelector('#gc-set-body .gc-set-tabs .them-tab[data-gt=\"data\"]');if(t)t.click();return 1;})()");
+await sleep(200);
 const dataState = await evalJs("(function(){var b=document.getElementById('gc-set-body');if(!b)return '{}';return JSON.stringify({exp:b.innerText.indexOf('导出聊天记录')>=0,imp:b.innerText.indexOf('导入聊天记录')>=0,clr:b.innerText.indexOf('删除全部聊天记录')>=0});})()");
 let ds = {}; try { ds = JSON.parse(dataState); } catch (e) {}
 check('R20 数据组导出/导入/清空三入口渲染', ds.exp && ds.imp && ds.clr, dataState);

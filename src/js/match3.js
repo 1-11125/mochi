@@ -110,6 +110,7 @@
       target: DIFFS[diff].target,
       grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹 / 30+c,40+c 直线道具
       mode: mode === 'item' ? 'item' : 'simple', // #453 简单(默认,无道具)/道具
+      taMode: null,            // #301 TA 出手风格 serious/normal/sandbag/blunder（FIX 2026-09-15 #481 与 st.mode 道具开关分家）
       genSpecial: null,        // 最近一次生成的道具（verify 断言用）
       turn: 1,
       over: false,
@@ -691,16 +692,19 @@
   }
   function taTurn() {
     if (!st || st.over || st.turn !== 2 || st.lock) return;
-    st.mode = rollMode();
+    // FIX 2026-09-15 #481：出手风格存独立字段 st.taMode，禁止写 st.mode——
+    // st.mode 是 #453 的道具开关('item'/'simple')，曾在此被覆写成 serious/normal/sandbag/blunder，
+    // TA 第一步后道具门控 st.mode==='item' 永假＝道具模式「消除后不变出道具」
+    st.taMode = rollMode();
     const moves = allMoves(st.grid);
     if (!moves.length) { endGame(); return; }
-    if (st.mode === 'serious') {
+    if (st.taMode === 'serious') {
       moves.sort((x, y) => y.gain - x.gain);
       exec(pick(moves.slice(0, 2)));
-    } else if (st.mode === 'normal') {
+    } else if (st.taMode === 'normal') {
       moves.sort((x, y) => y.gain - x.gain);
       exec(pick(moves.slice(0, 5)));
-    } else if (st.mode === 'sandbag') {
+    } else if (st.taMode === 'sandbag') {
       moves.sort((x, y) => x.gain - y.gain);
       exec(pick(moves.slice(0, Math.max(2, Math.ceil(moves.length / 2)))));
     } else {
@@ -970,6 +974,7 @@
     findRuns: findRuns,
     findMatches: findMatches,
     allMoves: allMoves,
+    taTurn: taTurn,
     simulateClear: simulateClear,
     clearWithSpecials: clearWithSpecials,
     reshuffle: reshuffle,

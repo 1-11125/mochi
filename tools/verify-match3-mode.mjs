@@ -199,6 +199,23 @@ check('E2 直线道具 30/40 不是彩虹（裸 >=RAINBOW 会误判）', e.rbH =
 check('E3 直线道具按携带色参与匹配', e.colH === 3 && e.colV === 2);
 check('E4 allMoves 含直线/炸弹棋盘不抛错且有解', e.throw === null && typeof e.moves === 'number', 'moves=' + e.moves + (e.throw ? ' err=' + e.throw : ''));
 
+// ---- G #481 回归：TA 回合不得覆写 st.mode（道具开关）----
+// 根因复现：#301 taTurn 曾把 TA 出手风格（serious/normal/sandbag/blunder）写进 st.mode，
+// 与 #453 的道具开关 st.mode('item'/'simple') 撞名——TA 第一次行动后道具模式永远不再生成道具。
+await page.evaluate(() => {
+  const d = window.__m3Debug;
+  const g = [];
+  for (let r = 0; r < 8; r++) { const row = []; for (let c = 0; c < 8; c++) row.push((r * 3 + c) % 6); g.push(row); }
+  // 埋一个保证有解的交换：g[4][0]=g[4][2]=2、g[5][1]=2 → TA 换 (5,1)↔(4,1) 凑横向三连（条纹底板本身无解，见 E4 moves=0）
+  g[4][0] = 2; g[4][2] = 2; g[5][1] = 2;
+  d.st().grid = g; d.st().score = 0; d.st().turn = 2; // 清分防误触结算、轮到 TA
+  d.taTurn();
+});
+await page.waitForFunction(() => window.__m3Debug.st() && window.__m3Debug.st().turn === 1 && !window.__m3Debug.st().lock, null, { timeout: 8000 });
+const gSt = await page.evaluate(() => ({ mode: window.__m3Debug.st().mode, ta: window.__m3Debug.st().taMode }));
+check('G1 TA 行动后 st.mode 仍为 item（#481：出手风格走 taMode 独立字段）', gSt.mode === 'item', JSON.stringify(gSt));
+check('G2 TA 出手风格记录在 taMode（四值之一）', ['serious', 'normal', 'sandbag', 'blunder'].indexOf(gSt.ta) >= 0, 'taMode=' + gSt.ta);
+
 // ---- A5 对局结束后重开仍恢复上次模式（道具）----
 await page.evaluate(() => {
   window.__m3Debug.st().started = false; // 模拟对局已结束，让 openMatch3Panel 走恢复分支

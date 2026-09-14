@@ -71,45 +71,45 @@ console.log('diag readyState=', await ev('document.readyState'),
   '| errs=', JSON.stringify(await ev('window.__jsErrors ? window.__jsErrors.slice(0,3).map(e=>e.msg||e) : null')));
 const A = (name, ok, extra) => { console.log((ok ? 'PASS' : 'FAIL') + ' ' + name + (extra !== undefined ? ' | ' + extra : '')); if (!ok) fail++; };
 
-// A1 渲染：7 组 / 总条目数
+// A1 渲染：9 组 / 总条目数（v3.27.x 全量收口 187 条：聊天美化与设置+桌面美化与外观两新组）
 const r1 = await ev(`(()=>{ const gs=document.querySelectorAll('#fhub-body .gs-title').length; const rows=document.querySelectorAll('#fhub-body .set-row').length; return gs+'|'+rows; })()`);
 const [gCount, rowCount] = String(r1).split('|').map(Number);
-A('A1 分组数=7', gCount === 7, '实际 ' + gCount);
-A('A1 条目数=79', rowCount === 79, '实际 ' + rowCount);
+A('A1 分组数=9', gCount === 9, '实际 ' + gCount);
+A('A1 条目数=187', rowCount === 187, '实际 ' + rowCount);
 
 // A2 设置行进入功能大全页
 await ev(`document.getElementById('row-featurehub').click()`);
 await sleep(120);
 A('A2 入口行打开功能大全', await ev(`!document.getElementById('page-featurehub').hidden`));
 
-// A3 搜索「红包」只留命中
+// A3 搜索「红包」只留命中（v3.27.x 起 3 条：红包本体 + TA 自动发红包概率 + TA 每日发红包上限）
 await ev(`(()=>{const i=document.getElementById('fhub-search'); i.value='红包'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(80);
 const vis = await ev(`[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none').length`);
-A('A3 搜索红包→1 条', vis === 1, '实际 ' + vis);
+A('A3 搜索红包→3 条', vis === 3, '实际 ' + vis);
 
 // A4 清空搜索恢复
 await ev(`(()=>{const i=document.getElementById('fhub-search'); i.value=''; i.dispatchEvent(new Event('input')); })()`);
 await sleep(80);
 const vis2 = await ev(`[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none').length`);
-A('A4 清空恢复 79 条', vis2 === 79, '实际 ' + vis2);
+A('A4 清空恢复 187 条', vis2 === 187, '实际 ' + vis2);
 
 // A5 链式跳转·桌面图标类（花园）——按首行名称精确匹配（描述里含「花园」的字卡行不应误命中）
 await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>{const t=r.querySelector('.txt'); return t&&t.firstChild&&t.firstChild.textContent.trim()==='花园';}).click()`);
 await sleep(200);
 A('A5 跳转花园页', await ev(`!document.getElementById('page-garden').hidden && document.getElementById('page-featurehub').hidden`));
 
-// A6 链式跳转·聊天面板类（猜拳）
+// A6 链式跳转·聊天面板类（猜拳）——按首行名称精确匹配（v3.27.x 起「现在让 TA 邀请一次」等条目描述也含「猜拳」，模糊匹配会误命中）
 await ev(`document.getElementById('row-featurehub').click()`);
 await sleep(80);
-await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>r.textContent.includes('猜拳')).click()`);
+await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>{const t=r.querySelector('.txt'); return t&&t.firstChild&&t.firstChild.textContent.trim()==='猜拳';}).click()`);
 await sleep(200);
 A('A6 跳转猜拳面板（聊天页+面板可见）', await ev(`!document.getElementById('page-chat').hidden && !document.getElementById('chat-rps-panel').hidden`));
 
-// A7 无直达条目：弹位置提示（引用回复）
+// A7 无直达条目：弹位置提示（引用回复）——同样按名称精确匹配
 await ev(`document.getElementById('row-featurehub').click()`);
 await sleep(80);
-await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>r.textContent.includes('引用回复')).click()`);
+await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>{const t=r.querySelector('.txt'); return t&&t.firstChild&&t.firstChild.textContent.trim()==='引用回复';}).click()`);
 await sleep(80);
 A('A7 where 条目出 toast', await ev(`(()=>{ const t=document.getElementById('cc-toast'); return !!t && t.className.includes('show') && t.textContent.includes('引用回复'); })()`));
 

@@ -790,7 +790,7 @@
     if (!window.openTCPanel) { toast('稍后再试'); return; }
     const catColor = CAT_COLOR[gift.cat] || '#f5f3fa';
     const html =
-      '<div class="gb-preview" style="background:linear-gradient(160deg,' + catColor + ',#fff);">' +
+      '<div class="gb-preview" style="background:linear-gradient(160deg,' + catColor + ',var(--card-bg,#fff));">' +
         '<div class="gb-emoji">' + giftMedia(gift, 'gb-emoji-img') + '</div>' +
         '<div class="gb-name">' + esc(gift.name) + '</div>' +
         '<div class="gb-price">¥' + Number(gift.price || 0).toFixed(2) + '</div>' +
@@ -994,7 +994,7 @@
     const taWanted = wishLoad(WL_TA_KEY).some(function (x) { return x.giftId === g.id; });
     return '<button class="gift-item' + (manage ? ' manage' : '') + (taWanted ? ' ta-wish' : '') + '" data-id="' + esc(g.id) + '" style="--cat:' + col + ';">' +
       (taWanted ? '<span class="gift-item-tawish" title="' + esc(partnerName()) + '许愿的">☆ ' + esc(partnerName()) + '想要的</span>' : '') +
-      '<div class="gift-item-top" style="background:linear-gradient(160deg,' + col + ',#fff);">' +
+      '<div class="gift-item-top" style="background:linear-gradient(160deg,' + col + ',var(--card-bg,#fff));">' +
         '<div class="gift-item-emoji">' + giftMedia(g, 'gift-item-img') + '</div>' +
       '</div>' +
       '<div class="gift-item-body">' +

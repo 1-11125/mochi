@@ -2,8 +2,14 @@
 // 需求（用户 2026-09-11）：设置里新增一个和【回音机】【功能大全】一样的功能——
 // 全应用功能的可搜索索引页，点条目直达对应功能。灵感来源：回音机。
 // #305b 重构（用户 2026-09-13 反馈「打开后一页 84 行太杂」）：默认「全部分组平铺」改为
-// 「热门直达 + 7 分类宫格首页 → 点分类进该组列表」，顶部 tag 在列表态可互相切换/回首页；
+// 「热门直达 + 分类宫格首页 → 点分类进该组列表」，顶部 tag 在列表态可互相切换/回首页；
 // 搜索保持全局跨组（命中行按组显示），清空搜索回到进入前的视图。
+// v3.27.x 全量收口（用户 2026-09-15 要求「全部大小功能都做进去」）：7 组 100 条 → 9 组 186 条——
+// 新增「聊天美化与设置」（聊天设置子页逐行直达：气泡字号/框大小/圆角/双方气泡与文字颜色/
+// 气泡CSS/全局字体/双方昵称头像/头像形状/时间轴/发送按钮系列/红包概率/记录导出导入清空等）与
+// 「桌面美化与外观」（page-theme 逐行直达：主题色/组件颜色系列/桌面字号/卡片大小/壁纸系列/
+// 图标系列/美化方案系列），聊天传讯补 5 条「现在问/出题/好奇/邀请/吐槽」，字卡库补 11 条
+// 公用·专属·我的添加变体，系统组补字卡锁；同名功能只留一条（全局字体走桌面组，聊天设置同功能互通）。
 // 跳转机制：go 数组里的选择器按顺序逐个 .click()——各功能的打开逻辑都绑定在既有入口元素上
 //（桌面图标 .app[data-app=…] / 设置行 #row-* / 聊天更多面板按钮 #more-* / 字卡库列表项 #li-*），
 // 且均为同步 handler、首个元素的处理函数都会切页，链式点击即完整复现用户的操作路径，
@@ -30,30 +36,85 @@
       { n: '通话', d: '拨打/接听电话，可设自定义铃声与背景；跨桌面来电（默认关闭，设置里手动开启）接听会自动跳到对方桌面（通话与记录归属对方桌面，刻意设计）', k: '电话 通话 打电话 跨桌面来电 来电记录', go: ['.app[data-app="chat"]', '#more-call'] },
       { n: '邀请 TA', d: '发邀请字卡（预设+自定义，可重复发送）', k: '邀请 约会', go: ['.app[data-app="chat"]', '#more-invite'] },
       { n: '问问 TA / TA 的提问', d: '让 TA 现在问你一次（提问/选择题/好奇/吐槽），或向 TA 发问', k: '提问 问问 问题 选择题 好奇 吐槽 现在', go: ['.app[data-app="chat"]', '#more-ask'] },
+      { n: '现在让 TA 问一次', d: '不开面板，直接让 TA 立刻发来一个开放式提问', k: '现在 问 提问 询问 立刻', go: ['.app[data-app="chat"]', '#more-ask-now'] },
+      { n: '现在让 TA 出选择题', d: '直接让 TA 立刻发来一道小问题（选择题）', k: '现在 选择题 小问题 出题 立刻', go: ['.app[data-app="chat"]', '#more-choose-now'] },
+      { n: '现在让 TA 好奇一次', d: '直接让 TA 立刻发来一条好奇提问', k: '现在 好奇 提问 立刻', go: ['.app[data-app="chat"]', '#more-curious-now'] },
+      { n: '现在让 TA 邀请一次', d: '直接让 TA 立刻发来猜拳/Pong/贪吃蛇/贴贴邀请', k: '现在 邀请 猜拳 对战 贴贴 立刻', go: ['.app[data-app="chat"]', '#more-invite-now'] },
+      { n: '现在让 TA 吐槽一次', d: '直接让 TA 立刻发来一条吐槽/调侃', k: '现在 吐槽 调侃 立刻', go: ['.app[data-app="chat"]', '#more-roast-now'] },
       { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] },
       { n: '收藏设置', d: 'TA 自动收藏消息/字卡/信件/动态的概率与统计', k: '收藏 设置 概率 自动收藏', go: ['.app[data-app="note"]', '#fav-settings-btn'] },
       { n: '词典拼字', d: '语录字卡按概率拼成单气泡/逐条连发，两形态可开关', k: '拼字 词典 语录 连发', go: ['#row-general'] },
       { n: '梦角自由造句', d: 'TA 按概率截词重造句，语料来源与权重可调', k: '造句 自由造句 梦角 截词', go: ['#row-general'] }
     ] },
+    { g: '聊天美化与设置', items: [
+      { n: '聊天设置（总入口）', d: '聊天壁纸、气泡样式颜色、字体大小行距的设置子页', k: '聊天设置 美化 壁纸 气泡', go: ['.app[data-app="chat"]', '#chat-settings-btn'] },
+      { n: '上传聊天壁纸', d: '给聊天页设置自定义背景图（自动压缩防卡顿）', k: '聊天 壁纸 背景 上传 图片', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-bg-upload'] },
+      { n: '移除聊天壁纸', d: '清掉聊天页背景图恢复默认', k: '聊天 壁纸 移除 删除 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-bg-remove'] },
+      { n: '聊天气泡字体大小', d: '气泡内文字字号，默认 14px 可自定义', k: '字体 字号 大小 文字 气泡', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-font-size'] },
+      { n: '聊天气泡框大小', d: '气泡内边距（胖瘦），预设或自定义', k: '气泡 大小 框 内边距 胖瘦', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-bubble-size'] },
+      { n: '聊天气泡边缘圆角', d: '气泡四角圆角直径，方形到全圆可调', k: '气泡 圆角 边缘 方形', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-bubble-radius'] },
+      { n: '聊天头像形状', d: '聊天头像圆形/方形切换', k: '头像 形状 圆形 方形', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-av-shape'] },
+      { n: '时间轴样式', d: '消息时间轴显示位置样式（头像下方等多种）', k: '时间轴 时间 样式 位置', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-time-style'] },
+      { n: '我的气泡颜色', d: '自己发的消息气泡背景色', k: '气泡 颜色 我的 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-out-bg'] },
+      { n: '我的消息文字颜色', d: '自己发的消息文字颜色', k: '文字 颜色 我的 消息', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-out-ink'] },
+      { n: '联系人气泡颜色', d: 'TA 发的消息气泡背景色', k: '气泡 颜色 联系人 TA 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-in-bg'] },
+      { n: '联系人消息文字颜色', d: 'TA 发的消息文字颜色', k: '文字 颜色 联系人 TA 消息', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-in-ink'] },
+      { n: '气泡 CSS', d: '自定义 CSS 进一步美化气泡（进阶）', k: 'css 样式 美化 气泡 进阶', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-css'] },
+      { n: '联系人昵称', d: '改 TA 在聊天里的显示昵称', k: '昵称 名字 联系人 改名', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-partner'] },
+      { n: '我的昵称', d: '改我在聊天里的显示昵称', k: '昵称 名字 我的 改名', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-user'] },
+      { n: '联系人头像', d: '换 TA 的头像（可上传/清空）', k: '头像 联系人 换 上传', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-avatar-partner'] },
+      { n: '我的头像', d: '换我的头像（可上传/清空）', k: '头像 我的 换 上传', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-avatar-user'] },
+      { n: '隐藏发送按钮', d: '隐藏聊天输入栏发送按钮（仍可回车发送）', k: '发送 按钮 隐藏 输入', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-show'] },
+      { n: '回车键发送消息', d: '回车直接发送开关（关闭则换行）', k: '回车 发送 enter 换行', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-enter-send'] },
+      { n: '发送按钮颜色', d: '发送按钮背景色自定义', k: '发送 按钮 颜色 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-bg'] },
+      { n: '发送文字颜色', d: '发送按钮文字颜色自定义', k: '发送 文字 颜色 按钮', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-ink'] },
+      { n: '我可发送语音', d: '输入栏语音按钮显隐开关', k: '语音 录音 麦克风 开关', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-voice-send'] },
+      { n: 'TA 自动发红包概率', d: 'TA 聊天中主动发红包的触发概率', k: '红包 概率 自动 触发', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-rp-auto-prob'] },
+      { n: 'TA 每日发红包上限', d: 'TA 每天最多主动发几个红包', k: '红包 上限 每日 次数', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-rp-daily-max'] },
+      { n: '隐藏联系人的表情包', d: '聊天里不显示 TA 发的表情包图片', k: '表情包 隐藏 贴图', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-hide-ta-sticker'] },
+      { n: '聊天全屏模式', d: '隐藏模拟状态栏让聊天页全屏', k: '全屏 状态栏 隐藏', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-fullscreen'] },
+      { n: '全屏边缘防误触', d: '全屏时边缘手势防误触保护', k: '全屏 边缘 防误触 手势', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-edge-guard'] },
+      { n: '隐藏音乐悬浮小窗', d: '听歌时的悬浮小窗显隐开关', k: '音乐 悬浮 小窗 隐藏', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-music-float'] },
+      { n: '隐藏通话小框', d: '通话时的迷你悬浮条显隐开关', k: '通话 小框 悬浮 迷你 隐藏', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-call-mini-hide'] },
+      { n: '导出聊天记录', d: '导出当前桌面聊天记录为文件', k: '导出 聊天记录 备份', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-export-msgs'] },
+      { n: '导入聊天记录', d: '从导出文件恢复当前桌面聊天记录', k: '导入 聊天记录 恢复', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-import-msgs'] },
+      { n: '导出全部桌面聊天记录', d: '一次性导出所有联系人的聊天记录', k: '导出 全部 聊天记录 批量 备份', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-export-all'] },
+      { n: '导入全部桌面聊天记录', d: '一次性恢复所有联系人的聊天记录', k: '导入 全部 聊天记录 批量 恢复', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-import-all'] },
+      { n: '删除全部聊天记录', d: '清空当前桌面全部聊天记录（不可恢复）', k: '删除 清空 聊天记录 重置', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-clear-msgs'] },
+      { n: '允许删除联系人消息', d: '开关：是否允许删掉 TA 发的消息', k: '删除 撤回 联系人 消息 开关', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-del-ta-msg'] },
+      { n: '保存当前为聊天美化方案', d: '把当前聊天外观（气泡/壁纸/字体等）存成方案', k: '聊天 美化 方案 保存', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#row-chat-beauty-save'] },
+      { n: '我的聊天美化方案', d: '已存聊天美化方案的管理与一键切换', k: '聊天 美化 方案 切换 管理', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#row-chat-beauty-schemes'] }
+    ] },
     { g: '字卡库', items: [
       { n: '字卡库', d: '全部字卡的统一入口：公用/专属/预设/情绪/回应…', k: '字卡库 词库', go: ['.tab[data-page="page-chatcard"]'] },
       { n: '词典字卡', d: '独立词典大分类：TA 说话的词库来源管理', k: '词典 词库 大分类', go: ['.tab[data-page="page-chatcard"]', '#li-dict-cards'] },
+      { n: '公用自定义字卡', d: '自建的公用字卡：全桌面共享，每个联系人都能收到', k: '公用 自定义 字卡 共享', go: ['.tab[data-page="page-chatcard"]', '#li-custom-cards-public'] },
       { n: '公用 / 专属自定义字卡', d: '自建字卡：公用全桌面共享，专属仅当前 TA', k: '自定义 公用 专属', go: ['.tab[data-page="page-chatcard"]', '#li-custom-cards'] },
       { n: '系统预设字卡', d: '内置词库逐句开关，含词典语录分类', k: '预设 内置 词典 语录', go: ['.tab[data-page="page-chatcard"]', '#li-default-cards'] },
       { n: '聊天情绪字卡', d: '情绪/心意/交流意图词库，按心情匹配', k: '情绪 心意 交流意图', go: ['.tab[data-page="page-chatcard"]', '#li-mood-cards'] },
       { n: '聊天回应字卡', d: '游戏胜负平局等场景的回应词库', k: '回应 游戏 胜利 失败', go: ['.tab[data-page="page-chatcard"]', '#li-reply-cards'] },
       { n: '语录字卡', d: '今日情话等语录内容管理', k: '语录 情话', go: ['.tab[data-page="page-chatcard"]', '#li-quote-cards'] },
+      { n: '今日情话·我的添加', d: '你添加的桌面每日情话内容', k: '情话 语录 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-quote-cards-mine'] },
       { n: '其他互动功能字卡', d: '摸鱼/吃饭/经期/喝水/花园等功能触发字卡', k: '互动 功能字卡 摸鱼 经期 喝水', go: ['.tab[data-page="page-chatcard"]', '#li-fun-cards'] },
+      { n: '功能字卡·公用', d: '添加的功能字卡（公用池）：每个桌面的联系人都能使用', k: '功能字卡 公用 互动', go: ['.tab[data-page="page-chatcard"]', '#li-fun-cards-public'] },
+      { n: '功能字卡·专属', d: '添加的功能字卡（专属池）：只有当前桌面的联系人能使用', k: '功能字卡 专属 互动', go: ['.tab[data-page="page-chatcard"]', '#li-fun-cards-mine'] },
       { n: 'TA 的提问字卡', d: '询问/小问题/好奇/吐槽/邀请 题库自定义', k: '提问 题库 询问 好奇 吐槽', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask'] },
+      { n: 'TA的询问·我的添加', d: '你添加的开放式提问内容', k: '询问 提问 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask-mine'] },
       { n: 'TA 的心情字卡', d: 'TA 聊天中主动分享心情/状态的概率与词库', k: '心情 状态 主动分享', go: ['.tab[data-page="page-chatcard"]', '#li-ta-mood'] },
       { n: 'TA 的选择题字卡', d: 'TA 出选择题考你/让你选的题库自定义', k: '选择题 提问 选择', go: ['.tab[data-page="page-chatcard"]', '#li-ta-choose'] },
+      { n: 'TA的小问题·我的添加', d: '你添加的选择题内容', k: '选择题 小问题 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-choose-mine'] },
       { n: 'TA 的好奇字卡', d: 'TA 好奇问你问题的题库自定义', k: '好奇 提问 问题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-curious'] },
+      { n: 'TA的好奇·我的添加', d: '你添加的好奇提问内容', k: '好奇 提问 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-curious-mine'] },
       { n: 'TA 的吐槽字卡', d: 'TA 吐槽/调侃内容的题库自定义', k: '吐槽 调侃', go: ['.tab[data-page="page-chatcard"]', '#li-ta-roast'] },
+      { n: 'TA的吐槽·我的添加', d: '你添加的吐槽字卡内容', k: '吐槽 调侃 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-roast-mine'] },
       { n: 'TA 的邀请字卡', d: 'TA 主动发来的猜拳/游戏/贴贴邀请题库', k: '邀请 猜拳 游戏 贴贴', go: ['.tab[data-page="page-chatcard"]', '#li-ta-invite'] },
+      { n: 'TA的邀请·我的添加', d: '你添加的邀请话术内容', k: '邀请 话术 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-invite-mine'] },
       { n: '字卡库完整导出', d: '仅导出全部字卡库内容（区别于整包备份）', k: '字卡库 导出 完整 备份', go: ['.tab[data-page="page-chatcard"]', '#li-cc-full-export'] },
       { n: '字卡库完整导入', d: '从字卡库导出文件恢复全部字卡', k: '字卡库 导入 完整 恢复', go: ['.tab[data-page="page-chatcard"]', '#li-cc-full-import'] },
       { n: '查岗互动字卡', d: '温柔关心式查岗问题卡内容自定义', k: '查岗 定位', go: ['.tab[data-page="page-chatcard"]', '#li-ta-checkin'] },
+      { n: 'TA的查岗·我的添加', d: '你添加的查岗问题内容', k: '查岗 问题 我的添加', go: ['.tab[data-page="page-chatcard"]', '#li-ta-checkin-mine'] },
       { n: '寻踪日常字卡', d: 'TA 的日常/在哪里/在做什么/想对你说 内容', k: '寻踪 日常 位置', go: ['.tab[data-page="page-chatcard"]', '#li-loc-cards'] },
+      { n: '寻踪日常·我的添加', d: '你添加的地点/做的事/说的话内容', k: '寻踪 日常 我的添加 地点', go: ['.tab[data-page="page-chatcard"]', '#li-checkin-cards-mine'] },
       { n: '桌面查岗字卡', d: '联系人跨桌面查岗的系统预设字卡管理', k: '桌面查岗 跨桌面', go: ['.tab[data-page="page-chatcard"]', '#li-deskcheck'] },
       { n: '贴贴邀请字卡', d: '贴贴/抱抱/牵手等邀请的内容词库', k: '贴贴 抱抱 牵手', go: ['.tab[data-page="page-chatcard"]', '#li-checkin-cards'] }
     ] },
@@ -100,6 +161,41 @@
       { n: '番茄钟', d: '专注/小憩/长休计时，陪伴模式', k: '番茄钟 专注 计时', go: ['.app[data-app="pomo"]'] },
       { n: '花园', d: '种花杂交/花束工坊/成就年报，TA 代管', k: '花园 种花 花', go: ['.app[data-app="garden"]'] }
     ] },
+    { g: '桌面美化与外观', items: [
+      { n: '外观与主题（总入口）', d: '桌面美化设置子页：主题/壁纸/字号/圆角/组件', k: '美化 外观 主题 壁纸 颜色', go: ['#row-appearance'] },
+      { n: '深色模式', d: '浅色/深色/跟随系统三种主题模式', k: '深色 暗色 夜间 黑色 模式 主题', go: ['#row-theme-mode'] },
+      { n: '主题色', d: '全局强调色八色预设（状态栏/按钮跟随）', k: '主题色 强调色 颜色 accent', go: ['#row-appearance', '#row-accent-color'] },
+      { n: '全局字体', d: '上传本地字体或输入字体名/链接，全站生效（与聊天设置互通）', k: '字体 字型 全局 上传 ttf', go: ['#row-appearance', '#row-desk-cs-font'] },
+      { n: '桌面字号', d: '手机桌面整体字号缩放（85%~120% 滑块）', k: '字号 字体大小 桌面 缩放 大小', go: ['#row-appearance', '#row-desk-font-size'] },
+      { n: '卡片大小', d: '桌面卡片整体缩放（80%~120% 滑块）', k: '卡片 大小 缩放 组件', go: ['#row-appearance', '#row-desk-card-scale'] },
+      { n: '组件圆角', d: '桌面卡片圆角大小', k: '圆角 卡片 组件', go: ['#row-appearance', '#row-desk-card-radius'] },
+      { n: '图标圆角', d: '桌面图标形状圆角/圆形/方形', k: '图标 圆角 圆形 方形 形状', go: ['#row-appearance', '#row-ico-shape'] },
+      { n: '上传手机背景图片', d: '自定义手机桌面壁纸', k: '壁纸 背景 上传 图片 桌面', go: ['#row-appearance', '#row-bg-upload'] },
+      { n: '内置壁纸预设', d: '渐变/纯色壁纸直接选用', k: '壁纸 预设 渐变 纯色', go: ['#row-appearance', '#row-bg-preset'] },
+      { n: '壁纸定位与缩放', d: '调整壁纸位置与缩放比例', k: '壁纸 定位 缩放 位置 调整', go: ['#row-appearance', '#row-bg-adjust'] },
+      { n: '背景模糊', d: '桌面壁纸模糊程度调节', k: '壁纸 背景 模糊 毛玻璃', go: ['#row-appearance', '#row-bg-blur'] },
+      { n: '背景遮罩', d: '壁纸上的遮罩浓度（压暗/提亮便于看图标）', k: '壁纸 遮罩 遮罩浓度 压暗', go: ['#row-appearance', '#row-bg-mask-op'] },
+      { n: '移除背景图片', d: '清除桌面壁纸恢复默认底色', k: '壁纸 背景 移除 删除 清除', go: ['#row-appearance', '#row-bg-remove'] },
+      { n: '批量上传图标图片', d: '一次上传多张图批量替换桌面图标', k: '图标 批量 上传 替换', go: ['#row-appearance', '#row-icon-batch'] },
+      { n: '小组件颜色', d: '桌面小组件背景颜色自定义', k: '组件 小组件 颜色 背景', go: ['#row-appearance', '#row-widget-color'] },
+      { n: '小组件边框颜色', d: '桌面小组件边框颜色自定义', k: '组件 边框 颜色', go: ['#row-appearance', '#row-widget-border'] },
+      { n: '按钮颜色', d: '组件内按钮颜色自定义', k: '按钮 颜色 组件', go: ['#row-appearance', '#row-widget-btn'] },
+      { n: '按钮文字颜色', d: '组件内按钮文字颜色自定义', k: '按钮 文字 颜色 组件', go: ['#row-appearance', '#row-widget-btn-text'] },
+      { n: '图标文字颜色', d: '桌面图标下面应用名字的颜色', k: '图标 文字 颜色 应用名', go: ['#row-appearance', '#row-app-name-color'] },
+      { n: '爱心外框颜色', d: '组件爱心外框颜色自定义', k: '爱心 颜色 外框 组件', go: ['#row-appearance', '#row-widget-heart'] },
+      { n: '小组件透明度', d: '小组件全局默认透明度', k: '组件 透明度 透明', go: ['#row-appearance', '#row-widget-opacity'] },
+      { n: '新增桌面页', d: '手机桌面加一页放更多图标', k: '桌面 页 新增 添加 翻页', go: ['#row-appearance', '#row-desk-add-page'] },
+      { n: '删除最后一页', d: '删掉桌面的最后一页', k: '桌面 页 删除', go: ['#row-appearance', '#row-desk-del-page'] },
+      { n: '恢复默认桌面', d: '桌面布局恢复出厂默认（图标重排）', k: '桌面 恢复 默认 重置 布局', go: ['#row-appearance', '#row-desk-reset'] },
+      { n: '保存当前为美化方案', d: '把当前桌面美化存成方案，随时一键切回', k: '美化 方案 保存 桌面', go: ['#row-appearance', '#row-beauty-save'] },
+      { n: '我的美化方案', d: '已存桌面美化方案的管理与一键应用', k: '美化 方案 管理 应用 切换', go: ['#row-appearance', '#row-beauty-schemes'] },
+      { n: '导出美化方案', d: '把桌面美化方案导出成文件分享', k: '美化 方案 导出 分享 文件', go: ['#row-appearance', '#row-beauty-export'] },
+      { n: '导入美化方案', d: '从文件导入桌面美化方案', k: '美化 方案 导入 文件', go: ['#row-appearance', '#row-beauty-import'] },
+      { n: '分享当前美化链接', d: '生成链接直接把当前美化分享给 TA', k: '美化 分享 链接 链接分享', go: ['#row-appearance', '#row-beauty-share'] },
+      { n: '撤销最近改动', d: '撤销上一次桌面美化操作', k: '美化 撤销 撤回 上一步', go: ['#row-appearance', '#row-beauty-undo'] },
+      { n: '恢复全部默认美化', d: '清空所有美化设置恢复系统默认（方案不受影响）', k: '美化 恢复 默认 重置 出厂', go: ['#row-appearance', '#row-beauty-reset-all'] },
+      { n: '完整外观方案', d: '整套外观（桌面+聊天等）方案一键应用', k: '外观 方案 完整 套装 应用', go: ['#row-appearance', '#row-full-beauty-schemes'] }
+    ] },
     { g: '记录与统计', items: [
       { n: '主页', d: '多 tab 统计：换头像/通话/摸鱼/TA 的关心/心意币', k: '主页 情侣空间 统计', go: ['.app[data-app="home"]'] },
       { n: '聊天统计', d: '相处记录/聊天记录/情绪表达多维统计', k: '统计 聊天统计 数据', go: ['.app[data-app="stats"]'] },
@@ -123,6 +219,7 @@
       { n: '清除本地数据', d: '清空本机应用数据（重置前请先导出备份）', k: '清除 重置 清空 恢复出厂', go: ['#row-reset'] },
       { n: '后台保活与通知', d: '切后台保持连接与通知提醒（设置页底部开关）', k: '后台 保活 通知 推送', where: '设置页底部「后台保活 / 后台通知」开关' },
       { n: '应用锁', d: '数字密码锁，防别人偷看聊天记录', k: '应用锁 密码 隐私 锁', where: '设置页「应用锁」分组' },
+      { n: '字卡锁（未成年人保护）', d: '防未成年人模式：内置字卡全锁定，二级验证密码解锁', k: '字卡锁 未成年人 保护 锁 密码 解锁', where: '开屏公告区的「内置字卡锁定」卡，点「输入密码解锁」' },
       { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
       { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
       { n: '功能诊断', d: '逐个测试全部功能是否正常（约15秒）', k: '功能诊断 自检 测试', go: ['#row-func-diag'] },
@@ -133,10 +230,12 @@
   // ---- 分类图标（描边风格与设置页一致；stroke=currentColor + .fhub-cat-ico 色走 var(--ink)，深色自动跟随） ----
   const CAT_ICO = [
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 100 20c1.2 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0022 11.5C22 6.3 17.5 2 12 2z"/><circle cx="7.5" cy="11" r=".9"/><circle cx="12" cy="7.5" r=".9"/><circle cx="16.5" cy="10.5" r=".9"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 10-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="19" height="10" rx="5"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="12" r=".9"/><circle cx="18" cy="14" r=".9"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 8.5V21h14V8.5"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>',
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>'
   ];

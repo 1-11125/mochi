@@ -266,6 +266,7 @@ const FIX_SENTINELS = [
   { name: '#480 菜单按钮 touch 直驱防双触发（【引用】按钮原只有 click 一条路，click 被吞内核上菜单开了点引用没反应＝无法引用；动作体提为 maRunAction + touchend 直驱 + guard 吞补发 click，删掉 guard 检查＝双跑复发）', file: 'js/chat.js', needle: 'if (Date.now() < maClickGuard) return;' },
   { name: '#480 群聊菜单按钮 touch 直驱（对齐单聊；群聊【引用】原只有 click 路，click 被吞内核＝群聊无法引用；删掉 gcRunAction 的 touchend 直驱即断）', file: 'js/group-chat.js', needle: 'if (Date.now() < gcMaClickGuard) return;' },
   { name: '#480 群聊长按微移容错（对齐单聊 #G2：>12px 才算滑动取消；原 touchmove 一动即清定时器＋contextmenu 不开菜单＝群聊引用菜单永不出现复发）', file: 'js/group-chat.js', needle: 'if (gmdx * gmdx + gmdy * gmdy > 144) { endGcHold(); gcTapStart = null; }' },
+  { name: '#481 面板点外关闭（#480 轻点直驱回归收窄：吞 click 窗口只在「本次轻点真的关了消息菜单」的 touch 点外关闭分支布点，与消息菜单无关的普通轻点 click 放行到 document 层——原实现任意轻点无条件布 800ms guard＋body 层 stopPropagation，把 document 上的更多功能/表情包/拍一拍等面板外关闭监听全拦死＝点外面板关不掉，全机型回归；改回无条件布点即断）', file: 'js/chat.js', needle: 'msgSuppressClickUntil = Date.now() + 800;' + String.fromCharCode(10) + 'closeMsgActions();' },
   { name: '#467/#477 tabbar 存在+缩进锚：底部导航块必须在位且 tab 缩进 4 空格（嵌进任何 .page 内随 hidden 联动 display:none → 桌面底部 3 按钮消失＝#467；整块删除＝导航消失。位置闭合锚见下条；改 tabbar 区缩进必须同批同步本 needle 与 tools/verify-page-nesting.mjs S3/S5）', file: 'template.html', needle: '<div class="tabbar">\n    <div class="tab active" data-page="page-phone">' },
   { name: '#477 tabbar 位置闭合锚（tabbar 闭合 2 空格 → .phone 闭合 2 空格 → #477 移除说明注释，三行序列；tabbar 被移到 .phone 闭合之外＝body 直子被 flex 横排排到手机壳右侧＝红米 K80 等多机型「底部导航跑到右侧」、重嵌进任何 .page、.phone 闭合多补/少补，任一形态都破坏该序列＝报警。序列以 \\n 锚行首防 6 空格闭合的尾部假匹配）', file: 'template.html', needle: '\n  </div>\n  </div>\n\n<!-- （#477）tabbar 原先位于本注释处' },
   { name: '#360 字卡去重跨分组判重（seen 按分类建不按分组建+对象卡稳定序列化判重；退回「每组各建 seen 按引用比较」即换分组清不出重复，公用/专属两作用域同源复发）', file: 'js/chatcard.js', needle: 'function ccCardDupKey(cat, c) {' },
@@ -1020,6 +1021,10 @@ const FIX_SENTINELS = [
   { name: '#301 词典自建词条并入词典分类（删则自建语录/词不再进词典 tab 与拼字引擎）', file: 'js/default-cards.js', needle: "const gw = base.find(g => g[0].indexOf('词库') === 0)" },
   // ==== 2026-09-11 #306 小游戏 UI 收口（连连看/消消乐棋盘 gap 溢出截断、头部标题被挤竖排、拍卖会「不拍了」白字白底隐形）+ 全部小游戏通用全屏 .game-fs ====
   { name: '#306 连连看 fitBoard 扣除 grid gap 再取整（删则牌面总宽多出 (cols-1)*3px 溢出右缘、最右列被截断）', file: 'js/linkup.js', needle: 'Math.floor((w - (st.cols - 1) * GAP) / st.cols)' },
+  // ==== 2026-09-15 #482/#483 连连看（用户报「TA 回合连上了却弹『没连上』」「10×6 全屏不放大反而图案显小」）====
+  { name: '#482 连连看 TA wild 点错：台词只指本次尝试、隔 700ms 经 thinkT 才落子（删则台词与成功连线同帧＝「连上了却弹连不上」回流）', file: 'js/linkup.js', needle: 'if (s !== st || st.over || st.lock || st.turn !== 2) return;' },
+  { name: '#483 连连看全屏放大：.game-fs 时高度参与取格、上限 46→72（删则全屏只按宽度压小牌面、纵向空间浪费）', file: 'js/linkup.js', needle: 'Math.max(24, Math.min(72, byW' },
+  { name: '#483 连连看真全屏 stage 吃满高度（删则全屏棋盘贴顶、下方大片留白退回）', file: 'css/chat-pages.css', needle: '#chat-linkup-panel.game-fs .lk-stage { flex:1; min-height:0; }' },
   { name: '#306 消消乐 fitBoard 扣除 grid gap 再取整（同连连看，删则第 8 列被裁）', file: 'js/match3.js', needle: 'Math.floor((w - (N - 1) * GAP) / N)' },
   // ==== 2026-09-12 #340 消消乐动画（用户报「没有真消消乐动画很突兀」）：棋子层+transform 合成器过渡，交换滑动/消除爆开/按距离下落 ====
   { name: '#340 消消乐消除爆开动画 keyframes（删则消除无爆开、退回瞬间消失）', file: 'css/chat-pages.css', needle: '@keyframes m3-popout' },
@@ -1459,6 +1464,18 @@ const FIX_SENTINELS = [
   { name: '#453 消消乐直线道具清列爆炸（↕️ 被消除清整列；删则纵向直线道具成摆设，姊妹锚 push([p[0], cc]) 守清行）', file: 'js/match3.js', needle: 'queue.push([rr, p[1]]);' },
   { name: '#453 消消乐直线道具清行爆炸（↔️ 被消除清整行；删则横向直线道具成摆设）', file: 'js/match3.js', needle: 'queue.push([p[0], cc]);' },
   { name: '#453 消消乐 L/T 同色交叉→炸弹（两道同色直线共享一格合计≥5格；删则 L/T 交叉退化普通三消＝经典消消乐包裹糖玩法丢失）', file: 'js/match3.js', needle: 'runs[i].len + runs[j].len - 1 >= 5' },
+  // ==== 2026-09-15 #481 消消乐道具模式「消除后不变出道具」（多机型用户报：#301 taTurn 把 TA 出手风格写进 st.mode，
+  //      与 #453 道具开关 st.mode('item'/'simple') 撞名——TA 第一次行动 st.mode 被覆写成 serious/normal/sandbag/blunder，
+  //      此后道具门控 st.mode==='item' 永假；修复=出手风格改存独立字段 st.taMode）====
+  { name: '#481 消消乐 TA 出手风格独立字段（删则 taTurn 把 st.mode 覆写成 serious/normal/sandbag/blunder、道具模式自 TA 首步起永远不再生成道具）', file: 'js/match3.js', needle: 'st.taMode = rollMode();' },
+  // ==== 2026-09-15 #482 问问TA/邀请TA 回应落地时已切桌面＝回应被 sameCid() 取消，切回后卡片永远
+  //      「等待 TA 回答/回应…」（用户报障：文字题联系人已回答，切桌面再切回变未回复）；修复=跨桌面
+  //      补投递 chatDeskCardReply（按 ts 定位原桌面 pending 卡落 answered+补气泡）+ 发送时当场抽定
+  //      回应内容（防异桌面抽错池）+ saveMsgsNow 即落盘 ====
+  { name: '#482 问问TA切桌面跨桌面补投递调用（删则回应落地时已切桌面即被 sameCid 取消，切回永远未回复）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'ask', askRecTs, 'askStatus'" },
+  { name: '#482 邀请TA切桌面跨桌面补投递调用（同 #482 邀请路径；删则邀请决定落地时已切桌面即永久丢失）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus'" },
+  { name: '#482 补投递按 ts 定位 pending 卡幂等闸（删则可能重复落回答/给已答卡补气泡）', file: 'js/chat.js', needle: 'r.ts === cardTs && !r.retracted) { hit = r; break; }' },
+  { name: '#482 内存链路按 ts 重定位提问卡（删则 loadMsgs 重建 msgs 后旧索引错位，回答落到别张卡或丢失）', file: 'js/chat.js', needle: 'r.ts === askRecTs && !r.askStatus) return i;' },
   { name: '#454 字卡库顶部tab点不开（renderTabCounts 懒加载 groups=null 空守卫——#442 只给 renderGroupsBar 加了守卫，顶层首渲在此抛 null[\'text\'] 使 chatcard.js 整个初始化中断，顶部两大分类 tab/锁提示/搜索全不挂；删则多机型复发「系统预设字卡点不开」）', file: 'js/chatcard.js', needle: "const grps = (groups && groups[tab.dataset.type]) || [];" },
 // ==== 2026-09-14 #458 「卡顿自检弹窗一键优化点击没用」多机型（原回调两端只有 3.2s toast——大库优化
 //      耗时数十秒起、iOS 伴随卡顿/页面被杀，提示一闪而过＝观感「点了没用」；且无 .catch、idbGet 存储
