@@ -3109,28 +3109,51 @@ av.style.cursor = 'pointer';
 av.title = T('对 TA 拍一拍');
 // FIX 2026-09-14 #G1 点联系人头像打不开拍一拍（多机型同报、含内嵌浏览器；要求零机型分支防复发）：
 // 纯 click 监听在部分内核/内嵌浏览器上不可靠——点按期消息区 DOM 重渲把目标拆走、滚动回弹期按位漂移、
-// 长按候选判定吞 click 等都会让合成 click 丢失。改「pointerdown 布点 + pointerup 轻点判定 + click 兜底」
-// 三保险（#152 继续按钮 pointerdown 方案同款思路，零机型分支）：触屏滑动起点落在头像上不算点
-// （位移<=12px 且 <=450ms 才开拍一拍，滚动历史不误伤），鼠标与无 PointerEvent 老内核仍走 click。
-let pokeTap = null;
-let pokeTapGuard = 0;
+// 长按候选判定吞 click 等都会让合成 click 丢失。改「touch 布点 + pointer 布点 + click 兜底」五保险
+// （#152 继续按钮 pointerdown 方案同款思路，零机型分支）：
+//   ① touchstart/touchend 路——无 PointerEvent 的旧内核/内嵌 WebView（国产浏览器壳、旧 WebView）只派发
+//      touch 事件，pointer 监听永不触发，click 又是被吞的重灾区，touch 路是这类内核唯一可靠入口；
+//   ② pointerdown/pointerup 路——现代内核轻点判定（位移<=12px 且 <=450ms，滚动历史不误伤）；
+//   ③ click 兜底——鼠标与以上两路均失效的场景最后防线。
+// 三路共用 pokeTapGuard 防重入：任一路打开面板后，其余路在 800ms 内直接让位，杜绝双开/刚开即关。
+let pokeTapT = null;    // touch 路布点
+let pokeTapP = null;    // pointer 路布点
+let pokeTapGuard = 0;   // 三路共用防重入
+av.addEventListener('touchstart', (e) => {
+if (Date.now() < pokeTapGuard) return; // 已由其他路开过，让位
+const t = e.changedTouches && e.changedTouches[0];
+if (!t) return;
+pokeTapT = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };
+}, { passive: true });
+av.addEventListener('touchend', (e) => {
+const t = e.changedTouches && e.changedTouches[0];
+if (!pokeTapT || !t || t.identifier !== pokeTapT.id || Date.now() < pokeTapGuard) return;
+const dt = Date.now() - pokeTapT.t;
+const dx = t.clientX - pokeTapT.x;
+const dy = t.clientY - pokeTapT.y;
+pokeTapT = null;
+if (dx * dx + dy * dy > 144 || dt > 450) return; // 滑动/按住不算点（与 pointer 路同口径，文本异形护哨兵唯一）
+pokeTapGuard = Date.now() + 800;
+openPokeCard();
+}, { passive: true });
+av.addEventListener('touchcancel', () => { pokeTapT = null; }, { passive: true });
 av.addEventListener('pointerdown', (e) => {
-if (e.pointerType === 'mouse') return;
-pokeTap = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+if (e.pointerType === 'mouse' || Date.now() < pokeTapGuard) return;
+pokeTapP = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
 });
 av.addEventListener('pointerup', (e) => {
-if (!pokeTap || e.pointerId !== pokeTap.id || e.pointerType === 'mouse') return;
-const dx = e.clientX - pokeTap.x;
-const dy = e.clientY - pokeTap.y;
-const dt = Date.now() - pokeTap.t;
-pokeTap = null;
+if (!pokeTapP || e.pointerId !== pokeTapP.id || e.pointerType === 'mouse' || Date.now() < pokeTapGuard) return;
+const dx = e.clientX - pokeTapP.x;
+const dy = e.clientY - pokeTapP.y;
+const dt = Date.now() - pokeTapP.t;
+pokeTapP = null;
 if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
 pokeTapGuard = Date.now() + 800;
 openPokeCard();
 });
-av.addEventListener('pointercancel', () => { pokeTap = null; });
+av.addEventListener('pointercancel', () => { pokeTapP = null; });
 av.addEventListener('click', (e) => {
-// pointerup 已开过：吞掉补发 click，防 document 层「点外关闭」把面板刚开即关
+// touch/pointer 已开过：吞掉补发 click，防 document 层「点外关闭」把面板刚开即关
 if (Date.now() < pokeTapGuard) { e.preventDefault(); e.stopPropagation(); return; }
 e.stopPropagation();
 openPokeCard();

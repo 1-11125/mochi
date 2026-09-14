@@ -196,6 +196,9 @@ chk('S1 头像 pointerup 轻点判定锚（dt<=450 && 位移<=12px）', chatSrc.
 chk('S2 拍一拍 click 兜底防双开锚（pokeTapGuard 吞补发 click）', chatSrc.indexOf('Date.now() < pokeTapGuard') >= 0);
 chk('S3 contextmenu 兜底开动作菜单锚（ctxR 分支）', chatSrc.indexOf('activeMsgEl !== ctxR.item') >= 0);
 chk('S4 长按微移容错锚（>12px 才取消）', chatSrc.indexOf('mdx * mdx + mdy * mdy > 144') >= 0);
+// —— S5/S6 触屏五保险·旧内核 touch 路径锚（无 PointerEvent 的国产壳/旧 WebView 唯一可靠入口）——
+chk('S5 拍一拍 touchstart 布点锚（旧内核 touch 路）', chatSrc.indexOf('pokeTapT = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };') >= 0);
+chk('S6 拍一拍 touchend 轻点判定锚（同口径判滑动，文本异形护哨兵唯一）', chatSrc.indexOf('dx * dx + dy * dy > 144 || dt > 450') >= 0);
 
 await enterChat();
 
@@ -218,6 +221,29 @@ if (av) {
   await sleep(400);
   const ph = await pokeHidden();
   chk('A2 触屏从头像起向上滑→不误开拍一拍（滑动不算点）', ph === true, 'poke-card.hidden=' + String(ph));
+}
+
+// —— T1/T2 旧内核判别：手动 dispatch TouchEvent（浏览器不会为脚本事件补发 pointer/click），
+// 精确模拟「无 PointerEvent 内核只有 touch 事件」——修复前无 touch 监听＝T1 必红（旧内核打不开=报障复现）。
+// T1 轻点 → touch 路开面板；T2 起点在头像、抬手偏移 30px → 不误开。 ——
+if (av) {
+  await closePoke();
+  await evalJs(`(function(){var av=document.querySelector('.msg-in .msg-av');if(!av)return 'no-av';
+var r=av.getBoundingClientRect();var cx=Math.round(r.left+r.width/2),cy=Math.round(r.top+r.height/2);
+var mk=function(type,ox,oy){var t=new Touch({identifier:7,target:av,clientX:cx+ox,clientY:cy+oy});return new TouchEvent(type,{bubbles:true,cancelable:true,touches:type==='touchend'?[]:[t],changedTouches:[t]});};
+av.dispatchEvent(mk('touchstart',0,0));av.dispatchEvent(mk('touchend',0,0));return true;})()`);
+  await sleep(400);
+  const ph1 = await pokeHidden();
+  chk('T1 旧内核（仅 touch 事件）轻点头像→拍一拍面板打开（五保险 touch 路）', ph1 === false, 'poke-card.hidden=' + String(ph1));
+  await closePoke();
+  await evalJs(`(function(){var av=document.querySelector('.msg-in .msg-av');if(!av)return 'no-av';
+var r=av.getBoundingClientRect();var cx=Math.round(r.left+r.width/2),cy=Math.round(r.top+r.height/2);
+var mk=function(type,ox,oy){var t=new Touch({identifier:8,target:av,clientX:cx+ox,clientY:cy+oy});return new TouchEvent(type,{bubbles:true,cancelable:true,touches:type==='touchend'?[]:[t],changedTouches:[t]});};
+av.dispatchEvent(mk('touchstart',0,0));av.dispatchEvent(mk('touchend',30,0));return true;})()`);
+  await sleep(400);
+  const ph2 = await pokeHidden();
+  chk('T2 旧内核抬手偏移 30px→不误开拍一拍（touch 路滑动判定）', ph2 === true, 'poke-card.hidden=' + String(ph2));
+  await closePoke();
 }
 
 // —— 气泡手势：找一个可弹菜单的收件文字气泡 ——

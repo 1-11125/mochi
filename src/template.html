@@ -4823,7 +4823,12 @@
             <button class="cc-tool" id="chat-ask-ok">发送</button>
           </div>
       </div>
+      </div>
       <!-- 寻踪半框（点顶部联系人头像打开，露出聊天消息） -->
+      <!-- FIX 2026-09-14 #474：此处原有 3 个连续 </div>（关 chat-ask-actions / poke-card-scroll / chat-ask-panel）。
+          108b918 误删 chat-ask-actions 三按钮时把第三个 </div> 一起删掉，#471 恢复按钮但漏恢复该闭合 →
+          后续全部 .page（聊天设置/群聊/房间/漂流瓶/梦角/心情/我的档案/此间）被吞进 chat-ask-panel 内，
+          父级 page-chat 一隐藏子级联动 display:none = 8 个子页整页白屏（多机型必现）。缺失闭合必须保留。 -->
       <div class="poke-card" id="ck-panel" hidden>
         <div class="poke-card-head">
           <span>寻踪 · <b id="ck-panel-name">TA</b> 的日常</span>

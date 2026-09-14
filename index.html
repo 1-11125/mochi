@@ -9440,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789381991051">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.681</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 18:33<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789395218793">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.682</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 22:13<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10753,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.681</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.682</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11055,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.681</span>
+              <span class="lic-ver">v3.26.682</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -13974,7 +13974,12 @@ transition-duration: .01ms !important;
             <button class="cc-tool" id="chat-ask-ok">发送</button>
           </div>
       </div>
+      </div>
       <!-- 寻踪半框（点顶部联系人头像打开，露出聊天消息） -->
+      <!-- FIX 2026-09-14 #474：此处原有 3 个连续 </div>（关 chat-ask-actions / poke-card-scroll / chat-ask-panel）。
+          108b918 误删 chat-ask-actions 三按钮时把第三个 </div> 一起删掉，#471 恢复按钮但漏恢复该闭合 →
+          后续全部 .page（聊天设置/群聊/房间/漂流瓶/梦角/心情/我的档案/此间）被吞进 chat-ask-panel 内，
+          父级 page-chat 一隐藏子级联动 display:none = 8 个子页整页白屏（多机型必现）。缺失闭合必须保留。 -->
       <div class="poke-card" id="ck-panel" hidden>
         <div class="poke-card-head">
           <span>寻踪 · <b id="ck-panel-name">TA</b> 的日常</span>
@@ -30981,23 +30986,42 @@ fillAvatar(av, rec.side === 'out' ? 'cs-avatar-user' : 'cs-avatar-partner');
 if (rec.side === 'in') {
 av.style.cursor = 'pointer';
 av.title = T('对 TA 拍一拍');
-let pokeTap = null;
-let pokeTapGuard = 0;
+let pokeTapT = null;    // touch 路布点
+let pokeTapP = null;    // pointer 路布点
+let pokeTapGuard = 0;   // 三路共用防重入
+av.addEventListener('touchstart', (e) => {
+if (Date.now() < pokeTapGuard) return; // 已由其他路开过，让位
+const t = e.changedTouches && e.changedTouches[0];
+if (!t) return;
+pokeTapT = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };
+}, { passive: true });
+av.addEventListener('touchend', (e) => {
+const t = e.changedTouches && e.changedTouches[0];
+if (!pokeTapT || !t || t.identifier !== pokeTapT.id || Date.now() < pokeTapGuard) return;
+const dt = Date.now() - pokeTapT.t;
+const dx = t.clientX - pokeTapT.x;
+const dy = t.clientY - pokeTapT.y;
+pokeTapT = null;
+if (dx * dx + dy * dy > 144 || dt > 450) return; // 滑动/按住不算点（与 pointer 路同口径，文本异形护哨兵唯一）
+pokeTapGuard = Date.now() + 800;
+openPokeCard();
+}, { passive: true });
+av.addEventListener('touchcancel', () => { pokeTapT = null; }, { passive: true });
 av.addEventListener('pointerdown', (e) => {
-if (e.pointerType === 'mouse') return;
-pokeTap = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+if (e.pointerType === 'mouse' || Date.now() < pokeTapGuard) return;
+pokeTapP = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
 });
 av.addEventListener('pointerup', (e) => {
-if (!pokeTap || e.pointerId !== pokeTap.id || e.pointerType === 'mouse') return;
-const dx = e.clientX - pokeTap.x;
-const dy = e.clientY - pokeTap.y;
-const dt = Date.now() - pokeTap.t;
-pokeTap = null;
+if (!pokeTapP || e.pointerId !== pokeTapP.id || e.pointerType === 'mouse' || Date.now() < pokeTapGuard) return;
+const dx = e.clientX - pokeTapP.x;
+const dy = e.clientY - pokeTapP.y;
+const dt = Date.now() - pokeTapP.t;
+pokeTapP = null;
 if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
 pokeTapGuard = Date.now() + 800;
 openPokeCard();
 });
-av.addEventListener('pointercancel', () => { pokeTap = null; });
+av.addEventListener('pointercancel', () => { pokeTapP = null; });
 av.addEventListener('click', (e) => {
 if (Date.now() < pokeTapGuard) { e.preventDefault(); e.stopPropagation(); return; }
 e.stopPropagation();
@@ -93672,4 +93696,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu13u4qz -->
+<!-- __MOCHI_EOF__ mu1bpnc9 -->
