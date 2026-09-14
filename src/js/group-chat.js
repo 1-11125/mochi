@@ -3075,27 +3075,63 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       }
       return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
     }
+    // FIX 2026-09-14 #480 群聊补齐单聊 #G2 同款手势保险：轻点/长按判定统一出口（原判定内联在 click 里）
+    function gcActionEligible(t) {
+      const bk = t.closest('.msg-bubble');
+      if (!bk) return null;
+      if (t.closest('.msg-quote')) return null;                 // 引用块点击留给后续跳原消息
+      const item = bk.closest('.msg');
+      if (!item || item.classList.contains('msg-poke')) return null; // 拍一拍居中条不弹
+      if ((bk.textContent || '').indexOf('撤回了一条消息') >= 0) return null; // 撤回提示有专属点击
+      return { item, bk };
+    }
+    let gcHoldX = 0, gcHoldY = 0;   // #480 长按/轻点起始触点
+    let gcTapStart = null;          // #480 轻点布点（touch 直驱开菜单入口）
     body.addEventListener('contextmenu', (e) => {
-      if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
+      // FIX 2026-09-14 #480 对齐单聊 #G2：contextmenu（内核对长按的权威信号）同步开菜单兜底——
+      // 原来只 preventDefault 不开菜单，定时器路被 touchcancel 打断时群聊引用菜单永不出现
+      if (!e.target.closest('.msg-bubble') || e.target.closest('.msg-quote')) return;
+      e.preventDefault();
+      const r = gcActionEligible(e.target);
+      if (!r) return;
+      gcSuppressClickUntil = Date.now() + 800;
+      if (gcMsgActions.hidden || gcActiveMsgEl !== r.item) gcOpenMsgActions(r.item, r.bk);
     });
     body.addEventListener('touchstart', (e) => {
-      const bk = e.target.closest('.msg-bubble');
-      if (!bk) return;
-      if (e.target.closest('.msg-quote')) return;               // 引用块点击留给后续跳原消息
-      const item = bk.closest('.msg');
-      if (!item || item.classList.contains('msg-poke')) return; // 拍一拍居中条不弹
-      if ((bk.textContent || '').indexOf('撤回了一条消息') >= 0) return; // 撤回提示有专属点击
-      gcHoldEl = item;
+      const mt0 = e.touches && e.touches[0];
+      if (mt0) { gcHoldX = mt0.clientX; gcHoldY = mt0.clientY; }
+      const r = gcActionEligible(e.target);
+      if (!r) { gcTapStart = null; return; }
+      gcTapStart = { x: gcHoldX, y: gcHoldY, t: Date.now(), item: r.item, bk: r.bk };
+      gcHoldEl = r.item;
       gcHoldTimer = setTimeout(() => {
         gcHoldTimer = null;
         gcSuppressClickUntil = Date.now() + 800; // 松开后抑制随之而来的轻点，防菜单被刚弹即关
         if (window.getSelection) { try { const s = window.getSelection(); if (s && s.removeAllRanges) s.removeAllRanges(); } catch (err) {} }
-        gcOpenMsgActions(gcHoldEl, bk);
+        gcOpenMsgActions(gcHoldEl, r.bk);
       }, 500);
     }, { passive: true });
     function endGcHold() { if (gcHoldTimer) { clearTimeout(gcHoldTimer); gcHoldTimer = null; } }
-    body.addEventListener('touchmove', endGcHold, { passive: true }); // 手指滑动=滚动，取消长按
-    body.addEventListener('touchend', endGcHold);
+    body.addEventListener('touchmove', (e) => {
+      // FIX 2026-09-14 #480 对齐单聊 #G2 微移容错：>12px 才算滑动、取消长按/轻点——部分内核在
+      // 500ms 长按窗口内必发小 touchmove，原「一动即清定时器」＝群聊菜单永不出现
+      if ((gcHoldTimer || gcTapStart) && e.touches && e.touches[0]) {
+        const mt = e.touches[0];
+        const gmdx = mt.clientX - gcHoldX, gmdy = mt.clientY - gcHoldY;
+        if (gmdx * gmdx + gmdy * gmdy > 144) { endGcHold(); gcTapStart = null; }
+      }
+    }, { passive: true });
+    body.addEventListener('touchend', (e) => {
+      endGcHold();
+      // FIX 2026-09-14 #480 轻点 touch 直驱开菜单（与单聊同款，click 被吞族内核唯一可靠入口）
+      const mt = e.changedTouches && e.changedTouches[0];
+      if (!gcTapStart || !mt) { gcTapStart = null; return; }
+      if (Date.now() - gcTapStart.t > 450 || (mt.clientX - gcTapStart.x) * (mt.clientX - gcTapStart.x) + (mt.clientY - gcTapStart.y) * (mt.clientY - gcTapStart.y) > 144) { gcTapStart = null; return; } // 滑动/长按不算轻点
+      const ts = gcTapStart; gcTapStart = null;
+      gcSuppressClickUntil = Date.now() + 800; // 吞引擎补发 click，防刚开即关/防重入
+      if (!gcMsgActions.hidden && gcActiveMsgEl === ts.item) return; // 该气泡菜单已开，不重开
+      gcOpenMsgActions(ts.item, ts.bk);
+    });
     body.addEventListener('touchcancel', endGcHold);
     body.addEventListener('click', (e) => {
       if (gcSuppressClickUntil && Date.now() < gcSuppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
@@ -3112,10 +3148,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     document.addEventListener('click', (e) => {
       if (!gcMsgActions.hidden && !gcMsgActions.contains(e.target)) closeGcMsgActions();
     });
-    gcMsgActions.addEventListener('click', (e) => {
-      const btn = e.target.closest('.ma-btn');
-      if (!btn) return;
-      if (btn.dataset.act === 'quote' && gcActiveMsgEl) {
+    // FIX 2026-09-14 #480 菜单按钮 touch 直驱——【引用】按钮原来只有 click 一条路，click 被吞族
+    // 内核上菜单开了点引用没反应。动作体提为 gcRunAction，touchend 直驱执行 + gcMaClickGuard
+    // 吞引擎补发 click 防双跑（鼠标仍走 click，行为不变）。
+    let gcMaClickGuard = 0;
+    function gcRunAction(btn) {
+      const act = btn.dataset.act;
+      if (act === 'quote' && gcActiveMsgEl) {
         // FIX 2026-09-13 #407：按身份快照重定位（防 msgs 重排后 gcIdx 串条）
         const _ra = gcResolveActiveMsg();
         const idx = _ra.idx;
@@ -3138,6 +3177,18 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         }
       }
       closeGcMsgActions();
+    }
+    gcMsgActions.addEventListener('click', (e) => {
+      const btn = e.target.closest('.ma-btn');
+      if (!btn) return;
+      if (Date.now() < gcMaClickGuard) return; // #480 touchend 已直驱执行，吞补发 click 防双跑
+      gcRunAction(btn);
+    });
+    gcMsgActions.addEventListener('touchend', (e) => {
+      const btn = e.target.closest('.ma-btn');
+      if (!btn || btn.hidden) return;
+      gcMaClickGuard = Date.now() + 600; // 吞引擎补发 click 防双跑
+      gcRunAction(btn); // touch 直驱执行——不依赖内核从 touch 合成 click
     });
   }
 

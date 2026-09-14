@@ -9440,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789397340985">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.683</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 22:49<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789402370012">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.684</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 00:12<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10753,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.683</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.684</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11055,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.683</span>
+              <span class="lic-ver">v3.26.684</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -14928,20 +14928,27 @@ transition-duration: .01ms !important;
     </button>
   </div>
 </div>
+  <!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
+  <!-- FIX 2026-09-14 #477：位置不变量——本块必须整体保持在下方 .phone 闭合（2 空格缩进的 </div>）之前。
+       810ab22 补 #474 第 3 个闭合后本块被留在 .phone 闭合之外＝body 直子；body 是 flex 横排居中
+      （#301 同机理），tabbar 作为 .phone 的下一个 flex 项被排到手机壳右侧＝红米 K80 Chrome 等
+       多机型「桌面底部导航跑到右侧」（无头 390 宽实测 w=118/left=331/底缘 459，整壳同时被推左）。
+      #467 旧哨兵只锚注释文字＝位置哑哨兵，已换 #467/#477 位置锚（build.mjs）；
+       tools/verify-page-nesting.mjs S3/S5/B5b/B5c 同步锚定，改本块位置/缩进必须同批同步。 -->
+  <div class="tabbar">
+    <div class="tab active" data-page="page-phone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
+    </div>
+    <div class="tab" data-page="page-chatcard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
+    </div>
+    <div class="tab" data-page="page-setting">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+    </div>
+  </div>
   </div>
 
-<!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
-<div class="tabbar">
-      <div class="tab active" data-page="page-phone">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
-      </div>
-      <div class="tab" data-page="page-chatcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
-      </div>
-      <div class="tab" data-page="page-setting">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
-      </div>
-    </div>
+<!-- （#477）tabbar 原先位于本注释处＝.phone 闭合之后＝body 直子（跑到右侧的根因）。勿移回此处。 -->
 
   <!-- v3.6.x：桌面图片组件全屏查看器——点图片组件放大查看，点空白/×关闭。
        注意：必须放在脚本标签之前（body 直子节点，position:fixed 不受布局影响）——
@@ -29230,6 +29237,11 @@ windowStale = true;
 renderWindow(false, true);
 scrollChatBottom();
 }
+if (!changed) {
+setTimeout(function () {
+try { if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, true); } catch (e) {}
+}, 0);
+}
 if (typeof v === 'string' && v.length > CHAT_STR_THRESHOLD && idbArr && idbArr.length) {
 setTimeout(function () {
 try { if (window.activePrefix() === myPrefix && window.idbSet) persistMsgsToIdb(myPrefix + ':chat-msgs', msgs); } catch (e) {}
@@ -35152,12 +35164,16 @@ openMsgActionsAt(ctxR.item, ctxR.b);
 }
 }
 });
+let msgTapStart = null; // FIX 2026-09-14 #480 轻点布点——气泡 touch 直驱开菜单入口（click 被吞族内核唯一可靠路）
+let msgAnyTap = null;   // FIX 2026-09-14 #480 全局轻点布点——点外关闭菜单的 touch 路
 body.addEventListener('touchstart', (e) => {
 const r = msgActionEligible(e.target);
-if (!r) return;
-msgHoldEl = r.item;
 const mt0 = e.touches && e.touches[0];
 if (mt0) { msgHoldX = mt0.clientX; msgHoldY = mt0.clientY; }
+msgAnyTap = { x: msgHoldX, y: msgHoldY, t: Date.now() };
+if (!r) { msgTapStart = null; return; }
+msgTapStart = { x: msgHoldX, y: msgHoldY, t: Date.now(), item: r.item, b: r.b };
+msgHoldEl = r.item;
 msgHoldTimer = setTimeout(() => {
 msgHoldTimer = null;
 msgHoldFired = true;
@@ -35172,10 +35188,23 @@ if (msgHoldTimer && e.touches && e.touches[0]) {
 const mt = e.touches[0];
 const mdx = mt.clientX - msgHoldX;
 const mdy = mt.clientY - msgHoldY;
-if (mdx * mdx + mdy * mdy > 144) endMsgHold();
+if (mdx * mdx + mdy * mdy > 144) { endMsgHold(); msgTapStart = null; msgAnyTap = null; }
 }
 }, { passive: true });   // 手指滑动=滚动，取消长按（超过 12px 才算滑动）
-body.addEventListener('touchend', endMsgHold);
+body.addEventListener('touchend', (e) => {
+endMsgHold();
+const mt = e.changedTouches && e.changedTouches[0];
+if (!msgAnyTap || !mt) { msgTapStart = null; return; }
+if (Date.now() - msgAnyTap.t > 450 || (mt.clientX - msgAnyTap.x) * (mt.clientX - msgAnyTap.x) + (mt.clientY - msgAnyTap.y) * (mt.clientY - msgAnyTap.y) > 144) { msgTapStart = null; msgAnyTap = null; return; } // 滑动/长按不算轻点
+const ts = msgTapStart; msgTapStart = null; msgAnyTap = null;
+msgSuppressClickUntil = Date.now() + 800; // 吞引擎补发 click，防刚开即关/防重入
+if (ts) {
+if (msgActions && !msgActions.hidden && activeMsgEl === ts.item) return; // 该气泡菜单已开，不重开
+openMsgActionsAt(ts.item, ts.b);
+return;
+}
+if (msgActions && !msgActions.hidden && !msgActions.contains(e.target) && !e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) closeMsgActions();
+});
 body.addEventListener('touchcancel', endMsgHold);
 body.addEventListener('click', (e) => {
 if (msgSuppressClickUntil && Date.now() < msgSuppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
@@ -35192,9 +35221,8 @@ if (msgActions && !msgActions.hidden && !msgActions.contains(e.target)) closeMsg
 });
 }
 if (msgActions) {
-msgActions.addEventListener('click', (e) => {
-const btn = e.target.closest('.ma-btn');
-if (!btn) return;
+let maClickGuard = 0;
+function maRunAction(btn) {
 const act = btn.dataset.act;
 const _act = resolveActiveMsg();
 const idx = _act.idx;
@@ -35281,6 +35309,18 @@ toast('已删除该消息');
 }
 closeMsgActions();
 }
+}
+msgActions.addEventListener('click', (e) => {
+const btn = e.target.closest('.ma-btn');
+if (!btn) return;
+if (Date.now() < maClickGuard) return; // #480 touchend 已直驱执行，吞补发 click 防双跑
+maRunAction(btn);
+});
+msgActions.addEventListener('touchend', (e) => {
+const btn = e.target.closest('.ma-btn');
+if (!btn || btn.hidden) return;
+maClickGuard = Date.now() + 600; // 吞引擎补发 click 防双跑
+maRunAction(btn); // touch 直驱执行——不依赖内核从 touch 合成 click
 });
 }
 function toast(msg) {
@@ -40000,27 +40040,57 @@ if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
 }
 return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
 }
+function gcActionEligible(t) {
+const bk = t.closest('.msg-bubble');
+if (!bk) return null;
+if (t.closest('.msg-quote')) return null;                 // 引用块点击留给后续跳原消息
+const item = bk.closest('.msg');
+if (!item || item.classList.contains('msg-poke')) return null; // 拍一拍居中条不弹
+if ((bk.textContent || '').indexOf('撤回了一条消息') >= 0) return null; // 撤回提示有专属点击
+return { item, bk };
+}
+let gcHoldX = 0, gcHoldY = 0;   // #480 长按/轻点起始触点
+let gcTapStart = null;          // #480 轻点布点（touch 直驱开菜单入口）
 body.addEventListener('contextmenu', (e) => {
-if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
+if (!e.target.closest('.msg-bubble') || e.target.closest('.msg-quote')) return;
+e.preventDefault();
+const r = gcActionEligible(e.target);
+if (!r) return;
+gcSuppressClickUntil = Date.now() + 800;
+if (gcMsgActions.hidden || gcActiveMsgEl !== r.item) gcOpenMsgActions(r.item, r.bk);
 });
 body.addEventListener('touchstart', (e) => {
-const bk = e.target.closest('.msg-bubble');
-if (!bk) return;
-if (e.target.closest('.msg-quote')) return;               // 引用块点击留给后续跳原消息
-const item = bk.closest('.msg');
-if (!item || item.classList.contains('msg-poke')) return; // 拍一拍居中条不弹
-if ((bk.textContent || '').indexOf('撤回了一条消息') >= 0) return; // 撤回提示有专属点击
-gcHoldEl = item;
+const mt0 = e.touches && e.touches[0];
+if (mt0) { gcHoldX = mt0.clientX; gcHoldY = mt0.clientY; }
+const r = gcActionEligible(e.target);
+if (!r) { gcTapStart = null; return; }
+gcTapStart = { x: gcHoldX, y: gcHoldY, t: Date.now(), item: r.item, bk: r.bk };
+gcHoldEl = r.item;
 gcHoldTimer = setTimeout(() => {
 gcHoldTimer = null;
 gcSuppressClickUntil = Date.now() + 800; // 松开后抑制随之而来的轻点，防菜单被刚弹即关
 if (window.getSelection) { try { const s = window.getSelection(); if (s && s.removeAllRanges) s.removeAllRanges(); } catch (err) {} }
-gcOpenMsgActions(gcHoldEl, bk);
+gcOpenMsgActions(gcHoldEl, r.bk);
 }, 500);
 }, { passive: true });
 function endGcHold() { if (gcHoldTimer) { clearTimeout(gcHoldTimer); gcHoldTimer = null; } }
-body.addEventListener('touchmove', endGcHold, { passive: true }); // 手指滑动=滚动，取消长按
-body.addEventListener('touchend', endGcHold);
+body.addEventListener('touchmove', (e) => {
+if ((gcHoldTimer || gcTapStart) && e.touches && e.touches[0]) {
+const mt = e.touches[0];
+const gmdx = mt.clientX - gcHoldX, gmdy = mt.clientY - gcHoldY;
+if (gmdx * gmdx + gmdy * gmdy > 144) { endGcHold(); gcTapStart = null; }
+}
+}, { passive: true });
+body.addEventListener('touchend', (e) => {
+endGcHold();
+const mt = e.changedTouches && e.changedTouches[0];
+if (!gcTapStart || !mt) { gcTapStart = null; return; }
+if (Date.now() - gcTapStart.t > 450 || (mt.clientX - gcTapStart.x) * (mt.clientX - gcTapStart.x) + (mt.clientY - gcTapStart.y) * (mt.clientY - gcTapStart.y) > 144) { gcTapStart = null; return; } // 滑动/长按不算轻点
+const ts = gcTapStart; gcTapStart = null;
+gcSuppressClickUntil = Date.now() + 800; // 吞引擎补发 click，防刚开即关/防重入
+if (!gcMsgActions.hidden && gcActiveMsgEl === ts.item) return; // 该气泡菜单已开，不重开
+gcOpenMsgActions(ts.item, ts.bk);
+});
 body.addEventListener('touchcancel', endGcHold);
 body.addEventListener('click', (e) => {
 if (gcSuppressClickUntil && Date.now() < gcSuppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
@@ -40037,10 +40107,10 @@ gcOpenMsgActions(item, bk);
 document.addEventListener('click', (e) => {
 if (!gcMsgActions.hidden && !gcMsgActions.contains(e.target)) closeGcMsgActions();
 });
-gcMsgActions.addEventListener('click', (e) => {
-const btn = e.target.closest('.ma-btn');
-if (!btn) return;
-if (btn.dataset.act === 'quote' && gcActiveMsgEl) {
+let gcMaClickGuard = 0;
+function gcRunAction(btn) {
+const act = btn.dataset.act;
+if (act === 'quote' && gcActiveMsgEl) {
 const _ra = gcResolveActiveMsg();
 const idx = _ra.idx;
 const rec = _ra.rec;
@@ -40060,6 +40130,18 @@ toast('已删除该消息');
 }
 }
 closeGcMsgActions();
+}
+gcMsgActions.addEventListener('click', (e) => {
+const btn = e.target.closest('.ma-btn');
+if (!btn) return;
+if (Date.now() < gcMaClickGuard) return; // #480 touchend 已直驱执行，吞补发 click 防双跑
+gcRunAction(btn);
+});
+gcMsgActions.addEventListener('touchend', (e) => {
+const btn = e.target.closest('.ma-btn');
+if (!btn || btn.hidden) return;
+gcMaClickGuard = Date.now() + 600; // 吞引擎补发 click 防双跑
+gcRunAction(btn); // touch 直驱执行——不依赖内核从 touch 合成 click
 });
 }
 const gcPokeCard = document.getElementById('gc-poke-card');
@@ -93696,4 +93778,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1cz4u1 -->
+<!-- __MOCHI_EOF__ mu1fyx98 -->

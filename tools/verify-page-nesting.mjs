@@ -22,9 +22,18 @@
 //      只把 src 修好没重建、或闭合并到别处把 .phone 提前关掉，B2b/B3/B4b 都会红（RED 基线 11 通过/10 失败）。
 //   ③ 两个视口各跑一轮（390×844 / 360×640）：结构病与尺寸无关，但窄屏是「子页掉出 .phone」最易露馅的尺寸。
 //
+// #477 追加（2026-09-14，同族第二次复发后按「复发≥2 次必须配行为断言」规则补）：
+//   810ab22 给 chat-ask-panel 补第 3 个闭合（#474，本身正确）后，tabbar 块被留在 .phone 真闭合
+//   （sm-float 之后 2 空格缩进行）之外＝body 直子——body 是 flex 横排居中（#301 同机理），
+//   tabbar 作为 .phone 的下一个 flex 项被排到手机壳右侧＝红米 K80 Chrome 等多机型
+//   「底部导航跑到右侧」（无头 390 宽实测 w=118/left=331/底缘 459，整壳同时被推左）。
+//   #467 旧哨兵只锚注释文字（位置哑哨兵）、B5 只断言「不在任何 .page 内」，都抓不住「掉出 .phone」。
+//   新增：S3/S4/S5 静态位置锚 + B5b 父元素必须是 .phone 直子 + B5c 桌面页 tabbar 全宽贴底几何。
+//   判别力实证：修复前本脚本 S3/S5/B5b×2/B5c×2 共 6 红；修复重建后 46/46 全绿。
+//
 // 用法（收口后）：node build.mjs && node tools/verify-page-nesting.mjs
 // 用法（预收口验证隔离构建）：SERVE_ROOT=<隔离构建目录> node tools/verify-page-nesting.mjs
-// 断言数：39（两轮 × 19 + 终态 1）。
+// 断言数：46（静态 5 + 两轮 × 20 + 终态 1）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -134,6 +143,20 @@ const prodHtml = (() => { try { return readFileSync(join(root, 'index.html'), 'u
 chk('S2 产物 index.html 同步包含 chat-ask-panel 三层闭合锚',
   prodHtml.indexOf('<button class="cc-tool" id="chat-ask-ok">发送</button>\n          </div>\n        </div>\n      </div>\n') >= 0);
 
+// —— S3/S4/S5 静态位置锚（#477）：tabbar 必须整体位于 .phone 闭合 </div> 之前 ——
+// 位置用「tabbar 闭合(2 空格) → .phone 闭合(2 空格) → #477 移除说明注释」三行序列表达：
+// tabbar 被移出 .phone（无论向前还是向后）、重嵌进任何 .page、.phone 闭合被多补/少补，
+// 该序列即消失。缩进即结构（#476 教训）；改 tabbar 区缩进必须同步本锚与 build.mjs #477 哨兵。
+// ⚠ 序列必须以 \n 开头锚定行首：不带 \n 时 `  </div>` 会被 `      </div>`（6 空格缩进闭合）
+// 的尾部命中（2026-09-14 实测坏产物上假绿）——「缩进锚」必须含行首才算数。
+const TAB_SEQ = '\n  </div>\n  </div>\n\n<!-- （#477）tabbar 原先位于本注释处';
+const tplTabOpen = tplSrc.indexOf('<div class="tabbar">');
+chk('S3 源码 tabbar 在 .phone 闭合之前（tabbar→.phone 闭合→#477 注释 位置序列在位且顺序正确）',
+  tplTabOpen >= 0 && tplSrc.indexOf(TAB_SEQ) >= 0 && tplTabOpen < tplSrc.indexOf(TAB_SEQ));
+chk('S4 源码 tabbar 块唯一（出现多副本＝结构已乱）',
+  (tplSrc.match(/class="tabbar"/g) || []).length === 1);
+chk('S5 产物 index.html 同步包含 tabbar 位置序列', prodHtml.indexOf(TAB_SEQ) >= 0);
+
 // —— 关开屏（clock.js 门控：滑到底 + 点「点击进入」，失败则强制隐藏夹具兜底）——
 // 抽成函数：第二轮 360×640 视口复测要再跑一遍（不同机型尺寸同验，防只测一个尺寸蒙过）
 async function closeSplash(prefix) {
@@ -217,7 +240,22 @@ const CS_STATE_JS = `(function(){
 const TB_JS = `(function(){
   var t = document.querySelector('.tabbar');
   if (!t) return { miss: true };
-  return { inPage: !!t.closest('.page'), parent: t.parentElement ? (t.parentElement.className || t.parentElement.id) : null };
+  var p = t.parentElement;
+  return { inPage: !!t.closest('.page'), isPhoneChild: !!(p && p.classList && p.classList.contains('phone')),
+           parent: p ? (p.className || p.id || p.tagName) : null };
+})()`;
+// B5c 几何（#477）：必须在「回桌面页」复位之后取——桌面页可见时 tabbar 才显示。
+// 期望（@media≤900px 路径，.phone padding 0 18px 18px）：宽=视口−36（>300）、左缘=18、
+// 底缘=.phone 底−18（headless 安全区为 0）。掉 body 层时宽塌缩成内容宽（~118px）且被
+// flex 横排推到 .phone 右侧（左缘 > 视口宽或远大于 18）＝本断言红。
+const TB_GEOM_JS = `(function(){
+  var t = document.querySelector('.tabbar');
+  var ph = document.querySelector('.phone');
+  if (!t || !ph) return null;
+  var r = t.getBoundingClientRect(), pr = ph.getBoundingClientRect();
+  return { hidden: !!t.hidden, w: Math.round(r.width), left: Math.round(r.left),
+           bottom: Math.round(r.bottom), expLeft: Math.round(pr.left + 18),
+           expBottom: Math.round(pr.bottom - 18), vw: document.documentElement.clientWidth };
 })()`;
 
 async function runRound(tag) {
@@ -247,12 +285,17 @@ async function runRound(tag) {
   chk(tag + 'B4c 聊天设置页 DOM 内容已渲染（存在子节点，非空壳）', !!cs && cs.kidCount > 10, 'kids=' + String(cs && cs.kidCount));
   chk(tag + 'B4d 打开子页时 page-chat 已隐藏（全屏页切换语义）', !!cs && cs.chatHidden === true, JSON.stringify(cs && cs.chatHidden));
 
-  // B5 #467 同族防回归：.tabbar 必须在 .phone 内、所有 .page 之外
+  // B5/B5b #467/#477 同族防回归：.tabbar 必须在 .phone 内、所有 .page 之外
   const tb = await evalJs(TB_JS);
   chk(tag + 'B5 .tabbar 不在任何 .page 内部（#467 同族：嵌进 page 会随 hidden 消失）', !!tb && tb.miss !== true && tb.inPage === false, JSON.stringify(tb));
+  chk(tag + 'B5b .tabbar 父元素必须是 .phone 直子（#477：掉出 .phone 落 body 层＝flex 横排把它排到手机壳右侧）', !!tb && tb.miss !== true && tb.isPhoneChild === true, JSON.stringify(tb));
   // 回桌面页，准备下一轮
   await evalJs(`(function(){var pages=document.querySelectorAll('.page');for(var i=0;i<pages.length;i++){if(!pages[i].hidden)pages[i].hidden=true;}var ph=document.getElementById('page-phone');if(ph)ph.hidden=false;return true;})()`);
   await sleep(300);
+  // B5c #477 几何：桌面页上 tabbar 必须全宽贴底可见（掉 body 层＝宽塌缩+被推到壳右侧）
+  const tbG = await evalJs(TB_GEOM_JS);
+  chk(tag + 'B5c 桌面页 tabbar 几何：全宽贴底（宽>300、左缘≈.phone内容左缘、底缘≈.phone底−18）',
+    !!tbG && tbG.hidden === false && tbG.w > 300 && Math.abs(tbG.left - tbG.expLeft) <= 2 && Math.abs(tbG.bottom - tbG.expBottom) <= 2, JSON.stringify(tbG));
 }
 
 await runRound('[390×844] ');

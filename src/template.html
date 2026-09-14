@@ -5777,20 +5777,27 @@
     </button>
   </div>
 </div>
+  <!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
+  <!-- FIX 2026-09-14 #477：位置不变量——本块必须整体保持在下方 .phone 闭合（2 空格缩进的 </div>）之前。
+       810ab22 补 #474 第 3 个闭合后本块被留在 .phone 闭合之外＝body 直子；body 是 flex 横排居中
+      （#301 同机理），tabbar 作为 .phone 的下一个 flex 项被排到手机壳右侧＝红米 K80 Chrome 等
+       多机型「桌面底部导航跑到右侧」（无头 390 宽实测 w=118/left=331/底缘 459，整壳同时被推左）。
+      #467 旧哨兵只锚注释文字＝位置哑哨兵，已换 #467/#477 位置锚（build.mjs）；
+       tools/verify-page-nesting.mjs S3/S5/B5b/B5c 同步锚定，改本块位置/缩进必须同批同步。 -->
+  <div class="tabbar">
+    <div class="tab active" data-page="page-phone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
+    </div>
+    <div class="tab" data-page="page-chatcard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
+    </div>
+    <div class="tab" data-page="page-setting">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+    </div>
+  </div>
   </div>
 
-<!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
-<div class="tabbar">
-      <div class="tab active" data-page="page-phone">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
-      </div>
-      <div class="tab" data-page="page-chatcard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/></svg>
-      </div>
-      <div class="tab" data-page="page-setting">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
-      </div>
-    </div>
+<!-- （#477）tabbar 原先位于本注释处＝.phone 闭合之后＝body 直子（跑到右侧的根因）。勿移回此处。 -->
 
   <!-- v3.6.x：桌面图片组件全屏查看器——点图片组件放大查看，点空白/×关闭。
        注意：必须放在脚本标签之前（body 直子节点，position:fixed 不受布局影响）——
