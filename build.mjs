@@ -240,6 +240,11 @@ const FIX_SENTINELS = [
   { name: '聊天页半框「批量设置问卷」入口锚点（template.html），供更多功能查必（用户多次反馈缺少批量问卷按钮）', file: 'template.html', needle: 'id="chat-ask-bulk"' },
   { name: '聊天页半框「批量设置问卷」跳转函数 openAskSurvey（ta-ask.js；从聊天半框进入批量问卷页，返回回聊天而非 TA 的询问），删掉即按钮失效复发', file: 'js/ta-ask.js', needle: 'window.openAskSurvey = function' },
   { name: '聊天页半框主输入框「一键清空 ✕」绑定（chat.js；问句输入框与帮我决定/多人决定同款 dec-inp-clear，删掉即无清除按钮复发）', file: 'js/chat.js', needle: "document.querySelector('#chat-ask-panel .dec-inp-clear[data-clear=\"chat-ask-input\"]')" },
+  { name: '#471 聊天页问TA半框底部【发送/取消/存入】按钮（template.html；108b918 误删后聊天中单问题无法发送，删除/改 id 即复发）', file: 'template.html', needle: 'id="chat-ask-ok">发送' },
+  { name: '#472 批量问卷返回走 enterChat 恢复聊天页本体（ta-ask.js；此前只回显桌面聊天图标导致全部 .page 隐藏、.phone 折叠 tabbar 飞到顶，改回图标显隐即复发）', file: 'js/ta-ask.js', needle: 'surveyOpenFromChat = false; if (window.enterChat) { window.enterChat(); return; }' },
+  { name: '#471 设置页「导出全部桌面聊天记录」UI（template.html；改 id/删除即 cs-export-all 失效复发）', file: 'template.html', needle: 'id="cs-export-all"' },
+  { name: '#471 设置页「导入全部桌面聊天记录」UI（template.html；改 id/删除即 cs-import-all 失效复发）', file: 'template.html', needle: 'id="cs-import-all"' },
+  { name: '#471 设置页全部桌面导入分路写回（data-backup.js importChatAllGo：非当前桌面走 writeDeskChat 写 IDB+账本+LS 快照，删掉即导入全部桌面只写当前桌面、旧桌面全部丢失复发）', file: 'js/data-backup.js', needle: 'function writeDeskChat(cid, arr) {' },
   // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
   // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
   // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
@@ -249,6 +254,10 @@ const FIX_SENTINELS = [
   { name: '#437 发送按钮双击守卫吞并 toast 反馈（守卫语义不变，吞并须可见；删则双击发送静默无反馈回流）', file: 'js/chat.js', needle: "try { toast('同样的内容刚发送过，未重复发送'); } catch (e) {}" },
   { name: '#466 键盘/视口 resize 钉住回钉守卫（聊天视口高度变化且仍贴底钉住时不刷新 scrollTop→消息被键盘顶到上半区、发送时才拽回=「闪一下」；删掉守卫线即复发）', file: 'js/chat.js', needle: 'if (!chatVisible() || !chatPinnedBottom) return;' },
   { name: '#466 键盘/视口 resize 回钉监听（visualViewport resize→refreshKbRepin；删监听＝键盘开合不再回钉、上半区闪动复发）', file: 'js/chat.js', needle: 'vv466.addEventListener(\'resize\', refreshKbRepin)' },
+  { name: '#G1 点联系人头像开拍一拍 pointerup 轻点判定（位移<=12px 且 <=450ms 才算点；退回纯 click 监听＝部分内核合成 click 被吞、拍一拍打不开复发，多机型同报）', file: 'js/chat.js', needle: 'if (dt > 450 || dx * dx + dy * dy > 144) return;' },
+  { name: '#G1 拍一拍 click 兜底防双开（pointerup 已开后吞补发 click 且 stopPropagation，防 document 层「点外关闭」把刚打开的面板立刻关掉；删掉即面板开不开/开了秒关）', file: 'js/chat.js', needle: 'if (Date.now() < pokeTapGuard) { e.preventDefault(); e.stopPropagation(); return; }' },
+  { name: '#G2 长按气泡 contextmenu 同步开动作菜单（内核长按被 touchcancel/文本操作条打断时定时器路径失效＝引用菜单打不开复发；删掉 openMsgActionsAt(ctxR.. 分支即断，桌面右键同步受益）', file: 'js/chat.js', needle: 'if (!msgActions || msgActions.hidden || activeMsgEl !== ctxR.item) {' },
+  { name: '#G2 长按容忍手指微移（按住 500ms 窗口内 <12px 的 touchmove 不再清长按定时器，真实滑动仍取消；删掉＝部分内核按住必然的小漂移把长按打断、菜单永不出现复发）', file: 'js/chat.js', needle: 'if (mdx * mdx + mdy * mdy > 144) endMsgHold();' },
   { name: '#467 底部导航栏 tabbar 必须在 .phone 内所有 .page 之外（嵌在 page-chat 内时 hidden 联动 display:none → 桌面底部 3 按钮消失；把注释行或 tabbar 移回 page-chat 内即复发）', file: 'template.html', needle: '必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失' },
   { name: '#360 字卡去重跨分组判重（seen 按分类建不按分组建+对象卡稳定序列化判重；退回「每组各建 seen 按引用比较」即换分组清不出重复，公用/专属两作用域同源复发）', file: 'js/chatcard.js', needle: 'function ccCardDupKey(cat, c) {' },
   { name: '诊断采集与设置页 DOM 解耦（row 在使用处按需判空，错误/环境/长任务/轨迹不因入口 DOM 缺失而失效）', file: 'js/device.js', needle: 'if (!row) return null;' },
@@ -1241,7 +1250,7 @@ const FIX_SENTINELS = [
   { name: '#401 后台通知正文令牌串→[图片]（删则含令牌消息的预览在通知栏直出乱码）', file: 'js/bg-keep.js', needle: "@@m:[0-9a-f]{32}/g, '[图片]')" },
   // ==== 2026-09-13 #411 卡顿自检 · 一键优化（只优化不删除；iPhone 15 Pro Max + Chrome 等多机型实测健康帧率仍报卡顿——诊断实锤主因是公用/专属字卡库单键可达 44MB，大库解析/按需取回是间歇冻结点。storage-slim 数据层分级 + 非破坏预热；personalize 设置行 + 启动大库主动弹；不碰不删任何用户数据，跨设备零语义变化）====
   { name: '#411 卡顿自检·分级判定器（mochiPerfLevel 纯函数，删则自检分级失效；44MB 字卡库是 iOS/安卓间歇卡顿主因）', file: 'js/storage-slim.js', needle: 'window.mochiPerfLevel = function (totalBytes, bigGroups) {' },
-  { name: '#411 卡顿自愈·非破坏预热（mochiPerfHeal 取回挂起大键库+预热令牌化回复池；只优化不删除，删则「一键优化」空转）', file: 'js/storage-slim.js', needle: 'window.mochiPerfHeal = function () {' },
+  { name: '#411 卡顿自愈·非破坏预热（mochiPerfHeal 取回挂起大键库+预热令牌化回复池；只优化不删除，删则「一键优化」空转）', file: 'js/storage-slim.js', needle: 'window.mochiPerfHeal = function (prog) {' },
   { name: '#411 卡顿自检设置行入口（row-perf-optimize 锚点；删则设置页无「一键优化」入口）', file: 'template.html', needle: 'id="row-perf-optimize"' },
   { name: '#411 自检·仅大库才主动弹提示（v3.26.x 口径演进=#452：启动分级改 __big-idx 尺寸门控 mochiPerfLevel(totalBytes,bigGroups)！==重，全量 mochiCcSlimScan 移交设置行主动扫；旧锚 if (agg.level!==重) 随全量扫描收口移除；删则轻/中库也弹=骚扰复发）', file: 'js/personalize.js', needle: "window.mochiPerfLevel(totalBytes, bigGroups) !== '重'" },
   { name: '#402 缺失令牌占位换内联 SVG（删则令牌 src 被当相对 URL 请求 404＝iOS 裂图问号黑块）', file: 'js/media-pool.js', needle: 'const MISS_PLACEHOLDER' },
@@ -1443,6 +1452,18 @@ const FIX_SENTINELS = [
 //      零机型分支零存储语义改动）====
 { name: '#458 一键优化结果单飞收口（done 看门狗/完成/异常三路只放行一次并清定时器；删则多路重复弹窗或看门狗误报）', file: 'js/personalize.js', needle: 'clearTimeout(wd);' },
 { name: '#458 一键优化 90s 看门狗（idbGet 存储繁忙挂起 promise 永不落定也必出常驻提示；删则挂起设备点了优化永远无声＝「点击没用」复发）', file: 'js/personalize.js', needle: 'const wd = setTimeout(function () {' },
+// ==== 2026-09-14 #459 「一键优化没进度感」（#458 反馈闭环后续）：取回 44MB 大键+预热令牌化期间
+//      主线程间歇被占、干等观感差；给 mochiPerfHeal 加可选 prog(pct,label) 回调（不传行为不变，
+//      verify 资产零影响），promptHeal 调用侧挂固定进度浮层显示阶段+百分比，结束仍由 #458
+//      常驻弹窗收尾。零机型分支，零存储语义改动）====
+{ name: '#459 一键优化实时进度浮层（perf-heal-bar 阶段+百分比由 prog 驱动；删则优化期间回到干等无声＝大库设备观感「点了没用」）', file: 'js/personalize.js', needle: "bar.id = 'perf-heal-bar';" },
+{ name: '#459 prog 进度管道接通（showProg 传入 mochiPerfHeal；删则进度浮层停摆不更新＝进度功能失效）', file: 'js/personalize.js', needle: 'window.mochiPerfHeal(showProg)' },
+{ name: '#459 mochiPerfHeal 进度回调骨架（step 归一封装 prog，取回/预热各阶段推进度；删则调用侧拿到不到任何进度）', file: 'js/storage-slim.js', needle: 'const step = function (pct, label)' },
+// ==== 2026-09-14 #470 「maybeCardLockReminder is not defined 每次进入 uncaught + 字卡锁提醒永不弹出」多机型
+//      （clock.js 两处 IIFE：提醒函数定义在防骗声明段 IIFE，finishEnter 在另一 IIFE 直呼函数名——
+//      函数声明不会跨 IIFE 泄漏，线上每次点「我已阅读并确认进入」必抛 ReferenceError；
+//      修复：挂 window.maybeCardLockReminder + finishEnter 守卫调用，零机型分支零逻辑改动）====
+{ name: '#470 进入流程调用字卡锁提醒改守卫（window.maybeCardLockReminder 挂载 + finishEnter 守卫调用；删守卫/改回直呼函数名＝ReferenceError 与提醒失效双复发）', file: 'js/clock.js', needle: 'if (window.maybeCardLockReminder) window.maybeCardLockReminder();' },
 
 ];
 try {

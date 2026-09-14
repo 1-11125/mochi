@@ -102,6 +102,12 @@ await ev("window.__cardLockTest.fire()");
 await sleep(900);
 check('已解锁：不弹强制弹窗', await ev("(function(){var m=document.getElementById('modal-mask');return !m||m.hidden;})()")===true);
 await ev("window.cardLockRelock()");
+// 7) #470 进入流程不再抛 maybeCardLockReminder ReferenceError（clock.js 两 IIFE 作用域修复；
+//    删 mount/删守卫调用/改回直呼函数名都会令下列断言转红）
+const clockSrc = readFileSync(join(root, 'src', 'js', 'clock.js'), 'utf8');
+check('src 守卫调用在位（finishEnter 改过 window 挂载调用）', clockSrc.indexOf('if (window.maybeCardLockReminder) window.maybeCardLockReminder();') > -1);
+check('src 挂载行在位（window.maybeCardLockReminder 导出）', clockSrc.indexOf('window.maybeCardLockReminder = maybeCardLockReminder;') > -1);
+check('运行时 window.maybeCardLockReminder 已挂载可调', await ev('typeof window.maybeCardLockReminder === "function"') === true);
 console.log('== 结果: ' + results.filter(Boolean).length + '/' + results.length + ' ==');
 try { ws.close(); } catch(e){}
 try { chrome.kill(); } catch(e){}

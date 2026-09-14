@@ -1458,6 +1458,25 @@
     });
   }
 
+  // v3.36.x：#471 设置页「导出/导入全部桌面聊天记录」——导出与顶部备份提醒条「备份聊天」
+  // 同入口（runChatAllExport 复用 doExport('chat')，CHAT_KEY_RE 匹配全部桌面命名空间）；
+  // 导入支持标准 mochi 备份文件（按桌面 key 分路写回各桌面）与单桌 {app,msgs} 文件
+  //（归入当前桌面），由 data-backup.js 的 runChatAllImport 负责读文件+预览+确认+写回。
+  const csExportAll = row('cs-export-all');
+  if (csExportAll) {
+    csExportAll.addEventListener('click', () => {
+      if (!window.runChatAllExport) { toast('导出功能暂不可用'); return; }
+      window.runChatAllExport();
+    });
+  }
+  const csImportAll = row('cs-import-all');
+  if (csImportAll) {
+    csImportAll.addEventListener('click', () => {
+      if (!window.runChatAllImport) { toast('导入功能暂不可用'); return; }
+      window.runChatAllImport();
+    });
+  }
+
   // ================= 删除全部聊天记录（危险操作，二次确认） =================
   const csClear = row('cs-clear-msgs');
   if (csClear) {

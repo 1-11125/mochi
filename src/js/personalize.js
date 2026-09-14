@@ -7584,30 +7584,46 @@ try {
       lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
       window.openModal('卡顿自检 · 一键优化', '', function () {
         perfToast('正在优化（字卡库较大会稍等片刻）…');
+        // #459 实时进度浮层：取回/预热期间主线程间歇被占，用户需要能看见「在干活、到哪了」。
+        // 阶段+百分比由 mochiPerfHeal 的 prog 回调驱动；完成/异常/挂起仍由下方常驻弹窗收尾。
+        let done = false;
+        const bar = document.createElement('div');
+        bar.id = 'perf-heal-bar';
+        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+        bar.textContent = '正在准备…';
+        (document.body || document.documentElement).appendChild(bar);
+        function showProg(pct, label) {
+          if (done) return;
+          const p = (typeof pct === 'number') ? ' ' + Math.max(0, Math.min(100, pct | 0)) + '%' : '';
+          bar.textContent = (label || '正在优化') + p;
+        }
+        function hideBar() {
+          try { if (bar.parentNode) bar.parentNode.removeChild(bar); } catch (e2) {}
+        }
         // FIX 2026-09-14 #458（多机型同报「自检弹窗修复点击没用」）：原回调两端都只有 3.2s
         // 转瞬 toast——大库优化（取回 44MB+预热令牌化）耗时数十秒起，iOS 上还可能伴随卡顿/
         // 页面被杀，开始/完成提示一闪而过＝用户观感「点了没用、什么都没发生」；且链路无
         // .catch、idbGet 存储繁忙挂起（#229 家族 iOS 高发）时 promise 永不落定＝永远无声。
         // 改为：结果常驻弹窗（必可见）+ .catch 弹窗 + 90s 看门狗兜底提示。零机型分支，
         // 不动 mochiPerfHeal/存储语义，其它设备修复零覆盖。
-        let done = false;
         const wd = setTimeout(function () {
           if (done) return;
-          perfHealResult('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
+          performPerfEnd('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
         }, 90000);
-        function perfHealResult(msg) {
+        function performPerfEnd(msg) {
           if (done) return;
           done = true;
           clearTimeout(wd);
+          hideBar();
           if (window.openModal) window.openModal('卡顿自检 · 优化结果', '', null, { noInput: true, staticText: msg });
           else perfToast(msg);
         }
-        Promise.resolve(window.mochiPerfHeal()).then(function (res) {
-          perfHealResult((res && res.ok)
+        Promise.resolve(window.mochiPerfHeal(showProg)).then(function (res) {
+          performPerfEnd((res && res.ok)
             ? '优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '（部分：' + res.reason + '）' : '') + '。之后的聊天/回复会明显顺滑。'
             : '优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试。');
         }).catch(function (e) {
-          perfHealResult('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
+          performPerfEnd('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
         });
       }, { noInput: true, staticText: lines.join('\n') });
     }

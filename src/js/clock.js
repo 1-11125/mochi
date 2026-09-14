@@ -228,6 +228,10 @@
   window.__cardLockTest = {
     fire: function () { cardRemindShown = false; maybeCardLockReminder(); }
   };
+  // 修复 2026-09-14 #470：本提醒函数定义在本 IIFE（防骗声明段）作用域内，开屏进入流程
+  // （下方另一 IIFE 的 finishEnter）直呼函数名必抛 ReferenceError——线上多机型每次进入
+  // 报错且提醒从未弹出。挂到 window 供 finishEnter 以守卫方式调用；其余逻辑不动。
+  window.maybeCardLockReminder = maybeCardLockReminder;
   // FIX 2026-09-13 #389：解锁态可能「晚到」——card-lock.js 走 xyStore 后，杀进程回滚的
   // 解锁状态由 wrj 自愈链（mochi-wrj-heal）异步修回并补发 mochi-cardlock-open/-locked。
   // 开屏锁卡此前只在首屏渲染一次，晚到的解锁会一直显示「输入密码解锁」假象，这里监听
@@ -410,7 +414,10 @@
       }
     } catch (e) {}
     // 进入完成且系统字卡仍锁定时，强制弹窗提醒（每次打开应用一次）
-    maybeCardLockReminder();
+    // 修复 2026-09-14 #470：maybeCardLockReminder 定义于另一 IIFE 作用域，此处直呼函数名
+    // 在线上必抛 ReferenceError（每次进入 uncaught、提醒永远不弹，多机型同报）；
+    // 改走 window 挂载 + 守卫调用，缺失/异常都不阻断进入。
+    try { if (window.maybeCardLockReminder) window.maybeCardLockReminder(); } catch (e) {}
   }
   let scrolledBottom = false;
   function checkScrolled() {

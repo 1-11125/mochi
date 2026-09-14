@@ -9440,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789374072136">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.680</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 16:21<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789381991051">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.681</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 18:33<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10753,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.680</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.681</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11055,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.680</span>
+              <span class="lic-ver">v3.26.681</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -13969,7 +13969,10 @@ transition-duration: .01ms !important;
           <div class="dec-inp-wrap chat-ask-inp-wrap"><input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="dec-inp-clear" data-clear="chat-ask-input" aria-label="清空" title="清空">✕</button></div>
           <button type="button" class="chat-ask-bulk" id="chat-ask-bulk" hidden>批量设置问卷</button>
           <div class="chat-ask-actions">
-        </div>
+            <button class="cc-tool" id="chat-ask-save" hidden>存入</button>
+            <button class="cc-tool" id="chat-ask-cancel">取消</button>
+            <button class="cc-tool" id="chat-ask-ok">发送</button>
+          </div>
       </div>
       <!-- 寻踪半框（点顶部联系人头像打开，露出聊天消息） -->
       <div class="poke-card" id="ck-panel" hidden>
@@ -14818,6 +14821,15 @@ transition-duration: .01ms !important;
         <div class="set-row" id="cs-import-msgs">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 5v12"/></svg></div>
           <div class="txt">导入聊天记录</div>
+        </div>
+        <!-- v3.36.x：#471 设置页「导出全部桌面聊天记录」/「导入全部桌面聊天记录」——导出与顶部备份提醒条「备份聊天」同入口（CHAT_KEY_RE 匹配全部桌面命名空间），导入支持标准备份文件（按桌面 key 分路写回各桌面）与单桌文件（归入当前桌面） -->
+        <div class="set-row" id="cs-export-all">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/><path d="M3 19h18"/></svg></div>
+          <div class="txt">导出全部桌面聊天记录</div>
+        </div>
+        <div class="set-row" id="cs-import-all">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 5v12"/><path d="M3 19h18"/></svg></div>
+          <div class="txt">导入全部桌面聊天记录</div>
         </div>
         <div class="set-row danger" id="cs-clear-msgs">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
@@ -20214,21 +20226,32 @@ if (b > 1048576) agg.bigGroups += 1; // 单分组 >1MB 通常是整组大图/动
 agg.level = window.mochiPerfLevel(agg.totalBytes, agg.bigGroups);
 return agg;
 };
-window.mochiPerfHeal = function () {
+window.mochiPerfHeal = function (prog) {
 return (async function () {
 const out = { ok: false, hydrated: 0, warmed: 0, reason: '' };
+const step = function (pct, label) { if (typeof prog === 'function') { try { prog(pct, label); } catch (e) {} } };
 try {
 if (window.hydrateLibScopes) {
-try { await window.hydrateLibScopes(['public', 'own']); out.hydrated = 2; }
+try {
+step(10, '取回大键库（读取本机存储）…');
+await window.hydrateLibScopes(['public', 'own']);
+out.hydrated = 2;
+step(40, '取回完成');
+}
 catch (e) { out.reason = '取回:' + ((e && e.message) || e); }
-}
+} else { step(40, ''); }
 if (window.getCustomCards) {
-try { const cards = window.getCustomCards(); out.warmed = Array.isArray(cards) ? cards.length : 0; }
-catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '预热:' + ((e && e.message) || e); }
+try {
+step(45, '预热回复池（大库需稍等片刻）…');
+const cards = window.getCustomCards();
+out.warmed = Array.isArray(cards) ? cards.length : 0;
+step(100, '预热完成');
 }
+catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '预热:' + ((e && e.message) || e); }
+} else { step(100, ''); }
 out.ok = true;
-} catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); }
 return out;
+} catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); return out; }
 })();
 };
 })();
@@ -20708,6 +20731,7 @@ document.addEventListener('mochi-restore-done', maybeCardLockReminder);
 window.__cardLockTest = {
 fire: function () { cardRemindShown = false; maybeCardLockReminder(); }
 };
+window.maybeCardLockReminder = maybeCardLockReminder;
 document.addEventListener('mochi-cardlock-open', setupCardLockCard);
 document.addEventListener('mochi-cardlock-locked', setupCardLockCard);
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
@@ -20834,7 +20858,7 @@ try { window.hydrateLibScopes(['own']).catch(function () {}); } catch (e) {}
 }, 1500);
 }
 } catch (e) {}
-maybeCardLockReminder();
+try { if (window.maybeCardLockReminder) window.maybeCardLockReminder(); } catch (e) {}
 }
 let scrolledBottom = false;
 function checkScrolled() {
@@ -28053,23 +28077,37 @@ lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
 window.openModal('卡顿自检 · 一键优化', '', function () {
 perfToast('正在优化（字卡库较大会稍等片刻）…');
 let done = false;
+const bar = document.createElement('div');
+bar.id = 'perf-heal-bar';
+bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+bar.textContent = '正在准备…';
+(document.body || document.documentElement).appendChild(bar);
+function showProg(pct, label) {
+if (done) return;
+const p = (typeof pct === 'number') ? ' ' + Math.max(0, Math.min(100, pct | 0)) + '%' : '';
+bar.textContent = (label || '正在优化') + p;
+}
+function hideBar() {
+try { if (bar.parentNode) bar.parentNode.removeChild(bar); } catch (e2) {}
+}
 const wd = setTimeout(function () {
 if (done) return;
-perfHealResult('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
+performPerfEnd('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
 }, 90000);
-function perfHealResult(msg) {
+function performPerfEnd(msg) {
 if (done) return;
 done = true;
 clearTimeout(wd);
+hideBar();
 if (window.openModal) window.openModal('卡顿自检 · 优化结果', '', null, { noInput: true, staticText: msg });
 else perfToast(msg);
 }
-Promise.resolve(window.mochiPerfHeal()).then(function (res) {
-perfHealResult((res && res.ok)
+Promise.resolve(window.mochiPerfHeal(showProg)).then(function (res) {
+performPerfEnd((res && res.ok)
 ? '优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '（部分：' + res.reason + '）' : '') + '。之后的聊天/回复会明显顺滑。'
 : '优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试。');
 }).catch(function (e) {
-perfHealResult('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
+performPerfEnd('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
 });
 }, { noInput: true, staticText: lines.join('\n') });
 }
@@ -30943,7 +30981,25 @@ fillAvatar(av, rec.side === 'out' ? 'cs-avatar-user' : 'cs-avatar-partner');
 if (rec.side === 'in') {
 av.style.cursor = 'pointer';
 av.title = T('对 TA 拍一拍');
+let pokeTap = null;
+let pokeTapGuard = 0;
+av.addEventListener('pointerdown', (e) => {
+if (e.pointerType === 'mouse') return;
+pokeTap = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+});
+av.addEventListener('pointerup', (e) => {
+if (!pokeTap || e.pointerId !== pokeTap.id || e.pointerType === 'mouse') return;
+const dx = e.clientX - pokeTap.x;
+const dy = e.clientY - pokeTap.y;
+const dt = Date.now() - pokeTap.t;
+pokeTap = null;
+if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
+pokeTapGuard = Date.now() + 800;
+openPokeCard();
+});
+av.addEventListener('pointercancel', () => { pokeTap = null; });
 av.addEventListener('click', (e) => {
+if (Date.now() < pokeTapGuard) { e.preventDefault(); e.stopPropagation(); return; }
 e.stopPropagation();
 openPokeCard();
 });
@@ -34992,6 +35048,7 @@ let msgHoldTimer = null;
 let msgHoldEl = null;
 let msgHoldFired = false;
 let msgSuppressClickUntil = 0;
+let msgHoldX = 0, msgHoldY = 0; // FIX 2026-09-14 #G2 长按起始触点，判断是否算滑动
 function msgActionEligible(t) {
 const b = t.closest('.msg-bubble');
 if (!b) return null;
@@ -35058,12 +35115,25 @@ if (hits === 1 && hit >= 0) return { idx: hit, rec: msgs[hit] };
 return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, rec: null };
 }
 body.addEventListener('contextmenu', (e) => {
-if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
+if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) {
+e.preventDefault();
+const ctxR = msgActionEligible(e.target);
+if (ctxR) {
+if (msgHoldTimer) { clearTimeout(msgHoldTimer); msgHoldTimer = null; }
+msgSuppressClickUntil = Date.now() + 800;
+if (!msgActions || msgActions.hidden || activeMsgEl !== ctxR.item) {
+msgHoldFired = true;
+openMsgActionsAt(ctxR.item, ctxR.b);
+}
+}
+}
 });
 body.addEventListener('touchstart', (e) => {
 const r = msgActionEligible(e.target);
 if (!r) return;
 msgHoldEl = r.item;
+const mt0 = e.touches && e.touches[0];
+if (mt0) { msgHoldX = mt0.clientX; msgHoldY = mt0.clientY; }
 msgHoldTimer = setTimeout(() => {
 msgHoldTimer = null;
 msgHoldFired = true;
@@ -35073,7 +35143,14 @@ openMsgActionsAt(msgHoldEl, r.b);
 }, 500);
 }, { passive: true });
 function endMsgHold() { if (msgHoldTimer) { clearTimeout(msgHoldTimer); msgHoldTimer = null; } }
-body.addEventListener('touchmove', endMsgHold, { passive: true });   // 手指滑动=滚动，取消长按
+body.addEventListener('touchmove', (e) => {
+if (msgHoldTimer && e.touches && e.touches[0]) {
+const mt = e.touches[0];
+const mdx = mt.clientX - msgHoldX;
+const mdy = mt.clientY - msgHoldY;
+if (mdx * mdx + mdy * mdy > 144) endMsgHold();
+}
+}, { passive: true });   // 手指滑动=滚动，取消长按（超过 12px 才算滑动）
 body.addEventListener('touchend', endMsgHold);
 body.addEventListener('touchcancel', endMsgHold);
 body.addEventListener('click', (e) => {
@@ -44749,6 +44826,20 @@ reader.onerror = () => { toast('文件读取失败，请重试'); };
 reader.readAsText(f, 'utf-8');
 };
 input.click();
+});
+}
+const csExportAll = row('cs-export-all');
+if (csExportAll) {
+csExportAll.addEventListener('click', () => {
+if (!window.runChatAllExport) { toast('导出功能暂不可用'); return; }
+window.runChatAllExport();
+});
+}
+const csImportAll = row('cs-import-all');
+if (csImportAll) {
+csImportAll.addEventListener('click', () => {
+if (!window.runChatAllImport) { toast('导入功能暂不可用'); return; }
+window.runChatAllImport();
 });
 }
 const csClear = row('cs-clear-msgs');
@@ -57360,8 +57451,6 @@ let surveyOpenFromChat = false;
 window.openAskSurvey = function () {
 if (!surveyPage) { toast('批量问卷加载失败'); return; }
 surveyOpenFromChat = true;
-const chatApp = document.querySelector('.app[data-app="chat"]');
-if (chatApp) chatApp.hidden = true;
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 surveyPage.hidden = false;
 surveyRender();
@@ -57376,8 +57465,7 @@ surveyRender();
 const backS = document.getElementById('ta-survey-back');
 if (backS) backS.addEventListener('click', () => {
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
-const chatApp = document.querySelector('.app[data-app="chat"]');
-if (surveyOpenFromChat && chatApp) { chatApp.hidden = false; surveyOpenFromChat = false; return; }
+if (surveyOpenFromChat) { surveyOpenFromChat = false; if (window.enterChat) { window.enterChat(); return; } }
 const home = document.getElementById('page-ta-ask');
 if (home) home.hidden = false;
 });
@@ -61900,10 +61988,12 @@ if (fresh && fresh.id) l = fresh;
 } catch (e) {}
 viewLetter = l;
 if (l && l.type === 'received' && !l.read) {
+try {
 l.read = true;
 const list = load();
 const idx = list.findIndex(x => x.id === l.id);
 if (idx >= 0) { list[idx].read = true; save(list); }
+} catch (e) {}
 }
 updateBadge();
 const name = partnerName();
@@ -89653,6 +89743,136 @@ try { if (window.chatFlushSave) window.chatFlushSave(); } catch (e) {}
 toast('正在导出聊天记录，请稍候…');
 return doExport('chat');
 };
+window.runChatAllExport = function () {
+return window.runChatExport();
+};
+function writeDeskChat(cid, arr) {
+const key = 'xy-home-v2:' + cid;
+let seq = Promise.resolve();
+if (window.idbSet) {
+seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
+}
+if (window.idbSet) {
+seq = seq.then(() => window.idbSet(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })));
+}
+try { localStorage.setItem(key + ':chat-msgs', JSON.stringify(arr)); } catch (e) {}
+try { localStorage.setItem(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })); } catch (e) {}
+return {
+then: (f) => { if (!seq) f(); return seq; },
+};
+}
+function arrByteLen(arr) {
+try { let n = 0; for (let i = 0; i < arr.length; i++) { const m = arr[i]; if (m && typeof m === 'object') { const t = m.text; if (typeof t === 'string') n += t.length; const im = m.img; if (typeof im === 'string') n += im.length; const vc = m.voice; if (typeof vc === 'string') n += vc.length; n += 64; } else n += 32; } return n; } catch (e) { return 0; }
+}
+window.runChatAllImport = function () {
+const input = document.createElement('input');
+input.type = 'file';
+input.accept = '.json,application/json';
+input.onchange = () => {
+const f = input.files && input.files[0];
+if (!f) return;
+const reader = new FileReader();
+reader.onload = () => {
+let data;
+try { data = JSON.parse(String(reader.result || '')); } catch (e) { toast('无效的聊天记录文件'); return; }
+if (!data || typeof data !== 'object') { toast('无效的聊天记录文件'); return; }
+const MOCHI_PREFIX = 'xy-home-v2:';
+const chatKeyRe = /^xy-home-v2:(default|c\d+):chat-msgs$/;
+const metaKeyRe = /^xy-home-v2:(default|c\d+):chat-meta$/;
+const mediaKeyRe = /^xy-home-v2:media:/;
+const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
+const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
+const pickRaw = (k) => {
+if (lsObj[k] !== undefined) return { v: lsObj[k], from: 'ls' };
+if (idbObj[k] !== undefined) return { v: idbObj[k], from: 'idb' };
+return null;
+};
+let chatKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => chatKeyRe.test(k));
+let singleMsgs = null;
+if (!chatKeys.length) {
+if (Array.isArray(data)) singleMsgs = data;
+else if (data.msgs && Array.isArray(data.msgs)) singleMsgs = data.msgs;
+else if (data.ls && data.ls['xy-home-v2:chat-msgs'] !== undefined) {
+try { const raw = data.ls['xy-home-v2:chat-msgs']; singleMsgs = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { singleMsgs = null; }
+}
+}
+if (!chatKeys.length && !Array.isArray(singleMsgs)) { toast('文件里没有可导入的聊天记录数据'); return; }
+const fmt = (t) => t ? new Date(t).toLocaleString() : '未知';
+const arrOf = (k) => {
+const raw = pickRaw(k);
+if (!raw) return [];
+try { const a = typeof raw.v === 'string' ? JSON.parse(raw.v) : raw.v; return Array.isArray(a) ? a : []; } catch (e) { return []; }
+};
+const preview = [];
+if (chatKeys.length) {
+chatKeys.forEach(k => {
+const a = arrOf(k);
+const cid = (k.split(':')[1] || 'default');
+preview.push('· ' + (cid === 'default' ? '默认桌面' : cid) + '：' + a.length + ' 条' +
+(a.length ? '（最早 ' + fmt(a[0] && a[0].ts) + '）' : ''));
+});
+} else {
+preview.push('· 当前桌面（默认）：' + singleMsgs.length + ' 条' +
+(singleMsgs.length ? '（最早 ' + fmt(singleMsgs[0] && singleMsgs[0].ts) + '）' : ''));
+}
+const mediaKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => mediaKeyRe.test(k));
+if (mediaKeys.length) preview.push('· 附带媒体图片 ' + mediaKeys.length + ' 项');
+preview.push('导入将覆盖对应桌面的全部聊天记录（不可恢复），其他数据不受影响。');
+if (!window.openModal) return;
+window.openModal('确认导入全部桌面聊天记录？', '', () => {
+importChatAllGo(data, chatKeys, singleMsgs, mediaKeys);
+}, { noInput: true, staticText: preview.join('\n') });
+};
+reader.onerror = () => { toast('文件读取失败，请重试'); };
+reader.readAsText(f, 'utf-8');
+};
+input.click();
+};
+function importChatAllGo(data, chatKeys, singleMsgs, mediaKeys) {
+const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
+const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
+const pickRaw = (k) => {
+if (lsObj[k] !== undefined) return lsObj[k];
+return idbObj[k];
+};
+const cur = window.__activeCid || 'default';
+const writes = [];
+let totalN = 0;
+if (singleMsgs) {
+if (window.chatImportMsgs) window.chatImportMsgs(singleMsgs);
+totalN += singleMsgs.length;
+}
+chatKeys.forEach(k => {
+const raw = pickRaw(k);
+if (raw === undefined) return;
+let arr;
+try { arr = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return; }
+if (!Array.isArray(arr)) return;
+const cid = (k.split(':')[1] || 'default');
+totalN += arr.length;
+if (cid === cur) {
+if (window.chatImportMsgs) window.chatImportMsgs(arr);
+} else {
+writes.push({ kind: 'chat', cid: cid, arr: arr });
+}
+});
+let p = Promise.resolve();
+writes.forEach((w) => {
+p = p.then(() => writeDeskChat(w.cid, w.arr));
+});
+mediaKeys.forEach(k => {
+const v = pickRaw(k);
+if (v === undefined) return;
+if (window.idbSet) {
+p = p.then(() => window.idbSet(k, v));
+}
+});
+p.then(() => {
+toast('已导入全部桌面聊天记录（' + totalN + ' 条）');
+}).catch((e) => {
+toast('导入失败：' + (e && e.message || '未知错误'));
+});
+}
 const exportRow = document.getElementById('row-export');
 if (exportRow) {
 exportRow.addEventListener('click', () => { window.runBackupExport(); });
@@ -93452,4 +93672,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0z4eh4 -->
+<!-- __MOCHI_EOF__ mu13u4qz -->

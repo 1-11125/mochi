@@ -1393,6 +1393,168 @@
     toast('正在导出聊天记录，请稍候…');
     return doExport('chat');
   };
+  // v3.36.x：#471 设置页「导出全部桌面聊天记录」——与备份提醒条「备份聊天」同入口
+  //（CHAT_KEY_RE 匹配全部桌面，含 default 与 c<数字> 各桌面命名空间）。复用 runChatExport
+  // 即可，无需单独实现：导出逻辑（LS 小键 + IDB 权威值、流式打包、三级保存链）全在 doExport('chat')。
+  // 导出无需确认弹窗——doExport('chat') 直接进入打包流程，且 always flush 聊天内存。
+  window.runChatAllExport = function () {
+    return window.runChatExport();
+  };
+  // 分桌写回聊天（非当前桌面用；当前桌面走 chatImportMsgs 内存链路，不调这里）
+  // 写入顺序保证 #90 缩水守卫与权威读取一致：chat-msgs（权威）→ chat-meta（账本）→ LS 快照
+  // （有损小快照，IDB 为权威源）。idbSet 直接存数组（结构化克隆）以支持超大聊天包。
+  function writeDeskChat(cid, arr) {
+    const key = 'xy-home-v2:' + cid;
+    let seq = Promise.resolve();
+    if (window.idbSet) {
+      seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
+    }
+    if (window.idbSet) {
+      seq = seq.then(() => window.idbSet(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })));
+    }
+    try { localStorage.setItem(key + ':chat-msgs', JSON.stringify(arr)); } catch (e) {}
+    try { localStorage.setItem(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })); } catch (e) {}
+    return {
+      then: (f) => { if (!seq) f(); return seq; },
+    };
+  }
+  function arrByteLen(arr) {
+    try { let n = 0; for (let i = 0; i < arr.length; i++) { const m = arr[i]; if (m && typeof m === 'object') { const t = m.text; if (typeof t === 'string') n += t.length; const im = m.img; if (typeof im === 'string') n += im.length; const vc = m.voice; if (typeof vc === 'string') n += vc.length; n += 64; } else n += 32; } return n; } catch (e) { return 0; }
+  }
+  // v3.36.x：#471 设置页「导入全部桌面聊天记录」—— 读一份「聊天记录」（标准 mochi 备份文件，
+  // 或本功能导出的 {app,msgs} 单桌文件），按下述规则恢复全部桌面记录：
+  //   ① 标准备份文件（含 ls/idb 段）：只取 /^xy-home-v2:(?:default|c\d+):chat-msgs$/ 与
+  //      /^xy-home-v2:(?:default|c\d+):chat-meta$/ 的键（LS 段优先、IDB 段兜底同路路由），
+  //      媒体池键（/^xy-home-v2:media:/）一并恢复静默（@@m: 令牌解码依赖池键）。
+  //   ② 单桌 {app,msgs} / 裸数组文件：视为「当前桌面」，cs-import-all 语义下等同普通导入。
+  // 与整体导入的区别：只动聊天键（含 meta 账本与媒体池），其余设置/字卡/音乐一律不碰，
+  // 不会造成「导入全部桌面」清空或覆盖其他数据；各桌面聊天互相独立命名空间键，互不干扰。
+  // 防 #90 账本守卫：恢复后按目标 cid 对齐 chat-meta 账本（先写 chat-msgs→再写 chat-meta），
+  // 避免后续整包保存被账本拒绝。先预览各项计数再确认（支持取消）。
+  // 写入顺序（避免把「导入后未刷新的当前桌面内存」与「落盘权威值」弄混）：
+  //   - 非当前桌面：chat-msgs → chat-meta → LS 快照（chat.js 切桌时会重新权威读取）。
+  //   - 当前桌面：走 window.chatImportMsgs()（同步更新内存/渲染/账本），再补写 LS 快照。
+  //   - 媒体池：静默写 IDB（@@m: 令牌解码），不写 LS（media-pool.js 只认 IDB）。
+  window.runChatAllImport = function () {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let data;
+        try { data = JSON.parse(String(reader.result || '')); } catch (e) { toast('无效的聊天记录文件'); return; }
+        if (!data || typeof data !== 'object') { toast('无效的聊天记录文件'); return; }
+        // 收集各桌面 chat-msgs（key 优先），并按「桌面 cid 名」归组，保持预览/写回同顺序
+        const MOCHI_PREFIX = 'xy-home-v2:';
+        const chatKeyRe = /^xy-home-v2:(default|c\d+):chat-msgs$/;
+        const metaKeyRe = /^xy-home-v2:(default|c\d+):chat-meta$/;
+        const mediaKeyRe = /^xy-home-v2:media:/;
+        // 提取规则：LS 段优先（备份文件中 LS 是最新同步快照），IDB 段兜底同键
+        const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
+        const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
+        const pickRaw = (k) => {
+          if (lsObj[k] !== undefined) return { v: lsObj[k], from: 'ls' };
+          if (idbObj[k] !== undefined) return { v: idbObj[k], from: 'idb' };
+          return null;
+        };
+        // ① 单桌 {app,msgs} / 裸数组：归到「当前桌面」（default）
+        let chatKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => chatKeyRe.test(k));
+        // ② 标准备份无「全部桌面」聊天键？——单桌文件无法按 key 路由，走当前桌面导入
+        let singleMsgs = null;
+        if (!chatKeys.length) {
+          if (Array.isArray(data)) singleMsgs = data;
+          else if (data.msgs && Array.isArray(data.msgs)) singleMsgs = data.msgs;
+          else if (data.ls && data.ls['xy-home-v2:chat-msgs'] !== undefined) {
+            try { const raw = data.ls['xy-home-v2:chat-msgs']; singleMsgs = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { singleMsgs = null; }
+          }
+        }
+        if (!chatKeys.length && !Array.isArray(singleMsgs)) { toast('文件里没有可导入的聊天记录数据'); return; }
+        // 预览：列出每个桌面的消息数与最早/最新时间；媒体池键数
+        const fmt = (t) => t ? new Date(t).toLocaleString() : '未知';
+        const arrOf = (k) => {
+          const raw = pickRaw(k);
+          if (!raw) return [];
+          try { const a = typeof raw.v === 'string' ? JSON.parse(raw.v) : raw.v; return Array.isArray(a) ? a : []; } catch (e) { return []; }
+        };
+        const preview = [];
+        if (chatKeys.length) {
+          chatKeys.forEach(k => {
+            const a = arrOf(k);
+            const cid = (k.split(':')[1] || 'default');
+            preview.push('· ' + (cid === 'default' ? '默认桌面' : cid) + '：' + a.length + ' 条' +
+              (a.length ? '（最早 ' + fmt(a[0] && a[0].ts) + '）' : ''));
+          });
+        } else {
+          preview.push('· 当前桌面（默认）：' + singleMsgs.length + ' 条' +
+            (singleMsgs.length ? '（最早 ' + fmt(singleMsgs[0] && singleMsgs[0].ts) + '）' : ''));
+        }
+        const mediaKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => mediaKeyRe.test(k));
+        if (mediaKeys.length) preview.push('· 附带媒体图片 ' + mediaKeys.length + ' 项');
+        preview.push('导入将覆盖对应桌面的全部聊天记录（不可恢复），其他数据不受影响。');
+        if (!window.openModal) return;
+        window.openModal('确认导入全部桌面聊天记录？', '', () => {
+          importChatAllGo(data, chatKeys, singleMsgs, mediaKeys);
+        }, { noInput: true, staticText: preview.join('\n') });
+      };
+      reader.onerror = () => { toast('文件读取失败，请重试'); };
+      reader.readAsText(f, 'utf-8');
+    };
+    input.click();
+  };
+  // 按桌分屏写回。data 为标准备份对象（含 ls/idb），chatKeys 为文件内全部桌面 chat-msgs 键，
+  // singleMsgs 为单桌文件的消息数组（此时 chatKeys 为空），mediaKeys 为附带媒体池键。
+  function importChatAllGo(data, chatKeys, singleMsgs, mediaKeys) {
+    const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
+    const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
+    const pickRaw = (k) => {
+      if (lsObj[k] !== undefined) return lsObj[k];
+      return idbObj[k];
+    };
+    const cur = window.__activeCid || 'default';
+    const writes = [];
+    let totalN = 0;
+    // 当前桌面：走 chatImportMsgs 同步更新内存/渲染/账本（语义与「导入聊天记录」一致）
+    if (singleMsgs) {
+      if (window.chatImportMsgs) window.chatImportMsgs(singleMsgs);
+      totalN += singleMsgs.length;
+    }
+    chatKeys.forEach(k => {
+      const raw = pickRaw(k);
+      if (raw === undefined) return;
+      let arr;
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return; }
+      if (!Array.isArray(arr)) return;
+      const cid = (k.split(':')[1] || 'default');
+      totalN += arr.length;
+      if (cid === cur) {
+        // 当前桌面：优先 chatImportMsgs 保持与「导入聊天记录」同语义
+        if (window.chatImportMsgs) window.chatImportMsgs(arr);
+      } else {
+        writes.push({ kind: 'chat', cid: cid, arr: arr });
+      }
+    });
+    // 非当前桌面：idbSet + 写 meta 账本 + LS 快照（走 chat.js 的安全通道）
+    let p = Promise.resolve();
+    writes.forEach((w) => {
+      p = p.then(() => writeDeskChat(w.cid, w.arr));
+    });
+    // 媒体池：静默写 IDB
+    mediaKeys.forEach(k => {
+      const v = pickRaw(k);
+      if (v === undefined) return;
+      if (window.idbSet) {
+        p = p.then(() => window.idbSet(k, v));
+      }
+    });
+    p.then(() => {
+      toast('已导入全部桌面聊天记录（' + totalN + ' 条）');
+    }).catch((e) => {
+      toast('导入失败：' + (e && e.message || '未知错误'));
+    });
+  }
   const exportRow = document.getElementById('row-export');
   if (exportRow) {
     exportRow.addEventListener('click', () => { window.runBackupExport(); });

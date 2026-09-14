@@ -3702,12 +3702,12 @@ window.openTCPanel = openTCPanel;
   const surveyPage = document.getElementById('page-ta-ask-survey');
   // v3.26.x：标记本次批量问卷「从聊天页半框进入」——返回时回聊天页而非 TA 的询问设置页
   let surveyOpenFromChat = false;
-  // v3.26.x：供「聊天页 · 问问TA 半框」的「批量设置问卷」按钮调用：收起聊天 app，打开批量问卷页
+  // v3.26.x：供「聊天页 · 问问TA 半框」的「批量设置问卷」按钮调用：打开批量问卷页（返回时回聊天页）
   window.openAskSurvey = function () {
     if (!surveyPage) { toast('批量问卷加载失败'); return; }
     surveyOpenFromChat = true;
-    const chatApp = document.querySelector('.app[data-app="chat"]');
-    if (chatApp) chatApp.hidden = true;
+    // #472 修复：不再隐藏桌面聊天图标（.app[data-app="chat"]）——它位于 #page-phone 内，
+    // 全 .page 隐藏时本就不可见；且只 hide 不 show 会留下「返回后桌面聊天图标永久消失」隐患。
     document.querySelectorAll('.page').forEach(p => p.hidden = true);
     surveyPage.hidden = false;
     surveyRender();
@@ -3722,9 +3722,11 @@ window.openTCPanel = openTCPanel;
     const backS = document.getElementById('ta-survey-back');
     if (backS) backS.addEventListener('click', () => {
       document.querySelectorAll('.page').forEach(p => p.hidden = true);
-      // v3.26.x：若从「聊天页 · 问问TA 半框的批量设置问卷」进入，这里要回到聊天页而非 TA 的询问设置页
-      const chatApp = document.querySelector('.app[data-app="chat"]');
-      if (surveyOpenFromChat && chatApp) { chatApp.hidden = false; surveyOpenFromChat = false; return; }
+      // v3.26.x：若从「聊天页 · 问问TA 半框的批量设置问卷」进入，这里要回到聊天页而非 TA 的询问设置页。
+      // #472 修复：此前只回显桌面聊天图标（chatApp.hidden=false），全部 .page 仍隐藏→.phone 弹性列
+      // 只剩 statusbar+tabbar，底部导航栏直接飞到最顶、桌面内容全空。改调 window.enterChat()
+      //（chat.js 导出）恢复聊天页本体，与从桌面点聊天图标进入的形态一致；enterChat 兜底缺失时回 TA 询问页。
+      if (surveyOpenFromChat) { surveyOpenFromChat = false; if (window.enterChat) { window.enterChat(); return; } }
       const home = document.getElementById('page-ta-ask');
       if (home) home.hidden = false;
     });

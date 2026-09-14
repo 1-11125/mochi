@@ -120,25 +120,40 @@
     return agg;
   };
   // 非破坏自愈：取回挂起的大键 + 预热令牌化池。返回 { ok, hydrated, warmed, reason }。
-  window.mochiPerfHeal = function () {
+  // prog(pct, label)：可选进度回调（pct 0-100，label 阶段文案），供调用方在取回/预热
+  // 期间显示实时进度；不传时行为与原版完全一致（verify 资产/旧调用方零影响）。
+  window.mochiPerfHeal = function (prog) {
     return (async function () {
       const out = { ok: false, hydrated: 0, warmed: 0, reason: '' };
+      const step = function (pct, label) { if (typeof prog === 'function') { try { prog(pct, label); } catch (e) {} } };
       try {
         // ① 取回被启动回填预算挂起的大键库（公用 + 当前桌面专属），
         //    IDB 连得上的设备后续打开/回复即跳过 8s 慢读与反复 hydrate。
         if (window.hydrateLibScopes) {
-          try { await window.hydrateLibScopes(['public', 'own']); out.hydrated = 2; }
+          try {
+            step(10, '取回大键库（读取本机存储）…');
+            await window.hydrateLibScopes(['public', 'own']);
+            out.hydrated = 2;
+            step(40, '取回完成');
+          }
           catch (e) { out.reason = '取回:' + ((e && e.message) || e); }
-        }
+        } else { step(40, ''); }
         // ② 预热令牌化回复池：此处触发 44MB 解析+令牌化（#377/#398），
         //    在用户主动点击「一键优化」时完成，移出之后的聊天/回复关键路径。
+        //    注：getCustomCards 是同步长任务，45→100 之间主线程被占、进度条停在
+        //    「预热回复池…」直到任务结束翻页——属预期（总比干等/无声强）。
         if (window.getCustomCards) {
-          try { const cards = window.getCustomCards(); out.warmed = Array.isArray(cards) ? cards.length : 0; }
+          try {
+            step(45, '预热回复池（大库需稍等片刻）…');
+            const cards = window.getCustomCards();
+            out.warmed = Array.isArray(cards) ? cards.length : 0;
+            step(100, '预热完成');
+          }
           catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '预热:' + ((e && e.message) || e); }
-        }
+        } else { step(100, ''); }
         out.ok = true;
-      } catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); }
-      return out;
+        return out;
+      } catch (e) { out.reason = (out.reason ? out.reason + '；' : '') + '自愈:' + ((e && e.message) || e); return out; }
     })();
   };
 })();

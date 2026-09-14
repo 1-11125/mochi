@@ -3107,7 +3107,31 @@ fillAvatar(av, rec.side === 'out' ? 'cs-avatar-user' : 'cs-avatar-partner');
 if (rec.side === 'in') {
 av.style.cursor = 'pointer';
 av.title = T('对 TA 拍一拍');
+// FIX 2026-09-14 #G1 点联系人头像打不开拍一拍（多机型同报、含内嵌浏览器；要求零机型分支防复发）：
+// 纯 click 监听在部分内核/内嵌浏览器上不可靠——点按期消息区 DOM 重渲把目标拆走、滚动回弹期按位漂移、
+// 长按候选判定吞 click 等都会让合成 click 丢失。改「pointerdown 布点 + pointerup 轻点判定 + click 兜底」
+// 三保险（#152 继续按钮 pointerdown 方案同款思路，零机型分支）：触屏滑动起点落在头像上不算点
+// （位移<=12px 且 <=450ms 才开拍一拍，滚动历史不误伤），鼠标与无 PointerEvent 老内核仍走 click。
+let pokeTap = null;
+let pokeTapGuard = 0;
+av.addEventListener('pointerdown', (e) => {
+if (e.pointerType === 'mouse') return;
+pokeTap = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+});
+av.addEventListener('pointerup', (e) => {
+if (!pokeTap || e.pointerId !== pokeTap.id || e.pointerType === 'mouse') return;
+const dx = e.clientX - pokeTap.x;
+const dy = e.clientY - pokeTap.y;
+const dt = Date.now() - pokeTap.t;
+pokeTap = null;
+if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
+pokeTapGuard = Date.now() + 800;
+openPokeCard();
+});
+av.addEventListener('pointercancel', () => { pokeTap = null; });
 av.addEventListener('click', (e) => {
+// pointerup 已开过：吞掉补发 click，防 document 层「点外关闭」把面板刚开即关
+if (Date.now() < pokeTapGuard) { e.preventDefault(); e.stopPropagation(); return; }
 e.stopPropagation();
 openPokeCard();
 });
@@ -7449,6 +7473,7 @@ let msgHoldTimer = null;
 let msgHoldEl = null;
 let msgHoldFired = false;
 let msgSuppressClickUntil = 0;
+let msgHoldX = 0, msgHoldY = 0; // FIX 2026-09-14 #G2 长按起始触点，判断是否算滑动
 function msgActionEligible(t) {
 // 沿用原「点气泡弹菜单」的判定规则：可弹返回 {item, b}，不可弹返回 null（引用气泡/拍一拍/撤回/已读不回等）
 const b = t.closest('.msg-bubble');
@@ -7528,12 +7553,31 @@ return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, r
 }
 body.addEventListener('contextmenu', (e) => {
 // 长按/右键由应用接管：抑制系统默认菜单与文本选中，但不吞掉「引用气泡跳原消息」等其它元素自身行为
-if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) e.preventDefault();
+if (e.target.closest('.msg-bubble') && !e.target.closest('.msg-quote')) {
+e.preventDefault();
+// FIX 2026-09-14 #G2 长按气泡打不开引用/动作菜单（多机型同报；要求零机型分支防复发）：长按原由
+// touchstart+500ms 定时器触发，但部分内核在按住期间会因手指微移发 touchmove、或长按手势被系统
+// 接管（文本操作条/长按候选）先发 touchcancel，定时器被清、菜单永不打开。contextmenu 是内核对
+// 长按的权威信号，在此同步打开动作菜单兜底；与定时器路径互斥（同一气泡已开则不重开，避免跳动），
+// 松开后补发的 click 由 msgSuppressClickUntil 抑制；桌面右键同样弹动作菜单（原生长按/右键菜单
+// 本就已被接管停用，行为是新增出口而非破坏）。
+const ctxR = msgActionEligible(e.target);
+if (ctxR) {
+if (msgHoldTimer) { clearTimeout(msgHoldTimer); msgHoldTimer = null; }
+msgSuppressClickUntil = Date.now() + 800;
+if (!msgActions || msgActions.hidden || activeMsgEl !== ctxR.item) {
+msgHoldFired = true;
+openMsgActionsAt(ctxR.item, ctxR.b);
+}
+}
+}
 });
 body.addEventListener('touchstart', (e) => {
 const r = msgActionEligible(e.target);
 if (!r) return;
 msgHoldEl = r.item;
+const mt0 = e.touches && e.touches[0];
+if (mt0) { msgHoldX = mt0.clientX; msgHoldY = mt0.clientY; }
 msgHoldTimer = setTimeout(() => {
 msgHoldTimer = null;
 msgHoldFired = true;
@@ -7543,7 +7587,16 @@ openMsgActionsAt(msgHoldEl, r.b);
 }, 500);
 }, { passive: true });
 function endMsgHold() { if (msgHoldTimer) { clearTimeout(msgHoldTimer); msgHoldTimer = null; } }
-body.addEventListener('touchmove', endMsgHold, { passive: true });   // 手指滑动=滚动，取消长按
+body.addEventListener('touchmove', (e) => {
+// FIX 2026-09-14 #G2：手指按住时轻微呼吸性漂移（<12px）不算滑动、不取消长按——部分内核在
+// 500ms 长按窗口内必发一两条小 touchmove，微移即清定时器＝菜单永不出现；真实滑动（滚动）仍照常取消。
+if (msgHoldTimer && e.touches && e.touches[0]) {
+const mt = e.touches[0];
+const mdx = mt.clientX - msgHoldX;
+const mdy = mt.clientY - msgHoldY;
+if (mdx * mdx + mdy * mdy > 144) endMsgHold();
+}
+}, { passive: true });   // 手指滑动=滚动，取消长按（超过 12px 才算滑动）
 body.addEventListener('touchend', endMsgHold);
 body.addEventListener('touchcancel', endMsgHold);
 body.addEventListener('click', (e) => {

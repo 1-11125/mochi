@@ -259,11 +259,15 @@
     } catch (e) {}
     viewLetter = l;
     // 收到的来信：打开后标记已读（「新来信」消失）
+    // 2026-09-14 加固：已读落库为可选步骤，load/save 任一抛出都不允许中断开信弹层
+    //（多机型反馈「点开信无反应」：已读保存途中异常会让 openLetter 在弹层出现前中断）。
     if (l && l.type === 'received' && !l.read) {
-      l.read = true;
-      const list = load();
-      const idx = list.findIndex(x => x.id === l.id);
-      if (idx >= 0) { list[idx].read = true; save(list); }
+      try {
+        l.read = true;
+        const list = load();
+        const idx = list.findIndex(x => x.id === l.id);
+        if (idx >= 0) { list[idx].read = true; save(list); }
+      } catch (e) {}
     }
     updateBadge();
     const name = partnerName();

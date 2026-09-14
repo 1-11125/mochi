@@ -4818,7 +4818,10 @@
           <div class="dec-inp-wrap chat-ask-inp-wrap"><input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="dec-inp-clear" data-clear="chat-ask-input" aria-label="清空" title="清空">✕</button></div>
           <button type="button" class="chat-ask-bulk" id="chat-ask-bulk" hidden>批量设置问卷</button>
           <div class="chat-ask-actions">
-        </div>
+            <button class="cc-tool" id="chat-ask-save" hidden>存入</button>
+            <button class="cc-tool" id="chat-ask-cancel">取消</button>
+            <button class="cc-tool" id="chat-ask-ok">发送</button>
+          </div>
       </div>
       <!-- 寻踪半框（点顶部联系人头像打开，露出聊天消息） -->
       <div class="poke-card" id="ck-panel" hidden>
@@ -5667,6 +5670,15 @@
         <div class="set-row" id="cs-import-msgs">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 5v12"/></svg></div>
           <div class="txt">导入聊天记录</div>
+        </div>
+        <!-- v3.36.x：#471 设置页「导出全部桌面聊天记录」/「导入全部桌面聊天记录」——导出与顶部备份提醒条「备份聊天」同入口（CHAT_KEY_RE 匹配全部桌面命名空间），导入支持标准备份文件（按桌面 key 分路写回各桌面）与单桌文件（归入当前桌面） -->
+        <div class="set-row" id="cs-export-all">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/><path d="M3 19h18"/></svg></div>
+          <div class="txt">导出全部桌面聊天记录</div>
+        </div>
+        <div class="set-row" id="cs-import-all">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 5v12"/><path d="M3 19h18"/></svg></div>
+          <div class="txt">导入全部桌面聊天记录</div>
         </div>
         <div class="set-row danger" id="cs-clear-msgs">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
