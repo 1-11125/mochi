@@ -1023,8 +1023,11 @@ const FIX_SENTINELS = [
   { name: '#306 连连看 fitBoard 扣除 grid gap 再取整（删则牌面总宽多出 (cols-1)*3px 溢出右缘、最右列被截断）', file: 'js/linkup.js', needle: 'Math.floor((w - (st.cols - 1) * GAP) / st.cols)' },
   // ==== 2026-09-15 #487/#488 连连看（用户报「TA 回合连上了却弹『没连上』」「10×6 全屏不放大反而图案显小」；原编 #482/#483 撞号改）====
   { name: '#487 连连看 TA wild 点错：台词只指本次尝试、隔 700ms 经 thinkT 才落子（删则台词与成功连线同帧＝「连上了却弹连不上」回流）', file: 'js/linkup.js', needle: 'if (s !== st || st.over || st.lock || st.turn !== 2) return;' },
-  { name: '#488 连连看全屏放大：.game-fs 时高度参与取格、上限 46→72（删则全屏只按宽度压小牌面、纵向空间浪费）', file: 'js/linkup.js', needle: 'Math.max(24, Math.min(72, byW' },
+  { name: '#488 连连看全屏放大：.game-fs 时高度参与取格、上限 46→72（删则全屏只按宽度压小牌面、纵向空间浪费；needle 因 #489 下限改 floor24 同批同步）', file: 'js/linkup.js', needle: 'Math.max(floor24, Math.min(72, byW' },
   { name: '#488 连连看真全屏 stage 吃满高度（删则全屏棋盘贴顶、下方大片留白退回）', file: 'css/chat-pages.css', needle: '#chat-linkup-panel.game-fs .lk-stage { flex:1; min-height:0; }' },
+  // ==== 2026-09-15 #489 连连看 新增王者 12×7 / 传奇 12×8（主题扩 24 款；12 列窄屏按实宽收格防溢出）====
+  { name: '#489 连连看 王者/传奇 大棋盘档位（删则难度下拉回退三档、84/96 张局消失）', file: 'js/linkup.js', needle: "legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 }" },
+  { name: '#489 连连看 12 列以上窄屏按实宽收格（删则半框 24px 下限把总宽顶溢出右缘）', file: 'js/linkup.js', needle: 'const floor24 = Math.min(24, byW);' },
   { name: '#306 消消乐 fitBoard 扣除 grid gap 再取整（同连连看，删则第 8 列被裁）', file: 'js/match3.js', needle: 'Math.floor((w - (N - 1) * GAP) / N)' },
   // ==== 2026-09-12 #340 消消乐动画（用户报「没有真消消乐动画很突兀」）：棋子层+transform 合成器过渡，交换滑动/消除爆开/按距离下落 ====
   { name: '#340 消消乐消除爆开动画 keyframes（删则消除无爆开、退回瞬间消失）', file: 'css/chat-pages.css', needle: '@keyframes m3-popout' },
