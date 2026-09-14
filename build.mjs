@@ -1187,6 +1187,9 @@ const FIX_SENTINELS = [
   { name: '#392 词典页提示条锚点（删则提示无处渲染）', file: 'template.html', needle: 'id="dict-lock-hint"' },
   { name: '#392 回复设置自检首闸人话文案（改回「二级锁未解锁」则因果又看不懂）', file: 'js/reply-settings.js', needle: '锁定中·词典被锁停' },
   { name: '#392 开屏锁卡 tip 锁定影响面清单（删则不知道锁定停用了哪些字卡）', file: 'js/clock.js', needle: '锁定影响：默认聊天字卡、词典（含词典拼字）' },
+  // ==== 2026-09-14 进入应用后强制弹窗提醒：系统字卡未解锁（未输二级密码）时每次打开应用弹一次长文案，可「知道了」关闭、可就地「输入密码解锁」（进入后开屏锁卡不可见，此为首要应用内解锁入口）====
+  { name: '强制弹窗提醒·锁定文案（删则进入应用后不知道字卡为何不可用、也不知应用内可解锁）', file: 'js/clock.js', needle: '系统字卡未解锁，请自行添加字卡使用' },
+  { name: '强制弹窗提醒·应用内解锁接线（promptCardUnlock 删则「输入密码解锁」pill 失效=锁定用户进入后无法就地解锁）', file: 'js/clock.js', needle: "v === 'unlock') promptCardUnlock();" },
   // ==== 2026-09-13 #394 全面体检第二批——#391 之后全库复扫「含 ||| 守卫 / 裸 escTxtBr 渲染」所有站点，又抓 9 处：词典语录抽卡池两条、漂流瓶候选池、统计页卡集+消息账+悬浮伴侣话术、词典词条录入校验、聊天 parts 文本/引用块/收藏文本、群聊文本气泡/引用/撤回段（渲染端统一走 #385 mochiInlineTextHtml 助手）====
   { name: '#394 词典语录抽卡池剔令牌（删则词典拼字直出令牌串）', file: 'js/quote-spell.js', needle: 'mochiMediaIsToken(q)) return false' },
   { name: '#394 词典抽卡混入 getPool.text 二次校验剔令牌', file: 'js/quote-spell.js', needle: 'mochiMediaIsToken(s)) return false' },

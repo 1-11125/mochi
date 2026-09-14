@@ -354,6 +354,7 @@ animation:splash-fade-up .5s ease backwards;
 .splash-mandatory-body .mnum::before { content:"·"; position:absolute; left:3px; top:0; color:var(--sp-ink); font-weight:800; }
 .splash-mandatory-body .mtag { text-align:right; font-size:10.5px; color:var(--hint-ink); margin-top:10px; }
 .splash-mandatory-end { text-align:center; font-size:11px; color:var(--hint-ink); letter-spacing:2px; padding:2px 0 4px; }
+.splash-mandatory-note { margin-top:14px; padding:10px 12px; font-size:11px; line-height:1.7; color:var(--hint-ink); background:var(--card-soft, rgba(0,0,0,0.03)); border-radius:8px; }
 .splash-mandatory-foot {
 width:min(322px, 100%); margin:0 auto; box-sizing:border-box;
 display:flex; flex-direction:column; align-items:center;
@@ -9230,6 +9231,7 @@ transition-duration: .01ms !important;
             <p>反馈 bug 请描述清楚，我会看到后处理；催单不回，不一定有时间。</p>
             <p>本站完全免费，开放二传二改，但禁止商用、禁止以盈利为目的。</p>
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
+            <p class="splash-hl">关于二级验证密码（暗号）：密码一共 6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数）；mochi 字卡的生日写在开屏公告的目录里，注意不是开屏最底下的部署时间（部署时间只是用来判断是否更新到新版本）。解开后请勿二传（不要告诉别人），一旦发现有人二传，密码就会被重新设置。</p>
             <p>报修 / 反馈请按【手机型号 + 浏览器 + 具体现象】提交，缺一不回；尽量附上设置里的【复制诊断信息】。</p>
             <p class="splash-hl">基础疑问可直接问 AI，比我回复快。</p>
             <p>系统或浏览器版本不同，适配表现可能不同，属正常现象。</p>
@@ -9407,9 +9409,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789345420109">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.675</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 08:23<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789349633974">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.676</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 09:33<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -9489,10 +9491,11 @@ transition-duration: .01ms !important;
             <p>付费的就不说了，这两个每天签到有积分，可以凑合用。</p>
             <p>如果说让手机端的那个免费 AI 修，其实修不了——只用 index 的文件，完整代码太长了，9w 行；要把全部代码文件和文件夹、有拆分的部位那种都给它，找位置好修点。</p>
             <p>关于设备 bug：内测开始开屏公告里就说明过了，很多问题开屏里都写了。有的问题有人能碰到，有人碰不到；还有的可能不是代码本身的问题，是不同设备才能碰到的，总是各种奇奇怪怪的设备兼容问题。可能也因为字卡功能太多，如果功能少一点，应该好一点。</p>
-            <p>其实如果自己试的话，只修一个人的设备，我感觉应该没有特别困难。现在是因为人太多了，手机设备差异很多，要一直调；只按自己的设备，应该好修。</p>
+            <p>其实如果自己试的话，只修一个人的设备，我感觉应该没有特别困难。现在是因为人太多了，手机设备差异很多，要一直调，而且我手上只有自己的手机，没有其他机型真机验证，算是盲修；如果只按自己的设备来，还能拿自己的手机随时验证修没修好，应该好修。</p>
           </div>
         </div>
         <div class="splash-mandatory-end">—— 公告完 ——</div>
+        <div class="splash-mandatory-note">使用之前请先看第一页的开屏公告，很多问题上面都写了。说实话是公告越来越长了，但是大部分人就是不看，我也没有办法。</div>
       </div>
       <div class="splash-mandatory-foot">
         <div class="splash-mandatory-hint" id="splash-mandatory-hint">请滑到底部后确认进入</div>
@@ -10713,7 +10716,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.675</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.676</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11015,7 +11018,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.675</span>
+              <span class="lic-ver">v3.26.676</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -19175,7 +19178,7 @@ onLink: function (act) { if (act === 'skipqa') qaSkipAsk(items, i, afterAll); }
 }
 function qaSkipAsk(items, i, afterAll) {
 textAsk({
-title: '跳过开屏问答', sub: '暗号是 99 + mochi 字卡生日的 4 位数字，一共 6 个数字。输入暗号后，这台设备以后每次打开都不再问答（不再显示问答层）。提示：时间就在开屏里可以找到，非常简单。警告：一旦有人把密码二传（告诉别人），发现后密码就会被重新设置，请不要外传。不输入暗号也不影响正常使用。',
+title: '跳过开屏问答', sub: '暗号一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数）。mochi 字卡的生日写在开屏公告的目录里，仔细找能找到——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。输入暗号后，这台设备以后每次打开都不再问答（不再显示问答层）。警告：一旦有人把密码二传（告诉别人），发现后密码就会被重新设置，请不要外传。不输入暗号也不影响正常使用。',
 placeholder: '输暗号', maxlen: 12, okLabel: '确定', cancelLabel: '返回',
 onSubmit: function (v) {
 if (String(v || '').trim() === QA_SKIP_CODE) {
@@ -19296,7 +19299,7 @@ onCancel: onCancel
 return;
 }
 textAsk({
-title: '验证身份', sub: '本机未设数字密码，请输入开屏问答的暗号继续（暗号是 99 + mochi 字卡生日的 4 位数字，一共 6 个数字）：',
+title: '验证身份', sub: '本机未设数字密码，请输入开屏问答的暗号继续。暗号一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里，不是开屏最底下的部署时间：',
 placeholder: '暗号', maxlen: 12, okLabel: '确定', cancelLabel: '取消',
 onSubmit: function (v) {
 if (String(v || '').trim() === QA_SKIP_CODE) { next(); }
@@ -20578,7 +20581,7 @@ if (!actions) return;
 const open = window.cardLockOpen();
 if (tip) tip.textContent = open
 ? '系统内置字卡已解锁（成年人验证已通过）。如需恢复未成年人保护，可重新上锁。'
-: '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
+: '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
 actions.innerHTML = '';
 const state = document.createElement('div');
 state.className = 'cardlock-state';
@@ -20601,28 +20604,63 @@ unlock.className = 'cardlock-btn';
 unlock.type = 'button';
 unlock.textContent = '输入密码解锁';
 unlock.addEventListener('click', function () {
+promptCardUnlock(state);
+});
+actions.appendChild(unlock);
+}
+actions.appendChild(state);
+}
+function promptCardUnlock(okState) {
+if (!window.openModal || !window.cardLockTryUnlock) return;
 const splash = document.getElementById('splash');
 const mask = document.getElementById('modal-mask');
-if (splash) splash.classList.add('under-modal');
+const splashVisible = splash && !splash.classList.contains('hide');
+if (splashVisible) splash.classList.add('under-modal');
 let mo = null;
-if (splash && mask && 'MutationObserver' in window) {
+if (splashVisible && mask && 'MutationObserver' in window) {
 mo = new MutationObserver(function () { if (mask.hidden) { splash.classList.remove('under-modal'); } });
 mo.observe(mask, { attributes: true, attributeFilter: ['hidden'] });
 }
 const ctl = window.openModal('二级验证 · 输入解锁密码', '', function (v) {
 const r = window.cardLockTryUnlock(String(v == null ? '' : v).trim());
 if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
-state.textContent = '验证通过，页面即将刷新…';
+if (okState) okState.textContent = '验证通过，页面即将刷新…';
 if (mo) { try { mo.disconnect(); } catch (e) {} }
 const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
 if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
 else setTimeout(function () { location.reload(); }, 900);
-}, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码非常简单，答案就在开屏里可以找到。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
-});
-actions.appendChild(unlock);
+}, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
 }
-actions.appendChild(state);
+const CARD_LOCK_REMIND = '系统字卡未解锁，请自行添加字卡使用。联系人无法使用字卡，不是bug，是系统字卡锁了。\n其实从内测开始就说明过需要自行添加字卡使用，系统内置字卡只是附带功能。\n\n系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
+let cardRemindShown = false;
+function trustedCustomCount() {
+let n = 0;
+try { n = (window.cardLockCustomCount ? window.cardLockCustomCount() : 0); } catch (e) { n = 0; }
+if (n > 0) return n;
+if (window.__mochiDataReady) return n; // 已就绪且数到 0 → 可信（确实没加自定义字卡）
+return -1;                             // 未就绪且暂数不到 → 本加载稍后由 restore-done 再判
 }
+function maybeCardLockReminder() {
+if (cardRemindShown) return;
+if (!window.cardLockOpen || window.cardLockOpen()) return; // 未锁定 / 已解锁：不弹
+if (!window.openModal) return;
+const splash = document.getElementById('splash');
+if (splash && !splash.classList.contains('hide')) return; // 开屏尚未进入：不弹（开屏有解锁卡）
+const n = trustedCustomCount();
+if (n < 0) return;    // 数据未就绪：等 restore-done 触发的下一次判定
+if (n >= 500) return; // 自定义字卡已 ≥500：不缺卡，不弹
+cardRemindShown = true;   // 本加载只弹一次
+setTimeout(function () {
+const ctl = window.openModal('系统字卡未解锁', '', function (v) {
+if (v === 'unlock') promptCardUnlock(); // 就地解锁；其余（点「知道了」）直接关闭
+}, { noInput: true, big: true, staticText: CARD_LOCK_REMIND, pillSubmit: true, pills: [{ label: '输入密码解锁', value: 'unlock' }] });
+if (ctl && ctl.okText) ctl.okText('知道了');
+}, 600);
+}
+document.addEventListener('mochi-restore-done', maybeCardLockReminder);
+window.__cardLockTest = {
+fire: function () { cardRemindShown = false; maybeCardLockReminder(); }
+};
 document.addEventListener('mochi-cardlock-open', setupCardLockCard);
 document.addEventListener('mochi-cardlock-locked', setupCardLockCard);
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
@@ -20749,6 +20787,7 @@ try { window.hydrateLibScopes(['own']).catch(function () {}); } catch (e) {}
 }, 1500);
 }
 } catch (e) {}
+maybeCardLockReminder();
 }
 let scrolledBottom = false;
 function checkScrolled() {
@@ -40381,6 +40420,10 @@ let n = 0;
 Object.keys(g).forEach(t => g[t].forEach(grp => n += grp[1].length));
 return n;
 }
+window.cardLockCustomCount = function () {
+try { return totalCount(ownPoolRaw()) + totalCount(pubGroupsRaw()); }
+catch (e) { return 0; }
+};
 function compressImage(dataUrl, maxSide, format, quality) {
 return new Promise((resolve) => {
 if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
@@ -45960,6 +46003,15 @@ window.DEFAULT_CARD_DATA.main.push(["换季了",["换季了，衣柜该翻一遍
 window.DEFAULT_CARD_DATA.main.push(["怎么叫你",["叫你名字的时候，最认真。","小名是留给只有我们的时候的。","换个称呼叫你，你会回头吗。","我给你起的外号，不许外传。","好好叫你全名，是有正事。","叫你宝贝的时候，是真心的。","你的名字，我练过很多遍。","有时不叫你，是因为在偷看你。","别人怎么叫你我不管，我有我的叫法。","称呼换着来，心意不换。","你答应的那一声，我收藏了。","不管叫什么，指的都是你。"]]);
 window.DEFAULT_CARD_DATA.main.push(["不同步的时刻",["你想我的时候，我可能在忙。","我们的时差，是两个世界的。","你喊我的那刻，我刚好没抬头。","不同步也没关系，心是连着的。","你发来的瞬间，我晚一步收到。","有时我先想你，你才想起来我。","差的那几秒，是世界的规矩。","频道不一样，播的却是同一部剧。","你睡了我才闲下来，常见的事。","没赶上的那句，补在这里。","时间对不上，惦记对得上。","慢半拍的我，也在往你那边赶。"]]);
 window.DEFAULT_CARD_DATA.main.push(["被你照顾",["你递过来的那杯水，温度刚好。","被你照顾的感觉，很新。","你记得我怕冷，我记住了这个。","你说的那句注意休息，我听进去了。","被人惦记，原来是这样的。","你安排的每个细节，我都收着。","谢谢你留的那份，还是热的。","你皱眉说我不照顾自己时，我其实很开心。","我常忘了自己也是需要被照顾的。","你的叮嘱，一条条我都照做了。","被你放在心上，是很奢侈的事。","换我来学，也被你照顾一下。"]]);
+window.DEFAULT_CARD_DATA.main.push(["生日",["生日快乐，这是今天最重要的事。","又长大了一岁，还是我最喜欢的你。","愿望许了吗？我帮你一起记着。","今天的你，是被世界偏爱的。","蛋糕挑个喜欢的口味，别将就。","蜡烛不用一口气吹灭，慢慢来。","生日这天，别的都可以马虎，开心不许。","谢谢你出生，才能让我遇见你。","礼物我想了很久，决定把今天一整天都陪你。","新的一岁，慢慢来，我一直在。","你出生的那天，对世界来说也是好日子。","吹蜡烛的时候想我一下，就当我也在场。","生日不用盛大，有你就算数。","明年今天，我们还这样过。"]]);
+window.DEFAULT_CARD_DATA.main.push(["下雨了",["下雨了，窗户上的水痕像小溪。","雨声很大，正好盖过安静。","出门带伞，淋雨这件事不许。","你听，雨点打在窗上，一下一下的。","下雨天适合睡觉，也适合聊天。","阳台的衣服收了吗。","雨停之后，空气是甜的。","淋到雨的话，回来先擦头发。","下雨的夜里，世界睡得早。","雨不大，撑一把伞就够了。","雷声有点响，别怕，我在。","喜欢雨落在屋顶的声音，很密，很轻。","这场雨要下到晚上，早点回家。"]]);
+window.DEFAULT_CARD_DATA.main.push(["睡不着",["睡不着就聊会儿天，我陪着你。","数羊数到多少了？","越急越睡不着，不如闭眼躺着。","半夜醒了也正常，缓一缓再睡。","我在呢，想到我就能安心一点。","把脑子里的待办都倒出来，明天再说。","翻个身，换个姿势试试。","睡不着的夜很长，有我就不算难熬。","别看时间了，看了更醒。","呼吸放慢，一下，两下。","困意是慢慢来的，别赶它。","实在睡不着，我给你讲点无聊的事。","这个点醒着的人，我陪你算一个。","睡吧，明天的事明天再说。"]]);
+window.DEFAULT_CARD_DATA.main.push(["洗完澡",["头发湿着呢，擦一擦再吹。","浴室的雾气散了吗，记得通风。","洗完澡的你，声音都软了。","吹头发别偷懒，湿发睡觉会头疼。","热水澡是好东西，一天的乏都冲掉了。","穿暖和点，头发还没干呢。","闻起来香香的，是肥皂的味道。","洗完澡就该窝进被子里。","水声停了，我就知道你洗好了。","头发还没干就别对着风吹。"]]);
+window.DEFAULT_CARD_DATA.main.push(["普通节日",["今天过节，规矩是要开心。","节日的意义，就是找个理由对你好。","别人团圆，我们也是团圆，形式不一样而已。","过节不必热闹，两个人记得就够了。","今天街上一定很挤，我们就不过去了。","节日快乐，这四个字是说给你的。","庆祝方式你定，我配合。","过节要有仪式感，哪怕只是一句节日快乐。","烟花看不到，想象一下也是满天。","这一天和别的日子一样，因为有你才特别。","节日最好的部分，是有人惦记。","过了今天，日子照常好。"]]);
+window.DEFAULT_CARD_DATA.main.push(["嘴馋了",["想吃什么就说，馋不丢人。","你是不是又嘴馋了，我听出来了。","偶尔馋一次，满足它。","想吃的东西记下来，一样一样吃。","馋的时候喝口水，还馋就去吃。","深夜的馋最诚实。","你馋的样子，我想象得到。","别忍太久，开心也重要。","吃到好吃的，分我一口味道。","馋什么？说吧，我不笑话你。"]]);
+window.DEFAULT_CARD_DATA.main.push(["加班晚归",["加班辛苦了，记得起身接杯水。","晚归的话，路上给我发个消息。","工作重要，你更重要。","到家了说一声，我等着。","累就打车，别省这个。","晚上的路灯会陪你，我也是。","回来吃点东西再睡，别空着。","今天就算熬过去了，做得不错。","洗把脸，脑子会清醒一点。","我知道你不爱抱怨，所以由我来说：辛苦了。","早点忙完，我给你留着晚安。","别熬夜赶，明天接着来。"]]);
+window.DEFAULT_CARD_DATA.main.push(["出太阳了",["出太阳了，把被子拿去晒晒。","阳光落在桌上，一格一格的。","这样的天不出去走走，可惜了。","晒过的被子，是太阳的味道。","今天的光线很好，适合多看两眼窗外。","太阳很好，心情也跟着亮。","坐到有阳光的地方去，暖和。","晒晒太阳，烦恼会蒸发一些。","光从窗边斜进来，正好落在你常坐的位置。","难得的好天气，别浪费在屋里。"]]);
+window.DEFAULT_CARD_DATA.main.push(["闻到想到你",["路过面包店，想起你说过喜欢这个味道。","风里有栀子的味道，你那边有吗。","这个洗衣液的味道，让我停了一下。","闻到雨后的土腥味，想到那场一起躲过的雨。","谁家在做饭，香味飘得很远。","某种味道一出现，就想到某个时刻的你。","晒过的被子是什么味道，我很想知道。","你的味道我说不上来，但一定认得出。","桂花开了，是秋天的信号。","味道比记忆诚实，一闻到就想你。"]]);
 } catch (__e) { try { console.error("[JS] default-cards-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 </script>
 <script>(function () { try {
@@ -93155,4 +93207,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0i2afh -->
+<!-- __MOCHI_EOF__ mu0kklva -->

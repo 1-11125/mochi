@@ -658,6 +658,12 @@
     Object.keys(g).forEach(t => g[t].forEach(grp => n += grp[1].length));
     return n;
   }
+  // 强制弹窗（clock.js）用：统计当前桌面「专属+公用」用户自建字卡总数（不含系统预设/词典）。
+  // 专用+公用各自 pooledRaw 为令牌化池视图，读相对轻量；数回 0 表示没加自定义字卡。
+  window.cardLockCustomCount = function () {
+    try { return totalCount(ownPoolRaw()) + totalCount(pubGroupsRaw()); }
+    catch (e) { return 0; }
+  };
 
   // 图片压缩（上传图片表情用）
   // v3.6.x：失败/超大图不再回退存原图——iOS Safari 解码超大 dataURL 会拖崩渲染进程

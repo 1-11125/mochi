@@ -404,6 +404,7 @@ html { margin:0; padding:0; }
 /* 落款标签（右对齐小灰字） */
 .splash-mandatory-body .mtag { text-align:right; font-size:10.5px; color:var(--hint-ink); margin-top:10px; }
 .splash-mandatory-end { text-align:center; font-size:11px; color:var(--hint-ink); letter-spacing:2px; padding:2px 0 4px; }
+.splash-mandatory-note { margin-top:14px; padding:10px 12px; font-size:11px; line-height:1.7; color:var(--hint-ink); background:var(--card-soft, rgba(0,0,0,0.03)); border-radius:8px; }
 /* 底部确认区（常驻不随内容滚动）：提示 + 确认按钮 */
 .splash-mandatory-foot {
   width:min(322px, 100%); margin:0 auto; box-sizing:border-box;

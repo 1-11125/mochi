@@ -127,7 +127,7 @@
     const open = window.cardLockOpen();
     if (tip) tip.textContent = open
       ? '系统内置字卡已解锁（成年人验证已通过）。如需恢复未成年人保护，可重新上锁。'
-      : '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
+      : '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
     actions.innerHTML = '';
     const state = document.createElement('div');
     state.className = 'cardlock-state';
@@ -151,34 +151,83 @@
       unlock.type = 'button';
       unlock.textContent = '输入密码解锁';
       unlock.addEventListener('click', function () {
-        // 开屏 z-index 999 会盖住 modal-mask(90)（pwa.js 同款时机注释）——弹窗期间给
-        // splash 挂 .under-modal 压层，mask [hidden] 恢复（关窗）时移除
-        const splash = document.getElementById('splash');
-        const mask = document.getElementById('modal-mask');
-        if (splash) splash.classList.add('under-modal');
-        let mo = null;
-        if (splash && mask && 'MutationObserver' in window) {
-          mo = new MutationObserver(function () { if (mask.hidden) { splash.classList.remove('under-modal'); } });
-          mo.observe(mask, { attributes: true, attributeFilter: ['hidden'] });
-        }
-        // openModal 标准验证模式：失败 ctl.hint + ctl.stay 不关窗（chat-settings renameChatScheme 同款）
-        const ctl = window.openModal('二级验证 · 输入解锁密码', '', function (v) {
-          const r = window.cardLockTryUnlock(String(v == null ? '' : v).trim());
-          if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
-          state.textContent = '验证通过，页面即将刷新…';
-          if (mo) { try { mo.disconnect(); } catch (e) {} }
-          // FIX 2026-09-13 #404：等解锁值确认落进 IDB 再刷新（见 card-lock.js
-          // cardLockConfirmPersisted）——夸克等内核 reload 杀进程会中止在途 IDB 事务，
-          // 盲等 900ms 可能值未提交＝刷新即回锁；3s 兜底超时也照常刷新不卡 UI。
-          const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
-          if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
-          else setTimeout(function () { location.reload(); }, 900);
-        }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码非常简单，答案就在开屏里可以找到。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
+        promptCardUnlock(state);
       });
       actions.appendChild(unlock);
     }
     actions.appendChild(state);
   }
+  // #XXX 二级验证·输入解锁密码：开屏锁卡与「进入后强制提醒弹窗」共用同一解锁流程（拆出来避免
+  // 两处重复）。okState 可选：解锁成功时写入「验证通过」提示文本的元素（开屏锁卡用，页面随后
+  // 自动刷新）。开屏仍在（splash 未隐藏）时为避免 z-index 盖住 modal，给 splash 挂 .under-modal，
+  // mask [hidden] 恢复时移除；进入后开屏已隐藏则整段跳过。
+  function promptCardUnlock(okState) {
+    if (!window.openModal || !window.cardLockTryUnlock) return;
+    const splash = document.getElementById('splash');
+    const mask = document.getElementById('modal-mask');
+    const splashVisible = splash && !splash.classList.contains('hide');
+    if (splashVisible) splash.classList.add('under-modal');
+    let mo = null;
+    if (splashVisible && mask && 'MutationObserver' in window) {
+      mo = new MutationObserver(function () { if (mask.hidden) { splash.classList.remove('under-modal'); } });
+      mo.observe(mask, { attributes: true, attributeFilter: ['hidden'] });
+    }
+    // openModal 标准验证模式：失败 ctl.hint + ctl.stay 不关窗（chat-settings renameChatScheme 同款）
+    const ctl = window.openModal('二级验证 · 输入解锁密码', '', function (v) {
+      const r = window.cardLockTryUnlock(String(v == null ? '' : v).trim());
+      if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
+      if (okState) okState.textContent = '验证通过，页面即将刷新…';
+      if (mo) { try { mo.disconnect(); } catch (e) {} }
+      // FIX 2026-09-13 #404：等解锁值确认落进 IDB 再刷新（见 card-lock.js
+      // cardLockConfirmPersisted）——夸克等内核 reload 杀进程会中止在途 IDB 事务，
+      // 盲等 900ms 可能值未提交＝刷新即回锁；3s 兜底超时也照常刷新不卡 UI。
+      const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+      if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
+      else setTimeout(function () { location.reload(); }, 900);
+    }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
+  }
+  // #XXX 强制弹窗提醒：进入应用后系统内置字卡仍锁定（未输二级密码）时，每次打开应用弹一次
+  // （本加载仅一次）。可点「知道了」关闭继续用（不输密码也能正常使用全部功能），也可就地
+  // 「输入密码解锁」——进入应用后开屏锁卡已不可见，此处为应用内唯一解锁入口，删除则锁定用户
+  // 进入后无法再解锁、只能重进开屏。文案与开屏锁卡 tip / 字卡库锁提示同义。
+  const CARD_LOCK_REMIND = '系统字卡未解锁，请自行添加字卡使用。联系人无法使用字卡，不是bug，是系统字卡锁了。\n其实从内测开始就说明过需要自行添加字卡使用，系统内置字卡只是附带功能。\n\n系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会只能重复发兜底内容（如「嗯嗯」），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
+  let cardRemindShown = false;
+  // 次数口径：自定义字卡总数（含日 0）=当前桌面专属库 + 公用库里用户自建的全部字卡（不含系统
+  // 预设/词典），见 chatcard.js cardLockCustomCount。数据就绪前 ownPoolRaw 可能读不到字卡库
+  // （IDB 回填/冷启动晚于开屏进入）→ 会误判成 0 弹错提醒；数到卡即可信，数到 0 需等
+  // __mochiDataReady / mochi-restore-done 再确认（确实没加才弹），否则先不动（-1=待定）。
+  function trustedCustomCount() {
+    let n = 0;
+    try { n = (window.cardLockCustomCount ? window.cardLockCustomCount() : 0); } catch (e) { n = 0; }
+    if (n > 0) return n;
+    if (window.__mochiDataReady) return n; // 已就绪且数到 0 → 可信（确实没加自定义字卡）
+    return -1;                             // 未就绪且暂数不到 → 本加载稍后由 restore-done 再判
+  }
+  function maybeCardLockReminder() {
+    if (cardRemindShown) return;
+    if (!window.cardLockOpen || window.cardLockOpen()) return; // 未锁定 / 已解锁：不弹
+    if (!window.openModal) return;
+    const splash = document.getElementById('splash');
+    if (splash && !splash.classList.contains('hide')) return; // 开屏尚未进入：不弹（开屏有解锁卡）
+    const n = trustedCustomCount();
+    if (n < 0) return;    // 数据未就绪：等 restore-done 触发的下一次判定
+    if (n >= 500) return; // 自定义字卡已 ≥500：不缺卡，不弹
+    cardRemindShown = true;   // 本加载只弹一次
+    // 让开屏后的问答门 / 应用锁（applock 遮罩层级更高）先就位再弹，避免与之抢层级
+    setTimeout(function () {
+      const ctl = window.openModal('系统字卡未解锁', '', function (v) {
+        if (v === 'unlock') promptCardUnlock(); // 就地解锁；其余（点「知道了」）直接关闭
+      }, { noInput: true, big: true, staticText: CARD_LOCK_REMIND, pillSubmit: true, pills: [{ label: '输入密码解锁', value: 'unlock' }] });
+      if (ctl && ctl.okText) ctl.okText('知道了');
+    }, 600);
+  }
+  // 冷启动回填完成后重判一次（开屏进入先于数据就绪时，卡片计数可能暂为 0，靠它兜底）
+  document.addEventListener('mochi-restore-done', maybeCardLockReminder);
+  // 无头验证专用入口（仅 tools/verify-card-lock.mjs 使用）：fire 重置“本加载已弹”标记后触发
+  // 一次强制弹窗（锁定态且自定义字卡<500 才真弹）。与 applock 的 __applockQaTest 同一类测试后门。
+  window.__cardLockTest = {
+    fire: function () { cardRemindShown = false; maybeCardLockReminder(); }
+  };
   // FIX 2026-09-13 #389：解锁态可能「晚到」——card-lock.js 走 xyStore 后，杀进程回滚的
   // 解锁状态由 wrj 自愈链（mochi-wrj-heal）异步修回并补发 mochi-cardlock-open/-locked。
   // 开屏锁卡此前只在首屏渲染一次，晚到的解锁会一直显示「输入密码解锁」假象，这里监听
@@ -360,6 +409,8 @@
         }, 1500);
       }
     } catch (e) {}
+    // 进入完成且系统字卡仍锁定时，强制弹窗提醒（每次打开应用一次）
+    maybeCardLockReminder();
   }
   let scrolledBottom = false;
   function checkScrolled() {
