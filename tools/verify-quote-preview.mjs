@@ -262,6 +262,99 @@ const s6pre = await evalJs(`(function(){
 let s6 = null; try { s6 = JSON.parse(s6pre); } catch (e) {}
 check('S6 对象换血后引用预览仍是被引那条', !!s6 && !s6.err && s6.preview === s6.tapped, s6pre);
 
+// ---- S7 开菜单【前】msgs 已中段位移（DOM 未重渲）＝#407 快照被陈旧下标毒化的残留洞 ----
+// 真实形态：#220 不贴底时权威读库合并/回放按 ts 中段插删、有意跳过重渲防闪——之后用户点的
+// 气泡是「渲染那一刻」画的那条，data-idx 却已指向别的消息，#407 快照开场即取错、四级重定位
+// 救不回＝「引用的消息和显示的消息完全不对」（EC-PAD01 SE Chrome 等同报，2026-09-15）。
+// #491 修复=渲染期把消息身份写进 data-mk，开菜单按 mk 反查真实那条。
+console.log('--- S7 开菜单前 msgs 中段已位移（DOM 未重渲，#491 身份锚） ---');
+await evalJs("(function(){window.activeStore().set('chat-msgs','[]');return true;})()");
+await sleep(200);
+await seed(300, 'S7');
+await openPage();
+await gotoChat();
+await sleep(1000);
+const s7pre = await evalJs(`(function(){
+  const items = Array.from(document.querySelectorAll('#chat-body .msg-in[data-idx]'));
+  if (!items.length) return 'no-msg';
+  const el = items[items.length - 1]; // 点窗内最后一条 in 消息（中段删除后其真实下标已 -1）
+  const idx = Number(el.dataset.idx);
+  if (idx <= 6) return 'idx-too-low';
+  const arr = window.getChatMsgs();
+  const rec = arr[idx];
+  const mk = el.dataset.mk || '';
+  // 先模拟权威合并中段删一条（DOM 不重渲＝该气泡真实消息的新下标是 idx-1）
+  arr.splice(3, 1);
+  // 再点气泡开菜单（修复前：快照按陈旧 idx 取到别条；修复后：按 mk 反查回真实那条）
+  el.querySelector('.msg-bubble').click();
+  const menu = document.getElementById('msg-actions');
+  if (!menu || menu.hidden) return JSON.stringify({ err: 'no-menu', mk: mk });
+  const btn = menu.querySelector('.ma-btn[data-act="quote"]');
+  if (!btn) return JSON.stringify({ err: 'no-btn', mk: mk });
+  btn.click();
+  const bar = document.getElementById('chat-draft-quote');
+  const txt = bar && !bar.hidden ? (bar.querySelector('.chat-draft-quote-text') || {}).textContent || '' : '(hidden)';
+  return JSON.stringify({ tapped: rec ? rec.text : '?', preview: txt, mk: mk });
+})()`);
+let s7 = null; try { s7 = JSON.parse(s7pre); } catch (e) {}
+check('S7 开菜单前已位移仍引用被点那条（#491 身份锚）', !!s7 && !s7.err && !!s7.mk && s7.preview === s7.tapped, s7pre);
+
+// ---- S7b 判别力实证：同一场景剥离 data-mk（=回退到 #491 之前的旧行为）必然串条 ----
+// 证明该场景确有判别力：mk 在位=引用被点那条；mk 缺失（旧代码）=按陈旧下标取到别条。
+console.log('--- S7b 去锚对照（旧行为必然串条＝场景判别力） ---');
+await evalJs("(function(){window.activeStore().set('chat-msgs','[]');return true;})()");
+await sleep(200);
+await seed(300, 'S7b');
+await openPage();
+await gotoChat();
+await sleep(1000);
+const s7bpre = await evalJs(`(function(){
+  const items = Array.from(document.querySelectorAll('#chat-body .msg-in[data-idx]'));
+  if (!items.length) return 'no-msg';
+  const el = items[items.length - 1];
+  const idx = Number(el.dataset.idx);
+  if (idx <= 6) return 'idx-too-low';
+  const arr = window.getChatMsgs();
+  const rec = arr[idx];
+  arr.splice(3, 1);           // 中段删一条制造位移（DOM 未重渲）
+  el.dataset.mk = '';         // 剥离身份锚＝#491 之前的旧行为
+  el.querySelector('.msg-bubble').click();
+  const menu = document.getElementById('msg-actions');
+  if (!menu || menu.hidden) return 'no-menu';
+  const btn = menu.querySelector('.ma-btn[data-act="quote"]');
+  btn.click();
+  const bar = document.getElementById('chat-draft-quote');
+  const txt = bar && !bar.hidden ? (bar.querySelector('.chat-draft-quote-text') || {}).textContent || '' : '(hidden)';
+  return JSON.stringify({ tapped: rec ? rec.text : '?', preview: txt });
+})()`);
+let s7b = null; try { s7b = JSON.parse(s7bpre); } catch (e) {}
+check('S7b 去锚后串条实证（preview≠tapped＝旧代码确有此洞）', !!s7b && !s7b.err && s7b.preview !== s7b.tapped, s7bpre);
+
+// ---- S8 原消息已被删出数组（mk 查无）→ 回退旧 data-idx 语义，动作不异常 ----
+console.log('--- S8 mk 查无回退（原消息被删） ---');
+await openPage();
+await gotoChat();
+await sleep(800);
+const s8pre = await evalJs(`(function(){
+  const items = Array.from(document.querySelectorAll('#chat-body .msg-in[data-idx]'));
+  if (!items.length) return 'no-msg';
+  const el = items[items.length - 1];
+  const idx = Number(el.dataset.idx);
+  el.querySelector('.msg-bubble').click();
+  const menu = document.getElementById('msg-actions');
+  if (!menu || menu.hidden) return 'no-menu';
+  // 删掉被点那条本身（mk 查无形态）→ 引用动作回退 data-idx 行为（旧语义），只需不抛异常
+  const arr = window.getChatMsgs();
+  arr.splice(idx, 1);
+  const btn = menu.querySelector('.ma-btn[data-act="quote"]');
+  btn.click();
+  const bar = document.getElementById('chat-draft-quote');
+  const txt = bar && !bar.hidden ? (bar.querySelector('.chat-draft-quote-text') || {}).textContent || '' : '(hidden)';
+  return JSON.stringify({ preview: txt, noThrow: true });
+})()`);
+let s8 = null; try { s8 = JSON.parse(s8pre); } catch (e) { s8 = { err: String(e) }; }
+check('S8 原消息被删时引用不异常（回退旧语义）', !!s8 && !s8.err && s8.noThrow, s8pre);
+
 try { if (ws) ws.close(); } catch (e) {}
 try { chrome.kill(); } catch (e) {}
 try { server.close(); } catch (e) {}

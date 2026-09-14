@@ -103,27 +103,34 @@
 .msg-in .msg-bubble { background: var(--msg-in-bg, #ffffff); color: var(--msg-in-ink, #111111); }
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
 
-/* 消息入场动画：仅新增消息（非批量渲染）时触发 */
+/* 消息入场动画：仅新增消息（非批量渲染）时触发。
+   v3.27.x：气泡「冒出」感——以底角为原点做轻微缩放+上浮，回弹曲线（>1 的 y 值产生 overshoot），
+   只动 transform/opacity 不碰布局属性；reduced-motion 降级为直接显示 */
 .msg-enter {
-  animation: msgFadeUp .28s cubic-bezier(.25,.1,.25,1) both;
+  animation: msgPopIn .32s cubic-bezier(.34,1.4,.64,1) both;
 }
 .msg-in.msg-enter {
-  animation-name: msgSlideIn;
+  animation-name: msgInPop;
+  transform-origin: left bottom;
 }
 .msg-out.msg-enter {
-  animation-name: msgSlideOut;
+  animation-name: msgOutPop;
+  transform-origin: right bottom;
 }
-@keyframes msgFadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes msgPopIn {
+  from { opacity: 0; transform: translateY(8px) scale(.96); }
+  to { opacity: 1; transform: none; }
 }
-@keyframes msgSlideIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes msgInPop {
+  from { opacity: 0; transform: translateY(10px) scale(.92); }
+  to { opacity: 1; transform: none; }
 }
-@keyframes msgSlideOut {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes msgOutPop {
+  from { opacity: 0; transform: translateY(6px) scale(.95); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg-enter { animation: none; }
 }
 
 /* 涓诲姩鍙戦€佹爣璇嗭細鑱旂郴浜轰富鍔ㄦ壘浣犵殑娑堟伅锛屾皵娉″乏涓婅涓€鏋氬皬鐖卞績锛堢煝閲忓浘锛?   v3.6.x锛氱埍蹇冩斁鍦ㄦ皵娉″唴閮ㄥ乏涓婅锛?px/4px 鍋忕Щ + 9px 灏哄锛屾伆濂借惤鍦ㄦ皵娉?   11px/14px 鍐呰竟璺濊寖鍥村唴锛屼笉鍘嬫枃瀛楋級锛涙鍓?top/left:-8px 鏄寕鍦ㄦ皵娉″瑙?*/

@@ -1399,20 +1399,28 @@ const cb = document.getElementById('chat-body');
 if (!cb) return true;
 return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
 }
+// FIX 2026-09-15 #492（帮我决定/多人决定结果发到聊天后聊天记录不自动滑到最新消息，多机型同报）：
+// 用户主动触发的「来向」消息一次性跟底标记——chatAddIn({follow:true}) 置位、此处消费。决策结果
+// 是用户当下操作的直接产物，与「自己发消息」（out 侧必跟底）和群聊结果（followGcBottom(true)
+// 强制跟底）同权，不该吃 in 侧「用户在看历史就别打扰」的钉住闸（真机上翻过聊天＝解钉态，结果
+// 气泡永远落在视口下方）；TA 自发消息的 #162/#378/#416 不打扰契约零改动。
+let chatUserFollowScroll = false;
 function maybeScrollChatBottom(side) {
 if (batchRendering) {
 if (side === 'out') pendingOutScroll = true;
-return;
+return; // #492 follow 标记批量渲染期不消费，留待真实追加时生效
 }
 if (!chatVisible()) return;
 const out = side === 'out';
+const userFollow = !out && chatUserFollowScroll; // FIX #492 一次性消费
+if (userFollow) chatUserFollowScroll = false;
 // FIX #378（红米 K80 Chrome 等多机型报「联系人发消息不自动滚到最新」）：来消息跟底闸
 // 改按钉住标记——内核丢弃首写/图片迟到解码顶开后，视口离底会超 120px，旧 nearGcBottom
 // 闸把后续每条来消息都误判成「在看历史」永不跟底；用户手动接管（触摸/滚轮解钉）与
 // 搜索/引用跳转定位（#334）本就解除钉住，chatPinnedBottom 已完整表达「别打扰」
-if (!out && !chatPinnedBottom) return;
+if (!out && !userFollow && !chatPinnedBottom) return;
 scrollChatBottom();
-	if (out) {
+	if (out || userFollow) {
 	requestAnimationFrame(scrollChatBottom);
 	setTimeout(scrollChatBottom, 120);
 	} else {
@@ -2702,8 +2710,20 @@ im.replaceWith(ph);
 });
 });
 }
+// FIX 2026-09-15 #491 渲染期消息身份锚（「引用的消息和显示的消息完全不对」EC-PAD01 SE Chrome
+// 等多机型同报，#407 同族残留洞）：#407 的快照在【开菜单时】按 data-idx 取 rec——但 msgs 可能
+// 在【开菜单之前】已中段位移（权威读库合并/回放/补投递按 ts 插删，#220 不贴底时有意跳过重渲
+// 防闪）＝陈旧下标把别的消息快照进来，resolveActiveMsg 四级重定位的输入本身就是错的，救不回。
+// msgKeyOf 是消息内容身份（ts|side|type|text80），renderMsg 渲染每个气泡时写进 data-mk＝
+// 「这个节点当时画的是哪条」永不随数组位移变化；开菜单按 mk 反查真实那条（查询 key 冲突
+// 只在同文案同毫秒消息间发生＝引用内容也相同，无感）。
+function msgKeyOf(rec) {
+if (!rec) return '';
+return (rec.ts || 0) + '|' + (rec.side || '') + '|' + (rec.type || '') + '|' + String(rec.text || '').slice(0, 80);
+}
 function renderMsg(rec) {
 const m = document.createElement('div');
+m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，批量渲染只覆盖 data-idx 不动它
 if (!batchRendering) m.classList.add('msg-enter');
 const __fit = rec.side !== 'out' && !!window.taFit;
 const __taNm = chatPartnerName();
@@ -3606,6 +3626,31 @@ opts = opts || {};
   // v3.16.x：gInv = 联系人主动邀请的游戏类型（pong/snake/rps），随消息持久化供小游戏记录识别
 	return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, mood: opts.mood || _tagMood || undefined });
 }
+// v3.27.x：对话型回复补「正在输入」过渡——TA 回应先 showTyping 再落地，消除气泡凭空冒出的突兀感。
+// items 可为单条文本或数组（数组=逐条连发，条与条之间再出一次 typing）。仅当前桌面生效：期间切走
+// （activeCid 变化）则 hideTyping 并放弃，不补投递（跨桌面链路由调用方自己的 chatDeskCardReply 处理）。
+// 系统通知/poke/已读回执等非对话消息不要走此助手，维持原 setTimeout 直发。
+function addInTyped(items, opts, firstDelay) {
+	try {
+		const myCid = window.__activeCid || 'default';
+		const same = () => (window.__activeCid || 'default') === myCid;
+		const arr = Array.isArray(items) ? items.filter(function (s) { return typeof s === 'string' && s; }) : [items];
+		if (!arr.length) return;
+		let i = 0;
+		const step = () => {
+			if (!same()) { hideTyping(); return; }
+			showTyping();
+			setTimeout(() => {
+				if (!same()) { hideTyping(); return; }
+				hideTyping();
+				addIn(arr[i], opts);
+				i++;
+				if (i < arr.length) setTimeout(step, 400);
+			}, Math.max(400, i === 0 ? (firstDelay || randInt(800, 1400)) : randInt(700, 1300)));
+		};
+		step();
+	} catch (e) {}
+}
 function addOut(text) {
 return addRec({ side: 'out', text: text });
 }
@@ -3636,6 +3681,10 @@ opts = opts || {};
 return addIn(text, { special: opts.special || 'poke', img: opts.img, mailNotice: opts.mailNotice, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, roastText: opts.roastText, roastCat: opts.roastCat, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir });
 };
 window.chatAddIn = function (text, opts) {
+// FIX 2026-09-15 #492：opts.follow = 用户主动通道（帮我决定/多人决定结果发到聊天）——落聊天
+// 后按 out 侧同权跟底（见 maybeScrollChatBottom 的 chatUserFollowScroll），仅显式传入生效，
+// TA 自发消息不受影响
+if (opts && opts.follow) chatUserFollowScroll = true;
 const r = addIn(text, opts);
 if (opts && opts.enter && !chatVisible()) enterChat();
 return r;
@@ -3898,7 +3947,7 @@ if (match) rec.choiceMatch = match;
 saveMsgs();
 saveMsgsNow();
 addOut(answer);
-addIn(reply || '…');
+addInTyped(reply || '…');
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + msgIdx + '"]');
 if (el) {
@@ -3914,8 +3963,7 @@ rec.curiousReply = reply || '…';
 saveMsgs();
 saveMsgsNow();
 addOut(answer);
-addIn(reply || '…');
-if (followup) addIn(followup);
+addInTyped(followup ? [reply || '…', followup] : (reply || '…'));
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + msgIdx + '"]');
 if (el) {
@@ -3931,7 +3979,7 @@ rec.roastReply = reply || '…';
 saveMsgs();
 saveMsgsNow();
 addOut(answer);
-addIn(reply || '…');
+addInTyped(reply || '…');
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + msgIdx + '"]');
 if (el) {
@@ -4002,7 +4050,7 @@ rec.askReply = finalReply;
 saveMsgs();
 saveMsgsNow();
 addOut(answer);
-addIn(finalReply);
+addInTyped(finalReply);
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + msgIdx + '"]');
 if (el) {
@@ -4624,7 +4672,7 @@ staticText: staticText
 function openInvitePanelFor(kind, name) {
 if (kind === 'cuddle') {
 try { if (navigator.vibrate) navigator.vibrate([30, 60, 90]); } catch (e) {}
-setTimeout(() => { try { addIn(name + ' ' + pick(CUDDLE_REPLIES), {}); } catch (e) {} }, randInt(600, 1200));
+try { addInTyped(name + ' ' + pick(CUDDLE_REPLIES)); } catch (e) {}
 return;
 }
 if (kind === 'rps') { if (window.openRpsPanel) window.openRpsPanel(); return; }
@@ -5704,8 +5752,13 @@ saveMsgsNow();
 }, randInt(800, 2400));
 }
 // 回前台补触发（与 ta-ask 同款通道），避免后台期间错过的申请永远丢失
+// FIX 2026-09-15 #494：原守卫 if (!sameCid()) 引用的 sameCid 仅是 scheduleReply/replyOnce 函数内
+// 局部 const，顶层作用域无定义＝每次回前台 ReferenceError 被行内 catch 静默吞，trySystemAskMochi
+// 的回前台补触发通道自上线即失效（无头 pauseOnExceptions 实锤 index.html:33351）。顶层回前台
+// 监听没有「注册时桌面」语义，守卫去除；归属由 trySystemAskMochi 内部走当前命名空间自理
+//（同 ta-ask.js:373 / memo-app.js:553 回前台监听口径）。
 document.addEventListener('mochi-fg-resume', function () {
-try { if (!sameCid()) return; setTimeout(function () { trySystemAskMochi(); }, randInt(2000, 6000)); } catch (e) {}
+try { setTimeout(function () { trySystemAskMochi(); }, randInt(2000, 6000)); } catch (e) {}
 });
 function rpThanksMsg() {
 return pick(['谢谢亲爱的～', '收到啦❤', '嘿嘿谢谢宝宝', '爱你哟', '🥰 谢谢', '开心！谢谢～', '么么哒']);
@@ -5721,7 +5774,7 @@ if ((window.__activeCid || 'default') !== myCid) return;
 try {
 const c = cfg();
 const rep = genOneReply(c);
-addIn(rep.text, { type: rep.type, parts: rep.parts });
+addInTyped(rep.text, { type: rep.type, parts: rep.parts });
 } catch (e) {}
 }, randInt(800, 2000));
 }
@@ -6515,7 +6568,7 @@ if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('问问TA') : '问问TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(text) : text) + '</div>' + favHeartHtml(rec) + '</div>';
 }
 }
-addIn(text);
+addInTyped(text);
 try {
 const list = JSON.parse(store.get('invite-ask-history') || '[]');
 // v3.26.x #489：按 ts 去重——跨桌面补投递路径可能已记过同一条
@@ -6597,7 +6650,7 @@ if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('邀请TA') : '邀请TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + escTxt(window.taFit ? window.taFit(answer) : answer) + '</div>' + favHeartHtml(rec) + '</div>';
 }
 }
-if (reply) setTimeout(() => { if (!sameCid()) return; addIn(reply); }, 800);
+if (reply) addInTyped(reply, null, randInt(800, 1400));
 try {
 const list = JSON.parse(store.get(histKey) || '[]');
 // v3.26.x #489：按 ts 去重——跨桌面补投递路径可能已记过同一条
@@ -7674,9 +7727,16 @@ activeMsgEl = item;
 //（不贴底跳过重渲的防闪路径），旧下标即指向另一条消息＝「引用预览显示的不是被引那条」
 //（华为 P50E Edge 等多机型报障）。打开时快照身份：对象引用 + ts/side/text 签名，
 // 执行动作时由 resolveActiveMsg 重新定位。
-const _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
-const _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
-activeMsgSnap = { idx: _qi, rec: _qr, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
+let _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
+const _mk = (item && item.dataset && item.dataset.mk) || '';
+let _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
+// FIX 2026-09-15 #491 渲染期身份锚优先解析——快照若按已位移的陈旧 data-idx 取，开场即锁错条
+//（见 msgKeyOf 注释）；按气泡渲染时写入的 mk 反查真实那条，查无（原消息已被删）才回退旧下标。
+if (_mk) {
+const _j = msgs.findIndex(mkMsg => msgKeyOf(mkMsg) === _mk);
+if (_j >= 0) { _qi = _j; _qr = msgs[_j]; }
+}
+activeMsgSnap = { idx: _qi, rec: _qr, mk: _mk, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
 activeSide = item.classList.contains('msg-out') ? 'out' : 'in';
 if (!msgActions) return;
 msgActions.querySelectorAll('.ma-mine').forEach(b2 => b2.hidden = activeSide !== 'out');

@@ -376,36 +376,122 @@
   // 大库设备先让用户在知情前提下选备份范围（小库直接完整导出，不多点一下）。
   // 为什么需要这一步：备份文件再大也导得出去，但导入侧要把整个文件一次读成字符串再解析，
   // 几百 MB 的文件在新设备上大概率导不回来——不如在导出前就把选择权交出来。
+  // #497 导出前实测本机体积：旧弹窗的「本机数据约 X」用的是 navigator.storage.estimate()
+  // ——那是整个 origin 的占用（同账号 Pages 各项目共用配额，含其他站点与缓存），既不是
+  // 本项目真实体积也没有配额占比，更没有各模式导出文件的预估（用户报「导出前看不到全部
+  // 数据多大、导出的文件多大」）。measureProject 按导出同一路径实测（只读不写）：
+  //   projStorage＝存储占用（字符×2，与「查看存储」同口径）；projFile＝导出文件近似体积
+  //   （备份内容以 ASCII/base64 为主，1 字符≈1 字节；Blob 进文件过 base64 膨胀 4/3）；
+  //   musicFile＝其中本地音乐部分（「不含音乐文件」的预估减项）。
+  // 大键双写（LS 旧快照 + IDB 权威值）按导出实际取值路径去重：>LS_SMALL_LIMIT 的键只算 IDB。
+  // IDB 清单读不到时返回 ok=false（调用方回退整域口径，行为与旧版一致）。
+  function measureProject() {
+    return new Promise((resolve) => {
+      impShow('正在准备导出…', '正在统计本机数据体积…', 8);
+      const lsChars = {};
+      let projFile = 0, projStorage = 0, musicFile = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || k.indexOf('xy-home-v2:') !== 0 || k === SNAPSHOT_KEY) continue;
+          const v = localStorage.getItem(k) || '';
+          const c = k.length + v.length;
+          lsChars[k] = c;
+          projFile += c; projStorage += c * 2;
+        }
+      } catch (e) {}
+      const finish = (ok) => resolve({ ok: ok, projFile: projFile, projStorage: projStorage, musicFile: musicFile });
+      const listFn = window.idbListKeys;
+      if (!listFn || !window.idbGetMany) { finish(false); return; }
+      Promise.resolve(listFn()).then(function (keys) {
+        if (!keys) { finish(false); return; }
+        const list = keys.filter(function (k) {
+          const s = String(k || '');
+          return s.indexOf('xy-home-v2:') === 0 && s !== SNAPSHOT_KEY;
+        });
+        const BATCH = 80;
+        let pos = 0;
+        const step = function () {
+          if (pos >= list.length) { finish(true); return; }
+          const batch = list.slice(pos, pos + BATCH);
+          pos += batch.length;
+          window.idbGetMany(batch).then(function (map) {
+            batch.forEach(function (k) {
+              const v = map[k];
+              let c = 0, blob = 0;
+              try {
+                if (typeof v === 'string') c = v.length;
+                else if (typeof Blob !== 'undefined' && v instanceof Blob) blob = v.size;
+                else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) blob = v.byteLength;
+                else if (v !== undefined && v !== null) c = JSON.stringify(v).length;
+              } catch (e) { c = 0; }
+              const isMusic = MUSIC_KEY_RE.test(String(k));
+              const lsC = lsChars[k];
+              if (lsC !== undefined && lsC <= LS_SMALL_LIMIT) { c = 0; blob = 0; } // 小键已按 LS 计过，IDB 同值不重复计
+              else if (lsC !== undefined) { projFile -= lsC; projStorage -= lsC * 2; } // 大键以 IDB 权威值为准（同导出路径）
+              projFile += c + Math.round(blob * 4 / 3);
+              projStorage += c * 2 + blob;
+              if (isMusic) musicFile += c + Math.round(blob * 4 / 3);
+            });
+            impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
+            setTimeout(step, 0);
+          }).catch(function () { setTimeout(step, 0); });
+        };
+        step();
+      }).catch(function () { finish(false); });
+    });
+  }
   function askExportMode() {
     return new Promise((resolve) => {
-      let usage = 0;
       let settled = false;
       const finish = (m) => { if (settled) return; settled = true; resolve(m); };
-      const ask = () => {
-        if (usage <= MODE_ASK_BYTES || !window.openModal) { finish('full'); return; }
-        window.openModal('本机数据约 ' + fmtSize(usage) + '，先选备份范围', '', function (v) {
+      const ask = (info, usage) => {
+        impHide();
+        // 阈值口径：有实测按「导出文件近似体积」判；实测失败回退整域 usage（=旧行为）
+        const bigRef = info ? info.projFile : usage;
+        if (bigRef <= MODE_ASK_BYTES || !window.openModal) { finish('full'); return; }
+        const head = info
+          ? ('本机数据实测约 ' + fmtSize(info.projStorage) +
+            (info.quota ? '，占浏览器配额约 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%' : '') + '。\n' +
+            '预计导出文件体积：完整备份 ≈ ' + fmtSize(info.projFile) +
+            '；不含音乐文件 ≈ ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
+            '；只备份文字＝剥离全部图片/语音/音乐后明显更小（以导出完成提示为准）。\n')
+          : ('本机数据约 ' + fmtSize(usage) + '（整个域名的占用口径，含同域其他站点，仅供参考）。\n');
+        window.openModal('本机数据约 ' + fmtSize(info ? info.projFile : usage) + '，先选备份范围', '', function (v) {
           finish(v || 'full');
         }, {
           noInput: true, okText: '开始导出', pill: 'full', lock: true,
           pills: [{ label: '完整备份', value: 'full' }, { label: '不含音乐文件', value: 'no-music' },
             { label: '只备份文字', value: 'text' }, { label: '取消', value: 'cancel' }],
-          staticText: '完整备份：全部数据都进文件（含本地音乐文件、图片、语音）。文件最大，' +
+          staticText: head +
+            '完整备份：全部数据都进文件（含本地音乐文件、图片、语音）。文件最大，' +
             '超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能「导得出去、导不回来」（导入要把整个文件一次读进内存）。\n' +
             '不含音乐文件：跳过本地上传的歌曲，其余数据完整，音乐到新设备重新添加即可。\n' +
             '只备份文字：再跳过图片/语音等附件，聊天记录与字卡只保留文字，体积最小。\n' +
-            '三种模式都会完整备份聊天记录的文字、设置与字卡文本。'
+            '三种模式都会完整备份聊天记录的文字、设置与字卡文本。' +
+            (info ? '\n（体积按当前数据实测估算，最终以导出完成提示的精确大小为准）' : '')
         });
       };
-      try {
-        if (navigator.storage && navigator.storage.estimate) {
-          navigator.storage.estimate().then((est) => {
-            usage = (est && est.usage) || 0;
-            ask();
-          }, () => ask());
-          return;
-        }
-      } catch (e) {}
-      ask();
+      // 整域口径（兜底 + 配额占比来源）与实测并行取，estReady 完成后再出弹窗
+      let estUsage = 0, estQuota = 0;
+      const estReady = new Promise((done) => {
+        try {
+          if (navigator.storage && navigator.storage.estimate) {
+            navigator.storage.estimate().then((est) => {
+              estUsage = (est && est.usage) || 0;
+              estQuota = (est && est.quota) || 0;
+              done();
+            }, () => done());
+            return;
+          }
+        } catch (e) {}
+        done();
+      });
+      measureProject().then((m) => {
+        return estReady.then(() => {
+          ask((m && m.ok) ? { projFile: m.projFile, projStorage: m.projStorage, musicFile: m.musicFile, quota: estQuota } : null, estUsage);
+        });
+      }).catch(() => { ask(null, estUsage); });
     });
   }
 

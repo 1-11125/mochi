@@ -11,6 +11,7 @@
 //  E) 触摸滑动仍能滚 `.cal-scroll`，且 `.phone.scrollTop` 保持 0
 //  F) 写信页同样幻影 0（同源缺陷一并覆盖）
 //  G) 聊天页不回归：`.phone` 幻影 0 且 `.chat-body` 仍能滚（overflow:clip 未误伤聊天滚动）
+//  H) #497 键盘看门狗（聚焦期 250ms 轮询）不再拽回用户滚动位；几何变化（键盘收缩）仍补位一次
 // 用法：node tools/verify-mail-reply-scroll.mjs（对产物 index.html）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -131,34 +132,42 @@ await cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints:
 await cdp('Page.navigate', { url: 'about:blank' });
 await evalJs(`(function(){ try{ indexedDB.deleteDatabase('xy-home-v2'); }catch(e){} try{ localStorage.clear(); sessionStorage.clear(); }catch(e){} return 1; })()`);
 
-// 种一封 30 行长信（越长的原信＝修复前幻影溢出越大）
+// 种一封 30 行长信（越长的原信＝修复前幻影溢出越大）；同时关 TA 主动写信（ml-write-en=0，
+// #296 总开关裸读 0 生效）——无头环境 TA 自动写信会随机插入短信心且排在列表首位，
+// 点错信会让 A0~H2 全部在短内容上空转（H1 假绿实锤过）
 await boot();
 await evalJs(`(function(){
   var body = [];
   for (var i = 0; i < 30; i++) body.push('第' + (i + 1) + '行：这是一封很长的信，用于撑起回信页的滚动内容，让原信占据大量高度。');
   var list = [{ id: 'L1', type: 'received', tt: '好久不见', content: body.join('\\n'), tm: Date.now() - 3600000, read: true }];
   localStorage.setItem('xy-home-v2:default:mail-letters', JSON.stringify(list));
+  localStorage.setItem('xy-home-v2:default:ml-write-en', '0');
   var msgs = [], t0 = 1700000000000;
   for (var j = 0; j < 200; j++) msgs.push({ side: j % 2 ? 'in' : 'out', text: '回信页滚动验证 ' + j + '，用于撑起聊天滚动区', ts: t0 + j * 60000 });
   localStorage.setItem('xy-home-v2:default:chat-msgs', JSON.stringify(msgs));
   localStorage.setItem('xy-home-v2:default:chat-meta', JSON.stringify({ n: 200, b: 1200000 }));
   return Promise.all([
     window.idbSet('xy-home-v2:default:mail-letters', JSON.stringify(list)),
+    window.idbSet('xy-home-v2:default:ml-write-en', '0'),
     window.idbSet('xy-home-v2:default:chat-msgs', JSON.stringify(msgs)),
     window.idbSet('xy-home-v2:default:chat-meta', JSON.stringify({ n: 200, b: 1200000 }))
   ]);
 })()`);
 await boot();
 
-// 打开信箱 → 信详情 → 提笔回信
+// 打开信箱 → 信详情 → 提笔回信（按种子文本选信，防列表混入其他信件）
 await evalJs('window.openMailPage()');
 await sleep(700);
-await evalJs("(function(){ var it = document.querySelector('#mail-in-list .mail-item'); if (it) it.click(); return !!it; })()");
+await evalJs("(function(){ var items = [].slice.call(document.querySelectorAll('#mail-in-list .mail-item')); var it = items.filter(function(x){ return (x.textContent || '').indexOf('第1行') >= 0; })[0] || items[0]; if (it) it.click(); return !!it; })()");
 await sleep(600);
 await evalJs("(function(){ var b = document.getElementById('mail-reply-btn'); if (b) b.click(); return !!b; })()");
 await sleep(800);
 
 // A) 幽灵锚点零布局足迹
+{
+  const a0 = await evalJs("(function(){ var b = document.querySelector('#page-mail-reply .mail-paper-body'); return b ? b.innerText.length : -1; })()");
+  chk('A0 回信页装载的是 30 行长信种子（防 TA 自动写信插入短信心致后续断言空转）', a0 > 800, 'bodyTxt=' + a0);
+}
 {
   const g = JSON.parse((await evalJs(`JSON.stringify((function(){
     var ta = document.getElementById('mail-reply-input');
@@ -210,6 +219,41 @@ await evalJs("(function(){ document.getElementById('page-mail-reply').querySelec
   })())`)) || 'null');
   chk('E1 触摸滑动仍滚得动回信页内容', e && e.calSt > 0, JSON.stringify(e));
   chk('E2 触摸滑动期间手机壳保持不动（整壳不弹）', e && e.phoneSt === 0, JSON.stringify(e));
+}
+
+// H) #497 键盘看门狗（聚焦期 250ms 轮询 nudgeInputVisible）不再拽回用户滚动位：
+//    回信输入框在 .cal-scroll 内部，修复前几何不变也每 tick 补位＝用户下滑必被拉回「输入框可见」位
+{
+  await evalJs("(function(){var ta=document.getElementById('mail-reply-input');var b=ta.__ceBox||ta;b.focus();return 1;})()");
+  if (process.env.MOCHI_HDEBUG) await evalJs("(function(){window.__hd=[];var L=window.__hd;var c=document.querySelector('#page-mail-reply .cal-scroll');var d=Object.getOwnPropertyDescriptor(Element.prototype,'scrollTop');Object.defineProperty(c,'scrollTop',{get:function(){return d.get.call(this);},set:function(v){L.push(Date.now()%100000+' set('+Math.round(v)+') '+(new Error().stack.split('\\n')[2]||'?').trim().slice(0,70));return d.set.call(this,v);},configurable:true});c.addEventListener('scroll',function(){L.push(Date.now()%100000+' ev->'+Math.round(c.scrollTop));});return 1;})()");
+  await sleep(650); // 覆盖 focusin 一次性补位（+300ms）与 ≥2 个看门狗 tick，几何记忆落位
+  if (process.env.MOCHI_HDEBUG) console.log('  HD focus后:', await evalJs("(function(){var a=document.activeElement;var c=document.querySelector('#page-mail-reply .cal-scroll');return JSON.stringify({ae:a.className||a.tagName,ice:a.isContentEditable,st:Math.round(c.scrollTop),sr:Math.round(c.getBoundingClientRect().bottom)});})()"));
+  await evalJs("(function(){document.getElementById('page-mail-reply').querySelector('.cal-scroll').scrollTop=0;return 1;})()");
+  await sleep(800); // 跨 ≥3 个 250ms tick：几何不变＝现状出自用户滚动，不得改写
+  if (process.env.MOCHI_HDEBUG) {
+    const hd = await evalJs("JSON.stringify(window.__hd||[])");
+    console.log('  HD 日志:', String(hd).replace(/","/g, ' | '));
+  }
+  const h1 = JSON.parse((await evalJs(`JSON.stringify((function(){
+    var cs = document.getElementById('page-mail-reply').querySelector('.cal-scroll');
+    return { st: Math.round(cs.scrollTop) };
+  })())`)) || 'null');
+  chk('H1 聚焦输入框后看门狗不再拽回用户滚动位（修复前 250ms 轮询恒拉回 ~106＝「下滑拉回」）', h1 && h1.st <= 12, JSON.stringify(h1));
+}
+{
+  // H2 几何变化（模拟键盘收缩视口）仍补位一次＝「输入法挡住输入栏」原始职责保留（防修死）
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 520, deviceScaleFactor: 2, mobile: true });
+  await sleep(800);
+  const h2 = JSON.parse((await evalJs(`JSON.stringify((function(){
+    var cs = document.getElementById('page-mail-reply').querySelector('.cal-scroll');
+    var ta = document.getElementById('mail-reply-input');
+    var box = ta.__ceBox || ta;
+    var br = box.getBoundingClientRect(), sr = cs.getBoundingClientRect();
+    return { st: Math.round(cs.scrollTop), gap: Math.round(sr.bottom - br.bottom) };
+  })())`)) || 'null');
+  chk('H2 几何变化后补位仍生效：输入框回到滚动容器可见区（gap≥-8 或滚动位被调整）', h2 && (h2.gap >= -8 || h2.st > 12), JSON.stringify(h2));
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await sleep(400);
 }
 
 // F) 写信页

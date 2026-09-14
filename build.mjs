@@ -209,6 +209,9 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  { name: '#498 后台通知精确相等查重无条件拦（60秒/间隔豁免复活＝切后台马上弹几分钟前看过的字卡，红米K80 等多设备复发）', file: 'js/bg-keep.js', needle: 'if (mf === key) return true;' },
+  { name: '#498 后台通知历史查重窗口 5 分钟（改成 60 秒内才拦＝窗口外撞车内容重弹看过的消息）', file: 'js/bg-keep.js', needle: 'const NOTIFY_CHAT_DUP_MS = 5 * 60000;' },
+  { name: '#498 后台通知无 batchBurst 连发放行（batchBurst 复活＝上一条通知 30 秒内撞车内容绕过全部去重重弹）', file: 'js/bg-keep.js', needle: 'const batchBurst', absent: true },
   { name: '#393 群聊模式下装修组件库显式加回占卜写意图标记（删掉＝退出装修即被收池，「装修拉出来也加不上」复发）', file: 'js/personalize.js', needle: "set('divination-desk-pin', '1')" },
   { name: '#393 applyGroupChatMode 读占卜意图标记豁免强制收池（删掉条件＝群聊开启期间用户加回的占卜被重新收回）', file: 'js/personalize.js', needle: "get('divination-desk-pin') === '1'" },
   { name: '#393 装修组件库摸鱼小组件命名含「摸鱼」（原「周末倒计时」无摸鱼字样搜不到＝「缺少摸鱼小组件」）', file: 'js/personalize.js', needle: "weekend: '摸鱼倒计时（周末）'" },
@@ -692,8 +695,12 @@ const FIX_SENTINELS = [
   { name: '#188 朋友圈无图·权威回读写回走守卫（拒写＝权威仍在，增量留内存+10s 有界重读权威恢复完整视图）', file: 'js/feed.js', needle: 'feedGuardWrite(JSON.stringify(merged)).then(written =>' },
   { name: '#188 朋友圈无图·15s 保险丝写回走守卫（病理窗口 load() 可能只是剥图快照，直写=无图版本永久盖进权威键）', file: 'js/feed.js', needle: 'feedGuardWrite(JSON.stringify(all))' },
   { name: '#188 朋友圈无图·发布兜底直写走守卫（同上，剥图快照版 list 不得裸写权威键）', file: 'js/feed.js', needle: 'feedGuardWrite(JSON.stringify(list))' },
-  { name: '#188 朋友圈无图·save 未就绪非空直写走守卫（与 persistSnap 相邻=预就绪分支）', file: 'js/feed.js', needle: 'feedGuardWrite(raw);\npersistSnap(arr);' },
-  { name: '#188 朋友圈无图·save 就绪后写回走守卫（与清空摘快照分支相邻=post-ready）', file: 'js/feed.js', needle: 'feedGuardWrite(raw);\nif (!arr.length) {' },
+  { name: '#188 朋友圈无图·save 未就绪非空直写走守卫（与 persistSnap 相邻=预就绪分支；#496 口径演进：stringify 内联）', file: 'js/feed.js', needle: 'feedGuardWrite(JSON.stringify(arr));\npersistSnap(arr);' },
+  { name: '#188/#496 朋友圈无图·save 就绪后写回走守卫（#496 口径演进：post-ready 改延后落盘，锚在低频节流表达式与 flush 兜底）', file: 'js/feed.js', needle: 'FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt)' },
+  { name: '#496 朋友圈评论/点赞卡顿止血·pagehide/切后台强制刷盘兜底（主键落盘改合并+低频+空闲窗口后，离页必落）', file: 'js/feed.js', needle: 'function flushFeedWrite() {' },
+  { name: '#496 朋友圈评论/点赞卡顿止血·load() 内存真相层（免整包 JSON.parse 的点击帧长任务；原多行带缩进锚因构建拼接剥行首缩进恒失配，收口批改单行唯一式）', file: 'js/feed.js', needle: 'list = feedMem;' },
+  // ==== 2026-09-15 #497 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
+  { name: '#497 nudgeInputVisible 几何记忆闸（删则 250ms 看门狗恢复恒拽回：信箱回信/写信页聚焦输入框后下滑必被拉回原位）', file: 'js/mobile-adapt.js', needle: 'if (scroller.__nudgeGeom === geomKey) return;' },
   // v3.26.x #189：全屏滑动闪烁 + iPad 全屏开关无效果（三根因五处修复，见 FIX-REGRESSION #189）
   { name: '#189 自愈层复活·healViewport 补 documentElement 声明（v3.26 重写漏写，裸 d=window.d undefined → TypeError 被 try 吞，稳态残留清理/大平移归零/#174 缩放自愈整层静默失效）', file: 'js/mobile-adapt.js', needle: 'var d = document.documentElement; // FIX 2026-09-05 #189' },
   { name: '#189 滑动闪烁·稳态自愈 pin 改条件式（清残留/大偏移才归零；无条件 pin 把全屏覆盖形态下用户滚动每秒拽回顶部=闪烁）', file: 'js/mobile-adapt.js', needle: 'if (_cleanedResidue || winScrollY() > KB_SCROLL_HEAL) pinScrollTop();' },
@@ -1160,7 +1167,12 @@ const FIX_SENTINELS = [
   { name: '#381 背包/记录浮层转全屏开关（删则浮层又缩回 30px 高的 stage 里显示不全）', file: 'js/auction.js', needle: "overlayEl.classList.toggle('au-ov-fs', !!fs)" },
   { name: '#381 全屏浮层 hidden 救援（.pong-overlay 的 display:flex 压掉 UA [hidden]，#331 同因；删则关不掉全屏背包/记录）', file: 'css/chat-pages.css', needle: '#au-overlay.au-ov-fs[hidden] { display:none; }' },
   // ==== 2026-09-12 #378 聊天+群聊跟底闸改钉住标记 + 轻点不杀跟底（红米 K80 Chrome 单聊/群聊同报「联系人发消息不自动滚到最新，要手动滑」；①旧 nearGcBottom/chatNearBottom 距离闸在内核丢弃首写/图片迟到解码顶开后把后续每条来消息都误判成在看历史永不跟底；②轻点消息区（点气泡）即解钉且无法回钉，自动跟底被一次轻点永久杀死）====
-  { name: '#378 单聊来消息跟底闸改按钉住标记（距离闸在首写被丢弃后永不跟底）', file: 'js/chat.js', needle: 'if (!out && !chatPinnedBottom) return;' },
+  { name: '#378 单聊来消息跟底闸改按钉住标记（距离闸在首写被丢弃后永不跟底；#492 起 userFollow 显式通道不吃此闸，闸语义不变）', file: 'js/chat.js', needle: 'if (!out && !userFollow && !chatPinnedBottom) return;' },
+  // ==== 2026-09-15 #492 帮我决定/多人决定结果发到聊天后不滑到最新消息（多机型同报）：决策结果是用户主动触发，与 out 侧（自己发消息必跟底）和群聊 followGcBottom(true) 同权；chatAddIn({follow:true}) 一次性标记 + maybeScrollChatBottom 消费，TA 自发消息 #162/#378/#416 不打扰契约零改动 ====
+  { name: '#492 follow 一次性消费+跟底闸放行（删则决策结果在解钉态永不跟底＝症状复发）', file: 'js/chat.js', needle: 'const userFollow = !out && chatUserFollowScroll;' },
+  { name: '#492 chatAddIn 用户主动通道入口（删则 decision/group-decision 的 follow 传参失效）', file: 'js/chat.js', needle: 'if (opts && opts.follow) chatUserFollowScroll = true;' },
+  { name: '#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发）', file: 'js/decision.js', needle: '{ enter: true, silent: true, follow: true }); // FIX 2026-09-15 #492 帮我决定结果' },
+  { name: '#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发）', file: 'js/group-decision.js', needle: '{ enter: true, silent: true, follow: true }); // FIX 2026-09-15 #492 多人决定结果' },
   { name: '#378/#416 单聊手动滚回贴底回钉（解钉后自动跟底可恢复；#416 起只认真的贴到底 ≤8px，防上翻读最新时误回钉拽底）', file: 'js/chat.js', needle: 'else if (!chatPinnedBottom && chatAtBottom())' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
@@ -1517,6 +1529,34 @@ const FIX_SENTINELS = [
   //      预览条此前直出存储原文＝两轨不一致，发送后引用块又走 taFit 对不上预览）====
   { name: '#490 引用预览同轨显示助手定义（删则预览条失去 taFit 称呼替换 + {ta}/{me} 昵称回填能力）', file: 'js/chat.js', needle: 'function quoteDisplayFit(text, side) {' },
   { name: '#490 预览条接入同轨显示（删则气泡显示替换词、引用预览仍是 ta/TA 原文＝引用不一致复发）', file: 'js/chat.js', needle: "quoteDisplayFit(quoteTextSafe(lastQuote.text || ''), lastQuote.side)" },
+
+  // ==== 2026-09-15 #491 引用串条残留洞：开菜单【前】msgs 已中段位移而 DOM 未重渲（#220 不贴底
+  //      防闪路径）＝#407 快照按陈旧下标取、开场即锁错条（四级重定位的输入本身已错）＝「引用的
+  //      消息和显示的消息完全不对」（EC-PAD01 SE Chrome 等多机型同报）；修复=渲染期把消息内容
+  //      身份写进 data-mk，开菜单按 mk 反查真实那条（stamp+resolve 两端都在位才生效，各一条哨兵）====
+  { name: '#491 单聊渲染期身份锚写入（删则 data-mk 恒空＝开菜单只能按陈旧下标取，串条残留洞复发）', file: 'js/chat.js', needle: 'm.dataset.mk = msgKeyOf(rec);' },
+  { name: '#491 单聊开菜单按身份锚反查（删则快照被位移后的陈旧 data-idx 毒化＝引用完全不对复发）', file: 'js/chat.js', needle: 'msgs.findIndex(mkMsg => msgKeyOf(mkMsg) === _mk)' },
+  { name: '#491 群聊渲染期身份锚写入（删则群聊引用串条残留洞复发）', file: 'js/group-chat.js', needle: 'm.dataset.mk = gcMsgKeyOf(rec);' },
+  { name: '#491 群聊开菜单按身份锚反查（删则群聊快照被陈旧 gcIdx 毒化＝串条复发）', file: 'js/group-chat.js', needle: 'msgs.findIndex(gmkMsg => gcMsgKeyOf(gmkMsg) === _gmk)' },
+
+  // ==== 2026-09-15 #493 字卡库令牌卡直出乱码/白块（红米 K80 Chrome 等多机型同报「其他地方表情包正常，字卡库里纯白+乱码」）：#377 大库内存瘦身把超大贴纸/图片卡体换成 @@m:hash 令牌后，cardItemHtml 只有 data:/http(s) 图片分支，令牌卡掉进文字分支＝网格直出令牌串或空白；修复=渲染分支补认令牌按图渲染（懒加载+media-pool 观察器解图）+点击进大图而非文字编辑 ====
+  { name: '#493 令牌卡按图渲染分支（删则字卡库网格直出 @@m:hash 乱码/白块复发）', file: 'js/chatcard.js', needle: "style=\"color:var(--muted)\">[图片丢失]</div></div>';" },
+  { name: '#493 令牌卡点击查看大图·同步渲染路径（删则令牌卡点开文字编辑弹窗复发）', file: 'js/chatcard.js', needle: 'viewImage(v || c);' },
+  { name: '#493 令牌卡点击查看大图·分块渲染路径（删则令牌卡点开文字编辑弹窗复发）', file: 'js/chatcard.js', needle: 'viewImage(v || it.c);' },
+
+  // ==== 2026-09-15 #494/#495 启动期「未定义标识符/TDZ 被行内 catch 静默吞」双修（无头
+  //      pauseOnExceptions 实锤，__jsErrors/console 永远看不到）：#494 chat.js 顶层回前台监听
+  //      引用 scheduleReply/replyOnce 函数内局部 const sameCid＝每次回前台 ReferenceError 被吞、
+  //      trySystemAskMochi 回前台补触发通道自上线即失效；#495 personalize.js deskLayout const
+  //      定义在 buildDeskPages 顶层调用之后＝冷启动 TDZ、删页收缩落盘判断被吞。行为级回归：
+  //      tools/verify-no-startup-referror.mjs（哨兵防整块删除，位置回退由该脚本兜）====
+  { name: '#494 回前台补触发通道（删/退回带 sameCid 守卫的死段则 TA 自动申请零钱回前台不再补触发）', file: 'js/chat.js', needle: "try { setTimeout(function () { trySystemAskMochi(); }, randInt(2000, 6000)); } catch (e) {}" },
+  { name: '#495 deskLayout 定义存在（随 #495 上移至 buildDeskPages 之前；删则冷启动 deskLayout 引用全灭）', file: 'js/personalize.js', needle: 'const deskLayout = () => {' },
+  // v3.26.x：摸鱼值/工作值累计总开关（回复设置→其他「摸鱼值/工作值」组，新功能）——闸门收在
+  // personalize.js addFish/addWork 入口，删掉守卫行＝开关失效、关闭后数值照涨（60 秒自动累计/
+  // 点击摸鱼/番茄钟补偿/抓包奖励所有加分来源一并被闸）
+  { name: '摸鱼值累计总开关闸门 addFish 入口（删则回复设置→其他「摸鱼值累计」开关失效，关闭后摸鱼值照涨）', file: 'js/personalize.js', needle: "if (!fishWorkOn('fish-en')) return;" },
+  { name: '工作值累计总开关闸门 addWork 入口（删则回复设置→其他「工作值累计」开关失效，关闭后工作值照涨）', file: 'js/personalize.js', needle: "if (!fishWorkOn('work-en')) return;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -794,6 +794,18 @@
           '<span class="cc-play-bars"><i></i><i></i><i></i></span></button>';
       }
     }
+    // FIX 2026-09-15 #493 媒体池令牌卡按图渲染——#377 大库内存瘦身把超大贴纸/图片卡体换成
+    // @@m:hash 令牌后，本函数只有 data:/http(s) 分支认识图片，令牌卡掉进末行文字分支
+    // ＝字卡库网格直出「@@m:hex32」乱码/空白块（聊天气泡与表情面板各自有令牌路径故正常，
+    // 多机型同报）。令牌即图片载荷：data-src 照写令牌，懒加载补 src 后由 media-pool
+    // 文档观察器（media-pool.js resolveImg）解回真图；池里确认缺失的令牌按 #387 同口径
+    // 显示文字占位，不发白块。
+    if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+      if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) {
+        return '<div class="cc-txt"><div class="t" style="color:var(--muted)">[图片丢失]</div></div>';
+      }
+      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>';
+    }
     // v3.11.x：链接导入的字卡存原始 http(s) 链接（图床不允许跨域转存时的回退形态），
     // 缩略图同样按图片渲染；懒加载 observer 只做 data-src→src 拷贝，对链接天然兼容
     if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) {
@@ -1107,6 +1119,13 @@
       d.addEventListener('click', () => {
         if (manageMode) { toggleSelect(d, gname, i); return; }
         // v3.11.x：图片/表情字卡（含链接导入的 http(s) 字卡）点击查看大图
+        // FIX 2026-09-15 #493 令牌卡同样查看大图（sync 命中热缓存直解，miss 则 viewImage
+        // 落 src=令牌由 media-pool 观察器异步解图）；不补则令牌卡点开的是文字编辑弹窗
+        if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+          const v = window.mochiMediaExpand ? window.mochiMediaExpand(c) : null;
+          viewImage(v || c);
+          return;
+        }
         if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) { viewImage(c); return; }
         openEditCard(gname, i);
       });
@@ -1323,6 +1342,12 @@
         el.addEventListener('click', () => {
           if (manageMode) { toggleSelect(el, it.gname, it.i); return; }
           // 图片/表情字卡（含链接导入的 http(s) 字卡）：点击查看大图
+          // FIX 2026-09-15 #493 令牌卡同上——查看大图而非文字编辑（分块渲染路径）
+          if (typeof it.c === 'string' && it.c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(it.c)) {
+            const v = window.mochiMediaExpand ? window.mochiMediaExpand(it.c) : null;
+            viewImage(v || it.c);
+            return;
+          }
           if (typeof it.c === 'string' && (it.c.indexOf('data:') === 0 || /^https?:\/\//i.test(it.c))) {
             viewImage(it.c);
             return;
@@ -2766,6 +2791,8 @@
           let done = 0;
           let skipped = 0;
           let notAudio = 0;
+          let gifSaved = 0;  // 动图直存（跳过压缩）计数
+          let cmpSaved = 0;  // 静态图压缩成功计数
           // v3.6.x：上传大小限制——语音不压缩直接存 dataURL（字符串膨胀约 33%），
           // 超大音频会撑爆手机内存/IDB；图片虽有 260px 压缩兜底，原图读取也占峰值内存。
           // 语音限 10MB、图片限 20MB，超出跳过并提示
@@ -2819,6 +2846,7 @@
                     toast('GIF「' + ((f && f.name) || '动图') + '」超过 380KB，已跳过');
                     return;
                   }
+                  gifSaved++;
                   process(reader.result); return;
                 }
                 // v3.7.x：原 260px 在 3x 高清屏被放大 2~3 倍导致模糊。
@@ -2827,6 +2855,7 @@
                 compressImage(reader.result, isImg ? 720 : 480, isImg ? 'image/jpeg' : 'image/png', isImg ? 0.85 : undefined).then((data) => {
                   // v3.6.x：压缩失败/图片过大返回 null——不存原图（防 iOS 解码崩溃），跳过并提示
                   if (!data) { skipped++; done++; if (done === files.length) finishUpload(done - skipped, skipped); return; }
+                  cmpSaved++;
                   process(data);
                 });
               }
@@ -2840,6 +2869,8 @@
             render();
             const msgs = [];
             if (ok > 0) msgs.push('已上传 ' + ok + ' 个' + (cur === 'voice' ? '音频' : '图片'));
+            if (gifSaved > 0) msgs.push('动图无法压缩，「' + gifSaved + '」个按原图存入');
+            if (cmpSaved > 0) msgs.push('已自动压缩 ' + cmpSaved + ' 个静态图');
             if (skip > 0) msgs.push('跳过 ' + skip + ' 个超大文件（' + (cur === 'voice' ? '音频>10MB' : '图片>20MB') + '）');
             if (skipNotAudio > 0) msgs.push('跳过 ' + skipNotAudio + ' 个视频/非音频（语音分类只支持音频）');
             if (!msgs.length) msgs.push('没有可上传的文件');

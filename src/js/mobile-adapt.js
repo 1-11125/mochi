@@ -623,6 +623,18 @@
       var scroller = active.closest('.chat-body, .card-list, .gs-scroll, .tc-body, .mem-scroll, .cal-scroll, .div-scroll, .fav-list, .mail-list, .qa-body, .modal, .chat-ask-body, .poke-card-scroll, .chat-decision-body');
       if (!scroller) return;
       var sr = scroller.getBoundingClientRect();
+      // FIX 2026-09-15 #491 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型）
+      // 根因：本函数被键盘看门狗（startKbWatch/startAWatch 聚焦期间每 250ms）反复调用，
+      // 只要聚焦输入框底边低于滚动容器下缘就 scrollTop 拉回——聊天输入栏在滚动区外
+      // （closest 找不到容器＝免疫），而回信页输入框（.mail-compose-input 的 ce-box）
+      // 在 .cal-scroll 内部＝用户下滑读原信，≤250ms 内必被拽回「输入框可见」位，
+      // 每滑一次弹一次（无头 scrollTop setter 陷阱实锤：唯一写手就是本函数）。
+      // 修法＝几何记忆：滚动容器下缘/宽度与输入框高度都没变（＝现状只可能出自用户
+      // 手动滚动）时不补位；键盘开合/布局变化（几何变）仍照旧补位一次，防「输入法
+      // 挡住输入栏」的原始职责不变。零机型分支，iOS/安卓两条轮询同时收敛。
+      var geomKey = Math.round(sr.bottom) + 'x' + Math.round(sr.width) + 'x' + Math.round(r.height);
+      if (scroller.__nudgeGeom === geomKey) return;
+      scroller.__nudgeGeom = geomKey;
       if (r.bottom > sr.bottom - 8) {
         scroller.scrollTop = Math.max(0, scroller.scrollTop + (r.bottom - sr.bottom) + 16);
       }

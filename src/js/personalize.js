@@ -4043,6 +4043,37 @@ try {
       }
     }
   };
+  // FIX 2026-09-15 #495：deskLayout 定义自 4397 行处上移至此——冷启动 personalize.js 顶层
+  // 4288 行同步调用 buildDeskPages()，其删页收缩分支（原 4104 行）调用 deskLayout() 时该
+  // const 尚未初始化＝TDZ「Cannot access 'deskLayout' before initialization」每次冷启动必抛
+  //（被行内 catch 吞＝删页收缩落盘判断整体跳过，#151 收缩修复在冷启动路径失效；无头
+  // pauseOnExceptions 实锤）。依赖仅 store（第 5 行）与 DESK_PAGE_MIN/MAX（4012/4014），
+  // 均在本处之前，上移安全。
+  // 读布局：desk-layout = JSON 数组（每页一个 widget id 数组）；无 → null（保持 DOM 原状）
+  // v3.27.x（#140 Huawei Pura70Pro+/Chrome 122 等安卓同族）：布局完整性校验——
+  // 高 IO/配额压力下持久化值可能损坏/空壳（[[],[]…] / 页数超限 / 重复组件 id），
+  // applyDeskLayout 会把布局外全部小组件卡整批扫进隐藏池，只剩图标网格（「卡片大部分
+  // 不显示」）；坏键落在 IDB 每次启动回填复发（同 #87/#134/#136 存量数据+慢 IO 家族）。
+  // 校验不过 → 按无布局处理（保持 template 默认 DOM）并当场清坏键，防回填复活。
+  const deskLayout = () => {
+    let a = null;
+    try {
+      const v = store.get('desk-layout');
+      if (v) { const p = JSON.parse(v); if (Array.isArray(p)) a = p; }
+    } catch (e) {}
+    if (!a) return null;
+    const seen = {};
+    const ok = a.length >= DESK_PAGE_MIN && a.length <= DESK_PAGE_MAX &&
+      a.some(function (page) { return Array.isArray(page) && page.length > 0; }) &&
+      a.every(function (page) { return Array.isArray(page) && page.every(function (w) { return typeof w === 'string'; }); }) &&
+      a.every(function (page) { return (page || []).every(function (w) { if (seen[w]) return false; seen[w] = 1; return true; }); });
+    if (!ok) {
+      try { console.info('[mochi] desk-layout 校验失败（损坏/空壳），忽略并清除'); } catch (e) {}
+      try { store.remove('desk-layout'); } catch (e) {}
+      return null;
+    }
+    return a;
+  };
   // 重建桌面页结构：保证页数 = desk-page-count，新增页为空 page-slide
   const buildDeskPages = () => {
     if (!pagesBox) return;
@@ -4388,31 +4419,8 @@ try {
     }
     return pool;
   }
-  // 读布局：desk-layout = JSON 数组（每页一个 widget id 数组）；无 → null（保持 DOM 原状）
-  // v3.27.x（#140 Huawei Pura70Pro+/Chrome 122 等安卓同族）：布局完整性校验——
-  // 高 IO/配额压力下持久化值可能损坏/空壳（[[],[]…] / 页数超限 / 重复组件 id），
-  // applyDeskLayout 会把布局外全部小组件卡整批扫进隐藏池，只剩图标网格（「卡片大部分
-  // 不显示」）；坏键落在 IDB 每次启动回填复发（同 #87/#134/#136 存量数据+慢 IO 家族）。
-  // 校验不过 → 按无布局处理（保持 template 默认 DOM）并当场清坏键，防回填复活。
-  const deskLayout = () => {
-    let a = null;
-    try {
-      const v = store.get('desk-layout');
-      if (v) { const p = JSON.parse(v); if (Array.isArray(p)) a = p; }
-    } catch (e) {}
-    if (!a) return null;
-    const seen = {};
-    const ok = a.length >= DESK_PAGE_MIN && a.length <= DESK_PAGE_MAX &&
-      a.some(function (page) { return Array.isArray(page) && page.length > 0; }) &&
-      a.every(function (page) { return Array.isArray(page) && page.every(function (w) { return typeof w === 'string'; }); }) &&
-      a.every(function (page) { return (page || []).every(function (w) { if (seen[w]) return false; seen[w] = 1; return true; }); });
-    if (!ok) {
-      try { console.info('[mochi] desk-layout 校验失败（损坏/空壳），忽略并清除'); } catch (e) {}
-      try { store.remove('desk-layout'); } catch (e) {}
-      return null;
-    }
-    return a;
-  };
+  // deskLayout 定义已上移至 buildDeskPages 之前（FIX 2026-09-15 #495，冷启动顶层调用 TDZ），
+  // 原位保留此指引防误移回。
   // 保存布局（按当前 DOM 状态，含隐藏池外的所有页）
   const saveDeskLayout = () => {
     const slides = Array.prototype.slice.call(pagesBox.querySelectorAll('.page-slide'));
@@ -6405,7 +6413,10 @@ try {
           // v3.5.109：彻底清除——除 uid 前缀键外，一并删除历史遗留的「裸键」
           //   （divine-history 是 v3.5.92 前占卜历史存的无前缀键，不删的话刷新后
           //   divination.histLoad 会把它重新迁回，等于没清除）
-          const BARE_KEYS = ['divine-history'];
+          // #315c：age-confirmed 是全局键（不带联系人前缀，同 splash-seen 族），
+          //   不在 activePrefix 过滤范围内——重置数据应连年龄确认一并清掉，
+          //   让用户重新勾选（重置≠保留「已确认年满18」的举证记录）
+          const BARE_KEYS = ['divine-history', 'xy-home-v2:age-confirmed'];
           try {
             Object.keys(localStorage)
               .filter(k => k.indexOf(window.activePrefix() + ':') === 0 || BARE_KEYS.indexOf(k) >= 0)
@@ -6523,8 +6534,18 @@ try {
   // 当天摸鱼值（读 day 键；新的一天自动从 0 开始）
   function todayMine() { return dayVal('day-fish-' + fishDayKey()); }
   function todayTa() { return dayVal('day-fish-ta-' + fishDayKey()); }
+  // v3.26.x：摸鱼值/工作值累计总开关（回复设置 → 其他，reply-fish-en / reply-work-en，
+  // 默认开）——闸门收在 addFish/addWork 入口，关掉后所有加分来源（60 秒自动累计、
+  // 点击摸鱼按钮、番茄钟补偿、抓包奖励）一并停止写入；已有数值保留只停止增长
+  function fishWorkOn(key) {
+    try {
+      const v = window.replyCfg ? window.replyCfg()[key] : undefined;
+      return v === undefined ? true : v === 1;
+    } catch (e) { return true; }
+  }
   // 增加当天摸鱼值：写入 day 键（当天）+ fish-day-add（每日新增）+ fish-total*（历史累计）
   function addFish(addMine, addTa) {
+    if (!fishWorkOn('fish-en')) return;
     const key = fishDayKey();
     if (addMine) {
       store.set('day-fish-' + key, String(todayMine() + addMine));
@@ -6616,6 +6637,7 @@ try {
   function todayWorkMine() { return dayVal('day-work-' + fishDayKey()); }
   function todayWorkTa() { return dayVal('day-work-ta-' + fishDayKey()); }
   function addWork(addMine, addTa) {
+    if (!fishWorkOn('work-en')) return;
     const key = fishDayKey();
     if (addMine) {
       store.set('day-work-' + key, String(todayWorkMine() + addMine));
@@ -7127,9 +7149,18 @@ try {
       // 站点与图片缓存，#88 实测过同账号 Pages 共用配额）。以前只报后者，用户拿它跟
       // 明细一比就觉得「几百 MB 去哪了 / 是不是统计漏了」。
       const quotaEl = document.getElementById('st-quota');
+      // #497 占比补全：原实现两条占用行只有绝对字节（「971.2 MB」「5.5 GB」），用户口算不出
+      // 「全部数据占了多少配额」＝报障「内存占比显示不全」。整域行追加「（占 X%）」；本项目
+      // 合计行在 quota/IDB 两个异步都到位后由 renderSelf 补上「占浏览器配额 X%」。
+      let quotaInfo = null;
+      // idbState.total：undefined=统计中 / null=读取失败 / 数字=IDB 合计字节（缓存供 quota 异步补渲染）
+      const idbState = { total: undefined, count: 0 };
       if (quotaEl && navigator.storage && navigator.storage.estimate) {
         navigator.storage.estimate().then(function (r) {
-          if (quotaEl) quotaEl.textContent = fmtBytes(r && r.usage) + ' / ' + fmtBytes(r && r.quota);
+          quotaInfo = { usage: (r && r.usage) || 0, quota: (r && r.quota) || 0 };
+          if (quotaEl) quotaEl.textContent = fmtBytes(quotaInfo.usage) + ' / ' + fmtBytes(quotaInfo.quota) +
+            (quotaInfo.quota ? '（占 ' + pctOf(quotaInfo.usage, quotaInfo.quota) + '）' : '');
+          renderSelf();
         }).catch(function () { if (quotaEl) quotaEl.textContent = '读取失败'; });
       } else if (quotaEl) quotaEl.textContent = '接口不可用';
       const ls = lsStats();
@@ -7145,13 +7176,17 @@ try {
       const otherEl = document.getElementById('st-other');
       if (otherEl) otherEl.textContent = ls.otherCount ? fmtBytes(ls.otherSize) + '（' + ls.otherCount + ' 键）' : '无';
       const selfEl = document.getElementById('st-self');
-      const showSelf = function (idbTotal) {
+      // #497：renderSelf 取代原 showSelf——缓存 idbState（quota 回调也调它），IDB 完成且 quota
+      // 到位时在本行末尾追加「，占浏览器配额 X%」（quota 读不到就不加，绝不显示假百分比）
+      const renderSelf = function () {
         if (!selfEl) return;
-        if (idbTotal === undefined) { selfEl.textContent = fmtBytes(ls.total) + '（IndexedDB 统计中…）'; return; }
-        if (idbTotal === null) { selfEl.textContent = fmtBytes(ls.total) + '（不含 IndexedDB，见下方告警）'; return; }
-        selfEl.textContent = fmtBytes(ls.total + idbTotal.total) + '（' + ls.count + ' + ' + idbTotal.count + ' 键）';
+        const t = idbState.total;
+        if (t === undefined) { selfEl.textContent = fmtBytes(ls.total) + '（IndexedDB 统计中…）'; return; }
+        if (t === null) { selfEl.textContent = fmtBytes(ls.total) + '（不含 IndexedDB，见下方告警）'; return; }
+        selfEl.textContent = fmtBytes(ls.total + t) + '（' + ls.count + ' + ' + idbState.count + ' 键' +
+          (quotaInfo && quotaInfo.quota ? '，占浏览器配额 ' + pctOf(ls.total + t, quotaInfo.quota) : '') + '）';
       };
-      showSelf(undefined);
+      renderSelf();
       const idbEl = document.getElementById('st-idb');
       if (idbEl) idbEl.textContent = '统计中…';
       // 先渲染 localStorage 明细，IndexedDB 异步补齐
@@ -7160,7 +7195,9 @@ try {
         if (idbEl) idbEl.textContent = '统计中…（' + done + '/' + totalN + '）';
       }, function (res) {
         if (idbEl) idbEl.textContent = res ? fmtBytes(res.total) + '（' + res.count + ' 键）' : '读取失败（未计入合计）';
-        showSelf(res ? { total: res.total, count: res.count } : null);
+        idbState.total = res ? res.total : null;
+        idbState.count = res ? res.count : 0;
+        renderSelf();
         renderCatTable(ls.cats, res ? res.cats : null, !res);
         // 可清理空间 · 本机音乐文件占用（本地音乐分类在 IndexedDB 里的 Blob 真实字节）
         if (musicEl) {
@@ -7529,6 +7566,12 @@ try {
         renderStorage();
       });
     }
+    // #497：压缩图片完成后重算总占用（img-compress.js 压缩完派发本事件；注释里声称的
+    // 「personalize 监听重算」此前从未实现＝压完总占用纹丝不动）。页面不在本页时不空转，
+    // 重进（点行）本来就会重算。
+    document.addEventListener('mochi-img-compressed', function () {
+      if (!page.hidden) renderStorage();
+    });
     if (back) {
       back.addEventListener('click', function () {
         document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });

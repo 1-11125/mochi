@@ -1,9 +1,14 @@
 // ===== 梦角档案 v2（重构：与【我的档案】互为镜像的「认识TA」档案） =====
 // 入口：桌面第三页「梦角档案」图标。
 // 定位：【我的档案】=认识自己；【梦角档案】=认识TA——记录「TA是谁，以及我逐渐了解到TA什么」。
-// 结构（10 个分区）：
+// 结构（11 个分区）：
 //   TA是谁 / TA的喜好 / TA的习惯 / TA与我的相处 / 我对TA的了解（核心）
-//   / TA的位置感 / TA的物品 / TA的梦境 / 我们的共同记录 / 当前IF世界
+//   / TA的位置感 / TA的物品 / TA的梦境 / TA的声音 / 我们的共同记录 / 当前IF世界
+//   + 总览页搜索 / 整份档案复制导出（v3.27.x 批量扩展）
+// 自定义标签（v3.27.x）：喜好/习惯/物品/共同记录四组 tab 可由用户增删——
+//   arc.tags.<group> 存自定义 {id,label}；arc.hide.<group> 存被隐藏的内置 tab id；
+//   内置 tab 只能隐藏不能删（老数据 g 键还在，删了数据会失锚），自定义可删（残留条目
+//   落到 FALLBACK_TAB 指定的内置 tab，绝不丢数据）。
 // 数据键不变：xy-home-v2:narc-<rosterId>（全局根命名空间共享，contacts.js EXCLUDE 已登记）。
 // 老数据全兼容（零迁移丢失）：
 //   loves(旧了解卡)→「我对TA的了解·发现卡片」（惰性规范化补 src+dots，原字段一律保留）
@@ -61,7 +66,10 @@
       ['nick', '昵称', '例如：小梦、阿梦', 0],
       ['call', '称呼', '你们互相怎么叫对方？', 0],
       ['bday', '生日', '例如：3月14日（不确定也可以猜）', 0],
+      ['calllike', 'TA喜欢的称呼', '例如：被叫小名会高兴', 0],
+      ['calldis', 'TA讨厌的称呼', '例如：不确定就先空着', 0],
       ['age', '年龄', '例如：看起来十七八岁 / 永远十七岁', 0],
+      ['constel', '星座', '例如：双鱼座（不确定就猜一个TA像的）', 0],
       ['identity', '身份', '例如：住在梦里的人', 0],
       ['nature', '性格', '例如：安静、慢热，其实很温柔', 0],
       ['looks', '外貌', '头发、眼睛、常穿的衣服……', 1],
@@ -88,7 +96,9 @@
     ['approach', '主动靠近我的方式', '例如：假装路过，然后停下来', 0],
     ['accompany', '陪伴我的方式', '例如：我不说话的时候，就安静待着', 0],
     ['comfort', '安慰我的方式', '例如：不讲道理，只说「有我在」', 0],
-    ['loveway', '表达喜欢的方式', '例如：不说喜欢，但记得我说过的每件小事', 0]
+    ['loveway', '表达喜欢的方式', '例如：不说喜欢，但记得我说过的每件小事', 0],
+    ['boundary', 'TA的雷区 / 底线', '例如：不喜欢被开玩笑说「再见」', 0],
+    ['fight', '不愉快时TA会', '例如：先沉默，但会先递台阶', 0]
   ];
   const POS_FIELDS = [
     ['usual', '通常', '例如：身边', 0],
@@ -96,6 +106,7 @@
     ['special', '特殊情况', '例如：感觉不到TA位置的时候，可能是在打盹', 1]
   ];
   const IFW_FIELDS = [
+    ['since', '从什么时候开始', '例如：今年春天 / 某个梦之后', 0],
     ['world', '当前世界', '例如：海边小镇', 0],
     ['mine', '我的身份', '例如：花店老板', 0],
     ['role', 'TA的身份', '例如：咖啡店老板', 0],
@@ -135,6 +146,17 @@
     thing: '例如：那半块橡皮',
     place: '例如：常一起发呆的天台'
   };
+  // ---- 自定义标签（v3.27.x）：四组可增删 tab；内置只可隐藏，自定义可删（条目落回兜底 tab） ----
+  const BUILTIN_TABS = { tastes: TASTE_TABS, habits: HABIT_TABS, things: THING_TABS, shared: SHARED_TABS.filter(t => t[0] !== 'timeline') };
+  const TAB_GROUP_TITLE = { tastes: 'TA的喜好', habits: 'TA的习惯', things: 'TA的物品', shared: '我们的共同记录' };
+  const FALLBACK_TAB = { tastes: 'pref', habits: 'daily', things: 'use', shared: 'habit' }; // 自定义标签被删时条目迁移目标
+  function tabsOf(group, arc) {
+    const hide = (arc.hide && arc.hide[group]) || [];
+    const base = (BUILTIN_TABS[group] || []).filter(t => hide.indexOf(t[0]) < 0);
+    const custom = ((arc.tags && arc.tags[group]) || []).map(t => [t.id, t.label]);
+    return base.concat(custom);
+  }
+  // ---- TA的声音（v3.27.x 新分区）：TA说过的话，原话 + 场景 + 日期 ----
   // ---- 数据存取（名单合并所有桌面命名空间 cjian-roster + 旧根键兜底，同 v3.14.x） ----
   // v3.16.x：条目带 cid（属于哪个桌面联系人）；还没有梦角的联系人也给出「虚拟」chip
   // （virtual:true，id 为空串）——点击即按 cjian.seedIfEmpty 同款语义落一份真身。
@@ -198,7 +220,11 @@
   function ensureArc(id) {
     let o = loadRaw(id), dirty = false;
     if (!o) { o = { created: Date.now(), loves: [], bonds: [], moments: [], records: [], wonders: [], history: [] }; dirty = true; }
-    ['loves', 'bonds', 'moments', 'records', 'wonders', 'history', 'tastes', 'habits', 'things', 'ifchanges', 'dreams'].forEach(k => { if (!Array.isArray(o[k])) { o[k] = []; dirty = true; } });
+    ['loves', 'bonds', 'moments', 'records', 'wonders', 'history', 'tastes', 'habits', 'things', 'ifchanges', 'dreams', 'quotes'].forEach(k => { if (!Array.isArray(o[k])) { o[k] = []; dirty = true; } });
+    if (!normObj(o.tags)) { o.tags = {}; dirty = true; }
+    ['tastes', 'habits', 'things', 'shared'].forEach(k => { if (!Array.isArray(o.tags[k])) { o.tags[k] = []; dirty = true; } });
+    if (!normObj(o.hide)) { o.hide = {}; dirty = true; }
+    ['tastes', 'habits', 'things', 'shared'].forEach(k => { if (!Array.isArray(o.hide[k])) { o.hide[k] = []; dirty = true; } });
     if (!normObj(o.who)) { o.who = { f: {} }; dirty = true; } else if (!normObj(o.who.f)) { o.who.f = {}; dirty = true; }
     if (!normObj(o.relate)) { o.relate = { f: {}, notes: [] }; dirty = true; }
     else { if (!normObj(o.relate.f)) { o.relate.f = {}; dirty = true; } if (!Array.isArray(o.relate.notes)) { o.relate.notes = []; dirty = true; } }
@@ -235,11 +261,12 @@
 
   // ---- 页面状态 ----
   let cur = '';
-  let view = 'home';           // home|who|tastes|habits|relate|knows|pos|things|dream|shared|ifw
+  let view = 'home';           // home|who|tastes|habits|relate|knows|pos|things|dream|voice|shared|ifw|search
+  let searchQ = '';
   const tab = { tastes: 'like', habits: 'daily', things: 'use', shared: 'first', knows: 'cards' };
 
   // ---- 打开/关闭 ----
-  const VALID_VIEWS = ['home', 'who', 'tastes', 'habits', 'relate', 'knows', 'pos', 'things', 'dream', 'shared', 'ifw'];
+  const VALID_VIEWS = ['home', 'who', 'tastes', 'habits', 'relate', 'knows', 'pos', 'things', 'dream', 'voice', 'shared', 'ifw', 'search'];
   window.openNarc = function (view0) {
     syncCur();
     if (!page || !root) return;
@@ -247,6 +274,7 @@
     page.hidden = false;
     view = (view0 && VALID_VIEWS.indexOf(view0) >= 0) ? view0 : 'home';
     tab.tastes = 'like'; tab.habits = 'daily'; tab.things = 'use'; tab.shared = 'first'; tab.knows = 'cards';
+    searchQ = '';
     render();
   };
   // 我的档案桥接入口：直接打开当前梦角的「我们的共同记录」（无梦角时回总览给引导）
@@ -303,6 +331,9 @@
     const activeLoves = activeLovesOf(arc);
     const sharedN = arc.bonds.length + arc.moments.length + arc.records.length;
     const wondersOpen = arc.wonders.filter(w => !w.solved).length;
+    const monthAgo = Date.now() - 30 * 86400000;
+    const monthNew = [arc.loves, arc.tastes, arc.habits, arc.things, arc.quotes, arc.dreams, arc.records]
+      .reduce((n, arr) => n + arr.filter(x => x && x.created > monthAgo).length, 0);
     let recent = null;
     activeLoves.forEach(x => { if (!recent || x.updated > recent.updated) recent = x; });
 
@@ -319,9 +350,26 @@
       h += '<div class="narc-recent"><b>最近发现</b>　' + esc(typeLabel(recent.type)) + '……' + esc(short(recent.text, 26));
       h += '<span class="nr-date">' + mdstr(recent.updated) + '</span></div>';
     }
+    if (monthNew > 0) h += '<div class="narc-monthly">近 30 天新增了 ' + monthNew + ' 条记录</div>';
     h += '</div>';
     h += menuHTML(arc);
+    const emptySecs = emptySectionsOf(arc);
+    if (emptySecs.length) h += '<div class="narc-hint">还没写过的分区：' + esc(emptySecs.join('、')) + '——哪天想写了，它们都在。</div>';
+    h += '<div class="narc-tools"><button class="narc-tool" data-op="search-open">🔍 搜索档案</button><button class="narc-tool" data-op="export">📋 复制整份档案</button></div>';
     return h;
+  }
+  function emptySectionsOf(arc) {
+    const out = [];
+    if (!activeLovesOf(arc).length && !arc.wonders.length) out.push('我对TA的了解');
+    if (!arc.tastes.length) out.push('TA的喜好');
+    if (!arc.habits.length) out.push('TA的习惯');
+    if (!Object.keys(arc.relate.f).some(k => String(arc.relate.f[k] || '').trim()) && !arc.relate.notes.length) out.push('TA与我的相处');
+    if (!arc.things.length) out.push('TA的物品');
+    if (!arc.dreams.length) out.push('TA的梦境');
+    if (!arc.quotes.length) out.push('TA的声音');
+    if (!(arc.bonds.length + arc.moments.length + arc.records.length)) out.push('我们的共同记录');
+    if (!arc.ifchanges.length && !IFW_FIELDS.some(f => String(arc.ifw[f[0]] || '').trim())) out.push('当前IF世界');
+    return out;
   }
 
   function menuHTML(arc) {
@@ -339,6 +387,7 @@
       ['pos', 'TA的位置感', 'TA常出现的位置与方位', posFilled],
       ['things', 'TA的物品', '常用 · 喜欢 · 互赠 · 共有', arc.things.length],
       ['dream', 'TA的梦境', 'TA做过的、愿意让你知道的梦', arc.dreams.length],
+      ['voice', 'TA的声音', 'TA说过的话——原话记下来', arc.quotes.length],
       ['shared', '我们的共同记录', '第一次 · 共同经历 · 时间线', arc.bonds.length + arc.moments.length + arc.records.length],
       ['ifw', '当前IF世界', 'TA在这个世界里的身份与变化', ifwFilled]
     ];
@@ -360,7 +409,7 @@
   }
   function sectHead(title, sub, addBtnHtml) {
     let h = '<div class="narc-sect"><div><h3>' + esc(title) + '</h3>' + (sub ? '<div class="narc-sect-sub">' + esc(sub) + '</div>' : '') + '</div>';
-    if (addBtnHtml) h += addBtnHtml;
+    h += '<span class="narc-sect-btns">' + (addBtnHtml || '') + '<button class="narc-copy" data-op="export-sect">复制</button></span>';
     h += '</div>';
     return h;
   }
@@ -379,7 +428,8 @@
   }
   function tabsHTML(tabs, curVal, viewKey) {
     let h = '<div class="narc-btabs">';
-    tabs.forEach(t => { h += '<button class="narc-btab' + (curVal === t[0] ? ' on' : '') + '" data-op="stab" data-view="' + viewKey + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; });
+    tabs.forEach(t => { h += '<button class="narc-btab' + (curVal === t[0] ? ' on' : '') + '" data-op="stab" data-view="' + viewKey + '" data-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; });
+    if (viewKey !== 'knows') h += '<button class="narc-btab narc-tabmg" data-op="mgtab" data-group="' + viewKey + '">管理</button>';
     h += '</div>';
     return h;
   }
@@ -395,8 +445,10 @@
       habits: ['TA的习惯', '相处久了才会注意到的部分。'], relate: ['TA与我的相处', '我的档案记「我希望怎么相处」，这里记「TA实际上怎么和我相处」。'],
       knows: ['我对TA的了解', '不是系统告诉你的设定，是你一点点发现的TA。'], pos: ['TA的位置感', '不是固定坐标，是「我感觉TA常在哪边」。'],
       things: ['TA的物品', '和TA有关的物件，也是记忆的一部分。'], dream: ['TA的梦境', 'TA做过的梦——有时候梦比话更真实。'],
+      voice: ['TA的声音', 'TA说过的原话——语气和用词，都是TA的一部分。'],
       shared: ['我们的共同记录', '只记录「我们」共同发生的事——这是两个人的档案。'],
-      ifw: ['当前IF世界', '世界母档在【我的档案·IF世界】；这里只写TA在这一侧的样子。']
+      ifw: ['当前IF世界', '世界母档在【我的档案·IF世界】；这里只写TA在这一侧的样子。'],
+      search: ['搜索档案', '在TA的全部档案里找一句话。']
     };
     const meta = SECS[view] || SECS.who;
     let h = backHomeRow();
@@ -409,8 +461,10 @@
     else if (view === 'pos') h += posHTML(arc);
     else if (view === 'things') h += thingsHTML(arc);
     else if (view === 'dream') h += dreamHTML(arc);
+    else if (view === 'voice') h += voiceHTML(arc);
     else if (view === 'shared') h += sharedHTML(arc);
     else if (view === 'ifw') h += ifwHTML(arc);
+    else if (view === 'search') h += searchHTML(arc);
     return h;
   }
 
@@ -426,8 +480,8 @@
 
   // ---- 2. TA的喜好 ----
   function tastesHTML(arc) {
-    let h = tabsHTML(TASTE_TABS, tab.tastes, 'tastes');
-    const curLabel = (TASTE_TABS.find(t => t[0] === tab.tastes) || [])[1] || '';
+    let h = tabsHTML(tabsOf('tastes', arc), tab.tastes, 'tastes');
+    const curLabel = (tabsOf('tastes', arc).find(t => t[0] === tab.tastes) || [])[1] || '';
     h += sectHead(curLabel, '', '<button class="narc-add" data-op="add-li" data-kind="taste">＋ 记一条</button>');
     const items = arc.tastes.filter(x => x.g === tab.tastes).slice().sort((a, b) => b.created - a.created);
     if (!items.length) {
@@ -435,16 +489,16 @@
       return h + '<div class="narc-empty">' + tip + '</div>';
     }
     items.forEach(it => {
-      const inner = '<div class="ni-top">' + (it.cat ? '<span class="ni-cat">' + esc(it.cat) + '</span>' : '') + '</div><div class="ni-text">' + esc(it.t) + '</div>';
-      h += itemShell(inner, '<span class="nk-ops">' + opBtn('edit-li', '编辑', ' data-kind="taste" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="taste" data-id="' + it.id + '"', 1) + '</span>');
+      const inner = '<div class="ni-top">' + (it.cat ? '<span class="ni-cat">' + esc(it.cat) + '</span>' : '') + '</div><div class="ni-text">' + esc(it.t) + '</div>' + imgHTML(it);
+      h += itemShell(inner, '<span class="nk-ops">' + opBtn('img-li', it.img ? '换图' : '配图', ' data-kind="taste" data-id="' + it.id + '"') + opBtn('edit-li', '编辑', ' data-kind="taste" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="taste" data-id="' + it.id + '"', 1) + '</span>');
     });
     return h;
   }
 
   // ---- 3. TA的习惯 ----
   function habitsHTML(arc) {
-    let h = tabsHTML(HABIT_TABS, tab.habits, 'habits');
-    const curLabel = (HABIT_TABS.find(t => t[0] === tab.habits) || [])[1] || '';
+    let h = tabsHTML(tabsOf('habits', arc), tab.habits, 'habits');
+    const curLabel = (tabsOf('habits', arc).find(t => t[0] === tab.habits) || [])[1] || '';
     h += sectHead(curLabel, '', '<button class="narc-add" data-op="add-li" data-kind="habit">＋ 记一条</button>');
     const items = arc.habits.filter(x => x.g === tab.habits).slice().sort((a, b) => b.created - a.created);
     if (!items.length) {
@@ -452,8 +506,8 @@
       return h + '<div class="narc-empty">' + (tips[tab.habits] || '') + '</div>';
     }
     items.forEach(it => {
-      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.t) + '</div>';
-      h += itemShell(inner, '<span class="nk-ops">' + opBtn('edit-li', '编辑', ' data-kind="habit" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="habit" data-id="' + it.id + '"', 1) + '</span>');
+      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.t) + '</div>' + imgHTML(it);
+      h += itemShell(inner, '<span class="nk-ops">' + opBtn('img-li', it.img ? '换图' : '配图', ' data-kind="habit" data-id="' + it.id + '"') + opBtn('edit-li', '编辑', ' data-kind="habit" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="habit" data-id="' + it.id + '"', 1) + '</span>');
     });
     return h;
   }
@@ -545,16 +599,16 @@
 
   // ---- 7. TA的物品 ----
   function thingsHTML(arc) {
-    let h = tabsHTML(THING_TABS, tab.things, 'things');
-    const curLabel = (THING_TABS.find(t => t[0] === tab.things) || [])[1] || '';
+    let h = tabsHTML(tabsOf('things', arc), tab.things, 'things');
+    const curLabel = (tabsOf('things', arc).find(t => t[0] === tab.things) || [])[1] || '';
     h += sectHead(curLabel, '', '<button class="narc-add" data-op="add-li" data-kind="thing">＋ 记一件</button>');
     const items = arc.things.filter(x => x.g === tab.things).slice().sort((a, b) => b.created - a.created);
     if (!items.length) {
       return h + '<div class="narc-empty">TA常用的东西、TA送你的东西、你们共有的东西……<br>都可以记在这里。</div>';
     }
     items.forEach(it => {
-      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.t) + '</div>';
-      h += itemShell(inner, '<span class="nk-ops">' + opBtn('edit-li', '编辑', ' data-kind="thing" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="thing" data-id="' + it.id + '"', 1) + '</span>');
+      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.t) + '</div>' + imgHTML(it);
+      h += itemShell(inner, '<span class="nk-ops">' + opBtn('img-li', it.img ? '换图' : '配图', ' data-kind="thing" data-id="' + it.id + '"') + opBtn('edit-li', '编辑', ' data-kind="thing" data-id="' + it.id + '"') + opBtn('del-li', '删除', ' data-kind="thing" data-id="' + it.id + '"', 1) + '</span>');
     });
     return h;
   }
@@ -566,21 +620,49 @@
       return h + '<div class="narc-empty">TA说过的、被你记住的那些梦。<br>梦见你了吗？梦里有你吗？</div>';
     }
     items.forEach(it => {
-      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.text) + '</div>';
-      h += itemShell(inner, '<span class="ni-date">' + esc(it.date) + '</span><span class="nk-ops">' + opBtn('edit-dream', '编辑', ' data-id="' + it.id + '"') + opBtn('del-dream', '删除', ' data-id="' + it.id + '"', 1) + '</span>');
+      const inner = '<div class="ni-top"></div><div class="ni-text">' + esc(it.text) + '</div>' + imgHTML(it);
+      h += itemShell(inner, '<span class="ni-date">' + esc(it.date) + '</span><span class="nk-ops">'
+        + opBtn('img-li', it.img ? '换图' : '配图', ' data-kind="dream" data-id="' + it.id + '"')
+        + opBtn('know-from-dream', '记为了解', ' data-id="' + it.id + '"')
+        + opBtn('edit-dream', '编辑', ' data-id="' + it.id + '"')
+        + opBtn('del-dream', '删除', ' data-id="' + it.id + '"', 1) + '</span>');
+    });
+    return h;
+  }
+  // ---- 8.5 TA的声音（v3.27.x 新增）----
+  function voiceHTML(arc) {
+    let h = sectHead('TA说过的话', '原话记下来——语气、用词、停顿，都是TA的一部分。', '<button class="narc-add" data-op="add-quote">＋ 记一句话</button>');
+    const items = arc.quotes.slice().sort((a, b) => b.created - a.created);
+    if (!items.length) {
+      return h + '<div class="narc-empty">TA的口头禅、某次认真说过的话、<br>让你记到现在的语气……都值得原样留住。</div>';
+    }
+    items.forEach(it => {
+      const inner = '<div class="ni-top">' + (it.scene ? '<span class="ni-tag">' + esc(it.scene) + '</span>' : '') + '</div>'
+        + '<div class="ni-text ni-quote">「' + esc(it.text) + '」</div>' + imgHTML(it);
+      h += itemShell(inner, '<span class="ni-date">' + esc(it.date) + '</span><span class="nk-ops">'
+        + opBtn('img-li', it.img ? '换图' : '配图', ' data-kind="quote" data-id="' + it.id + '"')
+        + opBtn('know-from-quote', '记为了解', ' data-id="' + it.id + '"')
+        + opBtn('edit-quote', '编辑', ' data-id="' + it.id + '"')
+        + opBtn('del-quote', '删除', ' data-id="' + it.id + '"', 1) + '</span>');
     });
     return h;
   }
   // ---- 9. 我们的共同记录（沿用 bonds/moments/records，新增 day/thing/place 分类与时间线） ----
+  // v3.27.x：时间线并入 梦境/发现/理解变化/语录，按时间倒序连成完整的一条线
   function timelineItems(arc) {
     const arr = [];
     arc.bonds.forEach(b => arr.push({ t: b.created, text: b.text, date: b.date || '', tag: BOND_CATS[b.cat] || '共同经历', kind: 'bond', id: b.id }));
     arc.moments.forEach(m => arr.push({ t: m.created, text: m.text, date: m.date || '', tag: '重要时刻', star: true, kind: 'moment', id: m.id }));
     arc.records.forEach(rc => arr.push({ t: rc.created, text: rc.text, date: rc.date || '', tag: '相处记录', kind: 'record', id: rc.id, momentId: rc.momentId }));
+    arc.dreams.forEach(d => arr.push({ t: d.created, text: d.text, date: d.date || '', tag: '梦境', kind: 'dream', id: d.id }));
+    arc.quotes.forEach(q => arr.push({ t: q.created, text: '「' + q.text + '」', date: q.date || '', tag: 'TA的声音', kind: 'quote', id: q.id }));
+    arc.loves.forEach(l => { if (l.status !== 'retired') arr.push({ t: l.created, text: typeLabel(l.type) + '……' + l.text, date: '', tag: '发现', kind: 'love', id: l.id }); });
+    arc.history.forEach(ev => arr.push({ t: ev.time, text: ev.text || '', date: '', tag: '理解变化', kind: 'hist', id: '' }));
     return arr.sort((a, b) => b.t - a.t);
   }
   function sharedHTML(arc) {
-    let h = tabsHTML(SHARED_TABS, tab.shared, 'shared');
+    const shTabs = [['timeline', '时间线']].concat(tabsOf('shared', arc));
+    let h = tabsHTML(shTabs, tab.shared, 'shared');
     if (tab.shared === 'timeline') {
       h += sectHead('我们的时间线', '第一次、共同经历、特别的日子，都在这里连成一条线。', '<button class="narc-add" data-op="add-record">＋ 写一条相处</button>');
       const arr = timelineItems(arc);

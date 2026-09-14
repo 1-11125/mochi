@@ -5378,6 +5378,9 @@ border-radius:12px;
 #chat-snake-panel.snake-fs .snake-dp { font-size:min(7vw, 5.6vh); border-radius:min(3vw, 2.4vh); }
 .snake-res-pop { animation: snakeResPop .32s cubic-bezier(.2,.9,.3,1.2) both; }
 @keyframes snakeResPop { from { opacity:0; transform:scale(.7); } to { opacity:1; transform:scale(1); } }
+.snake-fs-in { animation: snakeFsIn .26s ease-out; }
+@keyframes snakeFsIn { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
+[data-theme="dark"] .snake-canvas { background:#1b1b22; }
 .snake-canvas.snk-die { animation: snkdie .5s ease-out both; }
 .snake-canvas.snk-die.snk-die-red { animation: snkdie .5s ease-out both, snkdiered .8s ease-out both; }
 @keyframes snkdie { 0%,100% { transform:translate(0,0); } 14% { transform:translate(-6px,3px); } 28% { transform:translate(5px,-4px); } 42% { transform:translate(-4px,-2px); } 56% { transform:translate(3px,2px); } 72% { transform:translate(-2px,1px); } 86% { transform:translate(1px,-1px); } }
@@ -9247,7 +9250,7 @@ transition-duration: .01ms !important;
              纯静态卡骨架，状态文案/按钮/交互由 clock.js 接线渲染（card-lock.js 提供闸门），在线 notice.json 不影响此处 -->
         <div class="splash-alert splash-cardlock" data-anti-scam="l" id="splash-cardlock">
           <div class="splash-alert-t">防未成年人 · 系统内置字卡已锁定</div>
-          <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。密码获取方式见开屏说明；解开密码请勿二传（不要告诉别人），一旦有人大范围二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
+          <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
           <div class="cardlock-actions" id="splash-cardlock-actions"></div>
         </div>
         <!-- v3.27.x：防骗置顶声明——最顶部固定展示，防收费诈骗；静态 DOM，在线 notice.json 覆盖只改公告列表，不影响此处 -->
@@ -9456,9 +9459,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789425871606">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.690</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 06:44<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789429215096">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.691</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 07:40<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -9486,7 +9489,8 @@ transition-duration: .01ms !important;
       <div class="splash-mandatory-scroll" id="splash-mandatory-scroll">
         <div class="splash-mandatory-head">
           <div class="splash-mandatory-title">进入前 · 作者必读公告</div>
-          <div class="splash-mandatory-sub">以下四条为作者公告，请逐条阅读（滑到底部后可确认进入）</div>
+          <!-- #315c：进入前最后一屏补年龄红线——与开屏免责卡口径一致，防御链收口 -->
+          <div class="splash-mandatory-sub">本站禁止未满 18 周岁的未成年人使用；以下四条为作者公告，请逐条阅读（滑到底部后可确认进入）</div>
         </div>
         <div class="splash-mandatory-card">
           <div class="splash-mandatory-date">2026.09.12</div>
@@ -10753,7 +10757,14 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-storage-view">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
           <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
+        </div>
+        <!-- #497 压缩图片入口：img-compress.js 接线 #row-img-compress（该功能上线时漏加本行＝设置页一直无入口）；
+             「查看存储」页内另有同款入口 #st-img-compress-btn -->
+        <div class="set-row" id="row-img-compress">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
         </div>
         <!-- v3.26.x #411：卡顿自检 · 一键优化——字卡库数据过大（如公用库 44MB）是 iOS/安卓
              间歇卡顿的主因，本行扫描分级 + 非破坏预热（取回挂起大键 + 令牌化回复池，不删数据） -->
@@ -10769,7 +10780,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.690</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.691</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -10808,6 +10819,14 @@ transition-duration: .01ms !important;
           <button class="storage-clear" id="st-slim-other" type="button" hidden>一键清理（仅删其他站点，不动本应用）</button>
           <div class="storage-hint" id="st-other-slim-list"></div>
           <div class="storage-hint">本地音乐是唯一能安全大额释放空间的一项：删除本地音频文件并从歌单移除，外链 / 种子歌不受影响，之后需要还能重新添加。聊天记录（图片、语音）就是你明确要求保留的部分，不在清理范围；壁纸、头像、自定义表情各有各自的删除入口（在对应设置里），避免误删掉你设置好的外观。</div>
+        </div>
+        <!-- #497 图片压缩：上传当时已自动压缩的说明 + 存量偏大图重压入口（扫描/压缩逻辑全在 img-compress.js，
+             本卡只补它接线的 #st-img-compress / #st-img-compress-btn 锚点——该功能上线时漏加＝查看存储页一直无入口） -->
+        <div class="cal-card glass">
+          <div class="cal-card-title">图片压缩</div>
+          <div class="storage-row"><span>可再压缩的存量图片</span><b id="st-img-compress">未扫描</b></div>
+          <button class="storage-clear" id="st-img-compress-btn" type="button">扫描并压缩偏大图片</button>
+          <div class="storage-hint"><b>你上传/发送的图片在选定当时就已自动压缩过</b>（聊天图片与收藏、字卡图片最长边 720px、表情包 480px、壁纸/背景 2880px、卡片背景 1000px、桌面图片 1280px、头像 256px，质量 0.85；支持 WebP 的浏览器照片类自动改存 WebP，同清晰度体积更小），所以上面各项里的图片占用已经是压缩后的体积，不会随使用无限膨胀；聊天图片/表情另存进「媒体池」全库只存一份（见下方媒体池卡）。动图（GIF）、媒体池共享图与已较小的图不会被再压。上面的按钮只把历史遗留的「明显偏大」存量图按同样标准重压一遍（压缩会覆盖原图且不可撤销，建议先导出备份）。</div>
         </div>
         <div class="cal-card glass">
           <div class="cal-card-title">错误诊断记录</div>
@@ -11071,7 +11090,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.690</span>
+              <span class="lic-ver">v3.26.691</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11834,6 +11853,13 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>跨桌面来电概率</span><div class="stepper" data-k="desk-call-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="desk-call-prob-val" readonly><button class="stp-max">+</button></div></div>
           </div>
           <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动给你来电，冷却与查岗一致 30 分钟。全局开关在 设置 →「开启 联系人跨桌面打电话」（默认关闭，需先到那里手动打开，这里调了概率也不会来电）</div>
+          <!-- v3.26.x：摸鱼值 / 工作值累计总开关——桌面摸鱼小组件数值增长闸门（personalize.js addFish/addWork 消费） -->
+          <div class="gs-title" style="margin-top:10px">摸鱼值 / 工作值</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>摸鱼值累计</span><label class="toggle"><input type="checkbox" id="fish-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>工作值累计</span><label class="toggle"><input type="checkbox" id="work-en"><span class="tk"></span></label></div>
+          </div>
+          <div class="gs-sub" style="padding:0 14px 14px">桌面摸鱼小组件两组数值的增长总开关（默认开）。关闭「摸鱼值累计」后：TA 的自动摸鱼、你点摸鱼按钮、番茄钟补偿摸鱼、抓包奖励都不再涨摸鱼值；关闭「工作值累计」后：自动打工、专注期间的工作值等不再涨。已有数值保留不清零，重新打开即恢复累计，各联系人独立保存</div>
         </div>
         <!-- v3.6.x：保存设置按钮——点击把当前所有概率/开关写入本地并提示 -->
         <button class="ta-add-btn gs-save-btn" id="reply-save-btn" style="width:100%;margin:6px 0 10px">
@@ -13449,6 +13475,17 @@ transition-duration: .01ms !important;
         <div class="poke-card-head">
           <span>贪吃蛇 · <b id="snake-partner-name">TA</b></span>
           <div class="snake-head-actions">
+            <select class="snake-diff" id="snake-mode" title="模式：经典对战 / 双人同屏对战 / 双人组队 vs TA">
+              <option value="duo" selected>我 vs TA</option>
+              <option value="pvp">双人对战</option>
+              <option value="coop">双人组队</option>
+            </select>
+            <select class="snake-diff" id="snake-food" title="同屏食物数量">
+              <option value="2" selected>🍎×2</option>
+              <option value="4">🍎×4</option>
+              <option value="6">🍎×6</option>
+              <option value="8">🍎×8</option>
+            </select>
             <select class="snake-diff" id="snake-diff">
               <option value="easy">慢</option>
               <option value="normal" selected>普通</option>
@@ -25158,6 +25195,25 @@ s.style.backgroundPosition = '';
 }
 }
 };
+const deskLayout = () => {
+let a = null;
+try {
+const v = store.get('desk-layout');
+if (v) { const p = JSON.parse(v); if (Array.isArray(p)) a = p; }
+} catch (e) {}
+if (!a) return null;
+const seen = {};
+const ok = a.length >= DESK_PAGE_MIN && a.length <= DESK_PAGE_MAX &&
+a.some(function (page) { return Array.isArray(page) && page.length > 0; }) &&
+a.every(function (page) { return Array.isArray(page) && page.every(function (w) { return typeof w === 'string'; }); }) &&
+a.every(function (page) { return (page || []).every(function (w) { if (seen[w]) return false; seen[w] = 1; return true; }); });
+if (!ok) {
+try { console.info('[mochi] desk-layout 校验失败（损坏/空壳），忽略并清除'); } catch (e) {}
+try { store.remove('desk-layout'); } catch (e) {}
+return null;
+}
+return a;
+};
 const buildDeskPages = () => {
 if (!pagesBox) return;
 const target = deskPageCount();
@@ -25443,25 +25499,6 @@ document.body.appendChild(pool);
 }
 return pool;
 }
-const deskLayout = () => {
-let a = null;
-try {
-const v = store.get('desk-layout');
-if (v) { const p = JSON.parse(v); if (Array.isArray(p)) a = p; }
-} catch (e) {}
-if (!a) return null;
-const seen = {};
-const ok = a.length >= DESK_PAGE_MIN && a.length <= DESK_PAGE_MAX &&
-a.some(function (page) { return Array.isArray(page) && page.length > 0; }) &&
-a.every(function (page) { return Array.isArray(page) && page.every(function (w) { return typeof w === 'string'; }); }) &&
-a.every(function (page) { return (page || []).every(function (w) { if (seen[w]) return false; seen[w] = 1; return true; }); });
-if (!ok) {
-try { console.info('[mochi] desk-layout 校验失败（损坏/空壳），忽略并清除'); } catch (e) {}
-try { store.remove('desk-layout'); } catch (e) {}
-return null;
-}
-return a;
-};
 const saveDeskLayout = () => {
 const slides = Array.prototype.slice.call(pagesBox.querySelectorAll('.page-slide'));
 const lay = slides.map(s => Array.prototype.slice.call(s.querySelectorAll('[data-desk-widget]')).map(n => n.getAttribute('data-desk-widget')));
@@ -27095,7 +27132,7 @@ resetRow.addEventListener('click', () => {
 if (window.openModal) {
 window.openModal('确认清除所有本地数据？（头像、昵称、背景、图标、纪念日、打卡、聊天记录、字卡、音乐、设置）', '', () => {
 try { window.__resetting = true; } catch (e) {}
-const BARE_KEYS = ['divine-history'];
+const BARE_KEYS = ['divine-history', 'xy-home-v2:age-confirmed'];
 try {
 Object.keys(localStorage)
 .filter(k => k.indexOf(window.activePrefix() + ':') === 0 || BARE_KEYS.indexOf(k) >= 0)
@@ -27182,7 +27219,14 @@ function saveFishDayLog(list) { store.set('fish-day-add', JSON.stringify(list));
 function dayVal(k) { return parseInt(store.get(k) || '0', 10) || 0; }
 function todayMine() { return dayVal('day-fish-' + fishDayKey()); }
 function todayTa() { return dayVal('day-fish-ta-' + fishDayKey()); }
+function fishWorkOn(key) {
+try {
+const v = window.replyCfg ? window.replyCfg()[key] : undefined;
+return v === undefined ? true : v === 1;
+} catch (e) { return true; }
+}
 function addFish(addMine, addTa) {
+if (!fishWorkOn('fish-en')) return;
 const key = fishDayKey();
 if (addMine) {
 store.set('day-fish-' + key, String(todayMine() + addMine));
@@ -27257,6 +27301,7 @@ function saveWorkDayLog(list) { store.set('work-day-add', JSON.stringify(list));
 function todayWorkMine() { return dayVal('day-work-' + fishDayKey()); }
 function todayWorkTa() { return dayVal('day-work-ta-' + fishDayKey()); }
 function addWork(addMine, addTa) {
+if (!fishWorkOn('work-en')) return;
 const key = fishDayKey();
 if (addMine) {
 store.set('day-work-' + key, String(todayWorkMine() + addMine));
@@ -27696,9 +27741,14 @@ el.textContent = (d.items ? d.items + ' 项缓存' : '无缓存') + (d.errs ? ' 
 }
 function renderStorage() {
 const quotaEl = document.getElementById('st-quota');
+let quotaInfo = null;
+const idbState = { total: undefined, count: 0 };
 if (quotaEl && navigator.storage && navigator.storage.estimate) {
 navigator.storage.estimate().then(function (r) {
-if (quotaEl) quotaEl.textContent = fmtBytes(r && r.usage) + ' / ' + fmtBytes(r && r.quota);
+quotaInfo = { usage: (r && r.usage) || 0, quota: (r && r.quota) || 0 };
+if (quotaEl) quotaEl.textContent = fmtBytes(quotaInfo.usage) + ' / ' + fmtBytes(quotaInfo.quota) +
+(quotaInfo.quota ? '（占 ' + pctOf(quotaInfo.usage, quotaInfo.quota) + '）' : '');
+renderSelf();
 }).catch(function () { if (quotaEl) quotaEl.textContent = '读取失败'; });
 } else if (quotaEl) quotaEl.textContent = '接口不可用';
 const ls = lsStats();
@@ -27711,13 +27761,15 @@ if (mediaEl) mediaEl.textContent = '统计中…（IndexedDB）';
 const otherEl = document.getElementById('st-other');
 if (otherEl) otherEl.textContent = ls.otherCount ? fmtBytes(ls.otherSize) + '（' + ls.otherCount + ' 键）' : '无';
 const selfEl = document.getElementById('st-self');
-const showSelf = function (idbTotal) {
+const renderSelf = function () {
 if (!selfEl) return;
-if (idbTotal === undefined) { selfEl.textContent = fmtBytes(ls.total) + '（IndexedDB 统计中…）'; return; }
-if (idbTotal === null) { selfEl.textContent = fmtBytes(ls.total) + '（不含 IndexedDB，见下方告警）'; return; }
-selfEl.textContent = fmtBytes(ls.total + idbTotal.total) + '（' + ls.count + ' + ' + idbTotal.count + ' 键）';
+const t = idbState.total;
+if (t === undefined) { selfEl.textContent = fmtBytes(ls.total) + '（IndexedDB 统计中…）'; return; }
+if (t === null) { selfEl.textContent = fmtBytes(ls.total) + '（不含 IndexedDB，见下方告警）'; return; }
+selfEl.textContent = fmtBytes(ls.total + t) + '（' + ls.count + ' + ' + idbState.count + ' 键' +
+(quotaInfo && quotaInfo.quota ? '，占浏览器配额 ' + pctOf(ls.total + t, quotaInfo.quota) : '') + '）';
 };
-showSelf(undefined);
+renderSelf();
 const idbEl = document.getElementById('st-idb');
 if (idbEl) idbEl.textContent = '统计中…';
 renderCatTable(ls.cats, null, false);
@@ -27725,7 +27777,9 @@ idbStats(function (done, totalN) {
 if (idbEl) idbEl.textContent = '统计中…（' + done + '/' + totalN + '）';
 }, function (res) {
 if (idbEl) idbEl.textContent = res ? fmtBytes(res.total) + '（' + res.count + ' 键）' : '读取失败（未计入合计）';
-showSelf(res ? { total: res.total, count: res.count } : null);
+idbState.total = res ? res.total : null;
+idbState.count = res ? res.count : 0;
+renderSelf();
 renderCatTable(ls.cats, res ? res.cats : null, !res);
 if (musicEl) {
 const m = (res && res.cats && res.cats['本地音乐']) ? res.cats['本地音乐'].size : 0;
@@ -28067,6 +28121,9 @@ page.hidden = false;
 renderStorage();
 });
 }
+document.addEventListener('mochi-img-compressed', function () {
+if (!page.hidden) renderStorage();
+});
 if (back) {
 back.addEventListener('click', function () {
 document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
@@ -29523,16 +29580,19 @@ const cb = document.getElementById('chat-body');
 if (!cb) return true;
 return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
 }
+let chatUserFollowScroll = false;
 function maybeScrollChatBottom(side) {
 if (batchRendering) {
 if (side === 'out') pendingOutScroll = true;
-return;
+return; // #492 follow 标记批量渲染期不消费，留待真实追加时生效
 }
 if (!chatVisible()) return;
 const out = side === 'out';
-if (!out && !chatPinnedBottom) return;
+const userFollow = !out && chatUserFollowScroll; // FIX #492 一次性消费
+if (userFollow) chatUserFollowScroll = false;
+if (!out && !userFollow && !chatPinnedBottom) return;
 scrollChatBottom();
-if (out) {
+if (out || userFollow) {
 requestAnimationFrame(scrollChatBottom);
 setTimeout(scrollChatBottom, 120);
 } else {
@@ -30624,8 +30684,13 @@ im.replaceWith(ph);
 });
 });
 }
+function msgKeyOf(rec) {
+if (!rec) return '';
+return (rec.ts || 0) + '|' + (rec.side || '') + '|' + (rec.type || '') + '|' + String(rec.text || '').slice(0, 80);
+}
 function renderMsg(rec) {
 const m = document.createElement('div');
+m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，批量渲染只覆盖 data-idx 不动它
 if (!batchRendering) m.classList.add('msg-enter');
 const __fit = rec.side !== 'out' && !!window.taFit;
 const __taNm = chatPartnerName();
@@ -31476,6 +31541,7 @@ opts = opts || {};
 return addIn(text, { special: opts.special || 'poke', img: opts.img, mailNotice: opts.mailNotice, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, roastText: opts.roastText, roastCat: opts.roastCat, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir });
 };
 window.chatAddIn = function (text, opts) {
+if (opts && opts.follow) chatUserFollowScroll = true;
 const r = addIn(text, opts);
 if (opts && opts.enter && !chatVisible()) enterChat();
 return r;
@@ -33348,7 +33414,7 @@ saveMsgsNow();
 }, randInt(800, 2400));
 }
 document.addEventListener('mochi-fg-resume', function () {
-try { if (!sameCid()) return; setTimeout(function () { trySystemAskMochi(); }, randInt(2000, 6000)); } catch (e) {}
+try { setTimeout(function () { trySystemAskMochi(); }, randInt(2000, 6000)); } catch (e) {}
 });
 function rpThanksMsg() {
 return pick(['谢谢亲爱的～', '收到啦❤', '嘿嘿谢谢宝宝', '爱你哟', '🥰 谢谢', '开心！谢谢～', '么么哒']);
@@ -35232,9 +35298,14 @@ return { item, b };
 }
 function openMsgActionsAt(item, b) {
 activeMsgEl = item;
-const _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
-const _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
-activeMsgSnap = { idx: _qi, rec: _qr, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
+let _qi = (item && item.dataset && item.dataset.idx !== undefined) ? Number(item.dataset.idx) : -1;
+const _mk = (item && item.dataset && item.dataset.mk) || '';
+let _qr = (_qi >= 0 && msgs[_qi]) ? msgs[_qi] : null;
+if (_mk) {
+const _j = msgs.findIndex(mkMsg => msgKeyOf(mkMsg) === _mk);
+if (_j >= 0) { _qi = _j; _qr = msgs[_j]; }
+}
+activeMsgSnap = { idx: _qi, rec: _qr, mk: _mk, ts: _qr ? (_qr.ts || 0) : 0, side: _qr ? (_qr.side || '') : '', text: _qr ? String(_qr.text || '').slice(0, 80) : '' };
 activeSide = item.classList.contains('msg-out') ? 'out' : 'in';
 if (!msgActions) return;
 msgActions.querySelectorAll('.ma-mine').forEach(b2 => b2.hidden = activeSide !== 'out');
@@ -38026,11 +38097,16 @@ if (beforeEl && beforeEl.parentNode === body) body.insertBefore(m, beforeEl);
 else body.appendChild(m);
 pruneGcDom();
 }
+function gcMsgKeyOf(rec) {
+if (!rec) return '';
+return (rec.ts || 0) + '|' + (rec.side || '') + '|' + (rec.type || '') + '|' + String(rec.text || '').slice(0, 80);
+}
 function renderMsg(rec, idx, beforeEl) {
 const m = document.createElement('div');
 m.className = 'msg ' + (rec.side === 'out' ? 'msg-out' : 'msg-in');
 if (idx === undefined) idx = msgs.length - 1;
 m.dataset.gcIdx = idx;
+m.dataset.mk = gcMsgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入
 const timeHtml = rec.ts ? '<span class="msg-time">' + fmtTime(rec.ts) + '</span>' : '';
 if (rec.side === 'out') {
 m.innerHTML = '<div class="msg-bubble"></div><div class="msg-side"><div class="msg-av"></div>' + timeHtml + '</div>';
@@ -40152,8 +40228,14 @@ if (body && gcMsgActions) {
 function gcOpenMsgActions(item, bk) {
 gcActiveMsgEl = item;
 const _gi = (item && item.dataset && item.dataset.gcIdx !== undefined) ? Number(item.dataset.gcIdx) : -1;
-const _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
-gcActiveMsgSnap = { idx: _gi, rec: _gr, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
+const _gmk = (item && item.dataset && item.dataset.mk) || '';
+let _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
+let _gj = _gi;
+if (_gmk) {
+_gj = msgs.findIndex(gmkMsg => gcMsgKeyOf(gmkMsg) === _gmk);
+if (_gj >= 0) _gr = msgs[_gj]; else _gj = _gi;
+}
+gcActiveMsgSnap = { idx: _gj, rec: _gr, mk: _gmk, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
 const delBtn = gcMsgActions.querySelector('.ma-del-gc');
 if (delBtn) {
 let delEn = false;
@@ -41011,6 +41093,12 @@ return '<div class="cc-ico" style="background:rgba(0,0,0,.05)"><svg viewBox="0 0
 '<span class="cc-play-bars"><i></i><i></i><i></i></span></button>';
 }
 }
+if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) {
+return '<div class="cc-txt"><div class="t" style="color:var(--muted)">[图片丢失]</div></div>';
+}
+return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>';
+}
 if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) {
 return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>';
 }
@@ -41232,6 +41320,11 @@ attachCardData(d, c);
 if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
 d.addEventListener('click', () => {
 if (manageMode) { toggleSelect(d, gname, i); return; }
+if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+const v = window.mochiMediaExpand ? window.mochiMediaExpand(c) : null;
+viewImage(v || c);
+return;
+}
 if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) { viewImage(c); return; }
 openEditCard(gname, i);
 });
@@ -41429,6 +41522,11 @@ attachCardData(el, it.c);
 if (manageMode && selected.has(it.gname + '\u0001' + it.i)) el.classList.add('sel');
 el.addEventListener('click', () => {
 if (manageMode) { toggleSelect(el, it.gname, it.i); return; }
+if (typeof it.c === 'string' && it.c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(it.c)) {
+const v = window.mochiMediaExpand ? window.mochiMediaExpand(it.c) : null;
+viewImage(v || it.c);
+return;
+}
 if (typeof it.c === 'string' && (it.c.indexOf('data:') === 0 || /^https?:\/\//i.test(it.c))) {
 viewImage(it.c);
 return;
@@ -42695,6 +42793,8 @@ if (!g) { g = [defName, []]; groups[cur].push(g); }
 let done = 0;
 let skipped = 0;
 let notAudio = 0;
+let gifSaved = 0;  // 动图直存（跳过压缩）计数
+let cmpSaved = 0;  // 静态图压缩成功计数
 const sizeLimit = cur === 'voice' ? 10 * 1024 * 1024 : 20 * 1024 * 1024;
 files.forEach((f) => {
 if (f.size > sizeLimit) {
@@ -42733,11 +42833,13 @@ if (done === files.length) finishUpload(done - skipped, skipped);
 toast('GIF「' + ((f && f.name) || '动图') + '」超过 380KB，已跳过');
 return;
 }
+gifSaved++;
 process(reader.result); return;
 }
 const isImg = cur === 'image';
 compressImage(reader.result, isImg ? 720 : 480, isImg ? 'image/jpeg' : 'image/png', isImg ? 0.85 : undefined).then((data) => {
 if (!data) { skipped++; done++; if (done === files.length) finishUpload(done - skipped, skipped); return; }
+cmpSaved++;
 process(data);
 });
 }
@@ -42750,6 +42852,8 @@ renderGroupsBar();
 render();
 const msgs = [];
 if (ok > 0) msgs.push('已上传 ' + ok + ' 个' + (cur === 'voice' ? '音频' : '图片'));
+if (gifSaved > 0) msgs.push('动图无法压缩，「' + gifSaved + '」个按原图存入');
+if (cmpSaved > 0) msgs.push('已自动压缩 ' + cmpSaved + ' 个静态图');
 if (skip > 0) msgs.push('跳过 ' + skip + ' 个超大文件（' + (cur === 'voice' ? '音频>10MB' : '图片>20MB') + '）');
 if (skipNotAudio > 0) msgs.push('跳过 ' + skipNotAudio + ' 个视频/非音频（语音分类只支持音频）');
 if (!msgs.length) msgs.push('没有可上传的文件');
@@ -45445,6 +45549,7 @@ const DEFAULTS = {
 'call-resume': 1,
 'call-no-hangup': 0,
 'cs-normal': 0, 'cs-trigger-name': 1, 'cs-trigger-bar': 0,
+'fish-en': 1, 'work-en': 1,
 'gc-prob': 60, 'gc-rs-min': 1, 'gc-rs-max': 40,
 'gc-reply-min': 1, 'gc-reply-max': 2,
 'gc-touch-prob': 5, 'gc-sticker-prob': 10, 'gc-emoji-prob': 5, 'gc-image-prob': 5, 'gc-voice-prob': 10,
@@ -45521,7 +45626,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -45617,7 +45722,8 @@ const TOGGLE_NAMES = {
 'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
 'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
 'mjf-mix': '造句混合模式',
-'rc-en': '撤回后补发消息'
+'rc-en': '撤回后补发消息',
+'fish-en': '摸鱼值累计', 'work-en': '工作值累计'
 };
 function ccToastEnsure() {
 let d = null;
@@ -45636,7 +45742,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -45757,7 +45863,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -60533,7 +60639,6 @@ const NOTIFY_HIDDEN_MIN_MS = 15000;
 const NOTIFY_CHAT_DUP_MS = 5 * 60000;  // v3.20.x：历史聊天查重 15→5 分钟
 const NOTIFY_SENT_DUP_MS = 2 * 60000;  // v3.20.x：已发通知查重 6→2 分钟
 const NOTIFY_SEEN_DUP_MS = 3 * 60000;  // v3.20.x：前台看过记忆 15→3 分钟
-let lastNotifySentAt = 0; // v3.22.x：上一条通知发出时刻（批量连发判定用）
 function normNotifyKey(raw) {
 let s = String(raw || '');
 if (s.length > 1024) s = s.slice(0, 1024); // 先截断再正则，避免超长 base64 全文替换开销
@@ -60597,8 +60702,7 @@ t = '';
 t = t.split('|||')[0];
 }
 const mf = msgFingerprint(t, img);
-if (mf === key && mts && refTs && refTs - mts < 60000) return true;
-if (mf === key && (!mts || !refTs)) return true; // 无时间戳兜底，保守拦截
+if (mf === key) return true;
 if (mf.length >= 6 && key.length > mf.length && key.length >= mf.length * 1.6 && key.indexOf(mf) >= 0) return true;
 if (key.length >= 6 && mf.length > key.length && mf.length >= key.length * 1.6 && mf.indexOf(key) >= 0) return true;
 }
@@ -60653,10 +60757,8 @@ if (!('Notification' in window) || Notification.permission !== 'granted') return
 gateStats.total++;
 const force = !!extra.force;
 if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS) { gateStats.tooFresh++; return; }
-const batchBurst = lastNotifySentAt && Date.now() - lastNotifySentAt < 30000;
-if (!force && !batchBurst && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
-if (!force && !batchBurst && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
-lastNotifySentAt = Date.now();
+if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
+if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
 gateStats.sent++;
 hiddenSentCount++;
 hiddenSentName = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
@@ -63425,6 +63527,7 @@ return p;
 }
 let feedDbReady = false;
 let feedPending = null;
+let feedMem = null;
 let feedAuthSeen = false;
 let feedAuthWritable = null;   // null=未探测；true=确认可写（权威键确实不存在）；false=权威仍在
 let feedAuthRetried = 0;       // 守卫拒写后的权威重读次数上限 2（间隔 10s，防病理存储下无限循环）
@@ -63484,6 +63587,9 @@ return Object.keys(map).map(k => map[k]).sort((x, y) => (y.ts || 0) - (x.ts || 0
 }
 function load() {
 let list = [];
+if (feedMem) {
+list = feedMem;
+} else {
 const raw = store.get(KEY);
 if (raw !== null) {
 try {
@@ -63496,6 +63602,7 @@ try {
 const v = loadSnap();
 if (v.length) list = v.map(normPost);
 } catch (e) {}
+}
 }
 if (feedPending && feedPending.length) {
 list = mergePosts(list, feedPending);
@@ -63533,11 +63640,37 @@ if (snapTimer) return;
 snapTimer = setTimeout(() => { snapTimer = null; flushSnap(); }, 800);
 }
 try {
-window.addEventListener('pagehide', flushSnap);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSnap(); });
+window.addEventListener('pagehide', function () { flushFeedWrite(); flushSnap(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { flushFeedWrite(); flushSnap(); } });
 } catch (e) {}
+const FEED_WRITE_MIN_GAP = 2500;   // 两次实际落盘的最小间隔（ms）
+let feedWriteTimer = null;         // 排队中标记（rIdle/timeout）
+let feedWritePending = null;       // 待落盘的最新整包（尾随合并，只留最新）
+let lastFeedWriteAt = 0;           // 上次实际落盘时间（performance.now()）
+function runFeedWrite() {
+feedWriteTimer = null;
+const arr = feedWritePending;
+feedWritePending = null;
+if (!arr) return;
+const wait = FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt);
+if (wait > 0) { feedWriteTimer = setTimeout(runFeedWrite, wait); return; }
+try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {}
+}
+function scheduleFeedWrite(arr) {
+feedWritePending = arr;
+if (feedWriteTimer) return;
+if (window.requestIdleCallback) feedWriteTimer = window.requestIdleCallback(runFeedWrite, { timeout: 4000 });
+else feedWriteTimer = setTimeout(runFeedWrite, 2500);
+}
+function flushFeedWrite() {
+const arr = feedWritePending;
+feedWritePending = null;
+feedWriteTimer = null;
+if (arr) { try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {} }
+}
 function save(list) {
 const arr = list || [];
+feedMem = arr;
 for (let i = 0; i < arr.length; i++) {
 const p = arr[i];
 if (!p || !Array.isArray(p.comments)) continue;
@@ -63547,21 +63680,22 @@ if (c && c.authorAv) c.authorAv = '';
 if (c && Array.isArray(c.replies)) for (let k = 0; k < c.replies.length; k++) { if (c.replies[k] && c.replies[k].authorAv) c.replies[k].authorAv = ''; }
 }
 }
-const raw = JSON.stringify(arr);
 if (!feedDbReady) {
 try { feedPending = arr.slice(); } catch (e) {}
 if (arr.length) {
-feedGuardWrite(raw);
+feedGuardWrite(JSON.stringify(arr));
 persistSnap(arr);
 }
 return;
 }
-feedGuardWrite(raw);
 if (!arr.length) {
+feedWritePending = null;
+feedGuardWrite('[]');
 try { localStorage.removeItem('xy-home-v2:default:' + SNAP_KEY); } catch (e) {}
 if (snapTimer) { clearTimeout(snapTimer); snapTimer = null; snapPending = null; }
 return;
 }
+scheduleFeedWrite(arr);
 scheduleSnap(arr);
 }
 function avHtml(data, cls) {
@@ -65376,6 +65510,7 @@ if (raw !== null) { try { const a = JSON.parse(raw); if (Array.isArray(a)) cur =
 if (!cur.length) cur = loadSnap().map(normPost);
 const merged = mergePosts(base, mergePosts(cur, pending));
 if (!merged.length) { if (authOk && feedPending === pending) feedPending = null; return; }
+feedMem = merged;
 feedGuardWrite(JSON.stringify(merged)).then(written => {
 if (written) {
 if (feedPending === pending) feedPending = null;
@@ -71621,7 +71756,10 @@ const WHO_GROUPS = [
 ['nick', '昵称', '例如：小梦、阿梦', 0],
 ['call', '称呼', '你们互相怎么叫对方？', 0],
 ['bday', '生日', '例如：3月14日（不确定也可以猜）', 0],
+['calllike', 'TA喜欢的称呼', '例如：被叫小名会高兴', 0],
+['calldis', 'TA讨厌的称呼', '例如：不确定就先空着', 0],
 ['age', '年龄', '例如：看起来十七八岁 / 永远十七岁', 0],
+['constel', '星座', '例如：双鱼座（不确定就猜一个TA像的）', 0],
 ['identity', '身份', '例如：住在梦里的人', 0],
 ['nature', '性格', '例如：安静、慢热，其实很温柔', 0],
 ['looks', '外貌', '头发、眼睛、常穿的衣服……', 1],
@@ -71648,7 +71786,9 @@ const RELATE_FIELDS = [
 ['approach', '主动靠近我的方式', '例如：假装路过，然后停下来', 0],
 ['accompany', '陪伴我的方式', '例如：我不说话的时候，就安静待着', 0],
 ['comfort', '安慰我的方式', '例如：不讲道理，只说「有我在」', 0],
-['loveway', '表达喜欢的方式', '例如：不说喜欢，但记得我说过的每件小事', 0]
+['loveway', '表达喜欢的方式', '例如：不说喜欢，但记得我说过的每件小事', 0],
+['boundary', 'TA的雷区 / 底线', '例如：不喜欢被开玩笑说「再见」', 0],
+['fight', '不愉快时TA会', '例如：先沉默，但会先递台阶', 0]
 ];
 const POS_FIELDS = [
 ['usual', '通常', '例如：身边', 0],
@@ -71656,6 +71796,7 @@ const POS_FIELDS = [
 ['special', '特殊情况', '例如：感觉不到TA位置的时候，可能是在打盹', 1]
 ];
 const IFW_FIELDS = [
+['since', '从什么时候开始', '例如：今年春天 / 某个梦之后', 0],
 ['world', '当前世界', '例如：海边小镇', 0],
 ['mine', '我的身份', '例如：花店老板', 0],
 ['role', 'TA的身份', '例如：咖啡店老板', 0],
@@ -78824,7 +78965,7 @@ const replyText = type === 'typeb' && options
 ? '【帮我决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n→ ' + result
 : '【帮我决定】' + question + ' → ' + result;
 if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true });
+else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）
 }
 toast('帮我决定已完成');
 }, thinkTime * 1000);
@@ -79228,7 +79369,7 @@ const replyText = type === 'typeb' && options
 ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
 : '【多人决定】' + question + '\n' + lines.join('\n');
 if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true });
+else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）
 }
 toast('多人决定已完成');
 }, thinkTime * 1000);
@@ -80078,16 +80219,23 @@ window.addEventListener('resize', () => { if (panel && !panel.hidden) fitCanvas(
 let GW = 15, GH = 15;
 const FS_CELL = 21;                  // 全屏地图目标格子尺寸（逻辑 px）——偏小让地图更大
 const INIT_LEN = 3;
-const FOOD_TARGET = 2;
+const FOOD_TARGET = 2;               // 默认同屏食物数（可在头部选择器调 2/4/6/8）
 function prefix() { return (window.activePrefix && window.activePrefix()) || 'xy-home-v2'; }
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function keyScore() { return prefix() + ':snake-score'; }
 function keySaved() { return prefix() + ':snake-saved'; }
 function keyBest() { return prefix() + ':snake-best'; }
+function keyMode() { return prefix() + ':snake-mode'; }
+function keyFoodN() { return prefix() + ':snake-foodn'; }
 const DIFFS = {
 easy:   { ticks: [200, 180, 160, 140] },
 normal: { ticks: [150, 130, 115, 100] },
 hard:   { ticks: [105, 90, 80, 70] }
+};
+const MODES = {
+duo:  { label: '我 vs TA' },
+pvp:  { label: '双人对战' },
+coop: { label: '双人组队' }
 };
 const BEHAVIORS = {
 randomTurn:    { prob: 0.08, cd: 6000 },
@@ -80100,7 +80248,7 @@ speedUp:       { prob: 0.03, cd: 10000 },
 pause:         { prob: 0.02, cd: 12000 },
 detour:        { prob: 0.07, cd: 7000 }
 };
-let panel, canvas, ctx, scoreEl, hintEl, startBtn, restartBtn, resumeBtn, resultEl, dpadEl, diffSel, pauseBtn, fsBtn, wallBtn, safeBtn, bestEl;
+let panel, canvas, ctx, scoreEl, hintEl, startBtn, restartBtn, resumeBtn, resultEl, dpadEl, diffSel, modeSel, foodSel, pauseBtn, fsBtn, wallBtn, safeBtn, bestEl;
 let state = null;
 let behavior = null;
 let loopTimer = null, countdownTimer = null;
@@ -80114,8 +80262,30 @@ let isFs = false;
 let pauseAt = 0;
 let cssW = 360, cssH = 360, dpr = 1;   // 画布 CSS 尺寸（全屏由 setupCanvas 按剩余空间计算）
 let particles = [], floaters = [], renderLastTime = 0;
+let touchTracks = {};
 function gW() { return (state && state.gw) || GW; }
 function gH() { return (state && state.gh) || GH; }
+function curMode() { return (state && state.mode) || (modeSel && modeSel.value) || 'duo'; }
+function foodTargetN() { return (state && state.foodTarget) || FOOD_TARGET; }
+function activeSnakes() {
+if (!state) return [];
+const a = [state.player];
+if (state.p2) a.push(state.p2);
+a.push(state.opp);
+return a;
+}
+function humanSnakes() { return activeSnakes().filter(function (s) { return s.ctrl !== 'ai'; }); }
+function snakeSkin(s) {
+if (s === state.player) return ['#34c759', '#28a745'];
+if (s.ctrl === 'p2') return ['#ff9f0a', '#e08600'];
+return ['#5ac8fa', '#3a9fd6'];
+}
+function snakeLabel(s) {
+if (s === state.player) return 'P1';
+if (s.ctrl === 'p2') return 'P2';
+return (window.taFit ? window.taFit('TA') : 'TA');
+}
+function themeDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function vib(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} }
 function $(id) { return document.getElementById(id); }
 function beep(freq, dur) {
@@ -80157,7 +80327,7 @@ try {
 const b = readBest();
 const diff = state.diff || 'normal';
 const cur = b[diff] || { score: 0, len: 0 };
-const ps = Math.floor(state.player.score);
+const ps = Math.floor(state.player.score) + (state.mode === 'coop' && state.p2 ? Math.floor(state.p2.score) : 0);
 const pl = state.player.body.length;
 let changed = false;
 if (result === 'win' && ps > cur.score) { cur.score = ps; changed = true; }
@@ -80258,6 +80428,8 @@ resumeBtn = $('snake-resume');
 resultEl = $('snake-result');
 dpadEl = $('snake-dpad');
 diffSel = $('snake-diff');
+modeSel = $('snake-mode');
+foodSel = $('snake-food');
 pauseBtn = $('snake-pause');
 fsBtn = $('snake-fs');
 wallBtn = $('snake-wall');
@@ -80270,6 +80442,21 @@ if (pauseBtn) pauseBtn.addEventListener('click', function (e) { e.stopPropagatio
 if (fsBtn) fsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFs(); });
 if (wallBtn) wallBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFlag('wall'); });
 if (safeBtn) safeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFlag('safe'); });
+if (modeSel) modeSel.addEventListener('change', function (e) {
+e.stopPropagation();
+try { localStorage.setItem(keyMode(), modeSel.value); } catch (er) {}
+if (state && (state.status === 'idle' || state.status === 'over')) {
+const keepDiff = state.diff;
+state = null;
+resetToIdle(keepDiff);
+}
+if (hintEl && state && state.status === 'idle') hintEl.textContent = modeHint();
+});
+if (foodSel) foodSel.addEventListener('change', function (e) {
+e.stopPropagation();
+try { localStorage.setItem(keyFoodN(), foodSel.value); } catch (er) {}
+if (state) { state.foodTarget = parseInt(foodSel.value, 10) || FOOD_TARGET; if (state.status !== 'playing') maintainFood(); }
+});
 const closeBtn = $('chat-snake-close');
 if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); closeSnakePanel(); });
 setupInput();
@@ -80279,22 +80466,36 @@ if (!panel || panel.hidden) return;
 if (isFs) { setupCanvas(); render(0); }
 });
 }
+function modeHint() {
+const m = curMode();
+if (m === 'pvp') return '点开始 · P1 左半屏/方向键 · P2 右半屏/WASD';
+if (m === 'coop') return '点开始 · 组队对抗 TA · P2 用 WASD/右半屏';
+return '点开始 · 滑动控制方向';
+}
 function setupInput() {
 if (!canvas) return;
 const TH = 12; // 转向触发阈值(px)
+function zoneOf(t) {
+if (curMode() === 'duo') return 'p1';
+const r = canvas.getBoundingClientRect();
+return (t.clientX - r.left) < r.width / 2 ? 'p1' : 'p2';
+}
 canvas.addEventListener('touchstart', function (e) {
-const t = e.touches[0];
-touchBase = { x: t.clientX, y: t.clientY };
+for (let i = 0; i < e.changedTouches.length; i++) {
+const t = e.changedTouches[i];
+touchTracks[t.identifier] = { zone: zoneOf(t), base: { x: t.clientX, y: t.clientY }, lastDir: null, lockAxis: null };
+}
+const t0 = e.touches[0];
+touchBase = { x: t0.clientX, y: t0.clientY };
 lastTouchDir = null;
 lockAxis = null;
 }, { passive: true });
-canvas.addEventListener('touchmove', function (e) {
-if (!touchBase) return;
-const t = e.touches[0];
-const dx = t.clientX - touchBase.x, dy = t.clientY - touchBase.y;
+function trackMove(tr, cx, cy) {
+const dx = cx - tr.base.x, dy = cy - tr.base.y;
 const adx = Math.abs(dx), ady = Math.abs(dy);
 if (adx < TH && ady < TH) return;
 let dir = null;
+let lockAxis = tr.lockAxis;
 if (lockAxis === 'h') {
 if (ady >= TH && ady > adx * 1.5) { lockAxis = 'v'; dir = dy > 0 ? 'd' : 'u'; }
 else if (adx >= TH) dir = dx > 0 ? 'r' : 'l';
@@ -80306,21 +80507,32 @@ lockAxis = adx > ady ? 'h' : 'v';
 if (lockAxis === 'h') { if (adx >= TH) dir = dx > 0 ? 'r' : 'l'; }
 else { if (ady >= TH) dir = dy > 0 ? 'd' : 'u'; }
 }
+tr.lockAxis = lockAxis;
 if (!dir) return;
-touchBase = { x: t.clientX, y: t.clientY };
-if (dir === lastTouchDir) return;
-if (dir === 'u') setPlayerDir(0, -1);
-else if (dir === 'd') setPlayerDir(0, 1);
-else if (dir === 'l') setPlayerDir(-1, 0);
-else setPlayerDir(1, 0);
+tr.base = { x: cx, y: cy };
+if (dir === tr.lastDir) return;
+if (dir === 'u') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(0, -1);
+else if (dir === 'd') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(0, 1);
+else if (dir === 'l') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(-1, 0);
+else (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(1, 0);
+tr.lastDir = dir;
+touchBase = { x: cx, y: cy };
 lastTouchDir = dir;
+}
+canvas.addEventListener('touchmove', function (e) {
+if (!e.changedTouches) return;
+for (let i = 0; i < e.changedTouches.length; i++) {
+const t = e.changedTouches[i];
+const tr = touchTracks[t.identifier];
+if (tr) trackMove(tr, t.clientX, t.clientY);
+}
 }, { passive: true });
-canvas.addEventListener('touchend', function () {
-touchBase = null; lastTouchDir = null; lockAxis = null;
-}, { passive: true });
-canvas.addEventListener('touchcancel', function () {
-touchBase = null; lastTouchDir = null; lockAxis = null;
-}, { passive: true });
+function trackEnd(e) {
+for (let i = 0; i < e.changedTouches.length; i++) delete touchTracks[e.changedTouches[i].identifier];
+if (!e.touches || !e.touches.length) { touchBase = null; lastTouchDir = null; lockAxis = null; }
+}
+canvas.addEventListener('touchend', trackEnd, { passive: true });
+canvas.addEventListener('touchcancel', trackEnd, { passive: true });
 if (dpadEl) {
 const dpPress = function (e) {
 const btn = e.target.closest('[data-dir]');
@@ -80342,19 +80554,22 @@ document.addEventListener('keydown', function (e) {
 if (!panel || panel.hidden) return;
 if (!state || state.status !== 'playing') return;
 const k = e.key.toLowerCase();
+const m = curMode();
 let used = true;
-if (k === 'arrowup' || k === 'w') setPlayerDir(0, -1);
-else if (k === 'arrowdown' || k === 's') setPlayerDir(0, 1);
-else if (k === 'arrowleft' || k === 'a') setPlayerDir(-1, 0);
-else if (k === 'arrowright' || k === 'd') setPlayerDir(1, 0);
+if (k === 'arrowup' || (m === 'duo' && k === 'w')) setPlayerDir(0, -1);
+else if (k === 'arrowdown' || (m === 'duo' && k === 's')) setPlayerDir(0, 1);
+else if (k === 'arrowleft' || (m === 'duo' && k === 'a')) setPlayerDir(-1, 0);
+else if (k === 'arrowright' || (m === 'duo' && k === 'd')) setPlayerDir(1, 0);
+else if (m !== 'duo' && k === 'w') setP2Dir(0, -1);
+else if (m !== 'duo' && k === 's') setP2Dir(0, 1);
+else if (m !== 'duo' && k === 'a') setP2Dir(-1, 0);
+else if (m !== 'duo' && k === 'd') setP2Dir(1, 0);
 else used = false;
 if (used) e.preventDefault();
 });
 }
-function setPlayerDir(x, y) {
-if (!state || state.status !== 'playing') return;
-const p = state.player;
-if (!p.alive) return;
+function setSnakeDir(p, x, y) {
+if (!p || !p.alive) return;
 const last = p.nextDir2 || p.nextDir || p.dir;
 if (x === -last.x && y === -last.y) return;      // 相对「队尾方向」禁止 180° 回头
 if (last.x === x && last.y === y) return;        // 与队尾同向不重复入队
@@ -80363,24 +80578,50 @@ else if (!p.nextDir2) p.nextDir2 = { x: x, y: y };
 else { p.nextDir = p.nextDir2; p.nextDir2 = { x: x, y: y }; }
 vib(8);
 }
+function setPlayerDir(x, y) {
+if (!state || state.status !== 'playing') return;
+setSnakeDir(state.player, x, y);
+}
+function setP2Dir(x, y) {
+if (!state || state.status !== 'playing') return;
+if (state.opp && state.opp.ctrl === 'p2') setSnakeDir(state.opp, x, y);
+else if (state.p2) setSnakeDir(state.p2, x, y);
+}
+function mkSnake(body, dir, ctrl) {
+return { body: body, dir: dir, nextDir: { x: dir.x, y: dir.y }, nextDir2: null, alive: true, score: 0, foodCount: 0, ctrl: ctrl, eatT: 0, _prev: null };
+}
 function newGame(diff) {
+const mode = curMode();
 const py = Math.floor(GH / 2);
+const prevFlags = state && state.flags || { wall: false, safe: false };
 const playerBody = [];
 for (let i = 0; i < INIT_LEN; i++) playerBody.push({ x: 4 - i, y: py });
-const oppBody = [];
-for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
-const prevFlags = state && state.flags || { wall: false, safe: false };
 state = {
 diff: diff || 'normal',
+mode: mode,
 gw: GW, gh: GH,
-player: { body: playerBody, dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 }, alive: true, score: 0, foodCount: 0 },
-opp:    { body: oppBody,    dir: { x: -1, y: 0 }, nextDir: { x: -1, y: 0 }, alive: true, score: 0, foodCount: 0 },
+foodTarget: foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET,
+player: mkSnake(playerBody, { x: 1, y: 0 }, 'p1'),
+p2: null,
+opp: null,
 foods: [],
 status: 'idle',
 startTime: 0,
 elapsed: 0,
 flags: { wall: prevFlags.wall, safe: prevFlags.safe }
 };
+if (mode === 'coop') {
+const oppBody = [];
+for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: Math.floor(GW / 2), y: 3 - i });
+state.opp = mkSnake(oppBody, { x: 0, y: 1 }, 'ai');
+const p2Body = [];
+for (let i = 0; i < INIT_LEN; i++) p2Body.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
+state.p2 = mkSnake(p2Body, { x: -1, y: 0 }, 'p2');
+} else {
+const oppBody = [];
+for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
+state.opp = mkSnake(oppBody, { x: -1, y: 0 }, mode === 'pvp' ? 'p2' : 'ai');
+}
 if (wallBtn) wallBtn.classList.toggle('on', state.flags.wall);
 if (safeBtn) safeBtn.classList.toggle('on', state.flags.safe);
 behavior = { current: null, until: 0, stepLeft: 0, cooldowns: {}, targetFood: null, speedUp: false, speedUpUntil: 0 };
@@ -80408,7 +80649,7 @@ if (hintEl) hintEl.textContent = '准备 · ' + n;
 n--;
 countdownTimer = setTimeout(countdownStep, 700);
 } else {
-if (hintEl) hintEl.textContent = '滑动 / 方向键控制 · 别撞墙';
+if (hintEl) hintEl.textContent = curMode() === 'duo' ? '滑动 / 方向键控制 · 别撞墙' : modeHint();
 state.status = 'playing';
 state.startTime = Date.now();
 startFrame();
@@ -80420,8 +80661,7 @@ function startFrame() {
 stopFrame();
 lastFrameTime = 0;
 acc = 0;
-prevPlayerBody = cloneBody(state.player.body);
-prevOppBody = cloneBody(state.opp.body);
+snapshotPrev();
 rafId = requestAnimationFrame(frame);
 }
 function stopFrame() {
@@ -80431,6 +80671,12 @@ function cloneBody(b) {
 const out = [];
 for (let i = 0; i < b.length; i++) out.push({ x: b[i].x, y: b[i].y });
 return out;
+}
+function snapshotPrev() {
+if (!state) return;
+activeSnakes().forEach(function (s) { s._prev = cloneBody(s.body); });
+prevPlayerBody = state.player._prev;
+prevOppBody = state.opp._prev;
 }
 function frame(now) {
 if (!state || state.status !== 'playing') { rafId = null; return; }
@@ -80442,8 +80688,7 @@ const ti = currentTickInterval();
 let guard = 3;
 while (acc >= ti && guard > 0) {
 acc -= ti;
-prevPlayerBody = cloneBody(state.player.body);
-prevOppBody = cloneBody(state.opp.body);
+snapshotPrev();
 step();
 guard--;
 if (state.status !== 'playing') break;
@@ -80479,23 +80724,29 @@ floaters.push({ x: pos.x + 0.5, y: pos.y + 0.3, text: '+10', life: 700, maxLife:
 function step() {
 if (!state || state.status !== 'playing') return;
 state.elapsed = Date.now() - state.startTime;
-applyDir(state.player);
-aiDecide();
-applyDir(state.opp);
-const r = resolveCollisions();
-if (!r.pDie) {
-state.player.body.unshift(r.pNew);
-if (r.pEat) { eatFood(r.pNew); state.player.score += 10; state.player.foodCount++; SFX.eat(); spawnParticles(r.pNew, '#34c759'); vib(12); }
-else state.player.body.pop();
-} else { state.player.alive = false; SFX.hit(); vib([20, 40, 20]); }
-if (!r.oDie) {
-state.opp.body.unshift(r.oNew);
-if (r.oEat) { eatFood(r.oNew); state.opp.score += 10; state.opp.foodCount++; spawnParticles(r.oNew, '#5ac8fa'); }
-else state.opp.body.pop();
-} else { state.opp.alive = false; }
+const snakes = activeSnakes();
+snakes.forEach(function (s) {
+applyDir(s);
+if (s.ctrl === 'ai') aiDecide(s);
+});
+const moves = resolveCollisions();
+moves.forEach(function (m) {
+const s = m.s;
+if (!m.die) {
+s.body.unshift(m.n);
+if (m.eat) {
+eatFood(m.n); s.score += 10; s.foodCount++; s.eatT = performance.now();
+spawnParticles(m.n, snakeSkin(s)[0]);
+if (s === state.player) { SFX.eat(); vib(12); }
+else if (s.ctrl === 'p2') { SFX.eat(); }
+} else s.body.pop();
+} else {
+s.alive = false;
+if (s === state.player) { SFX.hit(); vib([20, 40, 20]); }
+}
+});
 const ti = currentTickInterval();
-if (state.player.alive) state.player.score += ti / 1000;
-if (state.opp.alive) state.opp.score += ti / 1000;
+moves.forEach(function (m) { if (!m.die) m.s.score += ti / 1000; });
 checkEnd();
 }
 function applyDir(snake) {
@@ -80510,36 +80761,35 @@ for (let i = 0; i < end; i++) s[body[i].x + ',' + body[i].y] = true;
 return s;
 }
 function resolveCollisions() {
-const p = state.player, o = state.opp;
-const ph = p.body[0], oh = o.body[0];
+const snakes = activeSnakes();
 const wall = state.flags && state.flags.wall;
 const safe = state.flags && state.flags.safe;
-let pNew = { x: ph.x + p.dir.x, y: ph.y + p.dir.y };
-let oNew = { x: oh.x + o.dir.x, y: oh.y + o.dir.y };
-if (wall) {
-pNew.x = (pNew.x + gW()) % gW(); pNew.y = (pNew.y + gH()) % gH();
-oNew.x = (oNew.x + gW()) % gW(); oNew.y = (oNew.y + gH()) % gH();
-}
-const pEat = state.foods.some(function (f) { return f.x === pNew.x && f.y === pNew.y; });
-const oEat = state.foods.some(function (f) { return f.x === oNew.x && f.y === oNew.y; });
-const pSelf = bodySet(p.body, !pEat);
-const oSelf = bodySet(o.body, !oEat);
-let pDie = false, oDie = false;
+const moves = snakes.map(function (s) {
+const h = s.body[0];
+let n = { x: h.x + s.dir.x, y: h.y + s.dir.y };
+if (wall) { n.x = (n.x + gW()) % gW(); n.y = (n.y + gH()) % gH(); }
+const eat = state.foods.some(function (f) { return f.x === n.x && f.y === n.y; });
+return { s: s, n: n, eat: eat, die: false };
+});
+const selfSets = moves.map(function (m) { return bodySet(m.s.body, !m.eat); });
 if (!wall) {
-if (pNew.x < 0 || pNew.x >= gW() || pNew.y < 0 || pNew.y >= gH()) pDie = true;
-if (oNew.x < 0 || oNew.x >= gW() || oNew.y < 0 || oNew.y >= gH()) oDie = true;
+moves.forEach(function (m) {
+if (m.n.x < 0 || m.n.x >= gW() || m.n.y < 0 || m.n.y >= gH()) m.die = true;
+});
 }
-if (!pDie && !safe && pSelf[pNew.x + ',' + pNew.y]) pDie = true; // 碰自己身（安全模式跳过）
-if (!oDie && !safe && oSelf[oNew.x + ',' + oNew.y]) oDie = true;
-if (!pDie && oSelf[pNew.x + ',' + pNew.y]) pDie = true; // 碰对方身
-if (!oDie && pSelf[oNew.x + ',' + oNew.y]) oDie = true;
-if (pNew.x === oNew.x && pNew.y === oNew.y) { pDie = true; oDie = true; }
-return { pNew: pNew, oNew: oNew, pEat: pEat, oEat: oEat, pDie: pDie, oDie: oDie };
+for (let i = 0; i < moves.length; i++) {
+if (!moves[i].die && !safe && selfSets[i][moves[i].n.x + ',' + moves[i].n.y]) moves[i].die = true; // 碰自己身（安全模式跳过）
+for (let j = 0; j < moves.length; j++) {
+if (i === j) continue;
+if (moves[i].n.x === moves[j].n.x && moves[i].n.y === moves[j].n.y) { moves[i].die = true; moves[j].die = true; } // 头对头
+else if (!moves[i].die && selfSets[j][moves[i].n.x + ',' + moves[i].n.y]) moves[i].die = true; // 碰对方身
+}
+}
+return moves;
 }
 function spawnFood() {
 const occ = {};
-state.player.body.forEach(function (s) { occ[s.x + ',' + s.y] = true; });
-state.opp.body.forEach(function (s) { occ[s.x + ',' + s.y] = true; });
+activeSnakes().forEach(function (s) { s.body.forEach(function (p) { occ[p.x + ',' + p.y] = true; }); });
 state.foods.forEach(function (f) { occ[f.x + ',' + f.y] = true; });
 const empty = [];
 for (let x = 0; x < gW(); x++) for (let y = 0; y < gH(); y++) if (!occ[x + ',' + y]) empty.push({ x: x, y: y });
@@ -80547,7 +80797,7 @@ if (!empty.length) return null;
 return empty[Math.floor(Math.random() * empty.length)];
 }
 function maintainFood() {
-while (state.foods.length < FOOD_TARGET) {
+while (state.foods.length < foodTargetN()) {
 const f = spawnFood();
 if (!f) break;
 state.foods.push(f);
@@ -80559,15 +80809,15 @@ if (state.foods[i].x === pos.x && state.foods[i].y === pos.y) { state.foods.spli
 }
 maintainFood();
 }
-function aiDecide() {
-const o = state.opp;
+function aiDecide(o) {
 if (!o.alive) return;
 behaviorTick();
 const head = o.body[0];
 const dirs = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }];
-const pHead = state.player.body[0];
+const humans = humanSnakes();
 const wall = state.flags && state.flags.wall;
-const pNew = { x: pHead.x + state.player.dir.x, y: pHead.y + state.player.dir.y };
+const p1 = state.player;
+const pNew = { x: p1.body[0].x + p1.dir.x, y: p1.body[0].y + p1.dir.y };
 if (wall) { pNew.x = (pNew.x + gW()) % gW(); pNew.y = (pNew.y + gH()) % gH(); }
 const candidates = [];
 dirs.forEach(function (d) {
@@ -80577,13 +80827,18 @@ if (wall) { nx = (nx + gW()) % gW(); ny = (ny + gH()) % gH(); }
 else if (nx < 0 || nx >= gW() || ny < 0 || ny >= gH()) return;
 const eat = state.foods.some(function (f) { return f.x === nx && f.y === ny; });
 for (let i = 0; i < o.body.length - (eat ? 0 : 1); i++) if (o.body[i].x === nx && o.body[i].y === ny) return;
-for (let i = 0; i < state.player.body.length - 1; i++) if (state.player.body[i].x === nx && state.player.body[i].y === ny) return;
+let blocked = false;
+humans.forEach(function (h) {
+const lim = h.body.length - 1;   // 人类蛇尾尖本 tick 会移走（不吃了尾也算），与旧双蛇判定一致
+for (let i = 0; i < lim; i++) if (h.body[i].x === nx && h.body[i].y === ny) blocked = true;
+});
+if (blocked) return;
 if (nx === pNew.x && ny === pNew.y) return;
 candidates.push(d);
 });
 if (!candidates.length) { o.nextDir = { x: o.dir.x, y: o.dir.y }; return; }
 const target = currentTarget();
-const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head) }; });
+const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head, o) }; });
 scored.sort(function (a, b) { return b.score - a.score; });
 let chosen;
 if ((behavior.current === 'randomTurn' || behavior.current === 'detour') && scored.length >= 2) {
@@ -80593,7 +80848,7 @@ chosen = scored[0].d;
 }
 o.nextDir = chosen;
 }
-function scoreDirection(d, target, head) {
+function scoreDirection(d, target, head, o) {
 const nx = head.x + d.x, ny = head.y + d.y;
 let score = 0;
 if (target) {
@@ -80602,22 +80857,24 @@ const w = behavior.speedUp ? 4 : 2;
 score += (gW() + gH() - dist) * w;
 }
 score += floodFillSize(nx, ny) * 0.6;
-const o = state.opp;
 for (let i = 1; i < o.body.length; i++) {
 const s = o.body[i];
 const dd = Math.abs(nx - s.x) + Math.abs(ny - s.y);
 if (dd <= 1) score -= 8;
 }
-const pHead = state.player.body[0];
-const pd = Math.abs(nx - pHead.x) + Math.abs(ny - pHead.y);
-if (behavior.current === 'avoidPlayer') score -= (12 - pd) * 3;
-else if (behavior.current === 'chasePlayer') score += (12 - pd) * 2;
+let nearest = Infinity;
+humanSnakes().forEach(function (h) {
+const pd = Math.abs(nx - h.body[0].x) + Math.abs(ny - h.body[0].y);
+if (pd < nearest) nearest = pd;
+});
+if (nearest === Infinity) return score;
+if (behavior.current === 'avoidPlayer') score -= (12 - nearest) * 3;
+else if (behavior.current === 'chasePlayer') score += (12 - nearest) * 2;
 return score;
 }
 function floodFillSize(sx, sy) {
 const blocked = {};
-state.player.body.forEach(function (s) { blocked[s.x + ',' + s.y] = true; });
-state.opp.body.forEach(function (s) { blocked[s.x + ',' + s.y] = true; });
+activeSnakes().forEach(function (s) { s.body.forEach(function (p) { blocked[p.x + ',' + p.y] = true; }); });
 const visited = {};
 const q = [[sx, sy]];
 visited[sx + ',' + sy] = true;
@@ -80727,29 +80984,36 @@ if (od <= 5 && ppd <= 5 && od + ppd < bestSum) { bestSum = od + ppd; best = f; }
 if (best) behavior.targetFood = best;
 }
 function checkEnd() {
-const pa = state.player.alive, oa = state.opp.alive;
-if (!pa && !oa) { endGame('draw'); return true; }
-if (!pa) { endGame('lose'); return true; }
-if (!oa) { endGame('win'); return true; }
+const anyDead = activeSnakes().some(function (s) { return !s.alive; });
+if (anyDead) { endGame(); return true; }
 return false;
 }
-function endGame(survival) {
+function endGame() {
 if (!state) return;
 state.status = 'over';
 stopFrame();
 if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
 clearSaved();
-const psFinal = Math.floor(state.player.score), osFinal = Math.floor(state.opp.score);
-const result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
+const mode = state.mode || 'duo';
+const psFinal = Math.floor(state.player.score);
+const osFinal = Math.floor(state.opp.score);
+const p2Final = state.p2 ? Math.floor(state.p2.score) : 0;
+const teamFinal = psFinal + (mode === 'coop' ? p2Final : 0);
+let result;
+if (mode === 'pvp') result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
+else if (mode === 'coop') result = teamFinal > osFinal ? 'win' : teamFinal < osFinal ? 'lose' : 'draw';
+else result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
 if (result === 'win') SFX.win();
 const d = {
 result: result,
+mode: mode,
 pLen: state.player.body.length,
 oLen: state.opp.body.length,
 pFood: state.player.foodCount,
 oFood: state.opp.foodCount,
-pScore: psFinal,
+pScore: mode === 'coop' ? teamFinal : psFinal,
 oScore: osFinal,
+p2Score: p2Final,
 time: Math.floor(state.elapsed / 1000)
 };
 const s = readScore();
@@ -80774,11 +81038,23 @@ showResult(d);
 function showResult(d) {
 if (!resultEl) return;
 const icon = d.result === 'win' ? '🏆' : d.result === 'lose' ? '💔' : '🤝';
-const resTxt = d.result === 'win' ? '你赢了' : d.result === 'lose' ? (window.taFit ? window.taFit('TA 赢了') : 'TA 赢了') : '平局';
+const taName = window.taFit ? window.taFit('TA') : 'TA';
+let resTxt, rows;
+if (d.mode === 'pvp') {
+resTxt = d.result === 'win' ? 'P1 赢了' : d.result === 'lose' ? 'P2 赢了' : '平局';
+rows = '<div class="snake-res-row"><span>🟢 P1</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + psOf(d) + '分</span></div>' +
+'<div class="snake-res-row"><span>🟠 P2</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+} else if (d.mode === 'coop') {
+resTxt = d.result === 'win' ? '组队获胜' : d.result === 'lose' ? taName + ' 赢了' : '平局';
+rows = '<div class="snake-res-row"><span>👥 队伍 (P1+P2)</span><span>' + psOf(d) + ' 分</span></div>' +
+'<div class="snake-res-row"><span>🤖 ' + taName + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+} else {
+resTxt = d.result === 'win' ? '你赢了' : d.result === 'lose' ? (window.taFit ? window.taFit('TA 赢了') : 'TA 赢了') : '平局';
+rows = '<div class="snake-res-row"><span>🐍 你</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + psOf(d) + '分</span></div>' +
+'<div class="snake-res-row"><span>🤖 ' + taName + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+}
 resultEl.innerHTML = '<div class="snake-res-icon">' + icon + '</div>' +
-'<div class="snake-res-title">' + resTxt + '</div>' +
-'<div class="snake-res-row"><span>🐍 你</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + d.pScore + '分</span></div>' +
-'<div class="snake-res-row"><span>🤖 ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>' +
+'<div class="snake-res-title">' + resTxt + '</div>' + rows +
 '<div class="snake-res-time">存活 ' + d.time + ' 秒 · 已分享到聊天 ✓</div>';
 resultEl.hidden = false;
 resultEl.classList.remove('snake-res-pop');
@@ -80788,6 +81064,7 @@ if (restartBtn) restartBtn.hidden = false;
 if (hintEl) hintEl.textContent = '再来一局？';
 refitAll();     // 结算块+再来一局出现后收小画布：半框让方向键一屏可见，全屏防「再来一局」被裁到屏外
 }
+function psOf(d) { return d.pScore; }
 function render(alpha) {
 if (!ctx || !state) return;
 if (alpha == null) alpha = 0;
@@ -80796,22 +81073,31 @@ const cw = W / gW(), ch = H / gH(), cs = Math.min(cw, ch);
 const now = performance.now();
 const dt = renderLastTime ? Math.min(50, now - renderLastTime) : 16;
 renderLastTime = now;
+const dark = themeDark();
 ctx.clearRect(0, 0, W, H);
-ctx.fillStyle = '#f6f6f8';
+ctx.fillStyle = dark ? '#1b1b22' : '#f6f6f8';
 ctx.fillRect(0, 0, W, H);
-ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+ctx.strokeStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
 ctx.lineWidth = 1;
 for (let i = 1; i < gW(); i++) { ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, H); ctx.stroke(); }
 for (let j = 1; j < gH(); j++) { ctx.beginPath(); ctx.moveTo(0, j * ch); ctx.lineTo(W, j * ch); ctx.stroke(); }
 const pulse = 1 + 0.12 * Math.sin(now / 220);
-state.foods.forEach(function (f) {
+state.foods.forEach(function (f, fi) {
+const fx = f.x * cw + cw / 2, fy = f.y * ch + ch / 2;
+const r = cs * 0.32 * (1 + 0.12 * Math.sin(now / 220 + fi * 1.3));
 ctx.fillStyle = '#ff6b6b';
+ctx.beginPath(); ctx.arc(fx, fy + r * 0.08, r, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = 'rgba(255,255,255,0.55)';
+ctx.beginPath(); ctx.arc(fx - r * 0.35, fy - r * 0.3, r * 0.22, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#34c759';
 ctx.beginPath();
-ctx.arc(f.x * cw + cw / 2, f.y * ch + ch / 2, cs * 0.32 * pulse, 0, Math.PI * 2);
+ctx.ellipse(fx + r * 0.3, fy - r * 1.05 * pulse + r * 0.4, r * 0.34, r * 0.16, -0.6, 0, Math.PI * 2);
 ctx.fill();
 });
-drawSnake(state.player, prevPlayerBody, alpha, '#34c759', '#28a745');
-drawSnake(state.opp, prevOppBody, alpha, '#5ac8fa', '#3a9fd6');
+activeSnakes().forEach(function (s) {
+const skin = snakeSkin(s);
+drawSnake(s, alpha, skin[0], skin[1]);
+});
 for (let i = particles.length - 1; i >= 0; i--) {
 const p = particles[i];
 p.life -= dt;
@@ -80830,7 +81116,7 @@ f.life -= dt;
 if (f.life <= 0) { floaters.splice(i, 1); continue; }
 f.y -= dt / 280;
 ctx.globalAlpha = Math.min(1, f.life / 300);
-ctx.fillStyle = '#ff6b6b';
+ctx.fillStyle = dark ? '#ff8a8a' : '#ff6b6b';
 ctx.font = 'bold ' + Math.floor(cs * 0.72) + 'px sans-serif';
 ctx.textAlign = 'center';
 ctx.textBaseline = 'middle';
@@ -80838,12 +81124,14 @@ ctx.fillText(f.text, f.x * cw, f.y * ch);
 }
 ctx.globalAlpha = 1;
 }
-function drawSnake(snake, prevBody, alpha, headColor, bodyColor) {
+function drawSnake(snake, alpha, headColor, bodyColor) {
 if (!snake.body.length) return;
 const cw = cssW / gW(), ch = cssH / gH(), cs = Math.min(cw, ch);
 const dead = !snake.alive;
-const bodyC = dead ? '#cfcfd4' : bodyColor;
-const headC = dead ? '#cfcfd4' : headColor;
+const dark = themeDark();
+const bodyC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : bodyColor;
+const headC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : headColor;
+const prevBody = snake._prev || null;   // 步进前快照（snapshotPrev 统一维护）
 const interp = !dead && prevBody && alpha > 0 && alpha < 1;
 const pts = [];
 for (let i = 0; i < snake.body.length; i++) {
@@ -80869,18 +81157,57 @@ ctx.stroke(); ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y);
 } else ctx.lineTo(pts[i].x, pts[i].y);
 }
 ctx.stroke();
+ctx.strokeStyle = dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.22)';
+ctx.lineWidth = cs * 0.26;
+ctx.beginPath();
+ctx.moveTo(pts[1].x, pts[1].y - cs * 0.14);
+let broken = false;
+for (let i = 2; i < pts.length; i++) {
+const ddx = pts[i].x - pts[i - 1].x, ddy = pts[i].y - pts[i - 1].y;
+if (Math.abs(ddx) > cw * 2 || Math.abs(ddy) > ch * 2) { ctx.stroke(); ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y - cs * 0.14); broken = true; continue; }
+ctx.lineTo(pts[i].x, pts[i].y - cs * 0.14);
+}
+ctx.stroke();
+}
+let hr = cs * 0.46;
+if (snake.eatT) {
+const k = 1 - (now0() - snake.eatT) / 200;
+if (k > 0) hr *= 1 + 0.28 * k; else snake.eatT = 0;
 }
 ctx.fillStyle = headC;
 ctx.beginPath();
-ctx.arc(pts[0].x, pts[0].y, cs * 0.46, 0, Math.PI * 2);
+ctx.arc(pts[0].x, pts[0].y, hr, 0, Math.PI * 2);
 ctx.fill();
 if (!dead) {
 ctx.fillStyle = 'rgba(255,255,255,0.45)';
 ctx.beginPath();
 ctx.arc(pts[0].x - cs * 0.13, pts[0].y - cs * 0.13, cs * 0.15, 0, Math.PI * 2);
 ctx.fill();
+const d = snake.dir;
+const px = -d.y, py = d.x;   // 垂直方向
+const fwx = d.x * cs * 0.14, fwy = d.y * cs * 0.14;
+for (let side = -1; side <= 1; side += 2) {
+const ex = pts[0].x + px * side * cs * 0.19 + fwx;
+const ey = pts[0].y + py * side * cs * 0.19 + fwy;
+ctx.fillStyle = '#fff';
+ctx.beginPath(); ctx.arc(ex, ey, cs * 0.13, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#151515';
+ctx.beginPath(); ctx.arc(ex + fwx * 0.5, ey + fwy * 0.5, cs * 0.065, 0, Math.PI * 2); ctx.fill();
+}
+} else {
+ctx.strokeStyle = dark ? '#888' : '#666';
+ctx.lineWidth = Math.max(1, cs * 0.06);
+const e = cs * 0.12;
+[[-0.18, -0.18], [0.18, -0.18]].forEach(function (off) {
+const ex = pts[0].x + off[0] * cs, ey = pts[0].y + off[1] * cs;
+ctx.beginPath();
+ctx.moveTo(ex - e, ey - e); ctx.lineTo(ex + e, ey + e);
+ctx.moveTo(ex + e, ey - e); ctx.lineTo(ex - e, ey + e);
+ctx.stroke();
+});
 }
 }
+function now0() { return performance.now(); }
 function togglePause() {
 if (!state) return;
 if (state.status === 'playing') {
@@ -80894,32 +81221,52 @@ render(0); // 暂停时对齐到整格位置
 state.status = 'playing';
 state.startTime += Date.now() - pauseAt;
 if (pauseBtn) pauseBtn.textContent = '⏸';
-if (hintEl) hintEl.textContent = '滑动 / 方向键控制 · 别撞墙';
+if (hintEl) hintEl.textContent = curMode() === 'duo' ? '滑动 / 方向键控制 · 别撞墙' : modeHint();
 startFrame();
 }
 }
 function toggleFs() {
 isFs = !isFs;
-if (panel) panel.classList.toggle('snake-fs', isFs);
+if (panel) {
+panel.classList.toggle('snake-fs', isFs);
+panel.classList.remove('snake-fs-in');
+if (isFs) { void panel.offsetWidth; panel.classList.add('snake-fs-in'); }
+}
 if (fsBtn) fsBtn.textContent = isFs ? '⤢' : '⛶';
 setupCanvas();
 render(0);
 }
 function canSave(s) { return s && s.status === 'playing'; }
+function stripPrev(s) {
+const c = s;   // 浅拷贝去渲染层字段（_prev 不入存档）
+const out = {};
+Object.keys(c).forEach(function (k) { if (k !== '_prev') out[k] = c[k]; });
+return out;
+}
 function saveGame() {
 try {
 if (!canSave(state)) { localStorage.removeItem(keySaved()); return; }
-localStorage.setItem(keySaved(), JSON.stringify(state));
+const cp = Object.assign({}, state);
+cp.player = stripPrev(state.player);
+cp.opp = stripPrev(state.opp);
+if (state.p2) cp.p2 = stripPrev(state.p2);
+localStorage.setItem(keySaved(), JSON.stringify(cp));
 } catch (e) {}
 }
 function validCoord(p, w, h) { return p && p.x >= 0 && p.x < w && p.y >= 0 && p.y < h; }
+function validSnake(s, w, h) {
+return s && s.body && Array.isArray(s.body) && s.body.length && s.body.every(function (p) { return validCoord(p, w, h); }) && s.dir;
+}
 function validState(s) {
 if (!s || !s.player || !s.opp) return false;
 const w = Math.max(10, Math.min(42, s.gw || 15));
 const h = Math.max(10, Math.min(48, s.gh || 15));
 s.gw = w; s.gh = h;
-if (!s.player.body.every(function (p) { return validCoord(p, w, h); }) || !s.opp.body.every(function (p) { return validCoord(p, w, h); })) return false;
+if (!validSnake(s.player, w, h) || !validSnake(s.opp, w, h)) return false;
 if (s.foods && !s.foods.every(function (p) { return validCoord(p, w, h); })) return false;
+if (s.mode === 'pvp' || s.mode === 'coop') {
+if (!validSnake(s.p2, w, h)) { s.mode = 'duo'; s.p2 = null; if (s.opp) s.opp.ctrl = 'ai'; }
+} else { s.mode = 'duo'; s.p2 = null; }
 return true;
 }
 function loadSaved() {
@@ -80940,6 +81287,7 @@ state = s;
 if (!state.flags) state.flags = { wall: false, safe: false };
 if (wallBtn) wallBtn.classList.toggle('on', state.flags.wall);
 if (safeBtn) safeBtn.classList.toggle('on', state.flags.safe);
+if (state.mode === 'pvp' || state.mode === 'coop') { clearSaved(); resetToIdle(state.diff); if (hintEl) hintEl.textContent = '双人存档暂不跨局恢复 · 已回到待开局'; return true; }
 behavior = { current: null, until: 0, stepLeft: 0, cooldowns: {}, targetFood: null, speedUp: false, speedUpUntil: 0 };
 setupCanvas();   // 按存档自带地图尺寸重新适配画布（可能与当前视口推算尺寸不同）
 state.status = 'playing';
@@ -80969,6 +81317,8 @@ pname = (nst && (nst.get('cs-lbl-partner') || nst.get('lbl-partner'))) || pname;
 } catch (e) {}
 nameEl.textContent = pname;
 }
+if (modeSel) { const m = lsGet(keyMode()); if (m && MODES[m]) modeSel.value = m; }
+if (foodSel) { const fn = parseInt(lsGet(keyFoodN()), 10); if (fn >= 2 && fn <= 8) foodSel.value = String(fn); }
 panel.hidden = false;
 renderScore();
 renderBest();   // 最长纪录行要先落到 DOM：toggleFs 会按当时可见的兄弟块量画布，晚一行就把按钮顶出屏
@@ -81000,15 +81350,16 @@ if (startBtn) { startBtn.hidden = false; startBtn.textContent = '重新开始'; 
 resetToIdle();
 }
 }
-function resetToIdle() {
+function resetToIdle(keepDiff) {
 stopLoop();
+if (keepDiff && diffSel) diffSel.value = keepDiff;
 newGame(diffSel ? diffSel.value : 'normal');
 state.status = 'idle';
 if (startBtn) { startBtn.hidden = false; startBtn.textContent = '开始'; }
 if (restartBtn) restartBtn.hidden = true;
 if (resumeBtn) resumeBtn.hidden = true;
 if (resultEl) { resultEl.hidden = true; resultEl.innerHTML = ''; }
-if (hintEl) hintEl.textContent = '点开始 · 滑动控制方向';
+if (hintEl) hintEl.textContent = modeHint();
 refitAll();     // 最长纪录行/继续上局按钮显隐后再量一次，避免按钮被挤到屏外
 render(0);
 }
@@ -81028,13 +81379,15 @@ window.closeSnakePanel = closeSnakePanel;
 window.__snakeState = function () {
 if (!state) return null;
 return {
-status: state.status, diff: state.diff, gw: state.gw, gh: state.gh,
+status: state.status, diff: state.diff, mode: state.mode, gw: state.gw, gh: state.gh,
+foodTarget: state.foodTarget,
 running: !!(rafId || countdownTimer),
 player: { body: cloneBody(state.player.body), alive: state.player.alive, score: Math.floor(state.player.score),
 dir: { x: state.player.dir.x, y: state.player.dir.y },
 nextDir: state.player.nextDir ? { x: state.player.nextDir.x, y: state.player.nextDir.y } : null,
 nextDir2: state.player.nextDir2 ? { x: state.player.nextDir2.x, y: state.player.nextDir2.y } : null },
-opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score) },
+p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score) } : null,
+opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl },
 foods: state.foods.map(function (f) { return { x: f.x, y: f.y }; }),
 elapsed: state.elapsed
 };
@@ -92022,6 +92375,7 @@ const HUB = [
 { n: '搜索聊天记录', d: '按关键词/日期搜聊天记录并跳转', k: '搜索 查找 记录', go: ['.app[data-app="chat"]', '#more-search'] },
 { n: '批量发送', d: '一次编排多条消息（表情/图片/文字）按顺序发送', k: '批量 连发', go: ['.app[data-app="chat"]', '#chat-batch-btn'] },
 { n: '语音消息', d: '录音最长 60 秒，试听后发语音', k: '语音 录音 麦克风', go: ['.app[data-app="chat"]', '#chat-mic-btn'] },
+{ n: '继续说', d: '让 TA 接着当前话题再说一段（输入栏「继续说」按钮）', k: '继续说 接着 续聊 续写', where: '聊天输入栏上的「继续说」按钮' },
 { n: '表情包管理', d: '我的表情包分组/上传/批量删除（聊天表情面板）', k: '表情包 表情 管理 上传 分组 斗图', go: ['.app[data-app="chat"]', '#chat-emoji-btn'] },
 { n: '批量提问问卷', d: '你批量出题，TA 限时作答交卷', k: '问卷 提问 批量 出题 考试 答题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask', '#ta-ask-survey-open'] },
 { n: '拍一拍', d: '拍 TA 一下，TA 也会拍回来', k: '拍一拍 互动', go: ['.app[data-app="chat"]', '#more-poke'] },
@@ -92212,8 +92566,11 @@ const HUB = [
 { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },
 { n: '卡顿自检 · 一键优化', d: '字卡库数据过大卡顿时，扫描分级并一键预热修复', k: '卡顿 优化 性能 流畅 预热', go: ['#row-perf-optimize'] },
 { n: '清除本地数据', d: '清空本机应用数据（重置前请先导出备份）', k: '清除 重置 清空 恢复出厂', go: ['#row-reset'] },
-{ n: '后台保活与通知', d: '切后台保持连接与通知提醒（设置页底部开关）', k: '后台 保活 通知 推送', where: '设置页底部「后台保活 / 后台通知」开关' },
-{ n: '应用锁', d: '数字密码锁，防别人偷看聊天记录', k: '应用锁 密码 隐私 锁', where: '设置页「应用锁」分组' },
+{ n: '后台保活', d: '切后台保持运行（静音音频保活），消息不中断', k: '后台 保活 运行 静音 切后台', go: ['#bg-keepalive'] },
+{ n: '后台通知', d: '开后台消息提醒弹窗（自动请求权限并联动开启保活）', k: '通知 推送 提醒 弹窗 权限', go: ['#bg-notify'] },
+{ n: '测试通知', d: '发一条测试通知并诊断本机通知环境', k: '通知 测试 诊断 收不到 提醒', go: ['#bg-notify-test'] },
+{ n: '应用锁', d: '数字密码锁，每次打开本站需输密码，防别人偷看', k: '应用锁 密码 隐私 锁', go: ['#applock-en'] },
+{ n: '应用锁安全问题', d: '设安全问题，忘记密码时用它重置密码', k: '安全问题 重置 密码 找回 应用锁', go: ['#applock-qa-en'] },
 { n: '字卡锁（未成年人保护）', d: '防未成年人模式：内置字卡全锁定，二级验证密码解锁', k: '字卡锁 未成年人 保护 锁 密码 解锁', where: '开屏公告区的「内置字卡锁定」卡，点「输入密码解锁」' },
 { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
 { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
@@ -92815,6 +93172,9 @@ try {
 var scroller = active.closest('.chat-body, .card-list, .gs-scroll, .tc-body, .mem-scroll, .cal-scroll, .div-scroll, .fav-list, .mail-list, .qa-body, .modal, .chat-ask-body, .poke-card-scroll, .chat-decision-body');
 if (!scroller) return;
 var sr = scroller.getBoundingClientRect();
+var geomKey = Math.round(sr.bottom) + 'x' + Math.round(sr.width) + 'x' + Math.round(r.height);
+if (scroller.__nudgeGeom === geomKey) return;
+scroller.__nudgeGeom = geomKey;
 if (r.bottom > sr.bottom - 8) {
 scroller.scrollTop = Math.max(0, scroller.scrollTop + (r.bottom - sr.bottom) + 16);
 }
@@ -94107,4 +94467,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1tyn7a -->
+<!-- __MOCHI_EOF__ mu1vyb20 -->

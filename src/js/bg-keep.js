@@ -1165,7 +1165,7 @@
   const NOTIFY_CHAT_DUP_MS = 5 * 60000;  // v3.20.x：历史聊天查重 15→5 分钟
   const NOTIFY_SENT_DUP_MS = 2 * 60000;  // v3.20.x：已发通知查重 6→2 分钟
   const NOTIFY_SEEN_DUP_MS = 3 * 60000;  // v3.20.x：前台看过记忆 15→3 分钟
-  let lastNotifySentAt = 0; // v3.22.x：上一条通知发出时刻（批量连发判定用）
+  // v3.23.x：lastNotifySentAt 已随 batchBurst 一并移除（重放放大器，见 bgNotifyCheck 内注释）
   // 通知文本归一化：剥 dataURL/语音 ||| 段/SVG 标签，去空白后取前 100 字符做指纹
   function normNotifyKey(raw) {
     let s = String(raw || '');
@@ -1249,11 +1249,14 @@
           t = t.split('|||')[0];
         }
         const mf = msgFingerprint(t, img);
-        // v3.21.x：精确相等查重加「该历史条目距本次到达 <60 秒」条件——同内容但
-        // 隔了一分钟以上的新消息是 TA 真的又说了一遍，必须弹（此前 5 分钟窗口内
-        // 任何同文案都被吞，字卡池小的时候严重误杀）
-        if (mf === key && mts && refTs && refTs - mts < 60000) return true;
-        if (mf === key && (!mts || !refTs)) return true; // 无时间戳兜底，保守拦截
+        // v3.23.x：恢复精确相等无条件拦截（回退 v3.21.x 的 60 秒豁免）——
+        // 60 秒豁免实测 reopen 了重放：用户在前台看过的字卡内容，切后台后
+        // 自动发送/冻结定时器补跑撞车同内容（间隔 >60 秒）→ 照弹「几分钟前
+        // 看过的消息」（红米 K80 等多设备复现）。字卡池有限，内容撞车无法与
+        // 「TA 真的又说了一遍」区分，用户口径：近期（5 分钟窗口）同内容一律不弹，
+        // 消息本体照常进聊天。防「收不到」用 v3.21.x 的 1.6 倍包含收紧即可（保留），
+        // 精确相等不再放开
+        if (mf === key) return true;
         // v3.14.x：双向包含兜底——互动卡的通知文本是「前缀+卡面」（如「TA想问你一个问题：」+
         // 卡面、「TA 来查岗了：」+卡面），聊天记录里存的却是裸卡面/裸提示语条目，精确相等
         // 永远对不上 → 已看过的卡片再被任何机制触发时照样重弹系统通知。
@@ -1341,13 +1344,13 @@
     // 前台久驻后（如看了 10 分钟）它很旧，切后台瞬间积压的定时器批量到点产生的
     // 一堆消息会全部通过闸门 → 弹出大量看过的内容。改为切后台头 15 秒内一律不弹
     if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS) { gateStats.tooFresh++; return; }
-    // v3.22.x：批量连发不因内容相同被吞——TA 一次主动发送可连发多条（间隔数秒），
-    // 字卡撞车时第二条起全被 notifiedDup（2 分钟窗口）吞掉，用户体感「时有时无/只收到
-    // 一条」。上一条通知发出 <30 秒内的同文案视为同一批连发，放行不查重
-    const batchBurst = lastNotifySentAt && Date.now() - lastNotifySentAt < 30000;
-    if (!force && !batchBurst && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
-    if (!force && !batchBurst && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
-    lastNotifySentAt = Date.now();
+    // v3.23.x：回退 v3.22.x 的 batchBurst（30 秒内同文案放行）——实测是重放放大器：
+    // 切后台后 15 秒过渡期一过，撞车内容在上一条通知 30 秒内可绕过全部去重再次弹出，
+    // 正是「切后台马上弹几分钟前看过的消息」的组成来源。v3.22.x 想解决的「批量连发
+    // 撞车只弹一条」从未有用户反馈，属于臆造场景；真正的批量连发各条内容不同，
+    // 本就不会被内容去重拦截
+    if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
+    if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
     gateStats.sent++;
     // v3.19.x：累加「本次后台实际发送的通知数」——回前台汇总用它（见 visibilitychange
     // 处理器），发送者名取本次通知标题

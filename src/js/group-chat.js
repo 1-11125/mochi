@@ -619,11 +619,19 @@
     else body.appendChild(m);
     pruneGcDom();
   }
+  // FIX 2026-09-15 #491 渲染期消息身份锚（对齐聊天页 msgKeyOf）——msgs 可能【开菜单之前】
+  // 已中段位移而气泡未重渲＝陈旧 gcIdx 开场即锁错条；data-mk 记「这个节点当时画的是哪条」，
+  // 开菜单按 mk 反查真实那条，不随数组位移漂移
+  function gcMsgKeyOf(rec) {
+    if (!rec) return '';
+    return (rec.ts || 0) + '|' + (rec.side || '') + '|' + (rec.type || '') + '|' + String(rec.text || '').slice(0, 80);
+  }
   function renderMsg(rec, idx, beforeEl) {
     const m = document.createElement('div');
     m.className = 'msg ' + (rec.side === 'out' ? 'msg-out' : 'msg-in');
     if (idx === undefined) idx = msgs.length - 1;
     m.dataset.gcIdx = idx;
+    m.dataset.mk = gcMsgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入
     const timeHtml = rec.ts ? '<span class="msg-time">' + fmtTime(rec.ts) + '</span>' : '';
     if (rec.side === 'out') {
       m.innerHTML = '<div class="msg-bubble"></div><div class="msg-side"><div class="msg-av"></div>' + timeHtml + '</div>';
@@ -3047,8 +3055,16 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       // FIX 2026-09-13 #407：打开时快照身份（对象引用+ts/side/text 签名）——msgs 重排+
       // DOM 未重渲窗口期里 dataset.gcIdx 陈旧会串条，动作执行时由 gcResolveActiveMsg 重定位
       const _gi = (item && item.dataset && item.dataset.gcIdx !== undefined) ? Number(item.dataset.gcIdx) : -1;
-      const _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
-      gcActiveMsgSnap = { idx: _gi, rec: _gr, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
+      const _gmk = (item && item.dataset && item.dataset.mk) || '';
+      let _gr = (_gi >= 0 && msgs[_gi]) ? msgs[_gi] : null;
+      // FIX 2026-09-15 #491 渲染期身份锚优先解析（对齐聊天页 openMsgActionsAt）——快照若按
+      // 开菜单前已位移的陈旧 gcIdx 取＝开场即锁错条；按 mk 反查真实那条，查无才回退旧下标
+      let _gj = _gi;
+      if (_gmk) {
+        _gj = msgs.findIndex(gmkMsg => gcMsgKeyOf(gmkMsg) === _gmk);
+        if (_gj >= 0) _gr = msgs[_gj]; else _gj = _gi;
+      }
+      gcActiveMsgSnap = { idx: _gj, rec: _gr, mk: _gmk, ts: _gr ? (_gr.ts || 0) : 0, side: _gr ? (_gr.side || '') : '', text: _gr ? String(_gr.text || '').slice(0, 80) : '' };
       // 对齐聊天页：删除按钮按「允许删除联系人消息」开关（cs-del-ta-msg）显隐，
       // 仅成员消息可删；开关默认关，在群聊设置→输入与消息 里开启
       const delBtn = gcMsgActions.querySelector('.ma-del-gc');

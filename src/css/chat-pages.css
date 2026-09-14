@@ -3097,6 +3097,10 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 #chat-snake-panel.snake-fs .snake-dp { font-size:min(7vw, 5.6vh); border-radius:min(3vw, 2.4vh); }
 .snake-res-pop { animation: snakeResPop .32s cubic-bezier(.2,.9,.3,1.2) both; }
 @keyframes snakeResPop { from { opacity:0; transform:scale(.7); } to { opacity:1; transform:scale(1); } }
+/* 全屏切换入场过渡（JS toggleFs 挂 snake-fs-in）：收敛瞬切生硬感；画布暗色底与 JS 绘制底色一致 */
+.snake-fs-in { animation: snakeFsIn .26s ease-out; }
+@keyframes snakeFsIn { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
+[data-theme="dark"] .snake-canvas { background:#1b1b22; }
 /* 死亡瞬间反馈（结算浮层延迟弹，JS 端挂 snk-die/-red）：冻结的最后一帧画布整体抖动，
    我方死亡追加红色外晕一闪（画布是替换元素，inset 阴影会被位图盖住，故用外晕） */
 .snake-canvas.snk-die { animation: snkdie .5s ease-out both; }

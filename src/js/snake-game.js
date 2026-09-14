@@ -1,6 +1,6 @@
-// ===== 双人贪吃蛇（聊天更多功能 · 我 vs TA，TA 带行为池 AI）=====
-// 20×20 地图 / 双蛇同时移动 / 统一碰撞结算（公平）/ TA=生存判断+目标评分+概率行为池+冷却
-// 难度（速度）+ 暂停 + 全屏 + 保存/继续对局（localStorage）
+// ===== 贪吃蛇（聊天更多功能 · 三模式：我 vs TA / 双人同屏对战 / 双人组队 vs TA）=====
+// 20×20 地图 / 同屏最多 3 条蛇（P1+P2+TA AI）/ 统一碰撞结算（公平）/ TA=行为池 AI
+// 难度（速度）+ 食物数量可选 + 暂停 + 全屏 + 保存/继续对局（localStorage）
 (function () {
   'use strict';
   // v3.15.x：地图格数动态化——半框固定 15×15 基准；全屏时按可视区实际剩余空间放大
@@ -9,7 +9,7 @@
   let GW = 15, GH = 15;
   const FS_CELL = 21;                  // 全屏地图目标格子尺寸（逻辑 px）——偏小让地图更大
   const INIT_LEN = 3;
-  const FOOD_TARGET = 2;
+  const FOOD_TARGET = 2;               // 默认同屏食物数（可在头部选择器调 2/4/6/8）
   // FIX 2026-09-12 #349 多桌面串名串档根因：此前的 PREFIX/KEY/SAVE_KEY/BEST_KEY/PARTNER_KEY
   // 是【模块加载时冻结】的桌面命名空间——页面加载时在 A 桌面，之后切到 B 桌面开贪吃蛇，
   // 标题昵称/战绩/最高分/存档读写的仍是 A 桌面的键（跨桌面串数据，任何机型浏览器必现）。
@@ -20,6 +20,8 @@
   function keyScore() { return prefix() + ':snake-score'; }
   function keySaved() { return prefix() + ':snake-saved'; }
   function keyBest() { return prefix() + ':snake-best'; }
+  function keyMode() { return prefix() + ':snake-mode'; }
+  function keyFoodN() { return prefix() + ':snake-foodn'; }
 
   // 难度：tick 间隔(ms)按时间段 [0-30s, 30-60s, 60-90s, 90s+]
   // 配合 rAF 插值渲染，蛇身视觉连续滑动；逻辑步进间隔可适当放慢以保持可操作性
@@ -27,6 +29,11 @@
     easy:   { ticks: [200, 180, 160, 140] },
     normal: { ticks: [150, 130, 115, 100] },
     hard:   { ticks: [105, 90, 80, 70] }
+  };
+  const MODES = {
+    duo:  { label: '我 vs TA' },
+    pvp:  { label: '双人对战' },
+    coop: { label: '双人组队' }
   };
 
   const BEHAVIORS = {
@@ -41,7 +48,7 @@
     detour:        { prob: 0.07, cd: 7000 }
   };
 
-  let panel, canvas, ctx, scoreEl, hintEl, startBtn, restartBtn, resumeBtn, resultEl, dpadEl, diffSel, pauseBtn, fsBtn, wallBtn, safeBtn, bestEl;
+  let panel, canvas, ctx, scoreEl, hintEl, startBtn, restartBtn, resumeBtn, resultEl, dpadEl, diffSel, modeSel, foodSel, pauseBtn, fsBtn, wallBtn, safeBtn, bestEl;
   let state = null;
   let behavior = null;
   let loopTimer = null, countdownTimer = null;
@@ -55,10 +62,35 @@
   let pauseAt = 0;
   let cssW = 360, cssH = 360, dpr = 1;   // 画布 CSS 尺寸（全屏由 setupCanvas 按剩余空间计算）
   let particles = [], floaters = [], renderLastTime = 0;
+  // 多点触控分轨（双人模式：左半屏=P1、右半屏=P2；经典模式整块画布都归 P1）
+  let touchTracks = {};
 
   // 当前生效的地图格数：进行中对局用自己的尺寸，空闲/下一局用视口推算的 GW/GH
   function gW() { return (state && state.gw) || GW; }
   function gH() { return (state && state.gh) || GH; }
+  function curMode() { return (state && state.mode) || (modeSel && modeSel.value) || 'duo'; }
+  function foodTargetN() { return (state && state.foodTarget) || FOOD_TARGET; }
+  // 同屏蛇列表（统一结算/渲染顺序：P1 → P2 → TA）
+  function activeSnakes() {
+    if (!state) return [];
+    const a = [state.player];
+    if (state.p2) a.push(state.p2);
+    a.push(state.opp);
+    return a;
+  }
+  function humanSnakes() { return activeSnakes().filter(function (s) { return s.ctrl !== 'ai'; }); }
+  // 配色：P1 绿 / P2 橙 / TA 蓝（pvp 时对面那条 ctrl='p2' 用 P2 橙）
+  function snakeSkin(s) {
+    if (s === state.player) return ['#34c759', '#28a745'];
+    if (s.ctrl === 'p2') return ['#ff9f0a', '#e08600'];
+    return ['#5ac8fa', '#3a9fd6'];
+  }
+  function snakeLabel(s) {
+    if (s === state.player) return 'P1';
+    if (s.ctrl === 'p2') return 'P2';
+    return (window.taFit ? window.taFit('TA') : 'TA');
+  }
+  function themeDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 
   function vib(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} }
 
@@ -104,7 +136,8 @@
       const b = readBest();
       const diff = state.diff || 'normal';
       const cur = b[diff] || { score: 0, len: 0 };
-      const ps = Math.floor(state.player.score);
+      // 组队模式按队伍合计分（P1+P2）计入最高分，长度仍取 P1
+      const ps = Math.floor(state.player.score) + (state.mode === 'coop' && state.p2 ? Math.floor(state.p2.score) : 0);
       const pl = state.player.body.length;
       let changed = false;
       if (result === 'win' && ps > cur.score) { cur.score = ps; changed = true; }
@@ -217,6 +250,8 @@
     resultEl = $('snake-result');
     dpadEl = $('snake-dpad');
     diffSel = $('snake-diff');
+    modeSel = $('snake-mode');
+    foodSel = $('snake-food');
     pauseBtn = $('snake-pause');
     fsBtn = $('snake-fs');
     wallBtn = $('snake-wall');
@@ -229,6 +264,23 @@
     if (fsBtn) fsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFs(); });
     if (wallBtn) wallBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFlag('wall'); });
     if (safeBtn) safeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFlag('safe'); });
+    // 模式偏好：记忆上次选择；空闲态即时按新模式重摆蛇位（对局中不打断，下一局生效）
+    if (modeSel) modeSel.addEventListener('change', function (e) {
+      e.stopPropagation();
+      try { localStorage.setItem(keyMode(), modeSel.value); } catch (er) {}
+      if (state && (state.status === 'idle' || state.status === 'over')) {
+        const keepDiff = state.diff;
+        state = null;
+        resetToIdle(keepDiff);
+      }
+      if (hintEl && state && state.status === 'idle') hintEl.textContent = modeHint();
+    });
+    // 食物数量偏好：对局中调整也即时补food（下一 tick maintainFood 补齐）
+    if (foodSel) foodSel.addEventListener('change', function (e) {
+      e.stopPropagation();
+      try { localStorage.setItem(keyFoodN(), foodSel.value); } catch (er) {}
+      if (state) { state.foodTarget = parseInt(foodSel.value, 10) || FOOD_TARGET; if (state.status !== 'playing') maintainFood(); }
+    });
     const closeBtn = $('chat-snake-close');
     if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); closeSnakePanel(); });
     setupInput();
@@ -239,26 +291,43 @@
     });
   }
 
+  function modeHint() {
+    const m = curMode();
+    if (m === 'pvp') return '点开始 · P1 左半屏/方向键 · P2 右半屏/WASD';
+    if (m === 'coop') return '点开始 · 组队对抗 TA · P2 用 WASD/右半屏';
+    return '点开始 · 滑动控制方向';
+  }
+
   function setupInput() {
     if (!canvas) return;
-    // 滑动控制：touchmove 实时识别方向 + 主轴锁定防误触，一次滑动可连续多次转向
+    // 滑动控制：touchmove 实时识别方向 + 主轴锁定防误触，一次滑动可连续多次转向。
+    // 双人（pvp/coop）按 touchstart 落点分轨：左半屏→P1、右半屏→P2；每根手指独立轨迹互不干扰。
     const TH = 12; // 转向触发阈值(px)
+    function zoneOf(t) {
+      if (curMode() === 'duo') return 'p1';
+      const r = canvas.getBoundingClientRect();
+      return (t.clientX - r.left) < r.width / 2 ? 'p1' : 'p2';
+    }
     canvas.addEventListener('touchstart', function (e) {
-      const t = e.touches[0];
-      touchBase = { x: t.clientX, y: t.clientY };
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        touchTracks[t.identifier] = { zone: zoneOf(t), base: { x: t.clientX, y: t.clientY }, lastDir: null, lockAxis: null };
+      }
+      // 单指场景保留旧全局基点语义（兼容既有单指滑动习惯）
+      const t0 = e.touches[0];
+      touchBase = { x: t0.clientX, y: t0.clientY };
       lastTouchDir = null;
       lockAxis = null;
     }, { passive: true });
-    canvas.addEventListener('touchmove', function (e) {
-      if (!touchBase) return;
-      const t = e.touches[0];
-      const dx = t.clientX - touchBase.x, dy = t.clientY - touchBase.y;
+    function trackMove(tr, cx, cy) {
+      const dx = cx - tr.base.x, dy = cy - tr.base.y;
       const adx = Math.abs(dx), ady = Math.abs(dy);
       if (adx < TH && ady < TH) return;
       // #221 轴锁可解锁：锁定轴响应转向；另一轴偏移显著反超（>1.5×）时改锁并转向——
       // 原实现一次触摸锁死横/竖轴，L 形拖动（先右后上）必须抬手重滑才能转向＝「按了没反应」；
       // 1.5× 反超门槛让 45° 斜滑仍沿主轴走不抖动。
       let dir = null;
+      let lockAxis = tr.lockAxis;
       if (lockAxis === 'h') {
         if (ady >= TH && ady > adx * 1.5) { lockAxis = 'v'; dir = dy > 0 ? 'd' : 'u'; }
         else if (adx >= TH) dir = dx > 0 ? 'r' : 'l';
@@ -270,24 +339,36 @@
         if (lockAxis === 'h') { if (adx >= TH) dir = dx > 0 ? 'r' : 'l'; }
         else { if (ady >= TH) dir = dy > 0 ? 'd' : 'u'; }
       }
+      tr.lockAxis = lockAxis;
       if (!dir) return;
       // #221 无论方向是否变化都把基点跟到当前点：同向重复滑动若不重置基点，
       // 位移在旧基点上持续累积，之后拐弯时另一轴偏移对累计位移的 1.5× 反超
       // 永远不成立 → L 形拖动拐不了弯（无头浏览器复现实测）。
-      touchBase = { x: t.clientX, y: t.clientY };
-      if (dir === lastTouchDir) return;
-      if (dir === 'u') setPlayerDir(0, -1);
-      else if (dir === 'd') setPlayerDir(0, 1);
-      else if (dir === 'l') setPlayerDir(-1, 0);
-      else setPlayerDir(1, 0);
+      tr.base = { x: cx, y: cy };
+      if (dir === tr.lastDir) return;
+      if (dir === 'u') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(0, -1);
+      else if (dir === 'd') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(0, 1);
+      else if (dir === 'l') (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(-1, 0);
+      else (tr.zone === 'p2' ? setP2Dir : setPlayerDir)(1, 0);
+      tr.lastDir = dir;
+      // 单指场景同步旧全局态（调试口/老习惯兼容）
+      touchBase = { x: cx, y: cy };
       lastTouchDir = dir;
+    }
+    canvas.addEventListener('touchmove', function (e) {
+      if (!e.changedTouches) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        const tr = touchTracks[t.identifier];
+        if (tr) trackMove(tr, t.clientX, t.clientY);
+      }
     }, { passive: true });
-    canvas.addEventListener('touchend', function () {
-      touchBase = null; lastTouchDir = null; lockAxis = null;
-    }, { passive: true });
-    canvas.addEventListener('touchcancel', function () {
-      touchBase = null; lastTouchDir = null; lockAxis = null;
-    }, { passive: true });
+    function trackEnd(e) {
+      for (let i = 0; i < e.changedTouches.length; i++) delete touchTracks[e.changedTouches[i].identifier];
+      if (!e.touches || !e.touches.length) { touchBase = null; lastTouchDir = null; lockAxis = null; }
+    }
+    canvas.addEventListener('touchend', trackEnd, { passive: true });
+    canvas.addEventListener('touchcancel', trackEnd, { passive: true });
     if (dpadEl) {
       // #221 pointerdown 即时转向：原 click 依赖 touchend 后合成，移动端慢一拍且快速连点
       // 两键时第二次 click 可能不触发；pointerdown 原生即时，click 保留兜底（鼠标/无指针环境）。
@@ -311,20 +392,25 @@
       if (!panel || panel.hidden) return;
       if (!state || state.status !== 'playing') return;
       const k = e.key.toLowerCase();
+      const m = curMode();
       let used = true;
-      if (k === 'arrowup' || k === 'w') setPlayerDir(0, -1);
-      else if (k === 'arrowdown' || k === 's') setPlayerDir(0, 1);
-      else if (k === 'arrowleft' || k === 'a') setPlayerDir(-1, 0);
-      else if (k === 'arrowright' || k === 'd') setPlayerDir(1, 0);
+      // 双人模式分工：方向键=P1、WASD=P2；经典模式两套键都归 P1
+      if (k === 'arrowup' || (m === 'duo' && k === 'w')) setPlayerDir(0, -1);
+      else if (k === 'arrowdown' || (m === 'duo' && k === 's')) setPlayerDir(0, 1);
+      else if (k === 'arrowleft' || (m === 'duo' && k === 'a')) setPlayerDir(-1, 0);
+      else if (k === 'arrowright' || (m === 'duo' && k === 'd')) setPlayerDir(1, 0);
+      else if (m !== 'duo' && k === 'w') setP2Dir(0, -1);
+      else if (m !== 'duo' && k === 's') setP2Dir(0, 1);
+      else if (m !== 'duo' && k === 'a') setP2Dir(-1, 0);
+      else if (m !== 'duo' && k === 'd') setP2Dir(1, 0);
       else used = false;
       if (used) e.preventDefault();
     });
   }
 
-  function setPlayerDir(x, y) {
-    if (!state || state.status !== 'playing') return;
-    const p = state.player;
-    if (!p.alive) return;
+  // #221 双槽输入队列通用化：P1/P2 共用同一套入队逻辑（锚点行保持原文本）。
+  function setSnakeDir(p, x, y) {
+    if (!p || !p.alive) return;
     // #221 双槽输入队列：nextDir 是「下一步」、nextDir2 是「下下一步」，一个 tick 内连给的
     // 两个转向（如急转弯 上→左）不再互相覆盖吞输入——单槽时后给的把先给的挤掉，玩家感知「按了没反应」。
     const last = p.nextDir2 || p.nextDir || p.dir;
@@ -335,25 +421,53 @@
     else { p.nextDir = p.nextDir2; p.nextDir2 = { x: x, y: y }; }
     vib(8);
   }
+  function setPlayerDir(x, y) {
+    if (!state || state.status !== 'playing') return;
+    setSnakeDir(state.player, x, y);
+  }
+  function setP2Dir(x, y) {
+    if (!state || state.status !== 'playing') return;
+    if (state.opp && state.opp.ctrl === 'p2') setSnakeDir(state.opp, x, y);
+    else if (state.p2) setSnakeDir(state.p2, x, y);
+  }
+
+  function mkSnake(body, dir, ctrl) {
+    return { body: body, dir: dir, nextDir: { x: dir.x, y: dir.y }, nextDir2: null, alive: true, score: 0, foodCount: 0, ctrl: ctrl, eatT: 0, _prev: null };
+  }
 
   function newGame(diff) {
+    const mode = curMode();
     const py = Math.floor(GH / 2);
+    const prevFlags = state && state.flags || { wall: false, safe: false };
     const playerBody = [];
     for (let i = 0; i < INIT_LEN; i++) playerBody.push({ x: 4 - i, y: py });
-    const oppBody = [];
-    for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
-    const prevFlags = state && state.flags || { wall: false, safe: false };
     state = {
       diff: diff || 'normal',
+      mode: mode,
       gw: GW, gh: GH,
-      player: { body: playerBody, dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 }, alive: true, score: 0, foodCount: 0 },
-      opp:    { body: oppBody,    dir: { x: -1, y: 0 }, nextDir: { x: -1, y: 0 }, alive: true, score: 0, foodCount: 0 },
+      foodTarget: foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET,
+      player: mkSnake(playerBody, { x: 1, y: 0 }, 'p1'),
+      p2: null,
+      opp: null,
       foods: [],
       status: 'idle',
       startTime: 0,
       elapsed: 0,
       flags: { wall: prevFlags.wall, safe: prevFlags.safe }
     };
+    // 布位：duo/pvp 左右对峙；coop 双人左右、TA 居中靠上朝下
+    if (mode === 'coop') {
+      const oppBody = [];
+      for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: Math.floor(GW / 2), y: 3 - i });
+      state.opp = mkSnake(oppBody, { x: 0, y: 1 }, 'ai');
+      const p2Body = [];
+      for (let i = 0; i < INIT_LEN; i++) p2Body.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
+      state.p2 = mkSnake(p2Body, { x: -1, y: 0 }, 'p2');
+    } else {
+      const oppBody = [];
+      for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
+      state.opp = mkSnake(oppBody, { x: -1, y: 0 }, mode === 'pvp' ? 'p2' : 'ai');
+    }
     if (wallBtn) wallBtn.classList.toggle('on', state.flags.wall);
     if (safeBtn) safeBtn.classList.toggle('on', state.flags.safe);
     behavior = { current: null, until: 0, stepLeft: 0, cooldowns: {}, targetFood: null, speedUp: false, speedUpUntil: 0 };
@@ -382,7 +496,7 @@
         n--;
         countdownTimer = setTimeout(countdownStep, 700);
       } else {
-        if (hintEl) hintEl.textContent = '滑动 / 方向键控制 · 别撞墙';
+        if (hintEl) hintEl.textContent = curMode() === 'duo' ? '滑动 / 方向键控制 · 别撞墙' : modeHint();
         state.status = 'playing';
         state.startTime = Date.now();
         startFrame();
@@ -396,8 +510,7 @@
     stopFrame();
     lastFrameTime = 0;
     acc = 0;
-    prevPlayerBody = cloneBody(state.player.body);
-    prevOppBody = cloneBody(state.opp.body);
+    snapshotPrev();
     rafId = requestAnimationFrame(frame);
   }
   function stopFrame() {
@@ -407,6 +520,13 @@
     const out = [];
     for (let i = 0; i < b.length; i++) out.push({ x: b[i].x, y: b[i].y });
     return out;
+  }
+  // 每条蛇步进前的位置快照 = 本步插值起点（渲染层用，不入存档）
+  function snapshotPrev() {
+    if (!state) return;
+    activeSnakes().forEach(function (s) { s._prev = cloneBody(s.body); });
+    prevPlayerBody = state.player._prev;
+    prevOppBody = state.opp._prev;
   }
   function frame(now) {
     if (!state || state.status !== 'playing') { rafId = null; return; }
@@ -420,8 +540,7 @@
     while (acc >= ti && guard > 0) {
       acc -= ti;
       // 保存 step 前位置作为本步插值起点
-      prevPlayerBody = cloneBody(state.player.body);
-      prevOppBody = cloneBody(state.opp.body);
+      snapshotPrev();
       step();
       guard--;
       if (state.status !== 'playing') break;
@@ -460,23 +579,29 @@
   function step() {
     if (!state || state.status !== 'playing') return;
     state.elapsed = Date.now() - state.startTime;
-    applyDir(state.player);
-    aiDecide();
-    applyDir(state.opp);
-    const r = resolveCollisions();
-    if (!r.pDie) {
-      state.player.body.unshift(r.pNew);
-      if (r.pEat) { eatFood(r.pNew); state.player.score += 10; state.player.foodCount++; SFX.eat(); spawnParticles(r.pNew, '#34c759'); vib(12); }
-      else state.player.body.pop();
-    } else { state.player.alive = false; SFX.hit(); vib([20, 40, 20]); }
-    if (!r.oDie) {
-      state.opp.body.unshift(r.oNew);
-      if (r.oEat) { eatFood(r.oNew); state.opp.score += 10; state.opp.foodCount++; spawnParticles(r.oNew, '#5ac8fa'); }
-      else state.opp.body.pop();
-    } else { state.opp.alive = false; }
+    const snakes = activeSnakes();
+    snakes.forEach(function (s) {
+      applyDir(s);
+      if (s.ctrl === 'ai') aiDecide(s);
+    });
+    const moves = resolveCollisions();
+    moves.forEach(function (m) {
+      const s = m.s;
+      if (!m.die) {
+        s.body.unshift(m.n);
+        if (m.eat) {
+          eatFood(m.n); s.score += 10; s.foodCount++; s.eatT = performance.now();
+          spawnParticles(m.n, snakeSkin(s)[0]);
+          if (s === state.player) { SFX.eat(); vib(12); }
+          else if (s.ctrl === 'p2') { SFX.eat(); }
+        } else s.body.pop();
+      } else {
+        s.alive = false;
+        if (s === state.player) { SFX.hit(); vib([20, 40, 20]); }
+      }
+    });
     const ti = currentTickInterval();
-    if (state.player.alive) state.player.score += ti / 1000;
-    if (state.opp.alive) state.opp.score += ti / 1000;
+    moves.forEach(function (m) { if (!m.die) m.s.score += ti / 1000; });
     checkEnd();
   }
 
@@ -495,38 +620,38 @@
     return s;
   }
 
+  // 统一碰撞结算（N 条蛇公平同判）：墙外/自身/互撞/头对头，语义与旧双蛇版一致
   function resolveCollisions() {
-    const p = state.player, o = state.opp;
-    const ph = p.body[0], oh = o.body[0];
+    const snakes = activeSnakes();
     const wall = state.flags && state.flags.wall;
     const safe = state.flags && state.flags.safe;
-    let pNew = { x: ph.x + p.dir.x, y: ph.y + p.dir.y };
-    let oNew = { x: oh.x + o.dir.x, y: oh.y + o.dir.y };
-    if (wall) {
-      pNew.x = (pNew.x + gW()) % gW(); pNew.y = (pNew.y + gH()) % gH();
-      oNew.x = (oNew.x + gW()) % gW(); oNew.y = (oNew.y + gH()) % gH();
-    }
-    const pEat = state.foods.some(function (f) { return f.x === pNew.x && f.y === pNew.y; });
-    const oEat = state.foods.some(function (f) { return f.x === oNew.x && f.y === oNew.y; });
-    const pSelf = bodySet(p.body, !pEat);
-    const oSelf = bodySet(o.body, !oEat);
-    let pDie = false, oDie = false;
+    const moves = snakes.map(function (s) {
+      const h = s.body[0];
+      let n = { x: h.x + s.dir.x, y: h.y + s.dir.y };
+      if (wall) { n.x = (n.x + gW()) % gW(); n.y = (n.y + gH()) % gH(); }
+      const eat = state.foods.some(function (f) { return f.x === n.x && f.y === n.y; });
+      return { s: s, n: n, eat: eat, die: false };
+    });
+    const selfSets = moves.map(function (m) { return bodySet(m.s.body, !m.eat); });
     if (!wall) {
-      if (pNew.x < 0 || pNew.x >= gW() || pNew.y < 0 || pNew.y >= gH()) pDie = true;
-      if (oNew.x < 0 || oNew.x >= gW() || oNew.y < 0 || oNew.y >= gH()) oDie = true;
+      moves.forEach(function (m) {
+        if (m.n.x < 0 || m.n.x >= gW() || m.n.y < 0 || m.n.y >= gH()) m.die = true;
+      });
     }
-    if (!pDie && !safe && pSelf[pNew.x + ',' + pNew.y]) pDie = true; // 碰自己身（安全模式跳过）
-    if (!oDie && !safe && oSelf[oNew.x + ',' + oNew.y]) oDie = true;
-    if (!pDie && oSelf[pNew.x + ',' + pNew.y]) pDie = true; // 碰对方身
-    if (!oDie && pSelf[oNew.x + ',' + oNew.y]) oDie = true;
-    if (pNew.x === oNew.x && pNew.y === oNew.y) { pDie = true; oDie = true; }
-    return { pNew: pNew, oNew: oNew, pEat: pEat, oEat: oEat, pDie: pDie, oDie: oDie };
+    for (let i = 0; i < moves.length; i++) {
+      if (!moves[i].die && !safe && selfSets[i][moves[i].n.x + ',' + moves[i].n.y]) moves[i].die = true; // 碰自己身（安全模式跳过）
+      for (let j = 0; j < moves.length; j++) {
+        if (i === j) continue;
+        if (moves[i].n.x === moves[j].n.x && moves[i].n.y === moves[j].n.y) { moves[i].die = true; moves[j].die = true; } // 头对头
+        else if (!moves[i].die && selfSets[j][moves[i].n.x + ',' + moves[i].n.y]) moves[i].die = true; // 碰对方身
+      }
+    }
+    return moves;
   }
 
   function spawnFood() {
     const occ = {};
-    state.player.body.forEach(function (s) { occ[s.x + ',' + s.y] = true; });
-    state.opp.body.forEach(function (s) { occ[s.x + ',' + s.y] = true; });
+    activeSnakes().forEach(function (s) { s.body.forEach(function (p) { occ[p.x + ',' + p.y] = true; }); });
     state.foods.forEach(function (f) { occ[f.x + ',' + f.y] = true; });
     const empty = [];
     for (let x = 0; x < gW(); x++) for (let y = 0; y < gH(); y++) if (!occ[x + ',' + y]) empty.push({ x: x, y: y });
@@ -534,7 +659,7 @@
     return empty[Math.floor(Math.random() * empty.length)];
   }
   function maintainFood() {
-    while (state.foods.length < FOOD_TARGET) {
+    while (state.foods.length < foodTargetN()) {
       const f = spawnFood();
       if (!f) break;
       state.foods.push(f);
@@ -547,15 +672,17 @@
     maintainFood();
   }
 
-  function aiDecide() {
-    const o = state.opp;
+  // ---- TA 行为池 AI（通用化：target 可为任一人类蛇；候选过滤查所有其他蛇身）----
+  function aiDecide(o) {
     if (!o.alive) return;
     behaviorTick();
     const head = o.body[0];
     const dirs = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }];
-    const pHead = state.player.body[0];
+    const humans = humanSnakes();
     const wall = state.flags && state.flags.wall;
-    const pNew = { x: pHead.x + state.player.dir.x, y: pHead.y + state.player.dir.y };
+    // 预判人类下一格（头对头规避）：取最近的 P1
+    const p1 = state.player;
+    const pNew = { x: p1.body[0].x + p1.dir.x, y: p1.body[0].y + p1.dir.y };
     if (wall) { pNew.x = (pNew.x + gW()) % gW(); pNew.y = (pNew.y + gH()) % gH(); }
     const candidates = [];
     dirs.forEach(function (d) {
@@ -565,13 +692,18 @@
       else if (nx < 0 || nx >= gW() || ny < 0 || ny >= gH()) return;
       const eat = state.foods.some(function (f) { return f.x === nx && f.y === ny; });
       for (let i = 0; i < o.body.length - (eat ? 0 : 1); i++) if (o.body[i].x === nx && o.body[i].y === ny) return;
-      for (let i = 0; i < state.player.body.length - 1; i++) if (state.player.body[i].x === nx && state.player.body[i].y === ny) return;
+      let blocked = false;
+      humans.forEach(function (h) {
+        const lim = h.body.length - 1;   // 人类蛇尾尖本 tick 会移走（不吃了尾也算），与旧双蛇判定一致
+        for (let i = 0; i < lim; i++) if (h.body[i].x === nx && h.body[i].y === ny) blocked = true;
+      });
+      if (blocked) return;
       if (nx === pNew.x && ny === pNew.y) return;
       candidates.push(d);
     });
     if (!candidates.length) { o.nextDir = { x: o.dir.x, y: o.dir.y }; return; }
     const target = currentTarget();
-    const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head) }; });
+    const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head, o) }; });
     scored.sort(function (a, b) { return b.score - a.score; });
     let chosen;
     if ((behavior.current === 'randomTurn' || behavior.current === 'detour') && scored.length >= 2) {
@@ -582,7 +714,7 @@
     o.nextDir = chosen;
   }
 
-  function scoreDirection(d, target, head) {
+  function scoreDirection(d, target, head, o) {
     const nx = head.x + d.x, ny = head.y + d.y;
     let score = 0;
     if (target) {
@@ -591,23 +723,26 @@
       score += (gW() + gH() - dist) * w;
     }
     score += floodFillSize(nx, ny) * 0.6;
-    const o = state.opp;
     for (let i = 1; i < o.body.length; i++) {
       const s = o.body[i];
       const dd = Math.abs(nx - s.x) + Math.abs(ny - s.y);
       if (dd <= 1) score -= 8;
     }
-    const pHead = state.player.body[0];
-    const pd = Math.abs(nx - pHead.x) + Math.abs(ny - pHead.y);
-    if (behavior.current === 'avoidPlayer') score -= (12 - pd) * 3;
-    else if (behavior.current === 'chasePlayer') score += (12 - pd) * 2;
+    // 对最近人类蛇的趋避（coop 两条人类都算）
+    let nearest = Infinity;
+    humanSnakes().forEach(function (h) {
+      const pd = Math.abs(nx - h.body[0].x) + Math.abs(ny - h.body[0].y);
+      if (pd < nearest) nearest = pd;
+    });
+    if (nearest === Infinity) return score;
+    if (behavior.current === 'avoidPlayer') score -= (12 - nearest) * 3;
+    else if (behavior.current === 'chasePlayer') score += (12 - nearest) * 2;
     return score;
   }
 
   function floodFillSize(sx, sy) {
     const blocked = {};
-    state.player.body.forEach(function (s) { blocked[s.x + ',' + s.y] = true; });
-    state.opp.body.forEach(function (s) { blocked[s.x + ',' + s.y] = true; });
+    activeSnakes().forEach(function (s) { s.body.forEach(function (p) { blocked[p.x + ',' + p.y] = true; }); });
     const visited = {};
     const q = [[sx, sy]];
     visited[sx + ',' + sy] = true;
@@ -725,33 +860,38 @@
   }
 
   function checkEnd() {
-    const pa = state.player.alive, oa = state.opp.alive;
-    if (!pa && !oa) { endGame('draw'); return true; }
-    if (!pa) { endGame('lose'); return true; }
-    if (!oa) { endGame('win'); return true; }
+    const anyDead = activeSnakes().some(function (s) { return !s.alive; });
+    if (anyDead) { endGame(); return true; }
     return false;
   }
 
-  function endGame(survival) {
+  // 胜负：谁分高谁赢（#341 语义保留）。duo/pvp 按各自分数；coop 按 P1+P2 队伍合计 vs TA。
+  function endGame() {
     if (!state) return;
     state.status = 'over';
     stopFrame();
     if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
     clearSaved();
-    // v3.11.x：胜负按最终得分判定（用户反馈"我分数比他高却显示他赢、平局也显示他赢"）——
-    // 原实现按存活判定（先死者即输），与面板展示的分数对比矛盾。改为：谁分高谁赢，
-    // 同分为平局；存活结果仅用于触发结束（双方存活时游戏不会结束，行为不变）
-    const psFinal = Math.floor(state.player.score), osFinal = Math.floor(state.opp.score);
-    const result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
+    const mode = state.mode || 'duo';
+    const psFinal = Math.floor(state.player.score);
+    const osFinal = Math.floor(state.opp.score);
+    const p2Final = state.p2 ? Math.floor(state.p2.score) : 0;
+    const teamFinal = psFinal + (mode === 'coop' ? p2Final : 0);
+    let result;
+    if (mode === 'pvp') result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
+    else if (mode === 'coop') result = teamFinal > osFinal ? 'win' : teamFinal < osFinal ? 'lose' : 'draw';
+    else result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
     if (result === 'win') SFX.win();
     const d = {
       result: result,
+      mode: mode,
       pLen: state.player.body.length,
       oLen: state.opp.body.length,
       pFood: state.player.foodCount,
       oFood: state.opp.foodCount,
-      pScore: psFinal,
+      pScore: mode === 'coop' ? teamFinal : psFinal,
       oScore: osFinal,
+      p2Score: p2Final,
       time: Math.floor(state.elapsed / 1000)
     };
     const s = readScore();
@@ -780,11 +920,23 @@
   function showResult(d) {
     if (!resultEl) return;
     const icon = d.result === 'win' ? '🏆' : d.result === 'lose' ? '💔' : '🤝';
-    const resTxt = d.result === 'win' ? '你赢了' : d.result === 'lose' ? (window.taFit ? window.taFit('TA 赢了') : 'TA 赢了') : '平局';
+    const taName = window.taFit ? window.taFit('TA') : 'TA';
+    let resTxt, rows;
+    if (d.mode === 'pvp') {
+      resTxt = d.result === 'win' ? 'P1 赢了' : d.result === 'lose' ? 'P2 赢了' : '平局';
+      rows = '<div class="snake-res-row"><span>🟢 P1</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + psOf(d) + '分</span></div>' +
+        '<div class="snake-res-row"><span>🟠 P2</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+    } else if (d.mode === 'coop') {
+      resTxt = d.result === 'win' ? '组队获胜' : d.result === 'lose' ? taName + ' 赢了' : '平局';
+      rows = '<div class="snake-res-row"><span>👥 队伍 (P1+P2)</span><span>' + psOf(d) + ' 分</span></div>' +
+        '<div class="snake-res-row"><span>🤖 ' + taName + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+    } else {
+      resTxt = d.result === 'win' ? '你赢了' : d.result === 'lose' ? (window.taFit ? window.taFit('TA 赢了') : 'TA 赢了') : '平局';
+      rows = '<div class="snake-res-row"><span>🐍 你</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + psOf(d) + '分</span></div>' +
+        '<div class="snake-res-row"><span>🤖 ' + taName + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
+    }
     resultEl.innerHTML = '<div class="snake-res-icon">' + icon + '</div>' +
-      '<div class="snake-res-title">' + resTxt + '</div>' +
-      '<div class="snake-res-row"><span>🐍 你</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + d.pScore + '分</span></div>' +
-      '<div class="snake-res-row"><span>🤖 ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>' +
+      '<div class="snake-res-title">' + resTxt + '</div>' + rows +
       '<div class="snake-res-time">存活 ' + d.time + ' 秒 · 已分享到聊天 ✓</div>';
     resultEl.hidden = false;
     resultEl.classList.remove('snake-res-pop');
@@ -794,6 +946,7 @@
     if (hintEl) hintEl.textContent = '再来一局？';
     refitAll();     // 结算块+再来一局出现后收小画布：半框让方向键一屏可见，全屏防「再来一局」被裁到屏外
   }
+  function psOf(d) { return d.pScore; }
 
   function render(alpha) {
     if (!ctx || !state) return;
@@ -803,23 +956,32 @@
     const now = performance.now();
     const dt = renderLastTime ? Math.min(50, now - renderLastTime) : 16;
     renderLastTime = now;
+    const dark = themeDark();
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#f6f6f8';
+    ctx.fillStyle = dark ? '#1b1b22' : '#f6f6f8';
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
     ctx.lineWidth = 1;
     for (let i = 1; i < gW(); i++) { ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, H); ctx.stroke(); }
     for (let j = 1; j < gH(); j++) { ctx.beginPath(); ctx.moveTo(0, j * ch); ctx.lineTo(W, j * ch); ctx.stroke(); }
-    // 食物：呼吸脉动
+    // 食物：苹果（呼吸脉动 + 高光 + 叶子）
     const pulse = 1 + 0.12 * Math.sin(now / 220);
-    state.foods.forEach(function (f) {
+    state.foods.forEach(function (f, fi) {
+      const fx = f.x * cw + cw / 2, fy = f.y * ch + ch / 2;
+      const r = cs * 0.32 * (1 + 0.12 * Math.sin(now / 220 + fi * 1.3));
       ctx.fillStyle = '#ff6b6b';
+      ctx.beginPath(); ctx.arc(fx, fy + r * 0.08, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.arc(fx - r * 0.35, fy - r * 0.3, r * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#34c759';
       ctx.beginPath();
-      ctx.arc(f.x * cw + cw / 2, f.y * ch + ch / 2, cs * 0.32 * pulse, 0, Math.PI * 2);
+      ctx.ellipse(fx + r * 0.3, fy - r * 1.05 * pulse + r * 0.4, r * 0.34, r * 0.16, -0.6, 0, Math.PI * 2);
       ctx.fill();
     });
-    drawSnake(state.player, prevPlayerBody, alpha, '#34c759', '#28a745');
-    drawSnake(state.opp, prevOppBody, alpha, '#5ac8fa', '#3a9fd6');
+    activeSnakes().forEach(function (s) {
+      const skin = snakeSkin(s);
+      drawSnake(s, alpha, skin[0], skin[1]);
+    });
     // 粒子
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
@@ -840,7 +1002,7 @@
       if (f.life <= 0) { floaters.splice(i, 1); continue; }
       f.y -= dt / 280;
       ctx.globalAlpha = Math.min(1, f.life / 300);
-      ctx.fillStyle = '#ff6b6b';
+      ctx.fillStyle = dark ? '#ff8a8a' : '#ff6b6b';
       ctx.font = 'bold ' + Math.floor(cs * 0.72) + 'px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -848,12 +1010,15 @@
     }
     ctx.globalAlpha = 1;
   }
-  function drawSnake(snake, prevBody, alpha, headColor, bodyColor) {
+  // 蛇渲染：粗线段连续身体（穿墙断开）+ 顺滑高光 + 朝向眼睛 + 吃到食物的头部弹跳
+  function drawSnake(snake, alpha, headColor, bodyColor) {
     if (!snake.body.length) return;
     const cw = cssW / gW(), ch = cssH / gH(), cs = Math.min(cw, ch);
     const dead = !snake.alive;
-    const bodyC = dead ? '#cfcfd4' : bodyColor;
-    const headC = dead ? '#cfcfd4' : headColor;
+    const dark = themeDark();
+    const bodyC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : bodyColor;
+    const headC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : headColor;
+    const prevBody = snake._prev || null;   // 步进前快照（snapshotPrev 统一维护）
     const interp = !dead && prevBody && alpha > 0 && alpha < 1;
     const pts = [];
     for (let i = 0; i < snake.body.length; i++) {
@@ -880,19 +1045,61 @@
         } else ctx.lineTo(pts[i].x, pts[i].y);
       }
       ctx.stroke();
+      // 顺滑高光：沿身体中线叠一条浅色细线（暗色环境降透明度）
+      ctx.strokeStyle = dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = cs * 0.26;
+      ctx.beginPath();
+      ctx.moveTo(pts[1].x, pts[1].y - cs * 0.14);
+      let broken = false;
+      for (let i = 2; i < pts.length; i++) {
+        const ddx = pts[i].x - pts[i - 1].x, ddy = pts[i].y - pts[i - 1].y;
+        if (Math.abs(ddx) > cw * 2 || Math.abs(ddy) > ch * 2) { ctx.stroke(); ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y - cs * 0.14); broken = true; continue; }
+        ctx.lineTo(pts[i].x, pts[i].y - cs * 0.14);
+      }
+      ctx.stroke();
     }
-    // 头：稍大圆 + 高光
+    // 头：稍大圆 + 吃到食物时的弹跳 + 高光
+    let hr = cs * 0.46;
+    if (snake.eatT) {
+      const k = 1 - (now0() - snake.eatT) / 200;
+      if (k > 0) hr *= 1 + 0.28 * k; else snake.eatT = 0;
+    }
     ctx.fillStyle = headC;
     ctx.beginPath();
-    ctx.arc(pts[0].x, pts[0].y, cs * 0.46, 0, Math.PI * 2);
+    ctx.arc(pts[0].x, pts[0].y, hr, 0, Math.PI * 2);
     ctx.fill();
     if (!dead) {
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.beginPath();
       ctx.arc(pts[0].x - cs * 0.13, pts[0].y - cs * 0.13, cs * 0.15, 0, Math.PI * 2);
       ctx.fill();
+      // 朝向眼睛：白眼球 + 前置瞳孔，随 dir 转动
+      const d = snake.dir;
+      const px = -d.y, py = d.x;   // 垂直方向
+      const fwx = d.x * cs * 0.14, fwy = d.y * cs * 0.14;
+      for (let side = -1; side <= 1; side += 2) {
+        const ex = pts[0].x + px * side * cs * 0.19 + fwx;
+        const ey = pts[0].y + py * side * cs * 0.19 + fwy;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(ex, ey, cs * 0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#151515';
+        ctx.beginPath(); ctx.arc(ex + fwx * 0.5, ey + fwy * 0.5, cs * 0.065, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      // 死亡：× 眼
+      ctx.strokeStyle = dark ? '#888' : '#666';
+      ctx.lineWidth = Math.max(1, cs * 0.06);
+      const e = cs * 0.12;
+      [[-0.18, -0.18], [0.18, -0.18]].forEach(function (off) {
+        const ex = pts[0].x + off[0] * cs, ey = pts[0].y + off[1] * cs;
+        ctx.beginPath();
+        ctx.moveTo(ex - e, ey - e); ctx.lineTo(ex + e, ey + e);
+        ctx.moveTo(ex + e, ey - e); ctx.lineTo(ex - e, ey + e);
+        ctx.stroke();
+      });
     }
   }
+  function now0() { return performance.now(); }
 
   // ---- 暂停 / 继续 ----
   function togglePause() {
@@ -908,7 +1115,7 @@
       state.status = 'playing';
       state.startTime += Date.now() - pauseAt;
       if (pauseBtn) pauseBtn.textContent = '⏸';
-      if (hintEl) hintEl.textContent = '滑动 / 方向键控制 · 别撞墙';
+      if (hintEl) hintEl.textContent = curMode() === 'duo' ? '滑动 / 方向键控制 · 别撞墙' : modeHint();
       startFrame();
     }
   }
@@ -916,7 +1123,12 @@
   // ---- 全屏（面板占满视口，canvas 放大） ----
   function toggleFs() {
     isFs = !isFs;
-    if (panel) panel.classList.toggle('snake-fs', isFs);
+    if (panel) {
+      panel.classList.toggle('snake-fs', isFs);
+      // 入场/退场过渡：轻微缩放淡入，收敛「瞬间跳变」的生硬感
+      panel.classList.remove('snake-fs-in');
+      if (isFs) { void panel.offsetWidth; panel.classList.add('snake-fs-in'); }
+    }
     if (fsBtn) fsBtn.textContent = isFs ? '⤢' : '⛶';
     setupCanvas();
     render(0);
@@ -924,21 +1136,38 @@
 
   // ---- 保存 / 恢复对局 ----
   function canSave(s) { return s && s.status === 'playing'; }
+  function stripPrev(s) {
+    const c = s;   // 浅拷贝去渲染层字段（_prev 不入存档）
+    const out = {};
+    Object.keys(c).forEach(function (k) { if (k !== '_prev') out[k] = c[k]; });
+    return out;
+  }
   function saveGame() {
     try {
       if (!canSave(state)) { localStorage.removeItem(keySaved()); return; }
-      localStorage.setItem(keySaved(), JSON.stringify(state));
+      const cp = Object.assign({}, state);
+      cp.player = stripPrev(state.player);
+      cp.opp = stripPrev(state.opp);
+      if (state.p2) cp.p2 = stripPrev(state.p2);
+      localStorage.setItem(keySaved(), JSON.stringify(cp));
     } catch (e) {}
   }
   function validCoord(p, w, h) { return p && p.x >= 0 && p.x < w && p.y >= 0 && p.y < h; }
+  function validSnake(s, w, h) {
+    return s && s.body && Array.isArray(s.body) && s.body.length && s.body.every(function (p) { return validCoord(p, w, h); }) && s.dir;
+  }
   function validState(s) {
     if (!s || !s.player || !s.opp) return false;
     // 存档自带地图尺寸（旧档无尺寸按 15×15），坐标必须落在该地图内
     const w = Math.max(10, Math.min(42, s.gw || 15));
     const h = Math.max(10, Math.min(48, s.gh || 15));
     s.gw = w; s.gh = h;
-    if (!s.player.body.every(function (p) { return validCoord(p, w, h); }) || !s.opp.body.every(function (p) { return validCoord(p, w, h); })) return false;
+    if (!validSnake(s.player, w, h) || !validSnake(s.opp, w, h)) return false;
     if (s.foods && !s.foods.every(function (p) { return validCoord(p, w, h); })) return false;
+    // 旧档（无 mode/p2）按经典双人对待；声称双人模式但缺 P2 蛇则降级，防恢复即崩溃
+    if (s.mode === 'pvp' || s.mode === 'coop') {
+      if (!validSnake(s.p2, w, h)) { s.mode = 'duo'; s.p2 = null; if (s.opp) s.opp.ctrl = 'ai'; }
+    } else { s.mode = 'duo'; s.p2 = null; }
     return true;
   }
   function loadSaved() {
@@ -959,6 +1188,7 @@
     if (!state.flags) state.flags = { wall: false, safe: false };
     if (wallBtn) wallBtn.classList.toggle('on', state.flags.wall);
     if (safeBtn) safeBtn.classList.toggle('on', state.flags.safe);
+    if (state.mode === 'pvp' || state.mode === 'coop') { clearSaved(); resetToIdle(state.diff); if (hintEl) hintEl.textContent = '双人存档暂不跨局恢复 · 已回到待开局'; return true; }
     behavior = { current: null, until: 0, stepLeft: 0, cooldowns: {}, targetFood: null, speedUp: false, speedUpUntil: 0 };
     setupCanvas();   // 按存档自带地图尺寸重新适配画布（可能与当前视口推算尺寸不同）
     state.status = 'playing';
@@ -992,6 +1222,9 @@
       } catch (e) {}
       nameEl.textContent = pname;
     }
+    // 恢复上次偏好（模式 / 食物数量）
+    if (modeSel) { const m = lsGet(keyMode()); if (m && MODES[m]) modeSel.value = m; }
+    if (foodSel) { const fn = parseInt(lsGet(keyFoodN()), 10); if (fn >= 2 && fn <= 8) foodSel.value = String(fn); }
     // 先显示面板再切全屏：隐藏状态下量不到布局尺寸，setupCanvas 会拿到 0
     panel.hidden = false;
     renderScore();
@@ -1025,15 +1258,16 @@
       resetToIdle();
     }
   }
-  function resetToIdle() {
+  function resetToIdle(keepDiff) {
     stopLoop();
+    if (keepDiff && diffSel) diffSel.value = keepDiff;
     newGame(diffSel ? diffSel.value : 'normal');
     state.status = 'idle';
     if (startBtn) { startBtn.hidden = false; startBtn.textContent = '开始'; }
     if (restartBtn) restartBtn.hidden = true;
     if (resumeBtn) resumeBtn.hidden = true;
     if (resultEl) { resultEl.hidden = true; resultEl.innerHTML = ''; }
-    if (hintEl) hintEl.textContent = '点开始 · 滑动控制方向';
+    if (hintEl) hintEl.textContent = modeHint();
     refitAll();     // 最长纪录行/继续上局按钮显隐后再量一次，避免按钮被挤到屏外
     render(0);
   }
@@ -1055,13 +1289,15 @@
   window.__snakeState = function () {
     if (!state) return null;
     return {
-      status: state.status, diff: state.diff, gw: state.gw, gh: state.gh,
+      status: state.status, diff: state.diff, mode: state.mode, gw: state.gw, gh: state.gh,
+      foodTarget: state.foodTarget,
       running: !!(rafId || countdownTimer),
       player: { body: cloneBody(state.player.body), alive: state.player.alive, score: Math.floor(state.player.score),
         dir: { x: state.player.dir.x, y: state.player.dir.y },
         nextDir: state.player.nextDir ? { x: state.player.nextDir.x, y: state.player.nextDir.y } : null,
         nextDir2: state.player.nextDir2 ? { x: state.player.nextDir2.x, y: state.player.nextDir2.y } : null },
-      opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score) },
+      p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score) } : null,
+      opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl },
       foods: state.foods.map(function (f) { return { x: f.x, y: f.y }; }),
       elapsed: state.elapsed
     };

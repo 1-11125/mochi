@@ -342,7 +342,7 @@
           ? '【帮我决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n→ ' + result
           : '【帮我决定】' + question + ' → ' + result;
         if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-        else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true });
+        else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）
       }
       toast('帮我决定已完成');
     }, thinkTime * 1000);

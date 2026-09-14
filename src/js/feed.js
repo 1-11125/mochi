@@ -294,6 +294,11 @@
   //   save 只暂存内存（feedPending），绝不落盘；load 合并暂存，弹窗提示过的动态都可见。
   let feedDbReady = false;
   let feedPending = null;
+  // #496 内存真相层：save() 时同步持有最新已解析列表，load() 直接取用——
+  //   原实现每次评论/点赞/发布都 load() 整包 JSON.parse（兆级主键＝点击帧长任务），
+  //   与 save 的整包 stringify 同帧叠加成一对长任务。feedMem 只在本会话内存，
+  //   持久层语义不变（flush 时仍整包写 LS/IDB 三路同拍）；feedMergeFromIdb 合并写回时同步刷新。
+  let feedMem = null;
   // #187 权威键守卫——iPad QQ浏览器/WKWebView 系（iOS 挂后台杀 IDB 连接家族）首发
   //   idbGet 4s+4s 超时返回 undefined，与「键不存在」不可分；此时 feed-posts >200KB
   //   只进 IDB（LS 无副本、回填未到）→ load() 手上只有剥图快照。旧代码三条写回路径
@@ -376,9 +381,14 @@
     return Object.keys(map).map(k => map[k]).sort((x, y) => (y.ts || 0) - (x.ts || 0));
   }
   function load() {
+    // #496：本会话已有内存真相（save 持有/feedMergeFromIdb 刷新）→ 直接取用，
+    //   不再每次整包 JSON.parse（兆级主键的点击帧长任务）；首次进入仍读持久层。
+    let list = [];
+    if (feedMem) {
+      list = feedMem;
+    } else {
     // 主键存在（含清空后的 '[]'）→ 直接用它；键缺失（null）才走剥图快照兜底——
     // 原写法 `store.get(KEY) || '[]'` 在键缺失时返回空数组提前 return，快照兜底永不生效
-    let list = [];
     const raw = store.get(KEY);
     if (raw !== null) {
       try {
@@ -393,6 +403,7 @@
         const v = loadSnap();
         if (v.length) list = v.map(normPost);
       } catch (e) {}
+    }
     }
     // v3.7.x：权威读取（feedDbReady=false）期间收到的动态只暂存在 feedPending，原 load()
     //   只读持久层 → 弹窗/通知提示了新动态、朋友圈列表却是空白（OPPO Edge IDB 慢时复现）；
@@ -448,11 +459,43 @@
     snapTimer = setTimeout(() => { snapTimer = null; flushSnap(); }, 800);
   }
   try {
-    window.addEventListener('pagehide', flushSnap);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSnap(); });
+    window.addEventListener('pagehide', function () { flushFeedWrite(); flushSnap(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { flushFeedWrite(); flushSnap(); } });
   } catch (e) {}
+  // #496 评论/点赞卡顿止血（对齐 chat.js v3.26.x 已验证模式）：主键落盘改「合并 + 低频 +
+  //   空闲窗口」——原实现点击帧同步付整包 JSON.stringify + store.set（LS 同步写/IDB 事务）
+  //   ＝发评论/点赞一次数百 ms~秒级长任务（v3.42 只摘掉了快照那一次，主键仍即时写）。
+  //   数据语义不变（仍写整包最新；feedMem 保 load() 即时可见），pagehide/切后台强制兜底。
+  const FEED_WRITE_MIN_GAP = 2500;   // 两次实际落盘的最小间隔（ms）
+  let feedWriteTimer = null;         // 排队中标记（rIdle/timeout）
+  let feedWritePending = null;       // 待落盘的最新整包（尾随合并，只留最新）
+  let lastFeedWriteAt = 0;           // 上次实际落盘时间（performance.now()）
+  function runFeedWrite() {
+    feedWriteTimer = null;
+    const arr = feedWritePending;
+    feedWritePending = null;
+    if (!arr) return;
+    const wait = FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt);
+    if (wait > 0) { feedWriteTimer = setTimeout(runFeedWrite, wait); return; }
+    try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {}
+  }
+  function scheduleFeedWrite(arr) {
+    feedWritePending = arr;
+    if (feedWriteTimer) return;
+    if (window.requestIdleCallback) feedWriteTimer = window.requestIdleCallback(runFeedWrite, { timeout: 4000 });
+    else feedWriteTimer = setTimeout(runFeedWrite, 2500);
+  }
+  // 强制兜底（pagehide/切后台/清空）：立即落盘待写整包（迟到的 runFeedWrite 见空即退）
+  function flushFeedWrite() {
+    const arr = feedWritePending;
+    feedWritePending = null;
+    feedWriteTimer = null;
+    if (arr) { try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {} }
+  }
   function save(list) {
     const arr = list || [];
+    // #496：内存真相立即生效（load() 不再重读持久层），落盘延后到空闲窗口
+    feedMem = arr;
     // v3.10.x：清理存量评论/回复的 authorAv（旧数据存了头像 dataURL，撑大主键 >200KB
     //   → 只进 IDB 不进 LS → Edge 丢 IDB 后评论丢失）。新评论经 stampAuthor 已不存。
     for (let i = 0; i < arr.length; i++) {
@@ -464,7 +507,6 @@
         if (c && Array.isArray(c.replies)) for (let k = 0; k < c.replies.length; k++) { if (c.replies[k] && c.replies[k].authorAv) c.replies[k].authorAv = ''; }
       }
     }
-    const raw = JSON.stringify(arr);
     // v3.7.x：门槛——权威未从 IDB 读回前只暂存内存，绝不落盘（防 save([]) 覆盖 IDB 旧动态）
     if (!feedDbReady) {
       try { feedPending = arr.slice(); } catch (e) {}
@@ -475,18 +517,20 @@
       //   IDB 大键分流 + 内存) 与快照落盘。只写非空，不会重演旧的「save([]) 用空值
       //   覆盖 IDB 旧动态」问题；IDB 合并是并集，稍后回填也不会丢。
       if (arr.length) {
-        feedGuardWrite(raw);
+        feedGuardWrite(JSON.stringify(arr));
         persistSnap(arr);
       }
       return;
     }
-    feedGuardWrite(raw);
-    // 清空时同步清掉旧快照（防清空后又被陈旧快照"恢复"出已删除的动态）
+    // 清空时同步清掉旧快照（防清空后又被陈旧快照"恢复"出已删除的动态）——即时写，不走延后
     if (!arr.length) {
+      feedWritePending = null;
+      feedGuardWrite('[]');
       try { localStorage.removeItem('xy-home-v2:default:' + SNAP_KEY); } catch (e) {}
       if (snapTimer) { clearTimeout(snapTimer); snapTimer = null; snapPending = null; }
       return;
     }
+    scheduleFeedWrite(arr);
     scheduleSnap(arr);
   }
   function avHtml(data, cls) {
@@ -2604,6 +2648,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       if (!cur.length) cur = loadSnap().map(normPost);
       const merged = mergePosts(base, mergePosts(cur, pending));
       if (!merged.length) { if (authOk && feedPending === pending) feedPending = null; return; }
+      // #496：内存真相与权威合并结果同拍刷新（此后 load() 以 merged 为准，不再重 parse）
+      feedMem = merged;
       // #187：写回走守卫——权威读失败且手上可能是剥图快照时，探测确认权威键仍在就绝不写回
       feedGuardWrite(JSON.stringify(merged)).then(written => {
         if (written) {
