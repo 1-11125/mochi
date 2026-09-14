@@ -8120,7 +8120,7 @@ color: var(--card-bg, #1e1e1e);
 [data-theme="dark"] .poke-input-save:active { background:var(--dark-hover); }
 [data-theme="dark"] .ck-heart { color:#111111; }
 [data-theme="dark"] .market-cat-ico { background:#2e2e33 !important; }
-[data-theme="dark"] .market-cat.sel .market-cat-ico { background:#f0f0f0 !important; }
+[data-theme="dark"] .market-cat.sel .market-cat-ico { background:#f0f0f0 !important; color:#111111; }
 [data-theme="dark"] #page-market .gift-item-top { background:transparent !important; }
 [data-theme="dark"] .giftbox-hero { color:#f2f2f2; }
 .garden-weather-bar {
@@ -9456,9 +9456,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789421530028">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.686</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 05:32<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789422721871">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.687</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 05:52<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10769,7 +10769,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.686</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.687</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11071,7 +11071,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.686</span>
+              <span class="lic-ver">v3.26.687</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -39032,14 +39032,14 @@ tabsRow.className = 'them-tabs gc-set-tabs';
 const GTABS = [['profile', '形象'], ['reply', '回复'], ['general', '通用'], ['data', '数据']];
 tabsRow.innerHTML = GTABS.map((t, i) =>
 '<div class="them-tab' + (i === 0 ? ' active' : '') + '" data-gt="' + t[0] + '">' + t[1] + '</div>').join('');
-(curSec||settingsBody).appendChild(tabsRow);
+settingsBody.appendChild(tabsRow);
 const secs = {};
 GTABS.forEach((t, i) => {
 const s = document.createElement('div');
 s.className = 'gc-set-sec';
 s.dataset.gt = t[0];
 if (i !== 0) s.hidden = true;
-(curSec||settingsBody).appendChild(s);
+settingsBody.appendChild(s);
 secs[t[0]] = s;
 });
 tabsRow.addEventListener('click', (e) => {
@@ -94080,4 +94080,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1rdl7w -->
+<!-- __MOCHI_EOF__ mu1s34un -->

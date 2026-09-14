@@ -137,6 +137,15 @@ await evalJs(`
   mk('<div class="chat-search-input"></div>');
   mk('<div class="msg-in"><div class="msg-bubble">x</div></div>');
   mk('<div class="snake-toggle on"></div>');
+  mk('<div class="chat-item glass"><div class="av"><svg viewBox="0 0 24 24"></svg></div></div>');
+  mk('<label class="toggle"><input type="checkbox" checked><span class="tk"></span></label>');
+  mk('<button class="cj-gchip on">组</button>');
+  mk('<span class="memo-rc">提醒</span>');
+  mk('<button class="poke-input-save">存入</button>');
+  mk('<span class="ck-heart">♥</span>');
+  mk('<div id="page-market"><div class="gift-item-top"><div class="gift-item-emoji">🎁</div></div></div>');
+  mk('<button class="market-cat sel"><div class="market-cat-ico">🎀</div></button>');
+  mk('<div class="giftbox-hero"><div class="giftbox-stat-ico">🎁</div></div>');
   return 1;
 })()`);
 await sleep(120);
@@ -170,6 +179,30 @@ check('C11 聊天搜索框深底(原 #f6f6f6 bug 已修)', isDarkish(probe.searc
   const m = String(probe.snakeOn || '').match(/\d+/g) || [];
   check('C13 贪吃蛇开关选中态文字改深色(var(--ink) 底不再配白字)', m.length >= 3 && ((+m[0]) + (+m[1]) + (+m[2])) < 200, probe.snakeOn);
 }
+
+// ---- C2. #486 深色白底漏网收口探针（tools/verify-dark-audit.mjs 135 步全量审计的定点回归） ----
+const probe2 = JSON.parse(await evalJs(`(function(){
+  var g=function(s){var el=document.querySelector('#dk-probe '+s);return el?getComputedStyle(el).backgroundColor:'';};
+  var c=function(s){var el=document.querySelector('#dk-probe '+s);return el?getComputedStyle(el).color:'';};
+  var before=function(s){var el=document.querySelector('#dk-probe '+s);return el?getComputedStyle(el,'::before').backgroundColor:'';};
+  var gi=g('#page-market .gift-item-top');
+  return JSON.stringify({
+    av:g('.chat-item .av'), tkOn:before('label.toggle input:checked + .tk'),
+    cj:c('.cj-gchip.on')+'|'+g('.cj-gchip.on'), memoRc:g('.memo-rc'),
+    saveBg:g('.poke-input-save'), saveInk:(function(){var el=document.querySelector('#dk-probe .poke-input-save');return el?getComputedStyle(el).color:'';})(),
+    heart:c('.ck-heart'), giftTop:gi, emojiBg:g('#page-market .gift-item-emoji'),
+    mcat:g('.market-cat.sel .market-cat-ico'), mcatInk:(function(){var el=document.querySelector('#dk-probe .market-cat.sel .market-cat-ico');return el?getComputedStyle(el).color:'';})(),
+    hero:(function(){var el=document.querySelector('#dk-probe .giftbox-hero');return el?getComputedStyle(el).color:'';})()
+  });})()`) || '{}') || {};
+check('C14 字卡库左菜单 av 芯片深底(#486，原白块 rgba(255,255,255,.92))', isDarkish(probe2.av), probe2.av);
+check('C15 开关选中态滑块深色(#486，浅轨道上白滑块不可见)', (()=>{const m=String(probe2.tkOn||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))<200;})(), probe2.tkOn);
+check('C16 此间分组芯片选中态浅底深字(#486，原深底深字)', (()=>{const [ink,bg]=String(probe2.cj||'').split('|');const m=(bg||'').match(/\d+/g)||[];const n=(ink||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))>600&&n.length>=3&&((+n[0])+(+n[1])+(+n[2]))<200;})(), probe2.cj);
+check('C17 备忘提醒快捷片深底(#486，原白蒙底灰字；深色态=白色低透明叠加或深实底)', (()=>{const t=String(probe2.memoRc||'');const m=t.match(/\d+/g)||[];if(m.length>=4&&+m[3]<1&&+m[0]>=250)return true;return m.length>=3&&m.length<=3&&((+m[0])+(+m[1])+(+m[2]))<240;})(), probe2.memoRc);
+check('C18 拍一拍存入按钮深底浅字(#486，原白底浅字)', isDarkish(probe2.saveBg) && (()=>{const m=String(probe2.saveInk||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))>380;})(), probe2.saveBg+'|'+probe2.saveInk);
+check('C19 桌面签到心形徽章深字(#486，浅圆底白心形不可见)', (()=>{const m=String(probe2.heart||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))<200;})(), probe2.heart);
+check('C20 市集商品卡顶部白带清除(#486，原 #fff !important)', (()=>{const m=String(probe2.giftTop||'').match(/\d+/g)||[];if(String(probe2.giftTop).indexOf('0, 0, 0, 0')>=0)return true;return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))<240;})(), probe2.giftTop);
+check('C21 市集分类选中圆浅底深字(#486，需 !important 反压 market.css)', (()=>{const m=String(probe2.mcat||'').match(/\d+/g)||[];const n=String(probe2.mcatInk||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))>600&&n.length>=3&&((+n[0])+(+n[1])+(+n[2]))<200;})(), probe2.mcat+'|'+probe2.mcatInk);
+check('C22 心意柜 hero 字色提亮(#486，深底仍继承 #111 字色)', (()=>{const m=String(probe2.hero||'').match(/\d+/g)||[];return m.length>=3&&((+m[0])+(+m[1])+(+m[2]))>600;})(), probe2.hero);
 
 // ---- D. 切回浅色：属性移除、变量回浅、CSS 回白（回归；v3.27.x 三档=行点击开弹窗、需点「浅色」胶囊，#252 起走真实用户路径） ----
 await evalJs("(function(){var r=document.getElementById('row-theme-mode');if(r)r.click();return 1;})()");

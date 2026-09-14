@@ -296,11 +296,11 @@
     "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
-     "fg": "rgb(170,170,170)",
-     "ratio": 2.04
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -323,8 +323,8 @@
     "verdict": "info",
     "triage": {
      "sel": "#music-lib-filter>button.mlf-chip.sel",
-     "fg": "rgb(17,17,17)",
-     "ratio": 16.57
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -442,11 +442,16 @@
     }
    },
    {
-    "type": "low-contrast",
+    "type": "light-bg",
     "sel": "#cj-groups>button.cj-gchip.on",
     "level": "high",
-    "detail": "fg=rgb(17, 17, 17) bg=rgb(27,27,27) ratio=1.09",
-    "verdict": "FAIL"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-groups>button.cj-gchip.on",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
@@ -819,13 +824,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#memo-remind-chips>span.memo-rc",
-    "level": "high",
-    "detail": "fg=rgb(170, 170, 170) bg=rgb(158,158,158) ratio=1.16",
-    "verdict": "FAIL"
    }
   ]
  },
@@ -847,41 +845,15 @@
    },
    {
     "type": "light-bg",
-    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+    "sel": "#market-cats>button.market-cat.sel>div.market-cat-ico",
     "level": "high",
-    "detail": "rgb(242, 242, 245)",
+    "detail": "rgb(240, 240, 240)",
     "verdict": "info",
     "triage": {
-     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
-     "fg": "rgb(255,255,255)",
-     "ratio": 16.48
+     "sel": "#market-cats>button.market-cat.sel>div.market-cat-ico",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
-    "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(242,242,245) ratio=1.12",
-    "verdict": "FAIL"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#market-grid>button.gift-item>div.gift-item-top",
-    "level": "high",
-    "detail": "rgb(255, 255, 255)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#market-grid>button.gift-item>div.gift-item-top",
-     "fg": "rgb(255,255,255)",
-     "ratio": 1
-    }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#market-grid>button.gift-item>div.gift-item-top>div.gift-item-emoji",
-    "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(255,255,255) ratio=1",
-    "verdict": "FAIL"
    }
   ]
  },
@@ -900,13 +872,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "div.giftbox-hero>div.giftbox-stat-cards>div.giftbox-stat-card>div.giftbox-stat-ico",
-    "level": "high",
-    "detail": "fg=rgb(17, 17, 17) bg=rgb(42,42,44) ratio=1.32",
-    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
@@ -973,19 +938,12 @@
     "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
-     "fg": "rgb(255,255,255)",
-     "ratio": 1.14
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#desktop-pages>div.page-slide>div.checkin.glass>span.ck-heart",
-    "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(240,240,240) ratio=1.14",
-    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
@@ -1052,174 +1010,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-custom-cards-public>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-custom-cards-public>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-custom-cards>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-custom-cards>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-fun-cards-public>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-fun-cards-public>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-fun-cards-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-fun-cards-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-checkin-cards-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-checkin-cards-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-quote-cards-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-quote-cards-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-ask-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-ask-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-choose-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-choose-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-curious-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-curious-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-roast-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-roast-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-checkin-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-checkin-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-ta-invite-mine>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-ta-invite-mine>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-cc-full-export>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-cc-full-export>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#li-cc-full-import>div.av",
-    "level": "high",
-    "detail": "rgba(255, 255, 255, 0.92)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#li-cc-full-import>div.av",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.03
-    }
    }
   ]
  },
@@ -1268,11 +1058,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1364,11 +1154,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1418,11 +1208,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1472,11 +1262,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1526,11 +1316,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1580,11 +1370,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1622,11 +1412,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1658,11 +1448,11 @@
     "sel": "#cck-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#cck-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -1700,11 +1490,11 @@
     "sel": "#cq-sys-panel>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#cq-sys-panel>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1712,11 +1502,11 @@
     "sel": "#cq-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#cq-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -1742,11 +1532,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1778,11 +1568,11 @@
     "sel": "#cloc-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#cloc-sys-list>div.tc-qrow>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -1850,11 +1640,11 @@
     "sel": "#sf-desk-checkin-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#sf-desk-checkin-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -1862,11 +1652,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2006,11 +1796,11 @@
     "sel": "div.desk-cp-phone>div.desk-cp-apps>div.desk-cp-app>div.desk-cp-ico",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.desk-cp-phone>div.desk-cp-apps>div.desk-cp-app>div.desk-cp-ico",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2120,11 +1910,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2174,11 +1964,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2258,11 +2048,11 @@
     "sel": "#page-default-cards>div.dc-toggle.glass>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-default-cards>div.dc-toggle.glass>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2270,11 +2060,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2312,11 +2102,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2342,11 +2132,11 @@
     "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "div.set-group.glass>div.gs-row>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2414,11 +2204,11 @@
     "sel": "#page-mood-cards>div.dc-toggle.glass>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-mood-cards>div.dc-toggle.glass>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2438,11 +2228,11 @@
     "sel": "#mc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#mc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2468,11 +2258,11 @@
     "sel": "#page-ta-mood>div.dc-toggle.glass>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-ta-mood>div.dc-toggle.glass>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2492,11 +2282,11 @@
     "sel": "#tm-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#tm-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2522,11 +2312,11 @@
     "sel": "#page-reply-cards>div.dc-toggle.glass>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-reply-cards>div.dc-toggle.glass>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2546,11 +2336,11 @@
     "sel": "#rc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#rc-list>div.cc-item.glass>label.toggle.ccard-toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2786,11 +2576,11 @@
     "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#page-music>div.sm-float-row>label.toggle>span.tk",
-     "fg": "rgb(170,170,170)",
-     "ratio": 2.04
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -2813,8 +2603,8 @@
     "verdict": "info",
     "triage": {
      "sel": "#music-lib-filter>button.mlf-chip.sel",
-     "fg": "rgb(17,17,17)",
-     "ratio": 16.57
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    }
   ]
@@ -2951,18 +2741,6 @@
     "verdict": "info",
     "triage": {
      "sel": "#page-mail>div.fav-tabs>button.fav-tab.sel",
-     "fg": "rgb(17,17,17)",
-     "ratio": 16.57
-    }
-   },
-   {
-    "type": "light-bg",
-    "sel": "div.mail-item>div.mail-item-body>div.mail-item-title>span.mail-tag.new",
-    "level": "high",
-    "detail": "rgb(240, 240, 240)",
-    "verdict": "info",
-    "triage": {
-     "sel": "div.mail-item>div.mail-item-body>div.mail-item-title>span.mail-tag.new",
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
@@ -3238,11 +3016,16 @@
     }
    },
    {
-    "type": "low-contrast",
+    "type": "light-bg",
     "sel": "#cj-groups>button.cj-gchip.on",
     "level": "high",
-    "detail": "fg=rgb(17, 17, 17) bg=rgb(27,27,27) ratio=1.09",
-    "verdict": "FAIL"
+    "detail": "rgb(240, 240, 240)",
+    "verdict": "info",
+    "triage": {
+     "sel": "#cj-groups>button.cj-gchip.on",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
+    }
    },
    {
     "type": "light-bg",
@@ -3635,13 +3418,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#memo-remind-chips>span.memo-rc",
-    "level": "high",
-    "detail": "fg=rgb(170, 170, 170) bg=rgb(158,158,158) ratio=1.16",
-    "verdict": "FAIL"
    }
   ]
  },
@@ -3663,41 +3439,15 @@
    },
    {
     "type": "light-bg",
-    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
+    "sel": "#market-cats>button.market-cat.sel>div.market-cat-ico",
     "level": "high",
-    "detail": "rgb(242, 242, 245)",
+    "detail": "rgb(240, 240, 240)",
     "verdict": "info",
     "triage": {
-     "sel": "#market-cats>button.market-cat>div.market-cat-ico",
-     "fg": "rgb(255,255,255)",
-     "ratio": 16.48
+     "sel": "#market-cats>button.market-cat.sel>div.market-cat-ico",
+     "fg": "rgb(17,17,17)",
+     "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#market-cats>button.market-cat>div.market-cat-ico",
-    "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(242,242,245) ratio=1.12",
-    "verdict": "FAIL"
-   },
-   {
-    "type": "light-bg",
-    "sel": "#market-grid>button.gift-item>div.gift-item-top",
-    "level": "high",
-    "detail": "rgb(255, 255, 255)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#market-grid>button.gift-item>div.gift-item-top",
-     "fg": "rgb(255,255,255)",
-     "ratio": 1
-    }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#market-grid>button.gift-item>div.gift-item-top>div.gift-item-emoji",
-    "level": "high",
-    "detail": "fg=rgb(255, 255, 255) bg=rgb(255,255,255) ratio=1",
-    "verdict": "FAIL"
    }
   ]
  },
@@ -3716,13 +3466,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "div.giftbox-hero>div.giftbox-stat-cards>div.giftbox-stat-card>div.giftbox-stat-ico",
-    "level": "high",
-    "detail": "fg=rgb(17, 17, 17) bg=rgb(42,42,44) ratio=1.32",
-    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
@@ -3765,25 +3508,6 @@
      "fg": "rgb(17,17,17)",
      "ratio": 16.57
     }
-   },
-   {
-    "type": "light-bg",
-    "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
-    "level": "high",
-    "detail": "rgb(255, 255, 255)",
-    "verdict": "FAIL",
-    "triage": {
-     "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1.14
-    }
-   },
-   {
-    "type": "low-contrast",
-    "sel": "#poke-card>div.poke-input-row>button.poke-input-save",
-    "level": "high",
-    "detail": "fg=rgb(240, 240, 240) bg=rgb(255,255,255) ratio=1.14",
-    "verdict": "FAIL"
    },
    {
     "type": "light-bg",
@@ -4189,8 +3913,8 @@
     "verdict": "info",
     "triage": {
      "sel": "#avlib-tab-a",
-     "fg": "rgb(17,17,17)",
-     "ratio": 16.57
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
@@ -4198,11 +3922,11 @@
     "sel": "#avlib-pane-a>div.avlib-toggle>label.toggle>span.tk",
     "level": "high",
     "detail": "rgb(240, 240, 240)",
-    "verdict": "FAIL",
+    "verdict": "info",
     "triage": {
      "sel": "#avlib-pane-a>div.avlib-toggle>label.toggle>span.tk",
-     "fg": "rgb(240,240,240)",
-     "ratio": 1
+     "fg": "(no-text/no-svg)",
+     "ratio": null
     }
    },
    {
