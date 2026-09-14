@@ -375,7 +375,7 @@
   // after=关锁成功回调；onBack=暗号屏取消回调（回到上一屏）
   function ownerDisableByCode(after, onBack) {
     textAsk({
-      title: '输暗号关闭应用锁', sub: '本机未设安全问题，无法用问答重置。机主可输入暗号直接关闭应用锁：',
+      title: '输暗号关闭应用锁', sub: '本机未设安全问题，无法用问答重置。机主可输入暗号直接关闭应用锁。暗号一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里，不是开屏最底下的部署时间：',
       placeholder: '暗号', maxlen: 12, okLabel: '关闭应用锁', cancelLabel: '返回',
       onSubmit: function (v) {
         if (String(v || '').trim() === QA_SKIP_CODE) { setEn(false); sessMark(); toast('应用锁已关闭'); maskEl().hidden = true; if (after) after(); }
