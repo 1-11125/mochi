@@ -125,14 +125,14 @@ function note(name, detail) { skip++; console.log('  ⚠ SKIP', name, detail || 
 // 缺任何一个闭合（即上溯到 108b918 的 2 个闭合形态）＝ #474 复发。
 // 注意：src 一律从仓库根读（SERVE_ROOT 指向隔离构建目录时，那里没有 src）。
 const tplSrc = (() => { try { return readFileSync(join(__root, 'src', 'template.html'), 'utf8'); } catch (e) { return ''; } })();
-chk('S1 源码 chat-ask-panel 三层闭合锚（3 个连续 </div> 接寻踪注释）',
-  tplSrc.indexOf('</button>\n          </div>\n      </div>\n      </div>\n') >= 0);
+chk('S1 源码 chat-ask-panel 三层闭合锚（3 个连续 </div> 缩进 10/8/6 接寻踪注释）',
+  tplSrc.indexOf('</button>\n          </div>\n        </div>\n      </div>\n') >= 0);
 // S2：被测产物里也带同一段（廉价交叉核对）。**本项只是补充锚，抓不住全部形态**——
 // 2026-09-14 实测：产物在此锚存在的前提下，因别处多出一个 </div> 把 .phone 提前关掉，
 // 8 个子页掉到 body、宽度算成 0 依旧白屏；那类形态只有下面的 B2b（浏览器实测父级）才抓得住。
 const prodHtml = (() => { try { return readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) { return ''; } })();
 chk('S2 产物 index.html 同步包含 chat-ask-panel 三层闭合锚',
-  prodHtml.indexOf('<button class="cc-tool" id="chat-ask-ok">发送</button>\n          </div>\n      </div>\n      </div>\n') >= 0);
+  prodHtml.indexOf('<button class="cc-tool" id="chat-ask-ok">发送</button>\n          </div>\n        </div>\n      </div>\n') >= 0);
 
 // —— 关开屏（clock.js 门控：滑到底 + 点「点击进入」，失败则强制隐藏夹具兜底）——
 // 抽成函数：第二轮 360×640 视口复测要再跑一遍（不同机型尺寸同验，防只测一个尺寸蒙过）
