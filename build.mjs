@@ -1212,7 +1212,7 @@ const FIX_SENTINELS = [
   { name: '#399 幽灵锚点钉在包含块角上（删 top/left 则 absolute 沿用流内静态位置，深内容页再撑出 .phone 幻影溢出）', file: 'css/base.css', needle: 'position:absolute; top:0; left:0; width:1px !important; height:1px !important;' },
   { name: '#399 .phone 非滚动容器（overflow:clip；删则内核「把聚焦元素滚进视野」可再次整体滚走手机壳）', file: 'css/base.css', needle: 'overflow:hidden; overflow:clip;' },
   // ==== 2026-09-13 #398 令牌化管线并发风暴（iPhone 14 Pro/16 Safari「持续卡顿动不了」多机型；起病时间= #377 上线）——ccTokenizeGiantMedia 对每张大卡并发 mochiMediaTokenize（全量 TextEncoder+SHA-256 同挤主线程）且每次缓存重建全量重算；修复=串行+每张让出主线程+会话哈希备忘（FIFO 字符预算 8M）+世代计数防跨重建覆盖 ====
-  { name: '#398 令牌化管线串行化+世代计数（改回并发 Promise 链则大库设备持续卡死）', file: 'js/chatcard.js', needle: 'const gen = ++ccTokRun;' },
+  { name: '#398 令牌化管线串行化+世代计数（#455 演进=pub/own 分槽：改回并发 Promise 链或删分槽世代则大库设备持续卡死/跨库互杀令牌化）', file: 'js/chatcard.js', needle: 'const gen = ++ccTokGen[sl];' },
   // ==== 2026-09-13 #402 进聊天界面跳动一下（多机型偶发，#352 无头诊断实锤）——归一化收尾对「窗口内改动」走 renderWindow 整窗重建＝rem+add ~200 节点同批＝进入聊天 ~0.5s 后整屏跳一下；修复=无结构删除时对 normChangedIdxs 命中下标原位换节点（patchChangedInPlace），其余节点零重建 ====
   { name: '#402 归一化收尾原位补丁函数（删则窗口内改动回退整窗重建＝进聊天整屏跳一下复发）', file: 'js/chat.js', needle: 'function patchChangedInPlace(changedIdxs, start) {' },
   { name: '#402 归一化改动下标登记（删则原位补丁拿不到命中清单＝静默回退整窗）', file: 'js/chat.js', needle: 'if (normChangedIdxs.indexOf(i) < 0) normChangedIdxs.push(i); } }' },
@@ -1376,13 +1376,15 @@ const FIX_SENTINELS = [
   //      default:cc-groups 单键 153MB + cc-groups-public 90MB；#377 公用库 OOM 家族专属库面：
   //      专属库裸 parse 无令牌化、编辑树 groups 开机常驻、去重任务双库同 parse、面板/搜索/角标
   //      反复全量 parse＝jetsam 反复杀页面）====
-  { name: '#442 专属库池视图令牌化（ownPoolRaw 构建后即交 ccTokenizeGiantMedia；删则 153MB 级专属库解析副本带 dataURL 常驻回复池＝iOS jetsam「自动刷新重进」OOM 家族专属库面复发）', file: 'js/chatcard.js', needle: 'ccTokenizeGiantMedia(ownPoolCache);' },
-  { name: '#442 回复池专属侧改走令牌化池视图（删则回退编辑树 groups 直入池＝大库 parse 树常驻+未令牌化卡回退）', file: 'js/chatcard.js', needle: 'return mergeFiltered(ownPoolRaw(), pubGroupsRaw());' },
-  { name: '#442 挂起大键取回不再无条件载编辑树（管理页开着才载；删则聊天路径取回即全量 parse 153MB 级库并常驻＝开聊天即冻结/自动重载复发）', file: 'js/chatcard.js', needle: 'if (scopeLive && ccPageOpen()) {' },
-  { name: '#442 离开字卡库页释放编辑树（删则一次开页后数百 MB parse 副本驻留到刷新＝内存永不回落复发）', file: 'js/chatcard.js', needle: "if (ccScope !== 'public') { groups = null; return; }" },
-  { name: '#442 去重任务大库免解析预检（双侧合计>96MB 只记 mark 免读跳过；删则 90+153MB 双库整串读入+双 parse 在启动+30s 必现＝秒级长任务/OOM 复发）', file: 'js/chatcard.js', needle: 'pubRaw.length + ownLen > DD_PARSE_LIMIT' },
-  { name: '#442 表情包面板专属分区走令牌化池视图（删则回退每次开面板全量 parse 大库＝开面板秒级冻结/左右滑动卡复发）', file: 'js/chatcard.js', needle: "(scope === 'public') ? pubGroupsRaw() : ownPoolRaw()" },
-  { name: '#442 懒加载态拒绝空树整包写回（saveGroups/flushCcSave/ccEnsureDurable 判空收口；删则页外写入方拿空编辑树覆盖权威键＝字卡库整库清空复发，#193 同族）', file: 'js/chatcard.js', needle: "if (!groups) { ccDirty = false; return; }" },
+  { name: '#455 专属库池视图令牌化（ownPoolRaw 构建后即交 ccTokenizeGiantMedia；删则 153MB 级专属库解析副本带 dataURL 常驻回复池＝iOS jetsam「自动刷新重进」OOM 家族专属库面复发）', file: 'js/chatcard.js', needle: "ccTokenizeGiantMedia(ownPoolCache, 'own');" },
+  { name: '#455 回复池专属侧改走令牌化池视图（删则回退编辑树 groups 直入池＝大库 parse 树常驻+未令牌化卡回退）', file: 'js/chatcard.js', needle: 'return mergeFiltered(ownPoolRaw(), pubGroupsRaw());' },
+  { name: '#455 挂起大键取回不再无条件载编辑树（管理页开着才载；删则聊天路径取回即全量 parse 153MB 级库并常驻＝开聊天即冻结/自动重载复发）', file: 'js/chatcard.js', needle: 'if (scopeLive && ccPageOpen()) {' },
+  { name: '#455 离开字卡库页释放编辑树（删则一次开页后数百 MB parse 副本驻留到刷新＝内存永不回落复发）', file: 'js/chatcard.js', needle: "if (ccScope !== 'public') { groups = null; return; }" },
+  { name: '#455 去重任务大库免解析预检（双侧合计>96MB 只记 mark 免读跳过；删则 90+153MB 双库整串读入+双 parse 在启动+30s 必现＝秒级长任务/OOM 复发）', file: 'js/chatcard.js', needle: 'pubRaw.length + ownLen > DD_PARSE_LIMIT' },
+  { name: '#455 表情包面板专属分区走令牌化池视图（删则回退每次开面板全量 parse 大库＝开面板秒级冻结/左右滑动卡复发）', file: 'js/chatcard.js', needle: "(scope === 'public') ? pubGroupsRaw() : ownPoolRaw()" },
+  { name: '#455 懒加载态拒绝空树整包写回（saveGroups/flushCcSave/ccEnsureDurable 判空收口；删则页外写入方拿空编辑树覆盖权威键＝字卡库整库清空复发，#193 同族）', file: 'js/chatcard.js', needle: "if (!groups) { ccDirty = false; return; }" },
+  // ==== 2026-09-14 #456 启动恢复红包封面 out/in 双向 IDB 回灌（#454 遗留项源码实锤：恢复段占位符 RP_COVER_KEY 全 src 无定义，ReferenceError 被 try/catch 静默吞＝iOS 清存储后封面丢失无自愈；收口构建者按 #456 会话台账代办登记）====
+  { name: '#456 红包封面启动恢复双向回灌（删则退回死段/静默失效＝iOS 系统级清存储后 rp-cover-out/in 丢失且无自愈路径复发）', file: 'js/chat.js', needle: "myPrefix + ':rp-cover-' + side" },
   // ==== 2026-09-14 #446 花园扩建改自愿+一键补种+养护减负（用户反馈「花园里不用一直扩建，建这么多养不过来」：
   //      ①等级自动送地改「开垦资格」手动开垦——plotN=已开垦数，load() 迁移按当前等级一次性补齐资格，存量玩家已有的地一块不少；
   //      ②升级里程碑跨 Lv3/5/8/12 各送 1 颗随机稀有种子，升级奖励与「要不要多地块」脱钩；

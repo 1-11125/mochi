@@ -83,7 +83,7 @@
   }
   // 解析公用键（带缓存：回复池每次发消息都会取合并池，不能反复 JSON.parse 大库）
   let pubCache = null;
-  // v3.42.x #442：pubInvalidate 同时失效专属库池视图（ownPoolCache）——两把键的派生
+  // v3.42.x #455：pubInvalidate 同时失效专属库池视图（ownPoolCache）——两把键的派生
   // 缓存生命周期完全同拍（写库/取回/切桌面/进管理页都要一起重算），收口在这一个入口，
   // 各既有调用点零改动即获得专属侧失效。
   function pubInvalidate() { pubCache = null; ownPoolCache = null; }
@@ -109,12 +109,16 @@
   // ②会话内 body→token 备忘（FIFO 字符预算淘汰，上限 8M 字符≈16MB，不破坏 #377 瘦身目标），
   // 重复构建零重算；③世代计数——pubInvalidate 重建后旧 pass 自动作废，memo 让重跑便宜。
   let ccTokRun = 0;
+  // v3.42.x #455：世代计数分槽（pub/own 各自独立）——原单计数器下任一库的缓存重建都会
+  // 作废另一库在飞的令牌化 pass；#455 把 ownPoolCache 纳入 pubInvalidate 同拍失效后，
+  // 「own 空库重建也 bump 世代」会把公用库令牌化 pass 永远卡死（verify-giant-pool-tokenize
+  // 实测 bigTok=0）。分槽后各库重建只作废各自在飞的 pass；零任务调用不再 bump（空库重建无害）。
+  const ccTokGen = { pub: 0, own: 0 };
   const ccTokMemo = new Map();
   let ccTokMemoChars = 0;
   const CC_TOK_MEMO_MAX_CHARS = 8 * 1024 * 1024;
-  function ccTokenizeGiantMedia(g) {
+  function ccTokenizeGiantMedia(g, slot) {
     if (!window.mochiMediaTokenize) return;
-    const gen = ++ccTokRun;
     const jobs = [];
     ['sticker', 'image'].forEach(function (t) {
       (g[t] || []).forEach(function (grp) {
@@ -129,14 +133,16 @@
       });
     });
     if (!jobs.length) return;
+    const sl = slot === 'own' ? 'own' : 'pub';
+    const gen = ++ccTokGen[sl];
     (async function () {
       for (let k = 0; k < jobs.length; k++) {
-        if (gen !== ccTokRun) return; // 缓存已重建/失效，本次 pass 作废（memo 让重跑便宜）
+        if (gen !== ccTokGen[sl]) return; // 本库缓存已重建/失效，本次 pass 作废（memo 让重跑便宜）
         const j = jobs[k];
         let tok = ccTokMemo.get(j.body);
         if (!tok) {
           try { tok = await window.mochiMediaTokenize(j.body, { noCache: true }); } catch (e) { tok = null; }
-          if (gen !== ccTokRun) return;
+          if (gen !== ccTokGen[sl]) return;
           if (tok) {
             ccTokMemo.set(j.body, tok); ccTokMemoChars += j.body.length;
             while (ccTokMemoChars > CC_TOK_MEMO_MAX_CHARS && ccTokMemo.size) {
@@ -146,7 +152,7 @@
           }
         }
         await new Promise(function (r) { setTimeout(r, 0); }); // 每张之间让出主线程，UI 可交互
-        if (gen !== ccTokRun) return;
+        if (gen !== ccTokGen[sl]) return;
         if (!tok || j.grp[1][j.i] !== j.card) continue; // 身份守卫：卡原文已变则不覆盖
         j.grp[1][j.i] = j.bar >= 0 ? (j.card.slice(0, j.bar + 3) + tok) : tok;
       }
@@ -161,11 +167,11 @@
         try { pubStore().set(PUB_KEY, JSON.stringify(pubCache)); } catch (e) {}
         notifyVoiceHeal(_vhp.fixed, _vhp.removed);
       }
-      ccTokenizeGiantMedia(pubCache);
+      ccTokenizeGiantMedia(pubCache, 'pub');
     }
     return pubCache;
   }
-  // v3.42.x #442 专属库同款内存瘦身（#377 公用库 OOM 家族的专属库面——iPhone 15 Pro Max
+  // v3.42.x #455 专属库同款内存瘦身（#377 公用库 OOM 家族的专属库面——iPhone 15 Pro Max
   // via 等多机型「左右滑动卡 + 总是自动刷新重进」；诊断实锤 default:cc-groups 单键 153MB）：
   // 专属库此前只有 ownGroupsRaw() 裸 parse——每次调用全量 JSON.parse 且解析副本（772 张
   // 贴纸 dataURL 原文）不令牌化、随 groups/计数路径反复重建，raw 串 + 解析树双份常驻
@@ -177,7 +183,7 @@
   function ownPoolRaw() {
     if (!ownPoolCache) {
       ownPoolCache = buildGroupsFrom(store.get('cc-groups'));
-      ccTokenizeGiantMedia(ownPoolCache);
+      ccTokenizeGiantMedia(ownPoolCache, 'own');
     }
     return ownPoolCache;
   }
@@ -222,7 +228,7 @@
     return out;
   }
   // 当前桌面回复池合并视图（供 getCustomCards/getPokeCards/getMediaCards 等使用）
-  // v3.42.x #442：专属侧从「编辑树 groups（未令牌化、含全部 dataURL）」改为令牌化池视图
+  // v3.42.x #455：专属侧从「编辑树 groups（未令牌化、含全部 dataURL）」改为令牌化池视图
   // ownPoolRaw()——回复池只读不编辑，不需要 dataURL 原文；令牌卡由 #142/#283/#383 渲染/
   // 发送/文字池守卫全链路承接（公用侧 #377 起即如此，池内容早已混有令牌卡）。
   function replyPoolGroups() { return mergeFiltered(ownPoolRaw(), pubGroupsRaw()); }
@@ -514,7 +520,7 @@
     return ccScope === 'public' ? (PUB_PREFIX + ':' + PUB_KEY) : (window.activePrefix() + ':cc-groups');
   }
   function saveGroups(groups) {
-    // v3.42.x #442：懒加载态（管理页未开）没有编辑树可落盘——直接拒绝，绝不把
+    // v3.42.x #455：懒加载态（管理页未开）没有编辑树可落盘——直接拒绝，绝不把
     // null/空树整包写回权威键（等价 #193 防覆盖守卫在懒加载态的收口）
     if (!groups) { ccDirty = false; return; }
     if (!ccAuthSeen[ccScope] && window.idbHasKey) {
@@ -540,7 +546,7 @@
     if (!window.idbSet) return;
     clearTimeout(ccDurableTimer);
     let json = '';
-    // v3.42.x #442：jsonPre 供懒加载态的零散写入方（ccAppendCards 页外直写）带上
+    // v3.42.x #455：jsonPre 供懒加载态的零散写入方（ccAppendCards 页外直写）带上
     // 本次完整快照确认落盘；常规路径仍序列化当前编辑树。groups 为空（管理页未开/
     // 已释放）且无快照时拒绝发写——绝不把空库整包写回权威键；挂起的补发由下一次
     // 开页后的 flushCcSave 用真实树接手。
@@ -601,7 +607,7 @@
   }
 
 
-  // v3.42.x #442：编辑树懒加载——groups 只在「用户正在字卡库管理页」时才载入真实库
+  // v3.42.x #455：编辑树懒加载——groups 只在「用户正在字卡库管理页」时才载入真实库
   //（openCcPage/hydrateScope 页可见分支/applyRestored），离开页面/切桌面即置 null 释放；
   // 聊天回复池/表情面板/角标/搜索全部走令牌化池视图（ownPoolRaw/pubGroupsRaw），
   // 不再经由 groups。153MB 级库的 parse 副本从「开机常驻」收敛为「开页期间存在」。
@@ -687,7 +693,7 @@
 
   // 渲染分组筛选栏（每个分组显示字卡数量）
   function renderGroupsBar() {
-    // v3.42.x #442：懒加载态（groups=null）无库可渲染，静默跳过（开页时 openCcPage 先载再渲）
+    // v3.42.x #455：懒加载态（groups=null）无库可渲染，静默跳过（开页时 openCcPage 先载再渲）
     if (!groups) return;
     if (!groupsBar) return;
     groupsBar.innerHTML = '';
@@ -797,7 +803,7 @@
   // v3.6.x：分类 tab 显示每个大分类的字卡数量（主字卡/颜文字/emoji/表情包/图片/拍一拍/语音）
   function renderTabCounts() {
     tabsWrap.querySelectorAll('.cc-tab').forEach(tab => {
-      // v3.42.x #442：懒加载态（groups=null）无库可计数——必须与 renderGroupsBar 同守卫。
+      // v3.42.x #455：懒加载态（groups=null）无库可计数——必须与 renderGroupsBar 同守卫。
       // 缺这条时顶层首渲 render() 在此抛 null['text']，chatcard.js 整个 IIFE 初始化中断，
       // 其后的字卡库顶部两大分类 tab 绑定/锁状态提示/搜索全部不挂（#453 各机型「系统预设字卡点不开」）
       const grps = (groups && groups[tab.dataset.type]) || [];
@@ -944,7 +950,7 @@
     // #434：有未确认落盘的库变更（含上一轮 idbSet 失败挂起的补发）先再发一次
     if (ccDurablePending) ccEnsureDurable(0);
     if (!ccDirty) return;
-    // v3.42.x #442：懒加载态无编辑树＝不存在未落盘的编辑（ccDirty 只在开页期置位），
+    // v3.42.x #455：懒加载态无编辑树＝不存在未落盘的编辑（ccDirty 只在开页期置位），
     // 显式收口防 null 树整包写回
     if (!groups) { ccDirty = false; return; }
     try { saveGroups(groups); } catch (e) {}
@@ -956,7 +962,7 @@
   window.ccReloadGroupsAfterExternalWrite = function () {
     pubInvalidate();
     libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
-    // v3.42.x #442：管理页开着才重载编辑树（页关着保持懒加载态，池视图已随
+    // v3.42.x #455：管理页开着才重载编辑树（页关着保持懒加载态，池视图已随
     // pubInvalidate 失效、下次取池现算），不再无条件把大库 parse 副本拉进堆
     if (ccPageOpen()) {
       try { groups = loadGroups(); } catch (e) {}
@@ -1003,7 +1009,7 @@
     }
     if (libCounts.own < 0 || libCounts.fun < 0) {
       // v3.32.x：own 与 fun 共用同一次 parse（失效总是一起，防重复 JSON.parse 大库）
-      // v3.42.x #442：改走令牌化池视图（令牌化只换卡体不删卡，计数口径不变）
+      // v3.42.x #455：改走令牌化池视图（令牌化只换卡体不删卡，计数口径不变）
       const og = ownPoolRaw();
       if (libCounts.own < 0) {
         const n = countOf(og);
@@ -1036,7 +1042,7 @@
   // v3.6.x：只更新各类计数（tab 徽标/分组栏/总数），不重建列表 DOM——
   // 删除字卡/删除分组等高频操作改局部移除 DOM + 本函数，替代整页 render()
   function updateCountsOnly() {
-    // v3.42.x #442：懒加载态无树可计数（正常调用方都在开页期），走池视图角标兜底
+    // v3.42.x #455：懒加载态无树可计数（正常调用方都在开页期），走池视图角标兜底
     if (!groups) { refreshLibCounts(false); return; }
     renderTabCounts();
     renderGroupsBar();
@@ -1257,7 +1263,7 @@
     list.classList.toggle('cc-grid', cur === 'sticker');
     list.classList.toggle('cc-grid2', cur === 'image');
     list.classList.toggle('cc-grid6', cur === 'emoji');
-    // v3.42.x #442：懒加载态兜底为空列表（调用方都已在 groups 就绪后触发，此处只防
+    // v3.42.x #455：懒加载态兜底为空列表（调用方都已在 groups 就绪后触发，此处只防
     // 事件竞态把 null 树带进渲染）
     const grps = (groups && groups[cur]) || [];
     let shown = grps;
@@ -1436,7 +1442,7 @@
     const out = [];
     try {
       // v3.11.x：公用 + 专属合并后参与搜索
-      // v3.42.x #442：专属侧走令牌化池视图（搜索按文字/名称匹配，媒体卡体不参与，
+      // v3.42.x #455：专属侧走令牌化池视图（搜索按文字/名称匹配，媒体卡体不参与，
       // 与原 loadGroups 口径一致且免去每次搜索全量 parse 大库）
       const groups = mergeWithPublic(ownPoolRaw());
       Object.keys(groups).forEach(function (type) {
@@ -3111,7 +3117,7 @@
       if (window.hydrateLibScopes) window.hydrateLibScopes(['public', 'own']);
     } catch (e) {}
   }
-  // v3.42.x #442：replyScopeGroups 整体移除（历史职责=「groups 空时从 store 现载兜底
+  // v3.42.x #455：replyScopeGroups 整体移除（历史职责=「groups 空时从 store 现载兜底
   // 回复池」，v3.28.x 修自定义字卡整会话不进池）——回复池专属侧已改走带缓存的令牌化
   // 池视图 ownPoolRaw()，数据缺失由 maybeHydrateReplyPool→hydrateScope 统一按需取回，
   // 不再需要「为池子回填编辑树」；这条兜底在 153MB 级库上＝每次池空都全量 parse 一遍
@@ -3281,7 +3287,7 @@
   //   scope='public' 只读公用键；scope='own' 只读当前桌面专属键。
   //   v3.30.x：已停用分组同样从面板隐藏（关闭=该分组完全不再被使用，含主动面板）。
   window.getScopedGroups = function (type, scope) {
-    // v3.42.x #442：专属分区改走令牌化池视图——原实现每次开聊天表情包/拍一拍面板
+    // v3.42.x #455：专属分区改走令牌化池视图——原实现每次开聊天表情包/拍一拍面板
     // 都 buildGroupsFrom 全量 JSON.parse 一遍大库（153MB 级库＝开面板秒级冻结，
     // 「左右滑动卡」主力来源之一）；令牌卡由 isMediaImg 补认分支收齐不丢。
     const src = filterGroupsByOff(
@@ -3325,7 +3331,7 @@
         }
         return added > 0;
       }
-      // v3.42.x #442：懒加载态（管理页未开/已释放，groups=null）绝不拿空编辑树整包
+      // v3.42.x #455：懒加载态（管理页未开/已释放，groups=null）绝不拿空编辑树整包
       // 回写＝清库——对齐公用分支 #387 口径：原始键现解析→追加→直写（本路径低频，
       // 一次性 parse 可接受），带完整快照确认落盘，池视图失效后下次取池即含新卡。
       if (!groups) {
@@ -3374,7 +3380,7 @@
     offInvalidate(); // v3.30.x：专属停用集合按联系人隔离，切桌面必须失效缓存
     ccAuthSeen.own = false; // v3.26.x #193：新桌面的权威键尚未取回，写守卫重新生效
     libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
-    // v3.42.x #442：切桌面不再无条件全量 parse 新桌面库进编辑树（原实现每次切换
+    // v3.42.x #455：切桌面不再无条件全量 parse 新桌面库进编辑树（原实现每次切换
     // 都 loadGroups＝「切桌面/开聊天间歇卡顿」主力来源之一）——管理页开着才重载，
     // 否则保持懒加载，开页时现载
     if (ccPageOpen()) { try { groups = loadGroups(); } catch (e) {} }
@@ -3457,7 +3463,7 @@
             if (isDefault) { try { gRoot.remove('cc-groups'); } catch (e2) {} }
             libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
             if (cid === (window.__activeCid || 'default')) {
-              // v3.42.x #442：同 refreshAfter——管理页开着才重载编辑树
+              // v3.42.x #455：同 refreshAfter——管理页开着才重载编辑树
               if (ccScope === 'own' && ccPageOpen()) { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
               else refreshLibCounts(false);
             } else refreshLibCounts(false);
@@ -3506,7 +3512,7 @@
   (function () {
     const DD_KEY = 'cc-dedupe-v1';
     const DD_REWRITE_LIMIT = 15 * 1024 * 1024;
-    // v3.42.x #442：解析上限 300MB→96MB（双侧合计）——原值放行了 90+153MB 级双库
+    // v3.42.x #455：解析上限 300MB→96MB（双侧合计）——原值放行了 90+153MB 级双库
     // 同时 parse（#377 家族诊断机型实测解析副本把堆顶到 jetsam），去重收益不抵
     // 秒级长任务 + OOM 风险；超限走「只记 mark 免解析跳过」（剩余过大留给手动批量
     // 管理，与 DD_REWRITE_LIMIT 同一取舍逻辑）
@@ -3527,7 +3533,7 @@
       libCounts.own = -1; libCounts.fun = -1;
       if (cid === (window.__activeCid || 'default')) {
         pubInvalidate();
-        // v3.42.x #442：管理页开着才重载编辑树，页关着保持懒加载态（池视图已随
+        // v3.42.x #455：管理页开着才重载编辑树，页关着保持懒加载态（池视图已随
         // pubInvalidate 失效，角标走 refreshLibCounts 池视图口径刷新）
         if (ccScope === 'own' && ccPageOpen()) { groups = loadGroups(); try { renderGroupsBar(); render(); } catch (e2) {} }
         else refreshLibCounts(false);
@@ -3544,7 +3550,7 @@
         if (!ownKeys.length) return;
         const marks = ddLoad();
         let markDirty = false;
-        // v3.42.x #442 全键预检：__big-idx 尺寸齐全且每键 mark 与双侧长度一致 →
+        // v3.42.x #455 全键预检：__big-idx 尺寸齐全且每键 mark 与双侧长度一致 →
         // 本轮零读直接返回（原实现无论如何都先把公用键整串读进堆＝90MB 级读入
         // 每次启动必付一次，纯白费的内存峰值）
         const pubFullKey = PUB_PREFIX + ':' + PUB_KEY;
@@ -3571,14 +3577,14 @@
             // 预检：__big-idx 尺寸没记录（本会话未回填该键）或与上次体检一致 → 免读大值
             const ownLen = (window.idbBigSize && window.idbBigSize(full)) || null;
             if (typeof ownLen !== 'number' || ownLen < 65536) {
-              // v3.42.x #442：小/未知键也记 mark（配合 pubLenIdx 全键预检）——大公用库
+              // v3.42.x #455：小/未知键也记 mark（配合 pubLenIdx 全键预检）——大公用库
               // +小专属库的用户此前因专属键永不记 mark，每次启动都白读一次公用大键；
               // 尺寸索引缺失（pubLenIdx 未知）时不记，维持旧口径
               if (typeof ownLen === 'number' && typeof pubLenIdx === 'number') { marks[cid] = [pubLenIdx, ownLen]; markDirty = true; }
               next(); return;
             }
             if (marks[cid] && marks[cid][0] === pubRaw.length && marks[cid][1] === ownLen) { next(); return; }
-            // v3.42.x #442：双侧合计超解析上限 → 免读该键大值、只记 mark 跳过——
+            // v3.42.x #455：双侧合计超解析上限 → 免读该键大值、只记 mark 跳过——
             // 原实现此时已把 90+153MB 双库整串拉进堆还要双库 JSON.parse（解析副本
             // 再翻倍）＝启动+30s 的秒级长任务/OOM 爆点；mark 落盘后下轮走零读预检
             if (pubRaw.length + ownLen > DD_PARSE_LIMIT) {
@@ -3815,7 +3821,7 @@
     // v3.29.x：先落盘待写变更（原实现在 public 分支直接清定时器，120ms 内刚上传的
     // 表情包/图片会因离页被静默丢弃）
     flushCcSave();
-    // v3.42.x #442：离开管理页一律释放编辑树——153MB 级库的 parse 副本从「开过一次
+    // v3.42.x #455：离开管理页一律释放编辑树——153MB 级库的 parse 副本从「开过一次
     // 页就驻留到刷新」收敛为「只在页开着期间存在」（ jetsam 内存主源之一）；
     // 再次进入由 openCcPage 现载
     if (ccScope !== 'public') { groups = null; return; }
@@ -3996,7 +4002,7 @@
       pubInvalidate();
       libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
       const scopeLive = (scope === 'public') ? (ccScope === 'public') : (ccScope === 'own');
-      // v3.42.x #442：管理页开着才重载编辑树+界面；页关着保持懒加载态（角标由
+      // v3.42.x #455：管理页开着才重载编辑树+界面；页关着保持懒加载态（角标由
       // 下方 refreshLibCounts 走池视图刷新）——聊天/回复路径的取回不再顺手把
       // 153MB 级 parse 副本拉进堆常驻（「一开聊天就冻结/自动重载」主源之一）
       if (scopeLive && ccPageOpen()) {

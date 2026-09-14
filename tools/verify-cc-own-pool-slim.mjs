@@ -1,4 +1,4 @@
-// ===== 验证脚本：#442 专属库池视图令牌化 + 编辑树懒加载 行为级回归 =====
+// ===== 验证脚本：#455 专属库池视图令牌化 + 编辑树懒加载 行为级回归 =====
 // 背景：iPhone 15 Pro Max via 等多机型「左右滑动卡 + 总是自动刷新重进」——诊断实锤
 // default:cc-groups 单键 153MB（#377 公用库 OOM jetsam 家族的专属库面）：专属库裸 parse
 // 无令牌化、编辑树 groups 开机常驻、去重任务双库同 parse、表情面板/搜索/角标反复全量
@@ -65,6 +65,7 @@ function buildEnv() {
     const CC_MEDIA_TOKEN_THRESHOLD = 64 * 1024;
     const CC_TOK_MEMO_MAX_CHARS = 8 * 1024 * 1024;
     let ccTokRun = 0;
+    const ccTokGen = { pub: 0, own: 0 };
     const ccTokMemo = new Map();
     let ccTokMemoChars = 0;
     let pubCache = { marker: 'pub-old' };
@@ -185,6 +186,6 @@ function buildEnv() {
   ok('E9 去重任务全键预检零读直返', src.indexOf('if (allSettled) return;') >= 0);
   ok('E10 saveGroups 懒加载态守卫在位', src.indexOf('if (!groups) { ccDirty = false; return; }') >= 0);
 
-  console.log(`\n#442 专属库池瘦身/懒加载：通过 ${pass} / 失败 ${fail}`);
+  console.log(`\n#455 专属库池瘦身/懒加载：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('脚本异常:', e); process.exit(1); });

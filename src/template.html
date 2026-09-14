@@ -60,6 +60,13 @@
       <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
            全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
       <div class="splash-notice" id="splash-notice">
+        <!-- v3.26.x：开屏最顶·使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
+             静态 DOM（tag 'w' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；
+             clock.js 动态插卡（防骗/署名/公告）都锚在免责卡之后，本卡排 #splash-notice 首位不被挪动 -->
+        <div class="splash-alert splash-what" data-anti-scam="w">
+          <div class="splash-alert-t">使用前提 · 先认清本站是什么</div>
+          <p><strong>本站是字卡传讯，纯代码运行，没有任何 AI，不是小手机。</strong>请至少了解什么是字卡传讯、使用过其他传讯网站，再进行使用。</p>
+        </div>
         <!-- v3.27.x #315：免责声明置顶卡——未成年人禁止使用 + 字卡为随机代码自担责任；静态 DOM（tag 'd' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；#315b 红色警示形态置顶首位；#315c 细化为四条：18 周岁红线+点击即同意 / 虚构娱乐与真实关系边界+心理援助热线 / 后果自担与作者免责 / 纯本地数据与备份责任 -->
         <div class="splash-alert splash-disclaimer" data-anti-scam="d">
           <div class="splash-alert-t">免责声明</div>

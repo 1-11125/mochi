@@ -9723,12 +9723,19 @@ bootAutoSend();
 try { chatPrefetchIfLight(function () { loadMsgs(); }); } catch (e) {}
 setTimeout(rpExpireCheck, 2000);
 setInterval(rpExpireCheck, 60 * 60 * 1000);
+// FIX 2026-09-14 #456：红包封面启动恢复此前引用未定义的 RP_COVER_KEY——ReferenceError 被
+// 本层 try/catch 连同 promise 链静默吞掉＝恢复从未生效（#454 无头诊断实锤产物 36945 行）。
+// 改为 out/in 双方向各自从 IDB 权威键回灌 LS，键名与 rpCoverSet 写入口径同构
+//（<activePrefix>:rp-cover-<side> ↔ store.set('rp-cover-<side>')，模板同下方 fav-msgs 恢复段）；
+// 切桌面后放弃写入。
 try {
 if (window.idbGet) {
+['out', 'in'].forEach(function (side) {
 const myPrefix = window.activePrefix();
-window.idbGet(myPrefix + ':' + RP_COVER_KEY).then(v => {
+window.idbGet(myPrefix + ':rp-cover-' + side).then(function (v) {
 if (window.activePrefix() !== myPrefix) return;
-if (v && typeof v === 'string' && v.length > 2) store.set(RP_COVER_KEY, v);
+if (v && typeof v === 'string' && v.length > 2) store.set('rp-cover-' + side, v);
+});
 });
 }
 } catch (e) {}

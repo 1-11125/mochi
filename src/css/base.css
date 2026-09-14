@@ -186,6 +186,17 @@ html { margin:0; padding:0; }
 [data-theme="dark"] .splash-alert.splash-disclaimer .splash-alert-t::before { background:#ff8080; color:#3a0d0d; }
 [data-theme="dark"] .splash-alert.splash-disclaimer p { color:#f0c6c6; }
 [data-theme="dark"] .splash-alert.splash-disclaimer strong { color:#ff8080; }
+/* v3.26.x：开屏最顶·使用前提卡——蓝色警示形态（字卡传讯/纯代码/无 AI/不是小手机，先了解再用） */
+.splash-alert.splash-what { background:#e8f0fc; border:2px solid #3a6fc4; border-radius:10px; }
+.splash-alert.splash-what .splash-alert-t { color:#27538f; }
+.splash-alert.splash-what .splash-alert-t::before { background:#3a6fc4; }
+.splash-alert.splash-what p { color:#1e3a5f; font-size:13px; font-weight:700; line-height:1.75; }
+.splash-alert.splash-what strong { color:#27538f; font-weight:900; }
+[data-theme="dark"] .splash-alert.splash-what { background:rgba(58,111,196,.16); border-color:#6f9bde; }
+[data-theme="dark"] .splash-alert.splash-what .splash-alert-t { color:#a8c6f0; }
+[data-theme="dark"] .splash-alert.splash-what .splash-alert-t::before { background:#a8c6f0; color:#0e2240; }
+[data-theme="dark"] .splash-alert.splash-what p { color:#c8daf4; }
+[data-theme="dark"] .splash-alert.splash-what strong { color:#a8c6f0; }
 /* v3.27.x #319：防未成年人·系统内置字卡锁卡——琥珀警示形态 + 解锁动作按钮 */
 .splash-alert.splash-cardlock { background:#fdf3e0; border:2px solid #c07f1f; }
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }
