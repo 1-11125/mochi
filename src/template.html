@@ -5760,8 +5760,9 @@
     </button>
   </div>
 </div>
+  </div>
 
-<!-- 底部 tab -->
+<!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
 <div class="tabbar">
       <div class="tab active" data-page="page-phone">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
@@ -5773,7 +5774,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
       </div>
     </div>
-  </div>
 
   <!-- v3.6.x：桌面图片组件全屏查看器——点图片组件放大查看，点空白/×关闭。
        注意：必须放在脚本标签之前（body 直子节点，position:fixed 不受布局影响）——

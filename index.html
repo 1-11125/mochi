@@ -9440,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789372102791">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.679</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 15:48<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789374072136">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.680</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 16:21<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10753,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.679</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.680</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11055,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.679</span>
+              <span class="lic-ver">v3.26.680</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -14911,8 +14911,9 @@ transition-duration: .01ms !important;
     </button>
   </div>
 </div>
+  </div>
 
-<!-- 底部 tab -->
+<!-- 底部 tab（必须在 .phone 内、所有 .page 之外；嵌在 page-chat 内时 hidden 联动消失） -->
 <div class="tabbar">
       <div class="tab active" data-page="page-phone">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3.5"/><path d="M10 17.5h4"/></svg>
@@ -14924,7 +14925,6 @@ transition-duration: .01ms !important;
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
       </div>
     </div>
-  </div>
 
   <!-- v3.6.x：桌面图片组件全屏查看器——点图片组件放大查看，点空白/×关闭。
        注意：必须放在脚本标签之前（body 直子节点，position:fixed 不受布局影响）——
@@ -93452,4 +93452,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0xy6x3 -->
+<!-- __MOCHI_EOF__ mu0z4eh4 -->
