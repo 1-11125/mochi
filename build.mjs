@@ -247,6 +247,8 @@ const FIX_SENTINELS = [
   { name: '#437 parts 型纯图片发件侧同窗 800ms（删/回 8000＝同相册图 8s 内重发被静默吞）', file: 'js/chat.js', needle: "&& (m.side || '') === 'out') return 800;" },
   { name: '#437 addRec 发件侧吞并 toast 反馈（删则恢复静默吞＝「发不出去」报障源回流）', file: 'js/chat.js', needle: "!rec.silent && typeof toast === 'function') toast('同样的内容刚发送过，未重复发送');" },
   { name: '#437 发送按钮双击守卫吞并 toast 反馈（守卫语义不变，吞并须可见；删则双击发送静默无反馈回流）', file: 'js/chat.js', needle: "try { toast('同样的内容刚发送过，未重复发送'); } catch (e) {}" },
+  { name: '#466 键盘/视口 resize 钉住回钉守卫（聊天视口高度变化且仍贴底钉住时不刷新 scrollTop→消息被键盘顶到上半区、发送时才拽回=「闪一下」；删掉守卫线即复发）', file: 'js/chat.js', needle: 'if (!chatVisible() || !chatPinnedBottom) return;' },
+  { name: '#466 键盘/视口 resize 回钉监听（visualViewport resize→refreshKbRepin；删监听＝键盘开合不再回钉、上半区闪动复发）', file: 'js/chat.js', needle: 'vv466.addEventListener(\'resize\', refreshKbRepin)' },
   { name: '#360 字卡去重跨分组判重（seen 按分类建不按分组建+对象卡稳定序列化判重；退回「每组各建 seen 按引用比较」即换分组清不出重复，公用/专属两作用域同源复发）', file: 'js/chatcard.js', needle: 'function ccCardDupKey(cat, c) {' },
   { name: '诊断采集与设置页 DOM 解耦（row 在使用处按需判空，错误/环境/长任务/轨迹不因入口 DOM 缺失而失效）', file: 'js/device.js', needle: 'if (!row) return null;' },
   { name: '诊断复制不再 focus 隐藏 textarea（防手机弹输入法+灰屏，ta.focus 删除型守护；needle 收窄到 device.js copyText 的 appendChild(ta);ta.focus(); 上下文——裸 ta.focus(); 在 chat.js/decision.js/divination.js/group-decision.js 合法存在会误报）', file: 'js/device.js', needle: 'appendChild(ta);ta.focus();', absent: true },

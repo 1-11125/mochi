@@ -1396,10 +1396,10 @@ const out = side === 'out';
 // 搜索/引用跳转定位（#334）本就解除钉住，chatPinnedBottom 已完整表达「别打扰」
 if (!out && !chatPinnedBottom) return;
 scrollChatBottom();
-if (out) {
-requestAnimationFrame(scrollChatBottom);
-setTimeout(scrollChatBottom, 120);
-} else {
+	if (out) {
+	requestAnimationFrame(scrollChatBottom);
+	setTimeout(scrollChatBottom, 120);
+	} else {
 // FIX #162：来消息侧原本只写一次 scrollTop——iPadOS 26 Safari 内核可能丢弃/被迟到的
 // 布局变更顶开；对齐 out 侧三连写口径，钉住期间才复写（用户已手动滚走则不抢滚动权）
 requestAnimationFrame(() => { if (chatPinnedBottom) scrollChatBottom(); });
@@ -2503,6 +2503,21 @@ if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
+// FIX #466（红米/小米 Chrome 等多机型报「发送消息时界面闪到最顶上半部分再恢复」）：
+// 安卓键盘弹出/收起会让 mobile-adapt 按 visualViewport 高度改 .phone 高度，聊天 scrollTop
+// 却不会随之更新＝消息列表长期被键盘顶到上半区、最新消息被盖住，到发送/收键盘那刻才被
+// scrollChatBottom 拽回＝观感「闪一下再恢复」。补钉住守卫的回钉：视口高度变化（键盘/地址栏
+// 显隐）且仍贴底钉住时，防抖后回到底部；用户手动滚动解钉即停，与 #162 闸同名语义，零机型分支。
+let _kbRepinT = null;
+function refreshKbRepin() {
+if (!chatVisible() || !chatPinnedBottom) return;
+if (_kbRepinT) clearTimeout(_kbRepinT);
+_kbRepinT = setTimeout(function () { _kbRepinT = null; if (chatPinnedBottom) scrollChatBottom(); }, 60);
+}
+(function () {
+const vv466 = window.visualViewport;
+if (vv466) vv466.addEventListener('resize', refreshKbRepin);
+})();
 // FIX #162：消息图片是 loading=lazy，加载完成晚于滚底，加载后内容长高会把视图从底部顶开
 //（iPadOS 26 Safari 尤其明显＝「回一条滑一次」）——钉住期间任何消息图片 onload 后回到底部
 body.addEventListener('load', (e) => {
