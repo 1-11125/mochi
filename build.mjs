@@ -1021,10 +1021,10 @@ const FIX_SENTINELS = [
   { name: '#301 词典自建词条并入词典分类（删则自建语录/词不再进词典 tab 与拼字引擎）', file: 'js/default-cards.js', needle: "const gw = base.find(g => g[0].indexOf('词库') === 0)" },
   // ==== 2026-09-11 #306 小游戏 UI 收口（连连看/消消乐棋盘 gap 溢出截断、头部标题被挤竖排、拍卖会「不拍了」白字白底隐形）+ 全部小游戏通用全屏 .game-fs ====
   { name: '#306 连连看 fitBoard 扣除 grid gap 再取整（删则牌面总宽多出 (cols-1)*3px 溢出右缘、最右列被截断）', file: 'js/linkup.js', needle: 'Math.floor((w - (st.cols - 1) * GAP) / st.cols)' },
-  // ==== 2026-09-15 #482/#483 连连看（用户报「TA 回合连上了却弹『没连上』」「10×6 全屏不放大反而图案显小」）====
-  { name: '#482 连连看 TA wild 点错：台词只指本次尝试、隔 700ms 经 thinkT 才落子（删则台词与成功连线同帧＝「连上了却弹连不上」回流）', file: 'js/linkup.js', needle: 'if (s !== st || st.over || st.lock || st.turn !== 2) return;' },
-  { name: '#483 连连看全屏放大：.game-fs 时高度参与取格、上限 46→72（删则全屏只按宽度压小牌面、纵向空间浪费）', file: 'js/linkup.js', needle: 'Math.max(24, Math.min(72, byW' },
-  { name: '#483 连连看真全屏 stage 吃满高度（删则全屏棋盘贴顶、下方大片留白退回）', file: 'css/chat-pages.css', needle: '#chat-linkup-panel.game-fs .lk-stage { flex:1; min-height:0; }' },
+  // ==== 2026-09-15 #487/#488 连连看（用户报「TA 回合连上了却弹『没连上』」「10×6 全屏不放大反而图案显小」；原编 #482/#483 撞号改）====
+  { name: '#487 连连看 TA wild 点错：台词只指本次尝试、隔 700ms 经 thinkT 才落子（删则台词与成功连线同帧＝「连上了却弹连不上」回流）', file: 'js/linkup.js', needle: 'if (s !== st || st.over || st.lock || st.turn !== 2) return;' },
+  { name: '#488 连连看全屏放大：.game-fs 时高度参与取格、上限 46→72（删则全屏只按宽度压小牌面、纵向空间浪费）', file: 'js/linkup.js', needle: 'Math.max(24, Math.min(72, byW' },
+  { name: '#488 连连看真全屏 stage 吃满高度（删则全屏棋盘贴顶、下方大片留白退回）', file: 'css/chat-pages.css', needle: '#chat-linkup-panel.game-fs .lk-stage { flex:1; min-height:0; }' },
   { name: '#306 消消乐 fitBoard 扣除 grid gap 再取整（同连连看，删则第 8 列被裁）', file: 'js/match3.js', needle: 'Math.floor((w - (N - 1) * GAP) / N)' },
   // ==== 2026-09-12 #340 消消乐动画（用户报「没有真消消乐动画很突兀」）：棋子层+transform 合成器过渡，交换滑动/消除爆开/按距离下落 ====
   { name: '#340 消消乐消除爆开动画 keyframes（删则消除无爆开、退回瞬间消失）', file: 'css/chat-pages.css', needle: '@keyframes m3-popout' },
@@ -1468,14 +1468,14 @@ const FIX_SENTINELS = [
   //      与 #453 道具开关 st.mode('item'/'simple') 撞名——TA 第一次行动 st.mode 被覆写成 serious/normal/sandbag/blunder，
   //      此后道具门控 st.mode==='item' 永假；修复=出手风格改存独立字段 st.taMode）====
   { name: '#481 消消乐 TA 出手风格独立字段（删则 taTurn 把 st.mode 覆写成 serious/normal/sandbag/blunder、道具模式自 TA 首步起永远不再生成道具）', file: 'js/match3.js', needle: 'st.taMode = rollMode();' },
-  // ==== 2026-09-15 #482 问问TA/邀请TA 回应落地时已切桌面＝回应被 sameCid() 取消，切回后卡片永远
+  // ==== 2026-09-15 #489 问问TA/邀请TA 回应落地时已切桌面＝回应被 sameCid() 取消，切回后卡片永远
   //      「等待 TA 回答/回应…」（用户报障：文字题联系人已回答，切桌面再切回变未回复）；修复=跨桌面
   //      补投递 chatDeskCardReply（按 ts 定位原桌面 pending 卡落 answered+补气泡）+ 发送时当场抽定
   //      回应内容（防异桌面抽错池）+ saveMsgsNow 即落盘 ====
-  { name: '#482 问问TA切桌面跨桌面补投递调用（删则回应落地时已切桌面即被 sameCid 取消，切回永远未回复）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'ask', askRecTs, 'askStatus'" },
-  { name: '#482 邀请TA切桌面跨桌面补投递调用（同 #482 邀请路径；删则邀请决定落地时已切桌面即永久丢失）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus'" },
-  { name: '#482 补投递按 ts 定位 pending 卡幂等闸（删则可能重复落回答/给已答卡补气泡）', file: 'js/chat.js', needle: 'r.ts === cardTs && !r.retracted) { hit = r; break; }' },
-  { name: '#482 内存链路按 ts 重定位提问卡（删则 loadMsgs 重建 msgs 后旧索引错位，回答落到别张卡或丢失）', file: 'js/chat.js', needle: 'r.ts === askRecTs && !r.askStatus) return i;' },
+  { name: '#489 问问TA切桌面跨桌面补投递调用（删则回应落地时已切桌面即被 sameCid 取消，切回永远未回复）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'ask', askRecTs, 'askStatus'" },
+  { name: '#489 邀请TA切桌面跨桌面补投递调用（同 #489 邀请路径；删则邀请决定落地时已切桌面即永久丢失）', file: 'js/chat.js', needle: "window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus'" },
+  { name: '#489 补投递按 ts 定位 pending 卡幂等闸（删则可能重复落回答/给已答卡补气泡）', file: 'js/chat.js', needle: 'r.ts === cardTs && !r.retracted) { hit = r; break; }' },
+  { name: '#489 内存链路按 ts 重定位提问卡（删则 loadMsgs 重建 msgs 后旧索引错位，回答落到别张卡或丢失）', file: 'js/chat.js', needle: "r.ts === askRecTs && r.askStatus !== 'answered') return i;" },
   { name: '#454 字卡库顶部tab点不开（renderTabCounts 懒加载 groups=null 空守卫——#442 只给 renderGroupsBar 加了守卫，顶层首渲在此抛 null[\'text\'] 使 chatcard.js 整个初始化中断，顶部两大分类 tab/锁提示/搜索全不挂；删则多机型复发「系统预设字卡点不开」）', file: 'js/chatcard.js', needle: "const grps = (groups && groups[tab.dataset.type]) || [];" },
 // ==== 2026-09-14 #458 「卡顿自检弹窗一键优化点击没用」多机型（原回调两端只有 3.2s toast——大库优化
 //      耗时数十秒起、iOS 伴随卡顿/页面被杀，提示一闪而过＝观感「点了没用」；且无 .catch、idbGet 存储
@@ -1495,6 +1495,19 @@ const FIX_SENTINELS = [
 //      函数声明不会跨 IIFE 泄漏，线上每次点「我已阅读并确认进入」必抛 ReferenceError；
 //      修复：挂 window.maybeCardLockReminder + finishEnter 守卫调用，零机型分支零逻辑改动）====
 { name: '#470 进入流程调用字卡锁提醒改守卫（window.maybeCardLockReminder 挂载 + finishEnter 守卫调用；删守卫/改回直呼函数名＝ReferenceError 与提醒失效双复发）', file: 'js/clock.js', needle: 'if (window.maybeCardLockReminder) window.maybeCardLockReminder();' },
+// ==== 2026-09-15 #486 深色模式白底漏网全量收口（用户报「深色下还有很多颜色是白色导致看不见」，多机型同报；
+//      tools/verify-dark-audit.mjs 135 步全量审计实测 60 处真问题，修复后 0；本批 src 随 140950a 上车，此处补登记哨兵）====
+{ name: '#486 深色开关选中态滑块改深色（选中轨道是浅色 var(--ink)，滑块仍 #f0f0f0＝白滑块白轨道看不出开没开）', file: 'css/dark.css', needle: '[data-theme="dark"] .toggle input:checked + .tk::before { background:#111111; }' },
+{ name: '#486 字卡库左菜单 .chat-item .av 白色图标块改深（chat-pages 硬编码 rgba(255,255,255,.92) 白块+浅描边图标＝白块看不见图标）', file: 'css/dark.css', needle: '[data-theme="dark"] .chat-item .av { background:#2a2a2a; border-color:var(--dark-border); }' },
+{ name: '#486 此间分组芯片选中态补浅底（原覆盖只改字色没改底色＝深底深字）', file: 'css/dark.css', needle: '[data-theme="dark"] .cj-gchip.on { background:var(--ink,#f0f0f0); border-color:var(--ink,#f0f0f0); color:#111; }' },
+{ name: '#486 备忘提醒快捷片深底亮字（memo.css 白蒙底+--ink-soft 灰字＝灰底灰字）', file: 'css/dark.css', needle: '[data-theme="dark"] .memo-rc { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.15); color:#bbbbbb; }' },
+{ name: '#486 拍一拍存入按钮深底（chat-main.css 白底+var(--ink) 浅字＝白底浅字）', file: 'css/dark.css', needle: '[data-theme="dark"] .poke-input-save { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }' },
+{ name: '#486 桌面签到心形徽章深字（--widget-heart 浅圆底+硬编码白心形）', file: 'css/dark.css', needle: '[data-theme="dark"] .ck-heart { color:#111111; }' },
+{ name: '#486 市集分类选中圆浅底深字（market.css #f2f2f5/#1f1f1f !important 浅色规则必须 !important 反压）', file: 'css/dark.css', needle: '[data-theme="dark"] .market-cat.sel .market-cat-ico { background:#f0f0f0 !important; color:#111111; }' },
+{ name: '#486 市集商品卡顶部白带清除（#page-market .gift-item-top 白底 !important）', file: 'css/dark.css', needle: '[data-theme="dark"] #page-market .gift-item-top { background:transparent !important; }' },
+{ name: '#486 心意柜 hero 深色下提亮字色（深底已覆盖但 color:#111 只在浅色规则＝图标深底深字）', file: 'css/dark.css', needle: '[data-theme="dark"] .giftbox-hero { color:#f2f2f2; }' },
+{ name: '#486 聊内送礼面板商品渐变收尾跟主题色（内联 linear-gradient 硬编码 #fff 收尾＝深色白底；CSS 压不过内联只能改源头）', file: 'js/gift-shop.js', needle: "linear-gradient(160deg,' + col + ',var(--card-bg,#fff))" },
+{ name: '#486 心意柜详情预览渐变收尾跟主题色（同上，catColor 变体）', file: 'js/gift-shop.js', needle: "linear-gradient(160deg,' + catColor + ',var(--card-bg,#fff))" },
 
 ];
 try {

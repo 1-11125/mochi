@@ -23,6 +23,11 @@
     { g: '聊天传讯', items: [
       { n: '聊天', d: '和 TA 的主聊天：字卡回复、图文、引用、撤回补发', k: '聊天 消息 字卡', go: ['.app[data-app="chat"]'] },
       { n: '群聊', d: '所有桌面成员聚在一个窗口聊天（需先在设置开启群聊模式）', k: '群聊 多人', go: ['.app[data-app="group-chat"]'] },
+      { n: '群聊设置', d: '群聊形象/气泡样式/表情图片语音等触发概率/群聊美化', k: '群聊 设置 概率 美化 气泡 形象', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-settings'] },
+      { n: '群成员管理', d: '成员列表/改成员名；点成员头像可拍一拍 TA', k: '群聊 成员 管理 改名 拍一拍', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-members'] },
+      { n: '群分组管理', d: '多个群聊的新建/切换/删除与分组', k: '群聊 分组 新建 切换 删除 多群', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-groups'] },
+      { n: '群聊批量发送', d: '群里一次编排多条消息（表情/图片/文字）按顺序发送', k: '群聊 批量 连发', go: ['.app[data-app="group-chat"]', '#gc-batch-btn'] },
+      { n: '群聊 @ 成员', d: '在群里 @ 某位成员发消息', k: '群聊 at 艾特 提及 @', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-at'] },
       { n: '聊天设置', d: '聊天壁纸、气泡样式颜色、字体大小行距', k: '壁纸 气泡 字体 美化', go: ['.app[data-app="chat"]', '#chat-settings-btn'] },
       { n: '回复设置', d: 'TA 的回复速度/条数/各类行为概率，全部可调', k: '概率 参数 速度 条数 主动', go: ['#row-general'] },
       { n: '联系人 / 多桌面', d: '新建/改名/删除/切换联系人，数据互相独立', k: '联系人 桌面 切换', go: ['#row-contacts'] },
@@ -210,8 +215,10 @@
       { n: '心情日记', d: '每天记心情，月度曲线对照、TA 的关心', k: '心情日记 心情 情绪 日记', go: ['.app[data-app="calendar"]'] }
     ] },
     { g: '系统与设置', items: [
-      { n: '音效设置', d: '来电铃声/消息音效本地上传', k: '音效 铃声 声音 提示音', go: ['#row-sfx-settings'] },
+      { n: '音效设置', d: '来电铃声/消息音效本地上传（收件音/发送音/铃声三项）', k: '音效 铃声 声音 提示音 消息音', go: ['#row-sfx-settings'] },
       { n: '通话设置', d: '来电/接听/挂断等触发概率与通话背景', k: '通话设置 电话 概率', go: ['#row-call-settings'] },
+      { n: '通话背景图片', d: '通话页面背景图自定义上传', k: '通话 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-bg-row'] },
+      { n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
       { n: '数据导出', d: '导出全部数据为备份文件（请定期备份）', k: '导出 备份 数据', go: ['#row-export'] },
       { n: '数据导入', d: '从备份文件恢复，含预览与进度', k: '导入 恢复 数据', go: ['#row-import'] },
       { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },

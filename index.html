@@ -9456,9 +9456,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789422721871">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.687</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 05:52<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789423183937">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.688</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 05:59<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10769,7 +10769,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.687</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.688</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11071,7 +11071,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.687</span>
+              <span class="lic-ver">v3.26.688</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -13753,6 +13753,8 @@ transition-duration: .01ms !important;
               <option value="casual">🌱 休闲 6×5</option>
               <option value="normal" selected>🌙 普通 8×6</option>
               <option value="hard">⭐ 挑战 10×6</option>
+              <option value="king">👑 王者 12×7</option>
+              <option value="legend">🏆 传奇 12×8</option>
             </select>
             <button class="snake-icon-btn" id="lk-theme" title="图案主题（点击切换）">🍎</button>
             <button class="snake-icon-btn" id="lk-hint" title="提示（×3）">💡</button>
@@ -28484,6 +28486,7 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 sessionChangedIdx.clear();
+windowStale = true;
 if (readyFuse) { clearTimeout(readyFuse); readyFuse = null; }
 if (idbRetryTimer) { clearTimeout(idbRetryTimer); idbRetryTimer = null; }
 idbRetryCount = 0;
@@ -34086,9 +34089,9 @@ const askIdx = msgs.length - 1;
 const askRecTs = (msgs[askIdx] && msgs[askIdx].special === 'ask') ? msgs[askIdx].ts : 0;
 const locateAsk = () => {
 if (askRecTs) {
-for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'ask' && r.ts === askRecTs && !r.askStatus) return i; }
+for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'ask' && r.ts === askRecTs && r.askStatus !== 'answered') return i; }
 }
-if (msgs[askIdx] && msgs[askIdx].special === 'ask' && !msgs[askIdx].askStatus) return askIdx;
+if (msgs[askIdx] && msgs[askIdx].special === 'ask' && msgs[askIdx].askStatus !== 'answered') return askIdx;
 return -1;
 };
 if (window.logFish) window.logFish();
@@ -34118,7 +34121,7 @@ if (rec) {
 rec.askStatus = 'answered';
 rec.askAnswer = text;
 saveMsgs();
-saveMsgsNow(); // v3.26.x #482：回答即落盘（同 chatAskReply 先例），切桌面 flush 前不止内存一份
+saveMsgsNow(); // v3.26.x #489：回答即落盘（同 chatAskReply 先例），切桌面 flush 前不止内存一份
 const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('问问TA') : '问问TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(text) : text) + '</div>' + favHeartHtml(rec) + '</div>';
@@ -34147,9 +34150,9 @@ const inviteIdx = msgs.length - 1;
 const inviteRecTs = (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite') ? msgs[inviteIdx].ts : 0;
 const locateInvite = () => {
 if (inviteRecTs) {
-for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'invite' && r.ts === inviteRecTs && !r.inviteStatus) return i; }
+for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'invite' && r.ts === inviteRecTs && r.inviteStatus !== 'answered') return i; }
 }
-if (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite' && !msgs[inviteIdx].inviteStatus) return inviteIdx;
+if (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite' && msgs[inviteIdx].inviteStatus !== 'answered') return inviteIdx;
 return -1;
 };
 if (window.logFish) window.logFish();
@@ -34191,7 +34194,7 @@ if (rec) {
 rec.inviteStatus = 'answered';
 rec.inviteAnswer = answer;
 saveMsgs();
-saveMsgsNow(); // v3.26.x #482：结果即落盘，切桌面 flush 前不止内存一份
+saveMsgsNow(); // v3.26.x #489：结果即落盘，切桌面 flush 前不止内存一份
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
@@ -85294,12 +85297,14 @@ const partnerNameEl = document.getElementById('lk-partner-name');
 const DIFFS = {
 casual: { rows: 5, cols: 6, kinds: 10, pairPerKind: 3, label: '🌱 休闲 6×5', coin: 520 },
 normal: { rows: 6, cols: 8, kinds: 12, pairPerKind: 2, label: '🌙 普通 8×6', coin: 1314 },
-hard:   { rows: 6, cols: 10, kinds: 15, pairPerKind: 2, label: '⭐ 挑战 10×6', coin: 5200 }
+hard:   { rows: 6, cols: 10, kinds: 15, pairPerKind: 2, label: '⭐ 挑战 10×6', coin: 5200 },
+king:   { rows: 7, cols: 12, kinds: 21, pairPerKind: 2, label: '👑 王者 12×7', coin: 13140 },
+legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 }
 };
 const THEMES = {
-fruit:   { ico: '🍎', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬'] },
-dessert: { ico: '🧁', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕'] },
-ocean:   { ico: '🌊', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧'] }
+fruit:   { ico: '🍎', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬', '🥑', '🍋', '🥭', '🫐', '🥥', '🌰', '🫒', '🎃', '🌻'] },
+dessert: { ico: '🧁', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮'] },
+ocean:   { ico: '🌊', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧'] }
 };
 const THEME_ORDER = ['fruit', 'dessert', 'ocean'];
 let themeKey = 'fruit';
@@ -85479,10 +85484,11 @@ const w = stageEl.clientWidth;
 if (!w) return;
 const GAP = 3;
 const byW = Math.floor((w - (st.cols - 1) * GAP) / st.cols);
-let cellPx = Math.max(24, Math.min(46, byW));
+const floor24 = Math.min(24, byW);
+let cellPx = Math.max(floor24, Math.min(46, byW));
 if (panel.classList.contains('game-fs')) {
 const h = stageEl.clientHeight;
-cellPx = Math.max(24, Math.min(72, byW, h ? Math.floor((h - (st.rows - 1) * GAP) / st.rows) : byW));
+cellPx = Math.max(floor24, Math.min(72, byW, h ? Math.floor((h - (st.rows - 1) * GAP) / st.rows) : byW));
 }
 boardEl.style.width = (cellPx * st.cols + (st.cols - 1) * GAP) + 'px';
 const tiles = boardEl.querySelectorAll('.lk-tile');
@@ -91991,6 +91997,11 @@ const HUB = [
 { g: '聊天传讯', items: [
 { n: '聊天', d: '和 TA 的主聊天：字卡回复、图文、引用、撤回补发', k: '聊天 消息 字卡', go: ['.app[data-app="chat"]'] },
 { n: '群聊', d: '所有桌面成员聚在一个窗口聊天（需先在设置开启群聊模式）', k: '群聊 多人', go: ['.app[data-app="group-chat"]'] },
+{ n: '群聊设置', d: '群聊形象/气泡样式/表情图片语音等触发概率/群聊美化', k: '群聊 设置 概率 美化 气泡 形象', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-settings'] },
+{ n: '群成员管理', d: '成员列表/改成员名；点成员头像可拍一拍 TA', k: '群聊 成员 管理 改名 拍一拍', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-members'] },
+{ n: '群分组管理', d: '多个群聊的新建/切换/删除与分组', k: '群聊 分组 新建 切换 删除 多群', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-groups'] },
+{ n: '群聊批量发送', d: '群里一次编排多条消息（表情/图片/文字）按顺序发送', k: '群聊 批量 连发', go: ['.app[data-app="group-chat"]', '#gc-batch-btn'] },
+{ n: '群聊 @ 成员', d: '在群里 @ 某位成员发消息', k: '群聊 at 艾特 提及 @', go: ['.app[data-app="group-chat"]', '#gc-more-btn', '#gc-more-at'] },
 { n: '聊天设置', d: '聊天壁纸、气泡样式颜色、字体大小行距', k: '壁纸 气泡 字体 美化', go: ['.app[data-app="chat"]', '#chat-settings-btn'] },
 { n: '回复设置', d: 'TA 的回复速度/条数/各类行为概率，全部可调', k: '概率 参数 速度 条数 主动', go: ['#row-general'] },
 { n: '联系人 / 多桌面', d: '新建/改名/删除/切换联系人，数据互相独立', k: '联系人 桌面 切换', go: ['#row-contacts'] },
@@ -92178,8 +92189,10 @@ const HUB = [
 { n: '心情日记', d: '每天记心情，月度曲线对照、TA 的关心', k: '心情日记 心情 情绪 日记', go: ['.app[data-app="calendar"]'] }
 ] },
 { g: '系统与设置', items: [
-{ n: '音效设置', d: '来电铃声/消息音效本地上传', k: '音效 铃声 声音 提示音', go: ['#row-sfx-settings'] },
+{ n: '音效设置', d: '来电铃声/消息音效本地上传（收件音/发送音/铃声三项）', k: '音效 铃声 声音 提示音 消息音', go: ['#row-sfx-settings'] },
 { n: '通话设置', d: '来电/接听/挂断等触发概率与通话背景', k: '通话设置 电话 概率', go: ['#row-call-settings'] },
+{ n: '通话背景图片', d: '通话页面背景图自定义上传', k: '通话 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-bg-row'] },
+{ n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
 { n: '数据导出', d: '导出全部数据为备份文件（请定期备份）', k: '导出 备份 数据', go: ['#row-export'] },
 { n: '数据导入', d: '从备份文件恢复，含预览与进度', k: '导入 恢复 数据', go: ['#row-import'] },
 { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },
@@ -94080,4 +94093,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1s34un -->
+<!-- __MOCHI_EOF__ mu1sd1dt -->

@@ -4113,9 +4113,9 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 #chat-memory-panel.game-fs .poke-card-scroll { display:flex; flex-direction:column; overflow:hidden; }
 #chat-memory-panel.game-fs .mgm-wrap { flex:1; min-height:0; }
 #chat-memory-panel.game-fs .mgm-stage { max-width:none; width:100%; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
-/* #483 连连看真全屏放大布局：同记忆翻牌——scroll 拉纵向 flex，stage 吃满剩余高度（棋盘垂直居中、
+/* #488 连连看真全屏放大布局：同记忆翻牌——scroll 拉纵向 flex，stage 吃满剩余高度（棋盘垂直居中、
    状态行/脚注沉底），半框形态（48% 高度 + min-height:190px 顶排布）不动；左右 padding 16→10
-   给 10 列多让 12px 宽。JS 侧 linkup.js fitBoard 的 .game-fs 分支用 stage 高度参与取格、上限 72px */
+   给 10 列多让 12px 宽。JS 侧 linkup.js fitBoard 的 .game-fs 分支用 stage 高度参与取格、上限 72px（原编 #483，撞号改 #488） */
 #chat-linkup-panel.game-fs { padding-left:10px; padding-right:10px; }
 #chat-linkup-panel.game-fs .poke-card-scroll { display:flex; flex-direction:column; overflow:hidden; }
 #chat-linkup-panel.game-fs .lk-wrap { flex:1; min-height:0; }

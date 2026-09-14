@@ -62,6 +62,11 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 sessionChangedIdx.clear();
+// FIX 2026-09-15 #489：切桌面即作废屏上渲染凭据——聊天 body 的旧 DOM 属于上个会话，
+// 切走期间记录可能被跨桌面补投递原地改写（如 问问TA/邀请TA 的 answered），同窗补丁只
+// 比对条数/前缀看不见内容变更，会把旧 pending 卡留在屏上（「切走再切回显示未回复」
+// 的最后一块拼图）。置 stale 后下次进聊天走整窗渲染，按当前库内数据重画。
+windowStale = true;
 // v3.14.x：清掉旧联系人遗留的异步状态（跨切换残留的保险丝会把新桌面误置
 // 就绪；重试定时器只对旧联系人有意义；authLoadedPrefix 归位重新考核）
 if (readyFuse) { clearTimeout(readyFuse); readyFuse = null; }
@@ -3742,7 +3747,7 @@ window.chatAppendDeskRec = function (cid, rec) {
   };
   attempt();
 };
-// v3.26.x #482：问问TA/邀请TA 发出后，TA 的回应落地时用户已切到别的桌面——旧实现
+// v3.26.x #489：问问TA/邀请TA 发出后，TA 的回应落地时用户已切到别的桌面——旧实现
 // sameCid() 直接 return＝回应被永久取消，切回后卡片永远停在「等待 TA 回答/回应…」
 //（用户报障：文字题联系人已回答，切桌面再切回变未回复）。现按 ts 定位原桌面的
 // pending 卡片落回答状态并补回应气泡（读改写骨架同 chatAppendDeskRec：读到 undefined
@@ -3788,7 +3793,7 @@ window.chatDeskCardReply = function (cid, cardSpecial, cardTs, statusKey, patch,
   };
   attempt();
 };
-// v3.26.x #482：把一条提问记录补写进指定桌面的 invite-ask-history（小键尽力而为：
+// v3.26.x #489：把一条提问记录补写进指定桌面的 invite-ask-history（小键尽力而为：
 // LS 先读、空则 IDB 补读，写回 LS+IDB；失败静默——提问记录页少一条，不影响聊天）
 window.chatDeskHistPush = function (cid, entry) {
   const key = 'xy-home-v2:' + cid + ':invite-ask-history';
@@ -6439,22 +6444,23 @@ sendInviteContent(content);
 const isSingle = !!askOpts;
 addRec({ side: 'out', text: '问：' + content, special: 'ask', askQuestion: content, askType: isSingle ? 'single' : 'text', askOptions: askOpts, askStatus: 'pending' });
 const askIdx = msgs.length - 1;
-// v3.26.x #482：卡片 ts 作定位键——回答延迟窗内 loadMsgs 可能重建 msgs（索引错位，
+// v3.26.x #489：卡片 ts 作定位键——回答延迟窗内 loadMsgs 可能重建 msgs（索引错位，
 // 同 ta-ask.js locateCardIdx 的防御理由）；跨桌面补投递也按它定位
 const askRecTs = (msgs[askIdx] && msgs[askIdx].special === 'ask') ? msgs[askIdx].ts : 0;
-// v3.26.x #482：按 ts 重新定位未回答的提问卡，找不到再退回旧索引（顺带修索引陈旧指向别张卡）
+// v3.26.x #489：按 ts 重新定位未回答的提问卡，找不到再退回旧索引（顺带修索引陈旧指向别张卡）
 const locateAsk = () => {
   if (askRecTs) {
-    for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'ask' && r.ts === askRecTs && !r.askStatus) return i; }
+    // askStatus 取值 'pending'/'answered'（发卡即写 pending），判未回答必须比对 answered
+    for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'ask' && r.ts === askRecTs && r.askStatus !== 'answered') return i; }
   }
-  if (msgs[askIdx] && msgs[askIdx].special === 'ask' && !msgs[askIdx].askStatus) return askIdx;
+  if (msgs[askIdx] && msgs[askIdx].special === 'ask' && msgs[askIdx].askStatus !== 'answered') return askIdx;
   return -1;
 };
 if (window.logFish) window.logFish();
 const recTs = Date.now();
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
-// v3.26.x #482：回应内容在发送时当场抽定——延迟落地时用户可能已在别的桌面，
+// v3.26.x #489：回应内容在发送时当场抽定——延迟落地时用户可能已在别的桌面，
 // 那时 getInteractPool/pickAskCardReply 抽的是别的联系人的池子
 const defs = window.getInteractPool
 ? window.getInteractPool('问问TA·回应', ['嗯嗯', '我想想…', '应该吧', '好呀', '我陪你', '可以的', '那挺好呀', '我觉得可以', '听你的', '当然可以', '我很乐意'])
@@ -6467,7 +6473,7 @@ text = o.t;
 text = (window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)]);
 }
 setTimeout(() => {
-// v3.26.x #482：回应落地时已切到别的桌面——不再取消（旧实现 return＝回答永久丢失，
+// v3.26.x #489：回应落地时已切到别的桌面——不再取消（旧实现 return＝回答永久丢失，
 // 切回后卡片永远「等待 TA 回答…」），改跨桌面补投递：原桌面卡片落 answered + 补回应
 // 气泡 + 提问记录；补投递期间切回则走内存链路（onBack），两条路只生效一条
 if (!sameCid()) {
@@ -6482,7 +6488,7 @@ if (rec) {
 rec.askStatus = 'answered';
 rec.askAnswer = text;
 saveMsgs();
-saveMsgsNow(); // v3.26.x #482：回答即落盘（同 chatAskReply 先例），切桌面 flush 前不止内存一份
+saveMsgsNow(); // v3.26.x #489：回答即落盘（同 chatAskReply 先例），切桌面 flush 前不止内存一份
 const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
 el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (window.taFit ? window.taFit('问问TA') : '问问TA') + ' · ' + escTxt(content) + '</div><div class="msg-ask-a">✓ ' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(text) : text) + '</div>' + favHeartHtml(rec) + '</div>';
@@ -6491,7 +6497,7 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (w
 addIn(text);
 try {
 const list = JSON.parse(store.get('invite-ask-history') || '[]');
-// v3.26.x #482：按 ts 去重——跨桌面补投递路径可能已记过同一条
+// v3.26.x #489：按 ts 去重——跨桌面补投递路径可能已记过同一条
 if (!list.some(x => x && x.ts === recTs)) {
 list.unshift({ type: 'ask', q: content, a: text, ts: recTs });
 if (list.length > 200) list.length = 200;
@@ -6511,21 +6517,22 @@ function sendInviteContent(content) {
 closeChatAskPanel();
 addRec({ side: 'out', text: '邀请：' + content, special: 'invite', inviteContent: content, inviteStatus: 'pending' });
 const inviteIdx = msgs.length - 1;
-// v3.26.x #482：同 submitChatAsk——ts 定位键 + 索引重定位（延迟窗内 msgs 可能重建）
+// v3.26.x #489：同 submitChatAsk——ts 定位键 + 索引重定位（延迟窗内 msgs 可能重建）
 const inviteRecTs = (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite') ? msgs[inviteIdx].ts : 0;
 const locateInvite = () => {
-if (inviteRecTs) {
-for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'invite' && r.ts === inviteRecTs && !r.inviteStatus) return i; }
-}
-if (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite' && !msgs[inviteIdx].inviteStatus) return inviteIdx;
-return -1;
+  if (inviteRecTs) {
+    // inviteStatus 取值 'pending'/'answered'（发卡即写 pending），判未回应必须比对 answered
+    for (let i = msgs.length - 1; i >= 0; i--) { const r = msgs[i]; if (r && r.special === 'invite' && r.ts === inviteRecTs && r.inviteStatus !== 'answered') return i; }
+  }
+  if (msgs[inviteIdx] && msgs[inviteIdx].special === 'invite' && msgs[inviteIdx].inviteStatus !== 'answered') return inviteIdx;
+  return -1;
 };
 if (window.logFish) window.logFish();
 const histKey = 'invite-ask-history';
 const recTs = Date.now();
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
-// v3.26.x #482：接受/拒绝与话术在发送时当场掷定（延迟落地时可能已在别的桌面，
+// v3.26.x #489：接受/拒绝与话术在发送时当场掷定（延迟落地时可能已在别的桌面，
 // pickAskCardReply/chatPartnerName 取的是别的联系人的池子/名字）
 const myName = chatPartnerName();
 const roll = Math.random();
@@ -6549,7 +6556,7 @@ status = '未回应';
 answer = myName + ' 暂时没有回应';
 }
 setTimeout(() => {
-// v3.26.x #482：决定落地时已切桌面——跨桌面补投递（接受/拒绝的回应气泡一并落库）
+// v3.26.x #489：决定落地时已切桌面——跨桌面补投递（接受/拒绝的回应气泡一并落库）
 if (!sameCid()) {
 window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus', function (rec) { rec.inviteStatus = 'answered'; rec.inviteAnswer = answer; }, reply ? [{ side: 'in', text: reply }] : [], applyInviteResult);
 try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, ts: recTs }); } catch (err) {}
@@ -6562,7 +6569,7 @@ if (rec) {
 rec.inviteStatus = 'answered';
 rec.inviteAnswer = answer;
 saveMsgs();
-saveMsgsNow(); // v3.26.x #482：结果即落盘，切桌面 flush 前不止内存一份
+saveMsgsNow(); // v3.26.x #489：结果即落盘，切桌面 flush 前不止内存一份
 taFavCard(rec);
 const el = body.querySelector('.msg-ask[data-idx="' + i + '"]');
 if (el) {
@@ -6572,7 +6579,7 @@ el.innerHTML = '<div class="msg-ask-card answered"><div class="msg-ask-q">' + (w
 if (reply) setTimeout(() => { if (!sameCid()) return; addIn(reply); }, 800);
 try {
 const list = JSON.parse(store.get(histKey) || '[]');
-// v3.26.x #482：按 ts 去重——跨桌面补投递路径可能已记过同一条
+// v3.26.x #489：按 ts 去重——跨桌面补投递路径可能已记过同一条
 if (!list.some(x => x && x.ts === recTs)) {
 list.unshift({ type: 'invite', q: content, a: reply || status, ts: recTs });
 if (list.length > 200) list.length = 200;
