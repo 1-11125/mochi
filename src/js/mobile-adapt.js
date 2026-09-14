@@ -1560,6 +1560,14 @@
         var _aFullIH = Math.max(window.innerHeight || 0, Math.round(_aVV.height || 0));
         var _aScrKey = (screen.width || 0) + 'x' + (screen.height || 0);
         var _aVpPin = false;
+        // FIX 2026-09-14 #479：深缩发生时的焦点语境——真键盘只能在文本聚焦期弹出
+        //（focusin 先于 vv 收缩）。true=打字期深缩（键盘形，#369 残留自愈的证据位，
+        // VivoBrowser 残留族原语义）；false=无聚焦深缩（窗口被改小：Edge/Chrome 自由
+        // 小窗、分屏、桌面缩放窗口——基线全体重锚跟随、绝不进 #369 钉高）。
+        var _aShrinkHadFoc = false;
+        // #479：#369 钉高时刻——「钉高前提失败阀」用（钉后 10s 内核仍不回全屏高且
+        // 用户在深缩态有新交互＝在用这个窗口尺寸，放弃钉高、基线重锚到现实）。
+        var _aVpPinAt = 0;
         // FIX 2026-09-05 #209：稳态停靠残留清扫（安卓侧唯一视口看门狗——iOS 侧
         // healViewport 在 isIOS 分支，安卓不经过；device.js 监视只读不修）。
         // 场景：安卓返回键/手势收键盘不派 blur（activeElement 保留），#197 族
@@ -1670,17 +1678,51 @@
             }
             var _coarse = false;
             try { _coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches; } catch (eC) {}
+            // FIX 2026-09-14 #479：窗口级改尺寸看门狗兜底重锚（事件侧 syncAndroidKb 漏拍
+            // 时——部分壳改窗口只发 window.resize 不发 vv.resize、或 250ms 轮询已停表——
+            // 由本 1s 节拍兜住）。与 #369 残留自愈同一视口签名（inner≈vv 同深缩、无聚焦、
+            // 静默），按「深缩发生时有无文本聚焦」分流：无聚焦（_aShrinkHadFoc=false，
+            // 窗口被改小）→ 基线全体重锚跟随当前窗口、#369 钉高前提（inner 迟早回全屏高）
+            // 不成立，绝不进入下方钉高分支；打字期深缩（_aShrinkHadFoc=true，VivoBrowser
+            // 键盘残留族）保持 #369 原语义。健康设备凑不齐条件集，行为零变化。
+            var _vvN = Math.round(_aVV.height || 0);
+            if (!_aVpPin && !_aShrinkHadFoc && _ihNow > 0 && _vvN > 0 && _coarse
+                && !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
+                && Date.now() - _aLastAct > 2200 && Date.now() - _aVvChgAt > 1200
+                && Math.abs(_ihNow - _vvN) <= 12
+                && (_ihNow < _aFullIH - 60 || _vvN < _aH - 60)) {
+              _aShrinkHadFoc = false;
+              _aH = _vvN; _aIH = _ihNow;
+              if (_ihNow < _aFullIH) _aFullIH = _ihNow;
+              return;
+            }
             var _ihFloor = Math.round(Math.min(_aFullIH, _aH || _aFullIH) * 0.22);
-            if (!_aVpPin && _coarse && (_aVvShrunkSeen || _aPanSeen >= 80)
+            if (!_aVpPin && _coarse && (_aVvShrunkSeen || _aPanSeen >= 80) && _aShrinkHadFoc
                 && !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
                 && Date.now() - _aLastAct > 2200 && Date.now() - _aVvChgAt > 1200
                 && _ihNow > 0 && _ihNow < _aFullIH - 60 && (_aFullIH - _ihNow) >= _ihFloor
-                && Math.abs(_ihNow - Math.round(_aVV.height || 0)) <= 12) {
+                && Math.abs(_ihNow - _vvN) <= 12) {
               try { window.scrollTo(0, 0); } catch (eS) {}
               _aVpPin = true;
+              _aVpPinAt = Date.now();
               if (_aPhone.style.height !== _aFullIH + 'px') _aPhone.style.height = _aFullIH + 'px';
               _aPanComp();
               kbUndockPanels();
+              return;
+            }
+            // #479：钉高前提失败阀——钉高在位 10s 后内核仍未回全屏高，且用户在深缩态
+            // 有新交互（在用这个窗口尺寸，不是在等自愈；VivoBrowser 正常路径 scrollTo
+            // 试探后内核回基线，走上面「inner≥基线−12」正常解除，到不了这里）→ 判钉高
+            // 前提失败：放弃钉高、基线重锚到现实。覆盖「深缩发生在焦点滞留期、
+            // _aShrinkHadFoc 带了键盘语境」的窄路径误钉（Edge 小窗打字中拖入小窗族）。
+            if (_aVpPin && _aVpPinAt > 0 && Date.now() - _aVpPinAt > 10000 && _ihNow > 0
+                && _ihNow < _aFullIH - 60 && Date.now() - _aLastAct < 2200) {
+              _aVpPin = false; _aVpPinAt = 0;
+              _aShrinkHadFoc = false;
+              _aH = Math.min(_aH, _vvN); _aIH = _ihNow;
+              if (_ihNow < _aFullIH) _aFullIH = _ihNow;
+              _aPhone.style.height = '';
+              _aPhone.style.alignSelf = '';
               return;
             }
             if (!_aPhone.style.height && !_aPhone.style.alignSelf) return;
@@ -1704,6 +1746,8 @@
             prov: !!_aProv,
             closing: !!_aClosing,
             staleVv: !!_aVvStale, // #236：vv 残留读数闩在位（诊断现场用）
+            shrinkHadFoc: !!_aShrinkHadFoc, // #479：最近深缩的焦点语境（true=键盘形/#369 语义；false=窗口改尺寸已重锚）
+            vpPin: !!_aVpPin, // #369：布局视口残留钉高在位（诊断现场用）
             docLocked: false,
             fullInner: Math.round(_aIH),
             fullVv: Math.round(_aH),
@@ -1837,6 +1881,29 @@
           // 时刻（收起动画每帧都变，1s 看门狗凭「vv 已稳 1.2s」避开动画中途误清）
           if (h >= _aH - 60) _aVvStale = false;
           if (h !== _aPrevH) _aVvChgAt = Date.now();
+          // FIX 2026-09-14 #479：窗口级改尺寸甄别与基线重锚。Edge/Chrome 自由小窗、分屏、
+          // 桌面缩放窗口把【布局视口】inner 与 vv 一起永久改小，视口签名与键盘弹出全同
+          //（vv 深缩）；基线 _aH/_aIH/_aFullIH 只涨不跌 → 旧判据无聚焦也置位 _aKb 幽灵
+          // 会话（面板停靠/alignSelf 残留），#369 残留自愈更把 .phone 钉回旧全屏高且
+          // 永不释放（释放条件 inner≥基线在小窗不成立）＝顶部名称栏与输入栏一起被推出
+          // 窗外（用户实测 OPPO Ace3 + Edge 小窗，多机型同报；诊断签名「.phone、底部
+          // 超出 phone底=668 inner=584」）。程序可分的唯一硬证据=焦点语境：真键盘必然
+          // 在文本聚焦期弹出，「inner≈vv 一起深缩 + 无文本聚焦」=窗口被改小 → 三条基线
+          // 全体重锚到当前窗口（_aFullIH 一并下移＝#369 触发条件 _ihNow<_aFullIH-60 恒
+          // 假，双保险）；打字期深缩反之记 _aShrinkHadFoc=true＝#369 原语义证据位。
+          // 键盘会话中（_aKb/_aProv）不重锚——停靠几何由主路径管理。
+          var _ihN = window.innerHeight || 0;
+          var _focNow = _aIsText(_aTextFocused) || _aIsText(document.activeElement);
+          if (!_focNow && !_aKb && !_aProv && _ihN > 0 && h > 0
+              && Math.abs(_ihN - h) <= 12
+              && (h < _aH - 60 || _ihN < _aIH - 60)) {
+            _aShrinkHadFoc = false;
+            _aH = h; _aIH = _ihN;
+            if (_ihN < _aFullIH) _aFullIH = _ihN;
+            if (_aVpPin) { _aVpPin = false; _aPhone.style.height = ''; _aPhone.style.alignSelf = ''; }
+          } else if (_focNow && (h < _aH - 60 || _ihN < _aIH - 60)) {
+            _aShrinkHadFoc = true;
+          }
           // v3.29.x（#141）：高度【上升】且键盘开着=收起动画进行中——不依赖 focusout
           //（安卓返回键/手势收键盘焦点保留，focusout 不触发，#89 的 _aClosing 闸门挂
           // 不上；此前每帧 resize 仍跑 _aPinPan/nudgeInputVisible 的强制布局读取，
@@ -1849,7 +1916,11 @@
             _aClosing = true;
           }
           _aPrevH = h;
-          var open = (!_aVvStale && h < _aH - 60); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁）
+          // #479：键盘弹出判定加焦点闸——无聚焦深缩已在上方按窗口改尺寸重锚基线
+          //（_aH 已=当前窗口高，此判据自然为假）；焦点闸另兜住纯 vv 缩、无聚焦的
+          // 窗口形态（地址栏/工具条显隐：inner 不动、只 vv 缩 → 不满足重锚条件，
+          // 旧版这里会幽灵停靠），防幽灵键盘会话。
+          var open = (!_aVvStale && h < _aH - 60 && _focNow); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁；#479：必然伴随文本聚焦）
           if (!open && h > _aH) _aH = h; // 无键盘时更新基准，地址栏变化不误判
           if (open && !_aKb) { _aClosing = false; _aKb = true; _aVvShrunkSeen = true; _aKbAt = Date.now(); _aPhone.style.alignSelf = 'flex-start'; kbDockPanels(); _aProvClear(); }
           if (!open && _aKb) {
@@ -2155,6 +2226,12 @@
           document.addEventListener('keydown', _aBump, true);
         } catch (e) {}
         _aVV.addEventListener('resize', syncAndroidKb);
+        // FIX 2026-09-14 #479：window.resize 同步桥——窗口级改尺寸（自由小窗/分屏/桌面缩放）
+        // 在合规内核走 vv.resize 已覆盖，但存在只发 window.resize 不发 vv.resize 的壳
+        // （#479 看门狗兜底注释同款品类）；基线重锚/键盘判定依赖 syncAndroidKb 跑到，
+        // 漏拍即退化为 1s 看门狗兜底。resizes-visual 真键盘不缩布局视口=本桥不触发；
+        // resizes-content 内核与 vv.resize 双跑到=幂等早退，零行为差异。
+        try { window.addEventListener('resize', function () { try { syncAndroidKb(); } catch (eWR) {} }); } catch (eWR2) {}
         // v3.16.x：键盘弹起/收起（vv 高度变化）即重排 .phone 与面板 → 其中的 ce-box
         // 合成层需刷新跟随（见 _aRefreshCe）。与 syncAndroidKb 并行防抖监听，覆盖
         // 半框（问问TA/占卜/page-ta-ask）在键盘会话内重排但 _aPanComp/kbDockPanels

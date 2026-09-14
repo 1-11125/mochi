@@ -9440,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789402370012">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.684</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 00:12<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789403492229">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.685</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 00:31<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10753,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.684</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.685</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11055,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.684</span>
+              <span class="lic-ver">v3.26.685</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -93044,6 +93044,8 @@ var _aBurstUntil = 0;
 var _aFullIH = Math.max(window.innerHeight || 0, Math.round(_aVV.height || 0));
 var _aScrKey = (screen.width || 0) + 'x' + (screen.height || 0);
 var _aVpPin = false;
+var _aShrinkHadFoc = false;
+var _aVpPinAt = 0;
 setInterval(function () {
 try {
 if (document.visibilityState !== 'visible') return;
@@ -93096,17 +93098,39 @@ return;
 }
 var _coarse = false;
 try { _coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches; } catch (eC) {}
+var _vvN = Math.round(_aVV.height || 0);
+if (!_aVpPin && !_aShrinkHadFoc && _ihNow > 0 && _vvN > 0 && _coarse
+&& !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
+&& Date.now() - _aLastAct > 2200 && Date.now() - _aVvChgAt > 1200
+&& Math.abs(_ihNow - _vvN) <= 12
+&& (_ihNow < _aFullIH - 60 || _vvN < _aH - 60)) {
+_aShrinkHadFoc = false;
+_aH = _vvN; _aIH = _ihNow;
+if (_ihNow < _aFullIH) _aFullIH = _ihNow;
+return;
+}
 var _ihFloor = Math.round(Math.min(_aFullIH, _aH || _aFullIH) * 0.22);
-if (!_aVpPin && _coarse && (_aVvShrunkSeen || _aPanSeen >= 80)
+if (!_aVpPin && _coarse && (_aVvShrunkSeen || _aPanSeen >= 80) && _aShrinkHadFoc
 && !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
 && Date.now() - _aLastAct > 2200 && Date.now() - _aVvChgAt > 1200
 && _ihNow > 0 && _ihNow < _aFullIH - 60 && (_aFullIH - _ihNow) >= _ihFloor
-&& Math.abs(_ihNow - Math.round(_aVV.height || 0)) <= 12) {
+&& Math.abs(_ihNow - _vvN) <= 12) {
 try { window.scrollTo(0, 0); } catch (eS) {}
 _aVpPin = true;
+_aVpPinAt = Date.now();
 if (_aPhone.style.height !== _aFullIH + 'px') _aPhone.style.height = _aFullIH + 'px';
 _aPanComp();
 kbUndockPanels();
+return;
+}
+if (_aVpPin && _aVpPinAt > 0 && Date.now() - _aVpPinAt > 10000 && _ihNow > 0
+&& _ihNow < _aFullIH - 60 && Date.now() - _aLastAct < 2200) {
+_aVpPin = false; _aVpPinAt = 0;
+_aShrinkHadFoc = false;
+_aH = Math.min(_aH, _vvN); _aIH = _ihNow;
+if (_ihNow < _aFullIH) _aFullIH = _ihNow;
+_aPhone.style.height = '';
+_aPhone.style.alignSelf = '';
 return;
 }
 if (!_aPhone.style.height && !_aPhone.style.alignSelf) return;
@@ -93125,6 +93149,8 @@ kbActive: !!_aKb,
 prov: !!_aProv,
 closing: !!_aClosing,
 staleVv: !!_aVvStale, // #236：vv 残留读数闩在位（诊断现场用）
+shrinkHadFoc: !!_aShrinkHadFoc, // #479：最近深缩的焦点语境（true=键盘形/#369 语义；false=窗口改尺寸已重锚）
+vpPin: !!_aVpPin, // #369：布局视口残留钉高在位（诊断现场用）
 docLocked: false,
 fullInner: Math.round(_aIH),
 fullVv: Math.round(_aH),
@@ -93216,11 +93242,23 @@ if (!_aVV || !_aPhone) return;
 var h = _aVV.height;
 if (h >= _aH - 60) _aVvStale = false;
 if (h !== _aPrevH) _aVvChgAt = Date.now();
+var _ihN = window.innerHeight || 0;
+var _focNow = _aIsText(_aTextFocused) || _aIsText(document.activeElement);
+if (!_focNow && !_aKb && !_aProv && _ihN > 0 && h > 0
+&& Math.abs(_ihN - h) <= 12
+&& (h < _aH - 60 || _ihN < _aIH - 60)) {
+_aShrinkHadFoc = false;
+_aH = h; _aIH = _ihN;
+if (_ihN < _aFullIH) _aFullIH = _ihN;
+if (_aVpPin) { _aVpPin = false; _aPhone.style.height = ''; _aPhone.style.alignSelf = ''; }
+} else if (_focNow && (h < _aH - 60 || _ihN < _aIH - 60)) {
+_aShrinkHadFoc = true;
+}
 if (_aKb && h > _aPrevH && _aPrevH > 0) {
 _aClosing = true;
 }
 _aPrevH = h;
-var open = (!_aVvStale && h < _aH - 60); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁）
+var open = (!_aVvStale && h < _aH - 60 && _focNow); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁；#479：必然伴随文本聚焦）
 if (!open && h > _aH) _aH = h; // 无键盘时更新基准，地址栏变化不误判
 if (open && !_aKb) { _aClosing = false; _aKb = true; _aVvShrunkSeen = true; _aKbAt = Date.now(); _aPhone.style.alignSelf = 'flex-start'; kbDockPanels(); _aProvClear(); }
 if (!open && _aKb) {
@@ -93410,6 +93448,7 @@ try {
 document.addEventListener('keydown', _aBump, true);
 } catch (e) {}
 _aVV.addEventListener('resize', syncAndroidKb);
+try { window.addEventListener('resize', function () { try { syncAndroidKb(); } catch (eWR) {} }); } catch (eWR2) {}
 _aVV.addEventListener('resize', _aSchedCe);
 window.addEventListener('resize', _aSchedCe);
 document.addEventListener('focusin', function (e) {
@@ -93778,4 +93817,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1fyx98 -->
+<!-- __MOCHI_EOF__ mu1gmz5x -->
