@@ -1512,6 +1512,11 @@ const FIX_SENTINELS = [
 { name: '#486 聊内送礼面板商品渐变收尾跟主题色（内联 linear-gradient 硬编码 #fff 收尾＝深色白底；CSS 压不过内联只能改源头）', file: 'js/gift-shop.js', needle: "linear-gradient(160deg,' + col + ',var(--card-bg,#fff))" },
 { name: '#486 心意柜详情预览渐变收尾跟主题色（同上，catColor 变体）', file: 'js/gift-shop.js', needle: "linear-gradient(160deg,' + catColor + ',var(--card-bg,#fff))" },
 
+  // ==== 2026-09-15 #490 引用预览条与气泡同轨显示（「联系人发的消息，引用后看到的和引用的不一致」
+  //      EC-PAD01 SE Chrome 等多机型同报；气泡正文走 T()＝in 侧 taFit 称呼替换 + {ta}/{me} 昵称占位符，
+  //      预览条此前直出存储原文＝两轨不一致，发送后引用块又走 taFit 对不上预览）====
+  { name: '#490 引用预览同轨显示助手定义（删则预览条失去 taFit 称呼替换 + {ta}/{me} 昵称回填能力）', file: 'js/chat.js', needle: 'function quoteDisplayFit(text, side) {' },
+  { name: '#490 预览条接入同轨显示（删则气泡显示替换词、引用预览仍是 ta/TA 原文＝引用不一致复发）', file: 'js/chat.js', needle: "quoteDisplayFit(quoteTextSafe(lastQuote.text || ''), lastQuote.side)" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

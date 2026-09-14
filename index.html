@@ -9456,9 +9456,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789423183937">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.688</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 05:59<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789425871606">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.690</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 06:44<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10769,7 +10769,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.688</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.690</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11071,7 +11071,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.688</span>
+              <span class="lic-ver">v3.26.690</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -29806,6 +29806,20 @@ const di = str.indexOf('data:');
 if (di > 0 && str.length - di > 120) str = str.slice(0, di).trim();
 return str;
 }
+function quoteDisplayFit(text, side) {
+let t = String(text == null ? '' : text);
+const __taNm = chatPartnerName();
+const __meNm = chatUserName();
+const hasPh = t.indexOf('{ta}') >= 0 || t.indexOf('{me}') >= 0;
+if (side !== 'out' && window.taFit) {
+if (hasPh) t = t.split('{ta}').join('\u0002').split('{me}').join('\u0003');
+t = window.taFit(t);
+if (hasPh) t = t.split('\u0002').join(__taNm).split('\u0003').join(__meNm);
+return t;
+}
+if (hasPh) t = t.split('{ta}').join(__taNm).split('{me}').join(__meNm);
+return t;
+}
 function quoteHtml(q, side) {
 const __fitQ = (side !== 'out') && !!window.taFit;
 const FQ = (s) => (__fitQ ? window.taFit(s) : s);
@@ -37180,7 +37194,7 @@ bar.appendChild(img);
 }
 const t = document.createElement('span');
 t.className = 'chat-draft-quote-text';
-const raw = quoteTextSafe(lastQuote.text || '');
+const raw = quoteDisplayFit(quoteTextSafe(lastQuote.text || ''), lastQuote.side); // FIX 2026-09-15 #490 预览条与气泡同轨显示（taFit 称呼 + 昵称占位符）
 const hidePh = !!(thumb && QUOTE_PLACEHOLDER.test(raw));
 t.textContent = (raw.indexOf('data:') === 0 && raw.length > 64)
 ? (lastQuote.type === 'sticker' ? '表情包' : '图片')
@@ -94093,4 +94107,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1sd1dt -->
+<!-- __MOCHI_EOF__ mu1tyn7a -->

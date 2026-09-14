@@ -1747,6 +1747,27 @@ const di = str.indexOf('data:');
 if (di > 0 && str.length - di > 120) str = str.slice(0, di).trim();
 return str;
 }
+// FIX 2026-09-15 #490 引用预览条与气泡同轨显示（「联系人发的消息，引用后看到的和引用的不一致」
+// EC-PAD01 SE Chrome 等多机型同报）：气泡正文渲染统一过 renderMsg 的 T()——in 侧走 taFit
+// 称呼替换（字卡库以 ta/TA/他 作中性人称占位，默认字卡 110+ 处；联系人性别设为他/她后
+// 气泡全是替换词）、双侧回填 {ta}/{me} 昵称占位符；引用预览条此前直出存储原文＝气泡显示
+// 「她想你了」、预览还是「ta想你了」两轨不一致；发送后引用块 quoteHtml 又走 taFit，预览
+// 与落定引用块也对不上。此助手与 T() 同序同规则，仅作显示层替换、不改存储原文
+//（与 taFit 口径一致：改称呼后历史重新渲染即自动跟随）。
+function quoteDisplayFit(text, side) {
+let t = String(text == null ? '' : text);
+const __taNm = chatPartnerName();
+const __meNm = chatUserName();
+const hasPh = t.indexOf('{ta}') >= 0 || t.indexOf('{me}') >= 0;
+if (side !== 'out' && window.taFit) {
+if (hasPh) t = t.split('{ta}').join('\u0002').split('{me}').join('\u0003');
+t = window.taFit(t);
+if (hasPh) t = t.split('\u0002').join(__taNm).split('\u0003').join(__meNm);
+return t;
+}
+if (hasPh) t = t.split('{ta}').join(__taNm).split('{me}').join(__meNm);
+return t;
+}
 function quoteHtml(q, side) {
 const __fitQ = (side !== 'out') && !!window.taFit;
 const FQ = (s) => (__fitQ ? window.taFit(s) : s);
@@ -9797,7 +9818,7 @@ bar.appendChild(img);
 }
 const t = document.createElement('span');
 t.className = 'chat-draft-quote-text';
-const raw = quoteTextSafe(lastQuote.text || '');
+const raw = quoteDisplayFit(quoteTextSafe(lastQuote.text || ''), lastQuote.side); // FIX 2026-09-15 #490 预览条与气泡同轨显示（taFit 称呼 + 昵称占位符）
 const hidePh = !!(thumb && QUOTE_PLACEHOLDER.test(raw));
 t.textContent = (raw.indexOf('data:') === 0 && raw.length > 64)
 ? (lastQuote.type === 'sticker' ? '表情包' : '图片')
