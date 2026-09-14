@@ -237,6 +237,9 @@ const FIX_SENTINELS = [
   { name: '#357 语音播放挂载 DOM（playVoiceInChat 挂到 body 再 play、停播即卸；删则安卓 WebView 未挂载 Audio 静默空放/播放失败，收藏与聊天语音同链路复发）', file: 'js/chat.js', needle: "if (!a.parentNode) { a.style.display = 'none'; document.body.appendChild(a); }" },
   { name: '#358 跨桌面投递空库账本矛盾守卫（探测说谎时 writeArr([一条]) 会把该联系人全部历史覆盖成一条＝旧记录只剩互动卡片；守卫函数删掉即消失）', file: 'js/chat.js', needle: 'function deskAppendMissGuard(cid, tries, onRetry, writeOne)' },
   { name: '#358 loadMsgs 空库二次复核（账本缺失时单次探测说谎会把 LS 有损快照晋升为权威顶掉老历史；2.5s 双复核删掉即消失）', file: 'js/chat.js', needle: 'function enterConfirmedEmpty() {' },
+  { name: '聊天页半框「批量设置问卷」入口锚点（template.html），供更多功能查必（用户多次反馈缺少批量问卷按钮）', file: 'template.html', needle: 'id="chat-ask-bulk"' },
+  { name: '聊天页半框「批量设置问卷」跳转函数 openAskSurvey（ta-ask.js；从聊天半框进入批量问卷页，返回回聊天而非 TA 的询问），删掉即按钮失效复发', file: 'js/ta-ask.js', needle: 'window.openAskSurvey = function' },
+  { name: '聊天页半框主输入框「一键清空 ✕」绑定（chat.js；问句输入框与帮我决定/多人决定同款 dec-inp-clear，删掉即无清除按钮复发）', file: 'js/chat.js', needle: "document.querySelector('#chat-ask-panel .dec-inp-clear[data-clear=\"chat-ask-input\"]')" },
   // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
   // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
   // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
@@ -1367,6 +1370,13 @@ const FIX_SENTINELS = [
   { name: '#435 面板 img 统一创建补 decoding=async（emojiNewImg；删则大 dataURL 解码阻塞渲染帧＝图慢半拍复发，字卡库同款属性面板漏配）', file: 'js/chat.js', needle: "img.decoding = 'async';" },
   { name: '#435 组内令牌收集预热（只收 @@m: 令牌交 mochiMediaWarmTokens；删则令牌卡回退逐图 miss 读排队＝冷启动面板图慢半拍）', file: 'js/chat.js', needle: "s.indexOf('@@m:') === 0) toks.push(s.slice(4));" },
   { name: '#435 媒体池令牌批量预热接口（mochiMediaWarmTokens idbGetMany 每批 8 批间让出+inflight 互斥；删则预热无人接=面板令牌图五段异步串行慢加载复发）', file: 'js/media-pool.js', needle: 'window.mochiMediaWarmTokens = function (hashes) {' },
+  // ==== 2026-09-14 #457 表情面板每次打开图片重载（多机型同发，用户明说其他设备型号也有）：
+  // 根因=renderEmojiPanel 无条件 innerHTML='' 重建全部 img，浏览器对新建 img 必重新解码
+  // dataURL/重请求令牌图，即使内容与上次完全相同。打开→关闭→再打开同一分组每次都重载。
+  // 修复=内容指纹短路（mode/分组/张数/内容签名/batch/hs/联系人名），与上次成功渲染一致且
+  // DOM 仍在→跳过重建复用现有 img（零机型分支，懒加载/预热/批量管理能力不删）====
+  { name: '#457 面板内容指纹短路判定（_sigTarget===emojiRenderSig 且 DOM 仍在则跳过重建；删/改则回退每次开面板全量重建 img＝图片每次重载复发，多机型同发）', file: 'js/chat.js', needle: 'if (_sigTarget && _sigTarget === emojiRenderSig && emojiList.firstElementChild) return;' },
+  { name: '#457 面板内容指纹目标计算函数（emojiRenderSigTarget 算 mode/分组/张数/首尾src/sumLen 签名；删则短路无指纹可比＝回退全量重建）', file: 'js/chat.js', needle: 'function emojiRenderSigTarget(hts, pn)' },
   // ==== #441 跨桌面通话记录串/消失（用户报「跨桌面打电话联系人的通话记录会串，没有显示实际联系人的电话」「跨桌面通话记录不会记录，会消失」+「接电话后跳转到当前联系人桌面」要写清是刻意设计。根因：①records.js 各渲染点只读桌面键 lbl-partner 取显示名——联系人管理新建、从未改昵称的联系人该键为空，主页通话/换头像/抓包/心意币/关心全部显示「TA」，多联系人分不清记录是谁的；记录数据本身按桌面命名空间隔离无串写（实测 A 去电通话中切 B 再挂断→记录落 A、B 为空；跨桌面来电接听挂断→记录落 B）；②跨桌面来电弹窗「稍后」与「弹窗被顶未应答」只标 seen 零记录＝无声消失；③接听先挂断进行中通话的文案承诺从未实现，currentCall 占用时点接听无反应；④功能说明「不会跳到对方的桌面」与实际（先切归属桌面再响铃）相反）====
   { name: '#441 主页记录显示名走完整取名链（dispName：cs-lbl-partner→lbl-partner→联系人名片名→TA；删则回退只读 lbl-partner，新联系人全显示 TA＝通话记录看不出是谁的）', file: 'js/records.js', needle: "store.get('cs-lbl-partner')" },
   { name: '#441 跨桌面来电稍后补记未接（callRecordMissed 复用 notifyCallEnd 落归属桌面；删则点稍后只标 seen，通话记录无声消失）', file: 'js/incoming-requests.js', needle: "if (req.kind === 'call' && window.callRecordMissed) window.callRecordMissed(req.cid, cName(req.cid));" },
@@ -1424,6 +1434,12 @@ const FIX_SENTINELS = [
   { name: '#453 消消乐直线道具清行爆炸（↔️ 被消除清整行；删则横向直线道具成摆设）', file: 'js/match3.js', needle: 'queue.push([p[0], cc]);' },
   { name: '#453 消消乐 L/T 同色交叉→炸弹（两道同色直线共享一格合计≥5格；删则 L/T 交叉退化普通三消＝经典消消乐包裹糖玩法丢失）', file: 'js/match3.js', needle: 'runs[i].len + runs[j].len - 1 >= 5' },
   { name: '#454 字卡库顶部tab点不开（renderTabCounts 懒加载 groups=null 空守卫——#442 只给 renderGroupsBar 加了守卫，顶层首渲在此抛 null[\'text\'] 使 chatcard.js 整个初始化中断，顶部两大分类 tab/锁提示/搜索全不挂；删则多机型复发「系统预设字卡点不开」）', file: 'js/chatcard.js', needle: "const grps = (groups && groups[tab.dataset.type]) || [];" },
+// ==== 2026-09-14 #458 「卡顿自检弹窗一键优化点击没用」多机型（原回调两端只有 3.2s toast——大库优化
+//      耗时数十秒起、iOS 伴随卡顿/页面被杀，提示一闪而过＝观感「点了没用」；且无 .catch、idbGet 存储
+//      繁忙挂起（#229 家族 iOS 高发）时 promise 永不落定＝永远无声。修复：结果常驻弹窗+catch+90s 看门狗，
+//      零机型分支零存储语义改动）====
+{ name: '#458 一键优化结果单飞收口（done 看门狗/完成/异常三路只放行一次并清定时器；删则多路重复弹窗或看门狗误报）', file: 'js/personalize.js', needle: 'clearTimeout(wd);' },
+{ name: '#458 一键优化 90s 看门狗（idbGet 存储繁忙挂起 promise 永不落定也必出常驻提示；删则挂起设备点了优化永远无声＝「点击没用」复发）', file: 'js/personalize.js', needle: 'const wd = setTimeout(function () {' },
 
 ];
 try {

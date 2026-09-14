@@ -1805,8 +1805,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   function renderSettingsPanel() {
     if (!settingsBody) return;
-    // 美化视图铺满整屏（用户反馈半屏弹层不够看）；返回主视图还原底部弹层形态
-    if (settingsPanel) settingsPanel.classList.toggle('gc-set-fs', gcBeautyView);
+
     settingsBody.innerHTML = '';
     if (gcBeautyView) { setPanelTitle('美化聊天'); renderBeautyView(); return; }
     setPanelTitle('群聊设置');

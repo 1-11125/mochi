@@ -6113,21 +6113,42 @@ typeRow.hidden = true;
 typeRow.innerHTML =
 '<button class="chat-ask-type-btn sel" data-atype="text">文字回复</button>' +
 '<button class="chat-ask-type-btn" data-atype="single">单选题</button>';
+const optsWrap = document.createElement('div');
+optsWrap.className = 'dec-inp-wrap chat-ask-opts-wrap';
+optsWrap.hidden = true;
 const opts = document.createElement('textarea');
 opts.id = 'chat-ask-opts';
 opts.className = 'chat-ask-opts';
 opts.rows = 3;
 opts.placeholder = '单选题选项：每行一个；可写 选项~TA回应，TA会选一个并用该回应回复';
 opts.hidden = true;
+const optsClear = document.createElement('button');
+optsClear.type = 'button';
+optsClear.className = 'dec-inp-clear';
+optsClear.dataset.clear = 'chat-ask-opts';
+optsClear.setAttribute('aria-label', '清空');
+optsClear.setAttribute('title', '清空');
+optsClear.textContent = '✕';
+optsWrap.appendChild(opts);
+optsWrap.appendChild(optsClear);
+optsClear.addEventListener('click', (e) => {
+if (e) e.stopPropagation();
+const box = opts.__ceBox;
+if (box) box.textContent = '';
+else opts.value = '';
+opts.focus();
+toast('已清空');
+});
 const actions = askBody.querySelector('.chat-ask-actions');
-if (actions) { askBody.insertBefore(typeRow, actions); askBody.insertBefore(opts, actions); }
-else { askBody.appendChild(typeRow); askBody.appendChild(opts); }
+if (actions) { askBody.insertBefore(typeRow, actions); askBody.insertBefore(optsWrap, actions); }
+else { askBody.appendChild(typeRow); askBody.appendChild(optsWrap); }
 const syncOptsHidden = () => {
 const show = chatAskType === 'single';
+optsWrap.hidden = !show;
 opts.hidden = !show;
 if (opts.__ceBox) opts.__ceBox.style.display = show ? 'block' : 'none';
-else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = show ? 'block' : 'none';
-const obox = opts.__ceBox || (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box') ? opts.previousElementSibling : opts);
+else if (optsWrap.querySelector('.ce-box')) optsWrap.querySelector('.ce-box').style.display = show ? 'block' : 'none';
+const obox = opts.__ceBox || optsWrap.querySelector('.ce-box') || opts;
 try { obox.style.transform = show ? 'translateZ(0)' : ''; } catch (e) {}
 };
 typeRow.querySelectorAll('.chat-ask-type-btn').forEach(btn => {
@@ -6155,6 +6176,8 @@ typeRow.querySelectorAll('.chat-ask-type-btn').forEach(b => b.classList.toggle('
 const opts = document.getElementById('chat-ask-opts');
 if (opts) {
 opts.hidden = true;
+const wrap = opts.parentElement && opts.parentElement.classList && opts.parentElement.classList.contains('chat-ask-opts-wrap') ? opts.parentElement : null;
+if (wrap) wrap.hidden = true;
 if (opts.__ceBox) opts.__ceBox.style.display = 'none';
 else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = 'none';
 }
@@ -6227,9 +6250,12 @@ const invGroups = document.getElementById('invite-groups');
 const invList = document.getElementById('invite-list');
 const invSave = document.getElementById('chat-ask-save');
 const isInvite = chatAskMode === 'invite';
-if (invGroups) invGroups.hidden = !isInvite;
-if (invList) invList.hidden = !isInvite;
-if (invSave) invSave.hidden = !isInvite;
+	if (invGroups) invGroups.hidden = !isInvite;
+	if (invList) invList.hidden = !isInvite;
+	if (invSave) invSave.hidden = !isInvite;
+	// v3.26.x：批量设置问卷按钮只在「问问TA」模式显示（邀请TA 模式隐藏）
+	const bulkBtn = document.getElementById('chat-ask-bulk');
+	if (bulkBtn) bulkBtn.hidden = isInvite;
 if (isInvite) {
 myInviteAdoptFromIdb().then(() => { if (chatAskMode === 'invite') renderInviteBank(); });
 }
@@ -6738,6 +6764,25 @@ openChatAskPanel('ask');
 if (chatAskOk) chatAskOk.addEventListener('click', (e) => { e.stopPropagation(); submitChatAsk(); });
 if (chatAskCancel) chatAskCancel.addEventListener('click', (e) => { e.stopPropagation(); closeChatAskPanel(); });
 if (chatAskClose) chatAskClose.addEventListener('click', (e) => { e.stopPropagation(); closeChatAskPanel(); });
+// v3.26.x：聊天页半框「批量设置问卷」按钮 → 打开批量问卷页（收起聊天 app，返回时回到聊天）
+const chatAskBulkBtn = document.getElementById('chat-ask-bulk');
+if (chatAskBulkBtn) chatAskBulkBtn.addEventListener('click', (e) => {
+	if (e) e.stopPropagation();
+	closeChatAskPanel();
+	if (window.openAskSurvey) window.openAskSurvey();
+	else toast('批量问卷加载失败');
+});
+// v3.26.x：聊天页半框主输入框「一键清空 ✕」（同帮我决定 .dec-inp-clear 逻辑）
+const chatAskClearBtn = document.querySelector('#chat-ask-panel .dec-inp-clear[data-clear="chat-ask-input"]');
+if (chatAskClearBtn) chatAskClearBtn.addEventListener('click', (e) => {
+	if (e) e.stopPropagation();
+	if (!chatAskInput) return;
+	const box = chatAskInput.__ceBox;
+	if (box) box.textContent = '';
+	else chatAskInput.value = '';
+	chatAskInput.focus();
+	toast('已清空');
+});
 const chatAskSaveBtn = document.getElementById('chat-ask-save');
 if (chatAskSaveBtn) chatAskSaveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveInviteInput(); });
 if (chatAskInput) chatAskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.stopPropagation(); submitChatAsk(); } });
@@ -8303,6 +8348,30 @@ function emojiWarmGroupTokens(arr) {
   }
   if (toks.length) setTimeout(function () { try { window.mochiMediaWarmTokens(toks); } catch (e) {} }, 250);
 }
+// FIX 2026-09-14 #457 表情面板每次打开图片重载（多机型同发，用户明说其他设备型号也有）：
+// 根因=renderEmojiPanel 无条件 emojiList.innerHTML='' 重建全部 img——浏览器对新建 img 必重新
+// 解码 dataURL/重请求令牌图，即使内容与上次完全相同。打开→关闭→再打开同一分组，img 全是
+// 新建→每次都重载（低端机解码风暴、流量机型重复请求）。短路=算本次目标内容指纹，与上次成功
+// 渲染一致且 DOM 仍在→跳过重建复用现有 img（零机型分支，懒加载/预热/批量管理能力不删）。
+let emojiRenderSig = '';
+function emojiRenderSigTarget(hts, pn) {
+  try {
+    var grp = emojiMode === 'public' ? pubCurGroup : (emojiMode === 'ta' ? emojiCurGroup : myCurGroup);
+    var sig = emojiMode + '|' + grp + '|' + (myBatchMode ? '1' : '0') + '|' + (hts ? '1' : '0') + '|' + (pn || '') + '|';
+    var arr = null;
+    if (emojiMode !== 'mine') {
+      var isPub = emojiMode === 'public';
+      var groups = (window.getScopedGroups && window.getScopedGroups('sticker', isPub ? 'public' : 'own')) || [];
+      for (var i = 0; i < groups.length; i++) { if (groups[i][0] === grp) { arr = groups[i][1]; break; } }
+    } else {
+      for (var j = 0; j < myGroups.length; j++) { if (myGroups[j][0] === grp) { arr = myGroups[j][1]; break; } }
+    }
+    if (!arr || !arr.length) return sig + 'empty';
+    var sumLen = 0;
+    for (var k = 0; k < arr.length; k++) sumLen += (arr[k] || '').length;
+    return sig + arr.length + '|' + sumLen + '|' + (arr[0] || '') + '|' + (arr[arr.length - 1] || '');
+  } catch (e) { return ''; }
+}
 function renderEmojiGroupsBar() {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -8401,6 +8470,9 @@ if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的表情包';
 if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
 renderEmojiGroupsBar();
+	// FIX 2026-09-14 #457 内容指纹短路：目标与上次成功渲染一致且 DOM 仍在→跳过重建复用现有 img
+	var _sigTarget = emojiRenderSigTarget(hts, taTabEl ? taTabEl.textContent : '');
+	if (_sigTarget && _sigTarget === emojiRenderSig && emojiList.firstElementChild) return;
 	if (emojiImgObserver) emojiList.querySelectorAll('img[data-src]').forEach(im => { try { emojiImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 	emojiLazyQueue.length = 0; // #435：重绘丢弃旧节点，待补队列与泵一并作废，防止补到游离节点
 	if (emojiLazyT) { clearTimeout(emojiLazyT); emojiLazyT = null; }
@@ -8428,6 +8500,7 @@ emojiList.innerHTML = isPub
 return;
 }
 renderEmojiGroup(g[0], g[1], 'ta');
+emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
 } else {
 if (!myGroups.length) {
 emojiList.innerHTML = '<div class="emoji-empty">暂无我的表情包<br>点击上方「添加」上传，或「新建分组」</div>';
@@ -8444,6 +8517,7 @@ return;
 }
 renderEmojiGroup(g[0], g[1], 'mine');
 updateBatchCount();
+emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
 }
 }
 function openEmojiPanel() {

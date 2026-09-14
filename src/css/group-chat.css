@@ -50,20 +50,14 @@
 .gc-more-item:active { background: #f4f4f4; }
 .gc-more-item svg { width: 17px; height: 17px; color: #555; flex-shrink: 0; }
 
-/* ---- 群聊设置面板（底部弹层，v3.9.x） ---- */
+/* ---- 群聊设置面板（整页全屏，v3.9.x；v3.42.x 主视图由底部弹层改为全屏，与聊天设置一致） ---- */
 .gc-settings-panel {
-  position: fixed; left: 0; right: 0; bottom: 0;
-  max-height: 78vh; background: #fff; border-radius: 16px 16px 0 0;
-  box-shadow: 0 -4px 20px rgba(0,0,0,.12); z-index: 210; overflow: hidden;
+  position: fixed; left: 0; right: 0; top: 0;
+  height: min(var(--mochi-ios-h, 100dvh), 100dvh);
+  background: #fff; z-index: 210; overflow: hidden;
   display: flex; flex-direction: column;
 }
 .gc-settings-panel[hidden] { display: none; }
-/* 美化视图全屏形态（用户反馈半屏不够看）：进美化挂 gc-set-fs 铺满整屏，返回还原底部弹层；
-   高度沿用全站 iOS 修复公式，避免 iPhone 上 100dvh 底部被工具栏遮一条 */
-.gc-settings-panel.gc-set-fs {
-  top: 0; max-height: none; height: min(var(--mochi-ios-h, 100dvh), 100dvh);
-  border-radius: 0;
-}
 .gc-set-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px; border-bottom: 1px solid rgba(0,0,0,.06); font-weight: 600;

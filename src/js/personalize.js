@@ -7584,9 +7584,30 @@ try {
       lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
       window.openModal('卡顿自检 · 一键优化', '', function () {
         perfToast('正在优化（字卡库较大会稍等片刻）…');
-        window.mochiPerfHeal().then(function (res) {
-          if (res && res.ok) perfToast('优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '，部分' : ''));
-          else perfToast('优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试');
+        // FIX 2026-09-14 #458（多机型同报「自检弹窗修复点击没用」）：原回调两端都只有 3.2s
+        // 转瞬 toast——大库优化（取回 44MB+预热令牌化）耗时数十秒起，iOS 上还可能伴随卡顿/
+        // 页面被杀，开始/完成提示一闪而过＝用户观感「点了没用、什么都没发生」；且链路无
+        // .catch、idbGet 存储繁忙挂起（#229 家族 iOS 高发）时 promise 永不落定＝永远无声。
+        // 改为：结果常驻弹窗（必可见）+ .catch 弹窗 + 90s 看门狗兜底提示。零机型分支，
+        // 不动 mochiPerfHeal/存储语义，其它设备修复零覆盖。
+        let done = false;
+        const wd = setTimeout(function () {
+          if (done) return;
+          perfHealResult('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
+        }, 90000);
+        function perfHealResult(msg) {
+          if (done) return;
+          done = true;
+          clearTimeout(wd);
+          if (window.openModal) window.openModal('卡顿自检 · 优化结果', '', null, { noInput: true, staticText: msg });
+          else perfToast(msg);
+        }
+        Promise.resolve(window.mochiPerfHeal()).then(function (res) {
+          perfHealResult((res && res.ok)
+            ? '优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '（部分：' + res.reason + '）' : '') + '。之后的聊天/回复会明显顺滑。'
+            : '优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试。');
+        }).catch(function (e) {
+          perfHealResult('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
         });
       }, { noInput: true, staticText: lines.join('\n') });
     }

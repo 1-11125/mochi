@@ -82,6 +82,7 @@
     '<div class="chat-head"><span class="ch-back" id="memo-back"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ch-name">备忘录</span></div>' +
     '<div class="memo-body">' +
       '<div class="memo-input-row"><input class="memo-inp" id="memo-inp" type="text" placeholder="记一件想做的事…" maxlength="200"><button class="memo-add" id="memo-add-btn">添加</button></div>' +
+      '<div class="memo-remind-chips" id="memo-remind-chips"><span class="memo-rc" data-r="chat">聊天概率</span><span class="memo-rc" data-r="sysDue">到点弹窗</span><span class="memo-rc" data-r="contact">联系人弹窗</span></div>' +
       '<div class="memo-msg glass" id="memo-msg"></div>' +
       '<div class="memo-toolbar"><span class="memo-count" id="memo-count"></span><button class="memo-cleardone" id="memo-cleardone">清已完成</button></div>' +
       '<div class="memo-list" id="memo-list"></div>' +
@@ -95,6 +96,13 @@
   // ---- 数据层：全局根命名空间（所有桌面联系人互通一份） ----
   function memoItems() { const s = gStore(); if (!s) return []; try { const a = JSON.parse(s.get('memo-app-items') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function memoSave(a) { const s = gStore(); if (s) try { s.set('memo-app-items', JSON.stringify(a)); } catch (e) {} }
+  // 单条备忘提醒配置：老备忘无 remind 字段 → {chat:1}（保持现有全局催办行为不回归）；
+  // 新备忘按新增时勾选写入。chat=聊天概率催办、sysDue=到点必定系统弹窗、contact=概率联系人弹窗。
+  function memoRemindOf(it) {
+    const r = it && it.remind;
+    if (!r || typeof r !== 'object') return { chat: 1, sysDue: 0, contact: 0 };
+    return { chat: r.chat ? 1 : 0, sysDue: r.sysDue ? 1 : 0, contact: r.contact ? 1 : 0 };
+  }
   function memoSendOn() { const s = gStore(); try { return s.get('memo-app-send') === '1'; } catch (e) { return false; } }
   // #238 提醒配置存单键 JSON（根命名空间随 memo-app-* 全局共享；键名已登记 contacts.js EXCLUDE
   // 防 migrateLegacy 误迁）。en 默认开、prob 默认 2（同吃饭提醒）、last=上次提醒时刻
@@ -264,6 +272,25 @@
         else tm.textContent = it.due + ' 截止 · ' + memoFmt(it.ts || Date.now());
       } else tm.textContent = memoFmt(it.ts || Date.now());
       main.appendChild(txt); main.appendChild(tm);
+      // 提醒方式标志：勾选的显示小图标（聊天气泡/铃铛/联系人），点击进设置改提醒；
+      // 老备忘 remind={chat:1} 总显示 chat 标志 → 总能点进设置，不会出现「无入口改提醒」
+      const rr = memoRemindOf(it);
+      if (rr.chat || rr.sysDue || rr.contact) {
+        const rm = document.createElement('div'); rm.className = 'mm-remind-marks';
+        const mkMark = (k) => {
+          const m = document.createElement('span'); m.className = 'mm-rm ' + k;
+          if (k === 'chat') m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-9 8.5 8.5 8.5 0 01-3.8-.9L3 21l1.9-5.2A8.38 8.38 0 0121 11.5z"/></svg>';
+          else if (k === 'sysDue') m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>';
+          else m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+          m.title = k === 'chat' ? '聊天概率提醒' : (k === 'sysDue' ? '到点弹窗提醒' : '联系人弹窗提醒');
+          return m;
+        };
+        if (rr.chat) rm.appendChild(mkMark('chat'));
+        if (rr.sysDue) rm.appendChild(mkMark('sysDue'));
+        if (rr.contact) rm.appendChild(mkMark('contact'));
+        rm.addEventListener('click', (e) => { e.stopPropagation(); memoEditRemind(it); });
+        main.appendChild(rm);
+      }
       // 截止日期：pills 快选（今天/明天/后天/周末/清除）
       const dueBtn = document.createElement('button');
       dueBtn.className = 'mm-act mm-due' + (it.due ? ' on' : ''); dueBtn.title = '截止日期';
@@ -328,7 +355,7 @@
     const inp = document.getElementById('memo-inp'); if (!inp) return;
     const v = (inp.value || '').trim(); if (!v) { toast('先写点内容吧'); return; }
     const a = memoItems();
-    a.unshift({ id: Date.now() + '-' + Math.floor(Math.random() * 1000), t: v.slice(0, 500), done: false, pin: false, due: null, ts: Date.now() });
+    a.unshift({ id: Date.now() + '-' + Math.floor(Math.random() * 1000), t: v.slice(0, 500), done: false, pin: false, due: null, ts: Date.now(), remind: { chat: memoAddRemindState.chat, sysDue: memoAddRemindState.sysDue, contact: memoAddRemindState.contact } });
     memoSave(a); inp.value = ''; memoRender();
     // FIX 2026-09-07 #237 添加备忘触发聊天提问：TA 侧即时回应+追问（带「备忘」来源 chip，
     // chatAddIn 自带未读数+桌面横幅/后台通知联动，不在聊天页也能被提醒；完成/分享通道不变）
@@ -364,7 +391,7 @@
     else memoShowMsg(memoPick(DEF_MEMO_ALLDONE));
   }
 
-  if (memoApp) memoApp.addEventListener('click', () => { if (editingNow()) return; openPage(memoPage); memoRender(); memoGreet(); });
+  if (memoApp) memoApp.addEventListener('click', () => { if (editingNow()) return; openPage(memoPage); memoRender(); memoGreet(); setTimeout(memoSysDueCheck, 400); });
   document.getElementById('memo-back').addEventListener('click', () => backHome(memoPage));
   document.getElementById('memo-add-btn').addEventListener('click', memoAddFromInput);
   // 安卓输入框被转成 ce-box 后仍走 input.value / 原生事件代理；Enter 兜底走按钮路径
@@ -398,21 +425,81 @@
     //   备忘提醒概率门控（dcf-memo，默认 100%＝保持原节奏，0%＝完全不催备忘；随联系人桌面隔离）。
     try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('memo') : 100)) return; } catch (e) {}
     const undone = memoItems().filter(x => !x.done);
-    if (!undone.length) return;
-    const over = undone.filter(x => memoUrgent(x) === 'overdue');
-    const due = undone.filter(x => memoUrgent(x) === 'today');
-    const stale = undone.filter(x => !memoUrgent(x) && Date.now() - (x.ts || 0) > 2 * 86400000);
-    const pool = over.length ? over : (due.length ? due : (stale.length ? stale : undone));
+    // 只催勾了「聊天概率」或「联系人弹窗」的备忘（老备忘无 remind 视为 chat:1 兼容，行为不回归）
+    const cand = undone.filter(x => { const r = memoRemindOf(x); return r.chat || r.contact; });
+    if (!cand.length) return;
+    const over = cand.filter(x => memoUrgent(x) === 'overdue');
+    const due = cand.filter(x => memoUrgent(x) === 'today');
+    const stale = cand.filter(x => !memoUrgent(x) && Date.now() - (x.ts || 0) > 2 * 86400000);
+    const pool = over.length ? over : (due.length ? due : (stale.length ? stale : cand));
     const it = pool[Math.floor(Math.random() * pool.length)];
     const bank = over.length ? DEF_MEMO_REMIND_OVER : (due.length ? DEF_MEMO_REMIND_DUE : DEF_MEMO_REMIND);
     const text = memoPick(bank).replace('{m}', memoClip(it.t || '', 16)).replace('{n}', String(memoOverdueDays(it.due || memoDayStr(new Date()))));
-    if (window.chatAddIn) { try { window.chatAddIn(text, { tag: '备忘提醒' }); } catch (e) {} }
+    // 呈现：只勾 chat→聊天流 chatAddIn；只勾 contact→联系人弹窗；都勾→随机选一种
+    const fr = memoRemindOf(it);
+    const useContact = fr.contact && (!fr.chat || Math.random() < 0.5);
+    if (useContact) memoContactPopup(text);
+    else if (window.chatAddIn) { try { window.chatAddIn(text, { tag: '备忘提醒' }); } catch (e) {} }
     vibrate([80, 60, 80]);
     memoRemindSetCfg({ last: Date.now(), done: '' }); // 发出即记录时刻，至少隔 2 天再提醒（#238 用户反馈不用太频繁）
   }
+  // ---- 联系人弹窗（区别于 openModal 系统通知样式：居中 + 联系人头像 + 昵称 + 聊天气泡） ----
+  function memoContactPopup(text) {
+    let old = document.getElementById('memo-contact-mask'); if (old) old.remove();
+    const mask = document.createElement('div'); mask.id = 'memo-contact-mask'; mask.className = 'memo-contact-mask';
+    const card = document.createElement('div'); card.className = 'memo-contact-card';
+    let s = null; try { s = window.activeStore && window.activeStore(); } catch (e) {}
+    const name = (s && s.get('lbl-partner')) || (window.taFit ? window.taFit('TA') : 'TA');
+    const av = (s && s.get('avatar-partner')) || '';
+    const head = document.createElement('div'); head.className = 'mc-head';
+    const avEl = document.createElement('div'); avEl.className = 'mc-av' + (av ? '' : ' ph');
+    if (av) { avEl.style.backgroundImage = 'url("' + av + '")'; } else avEl.textContent = (name || 'T').slice(0, 1);
+    const nm = document.createElement('div'); nm.className = 'mc-name'; nm.textContent = name;
+    head.appendChild(avEl); head.appendChild(nm);
+    const bubble = document.createElement('div'); bubble.className = 'mc-bubble'; bubble.textContent = text;
+    const close = document.createElement('button'); close.className = 'mc-close'; close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    card.appendChild(close); card.appendChild(head); card.appendChild(bubble);
+    mask.appendChild(card); document.body.appendChild(mask);
+    try { document.body.classList.add('scroll-lock'); } catch (e) {}
+    let timer = 0;
+    const dismiss = () => { clearTimeout(timer); mask.remove(); try { document.body.classList.remove('scroll-lock'); } catch (e) {} };
+    close.addEventListener('click', dismiss);
+    mask.addEventListener('click', (e) => { if (e.target === mask) dismiss(); });
+    timer = setTimeout(dismiss, 8000);
+  }
+  // ---- 到点必定触发系统弹窗（sysDue）：到截止当天、未完成、勾了 sysDue、今天未弹过 → openModal 必弹一次 ----
+  function memoSysDueCheck() {
+    try {
+      if (!window.openModal) return;
+      const c = memoRemindCfg();
+      if (!c.en) return; // 受全局「备忘提醒」总开关控制（关了全不弹）
+      const today = memoDayStr(new Date());
+      const a = memoItems();
+      const hits = a.filter(x => x && !x.done && x.due === today && memoRemindOf(x).sysDue && x.sysDueShown !== today);
+      if (!hits.length) return;
+      hits.sort((x, y) => (x.ts || 0) - (y.ts || 0)); // 最早记录的先弹
+      const it = hits[0];
+      it.sysDueShown = today; memoSave(a);
+      window.openModal('备忘到点提醒', '', () => {}, { noInput: true, staticText: '「' + memoClip(it.t, 40) + '」今天截止，别忘了做哦' });
+      vibrate([60, 40, 60]);
+    } catch (e) {}
+  }
+  // ---- 行内提醒标志点击：弹设置改该条提醒方式（pills 点一项切换其开关） ----
+  function memoEditRemind(it) {
+    if (editingNow()) return;
+    if (!window.openModal) return;
+    const r = memoRemindOf(it);
+    const labels = { chat: '聊天概率提醒', sysDue: '到点弹窗提醒', contact: '联系人弹窗提醒' };
+    const pills = ['chat', 'sysDue', 'contact'].map(k => ({ label: labels[k] + (r[k] ? ' · 开' : ' · 关'), value: k }));
+    window.openModal('提醒方式', '', (v) => {
+      if (!v) return;
+      const a = memoItems(); const cur = a.find(x => x.id === it.id); if (!cur) return;
+      const rr = memoRemindOf(cur); rr[v] = rr[v] ? 0 : 1; cur.remind = rr; memoSave(a); memoRender();
+      toast(rr[v] ? '已开启' : '已关闭');
+    }, { noInput: true, staticText: '「' + memoClip(it.t, 18) + '」  点一项切换开关', pills: pills, pillSubmit: true });
+  }
   function memoRemindTick() {
     try {
-      if (!window.chatAddIn) return;
       const c = memoRemindCfg();
       if (!c.en || c.prob <= 0) return;
       const h = new Date().getHours(); if (h >= 23 || h < 6) return; // 深夜静默，同吃饭提醒
@@ -439,9 +526,30 @@
       toast(n <= 0 ? '已设置：基本不会触发' : '已设置：每 4 分钟掷一次，命中后至少隔 2 天再提醒');
     });
   });
+  // ---- 新增备忘提醒勾选 chip（输入框下方常驻三个，勾选状态带入新备忘） ----
+  // 默认 chat 开（保持现有体验）、sysDue/contact 关（新功能按需）；状态跨多次添加保留
+  const memoAddRemindState = { chat: 1, sysDue: 0, contact: 0 };
+  const chipsEl = document.getElementById('memo-remind-chips');
+  function memoRenderChips() {
+    if (!chipsEl) return;
+    Array.prototype.forEach.call(chipsEl.querySelectorAll('.memo-rc'), el => {
+      el.classList.toggle('on', !!memoAddRemindState[el.getAttribute('data-r')]);
+    });
+  }
+  if (chipsEl) {
+    chipsEl.addEventListener('click', (e) => {
+      const el = e.target.closest('.memo-rc'); if (!el) return;
+      if (editingNow()) return;
+      const k = el.getAttribute('data-r');
+      memoAddRemindState[k] = memoAddRemindState[k] ? 0 : 1;
+      memoRenderChips(); vibrate(5);
+    });
+    memoRenderChips();
+  }
   window.memoRemindTickNow = memoRemindTick; // 手动/回归验证触发口（同 triggerTaInviteNow 惯例）
   setTimeout(memoRemindTick, 60000);
   setInterval(memoRemindTick, 240000); // 每 4 分钟一掷（同吃饭提醒），命中且当天未提醒过才发
-  document.addEventListener('mochi-fg-resume', function () { setTimeout(memoRemindTick, 2000 + Math.floor(Math.random() * 4000)); }); // 回前台补触发（同 ta-ask 通道）
+  setInterval(memoSysDueCheck, 300000); // 到点弹窗每 5 分钟检查（必定触发，打开应用/回前台亦检查）
+  document.addEventListener('mochi-fg-resume', function () { setTimeout(memoRemindTick, 2000 + Math.floor(Math.random() * 4000)); setTimeout(memoSysDueCheck, 1500); }); // 回前台补触发（同 ta-ask 通道）
   document.addEventListener('contact-switched', () => { if (!memoPage.hidden) memoRender(); });
 })();

@@ -1659,6 +1659,12 @@ scrollbar-width:none; -ms-overflow-style:none;
 .chat-search-hl { background:#ffe58f; border-radius:2px; padding:0 1px; }
 .chat-search-empty { text-align:center; color:#c0c0c0; font-size:12px; padding:24px 0; }
 .chat-ask-body { display:flex; flex-direction:column; gap:10px; }
+.chat-ask-inp-wrap { position:relative; }
+.chat-ask-inp-wrap .chat-ask-input,
+.chat-ask-inp-wrap .chat-ask-input.ce-box { padding-right:38px; }
+.chat-ask-bulk { padding:9px 0; border-radius:10px; border:1px solid rgba(0,0,0,.12); background:rgba(255,255,255,.94); color:var(--ink); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.chat-ask-bulk[hidden] { display:none; }
+.chat-ask-bulk:active { opacity:.75; }
 .chat-ask-input {
 border:1px solid rgba(0,0,0,.12); border-radius:12px; padding:11px 14px;
 font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);
@@ -1677,6 +1683,10 @@ background:#fff; color:#666; font-size:13px; font-weight:600; cursor:pointer; fo
 text-align:center; -webkit-tap-highlight-color:transparent;
 }
 .chat-ask-type-btn.sel { background:var(--ink); color:#fff; border-color:var(--ink); }
+.chat-ask-opts-wrap { position:relative; }
+.chat-ask-opts-wrap .chat-ask-opts,
+.chat-ask-opts-wrap .ce-box.chat-ask-opts { padding-right:38px; }
+.chat-ask-opts-wrap[hidden] { display:none; }
 .chat-ask-opts {
 width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,.12); border-radius:12px;
 padding:11px 14px; font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);
@@ -6803,16 +6813,12 @@ color: #222;
 .gc-more-item:active { background: #f4f4f4; }
 .gc-more-item svg { width: 17px; height: 17px; color: #555; flex-shrink: 0; }
 .gc-settings-panel {
-position: fixed; left: 0; right: 0; bottom: 0;
-max-height: 78vh; background: #fff; border-radius: 16px 16px 0 0;
-box-shadow: 0 -4px 20px rgba(0,0,0,.12); z-index: 210; overflow: hidden;
+position: fixed; left: 0; right: 0; top: 0;
+height: min(var(--mochi-ios-h, 100dvh), 100dvh);
+background: #fff; z-index: 210; overflow: hidden;
 display: flex; flex-direction: column;
 }
 .gc-settings-panel[hidden] { display: none; }
-.gc-settings-panel.gc-set-fs {
-top: 0; max-height: none; height: min(var(--mochi-ios-h, 100dvh), 100dvh);
-border-radius: 0;
-}
 .gc-set-head {
 display: flex; align-items: center; justify-content: space-between;
 padding: 14px 16px; border-bottom: 1px solid rgba(0,0,0,.06); font-weight: 600;
@@ -7276,6 +7282,7 @@ transition:color .18s ease, background .18s ease;
 [data-theme="dark"] .chat-ask-type-btn.sel { background:var(--ink); color:#111; border-color:var(--ink); }
 [data-theme="dark"] .chat-ask-opts { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
 [data-theme="dark"] .chat-ask-opts:focus { border-color:var(--ink); }
+[data-theme="dark"] .chat-ask-bulk { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
 [data-theme="dark"] .chat-input-row { background:var(--dark-card-92); border-color:var(--dark-border); }
 [data-theme="dark"] .chat-input { color:var(--ink); }
 [data-theme="dark"] .chat-input:empty::before { color:var(--hint-ink); }
@@ -8497,6 +8504,28 @@ color: #c67800;
 .memo-manage { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; }
 .memo-send-btn { font-size:12px; color:var(--ink-soft,#888); background:rgba(255,255,255,.7); border:1px solid rgba(0,0,0,.12); border-radius:16px; padding:6px 16px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
 .memo-send-btn:active { background:rgba(0,0,0,.06); }
+.memo-remind-chips { display:flex; gap:8px; margin:-4px 0 12px; flex-wrap:wrap; }
+.memo-rc { font-size:12px; color:var(--ink-soft,#888); background:rgba(255,255,255,.6); border:1px solid rgba(0,0,0,.12); border-radius:14px; padding:4px 12px; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent; transition:background .15s,color .15s,border-color .15s; }
+.memo-rc.on { color:#fff; background:#4a9fd4; border-color:#4a9fd4; }
+.mm-remind-marks { display:flex; gap:6px; margin-top:5px; align-items:center; }
+.mm-rm { width:18px; height:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:5px; -webkit-tap-highlight-color:transparent; }
+.mm-rm svg { width:14px; height:14px; }
+.mm-rm:active { background:rgba(0,0,0,.06); }
+.mm-rm.chat { color:#4a9fd4; }
+.mm-rm.sysDue { color:#e8a23c; }
+.mm-rm.contact { color:#7c5cd4; }
+.memo-contact-mask { position:fixed; inset:0; z-index:95; background:rgba(0,0,0,.42); display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; animation:mc-fade .18s ease; }
+.memo-contact-card { position:relative; width:100%; max-width:340px; background:var(--card-bg,#fff); border-radius:18px; padding:16px 16px 18px; box-shadow:0 12px 40px rgba(0,0,0,.22); animation:mc-pop .22s cubic-bezier(.2,.8,.3,1); }
+.mc-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.mc-av { width:40px; height:40px; border-radius:50%; background:#e8e8e8 center/cover no-repeat; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:600; color:#fff; }
+.mc-av.ph { background:linear-gradient(135deg,#7c8ea8,#5c7090); }
+.mc-name { font-size:15px; font-weight:600; color:var(--ink,#222); }
+.mc-bubble { background:rgba(74,159,212,.12); border-radius:14px; padding:12px 14px; font-size:15px; line-height:1.5; color:var(--ink,#222); word-break:break-word; white-space:pre-wrap; border-top-left-radius:4px; }
+.mc-close { position:absolute; top:10px; right:10px; width:26px; height:26px; border:none; background:rgba(0,0,0,.05); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-soft,#999); -webkit-tap-highlight-color:transparent; }
+.mc-close svg { width:13px; height:13px; }
+.mc-close:active { background:rgba(0,0,0,.1); }
+@keyframes mc-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes mc-pop { from { transform:scale(.92); opacity:0; } to { transform:scale(1); opacity:1; } }
 .narc-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:12px 14px 120px; scrollbar-width:none; -ms-overflow-style:none; }
 .narc-scroll::-webkit-scrollbar { display:none; }
 .narc-chips { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 12px; scrollbar-width:none; }
@@ -9339,13 +9368,15 @@ transition-duration: .01ms !important;
             <p class="splash-item">本站并非复刻他人网站，代码均从零编写</p>
             <p class="splash-item">星言字卡为同一作者的另一部独立作品，其本体禁止二传二改</p>
             <p class="splash-item">开屏公告为本站内容，不可删除或修改</p>
-            <p class="splash-sub">二传二改说明：</p>
-            <p class="splash-bullet">二传：可自由转发、转载、分享本站链接与文件，传播方式不限</p>
-            <p class="splash-bullet">二改：可自由修改、二次开发、自行部署，代码已在 GitHub 完全公开、与网站同步更新</p>
-            <p class="splash-bullet">8.29 完全公开后即可二传二改</p>
-            <p class="splash-bullet">必须保留署名：小红书 @言序（1842523578），禁止删除或修改</p>
-            <p class="splash-bullet">二次修改要注明原作者；借鉴功能或代码，希望标注灵感来源</p>
-            <p class="splash-bullet">禁止商用、禁止以盈利为目的</p>
+            <p class="splash-sub">二传二改说明（可以二传、二改，只有三点要求）：</p>
+            <p class="splash-bullet"><b>一、署名</b>——不管是原样转发，还是改动之后再传，请保留作者署名：小红书 @言序（1842523578），禁止删除或修改，不要冒认为自己做的</p>
+            <p class="splash-bullet">二次修改的版本要注明原作者；借鉴功能或代码，请标注灵感来源。未标注来源的使用，视为违反许可协议</p>
+            <p class="splash-bullet"><b>二、不要转发密码</b>——二级验证密码（暗号）请不要转发给别人</p>
+            <p class="splash-bullet">密码是成年人验证用的（开启系统内置字卡、跳过开屏问答），一旦有人大范围二传，密码就会被重新设置，防护就失去意义；自己用、自己解锁没问题，但不要公开、不要告诉别人</p>
+            <p class="splash-bullet"><b>三、二改之后如果要公开，请不要公开内置字卡</b>——自己改、自己用都没有问题，但如果改完要公开出去（公开部署、公开分享给他人），请不要把系统内置字卡一起公开</p>
+            <p class="splash-bullet">内置字卡是系统预设的内容；公开的二改版本，请只保留你自己添加的字卡，不要把内置字卡打包进去</p>
+            <p class="splash-bullet">二传：可自由转发、转载、分享本站链接与文件，传播方式不限；二改：可自由修改、二次开发、自行部署，代码已在 GitHub 完全公开、与网站同步更新；8.29 完全公开后即可二传二改</p>
+            <p class="splash-bullet">禁止商用、禁止以盈利为目的。就这些，谢谢尊重。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">【六、版权与灵感来源】</p>
@@ -9409,9 +9440,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789350540547">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.677</b></span>
-        <span class="sv-deploy">部署于 2026-09-14 09:49<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789367418948">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.678</b></span>
+        <span class="sv-deploy">部署于 2026-09-14 14:30<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -9446,9 +9477,15 @@ transition-duration: .01ms !important;
           <div class="splash-mandatory-h">关于二传和二改</div>
           <div class="splash-mandatory-body">
             <p>可以二传、二改，只有三点要求：</p>
-            <p class="mnum">一、署名</p>
+            <p class="mnum">一、署名——保留作者署名</p>
+            <p>不管是原样转发，还是改动之后再传，请保留我的署名：小红书 @言序（1842523578），禁止删除或修改，不要冒认为自己做的。</p>
+            <p>二次修改的版本要注明原作者；借鉴功能或代码，请标注灵感来源。未标注来源的使用，视为违反许可协议。</p>
             <p class="mnum">二、不要转发密码</p>
+            <p>二级验证密码（暗号）请不要转发给别人。密码是成年人验证用的（开启系统内置字卡、跳过开屏问答），一旦有人大范围二传，密码就会被重新设置，防护就失去意义。</p>
+            <p>自己用、自己解锁没问题，但不要公开、不要告诉别人。</p>
             <p class="mnum">三、二改之后如果要公开，请不要公开内置字卡</p>
+            <p>自己改、自己用，都没有问题；但如果改完要公开出去（公开部署、公开分享给他人），请不要把系统内置字卡一起公开。</p>
+            <p>内置字卡是系统预设的内容；公开的二改版本，请只保留你自己添加的字卡，不要把内置字卡打包进去。</p>
             <p>就这些，谢谢尊重。</p>
             <p class="mtag">—— 算是道别公告</p>
           </div>
@@ -10716,7 +10753,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.677</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.678</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11018,7 +11055,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.677</span>
+              <span class="lic-ver">v3.26.678</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11046,6 +11083,19 @@ transition-duration: .01ms !important;
           <div class="lic-li" style="margin-top:6px">- 可自由二传、二改，支持私人部署，<b>禁止商用</b>，必须保留署名：<b>小红书 @言序（1842523578）</b>（禁止删除或修改）</div>
           <div class="lic-li">- 借鉴功能或代码，必须标注灵感来源：Mochi 字卡 · 小红书 @言序（1842523578）</div>
           <div class="lic-li">- <b>严禁以任何形式收费倒卖本站链接、安装包</b>——本站完全免费，如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家</div>
+        </div>
+
+        <!-- 二传与二改说明（三点要求） -->
+        <div class="cal-card glass">
+          <div class="lic-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px"><path d="M17 8h2a2 2 0 012 2v9a2 2 0 01-2 2H9a2 2 0 01-2-2v-9a2 2 0 012-2h2"/><path d="M9 6V5a3 3 0 016 0v1"/><circle cx="13" cy="13" r="1.6"/></svg>二传与二改说明</div>
+          <div class="lic-p">可以二传、二改，只有三点要求：</div>
+          <div class="lic-li" style="margin-top:6px"><b>一、署名</b>——不管是原样转发，还是改动之后再传，请保留作者署名：<b>小红书 @言序（1842523578）</b>，禁止删除或修改，不要冒认为自己做的。</div>
+          <div class="lic-li">二次修改的版本要注明原作者；借鉴功能或代码，请标注灵感来源。未标注来源的使用，视为违反许可协议。</div>
+          <div class="lic-li" style="margin-top:6px"><b>二、不要转发密码</b>——二级验证密码（暗号）请不要转发给别人。</div>
+          <div class="lic-li">密码是成年人验证用的（开启系统内置字卡、跳过开屏问答），一旦有人大范围二传，密码就会被重新设置，防护就失去意义；自己用、自己解锁没问题，但不要公开、不要告诉别人。</div>
+          <div class="lic-li" style="margin-top:6px"><b>三、二改之后如果要公开，请不要公开内置字卡</b>——自己改、自己用都没有问题，但如果改完要公开出去（公开部署、公开分享给他人），请不要把系统内置字卡一起公开。</div>
+          <div class="lic-li">内置字卡是系统预设的内容；公开的二改版本，请只保留你自己添加的字卡，不要把内置字卡打包进去。</div>
+          <div class="lic-p" style="margin-top:10px">就这些，谢谢尊重。</div>
         </div>
 
         <!-- 关于星言字卡与灵感来源（README.md） -->
@@ -13916,12 +13966,9 @@ transition-duration: .01ms !important;
         <div class="poke-groups" id="invite-groups" hidden></div>
         <div class="poke-card-scroll chat-ask-body">
           <div class="invite-list" id="invite-list" hidden></div>
-          <input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <div class="dec-inp-wrap chat-ask-inp-wrap"><input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="dec-inp-clear" data-clear="chat-ask-input" aria-label="清空" title="清空">✕</button></div>
+          <button type="button" class="chat-ask-bulk" id="chat-ask-bulk" hidden>批量设置问卷</button>
           <div class="chat-ask-actions">
-            <button class="cc-tool" id="chat-ask-save" hidden>存入</button>
-            <button class="cc-tool" id="chat-ask-cancel">取消</button>
-            <button class="cc-tool" id="chat-ask-ok">发送</button>
-          </div>
         </div>
       </div>
       <!-- 寻踪半框（点顶部联系人头像打开，露出聊天消息） -->
@@ -28005,9 +28052,24 @@ lines.push('「一键优化」会：取回被挂起的大库 + 预热回复池�
 lines.push('（不删除任何字卡/表情/图片数据，纯优化）');
 window.openModal('卡顿自检 · 一键优化', '', function () {
 perfToast('正在优化（字卡库较大会稍等片刻）…');
-window.mochiPerfHeal().then(function (res) {
-if (res && res.ok) perfToast('优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '，部分' : ''));
-else perfToast('优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试');
+let done = false;
+const wd = setTimeout(function () {
+if (done) return;
+perfHealResult('优化长时间未完成：本机存储繁忙（大库设备常见）。没有改动任何数据，可稍后重试；期间如仍卡顿，多为字卡库总量过大，可到字卡库清理最大的表情/图片分组后重试。');
+}, 90000);
+function perfHealResult(msg) {
+if (done) return;
+done = true;
+clearTimeout(wd);
+if (window.openModal) window.openModal('卡顿自检 · 优化结果', '', null, { noInput: true, staticText: msg });
+else perfToast(msg);
+}
+Promise.resolve(window.mochiPerfHeal()).then(function (res) {
+perfHealResult((res && res.ok)
+? '优化完成：已预热字卡池' + (res.warmed ? ' ' + res.warmed + ' 张' : '') + (res.reason ? '（部分：' + res.reason + '）' : '') + '。之后的聊天/回复会明显顺滑。'
+: '优化未完全生效：' + ((res && res.reason) || '未知') + '，可稍后重试。');
+}).catch(function (e) {
+perfHealResult('优化过程出错：' + ((e && e.message) || e) + '。没有改动任何数据，可稍后重试。');
 });
 }, { noInput: true, staticText: lines.join('\n') });
 }
@@ -33656,21 +33718,42 @@ typeRow.hidden = true;
 typeRow.innerHTML =
 '<button class="chat-ask-type-btn sel" data-atype="text">文字回复</button>' +
 '<button class="chat-ask-type-btn" data-atype="single">单选题</button>';
+const optsWrap = document.createElement('div');
+optsWrap.className = 'dec-inp-wrap chat-ask-opts-wrap';
+optsWrap.hidden = true;
 const opts = document.createElement('textarea');
 opts.id = 'chat-ask-opts';
 opts.className = 'chat-ask-opts';
 opts.rows = 3;
 opts.placeholder = '单选题选项：每行一个；可写 选项~TA回应，TA会选一个并用该回应回复';
 opts.hidden = true;
+const optsClear = document.createElement('button');
+optsClear.type = 'button';
+optsClear.className = 'dec-inp-clear';
+optsClear.dataset.clear = 'chat-ask-opts';
+optsClear.setAttribute('aria-label', '清空');
+optsClear.setAttribute('title', '清空');
+optsClear.textContent = '✕';
+optsWrap.appendChild(opts);
+optsWrap.appendChild(optsClear);
+optsClear.addEventListener('click', (e) => {
+if (e) e.stopPropagation();
+const box = opts.__ceBox;
+if (box) box.textContent = '';
+else opts.value = '';
+opts.focus();
+toast('已清空');
+});
 const actions = askBody.querySelector('.chat-ask-actions');
-if (actions) { askBody.insertBefore(typeRow, actions); askBody.insertBefore(opts, actions); }
-else { askBody.appendChild(typeRow); askBody.appendChild(opts); }
+if (actions) { askBody.insertBefore(typeRow, actions); askBody.insertBefore(optsWrap, actions); }
+else { askBody.appendChild(typeRow); askBody.appendChild(optsWrap); }
 const syncOptsHidden = () => {
 const show = chatAskType === 'single';
+optsWrap.hidden = !show;
 opts.hidden = !show;
 if (opts.__ceBox) opts.__ceBox.style.display = show ? 'block' : 'none';
-else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = show ? 'block' : 'none';
-const obox = opts.__ceBox || (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box') ? opts.previousElementSibling : opts);
+else if (optsWrap.querySelector('.ce-box')) optsWrap.querySelector('.ce-box').style.display = show ? 'block' : 'none';
+const obox = opts.__ceBox || optsWrap.querySelector('.ce-box') || opts;
 try { obox.style.transform = show ? 'translateZ(0)' : ''; } catch (e) {}
 };
 typeRow.querySelectorAll('.chat-ask-type-btn').forEach(btn => {
@@ -33698,6 +33781,8 @@ typeRow.querySelectorAll('.chat-ask-type-btn').forEach(b => b.classList.toggle('
 const opts = document.getElementById('chat-ask-opts');
 if (opts) {
 opts.hidden = true;
+const wrap = opts.parentElement && opts.parentElement.classList && opts.parentElement.classList.contains('chat-ask-opts-wrap') ? opts.parentElement : null;
+if (wrap) wrap.hidden = true;
 if (opts.__ceBox) opts.__ceBox.style.display = 'none';
 else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = 'none';
 }
@@ -33772,6 +33857,8 @@ const isInvite = chatAskMode === 'invite';
 if (invGroups) invGroups.hidden = !isInvite;
 if (invList) invList.hidden = !isInvite;
 if (invSave) invSave.hidden = !isInvite;
+const bulkBtn = document.getElementById('chat-ask-bulk');
+if (bulkBtn) bulkBtn.hidden = isInvite;
 if (isInvite) {
 myInviteAdoptFromIdb().then(() => { if (chatAskMode === 'invite') renderInviteBank(); });
 }
@@ -34266,6 +34353,23 @@ openChatAskPanel('ask');
 if (chatAskOk) chatAskOk.addEventListener('click', (e) => { e.stopPropagation(); submitChatAsk(); });
 if (chatAskCancel) chatAskCancel.addEventListener('click', (e) => { e.stopPropagation(); closeChatAskPanel(); });
 if (chatAskClose) chatAskClose.addEventListener('click', (e) => { e.stopPropagation(); closeChatAskPanel(); });
+const chatAskBulkBtn = document.getElementById('chat-ask-bulk');
+if (chatAskBulkBtn) chatAskBulkBtn.addEventListener('click', (e) => {
+if (e) e.stopPropagation();
+closeChatAskPanel();
+if (window.openAskSurvey) window.openAskSurvey();
+else toast('批量问卷加载失败');
+});
+const chatAskClearBtn = document.querySelector('#chat-ask-panel .dec-inp-clear[data-clear="chat-ask-input"]');
+if (chatAskClearBtn) chatAskClearBtn.addEventListener('click', (e) => {
+if (e) e.stopPropagation();
+if (!chatAskInput) return;
+const box = chatAskInput.__ceBox;
+if (box) box.textContent = '';
+else chatAskInput.value = '';
+chatAskInput.focus();
+toast('已清空');
+});
 const chatAskSaveBtn = document.getElementById('chat-ask-save');
 if (chatAskSaveBtn) chatAskSaveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveInviteInput(); });
 if (chatAskInput) chatAskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.stopPropagation(); submitChatAsk(); } });
@@ -35680,6 +35784,25 @@ if (typeof s === 'string' && s.indexOf('@@m:') === 0) toks.push(s.slice(4));
 }
 if (toks.length) setTimeout(function () { try { window.mochiMediaWarmTokens(toks); } catch (e) {} }, 250);
 }
+let emojiRenderSig = '';
+function emojiRenderSigTarget(hts, pn) {
+try {
+var grp = emojiMode === 'public' ? pubCurGroup : (emojiMode === 'ta' ? emojiCurGroup : myCurGroup);
+var sig = emojiMode + '|' + grp + '|' + (myBatchMode ? '1' : '0') + '|' + (hts ? '1' : '0') + '|' + (pn || '') + '|';
+var arr = null;
+if (emojiMode !== 'mine') {
+var isPub = emojiMode === 'public';
+var groups = (window.getScopedGroups && window.getScopedGroups('sticker', isPub ? 'public' : 'own')) || [];
+for (var i = 0; i < groups.length; i++) { if (groups[i][0] === grp) { arr = groups[i][1]; break; } }
+} else {
+for (var j = 0; j < myGroups.length; j++) { if (myGroups[j][0] === grp) { arr = myGroups[j][1]; break; } }
+}
+if (!arr || !arr.length) return sig + 'empty';
+var sumLen = 0;
+for (var k = 0; k < arr.length; k++) sumLen += (arr[k] || '').length;
+return sig + arr.length + '|' + sumLen + '|' + (arr[0] || '') + '|' + (arr[arr.length - 1] || '');
+} catch (e) { return ''; }
+}
 function renderEmojiGroupsBar() {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -35778,6 +35901,8 @@ if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的表情包';
 if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
 renderEmojiGroupsBar();
+var _sigTarget = emojiRenderSigTarget(hts, taTabEl ? taTabEl.textContent : '');
+if (_sigTarget && _sigTarget === emojiRenderSig && emojiList.firstElementChild) return;
 if (emojiImgObserver) emojiList.querySelectorAll('img[data-src]').forEach(im => { try { emojiImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 emojiLazyQueue.length = 0; // #435：重绘丢弃旧节点，待补队列与泵一并作废，防止补到游离节点
 if (emojiLazyT) { clearTimeout(emojiLazyT); emojiLazyT = null; }
@@ -35805,6 +35930,7 @@ emojiList.innerHTML = isPub
 return;
 }
 renderEmojiGroup(g[0], g[1], 'ta');
+emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
 } else {
 if (!myGroups.length) {
 emojiList.innerHTML = '<div class="emoji-empty">暂无我的表情包<br>点击上方「添加」上传，或「新建分组」</div>';
@@ -35821,6 +35947,7 @@ return;
 }
 renderEmojiGroup(g[0], g[1], 'mine');
 updateBatchCount();
+emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
 }
 }
 function openEmojiPanel() {
@@ -38621,7 +38748,6 @@ if (h) h.textContent = t || '群聊设置';
 }
 function renderSettingsPanel() {
 if (!settingsBody) return;
-if (settingsPanel) settingsPanel.classList.toggle('gc-set-fs', gcBeautyView);
 settingsBody.innerHTML = '';
 if (gcBeautyView) { setPanelTitle('美化聊天'); renderBeautyView(); return; }
 setPanelTitle('群聊设置');
@@ -57220,6 +57346,16 @@ st.innerHTML = '当前状态：已交卷 —— 共 ' + d.qs.length + ' 题。�
 }
 }
 const surveyPage = document.getElementById('page-ta-ask-survey');
+let surveyOpenFromChat = false;
+window.openAskSurvey = function () {
+if (!surveyPage) { toast('批量问卷加载失败'); return; }
+surveyOpenFromChat = true;
+const chatApp = document.querySelector('.app[data-app="chat"]');
+if (chatApp) chatApp.hidden = true;
+document.querySelectorAll('.page').forEach(p => p.hidden = true);
+surveyPage.hidden = false;
+surveyRender();
+};
 if (surveyPage) {
 const surveyOpen = document.getElementById('ta-ask-survey-open');
 if (surveyOpen) surveyOpen.addEventListener('click', () => {
@@ -57230,6 +57366,8 @@ surveyRender();
 const backS = document.getElementById('ta-survey-back');
 if (backS) backS.addEventListener('click', () => {
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
+const chatApp = document.querySelector('.app[data-app="chat"]');
+if (surveyOpenFromChat && chatApp) { chatApp.hidden = false; surveyOpenFromChat = false; return; }
 const home = document.getElementById('page-ta-ask');
 if (home) home.hidden = false;
 });
@@ -70654,6 +70792,7 @@ memoPage.innerHTML =
 '<div class="chat-head"><span class="ch-back" id="memo-back"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span><span class="ch-name">备忘录</span></div>' +
 '<div class="memo-body">' +
 '<div class="memo-input-row"><input class="memo-inp" id="memo-inp" type="text" placeholder="记一件想做的事…" maxlength="200"><button class="memo-add" id="memo-add-btn">添加</button></div>' +
+'<div class="memo-remind-chips" id="memo-remind-chips"><span class="memo-rc" data-r="chat">聊天概率</span><span class="memo-rc" data-r="sysDue">到点弹窗</span><span class="memo-rc" data-r="contact">联系人弹窗</span></div>' +
 '<div class="memo-msg glass" id="memo-msg"></div>' +
 '<div class="memo-toolbar"><span class="memo-count" id="memo-count"></span><button class="memo-cleardone" id="memo-cleardone">清已完成</button></div>' +
 '<div class="memo-list" id="memo-list"></div>' +
@@ -70665,6 +70804,11 @@ memoPage.innerHTML =
 host.appendChild(memoPage);
 function memoItems() { const s = gStore(); if (!s) return []; try { const a = JSON.parse(s.get('memo-app-items') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
 function memoSave(a) { const s = gStore(); if (s) try { s.set('memo-app-items', JSON.stringify(a)); } catch (e) {} }
+function memoRemindOf(it) {
+const r = it && it.remind;
+if (!r || typeof r !== 'object') return { chat: 1, sysDue: 0, contact: 0 };
+return { chat: r.chat ? 1 : 0, sysDue: r.sysDue ? 1 : 0, contact: r.contact ? 1 : 0 };
+}
 function memoSendOn() { const s = gStore(); try { return s.get('memo-app-send') === '1'; } catch (e) { return false; } }
 function memoRemindCfg() {
 const s = gStore(); let o = {};
@@ -70807,6 +70951,23 @@ else if (urg === 'today') { tm.textContent = '今天截止 · ' + memoFmt(it.ts 
 else tm.textContent = it.due + ' 截止 · ' + memoFmt(it.ts || Date.now());
 } else tm.textContent = memoFmt(it.ts || Date.now());
 main.appendChild(txt); main.appendChild(tm);
+const rr = memoRemindOf(it);
+if (rr.chat || rr.sysDue || rr.contact) {
+const rm = document.createElement('div'); rm.className = 'mm-remind-marks';
+const mkMark = (k) => {
+const m = document.createElement('span'); m.className = 'mm-rm ' + k;
+if (k === 'chat') m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-9 8.5 8.5 8.5 0 01-3.8-.9L3 21l1.9-5.2A8.38 8.38 0 0121 11.5z"/></svg>';
+else if (k === 'sysDue') m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>';
+else m.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+m.title = k === 'chat' ? '聊天概率提醒' : (k === 'sysDue' ? '到点弹窗提醒' : '联系人弹窗提醒');
+return m;
+};
+if (rr.chat) rm.appendChild(mkMark('chat'));
+if (rr.sysDue) rm.appendChild(mkMark('sysDue'));
+if (rr.contact) rm.appendChild(mkMark('contact'));
+rm.addEventListener('click', (e) => { e.stopPropagation(); memoEditRemind(it); });
+main.appendChild(rm);
+}
 const dueBtn = document.createElement('button');
 dueBtn.className = 'mm-act mm-due' + (it.due ? ' on' : ''); dueBtn.title = '截止日期';
 dueBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/></svg>';
@@ -70864,7 +71025,7 @@ if (editingNow()) return;
 const inp = document.getElementById('memo-inp'); if (!inp) return;
 const v = (inp.value || '').trim(); if (!v) { toast('先写点内容吧'); return; }
 const a = memoItems();
-a.unshift({ id: Date.now() + '-' + Math.floor(Math.random() * 1000), t: v.slice(0, 500), done: false, pin: false, due: null, ts: Date.now() });
+a.unshift({ id: Date.now() + '-' + Math.floor(Math.random() * 1000), t: v.slice(0, 500), done: false, pin: false, due: null, ts: Date.now(), remind: { chat: memoAddRemindState.chat, sysDue: memoAddRemindState.sysDue, contact: memoAddRemindState.contact } });
 memoSave(a); inp.value = ''; memoRender();
 if (window.chatAddIn) { try { window.chatAddIn(memoPick(DEF_MEMO_ASK).replace('{m}', memoClip(v, 16)), { tag: '备忘' }); } catch (e) {} }
 if (Math.random() < 0.25) memoShowMsg(memoPick(DEF_MEMO_ADD));
@@ -70893,7 +71054,7 @@ if (stale.length && Math.random() < 0.3) { memoShowMsg('有 ' + stale.length + '
 if (undone.length) { if (Math.random() < 0.5) memoShowMsg('还有 ' + undone.length + ' 件没做完呢，慢慢来'); }
 else memoShowMsg(memoPick(DEF_MEMO_ALLDONE));
 }
-if (memoApp) memoApp.addEventListener('click', () => { if (editingNow()) return; openPage(memoPage); memoRender(); memoGreet(); });
+if (memoApp) memoApp.addEventListener('click', () => { if (editingNow()) return; openPage(memoPage); memoRender(); memoGreet(); setTimeout(memoSysDueCheck, 400); });
 document.getElementById('memo-back').addEventListener('click', () => backHome(memoPage));
 document.getElementById('memo-add-btn').addEventListener('click', memoAddFromInput);
 try { document.getElementById('memo-inp').addEventListener('keydown', (e) => { if (e && (e.key === 'Enter' || e.keyCode === 13)) { e.preventDefault(); memoAddFromInput(); } }); } catch (e) {}
@@ -70923,21 +71084,76 @@ if (memoRemindProbBtn) memoRemindProbBtn.textContent = '提醒概率 ' + c.prob 
 function memoRemindFire() {
 try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('memo') : 100)) return; } catch (e) {}
 const undone = memoItems().filter(x => !x.done);
-if (!undone.length) return;
-const over = undone.filter(x => memoUrgent(x) === 'overdue');
-const due = undone.filter(x => memoUrgent(x) === 'today');
-const stale = undone.filter(x => !memoUrgent(x) && Date.now() - (x.ts || 0) > 2 * 86400000);
-const pool = over.length ? over : (due.length ? due : (stale.length ? stale : undone));
+const cand = undone.filter(x => { const r = memoRemindOf(x); return r.chat || r.contact; });
+if (!cand.length) return;
+const over = cand.filter(x => memoUrgent(x) === 'overdue');
+const due = cand.filter(x => memoUrgent(x) === 'today');
+const stale = cand.filter(x => !memoUrgent(x) && Date.now() - (x.ts || 0) > 2 * 86400000);
+const pool = over.length ? over : (due.length ? due : (stale.length ? stale : cand));
 const it = pool[Math.floor(Math.random() * pool.length)];
 const bank = over.length ? DEF_MEMO_REMIND_OVER : (due.length ? DEF_MEMO_REMIND_DUE : DEF_MEMO_REMIND);
 const text = memoPick(bank).replace('{m}', memoClip(it.t || '', 16)).replace('{n}', String(memoOverdueDays(it.due || memoDayStr(new Date()))));
-if (window.chatAddIn) { try { window.chatAddIn(text, { tag: '备忘提醒' }); } catch (e) {} }
+const fr = memoRemindOf(it);
+const useContact = fr.contact && (!fr.chat || Math.random() < 0.5);
+if (useContact) memoContactPopup(text);
+else if (window.chatAddIn) { try { window.chatAddIn(text, { tag: '备忘提醒' }); } catch (e) {} }
 vibrate([80, 60, 80]);
 memoRemindSetCfg({ last: Date.now(), done: '' }); // 发出即记录时刻，至少隔 2 天再提醒（#238 用户反馈不用太频繁）
 }
+function memoContactPopup(text) {
+let old = document.getElementById('memo-contact-mask'); if (old) old.remove();
+const mask = document.createElement('div'); mask.id = 'memo-contact-mask'; mask.className = 'memo-contact-mask';
+const card = document.createElement('div'); card.className = 'memo-contact-card';
+let s = null; try { s = window.activeStore && window.activeStore(); } catch (e) {}
+const name = (s && s.get('lbl-partner')) || (window.taFit ? window.taFit('TA') : 'TA');
+const av = (s && s.get('avatar-partner')) || '';
+const head = document.createElement('div'); head.className = 'mc-head';
+const avEl = document.createElement('div'); avEl.className = 'mc-av' + (av ? '' : ' ph');
+if (av) { avEl.style.backgroundImage = 'url("' + av + '")'; } else avEl.textContent = (name || 'T').slice(0, 1);
+const nm = document.createElement('div'); nm.className = 'mc-name'; nm.textContent = name;
+head.appendChild(avEl); head.appendChild(nm);
+const bubble = document.createElement('div'); bubble.className = 'mc-bubble'; bubble.textContent = text;
+const close = document.createElement('button'); close.className = 'mc-close'; close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+card.appendChild(close); card.appendChild(head); card.appendChild(bubble);
+mask.appendChild(card); document.body.appendChild(mask);
+try { document.body.classList.add('scroll-lock'); } catch (e) {}
+let timer = 0;
+const dismiss = () => { clearTimeout(timer); mask.remove(); try { document.body.classList.remove('scroll-lock'); } catch (e) {} };
+close.addEventListener('click', dismiss);
+mask.addEventListener('click', (e) => { if (e.target === mask) dismiss(); });
+timer = setTimeout(dismiss, 8000);
+}
+function memoSysDueCheck() {
+try {
+if (!window.openModal) return;
+const c = memoRemindCfg();
+if (!c.en) return; // 受全局「备忘提醒」总开关控制（关了全不弹）
+const today = memoDayStr(new Date());
+const a = memoItems();
+const hits = a.filter(x => x && !x.done && x.due === today && memoRemindOf(x).sysDue && x.sysDueShown !== today);
+if (!hits.length) return;
+hits.sort((x, y) => (x.ts || 0) - (y.ts || 0)); // 最早记录的先弹
+const it = hits[0];
+it.sysDueShown = today; memoSave(a);
+window.openModal('备忘到点提醒', '', () => {}, { noInput: true, staticText: '「' + memoClip(it.t, 40) + '」今天截止，别忘了做哦' });
+vibrate([60, 40, 60]);
+} catch (e) {}
+}
+function memoEditRemind(it) {
+if (editingNow()) return;
+if (!window.openModal) return;
+const r = memoRemindOf(it);
+const labels = { chat: '聊天概率提醒', sysDue: '到点弹窗提醒', contact: '联系人弹窗提醒' };
+const pills = ['chat', 'sysDue', 'contact'].map(k => ({ label: labels[k] + (r[k] ? ' · 开' : ' · 关'), value: k }));
+window.openModal('提醒方式', '', (v) => {
+if (!v) return;
+const a = memoItems(); const cur = a.find(x => x.id === it.id); if (!cur) return;
+const rr = memoRemindOf(cur); rr[v] = rr[v] ? 0 : 1; cur.remind = rr; memoSave(a); memoRender();
+toast(rr[v] ? '已开启' : '已关闭');
+}, { noInput: true, staticText: '「' + memoClip(it.t, 18) + '」  点一项切换开关', pills: pills, pillSubmit: true });
+}
 function memoRemindTick() {
 try {
-if (!window.chatAddIn) return;
 const c = memoRemindCfg();
 if (!c.en || c.prob <= 0) return;
 const h = new Date().getHours(); if (h >= 23 || h < 6) return; // 深夜静默，同吃饭提醒
@@ -70964,14 +71180,34 @@ memoRemindSetCfg({ prob: n }); memoRenderRemind();
 toast(n <= 0 ? '已设置：基本不会触发' : '已设置：每 4 分钟掷一次，命中后至少隔 2 天再提醒');
 });
 });
+const memoAddRemindState = { chat: 1, sysDue: 0, contact: 0 };
+const chipsEl = document.getElementById('memo-remind-chips');
+function memoRenderChips() {
+if (!chipsEl) return;
+Array.prototype.forEach.call(chipsEl.querySelectorAll('.memo-rc'), el => {
+el.classList.toggle('on', !!memoAddRemindState[el.getAttribute('data-r')]);
+});
+}
+if (chipsEl) {
+chipsEl.addEventListener('click', (e) => {
+const el = e.target.closest('.memo-rc'); if (!el) return;
+if (editingNow()) return;
+const k = el.getAttribute('data-r');
+memoAddRemindState[k] = memoAddRemindState[k] ? 0 : 1;
+memoRenderChips(); vibrate(5);
+});
+memoRenderChips();
+}
 window.memoRemindTickNow = memoRemindTick; // 手动/回归验证触发口（同 triggerTaInviteNow 惯例）
 setTimeout(memoRemindTick, 60000);
 setInterval(memoRemindTick, 240000); // 每 4 分钟一掷（同吃饭提醒），命中且当天未提醒过才发
-document.addEventListener('mochi-fg-resume', function () { setTimeout(memoRemindTick, 2000 + Math.floor(Math.random() * 4000)); }); // 回前台补触发（同 ta-ask 通道）
+setInterval(memoSysDueCheck, 300000); // 到点弹窗每 5 分钟检查（必定触发，打开应用/回前台亦检查）
+document.addEventListener('mochi-fg-resume', function () { setTimeout(memoRemindTick, 2000 + Math.floor(Math.random() * 4000)); setTimeout(memoSysDueCheck, 1500); }); // 回前台补触发（同 ta-ask 通道）
 document.addEventListener('contact-switched', () => { if (!memoPage.hidden) memoRender(); });
 })();
 } catch (__e) { try { console.error("[JS] memo-app.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-(function () { try {
+</script>
+<script>(function () { try {
 (function () {
 const GNS = 'xy-home-v2';
 const page = document.getElementById('page-memo-arc');
@@ -71957,8 +72193,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 })();
 } catch (__e) { try { console.error("[JS] memo-arc.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-</script>
-<script>(function () { try {
+(function () { try {
 (function () {
 const GNS = 'xy-home-v2';
 const KEY = 'myarc';
@@ -81994,7 +82229,8 @@ fast: false
 };
 })();
 } catch (__e) { try { console.error("[JS] connect-four.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-(function () { try {
+</script>
+<script>(function () { try {
 (function () {
 const panel = document.getElementById('chat-ms-panel');
 if (!panel) return;
@@ -82809,8 +83045,7 @@ fast: false
 };
 })();
 } catch (__e) { try { console.error("[JS] coop-mine.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-</script>
-<script>(function () { try {
+(function () { try {
 (function () {
 const panel = document.getElementById('chat-fish-panel');
 if (!panel) return;
@@ -93207,4 +93442,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu0l41dv -->
+<!-- __MOCHI_EOF__ mu0v5suc -->

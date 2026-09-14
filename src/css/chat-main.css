@@ -337,6 +337,14 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 
 /* 鑱婂ぉ椤佃緭鍏ュ崐妗嗭紙閭€璇稵A / 闂棶TA锛寁3.5.52 闇插嚭鑱婂ぉ娑堟伅锛?*/
 .chat-ask-body { display:flex; flex-direction:column; gap:10px; }
+/* v3.26.x：聊天页半框主输入框「一键清空 ✕」——复用全局 .dec-inp-wrap/.dec-inp-clear 款式 */
+.chat-ask-inp-wrap { position:relative; }
+.chat-ask-inp-wrap .chat-ask-input,
+.chat-ask-inp-wrap .chat-ask-input.ce-box { padding-right:38px; }
+/* v3.26.x：聊天页半框「批量设置问卷」按钮（仅问问TA 模式显示） */
+.chat-ask-bulk { padding:9px 0; border-radius:10px; border:1px solid rgba(0,0,0,.12); background:rgba(255,255,255,.94); color:var(--ink); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.chat-ask-bulk[hidden] { display:none; }
+.chat-ask-bulk:active { opacity:.75; }
 .chat-ask-input {
   border:1px solid rgba(0,0,0,.12); border-radius:12px; padding:11px 14px;
   font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);
@@ -365,6 +373,11 @@ body.cs-time-divider .msg-time-divider { display:flex; }
   text-align:center; -webkit-tap-highlight-color:transparent;
 }
 .chat-ask-type-btn.sel { background:var(--ink); color:#fff; border-color:var(--ink); }
+/* v3.26.x：聊天页半框单选题选项框「一键清空 ✕」——复用全局 .dec-inp-wrap 款式 */
+.chat-ask-opts-wrap { position:relative; }
+.chat-ask-opts-wrap .chat-ask-opts,
+.chat-ask-opts-wrap .ce-box.chat-ask-opts { padding-right:38px; }
+.chat-ask-opts-wrap[hidden] { display:none; }
 .chat-ask-opts {
   width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,.12); border-radius:12px;
   padding:11px 14px; font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);

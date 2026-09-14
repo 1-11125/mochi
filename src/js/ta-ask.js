@@ -3700,6 +3700,18 @@ window.openTCPanel = openTCPanel;
     }
   }
   const surveyPage = document.getElementById('page-ta-ask-survey');
+  // v3.26.x：标记本次批量问卷「从聊天页半框进入」——返回时回聊天页而非 TA 的询问设置页
+  let surveyOpenFromChat = false;
+  // v3.26.x：供「聊天页 · 问问TA 半框」的「批量设置问卷」按钮调用：收起聊天 app，打开批量问卷页
+  window.openAskSurvey = function () {
+    if (!surveyPage) { toast('批量问卷加载失败'); return; }
+    surveyOpenFromChat = true;
+    const chatApp = document.querySelector('.app[data-app="chat"]');
+    if (chatApp) chatApp.hidden = true;
+    document.querySelectorAll('.page').forEach(p => p.hidden = true);
+    surveyPage.hidden = false;
+    surveyRender();
+  };
   if (surveyPage) {
     const surveyOpen = document.getElementById('ta-ask-survey-open');
     if (surveyOpen) surveyOpen.addEventListener('click', () => {
@@ -3710,6 +3722,9 @@ window.openTCPanel = openTCPanel;
     const backS = document.getElementById('ta-survey-back');
     if (backS) backS.addEventListener('click', () => {
       document.querySelectorAll('.page').forEach(p => p.hidden = true);
+      // v3.26.x：若从「聊天页 · 问问TA 半框的批量设置问卷」进入，这里要回到聊天页而非 TA 的询问设置页
+      const chatApp = document.querySelector('.app[data-app="chat"]');
+      if (surveyOpenFromChat && chatApp) { chatApp.hidden = false; surveyOpenFromChat = false; return; }
       const home = document.getElementById('page-ta-ask');
       if (home) home.hidden = false;
     });
