@@ -2640,6 +2640,25 @@ background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
 }
 .rp-cover-btn:active { background:rgba(0,0,0,.05); }
 .rp-cover-btn[hidden] { display:none; }
+.rp-head-set {
+padding:4px 12px; font-size:12px; font-weight:600;
+border:1px solid rgba(0,0,0,.12); border-radius:14px;
+background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
+-webkit-tap-highlight-color:transparent;
+}
+.rp-head-set:active { background:rgba(0,0,0,.05); }
+.rp-settings { padding:2px 0 0; }
+.rp-settings[hidden], .rp-balance[hidden] { display:none; }
+.rp-settings-title {
+font-size:13px; font-weight:700; color:var(--ink);
+padding:6px 2px 10px; letter-spacing:.3px;
+}
+.rp-settings .set-row {
+background:rgba(0,0,0,.03); border-radius:14px; margin-bottom:8px; border-bottom:none;
+}
+.rp-settings .set-row:last-child { margin-bottom:0; }
+.rp-settings .set-row .val { white-space:nowrap; }
+.rp-settings-done { margin-top:10px; }
 .voice-card { max-height:58%; }
 .voice-card .voice-status { font-size:11px; font-weight:600; color:var(--muted); margin-left:6px; }
 .voice-stage {
@@ -7072,6 +7091,7 @@ border-radius: 999px; cursor: pointer; user-select: none;
 [data-theme="dark"] .them-tab.active { color:#fff; border-bottom-color:#fff; }
 .them-tabs.sub, .gc-set-tabs { position:static; padding:6px 4px 0; }
 .them-tabs.sub .them-tab, .gc-set-tabs .them-tab { font-size:12px; padding:8px 0 7px; }
+#page-setting .set-tabs, #set-tabs { position:sticky; top:0; }
 .set-group, .gs-title, .set-title { flex-shrink:0; }
 .set-row { display:flex; align-items:center; gap:12px; padding:15px 16px; border-bottom:1px solid rgba(0,0,0,.05); cursor:pointer; }
 .set-row:last-child { border-bottom:none; }
@@ -7342,6 +7362,9 @@ transition:color .18s ease, background .18s ease;
 [data-theme="dark"] .poke-card { background:var(--dark-card-97); border-color:var(--dark-border); }
 [data-theme="dark"] .poke-card-head { border-bottom-color:var(--dark-border); }
 [data-theme="dark"] .poke-card-close { background:var(--dark-hover); color:var(--ink); }
+[data-theme="dark"] .rp-head-set { background:var(--dark-hover); color:var(--ink); border-color:var(--dark-border); }
+[data-theme="dark"] .rp-head-set:active { background:rgba(255,255,255,.14); }
+[data-theme="dark"] .rp-settings .set-row { background:rgba(255,255,255,.05); }
 [data-theme="dark"] .poke-big { background:var(--btn-bg); color:var(--btn-ink); }
 [data-theme="dark"] .poke-big:active { background:rgba(255,255,255,.1); }
 [data-theme="dark"] .poke-groups .emoji-g-chip { background:var(--dark-hover); border-color:var(--dark-border-12); color:var(--dark-soft); }
@@ -8755,6 +8778,11 @@ position: relative; flex: none;
 height: clamp(238px, 54vw, 330px);
 border-radius: 16px; overflow: hidden;
 box-shadow: 0 10px 28px rgba(60,45,25,.16), 0 2px 6px rgba(0,0,0,.08);
+transform: translateZ(0);
+transition: filter .6s ease;
+}
+.r-scene {
+filter: saturate(calc(var(--room-bright, 1) * .86 + .14)) brightness(var(--room-bright, 1));
 }
 .r-wall {
 position: absolute; left: 0; right: 0; top: 0; height: 44%;
@@ -9022,9 +9050,6 @@ box-shadow: 0 2px 8px rgba(0,0,0,.06);
 cursor: pointer;
 }
 .r-bar button:active { transform: translateY(1px); }
-[data-theme="dark"] .r-chip,
-[data-theme="dark"] .r-sense-out,
-[data-theme="dark"] .r-bar button { color: #eee; background: rgba(40,40,48,.66); border-color: rgba(255,255,255,.08); }
 @media (prefers-reduced-motion: reduce) {
 #page-room *,
 #page-room *::before,
@@ -9034,6 +9059,9 @@ animation-iteration-count: 1 !important;
 transition-duration: .01ms !important;
 }
 }
+[data-theme="dark"] .r-chip,
+[data-theme="dark"] .r-sense-out,
+[data-theme="dark"] .r-bar button { color: #eee; background: rgba(40,40,48,.66); border-color: rgba(255,255,255,.08); }
 #page-drift { overflow: hidden; }
 .drift-scroll {
 flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -9539,9 +9567,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789456367873">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.707</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 15:12<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789459588117">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.708</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 16:06<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10698,6 +10726,17 @@ transition-duration: .01ms !important;
 <!-- 设置页 -->
     <div class="page" id="page-setting" hidden>
       <div class="set-title">设置</div>
+      <!-- v3.33.x：设置页顶部 tag 分类——设置项太多一页堆到底，用户找不到功能；
+           复用全站 .them-tabs/.them-sec 互斥显示观感（聊天设置/手机桌面美化同款） -->
+      <div class="them-tabs" id="set-tabs">
+        <div class="them-tab active" data-tab="basic">通用</div>
+        <div class="them-tab" data-tab="chat">聊天</div>
+        <div class="them-tab" data-tab="system">系统</div>
+        <div class="them-tab" data-tab="tools">工具</div>
+        <div class="them-tab" data-tab="about">关于</div>
+      </div>
+      <!-- 通用：联系人 / 桌面 + 开启群聊 + 深色模式 / 手机桌面美化 -->
+      <div class="them-sec" data-sec="basic">
       <div class="set-group glass">
         <div class="set-row" id="row-contacts">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
@@ -10723,24 +10762,9 @@ transition-duration: .01ms !important;
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
-      <!-- 应用锁（隐私防护：防别人拿手机打开本站直接偷看聊天记录；逻辑在 applock.js） -->
-      <div class="set-group glass">
-        <div class="set-row">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/><circle cx="12" cy="15.5" r="1.5" fill="#111111"/><path d="M12 17v1.5"/></svg></div>
-          <div class="txt">应用锁<span class="sub">打开本站需输密码，防别人偷看聊天记录</span></div>
-          <label class="toggle"><input type="checkbox" id="applock-en"><span class="tk"></span></label>
-        </div>
-        <div class="gs-sub" id="applock-sub">纯本地功能：可设数字密码 + 安全问题（忘记时重置）。提醒：网页数据存于本机，此锁防日常偷看，防不了懂技术的人读取本机数据。</div>
-      </div>
-      <!-- 开屏问答门（可不设应用锁单独用；逻辑在 applock.js） -->
-      <div class="set-group glass">
-        <div class="set-row">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5V11c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5.5z"/><path d="M9.6 9.2a2.6 2.6 0 014.9 1.1c0 1.6-2.5 2-2.5 3.4"/><circle cx="12" cy="16.6" r=".4" fill="#111111"/></svg></div>
-          <div class="txt">开屏问答门<span class="sub">答对问题才放行，可不设数字密码</span></div>
-          <label class="toggle"><input type="checkbox" id="applock-qa-en"><span class="tk"></span></label>
-        </div>
-        <div class="gs-sub" id="applock-qa-sub">纯本地功能：<b>默认开启</b>——每次打开本站（含换浏览器/新设备）先答对问答题才放行，可单独使用；关掉即本机不再询问。锁屏时可输暗号让本机永久跳过问答层。</div>
-      </div>
+      </div><!-- /them-sec basic -->
+      <!-- 聊天：回复 / 通话 / 音效 + 功能大全 + 功能介绍 -->
+      <div class="them-sec" data-sec="chat">
       <div class="set-group glass">
         <div class="set-row" id="row-general">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.2 2.2M17.6 17.6l2.2 2.2M1 12h3M20 12h3M4.2 19.8l2.2-2.2M17.6 6.4l2.2-2.2"/></svg></div>
@@ -10762,11 +10786,27 @@ transition-duration: .01ms !important;
           <div class="txt">功能大全<span class="sub">全应用功能索引 · 可搜索 · 点条目直达</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
-        <div class="set-row" id="row-about">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div>
-          <div class="txt">功能介绍与可二传二改许可</div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+      </div>
+      </div><!-- /them-sec chat -->
+      <!-- 系统：应用锁 + 开屏问答门（隐私防护）+ 后台保活/通知 + 全屏/离线通知等系统开关 -->
+      <div class="them-sec" data-sec="system">
+      <!-- 应用锁（隐私防护：防别人拿手机打开本站直接偷看聊天记录；逻辑在 applock.js） -->
+      <div class="set-group glass">
+        <div class="set-row">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/><circle cx="12" cy="15.5" r="1.5" fill="#111111"/><path d="M12 17v1.5"/></svg></div>
+          <div class="txt">应用锁<span class="sub">打开本站需输密码，防别人偷看聊天记录</span></div>
+          <label class="toggle"><input type="checkbox" id="applock-en"><span class="tk"></span></label>
         </div>
+        <div class="gs-sub" id="applock-sub">纯本地功能：可设数字密码 + 安全问题（忘记时重置）。提醒：网页数据存于本机，此锁防日常偷看，防不了懂技术的人读取本机数据。</div>
+      </div>
+      <!-- 开屏问答门（可不设应用锁单独用；逻辑在 applock.js） -->
+      <div class="set-group glass">
+        <div class="set-row">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5V11c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5.5z"/><path d="M9.6 9.2a2.6 2.6 0 014.9 1.1c0 1.6-2.5 2-2.5 3.4"/><circle cx="12" cy="16.6" r=".4" fill="#111111"/></svg></div>
+          <div class="txt">开屏问答门<span class="sub">答对问题才放行，可不设数字密码</span></div>
+          <label class="toggle"><input type="checkbox" id="applock-qa-en"><span class="tk"></span></label>
+        </div>
+        <div class="gs-sub" id="applock-qa-sub">纯本地功能：<b>默认开启</b>——每次打开本站（含换浏览器/新设备）先答对问答题才放行，可单独使用；关掉即本机不再询问。锁屏时可输暗号让本机永久跳过问答层。</div>
       </div>
       <div class="set-group glass">
         <div class="gs-row"><span>后台保活</span><label class="toggle"><input type="checkbox" id="bg-keepalive"><span class="tk"></span></label></div>
@@ -10799,6 +10839,9 @@ transition-duration: .01ms !important;
         </div>
         <div class="gs-row" style="display:block"><span id="psync-status" style="font-size:11px;color:var(--muted,#999);line-height:1.5;white-space:normal">…</span></div>
       </div>
+      </div><!-- /them-sec system -->
+      <!-- 工具：导出 / 导入 / 信息诊断 / 存储 / 卡顿优化等数据与诊断工具 -->
+      <div class="them-sec" data-sec="tools">
       <div class="set-group glass">
         <div class="set-row" id="row-export">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
@@ -10862,13 +10905,22 @@ transition-duration: .01ms !important;
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
+      </div><!-- /them-sec tools -->
+      <!-- 关于：清除本地数据 + 版本 + 防骗声明（常驻底部，不随标签切换） -->
+      <div class="them-sec" data-sec="about">
       <div class="set-group glass">
+        <div class="set-row" id="row-about">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div>
+          <div class="txt">功能介绍与可二传二改许可</div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <div class="set-row" id="row-reset">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.707</div>
+      </div><!-- /them-sec about -->
+      <div class="ver">Mochi 字卡传讯 v3.26.708</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11178,7 +11230,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.707</span>
+              <span class="lic-ver">v3.26.708</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11759,6 +11811,58 @@ transition-duration: .01ms !important;
           <div class="set-group glass">
             <div class="gs-row"><span>自定义字卡占比</span><div class="stepper" data-k="csp-cust" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="csp-cust-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">TA 每条纯文字回复里，自定义字卡保留的比例（默认 50）：调高=大多数用你自己建的字卡，偶尔用预设默认聊天字卡；调低=更多用预设默认聊天字卡（见 字卡库→默认聊天字卡 页可逐张开关）；0=尽量用默认聊天字卡，100=全用自定义。默认的聊天字卡本身还受「默认聊天字卡」页的『聊天使用』概率控制。</div>
+          </div>
+          <!-- #518：系统预设字卡·聊天触发概率总览（总档 + 分类档）——用户点名「自定义字卡概率与系统预设字卡的概率…所有聊天字卡的概率需要有一个整体的分类tag可方便调整」。
+               分类档全部复用各功能既有键（不新开键，同一语义只能有一个键）；非 dcf 行由 reply-settings.js #518 段绑定（id=dcp-<键>），
+               dcf 19 类沿用 data-dcfkey 标记，由 default-cards.js 的 bindDcfProb/dcfRefreshUI 自动接管（跨页同键实时同步）。
+               总档 dcp-all 走回复设置 data-k 体系（DEFAULTS + saveReplyCfg），生效缩放见 src/js/dcp-master.js 的 dcpEff。 -->
+          <div class="gs-title">系统预设字卡 · 聊天触发概率</div>
+          <div class="set-group glass" id="dcp-box">
+            <div class="gs-row"><span>整体概率（总档）</span><div class="stepper" data-k="dcp-all" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-all-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-sub">总档统一缩放下方所有系统预设字卡的聊天触发概率：100（默认）= 各类按自身设定值生效、行为完全不变；50 = 全部减半；0 = 聊天里所有系统预设字卡都不再触发。下方每行显示的是该类自己的设定值（不随总档改写），实际生效 = 设定值 × 总档 ÷ 100。想逐张开关某句话，去 字卡库→系统预设字卡 对应页。</div>
+            <div class="gs-row"><span>默认聊天字卡 · 聊天使用</span><div class="stepper" id="dcp-dc-overall-chat" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-dc-overall-chat-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>词典拼字</span><div class="stepper" id="dcp-qs-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-qs-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>聊天情绪字卡 · 情绪卡</span><div class="stepper" id="dcp-mc-prob-mood" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-mc-prob-mood-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>聊天情绪字卡 · 心意卡</span><div class="stepper" id="dcp-mc-prob-heart" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-mc-prob-heart-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>聊天情绪字卡 · 意图卡</span><div class="stepper" id="dcp-mc-prob-intent" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-mc-prob-intent-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>聊天回应字卡 · 整条替换</span><div class="stepper" id="dcp-rcard-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-rcard-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>聊天回应字卡 · 连接词追加</span><div class="stepper" id="dcp-cf-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-cf-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的心情</span><div class="stepper" id="dcp-tm-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-tm-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的询问</span><div class="stepper" id="dcp-ta-ask-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-ta-ask-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的小问题</span><div class="stepper" id="dcp-tc-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-tc-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的好奇</span><div class="stepper" id="dcp-tcu-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-tcu-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的吐槽</span><div class="stepper" id="dcp-tr-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-tr-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的查岗</span><div class="stepper" id="dcp-ckq-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-ckq-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的邀请 · 猜拳</span><div class="stepper" id="dcp-ai-rps-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-ai-rps-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的邀请 · 游戏</span><div class="stepper" id="dcp-ai-game-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-ai-game-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>TA的邀请 · 贴贴</span><div class="stepper" id="dcp-ai-cuddle-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcp-ai-cuddle-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-sub">以上分类档行的键与各功能页/其他设置页是同一份（如「TA的查岗」= 回复设置→查岗 的「查岗概率」、情绪卡 = 字卡库→聊天情绪字卡 页那三行），改哪边都生效。TA的询问/小问题/好奇/吐槽四类是「在自身触发概率之上再乘总档」，各自的题库与弹窗等详细设置在 字卡库→系统预设字卡 对应页。</div>
+            <div class="gs-row"><span>桌面今日情话 · 系统预设（开关型）</span><label class="toggle"><input type="checkbox" id="dcp-tg-quote"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>TA在身边位置卡 · 系统预设（开关型）</span><label class="toggle"><input type="checkbox" id="dcp-tg-loc"><span class="tk"></span></label></div>
+            <div class="gs-sub">这两类只有「用不用系统预设」的开关、没有概率，不受总档缩放；关闭后分别只从你自己添加的情话/位置话术里出。</div>
+            <div class="gs-row" id="dcp-fun-expander-row" style="cursor:pointer"><span>其他互动功能字卡（19 个分类 · 点此展开 / 收起）</span><span id="dcp-fun-expander-arrow">▾</span></div>
+            <div id="dcp-fun-box" hidden>
+              <div class="gs-row"><span>摸鱼字卡概率</span><div class="stepper" id="dcf-prob-fish-rs" data-dcfkey="fish" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-fish-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>吃饭字卡概率</span><div class="stepper" id="dcf-prob-eat-rs" data-dcfkey="eat" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-eat-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>经期字卡概率</span><div class="stepper" id="dcf-prob-period-rs" data-dcfkey="period" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-period-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>喝水字卡概率</span><div class="stepper" id="dcf-prob-water-rs" data-dcfkey="water" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-water-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>花园字卡概率</span><div class="stepper" id="dcf-prob-garden-rs" data-dcfkey="garden" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-garden-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>同频字卡概率</span><div class="stepper" id="dcf-prob-sync-rs" data-dcfkey="sync" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-sync-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>伸手字卡概率</span><div class="stepper" id="dcf-prob-reach-rs" data-dcfkey="reach" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-reach-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>此间字卡概率</span><div class="stepper" id="dcf-prob-cjian-rs" data-dcfkey="cjian" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-cjian-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>房间字卡概率</span><div class="stepper" id="dcf-prob-room-rs" data-dcfkey="room" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-room-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>存钱罐字卡概率</span><div class="stepper" id="dcf-prob-piggy-rs" data-dcfkey="piggy" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-piggy-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>漂流瓶字卡概率</span><div class="stepper" id="dcf-prob-drift-rs" data-dcfkey="drift" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-drift-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>互动回应字卡概率</span><div class="stepper" id="dcf-prob-interact-rs" data-dcfkey="interact" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-interact-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>音乐字卡概率</span><div class="stepper" id="dcf-prob-music-rs" data-dcfkey="music" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-music-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>跨桌面查岗字卡概率</span><div class="stepper" id="dcf-prob-deskcheck-rs" data-dcfkey="deskcheck" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-deskcheck-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>寻踪日常字卡概率</span><div class="stepper" id="dcf-prob-checkin-rs" data-dcfkey="checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>番茄钟字卡概率</span><div class="stepper" id="dcf-prob-pomo-rs" data-dcfkey="pomo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-pomo-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>TA的关心（经期）字卡概率</span><div class="stepper" id="dcf-prob-care-rs" data-dcfkey="care" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-care-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>备忘提醒字卡概率</span><div class="stepper" id="dcf-prob-memo-rs" data-dcfkey="memo" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-memo-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-row"><span>TA主动提问字卡概率</span><div class="stepper" id="dcf-prob-ask-rs" data-dcfkey="ask" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-ask-rs-val" readonly><button class="stp-max">+</button></div></div>
+              <div class="gs-sub">与 字卡库→其他互动功能字卡 页（含寻踪页）是同一批键，两处实时同步；各项详细说明在那页的「功能说明」标签里。</div>
+            </div>
           </div>
           <div class="gs-title">每条消息使用多字卡回复</div>
           <div class="set-group glass">
@@ -14076,7 +14180,25 @@ transition-duration: .01ms !important;
       <div class="poke-card" id="chat-rp-panel" hidden>
         <div class="poke-card-head">
           <span>红包 · <b id="rp-partner-name">TA</b></span>
-          <button class="poke-card-close" id="chat-rp-close">✕</button>
+          <div class="poke-card-head-actions">
+            <button class="rp-head-set" id="rp-settings-btn" type="button">设置</button>
+            <button class="poke-card-close" id="chat-rp-close">✕</button>
+          </div>
+        </div>
+        <!-- v3.29.x：TA 自动发红包设置（原聊天设置页「红包」组移入红包半框，入口=头部「设置」按钮）。
+             每联系人独立：概率默认 4%（0-100%）、每日上限默认 5（0=不限）；
+             chat.js trySystemAutoSend 读 cs-rp-auto-prob / cs-rp-daily-max -->
+        <div class="rp-settings" id="rp-settings" hidden>
+          <div class="rp-settings-title">TA 自动发红包</div>
+          <div class="set-row" id="cs-rp-auto-prob">
+            <div class="txt">TA 自动发红包概率<span class="sub">联系人有概率主动发个红包给你，每个联系人可单独设置</span></div>
+            <div class="val" id="cs-rp-auto-prob-val">4%</div>
+          </div>
+          <div class="set-row" id="cs-rp-daily-max">
+            <div class="txt">TA 每日发红包上限<span class="sub">联系人每天最多主动发红包的次数，填 0 表示不限制</span></div>
+            <div class="val" id="cs-rp-daily-max-val">5 次</div>
+          </div>
+          <button class="rp-send rp-settings-done" id="rp-settings-done" type="button">完成</button>
         </div>
         <div class="rp-balance" id="rp-balance"></div>
         <div class="poke-card-scroll">
@@ -14871,13 +14993,12 @@ transition-duration: .01ms !important;
       </div>
       </div>
       <div class="them-sec" data-sec="function" hidden>
-      <!-- v3.29.x：功能页二级 tag 分类（全部/形象/消息输入/红包表情/界面），点击只显示对应分组；
+      <!-- v3.29.x：功能页二级 tag 分类（全部/形象/消息输入/界面），点击只显示对应分组；
            交互在 chat-settings.js（#cs-func-tags），分组按 gs-title/set-group 成对 data-tag 过滤 -->
       <div class="them-tabs sub" id="cs-func-tags">
         <div class="them-tab active" data-ft="all">全部</div>
         <div class="them-tab" data-ft="profile">形象</div>
         <div class="them-tab" data-ft="msg">消息输入</div>
-        <div class="them-tab" data-ft="red">红包表情</div>
         <div class="them-tab" data-ft="ui">界面</div>
       </div>
       <!-- v3.8.x：聊天专用昵称/头像（与桌面 deco-widget 的 lbl-*/avatar-* 完全独立，
@@ -14956,27 +15077,10 @@ transition-duration: .01ms !important;
           <label class="toggle"><input type="checkbox" id="cs-voice-send"><span class="tk"></span></label>
         </div>
       </div>
-      <!-- 红包：TA 自动主动发红包概率（每联系人独立，默认 4%，0-100%）。
-           chat.js trySystemAutoSend 读 cs-rp-auto-prob -->
-      <div class="gs-title" data-tag="red">红包</div>
-      <div class="set-group glass" data-tag="red">
-        <div class="set-row" id="cs-rp-auto-prob">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 11.5h18"/><path d="M12 11.5V21"/><path d="M12 11.5Q9 8 7 5.5A2.5 2.5 0 0112 6.5A2.5 2.5 0 0117 5.5Q15 8 12 11.5z"/></svg></div>
-          <div class="txt">TA 自动发红包概率<span class="sub">联系人有概率主动发个红包给你，每个联系人可单独设置</span></div>
-          <div class="val" id="cs-rp-auto-prob-val">4%</div>
-        </div>
-        <!-- v3.27.x #297：TA 每日发红包上限次数（每联系人独立，默认 5，0=不限）。
-             chat.js trySystemAutoSend 读 cs-rp-daily-max -->
-        <div class="set-row" id="cs-rp-daily-max">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-          <div class="txt">TA 每日发红包上限<span class="sub">联系人每天最多主动发红包的次数，填 0 表示不限制</span></div>
-          <div class="val" id="cs-rp-daily-max-val">5 次</div>
-        </div>
-      </div>
       <!-- v3.12.x：隐藏联系人的表情包开关（默认关闭，全局生效）。开启后聊天与朋友圈的
            表情包面板只显示「我的表情包」，不再显示 TA 的/公用表情包 -->
-      <div class="gs-title" data-tag="red">表情包</div>
-      <div class="set-group glass" data-tag="red">
+      <div class="gs-title" data-tag="ui">表情包</div>
+      <div class="set-group glass" data-tag="ui">
         <div class="set-row" id="cs-hide-ta-sticker-row">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01"/><path d="M8.5 14a4.5 4.5 0 007 0"/></svg></div>
           <div class="txt">隐藏联系人的表情包<span class="sub">隐藏后，聊天和朋友圈的表情包面板里只显示「我的表情包」，不再显示TA的和公用表情包</span></div>
@@ -19781,6 +19885,30 @@ setTimeout(poll, 200);
 } catch (__e) { try { console.error("[JS] card-lock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
+function dcpAll(st) {
+try {
+const s = st || window.activeStore();
+const v = s.get('reply-dcp-all');
+if (v === null || v === undefined || v === '') return 100;
+const n = Number(v);
+if (isNaN(n)) return 100;
+return Math.max(0, Math.min(100, n));
+} catch (e) { return 100; }
+}
+function dcpEff(v, st) {
+const n = Number(v);
+if (!isFinite(n)) return 0;
+let a = 100;
+try { a = dcpAll(st); } catch (e) { a = 100; }
+if (a >= 100) return Math.max(0, Math.min(100, n));
+return Math.max(0, Math.min(100, Math.round(n * a / 100)));
+}
+window.dcpAll = dcpAll;
+window.dcpEff = dcpEff;
+})();
+} catch (__e) { try { console.error("[JS] dcp-master.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
+(function () { try {
+(function () {
 const FULL = 'xy-home-v2:media:';
 const TOK = '@@m:';
 const TOKEN_RE = /^@@m:([0-9a-f]{32})$/;
@@ -24542,6 +24670,19 @@ tabs.forEach(t => { t.classList.toggle('active', t.dataset.tab === name); });
 }
 tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
 show(tabs[0] ? tabs[0].dataset.tab : 'color');
+})();
+(function initSettingsTabs() {
+const tabsEl = document.getElementById('set-tabs');
+const page = document.getElementById('page-setting');
+if (!tabsEl || !page) return;
+const tabs = tabsEl.querySelectorAll('.them-tab');
+const secs = page.querySelectorAll('.them-sec');
+function show(name) {
+secs.forEach(s => { s.hidden = (s.dataset.sec !== name); });
+tabs.forEach(t => { t.classList.toggle('active', t.dataset.tab === name); });
+}
+tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+show(tabs[0] ? tabs[0].dataset.tab : 'basic');
 })();
 const THEME_KEY = 'xy-home-v2:theme-mode';
 const themeModeRow = document.getElementById('row-theme-mode');
@@ -32545,7 +32686,7 @@ if (replyWord) {
 t = replyWord;
 }
 if (typeof t !== 'string' || !t.trim()) t = pick(FALLBACK_REPLY_POOL);
-if (hit(c['cf-prob'])) {
+if (hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) { // FIX 2026-09-15 #518 连接词追加套系统预设字卡总档
 const w = (window.getFollowupWord && window.getFollowupWord(t)) || '';
 if (w) t += ' ' + w;
 }
@@ -33431,6 +33572,10 @@ const rpRandVal = document.getElementById('rp-rand-val');
 const rpCustomInput = document.getElementById('rp-custom');
 const rpWishInput = document.getElementById('rp-wish');
 const rpSendBtn = document.getElementById('rp-send-btn');
+const rpSettingsBtn = document.getElementById('rp-settings-btn');
+const rpSettings = document.getElementById('rp-settings');
+const rpSettingsDone = document.getElementById('rp-settings-done');
+const rpScrollEl = rpPanel ? rpPanel.querySelector('.poke-card-scroll') : null;
 let rpSide = 'out';
 let rpPickedAmt = null;
 const QIXI_DATES = ['2024-08-10','2025-08-29','2026-08-19','2027-08-08','2028-08-26','2029-08-15','2030-08-04'];
@@ -33470,9 +33615,25 @@ rpPanel.querySelectorAll('.rp-amt').forEach(b => b.classList.remove('sel'));
 closeIme();
 rpRenderBalance();
 rpRenderCover();
+closeRpSettings();
 rpPanel.hidden = false;
 }
-function closeRpPanel() { if (rpPanel) rpPanel.hidden = true; }
+function closeRpPanel() { if (rpPanel) rpPanel.hidden = true; closeRpSettings(); }
+function openRpSettings() {
+if (!rpSettings) return;
+if (window.csRpSettingsSync) { try { window.csRpSettingsSync(); } catch (e) {} }
+if (rpBalanceEl) rpBalanceEl.hidden = true;
+if (rpScrollEl) rpScrollEl.hidden = true;
+rpSettings.hidden = false;
+}
+function closeRpSettings() {
+if (!rpSettings) return;
+rpSettings.hidden = true;
+if (rpBalanceEl) rpBalanceEl.hidden = false;
+if (rpScrollEl) rpScrollEl.hidden = false;
+}
+if (rpSettingsBtn) rpSettingsBtn.addEventListener('click', (e) => { e.stopPropagation(); openRpSettings(); });
+if (rpSettingsDone) rpSettingsDone.addEventListener('click', (e) => { e.stopPropagation(); closeRpSettings(); });
 if (rpPanel) {
 rpPanel.querySelectorAll('.rp-side').forEach(btn => {
 btn.addEventListener('click', (e) => {
@@ -45877,7 +46038,7 @@ toast('已设置：TA 自动发红包概率为 ' + n + '%');
 }, { maxlength: 3 });
 });
 document.addEventListener('contact-switched', rpProbSync);
-if (typeof csAddSync === 'function') csAddSync(rpProbSync);
+if (typeof window !== 'undefined') window.csRpSyncProb = rpProbSync;
 }
 const csRpDailyMax = row('cs-rp-daily-max');
 if (csRpDailyMax) {
@@ -45899,7 +46060,13 @@ toast(n === 0 ? '已设置：TA 每日发红包不限次数' : '已设置：TA �
 }, { maxlength: 2 });
 });
 document.addEventListener('contact-switched', rpMaxSync);
-if (typeof csAddSync === 'function') csAddSync(rpMaxSync);
+if (typeof window !== 'undefined') {
+window.csRpSyncMax = rpMaxSync;
+window.csRpSettingsSync = function () {
+try { if (window.csRpSyncProb) window.csRpSyncProb(); } catch (e) {}
+try { if (window.csRpSyncMax) window.csRpSyncMax(); } catch (e) {}
+};
+}
 }
 const csHts = document.getElementById('cs-hide-ta-sticker');
 if (csHts) {
@@ -45936,6 +46103,7 @@ const DEFAULTS = {
 'rc-prob': 25, 'rc-refix': 35, 'rc-en': 1, 'cf-prob': 20,
 'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
 'csp-cust': 50,
+'dcp-all': 100,
 'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
 'mjf-en': 1, 'mjf-prob': 20, 'mjf-style': 1,
 'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
@@ -46038,6 +46206,7 @@ function syncUI() {
 const cfg = getCfg();
 document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
 const k = st.dataset.k;
+if (!k) return; // #518：分类档自定义行无 data-k，由本文件 #518 段自行绑定，这里跳过防写 undefined
 const val = st.querySelector('input.stp-val');
 if (val) {
 const step = parseFloat(st.dataset.step) || 1;
@@ -46061,6 +46230,7 @@ try { toastReply('来电概率已保存：' + v + '%'); } catch (e) {}
 }
 document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
 const k = st.dataset.k;
+if (!k) return; // #518：分类档自定义行无 data-k，由本文件 #518 段绑定 ±，避免双绑与 reply-undefined 落盘
 const intAttr = (name, def) => { const v = parseInt(st.getAttribute(name), 10); return Number.isNaN(v) ? def : v; };
 const min = intAttr('data-min', 0);
 const max = intAttr('data-max', Infinity);
@@ -46269,10 +46439,126 @@ else if (mjfEl.checked) show('梦角自由造句开启失败：本地存储不�
 else show('梦角自由造句已关闭');
 });
 }
+(function () {
+const DCP_ROWS = [
+{ k: 'dc-overall-chat', def: 30, name: '默认聊天字卡·聊天使用' },
+{ k: 'qs-prob', def: 25, pre: 'reply-', name: '词典拼字' },
+{ k: 'mc-prob-mood', def: 70, name: '情绪卡' },
+{ k: 'mc-prob-heart', def: 40, name: '心意卡' },
+{ k: 'mc-prob-intent', def: 40, name: '意图卡' },
+{ k: 'rcard-prob', def: 30, name: '回应字卡·整条替换' },
+{ k: 'cf-prob', def: 20, pre: 'reply-', name: '回应字卡·连接词追加' },
+{ k: 'tm-prob', def: 15, name: 'TA的心情' },
+{ k: 'ta-ask-prob', def: 5, blob: 'ta-ask', name: 'TA的询问' },
+{ k: 'tc-prob', def: 5, blob: 'ta-choose', name: 'TA的小问题' },
+{ k: 'tcu-prob', def: 5, blob: 'ta-curious', name: 'TA的好奇' },
+{ k: 'tr-prob', def: 5, blob: 'ta-roast', name: 'TA的吐槽' },
+{ k: 'ckq-prob', def: 2, pre: 'reply-', name: 'TA的查岗' },
+{ k: 'ai-rps-prob', def: 8, pre: 'reply-', name: '猜拳邀请' },
+{ k: 'ai-game-prob', def: 5, pre: 'reply-', name: '游戏邀请' },
+{ k: 'ai-cuddle-prob', def: 5, pre: 'reply-', name: '贴贴邀请' }
+];
+const dcpSyncFns = [];
+function dcpToast(msg) {
+try {
+const d = ccToastEnsure();
+if (!d) return;
+d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
+clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
+} catch (e) {}
+}
+function dcpRowGet(r) {
+try {
+if (r.blob) {
+let d = null;
+try { d = JSON.parse(ls.get(r.blob) || 'null'); } catch (e) { d = null; }
+const s = d && d.settings ? d.settings : null;
+return (s && typeof s.prob === 'number' && isFinite(s.prob)) ? s.prob : r.def;
+}
+const v = ls.get((r.pre || '') + r.k);
+if (v === null || v === undefined || v === '') return r.def;
+const n = Number(v);
+return isNaN(n) ? r.def : Math.max(0, Math.min(100, n));
+} catch (e) { return r.def; }
+}
+function dcpRowSet(r, nv) {
+nv = Math.max(0, Math.min(100, Math.round(Number(nv) || 0)));
+try {
+if (r.blob) {
+let d = null;
+try { d = JSON.parse(ls.get(r.blob) || 'null'); } catch (e) { d = null; }
+if (!d || typeof d !== 'object') d = { settings: {} };
+if (!d.settings || typeof d.settings !== 'object') d.settings = {};
+d.settings.prob = nv;
+ls.set(r.blob, JSON.stringify(d));
+} else {
+ls.set((r.pre || '') + r.k, String(nv));
+}
+} catch (e) {}
+}
+function dcpSyncUI() {
+DCP_ROWS.forEach(r => {
+const val = document.getElementById('dcp-' + r.k + '-val');
+if (val) val.value = String(dcpRowGet(r));
+document.querySelectorAll('#page-reply-settings .stepper[data-k="' + r.k + '"] input.stp-val').forEach(el => { el.value = String(dcpRowGet(r)); });
+});
+const tg1 = document.getElementById('dcp-tg-quote');
+if (tg1) { try { tg1.checked = ls.get('quote-cards-default') !== '0'; } catch (e) {} }
+const tg2 = document.getElementById('dcp-tg-loc');
+if (tg2) { try { tg2.checked = ls.get('loc-lib-default') !== '0'; } catch (e) {} }
+dcpSyncFns.forEach(fn => { try { fn(); } catch (e) {} });
+}
+DCP_ROWS.forEach(r => {
+const st = document.getElementById('dcp-' + r.k);
+if (!st) return;
+const mn = st.querySelector('.stp-min');
+const mx = st.querySelector('.stp-max');
+const cur = function () {
+const val = st.querySelector('input.stp-val');
+const n = val ? parseInt(val.value, 10) : NaN;
+return isNaN(n) ? dcpRowGet(r) : n;
+};
+if (mn) mn.addEventListener('click', () => { dcpRowSet(r, cur() - 5); dcpSyncUI(); dcpToast('已保存：' + r.name + ' ' + dcpRowGet(r) + '%'); });
+if (mx) mx.addEventListener('click', () => { dcpRowSet(r, cur() + 5); dcpSyncUI(); dcpToast('已保存：' + r.name + ' ' + dcpRowGet(r) + '%'); });
+});
+[['dcp-tg-quote', 'quote-cards-default', '桌面今日情话·系统预设'], ['dcp-tg-loc', 'loc-lib-default', 'TA在身边位置卡·系统预设']].forEach(t => {
+const el = document.getElementById(t[0]);
+if (!el) return;
+el.addEventListener('change', () => {
+try { ls.set(t[1], el.checked ? '1' : '0'); } catch (e) {}
+dcpToast('已保存：' + t[2] + '（' + (el.checked ? '开' : '关') + '）');
+});
+});
+const expRow = document.getElementById('dcp-fun-expander-row');
+const expBox = document.getElementById('dcp-fun-box');
+if (expRow && expBox) {
+const arrow = document.getElementById('dcp-fun-expander-arrow');
+let open = false;
+try { open = ls.get('reply-dcp-fun-open') === '1'; } catch (e) {}
+const applyOpen = function () {
+expBox.hidden = !open;
+if (arrow) arrow.textContent = open ? '▴' : '▾';
+};
+expRow.addEventListener('click', function () {
+open = !open;
+try { ls.set('reply-dcp-fun-open', open ? '1' : '0'); } catch (e) {}
+applyOpen();
+});
+applyOpen();
+}
+window.__dcpSyncUI = dcpSyncUI;
+dcpSyncUI();
+['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(ev => {
+document.addEventListener(ev, () => { try { dcpSyncUI(); } catch (e) {} });
+});
+const genRow = document.getElementById('row-general');
+if (genRow) genRow.addEventListener('click', () => { try { dcpSyncUI(); } catch (e) {} });
+})();
 function saveCurrentReplyPage() {
 try {
 document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
 const k = st.dataset.k;
+if (!k) return; // #518：分类档自定义行无 data-k，跳过防 reply-undefined 落盘
 const val = st.querySelector('input.stp-val');
 if (k && val) {
 const intAttr = (name, def) => { const v = parseInt(st.getAttribute(name), 10); return Number.isNaN(v) ? def : v; };
@@ -47567,7 +47853,8 @@ if (!(k in DCF_DEF)) return 100;
 try { const v = window.activeStore().get('dcf-' + k); if (v !== null && v !== undefined) { const n = Number(v); if (!isNaN(n)) return Math.max(0, Math.min(100, n)); } } catch (e) {}
 return DCF_DEF[k];
 }
-window.dcfGet = dcfVal;
+function dcfEffGet(k) { return window.dcpEff ? window.dcpEff(dcfVal(k)) : dcfVal(k); }
+window.dcfGet = dcfEffGet;
 (function () {
 const el = document.getElementById('dcf-enabled');
 if (!el) return;
@@ -48211,13 +48498,14 @@ const home = document.getElementById('page-chatcard');
 if (home) home.hidden = false;
 });
 }
-function drawCards(a, scene) {
+function drawCards(a, scene, st) {
 scene = scene || 'chat';
 if (LOCKED()) return []; // #319 锁定＝不抽任何系统预设字卡
 if (!a.use(scene)) return [];
 const cfg = a.cfg();
 if (!cfg.enabled) return [];
-const overall = cfg.overallFor ? cfg.overallFor(scene) : cfg.overall;
+let overall = cfg.overallFor ? cfg.overallFor(scene) : cfg.overall;
+if (scene === 'chat') overall = (window.dcpEff ? window.dcpEff(overall, st) : overall);
 if (Math.random() * 100 >= overall) return [];
 const keys = ['main', 'kaomoji', 'emoji', 'touch'];
 const weights = keys.map(k => (a.cat(k) ? Math.max(0, cfg.probs[k] || 0) : 0));
@@ -48237,7 +48525,7 @@ const g = grps[Math.floor(Math.random() * grps.length)];
 const text = g[1][Math.floor(Math.random() * g[1].length)];
 return { text: text, type: chosen === 'touch' ? 'poke' : 'text' };
 }
-window.getDefaultCardsFor = function (st, scene) { return drawCards(apiFor(st), scene); };
+window.getDefaultCardsFor = function (st, scene) { return drawCards(apiFor(st), scene, st); };
 window.getDefaultCards = function (scene) { return drawCards(api, scene); };
 window.getDefaultCardGroups = function (cat) {
 if (LOCKED()) return []; // #319 锁定＝系统预设字卡不存在
@@ -48303,7 +48591,7 @@ try {
 if (!c || c['qs-en'] !== 1) return null;
 if (window.dictUse && window.dictUse('chat') === false) return null;
 if (window.dictOverall && Math.random() * 100 >= window.dictOverall('chat')) return null;
-const prob = Number(c['qs-prob']);
+const prob = (window.dcpEff ? window.dcpEff(Number(c['qs-prob'])) : Number(c['qs-prob'])); // #518 套总档
 if (!isFinite(prob) || prob <= 0 || Math.random() * 100 >= prob) return null;
 let pool = quotePool();
 if (c['qs-cc'] === 1) {
@@ -48686,7 +48974,7 @@ window.moodCardOffState = typeOff;
 window.getMoodCard = function () {
 if (!enabled('mood')) return null;
 if (emotionLastTs && Date.now() - emotionLastTs > 10 * 60000) emotionStreak = 0;
-const _mBase = mcProb('mood');
+const _mBase = (window.dcpEff ? window.dcpEff(mcProb('mood')) : mcProb('mood')); // #518 套总档
 const streakMap = W.moodStreak || { 0: 70, 1: 60, 2: 45, 3: 30, 4: 20 };
 const _lvl = emotionStreak >= 4 ? '4' : String(emotionStreak);
 const _ref = streakMap['0'] !== undefined ? streakMap['0'] : 70;
@@ -48724,7 +49012,7 @@ return { content: card.content, group: g.group, rarity: card.rarity };
 };
 window.getHeartCard = function (moodCard) {
 if (!enabled('heart')) return null;
-if (Math.random() * 100 > mcProb('heart')) return null;
+if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('heart')) : mcProb('heart'))) return null; // #518 套总档
 const chatCount = Number(ls.get('chat-count') || 0);
 if (chatCount >= 20 && (Date.now() - specialLastTime) > 86400000 && Math.random() * 100 < 5) {
 specialLastTime = Date.now();
@@ -48770,7 +49058,7 @@ return { content: picked.content, group: grp.group, emoji: grp.emoji, level: pic
 };
 window.getIntentCard = function (heartCard) {
 if (!enabled('intent')) return null;
-if (Math.random() * 100 > mcProb('intent')) return null;
+if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('intent')) : mcProb('intent'))) return null; // #518 套总档
 let pool = null;
 if (heartCard && heartCard.group && DATA.heartToIntent && DATA.heartToIntent[heartCard.group]) {
 pool = DATA.heartToIntent[heartCard.group];
@@ -49025,7 +49313,7 @@ if (home) home.hidden = false;
 }
 window.getReplyCard = function () {
 if (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';
-if (Math.random() * 100 >= rcardProb()) return '';
+if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(rcardProb()) : rcardProb())) return ''; // #518 套总档
 const followup = DATA.followup || {};
 const cats = Object.keys(followup).filter(k => followup[k] && followup[k].some(t => !isCardOff('rc-off-' + k, t)));
 if (!cats.length) return '';
@@ -49360,7 +49648,7 @@ cd--;
 ls.set('tm-cd-left', String(cd));
 return null;
 }
-if (Math.random() * 100 >= getProb()) return null;
+if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(getProb()) : getProb())) return null; // #518 套总档（显示读点保持存盘值不动）
 const groups = (DATA.groups || []).filter(g => {
 return (DATA.cards || []).some(c => c.group === g.group && !isCardOff(g.group, c.content));
 });
@@ -55769,7 +56057,7 @@ if (askDeadlinePassed(d)) return;
 if (Date.now() - (d.lastAskAt || 0) < 45 * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
+if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
 const q = taAskPick(d);
 if (!q) return;
 d.lastAskAt = Date.now();
@@ -56628,7 +56916,7 @@ if (_tcSessionTriggered) return;
 if (Date.now() - (d.lastChoiceAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
+if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
 const q = tcPick(d);
 if (!q) return;
 interactGateMark();
@@ -57374,7 +57662,7 @@ if (_tcuSessionTriggered) return;
 if (Date.now() - (d.lastCuriousAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (typeof s.prob === 'number' ? s.prob : 5)) return;
+if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
 const q = tcuPick(d);
 if (!q) return;
 interactGateMark();
@@ -57921,7 +58209,7 @@ if (_trSessionTriggered) return;
 if (Date.now() - (d.lastRoastAt || 0) < 30 * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 < (typeof s.prob === 'number' ? s.prob : 5)) {
+if (Math.random() * 100 < (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) { // #518 套总档
 const q = trPick(d, lastUserMsg());
 if (q) { interactGateMark(); trPush(q, { popupProb: askPopupProb(s) }); }
 }
@@ -58996,7 +59284,7 @@ try { last = Number(store.get('ckq-last-at')) || 0; } catch (e) {}
 if (Date.now() - last < cool * 60000) return false;
 if (window.interactGateOk && !window.interactGateOk()) return false;
 let prob = 8;
-if (typeof c['ckq-prob'] === 'number' && c['ckq-prob'] > 0) prob = c['ckq-prob'];
+if (typeof c['ckq-prob'] === 'number' && c['ckq-prob'] > 0) prob = (window.dcpEff ? window.dcpEff(c['ckq-prob']) : c['ckq-prob']);
 if (Math.random() * 100 >= prob) return false;
 return pushCkQuestion(c);
 } catch (e) { return false; }
@@ -60050,7 +60338,7 @@ const useDefault = (d.settings || {}).useDefault !== false;
 return d.questions.filter(q => q && q.enabled !== false && q.text && kinds.indexOf(q.kind) >= 0 && (useDefault || q.isPreset !== true));
 }
 function gn(c, k, def) { try { const v = c ? c[k] : undefined; return (typeof v === 'number' && !isNaN(v)) ? v : def; } catch (e) { return def; } }
-function hit(p) { return Math.random() * 100 < p; }
+function hit(p) { return Math.random() * 100 < (window.dcpEff ? window.dcpEff(p) : p); }
 window.taInviteDraw = function (c) {
 try {
 const d = tiLoad();
@@ -78493,6 +78781,11 @@ function rnd(a) { return a[Math.floor(Math.random() * a.length)]; }
 function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function lum() {
+let v = isNight() ? 0 : 1;
+Object.keys(d.lit).forEach(k => { if (d.lit[k]) v += 0.12; });
+return Math.min(1.3, v);
+}
 let toastT = null;
 function toast(t) {
 let el = document.getElementById('cc-toast');
@@ -78511,6 +78804,7 @@ comeover: ['过来。', '一起吗？', '你也来。', '（TA轻轻拍了拍旁
 furnuse: ['这个？偶尔用用。', '……还不错吧。', '（房间里多了一点声音）', '家正在一点点变成样子。'],
 windowl: ['外面没什么。', '天色还行。', '……在看云。', '下次一起出去走走吧。'],
 night: ['夜深了。', '还不睡吗？', '灯留着也行。', '晚安之前，再多待一会儿。'],
+lamp: ['灯亮了。', '……是暖的。', '把灯留着吧。', '你一来，灯就亮了。'],
 water: ['它今天精神不错。', '刚浇过水了。', '……谢谢。'],
 wish: ['许完了。', '……愿望不能告诉你。', '（星光闪了一下，像是回应）'],
 music: ['这首？可以。', '声音调小了一点。', '（跟着节奏轻轻晃）'],
@@ -78662,10 +78956,12 @@ vib([40, 60, 40]);
 }
 }
 function isNight() { const h = new Date().getHours(); return h >= 19 || h < 6; }
+const WEATHERS = [{ i: '☀️', t: '晴' }, { i: '⛅', t: '多云' }, { i: '🌧️', t: '小雨' }, { i: '🌨️', t: '雪' }];
 function weather() {
-const dt = new Date();
-const idx = (dt.getFullYear() * 372 + dt.getMonth() * 31 + dt.getDate()) % 4;
-return [{ i: '☀️', t: '晴' }, { i: '⛅', t: '多云' }, { i: '🌧️', t: '小雨' }, { i: '🌨️', t: '雪' }][idx];
+const s = todayKey(); // YYYY-M-D，天然每天一变
+let h = 0;
+for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+return WEATHERS[h % WEATHERS.length];
 }
 const $id = (i) => document.getElementById(i);
 const sceneEl = $id('room-scene'), wallEl = $id('room-wall'), floorEl = $id('room-floor');
@@ -78693,6 +78989,7 @@ function renderScene() {
 const night = isNight(), w = weather();
 sceneEl.classList.toggle('night', night);
 sceneEl.classList.toggle('raining', !night && w.t === '小雨');
+sceneEl.style.setProperty('--room-bright', String(lum()));
 wallEl.className = 'r-wall wall-' + d.wall;
 floorEl.className = 'r-floor floor-' + d.floor;
 $id('room-win-a').className = 'r-window wa' + (night ? ' nw' : '');
@@ -78889,6 +79186,7 @@ const on = !d.lit[inst.t];
 d.lit[inst.t] = on; save(); renderScene();
 bubble(on ? (isNight() ? '灯亮起来了，房间一下子软了。' : '亮着也很好看。') : '关掉灯，安静了一会儿。');
 gainPts(1, 'n'); vib(15);
+if (on) lampFeedback(inst, on); else lampOffFeedback(inst);
 return;
 }
 if (inst.t === 'vase' && gardenBloom() && !d.vaseFlower) {
@@ -78903,6 +79201,29 @@ if (taHere && !d.ta.faint) setTimeout(() => bubble(sayLine(c.grp, 'occupied')), 
 else if (Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y) <= 1.6 && Math.random() < 0.45) setTimeout(() => bubble(sayLine(c.grp, 'comeover')), 1100);
 if (inst.t === 'kettle' && Math.random() < 0.5) { d.ta.tx = inst.x; d.ta.ty = Math.min(ROWS - 1, inst.y + 1); }
 gainPts(1, 'n'); vib(12);
+}
+function lampFeedback(inst, on) {
+if (!on) return;
+const c = CAT[inst.t];
+const g = c.grp === 'night' ? '夜晚' : (c.grp === 'wish' ? '许愿' : '灯亮');
+const line = sayLine(g, '灯亮');
+const dist = Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y);
+const near = dist <= 1.6, chance = near ? 0.8 : 0.45;
+if (Math.random() < chance && line) {
+const tx = Math.max(0, Math.min(COLS - 1, inst.x)), ty = Math.max(0, Math.min(ROWS - 1, inst.y + 1));
+if (d.ta.x !== tx || d.ta.y !== ty) {
+d.ta.tx = tx; d.ta.ty = ty; d.ta.act = 'use'; d.ta.faint = false;
+d.ta.nextAt = Date.now() + ri(22, 40) * 1000;
+save(); renderTa(); renderStatus();
+}
+setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, near ? 900 : 1300);
+}
+}
+function lampOffFeedback(inst) {
+const c = CAT[inst.t];
+if (c.grp === 'wish' || isNight() || Math.random() >= 0.35) return;
+const line = sayLine('灯亮', '灯亮');
+if (line) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, 1100);
 }
 function furnMenu(inst) {
 const c = CAT[inst.t];
@@ -82599,7 +82920,8 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else initEls();
 })();
 } catch (__e) { try { console.error("[JS] snake-game.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-(function () { try {
+</script>
+<script>(function () { try {
 (function () {
 const panel = document.getElementById('chat-brick-panel');
 if (!panel) return;
@@ -83642,8 +83964,7 @@ document.addEventListener('contact-switched', () => { try { closeBrickPanel(); }
 window.addEventListener('resize', () => { if (panel && !panel.hidden) fitCanvas(); });
 })();
 } catch (__e) { try { console.error("[JS] breakout.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
-</script>
-<script>(function () { try {
+(function () { try {
 (function () {
 const panel = document.getElementById('chat-c4-panel');
 if (!panel) return;
@@ -93774,8 +94095,8 @@ const HUB = [
 { n: '发送按钮颜色', d: '发送按钮背景色自定义', k: '发送 按钮 颜色 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-bg'] },
 { n: '发送文字颜色', d: '发送按钮文字颜色自定义', k: '发送 文字 颜色 按钮', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-ink'] },
 { n: '我可发送语音', d: '输入栏语音按钮显隐开关', k: '语音 录音 麦克风 开关', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-voice-send'] },
-{ n: 'TA 自动发红包概率', d: 'TA 聊天中主动发红包的触发概率', k: '红包 概率 自动 触发', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-rp-auto-prob'] },
-{ n: 'TA 每日发红包上限', d: 'TA 每天最多主动发几个红包', k: '红包 上限 每日 次数', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-rp-daily-max'] },
+{ n: 'TA 自动发红包概率', d: 'TA 聊天中主动发红包的触发概率（红包页面→设置）', k: '红包 概率 自动 触发', go: ['.app[data-app="chat"]', '#more-rp', '#rp-settings-btn'] },
+{ n: 'TA 每日发红包上限', d: 'TA 每天最多主动发几个红包（红包页面→设置）', k: '红包 上限 每日 次数', go: ['.app[data-app="chat"]', '#more-rp', '#rp-settings-btn'] },
 { n: '隐藏联系人的表情包', d: '聊天里不显示 TA 发的表情包图片', k: '表情包 隐藏 贴图', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-hide-ta-sticker'] },
 { n: '聊天全屏模式', d: '隐藏模拟状态栏让聊天页全屏', k: '全屏 状态栏 隐藏', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-fullscreen'] },
 { n: '全屏边缘防误触', d: '全屏时边缘手势防误触保护', k: '全屏 边缘 防误触 手势', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-edge-guard'] },
@@ -95861,4 +96182,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu2c4a9t -->
+<!-- __MOCHI_EOF__ mu2e1b11 -->
