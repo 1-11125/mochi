@@ -105,13 +105,21 @@ const seeded = await evalJs(`(async function(){
     if (!tok || tok.indexOf('@@m:') !== 0) return 'tokenize-fail:' + tok;
     const fake = '@@m:deadbeefdeadbeefdeadbeefdeadbeef';
     await window.activeStore().set('cc-groups', JSON.stringify({
-      sticker: [['测试组', [tok, fake]]]
+      text: [], kaomoji: [], emoji: [], sticker: [['测试组', [tok, fake]]], image: [], poke: [], voice: []
     }));
     return 'ok';
   } catch (e) { return 'err:' + (e && e.message); }
 })()`);
 check('S0 播种成功（令牌化+写库）', seeded === 'ok', String(seeded));
 await sleep(400); // mochiMediaFlush 落盘窗口
+
+// 字卡库 store 是启动快照，外部写不可见——重载页面让库读到播种数据（与其他 verify 同法）
+await cdp('Page.navigate', { url: baseUrl + '/index.html' });
+await sleep(2500);
+for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
+await sleep(800);
+await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide')){try{s.click();}catch(e){}}return true;})()");
+await sleep(600);
 
 // ---- 打开字卡库管理页 → 表情包 tab ----
 await evalJs("(function(){var li=document.getElementById('li-custom-cards'); if(li) li.click(); return !!li;})()");

@@ -581,8 +581,8 @@
     state.elapsed = Date.now() - state.startTime;
     const snakes = activeSnakes();
     snakes.forEach(function (s) {
+      if (s.ctrl === 'ai') aiDecide(s);   // 与旧双蛇版同序：先决策后应用（决策当 tick 生效，晚一步会撞上人类蛇刚占住的格子）
       applyDir(s);
-      if (s.ctrl === 'ai') aiDecide(s);
     });
     const moves = resolveCollisions();
     moves.forEach(function (m) {

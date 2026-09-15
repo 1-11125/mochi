@@ -209,7 +209,7 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
-  { name: '#498 后台通知精确相等查重无条件拦（60秒/间隔豁免复活＝切后台马上弹几分钟前看过的字卡，红米K80 等多设备复发）', file: 'js/bg-keep.js', needle: 'if (mf === key) return true;' },
+  { name: '#498 后台通知精确相等查重无条件拦（60秒间隔豁免复活＝切后台马上弹几分钟前看过的字卡，红米K80 等多设备复发）', file: 'js/bg-keep.js', needle: 'if (mf === key) return true;' },
   { name: '#498 后台通知历史查重窗口 5 分钟（改成 60 秒内才拦＝窗口外撞车内容重弹看过的消息）', file: 'js/bg-keep.js', needle: 'const NOTIFY_CHAT_DUP_MS = 5 * 60000;' },
   { name: '#498 后台通知无 batchBurst 连发放行（batchBurst 复活＝上一条通知 30 秒内撞车内容绕过全部去重重弹）', file: 'js/bg-keep.js', needle: 'const batchBurst', absent: true },
   { name: '#393 群聊模式下装修组件库显式加回占卜写意图标记（删掉＝退出装修即被收池，「装修拉出来也加不上」复发）', file: 'js/personalize.js', needle: "set('divination-desk-pin', '1')" },
@@ -699,8 +699,8 @@ const FIX_SENTINELS = [
   { name: '#188/#496 朋友圈无图·save 就绪后写回走守卫（#496 口径演进：post-ready 改延后落盘，锚在低频节流表达式与 flush 兜底）', file: 'js/feed.js', needle: 'FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt)' },
   { name: '#496 朋友圈评论/点赞卡顿止血·pagehide/切后台强制刷盘兜底（主键落盘改合并+低频+空闲窗口后，离页必落）', file: 'js/feed.js', needle: 'function flushFeedWrite() {' },
   { name: '#496 朋友圈评论/点赞卡顿止血·load() 内存真相层（免整包 JSON.parse 的点击帧长任务；原多行带缩进锚因构建拼接剥行首缩进恒失配，收口批改单行唯一式）', file: 'js/feed.js', needle: 'list = feedMem;' },
-  // ==== 2026-09-15 #497 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
-  { name: '#497 nudgeInputVisible 几何记忆闸（删则 250ms 看门狗恢复恒拽回：信箱回信/写信页聚焦输入框后下滑必被拉回原位）', file: 'js/mobile-adapt.js', needle: 'if (scroller.__nudgeGeom === geomKey) return;' },
+  // ==== 2026-09-15 #500 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
+  { name: '#500 nudgeInputVisible 几何记忆闸（删则 250ms 看门狗恢复恒拽回：信箱回信/写信页聚焦输入框后下滑必被拉回原位）', file: 'js/mobile-adapt.js', needle: 'if (scroller.__nudgeGeom === geomKey) return;' },
   // v3.26.x #189：全屏滑动闪烁 + iPad 全屏开关无效果（三根因五处修复，见 FIX-REGRESSION #189）
   { name: '#189 自愈层复活·healViewport 补 documentElement 声明（v3.26 重写漏写，裸 d=window.d undefined → TypeError 被 try 吞，稳态残留清理/大平移归零/#174 缩放自愈整层静默失效）', file: 'js/mobile-adapt.js', needle: 'var d = document.documentElement; // FIX 2026-09-05 #189' },
   { name: '#189 滑动闪烁·稳态自愈 pin 改条件式（清残留/大偏移才归零；无条件 pin 把全屏覆盖形态下用户滚动每秒拽回顶部=闪烁）', file: 'js/mobile-adapt.js', needle: 'if (_cleanedResidue || winScrollY() > KB_SCROLL_HEAL) pinScrollTop();' },
@@ -1141,9 +1141,9 @@ const FIX_SENTINELS = [
   { name: '#361 字卡库语音点播挂载后播（删挂载即回归安卓 Chromium 系点播静默空放）', file: 'js/chatcard.js', needle: 'playingAudio = nextAudio' },
   { name: '#361 字卡库语音停播即卸（与挂载对称，删卸载行＝挂载的 Audio 元素滞留 DOM 泄漏）', file: 'js/chatcard.js', needle: 'try { if (playingAudio.parentNode) playingAudio.parentNode.removeChild(playingAudio); } catch (e) {}' },
   { name: '#361 群聊语音挂载后播（删挂载即回归群聊语音安卓无声）', file: 'js/group-chat.js', needle: 'gcVoiceAudio = a; gcVoiceBtn = btn;' },
-  // ==== 2026-09-12 #365 #319 锁定补口：聊天回应/接话/情绪链/TA的心情都是系统预设字卡源，此前未接二级密码锁——锁定态回复仍被「嗯嗯/知道了」类回应字卡覆盖或追加（用户反馈「没解锁时联系人只会发嗯嗯 知道了啦」）；修复=四处统一接 cardLockOpen 闸，解锁后照常 ====
-  { name: '#365 回应字卡锁闸·replySrcLocked 判定（删闸＝锁定态联系人仍发嗯嗯/知道了等系统预设回应字卡）', file: 'js/mood-reply-cards.js', needle: 'return !!(window.cardLockOpen && !window.cardLockOpen())' },
-  { name: '#365 TA的心情分享锁闸（删闸＝锁定态仍主动发系统预设心情字卡）', file: 'js/ta-mood.js', needle: 'if (window.cardLockOpen && !window.cardLockOpen()) return null;' },
+  // ==== 2026-09-15 #499 需求变更（推翻 #365 #319 对三链的锁闸）：二级密码锁定不再影响聊天情绪字卡、TA 的心情、聊天回应字卡——三链未解锁也照常触发；受影响的只剩默认聊天字卡/词典等系统预设池。原 #365 两条锁闸哨兵随锁闸一并移除，改登豁免锚点防需求回流 ====
+  { name: '#499 回应字卡豁免锁定（#365 replySrcLocked 锁闸按新需求移除；锚点=两函数首个守卫是开关而非锁，锁闸被加回开头即失配；构建拼接剥行首缩进，锚不带缩进＝#496 同款教训）', file: 'js/mood-reply-cards.js', needle: "window.getFollowupWord = function (reply) {\nif (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';" },
+  { name: '#499 TA的心情豁免锁定（#365 锁闸按新需求移除；锚点=函数首个守卫是 enabled 而非锁，锁闸被加回开头即失配；构建拼接剥行首缩进，锚不带缩进＝#496 同款教训）', file: 'js/ta-mood.js', needle: "window.tryTaMoodShare = function () {\nif (!enabled()) return null;" },
   // ==== 2026-09-12 #367 诊断红点：AbortError 类未处理 rejection（音乐/通话流超时兜底、切页取消的主动 abort）入错误环刷屏——Safari「Fetch is aborted」iOS 实录 ×41 条；修复=unhandledrejection 采集层按 AbortError 名/已知 abort 文案放行，与 fetch 包装层网络失败口径对齐 ====
   { name: '#367 AbortError rejection 放行（删放行＝主动 abort 取消照旧刷诊断红点，Safari 报「Fetch is aborted」）', file: 'js/device.js', needle: "r.name === 'AbortError')\n|| /^(Fetch is aborted|signal is aborted without reason" },
   // ==== 2026-09-12 #368 跨桌面串数据两件（iOS Safari 用户反馈，多机型同现）====
@@ -1557,6 +1557,21 @@ const FIX_SENTINELS = [
   // 点击摸鱼/番茄钟补偿/抓包奖励所有加分来源一并被闸）
   { name: '摸鱼值累计总开关闸门 addFish 入口（删则回复设置→其他「摸鱼值累计」开关失效，关闭后摸鱼值照涨）', file: 'js/personalize.js', needle: "if (!fishWorkOn('fish-en')) return;" },
   { name: '工作值累计总开关闸门 addWork 入口（删则回复设置→其他「工作值累计」开关失效，关闭后工作值照涨）', file: 'js/personalize.js', needle: "if (!fishWorkOn('work-en')) return;" },
+
+  // ==== 2026-09-15 #497 存储可见性三件（用户报「全部数据内存占比显示不全 / 没有上传图片已压缩的说明 /
+  //      导出前看不到全部数据多大和导出文件多大」）：①查看存储两条占用行补配额百分比；
+  //      ②img-compress.js 上线时漏加 template 三锚点＝压缩图片功能全站无入口，补设置行+查看存储卡
+  //      （含「上传当时已自动压缩」说明）；③askExportMode 弹窗的「本机数据约 X」原是整域 estimate
+  //      （含同域其他站点），改 measureProject 按导出同路径实测（LS+IDB 双写去重、Blob×4/3 base64）
+  //      + 配额占比 + 各模式导出文件预估。行为级回归：tools/verify-storage-export-info.mjs ====
+  { name: '#497a 压缩图片设置行入口（template.html；删/改 id 则 img-compress.js 接线全落空＝设置页无入口复发）', file: 'template.html', needle: 'id="row-img-compress"' },
+  { name: '#497a 查看存储页压缩入口按钮（template.html；缺则存储页无重压入口）', file: 'template.html', needle: 'id="st-img-compress-btn"' },
+  { name: '#497b 上传图片已压缩说明（template.html 查看存储图片压缩卡；删则用户无法知道图片占用已是压缩后体积）', file: 'template.html', needle: '你上传/发送的图片在选定当时就已自动压缩过' },
+  { name: '#497c 查看存储本项目合计带配额占比（删则总占用回到只有绝对字节＝「占比显示不全」复发）', file: 'js/personalize.js', needle: "'，占浏览器配额 ' + pctOf(ls.total + t, quotaInfo.quota)" },
+  { name: '#497c 压缩完成后总占用联动刷新（img-compress 派发事件的本端监听；删则压完总占用纹丝不动）', file: 'js/personalize.js', needle: "addEventListener('mochi-img-compressed'" },
+  { name: '#497d 导出前实测计量·Blob 过 base64 膨胀进文件口径（删则导出文件预估对音乐/二进制严重偏小）', file: 'js/data-backup.js', needle: 'projFile += c + Math.round(blob * 4 / 3);' },
+  { name: '#497d 导出前阈值按实测导出体积判（删则回退整域 estimate 口径＝同域其他站点又冒充本机数据）', file: 'js/data-backup.js', needle: 'const bigRef = info ? info.projFile : usage;' },
+  { name: '#497d 选范围弹窗带配额占比+各模式导出文件预估（删则「导出前看不到导出的文件多大」复发）', file: 'js/data-backup.js', needle: "'预计导出文件体积：完整备份 ≈ '" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

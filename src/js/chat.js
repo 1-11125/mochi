@@ -1725,8 +1725,16 @@ b.innerHTML = (prefixHtml || '') + '<div class="msg-voice" data-src="' + attrEsc
 '<span class="msg-voice-name">' + escTxt(v.name) + '</span>' +
 '</div>';
 const btn = b.querySelector('.msg-voice-play');
-if (btn) btn.addEventListener('click', function (e) {
-e.stopPropagation();
+if (btn) {
+// FIX 2026-09-15 #500 语音播放按钮 touch 直驱（「点我发的语音听不了/点了只弹菜单」多机型同报，
+// 用户明说其他设备型号也有、要求零机型分支）：#480 气泡轻点直驱把播放按钮的轻点也当「点气泡」——
+// body touchend 先开消息菜单+布 800ms 吞 click 窗口，吞 click 族内核（Via/夸克/部分壳与内核版本）
+// 补发的 click 根本不来或被 body 层吞掉＝点播放永远播不出；健康内核也是菜单/播放双触发。
+// 对齐 #480 maRunAction 同款模式：touchend 直驱播放 + 守卫吞补发 click 防双跑；并清掉气泡轻点
+// 布点（msgTapStart/msgAnyTap + endMsgHold）让菜单链路彻底不参与；≥450ms 长按不接管（长按语音
+// 气泡弹菜单的原语义保留，与 #480 轻点判定窗口同值）。
+let vTapGuard = 0;
+const vPlayAction = function () {
 if (!v.src) { toast('语音数据缺失'); return; }
 // FIX 2026-09-10 #283 语音令牌：播放前异步取回池数据（音频不进热缓存，每次点按 idbGet，
 // 池缺失/被剥空 → 与图片占位同口径提示）；_vExp 防取回窗口内连点双播
@@ -1740,7 +1748,24 @@ if (data) playVoiceInChat(btn, data); else toast('语音数据缺失');
 return;
 }
 playVoiceInChat(btn, v.src);
+};
+btn.addEventListener('click', function (e) {
+e.stopPropagation();
+if (Date.now() < vTapGuard) return; // #500 touch 直驱已播，吞补发 click 防双跑
+vPlayAction();
 });
+btn.addEventListener('touchend', function (e) {
+const mt = e.changedTouches && e.changedTouches[0];
+if (!mt) return;
+if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #500 长按让位菜单路（原语义保留）
+e.stopPropagation(); // #500 不入 body touchend＝不开消息菜单、不布吞 click 窗口
+endMsgHold();
+msgTapStart = null; msgAnyTap = null;
+if (Date.now() < vTapGuard) return;
+vTapGuard = Date.now() + 800;
+vPlayAction();
+});
+}
 }
 const QUOTE_PLACEHOLDER = /^(图片|表情包|\[图片\]|\[表情包\])$/;
 // 旧数据兜底：修复前 TA 自动引用存的是原始 text（语音为「名称|||data:audio;base64…」），

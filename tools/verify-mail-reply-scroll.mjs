@@ -225,15 +225,9 @@ await evalJs("(function(){ document.getElementById('page-mail-reply').querySelec
 //    回信输入框在 .cal-scroll 内部，修复前几何不变也每 tick 补位＝用户下滑必被拉回「输入框可见」位
 {
   await evalJs("(function(){var ta=document.getElementById('mail-reply-input');var b=ta.__ceBox||ta;b.focus();return 1;})()");
-  if (process.env.MOCHI_HDEBUG) await evalJs("(function(){window.__hd=[];var L=window.__hd;var c=document.querySelector('#page-mail-reply .cal-scroll');var d=Object.getOwnPropertyDescriptor(Element.prototype,'scrollTop');Object.defineProperty(c,'scrollTop',{get:function(){return d.get.call(this);},set:function(v){L.push(Date.now()%100000+' set('+Math.round(v)+') '+(new Error().stack.split('\\n')[2]||'?').trim().slice(0,70));return d.set.call(this,v);},configurable:true});c.addEventListener('scroll',function(){L.push(Date.now()%100000+' ev->'+Math.round(c.scrollTop));});return 1;})()");
   await sleep(650); // 覆盖 focusin 一次性补位（+300ms）与 ≥2 个看门狗 tick，几何记忆落位
-  if (process.env.MOCHI_HDEBUG) console.log('  HD focus后:', await evalJs("(function(){var a=document.activeElement;var c=document.querySelector('#page-mail-reply .cal-scroll');return JSON.stringify({ae:a.className||a.tagName,ice:a.isContentEditable,st:Math.round(c.scrollTop),sr:Math.round(c.getBoundingClientRect().bottom)});})()"));
   await evalJs("(function(){document.getElementById('page-mail-reply').querySelector('.cal-scroll').scrollTop=0;return 1;})()");
   await sleep(800); // 跨 ≥3 个 250ms tick：几何不变＝现状出自用户滚动，不得改写
-  if (process.env.MOCHI_HDEBUG) {
-    const hd = await evalJs("JSON.stringify(window.__hd||[])");
-    console.log('  HD 日志:', String(hd).replace(/","/g, ' | '));
-  }
   const h1 = JSON.parse((await evalJs(`JSON.stringify((function(){
     var cs = document.getElementById('page-mail-reply').querySelector('.cal-scroll');
     return { st: Math.round(cs.scrollTop) };

@@ -398,15 +398,11 @@
   }
 
   // ================= 聊天回应字卡（独立字卡池，类似默认字卡） =================
-// #365 #319 锁定补口：聊天回应/接话也是系统预设字卡池——二级密码未解锁时一并视为
-//   不存在（此前漏闸，锁定态回复仍会被「嗯嗯/知道了」类回应字卡覆盖/追加，用户反馈
-//   「没解锁时联系人只会发嗯嗯 知道了啦」）；解锁后照常。
-function replySrcLocked() {
-  try { return !!(window.cardLockOpen && !window.cardLockOpen()); } catch (e) { return false; }
-}
+// #499 需求变更（推翻 #365 #319 对本池的锁闸）：聊天回应/接话字卡不再受二级密码锁定
+//   影响——未解锁也照常抽取（用户明确要求：锁定只停默认聊天字卡/词典等系统预设，
+//   情绪字卡、TA 的心情、聊天回应字卡三大互动链不受影响）。
 // 开启时：整体概率 rc-prob 命中 → 随机抽一个分类 → 抽一条回应字卡作为回复内容
 window.getReplyCard = function () {
-  if (replySrcLocked()) return '';
   if (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';
   // 固定 30% 整体出现概率（与默认字卡 defaultCommonOverallProb 一致）
   if (Math.random() * 100 >= 30) return '';
@@ -420,7 +416,6 @@ window.getReplyCard = function () {
 };
 // ================= 聊天回应（连接词）=================
   window.getFollowupWord = function (reply) {
-    if (replySrcLocked()) return '';
     if (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';
     const followup = DATA.followup || {};
     let cat = 'echo';

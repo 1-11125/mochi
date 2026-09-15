@@ -138,3 +138,37 @@
 
 /* ---- 右对齐的「＋ 记一条」容器行 ---- */
 .narc-addrow { margin:0 2px 10px; text-align:right; }
+
+/* ===== v3.27.x 批量扩展：TA的声音 / 配图 / 搜索 / 导出 / 标签管理 / 总览统计提示 ===== */
+
+/* ---- 总览：搜索导出工具行 ---- */
+.narc-tools { display:flex; gap:8px; margin-top:14px; }
+.narc-tool { flex:1; padding:10px 0; border-radius:12px; background:var(--card-bg); border:1px solid var(--card-border);
+  font-size:13px; font-weight:700; color:var(--soft-ink,#555); cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.narc-tool:active { opacity:.55; }
+
+/* ---- 分区头右侧按钮组：加号 + 复制 ---- */
+.narc-sect-btns { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+.narc-copy { border:none; background:none; color:var(--soft-ink,#999); font-size:12px; padding:6px 6px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.narc-copy:active { opacity:.5; }
+
+/* ---- 标签管理入口（tab 行末尾的「管理」chip） ---- */
+.narc-tabmg { border-style:dashed; color:var(--muted,#aaa); }
+
+/* ---- 条目配图 ---- */
+.ni-img { display:block; width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin-top:8px; }
+
+/* ---- TA的声音：原话引用排版 ---- */
+.ni-quote { font-size:15.5px; }
+
+/* ---- 搜索页 ---- */
+.narc-search { margin:0 2px 12px; }
+.narc-hint { margin:6px 2px 0; font-size:11px; line-height:1.7; color:var(--muted,#aaa); }
+.narc-q { width:100%; box-sizing:border-box; padding:11px 14px; border-radius:12px; border:1px solid var(--card-border);
+  background:var(--card-bg); color:var(--ink); font-size:14px; font-family:inherit; outline:none; }
+.narc-q::placeholder { color:var(--muted,#bbb); }
+.narc-sr { display:block; width:100%; box-sizing:border-box; text-align:left; padding:11px 13px; margin-bottom:8px;
+  border-radius:12px; background:var(--card-bg); border:1px solid var(--card-border); cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.narc-sr:active { background:rgba(0,0,0,.03); }
+.nsr-head { display:block; font-size:11px; color:#4a9fd4; }
+.nsr-text { display:block; margin-top:3px; font-size:13.5px; color:var(--ink); line-height:1.5; word-break:break-word; }
