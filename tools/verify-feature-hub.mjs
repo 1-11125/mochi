@@ -118,5 +118,25 @@ await ev(`document.getElementById('fhub-back').click()`);
 await sleep(80);
 A('A8 返回设置页', await ev(`!document.getElementById('page-setting').hidden`));
 
+// A9 #543 桌面不再有功能大全图标——#542 曾提为桌面一级入口，用户反馈「影响我原本的布局」，
+// 撤出桌面仅保留 设置 → 聊天 → 功能大全（A2~A8 已覆盖设置入口与返回）；此处反向断言防回流
+await ev(`document.querySelector('.tab[data-page="page-phone"]').click()`);
+await sleep(100);
+A('A9 桌面已无功能大全图标（#543）', await ev(`!document.querySelector('.app[data-app="featurehub"]')`));
+
+// A10 #542 设置页搜索：输入「功能大全」→ 只剩命中行；清空 → 恢复全部行显隐
+await ev(`document.querySelector('.tab[data-page="page-setting"]').click()`);
+await sleep(100);
+const sBefore = await ev(`[...document.querySelectorAll('#page-setting .set-row')].filter(r=>r.style.display!=='none').length`);
+await ev(`(()=>{const i=document.getElementById('set-search-input'); i.value='功能大全'; i.dispatchEvent(new Event('input'));})()`);
+await sleep(100);
+const sShown = await ev(`[...document.querySelectorAll('#page-setting .set-row')].filter(r=>r.style.display!=='none').length`);
+const sAllHit = await ev(`[...document.querySelectorAll('#page-setting .set-row')].filter(r=>r.style.display!=='none').every(r=>{const t=r.querySelector('.txt'); return !t || t.textContent.indexOf('功能大全')>=0;})`);
+A('A10 设置搜索过滤（有命中且均含关键词）', sShown > 0 && sShown < sBefore && sAllHit, 'before=' + sBefore + ' shown=' + sShown);
+await ev(`(()=>{const i=document.getElementById('set-search-input'); i.value=''; i.dispatchEvent(new Event('input'));})()`);
+await sleep(100);
+const sRestored = await ev(`[...document.querySelectorAll('#page-setting .set-row')].filter(r=>r.style.display!=='none').length`);
+A('A10b 清空恢复全部行显隐', sRestored >= sBefore, 'restored=' + sRestored);
+
 console.log(fail === 0 ? '== 冒烟全部通过 ==' : ('== 失败 ' + fail + ' 项 =='));
 process.exit(fail === 0 ? 0 : 1);

@@ -78,6 +78,21 @@ html { margin:0; padding:0; }
   transition:opacity .4s ease;
 }
 .splash.hide { opacity:0; pointer-events:none; display:none; }
+/* FIX 2026-09-15 #541 开屏期遮挡被完全盖住的桌面：WebKit 未按 z 序裁剪被不透明开屏盖住的层——
+   开屏是 position:fixed / z-index:999 / background:var(--card-bg) 的整屏不透明层，视觉上
+   完全盖住 .phone；但实测（WebKit 引擎 DPR3）滚动开屏公告时内核仍在合成其下的 .phone
+   （14k 节点 + 壁纸层 + 各页合成层）：置 .phone 为 visibility:hidden 后开屏滚动帧耗时
+   mean 137→96ms、空闲 p90 122→78ms（WebKit 软渲染实测），而开屏本就不透明、盖满视口，
+   用户零视觉变化（同一环境的引擎对照：等价平凡长列表 60fps，本页是唯一被盖住仍在付费的面）。
+   为什么用兄弟选择器而不是 JS：template 里 .splash（33 行）本就是 .phone（399 行）的同级
+   前序兄弟，`.splash:not(.hide) ~ .phone` 只在「开屏在位且未开始隐藏」时命中——clock.js
+   hide() 一加 .hide（淡出开始）本规则当帧失效、桌面立即恢复可见（淡出过程正常露出桌面），
+   开屏 400ms 后整体移除更不可能残留；也不会引入新的「桌面被永久隐藏」态（开屏若不隐藏，
+   用户本就被开屏挡住，无新增风险）。visibility 不参与布局，启动期 mobile-adapt/fullscreen
+   对 .phone 的尺寸测量（getBoundingClientRect/offsetHeight）全部照常；全站无
+   visibility:visible 显式覆写，子元素不会把继承的 hidden 顶掉。零机型分支：任何内核都只是
+   少画一层被完全盖住的内容，安卓/桌面浏览器行为一致，不认这条选择器的老内核退回现状。 */
+.splash:not(.hide) ~ .phone { visibility:hidden; }
 /* v3.8.x：开屏即公告1页。v3.8.y：整页一体滚动——logo/标题/署名/原作信息+公告全部在此容器内滚动 */
 .splash-box {
   flex:1; min-height:0; width:100%; overflow-y:auto;
@@ -160,6 +175,20 @@ html { margin:0; padding:0; }
 .splash-summary-title { font-size:12px; font-weight:800; color:var(--ink); margin-bottom:7px; letter-spacing:.6px; }
 .splash-summary p { font-size:11.5px; line-height:1.75; color:var(--soft-ink); }
 .splash-summary p + p { margin-top:6px; }
+/* #542：开屏「新手上路 3 步」——蓝色引导卡，放必读摘要之前；新手第一眼看到可执行动作，
+   而不是先被免责/公告长文淹没（仅静态展示，不参与进入门控） */
+.splash-onboard {
+  margin:0 0 14px; padding:12px 14px 13px 14px;
+  background:#eef5ff; border:1.5px solid #2f6fd0; border-radius:10px;
+}
+.splash-onboard-t { font-size:12.5px; font-weight:800; color:#1f5bb5; letter-spacing:.5px; margin-bottom:7px; }
+.splash-onboard p { font-size:12px; line-height:1.7; color:var(--soft-ink); }
+.splash-onboard p + p { margin-top:6px; }
+.splash-onboard b { color:var(--ink); font-weight:800; }
+.splash-onboard .splash-onboard-tip { color:#1f5bb5; font-weight:700; }
+[data-theme="dark"] .splash-onboard { background:rgba(47,111,208,.14); border-color:#5a8be0; }
+[data-theme="dark"] .splash-onboard-t { color:#8fb4ef; }
+[data-theme="dark"] .splash-onboard .splash-onboard-tip { color:#8fb4ef; }
 /* v3.27.x：防骗置顶声明——固定在公告最顶部，防收费诈骗醒目提示 */
 .splash-alert {
   margin:0 0 14px; padding:10px 14px 11px 14px;
@@ -631,6 +660,26 @@ html.ios-pwa-standalone.ios-fs-active body { height:var(--mochi-ios-h, 100vh); m
    底部同色（浅色白 / 深色深），任何像素级露出都与手机屏幕融为一体，灰带消失 */
 html.ios-pwa-standalone,
 html.ios-pwa-standalone body { background: var(--bg-b); }
+/* v3.26.x #537：iOS 独立应用【普通态·覆盖形态】（ios-cover-top）整页上移——用户报
+   「集体屏幕上移 / 底下有白条 / 底部栏不贴手机底部」（iPhone 17 自带 Safari 主屏幕，
+   诊断 SIG：screen=956 inner/vv=894 env=62、.phone 计算高=956 底边=925 tabbar 底=873）。
+   根因：覆盖形态下判定器期望底边 expBase=envTop+inner=整屏 956，#179 起非全屏
+   standalone 也写 --mochi-ios-h=956，但 html/body 高度停在 100dvh(894)——子元素比容器
+   高 62px，而 html/body 是 display:flex + align-items:center，把 .phone 整块上移
+   (956−894)/2=31px：顶部 Mochi 行钻进系统状态栏（✗顶部重叠）、.phone 底边停在 925
+   露出 31px 底色白带、tabbar 随之上移不贴底。
+   修法同 ios-fs-active（#114 v3.28.x，同一父类 bug）：html/body 钉到与 .phone 同高
+   （var(--mochi-ios-h)）+ 顶对齐 → 容器永不比 .phone 矮，居中位移消失。
+   作用域刻意收在 .ios-cover-top（而非所有 standalone）：只有覆盖形态会 --mochi-ios-h(956)
+   ≠ 100dvh(894)；保留/已避让/iPad 形态两者本就相等、无位移可修，不碰它们＝零回归
+   （横屏独立应用的桌面模拟器外壳也因此不受影响）。
+   兜底用 100dvh 而非 100vh：iOS 上 100vh=整块物理屏(956)、100dvh=可视区(894)，
+   键盘会话期 syncVvFit 摘除该属性（那段时间 .phone 高度由 _setPhoneH 内联值 +
+   align-self:flex-start 接管），回落 100dvh 与改动前 body 高度完全一致=键盘期零变化。
+   min-height:0 必带：上方 html,body{min-height:100vh} 的 100vh 在 iOS=整块物理屏，
+   不归零会把 body 顶高到 956，与 .phone 之间又生出居中位移。 */
+html.ios-pwa-standalone.ios-cover-top,
+html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100dvh); min-height:0; align-items:flex-start; }
 /* v3.7.x：display-mode: standalone 媒体查询底色兜底（不依赖 fullscreen.js 加类）——
    iOS/安卓从主屏幕打开 PWA 时该媒体查询恒为真；若 JS 层 inIosStandalone 检测
    （navigator.standalone / matchMedia standalone）因任何原因失败、ios-pwa-standalone
@@ -977,6 +1026,22 @@ input.ce-ghost, textarea.ce-ghost {
    该形态无 .phone padding 兜底链，必须由状态栏自身抬升）。iOS standalone 不挂
    类、规则不生效，既有避让链（.phone padding-top / ios-fs-active）不受影响。 */
 html.mochi-cover-top .phone .statusbar {
+  padding-top:max(calc(14px + var(--mochi-safe-top, 0px)), 14px);
+}
+/* v3.26.x #537：iOS 独立应用【普通态·覆盖形态】（ios-cover-top 类由 mobile-adapt.js
+   syncVvFit 按共享判定器 iosCover 挂/摘）——该形态 .phone 铺满整块物理屏、页面顶到
+   屏幕最顶（系统状态栏悬浮其上，env-top=62），模拟状态栏必须自身抬升到系统状态栏下方：
+   此前只有 ios-fs-active（全屏模式）链有 .phone padding 兜底，普通态既无 .phone 顶部
+   padding、窄屏 @media 的安全区留白（0,1,0）又被后加载的同特异性全局
+   .statusbar{padding:4px…} 压死（#114 同根因）→ Mochi/时间/电量那一行常驻钻在系统
+   栏里、聊天返回键被吞点（用户报「整页上移」时诊断同步报 ✗顶部重叠）。
+   留白只加在状态栏自身（同 #199/#236 浏览器覆盖壳手法，不动 .phone）：full 页
+   （聊天等）本就把状态栏 display:none，其头部各自用 var(--mochi-safe-top) 避让，不双倍。
+   padding-bottom 归零：.phone 已顶到物理屏底，底部只留 tabbar 自身的
+   --mochi-safe-bottom（Home 指示条 34px）避让——与 ios-fs-active 链同款处理，修
+   「底部栏不贴手机底部」（原来 .phone 的 18px 内边距与 34px 避让叠成 52px 空档）。 */
+html.ios-cover-top .phone { padding-bottom:0; }
+html.ios-cover-top .phone .statusbar {
   padding-top:max(calc(14px + var(--mochi-safe-top, 0px)), 14px);
 }
 /* v3.26.x #199：Gecko 系（Firefox/雨见等）滚动锚定会在删除/新增消息改动上方

@@ -4119,7 +4119,7 @@ if (ckRefresh) {
       if (!window.getPool) return '';
       const t = window.getPool().text || [];
       // 排除空串与拍一拍（getPool 已过滤拍一拍），也排除媒体 dataURL
-      const arr = t.filter(s => typeof s === 'string' && s.trim() && s.indexOf('data:') !== 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s))); // FIX 2026-09-13 #394 令牌卡不进悬浮伴侣话术
+      const arr = t.filter(s => typeof s === 'string' && s.trim() && s.indexOf('data:') !== 0 && !/^https?:\/\//i.test(s) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s))); // FIX 2026-09-13 #394 令牌卡不进悬浮伴侣话术；FIX 2026-09-15 #533 URL 媒体卡同款排除
       return (arr.length && Math.random() < 0.7) ? arr[Math.floor(Math.random() * arr.length)] : '';
     } catch (e) { return ''; }
   }

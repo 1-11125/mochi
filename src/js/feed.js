@@ -563,6 +563,9 @@
       if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
       // FIX 2026-09-13 #386 裸 @@m:hash 令牌卡不进文字池（与 chat.js getPool #383 同款第三道守卫）
       if (c && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
+      // FIX 2026-09-15 #533 同款第四道守卫：链接导入的媒体字卡（裸 http(s) 图链）是图片
+      // 载荷不是文字，进池会被拼进朋友圈动态/评论正文（与 chat.js getPool / mail.js 同批修复）
+      if (/^https?:\/\//i.test(c)) return; // 图链卡不进朋友圈文字池
       if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
       else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
       else text.push(c);
@@ -605,7 +608,29 @@
         if (dq) text.push(dq);
       }
     } catch (eDictFeed) {}
+    // FIX 2026-09-15 #534 朋友圈内容类型总开关（设置→回复设置→朋友圈「内容类型开关」）：
+    //   关闭的类型在这里【整体清池】——生成器全是「池非空才抽」的写法，清池即该类型在
+    //   朋友圈彻底消失，不可能被任何一条路径绕过。修前只有「TA 发布内容类型」概率管得住
+    //   TA 发动态；TA 评论/回复走 pickReplyContent 把颜文字/emoji 写死 15%、表情包/图片走
+    //   「使用表情包概率」，用户在朋友圈把颜文字与表情包关掉后评论里照样出现（多机型同报）。
+    //   开关按【该联系人桌面】读（与 feedCfgFor 同口径：各联系人朋友圈设置独立），
+    //   缺省（键不存在）＝开，存量用户行为不变。零机型分支＝纯设置读取。
+    if (!feedTypeOn(cid, 'kaomoji')) kaomoji.length = 0;
+    if (!feedTypeOn(cid, 'emoji')) emoji.length = 0;
+    if (!feedTypeOn(cid, 'sticker')) mediaSticker.length = 0;
+    if (!feedTypeOn(cid, 'image')) mediaImage.length = 0;
     return { text: text, kaomoji: kaomoji, emoji: emoji, sticker: mediaSticker, image: mediaImage };
+  }
+  // #534：朋友圈某内容类型是否启用（读该联系人桌面的 reply-fd-<kind>-en；缺失＝开）。
+  //   kind ∈ kaomoji | emoji | sticker | image。与 chat.js/mail.js 的场景开关同读法：
+  //   存储键统一 reply- 前缀 + 当前桌面命名空间，避免「设置页关了、生成端读别处」。
+  function feedTypeOn(cid, kind) {
+    try {
+      const s = window.storeFor ? window.storeFor(cid || 'default') : null;
+      if (!s) return true;
+      const v = s.get('reply-fd-' + kind + '-en');
+      return v === null || v === undefined || v === '' ? true : Number(v) !== 0;
+    } catch (e) { return true; }
   }
   // v3.6.x：完整 HTML 转义（昵称/评论/点赞列表/分组名是用户输入，直拼 innerHTML 可注入）
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }

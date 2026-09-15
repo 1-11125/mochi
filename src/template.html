@@ -106,6 +106,15 @@
         </div>
         <div class="splash-notice-title">Mochi字卡 · 开屏说明</div>
         <div class="splash-notice-sub">（请认真阅读）</div>
+        <!-- #542：新手上路 3 步——开屏公告越写越长，新手仍不知道从哪开始；静态卡（在线 notice.json
+             只覆盖下方 .splash-notice-list，不会动到本卡），放牌面最上一眼可见，纯引导不改任何门控 -->
+        <div class="splash-onboard">
+          <div class="splash-onboard-t">新手上路 · 3 步就能用</div>
+          <p><b>① 设置「我」和「TA」</b>：回桌面，点顶部两个头像 / 昵称，即可改名、换头像。</p>
+          <p><b>② 准备字卡</b>：底部「字卡库」→ 公用字卡 / 专属字卡，导入或添加自己的字卡；不加字卡的话 TA 回复会很单薄。</p>
+          <p><b>③ 开始聊天</b>：回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。</p>
+          <p class="splash-onboard-tip">找不到某个功能？在 设置 → 聊天 → 功能大全 里输入关键词即可直达。</p>
+        </div>
         <div class="splash-notice-list">
           <div class="splash-summary">
             <p class="splash-summary-title">必读摘要</p>
@@ -499,6 +508,8 @@
           <div class="app-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h11a1 1 0 011 1v16l-6.5-4-6.5 4v-16a1 1 0 011-1z"/></svg></div>
           <div class="app-name">收藏</div>
         </div>
+        <!-- #542 曾把功能大全提为桌面一级入口，#543 按用户要求撤出桌面（挤占原布局网格）：
+             仅保留 设置 → 聊天 → 功能大全 入口，打开逻辑仍在 feature-hub.js -->
       </div>
       </div><!-- /page-slide 第一页 -->
 
@@ -920,12 +931,12 @@
     <div class="set-group glass" style="padding:14px">
       <div class="cal-card-title" style="padding:0 0 8px">问卷题目（批量设置）</div>
       <div class="dec-inp-wrap" style="flex:1 0 100%"><textarea id="ta-survey-text" class="tc-input" rows="12" placeholder="单选题：第一行【问题】，下面每行一个选项，如：&#10;【今晚想吃什么？】&#10;火锅&#10;烧烤&#10;寿司&#10;&#10;文字题：第一行【问题】，下一行只写一个「一」，如：&#10;【今天过得怎么样？】&#10;一"></textarea><button type="button" class="dec-inp-clear" data-clear="ta-survey-text" aria-label="清空" title="清空">✕</button></div>
-      <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷<br>· 关闭「TA 的作答发送到聊天消息」后，TA 只把答案写进聊天里的问卷卡片，不再逐条刷消息（单题默认会发，题多怕刷屏可关）</div>
+      <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷<br>· 关闭「TA 的每条作答都发送到聊天消息」后，TA 只把答案写进聊天里的问卷卡片，不再把每题作答逐条发到聊天（单题默认会发，题多怕刷屏可关）</div>
     </div>
     <div class="set-group glass">
       <div class="gs-row" style="cursor:pointer"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
       <div class="gs-row"><span>每30秒提前交卷概率</span><input type="range" id="ta-survey-prob" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-survey-prob-val">10%</span></div>
-      <div class="gs-row"><span>TA 的作答发送到聊天消息</span><label class="toggle"><input type="checkbox" id="ta-survey-chat" checked><span class="tk"></span></label></div>
+      <div class="gs-row"><span>TA 的每条作答都发送到聊天消息</span><label class="toggle"><input type="checkbox" id="ta-survey-chat" checked><span class="tk"></span></label></div>
     </div>
     <div class="set-group glass" style="padding:12px 14px">
       <div id="ta-survey-status" style="font-size:13px;line-height:1.8">尚未发出问卷</div>
@@ -1455,6 +1466,9 @@
 <!-- 设置页 -->
     <div class="page" id="page-setting" hidden>
       <div class="set-title">设置</div>
+      <!-- #542：设置项上百行、找一项要滚很久——顶部搜索框实时过滤 .set-row（跨 5 个 tag 显示匹配项），
+           逻辑复刻美化页的 theme-search（personalize.js bindSettingsSearch）；清空后回到原 tag -->
+      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"></div>
       <!-- v3.33.x：设置页顶部 tag 分类——设置项太多一页堆到底，用户找不到功能；
            复用全站 .them-tabs/.them-sec 互斥显示观感（聊天设置/手机桌面美化同款） -->
       <div class="them-tabs" id="set-tabs">
@@ -1571,14 +1585,14 @@
       </div><!-- /them-sec system -->
       <!-- 工具：导出 / 导入 / 信息诊断 / 存储 / 卡顿优化等数据与诊断工具 -->
       <div class="them-sec" data-sec="tools">
-      <!-- 安装 / 平台限制说明（只读弹窗，绑定见 personalize.js initPlatformLimits） -->
+      <!-- 使用说明（完整说明页 #page-guide；行导航绑定见 personalize.js） -->
       <div class="set-group glass">
-        <div class="set-row" id="row-platform-limits">
+        <div class="set-row" id="row-guide">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11.2 12h1.2v4.6"/></svg></div>
-          <div class="txt">安装与使用限制<span class="sub">iPhone 推荐 Safari 添加到主屏幕 · 安装方式 · iOS 限制 · 数据备份</span></div>
+          <div class="txt">使用说明<span class="sub">快速开始 · 安装方式 · iPhone / iOS 限制 · 数据备份 · 常见问题</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
-        <div class="gs-sub" id="platform-limits-sub">iPhone 推荐：用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、更不容易卡顿/丢数据）；iPhone 上用 Edge / Chrome「添加到主屏幕」只会建快捷方式、拿不到独立应用。iPhone 顶部系统状态栏（时间/电量）无法隐藏，浏览器内切页或切后台会让全屏失效、需手动重开。点上方一行查看全部限制与建议。</div>
+        <div class="gs-sub" id="guide-sub">第一次用建议先看「快速开始」和「数据备份」。iPhone 推荐用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、更不容易卡顿/丢数据）；用 Edge / Chrome 添加只会建快捷方式。</div>
       </div>
       <div class="set-group glass">
         <div class="set-row" id="row-export">
@@ -2492,6 +2506,159 @@
         </div>
       </div>
     </div>
+    <!-- 使用说明（完整说明页；入口=设置→工具→#row-guide，导航绑定见 personalize.js） -->
+    <div class="page" id="page-guide" hidden>
+      <div class="chat-head">
+        <span class="ch-back" id="guide-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </span>
+        <span class="ch-name">使用说明</span>
+      </div>
+      <div class="cal-scroll">
+        <div class="card-search glass" style="margin:10px 14px 2px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input class="card-search-input" id="guide-search" placeholder="搜索说明，如：语音 / 备份 / 全屏 / 密码" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="cal-card glass" id="guide-hero" style="margin-bottom:12px">
+          <div class="lic-p">第一次使用建议先看「快速开始」和「数据与备份」。功能太多找不到入口时，用 <b>设置 → 聊天 → 功能大全</b>（可搜索、点条目直达）。</div>
+        </div>
+        <div class="cal-card glass">
+          <details class="lic-grp" open>
+            <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。</div>
+              <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
+              <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
+              <div class="lic-li">手机桌面：左右滑动切换页面，点图标进入聊天 / 字卡 / 查岗 / 日历 / 信箱 / 朋友圈 / 音乐 / 占卜 / 花园等各功能。</div>
+              <div class="lic-li">想调 TA 的话多话少：<b>设置 → 聊天 → 回复设置</b> 调回复速度、概率、条数；单个功能字卡的概率在 <b>字卡库 → 其他互动功能字卡</b> 里调（0 = 不触发）。</div>
+              <div class="lic-li">找不到功能：<b>设置 → 聊天 → 功能大全</b>，可搜索全部功能入口。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">2</span><span class="lg-name">安装到桌面</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>安卓</b>：用 Chrome / Edge 打开本站 → 右上「⋮」菜单 →「安装应用」。</div>
+              <div class="lic-li"><b>电脑</b>：点地址栏右侧的「安装」图标，或浏览器菜单 →「安装应用」。</div>
+              <div class="lic-li"><b>iPhone</b>：用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开（推荐，是无浏览器栏的独立应用）。</div>
+              <div class="lic-li">部分浏览器（尤其 iPhone 上的 Edge / Chrome）不显示安装按钮、「添加到主屏幕」只建快捷方式，属正常，详见下方「iPhone / iOS 使用与限制」。</div>
+              <div class="lic-li"><b>安卓 Edge</b>：桌面应用与浏览器标签页使用各自独立的存储，装完从桌面打开是空数据。安装前请先「导出数据」，装好后再「导入数据」。</div>
+              <div class="lic-li">浏览器标签页 与 桌面快捷方式 的数据可能互不相通，且<b>不要同时打开</b>使用（会导致两边数据不统一）。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">3</span><span class="lg-name">iPhone / iOS 使用与限制</span><span class="lg-count">10</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>推荐用法</b>：用 Safari 打开本站 → 底部「分享」→「添加到主屏幕」，之后从桌面图标打开使用。这样是无浏览器栏的独立应用，全屏更完整、内存表现也更稳（浏览器标签页更容易卡顿，也更容易被系统清掉数据）。</div>
+              <div class="lic-li">在 iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与全屏。</div>
+              <div class="lic-li"><b>全屏</b>：顶部系统状态栏（时间、电量、灵动岛）由系统控制，任何网页都无法隐藏；全屏开关只能隐藏应用内的模拟状态栏。真正无浏览器栏的独立应用，只有 Safari「添加到主屏幕」这一条路。部分旧版 iOS 浏览器（iOS 16.4 之前的 Safari）不支持网页全屏，点开会弹说明并回滚开关。</div>
+              <div class="lic-li"><b>全屏会掉</b>：切到后台再切回、或在浏览器里切换页面，全屏会失效，需手动重新打开。</div>
+              <div class="lic-li"><b>方向</b>：iOS 不支持屏幕方向锁定，不会自动锁竖屏，也不会纠正横屏（iPad 横屏是正常姿势，布局会自适应）。</div>
+              <div class="lic-li"><b>声音</b>：iOS 要求先与页面互动（点 / 滑一下）才允许播放有声内容，本站已在首次点击时自动解锁；如果全程没有任何操作，定时触发的来电铃声 / 消息音效可能不响。</div>
+              <div class="lic-li"><b>系统通知</b>：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓 Chrome / Edge 且添加到桌面后可用，iPhone 不支持。</div>
+              <div class="lic-li"><b>导出 / 导入</b>：从主屏幕打开时 iPhone 没有下载管理器，导出会走系统「分享」面板，请保存到「文件」App；导入时也会打开系统「文件」App 选备份文件。</div>
+              <div class="lic-li"><b>语音</b>：录音格式由系统决定，安卓录制的语音在 iPhone 上可能无法播放；iOS 的「文件」选择器会按类型过滤，导入字卡 / 语音等时个别文件可能灰显、选不中（系统限制）。</div>
+              <div class="lic-li"><b>其他</b>：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（用 设置 → 工具 →「卡顿自检 · 一键优化」缓解）。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">4</span><span class="lg-name">数据与备份</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li">所有数据<b>只存在你自己的浏览器里，没有云端</b>：清除浏览器数据、卸载、换机、系统回收存储都会导致数据丢失，本机不保留任何自动副本。</div>
+              <div class="lic-li">导出备份：<b>设置 → 工具 → 导出数据</b>；可只导出文字（体积小）或整包。请把文件保存到不会被浏览器清理的地方。</div>
+              <div class="lic-li">恢复 / 换机：新设备用 <b>设置 → 工具 → 导入数据</b> 选择之前导出的备份文件即可恢复（导入会覆盖当前数据）。</div>
+              <div class="lic-li">顶部会有<b>备份提醒</b>（距上次成功导出超过 1 天提醒一次）；别只把备份留在下载列表里。</div>
+              <div class="lic-li">聊天记录可在 <b>聊天设置 → 数据</b> 里单独导出 / 导入 / 删除；字卡可在字卡库用「自定义字卡·全量导出 / 导入」单独迁移。</div>
+              <div class="lic-li">各联系人是独立命名空间，专属字卡属于当前桌面联系人，换设备后请在对应联系人桌面导入。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">5</span><span class="lg-name">版本更新</span><span class="lg-count">4</span></summary>
+            <div class="lg-body">
+              <div class="lic-li">顶部出现「检测到新版本」时，点「刷新使用新版」即可更新；不想现在更新点「稍后」，下次重新打开会自动同步。</div>
+              <div class="lic-li">刚更新完新旧版本正在交接，可能重复提醒一次，属正常。</div>
+              <div class="lic-li">不同设备的网络节点可能还没同步到最新版：可以关掉浏览器重开、用流量多刷新几次，或晚几小时再试。</div>
+              <div class="lic-li">开屏底部有部署时间，可用来判断是不是最新版。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">6</span><span class="lg-name">功能都在哪里</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li">底部导航：<b>桌面 / 字卡库 / 设置</b> 三个主入口。</div>
+              <div class="lic-li">聊天：首页点联系人进入；右上角是<b>聊天设置</b>；输入框旁「+」展开更多功能面板，分 <b>互动 / 小游戏 / 工具 / TA的提问</b> 四类。</div>
+              <div class="lic-li"><b>互动</b>类：邀请 TA、通话、拍一拍、红包、心意集市、心意柜、头像互动、漂流瓶等。</div>
+              <div class="lic-li"><b>小游戏</b>类：猜拳、Pong、贪吃蛇、打砖块、钓鱼、四子棋、扫雷、记忆翻牌等；<b>工具</b>类：帮我决定、多人决定、问问 TA、搜索记录、占卜、寻踪、此间、房间、心情日记等。</div>
+              <div class="lic-li">桌面图标：日历、信箱、朋友圈、音乐、占卜、花园、房间、漂流瓶、记账、经期、备忘录、纪念等；左右滑动桌面临换页。</div>
+              <div class="lic-li">完整索引：<b>设置 → 聊天 → 功能大全</b>（可搜索、点条目直达）；群聊在 <b>设置 → 通用 → 开启群聊</b>。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">7</span><span class="lg-name">常见问题</span><span class="lg-count">14</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>数据突然没了 / 回到初始？</b>多半是浏览器清理了本机存储。到 设置 → 工具 → 导入数据 恢复之前导出的备份。</div>
+              <div class="lic-li"><b>更新版本会丢数据吗？</b>不会。数据保存在本机，刷新 / 更新 / 关掉重开都不影响；只有清除浏览器数据、卸载、换机或系统回收存储才会丢（记得定期备份）。</div>
+              <div class="lic-li"><b>没有声音 / 铃声不响？</b>iOS 需先点一下页面才能出声（自动播放限制）；再确认 设置 → 聊天 → 音效设置 里已上传并开启。</div>
+              <div class="lic-li"><b>上传的音乐播不了？</b>通过网易云链接上传的 VIP / 付费歌曲无法播放（仅免费歌曲可播），歌单导入会自动移除这类歌曲；外链失效或有防盗链也会播放失败。</div>
+              <div class="lic-li"><b>图片传不上去 / 变模糊？</b>超大图片上传时会被自动压缩，过大的会被拒绝（防止解码拖崩 iOS 页面），请换小一点的图。</div>
+              <div class="lic-li"><b>收不到通知 / 后台弹窗？</b>需允许系统通知权限并开启「后台保活」；「离线消息提醒」仅安卓 Chrome / Edge 且添加到桌面后可用。</div>
+              <div class="lic-li"><b>全屏失效？</b>切到后台或切换页面会退出全屏，手动重新打开即可；iPhone 顶部系统状态栏无法隐藏。</div>
+              <div class="lic-li"><b>用着卡顿？</b>字卡库 / 图片 / 聊天记录体积过大是主因，用 设置 → 工具 →「卡顿自检 · 一键优化」，并精简超大图片和字卡库。</div>
+              <div class="lic-li"><b>TA 的回复太少 / 太频繁？</b>设置 → 聊天 → 回复设置 与 字卡库 → 其他互动功能字卡 里调概率（0 = 不触发）。</div>
+              <div class="lic-li"><b>系统内置字卡用不了？</b>被「防未成年人 · 内置字卡锁定」锁住了，到开屏公告区那张卡输入二级验证密码解锁。</div>
+              <div class="lic-li"><b>忘记应用锁密码？</b>可答安全问题或输暗号关闭应用锁；否则只能清除本站数据重来（会丢数据，务必先导出备份）。</div>
+              <div class="lic-li"><b>打不开 / 白屏 / 一直是旧版？</b>建议用 Chrome、Edge 等主流浏览器，关掉浏览器重开、用流量多刷新几次再试。</div>
+              <div class="lic-li"><b>TA 是真人吗 / 算连上梦角了吗？</b>本质都是随机代码运行，是否对应上只有你自己知道；问外人不必要，别人的说法也不一定正确。</div>
+              <div class="lic-li"><b>能上传云端 / 换个设备同步吗？</b>本站无后端、纯本地，数据不会上传；换设备靠导出备份文件再导入。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">8</span><span class="lg-name">常用操作</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>长按任意消息</b>：弹出操作菜单——引用回复 / 收藏 / 复制 / 编辑 / 删除 / 撤回补发等（具体项按消息类型出现）。</div>
+              <div class="lic-li"><b>发图片、表情包</b>：输入栏旁「+」展开更多功能 → 表情包 / 图片。</div>
+              <div class="lic-li"><b>发语音</b>：先在 聊天设置 打开「我可发送语音」，输入栏左侧出现「麦克风」按钮，点击录音（最长 60 秒，可试听后发送）；需要允许麦克风权限。</div>
+              <div class="lic-li"><b>拍一拍 / 搜索记录</b>：在聊天「+」的更多功能面板里。</div>
+              <div class="lic-li"><b>切换联系人 / 桌面</b>：各联系人的数据相互独立；专属字卡、收藏等属于当前联系人。</div>
+              <div class="lic-li"><b>改昵称 / 头像</b>：在桌面双方头像组件下方修改，或 设置 → 通用 → 联系人 / 桌面。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">9</span><span class="lg-name">权限、隐私与反馈</span><span class="lg-count">7</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>通知权限</b>：要收到「后台弹窗」，需允许系统通知（浏览器地址栏的网站设置 + 手机系统设置里给浏览器开通知）；「离线消息提醒」仅安卓 Chrome / Edge 且添加到桌面后支持。</div>
+              <div class="lic-li"><b>麦克风权限</b>：发语音需要允许麦克风；被拒绝后到浏览器 / 系统设置里重新允许。</div>
+              <div class="lic-li"><b>耗电</b>：开启「后台保活」会让页面在后台持续运行，比较耗电；不需要时到 设置 → 系统 关闭。</div>
+              <div class="lic-li"><b>隐私</b>：本站无后端、数据全部保存在本机、不上传服务器；但系统通知/锁屏上可能显示消息内容，介意可在系统里关闭本应用通知。</div>
+              <div class="lic-li"><b>数据安全</b>：浏览器随时可能清理本机存储，请按「数据与备份」定期导出。</div>
+              <div class="lic-li"><b>报修格式</b>：【手机型号 + 浏览器 + 具体现象】，缺一不回；附上 设置 → 工具 →「设备兼容诊断」复制的信息能更快定位。</div>
+              <div class="lic-li"><b>反馈渠道</b>：互助群（见开屏公告）；基础疑问可先问 AI，比等待回复更快。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">10</span><span class="lg-name">应用锁与开屏问答门</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>应用锁</b>：设置 → 系统 →「应用锁」开启，设置 4-6 位数字密码；之后每次打开本站需输密码（同一标签解过一次即可，刷新不重锁）。</div>
+              <div class="lic-li">建议同时设置「<b>安全问题</b>」：忘记密码时可用它重置密码。</div>
+              <div class="lic-li"><b>开屏问答门</b>：设置 → 系统 →「开屏问答门」（默认开启），每次打开（含换浏览器 / 新设备）先答对问答题才放行；可单独使用，不一定要开应用锁。</div>
+              <div class="lic-li">锁定界面可输入<b>二级验证密码（暗号）</b>，让本机永久跳过问答层。</div>
+              <div class="lic-li"><b>忘记密码怎么办</b>：用安全问题重置；或输暗号直接关闭应用锁；两者都没有时，只能清除本站数据重来（会丢数据，先导出备份）。</div>
+              <div class="lic-li"><b>注意</b>：本锁防的是日常偷看，防不了懂技术的人读取本机数据；二级验证密码（暗号）请勿公开、勿转发。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">11</span><span class="lg-name">许可与免责</span><span class="lg-count">6</span></summary>
+            <div class="lg-body">
+              <div class="lic-li">本站<b>完全免费</b>：作者只有两个账号——小红书 @言序（1842523578）、抖音 @言序（58334080131）。如有任何收费情况，均为诈骗，注意防止被骗。</div>
+              <div class="lic-li">开放<b>二传二改</b>，但必须保留作者署名（小红书 @言序（1842523578），禁止删除或修改）并注明原作者；<b>禁止商用、禁止以盈利为目的</b>（详见 设置 → 关于 →「功能介绍与可二传二改许可」）。</div>
+              <div class="lic-li">请不要转发<b>二级验证密码（暗号）</b>；公开二改版本时，请不要把系统内置字卡一起打包公开。</div>
+              <div class="lic-li"><b>本站禁止未满 18 周岁的未成年人使用。</b>字卡回复与 TA 的消息均为随机代码生成、<b>纯属虚构娱乐</b>，不代表任何真实人物，不能替代真实的人际交往与专业心理帮助；使用后果由使用者本人自行承担，作者不承担任何责任。</div>
+              <div class="lic-li">如你正处于情绪低落、焦虑或其他心理困境，请及时向家人朋友求助，或前往正规医疗机构、心理援助热线（全国心理援助热线：12356）寻求专业支持。</div>
+              <div class="lic-li">开屏公告为本站内容，不可删除或修改。</div>
+            </div>
+          </details>
+        </div>
+        <div class="lic-p" id="guide-empty" hidden style="text-align:center;color:#999;padding:18px 0">没找到对应说明，换个词试试（如「语音」「备份」「全屏」「密码」）</div>
+      </div>
+    </div>
     <!-- 功能大全（#305）：可搜索的功能索引页，条目由 feature-hub.js 渲染；灵感来源：回音机 -->
     <div class="page" id="page-featurehub" hidden>
       <div class="chat-head">
@@ -2747,6 +2914,18 @@
           </div>
         </div>
         <div class="gs-panel" data-rpanel="feed" hidden>
+          <!-- #534：内容类型总开关——与信箱页「写信内容类型」同款。关闭后该类型在朋友圈
+               （TA 发动态 + TA 评论/回复）整体不出现，不论下方概率设为多少；修前只有
+               「TA 发布内容类型」概率管得住动态，评论/回复的颜文字/emoji 是写死 15%，
+               用户「把颜文字和表情包都禁了还是出现」。 -->
+          <div class="gs-title">内容类型开关</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>使用颜文字</span><label class="toggle"><input type="checkbox" id="fd-kaomoji-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>使用 emoji</span><label class="toggle"><input type="checkbox" id="fd-emoji-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>使用表情包</span><label class="toggle"><input type="checkbox" id="fd-sticker-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>使用图片</span><label class="toggle"><input type="checkbox" id="fd-image-en"><span class="tk"></span></label></div>
+            <div class="gs-sub">关闭后该类型不再出现在联系人动态与评论/回复里（不论下方概率设多少）</div>
+          </div>
           <div class="gs-title">互动设置（我发布后）</div>
           <div class="set-group glass">
             <div class="gs-row"><span>点赞概率</span><div class="stepper" data-k="fd-like-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="fd-like-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -3282,6 +3461,25 @@
       </div>
     </div>
 
+    <!-- v3.33.x #523：交卷时间自绘选择器（替代原生 datetime-local）。静态锚点随 template 预先存在——
+         动态 append 的输入框依赖 mobile-adapt 的 MutationObserver 转换，部分桌面预览/内核下会点不动，
+         静态放置可走载入时的全量 ceConvert，确保数字框全端可聚焦可输入。 -->
+    <div class="modal-mask" id="dl-picker-mask" hidden>
+      <div class="modal">
+        <div class="modal-title" id="dl-picker-title">设置时间</div>
+        <div class="modal-static" id="dl-picker-cur">未设置</div>
+        <div class="dl-picker-row">
+          <span class="dl-picker-lbl">分钟</span>
+          <input type="text" inputmode="numeric" maxlength="5" class="dl-picker-in" id="dl-picker-mins" placeholder="1">
+        </div>
+        <div class="modal-btns">
+          <button type="button" class="modal-btn cancel" id="dl-picker-clear">清除</button>
+          <button type="button" class="modal-btn cancel" id="dl-picker-cancel">取消</button>
+          <button type="button" class="modal-btn ok" id="dl-picker-ok">确定</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 日历页（桌面点「日历」进入） -->
     <div class="page" id="page-calendar" hidden>
       <div class="chat-head">
@@ -3789,6 +3987,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </span>
         <span class="ch-name">主页</span>
+        <!-- v3.26.x：游乐室入口从 tab 记录区移到标题栏常驻按钮——原先作 data-hpanel="*" 卡置顶各 tab，占满记录区首屏影响查看其他 tag -->
+        <button class="arc-home-entry" id="home-arcade-entry" type="button">🎮 游乐室</button>
       </div>
       <div class="fav-tabs">
         <button class="fav-tab sel" data-htab="av">换头像记录</button>
@@ -3804,14 +4004,6 @@
         <button class="fav-tab" data-htab="divine">占卜记录</button>
       </div>
       <div class="cal-scroll">
-        <!-- v3.26.x：游乐室入口卡（小游戏战绩/徽章/幸运游戏/摆件图鉴，点击进独立全屏页；src/js/arcade.js）；data-hpanel="*"＝所有主页 tab 常显，records.js 切 tab 只按该通配保留 -->
-        <div class="cal-card glass arc-home-entry" id="home-arcade-entry" data-hpanel="*">
-          <div class="arc-home-entry-top">
-            <span class="arc-home-entry-name">🎮 游乐室</span>
-            <span class="arc-home-entry-go">进入 ›</span>
-          </div>
-          <div class="arc-home-entry-sub">小游戏战绩 · 徽章 · 每日幸运游戏 · 限定摆件图鉴</div>
-        </div>
         <div class="cal-card glass" data-hpanel="av">
           <div class="cal-card-title">换头像记录</div>
           <div id="home-av"></div>

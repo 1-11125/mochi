@@ -732,14 +732,43 @@
     else if (typeof el.className === 'string' && el.className) seg += '.' + el.className.split(/\s+/)[0];
     return seg.slice(0, 28);
   }
+  // FIX 2026-09-15 #538 输入轨迹遥测改「内存缓冲 + 节流落盘」，不再逐字同步写 localStorage。
+  // 用户报障（iPhone 17 Safari，明说其他设备型号也有）：「信件板块的输入框输入文字后…每
+  // 一个字符输入都会闪字」。根因：本监听挂在全局 input/composition 上，每敲一个字符就走
+  // 一次 localStorage.getItem + JSON.parse + stringify + setItem（ringPush），另加 3 个布局
+  // 读取。同步存储写在 iOS WebKit 上是会阻塞主线程/合成提交的调用，恰好卡在输入法提交那
+  // 一刻 → 每字一次卡顿闪烁，严重时丢字（安卓/桌面同源只是不易察觉，故不做机型分支）。
+  // 这段数据是纯诊断遥测（报告里「输入轨迹」一节），不参与任何业务判定，没有理由占输入热
+  // 路径。修法：事件里只入内存缓冲，≤400ms 合并落盘一次；落盘格式与 ringPush 完全一致
+  //（仍是同一 key 的 8 条环形数组），读侧与诊断口径不变；诊断报告生成前先 flush，保证用户
+  // 即时复制诊断也能看到最后几条；切后台/离开页面兜底 flush 防丢。
+  var _inpBuf = [], _inpFlushT = null;
+  function inpFlush() {
+    try {
+      if (_inpFlushT) { clearTimeout(_inpFlushT); _inpFlushT = null; }
+      if (!_inpBuf.length) return;
+      var arr = [];
+      try {
+        var old = localStorage.getItem(INP_KEY);
+        if (old) { var o = JSON.parse(old); if (Array.isArray(o)) arr = o; }
+      } catch (e) {}
+      arr = arr.concat(_inpBuf);
+      if (arr.length > 8) arr = arr.slice(arr.length - 8);
+      _inpBuf = [];
+      try { localStorage.setItem(INP_KEY, JSON.stringify(arr)); } catch (e) {}
+    } catch (e) { _inpBuf = []; }
+  }
+  window.__diagInpFlush = inpFlush; // 诊断报告生成前同步收尾（同时供回归脚本断言）
   function inpPush(k, el) {
     try {
       if (!isDiagTextEl(el)) return;
-      ringPush(INP_KEY, {
+      _inpBuf.push({
         t: Date.now(), k: k, x: diagElTag(el), n: diagTextLen(el),
         st: Math.round(el.scrollTop || 0), sh: Math.round(el.scrollHeight || 0),
         ch: Math.round(el.clientHeight || 0)
-      }, 8);
+      });
+      if (_inpBuf.length > 24) _inpBuf = _inpBuf.slice(_inpBuf.length - 24);
+      if (!_inpFlushT) _inpFlushT = setTimeout(inpFlush, 400);
     } catch (e) {}
   }
   try {
@@ -747,6 +776,9 @@
     document.addEventListener('compositionstart', function (ev) { inpPush('comp+', ev.target); }, true);
     document.addEventListener('compositionend', function (ev) { inpPush('comp-', ev.target); }, true);
     document.addEventListener('input', function (ev) { inpPush(ev && ev.isComposing ? 'comp' : 'input', ev.target); }, true);
+    // 离开/切后台兜底落盘（缓冲未满即被冻结时不丢最后几条）
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') inpFlush(); });
+    window.addEventListener('pagehide', inpFlush);
   } catch (e) {}
   function mq(q) { try { return !!(window.matchMedia && window.matchMedia(q).matches); } catch (e) { return false; } }
   function cssSupports(decl) {
@@ -1564,6 +1596,8 @@
     //   n>0 且 st/sh/ch 正常 ＝ 进了 DOM 只是没画出来（合成层陈旧）
     //   n>0 但 st ≈ sh-ch 且 sh ≤ ch ＝ 被自身滚动推出裁剪区（#115 自愈已修）
     try {
+      // #538：先把节流缓冲的输入轨迹落盘，再读——否则用户刚打完字就点诊断时看不到最后几条
+      try { if (window.__diagInpFlush) window.__diagInpFlush(); } catch (eF) {}
       const inps = JSON.parse(localStorage.getItem(INP_KEY) || '[]');
       if (Array.isArray(inps) && inps.length) {
         L.push('输入轨迹 ' + inps.length + ' 条（旧→新，只记长度不记内容）：');
@@ -2266,10 +2300,18 @@ window.mochiViewportForm = function (sig) {
   // force 时 resStand=false → forced 设备（如 14 Pro/26.6 sbTop≈73）不再被
   // expect=12+60 误判「顶部双倍避让」
   const expTop = resStand ? 12 : Math.max(envTop, 12);
+  // #537：iOS 独立应用·覆盖形态（非保留/非 iPad/非 force 的 standalone + env∈[20,160]；
+  // 16Pro/26.1、17/26.6 等实测均落此支）= 执行器要让模拟状态栏自身抬升到系统状态栏下方
+  // （base.css html.ios-cover-top 规则消费）+ 非全屏高度须含顶部安全区（expBase=整屏）。
+  // 此前该形态在 CSS 侧完全无人避让——浏览器覆盖壳有 #199/#236 的 mochi-cover-top、
+  // 全屏态有 ios-fs-active 链，唯独「普通态 standalone 覆盖」缺一条，Mochi 行常驻钻进
+  // 系统状态栏（用户报「整页上移」时诊断同步 ✗顶部重叠）。保留/已避让/IPad/force
+  // 各形态恒 false（各自避让链已在），非 standalone 恒 false（浏览器壳走 coverBrowser）。
+  const iosCover = standalone && !forceCover && !resStand && !ipadForm && envTop >= 20 && envTop <= 160;
   const form = forceCover ? 'force-cover' : resStand ? 'reserved' : ipadForm ? 'ipad'
     : coverBrowser ? 'cover-browser' : (envTop >= 20 ? 'covered' : (diff >= 20 ? 'avoided' : 'plain'));
   return { form: form, resStand: resStand, ipadForm: ipadForm, coverBrowser: coverBrowser,
-    forceCover: forceCover, needEnvProbe: needEnvProbe, safeTop: safeTop,
+    forceCover: forceCover, iosCover: iosCover, needEnvProbe: needEnvProbe, safeTop: safeTop,
     expBase: expBase, expTop: expTop, envTop: envTop, diff: diff,
     standalone: standalone, iosMajor: iosMajor };
 };
@@ -2345,10 +2387,10 @@ window.mochiViewportForm = function (sig) {
     if (Fm.forceCover) mode = '覆盖形态（用户已在设置声明：顶部避让修正开启，#186）';
     else if (Fm.resStand) mode = '系统保留形态（iOS 18.x standalone：系统已把网页起点放在状态栏下方，env 仍报真实高度；页面不再避让、高度贴 inner，#200）';
     else if (Fm.ipadForm) mode = 'iPad 形态（inner=屏高已含整屏，diff=0：状态栏悬浮、页面 padding 避让，高度贴 inner/屏高，#184）';
-    else if (envTop >= 20) mode = '覆盖形态（页面顶到屏幕最顶，系统栏悬浮其上）' + (Fm.coverBrowser ? '，浏览器覆盖壳（#199/#236：状态栏自身抬升、.phone 贴 inner）' : '');
+    else if (envTop >= 20) mode = '覆盖形态（页面顶到屏幕最顶，系统栏悬浮其上）' + (Fm.coverBrowser ? '，浏览器覆盖壳（#199/#236：状态栏自身抬升、.phone 贴 inner）' : (Fm.iosCover ? '，独立应用覆盖（#537：.phone 铺满物理屏、状态栏自身抬升到系统栏下方、html/body 同高顶对齐）' : ''));
     else if (diff >= 20) mode = '已避让形态（系统已把网页起点放在状态栏下方，页面不应再加顶部 padding）';
     else mode = '无安全区/常规视口';
-    add(true, '顶部形态判定：' + mode, 'env=' + envTop + 'px  var(--mochi-safe-top)=' + varTop + 'px  diff(screen−inner)=' + diff + 'px  判定器=' + Fm.form + '/safeTop=' + Fm.safeTop + '/期望底=' + Fm.expBase);
+    add(true, '顶部形态判定：' + mode, 'env=' + envTop + 'px  var(--mochi-safe-top)=' + varTop + 'px  diff(screen−inner)=' + diff + 'px  判定器=' + Fm.form + '/safeTop=' + Fm.safeTop + '/期望底=' + Fm.expBase + (Fm.iosCover ? '/独立覆盖=1' : ''));
     // #210：保留/覆盖两形态 JS 信号相同（env≈diff>0）程序不可分——歧义形态时
     // 报告必须主动引导用户用【顶部避让修正】开关自服（否则全 ✓ 假象掩盖真症状：
     // iPhone 17 Pro 实测顶栏与灵动岛融合点不动/输入栏悬空，报告却全 ✓）
@@ -2360,7 +2402,10 @@ window.mochiViewportForm = function (sig) {
       // #236：浏览器覆盖形态 .statusbar 元素顶恒贴 .phone 顶（避让由状态栏自身
       // padding 承担、.phone 无 padding 兜底链），有效顶位=元素顶+实测 padding-top；
       // 其余形态沿用元素顶口径（含 .phone padding）零变化
-      const sbEffTop = Fm.coverBrowser ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+      // #537：iOS 独立应用覆盖形态同款——.phone 铺满整块物理屏（顶=屏幕 0），避让
+      // 改由 html.ios-cover-top 规则抬 .statusbar 自身 padding；仍按「元素顶」判会
+      // 恒报 ✗顶部重叠（修好也红），故与浏览器壳一并取有效顶位。
+      const sbEffTop = (Fm.coverBrowser || Fm.iosCover) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
       if (sbEffTop > expect + 60) add(false, '顶部双倍避让', '✗ 状态栏实测顶位 ' + sbEffTop + 'px，明显超过安全区顶部 ' + expect + 'px（#148 修复的双倍白带形态复发，连本条反馈）');
       // v3.26.x #208：加 diff ≥ envTop−8 守卫——顶部重叠只在「覆盖形态」信号
       // （inner=screen−envTop）下才有意义；iPhone17 等保留形态设备在切后台回来

@@ -189,7 +189,10 @@
         list.style.left = left + 'px';
         list.style.top = top + 'px';
         document.body.appendChild(list);
-        list.style.display = '';
+        // FIX 2026-09-16 #544：CSS `.mochi-custom-select-list{display:none}` 是默认收起态，
+        // 这里必须显式写 block——原写 '' 只清内联样式，回落样式表仍是 none，浮层永远打不开
+        // （用户现象：音乐「导入到歌单」等全站下拉点了不展开；vivo X200s+Edge 等多机型）。
+        list.style.display = 'block';
         open = true;
         wrap.classList.add('open');
         rebuild(); // 打开时刷新选中高亮/toLabel
@@ -646,116 +649,77 @@
     const wk = '日一二三四五六'.charAt(dt.getDay());
     return (dt.getMonth() + 1) + '月' + dt.getDate() + '日 周' + wk + ' ' + p(dt.getHours()) + ':' + p(dt.getMinutes()) + ':' + p(dt.getSeconds());
   }
-  // v3.33.x #523：App 内自绘日期+时间选择器——替代原生 datetime-local（原生弹层锚点不受控，
+  // v3.33.x #523：App 内自绘交卷时间选择器——替代原生 datetime-local（原生弹层锚点不受控，
   // 部分设备/桌面预览下会飘出手机框甚至屏幕外）。两处时间入口（问问TA 答题结束时间 / 批量问卷
-  // 交卷时间）共用。**紧凑两行数字输入**：年/月/日 一行、时/分/秒 一行，直接输任意值＝自由设置
-  // （用户反馈「六排步进太长、不好用」后改为此形态）；顶部实时显示到点时刻；「今天/明天/后天」日期快跳。
-  // overlay 挂 .phone 内、与 #modal-mask 同层同定位（absolute inset:0），永不飞出手机框。
-  let dlPickerTs = 0, dlPickerCb = null;
-  const DLP_FIELDS = ['year', 'month', 'day', 'hour', 'minute', 'second'];
-  function dlPickerFromFields() {
-    const v = {};
-    DLP_FIELDS.forEach(u => {
-      const el = document.getElementById('dl-picker-' + u);
-      const n = el ? parseInt(el.value, 10) : NaN;
-      v[u] = n;
-    });
-    if (DLP_FIELDS.some(u => isNaN(v[u]))) return null;
-    const d = new Date(v.year, v.month - 1, v.day, v.hour, v.minute, v.second);
-    return isNaN(d.getTime()) ? null : d;
+  // 交卷时间）共用。**最简形态（用户定稿）**：只有一个「分钟」输入框，默认 1 分钟，自己填多少分钟；
+  // 顶部实时显示到点的绝对时刻。overlay 静态写在 template 的 #dl-picker-mask（挂 .phone 内，
+  // 与 #modal-mask 同层，永不飞出手机框）。
+  let dlPickerCb = null;
+  function dlPickerMins() {
+    const el = document.getElementById('dl-picker-mins');
+    const n = el ? parseInt(el.value, 10) : NaN;
+    return (isFinite(n) && n > 0) ? n : 0;
   }
-  function dlPickerSummary() {
+  function dlPickerRender() {
+    const n = dlPickerMins();
     const curEl = document.getElementById('dl-picker-cur');
     if (!curEl) return;
-    const d = dlPickerFromFields();
-    curEl.textContent = d ? fmtDeadlineText(d.getTime()) : '请填写完整的 年/月/日 时/分/秒';
-  }
-  function dlPickerSetFields(ts) {
-    const d = new Date(ts), p = n => (n < 10 ? '0' : '') + n;
-    const set = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; };
-    set('dl-picker-year', String(d.getFullYear()));
-    set('dl-picker-month', String(d.getMonth() + 1));
-    set('dl-picker-day', String(d.getDate()));
-    set('dl-picker-hour', p(d.getHours()));
-    set('dl-picker-minute', p(d.getMinutes()));
-    set('dl-picker-second', p(d.getSeconds()));
-    dlPickerSummary();
+    curEl.textContent = n > 0
+      ? '到点：' + fmtDeadlineText(Date.now() + n * 60000) + '（' + n + ' 分钟后）'
+      : '请输入分钟数（默认 1 分钟）';
   }
   function closeDeadlinePicker() {
     const m = document.getElementById('dl-picker-mask');
     if (m) m.hidden = true;
     dlPickerCb = null;
   }
-  function dlPickerField(unit, unitTxt, maxLen) {
-    return '<label class="dl-picker-f"><input type="text" inputmode="numeric" maxlength="' + maxLen +
-      '" class="dl-picker-in" id="dl-picker-' + unit + '"><span>' + unitTxt + '</span></label>';
-  }
-  function dlPickerBuild() {
-    const m = document.createElement('div');
-    m.className = 'modal-mask';
-    m.id = 'dl-picker-mask';
-    m.hidden = true;
-    m.innerHTML =
-      '<div class="modal">' +
-      '<div class="modal-title" id="dl-picker-title">设置时间</div>' +
-      '<div class="modal-static" id="dl-picker-cur">未设置</div>' +
-      '<div class="modal-pills" id="dl-picker-quick"></div>' +
-      '<div class="dl-picker-grid">' +
-      dlPickerField('year', '年', 4) + dlPickerField('month', '月', 2) + dlPickerField('day', '日', 2) +
-      '</div>' +
-      '<div class="dl-picker-grid">' +
-      dlPickerField('hour', '时', 2) + dlPickerField('minute', '分', 2) + dlPickerField('second', '秒', 2) +
-      '</div>' +
-      '<div class="modal-btns">' +
-      '<button type="button" class="modal-btn cancel" id="dl-picker-clear">清除</button>' +
-      '<button type="button" class="modal-btn cancel" id="dl-picker-cancel">取消</button>' +
-      '<button type="button" class="modal-btn ok" id="dl-picker-ok">确定</button></div>' +
-      '</div>';
-    (document.querySelector('.phone') || document.body).appendChild(m);
-    m.querySelectorAll('.dl-picker-in').forEach(inp => inp.addEventListener('input', dlPickerSummary));
-    m.querySelector('#dl-picker-ok').onclick = () => {
-      const d = dlPickerFromFields();
-      if (!d) { toast('时间填写不完整或格式不对（年/月/日 时/分/秒都要填）'); return; }
-      const cb = dlPickerCb; closeDeadlinePicker(); if (cb) cb(d.getTime());
+  // 选择器 DOM 已静态写在 template.html 的 #dl-picker-mask（不用动态 append：动态输入框依赖
+  // mobile-adapt 的 MutationObserver 转换，部分环境点不动）；这里只做一次性事件绑定。
+  let dlPickerWired = false;
+  function dlPickerInit() {
+    const m = document.getElementById('dl-picker-mask');
+    if (!m) return null;
+    if (dlPickerWired) return m;
+    dlPickerWired = true;
+    const mins = document.getElementById('dl-picker-mins');
+    if (mins) {
+      mins.addEventListener('input', dlPickerRender);
+      // 兜底：部分内核点框沿不自动聚焦，点一下显式聚焦（安卓聚焦 ce-box）
+      mins.addEventListener('click', () => { try { (mins.__ceBox || mins).focus(); } catch (e) {} });
+    }
+    const ok = document.getElementById('dl-picker-ok');
+    if (ok) ok.onclick = () => {
+      const n = dlPickerMins();
+      if (n <= 0) { toast('请输入分钟数（大于 0）'); return; }
+      const cb = dlPickerCb; const ts = Date.now() + n * 60000; closeDeadlinePicker(); if (cb) cb(ts);
     };
-    m.querySelector('#dl-picker-cancel').onclick = () => closeDeadlinePicker();
-    m.querySelector('#dl-picker-clear').onclick = () => { const cb = dlPickerCb; closeDeadlinePicker(); if (cb) cb(0); };
+    const cancel = document.getElementById('dl-picker-cancel');
+    if (cancel) cancel.onclick = () => closeDeadlinePicker();
+    const clear = document.getElementById('dl-picker-clear');
+    if (clear) clear.onclick = () => { const cb = dlPickerCb; closeDeadlinePicker(); if (cb) cb(0); };
     m.addEventListener('click', (e) => { if (e.target === m) closeDeadlinePicker(); });
     return m;
   }
+  function dlPickerSetMins(n) {
+    const el = document.getElementById('dl-picker-mins');
+    if (!el) return;
+    if (document.activeElement === el || (el.__ceBox && document.activeElement === el.__ceBox)) return;
+    el.value = String(n);
+  }
   function openDeadlinePicker(title, current, cb) {
-    const m = document.getElementById('dl-picker-mask') || dlPickerBuild();
+    const m = dlPickerInit();
+    if (!m) { toast('时间选择器加载失败'); return; }
     dlPickerCb = cb;
-    dlPickerTs = (current > 0) ? current : (Date.now() + 3600000); // 默认＝现在+1 小时，可自由改
+    // 已设过且未过期 → 按剩余分钟回填；否则默认 1 分钟
+    const n = (current > 0 && current > Date.now()) ? Math.max(1, Math.round((current - Date.now()) / 60000)) : 1;
     const tEl = document.getElementById('dl-picker-title');
     if (tEl) tEl.textContent = title;
-    const quick = document.getElementById('dl-picker-quick');
-    if (quick) {
-      quick.innerHTML = '';
-      // 日期快跳：保留已填的时/分/秒，只把日期挪到今天/明天/后天
-      [['今天', 0], ['明天', 1], ['后天', 2]].forEach(pair => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'pill';
-        b.textContent = pair[0];
-        b.addEventListener('click', () => {
-          const cur = dlPickerFromFields() || new Date(dlPickerTs);
-          const d = new Date();
-          d.setHours(cur.getHours(), cur.getMinutes(), cur.getSeconds(), 0);
-          d.setDate(d.getDate() + pair[1]);
-          dlPickerTs = d.getTime();
-          dlPickerSetFields(dlPickerTs);
-        });
-        quick.appendChild(b);
-      });
-      quick.hidden = false;
-    }
-    dlPickerSetFields(dlPickerTs);
+    dlPickerSetMins(n);
+    dlPickerRender();
     m.hidden = false;
-    // 安卓下 mobile-adapt 会把数字框转成 ce-box（微任务里转换，值代理到 box）——转换前写进
-    // 原生 input 的初值会随 defineProperty 覆盖而丢，转换完成后再补写，保证打开即带当前时间。
-    setTimeout(() => { if (m && !m.hidden) dlPickerSetFields(dlPickerTs); }, 0);
-    setTimeout(() => { if (m && !m.hidden) dlPickerSetFields(dlPickerTs); }, 80);
+    // 打开补写两次兜底（部分内核 ce-box 值代理有延迟）
+    setTimeout(() => { if (m && !m.hidden) dlPickerSetMins(n); }, 0);
+    setTimeout(() => { if (m && !m.hidden) { dlPickerSetMins(n); dlPickerRender(); } }, 80);
   }
 
   // 随机取一道已启用的题（优先用户自定义/启用的）
@@ -780,7 +744,9 @@
     try {
       const cards = (window.getCustomCards && window.getCustomCards()) || [];
       // FIX 2026-09-13 #388 媒体池令牌卡不进互动回应文字池（同 chat.js #383 第三道守卫）
-      const words = cards.filter(s => typeof s === 'string' && s.indexOf('data:') !== 0 && s.indexOf('|||') < 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s)) && s.trim());
+      // FIX 2026-09-15 #533 链接导入的媒体字卡（裸 http(s) 图链）同款排除，否则 TA 的
+      // 互动回应会把「http://…png」当话术发出来
+      const words = cards.filter(s => typeof s === 'string' && s.indexOf('data:') !== 0 && s.indexOf('|||') < 0 && !/^https?:\/\//i.test(s) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s)) && s.trim());
       const preset = (Array.isArray(presetPool) ? presetPool : [])
         .filter(c => !(window.isDefaultCardOff && window.isDefaultCardOff('interact', c)));
       const hasPreset = preset.length > 0;
@@ -3892,7 +3858,8 @@ window.openTCPanel = openTCPanel;
     try {
       const cards = (window.getCustomCards && window.getCustomCards()) || [];
       // FIX 2026-09-13 #388 媒体池令牌卡不进文字题答案池（同 chat.js #383 第三道守卫）
-      words = cards.filter(s => typeof s === 'string' && s.trim() && s.indexOf('data:') !== 0 && s.indexOf('|||') < 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+      // FIX 2026-09-15 #533 链接导入的媒体字卡（裸 http(s) 图链）同款排除
+      words = cards.filter(s => typeof s === 'string' && s.trim() && s.indexOf('data:') !== 0 && s.indexOf('|||') < 0 && !/^https?:\/\//i.test(s) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
     } catch (e) {}
     if (words.length) {
       const n = 1 + Math.floor(Math.random() * Math.min(5, words.length));
@@ -4045,6 +4012,30 @@ window.openTCPanel = openTCPanel;
     surveyPage.hidden = false;
     surveyRender();
   };
+  // v3.33.x #523：只读「问卷详情」弹窗（点聊天里的问卷卡片打开）——题干/选项/TA 逐题作答，
+  // 不再跳批量设置问卷页（用户报「点已交卷卡片却打开了批量设置问卷的页面」）。
+  window.openSurveyDetail = function (rec) {
+    try {
+      const qs = Array.isArray(rec && rec.surveyQs) ? rec.surveyQs : [];
+      const answers = Array.isArray(rec && rec.surveyAnswers) ? rec.surveyAnswers : [];
+      const done = !!(rec && rec.surveyStatus === 'done');
+      const nDone = answers.filter(a => typeof a === 'string' && a.trim()).length;
+      const lines = [];
+      lines.push('你发出的问卷 · ' + qs.length + ' 题');
+      lines.push('状态：' + (done ? '已交卷' : 'TA 作答中（已答 ' + nDone + '/' + qs.length + '）'));
+      if (rec && rec.surveyTs) lines.push('发出时间：' + fmtDeadlineText(rec.surveyTs));
+      lines.push('');
+      qs.forEach((q, i) => {
+        lines.push((i + 1) + '. ' + (q.text || ''));
+        if (Array.isArray(q.options) && q.options.length) lines.push('   选项：' + q.options.join(' / '));
+        let a = answers[i];
+        a = (typeof a === 'string' && a.trim()) ? (window.taFit ? window.taFit(a) : a) : '（未作答）';
+        lines.push('   TA：' + a);
+      });
+      if (window.openModal) window.openModal('问卷详情', '', () => {}, { noInput: true, big: true, staticText: lines.join('\n') });
+      else toast('问卷详情加载失败');
+    } catch (e) {}
+  };
   // v3.33.x #523：关闭批量问卷页并回到聊天页（「发出后自动返回」与返回键共用；
   // enterChat 兜底缺失时回 TA 询问页，防 #472「全 .page 隐藏→底栏飞到最顶」复发）
   function surveyGoChat() {
@@ -4113,7 +4104,7 @@ window.openTCPanel = openTCPanel;
       const d = surveyLoad();
       d.settings.sendToChat = schat.checked;
       surveySave(d);
-      toast(schat.checked ? 'TA 的作答会逐条发送到聊天消息' : 'TA 的作答只写入问卷卡片，不再逐条刷聊天消息');
+      toast(schat.checked ? 'TA 的每条作答都会发送到聊天消息' : 'TA 的作答只写入问卷卡片，不再逐条发到聊天消息');
     });
     const ssend = document.getElementById('ta-survey-send');
     if (ssend) ssend.addEventListener('click', surveySend);

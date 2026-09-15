@@ -675,6 +675,12 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     if (c.indexOf('data:') === 0) return false;
     if (c.indexOf('|||') >= 0) return false;
     if (c.indexOf('@@m:') >= 0) return false;
+    // FIX 2026-09-15 #533 链接导入的媒体字卡（图床不允许跨域时存原始 http(s) 链接，
+    // 位于字卡库【表情包/图片】分类）同样是图片载荷不是文字——旧判定放行 URL，联系人
+    // 写信抽中即把「http://…png」当正文句子写进信纸（用户报「一个对话框里发两个表情，
+    // 另一个会变成文字 URL，信箱里也是这样」）。renderBody 本就把带 sticker:/image:
+    // 前缀的外链当缩略图，这里只是不再把裸链接当句子拼进正文。
+    if (/^https?:\/\//i.test(c)) return false;
     return true;
   }
   // 渲染端剥「名称|||」前缀残留 + 非图片 dataURL（语音等）成 [附件]——只洗显示
@@ -738,6 +744,20 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       text.push(s);
     });
     pushDefault();
+    const sticker = cid ? (window.getMediaCardsFor ? window.getMediaCardsFor(cid, 'sticker') : []) : ((window.getMediaCards && window.getMediaCards('sticker')) || []);
+    const image = cid ? (window.getMediaCardsFor ? window.getMediaCardsFor(cid, 'image') : []) : ((window.getMediaCards && window.getMediaCards('image')) || []);
+    // FIX 2026-09-15 #534 信箱内容类型总开关在【池这一层】生效（设置→回复设置→信箱
+    //   「写信内容类型」ml-kaomoji-en / ml-emoji-en / ml-sticker-en）：旧实现只在
+    //   taLetterContent 的「附加」两步查 kaomojiEn/stickerEn，而正文动词
+    //   pickDefaultMailCard 会按 dc-prob-* 分类权重直接注入 defKaomoji/defEmoji——
+    //   用户把「来信内容使用颜文字」关掉后，系统预设补池里的颜文字仍按占比混进正文
+    //   （用户报「设置了朋友圈和信箱已经把颜文字和表情包都禁了，还是会出现」；
+    //   多机型同报，纯逻辑、零机型分支）。这里直接清空对应池，任何消费方都取不到，
+    //   与朋友圈 feedTypeOn 清池同款口径。缺省键＝开，存量用户行为不变。
+    const tcfg = mailCfgFor(cid);
+    if (!tcfg.kaomojiEn) { kaomoji.length = 0; defKaomoji.length = 0; }
+    if (!tcfg.emojiEn) { emoji.length = 0; defEmoji.length = 0; }
+    if (!tcfg.stickerEn) { sticker.length = 0; image.length = 0; }
     return {
       text: text,
       kaomoji: kaomoji,
@@ -745,8 +765,8 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       defText: defText,
       defKaomoji: defKaomoji,
       defEmoji: defEmoji,
-      sticker: cid ? (window.getMediaCardsFor ? window.getMediaCardsFor(cid, 'sticker') : []) : ((window.getMediaCards && window.getMediaCards('sticker')) || []),
-      image: cid ? (window.getMediaCardsFor ? window.getMediaCardsFor(cid, 'image') : []) : ((window.getMediaCards && window.getMediaCards('image')) || [])
+      sticker: sticker,
+      image: image
     };
   }
   // 按「整体概率 + 分类占比」从默认字卡池抽一张（main/kaomoji/emoji；拍一拍不进信件）；
@@ -764,7 +784,15 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       const keys = ['main', 'kaomoji', 'emoji'];
       const pools = { main: pool.defText, kaomoji: pool.defKaomoji, emoji: pool.defEmoji };
       const catOn = a ? a.cat : (window.defaultCardCat || (() => true));
-      const weights = keys.map(k => (catOn(k) ? Math.max(0, (dcfg.probs && dcfg.probs[k]) || 0) : 0));
+      // FIX 2026-09-15 #534 写信内容类型开关也管住这条「默认字卡按分类占比混入」路径：
+      //   kaomoji/emoji 被关掉时权重清零，抽签不会再落到空池导致整次注入空转（与
+      //   mailCardPool 清池同批；缺省键＝开，存量行为不变）。
+      const mcfg = mailCfgFor(cid);
+      const weights = keys.map(k => {
+        if (k === 'kaomoji' && !mcfg.kaomojiEn) return 0;
+        if (k === 'emoji' && !mcfg.emojiEn) return 0;
+        return catOn(k) ? Math.max(0, (dcfg.probs && dcfg.probs[k]) || 0) : 0;
+      });
       const total = weights.reduce((a, b) => a + b, 0);
       if (total <= 0) return '';
       let roll = Math.random() * total;
@@ -784,7 +812,13 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
   window.mailPoolFor = function (cid) {
     try {
       const p = mailCardPool(cid);
-      return { textN: p.text.length, defTextN: p.defText.length, defKaoN: p.defKaomoji.length, defEmojiN: p.defEmoji.length };
+      // #534：补 kaoN/emojiN/stickerN/imageN——「内容类型开关关掉后对应池确实清空」
+      // 需要能直接观测，否则回归只能靠间接推断。
+      return {
+        textN: p.text.length, defTextN: p.defText.length, defKaoN: p.defKaomoji.length, defEmojiN: p.defEmoji.length,
+        kaoN: p.kaomoji.length, emojiN: p.emoji.length,
+        stickerN: (p.sticker || []).length, imageN: (p.image || []).length
+      };
     } catch (e) { return null; }
   };
   // TA 写信内容：多个字卡（空格分隔）+ 概率加颜文字/emoji/表情包

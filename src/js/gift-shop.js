@@ -648,8 +648,10 @@
     let s = null;
     try { s = JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) {}
     s = s || {};
-    // #312 giftInOn「TA 送我礼物」总开关：默认 0=禁止联系人给我送礼物（用户要求禁用）；打开后下方 ①④ 才会触发
-    return { giftInOn: s.giftInOn === 1 ? 1 : 0, wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
+    // #539 giftInOn「TA 送我礼物」总开关：默认 1=允许联系人给我送礼物（用户 2026-09-15 要求默认开启）；
+    // #312 时代显式关过（存 0）的用户保持关闭不动，只有从未设置过的用户才落到新默认。
+    // giftInPct=「TA 送我礼物」随机送礼概率（默认 5，旧实现写死 5% 无处可调）。
+    return { giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
   }
   function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
   // 心愿项存快照（商品日后被改/删不影响已许的愿），giftId 关联市集商品
@@ -765,10 +767,10 @@
         return;
       }
     }
-    // ④ 原有：TA 随机送礼（5%）；每日上限只拦购买类（①②④），③加心愿不占上限
+    // ④ TA 随机送礼（#539 概率改从设置读，默认 5%）；每日上限只拦购买类（①②④），③加心愿不占上限
     if (capped) return;
     if (!st.giftInOn) return; // #312 总开关关闭＝禁止 TA 送我礼物，随机送礼也不再触发
-    if (Math.random() >= 0.05) return;
+    if (Math.random() * 100 >= st.giftInPct) return;
     const w = walletGet();
     const affordable = gifts.filter(function (g) { return Math.round((g.price || 0) * 100) <= w.systemBalance; });
     const pool = affordable.length ? affordable : gifts;
@@ -897,13 +899,14 @@
     if (!window.openTCPanel) { toast('稍后再试'); return; }
     const st = wlSettings();
     const html =
-      '<div class="gs-row"><div class="gs-lab">TA 送我礼物<span class="gs-sub">关闭后 TA 不会买礼物送你（心愿单兑现、随机送礼都停）；默认关闭</span></div><div class="gs-switch' + (st.giftInOn ? ' on' : '') + '" data-gsw="giftInOn"></div></div>' +
+      '<div class="gs-row"><div class="gs-lab">TA 送我礼物<span class="gs-sub">总开关，关闭后 TA 不会买礼物送你（心愿单兑现、随机送礼都停）；默认开启</span></div><div class="gs-switch' + (st.giftInOn ? ' on' : '') + '" data-gsw="giftInOn"></div></div>' +
+      '<div class="gs-row"><div class="gs-lab">TA 送我礼物概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="giftInPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.giftInPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">心愿单功能<span class="gs-sub">TA 买我的心愿单礼物送我 / TA 把想要的加进自己的心愿单</span></div><div class="gs-switch' + (st.wlOn ? ' on' : '') + '" data-gsw="wlOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 买下我的心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlBuyPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlBuyPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 加进自己心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlAddPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlAddPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
-      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；TA 的购买类行为每天合计最多 3 次（与自动送礼共用上限）；关掉开关即完全关闭对应行为。</div>';
+      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；TA 的购买类行为每天合计最多 3 次（与自动送礼共用上限）；关掉开关即完全关闭对应行为。</div>';
     window.openTCPanel('心意集市和心意柜设置', html);
     document.querySelectorAll('#tc-body [data-gsw]').forEach(function (sw) {
       sw.addEventListener('click', function () {
@@ -1062,6 +1065,7 @@
 
   let marketPage = null, marketManage = false;
   function renderMarket() {
+    syncGiftNames();
     const bal = document.getElementById('market-balance'); if (bal) bal.textContent = walletText();
     const addBtn = document.getElementById('market-add'); if (addBtn) addBtn.textContent = marketManage ? '完成' : '+ 添加商品';
     const mgBtn = document.getElementById('market-manage'); if (mgBtn) mgBtn.textContent = marketManage ? '完成' : '管理';
@@ -1187,7 +1191,18 @@
   }
 
   let giftboxPage = null, boxTab = 'in';
+  // FIX 2026-09-15 #540 心意市集/心意柜跨桌面串名：页面 HTML 在 init/构建时把当时的 partnerName()
+  // 写死进静态文案（giftbox-tawish / gift-wish-ta），切联系人后没人重写 → 在 A 桌面的心意柜里
+  // 看到 B 桌面联系人的名字。渲染入口 + contact-switched 双保险：每次重渲/切换都按当前桌面重写。
+  function syncGiftNames() {
+    const pn = partnerName();
+    const boxTawish = document.getElementById('giftbox-tawish');
+    if (boxTawish) boxTawish.textContent = '☆ 看看 ' + pn + ' 的心愿单';
+    const gwBtn = document.getElementById('gift-wish-ta');
+    if (gwBtn) gwBtn.textContent = '看看 ' + pn + ' 的心愿单';
+  }
   function renderBox() {
+    syncGiftNames();
     const list = boxLoad();
     const inList = list.filter(function (x) { return x.side === 'in'; });
     const outList = list.filter(function (x) { return x.side === 'out'; });
@@ -1411,6 +1426,14 @@
     injectDeskApps([{ el: marketApp, id: 'app-market' }, { el: giftboxApp, id: 'app-giftbox' }]);
     if (marketApp) marketApp.addEventListener('click', function () { if (editingNow()) return; marketManage = false; panelCat = '全部'; openPage(marketPage); renderMarket(); });
     if (giftboxApp) giftboxApp.addEventListener('click', function () { if (editingNow()) return; window.__giftboxFrom = ''; boxTab = 'in'; openPage(giftboxPage); renderBox(); });
+
+    // FIX 2026-09-15 #540：切联系人后立即重写心意市集/心意柜里写死过名字的静态文案；
+    // 页面若正开着顺带重渲（数据列表走动态 store 已隔离，重渲只为文案与列表同时落到新桌面）。
+    document.addEventListener('contact-switched', function () {
+      try { syncGiftNames(); } catch (e) {}
+      try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
+      try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}
+    });
 
     const gp = document.getElementById('chat-gift-panel');
     if (gp) {

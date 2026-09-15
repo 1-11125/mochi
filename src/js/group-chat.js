@@ -1100,6 +1100,10 @@
         // FIX 2026-09-12 #383 群聊同款：#377 令牌化后裸 @@m:hash 卡体无 |||、非 data:，
         // 旧两道守卫漏过＝令牌卡入群聊文字池被当文字直出（与 chat.js getPool 同批修复）
         if (c && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
+        // FIX 2026-09-15 #533 群聊同款：链接导入的媒体字卡（裸 http(s) 图链，存于字卡库
+        // 【表情包/图片】分类）不进文字池——否则群成员抽中即把链接当文字发进群（与
+        // chat.js getPool / mail.js mailCardPool 同批修复）
+        if (/^https?:\/\//i.test(c)) return; // 图链卡不进群聊文字池
         if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
         else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
         else text.push(c);

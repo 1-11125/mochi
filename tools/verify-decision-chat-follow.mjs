@@ -137,7 +137,7 @@ async function unpinAndScrollUp() {
     cb.scrollTop = Math.max(0, cb.scrollHeight - cb.clientHeight - 300);
     return true;
   })()`);
-  await sleep(200);
+  await sleep(700); // G2 消息的 rAF/150ms 平滑跟底兜底若仍在飞会重设钉住，等它落定再解钉（只放宽测试等待，不改断言）
 }
 // 轮询等贴底（gap≤8）；返回 {ok, gap}
 async function waitAtBottom(timeoutMs) {

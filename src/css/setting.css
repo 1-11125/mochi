@@ -130,18 +130,16 @@
   flex:none; text-align:right; cursor:pointer; -webkit-tap-highlight-color:transparent;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.dl-picker-grid { display:flex; gap:8px; margin-top:8px; }
-.dl-picker-f { flex:1; min-width:0; display:flex; align-items:center; gap:3px; }
+.dl-picker-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.dl-picker-lbl { flex-shrink:0; width:44px; font-size:13px; color:var(--muted); }
 .dl-picker-in {
-  flex:1; min-width:0; width:100%; box-sizing:border-box; text-align:center;
-  border:1px solid rgba(0,0,0,.12); border-radius:10px; padding:8px 4px;
-  font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);
+  flex:1; min-width:0; box-sizing:border-box; text-align:center;
+  border:1px solid rgba(0,0,0,.12); border-radius:10px; padding:10px 8px;
+  font-size:16px; font-weight:700; font-family:inherit; outline:none; background:#fff; color:var(--ink);
   -webkit-appearance:none; appearance:none; box-shadow:none;
 }
 .dl-picker-in:focus { border-color:var(--ink); }
-.dl-picker-f > span { flex-shrink:0; font-size:12px; color:var(--muted); }
 [data-theme="dark"] .dl-picker-in { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
-#dl-picker-quick .pill { font-size:12px; }
 .stepper { display:flex; align-items:center; gap:6px; }
 .stp-min, .stp-max {
   width:36px; height:36px; border-radius:11px; border:none; cursor:pointer;
@@ -206,3 +204,36 @@
 .storage-cat-warn { margin:2px 0 9px; padding:8px 10px; border-radius:10px; background:rgba(232,90,90,.12); font-size:11px; line-height:1.6; color:#e85a5a; }
 .storage-clear { display:block; width:100%; margin-top:12px; padding:12px; border:none; border-radius:14px; background:var(--ink); color:var(--bg-b,#fff); font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 .storage-clear:active { opacity:.85; }
+
+/* ===== 字卡使用状态自检（设置→工具 #row-card-audit / card-audit.js） =====
+   语义色走变量，暗色在下方 [data-theme="dark"] 覆盖；不用内联色值，保证明暗可读。 */
+.ca-ok { color:var(--ca-ok,#2e9e6b); }
+.ca-warn { color:var(--ca-warn,#c98a1b); }
+.ca-bad { color:var(--ca-bad,#d9534f); }
+.ca-mute { color:var(--muted); }
+.ca-badge { display:inline-block; min-width:15px; height:15px; line-height:15px; padding:0 5px; margin-left:6px; border-radius:8px; font-size:10px; font-weight:700; color:#fff; background:var(--ca-bad,#d9534f); vertical-align:middle; }
+.ca-badge.zero { display:none; }
+.ca-issues { margin:2px 0; font-size:12.5px; line-height:1.7; }
+.ca-issues b { font-weight:700; }
+.ca-fix { margin-left:8px; padding:2px 9px; border:none; border-radius:9px; background:var(--ink,#111); color:var(--bg-b,#fff); font-size:11px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; white-space:nowrap; }
+.ca-fix:active { opacity:.8; }
+.ca-jump { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ca-jump:active { opacity:.7; }
+.ca-jump::after { content:'›'; margin-left:4px; color:var(--muted); font-weight:700; }
+button.ca-jump { background:none; border:0; color:inherit; font:inherit; padding:0; margin:0; text-align:right; }
+.ca-funnel { display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; margin:3px 0 2px; font-size:11px; line-height:1.6; }
+.ca-funnel .st { padding:0 1px; }
+.ca-funnel .sep { color:var(--muted); opacity:.6; }
+.ca-flow-ok { color:var(--ca-ok,#2e9e6b); }
+.ca-flow-no { color:var(--ca-bad,#d9534f); font-weight:700; }
+.ca-fixbar { display:flex; gap:10px; margin-top:10px; }
+.ca-fixbar .storage-clear { margin-top:0; }
+.ca-sub { display:block; font-size:10.5px; color:var(--muted); line-height:1.55; margin-top:2px; }
+.ca-detail { margin-top:6px; font-size:11px; line-height:1.7; }
+.ca-detail .storage-row { padding:4px 0; font-size:12px; }
+[data-theme="dark"] .ca-ok { color:#4fd18f; }
+[data-theme="dark"] .ca-warn { color:#e0b357; }
+[data-theme="dark"] .ca-bad { color:#ef7b76; }
+[data-theme="dark"] .ca-flow-ok { color:#4fd18f; }
+[data-theme="dark"] .ca-flow-no { color:#ef7b76; }
+[data-theme="dark"] .ca-badge { background:#ef7b76; color:#1a1a1a; }

@@ -614,13 +614,15 @@
       healEditableScroll(t);
     }, true);
   } catch (e) {}
+  // #538：补位涉及的滚动容器清单（nudgeInputVisible 用它定位「聚焦输入框所在的滚动区」）。
+  var NUDGE_SCROLLER_SEL = '.chat-body, .card-list, .gs-scroll, .tc-body, .mem-scroll, .cal-scroll, .div-scroll, .fav-list, .mail-list, .qa-body, .modal, .chat-ask-body, .poke-card-scroll, .chat-decision-body';
   function nudgeInputVisible() {
     var active = document.activeElement;
     if (!isTextEl(active) || !active.getBoundingClientRect) return;
     healEditableScroll(active);
     var r = active.getBoundingClientRect();
     try {
-      var scroller = active.closest('.chat-body, .card-list, .gs-scroll, .tc-body, .mem-scroll, .cal-scroll, .div-scroll, .fav-list, .mail-list, .qa-body, .modal, .chat-ask-body, .poke-card-scroll, .chat-decision-body');
+      var scroller = active.closest(NUDGE_SCROLLER_SEL);
       if (!scroller) return;
       var sr = scroller.getBoundingClientRect();
       // FIX 2026-09-15 #491 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型）
@@ -632,9 +634,22 @@
       // 修法＝几何记忆：滚动容器下缘/宽度与输入框高度都没变（＝现状只可能出自用户
       // 手动滚动）时不补位；键盘开合/布局变化（几何变）仍照旧补位一次，防「输入法
       // 挡住输入栏」的原始职责不变。零机型分支，iOS/安卓两条轮询同时收敛。
-      var geomKey = Math.round(sr.bottom) + 'x' + Math.round(sr.width) + 'x' + Math.round(r.height);
-      if (scroller.__nudgeGeom === geomKey) return;
+      // FIX 2026-09-15 #538 记忆键与抖动阈值都不得被「可视视口噪声」击穿（用户报「输入框一直
+      // 上弹，无法拉到顶部停留」，iPhone Safari）：
+      // 原键含容器底边 sr.bottom —— iOS 输入法候选条逐字显隐 / 键盘动画 / 工具条伸缩都会改
+      // 可视高 → 容器底边变 → 键每次不同 → 几何记忆恒失效 → 看门狗每 250ms tick 照着旧几何
+      // 重写 scrollTop，把用户（或内核让 caret 可见时的系统滚动）拉回「输入框可见」位＝打一个
+      // 字弹一下。候选条本来就是一个字显一次，所以看起来是「每个字符都上弹」。
+      // 修法两层，判据全是「容器几何/视口变化量」，不含任何机型分支：
+      //   ① 键只留「与可视视口无关的容器内容几何」= 宽度 + 内容高（键盘推顶 .phone 时二者不变）；
+      //   ② 视口高变化量要够「真键盘量级」（≥90px）才重做一次补位——候选条显隐（iOS 中文输入法
+      //      逐字换候选条≈44px）、浏览器工具条伸缩这类小抖动一律忽略；真键盘开合（≈200~300px）
+      //      仍照旧补位一次，防「输入法挡住输入栏」的原始职责完整保留。
+      var geomKey = Math.round(sr.width) + 'x' + Math.round(scroller.scrollHeight);
+      var vhNow = Math.round(sr.height);
+      if (scroller.__nudgeGeom === geomKey && Math.abs(vhNow - (scroller.__nudgeVH || vhNow)) < 90) return;
       scroller.__nudgeGeom = geomKey;
+      scroller.__nudgeVH = vhNow;
       if (r.bottom > sr.bottom - 8) {
         scroller.scrollTop = Math.max(0, scroller.scrollTop + (r.bottom - sr.bottom) + 16);
       }
@@ -1182,6 +1197,22 @@
           if (_wantCover !== d.classList.contains('mochi-cover-top')) {
             d.classList.toggle('mochi-cover-top', _wantCover);
           }
+          // v3.26.x #537：iOS 独立应用覆盖形态（判定器 iosCover，单一事实源；与上面浏览器
+          // 形态互斥）同款挂类——该形态 .phone 铺满整块物理屏、模拟状态栏须自身抬升到系统
+          // 状态栏下方（base.css html.ios-cover-top 规则消费；此前普通态无人避让，Mochi 行
+          // 常驻钻系统状态栏=诊断 ✗顶部重叠）。保留/已避让/iPad 形态判定器一律不给
+          // iosCover → 不挂类、零变化。全屏态恒不挂——那形态已有 .phone padding-top +
+          // .statusbar{padding-top:14px} 整条避让链，再叠一次=双倍白带。
+          var _fsState = function () {
+            try {
+              return d.classList.contains('fs-active') || d.classList.contains('fs-css-active')
+                || d.classList.contains('ios-fs-active') || d.classList.contains('ios-native-fs');
+            } catch (e) { return false; }
+          };
+          var _wantIosCover = !!_f.iosCover && !_fsState();
+          if (_wantIosCover !== d.classList.contains('ios-cover-top')) {
+            d.classList.toggle('ios-cover-top', _wantIosCover);
+          }
           // v3.26.x #148：全屏态（原生 fs-active / CSS 兜底 fs-css-active / iOS 兜底
           // ios-fs-active / iOS 原生 ios-native-fs）改为「健康态写 --mochi-ios-h」——
           // 原实现摘除属性回落 100vh，但 iOS 26.x 独立应用 100vh = 整块物理屏
@@ -1189,8 +1220,7 @@
           // 实测 .phone高=874 底部空隙=-62）。--mochi-ios-h = visualViewport 实测
           // 可视高（812），两种形态都贴合；键盘/推定态仍摘除（上方分支），全屏过渡
           // 期短暂波动由常驻自愈 rAF 连续校正。真机状态以诊断「.phone高/底部空隙」复核。
-          if (d.classList.contains('fs-active') || d.classList.contains('fs-css-active')
-              || d.classList.contains('ios-fs-active') || d.classList.contains('ios-native-fs')) {
+          if (_fsState()) {
             // v3.26.x #179/#209：高度=判定器期望底边 expBase——覆盖形态（内容垫到状态
             // 栏下，env=59）=envTop+inner=整块物理屏 852，单用 vv(793) 会在底部留出
             // 60px 白带；已避让（env=0，16 Pro 26.1）=inner 812；保留/iPad/force 各按
@@ -2319,7 +2349,11 @@
         });
         // 失焦兜底：键盘收起偶发漏 resize，稍作延迟按可视高度复原
         document.addEventListener('focusout', function (e) {
-          try { if (e.target === _aTextFocused) _aTextFocused = null; } catch (e2) {}
+          var _lostText = false;
+          try {
+            _lostText = _aIsText(e.target);
+            if (e.target === _aTextFocused) _aTextFocused = null;
+          } catch (e2) {}
           if (_aKb) _aClosing = true; // v3.28.x：键盘开着时失焦=正在收起，标记以跳过逐帧 _aPinPan
           setTimeout(syncAndroidKb, 120);
           setTimeout(syncAndroidKb, 350);
@@ -2329,14 +2363,35 @@
           // 失焦即键盘收起：不依赖 resize（安卓程序化失焦/滑动收起常漏事件），
           // 400ms 后若可视高度已回升（键盘真的收了）才恢复
           setTimeout(function () {
-            if (_aKb && _aVV.height >= _aH - 60) {
+            if (!_aKb) return;
+            if (_aVV.height >= _aH - 60) {
               _aKb = false;
               _aClosing = false;
               _aPhone.style.height = '';
               _aPhone.style.alignSelf = '';
               _aPanComp();
               kbUndockPanels();
+              return;
             }
+            // FIX 2026-09-15 #542：失焦后 vv 读数仍停在键盘态（一批内核收键盘不派
+            // visualViewport.resize，只报开启不报关闭）——主链四条复原路都要「vv 回基准」、
+            // #267 看门狗又要「2.2s 无任何活动」，用户看到的即「收键盘后回弹很慢、下方
+            // 大片灰底」，接着点/滑则更久（红米 K80 Chrome 等多机型，用户明说其他型号也有）。
+            // 这里补一条有界快速复原：失焦确来自文本框（_lostText）+ 此刻没有任何文本元素
+            // 持活焦点（软键盘必依附聚焦可编辑，无焦点即键盘必已不在场）+ vv 读数已稳
+            // ≥350ms（避开收起动画中途误清）→ 判「键盘已收」按 #209/#236 同款动作复原，
+            // 并置 _aVvStale 闩抑制残留读数把 .phone 再抽回（下次触摸/聚焦/回基准即解除）。
+            // 零机型分支、纯焦点+视口证据；健康内核此刻 vv 已回基准走上面 return，不进这里。
+            if (!_lostText) return;
+            if (_aIsText(document.activeElement)) return;
+            if (!_aVV.height || Date.now() - _aVvChgAt < 350) return;
+            _aVvStale = true;
+            _aKb = false;
+            _aClosing = false;
+            _aPhone.style.height = '';
+            _aPhone.style.alignSelf = '';
+            _aPanComp();
+            kbUndockPanels();
           }, 400);
         });
         // v3.14.x：切后台立即清除推顶 + 复位 .phone——键盘必然收了，setInterval 在

@@ -38,9 +38,11 @@
   transition: filter .6s ease;
 }
 /* 简易场景整体光照（JS 按亮灯数实时刷新 --room-bright）：
-   夜间无灯 ≈0 很暗，每点一盏灯 +0.12；白天基础 1，加灯可到 1.3 高亮 */
+   基础亮度恒 1、每点一盏灯 +0.12、封顶 1.3（#546：基础不得为 0——brightness(0)
+   会把整个场景打成纯黑＝「进房间黑屏」）；max(...) 兜底保证任何来源的 0 值
+   也至少渲染到 .45 可见，结构性杜绝同类回归 */
 .r-scene {
-  filter: saturate(calc(var(--room-bright, 1) * .86 + .14)) brightness(var(--room-bright, 1));
+  filter: saturate(calc(var(--room-bright, 1) * .86 + .14)) brightness(max(var(--room-bright, 1), .45));
 }
 .r-wall {
   position: absolute; left: 0; right: 0; top: 0; height: 44%;

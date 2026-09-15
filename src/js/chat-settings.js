@@ -85,8 +85,15 @@
       : { inBg: '#ffffff', inInk: '#111111', outBg: '#111111', outInk: '#ffffff', timeInk: '#111111', sendBg: '#111111', sendInk: '#ffffff' };
   }
   // v3.26.x：单聊气泡对比度自愈——出站/入站文字色与背景色同色或极低对比（用户误设/导入美化方案）
-  // 时注入高优先级覆盖样式强制文字可见。群聊有 GC_MIN_CONTRAST 保护（group-chat.js），单聊此前没有，
-  // 导致出站消息文字与背景同色看不见（入站因 dark.css:87 覆盖 background 通常不受影响）。
+  // 时注入高优先级覆盖样式强制文字可见。
+  // FIX 2026-09-15 #536：自愈只覆盖单聊页（#page-chat）与收藏页（#page-fav）。此前选择器是全局的
+  // `.msg-out .msg-bubble.msg-bubble`——群聊页（#page-group-chat）复用同一套 .msg-out/.msg-in/
+  // .msg-bubble 类名却有自己的气泡变量，于是单聊配色触发自愈时，群聊「我的气泡」被强制写成
+  // 单聊底色的高对比字色：单聊把气泡改成浅色（如 #ffffff）而文字色仍是默认白 → 自愈注入
+  // color:#111111，落到群聊默认黑气泡上就是黑字黑底＝「群聊里我发消息整个框变黑看不到字」
+  //（用户明说「没有修改过气泡和文字颜色」——他改的是气泡底色，文字色从未动过，故自愈被触发）。
+  // 注：群聊曾有的 GC_MIN_CONTRAST 保护已按 #223 用户裁决撤销（群聊所见即所得、不做配色干预），
+  // 所以这条全局选择器在群聊侧没有任何兜底，必须靠作用域隔离。
   function _csHexRgb(h) {
     if (!h || typeof h !== 'string') return null;
     var s = h.trim(); if (s.charAt(0) === '#') s = s.slice(1);
@@ -112,10 +119,10 @@
     var fix = document.getElementById('cs-contrast-fix'), rules = [];
     var ob = root.style.getPropertyValue('--msg-out-bg') || '#111111';
     var oi = root.style.getPropertyValue('--msg-out-ink') || '#ffffff';
-    if (_csContrast(oi, ob) < 1.5) rules.push('.msg-out .msg-bubble.msg-bubble{color:' + _csHiInk(ob) + '!important}');
+    if (_csContrast(oi, ob) < 1.5) rules.push('#page-chat .msg-out .msg-bubble.msg-bubble,#page-fav .msg-out .msg-bubble.msg-bubble{color:' + _csHiInk(ob) + '!important}');
     var ib = root.style.getPropertyValue('--msg-in-bg') || '#ffffff';
     var ii = root.style.getPropertyValue('--msg-in-ink') || '#111111';
-    if (_csContrast(ii, ib) < 1.5) rules.push('.msg-in .msg-bubble.msg-bubble{color:' + _csHiInk(ib) + '!important}');
+    if (_csContrast(ii, ib) < 1.5) rules.push('#page-chat .msg-in .msg-bubble.msg-bubble,#page-fav .msg-in .msg-bubble.msg-bubble{color:' + _csHiInk(ib) + '!important}');
     if (rules.length) {
       if (!fix) { fix = document.createElement('style'); fix.id = 'cs-contrast-fix'; document.head.appendChild(fix); }
       fix.textContent = rules.join('\n');
@@ -971,13 +978,17 @@
     let out, hint = null;
     // v3.26.x #181：统一走 chat.js 的 mochiMapBubbleCss（别名扩充 + 未认出气泡类名时整包声明兜底，
     // 修「上传网页模板气泡 CSS 后界面零变化」多机型反复问题；兜底触发时给出 toast 说明）
+    // FIX 2026-09-15 #536：单聊气泡样式必须钉在 #page-chat 作用域内。此前 scope 传空串，
+    // 产出的 `.msg-out .msg-bubble{…}` 是全局选择器——群聊页（#page-group-chat）复用同一套
+    // .msg-out/.msg-in/.msg-bubble 类名，用户只在单聊设置的气泡背景/文字色会连带套进群聊，
+    // 正是「群聊里我发消息整个框变黑看不到字」的另一条泄漏路径（与 _ensureBubbleContrast 同族）。
     if (window.mochiMapBubbleCss) {
-      const res = window.mochiMapBubbleCss(css, '');
+      const res = window.mochiMapBubbleCss(css, '#page-chat ');
       out = res.out;
       hint = res.hint;
     } else if (css.indexOf('{') < 0) {
-      out = '.msg-out .msg-bubble{' + css + '!important;}' +
-            '.msg-in .msg-bubble{' + css + '!important;}';
+      out = '#page-chat .msg-out .msg-bubble{' + css + '!important;}' +
+            '#page-chat .msg-in .msg-bubble{' + css + '!important;}';
     } else {
       out = css;
     }

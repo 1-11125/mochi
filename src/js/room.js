@@ -27,9 +27,12 @@
   function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
   function lum() {
-    // 简化场景灯光（按点亮的灯具个数叠加亮度）：夜间从 0 起、白天从 1 起（基础亮度），
-    // 每盏亮灯 +0.12；夜间多灯时可达 0.88+，白天加灯也能到 1.3 高亮
-    let v = isNight() ? 0 : 1;
+    // FIX 2026-09-16 #546 房间夜间黑屏（零机型分支）：场景基础亮度昼夜恒为可见下限 1——
+    // 此前夜间从 0 起算，而新档 lit 为空且初始家具没有灯具，19:00~6:00 进屋
+    // --room-bright=0 → .r-scene 整体 brightness(0)＝纯黑（任何设备型号都复现，
+    // 与机型无关、只与时段和是否点灯有关）。「夜晚更暗」由既有 .night 分层调暗
+    // （.r-wall .52 / .r-floor .55）表达；场景层只承担点灯增亮：每盏亮灯 +0.12，封顶 1.3。
+    let v = 1;
     Object.keys(d.lit).forEach(k => { if (d.lit[k]) v += 0.12; });
     return Math.min(1.3, v);
   }

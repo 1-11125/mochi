@@ -655,7 +655,7 @@ function normCell(r) {
       const t = r.text.replace(/✉️\s*/g, '').replace(/✉\s*/g, '');
       if (t !== r.text) { r.text = ICON_ENV + t; c = true; }
     }
-    if ((r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
+    if ((r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
 // FIX 2026-09-12 #383 存量乱码自愈：#383 前令牌卡曾以 type:text 入库（气泡直出 @@m:hash 串），
 // 归一化补认裸令牌→type='image'（与上行 data:image 升级同口径），刷新后历史乱码消息变回图片
 // FIX 2026-09-10 #283 语音型归一：裸 data:audio 文本与「|||@@m:令牌」（pass 令牌化后的无主
@@ -747,6 +747,7 @@ function normCollapseRange(from, to) {
       const a = msgs[i], b = msgs[i - 1];
       if (!a || !b || !a.side || a.side !== b.side) continue;
       if (dupSig(a) !== dupSig(b)) continue;
+      if (a.dedupExempt || b.dedupExempt) continue; // FIX 2026-09-15 #544 决定答案豁免相邻合并（刷新侧与 addRec 实时侧同口径，屏上所见即刷新后所见）
       const hasContent = (a.text && a.text.length) || a.img || a.voice || !!a.special || (a.parts && a.parts.length);
       if (!hasContent) continue;
       const dts = (a.ts || 0) - (b.ts || 0);
@@ -833,7 +834,10 @@ function runDeferredNormalization() {
 function migrateLegacyMediaMsgs() {
 let migrated = false;
 msgs.forEach(r => {
-if (r && (r.type === 'text' || !r.type) && typeof r.text === 'string' && r.text.indexOf('data:image/') === 0) {
+// FIX 2026-09-15 #534 存量图片直链消息补 type='image'——#533 前链接导入的字卡
+// （裸 http(s) 图链）曾被当文字卡抽出、以 type:'text' 落库，气泡直出整段链接；
+// 与 normCell / 渲染端自愈同口径（只认带图片扩展名的单条直链，普通链接不受影响）。
+if (r && (r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text))) {
 r.type = 'image';
 migrated = true;
 }
@@ -1590,6 +1594,17 @@ return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽ�
 function chatHasReadableTextCard(arr) {
 return arr.some(s => typeof s === 'string' && CHAT_READABLE_RE.test(s));
 }
+// FIX 2026-09-15 #534 图片直链识别——存量消息自愈用。只认「整条消息就是一张图片直链」
+// 的形态：单个 http(s) token、无空格引号、带图片扩展名（可带 query/hash）。用户聊天里真
+// 发的普通链接（无图片扩展名）保持原文本显示，不误判成图（避免换成裂图反而更糟）。
+// 背景：链接导入的字卡（图床不允许跨域时按链接存原图 URL，位于字卡库【表情包/图片】）
+// 曾被 getPool 的 data:/|||/@@m: 三道守卫漏过、当文字卡抽出并以 type:'text' 落库，
+// 气泡直出「https://…/IMG_2343.png」整段链接（用户报「联系人发送的消息应该是图片，
+// 会变成图上的乱码」）。#533 已堵住入库口，这里补上已落库历史消息的渲染自愈。
+function chatIsImageUrlCard(s) {
+if (typeof s !== 'string') return false;
+return /^https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#][^\s"'<>]*)?$/i.test(s.trim());
+}
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -1611,6 +1626,12 @@ if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
 // 回复池里是裸 @@m:hash（无 |||、非 data:），旧两道守卫全漏过＝令牌卡被当文字卡入池，
 // 抽中即把令牌串当文字直出（「联系人消息乱码 @@m:…」，公用库共享故多机型全现）
 if (typeof c === 'string' && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
+// FIX 2026-09-15 #533 链接导入的媒体卡（图床不允许跨域时按链接保存的裸 http(s) URL）
+// 同样不是文字载荷——旧三道守卫只挡 data:/|||/@@m: 令牌，URL 形态漏进文字池：TA 抽中
+// 即以 type:'text' 发出、气泡直出「http://…png」链接（用户报「一个对话框里发两个表情，
+// 另一个会变成文字 URL，信箱里也是这样」——该卡就存在字卡库【表情包/图片】分类里）。
+// 媒体池（getMediaCards）此前已按 isMediaImg 收 URL 当图片载荷，这里只是不再当文本抽。
+if (typeof c === 'string' && /^https?:\/\//i.test(c)) return;
 if (chatIsEmojiCard(c)) emoji.push(c);
 else if (chatIsKaomojiCard(c)) kaomoji.push(c);
 else text.push(c);
@@ -2288,11 +2309,16 @@ setTimeout(() => addIn('你领取了红包' + amtTxt, { special: 'poke' }), rand
 return;
 }
 if (e.target.closest('.msg-inplace')) return;
-// v3.33.x #521：批量问卷卡片点击 → 打开问卷详情页（openAskSurvey 自带「返回回聊天页」逻辑）
+// v3.33.x #523：批量问卷卡片点击 → 打开只读「问卷详情」（题干+选项+TA 的作答），
+// 不再跳批量设置问卷页（用户报「点已交卷卡片却打开了批量设置问卷的页面」）
 const surveyCard = e.target.closest('.msg-survey-card');
 if (surveyCard) {
 e.stopPropagation(); // 不冒泡触发气泡操作菜单
-if (window.openAskSurvey) window.openAskSurvey();
+const sItem = surveyCard.closest('.msg-survey');
+const sIdx = sItem && sItem.dataset.idx !== undefined ? Number(sItem.dataset.idx) : -1;
+const sRec = sIdx >= 0 ? msgs[sIdx] : null;
+if (window.openSurveyDetail && sRec) window.openSurveyDetail(sRec);
+else if (window.openAskSurvey) window.openAskSurvey();
 return;
 }
 const card = e.target.closest('.msg-ask-card, .msg-choose-card');
@@ -3350,12 +3376,22 @@ if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
 // 旧逻辑渲染成空壳气泡；改为显示占位，已存空白记录的设备更新后也能看出消息非空壳丢失
 const __rawText = typeof rec.text === 'string' ? rec.text : '';
 const __blankMsg = !__rawText.trim();
+// FIX 2026-09-15 #534 存量图片直链自愈：一条只有图片 URL 的历史消息（#533 前被当文字卡
+// 抽中、以 type:'text' 落库）不再把整段链接糊在气泡里，就地按图片渲染；渲染端不等归一化
+// 跑完（首屏原始数据也能正确显示），点击看大图与 type:'image' 消息同款。零机型分支。
+const __urlImg = !__blankMsg && chatIsImageUrlCard(__rawText);
 const __bodyHtml = __blankMsg
 ? '<span style="opacity:.5;font-size:12px">（空白消息）</span>'
-: '<span style="opacity:.85;word-break:break-word">' + window.mochiInlineTextHtml(T(__rawText)) + '</span>';
+: (__urlImg
+? '<img class="msg-img msg-img-big" src="' + attrEsc(__rawText.trim()) + '" alt="图片" loading="lazy" decoding="async">'
+: '<span style="opacity:.85;word-break:break-word">' + window.mochiInlineTextHtml(T(__rawText)) + '</span>');
 b.innerHTML = rec.quote
 ? quoteHtml(rec.quote, rec.qside) + __bodyHtml
 : __bodyHtml;
+if (__urlImg) {
+const __uImg = b.querySelector('.msg-img-big');
+if (__uImg) __uImg.addEventListener('click', (e) => { e.stopPropagation(); if (window.viewChatImage) window.viewChatImage(__uImg.src); });
+}
 }
 if (rec.mood && rec.mood.length && !rec.retracted) {
 const mm = document.createElement('div');
@@ -3784,7 +3820,12 @@ const len = msgs.length;
 // #256：实时去重改与刷新归一化同口径——mediaTxtEq 跨形式比对 + dupGapMs 统一窗口
 // （sticker/image/voice 型收件侧 60000ms，覆盖多字卡回复条间隔 randInt(1200,2800)；
 // 旧 1200ms 窗整体漏过该间隔＝同款表情包一批两张，刷新后才被归一化删掉一张）。
-for (let i = len - 1; i >= Math.max(0, len - 5); i--) {
+// FIX 2026-09-15 #544：rec.dedupExempt＝用户主动触发的决定答案（帮我决定/多人决定发到聊天）
+// 豁免本扫描——同一问题快速重跑且抽中同结果时，答案带【帮我决定】前缀同文撞进 in 侧 2500ms
+// 窗被静默吞（in 侧无 toast 反馈＝用户视角「联系人消息被吞了几条」），且扫描只看最近 5 条的
+// 时间差，第 1 条被吞后窗口不闭合会连锁吞掉后续同文答案。豁免只对带标记的决定答案生效，
+// TA 批次/用户消息的 #256/#437 去重契约零改动（normCollapseRange 刷新侧同口径豁免）。
+for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt; i--) {
 const p = msgs[i];
 if (!p || p.special || rec.special) continue;
 if ((p.side || '') !== (rec.side || '')) continue;
@@ -3856,7 +3897,7 @@ opts = opts || {};
   // 正文本身就是一张完整字卡，label 再渲染一遍会上下两行内容重复）
   const _tagMood = opts.tag ? [{ tag: String(opts.tag), label: opts.tagNoDup ? '' : String(text) }] : null;
   // v3.16.x：gInv = 联系人主动邀请的游戏类型（pong/snake/rps），随消息持久化供小游戏记录识别
-	return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, mood: opts.mood || _tagMood || undefined });
+	return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, dedupExempt: opts.dedupExempt, mood: opts.mood || _tagMood || undefined });
 }
 // v3.27.x：对话型回复补「正在输入」过渡——TA 回应先 showTyping 再落地，消除气泡凭空冒出的突兀感。
 // items 可为单条文本或数组（数组=逐条连发，条与条之间再出一次 typing）。仅当前桌面生效：期间切走
@@ -4260,7 +4301,8 @@ try { if (window.dcfGet) _dkP = window.dcfGet('deskcheck'); } catch (e) {}
 const pool = (window.getDeskCheckPool ? window.getDeskCheckPool(dir) : []).concat(
   (window.getCustomCardsFor ? window.getCustomCardsFor(window.__activeCid || 'default') : []).filter(function (c) {
     // FIX 2026-09-13 #388 媒体池令牌卡不进查岗回应文字池（同 chat.js #383 第三道守卫）
-    return typeof c === 'string' && c.trim() && c.indexOf('data:') !== 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(c));
+    // FIX 2026-09-15 #533 链接导入的媒体字卡（裸 http(s) 图链）同款排除
+    return typeof c === 'string' && c.trim() && c.indexOf('data:') !== 0 && !/^https?:\/\//i.test(c) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(c));
   })
 );
 if (dir === 'meToTa' && /不要|不用|下次|不了|算了|no/i.test(String(answer))
@@ -6714,6 +6756,7 @@ chatAskType = btn.dataset.atype === 'single' ? 'single' : 'text';
 typeRow.querySelectorAll('.chat-ask-type-btn').forEach(b => b.classList.toggle('sel', b === btn));
 syncOptsHidden();
 askBoxes().forEach(({ box }) => {
+if (!askBoxNeedsLayerFix(box)) return; // #538：原生输入框不进整页 reflow
 try {
 box.style.transform = '';
 void box.offsetHeight;
@@ -6743,19 +6786,35 @@ function askBoxes() {
 const arr = [chatAskInput, document.getElementById('chat-ask-opts')];
 return arr.filter(Boolean).map(el => ({ inp: el, box: el.__ceBox || el }));
 }
+// FIX 2026-09-15 #538 合成层补救是「安卓 ce-box 专用」，iOS 不得参与。
+// 用户报障（iPhone 17 Safari，明说其他设备型号也有）：「向他提问板块的输入框一直上弹，
+// 无法直接拉到顶部停留输入问题」+「信件板块输入框输入文字后一直上弹，每个字符输入都会闪字」。
+// 根因：mobile-adapt 只在安卓把文本输入框转成 contenteditable .ce-box（iOS 保留原生输入框）；
+// 半框被键盘平移时 ce-box 的**文字合成层**会停在旧位（文字与框分离），故这里给 box 贴
+// transform:translateZ(0) 建层、并在 vv.resize/.phone 高度变化时反复 `transform='' →
+// 强制 offsetHeight 整页 reflow → 再贴回`。这套手段对安卓 ce-box 是对的，但它没有任何
+// 平台/能力判定，iOS 也照跑：被反复 toggle 的是**聚焦中的原生 input**，每次触发一次同步
+// 整页重排、并把它提成独立合成层与布局脱同步 → 肉眼就是「输入框一直上弹、逐字闪」。
+// 判定不靠机型：原生输入框（无 __ceBox）本来就没有「合成层文字与框分离」问题——只有
+// ce-box 才需要这套补救，无 ce-box 时整段为 no-op，其所属设备行为完全不变。
+function askBoxNeedsLayerFix(box) { try { return !!(box && box.__ceInp); } catch (e) { return false; } }
 function applyAskComposeLayers() {
 askBoxes().forEach(({ box }) => {
+if (!askBoxNeedsLayerFix(box)) return;
 try { box.style.transform = 'translateZ(0)'; box.style.willChange = 'transform'; } catch (e) {}
 });
 }
 function clearAskComposeLayers() {
 askBoxes().forEach(({ box }) => {
+if (!askBoxNeedsLayerFix(box)) return;
 try { box.style.transform = ''; box.style.willChange = ''; } catch (e) {}
 });
 }
 let askKbRefreshStop = null;
 function startAskKbRefresh() {
 if (askKbRefreshStop) return;
+// 没有需要救的 ce-box 就不装监听/定时器（iOS 原生输入框场景＝零开销、零 reflow）
+if (!askBoxes().some(({ box }) => askBoxNeedsLayerFix(box))) return;
 const vv = window.visualViewport;
 if (!vv) return;
 let t = null;
@@ -6764,6 +6823,7 @@ if (t) clearTimeout(t);
 t = setTimeout(() => {
 t = null;
 askBoxes().forEach(({ box }) => {
+if (!askBoxNeedsLayerFix(box)) return; // #538：原生输入框不进整页 reflow
 try {
 box.style.transform = '';
 void box.offsetHeight; // 强制 reflow，浏览器按新位置重建合成层

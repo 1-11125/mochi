@@ -72,6 +72,9 @@
     if (c.indexOf('data:') === 0) return false;
     if (c.indexOf('|||') >= 0) return false;
     if (c.indexOf('@@m:') >= 0) return false;
+    // FIX 2026-09-15 #533 链接导入的媒体字卡（裸 http(s) 图链）不是文字——旧判定放行，
+    // 每日留言拼进正文即直出「http://…png」（与 chat.js getPool / mail.js 同批修复）
+    if (/^https?:\/\//i.test(c)) return false;
     return true;
   }
   function calCleanMsg(s) {

@@ -637,6 +637,23 @@ try {
     });
     function close() {
       if (stayOnce) { stayOnce = false; return; } // ctl.stay()：本次确定不关闭，cb 已就地切到下一阶段
+      // FIX 2026-09-15 #542：关弹窗前先显式收起输入法（同 #512 问问TA 半框）。用户报（红米 K80
+      // Chrome，明说其他机型也有）：「桌面弹出输入文字的弹窗，点输入框后用输入法收起，回弹很慢、
+      // 看到大片灰底」。根因：关闭弹窗时弹窗内输入框（安卓已转 .ce-box）正持有焦点，直接 hidden
+      // ＝把「聚焦中的可编辑元素」从布局摘掉——一批内核/输入法不为这种移除派 focusout、也不派
+      // visualViewport.resize，移动适配层的收键盘链拿不到证据 → .phone 内联收缩高停在键盘期数值，
+      // 键盘位置一直露 body 灰底，要等看门狗「2.2s 无活动」才复原（继续点/滑就更久）。
+      // 修法：先 blur 走标准失焦链（focusout 必派发、有界快速复原当场生效），再向移动层报备一次
+      // 有界兜底（连 focusout 都不派的内核）。零机型分支：无聚焦时 blur 与报备均为空操作，
+      // iOS/桌面不受影响。
+      try {
+        var _ae = document.activeElement;
+        if (_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.isContentEditable)
+            && mask.contains(_ae)) {
+          try { _ae.blur(); } catch (eB) {}
+        }
+        if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (eD) {} }
+      } catch (eC0) {}
       mask.hidden = true; cb = null;
     }
     function fire() {
@@ -2123,6 +2140,30 @@ try {
       });
     });
   })();
+  // #542：设置页搜索（与上方美化项搜索同款）——设置项上百行，输入即跨 5 个 tag（通用/聊天/系统/工具/关于）
+  // 过滤 .set-row 显示匹配项；清空后复位所有行并重放当前 tag（恢复原分区视图）
+  (function bindSettingsSearch() {
+    const inp = document.getElementById('set-search-input');
+    const page = document.getElementById('page-setting');
+    if (!inp || !page) return;
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim().toLowerCase();
+      const secs = page.querySelectorAll('.them-sec');
+      const rows = page.querySelectorAll('.set-row');
+      if (!q) {
+        rows.forEach(r => r.style.display = '');
+        const activeTab = page.querySelector('.them-tab.active');
+        if (activeTab) activeTab.click();
+        return;
+      }
+      secs.forEach(sec => sec.hidden = false);
+      rows.forEach(r => {
+        const txtEl = r.querySelector('.txt');
+        const txt = (txtEl ? txtEl.textContent : '').toLowerCase();
+        r.style.display = txt.indexOf(q) >= 0 ? '' : 'none';
+      });
+    });
+  })();
   // v3.6.x：装修模式设置卡片背景入口的绑定在 CARD_BG_TYPES 定义之后（见卡片背景段末尾）——
   // 该入口引用了 CARD_BG_TYPES 统计已设置数量，需等其声明后再绑定。
 
@@ -3533,52 +3574,65 @@ try {
     show(tabs[0] ? tabs[0].dataset.tab : 'basic');
   })();
 
-  // ===== 设置 → 工具：安装与使用限制说明（只读弹窗；行 #row-platform-limits 在 template） =====
-  // 汇总「安装方式差异 + iPhone/iOS 稳定平台限制 + 数据备份须知」，内容与开屏公告/各功能说明一致。
-  (function initPlatformLimits() {
-    const row = document.getElementById('row-platform-limits');
-    if (!row) return;
-    const TEXT = [
-      '【iPhone / iOS：推荐用法】',
-      '推荐：用 Safari 打开本站 → 底部「分享」→「添加到主屏幕」，之后从桌面图标打开使用。这样是无浏览器栏的独立应用，全屏更完整、内存表现也更稳（浏览器标签页更容易卡顿，也更容易被系统清掉数据）。',
-      '注意：在 iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与全屏。',
-      '',
-      '【iPhone / iOS 平台限制】',
-      '· 全屏：顶部系统状态栏（时间、电量、灵动岛）由系统控制，任何网页都无法隐藏；全屏开关只能隐藏应用内的模拟状态栏。真正无浏览器栏的独立应用，只有 Safari「添加到主屏幕」这一条路。部分旧版 iOS 浏览器（iOS 16.4 之前的 Safari）不支持网页全屏，点开会弹说明并回滚开关。',
-      '· 全屏会掉：切到后台再切回、或在浏览器里切换页面，全屏会失效，需手动重新打开。',
-      '· 方向：iOS 不支持屏幕方向锁定，不会自动锁竖屏，也不会纠正横屏（iPad 横屏是正常姿势，布局会自适应）。',
-      '· 声音：iOS 要求先与页面互动（点 / 滑一下）才允许播放有声内容，应用已在首次点击时自动解锁；如果全程没有任何操作，定时触发的来电铃声 / 消息音效可能不响。',
-      '· 系统通知：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓 Chrome / Edge 且添加到桌面后可用，iPhone 不支持。',
-      '· 导出：从主屏幕打开时 iPhone 没有下载管理器，导出数据 / 方案会走系统「分享」面板，请保存到「文件」App。',
-      '· 语音：录音格式由系统决定，安卓录制的语音在 iPhone 上可能无法播放，跨设备迁移/导入后个别语音会提示无法播放。',
-      '· 文件选择：iPhone 的「文件」选择器会按文件类型过滤，导入字卡 / 语音 / 备份等时个别文件可能灰显、选不中（系统限制）。',
-      '· 其他：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（可用设置 → 工具 →「卡顿自检 · 一键优化」缓解）。',
-      '',
-      '【安装（安卓 / 电脑）】',
-      '· 安装按钮只会在 Chrome、Edge 等主流浏览器出现；iPhone 没有该按钮，只能手动「添加到主屏幕」。',
-      '· 安卓 Edge：装到桌面的应用与浏览器标签页使用各自独立的存储，装完从桌面打开会看到空数据。安装前请先在浏览器里导出一份备份，装好后再导入。',
-      '· 浏览器标签页 与 桌面快捷方式 的数据可能互不相通，且不要同时打开使用（会导致两边数据不统一）。',
-      '',
-      '【数据与备份（所有平台）】',
-      '· 所有数据只存在你自己的浏览器里，没有云端：清除浏览器数据、卸载、换机、系统回收存储都会导致数据丢失，本机不保留任何自动副本。',
-      '· 有备份提醒弹窗：距上次成功导出超过 1 天提醒一次。请把导出的文件保存到不会被浏览器清理的地方。',
-      '· 导入：设置 → 导入数据 选择之前导出的备份文件；iOS 上会打开系统「文件」App 让你选文件。',
-      '· 系统 / 浏览器版本不同，适配表现可能不同属正常现象；建议始终使用 Chrome、Edge 等主流浏览器。',
-      '',
-      '【更新提醒】',
-      '· 刚更新完时新旧版本正在交接，可能重复提醒一次；不想现在更新可点「稍后」，下次重新打开会自动同步。',
-      '· 不同设备的网络节点可能还没同步到最新版，可以关掉浏览器重开、用流量多刷新几次，或晚几小时再试。',
-      '',
-      '【功能提醒】',
-      '· 音乐：通过网易云链接上传的 VIP / 付费歌曲无法播放（仅免费歌曲可播），歌单导入会自动移除 VIP / 付费歌曲；外链有防盗链也可能播放失败。',
-      '· 图片：超大图片上传时会被自动压缩，过大的会被拒绝（防止图片解码导致 iOS 页面崩溃），请换小一点的图。',
-      '· 体积越大越容易卡：字卡库、表情、图片、聊天记录体积很大时会变慢，可用「卡顿自检 · 一键优化」或精简数据。'
-    ].join('\n');
-    row.addEventListener('click', () => {
-      if (!window.openModal) return;
-      const ctl = window.openModal('安装与使用限制', '', () => {}, { noInput: true, big: true, staticText: TEXT });
-      if (ctl && ctl.okText) ctl.okText('知道了');
-    });
+  // ===== 设置 → 工具：使用说明页导航 + 页内搜索（#row-guide → #page-guide；说明内容静态在 template.html） =====
+  (function initGuideNav() {
+    const page = document.getElementById('page-guide');
+    const row = document.getElementById('row-guide');
+    if (row) {
+      row.addEventListener('click', () => {
+        document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
+        if (page) {
+          page.hidden = false;
+          try { const sc = page.querySelector('.cal-scroll'); if (sc) sc.scrollTop = 0; } catch (e) {}
+        }
+      });
+    }
+    const back = document.getElementById('guide-back');
+    if (back) {
+      back.addEventListener('click', () => {
+        document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
+        const setPage = document.getElementById('page-setting');
+        if (setPage) setPage.hidden = false;
+      });
+    }
+    // ---- 页内搜索：跨分组过滤条目；组标题命中则整组显示，命中组自动展开、未命中组隐藏 ----
+    const input = document.getElementById('guide-search');
+    if (!page || !input) return;
+    const hero = document.getElementById('guide-hero');
+    const empty = document.getElementById('guide-empty');
+    const groups = Array.prototype.slice.call(page.querySelectorAll('.lic-grp'));
+    const baseOpen = groups.map(g => !!g.open); // 记原始展开态（首个默认 open）
+    function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }
+    function apply() {
+      const q = norm(input.value);
+      if (!q) {
+        if (hero) hero.hidden = false;
+        if (empty) empty.hidden = true;
+        groups.forEach((g, i) => {
+          g.hidden = false;
+          g.open = baseOpen[i];
+          Array.prototype.forEach.call(g.querySelectorAll('.lic-li'), li => { li.style.display = ''; });
+        });
+        return;
+      }
+      if (hero) hero.hidden = true;
+      let hits = 0;
+      groups.forEach(g => {
+        const nameEl = g.querySelector('.lg-name');
+        const titleHit = norm(nameEl && nameEl.textContent).indexOf(q) >= 0;
+        let gHit = 0;
+        Array.prototype.forEach.call(g.querySelectorAll('.lic-li'), li => {
+          const show = titleHit || norm(li.textContent).indexOf(q) >= 0;
+          li.style.display = show ? '' : 'none';
+          if (show) gHit++;
+        });
+        g.hidden = gHit === 0;
+        if (gHit > 0) { g.open = true; hits += gHit; }
+      });
+      if (empty) empty.hidden = hits > 0;
+    }
+    input.addEventListener('input', apply);
+    apply();
   })();
 
   // ===== v3.6.x：深色模式 · v3.27.x：三档（浅色/深色/跟随系统） =====

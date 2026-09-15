@@ -117,6 +117,15 @@
   const ccTokMemo = new Map();
   let ccTokMemoChars = 0;
   const CC_TOK_MEMO_MAX_CHARS = 8 * 1024 * 1024;
+  // FIX 2026-09-16 #547 表情面板每次打开图片重载复发（多机型同发，#457 短路被令牌化翻转账废掉）：
+  // 面板签名（chat.js emojiRenderSigTarget）按卡原文算——池视图被本函数异步令牌化后（dataURL→@@m:token），
+  // 同一张卡签名变了 → 下次开面板被误判「内容变化」→ 整面板 innerHTML 重建 + 全部图走媒体池重新解析
+  // ＝用户视角「每次打开表情包都重新加载一遍」。大库令牌化 pass 要跑数秒，期间每次开面板都撞上翻转。
+  // 修法＝身份与令牌化解耦：ccTokMemoRev 登记(token→内容短指纹)，ccMediaCardIdent 对
+  // 「原始大图卡」与「已令牌化卡」算出同一个身份串；memo 有预算会淘汰，rev 不淘汰
+  //（token 内容寻址永不变，每条几十字符，量级=贴纸张数×50B）。
+  const ccTokMemoRev = new Map();
+  function ccMediaFrag(body) { return 'M' + body.length + ':' + body.slice(8, 48); }
   function ccTokenizeGiantMedia(g, slot) {
     if (!window.mochiMediaTokenize) return;
     const jobs = [];
@@ -4308,6 +4317,42 @@
     // #266 修复标记：本块必须立即调用（结尾 `})();`）。漏掉调用括号＝语法仍合法、
     // node --check 与哨兵都查不出，但整段兜底取回变死代码 → iOS 回填被打断后字卡库永久空载。
   })();
+
+  // v3.4x：字卡数据健康探针（供设置→工具「字卡使用状态自检」card-audit.js 调用）——只读，
+  //   扫当前桌面专属池 + 公用池的池视图（令牌化后），统计：
+  //   tokens=媒体池令牌卡数、missing=池里已缺失的令牌（渲染成占位/发不出）、
+  //   bigMedia=单卡 dataURL >512KB 的超大图（库体积/卡顿来源）、badVoice=格式异常的语音卡。
+  window.__ccAuditHealth = function () {
+    const out = { tokens: 0, missing: 0, bigMedia: 0, badVoice: 0 };
+    function scan(g) {
+      if (!g) return;
+      ['sticker', 'image'].forEach(function (t) {
+        (g[t] || []).forEach(function (grp) {
+          if (!Array.isArray(grp) || !Array.isArray(grp[1])) return;
+          grp[1].forEach(function (c) {
+            if (typeof c !== 'string') return;
+            if (c.indexOf('@@m:') === 0) {
+              out.tokens++;
+              if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) out.missing++;
+            } else if (c.indexOf('data:image') === 0 && c.length > 512 * 1024) {
+              out.bigMedia++;
+            }
+          });
+        });
+      });
+      (g['voice'] || []).forEach(function (grp) {
+        if (!Array.isArray(grp) || !Array.isArray(grp[1])) return;
+        grp[1].forEach(function (c) {
+          if (typeof c !== 'string' || !c) return;
+          const i = c.indexOf('|||');
+          if (i < 0 || c.slice(i + 3).indexOf('data:audio') !== 0) out.badVoice++;
+        });
+      });
+    }
+    try { scan(ownPoolRaw()); } catch (e) {}
+    try { scan(pubGroupsRaw()); } catch (e) {}
+    return out;
+  };
 
   // v3.26.x：字卡/回复/收藏 存储明细诊断——报障「该分类 583MB 是否正常」一眼定位
   // 哪个键大、是否有 LS 残留大键（双倍计算）、旧 my-emoji-groups 各桌面遗留（应清未清）。

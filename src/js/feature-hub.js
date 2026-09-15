@@ -235,6 +235,7 @@
       { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
       { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
       { n: '功能诊断', d: '逐个测试全部功能是否正常（约15秒）', k: '功能诊断 自检 测试', go: ['#row-func-diag'] },
+      { n: '使用说明', d: '完整说明：快速开始 / 安装方式 / iPhone·iOS 限制 / 数据备份 / 常见问题', k: '使用说明 教程 帮助 安装 ios 限制 备份 常见问题', go: ['#row-guide'] },
       { n: '功能介绍与许可', d: '原创声明、二传二改许可、灵感来源', k: '介绍 许可 关于 版权', go: ['#row-about'] }
     ] }
   ];
@@ -439,27 +440,34 @@
     toast('「' + it.n + '」的位置：' + (it.where || it.g));
   }
 
-  // ---- 返回设置页（与 row-about/about-back 同一导航模式） ----
+  // ---- 打开：两处入口共用（设置行 / 桌面图标），每次进入复位到宫格首页并清空搜索 ----
+  // hubFrom 记住来源，返回键据此回桌面或回设置页（原实现恒回设置页，桌面进入会迷路）
+  let hubFrom = 'setting';
+  function openHub(from) {
+    document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
+    page.hidden = false;
+    hubFrom = from;
+    if (input) input.value = '';
+    view = 'home';
+    update();
+  }
+
+  // ---- 返回：从设置进入回设置页，从桌面图标进入回桌面 ----
   const back = document.getElementById('fhub-back');
   if (back) {
     back.addEventListener('click', () => {
       document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
-      const setPage = document.getElementById('page-setting');
-      if (setPage) setPage.hidden = false;
+      const target = document.getElementById(hubFrom === 'desktop' ? 'page-phone' : 'page-setting');
+      if (target) target.hidden = false;
     });
   }
 
-  // ---- 设置页入口行：每次进入复位到宫格首页并清空搜索 ----
+  // ---- 设置页入口行 ----
   const row = document.getElementById('row-featurehub');
-  if (row) {
-    row.addEventListener('click', () => {
-      document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
-      page.hidden = false;
-      if (input) input.value = '';
-      view = 'home';
-      update();
-    });
-  }
+  if (row) row.addEventListener('click', () => openHub('setting'));
+
+  // #542 曾有「桌面图标点开即聚焦搜索框」入口，#543 按用户要求撤出桌面（挤占原布局网格）；
+  // hubFrom 恒为 'setting'，返回键固定回设置页，机制保留备用。
 
   update();
 })();
