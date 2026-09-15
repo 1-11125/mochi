@@ -92,28 +92,43 @@ await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.class
 await sleep(600);
 
 // ---- 播种：真令牌卡（进媒体池）+ 假令牌卡（池里没有）写进专属库表情包分类 ----
-const seeded = await evalJs(`(async function(){
+// 字卡库键是 #193 权威守卫托管的大键，外部整包写会被启动恢复清掉——
+// 用 addScriptToEvaluateOnNewDocument 劫持 idbGet 让启动恢复读到种子库（走应用自己的权威流）
+const seedEval = await evalJs(`(async function(){
   try {
     const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
     const cx = cv.getContext('2d');
     const gr = cx.createLinearGradient(0, 0, 64, 64);
     gr.addColorStop(0, '#ff88aa'); gr.addColorStop(1, '#88ccff');
     cx.fillStyle = gr; cx.fillRect(0, 0, 64, 64);
+    cx.fillStyle = '#fff'; for (let i = 0; i < 64; i += 7) cx.fillRect(i, i, 3, 3);
     const px = cv.toDataURL('image/png');
     if (px.length < 1024) return 'png-too-small:' + px.length;
     const tok = await window.mochiMediaTokenize(px, { noCache: true });
     if (!tok || tok.indexOf('@@m:') !== 0) return 'tokenize-fail:' + tok;
-    const fake = '@@m:deadbeefdeadbeefdeadbeefdeadbeef';
-    await window.activeStore().set('cc-groups', JSON.stringify({
-      text: [], kaomoji: [], emoji: [], sticker: [['测试组', [tok, fake]]], image: [], poke: [], voice: []
-    }));
-    return 'ok';
-  } catch (e) { return 'err:' + (e && e.message); }
+    const seed = JSON.stringify({ text: [], kaomoji: [], emoji: [], sticker: [['测试组', [tok, '@@m:deadbeefdeadbeefdeadbeefdeadbeef']]], image: [], poke: [], voice: [] });
+    return JSON.stringify({ ok: true, tok: tok, seed: seed });
+  } catch (e) { return JSON.stringify({ ok: false, err: String(e && e.message) }); }
 })()`);
-check('S0 播种成功（令牌化+写库）', seeded === 'ok', String(seeded));
-await sleep(400); // mochiMediaFlush 落盘窗口
+const seedObj = JSON.parse(seedEval || '{}');
+check('S0 播种成功（令牌化+组数据）', seedObj.ok === true, seedEval);
+await sleep(1500); // mochiMediaFlush（300ms 防抖）把池键落 IDB，供重载后 resolveImg 解图
 
-// 字卡库 store 是启动快照，外部写不可见——重载页面让库读到播种数据（与其他 verify 同法）
+// 文档级注入：idbGet 对专属库键返回种子，让启动恢复把种子当权威数据装进内存
+const patchFn = `(function(){
+  const KEY = (window.activePrefix ? window.activePrefix() : 'xy-home-v2:default') + ':cc-groups';
+  const VAL = ${JSON.stringify(seedObj.seed)};
+  const timer = setInterval(function(){
+    if (!window.idbGet || window.__ccTokPatched) return;
+    window.__ccTokPatched = true; clearInterval(timer);
+    const orig = window.idbGet;
+    window.idbGet = function(k){ return (k === KEY) ? Promise.resolve(VAL) : orig.apply(this, arguments); };
+  }, 0);
+  setTimeout(function(){ clearInterval(timer); }, 8000);
+})();`;
+await cdp('Page.addScriptToEvaluateOnNewDocument', { source: patchFn });
+
+// 重载：启动恢复经劫持的 idbGet 读到种子库 → 装进权威内存 → 字卡库可渲染
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 await sleep(2500);
 for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
@@ -127,34 +142,44 @@ await sleep(1200);
 await evalJs("(function(){var t=document.querySelector('.cc-tab[data-type=\"sticker\"]'); if(t) t.click(); return !!t;})()");
 await sleep(1200);
 
-const grid = await evalJs(`(function(){
+// ---- P1 令牌卡渲染成图片（修前是 .cc-txt 直出令牌串）；观察器可能已消费 data-src 并解图，
+//      所以只断言「令牌卡以 img 形态在网格里」+ P2 断言 src 已解回真图 ----
+const g2 = await evalJs(`(function(){
   const list = document.getElementById('cc-list');
   if (!list) return JSON.stringify({ err: 'no-list' });
-  const imgs = Array.from(list.querySelectorAll('img.cc-img')).map(function(im){
-    return { ds: String(im.getAttribute('data-src') || ''), src: String(im.getAttribute('src') || '') };
+  const items = Array.from(list.querySelectorAll('.cc-item'));
+  const imgs = items.map(function(it){
+    const im = it.querySelector('img.cc-img');
+    return im ? String(im.getAttribute('src') || '') : null;
   });
   const txts = Array.from(list.querySelectorAll('.cc-txt .t')).map(function(el){ return String(el.textContent || ''); });
-  return JSON.stringify({ imgs: imgs, txts: txts });
+  return JSON.stringify({ n: items.length, imgs: imgs, txts: txts });
 })()`);
-const g = JSON.parse(grid || '{}');
+const g = JSON.parse(g2 || '{}');
 
-// ---- P1 令牌卡渲染成 <img data-src="@@m:..."> ----
-check('P1 令牌卡按图渲染（img data-src=@@m:…）', !g.err && g.imgs.some((im) => im.ds.indexOf('@@m:') === 0), JSON.stringify(g).slice(0, 300));
+check('P1 令牌卡按图渲染（img 形态，非文字卡）', !g.err && g.imgs.filter(Boolean).length >= 1, JSON.stringify({ n: g.n, imgs: (g.imgs || []).map(s => s ? s.slice(0, 24) : s) }));
 
 // ---- P5 库内无「@@m:」文本直出（乱码回归哨） ----
-check('P5 无令牌串直出为文字', !g.err && !g.txts.some((t) => t.indexOf('@@m:') === 0), JSON.stringify(g.txts));
-
-// ---- P4 池缺失令牌显示 [图片丢失] 占位 ----
-check('P4 池缺失令牌显示 [图片丢失] 占位', !g.err && g.txts.some((t) => t === '[图片丢失]'), JSON.stringify(g.txts));
+check('P5 无令牌串直出为文字', !g.err && !(g.txts || []).some((t) => t.indexOf('@@m:') === 0), JSON.stringify(g.txts));
 
 // ---- P2 media-pool 观察器把令牌 src 解回真图 ----
-await sleep(1500);
-const src = await evalJs(`(function(){
-  const im = document.querySelector('#page-custom-cards img.cc-img[data-src^="@@m:"], img.cc-img[data-src^="@@m:"]');
-  if (!im) return 'no-img';
-  return String(im.getAttribute('src') || '');
+check('P2 令牌 src 已被解回 data:image 真图', !g.err && (g.imgs || []).some((s) => s && s.indexOf('data:image/') === 0), g.imgs ? String(g.imgs[0] || '').slice(0, 60) : '');
+
+// ---- P4 池缺失令牌：解图失败被 markMissing 后重渲染 → [图片丢失] 占位而非裸令牌 ----
+await evalJs("(function(){var t=document.querySelector('.cc-tab[data-type=\"text\"]'); if(t) t.click(); return !!t;})()");
+await sleep(400);
+await evalJs("(function(){var t=document.querySelector('.cc-tab[data-type=\"sticker\"]'); if(t) t.click(); return !!t;})()");
+await sleep(900);
+const p4 = await evalJs(`(function(){
+  const list = document.getElementById('cc-list');
+  if (!list) return JSON.stringify({ err: 'no-list' });
+  const txts = Array.from(list.querySelectorAll('.cc-txt .t')).map(function(el){ return String(el.textContent || ''); });
+  const tokenTxt = txts.some(function(t){ return t.indexOf('@@m:') === 0; });
+  return JSON.stringify({ txts: txts, tokenTxt: tokenTxt });
 })()`);
-check('P2 令牌 src 已被解回 data:image 真图', typeof src === 'string' && src.indexOf('data:image/') === 0, String(src).slice(0, 80));
+const p4o = JSON.parse(p4 || '{}');
+check('P4 池缺失令牌显示 [图片丢失] 占位', !p4o.err && (p4o.txts || []).some((t) => t === '[图片丢失]'), p4);
+check('P4b 池缺失令牌不直出裸令牌串', !p4o.err && !p4o.tokenTxt, JSON.stringify(p4o.txts));
 
 // ---- P3 点击令牌卡打开大图 ----
 const view = await evalJs(`(function(){
