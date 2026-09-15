@@ -124,7 +124,8 @@
   // 最后掷贴贴门（ai-cuddle-en/ai-cuddle-prob），从贴贴池抽（默认开 5%，与另两门独立）。
   // c 为联系人回复设置对象（cfg()），缺字段回退默认值（与 reply-settings 默认一致）。
   function gn(c, k, def) { try { const v = c ? c[k] : undefined; return (typeof v === 'number' && !isNaN(v)) ? v : def; } catch (e) { return def; } }
-  function hit(p) { return Math.random() * 100 < p; }
+  // #518：hit 出口统一套「系统预设字卡总档」缩放（本文件 hit 仅用于猜拳/游戏/贴贴三道邀请门）
+  function hit(p) { return Math.random() * 100 < (window.dcpEff ? window.dcpEff(p) : p); }
   window.taInviteDraw = function (c) {
     try {
       const d = tiLoad();

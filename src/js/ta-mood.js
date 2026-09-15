@@ -62,7 +62,7 @@
       ls.set('tm-cd-left', String(cd));
       return null;
     }
-    if (Math.random() * 100 >= getProb()) return null;
+    if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(getProb()) : getProb())) return null; // #518 套总档（显示读点保持存盘值不动）
     // 单卡开关过滤——关闭的字卡不参与抽取，整组关完则跳过该组
     const groups = (DATA.groups || []).filter(g => {
       return (DATA.cards || []).some(c => c.group === g.group && !isCardOff(g.group, c.content));

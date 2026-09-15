@@ -351,7 +351,8 @@
       if (window.interactGateOk && !window.interactGateOk()) return false;
       // v3.13.x：兜底默认 15 → 8，与 reply-settings 的 ckq-prob 默认对齐（v3.12.x 漏改处）
       let prob = 8;
-      if (typeof c['ckq-prob'] === 'number' && c['ckq-prob'] > 0) prob = c['ckq-prob'];
+      // #518：套「系统预设字卡总档」缩放（>0 才采用存盘值的口径不变，0/未设仍走兜底 8 再被总档缩放）
+      if (typeof c['ckq-prob'] === 'number' && c['ckq-prob'] > 0) prob = (window.dcpEff ? window.dcpEff(c['ckq-prob']) : c['ckq-prob']);
       if (Math.random() * 100 >= prob) return false;
       return pushCkQuestion(c);
     } catch (e) { return false; }

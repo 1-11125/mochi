@@ -5,7 +5,7 @@
 //   B. 资格缩小不裁已有地：plotN 高于资格时（老存档 30 块）加载后地块数一块不少，
 //      且 syncPlots 不把尾部种了花的地块切掉（最容易被「顺手加回钳制」改坏的点）；
 //   C. 手动收地：shrinkPlots 只收尾部连续空地、下限 4 块、遇有花地块立即止步；
-//   D. 空地折叠：默认只铺有花地块 + 一块「空地×N」折叠砖，点折叠砖才铺开全部地块；
+//   D. 空地折叠：#528 起默认铺开全部地块 + 一块「空地×N」折叠砖，点折叠砖可收起/再展开；
 //   E. 日志全量：容量 300 条，默认显示 20 条，「查看全部」展开后能看到更早的记录；
 //   F. 日志独立 tab：garden-log 在「日志」分区内，标签栏含 7 个分区。
 import { spawn } from 'node:child_process';
@@ -151,13 +151,18 @@ check('B2 三块有花的地一块不少（数组未被 syncPlots 切片）', s 
 check('F1 标签栏 7 个分区（新增「日志」）', s && s.tabs === 7, 'tabs=' + (s && s.tabs));
 check('F2 garden-log 已移入「日志」分区', s && s.logInLogPanel === true);
 
-// D. 空地折叠：默认只铺 3 块有花地块 + 1 块折叠砖
-check('D1 默认只铺有花地块（3 块）+ 空地折叠砖', s && s.tilePlots === 3 && s.foldTile === 1, 'plots=' + (s && s.tilePlots) + ' fold=' + (s && s.foldTile));
-// 点折叠砖 → 铺开全部 30 块空地
+// D. 空地折叠（#528 起默认展开）：默认铺开全部 30 块地 + 1 块折叠砖
+check('D1 默认铺开全部 30 块地 + 空地折叠砖', s && s.tilePlots === 30 && s.foldTile === 1 && /收起/.test(s.foldTxt), 'plots=' + (s && s.tilePlots) + ' fold=' + (s && s.foldTile) + ' txt=' + (s && s.foldTxt));
+// 点折叠砖 → 收起空地，只剩 3 块有花地块
 await evalJs(`(function(){ var t=document.querySelector('.garden-fold-tile'); if(t) t.click(); return 1; })()`);
 await sleep(600);
 s = await st();
-check('D2 点折叠砖后铺开全部 30 块地、折叠砖消失', s && s.tilePlots === 30 && s.foldTile === 0, 'plots=' + (s && s.tilePlots) + ' fold=' + (s && s.foldTile));
+check('D2 点折叠砖后收起空地（只剩 3 块有花地块 + 折叠砖）', s && s.tilePlots === 3 && s.foldTile === 1 && /点开/.test(s.foldTxt), 'plots=' + (s && s.tilePlots) + ' fold=' + (s && s.foldTile) + ' txt=' + (s && s.foldTxt));
+// 再点一次 → 重新铺开
+await evalJs(`(function(){ var t=document.querySelector('.garden-fold-tile'); if(t) t.click(); return 1; })()`);
+await sleep(600);
+s = await st();
+check('D3 再次点折叠砖重新铺开全部 30 块地', s && s.tilePlots === 30 && s.foldTile === 1, 'plots=' + (s && s.tilePlots) + ' fold=' + (s && s.foldTile));
 
 // E. 日志：容量 300 全留、默认 20 条、查看全部展开
 check('E1 日志容量 300：120 条记录一条不丢', s && s.logLen === 120, 'logLen=' + (s && s.logLen));

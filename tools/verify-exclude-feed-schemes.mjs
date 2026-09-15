@@ -148,7 +148,11 @@ console.log('V0 静态锚点');
   const ct = read('src/js/contacts.js');
   ok(ct.includes("'full-beauty-schemes', 'beauty-undo-stack', 'ver-update-ack-ts', 'ver-update-notify',"), '#231 四个全局根键已在 EXCLUDE');
   ok(ct.includes("if (r.indexOf('__') === 0) return true;"), '#233 __ 系统键兜底规则在 isExcluded');
-  ok(ct.includes("'full-beauty-schemes', 'beauty-undo-stack']"), '#231 存量滞留副本回收清单已并入');
+  // #527 契约更新：美化撤销栈改 per-cid 写入后，若仍留在本条回收清单，启动时会把
+  // 「default 副本写回根键并删副本」，新的按桌面隔离存储每次开机被搬空（跨桌面串美化回归）。
+  // 断言拆成两条：回收清单仍须含 full-beauty-schemes，且【不得】含 beauty-undo-stack。
+  ok(ct.includes("'full-beauty-schemes'].forEach(function (k) {"), '#231 存量滞留副本回收清单已并入（#527 后止于 full-beauty-schemes）');
+  ok(!ct.includes("'full-beauty-schemes', 'beauty-undo-stack']"), '#527 撤销栈已自回收清单移除（留在清单会搬空 per-cid 撤销栈）');
   ok(ct.includes("k.indexOf(G + ':default:__') === 0"), '#233 default:__ 滞留副本清扫在位');
   const fd = read('src/js/feed.js');
   ok(fd.includes("const DESK_KEYS = ['feed-cover-bg', 'feed-ta-cover', 'feed-ta-name', 'feed-ta-avatar', 'feed-user-name', 'feed-user-avatar'];"), '#232 身份/封面六键拆到 DESK_KEYS（不再「根键有值就删 default 副本」）');

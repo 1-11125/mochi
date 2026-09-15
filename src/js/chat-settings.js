@@ -1028,14 +1028,53 @@
     try { const a = JSON.parse(gStoreChat.get(CHAT_SCHEMES_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
   };
   const saveChatSchemesList = (arr) => { try { gStoreChat.set(CHAT_SCHEMES_KEY, JSON.stringify(arr)); } catch (e) {} };
+  // FIX 2026-09-15 #527：聊天美化的用途标记 + 命中计数（与桌面美化同族，见 personalize.js #527）。
+  // 旧行为：导入无用途校验、无「识别到几项」反馈，把桌面美化 JSON 粘进聊天导入框照样提示成功。
+  const CHAT_BEAUTY_KIND = 'mochi-chat-beauty';
+  const chatBeautyKindMismatch = (data) => {
+    const k = data && data['__kind__'];
+    return !!k && k !== CHAT_BEAUTY_KIND;
+  };
+  const recognizeChatBeauty = (data) => {
+    if (!data || typeof data !== 'object') return 0;
+    let n = 0;
+    CHAT_BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined) n++; });
+    return n;
+  };
   const collectChatBeauty = () => {
     const data = {};
     CHAT_BEAUTY_KEYS.forEach(k => { const v = store.get(k); if (v !== null && v !== undefined && v !== '') data[k] = v; });
+    data['__kind__'] = CHAT_BEAUTY_KIND;
     return data;
   };
   const applyChatBeautyData = (data) => {
-    CHAT_BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined) store.set(k, data[k]); });
+    let n = 0;
+    CHAT_BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined) { store.set(k, data[k]); n++; } });
     try { applySettings(); applyCss(); applyFont(); } catch (e) {}
+    return n;
+  };
+  // FIX #527：聊天美化导入的兑底备份——此前 chatSchemeImport 直接覆盖、无「导入前备份」、
+  // 无撤销压栈（注释写「与桌面美化导入一致」但备份那一半没跟上）。现与桌面版同口径：
+  // 导入前把当前聊天美化存成「导入前备份」方案，只留最近 5 份，用户自己命名的方案不动。
+  const chatBackupBeforeImport = () => {
+    try {
+      const cur = collectChatBeauty();
+      const realKeys = Object.keys(cur).filter(k => k !== '__kind__');
+      if (!realKeys.length) return '';
+      const d = new Date();
+      const p = (n) => (n < 10 ? '0' : '') + n;
+      const name = '导入前备份 ' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+      let list = getChatSchemes();
+      const autos = list.filter(s => s && typeof s.name === 'string' && s.name.indexOf('导入前备份') === 0);
+      if (autos.length >= 5) {
+        const drop = new Set(autos.slice(0, autos.length - 4).map(s => s.time));
+        list = list.filter(s => !(s && drop.has(s.time) && typeof s.name === 'string' && s.name.indexOf('导入前备份') === 0));
+      }
+      list.push({ name, time: Date.now(), data: cur });
+      saveChatSchemesList(list);
+      const back = getChatSchemes();
+      return back.some(s => s && s.name === name) ? name : '';
+    } catch (e) { return ''; }
   };
   // v3.27.x：暴露给 personalize.js 的完整外观方案合并使用（跨域，仅暴露不改动逻辑）
   window.collectChatBeauty = collectChatBeauty;
@@ -1155,8 +1194,19 @@
       try {
         // #408：粘贴/文件导入统一走自救解析（安卓各机型浏览器粘贴链路会弄脏 JSON，实现见 personalize.js）
         const data = window.mochiParsePastedJSON(v);
-        applyChatBeautyData(data);
-        toast('已导入，当前聊天立即生效');
+        // FIX 2026-09-15 #527：用途校验 + 命中项数如实反馈（原实现无条件报「已导入」）
+        if (chatBeautyKindMismatch(data)) {
+          toast('这份方案不是聊天美化方案（' + data.__kind__ + '），请到对应页面导入');
+          return;
+        }
+        const hit = recognizeChatBeauty(data);
+        if (!hit) {
+          toast('这份数据里没有识别到聊天美化项，请确认是聊天美化方案');
+          return;
+        }
+        const bk = chatBackupBeforeImport();
+        const n = applyChatBeautyData(data);
+        toast('已导入 ' + n + ' 项，当前聊天立即生效' + (bk ? '（原美化已存为「' + bk + '」）' : ''));
         window.openChatBeautySchemes();
       } catch (e) {
         // #408：带出真实原因 + 失败现场写诊断（跨域改动，同族修复见 personalize.js）
@@ -1381,8 +1431,9 @@
     show(tabs[0] ? tabs[0].dataset.tab : 'beautify');
   })();
 
-  // v3.29.x：功能页二级 tag 分类——点击 tag 只显示对应分组（gs-title/set-group 成对 data-tag），
-  // 「全部」恢复全显。默认全显，既有 verify 运行时锚（按 id/文本定位）不受影响。
+  // v3.29.x：功能页二级 tag 分类——点击 tag 只显示对应分组（gs-title/set-group 成对 data-tag）。
+  // v3.34.x：去掉「全部」tab 后，进页即按默认选中项过滤（不再默认全显）；过滤抽成 applyFilter，
+  // 初始化与点击共用。既有 verify 运行时锚（按 id/文本定位）不受影响——被隐藏的分组仍可 querySelector 到。
   (function initCsFuncTags() {
     const tagsEl = document.getElementById('cs-func-tags');
     const page = document.getElementById('page-chat-settings');
@@ -1390,13 +1441,17 @@
     const sec = page.querySelector('.them-sec[data-sec="function"]');
     if (!sec) return;
     const pairs = Array.from(sec.querySelectorAll('.gs-title[data-tag], .set-group[data-tag]'));
+    function applyFilter(ft) {
+      pairs.forEach(el => { el.hidden = (ft !== 'all' && el.dataset.tag !== ft); });
+    }
     tagsEl.addEventListener('click', (e) => {
       const t = e.target.closest('.them-tab');
       if (!t) return;
       tagsEl.querySelectorAll('.them-tab').forEach(x => x.classList.toggle('active', x === t));
-      const ft = t.dataset.ft || 'all';
-      pairs.forEach(el => { el.hidden = (ft !== 'all' && el.dataset.tag !== ft); });
+      applyFilter(t.dataset.ft || 'all');
     });
+    const def = tagsEl.querySelector('.them-tab.active');
+    applyFilter(def ? (def.dataset.ft || 'all') : 'all');
   })();
 
   // ================= 导出 / 导入聊天记录（数据，与清空同组） =================
@@ -1796,7 +1851,9 @@
       }, { maxlength: 3 });
     });
     document.addEventListener('contact-switched', rpProbSync);
-    if (typeof csAddSync === 'function') csAddSync(rpProbSync);
+    // v3.29.x：红包设置已移入聊天页红包半框（#chat-rp-panel「设置」按钮），聊天设置页
+    // ticker 不再同步；改由 chat.js openRpPanel() 调用 window.csRpSettingsSync 主动同步。
+    if (typeof window !== 'undefined') window.csRpSyncProb = rpProbSync;
   }
 
   // v3.28.x：TA 每日发红包上限次数（每联系人独立，默认 5，0=不限）。存 cs-rp-daily-max，
@@ -1821,7 +1878,14 @@
       }, { maxlength: 2 });
     });
     document.addEventListener('contact-switched', rpMaxSync);
-    if (typeof csAddSync === 'function') csAddSync(rpMaxSync);
+    // v3.29.x：组合同步入口，供红包半框打开时一次刷新两个显示值（见上方 csRpSyncProb）。
+    if (typeof window !== 'undefined') {
+      window.csRpSyncMax = rpMaxSync;
+      window.csRpSettingsSync = function () {
+        try { if (window.csRpSyncProb) window.csRpSyncProb(); } catch (e) {}
+        try { if (window.csRpSyncMax) window.csRpSyncMax(); } catch (e) {}
+      };
+    }
   }
 
   // v3.12.x：「隐藏联系人的表情包」开关——默认关闭，全局生效（存根命名空间，与

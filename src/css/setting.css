@@ -21,6 +21,9 @@
    非 sticky（不与主 tab 行/面板头重叠、避免吸顶叠罗汉），字号略小作层级区分 */
 .them-tabs.sub, .gc-set-tabs { position:static; padding:6px 4px 0; }
 .them-tabs.sub .them-tab, .gc-set-tabs .them-tab { font-size:12px; padding:8px 0 7px; }
+/* v3.33.x：设置页顶部 tag 分类——与聊天设置/美化页同款 sticky，滚动时吸顶，
+   标签下不再透出其他分区的 .set-group，避免视觉穿帮 */
+#page-setting .set-tabs, #set-tabs { position:sticky; top:0; }
 /* .them-sec 默认 display:block（不写），切换靠 hidden 属性原生 display:none */
 /* 页面是 flex 纵向滚动容器：设置块禁止被 flex 压缩，内容超高时应滚动而非裁切/重叠 */
 .set-group, .gs-title, .set-title { flex-shrink:0; }
@@ -121,6 +124,24 @@
 .gs-row .tag:hover, .gs-row .tag:focus-visible { background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.12); outline:none; }
 [data-theme="dark"] .gs-row .tag { color:#aaa; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.06); }
 [data-theme="dark"] .gs-row .tag:hover, [data-theme="dark"] .gs-row .tag:focus-visible { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+/* v3.33.x #523：时间入口按钮 + 自绘日期/时间选择器（替代原生 datetime-local——原生弹层在部分
+   设备/桌面预览下锚点不受控、会飘出手机框甚至屏幕外。同类先例：批量导入的目标分组原生 select 改自绘胶囊） */
+.deadline-btn {
+  flex:none; text-align:right; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.dl-picker-grid { display:flex; gap:8px; margin-top:8px; }
+.dl-picker-f { flex:1; min-width:0; display:flex; align-items:center; gap:3px; }
+.dl-picker-in {
+  flex:1; min-width:0; width:100%; box-sizing:border-box; text-align:center;
+  border:1px solid rgba(0,0,0,.12); border-radius:10px; padding:8px 4px;
+  font-size:14px; font-family:inherit; outline:none; background:#fff; color:var(--ink);
+  -webkit-appearance:none; appearance:none; box-shadow:none;
+}
+.dl-picker-in:focus { border-color:var(--ink); }
+.dl-picker-f > span { flex-shrink:0; font-size:12px; color:var(--muted); }
+[data-theme="dark"] .dl-picker-in { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
+#dl-picker-quick .pill { font-size:12px; }
 .stepper { display:flex; align-items:center; gap:6px; }
 .stp-min, .stp-max {
   width:36px; height:36px; border-radius:11px; border:none; cursor:pointer;

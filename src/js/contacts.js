@@ -131,6 +131,15 @@
     // 撤销栈刷新后清空（红米 Note12 Turbo Chrome 报「自用完整外观方案保存后刷新恢复
     // 初始」，多机型同发）、同版本更新条每刷新重弹。存量滞留副本见 migrateLegacy 回收。
     'full-beauty-schemes', 'beauty-undo-stack', 'ver-update-ack-ts', 'ver-update-notify',
+    // FIX 2026-09-15 #527 说明（上面这一行保持原样，勿动）：beauty-undo-stack 虽继续留在
+    // EXCLUDE，但它的【写入端】已改为 per-cid（personalize.js getUndoStack/setUndoStack），
+    // 因为撤销的语义是「回退我在本桌面刚做的操作」——存全局会让在 A 桌面调完美化、切到 B
+    // 桌面点撤销时把 A 的美化写到 B 上。留在 EXCLUDE 的理由：per-cid 键形如
+    // xy-home-v2:<cid>:beauty-undo-stack 本就由「命名空间键不迁移」规则挡住；根键
+    // xy-home-v2:beauty-undo-stack 作为历史副本保留可当读取兜底（per-cid 为空时回退读它），
+    // 且留在 EXCLUDE 才能避免「idbRestore 每次回填根键 → migrateLegacy 反复迁移」的循环。
+    // 真正必须同步改的是下方 #231 回收块——它把 default 副本写回根键并删副本，会把新的
+    // 按桌面隔离存储每次启动搬空（=本修复被反向回滚），故该键已自回收列表移除。
     // v3.26.x #121：通话进行中标记（call.js）——全局根键，call.js 每次启动 recoverCall
     // 读它恢复中断通话。绝不能被 migrateLegacy 当旧顶层业务键迁进 default 桌面并删根键
     // （否则 localStorage 兜底副本每次启动被搬走，关浏览器重开后恢复读不到标记）
@@ -550,7 +559,11 @@
     ['pomo-cfg', 'pomo-today', 'pomo-total', 'pomo-msgs', 'pomo-send-chat', 'pomo-bell',
       'pomo-companion', 'pomo-companion-log', 'pomo-cmp-usecards',
       'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker', 'desk-freq-mode',
-      'full-beauty-schemes', 'beauty-undo-stack'].forEach(function (k) {
+      'full-beauty-schemes'].forEach(function (k) {
+      // FIX 2026-09-15 #527：beauty-undo-stack 已自本回收列表移除（改 per-cid 存储）——
+      // 若继续把 default 副本写回根键并删副本，会让新的按桌面隔离存储每次启动被搬空，
+      // 撤销栈重新变回「跨桌面共用」（=本修复被这条逻辑反向回滚）。
+      // 存量根键里的旧撤销栈由上方正常迁移路径搬进 default 桌面，不丢数据。
       const v = def.get(k);
       if (v !== null && v !== undefined && v !== '') {
         try { if (root.get(k) === null || root.get(k) === undefined) root.set(k, v); } catch (e) {}

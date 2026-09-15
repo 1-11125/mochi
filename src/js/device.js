@@ -842,6 +842,18 @@
       try { setTimeout(function () { fin(-1); }, 1200); } catch (e) {}
     });
   }
+  // v3.34.x #527：模块加载体检单一实现（诊断 & tools/verify-module-load.mjs 共用）——
+  // 构建期注入的 __mochiJsFiles（期望）与运行期 __mochiLoaded（每文件包内 try 末行
+  // 「整段跑完」才登记）求差；返回 null＝旧产物/初始化未接入，调用方按「采集未启用」处理。
+  window.mochiModuleCheck = function () {
+    try {
+      const exp = Array.isArray(window.__mochiJsFiles) ? window.__mochiJsFiles : null;
+      const got = Array.isArray(window.__mochiLoaded) ? window.__mochiLoaded : null;
+      if (!exp || !got) return null;
+      const gs = {}; got.forEach(function (n) { gs[n] = 1; });
+      return { expected: exp.slice(), loaded: got.slice(), missing: exp.filter(function (n) { return !gs[n]; }) };
+    } catch (e) { return null; }
+  };
   function collectDiag() {
     // v3.16.x：整个采集为 Promise 返回。
     // v3.25.x 修复：原实现在 Promise 构造器里同步 resolve，estimate()/persisted()
@@ -860,6 +872,13 @@
     L.push('Mochi 诊断信息（' + ver + '）');
     // v3.27.x：本行启动序号与错误条目 b 字段（id#N）对号——b 与本行不同＝旧启动残留
     L.push('时间：' + new Date().toLocaleString() + '（本次启动 ' + BOOT_ID + '#' + BOOT_N + '）');
+    L.push('');
+    // v3.34.x #528：结论置顶——错误/启动异常/模块未加载/入口缺失/存储/屏幕适配 ✗ 散在
+    // 十几节里，用户看不出「到底坏没坏」。这里放一行聚合结论（snap 时按当前 L 重算，
+    // 异步明细回填后同步刷新），正文明细保留在下方供开发者对号。
+    L.push('【结论】');
+    const conclBodyIdx = L.length;
+    L.push('（汇总中…）');
     L.push('');
     // v3.25.x：【更新状态】放最前——「TA 手机是不是旧缓存」是远端排障第一问。
     // 注意：L 是字符串数组，job 回调里改局部变量改不了已 push 的行，必须像
@@ -1456,6 +1475,17 @@
         je.slice(0, 8).forEach(function (m) { L.push('· ' + String(m).slice(0, 160)); });
       } else L.push('启动文件异常：无（所有功能文件启动完成）');
     } catch (e) {}
+    // v3.34.x #527：模块加载体检——__mochiLoaded（每文件包内 try 末行登记「整段跑完」）
+    // 对比构建期注入的 __mochiJsFiles（=jsFiles 期望清单），差集＝整段没执行的文件。
+    // 补「启动文件异常」的盲区：语法错误在 parse 期抛出、包内 try/catch 兜不住，
+    // __jsErrors 永远看不到；且每个 500KB script 块内任一文件语法错会整块不执行
+    //（整块十几个功能一起死），「启动文件异常：无」与「功能整块没了」因此可以并存。
+    try {
+      const mc = window.mochiModuleCheck ? window.mochiModuleCheck() : null;
+      if (!mc) L.push('模块加载体检：采集未启用（旧产物或初始化未接入）');
+      else if (mc.missing.length) L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：未加载 ' + mc.missing.join(', ') + '（该文件整段未执行＝语法错/启动抛错/漏接 jsFiles，对应功能可能整块失效）');
+      else L.push('模块加载体检：' + mc.expected.length + '/' + mc.expected.length + ' 全部加载完成');
+    } catch (e) {}
     // v3.26.x #101：功能入口体检——用户报"帮我决定加载失败"但诊断说无启动异常，
     // 加 typeof 检查确认 openDecision 等是否赋值（decision.js 抛错但 __jsErrors 没捕获的情况）
     try {
@@ -1558,7 +1588,37 @@
     let given = false, terminal = false, terminalGiven = false, dirty = false, updateCb = null, lastTxt = null, tick = null;
     const PLACEHOLDER = /读取中…|获取中…|采样中…/;
     const PLACEHOLDER_G = /读取中…|获取中…|采样中…/g;
+    // 屏幕适配 ✗ 条目（只采一次；屏幕适配是独立 IIFE，经 window.__collectScreenDiag 只读采集）
+    let _conclSdBad = null;
+    function conclScreenBad() {
+      if (_conclSdBad) return _conclSdBad;
+      try {
+        const r = window.__collectScreenDiag ? window.__collectScreenDiag() : null;
+        _conclSdBad = (r && r.findings) ? r.findings.filter(function (f) { return !f.ok; }).map(function (f) { return f.name; }) : [];
+      } catch (e) { _conclSdBad = []; }
+      return _conclSdBad;
+    }
+    // 结论聚合：扫描当前 L（跳过结论自身那行，防自我累积）＋屏幕适配 ✗，输出一行摘要
+    function conclusionText() {
+      const issues = [];
+      for (let i = 0; i < L.length; i++) {
+        if (i === conclBodyIdx) continue;
+        const s = L[i] || '';
+        let m;
+        if (/^启动文件异常：采集未启用/.test(s)) issues.push('启动文件异常采集未启用');
+        else if ((m = /^启动文件异常 (\d+) 处/.exec(s))) issues.push('启动文件异常 ' + m[1] + ' 处');
+        else if (/^模块加载体检 .*未加载 /.test(s)) { const mm = /未加载 ([^（]+)/.exec(s); issues.push('模块未加载 ' + (mm ? mm[1].trim() : '')); }
+        else if ((m = /^功能入口缺失：(.+)/.exec(s))) issues.push('功能入口缺失 ' + m[1].replace(/（[^）]*）.*$/, '').trim());
+        else if ((m = /^最近错误 (\d+) 条/.exec(s))) issues.push('最近错误 ' + m[1] + ' 条');
+        else if (/^localStorage 状态：/.test(s) && !/正常/.test(s)) issues.push('localStorage 状态异常');
+      }
+      conclScreenBad().forEach(function (n) { issues.push('屏幕适配 ' + n); });
+      if (!issues.length) return '未发现明显异常；若仍有故障，请连同下方明细整段发送。';
+      return '⚠ 发现 ' + issues.length + ' 项：' + issues.map(function (x, i) { return (i + 1) + '. ' + x; }).join('  ');
+    }
     const snap = function () {
+      // 每拍按当前 L 重算结论（异步明细回填后同步刷新）
+      try { L[conclBodyIdx] = conclusionText(); } catch (e0) {}
       // 占位行任何时候都要标注清楚：终态仍停在「读取中…」等于没线索
       const note = terminal ? '未完成（本机存储无响应，稍后重开诊断再试）' : '未读到（本机存储响应慢，稍后自动补全）';
       const out = [];
@@ -2331,7 +2391,12 @@ window.mochiViewportForm = function (sig) {
     // 不掩盖真残留。iOS 键盘 .phone 内联接管由 sdTick 焦点守卫挡，不经此门。
     const _kbShrink = inp.vvH > 0 ? inp.innerH - inp.vvH : 0;
     const _kbDocking = _kbShrink >= Math.round(inp.innerH * 0.22);
+    // #528：桌面模拟器外壳豁免——宽屏（>900px 且未加 force-mobile）下 .phone 是「居中手机
+    // 壳」：base.css 定高 min(844px, calc(100dvh - 48px))，body 上下 padding 各 24px 属既定
+    // 设计；而 expBase 取 innerH，恒报「底部少填 ~24px 白带」（PC 用户每次自动采集刷错误环）。
+    // 严格等 false（undefined 的旧调用/桩不受影响）；真机 mobile.isMobile 恒 true 不豁免。
     if (_kbDocking) add(true, '键盘停靠期，跳过底部判定（vv 缩 ' + _kbShrink + 'px，#282）');
+    else if (inp.isMobileDev === false) add(true, '桌面模拟器外壳：.phone 居中手机壳（body 上下留白 24px 属设计），跳过底部贴合判定');
     else if (inp.phoneBottom != null && inp.innerH) {
       const expB = expBase;
       const under = Math.round(expB - inp.phoneBottom);
@@ -2346,8 +2411,8 @@ window.mochiViewportForm = function (sig) {
       if (inp.iosH && Math.abs(inp.iosH - expH) > 2) add(false, '--mochi-ios-h 与期望屏高不符', '⚠ ios-h=' + inp.iosH + 'px ≠ envTop+inner=' + expH + 'px（#179 公式：覆盖形态=整屏/已避让=inner）');
       else add(true, '--mochi-ios-h=' + (inp.iosH || '(未设→回落)') + ' 与期望屏高一致');
     }
-    // ⑤b 底部导航栏裁切：tabbar 底边超出可视区（#282：键盘停靠期同 ④ 豁免）
-    if (!_kbDocking && inp.tabBottom != null && inp.innerH) {
+    // ⑤b 底部导航栏裁切：tabbar 底边超出可视区（#282：键盘停靠期同 ④ 豁免；#528 桌面外壳同豁免）
+    if (!_kbDocking && inp.isMobileDev !== false && inp.tabBottom != null && inp.innerH) {
       const expTB = expBase - (inp.envBottom || 0); // 期望底边=屏底−Home横条避让（#199：浏览器覆盖形态=可视区底）
       const overB = Math.round(inp.tabBottom - expTB);
       if (overB > 2) add(false, '底部导航栏被裁 ' + overB + 'px', '✗ tabbar 底边 ' + inp.tabBottom + 'px 超出期望 ' + expTB + 'px（#148 同族）');

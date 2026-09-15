@@ -60,9 +60,15 @@
       <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
            全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
       <div class="splash-notice" id="splash-notice">
-        <!-- v3.26.x：开屏最顶·使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
+        <!-- v3.33.x：开屏最顶·红色强警示——禁带「小手机 tag」恶意扩圈；静态 DOM（tag 'x' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），
+             在线 notice.json 覆盖只改公告列表，不影响此处；clock.js 动态插卡（防骗/署名/公告）都锚在免责卡之后，本卡排 #splash-notice 首位不被挪动 -->
+        <div class="splash-alert splash-tagban" data-anti-scam="x">
+          <div class="splash-alert-t">关于「小手机 tag」· 禁止恶意扩圈</div>
+          <p><strong>本站是字卡传讯，不是小手机。请勿带 #小手机 等相关 tag 发帖引流、恶意扩圈。</strong>作者做这个站只是为了方便字卡传讯交流，不是为了扩圈。现在使用的人越来越多，请大家保持基本的礼貌与规则，不要恶意扩圈、刷屏引流，谢谢配合。</p>
+        </div>
+        <!-- v3.26.x：使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
              静态 DOM（tag 'w' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处；
-             clock.js 动态插卡（防骗/署名/公告）都锚在免责卡之后，本卡排 #splash-notice 首位不被挪动 -->
+             clock.js 动态插卡（防骗/署名/公告）都锚在免责卡之后，本卡紧随红色警示卡 -->
         <div class="splash-alert splash-what" data-anti-scam="w">
           <div class="splash-alert-t">使用前提 · 先认清本站是什么</div>
           <p><strong>本站是字卡传讯，纯代码运行，没有任何 AI，不是小手机。</strong>请至少了解什么是字卡传讯、使用过其他传讯网站，再进行使用。</p>
@@ -871,7 +877,7 @@
       <div class="gs-row"><span>回应接聊天字卡/词典（文字+单选）</span><label class="toggle"><input type="checkbox" id="ta-ask-chatcard"><span class="tk"></span></label></div>
       <div class="gs-row"><span>触发概率</span><input type="range" id="ta-ask-prob" min="1" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-prob-val">5%</span></div>
       <div class="gs-row"><span>自动弹窗概率</span><input type="range" id="ta-ask-popup" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-popup-val">70%</span></div>
-      <div class="gs-row"><span>问卷答题结束时间</span><input type="datetime-local" id="ta-ask-deadline" class="tc-input" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px"><button id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row"><span>问卷答题结束时间</span><button type="button" id="ta-ask-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
     </div>
     <div class="card-tabs" id="ta-ask-tabs" style="padding:6px 12px 8px">
       <button class="cc-tab sel" data-tab="sys">系统预设</button>
@@ -914,11 +920,12 @@
     <div class="set-group glass" style="padding:14px">
       <div class="cal-card-title" style="padding:0 0 8px">问卷题目（批量设置）</div>
       <div class="dec-inp-wrap" style="flex:1 0 100%"><textarea id="ta-survey-text" class="tc-input" rows="12" placeholder="单选题：第一行【问题】，下面每行一个选项，如：&#10;【今晚想吃什么？】&#10;火锅&#10;烧烤&#10;寿司&#10;&#10;文字题：第一行【问题】，下一行只写一个「一」，如：&#10;【今天过得怎么样？】&#10;一"></textarea><button type="button" class="dec-inp-clear" data-clear="ta-survey-text" aria-label="清空" title="清空">✕</button></div>
-      <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷</div>
+      <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷<br>· 关闭「TA 的作答发送到聊天消息」后，TA 只把答案写进聊天里的问卷卡片，不再逐条刷消息（单题默认会发，题多怕刷屏可关）</div>
     </div>
     <div class="set-group glass">
-      <div class="gs-row"><span>交卷时间（到点TA自动交卷）</span><input type="datetime-local" id="ta-survey-deadline" class="tc-input" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px"><button id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
       <div class="gs-row"><span>每30秒提前交卷概率</span><input type="range" id="ta-survey-prob" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-survey-prob-val">10%</span></div>
+      <div class="gs-row"><span>TA 的作答发送到聊天消息</span><label class="toggle"><input type="checkbox" id="ta-survey-chat" checked><span class="tk"></span></label></div>
     </div>
     <div class="set-group glass" style="padding:12px 14px">
       <div id="ta-survey-status" style="font-size:13px;line-height:1.8">尚未发出问卷</div>
@@ -1564,6 +1571,15 @@
       </div><!-- /them-sec system -->
       <!-- 工具：导出 / 导入 / 信息诊断 / 存储 / 卡顿优化等数据与诊断工具 -->
       <div class="them-sec" data-sec="tools">
+      <!-- 安装 / 平台限制说明（只读弹窗，绑定见 personalize.js initPlatformLimits） -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-platform-limits">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11.2 12h1.2v4.6"/></svg></div>
+          <div class="txt">安装与使用限制<span class="sub">iPhone 推荐 Safari 添加到主屏幕 · 安装方式 · iOS 限制 · 数据备份</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="gs-sub" id="platform-limits-sub">iPhone 推荐：用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、更不容易卡顿/丢数据）；iPhone 上用 Edge / Chrome「添加到主屏幕」只会建快捷方式、拿不到独立应用。iPhone 顶部系统状态栏（时间/电量）无法隐藏，浏览器内切页或切后台会让全屏失效、需手动重开。点上方一行查看全部限制与建议。</div>
+      </div>
       <div class="set-group glass">
         <div class="set-row" id="row-export">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
@@ -1626,19 +1642,30 @@
           <div class="txt">卡顿自检 · 一键优化<span class="sub">字卡库数据过大导致卡顿时，扫描分级并一键预热修复</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
+        <!-- 所有字卡使用状态自检（card-audit.js）：自定义字卡 + 系统预设字卡（含二级密码锁、
+             各分类开关/概率/停用分组）一次性诊断，讲清「每类字卡能不能被用到、为什么用不到」 -->
+        <div class="set-row" id="row-card-audit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4"/><path d="M9 12l2 2 8-8"/><path d="M15 3h6v6"/></svg></div>
+          <div class="txt">字卡使用状态自检<span class="sub">自定义 / 系统预设字卡能不能被用到，一次看清</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
       </div>
-      </div><!-- /them-sec tools -->
-      <!-- 关于：清除本地数据 + 版本 + 防骗声明（常驻底部，不随标签切换） -->
+      <!-- v3.33.x #525：清除本地数据归入「工具」tag（与导出/导入同属数据管理）——
+           原在「关于」段＝用户报「设置 tag 分类不正常」；独立成组与上方诊断工具视觉分隔，且仍是本 tag 最后一项 -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-reset">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
+          <div class="txt">清除本地数据</div>
+        </div>
+      </div>
+      </div><!-- /them-sec tools · row-reset -->
+      <!-- 关于：功能介绍与二传二改许可（版本 / 署名 / 防骗声明在分区外常驻底部，不随标签切换） -->
       <div class="them-sec" data-sec="about">
       <div class="set-group glass">
         <div class="set-row" id="row-about">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div>
           <div class="txt">功能介绍与可二传二改许可</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-reset">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
-          <div class="txt">清除本地数据</div>
         </div>
       </div>
       </div><!-- /them-sec about -->
@@ -1726,6 +1753,25 @@
       </div>
     </div>
 
+    <!-- 字卡使用状态自检（独立页面，card-audit.js 渲染）——自定义 + 系统预设字卡全量诊断 -->
+    <div class="page" id="page-card-audit" hidden>
+      <div class="chat-head">
+        <span class="ch-back" id="card-audit-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </span>
+        <span class="ch-name">字卡使用状态自检</span>
+      </div>
+      <div class="cal-scroll">
+        <div class="cal-card glass" style="display:flex;gap:10px">
+          <button class="storage-clear" id="card-audit-refresh" type="button" style="margin-top:0">重新自检</button>
+          <button class="storage-clear" id="card-audit-copy" type="button" style="margin-top:0">复制报告</button>
+        </div>
+        <div id="card-audit-body">
+          <div class="cal-card glass"><div class="storage-hint">正在自检…</div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- 外观与主题（独立页面） -->
     <div class="page" id="page-theme" hidden>
       <div class="chat-head">
@@ -1742,14 +1788,16 @@
         <div class="them-tab" data-tab="icon">图标</div>
         <div class="them-tab" data-tab="scheme">方案</div>
       </div>
-      <div class="them-sec" data-sec="color">
-      <div class="desk-quick" id="desk-quick-panel" style="display:flex;gap:8px;padding:10px 12px;flex-wrap:wrap">
+      <!-- FIX 2026-09-15 #527：快捷入口提到页面级（原来只在「颜色」段内，切到尺寸/背景/图标/方案
+           四个 tab 后「边看边调」整个消失，用户根本找不到）。放在 them-tabs 之后 = 五个 tab 都可见。 -->
+      <div class="desk-quick" id="desk-quick-panel" style="display:flex;gap:8px;padding:10px 12px 8px;flex-wrap:wrap;flex-shrink:0">
         <button class="dq-btn" id="dq-accent" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">主题色</button>
         <button class="dq-btn" id="dq-theme" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">深色模式</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
-        <button class="dq-btn" id="dq-drawer" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--ink,#111);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">边看边调</button>
+        <button class="dq-btn" id="dq-drawer" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--ink,#111);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;font-weight:600;cursor:pointer">边看边调</button>
       </div>
+      <div class="them-sec" data-sec="color">
       <div class="cg-title">颜色与透明度</div>
       <div class="desk-cp" id="desk-color-preview">
         <div class="desk-cp-phone">
@@ -2351,7 +2399,7 @@
           <div class="lic-li">离线消息提醒：页面全部关闭后，安卓 PWA 后台同步仍会推送「TA 来消息了」（需先添加到桌面，iOS 不支持）</div>
           <div class="lic-li">PWA 安装：安装按钮、iOS 引导、已安装隐藏</div>
           <div class="lic-li">版本检测：在线对比版本时间戳，显示新版本提示条，可关闭</div>
-          <div class="lic-li">定期备份提醒：距上次导出超 7 天提醒；首次使用引导：无数据时提示可导入备份</div>
+          <div class="lic-li">定期备份提醒：距上次导出超 1 天提醒；首次使用引导：无数据时提示可导入备份</div>
             </div>
           </details>
 
@@ -5715,13 +5763,18 @@
       </div>
       </div>
       <div class="them-sec" data-sec="function" hidden>
-      <!-- v3.29.x：功能页二级 tag 分类（全部/形象/消息输入/界面），点击只显示对应分组；
-           交互在 chat-settings.js（#cs-func-tags），分组按 gs-title/set-group 成对 data-tag 过滤 -->
+      <!-- v3.29.x：功能页二级 tag 分类（形象/消息/显示），点击只显示对应分组；
+           交互在 chat-settings.js（#cs-func-tags），分组按 gs-title/set-group 成对 data-tag 过滤。
+           v3.34.x 分类改名（用户反馈「分类名字还是有问题，不太合适」）：
+           ①去掉「全部」（进页默认选中「形象」并即时过滤，三分类互斥）；
+           ②「消息输入」→「消息」——「允许删除联系人消息」已移入本分类，旧名（只管输入）
+             盖不住「删除消息」这类操作项；
+           ③「界面」→「显示」——本组 5 项（隐藏联系人表情包/全屏/全屏防误触/隐藏音乐悬浮小窗/
+             隐藏通话小框）全是显隐开关，叫「界面」名不副实 -->
       <div class="them-tabs sub" id="cs-func-tags">
-        <div class="them-tab active" data-ft="all">全部</div>
-        <div class="them-tab" data-ft="profile">形象</div>
-        <div class="them-tab" data-ft="msg">消息输入</div>
-        <div class="them-tab" data-ft="ui">界面</div>
+        <div class="them-tab active" data-ft="profile">形象</div>
+        <div class="them-tab" data-ft="msg">消息</div>
+        <div class="them-tab" data-ft="ui">显示</div>
       </div>
       <!-- v3.8.x：聊天专用昵称/头像（与桌面 deco-widget 的 lbl-*/avatar-* 完全独立，
            桌面只能在桌面改，聊天只能在聊天设置改；未设时聊天页显示默认占位 TA/我 + 人形图标） -->
@@ -5799,6 +5852,16 @@
           <label class="toggle"><input type="checkbox" id="cs-voice-send"><span class="tk"></span></label>
         </div>
       </div>
+      <!-- v3.10.x：允许删除联系人消息（默认关闭，每联系人独立）。开启后点击 TA 消息弹出的操作菜单里多出「删除」按钮，可永久移除该条 TA 消息。
+           v3.34.x：由「数据」分区搬入「消息」分类（用户反馈：这是消息操作项，不该只在数据页） -->
+      <div class="gs-title" data-tag="msg">消息管理</div>
+      <div class="set-group glass" data-tag="msg">
+        <div class="set-row" id="cs-del-ta-msg-row">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg></div>
+          <div class="txt">允许删除联系人消息<span class="sub">点击消息气泡可弹出删除按钮，消息是真的会删除无法回复</span></div>
+          <label class="toggle"><input type="checkbox" id="cs-del-ta-msg"><span class="tk"></span></label>
+        </div>
+      </div>
       <!-- v3.12.x：隐藏联系人的表情包开关（默认关闭，全局生效）。开启后聊天与朋友圈的
            表情包面板只显示「我的表情包」，不再显示 TA 的/公用表情包 -->
       <div class="gs-title" data-tag="ui">表情包</div>
@@ -5860,12 +5923,6 @@
         <div class="set-row danger" id="cs-clear-msgs">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
           <div class="txt">删除全部聊天记录</div>
-        </div>
-        <!-- v3.10.x：允许删除联系人消息（默认关闭，每联系人独立）。开启后点击 TA 消息弹出的操作菜单里多出「删除」按钮，可永久移除该条 TA 消息 -->
-        <div class="set-row" id="cs-del-ta-msg-row">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg></div>
-          <div class="txt">允许删除联系人消息<span class="sub">点击消息气泡可弹出删除按钮，消息是真的会删除无法回复</span></div>
-          <label class="toggle"><input type="checkbox" id="cs-del-ta-msg"><span class="tk"></span></label>
         </div>
       </div>
       </div>

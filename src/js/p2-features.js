@@ -679,8 +679,38 @@ function renderCheckinHistory() {
     }
     if (panel) panel.hidden = false;
   };
+  // FIX 2026-09-15 #529 寻踪半框（点聊天顶部头像打开）加「关闭/开关 + 点外关闭」——
+  // 用户报「再次点顶部栏头像或点击屏幕其他地方，无法关闭」。根因两条、与机型无关：
+  //   ① #ck-panel 自建立起就没有 document 层点外关闭（拍一拍 #poke-card / 表情包 #emoji-panel /
+  //      更多功能 #chat-more-panel / 消息菜单 #msg-actions 都各有各的 document 关闭器），
+  //      「点屏幕其他地方」根本没有关闭路径；
+  //   ② 头像入口 chat.js 恒调 openCkPanel()，而此函数恒 `panel.hidden = false`，
+  //      再次点顶部头像＝又开一次，面板纹丝不动。
+  // 修复＝补 closeCkPanel/toggleCkPanel（开关）+ 与兄弟面板同款的 document 点外关闭；
+  // chat.js 头像入口改走 toggleCkPanel。头像自身 stopPropagation，点外关闭器收不到它。
+  function closeCkPanel() {
+    const p = document.getElementById('ck-panel');
+    if (p) p.hidden = true;
+  }
+  window.closeCkPanel = closeCkPanel;
+  window.toggleCkPanel = function () {
+    const p = document.getElementById('ck-panel');
+    if (!p) return;
+    if (!p.hidden) { closeCkPanel(); return; }
+    window.openCkPanel();
+  };
+  document.addEventListener('click', (e) => {
+    const p = document.getElementById('ck-panel');
+    if (!p || p.hidden) return;
+    if (p.contains(e.target)) return; // 面板内部点击不关闭（含 ✕ / 「TA在身边」入口）
+    // 打开它的入口（聊天顶部头像）不当作「面板外」——头像自身已 stopPropagation，
+    // 此处再兜一层，防将来某条路径漏 stop 变成「刚开即关」
+    const av = document.getElementById('chat-partner-av');
+    if (av && (e.target === av || av.contains(e.target))) return;
+    closeCkPanel();
+  });
   const ckPanelClose = document.getElementById('ck-panel-close');
-  if (ckPanelClose) ckPanelClose.addEventListener('click', () => { document.getElementById('ck-panel').hidden = true; });
+  if (ckPanelClose) ckPanelClose.addEventListener('click', () => { closeCkPanel(); });
   // 自动轮询：启动立即 + 每 60 秒检查（首次 last=0 立即生成）
   // v3.5.118：首次检查延迟到 IndexedDB 回填完成后（mochi-restore-done）——
   // 否则启动瞬间 doCheckin→chatAddIn 会在聊天记录权威数据（导入后只在 IDB）

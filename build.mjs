@@ -89,7 +89,7 @@ function minifyCss(code) {
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'mobile-adapt.js'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'card-audit.js', 'mobile-adapt.js'];
 
 let html = read('template.html');
 // v3.26.x #301：模板 HTML 注释配平守卫——开屏批 07a6cab 曾在红包注释行漏写 `-->`
@@ -139,10 +139,17 @@ function chunkScripts(items) {
 
 // 每个 JS 文件独立 try/catch 包裹：单文件运行时报错不再连坐后续所有功能
 // （如某个文件在特定设备抛错，之前会导致之后文件的绑定全部失效）
+// v3.34.x #527：模块加载体检——每个包内 try 末行（=文件整段执行完成才到达）登记
+// __mochiLoaded；catch 里的 __jsErrors 追加文件名（原只 push message，诊断「启动文件
+// 异常」无法归因到文件）。运行期用 __mochiLoaded vs 构建期注入的 __mochiJsFiles 求差，
+// 定位「整段没加载」的文件——补 __jsErrors 的盲区：语法错误在 parse 期抛出，包内
+// try/catch 兜不住，且每个 500KB script 块内任一文件语法错会整块不执行（十几个功能一起死）。
 const jsWrapped = jsFiles.map(f => {
   const code = minifyJs(read(join('js', f)));
-  return '(function () { try {\n' + code + '\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();';
+  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
 });
+// 首块前置初始化：错误环 + 已加载清单 + 期望清单（jsFiles 即期望，运行期差集定位死块）
+jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + ';');
 // 按 UTF-8 字节上限拆 script 块（iOS 15 单块解析崩溃防护，见上方注释）
 const scriptChunks = chunkScripts(jsWrapped);
 
@@ -240,7 +247,7 @@ const FIX_SENTINELS = [
   { name: '#512 兜底网必须挂在「无活文本焦点」否证上（删掉＝键盘真在场也强行复原，健康内核键盘被抽走＝#209 同族回归）', file: 'js/mobile-adapt.js', needle: 'if (_aIsText(document.activeElement)) return _dRetry();' },
   { name: '定期备份提醒条存在（backup-remind-bar，受保护产品功能，见 AGENTS.md 数据与存储约定）', file: 'js/pwa.js', needle: "getElementById('backup-remind-bar')" },
   { name: '定期备份提醒条锚点存在（template.html）', file: 'template.html', needle: 'backup-remind-bar' },
-  { name: '备份提醒冷却收短到 2 天（每 2-3 天弹一次；改动 INTERVAL 即消失，防被 7 天冷却静默压制）', file: 'js/pwa.js', needle: 'const INTERVAL = 2 * DAY;' },
+  { name: '备份提醒冷却收短到 1 天（每天弹一次；改动 INTERVAL 即消失，防被长冷却静默压制）', file: 'js/pwa.js', needle: 'const INTERVAL = DAY;' },
   { name: '#355b 备份提醒条「单独备份聊天」按钮存在（template.html）', file: 'template.html', needle: 'id="backup-remind-chat"' },
   { name: '#355b 仅聊天记录导出不更新全量备份时间（data-backup.js cfg.mode!==chat 守卫，逻辑锚）', file: 'js/data-backup.js', needle: "if (cfg.mode !== 'chat')" },
   { name: '#356 收藏页媒体池令牌渲染（收藏令牌化后 @@m:hash 按图片出，不再把令牌串当文字直出＝不明代码；判定表达式改掉即消失）', file: 'js/chat.js', needle: "f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))" },
@@ -257,7 +264,7 @@ const FIX_SENTINELS = [
   { name: '#516 聊天贴底目标统一取值 chatScrollMax（打字行可见时必须扣回行高：#514 治了 showTyping/hideTyping 两个写点，但 out 侧 120ms / in 侧 rAF+150ms 兜底仍可能在打字行显示期执行——落到「行显示态最大值」上，行一隐藏必被内核钳掉一行高＝残根下弹 22px。删除则打字行显隐期兜底复写再次过界）', file: 'js/chat.js', needle: 'function chatScrollMax() {' },
   { name: '#516 scrollChatBottom 写入走 chatScrollMax（旧 scrollTop=scrollHeight 在打字行可见时落在虚高一份行高的钳位目标上；删除则回弹复发）', file: 'js/chat.js', needle: 'cb.scrollTop = chatScrollMax();' },
   { name: '#471 聊天页问TA半框底部【发送/取消/存入】按钮（template.html；108b918 误删后聊天中单问题无法发送，删除/改 id 即复发）', file: 'template.html', needle: 'id="chat-ask-ok">发送' },
-  { name: '#472 批量问卷返回走 enterChat 恢复聊天页本体（ta-ask.js；此前只回显桌面聊天图标导致全部 .page 隐藏、.phone 折叠 tabbar 飞到顶，改回图标显隐即复发）', file: 'js/ta-ask.js', needle: 'surveyOpenFromChat = false; if (window.enterChat) { window.enterChat(); return; }' },
+  { name: '#472 批量问卷返回走 enterChat 恢复聊天页本体（#523 起收进 surveyGoChat 统一出口；此前只回显桌面聊天图标导致全部 .page 隐藏、.phone 折叠 tabbar 飞到顶，改回图标显隐即复发）', file: 'js/ta-ask.js', needle: 'if (window.enterChat) { window.enterChat(); return; }' },
 { name: '#474 聊天设置/房间/群聊等 8 个子页整页白屏——chat-ask-panel 缺少闭合 </div>，后续全部 .page 被吞进 #page-chat 内（父级一隐藏子级联动消失，与 #467 tabbar 嵌套同族；108b918 删按钮时连闭合一起删，#471 恢复按钮但漏恢复该闭合。结构性回归，所有机型必现）。结构锚＝修复后 chat-ask-actions 之后必须存在「3 个连续 </div> 接寻踪半框注释」（缩进 10/8/6 ＝ chat-ask-actions / poke-card-scroll / chat-ask-panel 三层，见 template.html #474 FIX 注释；改缩进必须同步本 needle，否则哨兵失配）；缺任何一个闭合（回到 2 个）即消失报警', file: 'template.html', needle: '</button>\n          </div>\n        </div>\n      </div>\n      <!-- 寻踪半框' },
   { name: '#471 设置页「导出全部桌面聊天记录」UI（template.html；改 id/删除即 cs-export-all 失效复发）', file: 'template.html', needle: 'id="cs-export-all"' },
   { name: '#471 设置页「导入全部桌面聊天记录」UI（template.html；改 id/删除即 cs-import-all 失效复发）', file: 'template.html', needle: 'id="cs-import-all"' },
@@ -619,8 +626,8 @@ const FIX_SENTINELS = [
   { name: 'v3.30.x 公用/专属字卡分组停用开关（数据层 cc-groups-public-off/cc-groups-off，回复池 getScopedGroups/*For 全部过滤停用分组）', file: 'js/chatcard.js', needle: "const PUB_OFF_KEY = 'cc-groups-public-off';" },
   { name: 'v3.30.x 公用字卡分组停用键排除 migrateLegacy（cc-groups-public-off 全局根键不被迁进 default 桌面）', file: 'js/contacts.js', needle: "'cc-groups-public', 'cc-groups-public-off', 'cc-scope-migrated'," },
   { name: '跨桌面查岗/来电频率档位 desk-freq-mode 排除 migrateLegacy（漏排除→被当旧顶层键迁进 default 删根键，「标准」静默回退「安静」致两三天 0 触发）', file: 'js/contacts.js', needle: "'desk-call-en', 'desk-freq-mode'" },
-  { name: 'desk-freq-mode 误迁自愈（default 副本写回根键，存量一次性找回；#231 并入 full-beauty-schemes/beauty-undo-stack）', file: 'js/contacts.js', needle: "'full-beauty-schemes', 'beauty-undo-stack']" },
-  { name: '#231 完整外观方案/美化撤销栈/更新条记忆键排除 migrateLegacy（漏排除→每刷新被当旧顶层键迁 default 删根键：完整方案列表刷新清空=红米Note12T「保存后恢复初始」多机型同发、同版本更新条每刷新重弹）', file: 'js/contacts.js', needle: "'full-beauty-schemes', 'beauty-undo-stack', 'ver-update-ack-ts', 'ver-update-notify'," },
+  { name: 'desk-freq-mode 误迁自愈（default 副本写回根键，存量一次性找回；#231 并入 full-beauty-schemes；#527 起 beauty-undo-stack 已自本清单移出）', file: 'js/contacts.js', needle: "'full-beauty-schemes'].forEach(function (k) {" },
+  { name: '#231 完整外观方案/美化撤销栈/更新条记忆键排除 migrateLegacy（漏排除→每刷新被当旧顶层键迁 default 删根键：完整方案列表刷新清空=红米Note12T「保存后恢复初始」多机型同发、同版本更新条每刷新重弹；#527 起 beauty-undo-stack 写入端改 per-cid 但该键仍须留在 EXCLUDE——「自回收清单移除」由 verify-exclude-feed-schemes 的否定断言守住）', file: 'js/contacts.js', needle: "'full-beauty-schemes', 'beauty-undo-stack', 'ver-update-ack-ts', 'ver-update-notify'," },
   { name: '#233 __ 系统键兜底防迁移（__wr-journal 写日志自愈第一道防线/__ls-dirty/__big-idx 无冒号根键每刷新被迁 default 删根键=LS 回滚家族第四层削弱；删此规则即回归）', file: 'js/contacts.js', needle: "if (r.indexOf('__') === 0) return true;" },
   { name: '#233 default:__ 误迁系统键存量副本清扫（LS+IDB 同删，防 idbRestore 回填复活；删掉则死副本永占 LS 配额）', file: 'js/contacts.js', needle: "k.indexOf(G + ':default:__') === 0" },
   { name: '#232 朋友圈身份/封面六键改按桌面独立回收（DESK_KEYS 拆分；根键有值即删 default 副本的旧逻辑=朋友圈头像昵称每刷新回退，删此拆分即回归）', file: 'js/feed.js', needle: "const DESK_KEYS = ['feed-cover-bg', 'feed-ta-cover', 'feed-ta-name', 'feed-ta-avatar', 'feed-user-name', 'feed-user-avatar'];" },
@@ -1411,7 +1418,7 @@ const FIX_SENTINELS = [
   { name: '#427 贪吃蛇全屏同族抗内联残留（删则同 #427 在贪吃蛇复发）', file: 'css/chat-pages.css', needle: '#chat-snake-panel.snake-fs { position:fixed !important;' },
   { name: '#427 五子棋兄弟互斥只认真可见面板（hidden=false 但零渲染盒＝残留态不触发误关；删则残留兄弟把刚打开的棋盘反复自动关掉＝「打开就消失回聊天、刷新才恢复」）', file: 'js/gomoku.js', needle: 'getClientRects().length > 0) { closePanel(); break; }' },
   // ==== 2026-09-13 #428 寻踪「看看TA在哪」全屏位置面板抬到提醒条之上（vivo S60 等多机型报「点看看ta在哪
-  //      页面卡死，只能退出刷新」：面板 z-78 低于顶部提醒条 z-998，备份提醒条显形期间（距上次导出超 2 天即弹、
+  //      页面卡死，只能退出刷新」：面板 z-78 低于顶部提醒条 z-998，备份提醒显形期间（距上次导出超 1 天即弹、
   //      #355 收短后极常见）正好压住头部返回按钮＝面板关不掉+body 滚动锁＝整页像卡死；z 抬 9999，
   //      仍低于 modal-mask 99999 / 应用锁 999999）====
   { name: '#428 全屏位置面板盖过提醒条（.loc-panel.loc-full z-9999；删则备份提醒条压住返回按钮，「看看TA在哪」全屏面板关不掉像卡死，多机型复发）', file: 'css/chat-pages.css', needle: 'background:#fff; z-index:9999;' },
@@ -1487,7 +1494,8 @@ const FIX_SENTINELS = [
   { name: '#503 资格缩小不裁已有地（plotCount 去掉向下钳制＝老存档 plotN 高于新资格也一块不裁；改回钳制则上限瘦身后老玩家多种的花被静默删除）', file: 'js/garden.js', needle: 'return data.plotN || PLOTS;' },
   { name: '#503 手动缩地 shrinkPlots（只收尾部空地、下限 4 块、有花不裁；删则「开多了收不回」复发）', file: 'js/garden.js', needle: 'while (cur > MIN_PLOTS && !data.p[cur - 1]) cur--;' },
   { name: '#503 收地按钮登记（工具条 shrink；删则缩地无入口）', file: 'js/garden.js', needle: 'sb.dataset.tool = "shrink";' },
-  { name: '#503 空地折叠（默认只铺有花地块+空地折叠砖；删则地多满屏虚线格太挤复发）', file: 'js/garden.js', needle: 'var emptyFolded = true;' },
+  { name: '#528 花园土地默认展开（#503 折叠改默认展开；改回 true 则土地又被默认收起＝用户反馈复发）', file: 'js/garden.js', needle: 'var emptyFolded = false;' },
+  { name: '#528 空地折叠砖保留（默认展开时仍给「收起」入口；删则无法手动收起空地）', file: 'js/garden.js', needle: '(emptyFolded ? "点开" : "收起")' },
   { name: '#503 日志全量查看（默认 20 条+「查看全部」展开；删则联系人的打理记录看不全复发）', file: 'js/garden.js', needle: 'garden-log-toggle' },
   { name: '#503 日志容量 100→300（slice(-300)；改回 100 则老记录被挤掉复发）', file: 'js/garden.js', needle: 'if (data.l.length > 300) data.l = data.l.slice(-300);' },
   { name: '#503 日志独立 tab（garden-log 移入「日志」分区；删则日志又挤回花园页）', file: 'js/garden.js', needle: 'move("garden-log", "log");' },
@@ -1679,6 +1687,60 @@ const FIX_SENTINELS = [
   { name: '#515f 情绪卡衰减按可调基数同比例缩放（退回固定 70 基＝调低基数后衰减档位与页面显示的基数脱钩）', file: 'js/mood-reply-cards.js', needle: 'let prob = Math.max(0, Math.min(100, _mBase * _ratio));' },
   { name: '#515g 同一 dcf 概率键的多处 stepper 批量绑定 + 同键刷新（删＝寻踪页与功能字卡页各显示各的、改一处另一处不变）', file: 'js/default-cards.js', needle: 'window.dcfRefreshUI = dcfRefreshUI;' },
   { name: '#515h 概率行显示存盘值而非闸门后的生效值（退回 dcfVal＝总开关关闭时各概率行显示 0、点 ± 被复位成 0＝点了没反应）', file: 'js/default-cards.js', needle: 'if (valEl) valEl.value = String(dcfRaw(k));' },
+  { name: '#521a 批量问卷在聊天里渲染成长卡片（special:ask-survey 专用分支；删＝问卷退回只有一行 ask-msg 小字，用户报的「不像单题长卡片」复发）', file: 'js/chat.js', needle: "if (rec.special === 'ask-survey') {" },
+  { name: '#521b 问卷进度回写助手（ta-ask.js 逐题作答/交卷时按 surveyTs 定位卡片快照；删＝卡片停在 0/N 不随作答更新）', file: 'js/chat.js', needle: 'window.chatSyncSurveyCard = function (surveyTs, status, answers) {' },
+  { name: '#521c 问卷发出时插入 ask-survey 卡片快照（删＝只有「你向TA发出了一份问卷」提示语，无卡片本体）', file: 'js/ta-ask.js', needle: "special: 'ask-survey'," },
+  { name: '#521d 问卷长卡片样式壳（观感对齐单题 ask-card：删＝卡片无白底/圆角/题距，退回裸文本堆叠）', file: 'css/chat-main.css', needle: '.msg-survey-head { font-size:14px; font-weight:700;' },
+  { name: '#521e 问卷长卡片暗色适配（删＝暗色主题下卡片仍白底刺眼）', file: 'css/dark.css', needle: '[data-theme="dark"] .msg-survey-card { background:var(--dark-card-92);' },
+  { name: '#522a 聊天消息菜单 touch 直驱取消 touchend 默认行为（抑制弹窗刚开即被补发 click 关掉＝长按→编辑无反应，vivo X200s Edge 等多机型）', file: 'js/chat.js', needle: 'e.preventDefault();\nmaClickGuard = Date.now() + 600;' },
+  { name: '#522b 弹窗遮罩忽略「打开弹窗那次触摸补发的合成 click」（350ms 窗口；删＝任何 touch 直驱开弹窗的动作复发刚开即关）', file: 'js/personalize.js', needle: 'if (Date.now() - _openedAt < 350) return;' },
+  { name: '#523a 问卷时间改 App 内自绘选择器（原生 datetime-local 弹层锚点不受控、会飞出屏幕；删＝两处时间入口无处可点）', file: 'js/ta-ask.js', needle: 'function openDeadlinePicker(title, current, cb) {' },
+  { name: '#523b 自绘选择器弹层挂 .phone 内、与 #modal-mask 同层同定位（删＝弹层失去 absolute 定位，可能飞出手机框）', file: 'js/ta-ask.js', needle: "m.id = 'dl-picker-mask';" },
+  { name: '#523c 选择器样式壳（两行数字输入网格 + 弹层胶囊/按钮；删＝控件无样式不可用）', file: 'css/setting.css', needle: '.dl-picker-grid { display:flex; gap:8px; margin-top:8px; }' },
+  { name: '#523d 两处时间入口改为自绘按钮（用户报「浏览器自带的选择器飞出屏幕」；native input 锚点会被 base.css 的 :not([type=datetime-local]) 命中，故登记按钮本体）', file: 'template.html', needle: 'id="ta-ask-deadline" class="tc-input deadline-btn"' },
+  { name: '#523e 批量问卷「TA 的作答发送到聊天消息」开关入口（删＝无法在发出前关掉逐条刷聊天）', file: 'template.html', needle: 'id="ta-survey-chat"' },
+  { name: '#523f 批量问卷逐条发答受 sendToChat 门控（改恒发＝题多时答案全刷进聊天，用户报的「太多了」复发）', file: 'js/ta-ask.js', needle: 'cur.settings.sendToChat !== false' },
+  { name: '#523g 发出问卷后自动关闭设置页回聊天（删＝点了发出仍停在批量设置页，用户报的「没返回聊天」复发）', file: 'js/ta-ask.js', needle: 'function surveyGoChat() {' },
+  { name: '#523h 同一轮交卷只提醒一次（doneMsgAt=已提醒轮的 sentAt；改回恒发＝并发/重入时第二条「TA 交卷了」复发）', file: 'js/ta-ask.js', needle: 'const notify = d2.doneMsgAt !== d2.sentAt;' },
+  { name: '#523i 已交卷（done）允许直接再发一轮（发出发出时重置 answers/doneMsgAt；删＝用户报的「已交卷的问卷无法重复提交给联系人作答」复发）', file: 'js/ta-ask.js', needle: 'd.status = \'sent\'; d.sentAt = Date.now(); d.answers = []; d.doneMsgAt = 0;' },
+  // ==== 2026-09-15 #524 聊天设置「功能」页分类整理（用户要求：①二级 tag 删掉「全部」；②「允许删除联系人消息」移入消息输入分类；③分类名不合适要改） ====
+  { name: '#524a 功能页二级 tag 不再有「全部」（改回/加回＝进页默认全显、与高亮 tag 对不上，用户点名删除的项复活）', file: 'template.html', needle: 'data-ft="all"', absent: true },
+  { name: '#524b「允许删除联系人消息」落在功能页「消息」分类（搬回数据页＝用户报的「这个开关不在消息输入分类里」复发）', file: 'template.html', needle: '<div class="gs-title" data-tag="msg">消息管理</div>' },
+  { name: '#524c 功能页 tag 进页即按默认选中项过滤（删＝去掉「全部」后进页仍全显、高亮的「形象」形同虚设）', file: 'js/chat-settings.js', needle: "applyFilter(def ? (def.dataset.ft || 'all') : 'all');" },
+  { name: '#524d 功能页分类名「消息输入」→「消息」、「界面」→「显示」（改回旧名＝用户报的「分类名字不太合适」复发：旧名盖不住删除消息/全是显隐开关）', file: 'template.html', needle: '<div class="them-tab" data-ft="msg">消息</div>\n        <div class="them-tab" data-ft="ui">显示</div>' },
+  // ==== 2026-09-15 #525 设置页 tag 分类：「清除本地数据」自「关于」段移入「工具」段（用户报「设置的 tag 分类有问题，不正常」） ====
+  { name: '#525a 清除本地数据落在「工具」段且为该段末项（搬回「关于」段＝用户报的分类错位复发；锚在段闭合注释上，行被搬走时锚同步消失）', file: 'template.html', needle: '</div><!-- /them-sec tools · row-reset -->' },
+  { name: '#525b 「关于」段不再承载清除本地数据（旧分组注释复活＝清除本地数据被搬回关于段）', file: 'template.html', needle: '<!-- 关于：清除本地数据 + 版本 + 防骗声明（常驻底部，不随标签切换） -->', absent: true },
+  // ==== 2026-09-15 #526 新建联系人首次进聊天不再显示「正在加载聊天记录…」（空桌面白等 2.5s 空库二次复核） ====
+  { name: '#526 已知空库（新联系人/空桌面）不显示聊天记录加载进度条（删 chatKnownEmpty 判定＝新建联系人首次进聊天又白等 2.5s 空库复核才收起进度条）', file: 'js/chat.js', needle: 'chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty && !msgs.length);' },
+  // ==== 2026-09-15 #527 模块加载体检：诊断「启动文件异常」带文件名 + 语法错致整段未加载可自查 ====
+  { name: '#527 模块加载体检（__mochiLoaded 对比 __mochiJsFiles 定位整段未加载的文件；删掉＝语法错/启动抛错导致的功能整块失效无法自查）', file: 'js/device.js', needle: "'模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length" },
+  // ==== 2026-09-15 #528 诊断置顶结论聚合 + 桌面模拟器外壳底部几何误报豁免 ====
+  { name: '#528 桌面外壳底部几何豁免（删掉＝PC 宽屏 .phone 居中手机壳被恒判「底部少填 ~24px 白带」，每次自动采集刷错误环）', file: 'js/device.js', needle: "else if (inp.isMobileDev === false) add(true, '桌面模拟器外壳" },
+  { name: '#528 诊断置顶结论聚合（删掉＝错误/启动异常/模块未加载/入口缺失/存储/屏幕适配 ✗ 又散在十几节，用户看不出到底坏没坏）', file: 'js/device.js', needle: "'⚠ 发现 ' + issues.length + ' 项：'" },
+  // ==== 2026-09-15 #529 聊天顶部头像打开的寻踪半框 #ck-panel 点外/再点头像无法关闭 ====
+  { name: '#529a 寻踪半框补 document 点外关闭器（删＝点屏幕其他地方关不掉，用户报障复发；needle 为「命中头像入口不关/其余面板外一律关」的判定+关闭调用，按产物行首去缩进书写）', file: 'js/p2-features.js', needle: 'if (av && (e.target === av || av.contains(e.target))) return;\ncloseCkPanel();' },
+  { name: '#529b 寻踪半框开关逻辑（开着则关；改回恒 openCkPanel＝再次点顶部头像纹丝不动，用户报障复发）', file: 'js/p2-features.js', needle: 'if (!p.hidden) { closeCkPanel(); return; }' },
+  { name: '#529c 聊天顶部头像入口改走 toggleCkPanel（删/改回 openCkPanel＝同一个用户报障复发）', file: 'js/chat.js', needle: 'if (window.toggleCkPanel) window.toggleCkPanel();' },
+  // ==== 2026-09-15 #530 安卓键盘期底部安全区归零（输入栏与输入法之间露大块底色，vivo S20 Edge 等；全屏正常）====
+  { name: '#530a 安卓键盘在场判据（删/改回不判断＝键盘期仍回落 env(safe-area-inset-bottom) 那个 Chromium 缺陷值，输入栏被垫高、空白复发）', file: 'js/mobile-adapt.js', needle: "var _kbOn = !!(_aProv || (_aVV && _aH > 0 && _aVV.height > 0 && _aVV.height < _aH - 60));" },
+  { name: '#530b 键盘期把 --mochi-safe-bottom 钉 0px（删掉＝输入栏底部留出不受页面控制的空白；收起摘除回落 env 的语义同函数内 removeProperty 行）', file: 'js/mobile-adapt.js', needle: "d.style.setProperty('--mochi-safe-bottom', _next);" },
+  // ==== 2026-09-15 #527 桌面/聊天美化数据完整性（漏键 / 导入静默 / 刷新丢大图 / 撤销串桌面）====
+  { name: '#527a BEAUTY_KEYS 补齐 5 个历史漏键（phone-bg-pos-x/-y/-size、phone-bg-solid、app-name-color 不在采集清单=存方案再应用时壁纸定位缩放/纯色/图标文字色静默蒸发，删掉此行即整族回归）', file: 'js/personalize.js', needle: "'phone-bg', 'phone-bg-preset', 'phone-bg-solid', 'phone-bg-pos-x', 'phone-bg-pos-y', 'phone-bg-size'," },
+  { name: '#527b 应用方案如实返回写入项数（返回 n 供导入方报「已导入 N 项」；改回无返回值＝又回到无条件报「已导入」的静默假成功）', file: 'js/personalize.js', needle: "localStorage.setItem('xy-home-v2:theme-mode', data['__theme__']); } catch (e) {} n++;" },
+  { name: '#527c 方案用途标记（方案 JSON 无 __kind__ 时可把聊天美化粘进桌面导入框、命中 0 项仍报成功；删掉＝假成功复发）', file: 'js/personalize.js', needle: "const BEAUTY_KIND = 'mochi-desk-beauty';" },
+  { name: '#527d 导入前先预检命中项数（命中 0 项即提前返回：不备份/不压撤销栈/不刷新，免generate垃圾备份；删掉＝零命中数据也生成「导入前备份」并刷新）', file: 'js/personalize.js', needle: 'if (!hit) {' },
+  { name: '#527e 刷新前等大键 IDB 落盘（大键只进 IDB 且写日志不覆盖 >64KB 值、无 LS 兜底；直接 reload＝慢机上 4.5MB 壁纸刷新后丢，用户报「提示导入成功但壁纸没了」）', file: 'js/personalize.js', needle: 'const reloadAfterBeautyWrite = () => {' },
+  { name: '#527f 撤销栈写入端改 per-cid（存全局根键＝在 A 桌面调完美化、切到 B 点撤销会把 A 的美化写到 B 桌面上，跨桌面串美化）', file: 'js/personalize.js', needle: "const setUndoStack = (st) => { try { store.set(UNDO_KEY, JSON.stringify(st)); } catch (e) {} };" },
+  { name: '#527g 导入前自动备份读回校验（saveSchemesList 吞异常＋toast 报成功＝用户以为有安全网其实没有；删掉＝假报成功复发）', file: 'js/personalize.js', needle: 'if (saved) { backupName = name;' },
+  { name: '#527h 导入前备份数量上限（每导入一次多存一份含 base64 壁纸的整份美化且无清理＝配额无限膨胀；删掉＝膨胀复发）', file: 'js/personalize.js', needle: 'if (autos.length >= 5) {' },
+  { name: '#527i 分享链接剔除 base64 图片键并设长度上限（原实现把带 4.5MB 壁纸的整份美化塞进 URL hash 必被截断、解析失败还被 catch 吞掉＝静默发坏链接）', file: 'js/personalize.js', needle: 'const isBeautyImageKey = (k) => /^(phone-bg|page-bg-|card-bg-|desk-image-src-|phone-bg-item-)/.test(k);' },
+  { name: '#527j 聊天美化导入补「导入前备份」安全网（此前直接覆盖、无备份无撤销；删掉＝聊天美化导入变回无安全网）', file: 'js/chat-settings.js', needle: 'const chatBackupBeforeImport = () => {' },
+  { name: '#527k 聊天美化用途标记 + 命中计数（同桌面侧：无标记时跨用途 JSON 导入假报成功）', file: 'js/chat-settings.js', needle: "const CHAT_BEAUTY_KIND = 'mochi-chat-beauty';" },
+  // 颜色行显示当前值（用户报「看不懂美化设置」的最大来源：非默认值时行右侧被写空字符串）
+  { name: '#527l 美化页颜色行统一显示当前值+色块（原实现非默认值写空字符串＝选完颜色行里一片空白，看不出是否生效也看不出当前色；删掉 paintBeautyVal 即回归）', file: 'js/personalize.js', needle: 'function paintBeautyVal(el, color, defaultColor, defaultLabel) {' },
+  { name: '#527m 边看边调改底部抽屉（原为右侧 70vw 固定浮层＝手机屏宽 390px 时挡住 70% 宽度而桌面居中，用户几乎看不到效果＝「不能边看边调」根因）', file: 'js/personalize.js', needle: "d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:56vh;" },
+  { name: '#527n 边看边调底部抽屉登记进 FLOAT_SELECTORS（未登记＝抽屉打开后底层桌面仍可被滑动，未锁背景滚动）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer'];" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

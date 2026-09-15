@@ -257,19 +257,51 @@
   // 用户表现为「每次重开数据全丢」。代码无法阻止系统级清空，唯一防线是定期导出备份文件
   //（存到 iOS「文件」App，清空后能一键恢复）。距上次成功导出超 INTERVAL 且近 INTERVAL 未提醒过时，
   // 在顶部显示提醒条（复用 ver-update-bar 样式，更新提示优先显示时让位）。
-  // v3.3x.x：应需求把冷却从 7 天收短到 2 天——用户反馈「现在什么时间都不会出现提醒」，
-  // 期望每 2-3 天在进桌面时弹一次（不是每次弹的天天打扰、也不是 7 天才一次那么久）。
+  // v3.3x.x：应需求把冷却从 7 天 → 2 天 → 现为 1 天——用户反馈「现在什么时间都不会出现提醒」，
+  // 期望每天在进桌面时弹一次（不是每次启动都弹的天天打扰、也不是 7 天才一次那么久）。
   (function () {
     const bar = document.getElementById('backup-remind-bar');
     if (!bar) return;
     const G = 'xy-home-v2:';
     const DAY = 86400000;
-    const INTERVAL = 2 * DAY;
+    const INTERVAL = DAY;
     function ts(key) { try { return Number(localStorage.getItem(G + key)) || 0; } catch (e) { return 0; } }
+    // v3.3x.x：开屏直接弹说明弹窗（用户需求）——把「为什么必须备份」讲清楚：
+    // ① 浏览器/设备可能自动清空本地数据，任何手机/浏览器（含网页套壳转 App）都无法规避；
+    // ② 若数据总也存不住（每次打开像没保存、一刷新就丢），多半是本机存储没能写进去（设备/浏览器异常）。
+    // 顶部提醒条保留作兜底：弹窗组件未就绪时退回原提醒条，保证提醒不丢。
+    function openBackupModal(days, everBacked) {
+      if (typeof window.openModal !== 'function') return false;
+      const intro = everBacked
+        ? '距上次导出备份已 ' + days + ' 天。'
+        : '你还没有导出过数据备份。';
+      const TEXT =
+        intro + '聊天记录、字卡、照片、设置等全部数据只保存在本机浏览器里，不在云端。\n\n' +
+        '① 浏览器可能自动清空本地数据\n' +
+        '存储空间不足、无痕/隐私模式、系统清理后台等都可能触发。不管什么手机、什么浏览器，' +
+        '连网页套壳转 App 使用也一样，都无法规避——这是设备/平台的限制。\n' +
+        '对策：善用「导出备份」把数据存成文件，定期导出，别只依赖本地存储。\n\n' +
+        '② 若数据总也存不住，多半是本机存储异常\n' +
+        '如果每次打开都像没保存、一刷新就丢，大概率不是正常的定期清空，' +
+        '而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
+      const pills = [
+        { label: '去备份', value: 'go' },
+        { label: '备份聊天', value: 'chat' },
+        { label: '稍后', value: 'later' }
+      ];
+      window.openModal('数据备份提醒', '', function (v) {
+        if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
+        else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
+      }, { noInput: true, big: true, pillSubmit: true, staticText: TEXT, pills: pills });
+      return true;
+    }
     function show(days, everBacked) {
-      // 版本更新提示条优先（两栏同位置 fixed，同时显示会重叠）
+      // 版本更新提示优先（避免同屏叠两个提醒）
       const upd = document.getElementById('ver-update-bar');
       if (upd && !upd.hidden) return;
+      try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {}
+      if (openBackupModal(days, everBacked)) return;
+      // 兜底：弹窗组件不可用时退回顶部提醒条
       const txt = document.getElementById('backup-remind-txt');
       if (txt) {
         txt.textContent = everBacked
@@ -277,7 +309,6 @@
           : '数据只存在本机浏览器里，建议定期导出备份（防浏览器意外清除）';
       }
       bar.hidden = false;
-      try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {}
     }
     function tryShow() {
       if (window.__resetting) return;

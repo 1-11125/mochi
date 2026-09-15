@@ -143,7 +143,7 @@
     // 星言逻辑：基础概率 + emotionStreak 连续衰减。v3.26.x #515：基础概率改为可调
     //   （mc-prob-mood，默认 70＝原写死值），衰减档位按同一比例缩放——基数 70% 时逐档
     //   （70/60/45/30/20）与旧行为完全一致；调低/调高只改基数、不改衰减曲线形状。
-    const _mBase = mcProb('mood');
+    const _mBase = (window.dcpEff ? window.dcpEff(mcProb('mood')) : mcProb('mood')); // #518 套总档
     const streakMap = W.moodStreak || { 0: 70, 1: 60, 2: 45, 3: 30, 4: 20 };
     const _lvl = emotionStreak >= 4 ? '4' : String(emotionStreak);
     const _ref = streakMap['0'] !== undefined ? streakMap['0'] : 70;
@@ -187,7 +187,7 @@
   window.getHeartCard = function (moodCard) {
     if (!enabled('heart')) return null;
     // v3.26.x #515：显示率改为可调（mc-prob-heart，默认 40＝原写死值）
-    if (Math.random() * 100 > mcProb('heart')) return null;
+    if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('heart')) : mcProb('heart'))) return null; // #518 套总档
     // 特殊稀有心意：聊天≥20次 + 24h冷却 + 5%
     const chatCount = Number(ls.get('chat-count') || 0);
     if (chatCount >= 20 && (Date.now() - specialLastTime) > 86400000 && Math.random() * 100 < 5) {
@@ -244,7 +244,7 @@
   window.getIntentCard = function (heartCard) {
     if (!enabled('intent')) return null;
     // v3.26.x #515：显示率改为可调（mc-prob-intent，默认 40＝原写死值，与心意同档）
-    if (Math.random() * 100 > mcProb('intent')) return null;
+    if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('intent')) : mcProb('intent'))) return null; // #518 套总档
     let pool = null;
     if (heartCard && heartCard.group && DATA.heartToIntent && DATA.heartToIntent[heartCard.group]) {
       pool = DATA.heartToIntent[heartCard.group];
@@ -548,7 +548,7 @@ window.getReplyCard = function () {
   // 整体出现概率：v3.26.x #515 起可调（rcard-prob，默认 30＝原写死值，与默认字卡
   //   defaultCommonOverallProb 同档）；0% = 不再整条替换成一张回应字卡
   //  （回复末尾的「连接词追加」仍由回复设置的 cf-prob 管，两处独立）
-  if (Math.random() * 100 >= rcardProb()) return '';
+  if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(rcardProb()) : rcardProb())) return ''; // #518 套总档
   const followup = DATA.followup || {};
   // v3.6.x：单卡开关过滤——只从仍开启的分类里选（整类关完则跳过该类）
   const cats = Object.keys(followup).filter(k => followup[k] && followup[k].some(t => !isCardOff('rc-off-' + k, t)));

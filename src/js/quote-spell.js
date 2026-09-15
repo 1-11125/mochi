@@ -66,7 +66,7 @@
       //   概率默认 100（不额外限流），既有 qs-prob/qs-one/qs-multi 行为不受影响。
       if (window.dictUse && window.dictUse('chat') === false) return null;
       if (window.dictOverall && Math.random() * 100 >= window.dictOverall('chat')) return null;
-      const prob = Number(c['qs-prob']);
+      const prob = (window.dcpEff ? window.dcpEff(Number(c['qs-prob'])) : Number(c['qs-prob'])); // #518 套总档
       if (!isFinite(prob) || prob <= 0 || Math.random() * 100 >= prob) return null;
       let pool = quotePool();
       if (c['qs-cc'] === 1) {

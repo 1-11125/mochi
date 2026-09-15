@@ -139,12 +139,12 @@ check('A4 三页都有概率说明文案（讲清 0%/默认值/同键关系）',
   tplSrc.includes('id="mc-prob-hint"') && tplSrc.includes('id="rc-prob-hint"') && tplSrc.includes('id="ck-prob-hint"'));
 check('A5 功能介绍页补「触发概率可查看可调」条（14→15）',
   tplSrc.includes('触发概率可查看可调') && tplSrc.includes('<span class="lg-count">15</span>'));
-check('A6 情绪卡概率＝可调基数 + 衰减同比例缩放',
-  moodSrc.includes("const _mBase = mcProb('mood');") && moodSrc.includes("const _ratio = (_ref > 0 && streakMap[_lvl] !== undefined) ? (streakMap[_lvl] / _ref) : 1;") && moodSrc.includes('let prob = Math.max(0, Math.min(100, _mBase * _ratio));'));
-check('A7 心意/意图/回应卡消费点接线',
-  moodSrc.includes("if (Math.random() * 100 > mcProb('heart')) return null;") &&
-  moodSrc.includes("if (Math.random() * 100 > mcProb('intent')) return null;") &&
-  moodSrc.includes('if (Math.random() * 100 >= rcardProb()) return \'\';'));
+check('A6 情绪卡概率＝可调基数 + 衰减同比例缩放（#518 起基数套总档）',
+  moodSrc.includes("const _mBase = (window.dcpEff ? window.dcpEff(mcProb('mood')) : mcProb('mood'));") && moodSrc.includes("const _ratio = (_ref > 0 && streakMap[_lvl] !== undefined) ? (streakMap[_lvl] / _ref) : 1;") && moodSrc.includes('let prob = Math.max(0, Math.min(100, _mBase * _ratio));'));
+check('A7 心意/意图/回应卡消费点接线（#518 起各套总档，未载 dcp-master 时回退原值）',
+  moodSrc.includes("if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('heart')) : mcProb('heart'))) return null;") &&
+  moodSrc.includes("if (Math.random() * 100 > (window.dcpEff ? window.dcpEff(mcProb('intent')) : mcProb('intent'))) return null;") &&
+  moodSrc.includes("if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(rcardProb()) : rcardProb())) return '';"));
 check('A8 未设键回退原写死值（70/40/40/30）',
   /const MC_PROB_DEF = \{ mood: 70, heart: 40, intent: 40 \};/.test(moodSrc) && /const RCARD_PROB_DEF = 30;/.test(moodSrc));
 check('A9 连接词追加读写回复设置同一份键（不新开键）',

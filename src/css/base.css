@@ -197,6 +197,21 @@ html { margin:0; padding:0; }
 [data-theme="dark"] .splash-alert.splash-what .splash-alert-t::before { background:#a8c6f0; color:#0e2240; }
 [data-theme="dark"] .splash-alert.splash-what p { color:#c8daf4; }
 [data-theme="dark"] .splash-alert.splash-what strong { color:#a8c6f0; }
+/* v3.33.x：开屏最顶·禁带「小手机 tag」恶意扩圈——红色强警示形态，比免责卡更醒目（置 #splash-notice 首位） */
+.splash-alert.splash-tagban {
+  padding:13px 15px 14px;
+  background:#fdeaea; border:2.5px solid #d23430; border-radius:10px;
+  box-shadow:0 3px 10px rgba(210,52,48,.22);
+}
+.splash-alert.splash-tagban .splash-alert-t { color:#c22b27; font-size:14px; letter-spacing:1px; }
+.splash-alert.splash-tagban .splash-alert-t::before { background:#c22b27; }
+.splash-alert.splash-tagban p { color:#7a1d1a; font-size:13px; font-weight:700; line-height:1.75; }
+.splash-alert.splash-tagban strong { color:#c22b27; font-weight:900; }
+[data-theme="dark"] .splash-alert.splash-tagban { background:rgba(210,52,48,.18); border-color:#ff6b66; box-shadow:none; }
+[data-theme="dark"] .splash-alert.splash-tagban .splash-alert-t { color:#ff9090; }
+[data-theme="dark"] .splash-alert.splash-tagban .splash-alert-t::before { background:#ff6b66; color:#3a0d0d; }
+[data-theme="dark"] .splash-alert.splash-tagban p { color:#f4cccc; }
+[data-theme="dark"] .splash-alert.splash-tagban strong { color:#ff9090; }
 /* v3.27.x #319：防未成年人·系统内置字卡锁卡——琥珀警示形态 + 解锁动作按钮 */
 .splash-alert.splash-cardlock { background:#fdf3e0; border:2px solid #c07f1f; }
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }

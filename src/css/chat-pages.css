@@ -804,7 +804,7 @@
 .period-grid .pc-cell.ph-period.pc-flow-heavy { background:#d6336c; }
 .period-grid .pc-cell.ph-predict { background:#fde2ee; color:#c44a78; border:1px dashed #e85a8f; }
 .period-grid .pc-cell:not(.blank):active { opacity:.7; }
-.period-card-title { font-size:14px; font-weight:700; letter-spacing:.5px; margin-bottom:10px; }
+.period-card-title { font-size:14px; font-weight:700; letter-spacing:.5px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .period-history { display:flex; flex-direction:column; gap:8px; }
 .period-hist-row {
   display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px;
@@ -932,7 +932,16 @@
 .ps-phase-bars { flex:1; display:flex; align-items:flex-end; gap:2px; height:46px; padding-bottom:14px; }
 .ps-phase-bar { position:relative; flex:1; min-width:6px; min-height:3px; background:linear-gradient(180deg,#e85a8f,#f5a623); border-radius:2px 2px 0 0; }
 .ps-phase-bar i { position:absolute; top:100%; left:0; right:0; margin-top:2px; text-align:center; font-size:8px; line-height:12px; color:var(--muted); font-style:normal; overflow:hidden; white-space:nowrap; }
-.period-report-btn { float:right; padding:3px 10px; font-size:11px; border:1px solid #e85a8f; border-radius:10px; background:#fff; color:#e85a8f; cursor:pointer; }
+.period-report-btn { flex-shrink:0; padding:3px 10px; font-size:11px; border:1px solid #e85a8f; border-radius:10px; background:#fff; color:#e85a8f; cursor:pointer; white-space:nowrap; }
+/* 周期洞察一句话 */
+.ps-insight { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:10px; overflow-wrap:anywhere; }
+/* 症状缓解建议 */
+.pr-empty { font-size:12px; color:var(--muted); line-height:1.7; padding:2px 0 4px; }
+.pr-row { padding:10px 0 0; margin-top:10px; border-top:1px solid rgba(128,128,128,.18); }
+.period-card-title + .pr-row { padding-top:0; margin-top:0; border-top:none; }
+.pr-sym { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:700; color:#e85a8f; background:rgba(232,90,143,.15); margin-bottom:6px; }
+.pr-main { display:block; font-size:13px; color:var(--ink); line-height:1.7; overflow-wrap:anywhere; }
+.pr-mochi { display:block; margin-top:5px; font-size:12px; color:#e85a8f; line-height:1.6; overflow-wrap:anywhere; }
 /* 每日健康小贴士 */
 #period-tips-card .pt-main { font-size:14px; color:var(--ink); line-height:1.7; }
 #period-tips-card .pt-mochi { margin-top:8px; font-size:12px; color:#e85a8f; }

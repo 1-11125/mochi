@@ -1603,6 +1603,7 @@
         setInterval(function () {
           try {
             if (document.visibilityState !== 'visible') return;
+            try { syncSafeBottomA(); } catch (eSB1) {} // FIX 2026-09-15 #530：键盘期底部安全区归零，1s 对账（漏 vv 事件也能收口）
             // FIX 2026-09-10 #267：键盘态卡死自愈（焦点侧证据，与下面 #236/#209 的视口侧
             // 证据互补）。安卓软键盘必然依附一个聚焦的可编辑元素，而本模块的触摸/按键/
             // focusin 全都会续期 _aLastAct——「活焦点不在文本框 + 静默 >2.2s + vv 读数已稳
@@ -1891,8 +1892,37 @@
             ? (el.type !== 'checkbox' && el.type !== 'range' && el.type !== 'file' && el.type !== 'color' && !el.readOnly)
             : el.isContentEditable === true);
         }
+        // ===== FIX 2026-09-15 #530：安卓键盘期底部安全区归零 =====
+        // 现象（vivo S20 Edge 浏览器态·非全屏，用户明说多机型同现、勿覆盖式乱改）：
+        //   点聊天输入栏弹出输入法后，聊天输入栏与输入法之间露出一大块底色（暗色主题下
+        //   即「大块黑」）；同一台机全屏模式下无此问题。
+        // 根因（Chromium 已知缺陷，issues 406935609 / 457682720）：安卓 IME 弹出时
+        //   env(safe-area-inset-bottom) 仍报「手势条 / 浏览器底栏」的高度（规范要求键盘
+        //   在场时该 inset 应为 0，且应由页面自行清零），而聊天输入栏底内边距用的是
+        //   calc(10px + var(--mochi-safe-bottom, env(safe-area-inset-bottom,0px)))——
+        //   --mochi-safe-bottom 此前只在 iOS 分支（syncSafeBottom）维护，安卓从不写该变量
+        //   → 键盘期回落读到一个不该在场的 env() 值，输入栏整段被垫高，其与键盘之间那段
+        //   空白不受页面控制。全屏（沉浸式）下 env() 为 0，故「全屏模式正常」。
+        // 修法（零机型分支、纯结果量）：键盘在场期间把变量钉 0px，键盘收起摘除属性回落 env()。
+        //   键盘判据与主链路一致（vv 相对无键盘基线收缩 ≥60px），并并入 _aProv 推定停靠态；
+        //   不并入 _aKb——_aKb 无论从哪条路置位都伴随 vv 收缩（判据已覆盖），收起瞬间 _aKb 尚真
+        //   而 vv 已回基准时并入会让变量多留一拍，故以视口为唯一依据、1s 看门狗兜底。
+        //   对 env() 本为 0 的设备，0px 与回落值相同 = 零视觉变化（不引入跨机型回归）。
+        var _aSafeB = null;
+        function syncSafeBottomA() {
+          try {
+            var d = document.documentElement;
+            var _kbOn = !!(_aProv || (_aVV && _aH > 0 && _aVV.height > 0 && _aVV.height < _aH - 60));
+            var _next = _kbOn ? '0px' : '';
+            if (_next === _aSafeB) return;
+            _aSafeB = _next;
+            if (_next) d.style.setProperty('--mochi-safe-bottom', _next);
+            else d.style.removeProperty('--mochi-safe-bottom');
+          } catch (e) {}
+        }
         function syncAndroidKb() {
           if (!_aVV || !_aPhone) return;
+          try { syncSafeBottomA(); } catch (eSB) {}
           var h = _aVV.height;
           // FIX 2026-09-07 #236：vv 回基准=读数健康，解除残留闩；高度变化刷新稳定
           // 时刻（收起动画每帧都变，1s 看门狗凭「vv 已稳 1.2s」避开动画中途误清）
@@ -2085,6 +2115,7 @@
             if (_meas >= 240 && _meas <= base - 40) ph = _meas;
           }
           _aProv = true;
+          try { syncSafeBottomA(); } catch (eSBP) {} // FIX 2026-09-15 #530：推定停靠同样按键盘在场归零
           _aPhone.style.alignSelf = 'flex-start';
           if (_aPhone.style.height !== ph + 'px') _aPhone.style.height = ph + 'px';
           kbDockPanels();
@@ -2170,6 +2201,7 @@
         function _aProvClear() {
           if (!_aProv) return;
           _aProv = false;
+          try { syncSafeBottomA(); } catch (eSBC) {} // FIX 2026-09-15 #530：退出推定停靠时重算（_aKb 仍真则不摘）
           // #337：保底停靠结束＝把键盘行为还给内核默认（vv 收缩模型），正常内核
           // 下次聚焦仍走主路径；不支持该 API 的内核此行无效，零影响。
           // _aVkOn 一并复位：下次保底停靠重新拉起实测尺（否则第二轮键盘会话没尺子）。
@@ -2445,7 +2477,10 @@
   // #287：补 #gc-poke-card 群聊拍一拍面板（点成员头像拍 TA，与聊天页 #poke-card 同族底半框，跨域一词登记请知悉）
   // #297：补四款小游戏半框（五子棋/连连看/消消乐/心意币拍卖会，同族登记）
   // v3.27.x 壁纸图库批：#cs-bg-panel（聊天壁纸图库）+ #phone-bg-gallery-panel（桌面壁纸图库）
-  const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card'];
+  const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
+    // FIX 2026-09-15 #527：边看边调底部抽屉——盖在桌面上的固定层，打开时同样要锁背景滚动
+    //（此前未登记，抽屉打开后底层桌面仍可被滑动）
+    '#beauty-drawer'];
   // v3.15.x：键盘弹起时把锚定在 .phone 底部的悬浮面板（更多功能/帮我决定/占卜/
   // 问问TA/红包/拍一拍等）重新锚定到可视区底部=输入栏上方。关键前提：键盘开启时
   // syncAndroidKb / syncIosKb（及各自的推定停靠 _aProvDock / _iProvDock）先把 .phone

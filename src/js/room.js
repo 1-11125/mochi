@@ -26,6 +26,13 @@
   function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
   function vib(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function lum() {
+    // 简化场景灯光（按点亮的灯具个数叠加亮度）：夜间从 0 起、白天从 1 起（基础亮度），
+    // 每盏亮灯 +0.12；夜间多灯时可达 0.88+，白天加灯也能到 1.3 高亮
+    let v = isNight() ? 0 : 1;
+    Object.keys(d.lit).forEach(k => { if (d.lit[k]) v += 0.12; });
+    return Math.min(1.3, v);
+  }
   let toastT = null;
   function toast(t) {
     let el = document.getElementById('cc-toast');
@@ -46,6 +53,7 @@
     furnuse: ['这个？偶尔用用。', '……还不错吧。', '（房间里多了一点声音）', '家正在一点点变成样子。'],
     windowl: ['外面没什么。', '天色还行。', '……在看云。', '下次一起出去走走吧。'],
     night: ['夜深了。', '还不睡吗？', '灯留着也行。', '晚安之前，再多待一会儿。'],
+    lamp: ['灯亮了。', '……是暖的。', '把灯留着吧。', '你一来，灯就亮了。'],
     water: ['它今天精神不错。', '刚浇过水了。', '……谢谢。'],
     wish: ['许完了。', '……愿望不能告诉你。', '（星光闪了一下，像是回应）'],
     music: ['这首？可以。', '声音调小了一点。', '（跟着节奏轻轻晃）'],
@@ -207,12 +215,14 @@
     }
   }
 
-  // ---- 昼夜 / 天气（确定性伪天气，garden 同思路） ----
+  // ---- 昼夜 / 天气（每天随机刷新一次，当天内恒定；种子取自日期串，白天黑夜不漂移） ----
   function isNight() { const h = new Date().getHours(); return h >= 19 || h < 6; }
+  const WEATHERS = [{ i: '☀️', t: '晴' }, { i: '⛅', t: '多云' }, { i: '🌧️', t: '小雨' }, { i: '🌨️', t: '雪' }];
   function weather() {
-    const dt = new Date();
-    const idx = (dt.getFullYear() * 372 + dt.getMonth() * 31 + dt.getDate()) % 4;
-    return [{ i: '☀️', t: '晴' }, { i: '⛅', t: '多云' }, { i: '🌧️', t: '小雨' }, { i: '🌨️', t: '雪' }][idx];
+    const s = todayKey(); // YYYY-M-D，天然每天一变
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return WEATHERS[h % WEATHERS.length];
   }
 
   // ---- DOM ----
@@ -243,6 +253,7 @@
     const night = isNight(), w = weather();
     sceneEl.classList.toggle('night', night);
     sceneEl.classList.toggle('raining', !night && w.t === '小雨');
+    sceneEl.style.setProperty('--room-bright', String(lum()));
     wallEl.className = 'r-wall wall-' + d.wall;
     floorEl.className = 'r-floor floor-' + d.floor;
     $id('room-win-a').className = 'r-window wa' + (night ? ' nw' : '');
@@ -451,6 +462,7 @@
       d.lit[inst.t] = on; save(); renderScene();
       bubble(on ? (isNight() ? '灯亮起来了，房间一下子软了。' : '亮着也很好看。') : '关掉灯，安静了一会儿。');
       gainPts(1, 'n'); vib(15);
+      if (on) lampFeedback(inst, on); else lampOffFeedback(inst);
       return;
     }
     if (inst.t === 'vase' && gardenBloom() && !d.vaseFlower) {
@@ -465,6 +477,31 @@
     else if (Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y) <= 1.6 && Math.random() < 0.45) setTimeout(() => bubble(sayLine(c.grp, 'comeover')), 1100);
     if (inst.t === 'kettle' && Math.random() < 0.5) { d.ta.tx = inst.x; d.ta.ty = Math.min(ROWS - 1, inst.y + 1); }
     gainPts(1, 'n'); vib(12);
+  }
+  // 点灯反馈闭环：点亮瞬间 TA 有概率看过来（转向灯所在格 + 依灯种吐一句字卡）
+  function lampFeedback(inst, on) {
+    if (!on) return;
+    const c = CAT[inst.t];
+    const g = c.grp === 'night' ? '夜晚' : (c.grp === 'wish' ? '许愿' : '灯亮');
+    const line = sayLine(g, '灯亮');
+    const dist = Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y);
+    const near = dist <= 1.6, chance = near ? 0.8 : 0.45;
+    if (Math.random() < chance && line) {
+      const tx = Math.max(0, Math.min(COLS - 1, inst.x)), ty = Math.max(0, Math.min(ROWS - 1, inst.y + 1));
+      if (d.ta.x !== tx || d.ta.y !== ty) {
+        d.ta.tx = tx; d.ta.ty = ty; d.ta.act = 'use'; d.ta.faint = false;
+        d.ta.nextAt = Date.now() + ri(22, 40) * 1000;
+        save(); renderTa(); renderStatus();
+      }
+      setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, near ? 900 : 1300);
+    }
+  }
+  // 关灯反馈：TA 已在屋内有小概率回应一句
+  function lampOffFeedback(inst) {
+    const c = CAT[inst.t];
+    if (c.grp === 'wish' || isNight() || Math.random() >= 0.35) return;
+    const line = sayLine('灯亮', '灯亮');
+    if (line) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, 1100);
   }
   function furnMenu(inst) {
     const c = CAT[inst.t];

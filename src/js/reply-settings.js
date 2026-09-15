@@ -18,6 +18,10 @@
     // 受默认字卡「聊天使用」概率与分类权重控制）。0=尽量用默认字卡，100=全用自定义。chat.js
     // replyOnce 的 genReplyText 文本路径消费（默认字卡覆盖点前掷一次，命中则保留自定义）
     'csp-cust': 50,
+    // #518：系统预设字卡·聊天触发概率「总档」（%，默认 100）——回复设置→聊天「系统预设字卡·聊天
+    // 触发概率」组首行；生效缩放见 src/js/dcp-master.js 的 dcpEff（生效 = 各分类设定值 × 总档 ÷ 100）。
+    // 未设键 = 100 = 各类按自身值生效、行为完全不变（「未设键回退原写死值」硬规）
+    'dcp-all': 100,
     // v3.28.x #298：词典拼字——qs-en 总开关、qs-prob 拼字概率（%）、qs-cc 混用自定义字卡
     //（1=字卡池+词典语录合并抽句；0=只用词典语录）。逻辑与词库数据见 quote-spell.js +
     // v3.40.x #388：qs-cc 默认改回 1（用户点名「混用自定义字卡需要默认开启」）——
@@ -222,6 +226,7 @@
     // stepper 数值
     document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
       const k = st.dataset.k;
+      if (!k) return; // #518：分类档自定义行无 data-k，由本文件 #518 段自行绑定，这里跳过防写 undefined
       // v3.6.x：固定选 input——转换后页面里 .stp-val 会先匹配到 ce-box(DIV，继承了
       // stp-val 类)，给 DIV 写 value 只产生 expando/attribute 不影响显示，还会污染
       // 后续运行时查询（保存按钮读到过期值）。input.stp-val 走 value 代理始终读写
@@ -259,6 +264,7 @@
   // stepper 交互
   document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
     const k = st.dataset.k;
+    if (!k) return; // #518：分类档自定义行无 data-k，由本文件 #518 段绑定 ±，避免双绑与 reply-undefined 落盘
     // v3.6.x：data-min/max 缺失时兜底默认值，避免 NaN 写进存储（± 按钮失效、显示 NaN）
     const intAttr = (name, def) => { const v = parseInt(st.getAttribute(name), 10); return Number.isNaN(v) ? def : v; };
     const min = intAttr('data-min', 0);
@@ -507,6 +513,130 @@
       else show('梦角自由造句已关闭');
     });
   }
+  // ===== #518：系统预设字卡·聊天触发概率总览（总档 + 分类档） =====
+  // 分类档全部复用既有键（不新开键）：pre=存储前缀；blob=整包 JSON（prob 在 settings.prob）的四类互动卡。
+  // dcf 19 类行由 default-cards.js 的 data-dcfkey 批量绑定接管（bindDcfProb/dcfRefreshUI），本段不重复绑。
+  // 行显示的是存盘值（#515 口径：不显示总档闸门后的生效值）；总档缩放只在掷签点生效（dcp-master.js dcpEff）。
+  (function () {
+    const DCP_ROWS = [
+      { k: 'dc-overall-chat', def: 30, name: '默认聊天字卡·聊天使用' },
+      { k: 'qs-prob', def: 25, pre: 'reply-', name: '词典拼字' },
+      { k: 'mc-prob-mood', def: 70, name: '情绪卡' },
+      { k: 'mc-prob-heart', def: 40, name: '心意卡' },
+      { k: 'mc-prob-intent', def: 40, name: '意图卡' },
+      { k: 'rcard-prob', def: 30, name: '回应字卡·整条替换' },
+      { k: 'cf-prob', def: 20, pre: 'reply-', name: '回应字卡·连接词追加' },
+      { k: 'tm-prob', def: 15, name: 'TA的心情' },
+      { k: 'ta-ask-prob', def: 5, blob: 'ta-ask', name: 'TA的询问' },
+      { k: 'tc-prob', def: 5, blob: 'ta-choose', name: 'TA的小问题' },
+      { k: 'tcu-prob', def: 5, blob: 'ta-curious', name: 'TA的好奇' },
+      { k: 'tr-prob', def: 5, blob: 'ta-roast', name: 'TA的吐槽' },
+      { k: 'ckq-prob', def: 2, pre: 'reply-', name: 'TA的查岗' },
+      { k: 'ai-rps-prob', def: 8, pre: 'reply-', name: '猜拳邀请' },
+      { k: 'ai-game-prob', def: 5, pre: 'reply-', name: '游戏邀请' },
+      { k: 'ai-cuddle-prob', def: 5, pre: 'reply-', name: '贴贴邀请' }
+    ];
+    const dcpSyncFns = [];
+    function dcpToast(msg) {
+      try {
+        const d = ccToastEnsure();
+        if (!d) return;
+        d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
+        clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
+      } catch (e) {}
+    }
+    function dcpRowGet(r) {
+      try {
+        if (r.blob) {
+          let d = null;
+          try { d = JSON.parse(ls.get(r.blob) || 'null'); } catch (e) { d = null; }
+          const s = d && d.settings ? d.settings : null;
+          return (s && typeof s.prob === 'number' && isFinite(s.prob)) ? s.prob : r.def;
+        }
+        const v = ls.get((r.pre || '') + r.k);
+        if (v === null || v === undefined || v === '') return r.def;
+        const n = Number(v);
+        return isNaN(n) ? r.def : Math.max(0, Math.min(100, n));
+      } catch (e) { return r.def; }
+    }
+    function dcpRowSet(r, nv) {
+      nv = Math.max(0, Math.min(100, Math.round(Number(nv) || 0)));
+      try {
+        if (r.blob) {
+          let d = null;
+          try { d = JSON.parse(ls.get(r.blob) || 'null'); } catch (e) { d = null; }
+          if (!d || typeof d !== 'object') d = { settings: {} };
+          if (!d.settings || typeof d.settings !== 'object') d.settings = {};
+          d.settings.prob = nv;
+          ls.set(r.blob, JSON.stringify(d));
+        } else {
+          ls.set((r.pre || '') + r.k, String(nv));
+        }
+      } catch (e) {}
+    }
+    function dcpSyncUI() {
+      DCP_ROWS.forEach(r => {
+        const val = document.getElementById('dcp-' + r.k + '-val');
+        if (val) val.value = String(dcpRowGet(r));
+        // 同键的其他设置页行（如 查岗 tab 的「查岗概率」）一并刷新，避免同页双行显示漂移
+        document.querySelectorAll('#page-reply-settings .stepper[data-k="' + r.k + '"] input.stp-val').forEach(el => { el.value = String(dcpRowGet(r)); });
+      });
+      const tg1 = document.getElementById('dcp-tg-quote');
+      if (tg1) { try { tg1.checked = ls.get('quote-cards-default') !== '0'; } catch (e) {} }
+      const tg2 = document.getElementById('dcp-tg-loc');
+      if (tg2) { try { tg2.checked = ls.get('loc-lib-default') !== '0'; } catch (e) {} }
+      dcpSyncFns.forEach(fn => { try { fn(); } catch (e) {} });
+    }
+    DCP_ROWS.forEach(r => {
+      const st = document.getElementById('dcp-' + r.k);
+      if (!st) return;
+      const mn = st.querySelector('.stp-min');
+      const mx = st.querySelector('.stp-max');
+      const cur = function () {
+        const val = st.querySelector('input.stp-val');
+        const n = val ? parseInt(val.value, 10) : NaN;
+        return isNaN(n) ? dcpRowGet(r) : n;
+      };
+      if (mn) mn.addEventListener('click', () => { dcpRowSet(r, cur() - 5); dcpSyncUI(); dcpToast('已保存：' + r.name + ' ' + dcpRowGet(r) + '%'); });
+      if (mx) mx.addEventListener('click', () => { dcpRowSet(r, cur() + 5); dcpSyncUI(); dcpToast('已保存：' + r.name + ' ' + dcpRowGet(r) + '%'); });
+    });
+    [['dcp-tg-quote', 'quote-cards-default', '桌面今日情话·系统预设'], ['dcp-tg-loc', 'loc-lib-default', 'TA在身边位置卡·系统预设']].forEach(t => {
+      const el = document.getElementById(t[0]);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        try { ls.set(t[1], el.checked ? '1' : '0'); } catch (e) {}
+        dcpToast('已保存：' + t[2] + '（' + (el.checked ? '开' : '关') + '）');
+      });
+    });
+    // 19 类功能字卡折叠块（展开状态按桌面持久化，与 功能字卡页 dcf-prob-open 同口径）
+    const expRow = document.getElementById('dcp-fun-expander-row');
+    const expBox = document.getElementById('dcp-fun-box');
+    if (expRow && expBox) {
+      const arrow = document.getElementById('dcp-fun-expander-arrow');
+      let open = false;
+      try { open = ls.get('reply-dcp-fun-open') === '1'; } catch (e) {}
+      const applyOpen = function () {
+        expBox.hidden = !open;
+        if (arrow) arrow.textContent = open ? '▴' : '▾';
+      };
+      expRow.addEventListener('click', function () {
+        open = !open;
+        try { ls.set('reply-dcp-fun-open', open ? '1' : '0'); } catch (e) {}
+        applyOpen();
+      });
+      applyOpen();
+    }
+    window.__dcpSyncUI = dcpSyncUI;
+    dcpSyncUI();
+    // 切桌面 / 备份回填 / 写日志修正三时机重读显示（与 #515 三页概率行同口径）
+    ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(ev => {
+      document.addEventListener(ev, () => { try { dcpSyncUI(); } catch (e) {} });
+    });
+    // 进页即刷新（row-general 已有 syncUI 监听，这里补分类档自己的）
+    const genRow = document.getElementById('row-general');
+    if (genRow) genRow.addEventListener('click', () => { try { dcpSyncUI(); } catch (e) {} });
+  })();
+
   // v3.6.x：「保存设置」按钮——把当前页面上所有概率/开关一次性写入本地并提示。
   // 数值本身已随点击即时保存，这里提供明确的「保存」反馈（用户反馈刷新后设置会丢）
   // v3.26.x：抽出 saveCurrentReplyPage() 公共函数——「保存设置」与「保存全部桌面联系人
@@ -515,6 +645,7 @@
     try {
       document.querySelectorAll('#page-reply-settings .stepper, #page-call-settings .stepper').forEach(st => {
         const k = st.dataset.k;
+        if (!k) return; // #518：分类档自定义行无 data-k，跳过防 reply-undefined 落盘
         // 同 syncUI：固定选 input.stp-val，避免转换后误读到 ce-box DIV 的过期 expando
         const val = st.querySelector('input.stp-val');
         if (k && val) {

@@ -34,6 +34,13 @@
   height: clamp(238px, 54vw, 330px);
   border-radius: 16px; overflow: hidden;
   box-shadow: 0 10px 28px rgba(60,45,25,.16), 0 2px 6px rgba(0,0,0,.08);
+  transform: translateZ(0);
+  transition: filter .6s ease;
+}
+/* 简易场景整体光照（JS 按亮灯数实时刷新 --room-bright）：
+   夜间无灯 ≈0 很暗，每点一盏灯 +0.12；白天基础 1，加灯可到 1.3 高亮 */
+.r-scene {
+  filter: saturate(calc(var(--room-bright, 1) * .86 + .14)) brightness(var(--room-bright, 1));
 }
 .r-wall {
   position: absolute; left: 0; right: 0; top: 0; height: 44%;
@@ -347,11 +354,6 @@
 }
 .r-bar button:active { transform: translateY(1px); }
 
-/* 深色模式下玻璃变量兜底（dark.css 未覆盖本页自定义元素时保持可读） */
-[data-theme="dark"] .r-chip,
-[data-theme="dark"] .r-sense-out,
-[data-theme="dark"] .r-bar button { color: #eee; background: rgba(40,40,48,.66); border-color: rgba(255,255,255,.08); }
-
 /* 无障碍 / 低端机：偏好减弱动效时关闭全部动画过渡 */
 @media (prefers-reduced-motion: reduce) {
   #page-room *,
@@ -362,3 +364,8 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* 深色模式下玻璃变量兜底（dark.css 未覆盖本页自定义元素时保持可读） */
+[data-theme="dark"] .r-chip,
+[data-theme="dark"] .r-sense-out,
+[data-theme="dark"] .r-bar button { color: #eee; background: rgba(40,40,48,.66); border-color: rgba(255,255,255,.08); }

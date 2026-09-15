@@ -1631,10 +1631,12 @@
         '📌 注意',
         '它不是真推送，频率由系统决定（约数小时一次）、只随机抽一条；也不代表对方真实在线。'
       ].join('\n');
-      window.openModal('离线消息提醒 · 功能说明', '', function () {}, {
-        noInput: true, okText: '知道了',
+      const ctl = window.openModal('离线消息提醒 · 功能说明', '', function () {}, {
+        noInput: true,
         staticText: txt
       });
+      // openModal 的确认按钮文案走 ctl.okText()（opts.okText 不被 openModal 读取，原写法静默无效、按钮显示「确定」）
+      if (ctl && ctl.okText) ctl.okText('知道了');
     };
     psHelp.addEventListener('click', openPsyncHelp);
     psHelp.addEventListener('keydown', function (e) {

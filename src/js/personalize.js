@@ -383,6 +383,11 @@ try {
     // 新弹窗保留）。修「导出美化方案」等嵌套弹窗：外层确定把刚打开的下一层弹窗
     // 立即关掉（stayOnce 会被内层 openModal 重置，扛不住跨弹窗嵌套）。
     let _openSeq = 0;
+    // FIX 2026-09-15 #522 弹窗打开时刻——供遮罩 click 判定「本次点击是否为刚打开它的那次触摸
+    // 补发的合成 click」。touch 直驱（如聊天消息菜单【编辑】touchend→openModal）打开弹窗后，
+    // 健康内核补发的 click 会按新布局命中 #modal-mask 触发 close，弹窗刚开即关（改 src 侧已用
+    // preventDefault 溯源抑制；这里是弹层通用兜底，任何未来的直驱开弹窗都受保护）。
+    let _openedAt = 0;
     // v3.6.x：用户是否真的点过 pill——区分「opts.pill 预设值」与「用户主动选择」。
     // 修复：今天的心情/字体大小等「pills + 输入框 + pill 预设」弹窗里，用户输入文字点确定时，
     // fire() 的 pills 分支误把预设的旧 pillVal 传回回调，输入的文本被丢弃（卡片不更新）。
@@ -391,6 +396,7 @@ try {
       opts = opts || {};
       _modalOpts = opts;
       _openSeq++;
+      _openedAt = Date.now();
       // v3.25.x：opts.big——宽版弹窗（诊断信息等长文只读展示），配合 CSS
       // .modal.modal--big 加宽 + 放大输入框；每次开弹窗按 opts.big 重设类，天然复位。
       if (modalBox) modalBox.classList.toggle('modal--big', !!opts.big);
@@ -718,7 +724,13 @@ try {
       try { fire(); } finally { if (_openSeq === _s) close(); }
     });
     cancelBtn.addEventListener('click', close);
-    mask.addEventListener('click', (e) => { if (e.target === mask && !lock) close(); });
+    mask.addEventListener('click', (e) => {
+      if (e.target !== mask || lock) return;
+      // FIX 2026-09-15 #522 忽略触发本次打开的那次触摸补发的合成 click（见 _openedAt 注释）。
+      // 350ms 远大于内核补发 click 的延迟（通常同帧~百毫秒内），正常点遮罩关闭不受影响。
+      if (Date.now() - _openedAt < 350) return;
+      close();
+    });
     input.addEventListener('keydown', (e) => {
       // v3.6.x：与 OK 按钮一致用 try/finally——回调抛异常（如存储配额满）时也必须
       // 关闭弹窗，否则残留卡死、后续再点 OK 每次都抛
@@ -1790,7 +1802,13 @@ try {
     bind('dq-radius', 'row-desk-card-radius');
     // v3.27.x #146：dq-random（随机美化快捷入口）已随「一键随机美化」功能一并删除
   })();
-  // v3.27.x：边看边调抽屉（项6）——切到桌面页 + 右侧浮层实时改 CSS 变量，桌面可见
+  // FIX 2026-09-15 #527：边看边调改为「底部抽屉」。
+  // 原实现是 `position:fixed;right:0;width:min(70vw,300px)` 的右侧浮层：手机屏宽约 390px
+  // 时它挡住 70% 宽度，而桌面内容是居中的 → 用户调的时候几乎看不到效果，这正是用户报
+  // 「不能边看边调」的根因（桌面浏览器上 .phone 居中、抽屉贴浏览器最右缘，反而正常，
+  // 所以这个坑只在真机暴露）。现改为底部抽屉：桌面完整留在上半屏，抽屉占下半屏、可折叠。
+  // 同时按「颜色/尺寸/背景」分区补齐控件（原来只有 5 项：主题色/组件背景/边框/圆角/透明度，
+  // 按钮色、按钮文字色、爱心色、图标圆角、字号、卡片大小、壁纸/模糊/遮罩全都没有）。
   const openBeautyDrawer = () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
@@ -1799,12 +1817,47 @@ try {
     const phonePage = document.getElementById('page-phone');
     if (phonePage) phonePage.hidden = false;
     let d = document.getElementById('beauty-drawer');
-    if (!d) { d = document.createElement('div'); d.id = 'beauty-drawer'; d.style.cssText = 'position:fixed;top:0;right:0;bottom:0;width:min(70vw,300px);z-index:95;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:-4px 0 20px rgba(0,0,0,.15);overflow-y:auto;padding:14px;box-sizing:border-box;display:none;flex-direction:column;gap:14px'; document.body.appendChild(d); }
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'beauty-drawer';
+      // 底部抽屉：贴底、圆角上沿、可折叠（点标题栏折叠成一条，露出更多桌面）
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:56vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:none;flex-direction:column;gap:12px';
+      document.body.appendChild(d);
+    }
     d.innerHTML = '';
-    const hd = document.createElement('div'); hd.style.cssText = 'font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center';
-    const hdTxt = document.createElement('span'); hdTxt.textContent = '边看边调（改色实时生效）'; hd.appendChild(hdTxt);
-    const closeBtn = document.createElement('button'); closeBtn.textContent = '\u2715'; closeBtn.style.cssText = 'border:none;background:none;font-size:18px;color:var(--ink,#111);cursor:pointer;padding:4px 8px'; closeBtn.addEventListener('click', () => { d.style.display = 'none'; });
-    hd.appendChild(closeBtn); d.appendChild(hd);
+    // 拖拽把手（视觉提示「这是可折叠的底部面板」）
+    const grip = document.createElement('div');
+    grip.style.cssText = 'width:38px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:8px auto 2px;flex:none';
+    d.appendChild(grip);
+    const hd = document.createElement('div'); hd.style.cssText = 'font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px';
+    const hdTxt = document.createElement('span'); hdTxt.textContent = '边看边调（改动实时生效）'; hd.appendChild(hdTxt);
+    const hdAct = document.createElement('div'); hdAct.style.cssText = 'display:flex;gap:4px;align-items:center;flex:none';
+    // 折叠/展开——手机上一屏装不下所有控件，折叠后桌面露出更多，便于整体看效果
+    const foldBtn = document.createElement('button'); foldBtn.textContent = '收起'; foldBtn.style.cssText = 'border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:8px;cursor:pointer;padding:4px 10px';
+    let folded = false;
+    foldBtn.addEventListener('click', () => {
+      folded = !folded;
+      body.style.display = folded ? 'none' : 'flex';
+      foldBtn.textContent = folded ? '展开' : '收起';
+      d.style.maxHeight = folded ? 'none' : '56vh';
+    });
+    const closeBtn = document.createElement('button'); closeBtn.textContent = '\u2715'; closeBtn.style.cssText = 'border:none;background:none;font-size:18px;color:var(--ink,#111);cursor:pointer;padding:4px 8px';
+    // 关闭 = 回美化页并刷新各行的当前值（用户可能在这改了色）
+    closeBtn.addEventListener('click', () => { d.style.display = 'none'; showThemePage(); });
+    hdAct.appendChild(foldBtn); hdAct.appendChild(closeBtn);
+    hd.appendChild(hdAct); d.appendChild(hd);
+    const body = document.createElement('div');
+    body.style.cssText = 'display:flex;flex-direction:column;gap:12px;flex:1;min-height:0';
+    d.appendChild(body);
+    const mkSection = (title) => {
+      const t = document.createElement('div');
+      t.textContent = title;
+      t.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--muted,#999);letter-spacing:.6px;display:flex;align-items:center;gap:7px;margin-top:2px';
+      const bar = document.createElement('span');
+      bar.style.cssText = 'width:3px;height:11px;border-radius:2px;background:var(--ink,#111);opacity:.8;display:inline-block';
+      t.insertBefore(bar, t.firstChild);
+      return t;
+    };
     const mkColorRow = (label, key, varName, isGlobal) => {
       const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
       const curGet = () => { try { return (isGlobal ? localStorage.getItem(key) : store.get(key)) || '#111111'; } catch (e) { return '#111111'; } };
@@ -1832,32 +1885,119 @@ try {
       rowH.appendChild(hexBtn);
       r.appendChild(rowH); return r;
     };
-    d.appendChild(mkColorRow('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
-    d.appendChild(mkColorRow('组件背景色', 'widget-bg-color', '--widget-bg', false));
-    d.appendChild(mkColorRow('边框色', 'widget-border-color', '--widget-border', false));
-    const mkSliderRow = (label, key, varName, min, max, unit) => {
+    const mkSliderRow = (label, key, varName, min, max, unit, defVal) => {
       const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
       const lb = document.createElement('div'); lb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; lb.textContent = label; r.appendChild(lb);
       const inp = document.createElement('input'); inp.type = 'range'; inp.min = min; inp.max = max;
-      const cur = store.get(key); inp.value = cur || String(Math.round((min + max) / 2));
+      const cur = store.get(key);
+      inp.value = (cur !== null && cur !== undefined && cur !== '') ? cur : String(defVal != null ? defVal : Math.round((min + max) / 2));
       inp.style.cssText = 'width:100%';
-      const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999)'; vv.textContent = inp.value + unit;
+      const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; vv.textContent = inp.value + unit;
       inp.addEventListener('input', () => { vv.textContent = inp.value + unit; document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); });
       const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:6px'; row.appendChild(inp); row.appendChild(vv);
       r.appendChild(row); return r;
     };
-    d.appendChild(mkSliderRow('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 'px'));
+    // ---- 颜色 ----
+    body.appendChild(mkSection('颜色'));
+    body.appendChild(mkColorRow('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
+    body.appendChild(mkColorRow('组件背景色', 'widget-bg-color', '--widget-bg', false));
+    body.appendChild(mkColorRow('边框色', 'widget-border-color', '--widget-border', false));
+    body.appendChild(mkColorRow('按钮颜色', 'widget-btn-color', '--widget-btn', false));
+    body.appendChild(mkColorRow('按钮文字颜色', 'widget-btn-text-color', '--widget-btn-text', false));
+    body.appendChild(mkColorRow('爱心外框颜色', 'widget-heart-color', '--widget-heart', false));
+    // v3.27.x：装修模式可调「文字部位颜色」的入口（原来抽屉里没有，只能回装修模式点卡片）
+    const txBtn = document.createElement('button');
+    txBtn.textContent = '改桌面文字颜色（进入装修模式点卡片）';
+    txBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
+    txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
+    body.appendChild(txBtn);
+    // ---- 尺寸与圆角（手机端字号/卡片大小不生效的历史提示在此如实标注）----
+    body.appendChild(mkSection('尺寸与圆角'));
+    body.appendChild(mkSliderRow('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 'px'));
+    body.appendChild(mkSliderRow('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 'px'));
+    // FIX #527：手机端 zoom 被强制为 1（iOS 卡顿红线，见 home.css），这两项在手机上拖了没反应。
+    // 与其让用户反复拖（「看不懂」来源之一），不如只在真正生效的环境显示。
+    const zoomWorks = !(window.matchMedia && window.matchMedia('(max-width: 900px)').matches) && !document.documentElement.classList.contains('force-mobile');
+    if (zoomWorks) {
+      body.appendChild(mkSliderRow('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, '%'));
+      body.appendChild(mkSliderRow('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, '%'));
+    } else {
+      const nt = document.createElement('div');
+      nt.style.cssText = 'font-size:11px;color:var(--muted,#999);line-height:1.5';
+      nt.textContent = '桌面字号 / 卡片大小仅在电脑端（大屏）生效，手机端为性能保持默认——手机端想改大小请用上方「组件圆角」或整体字号设置。';
+      body.appendChild(nt);
+    }
+    // ---- 透明度 ----
     const opRow = document.createElement('div'); opRow.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-    const opLb = document.createElement('div'); opLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; opLb.textContent = '全局默认组件透明度（装修模式点卡片可单独调）'; opRow.appendChild(opLb);
+    const opLb = document.createElement('div'); opLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; opLb.textContent = '组件透明度（全局默认，装修模式点卡片可单独调）'; opRow.appendChild(opLb);
     const opInp = document.createElement('input'); opInp.type = 'range'; opInp.min = 40; opInp.max = 100; opInp.step = 5;
     // FIX 2026-09-04 #151：统一 opacityRawToPct 解析 + 拖动存百分比整数——原实现初始化
     // parseFloat(cur)*100（存量 "90" 被算成 9000）、拖动存小数（"0.85"，#146 同族脏值再入key）
     const opCur = store.get('widget-opacity'); opInp.value = opCur ? String(opacityRawToPct(opCur)) : '100';
     opInp.style.cssText = 'width:100%';
-    opInp.addEventListener('input', () => { const v = parseInt(opInp.value, 10) / 100; document.documentElement.style.setProperty('--widget-opacity', String(v)); store.set('widget-opacity', String(Math.round(v * 100))); });
-    opRow.appendChild(opInp); d.appendChild(opRow);
-    const hint = document.createElement('div'); hint.style.cssText = 'font-size:11px;color:var(--muted,#999);margin-top:4px'; hint.textContent = '左侧桌面实时预览，关闭后回美化页保存。'; d.appendChild(hint);
+    const opVv = document.createElement('span'); opVv.style.cssText = 'font-size:11px;color:var(--muted,#999)'; opVv.textContent = opInp.value + '%';
+    opInp.addEventListener('input', () => { opVv.textContent = opInp.value + '%'; const v = parseInt(opInp.value, 10) / 100; document.documentElement.style.setProperty('--widget-opacity', String(v)); store.set('widget-opacity', String(Math.round(v * 100))); });
+    const opLine = document.createElement('div'); opLine.style.cssText = 'display:flex;align-items:center;gap:6px'; opLine.appendChild(opInp); opLine.appendChild(opVv);
+    opRow.appendChild(opLine); body.appendChild(opRow);
+    // ---- 背景与壁纸（原来抽屉完全没有，而壁纸是「边看边调」最有价值的项）----
+    body.appendChild(mkSection('背景与壁纸'));
+    const blurRow = document.createElement('div'); blurRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
+    const blurLb = document.createElement('span'); blurLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; blurLb.textContent = '背景模糊';
+    const blurInp = document.createElement('input'); blurInp.type = 'range'; blurInp.min = 0; blurInp.max = 20; blurInp.step = 1;
+    blurInp.value = store.get('bg-blur') || '0';
+    blurInp.style.cssText = 'flex:1;min-width:0';
+    const blurVv = document.createElement('span'); blurVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; blurVv.textContent = blurInp.value + 'px';
+    blurInp.addEventListener('input', () => {
+      const v = parseInt(blurInp.value, 10);
+      blurVv.textContent = v + 'px';
+      document.documentElement.style.setProperty('--bg-blur', v + 'px');
+      if (v > 0) store.set('bg-blur', String(v)); else store.remove('bg-blur');
+    });
+    blurRow.appendChild(blurLb); blurRow.appendChild(blurInp); blurRow.appendChild(blurVv);
+    body.appendChild(blurRow);
+    const maskRow = document.createElement('div'); maskRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
+    const maskLb = document.createElement('span'); maskLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; maskLb.textContent = '背景遮罩';
+    const maskInp = document.createElement('input'); maskInp.type = 'range'; maskInp.min = 0; maskInp.max = 80; maskInp.step = 5;
+    maskInp.value = store.get('bg-mask-op') || '0';
+    maskInp.style.cssText = 'flex:1;min-width:0';
+    const maskVv = document.createElement('span'); maskVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; maskVv.textContent = maskInp.value + '%';
+    maskInp.addEventListener('input', () => {
+      const v = parseInt(maskInp.value, 10);
+      maskVv.textContent = v + '%';
+      document.documentElement.style.setProperty('--bg-mask-op', String(v / 100));
+      if (v > 0) store.set('bg-mask-op', String(v)); else store.remove('bg-mask-op');
+    });
+    maskRow.appendChild(maskLb); maskRow.appendChild(maskInp); maskRow.appendChild(maskVv);
+    body.appendChild(maskRow);
+    // 壁纸/内置预设等复杂入口：抽屉里放不下整套图库，提供一键直达并临时收起抽屉
+    const bgBtn = document.createElement('button');
+    bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
+    bgBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
+    bgBtn.addEventListener('click', () => {
+      d.style.display = 'none'; showThemePage();
+      const row = document.getElementById('row-bg-preset');
+      if (row) row.click();
+    });
+    body.appendChild(bgBtn);
+    const hint = document.createElement('div'); hint.style.cssText = 'font-size:11px;color:var(--muted,#999);margin-top:2px;line-height:1.5';
+    hint.textContent = '下方是设置项，上方桌面实时变化——不用来回切换页面。改完点右上角 ✕ 回到美化页。';
+    body.appendChild(hint);
     d.style.display = 'flex';
+    d.style.maxHeight = '56vh';
+    foldBtn.textContent = '收起';
+  };
+  // 回到「手机桌面美化」页（抽屉关闭/跳转用）。
+  // 导航口径对齐 tabs.js 的 #row-appearance 处理：隐藏所有页 → 只显示 #page-theme，
+  // 底部 tab 停在「设置」（page-theme 是 setting 的二级页，不单独占 tab）。
+  const showThemePage = () => {
+    try {
+      document.querySelectorAll('.page').forEach(pg => pg.hidden = true);
+      const pg = document.getElementById('page-theme');
+      if (pg) pg.hidden = false;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const setTab = document.querySelector('.tab[data-page="page-setting"]');
+      if (setTab) setTab.classList.add('active');
+    } catch (e) {}
   };
   const dqDrawer = document.getElementById('dq-drawer');
   if (dqDrawer) dqDrawer.addEventListener('click', openBeautyDrawer);
@@ -1908,19 +2048,41 @@ try {
   // v3.6.x：装修模式设置卡片背景入口的绑定在 CARD_BG_TYPES 定义之后（见卡片背景段末尾）——
   // 该入口引用了 CARD_BG_TYPES 统计已设置数量，需等其声明后再绑定。
 
+  // FIX 2026-09-15 #527（美化页可读性）：颜色行统一「显示当前值 + 独立色块」。
+  // 原实现非默认值时写入空字符串 → 用户选完颜色，行右侧一片空白，既看不出是否生效、
+  // 也看不出当前是什么色（用户报「看不懂美化设置」的最大来源）。现统一：默认值显示默认
+  // 文案，非默认显示大写色值 + 一个色块；色块保证「取色器被机型渲染成透明/文本框」时
+  // 用户仍能看到当前颜色。
+  function paintBeautyVal(el, color, defaultColor, defaultLabel) {
+    if (!el) return;
+    const isDefault = !color || color === defaultColor;
+    el.textContent = isDefault ? (defaultLabel || '默认') : String(color).toUpperCase();
+    const row = el.closest ? el.closest('.set-row') : null;
+    if (!row) return;
+    let chip = row.querySelector('.bfy-val-chip');
+    if (isDefault) { if (chip) chip.remove(); return; }
+    if (!chip) {
+      chip = document.createElement('span');
+      chip.className = 'bfy-val-chip';
+      chip.style.cssText = 'width:14px;height:14px;border-radius:4px;border:1px solid var(--card-border,#ddd);flex:none;margin-right:6px;display:inline-block;vertical-align:middle';
+      el.parentNode.insertBefore(chip, el);
+    }
+    chip.style.background = color;
+  }
+
   // 小组件颜色：点击色板选择，CSS 变量 --widget-bg 实时生效
   const widgetColorRow = document.getElementById('row-widget-color');
   const widgetColorVal = document.getElementById('widget-color-val');
   const applyWidgetColor = (color) => {
     document.documentElement.style.setProperty('--widget-bg', color);
-    if (widgetColorVal) widgetColorVal.textContent = color === '#ffffff' ? '默认白' : '';
+    paintBeautyVal(widgetColorVal, color, '#ffffff', '默认白');
   };
   const savedWidgetColor = store.get('widget-bg-color');
   if (savedWidgetColor) applyWidgetColor(savedWidgetColor);
   if (widgetColorRow) {
     const syncWidgetColorUI = () => {
       const c = store.get('widget-bg-color') || '#ffffff';
-      if (widgetColorVal) widgetColorVal.textContent = c === '#ffffff' ? '默认白' : '';
+      paintBeautyVal(widgetColorVal, c, '#ffffff', '默认白');
     };
     syncWidgetColorUI();
     widgetColorRow.addEventListener('click', () => {
@@ -1977,14 +2139,14 @@ try {
   const widgetBorderVal = document.getElementById('widget-border-val');
   const applyWidgetBorder = (color) => {
     document.documentElement.style.setProperty('--widget-border', color);
-    if (widgetBorderVal) widgetBorderVal.textContent = color === 'rgba(0,0,0,.1)' ? '默认' : '';
+    paintBeautyVal(widgetBorderVal, color, 'rgba(0,0,0,.1)', '默认');
   };
   const savedWidgetBorder = store.get('widget-border-color');
   if (savedWidgetBorder) applyWidgetBorder(savedWidgetBorder);
   if (widgetBorderRow) {
     const syncWidgetBorderUI = () => {
       const c = store.get('widget-border-color') || 'rgba(0,0,0,.1)';
-      if (widgetBorderVal) widgetBorderVal.textContent = c === 'rgba(0,0,0,.1)' ? '默认' : '';
+      paintBeautyVal(widgetBorderVal, c, 'rgba(0,0,0,.1)', '默认');
     };
     syncWidgetBorderUI();
     const borderSwatches = [
@@ -2036,14 +2198,14 @@ try {
   const widgetBtnVal = document.getElementById('widget-btn-val');
   const applyWidgetBtn = (color) => {
     document.documentElement.style.setProperty('--widget-btn', color);
-    if (widgetBtnVal) widgetBtnVal.textContent = color === '#111111' ? '默认黑' : '';
+    paintBeautyVal(widgetBtnVal, color, '#111111', '默认黑');
   };
   const savedWidgetBtn = store.get('widget-btn-color');
   if (savedWidgetBtn) applyWidgetBtn(savedWidgetBtn);
   if (widgetBtnRow) {
     const syncWidgetBtnUI = () => {
       const c = store.get('widget-btn-color') || '#111111';
-      if (widgetBtnVal) widgetBtnVal.textContent = c === '#111111' ? '默认黑' : '';
+      paintBeautyVal(widgetBtnVal, c, '#111111', '默认黑');
     };
     syncWidgetBtnUI();
     const btnSwatches = [
@@ -2095,14 +2257,14 @@ try {
   const widgetBtnTextVal = document.getElementById('widget-btn-text-val');
   const applyWidgetBtnText = (color) => {
     document.documentElement.style.setProperty('--widget-btn-text', color);
-    if (widgetBtnTextVal) widgetBtnTextVal.textContent = color === '#ffffff' ? '默认白' : '';
+    paintBeautyVal(widgetBtnTextVal, color, '#ffffff', '默认白');
   };
   const savedWidgetBtnText = store.get('widget-btn-text-color');
   if (savedWidgetBtnText) applyWidgetBtnText(savedWidgetBtnText);
   if (widgetBtnTextRow) {
     const syncWidgetBtnTextUI = () => {
       const c = store.get('widget-btn-text-color') || '#ffffff';
-      if (widgetBtnTextVal) widgetBtnTextVal.textContent = c === '#ffffff' ? '默认白' : '';
+      paintBeautyVal(widgetBtnTextVal, c, '#ffffff', '默认白');
     };
     syncWidgetBtnTextUI();
     const btnTextSwatches = [
@@ -2238,14 +2400,14 @@ try {
   const widgetHeartVal = document.getElementById('widget-heart-val');
   const applyWidgetHeart = (color) => {
     document.documentElement.style.setProperty('--widget-heart', color);
-    if (widgetHeartVal) widgetHeartVal.textContent = color === '#111111' ? '默认黑' : '';
+    paintBeautyVal(widgetHeartVal, color, '#111111', '默认黑');
   };
   const savedWidgetHeart = store.get('widget-heart-color');
   if (savedWidgetHeart) applyWidgetHeart(savedWidgetHeart);
   if (widgetHeartRow) {
     const syncWidgetHeartUI = () => {
       const c = store.get('widget-heart-color') || '#111111';
-      if (widgetHeartVal) widgetHeartVal.textContent = c === '#111111' ? '默认黑' : '';
+      paintBeautyVal(widgetHeartVal, c, '#111111', '默认黑');
     };
     syncWidgetHeartUI();
     const heartSwatches = [
@@ -2491,11 +2653,19 @@ try {
   // 实际存储键 widget-bg-color/widget-border-color/... 全部对不上，导出静默漏掉；
   // 自定义图标（app-icon-*）/图标顺序（app-icon-order-*）/图片组件本体
   //（desk-image-src-*）为动态键，在 collectBeauty/导入处单独收集
+  // FIX 2026-09-15 #527：补齐 5 个「已定义、已被「恢复全部默认」删除、但从未进采集清单」的键。
+  // 本数组是方案/导出文件/分享链接/撤销快照的唯一数据源，漏一个键 = 该设置在这四条链路里
+  // 全部静默蒸发：壁纸定位与缩放(phone-bg-pos-x/-y/-size)/纯色壁纸(phone-bg-solid)/
+  // 图标文字颜色(app-name-color) 此前不在数组内，导致「存了方案再应用 → 定位缩放回默认」，
+  // 且「恢复全部默认」删得掉、撤销快照里却没有 → 点完撤销救不回来。
+  // 三个 SCOPE_* 数组早已列有这些键（作者本意就是要它们随方案走），此处补齐即闭合。
   const BEAUTY_KEYS = [
-    'phone-bg', 'phone-bg-preset', 'bg-blur', 'bg-mask-op',
+    'phone-bg', 'phone-bg-preset', 'phone-bg-solid', 'phone-bg-pos-x', 'phone-bg-pos-y', 'phone-bg-size',
+    'bg-blur', 'bg-mask-op',
     'desk-font-size', 'desk-card-scale', 'desk-card-radius',
     'widget-opacity', 'ico-radius', 'ico-shape',
     'widget-bg-color', 'widget-border-color', 'widget-btn-color', 'widget-btn-text-color', 'widget-heart-color',
+    'app-name-color',
     'desk-layout', 'desk-page-count',
     'desk-images', 'desk-texts', 'desk-countdowns',
   ];
@@ -2623,6 +2793,7 @@ try {
   const SCOPE_LAYOUT_KEYS = ['desk-layout','desk-page-count','desk-images','desk-texts','desk-countdowns'];
   const applyBeautyData = (data, scope) => {
     scope = scope || 'all';
+    let n = 0;
     const allow = (k) => {
       if (scope === 'all') return true;
       if (scope === 'color') return SCOPE_COLOR_KEYS.indexOf(k) >= 0 || k === '__accent__' || k === '__theme__';
@@ -2630,14 +2801,76 @@ try {
       if (scope === 'layout') return SCOPE_LAYOUT_KEYS.indexOf(k) >= 0 || k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k === 'hidden-icons';
       return true;
     };
-    BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined && allow(k)) store.set(k, data[k]); });
+    BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined && allow(k)) { store.set(k, data[k]); n++; } });
     Object.keys(data).forEach(k => {
       if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0) && data[k] !== undefined && allow(k)) {
-        store.set(k, data[k]);
+        store.set(k, data[k]); n++;
       }
     });
-    if (data['__accent__'] && allow('__accent__')) { try { localStorage.setItem('xy-home-v2:accent-color', data['__accent__']); } catch (e) {} }
-    if (data['__theme__'] && allow('__theme__')) { try { localStorage.setItem('xy-home-v2:theme-mode', data['__theme__']); } catch (e) {} }
+    if (data['__accent__'] && allow('__accent__')) { try { localStorage.setItem('xy-home-v2:accent-color', data['__accent__']); } catch (e) {} n++; }
+    if (data['__theme__'] && allow('__theme__')) { try { localStorage.setItem('xy-home-v2:theme-mode', data['__theme__']); } catch (e) {} n++; }
+    // FIX 2026-09-15 #527：返回「实际写入的项数」——导入方据此如实反馈，不再无条件报「已导入」
+    return n;
+  };
+  // FIX 2026-09-15 #527：方案用途标记。此前方案 JSON 无任何用途标识，把「聊天美化」的
+  // JSON 粘进「桌面美化」导入框会解析通过、命中的键为 0，却照样提示「已导入」（用户以为
+  // 导入成功、实际什么都没变）。现在导出带 __kind__，导入先对用途、再报识别项数。
+  const BEAUTY_KIND = 'mochi-desk-beauty';
+  const BEAUTY_FMT = 2;
+  const beautyKindMismatch = (data) => {
+    const k = data && data['__kind__'];
+    return !!k && k !== BEAUTY_KIND;
+  };
+  // 预检：不写盘，只算这份数据能命中几项（用于「识别到 0 项就别备份/别刷新」）
+  const recognizeBeauty = (data) => {
+    let n = 0;
+    if (!data || typeof data !== 'object') return 0;
+    BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined) n++; });
+    Object.keys(data).forEach(k => {
+      if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0) && data[k] !== undefined) n++;
+    });
+    if (data['__accent__']) n++;
+    if (data['__theme__']) n++;
+    return n;
+  };
+  // FIX 2026-09-15 #527：刷新前先等大键落盘。壁纸/卡片背景/图片组件是 base64（压缩上限
+  // 4.5MB），超过 200KB 的键只进 IndexedDB（idb.js LS_BIG_LIMIT），而写日志只记 ≤64KB 的值
+  // → 大键没有 localStorage 兜底。此前导入/应用方案/撤销/恢复默认收尾一律
+  // setTimeout(reload, 800) 不等 IDB 事务提交：慢机与挂起内核上刷新后大图未落盘即丢
+  //（用户报「提示导入成功，但壁纸不见了」）。现显式重写这些大键并 await 事务完成，
+  // 另设 1.2s 上限——IDB 真挂起时也必须刷新，绝不把用户卡在页面上。
+  const BEAUTY_LS_BIG = 200 * 1024;
+  const beautyBigKeyCandidates = () => {
+    const ks = BEAUTY_KEYS.slice();
+    try {
+      JSON.parse(store.get('desk-images') || '[]').forEach(m => { if (m && m.id) ks.push('desk-image-src-' + m.id); });
+    } catch (e) {}
+    return ks;
+  };
+  const flushBeautyIdb = () => {
+    try {
+      if (!window.idbSet) return Promise.resolve(false);
+      const pre = window.activePrefix();
+      const jobs = [];
+      beautyBigKeyCandidates().forEach((k) => {
+        let v = null;
+        try { v = store.get(k); } catch (e) {}
+        if (typeof v === 'string' && v.length > BEAUTY_LS_BIG) jobs.push(window.idbSet(pre + ':' + k, v));
+      });
+      return jobs.length ? Promise.all(jobs) : Promise.resolve(false);
+    } catch (e) { return Promise.resolve(false); }
+  };
+  const reloadAfterBeautyWrite = () => {
+    let done = false;
+    const go = () => { if (done) return; done = true; try { location.reload(); } catch (e) {} };
+    // 时序契约：刷新不早于原来的 800ms——既有回归脚本（verify-beauty-io F2/F3）按这个节奏
+    // 在导入后读取设置值，提前刷新会让读取撞上「导航进行中」而取到空值；但落盘必须等，
+    // 所以是「800ms 与落盘完成两者都满足才刷」，落盘慢则顺延，2.5s 硬上限兜底。
+    const RE_MIN = 800, RE_MAX = 2500;
+    const t0 = Date.now();
+    const afterFlush = () => setTimeout(go, Math.max(0, RE_MIN - (Date.now() - t0)));
+    try { Promise.resolve(flushBeautyIdb()).then(afterFlush, afterFlush); } catch (e) { setTimeout(go, RE_MIN); }
+    setTimeout(go, RE_MAX);
   };
   const beautyImportRow = document.getElementById('row-beauty-import');
   if (beautyImportRow) {
@@ -2651,31 +2884,61 @@ try {
         try {
           // #408：粘贴/文件导入统一走自救解析（安卓各机型浏览器粘贴链路会弄脏 JSON）
           const data = window.mochiParsePastedJSON(v);
+          // FIX 2026-09-15 #527：用途校验——把「聊天美化」的方案粘进桌面导入框时，
+          // 旧行为是解析通过、命中 0 项、照样提示「已导入」（用户以为成功，其实没变）。
+          if (beautyKindMismatch(data)) {
+            toast('这份方案不是桌面美化方案（' + data.__kind__ + '），请到对应页面导入');
+            return;
+          }
+          const hit = recognizeBeauty(data);
+          if (!hit) {
+            // 未命中任何美化项：不备份、不压撤销栈、不刷新——避免「什么都没变却生成一份垃圾备份」
+            toast('这份数据里没有识别到桌面美化项，请确认是桌面美化方案');
+            return;
+          }
           // v3.27.x：导入前自动把「当前美化」保存成方案，避免被导入覆盖后丢失
           //（用户要求：导入不影响原本拥有的美化，原美化自动存为方案）
+          // FIX 2026-09-15 #527：备份如实报错 + 数量上限。
+          // 原实现 saveSchemesList 吞掉所有异常（配额满也吞），toast 却照样报「已自动保存」——
+          // 用户以为有安全网其实没有；且每次导入都无条件追加一份（每份含 base64 壁纸可达数 MB），
+          // 列表无限膨胀直到配额爆掉。现在：写入后用读回校验确认落盘，并只保留最近 5 份自动备份。
+          let backupName = '';
           try {
             const cur = collectBeautyFull();
             if (cur && Object.keys(cur).length > 0) {
               const d = new Date();
               const p = (n) => (n < 10 ? '0' : '') + n;
               const name = '导入前备份 ' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
-              const list = getSchemes();
+              let list = getSchemes();
+              // 自动备份只留最近 5 份，用户自己命名的方案一份不动
+              const autos = list.filter(s => s && typeof s.name === 'string' && s.name.indexOf('导入前备份') === 0);
+              if (autos.length >= 5) {
+                const drop = new Set(autos.slice(0, autos.length - 4).map(s => s.time));
+                list = list.filter(s => !(s && drop.has(s.time) && typeof s.name === 'string' && s.name.indexOf('导入前备份') === 0));
+              }
               list.push({ name, time: Date.now(), data: cur });
               saveSchemesList(list);
-              toast('已自动保存原美化 → 方案「' + name + '」');
+              // 读回校验：写入被静默吞掉时不再谎报成功
+              const back = getSchemes();
+              const saved = back.some(s => s && s.name === name);
+              if (saved) { backupName = name; toast('已自动保存原美化 → 方案「' + name + '」'); }
+              else { toast('原美化备份失败（可能存储空间不足），建议先导出备份再导入'); }
             }
-          } catch (e) {}
+          } catch (e) {
+            toast('原美化备份失败：' + ((e && e.message) || '未知原因') + '，建议先导出备份再导入');
+          }
           try { pushBeautyUndo(); } catch (e) {}
-          applyBeautyData(data);
-          toast('已导入，刷新生效');
-          setTimeout(() => location.reload(), 800);
+          const applied = applyBeautyData(data);
+          toast('已导入 ' + applied + ' 项，刷新生效');
+          // FIX #527：刷新前先等大键（壁纸/卡片背景/图片组件）IDB 事务落盘，见 reloadAfterBeautyWrite
+          reloadAfterBeautyWrite();
         } catch (e) {
           // #408：带出真实原因 + 失败现场写诊断（设置页「复制诊断信息」可直接自证机型粘贴链路）
           const _sv = String(v || '');
           try { if (window.__jsErrors) window.__jsErrors.push('[美化导入] ' + ((e && e.message) || e) + ' | 收到长度=' + _sv.length + ' | 开头: ' + _sv.replace(/[\uFEFF\u200B-\u200F]/g, '').slice(0, 100)); } catch (e1) {}
           toast('解析失败：' + ((e && e.message) || '请检查文本内容'));
         }
-      }, { textarea: true, textareaPlaceholder: '粘贴美化方案文本（JSON），或点下方「从文件导入」选择 .json 文件', txtImport: true, txtImportAuto: true, staticText: '导入前会自动把当前美化保存为「导入前备份」方案；支持粘贴文本或从文件导入（选完文件自动应用）' });
+      }, { textarea: true, textareaPlaceholder: '粘贴美化方案文本（JSON），或点下方「从文件导入」选择 .json 文件', txtImport: true, txtImportAuto: true, staticText: '导入前会自动把当前美化保存为「导入前备份」方案（最多保留 5 份）；支持粘贴文本或从文件导入（选完文件自动应用）' });
     });
   }
 
@@ -2700,6 +2963,10 @@ try {
     const data = collectBeauty();
     try { const ac = localStorage.getItem('xy-home-v2:accent-color'); if (ac) data['__accent__'] = ac; } catch (e) {}
     try { const tm = localStorage.getItem('xy-home-v2:theme-mode'); if (tm) data['__theme__'] = tm; } catch (e) {}
+    // FIX 2026-09-15 #527：写入用途/格式标记。旧版本导出的文件没有这两个键，
+    // 导入侧按「无标记即放行」处理，向后兼容不受影响。
+    data['__kind__'] = BEAUTY_KIND;
+    data['__v__'] = BEAUTY_FMT;
     return data;
   };
   // ---- 桌面美化方案缩略图 + 保存确认（预览+摘要），同聊天方案一致 ----
@@ -2828,7 +3095,7 @@ try {
       applyBeautyData(s.data || {}, scope);
       hideSchemeModal(m);
       toast('已应用「' + s.name + '」(' + (scopeLabel[scope] || scope) + ')，刷新生效');
-      setTimeout(() => location.reload(), 800);
+      reloadAfterBeautyWrite();
     }, { noInput: true, pillSubmit: true, staticText: '选择应用范围：点 pill 直接应用该范围，或点确定应用全部', pills: scopePills });
     if (ctl && ctl.pills) ctl.pills(scopePills, 'all');
   }
@@ -2871,7 +3138,7 @@ try {
       btns.style.cssText = 'display:flex;align-items:center;gap:7px;flex-wrap:wrap';
       btns.appendChild(mkBtn('预览', 'font-size:12px;padding:4px 10px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)', () => desktopStartPreview(s, m)));
       btns.appendChild(mkBtn('套用', 'font-size:12px;padding:4px 10px;border:none;border-radius:8px;background:var(--ink,#111);color:var(--bg-b,#fff)', () => {
-        const applyBuiltin = () => { applyBeautyData(s.data || {}); hideSchemeModal(m); toast('已应用「' + s.name + '」，刷新生效'); setTimeout(() => location.reload(), 800); };
+        const applyBuiltin = () => { applyBeautyData(s.data || {}); hideSchemeModal(m); toast('已应用「' + s.name + '」，刷新生效'); reloadAfterBeautyWrite(); };
         if (!window.openModal) { applyBuiltin(); return; }
         const ctl = window.openModal('应用内置方案「' + s.name + '」？', '', (v) => { if (v !== 'ok') return; applyBuiltin(); }, { noInput: true, pillSubmit: true, staticText: '将覆盖当前桌面的美化设置，刷新生效', pills: [{ label: '应用', value: 'ok' }] });
         if (ctl && ctl.pills) ctl.pills([{ label: '应用', value: 'ok' }], 'ok');
@@ -2923,18 +3190,31 @@ try {
   const beautySchemesRow = document.getElementById('row-beauty-schemes');
   if (beautySchemesRow) beautySchemesRow.addEventListener('click', () => window.openBeautySchemes());
   // v3.27.x：撤销栈（A）——批量操作前压栈（最近 10 次），撤销恢复。纯本地，不动现有数据
+  // FIX 2026-09-15 #527：撤销栈改 per-cid。原实现 gStore（全局根键）存的是「当前联系人」的
+  // 快照 —— 在联系人 A 调完美化，切到 B 点「撤销最近改动」，会把 A 的美化写到 B 桌面上
+  //（跨桌面串美化）。方案列表全局共用是有意设计（用户要求跨桌面通用），撤销栈不是：
+  // 撤销的语义是「回退我刚在这个桌面做的操作」，必须按桌面隔离。
+  // 兼容：旧的全局键 beauty-undo-stack 保留可读（首次迁移到当前桌面命名空间），不删除历史数据。
   const UNDO_KEY = 'beauty-undo-stack';
-  const getUndoStack = () => { try { const a = JSON.parse(gStore.get(UNDO_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
-  const pushBeautyUndo = () => { try { const st = getUndoStack(); st.push({ time: Date.now(), data: collectBeautyFull() }); while (st.length > 10) st.shift(); gStore.set(UNDO_KEY, JSON.stringify(st)); } catch (e) {} };
-  const popBeautyUndo = () => { const st = getUndoStack(); if (!st.length) { toast('没有可撤销的改动了'); return null; } const it = st.pop(); try { gStore.set(UNDO_KEY, JSON.stringify(st)); } catch (e) {} return it; };
+  const getUndoStack = () => {
+    try {
+      const a = JSON.parse(store.get(UNDO_KEY) || '[]');
+      if (Array.isArray(a) && a.length) return a;
+    } catch (e) {}
+    // 一次性回退读旧全局键（老数据不丢；读到即由下次 push 写入当前桌面命名空间）
+    try { const a = JSON.parse(gStore.get(UNDO_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  };
+  const setUndoStack = (st) => { try { store.set(UNDO_KEY, JSON.stringify(st)); } catch (e) {} };
+  const pushBeautyUndo = () => { try { const st = getUndoStack(); st.push({ time: Date.now(), data: collectBeautyFull() }); while (st.length > 10) st.shift(); setUndoStack(st); } catch (e) {} };
+  const popBeautyUndo = () => { const st = getUndoStack(); if (!st.length) { toast('没有可撤销的改动了'); return null; } const it = st.pop(); setUndoStack(st); return it; };
   const beautyUndoRow = document.getElementById('row-beauty-undo');
   if (beautyUndoRow) {
     beautyUndoRow.addEventListener('click', () => {
       const it = popBeautyUndo();
       if (!it) return;
-      applyBeautyData(it.data || {}, 'all');
-      toast('已撤销最近一次改动，刷新生效');
-      setTimeout(() => location.reload(), 800);
+      const n = applyBeautyData(it.data || {}, 'all');
+      toast('已撤销最近一次改动（恢复 ' + n + ' 项），刷新生效');
+      reloadAfterBeautyWrite();
     });
   }
   // v3.27.x：一键重置全部美化（项4）——遍历 BEAUTY_KEYS + 全局键清空，二次确认。已保存方案不受影响
@@ -2953,7 +3233,7 @@ try {
           try { localStorage.removeItem('xy-home-v2:theme-mode'); } catch (e) {}
         } catch (e) {}
         toast('已恢复全部默认美化，刷新生效');
-        setTimeout(() => location.reload(), 800);
+        reloadAfterBeautyWrite();
       }, { noInput: true, pillSubmit: true, pills: [{ label: '确定恢复全部默认', value: '1' }] });
       if (ctl && ctl.pills) ctl.pills([{ label: '确定恢复全部默认', value: '1' }], '1');
     });
@@ -2963,17 +3243,41 @@ try {
   // → parseInt("0.9")=0 → 小组件全透明；且该键属美化键，「恢复默认布局」只清 desk-layout 不清它，用户无从恢复。
   // 功能整体下线；历史脏值由下方 opacityRawToPct 启动自愈修正（见 #146 修复）。
   // v3.27.x：方案分享 URL（D）——当前美化 JSON → base64 → hash，对方打开自动弹导入。纯本地无服务器
+  // FIX 2026-09-15 #527：剔除 base64 图片键后再生成链接。原实现把整份美化（含压缩上限 4.5MB 的
+  // 壁纸）base64 塞进 URL hash，base64 后约 6MB，远超浏览器 URL 上限——接收端拿到截断串、
+  // JSON.parse 抛错被最外层 catch 吞掉，连失败提示都没有。用户设了自定义壁纸就发不出去。
+  // 现在：链接只带「配色/尺寸/圆角/内置壁纸预设」等小体积项；带图壁纸不进链接（数据太大），
+  // 生成时如实告知走「导出文件」。另对最终 URL 长度设硬上限，超限就明确报错、不静默生成坏链接。
+  const SHARE_URL_MAX = 60000;
+  const isBeautyImageKey = (k) => /^(phone-bg|page-bg-|card-bg-|desk-image-src-|phone-bg-item-)/.test(k);
   const shareBeautyLink = () => {
     try {
-      const data = collectBeautyFull();
-      const json = JSON.stringify(data);
-      const b64 = btoa(unescape(encodeURIComponent(json)));
-      const url = location.origin + location.pathname + '#beauty=' + b64;
+      const full = collectBeautyFull();
+      const data = {};
+      let stripped = 0;
+      Object.keys(full).forEach(k => {
+        // 大图（dataURL / 图片键）不带进链接；色值、百分比、预设名等小项照常带
+        const v = full[k];
+        const bigImg = typeof v === 'string' && v.indexOf('data:') === 0;
+        if (bigImg || (isBeautyImageKey(k) && typeof v === 'string' && v.length > 2048)) { stripped++; return; }
+        data[k] = v;
+      });
+      let json = JSON.stringify(data);
+      let b64 = btoa(unescape(encodeURIComponent(json)));
+      let url = location.origin + location.pathname + '#beauty=' + b64;
+      if (url.length > SHARE_URL_MAX) {
+        // 兜底：仍超长（极端配色数据/超长文本键）→ 明确失败，不生成会被截断的坏链接
+        toast('这份美化太大，无法生成分享链接，请改用「导出美化方案」发文件');
+        return;
+      }
+      const note = stripped
+        ? '分享链接已复制（不含 ' + stripped + ' 项图片/壁纸，对方导入后需自行设置壁纸）'
+        : '分享链接已复制，发给对方打开即可导入';
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => toast('分享链接已复制，发给对方打开即可导入')).catch(() => { if (window.openModal) window.openModal('分享链接', url, () => {}, { staticText: '请手动复制下方链接发给对方', noInput: true }); });
-      } else if (window.openModal) { window.openModal('分享链接', url, () => {}, { staticText: '请手动复制下方链接发给对方，对方打开会自动弹导入提示', noInput: true }); }
+        navigator.clipboard.writeText(url).then(() => toast(note)).catch(() => { if (window.openModal) window.openModal('分享链接', url, () => {}, { staticText: stripped ? '请手动复制下方链接发给对方（不含壁纸图片，对方导入后需自行设置壁纸）' : '请手动复制下方链接发给对方', noInput: true }); });
+      } else if (window.openModal) { window.openModal('分享链接', url, () => {}, { staticText: stripped ? '请手动复制下方链接发给对方（不含壁纸图片，对方导入后需自行设置壁纸）' : '请手动复制下方链接发给对方，对方打开会自动弹导入提示', noInput: true }); }
       else { toast('已生成链接（见控制台）'); try { console.log(url); } catch (e) {} }
-    } catch (e) { toast('生成链接失败'); }
+    } catch (e) { toast('生成链接失败：' + ((e && e.message) || '未知原因')); }
   };
   const beautyShareRow = document.getElementById('row-beauty-share');
   if (beautyShareRow) beautyShareRow.addEventListener('click', shareBeautyLink);
@@ -2984,13 +3288,17 @@ try {
       const json = decodeURIComponent(escape(atob(b64)));
       const data = JSON.parse(json);
       if (window.openModal && typeof data === 'object' && data) {
+        // FIX 2026-09-15 #527：分享链接同样做用途校验 + 命中项数为 0 时不覆盖
+        if (beautyKindMismatch(data)) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
+        const shareHit = recognizeBeauty(data);
+        if (!shareHit) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
         const ctl = window.openModal('导入分享的美化方案？', '', (v) => {
-          if (v !== 'ok') return;
+          if (v !== 'ok') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
           try { pushBeautyUndo(); } catch (e) {}
-          applyBeautyData(data, 'all');
+          const applied = applyBeautyData(data, 'all');
           try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-          toast('已导入，刷新生效');
-          setTimeout(() => location.reload(), 800);
+          toast('已导入 ' + applied + ' 项，刷新生效');
+          reloadAfterBeautyWrite();
         }, { noInput: true, pillSubmit: true, staticText: '从分享链接导入美化方案，将覆盖当前桌面美化', pills: [{ label: '导入', value: 'ok' }] });
         if (ctl && ctl.pills) ctl.pills([{ label: '导入', value: 'ok' }], 'ok');
       }
@@ -3027,7 +3335,7 @@ try {
           applyFullBeautyData(s.data || {});
           m.style.display = 'none'; m.hidden = true;
           toast('已应用「' + s.name + '」，刷新生效');
-          setTimeout(() => location.reload(), 800);
+          reloadAfterBeautyWrite();
         }, { noInput: true, pillSubmit: true, staticText: '将覆盖当前桌面+聊天美化，刷新生效', pills: [{ label: '应用', value: 'ok' }] });
         if (ctl && ctl.pills) ctl.pills([{ label: '应用', value: 'ok' }], 'ok');
       });
@@ -3130,6 +3438,69 @@ try {
     tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
     // 默认显示第一个省区（颜色）
     show(tabs[0] ? tabs[0].dataset.tab : 'color');
+  })();
+
+  // 设置页：顶部 tag 分类（通用/聊天/系统/工具/关于），互斥显示，默认第一个
+  (function initSettingsTabs() {
+    const tabsEl = document.getElementById('set-tabs');
+    const page = document.getElementById('page-setting');
+    if (!tabsEl || !page) return;
+    const tabs = tabsEl.querySelectorAll('.them-tab');
+    const secs = page.querySelectorAll('.them-sec');
+    function show(name) {
+      secs.forEach(s => { s.hidden = (s.dataset.sec !== name); });
+      tabs.forEach(t => { t.classList.toggle('active', t.dataset.tab === name); });
+    }
+    tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+    show(tabs[0] ? tabs[0].dataset.tab : 'basic');
+  })();
+
+  // ===== 设置 → 工具：安装与使用限制说明（只读弹窗；行 #row-platform-limits 在 template） =====
+  // 汇总「安装方式差异 + iPhone/iOS 稳定平台限制 + 数据备份须知」，内容与开屏公告/各功能说明一致。
+  (function initPlatformLimits() {
+    const row = document.getElementById('row-platform-limits');
+    if (!row) return;
+    const TEXT = [
+      '【iPhone / iOS：推荐用法】',
+      '推荐：用 Safari 打开本站 → 底部「分享」→「添加到主屏幕」，之后从桌面图标打开使用。这样是无浏览器栏的独立应用，全屏更完整、内存表现也更稳（浏览器标签页更容易卡顿，也更容易被系统清掉数据）。',
+      '注意：在 iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与全屏。',
+      '',
+      '【iPhone / iOS 平台限制】',
+      '· 全屏：顶部系统状态栏（时间、电量、灵动岛）由系统控制，任何网页都无法隐藏；全屏开关只能隐藏应用内的模拟状态栏。真正无浏览器栏的独立应用，只有 Safari「添加到主屏幕」这一条路。部分旧版 iOS 浏览器（iOS 16.4 之前的 Safari）不支持网页全屏，点开会弹说明并回滚开关。',
+      '· 全屏会掉：切到后台再切回、或在浏览器里切换页面，全屏会失效，需手动重新打开。',
+      '· 方向：iOS 不支持屏幕方向锁定，不会自动锁竖屏，也不会纠正横屏（iPad 横屏是正常姿势，布局会自适应）。',
+      '· 声音：iOS 要求先与页面互动（点 / 滑一下）才允许播放有声内容，应用已在首次点击时自动解锁；如果全程没有任何操作，定时触发的来电铃声 / 消息音效可能不响。',
+      '· 系统通知：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓 Chrome / Edge 且添加到桌面后可用，iPhone 不支持。',
+      '· 导出：从主屏幕打开时 iPhone 没有下载管理器，导出数据 / 方案会走系统「分享」面板，请保存到「文件」App。',
+      '· 语音：录音格式由系统决定，安卓录制的语音在 iPhone 上可能无法播放，跨设备迁移/导入后个别语音会提示无法播放。',
+      '· 文件选择：iPhone 的「文件」选择器会按文件类型过滤，导入字卡 / 语音 / 备份等时个别文件可能灰显、选不中（系统限制）。',
+      '· 其他：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（可用设置 → 工具 →「卡顿自检 · 一键优化」缓解）。',
+      '',
+      '【安装（安卓 / 电脑）】',
+      '· 安装按钮只会在 Chrome、Edge 等主流浏览器出现；iPhone 没有该按钮，只能手动「添加到主屏幕」。',
+      '· 安卓 Edge：装到桌面的应用与浏览器标签页使用各自独立的存储，装完从桌面打开会看到空数据。安装前请先在浏览器里导出一份备份，装好后再导入。',
+      '· 浏览器标签页 与 桌面快捷方式 的数据可能互不相通，且不要同时打开使用（会导致两边数据不统一）。',
+      '',
+      '【数据与备份（所有平台）】',
+      '· 所有数据只存在你自己的浏览器里，没有云端：清除浏览器数据、卸载、换机、系统回收存储都会导致数据丢失，本机不保留任何自动副本。',
+      '· 有备份提醒弹窗：距上次成功导出超过 1 天提醒一次。请把导出的文件保存到不会被浏览器清理的地方。',
+      '· 导入：设置 → 导入数据 选择之前导出的备份文件；iOS 上会打开系统「文件」App 让你选文件。',
+      '· 系统 / 浏览器版本不同，适配表现可能不同属正常现象；建议始终使用 Chrome、Edge 等主流浏览器。',
+      '',
+      '【更新提醒】',
+      '· 刚更新完时新旧版本正在交接，可能重复提醒一次；不想现在更新可点「稍后」，下次重新打开会自动同步。',
+      '· 不同设备的网络节点可能还没同步到最新版，可以关掉浏览器重开、用流量多刷新几次，或晚几小时再试。',
+      '',
+      '【功能提醒】',
+      '· 音乐：通过网易云链接上传的 VIP / 付费歌曲无法播放（仅免费歌曲可播），歌单导入会自动移除 VIP / 付费歌曲；外链有防盗链也可能播放失败。',
+      '· 图片：超大图片上传时会被自动压缩，过大的会被拒绝（防止图片解码导致 iOS 页面崩溃），请换小一点的图。',
+      '· 体积越大越容易卡：字卡库、表情、图片、聊天记录体积很大时会变慢，可用「卡顿自检 · 一键优化」或精简数据。'
+    ].join('\n');
+    row.addEventListener('click', () => {
+      if (!window.openModal) return;
+      const ctl = window.openModal('安装与使用限制', '', () => {}, { noInput: true, big: true, staticText: TEXT });
+      if (ctl && ctl.okText) ctl.okText('知道了');
+    });
   })();
 
   // ===== v3.6.x：深色模式 · v3.27.x：三档（浅色/深色/跟随系统） =====

@@ -292,14 +292,17 @@ function buildPlotInner(plot, si, wl) {
   }
   return h;
 }
-// #503 空地折叠：默认只铺有花的地块，空地收进一块「空地×N」折叠砖，点开才铺开（地多不再满屏虚线格）
-var emptyFolded = true;
+// #503 空地折叠：#528 改为默认展开（全部地块直接铺开），仍保留一块「空地×N」折叠砖可手动收起/展开
+var emptyFolded = false;
+function foldTileInner(empties) {
+  return "<span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">" + (emptyFolded ? "点开" : "收起") + "</span>";
+}
 function renderGrid() {
   var grid = document.getElementById("garden-grid");
   if (!grid) return;
   var empties = 0;
   for (var e0 = 0; e0 < data.p.length; e0++) if (!data.p[e0]) empties++;
-  var showFold = empties > 0 && emptyFolded;
+  var showFold = empties > 0;
   var visible = [];
   for (var v0 = 0; v0 < data.p.length; v0++) { if (data.p[v0] || !emptyFolded) visible.push(v0); }
   if (showFold) visible.push(-1); // -1 = 折叠砖
@@ -307,7 +310,7 @@ function renderGrid() {
     var hf = "";
     for (var i = 0; i < visible.length; i++) {
       var idx = visible[i];
-      if (idx < 0) { hf += "<div class=\"garden-fold-tile\" data-fold=\"1\" role=\"button\"><span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span></div>"; continue; }
+      if (idx < 0) { hf += "<div class=\"garden-fold-tile\" data-fold=\"1\" role=\"button\">" + foldTileInner(empties) + "</div>"; continue; }
       var plot = data.p[idx];
       var si = stageInfo(plot);
       var wl = waterLvl(plot);
@@ -321,8 +324,8 @@ function renderGrid() {
     var idx2 = visible[j];
     var el = grid.children[j];
     if (idx2 < 0) {
-      var fsig = "fold|" + empties;
-      if (el.getAttribute("data-sig") !== fsig) { el.setAttribute("data-sig", fsig); el.innerHTML = "<span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span>"; }
+      var fsig = "fold|" + empties + "|" + (emptyFolded ? 1 : 0);
+      if (el.getAttribute("data-sig") !== fsig) { el.setAttribute("data-sig", fsig); el.innerHTML = foldTileInner(empties); }
       continue;
     }
     var p = data.p[idx2];

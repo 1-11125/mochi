@@ -723,26 +723,34 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 /* 鎷嶄竴鎷嶅崱鐗囷細鑷畾涔夋枃瀛楄緭鍏ヨ锛堝鐢ㄨ亰澶╂悳绱㈣緭鍏ヨ椋庢牸锛?*/
 /* v3.25.x 重设计：输入行=面板 footer，位于列表之后（面板最底部）——键盘弹起面板收缩时
    它是最后一行、离键盘最近不会被盖住。旧版在分组栏与列表之间，键盘弹起时被固定行挤出
-   面板底边，输入框被顶到输入栏/键盘后面，浏览器为露焦点平移视口=整页飞（用户报障） */
+   面板底边，输入框被顶到输入栏/键盘后面，浏览器为露焦点平移视口=整页飞（用户报障）
+   v3.26.x（2026-09-15）重设计——旧版输入框/存入/戳TA 三个控件全是 99px 全圆胶囊
+   且不等高（输入框≈40px、按钮≈36px，flex 居中后上下错位）；而面板内 tab/分组 chip
+   是 11px 圆角矩形、字卡 16px，全圆胶囊混在方圆语言里显得「又方又圆」很突兀
+   （用户反馈）。新版三控件统一 11px 圆角 + 40px 等高，归入面板控件层（tab/chip）
+   的圆角矩形语言；appearance:none 关闭 iOS/安卓 UA 对 input 的默认样式（内阴影/
+   自带圆角），避免与自绘样式叠加出「半方半圆」。安卓转 .ce-box 后 line-height:20px
+   胜过 .ce-box 的 1.5（chat-main.css 后加载），一行文字仍垂直居中 */
 .poke-input-row {
-  display:flex; gap:8px; align-items:center; padding:10px 2px 0; margin-top:2px;
+  display:flex; gap:8px; align-items:stretch; padding:10px 2px 0; margin-top:2px;
   border-top:1px solid rgba(0,0,0,.08); flex-shrink:0;
 }
 .poke-input {
-  flex:1; min-width:0; border:1px solid transparent; border-radius:99px;
-  padding:9px 14px; font-size:14px; font-family:inherit; outline:none; background:#f4f4f5;
+  flex:1; min-width:0; height:40px; border:1px solid transparent; border-radius:11px;
+  padding:9px 14px; font-size:14px; line-height:20px; font-family:inherit; outline:none;
+  background:#f4f4f5; -webkit-appearance:none; appearance:none; box-shadow:none;
 }
 .poke-input:focus { border-color:var(--ink); background:#fff; }
 /* 存入：把输入的文字保存到当前选中的分组（描边次级按钮，与发送区分） */
 .poke-input-save {
-  flex-shrink:0; border:1px solid rgba(0,0,0,.18); border-radius:99px; padding:8px 14px;
-  background:#fff; color:var(--ink); font-size:13px; font-weight:700;
+  flex-shrink:0; height:40px; border:1px solid rgba(0,0,0,.18); border-radius:11px;
+  padding:0 15px; background:#fff; color:var(--ink); font-size:13px; font-weight:700;
   cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent;
 }
 .poke-input-save:active { background:rgba(0,0,0,.06); }
 .poke-input-go {
-  flex-shrink:0; border:none; border-radius:99px; padding:8px 16px;
-  background:var(--ink); color:#fff; font-size:13px; font-weight:700;
+  flex-shrink:0; height:40px; border:none; border-radius:11px;
+  padding:0 17px; background:var(--ink); color:#fff; font-size:13px; font-weight:700;
   cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent;
 }
 .poke-input-go:active { opacity:.85; }
@@ -1167,6 +1175,29 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .msg-ask-tip { font-size:11px; color:var(--muted); margin-top:8px; }
 .msg-ask-a { font-size:12px; color:#3b7a4e; font-weight:600; margin-top:8px; }
 
+/* ===== 批量问卷长卡片（v3.33.x #521 special:'ask-survey'）===== */
+/* 观感严格对齐单题 ask-card（.msg-ask-card：同 max-width/min-width/圆角/内边距/阴影/居中），
+   标题对应 msg-ask-q、逐题答案对应 msg-ask-a、底部提示对应 msg-ask-tip；无 emoji、无独立进度徽标。
+   TA 逐题作答的进度由 ta-ask.js 经 chatSyncSurveyCard 回写快照后原地重画 innerHTML（不整窗重建） */
+.msg-survey-card {
+  max-width:78%; min-width:220px; text-align:center;
+  background:#fff; border:1px solid rgba(0,0,0,.1);
+  border-radius:16px; padding:14px 16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
+  cursor:pointer;
+}
+.msg-survey-head { font-size:14px; font-weight:700; color:var(--ink); line-height:1.5; }
+.msg-survey-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+.msg-survey-item { font-size:13px; color:var(--ink); line-height:1.5; }
+.msg-survey-q { font-weight:600; word-break:break-word; }
+.msg-survey-opts { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-top:5px; }
+.msg-survey-opt {
+  font-size:11px; color:var(--muted); background:rgba(0,0,0,.05);
+  border-radius:8px; padding:2px 8px;
+}
+.msg-survey-a { font-size:12px; font-weight:600; color:#3b7a4e; margin-top:4px; word-break:break-word; }
+.msg-survey-tip { font-size:11px; color:var(--muted); margin-top:8px; }
+
 /* ===== TA鐨勫皬闂 ===== */
 /* 鑱婂ぉ閲岀殑閫夋嫨棰樺崱鐗?*/
 .msg-choose-card {
@@ -1482,6 +1513,28 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 }
 .rp-cover-btn:active { background:rgba(0,0,0,.05); }
 .rp-cover-btn[hidden] { display:none; }
+
+/* v3.29.x：红包半框「设置」→ TA 自动发红包（概率/每日上限）。入口在红包面板头部，
+   设置区复用 .set-row 行样式；打开设置时隐藏余额行与滚动主体，完成/关闭面板后恢复 */
+.rp-head-set {
+  padding:4px 12px; font-size:12px; font-weight:600;
+  border:1px solid rgba(0,0,0,.12); border-radius:14px;
+  background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+}
+.rp-head-set:active { background:rgba(0,0,0,.05); }
+.rp-settings { padding:2px 0 0; }
+.rp-settings[hidden], .rp-balance[hidden] { display:none; }
+.rp-settings-title {
+  font-size:13px; font-weight:700; color:var(--ink);
+  padding:6px 2px 10px; letter-spacing:.3px;
+}
+.rp-settings .set-row {
+  background:rgba(0,0,0,.03); border-radius:14px; margin-bottom:8px; border-bottom:none;
+}
+.rp-settings .set-row:last-child { margin-bottom:0; }
+.rp-settings .set-row .val { white-space:nowrap; }
+.rp-settings-done { margin-top:10px; }
 
 
 
