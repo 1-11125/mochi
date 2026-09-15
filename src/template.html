@@ -3006,7 +3006,11 @@
         </div>
         <label class="toggle"><input type="checkbox" id="mc-enabled"><span class="tk"></span></label>
       </div>
-      <div class="gs-title">情绪分组</div>
+      <!-- v3.6.x #500：三类分栏（情绪 / 心意 / 交流意图）——三级链路整类与单张都要能关，
+           此前只渲染情绪一类，心意与交流意图卡在字卡库里没有列表＝没有关闭入口 -->
+      <div class="cc-groups-bar" id="mc-type-bar"></div>
+      <div class="sm-set-hint" id="mc-type-hint" style="padding:2px 16px 4px">说明：联系人回复可能依次附带情绪 → 心意 → 交流意图三类字卡（各自独立概率），三类均可整类或逐张关闭。</div>
+      <div class="gs-title" id="mc-group-title">情绪分组</div>
       <div class="cc-groups-bar" id="mc-groups-bar"></div>
       <div class="card-search glass" id="mc-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -3094,6 +3098,7 @@
         <input type="color" id="modal-color" value="#111111" hidden>
         <button class="modal-custom" id="modal-custom" hidden>自定义颜色</button>
         <select class="modal-select" id="modal-select" hidden></select>
+        <div class="modal-group-chips" id="modal-group-chips" hidden></div>
         <button class="modal-file" id="modal-file" hidden>从文件导入</button>
         <input type="file" id="modal-file-input" accept=".txt,.json,text/plain,application/json" style="display:none">
         <div class="modal-btns">

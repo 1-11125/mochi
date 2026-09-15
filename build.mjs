@@ -843,7 +843,7 @@ const FIX_SENTINELS = [
   { name: '#255 room.js 装扮地板第二步 floorPick 补齐（函数整体缺失=装扮选墙纸确定必抛 ReferenceError「Can\'t find variable: floorPick」诊断实证；删地板弹窗此锚消失）', file: 'js/room.js', needle: 'function floorPick() {' },
   { name: '#255 iOS 键盘期弹窗顶对齐·开关（mobile-adapt 键盘会话 _kbActive/_iProv 给 #modal-mask 挂 modal-kb-dock——居中弹窗随 .phone 高度变化反复取中=打字输入框上滑；删则顶对齐失效）', file: 'js/mobile-adapt.js', needle: "mk.classList.toggle('modal-kb-dock'" },
   { name: '#255 iOS 键盘期弹窗顶对齐·CSS（mask 顶对齐 + 安全区上边距；删则 JS 挂类无效果）', file: 'css/base.css', needle: '.modal-mask.modal-kb-dock { align-items: flex-start; }' },
-  { name: '#255 批量导入弹窗放大（opts.big 宽版 420px/94vw + 原生 textarea rows=8——272px 窄弹窗用户报障「太小了」；删则回退窄版）', file: 'js/chatcard.js', needle: 'textareaRows: 8' },
+  { name: '#255 批量导入弹窗放大（opts.big 宽版 420px/94vw + textareaRows=14 给足 14 行起始高度、安卓 ce-box min-height rows*1.5*16，超 52vh 框内滚动——272px 窄弹窗用户报障「太小了/加长可滑动」；删则回退窄小框）', file: 'js/chatcard.js', needle: 'textareaRows: 14' },
   { name: '#257 整页「点不动」死点击逃生门·判定锚（同点 3 快击零 click=死点击，先做 click 活性复核防误报——删则健康页误触发复位/真死页缺判定依据）', file: 'js/mobile-adapt.js', needle: 'if (_escLastClickAt >= tapEndAt)' },
   { name: '#257 整页「点不动」诊断·触摸轨迹采集（与交互轨迹并排输出：触摸有 click 无=死点击实锤；key __diag-touch 跨重启随诊断回收）', file: 'js/device.js', needle: "'xy-home-v2:__diag-touch'" },
   { name: '#261 复制用的隐藏 textarea 复制完当场塌回零长选区（select() 的全选留给延迟 removeChild 变孤儿选区=安卓原生黑色【全选】浮条失去宿主、永久卡在桌面「今日情话」右边；删则浮条卡屏回流）', file: 'js/device.js', needle: 'ta.setSelectionRange(0, 0)' },
@@ -1144,6 +1144,12 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #499 需求变更（推翻 #365 #319 对三链的锁闸）：二级密码锁定不再影响聊天情绪字卡、TA 的心情、聊天回应字卡——三链未解锁也照常触发；受影响的只剩默认聊天字卡/词典等系统预设池。原 #365 两条锁闸哨兵随锁闸一并移除，改登豁免锚点防需求回流 ====
   { name: '#499 回应字卡豁免锁定（#365 replySrcLocked 锁闸按新需求移除；锚点=两函数首个守卫是开关而非锁，锁闸被加回开头即失配；构建拼接剥行首缩进，锚不带缩进＝#496 同款教训）', file: 'js/mood-reply-cards.js', needle: "window.getFollowupWord = function (reply) {\nif (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';" },
   { name: '#499 TA的心情豁免锁定（#365 锁闸按新需求移除；锚点=函数首个守卫是 enabled 而非锁，锁闸被加回开头即失配；构建拼接剥行首缩进，锚不带缩进＝#496 同款教训）', file: 'js/ta-mood.js', needle: "window.tryTaMoodShare = function () {\nif (!enabled()) return null;" },
+  // ==== 2026-09-15 #500 三级链单卡开关补全：心意卡（9 组 + 特殊 4 组）与交流意图卡（8 组）在字卡库里没有列表＝没有关闭入口，且三类共用 mc-off-mood 键（「想念」「分享」等 20+ 张同名卡跨类互相误伤）——用户反馈「手动关闭没有用，会频繁使用」。修=三类分栏 UI + 各自独立开关键（旧键仍作兼容读，存量关闭不复活）====
+  { name: '#500 三级链独立开关键（回到共用 mc-off-mood ＝同名卡跨类互相误伤，关情绪卡会连心意卡一起消失）', file: 'js/mood-reply-cards.js', needle: "const OFF_KEY = { mood: 'mc-off-mood', heart: 'mc-off-heart', intent: 'mc-off-intent' };" },
+  { name: '#500 心意/意图卡旧键兼容读（删兼容行＝老用户此前关掉的心意/意图卡全部复活）', file: 'js/mood-reply-cards.js', needle: "if (type !== 'mood' && !hasMoodCard(content) && ls.get('mc-off-mood:' + content) === '1') return true;" },
+  { name: '#500 心意卡单卡开关入口（该行消失＝心意卡在字卡库里又没有列表，用户无从关闭）', file: 'js/mood-reply-cards.js', needle: ".concat((DATA.specialHeart || []).map(g => ({ ...g, type: 'heart', special: true })));" },
+  { name: '#500 三类分栏容器（删＝心意/交流意图分栏 UI 丢失）', file: 'template.html', needle: 'id="mc-type-bar"' },
+  { name: '#500 逐张关闭写入本类键（回写成 mc-off-mood ＝跨类误伤回归）', file: 'js/mood-reply-cards.js', needle: 'setTypeOff(g.type || mcType, c.content, nowOff);' },
   // ==== 2026-09-12 #367 诊断红点：AbortError 类未处理 rejection（音乐/通话流超时兜底、切页取消的主动 abort）入错误环刷屏——Safari「Fetch is aborted」iOS 实录 ×41 条；修复=unhandledrejection 采集层按 AbortError 名/已知 abort 文案放行，与 fetch 包装层网络失败口径对齐 ====
   { name: '#367 AbortError rejection 放行（删放行＝主动 abort 取消照旧刷诊断红点，Safari 报「Fetch is aborted」）', file: 'js/device.js', needle: "r.name === 'AbortError')\n|| /^(Fetch is aborted|signal is aborted without reason" },
   // ==== 2026-09-12 #368 跨桌面串数据两件（iOS Safari 用户反馈，多机型同现）====

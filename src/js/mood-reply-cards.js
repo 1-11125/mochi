@@ -57,6 +57,32 @@
   function isCardOff(k, c) { return ls.get(k + ':' + c) === '1'; }
   function setCardOff(k, c, off) { ls.set(k + ':' + c, off ? '1' : '0'); }
 
+  // #500 三级链各持独立开关键 + 心意/交流意图卡补单卡开关：
+  //   ①此前三类字卡共用 mc-off-mood:<内容>，同名卡（「想念」「分享」「陪伴」等 20+ 张
+  //     跨类重名）会互相误伤——关掉情绪卡「想念」连心意卡「想念」一起没了；
+  //   ②心意卡（9 组 + 特殊 4 组）与交流意图卡（8 组）在字卡库里【没有列表】，用户
+  //     看到的只有情绪 11 组，想手动关闭也找不到入口，而它们恰是触发最频繁的两类
+  //     （40% 显示率各按 40%/40% 独立判定）→ 用户反馈「手动关闭没有用，会频繁使用」。
+  //   兼容：旧键 mc-off-mood 仍是情绪卡自己的键；心意/意图卡在【本类没有新键】且
+  //   【不存在同名情绪卡】时才读旧键（此时旧键只可能来自它们自己），存量关闭不复活。
+  const OFF_KEY = { mood: 'mc-off-mood', heart: 'mc-off-heart', intent: 'mc-off-intent' };
+  function hasMoodCard(c) {
+    for (const g of (DATA.mood || [])) {
+      for (const card of g.cards) if (card.content === c) return true;
+    }
+    return false;
+  }
+  function typeOff(type, content) {
+    const own = ls.get(OFF_KEY[type] + ':' + content);
+    if (own !== null && own !== '') return own === '1';
+    if (type !== 'mood' && !hasMoodCard(content) && ls.get('mc-off-mood:' + content) === '1') return true;
+    return false;
+  }
+  function setTypeOff(type, content, off) {
+    ls.set(OFF_KEY[type] + ':' + content, off ? '1' : '0');
+  }
+  window.moodCardOffState = typeOff;
+
   // ---- 情绪卡（星言 getRandomMoodCard）----
   window.getMoodCard = function () {
     if (!enabled('mood')) return null;
@@ -116,7 +142,7 @@
       const specials = [];
       // v3.6.x：单卡开关过滤——关闭的特殊心意不参与抽取
       (DATA.specialHeart || []).forEach(g => g.cards.forEach(c => {
-        if (isCardOff('mc-off-mood', c.content)) return;
+        if (typeOff('heart', c.content)) return;
         specials.push({ content: c.content, group: g.group, emoji: g.emoji, level: c.level, isSpecial: true });
       }));
       if (specials.length) {
@@ -142,7 +168,7 @@
     const grp = (DATA.heart || []).find(g => g.group === selGroup);
     if (!grp || !grp.cards.length) return null;
     // v3.6.x：单卡开关过滤——关闭的字卡不参与抽取，整组关完则跳过
-    let cards = grp.cards.filter(c => !isCardOff('mc-off-mood', c.content));
+    let cards = grp.cards.filter(c => !typeOff('heart', c.content));
     if (!cards.length) return null;
     const recent5 = heartHistory.slice(-5).map(h => h.content);
     let cooled = cards.filter(c => recent5.indexOf(c.content) === -1);
@@ -175,7 +201,7 @@
     const grp = (DATA.intent || []).find(g => g.group === selGroup);
     if (!grp || !grp.cards.length) return null;
     // v3.6.x：单卡开关过滤——关闭的字卡不参与抽取
-    const cards = grp.cards.filter(c => !isCardOff('mc-off-mood', c.content));
+    const cards = grp.cards.filter(c => !typeOff('intent', c.content));
     if (!cards.length) return null;
     const rarity = weightedPick(Object.keys(W.rarity || { normal: 80, rare: 15, special: 5 }).map(k => [k, W.rarity[k]]));
     let pool2 = cards.filter(c => c.rarity === rarity);
@@ -301,7 +327,7 @@
     }
   }
 
-  // ================= 情绪字卡页面 =================
+  // ================= 情绪 / 心意 / 交流意图字卡页面 =================
   const mcList = document.getElementById('mc-list');
   const mcEnabled = document.getElementById('mc-enabled');
   if (mcList && mcEnabled) {
@@ -316,13 +342,45 @@
       setEnabled('intent', mcEnabled.checked);
     });
 
+    // #500 三类分栏：情绪 / 心意 / 交流意图（三级链各自独立概率，都要能整类+逐张关）
+    const MC_TYPES = [
+      { key: 'mood', name: '情绪' },
+      { key: 'heart', name: '心意' },
+      { key: 'intent', name: '交流意图' },
+    ];
+    let mcType = 'mood';
     let mcGroup = '';
     let mcQ = '';
+
+    function typeGroups(key) {
+      if (key === 'heart') {
+        return (DATA.heart || []).map(g => ({ ...g, type: 'heart' }))
+          .concat((DATA.specialHeart || []).map(g => ({ ...g, type: 'heart', special: true })));
+      }
+      if (key === 'intent') return (DATA.intent || []).map(g => ({ ...g, type: 'intent' }));
+      return (DATA.mood || []).map(g => ({ ...g, type: 'mood' }));
+    }
+    function renderTypeBar() {
+      const bar = document.getElementById('mc-type-bar');
+      if (!bar) return;
+      bar.innerHTML = '';
+      MC_TYPES.forEach(t => {
+        const cEl = document.createElement('span');
+        cEl.className = 'cc-g-chip' + (mcType === t.key ? ' sel' : '');
+        cEl.textContent = t.name;
+        cEl.addEventListener('click', () => { mcType = t.key; mcGroup = ''; renderTypeBar(); renderMCBar(); renderMood(); });
+        bar.appendChild(cEl);
+      });
+      const title = document.getElementById('mc-group-title');
+      if (title) title.textContent = (MC_TYPES.find(t => t.key === mcType) || MC_TYPES[0]).name + '分组';
+      const si = document.getElementById('mc-search-input');
+      if (si) si.placeholder = '搜索' + (MC_TYPES.find(t => t.key === mcType) || MC_TYPES[0]).name + '字卡';
+    }
     function renderMCBar() {
       const bar = document.getElementById('mc-groups-bar');
       if (!bar) return;
       bar.innerHTML = '';
-      const groups = DATA.mood || [];
+      const groups = typeGroups(mcType);
       const chips = [['', '全部']].concat(groups.map(g => [g.group, g.group]));
       chips.forEach(([val, label]) => {
         const cEl = document.createElement('span');
@@ -333,37 +391,40 @@
       });
     }
     function renderMood() {
-      const groups = DATA.mood || [];
+      const groups = typeGroups(mcType);
       let shown = mcGroup ? groups.filter(g => g.group === mcGroup) : groups;
       if (mcQ) {
         shown = shown.map(g => ({ ...g, cards: g.cards.filter(c => c.content.indexOf(mcQ) >= 0) })).filter(g => g.cards.length || g.group.indexOf(mcQ) >= 0);
       }
       mcList.innerHTML = '';
-      if (!shown.length) { mcList.innerHTML = '<div class="cc-empty">暂无情绪字卡</div>'; return; }
+      if (!shown.length) { mcList.innerHTML = '<div class="cc-empty">暂无字卡</div>'; return; }
       shown.forEach(g => {
         const h = document.createElement('div');
         h.className = 'cc-group-header';
-        h.innerHTML = '<span class="ccg-name">' + g.group + '</span><span class="ccg-count">' + g.cards.length + '</span><span class="ccg-count" style="background:rgba(0,0,0,.03)">权重 ' + g.weight + '</span>';
+        h.innerHTML = '<span class="ccg-name">' + g.group + '</span><span class="ccg-count">' + g.cards.length + '</span>' +
+          (g.weight ? '<span class="ccg-count" style="background:rgba(0,0,0,.03)">权重 ' + g.weight + '</span>' : '') +
+          (g.special ? '<span class="ccg-count" style="background:rgba(0,0,0,.03)">特殊</span>' : '');
         mcList.appendChild(h);
         g.cards.forEach(c => {
-          const off = isCardOff('mc-off-mood', c.content);
+          const off = typeOff(g.type || mcType, c.content);
           const d = document.createElement('div');
           d.className = 'cc-item glass' + (off ? ' off' : '');
           // v3.6.x：整页为系统预设字卡，统一标【系统】与自定义字卡区分；
-          // 右侧单卡开关——逐张开启/关闭该字卡（关闭后情绪链不再抽取）
+          // 右侧单卡开关——逐张开启/关闭该字卡（关闭后该类字卡不再被抽取）
           d.innerHTML = '<div class="cc-txt"><div class="t">' + c.content + ' <span class="tc-known">系统</span></div></div>' +
             '<span class="cc-type">' + (c.rarity === 'rare' ? '稀有' : c.rarity === 'special' ? '特殊' : '普通') + '</span>' +
             '<label class="toggle ccard-toggle"><input type="checkbox"' + (off ? '' : ' checked') + '><span class="tk"></span></label>';
           mcList.appendChild(d);
           d.querySelector('input').addEventListener('change', () => {
             const nowOff = !d.querySelector('input').checked;
-            setCardOff('mc-off-mood', c.content, nowOff);
+            setTypeOff(g.type || mcType, c.content, nowOff);
             d.classList.toggle('off', nowOff);
             toastCard(c.content, nowOff);
           });
         });
       });
     }
+    renderTypeBar();
     renderMCBar();
     renderMood();
     // 搜索：页内输入框直接过滤（v3.6.x：与自定义聊天字卡一致，不再弹窗，输入即筛，清空即恢复）
