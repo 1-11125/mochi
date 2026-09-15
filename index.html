@@ -9539,9 +9539,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789450767452">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.699</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 13:39<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789451845025">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.700</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 13:57<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10860,7 +10860,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.699</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.700</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11170,7 +11170,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.699</span>
+              <span class="lic-ver">v3.26.700</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11772,6 +11772,8 @@ transition-duration: .01ms !important;
             <div class="gs-sub" id="qs-diag" style="color:var(--muted,#888)">链路自检中…</div>
             <div class="gs-sub">开启后联系人回复按「拼字概率」随机变成拼字：从词典（系统预设字卡→词典，语录/词库/常用词全部分组都可抽，可逐张关闭）抽字卡整卡，效果举例：命中拼字时 TA 会连着发几条词典里的短句（如「想你了」「晚安哦」），像打字很快连着发消息一样。<br>发送形态：单气泡拼字为主，「多回复逐卡连发」开着时每次命中另按 20% 小概率变成逐条连发；「多回复逐卡连发」关＝不能连发（只发单气泡拼字）。<br>· 「单气泡拼字」＝几张字卡用空格拼成【一条】消息发在一个气泡里（如「今天也要好好爱自己 晚安」），气泡下 tag 是「词典」（全是长句时）或「词典拼字」（含短卡时）；<br>· 「多回复逐卡连发」＝每张字卡单独一条气泡一条一条发出来，每条气泡下 tag 是「词典逐卡连发」；连发条数跟随上方「每条消息使用多字卡回复」的最少/最多条数（默认 2~5 条）；<br>· 「逐卡连发不受条数限制」默认关＝连发条数按「回复条数最多」截断（默认最多 2 条）；打开＝连发条数不受「回复条数最多」约束（想连发 5 条就发 5 条）。<br>两个形态都能在没开「多字卡回复」的情况下触发；两个形态开关都关时兜底发单气泡拼字。开启「混用自定义字卡」时你的字卡库文本也会进抽卡池（可能把你的普通字卡抽去拼字，默认开）。概率 0 = 不触发</div>
           </div>
+          <!-- #513 梦角自由造句总开关与混合模式改为默认打开（用户点名「需要默认打开」）：
+               DEFAULTS mjf-en/mjf-mix=1 + reply-settings migrateMjfOn 把存量 '0' 一次性收成 '1' -->
           <div class="gs-title">梦角自由造句（截字重造句）</div>
           <div class="set-group glass">
             <div class="gs-row"><span>梦角自由造句</span><label class="toggle"><input type="checkbox" id="mjf-en"><span class="tk"></span></label></div>
@@ -11788,7 +11790,7 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>混合模式（三手法随机）</span><label class="toggle"><input type="checkbox" id="mjf-mix"><span class="tk"></span></label></div>
             <!-- #364 存库概率：多桌面联系人时新句按此概率进公用库、其余进专属库；仅 1 个联系人固定进专属库 -->
             <div class="gs-row"><span>存公用库概率（多联系人）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">自由选择开关（默认关）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式（默认）：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>「混合模式」（#414，默认关）：开启后每次造句先在三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
+            <div class="gs-sub">自由选择开关（#513 起默认开）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>「混合模式」（#414，#513 起默认开）：开启后每次造句先在三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法（默认撤回式）。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
           </div>
           </div>
           </div>
@@ -28821,9 +28823,8 @@ try {
 let old = [];
 try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
-const sig2 = (m) => (((m && m.ts) || 0) + '|' + ((m && m.side) || '') + '|' + String((m && m.text) || '').slice(0, 64));
-const seen = new Set(msgsNow.map(sig2));
-const merged = msgsNow.concat(old.filter(m => m && !seen.has(sig2(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
+const seen = new Set(msgsNow.map(lsMergeSig));
+const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 performLsSnapWrite(merged, prefix);
 } catch (e) {}
 }
@@ -29241,6 +29242,18 @@ let x = m.text || '';
 try { if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x) && window.mochiMediaExpand) { const ex = window.mochiMediaExpand(x); if (ex) x = ex; } } catch (e) {}
 return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc: !!m.voice, e: extra });
 }
+function lsMergeSig(m) {
+if (!m) return '';
+let x = String(m.text || '');
+try {
+if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x)) {
+const ex = window.mochiMediaExpand && window.mochiMediaExpand(x);
+if (ex) x = ex;
+}
+} catch (e) {}
+return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || '') + '|' + x.length + '|' + x.slice(0, 96));
+}
+try { window.__lsMergeSig = lsMergeSig; } catch (e) {} // 回归脚本可测性出口（只读纯函数）
 function collapseRapidDups(arr) {
 let removed = 0;
 for (let i = arr.length - 1; i > 0; i--) {
@@ -29272,13 +29285,8 @@ let lsArr = [];
 try { lsArr = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { lsArr = []; }
 if (!Array.isArray(lsArr)) lsArr = [];
 if (lsArr.length && msgs.length) {
-const sig2 = (m) => {
-let _sx = (m && m.text) || '';
-try { if (m && _sx && window.mochiMediaIsToken && window.mochiMediaIsToken(_sx) && window.mochiMediaExpand) { const _ex = window.mochiMediaExpand(_sx); if (_ex) _sx = _ex; } } catch (e) {}
-return (((m && m.ts) || 0) + '|' + ((m && m.side) || '') + '|' + ((m && m.special) || '') + '|' + ((m && m.type) || '') + '|' + String(_sx));
-};
-const seen = new Set(lsArr.map(sig2));
-const extra = msgs.filter(m => m && !seen.has(sig2(m)));
+const seen = new Set(lsArr.map(lsMergeSig));
+const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)));
 msgs = lsArr.concat(extra).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 } else if (lsArr.length) {
 msgs = lsArr;
@@ -31265,7 +31273,7 @@ const dy = t.clientY - pokeTapT.y;
 pokeTapT = null;
 if (dx * dx + dy * dy > 144 || dt > 450) return; // 滑动/按住不算点（与 pointer 路同口径，文本异形护哨兵唯一）
 pokeTapGuard = Date.now() + 800;
-openPokeCard();
+openPokeCard(true); // FIX #511：手势开路 → 布点击闸，吞掉紧随的合成 click
 }, { passive: true });
 av.addEventListener('touchcancel', () => { pokeTapT = null; }, { passive: true });
 av.addEventListener('pointerdown', (e) => {
@@ -31280,7 +31288,7 @@ const dt = Date.now() - pokeTapP.t;
 pokeTapP = null;
 if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
 pokeTapGuard = Date.now() + 800;
-openPokeCard();
+openPokeCard(true); // FIX #511：同 touch 路——手势开路布闸，防合成 click 落进面板
 });
 av.addEventListener('pointercancel', () => { pokeTapP = null; });
 av.addEventListener('click', (e) => {
@@ -32844,9 +32852,21 @@ const pokeList = document.getElementById('poke-list');
 const pokeClose = document.getElementById('poke-card-close');
 const pokeName = document.getElementById('poke-partner-name');
 let pokeOpenClickGate = 0;
-if (pokeList) {
-pokeList.addEventListener('click', (e) => {
-if (performance.now() < pokeOpenClickGate) { e.preventDefault(); e.stopPropagation(); }
+function pokeArmClickGate() { pokeOpenClickGate = performance.now() + 700; }
+function pokeGateActive() { return pokeOpenClickGate > 0 && performance.now() < pokeOpenClickGate; }
+function pokeDisarmClickGate() { pokeOpenClickGate = 0; }
+if (pokeCard) {
+pokeCard.addEventListener('click', (e) => {
+if (!pokeGateActive()) return;
+pokeDisarmClickGate();
+e.preventDefault();
+e.stopPropagation();
+if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+}, true);
+pokeCard.addEventListener('focusin', (e) => {
+if (!pokeGateActive()) return;
+const t = e.target;
+if (t && typeof t.blur === 'function') { try { t.blur(); } catch (err) {} }
 }, true);
 }
 const POKE_PRESETS = {
@@ -34331,9 +34351,15 @@ if (!chatAskInput) return;
 chatAskInput.focus();
 }, 80);
 }
+function askDismissIme() {
+try { askBoxes().forEach(({ box }) => { try { if (box && box.blur) box.blur(); } catch (e) {} }); } catch (e) {}
+closeIme(); // 兜底：面板之外仍聚焦的输入框（主聊天输入栏等）一并收起
+if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (e) {} }
+}
 function closeChatAskPanel() {
 if (askKbRefreshStop) { try { askKbRefreshStop(); } catch (e) {} }
 clearAskComposeLayers();
+askDismissIme();
 if (chatAskPanel) chatAskPanel.hidden = true;
 }
 function submitChatAsk() {
@@ -35163,16 +35189,17 @@ return true;
 } catch (e) {}
 return false;
 }
-function openPokeCard() {
+function openPokeCard(fromGesture) {
 if (!pokeCard) return;
 pokeAdoptAllRerender(); // 慢 IDB（iOS 挂后台杀连接）下 restore-done 兜底可能落空，开面板再补一次
 const ep = document.getElementById('emoji-panel');
 if (ep) ep.hidden = true;
 if (window.closeAvlib) window.closeAvlib();
+if (fromGesture) pokeArmClickGate();
 pokeCard.hidden = false;
 if (morePanel) morePanel.hidden = true;
 closeIme(); // v3.5.116：收起输入法，面板不被键盘遮挡
-if (pokeInput) pokeInput.value = '';
+if (pokeInput) { pokeInput.value = ''; try { pokeInput.blur(); } catch (e) {} }
 try { const p = store.get('poke-tab'); if (p === 'mine') pokeMode = 'mine'; else if (p === 'ta') pokeMode = 'ta'; } catch (e) {}
 try { const g = store.get('poke-group-' + pokeMode); if (typeof g === 'string' && g) pokeCurGroup = g; } catch (e) {}
 renderPokeCard();
@@ -45862,10 +45889,10 @@ const DEFAULTS = {
 'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
 'csp-cust': 50,
 'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
-'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
+'mjf-en': 1, 'mjf-prob': 20, 'mjf-style': 1,
 'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
 'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
-'mjf-mix': 0,
+'mjf-mix': 1,
 'mjf-pub': 80,
 'as-en': 1, 'as-prob': 30, 'as-min': 5, 'as-max': 10,
 'as-count-min': 1, 'as-count-max': 2, 'dnd-en': 0,
@@ -46377,6 +46404,29 @@ try { if (window.console && console.log) console.log('[reply-settings] 已迁移
 } catch (e) {}
 }
 migrateQsNoLimitOld();
+function migrateMjfOn() {
+try {
+if (!window.getContacts || !window.storeFor) return;
+const cids = [window.__activeCid || 'default'];
+(window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+const changed = [];
+cids.forEach(cid => {
+try {
+const s = window.storeFor(cid);
+if (!s) return;
+if (String(s.get('reply-mjf-on-migrated')) === '1') return;
+['mjf-en', 'mjf-mix'].forEach(k => {
+if (String(s.get('reply-' + k)) === '0') { s.set('reply-' + k, '1'); changed.push(cid + ':' + k); }
+});
+s.set('reply-mjf-on-migrated', '1');
+} catch (e) {}
+});
+if (changed.length) {
+try { if (window.console && console.log) console.log('[reply-settings] 已迁移梦角自由造句/混合模式旧默认 0→1（#513）：' + changed.join(', ')); } catch (e) {}
+}
+} catch (e) {}
+}
+migrateMjfOn();
 function rgToday() {
 const d = new Date();
 return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -95226,6 +95276,41 @@ _aLastVVH = 0;
 } catch (e2) {}
 }
 });
+var _aDismissAt = 0, _aDismissTimer = 0, _aDismissTries = 0;
+function _aDismissCheck() {
+try {
+_aDismissTimer = 0;
+if (!_aDismissAt) return;                                            // 无在途请求
+var _dAge = Date.now() - _aDismissAt;
+if (_dAge < 750) return;                                             // 更晚的请求会另起计时
+if (_dAge > 3000) { _aDismissAt = 0; _aDismissTries = 0; return; }    // 有界窗口到点＝交回正常链路
+var _dRetry = function () {
+_aDismissTries++;
+if (_aDismissTries <= 6 && !_aDismissTimer) _aDismissTimer = setTimeout(_aDismissCheck, 400);
+};
+if (!_aPhone.style.height) { _aDismissAt = 0; _aDismissTries = 0; return; } // 主链路已复原＝收工
+if (_aIsText(document.activeElement)) return _dRetry();              // 有活焦点＝键盘可能真在场
+if (Date.now() - _aFocusAt < 750) return _dRetry();                  // 请求后又有文本聚焦
+if (_aVV && _aVV.height > 0 && _aVV.height < _aH - 60 && Date.now() - _aVvChgAt < 500) return _dRetry(); // 读数仍在变＝动画中
+var _dStillSaysKb = !!(_aVV && _aVV.height > 0 && _aVV.height < _aH - 60);
+_aKb = false; _aClosing = false; _aProvClear();
+if (_dStillSaysKb) _aVvStale = true;
+_aPhone.style.height = '';
+_aPhone.style.alignSelf = '';
+_aPanComp();
+kbUndockPanels();
+window.__mochiKbDismissHealAt = Date.now(); // 诊断留痕（device.js 读）
+_aDismissAt = 0; _aDismissTries = 0;
+} catch (eD) {}
+}
+window.mochiKbDismiss = function () {
+try {
+_aDismissAt = Date.now();
+_aDismissTries = 0;
+if (_aDismissTimer) clearTimeout(_aDismissTimer);
+_aDismissTimer = setTimeout(_aDismissCheck, 800);
+} catch (e) {}
+};
 }
 var _aCoverEnvCache = -1;
 function _aSyncCoverTop() {
@@ -95537,4 +95622,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu28s8yk -->
+<!-- __MOCHI_EOF__ mu29fcf5 -->

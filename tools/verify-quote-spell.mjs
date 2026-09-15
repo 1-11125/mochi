@@ -109,10 +109,13 @@ const rs = readFileSync(join(root, 'src/js/reply-settings.js'), 'utf8');
 const tpl = readFileSync(join(root, 'src/template.html'), 'utf8');
 const bm = readFileSync(join(root, 'build.mjs'), 'utf8');
 ok(chat.includes('(window.quoteSpellPick && window.quoteSpellPick(c))'), 'D1 chat.js replyOnce 已接抽句门');
-ok(rs.includes("'qs-en': 1, 'qs-prob': 25, 'qs-cc': 0, 'qs-one': 1,"), 'D2 reply-settings.js DEFAULTS 注册 qs 四键');
+// ⚠️ 过期期望校准（2026-09-15）：D2/D3b 原断言沿用 v3.28.x #310 的「qs-cc 默认 0 + 迁移写 0」
+// 口径，v3.40.x #388 已把该默认翻回 1（migrateQsCcOld 改反向迁移写 '1'）——两条长期假红，
+// 真回归会混在里面看不出来。按 #388 现行口径校准。
+ok(rs.includes("'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1,"), 'D2 reply-settings.js DEFAULTS 注册 qs 四键（qs-cc 默认开，同 #388）');
 // 并行批会往开关清单尾部追加新键（如 mjf-en），断言只要求三处都含 qs 三键、不锁尾部
 ok((rs.match(/'qs-en', 'qs-cc', 'qs-one'/g) || []).length === 3, 'D3 三处开关清单都含 qs-en/qs-cc/qs-one');
-ok(rs.includes('migrateQsCcOld()') && rs.includes("s.set('reply-qs-cc', '0')") && rs.includes("'reply-qs-cc-migrated'"), 'D3b qs-cc 旧默认 1→0 一次性迁移在位');
+ok(rs.includes('migrateQsCcOld()') && rs.includes("s.set('reply-qs-cc', '1')") && rs.includes("'reply-qs-cc-migrated'"), 'D3b qs-cc 反向迁移（#388 写回 1）在位');
 ok(tpl.includes('id="qs-en"') && tpl.includes('data-k="qs-prob"') && tpl.includes('id="qs-cc"') && tpl.includes('id="qs-one"'), 'D4 template.html 回复设置「词典拼字」组四控件');
 ok(chat.includes('dictTag') && chat.includes("? '词典' : '词典拼字'") && chat.includes("tag: '词典逐卡连发'") && chat.includes('rep.spell.join(\' \')'), 'D5 chat.js tag：单气泡按字卡长度（词典/词典拼字）+逐卡连发固定「词典逐卡连发」（#350）');
 ok(tpl.includes('id="page-dict-cards"') && tpl.includes('id="d2-dict-list"'), 'D6 词典独立页在位（page-dict-cards，并行 #316 批重构）');

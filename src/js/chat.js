@@ -6638,9 +6638,36 @@ if (!chatAskInput) return;
 chatAskInput.focus();
 }, 80);
 }
+function askDismissIme() {
+// FIX 2026-09-15 #512：关面板前显式收起输入法（先 blur、再隐藏面板）。用户报（红米 K80
+// Chrome，明说其他机型也有）：「问问TA 发送卡片后手机输入法弹窗收起很慢，一直看到输入法
+// 位置那半边灰屏」。
+// 根因：本面板的输入框（#chat-ask-input/#chat-ask-opts 转 .ce-box 后）此刻正持有焦点，
+// 旧实现直接 `hidden = true` ＝把「聚焦中的可编辑元素」从布局里摘掉，键盘是「被元素移除
+// 带走」而不是「失焦收起」——一批内核/输入法不为这种移除派 focusout、也不派（或迟很多才派）
+// visualViewport.resize：移动适配的收起链（focusout 置 _aClosing → 收起动画期只写 .phone
+// 高度跟随 vv → vv 回基准复原）与 250ms 轮询因此全不动作 → .phone 内联收缩高停在键盘期
+// 数值，输入法位置一直露 body 灰底；只能靠 1s 看门狗的「2.2s 无任何活动」兜底才会复原，
+// 用户接着点/滑就永远不满足＝「一直看到半边灰屏」。
+// 修法：显式 blur 走标准失焦链（同 #331 搜索结果「点结果先收键盘」先例）——focusout 必派发、
+// _aClosing 闸门当场挂上、收起动画期零强制布局读取，灰底不再出现。
+// 零机型分支：无聚焦时 blur 是空操作，键盘机制健全的内核行为完全不变（收起链本就工作）。
+try { askBoxes().forEach(({ box }) => { try { if (box && box.blur) box.blur(); } catch (e) {} }); } catch (e) {}
+closeIme(); // 兜底：面板之外仍聚焦的输入框（主聊天输入栏等）一并收起
+// FIX 2026-09-15 #512（第二道·有界兜底）：向移动适配层报备「这次收键盘是程序化主动请求」。
+// 第一道 blur 本身已让健康内核走标准失焦链；但确有内核/输入法在「聚焦元素被隐藏带走」式
+// 收键盘下连 focusout 都不派（或极迟才派），移动层四条复原路（syncAndroidKb 的 vv 回基准 /
+// focusout 400ms 复查 / 250ms 轮询 / #209·#236 看门狗）全要「vv 回基准」或「2.2s 无任何活动」
+// 作证据 → .phone 内联收缩高继续卡在键盘期数值，输入法位置一直露 body 灰底。
+// 报备后移动层武装**一次**有界兜底：800ms 时仍满足「无活文本焦点 + 报备后无新聚焦 + 视口读数
+// 500ms 未变 + 收缩高未清」才按「键盘已收」复原（动作与 #209·#236 清扫完全一致）。条件任一不成立
+// 即放弃＝健康内核零行为变化；不做任何机型判断（同一份代码全机型通用，不覆盖他机修复）。
+if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (e) {} }
+}
 function closeChatAskPanel() {
 if (askKbRefreshStop) { try { askKbRefreshStop(); } catch (e) {} }
 clearAskComposeLayers();
+askDismissIme();
 if (chatAskPanel) chatAskPanel.hidden = true;
 }
 function submitChatAsk() {

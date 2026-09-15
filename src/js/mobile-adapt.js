@@ -2325,6 +2325,62 @@
             } catch (e2) {}
           }
         });
+        // ===== FIX 2026-09-15 #512：程序化「收键盘」请求（外部显式收输入法后的有界兜底） =====
+        // 场景（用户报，红米 K80 Chrome，明说其他机型也有）：聊天【问问TA】发送卡片后面板关闭、
+        // 输入框失焦，但「输入法位置那半边灰屏一直露着」——即 .phone 内联收缩高停在键盘期数值。
+        // 通路：外部（chat.js askDismissIme）先显式 blur 再隐藏面板，blur 会派 focusout，主链路本
+        // 应正常复原；但部分内核/输入法在「聚焦元素被隐藏带走」这类收键盘方式下**不派
+        // visualViewport.resize**（或迟很多才派），而本分支四条复原路都要「vv 回基准」作证据
+        // （syncAndroidKb 的 !open && h≥_aH-12 / focusout 400ms 复查 / 250ms 轮询 /
+        // #209/#236 看门狗里那条也要 vv 回基准或缩幅落残留带），全缩幅的真键盘残留只由
+        // 「2.2s 无任何活动」那条兜底——用户接着点/滑就一直不满足＝「一直看到半边灰屏」。
+        // 本兜底只在【外部主动请求过收键盘】时武装：请求起 800ms 后判定，条件不成立最多再复查 6 次
+        //（每次 400ms），整个窗口 3s 到点即彻底放弃＝有界、零常驻成本（没有请求时一个计时器都不挂）：
+        //   ① .phone 仍带内联收缩高＝确实还卡着（已清＝主链路复原过，收工）；
+        //   ② 此刻没有任何文本元素持有活焦点＝真键盘不可能还在场（软键盘必然依附聚焦可编辑）；
+        //   ③ 请求之后没有新的文本聚焦（_aFocusAt 未刷新）＝用户没在别的输入框接着打字；
+        //   ④ vv 读数最近 500ms 没变化＝不在收起动画中途（动画每帧都变）。
+        // 命中即按「键盘已收」复原（动作与 #209/#236/#267 清扫完全一致），并在读数仍称有键盘时
+        // 置 #236 同款 _aVvStale 闩，防残留读数把 .phone 再抽回去；下次触摸/聚焦/回基准即解除。
+        // ⚠️ 计时器必须按【每次请求】起：首稿把判定挂在模块初始化的 setTimeout(…, 800) 上，
+        // 模块加载时 _aDismissAt 恒为 0 → 800ms 那一拍直接 return，此后永不再进＝整段是死代码
+        //（用户报障场景下一点作用都没有）。tools/verify-ask-kb-dismiss.mjs 的 F 组即为此设：
+        // 把本函数临时换成空实现时灰底必现（RED）、真实现下 3s 内必复原（GREEN）。
+        var _aDismissAt = 0, _aDismissTimer = 0, _aDismissTries = 0;
+        function _aDismissCheck() {
+          try {
+            _aDismissTimer = 0;
+            if (!_aDismissAt) return;                                            // 无在途请求
+            var _dAge = Date.now() - _aDismissAt;
+            if (_dAge < 750) return;                                             // 更晚的请求会另起计时
+            if (_dAge > 3000) { _aDismissAt = 0; _aDismissTries = 0; return; }    // 有界窗口到点＝交回正常链路
+            var _dRetry = function () {
+              _aDismissTries++;
+              if (_aDismissTries <= 6 && !_aDismissTimer) _aDismissTimer = setTimeout(_aDismissCheck, 400);
+            };
+            if (!_aPhone.style.height) { _aDismissAt = 0; _aDismissTries = 0; return; } // 主链路已复原＝收工
+            if (_aIsText(document.activeElement)) return _dRetry();              // 有活焦点＝键盘可能真在场
+            if (Date.now() - _aFocusAt < 750) return _dRetry();                  // 请求后又有文本聚焦
+            if (_aVV && _aVV.height > 0 && _aVV.height < _aH - 60 && Date.now() - _aVvChgAt < 500) return _dRetry(); // 读数仍在变＝动画中
+            var _dStillSaysKb = !!(_aVV && _aVV.height > 0 && _aVV.height < _aH - 60);
+            _aKb = false; _aClosing = false; _aProvClear();
+            if (_dStillSaysKb) _aVvStale = true;
+            _aPhone.style.height = '';
+            _aPhone.style.alignSelf = '';
+            _aPanComp();
+            kbUndockPanels();
+            window.__mochiKbDismissHealAt = Date.now(); // 诊断留痕（device.js 读）
+            _aDismissAt = 0; _aDismissTries = 0;
+          } catch (eD) {}
+        }
+        window.mochiKbDismiss = function () {
+          try {
+            _aDismissAt = Date.now();
+            _aDismissTries = 0;
+            if (_aDismissTimer) clearTimeout(_aDismissTimer);
+            _aDismissTimer = setTimeout(_aDismissCheck, 800);
+          } catch (e) {}
+        };
       }
       // ===== FIX 2026-09-07 #236：安卓「浏览器覆盖形态」执行器 =====
       // 此前 covered 形态的执行侧（写 --mochi-safe-top / 挂 mochi-cover-top）整体在

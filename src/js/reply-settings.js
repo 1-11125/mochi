@@ -30,18 +30,27 @@
     // 旧默认已随「保存设置」全量写盘的存量由 migrateQsNoLimitOld 按标记键一次性收口，
     // 此后用户手动再打开的 '1' 不再被迁移（标记式而非值式，原因见迁移函数注释）
     'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
-    // v3.28.x #317：梦角自由造句——mjf-en 总开关（默认关=用户点名「可自由选择开关」）、
-    // mjf-prob 触发概率（%）：梦角说话按概率「截断某几个字重新造句」，新句自动存进
-    // 自定义聊天字卡新分类「梦角自由造句」（dream-free.js，chat.js replyOnce 消费）
-    'mjf-en': 0, 'mjf-prob': 20, 'mjf-style': 1,
+    // v3.28.x #317：梦角自由造句——mjf-prob 触发概率（%）：梦角说话按概率「截断某几个字
+    // 重新造句」，新句自动存进自定义聊天字卡新分类「梦角自由造句」（dream-free.js，
+    // chat.js replyOnce 消费）
+    // v3.26.x #513：mjf-en 总开关默认 0→1（用户点名「梦角自由造句…需要默认打开」）——
+    // 原 #317 的默认关是「可自由选择开关」的初版取舍，本轮翻案：装上即生效。旧默认 '0'
+    // 会随「保存设置」按钮全量写盘，仅翻 DEFAULTS 对已写盘设备不生效，故由 migrateMjfOn
+    // 按标记键 reply-mjf-on-migrated 一次性把存量的 '0' 收成 '1'（标记式而非值式，
+    // 原因见该函数注释）
+    // FIX 2026-09-15 #513 梦角自由造句总开关默认 0→1（用户点名「需要默认打开」）+ 存量 '0' 收口
+    'mjf-en': 1, 'mjf-prob': 20, 'mjf-style': 1,
     // v3.41.x #413：梦角自由造句语料来源三选（默认全开=可用全部字卡）+ 各源权重（%）——
     // mjf-src-cc 自定义聊天字卡（原唯一语料）/ mjf-src-def 默认聊天字卡 / mjf-src-dict 词典；
     // 权重按归一化抽源（默认 50/25/25），权重 0 或开关关=该源不参与；三源全关=不触发
     'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
     'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
-    // v3.41.x #414：mjf-mix 混合模式（默认关）——开启后每次造句在 0 语气词式/1 撤回式/
+    // v3.41.x #414：mjf-mix 混合模式——开启后每次造句在 0 语气词式/1 撤回式/
     // 2 换字卡内容式三种手法里随机掷一个再出招，不再固定 mjf-style 单一风格
-    'mjf-mix': 0,
+    // v3.26.x #513：默认 0→1（与 mjf-en 同批：用户点名「梦角自由造句的混合模式…需要默认
+    // 打开」），存量 '0' 同由 migrateMjfOn 一次性收成 '1'
+    // FIX 2026-09-15 #513 混合模式默认 0→1（同批：用户点名「混合模式需要默认打开」）
+    'mjf-mix': 1,
     // v3.33.x #364：mjf-pub 造句存公用库概率（%，默认 80）——多桌面联系人时新句按此概率
     // 进公用库、其余进专属库；仅 1 个联系人时固定进专属库（不受此项影响），dream-free.js 消费
     'mjf-pub': 80,
@@ -722,6 +731,39 @@
     } catch (e) {}
   }
   migrateQsNoLimitOld();
+  // v3.26.x #513：「梦角自由造句」总开关（mjf-en）与「混合模式」（mjf-mix）默认 0→1 的
+  // 一次性收口迁移——用户点名「梦角自由造句和梦角自由造句的混合模式需要默认打开」。
+  // 与 #443 同因：旧默认 '0' 会随「保存设置」按钮全量写盘（saveCurrentReplyPage 把开关清单
+  // 整表落盘），仅翻 DEFAULTS 对已写盘设备不生效（用户会报「设了默认开但还是关的」）。
+  // 必须用标记键（reply-mjf-on-migrated）只跑一轮、不能用「值等旧默认即改写」式：'0' 既是
+  // 旧默认值也是合法的手动关闭选择，值式会在用户之后每一次手动关闭时被加载反复改回。
+  // 取舍（同 #310/#443）：全量写盘的 '0' 与用户手动关掉的 '0' 无法区分，会被一并打开一次；
+  // 此后用户再自行关闭（标记已落）不再被纠正。缺键设备（从未保存过）本就走 DEFAULTS=1，
+  // 不需迁移也不写标记（写入只会多一条无用键）。
+  // FIX 2026-09-15 #513 存量 mjf-en/mjf-mix 旧默认 '0' → '1' 一次性收口（标记键 reply-mjf-on-migrated）
+  function migrateMjfOn() {
+    try {
+      if (!window.getContacts || !window.storeFor) return;
+      const cids = [window.__activeCid || 'default'];
+      (window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+      const changed = [];
+      cids.forEach(cid => {
+        try {
+          const s = window.storeFor(cid);
+          if (!s) return;
+          if (String(s.get('reply-mjf-on-migrated')) === '1') return;
+          ['mjf-en', 'mjf-mix'].forEach(k => {
+            if (String(s.get('reply-' + k)) === '0') { s.set('reply-' + k, '1'); changed.push(cid + ':' + k); }
+          });
+          s.set('reply-mjf-on-migrated', '1');
+        } catch (e) {}
+      });
+      if (changed.length) {
+        try { if (window.console && console.log) console.log('[reply-settings] 已迁移梦角自由造句/混合模式旧默认 0→1（#513）：' + changed.join(', ')); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  migrateMjfOn();
 
   // ===== v3.27.x #218：互动频率引导提示（纯提醒，不改任何默认值） =====
   // 背景：系统设置默认全开（设计如此，见开屏公告第八章），但总有用户觉得「概率太高」；

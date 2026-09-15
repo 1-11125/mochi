@@ -231,6 +231,13 @@ const FIX_SENTINELS = [
   { name: '#149 引用文本清洗不直出令牌串（quoteTextSafe 令牌→空，防 @@m:hash 铺进引用块/引用预览条）', file: 'js/chat.js', needle: 'window.mochiMediaIsToken(str)' },
   { name: '#127 单聊点发送不收输入法（mousedown preventDefault 防焦点被按钮抢走）', file: 'js/chat.js', needle: "send.addEventListener('mousedown', (e) => { e.preventDefault(); });" },
   { name: '#127 群聊点发送不收输入法（同单聊）', file: 'js/group-chat.js', needle: "sendBtn.addEventListener('mousedown', (e) => { e.preventDefault(); });" },
+  { name: '#512 问问TA/邀请TA 半框关闭前显式收输入法（先 blur 再隐藏面板；删掉＝键盘被"元素移除"带走、内核不派 vv.resize，输入法位置一直露灰底，#141/#209 同族复发）', file: 'js/chat.js', needle: 'try { askBoxes().forEach(({ box }) => { try { if (box && box.blur) box.blur(); } catch (e) {} }); } catch (e) {}' },
+  { name: '#512 收输入法必须发生在面板隐藏之前（两行顺序颠倒＝聚焦元素先被摘掉，blur 落空、灰底复发）', file: 'js/chat.js', needle: 'askDismissIme();\nif (chatAskPanel) chatAskPanel.hidden = true;' },
+  { name: '#512 程序化收键盘必须向移动适配层报备（删掉＝丢失「我确实主动收过键盘」凭据，有界兜底网永不武装＝连 focusout 都不派的内核灰底复发）', file: 'js/chat.js', needle: 'if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (e) {} }' },
+  { name: '#512 外部收键盘后的有界兜底网存在（删掉＝不派 focusout / vv.resize 的内核上 .phone 内联收缩高永久卡在键盘期数值，输入法位置一直露 body 灰底，#209/#236 同族复发）', file: 'js/mobile-adapt.js', needle: 'window.mochiKbDismiss = function () {' },
+  { name: '#512 兜底网计时器必须按每次请求起（改回模块初始化上的一次性 setTimeout＝模块加载时 _aDismissAt 恒为 0，800ms 那拍直接 return 后再不进场＝整段死代码，灰底一点不会被兜住。首稿实测踩过）', file: 'js/mobile-adapt.js', needle: '_aDismissTimer = setTimeout(_aDismissCheck, 800);' },
+  { name: '#512 兜底网有界窗口 3s（删掉＝请求过期后仍在无限复查）', file: 'js/mobile-adapt.js', needle: 'if (_dAge > 3000) { _aDismissAt = 0; _aDismissTries = 0; return; }' },
+  { name: '#512 兜底网必须挂在「无活文本焦点」否证上（删掉＝键盘真在场也强行复原，健康内核键盘被抽走＝#209 同族回归）', file: 'js/mobile-adapt.js', needle: 'if (_aIsText(document.activeElement)) return _dRetry();' },
   { name: '定期备份提醒条存在（backup-remind-bar，受保护产品功能，见 AGENTS.md 数据与存储约定）', file: 'js/pwa.js', needle: "getElementById('backup-remind-bar')" },
   { name: '定期备份提醒条锚点存在（template.html）', file: 'template.html', needle: 'backup-remind-bar' },
   { name: '备份提醒冷却收短到 2 天（每 2-3 天弹一次；改动 INTERVAL 即消失，防被 7 天冷却静默压制）', file: 'js/pwa.js', needle: 'const INTERVAL = 2 * DAY;' },
@@ -1621,6 +1628,10 @@ const FIX_SENTINELS = [
   { name: '#510a 贴贴邀请同意写系统消息（删则同意后聊天无「你接受了 × 的贴贴邀请」留痕＝原报障复发）', file: 'js/chat.js', needle: "你接受了 ' + name + ' 的贴贴邀请" },
   { name: '#510b 贴贴邀请拒绝写系统消息（删则拒绝后只剩婉拒话术、系统消息留痕丢失）', file: 'js/chat.js', needle: "你拒绝了 ' + name + ' 的贴贴邀请" },
   { name: '#510c openInviteConfirm 支持 onDecline 回调（删则该分支回退「只发婉拒话术」＝#510b 失锚）', file: 'js/chat.js', needle: "else if (typeof onDecline === 'function') onDecline();" },
+  // ==== 2026-09-15 #513「梦角自由造句」与「混合模式」默认打开（用户点名「梦角自由造句和梦角自由造句的混合模式需要默认打开」）：#317 初版把 mjf-en 定为默认关（「可自由选择开关」），#414 混合模式同样默认关；本轮翻案＝装上即生效。仅翻 DEFAULTS 对已写盘设备无效（旧默认 '0' 随「保存设置」全量写盘落盘），故补标记键 reply-mjf-on-migrated 一次性把存量 '0' 收成 '1'（与 #388/#443 同款标记式迁移：值式会在用户之后每次手动关闭时被加载反复改回）====
+  { name: '#513a 梦角自由造句总开关默认开（DEFAULTS mjf-en=1；改回 0＝装上仍是关的、用户点名「需要默认打开」落空）', file: 'js/reply-settings.js', needle: "'mjf-en': 1, 'mjf-prob': 20," },
+  { name: '#513b 造句混合模式默认开（DEFAULTS mjf-mix=1；改回 0＝默认只走 mjf-style 单一手法、三手法不再交替）', file: 'js/reply-settings.js', needle: "'mjf-mix': 1," },
+  { name: '#513c 存量开关 0→1 一次性迁移+标记键（删＝已保存过设置的设备仍停在关，用户看到「默认还是没打开」＝原报障复发）', file: 'js/reply-settings.js', needle: "s.set('reply-mjf-on-migrated', '1');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
