@@ -1726,13 +1726,15 @@ b.innerHTML = (prefixHtml || '') + '<div class="msg-voice" data-src="' + attrEsc
 '</div>';
 const btn = b.querySelector('.msg-voice-play');
 if (btn) {
-// FIX 2026-09-15 #504 语音播放按钮 touch 直驱（「点我发的语音听不了/点了只弹菜单」多机型同报，
-// 用户明说其他设备型号也有、要求零机型分支）：#480 气泡轻点直驱把播放按钮的轻点也当「点气泡」——
+// FIX 2026-09-15 #507 语音播放按钮 touch 直驱（「点我发的语音听不了/点了只弹菜单」多机型同报，
+// 用户明说其他设备型号也有、要求零机型分支）：#480 气泡轻点直驱曾把播放按钮的轻点也当「点气泡」——
 // body touchend 先开消息菜单+布 800ms 吞 click 窗口，吞 click 族内核（Via/夸克/部分壳与内核版本）
 // 补发的 click 根本不来或被 body 层吞掉＝点播放永远播不出；健康内核也是菜单/播放双触发。
-// 对齐 #480 maRunAction 同款模式：touchend 直驱播放 + 守卫吞补发 click 防双跑；并清掉气泡轻点
-// 布点（msgTapStart/msgAnyTap + endMsgHold）让菜单链路彻底不参与；≥450ms 长按不接管（长按语音
-// 气泡弹菜单的原语义保留，与 #480 轻点判定窗口同值）。
+// 修复两刀（都在各自分段的同一闭包内、互不引用跨段状态）：①msgActionEligible 把 .msg-voice-play
+// 排除出「点气泡」判定（touchstart 不再布点/不长按计时，body touchend/click/contextmenu 全链路
+// 都不再开菜单不吞 click，长按弹菜单走同气泡非按钮区原语义保留）；②本按钮 touchend 直驱播放 +
+// vTapGuard 守卫吞补发 click 防双跑（与 #480 maRunAction 同模式），长按（按下≥500ms）时本直驱
+// 也照常播放——按钮区不再承担菜单职责。
 let vTapGuard = 0;
 const vPlayAction = function () {
 if (!v.src) { toast('语音数据缺失'); return; }
@@ -1751,16 +1753,13 @@ playVoiceInChat(btn, v.src);
 };
 btn.addEventListener('click', function (e) {
 e.stopPropagation();
-if (Date.now() < vTapGuard) return; // #504 touch 直驱已播，吞补发 click 防双跑
+if (Date.now() < vTapGuard) return; // #507 touch 直驱已播，吞补发 click 防双跑
 vPlayAction();
 });
 btn.addEventListener('touchend', function (e) {
 const mt = e.changedTouches && e.changedTouches[0];
 if (!mt) return;
-if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #504 长按让位菜单路（原语义保留）
-e.stopPropagation(); // #504 不入 body touchend＝不开消息菜单、不布吞 click 窗口
-endMsgHold();
-msgTapStart = null; msgAnyTap = null;
+e.stopPropagation(); // #507 不入 body touchend＝不开消息菜单、不布吞 click 窗口
 if (Date.now() < vTapGuard) return;
 vTapGuard = Date.now() + 800;
 vPlayAction();
@@ -7757,8 +7756,13 @@ let msgSuppressClickUntil = 0;
 let msgHoldX = 0, msgHoldY = 0; // FIX 2026-09-14 #G2 长按起始触点，判断是否算滑动
 function msgActionEligible(t) {
 // 沿用原「点气泡弹菜单」的判定规则：可弹返回 {item, b}，不可弹返回 null（引用气泡/拍一拍/撤回/已读不回等）
+// FIX 2026-09-15 #507 语音播放按钮不算「点气泡」——否则轻点/长按播放按钮都会布气泡轻点/长按
+// （touchend 开消息菜单+布吞 click 窗口），播放按钮的 click 被吞（吞 click 族内核补发 click 根本
+// 不来＝点播永远播不出；健康内核也菜单/播放双触发）。播放走 fillVoiceBubble 的 touch 直驱；
+// 菜单入口保留在同气泡非按钮区（波纹/名称区），长按弹菜单原语义不丢。
 const b = t.closest('.msg-bubble');
 if (!b) return null;
+if (t.closest('.msg-voice-play')) return null;
 if (t.closest('.msg-quote')) return null;
 const item = b.closest('.msg');
 if (!item || item.classList.contains('msg-poke')) return null;

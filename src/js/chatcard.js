@@ -1114,6 +1114,7 @@
       d.dataset.g = gname;
       d.dataset.idx = i;
       d.innerHTML = cardItemHtml(c);
+      if (typeof c === 'string') d.dataset.ccSig = c; // FIX #508：局部重建的卡同样带指纹
       attachCardData(d, c);
       if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
       d.addEventListener('click', () => {
@@ -1304,6 +1305,22 @@
         .filter(([g, arr]) => arr.length || g.indexOf(q) >= 0);
     }
     updateCountsOnly();
+    // FIX #508（红米 K80 Chrome 等多机型报「表情包页操作后图片闪一下重新加载」，与头像互动
+    // 点选换头像同族）：整格重渲把已解码的 img 全部丢弃重建＋懒加载重新赋 src＝可视区内
+    // 图片全部重新解码闪烁。收口：清空前按内容指纹（建卡时写进 data-cc-sig）收集旧卡已持有
+    // 图片的 img 节点，建卡时同指纹原位移植入新卡——src 已解码的直接续用（零重解码），未进
+    // 视口的（data-src 未消费）也保住不再重新排队；点击/拖拽/懒加载观察都绑在新卡节点上，
+    // 行为与原全量重建完全一致。真正内容变化的卡（新增/删除/编辑）天然无指纹命中＝照旧新建。
+    const _reuseImgs = new Map();
+    try {
+      list.querySelectorAll('.cc-item[data-cc-sig]').forEach(d => {
+        const im = d.querySelector('img.cc-img');
+        if (!im || !(im.getAttribute('src') || im.dataset.src)) return;
+        const k = d.dataset.ccSig;
+        if (!_reuseImgs.has(k)) _reuseImgs.set(k, []);
+        _reuseImgs.get(k).push(im);
+      });
+    } catch (e) {}
     // v3.6.x：清空前先解除旧图片懒加载观察，避免 observer 引用累积
     if (imgObserver) list.querySelectorAll('img[data-src]').forEach(im => { try { imgObserver.unobserve(im); } catch (e) {} });
     list.innerHTML = '';
@@ -1337,6 +1354,16 @@
         el.dataset.g = it.gname;
         el.dataset.idx = it.i;
         el.innerHTML = cardItemHtml(it.c);
+        if (typeof it.c === 'string') {
+          el.dataset.ccSig = it.c; // FIX #508：内容指纹，供下次整格重渲时移植已解码 img
+          const _oldArr = _reuseImgs.get(it.c);
+          if (_oldArr && _oldArr.length) {
+            const _oi = _oldArr.shift();
+            const _ni = el.querySelector('img.cc-img');
+            // img 嵌在 .cc-imgbox 内层不是 el 直接子节点，必须在其真实父节点上替换
+            if (_oi && _ni && _ni.parentNode) _ni.parentNode.replaceChild(_oi, _ni);
+          }
+        }
         attachCardData(el, it.c);
         if (manageMode && selected.has(it.gname + '\u0001' + it.i)) el.classList.add('sel');
         el.addEventListener('click', () => {
@@ -3021,7 +3048,7 @@
     });
   }
 
-  // FIX 2026-09-15 #505：链接导入按钮只属于【表情包】【图片】两个媒体分类——按钮常驻
+  // FIX 2026-09-15 #508：链接导入按钮只属于【表情包】【图片】两个媒体分类——按钮常驻
   // 工具栏导致其余大分类 tab（主字卡/颜文字/emoji/拍一拍/语音/功能分类）也显示，
   // 点了只吃 toast 拦截（用户反馈）。切分类/进页时按当前分类显隐；弹窗前的分类守卫
   // 保留作兜底。

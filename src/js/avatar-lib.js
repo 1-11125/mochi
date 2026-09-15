@@ -212,6 +212,39 @@
     if (avImgObserver) { try { avImgObserver.observe(img); } catch (e) {} }
     else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
   }
+  // FIX #508（红米 K80 Chrome 等多机型报「头像互动点选换头像，图片闪一下重新加载」）：
+  // 换头像后库内容没变，唯一变化是「当前生效」那张的高亮——旧路径 renderGrid()/renderMeGrid()
+  // 整格 innerHTML='' 重建全部 cell，img 全部新建＋懒加载重新赋 src＝已解码图全部重新解码
+  // （无头 390×844 节点身份实证：点一次 8/8 个 img 全部被替换＝闪+重载）。改为只按库内容
+  // 同步 .avlib-now 高亮类，img 节点原样保留＝零重解码；库内容真正变化（上传/删除/清空）
+  // 仍走整格重建。零机型分支、零视觉改动。
+  function updateGridNow() {
+    if (!avGrid) return;
+    const lib = getLib();
+    const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
+    const cells = avGrid.querySelectorAll('.avlib-cell');
+    if (cells.length !== lib.length) { renderGrid(); return; }
+    lib.forEach((src, idx) => {
+      const d = cells[idx];
+      const im = d && d.querySelector('img');
+      // 懒加载补 src 后 data-src 被移除，已加载的图比对 src
+      if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderGrid(); return; }
+      d.classList.toggle('avlib-now', src === current);
+    });
+  }
+  function updateMeGridNow() {
+    if (!avMeGrid) return;
+    const lib = getMeLib();
+    const current = store.get('cs-avatar-user') || store.get('avatar-user');
+    const cells = avMeGrid.querySelectorAll('.avlib-cell');
+    if (cells.length !== lib.length) { renderMeGrid(); return; }
+    lib.forEach((src, idx) => {
+      const d = cells[idx];
+      const im = d && d.querySelector('img');
+      if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderMeGrid(); return; }
+      d.classList.toggle('avlib-now', src === current);
+    });
+  }
   function renderGrid() {
     if (!avGrid) return;
     const lib = getLib();
@@ -490,7 +523,7 @@
       store.set('avatar-lib-last', String(Date.now()));
       store.set('avatar-lib-next', nextHours);
       store.set('avatar-lib-cur-hash', strHash(data));
-      renderGrid();
+      updateGridNow(); // FIX #508：库没变只换高亮，不整格重建（重渲=图片全部重新解码闪烁）
       if (inviteHit) {
         if (agreeHit) {
           replyInvite(true, fit); // 同意：头像保持新换的，消息带新头像图
@@ -499,7 +532,7 @@
           if (before) { store.set('cs-avatar-partner', before); store.set('avatar-lib-cur-hash', strHash(before)); }
           else { store.remove('cs-avatar-partner'); store.remove('avatar-lib-cur-hash'); }
           applyAvatarImg(before || null, false, true);
-          renderGrid();
+          updateGridNow(); // FIX #508 同上
           noteApplied('partner', before || '');
           // 消息带的是「申请换的那张」头像图（联系人当前已换回原头像，但消息应展示申请换的那张）
           replyInvite(false, fit);
@@ -524,7 +557,7 @@
       store.set('cs-avatar-user', fit);
       applyAvatarImg(fit, true, true);
       store.set('avatar-me-lib-cur-hash', strHash(data));
-      renderMeGrid();
+      updateMeGridNow(); // FIX #508：库没变只换高亮，不整格重建
       noteApplied('user', fit);
       toast('头像已更换');
       const myName = cUserName();
@@ -553,7 +586,7 @@
           store.set('cs-avatar-user', fit);
           applyAvatarImg(fit, true, true);
           store.set('avatar-me-lib-cur-hash', strHash(data));
-          renderMeGrid();
+          updateMeGridNow(); // FIX #508 同上
           noteApplied('user', fit);
           replyMeInvite(true, fit);
         });
@@ -631,7 +664,7 @@
         normalizeAvSize(data, function (fit) {
           store.set('cs-avatar-user', fit);
           applyAvatarImg(fit, true, true);
-          renderMeGrid();
+          updateMeGridNow(); // FIX #508 同上
           noteApplied('user', fit);
           const name = cPartnerName();
           const text = name + ' 更换了你的头像';
@@ -682,7 +715,7 @@
       normalizeAvSize(data, function (fit) {
         store.set('cs-avatar-partner', fit);
         applyAvatarImg(fit, false, true);
-        renderGrid();
+        updateGridNow(); // FIX #508：定时随机换同样只换高亮（半框开着时不再整格闪烁）
         noteApplied('partner', fit);
         // 聊天里显示"昵称 更换了头像" + 新头像图片
         chatSystem(cPartnerName() + ' 更换了头像', fit);

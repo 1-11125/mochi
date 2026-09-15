@@ -9506,9 +9506,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789432489678">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.694</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 08:34<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789435231999">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.697</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 09:20<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10827,7 +10827,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.694</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.697</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11137,7 +11137,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.694</span>
+              <span class="lic-ver">v3.26.697</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -29914,16 +29914,13 @@ playVoiceInChat(btn, v.src);
 };
 btn.addEventListener('click', function (e) {
 e.stopPropagation();
-if (Date.now() < vTapGuard) return; // #504 touch 直驱已播，吞补发 click 防双跑
+if (Date.now() < vTapGuard) return; // #507 touch 直驱已播，吞补发 click 防双跑
 vPlayAction();
 });
 btn.addEventListener('touchend', function (e) {
 const mt = e.changedTouches && e.changedTouches[0];
 if (!mt) return;
-if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #504 长按让位菜单路（原语义保留）
-e.stopPropagation(); // #504 不入 body touchend＝不开消息菜单、不布吞 click 窗口
-endMsgHold();
-msgTapStart = null; msgAnyTap = null;
+e.stopPropagation(); // #507 不入 body touchend＝不开消息菜单、不布吞 click 窗口
 if (Date.now() < vTapGuard) return;
 vTapGuard = Date.now() + 800;
 vPlayAction();
@@ -35396,6 +35393,7 @@ let msgHoldX = 0, msgHoldY = 0; // FIX 2026-09-14 #G2 长按起始触点，判�
 function msgActionEligible(t) {
 const b = t.closest('.msg-bubble');
 if (!b) return null;
+if (t.closest('.msg-voice-play')) return null;
 if (t.closest('.msg-quote')) return null;
 const item = b.closest('.msg');
 if (!item || item.classList.contains('msg-poke')) return null;
@@ -38294,16 +38292,13 @@ let gvTapGuard = 0;
 const gvPlayAction = function () { gcPlayVoice(gvBtn, vsrc); };
 gvBtn.addEventListener('click', function (e) {
 e.stopPropagation();
-if (Date.now() < gvTapGuard) return; // #500 touch 直驱已播，吞补发 click 防双跑
+if (Date.now() < gvTapGuard) return; // #507 touch 直驱已播，吞补发 click 防双跑
 gvPlayAction();
 });
 gvBtn.addEventListener('touchend', function (e) {
 const mt = e.changedTouches && e.changedTouches[0];
 if (!mt) return;
-if (gcTapStart && Date.now() - gcTapStart.t > 450) return; // #500 长按让位菜单路（原语义保留）
-e.stopPropagation(); // #500 不入 body touchend＝不开成员菜单、不布吞 click 窗口
-endGcHold();
-gcTapStart = null;
+e.stopPropagation(); // #507 不入 body touchend＝不开成员菜单、不布吞 click 窗口
 if (Date.now() < gvTapGuard) return;
 gvTapGuard = Date.now() + 800;
 gvPlayAction();
@@ -40416,6 +40411,7 @@ return (idx0 >= 0 && msgs[idx0]) ? { idx: idx0, rec: msgs[idx0] } : { idx: -1, r
 function gcActionEligible(t) {
 const bk = t.closest('.msg-bubble');
 if (!bk) return null;
+if (t.closest('.msg-voice-play')) return null;
 if (t.closest('.msg-quote')) return null;                 // 引用块点击留给后续跳原消息
 const item = bk.closest('.msg');
 if (!item || item.classList.contains('msg-poke')) return null; // 拍一拍居中条不弹
@@ -41441,6 +41437,7 @@ d.className = 'cc-item glass';
 d.dataset.g = gname;
 d.dataset.idx = i;
 d.innerHTML = cardItemHtml(c);
+if (typeof c === 'string') d.dataset.ccSig = c; // FIX #508：局部重建的卡同样带指纹
 attachCardData(d, c);
 if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
 d.addEventListener('click', () => {
@@ -41613,6 +41610,16 @@ shown = shown
 .filter(([g, arr]) => arr.length || g.indexOf(q) >= 0);
 }
 updateCountsOnly();
+const _reuseImgs = new Map();
+try {
+list.querySelectorAll('.cc-item[data-cc-sig]').forEach(d => {
+const im = d.querySelector('img.cc-img');
+if (!im || !(im.getAttribute('src') || im.dataset.src)) return;
+const k = d.dataset.ccSig;
+if (!_reuseImgs.has(k)) _reuseImgs.set(k, []);
+_reuseImgs.get(k).push(im);
+});
+} catch (e) {}
 if (imgObserver) list.querySelectorAll('img[data-src]').forEach(im => { try { imgObserver.unobserve(im); } catch (e) {} });
 list.innerHTML = '';
 if (!shown.length) {
@@ -41643,6 +41650,15 @@ el.className = 'cc-item glass';
 el.dataset.g = it.gname;
 el.dataset.idx = it.i;
 el.innerHTML = cardItemHtml(it.c);
+if (typeof it.c === 'string') {
+el.dataset.ccSig = it.c; // FIX #508：内容指纹，供下次整格重渲时移植已解码 img
+const _oldArr = _reuseImgs.get(it.c);
+if (_oldArr && _oldArr.length) {
+const _oi = _oldArr.shift();
+const _ni = el.querySelector('img.cc-img');
+if (_oi && _ni && _ni.parentNode) _ni.parentNode.replaceChild(_oi, _ni);
+}
+}
 attachCardData(el, it.c);
 if (manageMode && selected.has(it.gname + '\u0001' + it.i)) el.classList.add('sel');
 el.addEventListener('click', () => {
@@ -54299,6 +54315,32 @@ if (!img) return;
 if (avImgObserver) { try { avImgObserver.observe(img); } catch (e) {} }
 else { img.setAttribute('src', img.dataset.src || ''); img.removeAttribute('data-src'); }
 }
+function updateGridNow() {
+if (!avGrid) return;
+const lib = getLib();
+const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
+const cells = avGrid.querySelectorAll('.avlib-cell');
+if (cells.length !== lib.length) { renderGrid(); return; }
+lib.forEach((src, idx) => {
+const d = cells[idx];
+const im = d && d.querySelector('img');
+if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderGrid(); return; }
+d.classList.toggle('avlib-now', src === current);
+});
+}
+function updateMeGridNow() {
+if (!avMeGrid) return;
+const lib = getMeLib();
+const current = store.get('cs-avatar-user') || store.get('avatar-user');
+const cells = avMeGrid.querySelectorAll('.avlib-cell');
+if (cells.length !== lib.length) { renderMeGrid(); return; }
+lib.forEach((src, idx) => {
+const d = cells[idx];
+const im = d && d.querySelector('img');
+if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderMeGrid(); return; }
+d.classList.toggle('avlib-now', src === current);
+});
+}
 function renderGrid() {
 if (!avGrid) return;
 const lib = getLib();
@@ -54529,7 +54571,7 @@ noteApplied('partner', fit);
 store.set('avatar-lib-last', String(Date.now()));
 store.set('avatar-lib-next', nextHours);
 store.set('avatar-lib-cur-hash', strHash(data));
-renderGrid();
+updateGridNow(); // FIX #508：库没变只换高亮，不整格重建（重渲=图片全部重新解码闪烁）
 if (inviteHit) {
 if (agreeHit) {
 replyInvite(true, fit); // 同意：头像保持新换的，消息带新头像图
@@ -54537,7 +54579,7 @@ replyInvite(true, fit); // 同意：头像保持新换的，消息带新头像�
 if (before) { store.set('cs-avatar-partner', before); store.set('avatar-lib-cur-hash', strHash(before)); }
 else { store.remove('cs-avatar-partner'); store.remove('avatar-lib-cur-hash'); }
 applyAvatarImg(before || null, false, true);
-renderGrid();
+updateGridNow(); // FIX #508 同上
 noteApplied('partner', before || '');
 replyInvite(false, fit);
 }
@@ -54556,7 +54598,7 @@ normalizeAvSize(data, function (fit) {
 store.set('cs-avatar-user', fit);
 applyAvatarImg(fit, true, true);
 store.set('avatar-me-lib-cur-hash', strHash(data));
-renderMeGrid();
+updateMeGridNow(); // FIX #508：库没变只换高亮，不整格重建
 noteApplied('user', fit);
 toast('头像已更换');
 const myName = cUserName();
@@ -54580,7 +54622,7 @@ normalizeAvSize(data, function (fit) {
 store.set('cs-avatar-user', fit);
 applyAvatarImg(fit, true, true);
 store.set('avatar-me-lib-cur-hash', strHash(data));
-renderMeGrid();
+updateMeGridNow(); // FIX #508 同上
 noteApplied('user', fit);
 replyMeInvite(true, fit);
 });
@@ -54638,7 +54680,7 @@ window.bgNotifyCheck(iname + ' 想给你换头像', Date.now(), { name: iname, i
 normalizeAvSize(data, function (fit) {
 store.set('cs-avatar-user', fit);
 applyAvatarImg(fit, true, true);
-renderMeGrid();
+updateMeGridNow(); // FIX #508 同上
 noteApplied('user', fit);
 const name = cPartnerName();
 const text = name + ' 更换了你的头像';
@@ -54671,7 +54713,7 @@ store.set('avatar-lib-next', String(1 + Math.random() * 7));
 normalizeAvSize(data, function (fit) {
 store.set('cs-avatar-partner', fit);
 applyAvatarImg(fit, false, true);
-renderGrid();
+updateGridNow(); // FIX #508：定时随机换同样只换高亮（半框开着时不再整格闪烁）
 noteApplied('partner', fit);
 chatSystem(cPartnerName() + ' 更换了头像', fit);
 try {
@@ -95147,4 +95189,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1xwhqm -->
+<!-- __MOCHI_EOF__ mu1zj9q7 -->

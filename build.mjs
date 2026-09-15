@@ -1589,6 +1589,18 @@ const FIX_SENTINELS = [
   { name: '#504b 稳定窗守卫：token/离页/解钉即停（删则用户上翻期稳定窗仍抢滚动权＝#162 不打扰契约被破坏）', file: 'js/chat.js', needle: 'chatEntrySettleToken || !chatVisible() || !chatPinnedBottom' },
   { name: '#504c 稳定窗变高当帧同步回钉（删则内容长高后到下一帧才修正＝回弹帧可见）', file: 'js/chat.js', needle: 'if (h !== lastH) { lastH = h; scrollChatBottom(); }' },
   { name: '#504d 图片 onload 同步回钉（删则长高后 rAF 下一帧才修正＝回弹帧可见）', file: 'js/chat.js', needle: 'scrollChatBottom(); requestAnimationFrame(scrollChatBottom);' },
+  // ==== 2026-09-15 #507 语音播放按钮 touch 直驱（多机型「点我发出去的语音听不了/点了只弹菜单」）：#480 气泡轻点直驱把播放按钮轻点当「点气泡」＝开菜单+布吞 click 窗口，吞 click 族内核 click 永远不来＝语音播不出；修复=点气泡判定排除 .msg-voice-play + 按钮 touchend 直驱播放并守卫吞补发 click ====
+  { name: '#507a 单聊点气泡判定排除播放按钮（删则轻点播放按钮重开菜单+布吞 click 窗口＝吞 click 族语音播不出复发）', file: 'js/chat.js', needle: "if (t.closest('.msg-voice-play')) return null;\nif (t.closest('.msg-quote')) return null;" },
+  { name: '#507b 单聊播放按钮 touch 直驱守卫（删则吞 click 族内核只剩必丢的 click 一条路＝语音播不出复发）', file: 'js/chat.js', needle: 'vTapGuard = Date.now() + 800;' },
+  { name: '#507c 群聊点气泡判定排除播放按钮（删则群聊轻点播放按钮重开成员菜单＝播不出复发）', file: 'js/group-chat.js', needle: "if (t.closest('.msg-voice-play')) return null;\nif (t.closest('.msg-quote')) return null;                 // 引用块点击留给后续跳原消息" },
+  { name: '#507d 群聊播放按钮 touch 直驱守卫（删则群聊吞 click 族内核语音播不出复发）', file: 'js/group-chat.js', needle: 'gvTapGuard = Date.now() + 800;' },
+  // ==== 2026-09-15 #508 图片「闪一下重新加载」（红米 K80 Chrome 等多机型，与 #504 聊天回弹同族）：头像互动点选换头像后 renderGrid()/renderMeGrid() 整格 innerHTML 重建＝img 全部新建+懒加载重新赋 src＝已解码图全部重新解码闪烁（无头节点身份实证 8/8 全被替换）；字卡库 render() 同族整格重渲丢全部已解码 img。修复=头像侧换头像只同步 .avlib-now 高亮不重建（内容没变唯一变化是高亮）；字卡库 render() 清空前按内容指纹收集旧卡 img、建卡时同指纹原位移植＝零重解码 ====
+  { name: '#508a 头像池高亮更新函数（删则换头像回退整格重建＝图片全部重新解码闪烁复发）', file: 'js/avatar-lib.js', needle: 'function updateGridNow() {' },
+  { name: '#508b 我的头像池高亮更新函数（删则换我的头像回退整格重建闪烁复发）', file: 'js/avatar-lib.js', needle: 'function updateMeGridNow() {' },
+  { name: '#508c 高亮更新保底回退重建：格数或内容不符才走 renderGrid（删则库真变化时高亮不同步）', file: 'js/avatar-lib.js', needle: 'avGrid.querySelectorAll(\'.avlib-cell\')' },
+  { name: '#508d 字卡库建卡写内容指纹（删则整格重渲无从识别未变化卡＝移植复用失效闪烁复发）', file: 'js/chatcard.js', needle: 'el.dataset.ccSig = it.c;' },
+  { name: '#508e 字卡库重渲前按指纹收集旧卡 img（删则已解码图全部丢弃重建＝闪烁复发）', file: 'js/chatcard.js', needle: '_reuseImgs.get(k).push(im);' },
+  { name: '#508f 同指纹原位移植已解码 img（删则重渲即重新解码＝闪烁复发）', file: 'js/chatcard.js', needle: '_ni.parentNode.replaceChild(_oi, _ni)' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

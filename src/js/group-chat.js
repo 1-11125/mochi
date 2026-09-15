@@ -723,26 +723,23 @@
         '<div class="msg-voice-wave"><i></i><i></i><i></i><i></i><i></i></div>' +
         '<span class="msg-voice-name">' + escTxt(vname) + '</span>' +
         '</div>';
-      // FIX 2026-09-15 #500 语音播放按钮 touch 直驱（对齐单聊 #500：群聊 #480 轻点直驱把播放按钮
-      // 的轻点也当「点气泡」＝弹成员菜单+吞 click 窗口，吞 click 族内核语音永远播不出、健康内核
-      // 菜单/播放双触发）。touchend 直驱播放 + gvTapGuard 守卫吞补发 click 防双跑；清 gcTapStart/
-      // endGcHold 让菜单链路不参与；≥450ms 长按不接管（长按弹菜单原语义保留）。
+      // FIX 2026-09-15 #507 语音播放按钮 touch 直驱（对齐单聊 #507）：#480 群聊轻点直驱曾把播放
+      // 按钮的轻点也当「点气泡」＝弹成员菜单+吞 click 窗口，吞 click 族内核语音永远播不出、健康
+      // 内核菜单/播放双触发。修复两刀：①gcActionEligible 把 .msg-voice-play 排除出「点气泡」判定；
+      // ②本按钮 touchend 直驱播放 + gvTapGuard 守卫吞补发 click 防双跑。
       const gvBtn = b.querySelector('.msg-voice-play');
       if (gvBtn) {
         let gvTapGuard = 0;
         const gvPlayAction = function () { gcPlayVoice(gvBtn, vsrc); };
         gvBtn.addEventListener('click', function (e) {
           e.stopPropagation();
-          if (Date.now() < gvTapGuard) return; // #500 touch 直驱已播，吞补发 click 防双跑
+          if (Date.now() < gvTapGuard) return; // #507 touch 直驱已播，吞补发 click 防双跑
           gvPlayAction();
         });
         gvBtn.addEventListener('touchend', function (e) {
           const mt = e.changedTouches && e.changedTouches[0];
           if (!mt) return;
-          if (gcTapStart && Date.now() - gcTapStart.t > 450) return; // #500 长按让位菜单路（原语义保留）
-          e.stopPropagation(); // #500 不入 body touchend＝不开成员菜单、不布吞 click 窗口
-          endGcHold();
-          gcTapStart = null;
+          e.stopPropagation(); // #507 不入 body touchend＝不开成员菜单、不布吞 click 窗口
           if (Date.now() < gvTapGuard) return;
           gvTapGuard = Date.now() + 800;
           gvPlayAction();
@@ -3147,6 +3144,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     function gcActionEligible(t) {
       const bk = t.closest('.msg-bubble');
       if (!bk) return null;
+      // FIX 2026-09-15 #507 语音播放按钮不算「点气泡」（对齐单聊 #507）：否则轻点/长按播放按钮
+      // 都会布气泡轻点/长按＝弹成员菜单+吞 click 窗口，播放按钮 click 被吞（吞 click 族内核语音
+      // 永远播不出、健康内核菜单/播放双触发）。播放走下方 gvBtn touch 直驱，菜单入口保留在
+      // 同气泡非按钮区。
+      if (t.closest('.msg-voice-play')) return null;
       if (t.closest('.msg-quote')) return null;                 // 引用块点击留给后续跳原消息
       const item = bk.closest('.msg');
       if (!item || item.classList.contains('msg-poke')) return null; // 拍一拍居中条不弹
