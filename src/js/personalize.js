@@ -1820,171 +1820,249 @@ try {
     if (!d) {
       d = document.createElement('div');
       d.id = 'beauty-drawer';
-      // 底部抽屉：贴底、圆角上沿、可折叠（点标题栏折叠成一条，露出更多桌面）
-      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:56vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:none;flex-direction:column;gap:12px';
       document.body.appendChild(d);
     }
-    d.innerHTML = '';
-    // 拖拽把手（视觉提示「这是可折叠的底部面板」）
-    const grip = document.createElement('div');
-    grip.style.cssText = 'width:38px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:8px auto 2px;flex:none';
-    d.appendChild(grip);
-    const hd = document.createElement('div'); hd.style.cssText = 'font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px';
-    const hdTxt = document.createElement('span'); hdTxt.textContent = '边看边调（改动实时生效）'; hd.appendChild(hdTxt);
-    const hdAct = document.createElement('div'); hdAct.style.cssText = 'display:flex;gap:4px;align-items:center;flex:none';
-    // 折叠/展开——手机上一屏装不下所有控件，折叠后桌面露出更多，便于整体看效果
-    const foldBtn = document.createElement('button'); foldBtn.textContent = '收起'; foldBtn.style.cssText = 'border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:8px;cursor:pointer;padding:4px 10px';
-    let folded = false;
-    foldBtn.addEventListener('click', () => {
-      folded = !folded;
-      body.style.display = folded ? 'none' : 'flex';
-      foldBtn.textContent = folded ? '展开' : '收起';
-      d.style.maxHeight = folded ? 'none' : '56vh';
-    });
-    const closeBtn = document.createElement('button'); closeBtn.textContent = '\u2715'; closeBtn.style.cssText = 'border:none;background:none;font-size:18px;color:var(--ink,#111);cursor:pointer;padding:4px 8px';
-    // 关闭 = 回美化页并刷新各行的当前值（用户可能在这改了色）
-    closeBtn.addEventListener('click', () => { d.style.display = 'none'; showThemePage(); });
-    hdAct.appendChild(foldBtn); hdAct.appendChild(closeBtn);
-    hd.appendChild(hdAct); d.appendChild(hd);
-    const body = document.createElement('div');
-    body.style.cssText = 'display:flex;flex-direction:column;gap:12px;flex:1;min-height:0';
-    d.appendChild(body);
-    const mkSection = (title) => {
-      const t = document.createElement('div');
-      t.textContent = title;
-      t.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--muted,#999);letter-spacing:.6px;display:flex;align-items:center;gap:7px;margin-top:2px';
-      const bar = document.createElement('span');
-      bar.style.cssText = 'width:3px;height:11px;border-radius:2px;background:var(--ink,#111);opacity:.8;display:inline-block';
-      t.insertBefore(bar, t.firstChild);
-      return t;
-    };
-    const mkColorRow = (label, key, varName, isGlobal) => {
-      const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-      const curGet = () => { try { return (isGlobal ? localStorage.getItem(key) : store.get(key)) || '#111111'; } catch (e) { return '#111111'; } };
-      const curSet = (v) => {
-        document.documentElement.style.setProperty(varName, v);
-        if (isGlobal) { try { localStorage.setItem(key, v); } catch (e) {} } else { store.set(key, v); }
+      // FIX 2026-09-15 #527b 边看边调：紧凑底部条（真机反馈「还是没用，把全部基本遮挡完了」）。
+      // 初版做成 56vh 抽屉 + 每行一个原生 <input type=color>：真机实测原生取色器被渲染成
+      // 一大块（每行约 100px），6 个颜色行 + 5 个滑杆 + 2 个背景滑杆总内容上千 px，
+      // 高度又被 56vh 卡住 → 只露几个控件却盖掉大半个桌面。现改为：
+      //   ① 高度上限 44vh，内容紧凑（颜色项 2 列网格，单行约 32px）；
+      //   ② 三个分区胶囊互斥，一次只渲染一组控件（原来三段全堆一起 = 内容超高的主因）；
+      //   ③ 颜色改为「点色块 → 就地展开调色盘」即时生效，不用原生取色器、不弹全屏弹窗；
+      //   ④ 「收起」把控件区整体折叠，只剩标题行，随时看整屏效果。
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:44vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+      d.innerHTML = '';
+      const grip = document.createElement('div');
+      grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
+      d.appendChild(grip);
+      const mkMini = (label, fn, cssExtra) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+        b.addEventListener('click', fn);
+        return b;
       };
-      const lb = document.createElement('div'); lb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; lb.textContent = label; r.appendChild(lb);
-      const rowH = document.createElement('div'); rowH.style.cssText = 'display:flex;align-items:center;gap:6px';
-      // v3.27.x：色块预览 + 当前色值文字——部分手机 input[type=color] 渲染成透明/文本框
-      // （「看不见颜色」），独立色块保证任何设备都能看到当前颜色
-      const sw = document.createElement('div'); sw.style.cssText = 'width:34px;height:34px;flex:none;border-radius:8px;border:1px solid var(--card-border,#ddd);background:' + curGet(); rowH.appendChild(sw);
-      const inp = document.createElement('input'); inp.type = 'color';
-      inp.value = curGet();
-      inp.style.cssText = 'flex:1;height:36px;border:1px solid var(--card-border,#ddd);border-radius:8px;cursor:pointer;min-width:0';
-      const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none'; vv.textContent = curGet().toUpperCase();
-      const syncUi = (c) => { sw.style.background = c; vv.textContent = String(c).toUpperCase(); try { inp.value = c; } catch (e) {} };
-      inp.addEventListener('input', () => { curSet(inp.value); sw.style.background = inp.value; vv.textContent = inp.value.toUpperCase(); });
-      rowH.appendChild(inp); rowH.appendChild(vv);
-      // v3.27.x：手输兜底——取色器打不开的手机（内置浏览器/WebView）从这填 #RRGGBB
-      const hexBtn = document.createElement('button'); hexBtn.textContent = '手输'; hexBtn.style.cssText = 'flex:none;padding:6px 10px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
-      hexBtn.addEventListener('click', () => {
-        openHexColorModal('输入' + label + '色值', curGet(), (c) => { curSet(c); syncUi(c); toast(label + '已设为 ' + c.toUpperCase()); });
+      const hd = document.createElement('div');
+      hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
+      const hdTxt = document.createElement('span');
+      hdTxt.textContent = '边看边调（即时生效）';
+      hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      const panelBody = document.createElement('div');
+      panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+      const body = document.createElement('div');
+      body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+      const foldBtn = mkMini('收起', () => {
+        const willFold = panelBody.style.display !== 'none';
+        panelBody.style.display = willFold ? 'none' : 'flex';
+        foldBtn.textContent = willFold ? '展开' : '收起';
       });
-      rowH.appendChild(hexBtn);
-      r.appendChild(rowH); return r;
-    };
-    const mkSliderRow = (label, key, varName, min, max, unit, defVal) => {
-      const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-      const lb = document.createElement('div'); lb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; lb.textContent = label; r.appendChild(lb);
-      const inp = document.createElement('input'); inp.type = 'range'; inp.min = min; inp.max = max;
-      const cur = store.get(key);
-      inp.value = (cur !== null && cur !== undefined && cur !== '') ? cur : String(defVal != null ? defVal : Math.round((min + max) / 2));
-      inp.style.cssText = 'width:100%';
-      const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; vv.textContent = inp.value + unit;
-      inp.addEventListener('input', () => { vv.textContent = inp.value + unit; document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); });
-      const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:6px'; row.appendChild(inp); row.appendChild(vv);
-      r.appendChild(row); return r;
-    };
-    // ---- 颜色 ----
-    body.appendChild(mkSection('颜色'));
-    body.appendChild(mkColorRow('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
-    body.appendChild(mkColorRow('组件背景色', 'widget-bg-color', '--widget-bg', false));
-    body.appendChild(mkColorRow('边框色', 'widget-border-color', '--widget-border', false));
-    body.appendChild(mkColorRow('按钮颜色', 'widget-btn-color', '--widget-btn', false));
-    body.appendChild(mkColorRow('按钮文字颜色', 'widget-btn-text-color', '--widget-btn-text', false));
-    body.appendChild(mkColorRow('爱心外框颜色', 'widget-heart-color', '--widget-heart', false));
-    // v3.27.x：装修模式可调「文字部位颜色」的入口（原来抽屉里没有，只能回装修模式点卡片）
-    const txBtn = document.createElement('button');
-    txBtn.textContent = '改桌面文字颜色（进入装修模式点卡片）';
-    txBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
-    txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
-    body.appendChild(txBtn);
-    // ---- 尺寸与圆角（手机端字号/卡片大小不生效的历史提示在此如实标注）----
-    body.appendChild(mkSection('尺寸与圆角'));
-    body.appendChild(mkSliderRow('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 'px'));
-    body.appendChild(mkSliderRow('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 'px'));
-    // FIX #527：手机端 zoom 被强制为 1（iOS 卡顿红线，见 home.css），这两项在手机上拖了没反应。
-    // 与其让用户反复拖（「看不懂」来源之一），不如只在真正生效的环境显示。
-    const zoomWorks = !(window.matchMedia && window.matchMedia('(max-width: 900px)').matches) && !document.documentElement.classList.contains('force-mobile');
-    if (zoomWorks) {
-      body.appendChild(mkSliderRow('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, '%'));
-      body.appendChild(mkSliderRow('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, '%'));
-    } else {
-      const nt = document.createElement('div');
-      nt.style.cssText = 'font-size:11px;color:var(--muted,#999);line-height:1.5';
-      nt.textContent = '桌面字号 / 卡片大小仅在电脑端（大屏）生效，手机端为性能保持默认——手机端想改大小请用上方「组件圆角」或整体字号设置。';
-      body.appendChild(nt);
-    }
-    // ---- 透明度 ----
-    const opRow = document.createElement('div'); opRow.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-    const opLb = document.createElement('div'); opLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; opLb.textContent = '组件透明度（全局默认，装修模式点卡片可单独调）'; opRow.appendChild(opLb);
-    const opInp = document.createElement('input'); opInp.type = 'range'; opInp.min = 40; opInp.max = 100; opInp.step = 5;
-    // FIX 2026-09-04 #151：统一 opacityRawToPct 解析 + 拖动存百分比整数——原实现初始化
-    // parseFloat(cur)*100（存量 "90" 被算成 9000）、拖动存小数（"0.85"，#146 同族脏值再入key）
-    const opCur = store.get('widget-opacity'); opInp.value = opCur ? String(opacityRawToPct(opCur)) : '100';
-    opInp.style.cssText = 'width:100%';
-    const opVv = document.createElement('span'); opVv.style.cssText = 'font-size:11px;color:var(--muted,#999)'; opVv.textContent = opInp.value + '%';
-    opInp.addEventListener('input', () => { opVv.textContent = opInp.value + '%'; const v = parseInt(opInp.value, 10) / 100; document.documentElement.style.setProperty('--widget-opacity', String(v)); store.set('widget-opacity', String(Math.round(v * 100))); });
-    const opLine = document.createElement('div'); opLine.style.cssText = 'display:flex;align-items:center;gap:6px'; opLine.appendChild(opInp); opLine.appendChild(opVv);
-    opRow.appendChild(opLine); body.appendChild(opRow);
-    // ---- 背景与壁纸（原来抽屉完全没有，而壁纸是「边看边调」最有价值的项）----
-    body.appendChild(mkSection('背景与壁纸'));
-    const blurRow = document.createElement('div'); blurRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
-    const blurLb = document.createElement('span'); blurLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; blurLb.textContent = '背景模糊';
-    const blurInp = document.createElement('input'); blurInp.type = 'range'; blurInp.min = 0; blurInp.max = 20; blurInp.step = 1;
-    blurInp.value = store.get('bg-blur') || '0';
-    blurInp.style.cssText = 'flex:1;min-width:0';
-    const blurVv = document.createElement('span'); blurVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; blurVv.textContent = blurInp.value + 'px';
-    blurInp.addEventListener('input', () => {
-      const v = parseInt(blurInp.value, 10);
-      blurVv.textContent = v + 'px';
-      document.documentElement.style.setProperty('--bg-blur', v + 'px');
-      if (v > 0) store.set('bg-blur', String(v)); else store.remove('bg-blur');
-    });
-    blurRow.appendChild(blurLb); blurRow.appendChild(blurInp); blurRow.appendChild(blurVv);
-    body.appendChild(blurRow);
-    const maskRow = document.createElement('div'); maskRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
-    const maskLb = document.createElement('span'); maskLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; maskLb.textContent = '背景遮罩';
-    const maskInp = document.createElement('input'); maskInp.type = 'range'; maskInp.min = 0; maskInp.max = 80; maskInp.step = 5;
-    maskInp.value = store.get('bg-mask-op') || '0';
-    maskInp.style.cssText = 'flex:1;min-width:0';
-    const maskVv = document.createElement('span'); maskVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; maskVv.textContent = maskInp.value + '%';
-    maskInp.addEventListener('input', () => {
-      const v = parseInt(maskInp.value, 10);
-      maskVv.textContent = v + '%';
-      document.documentElement.style.setProperty('--bg-mask-op', String(v / 100));
-      if (v > 0) store.set('bg-mask-op', String(v)); else store.remove('bg-mask-op');
-    });
-    maskRow.appendChild(maskLb); maskRow.appendChild(maskInp); maskRow.appendChild(maskVv);
-    body.appendChild(maskRow);
-    // 壁纸/内置预设等复杂入口：抽屉里放不下整套图库，提供一键直达并临时收起抽屉
-    const bgBtn = document.createElement('button');
-    bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
-    bgBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
-    bgBtn.addEventListener('click', () => {
-      d.style.display = 'none'; showThemePage();
-      const row = document.getElementById('row-bg-preset');
-      if (row) row.click();
-    });
-    body.appendChild(bgBtn);
-    const hint = document.createElement('div'); hint.style.cssText = 'font-size:11px;color:var(--muted,#999);margin-top:2px;line-height:1.5';
-    hint.textContent = '下方是设置项，上方桌面实时变化——不用来回切换页面。改完点右上角 ✕ 回到美化页。';
-    body.appendChild(hint);
-    d.style.display = 'flex';
-    d.style.maxHeight = '56vh';
-    foldBtn.textContent = '收起';
+      const closeBtn = mkMini('\u2715', () => { d.style.display = 'none'; showThemePage(); }, ';padding:4px 8px');
+      hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+      d.appendChild(hd);
+      const chipsRow = document.createElement('div');
+      chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
+      panelBody.appendChild(chipsRow);
+      panelBody.appendChild(body);
+      d.appendChild(panelBody);
+      // 单行滑杆：标签 74px + 滑杆 + 数值 40px（比原「标签另起一行的竖排」省一半高度）
+      const mkSlider = (label, key, varName, min, max, step, unit, defVal, rawSet) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px';
+        const lb = document.createElement('span');
+        lb.textContent = label;
+        lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        const inp = document.createElement('input');
+        inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1;
+        const cur = store.get(key);
+        inp.value = (cur !== null && cur !== undefined && cur !== '') ? cur : String(defVal != null ? defVal : Math.round((min + max) / 2));
+        inp.style.cssText = 'flex:1;min-width:0';
+        const vv = document.createElement('span');
+        vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
+        vv.textContent = inp.value + unit;
+        inp.addEventListener('input', () => {
+          vv.textContent = inp.value + unit;
+          if (rawSet) rawSet(inp.value);
+          else { document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); }
+        });
+        row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+        return row;
+      };
+      const PALETTE = ['#111111', '#ffffff', '#e05555', '#ff8800', '#ffd54f', '#4a9d5e', '#3a7bd5', '#8e5bd5', '#e055a0', '#8a8a8a'];
+      let colorItems = [];
+      let paletteHost = null;
+      // 颜色项：2 列网格里一个可点小块。点它在下方面板就地展开调色盘（即时生效），
+      // 不再用原生取色器（真机上它会被渲染成一大块，正是抽屉超高的直接原因）。
+      const mkColorItem = (label, key, varName, isGlobal) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--card-border,#ddd);border-radius:9px;cursor:pointer;min-width:0';
+        const sw = document.createElement('span');
+        sw.style.cssText = 'width:18px;height:18px;border-radius:5px;border:1px solid var(--card-border,#ddd);flex:none;background:#fff';
+        const tx = document.createElement('span');
+        tx.textContent = label;
+        tx.style.cssText = 'font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        el.appendChild(sw); el.appendChild(tx);
+        const curGet = () => { try { return (isGlobal ? localStorage.getItem(key) : store.get(key)) || ''; } catch (e) { return ''; } };
+        // 未显式设置时回落到该 CSS 变量的实际计算值——否则「主题色」默认是黑却被画成白块，
+        // 用户会误判当前颜色（同 #527 可读性口径：色块必须反映真实观感）
+        const paint = () => {
+          let c = curGet();
+          if (!c) { try { c = String(getComputedStyle(document.documentElement).getPropertyValue(varName) || '').trim(); } catch (e) {} }
+          sw.style.background = c || '#ffffff';
+        };
+        const curSet = (v) => {
+          if (v === null) {
+            try { if (isGlobal) localStorage.removeItem(key); else store.remove(key); } catch (e) {}
+            document.documentElement.style.removeProperty(varName);
+          } else {
+            document.documentElement.style.setProperty(varName, v);
+            if (isGlobal) { try { localStorage.setItem(key, v); } catch (e) {} } else store.set(key, v);
+          }
+          paint();
+        };
+        const item = { el, label, curGet, curSet, paint };
+        el.addEventListener('click', () => {
+          colorItems.forEach(it => { it.el.style.borderColor = 'var(--card-border,#ddd)'; });
+          el.style.borderColor = 'var(--ink,#111)';
+          renderPalette(item);
+        });
+        paint();
+        colorItems.push(item);
+        return el;
+      };
+      const renderPalette = (item) => {
+        if (!paletteHost) return;
+        paletteHost.innerHTML = '';
+        const strip = document.createElement('div');
+        strip.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+        const cur = item.curGet();
+        PALETTE.forEach(c => {
+          const dot = document.createElement('span');
+          dot.style.cssText = 'width:23px;height:23px;border-radius:7px;border:1px solid var(--card-border,#ddd);cursor:pointer;flex:none;background:' + c;
+          if (cur && String(cur).toLowerCase() === c.toLowerCase()) dot.style.borderColor = 'var(--ink,#111)';
+          dot.addEventListener('click', () => item.curSet(c));
+          strip.appendChild(dot);
+        });
+        const def = document.createElement('button');
+        def.textContent = '默认';
+        def.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+        def.addEventListener('click', () => item.curSet(null));
+        strip.appendChild(def);
+        paletteHost.appendChild(strip);
+        const tip = document.createElement('div');
+        tip.style.cssText = 'font-size:10.5px;color:var(--muted,#999);margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+        const tipTx = document.createElement('span');
+        tipTx.textContent = '正在调「' + item.label + '」，点色块即时生效';
+        const hexBtn = document.createElement('button');
+        hexBtn.textContent = '手输色值';
+        hexBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+        hexBtn.addEventListener('click', () => {
+          openHexColorModal('输入' + item.label + '色值', item.curGet() || '#111111', (c) => { item.curSet(c); toast(item.label + '已设为 ' + String(c).toUpperCase()); });
+        });
+        tip.appendChild(tipTx); tip.appendChild(hexBtn);
+        paletteHost.appendChild(tip);
+      };
+      const zoomWorks = !(window.matchMedia && window.matchMedia('(max-width: 900px)').matches) && !document.documentElement.classList.contains('force-mobile');
+      const SECS = [
+        { key: 'color', label: '颜色', build: () => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+          const grid = document.createElement('div');
+          grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+          grid.appendChild(mkColorItem('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
+          grid.appendChild(mkColorItem('组件背景', 'widget-bg-color', '--widget-bg', false));
+          grid.appendChild(mkColorItem('边框', 'widget-border-color', '--widget-border', false));
+          grid.appendChild(mkColorItem('按钮', 'widget-btn-color', '--widget-btn', false));
+          grid.appendChild(mkColorItem('按钮文字', 'widget-btn-text-color', '--widget-btn-text', false));
+          grid.appendChild(mkColorItem('爱心外框', 'widget-heart-color', '--widget-heart', false));
+          paletteHost = document.createElement('div');
+          wrap.appendChild(grid);
+          wrap.appendChild(paletteHost);
+          // 桌面「文字部位颜色」入口（装修模式点卡片/文字选部位）——原抽屉有此项，
+          // #527b 重写紧凑版时保留，不静默丢功能
+          const txBtn = document.createElement('button');
+          txBtn.textContent = '改桌面文字颜色（进装修模式点文字）';
+          txBtn.style.cssText = 'padding:7px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+          txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
+          wrap.appendChild(txBtn);
+          wrap.appendChild(mkSlider('透明度', 'widget-opacity', '--widget-opacity', 40, 100, 5, '%', 100, (v) => {
+            const n = parseInt(v, 10) / 100;
+            document.documentElement.style.setProperty('--widget-opacity', String(n));
+            store.set('widget-opacity', String(Math.round(n * 100)));
+          }));
+          return wrap;
+        } },
+        { key: 'size', label: '尺寸', build: () => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+          wrap.appendChild(mkSlider('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 1, 'px', 16));
+          wrap.appendChild(mkSlider('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 1, 'px', 18));
+          if (zoomWorks) {
+            wrap.appendChild(mkSlider('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, 1, '%', 100, (v) => {
+              document.documentElement.style.setProperty('--desk-font-scale', String(parseInt(v, 10) / 100));
+              store.set('desk-font-size', v);
+            }));
+            wrap.appendChild(mkSlider('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, 1, '%', 100, (v) => {
+              document.documentElement.style.setProperty('--desk-card-scale', String(parseInt(v, 10) / 100));
+              store.set('desk-card-scale', v);
+            }));
+          } else {
+            const nt = document.createElement('div');
+            nt.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+            nt.textContent = '桌面字号 / 卡片大小仅电脑端（大屏）生效，手机端为性能保持默认。';
+            wrap.appendChild(nt);
+          }
+          return wrap;
+        } },
+        { key: 'bg', label: '背景', build: () => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+          wrap.appendChild(mkSlider('背景模糊', 'bg-blur', '--bg-blur', 0, 20, 1, 'px', 0, (v) => {
+            const n = parseInt(v, 10);
+            document.documentElement.style.setProperty('--bg-blur', n + 'px');
+            if (n > 0) store.set('bg-blur', String(n)); else store.remove('bg-blur');
+          }));
+          wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--bg-mask-op', 0, 80, 5, '%', 0, (v) => {
+            const n = parseInt(v, 10);
+            document.documentElement.style.setProperty('--bg-mask-op', String(n / 100));
+            if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op');
+          }));
+          const bgBtn = document.createElement('button');
+          bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
+          bgBtn.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+          bgBtn.addEventListener('click', () => {
+            d.style.display = 'none'; showThemePage();
+            const row = document.getElementById('row-bg-preset');
+            if (row) row.click();
+          });
+          wrap.appendChild(bgBtn);
+          return wrap;
+        } }
+      ];
+      let activeSec = 'color';
+      const renderSec = (key) => {
+        activeSec = key;
+        Array.prototype.forEach.call(chipsRow.children, c => {
+          const on = c.dataset.sec === key;
+          c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+          c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+          c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+        });
+        body.innerHTML = '';
+        paletteHost = null;
+        colorItems = [];
+        const sec = SECS.filter(s => s.key === key)[0];
+        if (sec) body.appendChild(sec.build());
+      };
+      SECS.forEach(s => {
+        const c = document.createElement('button');
+        c.textContent = s.label;
+        c.dataset.sec = s.key;
+        c.style.cssText = 'flex:1;font-size:11.5px;padding:5px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+        c.addEventListener('click', () => renderSec(s.key));
+        chipsRow.appendChild(c);
+      });
+      renderSec(activeSec);
+      d.style.display = 'flex';
   };
   // 回到「手机桌面美化」页（抽屉关闭/跳转用）。
   // 导航口径对齐 tabs.js 的 #row-appearance 处理：隐藏所有页 → 只显示 #page-theme，

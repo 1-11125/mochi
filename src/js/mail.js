@@ -733,6 +733,8 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       }
       if (isEmoji) { emoji.push(s); return; }
       if (/[\(（｡◕(◕)(づ｡(¬)]/.test(s) && /[\)）】)]/.test(s)) { kaomoji.push(s); return; }
+      // FIX 2026-09-15 #531：无括号颜文字（▽・ω・▽、๑•́ ₃ •̀๑ 等）也归颜文字，别占文字池
+      if (!/[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/.test(s) && /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(s)) { kaomoji.push(s); return; }
       text.push(s);
     });
     pushDefault();
@@ -788,7 +790,10 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
   // TA 写信内容：多个字卡（空格分隔）+ 概率加颜文字/emoji/表情包
   function taLetterContent(cfg, cid) {
     const pool = mailCardPool(cid);
-    const hasCustom = pool.text.length > 0;
+    // FIX 2026-09-15 #531：自定义「文字」池若全是颜文字/符号（没有可读句子卡），视为没有自定义
+    // 正文——退回系统预设默认字卡正文（defText）。否则信件正文只剩用户加的那几张符号，用户报
+    //「信都是颜文字」。含中文/字母的自定义字卡行为不变。
+    const hasCustom = pool.text.some(s => typeof s === 'string' && /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/.test(s));
     // 有自定义字卡 → 正文主体用自定义；无自定义 → 整体回退默认字卡池（再空才用固定文案）
     const words = hasCustom ? pool.text : (pool.defText.length ? pool.defText : TA_LETTERS);
     // v3.6.x：条数在「最少/最多字卡条数」之间随机；上限不超过池子大小——

@@ -877,7 +877,7 @@
       <div class="gs-row"><span>回应接聊天字卡/词典（文字+单选）</span><label class="toggle"><input type="checkbox" id="ta-ask-chatcard"><span class="tk"></span></label></div>
       <div class="gs-row"><span>触发概率</span><input type="range" id="ta-ask-prob" min="1" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-prob-val">5%</span></div>
       <div class="gs-row"><span>自动弹窗概率</span><input type="range" id="ta-ask-popup" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-popup-val">70%</span></div>
-      <div class="gs-row"><span>问卷答题结束时间</span><button type="button" id="ta-ask-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row" style="cursor:pointer"><span>问卷答题结束时间</span><button type="button" id="ta-ask-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
     </div>
     <div class="card-tabs" id="ta-ask-tabs" style="padding:6px 12px 8px">
       <button class="cc-tab sel" data-tab="sys">系统预设</button>
@@ -923,7 +923,7 @@
       <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷<br>· 关闭「TA 的作答发送到聊天消息」后，TA 只把答案写进聊天里的问卷卡片，不再逐条刷消息（单题默认会发，题多怕刷屏可关）</div>
     </div>
     <div class="set-group glass">
-      <div class="gs-row"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row" style="cursor:pointer"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
       <div class="gs-row"><span>每30秒提前交卷概率</span><input type="range" id="ta-survey-prob" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-survey-prob-val">10%</span></div>
       <div class="gs-row"><span>TA 的作答发送到聊天消息</span><label class="toggle"><input type="checkbox" id="ta-survey-chat" checked><span class="tk"></span></label></div>
     </div>

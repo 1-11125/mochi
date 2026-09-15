@@ -372,7 +372,7 @@ const FIX_SENTINELS = [
   { name: '#151 无布局桌面还原模板排布（applyDeskLayout 无布局不再直接 return，归还被上个桌面扫进隐藏池的组件、修「切联系人回来小组件隐藏/桌面串显示」）', file: 'js/personalize.js', needle: 'if (!lay) { restoreTemplateDesk(); return; }' },
   { name: '#151 切桌面期间 buildDeskPages 删页收缩不落盘（防把上一桌面排布写成新桌面 desk-layout=跨桌面污染持久化）', file: 'js/personalize.js', needle: 'if (deskLayout() && !deskSwitchBuild) saveDeskLayout();' },
   { name: '#151 切桌面美化键缺键复位（widget-opacity 无键回 100，修上一桌面透明度残留=小组件隐身但可点/不同桌面显示不一样）', file: 'js/personalize.js', needle: 'if (!isNaN(opPct)) applyWidgetOpacity(opPct); } else applyWidgetOpacity(100); }' },
-  { name: '#151 美化抽屉透明度滑杆统一解析+存百分比整数（不再写 #146 同族小数脏值/不再把存量 90 算成 9000）', file: 'js/personalize.js', needle: "store.set('widget-opacity', String(Math.round(v * 100))); }" },
+  { name: '#151 美化抽屉透明度滑杆统一解析+存百分比整数（不再写 #146 同族小数脏值/不再把存量 90 算成 9000；#527b 重写紧凑抽屉后按新写法换锚，判定逻辑不变）', file: 'js/personalize.js', needle: "store.set('widget-opacity', String(Math.round(n * 100)))" },
   { name: '单聊联系人消息音效（addIn 播 sfx-in，read/silent 除外）', file: 'js/chat.js', needle: "opts.special !== 'read'" },
   { name: '音效等待 AudioContext resume 后再 start（Via/WebView）', file: 'js/sfx.js', needle: 'p.then(start)' },
   { name: '群聊引用防 base64 霸屏（gcQuoteTextSafe）', file: 'js/group-chat.js', needle: 'gcQuoteTextSafe' },
@@ -665,7 +665,7 @@ const FIX_SENTINELS = [
   { name: '#154 朋友圈评论「我的表情包」优先读chat内存副本（chat.js异常时旧store读兜底）', file: 'js/feed.js', needle: 'if (window.getMyEmojiGroups) {' },
   { name: '#156 群聊模式占卜图标强制收隐藏池（任意位置都隐藏，修「群聊开启后桌面占卜图标不消失」——原只在首页图标组原位时才收；#393 起带 !divPin 豁免， needle 同步收窄）', file: 'js/personalize.js', needle: 'if (divBtn && divBtn.parentNode !== pool && !divPin) {' },
   { name: '#156 applyDeskLayout 末尾重应用群聊模式（防 bare 布局应用把占卜从隐藏池按 desk-layout 复活回桌面）', file: 'js/personalize.js', needle: 'try { applyGroupChatMode(); } catch (e) {}' },
-  { name: '#157 聊天getPool默认主字卡只在自定义text池空时兜底并入（修dc-overall概率形同虚设,5%设置下联系人基本用默认字卡）', file: 'js/chat.js', needle: "if (catOn('main') && !text.length) {\nconst defGrps" },
+  { name: '#157+#531 聊天getPool默认主字卡兜底门＝「自定义 text 池没有可读句子卡」（#157 修 dc-overall 概率形同虚设；#531 放宽自 !text.length，用户只加颜文字/符号卡时旧门不触发＝池里没有句子卡，联系人只反复发那几张符号）', file: 'js/chat.js', needle: "if (catOn('main') && !chatHasReadableTextCard(text)) {" },
   { name: '#157 群聊gcPool主字卡兜底语义对齐聊天页（同#157概率失效修复）', file: 'js/group-chat.js', needle: "if (catOn('main') && text.length === 0) {" },
   { name: '#157 经期温柔前缀/动作随默认字卡总开关停用（修总开关关闭后聊天仍偶发前缀/动作字卡）', file: 'js/period.js', needle: 'if (_dcfg.enabled === false) return text;' },
   { name: '#159 跨桌面来电去掉前台门控（后台命中走 deliver hidden 分支发「XX来电」系统通知，修后台永不弹窗）', file: 'js/incoming-requests.js', needle: 'if (deskCallEn()) {' },
@@ -1739,8 +1739,13 @@ const FIX_SENTINELS = [
   { name: '#527k 聊天美化用途标记 + 命中计数（同桌面侧：无标记时跨用途 JSON 导入假报成功）', file: 'js/chat-settings.js', needle: "const CHAT_BEAUTY_KIND = 'mochi-chat-beauty';" },
   // 颜色行显示当前值（用户报「看不懂美化设置」的最大来源：非默认值时行右侧被写空字符串）
   { name: '#527l 美化页颜色行统一显示当前值+色块（原实现非默认值写空字符串＝选完颜色行里一片空白，看不出是否生效也看不出当前色；删掉 paintBeautyVal 即回归）', file: 'js/personalize.js', needle: 'function paintBeautyVal(el, color, defaultColor, defaultLabel) {' },
-  { name: '#527m 边看边调改底部抽屉（原为右侧 70vw 固定浮层＝手机屏宽 390px 时挡住 70% 宽度而桌面居中，用户几乎看不到效果＝「不能边看边调」根因）', file: 'js/personalize.js', needle: "d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:56vh;" },
+  { name: '#527m 边看边调改紧凑底部条（原为右侧 70vw 浮层＝手机 390px 宽挡住 70% 而桌面居中，用户几乎看不到效果；后 56vh 抽屉＋每行原生取色器仍有遮挡，真机反馈「还是没用，把全部基本遮挡完了」→ 44vh＋分区胶囊＋就地调色盘）', file: 'js/personalize.js', needle: "d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:44vh;" },
   { name: '#527n 边看边调底部抽屉登记进 FLOAT_SELECTORS（未登记＝抽屉打开后底层桌面仍可被滑动，未锁背景滚动）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer'];" },
+  // ==== 2026-09-15 #531 自定义字卡池分类修正（颜文字/符号卡占满文字池 → 联系人只发颜文字）====
+  { name: '#531a 文字池可读性判定（含中文/假名/字母/数字才算可读句子；改坏/删掉＝符号池重新被当成有正文）', file: 'js/chat.js', needle: 'function chatHasReadableTextCard(arr) {' },
+  { name: '#531b 自定义卡分类接线走新判定（emoji 补 BMP 符号区、颜文字补无括号形态；改回旧内联正则＝符号卡重新落进文字池）', file: 'js/chat.js', needle: 'if (chatIsEmojiCard(c)) emoji.push(c);' },
+  { name: '#531c 主动消息按可用分类归一化权重（原固定累计阈值 15/25/40/55 在贴纸/图片池为空时把颜文字顶到 40%、emoji 15%＝用户「联系人连发颜文字」；改回固定阈值即回归）', file: 'js/chat.js', needle: '[pool.kaomoji.length ? 15 : 0, () => ({ text: pick(pool.kaomoji), type: \'text\' })]' },
+  { name: '#531d 信件正文可读性判定（自定义文字池全是颜文字/符号时退回系统预设正文；改回 pool.text.length > 0＝信件又被符号占满）', file: 'js/mail.js', needle: "const hasCustom = pool.text.some(s => typeof s === 'string' && /[A-Za-z0-9\\u4e00-\\u9fff\\u3041-\\u3096\\u30a1-\\u30fa]/.test(s));" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

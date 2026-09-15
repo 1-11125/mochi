@@ -1089,8 +1089,11 @@
     toast('弹窗概率已设为 ' + askPopup.value + '%');
   });
   // v3.26.x #291：问卷答题结束时间——设置/清除（v3.33.x #523 改自绘选择器）
+  // v3.33.x #523：整行可点（用户可能点「问卷答题结束时间」文字而不是右侧小按钮）
   const askDeadlineEl = document.getElementById('ta-ask-deadline');
-  if (askDeadlineEl) askDeadlineEl.addEventListener('click', () => {
+  const askDeadlineRow = askDeadlineEl ? askDeadlineEl.closest('.gs-row') : null;
+  if (askDeadlineRow) askDeadlineRow.addEventListener('click', (e) => {
+    if (e.target.closest('#ta-ask-deadline-clear')) return;
     openDeadlinePicker('问卷答题结束时间', askDeadlineMs(taAskLoad()), (ts) => {
       const d = taAskLoad();
       d.settings.deadline = ts > 0 ? ts : 0;
@@ -4075,7 +4078,10 @@ window.openTCPanel = openTCPanel;
       bindTaInpClears(stxt.parentElement);
     }
     const sdl = document.getElementById('ta-survey-deadline');
-    if (sdl) sdl.addEventListener('click', () => {
+    // v3.33.x #523：整行可点（用户可能点「交卷时间（到点TA自动交卷）」文字而不是右侧小按钮）
+    const sdlRow = sdl ? sdl.closest('.gs-row') : null;
+    if (sdlRow) sdlRow.addEventListener('click', (e) => {
+      if (e.target.closest('#ta-survey-deadline-clear')) return;
       openDeadlinePicker('交卷时间', surveyLoad().settings.deadline, (ts) => {
         const d = surveyLoad();
         d.settings.deadline = ts > 0 ? ts : 0;

@@ -1558,6 +1558,38 @@ out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
 }
 return out;
 }
+// FIX 2026-09-15 #531：自定义字卡池分类修正——①emoji 判定补 BMP 符号区（☺️⭐☀️✨☕ 等，
+// 原判定只看代理对与 astral 段，纯 BMP 符号卡落进 text）；②颜文字判定补无括号形态
+//（▽・ω・▽、๑•́ ₃ •̀๑ 等）。让「文字」池只装可读句子，避免符号/颜文字卡占满文字池。
+// 判定顺序：含 astral emoji 一律 emoji（保持原行为）→ 含中文/假名/字母/数字＝可读卡按原样
+// 归 text/颜文字 → 无可读字符才按符号区/颜文字特征归 emoji/kaomoji。
+const CHAT_READABLE_RE = /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/;
+function chatLooksKaomoji(c) {
+if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+}
+function chatIsEmojiCard(c) {
+if (/[\uD800-\uDBFF]/.test(c)) return true;
+if (CHAT_READABLE_RE.test(c)) return false;
+if (chatLooksKaomoji(c)) return false; // 非可读但含颜文字特征（含 ✿♥✧ 等符号的颜文字）→ 交颜文字分支
+for (const ch of c) {
+const cp = ch.codePointAt(0);
+if ((cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF) || (cp >= 0x2B00 && cp <= 0x2BFF)) return true;
+}
+return false;
+}
+function chatIsKaomojiCard(c) {
+if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+if (CHAT_READABLE_RE.test(c)) return false;
+return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+}
+// 「文字」池是否至少有一张可读句子卡（中文/假名/字母/数字）。FIX 2026-09-15 #531：全是颜文字/符号
+// /emoji 时视为「没有可用的自定义文本回复源」——#157 的默认主字卡兜底据此触发，否则用户只加了
+// 颜文字/符号卡时池里没有任何句子，联系人只能反复发那几张符号（用户报「消息和信都是连续发颜表情，
+// 无法使用其他字卡」；系统预设 2 级锁已解锁）。含中文/字母的用户（#157 场景）行为不变。
+function chatHasReadableTextCard(arr) {
+return arr.some(s => typeof s === 'string' && CHAT_READABLE_RE.test(s));
+}
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -1579,8 +1611,8 @@ if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
 // 回复池里是裸 @@m:hash（无 |||、非 data:），旧两道守卫全漏过＝令牌卡被当文字卡入池，
 // 抽中即把令牌串当文字直出（「联系人消息乱码 @@m:…」，公用库共享故多机型全现）
 if (typeof c === 'string' && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
-if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
+if (chatIsEmojiCard(c)) emoji.push(c);
+else if (chatIsKaomojiCard(c)) kaomoji.push(c);
 else text.push(c);
 });
 try {
@@ -1596,7 +1628,10 @@ if (dcfg.enabled !== false && useChat && !sysLocked) {
 // 里 drawCards 那条混入路径，对池子本身无效：650 张自定义对 4600+ 默认均匀随机抽取，
 // 体感「概率调到 5% 联系人还是基本用默认字卡」（小米15Pro+Chrome 等多机型反馈）。
 // 对齐颜文字/emoji 分支的兜底语义：有自定义就用自定义，默认字卡按 dc-overall 概率混入。
-if (catOn('main') && !text.length) {
+// FIX 2026-09-15 #531：兜底门由「自定义 text 池为空」放宽为「text 池没有可读句子卡」——
+// 用户只加了颜文字/符号卡时 text 池非空却无句子，旧门不触发＝池里没有任何中文/句子卡，
+// 联系人只能反复发那几张符号（#531 报障）。含中文/字母的自定义字卡（#157 场景）语义不变。
+if (catOn('main') && !chatHasReadableTextCard(text)) {
 const defGrps = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
 defGrps.forEach(g => {
 const arr = g[1] || [];
@@ -1735,6 +1770,10 @@ window.__replyPoolDiag = function () {
     const P = getPool();
     const cfg = (window.defaultCardCfg && window.defaultCardCfg()) || {};
     const customRaw = (window.getCustomCards && window.getCustomCards()) || [];
+    // FIX 2026-09-15 #531：补「总档/自定义占比/媒体概率/池样本」现场——「联系人只发颜文字、
+    // 用不了其他字卡」类报障一眼看出是概率设置还是自定义池内容（全是符号卡）导致，免复现。
+    const rc = (window.replyCfg && window.replyCfg()) || {};
+    const sample = (a) => a.slice(0, 3).map(s => String(s).replace(/\s+/g, ' ').slice(0, 6)).join('|') || '空';
     return [
       '池text=' + P.text.length,
       'kaomoji=' + P.kaomoji.length,
@@ -1750,7 +1789,14 @@ window.__replyPoolDiag = function () {
       // v3.26.x #163：补概率滑杆现场——「默认概率调到八九十还是总发自定义字卡」类报障
       // 直接核对 dc-overall-chat（场景概率，未设回退整体）与主字卡分类占比是否真调到位
       '默认概率chat=' + (cfg.overallFor ? cfg.overallFor('chat') : cfg.overall),
-      '主卡占比=' + (cfg.probs ? cfg.probs.main : '?')
+      '主卡占比=' + (cfg.probs ? cfg.probs.main : '?'),
+      '总档=' + (window.dcpAll ? window.dcpAll() : '?'),
+      '自定义占比=' + (rc['csp-cust'] !== undefined ? rc['csp-cust'] : '?'),
+      '媒体概率=' + ['sticker', 'emoji', 'image', 'voice', 'kaomoji'].map(k => k + ':' + (rc[k + '-prob'] !== undefined ? rc[k + '-prob'] : '?')).join(','),
+      '多字卡py=' + (rc['py-en'] === 1 ? (rc['py-prob'] + '%') : '关'),
+      'text样本=' + sample(P.text),
+      'kaomoji样本=' + sample(P.kaomoji),
+      'emoji样本=' + sample(P.emoji)
     ].join(' / ');
   } catch (e) { return '诊断出错:' + e.message; }
 };
@@ -4990,11 +5036,22 @@ try {
 const defs = (window.getDefaultCards && window.getDefaultCards()) || null;
 if (defs && defs.type !== 'poke' && defs.text) return { text: defs.text, type: 'text' };
 } catch (e) {}
-const r = Math.random() * 100;
-if (pool.sticker.length && r < 15) return { text: pick(pool.sticker), type: 'sticker' };
-if (pool.image.length && r < 25) return { text: pick(pool.image), type: 'image' };
-if (pool.kaomoji.length && r < 40) return { text: pick(pool.kaomoji), type: 'text' };
-if (pool.emoji.length && r < 55) return { text: pick(pool.emoji), type: 'text' };
+// FIX 2026-09-15 #531：空池不再顶替他人概率段。原实现是固定累计阈值（15/25/40/55）——
+// 贴纸/图片池为空时 `pool.sticker.length &&` 短路，颜文字的判定区间前移到 0~40（40%）、
+// emoji 到 40~55，用户体感「联系人连发颜文字」。改为「只有可用分类参与」的设计权重
+//（贴纸15/图片10/颜文字15/emoji15/文字45）归一化抽取：空池权重自动归回文字，比例不失真。
+const _bands = [
+[pool.sticker.length ? 15 : 0, () => ({ text: pick(pool.sticker), type: 'sticker' })],
+[pool.image.length ? 10 : 0, () => ({ text: pick(pool.image), type: 'image' })],
+[pool.kaomoji.length ? 15 : 0, () => ({ text: pick(pool.kaomoji), type: 'text' })],
+[pool.emoji.length ? 15 : 0, () => ({ text: pick(pool.emoji), type: 'text' })],
+[45, () => ({ text: pick(pool.text) || '在吗？', type: 'text' })]
+];
+let _bRoll = Math.random() * _bands.reduce((a, b) => a + b[0], 0);
+for (let i = 0; i < _bands.length; i++) {
+_bRoll -= _bands[i][0];
+if (_bRoll < 0) return _bands[i][1]();
+}
 return { text: pick(pool.text) || '在吗？', type: 'text' };
 };
 const acMin = Math.max(1, Number(cfgn(c, 'as-count-min', 1)) || 1);

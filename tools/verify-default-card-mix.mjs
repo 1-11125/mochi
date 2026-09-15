@@ -22,7 +22,7 @@ const swPath = join(root, 'src/pwa/sw.js');
 const sw = existsSync(swPath) ? readFileSync(swPath, 'utf8') : '';
 
 // 1) 主字卡兜底语义（有自定义不并入，概率混入交给 drawCards/getDefaultCardsFor）
-t('chat.js getPool 主字卡只在自定义 text 池为空时并入', chat.includes("if (catOn('main') && !text.length) {"));
+t('chat.js getPool 主字卡只在自定义 text 池无可读句子卡时并入（#157 门，经 #531 放宽）', chat.includes("if (catOn('main') && !chatHasReadableTextCard(text)) {"));
 t('group-chat.js gcPool 主字卡只在自定义 text 池为空时并入', gc.includes("if (catOn('main') && text.length === 0) {"));
 t('chat.js 概率混入路径 drawCards 仍在', chat.includes('window.getDefaultCards && window.getDefaultCards()'));
 t('group-chat.js 概率混入路径 getDefaultCardsFor 仍在', gc.includes('window.getDefaultCardsFor'));

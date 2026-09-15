@@ -193,7 +193,8 @@ ok(JSON.parse(s4 || '{}').open === true, 'S4 点击卡片打开批量问卷详�
 
 // —— S4b 自绘时间选择器（#523）：在手机框内弹出、不飞出屏幕，可设置并回显 ——
 // 背景：两处时间入口原用原生 <input type="datetime-local">，用户报「浏览器自带的选择器会飞出屏幕」。
-await evalJs("(function(){var b=document.getElementById('ta-survey-deadline');if(b)b.click();return true;})()");
+// 点整行文字（不是右侧按钮）也要能打开——用户可能点标签文字
+await evalJs("(function(){var b=document.getElementById('ta-survey-deadline');var row=b&&b.closest('.gs-row');var sp=row&&row.querySelector('span');if(sp){sp.click();}else if(b){b.click();}return true;})()");
 await sleep(300);
 const s4b = JSON.parse(await evalJs(`(function(){
   var m=document.getElementById('dl-picker-mask');

@@ -9631,9 +9631,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789474238301">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.710</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 20:10<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789475796541">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.711</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 20:36<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10213,7 +10213,7 @@ transition-duration: .01ms !important;
       <div class="gs-row"><span>回应接聊天字卡/词典（文字+单选）</span><label class="toggle"><input type="checkbox" id="ta-ask-chatcard"><span class="tk"></span></label></div>
       <div class="gs-row"><span>触发概率</span><input type="range" id="ta-ask-prob" min="1" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-prob-val">5%</span></div>
       <div class="gs-row"><span>自动弹窗概率</span><input type="range" id="ta-ask-popup" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-ask-popup-val">70%</span></div>
-      <div class="gs-row"><span>问卷答题结束时间</span><button type="button" id="ta-ask-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row" style="cursor:pointer"><span>问卷答题结束时间</span><button type="button" id="ta-ask-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-ask-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
     </div>
     <div class="card-tabs" id="ta-ask-tabs" style="padding:6px 12px 8px">
       <button class="cc-tab sel" data-tab="sys">系统预设</button>
@@ -10259,7 +10259,7 @@ transition-duration: .01ms !important;
       <div style="font-size:12px;color:var(--muted,#999);padding-top:8px;line-height:1.8">· 单选题：【问题】后每行一个选项（至少 2 个）<br>· 文字题：【问题】后一行只写「一」，TA 会用字卡作答（和正常聊天一样用自定义字卡 + 系统预设字卡；未成年人防护锁定系统预设字卡时，只用自定义字卡）<br>· 发出后 TA 开始作答：到交卷时间自动交卷，之前每 30 秒按「提前交卷概率」可能提前交卷<br>· 关闭「TA 的作答发送到聊天消息」后，TA 只把答案写进聊天里的问卷卡片，不再逐条刷消息（单题默认会发，题多怕刷屏可关）</div>
     </div>
     <div class="set-group glass">
-      <div class="gs-row"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
+      <div class="gs-row" style="cursor:pointer"><span>交卷时间（到点TA自动交卷）</span><button type="button" id="ta-survey-deadline" class="tc-input deadline-btn" style="flex:1;min-width:0;max-width:170px;padding:5px 8px;font-size:12px">未设置</button><button type="button" id="ta-survey-deadline-clear" style="flex:none;margin-left:6px;padding:4px 10px;font-size:12px;border:1px solid var(--line,#e5e5e5);border-radius:8px;background:transparent;color:var(--muted,#999)">清除</button></div>
       <div class="gs-row"><span>每30秒提前交卷概率</span><input type="range" id="ta-survey-prob" min="0" max="100" step="1" class="tc-range"><span class="tc-prob-val" id="ta-survey-prob-val">10%</span></div>
       <div class="gs-row"><span>TA 的作答发送到聊天消息</span><label class="toggle"><input type="checkbox" id="ta-survey-chat" checked><span class="tk"></span></label></div>
     </div>
@@ -11005,7 +11005,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.710</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.711</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11336,7 +11336,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.710</span>
+              <span class="lic-ver">v3.26.711</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -23628,154 +23628,234 @@ let d = document.getElementById('beauty-drawer');
 if (!d) {
 d = document.createElement('div');
 d.id = 'beauty-drawer';
-d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:56vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:none;flex-direction:column;gap:12px';
 document.body.appendChild(d);
 }
+d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:44vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
 d.innerHTML = '';
 const grip = document.createElement('div');
-grip.style.cssText = 'width:38px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:8px auto 2px;flex:none';
+grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
 d.appendChild(grip);
-const hd = document.createElement('div'); hd.style.cssText = 'font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px';
-const hdTxt = document.createElement('span'); hdTxt.textContent = '边看边调（改动实时生效）'; hd.appendChild(hdTxt);
-const hdAct = document.createElement('div'); hdAct.style.cssText = 'display:flex;gap:4px;align-items:center;flex:none';
-const foldBtn = document.createElement('button'); foldBtn.textContent = '收起'; foldBtn.style.cssText = 'border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:8px;cursor:pointer;padding:4px 10px';
-let folded = false;
-foldBtn.addEventListener('click', () => {
-folded = !folded;
-body.style.display = folded ? 'none' : 'flex';
-foldBtn.textContent = folded ? '展开' : '收起';
-d.style.maxHeight = folded ? 'none' : '56vh';
-});
-const closeBtn = document.createElement('button'); closeBtn.textContent = '\u2715'; closeBtn.style.cssText = 'border:none;background:none;font-size:18px;color:var(--ink,#111);cursor:pointer;padding:4px 8px';
-closeBtn.addEventListener('click', () => { d.style.display = 'none'; showThemePage(); });
-hdAct.appendChild(foldBtn); hdAct.appendChild(closeBtn);
-hd.appendChild(hdAct); d.appendChild(hd);
+const mkMini = (label, fn, cssExtra) => {
+const b = document.createElement('button');
+b.textContent = label;
+b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+b.addEventListener('click', fn);
+return b;
+};
+const hd = document.createElement('div');
+hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
+const hdTxt = document.createElement('span');
+hdTxt.textContent = '边看边调（即时生效）';
+hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const panelBody = document.createElement('div');
+panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
 const body = document.createElement('div');
-body.style.cssText = 'display:flex;flex-direction:column;gap:12px;flex:1;min-height:0';
-d.appendChild(body);
-const mkSection = (title) => {
-const t = document.createElement('div');
-t.textContent = title;
-t.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--muted,#999);letter-spacing:.6px;display:flex;align-items:center;gap:7px;margin-top:2px';
-const bar = document.createElement('span');
-bar.style.cssText = 'width:3px;height:11px;border-radius:2px;background:var(--ink,#111);opacity:.8;display:inline-block';
-t.insertBefore(bar, t.firstChild);
-return t;
-};
-const mkColorRow = (label, key, varName, isGlobal) => {
-const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-const curGet = () => { try { return (isGlobal ? localStorage.getItem(key) : store.get(key)) || '#111111'; } catch (e) { return '#111111'; } };
-const curSet = (v) => {
-document.documentElement.style.setProperty(varName, v);
-if (isGlobal) { try { localStorage.setItem(key, v); } catch (e) {} } else { store.set(key, v); }
-};
-const lb = document.createElement('div'); lb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; lb.textContent = label; r.appendChild(lb);
-const rowH = document.createElement('div'); rowH.style.cssText = 'display:flex;align-items:center;gap:6px';
-const sw = document.createElement('div'); sw.style.cssText = 'width:34px;height:34px;flex:none;border-radius:8px;border:1px solid var(--card-border,#ddd);background:' + curGet(); rowH.appendChild(sw);
-const inp = document.createElement('input'); inp.type = 'color';
-inp.value = curGet();
-inp.style.cssText = 'flex:1;height:36px;border:1px solid var(--card-border,#ddd);border-radius:8px;cursor:pointer;min-width:0';
-const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none'; vv.textContent = curGet().toUpperCase();
-const syncUi = (c) => { sw.style.background = c; vv.textContent = String(c).toUpperCase(); try { inp.value = c; } catch (e) {} };
-inp.addEventListener('input', () => { curSet(inp.value); sw.style.background = inp.value; vv.textContent = inp.value.toUpperCase(); });
-rowH.appendChild(inp); rowH.appendChild(vv);
-const hexBtn = document.createElement('button'); hexBtn.textContent = '手输'; hexBtn.style.cssText = 'flex:none;padding:6px 10px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
-hexBtn.addEventListener('click', () => {
-openHexColorModal('输入' + label + '色值', curGet(), (c) => { curSet(c); syncUi(c); toast(label + '已设为 ' + c.toUpperCase()); });
+body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+const foldBtn = mkMini('收起', () => {
+const willFold = panelBody.style.display !== 'none';
+panelBody.style.display = willFold ? 'none' : 'flex';
+foldBtn.textContent = willFold ? '展开' : '收起';
 });
-rowH.appendChild(hexBtn);
-r.appendChild(rowH); return r;
-};
-const mkSliderRow = (label, key, varName, min, max, unit, defVal) => {
-const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-const lb = document.createElement('div'); lb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; lb.textContent = label; r.appendChild(lb);
-const inp = document.createElement('input'); inp.type = 'range'; inp.min = min; inp.max = max;
+const closeBtn = mkMini('\u2715', () => { d.style.display = 'none'; showThemePage(); }, ';padding:4px 8px');
+hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+d.appendChild(hd);
+const chipsRow = document.createElement('div');
+chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
+panelBody.appendChild(chipsRow);
+panelBody.appendChild(body);
+d.appendChild(panelBody);
+const mkSlider = (label, key, varName, min, max, step, unit, defVal, rawSet) => {
+const row = document.createElement('div');
+row.style.cssText = 'display:flex;align-items:center;gap:8px';
+const lb = document.createElement('span');
+lb.textContent = label;
+lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const inp = document.createElement('input');
+inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1;
 const cur = store.get(key);
 inp.value = (cur !== null && cur !== undefined && cur !== '') ? cur : String(defVal != null ? defVal : Math.round((min + max) / 2));
-inp.style.cssText = 'width:100%';
-const vv = document.createElement('span'); vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; vv.textContent = inp.value + unit;
-inp.addEventListener('input', () => { vv.textContent = inp.value + unit; document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); });
-const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:6px'; row.appendChild(inp); row.appendChild(vv);
-r.appendChild(row); return r;
+inp.style.cssText = 'flex:1;min-width:0';
+const vv = document.createElement('span');
+vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
+vv.textContent = inp.value + unit;
+inp.addEventListener('input', () => {
+vv.textContent = inp.value + unit;
+if (rawSet) rawSet(inp.value);
+else { document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); }
+});
+row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+return row;
 };
-body.appendChild(mkSection('颜色'));
-body.appendChild(mkColorRow('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
-body.appendChild(mkColorRow('组件背景色', 'widget-bg-color', '--widget-bg', false));
-body.appendChild(mkColorRow('边框色', 'widget-border-color', '--widget-border', false));
-body.appendChild(mkColorRow('按钮颜色', 'widget-btn-color', '--widget-btn', false));
-body.appendChild(mkColorRow('按钮文字颜色', 'widget-btn-text-color', '--widget-btn-text', false));
-body.appendChild(mkColorRow('爱心外框颜色', 'widget-heart-color', '--widget-heart', false));
-const txBtn = document.createElement('button');
-txBtn.textContent = '改桌面文字颜色（进入装修模式点卡片）';
-txBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
-txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
-body.appendChild(txBtn);
-body.appendChild(mkSection('尺寸与圆角'));
-body.appendChild(mkSliderRow('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 'px'));
-body.appendChild(mkSliderRow('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 'px'));
+const PALETTE = ['#111111', '#ffffff', '#e05555', '#ff8800', '#ffd54f', '#4a9d5e', '#3a7bd5', '#8e5bd5', '#e055a0', '#8a8a8a'];
+let colorItems = [];
+let paletteHost = null;
+const mkColorItem = (label, key, varName, isGlobal) => {
+const el = document.createElement('div');
+el.style.cssText = 'display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--card-border,#ddd);border-radius:9px;cursor:pointer;min-width:0';
+const sw = document.createElement('span');
+sw.style.cssText = 'width:18px;height:18px;border-radius:5px;border:1px solid var(--card-border,#ddd);flex:none;background:#fff';
+const tx = document.createElement('span');
+tx.textContent = label;
+tx.style.cssText = 'font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+el.appendChild(sw); el.appendChild(tx);
+const curGet = () => { try { return (isGlobal ? localStorage.getItem(key) : store.get(key)) || ''; } catch (e) { return ''; } };
+const paint = () => {
+let c = curGet();
+if (!c) { try { c = String(getComputedStyle(document.documentElement).getPropertyValue(varName) || '').trim(); } catch (e) {} }
+sw.style.background = c || '#ffffff';
+};
+const curSet = (v) => {
+if (v === null) {
+try { if (isGlobal) localStorage.removeItem(key); else store.remove(key); } catch (e) {}
+document.documentElement.style.removeProperty(varName);
+} else {
+document.documentElement.style.setProperty(varName, v);
+if (isGlobal) { try { localStorage.setItem(key, v); } catch (e) {} } else store.set(key, v);
+}
+paint();
+};
+const item = { el, label, curGet, curSet, paint };
+el.addEventListener('click', () => {
+colorItems.forEach(it => { it.el.style.borderColor = 'var(--card-border,#ddd)'; });
+el.style.borderColor = 'var(--ink,#111)';
+renderPalette(item);
+});
+paint();
+colorItems.push(item);
+return el;
+};
+const renderPalette = (item) => {
+if (!paletteHost) return;
+paletteHost.innerHTML = '';
+const strip = document.createElement('div');
+strip.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+const cur = item.curGet();
+PALETTE.forEach(c => {
+const dot = document.createElement('span');
+dot.style.cssText = 'width:23px;height:23px;border-radius:7px;border:1px solid var(--card-border,#ddd);cursor:pointer;flex:none;background:' + c;
+if (cur && String(cur).toLowerCase() === c.toLowerCase()) dot.style.borderColor = 'var(--ink,#111)';
+dot.addEventListener('click', () => item.curSet(c));
+strip.appendChild(dot);
+});
+const def = document.createElement('button');
+def.textContent = '默认';
+def.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+def.addEventListener('click', () => item.curSet(null));
+strip.appendChild(def);
+paletteHost.appendChild(strip);
+const tip = document.createElement('div');
+tip.style.cssText = 'font-size:10.5px;color:var(--muted,#999);margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+const tipTx = document.createElement('span');
+tipTx.textContent = '正在调「' + item.label + '」，点色块即时生效';
+const hexBtn = document.createElement('button');
+hexBtn.textContent = '手输色值';
+hexBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+hexBtn.addEventListener('click', () => {
+openHexColorModal('输入' + item.label + '色值', item.curGet() || '#111111', (c) => { item.curSet(c); toast(item.label + '已设为 ' + String(c).toUpperCase()); });
+});
+tip.appendChild(tipTx); tip.appendChild(hexBtn);
+paletteHost.appendChild(tip);
+};
 const zoomWorks = !(window.matchMedia && window.matchMedia('(max-width: 900px)').matches) && !document.documentElement.classList.contains('force-mobile');
+const SECS = [
+{ key: 'color', label: '颜色', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+const grid = document.createElement('div');
+grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+grid.appendChild(mkColorItem('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
+grid.appendChild(mkColorItem('组件背景', 'widget-bg-color', '--widget-bg', false));
+grid.appendChild(mkColorItem('边框', 'widget-border-color', '--widget-border', false));
+grid.appendChild(mkColorItem('按钮', 'widget-btn-color', '--widget-btn', false));
+grid.appendChild(mkColorItem('按钮文字', 'widget-btn-text-color', '--widget-btn-text', false));
+grid.appendChild(mkColorItem('爱心外框', 'widget-heart-color', '--widget-heart', false));
+paletteHost = document.createElement('div');
+wrap.appendChild(grid);
+wrap.appendChild(paletteHost);
+const txBtn = document.createElement('button');
+txBtn.textContent = '改桌面文字颜色（进装修模式点文字）';
+txBtn.style.cssText = 'padding:7px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
+wrap.appendChild(txBtn);
+wrap.appendChild(mkSlider('透明度', 'widget-opacity', '--widget-opacity', 40, 100, 5, '%', 100, (v) => {
+const n = parseInt(v, 10) / 100;
+document.documentElement.style.setProperty('--widget-opacity', String(n));
+store.set('widget-opacity', String(Math.round(n * 100)));
+}));
+return wrap;
+} },
+{ key: 'size', label: '尺寸', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+wrap.appendChild(mkSlider('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 1, 'px', 16));
+wrap.appendChild(mkSlider('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 1, 'px', 18));
 if (zoomWorks) {
-body.appendChild(mkSliderRow('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, '%'));
-body.appendChild(mkSliderRow('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, '%'));
+wrap.appendChild(mkSlider('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, 1, '%', 100, (v) => {
+document.documentElement.style.setProperty('--desk-font-scale', String(parseInt(v, 10) / 100));
+store.set('desk-font-size', v);
+}));
+wrap.appendChild(mkSlider('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, 1, '%', 100, (v) => {
+document.documentElement.style.setProperty('--desk-card-scale', String(parseInt(v, 10) / 100));
+store.set('desk-card-scale', v);
+}));
 } else {
 const nt = document.createElement('div');
-nt.style.cssText = 'font-size:11px;color:var(--muted,#999);line-height:1.5';
-nt.textContent = '桌面字号 / 卡片大小仅在电脑端（大屏）生效，手机端为性能保持默认——手机端想改大小请用上方「组件圆角」或整体字号设置。';
-body.appendChild(nt);
+nt.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+nt.textContent = '桌面字号 / 卡片大小仅电脑端（大屏）生效，手机端为性能保持默认。';
+wrap.appendChild(nt);
 }
-const opRow = document.createElement('div'); opRow.style.cssText = 'display:flex;flex-direction:column;gap:4px';
-const opLb = document.createElement('div'); opLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; opLb.textContent = '组件透明度（全局默认，装修模式点卡片可单独调）'; opRow.appendChild(opLb);
-const opInp = document.createElement('input'); opInp.type = 'range'; opInp.min = 40; opInp.max = 100; opInp.step = 5;
-const opCur = store.get('widget-opacity'); opInp.value = opCur ? String(opacityRawToPct(opCur)) : '100';
-opInp.style.cssText = 'width:100%';
-const opVv = document.createElement('span'); opVv.style.cssText = 'font-size:11px;color:var(--muted,#999)'; opVv.textContent = opInp.value + '%';
-opInp.addEventListener('input', () => { opVv.textContent = opInp.value + '%'; const v = parseInt(opInp.value, 10) / 100; document.documentElement.style.setProperty('--widget-opacity', String(v)); store.set('widget-opacity', String(Math.round(v * 100))); });
-const opLine = document.createElement('div'); opLine.style.cssText = 'display:flex;align-items:center;gap:6px'; opLine.appendChild(opInp); opLine.appendChild(opVv);
-opRow.appendChild(opLine); body.appendChild(opRow);
-body.appendChild(mkSection('背景与壁纸'));
-const blurRow = document.createElement('div'); blurRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
-const blurLb = document.createElement('span'); blurLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; blurLb.textContent = '背景模糊';
-const blurInp = document.createElement('input'); blurInp.type = 'range'; blurInp.min = 0; blurInp.max = 20; blurInp.step = 1;
-blurInp.value = store.get('bg-blur') || '0';
-blurInp.style.cssText = 'flex:1;min-width:0';
-const blurVv = document.createElement('span'); blurVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; blurVv.textContent = blurInp.value + 'px';
-blurInp.addEventListener('input', () => {
-const v = parseInt(blurInp.value, 10);
-blurVv.textContent = v + 'px';
-document.documentElement.style.setProperty('--bg-blur', v + 'px');
-if (v > 0) store.set('bg-blur', String(v)); else store.remove('bg-blur');
-});
-blurRow.appendChild(blurLb); blurRow.appendChild(blurInp); blurRow.appendChild(blurVv);
-body.appendChild(blurRow);
-const maskRow = document.createElement('div'); maskRow.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
-const maskLb = document.createElement('span'); maskLb.style.cssText = 'font-size:12px;color:var(--muted,#888)'; maskLb.textContent = '背景遮罩';
-const maskInp = document.createElement('input'); maskInp.type = 'range'; maskInp.min = 0; maskInp.max = 80; maskInp.step = 5;
-maskInp.value = store.get('bg-mask-op') || '0';
-maskInp.style.cssText = 'flex:1;min-width:0';
-const maskVv = document.createElement('span'); maskVv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;min-width:42px;text-align:right'; maskVv.textContent = maskInp.value + '%';
-maskInp.addEventListener('input', () => {
-const v = parseInt(maskInp.value, 10);
-maskVv.textContent = v + '%';
-document.documentElement.style.setProperty('--bg-mask-op', String(v / 100));
-if (v > 0) store.set('bg-mask-op', String(v)); else store.remove('bg-mask-op');
-});
-maskRow.appendChild(maskLb); maskRow.appendChild(maskInp); maskRow.appendChild(maskVv);
-body.appendChild(maskRow);
+return wrap;
+} },
+{ key: 'bg', label: '背景', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+wrap.appendChild(mkSlider('背景模糊', 'bg-blur', '--bg-blur', 0, 20, 1, 'px', 0, (v) => {
+const n = parseInt(v, 10);
+document.documentElement.style.setProperty('--bg-blur', n + 'px');
+if (n > 0) store.set('bg-blur', String(n)); else store.remove('bg-blur');
+}));
+wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--bg-mask-op', 0, 80, 5, '%', 0, (v) => {
+const n = parseInt(v, 10);
+document.documentElement.style.setProperty('--bg-mask-op', String(n / 100));
+if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op');
+}));
 const bgBtn = document.createElement('button');
 bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
-bgBtn.style.cssText = 'padding:9px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px';
+bgBtn.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
 bgBtn.addEventListener('click', () => {
 d.style.display = 'none'; showThemePage();
 const row = document.getElementById('row-bg-preset');
 if (row) row.click();
 });
-body.appendChild(bgBtn);
-const hint = document.createElement('div'); hint.style.cssText = 'font-size:11px;color:var(--muted,#999);margin-top:2px;line-height:1.5';
-hint.textContent = '下方是设置项，上方桌面实时变化——不用来回切换页面。改完点右上角 ✕ 回到美化页。';
-body.appendChild(hint);
+wrap.appendChild(bgBtn);
+return wrap;
+} }
+];
+let activeSec = 'color';
+const renderSec = (key) => {
+activeSec = key;
+Array.prototype.forEach.call(chipsRow.children, c => {
+const on = c.dataset.sec === key;
+c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+});
+body.innerHTML = '';
+paletteHost = null;
+colorItems = [];
+const sec = SECS.filter(s => s.key === key)[0];
+if (sec) body.appendChild(sec.build());
+};
+SECS.forEach(s => {
+const c = document.createElement('button');
+c.textContent = s.label;
+c.dataset.sec = s.key;
+c.style.cssText = 'flex:1;font-size:11.5px;padding:5px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+c.addEventListener('click', () => renderSec(s.key));
+chipsRow.appendChild(c);
+});
+renderSec(activeSec);
 d.style.display = 'flex';
-d.style.maxHeight = '56vh';
-foldBtn.textContent = '收起';
 };
 const showThemePage = () => {
 try {
@@ -30411,6 +30491,29 @@ out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
 }
 return out;
 }
+const CHAT_READABLE_RE = /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/;
+function chatLooksKaomoji(c) {
+if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+}
+function chatIsEmojiCard(c) {
+if (/[\uD800-\uDBFF]/.test(c)) return true;
+if (CHAT_READABLE_RE.test(c)) return false;
+if (chatLooksKaomoji(c)) return false; // 非可读但含颜文字特征（含 ✿♥✧ 等符号的颜文字）→ 交颜文字分支
+for (const ch of c) {
+const cp = ch.codePointAt(0);
+if ((cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF) || (cp >= 0x2B00 && cp <= 0x2BFF)) return true;
+}
+return false;
+}
+function chatIsKaomojiCard(c) {
+if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+if (CHAT_READABLE_RE.test(c)) return false;
+return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+}
+function chatHasReadableTextCard(arr) {
+return arr.some(s => typeof s === 'string' && CHAT_READABLE_RE.test(s));
+}
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -30429,8 +30532,8 @@ if (pokeSet && pokeSet.has(c)) return; // 拍一拍字卡不进普通回复池
 if (typeof c === 'string' && c.indexOf('data:') === 0) return; // dataURL 已按媒体分类
 if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
 if (typeof c === 'string' && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
-if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
+if (chatIsEmojiCard(c)) emoji.push(c);
+else if (chatIsKaomojiCard(c)) kaomoji.push(c);
 else text.push(c);
 });
 try {
@@ -30440,7 +30543,7 @@ const useChat = window.defaultCardUse ? window.defaultCardUse('chat') : true;
 const catOn = window.defaultCardCat || (() => true);
 const sysLocked = !(window.cardLockOpen && window.cardLockOpen());
 if (dcfg.enabled !== false && useChat && !sysLocked) {
-if (catOn('main') && !text.length) {
+if (catOn('main') && !chatHasReadableTextCard(text)) {
 const defGrps = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
 defGrps.forEach(g => {
 const arr = g[1] || [];
@@ -30544,6 +30647,8 @@ try {
 const P = getPool();
 const cfg = (window.defaultCardCfg && window.defaultCardCfg()) || {};
 const customRaw = (window.getCustomCards && window.getCustomCards()) || [];
+const rc = (window.replyCfg && window.replyCfg()) || {};
+const sample = (a) => a.slice(0, 3).map(s => String(s).replace(/\s+/g, ' ').slice(0, 6)).join('|') || '空';
 return [
 '池text=' + P.text.length,
 'kaomoji=' + P.kaomoji.length,
@@ -30557,7 +30662,14 @@ return [
 '聊天使用=' + (window.defaultCardUse ? window.defaultCardUse('chat') : '?'),
 '主字卡=' + (window.defaultCardCat ? window.defaultCardCat('main') : '?'),
 '默认概率chat=' + (cfg.overallFor ? cfg.overallFor('chat') : cfg.overall),
-'主卡占比=' + (cfg.probs ? cfg.probs.main : '?')
+'主卡占比=' + (cfg.probs ? cfg.probs.main : '?'),
+'总档=' + (window.dcpAll ? window.dcpAll() : '?'),
+'自定义占比=' + (rc['csp-cust'] !== undefined ? rc['csp-cust'] : '?'),
+'媒体概率=' + ['sticker', 'emoji', 'image', 'voice', 'kaomoji'].map(k => k + ':' + (rc[k + '-prob'] !== undefined ? rc[k + '-prob'] : '?')).join(','),
+'多字卡py=' + (rc['py-en'] === 1 ? (rc['py-prob'] + '%') : '关'),
+'text样本=' + sample(P.text),
+'kaomoji样本=' + sample(P.kaomoji),
+'emoji样本=' + sample(P.emoji)
 ].join(' / ');
 } catch (e) { return '诊断出错:' + e.message; }
 };
@@ -33375,11 +33487,18 @@ try {
 const defs = (window.getDefaultCards && window.getDefaultCards()) || null;
 if (defs && defs.type !== 'poke' && defs.text) return { text: defs.text, type: 'text' };
 } catch (e) {}
-const r = Math.random() * 100;
-if (pool.sticker.length && r < 15) return { text: pick(pool.sticker), type: 'sticker' };
-if (pool.image.length && r < 25) return { text: pick(pool.image), type: 'image' };
-if (pool.kaomoji.length && r < 40) return { text: pick(pool.kaomoji), type: 'text' };
-if (pool.emoji.length && r < 55) return { text: pick(pool.emoji), type: 'text' };
+const _bands = [
+[pool.sticker.length ? 15 : 0, () => ({ text: pick(pool.sticker), type: 'sticker' })],
+[pool.image.length ? 10 : 0, () => ({ text: pick(pool.image), type: 'image' })],
+[pool.kaomoji.length ? 15 : 0, () => ({ text: pick(pool.kaomoji), type: 'text' })],
+[pool.emoji.length ? 15 : 0, () => ({ text: pick(pool.emoji), type: 'text' })],
+[45, () => ({ text: pick(pool.text) || '在吗？', type: 'text' })]
+];
+let _bRoll = Math.random() * _bands.reduce((a, b) => a + b[0], 0);
+for (let i = 0; i < _bands.length; i++) {
+_bRoll -= _bands[i][0];
+if (_bRoll < 0) return _bands[i][1]();
+}
 return { text: pick(pool.text) || '在吗？', type: 'text' };
 };
 const acMin = Math.max(1, Number(cfgn(c, 'as-count-min', 1)) || 1);
@@ -56907,7 +57026,9 @@ if (v) v.textContent = askPopup.value + '%';
 toast('弹窗概率已设为 ' + askPopup.value + '%');
 });
 const askDeadlineEl = document.getElementById('ta-ask-deadline');
-if (askDeadlineEl) askDeadlineEl.addEventListener('click', () => {
+const askDeadlineRow = askDeadlineEl ? askDeadlineEl.closest('.gs-row') : null;
+if (askDeadlineRow) askDeadlineRow.addEventListener('click', (e) => {
+if (e.target.closest('#ta-ask-deadline-clear')) return;
 openDeadlinePicker('问卷答题结束时间', askDeadlineMs(taAskLoad()), (ts) => {
 const d = taAskLoad();
 d.settings.deadline = ts > 0 ? ts : 0;
@@ -59647,7 +59768,9 @@ surveyRender();
 bindTaInpClears(stxt.parentElement);
 }
 const sdl = document.getElementById('ta-survey-deadline');
-if (sdl) sdl.addEventListener('click', () => {
+const sdlRow = sdl ? sdl.closest('.gs-row') : null;
+if (sdlRow) sdlRow.addEventListener('click', (e) => {
+if (e.target.closest('#ta-survey-deadline-clear')) return;
 openDeadlinePicker('交卷时间', surveyLoad().settings.deadline, (ts) => {
 const d = surveyLoad();
 d.settings.deadline = ts > 0 ? ts : 0;
@@ -64546,6 +64669,7 @@ if ((c >= 0x1F000 && c <= 0x1FAFF) || (c >= 0x2600 && c <= 0x27BF)) { isEmoji = 
 }
 if (isEmoji) { emoji.push(s); return; }
 if (/[\(（｡◕(◕)(づ｡(¬)]/.test(s) && /[\)）】)]/.test(s)) { kaomoji.push(s); return; }
+if (!/[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/.test(s) && /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(s)) { kaomoji.push(s); return; }
 text.push(s);
 });
 pushDefault();
@@ -64594,7 +64718,7 @@ return { textN: p.text.length, defTextN: p.defText.length, defKaoN: p.defKaomoji
 };
 function taLetterContent(cfg, cid) {
 const pool = mailCardPool(cid);
-const hasCustom = pool.text.length > 0;
+const hasCustom = pool.text.some(s => typeof s === 'string' && /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/.test(s));
 const words = hasCustom ? pool.text : (pool.defText.length ? pool.defText : TA_LETTERS);
 const maxN = Math.max(1, words.length);
 const wantMin = Math.min(Math.max(1, cfg.minCards || 1), maxN);
@@ -97452,4 +97576,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu2mrb6l -->
+<!-- __MOCHI_EOF__ mu2nopj1 -->
