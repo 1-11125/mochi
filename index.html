@@ -9539,9 +9539,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789452501690">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.702</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 14:08<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789453348829">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.703</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 14:22<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10860,7 +10860,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.702</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.703</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11170,7 +11170,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.702</span>
+              <span class="lic-ver">v3.26.703</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -29751,16 +29751,14 @@ function showTyping() {
 if (!typingEl) return;
 typingOn = true;
 if (chatVisible()) {
-typingEl.hidden = false;
-if (chatPinnedBottom) scrollChatBottom();
-setTimeout(() => { if (chatPinnedBottom) scrollChatBottom(); }, 60);
+typingEl.hidden = false; // FIX 2026-09-15 #514 只切可见性、不写 scrollTop（#334 守钉加强版：连钉住态也不抢滚动权）
 }
 }
 function hideTyping() {
 if (!typingEl) return;
 typingOn = false;
 typingEl.hidden = true;
-if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 同 showTyping：解钉态不抢滚动权
+if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 解钉态不抢滚动权；#514 起这次写只作收尾补平（行隐藏态 scrollTop 已在最大值，正常链路里等于无操作）
 }
 function cfg() { return (window.replyCfg && window.replyCfg()) || {}; }
 function cfgn(c, k, d) { const v = c[k]; return v === undefined ? d : v; }
@@ -31701,6 +31699,7 @@ if (i < arr.length) setTimeout(step, 400);
 step();
 } catch (e) {}
 }
+window.chatAddInTyped = function (items, opts, firstDelay) { return addInTyped(items, opts, firstDelay); };
 function addOut(text) {
 return addRec({ side: 'out', text: text });
 }
@@ -32770,8 +32769,7 @@ requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
 }
 chatEntrySettle();
 if (typingOn && chatVisible()) {
-typingEl.hidden = false;
-scrollChatBottom(); // typing 行占位时保持最后一条可见
+typingEl.hidden = false; // FIX 2026-09-15 #514 进页同款：只切可见性、不写 scrollTop（上面三连已在行隐藏态贴到底）
 }
 }
 if (chatApp && chatPage) {
@@ -92550,11 +92548,89 @@ if (cs) name = cs;
 if (!name) { const lbl = s.get('lbl-partner'); if (lbl) name = lbl; }
 if (!name) name = contactName(cid);
 } catch (e) {}
-list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid });
+list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid, own: 1 });
 saveRoster(list, cid);
 s.set(SEED_KEY, '1');
 } catch (e) {}
 }
+function effNick(cid) {
+try {
+const s = storeOf(cid);
+if (s) {
+const cs = String(s.get('cs-lbl-partner') || '').trim();
+if (cs) return cs;
+const lb = String(s.get('lbl-partner') || '').trim();
+if (lb) return lb;
+}
+} catch (e) {}
+return contactName(cid);
+}
+function identSet(cid) {
+const out = {};
+try {
+const s = storeOf(cid);
+if (s) {
+const cs = String(s.get('cs-lbl-partner') || '').trim(); if (cs) out[cs] = 1;
+const lb = String(s.get('lbl-partner') || '').trim(); if (lb) out[lb] = 1;
+}
+} catch (e) {}
+const nm = String(contactName(cid) || '').trim(); if (nm) out[nm] = 1;
+return out;
+}
+function hasKey(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+function healBelonging() {
+try {
+const r = rootStore();
+if (!r || !r.get('contacts')) return 0; // 注册表未就绪（LS 失效设备 IDB 回填未完成）：contacts() 不全，认亲必错
+const list = contacts();
+const idents = {}, rosters = {}, moves = [], dirty = {};
+list.forEach(ct => { idents[ct.id] = identSet(ct.id); rosters[ct.id] = loadRoster(ct.id); });
+list.forEach(ct => {
+const want = String(effNick(ct.id) || '').trim();
+if (!want) return;
+rosters[ct.id].forEach(c => {
+if (!c || !c.own || c.manual) return;
+if (String(c.name || '').trim() !== want) { c.name = want; dirty[ct.id] = 1; }
+});
+});
+if (list.length >= 2) {
+list.forEach(ct => {
+rosters[ct.id].forEach(c => {
+if (!c || c.manual) return;
+const n = String(c.name || '').trim();
+if (!n || hasKey(idents[ct.id], n)) return; // 名字与所在桌面身份相符：正常
+let home = '', hits = 0;
+list.forEach(o => { if (o.id !== ct.id && hasKey(idents[o.id], n)) { home = o.id; hits++; } });
+if (hits !== 1) return; // 无名可归 / 撞名多个：宁不搬不错搬
+if (rosters[home].some(x => x && String(x.name || '').trim() === n)) return; // 目标已有本尊
+if (moves.some(m => m.id === c.id)) return;
+moves.push({ from: ct.id, to: home, id: c.id, name: n });
+});
+});
+}
+moves.forEach(m => {
+const src = rosters[m.from], dst = rosters[m.to];
+if (!src || !dst) return;
+const i = src.findIndex(x => x.id === m.id);
+if (i < 0 || dst.some(x => x.id === m.id)) return;
+const c = src.splice(i, 1)[0];
+c.cid = m.to; // cid 字段跟着搬：权威归属与物理位置一致，下次不再重复判定
+dst.push(c);
+dirty[m.from] = 1; dirty[m.to] = 1;
+const stFrom = loadState(m.from), stTo = loadState(m.to);
+if (stFrom[m.id] !== undefined) {
+stTo[m.id] = stFrom[m.id]; delete stFrom[m.id];
+saveState(stFrom, m.from); saveState(stTo, m.to);
+}
+try { if (!src.length) { const s0 = storeOf(m.from); if (s0) s0.remove(SEED_KEY); } } catch (e) {}
+});
+const cids = Object.keys(dirty);
+cids.forEach(cid => { if (rosters[cid]) saveRoster(rosters[cid], cid); });
+if (cids.length) todayCacheMap = {}; // 归属/名字变了：各视图今日预测作废
+return moves.length;
+} catch (e) { return 0; }
+}
+window.cjianHealBelonging = healBelonging; // 暴露产品函数供回归脚本直接断言（不复刻实现）
 function presenceWeights(worldHour) {
 if (worldHour >= 23 || worldHour < 5) return { near: 8, nearby: 18, far: 26, unfelt: 33, gone: 15 };
 if (worldHour >= 5 && worldHour < 9) return { near: 22, nearby: 30, far: 18, unfelt: 18, gone: 12 };
@@ -92982,6 +93058,7 @@ chip('全部', ALL);
 function setView(v) {
 if (viewCid === v) return;
 viewCid = v;
+try { healBelonging(); } catch (e) {} // FIX #514：切分组前先纠正错放归属（防别的桌面的梦角挂在本分组下）
 if (viewCid !== ALL) seedIfEmpty(viewCid);
 window.renderCjian(false);
 const main = document.getElementById('cj-main');
@@ -93176,6 +93253,7 @@ document.querySelectorAll('.page').forEach(p => p.hidden = true);
 page.hidden = false;
 try { if (window.cjianNoteOpen) window.cjianNoteOpen(); } catch (e) {}
 viewCid = curCid(); // 每次打开回到当前桌面
+try { healBelonging(); } catch (e) {} // FIX #514：先纠正错放归属（搬空后自动重置播种标记）
 seedIfEmpty(curCid()); // 该桌面第一次打开此间：种下自己的第一个梦角（用 TA 的名字）
 window.renderCjian(true);
 };
@@ -93272,7 +93350,7 @@ showSlotPicker(
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 function (idxs) {
 const list = loadRoster(mCid);
-list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid });
+list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid, manual: 1 });
 saveRoster(list, mCid);
 toast('已加入此间：「' + pendingName + '」');
 pendingName = ''; pendingOffset = 0;
@@ -93282,7 +93360,7 @@ window.renderCjian(true);
 function () { pendingName = ''; pendingOffset = 0; }, // 取消：不创建
 function () {
 const list = loadRoster(mCid);
-list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid });
+list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
 saveRoster(list, mCid);
 toast('已加入此间：「' + pendingName + '」');
 pendingName = ''; pendingOffset = 0;
@@ -93347,6 +93425,7 @@ const list = loadRoster(mCid);
 const c = list.find(x => x.id === (renameTarget ? renameTarget.id : ''));
 if (c) {
 c.name = n;
+c.manual = 1; // 用户手动改名：打标记，归属自愈不再自动搬它（#514）
 saveRoster(list, mCid);
 toast('已改名为「' + n + '」');
 }
@@ -95643,4 +95722,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu29tf3u -->
+<!-- __MOCHI_EOF__ mu2abkrh -->

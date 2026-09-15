@@ -456,6 +456,12 @@ const FIX_SENTINELS = [
   { name: '#409 此间串桌修复·联系人改名梦角跟随（contact-renamed 监听同步旧名梦角，防名字与身份漂移）', file: 'js/cjian.js', needle: "addEventListener('contact-renamed'" },
   { name: '#409 此间串桌修复·播种昵称链对齐（cs-lbl-partner 优先，梦角名与聊天里看到的名字一致）', file: 'js/cjian.js', needle: "get('cs-lbl-partner')" },
   { name: '#409 此间串桌修复·标记键全局豁免（EXCLUDE 登记，防 migrateLegacy 搬进 default 删根键致救回逻辑每刷重跑）', file: 'js/contacts.js', needle: "'cjian-belong-v2',\n" },
+  { name: '#514 此间梦角归属自愈·自愈函数就位（多桌面「名字串桌」存量救济：错放梦角按名字搬回同名桌面）', file: 'js/cjian.js', needle: 'function healBelonging()' },
+  { name: '#514 此间梦角归属自愈·产品函数暴露（回归脚本直接断言产品函数而非复刻实现）', file: 'js/cjian.js', needle: 'window.cjianHealBelonging = healBelonging;' },
+  { name: '#514 此间梦角归属自愈·打开此间时自愈+搬空后重新播种（同一拍，避免中间态被渲染）', file: 'js/cjian.js', needle: 'try { healBelonging(); seedIfEmpty(curCid()); } catch (e) {}' },
+  { name: '#514 此间梦角归属自愈·切分组时自愈（防别的桌面的梦角挂在本分组下，即用户报的症状）', file: 'js/cjian.js', needle: 'try { healBelonging(); } catch (e) {}' },
+  { name: '#514 此间梦角归属自愈·本尊标记（播种梦角带 own，名字漂移时按本桌有效昵称对齐）', file: 'js/cjian.js', needle: "offsetMin: 0, cid: cid, own: 1 })" },
+  { name: '#514 此间梦角归属自愈·手动标记（用户手动添加/改名的梦角带 manual，永不自动搬——#409 顾虑的正面解法）', file: 'js/cjian.js', needle: 'c.manual = 1;' },
   { name: '桌面美化·全局字体快捷入口（复用聊天设置 cs-font 键，applyDeskCsFont 注入同款 @font-face，两边互通）', file: 'js/personalize.js', needle: 'applyDeskCsFont' },
   { name: '桌面美化·图标文字颜色（applyAppNameColor 注入 style 覆盖 .app .app-name color）', file: 'js/personalize.js', needle: 'applyAppNameColor' },
   { name: '桌面美化·颜色分区预览面板（desk-color-preview 各部位用 CSS 变量着色实时反映各项颜色）', file: 'template.html', needle: 'desk-color-preview' },
@@ -1087,8 +1093,11 @@ const FIX_SENTINELS = [
   { name: '#335 文字题聊天链路回应·raw 直传（删则 pickAskCardReply 90/10 混合把词典/默认字卡回应换掉＝开关开了也不生效）', file: 'js/chat.js', needle: 'if (opts && opts.raw && preset) {' },
   // ==== 2026-09-11 #334 搜索/引用跳转被回底机制抵消（OPPO Reno14 Edge 报「旧的聊天记录依旧无法跳转」复发，#268 下界扩窗治不了这类）：jumpToMsg 是程序化滚动从不解钉，chatPinnedBottom 恒真＝跳到旧区后 lazy 图 onload 触发 #162 图片补滚 rAF(scrollChatBottom) 把视图拽回底部（无头红绿实证：hasHl:true+atBottom:true+visible:false，与真机「点了没反应」一致）＋show/hideTyping 无条件回底同类抢滚动权。修复：①跳转成功即 unpinChatAndAnchor()（与手动上翻同权开回滚动锚定）②typing 复写守钉 ③搜索点击先收键盘双 rAF 后起跳。行为断言 tools/verify-chat-pgjump.mjs 症状4 ====
   { name: '#334 跳转解钉（删则钉住态下跳到旧区被 #162 图片 onload 补滚拽回底部＝搜索/引用跳转「点了没反应」）', file: 'js/chat.js', needle: 'unpinChatAndAnchor(); // FIX 2026-09-11 #334' },
-  { name: '#334 showTyping 复写守钉（删则用户读历史时「对方正在输入」把视图无条件拽回底部并重新钉住）', file: 'js/chat.js', needle: 'setTimeout(() => { if (chatPinnedBottom) scrollChatBottom(); }, 60);' },
-  { name: '#334 hideTyping 复写守钉（删则回复落地收打字态时把已跳到旧区的视图拽回底部）', file: 'js/chat.js', needle: 'if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 同 showTyping' },
+  { name: '#334 showTyping 零滚动守钉（#514 加强：只切可见性、一个 scrollTop 都不写＝用户读历史时「对方正在输入」既不拽回底部也不改变钉住标记；旧形态 60ms 复写已随 #514 移除）', file: 'js/chat.js', needle: 'typingEl.hidden = false; // FIX 2026-09-15 #514 只切可见性' },
+  { name: '#334 hideTyping 复写守钉（删则回复落地收打字态时把已跳到旧区的视图拽回底部）', file: 'js/chat.js', needle: 'if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 解钉态不抢滚动权' },
+  // ==== 2026-09-15 #514 联系人连发多条消息时聊天记录「一直闪、一直回弹」（红米 K80 Chrome 等多机型，用户明说其他机型也有）：#chat-typing 是 #chat-body 的兄弟节点（#page-chat 的 flex 行），显示它只吃 chat-body 的 clientHeight——可滚最大（scrollHeight−clientHeight）反被抬高 22px、scrollHeight 不动。旧 showTyping 在钉住态写 scrollTop=scrollHeight，钳位目标＝「行显示中」那份最大值；行一隐藏（hideTyping 紧随其后就是消息落地）最大值回落 22px、内核把 scrollTop 钳掉 22px＝内容当场下弹 22px，新消息又平滑滚回底部 → 每来回「上跳 22px + 下弹 22px」，TA 连发＝一直闪一直回弹。修复：显示/隐藏一律不写 scrollTop（打字行 22px ≤ .chat-body padding-bottom:24px 的空白呼吸区，占位期间最后一条消息照旧完整可见）＝零钳位、零位移、零机型分支。行为断言 tools/verify-chat-multi-scroll.mjs ====
+  { name: '#514 进页打字行零滚动（删则进页时打字行把 scrollTop 顶到行显示态最大值，TA 回复落地即被钳回＝进页回弹一拍）', file: 'js/chat.js', needle: 'typingEl.hidden = false; // FIX 2026-09-15 #514 进页同款' },
+  { name: '#514 「连发多条」真实链路测试钩子（删则 verify-chat-multi-scroll.mjs 无法驱动产品函数，只能复刻实现＝测不到真身）', file: 'js/chat.js', needle: 'window.chatAddInTyped = function' },
   // ==== 2026-09-11 #337 安卓键盘盖输入栏（荣耀畅玩80Pro 自带浏览器，多机型同族）：键盘弹出时 vv 读数漂移/不缩 → 读数判据 _aProvCheck 永不命中 + 58% 盲猜对高占比输入法停靠不足。三件套：①可见性触发停靠（聚焦>900ms+手势武装+实测元素底边低于可视区底边=被盖才动作，与内核读数无关）②VirtualKeyboard 实测尺（overlaysContent=true+geometrychange 按 base−kbH 精停，特性探测，_aProvClear 归还）③欠深自纠（停靠后仍被盖每 250ms 再收 8% 基准至露出/34% 地板）。行为断言 tools/verify-kb-cover-dock.mjs ====
   { name: '#337 键盘可见性触发停靠（删则读数漂移内核输入栏整行留在键盘下=畅玩80Pro 族无法聊天）', file: 'js/mobile-adapt.js', needle: '_kbCovered = !!(_rC && _rC.height > 0 && _aCoverBottom(tgt) > _visBottomC + 12);' },
   // ==== 2026-09-13 #387 点聊天输入栏 UI 乱+闪屏（桌面浏览器 DevTools 移动模拟实测复现，多机型同族）：安卓/iOS 键盘保底停靠的读数判据（|vv−基线|≤2 且 |inner−基线|≤2）只证「视口没动」不证「键盘在场」——无软键盘环境（电脑浏览器/移动模拟/外接键盘）视口永远不动，点输入栏即盲推 58% 停靠＝输入栏顶到屏中下方大空白（UI 乱），自愈清除后反复点击又缩回（闪屏）。修复：安卓 _aProvCheck 与 iOS _iProvCheck 两处盲推分支统一加「实测被盖」闸（#337 同一把尺：聚焦元素∪输入行底边低于可视区底边+12px 才停靠）——悬浮键盘真场景键盘必然盖住输入栏照常停靠零回归；元素可见无需停靠，只可能少停不可能多停。行为断言 tools/verify-kb-prov-covered.mjs ====

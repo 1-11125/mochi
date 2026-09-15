@@ -536,11 +536,105 @@
         if (!name) { const lbl = s.get('lbl-partner'); if (lbl) name = lbl; }
         if (!name) name = contactName(cid);
       } catch (e) {}
-      list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid });
+      list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid, own: 1 });
       saveRoster(list, cid);
       s.set(SEED_KEY, '1');
     } catch (e) {}
   }
+
+  // FIX 2026-09-15 #514 此间梦角归属自愈（多桌面「名字串桌」根治·存量救济层）
+  // 症状（用户报）：顶部 tag 切到桌面【景元】，卡片「查看TA的一天」左边的名字却是另一个
+  //   桌面联系人【应星】的梦角名；多机型同现（纯逻辑，与设备/内核无关）。
+  // 成因：早期版本按名认亲搬移 + 「认不到家就归当前桌面」把 A 桌面的梦角物理搬进 B 桌面
+  //   命名空间，并把错误归属固化进梦角 cid 字段；#409 把按名认亲降级为「一次性救回」后
+  //   cid 字段成为权威，已错放的数据再也回不来＝「一直存在、反复出现」。
+  // 判定（严格，宁不搬不错搬）：① 带 manual 标记（用户在梦角管理里手动添加/改名）的梦角
+  //   永不自动搬；② 梦角名必须落在「它物理所在桌面」的全部身份标识之外；③ 且精确命中
+  //   「唯一另一个桌面」的身份标识（0 个=无名可归、多个=撞名，都不搬）；④ 目标桌面已有
+  //   同名梦角则跳过（不制造重复）。身份链与 seedIfEmpty 播种链同源：
+  //   cs-lbl-partner（聊天独立昵称）→ lbl-partner（桌面昵称）→ 联系人名片名。
+  function effNick(cid) {
+    try {
+      const s = storeOf(cid);
+      if (s) {
+        const cs = String(s.get('cs-lbl-partner') || '').trim();
+        if (cs) return cs;
+        const lb = String(s.get('lbl-partner') || '').trim();
+        if (lb) return lb;
+      }
+    } catch (e) {}
+    return contactName(cid);
+  }
+  function identSet(cid) {
+    const out = {};
+    try {
+      const s = storeOf(cid);
+      if (s) {
+        const cs = String(s.get('cs-lbl-partner') || '').trim(); if (cs) out[cs] = 1;
+        const lb = String(s.get('lbl-partner') || '').trim(); if (lb) out[lb] = 1;
+      }
+    } catch (e) {}
+    const nm = String(contactName(cid) || '').trim(); if (nm) out[nm] = 1;
+    return out;
+  }
+  function hasKey(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+  function healBelonging() {
+    try {
+      const r = rootStore();
+      if (!r || !r.get('contacts')) return 0; // 注册表未就绪（LS 失效设备 IDB 回填未完成）：contacts() 不全，认亲必错
+      const list = contacts();
+      const idents = {}, rosters = {}, moves = [], dirty = {};
+      list.forEach(ct => { idents[ct.id] = identSet(ct.id); rosters[ct.id] = loadRoster(ct.id); });
+      // ① 本尊名字漂移对齐（单桌面也跑）：带 own 标记（自动播种）的梦角名恒等于本桌有效昵称。
+      //    用户改了聊天昵称/桌面昵称而梦角名没跟随 → 卡片名与桌面名对不上，这里纠回。
+      list.forEach(ct => {
+        const want = String(effNick(ct.id) || '').trim();
+        if (!want) return;
+        rosters[ct.id].forEach(c => {
+          if (!c || !c.own || c.manual) return;
+          if (String(c.name || '').trim() !== want) { c.name = want; dirty[ct.id] = 1; }
+        });
+      });
+      // ② 错放归属自愈（≥2 桌面才可能串桌）
+      if (list.length >= 2) {
+        list.forEach(ct => {
+          rosters[ct.id].forEach(c => {
+            if (!c || c.manual) return;
+            const n = String(c.name || '').trim();
+            if (!n || hasKey(idents[ct.id], n)) return; // 名字与所在桌面身份相符：正常
+            let home = '', hits = 0;
+            list.forEach(o => { if (o.id !== ct.id && hasKey(idents[o.id], n)) { home = o.id; hits++; } });
+            if (hits !== 1) return; // 无名可归 / 撞名多个：宁不搬不错搬
+            if (rosters[home].some(x => x && String(x.name || '').trim() === n)) return; // 目标已有本尊
+            if (moves.some(m => m.id === c.id)) return;
+            moves.push({ from: ct.id, to: home, id: c.id, name: n });
+          });
+        });
+      }
+      moves.forEach(m => {
+        const src = rosters[m.from], dst = rosters[m.to];
+        if (!src || !dst) return;
+        const i = src.findIndex(x => x.id === m.id);
+        if (i < 0 || dst.some(x => x.id === m.id)) return;
+        const c = src.splice(i, 1)[0];
+        c.cid = m.to; // cid 字段跟着搬：权威归属与物理位置一致，下次不再重复判定
+        dst.push(c);
+        dirty[m.from] = 1; dirty[m.to] = 1;
+        const stFrom = loadState(m.from), stTo = loadState(m.to);
+        if (stFrom[m.id] !== undefined) {
+          stTo[m.id] = stFrom[m.id]; delete stFrom[m.id];
+          saveState(stFrom, m.from); saveState(stTo, m.to);
+        }
+        // 搬空后清播种标记：该桌面恢复「第一次打开用自己的名字种下第一个梦角」
+        try { if (!src.length) { const s0 = storeOf(m.from); if (s0) s0.remove(SEED_KEY); } } catch (e) {}
+      });
+      const cids = Object.keys(dirty);
+      cids.forEach(cid => { if (rosters[cid]) saveRoster(rosters[cid], cid); });
+      if (cids.length) todayCacheMap = {}; // 归属/名字变了：各视图今日预测作废
+      return moves.length;
+    } catch (e) { return 0; }
+  }
+  window.cjianHealBelonging = healBelonging; // 暴露产品函数供回归脚本直接断言（不复刻实现）
 
   // ---- 随机选择核心（基础概率 + 世界时间 + 最近互动；性格不写死） ----
   function presenceWeights(worldHour) {
@@ -1013,6 +1107,7 @@
   function setView(v) {
     if (viewCid === v) return;
     viewCid = v;
+    try { healBelonging(); } catch (e) {} // FIX #514：切分组前先纠正错放归属（防别的桌面的梦角挂在本分组下）
     // 切换到非「全部」的具体桌面时：若该桌面从未打开过此间（未播种）会被展示为空态
     // 「此间还没有梦角」，这里用该 TA 的名字自动种下第一个梦角（与直接打开此间行为一致）。
     if (viewCid !== ALL) seedIfEmpty(viewCid);
@@ -1223,7 +1318,9 @@
     page.hidden = false;
     try { if (window.cjianNoteOpen) window.cjianNoteOpen(); } catch (e) {}
     viewCid = curCid(); // 每次打开回到当前桌面
-    seedIfEmpty(curCid()); // 该桌面第一次打开此间：种下自己的第一个梦角（用 TA 的名字）
+    // FIX #514：先纠正错放归属（搬空后自动重置播种标记），紧接着给该桌面种下自己的
+    // 第一个梦角（用 TA 的名字）——两件事同一拍完成，避免中间态被渲染出去
+    try { healBelonging(); seedIfEmpty(curCid()); } catch (e) {}
     window.renderCjian(true);
   };
   window.closeCjian = function () {
@@ -1325,7 +1422,7 @@
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             function (idxs) {
               const list = loadRoster(mCid);
-              list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid });
+              list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid, manual: 1 });
               saveRoster(list, mCid);
               toast('已加入此间：「' + pendingName + '」');
               pendingName = ''; pendingOffset = 0;
@@ -1335,7 +1432,7 @@
             function () { pendingName = ''; pendingOffset = 0; }, // 取消：不创建
             function () {
               const list = loadRoster(mCid);
-              list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid });
+              list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
               saveRoster(list, mCid);
               toast('已加入此间：「' + pendingName + '」');
               pendingName = ''; pendingOffset = 0;
@@ -1400,6 +1497,7 @@
         const c = list.find(x => x.id === (renameTarget ? renameTarget.id : ''));
         if (c) {
           c.name = n;
+          c.manual = 1; // 用户手动改名：打标记，归属自愈不再自动搬它（#514）
           saveRoster(list, mCid);
           toast('已改名为「' + n + '」');
         }
