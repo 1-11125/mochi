@@ -10,7 +10,11 @@
 // 断言组：
 //   S 结构前提（行仍是 chat-body 兄弟、行高 ≤ chat-body 下留白、产品暴露连发真链路钩子）
 //   R 根因复现（RED 基线：手工复刻旧写法 → 必然出现「抬 T px 再被钳回 T px」的位移）
-//   G 连发行为（真身链路 chatAddInTyped：逐帧零回退、非瞬跳、落地贴底、占位不遮最后一条）
+//   G 连发行为（真身链路 chatAddInTyped：**落地瞬间即已贴底**、无多帧滑动、逐帧零回退、占位不遮最后一条）
+//     G6/G7 是 #516 的判据（用户 2026-09-15 追加报障「除了第一条有优化，其他消息还是飞出来的」）：
+//     旧 in 侧跟底走 scrollChatBottomSmooth，气泡插入时底边落在消息区视口下方 +38.7px，再用 ~200ms
+//     滑上来＝肉眼一条条「飞出来」；改为插入帧内同步贴底后，落地那一刻 over ≤ 0 且 top≈max，
+//     全程不存在连续两帧以上的位移（不是滑动过程）。旧实现跑 G6 会得到 over=+38.7、G7 得到 ~12 帧段。
 //   P 相邻契约不回归（TA 单条仍跟底 / 解钉态不抢滚动权 #334·#378·#416 / 零异常）
 // 需要：Node 21+ + 本机 Chrome/Edge（CHROME_PATH 可指定）
 import { spawn } from 'node:child_process';
@@ -174,12 +178,24 @@ await settle();
 // ---------- G 组：连发行为（走产品真链路 addInTyped） ----------
 await ev(`(function(){
   var b = document.getElementById('chat-body');
-  window.__msTrace = []; window.__msOn = true;
-  var t0 = performance.now(), lastN = b.children.length, lastAppend = 0;
+  window.__msTrace = []; window.__msIns = []; window.__msOn = true;
+  var t0 = performance.now(), lastN = b.children.length;
+  // #516：记录每条气泡**插入那一瞬间**的几何——over>0 表示气泡底边落在消息区视口下方
+  // （必须先滚上来才看得见＝用户报的「消息飞出来」）。insert 时刻打字行刚被 hideTyping 收掉，
+  // 故这里的 max 就是「行隐藏态最大值」，top≈max 即「落地即贴底」。
+  new MutationObserver(function(muts){
+    muts.forEach(function(mu){
+      Array.prototype.forEach.call(mu.addedNodes, function(n){
+        if (n.nodeType !== 1 || !n.classList || !n.classList.contains('msg')) return;
+        var br = b.getBoundingClientRect(), r = n.getBoundingClientRect();
+        window.__msIns.push({ over: Math.round((r.bottom - br.bottom)*10)/10,
+          top: Math.round(b.scrollTop*100)/100,
+          max: Math.round((b.scrollHeight - b.clientHeight)*100)/100 });
+      });
+    });
+  }).observe(b, { childList: true });
   (function loop(){
     if (!window.__msOn) return;
-    var n = b.children.length;
-    if (n !== lastN) { lastN = n; lastAppend = performance.now(); }
     window.__msTrace.push([Math.round(performance.now()-t0), Math.round(b.scrollTop*100)/100]);
     requestAnimationFrame(loop);
   })();
@@ -233,10 +249,25 @@ for (const row of trace) {
 }
 check('G5 连发全程无逐帧回退（旧写法此处每轮下弹整整一行高 ~22px）', back === 0,
   '采样 ' + trace.length + ' 帧；最大回退 ' + Math.round(-maxBack * 10) / 10 + 'px' + (maxBack < -0.05 ? ' @' + maxBackAt : '') );
-check('G6 连发全程无瞬间跳到最底（走平滑，不出现一次性大跳）', fwdMax <= 40, '单帧最大前移 ' + Math.round(fwdMax * 10) / 10 + 'px');
+// FIX 2026-09-15 #516：契约变更——旧断言是「跟底必须走平滑、不允许一次性大跳」（为治
+// 「瞬时 scrollTop=scrollHeight 咻地一跳」而立的）。用户随后报「消息还是飞出来」（新气泡先在
+// 视口下方 ~39px 渲染、再用 ~200ms 滑上来），in 侧跟底已改为「插入帧内同步贴底」，
+// 判据随之换成下面两条（互补：一个守「落地即到位」，一个守「不是滑动过程」）。
+const ins = JSON.parse(await ev('JSON.stringify(window.__msIns)') || '[]');
+const landed = ins.filter((r) => r.over <= 1 && Math.abs(r.top - r.max) <= 2);
+check('G6 连发每条气泡**落地瞬间即已贴底**（#516 核心：不再先在视口下方渲染再滑上来＝「消息飞出来」；旧平滑实现此处 over=+38.7px）',
+  ins.length >= 3 && landed.length === ins.length,
+  (ins.map((r) => 'over=' + r.over).join(' / ') || '无插入记录') + ' → ' + landed.length + '/' + ins.length + ' 条落地即贴底');
+
+let run = 0, maxRun = 0;
+for (let i = 1; i < trace.length; i++) {
+  if (Math.abs(trace[i][1] - trace[i - 1][1]) >= 2) { run++; if (run > maxRun) maxRun = run; } else run = 0;
+}
+check('G7 连发全程不存在「多帧滑动过程」（连续位移帧段长 ≤1；旧平滑实现为 ~12 帧连续小位移＝肉眼看到的飞入）',
+  maxRun <= 1, '最长连续位移帧段 ' + maxRun + ' 帧；单帧最大前移 ' + Math.round(fwdMax * 10) / 10 + 'px');
 
 const gEnd = await stateOf();
-check('G7 连发结束后仍贴底（最新一条在视口内）',
+check('G8 连发结束后仍贴底（最新一条在视口内）',
   Math.abs(gEnd.top - gEnd.max) <= 2 || Math.abs(gEnd.top - gEnd.max) <= (struct.rowH + 2),
   'top=' + gEnd.top + ' max=' + gEnd.max + ' 打字行=' + (gEnd.typing ? '显示' : '隐藏'));
 

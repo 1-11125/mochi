@@ -120,12 +120,21 @@ function check(desc, ok, detail) {
 }
 
 // 消息区滚动状态快照
+// FIX 2026-09-15 #516：打字行与 #chat-body 是兄弟 flex 行——行可见时它压掉 chat-body 的
+// clientHeight，于是 scrollHeight − clientHeight 是「行显示态最大值」，比真·贴底位置高整整一行。
+// 产品现在的贴底目标（chatScrollMax）是**行隐藏态**的位置（＝最后一条消息离 chat-body 底边保留
+// 产品自己的 padding-bottom 留白，且行显/隐全程零位移——否则行一隐藏就被内核钳回＝下弹一行高）。
+// 故「是否贴底」一律拿 maxReal 判：行隐藏时 maxReal === max，行可见时 maxReal === max − 行高。
 const snap = () => evalJs(`(function(){
   var cb = document.getElementById('chat-body');
   if (!cb) return JSON.stringify({ err: 'no chat-body' });
+  var t = document.getElementById('chat-typing');
+  var tv = !!(t && !t.hidden), rh = tv ? t.offsetHeight : 0;
   return JSON.stringify({
     top: cb.scrollTop,
     max: cb.scrollHeight - cb.clientHeight,
+    maxReal: cb.scrollHeight - (cb.clientHeight + rh),
+    typing: tv, rowH: rh,
     h: cb.scrollHeight, ch: cb.clientHeight,
     near: (cb.scrollHeight - cb.scrollTop - cb.clientHeight) < 120
   });
@@ -141,7 +150,7 @@ for (let i = 1; i <= 40; i++) {
 }
 await settle();
 let s = JSON.parse(await snap() || '{}');
-check('初始发送 40 条后自动贴底', s.max > 600 && Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
+check('初始发送 40 条后自动贴底', s.max > 600 && Math.abs(s.top - s.maxReal) < 2, 'top=' + s.top + ' maxReal=' + s.maxReal + '（打字行=' + (s.typing ? '显示 ' + s.rowH + 'px' : '隐藏') + '）');
 
 // ---- 2. 轻微上翻（距底 >120px），再发送消息 —— 必须仍自动滚到最新 ----
 await evalJs("(function(){var cb=document.getElementById('chat-body');cb.scrollTop=Math.max(0,cb.scrollHeight-cb.clientHeight-260);return cb.scrollTop;})()");
@@ -151,7 +160,7 @@ check('轻微上翻后距底 >120px（守卫应失效场景）', !s.near, '距�
 await evalJs(`window.chatSendMsg('上翻后再发一条，应该自动滚回底部');`);
 await settle();
 s = JSON.parse(await snap() || '{}');
-check('上翻后发送消息 → 自动滚动到最新', Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
+check('上翻后发送消息 → 自动滚动到最新', Math.abs(s.top - s.maxReal) < 2, 'top=' + s.top + ' maxReal=' + s.maxReal + '（打字行=' + (s.typing ? '显示 ' + s.rowH + 'px' : '隐藏') + '）');
 
 // ---- 3. 大幅上翻（回看旧消息），TA 消息进来 —— 不打断阅读位置 ----
 // FIX #416：真实用户上翻必然先触摸（touchstart 解钉挂锚定）再拖动；旧脚本直接
@@ -176,7 +185,7 @@ check('翻旧消息时 TA 消息进来不打断位置', Math.abs(s.top - s.max) 
 await evalJs("(function(){var b=document.getElementById('chat-emoji-btn');if(b)b.click();var ep=document.getElementById('emoji-panel');if(ep)ep.hidden=false;return true;})()");
 await sleep(120);
 s = JSON.parse(await snap() || '{}');
-check('表情包面板打开后贴底', Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
+check('表情包面板打开后贴底', Math.abs(s.top - s.maxReal) < 2, 'top=' + s.top + ' maxReal=' + s.maxReal + '（打字行=' + (s.typing ? '显示 ' + s.rowH + 'px' : '隐藏') + '）');
 // 关闭表情包面板，避免遮挡后续断言
 await evalJs("(function(){var ep=document.getElementById('emoji-panel');if(ep)ep.hidden=true;return true;})()");
 await sleep(100);
@@ -189,7 +198,7 @@ await sleep(180); // 图片尚未返回，此刻应停在同步滚动的位置�
 s = JSON.parse(await snap() || '{}');
 await sleep(600); // 等图片返回 + 解码 + onload 补滚
 s = JSON.parse(await snap() || '{}');
-check('带图消息图片延迟加载完成后自动贴底', Math.abs(s.top - s.max) < 2, 'top=' + s.top + ' max=' + s.max);
+check('带图消息图片延迟加载完成后自动贴底', Math.abs(s.top - s.maxReal) < 2, 'top=' + s.top + ' maxReal=' + s.maxReal + '（打字行=' + (s.typing ? '显示 ' + s.rowH + 'px' : '隐藏') + '）');
 
 // ---- 6. 翻旧消息时带图消息进来 → 不打断阅读位置（守卫仍生效） ----
 // 同 #3：先触摸模拟「用户已接管滚动」；图用 /slow2.png（唯一 URL）避免被 #256

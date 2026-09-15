@@ -141,6 +141,23 @@ const armRes = await evalJs(`(function(){
 })()`);
 ok(armRes === 'ok', 'S2 观测器安装+卡片打标', String(armRes));
 
+// —— #517 布防：把 #cc-toast 置为「干净未显示」态并记录它在领取瞬间的每一次变化 ——
+// 用户要求「领取联系人发送的心意币红包，不需要显示黑色的红包提示弹窗」＝领取分支不再 toast。
+// 采样必须贴着点击：老代码的 toast 2s 后自行隐藏，晚采样会采到已隐藏态＝假绿（本脚本踩过）。
+await evalJs(`(function(){
+  var t=document.getElementById('cc-toast');
+  if(!t){t=document.createElement('div');t.id='cc-toast';document.body.appendChild(t);}
+  t.className='cc-toast'; t.textContent='__unused__';
+  window.__toastLog=[];
+  var snap=function(tag){var e=document.getElementById('cc-toast');
+    window.__toastLog.push(tag+' | '+(e?e.className:'absent')+' | '+(e?String(e.textContent||'').slice(0,34):''));};
+  snap('arm');
+  var mo=new MutationObserver(function(){snap('mut');});
+  mo.observe(t,{attributes:true,attributeFilter:['class'],childList:true,characterData:true,subtree:true});
+  [0,30,80,150,300,700,1400,2200,3000].forEach(function(ms){setTimeout(function(){snap('t+'+ms);},ms);});
+  return true;
+})()`);
+
 // —— S3 点击领取红包 ——
 await evalJs("(function(){var c=document.querySelector('.msg-rp-card');if(c)c.click();return true;})()");
 await sleep(3000);
@@ -161,6 +178,17 @@ const guarded = ['rpPatchStatusInPlace(msgs.indexOf(rpRec))', 'rpPatchStatusInPl
 ok(guarded.every((g) => chatSrc.includes(g)), 'S4 领取/退回/TA领取/TA退回/自动领取五处全部走守卫');
 ok(chatSrc.includes("if (!rpPatchStatusInPlace(rpIdx)) renderWindow(true, true);"), 'S4 用户领取路径守卫（报障主路径）');
 ok(cssSrc.includes('.msg-rp-card.opened') && cssSrc.includes('.msg-rp-card.expired'), 'S4 CSS 状态类 opened/expired 在位（补丁目标）');
+
+// —— S5（FIX 2026-09-15 #517）领取全程 #cc-toast 不得进入显示态，也不得被写入领取文案 ——
+// 判别力实证（2026-09-15）：把 `toast('已领取' + amtTxt);` 临时塞回产物副本 → 本两条红，轨迹实录
+// `mut | cc-toast show | 已领取（心意币 ¥5.20）`（＝用户报的黑浮层）；#517 后轨迹全程 `cc-toast | __unused__`。
+const toastLog = await evalJs('JSON.stringify(window.__toastLog||[])');
+const logArr = JSON.parse(toastLog || '[]');
+const vShow = logArr.filter((x) => /\bshow\b/.test(x));
+const vTxt = logArr.filter((x) => /已领取/.test(x));
+console.log('  · #cc-toast 轨迹（前 5 帧）: ' + JSON.stringify(logArr.slice(0, 5)));
+ok(vShow.length === 0, 'S5 领取全程 #cc-toast 未进入显示态（#517：黑浮层已移除）', JSON.stringify(vShow.slice(0, 3)));
+ok(vTxt.length === 0, 'S5 领取全程未向 #cc-toast 写入「已领取…」文案', JSON.stringify(vTxt.slice(0, 3)));
 
 console.log(fail ? ('FAIL ' + pass + '/' + (pass + fail)) : ('ALL PASS ' + pass + '/' + (pass + fail)));
 chrome.kill();

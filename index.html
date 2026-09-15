@@ -9539,9 +9539,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789454500150">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.705</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 14:41<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789455266508">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.706</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 14:54<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10868,7 +10868,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.705</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.706</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11178,7 +11178,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.705</span>
+              <span class="lic-ver">v3.26.706</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -29719,9 +29719,16 @@ if (!chatLoadingEl) return;
 chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !msgs.length);
 }
 let chatPinnedBottom = true;
+function chatScrollMax() {
+const cb = document.getElementById('chat-body');
+if (!cb) return 0;
+const t = typingEl;
+const typingH = (t && !t.hidden && t.offsetHeight) ? t.offsetHeight : 0;
+return Math.max(0, cb.scrollHeight - (cb.clientHeight + typingH));
+}
 function scrollChatBottom() {
 const cb = document.getElementById('chat-body');
-if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = cb.scrollHeight; }
+if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
 }
 let _ccSmoothT = null;
 function scrollChatBottomSmooth() {
@@ -29729,7 +29736,7 @@ const cb = document.getElementById('chat-body');
 if (!cb) return;
 chatPinnedBottom = true;
 cb.classList.remove('scroll-anchor-auto');
-const target = cb.scrollHeight - cb.clientHeight;
+const target = chatScrollMax(); // FIX 2026-09-15 #516 同 chatScrollMax：打字行显示期写入不得越过「行隐藏态最大值」（否则行一隐藏必被钳回＝下弹一行高）
 const start = cb.scrollTop;
 if (target <= start) { cb.scrollTop = target; return; }
 const dur = Math.min(360, 180 + (target - start) * 0.35);
@@ -29774,7 +29781,7 @@ scrollChatBottom();
 requestAnimationFrame(scrollChatBottom);
 setTimeout(scrollChatBottom, 120);
 } else {
-scrollChatBottomSmooth();
+scrollChatBottom();
 requestAnimationFrame(() => { if (chatPinnedBottom) scrollChatBottomSmooth(); });
 setTimeout(() => { if (chatVisible() && chatPinnedBottom) scrollChatBottomSmooth(); }, 150);
 }
@@ -30387,7 +30394,6 @@ wallet.myBalance += Math.round((rpRec.rpAmount || 0) * 100);
 rpWalletSet(wallet);
 saveMsgsNow();
 const amtTxt = '（心意币 ¥' + Number(rpRec.rpAmount || 0).toFixed(2) + '）';
-toast('已领取' + amtTxt);
 if (!rpPatchStatusInPlace(rpIdx)) renderWindow(true, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
 setTimeout(() => addIn('你领取了红包' + amtTxt, { special: 'poke' }), randInt(400, 1000));
 return;
@@ -95855,4 +95861,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu2b094m -->
+<!-- __MOCHI_EOF__ mu2bgogc -->

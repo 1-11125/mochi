@@ -1396,10 +1396,26 @@ chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !msgs.length);
 // FIX #162（iPad Air 7 / iPadOS 26 Safari：对方回一条消息视图就向上漂一次，不贴最新消息）
 // 贴底钉住态：程序化滚到底时置真，用户手动触摸/滚轮滚动即解除；复写与图片补滚只在钉住时进行
 let chatPinnedBottom = true;
+// FIX 2026-09-15 #516：聊天区「贴底目标」统一取值——打字行可见时必须把它的高度扣回去。
+// 「对方正在输入」行是 #chat-body 的**兄弟**节点（同属 #page-chat 的 flex 行）：行一显示就把
+// chat-body 的可视高压掉一行高 T（≈22px），scrollHeight 一点没动 ⇒ 此时 scrollHeight − clientHeight
+// 得到的"最大值"比行隐藏态的真最大值虚高 T px。#514 只治了 showTyping/hideTyping 这两个写点，
+// 但 out 侧 120ms 兜底、in 侧 rAF/150ms 兜底**仍可能在打字行显示期执行**（实测连发第 1 条落地前
+// 一帧的 scrollTop 正落在这份虚高值上）——行一隐藏最大值当场回落 T px、内核把 scrollTop 钳掉
+// T px ＝ 内容凭空下弹 T px（#514 的残根）。而 T ≤ .chat-body 的 padding-bottom:24px（产品给底部
+// 留的空白呼吸区）⇒「贴底」本来就该指行隐藏态的位置，与行是否显示无关：
+// 目标 = scrollHeight − (clientHeight + 行高)。纯几何、零机型/内核分支。
+function chatScrollMax() {
+const cb = document.getElementById('chat-body');
+if (!cb) return 0;
+const t = typingEl;
+const typingH = (t && !t.hidden && t.offsetHeight) ? t.offsetHeight : 0;
+return Math.max(0, cb.scrollHeight - (cb.clientHeight + typingH));
+}
 function scrollChatBottom() {
 const cb = document.getElementById('chat-body');
 // FIX #316：回钉贴底时同步关回浏览器滚动锚定（与 #199 overflow-anchor:none 同口径）
-if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = cb.scrollHeight; }
+if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
 }
 // v3.3x.x：TA 自发消息跟底的平滑滚动——replace 瞬时 scrollTop=scrollHeight 的"咻地一跳"。
 // rAF 驱动 + ease-out 三次加速曲线（起步快、末端自然落定），只改 scrollTop（无布局属性动画）；
@@ -1411,7 +1427,7 @@ const cb = document.getElementById('chat-body');
 if (!cb) return;
 chatPinnedBottom = true;
 cb.classList.remove('scroll-anchor-auto');
-const target = cb.scrollHeight - cb.clientHeight;
+const target = chatScrollMax(); // FIX 2026-09-15 #516 同 chatScrollMax：打字行显示期写入不得越过「行隐藏态最大值」（否则行一隐藏必被钳回＝下弹一行高）
 const start = cb.scrollTop;
 if (target <= start) { cb.scrollTop = target; return; }
 const dur = Math.min(360, 180 + (target - start) * 0.35);
@@ -1477,11 +1493,16 @@ if (!out && !userFollow && !chatPinnedBottom) return;
 	requestAnimationFrame(scrollChatBottom);
 	setTimeout(scrollChatBottom, 120);
 	} else {
-	// TA 自发（in）：平滑滚到底——瞬时 scrollTop=scrollHeight 会让整段记录"咻地跳一下"，突兀；
-	// 平滑后新气泡一边淡入一边随列表上升进入视口，观感更自然。
-	scrollChatBottomSmooth();
-	// FIX #162：来消息侧原本只写一次 scrollTop——iPadOS 26 Safari 内核可能丢弃/被迟到的
-	// 布局变更顶开；平滑动画后再复写两次兜底（钉住期间才复写，用户已手动滚走则不抢滚动权）
+	// FIX 2026-09-15 #516：TA 自发（in）跟底改为**插入帧内同步瞬时**贴底。
+	// 旧实现是插入之后才启动平滑滚动：新气泡先在视口下方渲染（实测 390×844、气泡高 53px 时
+	// 底边落在消息区视口下方 +38.7px，连发三条一模一样），再用 ~200ms 滑上来——用户看到的就是
+	// 「消息一条条飞出来」（报障原话：第一条好了，其他消息还是飞出来的）。同步写让「布局 + 滚动」
+	// 落在同一任务内完成，浏览器绘制时内容已对齐 ＝ 新气泡直接在底部贴边长出（内容整体上移一格、
+	// 最新一条始终贴着底边），零滑动、零位移，与「自己发消息」（out）侧同构。
+	scrollChatBottom();
+	// FIX #162 兜底保留：iPadOS 26 Safari 内核可能丢弃首写 / 被迟到的布局变更顶开。兜底复写走
+	// 平滑——此刻通常已经贴底（target ≤ start 直接落位、不产生动画），真有迟到差距时平滑收口，
+	// 不会把视口远处的内容"咻"地一次拽到底。
 	requestAnimationFrame(() => { if (chatPinnedBottom) scrollChatBottomSmooth(); });
 	setTimeout(() => { if (chatVisible() && chatPinnedBottom) scrollChatBottomSmooth(); }, 150);
 	}
@@ -2198,7 +2219,11 @@ wallet.myBalance += Math.round((rpRec.rpAmount || 0) * 100);
 rpWalletSet(wallet);
 saveMsgsNow();
 const amtTxt = '（心意币 ¥' + Number(rpRec.rpAmount || 0).toFixed(2) + '）';
-toast('已领取' + amtTxt);
+// FIX 2026-09-15 #517 用户要求：领取联系人发来的红包不再弹黑色提示浮层（#cc-toast 黑底白字，见
+// chat-pages.css 的 #cc-toast / chat.js 的 toast()）。领取反馈已有两处、信息零丢失——①卡片自身状态
+// 就地转「已领取」（rpPatchStatusInPlace，不重建窗口）②聊天里 poke 留痕「你领取了红包（心意币 ¥x）」。
+// 黑色浮层只是重复打扰。勿恢复：原为 toast('已领取' + amtTxt);
+// 注：本条上方「等待 TA 领取」的 toast 是无效操作提示（点自己发出的未领红包），语义不同，保留。
 if (!rpPatchStatusInPlace(rpIdx)) renderWindow(true, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
 setTimeout(() => addIn('你领取了红包' + amtTxt, { special: 'poke' }), randInt(400, 1000));
 return;
