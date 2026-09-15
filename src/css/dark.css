@@ -918,6 +918,10 @@
 [data-theme="dark"] .garden-achv { background:rgba(255,255,255,.05); }
 [data-theme="dark"] .garden-craft { background:rgba(255,255,255,.05); }
 [data-theme="dark"] .garden-tab { background:var(--dark-hover); }
+[data-theme="dark"] .garden-tabs { background:linear-gradient(180deg, rgba(24,26,24,.96) 70%, rgba(24,26,24,0)); }
+[data-theme="dark"] .garden-tab { border-color:var(--dark-border); }
+[data-theme="dark"] .garden-fold-tile { border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.04); }
+[data-theme="dark"] .garden-log-toggle { color:#7ed6a2; }
 [data-theme="dark"] .report-row { background:rgba(255,255,255,.08); }
 [data-theme="dark"] .garden-dex-search { border-color:var(--dark-border-12); background:rgba(40,40,40,.8); }
 [data-theme="dark"] .garden-dex-season { background:var(--dark-hover); }

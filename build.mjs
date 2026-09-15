@@ -687,7 +687,7 @@ const FIX_SENTINELS = [
   { name: '#185 联系人空气泡·回复最终非空兜底（固定回复字卡/默认主字卡为空白时落 FALLBACK，删掉此行空气泡回归）', file: 'js/chat.js', needle: "if (typeof t !== 'string' || !t.trim()) t = pick(FALLBACK_REPLY_POOL);" },
   { name: '#185 联系人空气泡·渲染端空白占位（历史空白记录显示占位而非空壳）', file: 'js/chat.js', needle: 'const __blankMsg = !__rawText.trim();' },
   { name: '#185 删除消息防复活·del 分支同步摘尾巴日志（漏 chatTailDrop 则刷新后 chatTailMerge 把删掉的消息拼回）', file: 'js/chat.js', needle: 'chatTailDrop(msgs[idx]); // FIX 2026-09-05 #185' },
-  { name: '#186 表情/图片空白·GC 引用扫描补全（旧正则漏群聊键/LS 快照→清理孤儿媒体误删池数据）', file: 'js/media-pool.js', needle: 'const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;' },
+  { name: '#186 表情/图片空白·GC 引用扫描补全（旧正则漏群聊键/LS 快照→清理孤儿媒体误删池数据）', file: 'js/media-pool.js', needle: 'const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;' },
   { name: '#186 表情/图片空白·写池失败回滚令牌化（flush 返回 false 不得带令牌 saveMsgs，防令牌入库池数据丢失）', file: 'js/chat.js', needle: 'if (_ok === false) {' },
   { name: '#187 专属字卡串桌面·主动消息跨桌面守卫（tryAutoSend 入口捕获 cid，await 取回后放行前拦截；删掉则 B 桌面触发的主动消息把 B 池专属卡发进 A 桌面聊天）', file: 'js/chat.js', needle: 'const sameAutoCid = () => (window.__activeCid || \'default\') === autoCid;' },
   { name: '#187 专属字卡串桌面·取回后与消息定时器逐层拦截（await 后 + 每条 setTimeout 入口）', file: 'js/chat.js', needle: 'if (!sameAutoCid()) return; // FIX #187 取回期间已切桌面：池子是旧桌面的，整条主动消息放弃' },
@@ -699,8 +699,8 @@ const FIX_SENTINELS = [
   { name: '#188/#496 朋友圈无图·save 就绪后写回走守卫（#496 口径演进：post-ready 改延后落盘，锚在低频节流表达式与 flush 兜底）', file: 'js/feed.js', needle: 'FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt)' },
   { name: '#496 朋友圈评论/点赞卡顿止血·pagehide/切后台强制刷盘兜底（主键落盘改合并+低频+空闲窗口后，离页必落）', file: 'js/feed.js', needle: 'function flushFeedWrite() {' },
   { name: '#496 朋友圈评论/点赞卡顿止血·load() 内存真相层（免整包 JSON.parse 的点击帧长任务；原多行带缩进锚因构建拼接剥行首缩进恒失配，收口批改单行唯一式）', file: 'js/feed.js', needle: 'list = feedMem;' },
-  // ==== 2026-09-15 #500 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
-  { name: '#500 nudgeInputVisible 几何记忆闸（删则 250ms 看门狗恢复恒拽回：信箱回信/写信页聚焦输入框后下滑必被拉回原位）', file: 'js/mobile-adapt.js', needle: 'if (scroller.__nudgeGeom === geomKey) return;' },
+  // ==== 2026-09-15 #501 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
+  { name: '#501 nudgeInputVisible 几何记忆闸（删则 250ms 看门狗恢复恒拽回：信箱回信/写信页聚焦输入框后下滑必被拉回原位）', file: 'js/mobile-adapt.js', needle: 'if (scroller.__nudgeGeom === geomKey) return;' },
   // v3.26.x #189：全屏滑动闪烁 + iPad 全屏开关无效果（三根因五处修复，见 FIX-REGRESSION #189）
   { name: '#189 自愈层复活·healViewport 补 documentElement 声明（v3.26 重写漏写，裸 d=window.d undefined → TypeError 被 try 吞，稳态残留清理/大平移归零/#174 缩放自愈整层静默失效）', file: 'js/mobile-adapt.js', needle: 'var d = document.documentElement; // FIX 2026-09-05 #189' },
   { name: '#189 滑动闪烁·稳态自愈 pin 改条件式（清残留/大偏移才归零；无条件 pin 把全屏覆盖形态下用户滚动每秒拽回顶部=闪烁）', file: 'js/mobile-adapt.js', needle: 'if (_cleanedResidue || winScrollY() > KB_SCROLL_HEAL) pinScrollTop();' },
@@ -1450,11 +1450,19 @@ const FIX_SENTINELS = [
   //      ③浇水有效期 24h→36h（WATER_SEC）、凋谢宽限 48h→72h（WILT_SEC=259200）、新增温室装饰满保水；
   //      ④工具条「补种」空地按上次品种一键补齐（不消耗 rareInv 稀有库存））====
   { name: '#446 扩建改自愿·开垦资格到顶分支（plotN≥资格给提示弹窗；删则回退等级自动送地，「建这么多养不过来」复发）', file: 'js/garden.js', needle: 'if (cur >= ent) {' },
-  { name: '#446 plotN 存量迁移（load 按当时等级一次性补齐资格＝老玩家已有的地不缩一块；删则存量玩家升级后地块被裁回 12 块）', file: 'js/garden.js', needle: 'd.plotN = PLOTS + (lv0 >= 3 ? 4 : 0)' },
+  { name: '#446 plotN 存量迁移（load 按当时等级一次性补齐资格＝老玩家已有的地不缩一块；删则存量玩家升级后地块被裁回 12 块）', file: 'js/garden.js', needle: 'd.plotN = PLOTS + (lv0 >= 3 ? 2 : 0)' },
   { name: '#446 里程碑奖励与地块脱钩（跨 Lv3/5/8/12 送稀有种子；删则「不开垦=亏升级奖励」的强制感回归）', file: 'js/garden.js', needle: 'msgs.push("🎁 里程碑奖励：稀有种子「"' },
   { name: '#446 一键补种（空地按上次品种补齐且不消耗稀有库存；删则 30 块地日常=逐块点种植，养护负担复发）', file: 'js/garden.js', needle: 'data.lastSeed && T[data.lastSeed] && !T[data.lastSeed].rare' },
   { name: '#446 浇水有效期 36h（waterLvl 分母 WATER_SEC；删则回退 24h 天天浇＝多地块高负担复发）', file: 'js/garden.js', needle: 'plot.watered) / WATER_SEC);' },
-  { name: '#446 凋谢宽限 72h（WILT_SEC=259200；删则回退 48h 收不及时就枯萎＝收花心意币 ¥52→¥1.3 钱损复发）', file: 'js/garden.js', needle: 'var WILT_SEC = 259200;' },
+  { name: '#446 凋谢宽限 72h→#503 再放宽 96h（WILT_SEC=345600；删则回退收不及时就枯萎＝收花心意币钱损复发）', file: 'js/garden.js', needle: 'var WILT_SEC = 345600;' },
+  // ==== #503 花园减负与 UI 重排（用户反馈「开垦的地太多太挤」：上限瘦身+手动缩地+空地折叠+日志全量+日志独立 tab）====
+  { name: '#503 资格缩小不裁已有地（plotCount 去掉向下钳制＝老存档 plotN 高于新资格也一块不裁；改回钳制则上限瘦身后老玩家多种的花被静默删除）', file: 'js/garden.js', needle: 'return data.plotN || PLOTS;' },
+  { name: '#503 手动缩地 shrinkPlots（只收尾部空地、下限 4 块、有花不裁；删则「开多了收不回」复发）', file: 'js/garden.js', needle: 'while (cur > MIN_PLOTS && !data.p[cur - 1]) cur--;' },
+  { name: '#503 收地按钮登记（工具条 shrink；删则缩地无入口）', file: 'js/garden.js', needle: 'sb.dataset.tool = "shrink";' },
+  { name: '#503 空地折叠（默认只铺有花地块+空地折叠砖；删则地多满屏虚线格太挤复发）', file: 'js/garden.js', needle: 'var emptyFolded = true;' },
+  { name: '#503 日志全量查看（默认 20 条+「查看全部」展开；删则联系人的打理记录看不全复发）', file: 'js/garden.js', needle: 'garden-log-toggle' },
+  { name: '#503 日志容量 100→300（slice(-300)；改回 100 则老记录被挤掉复发）', file: 'js/garden.js', needle: 'if (data.l.length > 300) data.l = data.l.slice(-300);' },
+  { name: '#503 日志独立 tab（garden-log 移入「日志」分区；删则日志又挤回花园页）', file: 'js/garden.js', needle: 'move("garden-log", "log");' },
   // ==== 2026-09-14 #450 收藏页「大量内容加载失败，只出现问号黑块」+图片显示异常（iPhone 15 Pro Max Chrome 等多机型；
   //      iOS 裂图=黑底问号块。根因：miss 读并发上限 MISS_READ_MAX=8，一屏令牌图超上限的部分当年拿不到读也不再被扫
   //      ——src 保持 @@m: 令牌＝浏览器当相对 URL 404＝裂图；原实现只在 DOM 再变更时才重扫，收藏列表翻到底不再动的
@@ -1572,6 +1580,15 @@ const FIX_SENTINELS = [
   { name: '#497d 导出前实测计量·Blob 过 base64 膨胀进文件口径（删则导出文件预估对音乐/二进制严重偏小）', file: 'js/data-backup.js', needle: 'projFile += c + Math.round(blob * 4 / 3);' },
   { name: '#497d 导出前阈值按实测导出体积判（删则回退整域 estimate 口径＝同域其他站点又冒充本机数据）', file: 'js/data-backup.js', needle: 'const bigRef = info ? info.projFile : usage;' },
   { name: '#497d 选范围弹窗带配额占比+各模式导出文件预估（删则「导出前看不到导出的文件多大」复发）', file: 'js/data-backup.js', needle: "'预计导出文件体积：完整备份 ≈ '" },
+  { name: '#505 链接导入按钮只留表情包/图片分类（切分类/进页按当前分类显隐；删则按钮重新在所有大分类 tab 常驻）', file: 'js/chatcard.js', needle: "b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';" },
+  { name: '#506 导出自包含·令牌还原助手（删则导出文件里 sticker/image 的 @@m: 令牌不再还原成图片数据＝导出缺表情包/图片全部数据复发）', file: 'js/chatcard.js', needle: 'function ccExportExpandTokens(obj) {' },
+  { name: '#506 导出接线·导出数据先还原再落文件', file: 'js/chatcard.js', needle: 'ccExportExpandTokens(out).then(exp => {' },
+  { name: '#506 媒体池令牌完整解析 API（导出还原的取数来源）', file: 'js/media-pool.js', needle: 'window.mochiMediaResolve = function (s) {' },
+  { name: '#506 媒体池 GC/Coverage 引用面补字卡库两键（删则库内令牌引用的池条目被误判孤儿删除＝图片永久丢失）', file: 'js/media-pool.js', needle: 'chat-tail|cc-groups(?:-public)?)$' },
+  { name: '#504a 进聊天页回弹·rAF 稳定窗（删则回退固定 400ms 复写＝视口内图片迟到长高当帧以旧 scrollTop 绘制，聊天记录回弹一下再恢复复发）', file: 'js/chat.js', needle: 'let chatEntrySettleToken = 0;' },
+  { name: '#504b 稳定窗守卫：token/离页/解钉即停（删则用户上翻期稳定窗仍抢滚动权＝#162 不打扰契约被破坏）', file: 'js/chat.js', needle: 'chatEntrySettleToken || !chatVisible() || !chatPinnedBottom' },
+  { name: '#504c 稳定窗变高当帧同步回钉（删则内容长高后到下一帧才修正＝回弹帧可见）', file: 'js/chat.js', needle: 'if (h !== lastH) { lastH = h; scrollChatBottom(); }' },
+  { name: '#504d 图片 onload 同步回钉（删则长高后 rAF 下一帧才修正＝回弹帧可见）', file: 'js/chat.js', needle: 'scrollChatBottom(); requestAnimationFrame(scrollChatBottom);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

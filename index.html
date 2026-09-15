@@ -8052,6 +8052,10 @@ radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), rgba(255,255,255,.1
 [data-theme="dark"] .garden-achv { background:rgba(255,255,255,.05); }
 [data-theme="dark"] .garden-craft { background:rgba(255,255,255,.05); }
 [data-theme="dark"] .garden-tab { background:var(--dark-hover); }
+[data-theme="dark"] .garden-tabs { background:linear-gradient(180deg, rgba(24,26,24,.96) 70%, rgba(24,26,24,0)); }
+[data-theme="dark"] .garden-tab { border-color:var(--dark-border); }
+[data-theme="dark"] .garden-fold-tile { border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.04); }
+[data-theme="dark"] .garden-log-toggle { color:#7ed6a2; }
 [data-theme="dark"] .report-row { background:rgba(255,255,255,.08); }
 [data-theme="dark"] .garden-dex-search { border-color:var(--dark-border-12); background:rgba(40,40,40,.8); }
 [data-theme="dark"] .garden-dex-season { background:var(--dark-hover); }
@@ -8367,22 +8371,38 @@ opacity: .5;
 .achv-emoji { font-size: 18px; }
 .achv-name { color: var(--ink); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .garden-tabs {
-display: flex; gap: 4px; padding: 0 18px 10px;
+display: flex; gap: 6px; padding: 8px 14px 10px;
 overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+position: sticky; top: 0; z-index: 8;
+background: linear-gradient(180deg, rgba(245,245,240,.96) 70%, rgba(245,245,240,0));
 }
 .garden-tabs::-webkit-scrollbar { display: none; }
 .garden-tab {
-flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
-padding: 10px 4px; border-radius: 12px; border: none;
-background: rgba(0,0,0,.04); cursor: pointer; font-family: inherit; color: var(--ink);
+flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 5px;
+padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(0,0,0,.08);
+background: rgba(255,255,255,.9); cursor: pointer; font-family: inherit; color: var(--ink);
 transition: background .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent;
 }
-.garden-tab.active { background: linear-gradient(90deg, #66bb6a, #43a047); color: #fff; }
-.gt-emoji { font-size: 15px; }
+.garden-tab.active { background: linear-gradient(90deg, #66bb6a, #43a047); color: #fff; border-color: transparent; }
+.gt-emoji { font-size: 14px; }
 .garden-tab.active .gt-emoji { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
-.gt-name { font-size: 10px; font-weight: 600; }
-.garden-panel { display: none; }
+.gt-name { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.garden-panel { display: none; padding-bottom: 8px; }
 .garden-panel.active { display: block; }
+.garden-fold-tile {
+aspect-ratio: 1; border-radius: 14px;
+border: 1.5px dashed rgba(0,0,0,.18); background: rgba(255,255,255,.55);
+display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+font-size: 11px; color: var(--muted); cursor: pointer; user-select: none;
+-webkit-tap-highlight-color: transparent;
+}
+.garden-fold-tile:active { background: rgba(0,0,0,.05); }
+.garden-fold-hint { font-size: 9px; opacity: .6; }
+.garden-log-toggle {
+float: right; border: none; background: none; font-family: inherit;
+font-size: 11px; font-weight: 600; color: #43a047; cursor: pointer; padding: 0;
+}
+.garden-log-list { max-height: 320px; }
 .garden-craft { margin: 0 18px 18px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.6); }
 .garden-craft-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
 .garden-craft-list { display: flex; flex-direction: column; gap: 10px; }
@@ -8469,6 +8489,8 @@ color: #c67800;
 .garden-tool.hybrid:active { background: #9c27b0; }
 .garden-tool.reclaim { background: rgba(0,150,136,.1); border-color: rgba(0,150,136,.3); }
 .garden-tool.reclaim:active { background: #009688; }
+.garden-tool.shrink { background: rgba(233,30,99,.07); border-color: rgba(233,30,99,.25); }
+.garden-tool.shrink:active { background: #e91e63; }
 .garden-tool.replant.batch { background: rgba(76,175,80,.12); border-color: rgba(76,175,80,.3); }
 .garden-craft-sub { font-size: 13px; font-weight: 700; margin: 14px 0 8px; }
 .hybrid-list .garden-recipe.hybrid { background: rgba(156,39,176,.05); }
@@ -9484,9 +9506,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789431319527">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.692</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 08:15<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789432489678">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.694</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 08:34<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10805,7 +10827,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.692</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.694</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11115,7 +11137,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.692</span>
+              <span class="lic-ver">v3.26.694</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -19758,6 +19780,15 @@ window.idbGet(FULL + m[1]).then(function (v) {
 done(typeof v === 'string' && v.indexOf('data:audio/') === 0 ? v : null);
 }).catch(function () { done(null); });
 };
+window.mochiMediaResolve = function (s) {
+const m = TOKEN_RE.exec(String(s || ''));
+if (!m) return Promise.resolve(null);
+const c = map.get(m[1]);
+if (typeof c === 'string' && c) return Promise.resolve(c);
+return window.idbGet(FULL + m[1]).then(function (v) {
+return (typeof v === 'string' && v) ? v : null;
+}).catch(function () { return null; });
+};
 async function sha256Hex(str) {
 const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
 const arr = new Uint8Array(buf);
@@ -19924,7 +19955,7 @@ const keep = new Set();
 map.forEach(function (_v, h) { keep.add(h); });
 writeBuf.forEach(function (p) { keep.add(String(p.k).slice(FULL.length)); });
 Object.keys(inflight).forEach(function (h) { keep.add(h); });
-const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
 const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
 try {
 for (let li = 0; li < localStorage.length; li++) {
@@ -19995,7 +20026,7 @@ const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
 return (async function () {
 const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
 if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
 const SCAN_RE = /@@m:([0-9a-f]{32})/g;
 let keys;
 try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
@@ -29883,14 +29914,14 @@ playVoiceInChat(btn, v.src);
 };
 btn.addEventListener('click', function (e) {
 e.stopPropagation();
-if (Date.now() < vTapGuard) return; // #500 touch 直驱已播，吞补发 click 防双跑
+if (Date.now() < vTapGuard) return; // #504 touch 直驱已播，吞补发 click 防双跑
 vPlayAction();
 });
 btn.addEventListener('touchend', function (e) {
 const mt = e.changedTouches && e.changedTouches[0];
 if (!mt) return;
-if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #500 长按让位菜单路（原语义保留）
-e.stopPropagation(); // #500 不入 body touchend＝不开消息菜单、不布吞 click 窗口
+if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #504 长按让位菜单路（原语义保留）
+e.stopPropagation(); // #504 不入 body touchend＝不开消息菜单、不布吞 click 窗口
 endMsgHold();
 msgTapStart = null; msgAnyTap = null;
 if (Date.now() < vTapGuard) return;
@@ -30617,7 +30648,7 @@ body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;
 if (!chatPinnedBottom || batchRendering || !chatVisible()) return;
-requestAnimationFrame(scrollChatBottom);
+scrollChatBottom(); requestAnimationFrame(scrollChatBottom); // FIX #504：同步写当帧即修正（load 先于新尺寸首帧绘制），rAF 留作部分内核丢弃同步写的兜底
 }, true);
 const EMPTY_SNIFF_MAX_B64 = 96 * 1024;
 function alphaSampleEmpty(im) {
@@ -32608,6 +32639,20 @@ const chatPage = document.getElementById('page-chat');
 function scrollToBottom() {
 body.scrollTop = body.scrollHeight;
 }
+let chatEntrySettleToken = 0;
+function chatEntrySettle() {
+if (!window.requestAnimationFrame) return;
+const my = ++chatEntrySettleToken;
+let lastH = body.scrollHeight;
+const t0 = Date.now();
+const tick = function () {
+if (my !== chatEntrySettleToken || !chatVisible() || !chatPinnedBottom) return;
+const h = body.scrollHeight;
+if (h !== lastH) { lastH = h; scrollChatBottom(); }
+if (Date.now() - t0 < 1200) requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+}
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
@@ -32627,7 +32672,7 @@ if (window.requestAnimationFrame) {
 requestAnimationFrame(scrollToBottom);
 requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
 }
-setTimeout(scrollToBottom, 400);
+chatEntrySettle();
 if (typingOn && chatVisible()) {
 typingEl.hidden = false;
 scrollChatBottom(); // typing 行占位时保持最后一条可见
@@ -41637,6 +41682,7 @@ selected.clear();
 tabsWrap.querySelectorAll('.cc-tab').forEach(t => t.classList.remove('sel'));
 tab.classList.add('sel');
 cur = tab.dataset.type;
+syncLinkImportVis();
 q = '';
 curGroup = '';
 const s1 = document.getElementById('cc-search-input');
@@ -42108,6 +42154,58 @@ staticText: '将删除当前字卡库内同分类各分组中内容完全相同�
 }
 });
 }
+function ccExportExpandTokens(obj) {
+const hashes = {};
+let hasTok = false;
+(function collect(o) {
+if (typeof o === 'string') {
+if (o.indexOf('@@m:') >= 0) {
+hasTok = true;
+const re = /@@m:([0-9a-f]{32})/g; let m;
+while ((m = re.exec(o))) hashes[m[1]] = null;
+}
+return;
+}
+if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) collect(o[i]); return; }
+if (o && typeof o === 'object') { Object.keys(o).forEach(k => collect(o[k])); }
+})(obj);
+if (!hasTok || !window.mochiMediaResolve) return Promise.resolve({ ok: 0, miss: 0 });
+const list = Object.keys(hashes);
+function pull(i) {
+if (i >= list.length) return Promise.resolve();
+const batch = list.slice(i, i + 16);
+return Promise.all(batch.map(h => window.mochiMediaResolve('@@m:' + h))).then(rs => {
+batch.forEach((h, j) => { if (typeof rs[j] === 'string' && rs[j]) hashes[h] = rs[j]; });
+return pull(i + 16);
+});
+}
+return pull(0).then(() => {
+let ok = 0, miss = 0;
+(function replace(o) {
+if (Array.isArray(o)) {
+for (let i = 0; i < o.length; i++) {
+const c = o[i];
+if (typeof c !== 'string') { replace(c); continue; }
+if (c.indexOf('@@m:') < 0) continue;
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+const v = hashes[c.slice(4)];
+if (v) { o[i] = v; ok++; } else miss++;
+} else {
+o[i] = c.replace(/@@m:([0-9a-f]{32})/g, (m0, h) => hashes[h] || m0);
+}
+}
+} else if (o && typeof o === 'object') {
+Object.keys(o).forEach(k => {
+const c = o[k];
+if (typeof c !== 'string') { replace(c); return; }
+if (c.indexOf('@@m:') < 0) return;
+o[k] = c.replace(/@@m:([0-9a-f]{32})/g, (m0, h) => hashes[h] || m0);
+});
+}
+})(obj);
+return { ok: ok, miss: miss };
+});
+}
 const ccExport = document.getElementById('cc-export');
 if (ccExport) {
 const EXPORT_CATS = [
@@ -42212,6 +42310,7 @@ if (!st || !st.on) return;
 if (st.grps[gname]) out[key].push([gname, Array.isArray(cs) ? cs.slice() : []]);
 });
 });
+ccExportExpandTokens(out).then(exp => {
 const data = JSON.stringify(out, null, 2);
 const blob = new Blob([data], { type: 'application/json' });
 const a = document.createElement('a');
@@ -42221,7 +42320,10 @@ document.body.appendChild(a);
 a.click();
 setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
 ceCloseFn();
-toast('已导出所选字卡');
+toast('已导出所选字卡' +
+(exp.ok ? '（' + exp.ok + ' 张图片已从媒体池还原进文件）' : '') +
+(exp.miss ? '；' + exp.miss + ' 张图片数据缺失无法还原' : ''));
+});
 } catch (e) { toast('导出失败'); }
 });
 }
@@ -42658,6 +42760,8 @@ CC_FULL_CK_KEYS.forEach(k => { nItems += Array.isArray(data.checkin[k].list) ? d
 nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
 CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
 const out = { app: CC_FULL_MARK, v: 1, time: Date.now(), data: data };
+Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).then(rs => {
+const okN = rs[0].ok + rs[1].ok, missN = rs[0].miss + rs[1].miss;
 const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
 const a = document.createElement('a');
 a.href = URL.createObjectURL(blob);
@@ -42665,7 +42769,10 @@ a.download = 'mochi自定义字卡全量.json';
 document.body.appendChild(a);
 a.click();
 setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-toast('已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题');
+toast('已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题' +
+(okN ? ' · ' + okN + ' 张图片已从媒体池还原进文件' : '') +
+(missN ? '；' + missN + ' 张图片数据缺失无法还原' : ''));
+});
 } catch (e) { toast('导出失败：' + ((e && e.message) || '内部错误')); }
 };
 Promise.resolve(hydrateLibScopes(['public', 'own'])).then(build);
@@ -42999,6 +43106,11 @@ groups: (groups[cur] || []).map(g => g[0])
 });
 }
 });
+}
+function syncLinkImportVis() {
+const b = document.getElementById('cc-import-link');
+if (!b) return;
+b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';
 }
 function splitUrlItems(raw) {
 return String(raw || '').split(/\r\n|\r|\n/)
@@ -43601,8 +43713,10 @@ const ex = document.getElementById('csn-export');
 const ok = document.getElementById('csn-ok');
 const cl = document.getElementById('csn-close');
 if (ex) ex.addEventListener('click', function () {
+const payload = mergeWithPublic(loadGroups());
+ccExportExpandTokens(payload).then(function (exp) {
 try {
-const data = JSON.stringify(mergeWithPublic(loadGroups()), null, 2);
+const data = JSON.stringify(payload, null, 2);
 const blob = new Blob([data], { type: 'application/json' });
 const a = document.createElement('a');
 a.href = URL.createObjectURL(blob);
@@ -43610,9 +43724,10 @@ a.download = 'mochi字卡库备份.json';
 document.body.appendChild(a);
 a.click();
 setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-toast('字卡备份已导出');
+toast('字卡备份已导出' + (exp.miss ? '；' + exp.miss + ' 张图片数据缺失无法还原' : ''));
 } catch (e) { toast('导出失败'); }
 finish();
+});
 });
 if (ok) ok.addEventListener('click', finish);
 if (cl) cl.addEventListener('click', finish);
@@ -43692,6 +43807,7 @@ const isMjfree = t.dataset.type === 'mjfree';
 t.classList.toggle('sel', t.dataset.type === cur);
 t.hidden = ccFuncOnly ? (!isFunc || isMjfree) : (isFunc && !isMjfree);
 });
+syncLinkImportVis();
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 const ccPage = document.getElementById('page-custom-cards');
 if (ccPage) ccPage.hidden = false;
@@ -76101,10 +76217,10 @@ var G = "garden-data";
 try { var _legacyG = window.xyStore("xy-home-v2"); if (_legacyG && _legacyG.get("garden-data-global")) _legacyG.remove("garden-data-global"); } catch (e) {}
 var PLOTS = 12;
 var PI = 1800;
-var WILT_SEC = 259200;
-var WATER_SEC = 129600;
+var WILT_SEC = 345600;
+var WATER_SEC = 172800;
 function pn() { return s.get("lbl-partner") || "TA"; }
-function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 4 : 0) + (lv0 >= 5 ? 4 : 0) + (lv0 >= 8 ? 4 : 0) + (lv0 >= 12 ? 6 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
+function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 2 : 0) + (lv0 >= 5 ? 2 : 0) + (lv0 >= 8 ? 2 : 0) + (lv0 >= 12 ? 4 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
 var saveLock = true, dataPf = null;
 function save(d) {
 try {
@@ -76355,48 +76471,80 @@ h += "<span class=\"garden-plot-empty-txt\">\u7A7A\u5730</span>";
 }
 return h;
 }
+var emptyFolded = true;
 function renderGrid() {
 var grid = document.getElementById("garden-grid");
 if (!grid) return;
-if (grid.children.length !== data.p.length) {
+var empties = 0;
+for (var e0 = 0; e0 < data.p.length; e0++) if (!data.p[e0]) empties++;
+var showFold = empties > 0 && emptyFolded;
+var visible = [];
+for (var v0 = 0; v0 < data.p.length; v0++) { if (data.p[v0] || !emptyFolded) visible.push(v0); }
+if (showFold) visible.push(-1); // -1 = 折叠砖
+if (grid.children.length !== visible.length) {
 var hf = "";
-for (var i = 0; i < data.p.length; i++) {
-var plot = data.p[i];
+for (var i = 0; i < visible.length; i++) {
+var idx = visible[i];
+if (idx < 0) { hf += "<div class=\"garden-fold-tile\" data-fold=\"1\" role=\"button\"><span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span></div>"; continue; }
+var plot = data.p[idx];
 var si = stageInfo(plot);
 var wl = waterLvl(plot);
-var cls = "garden-plot" + (si ? "" : " empty") + (wl > 0 ? " watered" : "") + (selPlot === i ? " selected" : "") + (si && si.bloomed ? " bloomed" : "") + (si && si.wilted ? " wilted" : "") + (plot && T[plot.type] && T[plot.type].rare ? " rare" : "");
-hf += "<div class=\"" + cls + "\" data-idx=\"" + i + "\">" + buildPlotInner(plot, si, wl) + "</div>";
+var cls = "garden-plot" + (si ? "" : " empty") + (wl > 0 ? " watered" : "") + (selPlot === idx ? " selected" : "") + (si && si.bloomed ? " bloomed" : "") + (si && si.wilted ? " wilted" : "") + (plot && T[plot.type] && T[plot.type].rare ? " rare" : "");
+hf += "<div class=\"" + cls + "\" data-idx=\"" + idx + "\">" + buildPlotInner(plot, si, wl) + "</div>";
 }
 grid.innerHTML = hf;
 return;
 }
-for (var j = 0; j < data.p.length; j++) {
-var p = data.p[j];
+for (var j = 0; j < visible.length; j++) {
+var idx2 = visible[j];
+var el = grid.children[j];
+if (idx2 < 0) {
+var fsig = "fold|" + empties;
+if (el.getAttribute("data-sig") !== fsig) { el.setAttribute("data-sig", fsig); el.innerHTML = "<span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span>"; }
+continue;
+}
+var p = data.p[idx2];
 var s = stageInfo(p);
 var w = waterLvl(p);
-var c = "garden-plot" + (s ? "" : " empty") + (w > 0 ? " watered" : "") + (selPlot === j ? " selected" : "") + (s && s.bloomed ? " bloomed" : "") + (s && s.wilted ? " wilted" : "") + (p && T[p.type] && T[p.type].rare ? " rare" : "");
+var c = "garden-plot" + (s ? "" : " empty") + (w > 0 ? " watered" : "") + (selPlot === idx2 ? " selected" : "") + (s && s.bloomed ? " bloomed" : "") + (s && s.wilted ? " wilted" : "") + (p && T[p.type] && T[p.type].rare ? " rare" : "");
 var em = s ? (s.wilted ? "\uD83E\uDD40" : s.emoji) : "\uD83C\uDF31";
 var st = s ? (s.wilted ? "\u5DF2\u51CB\u8C22" : s.bloomed ? "\u6210\u719F" : fmtShort(s.nextSec)) : "\u7A7A\u5730";
 var pg = s && !s.bloomed && !s.wilted ? Math.floor(s.progress * 10) : -1;
 var wp = w > 0 ? Math.floor(w * 10) : 0;
 var sig = c + "|" + em + "|" + st + "|" + pg + "|" + wp + "|" + (p && p.pot || 1);
-var el = grid.children[j];
 if (el.getAttribute("data-sig") === sig) continue;
 el.setAttribute("data-sig", sig);
-el.setAttribute("data-idx", j);
+el.setAttribute("data-idx", idx2);
 el.className = c;
 el.innerHTML = buildPlotInner(p, s, w);
 }
 }
+var showLogAll = false;
 function renderLog() {
 var el = document.getElementById("garden-log-list");
 if (!el) return;
-var entries = (data.l || []).slice(-20).reverse();
-if (!entries.length) { el.innerHTML = "<div class=\"garden-log-item\">\u8FD8\u6CA1\u6709\u8BB0\u5F55\FF0C\u5F00\u59CB\u6253\u7406\u82B1\u56ED\u5427</div>"; return; }
+var all = data.l || [];
+var entries = (showLogAll ? all : all.slice(-20)).slice().reverse();
+var title = document.querySelector("#garden-log .garden-log-title");
+if (title) {
+var tg = document.getElementById("garden-log-toggle");
+if (!tg) {
+tg = document.createElement("button");
+tg.id = "garden-log-toggle";
+tg.className = "garden-log-toggle";
+tg.addEventListener("click", function () { showLogAll = !showLogAll; renderLog(); });
+title.appendChild(tg);
+}
+tg.textContent = all.length ? (showLogAll ? "收起" : "查看全部 " + all.length + " 条") : "";
+tg.style.display = all.length ? "" : "none";
+}
+if (!entries.length) { el.innerHTML = "<div class=\"garden-log-item\">\u8FD8\u6CA1\u6709\u8BB0\u5F55\uFF0C\u5F00\u59CB\u6253\u7406\u82B1\u56ED\u5427</div>"; return; }
+var today = new Date(); today.setHours(0, 0, 0, 0);
 var h = "";
 entries.forEach(function (e) {
 var tm = e.tm ? new Date(e.tm * 1000) : new Date();
 var ts = tm.getHours().toString().padStart(2, "0") + ":" + tm.getMinutes().toString().padStart(2, "0");
+if (showLogAll && tm < today) ts = (tm.getMonth() + 1) + "-" + tm.getDate() + " " + ts;
 var who = (e.who || ""), act = (e.act || "");
 if (window.taFit) { who = window.taFit(who); act = window.taFit(act); }
 h += "<div class=\"garden-log-item\"><span class=\"who\">" + who + "</span><span class=\"act\">" + act + "</span><span class=\"tm\">" + ts + "</span></div>";
@@ -76405,7 +76553,7 @@ el.innerHTML = h;
 }
 function addLog(who, act) {
 data.l.push({ who: who, act: act, tm: Math.floor(Date.now() / 1000) });
-if (data.l.length > 100) data.l = data.l.slice(-100);
+if (data.l.length > 300) data.l = data.l.slice(-300);
 }
 function updWaterStreak() {
 var t = todayStr();
@@ -76462,12 +76610,10 @@ setTimeout(function () { if (fx.parentNode) fx.remove(); }, dur || 900);
 }
 function plotEntitled() {
 var lv = gLv();
-return PLOTS + (lv >= 3 ? 4 : 0) + (lv >= 5 ? 4 : 0) + (lv >= 8 ? 4 : 0) + (lv >= 12 ? 6 : 0);
+return PLOTS + (lv >= 3 ? 2 : 0) + (lv >= 5 ? 2 : 0) + (lv >= 8 ? 2 : 0) + (lv >= 12 ? 4 : 0);
 }
 function plotCount() {
-var n = data.plotN || PLOTS;
-var ent = plotEntitled();
-return n > ent ? ent : n;
+return data.plotN || PLOTS;
 }
 function syncPlots() {
 var n = plotCount();
@@ -76482,10 +76628,10 @@ var old = data.lvSeen;
 data.lvSeen = lv;
 save(data);
 var msgs = [];
-if (old < 3 && lv >= 3) msgs.push("Lv.3 解锁 4 个新地块开垦资格");
-if (old < 5 && lv >= 5) msgs.push("Lv.5 解锁 4 个新地块开垦资格");
-if (old < 8 && lv >= 8) msgs.push("Lv.8 解锁 4 个新地块开垦资格");
-if (old < 12 && lv >= 12) msgs.push("Lv.12 解锁 6 个新地块开垦资格");
+if (old < 3 && lv >= 3) msgs.push("Lv.3 解锁 2 个新地块开垦资格");
+if (old < 5 && lv >= 5) msgs.push("Lv.5 解锁 2 个新地块开垦资格");
+if (old < 8 && lv >= 8) msgs.push("Lv.8 解锁 2 个新地块开垦资格");
+if (old < 12 && lv >= 12) msgs.push("Lv.12 解锁 4 个新地块开垦资格");
 var mile = [3, 5, 8, 12].filter(function (m) { return old < m && lv >= m; });
 if (mile.length) {
 var rareKsM = Object.keys(T).filter(function (k) { return T[k].rare; });
@@ -76600,6 +76746,30 @@ btn.className = "garden-tool reclaim";
 btn.dataset.tool = "reclaim";
 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l5.5-5.5"/><path d="M9.5 14.5L17 7l2.5 2.5-7.5 7.5z"/><path d="M15 4.5L19.5 9"/></svg><span class="garden-tool-label">\u5F00\u58A6</span>';
 tb.appendChild(btn);
+var sb = document.createElement("button");
+sb.id = "garden-tool-shrink";
+sb.className = "garden-tool shrink";
+sb.dataset.tool = "shrink";
+sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 10l6-6"/><path d="M4 14l6 6"/></svg><span class="garden-tool-label">收地</span>';
+tb.appendChild(sb);
+}
+var MIN_PLOTS = 4;
+function shrinkPlots() {
+var cur = data.plotN || PLOTS;
+while (cur > MIN_PLOTS && !data.p[cur - 1]) cur--;
+if (cur === (data.plotN || PLOTS)) {
+if (window.openModal) window.openModal("收回地块", "", function () {}, { pills: [{ label: "好的", value: "ok" }], noInput: true, staticText: "没有可收的空地（最少保留 4 块）\n有花的地块不会被收回，收掉的地随时可再开垦" });
+return;
+}
+var from = data.plotN || PLOTS;
+if (!window.openModal) { data.plotN = cur; syncPlots(); save(data); renderAll(); return; }
+window.openModal("收回地块", "", function (v) {
+if (v !== "1") return;
+data.plotN = cur;
+syncPlots();
+addLog("★", "收回了 " + (from - cur) + " 块空地，花园现有 " + cur + " 块地");
+save(data); renderAll();
+}, { pills: [{ label: "收回 " + (from - cur) + " 块", value: "1" }, { label: "再想想", value: "0" }], noInput: true, staticText: "把尾部 " + (from - cur) + " 块空地收回，保留 " + cur + " 块？\n只收空地，种了花的地不受影响；以后想用随时再开垦" });
 }
 function ensureReplantBtn() {
 if (document.getElementById("garden-tool-replant")) return;
@@ -76616,7 +76786,7 @@ function reclaimPlots() {
 var ent = plotEntitled();
 var cur = data.plotN || PLOTS;
 if (cur >= ent) {
-if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +4\uFF0CLv.12 +6\uFF09" });
+if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +2\uFF0CLv.12 +4\uFF09" });
 return;
 }
 if (!window.openModal) { data.plotN = ent; syncPlots(); save(data); renderAll(); return; }
@@ -77141,6 +77311,7 @@ var curTab = "garden";
 var dexSearch = "", dexSeason = -1;
 var TABS = [
 { id: "garden", n: "\u82B1\u56ED", e: "\uD83C\uDF31" },
+{ id: "log", n: "\u65E5\u5FD7", e: "\uD83D\uDCDC" },
 { id: "dex", n: "\u56FE\u9274", e: "\uD83D\uDCD6" },
 { id: "craft", n: "\u5DE5\u574A", e: "\uD83E\uDDE4" },
 { id: "shop", n: "\u88C5\u9970", e: "\uD83C\uDFE0" },
@@ -77179,7 +77350,7 @@ move("garden-grid", "garden");
 move("garden-stats", "garden");
 move("garden-visitor", "garden");
 move("garden-toolbar", "garden");
-move("garden-log", "garden");
+move("garden-log", "log");
 move("garden-dex", "dex");
 move("garden-inv", "craft");
 move("garden-decor", "shop");
@@ -77415,6 +77586,8 @@ save(data);
 } catch (e) {}
 }
 function handlePlotClick(e) {
+var fold = e.target.closest(".garden-fold-tile");
+if (fold) { emptyFolded = !emptyFolded; renderGrid(); return; }
 var el = e.target.closest(".garden-plot");
 if (!el) return;
 var idx = parseInt(el.getAttribute("data-idx"));
@@ -77478,6 +77651,8 @@ upgradePlot(selPlot);
 replantAll();
 } else if (tool === "reclaim") {
 reclaimPlots();
+} else if (tool === "shrink") {
+shrinkPlots();
 }
 }
 function waterAll() {
@@ -80685,6 +80860,8 @@ let touchTracks = {};
 function gW() { return (state && state.gw) || GW; }
 function gH() { return (state && state.gh) || GH; }
 function curMode() { return (state && state.mode) || (modeSel && modeSel.value) || 'duo'; }
+function nextMode() { return (modeSel && MODES[modeSel.value]) ? modeSel.value : 'duo'; }
+function nextFoodN() { return foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET; }
 function foodTargetN() { return (state && state.foodTarget) || FOOD_TARGET; }
 function activeSnakes() {
 if (!state) return [];
@@ -81010,7 +81187,7 @@ function mkSnake(body, dir, ctrl) {
 return { body: body, dir: dir, nextDir: { x: dir.x, y: dir.y }, nextDir2: null, alive: true, score: 0, foodCount: 0, ctrl: ctrl, eatT: 0, _prev: null };
 }
 function newGame(diff) {
-const mode = curMode();
+const mode = nextMode();
 const py = Math.floor(GH / 2);
 const prevFlags = state && state.flags || { wall: false, safe: false };
 const playerBody = [];
@@ -81019,7 +81196,7 @@ state = {
 diff: diff || 'normal',
 mode: mode,
 gw: GW, gh: GH,
-foodTarget: foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET,
+foodTarget: nextFoodN(),
 player: mkSnake(playerBody, { x: 1, y: 0 }, 'p1'),
 p2: null,
 opp: null,
@@ -81036,6 +81213,10 @@ state.opp = mkSnake(oppBody, { x: 0, y: 1 }, 'ai');
 const p2Body = [];
 for (let i = 0; i < INIT_LEN; i++) p2Body.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
 state.p2 = mkSnake(p2Body, { x: -1, y: 0 }, 'p2');
+} else if (mode === 'pvp') {
+const oppBody = [];
+for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
+state.opp = mkSnake(oppBody, { x: -1, y: 0 }, 'p2');
 } else {
 const oppBody = [];
 for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
@@ -81805,8 +81986,12 @@ player: { body: cloneBody(state.player.body), alive: state.player.alive, score: 
 dir: { x: state.player.dir.x, y: state.player.dir.y },
 nextDir: state.player.nextDir ? { x: state.player.nextDir.x, y: state.player.nextDir.y } : null,
 nextDir2: state.player.nextDir2 ? { x: state.player.nextDir2.x, y: state.player.nextDir2.y } : null },
-p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score) } : null,
-opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl },
+p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score),
+dir: { x: state.p2.dir.x, y: state.p2.dir.y },
+nextDir: state.p2.nextDir ? { x: state.p2.nextDir.x, y: state.p2.nextDir.y } : null } : null,
+opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl,
+dir: { x: state.opp.dir.x, y: state.opp.dir.y },
+nextDir: state.opp.nextDir ? { x: state.opp.nextDir.x, y: state.opp.nextDir.y } : null },
 foods: state.foods.map(function (f) { return { x: f.x, y: f.y }; }),
 elapsed: state.elapsed
 };
@@ -94962,4 +95147,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu1x7euf -->
+<!-- __MOCHI_EOF__ mu1xwhqm -->

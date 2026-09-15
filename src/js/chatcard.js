@@ -1383,6 +1383,7 @@
       tabsWrap.querySelectorAll('.cc-tab').forEach(t => t.classList.remove('sel'));
       tab.classList.add('sel');
       cur = tab.dataset.type;
+      syncLinkImportVis();
       q = '';
       curGroup = '';
       // 清空两个搜索框
@@ -1904,6 +1905,63 @@
   }
 
   // ================= 导出数据（v3.7.x：弹窗选择分类 + 分组后导出 json） =================
+  // FIX 2026-09-15 #506：导出自包含——媒体池令牌 @@m:hash 还原成真实 dataURL 再落文件。
+  // 背景：#387 修复前的版本曾把令牌化后的内存缓存整包写回库键（写回泄漏），旧备份导入
+  // 也会把令牌带进库——sticker/image 混有令牌卡时，导出直读原始键＝文件里是 @@m:hex
+  // 而不是图片数据（用户反馈「导出数据不包括表情包和图片的全部数据」），换设备/池被清
+  // 后永久坏图。导出前按池键批量取回还原；池里已缺失的保持原样并计数提示。
+  function ccExportExpandTokens(obj) {
+    const hashes = {};
+    let hasTok = false;
+    (function collect(o) {
+      if (typeof o === 'string') {
+        if (o.indexOf('@@m:') >= 0) {
+          hasTok = true;
+          const re = /@@m:([0-9a-f]{32})/g; let m;
+          while ((m = re.exec(o))) hashes[m[1]] = null;
+        }
+        return;
+      }
+      if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) collect(o[i]); return; }
+      if (o && typeof o === 'object') { Object.keys(o).forEach(k => collect(o[k])); }
+    })(obj);
+    if (!hasTok || !window.mochiMediaResolve) return Promise.resolve({ ok: 0, miss: 0 });
+    const list = Object.keys(hashes);
+    function pull(i) {
+      if (i >= list.length) return Promise.resolve();
+      const batch = list.slice(i, i + 16);
+      return Promise.all(batch.map(h => window.mochiMediaResolve('@@m:' + h))).then(rs => {
+        batch.forEach((h, j) => { if (typeof rs[j] === 'string' && rs[j]) hashes[h] = rs[j]; });
+        return pull(i + 16);
+      });
+    }
+    return pull(0).then(() => {
+      let ok = 0, miss = 0;
+      (function replace(o) {
+        if (Array.isArray(o)) {
+          for (let i = 0; i < o.length; i++) {
+            const c = o[i];
+            if (typeof c !== 'string') { replace(c); continue; }
+            if (c.indexOf('@@m:') < 0) continue;
+            if (window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
+              const v = hashes[c.slice(4)];
+              if (v) { o[i] = v; ok++; } else miss++;
+            } else {
+              o[i] = c.replace(/@@m:([0-9a-f]{32})/g, (m0, h) => hashes[h] || m0);
+            }
+          }
+        } else if (o && typeof o === 'object') {
+          Object.keys(o).forEach(k => {
+            const c = o[k];
+            if (typeof c !== 'string') { replace(c); return; }
+            if (c.indexOf('@@m:') < 0) return;
+            o[k] = c.replace(/@@m:([0-9a-f]{32})/g, (m0, h) => hashes[h] || m0);
+          });
+        }
+      })(obj);
+      return { ok: ok, miss: miss };
+    });
+  }
   const ccExport = document.getElementById('cc-export');
   if (ccExport) {
     // 7 大分类 key + 显示名（与分类 tab 一致）
@@ -2015,16 +2073,21 @@
                 if (st.grps[gname]) out[key].push([gname, Array.isArray(cs) ? cs.slice() : []]);
               });
             });
-            const data = JSON.stringify(out, null, 2);
-            const blob = new Blob([data], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'mochi字卡库数据.json';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-            ceCloseFn();
-            toast('已导出所选字卡');
+            // #506：先还原媒体池令牌再落文件（导出文件必须自包含）
+            ccExportExpandTokens(out).then(exp => {
+              const data = JSON.stringify(out, null, 2);
+              const blob = new Blob([data], { type: 'application/json' });
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = 'mochi字卡库数据.json';
+              document.body.appendChild(a);
+              a.click();
+              setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
+              ceCloseFn();
+              toast('已导出所选字卡' +
+                (exp.ok ? '（' + exp.ok + ' 张图片已从媒体池还原进文件）' : '') +
+                (exp.miss ? '；' + exp.miss + ' 张图片数据缺失无法还原' : ''));
+            });
           } catch (e) { toast('导出失败'); }
         });
       }
@@ -2548,14 +2611,20 @@
           nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
           CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
           const out = { app: CC_FULL_MARK, v: 1, time: Date.now(), data: data };
-          const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = 'mochi自定义字卡全量.json';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-          toast('已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题');
+          // #506：cc 双作用域同样先还原媒体池令牌再落文件
+          Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).then(rs => {
+            const okN = rs[0].ok + rs[1].ok, missN = rs[0].miss + rs[1].miss;
+            const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'mochi自定义字卡全量.json';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
+            toast('已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题' +
+              (okN ? ' · ' + okN + ' 张图片已从媒体池还原进文件' : '') +
+              (missN ? '；' + missN + ' 张图片数据缺失无法还原' : ''));
+          });
         } catch (e) { toast('导出失败：' + ((e && e.message) || '内部错误')); }
       };
       // 导出前也走权威取回链：挂起在 IDB 的大键先拉回 store 再读（与列表页角标同一防线）
@@ -2950,6 +3019,16 @@
         });
       }
     });
+  }
+
+  // FIX 2026-09-15 #505：链接导入按钮只属于【表情包】【图片】两个媒体分类——按钮常驻
+  // 工具栏导致其余大分类 tab（主字卡/颜文字/emoji/拍一拍/语音/功能分类）也显示，
+  // 点了只吃 toast 拦截（用户反馈）。切分类/进页时按当前分类显隐；弹窗前的分类守卫
+  // 保留作兜底。
+  function syncLinkImportVis() {
+    const b = document.getElementById('cc-import-link');
+    if (!b) return;
+    b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';
   }
 
   // ================= 链接导入图片（v3.11.x，单链接/批量链接通用） =================
@@ -3719,8 +3798,11 @@
       const ok = document.getElementById('csn-ok');
       const cl = document.getElementById('csn-close');
       if (ex) ex.addEventListener('click', function () {
-        try {
-          const data = JSON.stringify(mergeWithPublic(loadGroups()), null, 2);
+        // #506：引导备份同样先还原媒体池令牌再落文件
+        const payload = mergeWithPublic(loadGroups());
+        ccExportExpandTokens(payload).then(function (exp) {
+          try {
+            const data = JSON.stringify(payload, null, 2);
           const blob = new Blob([data], { type: 'application/json' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
@@ -3728,9 +3810,10 @@
           document.body.appendChild(a);
           a.click();
           setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-          toast('字卡备份已导出');
-        } catch (e) { toast('导出失败'); }
-        finish();
+          toast('字卡备份已导出' + (exp.miss ? '；' + exp.miss + ' 张图片数据缺失无法还原' : ''));
+          } catch (e) { toast('导出失败'); }
+          finish();
+        });
       });
       if (ok) ok.addEventListener('click', finish);
       if (cl) cl.addEventListener('click', finish);
@@ -3839,6 +3922,7 @@
       t.classList.toggle('sel', t.dataset.type === cur);
       t.hidden = ccFuncOnly ? (!isFunc || isMjfree) : (isFunc && !isMjfree);
     });
+    syncLinkImportVis();
     document.querySelectorAll('.page').forEach(p => p.hidden = true);
     const ccPage = document.getElementById('page-custom-cards');
     if (ccPage) ccPage.hidden = false;

@@ -1726,7 +1726,7 @@ b.innerHTML = (prefixHtml || '') + '<div class="msg-voice" data-src="' + attrEsc
 '</div>';
 const btn = b.querySelector('.msg-voice-play');
 if (btn) {
-// FIX 2026-09-15 #500 语音播放按钮 touch 直驱（「点我发的语音听不了/点了只弹菜单」多机型同报，
+// FIX 2026-09-15 #504 语音播放按钮 touch 直驱（「点我发的语音听不了/点了只弹菜单」多机型同报，
 // 用户明说其他设备型号也有、要求零机型分支）：#480 气泡轻点直驱把播放按钮的轻点也当「点气泡」——
 // body touchend 先开消息菜单+布 800ms 吞 click 窗口，吞 click 族内核（Via/夸克/部分壳与内核版本）
 // 补发的 click 根本不来或被 body 层吞掉＝点播放永远播不出；健康内核也是菜单/播放双触发。
@@ -1751,14 +1751,14 @@ playVoiceInChat(btn, v.src);
 };
 btn.addEventListener('click', function (e) {
 e.stopPropagation();
-if (Date.now() < vTapGuard) return; // #500 touch 直驱已播，吞补发 click 防双跑
+if (Date.now() < vTapGuard) return; // #504 touch 直驱已播，吞补发 click 防双跑
 vPlayAction();
 });
 btn.addEventListener('touchend', function (e) {
 const mt = e.changedTouches && e.changedTouches[0];
 if (!mt) return;
-if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #500 长按让位菜单路（原语义保留）
-e.stopPropagation(); // #500 不入 body touchend＝不开消息菜单、不布吞 click 窗口
+if (msgAnyTap && Date.now() - msgAnyTap.t > 450) return; // #504 长按让位菜单路（原语义保留）
+e.stopPropagation(); // #504 不入 body touchend＝不开消息菜单、不布吞 click 窗口
 endMsgHold();
 msgTapStart = null; msgAnyTap = null;
 if (Date.now() < vTapGuard) return;
@@ -2594,7 +2594,7 @@ body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;
 if (!chatPinnedBottom || batchRendering || !chatVisible()) return;
-requestAnimationFrame(scrollChatBottom);
+scrollChatBottom(); requestAnimationFrame(scrollChatBottom); // FIX #504：同步写当帧即修正（load 先于新尺寸首帧绘制），rAF 留作部分内核丢弃同步写的兜底
 }, true);
 // FIX 2026-09-06 #202 表情/图片加载失败占位：#186 只覆盖了媒体池令牌缺失，其余失败路径
 // （远程 http 图断网/原图失效/混合内容拦截、dataURL 解码失败、parts 混合消息里的图）此前
@@ -4858,6 +4858,28 @@ const chatPage = document.getElementById('page-chat');
 function scrollToBottom() {
 body.scrollTop = body.scrollHeight;
 }
+// FIX #504（红米 K80 Chrome 等多机型报「从桌面点开聊天，聊天记录回弹一下再恢复」）：
+// 进页贴底后，视口内 loading=lazy 图片迟至 ~400ms 才加载完成、内容一次性长高数百 px
+// （无头 390×844 实测 sh 16811→17324@397ms）——旧固定 400ms 复写定时器只是「碰巧」盖住
+// 这一下，真机解码更慢时长高落在 400ms 之后＝当帧以旧 scrollTop 绘制（#199 已关内核
+// 滚动锚定、#162 图片 onload 补偿是 rAF 下一帧才写）＝可见回弹一拍。改 rAF 稳定窗：
+// 进页后 1.2s 内每帧比对 scrollHeight，变高【当帧】同步回钉（rAF 回调先于本帧绘制、
+// 读 scrollHeight 即强制布局＝同帧修正，不等下一帧）；用户触摸解钉/离页即停＝#162
+// 「不打扰」契约零改动；零机型分支、零视觉改动。
+let chatEntrySettleToken = 0;
+function chatEntrySettle() {
+if (!window.requestAnimationFrame) return;
+const my = ++chatEntrySettleToken;
+let lastH = body.scrollHeight;
+const t0 = Date.now();
+const tick = function () {
+if (my !== chatEntrySettleToken || !chatVisible() || !chatPinnedBottom) return;
+const h = body.scrollHeight;
+if (h !== lastH) { lastH = h; scrollChatBottom(); }
+if (Date.now() - t0 < 1200) requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+}
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
@@ -4884,7 +4906,7 @@ if (window.requestAnimationFrame) {
 requestAnimationFrame(scrollToBottom);
 requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
 }
-setTimeout(scrollToBottom, 400);
+chatEntrySettle();
 if (typingOn && chatVisible()) {
 typingEl.hidden = false;
 scrollChatBottom(); // typing 行占位时保持最后一条可见

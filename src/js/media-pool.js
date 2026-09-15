@@ -142,6 +142,18 @@
       done(typeof v === 'string' && v.indexOf('data:audio/') === 0 ? v : null);
     }).catch(function () { done(null); });
   };
+  // FIX 2026-09-15 #503 令牌完整解析（字卡库导出还原用）：map 命中直回，否则 idbGet
+  // 池键原值（不限音频，图片/任意 data: 都回）；不回填 map（导出属一次性全量读，
+  // 遵守 #377 内存纪律）；非令牌/池缺失 → null。
+  window.mochiMediaResolve = function (s) {
+    const m = TOKEN_RE.exec(String(s || ''));
+    if (!m) return Promise.resolve(null);
+    const c = map.get(m[1]);
+    if (typeof c === 'string' && c) return Promise.resolve(c);
+    return window.idbGet(FULL + m[1]).then(function (v) {
+      return (typeof v === 'string' && v) ? v : null;
+    }).catch(function () { return null; });
+  };
 
   async function sha256Hex(str) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -359,7 +371,10 @@
       // → 这些引用的表情/图片令牌被误判孤儿删除 = 单发表情包/图片变空白气泡且不可逆。
       // 修复：REFS 扩到群聊+尾巴键；并追加扫描 localStorage 同名键（读到的令牌全部进 keep，
       // 宁可漏删绝不误删；LS 读异常时放弃本次清理）。
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
+      // FIX 2026-09-15 #506 引用面补字卡库两键：#387 修复前写回泄漏/旧备份导入会把 @@m: 令牌
+      // 留在 cc-groups / cc-groups-public 里，同样引用池条目——不进 keep 会被误判孤儿删除
+      // ＝字卡库图片（含导出还原源）永久丢失。GC 与 Coverage 两处同批。
       const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
       try {
         for (let li = 0; li < localStorage.length; li++) {
@@ -445,7 +460,7 @@
     return (async function () {
       const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
       const SCAN_RE = /@@m:([0-9a-f]{32})/g;
       let keys;
       try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }

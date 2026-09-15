@@ -10,10 +10,11 @@ try { var _legacyG = window.xyStore("xy-home-v2"); if (_legacyG && _legacyG.get(
 var PLOTS = 12;
 var PI = 1800;
 // #446 养护减负：浇水有效期 24h→36h（偶尔忘浇一天不掉保水）、开花凋谢宽限 48h→72h（收不及时不再真金白银地亏）
-var WILT_SEC = 259200;
-var WATER_SEC = 129600;
+// #503 养护再减负：地块上限瘦身后（最多 22 块）浇水 36h→48h、凋谢宽限 72h→96h，隔天浇照样满保水
+var WILT_SEC = 345600;
+var WATER_SEC = 172800;
 function pn() { return s.get("lbl-partner") || "TA"; }
-function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 4 : 0) + (lv0 >= 5 ? 4 : 0) + (lv0 >= 8 ? 4 : 0) + (lv0 >= 12 ? 6 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
+function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 2 : 0) + (lv0 >= 5 ? 2 : 0) + (lv0 >= 8 ? 2 : 0) + (lv0 >= 12 ? 4 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
 // v3.14.x 丢数据修复：save 加两道闸——
 // a) saveLock：启动/进园时 LS 缺 garden-data 且 IDB 尚未判定（有值回填 or 确认为空）前，
 //    一律禁止落盘。否则真我/荣耀 Edge 等 IDB 读慢或事务挂起的机型上，checkPartnerPassive
@@ -291,49 +292,83 @@ function buildPlotInner(plot, si, wl) {
   }
   return h;
 }
+// #503 空地折叠：默认只铺有花的地块，空地收进一块「空地×N」折叠砖，点开才铺开（地多不再满屏虚线格）
+var emptyFolded = true;
 function renderGrid() {
   var grid = document.getElementById("garden-grid");
   if (!grid) return;
-  if (grid.children.length !== data.p.length) {
+  var empties = 0;
+  for (var e0 = 0; e0 < data.p.length; e0++) if (!data.p[e0]) empties++;
+  var showFold = empties > 0 && emptyFolded;
+  var visible = [];
+  for (var v0 = 0; v0 < data.p.length; v0++) { if (data.p[v0] || !emptyFolded) visible.push(v0); }
+  if (showFold) visible.push(-1); // -1 = 折叠砖
+  if (grid.children.length !== visible.length) {
     var hf = "";
-    for (var i = 0; i < data.p.length; i++) {
-      var plot = data.p[i];
+    for (var i = 0; i < visible.length; i++) {
+      var idx = visible[i];
+      if (idx < 0) { hf += "<div class=\"garden-fold-tile\" data-fold=\"1\" role=\"button\"><span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span></div>"; continue; }
+      var plot = data.p[idx];
       var si = stageInfo(plot);
       var wl = waterLvl(plot);
-      var cls = "garden-plot" + (si ? "" : " empty") + (wl > 0 ? " watered" : "") + (selPlot === i ? " selected" : "") + (si && si.bloomed ? " bloomed" : "") + (si && si.wilted ? " wilted" : "") + (plot && T[plot.type] && T[plot.type].rare ? " rare" : "");
-      hf += "<div class=\"" + cls + "\" data-idx=\"" + i + "\">" + buildPlotInner(plot, si, wl) + "</div>";
+      var cls = "garden-plot" + (si ? "" : " empty") + (wl > 0 ? " watered" : "") + (selPlot === idx ? " selected" : "") + (si && si.bloomed ? " bloomed" : "") + (si && si.wilted ? " wilted" : "") + (plot && T[plot.type] && T[plot.type].rare ? " rare" : "");
+      hf += "<div class=\"" + cls + "\" data-idx=\"" + idx + "\">" + buildPlotInner(plot, si, wl) + "</div>";
     }
     grid.innerHTML = hf;
     return;
   }
-  for (var j = 0; j < data.p.length; j++) {
-    var p = data.p[j];
+  for (var j = 0; j < visible.length; j++) {
+    var idx2 = visible[j];
+    var el = grid.children[j];
+    if (idx2 < 0) {
+      var fsig = "fold|" + empties;
+      if (el.getAttribute("data-sig") !== fsig) { el.setAttribute("data-sig", fsig); el.innerHTML = "<span class=\"garden-plant-emoji\">🌱</span><span>空地 ×" + empties + "</span><span class=\"garden-fold-hint\">点开</span>"; }
+      continue;
+    }
+    var p = data.p[idx2];
     var s = stageInfo(p);
     var w = waterLvl(p);
-    var c = "garden-plot" + (s ? "" : " empty") + (w > 0 ? " watered" : "") + (selPlot === j ? " selected" : "") + (s && s.bloomed ? " bloomed" : "") + (s && s.wilted ? " wilted" : "") + (p && T[p.type] && T[p.type].rare ? " rare" : "");
+    var c = "garden-plot" + (s ? "" : " empty") + (w > 0 ? " watered" : "") + (selPlot === idx2 ? " selected" : "") + (s && s.bloomed ? " bloomed" : "") + (s && s.wilted ? " wilted" : "") + (p && T[p.type] && T[p.type].rare ? " rare" : "");
     var em = s ? (s.wilted ? "\uD83E\uDD40" : s.emoji) : "\uD83C\uDF31";
     var st = s ? (s.wilted ? "\u5DF2\u51CB\u8C22" : s.bloomed ? "\u6210\u719F" : fmtShort(s.nextSec)) : "\u7A7A\u5730";
     var pg = s && !s.bloomed && !s.wilted ? Math.floor(s.progress * 10) : -1;
     var wp = w > 0 ? Math.floor(w * 10) : 0;
     var sig = c + "|" + em + "|" + st + "|" + pg + "|" + wp + "|" + (p && p.pot || 1);
-    var el = grid.children[j];
     if (el.getAttribute("data-sig") === sig) continue;
     el.setAttribute("data-sig", sig);
-    el.setAttribute("data-idx", j);
+    el.setAttribute("data-idx", idx2);
     el.className = c;
     el.innerHTML = buildPlotInner(p, s, w);
   }
 }
 
+// #503 日志全量：默认显示最近 20 条，点「查看全部」展开全部打理记录（含联系人 TA 的每一条）；容量 100→300 条
+var showLogAll = false;
 function renderLog() {
   var el = document.getElementById("garden-log-list");
   if (!el) return;
-  var entries = (data.l || []).slice(-20).reverse();
-  if (!entries.length) { el.innerHTML = "<div class=\"garden-log-item\">\u8FD8\u6CA1\u6709\u8BB0\u5F55\FF0C\u5F00\u59CB\u6253\u7406\u82B1\u56ED\u5427</div>"; return; }
+  var all = data.l || [];
+  var entries = (showLogAll ? all : all.slice(-20)).slice().reverse();
+  var title = document.querySelector("#garden-log .garden-log-title");
+  if (title) {
+    var tg = document.getElementById("garden-log-toggle");
+    if (!tg) {
+      tg = document.createElement("button");
+      tg.id = "garden-log-toggle";
+      tg.className = "garden-log-toggle";
+      tg.addEventListener("click", function () { showLogAll = !showLogAll; renderLog(); });
+      title.appendChild(tg);
+    }
+    tg.textContent = all.length ? (showLogAll ? "收起" : "查看全部 " + all.length + " 条") : "";
+    tg.style.display = all.length ? "" : "none";
+  }
+  if (!entries.length) { el.innerHTML = "<div class=\"garden-log-item\">\u8FD8\u6CA1\u6709\u8BB0\u5F55\uFF0C\u5F00\u59CB\u6253\u7406\u82B1\u56ED\u5427</div>"; return; }
+  var today = new Date(); today.setHours(0, 0, 0, 0);
   var h = "";
   entries.forEach(function (e) {
     var tm = e.tm ? new Date(e.tm * 1000) : new Date();
     var ts = tm.getHours().toString().padStart(2, "0") + ":" + tm.getMinutes().toString().padStart(2, "0");
+    if (showLogAll && tm < today) ts = (tm.getMonth() + 1) + "-" + tm.getDate() + " " + ts;
     // v3.x.x：称呼跟随——日志渲染层替换 TA/他（存储原文不动）
     var who = (e.who || ""), act = (e.act || "");
     if (window.taFit) { who = window.taFit(who); act = window.taFit(act); }
@@ -344,7 +379,7 @@ function renderLog() {
 
 function addLog(who, act) {
   data.l.push({ who: who, act: act, tm: Math.floor(Date.now() / 1000) });
-  if (data.l.length > 100) data.l = data.l.slice(-100);
+  if (data.l.length > 300) data.l = data.l.slice(-300);
 }
 
 function updWaterStreak() {
@@ -403,14 +438,14 @@ function fxAtPlot(idx, cls, dur) {
 }
 // #446 扩建改自愿：等级只解锁「开垦资格」（plotEntitled），实际地块数 = plotN（点工具条「开垦」才增加）。
 // 老玩家迁移时 load() 已按当前等级一次性补齐资格，已有的地一块不少。
+// #503 上限瘦身：新资格梯度 Lv.3/5/8 各 +2、Lv.12 +4（满配 12+10=22）；资格只封顶「再开垦」，绝不裁已有地。
 function plotEntitled() {
   var lv = gLv();
-  return PLOTS + (lv >= 3 ? 4 : 0) + (lv >= 5 ? 4 : 0) + (lv >= 8 ? 4 : 0) + (lv >= 12 ? 6 : 0);
+  return PLOTS + (lv >= 3 ? 2 : 0) + (lv >= 5 ? 2 : 0) + (lv >= 8 ? 2 : 0) + (lv >= 12 ? 4 : 0);
 }
+// #503 plotN 不再被资格向下钳制：资格缩小/上限瘦身后，老存档 plotN 高于新资格也一块不裁（缩地只能手动收空地）
 function plotCount() {
-  var n = data.plotN || PLOTS;
-  var ent = plotEntitled();
-  return n > ent ? ent : n;
+  return data.plotN || PLOTS;
 }
 function syncPlots() {
   var n = plotCount();
@@ -425,10 +460,10 @@ function checkLevelUp() {
     data.lvSeen = lv;
     save(data);
     var msgs = [];
-    if (old < 3 && lv >= 3) msgs.push("Lv.3 解锁 4 个新地块开垦资格");
-    if (old < 5 && lv >= 5) msgs.push("Lv.5 解锁 4 个新地块开垦资格");
-    if (old < 8 && lv >= 8) msgs.push("Lv.8 解锁 4 个新地块开垦资格");
-    if (old < 12 && lv >= 12) msgs.push("Lv.12 解锁 6 个新地块开垦资格");
+    if (old < 3 && lv >= 3) msgs.push("Lv.3 解锁 2 个新地块开垦资格");
+    if (old < 5 && lv >= 5) msgs.push("Lv.5 解锁 2 个新地块开垦资格");
+    if (old < 8 && lv >= 8) msgs.push("Lv.8 解锁 2 个新地块开垦资格");
+    if (old < 12 && lv >= 12) msgs.push("Lv.12 解锁 4 个新地块开垦资格");
     // #446 不开垦不吃亏：跨地块里程碑额外送 1 颗随机稀有种子——升级奖励与「要不要多地块」脱钩
     var mile = [3, 5, 8, 12].filter(function (m) { return old < m && lv >= m; });
     if (mile.length) {
@@ -547,6 +582,32 @@ function ensureReclaimBtn() {
   btn.dataset.tool = "reclaim";
   btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l5.5-5.5"/><path d="M9.5 14.5L17 7l2.5 2.5-7.5 7.5z"/><path d="M15 4.5L19.5 9"/></svg><span class="garden-tool-label">\u5F00\u58A6</span>';
   tb.appendChild(btn);
+  // #503 收地：开多了的地块可以手动缩回（只收尾部空地，有花的地绝不裁）
+  var sb = document.createElement("button");
+  sb.id = "garden-tool-shrink";
+  sb.className = "garden-tool shrink";
+  sb.dataset.tool = "shrink";
+  sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 10l6-6"/><path d="M4 14l6 6"/></svg><span class="garden-tool-label">收地</span>';
+  tb.appendChild(sb);
+}
+// #503 缩地：把尾部连续的空地块收回（plotN 减小），下限 4 块；只动空地、有花不裁、随时可再开垦
+var MIN_PLOTS = 4;
+function shrinkPlots() {
+  var cur = data.plotN || PLOTS;
+  while (cur > MIN_PLOTS && !data.p[cur - 1]) cur--;
+  if (cur === (data.plotN || PLOTS)) {
+    if (window.openModal) window.openModal("收回地块", "", function () {}, { pills: [{ label: "好的", value: "ok" }], noInput: true, staticText: "没有可收的空地（最少保留 4 块）\n有花的地块不会被收回，收掉的地随时可再开垦" });
+    return;
+  }
+  var from = data.plotN || PLOTS;
+  if (!window.openModal) { data.plotN = cur; syncPlots(); save(data); renderAll(); return; }
+  window.openModal("收回地块", "", function (v) {
+    if (v !== "1") return;
+    data.plotN = cur;
+    syncPlots();
+    addLog("★", "收回了 " + (from - cur) + " 块空地，花园现有 " + cur + " 块地");
+    save(data); renderAll();
+  }, { pills: [{ label: "收回 " + (from - cur) + " 块", value: "1" }, { label: "再想想", value: "0" }], noInput: true, staticText: "把尾部 " + (from - cur) + " 块空地收回，保留 " + cur + " 块？\n只收空地，种了花的地不受影响；以后想用随时再开垦" });
 }
 function ensureReplantBtn() {
   if (document.getElementById("garden-tool-replant")) return;
@@ -564,7 +625,7 @@ function reclaimPlots() {
   var ent = plotEntitled();
   var cur = data.plotN || PLOTS;
   if (cur >= ent) {
-    if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +4\uFF0CLv.12 +6\uFF09" });
+    if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +2\uFF0CLv.12 +4\uFF09" });
     return;
   }
   if (!window.openModal) { data.plotN = ent; syncPlots(); save(data); renderAll(); return; }
@@ -1105,6 +1166,7 @@ var curTab = "garden";
 var dexSearch = "", dexSeason = -1;
 var TABS = [
   { id: "garden", n: "\u82B1\u56ED", e: "\uD83C\uDF31" },
+  { id: "log", n: "\u65E5\u5FD7", e: "\uD83D\uDCDC" },
   { id: "dex", n: "\u56FE\u9274", e: "\uD83D\uDCD6" },
   { id: "craft", n: "\u5DE5\u574A", e: "\uD83E\uDDE4" },
   { id: "shop", n: "\u88C5\u9970", e: "\uD83C\uDFE0" },
@@ -1143,7 +1205,7 @@ function ensureTabUI() {
   move("garden-stats", "garden");
   move("garden-visitor", "garden");
   move("garden-toolbar", "garden");
-  move("garden-log", "garden");
+  move("garden-log", "log");
   move("garden-dex", "dex");
   move("garden-inv", "craft");
   move("garden-decor", "shop");
@@ -1381,6 +1443,9 @@ function checkPartnerPassive() {
 }
 
 function handlePlotClick(e) {
+  // #503 折叠砖点击=展开/收起空地
+  var fold = e.target.closest(".garden-fold-tile");
+  if (fold) { emptyFolded = !emptyFolded; renderGrid(); return; }
   var el = e.target.closest(".garden-plot");
   if (!el) return;
   var idx = parseInt(el.getAttribute("data-idx"));
@@ -1445,6 +1510,8 @@ function handleTool(e) {
     replantAll();
   } else if (tool === "reclaim") {
     reclaimPlots();
+  } else if (tool === "shrink") {
+    shrinkPlots();
   }
 }
 

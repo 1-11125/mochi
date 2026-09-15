@@ -69,6 +69,9 @@
   function gW() { return (state && state.gw) || GW; }
   function gH() { return (state && state.gh) || GH; }
   function curMode() { return (state && state.mode) || (modeSel && modeSel.value) || 'duo'; }
+  // 新开局的模式/食物数：一律取头部选择器当前值（state.mode 只代表进行中对局，残留旧值会吞掉新模式选择）
+  function nextMode() { return (modeSel && MODES[modeSel.value]) ? modeSel.value : 'duo'; }
+  function nextFoodN() { return foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET; }
   function foodTargetN() { return (state && state.foodTarget) || FOOD_TARGET; }
   // 同屏蛇列表（统一结算/渲染顺序：P1 → P2 → TA）
   function activeSnakes() {
@@ -436,7 +439,7 @@
   }
 
   function newGame(diff) {
-    const mode = curMode();
+    const mode = nextMode();
     const py = Math.floor(GH / 2);
     const prevFlags = state && state.flags || { wall: false, safe: false };
     const playerBody = [];
@@ -445,7 +448,7 @@
       diff: diff || 'normal',
       mode: mode,
       gw: GW, gh: GH,
-      foodTarget: foodSel ? (parseInt(foodSel.value, 10) || FOOD_TARGET) : FOOD_TARGET,
+      foodTarget: nextFoodN(),
       player: mkSnake(playerBody, { x: 1, y: 0 }, 'p1'),
       p2: null,
       opp: null,
@@ -455,7 +458,7 @@
       elapsed: 0,
       flags: { wall: prevFlags.wall, safe: prevFlags.safe }
     };
-    // 布位：duo/pvp 左右对峙；coop 双人左右、TA 居中靠上朝下
+    // 布位：duo 左右对峙（AI 会主动避让不对冲）；pvp/coop 的 P2 错开两行，防开局同排对冲秒死
     if (mode === 'coop') {
       const oppBody = [];
       for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: Math.floor(GW / 2), y: 3 - i });
@@ -463,6 +466,10 @@
       const p2Body = [];
       for (let i = 0; i < INIT_LEN; i++) p2Body.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
       state.p2 = mkSnake(p2Body, { x: -1, y: 0 }, 'p2');
+    } else if (mode === 'pvp') {
+      const oppBody = [];
+      for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: Math.min(GH - 2, py + 2) });
+      state.opp = mkSnake(oppBody, { x: -1, y: 0 }, 'p2');
     } else {
       const oppBody = [];
       for (let i = 0; i < INIT_LEN; i++) oppBody.push({ x: (GW - 5) + i, y: py });
@@ -1296,8 +1303,12 @@
         dir: { x: state.player.dir.x, y: state.player.dir.y },
         nextDir: state.player.nextDir ? { x: state.player.nextDir.x, y: state.player.nextDir.y } : null,
         nextDir2: state.player.nextDir2 ? { x: state.player.nextDir2.x, y: state.player.nextDir2.y } : null },
-      p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score) } : null,
-      opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl },
+      p2: state.p2 ? { body: cloneBody(state.p2.body), alive: state.p2.alive, score: Math.floor(state.p2.score),
+        dir: { x: state.p2.dir.x, y: state.p2.dir.y },
+        nextDir: state.p2.nextDir ? { x: state.p2.nextDir.x, y: state.p2.nextDir.y } : null } : null,
+      opp: { body: cloneBody(state.opp.body), alive: state.opp.alive, score: Math.floor(state.opp.score), ctrl: state.opp.ctrl,
+        dir: { x: state.opp.dir.x, y: state.opp.dir.y },
+        nextDir: state.opp.nextDir ? { x: state.opp.nextDir.x, y: state.opp.nextDir.y } : null },
       foods: state.foods.map(function (f) { return { x: f.x, y: f.y }; }),
       elapsed: state.elapsed
     };

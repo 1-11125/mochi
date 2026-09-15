@@ -281,24 +281,44 @@
 .achv-emoji { font-size: 18px; }
 .achv-name { color: var(--ink); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ===== Tab 分区 ===== */
+/* ===== Tab 分区（#503 重做：吸顶胶囊条，横向可滑，日多模块不再全挤一页） ===== */
 .garden-tabs {
-  display: flex; gap: 4px; padding: 0 18px 10px;
+  display: flex; gap: 6px; padding: 8px 14px 10px;
   overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+  position: sticky; top: 0; z-index: 8;
+  background: linear-gradient(180deg, rgba(245,245,240,.96) 70%, rgba(245,245,240,0));
 }
 .garden-tabs::-webkit-scrollbar { display: none; }
 .garden-tab {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 10px 4px; border-radius: 12px; border: none;
-  background: rgba(0,0,0,.04); cursor: pointer; font-family: inherit; color: var(--ink);
+  flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 5px;
+  padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.9); cursor: pointer; font-family: inherit; color: var(--ink);
   transition: background .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent;
 }
-.garden-tab.active { background: linear-gradient(90deg, #66bb6a, #43a047); color: #fff; }
-.gt-emoji { font-size: 15px; }
+.garden-tab.active { background: linear-gradient(90deg, #66bb6a, #43a047); color: #fff; border-color: transparent; }
+.gt-emoji { font-size: 14px; }
 .garden-tab.active .gt-emoji { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
-.gt-name { font-size: 10px; font-weight: 600; }
-.garden-panel { display: none; }
+.gt-name { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.garden-panel { display: none; padding-bottom: 8px; }
 .garden-panel.active { display: block; }
+
+/* ===== #503 空地折叠砖 ===== */
+.garden-fold-tile {
+  aspect-ratio: 1; border-radius: 14px;
+  border: 1.5px dashed rgba(0,0,0,.18); background: rgba(255,255,255,.55);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 11px; color: var(--muted); cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.garden-fold-tile:active { background: rgba(0,0,0,.05); }
+.garden-fold-hint { font-size: 9px; opacity: .6; }
+
+/* ===== #503 日志「查看全部」开关 ===== */
+.garden-log-toggle {
+  float: right; border: none; background: none; font-family: inherit;
+  font-size: 11px; font-weight: 600; color: #43a047; cursor: pointer; padding: 0;
+}
+.garden-log-list { max-height: 320px; }
 
 /* ===== 花艺工坊 ===== */
 .garden-craft { margin: 0 18px 18px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.6); }
@@ -396,6 +416,9 @@
 /* #446 开垦（扩建改自愿·资格确认）与补种（空地一键按上次品种补齐） */
 .garden-tool.reclaim { background: rgba(0,150,136,.1); border-color: rgba(0,150,136,.3); }
 .garden-tool.reclaim:active { background: #009688; }
+/* #503 收地 */
+.garden-tool.shrink { background: rgba(233,30,99,.07); border-color: rgba(233,30,99,.25); }
+.garden-tool.shrink:active { background: #e91e63; }
 .garden-tool.replant.batch { background: rgba(76,175,80,.12); border-color: rgba(76,175,80,.3); }
 
 /* ===== 杂交配方列表 ===== */
