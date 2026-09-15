@@ -365,24 +365,65 @@
       try { window.activeStore().set('dcf-prob-open', open ? '1' : '0'); } catch (e) {}
     });
   })();
+  // v3.26.x #515：同一个概率键可以在多个页面各有一个 stepper（「寻踪日常发送到聊天」＝字卡库
+  //   【寻踪日常字卡】页 +【其他互动功能字卡】页两处）——用 [data-dcfkey] 标记批量绑定，
+  //   改任意一处即刷新全部同键 stepper（否则在 A 页调完回 B 页仍显示旧值＝用户以为两处不一致）。
+  //   显示值取「存盘值」dcfRaw 而非闸门后的生效值 dcfVal：总开关关闭时 dcfVal 恒 0，会让各概率行
+  //   显示成 0、点 ± 又被闸门复位成 0（点了没反应），用户看到的不是自己设的数值。
+  function dcfRaw(k) {
+    if (!(k in DCF_DEF)) return 100;
+    try {
+      const v = window.activeStore().get('dcf-' + k);
+      if (v !== null && v !== undefined && v !== '') {
+        const n = Number(v);
+        if (!isNaN(n)) return Math.max(0, Math.min(100, n));
+      }
+    } catch (e) {}
+    return DCF_DEF[k];
+  }
+  function dcfSteppers(k) {
+    const out = [];
+    const byId = document.getElementById('dcf-prob-' + k);
+    if (byId) out.push(byId);
+    document.querySelectorAll('.stepper[data-dcfkey="' + k + '"]').forEach(function (st) {
+      if (out.indexOf(st) === -1) out.push(st);
+    });
+    return out;
+  }
+  function dcValEl(st) { return st.querySelector('input.stp-val') || st.querySelector('.stp-val'); }
+  function dcfRefreshUI(k) {
+    dcfSteppers(k).forEach(function (st) {
+      const valEl = dcValEl(st);
+      if (valEl) valEl.value = String(dcfRaw(k));
+    });
+  }
+  window.dcfRefreshUI = dcfRefreshUI;
+  function dcfSetVal(k, nv) {
+    nv = Math.max(0, Math.min(100, parseInt(nv, 10) || 0));
+    try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
+    dcfRefreshUI(k);
+    toast('字卡使用概率（' + (DCF_DEF_NAME[k] || k) + '）：' + nv + '%');
+  }
+  // v3.26.x #515：绑定去重改用闭包数组记录，不给元素加 DOM expando/属性——mobile-adapt 会把输入类
+  //   元素换成 ce-box（项目里有「读到过期 expando」的踩坑史），且各套验证桩的元素未必实现
+  //   getAttribute（加了会让既有脚本的极简桩直接抛错，白伤别人脚本）
+  const dcfBoundSteppers = [];
   function bindDcfProb() {
     Object.keys(DCF_DEF).forEach((k) => {
-      const box = document.getElementById('dcf-prob-' + k);
-      const valEl = document.getElementById('dcf-prob-' + k + '-val');
-      if (!box || !valEl) return;
-      valEl.value = String(dcfVal(k));
-      box.querySelector('.stp-min').addEventListener('click', () => {
-        const nv = Math.max(0, (parseInt(valEl.value, 10) || 0) - 5);
-        valEl.value = String(nv);
-        try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
-        toast('字卡使用概率（' + k + '）：' + nv + '%');
+      dcfSteppers(k).forEach(function (st) {
+        if (dcfBoundSteppers.indexOf(st) >= 0) return;
+        dcfBoundSteppers.push(st);
+        const mn = st.querySelector('.stp-min');
+        const mx = st.querySelector('.stp-max');
+        const curVal = function () {
+          const valEl = dcValEl(st);
+          const n = valEl ? parseInt(valEl.value, 10) : NaN;
+          return isNaN(n) ? dcfRaw(k) : n;
+        };
+        if (mn) mn.addEventListener('click', () => dcfSetVal(k, curVal() - 5));
+        if (mx) mx.addEventListener('click', () => dcfSetVal(k, curVal() + 5));
       });
-      box.querySelector('.stp-max').addEventListener('click', () => {
-        const nv = Math.min(100, (parseInt(valEl.value, 10) || 0) + 5);
-        valEl.value = String(nv);
-        try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
-        toast('字卡使用概率（' + k + '）：' + nv + '%');
-      });
+      dcfRefreshUI(k);
     });
   }
   bindDcfProb();
@@ -412,11 +453,14 @@
   // 注入「功能说明」标签到每个概率行（含新启用的 checkin/pomo）——复用 .gs-row .tag 样式，
   // 标签带 data-fdesc/<data-dname，交给下方 document 级事件委托。
   (function () {
-    function injBox(boxId, ks) {
+    // v3.26.x #515：idOverride——同一个概率键在另一页的 stepper 用不同 id（寻踪日常字卡页那行带
+    //   -ck 后缀），挂标签时按 override 取，不用 box.querySelector（保持「只按 id 取元素」的老口径，
+    //   免得让既有验证脚本的极简桩元素缺 closest 抛错）
+    function injBox(boxId, ks, idOverride) {
       var box = document.getElementById(boxId);
       if (!box) return;
       ks.forEach(function (k) {
-        var stp = document.getElementById('dcf-prob-' + k);
+        var stp = document.getElementById((idOverride && idOverride[k]) || ('dcf-prob-' + k));
         if (!stp) return;
         var row = stp.closest('.gs-row');
         if (!row) return;
@@ -435,6 +479,8 @@
     }
     injBox('dcf-prob-box', Object.keys(DCF_DEF).filter(function (k) { return k !== 'deskcheck'; }));
     injBox('dcf-prob-box-dk', ['deskcheck']);
+    // v3.26.x #515：寻踪日常字卡页的概率行也挂「功能说明」（与功能字卡页同一份文案）
+    injBox('ck-prob-box', ['checkin'], { checkin: 'dcf-prob-checkin-ck' });
   })();
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest('[data-fdesc]') : null;
@@ -442,7 +488,9 @@
     var k = t.getAttribute('data-fdesc');
     var txt = DCF_DESC[k];
     if (!txt) return;
-    var n = dcfVal(k);
+    // v3.26.x #515：显示存盘值而非闸门后的生效值（总开关关闭时生效值恒 0，会让用户
+    //   以为「我设的数值被改了」）
+    var n = dcfRaw(k);
     var title = '【' + (t.getAttribute('data-dname') || k) + '】功能说明';
     if (window.openModal) {
       window.openModal(title, '', function () {}, { noInput: true, staticText: txt + '\n\n当前使用概率：' + n + '%' });
@@ -472,15 +520,22 @@
         const valEl = document.getElementById('dc-prob-' + k + '-val');
         if (valEl) valEl.value = String(getProb(k));
       });
-      // v3.32.x：功能字卡概率 stepper 同样随 heal 重同步
+      // v3.32.x：功能字卡概率 stepper 同样随 heal 重同步（v3.26.x #515：改走 dcfRefreshUI，
+      //   同时刷新同键的全部 stepper，如寻踪日常字卡页那一个）
       Object.keys(DCF_DEF).forEach(function (k) {
-        const valEl = document.getElementById('dcf-prob-' + k + '-val');
-        if (valEl) valEl.value = String(dcfVal(k));
+        dcfRefreshUI(k);
       });
       // v3.33.x：功能字卡总开关同样随 heal 重同步
       const deEl = document.getElementById('dcf-enabled');
       if (deEl) deEl.checked = dcfEnabled();
     } catch (e) {}
+  });
+  // v3.26.x #515：切换到另一个桌面联系人 / IDB 回填完成后，概率行重新读键——dcf-* 是 per-cid 键，
+  //   不重读会把上一个桌面的数值留在屏幕上（寻踪日常字卡页与功能字卡页同键，dcfRefreshUI 一并刷新）
+  ['contact-switched', 'mochi-restore-done'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      try { Object.keys(DCF_DEF).forEach(function (k) { dcfRefreshUI(k); }); } catch (e) {}
+    });
   });
 
   // ---- 双页共用渲染内核 ----

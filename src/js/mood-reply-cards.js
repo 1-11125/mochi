@@ -44,6 +44,56 @@
     return items[items.length - 1] ? items[items.length - 1][0] : null;
   }
 
+  // v3.26.x #515：字卡库【聊天情绪字卡】【聊天回应字卡】页的概率显示 + 可调——此前这四项概率
+  //   写死在代码里（情绪 70% / 心意 40% / 交流意图 40% / 回应字卡整条替换 30%），页面上只有总开关
+  //   与「各自独立概率」的说明，没有任何显示/调整入口（用户报「没有显示触发的概率和可调整的
+  //   按钮功能」）。未设置键时回退原写死值＝默认行为完全不变；0% = 该类字卡完全不参与。
+  const MC_PROB_DEF = { mood: 70, heart: 40, intent: 40 };
+  function mcProb(type) {
+    const d = MC_PROB_DEF[type] !== undefined ? MC_PROB_DEF[type] : 100;
+    try {
+      const v = ls.get('mc-prob-' + type);
+      if (v === null || v === undefined || v === '') return d;
+      const n = Number(v);
+      return isNaN(n) ? d : Math.max(0, Math.min(100, n));
+    } catch (e) { return d; }
+  }
+  const RCARD_PROB_DEF = 30; // 原 getReplyCard 写死的 30%（与默认字卡 defaultCommonOverallProb 同档）
+  function rcardProb() {
+    try {
+      const v = ls.get('rcard-prob');
+      if (v === null || v === undefined || v === '') return RCARD_PROB_DEF;
+      const n = Number(v);
+      return isNaN(n) ? RCARD_PROB_DEF : Math.max(0, Math.min(100, n));
+    } catch (e) { return RCARD_PROB_DEF; }
+  }
+  // v3.26.x #515：概率 stepper 绑定（情绪/心意/意图/回应字卡/连接词共用）——点 ± 按 5% 一档写键并
+  //   刷新显示，与其他互动功能字卡页 dcf-* 同款交互。
+  function bindProbStepper(boxId, valId, read, write, label) {
+    const box = document.getElementById(boxId);
+    const valEl = document.getElementById(valId);
+    if (!box || !valEl) return null;
+    const stepBy = function (delta) {
+      const cur = parseInt(valEl.value, 10);
+      const nv = Math.max(0, Math.min(100, (isNaN(cur) ? read() : cur) + delta));
+      valEl.value = String(nv);
+      try { write(nv); } catch (e) {}
+      toast(label + '：' + nv + '%');
+    };
+    const mn = box.querySelector('.stp-min');
+    const mx = box.querySelector('.stp-max');
+    if (mn) mn.addEventListener('click', function () { stepBy(-5); });
+    if (mx) mx.addEventListener('click', function () { stepBy(5); });
+    return { box: box, valEl: valEl, refresh: function () { valEl.value = String(read()); } };
+  }
+  // v3.26.x #515：显示同步钩子——由 mc/rc 页绑定块追加；文件末尾在切桌面 / IDB 回填完成 /
+  //   小键写日志修正（mochi-wrj-heal）后统一调用，避免这些时机下页面数值停留在旧值。
+  let syncCardProbUI = function () {};
+  function addProbUISync(fn) {
+    const prev = syncCardProbUI;
+    syncCardProbUI = function () { try { prev(); } catch (e) {} try { fn(); } catch (e) {} };
+  }
+
   // ---- 开关（星言 _cardTypeSettings）----
   function enabled(k) {
     const v = ls.get('mh-' + k);
@@ -90,13 +140,15 @@
     //   单调递增，情绪卡连发 4 次后概率永久降到 20%（resetEmotionStreak 定义了
     //   但无人调用，旧逻辑从不重置）
     if (emotionLastTs && Date.now() - emotionLastTs > 10 * 60000) emotionStreak = 0;
-    // 星言逻辑：基础 70% + emotionStreak 连续衰减（不提供可调概率）
-    let prob = 70;
+    // 星言逻辑：基础概率 + emotionStreak 连续衰减。v3.26.x #515：基础概率改为可调
+    //   （mc-prob-mood，默认 70＝原写死值），衰减档位按同一比例缩放——基数 70% 时逐档
+    //   （70/60/45/30/20）与旧行为完全一致；调低/调高只改基数、不改衰减曲线形状。
+    const _mBase = mcProb('mood');
     const streakMap = W.moodStreak || { 0: 70, 1: 60, 2: 45, 3: 30, 4: 20 };
-    if (emotionStreak >= 4) prob = streakMap['4'] !== undefined ? streakMap['4'] : 20;
-    else if (emotionStreak >= 3) prob = streakMap['3'] !== undefined ? streakMap['3'] : 30;
-    else if (emotionStreak >= 2) prob = streakMap['2'] !== undefined ? streakMap['2'] : 45;
-    else if (emotionStreak >= 1) prob = streakMap['1'] !== undefined ? streakMap['1'] : 60;
+    const _lvl = emotionStreak >= 4 ? '4' : String(emotionStreak);
+    const _ref = streakMap['0'] !== undefined ? streakMap['0'] : 70;
+    const _ratio = (_ref > 0 && streakMap[_lvl] !== undefined) ? (streakMap[_lvl] / _ref) : 1;
+    let prob = Math.max(0, Math.min(100, _mBase * _ratio));
     if (Math.random() * 100 > prob) return null;
     // v3.6.x：单卡开关过滤——只从仍开启的字卡里抽，整组关完则跳过该组
     const groups = (DATA.mood || [])
@@ -134,7 +186,8 @@
   // ---- 心意卡（星言 getRandomHeartCard）----
   window.getHeartCard = function (moodCard) {
     if (!enabled('heart')) return null;
-    if (Math.random() * 100 > 40) return null; // 40% 显示率
+    // v3.26.x #515：显示率改为可调（mc-prob-heart，默认 40＝原写死值）
+    if (Math.random() * 100 > mcProb('heart')) return null;
     // 特殊稀有心意：聊天≥20次 + 24h冷却 + 5%
     const chatCount = Number(ls.get('chat-count') || 0);
     if (chatCount >= 20 && (Date.now() - specialLastTime) > 86400000 && Math.random() * 100 < 5) {
@@ -190,7 +243,8 @@
   // ---- 交流意图卡（星言 getRandomIntentCard）----
   window.getIntentCard = function (heartCard) {
     if (!enabled('intent')) return null;
-    if (Math.random() * 100 > 40) return null; // 40% 显示率（与心意一致，避免"几乎不触发"）
+    // v3.26.x #515：显示率改为可调（mc-prob-intent，默认 40＝原写死值，与心意同档）
+    if (Math.random() * 100 > mcProb('intent')) return null;
     let pool = null;
     if (heartCard && heartCard.group && DATA.heartToIntent && DATA.heartToIntent[heartCard.group]) {
       pool = DATA.heartToIntent[heartCard.group];
@@ -244,6 +298,21 @@
   if (rcList && rcEnabled) {
     rcEnabled.checked = (ls.get('rc-enabled') === null) ? true : ls.get('rc-enabled') === '1';
     rcEnabled.addEventListener('change', () => ls.set('rc-enabled', rcEnabled.checked ? '1' : '0'));
+    // v3.26.x #515：本页两个消费点的概率 stepper——①「回应字卡使用概率」存键 rcard-prob
+    //   （per-cid，整条回复被换成一张连接词字卡的概率，原写死 30%）；②「连接词追加概率」
+    //   读写回复设置的 cf-prob（window.replyCfg / saveReplyCfg 同一份 reply- 键，不新开键，
+    //   避免同一语义两处各存一份）
+    const rcProbUI = bindProbStepper('rcard-prob', 'rcard-prob-val', rcardProb,
+      function (v) { ls.set('rcard-prob', String(v)); }, '回应字卡使用概率');
+    const cfProbUI = bindProbStepper('cf-prob', 'cf-prob-val', function () {
+      const c = (window.replyCfg && window.replyCfg()) || {};
+      const n = Number(c['cf-prob']);
+      return isFinite(n) ? n : 20;
+    }, function (v) { if (window.saveReplyCfg) window.saveReplyCfg('cf-prob', v); }, '连接词追加概率');
+    addProbUISync(function () {
+      if (rcProbUI) rcProbUI.refresh();
+      if (cfProbUI) cfProbUI.refresh();
+    });
     const CATS = [
       ['echo', '接话'], ['confirm', '确认'], ['keep', '继续'], ['probe', '轻追问'],
       ['bridge', '连接'], ['shift', '转折'], ['tone', '停顿'], ['close', '收束']
@@ -340,6 +409,17 @@
       setEnabled('mood', mcEnabled.checked);
       setEnabled('heart', mcEnabled.checked);
       setEnabled('intent', mcEnabled.checked);
+    });
+    // v3.26.x #515：三类各自的独立判定概率 stepper（情绪 mc-prob-mood / 心意 mc-prob-heart /
+    //   交流意图 mc-prob-intent）——此前只显示总开关与「各自独立概率」的说明，无任何数值入口
+    const mcProbUI = {};
+    [['mood', '情绪字卡概率'], ['heart', '心意字卡概率'], ['intent', '交流意图字卡概率']].forEach(function (p) {
+      mcProbUI[p[0]] = bindProbStepper('mc-prob-' + p[0], 'mc-prob-' + p[0] + '-val',
+        function () { return mcProb(p[0]); },
+        function (v) { ls.set('mc-prob-' + p[0], String(v)); }, p[1]);
+    });
+    addProbUISync(function () {
+      Object.keys(mcProbUI).forEach(function (k) { if (mcProbUI[k]) mcProbUI[k].refresh(); });
     });
 
     // #500 三类分栏：情绪 / 心意 / 交流意图（三级链各自独立概率，都要能整类+逐张关）
@@ -465,8 +545,10 @@
 // 开启时：整体概率 rc-prob 命中 → 随机抽一个分类 → 抽一条回应字卡作为回复内容
 window.getReplyCard = function () {
   if (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';
-  // 固定 30% 整体出现概率（与默认字卡 defaultCommonOverallProb 一致）
-  if (Math.random() * 100 >= 30) return '';
+  // 整体出现概率：v3.26.x #515 起可调（rcard-prob，默认 30＝原写死值，与默认字卡
+  //   defaultCommonOverallProb 同档）；0% = 不再整条替换成一张回应字卡
+  //  （回复末尾的「连接词追加」仍由回复设置的 cf-prob 管，两处独立）
+  if (Math.random() * 100 >= rcardProb()) return '';
   const followup = DATA.followup || {};
   // v3.6.x：单卡开关过滤——只从仍开启的分类里选（整类关完则跳过该类）
   const cats = Object.keys(followup).filter(k => followup[k] && followup[k].some(t => !isCardOff('rc-off-' + k, t)));
@@ -497,5 +579,10 @@ window.getReplyCard = function () {
     emotionLastTs = 0;
     heartHistory = [];
     specialLastTime = 0;
+  });
+  // v3.26.x #515：字卡库【聊天情绪字卡】【聊天回应字卡】页的概率显示同理——切桌面 / IDB 回填完成 /
+  //   小键写日志修正（mochi-wrj-heal）后重新读键刷新，否则切到新联系人仍显示上一个桌面的数值
+  ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(function (ev) {
+    document.addEventListener(ev, function () { try { syncCardProbUI(); } catch (e) {} });
   });
 })();

@@ -9539,9 +9539,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789453348829">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.703</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 14:22<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789454500150">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.705</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 14:41<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10463,6 +10463,14 @@ transition-duration: .01ms !important;
     <div class="set-group glass">
       <div class="gs-row"><span>使用系统预设字卡</span><label class="toggle"><input type="checkbox" id="ck-default" checked><span class="tk"></span></label></div>
     </div>
+    <!-- v3.26.x #515：发送到聊天概率（用户报「寻踪日常字卡页没有显示触发的概率和可调整的按钮功能」）。
+         与「其他互动功能字卡」页的「寻踪日常发送到聊天」是同一个键 dcf-checkin（per-cid），
+         data-dcfkey 标记由 default-cards.js 统一绑定 + 改一处刷新全部同键 stepper；
+         0% = 完全不在聊天里推（寻踪页与历史记录照常生成），100% = 每次更新都推。 -->
+    <div class="set-group glass" id="ck-prob-box" style="margin:10px 12px 0">
+      <div class="gs-row"><span>寻踪日常发送到聊天</span><div class="stepper" id="dcf-prob-checkin-ck" data-dcfkey="checkin" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="dcf-prob-checkin-ck-val" readonly><button class="stp-max">+</button></div></div>
+    </div>
+    <div class="sm-set-hint" id="ck-prob-hint" style="padding:2px 16px 4px">说明：本概率控制「TA 更新日常时是否往聊天里推消息」（更新提示 + 日常内容 + 概率「提醒你来寻踪」），与「其他互动功能字卡」页的同一项设置共用一个值，改任意一处两处同步。调到 0% 时寻踪页与历史记录照常生成，只是不再在聊天里推送。</div>
     <div class="fav-tabs">
       <button class="fav-tab sel" data-cktab="place"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:3px"><path d="M12 21s-6-5.3-6-10a6 6 0 1112 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>地点</button>
       <button class="fav-tab" data-cktab="action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:3px"><path d="M13 2L4.5 13.5H11l-1 8.5L18.5 10H12l1-8z"/></svg>在做什么</button>
@@ -10860,7 +10868,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.703</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.705</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11170,7 +11178,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.703</span>
+              <span class="lic-ver">v3.26.705</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11264,7 +11272,7 @@ transition-duration: .01ms !important;
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">02</span><span class="lg-name">字卡系统</span><span class="lg-count">14</span></summary>
+            <summary><span class="lg-num">02</span><span class="lg-name">字卡系统</span><span class="lg-count">15</span></summary>
             <div class="lg-body">
           <div class="lic-li">字卡库：浏览全部字卡，支持搜索与自定义分组管理</div>
           <div class="lic-li">聊天字卡分类可上传：【主字卡】【颜文字】【emoji】【表情包】【图片】【拍一拍】【语音】分类</div>
@@ -11279,6 +11287,7 @@ transition-duration: .01ms !important;
           <div class="lic-li">新功能专属字卡：TA 的邀请（猜拳 / Pong / 贪吃蛇 / 贴贴）、经期关心、喝水、花园、房间、漂流瓶、位置卡等，逐条开关 + 自定义添加</div>
           <div class="lic-li">字卡库页入口：公用字卡（全桌面联系人共享）、专属字卡（仅当前桌面联系人）、寻踪日常字卡、桌面今日情话、聊天默认字卡、聊天情绪字卡、聊天回应字卡及各功能专属字卡统一管理</div>
           <div class="lic-li">字卡管理：去重复、导出数据、一键清空所有分类</div>
+          <div class="lic-li">触发概率可查看可调：系统预设字卡各页都能看到「当前触发概率」并当场调整（0~100%，0% 即该字卡不再出现）——聊天默认字卡（聊天 / 写信 / 朋友圈）、聊天情绪字卡（情绪 / 心意 / 交流意图）、聊天回应字卡（整条替换 / 连接词追加）、寻踪日常字卡（发送到聊天）以及其他互动功能字卡各分类</div>
           <div class="lic-li">兼容导入 milk 字卡库导出的 json；系统预设字卡（自搓）可逐句开关</div>
             </div>
           </details>
@@ -12270,10 +12279,21 @@ transition-duration: .01ms !important;
         </div>
         <label class="toggle"><input type="checkbox" id="mc-enabled"><span class="tk"></span></label>
       </div>
+      <!-- v3.26.x #515：三类的触发概率显示 + 可调（用户报「聊天情绪字卡页没有显示触发的概率和
+           可调整的按钮功能」）。存键 mc-prob-mood / mc-prob-heart / mc-prob-intent（per-cid），
+           未设置时回退改版前写死的 70 / 40 / 40＝行为不变；情绪卡连续触发的原有衰减按比例缩放
+           （基数 70% 时与旧行为逐档一致）。消费方 mood-reply-cards.js 的
+           getMoodCard / getHeartCard / getIntentCard，接线见该文件。 -->
+      <div class="set-group glass" id="mc-prob-box" style="margin:10px 12px 0">
+        <div class="gs-row"><span>情绪字卡概率</span><div class="stepper" id="mc-prob-mood" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mc-prob-mood-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>心意字卡概率</span><div class="stepper" id="mc-prob-heart" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mc-prob-heart-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>交流意图字卡概率</span><div class="stepper" id="mc-prob-intent" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mc-prob-intent-val" readonly><button class="stp-max">+</button></div></div>
+      </div>
       <!-- v3.6.x #500：三类分栏（情绪 / 心意 / 交流意图）——三级链路整类与单张都要能关，
            此前只渲染情绪一类，心意与交流意图卡在字卡库里没有列表＝没有关闭入口 -->
       <div class="cc-groups-bar" id="mc-type-bar"></div>
-      <div class="sm-set-hint" id="mc-type-hint" style="padding:2px 16px 4px">说明：联系人回复可能依次附带情绪 → 心意 → 交流意图三类字卡（各自独立概率），三类均可整类或逐张关闭。</div>
+      <div class="sm-set-hint" id="mc-type-hint" style="padding:2px 16px 4px">说明：联系人回复可能依次附带情绪 → 心意 → 交流意图三类字卡（各自独立概率，可在上方逐类调整），三类均可整类或逐张关闭。</div>
+      <div class="sm-set-hint" id="mc-prob-hint" style="padding:0 16px 4px">「情绪字卡概率」为基础概率：连续触发时仍按原有衰减规则递减（相对基数第 1 次 100%、第 2 次约 86%、第 3 次约 64%、第 4 次约 43%、第 5 次起约 29%）；三类各自独立判定，一次回复可同时出现 1~3 类。想彻底关：把对应概率调到 0%，或关掉上方「使用情绪字卡」（三类一起停）。</div>
       <div class="gs-title" id="mc-group-title">情绪分组</div>
       <div class="cc-groups-bar" id="mc-groups-bar"></div>
       <div class="card-search glass" id="mc-search">
@@ -12328,6 +12348,18 @@ transition-duration: .01ms !important;
         </div>
         <label class="toggle"><input type="checkbox" id="rc-enabled"><span class="tk"></span></label>
       </div>
+      <!-- v3.26.x #515：回应字卡（逻辑连接词）两个消费点的概率显示 + 可调（用户报「聊天回应字卡页
+           没有显示触发的概率和可调整的按钮功能」）：
+           ①「回应字卡使用概率」＝整条回复被换成一整张回应字卡的概率（原 getReplyCard 里写死 30%，
+             现读 rcard-prob，per-cid，未设置＝30% 行为不变）；
+           ②「连接词追加概率」＝回复尾部再追加一条连接词的概率（原回复设置里无 UI 的 cf-prob，
+             默认 20%），读写走 window.replyCfg / window.saveReplyCfg（与回复设置同一份 reply- 键），
+             不新开键——避免同一语义两处各存一份。 -->
+      <div class="set-group glass" id="rc-prob-box" style="margin:10px 12px 0">
+        <div class="gs-row"><span>回应字卡使用概率</span><div class="stepper" id="rcard-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rcard-prob-val" readonly><button class="stp-max">+</button></div></div>
+        <div class="gs-row"><span>连接词追加概率</span><div class="stepper" id="cf-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="cf-prob-val" readonly><button class="stp-max">+</button></div></div>
+      </div>
+      <div class="sm-set-hint" id="rc-prob-hint" style="padding:2px 16px 4px">说明：本页字卡是「逻辑连接词」，TA 回话时有两种用法——①按「回应字卡使用概率」整条回复换成一张连接词字卡（默认 30%）；②按「连接词追加概率」在回复末尾再补一句连接词（默认 20%，与回复设置里的连接词概率是同一项，改任意一处都生效）。两个概率都调到 0% 等于不用回应字卡（也可直接用上方总开关）。</div>
       <div class="gs-title">回应字卡分类</div>
       <div class="cc-groups-bar" id="rc-groups-bar"></div>
       <div class="card-search glass" id="rc-search">
@@ -47557,24 +47589,57 @@ apply(open);
 try { window.activeStore().set('dcf-prob-open', open ? '1' : '0'); } catch (e) {}
 });
 })();
+function dcfRaw(k) {
+if (!(k in DCF_DEF)) return 100;
+try {
+const v = window.activeStore().get('dcf-' + k);
+if (v !== null && v !== undefined && v !== '') {
+const n = Number(v);
+if (!isNaN(n)) return Math.max(0, Math.min(100, n));
+}
+} catch (e) {}
+return DCF_DEF[k];
+}
+function dcfSteppers(k) {
+const out = [];
+const byId = document.getElementById('dcf-prob-' + k);
+if (byId) out.push(byId);
+document.querySelectorAll('.stepper[data-dcfkey="' + k + '"]').forEach(function (st) {
+if (out.indexOf(st) === -1) out.push(st);
+});
+return out;
+}
+function dcValEl(st) { return st.querySelector('input.stp-val') || st.querySelector('.stp-val'); }
+function dcfRefreshUI(k) {
+dcfSteppers(k).forEach(function (st) {
+const valEl = dcValEl(st);
+if (valEl) valEl.value = String(dcfRaw(k));
+});
+}
+window.dcfRefreshUI = dcfRefreshUI;
+function dcfSetVal(k, nv) {
+nv = Math.max(0, Math.min(100, parseInt(nv, 10) || 0));
+try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
+dcfRefreshUI(k);
+toast('字卡使用概率（' + (DCF_DEF_NAME[k] || k) + '）：' + nv + '%');
+}
+const dcfBoundSteppers = [];
 function bindDcfProb() {
 Object.keys(DCF_DEF).forEach((k) => {
-const box = document.getElementById('dcf-prob-' + k);
-const valEl = document.getElementById('dcf-prob-' + k + '-val');
-if (!box || !valEl) return;
-valEl.value = String(dcfVal(k));
-box.querySelector('.stp-min').addEventListener('click', () => {
-const nv = Math.max(0, (parseInt(valEl.value, 10) || 0) - 5);
-valEl.value = String(nv);
-try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
-toast('字卡使用概率（' + k + '）：' + nv + '%');
+dcfSteppers(k).forEach(function (st) {
+if (dcfBoundSteppers.indexOf(st) >= 0) return;
+dcfBoundSteppers.push(st);
+const mn = st.querySelector('.stp-min');
+const mx = st.querySelector('.stp-max');
+const curVal = function () {
+const valEl = dcValEl(st);
+const n = valEl ? parseInt(valEl.value, 10) : NaN;
+return isNaN(n) ? dcfRaw(k) : n;
+};
+if (mn) mn.addEventListener('click', () => dcfSetVal(k, curVal() - 5));
+if (mx) mx.addEventListener('click', () => dcfSetVal(k, curVal() + 5));
 });
-box.querySelector('.stp-max').addEventListener('click', () => {
-const nv = Math.min(100, (parseInt(valEl.value, 10) || 0) + 5);
-valEl.value = String(nv);
-try { window.activeStore().set('dcf-' + k, String(nv)); } catch (e) {}
-toast('字卡使用概率（' + k + '）：' + nv + '%');
-});
+dcfRefreshUI(k);
 });
 }
 bindDcfProb();
@@ -47599,11 +47664,11 @@ memo: '【备忘提醒】你有未完成的备忘时，联系人每隔一段时�
 ask: '【TA主动提问】联系人在聊天里主动发起的问题卡：关心询问 / 小问题 / 好奇卡片 / 互动 / 吐槽，带你作答选项。每类自带触发概率（默认 5%）且各带冷却，任意一问后 60 分钟内不再自动触发。\n本概率 = 在那套概率/闸门之上是否统一放行：100% = 保持原节奏，0% = 完全不主动提问。\n不影响查岗（查岗走自己的「跨桌面查岗」）。'
 };
 (function () {
-function injBox(boxId, ks) {
+function injBox(boxId, ks, idOverride) {
 var box = document.getElementById(boxId);
 if (!box) return;
 ks.forEach(function (k) {
-var stp = document.getElementById('dcf-prob-' + k);
+var stp = document.getElementById((idOverride && idOverride[k]) || ('dcf-prob-' + k));
 if (!stp) return;
 var row = stp.closest('.gs-row');
 if (!row) return;
@@ -47622,6 +47687,7 @@ label.appendChild(tag);
 }
 injBox('dcf-prob-box', Object.keys(DCF_DEF).filter(function (k) { return k !== 'deskcheck'; }));
 injBox('dcf-prob-box-dk', ['deskcheck']);
+injBox('ck-prob-box', ['checkin'], { checkin: 'dcf-prob-checkin-ck' });
 })();
 document.addEventListener('click', function (e) {
 var t = e.target && e.target.closest ? e.target.closest('[data-fdesc]') : null;
@@ -47629,7 +47695,7 @@ if (!t) return;
 var k = t.getAttribute('data-fdesc');
 var txt = DCF_DESC[k];
 if (!txt) return;
-var n = dcfVal(k);
+var n = dcfRaw(k);
 var title = '【' + (t.getAttribute('data-dname') || k) + '】功能说明';
 if (window.openModal) {
 window.openModal(title, '', function () {}, { noInput: true, staticText: txt + '\n\n当前使用概率：' + n + '%' });
@@ -47655,12 +47721,16 @@ const valEl = document.getElementById('dc-prob-' + k + '-val');
 if (valEl) valEl.value = String(getProb(k));
 });
 Object.keys(DCF_DEF).forEach(function (k) {
-const valEl = document.getElementById('dcf-prob-' + k + '-val');
-if (valEl) valEl.value = String(dcfVal(k));
+dcfRefreshUI(k);
 });
 const deEl = document.getElementById('dcf-enabled');
 if (deEl) deEl.checked = dcfEnabled();
 } catch (e) {}
+});
+['contact-switched', 'mochi-restore-done'].forEach(function (ev) {
+document.addEventListener(ev, function () {
+try { Object.keys(DCF_DEF).forEach(function (k) { dcfRefreshUI(k); }); } catch (e) {}
+});
 });
 const V_PAD = 0.8;    // 视口上下各多渲染 0.8 屏（重建频率 ≈ 每滚 0.8 屏一次）
 const V_MINW = 24;    // 窗口条目数下限（小屏/高条目时兜底，避免窗口过窄）
@@ -48541,6 +48611,47 @@ if (roll < 0) return it[0];
 }
 return items[items.length - 1] ? items[items.length - 1][0] : null;
 }
+const MC_PROB_DEF = { mood: 70, heart: 40, intent: 40 };
+function mcProb(type) {
+const d = MC_PROB_DEF[type] !== undefined ? MC_PROB_DEF[type] : 100;
+try {
+const v = ls.get('mc-prob-' + type);
+if (v === null || v === undefined || v === '') return d;
+const n = Number(v);
+return isNaN(n) ? d : Math.max(0, Math.min(100, n));
+} catch (e) { return d; }
+}
+const RCARD_PROB_DEF = 30; // 原 getReplyCard 写死的 30%（与默认字卡 defaultCommonOverallProb 同档）
+function rcardProb() {
+try {
+const v = ls.get('rcard-prob');
+if (v === null || v === undefined || v === '') return RCARD_PROB_DEF;
+const n = Number(v);
+return isNaN(n) ? RCARD_PROB_DEF : Math.max(0, Math.min(100, n));
+} catch (e) { return RCARD_PROB_DEF; }
+}
+function bindProbStepper(boxId, valId, read, write, label) {
+const box = document.getElementById(boxId);
+const valEl = document.getElementById(valId);
+if (!box || !valEl) return null;
+const stepBy = function (delta) {
+const cur = parseInt(valEl.value, 10);
+const nv = Math.max(0, Math.min(100, (isNaN(cur) ? read() : cur) + delta));
+valEl.value = String(nv);
+try { write(nv); } catch (e) {}
+toast(label + '：' + nv + '%');
+};
+const mn = box.querySelector('.stp-min');
+const mx = box.querySelector('.stp-max');
+if (mn) mn.addEventListener('click', function () { stepBy(-5); });
+if (mx) mx.addEventListener('click', function () { stepBy(5); });
+return { box: box, valEl: valEl, refresh: function () { valEl.value = String(read()); } };
+}
+let syncCardProbUI = function () {};
+function addProbUISync(fn) {
+const prev = syncCardProbUI;
+syncCardProbUI = function () { try { prev(); } catch (e) {} try { fn(); } catch (e) {} };
+}
 function enabled(k) {
 const v = ls.get('mh-' + k);
 return v === null ? true : v === '1';
@@ -48569,12 +48680,12 @@ window.moodCardOffState = typeOff;
 window.getMoodCard = function () {
 if (!enabled('mood')) return null;
 if (emotionLastTs && Date.now() - emotionLastTs > 10 * 60000) emotionStreak = 0;
-let prob = 70;
+const _mBase = mcProb('mood');
 const streakMap = W.moodStreak || { 0: 70, 1: 60, 2: 45, 3: 30, 4: 20 };
-if (emotionStreak >= 4) prob = streakMap['4'] !== undefined ? streakMap['4'] : 20;
-else if (emotionStreak >= 3) prob = streakMap['3'] !== undefined ? streakMap['3'] : 30;
-else if (emotionStreak >= 2) prob = streakMap['2'] !== undefined ? streakMap['2'] : 45;
-else if (emotionStreak >= 1) prob = streakMap['1'] !== undefined ? streakMap['1'] : 60;
+const _lvl = emotionStreak >= 4 ? '4' : String(emotionStreak);
+const _ref = streakMap['0'] !== undefined ? streakMap['0'] : 70;
+const _ratio = (_ref > 0 && streakMap[_lvl] !== undefined) ? (streakMap[_lvl] / _ref) : 1;
+let prob = Math.max(0, Math.min(100, _mBase * _ratio));
 if (Math.random() * 100 > prob) return null;
 const groups = (DATA.mood || [])
 .map(g => ({ ...g, cards: g.cards.filter(c => !isCardOff('mc-off-mood', c.content)) }))
@@ -48607,7 +48718,7 @@ return { content: card.content, group: g.group, rarity: card.rarity };
 };
 window.getHeartCard = function (moodCard) {
 if (!enabled('heart')) return null;
-if (Math.random() * 100 > 40) return null; // 40% 显示率
+if (Math.random() * 100 > mcProb('heart')) return null;
 const chatCount = Number(ls.get('chat-count') || 0);
 if (chatCount >= 20 && (Date.now() - specialLastTime) > 86400000 && Math.random() * 100 < 5) {
 specialLastTime = Date.now();
@@ -48653,7 +48764,7 @@ return { content: picked.content, group: grp.group, emoji: grp.emoji, level: pic
 };
 window.getIntentCard = function (heartCard) {
 if (!enabled('intent')) return null;
-if (Math.random() * 100 > 40) return null; // 40% 显示率（与心意一致，避免"几乎不触发"）
+if (Math.random() * 100 > mcProb('intent')) return null;
 let pool = null;
 if (heartCard && heartCard.group && DATA.heartToIntent && DATA.heartToIntent[heartCard.group]) {
 pool = DATA.heartToIntent[heartCard.group];
@@ -48692,6 +48803,17 @@ const rcEnabled = document.getElementById('rc-enabled');
 if (rcList && rcEnabled) {
 rcEnabled.checked = (ls.get('rc-enabled') === null) ? true : ls.get('rc-enabled') === '1';
 rcEnabled.addEventListener('change', () => ls.set('rc-enabled', rcEnabled.checked ? '1' : '0'));
+const rcProbUI = bindProbStepper('rcard-prob', 'rcard-prob-val', rcardProb,
+function (v) { ls.set('rcard-prob', String(v)); }, '回应字卡使用概率');
+const cfProbUI = bindProbStepper('cf-prob', 'cf-prob-val', function () {
+const c = (window.replyCfg && window.replyCfg()) || {};
+const n = Number(c['cf-prob']);
+return isFinite(n) ? n : 20;
+}, function (v) { if (window.saveReplyCfg) window.saveReplyCfg('cf-prob', v); }, '连接词追加概率');
+addProbUISync(function () {
+if (rcProbUI) rcProbUI.refresh();
+if (cfProbUI) cfProbUI.refresh();
+});
 const CATS = [
 ['echo', '接话'], ['confirm', '确认'], ['keep', '继续'], ['probe', '轻追问'],
 ['bridge', '连接'], ['shift', '转折'], ['tone', '停顿'], ['close', '收束']
@@ -48777,6 +48899,15 @@ ls.set('mc-enabled', mcEnabled.checked ? '1' : '0');
 setEnabled('mood', mcEnabled.checked);
 setEnabled('heart', mcEnabled.checked);
 setEnabled('intent', mcEnabled.checked);
+});
+const mcProbUI = {};
+[['mood', '情绪字卡概率'], ['heart', '心意字卡概率'], ['intent', '交流意图字卡概率']].forEach(function (p) {
+mcProbUI[p[0]] = bindProbStepper('mc-prob-' + p[0], 'mc-prob-' + p[0] + '-val',
+function () { return mcProb(p[0]); },
+function (v) { ls.set('mc-prob-' + p[0], String(v)); }, p[1]);
+});
+addProbUISync(function () {
+Object.keys(mcProbUI).forEach(function (k) { if (mcProbUI[k]) mcProbUI[k].refresh(); });
 });
 const MC_TYPES = [
 { key: 'mood', name: '情绪' },
@@ -48888,7 +49019,7 @@ if (home) home.hidden = false;
 }
 window.getReplyCard = function () {
 if (ls.get('rc-enabled') !== null && ls.get('rc-enabled') !== '1') return '';
-if (Math.random() * 100 >= 30) return '';
+if (Math.random() * 100 >= rcardProb()) return '';
 const followup = DATA.followup || {};
 const cats = Object.keys(followup).filter(k => followup[k] && followup[k].some(t => !isCardOff('rc-off-' + k, t)));
 if (!cats.length) return '';
@@ -48915,6 +49046,9 @@ emotionStreak = 0;
 emotionLastTs = 0;
 heartHistory = [];
 specialLastTime = 0;
+});
+['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(function (ev) {
+document.addEventListener(ev, function () { try { syncCardProbUI(); } catch (e) {} });
 });
 })();
 } catch (__e) { try { console.error("[JS] mood-reply-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push(String(__e && __e.message || __e)); } })();
@@ -93253,8 +93387,7 @@ document.querySelectorAll('.page').forEach(p => p.hidden = true);
 page.hidden = false;
 try { if (window.cjianNoteOpen) window.cjianNoteOpen(); } catch (e) {}
 viewCid = curCid(); // 每次打开回到当前桌面
-try { healBelonging(); } catch (e) {} // FIX #514：先纠正错放归属（搬空后自动重置播种标记）
-seedIfEmpty(curCid()); // 该桌面第一次打开此间：种下自己的第一个梦角（用 TA 的名字）
+try { healBelonging(); seedIfEmpty(curCid()); } catch (e) {}
 window.renderCjian(true);
 };
 window.closeCjian = function () {
@@ -95722,4 +95855,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu2abkrh -->
+<!-- __MOCHI_EOF__ mu2b094m -->

@@ -1652,6 +1652,15 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #513a 语料口径校对（用户点名「使用的是 自定义字卡的公用字卡＋专属字卡＋系统预设的默认聊天字卡＋默认聊天字卡·词典」）：①默认聊天字卡源此前只取 main 主字卡，与 字卡库→系统预设→默认聊天字卡 页的四分类（主字卡/颜文字/emoji/拍一拍）不同口径；②词典源漏滤逐张关闭（字库→词典里关掉的语录仍被当源句），与词典拼字 quote-spell.js 口径不一致。修复：defaultPool 遍历四分类并尊重分类开关 defaultCardCat + 逐张关闭；dictPool 补 isDefaultCardOff('dict', …) ====
   { name: '#513d 造句·默认聊天字卡源＝四分类同源（改回只取 main＝拍一拍字卡不再作源句，与字卡库页口径脱节）', file: 'js/dream-free.js', needle: "const DEF_CATS = ['main', 'kaomoji', 'emoji', 'touch'];" },
   { name: '#513e 造句·词典源逐张关闭过滤（删＝字卡库→词典里关掉的语录仍被抽作源句，与词典拼字口径不一致）', file: 'js/dream-free.js', needle: "return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('dict', t))));" },
+  // ==== 2026-09-15 #515 系统预设字卡三页「触发概率显示 + 可调」（用户报「字卡库的系统预设字卡里，聊天回应字卡 / 使用情绪字卡 / 寻踪日常字卡 3 个功能页面里都没有显示触发的概率和可调整的按钮功能」）：这四项概率此前全写死在代码里——情绪 70%（+连续衰减 70/60/45/30/20）、心意 40%、交流意图 40%、回应字卡整条替换 30%，寻踪日常推送的 dcf-checkin 只挂在【其他互动功能字卡】页（寻踪页自己看不到也改不了）。修复＝三页各补概率行 + 消费点接线（未设键回退原写死值＝默认行为不变），寻踪那处与功能字卡页共用同一个 dcf-checkin、改一处两处同步；行为断言见 tools/verify-card-prob-pages.mjs（HEAD 基线 5/27 → 修复 27/27） ====
+  { name: '#515a 聊天情绪字卡页三类概率 stepper（删＝该页又变回「只有总开关、没有显示触发的概率和可调整的按钮」＝原报障复发）', file: 'template.html', needle: 'id="mc-prob-mood-val"' },
+  { name: '#515b 聊天回应字卡页两个消费点概率 stepper（整条替换 rcard-prob + 连接词追加 cf-prob，删＝该页概率不可见不可调）', file: 'template.html', needle: 'id="cf-prob-val"' },
+  { name: '#515c 寻踪日常字卡页「寻踪日常发送到聊天」概率行（data-dcfkey=checkin＝与功能字卡页同键同步；删＝该页看不到概率）', file: 'template.html', needle: 'data-dcfkey="checkin"' },
+  { name: '#515d 情绪/心意/意图概率未设键回退 70/40/40（改默认＝所有没设过键的老设备概率被悄悄改掉）', file: 'js/mood-reply-cards.js', needle: 'const MC_PROB_DEF = { mood: 70, heart: 40, intent: 40 };' },
+  { name: '#515e 回应卡整条替换概率改读 rcardProb()（退回写死 if (Math.random() * 100 >= 30) ＝该页「回应字卡使用概率」stepper 点了不生效）', file: 'js/mood-reply-cards.js', needle: "if (Math.random() * 100 >= rcardProb()) return '';" },
+  { name: '#515f 情绪卡衰减按可调基数同比例缩放（退回固定 70 基＝调低基数后衰减档位与页面显示的基数脱钩）', file: 'js/mood-reply-cards.js', needle: 'let prob = Math.max(0, Math.min(100, _mBase * _ratio));' },
+  { name: '#515g 同一 dcf 概率键的多处 stepper 批量绑定 + 同键刷新（删＝寻踪页与功能字卡页各显示各的、改一处另一处不变）', file: 'js/default-cards.js', needle: 'window.dcfRefreshUI = dcfRefreshUI;' },
+  { name: '#515h 概率行显示存盘值而非闸门后的生效值（退回 dcfVal＝总开关关闭时各概率行显示 0、点 ± 被复位成 0＝点了没反应）', file: 'js/default-cards.js', needle: 'if (valEl) valEl.value = String(dcfRaw(k));' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
