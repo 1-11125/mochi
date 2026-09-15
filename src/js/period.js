@@ -49,11 +49,13 @@
     return fb;
   }
   var PERIOD_CARE_LINES = cardGroupLines('经期关心', PERIOD_CARE_FALLBACK);
-  // v3.42.x #553：经前预警/经期推迟专属语——此前经前提醒日/推迟日与经期中共用「经期关心」
-  //   语料（经期中口吻），经期还没到就在聊天里发「今天经期第几天了？肚子还痛不痛」
-  //   （用户反馈「还没到经期时间，联系人直接在聊天里发送了经期关心」）。现按语境分流：
-  //   经前预警日/推迟日只从对应分组抽预警语（{d} 由 checkCare 替换为具体天数），附
-  //   「经期预警」标签；「经期关心」标签与原语料仅经期中使用。单卡开关 dc-off-period:*。
+  // v3.42.x #559：经期预警/推迟专属语（按语境 + 经期规律分级）——此前经前提醒日/推迟日
+  //   与经期中共用「经期关心」语料（经期中口吻），经期还没到就发「今天经期第几天了？」
+  //   （用户反馈①）。分级（用户反馈②「根据经期规律提醒」）：cycleStats 有效周期 ≥3 且
+  //   CV<0.2（很规律+较规律）＝「预测可信」（rule），其余（不规律/记录不足）＝「预测仅
+  //   参考」（free）——对后者不再说「推迟/晚了 N 天」（预测误差可能比推迟天数还大，
+  //   用户反馈「太扯淡」），改以「距上次经期已经 {d} 天」的间隔口吻。{d} 由 checkCare
+  //   替换为具体天数；「经期关心」标签与原语料仅经期中使用；单卡开关 dc-off-period:*。
   var PERIOD_PREWARN_FALLBACK = [
     '算算日子，还有 {d} 天左右可能就来经期了，这几天别贪凉',
     '经期快到了（预计 {d} 天后），提前把热水袋给你翻出来',
@@ -62,11 +64,29 @@
     '快到经期了（约 {d} 天后），卫生用品备好了吗？没有我提醒你',
     '还有 {d} 天左右经期就来，这几天少喝冰的，乖'
   ];
+  var PERIOD_PREWARN_FREE_FALLBACK = [
+    '记录上看，还有 {d} 天左右到经期——你的周期一向随性，就当个参考',
+    '按你的记录粗算，大约 {d} 天后是经期，仅供参考，先有个准备',
+    '大概还有 {d} 天？你的经期比较有个性，这条就当提个醒',
+    '估摸 {d} 天前后，快到了就提前少碰凉的，不准也别怪我'
+  ];
   var PERIOD_DELAY_FALLBACK = [
-    '经期已经推迟 {d} 天了，别太紧张，偶尔晚几天很正常',
-    '推迟第 {d} 天了，最近是不是太累了？压力大也会晚，注意休息',
-    '经期晚了 {d} 天，要是连续两个月都这样，陪你去看看医生',
-    '推迟 {d} 天了，最近照顾好自己，别瞎想，我陪着你'
+    '比平时晚了 {d} 天了，你一向很准的，这两天多留意，注意休息',
+    '你周期一直挺稳的，这次晚了 {d} 天，最近是不是太累了？早点睡',
+    '晚了 {d} 天了，先别慌，你的经期向来准时，注意保暖，再等等看',
+    '按你的规律这次迟到了 {d} 天，压力大也会这样，别自己吓自己'
+  ];
+  var PERIOD_DELAY_DEEP_FALLBACK = [
+    '已经比平时晚了 {d} 天了，你这么准的人都推迟这么久，建议关注一下身体',
+    '晚了 {d} 天了，一直不来的话，陪你去看看医生吧，我先帮你记着日子',
+    '推迟第 {d} 天了，你一向规律，这种情况别拖着，查一下更放心',
+    '已经 {d} 天没来了，身体的事不拖，想什么时候去检查，我陪你'
+  ];
+  var PERIOD_DELAY_FREE_FALLBACK = [
+    '距上次经期已经 {d} 天了，你的经期一向随性，再等等，别自己吓自己',
+    '这次间隔到 {d} 天了，你的周期自由发挥惯了，正常，照顾好自己',
+    '上次到现在 {d} 天了，你的经期从不按套路来，安心，我陪着你',
+    '已经 {d} 天没来了，你的周期向来有自己的想法；超过两个月还没来就去看看医生吧'
   ];
   function loadCareLines() {
     try { var a = JSON.parse(store.get(KEY_CARE) || 'null'); if (Array.isArray(a)) return a; } catch (e) {}
@@ -1151,12 +1171,19 @@
   }
 
   // ---- 关心语抽取 ----
-  // v3.42.x #553：语境分流——经期中走原逻辑（80% 经期专属语 + 20% ta-ask care 题库）；
-  //   经前预警日/推迟日只从「经前预警」「经期推迟」分组抽预警语（不混通用题库，
-  //   避免语境错位），全被字卡库关掉则返回空串（本次不发）
-  function pickWarnLine(kind) {
-    var fb = kind === 'adv' ? PERIOD_PREWARN_FALLBACK : PERIOD_DELAY_FALLBACK;
-    var pool = cardGroupLines(kind === 'adv' ? '经前预警' : '经期推迟', fb).filter(function (l) { return l && !careLineBlocked(l); });
+  // v3.42.x #559：语境 + 规律分级抽取——经期中走原逻辑（80% 经期专属语 + 20% ta-ask
+  //   care 题库）；预警语境只从对应分组抽（不混通用题库，避免语境错位），全被字卡库
+  //   关掉则返回空串（本次不发）。ctx 决定语境（adv*/delay/delayDeep/delayIrregular），
+  //   tier 决定规律档（rule=预测可信 / free=预测仅参考）。
+  function pickWarnLine(ctx, tier) {
+    var name, fb;
+    if (ctx.indexOf('adv') === 0) {
+      if (tier === 'free') { name = '经前预警·不规律'; fb = PERIOD_PREWARN_FREE_FALLBACK; }
+      else { name = '经前预警'; fb = PERIOD_PREWARN_FALLBACK; }
+    } else if (ctx === 'delayDeep') { name = '经期推迟·关注'; fb = PERIOD_DELAY_DEEP_FALLBACK; }
+    else if (ctx === 'delayIrregular') { name = '经期推迟·不规律'; fb = PERIOD_DELAY_FREE_FALLBACK; }
+    else { name = '经期推迟'; fb = PERIOD_DELAY_FALLBACK; }
+    var pool = cardGroupLines(name, fb).filter(function (l) { return l && !careLineBlocked(l); });
     if (!pool.length) return '';
     return pool[Math.floor(Math.random() * pool.length)];
   }
@@ -1177,35 +1204,56 @@
   }
   // ---- 梦角关心触发（经期专属，每天最多一条）----
   // 触发时机：启动后 + 联系人每条文字回复后（chat.js）；经期中每天 + 经期前
-  //   advanceDays 提醒日 + 推迟≥5天
-  // v3.42.x #553：语境分流——经期中发「经期关心」（原语料），经前预警日/推迟日发
-  //   「经期预警」（「经前预警」「经期推迟」分组语料，{d} 替换为具体天数），三种语境
-  //   各自每天最多一条；不再在经期未到时发「经期中」口吻的关心
+  //   advanceDays 提醒日 + 推迟预警
+  // v3.42.x #559 详细设计（语境 × 经期规律 分级提醒，用户反馈「根据经期规律提醒」）：
+  //   predictTier：cycleStats 有效周期 ≥3 且 CV<0.2（很规律+较规律）＝rule「预测可信」；
+  //   其余（不规律/记录 <3 次）＝free「预测仅参考」。
+  //   ① 经前预警：rule 按提醒设置的全部预警日（默认提前 3/1 天）发确定口吻；
+  //     free 的预测误差可能 ±一周以上，只在最接近的一次预警日（提前天数最小值）发一次
+  //     措辞带「按记录推算、仅供参考」的版本，避免按不可信预测连发多天。
+  //   ② 推迟预警：rule 晚 ≥5 天发「比平时晚了 N 天」（你一向很准），晚 ≥10 天升
+  //     「关注」档（措辞带就医建议）；free 不说「推迟/晚了」——预测本身不可信，说了
+  //     就是「太扯淡」（用户原话），晚 ≥10 天才以「距上次经期已经 N 天」的间隔口吻
+  //     轻提（{d} 语义=间隔天数，且 60 天+ 的文案自然带出就医建议）。
+  //   各语境每天最多一条（fired 键含 ctx，tier/深浅不同互不挤占）；字卡库同名分组
+  //   可逐张开关，整组关掉则该语境当天不发。
   // v3.14.x 概率重设计——旧版三层门控叠加（chat 回复路径预掷 20% × 连发衰减至 20%
   //   × 当日基数），第 2 天起单次触发率跌到约 12%、第 5 天起仅 ~4%，体感就是
   //   「只有第一天会来关心」。现在：去掉连发衰减与 chat 预掷，只保留「同一天最多
   //   一条」冷却；进入判定后按当天基数掷一次——经期第1-2天 90%、第3-4天 70%、
   //   第5+天 55%；经期前提醒/推迟预警 75%。防刷屏由每日一条上限兜底。
+  // v3.42.x #422：「梦角关心」开关之外叠加「其他互动功能字卡」的 dcf-care 概率门控
+  //   （默认 100%＝原节奏，0%＝不发），随联系人桌面隔离；两者都关才真完全关。
+  function predictTier() {
+    var s = cycleStats();
+    if (s.n >= 3 && s.cv < 0.2) return 'rule';
+    return 'free';
+  }
   function checkCare() {
     if (!notifyCfg.careEnabled) return;
     if (!window.chatAddIn) return;
-    // v3.42.x #422：在「梦角关心」开关之外，叠加「其他互动功能字卡」里的「TA的关心（经期）」
-    //   概率门控（dcf-care，默认 100%＝保持原节奏，0%＝不发关心）。总开关 dcf-enabled 也会覆盖它。
-    //   随联系人桌面隔离；经期页「梦角关心」按钮（careEnabled）仍独立生效，两者都关才真完全关。
     try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('care') : 100)) return; } catch (e) {}
     var st = status();
     var today = todayStr();
+    var tier = predictTier();
     var shouldCare = false, ctx = '', kind = '';
     if (st.inPeriod) { shouldCare = true; ctx = 'inPeriod'; kind = 'in'; }
     else if (st.nextStart) {
       var d = diffDays(today, st.nextStart);
-      if (notifyCfg.advanceDays.indexOf(d) >= 0) { shouldCare = true; ctx = 'adv' + d; kind = 'adv'; }
+      // free 档只认最接近的一次预警日（提前天数最小值，0=当天不可达故滤掉）
+      var advOk = true;
+      if (tier === 'free') {
+        var advs = notifyCfg.advanceDays.filter(function (x) { return x >= 1; });
+        advOk = advs.length ? d === Math.min.apply(null, advs) : false;
+      }
+      if (advOk && notifyCfg.advanceDays.indexOf(d) >= 0) { shouldCare = true; ctx = 'adv' + d; kind = 'adv'; }
     }
     var delayDays = 0;
     if (st.phase === 'safe' && /推迟/.test(st.title)) {
       var m = st.title.match(/推迟 (\d+) 天/);
       delayDays = m ? parseInt(m[1], 10) : 0;
-      if (delayDays >= 5) { shouldCare = true; ctx = 'delay'; kind = 'delay'; }
+      if (tier === 'rule' && delayDays >= 5) { shouldCare = true; ctx = delayDays >= 10 ? 'delayDeep' : 'delay'; kind = 'delay'; }
+      else if (tier === 'free' && delayDays >= 10) { shouldCare = true; ctx = 'delayIrregular'; kind = 'delayIrr'; }
     }
     if (!shouldCare) return;
     notifyCfg.fired = notifyCfg.fired || {};
@@ -1219,14 +1267,15 @@
       else baseProb = 55;
     }
     if (Math.random() * 100 > baseProb) return;
-    // v3.42.x #553：经前/推迟语境抽专属预警语，并把 {d} 占位符替换为具体天数
-    //   （距预测经期开始的天数 / 已推迟天数），让预警带上明确的日期参数
-    var line = kind === 'in' ? pickCareLine() : pickWarnLine(kind);
+    // {d} 占位符按语境取数：adv=距预测经期天数；delay/delayDeep=已推迟天数；
+    // delayIrregular=距上次经期天数（间隔口吻，不提「推迟」）
+    var line = kind === 'in' ? pickCareLine() : pickWarnLine(ctx, tier);
     if (!line) return;
     if (kind === 'adv') line = String(line).replace(/\{d\}/g, String(diffDays(today, st.nextStart)));
     else if (kind === 'delay') line = String(line).replace(/\{d\}/g, String(delayDays));
+    else if (kind === 'delayIrr') line = String(line).replace(/\{d\}/g, String(st.dayOfCycle || 0));
     // 带标签 chip 发进聊天（addIn opts.tag → rec.mood），用户能看出消息来源与语境：
-    // 「经期关心」= 经期中，「经期预警」= 经前预警日/推迟（#553 起区分）
+    // 「经期关心」= 经期中，「经期预警」= 经前预警/推迟（#559 起区分）
     try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
     notifyCfg.fired[careKey] = 1;
     var cut = addDays(today, -30);

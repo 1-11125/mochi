@@ -21,6 +21,7 @@
   var bodyEl = document.getElementById('card-audit-body');
   var refreshBtn = document.getElementById('card-audit-refresh');
   var copyBtn = document.getElementById('card-audit-copy');
+  var filterBtn = document.getElementById('card-audit-filter');
   if (!bodyEl) return;
 
   var GNS = 'xy-home-v2';
@@ -31,6 +32,7 @@
   var bulkFixes = [];  // 「一键修复系统预设可用」批量执行列表
   var issueCount = 0;
   var issues = [];
+  var onlyProblems = false; // 「只看有问题」筛选
 
   // ---------- 基础读取 ----------
   function esc(s) {
@@ -163,6 +165,10 @@
     checkinCards: ['.tab[data-page="page-chatcard"]', '#li-checkin-cards'],
     deskcheck: ['.tab[data-page="page-chatcard"]', '#li-deskcheck'],
     taCheckin: ['.tab[data-page="page-chatcard"]', '#li-ta-checkin'],
+    taAsk: ['.tab[data-page="page-chatcard"]', '#li-ta-ask'],
+    taChoose: ['.tab[data-page="page-chatcard"]', '#li-ta-choose'],
+    taCurious: ['.tab[data-page="page-chatcard"]', '#li-ta-curious'],
+    taRoast: ['.tab[data-page="page-chatcard"]', '#li-ta-roast'],
     replySettings: '#row-general',
     storage: '#row-storage-view'
   };
@@ -174,9 +180,10 @@
     var lab = esc(label);
     if (opt.jump) lab = '<span class="ca-jump" data-jump="' + esc(opt.jump) + '">' + lab + '</span>';
     var v = esc(value);
+    var edit = opt.edit ? '<span class="ca-jump ca-edit" data-jump="' + esc(opt.edit) + '">调整</span>' : '';
     var fix = '';
     if (opt.fix) fix = '<button class="ca-fix" type="button" data-fix="' + esc(opt.fix) + '">' + esc(opt.fixLabel || '修复') + '</button>';
-    return '<div class="storage-row"><span>' + lab + '</span><b class="' + cls(lv) + '">' + v + fix + '</b></div>';
+    return '<div class="storage-row"><span>' + lab + '</span><b class="' + cls(lv) + '">' + v + edit + fix + '</b></div>';
   }
   function funnelHtml(items) {
     var parts = [];
@@ -217,13 +224,13 @@
   // ---------- 修复动作 ----------
   function fixProb(id, key, def, after) {
     addFix(id, function () {
-      storeSet(key, def);
-      if (after) { try { after(); } catch (e) {} }
-      return true;
+      var ok = storeSet(key, def);
+      if (ok && after) { try { after(); } catch (e) {} }
+      return ok ? true : 'fail';
     });
   }
   function fixEnable(id, key, after) {
-    addFix(id, function () { storeSet(key, '1'); if (after) { try { after(); } catch (e) {} } return true; });
+    addFix(id, function () { var ok = storeSet(key, '1'); if (ok && after) { try { after(); } catch (e) {} } return ok ? true : 'fail'; });
   }
   function fixGroupOff(id, scope, type) {
     addFix(id, function () {
@@ -233,17 +240,18 @@
       if (!o[type]) return false;
       delete o[type];
       var json = JSON.stringify(o);
-      if (scope === 'public') globSet(key, json); else storeSet(key, json);
+      var ok = scope === 'public' ? globSet(key, json) : storeSet(key, json);
       try { if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite(); } catch (e) {}
-      return true;
+      return ok ? true : 'fail';
     });
   }
   function fixCardOffs(id, cat) {
     addFix(id, function () {
       var ks = offKeysOf(cat);
       if (!ks.length) return false;
-      ks.forEach(function (short) { try { window.activeStore().set(short, '0'); } catch (e) {} });
-      return true;
+      var ok = false;
+      ks.forEach(function (short) { if (storeSet(short, '0')) ok = true; });
+      return ok ? true : 'fail';
     });
   }
   function registerBulk(id) { bulkFixes.push(id); }
@@ -304,10 +312,18 @@
     if (!issues.length) addIssue('ok', '未发现明显问题：字卡各链路按当前设置正常取用。');
 
     // ===== 结论卡 =====
+    var badN = 0, warnN = 0;
+    issues.forEach(function (v) { if (v.lv === 'bad') badN++; else if (v.lv === 'warn') warnN++; });
     var verdictInner = '';
+    var headLv, headTxt;
+    if (lock) { headLv = 'bad'; headTxt = '系统预设字卡被二级密码锁住，先用开屏密码解锁'; }
+    else if (badN) { headLv = 'bad'; headTxt = '有 ' + badN + ' 个需要处理的问题（字卡可能用不到）'; }
+    else if (warnN) { headLv = 'warn'; headTxt = '整体可用，有 ' + warnN + ' 项可优化'; }
+    else { headLv = 'ok'; headTxt = '一切正常：字卡按当前设置正常参与回复'; }
+    verdictInner += '<div class="ca-headline ' + cls(headLv) + '">' + (headLv === 'ok' ? '✓ ' : headLv === 'warn' ? '! ' : '✕ ') + esc(headTxt) + '</div>';
     issues.forEach(function (v) { verdictInner += '<div class="ca-issues ' + cls(v.lv) + '">● ' + esc(v.text) + '</div>'; });
-    verdictInner += rowHtml('系统预设字卡', lock ? '被锁停' : ((dcEn || dcfEn) ? '部分/全部可用' : '总开关关闭'), lock ? 'bad' : 'ok');
-    verdictInner += rowHtml('当前桌面可用自定义字卡', '本桌面 ' + ownUsable + ' 张 · 公用 ' + pubUsable + ' 张（' + (ownGroups + pubGroups) + ' 组）', ownUsable + pubUsable > 0 ? 'ok' : 'mute');
+    verdictInner += rowHtml('系统预设字卡', lock ? '被锁停' : ((dcEn || dcfEn) ? '部分/全部可用' : '总开关关闭'), lock ? 'bad' : 'ok', { edit: 'defaultCards' });
+    verdictInner += rowHtml('当前桌面可用自定义字卡', '本桌面 ' + ownUsable + ' 张 · 公用 ' + pubUsable + ' 张（' + (ownGroups + pubGroups) + ' 组）', ownUsable + pubUsable > 0 ? 'ok' : 'mute', { edit: 'customOwn' });
 
     var fixable = [];
     if (!lock) {
@@ -355,13 +371,13 @@
     var dcInner = '';
     var idDcEn = 'inl-dc-en';
     if (!dcEn && !lock) fixEnable(idDcEn, 'dc-enabled');
-    dcInner += rowHtml('总开关（dc-enabled）', dcEn ? '开启' : '关闭', dcEn ? 'ok' : 'warn', { fix: (!dcEn && !lock) ? idDcEn : '' });
+    dcInner += rowHtml('总开关（dc-enabled）', dcEn ? '开启' : '关闭', dcEn ? 'ok' : 'warn', { fix: (!dcEn && !lock) ? idDcEn : '', edit: 'defaultCards' });
     ['chat', 'mail', 'feed'].forEach(function (k, i) {
       var nm = ['聊天', '信箱', '朋友圈'][i];
       var on = boolOf(store('dc-use-' + k), true);
       var id = 'inl-dc-use-' + k;
       if (!on && !lock) fixEnable(id, 'dc-use-' + k);
-      dcInner += rowHtml(nm + '使用（dc-use-' + k + '）', on ? '开启' : '关闭', on ? 'ok' : 'warn', { fix: (!on && !lock) ? id : '' });
+      dcInner += rowHtml(nm + '使用（dc-use-' + k + '）', on ? '开启' : '关闭', on ? 'ok' : 'warn', { fix: (!on && !lock) ? id : '', edit: 'defaultCards' });
     });
     ['chat', 'mail', 'feed'].forEach(function (k, i) {
       var nm = ['聊天', '写信', '朋友圈'][i];
@@ -369,7 +385,7 @@
       var v = num(store('dc-overall-' + k), def);
       var id = 'inl-dc-ov-' + k;
       if (v === 0 && !lock) fixProb(id, 'dc-overall-' + k, def);
-      dcInner += rowHtml(nm + '概率（dc-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '' });
+      dcInner += rowHtml(nm + '概率（dc-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'defaultCards' });
     });
     ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
       var cat = boolOf(store('dc-cat-' + k), true);
@@ -391,10 +407,10 @@
         (!cat && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idCat + '">启用</button>' : '') +
         (prob === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idProb + '">恢复占比</button>' : '') +
         (total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
-        '</b></div>' + funnel;
+        ' <span class="ca-jump ca-edit" data-jump="defaultCards">调整</span></b></div>' + funnel;
     });
     push('二、系统预设 · 聊天默认字卡', dcInner,
-      '漏斗＝「锁 → 总开关 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。概率 = 联系人回复时混入默认字卡的几率；分类占比 = 命中后内部按四大分类分配（相对权重）。系统预设字卡与自定义字卡机会互补（合计 100%）。');
+      '漏斗＝「锁 → 总开关 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。概率 = 联系人回复时混入默认字卡的几率；分类占比 = 命中后内部按四大分类分配（相对权重）。系统预设字卡与自定义字卡机会互补（合计 100%）。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
 
     // ===== 三、词典 =====
     var dictInner = '';
@@ -404,7 +420,7 @@
       var on = boolOf(store('dict-use-' + k), true); if (on) dictAnyUse = true;
       var id = 'inl-dict-use-' + k;
       if (!on && !lock) fixEnable(id, 'dict-use-' + k);
-      dictInner += rowHtml(nm + '使用（dict-use-' + k + '）', on ? '开启' : '关闭', on ? 'ok' : 'warn', { fix: (!on && !lock) ? id : '' });
+      dictInner += rowHtml(nm + '使用（dict-use-' + k + '）', on ? '开启' : '关闭', on ? 'ok' : 'warn', { fix: (!on && !lock) ? id : '', edit: 'dictCards' });
     });
     dictInner += rowHtml('一键全关（dict-use-closeall）', boolOf(store('dict-use-closeall'), false) ? '已全关' : '未使用', boolOf(store('dict-use-closeall'), false) ? 'warn' : 'mute');
     ['chat', 'mail', 'feed'].forEach(function (k, i) {
@@ -413,7 +429,7 @@
       var v = num(store('dict-overall-' + k), def); if (v > 0) dictAnyProb = true;
       var id = 'inl-dict-ov-' + k;
       if (v === 0 && !lock) fixProb(id, 'dict-overall-' + k, def);
-      dictInner += rowHtml(nm + '概率（dict-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '' });
+      dictInner += rowHtml(nm + '概率（dict-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'dictCards' });
     });
     dictInner += rowHtml('词典内置词条', presetGroups('dict').length + ' 组 · ' + presetCount('dict') + ' 条' + (offCount('dict') ? '（单卡关 ' + offCount('dict') + '）' : ''), 'mute');
     var dq = 0, dw = 0;
@@ -424,16 +440,16 @@
     dictInner += rowHtml('实际可用', dictUsable ? '可用' : (lock ? '被二级锁整体停用' : '不可用'), dictUsable ? 'ok' : 'warn');
     dictInner += funnelHtml([{ t: '锁', ok: !lock }, { t: '场景', ok: dictAnyUse }, { t: '概率', ok: dictAnyProb }]);
     push('三、系统预设 · 词典（拼字抽句/切词）', dictInner,
-      '词典属系统内置字卡，二级锁锁定时整池停用（下方开关全开也无效）；自建词条为全局键，不随桌面隔离。聊天词典内容走「词典拼字」，写信/朋友圈开启后按概率混入文案。');
+      '词典属系统内置字卡，二级锁锁定时整池停用（下方开关全开也无效）；自建词条为全局键，不随桌面隔离。聊天词典内容走「词典拼字」，写信/朋友圈开启后按概率混入文案。<br><b>怎么调</b>：点每行「调整」进「默认字卡·词典」页。');
 
     // ===== 四、其他互动功能字卡 =====
     var fInner = '';
     var idDcfEn = 'inl-dcf-en';
     if (!dcfEn && !lock) fixEnable(idDcfEn, 'dcf-enabled');
-    fInner += rowHtml('总开关（dcf-enabled）', dcfEn ? '开启' : '关闭（跨桌面查岗除外）', dcfEn ? 'ok' : 'warn', { fix: (!dcfEn && !lock) ? idDcfEn : '' });
+    fInner += rowHtml('总开关（dcf-enabled）', dcfEn ? '开启' : '关闭（跨桌面查岗除外）', dcfEn ? 'ok' : 'warn', { fix: (!dcfEn && !lock) ? idDcfEn : '', edit: 'funCards' });
     var idDcp = 'inl-dcp';
     if (all === 0 && !lock) fixProb(idDcp, 'reply-dcp-all', 100);
-    fInner += rowHtml('聊天概率总档（reply-dcp-all）', all + '%', all === 0 ? 'warn' : 'ok', { fix: (all === 0 && !lock) ? idDcp : '' });
+    fInner += rowHtml('聊天概率总档（reply-dcp-all）', all + '%', all === 0 ? 'warn' : 'ok', { fix: (all === 0 && !lock) ? idDcp : '', edit: 'replySettings' });
     DCF.forEach(function (d) {
       var key = d[0], name = d[1], def = d[2], hasPool = d[3];
       var raw = num(store('dcf-' + key), def);
@@ -453,32 +469,32 @@
       fInner += '<div class="storage-row"><span>' + esc(name) + '（dcf-' + key + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">存盘 ' + raw + '% · 生效 ' + eff + '% · ' + cnt +
         (raw === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + id + '">恢复概率</button>' : '') +
         (hasPool && total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
-        '</b></div>' + funnel;
+        ' <span class="ca-jump ca-edit" data-jump="funCards">调整</span></b></div>' + funnel;
     });
     push('四、系统预设 · 其他互动功能字卡（19 类）', fInner,
-      '生效概率 = 分类存盘值 × 聊天概率总档 ÷ 100；总开关关闭时除「跨桌面查岗」外全部归 0。二级锁锁定时系统预设内容不可用，但你自建的同类功能字卡仍可用（本页只统计系统预设张数）。');
+      '生效概率 = 分类存盘值 × 聊天概率总档 ÷ 100；总开关关闭时除「跨桌面查岗」外全部归 0。二级锁锁定时系统预设内容不可用，但你自建的同类功能字卡仍可用（本页只统计系统预设张数）。<br><b>怎么调</b>：点每行「调整」进「其他互动功能字卡」页（聊天概率总档在「回复设置 → 聊天」里调）。');
 
     // ===== 五、其他字卡池（#499 豁免） =====
     var oInner = '';
     var MC = window.MOOD_FOLLOWUP_DATA || {};
     var idMc = 'inl-mc-en';
     if (!mcEn) fixEnable(idMc, 'mc-enabled');
-    oInner += rowHtml('聊天情绪/心意/意图（mc-enabled）', mcEn ? '开启' : '关闭', mcEn ? 'ok' : 'warn', { fix: !mcEn ? idMc : '' });
+    oInner += rowHtml('聊天情绪/心意/意图（mc-enabled）', mcEn ? '开启' : '关闭', mcEn ? 'ok' : 'warn', { fix: !mcEn ? idMc : '', edit: 'moodCards' });
     ['mood', 'heart', 'intent'].forEach(function (k, i) {
       var nm = ['情绪', '心意', '交流意图'][i], def = [70, 40, 40][i], key = 'mc-prob-' + k;
       var v = num(store(key), def), id = 'inl-mc-' + k;
       if (v === 0) fixProb(id, key, def);
-      oInner += rowHtml('　' + nm + '概率（' + key + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: v === 0 ? id : '' });
+      oInner += rowHtml('　' + nm + '概率（' + key + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: v === 0 ? id : '', edit: 'moodCards' });
     });
     oInner += rowHtml('　情绪池张数', dataCount(MC.mood) + ' 张（不受二级锁影响）', 'mute');
     var rcEn = boolOf(store('rc-enabled'), true), rcProb = num(store('rcard-prob'), 30);
     var idRc = 'inl-rc';
     addFix(idRc, function () { if (!boolOf(store('rc-enabled'), true)) storeSet('rc-enabled', '1'); if (num(store('rcard-prob'), 30) === 0) storeSet('rcard-prob', 30); return true; });
-    oInner += rowHtml('聊天回应字卡（rc-enabled / rcard-prob）', (rcEn ? '开启' : '关闭') + ' · 整条替换 ' + rcProb + '% · 连接词追加 cf-prob ' + num(store('cf-prob'), 20) + '% · ' + dataCount(MC.followup) + ' 张', (rcEn && rcProb > 0) ? 'ok' : 'warn', { fix: (!rcEn || rcProb === 0) ? idRc : '' });
+    oInner += rowHtml('聊天回应字卡（rc-enabled / rcard-prob）', (rcEn ? '开启' : '关闭') + ' · 整条替换 ' + rcProb + '% · 连接词追加 cf-prob ' + num(store('cf-prob'), 20) + '% · ' + dataCount(MC.followup) + ' 张', (rcEn && rcProb > 0) ? 'ok' : 'warn', { fix: (!rcEn || rcProb === 0) ? idRc : '', edit: 'replyCards' });
     var tmEn = boolOf(store('tm-enabled'), true), tmProb = num(store('tm-prob'), 15);
     var idTm = 'inl-tm';
     addFix(idTm, function () { if (!boolOf(store('tm-enabled'), true)) storeSet('tm-enabled', '1'); if (num(store('tm-prob'), 15) === 0) storeSet('tm-prob', 15); return true; });
-    oInner += rowHtml('TA 的心情（tm-enabled / tm-prob）', (tmEn ? '开启' : '关闭') + ' · ' + tmProb + '% · ' + dataCount((window.TA_MOOD_DATA || {}).groups) + ' 张', (tmEn && tmProb > 0) ? 'ok' : 'warn', { fix: (!tmEn || tmProb === 0) ? idTm : '' });
+    oInner += rowHtml('TA 的心情（tm-enabled / tm-prob）', (tmEn ? '开启' : '关闭') + ' · ' + tmProb + '% · ' + dataCount((window.TA_MOOD_DATA || {}).groups) + ' 张', (tmEn && tmProb > 0) ? 'ok' : 'warn', { fix: (!tmEn || tmProb === 0) ? idTm : '', edit: 'taMood' });
     [['quote-cards-default', '桌面今日情话', 'quoteCards'], ['loc-lib-default', 'TA在身边位置卡', 'locCards'], ['checkin-cards-default', '寻踪日常字卡', 'checkinCards']].forEach(function (t) {
       var on = boolOf(store(t[0]), true), id = 'inl-' + t[0];
       if (!on) fixEnable(id, t[0]);
@@ -487,15 +503,16 @@
     var ck = null; try { ck = JSON.parse(store('ta-checkin') || 'null'); } catch (e) {}
     var ckUseDef = ck && ck.settings ? ck.settings.useDefault !== false : true;
     oInner += rowHtml('查岗问题库（ta-checkin.settings.useDefault）', (ckUseDef ? '使用系统预设' : '仅用自建') + ' · 触发 ckq-en ' + (boolOf(store('ckq-en'), true) ? '开' : '关') + ' / ckq-prob ' + num(store('ckq-prob'), 2) + '%', 'mute', { jump: 'taCheckin' });
+    var TA_EDIT = { 'ta-ask': 'taAsk', 'ta-choose': 'taChoose', 'ta-curious': 'taCurious', 'ta-roast': 'taRoast' };
     ['ta-ask:询问', 'ta-choose:小问题', 'ta-curious:好奇', 'ta-roast:吐槽'].forEach(function (pair) {
       var key = pair.split(':')[0], label = pair.split(':')[1];
       var blob = null; try { blob = JSON.parse(store(key) || 'null'); } catch (e) {}
       var s = blob && blob.settings ? blob.settings : {};
       var en = s.enabled !== false, pr = s.prob === undefined ? 5 : s.prob;
-      oInner += rowHtml('TA 主动·' + label + '（' + key + '.settings）', (en ? '开启' : '关闭') + ' · 概率 ' + pr + '%', (en && pr > 0) ? 'ok' : 'warn');
+      oInner += rowHtml('TA 主动·' + label + '（' + key + '.settings）', (en ? '开启' : '关闭') + ' · 概率 ' + pr + '%', (en && pr > 0) ? 'ok' : 'warn', { edit: TA_EDIT[key] });
     });
     push('五、系统预设 · 其他字卡池（不受二级锁影响）', oInner,
-      '这一组按 #499 明确豁免：未解锁二级密码也照常使用。各池开关存于各自数据块/键，点名称可跳到对应管理页；本页只读展示（个别概率项可就地恢复默认）。');
+      '这一组按 #499 明确豁免：未解锁二级密码也照常使用。各池开关存于各自数据块/键。<br><b>怎么调</b>：点每行「调整」进对应管理页；个别概率/开关可就地「修复」回默认。');
 
     // ===== 六/七、自定义字卡 =====
     function customCard(scope, offRec) {
@@ -567,7 +584,26 @@
         while (wrap.firstChild) bodyEl.appendChild(wrap.firstChild);
       }
       if (i < secs.length) setTimeout(step, 0);
+      else applyFilter();
     })();
+  }
+  // 「只看有问题」：隐藏 ✓/灰字的行与无问题的卡片（问题信号＝本体带 ca-warn/ca-bad/✕漏斗/修复按钮）
+  function applyFilter() {
+    try {
+      bodyEl.querySelectorAll('.cal-card').forEach(function (card) {
+        var hasIssue = !!card.querySelector('.ca-warn, .ca-bad, .ca-flow-no, [data-fix]');
+        card.style.display = (onlyProblems && !hasIssue) ? 'none' : '';
+        card.querySelectorAll('.storage-row').forEach(function (r) {
+          var dirty = !!r.querySelector('.ca-warn, .ca-bad, [data-fix]');
+          var b = r.querySelector('b');
+          var clean = b && (b.classList.contains('ca-ok') || b.classList.contains('ca-mute')) && !dirty;
+          r.style.display = (onlyProblems && clean) ? 'none' : '';
+        });
+        card.querySelectorAll('.ca-funnel').forEach(function (f) {
+          f.style.display = (onlyProblems && !f.querySelector('.ca-flow-no')) ? 'none' : '';
+        });
+      });
+    } catch (e) {}
   }
 
   // 角标（不打开也显示问题数）：只读键的轻量计数，不触发池解析
@@ -619,13 +655,16 @@
     } catch (e) { return false; }
   }
   function jump(key) {
-    if (!key) return;
-    if (key.charAt(0) === '#') { showSettingRow(key); return; }
+    if (!key) return false;
+    if (key.charAt(0) === '#') return showSettingRow(key);
     var chain = JUMPS[key];
-    if (!chain) return;
-    if (typeof chain === 'string') { showSettingRow(chain); return; }
+    if (!chain) return false;
+    if (typeof chain === 'string') return showSettingRow(chain);
+    var ok = false;
     try { document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; }); } catch (e) {}
-    chain.forEach(function (sel) { var el = document.querySelector(sel); if (el && el.click) el.click(); });
+    chain.forEach(function (sel) { var el = document.querySelector(sel); if (el && el.click) { el.click(); ok = true; } });
+    if (!ok) toast('入口暂不可达：请到「字卡库」里找对应页');
+    return ok;
   }
 
   // ---------- 各桌面明细（按需解析） ----------
@@ -707,6 +746,11 @@
   if (back) back.addEventListener('click', closeAudit);
   if (refreshBtn) refreshBtn.addEventListener('click', function () { render(); toast('已重新自检'); });
   if (copyBtn) copyBtn.addEventListener('click', copyReport);
+  if (filterBtn) filterBtn.addEventListener('click', function () {
+    onlyProblems = !onlyProblems;
+    filterBtn.textContent = onlyProblems ? '显示全部' : '只看有问题';
+    applyFilter();
+  });
 
   // 委托：修复 / 跳转 / 桌面明细
   document.addEventListener('click', function (e) {
@@ -718,10 +762,12 @@
       var id = fixBtn.getAttribute('data-fix');
       var fn = fixMap[id];
       if (!fn) return;
-      var changed = false;
-      try { changed = fn(); } catch (err) {}
+      var res = false;
+      try { res = fn(); } catch (err) { res = 'fail'; }
       render();
-      toast(changed === false ? '已是最新状态' : '已修复，正在重新自检');
+      if (res === false) toast('没有需要修复的项（或已是最新）');
+      else if (res === 'fail') toast('修复未生效：本机存储可能已满或被拦截');
+      else toast('已修复，正在重新自检');
       return;
     }
     var jumpEl = t.closest('[data-jump]');

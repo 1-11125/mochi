@@ -56,6 +56,12 @@
     //   会被误判为平板走手机全屏布局，内容整屏拉宽。真 iPad 不含 Android 关键字，安全
     isTablet = (/iPad/i.test(ua) || plat === 'iPad') && !/android/i.test(ua) ||
       ((plat === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+    // #555：安卓平板判定——此前只认 iPad/Macintosh 触摸屏，安卓平板（荣耀平板/EC-PAD01
+    // 等用户真实设备）竖屏被当手机全屏拉宽、横屏掉进桌面 390px 外壳。UA 特征：安卓平板
+    // 无 Mobile 关键字（安卓手机 UA 恒带 Mobile），再加短边 ≥600 CSS px 双保险，防个别
+    // 手机 UA 缺 Mobile 或平板直出小窗口时误判。
+    const _tw = (screen && screen.width) || 0, _th = (screen && screen.height) || 0;
+    if (!isTablet && /Android/i.test(ua) && !/Mobile/i.test(ua) && Math.min(_tw, _th) >= 600) isTablet = true;
   } catch (e) {}
 
   // ===== 伪装桌面兜底判定（v3.9.x 起逐轮补强；v3.26.x 收进规则表）=====

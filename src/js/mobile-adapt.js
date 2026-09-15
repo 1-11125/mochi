@@ -964,6 +964,7 @@
           syncModalKbDock(); // #255：弹窗切顶对齐（防键盘期居中重取中=输入框上滑）
           // 键盘弹出瞬间浏览器可能已滚动页面，立即归零，防止灰底露出
           pinScrollTop();
+          syncSafeBottom(); // #556：键盘开启即归零（收起 restoreKb 摘除回落 env）
           // v3.7.x：键盘弹出动画期（约 500ms）内持续钉顶防灰底露出；
           //   之后稳态打字不再 pinScrollTop——iOS Safari 在 contenteditable 里
           //   打字时系统会微滚布局视口让 caret 可见，每次强制归零会与系统滚动
@@ -1050,6 +1051,7 @@
         kbDockPanels();
         syncModalKbDock(); // #255：同 syncIosKb，弹窗切顶对齐
         pinScrollTop();
+        syncSafeBottom(); // #556：推定停靠同属键盘在场，归零同上
       }
       function _iProvClear() {
         if (!_iProv) return;
@@ -1276,6 +1278,25 @@
           //   下 Home 指示条在可视区内，归零会让 tabbar/底部组件不避让被遮（iPhone 主屏幕
           //   打开报障"桌面组件显示不全"）。standalone 下摘除属性让 CSS 回落 env() 正确避让。
           var cur = d.style.getPropertyValue('--mochi-safe-bottom');
+          // FIX 2026-09-16 #556：iOS 键盘期底部安全区归零（安卓同症状 #530 的 iOS 镜像）。
+          // 现象（iPhone 16 Pro / iOS 18.7 主屏幕 standalone，用户明说多机型同现；设置里
+          //   的全屏模式同样出现）：聊天输入栏与输入法之间露一块白/底色。
+          // 根因：iOS 键盘是覆盖式，键盘在场时 env(safe-area-inset-bottom) 仍报 Home
+          //   指示条高度（iPhone 16 Pro=34px），而聊天输入栏底内边距是
+          //   calc(10px + var(--mochi-safe-bottom, env(safe-area-inset-bottom,0px)))——
+          //   standalone 下本函数原设计摘除变量回落 env()（无键盘时正确避让 Home 指示条，
+          //   #129），键盘期同样回落 = 输入栏被 34px 死带垫高，其与键盘之间露一段不受
+          //   页面控制的空白（白带）。全屏模式不摘该带（viewport-fit=cover 下 Home 条
+          //   仍在可视区），故两种形态都中招。
+          // 修法（与安卓 #530 syncSafeBottomA 同款、零机型分支）：键盘在场（_kbActive /
+          //   _iProv 推定停靠 / _kbNowLike 实测收缩，判据与 syncVvFit 摘 --mochi-ios-h
+          //   完全一致）期间把变量钉 0px——键盘已盖住 Home 指示条，避让无对象；收起后
+          //   走下方原有分支摘除变量回落 env()，避让行为原样恢复。env() 本就报 0 的设备
+          //   /形态两值相等 = 零视觉变化，不引入跨机型回归。
+          if (_kbActive || _iProv || _kbNowLike()) { // #556 键盘在场判据（与 syncVvFit 摘 --mochi-ios-h 同源）
+            if (cur !== '0px') d.style.setProperty('--mochi-safe-bottom', '0px'); // #556 键盘期钉 0
+            return;
+          }
           if (sh && ih && sh - ih > 60 && !d.classList.contains('ios-pwa-standalone')) {
             if (cur !== '0px') d.style.setProperty('--mochi-safe-bottom', '0px');
           } else if (cur) {

@@ -474,7 +474,10 @@
   --dark-soft: #aaa;
   --dark-hover: rgba(255,255,255,.06);
   --widget-bg:#1e1e1e; --widget-border:rgba(255,255,255,.12);
-  --widget-btn:#f0f0f0; --widget-btn-text:#111111; --widget-heart:#f0f0f0;
+  /* FIX 2026-09-16 #562：--widget-btn/--widget-btn-text 默认交给 home.css 的 var(--btn-bg/--btn-ink)
+     链（base.css 深色已把 --btn-bg=#f0f0f0 / --btn-ink=#111111，观感与原来完全一致）；
+     在此写死会截断主题色链、深色下点主题色桌面按钮同样不跟随。 */
+  --widget-heart:#f0f0f0;
   --ink-soft:#aaaaaa;
   color-scheme:dark;
 }

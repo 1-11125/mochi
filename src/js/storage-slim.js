@@ -75,6 +75,11 @@
   window.mochiCcSlimDeleteGroup = function (prefix, key, cat, name) {
     return (async function () {
       if (!window.idbGet || !window.xyStore) return false;
+      // FIX 2026-09-16 #560：调用方传来的 prefix 带尾冒号（scan 的 libs 用 G='xy-home-v2:'），
+      // 而 xyStore(prefix).set 内部再拼 ':'+key —— 尾冒号+冒号＝写出 xy-home-v2::cc-groups-public
+      // 双冒号垃圾键，真实键从未被改：删除报「成功」、刷新后分组复活（删除从未真正落库）。
+      // 这里剥尾冒号后再进 xyStore；读路径 idbGet(prefix+key) 是字符串直拼、本就正确，不动。
+      const pStore = String(prefix).replace(/:$/, '');
       let raw = await window.idbGet(prefix + key);
       if (raw === undefined || raw === null) return false;
       const g = parseLib(raw);
@@ -85,7 +90,9 @@
       if (g[cat].length === before) return false; // 组名没匹配到 → 不动
       let s = '';
       try { s = JSON.stringify(g); } catch (e) { return false; }
-      try { window.xyStore(prefix).set(key, s); } catch (e) { return false; }
+      try { window.xyStore(pStore).set(key, s); } catch (e) { return false; }
+      // 同字节直写等 commit（对齐 #554 迁移同款 durable 收尾）：调用方随后读回即见删除生效
+      try { await window.idbSet(pStore + ':' + key, s); } catch (e2) {}
       return true;
     })();
   };

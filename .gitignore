@@ -39,6 +39,9 @@ build_out.txt
 build_err.txt
 diag-*.html
 
+# 性能基线尺子的机器本地基线（verify-perf.mjs 生成，换机器/换 Chrome 重录，不入库）
+/tools/perf-baseline.local.json
+
 # AI 协作台账/内部文档（仅本地，不入公开库——2026-09-11 起）
 /AGENTS.md
 /AI-RULES.md
@@ -49,5 +52,9 @@ diag-*.html
 /BUGS.md
 /TASKS.md
 /FILEMAP.md
+/PERF-PLAN.md
 /.trae/
 
+
+# 无头诊断的一次性 Chrome profile（临时，不入库）
+/tools/.diag-*/

@@ -1564,13 +1564,29 @@
     if (!kw) { searchResultEl.hidden = true; searchResultEl.innerHTML = ''; return; }
     searchResultEl.hidden = false;
     const fns = window.__cardSearchFns || [];
+    // FIX 2026-09-16 #557 字卡库搜索精准化（用户报「搜一个字，多几个字的全部出现」）：
+    // ① 多词空格 AND——各注册方只认整串子串，故以最长词为锚调注册方取候选，其余词在中心
+    //    复筛每词都须命中（此前整串当单词条，「晚安 爱」恒 0 命中）；
+    // ② 匹配质量排序分节：整卡等于关键词（精确）→ 开头命中 → 包含命中，最像的排最前，
+    //    不再按模块注册顺序把精确卡淹没在一堆仅「沾边」的长卡里。
+    const terms = kw.toLowerCase().split(/\s+/);
+    const anchor = terms.reduce(function (a, b) { return b.length > a.length ? b : a; }, terms[0]);
     let all = [];
-    fns.forEach(function (reg) { try { (reg.fn(kw) || []).forEach(function (r) { all.push({ t: r.t, cat: r.cat, mod: reg.name }); }); } catch (e) {} });
+    fns.forEach(function (reg) { try { (reg.fn(anchor) || []).forEach(function (r) { all.push({ t: r.t, cat: r.cat, mod: reg.name }); }); } catch (e) {} });
+    all = all.filter(function (r) { const t = String(r.t || '').toLowerCase(); return terms.every(function (w) { return t.indexOf(w) >= 0; }); });
+    all.forEach(function (r) { const t = String(r.t || '').toLowerCase(); r.__rank = (t === kw ? 0 : (t.indexOf(kw) === 0 ? 1 : 2)); });
+    all.sort(function (a, b) { return a.__rank - b.__rank; });
     if (!all.length) { searchResultEl.innerHTML = '<div class="ta-empty" style="padding:20px 12px">没有找到含「' + esc(kw) + '」的字卡</div>'; return; }
+    const RANK_NAME = ['精确命中', '开头命中', '包含命中'];
     let html = '<div class="cal-card-title" style="padding:10px 2px">找到 ' + all.length + ' 张含「' + esc(kw) + '」的字卡</div>';
-    all.forEach(function (r) {
-      html += '<div class="tc-qrow"><div class="tc-qmain"><div class="tc-qtext">' + esc(r.t) + '</div><div class="tc-qmeta" style="font-size:11px;color:var(--muted)">' + esc(r.mod) + (r.cat ? ' · ' + esc(r.cat) : '') + '</div></div></div>';
-    });
+    for (let rk = 0; rk < 3; rk++) {
+      const sec = all.filter(function (r) { return r.__rank === rk; });
+      if (!sec.length) continue;
+      html += '<div class="cal-card-title" style="padding:8px 2px 4px;font-size:12px;color:var(--muted,#888)">' + RANK_NAME[rk] + ' ' + sec.length + ' 张</div>';
+      sec.forEach(function (r) {
+        html += '<div class="tc-qrow"><div class="tc-qmain"><div class="tc-qtext">' + esc(r.t) + '</div><div class="tc-qmeta" style="font-size:11px;color:var(--muted)">' + esc(r.mod) + (r.cat ? ' · ' + esc(r.cat) : '') + '</div></div></div>';
+      });
+    }
     searchResultEl.innerHTML = html;
   }
   if (searchInput2) {
@@ -2089,6 +2105,104 @@
       return { ok: ok, miss: miss };
     });
   }
+  // ================= #554（TASKS #128）字卡媒体令牌化持久化：库键瘦身 =================
+  // 把双作用域字卡库存储键里的内联图（data:image/*，≥CC_CC_TOK_MIN）替换成媒体池令牌
+  // @@m:hash——同一张图跨卡/跨组/跨作用域（公用+专属共用一个全局池）只存一份。背景：
+  // 聊天图自 #142 走池去重，字卡图一直整份内联（#160 实测双作用域 62.8MB、用户机公用库
+  // 44.59MB）；#377/#455 内存令牌化只省内存（原始键一字节不动），>64KB 大图每会话经
+  // mochiMediaTokenize 写池＝池里早已有一份、存储键里却又内联一份＝双份存储。
+  // 安全设计（缺一即回归「图片丢失」家族）：
+  //   · 池先令牌后：mochiMediaTokenize 批量查/写池并排程落盘之后，才把令牌写回库键——
+  //     崩溃窗口最多「池多一条孤儿」（GC 可清），绝不会「令牌入库而池数据丢失」；
+  //   · 字符串级替换：正则定位 + 一次拼接写回，绝不 JSON.parse 整库（#455 纪律，
+  //     44MB 级 parse 在 iOS 上是秒级长任务/OOM 源）；
+  //   · 保险丝：替换后没变小就不写；本库任一张令牌化失败（crypto 不可用等）整库放弃，
+  //     绝不写半个库；
+  //   · 消费方已全部就绪：渲染/池视图令牌解析（#377/#142 观察器）、GC 引用面含
+  //     cc-groups(-public)（#506）、字卡导出自包含还原（#506 ccExportExpandTokens）、
+  //     字卡自检令牌感知（#532）；完整备份自带池键（#275 MEDIA_POOL_KEY_RE）。
+  //   · 语音（名称|||data:audio）v1 不动：令牌链路语音虽已支持（#283/#395），但管理页
+  //     预览/编辑树语音路径未随本批验证，留待后续批次。
+  window.mochiCcPersistTokenize = function (prog) {
+    return (async function () {
+      const out = { ok: false, reason: '', images: 0, uniq: 0, saved: 0, written: 0, libs: [] };
+      if (!window.idbGet || !window.xyStore || !window.mochiMediaTokenize) { out.reason = '接口不可用（需安全上下文 + IndexedDB）'; return out; }
+      // xyStore 约定：prefix 不带尾冒号（set/get 内部拼 ':'+k）——带尾冒号会写出
+      // xy-home-v2::xx 双冒号垃圾键（#560 实测，storage-slim 同款隐患）。
+      const libs = [{ prefix: PUB_PREFIX, key: PUB_KEY, label: '公用字卡库' }];
+      try { (window.getContacts ? window.getContacts() : []).forEach(function (c) { if (c && c.id) libs.push({ prefix: PUB_PREFIX + ':' + c.id, key: 'cc-groups', label: (c.name || c.id) + ' · 专属' }); }); } catch (e) {}
+      libs.push({ prefix: PUB_PREFIX, key: 'cc-groups', label: '旧版顶层字卡库（残留）' });
+      const yieldUI = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+      const re = /data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g;
+      for (let li = 0; li < libs.length; li++) {
+        const L = libs[li];
+        let raw = null;
+        try { raw = await window.idbGet(L.prefix + ':' + L.key); } catch (e) {}
+        if (typeof raw !== 'string' || !raw) {
+          // IDB 没有（未落/被启动预算挂起另算）时回落 xyStore 读（memoryCache/LS）——
+          // 该键 IDB 确认没有＝LS 是唯一副本，读它写回是安全的
+          try { const v2 = window.xyStore(L.prefix).get(L.key); if (typeof v2 === 'string' && v2) raw = v2; } catch (e2) {}
+        }
+        if (typeof raw !== 'string' || raw.indexOf('data:image/') < 0) continue;
+        // ① 收集内联图偏移（≥MIN；只记 [index,len]，不整串复制）
+        const offs = [];
+        let m, found = 0;
+        re.lastIndex = 0;
+        while ((m = re.exec(raw))) { found++; if (m[0].length >= CC_CC_TOK_MIN) offs.push([m.index, m[0].length]); if ((found & 1023) === 0) await yieldUI(); }
+        if (!offs.length) continue;
+        // ② 唯一化 → 逐张写池拿令牌（跨卡/跨库同图同哈希，池里只写一次）
+        const byUrl = new Map();
+        for (let oi = 0; oi < offs.length; oi++) {
+          const url = raw.slice(offs[oi][0], offs[oi][0] + offs[oi][1]);
+          if (!byUrl.has(url)) byUrl.set(url, null);
+          if ((oi & 127) === 127) await yieldUI();
+        }
+        out.images += offs.length;
+        let failed = false, i = 0;
+        for (const url of byUrl.keys()) {
+          let tok = null;
+          try { tok = await window.mochiMediaTokenize(url, { noCache: true }); } catch (e) {}
+          if (!tok) { failed = true; break; }
+          byUrl.set(url, tok);
+          i++;
+          if (prog) { try { prog(L.label + '：写池', i, byUrl.size); } catch (eP) {} }
+          if ((i & 15) === 0) await yieldUI();
+        }
+        if (failed) { byUrl.clear(); out.libs.push({ label: L.label, skipped: '令牌化不可用，本库未改动' }); continue; }
+        // 池先令牌后（对齐聊天 normalize「先 mochiMediaFlush 再 saveMsgs」契约）：池写缓冲
+        // 是 300ms 延迟批量落盘，不强制冲刷的话库键令牌可能先于池数据入 IDB——崩溃窗口
+        // 变成「令牌入库而池缺数据」＝图片丢失。这里显式 flush 后才允许写库键。
+        try { await window.mochiMediaFlush(); } catch (e) {}
+        // ③ 一次拼接写回（此刻池数据已强制落 IDB；不变小不写＝保险丝）
+        let outStr = '', last = 0, replaced = 0;
+        for (let oi = 0; oi < offs.length; oi++) {
+          const url = raw.slice(offs[oi][0], offs[oi][0] + offs[oi][1]);
+          const tok = byUrl.get(url);
+          if (!tok) continue;
+          outStr += raw.slice(last, offs[oi][0]) + tok;
+          last = offs[oi][0] + offs[oi][1];
+          replaced++;
+        }
+        outStr += raw.slice(last);
+        if (!replaced || outStr.length >= raw.length) continue;
+        try { window.xyStore(L.prefix).set(L.key, outStr); } catch (eW) { out.libs.push({ label: L.label, skipped: '写回失败' }); continue; }
+        // durable 收尾：xyStore.set 的值事务是异步发出，这里再 await 一次同字节直写并等
+        // commit——①「池→库」提交顺序从此可依赖；②调用方/用户界面随后读回即见令牌
+        //（幂等：同一字节重复写，零语义漂移；wrj 日志里 set() 已记的同值标记不受影响）。
+        try { await window.idbSet(L.prefix + ':' + L.key, outStr); } catch (eS) {}
+        const savedChars = raw.length - outStr.length;
+        out.saved += savedChars * 2;
+        out.uniq += byUrl.size;
+        out.written++;
+        out.libs.push({ label: L.label, found: offs.length, uniq: byUrl.size, saved: savedChars * 2 });
+        if (prog) { try { prog(L.label + '：写回完成', 1, 1); } catch (eP2) {} }
+        await yieldUI();
+      }
+      if (out.written) { try { pubInvalidate(); } catch (eI) {} } // 池视图按令牌化后的原始键重建
+      out.ok = true;
+      return out;
+    })().catch(function (e) { return { ok: false, reason: '迁移异常：' + ((e && e.message) || e), images: 0, uniq: 0, saved: 0, written: 0, libs: [] }; });
+  };
   const ccExport = document.getElementById('cc-export');
   if (ccExport) {
     // 7 大分类 key + 显示名（与分类 tab 一致）

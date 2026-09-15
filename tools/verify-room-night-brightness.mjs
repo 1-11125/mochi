@@ -3,14 +3,23 @@
 // brightness(0)＝19:00~6:00 进屋且没开灯必现纯黑（时段相关、任何机型）。
 // 修复：基础亮度昼夜恒 1（点灯叠加 +0.12 封顶 1.3）；CSS 侧 brightness(max(...,.45))
 // 结构兜底；夜晚氛围仍由既有 .night 分层调暗（.r-wall .52 / .r-floor .55）表达。
+// #546 复发复核升级（2026-09-16 二次报障：全设备「正常显示约 1 秒后黑屏、点按钮图像区仍黑」
+// ＝用户设备停留在 SW 旧缓存，非源码回归；线上 version.json 确认修复版已部署）：
+//   B6 瞬态扫描——.room-in 入场动画 0.95s 结束 + filter .6s 过渡落定前后
+//      （T+1.2s/T+1.7s/T+2.5s）逐点采样 computed filter，任何一点不得出现 brightness(0)
+//      （旧版在 T+1.2s 即 brightness(0)＝用户「1 秒后黑屏」现场；新版恒 1）；
+//   B7 交互后仍可见——点「家具仓」开全站弹窗、取消关闭，场景亮度必须不变黑
+//      （复刻用户「点击下方交互按钮图像区仍黑屏」症状类）。
 // 用法：node tools/verify-room-night-brightness.mjs（需先 node build.mjs）
+//       MOCHI_VERIFY_ROOT=<目录> 时对该目录的 index.html 跑行为组（旧产物 RED 基线用，跳过 A 组）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = normalize(dirname(fileURLToPath(import.meta.url)) + '/..');
+const root = normalize(process.env.MOCHI_VERIFY_ROOT || (dirname(fileURLToPath(import.meta.url)) + '/..'));
+const altRoot = !!process.env.MOCHI_VERIFY_ROOT;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const candidates = [
@@ -74,7 +83,8 @@ async function evalJs(expr) {
 const results = [];
 function check(desc, ok, detail) { results.push({ desc, ok: !!ok }); console.log((ok ? 'PASS' : 'FAIL') + '  ' + desc + (detail ? '  [' + detail + ']' : '')); }
 
-// ================= A 组：静态断言（源文件 + 产物） =================
+// ================= A 组：静态断言（源文件 + 产物；MOCHI_VERIFY_ROOT 指向旧产物目录时跳过） =================
+if (!altRoot) {
 {
   const roomJs = readFileSync(join(root, 'src/js/room.js'), 'utf8');
   const roomCss = readFileSync(join(root, 'src/css/room.css'), 'utf8');
@@ -84,6 +94,7 @@ function check(desc, ok, detail) { results.push({ desc, ok: !!ok }); console.log
   check('A3 产物含 A1 逻辑锚（room.js 已接入构建）', built.includes('let v = 1;'));
   check('A4 产物含 A2 兜底锚（room.css 已接入构建）', built.includes('brightness(max(var(--room-bright, 1), .45))'));
   check('A5 夜间氛围仍在（.night 分层调暗规则未被顺手删）', /\.r-scene\.night \.r-wall[^}]*brightness\(\.52\)/.test(roomCss) && /\.r-scene\.night \.r-floor[^}]*brightness\(\.55\)/.test(roomCss));
+}
 }
 
 // ================= B 组：无头运行时（真实产物 + 强制夜间时段） =================
@@ -135,6 +146,30 @@ check('B3 场景带 night 类', await evalJs("document.getElementById('room-scen
 const wallB = brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-wall')).filter"));
 const floorB = brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-floor')).filter"));
 check('B3b 夜间墙面/地板调暗仍生效（.52/.55）', Math.abs(wallB - 0.52) < 0.01 && Math.abs(floorB - 0.55) < 0.01, 'wall=' + wallB + ' floor=' + floorB);
+
+// B6/B7 #546 复发复核（2026-09-16 二次报障）：全新档重新进屋逐点采样——
+// 入场动画 0.95s 结束 + filter .6s 过渡落定前后不得出现 brightness(0)；交互后仍可见。
+await clearRoom();
+await readyPage();
+await clearRoom();
+await evalJs("(function(){if(window.closeRoom)window.closeRoom();document.querySelectorAll('.page').forEach(function(p){p.hidden=true;});var h=document.getElementById('page-phone');if(h)h.hidden=false;return true;})()");
+await evalJs("(function(){window.openRoom();return true;})()");
+const trans = [];
+await sleep(1200); trans.push(brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-scene')).filter")));
+await sleep(500);  trans.push(brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-scene')).filter")));
+await sleep(800);  trans.push(brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-scene')).filter")));
+check('B6 入场动画结束瞬态不黑屏（T+1.2/1.7/2.5s 采样全部 >0.4；旧版 T+1.2s 即 brightness(0)＝「1 秒后黑屏」现场）',
+  trans.length === 3 && trans.every(v => v > 0.4), 'samples=' + trans.join(','));
+await evalJs("(function(){document.getElementById('room-btn-inv').click();return true;})()");
+await sleep(500);
+const modalOpen = await evalJs("!document.getElementById('modal-mask').hidden");
+const bOpen = brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-scene')).filter"));
+await evalJs("(function(){document.getElementById('modal-cancel').click();return true;})()");
+await sleep(400);
+const bClose = brightnessOf(await evalJs("getComputedStyle(document.getElementById('room-scene')).filter"));
+check('B7a 点「家具仓」全站弹窗照常打开（按钮有响应）', !!modalOpen);
+check('B7b 弹窗开/关全程场景仍可见（不因交互变黑；旧版交互后恒 brightness(0)＝「点按钮图像区仍黑」现场）',
+  bOpen > 0.4 && bClose > 0.4, 'open=' + bOpen + ' close=' + bClose);
 
 // B4 点灯仍会增亮（#527 灯光功能保留，未因修复失去意义）：desklamp 亮着 → 1.12
 // 写入必须走 storeFor().set（xyStore.get 优先读内存缓存，直写 localStorage 会被遮蔽）

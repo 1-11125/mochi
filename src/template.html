@@ -304,9 +304,11 @@
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
+      <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
       <div class="splash-ver" id="splash-ver" data-build-ts="__BUILD_TS__">
         <span class="sv-app">Mochi 字卡传讯 <b>__APP_VERSION__</b></span>
         <span class="sv-deploy">__BUILD_INFO__<span id="splash-ver-live"></span></span>
+        <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -1350,6 +1352,7 @@
       <div id="cloc-mine-list" style="padding:8px 14px 14px"></div>
     </div>
     <div class="cal-card-title" style="padding:0 2px">TA 想告诉你 TA 在哪时，会从上面的发送字卡里选（发出后有光点动效）；方位感知用的是下面的感知字卡</div>
+    <div class="cal-card-title" style="padding:4px 2px 0">光点落在哪儿＝TA 在哪儿：方位卡（在你左边 / 右边 / 身后 / 前面）落在画面对应方向；距离卡与状态卡跟着<b>最近一张方位卡</b>的方位走——「再近一点」朝屏幕中心靠近，「再远一点」朝屏幕边缘再退开。所以上一张说的是「在你右边」，接着发「再远一点」时，光点会出现在屏幕右侧靠边处，这是正常的（不是跑偏）。</div>
   </div>
 </div>
 
@@ -1594,6 +1597,16 @@
         </div>
         <div class="gs-sub" id="guide-sub">第一次用建议先看「快速开始」和「数据备份」。iPhone 推荐用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、更不容易卡顿/丢数据）；用 Edge / Chrome 添加只会建快捷方式。</div>
       </div>
+      <!-- #532 字卡使用状态自检（card-audit.js）——用户点名「放在【工具】靠前的地方」，
+           紧接使用说明之后独立成组：一眼看懂自定义/系统预设字卡能不能用、怎么调 -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-card-audit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4"/><path d="M9 12l2 2 8-8"/><path d="M15 3h6v6"/></svg></div>
+          <div class="txt">字卡使用状态自检<span class="sub">字卡能不能被用到、用不到怎么调，一次看清</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="gs-sub" id="card-audit-sub">检查「自定义字卡 + 系统预设字卡」是否正常参与回复：能用的打 ✓、用不到的直接标出卡在哪一步，并给出「一键修复 / 去调整」入口。二级密码锁、分类开关、概率为 0、分组停用、单卡全部关闭、图片丢失都能查出来。</div>
+      </div>
       <div class="set-group glass">
         <div class="set-row" id="row-export">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
@@ -1656,13 +1669,7 @@
           <div class="txt">卡顿自检 · 一键优化<span class="sub">字卡库数据过大导致卡顿时，扫描分级并一键预热修复</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
-        <!-- 所有字卡使用状态自检（card-audit.js）：自定义字卡 + 系统预设字卡（含二级密码锁、
-             各分类开关/概率/停用分组）一次性诊断，讲清「每类字卡能不能被用到、为什么用不到」 -->
-        <div class="set-row" id="row-card-audit">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4"/><path d="M9 12l2 2 8-8"/><path d="M15 3h6v6"/></svg></div>
-          <div class="txt">字卡使用状态自检<span class="sub">自定义 / 系统预设字卡能不能被用到，一次看清</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
+        <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
       </div>
       <!-- v3.33.x #525：清除本地数据归入「工具」tag（与导出/导入同属数据管理）——
            原在「关于」段＝用户报「设置 tag 分类不正常」；独立成组与上方诊断工具视觉分隔，且仍是本 tag 最后一项 -->
@@ -1762,6 +1769,10 @@
           <div class="storage-row"><span>各字卡库合计</span><b id="st-cc">点「扫描」后显示</b></div>
           <button class="storage-clear" id="st-cc-scan" type="button">扫描最大的字卡分组</button>
           <div id="st-cc-list"></div>
+          <!-- #554（TASKS #128）字卡媒体令牌化持久化：库键内联图 → 池令牌（同图全库只存一份） -->
+          <button class="storage-clear" id="st-cc-tokbtn" type="button">字卡图去重入库（同一张图只存一份）</button>
+          <div class="storage-row"><span>字卡图去重</span><b id="st-cc-tok">未处理</b></div>
+          <div class="storage-hint">把字卡库里的内联图片转成媒体池令牌（与聊天图片同机制）：同一张贴图在公用库+各专属库里只存一份，库键大幅缩小；图片显示/发送不变，「导出数据」会自动还原成完整图片。GIF 动图同样支持（字节原样入池，不压缩、不丢动画）。处理不可逆，建议先导出备份。</div>
           <div class="storage-hint">自定义字卡里的 GIF/大图是字卡库体积的大头（历史实测一个库 40MB+）。这里按<b>分组</b>列出最大的字卡组，删除＝整组删除（与在字卡管理页删掉该分组完全一样），<b>不可撤销</b>，删前建议先导出备份。舍不得删的组可以先在字卡管理页导出留底。</div>
         </div>
       </div>
@@ -1776,9 +1787,13 @@
         <span class="ch-name">字卡使用状态自检</span>
       </div>
       <div class="cal-scroll">
-        <div class="cal-card glass" style="display:flex;gap:10px">
-          <button class="storage-clear" id="card-audit-refresh" type="button" style="margin-top:0">重新自检</button>
-          <button class="storage-clear" id="card-audit-copy" type="button" style="margin-top:0">复制报告</button>
+        <div class="cal-card glass">
+          <div class="ca-legend">怎么看这份报告：<span class="ca-ok">✓ 可用</span> / <span class="ca-warn">✕ 用不到</span>（后面标出卡在哪一步、怎么修）。每一行点「<b>调整</b>」跳到对应页面手动改；点「<b>修复</b>」按默认值一键恢复（不改字卡内容）。</div>
+          <div class="ca-fixbar">
+            <button class="storage-clear" id="card-audit-refresh" type="button">重新自检</button>
+            <button class="storage-clear" id="card-audit-filter" type="button">只看有问题</button>
+            <button class="storage-clear" id="card-audit-copy" type="button">复制报告</button>
+          </div>
         </div>
         <div id="card-audit-body">
           <div class="cal-card glass"><div class="storage-hint">正在自检…</div></div>
@@ -2076,7 +2091,7 @@
         <!-- 功能清单：分组折叠 -->
         <div class="cal-card glass">
           <details class="lic-grp" open>
-            <summary><span class="lg-num">01</span><span class="lg-name">聊天传讯</span><span class="lg-count">25</span></summary>
+            <summary><span class="lg-num">01</span><span class="lg-name">聊天传讯</span><span class="lg-count">26</span></summary>
             <div class="lg-body">
           <div class="lic-li">字卡交流：文字、情绪、心意、交流意图四种字卡回复，联系人所有内容均为字卡回复</div>
           <div class="lic-li">每条消息使用多字卡回复：可开启、调触发概率与最少/最多条数</div>
@@ -2157,7 +2172,7 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">05</span><span class="lg-name">小游戏</span><span class="lg-count">14</span></summary>
+            <summary><span class="lg-num">05</span><span class="lg-name">小游戏</span><span class="lg-count">15</span></summary>
             <div class="lg-body">
           <div class="lic-li">入口：聊天更多功能 → 小游戏，共 13 项——游乐室 / 猜拳 / Pong / 贪吃蛇 / 打砖块 / 钓鱼 / 四子棋 / 扫雷 / 记忆翻牌 / 五子棋 / 连连看 / 消消乐 / 心意币拍卖会</div>
           <div class="lic-li">游乐室：所有小游戏战绩聚合 + 徽章墙 + 限定摆件图鉴；每日随机一款「幸运游戏」奖励 ×2；五子棋/连连看/消消乐胜利有 8% 概率掉落限定摆件（互通收藏）</div>
@@ -2204,7 +2219,7 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">08</span><span class="lg-name">手机桌面</span><span class="lg-count">14</span></summary>
+            <summary><span class="lg-num">08</span><span class="lg-name">手机桌面</span><span class="lg-count">15</span></summary>
             <div class="lg-body">
           <div class="lic-li">桌面多页滑动（scroll-snap，最多 5 页），指示器圆点点击切换，支持动态新增 / 删除页面</div>
           <div class="lic-li">组件隐藏池自由添加：时钟 / 月历 / 计时器 / 纪念日倒计时 / 图片组件 / 文字组件</div>
@@ -2225,11 +2240,12 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">09</span><span class="lg-name">寻踪</span><span class="lg-count">3</span></summary>
+            <summary><span class="lg-num">09</span><span class="lg-name">寻踪</span><span class="lg-count">4</span></summary>
             <div class="lg-body">
           <div class="lic-li">桌面【寻踪】包含：TA 的日常、TA 在哪里、TA 在做什么、TA 想对你说——为【TA 的日常】字卡库内容随机刷新，可自由添加字卡</div>
           <div class="lic-li">联系人更新日常时，聊天消息里会发送一条【联系人昵称 更新了一条日常】，且有概率触发联系人提醒你寻踪的消息</div>
-          <div class="lic-li">「TA 在身边」位置感知：模糊感知 TA 的方位与距离，文案来自字卡库「TA在身边位置卡」——含系统预设（方位 / 距离 / 状态 / 感知 / 彩蛋分类，总开关 + 单卡开关）与自定义位置卡（可分组 / 批量添加），组合发送与彩蛋冷却</div>
+          <div class="lic-li">「TA 在身边」位置感知：模糊感知 TA 的方位与距离，文案来自字卡库「TA在身边位置卡」——含系统预设（方位 / 距离 / 状态 / 感知 / 彩蛋分类，总开关 + 单卡开关）与自定义位置卡（可分组 / 批量添加），组合发送与彩蛋冷却（彩蛋「在你心里」每位联系人一周只能用一次）</div>
+          <div class="lic-li">位置卡发出后屏幕上有一个光点，<b>光点落在哪儿＝TA 在哪儿</b>：方位卡（在你左边 / 右边 / 身后 / 前面）落在画面对应方向；距离卡、状态卡跟着<b>最近一张方位卡</b>的方位走——「再近一点」朝屏幕中心靠近、「再远一点」朝屏幕边缘退开（上一张是「在你右边」时挨着屏幕右侧属正常）；组合发送按其中的方位卡落点。方位感知的方向也会与最近的位置卡对齐</div>
             </div>
           </details>
 
@@ -2370,7 +2386,7 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">21</span><span class="lg-name">群聊</span><span class="lg-count">5</span></summary>
+            <summary><span class="lg-num">21</span><span class="lg-name">群聊</span><span class="lg-count">6</span></summary>
             <div class="lg-body">
           <div class="lic-li">设置开启「群聊模式」后桌面第一页出现群聊入口：所有联系人桌面的成员聚在一个窗口聊天</div>
           <div class="lic-li">你发言后随机成员回复，@某成员昵称则 TA 必定回复；回复内容由公用字卡 + 各自桌面专属字卡 + 默认字卡三层决定</div>
@@ -2427,8 +2443,9 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">25</span><span class="lg-name">数据</span><span class="lg-count">5</span></summary>
+            <summary><span class="lg-num">25</span><span class="lg-name">数据</span><span class="lg-count">6</span></summary>
             <div class="lg-body">
+          <div class="lic-li"><b>清除本地数据 / 清空重置</b>（设置 → 工具）：清掉本机<b>全部</b> xy-home-v2 数据——所有联系人的桌面与聊天、字卡库、收藏、美化、桌面布局等，并删除 IndexedDB 整库，随后自动重载回到全新状态（重新弹新手引导）。<b>不可撤销、无法找回</b>，做之前请先「导出数据」备份；只想清掉某一位联系人的数据，去 设置 → 通用 → 联系人 / 桌面 里删除该联系人（同样不可恢复）。</div>
           <div class="lic-li">数据存储设备本地，可导入导出</div>
           <div class="lic-li">支持导入星言简约版聊天字卡库导出的 json（字卡内容与分组完整导入）</div>
           <div class="lic-li">导入预览：显示导出时间 / 键数 / 聊天条数 / 头像 / 摸鱼累计</div>
@@ -2471,7 +2488,7 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">29</span><span class="lg-name">回复设置</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">29</span><span class="lg-name">回复设置</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
           <div class="lic-li">六面板 tab：聊天 / 群聊 / 信箱 / 朋友圈 / 查岗 / 其他，参数按联系人独立保存（群聊面板全局共用）</div>
           <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 爱心标识）</div>
@@ -2479,6 +2496,8 @@
           <div class="lic-li">朋友圈：互动设置（点赞 / 评论 / 回复概率及速度 / 回赞概率）、回复内容设置（多字卡概率 / 最多字卡数 / 表情包概率）、TA 发朋友圈设置（主动发概率 / 每天最多 / 冷却 / 间隔 / 字卡条数 / 内容类型）、清除所有朋友圈数据</div>
           <div class="lic-li">群聊：每个成员回复概率 / 速度 / 条数与各类附加行为概率，独立于主聊天设置</div>
           <div class="lic-li">查岗：TA 主动查岗的开关 / 概率 / 冷却 / 自动弹窗概率</div>
+          <div class="lic-li">概率的生效链：系统预设字卡走「<b>总档 × 分类档</b>」两级相乘——先乘回复设置里的系统预设字卡总档（默认 100），再乘各分类自己的设定值，任一级为 0 即不触发；总档只作用于系统预设字卡，信箱 / 朋友圈不套总档。设置页里显示的始终是分类自己的存盘值（不显示相乘后的结果），所以总档调到 0 时各分类的数字看起来没变、但都不触发了，属正常。</div>
+          <div class="lic-li">撤回与补发是一对：命中「撤回」的 TA 消息先静默落地（不弹通知、不响提示音，未读角标照常 +1），约 1 秒后变成「已撤回」；紧接着按「补发」概率决定是否补一条新内容。你收到的通知 / 横幅里已经出现的那句话一定会进聊天（掷签在发通知之前），不会只剩一条墓碑。</div>
             </div>
           </details>
 
@@ -2493,9 +2512,10 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">31</span><span class="lg-name">开屏 / 系统</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">31</span><span class="lg-name">开屏 / 系统</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
           <div class="lic-li">开屏加载动画（含公告 / 版本时间 / 数据加载等待 / 我已阅读并知晓）</div>
+          <div class="lic-li">开屏有一次性的<b>年龄确认闸门</b>：勾选「已年满 18 周岁并同意全部说明」并把说明滑到底，「点击进入」才可点；本站禁止未成年人使用，确认后不再询问。</div>
           <div class="lic-li">开屏公告远程化：notice.json 在线覆盖公告文案</div>
           <div class="lic-li">状态栏显示真实时间（每 15 秒校准一次）</div>
           <div class="lic-li">底部 tab：桌面 / 字卡库 / 设置，独立全屏页导航与状态栏隐藏</div>
@@ -2524,8 +2544,9 @@
         </div>
         <div class="cal-card glass">
           <details class="lic-grp" open>
-            <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
+              <div class="lic-li">全新环境首次打开会<b>自动弹一次「新手引导」3 步</b>：设置「我」和「TA」→ 添加字卡 → 开始聊天，每步可一键跳到对应位置；老用户想重看走 <b>设置 → 工具 → 新手引导</b>。</div>
               <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。</div>
               <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
               <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
@@ -2611,8 +2632,9 @@
             </div>
           </details>
           <details class="lic-grp">
-            <summary><span class="lg-num">8</span><span class="lg-name">常用操作</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">8</span><span class="lg-name">常用操作</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
+              <div class="lic-li"><b>搜索设置项</b>：设置页顶部搜索框输入关键词，跨「通用 / 聊天 / 系统 / 工具 / 关于」五个分区过滤出行；没搜到时，输入框下方会出现「在功能大全中搜索」入口，一键带词去全量功能索引里找。</div>
               <div class="lic-li"><b>长按任意消息</b>：弹出操作菜单——引用回复 / 收藏 / 复制 / 编辑 / 删除 / 撤回补发等（具体项按消息类型出现）。</div>
               <div class="lic-li"><b>发图片、表情包</b>：输入栏旁「+」展开更多功能 → 表情包 / 图片。</div>
               <div class="lic-li"><b>发语音</b>：先在 聊天设置 打开「我可发送语音」，输入栏左侧出现「麦克风」按钮，点击录音（最长 60 秒，可试听后发送）；需要允许麦克风权限。</div>
@@ -2634,10 +2656,11 @@
             </div>
           </details>
           <details class="lic-grp">
-            <summary><span class="lg-num">10</span><span class="lg-name">应用锁与开屏问答门</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">10</span><span class="lg-name">应用锁与开屏问答门</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li"><b>应用锁</b>：设置 → 系统 →「应用锁」开启，设置 4-6 位数字密码；之后每次打开本站需输密码（同一标签解过一次即可，刷新不重锁）。</div>
               <div class="lic-li">建议同时设置「<b>安全问题</b>」：忘记密码时可用它重置密码。</div>
+              <div class="lic-li"><b>二级验证密码（暗号）锁住的是哪些字卡</b>：「防未成年人 · 内置字卡锁定」（开屏公告区那张卡输入密码解锁，也能一键重新上锁）只锁系统预设里的<b>默认聊天字卡、词典（含词典拼字）和其他互动功能字卡</b>——被锁时这些页面的开关「开了却没效果」属正常。<b>不受这把锁影响</b>：聊天情绪字卡、心意字卡、交流意图、聊天回应字卡、TA 的心情、今日情话、位置卡、查岗问题库、TA 主动提问，未解锁也照常使用。</div>
               <div class="lic-li"><b>开屏问答门</b>：设置 → 系统 →「开屏问答门」（默认开启），每次打开（含换浏览器 / 新设备）先答对问答题才放行；可单独使用，不一定要开应用锁。</div>
               <div class="lic-li">锁定界面可输入<b>二级验证密码（暗号）</b>，让本机永久跳过问答层。</div>
               <div class="lic-li"><b>忘记密码怎么办</b>：用安全问题重置；或输暗号直接关闭应用锁；两者都没有时，只能清除本站数据重来（会丢数据，先导出备份）。</div>

@@ -1815,6 +1815,11 @@ window.__replyPoolDiag = function () {
       '自定义占比=' + (rc['csp-cust'] !== undefined ? rc['csp-cust'] : '?'),
       '媒体概率=' + ['sticker', 'emoji', 'image', 'voice', 'kaomoji'].map(k => k + ':' + (rc[k + '-prob'] !== undefined ? rc[k + '-prob'] : '?')).join(','),
       '多字卡py=' + (rc['py-en'] === 1 ? (rc['py-prob'] + '%') : '关'),
+      // FIX 2026-09-16 #571：回复延迟现场——设定值（回复速度最短~最长，秒）+ 最近实测落地耗时。
+      // 「字卡延迟反应卡顿N秒」类报障：实测≈设定=设定即此延迟（回复速度设置所致）；实测≫设定=真卡顿。
+      '回复时间=' + (rc['rs-min'] !== undefined ? rc['rs-min'] : 1) + '~' + (rc['rs-max'] !== undefined ? rc['rs-max'] : 40) + 's',
+      '回复实测=' + (window.__replyLatLog && window.__replyLatLog.length ? window.__replyLatLog.map(m => (m / 1000).toFixed(1) + 's').join('|') : '无记录'),
+      '无回应概率rn=' + (rc['rn-prob'] !== undefined ? rc['rn-prob'] + '%' : '?'),
       'text样本=' + sample(P.text),
       'kaomoji样本=' + sample(P.kaomoji),
       'emoji样本=' + sample(P.emoji)
@@ -3841,6 +3846,18 @@ return null;
 }
 }
 msgs.push(rec);
+// FIX 2026-09-16 #571 实测回复延迟遥测：只记「我方发送触发的回复链」第一条收件卡落地耗时，
+// 与 __rsDrawS（本次掷到的设定延迟）一并进诊断——实测≈设定＝回复速度就是设定值（非卡顿）；
+// 实测明显大于设定＝回复链有额外等待，报障时按现场定位。零行为改动。
+try {
+if ((rec.side || '') === 'in' && !rec.special && window.__replyWaitT0) {
+const __ms = Date.now() - window.__replyWaitT0;
+window.__replyLatLog = window.__replyLatLog || [];
+window.__replyLatLog.push(__ms);
+if (window.__replyLatLog.length > 6) window.__replyLatLog.shift();
+window.__replyWaitT0 = null;
+}
+} catch (eRL) {}
 chatTailAppend(rec); // #180：同步尾巴日志先落 LS，再交低频整包落盘
 saveMsgs();
 	const notable = rec.side === 'in' && (!rec.special || rec.special === 'poke' || rec.special === 'gift');
@@ -4491,11 +4508,17 @@ const quoteSrc = lastMineQuote;
 const quoteSrcIdx = lastMineIdx;
 const quoteKey = quoteSrc && typeof quoteSrc === 'object' ? String(quoteSrc.t || '') + '\n' + (quoteSrc.imgs || []).join() : String(quoteSrc || '');
 const c = cfg();
+// FIX 2026-09-16 #571 字卡回复延迟遥测：用户报「字卡延迟反应卡顿5、6秒/3、4秒」（iPhone 14 Pro
+//   Safari 等多 iOS 机型）——现场诊断 63fps/无长任务/字卡库仅 11KB，回复等待全部来自本函数
+//   的「回复速度」设定随机（默认 rs-min=1~rs-max=40 秒），把设定值与实测落地耗时打进
+//   设置→复制诊断信息，下次报障可一眼区分「设定即此延迟」与「真处理卡顿」。零行为改动。
+try { window.__replyWaitT0 = Date.now(); } catch (eRW) {}
 if (hit(c['rn-prob'])) {
 setTimeout(() => { if (!sameCid()) return; addIn('', { special: 'read' }); }, randInt(1000, 4000));
 return;
 }
 const delay = (c['rs-min'] + Math.random() * Math.max(1, c['rs-max'] - c['rs-min'])) * 1000;
+try { window.__rsDrawS = Math.round(delay / 100) / 10; } catch (eRD) {} // #571 本次掷到的设定延迟（秒）
 showTyping();
 setTimeout(() => {
 if (!sameCid()) { hideTyping(); return; }
@@ -9165,10 +9188,20 @@ function emojiWarmGroupTokens(arr) {
 // 新建→每次都重载（低端机解码风暴、流量机型重复请求）。短路=算本次目标内容指纹，与上次成功
 // 渲染一致且 DOM 仍在→跳过重建复用现有 img（零机型分支，懒加载/预热/批量管理能力不删）。
 let emojiRenderSig = '';
+let emojiRecNow = null; // #558 最近使用：renderEmojiPanel 每次渲染先解析一份，签名函数/分组条共用（#457 哨兵锚定本函数签名，参数不扩）
 function emojiRenderSigTarget(hts, pn) {
   try {
+    var rec = emojiRecNow;
     var grp = emojiMode === 'public' ? pubCurGroup : (emojiMode === 'ta' ? emojiCurGroup : myCurGroup);
     var sig = emojiMode + '|' + grp + '|' + (myBatchMode ? '1' : '0') + '|' + (hts ? '1' : '0') + '|' + (pn || '') + '|';
+    var _ident = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent : null;
+    if (grp === '__recent__') { // #558 最近使用虚拟分组：内容=按身份回查三池的解析结果
+      var rs = (rec && rec.srcs) ? rec.srcs : [];
+      if (!rs.length) return sig + 'empty';
+      var rl = 0;
+      for (var r = 0; r < rs.length; r++) rl += (_ident ? _ident(rs[r]) : rs[r]).length;
+      return sig + rs.length + '|' + rl + '|' + (_ident ? _ident(rs[0]) : rs[0]) + '|' + (_ident ? _ident(rs[rs.length - 1]) : rs[rs.length - 1]);
+    }
     var arr = null;
     if (emojiMode !== 'mine') {
       var isPub = emojiMode === 'public';
@@ -9182,7 +9215,6 @@ function emojiRenderSigTarget(hts, pn) {
     // 原文变了但显示内容没变，按原文签名会误判内容变化→整面板重建→图片全部重新解析（#457 短路
     // 被翻转账废掉＝「每次开表情包都重新加载」复发）。ccMediaCardIdent（chatcard.js 提供）对两种
     // 形态算同一身份；缺失时退回原文，行为同旧版。
-    var _ident = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent : null;
     var sumLen = 0;
     for (var k = 0; k < arr.length; k++) sumLen += (_ident ? _ident(arr[k] || '') : (arr[k] || '')).length;
     var _f = _ident ? _ident(arr[0] || '') : (arr[0] || '');
@@ -9190,7 +9222,57 @@ function emojiRenderSigTarget(hts, pn) {
     return sig + arr.length + '|' + sumLen + '|' + _f + '|' + _l;
   } catch (e) { return ''; }
 }
-function renderEmojiGroupsBar() {
+// ===== #558 表情面板「最近使用」=====
+// 点击表情（发送/插入信纸）时按「令牌稳定身份」（ccMediaCardIdent，#547 提供：原始大图卡与
+// @@m: 令牌卡同一短指纹）记录最近用过的 N 张，全局根键 emoji-recent（跨桌面共享，同
+// my-emoji-groups 口径；contacts.js EXCLUDE 已登记防 migrateLegacy 误迁进 default 并删根键）。
+// 渲染时按身份回查三池（TA 专属/公用/我的）还原真实 src——令牌化翻转/换桌面后身份不变，
+// 当前面板解析不到的表情自动跳过（不显示死项）。
+const EMOJI_RECENT_KEY = 'emoji-recent';
+const EMOJI_RECENT_MAX = 8;
+function emojiRecentIdents() {
+try {
+const v = JSON.parse(myEmojiStore().get(EMOJI_RECENT_KEY) || '[]');
+if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x).slice(0, EMOJI_RECENT_MAX);
+} catch (e) {}
+return [];
+}
+function emojiRecentSave(ids) {
+try { myEmojiStore().set(EMOJI_RECENT_KEY, JSON.stringify(ids.slice(0, EMOJI_RECENT_MAX))); } catch (e) {}
+}
+function emojiRecordRecent(src) {
+if (typeof src !== 'string' || !src) return;
+const id = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent(src) : src.slice(0, 120);
+const ids = emojiRecentIdents().filter(x => x !== id);
+ids.unshift(id);
+emojiRecentSave(ids);
+}
+// 最近使用解析：身份集合 → 三池扫描还原（ident 是常数级切片，全库扫描成本可控）；
+// 同内容在多分组重复出现时只取首个，防最近区重复占位。
+function emojiRecentResolved() {
+const ids = emojiRecentIdents();
+const srcs = [];
+if (ids.length && typeof window.ccMediaCardIdent === 'function') {
+const want = {};
+ids.forEach((x, i) => { want[x] = i; });
+const found = [];
+const scan = (arr) => {
+(arr || []).forEach(src => {
+if (typeof src !== 'string' || !src) return;
+const id = window.ccMediaCardIdent(src);
+const oi = want[id];
+if (oi !== undefined && oi >= 0) { found.push([oi, src]); want[id] = -1; }
+});
+};
+((window.getScopedGroups && window.getScopedGroups('sticker', 'own')) || []).forEach(g => scan(g[1]));
+((window.getScopedGroups && window.getScopedGroups('sticker', 'public')) || []).forEach(g => scan(g[1]));
+(myGroups || []).forEach(g => scan(g[1]));
+found.sort((a, b) => a[0] - b[0]);
+found.forEach(x => srcs.push(x[1]));
+}
+return { ids: ids, srcs: srcs.slice(0, EMOJI_RECENT_MAX) };
+}
+function renderEmojiGroupsBar(rec) {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
 let list = [];
@@ -9205,8 +9287,13 @@ cur = emojiCurGroup;
 list = myGroups;
 cur = myCurGroup;
 }
-if (cur && !list.some(g => g[0] === cur)) cur = '';
-const chips = list.filter(g => emojiMode === 'mine' ? true : g[1].length).map(g => [g[0], g[0] + g[1].length]);
+// #558 「⏱最近使用」chip 排最前；可解析到内容的才显示；我的批量管理模式不显示
+//（批量勾选只对分组原卡有意义，最近区走直发路径）；上次停在最近分组但本次不可解析时回落。
+const recChipShow = !!(rec && rec.srcs.length) && !(emojiMode === 'mine' && myBatchMode);
+if (cur === '__recent__' && !recChipShow) cur = '';
+if (cur && cur !== '__recent__' && !list.some(g => g[0] === cur)) cur = '';
+const chips = (recChipShow ? [['__recent__', '⏱最近使用']] : [])
+.concat(list.filter(g => emojiMode === 'mine' ? true : g[1].length).map(g => [g[0], g[0] + g[1].length]));
 chips.forEach(([val, label]) => {
 const c = document.createElement('span');
 c.className = 'emoji-g-chip' + (cur === val ? ' sel' : '');
@@ -9258,6 +9345,7 @@ const img = emojiNewImg(src); // #435：统一创建（decoding=async + 懒加�
 	d.appendChild(img);
 	emojiAttachLazy(img);
 	d.addEventListener('click', () => {
+	try { emojiRecordRecent(src); } catch (e0) {} // #558 最近使用：点击即记录（发送/插入都算）
 	if (emojiInsertCb) {
 if (!/^data:/i.test(src) && !emojiInsertAllowUrl) { toast('链接保存的表情暂不支持插入信纸，请发送消息使用'); return; }
 const cb = emojiInsertCb;
@@ -9287,7 +9375,9 @@ const taTabEl = document.querySelector('#emoji-panel .emoji-tab[data-etab="ta"]'
 if (taTabEl) taTabEl.textContent = chatPartnerName() + ' 的表情包';
 if (emojiTools) emojiTools.hidden = emojiMode !== 'mine';
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && myBatchMode);
-renderEmojiGroupsBar();
+var rec = emojiRecentResolved(); // #558：每次渲染解析一次最近使用（身份回查三池），bar 与最近分组/签名共用
+emojiRecNow = rec;
+renderEmojiGroupsBar(rec);
 	// FIX 2026-09-14 #457 内容指纹短路：目标与上次成功渲染一致且 DOM 仍在→跳过重建复用现有 img
 	var _sigTarget = emojiRenderSigTarget(hts, taTabEl ? taTabEl.textContent : '');
 	if (_sigTarget && _sigTarget === emojiRenderSig && emojiList.firstElementChild) return;
@@ -9306,6 +9396,15 @@ emojiList.innerHTML = emptyAll;
 return;
 }
 const curn = isPub ? pubCurGroup : emojiCurGroup;
+if (curn === '__recent__') { // #558 最近使用虚拟分组（渲染走 'ta' 直发路径，不进批量勾选）
+if (!rec.srcs.length) {
+emojiList.innerHTML = '<div class="emoji-empty">最近使用的表情不在当前桌面了<br>去分组里发一次就会出现在这里</div>';
+return;
+}
+renderEmojiGroup('__recent__', rec.srcs, 'ta');
+emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
+return;
+}
 if (!curn || !groups.some(x => x[0] === curn)) {
 emojiList.innerHTML = '<div class="emoji-empty">点击上方分组查看表情包</div>';
 return;
@@ -9320,6 +9419,17 @@ return;
 renderEmojiGroup(g[0], g[1], 'ta');
 emojiRenderSig = _sigTarget; // #457 渲染成功保存指纹，下次同内容跳过重建
 } else {
+// #558 最近使用放在「我的表情包是否为空」之前——最近区能解析 TA 专属/公用池的卡，
+// 我的库为空时点它也该出内容（放后面会被「暂无我的表情包」早返回挡掉）
+if (myCurGroup === '__recent__' && !myBatchMode) {
+if (!rec.srcs.length) {
+emojiList.innerHTML = '<div class="emoji-empty">最近使用的表情不在当前桌面了<br>去分组里发一次就会出现在这里</div>';
+return;
+}
+renderEmojiGroup('__recent__', rec.srcs, 'ta');
+emojiRenderSig = _sigTarget;
+return;
+}
 if (!myGroups.length) {
 emojiList.innerHTML = '<div class="emoji-empty">暂无我的表情包<br>点击上方「添加」上传，或「新建分组」</div>';
 return;

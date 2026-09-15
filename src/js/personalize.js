@@ -1847,7 +1847,10 @@ try {
       //   ② 三个分区胶囊互斥，一次只渲染一组控件（原来三段全堆一起 = 内容超高的主因）；
       //   ③ 颜色改为「点色块 → 就地展开调色盘」即时生效，不用原生取色器、不弹全屏弹窗；
       //   ④ 「收起」把控件区整体折叠，只剩标题行，随时看整屏效果。
-      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:44vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+      // FIX 2026-09-16 #562：面板改半透明（用户报「又不是半透明的页面，还是会遮挡其他东西我看不见」）——
+      // 底色 72% 不透明 + 不透明度更高时保留原观感（color-mix 不支持的老内核回落上一句纯色，行为不变）；
+      // 同时高度上限 44vh→40vh，给桌面留更多可视区。刻意不加 backdrop-filter：AGENTS 的 iOS 卡顿红线。
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
       d.innerHTML = '';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
@@ -1909,7 +1912,7 @@ try {
       let paletteHost = null;
       // 颜色项：2 列网格里一个可点小块。点它在下方面板就地展开调色盘（即时生效），
       // 不再用原生取色器（真机上它会被渲染成一大块，正是抽屉超高的直接原因）。
-      const mkColorItem = (label, key, varName, isGlobal) => {
+      const mkColorItem = (label, key, varName, isGlobal, onSet) => {
         const el = document.createElement('div');
         el.style.cssText = 'display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--card-border,#ddd);border-radius:9px;cursor:pointer;min-width:0';
         const sw = document.createElement('span');
@@ -1927,6 +1930,9 @@ try {
           sw.style.background = c || '#ffffff';
         };
         const curSet = (v) => {
+          // FIX 2026-09-16 #562：可选 onSet——「主题色」走与设置页同一套 applier（同时写
+          // --btn-bg/--btn-ink 与键），修「边看边调点主题色只有 --btn-bg 变、--btn-ink 不跟随」。
+          if (onSet) { try { onSet(v); } catch (e) {} paint(); return; }
           if (v === null) {
             try { if (isGlobal) localStorage.removeItem(key); else store.remove(key); } catch (e) {}
             document.documentElement.style.removeProperty(varName);
@@ -1985,7 +1991,12 @@ try {
           wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
           const grid = document.createElement('div');
           grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
-          grid.appendChild(mkColorItem('主题色', 'xy-home-v2:accent-color', '--btn-bg', true));
+          grid.appendChild(mkColorItem('主题色', 'xy-home-v2:accent-color', '--btn-bg', true, (v) => {
+            // FIX 2026-09-16 #562：与设置页「主题色」同一 applier（同时写 --btn-bg/--btn-ink 与键），
+            // 顺带让桌面小组件按钮默认跟随主题色（home.css --widget-btn:var(--btn-bg)）。
+            try { if (v) localStorage.setItem(ACCENT_KEY, v); else localStorage.removeItem(ACCENT_KEY); } catch (e) {}
+            try { applyAccentColor(v || ''); } catch (e) {}
+          }));
           grid.appendChild(mkColorItem('组件背景', 'widget-bg-color', '--widget-bg', false));
           grid.appendChild(mkColorItem('边框', 'widget-border-color', '--widget-border', false));
           grid.appendChild(mkColorItem('按钮', 'widget-btn-color', '--widget-btn', false));
@@ -2403,14 +2414,14 @@ try {
   const widgetBtnVal = document.getElementById('widget-btn-val');
   const applyWidgetBtn = (color) => {
     document.documentElement.style.setProperty('--widget-btn', color);
-    paintBeautyVal(widgetBtnVal, color, '#111111', '默认黑');
+    paintBeautyVal(widgetBtnVal, color, '#111111', '跟随主题色');
   };
   const savedWidgetBtn = store.get('widget-btn-color');
   if (savedWidgetBtn) applyWidgetBtn(savedWidgetBtn);
   if (widgetBtnRow) {
     const syncWidgetBtnUI = () => {
       const c = store.get('widget-btn-color') || '#111111';
-      paintBeautyVal(widgetBtnVal, c, '#111111', '默认黑');
+      paintBeautyVal(widgetBtnVal, c, '#111111', '跟随主题色');
     };
     syncWidgetBtnUI();
     const btnSwatches = [
@@ -2440,7 +2451,9 @@ try {
         if (!color) return;
         if (color === '__reset__') {
           store.remove('widget-btn-color');
-          applyWidgetBtn('#111111');
+          // FIX 2026-09-16 #562：恢复默认＝摘掉内联变量、回落到 :root 的 var(--btn-bg)（跟随主题色）；
+          // 原来写死 applyWidgetBtn('#111111')＝内联变量把主题色链截断，恢复默认后再点主题色按钮不跟随。
+          document.documentElement.style.removeProperty('--widget-btn');
           syncWidgetBtnUI();
           return;
         }
@@ -2462,14 +2475,14 @@ try {
   const widgetBtnTextVal = document.getElementById('widget-btn-text-val');
   const applyWidgetBtnText = (color) => {
     document.documentElement.style.setProperty('--widget-btn-text', color);
-    paintBeautyVal(widgetBtnTextVal, color, '#ffffff', '默认白');
+    paintBeautyVal(widgetBtnTextVal, color, '#ffffff', '跟随主题色');
   };
   const savedWidgetBtnText = store.get('widget-btn-text-color');
   if (savedWidgetBtnText) applyWidgetBtnText(savedWidgetBtnText);
   if (widgetBtnTextRow) {
     const syncWidgetBtnTextUI = () => {
       const c = store.get('widget-btn-text-color') || '#ffffff';
-      paintBeautyVal(widgetBtnTextVal, c, '#ffffff', '默认白');
+      paintBeautyVal(widgetBtnTextVal, c, '#ffffff', '跟随主题色');
     };
     syncWidgetBtnTextUI();
     const btnTextSwatches = [
@@ -2499,7 +2512,8 @@ try {
         if (!color) return;
         if (color === '__reset__') {
           store.remove('widget-btn-text-color');
-          applyWidgetBtnText('#ffffff');
+          // FIX 2026-09-16 #562：同按钮颜色——摘内联变量回落到 var(--btn-ink)，跟随主题色文字色
+          document.documentElement.style.removeProperty('--widget-btn-text');
           syncWidgetBtnTextUI();
           return;
         }
@@ -3909,6 +3923,37 @@ try {
     });
   }
 
+  // FIX 2026-09-16 #562：美化页每个颜色行补一个可见的「默认」按钮（用户报「桌面美化的所有颜色，
+  // 没有恢复默认颜色的按钮」——此前只有「点行→开弹窗→点弹窗里的『恢复默认』pill」这条隐藏路径，
+  // 行上没有可见入口）。点它就地恢复该项：删键 + 摘内联 CSS 变量（回落主题/深色模式的默认值）。
+  (function bindBeautyColorResets() {
+    const rows = [
+      ['row-accent-color', () => { try { localStorage.removeItem(ACCENT_KEY); } catch (e) {} applyAccentColor(''); }],
+      ['row-widget-color', () => { store.remove('widget-bg-color'); document.documentElement.style.removeProperty('--widget-bg'); paintBeautyVal(widgetColorVal, '', '#ffffff', '默认白'); }],
+      ['row-widget-border', () => { store.remove('widget-border-color'); document.documentElement.style.removeProperty('--widget-border'); paintBeautyVal(widgetBorderVal, '', 'rgba(0,0,0,.1)', '默认'); }],
+      ['row-widget-btn', () => { store.remove('widget-btn-color'); document.documentElement.style.removeProperty('--widget-btn'); paintBeautyVal(widgetBtnVal, '', '#111111', '默认黑'); }],
+      ['row-widget-btn-text', () => { store.remove('widget-btn-text-color'); document.documentElement.style.removeProperty('--widget-btn-text'); paintBeautyVal(widgetBtnTextVal, '', '#ffffff', '默认白'); }],
+      ['row-app-name-color', () => { store.remove(APP_NAME_COLOR_KEY); applyAppNameColor(); }],
+      ['row-widget-heart', () => { store.remove('widget-heart-color'); document.documentElement.style.removeProperty('--widget-heart'); paintBeautyVal(widgetHeartVal, '', '#111111', '默认黑'); }]
+    ];
+    rows.forEach(function (pair) {
+      const row = document.getElementById(pair[0]);
+      if (!row || row.querySelector('.bfy-reset-btn')) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bfy-reset-btn';
+      btn.textContent = '默认';
+      btn.title = '恢复该项默认颜色';
+      btn.style.cssText = 'flex:none;margin-left:8px;padding:3px 9px;font-size:11px;line-height:1.4;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--muted,#888);cursor:pointer';
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation(); // 别触发该行的弹窗
+        try { pair[1](); } catch (err) {}
+        try { if (typeof toast === 'function') toast('已恢复默认'); } catch (err) {}
+      });
+      row.appendChild(btn);
+    });
+  })();
+
   // ===== v3.27.x：全局字体（桌面美化快捷入口，与聊天设置「全局字体」互通同一功能） =====
   // 复用 chat-settings.js 的存储键 'cs-font' + 同款 applyFont 逻辑（@font-face 注入 / body+html font-family），
   // 两边任一改动写同一键、应用同一全局 DOM，天然互通。applyDeskCsFont 与 chat-settings 的 applyFont 都
@@ -4594,14 +4639,43 @@ try {
     if (!pagesBox) return;
     const slides = pagesBox.querySelectorAll('.page-slide');
     const pool = ensureWidgetPool();
+    // FIX 2026-09-16 #560 冷启动第三页顺序竞态（新浏览器默认「图标在上、小组件在下」，
+    // 多机型随机复现）：时序为 0ms buildDeskPages 收缩把第三页三组件（desk-period/
+    // memo-row/p3apps）扫进隐藏池 → 50ms ensureP3 重建第三页先放回 p3apps →
+    // mochi-restore-done(~秒级) 回放 applyDeskLayout 时本函数此前对池里的组件逐个
+    // appendChild 到页尾，而已在页里的 p3apps 被「node.parentNode === slide」跳过
+    // ＝小组件全部排到图标组后面。两步谁先谁后不可控（50ms 与回放时序竞态）＝
+    // 机型相关随机复现。改为按模板快照顺序整页归位：先把该页快照组件按原序
+    // 依次插回（insertBefore addBtn 保位），快照顺序天然恢复；已在位且相对顺序
+    // 与模板一致时整体跳过（幂等零抖动，同 #249 恒等跳过思路）。
+    // 仅无布局（未装修）桌面走此分支，已装修用户 desk-layout 优先级不变。
+    const byPage = {};
     TEMPLATE_DESK_ARR.forEach((it) => {
-      const node = document.querySelector('[data-desk-widget="' + it.wid + '"]');
-      if (!node) return;
-      if (it.pool) { if (node.parentNode !== pool) pool.appendChild(node); return; }
-      const slide = slides[it.page];
-      if (!slide || node.parentNode === slide) return;
+      if (it.pool) return;
+      (byPage[it.page] = byPage[it.page] || []).push(it.wid);
+    });
+    Object.keys(byPage).forEach((pi) => {
+      const slide = slides[pi];
+      if (!slide) return;
+      const nodes = byPage[pi].map(wid => document.querySelector('[data-desk-widget="' + wid + '"]')).filter(Boolean);
+      if (!nodes.length) return;
+      // 已全部在位且子节点相对顺序与快照一致 → 不动（避免每次切桌面/回填重排抖动）
+      const orderOk = nodes.every((n, i) => {
+        if (n.parentNode !== slide) return false;
+        const idx = Array.prototype.indexOf.call(slide.children, n);
+        return i === 0 || idx > Array.prototype.indexOf.call(slide.children, nodes[i - 1]);
+      });
+      if (orderOk) return;
       const addBtn = slide.querySelector('.desk-page-add');
-      if (addBtn) slide.insertBefore(node, addBtn); else slide.appendChild(node);
+      nodes.forEach((n) => {
+        if (addBtn) slide.insertBefore(n, addBtn); else slide.appendChild(n);
+      });
+    });
+    // 模板快照里属池的组件归池（页数收缩/未添加语义不变）；页缺失的保持旧版留池语义
+    TEMPLATE_DESK_ARR.forEach((it) => {
+      if (!it.pool) return;
+      const node = document.querySelector('[data-desk-widget="' + it.wid + '"]');
+      if (node && node.parentNode !== pool) pool.appendChild(node);
     });
   };
   const pagesVal = document.getElementById('desk-pages-val');
@@ -8168,6 +8242,47 @@ try {
         });
       };
       ccScanBtn.addEventListener('click', runCcScan);
+    }
+    // ===== #554（TASKS #128）字卡媒体令牌化持久化：库键内联图转池令牌（同图全库只存一份）=====
+    // 后端 chatcard.js mochiCcPersistTokenize（池先令牌后 / 字符串级替换 / 不变小不写）。
+    const ccTokBtn = document.getElementById('st-cc-tokbtn');
+    if (ccTokBtn) {
+      const tokEl = document.getElementById('st-cc-tok');
+      ccTokBtn.addEventListener('click', function () {
+        if (!window.mochiCcPersistTokenize) {
+          if (window.openModal) window.openModal('本环境不支持', '', null, { noInput: true, staticText: '字卡图去重需要安全上下文（HTTPS/localhost）+ IndexedDB，当前环境不可用。' });
+          return;
+        }
+        if (ccTokBtn.disabled) return;
+        if (!window.openModal) { if (typeof toast === 'function') toast('当前环境缺少弹窗组件'); return; }
+        window.openModal('字卡图去重入库？', '', function () {
+          ccTokBtn.disabled = true;
+          if (tokEl) tokEl.textContent = '处理中…';
+          window.mochiCcPersistTokenize(function (label, done, total) {
+            if (tokEl) tokEl.textContent = '处理中：' + label + ' ' + done + '/' + total;
+          }).then(function (rep) {
+            ccTokBtn.disabled = false;
+            if (!rep || !rep.ok) {
+              if (tokEl) tokEl.textContent = '未处理';
+              if (typeof toast === 'function') toast('去重未执行：' + ((rep && rep.reason) || '未知原因'));
+              return;
+            }
+            const msg = rep.written
+              ? '已处理 ' + rep.images + ' 张内联图（唯一 ' + rep.uniq + ' 张），库键共缩小约 ' + fmtBytes(rep.saved) + '，写回 ' + rep.written + ' 个库'
+              : '没有需要去重的内联大图（可能已处理过，或图片都在阈值以下）';
+            if (tokEl) tokEl.textContent = rep.written ? ('已去重：缩小约 ' + fmtBytes(rep.saved)) : '无内联大图';
+            try { if (typeof renderStorage === 'function') renderStorage(); } catch (eR) {}
+            window.openModal('字卡图去重完成', '', null, { noInput: true, staticText: msg + '\n\n图片显示/发送不变；「导出数据」会自动还原成完整图片。' });
+          }).catch(function (e) {
+            ccTokBtn.disabled = false;
+            if (tokEl) tokEl.textContent = '未处理';
+            if (typeof toast === 'function') toast('去重异常：' + ((e && e.message) || e));
+          });
+        }, {
+          noInput: true,
+          staticText: '把字卡库里的内联图片转成媒体池令牌（与聊天图片同机制）：同一张贴图在公用库+各专属库里只存一份，库键大幅缩小；图片显示/发送不变，「导出数据」自动还原完整图片。处理不可逆，建议先导出备份留底。'
+        });
+      });
     }
     if (row) {
       row.addEventListener('click', function () {

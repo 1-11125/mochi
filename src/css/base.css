@@ -145,6 +145,11 @@ html { margin:0; padding:0; }
 }
 .splash-ver .sv-app { font-size:11.5px; font-weight:700; color:var(--ink); letter-spacing:.5px; }
 .splash-ver .sv-deploy { font-size:10.5px; color:var(--hint-ink); }
+/* #570：开屏新版检测行（ver-check.js）——检测中/失败灰、已是最新绿、有新版红加粗下划线可点 */
+.splash-ver .sv-check { font-size:10.5px; color:var(--hint-ink); }
+.splash-ver .sv-check.ok { color:#1f9d55; }
+.splash-ver .sv-check.stale { color:#e0523c; font-weight:700; }
+.splash-ver .sv-check.warn { opacity:.85; }
 /* v3.5.111：开屏公告卡片（白纸卡片，与全局简约风格一致）；v3.8.y：不再自滚，随 .splash-box 整页滚动 */
 .splash-notice {
   margin:14px auto 0; width:min(322px, 100%); text-align:left;
@@ -511,7 +516,11 @@ html { margin:0; padding:0; }
    v3.5.133：上限 480→768px——折叠屏展开（约 673-717px）和平板竖屏不再显示
    桌面模拟器外壳（390px 小框 + 两侧灰底），改为手机全屏布局 */
 @media (max-width: 900px) {
-  html, body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; }
+  /* FIX 2026-09-15 #542：手机端 body 底色改用 .phone 的同色变量（--bg-b），不再用
+     --page-bg 灰（桌面模拟器外壳的灰底在真机上永远不该露出）。键盘收缩 .phone 的瞬间
+     （收键盘动画/内核 vv 上报有延迟）露出的那一条由「大片灰底」变成与页面同色，观感
+     不突兀；桌面宽屏外壳不在此媒体查询内，模拟器灰底照旧。零机型分支、纯视觉兜底。 */
+  html, body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; background:var(--bg-b, #fff); }
   .phone {
     /* v3.5.139：显式声明——padding(0 18px 18px) 必须算进 100dvh 内，
        否则实际高度超视口、底部导航栏/组件被截 */
@@ -536,7 +545,9 @@ html { margin:0; padding:0; }
    关键规则（.phone 满屏 + body padding + statusbar + 输入框 16px + touch-action
    + 聊天贴底 + tap-highlight），保证手机物理屏上不显示桌面模拟器外壳。
    选择器 html.force-mobile 前缀特异性高于 .phone 等，优先于桌面外壳样式生效。 */
-html.force-mobile, html.force-mobile body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; }
+/* #542：同 @media(max-width:900px)——UA 桌面伪装兜底形态 body 底色也跟 .phone（--bg-b），
+   键盘收缩露出的那一条不再是大片灰底 */
+html.force-mobile, html.force-mobile body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; background:var(--bg-b, #fff); }
 html.force-mobile .phone {
   box-sizing:border-box;
   width:100vw; height:100vh; height:100svh; height:100dvh;

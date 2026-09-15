@@ -69,6 +69,9 @@
       }
     } catch (e) { doReload(); }
   }
+  // #570：开屏版本检测（ver-check.js）复用同一条「预取最新 index 再 reload」链——
+  // 直接裸 location.reload 在弱网/iOS 会拿到旧缓存＝「刷了还在旧版」，必须走这里。
+  window.mochiRefreshNow = function () { refreshNow(); };
 
   // ================= v3.26.x：更新条防重复（版本轮询 + SW 检测两通道共享） =================
   // 用户反馈「刷新到新版后顶部还提醒」：根因是 SW 交接期（新 SW 刚装完接管）与弱网
@@ -270,11 +273,16 @@
     // ① 浏览器/设备可能自动清空本地数据，任何手机/浏览器（含网页套壳转 App）都无法规避；
     // ② 若数据总也存不住（每次打开像没保存、一刷新就丢），多半是本机存储没能写进去（设备/浏览器异常）。
     // 顶部提醒条保留作兜底：弹窗组件未就绪时退回原提醒条，保证提醒不丢。
+    // 返回值：'ok' 已弹；'busy' 已有其他弹窗占用（勿顶掉，稍后重试，且不写冷却）；'nofn' 弹窗组件不可用。
     function openBackupModal(days, everBacked) {
-      if (typeof window.openModal !== 'function') return false;
+      if (typeof window.openModal !== 'function') return 'nofn';
+      // 避让已有弹窗：openModal 全站唯一，若此刻首启引导/字卡锁提醒等弹窗已开，
+      // 直接再弹会把它顶掉（pwa.js 的 mochi-restore-done 监听注册在最后，最易覆盖别人）。
+      const mask = document.getElementById('modal-mask');
+      if (mask && !mask.hidden) return 'busy';
       const intro = everBacked
-        ? '距上次导出备份已 ' + days + ' 天。'
-        : '你还没有导出过数据备份。';
+        ? '距上次完整备份已 ' + days + ' 天。'
+        : '你还没做过完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
       const TEXT =
         intro + '聊天记录、字卡、照片、设置等全部数据只保存在本机浏览器里，不在云端。\n\n' +
         '① 浏览器可能自动清空本地数据\n' +
@@ -293,15 +301,19 @@
         if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
         else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
       }, { noInput: true, big: true, pillSubmit: true, staticText: TEXT, pills: pills });
-      return true;
+      return 'ok';
     }
-    function show(days, everBacked) {
+    function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
+    function show(days, everBacked, tries) {
+      tries = tries || 0;
       // 版本更新提示优先（避免同屏叠两个提醒）
       const upd = document.getElementById('ver-update-bar');
       if (upd && !upd.hidden) return;
-      try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {}
-      if (openBackupModal(days, everBacked)) return;
-      // 兜底：弹窗组件不可用时退回顶部提醒条
+      const r = openBackupModal(days, everBacked);
+      if (r === 'ok') { markReminded(); return; }
+      // 已有弹窗占用：不顶掉对方、也不写冷却，1.5s 后重试（最多 6 次≈9s），期间对方关掉即可弹
+      if (r === 'busy' && tries < 6) { setTimeout(function () { show(days, everBacked, tries + 1); }, 1500); return; }
+      // 兜底（弹窗组件不可用或长时间被占用）：退回顶部提醒条，保证提醒不丢
       const txt = document.getElementById('backup-remind-txt');
       if (txt) {
         txt.textContent = everBacked
@@ -309,6 +321,7 @@
           : '数据只存在本机浏览器里，建议定期导出备份（防浏览器意外清除）';
       }
       bar.hidden = false;
+      markReminded();
     }
     function tryShow() {
       if (window.__resetting) return;

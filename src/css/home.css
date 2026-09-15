@@ -3,8 +3,12 @@
 :root {
   --widget-bg:#ffffff;
   --widget-border:rgba(0,0,0,.1);
-  --widget-btn:#111111;
-  --widget-btn-text:#ffffff;
+  /* FIX 2026-09-16 #562：桌面小组件按钮默认跟随「主题色」(--btn-bg/--btn-ink) 而非写死纯黑——
+     原来默认写死 #111111，用户在「边看边调」里点主题色时桌面（按钮是桌面上唯一用强调色的
+     可见部件）纹丝不动＝用户报「点击主题色没有任何变化」。用户单独设「按钮颜色/按钮文字颜色」
+     时仍是内联变量覆盖本默认；恢复默认＝移除内联变量即重新跟随主题色。 */
+  --widget-btn:var(--btn-bg,#111111);
+  --widget-btn-text:var(--btn-ink,#ffffff);
   --widget-heart:#111111;
   --widget-opacity:1;
   --app-ico-radius:18px;

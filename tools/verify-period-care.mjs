@@ -55,8 +55,11 @@ function check(desc, ok, detail) {
   check('A4 chat.js 回复路径不再 20% 预掷门控（直接调用 periodCheckCare）', a4ok, { calls: calls.length });
 
   const pSrc = readFileSync(join(root, 'src', 'js', 'period.js'), 'utf8');
-  check('A5 period.js 关心语改从 DEFAULT_CARD_DATA.period 单一数据源取（带兜底）',
-    /PERIOD_CARE_LINES = \(function \(\) \{[\s\S]*?DEFAULT_CARD_DATA[\s\S]*?period/.test(pSrc) &&
+  // #559：PERIOD_CARE_LINES 由旧 IIFE 直读 g[0] 改为 cardGroupLines('经期关心', 兜底)——
+  //   仍是 DEFAULT_CARD_DATA.period 单一数据源 + 数据缺失兜底，锚点随实现更新、意图不变
+  check('A5 period.js 关心语改从 DEFAULT_CARD_DATA.period 单一数据源取（带兜底；#559 起经 cardGroupLines）',
+    /PERIOD_CARE_LINES = cardGroupLines\('经期关心', PERIOD_CARE_FALLBACK\)/.test(pSrc) &&
+    /function cardGroupLines\(name, fb\)/.test(pSrc) &&
     /PERIOD_CARE_FALLBACK/.test(pSrc));
   check('A6 抽取过滤同时认 库内开关 dc-off-period 与旧 period-care-off',
     /careLineBlocked/.test(pSrc) && /isDefaultCardOff\('period'/.test(pSrc));
@@ -79,8 +82,9 @@ function check(desc, ok, detail) {
     /mood: opts\.mood \|\| _tagMood \|\| undefined/.test(chatSrc));
   const perSrc2 = readFileSync(join(root, 'src', 'js', 'period.js'), 'utf8');
   const p2Src = readFileSync(join(root, 'src', 'js', 'p2-features.js'), 'utf8');
-  check('A12 发送点带标签：经期关心 ×1、喝水提醒 ×2、吃饭提醒 ×2、摸鱼抓包 ×1',
-    (perSrc2.match(/tag: '经期关心'/g) || []).length === 1 &&
+  // #559：经期发送点标签改语境三元（经期中=经期关心/经前预警日·推迟=经期预警），锚点随实现更新
+  check('A12 发送点带语境标签（经期关心/经期预警三元 ×1）、喝水提醒 ×2、吃饭提醒 ×2、摸鱼抓包 ×1',
+    (perSrc2.match(/tag: kind === 'in' \? '经期关心' : '经期预警'/g) || []).length === 1 &&
     (p2Src.match(/tag: '喝水提醒'/g) || []).length === 2 &&
     (p2Src.match(/tag: '吃饭提醒'/g) || []).length === 2 &&
     (p2Src.match(/tag: '摸鱼抓包'/g) || []).length === 1);

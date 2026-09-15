@@ -227,7 +227,11 @@ button.ca-jump { background:none; border:0; color:inherit; font:inherit; padding
 .ca-flow-ok { color:var(--ca-ok,#2e9e6b); }
 .ca-flow-no { color:var(--ca-bad,#d9534f); font-weight:700; }
 .ca-fixbar { display:flex; gap:10px; margin-top:10px; }
-.ca-fixbar .storage-clear { margin-top:0; }
+.ca-fixbar .storage-clear { margin-top:0; flex:1 1 0; padding:10px 6px; font-size:12.5px; }
+.ca-legend { font-size:11px; color:var(--muted); line-height:1.65; margin-bottom:10px; }
+.ca-legend b { color:var(--ink); font-weight:700; }
+.ca-edit { margin-left:6px; white-space:nowrap; font-weight:600; }
+.ca-headline { font-size:14px; font-weight:700; line-height:1.5; margin:2px 0 8px; }
 .ca-sub { display:block; font-size:10.5px; color:var(--muted); line-height:1.55; margin-top:2px; }
 .ca-detail { margin-top:6px; font-size:11px; line-height:1.7; }
 .ca-detail .storage-row { padding:4px 0; font-size:12px; }
