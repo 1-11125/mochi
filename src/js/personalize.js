@@ -304,6 +304,7 @@ try {
     const colorInput = document.getElementById('modal-color');
     const customBtn = document.getElementById('modal-custom');
     const selectEl = document.getElementById('modal-select');
+    const groupChipsEl = document.getElementById('modal-group-chips');
     const fileBtn = document.getElementById('modal-file');
     const fileInput = document.getElementById('modal-file-input');
     const okBtn = document.getElementById('modal-ok');
@@ -441,21 +442,29 @@ try {
         }
       }
       // 目标分组下拉
-      if (selectEl) {
-        selectEl.hidden = !(opts.groups && opts.groups.length);
-        selectEl.innerHTML = '';
-        selectedGroup = null;
+      if (selectEl) selectEl.hidden = true;
+      // v3.28.x：目标分组改自定义胶囊选择（替代原生 <select>——用户反馈批量导入弹窗
+      // 里「导入到现有分组」弹的是浏览器自带下拉框，需改为网站内样式）。用可点选的
+      // 胶囊行（可横滑），默认「导入到新分组（按【组名】识别）」，点选即高亮并记录。
+      selectedGroup = null;
+      if (groupChipsEl) {
+        groupChipsEl.hidden = !(opts.groups && opts.groups.length);
+        groupChipsEl.innerHTML = '';
         if (opts.groups && opts.groups.length) {
-          const none = document.createElement('option');
-          none.value = '';
-          none.textContent = '导入到新分组（按【组名】识别）';
-          selectEl.appendChild(none);
-          opts.groups.forEach(g => {
-            const o = document.createElement('option');
-            o.value = g;
-            o.textContent = '导入到现有分组：' + g;
-            selectEl.appendChild(o);
-          });
+          const mk = (value, label) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pill' + (value === selectedGroup ? ' on' : '');
+            b.textContent = label;
+            b.addEventListener('click', () => {
+              Array.prototype.forEach.call(groupChipsEl.children, c => c.classList.remove('on'));
+              b.classList.add('on');
+              selectedGroup = value;
+            });
+            return b;
+          };
+          groupChipsEl.appendChild(mk(null, '导入到新分组（按【组名】识别）'));
+          opts.groups.forEach(g => groupChipsEl.appendChild(mk(g, g)));
         }
       }
       // txt 文件导入

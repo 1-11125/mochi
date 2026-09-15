@@ -218,32 +218,50 @@
   // （无头 390×844 节点身份实证：点一次 8/8 个 img 全部被替换＝闪+重载）。改为只按库内容
   // 同步 .avlib-now 高亮类，img 节点原样保留＝零重解码；库内容真正变化（上传/删除/清空）
   // 仍走整格重建。零机型分支、零视觉改动。
+  // FIX 2026-09-15 #509（红米 K80 Chrome 等多机型报「头像互动点开图片就闪一下重新加载」，
+  // 用户明说「其他设备型号也有出现」）：#508 只收口了「点选换头像」路径，**打开半框**这条
+  // 路径仍在 openAvlib 里直接 renderGrid()/renderMeGrid() 整格重建（无头 390×844 实证：
+  // 打开→关闭→再打开，8/8 个 img 节点全部被替换＝已解码图全部重新解码＝用户看到的闪）。
+  // 收口：复用判定改成返回值（true=库内容与 DOM 逐个一致，只同步高亮；false=需整格重建），
+  // 打开路径先试复用；库真变了（上传/删除/清空/换桌面）照旧整格重建。
+  // 顺带修 #508 遗留：原实现用 forEach + `return`（只退出当次回调）触发重建，遇到多个不一致
+  // 项会连续重建多次——改 for 循环，首处不一致即返回。
   function updateGridNow() {
-    if (!avGrid) return;
+    if (!avGrid) return false;
     const lib = getLib();
     const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
     const cells = avGrid.querySelectorAll('.avlib-cell');
-    if (cells.length !== lib.length) { renderGrid(); return; }
-    lib.forEach((src, idx) => {
-      const d = cells[idx];
-      const im = d && d.querySelector('img');
+    if (cells.length !== lib.length) return false;
+    for (let i = 0; i < lib.length; i++) {
+      const im = cells[i].querySelector('img');
       // 懒加载补 src 后 data-src 被移除，已加载的图比对 src
-      if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderGrid(); return; }
-      d.classList.toggle('avlib-now', src === current);
-    });
+      if (!im || (im.dataset.src || im.getAttribute('src')) !== lib[i]) return false;
+    }
+    lib.forEach((src, idx) => { cells[idx].classList.toggle('avlib-now', src === current); });
+    return true;
   }
   function updateMeGridNow() {
-    if (!avMeGrid) return;
+    if (!avMeGrid) return false;
     const lib = getMeLib();
     const current = store.get('cs-avatar-user') || store.get('avatar-user');
     const cells = avMeGrid.querySelectorAll('.avlib-cell');
-    if (cells.length !== lib.length) { renderMeGrid(); return; }
-    lib.forEach((src, idx) => {
-      const d = cells[idx];
-      const im = d && d.querySelector('img');
-      if (!im || (im.dataset.src || im.getAttribute('src')) !== src) { renderMeGrid(); return; }
-      d.classList.toggle('avlib-now', src === current);
-    });
+    if (cells.length !== lib.length) return false;
+    for (let i = 0; i < lib.length; i++) {
+      const im = cells[i].querySelector('img');
+      if (!im || (im.dataset.src || im.getAttribute('src')) !== lib[i]) return false;
+    }
+    lib.forEach((src, idx) => { cells[idx].classList.toggle('avlib-now', src === current); });
+    return true;
+  }
+  // 统一入口：库内容没变＝零重建（只同步高亮），变了才整格重建
+  function renderGridSmart() { if (!updateGridNow()) renderGrid(); }
+  function renderMeGridSmart() { if (!updateMeGridNow()) renderMeGrid(); }
+  // FIX #509：IDB 迟到回填（慢 IDB 设备启动读空→回填）后若半框正开着，同样走「内容没变不重建」
+  // 口径——原路径没有这步，用户要么看不到回填的新图，要么在别处触发整格重建再闪一次
+  function refreshAvGrids() {
+    if (!avPage || avPage.hidden) return;
+    renderGridSmart();
+    renderMeGridSmart();
   }
   function renderGrid() {
     if (!avGrid) return;
@@ -329,8 +347,8 @@
     if (pc) pc.hidden = true;
     const ep = document.getElementById('emoji-panel');
     if (ep) ep.hidden = true;
-    renderGrid();
-    renderMeGrid();
+    renderGridSmart();   // FIX #509：打开时不整格重建——库没变只同步高亮（旧路径每次打开都重建=图片闪）
+    renderMeGridSmart(); // FIX #509 同上
     syncVal();
     avPage.hidden = false;
   }
@@ -762,8 +780,9 @@
           const localLen = Array.isArray(localArr) ? localArr.length : -1;
           if (localLen < 0 || (Array.isArray(idbArr) && idbArr.length > localLen)) {
             store.set(key, v);
+            refreshAvGrids(); // FIX #509：回填后用「库没变不重建」口径刷新，避免整格重建再闪一次
           }
-        } catch (e) { store.set(key, v); }
+        } catch (e) { store.set(key, v); refreshAvGrids(); }
       });
     }
     tryOnce();

@@ -92,6 +92,9 @@
     // 多次调用只绑定一次（防重复弹窗），groups/onChanged 取最新值（刷新下拉后更新）
     // onChanged(g) 可选——需要额外持久化 groups 的模块（查岗/情话）在此保存
     bindNewGrp: function (sel, groups, onChanged) {
+      // v3.28.x：分组/分类原生下拉也统一替换成自定义样式（bindNewGrp 是所有分组
+      // select 的必经点，在此挂一次即可覆盖全部添加/批量导入的分组选择）
+      try { if (window.cardGroups) window.cardGroups.attachCustom(sel); } catch (e) {}
       sel.__grpGroups = groups;
       sel.__grpOnChanged = onChanged;
       if (sel.__grpBound) return;
@@ -111,6 +114,171 @@
           grpToast('已新建分组「' + g.name + '」');
         });
       });
+    },
+    // v3.28.x：把原生 <select>（分组/分类选择）包裹成网站内自定义下拉，替代浏览器
+    // 自带下拉框（用户反馈「点开是浏览器自带的框」「今日情话/查岗/问问TA等添加/批量
+    // 导入的分组选择不是网站样式」）。对外零侵入：只镜像 sel 的 option/optgroup 供
+    // 点选，点选后仍写 sel.value 并派发 change（bubbles）——既有消费方
+    // （catOptsHtml/grpOnlyOptsHtml 填充 + parseCatVal 读值 + bindNewGrp 新建分组 +
+    // onchange 重渲染）全部原样工作。__newgrp 照发 change，交给 bindNewGrp 建组逻辑。
+    // 幂等（marker）；innerHTML 被重刷（建组/切分类后重渲染）经 MutationObserver 自动重建菜单。
+    attachCustom: function (sel) {
+      if (!sel || sel.nodeType !== 1 || sel.tagName !== 'SELECT' || sel.__mochiCsWrap) return;
+      sel.__mochiCsWrap = true;
+      // 保存原生宽度，包一层同名占位避免布局塌陷（.ta-type 92px / 批量下拉 flex 宽度）
+      const w = sel.offsetWidth || 0;
+      const wrap = document.createElement('span');
+      wrap.className = 'mochi-custom-select';
+      wrap.style.minWidth = (w || 96) + 'px';
+      wrap.style.width = w ? w + 'px' : 'auto';
+      const trig = document.createElement('button');
+      trig.type = 'button';
+      trig.className = 'mochi-custom-select-trig';
+      const label = document.createElement('span');
+      label.className = 'mochi-custom-select-label';
+      const caret = document.createElement('span');
+      caret.className = 'mochi-custom-select-caret';
+      caret.textContent = '▾';
+      trig.appendChild(label);
+      trig.appendChild(caret);
+      const list = document.createElement('div');
+      list.className = 'mochi-custom-select-list';
+      wrap.appendChild(trig);
+      wrap.appendChild(list);
+      sel.classList.add('mochi-custom-select-native'); // display:none 隐藏原生，value/change 仍可读写
+      sel.parentNode.insertBefore(wrap, sel);
+      let open = false;
+      let closeFns = [];
+      function setLabel() {
+        const cur = String(sel.value);
+        const opts = sel.querySelectorAll('option');
+        for (let i = 0; i < opts.length; i++) {
+          if (String(opts[i].value) === cur) { label.textContent = opts[i].textContent; return; }
+        }
+        const first = sel.querySelector('option');
+        label.textContent = first ? first.textContent : '请选择';
+      }
+      function closeAll() {
+        open = false;
+        wrap.classList.remove('open');
+        if (list.parentNode === document.body) {
+          try { list.style.display = 'none'; document.body.removeChild(list); } catch (err) {}
+        } else {
+          list.style.display = 'none';
+        }
+        closeFns.forEach(function (fn) { if (fn) fn(); });
+        closeFns = [];
+      }
+      // portal 式浮层：挂到 body 固定定位，避开滚动/溢出裁剪容器（设置/音乐等面板内的
+      // select 若沿用 absolute 会被父容器裁掉）。打开时按触发器 rect 定位、视口越界自动翻转。
+      function openList() {
+        const rect = trig.getBoundingClientRect();
+        const vw = window.innerWidth || document.documentElement.clientWidth;
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+        const panelW = Math.max(rect.width, 120);
+        const availBelow = vh - rect.bottom - 8;
+        const dropH = Math.max(120, Math.min(34 * vh / 100, availBelow));
+        list.style.width = panelW + 'px';
+        list.style.maxHeight = (availBelow < 120 ? Math.max(120, vh - 16) : dropH) + 'px';
+        list.style.position = 'fixed';
+        list.style.zIndex = 9999;
+        let top = rect.bottom + 4;
+        if (top + dropH > vh - 8) top = Math.max(8, rect.top - 4 - Math.min(dropH, vh - 16));
+        top = Math.max(8, Math.min(top, vh - 8 - Math.min(parseInt(list.style.maxHeight, 10) || dropH, vh - 16)));
+        const left = Math.min(Math.max(4, rect.left), Math.max(4, vw - panelW - 4));
+        list.style.left = left + 'px';
+        list.style.top = top + 'px';
+        document.body.appendChild(list);
+        list.style.display = '';
+        open = true;
+        wrap.classList.add('open');
+        rebuild(); // 打开时刷新选中高亮/toLabel
+        // 关闭触发：窗口滚动（不含面板自身滚动）/缩放
+        const onScroll = function (e) { if (!e || !list.contains(e.target)) closeAll(); };
+        const onResize = function () { closeAll(); };
+        window.addEventListener('scroll', onScroll, true);
+        window.addEventListener('resize', onResize);
+        closeFns.push(function () {
+          window.removeEventListener('scroll', onScroll, true);
+          window.removeEventListener('resize', onResize);
+        });
+      }
+      function setOpen(v) { if (v) openList(); else closeAll(); }
+      function addOpt(opt) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'mochi-cs-opt' + (String(opt.value) === String(sel.value) ? ' on' : '');
+        b.textContent = opt.textContent || '';
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (String(opt.value) === String(sel.value)) { setOpen(false); return; }
+          sel.value = opt.value;
+          try { sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (err) {}
+          setLabel();
+          setOpen(false);
+          // change 处理里可能重刷选项/触发 onChanged 重渲染——重建菜单让高亮跟上
+          rebuild();
+        });
+        list.appendChild(b);
+      }
+      function rebuild() {
+        list.innerHTML = '';
+        Array.prototype.forEach.call(sel.children, function (ch) {
+          if (ch.tagName === 'OPTGROUP') {
+            const g = document.createElement('div');
+            g.className = 'mochi-cs-group';
+            g.textContent = ch.label || '';
+            list.appendChild(g);
+            Array.prototype.forEach.call(ch.querySelectorAll('option'), addOpt);
+          } else if (ch.tagName === 'OPTION') {
+            addOpt(ch);
+          }
+        });
+        setLabel();
+      }
+      trig.addEventListener('click', function (e) { e.stopPropagation(); if (open) closeAll(); else openList(); });
+      // 点触发器/面板之外（捕获阶段拦截 mousedown/touchstart）关闭
+      document.addEventListener('mousedown', function (e) {
+        if (!open) return;
+        if (list.contains(e.target) || trig.contains(e.target)) return;
+        closeAll();
+      }, true);
+      document.addEventListener('touchstart', function (e) {
+        if (!open) return;
+        if (list.contains(e.target) || trig.contains(e.target)) return;
+        closeAll();
+      }, true);
+      // 切换桌面/页面隐藏时兜底收起
+      document.addEventListener('contact-switched', closeAll, false);
+      document.addEventListener('visibilitychange', function () { closeAll(); }, false);
+      // 选项被外部重刷（建组后插 option / onChanged 重渲染）时自动重建菜单与高亮
+      if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(function () { if (wrap && list) rebuild(); })
+          .observe(sel, { childList: true, subtree: true });
+      }
+      rebuild();
+    },
+    // v3.28.x：把已渲染/新渲染的分组下拉 + 设置/音乐/礼盒/邀请等表单下拉统一替换成
+    // 自定义样式。目标＝bindNewGrp 全部分组下拉 + .ta-type/.tc-input/.gm-input/.ti-type
+    // （保留小游戏 snake-diff/pong-diff 的原生 console 外观）。attachCustom 幂等，重复命中无害。
+    ensureCustomSelects: function () {
+      var selSel = 'select.ta-type, select.tc-input, select.gm-input, select.ti-type';
+      document.querySelectorAll(selSel).forEach(function (s) { window.cardGroups.attachCustom(s); });
+      if (window.__mochiCsObserver || typeof MutationObserver === 'undefined') return;
+      window.__mochiCsObserver = true;
+      // 只扫小容器（新表单块），大列表重渲染（几十上百节点）直接跳过，避免拖慢聊天渲染
+      new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          m.addedNodes.forEach(function (n) {
+            if (!n || n.nodeType !== 1) return;
+            if (n.matches && n.matches(selSel)) { window.cardGroups.attachCustom(n); return; }
+            if (n.childElementCount <= 60 && n.querySelectorAll) {
+              const f = n.querySelectorAll(selSel);
+              for (let i = 0; i < f.length; i++) window.cardGroups.attachCustom(f[i]);
+            }
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
     }
   };
 
@@ -3812,4 +3980,6 @@ window.openTCPanel = openTCPanel;
     _tcuSessionTriggered = false;
     _trSessionTriggered = false;
   });
+  // v3.28.x：全站原生分组/分类下拉统一换成自定义样式（含未走 bindNewGrp 的 .ta-type）
+  try { if (window.cardGroups) window.cardGroups.ensureCustomSelects(); } catch (e) {}
 })();

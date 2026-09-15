@@ -104,13 +104,16 @@
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
 
 /* 消息入场动画：仅新增消息（非批量渲染）时触发。
-   v3.27.x：气泡「冒出」感——以底角为原点做轻微缩放+上浮，回弹曲线（>1 的 y 值产生 overshoot），
-   只动 transform/opacity 不碰布局属性；reduced-motion 降级为直接显示 */
+   柔和上浮淡入——用「指数减速」曲线（ease-out-quint，起步快、末端自然落定）取代
+   v3.27.x 的过冲回弹（cubic-bezier y 值 >1 + scale(.92/.95/.96)，密集聊天里弹跳出、突兀）；
+   保留极轻微 scale(.98/.985/.99) 作「活气」，不碰布局属性（只动 transform/opacity）；
+   reduced-motion 降级为直接显示 */
 .msg-enter {
-  animation: msgPopIn .32s cubic-bezier(.34,1.4,.64,1) both;
+  animation: msgPopIn .4s cubic-bezier(.22,1,.36,1) both;
 }
 .msg-in.msg-enter {
   animation-name: msgInPop;
+  animation-duration: .45s; /* 联系人（in）消息稍微放慢，更柔和 */
   transform-origin: left bottom;
 }
 .msg-out.msg-enter {
@@ -118,15 +121,15 @@
   transform-origin: right bottom;
 }
 @keyframes msgPopIn {
-  from { opacity: 0; transform: translateY(8px) scale(.96); }
+  from { opacity: 0; transform: translateY(7px) scale(.985); }
   to { opacity: 1; transform: none; }
 }
 @keyframes msgInPop {
-  from { opacity: 0; transform: translateY(10px) scale(.92); }
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
   to { opacity: 1; transform: none; }
 }
 @keyframes msgOutPop {
-  from { opacity: 0; transform: translateY(6px) scale(.95); }
+  from { opacity: 0; transform: translateY(5px) scale(.99); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {

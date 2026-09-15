@@ -805,39 +805,67 @@
   //   - pointerdown 不立即清 bottom（避免 top/bottom 同时 auto 时 fixed 元素跳到别处）
   //   - 只有真正移动（拖动）才切到拖动态：清 bottom + 设 left/top
   //   - pointerup 只在「真实拖动过」才保存位置，轻点不写入（防止存坏坐标）
+  // ---- 拖拽坐标系说明（v3.33.x 修复「小框拖动后消失」，零机型/UA 分支）----
+  //   旧实现算出的 x/y 是「屏幕/布局视口坐标系」（e.clientX - offX，而 offX = clientX - rect.left，
+  //   rect.left 来自 getBoundingClientRect＝屏幕系），却把这段屏幕坐标直接塞进 style.left/top。
+  //   这只在「元素的坐标空间 == 可视视口」时恰好成立（普通 position:fixed 且无 transform 祖先）；
+  //   一旦小框定位空间与视口不一致——祖先带 transform 让 fixed 退化成绑定到该祖先、
+  //   或宽视口下 position:absolute 落在 .phone 内——屏幕坐标会被当成元素自身坐标写入，
+  //   小框被甩到视口外 = “拖完莫名消失”。各机型/页面状态（壁纸并层、切换动画、键盘适配、
+  //   桌面预览）下是否出现 transform 祖先各不相同 → 不同设备型号都时有时无地复现。
+  //   修复：拖拽按「手指位移增量」驱动，用 getBoundingClientRect 把目标屏幕坐标精确换算回
+  //   元素自身坐标空间（style = offsetLeft + (目标屏幕位 - 当前 rect 位)），对任意坐标系
+  //   （fixed / absolute / 带 transform 祖先）都成立；目标位统一钳制在可视视口内，
+  //   iOS standalone 上边界仍抬到系统状态栏下方（miniSafeTop，v3.28.x #114 保留）。
+  //   无 transform 的常规路径换算结果与原逻辑逐像素一致（不回归）。
   if (mini) {
-    let dragging = false, moved = false, offX = 0, offY = 0;
+    let dragging = false, moved = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
+    // e.clientX/Y 属「可视视口」坐标系，getBoundingClientRect 属「布局视口」；
+    // 转布局视口统一相减，避免 visualViewport 被浏览器条偏移时拖拽错位（同样兼容多机型）
+    function vpX(e) { const vv = window.visualViewport; return e.clientX + ((vv && vv.offsetLeft) || 0); }
+    function vpY(e) { const vv = window.visualViewport; return e.clientY + ((vv && vv.offsetTop) || 0); }
     mini.addEventListener('pointerdown', (e) => {
       if (e.target.closest('#call-mini-hang')) return; // 挂断按钮不触发拖动
       dragging = true;
       moved = false;
       const r = mini.getBoundingClientRect();
-      offX = e.clientX - r.left;
-      offY = e.clientY - r.top;
+      pressLX = vpX(e); pressLY = vpY(e);
+      startLeft = r.left; startTop = r.top; // 按下瞬间小框左上角的屏幕（布局）位
       mini.setPointerCapture && mini.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
     mini.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       if (!moved) {
-        // 首次移动：切换为拖动态（清除 bottom，避免与 top 同时存在导致拉伸）
+        // 首次移动：切换为拖动态（清除 bottom，避免与 top 同时存在导致拉伸）。
+        // bottom/transform/left/top 同一次同步回调内改完，浏览器只会渲染该批次终态，不会闪跳
         mini.style.bottom = 'auto';
         mini.style.transform = 'none';
         moved = true;
       }
-      let x = e.clientX - offX, y = e.clientY - offY;
       const mw = mini.offsetWidth, mh = mini.offsetHeight;
-      x = Math.max(4, Math.min(window.innerWidth - mw - 4, x));
+      // 期望左上角屏幕位 = 按住位 + 手指位移（保持抓取偏移恒定）
+      const vv = window.visualViewport;
+      const vw = (vv && vv.width) || window.innerWidth;
+      const vh = (vv && vv.height) || window.innerHeight;
+      const voL = (vv && vv.offsetLeft) || 0, voT = (vv && vv.offsetTop) || 0;
+      let tx = startLeft + (vpX(e) - pressLX);
+      let ty = startTop + (vpY(e) - pressLY);
+      // 钳制在可视视口内（四条边都留 4px 余量）
+      tx = Math.max(Math.max(4, voL), Math.min(voL + vw - mw - 4, tx));
       // v3.28.x #114：拖拽上边界抬到系统状态栏下方，避免缩略窗拖进状态栏区被吞触点
-      y = Math.max(miniSafeTop(), Math.min(window.innerHeight - mh - 4, y));
-      mini.style.left = x + 'px';
-      mini.style.top = y + 'px';
+      ty = Math.max(Math.max(miniSafeTop(), voT), Math.min(voT + vh - mh - 4, ty));
+      // 把目标屏幕位换算回元素自身坐标空间再写入 style（见函数头坐标系说明）
+      const c = mini.getBoundingClientRect();
+      mini.style.left = ((mini.offsetLeft || 0) + (tx - c.left)) + 'px';
+      mini.style.top = ((mini.offsetTop || 0) + (ty - c.top)) + 'px';
     });
     const endDrag = () => { dragging = false; };
     mini.addEventListener('pointerup', endDrag);
     mini.addEventListener('pointercancel', endDrag);
     mini.addEventListener('pointerup', () => {
-      // 只有真实拖动过才保存（位置有效）
+      // 只有真实拖动过才保存（位置有效；left/top 已按元素自身坐标空间写出，
+      // 重新加载 restore 路径照常读回，不会被误当作屏幕坐标）
       if (moved && mini.style.left && mini.style.top) {
         if (miniPos) { miniPos.left = mini.style.left; miniPos.top = mini.style.top; }
         else miniPos = { left: mini.style.left, top: mini.style.top };

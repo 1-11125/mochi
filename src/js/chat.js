@@ -292,14 +292,15 @@ localStorage.setItem((prefix || window.activePrefix()) + ':chat-msgs', snap);
 // 权威回读后前缀凭据失配=同一消息屏上两份+整窗重画（真机「闪屏+弹一下后恢复」，无头
 // 实证 rm7+add7+种子消息×2）。按 ts|side|text 排序去重合并，上限仍由 performLsSnapWrite
 // 的 lite 折半兜底。
+// FIX 2026-09-15 #511：签名统一走 lsMergeSig（与 dupSig 同口径、展开媒体令牌）——旧的内联
+// ts|side|前64字符签名在「LS 存原文 base64 / 内存已令牌化」时判不出同一条，LS 快照里会长期存两份。
 function mergeLsSnapshotWith(msgsNow, prefix) {
 try {
 let old = [];
 try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
-const sig2 = (m) => (((m && m.ts) || 0) + '|' + ((m && m.side) || '') + '|' + String((m && m.text) || '').slice(0, 64));
-const seen = new Set(msgsNow.map(sig2));
-const merged = msgsNow.concat(old.filter(m => m && !seen.has(sig2(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
+const seen = new Set(msgsNow.map(lsMergeSig));
+const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 performLsSnapWrite(merged, prefix);
 } catch (e) {}
 }
@@ -858,6 +859,28 @@ let x = m.text || '';
 try { if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x) && window.mochiMediaExpand) { const ex = window.mochiMediaExpand(x); if (ex) x = ex; } } catch (e) {}
 return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc: !!m.voice, e: extra });
 }
+// FIX 2026-09-15 #511 进聊天气泡「先变 2 条再恢复」（用户：桌面点开【聊天】进页面，
+// 联系人最新一条莫名其妙变成 2 个，然后又恢复正常）：
+// LS 快照与内存 msgs 的合并签名原只比 ts|side|原文前 64 字符——同一逻辑消息在 LS 侧是
+// 原始 base64、内存侧已令牌化（#256 令牌竞态）⇒ 原文不等 ⇒ 判成两条 ⇒ 首帧渲染出 2 个气泡；
+// 随后后台归一化 collapseRapidDups/normCollapseRange 用 dupSig（会展开媒体令牌）判相邻
+// 重复又把它合并回 1，用户看到的正是「变 2 个 → 又恢复正常」。
+// 收口：合并签名与 dupSig 同口径（展开媒体令牌 + 计入 special/type），两处合并点共用本函数
+// （mergeLsSnapshotWith 写快照、loadMsgs 读快照回并内存，任一处口径不齐都会在 LS 里留下两份）。
+// 取「长度 + 前 96 字符」而非整串：媒体原文可达数百 KB，整串进 Set 哈希会让进聊天白白烧 CPU；
+// 长度+头部随内容变化，对「跨形式同一条」判别力足够（池未热载 expand 返回 null 时退化为旧行为，不误判）。
+function lsMergeSig(m) {
+if (!m) return '';
+let x = String(m.text || '');
+try {
+if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x)) {
+const ex = window.mochiMediaExpand && window.mochiMediaExpand(x);
+if (ex) x = ex;
+}
+} catch (e) {}
+return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || '') + '|' + x.length + '|' + x.slice(0, 96));
+}
+try { window.__lsMergeSig = lsMergeSig; } catch (e) {} // 回归脚本可测性出口（只读纯函数）
 function collapseRapidDups(arr) {
 let removed = 0;
 for (let i = arr.length - 1; i > 0; i--) {
@@ -892,9 +915,13 @@ let lsArr = [];
 try { lsArr = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { lsArr = []; }
 if (!Array.isArray(lsArr)) lsArr = [];
 if (lsArr.length && msgs.length) {
-const sig2 = (m) => (((m && m.ts) || 0) + '|' + ((m && m.side) || '') + '|' + String((m && m.text) || '').slice(0, 64));
-const seen = new Set(lsArr.map(sig2));
-const extra = msgs.filter(m => m && !seen.has(sig2(m)));
+// FIX 2026-09-15 #511 进聊天最新一条「变 2 条再恢复」：合并签名只比 ts|side|原文前64字符，
+// 同一逻辑消息 LS=原始 base64、内存=令牌 @@m:（#256 令牌竞态）原文不等→判两条→首帧
+// 渲染出 2 个气泡；随后归一化用展开令牌的 dupSig 判相邻重复又合并回 1＝先 2 后 1。
+// 签名统一走 lsMergeSig（与 dupSig 同口径：展开媒体令牌 + 含 special/type）——两处合并点
+// 共用同一函数，避免「修了读侧、写侧仍按旧口径在 LS 里存两份」的半修。
+const seen = new Set(lsArr.map(lsMergeSig));
+const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)));
 msgs = lsArr.concat(extra).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 } else if (lsArr.length) {
 msgs = lsArr;
@@ -1374,6 +1401,31 @@ const cb = document.getElementById('chat-body');
 // FIX #316：回钉贴底时同步关回浏览器滚动锚定（与 #199 overflow-anchor:none 同口径）
 if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = cb.scrollHeight; }
 }
+// v3.3x.x：TA 自发消息跟底的平滑滚动——replace 瞬时 scrollTop=scrollHeight 的"咻地一跳"。
+// rAF 驱动 + ease-out 三次加速曲线（起步快、末端自然落定），只改 scrollTop（无布局属性动画）；
+// 可被下一次调用重置（来消息连发时不叠加、始终朝最底滑）。仅「TA 自发 in」使用；
+// 自己发消息/键盘回钉/图片补滚等需瞬时复位的场景仍走 scrollChatBottom（保持 #162/#416/#504 契约）。
+let _ccSmoothT = null;
+function scrollChatBottomSmooth() {
+const cb = document.getElementById('chat-body');
+if (!cb) return;
+chatPinnedBottom = true;
+cb.classList.remove('scroll-anchor-auto');
+const target = cb.scrollHeight - cb.clientHeight;
+const start = cb.scrollTop;
+if (target <= start) { cb.scrollTop = target; return; }
+const dur = Math.min(360, 180 + (target - start) * 0.35);
+const t0 = performance.now();
+if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; }
+const step = (now) => {
+const p = Math.min(1, (now - t0) / dur);
+const e = 1 - Math.pow(1 - p, 3);
+cb.scrollTop = start + (target - start) * e;
+if (p < 1) { _ccSmoothT = requestAnimationFrame(step); }
+else { _ccSmoothT = null; cb.scrollTop = target; }
+};
+_ccSmoothT = requestAnimationFrame(step);
+}
 // FIX #316（红米 K80 Chrome 等多机型报「聊天记录一直跳、一直闪」）：#199 为治 Gecko 锚定
 // 与 #162 贴底钉住对打，给 .chat-body 无差别加了 overflow-anchor:none——Chromium 原生
 // 滚动锚定被一并关掉。此后浏览历史时，视口上方消息里的图片异步解码撑高（.msg-img 最高
@@ -1419,16 +1471,20 @@ if (userFollow) chatUserFollowScroll = false;
 // 闸把后续每条来消息都误判成「在看历史」永不跟底；用户手动接管（触摸/滚轮解钉）与
 // 搜索/引用跳转定位（#334）本就解除钉住，chatPinnedBottom 已完整表达「别打扰」
 if (!out && !userFollow && !chatPinnedBottom) return;
-scrollChatBottom();
 	if (out || userFollow) {
+	// 自己发(out) / 用户主动触发的 follow（决策结果等）：保持瞬时落底——本人的消息即刻到底才自然
+	scrollChatBottom();
 	requestAnimationFrame(scrollChatBottom);
 	setTimeout(scrollChatBottom, 120);
 	} else {
-// FIX #162：来消息侧原本只写一次 scrollTop——iPadOS 26 Safari 内核可能丢弃/被迟到的
-// 布局变更顶开；对齐 out 侧三连写口径，钉住期间才复写（用户已手动滚走则不抢滚动权）
-requestAnimationFrame(() => { if (chatPinnedBottom) scrollChatBottom(); });
-setTimeout(() => { if (chatVisible() && chatPinnedBottom) scrollChatBottom(); }, 150);
-}
+	// TA 自发（in）：平滑滚到底——瞬时 scrollTop=scrollHeight 会让整段记录"咻地跳一下"，突兀；
+	// 平滑后新气泡一边淡入一边随列表上升进入视口，观感更自然。
+	scrollChatBottomSmooth();
+	// FIX #162：来消息侧原本只写一次 scrollTop——iPadOS 26 Safari 内核可能丢弃/被迟到的
+	// 布局变更顶开；平滑动画后再复写两次兜底（钉住期间才复写，用户已手动滚走则不抢滚动权）
+	requestAnimationFrame(() => { if (chatPinnedBottom) scrollChatBottomSmooth(); });
+	setTimeout(() => { if (chatVisible() && chatPinnedBottom) scrollChatBottomSmooth(); }, 150);
+	}
 }
 function showTyping() {
 if (!typingEl) return;
@@ -3215,7 +3271,7 @@ const dy = t.clientY - pokeTapT.y;
 pokeTapT = null;
 if (dx * dx + dy * dy > 144 || dt > 450) return; // 滑动/按住不算点（与 pointer 路同口径，文本异形护哨兵唯一）
 pokeTapGuard = Date.now() + 800;
-openPokeCard();
+openPokeCard(true); // FIX #511：手势开路 → 布点击闸，吞掉紧随的合成 click
 }, { passive: true });
 av.addEventListener('touchcancel', () => { pokeTapT = null; }, { passive: true });
 av.addEventListener('pointerdown', (e) => {
@@ -3230,7 +3286,7 @@ const dt = Date.now() - pokeTapP.t;
 pokeTapP = null;
 if (dt > 450 || dx * dx + dy * dy > 144) return; // 滑动/按住不算点，滚动照常
 pokeTapGuard = Date.now() + 800;
-openPokeCard();
+openPokeCard(true); // FIX #511：同 touch 路——手势开路布闸，防合成 click 落进面板
 });
 av.addEventListener('pointercancel', () => { pokeTapP = null; });
 av.addEventListener('click', (e) => {
@@ -4679,11 +4735,16 @@ window.__cardSearchFns.push({ name: '聊天系统回应', fn: function (kw) {
   } catch (e) {}
   return out;
 } });
-function openInviteConfirm(title, staticText, onAccept, declinePool) {
+// FIX 2026-09-15 #510 邀请确认弹窗支持 onDecline 可选回调（仅贴贴传入）：用户报「联系人发来的
+// 亲亲/贴贴申请弹窗，我同意后系统消息里没有相关消息」——口径对齐换头像邀请（avatar-lib replyMeInvite）
+// 与听歌邀请（music-player sm-req-*）：同意/拒绝都写一条 chatAddSystem 留痕。
+// 猜拳/游戏类邀请不传 onDecline，保持原样（对局结束另有系统消息，避免同一件事留痕两次）。
+function openInviteConfirm(title, staticText, onAccept, declinePool, onDecline) {
 const mask = document.getElementById('modal-mask');
 if ((mask && !mask.hidden) || !window.openModal) { onAccept(); return; }
 window.openModal(title, '', (v) => {
 if (v === '1') onAccept();
+else if (typeof onDecline === 'function') onDecline();
 else addOut(pick(declinePool || INVITE_DECLINE));
 }, {
 noInput: true,
@@ -4731,7 +4792,18 @@ addIn(name + ' ' + (inv.text || ''), { special: 'poke', initiative: true, gInv: 
 showTyping();
 setTimeout(() => {
 hideTyping();
-openInviteConfirm(name + ' 的' + meta.title, name + ' ' + (inv.text || ''), () => openInvitePanelFor(inv.kind, name), inv.kind === 'cuddle' ? CUDDLE_DECLINE : null);
+// FIX 2026-09-15 #510 贴贴邀请：同意（你接受了…）/拒绝（你拒绝了…）各落一条系统消息，
+// 与听歌邀请、换头像邀请同款留痕；原链路同意只震动+TA 回应一句、拒绝只发婉拒话术，
+// 聊天记录里没有任何系统消息 → 用户报「同意后系统消息里没有相关消息」。
+// 顺序：系统消息先落（记录动作），TA 的回应/婉拒话术随后，时间线符合直觉。
+const _cuddleInv = inv.kind === 'cuddle';
+openInviteConfirm(name + ' 的' + meta.title, name + ' ' + (inv.text || ''), () => {
+if (_cuddleInv && window.chatAddSystem) window.chatAddSystem('你接受了 ' + name + ' 的贴贴邀请');
+openInvitePanelFor(inv.kind, name);
+}, _cuddleInv ? CUDDLE_DECLINE : null, _cuddleInv ? () => {
+if (window.chatAddSystem) window.chatAddSystem('你拒绝了 ' + name + ' 的贴贴邀请');
+addOut(pick(CUDDLE_DECLINE));
+} : null);
 }, randInt(700, 1400));
 }
 window.sendTaInvite = sendTaInvite;
@@ -5007,6 +5079,33 @@ const pokeCard = document.getElementById('poke-card');
 const pokeList = document.getElementById('poke-list');
 const pokeClose = document.getElementById('poke-card-close');
 const pokeName = document.getElementById('poke-partner-name');
+// FIX 2026-09-15 #511 点气泡头像「没打开页面就直接发出拍一拍」+「打开拍一拍页默认弹输入法」：
+// touch/pointer 路在 touchend 里同步打开面板并渲染字卡/输入行，紧接着浏览器补发的合成 click
+// 落点已经在面板内部——落在字卡上就是「面板一闪而过 + 拍一拍已发出」，落在输入框上就会聚焦
+// 并弹出输入法（只在「我的拍一拍」tab 出现：输入行仅该 tab 显示）。落点无法预知，故拦截范围
+// 取整个面板（字卡 + 分组 chip + tab + 输入行）：手势后的极短窗内吞掉第一次 click，吞掉即失效
+// （不影响用户随后的真实点击），时间窗兜底防呆。旧实现只声明了 pokeOpenClickGate 却从未赋值
+// （闸恒为 0）＝拦截器形同虚设，本条即用户报障复发的直接原因。
+let pokeOpenClickGate = 0;
+function pokeArmClickGate() { pokeOpenClickGate = performance.now() + 700; }
+function pokeGateActive() { return pokeOpenClickGate > 0 && performance.now() < pokeOpenClickGate; }
+function pokeDisarmClickGate() { pokeOpenClickGate = 0; }
+if (pokeCard) {
+pokeCard.addEventListener('click', (e) => {
+if (!pokeGateActive()) return;
+pokeDisarmClickGate();
+e.preventDefault();
+e.stopPropagation();
+if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+}, true);
+// 部分内核对 input 的聚焦在 touchstart 阶段就已决定，click 层 preventDefault 拦不住 →
+// 补 focusin 兜底：闸内被聚焦的输入框（含 mobile-adapt 转出的 .ce-box 代理）主动收回焦点。
+pokeCard.addEventListener('focusin', (e) => {
+if (!pokeGateActive()) return;
+const t = e.target;
+if (t && typeof t.blur === 'function') { try { t.blur(); } catch (err) {} }
+}, true);
+}
 const POKE_PRESETS = {
 ta: ['拍了拍我', '戳了戳我的脸蛋', '弹了一下我的额头', '揉了揉我的头发', '捏了捏我的脸颊', '拍了拍我的肩膀'],
 mine: ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀']
@@ -7412,16 +7511,22 @@ return true;
 } catch (e) {}
 return false;
 }
-function openPokeCard() {
+function openPokeCard(fromGesture) {
 if (!pokeCard) return;
 pokeAdoptAllRerender(); // 慢 IDB（iOS 挂后台杀连接）下 restore-done 兜底可能落空，开面板再补一次
 const ep = document.getElementById('emoji-panel');
 if (ep) ep.hidden = true;
 if (window.closeAvlib) window.closeAvlib();
+// FIX #511：仅「手势开路」（点头像的 touch/pointer 路）才布闸——鼠标点击与菜单入口打开后
+// 用户随后的点击是真实操作，不该被吞。面板渲染在 touchend 里同步发生，合成 click 紧随其后
+// 到达，arm 必须在面板显示之前完成。
+if (fromGesture) pokeArmClickGate();
 pokeCard.hidden = false;
 if (morePanel) morePanel.hidden = true;
 closeIme(); // v3.5.116：收起输入法，面板不被键盘遮挡
-if (pokeInput) pokeInput.value = '';
+// FIX #511：开面板不该带焦点——「我的拍一拍」tab 会显示输入行（poke-input-row），
+// 手势泄漏的合成 click 一旦落到它上面就会唤起输入法，故此处主动失焦兜底。
+if (pokeInput) { pokeInput.value = ''; try { pokeInput.blur(); } catch (e) {} }
 try { const p = store.get('poke-tab'); if (p === 'mine') pokeMode = 'mine'; else if (p === 'ta') pokeMode = 'ta'; } catch (e) {}
 try { const g = store.get('poke-group-' + pokeMode); if (typeof g === 'string' && g) pokeCurGroup = g; } catch (e) {}
 renderPokeCard();

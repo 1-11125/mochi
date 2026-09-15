@@ -1393,7 +1393,12 @@
             // FIX 2026-09-05 #189：全屏态跳过 vv offset 判定——全屏下 offsetTop≠0 多为
             // iOS 弹性回弹手势（iPad 大屏一甩就超 80px），归零=把手势掐断与用户对打；
             // 真实平移残留仍有 winScrollY/底边两条兜底，非全屏（Edge iOS 病灶）不受影响
-            if (!shifted && !_fsLike() && _vv && (Math.abs(_vv.offsetTop) > KB_SCROLL_HEAL || Math.abs(_vv.offsetLeft) > KB_SCROLL_HEAL)) shifted = true;
+            // FIX 2026-09-15 #视口平移残留：非全屏稳态残差改用更严阈值——#189/#179 为放行
+            // iPad 全屏弹性回弹把判定阈值收到 KB_SCROLL_HEAL(80)，导致非全屏 iPhone 浏览器
+            // 键盘收起后遗留的约 42px 平移（诊断「✗ 视口平移残留」）过不了 80 门槛、pinScrollTop
+            // 永不触发 → 输入栏错位、聊天内容被顶出、打字看不到内容、每次需手调。全屏已被
+            // 上方 _fsLike() 排除，非全屏无 safe-top 溢出余量，>4px 残差即为病态，应收零。
+            if (!shifted && !_fsLike() && _vv && (Math.abs(_vv.offsetTop) > 4 || Math.abs(_vv.offsetLeft) > 4)) shifted = true;
             if (shifted) pinScrollTop();
           }
         } catch (e) {}

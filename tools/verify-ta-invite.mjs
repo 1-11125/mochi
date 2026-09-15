@@ -13,6 +13,9 @@
 //   T4 抽取门控：rps 门 100% 出猜拳；仅游戏门开时出 Pong/贪吃蛇；仅贴贴门开出贴贴；三关返回 null；useDefault 关只用自定义
 //   T5 手动触发：triggerTaInviteNow 发邀请消息 + 弹同意/拒绝确认弹窗；拒绝后发婉拒消息
 //   T5b 贴贴同意链路：固定抽到贴贴卡 → 同意 → 无半框、TA 回应一句贴贴的话（主动爱心）
+//   T5c #510 贴贴拒绝链路：固定抽到贴贴卡 → 拒绝 → 系统消息「你拒绝了 × 的贴贴邀请」+ 婉拒话术
+//       （用户报「联系人发来的亲亲/贴贴申请弹窗，同意后系统消息里没有相关消息」——同意/拒绝均补
+//         chatAddSystem 留痕，口径同换头像邀请/听歌邀请；猜拳/游戏类邀请不补，对局结果另有系统消息）
 //   T6 更多功能面板按钮存在且可触发
 //   T7 搜索注册 + 计数刷新
 //   T8 IndexedDB 权威持久化
@@ -194,11 +197,28 @@ try {
   await sleep(1900); // typing 700~1400ms + 弹窗
   const agreeRes = await evalJs("(function(){\n  var mask=document.getElementById('modal-mask');\n  if(!mask || mask.hidden) return 'no-modal';\n  var btns=mask.querySelectorAll('button');\n  for(var i=0;i<btns.length;i++){ if(btns[i].textContent.trim()==='同意'){ btns[i].click(); break; } }\n  var okBtn=mask.querySelector('.modal-btn.ok'); if(okBtn) okBtn.click();\n  return 'agreed';\n})()");
   await sleep(2400); // 同意后回应延迟 600~1200ms + 余量
-  const cuddleState = await evalJs("(function(){\n  try {\n    var a = window.getChatMsgs(); var rec = a[a.length-1];\n    var mask = document.getElementById('modal-mask');\n    return {\n      grew: a.length > " + n0c + ", lastIn: !!(rec && rec.side==='in'), lastInitiative: !!(rec && rec.initiative),\n      isReply: !!(rec && rec.text && rec.text.indexOf('蹭到') >= 0 || (rec && rec.text && (rec.text.indexOf('贴') >= 0 || rec.text.indexOf('握住') >= 0 || rec.text.indexOf('充电') >= 0))),\n      modalClosed: !!(mask && mask.hidden), len: a.length\n    };\n  } catch(e){ return String(e); }\n})()");
-  await evalJs("(function(){ window.taInvitePickAny = window.__tiOrigPickAny; return true; })()");
   ok('贴贴卡触发返回 true', stubRes === true && trigC === true, { stubRes, trigC });
+  const cuddleState = await evalJs("(function(){\n  try {\n    var a = window.getChatMsgs();\n    var rec = a[a.length-1];\n    var sysRec = a[a.length-2];\n    var mask = document.getElementById('modal-mask');\n    return {\n      grew: a.length > " + n0c + ", lastIn: !!(rec && rec.side==='in'), lastInitiative: !!(rec && rec.initiative),\n      isReply: !!(rec && rec.text && rec.text.indexOf('蹭到') >= 0 || (rec && rec.text && (rec.text.indexOf('贴') >= 0 || rec.text.indexOf('握住') >= 0 || rec.text.indexOf('充电') >= 0))),\n      sysPoke: !!(sysRec && sysRec.side === 'in' && sysRec.special === 'poke' && String(sysRec.text || '').indexOf('你接受了') >= 0),\n      sysText: sysRec ? String(sysRec.text || '') : '',\n      // 主动爱心角标在「邀请消息」上（TA 主动发起）；贴贴回应属应答，按现契约不带角标\n      invInitiative: !!(a[a.length-3] && a[a.length-3].special === 'poke' && a[a.length-3].initiative === true && a[a.length-3].gInv === 'cuddle'),\n      modalClosed: !!(mask && mask.hidden), len: a.length\n    };\n  } catch(e){ return String(e); }\n})()");
   ok('点同意后弹窗关闭且无游戏半框路径', agreeRes === 'agreed' && cuddleState && cuddleState.modalClosed === true, { agreeRes, cuddleState });
-  ok('TA 回应一句贴贴的话（联系人气泡+主动爱心，消息数 +2）', cuddleState && cuddleState.grew === true && cuddleState.lastIn === true && cuddleState.lastInitiative === true && cuddleState.isReply === true && cuddleState.len === n0c + 2, { n0c, cuddleState });
+  ok('TA 回应一句贴贴的话（联系人气泡，消息数 +3：邀请+系统消息+回应）', cuddleState && cuddleState.grew === true && cuddleState.lastIn === true && cuddleState.isReply === true && cuddleState.len === n0c + 3, { n0c, cuddleState });
+  ok('邀请消息本身带主动爱心角标（initiative + gInv=cuddle）', cuddleState && cuddleState.invInitiative === true, { cuddleState });
+  // #510：同意后必须留下系统消息（用户报「同意后系统消息里没有相关消息」）——顺序：系统消息在 TA 回应之前
+  ok('#510 同意后系统消息留痕「你接受了 × 的贴贴邀请」', cuddleState && cuddleState.sysPoke === true, { cuddleState });
+  await evalJs("(function(){ window.taInvitePickAny = window.__tiOrigPickAny; return true; })()");
+
+  console.log('\n== T5c 贴贴拒绝链路（#510 拒绝留痕） ==');
+  // 同样固定抽到贴贴卡 → 触发 → 点「拒绝」→ 系统消息 + 婉拒话术（原只有婉拒话术）
+  await evalJs("(function(){ window.__tiOrigPickAny2 = window.taInvitePickAny; window.taInvitePickAny = function(){ return { kind:'cuddle', text:'抱一下再忙别的嘛，就一下下。' }; }; return true; })()");
+  const n0r = await evalJs('(window.getChatMsgs()||[]).length');
+  await evalJs('!!window.triggerTaInviteNow && window.triggerTaInviteNow()');
+  await sleep(1900);
+  const rejRes = await evalJs("(function(){\n  var mask=document.getElementById('modal-mask');\n  if(!mask || mask.hidden) return 'no-modal';\n  var btns=mask.querySelectorAll('button');\n  for(var i=0;i<btns.length;i++){ if(btns[i].textContent.trim()==='拒绝'){ btns[i].click(); break; } }\n  var okBtn=mask.querySelector('.modal-btn.ok'); if(okBtn) okBtn.click();\n  return 'declined';\n})()");
+  await sleep(600);
+  const rejState = await evalJs("(function(){\n  try {\n    var a = window.getChatMsgs();\n    var last = a[a.length-1];\n    var sysRec = a[a.length-2];\n    return {\n      lastOut: !!(last && last.side === 'out'),\n      sysPoke: !!(sysRec && sysRec.side === 'in' && sysRec.special === 'poke' && String(sysRec.text || '').indexOf('你拒绝了') >= 0),\n      sysText: sysRec ? String(sysRec.text || '') : '',\n      len: a.length, n0: " + n0r + "\n    };\n  } catch(e){ return String(e); }\n})()");
+  await evalJs("(function(){ window.taInvitePickAny = window.__tiOrigPickAny2; return true; })()");
+  ok('贴贴拒绝后仍发婉拒话术（我方气泡）', rejRes === 'declined' && rejState && rejState.lastOut === true, { rejRes, rejState });
+  ok('#510 拒绝后系统消息留痕「你拒绝了 × 的贴贴邀请」', rejState && rejState.sysPoke === true, { rejState });
+  ok('#510 贴贴拒绝新增 3 条（邀请消息 + 系统消息 + 婉拒话术，无其他副作用）', rejState && rejState.len === n0r + 3, { n0r, rejState });
 
   console.log('\n== T6 更多功能面板按钮触发 ==');
   const moreRes = await evalJs("(function(){\n  try {\n    var mb=document.getElementById('chat-more-btn'); if(mb) mb.click();\n    var askTab=document.getElementById('more-tab-ask'); if(askTab) askTab.click();\n    var btn=document.getElementById('more-invite-now'); if(!btn) return 'no-btn';\n    var n0=(window.getChatMsgs()||[]).length;\n    btn.click();\n    var panel=document.getElementById('chat-more-panel');\n    return { ok:true, panelClosed: panel? !!panel.hidden : true, n0:n0, n1:(window.getChatMsgs()||[]).length };\n  } catch(e){ return String(e); }\n})()");

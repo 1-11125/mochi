@@ -115,8 +115,12 @@
     if (!quotes.length) return '';
     const d = new Date();
     const today = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    // FIX 2026-09-15 #每日情话per角色 种子把联系人命名空间也揉进去：
+    // 原来是纯日期哈希，「多角色、连续多天的情话一模一样」——多个联系人同日抽到同一个
+    // 词（种子不含联系人，同日哈希相同）；改为 today|activePrefix 后各角色当日各自不同。
+    const seedBase = today + '|' + (window.activePrefix ? window.activePrefix() : 'default');
     let hash = 0;
-    for (let i = 0; i < today.length; i++) hash = (hash * 31 + today.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < seedBase.length; i++) hash = (hash * 31 + seedBase.charCodeAt(i)) >>> 0;
     return quotes[hash % quotes.length];
   };
   window.quoteCardCount = function () { return getQuotes().length; };

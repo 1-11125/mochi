@@ -1080,6 +1080,82 @@
     return nodes;
   }
 
+  // ===== FIX 2026-09-15 #509 图片字卡节点回收池（跨 render 存活，已解码 img 零重解码）=====
+  // 用户报障（红米 K80 Chrome，明说其他设备型号也有）：聊天里「表情包页面」每次打开图片都闪
+  // 一下重新加载。无头 390×844 实证根因（零机型分支）：#508 的移植只在「当次 render 的 DOM 内」
+  // 收集旧 img，但真实进页路径连着跑两次 render——openCcPage 先按 cur='text' 渲一遍（list.innerHTML=''
+  // 清空），再点「表情包」tab 渲第二遍；第二次要用的 img 已在第一次清空时离开 DOM＝收集不到＝
+  // 整格新建（实证 12/12 重建）。rebuildGroupAfterRemove（删一张卡重建整个分组）同样无移植。
+  // 收口：节点按「内容指纹」回收进本模块池（上限 IMG_POOL_MAX 个 + 3 分钟空闲整池释放），
+  // render/局部重建建卡时优先从池里取回同一张图的已解码节点；池空才新建（新旧行为天然等价，
+  // 池只是复用已解码节点，不改任何排版/数据/事件绑定——事件始终绑在新卡外层 div 上）。
+  const IMG_POOL_MAX = 150;
+  const ccImgPool = new Map();   // sigKey -> [img,...]
+  let ccImgPoolN = 0;
+  let ccPoolT = null;
+  // 内容指纹：djb2 短键（长度+哈希）——长 dataURL 直接当 Map 键会让每次查找都重算长串哈希
+  function ccImgKey(c) {
+    const s = String(c || '');
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return s.length + ':' + h;
+  }
+  function ccPoolRelease() { if (ccPoolT) { clearTimeout(ccPoolT); ccPoolT = null; } ccImgPool.clear(); ccImgPoolN = 0; }
+  function ccPoolSchedule() {
+    if (ccPoolT) clearTimeout(ccPoolT);
+    ccPoolT = setTimeout(ccPoolRelease, 180000); // 闲置 3 分钟整池释放（不长期占着已解码位图）
+  }
+  function ccPoolPush(k, im) {
+    if (!k || !im || !im.nodeType) return;
+    let a = ccImgPool.get(k);
+    if (!a) { a = []; ccImgPool.set(k, a); }
+    a.push(im);
+    ccImgPoolN++;
+    ccPoolSchedule();
+    while (ccImgPoolN > IMG_POOL_MAX) {
+      const first = ccImgPool.keys().next();
+      if (first.done) break;
+      const kk = first.value;
+      const aa = ccImgPool.get(kk);
+      ccImgPool.delete(kk);
+      ccImgPoolN -= (aa ? aa.length : 1);
+      if (ccImgPoolN < 0) ccImgPoolN = 0;
+    }
+  }
+  function ccPoolTake(k) {
+    const a = ccImgPool.get(k);
+    if (!a || !a.length) return null;
+    const im = a.shift();
+    ccImgPoolN = Math.max(0, ccImgPoolN - 1);
+    if (!a.length) ccImgPool.delete(k);
+    ccPoolSchedule();
+    return im;
+  }
+  // 清空/移除一段 DOM 前，把其中带指纹的图片节点回收进池（懒加载未补 src 的也收，
+  // 保住它已排的 src 状态，避免重建后又从零开始解密）
+  function ccPoolHarvest(rootEl) {
+    if (!rootEl || !rootEl.querySelectorAll) return;
+    try {
+      rootEl.querySelectorAll('.cc-item[data-cc-sig]').forEach(d => {
+        const im = d.querySelector('img.cc-img');
+        if (!im || !(im.getAttribute('src') || im.dataset.src)) return;
+        ccPoolPush(d.dataset.ccSig, im);
+      });
+    } catch (e) {}
+  }
+  // 建卡时取节点：命中则原位替换掉刚生成的空 img（img 嵌在 .cc-imgbox 内层，取其真实父节点）
+  // 只对「图片类内容」生效（dataURL / 媒体池令牌 / http(s) 链接字卡），文字卡不碰
+  function ccPoolAdopt(el, c) {
+    if (typeof c !== 'string') return;
+    const isImg = c.indexOf('data:') === 0 || c.indexOf('@@m:') === 0 || /^https?:\/\//i.test(c);
+    if (!isImg) return;
+    const _ni = el.querySelector('img.cc-img');
+    if (!_ni || !_ni.parentNode) return; // 当前不是 img 形态（如令牌缺失走文字占位）→ 不取也不动
+    const _oi = ccPoolTake(ccImgKey(c));
+    if (!_oi) return;
+    _ni.parentNode.replaceChild(_oi, _ni);
+  }
+
   // v3.6.x：删除后重建某个分组在列表中的卡片区（含未观察 img 的解绑），
   // 其余分组 DOM 保持不动——删除一张卡不再整页重建；
   // 分组仍在但被删空时保留 header（显示 0 张），与原来整页渲染的行为一致
@@ -1088,6 +1164,7 @@
     if (curGroup && curGroup !== gname) return;
     groupBlockNodes(gname).forEach(el => {
       if (imgObserver) el.querySelectorAll('img[data-src]').forEach(im => { try { imgObserver.unobserve(im); } catch (e) {} });
+      ccPoolHarvest(el); // FIX #509：移除前回收该分组已解码的图片节点
       el.remove();
     });
     const grps = groups[cur] || [];
@@ -1114,7 +1191,8 @@
       d.dataset.g = gname;
       d.dataset.idx = i;
       d.innerHTML = cardItemHtml(c);
-      if (typeof c === 'string') d.dataset.ccSig = c; // FIX #508：局部重建的卡同样带指纹
+      if (typeof c === 'string') d.dataset.ccSig = ccImgKey(c); // FIX #508：局部重建的卡同样带指纹（#509 改短键）
+      ccPoolAdopt(d, c); // FIX #509：同内容图从池里取回已解码 img（删一张卡不再让整组图片重载）
       attachCardData(d, c);
       if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
       d.addEventListener('click', () => {
@@ -1306,23 +1384,17 @@
     }
     updateCountsOnly();
     // FIX #508（红米 K80 Chrome 等多机型报「表情包页操作后图片闪一下重新加载」，与头像互动
-    // 点选换头像同族）：整格重渲把已解码的 img 全部丢弃重建＋懒加载重新赋 src＝可视区内
-    // 图片全部重新解码闪烁。收口：清空前按内容指纹（建卡时写进 data-cc-sig）收集旧卡已持有
-    // 图片的 img 节点，建卡时同指纹原位移植入新卡——src 已解码的直接续用（零重解码），未进
-    // 视口的（data-src 未消费）也保住不再重新排队；点击/拖拽/懒加载观察都绑在新卡节点上，
-    // 行为与原全量重建完全一致。真正内容变化的卡（新增/删除/编辑）天然无指纹命中＝照旧新建。
-    const _reuseImgs = new Map();
-    try {
-      list.querySelectorAll('.cc-item[data-cc-sig]').forEach(d => {
-        const im = d.querySelector('img.cc-img');
-        if (!im || !(im.getAttribute('src') || im.dataset.src)) return;
-        const k = d.dataset.ccSig;
-        if (!_reuseImgs.has(k)) _reuseImgs.set(k, []);
-        _reuseImgs.get(k).push(im);
-      });
-    } catch (e) {}
+    // 点选换头像同族）：整格重渲把已解码的 img 全部丢弃重建＋懒加载重新赋 src＝可视区内图片
+    // 全部重新解码闪烁。收口：按内容指纹（建卡时写进 data-cc-sig）复用旧 img 节点——已解码的
+    // 直接续用（零重解码），未进视口的（data-src 未消费）也保住不再重新排队；点击/拖拽/懒加载
+    // 观察都绑在新卡节点上，行为与原全量重建完全一致。真正内容变化的卡天然无指纹命中＝照旧新建。
+    // FIX #509（承接 #508）：原实现在本次 list DOM 内现场收集旧节点——但真实进页路径是
+    // 「openCcPage 先按 cur='text' 渲一遍（清空 list）→ 用户点『表情包』tab 再渲第二遍」，
+    // 第二次要用的节点在第一次清空时就已离开 DOM＝抓不到＝整格新建（无头实证 12/12 重建）。
+    // 改为回收进模块级池（ccPoolHarvest 收 / ccPoolAdopt 取），跨 render 存活，正好补上这一段。
     // v3.6.x：清空前先解除旧图片懒加载观察，避免 observer 引用累积
     if (imgObserver) list.querySelectorAll('img[data-src]').forEach(im => { try { imgObserver.unobserve(im); } catch (e) {} });
+    ccPoolHarvest(list);
     list.innerHTML = '';
     if (!shown.length) {
       const emptyTxt = cur === 'sticker' ? '暂无表情包 · 点击右上角批量导入上传图片'
@@ -1355,14 +1427,8 @@
         el.dataset.idx = it.i;
         el.innerHTML = cardItemHtml(it.c);
         if (typeof it.c === 'string') {
-          el.dataset.ccSig = it.c; // FIX #508：内容指纹，供下次整格重渲时移植已解码 img
-          const _oldArr = _reuseImgs.get(it.c);
-          if (_oldArr && _oldArr.length) {
-            const _oi = _oldArr.shift();
-            const _ni = el.querySelector('img.cc-img');
-            // img 嵌在 .cc-imgbox 内层不是 el 直接子节点，必须在其真实父节点上替换
-            if (_oi && _ni && _ni.parentNode) _ni.parentNode.replaceChild(_oi, _ni);
-          }
+          el.dataset.ccSig = ccImgKey(it.c); // FIX #508/#509：内容短指纹，供复用判定
+          ccPoolAdopt(el, it.c);             // FIX #509：从池取回同内容的已解码 img（取不到则保持新建）
         }
         attachCardData(el, it.c);
         if (manageMode && selected.has(it.gname + '\u0001' + it.i)) el.classList.add('sel');
@@ -3032,11 +3098,14 @@
           toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
         }, {
           // FIX 2026-09-07 #255：批量导入弹窗放大——默认 .modal 宽 272px 多行框太小
-          //（用户报障「打开的页面太小了」），走 opts.big 宽版（420px/94vw + 52vh 上限）
-          // 并把原生 textarea 提到 8 行（iOS 不做 ce-box 转换，rows 决定实际高度）
+          //（用户报障「打开的页面太小了」），走 opts.big 宽版（420px/94vw + 52vh 上限）。
+          // textareaRows 同时决定两端初始高度：iOS 原生 textarea 直接按 rows 显示行数；
+          // 安卓被 mobile-adapt 转 .ce-box 后读 rows 算 min-height（rows*1.5*16）。初始就
+          // 给足 14 行方便一次粘贴/录入多条字卡，超过 52vh 上限后框内滚动（.modal-textarea
+          // 既有 overflow-y:auto）——用户反馈「批量导入输入框太小只有 3 行，要加长可滑动」
           big: true,
           textarea: true,
-          textareaRows: 8,
+          textareaRows: 14,
           textareaPlaceholder: '【日常】\n你今天真好看\n我想你了',
           txtImport: true,
           // v3.6.x：传入当前分类的现有分组——openModal 的「目标分组」下拉只在

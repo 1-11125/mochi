@@ -1059,6 +1059,16 @@ html.mochi-cover-top .phone .statusbar {
 .modal-swatches[hidden] { display:none; }
 .modal-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
 .modal-pills[hidden] { display:none; }
+/* v3.28.x：批量导入弹窗目标分组——自定义胶囊行（替代原原生 <select>「导入到现有
+   分组」，用户反馈弹的是浏览器自带下拉框、不网站内样式）。默认新建 + 现有分组各一个
+   胶囊点选；分组多时横向滑动，选中态高亮，语义与旧 select 首个空值项一致。 */
+.modal-group-chips {
+  display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;
+  max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+}
+.modal-group-chips[hidden] { display:none; }
+.modal-group-chips .pill { flex:0 0 auto; }
 /* v3.6.x：滑块（图标圆角等数值调整）——含实时值 + 图标形状预览 */
 .modal-slider { margin-top:6px; }
 .modal-slider[hidden] { display:none; }
