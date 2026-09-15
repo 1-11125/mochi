@@ -1632,6 +1632,14 @@ const FIX_SENTINELS = [
   { name: '#513a 梦角自由造句总开关默认开（DEFAULTS mjf-en=1；改回 0＝装上仍是关的、用户点名「需要默认打开」落空）', file: 'js/reply-settings.js', needle: "'mjf-en': 1, 'mjf-prob': 20," },
   { name: '#513b 造句混合模式默认开（DEFAULTS mjf-mix=1；改回 0＝默认只走 mjf-style 单一手法、三手法不再交替）', file: 'js/reply-settings.js', needle: "'mjf-mix': 1," },
   { name: '#513c 存量开关 0→1 一次性迁移+标记键（删＝已保存过设置的设备仍停在关，用户看到「默认还是没打开」＝原报障复发）', file: 'js/reply-settings.js', needle: "s.set('reply-mjf-on-migrated', '1');" },
+  // ==== 2026-09-15 #511 拍一拍手势泄漏族 + 进聊天气泡「先变 2 条再恢复」（用户三条同批报障）：①桌面点开【聊天】进页面，联系人最新一条消息变 2 个又恢复＝LS 快照与内存 msgs 的合并签名只比 ts|side|原文前64字符，同一逻辑消息 LS 侧是 base64、内存侧已令牌化（#256）判成两条 → 首帧渲 2 个气泡、后台归一化又合并回 1；写侧（mergeLsSnapshotWith）与读侧（loadMsgs）各有一份同款内联签名，只修一处＝半修。②点联系人头像有时没打开拍一拍页、直接发出拍一拍 ③「我的拍一拍」tab 打开该页默认弹输入法＝同源：touch/pointer 路在 touchend 里同步开面板并渲染字卡/输入行，紧随的合成 click 落点已在面板内（落字卡＝误发+面板一闪而过；落输入框＝聚焦弹键盘，输入行仅 mine tab 显示故只有该 tab 复现）。上一轮修复只声明了 pokeOpenClickGate 却从未赋值（闸恒 0）＝拦截器形同虚设，本条即报障复发的直接原因 ====
+  { name: '#511a 两处合并点统一走 lsMergeSig（删/退回内联签名＝跨形式同一条判成两条、进聊天气泡先变 2 个再恢复复发）', file: 'js/chat.js', needle: 'msgsNow.map(lsMergeSig)' },
+  { name: '#511b 进页读侧合并同样走 lsMergeSig（只修写侧＝LS 里继续存两份，下次进页照样先 2 后 1）', file: 'js/chat.js', needle: 'lsArr.map(lsMergeSig)' },
+  { name: '#511c 拍一拍点击闸真的被布上（openPokeCard 按 fromGesture 调 pokeArmClickGate；退回「只声明不赋值」＝闸恒 0、拦截器形同虚设，②③两条报障复发）', file: 'js/chat.js', needle: 'if (fromGesture) pokeArmClickGate();' },
+  { name: '#511d 闸拦截范围＝整个 poke-card（只挂 pokeList 时输入行不在覆盖内＝③弹输入法复发）', file: 'js/chat.js', needle: "pokeCard.addEventListener('click'" },
+  { name: '#511e 闸内被聚焦的输入框主动收回焦点（内核对 input 的聚焦在 touchstart 期已定，click 层 preventDefault 拦不住）', file: 'js/chat.js', needle: "pokeCard.addEventListener('focusin'" },
+  { name: '#511f 开面板主动失焦（「我的拍一拍」tab 输入行常驻可见，泄漏 click 落到它就唤起输入法）', file: 'js/chat.js', needle: 'try { pokeInput.blur(); } catch (e) {}' },
+  { name: '#511g 旧内联合并签名不得复活（absent：const sig2 只有 ts|side|前64字符＝跨形式判不出同一条，半修征兆）', file: 'js/chat.js', needle: 'const sig2 =', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
