@@ -1490,17 +1490,26 @@ function showTyping() {
 if (!typingEl) return;
 typingOn = true;
 if (chatVisible()) {
-typingEl.hidden = false;
-// FIX 2026-09-11 #331：#162 契约「复写只在钉住时进行」——已解钉（手动上翻/跳转定位历史）不再抢滚动权拽回底部，贴底态行为不变
-if (chatPinnedBottom) scrollChatBottom();
-setTimeout(() => { if (chatPinnedBottom) scrollChatBottom(); }, 60);
+typingEl.hidden = false; // FIX 2026-09-15 #514 只切可见性、不写 scrollTop（#334 守钉加强版：连钉住态也不抢滚动权）
+// #514 根因（红米 K80 Chrome 等多机型报「联系人连发多条消息时聊天记录一直闪、一直回弹」）：
+// 「对方正在输入」行是 #chat-body 的**兄弟**节点（#page-chat 的 flex 行），显示它只吃 chat-body
+// 的 clientHeight——可滚最大（scrollHeight − clientHeight）反被抬高一行高、scrollHeight 一点没动。
+// 旧实现在钉住态把 scrollTop 顶到「行显示中」的那份最大值（比行隐藏态大 22px）；行一隐藏
+// （hideTyping，紧随其后就是这条消息落地）最大值当场回落 22px、内核把 scrollTop 钳掉 22px
+// ＝ 内容凭空下弹 22px，紧接着新消息又被平滑滚回底部 → 每个来回「上跳 22px + 下弹 22px」；
+// TA 连发多条 / 主动发送连发（tick 内 hideTyping→addIn→showTyping 循环）＝用户看到的
+// 「一直闪、一直回弹」。打字行实高 22px ≤ .chat-body 的 padding-bottom:24px（这块本来就是
+// 消息区底部空的呼吸区），占位期间最后一条消息照旧完整可见——所以显示/隐藏都不该写 scrollTop：
+// 不写过界就没有钳位，内容一个像素都不动，行只安静占掉那块留白。纯几何、零机型/内核分支。
+// 跟底职责仍全归 maybeScrollChatBottom：这里只切可见性（解钉态本就不抢滚动权，#331 语义等价；
+// 钉住态贴底由 #162/#378/#416/#492 各自路径维持，它们都在「行隐藏态」下写，钳位目标一致）。
 }
 }
 function hideTyping() {
 if (!typingEl) return;
 typingOn = false;
 typingEl.hidden = true;
-if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 同 showTyping：解钉态不抢滚动权
+if (chatPinnedBottom) scrollChatBottom(); // FIX 2026-09-11 #334 解钉态不抢滚动权；#514 起这次写只作收尾补平（行隐藏态 scrollTop 已在最大值，正常链路里等于无操作）
 }
 function cfg() { return (window.replyCfg && window.replyCfg()) || {}; }
 function cfgn(c, k, d) { const v = c[k]; return v === undefined ? d : v; }
@@ -3731,6 +3740,10 @@ function addInTyped(items, opts, firstDelay) {
 		step();
 	} catch (e) {}
 }
+// FIX 2026-09-15 #514：把真实「连发多条」链路（showTyping → hideTyping+addIn → 400ms → 下一条）
+// 暴露给回归脚本（同 window.chatAddIn / window.__lsMergeSig 口径）——tools/verify-chat-multi-scroll.mjs
+// 直接驱动产品函数断言「连发期间 chat-body 不出现逐帧回退/跳变」，而不是复刻一遍实现（复刻＝测不到真身）
+window.chatAddInTyped = function (items, opts, firstDelay) { return addInTyped(items, opts, firstDelay); };
 function addOut(text) {
 return addRec({ side: 'out', text: text });
 }
@@ -4979,8 +4992,7 @@ requestAnimationFrame(() => requestAnimationFrame(scrollToBottom));
 }
 chatEntrySettle();
 if (typingOn && chatVisible()) {
-typingEl.hidden = false;
-scrollChatBottom(); // typing 行占位时保持最后一条可见
+typingEl.hidden = false; // FIX 2026-09-15 #514 进页同款：只切可见性、不写 scrollTop（上面三连已在行隐藏态贴到底）
 }
 }
 if (chatApp && chatPage) {
