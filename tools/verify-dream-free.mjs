@@ -247,6 +247,44 @@ ok(defGrow >= 4, 'I4 默认配置下混合模式生效：出现「加长类」�
 ok(rs.includes("s.set('reply-mjf-on-migrated', '1');") && rs.includes("String(s.get('reply-mjf-on-migrated')) === '1'") && rs.includes("['mjf-en', 'mjf-mix'].forEach"), 'I5 存量 0→1 一次性迁移接线（标记键早退 + 两键同批）');
 ok(tpl.includes('#513 起默认开') && !tpl.includes('自由选择开关（默认关）'), 'I6 设置页说明文案随默认值更新（不再写「默认关」）');
 
+// —— J #513a 语料口径校对（用户点名「语料＝自定义字卡的公用+专属 ＋ 系统预设的默认聊天字卡 ＋ 词典」）——
+// J1 默认聊天字卡源＝「默认聊天字卡」页四分类（main/kaomoji/emoji/touch），不只主字卡：
+//    临时给沙盒补 kaomoji/emoji/touch 分组（跑完还原，不影响上面的 H 组断言）
+const origGroups = w.getDefaultCardGroups;
+w.getDefaultCardGroups = (cat) => (cat === 'touch' ? [['默认拍一拍', ['默认拍一拍轻轻拍了拍你', '默认拍一拍摸了摸你的头']]]
+  : cat === 'kaomoji' ? [['开心', ['(￣▽￣)', '(*´▽`*)']]]
+  : cat === 'emoji' ? [['表情', ['🙂', '😊']]]
+  : origGroups(cat));
+const DEF_ONLY = { 'mjf-en': 1, 'mjf-prob': 100, 'mjf-src-cc': 0, 'mjf-src-dict': 0 };
+let jTouch = 0, jBadSrc = null;
+for (let i = 0; i < 40; i++) {
+  const r = pick(DEF_ONLY);
+  if (!r) continue;
+  if (String(r.src).indexOf('默认拍一拍') === 0) jTouch++;
+  if (/[（(]|🙂|😊/.test(String(r.src))) jBadSrc = r.src;
+}
+ok(jTouch >= 5, 'J1 默认聊天字卡源覆盖四分类（拍一拍字卡可作源句，40 掷 ' + jTouch + '）');
+ok(jBadSrc === null, 'J1b 颜文字/emoji 不作源句（汉字不足 4，天然被过滤）', jBadSrc);
+// J2 分类开关 dc-cat-*（window.defaultCardCat）关掉的分类不作源
+w.defaultCardCat = (k) => k !== 'touch';
+let j2Touch = 0;
+for (let i = 0; i < 40; i++) { const r = pick(DEF_ONLY); if (r && String(r.src).indexOf('默认拍一拍') === 0) j2Touch++; }
+ok(j2Touch === 0, 'J2 关掉【拍一拍】分类后不再作源（分类开关生效，40 掷 0）');
+delete w.defaultCardCat;
+w.getDefaultCardGroups = origGroups;
+// J3 词典逐张关闭（#513a 补的过滤，口径对齐词典拼字）：关掉的语录不作源，其余照常
+w.isDefaultCardOff = (cat, t) => cat === 'dict' && t === '今天也要好好爱自己';
+let j3Off = 0, j3On = 0;
+for (let i = 0; i < 60; i++) {
+  const r = pick({ 'mjf-en': 1, 'mjf-prob': 100, 'mjf-src-cc': 0, 'mjf-src-def': 0, 'mjf-src-dict': 1 });
+  if (!r) continue;
+  if (r.src === '今天也要好好爱自己') j3Off++;
+  if (r.src === '晚安，好梦') j3On++;
+}
+ok(j3Off === 0 && j3On > 0, 'J3 词典逐张关闭生效（关掉的语录不作源，其余照常，60 掷：关 0/未关 ' + j3On + '）');
+delete w.isDefaultCardOff;
+w.getDefaultCardGroups = origGroups;
+
 // —— E 词典页自建词条行移除 ——
 ok(!tpl.includes('id="dc-dict-add"') && !tpl.includes('id="d2-dict-add"'), 'E1 词典页两处「存为语录/词/删自建」行已移除');
 

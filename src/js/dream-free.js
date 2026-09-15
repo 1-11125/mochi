@@ -14,8 +14,21 @@
 //   mjf-src-cc 自定义聊天字卡（默认开，原唯一语料）/ mjf-src-def 默认聊天字卡（默认开）/
 //   mjf-src-dict 词典语录（默认开）；各源权重 mjf-w-cc / mjf-w-def / mjf-w-dict
 //   （默认 50/25/25，按权重归一化抽源；权重全 0 或某源关=不参与，全关=不触发）。
-//   默认聊天字卡只取主字卡文本（颜文字/emoji 天然被 ≥4 汉字过滤）并尊重逐张关闭；
-//   词典取 dict 全部分组文本（词库 2~3 字词被长度过滤，语录/长词做源句）。
+// #513a 语料口径校对（用户点名「使用的是 自定义字卡的公用字卡＋专属字卡＋系统预设字卡的
+//   默认聊天字卡＋默认聊天字卡·词典」）——四类语料与三个开关的对应关系：
+//     ① 自定义·公用字卡 + ② 自定义·专属字卡：都由 mjf-src-cc 一个开关控制——它的池子来自
+//        getCustomCards()，即 chatcard 的 replyPoolGroups()＝专属(own)+公用(public) 合并视图，
+//        两个作用域各自的【分组停用】都在合并前过滤，字卡内容改动实时生效；功能字卡分类
+//        （鱼/吃/经期/花园/此间/房间/存钱罐/漂流瓶/互动回应/音乐/梦角自由造句自身…）不进池。
+//     ③ 系统预设·默认聊天字卡（mjf-src-def）：按 字卡库→系统预设→默认聊天字卡 页同名口径
+//        取四大基础分类 main/kaomoji/emoji/touch 全部文本；颜文字/emoji 基本不含 4 个以上
+//        汉字，被 filterCorpus 天然排除，真正参与的只有主字卡与拍一拍。尊重两类关闭：
+//        分类开关 dc-cat-*（window.defaultCardCat，缺省开）与逐张关闭 isDefaultCardOff。
+//     ④ 系统预设·词典（mjf-src-dict）：dict 全部分组（语录* 做源句、词库* 因 2~3 字被长度
+//        过滤，只用于切词）；逐张关闭口径对齐词典拼字（isDefaultCardOff('dict', …)），
+//        字卡库→词典里关掉的语录不再作源句。
+//     二级密码锁（#319）锁定时 getDefaultCardGroups 一律返回 []＝③④ 为空池自动不参与，
+//     ①② 自建字卡照常（锁只停系统预设池，同全站口径）。
 // 接线：build.mjs jsFiles；chat.js replyOnce 消费 window.dreamFreePick（气泡带「梦角自由造句」tag）。
 // 纯本地，无网络请求。
 (function () {
@@ -85,20 +98,36 @@
     try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
     return filterCorpus(cards);
   }
-  // 默认聊天字卡：主字卡（main）全部分组文本展平，尊重单卡关闭（isDefaultCardOff）；
-  // 二级锁（#319）锁定时 getDefaultCardGroups 返回 []，天然为空池
+  // FIX 2026-09-15 #513a 默认聊天字卡改为四分类同源（此前只取 main）
+  // #513a 默认聊天字卡（mjf-src-def）：与 字卡库→系统预设→默认聊天字卡 同口径＝四大基础
+  // 分类全部分组文本展平（main 主字卡 / kaomoji 颜文字 / emoji / touch 拍一拍；后两类基本
+  // 不含 4 个以上汉字，由 filterCorpus 天然排除）。尊重①分类开关 dc-cat-*（defaultCardCat，
+  // 缺省开）②逐张关闭 isDefaultCardOff（按各自分类记键，与聊天混入口径一致）；二级锁（#319）
+  // 锁定时 getDefaultCardGroups 返回 []，天然为空池
+  const DEF_CATS = ['main', 'kaomoji', 'emoji', 'touch'];
   function defaultPool() {
     try {
-      const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
-      const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
-      return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('main', t))));
+      const all = [];
+      DEF_CATS.forEach(cat => {
+        if (window.defaultCardCat && !window.defaultCardCat(cat)) return;
+        const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups(cat)) || [];
+        gs.forEach(g => ((g && g[1]) || []).forEach(t => {
+          if (window.isDefaultCardOff && window.isDefaultCardOff(cat, t)) return;
+          all.push(t);
+        }));
+      });
+      return filterCorpus(all);
     } catch (e) { return []; }
   }
-  // 词典：dict 全部分组文本（语录整句最适合做源句；词库 2~3 字词被长度过滤自动排除）
+  // FIX 2026-09-15 #513a 词典源补逐张关闭过滤（对齐词典拼字口径）
+  // 词典（mjf-src-dict）：dict 全部分组文本（语录整句最适合做源句；词库 2~3 字词被长度过滤
+  // 自动排除、只用于切词）。#513a 逐张关闭对齐词典拼字（quote-spell.js 同款
+  // isDefaultCardOff('dict', …)）——此前漏滤＝字卡库→词典里关掉的语录仍被当源句
   function dictPool() {
     try {
       const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('dict')) || [];
-      return filterCorpus(gs.reduce((a, g) => a.concat((g && g[1]) || []), []));
+      const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
+      return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('dict', t))));
     } catch (e) { return []; }
   }
   // 全语料合并（#329 换字卡内容式的词素材池用——来源扩了，补词素材同步跟着扩）

@@ -1640,6 +1640,9 @@ const FIX_SENTINELS = [
   { name: '#511e 闸内被聚焦的输入框主动收回焦点（内核对 input 的聚焦在 touchstart 期已定，click 层 preventDefault 拦不住）', file: 'js/chat.js', needle: "pokeCard.addEventListener('focusin'" },
   { name: '#511f 开面板主动失焦（「我的拍一拍」tab 输入行常驻可见，泄漏 click 落到它就唤起输入法）', file: 'js/chat.js', needle: 'try { pokeInput.blur(); } catch (e) {}' },
   { name: '#511g 旧内联合并签名不得复活（absent：const sig2 只有 ts|side|前64字符＝跨形式判不出同一条，半修征兆）', file: 'js/chat.js', needle: 'const sig2 =', absent: true },
+  // ==== 2026-09-15 #513a 语料口径校对（用户点名「使用的是 自定义字卡的公用字卡＋专属字卡＋系统预设的默认聊天字卡＋默认聊天字卡·词典」）：①默认聊天字卡源此前只取 main 主字卡，与 字卡库→系统预设→默认聊天字卡 页的四分类（主字卡/颜文字/emoji/拍一拍）不同口径；②词典源漏滤逐张关闭（字库→词典里关掉的语录仍被当源句），与词典拼字 quote-spell.js 口径不一致。修复：defaultPool 遍历四分类并尊重分类开关 defaultCardCat + 逐张关闭；dictPool 补 isDefaultCardOff('dict', …) ====
+  { name: '#513d 造句·默认聊天字卡源＝四分类同源（改回只取 main＝拍一拍字卡不再作源句，与字卡库页口径脱节）', file: 'js/dream-free.js', needle: "const DEF_CATS = ['main', 'kaomoji', 'emoji', 'touch'];" },
+  { name: '#513e 造句·词典源逐张关闭过滤（删＝字卡库→词典里关掉的语录仍被抽作源句，与词典拼字口径不一致）', file: 'js/dream-free.js', needle: "return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('dict', t))));" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

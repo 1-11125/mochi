@@ -9539,9 +9539,9 @@ transition-duration: .01ms !important;
     <!-- v3.8.y：底部统一装进一个卡片框（版本/加载/提示/按钮成一整体，与顶部品牌卡片呼应） -->
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789451845025">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.700</b></span>
-        <span class="sv-deploy">部署于 2026-09-15 13:57<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789452501690">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.702</b></span>
+        <span class="sv-deploy">部署于 2026-09-15 14:08<span id="splash-ver-live"></span></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
            只显示加载提示；就绪后按钮才出现（clock.js 控制显隐） -->
@@ -10860,7 +10860,7 @@ transition-duration: .01ms !important;
           <div class="txt">清除本地数据</div>
         </div>
       </div>
-      <div class="ver">Mochi 字卡传讯 v3.26.700</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.702</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11170,7 +11170,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.700</span>
+              <span class="lic-ver">v3.26.702</span>
             </div>
             <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11790,7 +11790,19 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>混合模式（三手法随机）</span><label class="toggle"><input type="checkbox" id="mjf-mix"><span class="tk"></span></label></div>
             <!-- #364 存库概率：多桌面联系人时新句按此概率进公用库、其余进专属库；仅 1 个联系人固定进专属库 -->
             <div class="gs-row"><span>存公用库概率（多联系人）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">自由选择开关（#513 起默认开）：开启后梦角（联系人）说话按「触发概率」随机重造句，气泡下带「梦角自由造句」小标签。造句手法三选一（上方数字 0/1/2），效果举例（源句「今天也要好好爱自己，晚安哦」）：<br>· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>· 1 撤回式：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>· 2 换字卡内容式：截掉一个词、从你别的字卡里挑一个词补上 →「今天也要好好看日落」。<br>「混合模式」（#414，#513 起默认开）：开启后每次造句先在三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法（默认撤回式）。<br>造出的新句自动存进 字卡库→自定义聊天字卡→梦角自由造句 分类，可在那里查看/删除，也会作为语料被再次抽用。概率 0 = 不触发。<br>「语料来源」（#413，默认全开=可用全部字卡）：自定义聊天字卡 / 默认聊天字卡 / 词典三源可分别开关；下方三个「权重」= 抽语料时各源的中签占比（默认 50/25/25，按权重归一化，和不必凑 100），某源权重调 0 或开关关＝该源不参与；三源全关＝不触发造句。默认聊天字卡尊重 字卡库→默认聊天字卡 的逐张关闭；词典含语录/词库全部词条（过短的词自动过滤）。<br>「存公用库概率」：有多个桌面联系人时，造出的新句按该概率进公用字卡、其余进专属字卡；只有一个桌面联系人时固定进专属字卡</div>
+            <div class="gs-sub"><b>是什么</b>：梦角（联系人）说话时按「触发概率」随机掷一次，命中就把一句语料<b>截字重造句</b>后当作 TA 的回复发出来（气泡下带「梦角自由造句」小标签）；命中时若同一条回复也掷中了词典拼字，拼字优先、本次造句让位（同一回复不叠加两种玩法）。概率 0＝不触发。<br>
+<b>语料来自四类字卡</b>（对应下方三个「语料·」开关）：<br>
+· ①【自定义字卡·公用字卡】＋ ②【自定义字卡·专属字卡】——由「语料·自定义字卡」一个开关管两个作用域（公用全桌面共享、专属只在本联系人桌面）；字卡库→可自定义字卡 里两个作用域各自的【分组停用】都生效，改/删字卡实时跟新，抽语料时会跳过【其他互动功能字卡】类（鱼塘/吃喝/经期/花园/此间/房间/存钱罐/漂流瓶/互动回应/音乐/这里造的句子本身…）；<br>
+· ③【系统预设·默认聊天字卡】——由「语料·默认聊天字卡」开关控制，取 字卡库→系统预设→默认聊天字卡 的四大基础分类（主字卡 / 颜文字 / emoji / 拍一拍）；颜文字与 emoji 基本不含 4 个以上汉字，实际不会成为源句，真正参与的是主字卡与拍一拍。该分类的开关（主字卡/颜文字/emoji/拍一拍）与逐张关闭都生效；<br>
+· ④【系统预设·词典】——由「语料·词典」开关控制，取 字卡库→词典 的全部语录（词库里的 2~3 字词只用于切词、不作为源句）；词典的逐张关闭生效（关掉的语录不再被用）。<br>
+· 二级密码锁锁定时：系统预设（③默认聊天字卡 / ④词典）不参与，①②自建字卡照常。<br>
+<b>权重怎么算</b>：三个「权重」＝抽语料时各源的中签占比，按权重归一化（默认 50/25/25，不必凑够 100）；某个源权重调 0 或开关关掉＝该源不参与，三源全关＝不触发造句。<br>
+<b>造句手法</b>（上方数字 0/1/2，效果举例，源句「今天也要好好爱自己，晚安哦」）：<br>
+· 0 语气词式：截掉一个词补个语气词 →「今天也要好好想你了」，或句尾加语气字 →「…晚安哦呀」，也可能词间加逗号/空格、删句尾字；<br>
+· 1 撤回式：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>
+· 2 换字卡内容式：截掉一个词、从上面的语料里挑一个词补上 →「今天也要好好看日落」。<br>
+「混合模式」（#414，#513 起默认开）：开启后每次造句先在 0/1/2 三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法（默认撤回式）。<br>
+<b>造出来的句子去哪了</b>：自动存进 字卡库→可自定义字卡→梦角自由造句（可查看/删除；有多个桌面联系人时按「存公用库概率」分流进公用/专属字卡）。这些句子只作为 TA 的回复展示，不会再被拿去当语料（避免自我循环）。</div>
           </div>
           </div>
           </div>
@@ -48320,17 +48332,26 @@ let cards = [];
 try { cards = (window.getCustomCards && window.getCustomCards()) || []; } catch (e) { cards = []; }
 return filterCorpus(cards);
 }
+const DEF_CATS = ['main', 'kaomoji', 'emoji', 'touch'];
 function defaultPool() {
 try {
-const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('main')) || [];
-const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
-return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('main', t))));
+const all = [];
+DEF_CATS.forEach(cat => {
+if (window.defaultCardCat && !window.defaultCardCat(cat)) return;
+const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups(cat)) || [];
+gs.forEach(g => ((g && g[1]) || []).forEach(t => {
+if (window.isDefaultCardOff && window.isDefaultCardOff(cat, t)) return;
+all.push(t);
+}));
+});
+return filterCorpus(all);
 } catch (e) { return []; }
 }
 function dictPool() {
 try {
 const gs = (window.getDefaultCardGroups && window.getDefaultCardGroups('dict')) || [];
-return filterCorpus(gs.reduce((a, g) => a.concat((g && g[1]) || []), []));
+const all = gs.reduce((a, g) => a.concat((g && g[1]) || []), []);
+return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('dict', t))));
 } catch (e) { return []; }
 }
 function allCorpus() { return customPool().concat(defaultPool(), dictPool()); }
@@ -95622,4 +95643,4 @@ lastHeal: his
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu29fcf5 -->
+<!-- __MOCHI_EOF__ mu29tf3u -->
