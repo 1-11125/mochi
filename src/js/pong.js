@@ -93,6 +93,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 锁屏/来电后 ctx 挂起，不 resume 则此后音效永久哑音（connect-four 同款修法）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'square';
       g.gain.value = vol || 0.06;
@@ -498,18 +500,28 @@
       stats.total++;
       localStorage.setItem(statsKey, JSON.stringify(stats));
     } catch (e) {}
+    // FIX 2026-09-16：接游乐室三件套——幸运日打卡 + 玩家胜利 8% 掉限定摆件（奖励 ×2 在下方发奖处生效）
+    let drop = null;
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('pong');
+      if (playerWin && window.arcadeTryDrop) drop = window.arcadeTryDrop('pong');
+    } catch (e) {}
     const fit = window.taFit ? window.taFit : function (x) { return x; };
     // v3.15.x 二调：奖励对齐红包金额体系——胜 80% ¥13.14 / 20% ¥52，平 ¥5.2（日封顶 ¥104）
     // v3.16.x：乒乓改为双方同步同额入账（不再只给赢家），赚钱流水记「乒乓」
     var coinLine = '';
     try {
       var COIN_CAP = 10400;
-      var day = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var day = (function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })();
       var ck = (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':ml2_coin_pong_' + day;
       var cur = Number(localStorage.getItem(ck)) || 0;
       if (cur < COIN_CAP) {
         var pongWinFen = Math.random() < 0.2 ? 5200 : 1314;
-        var real = Math.min(draw ? 520 : pongWinFen, COIN_CAP - cur);
+        // FIX 2026-09-16：①输局原与胜局同额（¥13.14/¥52），与注释「胜 80%/20%、平 ¥5.2」口径不符，
+        // 且高于 gomoku/c4 等对战类「仅赢家得奖」——改为负局发平局档 ¥5.2；②幸运日奖励 ×2（游乐室）
+        var pongMult = (window.arcadeMult && window.arcadeMult('pong')) || 1;
+        var real = Math.min((playerWin ? pongWinFen : 520) * pongMult, COIN_CAP - cur);
         try { localStorage.setItem(ck, String(cur + real)); } catch (e2) {}
         if (real > 0 && typeof window.giftWalletChange === 'function') {
           if (window.giftWalletChange(real, real, '乒乓')) {
@@ -524,7 +536,8 @@
       '<div class="pong-end-stat">总回合 ' + s.totalRounds + ' · 用时 ' + fmt(sec) + '</div>' +
       '<div class="pong-end-stat">你的最高连得 ' + s.maxPlayerStreak + ' · ' + fit('TA') + ' 最高连得 ' + s.maxOpponentStreak + '</div>' +
       '<div class="pong-end-stat">累计 ' + stats.win + '胜 ' + stats.lose + '负 ' + stats.draw + '平 · 历史最高连得 ' + stats.maxStreak + '</div>' +
-      (coinLine ? '<div class="pong-end-stat">' + coinLine + '</div>' : '');
+      (coinLine ? '<div class="pong-end-stat">' + coinLine + '</div>' : '') +
+      (drop ? '<div class="pong-end-stat">🎁 掉落限定摆件「' + drop.name + '」</div>' : '');
     showOverlay(title, body, '再玩一次');
     // 写入聊天记录 + TA 回应
     try {
@@ -621,12 +634,22 @@
     ctx.restore();
   }
 
+  let scoreCache = { key: '', flash: -1 };
   function renderScore(s) {
     if (!scoreEl) return;
-    const scale = s.flashScore > 0 ? 'transform:scale(' + (1 + s.flashScore * 0.3) + ')' : '';
-    // v3.11.x：比分左右位与挡板侧一致——TA 挡板在左显示在左，玩家（你）在右
-    scoreEl.innerHTML = '<span class="pong-s-ta">' + s.opponentScore + ' ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span class="pong-s-sep">:</span><span class="pong-s-you">你 ' + s.playerScore + '</span>';
-    scoreEl.style.cssText = scale;
+    // FIX 2026-09-16：原每帧重写 innerHTML + cssText（60fps 强制 DOM 重建/布局）——比分只在得分时变，
+    // 改脏标记：分数变了才重建 HTML，缩放档位变了才写 transform。
+    const key = s.opponentScore + ':' + s.playerScore;
+    if (scoreCache.key !== key) {
+      scoreCache.key = key;
+      // v3.11.x：比分左右位与挡板侧一致——TA 挡板在左显示在左，玩家（你）在右
+      scoreEl.innerHTML = '<span class="pong-s-ta">' + s.opponentScore + ' ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span class="pong-s-sep">:</span><span class="pong-s-you">你 ' + s.playerScore + '</span>';
+    }
+    const flash = s.flashScore > 0 ? Math.round(s.flashScore * 20) / 20 : 0;
+    if (scoreCache.flash !== flash) {
+      scoreCache.flash = flash;
+      scoreEl.style.cssText = flash > 0 ? 'transform:scale(' + (1 + flash * 0.3) + ')' : '';
+    }
   }
 
   function renderHint(s, now) {
@@ -646,9 +669,11 @@
   function loop(ts) {
     if (!running) return;
     if (!lastTs) lastTs = ts;
-    const dt = ts - lastTs;
+    // FIX 2026-09-16：切后台回来 dt 累积成数十秒，guard=5 只限每帧步数——球会快进到自动打完整局，钳到 250ms
+    const dt = Math.min(ts - lastTs, 250);
     lastTs = ts;
     acc += dt;
+    applyKeys();
     const frame = 1000 / FPS;
     let guard = 0;
     while (acc >= frame && guard < 5) {
@@ -672,7 +697,17 @@
     if (isFs) {
       // 全屏：按视口计算 canvas 最大尺寸（保持 4:3 比例），显式设置 canvas + canvas-box
       const availW = window.innerWidth - 16;
-      const availH = window.innerHeight - 200;   // head+bar+score+foot+padding（全屏 UI 放大后紧凑布局）
+      // FIX 2026-09-16：高度魔数 innerHeight-200 在头部换行/字号变化时不准——改为逐块量同列兄弟块实高，
+      // 量不到（未布局）回退魔数（breakout 同款做法）
+      let availH = window.innerHeight - 200;
+      if (box && box.parentElement && box.parentElement.clientHeight > 0) {
+        let h = box.parentElement.clientHeight;
+        Array.prototype.forEach.call(box.parentElement.children, function (el) {
+          if (el === box || !el.offsetHeight) return;
+          h -= el.offsetHeight;
+        });
+        if (h >= 120) availH = h;
+      }
       let cw = availW;
       let ch = Math.round(cw * H / W);
       if (ch > availH) { ch = availH; cw = Math.round(ch * W / H); }
@@ -842,8 +877,10 @@
     const k = e.key.toLowerCase();
     if (keys[k]) keys[k] = false;
   });
-  // 键盘挡板目标持续移动（在 step 之前更新 targetY）
-  setInterval(() => {
+  // FIX 2026-09-16：按住方向键切走窗口（来电/alt-tab）keyup 丢失，回来挡板自己漂移到边界——失焦即清键
+  window.addEventListener('blur', () => { Object.keys(keys).forEach((k) => { keys[k] = false; }); });
+  // 键盘挡板目标持续移动（并入主循环；FIX 2026-09-16：原模块级 60Hz setInterval 面板关闭后仍空转耗电，已删）
+  function applyKeys() {
     if (!running || !state) return;
     let dy = 0;
     if (keys['arrowup'] || keys['w']) dy -= PLAYER_MAX_SPEED;
@@ -852,7 +889,7 @@
       const pH = playerH(state);
       state.player.targetY = Math.max(0, Math.min(H - pH, state.player.targetY + dy));
     }
-  }, 1000 / FPS);
+  }
 
   // ---- 难度选择 / 静音 / 关闭 ----
   function updateWinTip() {
@@ -867,6 +904,9 @@
       if (state && state.status === 'countdown') {
         // 倒计时阶段可改难度
         startGame(diffSel.value);
+      } else if (state && (state.status === 'rally' || state.status === 'scored') && hintEl) {
+        // FIX 2026-09-16：对局中改难度原先静默无效也不提示，改档提示「下一局生效」
+        hintEl.textContent = '难度下一局生效';
       }
     });
   }
@@ -938,6 +978,10 @@
   };
   // 切换联系人桌面时关闭（chat.js 会触发 contact-switched）
   document.addEventListener('contact-switched', () => { try { closePongPanel(); } catch (e) {} });
+  // FIX 2026-09-16：切后台自动存档+暂停（原只在关面板时存，iOS Safari 后台杀页面丢进行中对局）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running && state && state.status !== 'ended') { saveGame(); togglePause(); }
+  });
   // 窗口尺寸变化时重适配
   window.addEventListener('resize', () => { if (panel && !panel.hidden) fitCanvas(); });
 })();

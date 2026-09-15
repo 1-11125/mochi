@@ -2146,22 +2146,108 @@ try {
     const inp = document.getElementById('set-search-input');
     const page = document.getElementById('page-setting');
     if (!inp || !page) return;
+    // #549：搜索无条件带一个「在功能大全中搜索『X』」入口——设置行只是子集，功能大全才是全量索引；
+    // 点了走 feature-hub.js 暴露的 window.mochiFeatureHubOpen（带入关键词，返回仍回设置页）。
+    const jump = document.createElement('div');
+    jump.hidden = true;
+    jump.style.cssText = 'padding:7px 12px 0';
+    const jumpBtn = document.createElement('div');
+    jumpBtn.style.cssText = 'display:inline-block;padding:7px 12px;border-radius:9px;background:rgba(47,111,208,.12);color:#2f6fd0;font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent';
+    jump.appendChild(jumpBtn);
+    if (inp.parentNode) inp.parentNode.insertBefore(jump, inp.nextSibling);
+    jumpBtn.addEventListener('click', () => {
+      const kw = inp.value.trim();
+      if (!kw) return;
+      if (typeof window.mochiFeatureHubOpen === 'function') window.mochiFeatureHubOpen(kw);
+    });
+    // FIX 2026-09-16 #550 设置搜索精准化（用户报「不能精准搜索」）：
+    // ① 取词剔除 settings-help.js 注入的「功能说明」.tag 胶囊（此前搜「功能/说明」几乎全行命中）；
+    // ② 口语词→入口行别名表（此前搜「壁纸/通知/概率/夜间」等 0 命中）；
+    // ③ 多词 AND（空格分隔，每词都须命中）；④ 空分组/空分区隐藏 + 零命中空态提示。
+    const SEC_NAME = { basic: '通用', chat: '聊天', system: '系统', tools: '工具', about: '关于' };
+    const KW = {
+      '联系人 / 桌面': '切换桌面 多桌面 独立 称呼',
+      '开启群聊': '多人聊天 群',
+      '跨桌面查岗': '定位 位置 远程',
+      '查岗频率': '次数',
+      '打电话': '拨打 通话',
+      '深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode',
+      '手机桌面美化': '壁纸 主题 图标 字体 字号 圆角 装修 装扮 小组件 桌面美化',
+      '回复设置': '概率 回复速度 拍一拍 撤回 已读 触发 自动回复 聊天',
+      '通话设置': '来电 挂断 通话背景 铃声',
+      '音效设置': '声音 铃声 提示音 静音',
+      '功能大全': '索引 直达 查找',
+      '应用锁': '密码 锁 隐私',
+      '开屏问答门': '问答 暗号 验证 提问',
+      '手机布局': '布局 适配 模式',
+      '离线消息提醒': '通知 推送 通知提醒 新消息',
+      '使用说明': '教程 帮助 常见问题 安装',
+      '导出数据': '备份 保存 导出',
+      '导入数据': '恢复 还原 迁移 换机',
+      '设备兼容诊断': '诊断 兼容 报错 环境',
+      '顶部避让修正': '安全区 白带 重叠 刘海',
+      '屏幕适配诊断': '适配 屏幕 空白 裁切',
+      '功能诊断': '检测 测试',
+      '查看存储': '空间 清理 占用',
+      '压缩图片': '图片 瘦身',
+      '卡顿自检': '卡顿 优化 流畅',
+      '字卡使用状态自检': '字卡 自检 可用',
+      '清除本地数据': '清空 重置 删除',
+      '新手引导': '教程 上手 入门',
+      '功能介绍': '介绍 许可 版权 二传'
+    };
+    // 行搜索素材 = 标题 + .sub 说明 + 分区名 + 命中 key 的别名；标题取词剔除 .tag 胶囊（①）
+    const rowHay = (r) => {
+      const t = r.querySelector('.txt');
+      if (!t) return '';
+      const c = t.cloneNode(true);
+      c.querySelectorAll('.tag').forEach(x => x.remove());
+      const base = c.textContent.replace(/\s+/g, ' ').trim();
+      const sec = r.closest('.them-sec');
+      let extra = ' ' + (SEC_NAME[sec && sec.dataset.sec] || '');
+      for (const k in KW) { if (base.indexOf(k) >= 0) extra += ' ' + KW[k]; }
+      return (base + extra).toLowerCase();
+    };
+    const emptyTip = document.createElement('div');
+    emptyTip.id = 'set-search-empty-tip';
+    emptyTip.hidden = true;
+    emptyTip.style.cssText = 'padding:14px 12px 4px;text-align:center;font-size:13px;color:var(--muted,#888)';
+    emptyTip.textContent = '没有匹配的设置项，可换个词试试，或用上方按钮去「功能大全」搜索';
+    if (jump.parentNode) jump.parentNode.insertBefore(emptyTip, jump.nextSibling);
     inp.addEventListener('input', () => {
       const q = inp.value.trim().toLowerCase();
       const secs = page.querySelectorAll('.them-sec');
       const rows = page.querySelectorAll('.set-row');
       if (!q) {
+        jump.hidden = true;
         rows.forEach(r => r.style.display = '');
+        page.querySelectorAll('.set-group').forEach(g => g.style.display = '');
+        emptyTip.hidden = true;
         const activeTab = page.querySelector('.them-tab.active');
         if (activeTab) activeTab.click();
         return;
       }
-      secs.forEach(sec => sec.hidden = false);
+      jump.hidden = false;
+      jumpBtn.textContent = '在「功能大全」中搜索“' + inp.value.trim() + '” →';
+      // ③ 多词 AND：空格分隔的每个词都须出现在行素材里
+      const terms = q.split(/\s+/);
+      let hits = 0;
       rows.forEach(r => {
-        const txtEl = r.querySelector('.txt');
-        const txt = (txtEl ? txtEl.textContent : '').toLowerCase();
-        r.style.display = txt.indexOf(q) >= 0 ? '' : 'none';
+        const hay = rowHay(r);
+        const ok = terms.every(w => hay.indexOf(w) >= 0);
+        r.style.display = ok ? '' : 'none';
+        if (ok) hits++;
       });
+      // ④ 命中稀疏时不留空分组/空分区，零命中给空态提示
+      secs.forEach(sec => {
+        sec.querySelectorAll('.set-group').forEach(g => {
+          const rs = g.querySelectorAll('.set-row');
+          const any = Array.prototype.some.call(rs, x => x.style.display !== 'none');
+          g.style.display = (rs.length > 0 && !any) ? 'none' : '';
+        });
+        sec.hidden = !Array.prototype.some.call(sec.querySelectorAll('.set-row'), x => x.style.display !== 'none');
+      });
+      emptyTip.hidden = hits > 0;
     });
   })();
   // v3.6.x：装修模式设置卡片背景入口的绑定在 CARD_BG_TYPES 定义之后（见卡片背景段末尾）——
@@ -6929,11 +7015,21 @@ try {
           //   不在 activePrefix 过滤范围内——重置数据应连年龄确认一并清掉，
           //   让用户重新勾选（重置≠保留「已确认年满18」的举证记录）
           const BARE_KEYS = ['divine-history', 'xy-home-v2:age-confirmed'];
-          try {
-            Object.keys(localStorage)
-              .filter(k => k.indexOf(window.activePrefix() + ':') === 0 || BARE_KEYS.indexOf(k) >= 0)
-              .forEach(k => localStorage.removeItem(k));
-          } catch (e) {}
+          // #551：清除范围从「仅当前桌面命名空间」升级为「全部 xy-home-v2 键」——
+          //   旧范围漏掉根命名空间全局键（联系人列表、公用字卡 cc-groups-public、
+          //   我的表情包 my-emoji-groups、存钱罐 piggy-*、桌面美化/布局等）与
+          //   其他联系人的整个命名空间，清完重载后这些数据原地残留＝「没有把本地
+          //   的所有数据清空」（红米 K70 Chrome 及多机型确定复现，纯范围逻辑、
+          //   与机型无关）。弹窗承诺「清除所有本地数据」，行为必须对齐；
+          //   age-confirmed 前缀本就命中，BARE_KEYS 保留作显式口径。
+          const wipeAppKeys = function () {
+            try {
+              Object.keys(localStorage)
+                .filter(k => k.indexOf('xy-home-v2:') === 0 || BARE_KEYS.indexOf(k) >= 0)
+                .forEach(k => localStorage.removeItem(k));
+            } catch (e) {}
+          };
+          wipeAppKeys();
           // 清会话级迁移标记（大键迁移标记，随会话残留无实际数据，一并清掉）
           try { sessionStorage.removeItem('xy-ls-big-migrated'); } catch (e) {}
           // 清空 IndexedDB（mochi-db）：只清 localStorage 不清 IDB 的话，
@@ -6955,7 +7051,9 @@ try {
           }
           // 清完后刷新；__resetting 屏障已阻止 beforeunload 把内存回写，删库成功则
           // 重启后 IDB 为空、idbRestore 无可回填，彻底清除（含专属字卡等 LS-only 键）。
-          idbDone.then(() => { try { location.reload(); } catch (e) {} });
+          // #551：reload 前再全量补一刀——清窗口期（真删库最长 6s）内，未挂
+          // __resetting 屏障的模块定时器/落盘路径可能重写键，不清会活过本次重置。
+          idbDone.then(() => { wipeAppKeys(); try { location.reload(); } catch (e) {} });
         }, { noInput: true });
       }
     });

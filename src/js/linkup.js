@@ -77,6 +77,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 锁屏/切后台后 ctx 挂起，不 resume 则此后连点击音效都永久无声（gomoku 同款）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) { const r = audioCtx.resume(); if (r && r.catch) r.catch(function () {}); }
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'sine';
       g.gain.value = vol || 0.16;
@@ -95,6 +97,8 @@
   // ---- 对局状态 ----
   let st = null;
   let thinkT = null;
+  let hintClearT = null;      // FIX 2026-09-16：提示高亮自动清除定时器
+  let narrowTipShown = false; // FIX 2026-09-16：窄屏格宽跌破可读下限的一次性提示
 
   function newState(diff) {
     const d = DIFFS[diff];
@@ -269,6 +273,12 @@
       const h = stageEl.clientHeight;
       cellPx = Math.max(floor24, Math.min(72, byW, h ? Math.floor((h - (st.rows - 1) * GAP) / st.rows) : byW));
     }
+    // FIX 2026-09-16：byW<24 破 24px 可读下限（本文件头注释自述 <20px 读不清图案）——
+    // 仍按实宽收格保证不溢出，但一次性提示可切低难度
+    if (byW < 24 && st && st.started && !st.over && !narrowTipShown) {
+      narrowTipShown = true;
+      taSay('屏幕偏窄图案较小，可在头部换低难度');
+    }
     boardEl.style.width = (cellPx * st.cols + (st.cols - 1) * GAP) + 'px';
     const tiles = boardEl.querySelectorAll('.lk-tile');
     for (let i = 0; i < tiles.length; i++) { tiles[i].style.width = cellPx + 'px'; tiles[i].style.height = cellPx + 'px'; tiles[i].style.fontSize = Math.round(cellPx * 0.52) + 'px'; }
@@ -372,6 +382,8 @@
   // ---- 对局流程 ----
   function newGame() {
     clearTimeout(thinkT); thinkT = null;
+    clearTimeout(hintClearT);
+    narrowTipShown = false;
     const diff = diffSel && DIFFS[diffSel.value] ? diffSel.value : 'normal';
     st = newState(diff);
     st.grid = dealGrid(DIFFS[diff]);
@@ -548,17 +560,22 @@
     var dropLine = '';
     try {
       var COIN_CAP = 10400;
-      var day = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var dl = new Date();
+      var day = dl.getFullYear() + '-' + (dl.getMonth() + 1) + '-' + dl.getDate();
       var ck = prefix() + ':ml2_coin_linkup_' + day;
       var cur = Number(localStorage.getItem(ck)) || 0;
       if (cur < COIN_CAP) {
         var mult = (typeof window.arcadeMult === 'function') ? window.arcadeMult('linkup') : 1;
-        var real = Math.min(Math.round(DIFFS[st.diff].coin * mult), COIN_CAP - cur);
+        var nominal = Math.round(DIFFS[st.diff].coin * mult);
+        var real = Math.min(nominal, COIN_CAP - cur);
         try { localStorage.setItem(ck, String(cur + real)); } catch (e2) {}
         if (real > 0 && typeof window.giftWalletChange === 'function') {
           if (window.giftWalletChange(real, real, '连连看')) {
             if (typeof window.arcadeMarkLuckyPlayed === 'function') window.arcadeMarkLuckyPlayed('linkup');
-            coinLine = '🪙 双方心意币各 +¥' + (real / 100).toFixed(2) + (mult > 1 ? '（🍀 幸运 ×2）' : '');
+            // FIX 2026-09-16：王者/传奇档标称奖励（¥131.4/¥334.4）超日封顶 ¥104，标称永远发不满——
+            // 结算展示实际入账并注明已达上限，不虚标
+            coinLine = '🪙 双方心意币各 +¥' + (real / 100).toFixed(2) + (mult > 1 ? '（🍀 幸运 ×2）' : '') + (real < nominal ? '（已达今日上限）' : '');
           }
         }
       }
@@ -586,7 +603,10 @@
       const fb = ['一起连完啦。', '好默契呀。', '最后几张好难找。', '再来一局？'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
+      // FIX 2026-09-16：800ms 内切联系人桌面，回应会发进新桌面——回调前校验命名空间未变
+      const cidAtEnd = prefix();
       setTimeout(() => {
+        if (prefix() !== cidAtEnd) return;
         try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
       }, 800);
     } catch (e) {}
@@ -637,6 +657,11 @@
       const el = tileAt(p[0], p[1]);
       if (el) { el.classList.remove('lk-hint'); void el.offsetWidth; el.classList.add('lk-hint'); }
     });
+    // FIX 2026-09-16：提示高亮原先不自清，玩家不按提示配对会一直挂着到洗牌/重开——2.5s 后自动消
+    clearTimeout(hintClearT);
+    hintClearT = setTimeout(() => {
+      try { boardEl.querySelectorAll('.lk-hint').forEach((x) => x.classList.remove('lk-hint')); } catch (e2) {}
+    }, 2500);
     updateInfo();
     sfxPick();
   });
@@ -686,9 +711,9 @@
     panel.hidden = false;
     try { setNames(); } catch (e) {}
     try { if (st && st.started) fitBoard(); } catch (e) {}
-    // 有进行中的对局 → 接着玩（关面板期间轮到 TA 的补调度）
+    // 有进行中的对局 → 接着玩（关面板期间轮到 TA 的补调度；动画链中不补，match3 同款守卫）
     if (st && st.started && !st.over) {
-      if (st.turn === 2 && !thinkT) scheduleTaTurn(TURN_MIN + Math.random() * TURN_VAR);
+      if (st.turn === 2 && !thinkT && !st.lock) scheduleTaTurn(TURN_MIN + Math.random() * TURN_VAR);
       else if (st.turn === 1) showTurnStatus();
       return;
     }
@@ -700,7 +725,8 @@
     if (panel) panel.hidden = true;
   }
   window.closeLinkupPanel = closePanel;
-  document.addEventListener('contact-switched', () => { try { closePanel(); } catch (e) {} });
+  // FIX 2026-09-16：原只关面板不清 st——换联系人后重开走「接着玩」，旧桌面棋局/战绩串档
+  document.addEventListener('contact-switched', () => { try { closePanel(); st = null; /* #548v */ } catch (e) {} });
   window.addEventListener('resize', () => { if (!panel.hidden) fitBoard(); });
 
   // ---- 入口：聊天更多功能 → 小游戏 → 连连看（自绑定，chat.js 不改） ----

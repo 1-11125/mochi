@@ -45,7 +45,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // FIX 2026-09-16：resume 无 catch 且不等待——后台返回 iOS 挂起后可能整段哑音 + 未处理 rejection
+      if (audioCtx.state === 'suspended' && audioCtx.resume) { const r = audioCtx.resume(); if (r && r.catch) r.catch(function () {}); }
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = type || 'sine';
       g.gain.value = vol || 0.08;
@@ -184,7 +185,23 @@
   function saveStats(s) { writeJSON(statsKey(), s); }
   function addStats(delta) { const s = loadStats(); s.totalCast += delta.totalCast || 0; s.perfectCatch += delta.perfectCatch || 0; s.totalEarned += delta.totalEarned || 0; saveStats(s); }
 
-  // ---- 心意币钱包：读写统一走 window.giftWalletGet / window.giftWalletChange（gift-shop.js 维护，根键 xy-home-v2:gift-wallet，单位分）----
+  // ---- 心意币钱包：读写统一走 window.giftWalletChange（gift-shop.js 维护，根键 xy-home-v2:gift-wallet，单位分）----
+  // FIX 2026-09-16：钓鱼收入原先完全无日封顶（深渊王 ¥200/条、烹饪 ¥600/条，其他游戏均有 ¥10~¥104 上限）
+  // ——补 ¥104/日封顶（对齐 c4/pong），单键滚动计数；先落盘封顶计数再入账。纪念品兑换/陪伴奖励自带
+  // 每日一次/事件限量，不并入此封顶。
+  function fishCoinCap() {
+    const o = readJSON('fishing-coin-day', null);
+    if (o && o.date === todayKey() && typeof o.used === 'number') return o.used;
+    return 0;
+  }
+  function grantFishCoin(fen, label) {
+    const used = fishCoinCap();
+    const real = Math.max(0, Math.min(fen, 10400 - used));
+    if (real <= 0) return 0;
+    try { writeJSON('fishing-coin-day', { date: todayKey(), used: used + real }); } catch (e) { return 0; }
+    if (window.giftWalletChange) window.giftWalletChange(real, real, label);
+    return real;
+  }
 
   // ---- DOM ----
   const partnerNameEl = document.getElementById('fish-partner-name');
@@ -265,6 +282,14 @@
       sfxCatch();
       gainMine(item);
       flashScene(true, item);
+      // FIX 2026-09-16：接游乐室三件套——幸运日打卡 + 完美收竿 8% 掉限定摆件（此前 fishing 完全不在体系内）
+      try {
+        if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('fishing');
+        if (quality === 'perfect' && window.arcadeTryDrop) {
+          const fdp = window.arcadeTryDrop('fishing');
+          if (fdp) setTimeout(function () { toast('🎁 掉落限定摆件「' + fdp.name + '」'); }, 600);
+        }
+      } catch (e) {}
       if (pity) { statusText('保底命中！钓到了 ' + item.icon + ' ' + item.name); missStreak = 0; }
       else if (quality === 'perfect') { statusText('完美收竿！钓到了 ' + item.icon + ' ' + item.name); addStats({ perfectCatch: 1 }); }
       else statusText('收竿！钓到了 ' + item.icon + ' ' + item.name);
@@ -436,7 +461,9 @@
       });
     });
     if (count === 0) { toast('没有可出售的收获（勾选「留」的不卖）'); return; }
-    if (window.giftWalletChange) window.giftWalletChange(total, total, '钓鱼出售');
+    if (fishCoinCap() >= 10400) { toast('今日钓鱼收入已达上限（¥104），明天再来卖吧'); return; }
+    // FIX 2026-09-16：①先落盘（扣鱼）再入账——原「先发钱后落盘」在配额异常时钱到账、鱼没扣，可反复出售；
+    // ②幸运日奖励 ×2 + ¥104 日封顶（grantFishCoin 内先记账后发钱）
     Object.keys(sold).forEach(function (side) { Object.keys(sold[side]).forEach(function (id) { delete t[side][id]; }); });
     // 清掉该侧已无存货的「留」标记，否则同品种当天再钓到会被残留标记自动置留
     Object.keys(t.keep).forEach(function (k) {
@@ -444,10 +471,12 @@
       const side = k.slice(0, i), id = k.slice(i + 1);
       if (!t[side] || !t[side][id]) delete t.keep[k];
     });
-    saveToday(t);
-    addStats({ totalEarned: total });
+    try { saveToday(t); } catch (e) { toast('出售失败：存储暂不可用'); return; }
+    const fishMult = (window.arcadeMult && window.arcadeMult('fishing')) || 1;
+    const realGot = grantFishCoin(total * fishMult, '钓鱼出售');
+    addStats({ totalEarned: realGot });
     sfxSell();
-    toast('已出售 ' + count + ' 件，心意币各 +' + fenToStr(total));
+    toast('已出售 ' + count + ' 件，心意币各 +' + fenToStr(realGot) + (realGot < total ? '（已达今日上限）' : ''));
     render();
   }
 
@@ -492,10 +521,14 @@
     const c = loadCook(); const entry = c.mine[idx]; if (!entry) return;
     const st = cookStatus(entry); if (!st || !st.done) { toast('还没烹饪好'); return; }
     const price = dishPrice(entry.fishId, entry.quality);
-    c.mine.splice(idx, 1); saveCook(c);
-    if (window.giftWalletChange) window.giftWalletChange(price, price, '烹饪出售');
-    addStats({ totalEarned: price }); sfxSell();
-    toast('出售 ' + st.dish.name + '，心意币各 +¥' + fenToStr(price)); render();
+    if (fishCoinCap() >= 10400) { toast('今日钓鱼收入已达上限（¥104），明天再卖吧'); return; }
+    c.mine.splice(idx, 1);
+    // FIX 2026-09-16：先落盘（扣菜）再入账 + 幸运日 ×2 + 日封顶（同 sellAll 口径）
+    try { saveCook(c); } catch (e) { toast('出售失败：存储暂不可用'); return; }
+    const dishMult = (window.arcadeMult && window.arcadeMult('fishing')) || 1;
+    const realGot = grantFishCoin(price * dishMult, '烹饪出售');
+    addStats({ totalEarned: realGot }); sfxSell();
+    toast('出售 ' + st.dish.name + '，心意币各 +' + fenToStr(realGot) + (realGot < price ? '（已达今日上限）' : '')); render();
   }
   function sendDishToTa(idx) {
     const c = loadCook(); const entry = c.mine[idx]; if (!entry) return;
@@ -540,7 +573,19 @@
   }
 
   // ---- 渲染 ----
-  function statusText(t) { if (statusEl) statusEl.textContent = t; }
+  function statusText(t) {
+    if (!statusEl) return;
+    statusEl.textContent = t;
+    // FIX 2026-09-16：收竿/跑鱼/TA 钓到的结算文案原先被随后的 render() 同帧清空
+    // （idle+today 分支），用户根本看不到——设 keep 保留 2.5s 后自动恢复常规提示
+    statusEl.dataset.keep = '1';
+    clearTimeout(statusEl._keepT);
+    statusEl._keepT = setTimeout(function () {
+      if (!statusEl) return;
+      delete statusEl.dataset.keep;
+      if (open) render();
+    }, 2500);
+  }
   function updateTimingVisual(p) {
     if (!timingWrapEl) return;
     timingWrapEl.hidden = false;
@@ -590,14 +635,37 @@
     let key;
     if (curTab === 'today') key = 'today:' + JSON.stringify(loadToday());
     else if (curTab === 'dex') key = 'dex:' + JSON.stringify(loadDex()) + ':' + JSON.stringify(loadStats());
-    else if (curTab === 'cook') key = 'cook:' + Math.floor(Date.now() / 1000) + JSON.stringify(loadCook()) + JSON.stringify(loadToday()) + JSON.stringify(loadBox());
+    else if (curTab === 'cook') {
+      // FIX 2026-09-16：脏键不再含秒级时间戳（原每 1.2s 整页 innerHTML 重建——iOS 周期性强制重排，
+      // 且重建瞬间会吞掉正在点「出售/送TA/吃掉」的那次 tap）；只剩倒计时变化走 updateCookProgress 就地更新，
+      // 结构（出锅/放入/取出）变化才整页重建。
+      const ck2 = loadCook();
+      key = 'cook:' + JSON.stringify(loadToday()) + JSON.stringify(loadBox()) + ':'
+        + ck2.mine.map(function (e) { const s = cookStatus(e); return s ? (e.fishId + (s.done ? 'd' : 'c')) : ''; }).join(',')
+        + ':' + ck2.ta.map(function (e) { const s = cookStatus(e); return s ? (e.fishId + (s.done ? 'd' : 'c')) : ''; }).join(',');
+    }
     else key = 'gifts:' + JSON.stringify(loadGifts());
-    if (key === _lastPageKey) return;
+    if (key === _lastPageKey) { if (curTab === 'cook') updateCookProgress(); return; }
     _lastPageKey = key;
     if (curTab === 'today') pageEl.innerHTML = renderToday();
     else if (curTab === 'dex') pageEl.innerHTML = renderDex();
     else if (curTab === 'cook') pageEl.innerHTML = renderCook();
     else if (curTab === 'gifts') pageEl.innerHTML = renderGifts();
+  }
+  // 厨房页签烹饪中的行：进度条/剩余时间就地更新（与 renderPage 的行序一致：我的灶台→TA 的灶台）
+  function updateCookProgress() {
+    if (!pageEl) return;
+    const c = loadCook();
+    const fills = pageEl.querySelectorAll('.fish-cook-row:not(.done) .fish-cook-fill');
+    const cnts = pageEl.querySelectorAll('.fish-cook-row:not(.done) .fish-cnt');
+    const entries = [];
+    c.mine.forEach(function (e) { const s = cookStatus(e); if (s && !s.done) entries.push(s); });
+    c.ta.forEach(function (e) { const s = cookStatus(e); if (s && !s.done) entries.push(s); });
+    for (let i = 0; i < entries.length && i < fills.length; i++) {
+      if (fills[i]) fills[i].style.width = Math.round(entries[i].progress * 100) + '%';
+      const remain = entries[i].remainSec;
+      if (cnts[i]) cnts[i].textContent = remain >= 60 ? Math.ceil(remain / 60) + '分' : remain + '秒';
+    }
   }
   function renderToday() {
     const t = loadToday();
@@ -738,7 +806,7 @@
 
   // ---- 入口（供 chat.js 调用） ----
   // 兄弟半框互斥（connect-four 同款）：打开钓鱼时收起其他浮层；任何兄弟面板被打开时自动收起本面板
-  const FISH_SIBLING_IDS = ['poke-card', 'emoji-panel', 'chat-search', 'chat-ask-panel', 'chat-divine-panel', 'chat-decision-panel', 'chat-gdecision-panel', 'chat-rps-panel', 'chat-rp-panel', 'chat-call-panel', 'chat-pong-panel', 'chat-snake-panel', 'chat-brick-panel', 'chat-c4-panel', 'chat-more-panel'];
+  const FISH_SIBLING_IDS = ['poke-card', 'emoji-panel', 'chat-search', 'chat-ask-panel', 'chat-divine-panel', 'chat-decision-panel', 'chat-gdecision-panel', 'chat-rps-panel', 'chat-rp-panel', 'chat-call-panel', 'chat-pong-panel', 'chat-snake-panel', 'chat-brick-panel', 'chat-c4-panel', 'chat-memory-panel', 'chat-ms-panel', 'chat-more-panel'];
   function hideSiblings() {
     FISH_SIBLING_IDS.forEach(function (id) { const el = document.getElementById(id); if (el && el !== panel) el.hidden = true; });
     try { if (window.closeAvlib) window.closeAvlib(); } catch (e) {}

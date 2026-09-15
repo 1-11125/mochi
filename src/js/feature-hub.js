@@ -443,13 +443,15 @@
   // ---- 打开：两处入口共用（设置行 / 桌面图标），每次进入复位到宫格首页并清空搜索 ----
   // hubFrom 记住来源，返回键据此回桌面或回设置页（原实现恒回设置页，桌面进入会迷路）
   let hubFrom = 'setting';
-  function openHub(from) {
+  function openHub(from, kw) {
     document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
     page.hidden = false;
     hubFrom = from;
-    if (input) input.value = '';
+    if (input) input.value = kw ? String(kw) : '';
     view = 'home';
     update();
+    // 带关键词进入＝直接搜索态：聚焦搜索框方便改词（无键盘环境静默）
+    if (kw && input) { try { input.focus(); } catch (e) {} }
   }
 
   // ---- 返回：从设置进入回设置页，从桌面图标进入回桌面 ----
@@ -468,6 +470,9 @@
 
   // #542 曾有「桌面图标点开即聚焦搜索框」入口，#543 按用户要求撤出桌面（挤占原布局网格）；
   // hubFrom 恒为 'setting'，返回键固定回设置页，机制保留备用。
+
+  // ---- #549 全局入口：设置搜索「在功能大全中搜索『X』」跳这里并带入关键词（返回回设置页） ----
+  window.mochiFeatureHubOpen = function (kw) { openHub('setting', kw); };
 
   update();
 })();

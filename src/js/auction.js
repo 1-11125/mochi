@@ -104,6 +104,8 @@
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   function yuan(fen) { return '¥' + (fen / 100).toFixed(2); }
   function yuanC(fen) { const v = fen / 100; return Number.isInteger(v) ? '¥' + v : '¥' + v.toFixed(2); } // #321 整数省略 .00，按钮直白些
+  // FIX 2026-09-16：自制拍品名称/彩蛋用户可控且多处走 innerHTML——统一转义后再拼
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   // ---- #348 成色评级（按底价分档：≥5000 分 SSR / ≥2600 稀有 / 其余 普通）、震动反馈 ----
   const RARITY = [['普通', 'au-r0'], ['稀有', 'au-r1'], ['SSR', 'au-r2']];
@@ -113,9 +115,12 @@
     try { window.__auDebug.lastBuzz = p; } catch (e) {}
   }
   // ---- #348 落盘双写：localStorage（同步读）+ IndexedDB（防容量/换机），idbSet 可用即写 ----
+  // FIX 2026-09-16：返回 localStorage 侧是否写成功（原静默吞 QuotaExceeded——hammer 用它做原子性判断）
   function persist(key, val) {
-    try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); } catch (e) {}
+    let ok = false;
+    try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); ok = true; } catch (e) {}
     try { if (typeof window.idbSet === 'function') window.idbSet(key, val); } catch (e) {}
+    return ok;
   }
   // #348 拍卖记录：每件拍品的成交/流拍明细（最近 60 条）
   function historyKey() { return prefix() + ':auction-history'; }
@@ -191,8 +196,10 @@
   function saveBag(a) { persist(bagKey(), a); }
   // #301 TA 回寄：TA 拍走的拍品 2~4 天后寄回给你（进你的 🎒，附一句留言）
   function giftsKey() { return prefix() + ':au-gifts-pending'; }
+  // FIX 2026-09-16：回寄排队原只写 localStorage（不走 persist 双写、不在 idb 回填清单）——
+  // 清缓存/换机后「2~4 天寄回」的排队直接丢
   function loadPending() { try { const a = JSON.parse(localStorage.getItem(giftsKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-  function savePending(a) { try { localStorage.setItem(giftsKey(), JSON.stringify(a)); } catch (e) {} }
+  function savePending(a) { persist(giftsKey(), a); }
   let giftTimer = null;
   function checkGifts() {
     const pend = loadPending();
@@ -245,16 +252,16 @@
       let bidTxt;
       if (st.leader === 'none') bidTxt = '起拍价 ' + yuan(st.cur);
       else if (st.leader === 'you') bidTxt = '你的出价 ' + yuan(st.cur);
-      else bidTxt = T('TA') + ' 出价 ' + yuan(st.cur);
+      else bidTxt = esc(T('TA')) + ' 出价 ' + yuan(st.cur);
       // #301 蒙面拍品：开拍只给描述，落槌才揭晓
       const showIco = item.mystery ? '🎁' : item.ico;
-      const showName = item.mystery ? '神秘拍品' : item.name;
+      const showName = item.mystery ? '神秘拍品' : esc(item.name);
       // #343 领价方着色 + 价格跳动（innerHTML 重建节点即自动重放 aubump）
       const leadCls = st.leader === 'you' ? ' au-lead-you' : st.leader === 'ta' ? ' au-lead-ta' : '';
       itemEl.innerHTML =
         '<div class="au-ico">' + showIco + '</div>' +
         '<div class="au-name">' + showName + '</div>' +
-        '<div class="au-desc">' + item.desc + '</div>' +
+        '<div class="au-desc">' + esc(item.desc) + '</div>' +
         '<div class="au-bid' + leadCls + '">' + bidTxt + '</div>';
     }
     updateBidBtns();
@@ -369,7 +376,24 @@
   function myPass() {
     if (!lotActive()) return;
     // 我放弃：我持最高价=直接落槌；否则 TA 价位够就 TA 拍走，否则流拍
-    if (st.leader === 'you') { hammer('you'); return; }
+    if (st.leader === 'you') {
+      // FIX 2026-09-16：落槌一点即真实扣款且不可撤回，同为不可撤回的「转赠」早有 openModal
+      // 确认（#346）——补同款确认防误触（弹窗不可用时退回直拍）
+      const price = st.cur;
+      const item = st.lots[st.idx];
+      try {
+        if (typeof window.openModal === 'function') {
+          const ctl = window.openModal('确认落槌', '', function () { hammer(); }, {
+            noInput: true,
+            staticText: '以 ' + yuanC(price) + ' 拍下「' + item.ico + ' ' + esc(item.name) + '」？心意币将真实扣减，落槌不可撤回。'
+          });
+          try { if (ctl && ctl.okText) ctl.okText('落槌成交'); } catch (e2) {}
+          return;
+        }
+      } catch (e2) {}
+      hammer();
+      return;
+    }
     if (st.limit >= st.cur) { taTake(); return; }
     passLot();
   }
@@ -428,15 +452,19 @@
     const rt = rarityOf(item);
     showOverlay(T('TA') + '拍得了',
       '<div class="au-ov-ico">' + item.ico + '</div>' +
-      '<div class="pong-end-stat"><span class="au-rare ' + rt.cls + '">' + rt.label + '</span> ' + item.name + ' · ' + yuan(st.cur) + ' 归 ' + T('TA') + '</div>' +
+      '<div class="pong-end-stat"><span class="au-rare ' + rt.cls + '">' + rt.label + '</span> ' + esc(item.name) + ' · ' + yuan(st.cur) + ' 归 ' + esc(T('TA')) + '</div>' +
       '<div class="pong-end-stat">📬 不过 TA 拍走的拍品，过几天会寄回给你</div>',
       st.idx + 1 < st.lots.length ? '下一件' : '结算', 'ta');
-    setStatus(T('TA') + '把「' + item.name + '」抱走了');
+    setStatus(esc(T('TA')) + '把「' + esc(item.name) + '」抱走了');
     try {
       const fb = ['这件归我啦。', '嘿嘿，到手。', '眼光不错吧。'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏胜利·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
-      setTimeout(() => { try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {} }, 800);
+      const cid1 = prefix();
+      setTimeout(() => {
+        if (prefix() !== cid1) return;
+        try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
+      }, 800);
     } catch (e) {}
     nextLotBtn();
   }
@@ -448,19 +476,24 @@
     recordHistory(item, st.cur, 'pass');
     showOverlay('流拍了',
       '<div class="au-ov-ico">' + item.ico + '</div>' +
-      '<div class="pong-end-stat">' + item.name + ' 没人要，收回仓库</div>',
+      '<div class="pong-end-stat">' + esc(item.name) + ' 没人要，收回仓库</div>',
       st.idx + 1 < st.lots.length ? '下一件' : '结算', 'pass');
-    setStatus('「' + item.name + '」流拍了');
+    setStatus('「' + esc(item.name) + '」流拍了');
     try {
       const fb = ['这玩意没人要啊。', '亏本了亏本了。'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
-      setTimeout(() => { try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {} }, 800);
+      const cid2 = prefix();
+      setTimeout(() => {
+        if (prefix() !== cid2) return;
+        try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
+      }, 800);
     } catch (e) {}
     nextLotBtn();
   }
   // 我赢：真实扣款 + 收进 🎒
   function hammer() {
+    if (!st || st.phase !== 'bidding') return;   // FIX 2026-09-16：确认弹窗期间 TA 可能已折价落槌，防二次扣款
     st.phase = 'done';
     clearTimeout(thinkT); thinkT = null;
     const item = st.lots[st.idx];
@@ -474,10 +507,17 @@
     const s = loadStats();
     s.myWins = (s.myWins || 0) + 1;
     s.spentFen = (s.spentFen || 0) + st.cur;
-    saveStats(s);
     const bag = loadBag();
     bag.push({ ico: item.ico, name: item.name, fen: st.cur, ts: Date.now() });
-    saveBag(bag);
+    // FIX 2026-09-16：扣款与入库非原子（persist 原先静默吞写失败）——收藏/战绩落盘失败时
+    // 退回扣款，杜绝「心意币扣了、收藏没进」
+    if (!persist(bagKey(), bag) || !persist(statsKey(), s)) {
+      walletDeduct(-st.cur);
+      st.myWins--; st.spent -= st.cur;
+      showOverlay('存储失败', '<div class="pong-end-stat">本地存储暂时不可用，这件没拍成，心意币已退回</div>', st.idx + 1 < st.lots.length ? '下一件' : '结算');
+      nextLotBtn();
+      return;
+    }
     sfxWin(); sfxHammer();
     buzz([30, 40, 80]);       // #348 落槌成交震动
     recordHistory(item, st.cur, 'you');
@@ -486,16 +526,26 @@
     const rt = rarityOf(item);
     showOverlay('落槌！',
       '<div class="au-ov-ico">' + item.ico + '</div>' +
-      '<div class="pong-end-stat"><span class="au-rare ' + rt.cls + '">' + rt.label + '</span> ' + item.name + ' · ' + yuan(st.cur) + ' 拍下</div>' +
-      '<div class="pong-end-stat">💌 ' + item.wish + '</div>' +
-      '<div class="pong-end-stat">已收进 🎒 小收藏（剩 ' + yuan(myBalance()) + '）· 可在 🎒 里转赠给 ' + T('TA') + '</div>',
+      '<div class="pong-end-stat"><span class="au-rare ' + rt.cls + '">' + rt.label + '</span> ' + esc(item.name) + ' · ' + yuan(st.cur) + ' 拍下</div>' +
+      '<div class="pong-end-stat">💌 ' + esc(item.wish) + '</div>' +
+      '<div class="pong-end-stat">已收进 🎒 小收藏（剩 ' + yuan(myBalance()) + '）· 可在 🎒 里转赠给 ' + esc(T('TA')) + '</div>',
       st.idx + 1 < st.lots.length ? '下一件' : '结算', 'win');
-    setStatus('「' + item.name + '」是你的了，花了 ' + yuan(st.cur));
+    setStatus('「' + esc(item.name) + '」是你的了，花了 ' + yuan(st.cur));
     try {
       const fb = ['被你拍走了…', '亏了亏了。', '那件本来我想要来着。'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏失败·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
-      setTimeout(() => { try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {} }, 800);
+      // FIX 2026-09-16：800ms 内切联系人桌面，回应会发进新桌面——回调前校验命名空间未变
+      const cid0 = prefix();
+      setTimeout(() => {
+        if (prefix() !== cid0) return;
+        try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
+      }, 800);
+    } catch (e) {}
+    // FIX 2026-09-16：接游乐室 TryDrop（此前拍得拿不到 8% 限定摆件掉落，gomoku/linkup/match3 均已接）
+    try {
+      const auDrop = (typeof window.arcadeTryDrop === 'function') ? window.arcadeTryDrop('auction') : null;
+      if (auDrop) taSay('还掉了「' + auDrop.name + '」！游乐室图鉴 +1');
     } catch (e) {}
     nextLotBtn();
   }
@@ -547,8 +597,8 @@
     const bag = loadBag();
     const body = bag.length
       ? bag.map((it, i) =>
-          '<div class="pong-end-stat au-bag-row">' + it.ico + ' ' + it.name + ' · ' + (it.from === 'ta' ? T('TA') + ' 寄来的' : yuan(it.fen)) +
-          (it.from === 'ta' ? '' : ' <button class="pong-overlay-btn au-send-btn" data-i="' + i + '" type="button">送' + T('TA') + '</button>') + '</div>').join('')
+          '<div class="pong-end-stat au-bag-row">' + it.ico + ' ' + esc(it.name) + ' · ' + (it.from === 'ta' ? esc(T('TA')) + ' 寄来的' : yuan(it.fen)) +
+          (it.from === 'ta' ? '' : ' <button class="pong-overlay-btn au-send-btn" data-i="' + i + '" type="button">送' + esc(T('TA')) + '</button>') + '</div>').join('')
       : '<div class="pong-end-stat">还什么都没拍到</div>';
     showOverlay('🎒 拍品收藏（' + bag.length + '）', body, '返回', '', true);
     if (startBtn) startBtn.textContent = '返回'; // #346 统一返回语义：场次中回竞价、结算后回本场汇总
@@ -561,7 +611,7 @@
     const whoTxt = { you: '你拍得', ta: T('TA') + '拍走', pass: '流拍' };
     const cls = (r) => r === 'SSR' ? 'au-r2' : r === '稀有' ? 'au-r1' : 'au-r0';
     const body = h.length
-      ? h.map((it) => '<div class="pong-end-stat au-hist-row"><span class="au-rare ' + cls(it.rarity) + '">' + (it.rarity || '普通') + '</span> ' + it.ico + ' ' + it.name + ' · ' + (it.who === 'pass' ? '流拍' : yuan(it.price)) + ' · ' + (whoTxt[it.who] || '') + ' · ' + fmt(it.t) + '</div>').join('')
+      ? h.map((it) => '<div class="pong-end-stat au-hist-row"><span class="au-rare ' + cls(it.rarity) + '">' + (it.rarity || '普通') + '</span> ' + it.ico + ' ' + esc(it.name) + ' · ' + (it.who === 'pass' ? '流拍' : yuan(it.price)) + ' · ' + (whoTxt[it.who] || '') + ' · ' + fmt(it.t) + '</div>').join('')
       : '<div class="pong-end-stat">还没拍过任何东西</div>';
     showOverlay('📜 拍卖记录（' + h.length + '）', body, '返回', '', true);
     if (startBtn) startBtn.textContent = '返回';
@@ -620,7 +670,9 @@
     try {
       if (window.chatAddSystem) window.chatAddSystem(T('心意币拍卖会') + ' · 转赠 ' + T('TA') + '「' + it.name + '」', { special: 'auction' });
     } catch (e) {}
+    const cid3 = prefix();
     setTimeout(() => {
+      if (prefix() !== cid3) return;
       try { if (window.chatAddIn) window.chatAddIn(pick(['收下啦！超喜欢', '你也喜欢就好', '下次拍卖会我让给你一件']), { silent: true }); } catch (e) {}
     }, 900);
     showBag();
@@ -782,7 +834,7 @@
   setInterval(() => { try { checkGifts(); } catch (e) {} }, 600000);
   // #348 开屏异步回填：localStorage 缺失而 IndexedDB 有（被清/换机）时把收藏与记录搬回同步读路径
   (function restoreFromIdb() {
-    ['auction-items', 'auction-history'].forEach((k) => {
+    ['auction-items', 'auction-history', 'au-gifts-pending'].forEach((k) => {
       try {
         const key = prefix() + ':' + k;
         if (localStorage.getItem(key)) return;

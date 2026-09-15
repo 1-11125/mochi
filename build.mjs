@@ -89,7 +89,7 @@ function minifyCss(code) {
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'card-audit.js', 'mobile-adapt.js'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'card-audit.js', 'mobile-adapt.js'];
 
 let html = read('template.html');
 // v3.26.x #301：模板 HTML 注释配平守卫——开屏批 07a6cab 曾在红包注释行漏写 `-->`
@@ -1067,7 +1067,7 @@ const FIX_SENTINELS = [
   { name: '#351b 撤回补发总开关·rc-en 闸门（删则关开关后撤回仍补发＝开关失效）', file: 'js/chat.js', needle: "if (c['rc-en'] !== 0 && hit(c['rc-refix'])) {" },
   // #310 旧默认 1→0 迁移已被 #388 反向取代（qs-cc 默认改回 1、存量迁移 0→1 标记升 2，见下方 #388 两条）——哨兵锚点同步更新
   { name: '#388 qs-cc 存量反向迁移写值 0→1（删则被 #310 迁移成 0 的桌面回不到默认开＝用户点名需求回退）', file: 'js/reply-settings.js', needle: "s.set('reply-qs-cc', '1'); changed = true; }" },
-  { name: '#350 逐卡连发每条气泡挂「词典逐卡连发」tag（删则逐卡与单气泡 tag 不可区分＝用户点名的新 tag 丢失）', file: 'js/chat.js', needle: "silent: si > 0 ? true : silent,\ntag: '词典逐卡连发'," },
+  { name: '#350 逐卡连发每条气泡挂「词典逐卡连发」tag（删则逐卡与单气泡 tag 不可区分＝用户点名的新 tag 丢失；2026-09-16 换锚：原 needle 捎带的 silent 行被撤回概率 willRetractR 合法演进，锚收到现存 tag 行）', file: 'js/chat.js', needle: "tag: '词典逐卡连发'," },
   // ==== 2026-09-11 #317 梦角自由造句（梦角语料抽卡→截断几字重造句→入库自定义字卡「梦角自由造句」分类）====
   { name: '#317 梦角自由造句抽句门·mjf-en/mjf-prob 生效（删则开关概率失效，梦角永不造句）', file: 'js/dream-free.js', needle: "if (!c || c['mjf-en'] !== 1) return null;" },
   { name: '#327 撤回式截断·词间隙切尾前缀成新句（删则造句变回随机截补＝句子离奇，用户明确否决）', file: 'js/dream-free.js', needle: "const out = toks.slice(0, gi).join('').replace(/[，、,\\s]+$/, '');" },
@@ -1163,6 +1163,9 @@ const FIX_SENTINELS = [
   { name: '#342 拍卖半框 68% 规则限定非全屏（删 :not(.game-fs)＝ID 规则重新压过 game-fs，⛶ 全屏只有 68% 高半截屏）', file: 'css/chat-pages.css', needle: '#chat-auction-panel:not(.game-fs) { height:auto; min-height:min(68%, 560px); max-height:68%; }' },
   // ==== 2026-09-12 #345 TA主动消息「通知已弹、进聊天被吞」（红米 K80 Chrome 报障，全机型同现与设备无关；K80 诊断：后台保活存活期消息到达+系统通知已弹）：横幅/系统通知在 addIn 同步链发出，rc-prob 25% 撤回签 900ms 后才掷、rc-refix 未命中不补发＝通知承诺的内容进聊天只剩「对方撤回了一条消息」。修复：撤回签提前到投递前掷，命中撤回的本条 silent 落地（不弹通知、未读角标照增），补发的替换消息走正常投递。行为断言 tools/verify-proactive-retract.mjs ====
   { name: '#345 撤回先掷签后投递·silent 接线（改回 silent: i > 0＝撤回消息重新弹通知、进聊天内容消失＝「刚主动发的消息被吞」回归）', file: 'js/chat.js', needle: 'silent: i > 0 || willRetract' },
+  // ==== 2026-09-16 #553 回复链/拍一拍撤回先掷签（#345 同族收口②③，OPPO Reno6 5G 雨见 Firefox 报障「弹窗显示的字卡进聊天压根没有、是别的字卡（弹窗说早安、进聊只剩撤回墓碑+别的卡）」，用户明说多机型同现与设备无关；#550~#552 编号已被并行批次占用故顺延）：#345 只收口了 tryAutoSend，replyOnce（scheduleReply/continueChat/拍一拍追问共经）与 sendPoke 仍在 addIn 弹桌面横幅/系统通知后才掷 rc-prob——900ms 后 partialRetractMsg/retractMsg 撤回＝通知承诺的内容进聊天只剩墓碑/缺段＋同批其它字卡。修复：同 #345 投递前定生死，命中撤回的本条 silent 落地（不弹通知、不播音效、角标照增），900ms 后照常撤回，rc-refix 补发正常投递。行为断言 tools/verify-reply-retract-order.mjs 18 断言 ====
+  { name: '#553 回复链撤回先掷签（replyOnce 掷签挪回 addIn 之前；删＝通知先弹再撤回吞内容＝「弹窗说的那句进聊天没有」回归）', file: 'js/chat.js', needle: "const willRetractR = hit(c['rc-prob'])" },
+  { name: '#553 拍一拍撤回先掷签·silent 接线（sendPoke 命中撤回必须静默落地；删 silent＝撤回消息重新弹通知＝同族回归）', file: 'js/chat.js', needle: 'addIn(r.text, { type: r.type, silent: willRetractP })' },
   // ==== 2026-09-12 #346 拍卖会余缺陷批（用户「全部修复」）：结算后开🎒回不去汇总／转赠无确认易误触／寄到时背包列表 data-i 错位可能送错件／余额不足出价键静默置灰／TA掂量中返回文案误报／音效开关不记忆／矮屏(横屏)半框 68% 太挤。行为断言 tools/verify-auction-overlay.mjs G 组 ====
   { name: '#346 结算汇总 showSummary 独立成函数（内联回 endSession＝结算被🎒覆盖后回不去本场汇总）', file: 'js/auction.js', needle: 'function showSummary() {' },
   { name: '#346 转赠走全站 openModal 确认（删＝点「送TA」立即移出不可撤回＝误触丢拍品）', file: 'js/auction.js', needle: '送出后不可撤回。' },
@@ -1554,7 +1557,7 @@ const FIX_SENTINELS = [
   //      记住 lastMode；简单=纯经典三消零道具（默认）；道具=经典消消乐道具集——四连直线→↔️/↕️清整行/整列、
   //      L/T 同色交叉（合计≥5格）→💥炸弹3×3、五连+→🌈彩虹（#301 炸弹/彩虹逻辑沿用）；随批 isRainbow 值域修正：
   //      直线道具 30+/40+ 也 ≥RAINBOW，裸 `>= RAINBOW` 判彩虹会把直线道具误当彩虹）====
-  { name: '#453 消消乐道具模式门控（仅道具模式且交换首段消除才生成道具；删则简单模式也出道具＝「默认无道具」失效、或道具模式永远不出道具）', file: 'js/match3.js', needle: "chain === 1 && st.mode === 'item'" },
+  { name: '#453 消消乐道具模式门控（仅道具模式且交换首段消除才生成道具；删则简单模式也出道具＝「默认无道具」失效、或道具模式永远不出道具；2026-09-16 doSwap 快照守卫重构 st→s 随契约换锚，逻辑未变）', file: 'js/match3.js', needle: "chain === 1 && s.mode === 'item'" },
   { name: '#453 消消乐直线道具清列爆炸（↕️ 被消除清整列；删则纵向直线道具成摆设，姊妹锚 push([p[0], cc]) 守清行）', file: 'js/match3.js', needle: 'queue.push([rr, p[1]]);' },
   { name: '#453 消消乐直线道具清行爆炸（↔️ 被消除清整行；删则横向直线道具成摆设）', file: 'js/match3.js', needle: 'queue.push([p[0], cc]);' },
   { name: '#453 消消乐 L/T 同色交叉→炸弹（两道同色直线共享一格合计≥5格；删则 L/T 交叉退化普通三消＝经典消消乐包裹糖玩法丢失）', file: 'js/match3.js', needle: 'runs[i].len + runs[j].len - 1 >= 5' },
@@ -1874,6 +1877,65 @@ const FIX_SENTINELS = [
   { name: '#544 刷新归一化豁免（normCollapseRange，删则刷新后带标记答案仍会被相邻合并回吞＝屏上所见≠刷新后所见）', file: 'js/chat.js', needle: 'if (a.dedupExempt || b.dedupExempt) continue; // FIX 2026-09-15 #544' },
   { name: '#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果' },
   { name: '#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/group-decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果' },
+  // ==== 2026-09-16 #547 表情包面板「每次打开都重新加载」复发 + 拍卖会页面显示不全（小米15Pro Chrome 等多机型同发，用户明说其他设备型号也有）：
+  // ①表情面板：#457 内容指纹短路被「令牌化翻转」废掉——池视图卡被 ccTokenizeGiantMedia 异步令牌化
+  //  （dataURL→@@m:token）后原文变了、显示没变，按原文签名误判内容变化→整面板 innerHTML 重建+全部图
+  //  走媒体池重新解析＝每次开面板都重载一遍；大库令牌化 pass 跑数秒，期间每次开面板都撞上。
+  //  修法=签名改走令牌稳定身份（chatcard.js ccTokMemoRev/ccMediaCardIdent：原始大图卡与令牌卡同一短指纹）。
+  // ②我的表情包：openEmojiPanel 每次无条件 reloadMyEmojiFromIdb——大库（18MB 级、IDB-only）每开一次
+  //  面板白付一次 idbGet+JSON.parse＝「每次打开都像在加载」。修法=__myeIdbApplied 且内存非空即跳过。
+  // ③拍卖会：成交/TA拍得/流拍/扣款失败/本场结算浮层弹在 .au-stage（高=拍品卡 ~160px）内，
+  //  .pong-overlay overflow:hidden+居中＝内容超高被上下双端裁剪且无法滚动（#381 只转了背包/记录）。
+  //  修法=装得下照旧居中，装不下 safe center（顶对齐）+浮层自身可滚；#au-intro/#au-help 全屏层同族兜底。
+  // 行为断言 tools/verify-emoji-panel-reopen.mjs + tools/verify-auction-overlay-fit.mjs ====
+  { name: '#547a 表情面板签名走令牌稳定身份（删/改回原文签名＝池视图令牌化翻转后签名失配、每次开面板全量重建 img＝图片每次重载复发）', file: 'js/chat.js', needle: "var _ident = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent : null;" },
+  { name: '#547b 令牌→短指纹反查登记（删则 memo 预算淘汰后令牌卡身份回退原文截断＝签名翻转重建复发）', file: 'js/chatcard.js', needle: 'ccTokMemoRev.set(tok, ccMediaFrag(j.body));' },
+  { name: '#547c 我的表情包开门闸（删＝18MB 级库每次开面板 idbGet+JSON.parse 白付一遍＝「每次打开都像在加载」复发）', file: 'js/chat.js', needle: 'if (window.__myeIdbApplied === true && Array.isArray(myGroups) && myGroups.length) return;' },
+  { name: '#547d 拍卖结果浮层防双端裁剪（删则内容超高被 overflow:hidden 居中裁剪＝拍卖会页面显示不全复发）', file: 'css/chat-pages.css', needle: '#au-overlay:not(.au-ov-fs) { overflow-y:auto; justify-content:center; justify-content:safe center; }' },
+  { name: '#547e 拍卖全屏教学/玩法层同族防裁剪（删则横屏矮视口/大字体下开场教学按钮被裁）', file: 'css/chat-pages.css', needle: '#au-intro, #au-help { overflow-y:auto; justify-content:center; justify-content:safe center; }' },
+  { name: '#547f 落池竞态不标缺失（删则面板渲染先于 flush 读池未中→令牌被标 missing→贴纸被剔出面板变少/消失+签名数量骤变重建＝每次打开重载复发；行为断言 verify-emoji-panel-reopen B 组）', file: 'js/media-pool.js', needle: 'if (writeBuf[wi] && writeBuf[wi].k === FULL + h) { pending = true; break; }' },
+  // ===== 2026-09-16 小游戏细节优化批次（#548，行为断言 tools/verify-arcade-games-detail.mjs 72 项） =====
+  { name: '#548a 游乐室幸运池补钓鱼/合作扫雷/打砖块（删则三款游戏幸运日×2/打卡/聚合继续缺席）', file: 'js/arcade.js', needle: "{ k: 'fishing', name: '双人钓鱼' }, { k: 'ms', name: '合作扫雷' }, { k: 'brick', name: '双人打砖块' }" },
+  { name: '#548b 贪吃蛇战绩键改读 snake-score（改回 snake-stats＝「游戏体验官」徽章永远统计不到贪吃蛇复发）', file: 'js/arcade.js', needle: "snake: 'snake-score'" },
+  { name: '#548c 贪吃蛇 rAF dt 钳 250ms（删则切后台回来蛇数十倍速狂奔到撞死复发）', file: 'js/snake-game.js', needle: 'Math.min(now - lastFrameTime, 250)' },
+  { name: '#548d 贪吃蛇切后台自动暂停+存档（删则 iOS 后台杀页面丢进行中对局复发）', file: 'js/snake-game.js', needle: "document.hidden && state && state.status === 'playing') { saveGame(); togglePause(); }" },
+  { name: '#548e Pong rAF dt 钳 250ms（删则切后台回来球快进自动打完整局复发）', file: 'js/pong.js', needle: 'const dt = Math.min(ts - lastTs, 250);' },
+  { name: '#548f Pong 输局发平局档（改回与胜局同额＝输赢奖励无差别+与注释口径不符复发）', file: 'js/pong.js', needle: '(playerWin ? pongWinFen : 520)' },
+  { name: '#548g 打砖块跨刷新存档键（删则中途退出/刷新丢整局、三球类口径不齐复发）', file: 'js/breakout.js', needle: "':brick-saved'" },
+  { name: '#548h 打砖块 serve/clearing 回场缓冲（删则后台回场 serveAt 已到点秒发球无准备复发）', file: 'js/breakout.js', needle: "if (state && !paused && running && (state.status === 'serve' || state.status === 'clearing')) {" },
+  { name: '#548i 记忆翻牌先记账后发钱、写失败不发（删则配额异常封顶计数丢失反复领满复发）', file: 'js/memory-game.js', needle: "try { localStorage.setItem(storeKey('memory-coin-day'), JSON.stringify(daily)); } catch (e) { return 0; }" },
+  { name: '#548j 记忆翻牌幸运日×2（删则幸运横幅推荐但×2 永不生效复发）', file: 'js/memory-game.js', needle: 'grantCoins(totalYuan * memMult)' },
+  { name: '#548k 四子棋落子动画回调不在面板隐藏时补调度（删则关面板 TA 隐形下完一子复发）', file: 'js/connect-four.js', needle: 'if (!panel.hidden) scheduleTaMove(' },
+  { name: '#548l 合作扫雷幸运日×2（删则 ms 不在游乐室体系复发）', file: 'js/coop-mine.js', needle: 'grantCoin((base + flawless) * msMult)' },
+  { name: '#548m 钓鱼 ¥104 日封顶（删则深渊王 ¥200/条无限刷、与其他游戏口径不齐复发）', file: 'js/fishing.js', needle: "writeJSON('fishing-coin-day', { date: todayKey(), used: used + real });" },
+  { name: '#548n 钓鱼结算文案 keep 保留 2.5s（删则收竿/跑鱼提示被 render 同帧清空＝用户看不到复发）', file: 'js/fishing.js', needle: 'statusEl._keepT = setTimeout(' },
+  { name: '#548o 小游戏发奖日封顶键本地日期（改回 toISOString＝北京时间 0-8 点奖励记到前一天复发；rps/snake 走此函数）', file: 'js/chat.js', needle: "const k = 'ml2_coin_' + gameKey + '_' + rpLocalDay();" },
+  { name: '#548p 贪吃蛇奖励接幸运日×2（删则 lucky 日 snake 奖励不翻倍复发）', file: 'js/chat.js', needle: "const snkMult = (window.arcadeMult && window.arcadeMult('snake')) || 1;" },
+  { name: '#548q 拍卖落槌扣款-入库原子性（删则 persist 写失败时钱扣了收藏没进复发）', file: 'js/auction.js', needle: 'if (!persist(bagKey(), bag) || !persist(statsKey(), s)) {' },
+  { name: '#548r 拍卖 hammer 防二次扣款守卫（删则确认弹窗期间 TA 折价自动落槌后用户再确认＝双扣复发）', file: 'js/auction.js', needle: "if (!st || st.phase !== 'bidding') return;" },
+  { name: '#548s 连连看结算展示实际入账（删则王者/传奇档标称 ¥131.4/¥334.4 超封顶被静默削＝虚标复发）', file: 'js/linkup.js', needle: 'var nominal = Math.round(DIFFS[st.diff].coin * mult);' },
+  { name: '#548t 五子棋换联系人清 st（删则 A 桌面棋局在 B 桌面命名空间打完、战绩串档复发）', file: 'js/gomoku.js', needle: 'st = null; /* #548t */' },
+  { name: '#548u 消消乐换联系人清 st（同 #548t 族）', file: 'js/match3.js', needle: 'st = null; /* #548u */' },
+  { name: '#548v 连连看换联系人清 st（同 #548t 族）', file: 'js/linkup.js', needle: 'st = null; /* #548v */' },
+  // ==== 2026-09-16 #549 新手引导 / 设置搜索直达功能大全 / 字卡库空状态可点 ====
+  { name: '#549a 新手引导弹层入口（删则窗口函数消失、设置行点了没反应）', file: 'js/onboarding.js', needle: 'window.openMochiGuide = function () { build(); mask.hidden = false; };' },
+  { name: '#549b 设置搜索直达功能大全跳转行（删则搜索只能筛设置行）', file: 'js/personalize.js', needle: "jumpBtn.textContent = '在「功能大全」中搜索“' + inp.value.trim() + '” →';" },
+  { name: '#549c 功能大全带入关键词入口（删则设置搜索点了跳不过去）', file: 'js/feature-hub.js', needle: "window.mochiFeatureHubOpen = function (kw) { openHub('setting', kw); };" },
+  { name: '#549d 字卡库空状态可点（删则空列表退回死胡同、只剩一句提示）', file: 'js/chatcard.js', needle: 'if (list && !list.__ccEmptyActBound) {' },
+  // ==== 2026-09-16 #550 设置页搜索精准化（跨域登记：personalize.js 归 AI-B 本会话占用，见 WORKLOG） ====
+  { name: '#550a 设置搜索取词剔除「功能说明」.tag 胶囊（删则搜功能/说明几乎全行命中回流）', file: 'js/personalize.js', needle: "c.querySelectorAll('.tag').forEach(x => x.remove());" },
+  { name: '#550b 设置搜索口语词别名表（删则搜壁纸/通知/概率/夜间等 0 命中回流）', file: 'js/personalize.js', needle: "'深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode'" },
+  { name: '#550c 设置搜索零命中空态提示（删则搜不到时页面静默无反馈）', file: 'js/personalize.js', needle: 'emptyTip.hidden = hits > 0;' },
+  // ==== 2026-09-16 #551 清除本地数据清不空（红米 K70 Chrome 及多机型复发，#353 同族第二次） ====
+  { name: '#551a 清除范围=全部 xy-home-v2 键（退回只清 activePrefix 则其他桌面/公用数据残留＝清不空复发）', file: 'js/personalize.js', needle: 'const wipeAppKeys = function () {' },
+  { name: '#551b reload 前补刀全量 wipe（删则清窗口期内未挂屏障模块重写的键活过重置）', file: 'js/personalize.js', needle: 'idbDone.then(() => { wipeAppKeys(); try { location.reload(); } catch (e) {} });' },
+  // ==== 2026-09-16 #552 设备兼容诊断报版本偏离量（用户直接指派；device.js 归 AI-B 域，见 WORKLOG） ====
+  { name: '#552a 诊断「不一致」带落后量化（删则只说旧版不说差多少，开发者拿两个 ts 手算回流）', file: 'js/device.js', needle: "落后最新版' + devStr(r.ts - localTs)" },
+  // ==== 2026-09-16 #553 经期语境分流：经前预警日/推迟日不再发「经期中」口吻关心，改发带天数的「经期预警」 ====
+  { name: '#553a 经前预警 {d} 替换为距预测经期天数（删则经前预警不带日期参数）', file: 'js/period.js', needle: "String(line).replace(/\\{d\\}/g, String(diffDays(today, st.nextStart)));" },
+  { name: '#553b 推迟预警 {d} 替换为已推迟天数（删则推迟预警不带日期参数）', file: 'js/period.js', needle: "String(line).replace(/\\{d\\}/g, String(delayDays));" },
+  { name: '#553c 标签按语境区分（删则经前预警日又以「经期关心」标签发经期中口吻语料＝症状回流）', file: 'js/period.js', needle: "{ tag: kind === 'in' ? '经期关心' : '经期预警' }" },
+  { name: '#553d 经前预警语料分组（删则经前预警日无专属预警语、字卡库缺该组）', file: 'js/default-cards-data.js', needle: '["经前预警", [' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

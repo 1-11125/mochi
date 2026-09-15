@@ -206,17 +206,17 @@ for (let i = 0; i < 400; i++) {
   await sleep(90);
 }
 check('B5b 轻松局可完整挖完并触发胜利结算', !!chillDone, JSON.stringify(chillDone));
-r = J(await evalJs("(function(){var d=window.__msDebug,s=d.st();var k=(window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+new Date().toISOString().slice(0,10);return JSON.stringify({over:s.over,coinDay:Number(localStorage.getItem(k))||0,found:s.foundList.length});})()"));
+r = J(await evalJs("(function(){var d=window.__msDebug,s=d.st();var dt=new Date();var day=dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();var k=(window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+day;return JSON.stringify({over:s.over,coinDay:Number(localStorage.getItem(k))||0,found:s.foundList.length});})()"));
 check('B5c 完成入账：日计数 ≥¥2（完成奖励）、宝物已发现若干', r.over === true && r.coinDay >= 200 && r.found >= 1, JSON.stringify(r));
 
 // B6 金币格：+¥1 即时入账（forceMap 在 6/7 放两颗雷，让 12 格数字>0 不触发连锁，单格可控）
 const MS_MAP_CONTAINED = '[0,0,0,0,0, 1,1,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0]';
 // 心意币自 v3.15.x 起为全局一本账（根键 xy-home-v2:gift-wallet，不按桌面隔离——gift-shop.js wstore）
 const numProbe = "(function(){try{var v=JSON.parse(localStorage.getItem('xy-home-v2:gift-wallet')||'{}');return typeof v.myBalance==='number'?v.myBalance:-1;}catch(e){return -1;}})()";
-await evalJs("(function(){var d=window.__msDebug;d.setDiff('easy');d.newGame();d.forceMap(" + MS_MAP_CONTAINED + ");d.setContent(12,'coin');localStorage.removeItem((window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+new Date().toISOString().slice(0,10));return true;})()");
+await evalJs("(function(){var d=window.__msDebug;d.setDiff('easy');d.newGame();d.forceMap(" + MS_MAP_CONTAINED + ");d.setContent(12,'coin');var dt=new Date(),day=dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();localStorage.removeItem((window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+day);return true;})()");
 await sleep(120);
 const walletBeforeCoin = (await evalJs(numProbe)) || 0;
-r = J(await evalJs("(function(){var d=window.__msDebug;d.dig(12,true);var s=d.st();var k=(window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+new Date().toISOString().slice(0,10);return JSON.stringify({coinEarned:s.coinEarned,found:s.foundList[0],day:Number(localStorage.getItem(k))||0,face:(document.querySelectorAll('#ms-board .ms-cell')[12]||{}).textContent||''});})()"));
+r = J(await evalJs("(function(){var d=window.__msDebug;d.dig(12,true);var s=d.st();var dt=new Date(),day=dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();var k=(window.activePrefix&&window.activePrefix()||'xy-home-v2')+':ml2_coin_ms_'+day;return JSON.stringify({coinEarned:s.coinEarned,found:s.foundList[0],day:Number(localStorage.getItem(k))||0,face:(document.querySelectorAll('#ms-board .ms-cell')[12]||{}).textContent||''});})()"));
 // 钱包可能被无关异步写（如 TA 自动红包调度）插队——轮询等待 +100 到账，最多 2s
 let walletAfterCoin = 0;
 for (let i = 0; i < 8; i++) {

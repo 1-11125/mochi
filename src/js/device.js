@@ -788,6 +788,17 @@
     } catch (e) { return '不支持'; }
   }
   function tsStr(t) { try { return t > 0 ? new Date(t).toLocaleString() : String(t); } catch (e) { return String(t); } }
+  // v3.34.x #552：版本偏离量化——原先「不一致」只说跑的是旧版，不说差多少，
+  // 开发者要拿诊断文本里两个 ts 手算。补一个毫秒→人话差值（分钟/小时/天）。
+  function devStr(ms) {
+    if (!(ms > 0)) return '';
+    var min = Math.round(ms / 60000);
+    if (min < 1) return '不足 1 分钟';
+    if (min < 60) return '约 ' + min + ' 分钟';
+    var hr = ms / 3600000;
+    if (hr < 48) return '约 ' + (Math.round(hr * 10) / 10) + ' 小时';
+    return '约 ' + Math.round(hr / 24) + ' 天';
+  }
   // v3.25.x：cache-bust 拉远端 version.json 与本机构建时间戳比对——GitHub Pages
   // PWA 最大类报障是「SW 缓存没更新，TA 手机跑的还是旧版」，让诊断直接给结论。
   // 与 pwa.js 轮询同口径：比 ts（构建时间戳），不比版本字符串。2s 超时兜底弱网。
@@ -924,8 +935,8 @@
       L[remoteIdx] = '远端 version.json：' + (r.info ? r.info + '，' : '') + 'ts=' + r.ts + '（' + tsStr(r.ts) + '）';
       if (!localTs) { L[cmpIdx] = '比对结论：无法比较（本机无构建时间戳）'; return; }
       L[cmpIdx] = '比对结论：' + (r.ts > localTs
-        ? '不一致——TA 手机上跑的是旧版（对方点顶部更新条刷新，或关掉全部标签页重开）'
-        : (r.ts === localTs ? '一致（已是最新）' : '远端比本机还旧（GitHub Pages CDN 延迟？一般可忽略）'));
+        ? '不一致——TA 手机上跑的是旧版（落后最新版' + devStr(r.ts - localTs) + '；对方点顶部更新条刷新，或关掉全部标签页重开）'
+        : (r.ts === localTs ? '一致（已是最新）' : '远端比本机还旧（差' + devStr(localTs - r.ts) + '，GitHub Pages CDN 延迟？一般可忽略）'));
     }));
     jobs.push(swStateText().then(function (t) { L[swIdx] = 'SW：' + t; }));
     L.push('');

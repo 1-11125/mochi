@@ -257,7 +257,22 @@
       // 原 `typeof v2 !== 'string'` 放行空串 → map 永久缓存 '' + img.src=''（解析成页面 URL）
       // ＝永久坏图且占位误报「网络不通」。改与「池缺失」同路：保持令牌原样交给 #186/#202 占位；
       // 日后导入完整备份补回池键，下次渲染经此处重读即自愈（不入 map 负缓存，缺数据可重试）。
-      if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) { missing.add(h); markMissing(h); return; }
+      // FIX 2026-09-16 #547 落池竞态不标缺失：read-miss 但本哈希还在 writeBuf 待冲刷
+      // （scheduleFlush 300ms 防抖窗口内，表情面板渲染→观察器读池先于 idbSetAll 落库）＝
+      // 不是真缺失。旧路径直接 missing.add → isMediaImg 把令牌卡剔出面板（贴纸「消失/
+      // 变少」+ 签名数量骤变 → 整面板重建＝「每次打开都重新加载」复发）。改为：不标缺失、
+      // 清 tokTried 放行本图重试，交给 missRetryPump 在落池后补扫自愈；flush 真失败/被丢时
+      // writeBuf 已清，下轮读仍 miss 才走原缺失占位路径（真缺数据设备行为不变）。
+      if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) {
+        let pending = false;
+        for (let wi = 0; wi < writeBuf.length; wi++) { if (writeBuf[wi] && writeBuf[wi].k === FULL + h) { pending = true; break; } }
+        if (pending) {
+          try { if (img.dataset && img.dataset.tokTried === h) delete img.dataset.tokTried; } catch (eTT) {}
+          missRetryPump();
+          return;
+        }
+        missing.add(h); markMissing(h); return;
+      }
       missing.delete(h); // 后续读到有效值＝池已补回（导入完整备份等），解除剔除/占位
       map.set(h, v2);
       try { window.mochiMediaPhRestore(h, v2); } catch (ePH) {} // #439 已换文字占位的原位换回自愈

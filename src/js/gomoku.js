@@ -28,6 +28,7 @@
   const undoBtn = document.getElementById('gk-undo');
   const closeBtn = document.getElementById('gk-close');
   const fsBtn = document.getElementById('gk-fs');
+  const diffSel = document.getElementById('gk-diff');   // FIX 2026-09-16：头部难度下拉（对局中也可换），原只藏在结算/开始覆盖层的 pills 里
 
   // ---- #306 全屏：面板 fixed 满屏（共享 .game-fs 类，同 pong-fs 机制）。 ----
   // 重开面板无论上次怎么关的（含兄弟互斥直接 hidden）都先退出，防全屏残留 ----
@@ -123,7 +124,6 @@
       turn: 1,
       over: false,
       started: false,
-      lock: false,
       moves: 0,
       winCells: null,
       mode: 'normal',           // TA 本回合行为状态（每回合重抽）
@@ -174,7 +174,7 @@
     }
     return null;
   }
-  function isFull(grid) { return st.moves >= N * N; }
+  function isFull() { return st.moves >= N * N; }
 
   // ---- TA 选点：一步判断 + 候选打分（不改动棋盘，纯函数便于验证） ----
   // 假设 side 落在 (r,c)：四方向各数「连子数 + 两端开放数」按棋型打分。
@@ -419,7 +419,7 @@
     if (forced) taSay(pick(['这手我不能装没看见～', '堵你！别想连五']));
     const line = winLineAt(st.grid, pt[0], pt[1], 2);
     if (line) { highlightWin(line); endGame(2); return; }
-    if (isFull(st.grid)) { endGame(0); return; }
+    if (isFull()) { endGame(0); return; }
     st.turn = 1;
     showTurnStatus();
   }
@@ -434,7 +434,7 @@
     markLast(r, c);
     const line = winLineAt(st.grid, r, c, 1);
     if (line) { highlightWin(line); endGame(1); return; }
-    if (isFull(st.grid)) { endGame(0); return; }
+    if (isFull()) { endGame(0); return; }
     st.turn = 2;
     scheduleTaMove(THINK_MIN + Math.random() * THINK_VAR);
   }
@@ -466,7 +466,7 @@
 
   // ---- 结束：结果 / 战绩 / 聊天联动 ----
   function endGame(winner) {
-    st.over = true; st.lock = false;
+    st.over = true;
     clearTimeout(thinkT); thinkT = null;
     const s = loadStats();
     if (winner === 1) { s.w++; s.nextFirst = 'ta'; }
@@ -483,7 +483,9 @@
     var dropLine = '';
     try {
       var COIN_CAP = 10400;
-      var day = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var dg = new Date();
+      var day = dg.getFullYear() + '-' + (dg.getMonth() + 1) + '-' + dg.getDate();
       var ck = prefix() + ':ml2_coin_gomoku_' + day;
       var cur = Number(localStorage.getItem(ck)) || 0;
       if (cur < COIN_CAP) {
@@ -533,7 +535,10 @@
       const fb = winner === 1 ? ['让你赢啦，再来？'] : winner === 2 ? ['五连！我赢啦'] : ['平局，再来一局？'];
       const pool = window.getInteractPool ? window.getInteractPool(grp, fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
+      // FIX 2026-09-16：800ms 内切联系人桌面，TA 回应会发进新桌面的聊天流——回调前校验命名空间未变
+      const cidAtEnd = prefix();
       setTimeout(() => {
+        if (prefix() !== cidAtEnd) return;
         try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
       }, 800);
     } catch (e) {}
@@ -601,6 +606,16 @@
     soundBtn.textContent = soundOn ? '🔊' : '🔇';
     soundBtn.classList.toggle('pong-sound-off', !soundOn);
   });
+  // FIX 2026-09-16：头部难度下拉与覆盖层 pills 双向同步（match3/linkup 同款交互）
+  if (diffSel) diffSel.addEventListener('change', () => {
+    if (!DIFFS[diffSel.value]) return;
+    selDiff = diffSel.value;
+    const stat = loadStats();
+    stat.lastDiff = selDiff;
+    saveStats(stat);
+    const curEl = document.getElementById('gk-cur');
+    if (curEl) curEl.textContent = diffHint();
+  });
 
   // ---- 打开 / 关闭 ----
   function setNames() {
@@ -618,6 +633,7 @@
     if (!boardEl.children.length) { try { buildBoard(); } catch (e) {} }
     panel.hidden = false;
     try { const s = loadStats(); if (DIFFS[s.lastDiff]) selDiff = s.lastDiff; } catch (e) {}
+    try { if (diffSel && DIFFS[selDiff]) diffSel.value = selDiff; } catch (e) {}
     try { setNames(); } catch (e) {}
     try { fitBoard(); } catch (e) {}
     // 有进行中的对局 → 接着玩（关面板期间轮到 TA 的补调度）
@@ -635,7 +651,9 @@
     if (panel) panel.hidden = true;
   }
   window.closeGomokuPanel = closePanel;
-  document.addEventListener('contact-switched', () => { try { closePanel(); } catch (e) {} });
+  // FIX 2026-09-16：原只关面板不清 st——换联系人后重开面板走「接着玩」分支，
+  // 旧桌面的棋局在新联系人命名空间下打完，战绩/先手/封顶计数全串档
+  document.addEventListener('contact-switched', () => { try { closePanel(); st = null; /* #548t */ } catch (e) {} });
   window.addEventListener('resize', () => { if (!panel.hidden) fitBoard(); });
 
   // ---- 入口：聊天更多功能 → 小游戏 → 五子棋（自绑定，chat.js 不改） ----

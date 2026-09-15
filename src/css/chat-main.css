@@ -1190,12 +1190,15 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .msg-survey-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
 .msg-survey-item { font-size:13px; color:var(--ink); line-height:1.5; }
 .msg-survey-q { font-weight:600; word-break:break-word; }
-.msg-survey-opts { display:flex; flex-wrap:nowrap; justify-content:center; gap:4px; margin-top:5px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.msg-survey-opts { display:flex; flex-wrap:nowrap; justify-content:center; gap:6px; margin-top:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+/* 选项观感对齐单题作答的选项 chip（.msg-inplace .ip-chip：白底 + 细边 + 墨色字），
+   不再用灰色小标签；TA 选中的那个加 .sel 高亮（同 .ip-opt-row.sel 口径） */
 .msg-survey-opt {
   flex:0 0 auto; white-space:nowrap;
-  font-size:11px; color:var(--muted); background:rgba(0,0,0,.05);
-  border-radius:8px; padding:2px 8px;
+  padding:6px 12px; border:1px solid rgba(0,0,0,.12); border-radius:16px;
+  background:#fff; color:var(--ink); font-size:12px;
 }
+.msg-survey-opt.sel { border-color:var(--ink); font-weight:700; }
 .msg-survey-a { font-size:12px; font-weight:600; color:#3b7a4e; margin-top:4px; word-break:break-word; }
 .msg-survey-tip { font-size:11px; color:var(--muted); margin-top:8px; }
 

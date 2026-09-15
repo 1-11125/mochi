@@ -41,7 +41,7 @@
     // 群聊美化（gc-beauty）、开启开关（group-chat-enabled）都是群聊（全局功能）的
     // 根命名空间键，绝不能迁移进 default 桌面（否则切换桌面后设置读不到全局值、仿佛"丢失"）
     'gc-profiles', 'gc-beauty', 'group-chat-enabled',
-    '__last-backup', '__last-backup-remind', '__onboard-done', '__edge-backup-hint-done', '__auto-backup-snapshot',
+    '__last-backup', '__last-backup-remind', '__onboard-done', '__guide-done', '__edge-backup-hint-done', '__auto-backup-snapshot',
     // #260：__ka-hb（后台保活心跳取证键，bg-keep.js 隐藏期每 30s 写 IDB 根键）——
     // 全局取证键（跨桌面语义相同），绝不随联系人隔离迁移
     '__ka-hb',

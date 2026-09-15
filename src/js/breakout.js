@@ -92,6 +92,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 锁屏/来电后 ctx 挂起，不 resume 则此后音效永久哑音（connect-four 同款修法）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'square';
       g.gain.value = vol || 0.15;   // v3.15.x：默认 0.05→0.15，用户反馈边听音乐边玩时音效听不清
@@ -564,6 +566,7 @@
   function endGame(s, now) {
     s.status = 'over';
     stopLoop();
+    clearSavedBrick();   // 对局已结束，清跨刷新存档
     let best = loadBest();
     const isBest = s.score > best;
     if (isBest) { best = s.score; try { localStorage.setItem(bestKey(), String(best)); } catch (e) {} }
@@ -575,11 +578,14 @@
     var coinLineBrick = '';
     try {
       var COIN_CAP = 15600;
-      var day = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var day = (function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })();
       var ck = (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':ml2_coin_brick_' + day;
       var cur = Number(localStorage.getItem(ck)) || 0;
       if (cur < COIN_CAP) {
-        var real = Math.min([520, 1314, 5200][stars - 1], COIN_CAP - cur);
+        // FIX 2026-09-16：幸运日（游乐室）奖励 ×2，仍受日封顶约束
+        var brickMult = (window.arcadeMult && window.arcadeMult('brick')) || 1;
+        var real = Math.min([520, 1314, 5200][stars - 1] * brickMult, COIN_CAP - cur);
         try { localStorage.setItem(ck, String(cur + real)); } catch (e2) {}
         if (real > 0 && typeof window.giftWalletChange === 'function') {
           if (window.giftWalletChange(real, real, '双人打砖块')) {
@@ -588,12 +594,26 @@
         }
       }
     } catch (e) {}
+    // FIX 2026-09-16：接游乐室三件套（此前打砖块完全不在体系内）——幸运日打卡；
+    // 合作清层无胜负，按「❤≥2（配合不错以上）」视作胜利时刻参与 8% 掉落；战绩入 brick-stats 供聚合页
+    var brickDrop = null;
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('brick');
+      if (stars >= 2 && window.arcadeTryDrop) brickDrop = window.arcadeTryDrop('brick');
+      var bsk = (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':brick-stats';
+      var bsRaw = localStorage.getItem(bsk);
+      var bs = { plays: 0, layers: 0 };
+      if (bsRaw) { try { bs = Object.assign(bs, JSON.parse(bsRaw)); } catch (e5) {} }
+      bs.plays++; bs.layers += Math.max(0, doneLv);
+      localStorage.setItem(bsk, JSON.stringify(bs));
+    } catch (e) {}
     const body =
       '<div class="pong-end-score">' + s.score + ' 分</div>' +
       '<div class="brick-rate">' + '❤️'.repeat(stars) + '<span>' + '🤍'.repeat(3 - stars) + '</span> · ' + rateTxt + '</div>' +
       '<div class="pong-end-stat">最高连击 ×' + s.maxCombo + ' · 清除砖块 ' + s.bricksCleared + ' 块</div>' +
       '<div class="pong-end-stat">完成层数 ' + doneLv + ' · 历史最佳 ' + best + ' 分' + (isBest ? ' 🎉新纪录' : '') + '</div>' +
-      (coinLineBrick ? '<div class="pong-end-stat">' + coinLineBrick + '</div>' : '');
+      (coinLineBrick ? '<div class="pong-end-stat">' + coinLineBrick + '</div>' : '') +
+      (brickDrop ? '<div class="pong-end-stat">🎁 掉落限定摆件「' + brickDrop.name + '」</div>' : '');
     showOverlay(T('游戏结束'), body, '再来一局');
     if (overlayCloseBtn) { overlayCloseBtn.hidden = false; overlayCloseBtn.textContent = '返回小游戏'; }
     // 写聊天记录（居中小卡片）+ TA 回应（固定发送，语气随机二选一）
@@ -821,14 +841,21 @@
 
   function renderInfo(s) {
     if (!scoreEl) return;
-    scoreEl.textContent = s.score;
-    if (comboEl) comboEl.textContent = s.combo >= 2 ? '×' + s.combo : '';
+    // FIX 2026-09-16：原每帧无脑写 textContent（同值也置脏）——score/combo/level 改 dataset 缓存（lives 同款先例）
+    if (scoreEl.dataset.h !== String(s.score)) { scoreEl.textContent = s.score; scoreEl.dataset.h = String(s.score); }
+    if (comboEl) {
+      const ct = s.combo >= 2 ? '×' + s.combo : '';
+      if (comboEl.dataset.h !== ct) { comboEl.textContent = ct; comboEl.dataset.h = ct; }
+    }
     if (livesEl) {
       const full = '❤'.repeat(Math.max(0, s.lives));
       const lost = '<span class="brick-hlost">' + '❤'.repeat(Math.max(0, 3 - s.lives)) + '</span>';
       if (livesEl.dataset.h !== full + (3 - s.lives)) { livesEl.innerHTML = full + lost; livesEl.dataset.h = full + (3 - s.lives); }
     }
-    if (levelEl) levelEl.textContent = s.level;
+    if (levelEl) {
+      const lt = String(s.level);
+      if (levelEl.dataset.h !== lt) { levelEl.textContent = s.level; levelEl.dataset.h = lt; }
+    }
   }
 
   function loop(ts) {
@@ -1091,6 +1118,8 @@
     const dir = keyToDir(e.key.toLowerCase());
     if (dir) keys[dir] = false;
   });
+  // FIX 2026-09-16：按住方向键切走窗口（来电/alt-tab）keyup 丢失，回来挡板自己漂移到边界——失焦即清键
+  window.addEventListener('blur', () => { keys.left = false; keys.right = false; });
 
   // ---- 按钮 ----
   if (diffSel) diffSel.addEventListener('change', () => {
@@ -1141,9 +1170,43 @@
   if (fsBtn) fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFs(); });
 
   // 切后台自动暂停（回来自动恢复太突兀，保持暂停由玩家自己继续）
+  // FIX 2026-09-16：补 serve/clearing 两态的后台处理——它们的 serveAt 是绝对时间戳，
+  // 后台待一阵回场即「已到点」秒发球，玩家毫无准备；回场统一重给 900ms 缓冲；后台期间顺带存档。
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && running && !paused && state && state.status === 'rally') togglePause();
+    if (document.visibilityState === 'hidden') {
+      if (running && !paused && state && state.status !== 'over') {
+        if (state.status === 'rally') { saveGame(); togglePause(); }
+        else saveGame();
+      }
+      return;
+    }
+    if (state && !paused && running && (state.status === 'serve' || state.status === 'clearing')) {
+      state.serveAt = performance.now() + 900;
+    }
   });
+
+  // ---- 跨刷新存档（FIX 2026-09-16：原只存内存，刷新/后台被杀丢整局；snake/pong 都有 *-saved 同款） ----
+  function savedKey() { return (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':brick-saved'; }
+  function canPersist(s) { return !!(s && s.status !== 'over' && s.lives > 0 && (s.bricksCleared + s.score > 0)); }
+  function saveGame() {
+    try {
+      if (!canPersist(state)) { localStorage.removeItem(savedKey()); return; }
+      const c = JSON.parse(JSON.stringify(state));
+      c.floaters = []; c.parts = []; c.taBubble = null;   // 纯视觉瞬时字段不入档
+      c.balls.forEach((b) => { b.trail = []; });
+      localStorage.setItem(savedKey(), JSON.stringify(c));
+    } catch (e) {}
+  }
+  function loadSavedBrick() {
+    try {
+      const raw = localStorage.getItem(savedKey());
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !s.params || !s.player || !s.dream || s.status === 'over' || !(s.lives > 0)) { clearSavedBrick(); return null; }
+      return s;
+    } catch (e) { return null; }
+  }
+  function clearSavedBrick() { try { localStorage.removeItem(savedKey()); } catch (e) {} }
 
   // ---- 入口（供 chat.js 调用） ----
   // 只读调试口（tools/verify-brick.mjs 专用：读取/注入 state 跑确定性用例）
@@ -1174,6 +1237,7 @@
       showOverlay(T('双人打砖块'), '<div class="pong-start-tip">进行中 · ' + state.score + ' 分 · 第 ' + state.level + ' 层</div>', '继续');
       armResume(function () {
         hideOverlay();
+        if (state.status === 'serve' || state.status === 'clearing') state.serveAt = performance.now() + 900;
         paused = false;
         running = true; lastTs = 0; acc = 0;
         if (rafId) cancelAnimationFrame(rafId);
@@ -1183,6 +1247,26 @@
       // 进行中也可放弃旧局重新开局（球数/难度按当前选择即时生效）
       if (overlayCloseBtn) { overlayCloseBtn.hidden = false; overlayCloseBtn.textContent = '新开局'; }
       return;
+    }
+    // FIX 2026-09-16：跨刷新存档恢复（内存没有进行中对局时，试 localStorage 的 brick-saved）
+    if (!state || state.status === 'over') {
+      const sv = loadSavedBrick();
+      if (sv) {
+        state = sv;
+        showOverlay(T('双人打砖块'), '<div class="pong-start-tip">有未完成的对局 · ' + state.score + ' 分 · 第 ' + state.level + ' 层</div>', '继续');
+        armResume(function () {
+          hideOverlay();
+          if (state.status === 'serve' || state.status === 'clearing') state.serveAt = performance.now() + 900;
+          else if (state.status === 'rally') state.lastBrickAt = performance.now();   // 看门狗重新计时
+          paused = false;
+          running = true; lastTs = 0; acc = 0;
+          if (rafId) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(loop);
+          if (pauseBtn) pauseBtn.textContent = '⏸';
+        });
+        if (overlayCloseBtn) { overlayCloseBtn.hidden = false; overlayCloseBtn.textContent = '新开局'; }
+        return;
+      }
     }
     const best = loadBest();
     armResume(null);
@@ -1200,6 +1284,7 @@
     if (overlayCloseBtn) overlayCloseBtn.hidden = true;
   };
   window.closeBrickPanel = function () {
+    if (canPersist(state)) saveGame();   // FIX 2026-09-16：跨刷新存档（原关面板只停循环不落盘）
     stopLoop();
     if (isNativeFs()) { exitNativeFs(); }        // 真全屏 → 退出（fullscreenchange 收尾视觉）
     else if (isFs) { exitFsVisual(); }

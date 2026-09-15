@@ -298,11 +298,13 @@
   }
 
   function setStatus(html) { if (statusEl) statusEl.innerHTML = html; }
+  // FIX 2026-09-16：状态栏 innerHTML 拼 TA 名字（cs-lbl-partner 用户可控）未转义——名字走 esc 再拼
+  function escName() { const n = String(T('TA')); const d = document.createElement('div'); d.textContent = n; return d.innerHTML; }
   function dot(side) { return '<i class="c4-dot ' + (side === 1 ? 'c4-dot-you' : 'c4-dot-ta') + '"></i>'; }
   function showTurnStatus() {
     if (!statusEl) return;
     if (st.over) return;
-    setStatus(st.turn === 1 ? dot(1) + '你的回合' : T('TA') + '正在想……');
+    setStatus(st.turn === 1 ? dot(1) + '你的回合' : escName() + '正在想……');
   }
 
   // ---- 对局流程 ----
@@ -325,7 +327,7 @@
   function scheduleTaMove(delay) {
     clearTimeout(thinkT);
     const line = THINK_LINES[Math.floor(Math.random() * THINK_LINES.length)];
-    setStatus(T(line).replace('TA', T('TA')));
+    setStatus(T(line).replace('TA', escName()));
     thinkT = setTimeout(taMove, Math.round(delay * fastMul()));
   }
   function taMove() {
@@ -368,7 +370,9 @@
       if (line) { highlightWin(line); endGame(1); return; }
       if (isFull(st.grid)) { endGame(0); return; }
       st.turn = 2;
-      scheduleTaMove(THINK_MIN + Math.random() * THINK_VAR);
+      // FIX 2026-09-16：关面板后落子动画回调再补调度，会让 TA 在面板隐藏时下完一子
+      // （与 closeC4Panel 清 thinkT 的暂停语义矛盾）——隐藏时只置回合，重开面板走补调度
+      if (!panel.hidden) scheduleTaMove(THINK_MIN + Math.random() * THINK_VAR);
     });
   }
   function highlightWin(cells) {
@@ -394,12 +398,16 @@
     var coinLine4 = '';
     try {
       var COIN_CAP = 10400;
-      var day4 = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var d4 = new Date();
+      var day4 = d4.getFullYear() + '-' + (d4.getMonth() + 1) + '-' + d4.getDate();
       var ck4 = (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':ml2_coin_c4_' + day4;
       var cur4 = Number(localStorage.getItem(ck4)) || 0;
       if (cur4 < COIN_CAP) {
         var c4WinFen = Math.random() < 0.2 ? 5200 : 1314;
-        var real4 = Math.min(winner === 0 ? 520 : c4WinFen, COIN_CAP - cur4);
+        // FIX 2026-09-16：幸运日（游乐室）奖励 ×2，仍受日封顶约束
+        var c4Mult = (window.arcadeMult && window.arcadeMult('c4')) || 1;
+        var real4 = Math.min((winner === 0 ? 520 : c4WinFen) * c4Mult, COIN_CAP - cur4);
         try { localStorage.setItem(ck4, String(cur4 + real4)); } catch (e2) {}
         if (real4 > 0 && typeof window.giftWalletChange === 'function') {
           if (window.giftWalletChange(real4, real4, '四子棋')) {
@@ -408,18 +416,25 @@
         }
       }
     } catch (e) {}
+    // FIX 2026-09-16：接游乐室三件套——幸运日打卡 + 玩家胜利 8% 掉限定摆件（此前 ×2/掉落经 c4 永不生效）
+    var c4Drop = null;
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('c4');
+      if (winner === 1 && window.arcadeTryDrop) c4Drop = window.arcadeTryDrop('c4');
+    } catch (e) {}
     const title = winner === 1 ? '🏆 你赢了！' : winner === 2 ? T('TA') + '赢了' : '平局';
     const body =
       '<div class="pong-end-stat">本局共 ' + st.moves + ' 手</div>' +
       '<div class="pong-end-stat">' + statsLine() + '</div>' +
       '<div class="pong-end-stat">下一局 ' + (s.nextFirst === 'you' ? '你' : T('TA')) + '先手</div>' +
       (coinLine4 ? '<div class="pong-end-stat">' + coinLine4 + '</div>' : '') +
+      (c4Drop ? '<div class="pong-end-stat">🎁 掉落限定摆件「' + c4Drop.name + '」</div>' : '') +
       pillsHtml() +
       '<div class="ms-cur">' + diffHint() + '</div>';
     showOverlay(title, body, '再来一局');
     if (startBtn) startBtn.textContent = '再来一局';
     if (endBtn) endBtn.hidden = false;
-    setStatus(winner === 1 ? '🎉 你赢了！' : winner === 2 ? T('TA') + '赢了这一局' : '这局没有分出胜负');
+    setStatus(winner === 1 ? '🎉 你赢了！' : winner === 2 ? escName() + '赢了这一局' : '这局没有分出胜负');
     // 写聊天系统消息 + TA 随机回应（分组语义同贪吃蛇：输的一方视角）
     try {
       const resTxt = winner === 1 ? '你赢' : winner === 2 ? T('TA') + '赢' : '平局';

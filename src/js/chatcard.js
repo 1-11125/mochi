@@ -154,6 +154,7 @@
           if (gen !== ccTokGen[sl]) return;
           if (tok) {
             ccTokMemo.set(j.body, tok); ccTokMemoChars += j.body.length;
+            ccTokMemoRev.set(tok, ccMediaFrag(j.body)); // #547：token→短指纹，供 ccMediaCardIdent 令牌化前后同身份
             while (ccTokMemoChars > CC_TOK_MEMO_MAX_CHARS && ccTokMemo.size) {
               const fk = ccTokMemo.keys().next().value;
               ccTokMemoChars -= fk.length; ccTokMemo.delete(fk);
@@ -212,6 +213,10 @@
   // 每次保存/读取对整库 JSON.stringify/parse 在 iOS WebKit 上是秒级长任务=卡死根因，
   // 砍到 512KB base64（≈380KB 文件）守住单卡体积；已有大 GIF 靠用户手动清理（先备份）。
   const CC_GIF_MAX_B64 = 512 * 1024;
+  // FIX 2026-09-16 #554（TASKS #128）字卡图令牌化最小体积（base64 字符数，≈3KB 图）：
+  // 再小的是图标/占位，令牌化收益不抵池条目与异步解析开销；≥此值的上传与存量迁移都走
+  // 媒体池令牌（mochiMediaTokenize 自身另有 ≥1024 硬门，此处收紧到 4096）。
+  const CC_CC_TOK_MIN = 4096;
   function mergeWithPublic(g) {
     const p = pubGroupsRaw();
     let has = false;
@@ -1406,11 +1411,31 @@
     ccPoolHarvest(list);
     list.innerHTML = '';
     if (!shown.length) {
+      const isVoice = cur === 'voice';
       const emptyTxt = cur === 'sticker' ? '暂无表情包 · 点击右上角批量导入上传图片'
         : cur === 'image' ? '暂无图片 · 点击右上角批量导入上传图片'
         : cur === 'voice' ? '暂无语音 · 点击右上角批量导入上传音频'
         : '暂无字卡';
-      list.innerHTML = '<div class="cc-empty">' + emptyTxt + '</div>';
+      // #549 空状态可点：原来只写「点右上角」要用户自己找；这里直接给按钮，点了即触发右上角
+      // 同一入口（批量导入/链接导入），空列表不再是死胡同。按钮用内联样式，不动共享 CSS。
+      const impLabel = isVoice ? '批量导入音频' : (cur === 'sticker' || cur === 'image') ? '批量导入图片' : '批量导入字卡';
+      list.innerHTML = '<div class="cc-empty-wrap" style="grid-column:1/-1">'
+        + '<div class="cc-empty">' + emptyTxt + '</div>'
+        + '<div class="cc-empty-act" style="display:flex;gap:8px;justify-content:center;padding:0 0 20px">'
+        + '<button type="button" class="cc-empty-btn" data-cc-empty="import" style="padding:9px 15px;border:0;border-radius:10px;background:var(--ink,#111);color:var(--card-bg,#fff);font-size:13px;font-weight:700;cursor:pointer">' + impLabel + '</button>'
+        + (isVoice ? '' : '<button type="button" class="cc-empty-btn" data-cc-empty="link" style="padding:9px 15px;border:0;border-radius:10px;background:rgba(0,0,0,.06);color:var(--ink,#111);font-size:13px;font-weight:700;cursor:pointer">链接导入</button>')
+        + '</div></div>';
+      // 一次性委托：点空状态按钮 → 透传到右上角既有入口（不重复实现导入逻辑）
+      if (list && !list.__ccEmptyActBound) {
+        list.__ccEmptyActBound = true;
+        list.addEventListener('click', (e) => {
+          const b = e.target && e.target.closest ? e.target.closest('[data-cc-empty]') : null;
+          if (!b) return;
+          e.preventDefault(); e.stopPropagation();
+          const el = document.getElementById(b.getAttribute('data-cc-empty') === 'link' ? 'cc-import-link' : 'cc-import');
+          if (el) el.click();
+        });
+      }
       return;
     }
     // 展开扁平结构：分组 header 与字卡项交错（header 带 data-g 供局部更新定位）
@@ -2998,9 +3023,15 @@
                 // 语音：存 "文件名|||音频数据"，图片/表情：存图片 dataURL
                 // v3.6.x：文件名去掉 mp3/mp4 等后缀（聊天里语音名称不显示 .mp3/.mp4）
                 const val = cur === 'voice' ? ((f.name || '音频').replace(/\.[^.]+$/, '') + '|||' + data) : data;
-                g[1].push(val);
-                done++;
-                if (done === files.length) finishUpload(done - skipped, skipped);
+                // FIX 2026-09-16 #554（TASKS #128）字卡媒体令牌化持久化·上传口：
+                // 表情包/图片 ≥CC_CC_TOK_MIN 先写媒体池、库键只存 @@m: 令牌——同一张图全库
+                // （公用+各专属，哈希寻址）只存一份。池写失败/非安全上下文回退内联原值，
+                // 上传永不因池失败而丢图；令牌渲染/导出还原/GC 保护消费方均已就绪（见迁移函数注释）。
+                const commit = (v) => { g[1].push(v); done++; if (done === files.length) finishUpload(done - skipped, skipped); };
+                if (cur !== 'voice' && window.mochiMediaTokenize && typeof data === 'string' && data.length >= CC_CC_TOK_MIN) {
+                  try { window.mochiMediaTokenize(data).then((tok) => commit(tok || val)).catch(() => commit(val)); return; } catch (e) { commit(val); return; }
+                }
+                commit(val);
               };
               // v3.8.x：语音先归一化 MIME（安卓/雨见下 File.type 为空时 dataURL 无 audio/ 前缀，
               // 会触发乱码+无法播放），再存文件
@@ -3520,6 +3551,26 @@
       return arr.map(g => [g[0], (g[1] || []).filter(isMediaImg)]);
     }
     return arr;
+  };
+  // FIX 2026-09-16 #547：令牌化稳定的卡身份——同一张图「原始 dataURL 形态」与「@@m: 令牌形态」
+  // 算出同一个短身份串，供表情面板等消费方做内容签名（不改任何库数据，纯读侧映射）。
+  // · 令牌卡：反查 ccTokMemoRev 取内容短指纹；反查不到（别处来的令牌）退令牌头定长截断＝本会话内仍稳定；
+  // · ≥64KB 大图卡（会被令牌化的）：与 ccTokMemoRev 登记侧同式短指纹（ccMediaFrag）——
+  //   令牌化前后两次计算逐字符相同，签名不再翻转；
+  // · 其余卡（短 dataURL/文字/语音）：定长截断，行为与旧「按原文签名」等价稳定。
+  window.ccMediaCardIdent = function (card) {
+    try {
+      if (typeof card !== 'string') return String(card);
+      const bar = card.indexOf('|||');
+      const body = bar >= 0 ? card.slice(bar + 3) : card;
+      const pre = bar >= 0 ? card.slice(0, bar + 3) : '';
+      if (body.indexOf('@@m:') === 0) {
+        const f = ccTokMemoRev.get(body);
+        return f ? (pre + f) : (pre + body.slice(0, 72));
+      }
+      if (body.length >= CC_MEDIA_TOKEN_THRESHOLD && body.indexOf('data:image/') === 0) return pre + ccMediaFrag(body);
+      return card.length > 120 ? (card.slice(0, 60) + '~' + card.length) : card;
+    } catch (e) { return String(card); }
   };
 
   // #317 梦角自由造句：程序化追加字卡进指定作用域库的指定分类/分组

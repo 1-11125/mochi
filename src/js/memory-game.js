@@ -112,14 +112,16 @@
     const remain = Math.max(0, capFen - daily.total);
     const grantFen = Math.min(Math.round(yuan * YUAN), remain);
     if (grantFen > 0) {
+      // FIX 2026-09-16：先落盘日封顶计数再入账（原顺序相反且写失败被静默吞——
+      // iOS 无痕/配额满时封顶计数丢失，可反复领满）；写失败直接不发。
+      daily.total += grantFen;
+      try { localStorage.setItem(storeKey('memory-coin-day'), JSON.stringify(daily)); } catch (e) { return 0; }
       if (window.giftWalletChange) window.giftWalletChange(grantFen, grantFen, '记忆翻牌');
       else {
         const w = walletGet();
         w.myBalance = (w.myBalance || 0) + grantFen;
         walletSet(w);
       }
-      daily.total += grantFen;
-      writeDaily(daily);
     }
     return grantFen;
   }
@@ -130,6 +132,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：ctx 挂起不 resume 则永久哑音（iOS 锁屏/来电后；TA 先手时首声尤其必哑）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'sine';
       g.gain.value = vol || 0.08;
@@ -404,7 +408,15 @@
     const firstClear = firsts.indexOf(g.diff) < 0;
     if (firstClear) { firsts.push(g.diff); writeFirst(firsts); }
     const totalYuan = COIN_CLEAR + Math.round(g.coinFen / YUAN) + COIN_ALL + (firstClear ? COIN_FIRST : 0);
-    const grantedYuan = Math.round(grantCoins(totalYuan) / YUAN);
+    // FIX 2026-09-16：接游乐室三件套——幸运日奖励 ×2、幸运星打卡、通关 8% 掉限定摆件
+    // （memory 本就在 LUCKY_KEYS/聚合页里，此前 ×2 与掉落经此游戏永不生效）
+    const memMult = (window.arcadeMult && window.arcadeMult('memory')) || 1;
+    const grantedYuan = Math.round(grantCoins(totalYuan * memMult) / YUAN);
+    let memDrop = null;
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('memory');
+      if (window.arcadeTryDrop) memDrop = window.arcadeTryDrop('memory');
+    } catch (e) {}
 
     // 历史统计
     const stats = readStats();
@@ -422,8 +434,9 @@
         '<div class="pong-end-stat">你　配对 ' + g.myPairs + ' · 翻牌 ' + g.myFlips + ' 次</div>' +
         '<div class="pong-end-stat">' + T('TA') + '　配对 ' + g.taPairs + ' · 翻牌 ' + g.taFlips + ' 次</div>' +
         '<div class="memory-res-chem">💕 默契 ' + g.chemistry + '</div>' +
-        '<div class="memory-res-coin">获得心意币 +' + grantedYuan + (grantedYuan < totalYuan ? '（今日奖励已达上限 +' + COIN_DAILY_CAP + '）' : (firstClear ? '（首次通关' + g.params.label + '）' : '')) + '</div>' +
-        '<div class="pong-end-stat">累计完成 ' + stats.clears + ' 局 · 历史最佳默契 ' + stats.bestChem + '</div>';
+        '<div class="memory-res-coin">获得心意币 +' + grantedYuan + (grantedYuan < totalYuan * memMult ? '（今日奖励已达上限 +' + COIN_DAILY_CAP + '）' : (firstClear ? '（首次通关' + g.params.label + '）' : '')) + '</div>' +
+        '<div class="pong-end-stat">累计完成 ' + stats.clears + ' 局 · 历史最佳默契 ' + stats.bestChem + '</div>' +
+        (memDrop ? '<div class="pong-end-stat">🎁 掉落限定摆件「' + memDrop.name + '」</div>' : '');
     }
     if (overlayBtnEl) overlayBtnEl.textContent = '再玩一局';
     if (overlayBtn2El) { overlayBtn2El.textContent = '返回小游戏'; overlayBtn2El.hidden = false; }
@@ -477,7 +490,9 @@
   // ---- 玩家点击 ----
   function onCardClick(idx) {
     const g = game;
-    if (!g || g.phase !== 'idle' || g.turn !== 'player') return;
+    if (!g || g.phase !== 'idle') return;
+    // FIX 2026-09-16：TA 回合点牌原先完全静默——给一次轻提示（c4 满列 shake 提示同思路）
+    if (g.turn !== 'player') { hint(T('TA') + '翻牌中 · 等它翻完'); return; }
     const card = g.cards[idx];
     if (!card || card.matched || card.flipped) return;
     flipCard(card);
@@ -540,6 +555,16 @@
     });
   }
   document.addEventListener('contact-switched', () => { try { window.closeMemoryPanel(); } catch (e) {} });
+  // FIX 2026-09-16：全屏玩到一半旋转手机，棋盘尺寸/字号停在旧值——补 resize 重适配（c4/coop-mine 同款）
+  window.addEventListener('resize', () => { try { if (!panel.hidden) fitBoard(); } catch (e) {} });
+  // FIX 2026-09-16：打开面板的首个手势解锁 AudioContext（TA 先手时首声在 setTimeout 里无手势，
+  // 仅靠 beep 内 resume 在 iOS 上不够）
+  if (panel) panel.addEventListener('pointerdown', function () {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
+    } catch (e) {}
+  }, { capture: true });
 
   // ---- 入口：聊天更多功能 → 小游戏 → 记忆翻牌（自绑定，chat.js 不改） ----
   (function bindEntry() {

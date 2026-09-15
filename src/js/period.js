@@ -37,13 +37,37 @@
     '经期情绪低落是正常的，不是你的错，我在',
     '抱抱，今天什么都不做也行，就躺着'
   ];
-  var PERIOD_CARE_LINES = (function () {
+  function cardGroupLines(name, fb) {
     try {
       var g = window.DEFAULT_CARD_DATA && window.DEFAULT_CARD_DATA.period;
-      if (g && g[0] && Array.isArray(g[0][1]) && g[0][1].length) return g[0][1];
+      if (Array.isArray(g)) {
+        for (var i = 0; i < g.length; i++) {
+          if (g[i] && g[i][0] === name && Array.isArray(g[i][1]) && g[i][1].length) return g[i][1];
+        }
+      }
     } catch (e) {}
-    return PERIOD_CARE_FALLBACK;
-  })();
+    return fb;
+  }
+  var PERIOD_CARE_LINES = cardGroupLines('经期关心', PERIOD_CARE_FALLBACK);
+  // v3.42.x #553：经前预警/经期推迟专属语——此前经前提醒日/推迟日与经期中共用「经期关心」
+  //   语料（经期中口吻），经期还没到就在聊天里发「今天经期第几天了？肚子还痛不痛」
+  //   （用户反馈「还没到经期时间，联系人直接在聊天里发送了经期关心」）。现按语境分流：
+  //   经前预警日/推迟日只从对应分组抽预警语（{d} 由 checkCare 替换为具体天数），附
+  //   「经期预警」标签；「经期关心」标签与原语料仅经期中使用。单卡开关 dc-off-period:*。
+  var PERIOD_PREWARN_FALLBACK = [
+    '算算日子，还有 {d} 天左右可能就来经期了，这几天别贪凉',
+    '经期快到了（预计 {d} 天后），提前把热水袋给你翻出来',
+    '还有 {d} 天左右到经期，最近早点睡，经前别熬夜',
+    '预计 {d} 天后来经期，这几天情绪有点波动也正常，有我在',
+    '快到经期了（约 {d} 天后），卫生用品备好了吗？没有我提醒你',
+    '还有 {d} 天左右经期就来，这几天少喝冰的，乖'
+  ];
+  var PERIOD_DELAY_FALLBACK = [
+    '经期已经推迟 {d} 天了，别太紧张，偶尔晚几天很正常',
+    '推迟第 {d} 天了，最近是不是太累了？压力大也会晚，注意休息',
+    '经期晚了 {d} 天，要是连续两个月都这样，陪你去看看医生',
+    '推迟 {d} 天了，最近照顾好自己，别瞎想，我陪着你'
+  ];
   function loadCareLines() {
     try { var a = JSON.parse(store.get(KEY_CARE) || 'null'); if (Array.isArray(a)) return a; } catch (e) {}
     return PERIOD_CARE_LINES.slice();
@@ -1126,7 +1150,17 @@
     if (fired) saveNotify(notifyCfg);
   }
 
-  // ---- 关心语抽取（80% 经期专属语 + 20% ta-ask care 题库）----
+  // ---- 关心语抽取 ----
+  // v3.42.x #553：语境分流——经期中走原逻辑（80% 经期专属语 + 20% ta-ask care 题库）；
+  //   经前预警日/推迟日只从「经前预警」「经期推迟」分组抽预警语（不混通用题库，
+  //   避免语境错位），全被字卡库关掉则返回空串（本次不发）
+  function pickWarnLine(kind) {
+    var fb = kind === 'adv' ? PERIOD_PREWARN_FALLBACK : PERIOD_DELAY_FALLBACK;
+    var pool = cardGroupLines(kind === 'adv' ? '经前预警' : '经期推迟', fb).filter(function (l) { return l && !careLineBlocked(l); });
+    if (!pool.length) return '';
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  // 经期中专用（原逻辑不变）
   function pickCareLine() {
     var lines = loadCareLines().filter(function (l) { return l && !careLineBlocked(l); });
     if (!lines.length) lines = PERIOD_CARE_LINES.filter(function (l) { return l && !careLineBlocked(l); });
@@ -1144,6 +1178,9 @@
   // ---- 梦角关心触发（经期专属，每天最多一条）----
   // 触发时机：启动后 + 联系人每条文字回复后（chat.js）；经期中每天 + 经期前
   //   advanceDays 提醒日 + 推迟≥5天
+  // v3.42.x #553：语境分流——经期中发「经期关心」（原语料），经前预警日/推迟日发
+  //   「经期预警」（「经前预警」「经期推迟」分组语料，{d} 替换为具体天数），三种语境
+  //   各自每天最多一条；不再在经期未到时发「经期中」口吻的关心
   // v3.14.x 概率重设计——旧版三层门控叠加（chat 回复路径预掷 20% × 连发衰减至 20%
   //   × 当日基数），第 2 天起单次触发率跌到约 12%、第 5 天起仅 ~4%，体感就是
   //   「只有第一天会来关心」。现在：去掉连发衰减与 chat 预掷，只保留「同一天最多
@@ -1158,16 +1195,17 @@
     try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('care') : 100)) return; } catch (e) {}
     var st = status();
     var today = todayStr();
-    var shouldCare = false, ctx = '';
-    if (st.inPeriod) { shouldCare = true; ctx = 'inPeriod'; }
+    var shouldCare = false, ctx = '', kind = '';
+    if (st.inPeriod) { shouldCare = true; ctx = 'inPeriod'; kind = 'in'; }
     else if (st.nextStart) {
       var d = diffDays(today, st.nextStart);
-      if (notifyCfg.advanceDays.indexOf(d) >= 0) { shouldCare = true; ctx = 'adv' + d; }
+      if (notifyCfg.advanceDays.indexOf(d) >= 0) { shouldCare = true; ctx = 'adv' + d; kind = 'adv'; }
     }
+    var delayDays = 0;
     if (st.phase === 'safe' && /推迟/.test(st.title)) {
       var m = st.title.match(/推迟 (\d+) 天/);
-      var delayDays = m ? parseInt(m[1], 10) : 0;
-      if (delayDays >= 5) { shouldCare = true; ctx = 'delay'; }
+      delayDays = m ? parseInt(m[1], 10) : 0;
+      if (delayDays >= 5) { shouldCare = true; ctx = 'delay'; kind = 'delay'; }
     }
     if (!shouldCare) return;
     notifyCfg.fired = notifyCfg.fired || {};
@@ -1181,11 +1219,15 @@
       else baseProb = 55;
     }
     if (Math.random() * 100 > baseProb) return;
-    var line = pickCareLine();
+    // v3.42.x #553：经前/推迟语境抽专属预警语，并把 {d} 占位符替换为具体天数
+    //   （距预测经期开始的天数 / 已推迟天数），让预警带上明确的日期参数
+    var line = kind === 'in' ? pickCareLine() : pickWarnLine(kind);
     if (!line) return;
-    // v3.14.x：带「经期关心」标签 chip 发进聊天（addIn opts.tag → rec.mood），
-    // 用户能看出这条消息是经期功能触发的关心，不再是没头没尾的普通气泡
-    try { window.chatAddIn(line, { tag: '经期关心' }); } catch (e) {}
+    if (kind === 'adv') line = String(line).replace(/\{d\}/g, String(diffDays(today, st.nextStart)));
+    else if (kind === 'delay') line = String(line).replace(/\{d\}/g, String(delayDays));
+    // 带标签 chip 发进聊天（addIn opts.tag → rec.mood），用户能看出消息来源与语境：
+    // 「经期关心」= 经期中，「经期预警」= 经前预警日/推迟（#553 起区分）
+    try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
     notifyCfg.fired[careKey] = 1;
     var cut = addDays(today, -30);
     Object.keys(notifyCfg.fired).forEach(function (k) { if (k < cut) delete notifyCfg.fired[k]; });

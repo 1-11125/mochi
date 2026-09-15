@@ -127,7 +127,9 @@ await sleep(3500);
 s = await (async () => {
   const w = await walletRaw();
   const dayKey = await evalJs(`(function(){
-    var day = new Date().toISOString().slice(0, 10);
+    // FIX 2026-09-16：rpGameCoinGrant 封顶键改本地日期（原 UTC 口径），脚本同步
+    var d = new Date();
+    var day = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
     var k = 'xy-home-v2:default:ml2_coin_rps_' + day;
     return Number(localStorage.getItem(k)) || 0;
   })()`);

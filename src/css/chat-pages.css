@@ -2962,7 +2962,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .pong-start-ctrl { font-size:11px; color:rgba(255,255,255,.7); }
 .pong-end-score { font-size:22px; font-weight:700; color:#fff; margin-bottom:4px; }
 .pong-end-stat { font-size:11px; color:rgba(255,255,255,.75); }
-.pong-overlay-btn { padding:8px 24px; border-radius:20px; border:none; background:#3a7fd5; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+.pong-overlay-btn { padding:8px 24px; border-radius:20px; border:none; background:#3a7fd5; color:#fff; font-size:14px; font-weight:600; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; } /* FIX 2026-09-16：补 touch-action——快速连点「再来一局/开始」可能触发 iOS 双击缩放（snake-btn 同款） */
 .pong-overlay-btn:active { transform:scale(.96); }
 .pong-foot { font-size:11px; color:var(--muted); text-align:center; padding-top:2px; }
 
@@ -2980,7 +2980,8 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .pong-overlay-btns { display:flex; gap:10px; }
 .pong-overlay-btn2 { background:rgba(255,255,255,.16); }
 /* Pong 全屏模式：面板占满视口，游戏区域 + UI 全部放大，flex 撑满无滚动无空白 */
-#chat-pong-panel.pong-fs { position:fixed !important; top:0 !important; right:0 !important; bottom:0 !important; left:0 !important; z-index:9999; border-radius:0; max-height:none !important; height:100vh; background:#0f1420; padding:0; }
+/* FIX 2026-09-16：补 100dvh 与安全区兜底——iPhone 全面屏底部按钮贴手势条、动态工具栏下内容被裁（brick-fs/snake-fs 同款写法） */
+#chat-pong-panel.pong-fs { position:fixed !important; top:0 !important; right:0 !important; bottom:0 !important; left:0 !important; z-index:9999; border-radius:0; max-height:none !important; height:100vh; height:100dvh; background:#0f1420; padding-left:0; padding-right:0; padding-top:max(env(safe-area-inset-top,0px),8px); padding-bottom:max(var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)),8px); overscroll-behavior:none; }
 #chat-pong-panel.pong-fs .poke-card-scroll { max-height:none; flex:1; overflow:hidden; display:flex; flex-direction:column; padding:0; }
 #chat-pong-panel.pong-fs .poke-card-head { background:transparent; color:#fff; border-bottom-color:rgba(255,255,255,.12); padding:12px 18px; flex-shrink:0; }
 #chat-pong-panel.pong-fs .poke-card-head b { color:#fff; font-size:20px; }
@@ -4332,6 +4333,14 @@ select.mochi-custom-select-native { display:none; }
 }
 #au-overlay.au-ov-fs .pong-overlay-body { flex:1; min-height:0; overflow-y:auto; }
 #au-overlay.au-ov-fs[hidden] { display:none; }
+/* FIX 2026-09-16 #547 拍卖会「页面显示不全」（多机型同发，#381 只转了背包/记录全屏，结果类漏了）：
+   成交/TA拍得/流拍/扣款失败/本场结算等浮层弹在 .au-stage 内（高度=拍品卡 ~160px），而
+   .pong-overlay 是 overflow:hidden + justify-content:center —— 内容一超高就上下两端同时被裁、
+   无法滚动（实测 384×752 裁 10px×2；真实内容含成色标签/心愿行/系统大字体可达几十 px，
+   「下一件/再来一场」按钮被切一半）。修法＝装得下照旧居中；装不下 safe center（退化成顶对齐）
+   + 浮层自身可滚，任何字体缩放/矮视口下按钮都够得着。不支持 safe center 的老内核整条声明
+   失效、回落到上一行 center＝维持原状不变差。零机型分支。 */
+#au-overlay:not(.au-ov-fs) { overflow-y:auto; justify-content:center; justify-content:safe center; }
 .au-intro-title { font-size:19px; font-weight:800; color:#fff; letter-spacing:.5px; }
 .au-intro-steps { width:100%; max-width:340px; text-align:left; font-size:13.5px; line-height:2; color:rgba(255,255,255,.93); max-height:58vh; overflow-y:auto; padding:0 4px; box-sizing:border-box; }
 .au-intro-steps b { color:#ffd479; }
@@ -4350,6 +4359,9 @@ select.mochi-custom-select-native { display:none; }
 [data-theme="dark"] #au-wallet-hint { color:#ffb37a; }
 /* #346 矮屏（横屏手机）68% 半框太矮、竞价区挤 → 提到 82% */
 @media (max-height:500px) { #chat-auction-panel:not(.game-fs) { min-height:82%; max-height:82%; } }
+/* #547 开场教学/详细玩法全屏层同族兜底：横屏矮视口/系统大字体下整体内容超高时不再被
+   justify-content:center + overflow 裁掉两端（steps 已自滚，这是容器级保底），行为同上条 */
+#au-intro, #au-help { overflow-y:auto; justify-content:center; justify-content:safe center; }
 /* #349 成色评级标签（普通/稀有/SSR，暗色反向） */
 .au-rare { display:inline-block; font-size:10px; padding:1px 6px; border-radius:8px; margin-right:2px; vertical-align:1px; }
 .au-r0 { background:rgba(0,0,0,.08); color:var(--ink,#222); }

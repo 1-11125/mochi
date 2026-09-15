@@ -51,7 +51,7 @@
   let panel, canvas, ctx, scoreEl, hintEl, startBtn, restartBtn, resumeBtn, resultEl, dpadEl, diffSel, modeSel, foodSel, pauseBtn, fsBtn, wallBtn, safeBtn, bestEl;
   let state = null;
   let behavior = null;
-  let loopTimer = null, countdownTimer = null;
+  let countdownTimer = null;
   let rafId = null;
   let lastFrameTime = 0, acc = 0;
   let prevPlayerBody = null, prevOppBody = null;
@@ -102,6 +102,8 @@
   function beep(freq, dur) {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 锁屏/来电后 ctx 被系统挂起，不 resume 则此后音效永久哑音（connect-four 同款修法）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.14;   // v3.15.x：0.04→0.14，边听音乐边玩时音效清晰
       o.connect(g); g.connect(audioCtx.destination);
@@ -290,7 +292,11 @@
     document.addEventListener('contact-switched', function () { try { closeSnakePanel(); state = null; behavior = null; } catch (e) {} });
     window.addEventListener('resize', function () {
       if (!panel || panel.hidden) return;
-      if (isFs) { setupCanvas(); render(0); }
+      refitAll();   // FIX 2026-09-16：原只处理全屏，半框旋转后画布不重排——refitAll 内部按 isFs 分流
+    });
+    // FIX 2026-09-16：切后台自动暂停+存档（原 saveGame 只挂在关面板，iOS Safari 后台杀页面丢进行中对局）
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && state && state.status === 'playing') { saveGame(); togglePause(); }
     });
   }
 
@@ -538,7 +544,9 @@
   function frame(now) {
     if (!state || state.status !== 'playing') { rafId = null; return; }
     if (!lastFrameTime) lastFrameTime = now;
-    const dt = now - lastFrameTime;
+    // FIX 2026-09-16：切后台回来 rAF 停发、dt 累积成数十秒，guard=3 只限每帧步数不限总量，
+    // 蛇会以数十倍速狂奔到撞死——dt 钳到 250ms，后台多久回来都只补一帧的量。
+    const dt = Math.min(now - lastFrameTime, 250);
     lastFrameTime = now;
     acc += dt;
     const ti = currentTickInterval();
@@ -877,7 +885,6 @@
     if (!state) return;
     state.status = 'over';
     stopFrame();
-    if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
     clearSaved();
     const mode = state.mode || 'duo';
     const psFinal = Math.floor(state.player.score);
@@ -904,6 +911,12 @@
     const s = readScore();
     if (result === 'win') s.w++; else if (result === 'lose') s.l++; else s.d++;
     writeScore(s);
+    // FIX 2026-09-16：接游乐室三件套——幸运日打卡 + 胜利 8% 掉限定摆件（此前 snake 完全不在体系内，
+    // 「游戏体验官」徽章经此游戏永远打不上卡；奖励 ×2 在 chat.js sendSnakeResult 发放处接 arcadeMult）
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('snake');
+      if (result === 'win' && window.arcadeTryDrop) { const dp = window.arcadeTryDrop('snake'); if (dp) d.drop = dp; }
+    } catch (e) {}
     updateBest(result);
     renderScore();
     renderBest();
@@ -942,6 +955,7 @@
       rows = '<div class="snake-res-row"><span>🐍 你</span><span>长度 ' + d.pLen + ' · 食物 ' + d.pFood + ' · ' + psOf(d) + '分</span></div>' +
         '<div class="snake-res-row"><span>🤖 ' + taName + '</span><span>长度 ' + d.oLen + ' · 食物 ' + d.oFood + ' · ' + d.oScore + '分</span></div>';
     }
+    if (d.drop) rows += '<div class="snake-res-row"><span>🎁</span><span>掉落限定摆件「' + d.drop.name + '」</span></div>';
     resultEl.innerHTML = '<div class="snake-res-icon">' + icon + '</div>' +
       '<div class="snake-res-title">' + resTxt + '</div>' + rows +
       '<div class="snake-res-time">存活 ' + d.time + ' 秒 · 已分享到聊天 ✓</div>';
@@ -955,6 +969,31 @@
   }
   function psOf(d) { return d.pScore; }
 
+  // FIX 2026-09-16：背景网格预渲染到离屏 canvas（全屏 34×46 每帧约 80 次 stroke 是稳定的每帧开销），
+  // 尺寸/DPR/明暗/格数任一变化才重建一次，其余帧只 drawImage。
+  let gridCv = null, gridKey = '';
+  function drawBackground() {
+    const dark = themeDark();
+    const key = cssW + 'x' + cssH + ':' + dpr + ':' + gW() + 'x' + gH() + ':' + (dark ? 'd' : 'l');
+    if (!gridCv || gridKey !== key) {
+      gridCv = document.createElement('canvas');
+      gridCv.width = Math.max(1, Math.round(cssW * dpr));
+      gridCv.height = Math.max(1, Math.round(cssH * dpr));
+      const g = gridCv.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const W = cssW, H = cssH;
+      g.fillStyle = dark ? '#1b1b22' : '#f6f6f8';
+      g.fillRect(0, 0, W, H);
+      const cw = W / gW(), ch = H / gH();
+      g.strokeStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+      g.lineWidth = 1;
+      for (let i = 1; i < gW(); i++) { g.beginPath(); g.moveTo(i * cw, 0); g.lineTo(i * cw, H); g.stroke(); }
+      for (let j = 1; j < gH(); j++) { g.beginPath(); g.moveTo(0, j * ch); g.lineTo(W, j * ch); g.stroke(); }
+      gridKey = key;
+    }
+    ctx.drawImage(gridCv, 0, 0, cssW, cssH);
+  }
+
   function render(alpha) {
     if (!ctx || !state) return;
     if (alpha == null) alpha = 0;
@@ -964,13 +1003,7 @@
     const dt = renderLastTime ? Math.min(50, now - renderLastTime) : 16;
     renderLastTime = now;
     const dark = themeDark();
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = dark ? '#1b1b22' : '#f6f6f8';
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < gW(); i++) { ctx.beginPath(); ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, H); ctx.stroke(); }
-    for (let j = 1; j < gH(); j++) { ctx.beginPath(); ctx.moveTo(0, j * ch); ctx.lineTo(W, j * ch); ctx.stroke(); }
+    drawBackground();
     // 食物：苹果（呼吸脉动 + 高光 + 叶子）
     const pulse = 1 + 0.12 * Math.sin(now / 220);
     state.foods.forEach(function (f, fi) {
@@ -1279,7 +1312,6 @@
     render(0);
   }
   function stopLoop() {
-    if (loopTimer) { clearTimeout(loopTimer); loopTimer = null; }
     if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
     stopFrame();
   }

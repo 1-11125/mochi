@@ -28,10 +28,12 @@
   function pick(arr) { return arr && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null; }
 
   // ---- 幸运游戏（日期固定：同一天全天是同一款） ----
+  // FIX 2026-09-16：补入钓鱼/合作扫雷/打砖块（原 8 款漏了这 3 款——幸运池/打卡/战绩聚合都不含它们）
   const LUCKY_KEYS = [
     { k: 'pong', name: 'Pong' }, { k: 'snake', name: '双人贪吃蛇' }, { k: 'c4', name: '四子棋' },
     { k: 'memory', name: '记忆翻牌' }, { k: 'gomoku', name: '五子棋' }, { k: 'linkup', name: '连连看' },
-    { k: 'match3', name: '消消乐' }, { k: 'auction', name: '心意币拍卖会' }
+    { k: 'match3', name: '消消乐' }, { k: 'auction', name: '心意币拍卖会' },
+    { k: 'fishing', name: '双人钓鱼' }, { k: 'ms', name: '合作扫雷' }, { k: 'brick', name: '双人打砖块' }
   ];
   function luckyKey() {
     const d = today();
@@ -96,6 +98,10 @@
     const lk = readJson('linkup-stats', { clears: 0, bestChem: 0 });
     const m3 = readJson('match3-stats', { clears: 0, bestChem: 0 });
     const au = readJson('auction-stats', { sessions: 0, myWins: 0, spentFen: 0 });
+    // FIX 2026-09-16：聚合页补钓鱼/合作扫雷/打砖块三行（只读各游戏现有键）
+    const fs_ = readJson('fishing-stats', { totalCast: 0, totalEarned: 0 });
+    const ms_ = readJson('ms-stats', { play: 0, win: 0 });
+    const bk_ = readJson('brick-stats', { plays: 0, layers: 0 });
     const yuan = (f) => '¥' + ((f || 0) / 100).toFixed(2);
     return [
       { ico: '🏓', name: 'Pong', line: pong.win + '胜 · ' + pong.lose + '负 · ' + pong.draw + '平' },
@@ -104,11 +110,16 @@
       { ico: '🃏', name: '记忆翻牌', line: '通关 ' + mem.clears + ' 局 · 最佳默契 ' + mem.bestChem },
       { ico: '🔗', name: '连连看', line: '清完 ' + lk.clears + ' 局 · 最佳默契 ' + lk.bestChem },
       { ico: '🍬', name: '消消乐', line: '通关 ' + m3.clears + ' 局 · 最佳默契 ' + m3.bestChem },
-      { ico: '🔨', name: '心意币拍卖会', line: au.sessions + ' 场 · 拍得 ' + au.myWins + ' 件 · 花了 ' + yuan(au.spentFen) }
+      { ico: '🔨', name: '心意币拍卖会', line: au.sessions + ' 场 · 拍得 ' + au.myWins + ' 件 · 花了 ' + yuan(au.spentFen) },
+      { ico: '🎣', name: '双人钓鱼', line: '抛竿 ' + fs_.totalCast + ' 次 · 累计赚 ' + yuan(fs_.totalEarned) },
+      { ico: '💣', name: '合作扫雷', line: '合作 ' + ms_.play + ' 局 · 完成 ' + ms_.win + ' 次' },
+      { ico: '🧱', name: '双人打砖块', line: '玩过 ' + bk_.plays + ' 局 · 通关 ' + bk_.layers + ' 层' }
     ];
   }
   function played(k) {
-    const m = { pong: 'pong-stats', snake: 'snake-stats', c4: 'c4-stats', memory: 'memory-stats', gomoku: 'gomoku-stats', linkup: 'linkup-stats', match3: 'match3-stats', auction: 'auction-stats' };
+    // FIX 2026-09-16：贪吃蛇战绩键实为 snake-score（snake-stats 全仓无写入者）——
+    // 「游戏体验官」徽章原先永远统计不到贪吃蛇
+    const m = { pong: 'pong-stats', snake: 'snake-score', c4: 'c4-stats', memory: 'memory-stats', gomoku: 'gomoku-stats', linkup: 'linkup-stats', match3: 'match3-stats', auction: 'auction-stats', fishing: 'fishing-stats', ms: 'ms-stats', brick: 'brick-stats' };
     try { return !!localStorage.getItem(prefix() + ':' + m[k]); } catch (e) { return false; }
   }
 
@@ -122,7 +133,7 @@
     const drops = loadDrops();
     let bagN = 0;
     try { const a = JSON.parse(localStorage.getItem(prefix() + ':auction-items') || '[]'); if (Array.isArray(a)) bagN = a.length; } catch (e) {}
-    const playedN = ['pong', 'snake', 'c4', 'memory', 'gomoku', 'linkup', 'match3', 'auction'].filter(played).length;
+    const playedN = ['pong', 'snake', 'c4', 'memory', 'gomoku', 'linkup', 'match3', 'auction', 'fishing', 'ms', 'brick'].filter(played).length;
     return [
       { ico: '⚫', name: '五子棋首胜', on: gk.w >= 1 },
       { ico: '🥋', name: '五子棋十胜', on: gk.w >= 10 },

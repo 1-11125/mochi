@@ -83,6 +83,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 锁屏/切后台后 ctx 挂起，不 resume 则此后连点击音效都永久无声（gomoku 同款）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) { const r = audioCtx.resume(); if (r && r.catch) r.catch(function () {}); }
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'sine';
       g.gain.value = vol || 0.16;
@@ -117,6 +119,7 @@
       started: false,
       lock: false,
       sel: null,
+      hints: 3,                // FIX 2026-09-16：提示每局 3 次（linkup 同口径，原先无限提示可刷分）
       score: 0, myScore: 0, taScore: 0,
       misPicks: 0
     };
@@ -270,6 +273,8 @@
   }
   // 死锁洗牌动画：值连同棋子一起换位——棋子滑到新格（滑行中轻微缩一下），不再整盘瞬跳重绘
   function reshuffle() {
+    if (!st || st.over) return false;
+    st.lock = true;   // FIX 2026-09-16：洗牌滑行期间原先可点选，选中高亮会挂在移动中的棋子上（linkup 同款先锁）
     let flat = [];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) flat.push({ v: st.grid[r][c], id: pidGrid[r][c] });
     for (let tries = 0; tries < 80; tries++) {
@@ -295,12 +300,14 @@
         }
         setTimeout(() => {
           pieces.forEach((p) => { p.el.style.transitionDuration = ''; p.el.style.transitionTimingFunction = ''; });
+          st.lock = false;
         }, animMs(360));
         updateInfo();
         return true;
       }
     }
     renderBoard();
+    st.lock = false;
     return false;
   }
 
@@ -488,8 +495,10 @@
   }
 
   // ---- 对局流程 ----
+  let dealT = null;   // FIX 2026-09-16：开局发牌解锁定时器收进句柄（原不跟踪，极端连点/换局重开时旧定时器会把新一局提前解锁）
   function newGame() {
     clearTimeout(thinkT); thinkT = null;
+    if (dealT) { clearTimeout(dealT); dealT = null; }
     const diff = diffSel && DIFFS[diffSel.value] ? diffSel.value : 'normal';
     const mode = modeSel && modeSel.value === 'item' ? 'item' : 'simple';
     st = newState(diff, mode);
@@ -506,7 +515,8 @@
       const gl = el._g;
       if (gl) { gl.style.animationDelay = ((el._r + el._c) * 35) + 'ms'; gl.classList.add('m3-deal'); }
     });
-    setTimeout(() => {
+    dealT = setTimeout(() => {
+      dealT = null;
       boardEl.querySelectorAll('.m3-tile').forEach((el) => {
         const gl = el._g;
         if (gl) { gl.classList.remove('m3-deal'); gl.style.animationDelay = ''; }
@@ -514,34 +524,38 @@
       st.lock = false;
     }, animMs(35 * (2 * N - 2) + 260));
     st.turn = 1;
-    setStatus(dot(1) + '你的回合：点一格再点相邻一格交换');
+    setStatus(dot(1) + '你的回合：点一格或滑动相邻格交换');
   }
   // 交换后完整结算：彩虹交换走特殊分支；普通路径四连生成炸弹、五连生成彩虹（仅首段）
   // 动画时序：滑动交换 → 每段「消除爆开 → 下落补位」→ 连锁，全部走完才解锁
   function doSwap(a, b, byMe, cb) {
-    st.lock = true;
-    const va = st.grid[a[0]][a[1]], vb = st.grid[b[0]][b[1]];
+    // FIX 2026-09-16：整条 setTimeout 链原先引用模块级 st（无快照无守卫）——链中 newGame/换局时
+    // 旧链会把消除结果写进新盘。改快照 + 每个异步回调入口校验 st 未换（linkup 的 const s = st 范式）。
+    const s = st;
+    s.lock = true;
+    const va = s.grid[a[0]][a[1]], vb = s.grid[b[0]][b[1]];
     const rbA = isRainbow(va), rbB = isRainbow(vb);
     if (rbA || rbB) { doRainbowSwap(a, b, rbA && rbB, byMe, cb); return; }
-    const t = st.grid[a[0]][a[1]];
-    st.grid[a[0]][a[1]] = st.grid[b[0]][b[1]];
-    st.grid[b[0]][b[1]] = t;
+    const t = s.grid[a[0]][a[1]];
+    s.grid[a[0]][a[1]] = s.grid[b[0]][b[1]];
+    s.grid[b[0]][b[1]] = t;
     swapPid(a, b);
     let chain = 0, gained = 0;
     const step = () => {
-      const runs = findRuns(st.grid);
+      if (st !== s) return;   // 链中已换局：丢弃旧链
+      const runs = findRuns(s.grid);
       if (!runs.length) {
         if (!chain) {
           // 无效交换：滑回去 + 两格抖一下
-          const t2 = st.grid[a[0]][a[1]];
-          st.grid[a[0]][a[1]] = st.grid[b[0]][b[1]];
-          st.grid[b[0]][b[1]] = t2;
+          const t2 = s.grid[a[0]][a[1]];
+          s.grid[a[0]][a[1]] = s.grid[b[0]][b[1]];
+          s.grid[b[0]][b[1]] = t2;
           swapPid(a, b);
           [a, b].forEach((p) => {
             const el = tileAt(p[0], p[1]);
             if (el) { el.classList.add('m3-shake'); setTimeout(((e2) => () => e2.classList.remove('m3-shake'))(el), 320); }
           });
-          st.lock = false;
+          s.lock = false;
           sfxBad();
           if (cb) cb(false, 0);
           return;
@@ -552,14 +566,14 @@
       chain++;
       const seeds = [];
       runs.forEach((run) => run.cells.forEach((p) => seeds.push(p)));
-      const cells = clearWithSpecials(st.grid, seeds);
-      const hadBoom = cells.some((p) => { const v = st.grid[p[0]][p[1]]; return v >= BOMB_BASE; });
-      cells.forEach((p) => { st.grid[p[0]][p[1]] = -1; });
-      // #301/#453 特殊生成：仅「道具模式」（st.mode==='item'）且交换引发的首段消除——
+      const cells = clearWithSpecials(s.grid, seeds);
+      const hadBoom = cells.some((p) => { const v = s.grid[p[0]][p[1]]; return v >= BOMB_BASE; });
+      cells.forEach((p) => { s.grid[p[0]][p[1]] = -1; });
+      // #301/#453 特殊生成：仅「道具模式」（s.mode==='item'）且交换引发的首段消除——
       // 优先级 五连+→🌈彩虹 > L/T 同色交叉（合计≥5格）→💥炸弹 > 四连直线→↔️/↕️直线道具；
       // 简单模式（默认）不生成任何道具＝纯经典三消
       let kept = null;
-      if (chain === 1 && st.mode === 'item') {
+      if (chain === 1 && s.mode === 'item') {
         const best = runs.slice().sort((x, y) => y.len - x.len)[0];
         const atFor = (run) => run.cells.some((p) => p[0] === b[0] && p[1] === b[1]) ? b : run.cells[Math.floor(run.cells.length / 2)];
         // L/T 检测：同色两道直线共享一格、合计 ≥5 格（一个交换同时凑出横竖两道）
@@ -573,40 +587,40 @@
         }
         if (best.len >= 5) {
           const at2 = atFor(best);
-          st.grid[at2[0]][at2[1]] = RAINBOW;
+          s.grid[at2[0]][at2[1]] = RAINBOW;
           cells.push([at2[0], at2[1]]);
           kept = at2;
-          st.genSpecial = 'rainbow';
+          s.genSpecial = 'rainbow';
           taSay(pick(['🌈 彩虹出现了！', '快用彩虹，超好用']));
         } else if (crossPair) {
           const inCross = crossPair.r1.cells.some((p) => p[0] === b[0] && p[1] === b[1]) || crossPair.r2.cells.some((p) => p[0] === b[0] && p[1] === b[1]);
           const at2 = inCross ? b : crossPair.at;
-          st.grid[at2[0]][at2[1]] = BOMB_BASE + crossPair.r1.color;
+          s.grid[at2[0]][at2[1]] = BOMB_BASE + crossPair.r1.color;
           cells.push([at2[0], at2[1]]);
           kept = at2;
-          st.genSpecial = 'bomb';
+          s.genSpecial = 'bomb';
           taSay(pick(['💥 L/T 连消，炸弹生成！', '交叉消！收下这个💥']));
         } else if (best.len === 4) {
           // 横四连→↔️（清整行）、竖四连→↕️（清整列），与经典消消乐直线道具同款 #453
           const at2 = atFor(best);
-          st.grid[at2[0]][at2[1]] = best.dir === 'h' ? LINE_H + best.color : LINE_V + best.color;
+          s.grid[at2[0]][at2[1]] = best.dir === 'h' ? LINE_H + best.color : LINE_V + best.color;
           cells.push([at2[0], at2[1]]);
           kept = at2;
-          st.genSpecial = best.dir === 'h' ? 'line-h' : 'line-v';
+          s.genSpecial = best.dir === 'h' ? 'line-h' : 'line-v';
           taSay(best.dir === 'h' ? pick(['↔️ 横向直线道具！', '四连！整行都清掉！']) : pick(['↕️ 纵向直线道具！', '四连！一列全消！']));
         }
       }
       const pts = cells.length * chain;
       gained += pts;
-      st.score += pts;
-      if (byMe) st.myScore += pts; else st.taScore += pts;
+      s.score += pts;
+      if (byMe) s.myScore += pts; else s.taScore += pts;
       popClear(kept ? cells.filter((p) => p[0] !== kept[0] || p[1] !== kept[1]) : cells);
       floatScore(cells, pts);
       if (kept) {
         // 生成特殊棋子：原格变身 + 出生弹跳
         const el = tileAt(kept[0], kept[1]);
         if (el) {
-          setGlyph(el, st.grid[kept[0]][kept[1]]);
+          setGlyph(el, s.grid[kept[0]][kept[1]]);
           el.classList.remove('m3-born'); void el.offsetWidth; el.classList.add('m3-born');
         }
       }
@@ -614,21 +628,23 @@
       sfxClear(chain);
       if (chain >= 3) taSay('连锁 ×' + chain + (byMe ? '，好强！' : '，我也行吧'));
       setTimeout(() => {
+        if (st !== s) return;   // 链中已换局：丢弃旧链
         const maxDist = collapseAnimated();   // 下落补位后再等下一轮查连锁
         setTimeout(step, Math.max(animMs(FALL_MS), animMs(fallSec(maxDist) * 1000 + 80)));
       }, animMs(POP_MS));
     };
     const finish = () => {
       updateInfo();
-      st.lock = false;
+      s.lock = false;
       if (cb) cb(true, gained);
     };
     setTimeout(step, animMs(SWAP_MS));
   }
   // 彩虹交换：单彩虹+色=清全该色；双彩虹=随机清两色。走完照常 collapse+连锁
   function doRainbowSwap(a, b, both, byMe, cb) {
-    const rbPos = st.grid[a[0]][a[1]] >= RAINBOW ? a : b;
-    const other = st.grid[a[0]][a[1]] >= RAINBOW ? b : a;
+    const s = st;   // FIX 2026-09-16：同 doSwap——异步段快照守卫
+    const rbPos = s.grid[a[0]][a[1]] >= RAINBOW ? a : b;
+    const other = s.grid[a[0]][a[1]] >= RAINBOW ? b : a;
     const seeds = [[rbPos[0], rbPos[1]]];
     const colors = [];
     if (both) {
@@ -636,24 +652,26 @@
       pool.forEach((c2) => colors.push(c2));
       seeds.push([other[0], other[1]]);
     } else {
-      colors.push(colorOf(st.grid[other[0]][other[1]]));
+      colors.push(colorOf(s.grid[other[0]][other[1]]));
     }
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      if (colors.indexOf(colorOf(st.grid[r][c])) >= 0 && colorOf(st.grid[r][c]) >= 0 && !seeds.some((p) => p[0] === r && p[1] === c)) seeds.push([r, c]);
+      if (colors.indexOf(colorOf(s.grid[r][c])) >= 0 && colorOf(s.grid[r][c]) >= 0 && !seeds.some((p) => p[0] === r && p[1] === c)) seeds.push([r, c]);
     }
     sfxBoom();
     taSay(both ? '双彩虹！看我的' : '🌈 全消 ' + KINDS[Math.max(0, colors[0])] + '！');
-    const cells = clearWithSpecials(st.grid, seeds);
-    cells.forEach((p) => { st.grid[p[0]][p[1]] = -1; });
+    const cells = clearWithSpecials(s.grid, seeds);
+    cells.forEach((p) => { s.grid[p[0]][p[1]] = -1; });
     const pts = cells.length;
-    st.score += pts;
-    if (byMe) st.myScore += pts; else st.taScore += pts;
+    s.score += pts;
+    if (byMe) s.myScore += pts; else s.taScore += pts;
     popClear(cells);
     floatScore(cells, pts);
     setTimeout(() => {
+      if (st !== s) return;
       const maxDist = collapseAnimated();
       setTimeout(() => {
-        st.lock = false;
+        if (st !== s) return;
+        s.lock = false;
         if (cb) cb(true, pts);
       }, Math.max(animMs(FALL_MS), animMs(fallSec(maxDist) * 1000 + 80)));
     }, animMs(POP_MS));
@@ -760,7 +778,9 @@
     var dropLine = '';
     try {
       var COIN_CAP = 10400;
-      var day = new Date().toISOString().slice(0, 10);
+      // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+      var dm = new Date();
+      var day = dm.getFullYear() + '-' + (dm.getMonth() + 1) + '-' + dm.getDate();
       var ck = prefix() + ':ml2_coin_match3_' + day;
       var cur = Number(localStorage.getItem(ck)) || 0;
       if (cur < COIN_CAP) {
@@ -798,7 +818,10 @@
       const fb = ['通关啦，配合不错。', '我们好默契呀。', '再来一局？'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
+      // FIX 2026-09-16：800ms 内切联系人桌面，回应会发进新桌面——回调前校验命名空间未变
+      const cidAtEnd = prefix();
       setTimeout(() => {
+        if (prefix() !== cidAtEnd) return;
         try { if (window.chatAddIn) window.chatAddIn(say, { silent: true }); } catch (e) {}
       }, 800);
     } catch (e) {}
@@ -828,8 +851,33 @@
   function hideOverlay() { if (overlayEl) overlayEl.hidden = true; if (endBtn) endBtn.hidden = true; }
 
   // ---- 输入 ----
+  // FIX 2026-09-16：补滑动交换——手机三消惯例是滑（原只能点一格再点相邻一格）。
+  // 按下滑动位移超过半格即按方向与相邻格交换；随后的合成 click 由 swipeFired 吞掉。
+  let swipeBase = null, swipeFired = false;
+  boardEl.addEventListener('pointerdown', (e) => {
+    const cell = e.target.closest('.m3-tile');
+    if (!cell || typeof cell._r !== 'number') { swipeBase = null; return; }
+    swipeBase = { x: e.clientX, y: e.clientY, r: cell._r, c: cell._c };
+    swipeFired = false;
+  });
+  boardEl.addEventListener('pointerup', (e) => {
+    if (!swipeBase) return;
+    const from = [swipeBase.r, swipeBase.c];
+    const dx = e.clientX - swipeBase.x, dy = e.clientY - swipeBase.y;
+    swipeBase = null;
+    const th = Math.max(12, cellPx / 2);
+    if (Math.abs(dx) < th && Math.abs(dy) < th) return;
+    if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
+    const dir = Math.abs(dx) > Math.abs(dy) ? [0, dx > 0 ? 1 : -1] : [dy > 0 ? 1 : -1, 0];
+    const r2 = from[0] + dir[0], c2 = from[1] + dir[1];
+    if (!inBoard(r2, c2)) return;
+    swipeFired = true;
+    playerSwap(from, [r2, c2]);
+  });
+  boardEl.addEventListener('pointercancel', () => { swipeBase = null; });
   boardEl.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (swipeFired) { swipeFired = false; return; }   // 滑动交换后吞掉合成 click
     const cell = e.target.closest('.m3-tile');
     if (!cell) return;
     const r = typeof cell._r === 'number' ? cell._r : 0;
@@ -872,6 +920,9 @@
   if (hintBtn) hintBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
+    // FIX 2026-09-16：提示原先无限次（linkup 是 ×3）——补每局 3 次上限
+    if (!(st.hints > 0)) { taSay('提示次数用完啦'); sfxBad(); return; }
+    st.hints--;
     const moves = allMoves(st.grid);
     if (!moves.length) return;
     moves.sort((x, y) => y.gain - x.gain);
@@ -921,10 +972,13 @@
   };
   function closePanel() {
     clearTimeout(thinkT); thinkT = null;
+    // FIX 2026-09-16：关面板时发牌定时器未清——清掉并解除其锁，否则重开面板开局仍锁死
+    if (dealT) { clearTimeout(dealT); dealT = null; if (st && st.lock) st.lock = false; }
     if (panel) panel.hidden = true;
   }
   window.closeMatch3Panel = closePanel;
-  document.addEventListener('contact-switched', () => { try { closePanel(); } catch (e) {} });
+  // FIX 2026-09-16：原只关面板不清 st——换联系人后重开走「接着玩」，旧桌面棋局/战绩串档
+  document.addEventListener('contact-switched', () => { try { closePanel(); st = null; /* #548u */ } catch (e) {} });
   window.addEventListener('resize', () => { if (!panel.hidden) fitBoard(); });
 
   // ---- 入口：聊天更多功能 → 小游戏 → 消消乐（自绑定，chat.js 不改） ----

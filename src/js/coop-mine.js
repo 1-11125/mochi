@@ -72,6 +72,8 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-16：iOS 切后台后 ctx 被挂起，不 resume 则后续音效全部静音（connect-four 同款修法）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = type || 'sine';
       g.gain.value = vol || 0.16;
@@ -110,7 +112,11 @@
     } catch (e) { return []; }
   }
   function saveKeeps(list) { try { localStorage.setItem(keepsKey(), JSON.stringify(list.slice(-60))); } catch (e) {} }
-  function coinDayKey() { return prefix() + ':ml2_coin_ms_' + new Date().toISOString().slice(0, 10); }
+  // FIX 2026-09-16：封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点记到前一天）
+  function coinDayKey() {
+    const d = new Date();
+    return prefix() + ':ml2_coin_ms_' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
 
   // 心意币统一入口：日封顶内走 giftWalletChange 进双方余额（v3.16.x：我和 TA 同步同额），返回实际入账（分）
   function grantCoin(fen) {
@@ -605,12 +611,20 @@
     if (win) {
       const base = s.mineTotal === 0 ? 200 : 500;
       const flawless = (s.mineTotal > 0 && s.lives === MAX_LIVES) ? FLAWLESS_BONUS : 0;
-      const real = grantCoin(base + flawless);
+      // FIX 2026-09-16：幸运日（游乐室）奖励 ×2，仍受日封顶约束
+      const msMult = (window.arcadeMult && window.arcadeMult('ms')) || 1;
+      const real = grantCoin((base + flawless) * msMult);
       if (real > 0) s.coinEarned += real;
       sfxWin();
     } else {
       sfxFail();
     }
+    // FIX 2026-09-16：接游乐室三件套——幸运日打卡 + 合作完成 8% 掉限定摆件（此前 ms 完全不在体系内）
+    let msDrop = null;
+    try {
+      if (window.arcadeMarkLuckyPlayed) window.arcadeMarkLuckyPlayed('ms');
+      if (win && window.arcadeTryDrop) msDrop = window.arcadeTryDrop('ms');
+    } catch (e) {}
     const gifts = s.foundList.filter((x) => x === 'gift').length;
     const flowers = s.foundList.filter((x) => x === 'flower').length;
     let body = pillsHtml();
@@ -627,6 +641,7 @@
         '<div class="pong-end-stat">你们一起探索了 ' + openCount() + ' 格，还差一点。</div>';
     }
     if (s.coinEarned > 0) body += '<div class="pong-end-stat">🪙 我的心意币 +¥' + (s.coinEarned / 100).toFixed(2) + '</div>';
+    if (msDrop) body += '<div class="pong-end-stat">🎁 掉落限定摆件「' + msDrop.name + '」</div>';
     body += '<div class="pong-end-stat ms-quote">「' + (win ? pick(['一起找完了。', '我们配合得不错嘛。', '全部清完啦，开心。']) : pick(['差一点点而已，再来！', '下次小心一点就好。'])) + '」</div>';
     let showDelay = overlayDelay || 0;
     if (!win) {
@@ -742,6 +757,9 @@
     if (!cell) return;
     e.stopPropagation();
     lpFired = false;
+    // FIX 2026-09-16：开始覆盖层下/终局后长按棋盘，原会 430ms 后震动并置 lpFired，
+    // 吞掉松手后的第一次 click——未开局/已终局不起长按定时器
+    if (!st || !st.started || st.over) return;
     const idx = parseInt(cell.getAttribute('data-i'), 10) || 0;
     clearTimeout(lpTimer);
     lpTimer = setTimeout(() => {

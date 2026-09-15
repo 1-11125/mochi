@@ -175,11 +175,13 @@ const s3 = JSON.parse(await evalJs(`(function(){
   var tip=card.querySelector('.msg-survey-tip');
   return JSON.stringify({card:true, sameNode:!!(wrap&&wrap.__sm), done:card.classList.contains('done'),
     tip:tip?tip.textContent:'', answers:card.querySelectorAll('.msg-survey-a').length,
+    sel: (card.querySelector('.msg-survey-opt.sel')||{}).textContent||'',
     last: (card.querySelectorAll('.msg-survey-a')[1]||{}).textContent||''});
 })()`) || '{}');
 ok(s3.card === true && s3.sameNode === true, 'S3 交卷后未整窗重建（问卷包裹节点存活）', JSON.stringify(s3));
 ok(s3.done === true && s3.tip.indexOf('已交卷') >= 0, 'S3 卡片转 .done 态、底部提示=已交卷', s3.done + '/' + s3.tip);
 ok(s3.answers === 2, 'S3 两题答案行齐全', String(s3.answers));
+ok(s3.sel === '看电影', 'S3 选项对齐单题 chip 且 TA 选中的那个高亮 .sel', s3.sel);
 ok(s3.last.indexOf('最近有点累') >= 0, 'S3 文字题答案渲染正确', s3.last);
 
 // —— S4 点击卡片打开只读「问卷详情」弹窗（不再跳批量设置问卷页） ——

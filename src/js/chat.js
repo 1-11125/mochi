@@ -2943,7 +2943,7 @@ const a = answers[i] || '';
 rows += '<div class="msg-survey-item' + (a ? ' answered' : '') + '">' +
 '<div class="msg-survey-q">' + (i + 1) + '. ' + escTxt(q.text || '') + '</div>' +
 (Array.isArray(q.options) && q.options.length
-? '<div class="msg-survey-opts">' + q.options.map(o => '<span class="msg-survey-opt">' + escTxt(o) + '</span>').join('') + '</div>'
+? '<div class="msg-survey-opts">' + q.options.map(o => '<span class="msg-survey-opt' + (a && String(o) === String(a) ? ' sel' : '') + '">' + escTxt(o) + '</span>').join('') + '</div>'
 : '') +
 (a ? '<div class="msg-survey-a">' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(a) : a) + '</div>' : '') +
 '</div>';
@@ -4584,6 +4584,14 @@ let m = null;
 // #349/#350 tag 规则：单气泡＝按抽到的字卡长度（全部 >4 字完整句→「词典」；含 1~4 字短卡→「词典拼字」）；
 // 多回复逐卡连发＝固定「词典逐卡连发」（每条气泡都带，一眼区分这是逐卡连发玩法）
 const dictTag = (rep.spell && rep.spell.every(t => (t || '').length > 4)) ? '词典' : '词典拼字';
+// FIX 2026-09-16 #553 撤回先掷签后投递（#345 同族收口②：回复链）——rc-prob 原在 addIn 之后
+// 才掷：桌面横幅/系统通知已把内容承诺给用户（如「早安」），900ms 后 partialRetractMsg 撤回＝
+// 进聊天只剩撤回墓碑/缺段正文＋同批其它字卡＝「弹窗说的那句话压根没有，是别的字卡」（OPPO
+// Reno6 雨见/红米 K80 等多机型同现，与设备无关；scheduleReply/continueChat/拍一拍追问共经此
+// 路径）。对齐 tryAutoSend #345 口径：投递前定生死——命中撤回的本条 silent 静默落地（不弹
+// 横幅/系统通知、不播音效，未读角标照增——墓碑也是未读事件），900ms 后照常撤回；rc-refix
+// 补发保持正常投递（此刻弹通知名正言顺，内容不会再消失）。
+const willRetractR = hit(c['rc-prob']);
 if (rep.spell && rep.spellOne) {
 m = addIn(rep.spell.join(' '), {
 quote: quote,
@@ -4591,7 +4599,7 @@ qside: 'out',
 qidx: quote ? quoteIdx : undefined,
 type: 'text',
 parts: rep.parts,
-silent: silent,
+silent: silent || willRetractR,
 tag: dictTag,
 tagNoDup: true
 });
@@ -4609,7 +4617,7 @@ qside: 'out',
 qidx: (si === 0 && quote) ? quoteIdx : undefined,
 type: 'text',
 parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
-silent: si > 0 ? true : silent,
+silent: si > 0 ? true : (silent || willRetractR),
 // #350：逐卡连发的每条气泡挂「词典逐卡连发」tag（与单气泡的词典/词典拼字区分，
 // tagNoDup 不重复正文，chip 随消息持久化重进聊天仍在）
 tag: '词典逐卡连发',
@@ -4624,12 +4632,12 @@ qside: 'out',
 qidx: quote ? quoteIdx : undefined,
 type: 'text',
 parts: rep.parts,
-silent: silent,
+silent: silent || willRetractR,
 tag: '梦角自由造句',
 tagNoDup: true
 });
 } else {
-m = addIn(rep.text, { quote: quote, qside: 'out', qidx: quote ? quoteIdx : undefined, type: rep.type, parts: rep.parts, silent: silent });
+m = addIn(rep.text, { quote: quote, qside: 'out', qidx: quote ? quoteIdx : undefined, type: rep.type, parts: rep.parts, silent: silent || willRetractR });
 }
 const _favProbMsg = (window.favCfg ? window.favCfg().taMsg : 30);
 if (lastMineText && Math.random() * 100 < _favProbMsg) {
@@ -4703,7 +4711,7 @@ saveMsgs();
 // v3.14.x：移除 20% 预掷门控——与 checkCare 内部概率叠加后第 2 天起触发率仅 ~12%，体感「只有第一天会关心」；防刷屏由其内部同日一条冷却兜底
 try { window.periodCheckCare && window.periodCheckCare(); } catch (e) {}
 }
-if (hit(c['rc-prob'])) {
+if (willRetractR) {
 	setTimeout(() => {
 	// FIX 2026-09-13 #412 同源守卫：m 为 null（去重命中）时 partialRetractMsg 读 dataset 也会崩
 	if (!sameCid() || !m) return;
@@ -5525,8 +5533,12 @@ setTimeout(() => {
 hideTyping();
 if (hit(c2['touch-prob'])) { performPoke(); return; }
 const r = genOneReply(c2);
-const m2 = addIn(r.text, { type: r.type });
-if (hit(c2['rc-prob'])) {
+// FIX 2026-09-16 #553 撤回先掷签（#345 同族收口③：拍一拍追问）——原与 #345 修复前的
+// tryAutoSend 同病：addIn 弹横幅/系统通知后才掷 rc-prob，900ms 后 retractMsg＝通知已承诺的
+// 内容进聊天没有。投递前定生死：命中撤回的本条静默落地（未读角标照增），900ms 后照常撤回。
+const willRetractP = hit(c2['rc-prob']);
+const m2 = addIn(r.text, { type: r.type, silent: willRetractP });
+if (willRetractP && m2) {
 setTimeout(() => { retractMsg(m2, 'in'); }, 900);
 }
 }, randInt(800, 2000));
@@ -5991,9 +6003,11 @@ const k = RP_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
 store.set(k, String((Number(store.get(k)) || 0) + 1));
 }
 // v3.15.x：小游戏联动心意币——按日封顶发放（fen），返回实际入账分值（0=今日已到顶）
+// FIX 2026-09-16：日封顶键 UTC 日期改本地日期（UTC 口径下北京时间 0-8 点的奖励记到前一天）
+function rpLocalDay() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function rpGameCoinGrant(gameKey, fen, capFen) {
 if (!fen || fen <= 0) return 0;
-const k = 'ml2_coin_' + gameKey + '_' + new Date().toISOString().slice(0, 10);
+const k = 'ml2_coin_' + gameKey + '_' + rpLocalDay();
 const cur = Number(store.get(k)) || 0;
 if (cur >= capFen) return 0;
 const real = Math.min(fen, capFen - cur);
@@ -7737,7 +7751,9 @@ addRec({ side: 'in', special: 'snake', snkResult: d.result, snkPLen: d.pLen, snk
 // v3.16.x：贪吃蛇改为双方同步同额入账（不再只给赢家），记赚钱流水「贪吃蛇」
 try {
 const snkWinFen = Math.random() < 0.2 ? 5200 : 1314;
-const real = rpGameCoinGrant('snake', d.result === 'draw' ? 520 : snkWinFen, 10400);
+// FIX 2026-09-16：幸运日（游乐室）奖励 ×2，仍受日封顶约束
+const snkMult = (window.arcadeMult && window.arcadeMult('snake')) || 1;
+const real = rpGameCoinGrant('snake', (d.result === 'draw' ? 520 : snkWinFen) * snkMult, 10400);
 if (real > 0) {
 const w = rpWalletGet();
 w.myBalance += real; w.systemBalance += real;
@@ -9162,9 +9178,16 @@ function emojiRenderSigTarget(hts, pn) {
       for (var j = 0; j < myGroups.length; j++) { if (myGroups[j][0] === grp) { arr = myGroups[j][1]; break; } }
     }
     if (!arr || !arr.length) return sig + 'empty';
+    // FIX 2026-09-16 #547 签名按「令牌稳定身份」算：池视图卡被后台令牌化（dataURL→@@m:token）后
+    // 原文变了但显示内容没变，按原文签名会误判内容变化→整面板重建→图片全部重新解析（#457 短路
+    // 被翻转账废掉＝「每次开表情包都重新加载」复发）。ccMediaCardIdent（chatcard.js 提供）对两种
+    // 形态算同一身份；缺失时退回原文，行为同旧版。
+    var _ident = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent : null;
     var sumLen = 0;
-    for (var k = 0; k < arr.length; k++) sumLen += (arr[k] || '').length;
-    return sig + arr.length + '|' + sumLen + '|' + (arr[0] || '') + '|' + (arr[arr.length - 1] || '');
+    for (var k = 0; k < arr.length; k++) sumLen += (_ident ? _ident(arr[k] || '') : (arr[k] || '')).length;
+    var _f = _ident ? _ident(arr[0] || '') : (arr[0] || '');
+    var _l = _ident ? _ident(arr[arr.length - 1] || '') : (arr[arr.length - 1] || '');
+    return sig + arr.length + '|' + sumLen + '|' + _f + '|' + _l;
   } catch (e) { return ''; }
 }
 function renderEmojiGroupsBar() {
@@ -9339,6 +9362,12 @@ emojiInsertAllowUrl = false;
 }
 function reloadMyEmojiFromIdb() {
 if (!window.idbGet) return;
+// FIX 2026-09-16 #547 开门闸：本会话已应用过 IDB 权威值且内存非空就不再整包重读——
+// 大库设备（my-emoji-groups 18MB 级，只进 IDB 不进 LS）每次开面板都白付一次
+// idbGet+JSON.parse（主线程卡顿+堆抖动＝「每次打开都像在加载」）。内存即最新：
+// 写入路径（myEmojiSave/添加/删除）、切桌面（全局键不动）、启动链路（bootRestore/#281）
+// 各有自己的取回入口，这里只负责「本会话第一次把权威值拉进内存」。
+if (window.__myeIdbApplied === true && Array.isArray(myGroups) && myGroups.length) return;
 window.idbGet(MYE_KEY()).then(v => {
 // #172：读空（大键挂起/事务超时）不再静默放弃 → hydrate 按需取回
 if (!v) { myeHydrateFallback(); return; }
