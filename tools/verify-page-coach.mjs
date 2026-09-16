@@ -38,6 +38,8 @@ chk('S3 功能大全目录表只读查询暴露（文案单一事实源）', hub
 chk('S4 标记键进 contacts.js 免迁白名单', ctSrc.includes("'__coach-seen',"));
 chk('S5 新模块登记进 build.mjs jsFiles', bmSrc.includes("'onboarding.js', 'page-coach.js'"));
 chk('S6 设置页重置行 + 复位接口', pcSrc.includes('id="row-pagetips"') && pcSrc.includes('window.mochiPageTipsReset = resetAll;'));
+// #589：原实现只调 window.toast（全项目从未赋值过）＝重置成功但零可见反馈
+chk('S8 重置行点击有可见反馈通道（自绘 #cc-toast，不再只靠 window.toast）', pcSrc.includes("t.id = 'cc-toast'; document.body.appendChild(t);") && pcSrc.includes("tipToast('已重置"));
 const empties = [
   ['js/memo-app.js', 'memo-empty-add'],
   ['js/feed.js', 'feed-empty-pub'],
@@ -197,20 +199,40 @@ const b5 = await evalJs(`(async function () {
 })()`);
 chk('B5 已有字卡时字卡库不再提示（不打扰已完成用户）', b5 && b5.bars === 0, JSON.stringify(b5));
 
-// B6 设置里的重置行
+// B6 设置里的重置行（#589：行要真的在「工具」省区里可见，点击要有可见反馈——原实现只调
+//   从未被赋值的 window.toast：重置其实成功了，但屏幕上零变化＝用户报的「点击没有任何反应」）
 const b6 = await evalJs(`(async function () {
   window.mochiPageTipsReset();
   const t = document.querySelector('.tab[data-page="page-setting"]');
   if (t) t.click();
   await new Promise(r => setTimeout(r, 500));
+  const tt = document.querySelector('#set-tabs .them-tab[data-tab="tools"]');
+  if (tt) tt.click();
+  await new Promise(r => setTimeout(r, 400));
   const row = document.getElementById('row-pagetips');
   if (!row) return { row: false };
+  const rect = row.getBoundingClientRect();
+  const toastBefore = document.getElementById('cc-toast');
   row.click();
-  await new Promise(r => setTimeout(r, 200));
-  return { row: true, cleared: !localStorage.getItem('xy-home-v2:__coach-seen') };
+  await new Promise(r => setTimeout(r, 400));
+  const toast = document.getElementById('cc-toast');
+  const cs = toast ? getComputedStyle(toast) : null;
+  return {
+    row: true,
+    sec: row.closest('.them-sec') ? row.closest('.them-sec').getAttribute('data-sec') : null,
+    visible: !!(row.offsetParent || row.getClientRects().length) && rect.height > 0,
+    cleared: !localStorage.getItem('xy-home-v2:__coach-seen'),
+    toastBefore: !!toastBefore,
+    toast: !!toast,
+    toastText: toast ? toast.textContent : '',
+    toastShown: !!(toast && toast.className.indexOf('show') >= 0),
+    toastOpacity: cs ? cs.opacity : '',
+  };
 })()`);
 chk('B6 设置 → 工具存在「使用提示」重置行', b6 && b6.row, JSON.stringify(b6));
+chk('B6.0 该行在「工具」省区内且真实可见（有高度、非 display:none）', b6 && b6.visible && b6.sec === 'tools', JSON.stringify(b6));
 chk('B6.1 点击重置后已看标记清空（可重新看提示）', b6 && b6.cleared, JSON.stringify(b6));
+chk('B6.2 点击后有可见反馈（#cc-toast 出现·show·不透明·有文案；#589 修复前为死代码 window.toast）', b6 && b6.toast && b6.toastShown && b6.toastOpacity === '1' && b6.toastText.length > 0, JSON.stringify(b6));
 
 // B7 朋友圈空态带动作按钮（委托既有发布入口）
 const b7 = await evalJs(`(async function () {

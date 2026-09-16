@@ -1647,6 +1647,11 @@ function openGarden() {
   // 把 IDB 里还没读完的老花园覆盖掉。先渲染当前内存态（可能为空），判定命中后重载。
   if (junkEmpty()) {
     try { renderAll(); } catch (e) {}
+    // FIX 2026-09-16 #588：LS 还没回填时这里先渲染的是「内存态」＝用户看到一个**空花园**，
+    //   读回前没有任何提示，最容易被当成「我的花园数据全丢了」（比卡顿更吓人）。
+    //   probeIdb 要重试 2 次共约 600ms+，这期间必须给出「正在读」的信号；
+    //   命中会随后 toast「已找回花园数据 🌸」覆盖本条，未命中则空花园本就是正确状态、提示自然淡出。
+    toast("正在读取本地花园数据…");
     probeIdb(function (v) {
       if (!page.hidden) openGardenBody(!!v);
     });

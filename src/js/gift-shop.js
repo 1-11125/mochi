@@ -687,7 +687,21 @@
   // 心愿项存快照（商品日后被改/删不影响已许的愿），giftId 关联市集商品
   function wishSnap(g) { return { giftId: g.id, name: g.name, emoji: g.emoji, img: g.img || '', price: g.price, cat: g.cat, wish: g.wish || '送给你', tm: Date.now() }; }
   function wishLoad(key) { try { const s = store(); if (!s) return []; const a = JSON.parse(s.get(key) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-  function wishSave(key, a) { const s = store(); if (s) s.set(key, JSON.stringify(a)); }
+  function wishSave(key, a) { const s = store(); if (s) s.set(key, JSON.stringify(a)); if (key === WL_TA_KEY) _taWishIds = null; }
+  // FIX 2026-09-16 #588：TA 心愿 id 集合记忆化——giftItemHtml 对**每件**礼物都要问一次
+  //   「TA 是否正许愿这件」，而 wishLoad 每次调用都是一次完整 JSON.parse；预设礼物 302 件
+  //   ＝每开一次心意市集/聊天送礼面板就 302 次 parse（无头实测开面板明显慢半拍）。
+  //   只在读侧缓存「id 集合」，不动 wishLoad 语义（避免缓存到数组后被写方原地改动产生别名 bug）；
+  //   失效点挂在 wishSave 上——WL_TA_KEY 的全部写路径都走 wishSave（已核对无直写 set）。
+  let _taWishIds = null;
+  function taWishIds() {
+    if (!_taWishIds) {
+      const ids = new Set();
+      wishLoad(WL_TA_KEY).forEach(function (x) { if (x && x.giftId) ids.add(x.giftId); });
+      _taWishIds = ids;
+    }
+    return _taWishIds;
+  }
   function wishMyHas(id) { return wishLoad(WL_MY_KEY).some(function (x) { return x.giftId === id; }); }
   function wishMyAdd(g) {
     const a = wishLoad(WL_MY_KEY);
@@ -891,7 +905,7 @@
       '<div class="gb-tiny">' + (
         opts.fromTaWish
           ? '这是 ' + esc(partnerName()) + ' 心愿单里的礼物，送出后自动从 TA 的心愿单移除，礼物进 TA 的心意柜'
-          : (wishLoad(WL_TA_KEY).some(function (x) { return x.giftId === gift.id; })
+          : (taWishIds().has(gift.id) // #588：同上，走记忆化集合
             ? esc(partnerName()) + ' 正许愿想要这件——买下送出即心愿兑现，自动从 TA 的心愿单移除'
             : (wlSettings().giftInOn ? '加入心愿单只是许愿不花钱——' + esc(partnerName()) + ' 可能会买下它送你' : '加入心愿单只是许愿不花钱'))
       ) + '</div>';
@@ -1082,7 +1096,7 @@
   function giftItemHtml(g, manage) {
     const col = CAT_COLOR[g.cat] || '#f5f3fa';
     // #142：TA 正许愿的商品标 ☆ 角标——提醒可买下送 TA 兑现心愿（礼物进 TA 的心意柜）
-    const taWanted = wishLoad(WL_TA_KEY).some(function (x) { return x.giftId === g.id; });
+    const taWanted = taWishIds().has(g.id); // #588：走记忆化集合，不再每件一次 JSON.parse
     return '<button class="gift-item' + (manage ? ' manage' : '') + (taWanted ? ' ta-wish' : '') + '" data-id="' + esc(g.id) + '" style="--cat:' + col + ';">' +
       (taWanted ? '<span class="gift-item-tawish" title="' + esc(partnerName()) + '许愿的">☆ ' + esc(partnerName()) + '想要的</span>' : '') +
       '<div class="gift-item-top" style="background:linear-gradient(160deg,' + col + ',var(--card-bg,#fff));">' +

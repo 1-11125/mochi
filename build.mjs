@@ -289,6 +289,14 @@ const FIX_SENTINELS = [
   { name: '#582 聊天导入写回群聊（走 gcWriteGroupMsgs；删即备份里的群聊记录导不回来＝只导不入）', file: 'js/data-backup.js', needle: 'if (window.gcWriteGroupMsgs) return window.gcWriteGroupMsgs(w.gid, w.arr);' },
   { name: '#582 群聊消息写回通道（group-chat.js gcWriteGroupMsgs：lite 快照 + IDB 权威，条数与全量一致防旧快照压住新导入；删即群聊导入静默无效）', file: 'js/group-chat.js', needle: 'window.gcWriteGroupMsgs = function (gid, arr) {' },
   { name: '#582 分桌写回返回真 promise（absent：自造 thenable「if (!seq) f(); return seq;」永不 settle，写入链在第一个非当前桌面后整条卡死——多桌面只恢复第一个、群聊与媒体池永不执行）', file: 'js/data-backup.js', needle: 'if (!seq) f(); return seq;', absent: true },
+  // #582 第二批（2026-09-16 用户追问「还有什么缺陷 + 没说明为什么本机内存是导出数据的 2 倍」后逐项实测）
+  { name: '#582 导出体积预估按 UTF-8 字节＋JSON 转义（esc 参数管「JSON 字符串值再转义一次」的引号开销，删/改回字符数＝中文为主的库预估偏小，实测纯中文库文件 370KB vs 存储 313KB，「文件是存储一半」说反）', file: 'js/data-backup.js', needle: 'function estUtf8Bytes(s, esc) {' },
+  { name: '#582 体积实测不吃「LS 已计过」去重（absent：权威键 chat-msgs/群聊的 LS 只是有损小快照，一刀切跳过 IDB 权威值会把整段聊天体积算成 0——用户报「2 倍」的现场之一）', file: 'js/data-backup.js', needle: 'if (lsC !== undefined && lsC <= LS_SMALL_LIMIT && !auth) { c = 0; fb = 0; blob = 0; }' },
+  { name: '#582 「仅聊天记录」体积预估接线（absent 或改成漏传＝弹窗恒显示「仅聊天记录 0 KB」，本批自己踩过一次）', file: 'js/data-backup.js', needle: 'chatFile: m.chatFile' },
+  { name: '#582 弹窗说明存储/文件两把尺子（用户问「为什么本机内存是导出数据的 2 倍」；删则又变成两个数没有任何解释）', file: 'js/data-backup.js', needle: '两个数口径不同：本机数据按存储占用算' },
+  { name: '#582 范围弹窗走宽版（big；删则 272px 窄弹窗把胶囊与「开始导出」顶到折线外＝用户以为弹窗只有说明）', file: 'js/data-backup.js', needle: "noInput: true, okText: '开始导出', pill: 'full', lock: true, big: true," },
+  { name: '#582 仅聊天记录单独文件名（删则导出文件又和完整备份同名「mochi数据备份_日期.json」，用户分不清手里这份能恢复什么）', file: 'js/data-backup.js', needle: "(cfg.mode === 'chat' ? 'mochi聊天记录_' : 'mochi数据备份_')" },
+  { name: '#582 导入桌面聊天后清该桌面尾巴日志（chat-tail，#180）：不清则切到该桌面时 chatTailMerge 把导入前的旧消息当「没落盘的新消息」回放上来', file: 'js/data-backup.js', needle: 'function clearDeskTail(cid) {' },
   // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
   // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
   // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
@@ -2180,11 +2188,43 @@ const FIX_SENTINELS = [
   // 设置页「调整图标图片位置」行、装修模式点图标菜单。行为断言 tools/verify-icon-img-fit.mjs ====
   { name: '#581a 图标图片缩放/位置渲染函数（删＝位置设置存了也不生效）', file: 'js/personalize.js', needle: 'const applyAppIconFit = (app) => {' },
   { name: '#581b 放大后位移+缩放表达式（改回只 object-position＝正方形原图放大后无法移动，用户「移动按钮里图片的位置」诉求落空）', file: 'js/personalize.js', needle: "translate(' + tx + '%, ' + ty + '%) scale(" },
+  { name: '#581h 位移方向与「壁纸定位/object-position」同口径（负号：值大＝看更靠右/靠下的一段；改回正号＝同一根滑杆在放大前后把画面推向相反一侧，用户会觉得「位置滑杆时灵时不灵」）', file: 'js/personalize.js', needle: 'const tx = -Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;' },
   { name: '#581c 边看边调抽屉补批量上传图标图片入口（删＝用户报的「边看边调里缺少批量上传按钮」复发）', file: 'js/personalize.js', needle: '批量上传桌面图标图片（可多选）' },
   { name: '#581d 「调整图片位置」待选标记（删＝从抽屉/设置页进去后点图标不开位置面板，只弹普通图标菜单）', file: 'js/personalize.js', needle: 'if (window.__iconAdjustPick) { openIconFitPanel(app); return; }' },
   { name: '#581e 设置页「调整图标图片位置」行（删＝该功能在设置页无入口，只能靠装修模式摸到）', file: 'template.html', needle: 'id="row-icon-fit"' },
   { name: '#581f 位置面板登记进 FLOAT_SELECTORS（删＝面板打开时底层桌面仍可滑动，与抽屉 #527n 同族）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer', '#icon-fit-panel'];" },
   { name: '#581g 功能大全补「调整图标图片位置」条目（删＝搜「图标 位置」找不到该功能）', file: 'js/feature-hub.js', needle: "{ n: '调整图标图片位置'," },
+  // ==== #588 卡顿/误判为 bug 的性能批（gift-shop 每件一次 JSON.parse / records 关心页 O(n²) / garden 空花园无提示）====
+  // 行为断言 tools/verify-jank-batch2.mjs（RED=1 内联还原三处旧形态，断言逐条转红）
+  { name: '#588a TA 心愿 id 集合记忆化入口（删＝giftItemHtml 每件礼物重解析一次心愿单，302 件＝302 次 JSON.parse）', file: 'js/gift-shop.js', needle: 'function taWishIds() {' },
+  { name: '#588b 集合失效点挂在 wishSave 上（删＝TA 心愿变更后角标不刷新；WL_TA_KEY 全部写路径都过 wishSave）', file: 'js/gift-shop.js', needle: 'if (key === WL_TA_KEY) _taWishIds = null;' },
+  { name: '#588c 礼物格渲染改走记忆化集合（回退 wishLoad(...).some＝每件一次解析复发）', file: 'js/gift-shop.js', needle: 'const taWanted = taWishIds().has(g.id);' },
+  { name: '#588d 关心页问卡时间戳预排序 + 二分（回退全表 some＝聊天上千条时 O(n²) 卡住「关心」页签复发）', file: 'js/records.js', needle: 'const hasAskCardNear = (t) => {' },
+  { name: '#588e ask-msg 改调二分判据（删＝退回对全表 some 的 O(n²) 实现）', file: 'js/records.js', needle: 'const nearCard = hasAskCardNear(t);' },
+  { name: '#588f 花园读回期「正在读取」提示（删＝LS 未回填时先画空花园，用户以为数据全丢）', file: 'js/garden.js', needle: 'toast("正在读取本地花园数据…");' },
+  // ==== 2026-09-16 #589 朋友圈贴纸「点击照片选贴纸位置」提示条挡住使用（用户明说多机型同报）====
+  // 用户原话：「朋友圈的贴纸功能【点击照片选贴纸位置】的提示，会挡住使用」。
+  // 根因：提示条绝对定位钉在照片顶部（照片高约 104px 时占 33px≈顶部 1/3），点那一带被提示条接走
+  //   ＝被当成「取消」——一张都贴不上、模式还退出；系统字号越大压得越多＝多机型同现象。
+  // 行为断言 tools/verify-feed-sticker-pos.mjs 的 S0/A2/E1/E2/E4（旧实现 A2/E1/E2 必红）。
+  { name: '#589a 提示条插在配图区之前（删/改回 box.appendChild＝又压回照片上、点顶部贴不上复发）', file: 'js/feed.js', needle: 'box.parentNode.insertBefore(hint, box);' },
+  { name: '#589b 提示条移除按 ctx 引用（提示条已不在配图区内，退回 ctx.box.querySelector 会删不掉、提示条常驻）', file: 'js/feed.js', needle: 'if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);' },
+  { name: '#589c 选位期间看门狗主动收尾（卡片被局部/全量重渲染换掉节点时不留提示条与选位态）', file: 'js/feed.js', needle: 'const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);' },
+  { name: '#589d 提示条覆盖式定位已删除（absent：absolute+top:0+z-index:3 压照片的旧形态复活即报警）', file: 'css/chat-pages.css', needle: '.feed-pick-hint { position: absolute', absent: true },
+  { name: '#589e 提示条双保险 pointer-events:none（即便被改回覆盖式也保证点得穿到照片）', file: 'css/chat-pages.css', needle: 'gap: 8px; margin: 8px 0 0; padding: 7px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px; pointer-events: none; }' },
+  // ==== 2026-09-16 #590 切换桌面联系人 → 打开聊天「所有消息变 2 条再回弹恢复」（多机型同报）====
+  // 根因：媒体令牌化后同一条消息 LS 快照存原文（base64 /「名称|||data:audio」）、IDB 权威副本
+  // 存 @@m: 令牌，权威合并的去重签名只比原文 ⇒ 判成两条 ⇒ 快照副本被 append 回来（同 ts ⇒
+  // 排序后成对相邻）＝首屏全翻倍，后台归一化又合并回 1＝用户看到的「先 2 后 1」。#511 只收了
+  // LS 侧合并签名，权威合并这侧漏网。行为断言 tools/verify-chat-switch-dupe.mjs（RED 9/22 精确
+  // 复现 msgs 12→20、DOM 翻倍帧；GREEN 22/22）。
+  { name: '#590a 媒体跨形态归一唯一入口（删＝各处又各写一份展开逻辑，语音尾形态漏判复发）', file: 'js/chat.js', needle: 'function mediaFormText(s) {' },
+  { name: '#590b 权威合并签名走 mediaSigPart（回退原文直比＝切桌面开聊天消息成对翻倍复发）', file: 'js/chat.js', needle: 't: mediaSigPart(m && m.text)' },
+  { name: '#590c 媒体「原文 ↔ 令牌」互补判定入口（冷池下 expand 恒 null，这条是唯一拦得住的一层）', file: 'js/chat.js', needle: 'function recKindCovers(kindIndex, m) {' },
+  { name: '#590d 权威合并接了互补判定（删＝LS 侧原文副本被当新消息并回，用户报障原样复发）', file: 'js/chat.js', needle: 'if (recKindCovers(idbKinds, m)) return false;' },
+  { name: '#590e 读侧 LS 合并接了互补判定（删＝内存已令牌化时把快照原文副本 concat 回来）', file: 'js/chat.js', needle: '!recKindCovers(lsKinds, m)' },
+  { name: '#590f 写侧 LS 快照合并接了互补判定（删＝LS 里长期存两份同一条，下次进页照样先 2 后 1）', file: 'js/chat.js', needle: '!recKindCovers(kinds, m)' },
+  { name: '#590g 旧「原文直比」权威签名不得复活（absent：直接比 m.text＝跨形态判不出同一条，半修征兆）', file: 'js/chat.js', needle: 't: m && m.text, s: m && m.side', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

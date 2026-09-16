@@ -303,7 +303,10 @@ let old = [];
 try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
 const seen = new Set(msgsNow.map(lsMergeSig));
-const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
+// FIX 2026-09-16 #590：再补一层「媒体两种存法」互补判定（媒体池冷载时 lsMergeSig 展开不出
+// 原文）——否则写侧照样把同一条的旧形态副本存进 LS，下次进页读侧再翻倍（#511 同款半修）
+const kinds = recKindIndex(msgsNow);
+const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(kinds, m))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 performLsSnapWrite(merged, prefix);
 } catch (e) {}
 }
@@ -703,16 +706,106 @@ c = true;
 // 60s 内重发同图属合法行为不吞）；②mediaTxtEq 展开池令牌后再比对（内容寻址，令牌展开即原
 // 数据）——addRec 实时去重与刷新归一化共用，屏上所见即刷新后所见，不再翻饼。
 const DUP_GAP_TEXT = 2500, DUP_GAP_MEDIA = 60000;
-function mediaTxtEq(a, b) {
-  a = a || ''; b = b || '';
-  if (a === b) return true;
+// FIX 2026-09-16 #590（用户：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复）：
+// 媒体「同一内容、不同存储形态」的唯一归一化入口。令牌化竞态（#142/#256/#283）下同一条消息
+// 在一处是原文（data:image base64，或语音的「名称|||data:audio」）、另一处已是 @@m: 令牌，
+// 任何「这是同一条吗」的判定直接比原文都判成两条。本函数把两形态收敛成同一份原文
+// （池未热载 mochiMediaExpand 返回 null 时退化为原文，与 #256/#511 同款不误判口径）。
+// 四个计入口共用本函数，杜绝「修了读侧、写侧/IDB 侧仍按旧口径各存一份」的半修：
+//   · mediaTxtEq（addRec 实时去重）· dupSig（刷新归一化/相邻重复合并）
+//   · lsMergeSig（LS 快照 ↔ 内存合并，#511）· loadMsgs 权威合并签名 sigOf（#590 本轮补漏）
+function mediaFormText(s) {
+  const raw = (s == null) ? '' : String(s);
+  if (!raw) return raw;
   try {
     if (window.mochiMediaIsToken && window.mochiMediaExpand) {
-      if (a && window.mochiMediaIsToken(a)) { const x = window.mochiMediaExpand(a); if (x && x === b) return true; }
-      if (b && window.mochiMediaIsToken(b)) { const x = window.mochiMediaExpand(b); if (x && x === a) return true; }
+      const bar = raw.indexOf('|||');
+      // 语音尾形态「名称|||令牌」：只展开尾部，名称段原样保留（#283）
+      if (bar >= 0) {
+        const tail = raw.slice(bar + 3);
+        if (tail && window.mochiMediaIsToken(tail)) {
+          const ex = window.mochiMediaExpand(tail);
+          if (ex) return raw.slice(0, bar + 3) + ex;
+        }
+      } else if (window.mochiMediaIsToken(raw)) {
+        const ex = window.mochiMediaExpand(raw);
+        if (ex) return ex;
+      }
     }
   } catch (e) {}
-  return false;
+  return raw;
+}
+// 合并/去重签名用的内容片段：短串整串入签名（与旧口径逐字节一致，零判别力损失）；
+// 长串（base64 可达数百 KB）只取「长度 + 前 96 字符」——整串进 Set 哈希会让切桌面/开聊天
+// 白白烧 CPU（#511 同口径；长度+头部随内容变化，对「跨形态同一条」判别力足够）
+function mediaSigPart(v) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'string') { try { return String(v.length); } catch (e) { return ''; } }
+  const x = mediaFormText(v);
+  if (x.length <= 256) return x;
+  return x.length + '|' + x.slice(0, 96);
+}
+function mediaTxtEq(a, b) {
+  const x = (a == null) ? '' : String(a);
+  const y = (b == null) ? '' : String(b);
+  if (x === y) return true;
+  // FIX 2026-09-16 #590：跨形态比对统一走 mediaFormText（原先只认「整串令牌」，语音的
+  // 「名称|||令牌」形态漏在窗外＝同一条语音在两处判不同）
+  return mediaFormText(x) === mediaFormText(y);
+}
+// FIX 2026-09-16 #590 后半段（不依赖媒体池热载的兜底判定）：
+// mediaFormText 要靠 mochiMediaExpand 展开令牌，而它是**纯 map 热缓存查询**——冷启动/换桌面
+// 时池里什么都没热载（音频按 #283 内存纪律更是永不进热缓存）⇒ 展开恒 null ⇒ 上一条比较
+// 仍判「两条」。快照合并必须与池温无关，故这里补一条形态判定：
+// 同一 ts|side|special|type 的记录在一侧是原文（data:image/data:audio）、另一侧是 @@m: 令牌
+// ＝同一条记录的两种存法（ts 精确到毫秒且同侧，本文件 idbTsSide 的 lite 残留过滤早已用这个
+// 身份口径），快照侧那份是旧形态副本，丢弃。
+// 只对「媒体形态互补」的组合生效：普通文本、令牌↔令牌、原文↔原文一律不受影响（编辑后的
+// 新文本、两张不同表情包的合法重复都不会被误吞）。
+function mediaKindOf(v) {
+  if (typeof v !== 'string' || !v) return '';
+  try {
+    if (window.mochiMediaIsToken && window.mochiMediaIsToken(v)) return 'tok';
+    const bar = v.indexOf('|||');
+    if (bar >= 0) {
+      const tail = v.slice(bar + 3);
+      if (tail.indexOf('data:') === 0) return 'raw';
+      if (window.mochiMediaIsToken && window.mochiMediaIsToken(tail)) return 'tok';
+      return '';
+    }
+    if (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0) return 'raw';
+  } catch (e) {}
+  return '';
+}
+function recMediaKind(m) { return m ? (mediaKindOf(m.text) || mediaKindOf(m.img)) : ''; }
+function recMediaKey(m) {
+  return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || ''));
+}
+// 权威侧形态索引：去重键 -> { raw, tok }（同键下两种存法都记下来）
+function recKindIndex(arr) {
+  const idx = new Map();
+  try {
+    for (let i = 0; i < arr.length; i++) {
+      const m = arr[i];
+      if (!m) continue;
+      const k = recMediaKind(m);
+      if (!k) continue;
+      const key = recMediaKey(m);
+      let rec = idx.get(key);
+      if (!rec) { rec = { raw: false, tok: false }; idx.set(key, rec); }
+      rec[k] = true;
+    }
+  } catch (e) {}
+  return idx;
+}
+// 快照侧这条是否已被权威侧以「另一种存法」收录（互补形态 ⇒ 同一条记录）
+function recKindCovers(kindIndex, m) {
+  if (!kindIndex || !m) return false;
+  const k = recMediaKind(m);
+  if (!k) return false;
+  const rec = kindIndex.get(recMediaKey(m));
+  if (!rec) return false;
+  return k === 'tok' ? rec.raw : rec.tok;
 }
 function dupGapMs(m) {
   if (!m) return DUP_GAP_TEXT;
@@ -862,8 +955,9 @@ const normT = (m.type === 'text' || !m.type) ? '' : String(m.type || '');
 // #256：x 跨形式归一——令牌化竞态下同一内容一处 @@m:令牌、一处 data:base64，
 // 直比不等＝相邻重复漏判。池令牌内容寻址，展开即原数据；池未热载 expand null 时
 // 回退原文（退化为旧行为，不引入误判）。
-let x = m.text || '';
-try { if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x) && window.mochiMediaExpand) { const ex = window.mochiMediaExpand(x); if (ex) x = ex; } } catch (e) {}
+// FIX 2026-09-16 #590：跨形态归一收口到 mediaFormText（原先只展开「整串令牌」，
+// 语音的「名称|||令牌」形态漏判；与合并签名/实时去重共用同一函数＝三处口径不再分叉）
+const x = mediaFormText(m.text);
 return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc: !!m.voice, e: extra });
 }
 // FIX 2026-09-15 #511 进聊天气泡「先变 2 条再恢复」（用户：桌面点开【聊天】进页面，
@@ -878,13 +972,9 @@ return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc
 // 长度+头部随内容变化，对「跨形式同一条」判别力足够（池未热载 expand 返回 null 时退化为旧行为，不误判）。
 function lsMergeSig(m) {
 if (!m) return '';
-let x = String(m.text || '');
-try {
-if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x)) {
-const ex = window.mochiMediaExpand && window.mochiMediaExpand(x);
-if (ex) x = ex;
-}
-} catch (e) {}
+// FIX 2026-09-16 #590：展开逻辑收口到 mediaFormText（同一入口，#511 的「整串令牌」口径
+// 加上语音「名称|||令牌」形态，与 dupSig/sigOf 完全同源）
+const x = mediaFormText(m.text);
 return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || '') + '|' + x.length + '|' + x.slice(0, 96));
 }
 try { window.__lsMergeSig = lsMergeSig; } catch (e) {} // 回归脚本可测性出口（只读纯函数）
@@ -928,7 +1018,10 @@ if (lsArr.length && msgs.length) {
 // 签名统一走 lsMergeSig（与 dupSig 同口径：展开媒体令牌 + 含 special/type）——两处合并点
 // 共用同一函数，避免「修了读侧、写侧仍按旧口径在 LS 里存两份」的半修。
 const seen = new Set(lsArr.map(lsMergeSig));
-const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)));
+// FIX 2026-09-16 #590：快照与内存同一条的「媒体两种存法」互补判定（冷池下 expand 不可用，
+// 见 recKindCovers 注释）——缺了这一步，快照侧旧形态副本会被当新消息 concat 回来＝消息翻倍
+const lsKinds = recKindIndex(lsArr);
+const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(lsKinds, m));
 msgs = lsArr.concat(extra).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 } else if (lsArr.length) {
 msgs = lsArr;
@@ -1039,7 +1132,20 @@ __prof('ch0_enter');
 const idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
 if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return; }
-const sigOf = (m) => { try { return JSON.stringify({ t: m && m.text, s: m && m.side, ts: m && m.ts, i: m && m.img ? (typeof m.img === 'string' ? m.img.slice(0, 32) : String(m.img.length)) : 0 }); } catch (e) { return ''; } };
+// FIX 2026-09-16 #590（用户报障：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复；
+// 无头实测精确复现——种 12 条表情包字卡的桌面，切过去开聊天 msgs/DOM 双双变 24，每条
+// 一份 @@m: 令牌 + 一份原文 base64 相邻成对）：
+// 根因＝权威合并这里的去重签名只比「原文」：LS 兜底快照里同一条是原文 base64、IndexedDB
+// 权威副本已令牌化（#142/#256/#283 令牌化竞态，大历史/常用表情包桌面必然命中），原文不等
+// ⇒ 判成两条 ⇒ localNew 把快照副本当"新消息"append 回 merged ⇒ msgs = 权威 + 旧形态副本，
+// 两边 ts 相同 ⇒ 按 ts 排序后成对相邻 ⇒ 首屏「所有消息都变 2 个」；随后后台归一化
+// （dupSig 会展开令牌）按相邻重复把它们合并回 1＝用户看到的「回弹一下恢复正常」；
+// 归一化没赶上/未覆盖时更糟：重复被整包落盘固化成真重复。
+// 修复：签名与 lsMergeSig/dupSig 同口径，统一走 mediaFormText + mediaSigPart（展开 @@m:
+// 令牌与语音尾形态，长 base64 只取长度+前 96 字符，不再整串进 Set）。与 #511 同一族——
+// #511 收口了 LS 侧合并（lsMergeSig），权威合并这侧当时漏网，本条补齐＝四处口径同源。
+// 媒体「同一条」判定从此只有一处实现，任何一侧被改回原文直比都会重新翻倍（哨兵 #590a~c 守）。
+const sigOf = (m) => { try { return JSON.stringify({ t: mediaSigPart(m && m.text), s: m && m.side, ts: m && m.ts, i: (m && m.img) ? mediaSigPart(m.img) : 0 }); } catch (e) { return ''; } };
 const hasLocal = !!((pendingLocal && pendingLocal.length) || (msgs && msgs.length));
 let merged, curArr = pendingLocal || msgs || [];
 let changed = false;
@@ -1053,7 +1159,12 @@ if (!hasLocal) {
   const idbTsSide = new Set(idbArr.map(x => (((x && x.ts) || 0) + '|' + ((x && x.side) || ''))));
   __prof('ch3_tsside');
   const liteResidue = (m) => !!(m && (m._lsLite || m.img === '' || m.voice === ''));
+  // FIX 2026-09-16 #590：权威侧媒体形态索引——「同一条记录在快照里是原文、在库里是令牌」
+  // （令牌化竞态；池冷载时 sigOf 展开不出原文）时，快照副本不得当新消息 append 回来
+  const idbKinds = recKindIndex(idbArr);
+  __prof('ch3b_kinds');
   const localNew = curArr.filter(m => m && !idbSigs.has(sigOf(m))).filter(m => {
+    if (recKindCovers(idbKinds, m)) return false;
     if (!liteResidue(m)) return true;
     return !idbTsSide.has((((m && m.ts) || 0)) + '|' + ((m && m.side) || ''));
   });
@@ -2363,10 +2474,22 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 }
 });
 }
+// FIX 2026-09-16 #572 点开撤回原文「全部聊天消息都会弹和闪」（用户报，明说以前没有这个问题
+// ＝回归）：展开＝把原文写回这条气泡本身，而撤回提示只有一行（实测 45px）、任何真实原文都更高
+// ⇒ 该气泡当场变高，.chat-body 是纵向 flex 列表，它下面的每条消息都要重新排位＝整列被顶走。
+// 浏览器本来有原生滚动锚定会把这份高度差补掉（#199 之前一直开着），但 base.css 的
+// .chat-body{overflow-anchor:none}（#199 为治滚动抖动关掉）把它关了，#316 只在「解钉」期动态
+// 挂 .scroll-anchor-auto 开回——而轻点撤回提示是 touchstart 解钉、touchend 又回钉（scrollChatBottom
+// 摘类），展开发生在回钉之后＝锚定恰好是关的，补偿无人做（无头实测：视口内 8 条各下移 55px；
+// 同场景把锚定打开只剩被点那条动）。这里按本文件 inplacePatchIfSameWindow 的既有补偿口径自己补：
+// 贴底态回钉（与内核锚定在贴底时的结果一致），非贴底态按高度差把视口钉回，其它消息原地不动。
 function bindToggle(b, side) {
 const who = side === 'out' ? '我' : '对方';
 b.style.cursor = 'pointer';
 b.onclick = function () {
+const prevTop = body.scrollTop;
+const prevH = body.scrollHeight;
+const wasBottom = chatAtBottom();
 if (b.dataset.showing === '1') {
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.dataset.showing = '0';
@@ -2374,6 +2497,8 @@ b.dataset.showing = '0';
 b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
+const dH = body.scrollHeight - prevH;
+if (dH) { if (wasBottom) scrollChatBottom(); else body.scrollTop = prevTop + dH; }
 };
 }
 let batchRendering = false;

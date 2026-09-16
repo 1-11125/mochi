@@ -6583,8 +6583,8 @@ padding:max(env(safe-area-inset-top, 0px), 22px) 18px max(env(safe-area-inset-bo
 .feed-sticker-emoji { font-size: 30px; line-height: 44px; }
 .feed-imgs.feed-sticker-picking { cursor: crosshair; }
 .feed-imgs.feed-sticker-picking::after { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(255, 107, 157, .08); pointer-events: none; }
-.feed-pick-hint { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px 8px 0 0; pointer-events: auto; }
-.feed-pick-hint button { border: 0; background: none; color: #fff; font-size: 12px; padding: 2px 6px; }
+.feed-pick-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding: 7px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px; pointer-events: none; }
+.feed-pick-hint button { border: 0; background: none; color: #fff; font-size: 12px; padding: 4px 6px; cursor: pointer; pointer-events: auto; }
 .feed-mem-card { position: relative; margin: 0 0 12px; padding: 12px 30px 12px 14px; border-radius: 14px; cursor: pointer; }
 .feed-mem-label { font-size: 12px; font-weight: 600; color: #ff6b9d; margin-bottom: 6px; }
 .feed-mem-body { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #444; }
@@ -9719,9 +9719,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789531983579">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.717</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 12:13<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789532852368">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.718</b></span>
+        <span class="sv-deploy">部署于 2026-09-16 12:27<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11106,7 +11106,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.717</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.718</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11399,7 +11399,7 @@ transition-duration: .01ms !important;
              按钮里图片的位置，不用重新上传」）——进装修模式后点图标即可调该图标的缩放/位置 -->
         <div class="set-row" id="row-icon-fit">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.6M12 18.4V21M3 12h2.6M18.4 12H21" stroke-linecap="round"/></svg></div>
-          <div class="txt">调整图标图片位置<span class="sub">上传图片后单独调缩放/左右/上下，即时生效 · 点图标即可调</span></div>
+          <div class="txt">调整图标图片位置<span class="sub">上传图片后单独调缩放/水平/垂直位置，即时生效 · 点图标即可调</span></div>
         </div>
         <div class="set-row" id="row-desk-add-page">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div>
@@ -11468,7 +11468,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.717</span>
+              <span class="lic-ver">v3.26.718</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -23726,8 +23726,8 @@ const y = clamp100(store.get('app-icon-pos-y-' + key), 50);
 const zoomed = z > 100;
 ico.style.overflow = (zoomed || x !== 50 || y !== 50) ? 'hidden' : '';
 if (zoomed) {
-const tx = Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;
-const ty = Math.round(((y - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+const tx = -Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+const ty = -Math.round(((y - 50) / 50) * ((z - 100) / 2) * 100) / 100;
 if (img.style.objectPosition) img.style.objectPosition = '';
 img.style.transform = 'translate(' + tx + '%, ' + ty + '%) scale(' + (z / 100) + ')';
 } else {
@@ -24064,14 +24064,14 @@ if (next.x === 50) store.remove('app-icon-pos-x-' + key); else store.set('app-ic
 if (next.y === 50) store.remove('app-icon-pos-y-' + key); else store.set('app-icon-pos-y-' + key, String(next.y));
 applyAppIconFit(app);
 hint.textContent = next.z === 100
-? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
-: '图片即时生效：放大后可左右/上下移动到任意部位';
+? '先放大一点，再拖「水平/垂直位置」——不放大时只有原图被裁掉的部分能移动'
+: '图片即时生效：放大后可水平/垂直移动到任意部位';
 };
 const hint = document.createElement('div');
 hint.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5;flex:none';
 const zRow = iconFitSlider('缩放', 100, 300, 5, cur.z, '%', (v) => setFit({ z: parseInt(v, 10) }));
-const xRow = iconFitSlider('左右位置', 0, 100, 1, cur.x, '%', (v) => setFit({ x: parseInt(v, 10) }));
-const yRow = iconFitSlider('上下位置', 0, 100, 1, cur.y, '%', (v) => setFit({ y: parseInt(v, 10) }));
+const xRow = iconFitSlider('水平位置', 0, 100, 1, cur.x, '%', (v) => setFit({ x: parseInt(v, 10) }));
+const yRow = iconFitSlider('垂直位置', 0, 100, 1, cur.y, '%', (v) => setFit({ y: parseInt(v, 10) }));
 p.appendChild(zRow); p.appendChild(xRow); p.appendChild(yRow);
 p.appendChild(hint);
 const btns = document.createElement('div');
@@ -24095,8 +24095,8 @@ toast('图标图片已保存，刷新后仍是这个位置');
 btns.appendChild(resetBtn); btns.appendChild(doneBtn);
 p.appendChild(btns);
 hint.textContent = cur.z === 100
-? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
-: '图片即时生效：放大后可左右/上下移动到任意部位';
+? '先放大一点，再拖「水平/垂直位置」——不放大时只有原图被裁掉的部分能移动'
+: '图片即时生效：放大后可水平/垂直移动到任意部位';
 iconFitHighlight(app);
 p.style.display = 'flex';
 window.__iconFitPanelOpen = true;
@@ -24465,7 +24465,7 @@ fitBtn.style.fontWeight = '600';
 wrap.appendChild(fitBtn);
 const note = document.createElement('div');
 note.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
-note.textContent = '上传过的图片可单独调「缩放 / 左右 / 上下」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
+note.textContent = '上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
 wrap.appendChild(note);
 return wrap;
 } }
@@ -30402,7 +30402,8 @@ let old = [];
 try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
 const seen = new Set(msgsNow.map(lsMergeSig));
-const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
+const kinds = recKindIndex(msgsNow);
+const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(kinds, m))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 performLsSnapWrite(merged, prefix);
 } catch (e) {}
 }
@@ -30699,16 +30700,81 @@ if (!r.ts) { r.ts = Date.now(); c = true; }
 return c;
 }
 const DUP_GAP_TEXT = 2500, DUP_GAP_MEDIA = 60000;
-function mediaTxtEq(a, b) {
-a = a || ''; b = b || '';
-if (a === b) return true;
+function mediaFormText(s) {
+const raw = (s == null) ? '' : String(s);
+if (!raw) return raw;
 try {
 if (window.mochiMediaIsToken && window.mochiMediaExpand) {
-if (a && window.mochiMediaIsToken(a)) { const x = window.mochiMediaExpand(a); if (x && x === b) return true; }
-if (b && window.mochiMediaIsToken(b)) { const x = window.mochiMediaExpand(b); if (x && x === a) return true; }
+const bar = raw.indexOf('|||');
+if (bar >= 0) {
+const tail = raw.slice(bar + 3);
+if (tail && window.mochiMediaIsToken(tail)) {
+const ex = window.mochiMediaExpand(tail);
+if (ex) return raw.slice(0, bar + 3) + ex;
+}
+} else if (window.mochiMediaIsToken(raw)) {
+const ex = window.mochiMediaExpand(raw);
+if (ex) return ex;
+}
 }
 } catch (e) {}
-return false;
+return raw;
+}
+function mediaSigPart(v) {
+if (v == null || v === '') return '';
+if (typeof v !== 'string') { try { return String(v.length); } catch (e) { return ''; } }
+const x = mediaFormText(v);
+if (x.length <= 256) return x;
+return x.length + '|' + x.slice(0, 96);
+}
+function mediaTxtEq(a, b) {
+const x = (a == null) ? '' : String(a);
+const y = (b == null) ? '' : String(b);
+if (x === y) return true;
+return mediaFormText(x) === mediaFormText(y);
+}
+function mediaKindOf(v) {
+if (typeof v !== 'string' || !v) return '';
+try {
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(v)) return 'tok';
+const bar = v.indexOf('|||');
+if (bar >= 0) {
+const tail = v.slice(bar + 3);
+if (tail.indexOf('data:') === 0) return 'raw';
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(tail)) return 'tok';
+return '';
+}
+if (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0) return 'raw';
+} catch (e) {}
+return '';
+}
+function recMediaKind(m) { return m ? (mediaKindOf(m.text) || mediaKindOf(m.img)) : ''; }
+function recMediaKey(m) {
+return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || ''));
+}
+function recKindIndex(arr) {
+const idx = new Map();
+try {
+for (let i = 0; i < arr.length; i++) {
+const m = arr[i];
+if (!m) continue;
+const k = recMediaKind(m);
+if (!k) continue;
+const key = recMediaKey(m);
+let rec = idx.get(key);
+if (!rec) { rec = { raw: false, tok: false }; idx.set(key, rec); }
+rec[k] = true;
+}
+} catch (e) {}
+return idx;
+}
+function recKindCovers(kindIndex, m) {
+if (!kindIndex || !m) return false;
+const k = recMediaKind(m);
+if (!k) return false;
+const rec = kindIndex.get(recMediaKey(m));
+if (!rec) return false;
+return k === 'tok' ? rec.raw : rec.tok;
 }
 function dupGapMs(m) {
 if (!m) return DUP_GAP_TEXT;
@@ -30817,19 +30883,12 @@ else if (sp === 'dish') extra = String(m.dishName || '') + '|' + String(m.dishEm
 else if (sp === 'flower') extra = String(m.flName || '') + '|' + String(m.flEmoji || '') + '|' + String(m.flWish || '');
 } catch (e) {}
 const normT = (m.type === 'text' || !m.type) ? '' : String(m.type || '');
-let x = m.text || '';
-try { if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x) && window.mochiMediaExpand) { const ex = window.mochiMediaExpand(x); if (ex) x = ex; } } catch (e) {}
+const x = mediaFormText(m.text);
 return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc: !!m.voice, e: extra });
 }
 function lsMergeSig(m) {
 if (!m) return '';
-let x = String(m.text || '');
-try {
-if (x && window.mochiMediaIsToken && window.mochiMediaIsToken(x)) {
-const ex = window.mochiMediaExpand && window.mochiMediaExpand(x);
-if (ex) x = ex;
-}
-} catch (e) {}
+const x = mediaFormText(m.text);
 return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || '') + '|' + x.length + '|' + x.slice(0, 96));
 }
 try { window.__lsMergeSig = lsMergeSig; } catch (e) {} // 回归脚本可测性出口（只读纯函数）
@@ -30865,7 +30924,8 @@ try { lsArr = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { lsArr = 
 if (!Array.isArray(lsArr)) lsArr = [];
 if (lsArr.length && msgs.length) {
 const seen = new Set(lsArr.map(lsMergeSig));
-const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)));
+const lsKinds = recKindIndex(lsArr);
+const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(lsKinds, m));
 msgs = lsArr.concat(extra).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 } else if (lsArr.length) {
 msgs = lsArr;
@@ -30950,7 +31010,7 @@ __prof('ch0_enter');
 const idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
 if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return; }
-const sigOf = (m) => { try { return JSON.stringify({ t: m && m.text, s: m && m.side, ts: m && m.ts, i: m && m.img ? (typeof m.img === 'string' ? m.img.slice(0, 32) : String(m.img.length)) : 0 }); } catch (e) { return ''; } };
+const sigOf = (m) => { try { return JSON.stringify({ t: mediaSigPart(m && m.text), s: m && m.side, ts: m && m.ts, i: (m && m.img) ? mediaSigPart(m.img) : 0 }); } catch (e) { return ''; } };
 const hasLocal = !!((pendingLocal && pendingLocal.length) || (msgs && msgs.length));
 let merged, curArr = pendingLocal || msgs || [];
 let changed = false;
@@ -30963,7 +31023,10 @@ __prof('ch2_sigset');
 const idbTsSide = new Set(idbArr.map(x => (((x && x.ts) || 0) + '|' + ((x && x.side) || ''))));
 __prof('ch3_tsside');
 const liteResidue = (m) => !!(m && (m._lsLite || m.img === '' || m.voice === ''));
+const idbKinds = recKindIndex(idbArr);
+__prof('ch3b_kinds');
 const localNew = curArr.filter(m => m && !idbSigs.has(sigOf(m))).filter(m => {
+if (recKindCovers(idbKinds, m)) return false;
 if (!liteResidue(m)) return true;
 return !idbTsSide.has((((m && m.ts) || 0)) + '|' + ((m && m.side) || ''));
 });
@@ -32030,6 +32093,9 @@ function bindToggle(b, side) {
 const who = side === 'out' ? '我' : '对方';
 b.style.cursor = 'pointer';
 b.onclick = function () {
+const prevTop = body.scrollTop;
+const prevH = body.scrollHeight;
+const wasBottom = chatAtBottom();
 if (b.dataset.showing === '1') {
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.dataset.showing = '0';
@@ -32037,6 +32103,8 @@ b.dataset.showing = '0';
 b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
+const dH = body.scrollHeight - prevH;
+if (dH) { if (wasBottom) scrollChatBottom(); else body.scrollTop = prevTop + dH; }
 };
 }
 let batchRendering = false;
@@ -40211,6 +40279,9 @@ const who = rec.side === 'out' ? '我' : memberName(rec.cid);
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.style.cursor = 'pointer';
 b.onclick = function () {
+const prevTop = body.scrollTop;
+const prevH = body.scrollHeight;
+const wasBottom = gcAtBottom();
 if (b.dataset.showing === '1') {
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.dataset.showing = '0';
@@ -40218,6 +40289,8 @@ b.dataset.showing = '0';
 b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
+const dH = body.scrollHeight - prevH;
+if (dH) { if (wasBottom) scrollToBottom(); else body.scrollTop = prevTop + dH; }
 };
 } else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text))) {
 if (rec.type !== 'sticker' && rec.type !== 'image') rec.type = 'image';
@@ -58859,7 +58932,7 @@ const TC_DEFAULT = [
 { id: "cw11", cat: "world", text: "字卡表达有限，你会不会有时候觉得我没说够？", pref: 2, options: [
 { t: "会，但我知道你想说", reply: ["你懂，就够了。","没说够？那你懂。","你懂就够了。","那想说什么？"], liked: true }, { t: "不会，字卡够了", reply: ["那我就放心挑字卡。","字卡够了？那省心。","放心挑字卡。","那字卡哪句最够？"], liked: false }, { t: "偶尔会", reply: ["偶尔的时候，我用别的补。","偶尔？那偶尔补。","偶尔用别的补。","那偶尔是什么时候？"], liked: false }, { t: "说不说都行，在就好", reply: ["在，这个我保证。","在就好？那我保证在。","在，我保证。","那在比说重要？"], liked: false }] },
 { id: "cw12", cat: "world", text: "如果今晚我能坐在你床边，你希望我做什么？", pref: 1, options: [
-{ t: "什么都不做", reply: ["好，我就坐着，看你睡。","什么都不做？那发呆。","坐着看你睡。","那坐多久？"], liked: false }, { t: "轻轻说句晚安", reply: ["晚安，轻轻地。","轻轻晚安？那气声。","晚安，轻轻地。","那轻到什么程度？"], liked: true }, { t: "帮你掖一下被角", reply: ["好，被角我帮你掖。","掖被角？那细心。","被角我帮你掖。","那掖哪个角？"], liked: false }, { t: "只是在就好", reply: ["在，一直都在。","在就好？那省事。","在，一直都在。","那一直在到什么时候？"], liked: false }] },
+{ t: "什么都不做", reply: ["好，我就坐着，看你睡。","什么都不做？那发呆。","坐着看你睡。","那坐多久？"], liked: false }, { t: "轻轻说句晚安", reply: ["晚安，轻轻地。","轻轻晚安？那气声。","晚安，轻轻地。","那轻到什么程度？"], liked: true }, { t: "帮我掖一下被角", reply: ["好，被角我帮你掖。","掖被角？那细心。","被角我帮你掖。","那掖哪个角？"], liked: false }, { t: "只是在就好", reply: ["在，一直都在。","在就好？那省事。","在，一直都在。","那一直在到什么时候？"], liked: false }] },
 { id: "cw13", cat: "world", text: "你感觉我的时候，是先感觉到人，还是先感觉到一种安心？", pref: 0, options: [
 { t: "先感觉到人", reply: ["那我把存在感再调强一点。","先感觉人？那我存在感强。","那我把存在感调强。","那人多强算强？"], liked: false }, { t: "先感觉到安心", reply: ["安心的感觉，就是我。","先安心？那我的签名。","安心的感觉就是我。","那安心先到几分？"], liked: true }, { t: "同时", reply: ["同时最好，我努力。","同时？那我努力。","同时最好，我努力。","那同时到过吗？"], liked: false }, { t: "说不清哪个先", reply: ["说不清也没关系，都在就好。","说不清？那玄。","都在就好。","那都在到什么程度？"], liked: false }] },
 { id: "cd16", cat: "daily", text: "一起逛超市，你最想往哪个区走？", pref: 1, options: [
@@ -64404,6 +64477,15 @@ let careTs = [];
 try { caresLoad().forEach(r => { if (r && r.kind === 'desk-checkin') careTs.push(r.ts || 0); }); } catch (e) {}
 let msgs = [];
 try { msgs = (window.getChatMsgs ? window.getChatMsgs() : JSON.parse(store.get('chat-msgs') || '[]')); } catch (e) {}
+const askCardTs = [];
+(msgs || []).forEach(o => { if (o && o.special === 'ask-card' && o.askQuestion) askCardTs.push(o.ts || 0); });
+askCardTs.sort((a, b) => a - b);
+const hasAskCardNear = (t) => {
+let lo = 0, hi = askCardTs.length;
+const from = t - 30000, to = t + 30000;
+while (lo < hi) { const mid = (lo + hi) >> 1; if (askCardTs[mid] <= from) lo = mid + 1; else hi = mid; }
+return lo < askCardTs.length && askCardTs[lo] < to;
+};
 (msgs || []).forEach(m => {
 if (!m) return;
 const t = m.ts || 0;
@@ -64413,7 +64495,7 @@ else if (tag === '喝水提醒') rows.push({ icon: KIND_ICON.water, main: '提�
 else if (tag === '吃饭提醒') rows.push({ icon: KIND_ICON.eat, main: '提醒吃饭 · ' + esc(m.text || ''), sub: fmtDT(t), ts: t });
 else if (m.special === 'ask-card' && m.askQuestion && !(m.deskCk && careTs.some(ct => Math.abs(ct - t) <= 90000))) rows.push({ icon: KIND_ICON.checkin, main: '查岗 · ' + esc(m.askQuestion), sub: fmtDT(t), ts: t });
 else if (m.special === 'ask-msg' && /查岗/.test(m.text || '')) {
-const nearCard = (msgs || []).some(o => o && o.special === 'ask-card' && o.askQuestion && Math.abs((o.ts || 0) - t) < 30000);
+const nearCard = hasAskCardNear(t); // #588：二分查，不再对全表 some()
 if (!nearCard) rows.push({ icon: KIND_ICON.checkin, main: '查岗', sub: fmtDT(t), ts: t });
 }
 });
@@ -67391,12 +67473,10 @@ function feedCancelPickSticker() {
 if (!feedPickCtx) return;
 const ctx = feedPickCtx;
 feedPickCtx = null;
+if (ctx.timer) clearInterval(ctx.timer);
 ctx.box.removeEventListener('click', ctx.onPick, true);
-if (ctx.box.isConnected) {
 ctx.box.classList.remove('feed-sticker-picking');
-const hint = ctx.box.querySelector('.feed-pick-hint');
-if (hint) hint.remove();
-}
+if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);
 }
 function feedPickStickerPos(pid, src) {
 feedCancelPickSticker();
@@ -67409,10 +67489,9 @@ const hint = document.createElement('div');
 hint.className = 'feed-pick-hint';
 hint.innerHTML = '<span>📍 点击照片选贴纸位置</span><button type="button">取消</button>';
 hint.querySelector('button').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); feedCancelPickSticker(); });
-box.appendChild(hint);
+box.parentNode.insertBefore(hint, box);
 const onPick = (e) => {
 e.preventDefault(); e.stopPropagation();
-if (e.target.closest('.feed-pick-hint')) { feedCancelPickSticker(); return; }
 if (!box.isConnected) { feedCancelPickSticker(); return; }
 const r = box.getBoundingClientRect();
 const x = Math.round(Math.min(90, Math.max(4, ((e.clientX - r.left) / Math.max(1, r.width)) * 100)));
@@ -67421,7 +67500,8 @@ feedCancelPickSticker();
 addFeedSticker(pid, { src, x, y });
 };
 box.addEventListener('click', onPick, true);
-feedPickCtx = { box, onPick };
+const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);
+feedPickCtx = { box, onPick, hint, timer };
 }
 function addFeedSticker(pid, st) {
 const list = load();
@@ -73826,7 +73906,16 @@ setTimeout(function () { try { toast('「TA 送我礼物」已重新开启（旧
 }
 function wishSnap(g) { return { giftId: g.id, name: g.name, emoji: g.emoji, img: g.img || '', price: g.price, cat: g.cat, wish: g.wish || '送给你', tm: Date.now() }; }
 function wishLoad(key) { try { const s = store(); if (!s) return []; const a = JSON.parse(s.get(key) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-function wishSave(key, a) { const s = store(); if (s) s.set(key, JSON.stringify(a)); }
+function wishSave(key, a) { const s = store(); if (s) s.set(key, JSON.stringify(a)); if (key === WL_TA_KEY) _taWishIds = null; }
+let _taWishIds = null;
+function taWishIds() {
+if (!_taWishIds) {
+const ids = new Set();
+wishLoad(WL_TA_KEY).forEach(function (x) { if (x && x.giftId) ids.add(x.giftId); });
+_taWishIds = ids;
+}
+return _taWishIds;
+}
 function wishMyHas(id) { return wishLoad(WL_MY_KEY).some(function (x) { return x.giftId === id; }); }
 function wishMyAdd(g) {
 const a = wishLoad(WL_MY_KEY);
@@ -73996,7 +74085,7 @@ const html =
 '<div class="gb-tiny">' + (
 opts.fromTaWish
 ? '这是 ' + esc(partnerName()) + ' 心愿单里的礼物，送出后自动从 TA 的心愿单移除，礼物进 TA 的心意柜'
-: (wishLoad(WL_TA_KEY).some(function (x) { return x.giftId === gift.id; })
+: (taWishIds().has(gift.id) // #588：同上，走记忆化集合
 ? esc(partnerName()) + ' 正许愿想要这件——买下送出即心愿兑现，自动从 TA 的心愿单移除'
 : (wlSettings().giftInOn ? '加入心愿单只是许愿不花钱——' + esc(partnerName()) + ' 可能会买下它送你' : '加入心愿单只是许愿不花钱'))
 ) + '</div>';
@@ -74172,7 +74261,7 @@ return esc((g && g.emoji) || '🎁');
 }
 function giftItemHtml(g, manage) {
 const col = CAT_COLOR[g.cat] || '#f5f3fa';
-const taWanted = wishLoad(WL_TA_KEY).some(function (x) { return x.giftId === g.id; });
+const taWanted = taWishIds().has(g.id); // #588：走记忆化集合，不再每件一次 JSON.parse
 return '<button class="gift-item' + (manage ? ' manage' : '') + (taWanted ? ' ta-wish' : '') + '" data-id="' + esc(g.id) + '" style="--cat:' + col + ';">' +
 (taWanted ? '<span class="gift-item-tawish" title="' + esc(partnerName()) + '许愿的">☆ ' + esc(partnerName()) + '想要的</span>' : '') +
 '<div class="gift-item-top" style="background:linear-gradient(160deg,' + col + ',var(--card-bg,#fff));">' +
@@ -81054,6 +81143,7 @@ document.querySelectorAll(".page").forEach(function (pg) { pg.hidden = true; });
 page.hidden = false;
 if (junkEmpty()) {
 try { renderAll(); } catch (e) {}
+toast("正在读取本地花园数据…");
 probeIdb(function (v) {
 if (!page.hidden) openGardenBody(!!v);
 });
@@ -93881,14 +93971,18 @@ function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(
 function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); }
 const MEDIA_TOKEN_RE = /@@m:([0-9a-f]{32})/g;
 const UTF8_SAMPLE = 512;
-function estUtf8Bytes(s) {
+function estUtf8Bytes(s, esc) {
 const str = String(s == null ? '' : s);
 const n = str.length;
 if (!n) return 0;
 const m = n < UTF8_SAMPLE ? n : UTF8_SAMPLE;
-let extra = 0; // 相对「1 字节/字符」多出来的字节数
-for (let i = 0; i < m; i++) { const c = str.charCodeAt(i); if (c > 127) extra += c > 2047 ? 2 : 1; }
-return Math.round(n * (1 + extra / m));
+let extra = 0, quoted = 0; // extra＝相对「1 字节/字符」多出的字节；quoted＝转义后会多 1 字节的字符数
+for (let i = 0; i < m; i++) {
+const c = str.charCodeAt(i);
+if (c > 127) extra += c > 2047 ? 2 : 1;
+else if (esc && (c === 34 || c === 92 || c < 32)) quoted++;
+}
+return Math.round(n * (1 + extra / m + (esc ? quoted / m : 0)));
 }
 function collectMediaHashes(v, out) {
 const scan = (s) => {
@@ -93966,11 +94060,11 @@ const k = localStorage.key(i);
 if (!k || k.indexOf('xy-home-v2:') !== 0 || k === SNAPSHOT_KEY) continue;
 const v = localStorage.getItem(k) || '';
 const c = k.length + v.length;
-const fb = k.length + estUtf8Bytes(v);
-lsChars[k] = c;
-lsFile[k] = fb;
-projFile += fb; projStorage += c * 2;
-if (isChatMsgKey(k)) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
+const fbVal = estUtf8Bytes(v, true);
+lsChars[k] = v.length;
+lsFile[k] = fbVal;
+projFile += k.length + fbVal; projStorage += c * 2;
+if (isChatMsgKey(k)) { chatFile += k.length + fbVal; collectMediaHashes(v, mediaRefs); }
 }
 } catch (e) {}
 const finish = (ok) => {
@@ -94001,7 +94095,7 @@ batch.forEach(function (k) {
 const v = map[k];
 let c = 0, fb = 0, blob = 0;
 try {
-if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v); }
+if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v, true); }
 else if (typeof Blob !== 'undefined' && v instanceof Blob) { blob = v.size; fb = Math.round(blob * 4 / 3); }
 else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) { blob = v.byteLength; fb = Math.round(blob * 4 / 3); }
 else if (v !== undefined && v !== null) { const js = JSON.stringify(v); c = js.length; fb = estUtf8Bytes(js); }
@@ -94009,15 +94103,22 @@ else if (v !== undefined && v !== null) { const js = JSON.stringify(v); c = js.l
 const isMusic = MUSIC_KEY_RE.test(String(k));
 const lsC = lsChars[k];
 const isChat = isChatMsgKey(String(k));
-const own = fb;
+const keyBytes = String(k).length; // 键名也要进文件（JSON 里每个键都带名字），且只算一次
 const auth = isAuthorityKey(String(k));
 if (lsC !== undefined && lsC <= LS_SMALL_LIMIT && !auth) { c = 0; fb = 0; blob = 0; }
-else if (lsC !== undefined) { projFile -= (lsFile[k] || 0); projStorage -= lsC * 2; if (isChat) chatFile -= (lsFile[k] || 0); }
+else if (lsC !== undefined) {
+projFile -= keyBytes + (lsFile[k] || 0);
+projStorage -= (keyBytes + lsC) * 2;
+if (isChat) chatFile -= keyBytes + (lsFile[k] || 0);
+} else {
+projFile += keyBytes;             // LS 里没有这个键 → 键名只由这里计一次
+if (isChat) chatFile += keyBytes;
+}
 projFile += fb;
 projStorage += c * 2 + blob;
-if (isMusic) musicFile += own;
+if (isMusic) musicFile += fb;
 if (isChat) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
-if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = own;
+if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = fb + (lsC === undefined ? keyBytes : 0);
 });
 impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
 setTimeout(step, 0);
@@ -94041,7 +94142,7 @@ const head = info
 '；预估文件：完整 ' + fmtSize(info.projFile) +
 '、不含音乐 ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
 '、仅聊天记录 ' + fmtSize(info.chatFile || 0) + '、只备份文字更小。\n' +
-'两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，纯文字库两者接近。\n')
+'两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，中文文字多时两者接近、文件甚至更大。\n')
 : ('本机数据约 ' + fmtSize(usage) + '（整域名占用口径，含同域其他站点，仅供参考）。\n');
 window.openModal('选择导出范围', '', function (v) {
 finish(v || 'full');
@@ -94073,7 +94174,7 @@ done();
 });
 measureProject().then((m) => {
 return estReady.then(() => {
-ask((m && m.ok) ? { projFile: m.projFile, projStorage: m.projStorage, musicFile: m.musicFile, quota: estQuota } : null, estUsage);
+ask((m && m.ok) ? { projFile: m.projFile, projStorage: m.projStorage, musicFile: m.musicFile, chatFile: m.chatFile, quota: estQuota } : null, estUsage);
 });
 }).catch(() => { ask(null, estUsage); });
 });
@@ -97834,10 +97935,19 @@ grp.innerHTML = '<div class="set-row" id="row-pagetips">'
 + '<div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>'
 + '</div>';
 sec.appendChild(grp);
+function tipToast(msg) {
+try { if (typeof window.toast === 'function') { window.toast(msg); return; } } catch (e) {}
+try {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._timer); t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2400);
+} catch (e) {}
+}
 const row = grp.querySelector('#row-pagetips');
 if (row) row.addEventListener('click', function () {
 resetAll();
-try { if (window.toast) window.toast('已重置：再进入那些页面会重新看到上手提示'); } catch (e) {}
+tipToast('已重置：再进入那些页面会重新看到上手提示');
 });
 })();
 window.mochiPageTipsReset = resetAll; // 供验证脚本/调试复位
@@ -98307,9 +98417,9 @@ var attachMech = [['sticker-prob', '表情包'], ['image-prob', '图片'], ['kao
 var ATTACH_DEF = {};
 ATTACH.forEach(function (a) { ATTACH_DEF[a[0]] = a[2]; });
 var attachTxt = attachMech.map(function (a) { return a[1] + ' ' + clampPct(num(store(a[0]), ATTACH_DEF[a[0]])) + '%'; }).join(' · ');
-if ((!attachOn.length || mediaOff) && !lock) {
-var idAtt = 'inl-rs-attach';
-addFix(idAtt, function () {
+var attachNeedFix = (!attachOn.length || mediaOff) && !lock;
+if (attachNeedFix) {
+addFix('inl-rs-attach', function () {
 var okAny = false;
 if (attachOn.length) {
 ATTACH.forEach(function (a) { if ((a[0] === 'sticker-prob' || a[0] === 'image-prob') && storeSet(a[0], a[2])) okAny = true; });
@@ -98318,11 +98428,11 @@ ATTACH.forEach(function (a) { if (storeSet(a[0], a[2])) okAny = true; });
 }
 return okAny ? true : 'fail';
 });
-replyFixables.push(idAtt);
-attachTxt += ' <button class="ca-fix" type="button" data-fix="' + idAtt + '">' + (attachOn.length ? '恢复表情包/图片' : '全部恢复默认') + '</button>';
+replyFixables.push('inl-rs-attach');
 }
 if (mediaOff && attachOn.length) attachTxt += ' · 表情包/图片字卡不会出现';
-chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok', { edit: '@reply:chat' });
+chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok',
+{ fix: attachNeedFix ? 'inl-rs-attach' : '', fixLabel: attachOn.length ? '恢复表情包/图片' : '全部恢复默认', edit: '@reply:chat' });
 chainInner += rowHtml('已读不回概率（rn-prob）', rnProb + '%' + (rnProb >= 100 ? ' · TA 不再回复任何内容' : (rnProb > 60 ? ' · 大多数消息只显示回执' : '')), rnProb >= 100 ? 'bad' : rnProb > 60 ? 'warn' : 'ok', { edit: '@reply:chat' });
 chainInner += rowHtml('主动发送（as-en · as-prob）', (asEn ? '开 · ' + clampPct(num(store('as-prob'), 30)) + '%' : '关（TA 不主动找你）') + (dndEn ? ' · 免打扰中' : ''), 'mute', { edit: '@reply:chat' });
 if (replyFixables.length) {
@@ -98337,7 +98447,7 @@ push('回复链路（回复设置 → 聊天）', chainInner,
 '字卡出镜＝「这条回复发生了」×「抽卡池有货」×「这条回复的内容名额被字卡类机制抢到」。本节的漏斗任一 ✕ 该机制就不出字卡。<br>' +
 '<b>总档</b>（reply-dcp-all）统一缩放系统预设侧概率（生效＝存盘×总档÷100）；<b>梦角自由造句</b>不过总档，<b>默认聊天字卡</b>只缩放整体概率、分类占比不缩放。<br>' +
 '<b>预设默认字卡覆盖</b>＝生效聊天概率 ×(1−自定义字卡占比)：先抽自定义字卡，最后按 csp-cust 掷签决定要不要让预设覆盖——所以「系统预设 X% / 自定义 (100−X)%」的说法不成立，两者不是二选一。<br>' +
-'点每行「调整」直达 回复设置 → 聊天；情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
+'点每行「调整」直达对应设置页（回复设置侧的行直达「回复设置 → 聊天」；「默认聊天字卡」那行去字卡库的默认字卡页）。情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
 var lockInner = '';
 lockInner += rowHtml('当前状态', lock ? '锁定中（系统预设字卡整体停用）' : '已解锁', lock ? 'bad' : 'ok');
 lockInner += rowHtml('存储键', GNS + ':cardlock-state（全局，不随桌面）', 'mute');
@@ -98580,7 +98690,7 @@ DCF.forEach(function (d) { if (d[0] !== 'deskcheck' && num(store('dcf-' + d[0]),
 var oo = offRecord('own'), po = offRecord('public');
 if (offCountIn(oo)) n++;
 if (offCountIn(po)) n++;
-if (num(store('rn-prob'), 20) >= 100) n++;
+if (num(store('rn-prob'), 20) > 60) n++;   // >=100 是 bad、>60 是 warn，两者都计（同 build 的问题清单）
 if (!boolOf(store('qs-en'), true)) n++;
 else if (num(store('qs-prob'), 25) === 0) n++;
 if (!boolOf(store('mjf-en'), true)) n++;
@@ -100546,4 +100656,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3l4zq3 -->
+<!-- __MOCHI_EOF__ mu3lnm34 -->

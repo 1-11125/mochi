@@ -172,10 +172,24 @@
       + '<div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>'
       + '</div>';
     sec.appendChild(grp);
+    // FIX 2026-09-16 #589「点击使用提示没有任何反应」：原实现只调 window.toast，而全项目
+    // 从未给 window.toast 赋过值（device.js 记录过同一个死通道）——重置其实已经成功，只是
+    // 没有任何可见反馈（设置页没有 .pc-bar 可移除，屏幕上零变化）。保留 window.toast 优先
+    // （哪天真的挂上就直接用），否则自绘 #cc-toast（全站统一样式，见 chat-pages.css，
+    // 与 device.js 的 diagToast / feature-hub 同款观感）。
+    function tipToast(msg) {
+      try { if (typeof window.toast === 'function') { window.toast(msg); return; } } catch (e) {}
+      try {
+        let t = document.getElementById('cc-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+        t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+        clearTimeout(t._timer); t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2400);
+      } catch (e) {}
+    }
     const row = grp.querySelector('#row-pagetips');
     if (row) row.addEventListener('click', function () {
       resetAll();
-      try { if (window.toast) window.toast('已重置：再进入那些页面会重新看到上手提示'); } catch (e) {}
+      tipToast('已重置：再进入那些页面会重新看到上手提示');
     });
   })();
 

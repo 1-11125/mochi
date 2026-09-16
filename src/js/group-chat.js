@@ -681,7 +681,18 @@
       const who = rec.side === 'out' ? '我' : memberName(rec.cid);
       b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
       b.style.cursor = 'pointer';
+      // FIX 2026-09-16 #572 点开撤回原文「全部聊天消息都会弹和闪」（用户报，明说以前没有＝回归，
+      // 单聊群聊都有）：展开＝把原文写回这条气泡本身，提示只有一行、原文必更高 ⇒ 该气泡当场变高，
+      // .chat-body（#gc-body 同挂该类）是纵向 flex 列表，下面每条消息都要重新排位＝整列被顶走。
+      // 内核原生滚动锚定本会补掉这份高度差（#199 之前一直开着），但 base.css 的
+      // .chat-body{overflow-anchor:none}（#199 治滚动抖动）关了它，#316 只在解钉期动态挂
+      // .scroll-anchor-auto 开回——轻点撤回提示是 touchstart 解钉、touchend 又回钉，展开发生在回钉
+      // 之后＝锚定正关着，补偿无人做。此处按单聊 bindToggle 同口径自己补：贴底回钉、非贴底按高度差
+      // 把视口钉回，其它消息原地不动。
       b.onclick = function () {
+        const prevTop = body.scrollTop;
+        const prevH = body.scrollHeight;
+        const wasBottom = gcAtBottom();
         if (b.dataset.showing === '1') {
           b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
           b.dataset.showing = '0';
@@ -689,6 +700,8 @@
           b.innerHTML = b.dataset.orig;
           b.dataset.showing = '1';
         }
+        const dH = body.scrollHeight - prevH;
+        if (dH) { if (wasBottom) scrollToBottom(); else body.scrollTop = prevTop + dH; }
       };
     } else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text))) {
       // FIX 2026-09-12 #383 存量乱码自愈：修复前令牌卡曾以 type:text 入群聊库（气泡直出

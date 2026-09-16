@@ -4409,8 +4409,12 @@ select.mochi-custom-select-native { display:none; }
 /* v3.36.x：我贴贴纸位置自定义——点照片选位置模式（TA 回贴仍随机） */
 .feed-imgs.feed-sticker-picking { cursor: crosshair; }
 .feed-imgs.feed-sticker-picking::after { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(255, 107, 157, .08); pointer-events: none; }
-.feed-pick-hint { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px 8px 0 0; pointer-events: auto; }
-.feed-pick-hint button { border: 0; background: none; color: #fff; font-size: 12px; padding: 2px 6px; }
+/* v3.26.x #588：提示条改文档流里的独立一行（由 feed.js 插在 .feed-imgs 之前）——**不得再回到绝对定位压照片**：
+   旧版 position:absolute;top:0 盖住照片顶部约 1/3（实测 104px 高的照片被占 33px），点那一带被提示条接走
+   ＝被当成「取消」，一张都贴不上；系统字号越大压得越多＝多机型同现象。
+   双保险：即便被改回覆盖式，pointer-events:none 也保证点得穿到照片（照片必须能点）。 */
+.feed-pick-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; padding: 7px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px; pointer-events: none; }
+.feed-pick-hint button { border: 0; background: none; color: #fff; font-size: 12px; padding: 4px 6px; cursor: pointer; pointer-events: auto; }
 .feed-mem-card { position: relative; margin: 0 0 12px; padding: 12px 30px 12px 14px; border-radius: 14px; cursor: pointer; }
 .feed-mem-label { font-size: 12px; font-weight: 600; color: #ff6b9d; margin-bottom: 6px; }
 .feed-mem-body { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #444; }

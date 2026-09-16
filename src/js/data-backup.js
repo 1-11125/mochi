@@ -343,14 +343,21 @@
   // 「文件约为本机数据的一半」在纯文字库上直接说反。逐字符全扫在几百 MB 库上代价太高，取前 512
   // 字符量「非 ASCII 占比」后线性外推（纯 ASCII 恒等于字符数，零偏差；emoji 略高估，可接受）。
   const UTF8_SAMPLE = 512;
-  function estUtf8Bytes(s) {
+  // esc=true：该值还会被 JSON.stringify 再转义一次（原始字符串值——本应用大量键存的是「JSON 字符串」
+  // （字卡库 / 收藏 / 聊天记录），里面的引号与反斜杠进文件时各变 2 字节，实测能占文件两三成；
+  // 已经是 JSON.stringify 结果的输入传 false，否则会把已转义的引号重复计一遍）。
+  function estUtf8Bytes(s, esc) {
     const str = String(s == null ? '' : s);
     const n = str.length;
     if (!n) return 0;
     const m = n < UTF8_SAMPLE ? n : UTF8_SAMPLE;
-    let extra = 0; // 相对「1 字节/字符」多出来的字节数
-    for (let i = 0; i < m; i++) { const c = str.charCodeAt(i); if (c > 127) extra += c > 2047 ? 2 : 1; }
-    return Math.round(n * (1 + extra / m));
+    let extra = 0, quoted = 0; // extra＝相对「1 字节/字符」多出的字节；quoted＝转义后会多 1 字节的字符数
+    for (let i = 0; i < m; i++) {
+      const c = str.charCodeAt(i);
+      if (c > 127) extra += c > 2047 ? 2 : 1;
+      else if (esc && (c === 34 || c === 92 || c < 32)) quoted++;
+    }
+    return Math.round(n * (1 + extra / m + (esc ? quoted / m : 0)));
   }
   // 从聊天值（消息数组或 JSON 字符串）里收集它引用到的媒体池 hash（导出打包与体积预估共用）。
   // 只认 @@m: 令牌字面量，不解 dataURL、不整包 stringify——大 chat-msgs 可能是几 MB 的数组，
@@ -458,11 +465,12 @@
           if (!k || k.indexOf('xy-home-v2:') !== 0 || k === SNAPSHOT_KEY) continue;
           const v = localStorage.getItem(k) || '';
           const c = k.length + v.length;
-          const fb = k.length + estUtf8Bytes(v);
-          lsChars[k] = c;
-          lsFile[k] = fb;
-          projFile += fb; projStorage += c * 2;
-          if (isChatMsgKey(k)) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
+          // lsFile 只记「值」的文件字节，键名单独算（它与存储口径都要各算一次，见下方 IDB 循环）
+          const fbVal = estUtf8Bytes(v, true);
+          lsChars[k] = v.length;
+          lsFile[k] = fbVal;
+          projFile += k.length + fbVal; projStorage += c * 2;
+          if (isChatMsgKey(k)) { chatFile += k.length + fbVal; collectMediaHashes(v, mediaRefs); }
         }
       } catch (e) {}
       const finish = (ok) => {
@@ -494,7 +502,7 @@
               // c＝存储口径字符数（×2＝UTF-16 字节）；fb＝文件口径字节数（UTF-8）；blob＝二进制原始字节
               let c = 0, fb = 0, blob = 0;
               try {
-                if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v); }
+                if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v, true); }
                 else if (typeof Blob !== 'undefined' && v instanceof Blob) { blob = v.size; fb = Math.round(blob * 4 / 3); }
                 else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) { blob = v.byteLength; fb = Math.round(blob * 4 / 3); }
                 else if (v !== undefined && v !== null) { const js = JSON.stringify(v); c = js.length; fb = estUtf8Bytes(js); }
@@ -502,18 +510,25 @@
               const isMusic = MUSIC_KEY_RE.test(String(k));
               const lsC = lsChars[k];
               const isChat = isChatMsgKey(String(k));
-              const own = fb;
+              const keyBytes = String(k).length; // 键名也要进文件（JSON 里每个键都带名字），且只算一次
               const auth = isAuthorityKey(String(k));
-              // 小键已按 LS 计过、IDB 同值不重复计——但权威键（chat-msgs/群聊/feed-posts）不适用：
-              // LS 那份是有损小快照，导出实际取的是更大的 IDB 权威值（见 isAuthorityKey 说明）
+              // 小键已按 LS 计过（键名＋值都在），IDB 同值不重复计——但权威键（chat-msgs/群聊/
+              // feed-posts）不适用：LS 那份是有损小快照，导出实际取的是更大的 IDB 权威值
               if (lsC !== undefined && lsC <= LS_SMALL_LIMIT && !auth) { c = 0; fb = 0; blob = 0; }
-              // 大键以 IDB 权威值为准（同导出路径）：两个口径的 LS 副本都要按各自口径扣掉
-              else if (lsC !== undefined) { projFile -= (lsFile[k] || 0); projStorage -= lsC * 2; if (isChat) chatFile -= (lsFile[k] || 0); }
+              // 大键（含权威键）以 IDB 权威值为准（同导出路径）：把 LS 侧多计的「键名＋值」按各自口径扣掉
+              else if (lsC !== undefined) {
+                projFile -= keyBytes + (lsFile[k] || 0);
+                projStorage -= (keyBytes + lsC) * 2;
+                if (isChat) chatFile -= keyBytes + (lsFile[k] || 0);
+              } else {
+                projFile += keyBytes;             // LS 里没有这个键 → 键名只由这里计一次
+                if (isChat) chatFile += keyBytes;
+              }
               projFile += fb;
               projStorage += c * 2 + blob;
-              if (isMusic) musicFile += own;
+              if (isMusic) musicFile += fb;
               if (isChat) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
-              if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = own;
+              if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = fb + (lsC === undefined ? keyBytes : 0);
             });
             impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
             setTimeout(step, 0);
@@ -545,7 +560,7 @@
             '；预估文件：完整 ' + fmtSize(info.projFile) +
             '、不含音乐 ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
             '、仅聊天记录 ' + fmtSize(info.chatFile || 0) + '、只备份文字更小。\n' +
-            '两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，纯文字库两者接近。\n')
+            '两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，中文文字多时两者接近、文件甚至更大。\n')
           : ('本机数据约 ' + fmtSize(usage) + '（整域名占用口径，含同域其他站点，仅供参考）。\n');
         window.openModal('选择导出范围', '', function (v) {
           finish(v || 'full');

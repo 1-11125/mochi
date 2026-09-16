@@ -220,7 +220,14 @@ await refresh();
 body = await bodyText();
 T('B14a 仅表情包/图片为 0 时进问题清单（全 7 项为 0 之外的第二档信号）',
   body.indexOf('表情包概率') >= 0 && body.indexOf('图片概率') >= 0 && body.indexOf('不会在聊天里出现') >= 0);
-const attFix = await evalJs("(function(){var b=document.querySelector('#card-audit-body [data-fix=\"inl-rs-attach\"]');if(!b)return JSON.stringify({no:true});var t=b.textContent;b.click();return JSON.stringify({no:false,txt:t});})()");
+const attFix = await evalJs(`(function(){
+  var b=document.querySelector('#card-audit-body [data-fix="inl-rs-attach"]');
+  var diag={lk:(function(){try{return window.cardLockOpen();}catch(e){return 'err';}})(),
+            st:(function(){try{return window.activeStore().get('sticker-prob');}catch(e){return 'err';}})()};
+  if(!b) return JSON.stringify({no:true, diag:diag});
+  var t=b.textContent; b.click();
+  return JSON.stringify({no:false,txt:t, diag:diag});
+})()`);
 await sleep(1000);
 const attAfter = await evalJs("(function(){try{var s=window.activeStore();return JSON.stringify({st:s.get('sticker-prob'),im:s.get('image-prob'),tc:s.get('touch-prob'),qt:s.get('quote-prob')});}catch(e){return '{}';}})()");
 const A = (() => { try { return JSON.parse(attAfter || '{}'); } catch (e) { return {}; } })();

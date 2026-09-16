@@ -83,6 +83,25 @@ async function hit(expr, ms = 8000) {
 let pass = 0, fail = 0;
 const A = (name, ok, extra) => { ok ? pass++ : fail++; console.log((ok ? 'PASS' : 'FAIL') + '  ' + name + (extra !== undefined ? '  [' + extra + ']' : '')); };
 
+// 点「导出数据」→ 选一档 → 走到「确定后下载」→ 返回 {size, names, text}（下载走桩，不真落盘）
+async function exportOnce(pillLabel) {
+  await ev(`(()=>{ window.__blobs=[]; window.__dlNames=[]; document.getElementById('row-export').click(); return true; })()`);
+  const up = await hit(`(()=>{ const m=document.getElementById('modal-mask'); return !!m && !m.hidden && document.getElementById('modal-pills').innerHTML.indexOf('仅聊天记录')>=0; })()`, 12000);
+  if (!up) return null;
+  await ev(`(()=>{ const ps=[...document.querySelectorAll('#modal-pills .pill')];
+    const p=ps.find(x=>x.textContent.indexOf(${JSON.stringify(pillLabel)})>=0); if(p) p.click(); document.getElementById('modal-ok').click(); return true; })()`);
+  for (let i = 0; i < 100; i++) {
+    if (await ev(`(window.__blobs||[]).some(x=>String(x.type).indexOf('json')>=0)`)) break;
+    const t = await ev(`(()=>{ const m=document.getElementById('modal-mask'); return (m&&!m.hidden)?document.getElementById('modal-title').textContent:''; })()`);
+    if (t && t.indexOf('备份已打包完成') >= 0) { await ev(`document.getElementById('modal-ok').click()`); await sleep(400); continue; }
+    if (t && t.indexOf('导出未完成') >= 0) { await ev(`document.getElementById('modal-ok').click()`); return null; }
+    await sleep(300);
+  }
+  const r = await ev(`(async()=>{ const b=(window.__blobs||[]).find(x=>String(x.type).indexOf('json')>=0); if(!b) return JSON.stringify({size:0,text:'',names:[]});
+    return JSON.stringify({ size: b.size, text: await b.text(), names: window.__dlNames||[] }); })()`);
+  try { return JSON.parse(String(r || 'null')); } catch (e) { return null; }
+}
+
 await cdp('Page.enable');
 await cdp('Page.navigate', { url: baseUrl + '/' });
 let ready = false;
@@ -96,12 +115,14 @@ await ev(`(()=>{ const s=document.getElementById('splash'); if(s) s.remove();
   const m=document.getElementById('modal-mask'); if(m) m.hidden=true;
   return true; })()`);
 
-// 下载链路降级到「确认后 a[download]」并捕获 blob（不真下载）
+// 下载链路降级到「确认后 a[download]」并捕获 blob（不真下载）+ 记录下载文件名与弹窗几何
 await ev(`(()=>{ try { Object.defineProperty(navigator,'share',{value:undefined,configurable:true}); } catch(e){}
   try { Object.defineProperty(navigator,'canShare',{value:undefined,configurable:true}); } catch(e){}
-  window.__blobs=[];
+  window.__blobs=[]; window.__dlNames=[];
   const _c=URL.createObjectURL.bind(URL);
   URL.createObjectURL=(b)=>{ try{ window.__blobs.push(b); }catch(e){} return _c(b); };
+  const _click=HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click=function(){ try{ if(this.download) window.__dlNames.push(this.download); }catch(e){} return _click.apply(this,arguments); };
   return true; })()`);
 
 // 种子数据：3 个桌面（当前 default / 旧顶层键 / 联系人 c 命名空间）+ 2 个群聊 + 媒体池（1 引用 / 1 孤儿）
@@ -128,6 +149,19 @@ const chooserUp = await hit(`(()=>{ const m=document.getElementById('modal-mask'
 const pillText = await ev(`(()=>{ const p=document.getElementById('modal-pills'); return p?p.textContent:''; })()`);
 A('A 小库导出也弹范围选择（回归：>150MB 门槛）', chooserUp, 'pills=' + pillText);
 A('B 导出弹窗含「仅聊天记录」胶囊', String(pillText || '').indexOf('仅聊天记录') >= 0 && String(pillText || '').indexOf('取消') >= 0, pillText);
+// B2/B3/B4：弹窗几何、两把尺子的口径说明、体积预估在场（用户追问「没说明为什么本机内存是导出数据的 2 倍」）
+const dlg = await ev(`(()=>{ const m=document.querySelector('.modal'); const st=document.getElementById('modal-static');
+  return JSON.stringify({ big: m.classList.contains('modal--big'), scrollH: m.scrollHeight, clientH: m.clientHeight, text: st.textContent }); })()`);
+const dlgObj = JSON.parse(String(dlg || '{}'));
+A('B2 范围弹窗走宽版（big），内容不必滚到底才能看到胶囊', dlgObj.big === true, 'scrollH=' + dlgObj.scrollH + ' clientH=' + dlgObj.clientH);
+A('B3 弹窗解释了「本机数据 vs 导出文件」的口径差（存储 1 字符 2 字节 / 文件按实际字节）',
+  String(dlgObj.text).indexOf('口径不同') >= 0 && String(dlgObj.text).indexOf('存储占用') >= 0 && String(dlgObj.text).indexOf('字节') >= 0, '');
+A('B4 弹窗给出完整备份与仅聊天记录的体积预估', /预估文件：完整 [\d.]+ (B|KB|MB)/.test(String(dlgObj.text)) && /仅聊天记录 [\d.]+ (B|KB|MB)/.test(String(dlgObj.text)), String(dlgObj.text).split('\n')[0]);
+// 解析预估数字（KB/MB → 字节），导出完成后与实际文件比对
+const numOf = (txt, label) => { const m = String(txt).match(new RegExp(label + ' ([\\d.]+) (B|KB|MB)')); if (!m) return -1; const v = parseFloat(m[1]); return m[2] === 'MB' ? Math.round(v * 1048576) : (m[2] === 'KB' ? Math.round(v * 1024) : Math.round(v)); };
+const estFull = numOf(dlgObj.text, '预估文件：完整');
+const estChat = numOf(dlgObj.text, '仅聊天记录');
+A('B5 仅聊天记录预估不是 0（漏传 chatFile 时恒 0 KB）', estChat > 0, 'est=' + estChat);
 
 // ===== C：选「仅聊天记录」导出，检查文件里的键集合 =====
 await ev(`(()=>{ const ps=[...document.querySelectorAll('#modal-pills .pill')];
@@ -159,6 +193,28 @@ A('C4 文件不含未被引用的池条目', !has('xy-home-v2:media:' + H_ORPHAN
 A('C5 文件不含非聊天键（字卡库/音乐）', !has('xy-home-v2:cc-groups') && !fileKeys.some(k => /:music-file:/.test(k)), '');
 A('C6 仅聊天记录不更新全量备份时间（备份提醒不被压制）', (await ev(`localStorage.getItem('xy-home-v2:__last-backup')===null`)) === true, '');
 A('C7 群聊写回通道在位（group-chat.js gcWriteGroupMsgs）', (await ev('typeof window.gcWriteGroupMsgs')) === 'function', '');
+// C8/C9/C10：估算校准 + 文件名（#582 第二批：预估曾经只按字符数算、且把权威键整个漏算）
+const actualBytes = await ev(`(async()=>{ const b=(window.__blobs||[]).find(x=>String(x.type).indexOf('json')>=0); return b?b.size:0; })()`);
+const errChat = actualBytes ? Math.abs(estChat - actualBytes) / actualBytes : 1;
+A('C9 「仅聊天记录」预估与这份聊天文件实际大小相符（±35%）', actualBytes > 0 && errChat <= 0.35,
+  '预估=' + estChat + ' 实际=' + actualBytes + ' 偏差=' + Math.round(errChat * 100) + '%');
+const dlNames = await ev('JSON.stringify(window.__dlNames||[])');
+A('C10 仅聊天记录的文件名与完整备份区分（mochi聊天记录_日期.json）',
+  String(dlNames).indexOf('mochi聊天记录_') >= 0, dlNames);
+// C11/C12：再导一份完整备份，验「完整备份」那档预估的校准（体积预估的原始诉求 #497d）
+const fullRun = await exportOnce('完整备份');
+const errFull = (fullRun && fullRun.size) ? Math.abs(estFull - fullRun.size) / fullRun.size : 1;
+A('C12 「完整备份」预估与实际文件相符（±35%；按字符算/漏算权威键时偏差 40%+）',
+  !!fullRun && fullRun.size > 0 && errFull <= 0.35,
+  '预估=' + estFull + ' 实际=' + (fullRun ? fullRun.size : 0) + ' 偏差=' + Math.round(errFull * 100) + '%');
+if (fullRun && fullRun.text) {
+  // INFO：文件键数 vs 本机可测键数（小库上「键名＋JSON 结构」的固定开销占比高，偏差主要来自它）
+  let fk = 0;
+  try { const o = JSON.parse(fullRun.text); fk = Object.keys(o.ls || {}).length + Object.keys(o.idb || {}).length; } catch (e) {}
+  const mk = await ev(`(async()=>{ let n=0; try { for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf('xy-home-v2:')===0) n++; } } catch(e){}
+    const list=await window.idbListKeys(); return n + '/' + (Array.isArray(list)?list.filter(k=>String(k).indexOf('xy-home-v2:')===0).length:-1); })()`);
+  console.log('INFO 完整备份键数=' + fk + '（LS键/IDB键=' + mk + '）');
+}
 
 // ===== D：导入入口弹窗含两条范围 =====
 await ev(`(()=>{ window.__impCalled=0; window.__realImp=window.runChatAllImport;
@@ -182,6 +238,10 @@ await ev(`(async()=>{
     try { localStorage.setItem(k, JSON.stringify(junk)); } catch(e){}
   }
   await window.idbDelete('xy-home-v2:media:${H_REF}');
+  // 该桌面自己的「尾巴日志」（#180 chat-tail，≤60 条文本副本）：只导聊天必须把它清掉，
+  // 否则 chat.js 切到该桌面会 chatTailMerge 把导入前的旧消息当「没落盘的新消息」回放上来
+  await window.idbSet('xy-home-v2:cabc12345:chat-tail', JSON.stringify([{side:'in',text:'TAIL_OLD',ts:1}]));
+  try { localStorage.setItem('xy-home-v2:cabc12345:chat-tail', JSON.stringify([{side:'in',text:'TAIL_OLD',ts:1}])); } catch(e){}
   return true; })()`);
 // 文件里额外塞一个非聊天键：只导聊天绝不碰它（设备上的哨兵值必须原样）
 const hybrid = JSON.parse(JSON.stringify(backup));
@@ -212,6 +272,8 @@ const countsJson = await ev(`(async()=>{
     gc: await get('xy-home-v2:group-chat-msgs'), gcT: await texts('xy-home-v2:group-chat-msgs'),
     gcg1: await get('xy-home-v2:gc-msgs-g1'),
     media: await get('xy-home-v2:media:${H_REF}'),
+    tailLs: localStorage.getItem('xy-home-v2:cabc12345:chat-tail'),
+    tailIdb: await window.idbGet('xy-home-v2:cabc12345:chat-tail'),
     nonchat: await window.idbGet('xy-home-v2:cc-groups')
   }); })()`);
 const counts = JSON.parse(String(countsJson || '{}'));
@@ -225,8 +287,11 @@ A('E4 联系人桌面聊天恢复（IDB + LS 快照）', counts.con === 2 && /CO
 A('E5 默认群聊天恢复（覆盖垃圾值）', counts.gc === 2 && /GC 0/.test(counts.gcT || ''), counts.gc + ' ' + String(counts.gcT).slice(0, 40));
 A('E6 自定义群聊天恢复', counts.gcg1 === 1, String(counts.gcg1));
 A('E7 消息引用的图片一并恢复', counts.media === 1, String(counts.media));
-A('E8 非聊天键分毫不碰（文件里塞了也不写）', counts.nonchat === 'NON_CHAT_SENTINEL', String(counts.nonchat));
-A('E9 整页无 JS 异常', pageErrors.length === 0, pageErrors.slice(0, 3).join(' / '));
+A('E8 导入后清掉该桌面的尾巴日志（否则切过去会回放导入前的旧消息）',
+  (counts.tailLs === null || counts.tailLs === undefined) && (counts.tailIdb === null || counts.tailIdb === undefined),
+  'ls=' + counts.tailLs + ' idb=' + counts.tailIdb);
+A('E9 非聊天键分毫不碰（文件里塞了也不写）', counts.nonchat === 'NON_CHAT_SENTINEL', String(counts.nonchat));
+A('E10 整页无 JS 异常', pageErrors.length === 0, pageErrors.slice(0, 3).join(' / '));
 
 console.log('结果：' + pass + '/' + (pass + fail) + ' 通过');
 process.exit(fail ? 1 : 0);

@@ -153,6 +153,21 @@
     try { caresLoad().forEach(r => { if (r && r.kind === 'desk-checkin') careTs.push(r.ts || 0); }); } catch (e) {}
     let msgs = [];
     try { msgs = (window.getChatMsgs ? window.getChatMsgs() : JSON.parse(store.get('chat-msgs') || '[]')); } catch (e) {}
+    // FIX 2026-09-16 #588：本段原是 O(n²)——每条 ask-msg 都要把整个 msgs 再 some() 一遍找
+    //   30s 内的问卡；聊天记录上千条时，点开「关心」页签会明显卡住（用户感知＝点了没反应）。
+    //   改为先把问卡时间戳排序一次，再按 [t-30000, t+30000) 二分查，
+    //   与原判定 Math.abs((o.ts||0) - t) < 30000 完全等价。
+    const askCardTs = [];
+    (msgs || []).forEach(o => { if (o && o.special === 'ask-card' && o.askQuestion) askCardTs.push(o.ts || 0); });
+    askCardTs.sort((a, b) => a - b);
+    const hasAskCardNear = (t) => {
+      let lo = 0, hi = askCardTs.length;
+      const from = t - 30000, to = t + 30000;
+      // 下界必须是「严格大于 from」：原判据 Math.abs(dt) < 30000 是开区间，
+      // 恰好相差 30000ms 时判 false（等价性对拍 C1 抓到过这里写成 >= 会多判 1 例）
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (askCardTs[mid] <= from) lo = mid + 1; else hi = mid; }
+      return lo < askCardTs.length && askCardTs[lo] < to;
+    };
     (msgs || []).forEach(m => {
       if (!m) return;
       const t = m.ts || 0;
@@ -163,7 +178,7 @@
       // 查岗：ask-card 是问题卡本体；ask-msg 提示语只作补充（若 30s 内已有问卡则不重复列）
       else if (m.special === 'ask-card' && m.askQuestion && !(m.deskCk && careTs.some(ct => Math.abs(ct - t) <= 90000))) rows.push({ icon: KIND_ICON.checkin, main: '查岗 · ' + esc(m.askQuestion), sub: fmtDT(t), ts: t });
       else if (m.special === 'ask-msg' && /查岗/.test(m.text || '')) {
-        const nearCard = (msgs || []).some(o => o && o.special === 'ask-card' && o.askQuestion && Math.abs((o.ts || 0) - t) < 30000);
+        const nearCard = hasAskCardNear(t); // #588：二分查，不再对全表 some()
         if (!nearCard) rows.push({ icon: KIND_ICON.checkin, main: '查岗', sub: fmtDT(t), ts: t });
       }
     });

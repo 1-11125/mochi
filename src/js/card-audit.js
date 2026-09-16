@@ -546,9 +546,12 @@
     //   聊天里，不只是「回复变纯文字」。全 7 项为 0 多是有意做纯文字，只作汇总提示；
     //   仅这两项为 0 更隐蔽，单独报并只补这两个键（其余附加件是用户有意留着的）。
     //   mediaOff 在读取段就算好了（`var` 提升会让这里的声明在问题清单处恒为 undefined）。
-    if ((!attachOn.length || mediaOff) && !lock) {
-      var idAtt = 'inl-rs-attach';
-      addFix(idAtt, function () {
+    // ⚠️ 按钮必须走 rowHtml 的 opt.fix 通道，不能把 `<button …>` 拼进 value——
+    //   rowHtml 对 value 做 esc()，拼进去只会渲染成「转义后的源码文本」（本批首版就踩了，
+    //   verify B14b 抓到：按钮在 DOM 里根本不存在）。带按钮的行全页同此约定。
+    var attachNeedFix = (!attachOn.length || mediaOff) && !lock;
+    if (attachNeedFix) {
+      addFix('inl-rs-attach', function () {
         var okAny = false;
         if (attachOn.length) {
           ATTACH.forEach(function (a) { if ((a[0] === 'sticker-prob' || a[0] === 'image-prob') && storeSet(a[0], a[2])) okAny = true; });
@@ -557,11 +560,11 @@
         }
         return okAny ? true : 'fail';
       });
-      replyFixables.push(idAtt);
-      attachTxt += ' <button class="ca-fix" type="button" data-fix="' + idAtt + '">' + (attachOn.length ? '恢复表情包/图片' : '全部恢复默认') + '</button>';
+      replyFixables.push('inl-rs-attach');
     }
     if (mediaOff && attachOn.length) attachTxt += ' · 表情包/图片字卡不会出现';
-    chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok', { edit: '@reply:chat' });
+    chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok',
+      { fix: attachNeedFix ? 'inl-rs-attach' : '', fixLabel: attachOn.length ? '恢复表情包/图片' : '全部恢复默认', edit: '@reply:chat' });
     // 行为闸门：不影响「字卡出不出」，但决定「TA 这条回复到底会不会发生」——已读不回
     //   100% 时一切都看不到，属 bad；主动发送/免打扰是用户自己的选择，只作中性展示。
     chainInner += rowHtml('已读不回概率（rn-prob）', rnProb + '%' + (rnProb >= 100 ? ' · TA 不再回复任何内容' : (rnProb > 60 ? ' · 大多数消息只显示回执' : '')), rnProb >= 100 ? 'bad' : rnProb > 60 ? 'warn' : 'ok', { edit: '@reply:chat' });
@@ -578,7 +581,7 @@
       '字卡出镜＝「这条回复发生了」×「抽卡池有货」×「这条回复的内容名额被字卡类机制抢到」。本节的漏斗任一 ✕ 该机制就不出字卡。<br>' +
       '<b>总档</b>（reply-dcp-all）统一缩放系统预设侧概率（生效＝存盘×总档÷100）；<b>梦角自由造句</b>不过总档，<b>默认聊天字卡</b>只缩放整体概率、分类占比不缩放。<br>' +
       '<b>预设默认字卡覆盖</b>＝生效聊天概率 ×(1−自定义字卡占比)：先抽自定义字卡，最后按 csp-cust 掷签决定要不要让预设覆盖——所以「系统预设 X% / 自定义 (100−X)%」的说法不成立，两者不是二选一。<br>' +
-      '点每行「调整」直达 回复设置 → 聊天；情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
+      '点每行「调整」直达对应设置页（回复设置侧的行直达「回复设置 → 聊天」；「默认聊天字卡」那行去字卡库的默认字卡页）。情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
 
     // ===== 一、二级密码锁 =====
     var lockInner = '';

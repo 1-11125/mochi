@@ -1421,9 +1421,12 @@ try {
     const zoomed = z > 100;
     ico.style.overflow = (zoomed || x !== 50 || y !== 50) ? 'hidden' : '';
     if (zoomed) {
-      // translate 的百分比相对图片自身尺寸（= 图标框）计算，故 ±(z-1)/2 就是可用的全部余量
-      const tx = Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;
-      const ty = Math.round(((y - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+      // translate 的百分比相对图片自身尺寸（= 图标框）计算，故 ±(z-1)/2 就是可用的全部余量。
+      // 方向与「壁纸定位/object-position」同一口径：值越大＝看图片越靠右/越靠下的一段，
+      // 所以图片要往「反方向」平移（负号）——两支方向必须一致，否则放大前后同一根滑杆
+      // 会把画面推向相反的一侧。
+      const tx = -Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+      const ty = -Math.round(((y - 50) / 50) * ((z - 100) / 2) * 100) / 100;
       if (img.style.objectPosition) img.style.objectPosition = '';
       img.style.transform = 'translate(' + tx + '%, ' + ty + '%) scale(' + (z / 100) + ')';
     } else {
@@ -1832,14 +1835,15 @@ try {
       if (next.y === 50) store.remove('app-icon-pos-y-' + key); else store.set('app-icon-pos-y-' + key, String(next.y));
       applyAppIconFit(app);
       hint.textContent = next.z === 100
-        ? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
-        : '图片即时生效：放大后可左右/上下移动到任意部位';
+        ? '先放大一点，再拖「水平/垂直位置」——不放大时只有原图被裁掉的部分能移动'
+        : '图片即时生效：放大后可水平/垂直移动到任意部位';
     };
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5;flex:none';
+    // 标签与「壁纸定位与缩放」面板同款（水平位置/垂直位置/缩放），用户不必学两套说法
     const zRow = iconFitSlider('缩放', 100, 300, 5, cur.z, '%', (v) => setFit({ z: parseInt(v, 10) }));
-    const xRow = iconFitSlider('左右位置', 0, 100, 1, cur.x, '%', (v) => setFit({ x: parseInt(v, 10) }));
-    const yRow = iconFitSlider('上下位置', 0, 100, 1, cur.y, '%', (v) => setFit({ y: parseInt(v, 10) }));
+    const xRow = iconFitSlider('水平位置', 0, 100, 1, cur.x, '%', (v) => setFit({ x: parseInt(v, 10) }));
+    const yRow = iconFitSlider('垂直位置', 0, 100, 1, cur.y, '%', (v) => setFit({ y: parseInt(v, 10) }));
     p.appendChild(zRow); p.appendChild(xRow); p.appendChild(yRow);
     p.appendChild(hint);
     const btns = document.createElement('div');
@@ -1863,8 +1867,8 @@ try {
     btns.appendChild(resetBtn); btns.appendChild(doneBtn);
     p.appendChild(btns);
     hint.textContent = cur.z === 100
-      ? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
-      : '图片即时生效：放大后可左右/上下移动到任意部位';
+      ? '先放大一点，再拖「水平/垂直位置」——不放大时只有原图被裁掉的部分能移动'
+      : '图片即时生效：放大后可水平/垂直移动到任意部位';
     iconFitHighlight(app);
     p.style.display = 'flex';
     window.__iconFitPanelOpen = true;
@@ -2296,7 +2300,7 @@ try {
           wrap.appendChild(fitBtn);
           const note = document.createElement('div');
           note.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
-          note.textContent = '上传过的图片可单独调「缩放 / 左右 / 上下」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
+          note.textContent = '上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
           wrap.appendChild(note);
           return wrap;
         } }
