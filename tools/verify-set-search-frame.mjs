@@ -16,6 +16,7 @@
 // RED 基线（复现原缺陷）：node tools/verify-set-search-frame.mjs --red
 //   —— 内存 HTML 里把旧内联样式写回两个搜索框（等同修复前的 template），A/B 组应转红。
 // 用法：node tools/verify-set-search-frame.mjs
+//      node tools/verify-set-search-frame.mjs --product   # 直接验收已构建的根产物 index.html（手机实际加载的那份）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -26,14 +27,17 @@ const root = normalize(dirname(fileURLToPath(import.meta.url)) + '/..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const read = (p) => readFileSync(join(root, 'src', p), 'utf8');
 const RED = process.argv.includes('--red');
+const PRODUCT = process.argv.includes('--product');
 
 const bm = readFileSync(join(root, 'build.mjs'), 'utf8');
 const arr = (name) => new Function('return ' + bm.match(new RegExp('const ' + name + ' = (\\[.*?\\]);', 's'))[1])();
-const css = arr('cssFiles').map((f) => readFileSync(join(root, 'src', 'css', f), 'utf8')).join('\n');
+let css = arr('cssFiles').map((f) => readFileSync(join(root, 'src', 'css', f), 'utf8')).join('\n');
 const js = arr('jsFiles').map((f) => readFileSync(join(root, 'src', 'js', f), 'utf8')).join('\n');
 let html = read('template.html').replace('__APP_VERSION__', 'v3.26.0-test');
 if (RED) {
-  // 复现修复前形态：把写死在内联 style 上的外观写回去（含带 var() 的 border/background 简写）
+  // 复现修复前形态：① 把写死在内联 style 上的外观写回两个搜索框（含带 var() 的 border/background 简写）；
+  // ② 去掉 .theme-search 类规则（修复前它不存在，留着会被类样式兜住、复现不出来）
+  css = css.split('\n').filter((l) => l.indexOf('theme-search') < 0).join('\n');
   const legacy = ' style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"';
   for (const id of ['set-search-input', 'theme-search-input']) {
     const re = new RegExp('(id="' + id + '"[^>]*)>');
@@ -41,8 +45,13 @@ if (RED) {
     html = html.replace(re, '$1' + legacy + '>');
   }
 }
-html = html.replace('</head>', '<style>' + css + '</style></head>');
-html = html.replace('</body>', '<script>' + js + '<\/script></body>');
+if (PRODUCT) {
+  // 直接验收构建产物：CSS/JS 已内联在 index.html 里，不再拼装 src
+  html = readFileSync(join(root, 'index.html'), 'utf8');
+} else {
+  html = html.replace('</head>', '<style>' + css + '</style></head>');
+  html = html.replace('</body>', '<script>' + js + '<\/script></body>');
+}
 
 const server = createServer((req, res) => {
   const u = req.url.split('?')[0];

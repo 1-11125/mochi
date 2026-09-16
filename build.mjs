@@ -278,16 +278,17 @@ const FIX_SENTINELS = [
   { name: '#471 设置页「导出全部桌面聊天记录」UI（template.html；改 id/删除即 cs-export-all 失效复发）', file: 'template.html', needle: 'id="cs-export-all"' },
   { name: '#471 设置页「导入全部桌面聊天记录」UI（template.html；改 id/删除即 cs-import-all 失效复发）', file: 'template.html', needle: 'id="cs-import-all"' },
   { name: '#471 设置页全部桌面导入分路写回（data-backup.js importChatAllGo：非当前桌面走 writeDeskChat 写 IDB+账本+LS 快照，删掉即导入全部桌面只写当前桌面、旧桌面全部丢失复发）', file: 'js/data-backup.js', needle: 'function writeDeskChat(cid, arr) {' },
-  // #577（2026-09-16 用户：「设置里导出数据和导入数据，缺少可选 导出/导入全部桌面联系人的聊天记录」）——
+  // #582（2026-09-16 用户：「设置里导出数据和导入数据，缺少可选 导出/导入全部桌面联系人的聊天记录」）——
   // 原来「仅聊天记录」只在数据 >150MB 的导出弹窗里存在，导入侧干脆没有这条路。
-  { name: '#577 导出选范围不再按体积设门槛（absent：出现 MODE_ASK_BYTES 即回退「小库不弹、仅聊天记录选不到」——用户报的「缺少可选」根因）', file: 'js/data-backup.js', needle: 'MODE_ASK_BYTES', absent: true },
-  { name: '#577 导出弹窗「仅聊天记录」胶囊（删/改 value 即设置页选不到只导聊天）', file: 'js/data-backup.js', needle: "{ label: '仅聊天记录', value: 'chat' }" },
-  { name: '#577 「仅聊天记录」范围＝各桌面 chat-msgs（含旧顶层键）+ 群聊键（删 GROUP_CHAT_KEY_RE 分支即群聊记录不再进备份）', file: 'js/data-backup.js', needle: 'function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }' },
-  { name: '#577 聊天备份带上消息引用到的媒体池条目（@@m: 令牌指向的池键；删即换机恢复后图片语音全空，原设备上还看不出来）', file: 'js/data-backup.js', needle: 'mediaRefQueue = Array.from(mediaRefs);' },
-  { name: '#577 导入入口先选范围（完整备份 / 仅聊天记录；删即导入数据又只剩整包一条路，会覆盖设置字卡音乐）', file: 'js/data-backup.js', needle: "if (v === 'chat') { window.runChatAllImport(); return; }" },
-  { name: '#577 聊天导入认旧顶层键 xy-home-v2:chat-msgs 与各联系人 c<base36> 命名空间（旧正则只认 c\\d+，默认桌面的旧顶层键会被整段漏掉）', file: 'js/data-backup.js', needle: 'const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;' },
-  { name: '#577 聊天导入写回群聊（走 gcWriteGroupMsgs；删即备份里的群聊记录导不回来＝只导不入）', file: 'js/data-backup.js', needle: 'if (window.gcWriteGroupMsgs) return window.gcWriteGroupMsgs(w.gid, w.arr);' },
-  { name: '#577 群聊消息写回通道（group-chat.js gcWriteGroupMsgs：lite 快照 + IDB 权威，条数与全量一致防旧快照压住新导入；删即群聊导入静默无效）', file: 'js/group-chat.js', needle: 'window.gcWriteGroupMsgs = function (gid, arr) {' },
+  { name: '#582 导出选范围不再按体积设门槛（absent：出现 MODE_ASK_BYTES 即回退「小库不弹、仅聊天记录选不到」——用户报的「缺少可选」根因）', file: 'js/data-backup.js', needle: 'MODE_ASK_BYTES', absent: true },
+  { name: '#582 导出弹窗「仅聊天记录」胶囊（删/改 value 即设置页选不到只导聊天）', file: 'js/data-backup.js', needle: "{ label: '仅聊天记录', value: 'chat' }" },
+  { name: '#582 「仅聊天记录」范围＝各桌面 chat-msgs（含旧顶层键）+ 群聊键（删 GROUP_CHAT_KEY_RE 分支即群聊记录不再进备份）', file: 'js/data-backup.js', needle: 'function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }' },
+  { name: '#582 聊天备份带上消息引用到的媒体池条目（@@m: 令牌指向的池键；删即换机恢复后图片语音全空，原设备上还看不出来）', file: 'js/data-backup.js', needle: 'mediaRefQueue = Array.from(mediaRefs);' },
+  { name: '#582 导入入口先选范围（完整备份 / 仅聊天记录；删即导入数据又只剩整包一条路，会覆盖设置字卡音乐）', file: 'js/data-backup.js', needle: "if (v === 'chat') { window.runChatAllImport(); return; }" },
+  { name: '#582 聊天导入认旧顶层键 xy-home-v2:chat-msgs 与各联系人 c<base36> 命名空间（旧正则只认 c\\d+，默认桌面的旧顶层键会被整段漏掉）', file: 'js/data-backup.js', needle: 'const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;' },
+  { name: '#582 聊天导入写回群聊（走 gcWriteGroupMsgs；删即备份里的群聊记录导不回来＝只导不入）', file: 'js/data-backup.js', needle: 'if (window.gcWriteGroupMsgs) return window.gcWriteGroupMsgs(w.gid, w.arr);' },
+  { name: '#582 群聊消息写回通道（group-chat.js gcWriteGroupMsgs：lite 快照 + IDB 权威，条数与全量一致防旧快照压住新导入；删即群聊导入静默无效）', file: 'js/group-chat.js', needle: 'window.gcWriteGroupMsgs = function (gid, arr) {' },
+  { name: '#582 分桌写回返回真 promise（absent：自造 thenable「if (!seq) f(); return seq;」永不 settle，写入链在第一个非当前桌面后整条卡死——多桌面只恢复第一个、群聊与媒体池永不执行）', file: 'js/data-backup.js', needle: 'if (!seq) f(); return seq;', absent: true },
   // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
   // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
   // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
@@ -1119,7 +1120,7 @@ const FIX_SENTINELS = [
   { name: '#301 红包注释正确闭合（删则注释吞掉「红包」标题+set-group 开标签，后续 </div> 连锁提前闭合设置页与 .phone 手机壳＝整页 UI 错乱、底部导航出屏）', file: 'template.html', needle: 'chat.js trySystemAutoSend 读 cs-rp-auto-prob / cs-rp-daily-max -->' },
   // ==== 2026-09-11 #313 心意集市「TA 送我礼物」总开关（默认关=禁止联系人送礼物；关闭时心愿单兑现 ① 与随机送礼 ④ 都不触发，TA 自己买 ②/加心愿 ③ 不受限）====
   // #539 起默认值反转为「开」——本锚守的是「总开关参与 ① 的与门」，不是默认值（默认值锚见下）
-  { name: '#313 gift-shop TA送我礼物总开关（删则禁送失效、TA 恢复买我心愿单礼物；giftInOn 仍参与 ① 判定）', file: 'js/gift-shop.js', needle: 'st.wlOn && st.giftInOn && !capped' },
+  { name: '#313 gift-shop TA送我礼物总开关（删则禁送失效、TA 恢复买我心愿单礼物；giftInOn 仍参与 ① 判定。v3.27.x #585：额度变量由共用 capped 拆成 giftCapped，锚随代码形态同步）', file: 'js/gift-shop.js', needle: 'st.wlOn && st.giftInOn && !giftCapped' },
   // ==== 2026-09-15 #539 心意集市「TA 送我礼物」默认开启 + 随机送礼概率可调（旧实现默认关且概率写死 5%，设置页缺这一项）====
   { name: '#539 giftInOn 默认开启（未设置过的用户落到 1；显式关过=0 的用户保持关闭；删则退回「默认禁止 TA 送礼物」）', file: 'js/gift-shop.js', needle: 's.giftInOn === 0 ? 0 : 1' },
   { name: '#539 随机送礼概率读设置 giftInPct（删/改回硬编码 0.05 则设置页「TA 送我礼物概率」失效，回到无处可调）', file: 'js/gift-shop.js', needle: 'Math.random() * 100 >= st.giftInPct' },
@@ -1664,9 +1665,12 @@ const FIX_SENTINELS = [
   { name: '#497b 上传图片已压缩说明（template.html 查看存储图片压缩卡；删则用户无法知道图片占用已是压缩后体积）', file: 'template.html', needle: '你上传/发送的图片在选定当时就已自动压缩过' },
   { name: '#497c 查看存储本项目合计带配额占比（删则总占用回到只有绝对字节＝「占比显示不全」复发）', file: 'js/personalize.js', needle: "'，占浏览器配额 ' + pctOf(ls.total + t, quotaInfo.quota)" },
   { name: '#497c 压缩完成后总占用联动刷新（img-compress 派发事件的本端监听；删则压完总占用纹丝不动）', file: 'js/personalize.js', needle: "addEventListener('mochi-img-compressed'" },
-  { name: '#497d 导出前实测计量·Blob 过 base64 膨胀进文件口径（删则导出文件预估对音乐/二进制严重偏小）', file: 'js/data-backup.js', needle: 'projFile += c + Math.round(blob * 4 / 3);' },
+  // 🔧 2026-09-16 #581 会话换锚（#582 在途重构把「逐项累加」抽成 fb 中间量，原 needle `projFile += c + Math.round(blob * 4 / 3);`
+  // 已不存在 → 全量构建报「修复真丢了」）。膨胀逻辑本身仍在原处，锚点改钉那条表达式本身。
+  // ⚠️ 请 #582 会话确认此换锚符合原意。
+  { name: '#497d 导出前实测计量·Blob 过 base64 膨胀进文件口径（删则导出文件预估对音乐/二进制严重偏小；#582 重构后改钉膨胀表达式本身）', file: 'js/data-backup.js', needle: "else if (typeof Blob !== 'undefined' && v instanceof Blob) { blob = v.size; fb = Math.round(blob * 4 / 3); }" },
   { name: '#497d 导出前阈值按实测导出体积判（删则回退整域 estimate 口径＝同域其他站点又冒充本机数据）', file: 'js/data-backup.js', needle: 'const bigRef = info ? info.projFile : usage;' },
-  { name: '#497d 选范围弹窗带配额占比+各模式导出文件预估（删则「导出前看不到导出的文件多大」复发）', file: 'js/data-backup.js', needle: "'预计导出文件体积：完整备份 ≈ '" },
+  { name: '#497d 选范围弹窗带配额占比+各模式导出文件预估（删则「导出前看不到导出的文件多大」复发；#582 起预估压成一行「预估文件：完整/不含音乐/仅聊天记录…」，needle 随文案更新）', file: 'js/data-backup.js', needle: "'；预估文件：完整 '" },
   { name: '#505 链接导入按钮只留表情包/图片分类（切分类/进页按当前分类显隐；删则按钮重新在所有大分类 tab 常驻）', file: 'js/chatcard.js', needle: "b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';" },
   { name: '#506 导出自包含·令牌还原助手（删则导出文件里 sticker/image 的 @@m: 令牌不再还原成图片数据＝导出缺表情包/图片全部数据复发）', file: 'js/chatcard.js', needle: 'function ccExportExpandTokens(obj) {' },
   { name: '#506 导出接线·导出数据先还原再落文件', file: 'js/chatcard.js', needle: 'ccExportExpandTokens(out).then(exp => {' },
@@ -1797,7 +1801,11 @@ const FIX_SENTINELS = [
   // 颜色行显示当前值（用户报「看不懂美化设置」的最大来源：非默认值时行右侧被写空字符串）
   { name: '#527l 美化页颜色行统一显示当前值+色块（原实现非默认值写空字符串＝选完颜色行里一片空白，看不出是否生效也看不出当前色；删掉 paintBeautyVal 即回归）', file: 'js/personalize.js', needle: 'function paintBeautyVal(el, color, defaultColor, defaultLabel) {' },
   { name: '#527m 边看边调改紧凑底部条（原为右侧 70vw 浮层＝手机 390px 宽挡住 70% 而桌面居中，用户几乎看不到效果；后 56vh 抽屉＋每行原生取色器仍有遮挡，真机反馈「还是没用，把全部基本遮挡完了」→ 44vh＋分区胶囊＋就地调色盘；2026-09-16 换锚：needle 不再钉高度数值——44vh 已被同批有意调至 40vh，第二次被调参弄断，锚收到固定底部条定位段）', file: 'js/personalize.js', needle: "d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:" },
-  { name: '#527n 边看边调底部抽屉登记进 FLOAT_SELECTORS（未登记＝抽屉打开后底层桌面仍可被滑动，未锁背景滚动）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer'];" },
+  // 2026-09-16：needle 由 #587 会话收窄（跨域一行，理由见 WORKLOG）——原 needle `'#beauty-drawer'];"`
+  // 要求抽屉是 FLOAT_SELECTORS 的**最后一个元素**，并行会话在组尾追加 `'#icon-fit-panel'` 后即失配，
+  // 而修复本体（'#beauty-drawer' 在清单里、观察器按清单锁滚动）一直在＝误报。收窄为成员锚：删掉该成员
+  // 即断，组尾再追加元素不再误伤。属主若需更严口径可再改这一行。
+  { name: '#527n 边看边调底部抽屉登记进 FLOAT_SELECTORS（未登记＝抽屉打开后底层桌面仍可被滑动，未锁背景滚动）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer'" },
   // ==== 2026-09-15 #531 自定义字卡池分类修正（颜文字/符号卡占满文字池 → 联系人只发颜文字）====
   { name: '#531a 文字池可读性判定（含中文/假名/字母/数字才算可读句子；改坏/删掉＝符号池重新被当成有正文）', file: 'js/chat.js', needle: 'function chatHasReadableTextCard(arr) {' },
   { name: '#531b 自定义卡分类接线走新判定（emoji 补 BMP 符号区、颜文字补无括号形态；改回旧内联正则＝符号卡重新落进文字池）', file: 'js/chat.js', needle: 'if (chatIsEmojiCard(c)) emoji.push(c);' },
@@ -2071,7 +2079,8 @@ const FIX_SENTINELS = [
   // mobile-adapt.js 把 input 转成 .ce-box 时按属性名逐个复制内联样式，带 var() 的简写复制
   // 不过去，可见的 .ce-box 实测 border:0px none + 全透明底＝外框连底色一起消失（浅色下原本
   // 也只是白底压白底＋10% 黑细线）。改走 .theme-search 类样式（input 与其 ce-box 同吃一份规则）。
-  // 行为断言 tools/verify-set-search-frame.mjs（安卓转换态/未转换态 × 明暗，RED 基线 4 红）====
+  // 行为断言 tools/verify-set-search-frame.mjs（安卓转换态/未转换态 × 明暗，RED 基线 5 红：
+  // 转换后 border 0px＋底色全透明、未转换态白底压白底）====
   { name: '#578a 搜索框外观走类样式（删规则/改选择器＝回到内联样式，安卓转换后外框消失）', file: 'css/setting.css', needle: '.theme-search { width:100%; box-sizing:border-box;' },
   { name: '#578b 外框/内边距用输入框专用 token 且底色可辨（边框改回 var(--card-border) 的 10% 淡线＝浅色下白底压白底复发；底色是加底块的那条）', file: 'css/setting.css', needle: 'background:var(--static-bg,rgba(0,0,0,.05)); border:1px solid var(--input-border,#e0e0e0); border-radius:9px;' },
   { name: '#578c 深色专用底色（删＝深色退回 6% 白底压在 #1c1c1c 上，几乎看不出输入框）', file: 'css/setting.css', needle: '[data-theme="dark"] .theme-search { background:var(--input-bg,#2a2a2a); }' },
@@ -2099,6 +2108,83 @@ const FIX_SENTINELS = [
   { name: '#580a 圆点滚动中每帧跟随（改回 setTimeout/smooth 收尾＝滚动期间圆点又冻结、松手后才动，用户报的「不同步」原样复发）', file: 'js/desktop-slider.js', needle: 'if (!rafId) rafId = requestAnimationFrame(syncFrame);' },
   { name: '#580b 每帧步长走缓存、不逐帧 getComputedStyle（删缓存＝滚动的每一帧都强制样式重算，安卓低端机掉帧）', file: 'js/desktop-slider.js', needle: 'if (gapCache === null) gapCache = parseFloat(getComputedStyle(pages).columnGap) || 0;' },
   { name: '#580c 圆点容器 contain:layout（删＝圆点 width 变形每帧重排外泄到 #page-phone 整个桌面壳，滚动中掉帧）', file: 'css/home.css', needle: 'contain:layout;' },
+  // ==== 2026-09-16 #587 桌面音乐功能「按钮很多失效」——悬浮播放小框压在自己要控制的控件上
+  // （用户：「桌面音乐功能里的按钮很多失效了……其他设备型号也有出现」）。根因：全局悬浮小框
+  // #sm-float 默认 left:12px;top:80px、宽 230px、高随系统字体浮动，恰好盖住桌面音乐小组件与
+  // 音乐页上半部——无头 390×844 实测：音乐页「我的音乐库 / 歌单 / 我的收藏」三颗 tab 与桌面
+  // 小组件进度条 #mw-bar 的 elementFromPoint 全命中 sm-float，点上去毫无反应（系统字号越大
+  // 被吃掉的可点区域越多＝多机型同现象）。修复：悬浮小框在「音乐页可见」或「桌面小组件在位」
+  // 时让位（这两处各自有完整播放控件，与既有 floatHideByWidget「小组件本身就是控制器，
+  // 避免重复弹出」同源），并观察 #page-phone/#page-music 的 hidden 切页即时重算。
+  // 行为断言 tools/verify-music-float-overlap.mjs（RED=1 回退判据复现遮挡）====
+  { name: '#587a 悬浮小框在音乐页/桌面小组件在位时让位（删掉这个判据＝小框又压住音乐页三颗 tab 与小组件进度条，「点了没反应」原样复发）', file: 'js/music-player.js', needle: '|| floatHideByWidget || floatOwnSurfaceShown();' },
+  { name: '#587b 让位判据本体：音乐页可见 → 让位（needle 为函数名锚，判据被改成恒 false 时 verify 脚本 B 层会红）', file: 'js/music-player.js', needle: 'if (musicPage && !musicPage.hidden) return true;' },
+  { name: '#587c 桌面小组件在页内（offsetParent 非 null）→ 让位（判据改成恒真／删掉＝要么桌面永远没有悬浮小框，要么小组件进度条继续被压住）', file: 'js/music-player.js', needle: 'return !!(w && w.offsetParent !== null);' },
+  { name: '#587d 切页重算接线（#page-phone/#page-music 的 hidden 变化 → renderFloat；删掉＝从聊天切回桌面时小框仍挂在桌面上继续压住小组件）', file: 'js/music-player.js', needle: 'new MutationObserver(function () { renderFloat(); })' },
+  // ==== 2026-09-16 #583 字卡自检页补「回复设置 → 聊天」侧的链路闸门（用户：「还需要可以把
+  // 回复设置里的聊天设置那些全部检查加进去，怎么优化」）。此前自检只盖「卡池有没有货」，
+  // 回复设置那半边（词典拼字/梦角造句/多字卡/自定义占比/附加件/已读不回）没进去——字卡用不到
+  // 有一半原因在这半边。同时修掉原来那张「系统预设 X% / 自定义 (100−X)%」占比卡的口径错误：
+  // 它漏了 dc-use-chat 场景闸、漏了总档缩放，也漏了 csp-cust——消费端 chat.js genReplyText
+  // 是在默认字卡覆盖点前按 csp-cust 掷签保留自定义文本，两者不是二选一，真实覆盖率
+  // ＝ 总档缩放后的聊天概率 ×(1−csp-cust%)（默认值下 30% → 实际 15%，原先高报一倍）。
+  // 行为断言 tools/verify-card-audit.mjs（B3h/B3i 已随本节改写）====
+  { name: '#583a 预设覆盖率按「总档缩放 × (1−csp-cust)」算（改回 dc-overall-chat 原值或去掉 csp-cust 项＝又高报一倍，用户按它调参会调反）', file: 'js/card-audit.js', needle: 'var presetFinal = (lock || !dcEn || !dcUseChat) ? 0 : Math.round(dcOvEff * (100 - cspCust) / 100);' },
+  { name: '#583b 自检页「调整」直达 回复设置→聊天 tab（删＝回复设置侧每行都跳不出去，用户看完「卡在哪」却到不了改的地方）', file: 'js/card-audit.js', needle: "if (key.indexOf('@reply:') === 0) return openReplyPage(key.slice(7));" },
+  { name: '#583c 附加件全 0 的「全部恢复默认」真的逐键回默认（删＝按钮点了不动，表情包/图片/颜文字三类字卡继续永不出镜）', file: 'js/card-audit.js', needle: 'ATTACH.forEach(function (a) { if (storeSet(a[0], a[2])) okAny = true; });' },
+  { name: '#583d 默认聊天字卡漏斗补 dc-use-chat 场景闸与总档（删任一项＝场景关闭或总档=0 时该行仍显示 ✓，用户以为「占比 25% 就该出卡」）', file: 'js/card-audit.js', needle: 'var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && (total - off > 0);' },
+  { name: '#587e 今日留言横幅「仅桌面可见」从显示前门控延续到显示期（删掉＝横幅在音乐页继续悬着，压住三颗 tab 与返回/设置五处点不动）', file: 'js/calendar.js', needle: 'new MutationObserver(function () { if (phonePageEl.hidden) hideGreetBanner(); })' },
+  { name: '#587f 横幅切页收起判据引用的桌面节点（删掉＝观察器报错/横幅永远不因切页收起）', file: 'js/calendar.js', needle: "const phonePageEl = document.getElementById('page-phone');" },
+  // ==== #584 卡顿被误判为 bug 的性能两修（都在 chatcard.js：列表页搜索防抖 / 预压缩串行化）====
+  // 行为断言 tools/verify-cc-jank-fix.mjs（RED=1 回退并发预热复现「主线程被连续解码编码霸占」）
+  { name: '#584a 字卡库列表页搜索走防抖包装（回退成 input 直连 filterEntries＝每敲一键全量重扫 7k+ 预设字卡）', file: 'js/chatcard.js', needle: "searchInput2.addEventListener('input', ccSearchInput);" },
+  { name: '#584b 慢搜索「搜索中…」的触发判据（删掉＝重库搜索全程零反馈，又变成「点了没反应」）', file: 'js/chatcard.js', needle: 'if (ccSearchLast < 120) { ccSearchRun(); return; }' },
+  { name: '#584c 慢搜索提示先上屏一拍再跑同步搜索（删掉＝提示写进 DOM 也来不及画出来，等于没加）', file: 'js/chatcard.js', needle: 'ccSearchPost = setTimeout(ccSearchRun, 32);' },
+  { name: '#584d 搜索中提示文案本体（用户可见的加载反馈，删掉＝搜索期间界面看不出在处理）', file: 'js/chatcard.js', needle: "searchResultEl.innerHTML = '<div class=\"ta-empty\" style=\"padding:20px 12px\">搜索中…</div>';" },
+  { name: '#584e 预压缩串行化的世代计数（回退并发预热＝启动/切联系人卡死数秒到数十秒复发）', file: 'js/chatcard.js', needle: 'const gen = ++ccShrinkGen;' },
+  { name: '#584f 预压缩每张之间让出主线程（删掉＝连续解码+PNG 编码重新霸占主线程）', file: 'js/chatcard.js', needle: 'await new Promise(function (res) { setTimeout(res, 0); });' },
+  { name: '#584g 单张压缩兜底超时（删掉＝坏 dataURL 既不 load 也不 error 时卡住整轮预热）', file: 'js/chatcard.js', needle: 'setTimeout(fin, 3000);' },
+  // ==== 2026-09-16 #585「联系人给我买礼物发送到聊天」按最正常使用优化（用户：「为什么总是无法
+  // 触发联系人给我买礼物发送到聊天里，是不是有 bug 或设计缺陷」）。无头实测定位四个叠加原因：
+  //   ① 总开关历史遗留——旧版（无 wlVer 标记）记录里的 giftInOn===0 分不出「用户主动关掉」与
+  //      「#312 时代默认 0 被设置面板连带写回」（当时改任意一项都会整对象保存），命中即把心愿兑现/
+  //      随机送礼一起掐死，只剩不发聊天消息的「TA 自己买」——实测连跑 8 次：聊天 0 件礼物、
+  //      心意柜自买 8 件，正是用户描述的「TA 一直在买、从不发到聊天」。现按 wlVer 打标一次性升级。
+  //   ② 每日额度共用——②「TA 自己买」（默认 10%、不发聊天消息、判定在前）与「送礼给我」（默认 5%）
+  //      共用一个 3 次/天池子；模拟 2000 天（每天 30 条消息）自买平均吃 2.0 次、81% 的日子把额度
+  //      吃满，④ 当天再不可能触发（0.30 件/天 → 拆开后 1.11 件/天）。现拆成两本账。
+  //   ③ 投递竞态——掷中后 1.5~4s 投递窗内切桌面，钱已扣/心愿已删/额度已占，礼物被静默丢弃
+  //      （实测：余额 5000.00→4967.00、心愿消失、聊天与心意柜零新增）。现跨桌面补投递回原桌面。
+  //   ④ 日期口径——todayKey 用 UTC，中国时区下「每天 3 次」在北京时间早 8 点重置。
+  // 另：设置面板「清空概率输入框→失焦」被静默写成 0（＝永久关闭该路径）改为恢复原值 + 就地提示。
+  // 行为断言 tools/verify-gift-ta-send.mjs（S 20 条 + B 18 条全绿；RED 基线 14 条红）====
+  { name: '#585a 旧记录里被遗留关闭的「TA 送我礼物」总开关救回开启（删掉＝只剩不发聊天消息的「TA 自己买」，聊天里永远等不到礼物）', file: 'js/gift-shop.js', needle: 'const revived = raw.giftInOn === 0;' },
+  { name: '#585b 设置口径迁移只跑一次：已带 wlVer 的记录一律不动（删掉＝用户新关掉的开关每次启动又被强行打开）', file: 'js/gift-shop.js', needle: 'if (!raw || raw.wlVer === WL_VER) return false;' },
+  { name: '#585c 「送我」额度只看送礼这本账（改回读自买那本／与自买共用＝隐身自买把额度吃光，送礼当天再不触发）', file: 'js/gift-shop.js', needle: 'const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;' },
+  { name: '#585d TA 自买走自己的独立额度（删掉 selfCapped 换回共用 capped＝「额度被自买吃光」那套复发）', file: 'js/gift-shop.js', needle: 'st.selfOn && !selfCapped && Math.random() * 100 < st.selfPct' },
+  { name: '#585e 投递窗内已切桌面 → 跨桌面补投递（改回直接 return＝钱花了、心愿没了、礼物不落聊天也不进心意柜）', file: 'js/gift-shop.js', needle: 'if (window.chatAppendDeskRec) window.chatAppendDeskRec(cid, rec);' },
+  { name: '#585f 指定联系人的心意柜写入通道存在（删掉＝跨桌面补投递的礼物只在聊天里、收到的礼盒少一件）', file: 'js/gift-shop.js', needle: 'function boxStoreFor(cid) {' },
+  { name: '#585g 每日额度按本地日期切（改回 toISOString()＝中国时区下额度在北京时间早 8 点重置）', file: 'js/gift-shop.js', needle: 'function todayKey() { const d = new Date();' },
+  { name: '#585h 概率非法输入恢复原值、不静默写 0（删掉＝清空输入框失焦就把该行为永久关闭，用户还以为「调过了」）', file: 'js/gift-shop.js', needle: 'inp.value = String(cur[key]);' },
+  { name: '#585i 删除型：旧的「切桌面即丢弃投递」later() 壳不得复活', file: 'js/gift-shop.js', needle: 'const later = function (fn) {', absent: true },
+  { name: '#585j 删除型：UTC 日期键不得复活', file: 'js/gift-shop.js', needle: 'function todayKey() { return new Date().toISOString().slice(0, 10); }', absent: true },
+  // v3.26.x #586：经期温柔语态「多张字卡粘成一串、没有空格」（用户报「没开拼字功能，联系人发消息还是用拼字卡；温柔动作自动拼进来且没有空格隔开每一个字卡」，多机型同报）
+  { name: '#586a 温柔前缀/正文/动作三张字卡拼接处空一格（回改成 p + text + s 裸拼接＝字卡粘成一串，用户当成「没开拼字却出现拼字卡」）', file: 'js/period.js', needle: 'var out = warmJoin(warmJoin(p, text), s);' },
+  { name: '#586b 空段不留孤立空格 / 正文自带空白不重复（删掉＝字卡被逐张关掉后消息出现多余空格）', file: 'js/period.js', needle: 'if (/\\s$/.test(a) || /^\\s/.test(b)) return a + b;' },
+  { name: '#586c 温柔动作池改读数据分组（改回代码里抄死的 6 条＝字卡库「温柔动作」后 6 张是哑开关，点了不生效）', file: 'js/period.js', needle: "if (g[i] && g[i][0] === '温柔动作' && Array.isArray(g[i][1]) && g[i][1].length) {" },
+  // ==== 2026-09-16 #581 图标图片「缩放 + 位置」+ 边看边调补批量上传入口（用户：「【边看边调】功能里
+  // 缺少批量上传桌面图标按钮」「上传了图标按钮图片后，需要可以只移动按钮里图片的位置，不用重新上传」）。
+  // 三个键 app-icon-zoom-/pos-x-/pos-y-<key>（per-cid）只调「图片在图标里的构图」，不碰图片本体；
+  // 两支渲染各自都不露底色：未放大走 object-position（原图被裁才有位移空间），放大后走
+  // translate+scale（位移上限＝缩放余量的一半）并给 .app-ico 裁边。三个入口：边看边调抽屉「图标」分区、
+  // 设置页「调整图标图片位置」行、装修模式点图标菜单。行为断言 tools/verify-icon-img-fit.mjs ====
+  { name: '#581a 图标图片缩放/位置渲染函数（删＝位置设置存了也不生效）', file: 'js/personalize.js', needle: 'const applyAppIconFit = (app) => {' },
+  { name: '#581b 放大后位移+缩放表达式（改回只 object-position＝正方形原图放大后无法移动，用户「移动按钮里图片的位置」诉求落空）', file: 'js/personalize.js', needle: "translate(' + tx + '%, ' + ty + '%) scale(" },
+  { name: '#581c 边看边调抽屉补批量上传图标图片入口（删＝用户报的「边看边调里缺少批量上传按钮」复发）', file: 'js/personalize.js', needle: '批量上传桌面图标图片（可多选）' },
+  { name: '#581d 「调整图片位置」待选标记（删＝从抽屉/设置页进去后点图标不开位置面板，只弹普通图标菜单）', file: 'js/personalize.js', needle: 'if (window.__iconAdjustPick) { openIconFitPanel(app); return; }' },
+  { name: '#581e 设置页「调整图标图片位置」行（删＝该功能在设置页无入口，只能靠装修模式摸到）', file: 'template.html', needle: 'id="row-icon-fit"' },
+  { name: '#581f 位置面板登记进 FLOAT_SELECTORS（删＝面板打开时底层桌面仍可滑动，与抽屉 #527n 同族）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer', '#icon-fit-panel'];" },
+  { name: '#581g 功能大全补「调整图标图片位置」条目（删＝搜「图标 位置」找不到该功能）', file: 'js/feature-hub.js', needle: "{ n: '调整图标图片位置'," },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

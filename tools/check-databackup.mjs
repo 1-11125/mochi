@@ -105,19 +105,26 @@ const checks = {
   'row-export 元素': await evalJs('!!document.getElementById("row-export")'),
   'row-import 元素': await evalJs('!!document.getElementById("row-import")')
 };
-// 监听器无法直接枚举，用"点击后 toast 出现"间接验证绑定
+// 监听器无法直接枚举，用"点击后出范围选择弹窗"间接验证绑定
+// （v3.36.x #577 起：点「导出数据」先弹「选择导出范围」——完整备份/不含音乐/只备份文字/
+//  仅聊天记录/取消，不再像原来那样直接开导，所以这里断言弹窗与胶囊，而不是 toast）
 const before = pageErrors.length;
 await evalJs('(function(){var el=document.getElementById("row-export");if(el){el.click();return true;}return false;})()');
 await sleep(2500);
 const toastText = await evalJs('(function(){var t=document.getElementById("cc-toast");return t ? (t.textContent + "|" + t.className) : "NO_TOAST";})()');
-const modalOpen = await evalJs('!!document.getElementById("modal-ok") || !!document.querySelector(".modal")');
-checks['点击导出后 toast 出现'] = toastText.indexOf('导出') >= 0 || toastText !== 'NO_TOAST';
+const modalOpen = await evalJs('(function(){var m=document.getElementById("modal-mask");return !!m && !m.hidden;})()');
+const pillText = await evalJs('(function(){var p=document.getElementById("modal-pills");return p ? p.textContent : "";})()');
+checks['点击导出弹出范围选择（含「仅聊天记录」）'] =
+  !!modalOpen && String(pillText).indexOf('仅聊天记录') >= 0 && String(pillText).indexOf('完整备份') >= 0;
 checks['导出流程无新增 JS 异常'] = pageErrors.length === before;
 
 // 导入：模拟点击（无头环境文件选择器不弹，但不应抛异常）
 const before2 = pageErrors.length;
 await evalJs('(function(){var el=document.getElementById("row-import");if(el){el.click();return true;}return false;})()');
-await sleep(1200);
+await sleep(1500);
+const impPillText = await evalJs('(function(){var p=document.getElementById("modal-pills");return p ? p.textContent : "";})()');
+checks['点击导入弹出范围选择（含「仅聊天记录（全部桌面联系人）」）'] =
+  String(impPillText).indexOf('仅聊天记录') >= 0;
 checks['点击导入无新增 JS 异常'] = pageErrors.length === before2;
 
 let pass = 0, fail = 0;

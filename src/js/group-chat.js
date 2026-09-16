@@ -1019,7 +1019,7 @@
   }
   window.gcSendDecisionText = gcSendDecisionText;
   window.gcIsVisible = gcIsVisible;
-  // v3.36.x #577：把某个群的历史写回本地（供设置页「导入数据 → 仅聊天记录」一次性恢复全部群聊，
+  // v3.36.x #582：把某个群的历史写回本地（供设置页「导入数据 → 仅聊天记录」一次性恢复全部群聊，
   // data-backup.js importChatAllGo 调用；本文件是群聊键 xy-home-v2:gc-msgs-<gid> /
   // xy-home-v2:group-chat-msgs 的唯一写入方，gcLiteSnapArray/gcWriteMsgs 的规矩都由这里守）。
   // 写入与 gcWriteMsgs 同路：lite 快照（条数不变、只剥大负载）进 LS + 全量数组进 IDB（权威）。
@@ -1043,7 +1043,9 @@
         renderAll();
         return true;
       }
-      if (window.idbSet) window.idbSet(key, arr);
+      // 返回 idbSet 的 promise：调用方要按「写盘完成」串链（#582 修复前 data-backup 侧自造的
+      // thenable 永不 settle，排在后面的桌面/群聊/媒体池根本轮不到执行）
+      if (window.idbSet) return window.idbSet(key, arr);
       return true;
     } catch (e) { return false; }
   };

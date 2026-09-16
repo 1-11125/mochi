@@ -690,6 +690,19 @@
       el.hidden = true;
       clearTimeout(el._timer);
     }
+    // FIX 2026-09-16 #587：横幅只属于桌面——它是 fixed 顶部浮层（top:12px、可高到百余 px），
+    //   显示前门控本来就写了「仅桌面可见时展示」，但显示期用户切走它仍悬在最上面：实测压住
+    //   音乐页顶部整段（「我的音乐库 / 歌单 / 我的收藏」三颗 tab + 返回 + 设置五处全部点不动，
+    //   elementFromPoint 命中 daily-greet），与悬浮小框 #587 同族「浮层压住页面自己的按钮」。
+    //   这里把同一条规则延续到显示期：离开桌面（#page-phone 隐藏）即收起，8 秒自收逻辑不变。
+    (function () {
+      const phonePageEl = document.getElementById('page-phone');
+      if (!phonePageEl || typeof MutationObserver === 'undefined') return;
+      try {
+        new MutationObserver(function () { if (phonePageEl.hidden) hideGreetBanner(); })
+          .observe(phonePageEl, { attributes: true, attributeFilter: ['hidden'] });
+      } catch (e) {}
+    })();
     function showGreetBanner(e2, name) {
       let el = document.getElementById('daily-greet');
       if (!el) {

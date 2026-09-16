@@ -321,18 +321,37 @@
   // v3.3x.x：聊天记录消息键——全局 xy-home-v2:chat-msgs + 各桌面 xy-home-v2:<cid>:chat-msgs。
   // 「仅聊天记录」导出只收这两种键（LS 小键 + IDB 权威值，含最新消息与图片/语音），
   // 其余设置/字卡/音乐全部跳过，体积最小、用来快速保住最不可再生的聊天记录。
-  // v3.36.x #577：锚点收严为「行首或冒号紧跟 chat-msgs」——旧的 /:?chat-msgs$/ 靠子串命中，
+  // v3.36.x #582：锚点收严为「行首或冒号紧跟 chat-msgs」——旧的 /:?chat-msgs$/ 靠子串命中，
   // 顺带把 group-chat-msgs 也吞进来（群聊靠下面的 GROUP_CHAT_KEY_RE 显式收，语义不变、不再靠巧合）。
   const CHAT_KEY_RE = /(?:^|:)chat-msgs$/;
-  // v3.36.x #577：群聊消息键（全局键，不随联系人桌面切换）——默认群 xy-home-v2:group-chat-msgs、
+  // v3.36.x #582：群聊消息键（全局键，不随联系人桌面切换）——默认群 xy-home-v2:group-chat-msgs、
   // 自定义群 xy-home-v2:gc-msgs-<gid>（键名见 group-chat.js groupMsgKey）。群聊记录同属「聊天记录」，
   // 导出与导入必须成对带上：只导不导回＝恢复后群聊全空，只导不入文件＝清库/换机后群聊记录直接蒸发。
   const GROUP_CHAT_KEY_RE = /^xy-home-v2:(?:group-chat-msgs|gc-msgs-.+)$/;
   function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }
-  // v3.36.x #577：#142 媒体池令牌化后，聊天里的图片/语音本体存在池键 xy-home-v2:media:<hash32>，
+  // v3.36.x #582：权威键＝IndexedDB 是完整权威值、localStorage 只是「有损小快照」（chat.js 的
+  // ≤2MB 副本会剥图/截断，也可能干脆没写）。导出与体积预估都必须取 IDB 值——绝不能因为「LS 里
+  // 已经收了这个小键」就把 IDB 值跳过（旧预估正是这么做的，实测把整个聊天记录的体积算成 0）。
+  function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); }
+  // v3.36.x #582：#142 媒体池令牌化后，聊天里的图片/语音本体存在池键 xy-home-v2:media:<hash32>，
   // 消息体只留 @@m:<hash> 引用。「仅聊天记录」必须把消息实际引用到的池条目一并打包——否则备份在
   // 原设备上看不出问题（池还在），换机/清库恢复后图片语音全空（令牌失配），而用户以为「聊天都备了」。
   const MEDIA_TOKEN_RE = /@@m:([0-9a-f]{32})/g;
+  // v3.36.x #582：字符串的 UTF-8 字节数粗估——导出文件是 UTF-8 的 Blob（JSON.stringify 不转义非
+  // ASCII），中文一字 3 字节；而「本机数据 / 查看存储」是存储口径（字符×2＝UTF-16）。原来拿字符数
+  // 当字节数，中文为主的库预估文件体积被压小（实测混排库 1.19 字节/字符、纯中文库可到 3），
+  // 「文件约为本机数据的一半」在纯文字库上直接说反。逐字符全扫在几百 MB 库上代价太高，取前 512
+  // 字符量「非 ASCII 占比」后线性外推（纯 ASCII 恒等于字符数，零偏差；emoji 略高估，可接受）。
+  const UTF8_SAMPLE = 512;
+  function estUtf8Bytes(s) {
+    const str = String(s == null ? '' : s);
+    const n = str.length;
+    if (!n) return 0;
+    const m = n < UTF8_SAMPLE ? n : UTF8_SAMPLE;
+    let extra = 0; // 相对「1 字节/字符」多出来的字节数
+    for (let i = 0; i < m; i++) { const c = str.charCodeAt(i); if (c > 127) extra += c > 2047 ? 2 : 1; }
+    return Math.round(n * (1 + extra / m));
+  }
   // 从聊天值（消息数组或 JSON 字符串）里收集它引用到的媒体池 hash（导出打包与体积预估共用）。
   // 只认 @@m: 令牌字面量，不解 dataURL、不整包 stringify——大 chat-msgs 可能是几 MB 的数组，
   // 为扫令牌再 stringify 一份，等于把流式打包好不容易避开的峰值内存又加回来。
@@ -363,7 +382,7 @@
     if (mode === 'no-music') return { mode: mode, label: '不含音乐文件', note: '不含本地音乐文件', skip: (k) => MUSIC_KEY_RE.test(k), strip: false };
     // #275：文字模式媒体池整键跳过（skip 在读值前生效）——strip 只会剥值，键若留下就是空池
     if (mode === 'text') return { mode: mode, label: '只备份文字', note: '不含图片/语音/音乐附件', skip: (k) => MUSIC_KEY_RE.test(k) || MEDIA_POOL_KEY_RE.test(k), strip: true };
-    // #577：聊天模式＝各桌面（含旧顶层键）+ 群聊消息键；消息引用到的媒体池条目在打包阶段追加（mediaRefs）
+    // #582：聊天模式＝各桌面（含旧顶层键）+ 群聊消息键；消息引用到的媒体池条目在打包阶段追加（mediaRefs）
     if (mode === 'chat') return { mode: mode, label: '仅聊天记录', note: '只含各桌面聊天与群聊记录', skip: (k) => !isChatMsgKey(k), strip: false, mediaRefs: true };
     return { mode: 'full', label: '完整备份', note: '全部数据完整', skip: () => false, strip: false };
   }
@@ -417,16 +436,17 @@
   // 本项目真实体积也没有配额占比，更没有各模式导出文件的预估（用户报「导出前看不到全部
   // 数据多大、导出的文件多大」）。measureProject 按导出同一路径实测（只读不写）：
   //   projStorage＝存储占用（字符×2，与「查看存储」同口径）；projFile＝导出文件近似体积
-  //   （备份内容以 ASCII/base64 为主，1 字符≈1 字节；Blob 进文件过 base64 膨胀 4/3）；
-  //   musicFile＝其中本地音乐部分（「不含音乐文件」的预估减项）。
+  //   （v3.36.x #582 起按 UTF-8 字节估：base64 附件 1 字符≈1 字节、中文 3 字节，不再拿字符数当字节数，
+  //   详见 estUtf8Bytes）；musicFile＝其中本地音乐部分（「不含音乐文件」的预估减项）。
   // 大键双写（LS 旧快照 + IDB 权威值）按导出实际取值路径去重：>LS_SMALL_LIMIT 的键只算 IDB。
   // IDB 清单读不到时返回 ok=false（调用方回退整域口径，行为与旧版一致）。
   function measureProject() {
     return new Promise((resolve) => {
       impShow('正在准备导出…', '正在统计本机数据体积…', 8);
-      const lsChars = {};
+      const lsChars = {};   // 键 → 存储口径字符数（×2＝UTF-16 字节）
+      const lsFile = {};    // 键 → 文件口径字节数（UTF-8），去重减项要用同一口径
       let projFile = 0, projStorage = 0, musicFile = 0;
-      // v3.36.x #577：「仅聊天记录」预估——消息键本体 + 消息引用到的媒体池条目（@@m: 令牌
+      // v3.36.x #582：「仅聊天记录」预估——消息键本体 + 消息引用到的媒体池条目（@@m: 令牌
       // 指向的池键）。池条目体积单独记在 poolSize 里，等把全部键扫完、引用集合齐了再累加
       //（否则引用先出现、池键后出现时会漏算）。
       let chatFile = 0;
@@ -438,9 +458,11 @@
           if (!k || k.indexOf('xy-home-v2:') !== 0 || k === SNAPSHOT_KEY) continue;
           const v = localStorage.getItem(k) || '';
           const c = k.length + v.length;
+          const fb = k.length + estUtf8Bytes(v);
           lsChars[k] = c;
-          projFile += c; projStorage += c * 2;
-          if (isChatMsgKey(k)) { chatFile += c; collectMediaHashes(v, mediaRefs); }
+          lsFile[k] = fb;
+          projFile += fb; projStorage += c * 2;
+          if (isChatMsgKey(k)) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
         }
       } catch (e) {}
       const finish = (ok) => {
@@ -469,23 +491,28 @@
           window.idbGetMany(batch).then(function (map) {
             batch.forEach(function (k) {
               const v = map[k];
-              let c = 0, blob = 0;
+              // c＝存储口径字符数（×2＝UTF-16 字节）；fb＝文件口径字节数（UTF-8）；blob＝二进制原始字节
+              let c = 0, fb = 0, blob = 0;
               try {
-                if (typeof v === 'string') c = v.length;
-                else if (typeof Blob !== 'undefined' && v instanceof Blob) blob = v.size;
-                else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) blob = v.byteLength;
-                else if (v !== undefined && v !== null) c = JSON.stringify(v).length;
-              } catch (e) { c = 0; }
+                if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v); }
+                else if (typeof Blob !== 'undefined' && v instanceof Blob) { blob = v.size; fb = Math.round(blob * 4 / 3); }
+                else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) { blob = v.byteLength; fb = Math.round(blob * 4 / 3); }
+                else if (v !== undefined && v !== null) { const js = JSON.stringify(v); c = js.length; fb = estUtf8Bytes(js); }
+              } catch (e) { c = 0; fb = 0; }
               const isMusic = MUSIC_KEY_RE.test(String(k));
               const lsC = lsChars[k];
               const isChat = isChatMsgKey(String(k));
-              const own = c + Math.round(blob * 4 / 3);
-              if (lsC !== undefined && lsC <= LS_SMALL_LIMIT) { c = 0; blob = 0; } // 小键已按 LS 计过，IDB 同值不重复计
-              else if (lsC !== undefined) { projFile -= lsC; projStorage -= lsC * 2; if (isChat) chatFile -= lsC; } // 大键以 IDB 权威值为准（同导出路径）
-              projFile += c + Math.round(blob * 4 / 3);
+              const own = fb;
+              const auth = isAuthorityKey(String(k));
+              // 小键已按 LS 计过、IDB 同值不重复计——但权威键（chat-msgs/群聊/feed-posts）不适用：
+              // LS 那份是有损小快照，导出实际取的是更大的 IDB 权威值（见 isAuthorityKey 说明）
+              if (lsC !== undefined && lsC <= LS_SMALL_LIMIT && !auth) { c = 0; fb = 0; blob = 0; }
+              // 大键以 IDB 权威值为准（同导出路径）：两个口径的 LS 副本都要按各自口径扣掉
+              else if (lsC !== undefined) { projFile -= (lsFile[k] || 0); projStorage -= lsC * 2; if (isChat) chatFile -= (lsFile[k] || 0); }
+              projFile += fb;
               projStorage += c * 2 + blob;
               if (isMusic) musicFile += own;
-              if (isChat) { chatFile += c + Math.round(blob * 4 / 3); collectMediaHashes(v, mediaRefs); }
+              if (isChat) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
               if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = own;
             });
             impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
@@ -503,36 +530,37 @@
       const ask = (info, usage) => {
         impHide();
         // 阈值口径：有实测按「导出文件近似体积」判；实测失败回退整域 usage（=旧行为）。
-        // v3.36.x #577：这里不再拿它决定「弹不弹」——原来只有 >150MB 才弹范围选择，小库用户
+        // v3.36.x #582：这里不再拿它决定「弹不弹」——原来只有 >150MB 才弹范围选择，小库用户
         // 直接走完整备份，「仅聊天记录」等于不存在（用户反馈「导出数据缺少可选」）。现在每次
         // 导出都让用户选一次范围，bigRef 只用来在标题里报个体积。
         const bigRef = info ? info.projFile : usage;
         if (!window.openModal) { finish('full'); return; }
+        // 口径说明（#582 用户反馈「没说明为什么本机内存是导出数据的 2 倍」）：两个数不是同一把尺子——
+        // 本机数据＝浏览器存储占用（每字符 2 字节，UTF-16，与「查看存储」同口径）；预估文件＝文件里的
+        // 实际字节（UTF-8：图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）。所以附件为主的库文件
+        // 约为本机数据的一半，纯文字（中文）为主的库两者接近、文件甚至更大。
         const head = info
-          ? ('本机数据实测约 ' + fmtSize(info.projStorage) +
-            (info.quota ? '，占浏览器配额约 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%' : '') + '。\n' +
-            '预计导出文件体积：完整备份 ≈ ' + fmtSize(info.projFile) +
-            '；不含音乐文件 ≈ ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
-            '；仅聊天记录 ≈ ' + fmtSize(info.chatFile || 0) +
-            '（各桌面与群聊消息 + 消息引用到的图片/语音）' +
-            '；只备份文字＝剥离全部图片/语音/音乐后明显更小（以导出完成提示为准）。\n')
-          : ('本机数据约 ' + fmtSize(usage) + '（整个域名的占用口径，含同域其他站点，仅供参考）。\n');
-        window.openModal('选择导出范围' + (bigRef ? '（本机数据约 ' + fmtSize(bigRef) + '）' : ''), '', function (v) {
+          ? ('本机数据约 ' + fmtSize(info.projStorage) +
+            (info.quota ? '（占配额 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%）' : '') +
+            '；预估文件：完整 ' + fmtSize(info.projFile) +
+            '、不含音乐 ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
+            '、仅聊天记录 ' + fmtSize(info.chatFile || 0) + '、只备份文字更小。\n' +
+            '两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，纯文字库两者接近。\n')
+          : ('本机数据约 ' + fmtSize(usage) + '（整域名占用口径，含同域其他站点，仅供参考）。\n');
+        window.openModal('选择导出范围', '', function (v) {
           finish(v || 'full');
         }, {
-          noInput: true, okText: '开始导出', pill: 'full', lock: true,
+          noInput: true, okText: '开始导出', pill: 'full', lock: true, big: true,
           pills: [{ label: '完整备份', value: 'full' }, { label: '不含音乐文件', value: 'no-music' },
             { label: '只备份文字', value: 'text' }, { label: '仅聊天记录', value: 'chat' },
             { label: '取消', value: 'cancel' }],
+          // #582：文案刻意压到一档一行 + 宽版弹窗（big）——390×844 手机上 272px 窄弹窗装不下这些
+          // 说明，会把胶囊与「开始导出」顶到折线以下（旧版实测 scrollHeight 1113 vs 可视 657）。
           staticText: head +
-            '完整备份：全部数据都进文件（含本地音乐文件、图片、语音）。文件最大，' +
-            '超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能「导得出去、导不回来」（导入要把整个文件一次读进内存）。\n' +
-            '不含音乐文件：跳过本地上传的歌曲，其余数据完整，音乐到新设备重新添加即可。\n' +
-            '只备份文字：再跳过图片/语音等附件，聊天记录与字卡只保留文字，体积最小。\n' +
-            '仅聊天记录：只带走聊天——全部桌面联系人（含默认桌面）与群聊的记录，消息引用到的图片/语音一并打包；' +
-            '设置、字卡、朋友圈、音乐都不进文件。换机只想搬聊天、或数据太大先保住聊天时选它。\n' +
-            '前三种（完整备份 / 不含音乐文件 / 只备份文字）都会完整备份聊天记录的文字、设置与字卡文本。' +
-            (info ? '\n（体积按当前数据实测估算，最终以导出完成提示的精确大小为准）' : '')
+            '完整备份：全部数据（含音乐/图片/语音），文件最大，超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能导不回来。\n' +
+            '不含音乐：跳过本地上传的歌曲；只备份文字：再跳过图片语音——两者其余数据都完整。\n' +
+            '仅聊天记录：只要聊天——各桌面联系人（含默认桌面）与群聊的记录，消息引用的图片语音一并带走；设置/字卡/朋友圈/音乐不进文件。' +
+            (info ? '（体积为实测估算，以完成提示为准）' : '')
         });
       };
       // 整域口径（兜底 + 配额占比来源）与实测并行取，estReady 完成后再出弹窗
@@ -552,7 +580,8 @@
       });
       measureProject().then((m) => {
         return estReady.then(() => {
-          ask((m && m.ok) ? { projFile: m.projFile, projStorage: m.projStorage, musicFile: m.musicFile, quota: estQuota } : null, estUsage);
+          // #582：chatFile 必须一起传过去——漏传时「仅聊天记录 ≈ X」恒显示 0 KB（本批自己踩过）
+          ask((m && m.ok) ? { projFile: m.projFile, projStorage: m.projStorage, musicFile: m.musicFile, chatFile: m.chatFile, quota: estQuota } : null, estUsage);
         });
       }).catch(() => { ask(null, estUsage); });
     });
@@ -596,11 +625,6 @@
     //（丢图片/语音/长文本），跨浏览器导入后聊天记录/朋友圈丢失（用户反馈 Safari 导出→
     // Chrome 导入丢数据）。IDB 失败时从 memoryCache 兜底（idbRestore 回填值/本会话写入值），
     // 仍失败则记录到 exportMissing，导出结束明确提示用户备份可能不完整。
-    function isAuthorityKey(k) {
-      // #577：群聊消息（默认群 / 自定义群）与 chat-msgs 同族——IDB 权威、LS 只是 lite 快照
-      //（group-chat.js gcWriteLsSnapshot 会剥大负载），必须同样走 IDB 权威读取。
-      return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k);
-    }
     const exportMissing = []; // 权威键降级记录（只剩有损快照或丢失）
     // v3.26.x #90：键清单改走严格三态接口 idbListKeys（数组=权威清单 / null=没读到）。
     // 原 `idbGetAllKeys() || []` 把「挂起/超时」也当空库 → 导出一份只含 LS 小键的文件，
@@ -636,7 +660,7 @@
       if (!overSmallLimit(v, LS_SMALL_LIMIT)) { small[k] = v; return null; }
       return { k: k, v: v, own: own };
     }
-    // v3.36.x #577：聊天模式收集消息里引用到的媒体池 hash（扫描器见文件上方 collectMediaHashes）
+    // v3.36.x #582：聊天模式收集消息里引用到的媒体池 hash（扫描器见文件上方 collectMediaHashes）
     const mediaRefs = new Set();
     let mediaRefQueue = null, mediaRefCursor = 0;
     const mediaRefSeen = {};
@@ -675,7 +699,7 @@
           }
           if (v !== undefined && v !== null) {
             expKeyBytes = typeof v === 'string' ? v.length * 2 : (v instanceof Blob ? v.size : 0);
-            // #577：聊天模式先记下这条消息引用到的媒体池条目（打包阶段末统一追加，见下方 mediaRefQueue）
+            // #582：聊天模式先记下这条消息引用到的媒体池条目（打包阶段末统一追加，见下方 mediaRefQueue）
             if (cfg.mediaRefs) collectMediaHashes(v, mediaRefs);
             // v3.6.x：本地音乐改存 Blob 后，备份导出需转成 dataURL 字符串（JSON 无法存 Blob），
             // 导入时恢复为字符串 → 播放路径自动识别转回 Blob
@@ -726,7 +750,7 @@
           }
         } catch (e) {} // 单键失败跳过，继续导出其余键
       }
-      // v3.36.x #577：聊天模式追加「消息引用到的媒体池条目」——上面扫出的 @@m: hash 在这里逐个
+      // v3.36.x #582：聊天模式追加「消息引用到的媒体池条目」——上面扫出的 @@m: hash 在这里逐个
       // 走与聊天键同一条「读 → 打包 → 释放」路径（小条目并进 ls 段、大条目流式写），
       // 让这份「仅聊天记录」备份换机/清库后图片语音还能显示（详见 MEDIA_TOKEN_RE 处说明）。
       // 池里没有的 hash（图片本来就已丢失）直接跳过，不记 exportMissing——那不是本次备份丢的。
@@ -812,7 +836,9 @@
         '这么大有较大概率导入失败。建议重新点「导出数据」改选「不含音乐文件」或「只备份文字」再做一份。';
     }
     // v3.9.x：文件名用本地日期（原 toISOString 是 UTC，凌晨导出文件名会是前一天）
-    const fname = 'mochi数据备份_' + localDateStr(new Date()) + '.json';
+    // v3.36.x #582：文件名带范围——「仅聊天记录」原来也叫「mochi数据备份_日期.json」，与完整备份
+    // 同名，过一阵谁也分不清手里这份能恢复什么（导入侧只看内容、不看文件名，不受此影响）。
+    const fname = (cfg.mode === 'chat' ? 'mochi聊天记录_' : 'mochi数据备份_') + localDateStr(new Date()) + '.json';
     // v3.27.x：体积友好显示——大备份自动换算 MB（原只显示 KB，上千 KB 不便读）
     const sizeStr = fmtSize(blob.size);
     const doneText = '数据已导出（' + sizeStr + '，' + cfg.note + '）';
@@ -1581,20 +1607,38 @@
   // 分桌写回聊天（非当前桌面用；当前桌面走 chatImportMsgs 内存链路，不调这里）
   // 写入顺序保证 #90 缩水守卫与权威读取一致：chat-msgs（权威）→ chat-meta（账本）→ LS 快照
   // （有损小快照，IDB 为权威源）。idbSet 直接存数组（结构化克隆）以支持超大聊天包。
+  // FIX v3.36.x #582：原来返回的是自造 thenable `{ then: (f) => { if (!seq) f(); return seq; } }`
+  // ——promise 同化时只会走 `then(resolve, reject)` 而 f 永不调用（seq 恒为真）＝这个 thenable
+  // 永不 settle，调用方的写入链在第一个非当前桌面之后整条卡死：第二个桌面、群聊、媒体池
+  // 全都不再执行（多桌面导入只恢复第一个桌面）。直接返回真 promise。
+  // v3.36.x #582：导入某桌面聊天后，必须清掉该桌面自己的「尾巴日志」(<prefix>:chat-tail，#180 的
+  // 60 条轻量副本)：chat.js 切到该桌面、IDB 权威读回后会 chatTailMerge 回放它「msgs 里没有」的条目
+  // ——那是这台设备**导入前的旧消息**（被当成「上次会话没落盘的新消息」），会叠到刚导入的历史上，
+  // 表现为「导入完切到那个桌面，旧对话又冒出来」。当前桌面走 chatImportMsgs，其内部已 chatTailClear。
+  function clearDeskTail(cid) {
+    try {
+      const ns = 'xy-home-v2:' + cid;
+      if (window.xyStore) {
+        window.xyStore(ns).remove('chat-tail');
+        // default 桌面还兼容旧顶层键（contacts.js defaultStore 的读回退），一并清
+        if (cid === 'default') window.xyStore('xy-home-v2').remove('chat-tail');
+        return;
+      }
+      try { localStorage.removeItem(ns + ':chat-tail'); } catch (e) {}
+      if (cid === 'default') { try { localStorage.removeItem('xy-home-v2:chat-tail'); } catch (e) {} }
+    } catch (e) {}
+  }
   function writeDeskChat(cid, arr) {
     const key = 'xy-home-v2:' + cid;
+    clearDeskTail(cid);
     let seq = Promise.resolve();
     if (window.idbSet) {
       seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
-    }
-    if (window.idbSet) {
       seq = seq.then(() => window.idbSet(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })));
     }
     try { localStorage.setItem(key + ':chat-msgs', JSON.stringify(arr)); } catch (e) {}
     try { localStorage.setItem(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })); } catch (e) {}
-    return {
-      then: (f) => { if (!seq) f(); return seq; },
-    };
+    return seq;
   }
   function arrByteLen(arr) {
     try { let n = 0; for (let i = 0; i < arr.length; i++) { const m = arr[i]; if (m && typeof m === 'object') { const t = m.text; if (typeof t === 'string') n += t.length; const im = m.img; if (typeof im === 'string') n += im.length; const vc = m.voice; if (typeof vc === 'string') n += vc.length; n += 64; } else n += 32; } return n; } catch (e) { return 0; }
@@ -1614,7 +1658,7 @@
   //   - 当前桌面：走 window.chatImportMsgs()（同步更新内存/渲染/账本），再补写 LS 快照。
   //   - 群聊：走 group-chat.js 的 gcWriteGroupMsgs（lite 快照 + IDB 权威，当前群同步界面）。
   //   - 媒体池：静默写 IDB（@@m: 令牌解码），不写 LS（media-pool.js 只认 IDB）。
-  // v3.36.x #577：入参化——传 File 直接处理（设置页「导入数据 → 仅聊天记录」与验证脚本共用），
+  // v3.36.x #582：入参化——传 File 直接处理（设置页「导入数据 → 仅聊天记录」与验证脚本共用），
   // 不传则弹本机文件选择器（原行为）。
   window.runChatAllImport = function (file) {
     if (file) { chatAllImportRead(file); return; }
@@ -1767,13 +1811,13 @@
   const importRow = document.getElementById('row-import');
   if (importRow) {
     importRow.addEventListener('click', () => {
-      // v3.36.x #577：导入前先选范围——原来这一行只能整包导入（会覆盖设置/字卡/音乐等全部数据），
+      // v3.36.x #582：导入前先选范围——原来这一行只能整包导入（会覆盖设置/字卡/音乐等全部数据），
       // 「只拿回聊天记录」没有入口（用户反馈「导入数据缺少可选」）。而「仅聊天记录」这条路
       // 只写聊天消息键 + 群聊键 + 消息引用的图片，其余数据一律不碰。
       if (!window.openModal) { pickImportFile(); return; }
       window.openModal('选择导入范围', '', (v) => {
         if (v === 'chat') { window.runChatAllImport(); return; }
-        if (v === 'cancel') return;
+        if (v === 'cancel') { toast('已取消导入'); return; }
         pickImportFile();
       }, {
         noInput: true, okText: '开始导入', pill: 'full', lock: true,

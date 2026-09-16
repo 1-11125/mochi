@@ -2,7 +2,10 @@
 // 立项：用户点名「自定义字卡 + 系统预设字卡 + 二级密码锁 + 分组分类太多，要一个统一自检系统」。
 // 覆盖：①静态归属（template 工具段入口 + 独立页 + build.mjs 登记）；②打开渲染八/九节；
 //   ③设置入口角标 data-ca-issues；④「一键修复」真的写回默认值（reply-dcp-all 0→100）；
-//   ⑤问题行可点击跳转（data-jump 落到目标页）；⑥#page-card-audit 正确闭合不吞 tabbar。
+//   ⑤问题行可点击跳转（data-jump 落到目标页）；⑥#page-card-audit 正确闭合不吞 tabbar；
+//   ⑦#583 回复链路节（系统预设 ↔ 自定义「互补占比」口径已被改写，见 B3h/B3h2/B3j）。
+//   ⚠️ 本脚本跑的是构建产物；#583 的覆盖率/总档/一键恢复等行为细节在
+//   tools/verify-card-audit-reply-chain.mjs（内存拼装 src，构建前后都能跑）。
 // 用法：node build.mjs && node tools/verify-card-audit.mjs
 // 用法（RED 基线/隔离根）：SERVE_ROOT=<目录> node tools/verify-card-audit.mjs
 import { spawn } from 'node:child_process';
@@ -103,6 +106,16 @@ for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) br
 await evalJs("(function(){var e=document.getElementById('splash-enter');if(e&&!e.hidden)e.click();var s=document.getElementById('splash');if(s){s.classList.add('hide');s.hidden=true;s.style.display='none';}return true;})()");
 await sleep(700);
 
+// 二级锁前置（#583 起补齐）：干净 profile 里 cardlock-state 未设 → cardLockOpen() 为 false
+// → 自检页把「系统预设字卡被二级密码锁整体锁停」当成本次结论，第四节据此不渲染
+// `inl-dcp` 等修复按钮（注册条件带 `!lock`），B4b 会点不到按钮而假红。
+// 实测（无头实测同 profile）：cardlock-state=null / cardLockOpen()=false / inl-dcp 按钮数=0。
+// 本脚本要验的是「一键修复真的写回默认」，必须在解锁态下测，故这里显式置 open 并补发事件。
+await evalJs("(function(){try{window.xyStore('xy-home-v2').set('cardlock-state','open');}catch(e){}document.dispatchEvent(new Event('mochi-cardlock-open'));return true;})()");
+await sleep(300);
+ok((await evalJs('(function(){try{return !!window.cardLockOpen();}catch(e){return null;}})()')) === true,
+  'B0 前置：二级锁已置解锁态（未设键＝锁定，会让带 !lock 的修复按钮不渲染而假红）');
+
 // B1 入口行在工具段且带角标锚
 const entry = J(await evalJs(`(function(){var r=document.getElementById('row-card-audit');if(!r)return JSON.stringify({found:false});var sec=r.closest('.them-sec');return JSON.stringify({found:true,sec:sec?sec.dataset.sec:null,issues:r.getAttribute('data-ca-issues')});})()`));
 ok(entry.found === true && entry.sec === 'tools', 'B1 入口行在【工具】段', JSON.stringify(entry));
@@ -125,9 +138,15 @@ ok(body.indexOf('卡数据健康') >= 0, 'B3e 渲染「卡数据健康」节');
 const jumps = await evalJs("(function(){return document.querySelectorAll('#card-audit-body [data-jump]').length;})()");
 ok(Number(jumps) >= 1, 'B3f 问题行带可点击跳转锚 (data-jump)', 'count=' + jumps);
 ok(body.indexOf('平均每') >= 0, 'B3g 概率带人话换算（平均每 N 条回复 / 次触发）');
-ok(body.indexOf('系统预设 ↔ 自定义字卡占比') >= 0, 'B3h 渲染「系统预设 ↔ 自定义占比」卡');
+// #583：原先那节「系统预设 ↔ 自定义字卡占比」是错的（漏 dc-use-chat 场景闸、漏总档缩放、
+// 也漏 csp-cust），已改写成「回复链路（回复设置 → 聊天）」。行为细节见
+// tools/verify-card-audit-reply-chain.mjs（覆盖率数值 / 总档缩放 / 一键恢复 / 直达 tab）。
+ok(body.indexOf('回复链路（回复设置 → 聊天）') >= 0, 'B3h 渲染「回复链路（回复设置 → 聊天）」节');
+ok(body.indexOf('系统预设 ↔ 自定义字卡占比') < 0, 'B3h2 旧的「互补占比」口径已不在（回退即红）');
 const ratioBars = await evalJs("(function(){return document.querySelectorAll('#card-audit-body .ca-ratio-bar').length;})()");
-ok(Number(ratioBars) >= 1, 'B3i 互补占比条存在', 'count=' + ratioBars);
+ok(Number(ratioBars) >= 1, 'B3i 预设覆盖率条存在', 'count=' + ratioBars);
+const replyJumps = await evalJs("(function(){return document.querySelectorAll('#card-audit-body [data-jump=\"@reply:chat\"]').length;})()");
+ok(Number(replyJumps) >= 1, 'B3j 回复设置侧行带「调整」直达 回复设置→聊天', 'count=' + replyJumps);
 
 // B4 一键修复真的写回默认（先种 reply-dcp-all=0 / dcf-fish=0，再点 inl-dcp 修复）
 await evalJs("(function(){try{window.activeStore().set('reply-dcp-all','0');window.activeStore().set('dcf-fish','0');}catch(e){}var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");

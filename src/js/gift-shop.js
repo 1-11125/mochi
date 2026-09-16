@@ -7,7 +7,9 @@
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
   function pick(arr) { return arr.length ? arr[Math.floor(Math.random() * arr.length)] : ''; }
-  function todayKey() { return new Date().toISOString().slice(0, 10); }
+  // #585：日期键改按【本地日期】。原 toISOString() 是 UTC——中国时区下「每天最多 3 次」
+  // 实际在北京时间早上 8 点重置，凌晨聊天用的是前一天的额度，与用户理解的「一天」不符。
+  function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function editingNow() { try { return Array.prototype.some.call(document.querySelectorAll('.app-grid'), function (g) { return g.classList.contains('editing'); }); } catch (e) { return false; } }
   function toast(msg) {
     let t = document.getElementById('cc-toast');
@@ -644,16 +646,44 @@
   const WL_SETTINGS_KEY = 'market-wl-settings';
   const WL_MAX = 30;
   function clampPct(v, def) { const n = Math.round(Number(v)); return (n >= 0 && n <= 100) ? n : def; }
+  // #585：设置口径版本。旧记录没有 wlVer 标记——见 wlSettingsUpgrade 的处置说明。
+  const WL_VER = 2;
+  function wlSettingsRaw() {
+    try { return JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) { return null; }
+  }
   function wlSettings() {
-    let s = null;
-    try { s = JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) {}
-    s = s || {};
+    const s = wlSettingsRaw() || {};
     // #539 giftInOn「TA 送我礼物」总开关：默认 1=允许联系人给我送礼物（用户 2026-09-15 要求默认开启）；
     // #312 时代显式关过（存 0）的用户保持关闭不动，只有从未设置过的用户才落到新默认。
     // giftInPct=「TA 送我礼物」随机送礼概率（默认 5，旧实现写死 5% 无处可调）。
-    return { giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
+    return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
   }
   function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
+  // #585 设置口径一次性升级（用户 2026-09-16 报「联系人从来不会买礼物送到聊天」，根因之一）：
+  // 旧版（无 wlVer）记录里的 giftInOn===0 分不出两种来源——「用户主动关掉」与「#312 时代
+  // 默认值 0 被设置面板连带写回」（当时默认即 0，改任意一项都会把整个设置对象保存一次）。
+  // 命中这类记录时①②④会被一起掐死，只剩不发聊天消息的「TA 自己买」在跑，用户视角就是
+  // 「TA 一直在买、从不发到聊天」。处置：统一恢复为开启，并写入 wlVer；打标之后的关闭
+  // 一律按显式处理，不再被本迁移改写。返回 true 表示本次确实把开关从关救回开（供一次性告知）。
+  function wlSettingsUpgrade() {
+    if (!GSTORE) return false;
+    const raw = wlSettingsRaw();
+    if (!raw || raw.wlVer === WL_VER) return false;
+    const next = Object.assign({}, raw, { wlVer: WL_VER });
+    const revived = raw.giftInOn === 0;
+    if (revived) next.giftInOn = 1;
+    wlSettingsSave(next);
+    return revived;
+  }
+  let wlReviveNotified = false;
+  function wlUpgradeAndNotify() {
+    let revived = false;
+    try { revived = wlSettingsUpgrade(); } catch (e) {}
+    if (!revived || wlReviveNotified) return;
+    wlReviveNotified = true;
+    // 把用户关着的开关主动打开属于「改用户设置」，必须说明来源，不能悄悄改。
+    setTimeout(function () { try { toast('「TA 送我礼物」已重新开启（旧版设置遗留关闭），可在「心意集市设置」里调整'); } catch (e) {} }, 6000);
+  }
   // 心愿项存快照（商品日后被改/删不影响已许的愿），giftId 关联市集商品
   function wishSnap(g) { return { giftId: g.id, name: g.name, emoji: g.emoji, img: g.img || '', price: g.price, cat: g.cat, wish: g.wish || '送给你', tm: Date.now() }; }
   function wishLoad(key) { try { const s = store(); if (!s) return []; const a = JSON.parse(s.get(key) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -681,12 +711,45 @@
     return wish;
   }
 
+  function boxEntry(gift, side, wish) {
+    return { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() };
+  }
   function recordBox(gift, side, wish) {
     const box = boxLoad();
-    box.unshift({ id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() });
+    box.unshift(boxEntry(gift, side, wish));
     boxSave(box);
   }
   window.recordGiftBox = recordBox;
+  // #585：向【指定联系人】的心意柜写记录。用途在「TA 送我」礼物的投递延迟窗（1.5~4s）里
+  // 用户切了桌面——钱是从原桌面 TA 的账户扣的、心愿也从原桌面移除，礼物就必须落回原桌面的
+  // 心意柜，否则离开的那个桌面「钱花了、心愿没了、礼盒也空」。default 桌面按 activeStore 同口径
+  // 读（命名空间优先 + 旧顶层键回退，同 contacts.js defaultStore 的迁移兼容语义），避免
+  // 老数据仍只在根键上时读到空库而写出一份新的空记录。
+  function boxStoreFor(cid) {
+    const id = cid || 'default';
+    const isDefault = id === 'default';
+    const nsStore = window.xyStore ? window.xyStore('xy-home-v2:' + id) : null;
+    return {
+      get: function (k) {
+        let v = null;
+        try { v = nsStore.get(k); } catch (e) {}
+        if (v === null && isDefault && GSTORE) { try { v = GSTORE.get(k); } catch (e) {} }
+        return v;
+      },
+      set: function (k, v) {
+        try { nsStore.set(k, v); } catch (e) {}
+        if (isDefault && GSTORE) { try { GSTORE.remove(k); } catch (e) {} }
+      }
+    };
+  }
+  function recordBoxAt(cid, gift, side, wish) {
+    const s = boxStoreFor(cid);
+    let box = [];
+    try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+    if (!Array.isArray(box)) box = [];
+    box.unshift(boxEntry(gift, side, wish));
+    s.set(BOX_KEY, JSON.stringify(box));
+  }
 
   function buyAndSend(gift, side, wish) {
     const priceFen = Math.round((gift.price || 0) * 100);
@@ -702,55 +765,79 @@
     return true;
   }
 
+  // #585：每日额度拆成两本账。旧实现 ①②④ 共用一个「每天 3 次」池子，而 ②「TA 自己买」
+  // 不发聊天消息、概率（默认 10%）比 ④（默认 5%）高一倍、判定还排在前——实测（每天 30 条
+  // 消息）隐身自买平均每天吃掉 2.0 次额度、81% 的日子把额度吃满，④ 当天再不可能触发，
+  // 用户视角就是「TA 一直在买礼物，但从没送到聊天里」。现在：
+  //   AUTO_DAILY_PREFIX = 送我（心愿兑现 ① + 随机送礼 ④，都进聊天），上限 3/天
+  //   SELF_DAILY_PREFIX = TA 给自己买 ②（不进聊天），独立上限 3/天，互不挤占
   const AUTO_DAILY_PREFIX = 'ml2_gift_daily_';
-  function autoDailyCount() { const s = store(); return Number(s && s.get(AUTO_DAILY_PREFIX + todayKey())) || 0; }
-  function autoDailyIncr() { const s = store(); if (s) s.set(AUTO_DAILY_PREFIX + todayKey(), String(autoDailyCount() + 1)); }
+  const SELF_DAILY_PREFIX = 'ml2_selfbuy_daily_';
+  function dayCount(prefix) { const s = store(); return Number(s && s.get(prefix + todayKey())) || 0; }
+  function dayIncr(prefix) { const s = store(); if (s) s.set(prefix + todayKey(), String(dayCount(prefix) + 1)); }
+  // #585：投递「TA 送我」礼物。掷中时锁定 cid，1.5~4s 后的投递窗里若用户已切到别的桌面，
+  // 旧实现 `(window.__activeCid||'default') !== myCid` 直接 return——而扣钱、删心愿、占额度
+  // 全都是同步先做的，于是「钱花了、心愿单空了、额度占了，礼物却既没进聊天也没进心意柜」
+  //（实测复现：切桌面再切回，余额 5000.00→4967.00、心愿消失、聊天与心意柜零新增）。
+  // 现按 #489「回应落地时已切桌面不能静默取消」的同一产品口径改为跨桌面补投递：
+  // 礼物属于原桌面的聊天与心意柜，用户切回即可见。
+  function deliverInGift(cid, gift, wish, delayMs) {
+    setTimeout(function () {
+      try {
+        const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
+        if ((window.__activeCid || 'default') === cid) {
+          if (window.chatAddGift) window.chatAddGift(rec);
+          recordBox(gift, 'in', wish);
+        } else {
+          if (window.chatAppendDeskRec) window.chatAppendDeskRec(cid, rec);
+          recordBoxAt(cid, gift, 'in', wish);
+        }
+        if (window.logFish) window.logFish();
+      } catch (e) {}
+    }, delayMs);
+  }
   // TA 心动时刻（每次发消息后触发）：按设置概率依次判定——
-  // ①买下我心愿单礼物送我（扣 TA 余额，占每日送礼上限）②自己买礼物收进自己的心意柜（占上限）
-  // ③把想要的加进 TA 心愿单（不花钱不占上限，去重+WL_MAX 上限）④都没中→原 5% 随机送礼
-  // 购买类共享每日 3 次上限；设置在「心意集市和心意柜设置」里可开关/自定义概率
+  // ①买下我心愿单礼物送我（扣 TA 余额，占「送我」额度）②自己买礼物收进自己的心意柜（占「自买」额度）
+  // ③把想要的加进 TA 心愿单（不花钱不占上限，去重+WL_MAX 上限）④都没中→随机送礼（占「送我」额度）
+  // 设置有「心意集市和心意柜设置」里可开关/自定义概率
   // ⓪ 总开关「TA 送我礼物」（giftInOn）：关闭时 ①④ 都不触发（TA 给自己买 ②、加自己心愿单 ③ 不受限）
   window.maybeAutoGift = function () {
     const st = wlSettings();
-    const capped = autoDailyCount() >= 3;
-    const gifts = giftsLoad(); if (!gifts.length) return;
     const myCid = window.__activeCid || 'default';
-    const later = function (fn) {
-      setTimeout(function () {
-        if ((window.__activeCid || 'default') !== myCid) return;
-        fn();
-      }, randInt(1500, 4000));
-    };
+    const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;
+    const selfCapped = dayCount(SELF_DAILY_PREFIX) >= 3;
+    const gifts = giftsLoad(); if (!gifts.length) return;
     // ① 心愿单兑现：TA 买下我心愿单里的礼物送我（扣 TA 余额；先移除心愿防连击重复买）
-    if (st.wlOn && st.giftInOn && !capped) {
+    if (st.wlOn && st.giftInOn && !giftCapped) {
       const myWl = wishLoad(WL_MY_KEY);
       if (myWl.length && Math.random() * 100 < st.wlBuyPct) {
         const item = pick(myWl);
         wishSave(WL_MY_KEY, myWl.filter(function (x) { return x.giftId !== item.giftId; }));
         const w1 = walletGet();
         w1.systemBalance -= Math.round((item.price || 0) * 100); walletSet(w1);
-        autoDailyIncr();
-        later(function () {
-          const rec = { side: 'in', special: 'gift', giftId: item.giftId, giftName: item.name, giftEmoji: item.emoji, giftImg: item.img || '', giftPrice: item.price, giftWish: item.wish, giftCat: item.cat, ts: Date.now() };
-          if (window.chatAddGift) window.chatAddGift(rec);
-          // 快照补 id（recordBox 读 gift.id 引用商品 id）
-          recordBox(Object.assign({}, item, { id: item.giftId }), 'in', item.wish);
-          if (window.logFish) window.logFish();
-        });
+        dayIncr(AUTO_DAILY_PREFIX);
+        // 快照补 id（投递侧读 gift.id 引用商品 id）
+        deliverInGift(myCid, Object.assign({}, item, { id: item.giftId }), item.wish, randInt(1500, 4000));
         return;
       }
     }
-    // ② TA 自己买：挑一件（优先买得起的）收进自己的心意柜，不发聊天消息
-    if (st.selfOn && !capped && Math.random() * 100 < st.selfPct) {
+    // ② TA 自己买：挑一件（优先买得起的）收进自己的心意柜，不发聊天消息（独立额度，不占送我的）
+    if (st.selfOn && !selfCapped && Math.random() * 100 < st.selfPct) {
       const w0 = walletGet();
       const affordable0 = gifts.filter(function (g) { return Math.round((g.price || 0) * 100) <= w0.systemBalance; });
       const gift0 = pick(affordable0.length ? affordable0 : gifts);
+      const wish0 = gift0.wish || '送给自己';
       w0.systemBalance -= Math.round((gift0.price || 0) * 100); walletSet(w0);
-      autoDailyIncr();
-      later(function () {
-        recordBox(gift0, 'self', gift0.wish || '送给自己');
-        toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
-      });
+      dayIncr(SELF_DAILY_PREFIX);
+      setTimeout(function () {
+        if ((window.__activeCid || 'default') === myCid) {
+          recordBox(gift0, 'self', wish0);
+          toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
+        } else {
+          // 已切桌面：记录仍回原桌面（不弹 toast，避免串到别的联系人脸上）
+          recordBoxAt(myCid, gift0, 'self', wish0);
+        }
+      }, randInt(1500, 4000));
       return;
     }
     // ③ TA 加心愿单：心愿单满/没得加时落回 ④
@@ -767,9 +854,9 @@
         return;
       }
     }
-    // ④ TA 随机送礼（#539 概率改从设置读，默认 5%）；每日上限只拦购买类（①②④），③加心愿不占上限
-    if (capped) return;
-    if (!st.giftInOn) return; // #312 总开关关闭＝禁止 TA 送我礼物，随机送礼也不再触发
+    // ④ TA 随机送礼（#539 概率改从设置读，默认 5%）；「送我」额度只管 ①④，③加心愿不占上限
+    if (giftCapped) return;
+    if (!st.giftInOn) return; // 总开关关闭＝禁止 TA 送我礼物（此开关的显式状态由 #585 wlSettingsUpgrade 迁移保证）
     if (Math.random() * 100 >= st.giftInPct) return;
     const w = walletGet();
     const affordable = gifts.filter(function (g) { return Math.round((g.price || 0) * 100) <= w.systemBalance; });
@@ -777,14 +864,8 @@
     const gift = pick(pool);
     const wish = taWish(gift);
     const priceFen = Math.round((gift.price || 0) * 100);
-    w.systemBalance -= priceFen; walletSet(w); autoDailyIncr();
-    setTimeout(function () {
-      if ((window.__activeCid || 'default') !== myCid) return;
-      const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
-      if (window.chatAddGift) window.chatAddGift(rec);
-      recordBox(gift, 'in', wish);
-      if (window.logFish) window.logFish();
-    }, randInt(1500, 4000));
+    w.systemBalance -= priceFen; walletSet(w); dayIncr(AUTO_DAILY_PREFIX);
+    deliverInGift(myCid, gift, wish, randInt(1500, 4000));
   };
 
   function openBuyDialog(gift, opts) {
@@ -906,7 +987,7 @@
       '<div class="gs-row"><div class="gs-lab">TA 加进自己心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlAddPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlAddPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
-      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；TA 的购买类行为每天合计最多 3 次（与自动送礼共用上限）；关掉开关即完全关闭对应行为。</div>';
+      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
     window.openTCPanel('心意集市和心意柜设置', html);
     document.querySelectorAll('#tc-body [data-gsw]').forEach(function (sw) {
       sw.addEventListener('click', function () {
@@ -920,10 +1001,17 @@
     document.querySelectorAll('#tc-body [data-gsn]').forEach(function (inp) {
       inp.addEventListener('change', function () {
         const cur = wlSettings();
+        const key = inp.dataset.gsn;
         const n = Math.round(Number(inp.value));
-        const ok = n >= 0 && n <= 100;
-        cur[inp.dataset.gsn] = ok ? n : 0;
-        if (!ok) inp.value = '0';
+        // #585：非法输入不再静默写成 0——0 等于把该行为永久关闭，而「清空输入框再失焦」
+        // 是最容易踩到的（Number('')===0 会被旧实现判成合法并保存），旧实现还把框改成 '0'
+        // 让人以为已经生效。现在恢复原值并就地说明，避免用户以为「调过了」其实关掉了整条路径。
+        if (String(inp.value).trim() === '' || !isFinite(n) || n < 0 || n > 100) {
+          inp.value = String(cur[key]);
+          toast('请填 0~100 的整数');
+          return;
+        }
+        cur[key] = n;
         wlSettingsSave(cur);
         toast('已保存');
       });
@@ -1409,7 +1497,10 @@
     // 旧各桌面商品库 → 全局库一次性迁移（加载时先合并 LS；IDB 回填完成后未打标记再补跑一次）
     try { migrateMarketGlobal(false); } catch (e) {}
     try { rescueNewDefaults(); } catch (e) {}
-    document.addEventListener('mochi-restore-done', function () { try { migrateMarketGlobal(true); } catch (e) {} try { rescueNewDefaults(); } catch (e) {} });
+    // #585 设置口径升级：IDB 回填前 GSTORE 可能还是空的，mochi-restore-done 后要再跑一次
+    //（回填会用旧记录盖回来，标记必须在那之后再补）。
+    try { wlUpgradeAndNotify(); } catch (e) {}
+    document.addEventListener('mochi-restore-done', function () { try { migrateMarketGlobal(true); } catch (e) {} try { rescueNewDefaults(); } catch (e) {} try { wlUpgradeAndNotify(); } catch (e) {} });
 
     const host = (document.getElementById('page-phone') || {}).parentNode || document.body;
     buildMarketPage(host);

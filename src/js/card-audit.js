@@ -58,6 +58,7 @@
   function recordUndo(scope, key) { try { undoStack.push({ scope: scope, key: key, old: storeGetScope(scope, key) }); } catch (e) {} }
   function rawFor(cid, k) { try { var s = window.storeFor ? window.storeFor(cid) : window.xyStore(GNS + ':' + cid); return s.get(k); } catch (e) { return null; } }
   function num(v, d) { if (v === null || v === undefined || v === '') return d; var n = Number(v); return isNaN(n) ? d : n; }
+  function clampPct(v) { var n = Number(v); if (!isFinite(n)) return 0; return Math.max(0, Math.min(100, Math.round(n))); }
   function boolOf(v, d) { if (v === null || v === undefined || v === '') return d; return v === '1'; }
   function locked() { try { return !(window.cardLockOpen && window.cardLockOpen()); } catch (e) { return false; } }
   function dcpAll() { return Math.max(0, Math.min(100, num(store('reply-dcp-all'), 100))); }
@@ -304,10 +305,55 @@
     });
     var ownGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('own', t).length; }, 0);
     var pubGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('public', t).length; }, 0);
-    var chatOv = Math.max(0, Math.min(100, num(store('dc-overall-chat'), 30)));
-    var sysShare = (!lock && dcEn) ? chatOv : 0;      // 系统预设字卡在聊天里的占比
-    var customShare = 100 - sysShare;                  // 自定义字卡互补占比
     var deferred = deferredLibs();                     // 大库 IDB 回填挂起：本次读数可能偏少
+
+    // ===== #583：回复设置 → 聊天 的「链路闸门」读数 =====
+    // 用户点名「回复设置里的聊天设置那些也要一起检查」——字卡用不到，有一半原因不在字卡池，
+    //   而在「这条回复根本没触发 / 被别的机制占掉」。本段把回复设置→聊天里所有决定
+    //   「字卡能否出镜」的键读成一组闸门，供下方「二、回复链路」节与问题清单共用。
+    // 两条口径与消费端逐一核对过（dcp-master.js 的接线清单 + 各消费文件）：
+    //   ① 生效值 = 存盘值 × 总档(reply-dcp-all) ÷ 100。总档只缩放系统预设侧；注意
+    //      梦角造句的 mjf-prob 不过总档（dream-free.js 直接读存盘值），默认聊天字卡只
+    //      缩放 overall、分类占比 dc-prob-* 不缩放（drawCards 里总档只乘 overall）。
+    //   ② 预设默认字卡最终落进回复的概率 = (1 − csp-cust%) × P(drawCards 命中)，不是与
+    //      自定义字卡「二选一」——chat.js genReplyText 在默认字卡覆盖点前按 csp-cust 掷签
+    //      保留自定义文本，命中保留则 drawCards 的结果被丢弃。
+    var cspCust = clampPct(num(store('csp-cust'), 50));
+    var dcUseChat = boolOf(store('dc-use-chat'), true);
+    var dcOvRaw = clampPct(num(store('dc-overall-chat'), 30));
+    var dcOvEff = Math.round(dcOvRaw * all / 100);
+    var qsEn = boolOf(store('qs-en'), true);
+    var qsProbRaw = clampPct(num(store('qs-prob'), 25));
+    var qsProbEff = Math.round(qsProbRaw * all / 100);        // quote-spell.js 套总档
+    var qsCc = boolOf(store('qs-cc'), true);
+    // 注意：定义 window.dictUse / dictOverall 的那个 IIFE 开头是 `if (!dictView) return;`
+    //   ——词典页锚点缺失时这两个 API 整个不存在。所以先按存储键取默认值、API 在时再覆盖，
+    //   别把「API 不在」写成硬编码 true（那会把用户关掉的场景误报成开）。
+    var dictUseChat = boolOf(store('dict-use-chat'), true);
+    try { if (window.dictUse) dictUseChat = window.dictUse('chat') !== false; } catch (e) {}
+    var dictOvChat = clampPct(num(store('dict-overall-chat'), 75));
+    try { if (window.dictOverall) dictOvChat = clampPct(num(window.dictOverall('chat'), 75)); } catch (e) {}
+    var dictPoolN = Math.max(0, presetCount('dict') - offCount('dict'));
+    var mjfEn = boolOf(store('mjf-en'), true);
+    var mjfProb = clampPct(num(store('mjf-prob'), 20));       // 不过总档
+    var MJF_SRC = [['mjf-src-cc', 'mjf-w-cc', '自定义字卡', 50], ['mjf-src-def', 'mjf-w-def', '默认聊天字卡', 25], ['mjf-src-dict', 'mjf-w-dict', '词典', 25]];
+    var mjfSrcOn = MJF_SRC.filter(function (s) { return boolOf(store(s[0]), true) && num(store(s[1]), s[3]) > 0; });
+    var rcProbRaw = clampPct(num(store('rcard-prob'), 30));
+    var cfProbRaw = clampPct(num(store('cf-prob'), 20));
+    var rcProbEff = Math.round(rcProbRaw * all / 100);
+    var cfProbEff = Math.round(cfProbRaw * all / 100);
+    var pyEn = boolOf(store('py-en'), true);
+    var pyProb = clampPct(num(store('py-prob'), 50));
+    var rcSw = boolOf(store('rc-enabled'), true);        // 聊天回应字卡总开关（与「撤回后补发」的 rc-en 不是同一个键）
+    var rnProb = clampPct(num(store('rn-prob'), 20));
+    var asEn = boolOf(store('as-en'), true);
+    var dndEn = boolOf(store('dnd-en'), false);
+    // 附加件（不套总档，chat.js 直接读存盘值）
+    var ATTACH = [['touch-prob', '拍一拍', 5], ['sticker-prob', '表情包', 10], ['emoji-prob', 'emoji', 5], ['image-prob', '图片', 5], ['voice-prob', '语音', 10], ['kaomoji-prob', '颜文字', 5], ['quote-prob', '引用', 30]];
+    var attachOn = ATTACH.filter(function (a) { return num(store(a[0]), a[2]) > 0; });
+    // 表情包/图片两条附加概率同时为 0 ⇒ 字卡库里的 sticker/image 卡永不进聊天（见下方附加件行）。
+    // 必须在这里（问题清单之前）算好——放到渲染段会因 var 提升恒为 undefined，那条问题永不触发。
+    var mediaOff = clampPct(num(store('sticker-prob'), 10)) === 0 && clampPct(num(store('image-prob'), 5)) === 0;
 
     // ===== 问题清单（先算，结论卡与角标都用） =====
     if (lock) addIssue('bad', '系统预设字卡被「二级密码锁」整体锁定（#319 防未成年人保护）——默认聊天字卡、词典（含词典拼字）等系统预设池当前都取不到，下方开关全开也无效。到开屏公告区「防未成年人·内置字卡锁定」卡点「输入密码解锁」即可恢复。');
@@ -336,6 +382,23 @@
     if (health.missing > 0) addIssue('bad', '检测到 ' + health.missing + ' 张图片/表情卡在媒体池里已丢失（聊天里会显示占位或发不出），多为导入的备份未含图片——需从有完整图片的源头设备重新导出「完整备份」再导入，或用「查看存储→媒体池重建」尝试自愈。');
     if (health.badVoice > 0) addIssue('warn', '检测到 ' + health.badVoice + ' 条语音卡数据格式异常（可能无法播放）。');
     if (health.bigMedia > 0) addIssue('warn', '检测到 ' + health.bigMedia + ' 张超大图片卡（>512KB），字卡库体积大、iOS/安卓容易卡顿，建议到「查看存储→字卡库瘦身」清理。');
+    // #583：回复设置侧闸门——这半边关掉时字卡池再满也看不到出镜
+    if (rnProb >= 100) addIssue('bad', '「已读不回概率」为 100%：TA 只显示回执、不再回复任何内容——所有字卡与互动都不会出现（回复设置→聊天 最上面的被动回复组）。');
+    else if (rnProb > 60) addIssue('warn', '「已读不回概率」为 ' + rnProb + '%：大多数消息只会显示回执、不再回复内容，字卡与互动基本看不到（这是可选偏好；若你正困惑「字卡用不到」，先看这一项）。');
+    if (qsEn && qsProbEff === 0 && qsProbRaw > 0) addIssue('warn', '「词典拼字」存盘 ' + qsProbRaw + '% 但被「系统预设字卡·聊天触发概率」总档 ' + all + '% 缩到 0%——拼字实际不会触发（两行都在 回复设置→聊天 里）。');
+    if (!qsEn) addIssue('warn', '「词典拼字」总开关关闭：词典语录字卡不会参与拼字出镜。');
+    else if (qsProbRaw === 0) addIssue('warn', '「词典拼字」概率为 0%：词典语录字卡不会参与拼字出镜。');
+    else {
+      var dictBlock = !dictUseChat ? '词典的「聊天使用」被关闭' : (dictOvChat === 0 ? '词典的「聊天概率」为 0%' : ((dictPoolN <= 0) ? '词典抽卡池为空（语录被逐张关闭）' : ''));
+      if (dictBlock) addIssue('warn', '「词典拼字」开着且概率生效，但' + dictBlock + '——拼字抽不到卡，去「字卡库→默认字卡·词典」页调整。');
+    }
+    if (!mjfEn) addIssue('warn', '「梦角自由造句」总开关关闭。');
+    else if (mjfProb === 0) addIssue('warn', '「梦角自由造句」概率为 0%。');
+    else if (!mjfSrcOn.length) addIssue('warn', '「梦角自由造句」开着，但三个语料来源（自定义字卡/默认聊天字卡/词典）全关或权重全为 0——不会触发。');
+    if (!pyEn) addIssue('warn', '「多字卡回复」总开关关闭：每条消息只回一条、每条只用一张字卡。');
+    if (cspCust === 0) addIssue('warn', '「自定义字卡占比」为 0%：TA 的纯文字回复会尽量让系统预设默认字卡覆盖，你自己建的字卡基本不出现（想反过来就把它调高）。');
+    if (!attachOn.length) addIssue('warn', '拍一拍/表情包/emoji/图片/语音/颜文字/引用 七项附加概率全为 0：回复只剩纯文字（回复设置→聊天 的被动回复组）。');
+    else if (mediaOff) addIssue('warn', '「表情包概率」「图片概率」都为 0：字卡库里的表情包与图片字卡不会在聊天里出现（这两项是命中后往同一条回复里加图，不是独立机制，所以平时不容易联想到它们卡住了媒体字卡）。');
     if (!issues.length) addIssue('ok', '未发现明显问题：字卡各链路按当前设置正常取用。');
 
     // ===== 结论卡 =====
@@ -389,14 +452,133 @@
     }
     push('自检结论', verdictInner, null);
 
-    // ===== 系统预设 ↔ 自定义 占比（聊天场景） =====
-    var ratioInner = '';
-    ratioInner += '<div class="ca-ratio"><div class="ca-ratio-bar"><i style="width:' + sysShare + '%"></i><u style="width:' + customShare + '%"></u></div>' +
-      '<div class="ca-ratio-legend"><span class="ca-ok">系统预设 ' + sysShare + '%</span><span class="ca-mute">自定义 ' + customShare + '%</span></div></div>';
-    ratioInner += rowHtml('聊天默认字卡概率（dc-overall-chat）', chatOv + '% · ' + humanProb(chatOv, 'reply'), chatOv === 0 ? 'warn' : 'ok', { edit: 'defaultCards' });
-    ratioInner += rowHtml('系统预设聊天概率总档（reply-dcp-all）', all + '%' + (all < 100 ? ' · 各分类概率整体打 ' + all + ' 折' : ' · 未打折'), all < 100 ? 'warn' : 'ok', { edit: 'replySettings' });
-    push('系统预设 ↔ 自定义字卡占比（聊天场景）', ratioInner,
-      '系统预设字卡设为 X% 时，自定义字卡自然占 (100−X)% 的回复机会；「概率总档」会把所有系统预设聊天概率整体缩放（<100 即打折）。');
+    // ===== 回复链路（回复设置 → 聊天） =====
+    // #583：这一节回答「字卡池是满的，为什么还是看不到字卡」——把 回复设置→聊天 里所有
+    //   决定字卡能否出镜的键摆成闸门。纯行为项（回复速度/条数/间隔）不进表：它们不影响
+    //   「能不能出」，复读设置页只会把自检页撑长（用户要的是「卡在哪」，不是「值是多少」）。
+    //   各机制是按概率依次掷签争夺同一条回复，不是互斥分区，所以这里逐行给「生效概率」+
+    //   漏斗，不画语义上会骗人的饼图。
+    var chainInner = '';
+    var replyFixables = [];
+    function replyFixSpec(m) {
+      if (!m.fix) return null;
+      var id = 'inl-rs-' + m.id;
+      if (m.fix.kind === 'en') fixEnable(id, m.fix.key);
+      else if (m.fix.kind === 'num') fixProb(id, m.fix.key, m.fix.v);
+      else if (m.fix.kind === 'fn' && typeof m.fix.run === 'function') addFix(id, m.fix.run);
+      else return null;
+      replyFixables.push(id);
+      return id;
+    }
+    var MECH = [
+      {
+        id: 'qs', name: '词典拼字', key: 'qs-en · qs-prob', ok: !lock && qsEn && qsProbEff > 0 && dictUseChat && dictOvChat > 0 && dictPoolN > 0,
+        txt: '存盘 ' + qsProbRaw + '% · 生效 ' + qsProbEff + '%（' + humanProb(qsProbEff, 'reply') + '）',
+        extra: '池 ' + dictPoolN + ' 条 · ' + (qsCc ? '混用自定义字卡' : '只用词典语录'),
+        gates: [{ t: '锁', ok: !lock }, { t: '拼字开关', ok: qsEn }, { t: '拼字概率', ok: qsProbEff > 0 }, { t: '词典聊天使用', ok: dictUseChat }, { t: '词典概率', ok: dictOvChat > 0 }, { t: '抽卡池', ok: dictPoolN > 0 }],
+        fix: !qsEn ? { kind: 'en', key: 'qs-en', label: '打开' } : (qsProbRaw === 0 ? { kind: 'num', key: 'qs-prob', v: 25, label: '恢复概率' } : null)
+      },
+      {
+        id: 'mjf', name: '梦角自由造句', key: 'mjf-en · mjf-prob', ok: mjfEn && mjfProb > 0 && mjfSrcOn.length > 0,
+        txt: mjfProb + '%（' + humanProb(mjfProb, 'reply') + '，此概率不过总档）',
+        extra: mjfSrcOn.length ? '语料来源：' + mjfSrcOn.map(function (s) { return s[2]; }).join(' / ') : '语料来源：全关',
+        gates: [{ t: '总开关', ok: mjfEn }, { t: '概率', ok: mjfProb > 0 }, { t: '语料来源', ok: mjfSrcOn.length > 0 }],
+        fix: !mjfEn ? { kind: 'en', key: 'mjf-en', label: '打开' } : (mjfProb === 0 ? { kind: 'num', key: 'mjf-prob', v: 20, label: '恢复概率' } : null)
+      },
+      {
+        id: 'rc', name: '聊天回应字卡', key: 'rc-enabled · rcard-prob · cf-prob',
+        ok: rcSw && rcProbEff > 0,
+        txt: '整条替换 存盘 ' + rcProbRaw + '% · 生效 ' + rcProbEff + '% ｜ 连接词追加 存盘 ' + cfProbRaw + '% · 生效 ' + cfProbEff + '%' + (all < 100 ? '（总档 ' + all + '% 缩放）' : ''),
+        extra: '', gates: [{ t: '开关', ok: rcSw }, { t: '整条替换', ok: rcProbEff > 0 }],
+        // 两处闸门同一颗按钮修：总开关关着时只写 rcard-prob 是空转（概率本来就非 0），
+        //   必须先开开关——故这里用自定义修复而不是 kind:'num'。
+        fix: (!rcSw || rcProbRaw === 0) ? {
+          kind: 'fn', label: (!rcSw ? '打开' : '恢复概率'), run: function () {
+            if (!boolOf(store('rc-enabled'), true)) storeSet('rc-enabled', '1');
+            if (num(store('rcard-prob'), 30) === 0) storeSet('rcard-prob', 30);
+            return true;
+          }
+        } : null
+      },
+      {
+        id: 'py', name: '多字卡回复', key: 'py-en · py-prob', ok: pyEn && pyProb > 0,
+        txt: (pyEn ? '开' : '关') + ' · ' + pyProb + '%（' + humanProb(pyProb, 'reply') + '，不过总档） · 每条拼 ' + num(store('py-min'), 2) + '~' + num(store('py-max'), 5) + ' 张',
+        extra: '', gates: [{ t: '总开关', ok: pyEn }, { t: '概率', ok: pyProb > 0 }],
+        // py-prob 也是会被设成 0 的（模板 data-min=0）——「概率为 0」与「开关关着」是两个闸门，
+        //   同一颗按钮一起收口，不然点了「打开」仍然不出多字卡。
+        fix: (!pyEn || pyProb === 0) ? {
+          kind: 'fn', label: (!pyEn ? '打开' : '恢复概率'), run: function () {
+            if (!boolOf(store('py-en'), true)) storeSet('py-en', '1');
+            if (num(store('py-prob'), 50) === 0) storeSet('py-prob', 50);
+            return true;
+          }
+        } : null
+      }
+    ];
+    MECH.forEach(function (m) {
+      var fixId = replyFixSpec(m);
+      chainInner += '<div class="storage-row"><span>' + esc(m.name) + '<span class="ca-sub">' + esc(m.key) + '</span></span><b class="' + (m.ok ? 'ca-ok' : 'ca-warn') + '">' +
+        esc(m.txt) + (m.extra ? ' · ' + esc(m.extra) : '') +
+        (fixId && !m.ok ? ' <button class="ca-fix" type="button" data-fix="' + fixId + '">' + esc(m.fix.label) + '</button>' : '') +
+        ' <span class="ca-jump ca-edit" data-jump="@reply:chat">调整</span></b></div>' + funnelHtml(m.gates);
+    });
+    // 「预设覆盖 vs 自定义保留」的真实口径：先按 py-en 抽自定义字卡，genReplyText 兜底，
+    // 最后在默认字卡覆盖点按 csp-cust 掷签——命中保留自定义就丢弃 drawCards 的结果。
+    // 所以预设实际落进回复的概率 = 总档缩放后的聊天概率 ×(1−csp-cust%)，不是与自定义互补。
+    var presetFinal = (lock || !dcEn || !dcUseChat) ? 0 : Math.round(dcOvEff * (100 - cspCust) / 100);
+    chainInner += '<div class="ca-ratio"><div class="ca-ratio-bar"><i style="width:' + presetFinal + '%"></i><u style="width:' + (100 - presetFinal) + '%"></u></div>' +
+      '<div class="ca-ratio-legend"><span class="ca-ok">预设默认字卡覆盖 ' + presetFinal + '%</span><span class="ca-mute">其余 ' + (100 - presetFinal) + '%：自定义字卡 / 兜底池</span></div></div>';
+    var idCsp = 'inl-rs-csp';
+    var cspFix = '';
+    if (cspCust === 0 && !lock) { fixProb(idCsp, 'csp-cust', 50); replyFixables.push(idCsp); cspFix = idCsp; }
+    chainInner += rowHtml('自定义字卡占比（csp-cust）', cspCust + '%' + (cspCust === 0 ? ' · 自定义字卡基本不出现' : (cspCust >= 100 ? ' · 预设默认字卡基本不覆盖' : '')), cspCust === 0 ? 'warn' : 'ok', { fix: cspFix, edit: '@reply:chat' });
+    chainInner += rowHtml('默认聊天字卡 · 聊天使用 / 概率（dc-use-chat · dc-overall-chat）', (dcUseChat ? '场景开' : '场景关') + ' · 存盘 ' + dcOvRaw + '% · 生效 ' + dcOvEff + '%（总档 ' + all + '%）', (!dcUseChat || dcOvEff === 0 || !dcEn) ? 'warn' : 'ok', { edit: 'defaultCards' });
+    chainInner += funnelHtml([{ t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '聊天场景', ok: dcUseChat }, { t: '总档', ok: all > 0 }, { t: '聊天概率', ok: dcOvEff > 0 }, { t: '自定义占比放行', ok: cspCust < 100 }]);
+    // 附加件：拍一拍/表情包/emoji/图片/语音/颜文字/引用——命中后往同一条回复里追加内容，
+    // 表情包/图片/颜文字都是从你的字卡库里抽的（所以它们归零＝那几类字卡永不出现）。
+    var attachMech = [['sticker-prob', '表情包'], ['image-prob', '图片'], ['kaomoji-prob', '颜文字'], ['touch-prob', '拍一拍'], ['emoji-prob', 'emoji'], ['voice-prob', '语音'], ['quote-prob', '引用']];
+    var ATTACH_DEF = {};
+    ATTACH.forEach(function (a) { ATTACH_DEF[a[0]] = a[2]; });
+    var attachTxt = attachMech.map(function (a) { return a[1] + ' ' + clampPct(num(store(a[0]), ATTACH_DEF[a[0]])) + '%'; }).join(' · ');
+    // FIX 2026-09-16 #583：附加件里有两类是从你自己的字卡库里抽卡的——「表情包概率」抽
+    //   sticker 卡、「图片概率」抽 image 卡（chat.js genOneReply 命中后 push 一张
+    //   getMediaCards(...)）。所以这两项同时为 0 ＝ 字卡库里的表情包/图片永远不会出现在
+    //   聊天里，不只是「回复变纯文字」。全 7 项为 0 多是有意做纯文字，只作汇总提示；
+    //   仅这两项为 0 更隐蔽，单独报并只补这两个键（其余附加件是用户有意留着的）。
+    //   mediaOff 在读取段就算好了（`var` 提升会让这里的声明在问题清单处恒为 undefined）。
+    if ((!attachOn.length || mediaOff) && !lock) {
+      var idAtt = 'inl-rs-attach';
+      addFix(idAtt, function () {
+        var okAny = false;
+        if (attachOn.length) {
+          ATTACH.forEach(function (a) { if ((a[0] === 'sticker-prob' || a[0] === 'image-prob') && storeSet(a[0], a[2])) okAny = true; });
+        } else {
+          ATTACH.forEach(function (a) { if (storeSet(a[0], a[2])) okAny = true; });
+        }
+        return okAny ? true : 'fail';
+      });
+      replyFixables.push(idAtt);
+      attachTxt += ' <button class="ca-fix" type="button" data-fix="' + idAtt + '">' + (attachOn.length ? '恢复表情包/图片' : '全部恢复默认') + '</button>';
+    }
+    if (mediaOff && attachOn.length) attachTxt += ' · 表情包/图片字卡不会出现';
+    chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok', { edit: '@reply:chat' });
+    // 行为闸门：不影响「字卡出不出」，但决定「TA 这条回复到底会不会发生」——已读不回
+    //   100% 时一切都看不到，属 bad；主动发送/免打扰是用户自己的选择，只作中性展示。
+    chainInner += rowHtml('已读不回概率（rn-prob）', rnProb + '%' + (rnProb >= 100 ? ' · TA 不再回复任何内容' : (rnProb > 60 ? ' · 大多数消息只显示回执' : '')), rnProb >= 100 ? 'bad' : rnProb > 60 ? 'warn' : 'ok', { edit: '@reply:chat' });
+    chainInner += rowHtml('主动发送（as-en · as-prob）', (asEn ? '开 · ' + clampPct(num(store('as-prob'), 30)) + '%' : '关（TA 不主动找你）') + (dndEn ? ' · 免打扰中' : ''), 'mute', { edit: '@reply:chat' });
+    if (replyFixables.length) {
+      addFix('__allfix-reply', function () {
+        replyFixables.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });
+        return true;
+      });
+      chainInner += '<div class="ca-fixbar"><button class="storage-clear" type="button" data-fix="__allfix-reply">一键恢复字卡链路</button></div>';
+      chainInner += '<div class="ca-sub">只把「开关打开、概率回默认」——不改字卡内容、不动你的回复速度/条数等偏好。</div>';
+    }
+    push('回复链路（回复设置 → 聊天）', chainInner,
+      '字卡出镜＝「这条回复发生了」×「抽卡池有货」×「这条回复的内容名额被字卡类机制抢到」。本节的漏斗任一 ✕ 该机制就不出字卡。<br>' +
+      '<b>总档</b>（reply-dcp-all）统一缩放系统预设侧概率（生效＝存盘×总档÷100）；<b>梦角自由造句</b>不过总档，<b>默认聊天字卡</b>只缩放整体概率、分类占比不缩放。<br>' +
+      '<b>预设默认字卡覆盖</b>＝生效聊天概率 ×(1−自定义字卡占比)：先抽自定义字卡，最后按 csp-cust 掷签决定要不要让预设覆盖——所以「系统预设 X% / 自定义 (100−X)%」的说法不成立，两者不是二选一。<br>' +
+      '点每行「调整」直达 回复设置 → 聊天；情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
 
     // ===== 一、二级密码锁 =====
     var lockInner = '';
@@ -429,11 +611,14 @@
       var cat = boolOf(store('dc-cat-' + k), true);
       var prob = num(store('dc-prob-' + k), 25);
       var total = presetCount(k), off = offCount(k);
+      // #583：补两道真实存在、原先漏斗里没有的闸门——`dc-use-chat`（聊天场景开关，drawCards
+      //   `if (!a.use(scene)) return []`）与总档 `dcpEff(overall)`。缺了它们，总档=0 或
+      //   聊天场景被关时每一行仍显示 ✓，用户会以为「分类占比 25% 就该出卡」。
       var funnel = funnelHtml([
-        { t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '分类', ok: cat },
-        { t: '占比', ok: prob > 0 }, { t: '内容', ok: (total - off) > 0 }
+        { t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '聊天场景', ok: dcUseChat }, { t: '总档', ok: all > 0 },
+        { t: '分类', ok: cat }, { t: '占比', ok: prob > 0 }, { t: '内容', ok: (total - off) > 0 }
       ]);
-      var usable = !lock && dcEn && cat && prob > 0 && (total - off > 0);
+      var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && (total - off > 0);
       var idCat = 'inl-dc-cat-' + k, idProb = 'inl-dc-prob-' + k, idOff = 'inl-dc-off-' + k;
       if (!lock) {
         if (!cat) fixEnable(idCat, 'dc-cat-' + k);
@@ -441,14 +626,14 @@
         if (total > 0 && off >= total) fixCardOffs(idOff, k);
       }
       dcInner += '<div class="storage-row"><span>' + esc(CC_LABEL[k]) + '（dc-cat-' + k + ' · dc-prob-' + k + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">' +
-        (cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天 ' + chatOv + '%×' + prob + '% ≈ ' + humanProb(chatOv * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
+        (cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天生效 ' + dcOvEff + '%×' + prob + '% ≈ ' + humanProb(dcOvEff * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
         (!cat && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idCat + '">启用</button>' : '') +
         (prob === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idProb + '">恢复占比</button>' : '') +
         (total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
         ' <span class="ca-jump ca-edit" data-jump="defaultCards">调整</span></b></div>' + funnel;
     });
     push('二、系统预设 · 聊天默认字卡', dcInner,
-      '漏斗＝「锁 → 总开关 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。概率 = 联系人回复时混入默认字卡的几率；分类占比 = 命中后内部按四大分类分配（相对权重）。系统预设字卡与自定义字卡机会互补（合计 100%）。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
+      '漏斗＝「锁 → 总开关 → 聊天场景 → 总档 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。聊天生效概率＝dc-overall-chat 经总档缩放后的值（分类占比是命中后的相对权重，不再乘总档）。<br><b>注意</b>：分类占比高不等于「回复里就有这张卡」——预设抽中后还要过「自定义字卡占比 csp-cust」这一签才会覆盖自定义文本，实际覆盖率见上方「回复链路」节。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
 
     // ===== 三、词典 =====
     var dictInner = '';
@@ -661,6 +846,18 @@
       var oo = offRecord('own'), po = offRecord('public');
       if (offCountIn(oo)) n++;
       if (offCountIn(po)) n++;
+      // #583：回复设置 → 聊天 侧的闸门（都只读单个键，不触发池解析）
+      if (num(store('rn-prob'), 20) > 60) n++;   // >=100 是 bad、>60 是 warn，两者都计（同 build 的问题清单）
+      if (!boolOf(store('qs-en'), true)) n++;
+      else if (num(store('qs-prob'), 25) === 0) n++;
+      if (!boolOf(store('mjf-en'), true)) n++;
+      else if (num(store('mjf-prob'), 20) === 0) n++;
+      if (!boolOf(store('py-en'), true) || num(store('py-prob'), 50) === 0) n++;
+      if (num(store('csp-cust'), 50) === 0) n++;
+      var _att = [['touch-prob', 5], ['sticker-prob', 10], ['emoji-prob', 5], ['image-prob', 5], ['voice-prob', 10], ['kaomoji-prob', 5], ['quote-prob', 30]];
+      var _attAllOff = !_att.some(function (a) { return num(store(a[0]), a[1]) > 0; });
+      if (_attAllOff) n++;
+      else if (num(store('sticker-prob'), 10) === 0 && num(store('image-prob'), 5) === 0) n++;  // 媒体字卡不出镜（同 build 的 mediaOff）
     } catch (e) {}
     return Math.min(n, 99);
   }
@@ -692,8 +889,26 @@
       return true;
     } catch (e) { return false; }
   }
+  // #583：直达 回复设置 页的指定分类 tab（自检页的「调整」按钮用）。回复设置是独立页
+  //   （page-reply-settings）+ 页内 fav-tab 切换（reply-settings.js 的 rpTab），入口行
+  //   #row-general 只切到默认的「聊天」tab，无法从设置页外部指定分类，故这里直接
+  //   复刻同一套「隐藏全部页 → 显目标页 → 点 tab」的链路。
+  function openReplyPage(tab) {
+    try {
+      document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
+      var rp = document.getElementById('page-reply-settings');
+      if (!rp) return false;
+      rp.hidden = false;
+      var t = rp.querySelector('.fav-tab[data-rp="' + tab + '"]');
+      if (t && t.click) t.click();
+      var sc = rp.querySelector('.gs-scroll');
+      if (sc) sc.scrollTop = 0;
+      return true;
+    } catch (e) { return false; }
+  }
   function jump(key) {
     if (!key) return false;
+    if (key.indexOf('@reply:') === 0) return openReplyPage(key.slice(7));
     if (key.charAt(0) === '#') return showSettingRow(key);
     var chain = JUMPS[key];
     if (!chain) return false;

@@ -416,11 +416,30 @@
     } catch (e) {}
     return ['乖，', '傻瓜，', '我在呢。', '嘘…', '宝贝，', '嗯，'];
   })();
-  var WARM_SUFFIX = [
-    '（把你往怀里带了带）', '（轻轻抵着你的额头）', '（握紧你的手）',
-    '（摸了摸你发顶）', '（语气柔下来）', '（把热牛奶推到你手边）'
-  ];
-  // v3.26.x #196：近期已用不重复——池只有 6 条且纯均匀随机，连抽同几句被用户当 bug
+  // v3.26.x：温柔动作后缀受字卡库【其他互动功能字卡→经期→温柔动作】单卡开关联动——
+  // FIX 2026-09-16 #586：与「温柔前缀」同口径改为【读数据分组本身】。原实现把 6 条后缀
+  //   抄死在代码里（v3.14.x 只登记 1 条，v3.26.x 补到 6 条），而 default-cards-data.js 的
+  //   「温柔动作」分组此后随字卡薄池批次涨到 12 条：字卡库列出 12 张、逐张开关齐全，
+  //   实际只有前 6 张会被拼出——后 6 张是「哑开关」（开关点了不生效），前缀侧读实时数据
+  //   已涨到 12 条，两侧口径不一致。现按前缀同款做法以数据分组为唯一来源，池子加卡片时
+  //   字卡库开关自动跟上，不再需要改代码；数据缺失时回退内置 6 条兜底。
+  var WARM_SUFFIX = (function () {
+    try {
+      var g = window.DEFAULT_CARD_DATA && window.DEFAULT_CARD_DATA.period;
+      if (Array.isArray(g)) {
+        for (var i = 0; i < g.length; i++) {
+          if (g[i] && g[i][0] === '温柔动作' && Array.isArray(g[i][1]) && g[i][1].length) {
+            return g[i][1].slice();
+          }
+        }
+      }
+    } catch (e) {}
+    return [
+      '（把你往怀里带了带）', '（轻轻抵着你的额头）', '（握紧你的手）',
+      '（摸了摸你发顶）', '（语气柔下来）', '（把热牛奶推到你手边）'
+    ];
+  })();
+  // v3.26.x #196：近期已用不重复——池小且纯均匀随机时连抽同几句被用户当 bug
   // （小米15Pro 反馈「基本都是这几句」）。各池记最近 3 条，先抽未在近期的，全用过才放宽。
   var warmRecent = { p: [], s: [] };
   function warmPick(pool, hist) {
@@ -439,13 +458,23 @@
     try { return warmPick(PERIOD_WARM_PREFIX, 'p'); } catch (e) {}
     return '';
   }
-  // v3.26.x：温柔动作后缀受字卡库【其他互动功能字卡→经期→温柔动作】单卡开关联动——
-  //   六条后缀与 DEFAULT_CARD_DATA.period「温柔动作」分组同源（v3.14.x 曾只登记
-  //   「（轻轻抵着你的额头）」一条，其余五条无字卡库开关；现全部写全），每条均可
-  //   逐张开关（dc-off-period:<文案>），关闭后该动作后缀不再随机拼出。开关键即文案本身。
+  // v3.26.x：温柔动作后缀同前缀口径——逐张开关（dc-off-period:<文案>）在 warmPick 内过滤，
+  //   关闭后该动作后缀不再随机拼出；池子取自 DEFAULT_CARD_DATA.period「温柔动作」分组（见上）。
   function warmSuffix() {
     try { return warmPick(WARM_SUFFIX, 's'); } catch (e) {}
     return '';
+  }
+  // FIX 2026-09-16 #586 拼接处必须以空白分隔——温柔前缀、正文、温柔动作各自是一张字卡：
+  //   原实现直接 `p + text + s` 首尾相接，用户看到的是「多张字卡粘成一串、没有空格」
+  //   （如「傻瓜，今天也要好好爱自己（握紧你的手）」＝前缀+字卡+动作三张挤在一起），
+  //   与单气泡拼字的既定口径相反（#315/#370 定稿：字卡与字卡之间空一格），用户据此
+  //   报「没开拼字功能，联系人发消息还是用拼字卡」。本函数＝唯一拼接点：两端各留一个
+  //   空格；任一段为空（卡被字卡库逐张关掉）时不留孤立空格；正文自身已带空白时不重复。
+  function warmJoin(a, b) {
+    if (!a) return b || '';
+    if (!b) return a;
+    if (/\s$/.test(a) || /^\s/.test(b)) return a + b;
+    return a + ' ' + b;
   }
   function warmText(text) {
     if (typeof text !== 'string' || !text) return text;
@@ -466,9 +495,12 @@
       var p = warmPrefix();
       var s = warmSuffix();
       var r = Math.random();
-      if (r < 0.45) return p + text;
-      if (r < 0.8) return text + s;
-      return p + text + s;
+      // FIX 2026-09-16 #586：45% 前缀 / 35% 动作 / 20% 双拼（口径不变），拼接一律走 warmJoin
+      //   （字卡之间空一格）——回改成 p + text + s 的裸拼接即回归「字卡粘成一串」。
+      if (r < 0.45) return warmJoin(p, text);
+      if (r < 0.8) return warmJoin(text, s);
+      var out = warmJoin(warmJoin(p, text), s);
+      return out || text;
     } catch (e) { return text; }
   }
   window.periodWarmText = warmText;

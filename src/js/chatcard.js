@@ -1629,8 +1629,40 @@
         if (presetEl) presetEl.hidden = (k !== 'preset');
       }
     };
-    searchInput2.addEventListener('input', filterEntries);
-    searchInput2.addEventListener('keydown', function (e) { if (e.key === 'Escape') { searchInput2.value = ''; filterEntries(); searchInput2.blur(); } });
+    // FIX 2026-09-16 #581 字卡库列表页搜索防抖（口径同上面自定义字卡管理页的 v3.6.x 120ms）：
+    //   此前 input 直连 filterEntries，每敲一个字就重跑全部 __cardSearchFns——预设字卡 7k+ 张
+    //   全量扫，外加 4 个 ta-ask 题库各自一次 JSON.parse，低端机上表现为掉字/输入粘滞。
+    //   ① 停顿 150ms 才真搜，打字期间一次都不搜；
+    //   ② 上一轮搜索 ≥120ms 才亮「搜索中…」（轻库不闪），且提示先上屏 32ms 再跑同步搜索——
+    //      不让出这一拍，提示写进 DOM 也来不及画出来，等于没加。
+    let ccSearchTimer = 0, ccSearchPost = 0, ccSearchLast = 0;
+    const ccSearchRun = function () {
+      if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+      const t0 = Date.now();
+      filterEntries();
+      ccSearchLast = Date.now() - t0; // 记本次耗时：够快则下轮不再亮提示，免得每键闪一下
+    };
+    const ccSearchInput = function () {
+      clearTimeout(ccSearchTimer);
+      if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+      if (!String(searchInput2.value || '').trim()) { ccSearchRun(); return; } // 清空＝立即复原分类列表
+      ccSearchTimer = setTimeout(function () {
+        if (ccSearchLast < 120) { ccSearchRun(); return; }
+        searchResultEl.hidden = false;
+        searchResultEl.innerHTML = '<div class="ta-empty" style="padding:20px 12px">搜索中…</div>';
+        ccSearchPost = setTimeout(ccSearchRun, 32);
+      }, 150);
+    };
+    searchInput2.addEventListener('input', ccSearchInput);
+    searchInput2.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        searchInput2.value = '';
+        clearTimeout(ccSearchTimer);
+        if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+        filterEntries();
+        searchInput2.blur();
+      }
+    });
     const ccPage = document.getElementById('page-chatcard');
     if (ccPage) { new MutationObserver(function () { if (!ccPage.hidden && searchInput2.value) { searchInput2.value = ''; filterEntries(); } }).observe(ccPage, { attributes: true, attributeFilter: ['hidden'] }); }
   }
@@ -3648,21 +3680,47 @@
   //   的场景拿小图）。启动数据就绪后异步对自定义 sticker/image 池逐张压缩建缓存，
   //   之后 taLetterContent 等同步路径能直接取到压缩版，避免几百 KB 原图入库触发 200KB 剥图。
   if (!window._shrunkStickerCache) window._shrunkStickerCache = {};
+  // FIX 2026-09-16 #581 预压缩改「串行 + 每张让出主线程」：原实现对池内全部 sticker/image
+  //   一次性并发发起 new Image() 解码 + canvas.toDataURL('image/png') 编码，几百张时全部挤在
+  //   主线程（与本文件 #398 ccTokenizeGiantMedia 同一形状），启动就绪后与每次切联系人都卡死
+  //   数秒到数十秒。改为逐张 await、其间 setTimeout(0) 让出，UI 全程可交互（总时长不变）；
+  //   世代计数 ccShrinkGen——切联系人触发的新一轮让上一轮立即作废（池已重建，旧 pass 无意义）。
+  var ccShrinkGen = 0;
   function warmShrunkCache() {
     try {
       const g = replyPoolGroups();
       if (!g) return;
+      const jobs = [];
       ['sticker', 'image'].forEach(function (t) {
         (g[t] || []).forEach(function (entry) {
           (entry[1] || []).forEach(function (media) {
             if (typeof media !== 'string' || media.indexOf('data:') !== 0) return;
             if (window._shrunkStickerCache[media]) return;
-            window.shrinkMediaUrl(media, function (small) {
-              if (small !== media) { window._shrunkStickerCache[media] = small; }
-            });
+            jobs.push(media);
           });
         });
       });
+      if (!jobs.length || typeof window.shrinkMediaUrl !== 'function') return;
+      const gen = ++ccShrinkGen;
+      (async function () {
+        for (let k = 0; k < jobs.length; k++) {
+          if (gen !== ccShrinkGen) return; // 已有更新的一轮（切了联系人/池已重建），本次作废
+          const media = jobs[k];
+          try {
+            await new Promise(function (res) {
+              let done = false;
+              const fin = function () { if (done) return; done = true; res(); };
+              window.shrinkMediaUrl(media, function (small) {
+                if (small !== media) { window._shrunkStickerCache[media] = small; }
+                fin();
+              });
+              // 兜底：图既不 load 也不 error（坏 dataURL）时不至于把整轮卡住
+              setTimeout(fin, 3000);
+            });
+          } catch (e) { /* 单张失败不中断整轮 */ }
+          await new Promise(function (res) { setTimeout(res, 0); }); // 让出主线程，UI 可交互
+        }
+      })();
     } catch (e) {}
   }
   document.addEventListener('mochi-restore-done', function warmOnce() {

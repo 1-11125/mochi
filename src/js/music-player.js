@@ -3383,11 +3383,30 @@
     applyFloatMin();
     syncPlayIcons(audio && !audio.paused);
   }
+  // FIX 2026-09-16 #587 悬浮小框「点了没反应」的元凶是它自己压住了音乐控件：
+  //   #sm-float 默认 left:12px;top:80px、宽 230px、高随系统字体浮动（实测 107px），
+  //   正好盖在桌面音乐小组件与音乐页上半部——实测音乐页「我的音乐库 / 歌单 / 我的收藏」
+  //   三颗 tab 与桌面小组件进度条（#mw-bar）被它压住，elementFromPoint 命中 sm-float，
+  //   点上去毫无反应；系统字号越大/小框越高，被吃掉的可点区域越多（故「其他设备型号也有」）。
+  //   桌面小组件与音乐页各自带完整播放控件（音乐页还有 #sm-player-bar 常驻播放条），
+  //   悬浮小框在这两处纯属重复——与既有 floatHideByWidget「小组件本身就是控制器，
+  //   避免重复弹出」同源；其余页面（聊天 / 字卡库 / 设置 等）显示逻辑完全不变。
+  function floatOwnSurfaceShown() {
+    try {
+      const musicPage = document.getElementById('page-music');
+      if (musicPage && !musicPage.hidden) return true;
+      const phonePage = document.getElementById('page-phone');
+      if (!phonePage || phonePage.hidden) return false;
+      // 桌面音乐小组件在页内（offsetParent 为 null ＝被移出/隐藏）时同样让位
+      const w = document.getElementById('music-widget');
+      return !!(w && w.offsetParent !== null);
+    } catch (e) { return false; }
+  }
   function renderFloat() {
     const el = document.getElementById('sm-float');
     if (!el) return;
     const m = findTrack(currentId);
-    el.hidden = !(settings.floatEn && !floatClosed && currentId && audio && m) || floatHideByWidget;
+    el.hidden = !(settings.floatEn && !floatClosed && currentId && audio && m) || floatHideByWidget || floatOwnSurfaceShown();
     applyFloatMin();
     if (!m) return;
     document.getElementById('sm-f-name').textContent = m.name || '未知歌曲';
@@ -3402,6 +3421,18 @@
     syncPlayIcons(audio && !audio.paused);
     syncHeartIcons();
   }
+  // FIX 2026-09-16 #587：上面两条判据看的是「当前显示哪个页面」，页面切换（进/出桌面、
+  //   进/出音乐页）不会主动调 renderFloat——观察 #page-phone / #page-music 的 hidden
+  //   属性变化补一次重算，保证切页后悬浮小框显隐即时跟上。仅监听这两个节点的单个属性，
+  //   无定时器、无全树监听，切页零额外开销。
+  ['page-phone', 'page-music'].forEach(function (id) {
+    const p = document.getElementById(id);
+    if (!p || typeof MutationObserver === 'undefined') return;
+    try {
+      new MutationObserver(function () { renderFloat(); })
+        .observe(p, { attributes: true, attributeFilter: ['hidden'] });
+    } catch (e) {}
+  });
   // v3.7.x：聊天设置「音乐悬浮小窗」开关钩子——读写同一 floatEn 状态（music-global，
   // 每桌面独立）。chat-settings.js 加载早于本文件，运行时调用；与音乐页 #music-float-en、
   // 音乐设置 #sm-set-float 完全同源（复用 saveSettings/syncFloatToggle/renderFloat 流程）。

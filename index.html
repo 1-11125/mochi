@@ -9719,9 +9719,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789522138599">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789531983579">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.717</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 09:28<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-16 12:13<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11394,6 +11394,12 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-icon-batch">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10.5 10.5h3M12 9v3" stroke-linecap="round"/></svg></div>
           <div class="txt">批量上传图标图片<span class="sub">一次选多张 → 到桌面按顺序点图标，每点一个换一张</span></div>
+        </div>
+        <!-- FIX 2026-09-16 #581：图标图片位置调整入口（用户「上传了图标按钮图片后，需要可以只移动
+             按钮里图片的位置，不用重新上传」）——进装修模式后点图标即可调该图标的缩放/位置 -->
+        <div class="set-row" id="row-icon-fit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.6M12 18.4V21M3 12h2.6M18.4 12H21" stroke-linecap="round"/></svg></div>
+          <div class="txt">调整图标图片位置<span class="sub">上传图片后单独调缩放/左右/上下，即时生效 · 点图标即可调</span></div>
         </div>
         <div class="set-row" id="row-desk-add-page">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div>
@@ -23702,6 +23708,38 @@ if (!img) return;
 const op = Math.max(0, Math.min(100, pct)) / 100;
 img.style.opacity = String(op);
 };
+const applyAppIconFit = (app) => {
+const ico = app.querySelector('.app-ico');
+if (!ico) return;
+const img = ico.querySelector('img');
+if (!img) { ico.style.overflow = ''; return; }
+const key = app.dataset.app;
+const clamp100 = (v, d) => {
+if (v === null || v === undefined || v === '') return d;
+const n = parseInt(v, 10);
+return isNaN(n) ? d : Math.max(0, Math.min(100, n));
+};
+const zRaw = parseInt(store.get('app-icon-zoom-' + key) || '100', 10);
+const z = (isNaN(zRaw) || zRaw < 100) ? 100 : Math.min(300, zRaw);
+const x = clamp100(store.get('app-icon-pos-x-' + key), 50);
+const y = clamp100(store.get('app-icon-pos-y-' + key), 50);
+const zoomed = z > 100;
+ico.style.overflow = (zoomed || x !== 50 || y !== 50) ? 'hidden' : '';
+if (zoomed) {
+const tx = Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+const ty = Math.round(((y - 50) / 50) * ((z - 100) / 2) * 100) / 100;
+if (img.style.objectPosition) img.style.objectPosition = '';
+img.style.transform = 'translate(' + tx + '%, ' + ty + '%) scale(' + (z / 100) + ')';
+} else {
+if (img.style.transform) img.style.transform = '';
+img.style.objectPosition = (x === 50 && y === 50) ? '' : (x + '% ' + y + '%');
+}
+};
+const applyAppIconLook = (app) => {
+const op = store.get('app-icon-opacity-' + app.dataset.app);
+if (op) applyAppIconOpacity(app, parseInt(op, 10));
+applyAppIconFit(app);
+};
 const restoreAppIcons = () => {
 document.querySelectorAll('.app').forEach(app => {
 let saved = store.get('app-icon-' + app.dataset.app);
@@ -23714,8 +23752,7 @@ if (saved) {
 if (ico) {
 const cur = ico.querySelector('img');
 if (cur && cur.src === saved) {
-const op = store.get('app-icon-opacity-' + app.dataset.app);
-if (op) applyAppIconOpacity(app, parseInt(op, 10));
+applyAppIconLook(app);
 return;
 }
 ico.innerHTML = '';
@@ -23723,12 +23760,12 @@ const img = document.createElement('img');
 img.src = saved;
 img.alt = '';
 ico.appendChild(img);
-const op = store.get('app-icon-opacity-' + app.dataset.app);
-if (op) applyAppIconOpacity(app, parseInt(op, 10));
+applyAppIconLook(app);
 }
 } else if (ico && ico.dataset.orig) {
 if (ico.innerHTML === ico.dataset.orig) return;
 ico.innerHTML = ico.dataset.orig;
+applyAppIconFit(app);
 }
 });
 };
@@ -23806,20 +23843,21 @@ if (v && typeof v === 'string' && v.length > 2) store.set(rel, v);
 }
 } catch (e) {}
 window.openIconMenu = function (app) {
+if (window.__iconFitPanelOpen) { openIconFitPanel(app); return; }
+if (window.__iconAdjustPick) { openIconFitPanel(app); return; }
 if (window.__iconBatchQ && window.__iconBatchQ.length) {
 const bData = window.__iconBatchQ.shift();
 const bKey = app.dataset.app;
 ;(window.__iconBatchUndo = window.__iconBatchUndo || []).push({ key: bKey, prev: store.get('app-icon-' + bKey) || null });
-const bIco = app.querySelector('.app-ico');
-if (bIco) {
-bIco.innerHTML = '';
+const bIcon = app.querySelector('.app-ico');
+if (bIcon) {
+bIcon.innerHTML = '';
 const bImg = document.createElement('img');
 bImg.src = bData; bImg.alt = '';
-bIco.appendChild(bImg);
+bIcon.appendChild(bImg);
 }
 store.set('app-icon-' + bKey, bData);
-const bOp = store.get('app-icon-opacity-' + bKey);
-if (bOp) applyAppIconOpacity(app, parseInt(bOp, 10));
+applyAppIconLook(app);
 const bLeft = window.__iconBatchQ.length;
 if (bLeft) toast('已换上，还剩 ' + bLeft + ' 张——继续点下一个图标');
 else { toast('批量换图完成，共 ' + (window.__iconBatchTotal || '?') + ' 张'); window.__iconBatchQ = null; }
@@ -23852,8 +23890,7 @@ img.alt = '';
 ico.appendChild(img);
 }
 store.set('app-icon-' + key, data);
-const opSaved = store.get('app-icon-opacity-' + key);
-if (opSaved) applyAppIconOpacity(app, parseInt(opSaved, 10));
+applyAppIconLook(app);
 toast('图标已更新');
 });
 }, 80);
@@ -23876,6 +23913,7 @@ toast(dir === 'up' ? '已上移' : '已下移');
 const pills = [];
 pills.push({ label: hasCustom ? '更换图片' : '上传图片', value: '1' });
 if (hasCustom) pills.push({ label: '清除图片', value: '2' });
+if (hasCustom) pills.push({ label: '调整图片位置', value: 'fit' });
 if (hasCustom) pills.push({ label: '同图应用到全部图标', value: 'all' });
 if (hasCustom) pills.push({ label: '图标透明度', value: 'opacity' });
 if (grid) { pills.push({ label: '上移', value: 'up' }); pills.push({ label: '下移', value: 'down' }); }
@@ -23883,9 +23921,14 @@ pills.push({ label: '隐藏图标', value: 'hide' });
 if (window.openModal) {
 window.openModal('图标设置', '', (v) => {
 if (v === '1') pickFile();
+else if (v === 'fit' && hasCustom) openIconFitPanel(app);
 else if (v === '2' && hasCustom) {
 store.remove('app-icon-' + key);
 if (ico && ico.dataset.orig) ico.innerHTML = ico.dataset.orig;
+store.remove('app-icon-zoom-' + key);
+store.remove('app-icon-pos-x-' + key);
+store.remove('app-icon-pos-y-' + key);
+applyAppIconFit(app);
 toast('已恢复默认图标');
 } else if (v === 'all' && hasCustom) {
 const srcData = store.get('app-icon-' + key);
@@ -23904,6 +23947,7 @@ ico2.appendChild(im2);
 }
 const op2 = store.get('app-icon-opacity-' + k2);
 if (op2) applyAppIconOpacity(a2, parseInt(op2, 10));
+applyAppIconFit(a2);
 n++;
 });
 toast('已把同图应用到 ' + n + ' 个图标（可在装修模式逐个改回）');
@@ -23943,6 +23987,121 @@ toast('已隐藏，可在装修栏恢复');
 pickFile();
 }
 };
+const iconFitSlider = (label, min, max, step, val, unit, onInput) => {
+const row = document.createElement('div');
+row.style.cssText = 'display:flex;align-items:center;gap:8px';
+const lb = document.createElement('span');
+lb.textContent = label;
+lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const inp = document.createElement('input');
+inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1;
+inp.value = String(val);
+inp.style.cssText = 'flex:1;min-width:0';
+const vv = document.createElement('span');
+vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
+vv.textContent = inp.value + unit;
+inp.addEventListener('input', () => { vv.textContent = inp.value + unit; onInput(inp.value); });
+row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+row.__input = inp; row.__val = vv; row.__unit = unit;
+return row;
+};
+const iconFitVals = (key) => {
+const zRaw = parseInt(store.get('app-icon-zoom-' + key) || '100', 10);
+const g = (k, d) => { const v = store.get(k); if (v === null || v === undefined || v === '') return d; const n = parseInt(v, 10); return isNaN(n) ? d : n; };
+return {
+z: (isNaN(zRaw) || zRaw < 100) ? 100 : Math.min(300, zRaw),
+x: g('app-icon-pos-x-' + key, 50),
+y: g('app-icon-pos-y-' + key, 50),
+};
+};
+let iconFitHi = null;
+const iconFitHighlight = (app) => {
+if (iconFitHi && iconFitHi !== app) { try { iconFitHi.style.boxShadow = ''; } catch (e) {} }
+iconFitHi = app || null;
+if (iconFitHi) { try { iconFitHi.style.boxShadow = '0 0 0 3px rgba(47,111,208,.85)'; } catch (e) {} }
+};
+const openIconFitPanel = (app) => {
+if (!app || !app.dataset.app || !store.get('app-icon-' + app.dataset.app)) {
+toast('这个图标还没有自定义图片，先上传一张');
+return;
+}
+const key = app.dataset.app;
+window.__iconAdjustPick = false;
+let p = document.getElementById('icon-fit-panel');
+if (!p) {
+p = document.createElement('div');
+p.id = 'icon-fit-panel';
+p.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 82%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:none;flex-direction:column;gap:8px';
+document.body.appendChild(p);
+}
+const nameEl = app.querySelector('.app-name');
+const name = (nameEl && nameEl.textContent.trim()) || key;
+const cur = iconFitVals(key);
+p.innerHTML = '';
+const grip = document.createElement('div');
+grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
+p.appendChild(grip);
+const hd = document.createElement('div');
+hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
+const hdTxt = document.createElement('span');
+hdTxt.textContent = '调整「' + name + '」的图片位置';
+hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const mkMini = (label, fn, cssExtra) => {
+const b = document.createElement('button');
+b.textContent = label;
+b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+b.addEventListener('click', fn);
+return b;
+};
+const closePanel = () => { p.style.display = 'none'; window.__iconFitPanelOpen = false; iconFitHighlight(null); };
+const closeBtn = mkMini('\u2715', closePanel, ';padding:4px 8px');
+hd.appendChild(hdTxt); hd.appendChild(closeBtn);
+p.appendChild(hd);
+const setFit = (patch) => {
+const next = Object.assign({}, iconFitVals(key), patch);
+if (next.z === 100) store.remove('app-icon-zoom-' + key); else store.set('app-icon-zoom-' + key, String(next.z));
+if (next.x === 50) store.remove('app-icon-pos-x-' + key); else store.set('app-icon-pos-x-' + key, String(next.x));
+if (next.y === 50) store.remove('app-icon-pos-y-' + key); else store.set('app-icon-pos-y-' + key, String(next.y));
+applyAppIconFit(app);
+hint.textContent = next.z === 100
+? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
+: '图片即时生效：放大后可左右/上下移动到任意部位';
+};
+const hint = document.createElement('div');
+hint.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5;flex:none';
+const zRow = iconFitSlider('缩放', 100, 300, 5, cur.z, '%', (v) => setFit({ z: parseInt(v, 10) }));
+const xRow = iconFitSlider('左右位置', 0, 100, 1, cur.x, '%', (v) => setFit({ x: parseInt(v, 10) }));
+const yRow = iconFitSlider('上下位置', 0, 100, 1, cur.y, '%', (v) => setFit({ y: parseInt(v, 10) }));
+p.appendChild(zRow); p.appendChild(xRow); p.appendChild(yRow);
+p.appendChild(hint);
+const btns = document.createElement('div');
+btns.style.cssText = 'display:flex;gap:8px;flex:none;padding-bottom:2px';
+const resetBtn = mkMini('重置为默认', () => {
+store.remove('app-icon-zoom-' + key);
+store.remove('app-icon-pos-x-' + key);
+store.remove('app-icon-pos-y-' + key);
+applyAppIconFit(app);
+const v0 = iconFitVals(key);
+zRow.__input.value = String(v0.z); zRow.__val.textContent = v0.z + zRow.__unit;
+xRow.__input.value = String(v0.x); xRow.__val.textContent = v0.x + xRow.__unit;
+yRow.__input.value = String(v0.y); yRow.__val.textContent = v0.y + yRow.__unit;
+hint.textContent = '已重置：图片按默认居中铺满';
+toast('已重置图片位置');
+}, ';flex:1;padding:7px;font-size:12px');
+const doneBtn = mkMini('完成', () => {
+closePanel();
+toast('图标图片已保存，刷新后仍是这个位置');
+}, ';flex:1;padding:7px;font-size:12px;font-weight:700');
+btns.appendChild(resetBtn); btns.appendChild(doneBtn);
+p.appendChild(btns);
+hint.textContent = cur.z === 100
+? '先放大一点，再拖「左右/上下位置」——不放大时只有原图被裁掉的部分能移动'
+: '图片即时生效：放大后可左右/上下移动到任意部位';
+iconFitHighlight(app);
+p.style.display = 'flex';
+window.__iconFitPanelOpen = true;
+};
+window.mochiIconFitPanel = openIconFitPanel;
 grids.forEach(grid => {
 grid.addEventListener('click', (e) => {
 if (!grid.classList.contains('editing')) return;
@@ -24046,6 +24205,14 @@ input.onblur = () => { setTimeout(() => { try { if (input.parentNode) input.remo
 try { input.click(); } catch (e) { try { input.remove(); } catch (e2) {} toast('无法打开相册，请重试'); }
 }
 startPick();
+});
+}
+const iconFitRow = document.getElementById('row-icon-fit');
+if (iconFitRow) {
+iconFitRow.addEventListener('click', () => {
+try { enterDecor(); } catch (e) {}
+window.__iconAdjustPick = true;
+toast('点桌面上要调整的图标，就能调它的图片位置');
 });
 }
 (function bindQuickPanel() {
@@ -24271,6 +24438,35 @@ const row = document.getElementById('row-bg-preset');
 if (row) row.click();
 });
 wrap.appendChild(bgBtn);
+return wrap;
+} },
+{ key: 'icon', label: '图标', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+const mkAct = (label, fn) => {
+const b = document.createElement('button');
+b.textContent = label;
+b.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+b.addEventListener('click', fn);
+return b;
+};
+wrap.appendChild(mkAct('批量上传桌面图标图片（可多选）', () => {
+d.style.display = 'none';
+const row = document.getElementById('row-icon-batch');
+if (row) row.click(); else toast('入口暂不可达，请到设置 → 手机桌面美化 → 批量上传图标图片');
+}));
+const fitBtn = mkAct('调整图标图片位置（点图标）', () => {
+d.style.display = 'none';
+try { enterDecor(); } catch (e) {}
+window.__iconAdjustPick = true;
+toast('点桌面上要调整的图标，就能调它的图片位置');
+});
+fitBtn.style.fontWeight = '600';
+wrap.appendChild(fitBtn);
+const note = document.createElement('div');
+note.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+note.textContent = '上传过的图片可单独调「缩放 / 左右 / 上下」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
+wrap.appendChild(note);
 return wrap;
 } }
 ];
@@ -25048,6 +25244,11 @@ if (v) data[k] = v;
 const ok = 'app-icon-opacity-' + app.dataset.app;
 const ov = store.get(ok);
 if (ov) data[ok] = ov;
+['app-icon-zoom-', 'app-icon-pos-x-', 'app-icon-pos-y-'].forEach(pfx => {
+const fk = pfx + app.dataset.app;
+const fv = store.get(fk);
+if (fv !== null && fv !== undefined && fv !== '') data[fk] = fv;
+});
 });
 document.querySelectorAll('.app-grid').forEach(grid => {
 const k = 'app-icon-order-' + grid.dataset.app;
@@ -25519,6 +25720,13 @@ try {
 BEAUTY_KEYS.forEach(k => store.remove(k));
 ['app-name-color','phone-bg-solid','phone-bg-pos-x','phone-bg-pos-y','phone-bg-size'].forEach(k => store.remove(k));
 document.querySelectorAll('.app').forEach(app => { if (app.dataset.app) store.remove('app-icon-' + app.dataset.app); });
+document.querySelectorAll('.app').forEach(app => {
+const k = app.dataset.app;
+if (!k) return;
+store.remove('app-icon-zoom-' + k);
+store.remove('app-icon-pos-x-' + k);
+store.remove('app-icon-pos-y-' + k);
+});
 document.querySelectorAll('.app-grid').forEach(g => { if (g.dataset.app) store.remove('app-icon-order-' + g.dataset.app); });
 try { localStorage.removeItem('xy-home-v2:accent-color'); } catch (e) {}
 try { localStorage.removeItem('xy-home-v2:theme-mode'); } catch (e) {}
@@ -40297,7 +40505,7 @@ saveNow();
 renderAll();
 return true;
 }
-if (window.idbSet) window.idbSet(key, arr);
+if (window.idbSet) return window.idbSet(key, arr);
 return true;
 } catch (e) { return false; }
 };
@@ -43639,8 +43847,34 @@ if (customEl) customEl.hidden = (k !== 'custom');
 if (presetEl) presetEl.hidden = (k !== 'preset');
 }
 };
-searchInput2.addEventListener('input', filterEntries);
-searchInput2.addEventListener('keydown', function (e) { if (e.key === 'Escape') { searchInput2.value = ''; filterEntries(); searchInput2.blur(); } });
+let ccSearchTimer = 0, ccSearchPost = 0, ccSearchLast = 0;
+const ccSearchRun = function () {
+if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+const t0 = Date.now();
+filterEntries();
+ccSearchLast = Date.now() - t0; // 记本次耗时：够快则下轮不再亮提示，免得每键闪一下
+};
+const ccSearchInput = function () {
+clearTimeout(ccSearchTimer);
+if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+if (!String(searchInput2.value || '').trim()) { ccSearchRun(); return; } // 清空＝立即复原分类列表
+ccSearchTimer = setTimeout(function () {
+if (ccSearchLast < 120) { ccSearchRun(); return; }
+searchResultEl.hidden = false;
+searchResultEl.innerHTML = '<div class="ta-empty" style="padding:20px 12px">搜索中…</div>';
+ccSearchPost = setTimeout(ccSearchRun, 32);
+}, 150);
+};
+searchInput2.addEventListener('input', ccSearchInput);
+searchInput2.addEventListener('keydown', function (e) {
+if (e.key === 'Escape') {
+searchInput2.value = '';
+clearTimeout(ccSearchTimer);
+if (ccSearchPost) { clearTimeout(ccSearchPost); ccSearchPost = 0; }
+filterEntries();
+searchInput2.blur();
+}
+});
 const ccPage = document.getElementById('page-chatcard');
 if (ccPage) { new MutationObserver(function () { if (!ccPage.hidden && searchInput2.value) { searchInput2.value = ''; filterEntries(); } }).observe(ccPage, { attributes: true, attributeFilter: ['hidden'] }); }
 }
@@ -45330,21 +45564,41 @@ img.src = src;
 } catch (e) { if (cb) cb(src); }
 };
 if (!window._shrunkStickerCache) window._shrunkStickerCache = {};
+var ccShrinkGen = 0;
 function warmShrunkCache() {
 try {
 const g = replyPoolGroups();
 if (!g) return;
+const jobs = [];
 ['sticker', 'image'].forEach(function (t) {
 (g[t] || []).forEach(function (entry) {
 (entry[1] || []).forEach(function (media) {
 if (typeof media !== 'string' || media.indexOf('data:') !== 0) return;
 if (window._shrunkStickerCache[media]) return;
+jobs.push(media);
+});
+});
+});
+if (!jobs.length || typeof window.shrinkMediaUrl !== 'function') return;
+const gen = ++ccShrinkGen;
+(async function () {
+for (let k = 0; k < jobs.length; k++) {
+if (gen !== ccShrinkGen) return; // 已有更新的一轮（切了联系人/池已重建），本次作废
+const media = jobs[k];
+try {
+await new Promise(function (res) {
+let done = false;
+const fin = function () { if (done) return; done = true; res(); };
 window.shrinkMediaUrl(media, function (small) {
 if (small !== media) { window._shrunkStickerCache[media] = small; }
+fin();
 });
+setTimeout(fin, 3000);
 });
-});
-});
+} catch (e) { /* 单张失败不中断整轮 */ }
+await new Promise(function (res) { setTimeout(res, 0); }); // 让出主线程，UI 可交互
+}
+})();
 } catch (e) {}
 }
 document.addEventListener('mochi-restore-done', function warmOnce() {
@@ -49668,7 +49922,7 @@ bindDcfProb();
 const DCF_DESC = {
 fish: '【摸鱼】联系人按你摸鱼/钓鱼的进度，在桌面上飘出「摸鱼浮字」打趣你；点击浮字可抓包，抓包后双方摸鱼值翻倍，并在聊天里回应。\n触发时机：页面在前台时每 60 秒检查一次摸鱼值变化，仅在摸鱼值上涨、距上次 ≥45 分钟、当天不超过 12 次时判定；后台不触发。\n概率 = 每次判定出现浮字的概率（默认 35%），0% = 不出现浮字（本页字卡也可逐张关闭）。',
 eat: '【吃饭】到饭点（早 06:30–09:30、午 11:00–13:30、晚 17:00–19:30、夜宵 21:30–23:30）时，联系人主动来聊天提醒你吃饭，并按概率补一句「追问关心」（夜宵时段用夜宵关心话术）。\n触发时机：每 4 分钟判定一次，每个饭点每天只提醒一次，23:00–06:00 静默。主提醒由本功能自带的概率（默认 2%）控制；本项概率只控制提醒之后是否补发追问。\n概率 = 补发追问的概率（默认 35%），0% = 只提醒、不追问。',
-period: '【经期·温柔化】处于经期时，联系人的每条文字回复有概率被加上温柔前缀/后缀（如「抱抱」「慢慢来」）。\n触发时机：TA 每生成一条文字回复时判定一次，仅经期生效。\n概率 = 每条回复被温柔化的概率（默认 25%），0% = 不加温柔前缀/后缀。\n（预测期的「梦角关心」是独立的一项「TA的关心」，另见其说明。）',
+period: '【经期·温柔化】处于经期时，联系人的每条文字回复有概率被加上温柔前缀/后缀（如「抱抱」「慢慢来」）。\n触发时机：TA 每生成一条文字回复时判定一次，仅经期生效。\n概率 = 每条回复被温柔化的概率（默认 25%），0% = 不加温柔前缀/后缀。\n拼接时前缀、正文、动作各自是一张字卡，中间空一格（与单气泡拼字同款，不是被粘成一串）。\n（本项属经期专属语态，与「回复设置→字卡·拼字」的多字卡回复/词典拼字/梦角自由造句是两回事——那边全关也只停各自玩法；想停掉温柔语态只认本页概率与逐张开关。）\n（预测期的「梦角关心」是独立的一项「TA的关心」，另见其说明。）',
 water: '【喝水】每天 06:00–23:00，联系人会来聊天里催你喝水；当天已打卡达标时改为约 1/4 概率发夸奖。\n触发时机：页面在前台时每 8 分钟判定一次，至少隔 50 分钟、每天最多 4 条；打开喝水页时也可能补发；后台不触发。\n概率 = 每次判定发出催水的概率（默认 35%），0% = 完全不催。',
 garden: '【花园】联系人在花园打理植物（播种/浇水/收成/施肥/巡逻）后，可能在花园日志里留一句「梦角悄悄话」。\n触发时机：你与花园互动时有 8% 概率触发 TA 帮忙打理；回到手机桌面或进花园时，TA 也会按后台经过时间打理（每 30 分钟一段、每段 40% 概率）。\n概率 = 每次 TA 打理后追加悄悄话的概率（默认 40%），0% = 只打理、不留悄悄话。\n（TA 摘花送进聊天是另一套 30% 逻辑，不受本项影响。）',
 sync: '【同频】在「同频」页长按敲三下（每下长按 0.35 秒、三下需在 5 秒内完成）时，联系人有概率接住并回应你。\n触发时机：靠你主动长按触发，无冷却、无每日上限；回应会发到聊天（可在同频页关掉「发到聊天」）。\n概率 = 敲三下后接住的概率（默认 60%），0% = 永远接不住。',
@@ -54306,11 +54560,21 @@ floatMin = !floatMin;
 applyFloatMin();
 syncPlayIcons(audio && !audio.paused);
 }
+function floatOwnSurfaceShown() {
+try {
+const musicPage = document.getElementById('page-music');
+if (musicPage && !musicPage.hidden) return true;
+const phonePage = document.getElementById('page-phone');
+if (!phonePage || phonePage.hidden) return false;
+const w = document.getElementById('music-widget');
+return !!(w && w.offsetParent !== null);
+} catch (e) { return false; }
+}
 function renderFloat() {
 const el = document.getElementById('sm-float');
 if (!el) return;
 const m = findTrack(currentId);
-el.hidden = !(settings.floatEn && !floatClosed && currentId && audio && m) || floatHideByWidget;
+el.hidden = !(settings.floatEn && !floatClosed && currentId && audio && m) || floatHideByWidget || floatOwnSurfaceShown();
 applyFloatMin();
 if (!m) return;
 document.getElementById('sm-f-name').textContent = m.name || '未知歌曲';
@@ -54325,6 +54589,14 @@ if (fCur) fCur.textContent = '00:00';
 syncPlayIcons(audio && !audio.paused);
 syncHeartIcons();
 }
+['page-phone', 'page-music'].forEach(function (id) {
+const p = document.getElementById(id);
+if (!p || typeof MutationObserver === 'undefined') return;
+try {
+new MutationObserver(function () { renderFloat(); })
+.observe(p, { attributes: true, attributeFilter: ['hidden'] });
+} catch (e) {}
+});
 window.musicFloatGet = function () { return !!settings.floatEn; };
 window.musicFloatSet = function (en) {
 settings.floatEn = !!en;
@@ -55838,6 +56110,14 @@ if (!el) return;
 el.hidden = true;
 clearTimeout(el._timer);
 }
+(function () {
+const phonePageEl = document.getElementById('page-phone');
+if (!phonePageEl || typeof MutationObserver === 'undefined') return;
+try {
+new MutationObserver(function () { if (phonePageEl.hidden) hideGreetBanner(); })
+.observe(phonePageEl, { attributes: true, attributeFilter: ['hidden'] });
+} catch (e) {}
+})();
 function showGreetBanner(e2, name) {
 let el = document.getElementById('daily-greet');
 if (!el) {
@@ -72944,7 +73224,7 @@ function partnerName() { return (typeof window.chatPartnerName === 'function') ?
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 function pick(arr) { return arr.length ? arr[Math.floor(Math.random() * arr.length)] : ''; }
-function todayKey() { return new Date().toISOString().slice(0, 10); }
+function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function editingNow() { try { return Array.prototype.some.call(document.querySelectorAll('.app-grid'), function (g) { return g.classList.contains('editing'); }); } catch (e) { return false; } }
 function toast(msg) {
 let t = document.getElementById('cc-toast');
@@ -73517,13 +73797,33 @@ const WL_TA_KEY = 'gift-wishlist-ta';
 const WL_SETTINGS_KEY = 'market-wl-settings';
 const WL_MAX = 30;
 function clampPct(v, def) { const n = Math.round(Number(v)); return (n >= 0 && n <= 100) ? n : def; }
+const WL_VER = 2;
+function wlSettingsRaw() {
+try { return JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) { return null; }
+}
 function wlSettings() {
-let s = null;
-try { s = JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) {}
-s = s || {};
-return { giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
+const s = wlSettingsRaw() || {};
+return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
 }
 function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
+function wlSettingsUpgrade() {
+if (!GSTORE) return false;
+const raw = wlSettingsRaw();
+if (!raw || raw.wlVer === WL_VER) return false;
+const next = Object.assign({}, raw, { wlVer: WL_VER });
+const revived = raw.giftInOn === 0;
+if (revived) next.giftInOn = 1;
+wlSettingsSave(next);
+return revived;
+}
+let wlReviveNotified = false;
+function wlUpgradeAndNotify() {
+let revived = false;
+try { revived = wlSettingsUpgrade(); } catch (e) {}
+if (!revived || wlReviveNotified) return;
+wlReviveNotified = true;
+setTimeout(function () { try { toast('「TA 送我礼物」已重新开启（旧版设置遗留关闭），可在「心意集市设置」里调整'); } catch (e) {} }, 6000);
+}
 function wishSnap(g) { return { giftId: g.id, name: g.name, emoji: g.emoji, img: g.img || '', price: g.price, cat: g.cat, wish: g.wish || '送给你', tm: Date.now() }; }
 function wishLoad(key) { try { const s = store(); if (!s) return []; const a = JSON.parse(s.get(key) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
 function wishSave(key, a) { const s = store(); if (s) s.set(key, JSON.stringify(a)); }
@@ -73548,12 +73848,40 @@ if (extras.length) wish += ' ' + extras.join(' ');
 }
 return wish;
 }
+function boxEntry(gift, side, wish) {
+return { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() };
+}
 function recordBox(gift, side, wish) {
 const box = boxLoad();
-box.unshift({ id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() });
+box.unshift(boxEntry(gift, side, wish));
 boxSave(box);
 }
 window.recordGiftBox = recordBox;
+function boxStoreFor(cid) {
+const id = cid || 'default';
+const isDefault = id === 'default';
+const nsStore = window.xyStore ? window.xyStore('xy-home-v2:' + id) : null;
+return {
+get: function (k) {
+let v = null;
+try { v = nsStore.get(k); } catch (e) {}
+if (v === null && isDefault && GSTORE) { try { v = GSTORE.get(k); } catch (e) {} }
+return v;
+},
+set: function (k, v) {
+try { nsStore.set(k, v); } catch (e) {}
+if (isDefault && GSTORE) { try { GSTORE.remove(k); } catch (e) {} }
+}
+};
+}
+function recordBoxAt(cid, gift, side, wish) {
+const s = boxStoreFor(cid);
+let box = [];
+try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+if (!Array.isArray(box)) box = [];
+box.unshift(boxEntry(gift, side, wish));
+s.set(BOX_KEY, JSON.stringify(box));
+}
 function buyAndSend(gift, side, wish) {
 const priceFen = Math.round((gift.price || 0) * 100);
 const w = walletGet();
@@ -73567,46 +73895,57 @@ if (window.logFish) window.logFish();
 return true;
 }
 const AUTO_DAILY_PREFIX = 'ml2_gift_daily_';
-function autoDailyCount() { const s = store(); return Number(s && s.get(AUTO_DAILY_PREFIX + todayKey())) || 0; }
-function autoDailyIncr() { const s = store(); if (s) s.set(AUTO_DAILY_PREFIX + todayKey(), String(autoDailyCount() + 1)); }
+const SELF_DAILY_PREFIX = 'ml2_selfbuy_daily_';
+function dayCount(prefix) { const s = store(); return Number(s && s.get(prefix + todayKey())) || 0; }
+function dayIncr(prefix) { const s = store(); if (s) s.set(prefix + todayKey(), String(dayCount(prefix) + 1)); }
+function deliverInGift(cid, gift, wish, delayMs) {
+setTimeout(function () {
+try {
+const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
+if ((window.__activeCid || 'default') === cid) {
+if (window.chatAddGift) window.chatAddGift(rec);
+recordBox(gift, 'in', wish);
+} else {
+if (window.chatAppendDeskRec) window.chatAppendDeskRec(cid, rec);
+recordBoxAt(cid, gift, 'in', wish);
+}
+if (window.logFish) window.logFish();
+} catch (e) {}
+}, delayMs);
+}
 window.maybeAutoGift = function () {
 const st = wlSettings();
-const capped = autoDailyCount() >= 3;
-const gifts = giftsLoad(); if (!gifts.length) return;
 const myCid = window.__activeCid || 'default';
-const later = function (fn) {
-setTimeout(function () {
-if ((window.__activeCid || 'default') !== myCid) return;
-fn();
-}, randInt(1500, 4000));
-};
-if (st.wlOn && st.giftInOn && !capped) {
+const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;
+const selfCapped = dayCount(SELF_DAILY_PREFIX) >= 3;
+const gifts = giftsLoad(); if (!gifts.length) return;
+if (st.wlOn && st.giftInOn && !giftCapped) {
 const myWl = wishLoad(WL_MY_KEY);
 if (myWl.length && Math.random() * 100 < st.wlBuyPct) {
 const item = pick(myWl);
 wishSave(WL_MY_KEY, myWl.filter(function (x) { return x.giftId !== item.giftId; }));
 const w1 = walletGet();
 w1.systemBalance -= Math.round((item.price || 0) * 100); walletSet(w1);
-autoDailyIncr();
-later(function () {
-const rec = { side: 'in', special: 'gift', giftId: item.giftId, giftName: item.name, giftEmoji: item.emoji, giftImg: item.img || '', giftPrice: item.price, giftWish: item.wish, giftCat: item.cat, ts: Date.now() };
-if (window.chatAddGift) window.chatAddGift(rec);
-recordBox(Object.assign({}, item, { id: item.giftId }), 'in', item.wish);
-if (window.logFish) window.logFish();
-});
+dayIncr(AUTO_DAILY_PREFIX);
+deliverInGift(myCid, Object.assign({}, item, { id: item.giftId }), item.wish, randInt(1500, 4000));
 return;
 }
 }
-if (st.selfOn && !capped && Math.random() * 100 < st.selfPct) {
+if (st.selfOn && !selfCapped && Math.random() * 100 < st.selfPct) {
 const w0 = walletGet();
 const affordable0 = gifts.filter(function (g) { return Math.round((g.price || 0) * 100) <= w0.systemBalance; });
 const gift0 = pick(affordable0.length ? affordable0 : gifts);
+const wish0 = gift0.wish || '送给自己';
 w0.systemBalance -= Math.round((gift0.price || 0) * 100); walletSet(w0);
-autoDailyIncr();
-later(function () {
-recordBox(gift0, 'self', gift0.wish || '送给自己');
+dayIncr(SELF_DAILY_PREFIX);
+setTimeout(function () {
+if ((window.__activeCid || 'default') === myCid) {
+recordBox(gift0, 'self', wish0);
 toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
-});
+} else {
+recordBoxAt(myCid, gift0, 'self', wish0);
+}
+}, randInt(1500, 4000));
 return;
 }
 if (st.wlOn && Math.random() * 100 < st.wlAddPct) {
@@ -73622,8 +73961,8 @@ toast(partnerName() + ' 把「' + giftW.name + '」加进了 TA 的心愿单');
 return;
 }
 }
-if (capped) return;
-if (!st.giftInOn) return; // #312 总开关关闭＝禁止 TA 送我礼物，随机送礼也不再触发
+if (giftCapped) return;
+if (!st.giftInOn) return; // 总开关关闭＝禁止 TA 送我礼物（此开关的显式状态由 #585 wlSettingsUpgrade 迁移保证）
 if (Math.random() * 100 >= st.giftInPct) return;
 const w = walletGet();
 const affordable = gifts.filter(function (g) { return Math.round((g.price || 0) * 100) <= w.systemBalance; });
@@ -73631,14 +73970,8 @@ const pool = affordable.length ? affordable : gifts;
 const gift = pick(pool);
 const wish = taWish(gift);
 const priceFen = Math.round((gift.price || 0) * 100);
-w.systemBalance -= priceFen; walletSet(w); autoDailyIncr();
-setTimeout(function () {
-if ((window.__activeCid || 'default') !== myCid) return;
-const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
-if (window.chatAddGift) window.chatAddGift(rec);
-recordBox(gift, 'in', wish);
-if (window.logFish) window.logFish();
-}, randInt(1500, 4000));
+w.systemBalance -= priceFen; walletSet(w); dayIncr(AUTO_DAILY_PREFIX);
+deliverInGift(myCid, gift, wish, randInt(1500, 4000));
 };
 function openBuyDialog(gift, opts) {
 opts = opts || {};
@@ -73753,7 +74086,7 @@ const html =
 '<div class="gs-row"><div class="gs-lab">TA 加进自己心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlAddPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlAddPct + '"><span class="gs-pct">%</span></div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
-'<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；TA 的购买类行为每天合计最多 3 次（与自动送礼共用上限）；关掉开关即完全关闭对应行为。</div>';
+'<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
 window.openTCPanel('心意集市和心意柜设置', html);
 document.querySelectorAll('#tc-body [data-gsw]').forEach(function (sw) {
 sw.addEventListener('click', function () {
@@ -73767,10 +74100,14 @@ toast('已保存');
 document.querySelectorAll('#tc-body [data-gsn]').forEach(function (inp) {
 inp.addEventListener('change', function () {
 const cur = wlSettings();
+const key = inp.dataset.gsn;
 const n = Math.round(Number(inp.value));
-const ok = n >= 0 && n <= 100;
-cur[inp.dataset.gsn] = ok ? n : 0;
-if (!ok) inp.value = '0';
+if (String(inp.value).trim() === '' || !isFinite(n) || n < 0 || n > 100) {
+inp.value = String(cur[key]);
+toast('请填 0~100 的整数');
+return;
+}
+cur[key] = n;
 wlSettingsSave(cur);
 toast('已保存');
 });
@@ -74220,7 +74557,8 @@ if (gbTaWish) gbTaWish.addEventListener('click', function () { wishTab = 'ta'; r
 function init() {
 try { migrateMarketGlobal(false); } catch (e) {}
 try { rescueNewDefaults(); } catch (e) {}
-document.addEventListener('mochi-restore-done', function () { try { migrateMarketGlobal(true); } catch (e) {} try { rescueNewDefaults(); } catch (e) {} });
+try { wlUpgradeAndNotify(); } catch (e) {}
+document.addEventListener('mochi-restore-done', function () { try { migrateMarketGlobal(true); } catch (e) {} try { rescueNewDefaults(); } catch (e) {} try { wlUpgradeAndNotify(); } catch (e) {} });
 const host = (document.getElementById('page-phone') || {}).parentNode || document.body;
 buildMarketPage(host);
 buildGiftboxPage(host);
@@ -77245,10 +77583,22 @@ return g[i][1].slice();
 } catch (e) {}
 return ['乖，', '傻瓜，', '我在呢。', '嘘…', '宝贝，', '嗯，'];
 })();
-var WARM_SUFFIX = [
+var WARM_SUFFIX = (function () {
+try {
+var g = window.DEFAULT_CARD_DATA && window.DEFAULT_CARD_DATA.period;
+if (Array.isArray(g)) {
+for (var i = 0; i < g.length; i++) {
+if (g[i] && g[i][0] === '温柔动作' && Array.isArray(g[i][1]) && g[i][1].length) {
+return g[i][1].slice();
+}
+}
+}
+} catch (e) {}
+return [
 '（把你往怀里带了带）', '（轻轻抵着你的额头）', '（握紧你的手）',
 '（摸了摸你发顶）', '（语气柔下来）', '（把热牛奶推到你手边）'
 ];
+})();
 var warmRecent = { p: [], s: [] };
 function warmPick(pool, hist) {
 var avail = pool.filter(function (x) {
@@ -77270,6 +77620,12 @@ function warmSuffix() {
 try { return warmPick(WARM_SUFFIX, 's'); } catch (e) {}
 return '';
 }
+function warmJoin(a, b) {
+if (!a) return b || '';
+if (!b) return a;
+if (/\s$/.test(a) || /^\s/.test(b)) return a + b;
+return a + ' ' + b;
+}
 function warmText(text) {
 if (typeof text !== 'string' || !text) return text;
 try {
@@ -77283,9 +77639,10 @@ if (Math.random() * 100 >= _warmP) return text;
 var p = warmPrefix();
 var s = warmSuffix();
 var r = Math.random();
-if (r < 0.45) return p + text;
-if (r < 0.8) return text + s;
-return p + text + s;
+if (r < 0.45) return warmJoin(p, text);
+if (r < 0.8) return warmJoin(text, s);
+var out = warmJoin(warmJoin(p, text), s);
+return out || text;
 } catch (e) { return text; }
 }
 window.periodWarmText = warmText;
@@ -93521,7 +93878,18 @@ const MEDIA_POOL_KEY_RE = /^xy-home-v2:media:[0-9a-f]{32}$/;
 const CHAT_KEY_RE = /(?:^|:)chat-msgs$/;
 const GROUP_CHAT_KEY_RE = /^xy-home-v2:(?:group-chat-msgs|gc-msgs-.+)$/;
 function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }
+function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); }
 const MEDIA_TOKEN_RE = /@@m:([0-9a-f]{32})/g;
+const UTF8_SAMPLE = 512;
+function estUtf8Bytes(s) {
+const str = String(s == null ? '' : s);
+const n = str.length;
+if (!n) return 0;
+const m = n < UTF8_SAMPLE ? n : UTF8_SAMPLE;
+let extra = 0; // 相对「1 字节/字符」多出来的字节数
+for (let i = 0; i < m; i++) { const c = str.charCodeAt(i); if (c > 127) extra += c > 2047 ? 2 : 1; }
+return Math.round(n * (1 + extra / m));
+}
 function collectMediaHashes(v, out) {
 const scan = (s) => {
 if (typeof s !== 'string' || s.indexOf('@@m:') < 0) return;
@@ -93586,7 +93954,8 @@ toast('导出未完成：' + msg);
 function measureProject() {
 return new Promise((resolve) => {
 impShow('正在准备导出…', '正在统计本机数据体积…', 8);
-const lsChars = {};
+const lsChars = {};   // 键 → 存储口径字符数（×2＝UTF-16 字节）
+const lsFile = {};    // 键 → 文件口径字节数（UTF-8），去重减项要用同一口径
 let projFile = 0, projStorage = 0, musicFile = 0;
 let chatFile = 0;
 const poolSize = {};
@@ -93597,9 +93966,11 @@ const k = localStorage.key(i);
 if (!k || k.indexOf('xy-home-v2:') !== 0 || k === SNAPSHOT_KEY) continue;
 const v = localStorage.getItem(k) || '';
 const c = k.length + v.length;
+const fb = k.length + estUtf8Bytes(v);
 lsChars[k] = c;
-projFile += c; projStorage += c * 2;
-if (isChatMsgKey(k)) { chatFile += c; collectMediaHashes(v, mediaRefs); }
+lsFile[k] = fb;
+projFile += fb; projStorage += c * 2;
+if (isChatMsgKey(k)) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
 }
 } catch (e) {}
 const finish = (ok) => {
@@ -93628,23 +93999,24 @@ pos += batch.length;
 window.idbGetMany(batch).then(function (map) {
 batch.forEach(function (k) {
 const v = map[k];
-let c = 0, blob = 0;
+let c = 0, fb = 0, blob = 0;
 try {
-if (typeof v === 'string') c = v.length;
-else if (typeof Blob !== 'undefined' && v instanceof Blob) blob = v.size;
-else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) blob = v.byteLength;
-else if (v !== undefined && v !== null) c = JSON.stringify(v).length;
-} catch (e) { c = 0; }
+if (typeof v === 'string') { c = v.length; fb = estUtf8Bytes(v); }
+else if (typeof Blob !== 'undefined' && v instanceof Blob) { blob = v.size; fb = Math.round(blob * 4 / 3); }
+else if (typeof ArrayBuffer !== 'undefined' && v instanceof ArrayBuffer) { blob = v.byteLength; fb = Math.round(blob * 4 / 3); }
+else if (v !== undefined && v !== null) { const js = JSON.stringify(v); c = js.length; fb = estUtf8Bytes(js); }
+} catch (e) { c = 0; fb = 0; }
 const isMusic = MUSIC_KEY_RE.test(String(k));
 const lsC = lsChars[k];
 const isChat = isChatMsgKey(String(k));
-const own = c + Math.round(blob * 4 / 3);
-if (lsC !== undefined && lsC <= LS_SMALL_LIMIT) { c = 0; blob = 0; } // 小键已按 LS 计过，IDB 同值不重复计
-else if (lsC !== undefined) { projFile -= lsC; projStorage -= lsC * 2; if (isChat) chatFile -= lsC; } // 大键以 IDB 权威值为准（同导出路径）
-projFile += c + Math.round(blob * 4 / 3);
+const own = fb;
+const auth = isAuthorityKey(String(k));
+if (lsC !== undefined && lsC <= LS_SMALL_LIMIT && !auth) { c = 0; fb = 0; blob = 0; }
+else if (lsC !== undefined) { projFile -= (lsFile[k] || 0); projStorage -= lsC * 2; if (isChat) chatFile -= (lsFile[k] || 0); }
+projFile += fb;
 projStorage += c * 2 + blob;
 if (isMusic) musicFile += own;
-if (isChat) { chatFile += c + Math.round(blob * 4 / 3); collectMediaHashes(v, mediaRefs); }
+if (isChat) { chatFile += fb; collectMediaHashes(v, mediaRefs); }
 if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = own;
 });
 impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
@@ -93664,30 +94036,25 @@ impHide();
 const bigRef = info ? info.projFile : usage;
 if (!window.openModal) { finish('full'); return; }
 const head = info
-? ('本机数据实测约 ' + fmtSize(info.projStorage) +
-(info.quota ? '，占浏览器配额约 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%' : '') + '。\n' +
-'预计导出文件体积：完整备份 ≈ ' + fmtSize(info.projFile) +
-'；不含音乐文件 ≈ ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
-'；仅聊天记录 ≈ ' + fmtSize(info.chatFile || 0) +
-'（各桌面与群聊消息 + 消息引用到的图片/语音）' +
-'；只备份文字＝剥离全部图片/语音/音乐后明显更小（以导出完成提示为准）。\n')
-: ('本机数据约 ' + fmtSize(usage) + '（整个域名的占用口径，含同域其他站点，仅供参考）。\n');
-window.openModal('选择导出范围' + (bigRef ? '（本机数据约 ' + fmtSize(bigRef) + '）' : ''), '', function (v) {
+? ('本机数据约 ' + fmtSize(info.projStorage) +
+(info.quota ? '（占配额 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%）' : '') +
+'；预估文件：完整 ' + fmtSize(info.projFile) +
+'、不含音乐 ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
+'、仅聊天记录 ' + fmtSize(info.chatFile || 0) + '、只备份文字更小。\n' +
+'两个数口径不同：本机数据按存储占用算（1 字符 2 字节），文件按实际字节算（图片/语音的 base64 约 1 字符 1 字节、汉字 3 字节）——所以附件多时文件约为本机数据的一半，纯文字库两者接近。\n')
+: ('本机数据约 ' + fmtSize(usage) + '（整域名占用口径，含同域其他站点，仅供参考）。\n');
+window.openModal('选择导出范围', '', function (v) {
 finish(v || 'full');
 }, {
-noInput: true, okText: '开始导出', pill: 'full', lock: true,
+noInput: true, okText: '开始导出', pill: 'full', lock: true, big: true,
 pills: [{ label: '完整备份', value: 'full' }, { label: '不含音乐文件', value: 'no-music' },
 { label: '只备份文字', value: 'text' }, { label: '仅聊天记录', value: 'chat' },
 { label: '取消', value: 'cancel' }],
 staticText: head +
-'完整备份：全部数据都进文件（含本地音乐文件、图片、语音）。文件最大，' +
-'超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能「导得出去、导不回来」（导入要把整个文件一次读进内存）。\n' +
-'不含音乐文件：跳过本地上传的歌曲，其余数据完整，音乐到新设备重新添加即可。\n' +
-'只备份文字：再跳过图片/语音等附件，聊天记录与字卡只保留文字，体积最小。\n' +
-'仅聊天记录：只带走聊天——全部桌面联系人（含默认桌面）与群聊的记录，消息引用到的图片/语音一并打包；' +
-'设置、字卡、朋友圈、音乐都不进文件。换机只想搬聊天、或数据太大先保住聊天时选它。\n' +
-'前三种（完整备份 / 不含音乐文件 / 只备份文字）都会完整备份聊天记录的文字、设置与字卡文本。' +
-(info ? '\n（体积按当前数据实测估算，最终以导出完成提示的精确大小为准）' : '')
+'完整备份：全部数据（含音乐/图片/语音），文件最大，超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能导不回来。\n' +
+'不含音乐：跳过本地上传的歌曲；只备份文字：再跳过图片语音——两者其余数据都完整。\n' +
+'仅聊天记录：只要聊天——各桌面联系人（含默认桌面）与群聊的记录，消息引用的图片语音一并带走；设置/字卡/朋友圈/音乐不进文件。' +
+(info ? '（体积为实测估算，以完成提示为准）' : '')
 });
 };
 let estUsage = 0, estQuota = 0;
@@ -93731,9 +94098,6 @@ if (byteLen(v) > LS_SMALL_LIMIT) lsBig[k] = v; // 大键：留待 IndexedDB 权�
 else { small[k] = v; cover.see(k, v); }
 }
 } catch (e) {}
-function isAuthorityKey(k) {
-return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k);
-}
 const exportMissing = []; // 权威键降级记录（只剩有损快照或丢失）
 let idbKeys = [];
 if (window.idbListKeys || window.idbGetAllKeys) {
@@ -93894,7 +94258,7 @@ if (blob.size > MODE_IMPORT_WARN) {
 coverText += '\n⚠ 这个文件约 ' + fmtSize(blob.size) + '，新设备导入时要一次性读入整个文件，' +
 '这么大有较大概率导入失败。建议重新点「导出数据」改选「不含音乐文件」或「只备份文字」再做一份。';
 }
-const fname = 'mochi数据备份_' + localDateStr(new Date()) + '.json';
+const fname = (cfg.mode === 'chat' ? 'mochi聊天记录_' : 'mochi数据备份_') + localDateStr(new Date()) + '.json';
 const sizeStr = fmtSize(blob.size);
 const doneText = '数据已导出（' + sizeStr + '，' + cfg.note + '）';
 if (cfg.mode !== 'chat') { try { localStorage.setItem('xy-home-v2:__last-backup', String(Date.now())); } catch (e) {} }
@@ -94456,20 +94820,29 @@ return doExport('chat');
 window.runChatAllExport = function () {
 return window.runChatExport();
 };
+function clearDeskTail(cid) {
+try {
+const ns = 'xy-home-v2:' + cid;
+if (window.xyStore) {
+window.xyStore(ns).remove('chat-tail');
+if (cid === 'default') window.xyStore('xy-home-v2').remove('chat-tail');
+return;
+}
+try { localStorage.removeItem(ns + ':chat-tail'); } catch (e) {}
+if (cid === 'default') { try { localStorage.removeItem('xy-home-v2:chat-tail'); } catch (e) {} }
+} catch (e) {}
+}
 function writeDeskChat(cid, arr) {
 const key = 'xy-home-v2:' + cid;
+clearDeskTail(cid);
 let seq = Promise.resolve();
 if (window.idbSet) {
 seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
-}
-if (window.idbSet) {
 seq = seq.then(() => window.idbSet(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })));
 }
 try { localStorage.setItem(key + ':chat-msgs', JSON.stringify(arr)); } catch (e) {}
 try { localStorage.setItem(key + ':chat-meta', JSON.stringify({ n: arr.length, t: Date.now(), b: arrByteLen(arr) })); } catch (e) {}
-return {
-then: (f) => { if (!seq) f(); return seq; },
-};
+return seq;
 }
 function arrByteLen(arr) {
 try { let n = 0; for (let i = 0; i < arr.length; i++) { const m = arr[i]; if (m && typeof m === 'object') { const t = m.text; if (typeof t === 'string') n += t.length; const im = m.img; if (typeof im === 'string') n += im.length; const vc = m.voice; if (typeof vc === 'string') n += vc.length; n += 64; } else n += 32; } return n; } catch (e) { return 0; }
@@ -94614,7 +94987,7 @@ importRow.addEventListener('click', () => {
 if (!window.openModal) { pickImportFile(); return; }
 window.openModal('选择导入范围', '', (v) => {
 if (v === 'chat') { window.runChatAllImport(); return; }
-if (v === 'cancel') return;
+if (v === 'cancel') { toast('已取消导入'); return; }
 pickImportFile();
 }, {
 noInput: true, okText: '开始导入', pill: 'full', lock: true,
@@ -96744,7 +97117,7 @@ const HUB = [
 ] },
 { g: '互动与心意', items: [
 { n: '红包', d: '双向红包：预设档/随机/自定义金额、留言与封面', k: '红包 转账 钱', go: ['.app[data-app="chat"]', '#more-rp'] },
-{ n: '心意币 · 心意市集', d: '220+ 件商品分 12 类，送礼给 TA（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币', go: ['.app[data-app="market"]'] },
+{ n: '心意币 · 心意市集', d: '220+ 件商品分 12 类，送礼给 TA；也能许愿让 TA 挑一件送你（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币 心愿单 许愿 TA送我 联系人送我礼物 概率', go: ['.app[data-app="market"]'] },
 { n: '心意柜', d: '收到/送出的礼物册与统计（桌面有独立图标）', k: '礼物柜 收藏 礼物', go: ['.app[data-app="giftbox"]'] },
 { n: '头像互动', d: '换聊天头像：上传多张头像库、点图即换，可开随机自动换头像（与桌面头像独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像', go: ['.app[data-app="chat"]', '#more-avatar'] },
 { n: '漂流瓶', d: '两个世界之间的海：捡瓶子/放瓶子', k: '漂流瓶 海 瓶子', go: ['.app[data-app="chat"]', '#more-drift'] },
@@ -96801,6 +97174,7 @@ const HUB = [
 { n: '背景遮罩', d: '壁纸上的遮罩浓度（压暗/提亮便于看图标）', k: '壁纸 遮罩 遮罩浓度 压暗', go: ['#row-appearance', '#row-bg-mask-op'] },
 { n: '移除背景图片', d: '清除桌面壁纸恢复默认底色', k: '壁纸 背景 移除 删除 清除', go: ['#row-appearance', '#row-bg-remove'] },
 { n: '批量上传图标图片', d: '一次上传多张图批量替换桌面图标', k: '图标 批量 上传 替换', go: ['#row-appearance', '#row-icon-batch'] },
+{ n: '调整图标图片位置', d: '上传图标图片后单独调缩放/左右/上下，即时生效、不用重新上传', k: '图标 图片 位置 移动 缩放 调整 拖动 裁剪', go: ['#row-appearance', '#row-icon-fit'] },
 { n: '小组件颜色', d: '桌面小组件背景颜色自定义', k: '组件 小组件 颜色 背景', go: ['#row-appearance', '#row-widget-color'] },
 { n: '小组件边框颜色', d: '桌面小组件边框颜色自定义', k: '组件 边框 颜色', go: ['#row-appearance', '#row-widget-border'] },
 { n: '按钮颜色', d: '组件内按钮颜色自定义', k: '按钮 颜色 组件', go: ['#row-appearance', '#row-widget-btn'] },
@@ -97118,7 +97492,7 @@ var DESC = [
 { sel: '#row-storage-view', name: '查看存储', d: '查看本地存储占用：按功能列出 localStorage 与 IndexedDB 的空间，并可定向清理诊断记录、本地音乐、同域其他站点等（不动业务数据）。\n也可从这里进入图片压缩。' },
 { sel: '#row-img-compress', name: '压缩图片', d: '把历史遗留的偏大图片按「新上传」同标准重新压缩一遍，覆盖原图、不可撤销。\n默认：上传时已自动压缩，本项只处理旧图。\n机制：会跳过动图、媒体池共享图与较小 / 压缩后不更小的图。\n影响范围：字卡库与桌面美化等图片数据。' },
 { sel: '#row-perf-optimize', name: '卡顿自检 · 一键优化', d: '字卡库数据过大导致卡顿时，扫描分级并做非破坏性预热（取回挂起的大键、令牌化回复池），不删除任何数据。\n机制：只优化、不写业务键；字卡库确为大库时会在启动后主动提醒一次。' },
-{ sel: '#row-card-audit', name: '字卡使用状态自检', d: '进入字卡自检页：一眼看清「自定义字卡」与「系统预设字卡」当前能不能被联系人用到、用不到卡在哪一步。\n覆盖：二级密码锁状态与影响范围（哪些池被锁停、哪些豁免）、默认聊天字卡/词典/其他互动功能字卡的开关与概率、单卡关闭与分组停用、情绪/回应/心情/情话/位置等字卡池、公用库与各桌面专属库的可用量、图片/语音卡健康。\n怎么用：每行点「调整」跳到对应页面手动改；点「修复」按默认值一键恢复（不改字卡内容）；顶部可切「只看有问题」。\n机制：只读诊断，不改动任何开关或数据；随解锁、切桌面、数据回填实时刷新，可一键复制报告。' },
+{ sel: '#row-card-audit', name: '字卡使用状态自检', d: '进入字卡自检页：一眼看清「自定义字卡」与「系统预设字卡」当前能不能被联系人用到、用不到卡在哪一步。\n覆盖：二级密码锁状态与影响范围（哪些池被锁停、哪些豁免）、默认聊天字卡/词典/其他互动功能字卡的开关与概率、单卡关闭与分组停用、情绪/回应/心情/情话/位置等字卡池、公用库与各桌面专属库的可用量、图片/语音卡健康。\n还覆盖「回复设置 → 聊天」那半边闸门（字卡池是满的却看不到字卡时，通常卡在这里）：词典拼字、梦角自由造句、多字卡回复、聊天回应字卡、自定义字卡占比、拍一拍/表情包/emoji/图片/语音/颜文字/引用等附加件、已读不回与主动发送。\n概率口径：生效值＝存盘值 ×「系统预设字卡·聊天概率总档」÷100（总档只缩放系统预设侧，梦角造句不过总档）；「预设默认字卡覆盖」＝生效聊天概率 ×(1−自定义字卡占比)，不是「系统预设 X% / 自定义 (100−X)%」的二选一。\n怎么用：每行点「调整」跳到对应页面手动改（回复设置侧直达「回复设置 → 聊天」）；点「修复」按默认值一键恢复（不改字卡内容）；顶部可切「只看有问题」。\n机制：只读诊断，不改动任何开关或数据；随解锁、切桌面、数据回填实时刷新，可一键复制报告。' },
 { sel: '#row-reset', name: '清除本地数据', d: '清空本机全部应用数据（头像 / 昵称 / 背景 / 图标 / 纪念日 / 聊天 / 字卡 / 音乐 / 设置等），不可恢复。\n机制：会二次确认；清空全部 xy-home-v2 数据——所有联系人桌面（含当前之外的其他桌面）+ 公用字卡 / 我的表情包 / 存钱罐等全局共享数据 + IndexedDB 整库删除，清完自动重启为全新状态。\n建议：先「导出数据」备份再清除。' },
 { sel: '#row-about', name: '功能介绍与可二传二改许可', d: '查看功能介绍、原创署名与二传二改许可说明。\n本行只是入口；设置页底部另有常驻的版本、署名与防骗声明。' }
 ];
@@ -97512,6 +97886,7 @@ function storeRemoveScope(scope, key) { try { if (scope === 'public') window.xyS
 function recordUndo(scope, key) { try { undoStack.push({ scope: scope, key: key, old: storeGetScope(scope, key) }); } catch (e) {} }
 function rawFor(cid, k) { try { var s = window.storeFor ? window.storeFor(cid) : window.xyStore(GNS + ':' + cid); return s.get(k); } catch (e) { return null; } }
 function num(v, d) { if (v === null || v === undefined || v === '') return d; var n = Number(v); return isNaN(n) ? d : n; }
+function clampPct(v) { var n = Number(v); if (!isFinite(n)) return 0; return Math.max(0, Math.min(100, Math.round(n))); }
 function boolOf(v, d) { if (v === null || v === undefined || v === '') return d; return v === '1'; }
 function locked() { try { return !(window.cardLockOpen && window.cardLockOpen()); } catch (e) { return false; } }
 function dcpAll() { return Math.max(0, Math.min(100, num(store('reply-dcp-all'), 100))); }
@@ -97737,10 +98112,37 @@ scopePool('public', t).forEach(function (g) { pubUsable += (g && Array.isArray(g
 });
 var ownGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('own', t).length; }, 0);
 var pubGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('public', t).length; }, 0);
-var chatOv = Math.max(0, Math.min(100, num(store('dc-overall-chat'), 30)));
-var sysShare = (!lock && dcEn) ? chatOv : 0;      // 系统预设字卡在聊天里的占比
-var customShare = 100 - sysShare;                  // 自定义字卡互补占比
 var deferred = deferredLibs();                     // 大库 IDB 回填挂起：本次读数可能偏少
+var cspCust = clampPct(num(store('csp-cust'), 50));
+var dcUseChat = boolOf(store('dc-use-chat'), true);
+var dcOvRaw = clampPct(num(store('dc-overall-chat'), 30));
+var dcOvEff = Math.round(dcOvRaw * all / 100);
+var qsEn = boolOf(store('qs-en'), true);
+var qsProbRaw = clampPct(num(store('qs-prob'), 25));
+var qsProbEff = Math.round(qsProbRaw * all / 100);        // quote-spell.js 套总档
+var qsCc = boolOf(store('qs-cc'), true);
+var dictUseChat = boolOf(store('dict-use-chat'), true);
+try { if (window.dictUse) dictUseChat = window.dictUse('chat') !== false; } catch (e) {}
+var dictOvChat = clampPct(num(store('dict-overall-chat'), 75));
+try { if (window.dictOverall) dictOvChat = clampPct(num(window.dictOverall('chat'), 75)); } catch (e) {}
+var dictPoolN = Math.max(0, presetCount('dict') - offCount('dict'));
+var mjfEn = boolOf(store('mjf-en'), true);
+var mjfProb = clampPct(num(store('mjf-prob'), 20));       // 不过总档
+var MJF_SRC = [['mjf-src-cc', 'mjf-w-cc', '自定义字卡', 50], ['mjf-src-def', 'mjf-w-def', '默认聊天字卡', 25], ['mjf-src-dict', 'mjf-w-dict', '词典', 25]];
+var mjfSrcOn = MJF_SRC.filter(function (s) { return boolOf(store(s[0]), true) && num(store(s[1]), s[3]) > 0; });
+var rcProbRaw = clampPct(num(store('rcard-prob'), 30));
+var cfProbRaw = clampPct(num(store('cf-prob'), 20));
+var rcProbEff = Math.round(rcProbRaw * all / 100);
+var cfProbEff = Math.round(cfProbRaw * all / 100);
+var pyEn = boolOf(store('py-en'), true);
+var pyProb = clampPct(num(store('py-prob'), 50));
+var rcSw = boolOf(store('rc-enabled'), true);        // 聊天回应字卡总开关（与「撤回后补发」的 rc-en 不是同一个键）
+var rnProb = clampPct(num(store('rn-prob'), 20));
+var asEn = boolOf(store('as-en'), true);
+var dndEn = boolOf(store('dnd-en'), false);
+var ATTACH = [['touch-prob', '拍一拍', 5], ['sticker-prob', '表情包', 10], ['emoji-prob', 'emoji', 5], ['image-prob', '图片', 5], ['voice-prob', '语音', 10], ['kaomoji-prob', '颜文字', 5], ['quote-prob', '引用', 30]];
+var attachOn = ATTACH.filter(function (a) { return num(store(a[0]), a[2]) > 0; });
+var mediaOff = clampPct(num(store('sticker-prob'), 10)) === 0 && clampPct(num(store('image-prob'), 5)) === 0;
 if (lock) addIssue('bad', '系统预设字卡被「二级密码锁」整体锁定（#319 防未成年人保护）——默认聊天字卡、词典（含词典拼字）等系统预设池当前都取不到，下方开关全开也无效。到开屏公告区「防未成年人·内置字卡锁定」卡点「输入密码解锁」即可恢复。');
 if (customTotal === 0 && lock) addIssue('bad', '你还没有任何自定义字卡，且系统预设字卡被锁定：联系人回复会非常单薄。建议先在「字卡库」里添加几张自定义字卡，或解锁系统预设。');
 if (!dcEn) addIssue('warn', '系统预设「聊天默认字卡」总开关关闭：聊天/信箱/朋友圈都不会混入系统预设聊天字卡。');
@@ -97767,6 +98169,22 @@ try { if (window.__ccAuditHealth) health = window.__ccAuditHealth() || health; }
 if (health.missing > 0) addIssue('bad', '检测到 ' + health.missing + ' 张图片/表情卡在媒体池里已丢失（聊天里会显示占位或发不出），多为导入的备份未含图片——需从有完整图片的源头设备重新导出「完整备份」再导入，或用「查看存储→媒体池重建」尝试自愈。');
 if (health.badVoice > 0) addIssue('warn', '检测到 ' + health.badVoice + ' 条语音卡数据格式异常（可能无法播放）。');
 if (health.bigMedia > 0) addIssue('warn', '检测到 ' + health.bigMedia + ' 张超大图片卡（>512KB），字卡库体积大、iOS/安卓容易卡顿，建议到「查看存储→字卡库瘦身」清理。');
+if (rnProb >= 100) addIssue('bad', '「已读不回概率」为 100%：TA 只显示回执、不再回复任何内容——所有字卡与互动都不会出现（回复设置→聊天 最上面的被动回复组）。');
+else if (rnProb > 60) addIssue('warn', '「已读不回概率」为 ' + rnProb + '%：大多数消息只会显示回执、不再回复内容，字卡与互动基本看不到（这是可选偏好；若你正困惑「字卡用不到」，先看这一项）。');
+if (qsEn && qsProbEff === 0 && qsProbRaw > 0) addIssue('warn', '「词典拼字」存盘 ' + qsProbRaw + '% 但被「系统预设字卡·聊天触发概率」总档 ' + all + '% 缩到 0%——拼字实际不会触发（两行都在 回复设置→聊天 里）。');
+if (!qsEn) addIssue('warn', '「词典拼字」总开关关闭：词典语录字卡不会参与拼字出镜。');
+else if (qsProbRaw === 0) addIssue('warn', '「词典拼字」概率为 0%：词典语录字卡不会参与拼字出镜。');
+else {
+var dictBlock = !dictUseChat ? '词典的「聊天使用」被关闭' : (dictOvChat === 0 ? '词典的「聊天概率」为 0%' : ((dictPoolN <= 0) ? '词典抽卡池为空（语录被逐张关闭）' : ''));
+if (dictBlock) addIssue('warn', '「词典拼字」开着且概率生效，但' + dictBlock + '——拼字抽不到卡，去「字卡库→默认字卡·词典」页调整。');
+}
+if (!mjfEn) addIssue('warn', '「梦角自由造句」总开关关闭。');
+else if (mjfProb === 0) addIssue('warn', '「梦角自由造句」概率为 0%。');
+else if (!mjfSrcOn.length) addIssue('warn', '「梦角自由造句」开着，但三个语料来源（自定义字卡/默认聊天字卡/词典）全关或权重全为 0——不会触发。');
+if (!pyEn) addIssue('warn', '「多字卡回复」总开关关闭：每条消息只回一条、每条只用一张字卡。');
+if (cspCust === 0) addIssue('warn', '「自定义字卡占比」为 0%：TA 的纯文字回复会尽量让系统预设默认字卡覆盖，你自己建的字卡基本不出现（想反过来就把它调高）。');
+if (!attachOn.length) addIssue('warn', '拍一拍/表情包/emoji/图片/语音/颜文字/引用 七项附加概率全为 0：回复只剩纯文字（回复设置→聊天 的被动回复组）。');
+else if (mediaOff) addIssue('warn', '「表情包概率」「图片概率」都为 0：字卡库里的表情包与图片字卡不会在聊天里出现（这两项是命中后往同一条回复里加图，不是独立机制，所以平时不容易联想到它们卡住了媒体字卡）。');
 if (!issues.length) addIssue('ok', '未发现明显问题：字卡各链路按当前设置正常取用。');
 var badN = 0, warnN = 0;
 issues.forEach(function (v) { if (v.lv === 'bad') badN++; else if (v.lv === 'warn') warnN++; });
@@ -97816,13 +98234,110 @@ verdictInner += '<div class="ca-fixbar"><button class="storage-clear" type="butt
 verdictInner += '<div class="ca-sub">上述修复只把「概率回默认、开关打开、分组启用、单卡关闭清空」，不改动任何字卡内容；二级密码锁需本人去开屏解锁。</div>';
 }
 push('自检结论', verdictInner, null);
-var ratioInner = '';
-ratioInner += '<div class="ca-ratio"><div class="ca-ratio-bar"><i style="width:' + sysShare + '%"></i><u style="width:' + customShare + '%"></u></div>' +
-'<div class="ca-ratio-legend"><span class="ca-ok">系统预设 ' + sysShare + '%</span><span class="ca-mute">自定义 ' + customShare + '%</span></div></div>';
-ratioInner += rowHtml('聊天默认字卡概率（dc-overall-chat）', chatOv + '% · ' + humanProb(chatOv, 'reply'), chatOv === 0 ? 'warn' : 'ok', { edit: 'defaultCards' });
-ratioInner += rowHtml('系统预设聊天概率总档（reply-dcp-all）', all + '%' + (all < 100 ? ' · 各分类概率整体打 ' + all + ' 折' : ' · 未打折'), all < 100 ? 'warn' : 'ok', { edit: 'replySettings' });
-push('系统预设 ↔ 自定义字卡占比（聊天场景）', ratioInner,
-'系统预设字卡设为 X% 时，自定义字卡自然占 (100−X)% 的回复机会；「概率总档」会把所有系统预设聊天概率整体缩放（<100 即打折）。');
+var chainInner = '';
+var replyFixables = [];
+function replyFixSpec(m) {
+if (!m.fix) return null;
+var id = 'inl-rs-' + m.id;
+if (m.fix.kind === 'en') fixEnable(id, m.fix.key);
+else if (m.fix.kind === 'num') fixProb(id, m.fix.key, m.fix.v);
+else if (m.fix.kind === 'fn' && typeof m.fix.run === 'function') addFix(id, m.fix.run);
+else return null;
+replyFixables.push(id);
+return id;
+}
+var MECH = [
+{
+id: 'qs', name: '词典拼字', key: 'qs-en · qs-prob', ok: !lock && qsEn && qsProbEff > 0 && dictUseChat && dictOvChat > 0 && dictPoolN > 0,
+txt: '存盘 ' + qsProbRaw + '% · 生效 ' + qsProbEff + '%（' + humanProb(qsProbEff, 'reply') + '）',
+extra: '池 ' + dictPoolN + ' 条 · ' + (qsCc ? '混用自定义字卡' : '只用词典语录'),
+gates: [{ t: '锁', ok: !lock }, { t: '拼字开关', ok: qsEn }, { t: '拼字概率', ok: qsProbEff > 0 }, { t: '词典聊天使用', ok: dictUseChat }, { t: '词典概率', ok: dictOvChat > 0 }, { t: '抽卡池', ok: dictPoolN > 0 }],
+fix: !qsEn ? { kind: 'en', key: 'qs-en', label: '打开' } : (qsProbRaw === 0 ? { kind: 'num', key: 'qs-prob', v: 25, label: '恢复概率' } : null)
+},
+{
+id: 'mjf', name: '梦角自由造句', key: 'mjf-en · mjf-prob', ok: mjfEn && mjfProb > 0 && mjfSrcOn.length > 0,
+txt: mjfProb + '%（' + humanProb(mjfProb, 'reply') + '，此概率不过总档）',
+extra: mjfSrcOn.length ? '语料来源：' + mjfSrcOn.map(function (s) { return s[2]; }).join(' / ') : '语料来源：全关',
+gates: [{ t: '总开关', ok: mjfEn }, { t: '概率', ok: mjfProb > 0 }, { t: '语料来源', ok: mjfSrcOn.length > 0 }],
+fix: !mjfEn ? { kind: 'en', key: 'mjf-en', label: '打开' } : (mjfProb === 0 ? { kind: 'num', key: 'mjf-prob', v: 20, label: '恢复概率' } : null)
+},
+{
+id: 'rc', name: '聊天回应字卡', key: 'rc-enabled · rcard-prob · cf-prob',
+ok: rcSw && rcProbEff > 0,
+txt: '整条替换 存盘 ' + rcProbRaw + '% · 生效 ' + rcProbEff + '% ｜ 连接词追加 存盘 ' + cfProbRaw + '% · 生效 ' + cfProbEff + '%' + (all < 100 ? '（总档 ' + all + '% 缩放）' : ''),
+extra: '', gates: [{ t: '开关', ok: rcSw }, { t: '整条替换', ok: rcProbEff > 0 }],
+fix: (!rcSw || rcProbRaw === 0) ? {
+kind: 'fn', label: (!rcSw ? '打开' : '恢复概率'), run: function () {
+if (!boolOf(store('rc-enabled'), true)) storeSet('rc-enabled', '1');
+if (num(store('rcard-prob'), 30) === 0) storeSet('rcard-prob', 30);
+return true;
+}
+} : null
+},
+{
+id: 'py', name: '多字卡回复', key: 'py-en · py-prob', ok: pyEn && pyProb > 0,
+txt: (pyEn ? '开' : '关') + ' · ' + pyProb + '%（' + humanProb(pyProb, 'reply') + '，不过总档） · 每条拼 ' + num(store('py-min'), 2) + '~' + num(store('py-max'), 5) + ' 张',
+extra: '', gates: [{ t: '总开关', ok: pyEn }, { t: '概率', ok: pyProb > 0 }],
+fix: (!pyEn || pyProb === 0) ? {
+kind: 'fn', label: (!pyEn ? '打开' : '恢复概率'), run: function () {
+if (!boolOf(store('py-en'), true)) storeSet('py-en', '1');
+if (num(store('py-prob'), 50) === 0) storeSet('py-prob', 50);
+return true;
+}
+} : null
+}
+];
+MECH.forEach(function (m) {
+var fixId = replyFixSpec(m);
+chainInner += '<div class="storage-row"><span>' + esc(m.name) + '<span class="ca-sub">' + esc(m.key) + '</span></span><b class="' + (m.ok ? 'ca-ok' : 'ca-warn') + '">' +
+esc(m.txt) + (m.extra ? ' · ' + esc(m.extra) : '') +
+(fixId && !m.ok ? ' <button class="ca-fix" type="button" data-fix="' + fixId + '">' + esc(m.fix.label) + '</button>' : '') +
+' <span class="ca-jump ca-edit" data-jump="@reply:chat">调整</span></b></div>' + funnelHtml(m.gates);
+});
+var presetFinal = (lock || !dcEn || !dcUseChat) ? 0 : Math.round(dcOvEff * (100 - cspCust) / 100);
+chainInner += '<div class="ca-ratio"><div class="ca-ratio-bar"><i style="width:' + presetFinal + '%"></i><u style="width:' + (100 - presetFinal) + '%"></u></div>' +
+'<div class="ca-ratio-legend"><span class="ca-ok">预设默认字卡覆盖 ' + presetFinal + '%</span><span class="ca-mute">其余 ' + (100 - presetFinal) + '%：自定义字卡 / 兜底池</span></div></div>';
+var idCsp = 'inl-rs-csp';
+var cspFix = '';
+if (cspCust === 0 && !lock) { fixProb(idCsp, 'csp-cust', 50); replyFixables.push(idCsp); cspFix = idCsp; }
+chainInner += rowHtml('自定义字卡占比（csp-cust）', cspCust + '%' + (cspCust === 0 ? ' · 自定义字卡基本不出现' : (cspCust >= 100 ? ' · 预设默认字卡基本不覆盖' : '')), cspCust === 0 ? 'warn' : 'ok', { fix: cspFix, edit: '@reply:chat' });
+chainInner += rowHtml('默认聊天字卡 · 聊天使用 / 概率（dc-use-chat · dc-overall-chat）', (dcUseChat ? '场景开' : '场景关') + ' · 存盘 ' + dcOvRaw + '% · 生效 ' + dcOvEff + '%（总档 ' + all + '%）', (!dcUseChat || dcOvEff === 0 || !dcEn) ? 'warn' : 'ok', { edit: 'defaultCards' });
+chainInner += funnelHtml([{ t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '聊天场景', ok: dcUseChat }, { t: '总档', ok: all > 0 }, { t: '聊天概率', ok: dcOvEff > 0 }, { t: '自定义占比放行', ok: cspCust < 100 }]);
+var attachMech = [['sticker-prob', '表情包'], ['image-prob', '图片'], ['kaomoji-prob', '颜文字'], ['touch-prob', '拍一拍'], ['emoji-prob', 'emoji'], ['voice-prob', '语音'], ['quote-prob', '引用']];
+var ATTACH_DEF = {};
+ATTACH.forEach(function (a) { ATTACH_DEF[a[0]] = a[2]; });
+var attachTxt = attachMech.map(function (a) { return a[1] + ' ' + clampPct(num(store(a[0]), ATTACH_DEF[a[0]])) + '%'; }).join(' · ');
+if ((!attachOn.length || mediaOff) && !lock) {
+var idAtt = 'inl-rs-attach';
+addFix(idAtt, function () {
+var okAny = false;
+if (attachOn.length) {
+ATTACH.forEach(function (a) { if ((a[0] === 'sticker-prob' || a[0] === 'image-prob') && storeSet(a[0], a[2])) okAny = true; });
+} else {
+ATTACH.forEach(function (a) { if (storeSet(a[0], a[2])) okAny = true; });
+}
+return okAny ? true : 'fail';
+});
+replyFixables.push(idAtt);
+attachTxt += ' <button class="ca-fix" type="button" data-fix="' + idAtt + '">' + (attachOn.length ? '恢复表情包/图片' : '全部恢复默认') + '</button>';
+}
+if (mediaOff && attachOn.length) attachTxt += ' · 表情包/图片字卡不会出现';
+chainInner += rowHtml('附加件（命中后往同一条回复里加内容）', attachTxt, (!attachOn.length || mediaOff) ? 'warn' : 'ok', { edit: '@reply:chat' });
+chainInner += rowHtml('已读不回概率（rn-prob）', rnProb + '%' + (rnProb >= 100 ? ' · TA 不再回复任何内容' : (rnProb > 60 ? ' · 大多数消息只显示回执' : '')), rnProb >= 100 ? 'bad' : rnProb > 60 ? 'warn' : 'ok', { edit: '@reply:chat' });
+chainInner += rowHtml('主动发送（as-en · as-prob）', (asEn ? '开 · ' + clampPct(num(store('as-prob'), 30)) + '%' : '关（TA 不主动找你）') + (dndEn ? ' · 免打扰中' : ''), 'mute', { edit: '@reply:chat' });
+if (replyFixables.length) {
+addFix('__allfix-reply', function () {
+replyFixables.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });
+return true;
+});
+chainInner += '<div class="ca-fixbar"><button class="storage-clear" type="button" data-fix="__allfix-reply">一键恢复字卡链路</button></div>';
+chainInner += '<div class="ca-sub">只把「开关打开、概率回默认」——不改字卡内容、不动你的回复速度/条数等偏好。</div>';
+}
+push('回复链路（回复设置 → 聊天）', chainInner,
+'字卡出镜＝「这条回复发生了」×「抽卡池有货」×「这条回复的内容名额被字卡类机制抢到」。本节的漏斗任一 ✕ 该机制就不出字卡。<br>' +
+'<b>总档</b>（reply-dcp-all）统一缩放系统预设侧概率（生效＝存盘×总档÷100）；<b>梦角自由造句</b>不过总档，<b>默认聊天字卡</b>只缩放整体概率、分类占比不缩放。<br>' +
+'<b>预设默认字卡覆盖</b>＝生效聊天概率 ×(1−自定义字卡占比)：先抽自定义字卡，最后按 csp-cust 掷签决定要不要让预设覆盖——所以「系统预设 X% / 自定义 (100−X)%」的说法不成立，两者不是二选一。<br>' +
+'点每行「调整」直达 回复设置 → 聊天；情绪/心意/意图、TA 的心情等不受二级锁影响的池在下方「五」节。');
 var lockInner = '';
 lockInner += rowHtml('当前状态', lock ? '锁定中（系统预设字卡整体停用）' : '已解锁', lock ? 'bad' : 'ok');
 lockInner += rowHtml('存储键', GNS + ':cardlock-state（全局，不随桌面）', 'mute');
@@ -97852,10 +98367,10 @@ var cat = boolOf(store('dc-cat-' + k), true);
 var prob = num(store('dc-prob-' + k), 25);
 var total = presetCount(k), off = offCount(k);
 var funnel = funnelHtml([
-{ t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '分类', ok: cat },
-{ t: '占比', ok: prob > 0 }, { t: '内容', ok: (total - off) > 0 }
+{ t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '聊天场景', ok: dcUseChat }, { t: '总档', ok: all > 0 },
+{ t: '分类', ok: cat }, { t: '占比', ok: prob > 0 }, { t: '内容', ok: (total - off) > 0 }
 ]);
-var usable = !lock && dcEn && cat && prob > 0 && (total - off > 0);
+var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && (total - off > 0);
 var idCat = 'inl-dc-cat-' + k, idProb = 'inl-dc-prob-' + k, idOff = 'inl-dc-off-' + k;
 if (!lock) {
 if (!cat) fixEnable(idCat, 'dc-cat-' + k);
@@ -97863,14 +98378,14 @@ if (prob === 0) fixProb(idProb, 'dc-prob-' + k, 25);
 if (total > 0 && off >= total) fixCardOffs(idOff, k);
 }
 dcInner += '<div class="storage-row"><span>' + esc(CC_LABEL[k]) + '（dc-cat-' + k + ' · dc-prob-' + k + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">' +
-(cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天 ' + chatOv + '%×' + prob + '% ≈ ' + humanProb(chatOv * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
+(cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天生效 ' + dcOvEff + '%×' + prob + '% ≈ ' + humanProb(dcOvEff * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
 (!cat && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idCat + '">启用</button>' : '') +
 (prob === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idProb + '">恢复占比</button>' : '') +
 (total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
 ' <span class="ca-jump ca-edit" data-jump="defaultCards">调整</span></b></div>' + funnel;
 });
 push('二、系统预设 · 聊天默认字卡', dcInner,
-'漏斗＝「锁 → 总开关 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。概率 = 联系人回复时混入默认字卡的几率；分类占比 = 命中后内部按四大分类分配（相对权重）。系统预设字卡与自定义字卡机会互补（合计 100%）。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
+'漏斗＝「锁 → 总开关 → 聊天场景 → 总档 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。聊天生效概率＝dc-overall-chat 经总档缩放后的值（分类占比是命中后的相对权重，不再乘总档）。<br><b>注意</b>：分类占比高不等于「回复里就有这张卡」——预设抽中后还要过「自定义字卡占比 csp-cust」这一签才会覆盖自定义文本，实际覆盖率见上方「回复链路」节。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
 var dictInner = '';
 var dictAnyUse = false, dictAnyProb = false;
 ['chat', 'mail', 'feed'].forEach(function (k, i) {
@@ -98065,6 +98580,17 @@ DCF.forEach(function (d) { if (d[0] !== 'deskcheck' && num(store('dcf-' + d[0]),
 var oo = offRecord('own'), po = offRecord('public');
 if (offCountIn(oo)) n++;
 if (offCountIn(po)) n++;
+if (num(store('rn-prob'), 20) >= 100) n++;
+if (!boolOf(store('qs-en'), true)) n++;
+else if (num(store('qs-prob'), 25) === 0) n++;
+if (!boolOf(store('mjf-en'), true)) n++;
+else if (num(store('mjf-prob'), 20) === 0) n++;
+if (!boolOf(store('py-en'), true) || num(store('py-prob'), 50) === 0) n++;
+if (num(store('csp-cust'), 50) === 0) n++;
+var _att = [['touch-prob', 5], ['sticker-prob', 10], ['emoji-prob', 5], ['image-prob', 5], ['voice-prob', 10], ['kaomoji-prob', 5], ['quote-prob', 30]];
+var _attAllOff = !_att.some(function (a) { return num(store(a[0]), a[1]) > 0; });
+if (_attAllOff) n++;
+else if (num(store('sticker-prob'), 10) === 0 && num(store('image-prob'), 5) === 0) n++;  // 媒体字卡不出镜（同 build 的 mediaOff）
 } catch (e) {}
 return Math.min(n, 99);
 }
@@ -98094,8 +98620,22 @@ try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
 return true;
 } catch (e) { return false; }
 }
+function openReplyPage(tab) {
+try {
+document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
+var rp = document.getElementById('page-reply-settings');
+if (!rp) return false;
+rp.hidden = false;
+var t = rp.querySelector('.fav-tab[data-rp="' + tab + '"]');
+if (t && t.click) t.click();
+var sc = rp.querySelector('.gs-scroll');
+if (sc) sc.scrollTop = 0;
+return true;
+} catch (e) { return false; }
+}
 function jump(key) {
 if (!key) return false;
+if (key.indexOf('@reply:') === 0) return openReplyPage(key.slice(7));
 if (key.charAt(0) === '#') return showSettingRow(key);
 var chain = JUMPS[key];
 if (!chain) return false;
@@ -99728,7 +100268,7 @@ window.addEventListener('orientationchange', function () { _aCoverEnvCache = -1;
 } catch (e) {}
 }
 const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
-'#beauty-drawer'];
+'#beauty-drawer', '#icon-fit-panel'];
 let kbPanelDocked = false;
 function kbDockPanels() {
 if (kbPanelDocked) return;
@@ -100006,4 +100546,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3f9zaf -->
+<!-- __MOCHI_EOF__ mu3l4zq3 -->
