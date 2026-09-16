@@ -694,7 +694,7 @@ resize:vertical; min-height:64px; line-height:1.6;
 max-height:38vh;
 overflow-y:auto;
 -webkit-overflow-scrolling:touch;
-overscroll-behavior:contain;
+overscroll-behavior:auto;
 }
 .modal, .modal-textarea.ce-box {
 scrollbar-width:none; -ms-overflow-style:none;
@@ -712,7 +712,7 @@ scrollbar-width:none; -ms-overflow-style:none;
 .modal-group-chips {
 display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;
 max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
-overscroll-behavior:contain;
+overscroll-behavior:auto;
 }
 .modal-group-chips[hidden] { display:none; }
 .modal-group-chips .pill { flex:0 0 auto; }
@@ -9770,9 +9770,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789538957746">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.720</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 14:09<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789542685880">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.721</b></span>
+        <span class="sv-deploy">部署于 2026-09-16 15:11<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11166,7 +11166,7 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.720</div>
+          <div class="val" id="about-ver-val">v3.26.721</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11205,7 +11205,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.720</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.721</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11566,7 +11566,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.720</span>
+              <span class="lic-ver">v3.26.721</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -101384,4 +101384,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3pah0y -->
+<!-- __MOCHI_EOF__ mu3rido8 -->

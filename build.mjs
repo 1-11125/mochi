@@ -2283,6 +2283,17 @@ const FIX_SENTINELS = [
   { name: '#606h 新手引导挂进「帮助与支持」组（改回工具段独立成组＝与使用说明分家复发）', file: 'js/onboarding.js', needle: "guideRow.closest('.set-group')" },
   { name: '#606i 新手引导说明登记（删＝该行少「功能说明」胶囊、也搜不到）', file: 'js/settings-help.js', needle: "sel: '#row-guidebook'" },
   { name: '#606j 功能大全收录关于段新入口（删＝功能大全搜不到版本/隐私/联系等）', file: 'js/feature-hub.js', needle: "go: ['#row-changelog']" },
+  // ==== 2026-09-16 #612 字卡库【表情包】链接导入弹窗「没办法下滑导入」（多机型，用户明说其他机型也有）：
+  //    .modal 内两个子滚动容器 .modal-textarea.ce-box / .modal-group-chips 都用 overscroll-behavior:contain——
+  //    框内（胶囊行内）滚到边界后，contain 把滚动链一并拦断，手指自然落在填满的多行框上起滑时手势被框独吞，
+  //    外层 .modal（承载「目标分组」与「确定」）永远滚不动＝看不到底部、无法完成导入。
+  //    改 auto：溢出仍先框内滚（v3.23.x 限高+框内滚动不回退），到边界放行给 .modal。
+  //    同族第 4 次（v3.23 modal-textarea → v3.25 选项框 → #295 dec-opts/gd-opts 已 auto → 本次），
+  //    dec-opts/gd-opts 早已是 auto，这两条盯的就是漏网的两处；改回 contain 即回归（verify-modal-scroll-chain B2/B3 变红）。
+  //    同族未收口两处（在他人有在途改动的 chat-main.css / chat-pages.css，留待对应会话）：.ce-box.chat-ask-opts、
+  //    .ce-box[data-for^="ta-opts-"] ====
+  { name: '#612 弹窗多行框滚动链放行·contain→auto（改回 contain 则框内滚到底后手指落在框上整个弹窗滚不动＝链接导入无法下滑导入复发）', file: 'css/base.css', needle: 'max-height:38vh;\noverflow-y:auto;\n-webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
+  { name: '#612 弹窗目标分组胶囊行滚动链放行·contain→auto（同族第二处；改回 contain 则胶囊行到边界后弹窗同样滚不动）', file: 'css/base.css', needle: 'max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

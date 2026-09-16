@@ -1113,11 +1113,19 @@ html.ios-cover-top .phone .statusbar {
    弹窗被撑满后触摸手势被 contenteditable 吃掉、内容多时无法上滑查看（vivo 自带/雨见
    用户反馈）。同 #chat-decision-body dec-opts 的成熟做法：高度上限 + 框内滚动，
    标题/按钮始终可见，内容在框内上滑查看 */
+/* FIX 2026-09-16 #612：框内滚到底后手势必须能链式传给外层 .modal——原沿用的
+   overscroll-behavior:contain 会把「框内已滚到边界」的滚动链一并拦断，手指落在
+   框上时整个弹窗滚不动（vivo V2528A / Edge 等多机型报「字卡库·表情包·链接导入
+   弹窗没法下滑导入」，用户明说其他机型也有；无头实证：框内到底 + contain →
+   外层 .modal.scrollTop 恒 0，仅把本行 contain 改 auto 后同一手势即滚到 102/103）。
+   contain→auto 不回退 v3.23.x 的框内滚动（溢出时仍先框内滚），只在边界放行给
+   .modal——同族第 4 次（v3.23 modal-textarea → v3.25 选项框 → #295 dec-opts/gd-opts
+   → 本次），dec-opts/gd-opts 早已是 auto，本处与下方 .modal-group-chips 是漏网的两处 */
 .modal-textarea.ce-box {
   max-height:38vh;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
+  overscroll-behavior:auto;
 }
 /* v3.25.x：长文只读弹窗（诊断信息）——宽版 + 放大多行框，避免窄小而难核对；
    同时隐藏滚动条（与 .page 隐藏灰色滚动条的用户偏好一致，诊断长文仍可滑动查看） */
@@ -1141,10 +1149,14 @@ html.ios-cover-top .phone .statusbar {
 /* v3.28.x：批量导入弹窗目标分组——自定义胶囊行（替代原原生 <select>「导入到现有
    分组」，用户反馈弹的是浏览器自带下拉框、不网站内样式）。默认新建 + 现有分组各一个
    胶囊点选；分组多时横向滑动，选中态高亮，语义与旧 select 首个空值项一致。 */
+/* FIX 2026-09-16 #612：同 .modal-textarea.ce-box——胶囊行也是 .modal 内的子滚动容器，
+   contain 会在「已滚到边界」时拦断滚动链，手指落在胶囊行上时弹窗同样滚不动
+   （链接导入弹窗分组多时胶囊行占 36vh，是最容易被手指命中的区域之一）。改 auto：
+   胶囊行溢出仍先在行内滚，到边界放行给 .modal */
 .modal-group-chips {
   display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;
   max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
+  overscroll-behavior:auto;
 }
 .modal-group-chips[hidden] { display:none; }
 .modal-group-chips .pill { flex:0 0 auto; }
