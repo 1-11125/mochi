@@ -1232,6 +1232,11 @@
   function checkCare() {
     if (!notifyCfg.careEnabled) return;
     if (!window.chatAddIn) return;
+    // v3.42.x #559：深夜静默 23:00–06:00（同 memo-app「备忘提醒」/ p2-features「喝水·吃饭提醒」
+    //   先例）——之前经期关心/预警是本功能族唯一没有静默期的，半夜聊天时 TA 会发
+    //   「经期预警」把人叫醒。静默期直接不发、也不写 fired，白天再触发照常补发（不吞当天）。
+    var _h = new Date().getHours();
+    if (_h >= 23 || _h < 6) return; // #559 深夜静默（23:00–06:00 不发、不写 fired）
     try { if (Math.random() * 100 >= (window.dcfGet ? window.dcfGet('care') : 100)) return; } catch (e) {}
     var st = status();
     var today = todayStr();

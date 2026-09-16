@@ -121,6 +121,14 @@ A('B4b 多词 AND「夜间 模式」命中「深色模式」', await rowVisible(
 await search('iOS');
 A('B5 搜「iOS」大小写不敏感受命中（使用说明在列）', await rowVisible('#row-guide'));
 
+// B10 拼音首字母（#573 轻量表）：搜「ssms」命中「深色模式」
+await search('ssms'); v = await visRows();
+A('B10 搜「ssms」命中「深色模式」', await rowVisible('#row-theme-mode'), 'hits=' + v.length);
+
+// B11 说明文案数据驱动（#573 settings-help DESC 并入素材）：「总入口」只出现在美化行说明里
+await search('总入口'); v = await visRows();
+A('B11 搜「总入口」命中「手机桌面美化」（说明文案可搜）', await rowVisible('#row-appearance'), 'hits=' + v.length);
+
 // B6 零命中空态：提示出现、行全隐、#549 跳转行仍在
 await search('zzz绝不存在的词');
 v = await visRows();

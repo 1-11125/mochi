@@ -253,10 +253,11 @@
 #room-ta.r-faint .r-ta-av { opacity: .16; filter: blur(1.5px) grayscale(.5); }
 #room-ta.r-faint .r-ta-glow { animation-duration: 5s; background: radial-gradient(circle, rgba(200,205,255,.4) 0%, rgba(200,205,255,.12) 45%, transparent 70%); }
 
-/* 走路颠步（动画作用在头像 margin 上，不与定位 transform 冲突） */
+/* 走路颠步。FIX 2026-09-16 发热收口：margin-top→transform 合成器路径（走路期间每帧不再重排）；
+   关键帧自带 translateX(-50%) 与基础定位完全一致，仍不与定位 transform 冲突 */
 #room-ta.walking .r-ta-av { animation: rBob .46s ease-in-out infinite; }
 #room-ta.walking .r-ta-glow { animation-duration: 1.6s; }
-@keyframes rBob { 0%,100% { margin-top: 0; } 50% { margin-top: -4px; } }
+@keyframes rBob { 0%,100% { transform: translateX(-50%); } 50% { transform: translateX(-50%) translateY(-4px); } }
 /* 坐/躺等安顿姿态：略缩小下沉，显得"坐进去了" */
 #room-ta.seated .r-ta-av { width: 29px; height: 29px; margin-top: 7px; opacity: .95; }
 #room-ta.seated .r-ta-glow { width: 40px; height: 40px; top: 62%; }

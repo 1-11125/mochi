@@ -68,8 +68,8 @@ const snap = () => ev(`(()=>{
 
 // S 静态断言
 const cjs = readFileSync(join(root, 'src', 'js', 'chatcard.js'), 'utf8');
-A('S1 排序分节锚点在位（__rank 精确/开头/包含）', cjs.includes('r.__rank = (t === kw ? 0 : (t.indexOf(kw) === 0 ? 1 : 2));'));
-A('S2 多词 AND 锚点在位（最长词为锚 + terms.every）', cjs.includes('const anchor = terms.reduce(function (a, b) { return b.length > a.length ? b : a; }, terms[0]);') && cjs.includes('terms.every(function (w) { return t.indexOf(w) >= 0; })'));
+A('S1 排序分节锚点在位（mochiSearch.rank 三级，#573 换公共工具）', cjs.includes('r.__rank = ms ? ms.rank(r.t, kw) : 2;'));
+A('S2 多词 AND 锚点在位（最长词为锚 + terms.every）', cjs.includes('const anchor = ms ? ms.anchor(terms) : terms[0];') && cjs.includes('terms.every(function (w) { return t.indexOf(w) >= 0; })'));
 
 // B0 环境就绪
 A('B0 跨分类搜索注册方 ≥10', (await ev('(window.__cardSearchFns||[]).length')) >= 10);
@@ -93,6 +93,11 @@ A('B2b 出现「包含命中」分节（开头命中按数据可选）', s.heads
 await search('偏爱 你');
 s = JSON.parse(await snap());
 A('B3 多词「偏爱 你」AND 命中且逐行含两词', s && s.rows.length > 0 && s.rows.every(t => t.includes('偏爱') && t.includes('你')), 'n=' + (s ? s.rows.length : 0) + ' [' + (s ? s.rows.join('|') : '') + ']');
+
+// B3b 查询侧标点归一（#573）：搜「晚安。」等价「晚安」，精确卡仍置顶
+await search('晚安。');
+s = JSON.parse(await snap());
+A('B3b 搜「晚安。」标点归一后精确卡置顶', s && s.rows.length > 0 && s.rows[0] === '晚安' && s.heads.some(h => h.indexOf('精确命中') === 0), 'first=' + (s && s.rows[0]));
 
 // B4 零命中空态
 await search('zzz绝不存在的词');

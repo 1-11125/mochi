@@ -601,10 +601,10 @@
   background:radial-gradient(circle at 50% 50%, #2a2a2a 0%, #1a1a1a 55%, #3a3a3a 56%, #2e2e2e 100%);
   display:flex; align-items:center; justify-content:center;
   box-shadow:0 6px 14px rgba(0,0,0,.30), inset 0 0 0 1px rgba(255,255,255,.08);
-  animation:spin 14s linear infinite;
 }
 .mw-vinyl svg { width:26px; height:26px; stroke:#fff; }
-@keyframes spin { to { transform:rotate(360deg); } }
+/* FIX 2026-09-16 发热收口：删除死样式 spin（含 @keyframes）——.mw-vinyl 仅存在于
+   #mw-cover 内，一直被其 animation:none 覆盖从未转过；留着会诱使后来者「恢复」成常驻旋转 */
 
 .mw-info { flex:1; min-width:0; }
 .mw-song { font-size:16px; font-weight:700; letter-spacing:.5px; }

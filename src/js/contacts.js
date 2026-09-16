@@ -66,6 +66,10 @@
     // <100 字符的小 JSON），全局根键跨桌面共享（同 my-emoji-groups 口径）。漏排除会被
     // migrateLegacy 当旧顶层业务键迁进 default 并删根键（最近区非 default 桌面清空）。
     'emoji-recent',
+    // #572（2026-09-16，AI-A page-coach.js 会话跨域登记 WORKLOG）：页面内「先做这个」提示的
+    // 已看页标记（__coach-seen 存已提示过的页 id 数组）——全局根键，漏排除会被 migrateLegacy
+    // 当旧顶层业务键迁进 default 并删根键，提示在非 default 桌面反复弹。
+    '__coach-seen',
     // #424（2026-09-13）：媒体池自动体检节流状态（media-pool.js mochiMediaAutoCheck）——
     // {t,missing,snooze} 全局根键，丢/被迁走只会导致弹窗节奏错乱，但不排除会被 migrateLegacy
     // 当旧顶层业务键迁进 default 并删根键，照例登记。

@@ -76,7 +76,9 @@
   animation:chatLoadSlide 1.1s ease-in-out infinite;
 }
 .chat-loading-txt { font-size:12px; color:#888; }
-@keyframes chatLoadSlide { 0% { left:-40%; } 100% { left:100%; } }
+/* FIX 2026-09-16 发热收口：left→transform 合成器路径（免每帧重排）。条宽 150px 固定、
+   滑块 60px，translateX(350%)＝210px，与原 left:-40%→100%（-60px→150px）位移像素等价 */
+@keyframes chatLoadSlide { 0% { transform:translateX(0); } 100% { transform:translateX(350%); } }
 
 .msg { display:flex; align-items:flex-end; gap:8px; max-width:85%; }
 .msg-in { align-self:flex-start; }
@@ -1485,7 +1487,9 @@ body.cs-time-divider .msg-time-divider { display:flex; }
   text-align:center; position:relative; overflow:hidden;
 }
 .msg-flower-bar { height:4px; background:linear-gradient(90deg, #f48fb1, #ec407a, #f48fb1); margin-bottom:14px; }
-.msg-flower-emoji { font-size:44px; line-height:1; margin-bottom:8px; animation:flowerFloat 3s ease-in-out infinite; }
+/* FIX 2026-09-16 发热收口：花卡常驻聊天记录，infinite＝可视区每帧合成空转；
+   到达时浮 3 次（约 9s）后静止，视觉几乎无差 */
+.msg-flower-emoji { font-size:44px; line-height:1; margin-bottom:8px; animation:flowerFloat 3s ease-in-out 3; }
 @keyframes flowerFloat { 0%,100% { transform:translateY(0) rotate(0deg); } 50% { transform:translateY(-4px) rotate(5deg); } }
 .msg-flower-name { font-size:15px; font-weight:700; color:#ad1457; margin-bottom:8px; letter-spacing:.5px; }
 .msg-flower-divider { display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:10px; color:#e91e63; font-size:10px; }

@@ -39,6 +39,9 @@
   ];
   var MAP = {};
   DESC.forEach(function (it) { MAP[it.sel] = it; });
+  // FIX 2026-09-16 #573：把说明文案暴露给设置页搜索（personalize.js rowHay 并入 name+d），
+  // 「壁纸/备份/总入口」等只出现在说明里的词从此可搜，别名表无需手工追这些词。
+  window.__settingsHelpDesc = MAP;
 
   function rowOf(anchor) {
     if (!anchor) return null;

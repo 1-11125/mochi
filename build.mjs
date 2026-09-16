@@ -89,7 +89,7 @@ function minifyCss(code) {
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'ver-check.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'card-audit.js', 'mobile-adapt.js'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'pwa.js', 'ver-check.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'mobile-adapt.js'];
 
 let html = read('template.html');
 // v3.26.x #301：模板 HTML 注释配平守卫——开屏批 07a6cab 曾在红包注释行漏写 `-->`
@@ -1796,6 +1796,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #532 字卡使用状态自检（设置→工具 #row-card-audit）====
   { name: '#532a 一键修复批量执行器（删掉＝「一键修复系统预设可用」点了不生效，问题分类仍不可用）', file: 'js/card-audit.js', needle: 'bulkFixes.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });' },
   { name: '#532b 字卡数据健康探针（删掉＝自检第九节「丢失图卡/超大图/坏语音」读数恒 0，坏卡查不出）', file: 'js/chatcard.js', needle: 'window.__ccAuditHealth = function () {' },
+  { name: '#532c 大库未取回提示·「加载完整字卡」接线（删掉＝字卡未从 IDB 取回时用户无法手动取回，自检可用数一直偏少、不可信）', file: 'js/card-audit.js', needle: "window.hydrateLibScopes(['public', 'own'], function () { render(); toast('已取回完整字卡，重新自检完成'); });" },
   // ==== 2026-09-15 #533 链接导入的媒体字卡（裸 http(s) 图链）漏进文字池 → 联系人把图片 URL 当文字发出（聊天 + 信箱）====
   // 根因：图床不允许跨域时卡片按原始链接保存（存于字卡库【表情包/图片】分类），旧三道
   // 守卫只挡 data:/|||/@@m: 令牌，URL 形态被当文字卡抽中 → 气泡/信纸直出「http://…png」。
@@ -1929,6 +1930,13 @@ const FIX_SENTINELS = [
   { name: '#549b 设置搜索直达功能大全跳转行（删则搜索只能筛设置行）', file: 'js/personalize.js', needle: "jumpBtn.textContent = '在「功能大全」中搜索“' + inp.value.trim() + '” →';" },
   { name: '#549c 功能大全带入关键词入口（删则设置搜索点了跳不过去）', file: 'js/feature-hub.js', needle: "window.mochiFeatureHubOpen = function (kw) { openHub('setting', kw); };" },
   { name: '#549d 字卡库空状态可点（删则空列表退回死胡同、只剩一句提示）', file: 'js/chatcard.js', needle: 'if (list && !list.__ccEmptyActBound) {' },
+  // ==== 2026-09-16 #577 昵称分「桌面 / 聊天」两套（用户反馈：引导没说清两者独立、需各自设置） ====
+  // 纯文案修复，needle 就是需求本身：这段说明被删/被改回「点桌面顶部改名」即回归。
+  { name: '#577a 引导写明桌面 / 聊天昵称是两套且不同步（删则又只剩「点桌面改名」，聊天里显示默认「我」「TA」无人解释）', file: 'js/onboarding.js', needle: '两套、互不同步' },
+  { name: '#577b 引导步骤内补充提示块（删则 warn 文案不再渲染＝回到只有一句 d）', file: 'js/onboarding.js', needle: 's.warn ? ' },
+  { name: '#577c 功能介绍·快速开始写明聊天昵称要单独设（删则又只说「设置双方昵称、头像」）', file: 'template.html', needle: '聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>' },
+  { name: '#577d 聊天设置「昵称与头像」标题标注聊天专用（删则设置页不提与桌面独立，用户仍以为改桌面即生效）', file: 'template.html', needle: '昵称与头像（聊天专用 · 与桌面各自独立，互不同步）' },
+  { name: '#577e 功能大全昵称条目关键词补「桌面昵称 / 不同步」（删则搜「桌面昵称」找不到这两条）', file: 'js/feature-hub.js', needle: '昵称 名字 联系人 改名 聊天昵称 桌面昵称 不同步 不一样 没变 显示 TA' },
   // ==== 2026-09-16 #550 设置页搜索精准化（跨域登记：personalize.js 归 AI-B 本会话占用，见 WORKLOG） ====
   { name: '#550a 设置搜索取词剔除「功能说明」.tag 胶囊（删则搜功能/说明几乎全行命中回流）', file: 'js/personalize.js', needle: "c.querySelectorAll('.tag').forEach(x => x.remove());" },
   { name: '#550b 设置搜索口语词别名表（删则搜壁纸/通知/概率/夜间等 0 命中回流）', file: 'js/personalize.js', needle: "'深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode'" },
@@ -1947,6 +1955,7 @@ const FIX_SENTINELS = [
   { name: '#559f 规律型推迟门 ≥5 天（删则规律用户推迟无预警）', file: 'js/period.js', needle: "if (tier === 'rule' && delayDays >= 5)" },
   { name: '#559g 不规律型改间隔口吻且 ≥10 天才提（删则对不规律用户说「推迟 N 天」＝预测误差比推迟还大）', file: 'js/period.js', needle: "else if (tier === 'free' && delayDays >= 10)" },
   { name: '#559h 经期推迟·不规律语料组（删则不规律推迟回落确定性口吻语料）', file: 'js/default-cards-data.js', needle: '["经期推迟·不规律", [' },
+  { name: '#559i 深夜静默 23:00–06:00（删则半夜聊天 TA 会发经期预警把人叫醒；静默期不写 fired 故不吞当天名额）', file: 'js/period.js', needle: 'if (_h >= 23 || _h < 6) return; // #559 深夜静默（23:00–06:00 不发、不写 fired）' },
   // ==== 2026-09-16 #554（TASKS #128）字卡媒体令牌化持久化：库键内联图 → 池令牌（同图全库只存一份）====
   // 消费链路此前已就绪（#142 池/#377 内存令牌化/#506 GC 引用面+导出自包含/#532 自检令牌感知），
   // 本批补「存储键瘦身」两个写入口 + 用户入口；删除任一条即回归「同一张贴图存多份/体积回涨」。
@@ -1968,8 +1977,8 @@ const FIX_SENTINELS = [
   { name: '#570b pwa 预取刷新链暴露给开屏（删则「点此更新」退回裸 reload＝弱网/iOS 刷完仍旧版）', file: 'js/pwa.js', needle: 'window.mochiRefreshNow = function () { refreshNow(); };' },
   { name: '#570c 开屏检测行静态锚点（删则 ver-check.js 找不到挂载点直接 return＝功能消失）', file: 'template.html', needle: 'id="splash-ver-check"' },
   // ==== 2026-09-16 #557 字卡库搜索精准化（跨域登记：chatcard.js 属 AI-A 业务，用户直派修「搜一个字多几个字全出现」，见 WORKLOG） ====
-  { name: '#557a 字卡库搜索精确/开头/包含排序分节（删则搜单字精确卡重新淹没在包含命中长卡里）', file: 'js/chatcard.js', needle: 'r.__rank = (t === kw ? 0 : (t.indexOf(kw) === 0 ? 1 : 2));' },
-  { name: '#557b 字卡库多词搜索最长词为锚调注册方（删则多词整串当单词条恒 0 命中回流）', file: 'js/chatcard.js', needle: 'const anchor = terms.reduce(function (a, b) { return b.length > a.length ? b : a; }, terms[0]);' },
+  { name: '#557a 字卡库搜索精确/开头/包含排序分节（删/换回私有实现＝与全站搜索语义漂移）', file: 'js/chatcard.js', needle: 'r.__rank = ms ? ms.rank(r.t, kw) : 2;' },
+  { name: '#557b 字卡库多词搜索最长词为锚调注册方（删则多词整串当单词条恒 0 命中回流）', file: 'js/chatcard.js', needle: 'const anchor = ms ? ms.anchor(terms) : terms[0];' },
   { name: '#557c 字卡库多词中心 AND 复筛（删则锚词候选不筛其余词＝多词退化单词）', file: 'js/chatcard.js', needle: 'terms.every(function (w) { return t.indexOf(w) >= 0; })' },
   // ==== 2026-09-16 #558 表情面板「最近使用」（AI-A chat.js 单文件 + contacts.js 一行免迁；
   // 用户从清单点选小功能；#556 开屏检测/#557 字卡库搜索已被并行批次占用故顺延） ====
@@ -1997,6 +2006,50 @@ const FIX_SENTINELS = [
   { name: '#562d 美化页每个颜色行注入可见「默认」恢复按钮（删＝只剩弹窗里隐藏的恢复默认 pill，用户报「没有恢复默认颜色的按钮」复发）', file: 'js/personalize.js', needle: "row.querySelector('.bfy-reset-btn')" },
   { name: '#562e 按钮颜色/文字颜色恢复默认改摘内联变量（回落到主题色链；改回写死 #111111/#ffffff＝内联截断主题色链）', file: 'js/personalize.js', needle: "removeProperty('--widget-btn'); paintBeautyVal(widgetBtnVal" },
   { name: '#562f 主题色走设置页同一 applier（同时写 --btn-bg/--btn-ink；删 onSet 分支＝边看边调点主题色只改底色不改文字色）', file: 'js/personalize.js', needle: 'if (onSet) { try { onSet(v); } catch (e) {} paint(); return; }' },
+  // ==== 2026-09-16 #572 页面内「先做这个」提示（AI-A 新模块 page-coach.js + feature-hub 只读查询
+  // + 三页空状态动作；用户问「复杂页面里不知道先点哪儿」；#553~#562/#570/#571 已被并行批次占用故取 #572） ====
+  { name: '#572a 页面提示条插入（删/改＝复杂页首访不再自述「先做这个」，用户回到站在页里发懵）', file: 'js/page-coach.js', needle: 'page.insertBefore(buildBar(cfg), page.firstChild);' },
+  { name: '#572b 提示文案与跳转取自功能大全目录表（删＝页面提示与功能大全分叉成两套说明，功能入口变了提示不跟）', file: 'js/feature-hub.js', needle: 'window.mochiHubItemsFor = function (sels) {' },
+  { name: '#572c 已看页标记（删＝每进一次都弹同一提示＝骚扰）', file: 'js/page-coach.js', needle: 'const MARK = G + \'__coach-seen\';' },
+  { name: '#572d __coach-seen 全局根键免迁（删＝每次刷新被 migrateLegacy 迁进 default 删根键，提示反复弹）', file: 'js/contacts.js', needle: "'__coach-seen'," },
+  { name: '#572e 备忘空状态补动作（删＝「还没有备忘」又只剩陈述、没有下一步可点）', file: 'js/memo-app.js', needle: 'id="memo-empty-add"' },
+  // #575 删除型（用户 2026-09-16 反馈「删掉，这是错的」）：开屏静态「新手上路 · 3 步就能用」卡
+  // 整块撤除，复活即回归——开屏只留公告/必读摘要，新手引导走 onboarding.js 弹层（可跳转、可重看）。
+  { name: '#575 开屏静态「新手上路 3 步」卡不得复活（DOM 在 template.html；加回＝用户点名删掉的开屏引导卡又出现）', file: 'template.html', needle: 'splash-onboard-t', absent: true },
+  { name: '#575 开屏静态「新手上路 3 步」卡样式不得复活（css/base.css 的 .splash-onboard 规则块；加回＝撤除的卡在产物里复活）', file: 'css/base.css', needle: '.splash-onboard {', absent: true },
+  // ==== 2026-09-16 #573 全站搜索统一精准化批（设置搜索词库数据驱动+拼音首字母 / 字卡库+自定义字卡页+功能大全
+  // 同款 AND+排序 / 标点归一 / 公共 mochiSearch 工具收敛；用户指派「有能优化的吗→不会卡就帮我做」） ====
+  { name: '#573a 公共搜索工具 mochiSearch（删则三处搜索退回各自私有实现，语义漂移复发）', file: 'js/device.js', needle: 'window.mochiSearch = {' },
+  { name: '#573b 设置说明文案暴露给搜索（删则壁纸/备份/总入口等说明词搜不到，别名表退化回手工养）', file: 'js/settings-help.js', needle: 'window.__settingsHelpDesc = MAP;' },
+  { name: '#573c 设置搜索并入说明文案素材（删则数据驱动召回失效）', file: 'js/personalize.js', needle: "window.__settingsHelpDesc[tagEl.getAttribute('data-setdesc')]" },
+  { name: '#573d 设置搜索拼音首字母轻量表（删则 ssms/hfsz 等首字母搜不到）', file: 'js/personalize.js', needle: "'深色模式': 'ssms'" },
+  { name: '#573e 自定义字卡页搜索组内精准排序（删则搜单字精确卡淹没回流；oi 决胜保 data-idx 原始索引）', file: 'js/chatcard.js', needle: '.sort((a, b) => a.rk - b.rk || a.oi - b.oi)' },
+  { name: '#573f 功能大全搜索原始行序快照（删则排序后 children 与 items 错位＝显隐打到错行）', file: 'js/feature-hub.js', needle: 'if (card && !card.__fhubOrder) card.__fhubOrder = Array.prototype.slice.call(card.children);' },
+  // ==== 2026-09-16 #574 字卡库开页「空白干等 IDB」（用户报「字卡库卡 5、6 秒，也没有动画
+  // 加载的缓冲」iPhone 14 Pro Safari 等多 iOS 机型）：本机读不到该作用域时要等 idbHydrateKey
+  // 取回（iOS 挂后台杀连接后单次 6s、重试链 14s），而渲染被 hydrate 门控＝页面空白干等、
+  // 页内零加载态。修＝需要取回时先出加载行（延迟 150ms 才出＝健康路径零闪动）。
+  // 行为断言 tools/verify-cc-lib-loading.mjs（B1 桩挂起 IDB：≤1s 出加载行，修前无＝红）====
+  { name: '#574a 字卡库需取回时先挂加载态（删＝页面回到空白干等数秒、无任何加载反馈）', file: 'js/chatcard.js', needle: "if (!curStore().get(curKey())) showLibLoadingSoon();" },
+  { name: '#574b 加载态延迟 150ms 才出（删/改成立即出＝空库与健康设备开页闪一下，观感回归）', file: 'js/chatcard.js', needle: 'libLoadTimer = setTimeout(showLibLoadingRow, 150);' },
+  { name: '#574c 取回落定后摘除加载态（删＝加载行残留占位盖住真实列表）', file: 'js/chatcard.js', needle: 'clearLibLoadingRow(); // #574' },
+  { name: '#574d 加载行样式与旋转指示（删＝加载态无样式，退回一行裸文字）', file: 'css/chat-pages.css', needle: '.cc-lib-loading .cc-spin {' },
+  // ==== 2026-09-16 #575 同类面补齐：表情包/拍一拍面板、我的表情包、字卡库列表页角标、字卡自检
+  // 在等 IndexedDB 取回时一律出加载态（用户：「都补一下，不然用户误会是 bug」）——数据面不缩短
+  // 等待，但等待期界面不能说谎（空态/角标 0 会被当成「字卡丢了」）。 ====
+  { name: '#575a 聊天面板取回中标记（删＝表情包/拍一拍面板在等待期又退回「暂无…」空态）', file: 'js/chat.js', needle: 'ccPanelsFetching = true;' },
+  { name: '#575b 表情包面板取回占位（删＝取回期显示「暂无表情包」被当成丢数据）', file: 'js/chat.js', needle: "ccLoadRowHtml('正在加载表情包…')" },
+  { name: '#575c 拍一拍面板取回占位（删＝取回期显示「暂无拍一拍字卡」）', file: 'js/chat.js', needle: "ccLoadRowHtml('正在加载该分组拍一拍…')" },
+  { name: '#575d 我的表情包取回占位（删＝18MB 级库取回期显示「暂无我的表情包」）', file: 'js/chat.js', needle: "ccLoadRowHtml('正在加载我的表情包…')" },
+  { name: '#575e 字卡库列表页角标取回中态（删＝取回期角标显示 0，被当成「字卡丢了」；#574 同族）', file: 'js/chatcard.js', needle: 'markLibCountsLoading();' },
+  { name: '#575f 取回完成写回真值并摘脉冲态（删＝角标永远「…」或一直闪）', file: 'js/chatcard.js', needle: "oe.textContent = libCounts.own < 0 ? 0 : libCounts.own; oe.classList.remove('cc-cnt-loading');" },
+  { name: '#575g 字卡自检页取回占位（删＝取回大库时页内只有转瞬 toast，页面像卡住）', file: 'js/card-audit.js', needle: "bodyEl.innerHTML = '<div class=\"mochi-load-row\">" },
+  { name: '#575h 共用加载行样式（删＝各处占位行无样式，退回裸文字）', file: 'css/chat-pages.css', needle: '.mochi-load-row {' },
+  // ==== 2026-09-16 #576 存储异常弹窗带分步处理建议+直达按钮（用户：手机端弹这个窗时，
+  // 里面也要提醒该干什么——原弹窗只报错让用户「去设置页导出」，手机端用户不知道去哪/干什么） ====
+  { name: '#576a 弹窗直达按钮挂导出行（删/改＝又只报错不带动作，第一步「先导出备份」没人知道怎么做）', file: 'js/idb.js', needle: "idbFailAct('#row-export'" },
+  { name: '#576b 直达走设置页分组tab+滚动链路（删＝按钮点了停在原地/跳错分组，兜底提示也不出）', file: 'js/idb.js', needle: "el.closest('.them-sec')" },
+  { name: '#576c openModal 控制器补 ctl.close（删＝跳转成功弹窗关不掉，盖在设置页上）', file: 'js/personalize.js', needle: 'close: function () { try { close(); } catch (e) {} }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

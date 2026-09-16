@@ -56,6 +56,15 @@ const baseUrl = 'http://127.0.0.1:' + server.address().port;
 const cdpPort = Number(process.env.MOCHI_CDP_PORT) || (9960 + Math.floor(Math.random() * 100));
 const chrome = spawn(chromePath, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-perf-' + Date.now()), '--remote-debugging-port=' + cdpPort, 'about:blank'], { stdio: 'ignore' });
 
+// 总看门狗：套件路径有 240s 强杀，单跑直跑没有——任何挂起（CDP 失联/页面僵死）最多 220s 必须可见地失败。
+// 220s < 套件 240s：先于套件强杀打出原因，不被吞成无输出的 timeout。
+const WATCHDOG = setTimeout(() => {
+  console.error('看门狗：220s 未跑完（CDP 失联或页面僵死）。常见诱因：并行会话跑 verify-suite 收尾清扫 mochi- 前缀无头 Chrome 误伤本实例——直接复跑即可');
+  try { chrome.kill('SIGKILL'); } catch (e) {}
+  try { server.close(); } catch (e) {}
+  process.exit(1);
+}, 220000);
+
 let ws = null, msgId = 0; const pend = new Map();
 async function cdpConnect() {
   for (let i = 0; i < 60; i++) {
@@ -66,6 +75,9 @@ async function cdpConnect() {
         ws = new WebSocket(page.webSocketDebuggerUrl);
         await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
         ws.onmessage = (ev) => { const m = JSON.parse(ev.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result); pend.delete(m.id); } };
+        // CDP 断联快速失败：并行会话跑 verify-suite 收尾会清扫 mochi- 前缀临时档的无头 Chrome，会误伤本脚本实例；
+        // 放行所有挂起调用 → 各处按 null/undefined 走既有的可见失败路径，而不是 Promise 永不 resolve 无限挂起
+        ws.onclose = () => { for (const res of pend.values()) res(undefined); pend.clear(); };
         return;
       }
     } catch (e) {}
@@ -73,7 +85,11 @@ async function cdpConnect() {
   }
   throw new Error('无法连接');
 }
-function cdp(method, params = {}) { const id = ++msgId; return new Promise((res) => { pend.set(id, res); ws.send(JSON.stringify({ id, method, params })); }); }
+function cdp(method, params = {}) {
+  if (!ws || ws.readyState !== 1) return Promise.resolve(undefined);
+  const id = ++msgId;
+  return new Promise((res) => { pend.set(id, res); try { ws.send(JSON.stringify({ id, method, params })); } catch (e) { pend.delete(id); res(undefined); } });
+}
 async function evalJs(expr) {
   try {
     const r = await cdp('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
@@ -208,5 +224,6 @@ if (ok.length < 3) {
 
 const passed = results.filter((r) => r.ok).length;
 console.log('\n结果：' + passed + '/' + results.length + ' 项通过');
+clearTimeout(WATCHDOG);
 chrome.kill(); server.close();
 process.exit(passed === results.length ? 0 : 1);

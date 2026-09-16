@@ -86,7 +86,7 @@
       '<div class="memo-msg glass" id="memo-msg"></div>' +
       '<div class="memo-toolbar"><span class="memo-count" id="memo-count"></span><button class="memo-cleardone" id="memo-cleardone">清已完成</button></div>' +
       '<div class="memo-list" id="memo-list"></div>' +
-      '<div class="memo-empty" id="memo-empty">还没有备忘<br>想做的事、要买的东西、突然的念头<br>都可以写在这里</div>' +
+      '<div class="memo-empty" id="memo-empty">还没有备忘<br>想做的事、要买的东西、突然的念头<br>都可以写在这里<br><button class="memo-send-btn" id="memo-empty-add" style="margin-top:8px">↓ 在下面输入框写第一条</button></div>' +
       '<div class="memo-manage"><button class="memo-send-btn" id="memo-send">完成发到聊天：关</button>' +
       '<button class="memo-send-btn" id="memo-remind">备忘提醒：开</button>' +
       '<button class="memo-send-btn" id="memo-remind-prob">提醒概率 2%</button></div>' +

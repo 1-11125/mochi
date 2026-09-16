@@ -208,25 +208,25 @@ const s4b = JSON.parse(await evalJs(`(function(){
   if(!m||m.hidden) return JSON.stringify({open:false});
   var box=m.querySelector('.modal');
   var r=box?box.getBoundingClientRect():null;
-  var inp=document.getElementById('dl-picker-mins');
+  var inp=document.getElementById('dl-picker-secs');
   return JSON.stringify({open:true,
     inViewport: !!(r && r.top>=0 && r.left>=0 && r.bottom<=window.innerHeight+1 && r.right<=window.innerWidth+1),
     cur: (document.getElementById('dl-picker-cur')||{}).textContent||'',
     mins: inp?String(inp.value||''):'?',
-    hasMins: !!(m.querySelector('#dl-picker-mins')),
+    hasMins: !!(m.querySelector('#dl-picker-secs')),
     pills: m.querySelectorAll('#dl-picker-quick .pill').length,
     inputs: m.querySelectorAll('.dl-picker-in').length});
 })()`) || '{}');
 ok(s4b.open === true, 'S4b 点时间入口弹出 App 内自绘选择器（非原生 datetime-local）', JSON.stringify(s4b));
 ok(s4b.inViewport === true, 'S4b 选择器完整落在屏幕内（不飞出屏幕）', JSON.stringify(s4b));
-ok(s4b.hasMins === true && s4b.pills === 0, 'S4b 最简形态：只有一个分钟输入框（无胶囊/六档）', JSON.stringify({mins:s4b.hasMins, pills:s4b.pills}));
-ok(s4b.mins === '1', 'S4b 默认 1 分钟', s4b.mins);
-ok(/\d+月\d+日 周./.test(s4b.cur || '') && /分钟后/.test(s4b.cur || ''), 'S4b 顶部显示到点绝对时刻 + 相对时长', s4b.cur);
-// 手动输入 5 分钟 → 顶部实时同步 → 确定
-await evalJs("(function(){var i=document.getElementById('dl-picker-mins');if(i){i.value='5';i.dispatchEvent(new Event('input',{bubbles:true}));}return true;})()");
+ok(s4b.hasMins === true && s4b.pills === 0, 'S4b 最简形态：只有一个秒输入框（无胶囊/六档）', JSON.stringify({secs:s4b.hasMins, pills:s4b.pills}));
+ok(s4b.mins === '60', 'S4b 默认 60 秒', s4b.mins);
+ok(/\d+月\d+日 周./.test(s4b.cur || '') && /秒/.test(s4b.cur || ''), 'S4b 顶部显示到点绝对时刻 + 相对秒数', s4b.cur);
+// 手动输入 30 秒 → 顶部实时同步 → 确定
+await evalJs("(function(){var i=document.getElementById('dl-picker-secs');if(i){i.value='30';i.dispatchEvent(new Event('input',{bubbles:true}));}return true;})()");
 await sleep(150);
 const s4c = await evalJs("(function(){return (document.getElementById('dl-picker-cur')||{}).textContent||'';})()");
-ok(/（5 分钟后）/.test(s4c || ''), 'S4b 手动输入 5 后顶部同步为「5 分钟后」', s4c);
+ok(/（30 秒后）/.test(s4c || ''), 'S4b 手动输入 30 后顶部同步为「30 秒后」', s4c);
 await evalJs("(function(){var b=document.getElementById('dl-picker-ok');if(b)b.click();return true;})()");
 await sleep(300);
 const s4d = JSON.parse(await evalJs(`(function(){
@@ -310,7 +310,7 @@ ok(tplSrc.includes('id="ta-ask-deadline" class="tc-input deadline-btn"') && tplS
 ok(tplSrc.includes('id="ta-survey-chat"'), 'S5 template 有「TA 的作答发送到聊天消息」开关');
 ok(tplSrc.includes('TA 的每条作答都发送到聊天消息'), 'S5 开关文案写明「每条作答都发送到聊天」（用户要求说清楚）');
 ok(taAskSrc.includes('window.openSurveyDetail = function (rec) {'), 'S5 ta-ask.js 只读问卷详情弹窗 openSurveyDetail 在位');
-ok(tplSrc.includes('id="dl-picker-mask"') && tplSrc.includes('id="dl-picker-mins"') && tplSrc.indexOf('id="dl-picker-quick"') < 0, 'S5 template 预置最简分钟选择器静态 DOM（单个输入框）');
+ok(tplSrc.includes('id="dl-picker-mask"') && tplSrc.includes('id="dl-picker-secs"') && tplSrc.indexOf('id="dl-picker-quick"') < 0, 'S5 template 预置最简秒选择器静态 DOM（单个输入框）');
 ok(taAskSrc.includes("cur.settings.sendToChat !== false"), 'S5 ta-ask.js 逐条发答受 sendToChat 门控（关＝只写卡片不刷聊天）');
 ok(taAskSrc.includes('function surveyGoChat() {') && taAskSrc.includes('surveyGoChat();'), 'S5 ta-ask.js 发出后自动回聊天 surveyGoChat 在位');
 ok(taAskSrc.includes('d.answers = []; d.doneMsgAt = 0;'), 'S5 ta-ask.js 已交卷可直接重发一轮（发出时清零作答与提醒位）');

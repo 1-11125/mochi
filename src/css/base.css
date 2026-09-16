@@ -180,20 +180,8 @@ html { margin:0; padding:0; }
 .splash-summary-title { font-size:12px; font-weight:800; color:var(--ink); margin-bottom:7px; letter-spacing:.6px; }
 .splash-summary p { font-size:11.5px; line-height:1.75; color:var(--soft-ink); }
 .splash-summary p + p { margin-top:6px; }
-/* #542：开屏「新手上路 3 步」——蓝色引导卡，放必读摘要之前；新手第一眼看到可执行动作，
-   而不是先被免责/公告长文淹没（仅静态展示，不参与进入门控） */
-.splash-onboard {
-  margin:0 0 14px; padding:12px 14px 13px 14px;
-  background:#eef5ff; border:1.5px solid #2f6fd0; border-radius:10px;
-}
-.splash-onboard-t { font-size:12.5px; font-weight:800; color:#1f5bb5; letter-spacing:.5px; margin-bottom:7px; }
-.splash-onboard p { font-size:12px; line-height:1.7; color:var(--soft-ink); }
-.splash-onboard p + p { margin-top:6px; }
-.splash-onboard b { color:var(--ink); font-weight:800; }
-.splash-onboard .splash-onboard-tip { color:#1f5bb5; font-weight:700; }
-[data-theme="dark"] .splash-onboard { background:rgba(47,111,208,.14); border-color:#5a8be0; }
-[data-theme="dark"] .splash-onboard-t { color:#8fb4ef; }
-[data-theme="dark"] .splash-onboard .splash-onboard-tip { color:#8fb4ef; }
+/* v3.26.x #575（用户 2026-09-16 反馈）：开屏「新手上路 3 步」蓝色引导卡已整块删除（DOM 在 template.html
+   同批撤除），此处 .splash-onboard* 样式一并清掉。新手引导改由 onboarding.js 弹层承担，勿再补回。 */
 /* v3.27.x：防骗置顶声明——固定在公告最顶部，防收费诈骗醒目提示 */
 .splash-alert {
   margin:0 0 14px; padding:10px 14px 11px 14px;

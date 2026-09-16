@@ -46,6 +46,7 @@ if (!RED) {
   check('A8 数据源：经期关心保持第 0 组 + 五个预警/推迟分组齐备', dataSrc.indexOf('["经期关心"') >= 0 && dataSrc.indexOf('["经期关心"') < dataSrc.indexOf('["温柔前缀"') && dataSrc.includes('["经前预警", [') && dataSrc.includes('["经前预警·不规律", [') && dataSrc.includes('["经期推迟", [') && dataSrc.includes('["经期推迟·关注", [') && dataSrc.includes('["经期推迟·不规律", ['));
   check('A9 规律档推迟强调「一向很准」+ 关注档带就医建议 + 不规律档不说「推迟」', dataSrc.includes('你一向很准的') && dataSrc.includes('陪你去看看医生吧') && dataSrc.includes('距上次经期已经 {d} 天了'));
   check('A10 字卡库「TA的关心」说明更新（分级判据 CV + 分组名）', dcSrc.includes('CV<0.2') && dcSrc.includes('「经期推迟·不规律」') && dcSrc.includes('「经期预警」'));
+  check('A11 深夜静默 23:00–06:00（同记忆备忘/喝水先例；删则半夜被经期预警叫醒）', periodSrc.includes('if (_h >= 23 || _h < 6) return; // #559 深夜静默（23:00–06:00 不发、不写 fired）') && dcSrc.includes('23:00–06:00 深夜静默'));
 }
 
 // ---- B 段：vm 桩环境跑真实源码的行为断言 ----
@@ -91,8 +92,10 @@ const DELAY_FREE = groupLines('经期推迟·不规律');
 // 规律档记录：末次经期 lastDaysAgo 天前 + 之前每 28 天一次（3 个有效周期差，CV=0 → rule）
 function ruleRecs(lastDaysAgo) { return [lastDaysAgo, lastDaysAgo + 28, lastDaysAgo + 56, lastDaysAgo + 84]; }
 
-// 建一个全新桩环境：records=经期开始日（天数前数组）、提醒配置；跑完源码并触发一次 checkCare
-function scenario(records, opts) {
+// 建一个全新桩环境：records=经期开始日（天数前数组）、提醒配置、opts.hour=受控「当前小时」
+// （默认 12 白天——否则测试在真实深夜运行会被 #559 深夜静默拦掉而误报）。
+// 返回 { calls, hourRef, fire, store }；hourRef.h 可在两次 fire 之间改动（验静默不吞当天名额）。
+function makeEnv(records, opts) {
   opts = opts || {};
   const lsMap = new Map();
   lsMap.set('period-records', JSON.stringify(records.map((ago, i) => ({ id: 'r' + i, start: daysAgoStr(ago), end: null }))));
@@ -104,6 +107,7 @@ function scenario(records, opts) {
     remove: (k) => lsMap.delete(k)
   };
   const calls = [];
+  const hourRef = { h: 'hour' in opts ? opts.hour : 12 };
   const sandbox = {
     setTimeout: function () { return 0; },
     clearTimeout: function () {},
@@ -115,6 +119,8 @@ function scenario(records, opts) {
   sandbox.window.isDefaultCardOff = function (cat, c) { return store.get('dc-off-' + cat + ':' + c) === '1'; };
   sandbox.window.chatAddIn = function (text, o) { calls.push({ text: String(text), tag: (o && o.tag) || '' }); };
   sandbox.Math = Object.assign(Object.create(Math), { random: function () { return 0; } });
+  // 受控 Date：只覆写 getHours（其余继承真实 Date），用于深夜静默场景
+  sandbox.Date = class extends Date { getHours() { return hourRef.h; } };
   // page-period 桩：truthy 即可（period.js 早期判空），hidden=true 防 render 路径
   sandbox.document = {
     getElementById: function (id) { return id === 'page-period' ? { hidden: true } : null; },
@@ -127,8 +133,12 @@ function scenario(records, opts) {
   vm.createContext(sandbox);
   vm.runInContext(srcData, sandbox, { filename: 'default-cards-data.js' });
   vm.runInContext(srcPeriod, sandbox, { filename: 'period.js' });
-  sandbox.window.periodCheckCare();
-  return calls;
+  return { calls, hourRef, fire: () => sandbox.window.periodCheckCare(), store };
+}
+function scenario(records, opts) {
+  const env = makeEnv(records, opts);
+  env.fire();
+  return env.calls;
 }
 const errs = [];
 function run(name, fn) {
@@ -198,29 +208,10 @@ run('B9 距下次经期 18 天（不在预警日）→ 不发任何消息', () =
   if (calls.length !== 0) throw new Error('实发 ' + JSON.stringify(calls));
 });
 run('B10 同一语境同日只发一条（冷却不受分级影响）', () => {
-  const lsMap = new Map();
-  lsMap.set('period-records', JSON.stringify(ruleRecs(25).map((ago, i) => ({ id: 'r' + i, start: daysAgoStr(ago), end: null }))));
-  lsMap.set('period-notify', JSON.stringify({ enabled: false, advanceDays: [3, 1, 0], hour: 9, careEnabled: true, fired: {} }));
-  const store = { get: (k) => (lsMap.has(k) ? lsMap.get(k) : null), set: (k, v) => lsMap.set(k, v), remove: (k) => lsMap.delete(k) };
-  const calls2 = [];
-  const sandbox = { setTimeout: function () { return 0; }, console: { info: function () {}, warn: function () {}, error: function () {}, log: function () {} } };
-  sandbox.window = sandbox;
-  sandbox.window.xyStore = function () { return store; };
-  sandbox.window.isDefaultCardOff = function (cat, c) { return store.get('dc-off-' + cat + ':' + c) === '1'; };
-  sandbox.window.chatAddIn = function (text, o) { calls2.push({ text: String(text), tag: (o && o.tag) || '' }); };
-  sandbox.Math = Object.assign(Object.create(Math), { random: function () { return 0; } });
-  sandbox.document = {
-    getElementById: function (id) { return id === 'page-period' ? { hidden: true } : null; },
-    querySelector: function () { return null; }, querySelectorAll: function () { return []; },
-    addEventListener: function () {}, removeEventListener: function () {},
-    body: { classList: { add: function () {}, remove: function () {} } }
-  };
-  vm.createContext(sandbox);
-  vm.runInContext(srcData, sandbox, { filename: 'default-cards-data.js' });
-  vm.runInContext(srcPeriod, sandbox, { filename: 'period.js' });
-  sandbox.window.periodCheckCare();
-  sandbox.window.periodCheckCare();
-  check('    同日两次判定只发 1 条', calls2.length === 1);
+  const env = makeEnv(ruleRecs(25));
+  env.fire();
+  env.fire();
+  check('    同日两次判定只发 1 条', env.calls.length === 1);
 });
 run('B11 经期页「梦角关心」开关关闭 → 完全不发', () => {
   const calls = scenario(ruleRecs(25), { careEnabled: false });
@@ -230,6 +221,28 @@ run('B12 字卡库把「经前预警」整组关掉 → 经前预警日一条不
   if (!PREWARN.length) { console.log('SKIP  B12（源码无经前预警分组，RED 模式正常）'); return; }
   const calls = scenario(ruleRecs(25), { blockGroups: ['经前预警'] });
   check('    整组关闭时经前预警日零发送', calls.length === 0, true);
+});
+
+run('B13 深夜 23:00 经前预警日 → 不发（半夜不叫醒，同备忘/喝水先例）', () => {
+  const calls = scenario(ruleRecs(25), { hour: 23 });
+  check('    深夜零发送', calls.length === 0, true);
+});
+run('B14 凌晨 05:59 经期中 → 不发（静默期覆盖 23:00–06:00 全段）', () => {
+  const calls = scenario([0], { hour: 5 });
+  check('    深夜零发送', calls.length === 0, true);
+});
+run('B15 静默不吞当天名额：深夜不发 → 白天改点后照常补发', () => {
+  const env = makeEnv(ruleRecs(25), { hour: 23 });
+  env.fire();
+  check('    深夜段零发送（且未写 fired）', env.calls.length === 0, true);
+  const c0 = env.calls.length;
+  env.hourRef.h = 12;
+  env.fire();
+  check('    白天段增量 1 条（静默若写了 fired 这里会是 0）', env.calls.length === c0 + 1, true);
+});
+run('B16 06:00 整点边界 → 视为白天照发（不小于 6 不静默）', () => {
+  const calls = scenario(ruleRecs(25), { hour: 6 });
+  check('    06:00 照发 1 条', calls.length === 1);
 });
 
 // ---- 汇总 ----

@@ -5715,20 +5715,26 @@ renderPokeGroupsBar(groups);
 if (!pokeList) return;
 pokeList.innerHTML = '';
 if (!groups.length) {
-pokeList.innerHTML = pokeMode === 'public'
+// FIX 2026-09-16 #575：字卡还在从 IDB 取回（iOS 挂后台杀连接时 6~14s）→ 出加载占位，
+// 不把「暂无拍一拍字卡」空态挂上去（会被当成字卡丢了）；取回完成由 done 回调重渲替换
+pokeList.innerHTML = ccPanelsFetching
+? ccLoadRowHtml('正在加载拍一拍字卡…')
+: (pokeMode === 'public'
 ? '<div class="cc-empty">暂无公用拍一拍<br>请到 字卡库 → 公用字卡 → 拍一拍 添加</div>'
 : pokeMode === 'ta'
 ? '<div class="cc-empty">暂无拍一拍字卡<br>请到 字卡库 → 专属字卡 → 拍一拍 添加</div>'
-: '<div class="cc-empty">暂无拍一拍字卡<br>在下方输入文字，点「存入」添加</div>';
+: '<div class="cc-empty">暂无拍一拍字卡<br>在下方输入文字，点「存入」添加</div>');
 return;
 }
 const cur = groups.find(g => g.key === pokeCurGroup) || groups[0];
 if (!cur.cards.length) {
-pokeList.innerHTML = pokeMode === 'public'
+pokeList.innerHTML = ccPanelsFetching
+? ccLoadRowHtml('正在加载该分组拍一拍…')
+: (pokeMode === 'public'
 ? '<div class="cc-empty">该分组暂无公用拍一拍<br>请到 字卡库 → 公用字卡 → 拍一拍 添加</div>'
 : pokeMode === 'ta'
 ? '<div class="cc-empty">该分组暂无拍一拍字卡<br>请到 字卡库 → 专属字卡 → 拍一拍 添加</div>'
-: '<div class="cc-empty">该分组暂无拍一拍<br>在下方输入文字，点「存入」添加到该分组</div>';
+: '<div class="cc-empty">该分组暂无拍一拍<br>在下方输入文字，点「存入」添加到该分组</div>');
 return;
 }
 cur.cards.forEach((c, i) => {
@@ -7823,11 +7829,26 @@ try {
 if (window.libScopesDeferred && window.hydrateLibScopes &&
 window.libScopesDeferred(['public', 'own'])) {
 try { toast('字卡较多，正在加载…'); } catch (e) {}
-window.hydrateLibScopes(['public', 'own'], done);
+// FIX 2026-09-16 #575：取回期间给面板「加载占位」，不再让「暂无表情包／暂无拍一拍字卡」
+//   空态挂着——iOS 挂后台杀 IDB 连接时这段要等 6~14s，空态会被用户当成「我的字卡丢了」
+//   （#574 字卡库同族）。ccPanelsFetching 让 renderEmojiPanel/renderPokeCard 改出占位行；
+//   done 回来（或取回失败）即清标记并重渲一次，占位行必被真实内容/真空态替换。
+ccPanelsFetching = true;
+window.hydrateLibScopes(['public', 'own'], function () {
+ccPanelsFetching = false;
+try { if (done) done(); } catch (e) {}
+});
+try { if (done) done(); } catch (e) {} // 立即重渲一次：把当前空态换成加载占位
 return true;
 }
 } catch (e) {}
 return false;
+}
+// #575：取回中的统一占位行（.mochi-load-row 见 chat-pages.css，与字卡库 #574 同观感）
+var ccPanelsFetching = false; // var：避开「函数先于 let 执行」的 TDZ 风险（历史事故族）
+var myeLoading = false;
+function ccLoadRowHtml(txt) {
+return '<div class="mochi-load-row"><span class="mochi-spin"></span>' + txt + '</div>';
 }
 function openPokeCard(fromGesture) {
 if (!pokeCard) return;
@@ -8921,9 +8942,14 @@ return true;
 }
 function myeHydrateFallback() {
 if (!window.idbHydrateKey) return;
+// FIX 2026-09-16 #575：取回期间保持等待态（面板开着已出占位行）；无论取回成功/失败/无值，
+//   落定时都要重渲一次——否则占位行会永远挂在那里盖住真空态。
+myeLoading = true;
+try { if (emojiPanel && !emojiPanel.hidden && emojiMode === 'mine') renderEmojiPanel(); } catch (e) {}
 window.idbHydrateKey(MYE_KEY()).then(ok => {
-if (ok !== true) return;
-try { const raw = myEmojiStore().get('my-emoji-groups'); if (raw) myeApplyIdb(raw); } catch (e) {}
+myeLoading = false;
+try { const raw = myEmojiStore().get('my-emoji-groups'); if (ok === true && raw) myeApplyIdb(raw); } catch (e) {}
+try { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); } catch (e) {}
 });
 }
 function myeSaveJson() { try { return JSON.stringify(myGroups || []); } catch (e) { return '[]'; } }
@@ -9392,7 +9418,10 @@ const emptyAll = isPub
 ? '<div class="emoji-empty">暂无公用表情包<br>请到 字卡库 → 公用字卡 → 表情包 上传</div>'
 : '<div class="emoji-empty">暂无表情包<br>请到 字卡库 → 专属字卡 → 表情包 上传</div>';
 if (!groups.length) {
-emojiList.innerHTML = emptyAll;
+// FIX 2026-09-16 #575：正在从 IDB 取回字卡（iOS 挂后台杀连接时 6~14s）→ 出加载占位，
+// 不要把「暂无表情包」空态挂上去（用户会当成字卡丢了）。取回完成由 done 回调重渲替换。
+emojiList.innerHTML = ccPanelsFetching ? ccLoadRowHtml('正在加载表情包…') : emptyAll;
+if (ccPanelsFetching) { emojiRenderSig = null; return; } // 占位行在 DOM 里：作废 #457 指纹短路，防重渲被跳过
 return;
 }
 const curn = isPub ? pubCurGroup : emojiCurGroup;
@@ -9431,7 +9460,11 @@ emojiRenderSig = _sigTarget;
 return;
 }
 if (!myGroups.length) {
-emojiList.innerHTML = '<div class="emoji-empty">暂无我的表情包<br>点击上方「添加」上传，或「新建分组」</div>';
+// FIX 2026-09-16 #575：我的表情包大键（18MB 级、只进 IDB）取回中 → 同上出加载占位
+emojiList.innerHTML = myeLoading
+? ccLoadRowHtml('正在加载我的表情包…')
+: '<div class="emoji-empty">暂无我的表情包<br>点击上方「添加」上传，或「新建分组」</div>';
+if (myeLoading) { emojiRenderSig = null; return; }
 return;
 }
 if (!myCurGroup) {
@@ -9478,10 +9511,22 @@ if (!window.idbGet) return;
 // 写入路径（myEmojiSave/添加/删除）、切桌面（全局键不动）、启动链路（bootRestore/#281）
 // 各有自己的取回入口，这里只负责「本会话第一次把权威值拉进内存」。
 if (window.__myeIdbApplied === true && Array.isArray(myGroups) && myGroups.length) return;
+// FIX 2026-09-16 #575：本会话还没拿到权威值且内存为空＝马上要等 idbGet（大键还要等 hydrate，
+//    iOS 挂后台杀连接时合计 6~14s）。先进入等待态，面板若开着就出「正在加载我的表情包…」，
+//    不再让「暂无我的表情包」空态挂在那儿被当成数据丢了。
+if (!(Array.isArray(myGroups) && myGroups.length)) {
+myeLoading = true;
+try { if (emojiPanel && !emojiPanel.hidden && emojiMode === 'mine') renderEmojiPanel(); } catch (e) {}
+}
 window.idbGet(MYE_KEY()).then(v => {
 // #172：读空（大键挂起/事务超时）不再静默放弃 → hydrate 按需取回
 if (!v) { myeHydrateFallback(); return; }
+myeLoading = false;
 myeApplyIdb(v);
+try { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); } catch (e) {}
+}).catch(() => {
+myeLoading = false;
+try { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); } catch (e) {}
 });
 }
 document.addEventListener('contact-switched', function () {

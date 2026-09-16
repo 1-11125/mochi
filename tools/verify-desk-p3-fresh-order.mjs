@@ -10,7 +10,7 @@
 // 环境变量：MOCHI_P3_ROOT=被测根目录（默认本仓库根，供临时副本收口前验证）；MOCHI_P3_LOADS=加载次数（默认 3）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, rmSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -69,9 +69,12 @@ const baseUrl = 'http://127.0.0.1:' + server.address().port;
 const cdpPort = process.env.MOCHI_CDP_PORT ? Number(process.env.MOCHI_CDP_PORT) : (10400 + Math.floor(Math.random() * 400));
 
 async function coldLoadOnce() {
+  // FIX #560 配套：C 盘容量紧张（ENOSPC 事故后约定）——每轮用独立临时档案目录（保证全新
+  // 冷启动语义）且 finally 即删，不遗留 %TEMP% 垃圾。
+  const profileDir = join(process.env.TEMP || '/tmp', 'mochi-p3-fresh-' + Date.now() + '-' + Math.floor(Math.random() * 1e6));
   const chrome = spawn(chromePath, [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-    '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-p3-fresh-' + Date.now() + '-' + Math.floor(Math.random() * 1e6)),
+    '--user-data-dir=' + profileDir,
     '--remote-debugging-port=' + cdpPort, 'about:blank'
   ], { stdio: 'ignore' });
   try {
@@ -126,6 +129,7 @@ async function coldLoadOnce() {
     return { smoke: JSON.parse(String(r.result.value).slice(0, idx)), tOrder: String(r.result.value).slice(idx + 3) };
   } finally {
     try { chrome.kill(); } catch (e) {}
+    try { rmSync(profileDir, { recursive: true, force: true }); } catch (e) {}
   }
 }
 

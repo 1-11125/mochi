@@ -651,22 +651,26 @@
   }
   // v3.33.x #523：App 内自绘交卷时间选择器——替代原生 datetime-local（原生弹层锚点不受控，
   // 部分设备/桌面预览下会飘出手机框甚至屏幕外）。两处时间入口（问问TA 答题结束时间 / 批量问卷
-  // 交卷时间）共用。**最简形态（用户定稿）**：只有一个「分钟」输入框，默认 1 分钟，自己填多少分钟；
+  // 交卷时间）共用。**最简形态（用户定稿）**：只有一个「秒」输入框，直接自由填多少秒（默认 60 秒）；
   // 顶部实时显示到点的绝对时刻。overlay 静态写在 template 的 #dl-picker-mask（挂 .phone 内，
   // 与 #modal-mask 同层，永不飞出手机框）。
   let dlPickerCb = null;
-  function dlPickerMins() {
-    const el = document.getElementById('dl-picker-mins');
+  function dlPickerSecs() {
+    const el = document.getElementById('dl-picker-secs');
     const n = el ? parseInt(el.value, 10) : NaN;
     return (isFinite(n) && n > 0) ? n : 0;
   }
+  function fmtSecsText(n) {
+    if (n < 60) return n + ' 秒';
+    return Math.floor(n / 60) + ' 分 ' + (n % 60) + ' 秒';
+  }
   function dlPickerRender() {
-    const n = dlPickerMins();
+    const n = dlPickerSecs();
     const curEl = document.getElementById('dl-picker-cur');
     if (!curEl) return;
     curEl.textContent = n > 0
-      ? '到点：' + fmtDeadlineText(Date.now() + n * 60000) + '（' + n + ' 分钟后）'
-      : '请输入分钟数（默认 1 分钟）';
+      ? '到点：' + fmtDeadlineText(Date.now() + n * 1000) + '（' + fmtSecsText(n) + '后）'
+      : '请输入秒数（默认 60 秒）';
   }
   function closeDeadlinePicker() {
     const m = document.getElementById('dl-picker-mask');
@@ -681,17 +685,17 @@
     if (!m) return null;
     if (dlPickerWired) return m;
     dlPickerWired = true;
-    const mins = document.getElementById('dl-picker-mins');
-    if (mins) {
-      mins.addEventListener('input', dlPickerRender);
+    const secs = document.getElementById('dl-picker-secs');
+    if (secs) {
+      secs.addEventListener('input', dlPickerRender);
       // 兜底：部分内核点框沿不自动聚焦，点一下显式聚焦（安卓聚焦 ce-box）
-      mins.addEventListener('click', () => { try { (mins.__ceBox || mins).focus(); } catch (e) {} });
+      secs.addEventListener('click', () => { try { (secs.__ceBox || secs).focus(); } catch (e) {} });
     }
     const ok = document.getElementById('dl-picker-ok');
     if (ok) ok.onclick = () => {
-      const n = dlPickerMins();
-      if (n <= 0) { toast('请输入分钟数（大于 0）'); return; }
-      const cb = dlPickerCb; const ts = Date.now() + n * 60000; closeDeadlinePicker(); if (cb) cb(ts);
+      const n = dlPickerSecs();
+      if (n <= 0) { toast('请输入秒数（大于 0）'); return; }
+      const cb = dlPickerCb; const ts = Date.now() + n * 1000; closeDeadlinePicker(); if (cb) cb(ts);
     };
     const cancel = document.getElementById('dl-picker-cancel');
     if (cancel) cancel.onclick = () => closeDeadlinePicker();
@@ -700,8 +704,8 @@
     m.addEventListener('click', (e) => { if (e.target === m) closeDeadlinePicker(); });
     return m;
   }
-  function dlPickerSetMins(n) {
-    const el = document.getElementById('dl-picker-mins');
+  function dlPickerSetSecs(n) {
+    const el = document.getElementById('dl-picker-secs');
     if (!el) return;
     if (document.activeElement === el || (el.__ceBox && document.activeElement === el.__ceBox)) return;
     el.value = String(n);
@@ -710,16 +714,16 @@
     const m = dlPickerInit();
     if (!m) { toast('时间选择器加载失败'); return; }
     dlPickerCb = cb;
-    // 已设过且未过期 → 按剩余分钟回填；否则默认 1 分钟
-    const n = (current > 0 && current > Date.now()) ? Math.max(1, Math.round((current - Date.now()) / 60000)) : 1;
+    // 已设过且未过期 → 按剩余秒数回填；否则默认 60 秒
+    const n = (current > 0 && current > Date.now()) ? Math.max(1, Math.round((current - Date.now()) / 1000)) : 60;
     const tEl = document.getElementById('dl-picker-title');
     if (tEl) tEl.textContent = title;
-    dlPickerSetMins(n);
+    dlPickerSetSecs(n);
     dlPickerRender();
     m.hidden = false;
     // 打开补写两次兜底（部分内核 ce-box 值代理有延迟）
-    setTimeout(() => { if (m && !m.hidden) dlPickerSetMins(n); }, 0);
-    setTimeout(() => { if (m && !m.hidden) { dlPickerSetMins(n); dlPickerRender(); } }, 80);
+    setTimeout(() => { if (m && !m.hidden) dlPickerSetSecs(n); }, 0);
+    setTimeout(() => { if (m && !m.hidden) { dlPickerSetSecs(n); dlPickerRender(); } }, 80);
   }
 
   // 随机取一道已启用的题（优先用户自定义/启用的）

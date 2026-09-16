@@ -3159,3 +3159,29 @@ window.mochiViewportForm = function (sig) {
   else bindFuncDiag();
   window.__collectFuncDiag = collectFuncDiag;
 })();
+
+// ===== 全站公共搜索工具（FIX 2026-09-16 #573）：设置页搜索（personalize.js）/ 字卡库搜索
+//（chatcard.js）/ 功能大全搜索（feature-hub.js）共用同一套匹配语义，防多处实现漂移。
+// 纯字符串运算、按键触发一次：无定时器、无合成层、无常驻大对象，安卓/iOS 零卡顿面。
+(function () {
+  var PUNCT = /[\s。！？!?.,，、;；:：·~～「」『』（）()【】\[\]“”‘’"'—_\-]+/g;
+  window.mochiSearch = {
+    // 查询分词：小写 + 空格切多词（空串剔除）
+    terms: function (q) { return String(q || '').trim().toLowerCase().split(/\s+/).filter(function (w) { return w; }); },
+    // 查询侧标点归一：标点当空格（「晚安。」＝「晚安」），再交给 terms
+    qnorm: function (q) { return String(q || '').replace(PUNCT, ' ').trim(); },
+    // 文本侧归一：小写 + 去标点（精确判等用）
+    norm: function (s) { return String(s || '').toLowerCase().replace(PUNCT, ''); },
+    // 最长词作锚（注册方只认整串子串时，用锚词取候选最省）
+    anchor: function (terms) { return terms.reduce(function (a, b) { return b.length > a.length ? b : a; }, terms[0] || ''); },
+    // 匹配质量分级：0=精确（标点归一后整段相等）1=开头 2=包含
+    rank: function (text, q) {
+      var t = this.norm(text); var nq = this.norm(q);
+      if (!nq) return 2;
+      if (t === nq) return 0;
+      return t.indexOf(nq) === 0 ? 1 : 2;
+    },
+    // 多词 AND：每个词都须在小写素材里出现
+    and: function (hayLower, terms) { return terms.every(function (w) { return hayLower.indexOf(w) >= 0; }); }
+  };
+})();

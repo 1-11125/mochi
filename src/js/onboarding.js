@@ -61,11 +61,20 @@
     '.mg-guide-btn.ghost{background:rgba(0,0,0,.06);color:var(--ink,#111)}' +
     '[data-theme="dark"] .mg-guide-step{background:rgba(255,255,255,.07)}' +
     '[data-theme="dark"] .mg-guide-btn.ghost{background:rgba(255,255,255,.1)}' +
-    '[data-theme="dark"] .mg-guide-go{color:#8fb4ef}';
+    '[data-theme="dark"] .mg-guide-go{color:#8fb4ef}' +
+    // #577：步骤内的补充提示块（桌面 / 聊天两套昵称的说明用，配色走暖色警示）
+    '.mg-guide-warn{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(214,132,60,.13);color:#9a5520;font-size:11.5px;line-height:1.6}' +
+    '[data-theme="dark"] .mg-guide-warn{background:rgba(214,132,60,.18);color:#e4ae7f}';
   document.head.appendChild(st);
 
   const STEPS = [
-    { n: '1', h: '设置「我」和「TA」', d: '回桌面，点顶部两个头像 / 昵称，即可改名、换头像。', go: 'name' },
+    // #577（用户 2026-09-16：引导里没说明「桌面的昵称和聊天里的昵称是独立的，需单独设置」）：
+    // 桌面昵称= lbl-user/lbl-partner，聊天昵称= cs-lbl-user/cs-lbl-partner，v3.26.x 起聊天与桌面
+    // 彻底解耦（chat.js chatLabel 传 null 不回退桌面键），未设聊天昵称时聊天里固定显示默认「我」「TA」
+    // ——所以只教「点桌面顶部改名」会让用户以为聊天里的名字也会跟着变，必须写明是两套、在哪单独设。
+    { n: '1', h: '设置「我」和「TA」', d: '回桌面，点顶部两个头像 / 昵称，即可改名、换头像（这里是桌面那一套）。',
+      warn: '桌面的昵称 / 头像与聊天里的是<b>两套、互不同步</b>：桌面改完，聊天里仍显示默认「我」「TA」；聊天里的名字和头像要在「聊天页右上角 → 聊天设置 → 形象」里单独设置。',
+      go: 'name' },
     { n: '2', h: '先添加字卡', d: '底部「字卡库」→ 公用字卡 / 专属字卡 添加或导入；不加字卡，TA 就没有话可说。', go: 'cards' },
     { n: '3', h: '开始聊天', d: '回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。', go: 'chat' }
   ];
@@ -83,7 +92,9 @@
     STEPS.forEach(function (s) {
       html += '<div class="mg-guide-step" data-gstep="' + s.go + '">'
         + '<span class="mg-guide-n">' + s.n + '</span>'
-        + '<span class="mg-guide-b"><span class="mg-guide-h">' + s.h + '</span><span class="mg-guide-d">' + s.d + '</span></span>'
+        + '<span class="mg-guide-b"><span class="mg-guide-h">' + s.h + '</span><span class="mg-guide-d">' + s.d + '</span>'
+        + (s.warn ? '<span class="mg-guide-warn">' + s.warn + '</span>' : '')
+        + '</span>'
         + '<span class="mg-guide-go">去 →</span></div>';
     });
     html += '<div class="mg-guide-foot"><div class="mg-guide-btn primary" data-gact="done">知道了，开始用</div><div class="mg-guide-btn ghost" data-gact="close">以后再说</div></div>';
@@ -147,7 +158,7 @@
     grp.className = 'set-group glass';
     grp.innerHTML = '<div class="set-row" id="row-guidebook">'
       + '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.7-1.5 1.2-1.5 2.2"/><circle cx="12" cy="17" r=".6" fill="#111111"/></svg></div>'
-      + '<div class="txt">新手引导<span class="sub">3 步上手：设置昵称头像 / 添加字卡 / 开始聊天</span></div>'
+      + '<div class="txt">新手引导<span class="sub">3 步上手：设置昵称头像（桌面 / 聊天分开设）/ 添加字卡 / 开始聊天</span></div>'
       + '<div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>'
       + '</div>';
     sec.appendChild(grp);

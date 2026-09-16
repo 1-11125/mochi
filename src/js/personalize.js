@@ -576,7 +576,11 @@ try {
           if (show) ctl.focus();
         },
         // 重建胶囊组；传空数组/null 隐藏。initVal 设初始选中项
-        pills: function (list, initVal) { buildPills(list, initVal); }
+        pills: function (list, initVal) { buildPills(list, initVal); },
+        // #576：ctl.close()——调用方主动关窗（存储异常弹窗「去导出备份/查看存储」直达
+        // 按钮跳转成功后关闭）。走与取消/遮罩同一个 close()（含 stayOnce/关键盘语义），
+        // 不另开直接摘 mask 的口子；失败静默（弹窗留在原地，调用方有手动路径兜底）。
+        close: function () { try { close(); } catch (e) {} }
       };
       // v3.16.x：opts.copyBtn——弹窗底部「复制」按钮（诊断信息等只读展示场景）。
       // 传 { label, fn }，fn(ctl) 在点击时调用，可用 ctl.hint() 就地反馈复制结果；
@@ -1826,6 +1830,10 @@ try {
   // 所以这个坑只在真机暴露）。现改为底部抽屉：桌面完整留在上半屏，抽屉占下半屏、可折叠。
   // 同时按「颜色/尺寸/背景」分区补齐控件（原来只有 5 项：主题色/组件背景/边框/圆角/透明度，
   // 按钮色、按钮文字色、爱心色、图标圆角、字号、卡片大小、壁纸/模糊/遮罩全都没有）。
+  // FIX 2026-09-16 #562：边看边调面板可拖动/吸附（用户「还是会遮挡其他东西我看不见」）——
+  // 会话内记住拖到的纵向位置；null=贴底（默认）。放模块作用域不落盘：纯 UI 位置，避免与
+  // contacts.js 的根键迁移/EXCLUDE 清单打交道。
+  let beautyDockTop = null;
   const openBeautyDrawer = () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
@@ -2207,7 +2215,18 @@ try {
       '新手引导': '教程 上手 入门',
       '功能介绍': '介绍 许可 版权 二传'
     };
-    // 行搜索素材 = 标题 + .sub 说明 + 分区名 + 命中 key 的别名；标题取词剔除 .tag 胶囊（①）
+    // FIX 2026-09-16 #573 拼音首字母轻量表（仅设置入口行，不引拼音库＝产物零增重）：
+    // 搜「ssms」＝深色模式、「hfsz」＝回复设置。单字母前缀会泛命中属预期，用户自然补足。
+    const PY = {
+      '联系人 / 桌面': 'lxrzm', '开启群聊': 'kqql', '跨桌面查岗': 'kzmcg', '查岗频率': 'cgpl', '打电话': 'dh',
+      '深色模式': 'ssms', '手机桌面美化': 'sjzmmh', '回复设置': 'hfsz', '通话设置': 'thsz', '音效设置': 'yxsz',
+      '功能大全': 'gndq', '应用锁': 'yys', '开屏问答门': 'kpwdm', '手机布局': 'sjbj', '离线消息提醒': 'lxxtx',
+      '使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
+      '屏幕适配诊断': 'pmspzd', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
+      '字卡使用状态自检': 'zksyztzj', '清除本地数据': 'qcbdsj', '新手引导': 'xsyd', '功能介绍': 'gnjs'
+    };
+    // 行搜索素材 = 标题 + .sub 说明 + 分区名 + settings-help 说明文案（#573）+ 命中 key 的别名/拼音；
+    // 标题取词剔除 .tag 胶囊（①）
     const rowHay = (r) => {
       const t = r.querySelector('.txt');
       if (!t) return '';
@@ -2216,7 +2235,11 @@ try {
       const base = c.textContent.replace(/\s+/g, ' ').trim();
       const sec = r.closest('.them-sec');
       let extra = ' ' + (SEC_NAME[sec && sec.dataset.sec] || '');
-      for (const k in KW) { if (base.indexOf(k) >= 0) extra += ' ' + KW[k]; }
+      // #573：按行上「功能说明」胶囊的 data-setdesc 反查说明文案，说明里的词（壁纸/备份/总入口…）自动可搜
+      const tagEl = t.querySelector('[data-setdesc]');
+      const help = (tagEl && window.__settingsHelpDesc) ? window.__settingsHelpDesc[tagEl.getAttribute('data-setdesc')] : null;
+      if (help) extra += ' ' + (help.name || '') + ' ' + (help.d || '');
+      for (const k in KW) { if (base.indexOf(k) >= 0) { extra += ' ' + KW[k]; if (PY[k]) extra += ' ' + PY[k]; } }
       return (base + extra).toLowerCase();
     };
     const emptyTip = document.createElement('div');

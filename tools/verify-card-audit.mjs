@@ -124,6 +124,10 @@ ok(body.indexOf('各桌面专属字卡概览') >= 0, 'B3d 渲染「各桌面概�
 ok(body.indexOf('卡数据健康') >= 0, 'B3e 渲染「卡数据健康」节');
 const jumps = await evalJs("(function(){return document.querySelectorAll('#card-audit-body [data-jump]').length;})()");
 ok(Number(jumps) >= 1, 'B3f 问题行带可点击跳转锚 (data-jump)', 'count=' + jumps);
+ok(body.indexOf('平均每') >= 0, 'B3g 概率带人话换算（平均每 N 条回复 / 次触发）');
+ok(body.indexOf('系统预设 ↔ 自定义字卡占比') >= 0, 'B3h 渲染「系统预设 ↔ 自定义占比」卡');
+const ratioBars = await evalJs("(function(){return document.querySelectorAll('#card-audit-body .ca-ratio-bar').length;})()");
+ok(Number(ratioBars) >= 1, 'B3i 互补占比条存在', 'count=' + ratioBars);
 
 // B4 一键修复真的写回默认（先种 reply-dcp-all=0 / dcf-fish=0，再点 inl-dcp 修复）
 await evalJs("(function(){try{window.activeStore().set('reply-dcp-all','0');window.activeStore().set('dcf-fish','0');}catch(e){}var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");
@@ -144,6 +148,16 @@ ok(jumped.no === false && jumped.auditHidden === true, 'B5 点跳转后离开自
 // B6 结构兜底：#page-card-audit 未吞 tabbar
 const nest = J(await evalJs("(function(){var tb=document.querySelector('.tabbar');var p=document.getElementById('page-card-audit');return JSON.stringify({inside:!!(tb&&p&&p.contains(tb))});})()"));
 ok(nest.inside === false, 'B6 #page-card-audit 正确闭合（tabbar 未被吞）', JSON.stringify(nest));
+
+// B7/B8 大库未取回：顶部提示 + 「点此加载完整字卡」真的调 hydrateLibScopes
+await evalJs("(function(){try{window.libScopesDeferred=function(){return true;};}catch(e){}var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");
+await sleep(1300);
+const loadBtn = await evalJs("(function(){return document.querySelectorAll('#card-audit-body [data-load]').length;})()");
+ok(Number(loadBtn) >= 1, 'B7 字卡未取回时显示「点此加载完整字卡」', 'count=' + loadBtn);
+await evalJs("(function(){window.__hydrated=false;var o=window.hydrateLibScopes;if(o){window.hydrateLibScopes=function(s,cb){window.__hydrated=true;return o.apply(this,arguments);};}var b=document.querySelector('#card-audit-body [data-load]');if(b)b.click();return true;})()");
+await sleep(500);
+const hydrated = await evalJs("window.__hydrated===true");
+ok(hydrated === true, 'B8 点「加载完整字卡」触发 hydrateLibScopes', 'hydrated=' + hydrated);
 
 try { chrome.kill(); } catch (e) {}
 server.close();

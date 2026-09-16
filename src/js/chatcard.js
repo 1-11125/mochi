@@ -1059,13 +1059,26 @@
     // v3.32.x：功能字卡双入口角标——专属行=专属库功能字卡、公用行=公用库功能字卡
     //（各自走缓存，本函数零解析；与 公用字卡/专属字卡 两行口径一致）
     const pfe = document.getElementById('cc-fun-count');
-    if (pfe) pfe.textContent = String(libCounts.fun < 0 ? 0 : libCounts.fun);
+    if (pfe) { pfe.textContent = String(libCounts.fun < 0 ? 0 : libCounts.fun); pfe.classList.remove('cc-cnt-loading'); } // #575 写回真值即摘掉取回中脉冲态
     const pfpe = document.getElementById('cc-fun-pub-count');
-    if (pfpe) pfpe.textContent = String(libCounts.pubFun < 0 ? 0 : libCounts.pubFun);
+    if (pfpe) { pfpe.textContent = String(libCounts.pubFun < 0 ? 0 : libCounts.pubFun); pfpe.classList.remove('cc-cnt-loading'); }
     const pe = document.getElementById('cc-pub-count');
-    if (pe) pe.textContent = libCounts.pub < 0 ? 0 : libCounts.pub;
+    if (pe) { pe.textContent = libCounts.pub < 0 ? 0 : libCounts.pub; pe.classList.remove('cc-cnt-loading'); }
     const oe = document.getElementById('cc-list-count');
-    if (oe) oe.textContent = libCounts.own < 0 ? 0 : libCounts.own;
+    if (oe) { oe.textContent = libCounts.own < 0 ? 0 : libCounts.own; oe.classList.remove('cc-cnt-loading'); }
+  }
+  // FIX 2026-09-16 #575：字卡库列表页角标的「取回中」态——四个计数位显示「…」并加脉冲类，
+  //   避免等待期显示 0 被当成「字卡丢了」（数据面不缩短等待，但界面不能说谎）。
+  //   取回落定后由 refreshLibCounts(true) 写回真值并摘掉脉冲类。
+  function markLibCountsLoading() {
+    try {
+      ['cc-pub-count', 'cc-list-count', 'cc-fun-count', 'cc-fun-pub-count'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = '…';
+        el.classList.add('cc-cnt-loading');
+      });
+    } catch (e) {}
   }
   // v3.25.x：数据迟到重算——restore-done 时内存缓存才刚有数据（iOS 上常晚于首屏渲染），
   // 此前没有任何时点会重算两行角标，0 就一直挂着。启动回填完成即强制重算一次。
@@ -1390,11 +1403,17 @@
     if (q) {
       // v3.7.x：保留原始索引——搜索过滤后 data-idx 必须仍是原始数组索引，
       // 否则单卡点击编辑/删除会按错位索引改到别的字卡
+      // FIX 2026-09-16 #573 搜索精准化（与 #557 字卡库页同款）：①多词空格 AND + 查询侧标点归一；
+      // ②组内按匹配质量稳定排序（rk 并列以原始 oi 决胜），data-idx 仍写原始 oi＝点击编辑删除不受影响；
+      // #508 指纹复用池按内容指纹存取（ccPoolPush/Adopt 以 sig 为键），与行序无关＝乱序安全。
+      const terms = window.mochiSearch ? window.mochiSearch.terms(window.mochiSearch.qnorm(q)) : [q.toLowerCase()];
+      const kwN = terms.join(' ');
       shown = shown
         .map(([g, arr]) => [g, arr
-          .map((c, oi) => ({ c: c, oi: oi }))
-          .filter(x => (typeof x.c === 'string' && x.c.indexOf('data:') !== 0) && x.c.indexOf(q) >= 0)])
-        .filter(([g, arr]) => arr.length || g.indexOf(q) >= 0);
+          .map((c, oi) => { const o = { c: c, oi: oi }; o.rk = window.mochiSearch ? window.mochiSearch.rank(c, kwN) : 2; return o; })
+          .filter(x => (typeof x.c === 'string' && x.c.indexOf('data:') !== 0) && terms.every(w => x.c.toLowerCase().indexOf(w) >= 0))
+          .sort((a, b) => a.rk - b.rk || a.oi - b.oi)])
+        .filter(([g, arr]) => arr.length || terms.every(w => g.toLowerCase().indexOf(w) >= 0));
     }
     updateCountsOnly();
     // FIX #508（红米 K80 Chrome 等多机型报「表情包页操作后图片闪一下重新加载」，与头像互动
@@ -1563,18 +1582,22 @@
   function renderSearchResult(kw) {
     if (!kw) { searchResultEl.hidden = true; searchResultEl.innerHTML = ''; return; }
     searchResultEl.hidden = false;
+    kw = window.mochiSearch ? window.mochiSearch.qnorm(kw) : kw; // #573 查询侧标点归一：「晚安。」＝「晚安」
+    if (!kw) { searchResultEl.hidden = true; searchResultEl.innerHTML = ''; return; }
     const fns = window.__cardSearchFns || [];
     // FIX 2026-09-16 #557 字卡库搜索精准化（用户报「搜一个字，多几个字的全部出现」）：
     // ① 多词空格 AND——各注册方只认整串子串，故以最长词为锚调注册方取候选，其余词在中心
     //    复筛每词都须命中（此前整串当单词条，「晚安 爱」恒 0 命中）；
     // ② 匹配质量排序分节：整卡等于关键词（精确）→ 开头命中 → 包含命中，最像的排最前，
     //    不再按模块注册顺序把精确卡淹没在一堆仅「沾边」的长卡里。
-    const terms = kw.toLowerCase().split(/\s+/);
-    const anchor = terms.reduce(function (a, b) { return b.length > a.length ? b : a; }, terms[0]);
+    // #573 分词/锚词/分级改走全站公共 window.mochiSearch（与设置页/功能大全同一套语义）。
+    const ms = window.mochiSearch || null;
+    const terms = ms ? ms.terms(kw) : [String(kw).toLowerCase()];
+    const anchor = ms ? ms.anchor(terms) : terms[0];
     let all = [];
     fns.forEach(function (reg) { try { (reg.fn(anchor) || []).forEach(function (r) { all.push({ t: r.t, cat: r.cat, mod: reg.name }); }); } catch (e) {} });
     all = all.filter(function (r) { const t = String(r.t || '').toLowerCase(); return terms.every(function (w) { return t.indexOf(w) >= 0; }); });
-    all.forEach(function (r) { const t = String(r.t || '').toLowerCase(); r.__rank = (t === kw ? 0 : (t.indexOf(kw) === 0 ? 1 : 2)); });
+    all.forEach(function (r) { r.__rank = ms ? ms.rank(r.t, kw) : 2; });
     all.sort(function (a, b) { return a.__rank - b.__rank; });
     if (!all.length) { searchResultEl.innerHTML = '<div class="ta-empty" style="padding:20px 12px">没有找到含「' + esc(kw) + '」的字卡</div>'; return; }
     const RANK_NAME = ['精确命中', '开头命中', '包含命中'];
@@ -4197,11 +4220,45 @@
     const ccPage = document.getElementById('page-custom-cards');
     if (ccPage) ccPage.hidden = false;
     maybeLowCardsRemind(); // v3.32.x：自建聊天字卡很少时提醒默认字卡 30% 概率
+    // FIX 2026-09-16 #574 字卡库开页「空白干等 IDB」（用户报「字卡库卡 5、6 秒，也没有
+    //   动画加载的缓冲」iPhone 14 Pro Safari 等多 iOS 机型）：本机（LS/内存/缓存）读不到
+    //   该作用域时，下面这行 hydrateCurScope 要等 idbHydrateKey 取回——iOS 挂后台杀 IDB
+    //   连接后单次读最长 6s、重试链最长 14s（无头桩实测 14024ms），期间渲染被 then 门控＝
+    //   列表停在上一版内容（首开即旧空态「暂无字卡」）且页面内零加载态＝点下去像死机。
+    //   这里在等待发生【之前】先出加载行：健康设备（本机有数据）不进本分支＝零变化、
+    //   零闪动；真需要取回时用户立刻看到「正在加载字卡…」，取回完成后 render() 照常覆写。
+    //   只动首屏观感，不碰取回时机与写路径权威门控（ccAuthMark/#193 语义零改动）。
+    try { if (!curStore().get(curKey())) showLibLoadingSoon(); } catch (eL) {}
     hydrateCurScope().then(() => {
       groups = loadGroups();
       try { renderGroupsBar(); render(); } catch (e) {}
+      clearLibLoadingRow(); // #574：取回落定后无论 render 成败都摘掉加载态，不留残留占位
       refreshLibCounts(false); // v3.15.x：懒加载取回后同步刷新列表页两行角标（此前停留 0 像「丢失」）
     });
+  }
+  // #574：字卡库首屏加载态（等待发生前占位，取回完成由 render() 覆写；不新建 DOM 锚点，
+  //   直接复用列表容器，避免与 render() 的清空/分块渲染互相打架）。
+  //   延迟 150ms 才出：空库/健康设备的一次 IDB 读通常几十毫秒内返回＝全程不出现，观感零变化；
+  //   真卡住（iOS 挂后台杀连接：单次 6s、重试链 14s）才亮出「正在加载字卡…」。
+  var libLoadTimer = null; // #574：用 var 避开「函数先于 let 执行」的 TDZ 风险（历史 TDZ 事故族）
+  function showLibLoadingSoon() {
+    try { clearTimeout(libLoadTimer); libLoadTimer = setTimeout(showLibLoadingRow, 150); } catch (e) {}
+  }
+  function showLibLoadingRow() {
+    try {
+      if (!list) return;
+      list.dataset.ccLoading = '1';
+      list.innerHTML = '<div class="cc-lib-loading"><span class="cc-spin"></span>正在加载字卡…</div>';
+    } catch (e) {}
+  }
+  function clearLibLoadingRow() {
+    try { clearTimeout(libLoadTimer); } catch (e0) {}
+    try {
+      if (!list || !list.dataset.ccLoading) return;
+      delete list.dataset.ccLoading;
+      const row = list.querySelector('.cc-lib-loading');
+      if (row) row.remove();
+    } catch (e) {}
   }
   // v3.11.x：离开自定义字卡管理页一律恢复专属作用域——回复池（getCustomCards/
   // getPokeCards/getMediaCards 等）以内存 groups 为基准，若停留在 public 作用域，
@@ -4475,6 +4532,14 @@
         refreshLibCounts(true);
         if (libScopesDeferred(['public', 'own'])) {
           try { toast('字卡较多，正在加载…'); } catch (e) {}
+          // FIX 2026-09-16 #575：取回期间两行角标显示「…」而非 0——0 会被当成「字卡丢了」
+          //（#574 同族：等待本身没办法缩短，但不能让等待期的界面说谎）。取回落定后强制
+          //  重算一次把真值填回；失败/无数据也一样重算（还 0 就是真 0）。
+          markLibCountsLoading();
+          hydrateLibScopes(['public', 'own']).then(function () {
+            try { refreshLibCounts(true); } catch (e) {}
+          });
+          return;
         }
         hydrateLibScopes(['public', 'own']);
       }).observe(libPage, { attributes: true, attributeFilter: ['hidden'] });

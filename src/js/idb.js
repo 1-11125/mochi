@@ -123,12 +123,49 @@
     try { console.warn('[mochi] IDB 写入连续失败 ' + _idbFailCnt + ' 次（最后错误: ' + (_idbFailLastErr || '超时/挂起') + '），建议立即导出备份'); } catch (e) {}
     try {
       if (window.openModal) {
-        window.openModal('存储异常', '', null, {
+        // #576：原弹窗只报错并让用户「去设置页导出」，手机端用户不知道设置页里该干什么。
+        // 现按处理顺序给分步建议 + 两个直达按钮（copyBtn/exportBtn 通用按钮位）：
+        // 「去导出备份」→ #row-export、「查看存储」→ #row-storage-view；平台差异各给一条
+        // 针对性提示（iOS 系统清存储/无痕模式，安卓系统存储挂钩）。跳转失败不关窗、
+        // 就地提示手动路径，兜底永远可手动走设置页。
+        const md = window.mochiDevice || {};
+        const platTip = md.isIOS
+          ? 'iOS 存储紧张时系统可能清空网站数据，且无痕模式下数据不落盘——定期导出是唯一防线。'
+          : (md.isAndroid ? '安卓的写入配额与手机系统存储挂钩，请确保系统存储有足够剩余空间。' : '');
+        const ctl = window.openModal('存储异常', '', null, {
           noInput: true,
-          staticText: '近期数据多次写入失败，可能因存储空间不足或浏览器限制。\n\n建议立即在设置页导出一份备份，避免数据丢失。'
+          staticText: '近期数据多次写入失败，数据可能没有存上。建议按顺序处理：\n\n'
+            + '① 先导出一份备份（下方「去导出备份」直达；数据量大可改选「只备份文字」，文件更小）\n'
+            + '② 查看存储占用并瘦身（下方「查看存储」直达：字卡图去重 / 图片压缩 / 清理本地音乐）\n'
+            + (platTip ? '③ ' + platTip + '\n' : '')
+            + (platTip ? '④' : '③') + ' 若每次打开都弹：设置 → 设备兼容诊断，一键复制报告反馈',
+          copyBtn: { label: '去导出备份', fn: function (c) { idbFailAct('#row-export', c, '设置 → 导出数据'); } },
+          exportBtn: { label: '查看存储', fn: function (c) { idbFailAct('#row-storage-view', c, '设置 → 查看存储'); } }
         });
+        try { if (ctl && ctl.okText) ctl.okText('知道了'); } catch (e0) {}
       }
     } catch (e) {}
+  }
+  // #576：存储异常弹窗直达按钮的跳转——与 card-audit.showSettingRow 同款链路（显
+  // #page-setting → 点行所在分组 tab → 滚动居中），不重复实现入口逻辑；行上的点击
+  // 处理器仍由各自功能文件绑定，用户到达后照常手点。成功才关弹窗（ctl.close）。
+  function idbFailAct(rowSel, ctl, fallbackTip) {
+    try {
+      document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
+      const sp = document.getElementById('page-setting');
+      if (sp) sp.hidden = false;
+      const el = document.querySelector(rowSel);
+      if (!el) throw new Error('row missing');
+      const sec = el.closest ? el.closest('.them-sec') : null;
+      if (sec && sec.dataset && sec.dataset.sec) {
+        const tab = document.querySelector('#set-tabs .them-tab[data-tab="' + sec.dataset.sec + '"]');
+        if (tab) tab.click();
+      }
+      try { el.scrollIntoView({ block: 'center' }); } catch (e1) {}
+      if (ctl && ctl.close) ctl.close();
+    } catch (e) {
+      try { if (ctl && ctl.hint) ctl.hint('入口暂不可达，请手动前往：' + fallbackTip); } catch (e2) {}
+    }
   }
   // v3.26.x：写入挂起超时——idbGet 侧早已确认部分安卓内核（真我/荣耀 Edge 等）事务
   // 可能挂起（既不 onsuccess 也不 onerror）；写入侧原实现同样裸奔：挂起时 Promise

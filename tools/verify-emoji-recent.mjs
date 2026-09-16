@@ -13,7 +13,7 @@
 //   B5 再点第三张后最近区两张、最新在最前；B6 无新增页面错误。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, rmSync } from 'node:fs';
 import { join, normalize, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -60,10 +60,11 @@ const server = createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const baseUrl = 'http://127.0.0.1:' + server.address().port;
+const profDir = join(process.env.TEMP || '/tmp', 'mochi-prof-' + Date.now());
 const cdpPort = 9750 + Math.floor(Math.random() * 400);
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-  '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-v558-' + Date.now()),
+  '--user-data-dir=' + profDir,
   '--remote-debugging-port=' + cdpPort, 'about:blank'
 ], { stdio: 'ignore' });
 
@@ -265,6 +266,8 @@ const errs = await evalJs(`(window.__jsErrors || []).length`);
 chk('B6 无新增页面错误', errs - errs0 === 0, 'before=' + errs0 + ' after=' + errs);
 
 try { chrome.kill(); } catch (e) {}
+await sleep(900);
+try { rmSync(profDir, { recursive: true, force: true }); } catch (e) {} // 退出即清 profile：单次约 40~50MB，累积会把盘写满（2026-09-16 实测 ENOSPC）
 server.close();
 console.log('');
 console.log('==== verify-emoji-recent（#558）：' + pass + ' 通过 / ' + fail + ' 失败 ====');

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual">
 <title>Mochi 字卡传讯（完全免费·禁止倒卖）</title>
-<meta name="description" content="情侣专属的摸鱼字卡聊天模拟器。本站完全免费，任何收费均为倒卖诈骗；唯一作者：小红书@言序（1842523578）。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。">
+<meta name="description" content="情侣专属的字卡传讯，不是小手机。本站完全免费，任何收费均为倒卖诈骗；唯一作者：小红书@言序（1842523578）。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。">
 <meta name="theme-color" content="#e9e9e9">
 <link rel="manifest" href="./manifest.json">
 <!-- v3.5.158：站点图标用带 mochi 字母的 icon-512——Chrome 安卓通知左侧小图标取自站点图标 -->
@@ -106,15 +106,9 @@
         </div>
         <div class="splash-notice-title">Mochi字卡 · 开屏说明</div>
         <div class="splash-notice-sub">（请认真阅读）</div>
-        <!-- #542：新手上路 3 步——开屏公告越写越长，新手仍不知道从哪开始；静态卡（在线 notice.json
-             只覆盖下方 .splash-notice-list，不会动到本卡），放牌面最上一眼可见，纯引导不改任何门控 -->
-        <div class="splash-onboard">
-          <div class="splash-onboard-t">新手上路 · 3 步就能用</div>
-          <p><b>① 设置「我」和「TA」</b>：回桌面，点顶部两个头像 / 昵称，即可改名、换头像。</p>
-          <p><b>② 准备字卡</b>：底部「字卡库」→ 公用字卡 / 专属字卡，导入或添加自己的字卡；不加字卡的话 TA 回复会很单薄。</p>
-          <p><b>③ 开始聊天</b>：回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。</p>
-          <p class="splash-onboard-tip">找不到某个功能？在 设置 → 聊天 → 功能大全 里输入关键词即可直达。</p>
-        </div>
+        <!-- v3.26.x #575（用户 2026-09-16 反馈「删掉，这是错的」）：开屏这块静态「新手上路 · 3 步就能用」
+             卡整块撤除（DOM 与 .splash-onboard 样式同批删除）。不再补回——开屏只留公告/必读摘要，
+             新手引导走 onboarding.js 的弹层（首次使用的全新环境自动弹一次，可跳转、设置内可重看）。 -->
         <div class="splash-notice-list">
           <div class="splash-summary">
             <p class="splash-summary-title">必读摘要</p>
@@ -1471,7 +1465,9 @@
       <div class="set-title">设置</div>
       <!-- #542：设置项上百行、找一项要滚很久——顶部搜索框实时过滤 .set-row（跨 5 个 tag 显示匹配项），
            逻辑复刻美化页的 theme-search（personalize.js bindSettingsSearch）；清空后回到原 tag -->
-      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"></div>
+      <!-- #575：外观（含边框/底色）走 setting.css 的 .theme-search 类样式——写在内联 style 上
+           会被安卓 ce-box 转换丢掉（带 var() 的 border/background 简写复制不过去），手机端外框消失 -->
+      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
       <!-- v3.33.x：设置页顶部 tag 分类——设置项太多一页堆到底，用户找不到功能；
            复用全站 .them-tabs/.them-sec 互斥显示观感（聊天设置/手机桌面美化同款） -->
       <div class="them-tabs" id="set-tabs">
@@ -1789,10 +1785,14 @@
       <div class="cal-scroll">
         <div class="cal-card glass">
           <div class="ca-legend">怎么看这份报告：<span class="ca-ok">✓ 可用</span> / <span class="ca-warn">✕ 用不到</span>（后面标出卡在哪一步、怎么修）。每一行点「<b>调整</b>」跳到对应页面手动改；点「<b>修复</b>」按默认值一键恢复（不改字卡内容）。</div>
-          <div class="ca-fixbar">
+          <div class="ca-fixbar ca-toolbar">
             <button class="storage-clear" id="card-audit-refresh" type="button">重新自检</button>
             <button class="storage-clear" id="card-audit-filter" type="button">只看有问题</button>
+            <button class="storage-clear" id="card-audit-pick" type="button">批量修复</button>
+            <button class="storage-clear" id="card-audit-apply" type="button" hidden>应用所选</button>
+            <button class="storage-clear" id="card-audit-undo" type="button" disabled>撤销上次</button>
             <button class="storage-clear" id="card-audit-copy" type="button">复制报告</button>
+            <button class="storage-clear" id="card-audit-export" type="button">导出文件</button>
           </div>
         </div>
         <div id="card-audit-body">
@@ -1809,7 +1809,19 @@
         </span>
         <span class="ch-name">手机桌面美化</span>
       </div>
-      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="theme-search-input" placeholder="搜索美化项（如 圆角/壁纸/主题色）" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"></div>
+      <!-- FIX 2026-09-16 #577：边看边调入口提到美化页最前（用户原话「应该放最前面而且最显眼」）。
+           此前它是下面 desk-quick 行里 5 个按钮的最后一个（跟四个「跳到某个设置行」的小描边按钮
+           同款样式），进美化页第一眼看不到这个「边调边看」的主功能。现放标题正下方的整宽主色条
+           （--btn-bg/--btn-ink 与主题色联动、深色模式自动反色），搜索框与 5 个 tab 都排在它之后。 -->
+      <button class="dq-primary" id="dq-drawer" type="button" style="display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:10px 12px 0;padding:11px 14px;border:1px solid var(--btn-bg,#111);border-radius:12px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0">
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;line-height:1.25">边看边调</span>
+          <span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：桌面在上、控件在下，改哪看哪、即时生效</span>
+        </span>
+        <span style="flex:none;font-size:12px;font-weight:700">打开 ›</span>
+      </button>
+      <!-- #575：同设置页搜索框，外观走 .theme-search 类样式（内联带 var() 的边框在安卓 ce-box 转换后丢失） -->
+      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="theme-search-input" placeholder="搜索美化项（如 圆角/壁纸/主题色）"></div>
       <div class="them-tabs" id="them-tabs">
         <div class="them-tab active" data-tab="color">颜色</div>
         <div class="them-tab" data-tab="size">尺寸</div>
@@ -1824,7 +1836,8 @@
         <button class="dq-btn" id="dq-theme" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">深色模式</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
-        <button class="dq-btn" id="dq-drawer" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--ink,#111);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;font-weight:600;cursor:pointer">边看边调</button>
+        <!-- FIX 2026-09-16 #577：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条，
+             这一行只留四个「跳到对应设置行」的快捷按钮。 -->
       </div>
       <div class="them-sec" data-sec="color">
       <div class="cg-title">颜色与透明度</div>
@@ -2031,7 +2044,7 @@
               <span class="lic-badge">原版</span>
               <span class="lic-ver">__APP_VERSION__</span>
             </div>
-            <div class="lic-p">原创极简风情侣聊天模拟器：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
+            <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
               <span class="lic-pill">纯本地存储</span>
               <span class="lic-pill">无需联网</span>
@@ -2412,7 +2425,7 @@
           <details class="lic-grp">
             <summary><span class="lg-num">23</span><span class="lg-name">个性化</span><span class="lg-count">18</span></summary>
             <div class="lg-body">
-          <div class="lic-li">联系人昵称和我的昵称在桌面双方头像组件下方修改</div>
+          <div class="lic-li">联系人昵称和我的昵称：桌面那一套在桌面双方头像组件下方修改（或 设置 → 通用 → 联系人 / 桌面）；聊天里显示的名字是另一套，要去 聊天设置 → 形象 单独设置，两者互不同步</div>
           <div class="lic-li">联系人名称与头像，消息头像形状（圆形 / 方形）</div>
           <div class="lic-li">可自定义上传全局字体（聊天及其他页面全局生效）和自定义聊天气泡</div>
           <div class="lic-li">聊天壁纸、气泡样式、气泡框大小；聊天壁纸图库可存多张一键切换</div>
@@ -2547,7 +2560,7 @@
             <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li">全新环境首次打开会<b>自动弹一次「新手引导」3 步</b>：设置「我」和「TA」→ 添加字卡 → 开始聊天，每步可一键跳到对应位置；老用户想重看走 <b>设置 → 工具 → 新手引导</b>。</div>
-              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。</div>
+              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。</div>
               <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
               <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
               <div class="lic-li">手机桌面：左右滑动切换页面，点图标进入聊天 / 字卡 / 查岗 / 日历 / 信箱 / 朋友圈 / 音乐 / 占卜 / 花园等各功能。</div>
@@ -2640,7 +2653,7 @@
               <div class="lic-li"><b>发语音</b>：先在 聊天设置 打开「我可发送语音」，输入栏左侧出现「麦克风」按钮，点击录音（最长 60 秒，可试听后发送）；需要允许麦克风权限。</div>
               <div class="lic-li"><b>拍一拍 / 搜索记录</b>：在聊天「+」的更多功能面板里。</div>
               <div class="lic-li"><b>切换联系人 / 桌面</b>：各联系人的数据相互独立；专属字卡、收藏等属于当前联系人。</div>
-              <div class="lic-li"><b>改昵称 / 头像</b>：在桌面双方头像组件下方修改，或 设置 → 通用 → 联系人 / 桌面。</div>
+              <div class="lic-li"><b>改昵称 / 头像</b>：桌面那一套在桌面双方头像组件下方修改，或 设置 → 通用 → 联系人 / 桌面；<b>聊天里显示的名字 / 头像是另一套</b>，在 聊天设置 → 形象 单独设置（未设时聊天里显示默认「我」「TA」），两者互不同步。</div>
             </div>
           </details>
           <details class="lic-grp">
@@ -3492,8 +3505,8 @@
         <div class="modal-title" id="dl-picker-title">设置时间</div>
         <div class="modal-static" id="dl-picker-cur">未设置</div>
         <div class="dl-picker-row">
-          <span class="dl-picker-lbl">分钟</span>
-          <input type="text" inputmode="numeric" maxlength="5" class="dl-picker-in" id="dl-picker-mins" placeholder="1">
+          <span class="dl-picker-lbl">秒</span>
+          <input type="text" inputmode="numeric" maxlength="6" class="dl-picker-in" id="dl-picker-secs" placeholder="60">
         </div>
         <div class="modal-btns">
           <button type="button" class="modal-btn cancel" id="dl-picker-clear">清除</button>
@@ -4370,7 +4383,7 @@
         <span class="ch-name">朋友圈好友列表</span>
       </div>
       <div class="cal-scroll">
-        <div class="ff-help">在这里设置每个人在朋友圈里展示的头像与昵称，不影响聊天里的头像昵称。未设置时默认沿用聊天。</div>
+        <div class="ff-help">在这里设置每个人在朋友圈里展示的头像与昵称，不影响桌面和聊天里的头像昵称。未设置时默认沿用<b>桌面</b>的昵称 / 头像（不是聊天里的）。</div>
         <div id="feed-friends-list"></div>
       </div>
     </div>
@@ -5998,7 +6011,7 @@
       </div>
       <!-- v3.8.x：聊天专用昵称/头像（与桌面 deco-widget 的 lbl-*/avatar-* 完全独立，
            桌面只能在桌面改，聊天只能在聊天设置改；未设时聊天页显示默认占位 TA/我 + 人形图标） -->
-      <div class="gs-title" data-tag="profile">昵称与头像</div>
+      <div class="gs-title" data-tag="profile">昵称与头像（聊天专用 · 与桌面各自独立，互不同步）</div>
       <div class="set-group glass" data-tag="profile">
         <div class="set-row" id="cs-lbl-partner">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>

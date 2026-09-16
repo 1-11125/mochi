@@ -22,6 +22,10 @@
   var refreshBtn = document.getElementById('card-audit-refresh');
   var copyBtn = document.getElementById('card-audit-copy');
   var filterBtn = document.getElementById('card-audit-filter');
+  var pickBtn = document.getElementById('card-audit-pick');
+  var applyBtn = document.getElementById('card-audit-apply');
+  var undoBtn = document.getElementById('card-audit-undo');
+  var exportBtn = document.getElementById('card-audit-export');
   if (!bodyEl) return;
 
   var GNS = 'xy-home-v2';
@@ -33,6 +37,9 @@
   var issueCount = 0;
   var issues = [];
   var onlyProblems = false; // 「只看有问题」筛选
+  var pickMode = false;     // 「批量修复」勾选模式
+  var undoStack = [];       // 上一次修复的撤销数据（单级撤销）
+  var fixDesc = {};         // 修复 id → 变更预览描述
 
   // ---------- 基础读取 ----------
   function esc(s) {
@@ -44,6 +51,11 @@
   function storeSet(k, v) { try { window.activeStore().set(k, String(v)); return true; } catch (e) { return false; } }
   function glob(k) { try { return window.xyStore(GNS).get(k); } catch (e) { return null; } }
   function globSet(k, v) { try { window.xyStore(GNS).set(k, String(v)); return true; } catch (e) { return false; } }
+  // 作用域感知读写（撤销/公共库用）：own=当前桌面命名空间，public=全局根键
+  function storeGetScope(scope, key) { try { return scope === 'public' ? window.xyStore(GNS).get(key) : window.activeStore().get(key); } catch (e) { return null; } }
+  function storeSetScope(scope, key, val) { try { if (scope === 'public') window.xyStore(GNS).set(key, String(val)); else window.activeStore().set(key, String(val)); return true; } catch (e) { return false; } }
+  function storeRemoveScope(scope, key) { try { if (scope === 'public') window.xyStore(GNS).remove(key); else window.activeStore().remove(key); return true; } catch (e) { return false; } }
+  function recordUndo(scope, key) { try { undoStack.push({ scope: scope, key: key, old: storeGetScope(scope, key) }); } catch (e) {} }
   function rawFor(cid, k) { try { var s = window.storeFor ? window.storeFor(cid) : window.xyStore(GNS + ':' + cid); return s.get(k); } catch (e) { return null; } }
   function num(v, d) { if (v === null || v === undefined || v === '') return d; var n = Number(v); return isNaN(n) ? d : n; }
   function boolOf(v, d) { if (v === null || v === undefined || v === '') return d; return v === '1'; }
@@ -60,6 +72,17 @@
   function parseGroups(raw) {
     try { var g = JSON.parse(raw || 'null'); if (g && g.text) return g; } catch (e) {}
     return {};
+  }
+  // 概率人话化：p% 换算成「平均每 N 条回复 / N 次触发约 1 次」
+  function humanProb(p, unit) {
+    p = Math.max(0, Math.min(100, Math.round(Number(p) || 0)));
+    if (p <= 0) return '基本不出现';
+    if (p >= 100) return unit === 'trig' ? '每次触发都出现' : '每条回复都出现';
+    var n = Math.max(2, Math.round(100 / p));
+    return '平均每 ' + n + ' ' + (unit === 'trig' ? '次触发' : '条回复') + '约 1 次';
+  }
+  function deferredLibs() {
+    try { return !!(window.libScopesDeferred && window.libScopesDeferred(['public', 'own'])); } catch (e) { return false; }
   }
 
   // 单卡关闭计数：<prefix>:dc-off-<cat>:<内容>。一次自检内「一次性索引 + 缓存」，不再反复扫。
@@ -281,6 +304,10 @@
     });
     var ownGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('own', t).length; }, 0);
     var pubGroups = CC_ORDER.reduce(function (n, t) { return n + scopePool('public', t).length; }, 0);
+    var chatOv = Math.max(0, Math.min(100, num(store('dc-overall-chat'), 30)));
+    var sysShare = (!lock && dcEn) ? chatOv : 0;      // 系统预设字卡在聊天里的占比
+    var customShare = 100 - sysShare;                  // 自定义字卡互补占比
+    var deferred = deferredLibs();                     // 大库 IDB 回填挂起：本次读数可能偏少
 
     // ===== 问题清单（先算，结论卡与角标都用） =====
     if (lock) addIssue('bad', '系统预设字卡被「二级密码锁」整体锁定（#319 防未成年人保护）——默认聊天字卡、词典（含词典拼字）等系统预设池当前都取不到，下方开关全开也无效。到开屏公告区「防未成年人·内置字卡锁定」卡点「输入密码解锁」即可恢复。');
@@ -320,6 +347,8 @@
     else if (badN) { headLv = 'bad'; headTxt = '有 ' + badN + ' 个需要处理的问题（字卡可能用不到）'; }
     else if (warnN) { headLv = 'warn'; headTxt = '整体可用，有 ' + warnN + ' 项可优化'; }
     else { headLv = 'ok'; headTxt = '一切正常：字卡按当前设置正常参与回复'; }
+    verdictInner += (deferred ? '<div class="ca-banner ca-warn">⚠ 部分字卡还没从数据库取回（大库回填中），本次可用张数可能偏少，结果仅供参考。<button class="ca-fix" type="button" data-load="full">点此加载完整字卡</button></div>' : '');
+    if (deferred) issueCount++;
     verdictInner += '<div class="ca-headline ' + cls(headLv) + '">' + (headLv === 'ok' ? '✓ ' : headLv === 'warn' ? '! ' : '✕ ') + esc(headTxt) + '</div>';
     issues.forEach(function (v) { verdictInner += '<div class="ca-issues ' + cls(v.lv) + '">● ' + esc(v.text) + '</div>'; });
     verdictInner += rowHtml('系统预设字卡', lock ? '被锁停' : ((dcEn || dcfEn) ? '部分/全部可用' : '总开关关闭'), lock ? 'bad' : 'ok', { edit: 'defaultCards' });
@@ -360,6 +389,15 @@
     }
     push('自检结论', verdictInner, null);
 
+    // ===== 系统预设 ↔ 自定义 占比（聊天场景） =====
+    var ratioInner = '';
+    ratioInner += '<div class="ca-ratio"><div class="ca-ratio-bar"><i style="width:' + sysShare + '%"></i><u style="width:' + customShare + '%"></u></div>' +
+      '<div class="ca-ratio-legend"><span class="ca-ok">系统预设 ' + sysShare + '%</span><span class="ca-mute">自定义 ' + customShare + '%</span></div></div>';
+    ratioInner += rowHtml('聊天默认字卡概率（dc-overall-chat）', chatOv + '% · ' + humanProb(chatOv, 'reply'), chatOv === 0 ? 'warn' : 'ok', { edit: 'defaultCards' });
+    ratioInner += rowHtml('系统预设聊天概率总档（reply-dcp-all）', all + '%' + (all < 100 ? ' · 各分类概率整体打 ' + all + ' 折' : ' · 未打折'), all < 100 ? 'warn' : 'ok', { edit: 'replySettings' });
+    push('系统预设 ↔ 自定义字卡占比（聊天场景）', ratioInner,
+      '系统预设字卡设为 X% 时，自定义字卡自然占 (100−X)% 的回复机会；「概率总档」会把所有系统预设聊天概率整体缩放（<100 即打折）。');
+
     // ===== 一、二级密码锁 =====
     var lockInner = '';
     lockInner += rowHtml('当前状态', lock ? '锁定中（系统预设字卡整体停用）' : '已解锁', lock ? 'bad' : 'ok');
@@ -385,7 +423,7 @@
       var v = num(store('dc-overall-' + k), def);
       var id = 'inl-dc-ov-' + k;
       if (v === 0 && !lock) fixProb(id, 'dc-overall-' + k, def);
-      dcInner += rowHtml(nm + '概率（dc-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'defaultCards' });
+      dcInner += rowHtml(nm + '概率（dc-overall-' + k + '）', v + '% · ' + humanProb(v, 'reply'), v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'defaultCards' });
     });
     ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
       var cat = boolOf(store('dc-cat-' + k), true);
@@ -403,7 +441,7 @@
         if (total > 0 && off >= total) fixCardOffs(idOff, k);
       }
       dcInner += '<div class="storage-row"><span>' + esc(CC_LABEL[k]) + '（dc-cat-' + k + ' · dc-prob-' + k + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">' +
-        (cat ? '开' : '关') + ' · 占比 ' + prob + '% · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
+        (cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天 ' + chatOv + '%×' + prob + '% ≈ ' + humanProb(chatOv * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
         (!cat && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idCat + '">启用</button>' : '') +
         (prob === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idProb + '">恢复占比</button>' : '') +
         (total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
@@ -429,7 +467,7 @@
       var v = num(store('dict-overall-' + k), def); if (v > 0) dictAnyProb = true;
       var id = 'inl-dict-ov-' + k;
       if (v === 0 && !lock) fixProb(id, 'dict-overall-' + k, def);
-      dictInner += rowHtml(nm + '概率（dict-overall-' + k + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'dictCards' });
+      dictInner += rowHtml(nm + '概率（dict-overall-' + k + '）', v + '% · ' + humanProb(v, 'reply'), v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'dictCards' });
     });
     dictInner += rowHtml('词典内置词条', presetGroups('dict').length + ' 组 · ' + presetCount('dict') + ' 条' + (offCount('dict') ? '（单卡关 ' + offCount('dict') + '）' : ''), 'mute');
     var dq = 0, dw = 0;
@@ -466,7 +504,7 @@
       if (raw === 0 && !lock) fixProb(id, 'dcf-' + key, def, function () { try { window.dcfRefreshUI(key); } catch (e) {} });
       if (hasPool && total > 0 && off >= total && !lock) fixCardOffs(idOff, key);
       var cnt = hasPool ? (total + ' 张' + (off ? '（单卡关 ' + off + '）' : '')) : '—（发到聊天型，无独立字卡池）';
-      fInner += '<div class="storage-row"><span>' + esc(name) + '（dcf-' + key + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">存盘 ' + raw + '% · 生效 ' + eff + '% · ' + cnt +
+      fInner += '<div class="storage-row"><span>' + esc(name) + '（dcf-' + key + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">存盘 ' + raw + '% · 生效 ' + eff + '%（' + humanProb(eff, 'trig') + '） · ' + cnt +
         (raw === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + id + '">恢复概率</button>' : '') +
         (hasPool && total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
         ' <span class="ca-jump ca-edit" data-jump="funCards">调整</span></b></div>' + funnel;
@@ -484,17 +522,17 @@
       var nm = ['情绪', '心意', '交流意图'][i], def = [70, 40, 40][i], key = 'mc-prob-' + k;
       var v = num(store(key), def), id = 'inl-mc-' + k;
       if (v === 0) fixProb(id, key, def);
-      oInner += rowHtml('　' + nm + '概率（' + key + '）', v + '%', v === 0 ? 'warn' : 'ok', { fix: v === 0 ? id : '', edit: 'moodCards' });
+      oInner += rowHtml('　' + nm + '概率（' + key + '）', v + '% · ' + humanProb(v, 'reply'), v === 0 ? 'warn' : 'ok', { fix: v === 0 ? id : '', edit: 'moodCards' });
     });
     oInner += rowHtml('　情绪池张数', dataCount(MC.mood) + ' 张（不受二级锁影响）', 'mute');
     var rcEn = boolOf(store('rc-enabled'), true), rcProb = num(store('rcard-prob'), 30);
     var idRc = 'inl-rc';
     addFix(idRc, function () { if (!boolOf(store('rc-enabled'), true)) storeSet('rc-enabled', '1'); if (num(store('rcard-prob'), 30) === 0) storeSet('rcard-prob', 30); return true; });
-    oInner += rowHtml('聊天回应字卡（rc-enabled / rcard-prob）', (rcEn ? '开启' : '关闭') + ' · 整条替换 ' + rcProb + '% · 连接词追加 cf-prob ' + num(store('cf-prob'), 20) + '% · ' + dataCount(MC.followup) + ' 张', (rcEn && rcProb > 0) ? 'ok' : 'warn', { fix: (!rcEn || rcProb === 0) ? idRc : '', edit: 'replyCards' });
+    oInner += rowHtml('聊天回应字卡（rc-enabled / rcard-prob）', (rcEn ? '开启' : '关闭') + ' · 整条替换 ' + rcProb + '%（' + humanProb(rcProb, 'reply') + '） · 连接词追加 cf-prob ' + num(store('cf-prob'), 20) + '% · ' + dataCount(MC.followup) + ' 张', (rcEn && rcProb > 0) ? 'ok' : 'warn', { fix: (!rcEn || rcProb === 0) ? idRc : '', edit: 'replyCards' });
     var tmEn = boolOf(store('tm-enabled'), true), tmProb = num(store('tm-prob'), 15);
     var idTm = 'inl-tm';
     addFix(idTm, function () { if (!boolOf(store('tm-enabled'), true)) storeSet('tm-enabled', '1'); if (num(store('tm-prob'), 15) === 0) storeSet('tm-prob', 15); return true; });
-    oInner += rowHtml('TA 的心情（tm-enabled / tm-prob）', (tmEn ? '开启' : '关闭') + ' · ' + tmProb + '% · ' + dataCount((window.TA_MOOD_DATA || {}).groups) + ' 张', (tmEn && tmProb > 0) ? 'ok' : 'warn', { fix: (!tmEn || tmProb === 0) ? idTm : '', edit: 'taMood' });
+    oInner += rowHtml('TA 的心情（tm-enabled / tm-prob）', (tmEn ? '开启' : '关闭') + ' · ' + tmProb + '%（' + humanProb(tmProb, 'reply') + '） · ' + dataCount((window.TA_MOOD_DATA || {}).groups) + ' 张', (tmEn && tmProb > 0) ? 'ok' : 'warn', { fix: (!tmEn || tmProb === 0) ? idTm : '', edit: 'taMood' });
     [['quote-cards-default', '桌面今日情话', 'quoteCards'], ['loc-lib-default', 'TA在身边位置卡', 'locCards'], ['checkin-cards-default', '寻踪日常字卡', 'checkinCards']].forEach(function (t) {
       var on = boolOf(store(t[0]), true), id = 'inl-' + t[0];
       if (!on) fixEnable(id, t[0]);
@@ -774,7 +812,24 @@
     if (jumpEl) { e.preventDefault(); jump(jumpEl.getAttribute('data-jump')); return; }
     var deskBtn = t.closest('[data-desk]');
     if (deskBtn) { e.preventDefault(); expandDesk(deskBtn); return; }
+    var loadBtn = t.closest('[data-load]');
+    if (loadBtn) { e.preventDefault(); loadFullCards(); return; }
   });
+
+  // 大库 IDB 回填挂起时：取回完整字卡后重新自检
+  function loadFullCards() {
+    if (!window.hydrateLibScopes) { toast('取回接口不可用，请稍后重试'); return; }
+    toast('正在取回完整字卡…');
+    // FIX 2026-09-16 #575：取回期间页内出加载占位（iOS 挂后台杀 IDB 连接时这段要等 6~14s，
+    //   原先只有一句转瞬 toast，页面像卡住）；取回落定后下面的 render() 会覆写它。
+    try {
+      if (bodyEl) bodyEl.innerHTML = '<div class="mochi-load-row"><span class="mochi-spin"></span>正在取回完整字卡…</div>';
+      if (typeof applyFilter === 'function') applyFilter();
+    } catch (e) {}
+    try {
+      window.hydrateLibScopes(['public', 'own'], function () { render(); toast('已取回完整字卡，重新自检完成'); });
+    } catch (e) { toast('取回失败，请稍后重试'); }
+  }
 
   // 锁状态 / 切桌面 / 数据回填完成后：页开着就刷新；角标随时更新
   function refreshAll() { try { updateBadge(quickIssueCount()); } catch (e) {} try { if (!page.hidden) render(); } catch (e) {} }
