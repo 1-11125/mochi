@@ -121,24 +121,22 @@ const t2b = JSON.parse(await page.evaluate(`(function(){
 })()`));
 check('T2 实时撤回：bubble 立即变为「我撤回了一条消息」且无 img', t2b.hasImg === false && t2b.txt.indexOf('我撤回了一条消息') >= 0, t2b.txt);
 
-// ---- T3：点开撤回提示查看原文（#572b 起改为浮层：原文不再写回气泡，列表零位移） ----
+// ---- T3：点击撤回文案展开原文（查看撤回的消息），再点击收回 ----
+// 注意 bindToggle 是 toggle：先确保从收起态（showing!=="1"）出发再断言
 const t3 = await page.evaluate(`(function(){
   const m0 = document.querySelector('#page-chat .msg[data-idx="0"] .msg-bubble');
+  if (m0.dataset.showing === '1') m0.click(); // 重置为收起态
   const startCollapsed = !m0.querySelector('img') && m0.textContent.indexOf('我撤回了一条消息') >= 0;
-  m0.click(); // 点开：弹浮层
-  const v = document.getElementById('recall-view');
-  const bd = v && v.querySelector('#recall-view-body');
-  const expanded = !!v && !v.hidden && !!bd && !!bd.querySelector('img');
-  const btn = document.getElementById('recall-view-close');
-  if (btn) btn.click(); // 关闭浮层
-  const after = document.getElementById('recall-view');
-  const collapsed = (!after || after.hidden) && m0.textContent.indexOf('我撤回了一条消息') >= 0 && !m0.querySelector('img');
+  m0.click(); // 第一次点击：展开查看原文
+  const expanded = m0.dataset.showing === '1' && !!m0.querySelector('img.msg-img-sm');
+  m0.click(); // 第二次点击：收回
+  const collapsed = m0.dataset.showing !== '1' && !m0.querySelector('img') && m0.textContent.indexOf('我撤回了一条消息') >= 0;
   return JSON.stringify({ startCollapsed, expanded, collapsed });
 })()`);
 const j3 = JSON.parse(t3);
-check('T3 撤回提示初始为收起（无 img）', j3.startCollapsed === true);
-check('T3 点开弹出查看浮层并显示原文表情包', j3.expanded === true);
-check('T3 关闭浮层后回到撤回提示（提示气泡未被改写）', j3.collapsed === true);
+check('T3 撤回态初始为收起（无 img）', j3.startCollapsed === true);
+check('T3 点击展开可查看原文表情包', j3.expanded === true);
+check('T3 再点击收回恢复撤回态', j3.collapsed === true);
 
 // ---- T4：【核心回归】撤回后 reload（全量重加载渲染）→ 表情包不得复活 ----
 await sleep(900); // 等 saveMsgs 防抖把 retracted 落盘 IDB

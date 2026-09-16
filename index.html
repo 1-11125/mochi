@@ -2775,34 +2775,6 @@ border:1.5px solid transparent; background:var(--btn-bg,#111); color:var(--btn-i
 [data-theme="dark"] .voice-card.recording .voice-wave i { opacity:.9; }
 [data-theme="dark"] .msg-voice-play.voice-play-btn { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); }
 [data-theme="dark"] .voice-rec-btn { border-color:rgba(255,255,255,.28); color:#fff; }
-.recall-view {
-position:fixed; inset:0; z-index:92;
-background:rgba(0,0,0,.32);
-display:flex; align-items:center; justify-content:center;
-padding:20px;
-}
-.recall-view[hidden] { display:none; }
-.recall-view-card {
-width:min(320px, 86vw); max-height:min(72vh, calc(100% - 20px));
-overflow-y:auto; -webkit-overflow-scrolling:touch;
-background:var(--phone-bg-b, #f2f2f2); color:var(--msg-in-ink, #111111);
-border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.2);
-padding:14px 14px 10px; display:flex; flex-direction:column; gap:10px;
-}
-.recall-view-title { font-size:12px; font-weight:700; opacity:.6; }
-.recall-view-body { font-size:14px; line-height:1.6; word-break:break-word; min-width:0; }
-.recall-view-text { white-space:pre-wrap; }
-.recall-view-img { max-width:100%; max-height:52vh; border-radius:10px; display:block; margin:0 auto; object-fit:contain; }
-.recall-view-ph { font-size:13px; opacity:.7; }
-.recall-view-close {
-align-self:flex-end; border:none; background:transparent; color:inherit;
-font-family:inherit; font-size:13px; padding:6px 12px; border-radius:10px;
-cursor:pointer; opacity:.7; -webkit-tap-highlight-color:transparent;
-}
-.recall-view-close:active { background:rgba(0,0,0,.08); }
-.recall-view-bubble { display:flex; max-width:100%; }
-.recall-view-bubble.msg-out { justify-content:flex-end; }
-.recall-view-bubble .msg-bubble { max-width:100%; white-space:pre-wrap; }
 #page-chatcard { scrollbar-width:none; -ms-overflow-style:none; }
 #page-chatcard::-webkit-scrollbar { display:none; }
 .chat-title { font-size:22px; font-weight:700; padding:4px 2px 8px; letter-spacing:1px; }
@@ -7421,6 +7393,7 @@ font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent;
 .storage-cat-warn { margin:2px 0 9px; padding:8px 10px; border-radius:10px; background:rgba(232,90,90,.12); font-size:11px; line-height:1.6; color:#e85a5a; }
 .storage-clear { display:block; width:100%; margin-top:12px; padding:12px; border:none; border-radius:14px; background:var(--ink); color:var(--bg-b,#fff); font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 .storage-clear:active { opacity:.85; }
+.storage-clear[hidden] { display:none; }
 .ca-ok { color:var(--ca-ok,#2e9e6b); }
 .ca-warn { color:var(--ca-warn,#c98a1b); }
 .ca-bad { color:var(--ca-bad,#d9534f); }
@@ -8615,6 +8588,11 @@ border:none; background:#7cb342; color:#fff; font-size:13px; font-weight:600;
 cursor:pointer; font-family:inherit;
 }
 .garden-decor-shop-btn:active { opacity:.8; }
+.garden-decor-shop-ico {
+display:inline-flex; align-items:center; justify-content:center;
+width:20px; height:20px; border-radius:50%; background:#fff;
+margin-right:5px; vertical-align:-5px; font-size:12px; color:#444;
+}
 .garden-lb { margin:0 18px 18px; padding:14px 16px; border-radius:18px; }
 .garden-lb-title { font-size:14px; font-weight:700; margin-bottom:10px; }
 .garden-lb-head {
@@ -9657,23 +9635,6 @@ transition-duration: .01ms !important;
             <p class="splash-hl">TA 的主动消息、连发多条、互动邀请等都是按概率随机触发的——嫌频繁可在 设置 → 回复设置 调低概率（0 = 不触发）或直接关闭开关。</p>
             <p>完整说明在各章节内，可点上方目录跳转查看。</p>
           </div>
-          <div class="splash-sec-wrap splash-sec-collapsible is-collapsed">
-            <p class="splash-sec">其他说明与常见问题</p>
-            <div class="splash-sec-content">
-              <div class="splash-tip">
-                <p class="splash-tip-h">关于“会不会做成 App”</p>
-                <p>暂不考虑。原因是网站功能非常多——如果功能少还好说，功能太多的情况下，做成 App 可能出现的 Bug 只会更多，而且和设备、浏览器一样存在适配问题：不同手机的屏幕、系统、性能都不一样，要做到所有手机都适配，Bug 可能需要全部重写一遍。我没有这种精力和金钱。</p>
-              </div>
-              <div class="splash-tip">
-                <p class="splash-tip-h">关于“自己转 App 使用”</p>
-                <p>类似“一个木函”那种链接转应用的方式，没有我的原代码，本质是浏览器套壳，不是真正的 App，反而可能出现非常多的适配问题。所以不如直接浏览器使用，体验更稳定。</p>
-              </div>
-              <div class="splash-tip">
-                <p>本站的系统预设字卡都是补充类和小功能衍生字卡，关于个人使用得根据个人情况添加mj聊天字卡。</p>
-                <p>聊天、写信、朋友圈 添加 自定义字卡里的【公用字卡】和【专享字卡】即可</p>
-              </div>
-            </div>
-          </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">【互助群公告】</p>
             <p class="splash-item">📌 网站链接在置顶图片里，使用说明见网站开屏（必看）。</p>
@@ -9736,14 +9697,7 @@ transition-duration: .01ms !important;
             <p class="splash-item splash-hl">浏览器打开网站 和 安装到桌面的快捷方式，不能同时打开使用，会导致两边数据不统一。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">【四、关于全屏模式失效】</p>
-            <p class="splash-item">如果你是把浏览器切到后台，再切回来，全屏会失效——这是浏览器限制，只能手动重新开全屏。</p>
-            <p class="splash-item">或者可以使用“浏览器安装快捷方式到手机桌面”的方式使用，这样可以全屏。</p>
-            <p class="splash-sub">但注意：</p>
-            <p class="splash-item">手机自身顶部栏是手机系统限制，需要自己手动开全屏模式隐藏，且切到后台后同样会失效。</p>
-          </div>
-          <div class="splash-sec-wrap">
-            <p class="splash-sec">【五、使用规范】</p>
+            <p class="splash-sec">【四、使用规范】</p>
             <p class="splash-sub">许可与署名：</p>
             <p class="splash-item">Mochi字卡为原创独立作品（即原版），代码已在GitHub完全公开，支持私人部署，与网站同步更新</p>
             <p class="splash-item">可自由二传、二改、自行部署；必须保留署名：小红书 @言序（1842523578）（禁止删除或修改）</p>
@@ -9762,7 +9716,7 @@ transition-duration: .01ms !important;
             <p class="splash-bullet">禁止商用、禁止以盈利为目的。就这些，谢谢尊重。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">【六、版权与灵感来源】</p>
+            <p class="splash-sec">【五、版权与灵感来源】</p>
             <p class="splash-sub">许可</p>
             <p class="splash-item">Mochi 字卡为原创独立作品（原版），代码已完全开源。可自由二传、二改，支持私人部署，禁止商用。</p>
             <p class="splash-bullet">必须保留署名：小红书 @言序（1842523578）。</p>
@@ -9780,16 +9734,10 @@ transition-duration: .01ms !important;
             <p class="splash-item">若使用代码或借鉴功能，必须标注灵感来源。标注来源是对创作者最基本的尊重，未标注来源的使用将视为违反本许可协议。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">【七、关于“电子网站会连上鬼”的传闻】</p>
+            <p class="splash-sec">【六、关于“电子网站会连上鬼”的传闻】</p>
             <p class="splash-bullet">不存在这种事。本站本质只是代码运行，且代码已在 GitHub 完全公开，任何人都可以查看，没有任何“灵异”成分。</p>
             <p class="splash-bullet">字卡只是工具，效果取决于个人如何使用。对于无根据的传闻和造谣，不接受、不回应。</p>
             <p class="splash-bullet">另外，不同人的说法可能不一样，有些是吓唬人的，也有些说法无法证实真假。如果担心或害怕，或在使用中感到不适，建议停止使用字卡传讯。</p>
-          </div>
-          <div class="splash-sec-wrap">
-            <p class="splash-sec">【八、关于系统预设字卡和功能设置】</p>
-            <p class="splash-item">建议打开使用。（我自己用是默认全开）</p>
-            <p class="splash-item">初衷就是为了不限制梦角表达，如果关掉，反而限制了它，和基础传讯网站没什么差别——正是因为以前接触的字卡传讯类型太简单才做的。</p>
-            <p class="splash-item">建议先全部打开使用，再根据个人适应情况调整。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">【关于使用过程中的更新提醒】</p>
@@ -9806,9 +9754,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789554811411">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.722</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 18:33<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789556210917">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.723</b></span>
+        <span class="sv-deploy">部署于 2026-09-16 18:56<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11202,7 +11150,7 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.722</div>
+          <div class="val" id="about-ver-val">v3.26.723</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11221,6 +11169,36 @@ transition-duration: .01ms !important;
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="gs-sub" id="guide-sub">第一次用建议先看「快速开始」和「数据备份」。iPhone 推荐用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、更不容易卡顿/丢数据）；用 Edge / Chrome 添加只会建快捷方式。</div>
+      </div>
+      <!-- 常见问题：从开屏「其他说明与常见问题 / 四、关于全屏模式失效 / 八、关于系统预设字卡和功能设置」
+           搬来的只读说明（#611，2026-09-16；开屏删除、移入设置→关于） -->
+      <div class="set-group glass">
+        <div class="gs-title">常见问题</div>
+        <div class="set-row" id="row-faq-app">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
+          <div class="txt">会不会做成 App<span class="sub">暂不考虑 · 原因说明</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-app2">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18M8 21h8"/></svg></div>
+          <div class="txt">自己转 App 使用<span class="sub">本质是浏览器套壳 · 体验说明</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-addcard">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 9v6M9 12h6"/></svg></div>
+          <div class="txt">怎么添加字卡<span class="sub">系统预设字卡 + 自定义字卡</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-fullscreen">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></div>
+          <div class="txt">全屏模式失效<span class="sub">切后台会失效 · 怎么恢复</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-preset">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></svg></div>
+          <div class="txt">系统预设字卡与功能设置<span class="sub">建议打开使用 · 原因说明</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
       </div>
       <!-- 隐私与法律：隐私与数据安全声明（只读说明，导航见 personalize.js） -->
       <div class="set-group glass">
@@ -11241,7 +11219,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.722</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.723</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11602,7 +11580,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.722</span>
+              <span class="lic-ver">v3.26.723</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -26053,10 +26031,35 @@ return;
 }
 const scopeNote = '只同步配色/尺寸/圆角/内置壁纸/布局等小项，不含图片，也不改对方深色模式';
 const note = '分享链接已复制，发给对方打开即可导入（不含图片，也不改对方深色模式）';
-if (navigator.clipboard && navigator.clipboard.writeText) {
-navigator.clipboard.writeText(url).then(() => toast(note)).catch(() => { if (window.openModal) window.openModal('分享链接', url, () => {}, { staticText: '请手动复制下方链接发给对方。' + scopeNote, noInput: true }); });
-} else if (window.openModal) { window.openModal('分享链接', url, () => {}, { staticText: '请手动复制下方链接发给对方，对方打开会自动弹导入提示。' + scopeNote, noInput: true }); }
-else { toast('已生成链接（见控制台）'); try { console.log(url); } catch (e) {} }
+const copyFrom = (text) => new Promise((resolve) => {
+try {
+const ta = document.createElement('textarea');
+ta.value = text; ta.setAttribute('readonly', '');
+ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+document.body.appendChild(ta);
+try { ta.select(); } catch (e) {}
+let ok = false;
+try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+setTimeout(() => { try { document.body.removeChild(ta); } catch (e) {} }, 800);
+if (ok) { resolve(true); return; }
+} catch (e) {}
+let done = false;
+const fin = (v) => { if (done) return; done = true; resolve(v); };
+try { setTimeout(() => fin(false), 1200); } catch (e) {}
+try {
+if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => fin(true), () => fin(false));
+else fin(false);
+} catch (e) { fin(false); }
+});
+const showShareLink = () => {
+if (!window.openModal) { toast('已生成链接（见控制台）'); try { console.log(url); } catch (e) {} return; }
+window.openModal('分享链接', '', () => {}, {
+noInput: true,
+staticText: '自动复制未成功，请长按下面的链接复制后发给对方：\n\n' + url + '\n\n' + scopeNote,
+copyBtn: { label: '复制链接', fn: function () { copyFrom(url).then((ok) => toast(ok ? '已复制到剪贴板' : '复制失败，请长按上面链接手动复制')); } }
+});
+};
+copyFrom(url).then((ok) => { if (ok) toast(note); else showShareLink(); });
 } catch (e) { toast('生成链接失败：' + ((e && e.message) || '未知原因')); }
 };
 const beautyShareRow = document.getElementById('row-beauty-share');
@@ -29465,6 +29468,26 @@ bind('row-contact', () => {
 open('联系作者 / 反馈',
 '作者只有两个账号：小红书 @言序（1842523578）、抖音 @言序（58334080131）。\n\n作者不玩抖音、不回消息，账号仅用于发布本站链接。本站完全免费，任何收费均为诈骗。\n\n遇到问题建议先看「使用说明」，并用 工具 → 设备兼容诊断 一键复制本机环境信息再反馈，能更快定位。');
 });
+bind('row-faq-app', () => {
+open('关于“会不会做成 App”',
+'暂不考虑。原因是网站功能非常多——如果功能少还好说，功能太多的情况下，做成 App 可能出现的 Bug 只会更多，而且和设备、浏览器一样存在适配问题：不同手机的屏幕、系统、性能都不一样，要做到所有手机都适配，Bug 可能需要全部重写一遍。我没有这种精力和金钱。');
+});
+bind('row-faq-app2', () => {
+open('关于“自己转 App 使用”',
+'类似“一个木函”那种链接转应用的方式，没有我的原代码，本质是浏览器套壳，不是真正的 App，反而可能出现非常多的适配问题。所以不如直接浏览器使用，体验更稳定。');
+});
+bind('row-faq-addcard', () => {
+open('怎么添加字卡',
+'本站的系统预设字卡都是补充类和小功能衍生字卡，关于个人使用得根据个人情况添加 mj 聊天字卡。\n\n聊天、写信、朋友圈 添加 自定义字卡里的【公用字卡】和【专享字卡】即可。');
+});
+bind('row-faq-fullscreen', () => {
+open('全屏模式失效',
+'如果你是把浏览器切到后台，再切回来，全屏会失效——这是浏览器限制，只能手动重新开全屏。\n\n或者可以使用“浏览器安装快捷方式到手机桌面”的方式使用，这样可以全屏。\n\n但注意：手机自身顶部栏是手机系统限制，需要自己手动开全屏模式隐藏，且切到后台后同样会失效。');
+});
+bind('row-faq-preset', () => {
+open('系统预设字卡与功能设置',
+'建议打开使用。（我自己用是默认全开）\n\n初衷就是为了不限制梦角表达，如果关掉，反而限制了它，和基础传讯网站没什么差别——正是因为以前接触的字卡传讯类型太简单才做的。\n\n建议先全部打开使用，再根据个人适应情况调整。');
+});
 })();
 (function () {
 const page = document.getElementById('page-storage');
@@ -32420,9 +32443,7 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 }
 });
 }
-function retractViewHtml(rec) {
-const snap = (rec && typeof rec.orig === 'string') ? rec.orig.trim() : '';
-if (snap) return '<div class="recall-view-bubble ' + (rec.side === 'out' ? 'msg-out' : 'msg-in') + '"><div class="msg-bubble">' + snap + '</div></div>';
+function retractSafeHtml(rec) {
 const raw = String(rec && rec.text != null ? rec.text : '');
 const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
 const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
@@ -32436,41 +32457,22 @@ const textIsImg = isImgSrc(text);
 if (!imgs.length && textIsImg) imgs.push(text);
 const isVoice = (rec && rec.type === 'voice') || raw.indexOf('|||') >= 0;
 let html = '';
-if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="recall-view-img" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
-if (isVoice) return html + '<div class="recall-view-ph">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</div>';
-if (!textIsImg && text.trim()) html += '<div class="recall-view-text">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</div>';
-return html || '<div class="recall-view-ph">（这条消息没有可显示的原文）</div>';
+if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="msg-img msg-img-sm" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
+if (isVoice) return html + '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
+if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</span>';
+return html || '<span style="opacity:.5;font-size:12px">（这条消息没有可显示的原文）</span>';
 }
-let recallViewEl = null;
-function closeRecallView() { if (recallViewEl) recallViewEl.hidden = true; }
-window.openRecallView = function (rec) {
-try {
-if (!rec) return;
-if (!recallViewEl) {
-recallViewEl = document.createElement('div');
-recallViewEl.id = 'recall-view';
-recallViewEl.className = 'recall-view';
-recallViewEl.hidden = true;
-recallViewEl.innerHTML = '<div class="recall-view-card">' +
-'<div class="recall-view-title">撤回的原文</div>' +
-'<div class="recall-view-body" id="recall-view-body"></div>' +
-'<button class="recall-view-close" id="recall-view-close" type="button">关闭</button></div>';
-document.body.appendChild(recallViewEl);
-recallViewEl.addEventListener('click', (e) => {
-if (e.target === recallViewEl || (e.target.closest && e.target.closest('#recall-view-close'))) closeRecallView();
-});
-}
-const bd = recallViewEl.querySelector('#recall-view-body');
-if (bd) bd.innerHTML = retractViewHtml(rec);
-recallViewEl.hidden = false;
-} catch (e) {}
-};
-window.closeRecallView = closeRecallView;
-function bindToggle(b, side, rec) {
+function bindToggle(b, side) {
+const who = side === 'out' ? '我' : '对方';
 b.style.cursor = 'pointer';
-b.title = '点开查看原文';
 b.onclick = function () {
-try { window.openRecallView(rec); } catch (e) {}
+if (b.dataset.showing === '1') {
+b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
+b.dataset.showing = '0';
+} else {
+b.innerHTML = b.dataset.orig;
+b.dataset.showing = '1';
+}
 };
 }
 let batchRendering = false;
@@ -33251,8 +33253,9 @@ if (rec.special === 'read') {
 b.innerHTML = '<span style="opacity:.5;font-size:12px">已读不回</span>';
 m.dataset.pendingRead = '1';
 } else if (rec.retracted) {
+b.dataset.orig = rec.orig || retractSafeHtml(rec); // FIX #572d：仍是「快照优先」，无快照才走安全兜底（不再裸直出 rec.text）
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (rec.side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, rec.side, rec); // FIX #572b：原文走浮层（不再写回气泡），rec 供浮层安全渲染
+bindToggle(b, rec.side);
 } else if (rec.type === 'sticker' || rec.type === 'image') {
 b.style.padding = '6px';
 b.style.background = '';
@@ -34176,8 +34179,9 @@ chatTailDrop(msgs[idx]); // #180：撤回消息从尾巴日志摘除，防刷新
 saveMsgs();
 if (msgs[idx].side === 'out') syncLastMineText();
 }
+b.dataset.orig = b.innerHTML; // FIX #572d：撤回瞬间把渲染快照留住（原行为），点开就地展开这份快照
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, side, (!isNaN(idx) && msgs[idx]) ? msgs[idx] : null); // FIX #572b：原文走浮层
+bindToggle(b, side);
 }
 function splitCardSegs(text) {
 const str = String(text || '').trim();
@@ -40643,7 +40647,6 @@ const who = rec.side === 'out' ? '我' : memberName(rec.cid);
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.style.cursor = 'pointer';
 b.onclick = function () {
-if (window.openRecallView) { window.openRecallView(rec); return; }
 if (b.dataset.showing === '1') {
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
 b.dataset.showing = '0';
@@ -43944,7 +43947,7 @@ d.className = 'cc-item glass';
 d.dataset.g = gname;
 d.dataset.idx = i;
 d.innerHTML = cardItemHtml(c);
-if (typeof c === 'string') d.dataset.ccSig = ccPoolKey(c); // FIX #508：局部重建的卡同样带指纹（#509 改短键、#613 改令牌稳定身份）
+if (typeof c === 'string') d.dataset.ccSig = ccPoolKey(c); // FIX #508：局部重建的卡同样带指纹（#509 改短键、#617 改令牌稳定身份）
 ccPoolAdopt(d, c); // FIX #509：同内容图从池里取回已解码 img（删一张卡不再让整组图片重载）
 attachCardData(d, c);
 if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
@@ -44170,7 +44173,7 @@ el.dataset.g = it.gname;
 el.dataset.idx = it.i;
 el.innerHTML = cardItemHtml(it.c);
 if (typeof it.c === 'string') {
-el.dataset.ccSig = ccPoolKey(it.c); // FIX #508/#509：内容短指纹，供复用判定（#613 令牌稳定身份）
+el.dataset.ccSig = ccPoolKey(it.c); // FIX #508/#509：内容短指纹，供复用判定（#617 令牌稳定身份）
 ccPoolAdopt(el, it.c);             // FIX #509：从池取回同内容的已解码 img（取不到则保持新建）
 }
 attachCardData(el, it.c);
@@ -57931,8 +57934,9 @@ const chatAv = document.getElementById(out ? 'chat-user-av' : 'chat-partner-av')
 const deskRing = chatOnly ? null : document.querySelector(out ? '#avatar-user .ring' : '#avatar-partner .ring');
 const applyTo = (el) => {
 if (!el) return;
-if (el.__avApplied === (data || '')) return;
-el.__avApplied = data || '';
+const want = data || '';
+if (el.__avApplied === want) return;
+el.__avApplied = want;
 if (data) {
 const cur = el.querySelector('img');
 if (cur) { cur.src = data; cur.alt = ''; }
@@ -80534,7 +80538,7 @@ var PI = 1800;
 var WILT_SEC = 345600;
 var WATER_SEC = 172800;
 function pn() { return s.get("lbl-partner") || "TA"; }
-function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { var lv0 = Math.floor(Math.sqrt((d.exp || 0) / 10)) + 1; d.plotN = PLOTS + (lv0 >= 3 ? 2 : 0) + (lv0 >= 5 ? 2 : 0) + (lv0 >= 8 ? 2 : 0) + (lv0 >= 12 ? 4 : 0); } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
+function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { /* FIX 2026-09-16 #601e：旧默认按等级自动扩地（满级 12→22）违反 #446「等级只解锁开垦资格、实操点开垦才扩地」，导致用户看到「远超 12 块」；改为默认 12——若存档 12 块之后已有花，保留到最远那株，绝不裁花 */ var _maxP = -1; for (var _pi = PLOTS; _pi < d.p.length; _pi++) { if (d.p[_pi]) _maxP = _pi; } d.plotN = _maxP >= PLOTS ? (_maxP + 1) : PLOTS; } if (!d.pnUser && d.plotN > PLOTS) { /* FIX 2026-09-16 #601e：存量被旧默认放大到 >12 块的存档，若 12 块之后全是空地则安全收回 12 块（有花之地绝不裁；用户手动开垦过的存档带 pnUser 标记、不再缩回） */ var _onlyEmptyTail = true; for (var _pj = PLOTS; _pj < d.plotN; _pj++) { if (d.p[_pj]) { _onlyEmptyTail = false; break; } } if (_onlyEmptyTail) d.plotN = PLOTS; } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
 var saveLock = true, dataPf = null;
 function save(d) {
 try {
@@ -81128,10 +81132,11 @@ if (cur >= ent) {
 if (window.openModal) window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function () {}, { pills: [{ label: "\u597D\u7684", value: "ok" }], noInput: true, staticText: "\u5F53\u524D " + cur + " \u5757\u5730\u5DF2\u5168\u90E8\u5F00\u58A6\n\u4E0B\u6B21\u5347\u7EA7\u53EF\u518D\u89E3\u9501\u65B0\u5730\u5757\u7684\u5F00\u58A6\u8D44\u683C\uFF08Lv.3/5/8 \u5404 +2\uFF0CLv.12 +4\uFF09" });
 return;
 }
-if (!window.openModal) { data.plotN = ent; syncPlots(); save(data); renderAll(); return; }
+if (!window.openModal) { data.plotN = ent; data.pnUser = 1; syncPlots(); save(data); renderAll(); return; }
 window.openModal("\u5F00\u58A6\u65B0\u5730\u5757", "", function (v) {
 if (v !== "1") return;
 data.plotN = ent;
+data.pnUser = 1; // FIX 2026-09-16 #601e：用户手动开垦过 → load() 的存量缩地不再生效
 syncPlots();
 addLog("\u2605", "\u5F00\u58A6\u4E86 " + (ent - cur) + " \u4E2A\u65B0\u5730\u5757\uFF0C\u82B1\u56ED\u73B0\u6709 " + data.p.length + " \u5757\u5730");
 save(data); renderAll();
@@ -81541,7 +81546,7 @@ h += "</div>";
 } else {
 h += "<div class=\"garden-decor-empty\">\u8FD8\u6CA1\u6709\u88C5\u9970\uFF0C\u53BB\u5546\u5E97\u770B\u770B\u5427</div>";
 }
-h += "<button class=\"garden-decor-shop-btn\" id=\"garden-decor-shop-btn\">\uD83D\uDED2 \u88C5\u9970\u5546\u5E97\uFF08\u514D\u8D39\uFF09</button>";
+h += "<button class=\"garden-decor-shop-btn\" id=\"garden-decor-shop-btn\"><span class=\"garden-decor-shop-ico\">\uD83D\uDED2</span>\u88C5\u9970\u5546\u5E97\uFF08\u514D\u8D39\uFF09</button>";
 el.innerHTML = h;
 var btn = el.querySelector("#garden-decor-shop-btn");
 if (btn) btn.addEventListener("click", buyDecor);
@@ -97599,8 +97604,8 @@ setView(val);
 });
 bar.appendChild(b);
 }
-contacts().forEach(ct => chip(contactName(ct.id), ct.id));
 chip('全部', ALL);
+contacts().forEach(ct => chip(contactName(ct.id), ct.id));
 }
 function setView(v) {
 if (viewCid === v) return;
@@ -98370,7 +98375,12 @@ const HUB = [
 { n: '版本与更新', d: '查看当前版本、一键更新到最新（数据保留）', k: '版本 更新 升级 检查更新 新版', go: ['#row-changelog'] },
 { n: '开源与致谢', d: '代码开源 / 私人部署说明 + 灵感来源与感谢名单', k: '开源 致谢 源码 github 部署 灵感 感谢', go: ['#row-opensource'] },
 { n: '隐私与数据安全', d: '纯本地存储、无后端不上传；数据保护与备份提醒', k: '隐私 数据 安全 本地 备份 上传 收集', go: ['#row-privacy'] },
-{ n: '联系作者 / 反馈', d: '作者账号与遇到问题的反馈方式', k: '联系 作者 反馈 反馈渠道 客服 账号 言序', go: ['#row-contact'] }
+{ n: '联系作者 / 反馈', d: '作者账号与遇到问题的反馈方式', k: '联系 作者 反馈 反馈渠道 客服 账号 言序', go: ['#row-contact'] },
+{ n: '会不会做成 App', d: '为什么不考虑做成 App（功能太多、Bug 更多、适配问题）', k: '做成 app 客户端 软件 下载 安装包', go: ['#row-faq-app'] },
+{ n: '自己转 App 使用', d: '“链接转应用”本质是浏览器套壳，不如直接用浏览器', k: '转 app 套壳 一个木函 链接转应用', go: ['#row-faq-app2'] },
+{ n: '怎么添加字卡', d: '系统预设字卡是补充类；聊天/写信/朋友圈用自定义字卡添加', k: '添加字卡 公用字卡 专享字卡 自定义字卡 怎么加卡', go: ['#row-faq-addcard'] },
+{ n: '全屏模式失效', d: '切后台再回来全屏会失效，怎么恢复', k: '全屏 失效 切后台 状态栏 快捷方式', go: ['#row-faq-fullscreen'] },
+{ n: '系统预设字卡与功能设置', d: '建议全开使用的原因', k: '系统预设字卡 功能设置 全开 建议打开', go: ['#row-faq-preset'] }
 ] }
 ];
 const CAT_ICO = [
@@ -98641,7 +98651,12 @@ var DESC = [
 { sel: '#row-changelog', name: '版本与更新', d: '显示当前版本，并说明更新机制。\n机制：有新版本时开屏出现「⇩ 有新版本 · 点此更新」，点一下即更新到最新；本行弹窗里也有「检查更新」按钮，走同一条刷新链。\n影响范围：只替换程序文件，聊天记录 / 字卡 / 头像 / 壁纸 / 音乐等本机数据全部保留。' },
 { sel: '#row-opensource', name: '开源与致谢', d: '本作代码完全开源、支持私人部署与二传二改；此处汇总原创署名与灵感来源 / 感谢名单。\n本行只是只读说明入口，不改变任何设置。' },
 { sel: '#row-privacy', name: '隐私与数据安全', d: '说明数据存放位置与保护方式：纯本地应用，无后端 / 无账号 / 无需联网，数据只存本机 localStorage + IndexedDB，作者看不到、不上传。\n提醒：卸载或清除浏览器数据会删除本机数据且无法找回，唯一可靠防线是定期「导出数据」完整备份。\n本行只是只读说明入口。' },
-{ sel: '#row-contact', name: '联系作者 / 反馈', d: '作者的两个账号（小红书 / 抖音）与反馈建议。\n提醒：作者不玩抖音、不回消息，账号仅用于发布本站链接；本站完全免费，任何收费均为诈骗。\n反馈问题时建议附上 工具 → 设备兼容诊断 复制出的环境信息。\n本行只是只读说明入口。' }
+{ sel: '#row-contact', name: '联系作者 / 反馈', d: '作者的两个账号（小红书 / 抖音）与反馈建议。\n提醒：作者不玩抖音、不回消息，账号仅用于发布本站链接；本站完全免费，任何收费均为诈骗。\n反馈问题时建议附上 工具 → 设备兼容诊断 复制出的环境信息。\n本行只是只读说明入口。' },
+{ sel: '#row-faq-app', name: '会不会做成 App', d: '说明为什么不考虑做成 App：功能太多，做成 App 的 Bug 只会更多，且同样存在设备适配问题，作者没有相应精力与金钱。\n本行只是只读说明入口。' },
+{ sel: '#row-faq-app2', name: '自己转 App 使用', d: '说明为什么“链接转应用”不可取：没有原代码，本质是浏览器套壳，不是真正的 App，反而更容易出适配问题；直接用浏览器体验更稳定。\n本行只是只读说明入口。' },
+{ sel: '#row-faq-addcard', name: '怎么添加字卡', d: '系统预设字卡只是补充类与功能衍生卡，个人使用要按自己情况添加聊天字卡：聊天 / 写信 / 朋友圈 用 自定义字卡里的【公用字卡】【专享字卡】添加。\n本行只是只读说明入口。' },
+{ sel: '#row-faq-fullscreen', name: '全屏模式失效', d: '浏览器切后台再切回会导致全屏失效（浏览器限制），只能手动重新开全屏；也可用“安装快捷方式到桌面”的方式使用。手机自身顶部栏需自行开全屏隐藏，切后台后同样失效。\n本行只是只读说明入口。' },
+{ sel: '#row-faq-preset', name: '系统预设字卡与功能设置', d: '建议打开系统预设字卡与功能设置（作者自用默认全开）：全开是为了不限制梦角表达，关掉反而和基础传讯网站差别不大；可先全开使用，再按个人适应情况调整。\n本行只是只读说明入口。' }
 ];
 var MAP = {};
 DESC.forEach(function (it) { MAP[it.sel] = it; });
@@ -99950,6 +99965,10 @@ pickMode = !pickMode;
 if (pickBtn) pickBtn.textContent = pickMode ? '退出批量' : '批量修复';
 if (applyBtn) applyBtn.hidden = !pickMode;
 render();
+if (pickMode) setTimeout(function () {
+var n = bodyEl.querySelectorAll('.ca-pick').length;
+toast(n ? '已进入批量修复：已自动勾选 ' + n + ' 项，点顶部「应用所选」确认' : '当前没有可批量修复的问题项');
+}, 260);
 }
 function exportReport() {
 var payload = {
@@ -101566,7 +101585,7 @@ window.addEventListener('orientationchange', function () { _aCoverEnvCache = -1;
 } catch (e) {}
 } catch (e) {}
 }
-const FLOAT_SELECTORS = ['#recall-view', '#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
+const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
 '#beauty-drawer', '#icon-fit-panel'];
 let kbPanelDocked = false;
 function kbDockPanels() {
@@ -101845,4 +101864,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3yq9sj -->
+<!-- __MOCHI_EOF__ mu3zk9np -->

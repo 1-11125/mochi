@@ -1443,7 +1443,7 @@ if (!data && key === 'cs-avatar-user') data = store.get('avatar-user');
 if (avatarBatchCache) avatarBatchCache[key] = data || null;
 }
 if (data && data.length > 500 * 1024) data = null;
-// FIX 2026-09-16 #613 头像「闪一下重新加载」（红米 K80 Chrome 等多机型，用户明说其他设备型号
+// FIX 2026-09-16 #617 头像「闪一下重新加载」（红米 K80 Chrome 等多机型，用户明说其他设备型号
 //   也有）：原实现无条件 el.innerHTML='' + 新建 img + 赋 src，于是每一次 fillAvatar 调用都会
 //   把该位置的头像节点整块换成新节点——新节点从零解码，且旧节点先被清空＝该位置空一帧再出现。
 //   触发面最广的一处是「头像互动里点一张换头像」：它走 refreshChatAvatars()，把**全部**已渲染
@@ -2489,30 +2489,16 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 }
 });
 }
-// FIX 2026-09-16 #572 点开撤回原文「全部聊天消息都会弹和闪」（用户报，明说以前没有这个问题
-// ＝回归）：展开＝把原文写回这条气泡本身，而撤回提示只有一行（实测 45px）、任何真实原文都更高
-// ⇒ 该气泡当场变高，.chat-body 是纵向 flex 列表，它下面的每条消息都要重新排位＝整列被顶走。
-// 浏览器本来有原生滚动锚定会把这份高度差补掉（#199 之前一直开着），但 base.css 的
-// .chat-body{overflow-anchor:none}（#199 为治滚动抖动关掉）把它关了，#316 只在「解钉」期动态
-// 挂 .scroll-anchor-auto 开回——而轻点撤回提示是 touchstart 解钉、touchend 又回钉（scrollChatBottom
-// 摘类），展开发生在回钉之后＝锚定恰好是关的，补偿无人做（无头实测：视口内 8 条各下移 55px；
-// 同场景把锚定打开只剩被点那条动）。这里按本文件 inplacePatchIfSameWindow 的既有补偿口径自己补：
-// 贴底态回钉（与内核锚定在贴底时的结果一致），非贴底态按高度差把视口钉回，其它消息原地不动。
-// FIX 2026-09-16 #572b 撤回原文改为浮层查看（列表零位移）——#572 只补了滚动补偿，但「气泡原地
-// 变高」这件事本身必然要推动列表的一侧：补偿口径推上面（实测单聊 3 条 / 群聊 6 条各上移 34px）、
-// 不补偿推下面（实测 8 条下移 55px、长原文 5 条下移 160px）。用户的原话是「我展开只是查看内容啊」，
-// 所以查看不该写回列表：点提示改成弹一张只读卡片，消息列表一条都不动（全站既有做法，同
-// viewChatImage / #img-view-mask）。内容一律按消息记录安全渲染（图片给 <img>、语音给名称、文本
-// 转义换行），绝不直出 rec.orig 那段 innerHTML——那正是老数据展开变整屏 base64、字卡里的 HTML
-// 被当标签执行的老问题（群聊 #244 已按此口径修，单聊这次对齐）。
-function retractViewHtml(rec) {
-// FIX 2026-09-16 #572c（用户点名「浮层 + 恢复原来的排版」）：卡片内容一律用撤回时存下的渲染快照
-// rec.orig——就是当年「就地展开」写回气泡的那份 HTML，所以引用块/情绪字卡/图片/换行的排版与以前
-// 看到的完全一致（外层的 .msg-bubble 由 CSS 提供原气泡底色与内边距，观感等同聊天里的气泡）。
-// 只有没有快照的存量老消息才走下面的安全兜底：当年那种「rec.orig || rec.text」直出正是老数据展开
-// 变整屏 base64 / 字卡 HTML 被当标签执行的来源（群聊 #244 已修，单聊这里顺手对齐）。
-const snap = (rec && typeof rec.orig === 'string') ? rec.orig.trim() : '';
-if (snap) return '<div class="recall-view-bubble ' + (rec.side === 'out' ? 'msg-out' : 'msg-in') + '"><div class="msg-bubble">' + snap + '</div></div>';
+// FIX 2026-09-16 #572d（用户点名：要「我原来的模式」）：查看原文恢复原来的「点一下在气泡里就地
+// 展开、再点收回」。浮层版（#572b/#572c）用户不要——不管浮层内容怎么还原排版，它本质还是弹窗，
+// 不是「那条消息在聊天流里变回原文」。故 #572b/#572c 的浮层实现与 #572 的滚动补偿一并撤销，交互与
+// 观感回到原样。
+// 唯一保留的改动是兜底渲染：原来无快照的存量消息走 rec.orig → rec.text 的裸文本直出，会把整屏 base64
+// 铺进气泡（语音那条实测气泡 45px→1599px、列表高度 1492→3038）、字卡里的 HTML 还会被当标签执行
+//（群聊 #244 已按安全口径修，单聊这里对齐）。有快照的常规路径一字未动。
+// 另注：就地展开＝该气泡当场变高，纵向列表必然被推动（下面消息下移 dH；开内核滚动锚定时改成上面
+// 上移 dH）——这是「就地展开」自带的语义，不是回归，用户明确要这个模式，故不再做任何滚动补偿。
+function retractSafeHtml(rec) {
 const raw = String(rec && rec.text != null ? rec.text : '');
 const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
 const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
@@ -2526,46 +2512,22 @@ const textIsImg = isImgSrc(text);
 if (!imgs.length && textIsImg) imgs.push(text);
 const isVoice = (rec && rec.type === 'voice') || raw.indexOf('|||') >= 0;
 let html = '';
-if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="recall-view-img" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
-if (isVoice) return html + '<div class="recall-view-ph">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</div>';
-if (!textIsImg && text.trim()) html += '<div class="recall-view-text">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</div>';
-return html || '<div class="recall-view-ph">（这条消息没有可显示的原文）</div>';
+if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="msg-img msg-img-sm" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
+if (isVoice) return html + '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
+if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</span>';
+return html || '<span style="opacity:.5;font-size:12px">（这条消息没有可显示的原文）</span>';
 }
-// #572c：卡片里的原文用原气泡样式呈现（.recall-view-bubble > .msg-bubble，见 chat-main.css），
-// 让「查看原文」看起来就是那条消息本来的样子
-let recallViewEl = null;
-function closeRecallView() { if (recallViewEl) recallViewEl.hidden = true; }
-// 暴露给群聊页复用（同一份浮层实现，两页观感/口径一致）
-window.openRecallView = function (rec) {
-try {
-if (!rec) return;
-if (!recallViewEl) {
-recallViewEl = document.createElement('div');
-recallViewEl.id = 'recall-view';
-recallViewEl.className = 'recall-view';
-recallViewEl.hidden = true;
-recallViewEl.innerHTML = '<div class="recall-view-card">' +
-'<div class="recall-view-title">撤回的原文</div>' +
-'<div class="recall-view-body" id="recall-view-body"></div>' +
-'<button class="recall-view-close" id="recall-view-close" type="button">关闭</button></div>';
-document.body.appendChild(recallViewEl);
-recallViewEl.addEventListener('click', (e) => {
-if (e.target === recallViewEl || (e.target.closest && e.target.closest('#recall-view-close'))) closeRecallView();
-});
-}
-const bd = recallViewEl.querySelector('#recall-view-body');
-if (bd) bd.innerHTML = retractViewHtml(rec);
-recallViewEl.hidden = false;
-} catch (e) {}
-};
-window.closeRecallView = closeRecallView;
-function bindToggle(b, side, rec) {
+function bindToggle(b, side) {
+const who = side === 'out' ? '我' : '对方';
 b.style.cursor = 'pointer';
-b.title = '点开查看原文';
 b.onclick = function () {
-// 不 stopPropagation：气泡文本恒为提示行 ⇒ msgActionEligible 按文本已排除（不弹引用/编辑菜单），
-// 而 event 继续冒泡才能让 document 层「点外面关面板」照常工作（#481：吞 click 会害面板关不掉）
-try { window.openRecallView(rec); } catch (e) {}
+if (b.dataset.showing === '1') {
+b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
+b.dataset.showing = '0';
+} else {
+b.innerHTML = b.dataset.orig;
+b.dataset.showing = '1';
+}
 };
 }
 let batchRendering = false;
@@ -3487,8 +3449,9 @@ m.dataset.pendingRead = '1';
 // v3.16.x：撤回分支必须先于 sticker/image/voice/parts 类型分支——
 // 否则表情包/图片/语音被撤回后任何全量重渲染（renderWindow/loadMsgs/切会话）
 // 都会命中类型分支，把原内容（表情包 img 等）重新渲染出来，撤回形同失效
+b.dataset.orig = rec.orig || retractSafeHtml(rec); // FIX #572d：仍是「快照优先」，无快照才走安全兜底（不再裸直出 rec.text）
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (rec.side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, rec.side, rec); // FIX #572b：原文走浮层（不再写回气泡），rec 供浮层安全渲染
+bindToggle(b, rec.side);
 } else if (rec.type === 'sticker' || rec.type === 'image') {
 b.style.padding = '6px';
 b.style.background = '';
@@ -4563,8 +4526,9 @@ chatTailDrop(msgs[idx]); // #180：撤回消息从尾巴日志摘除，防刷新
 saveMsgs();
 if (msgs[idx].side === 'out') syncLastMineText();
 }
+b.dataset.orig = b.innerHTML; // FIX #572d：撤回瞬间把渲染快照留住（原行为），点开就地展开这份快照
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, side, (!isNaN(idx) && msgs[idx]) ? msgs[idx] : null); // FIX #572b：原文走浮层
+bindToggle(b, side);
 }
 function splitCardSegs(text) {
 const str = String(text || '').trim();

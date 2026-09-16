@@ -681,22 +681,12 @@
       const who = rec.side === 'out' ? '我' : memberName(rec.cid);
       b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
       b.style.cursor = 'pointer';
-      // FIX 2026-09-16 #572 点开撤回原文「全部聊天消息都会弹和闪」（用户报，明说以前没有＝回归，
-      // 单聊群聊都有）：展开＝把原文写回这条气泡本身，提示只有一行、原文必更高 ⇒ 该气泡当场变高，
-      // .chat-body（#gc-body 同挂该类）是纵向 flex 列表，下面每条消息都要重新排位＝整列被顶走。
-      // 内核原生滚动锚定本会补掉这份高度差（#199 之前一直开着），但 base.css 的
-      // .chat-body{overflow-anchor:none}（#199 治滚动抖动）关了它，#316 只在解钉期动态挂
-      // .scroll-anchor-auto 开回——轻点撤回提示是 touchstart 解钉、touchend 又回钉，展开发生在回钉
-      // 之后＝锚定正关着，补偿无人做。此处按单聊 bindToggle 同口径自己补：贴底回钉、非贴底按高度差
-      // 把视口钉回，其它消息原地不动。
-      // FIX 2026-09-16 #572b 群聊同款改为浮层查看（复用单聊 chat.js 的 window.openRecallView，
-      // 两页同一份实现/同一观感）：原来「把原文写回这条气泡」必然推动列表——补偿口径推上面
-      //（实测 6 条各上移 34px）、不补偿推下面（8 条下移 55px），用户报「点开查看害得全部聊天消息
-      // 都弹和闪」。改为弹只读卡片，消息列表一条都不动；内容由浮层按消息记录安全渲染（图片给
-      // <img>、语音给名称、文本转义换行），不再直出 rec.orig 快照（#244 的老问题同源）。
-      // 无 openRecallView（脚本/极旧产物）时退回原就地展开，功能不丢。
+      // FIX 2026-09-16 #572d（用户点名：要「我原来的模式」）：群聊恢复原来的「点一下在气泡里就地
+      // 展开、再点收回」——#572b 的浮层版用户不要（浮层再像也是弹窗，不是「那条消息在聊天流里变回
+      // 原文」）。就地展开＝气泡当场变高、列表必然被推动（这是该模式自带语义，非回归），故本处不加
+      // 滚动补偿，交互/观感与原来逐行一致（安全兜底 gcRetractMediaHtml/gcRetractFallbackHtml 是 #244
+      // 就有的，保留）。
       b.onclick = function () {
-        if (window.openRecallView) { window.openRecallView(rec); return; }
         if (b.dataset.showing === '1') {
           b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
           b.dataset.showing = '0';
