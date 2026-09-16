@@ -649,6 +649,18 @@ const ICON_ENV = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="cu
 const ICON_CQ_FIX = { '再等等，会遇到我': '再等等，会遇到你', '你身边': '我身边', '只给我看': '只给你看' };
 const NORM_CHUNK = 2500;
 let normTimer = null, normPrefix = null;
+// FIX 2026-09-16 #624 多图消息守卫：parts 里 ≥2 张图的记录不得被下面「text 以 data:image/
+// 开头 → 升级成 type:'image'」的存量规则折叠——升级后渲染走单图类型分支（renderMsg 的类型
+// 分支先于 parts 分支），第二张起全部丢失＝用户 / TA 的「一条消息两张图」刷新或重进后只剩一张。
+function hasMultiImgParts(r) {
+  if (!r || !Array.isArray(r.parts)) return false;
+  let n = 0;
+  for (let i = 0; i < r.parts.length; i++) {
+    const p = r.parts[i];
+    if (p && p.k === 'img' && ++n > 1) return true;
+  }
+  return false;
+}
 function normCell(r) {
   let c = false;
   if (!r) return false;
@@ -658,7 +670,7 @@ function normCell(r) {
       const t = r.text.replace(/✉️\s*/g, '').replace(/✉\s*/g, '');
       if (t !== r.text) { r.text = ICON_ENV + t; c = true; }
     }
-    if ((r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
+    if ((r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
 // FIX 2026-09-12 #383 存量乱码自愈：#383 前令牌卡曾以 type:text 入库（气泡直出 @@m:hash 串），
 // 归一化补认裸令牌→type='image'（与上行 data:image 升级同口径），刷新后历史乱码消息变回图片
 // FIX 2026-09-10 #283 语音型归一：裸 data:audio 文本与「|||@@m:令牌」（pass 令牌化后的无主
@@ -930,7 +942,7 @@ msgs.forEach(r => {
 // FIX 2026-09-15 #534 存量图片直链消息补 type='image'——#533 前链接导入的字卡
 // （裸 http(s) 图链）曾被当文字卡抽出、以 type:'text' 落库，气泡直出整段链接；
 // 与 normCell / 渲染端自愈同口径（只认带图片扩展名的单条直链，普通链接不受影响）。
-if (r && (r.type === 'text' || !r.type) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text))) {
+if (r && (r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text))) {
 r.type = 'image';
 migrated = true;
 }
@@ -1390,6 +1402,11 @@ return segs.join('');
 }
 function sysNickSweepable(r) {
 if (!r || typeof r.text !== 'string' || !r.text) return false;
+// FIX 2026-09-16 #616（昵称池）：nickKeep 的消息是**事件记录**——正文里带引号的昵称
+//（如「我把昵称换成了「小满」」）是当时发生的事实，不能跟随后续改名一起被清扫成 {ta}
+//（否则第二次改名后旧记录会谎报成「换成了当前名」，两条记录看起来一模一样）。
+// 放在 mailNotice 之前：nickKeep 是显式豁免，优先级高于其它可清扫类型。
+if (r.nickKeep) return false;
 if (r.mailNotice) return true;
 return r.special === 'poke' || r.special === 'ask-msg' || r.special === 'call' ||
 r.special === 'call-reply' || r.special === 'invite-reply' || r.special === 'pong' ||
@@ -2511,10 +2528,26 @@ parts.forEach(p => { if (p && p.k === 'img' && p.v) imgs.push(p.v); });
 const textIsImg = isImgSrc(text);
 if (!imgs.length && textIsImg) imgs.push(text);
 const isVoice = (rec && rec.type === 'voice') || raw.indexOf('|||') >= 0;
+// FIX 2026-09-16 #572e（用户点检「原内容和 tag 能不能正常显示」）：无快照兜底也要把情绪字卡 tag 渲染出来
+// ——有快照时 tag 随 rec.orig 那份气泡 HTML 一起回来（快照是撤回瞬间的 innerHTML，情绪块就在里面），
+// 但无快照的老消息走本兜底，旧口径只给文本 ⇒ tag 会凭空消失。此处按 renderMsg 的情绪块同款标记渲染
+//（.msg-moods > .msg-mood[.msg-intent] > .msg-mood-tag + 文案），并跳过已被撤回的那几条
+//（rec.retractedMood，与 partialRetractMsg 的口径一致），口径与群聊/收藏同源。
 let html = '';
 if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="msg-img msg-img-sm" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
-if (isVoice) return html + '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
-if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</span>';
+if (isVoice) html += '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
+else if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</span>';
+const moods = (rec && Array.isArray(rec.mood)) ? rec.mood : [];
+const liveMoods = moods.filter((md, mi) => md && String(md.tag || '').trim() && !(rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0));
+if (liveMoods.length) {
+html += '<div class="msg-moods">' + liveMoods.map(md => {
+const tg = escTxt(String(md.tag == null ? '' : md.tag));
+const lb = md.label == null ? '' : String(md.label);
+const dup = lb !== '' && lb === String(rec.text == null ? '' : rec.text);
+const cls = (md.tag === '交流意图') ? 'msg-mood msg-intent' : 'msg-mood';
+return '<div class="' + cls + '"><span class="msg-mood-tag">' + tg + '</span>' + (dup || lb === '' ? '' : '<span>' + escTxt(quoteDisplayFit(lb, rec.side)) + '</span>') + '</div>';
+}).join('') + '</div>';
+}
 return html || '<span style="opacity:.5;font-size:12px">（这条消息没有可显示的原文）</span>';
 }
 function bindToggle(b, side) {
@@ -3193,9 +3226,13 @@ return m;
 }
 if (rec.special === 'poke' || rec.special === 'ask-msg') {
 m.className = 'msg-poke' + (rec.mailNotice ? ' mail-notice' : '');
+// FIX 2026-09-16 #616：昵称事件消息（nickKeep）**原样呈现**，不走 pokePersonMap——
+// 那样会把「我把 TA 的昵称换成了「小满」」里的泛指 TA 也回填成新昵称，整句变成
+// 「我把 小满 的昵称换成了「小满」」（自己说自己，用户读不出发生了什么）。
+// 这类消息的正文本身就是「谁把昵称改成了什么」的记录，泛指词保持泛指才不歧义。
 // v3.30.x：拍一拍人称昵称制——不再走 T()（taFit 称呼替换），改用 pokePersonMap：
 // {ta}/{me} 与字卡里写死的 TA/ta/他/她 一律按 我的昵称/联系人昵称 回填
-m.innerHTML = '<span>' + pokeIconHtml(pokePersonMap(rec.text, __taNm, __meNm)) + '</span>' +
+m.innerHTML = '<span>' + (rec.nickKeep ? escTxt(rec.text) : pokeIconHtml(pokePersonMap(rec.text, __taNm, __meNm))) + '</span>' +
 (rec.img ? '<img class="msg-poke-img" src="' + attrEsc(rec.img) + '" alt="新头像">' : '');
 if (rec.mailNotice) {
 m.addEventListener('click', () => { if (window.openMailPage) window.openMailPage(); });
@@ -3832,7 +3869,8 @@ let text = rec.text || '';
 // （renderMsg 走 T() 替换，此处同义；不走 taFit 称呼改写，避免昵称被改成 他/她）
 // v3.30.x：拍一拍人称昵称制——poke/ask-msg 整体走 pokePersonMap（{ta}/{me} 与字卡写死的
 // TA/ta/他/她 一律按昵称回填，与聊天内渲染一致；须在回填前整体替换，防昵称含 TA/他/她 被二次改写）
-if ((rec.special === 'poke' || rec.special === 'ask-msg') && typeof text === 'string') {
+// FIX 2026-09-16 #616：nickKeep 的昵称事件消息除外——桌面横幅预览与聊天内渲染同口径原样呈现
+if ((rec.special === 'poke' || rec.special === 'ask-msg') && !rec.nickKeep && typeof text === 'string') {
 text = pokePersonMap(text, chatPartnerName(), chatUserName());
 } else {
 if (typeof text === 'string' && text.indexOf('{ta}') >= 0) text = text.split('{ta}').join(chatPartnerName());
@@ -4068,7 +4106,7 @@ opts = opts || {};
   // 正文本身就是一张完整字卡，label 再渲染一遍会上下两行内容重复）
   const _tagMood = opts.tag ? [{ tag: String(opts.tag), label: opts.tagNoDup ? '' : String(text) }] : null;
   // v3.16.x：gInv = 联系人主动邀请的游戏类型（pong/snake/rps），随消息持久化供小游戏记录识别
-	return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, dedupExempt: opts.dedupExempt, mood: opts.mood || _tagMood || undefined });
+	return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, dedupExempt: opts.dedupExempt, nickKeep: opts.nickKeep, mood: opts.mood || _tagMood || undefined });
 }
 // v3.27.x：对话型回复补「正在输入」过渡——TA 回应先 showTyping 再落地，消除气泡凭空冒出的突兀感。
 // items 可为单条文本或数组（数组=逐条连发，条与条之间再出一次 typing）。仅当前桌面生效：期间切走
@@ -4126,7 +4164,8 @@ try { if (chatVisible()) renderWindow(true); } catch (e) {}
 };
 window.chatAddSystem = function (text, opts) {
 opts = opts || {};
-return addIn(text, { special: opts.special || 'poke', img: opts.img, mailNotice: opts.mailNotice, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, roastText: opts.roastText, roastCat: opts.roastCat, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers });
+// #616：nickKeep 透传（见 sysNickSweepable——昵称池的「换成了「XXX」」是事件记录，豁免改名清扫）
+return addIn(text, { special: opts.special || 'poke', img: opts.img, mailNotice: opts.mailNotice, nickKeep: opts.nickKeep, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, roastText: opts.roastText, roastCat: opts.roastCat, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers });
 };
 window.chatAddIn = function (text, opts) {
 // FIX 2026-09-15 #492：opts.follow = 用户主动通道（帮我决定/多人决定结果发到聊天）——落聊天
@@ -4637,11 +4676,24 @@ return (typeof v === 'string' && v.trim()) ? v : '';
 function genReplyText(c) {
 const pool = getPool();
 let reply = '', type = 'text';
-if (pool.sticker.length && hit(c['sticker-prob'])) {
+// FIX 2026-09-16 #624 表情包概率与图片概率独立判定（原为 if/else if 互斥）：两者同时命中时
+// 不再只出其一，而是同一条消息里带「表情包 + 图片」两张图（来源＝字卡库 公用+专属 的
+// 【表情包】/【图片】池，getMediaCards 本就合并双作用域）。仅命中其一时行为与旧版逐个分支
+// 完全一致（整条媒体消息）；两者都未命中时才继续 emoji/语音/文字优先级链。
+const stHit = !!(pool.sticker.length && hit(c['sticker-prob']));
+const imHit = !!(pool.image.length && hit(c['image-prob']));
+if (stHit && imHit) {
+const _st = pickNonBlank(pool.sticker), _im = pickNonBlank(pool.image);
+if (_st && _im) return { text: _st, type: 'text', parts: [
+{ k: 'img', v: _st, sub: 'sticker' },
+{ k: 'img', v: _im, sub: 'image' }
+] };
+}
+if (stHit) {
 reply = pickNonBlank(pool.sticker); type = 'sticker';
 } else if (pool.emoji.length && hit(c['emoji-prob'])) {
 reply = pickNonBlank(pool.emoji); type = 'emoji';
-} else if (pool.image.length && hit(c['image-prob'])) {
+} else if (imHit) {
 reply = pickNonBlank(pool.image); type = 'image';
 } else if (pool.voice.length && hit(c['voice-prob'])) {
 reply = pickNonBlank(pool.voice); type = 'voice';
@@ -4710,7 +4762,9 @@ try { await ensureReplyCardsReady(); } catch (e) {}
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
 let rep = genOneReply(c);
-if (rep && rep.type === 'text' && typeof rep.text === 'string' && window.periodWarmText) {
+// FIX 2026-09-16 #624 多图消息（parts 里是图片、text 为媒体载荷）不参与经期温柔语态改写——
+// 否则会给 data: 串加上前后缀，污染 rec.text（气泡仍走 parts，但横幅/引用/通知文本变乱）。
+if (rep && rep.type === 'text' && typeof rep.text === 'string' && rep.text.indexOf('data:') !== 0 && window.periodWarmText) {
 try { const _w = window.periodWarmText(rep.text); if (_w) rep.text = _w; } catch (e) {}
 }
 // #298 词典拼字：开关开启时按「拼字概率」把本条回复换成「语录字卡抽卡拼字」；
@@ -5032,6 +5086,9 @@ t = pickN(nbTextPool.length ? nbTextPool : pool.text, n).join(' ');
 const r = genReplyText(c);
 t = r.text;
 type = r.type;
+// FIX 2026-09-16 #624 表情包+图片概率同时命中时 genReplyText 已组好「两张图一条消息」的
+// parts，直接原样返回——不再走下方默认字卡覆盖（会把文本换掉）与单图追加（会再叠一张）。
+if (r.parts && r.parts.length) return { text: t, type: 'text', parts: r.parts };
 }
 if (type === 'sticker' || type === 'image' || type === 'voice') {
 return { text: t, type: type };
@@ -5079,8 +5136,10 @@ const _sp = (window.quoteSpellPick && window.quoteSpellPick(cfg())) || null;
 const segs = _sp && Array.isArray(_sp.segs) ? _sp.segs : (Array.isArray(_sp) ? _sp : null);
 if (segs && segs.length) return segs.join(' ');
 } catch (e) {}
+// FIX 2026-09-16 #624 多图消息（text 是图片载荷 + parts）没有可当文字用的正文——
+// 不把 data: 串当「聊天字卡文本」返回（否则 ta-ask 会把它当文本发出）。
 const t = rep && typeof rep.text === 'string' ? rep.text.trim() : '';
-return t || null;
+return (t && !(rep && rep.parts && rep.parts.length && t.indexOf('data:') === 0)) ? t : null;
 };
 let autoTimer = null;
 function scheduleAutoSend() {
