@@ -312,8 +312,9 @@
     h += '<button class="narc-chip narc-addchip" data-op="add-roster">＋ 添加</button>';
     h += '</div>';
     if (!cur) {
-      h += '<div class="narc-empty">还没有可以写档案的梦角<br>点上方联系人创建，或从「此间」添加';
-      h += '<br><button class="ne-btn" data-op="add-roster">去添加梦角</button></div>';
+      // #611：提醒名单来源——梦角是跟着桌面联系人自动建档的，不是这里必须手动建的
+      h += '<div class="narc-empty">还没有可以写档案的梦角<br>梦角会跟着桌面联系人自动建档，也可以在下方手动添一位';
+      h += '<br><button class="ne-btn" data-op="add-roster">添加梦角</button></div>';
       root.innerHTML = h;
       return;
     }
@@ -1361,7 +1362,8 @@
         render();
         break;
       }
-      case 'add-roster': if (window.cjianManage) window.cjianManage(); break;
+      // #611：档案页的管理只做名单（添加/改名/删除）——传 arc 让此间的「时辰区间」不进档案页
+      case 'add-roster': if (window.cjianManage) window.cjianManage({ arc: 1 }); break;
       case 'efield': editField(el.getAttribute('data-map'), el.getAttribute('data-key')); break;
       case 'add-li': addLi(el.getAttribute('data-kind')); break;
       case 'edit-li': editLi(el.getAttribute('data-kind'), id); break;
@@ -1410,7 +1412,8 @@
     const back = document.getElementById('narc-back');
     if (back) back.addEventListener('click', function () { window.closeNarc(); });
     const manage = document.getElementById('narc-manage');
-    if (manage) manage.addEventListener('click', function (e) { e.stopPropagation(); if (window.cjianManage) window.cjianManage(); });
+    // #611：带 arc 标记——档案页不该出现「时辰区间」（那是此间的世界时间设定）
+    if (manage) manage.addEventListener('click', function (e) { e.stopPropagation(); if (window.cjianManage) window.cjianManage({ arc: 1 }); });
     const appIcon = document.querySelector('.app[data-app="memo-arc"]');
     if (appIcon) {
       appIcon.addEventListener('click', function () {

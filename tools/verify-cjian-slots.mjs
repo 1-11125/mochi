@@ -30,7 +30,9 @@ function check(desc, ok, detail) {
 {
   const src = readFileSync(join(root, 'src', 'js', 'cjian.js'), 'utf8');
   check('A1 新增 slots 字段：worldMinuteOf 有 slots 时在所选时辰随机', /function worldMinuteOf\(c\)/.test(src) && /c\.slots/.test(src));
-  check('A2 无 slots 老梦角沿用旧行为（现实+偏移连续流动）', /worldNow\(c && c\.offsetMin\)/.test(src));
+  // 2026-09-16：期望值同步到现实现——世界时间早已抽到 worldMinuteOfRaw（抽一次存住），
+  // 无 slots 分支即「现实+偏移连续流动」，不再有 worldNow(c && c.offsetMin) 这种写法
+  check('A2 无 slots 老梦角沿用旧行为（现实+偏移连续流动）', /const off = \(c && c\.offsetMin\) \|\| 0;/.test(src) && /new Date\(Date\.now\(\) \+ off \* 60000\)/.test(src));
   check('A3 展示用世界时间 worldNowFor（有 slots 按当前抽中时辰随机时刻）', /function worldNowFor\(c\)/.test(src));
   check('A4 状态刷新/初始状态改用世界时间（ensureState + refreshStates）',
     /Math\.floor\(worldMinuteOf\(c\) \/ 60\)/.test(src) &&

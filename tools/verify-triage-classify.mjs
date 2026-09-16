@@ -22,7 +22,7 @@ const FAKE_ANCHOR = '__definitely_absent_anchor_zz__';
 
 // ---- 真实脚本：已知正确分类 ----
 check('测试输入回显不当锚点（verify-chat-send-btn 双击测试）', verdictOf('verify-chat-send-btn.mjs', '双击发送按钮 → 只发出一条（防重复仍生效）') === 'runtime', verdictOf('verify-chat-send-btn.mjs', '双击发送按钮 → 只发出一条（防重复仍生效）'));
-check('join 比对不当锚点（verify-cjian 弹窗三选项）', verdictOf('verify-cjian.mjs', '管理弹窗三选项（添加/改名/删除）——单桌视图直接进动作阶段 —— ') === 'runtime');
+check('join 比对不当锚点（verify-cjian 弹窗选项清单）', verdictOf('verify-cjian.mjs', '管理弹窗四选项（添加/时辰区间/改名/删除）——单桌视图直接进动作阶段 —— ') === 'runtime');
 check('成组种子不当锚点（verify-poke-emoji-tabs 公用互动）', verdictOf('verify-poke-emoji-tabs.mjs', 'B3 getScopedGroups：public/own 分区读取正确') === 'runtime');
 check('相邻 check 标签不当锚点（verify-memory-flip B6b）', verdictOf('verify-memory-flip.mjs', 'B6b 结算后 TA 从字卡库取一句游戏回应') === 'runtime');
 check('反向断言缺失即达标（verify-bugfix-six S2b 旧文案已删）', verdictOf('verify-bugfix-six.mjs', 'S2b Pong 提示改为右侧挡板') !== 'stale');

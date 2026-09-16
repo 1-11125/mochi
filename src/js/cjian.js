@@ -1344,14 +1344,27 @@
     { label: '改名', value: 'rename' },
     { label: '删除梦角', value: 'del' }
   ];
+  // v3.26.x #611：梦角档案（memo-arc）页的「管理梦角」是复用本弹窗的，但「时辰区间」
+  // 属此间专属的世界时间设定——档案页只该管名单。调 cjianManage({ arc: 1 }) 时：
+  // ① 动作列表去掉「时辰区间」（档案页没有 slots 动作）；② 添加流程选完时间偏移直接
+  // 建档，不再弹时辰多选浮层 #cj-slot-mask；③ 顶部补一条「自动跟随桌面联系人创建」提醒。
+  // 此间入口（cjianManage() 无参）零变化，slots 能力完整保留。
+  const ACTION_PILLS_ARC = [
+    { label: '添加梦角', value: 'add' },
+    { label: '改名', value: 'rename' },
+    { label: '删除梦角', value: 'del' }
+  ];
   // 独立时间流：一个只属于TA自己的随机偏移（非整点，跨天稳定）
   function randomOffset() {
     let off = rand(10, 540);
     if (off % 60 === 0) off += 17;
     return (Math.random() < 0.5 ? -1 : 1) * off;
   }
-  window.cjianManage = function () {
+  window.cjianManage = function (opts) {
     if (!window.openModal) return;
+    // #611：arc = 梦角档案页入口（只做名单管理，无「时辰区间」）
+    const arcMode = !!(opts && opts.arc);
+    const ACTIONS = arcMode ? ACTION_PILLS_ARC : ACTION_PILLS;
     let mCid = (viewCid === ALL) ? '' : (viewCid || curCid());
     let phase = mCid ? 'action' : 'pickGroup', pendingName = '', pendingOffset = 0, renameTarget = null;
     const ctl = window.openModal('梦角管理', '', function (v) {
@@ -1362,7 +1375,7 @@
         ctl.stay();
         ctl.title('梦角管理 · 「' + contactName(mCid) + '」');
         ctl.input(false);
-        ctl.pills(ACTION_PILLS);
+        ctl.pills(ACTIONS);
         return;
       }
       if (phase === 'action') {
@@ -1370,6 +1383,7 @@
           phase = 'name';
           ctl.stay();
           ctl.title('添加梦角 · 「' + contactName(mCid) + '」');
+          ctl.hint(''); // #611：清掉档案页入口的提醒（该阶段要输名字，粘着提醒会挤版面）
           ctl.pills(null);
           ctl.input(true);
           ctl.maxLen(10);
@@ -1405,10 +1419,11 @@
         phase = 'offset';
         ctl.stay();
         ctl.title('设定「' + name + '」的世界时间');
-        ctl.hint('先选时间偏移，下一步还能限定 TA 常在的时辰区间');
+        // #611：档案页入口不设时辰区间，提示改指「此间」（否则这句指向下一步会落空）
+        ctl.hint(arcMode ? '选一个时间偏移（想限定 TA 常在的时辰，去「此间」设）' : '先选时间偏移，下一步还能限定 TA 常在的时辰区间');
         ctl.input(false);
         ctl.pills(OFFSET_PILLS);
-        ctl.okText('下一步');
+        ctl.okText(arcMode ? '完成' : '下一步');
         return;
       }
       if (phase === 'offset') {
@@ -1417,6 +1432,18 @@
         pendingOffset = off;
         // 不 stay：本次确定后通用弹窗关闭，再开时辰多选浮层（外层 finally close 会清 cb，须延后一拍）
         phase = '';
+        if (arcMode) {
+          // #611：档案页不设时辰区间——选完偏移直接建档（无 slots 字段＝旧行为，世界时间
+          // 按偏移连续流动；与时辰浮层「不限定」分支同一份数据形态，无迁移问题）
+          const l = loadRoster(mCid);
+          l.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
+          saveRoster(l, mCid);
+          toast('已添加梦角：「' + pendingName + '」');
+          pendingName = ''; pendingOffset = 0;
+          todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
+          window.renderCjian(true);
+          return;
+        }
         setTimeout(function () {
           showSlotPicker(
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -1533,7 +1560,10 @@
         window.renderCjian(true);
         return;
       }
-    }, mCid ? { noInput: true, pills: ACTION_PILLS } : { noInput: true, pills: contacts().map(ct => ({ label: contactName(ct.id), value: ct.id })) });
+    }, mCid ? { noInput: true, pills: ACTIONS } : { noInput: true, pills: contacts().map(ct => ({ label: contactName(ct.id), value: ct.id })) });
+    // v3.26.x #611：梦角档案入口常驻提醒——梦角名单是跟着桌面联系人自动建档的，
+    // 用户看到「添加梦角」会以为得自己手动建（点管理先给这一句，此间入口不显示）
+    if (arcMode && ctl) ctl.hint('梦角会跟着桌面联系人自动创建，一般不用手动添加');
   };
 
   // ---- 定时器：随机刷新 + 突然靠近 + 页面打开时刷新时钟 ----

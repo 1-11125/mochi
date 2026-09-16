@@ -205,7 +205,9 @@ try {
   await evalJs("window.cjianManage(); true");
   await sleep(150);
   const mg1 = await evalJs("(function () { return Array.prototype.map.call(document.querySelectorAll('#modal-pills .pill'), function (b) { return b.textContent; }); })()");
-  ok('管理弹窗三选项（添加/改名/删除）——单桌视图直接进动作阶段', mg1 && mg1.join('|') === '添加梦角|改名|删除梦角', mg1);
+  // 2026-09-16：#611 期望值同步——此间动作菜单自 v3.16.x 起为四项（含「时辰区间」）。
+  // 档案页入口只做名单（三项）由 tools/verify-narc-manage-arc.mjs 覆盖，不在本脚本口径内。
+  ok('管理弹窗四选项（添加/时辰区间/改名/删除）——单桌视图直接进动作阶段', mg1 && mg1.join('|') === '添加梦角|时辰区间|改名|删除梦角', mg1);
   await evalJs("Array.prototype.find.call(document.querySelectorAll('#modal-pills .pill'), function (b) { return b.textContent === '添加梦角'; }).click(); document.getElementById('modal-ok').click(); true");
   await sleep(120);
   const add1 = await evalJs("(function () { return { title: document.getElementById('modal-title').textContent, hasInput: document.getElementById('modal-input').hidden === false }; })()");
@@ -282,7 +284,7 @@ try {
   await evalJs("(function () { const p = Array.prototype.find.call(document.querySelectorAll('#modal-pills .pill'), function (b) { return b.textContent === '小柒'; }); if (p) p.click(); document.getElementById('modal-ok').click(); true; })()");
   await sleep(120);
   const act = await evalJs("(function () { return { title: document.getElementById('modal-title').textContent, pills: Array.prototype.map.call(document.querySelectorAll('#modal-pills .pill'), function (b) { return b.textContent; }) }; })()");
-  ok('选定桌面后进入该桌的动作菜单', act && act.title.indexOf('小柒') >= 0 && act.pills.join('|') === '添加梦角|改名|删除梦角', act);
+  ok('选定桌面后进入该桌的动作菜单', act && act.title.indexOf('小柒') >= 0 && act.pills.join('|') === '添加梦角|时辰区间|改名|删除梦角', act);
   await evalJs("Array.prototype.find.call(document.querySelectorAll('#modal-pills .pill'), function (b) { return b.textContent === '删除梦角'; }).click(); document.getElementById('modal-ok').click(); true");
   await sleep(120);
   await evalJs("(function () { const ps = document.querySelectorAll('#modal-pills .pill'); if (ps.length === 1) ps[0].click(); document.getElementById('modal-ok').click(); true; })()");
