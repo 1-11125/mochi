@@ -689,10 +689,14 @@
       // .scroll-anchor-auto 开回——轻点撤回提示是 touchstart 解钉、touchend 又回钉，展开发生在回钉
       // 之后＝锚定正关着，补偿无人做。此处按单聊 bindToggle 同口径自己补：贴底回钉、非贴底按高度差
       // 把视口钉回，其它消息原地不动。
+      // FIX 2026-09-16 #572b 群聊同款改为浮层查看（复用单聊 chat.js 的 window.openRecallView，
+      // 两页同一份实现/同一观感）：原来「把原文写回这条气泡」必然推动列表——补偿口径推上面
+      //（实测 6 条各上移 34px）、不补偿推下面（8 条下移 55px），用户报「点开查看害得全部聊天消息
+      // 都弹和闪」。改为弹只读卡片，消息列表一条都不动；内容由浮层按消息记录安全渲染（图片给
+      // <img>、语音给名称、文本转义换行），不再直出 rec.orig 快照（#244 的老问题同源）。
+      // 无 openRecallView（脚本/极旧产物）时退回原就地展开，功能不丢。
       b.onclick = function () {
-        const prevTop = body.scrollTop;
-        const prevH = body.scrollHeight;
-        const wasBottom = gcAtBottom();
+        if (window.openRecallView) { window.openRecallView(rec); return; }
         if (b.dataset.showing === '1') {
           b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
           b.dataset.showing = '0';
@@ -700,8 +704,6 @@
           b.innerHTML = b.dataset.orig;
           b.dataset.showing = '1';
         }
-        const dH = body.scrollHeight - prevH;
-        if (dH) { if (wasBottom) scrollToBottom(); else body.scrollTop = prevTop + dH; }
       };
     } else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text))) {
       // FIX 2026-09-12 #383 存量乱码自愈：修复前令牌卡曾以 type:text 入群聊库（气泡直出

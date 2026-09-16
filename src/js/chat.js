@@ -303,7 +303,7 @@ let old = [];
 try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
 const seen = new Set(msgsNow.map(lsMergeSig));
-// FIX 2026-09-16 #590：再补一层「媒体两种存法」互补判定（媒体池冷载时 lsMergeSig 展开不出
+// FIX 2026-09-16 #594：再补一层「媒体两种存法」互补判定（媒体池冷载时 lsMergeSig 展开不出
 // 原文）——否则写侧照样把同一条的旧形态副本存进 LS，下次进页读侧再翻倍（#511 同款半修）
 const kinds = recKindIndex(msgsNow);
 const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(kinds, m))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
@@ -706,14 +706,14 @@ c = true;
 // 60s 内重发同图属合法行为不吞）；②mediaTxtEq 展开池令牌后再比对（内容寻址，令牌展开即原
 // 数据）——addRec 实时去重与刷新归一化共用，屏上所见即刷新后所见，不再翻饼。
 const DUP_GAP_TEXT = 2500, DUP_GAP_MEDIA = 60000;
-// FIX 2026-09-16 #590（用户：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复）：
+// FIX 2026-09-16 #594（用户：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复）：
 // 媒体「同一内容、不同存储形态」的唯一归一化入口。令牌化竞态（#142/#256/#283）下同一条消息
 // 在一处是原文（data:image base64，或语音的「名称|||data:audio」）、另一处已是 @@m: 令牌，
 // 任何「这是同一条吗」的判定直接比原文都判成两条。本函数把两形态收敛成同一份原文
 // （池未热载 mochiMediaExpand 返回 null 时退化为原文，与 #256/#511 同款不误判口径）。
 // 四个计入口共用本函数，杜绝「修了读侧、写侧/IDB 侧仍按旧口径各存一份」的半修：
 //   · mediaTxtEq（addRec 实时去重）· dupSig（刷新归一化/相邻重复合并）
-//   · lsMergeSig（LS 快照 ↔ 内存合并，#511）· loadMsgs 权威合并签名 sigOf（#590 本轮补漏）
+//   · lsMergeSig（LS 快照 ↔ 内存合并，#511）· loadMsgs 权威合并签名 sigOf（#594 本轮补漏）
 function mediaFormText(s) {
   const raw = (s == null) ? '' : String(s);
   if (!raw) return raw;
@@ -749,11 +749,11 @@ function mediaTxtEq(a, b) {
   const x = (a == null) ? '' : String(a);
   const y = (b == null) ? '' : String(b);
   if (x === y) return true;
-  // FIX 2026-09-16 #590：跨形态比对统一走 mediaFormText（原先只认「整串令牌」，语音的
+  // FIX 2026-09-16 #594：跨形态比对统一走 mediaFormText（原先只认「整串令牌」，语音的
   // 「名称|||令牌」形态漏在窗外＝同一条语音在两处判不同）
   return mediaFormText(x) === mediaFormText(y);
 }
-// FIX 2026-09-16 #590 后半段（不依赖媒体池热载的兜底判定）：
+// FIX 2026-09-16 #594 后半段（不依赖媒体池热载的兜底判定）：
 // mediaFormText 要靠 mochiMediaExpand 展开令牌，而它是**纯 map 热缓存查询**——冷启动/换桌面
 // 时池里什么都没热载（音频按 #283 内存纪律更是永不进热缓存）⇒ 展开恒 null ⇒ 上一条比较
 // 仍判「两条」。快照合并必须与池温无关，故这里补一条形态判定：
@@ -955,7 +955,7 @@ const normT = (m.type === 'text' || !m.type) ? '' : String(m.type || '');
 // #256：x 跨形式归一——令牌化竞态下同一内容一处 @@m:令牌、一处 data:base64，
 // 直比不等＝相邻重复漏判。池令牌内容寻址，展开即原数据；池未热载 expand null 时
 // 回退原文（退化为旧行为，不引入误判）。
-// FIX 2026-09-16 #590：跨形态归一收口到 mediaFormText（原先只展开「整串令牌」，
+// FIX 2026-09-16 #594：跨形态归一收口到 mediaFormText（原先只展开「整串令牌」，
 // 语音的「名称|||令牌」形态漏判；与合并签名/实时去重共用同一函数＝三处口径不再分叉）
 const x = mediaFormText(m.text);
 return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc: !!m.voice, e: extra });
@@ -972,7 +972,7 @@ return JSON.stringify({ s: m.side || '', t: normT, sp: sp, x: x, im: !!m.img, vc
 // 长度+头部随内容变化，对「跨形式同一条」判别力足够（池未热载 expand 返回 null 时退化为旧行为，不误判）。
 function lsMergeSig(m) {
 if (!m) return '';
-// FIX 2026-09-16 #590：展开逻辑收口到 mediaFormText（同一入口，#511 的「整串令牌」口径
+// FIX 2026-09-16 #594：展开逻辑收口到 mediaFormText（同一入口，#511 的「整串令牌」口径
 // 加上语音「名称|||令牌」形态，与 dupSig/sigOf 完全同源）
 const x = mediaFormText(m.text);
 return ((m.ts || 0) + '|' + (m.side || '') + '|' + (m.special || '') + '|' + (m.type || '') + '|' + x.length + '|' + x.slice(0, 96));
@@ -1018,7 +1018,7 @@ if (lsArr.length && msgs.length) {
 // 签名统一走 lsMergeSig（与 dupSig 同口径：展开媒体令牌 + 含 special/type）——两处合并点
 // 共用同一函数，避免「修了读侧、写侧仍按旧口径在 LS 里存两份」的半修。
 const seen = new Set(lsArr.map(lsMergeSig));
-// FIX 2026-09-16 #590：快照与内存同一条的「媒体两种存法」互补判定（冷池下 expand 不可用，
+// FIX 2026-09-16 #594：快照与内存同一条的「媒体两种存法」互补判定（冷池下 expand 不可用，
 // 见 recKindCovers 注释）——缺了这一步，快照侧旧形态副本会被当新消息 concat 回来＝消息翻倍
 const lsKinds = recKindIndex(lsArr);
 const extra = msgs.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(lsKinds, m));
@@ -1132,7 +1132,7 @@ __prof('ch0_enter');
 const idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
 if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return; }
-// FIX 2026-09-16 #590（用户报障：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复；
+// FIX 2026-09-16 #594（用户报障：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复；
 // 无头实测精确复现——种 12 条表情包字卡的桌面，切过去开聊天 msgs/DOM 双双变 24，每条
 // 一份 @@m: 令牌 + 一份原文 base64 相邻成对）：
 // 根因＝权威合并这里的去重签名只比「原文」：LS 兜底快照里同一条是原文 base64、IndexedDB
@@ -1144,7 +1144,7 @@ if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return
 // 修复：签名与 lsMergeSig/dupSig 同口径，统一走 mediaFormText + mediaSigPart（展开 @@m:
 // 令牌与语音尾形态，长 base64 只取长度+前 96 字符，不再整串进 Set）。与 #511 同一族——
 // #511 收口了 LS 侧合并（lsMergeSig），权威合并这侧当时漏网，本条补齐＝四处口径同源。
-// 媒体「同一条」判定从此只有一处实现，任何一侧被改回原文直比都会重新翻倍（哨兵 #590a~c 守）。
+// 媒体「同一条」判定从此只有一处实现，任何一侧被改回原文直比都会重新翻倍（哨兵 #594a~c 守）。
 const sigOf = (m) => { try { return JSON.stringify({ t: mediaSigPart(m && m.text), s: m && m.side, ts: m && m.ts, i: (m && m.img) ? mediaSigPart(m.img) : 0 }); } catch (e) { return ''; } };
 const hasLocal = !!((pendingLocal && pendingLocal.length) || (msgs && msgs.length));
 let merged, curArr = pendingLocal || msgs || [];
@@ -1159,7 +1159,7 @@ if (!hasLocal) {
   const idbTsSide = new Set(idbArr.map(x => (((x && x.ts) || 0) + '|' + ((x && x.side) || ''))));
   __prof('ch3_tsside');
   const liteResidue = (m) => !!(m && (m._lsLite || m.img === '' || m.voice === ''));
-  // FIX 2026-09-16 #590：权威侧媒体形态索引——「同一条记录在快照里是原文、在库里是令牌」
+  // FIX 2026-09-16 #594：权威侧媒体形态索引——「同一条记录在快照里是原文、在库里是令牌」
   // （令牌化竞态；池冷载时 sigOf 展开不出原文）时，快照副本不得当新消息 append 回来
   const idbKinds = recKindIndex(idbArr);
   __prof('ch3b_kinds');
@@ -1443,12 +1443,27 @@ if (!data && key === 'cs-avatar-user') data = store.get('avatar-user');
 if (avatarBatchCache) avatarBatchCache[key] = data || null;
 }
 if (data && data.length > 500 * 1024) data = null;
+// FIX 2026-09-16 #613 头像「闪一下重新加载」（红米 K80 Chrome 等多机型，用户明说其他设备型号
+//   也有）：原实现无条件 el.innerHTML='' + 新建 img + 赋 src，于是每一次 fillAvatar 调用都会
+//   把该位置的头像节点整块换成新节点——新节点从零解码，且旧节点先被清空＝该位置空一帧再出现。
+//   触发面最广的一处是「头像互动里点一张换头像」：它走 refreshChatAvatars()，把**全部**已渲染
+//   消息的头像（实测 16 条气泡 + 顶栏 + 一条系统行＝17 个 img 节点，17 次 load）连同没变的那
+//   一侧一起重建＝整列头像一起闪、一起重新加载。回前台 / 切桌面 / 跨上下文 storage 变更
+//   （convergeAvatars）走同一条路，所以真机（常切前后台、解码位图易被回收）比无头更容易看见。
+//   收口：①值没变＝DOM 一律不碰（__avApplied 记录已落地的值）；②值变了也只改现有 img 的 src，
+//   不再拆节点——浏览器会继续画旧图直到新图解好，不出现空帧。零机型分支、零视觉改动。
+if (el.__avApplied === (data || '')) return;
+el.__avApplied = data || '';
 if (data) {
+const cur = el.querySelector('img');
+if (cur) { cur.src = data; cur.alt = ''; }
+else {
 const img = document.createElement('img');
 img.src = data;
 img.alt = '';
 el.innerHTML = '';
 el.appendChild(img);
+}
 } else {
 el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#999999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>';
 }
@@ -2483,22 +2498,74 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 // 摘类），展开发生在回钉之后＝锚定恰好是关的，补偿无人做（无头实测：视口内 8 条各下移 55px；
 // 同场景把锚定打开只剩被点那条动）。这里按本文件 inplacePatchIfSameWindow 的既有补偿口径自己补：
 // 贴底态回钉（与内核锚定在贴底时的结果一致），非贴底态按高度差把视口钉回，其它消息原地不动。
-function bindToggle(b, side) {
-const who = side === 'out' ? '我' : '对方';
-b.style.cursor = 'pointer';
-b.onclick = function () {
-const prevTop = body.scrollTop;
-const prevH = body.scrollHeight;
-const wasBottom = chatAtBottom();
-if (b.dataset.showing === '1') {
-b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + who + '撤回了一条消息</span>';
-b.dataset.showing = '0';
-} else {
-b.innerHTML = b.dataset.orig;
-b.dataset.showing = '1';
+// FIX 2026-09-16 #572b 撤回原文改为浮层查看（列表零位移）——#572 只补了滚动补偿，但「气泡原地
+// 变高」这件事本身必然要推动列表的一侧：补偿口径推上面（实测单聊 3 条 / 群聊 6 条各上移 34px）、
+// 不补偿推下面（实测 8 条下移 55px、长原文 5 条下移 160px）。用户的原话是「我展开只是查看内容啊」，
+// 所以查看不该写回列表：点提示改成弹一张只读卡片，消息列表一条都不动（全站既有做法，同
+// viewChatImage / #img-view-mask）。内容一律按消息记录安全渲染（图片给 <img>、语音给名称、文本
+// 转义换行），绝不直出 rec.orig 那段 innerHTML——那正是老数据展开变整屏 base64、字卡里的 HTML
+// 被当标签执行的老问题（群聊 #244 已按此口径修，单聊这次对齐）。
+function retractViewHtml(rec) {
+// FIX 2026-09-16 #572c（用户点名「浮层 + 恢复原来的排版」）：卡片内容一律用撤回时存下的渲染快照
+// rec.orig——就是当年「就地展开」写回气泡的那份 HTML，所以引用块/情绪字卡/图片/换行的排版与以前
+// 看到的完全一致（外层的 .msg-bubble 由 CSS 提供原气泡底色与内边距，观感等同聊天里的气泡）。
+// 只有没有快照的存量老消息才走下面的安全兜底：当年那种「rec.orig || rec.text」直出正是老数据展开
+// 变整屏 base64 / 字卡 HTML 被当标签执行的来源（群聊 #244 已修，单聊这里顺手对齐）。
+const snap = (rec && typeof rec.orig === 'string') ? rec.orig.trim() : '';
+if (snap) return '<div class="recall-view-bubble ' + (rec.side === 'out' ? 'msg-out' : 'msg-in') + '"><div class="msg-bubble">' + snap + '</div></div>';
+const raw = String(rec && rec.text != null ? rec.text : '');
+const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
+const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+let text = raw;
+const imgs = [];
+if (parts && parts.length) {
+text = parts.filter(p => p && p.k === 'text').map(p => p.v).join(' ');
+parts.forEach(p => { if (p && p.k === 'img' && p.v) imgs.push(p.v); });
 }
-const dH = body.scrollHeight - prevH;
-if (dH) { if (wasBottom) scrollChatBottom(); else body.scrollTop = prevTop + dH; }
+const textIsImg = isImgSrc(text);
+if (!imgs.length && textIsImg) imgs.push(text);
+const isVoice = (rec && rec.type === 'voice') || raw.indexOf('|||') >= 0;
+let html = '';
+if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="recall-view-img" src="' + attrEsc(s) + '" alt="撤回的图片">').join('');
+if (isVoice) return html + '<div class="recall-view-ph">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</div>';
+if (!textIsImg && text.trim()) html += '<div class="recall-view-text">' + escTxtBr(quoteDisplayFit(text, rec.side)) + '</div>';
+return html || '<div class="recall-view-ph">（这条消息没有可显示的原文）</div>';
+}
+// #572c：卡片里的原文用原气泡样式呈现（.recall-view-bubble > .msg-bubble，见 chat-main.css），
+// 让「查看原文」看起来就是那条消息本来的样子
+let recallViewEl = null;
+function closeRecallView() { if (recallViewEl) recallViewEl.hidden = true; }
+// 暴露给群聊页复用（同一份浮层实现，两页观感/口径一致）
+window.openRecallView = function (rec) {
+try {
+if (!rec) return;
+if (!recallViewEl) {
+recallViewEl = document.createElement('div');
+recallViewEl.id = 'recall-view';
+recallViewEl.className = 'recall-view';
+recallViewEl.hidden = true;
+recallViewEl.innerHTML = '<div class="recall-view-card">' +
+'<div class="recall-view-title">撤回的原文</div>' +
+'<div class="recall-view-body" id="recall-view-body"></div>' +
+'<button class="recall-view-close" id="recall-view-close" type="button">关闭</button></div>';
+document.body.appendChild(recallViewEl);
+recallViewEl.addEventListener('click', (e) => {
+if (e.target === recallViewEl || (e.target.closest && e.target.closest('#recall-view-close'))) closeRecallView();
+});
+}
+const bd = recallViewEl.querySelector('#recall-view-body');
+if (bd) bd.innerHTML = retractViewHtml(rec);
+recallViewEl.hidden = false;
+} catch (e) {}
+};
+window.closeRecallView = closeRecallView;
+function bindToggle(b, side, rec) {
+b.style.cursor = 'pointer';
+b.title = '点开查看原文';
+b.onclick = function () {
+// 不 stopPropagation：气泡文本恒为提示行 ⇒ msgActionEligible 按文本已排除（不弹引用/编辑菜单），
+// 而 event 继续冒泡才能让 document 层「点外面关面板」照常工作（#481：吞 click 会害面板关不掉）
+try { window.openRecallView(rec); } catch (e) {}
 };
 }
 let batchRendering = false;
@@ -3420,9 +3487,8 @@ m.dataset.pendingRead = '1';
 // v3.16.x：撤回分支必须先于 sticker/image/voice/parts 类型分支——
 // 否则表情包/图片/语音被撤回后任何全量重渲染（renderWindow/loadMsgs/切会话）
 // 都会命中类型分支，把原内容（表情包 img 等）重新渲染出来，撤回形同失效
-b.dataset.orig = rec.orig || rec.text;
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (rec.side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, rec.side);
+bindToggle(b, rec.side, rec); // FIX #572b：原文走浮层（不再写回气泡），rec 供浮层安全渲染
 } else if (rec.type === 'sticker' || rec.type === 'image') {
 b.style.padding = '6px';
 b.style.background = '';
@@ -4497,9 +4563,8 @@ chatTailDrop(msgs[idx]); // #180：撤回消息从尾巴日志摘除，防刷新
 saveMsgs();
 if (msgs[idx].side === 'out') syncLastMineText();
 }
-b.dataset.orig = b.innerHTML;
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
-bindToggle(b, side);
+bindToggle(b, side, (!isNaN(idx) && msgs[idx]) ? msgs[idx] : null); // FIX #572b：原文走浮层
 }
 function splitCardSegs(text) {
 const str = String(text || '').trim();

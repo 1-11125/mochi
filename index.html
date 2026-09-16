@@ -2785,7 +2785,7 @@ padding:20px;
 .recall-view-card {
 width:min(320px, 86vw); max-height:min(72vh, calc(100% - 20px));
 overflow-y:auto; -webkit-overflow-scrolling:touch;
-background:var(--msg-in-bg, #ffffff); color:var(--msg-in-ink, #111111);
+background:var(--phone-bg-b, #f2f2f2); color:var(--msg-in-ink, #111111);
 border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.2);
 padding:14px 14px 10px; display:flex; flex-direction:column; gap:10px;
 }
@@ -2800,6 +2800,9 @@ font-family:inherit; font-size:13px; padding:6px 12px; border-radius:10px;
 cursor:pointer; opacity:.7; -webkit-tap-highlight-color:transparent;
 }
 .recall-view-close:active { background:rgba(0,0,0,.08); }
+.recall-view-bubble { display:flex; max-width:100%; }
+.recall-view-bubble.msg-out { justify-content:flex-end; }
+.recall-view-bubble .msg-bubble { max-width:100%; white-space:pre-wrap; }
 #page-chatcard { scrollbar-width:none; -ms-overflow-style:none; }
 #page-chatcard::-webkit-scrollbar { display:none; }
 .chat-title { font-size:22px; font-weight:700; padding:4px 2px 8px; letter-spacing:1px; }
@@ -4317,6 +4320,35 @@ display:flex; align-items:center; justify-content:center; cursor:pointer;
 }
 .avlib-del:active { background:rgba(224,85,85,.8); }
 #avlib-upload { margin-bottom:10px; }
+.avlib-kinds {
+display:flex; gap:6px; margin:0 0 10px; padding:3px;
+border-radius:12px; background:rgba(0,0,0,.06);
+}
+.avlib-kind {
+flex:1; text-align:center; padding:7px 6px; border-radius:9px;
+font-size:13px; font-weight:700; color:#666; cursor:pointer;
+user-select:none; -webkit-user-select:none;
+transition:background .15s, color .15s;
+}
+.avlib-kind.active { background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.avlib-kind:active { opacity:.8; }
+.avlib-names { display:flex; flex-wrap:wrap; gap:8px; padding:4px 0 8px; }
+.avlib-name-cell {
+display:flex; align-items:center; gap:6px; max-width:100%;
+padding:8px 10px; border-radius:12px;
+background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
+}
+.avlib-name-txt {
+font-size:13px; line-height:1.4; color:var(--ink); cursor:pointer;
+max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.avlib-name-cell.avlib-now { outline:2px solid var(--ink); outline-offset:-2px; border-color:transparent; }
+.avlib-name-del {
+flex:0 0 auto; width:16px; height:16px; padding:0; border:none; border-radius:50%;
+background:rgba(0,0,0,.12); color:#666; font-size:10px; line-height:1;
+display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.avlib-name-del:active { background:rgba(224,85,85,.8); color:#fff; }
 .mg-mask {
 position:fixed; inset:0; z-index:85;
 background:rgba(0,0,0,.35);
@@ -8149,6 +8181,11 @@ radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), rgba(255,255,255,.1
 [data-theme="dark"] .mg-add:active { background:var(--dark-hover); }
 [data-theme="dark"] .decor-done { background:rgba(255,255,255,.15); color:#fff; }
 [data-theme="dark"] .avlib-cell { background:var(--dark-hover); border-color:var(--dark-border); }
+[data-theme="dark"] .avlib-name-cell { background:var(--dark-hover); border-color:var(--dark-border); }
+[data-theme="dark"] .avlib-name-del { background:rgba(255,255,255,.16); color:#bbb; }
+[data-theme="dark"] .avlib-kinds { background:rgba(255,255,255,.07); }
+[data-theme="dark"] .avlib-kind { color:#999; }
+[data-theme="dark"] .avlib-kind.active { background:var(--ink); color:#111; }
 [data-theme="dark"] .ff-sec,
 [data-theme="dark"] .ff-row { background:var(--dark-card-92); border-color:rgba(255,255,255,.08); }
 [data-theme="dark"] .ff-desktop-av { background:#2a2a2a; }
@@ -9550,7 +9587,14 @@ transition-duration: .01ms !important;
       <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
            全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
       <div class="splash-notice" id="splash-notice">
-        <!-- v3.33.x：开屏最顶·红色强警示——禁带「小手机 tag」恶意扩圈；静态 DOM（tag 'x' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），
+        <!-- v3.26.x #613：防骗提醒卡提到开屏第 1 张（用户反馈「这个声明太靠后了」，首屏看不到）——
+             静态 DOM，在线 notice.json 覆盖只改公告列表，不影响此处；被删后重建的插入锚点见 clock.js / pwa.js -->
+        <div class="splash-alert" data-anti-scam="1">
+          <div class="splash-alert-t">防骗提醒</div>
+          <p><strong>本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong></p>
+          <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
+        </div>
+        <!-- v3.33.x：#613 起本卡从「开屏最顶」退为第 2 张（防骗提醒卡置顶），其余不变——禁带「小手机 tag」恶意扩圈；静态 DOM（tag 'x' 非数字，与 clock.js 的 1/2/3('s') 认领不冲突），
              在线 notice.json 覆盖只改公告列表，不影响此处；clock.js 动态插卡（防骗/署名/公告）都锚在免责卡之后，本卡排 #splash-notice 首位不被挪动 -->
         <div class="splash-alert splash-tagban" data-anti-scam="x">
           <div class="splash-alert-t">不是小手机，禁止扩圈</div>
@@ -9579,11 +9623,6 @@ transition-duration: .01ms !important;
           <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。锁定不影响：聊天情绪字卡、TA 的心情、聊天回应字卡、你自建的字卡均照常可用。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
           <div class="cardlock-actions" id="splash-cardlock-actions"></div>
         </div>
-        <!-- v3.27.x：防骗置顶声明——最顶部固定展示，防收费诈骗；静态 DOM，在线 notice.json 覆盖只改公告列表，不影响此处 -->
-        <div class="splash-alert" data-anti-scam="1">
-          <div class="splash-alert-t">防骗提醒</div>
-          <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
-        </div>
         <!-- v3.26.x：署名·禁倒卖置顶声明——二传必须标注原作者署名，严禁收费倒卖本站链接；静态 DOM，在线 notice.json 覆盖只改公告列表，不影响此处 -->
         <div class="splash-alert" data-anti-scam="2">
           <div class="splash-alert-t">转载署名 · 严禁倒卖</div>
@@ -9602,11 +9641,12 @@ transition-duration: .01ms !important;
         <div class="splash-notice-list">
           <div class="splash-summary">
             <p class="splash-summary-title">必读摘要</p>
+            <!-- v3.26.x #613：免费声明提到必读摘要首条并高亮（用户反馈：原来只在折叠区/第五章里，太靠后） -->
+            <p class="splash-hl">本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</p>
             <p>免费网站由我个人利用业余时间花钱开发维护，不承诺修复时效——有空就修，没空就晚点修，不保证一定修。</p>
             <p>目前反馈的所有问题均已修复，但未来不保证、也无法承诺时效。</p>
             <p>不提供免费客服、教学、一对一指导。使用问题请先看开屏说明/代码，常见问题可问互助群。</p>
             <p>反馈 bug 请描述清楚，我会看到后处理；催单不回，不一定有时间。</p>
-            <p>本站完全免费，开放二传二改，但禁止商用、禁止以盈利为目的。</p>
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p class="splash-hl">关于二级验证密码（暗号）：密码一共 6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数）；mochi 字卡的生日写在开屏公告的目录里，注意不是开屏最底下的部署时间（部署时间只是用来判断是否更新到新版本）。解开后请勿二传（不要告诉别人），一旦发现有人二传，密码就会被重新设置。</p>
             <p>报修 / 反馈请按【手机型号 + 浏览器 + 具体现象】提交，缺一不回；尽量附上设置里的【复制诊断信息】。</p>
@@ -9620,9 +9660,6 @@ transition-duration: .01ms !important;
           <div class="splash-sec-wrap splash-sec-collapsible is-collapsed">
             <p class="splash-sec">其他说明与常见问题</p>
             <div class="splash-sec-content">
-              <div class="splash-tip">
-                <p>本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</p>
-              </div>
               <div class="splash-tip">
                 <p class="splash-tip-h">关于“会不会做成 App”</p>
                 <p>暂不考虑。原因是网站功能非常多——如果功能少还好说，功能太多的情况下，做成 App 可能出现的 Bug 只会更多，而且和设备、浏览器一样存在适配问题：不同手机的屏幕、系统、性能都不一样，要做到所有手机都适配，Bug 可能需要全部重写一遍。我没有这种精力和金钱。</p>
@@ -9707,7 +9744,6 @@ transition-duration: .01ms !important;
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">【五、使用规范】</p>
-            <p class="splash-item">本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</p>
             <p class="splash-sub">许可与署名：</p>
             <p class="splash-item">Mochi字卡为原创独立作品（即原版），代码已在GitHub完全公开，支持私人部署，与网站同步更新</p>
             <p class="splash-item">可自由二传、二改、自行部署；必须保留署名：小红书 @言序（1842523578）（禁止删除或修改）</p>
@@ -9770,9 +9806,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789542685880">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.721</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 15:11<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789554811411">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.722</b></span>
+        <span class="sv-deploy">部署于 2026-09-16 18:33<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11166,7 +11202,7 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.721</div>
+          <div class="val" id="about-ver-val">v3.26.722</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11205,7 +11241,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.721</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.722</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11566,7 +11602,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.721</span>
+              <span class="lic-ver">v3.26.722</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11642,7 +11678,7 @@ transition-duration: .01ms !important;
           <div class="lic-li">聊天里点击顶部栏联系人的头像可打开【寻踪 TA 的日常】页面</div>
           <div class="lic-li">聊天页面点击顶部栏联系人的昵称，可以让对方立即发送消息</div>
           <div class="lic-li">可搜索聊天记录并跳转到对应位置</div>
-          <div class="lic-li">聊天 + 按钮展开更多功能面板（互动 / 小游戏 / 工具 / TA的提问 四分类）：互动类——邀请TA、通话、拍一拍、红包、心意集市、心意柜、头像互动、漂流瓶</div>
+          <div class="lic-li">聊天 + 按钮展开更多功能面板（互动 / 小游戏 / 工具 / TA的提问 四分类）：互动类——邀请TA、通话、拍一拍、红包、心意集市、心意柜、头像和昵称互动、漂流瓶</div>
           <div class="lic-li">「邀请TA」半框内置【我的邀请】字卡库：预设 + 自定义分组，可存入 / 修改 / 删除邀请字卡，点字卡即可重复发送</div>
           <div class="lic-li">小游戏类——猜拳、Pong、贪吃蛇、打砖块、钓鱼、四子棋、扫雷、记忆翻牌、五子棋、连连看、消消乐、拍卖会；工具类——帮我决定、多人决定、问问TA、搜索记录、占卜、寻踪、此间、房间、心情日记</div>
           <div class="lic-li">朋友圈贴纸回复：配图动态下点「贴纸」，选表情包贴到照片上（每张照片最多 5 张，自己贴的可点撤回），TA 会按评论概率回贴一张并进朋友圈通知</div>
@@ -11955,13 +11991,16 @@ transition-duration: .01ms !important;
           <div class="lic-li">联系人名称与头像，消息头像形状（圆形 / 方形）</div>
           <div class="lic-li">可自定义上传全局字体（聊天及其他页面全局生效）和自定义聊天气泡</div>
           <div class="lic-li">聊天壁纸、气泡样式、气泡框大小；聊天壁纸图库可存多张一键切换</div>
-          <div class="lic-li">联系人【头像互动】可上传图片，联系人可触发随机更换头像</div>
-          <div class="lic-li">【头像互动】里点击切换联系人头像，可触发直接更换 / 联系人同意 / 联系人拒绝换头像</div>
-          <div class="lic-li">【头像互动】里我的头像池可上传图片，联系人可主动给我换头像（直接换或弹窗邀请我同意 / 拒绝）</div>
+          <div class="lic-li">联系人【头像和昵称互动】可上传图片，联系人可触发随机更换头像</div>
+          <div class="lic-li">【头像和昵称互动】里点击切换联系人头像，可触发直接更换 / 联系人同意 / 联系人拒绝换头像</div>
+          <div class="lic-li">【头像和昵称互动】里我的头像池可上传图片，联系人可主动给我换头像（直接换或弹窗邀请我同意 / 拒绝）</div>
+          <div class="lic-li">联系人【头像和昵称互动】可存多个文字昵称，联系人可触发随机更换自己的聊天昵称</div>
+          <div class="lic-li">【头像和昵称互动】里点击切换联系人昵称，可触发直接更换 / 联系人同意 / 联系人拒绝换昵称</div>
+          <div class="lic-li">【头像和昵称互动】里我的昵称池可存多个昵称，联系人可主动给我换昵称（直接换或弹窗邀请我同意 / 拒绝）</div>
           <div class="lic-li">聊天气泡：字体大小、行距（紧凑 / 标准 / 宽松）、我的 / 联系人气泡颜色与文字颜色、自定义气泡 CSS</div>
           <div class="lic-li">聊天颜色：时间轴、正在输入中、发送按钮颜色与文字颜色</div>
           <div class="lic-li">聊天记录导出 / 导入 / 删除</div>
-          <div class="lic-li">头像互动：定时随机更换联系人头像（1-8 小时）、我的头像池定时主动给我换头像</div>
+          <div class="lic-li">头像和昵称互动：定时随机更换联系人头像 / 昵称（1-8 小时）、我的头像池 / 昵称池定时主动给我换头像 / 昵称</div>
           <div class="lic-li">通用设置：回复速度、概率、条数等参数可调</div>
           <div class="lic-li">后台保活与后台通知</div>
           <div class="lic-li">后台保活：开启后页面切到后台会用一段「静音音频」保持运行，联系人发送消息可触发浏览器弹窗（需同时打开【后台弹窗】并允许系统通知权限）</div>
@@ -12088,7 +12127,7 @@ transition-duration: .01ms !important;
             <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li">全新环境首次打开会<b>自动弹一次「新手引导」3 步</b>：设置「我」和「TA」→ 添加字卡 → 开始聊天，每步可一键跳到对应位置；老用户想重看走 <b>设置 → 工具 → 新手引导</b>。</div>
-              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。换聊天头像还有一条路：聊天页「更多功能」（输入栏左边的 ⋯）→ 互动类 → <b>头像互动</b>——上传多张头像库、点图即换，还能开「TA 随机换头像 / TA 主动给我换头像」。</div>
+              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。换聊天头像和聊天昵称还有一条路：聊天页「更多功能」（输入栏左边的 ⋯）→ 互动类 → <b>头像和昵称互动</b>——头像侧可上传多张头像库、点图即换，昵称侧可存多个文字昵称、点名字即换，两边都能开「TA 随机换头像 / 昵称」和「TA 主动给我换头像 / 昵称」（每 1-8 小时一次）。</div>
               <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
               <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
               <div class="lic-li">手机桌面：左右滑动切换页面，点图标进入聊天 / 字卡 / 查岗 / 日历 / 信箱 / 朋友圈 / 音乐 / 占卜 / 花园等各功能。</div>
@@ -12147,7 +12186,7 @@ transition-duration: .01ms !important;
             <div class="lg-body">
               <div class="lic-li">底部导航：<b>桌面 / 字卡库 / 设置</b> 三个主入口。</div>
               <div class="lic-li">聊天：首页点联系人进入；右上角是<b>聊天设置</b>；输入框旁「+」展开更多功能面板，分 <b>互动 / 小游戏 / 工具 / TA的提问</b> 四类。</div>
-              <div class="lic-li"><b>互动</b>类：邀请 TA、通话、拍一拍、红包、心意集市、心意柜、头像互动、漂流瓶等。</div>
+              <div class="lic-li"><b>互动</b>类：邀请 TA、通话、拍一拍、红包、心意集市、心意柜、头像和昵称互动、漂流瓶等。</div>
               <div class="lic-li"><b>小游戏</b>类：猜拳、Pong、贪吃蛇、打砖块、钓鱼、四子棋、扫雷、记忆翻牌等；<b>工具</b>类：帮我决定、多人决定、问问 TA、搜索记录、占卜、寻踪、此间、房间、心情日记等。</div>
               <div class="lic-li">桌面图标：日历、信箱、朋友圈、音乐、占卜、花园、房间、漂流瓶、记账、经期、备忘录、纪念等；左右滑动桌面临换页。</div>
               <div class="lic-li">完整索引：<b>设置 → 聊天 → 功能大全</b>（可搜索、点条目直达）；群聊在 <b>设置 → 通用 → 开启群聊</b>。</div>
@@ -14983,13 +15022,19 @@ transition-duration: .01ms !important;
       
     </div>
 
-    <!-- 头像互动（聊天页内底部半框，复用 poke-card 容器，露出聊天消息） -->
+    <!-- 头像和昵称互动（聊天页内底部半框，复用 poke-card 容器，露出聊天消息）
+         2026-09-16：原「头像互动」并入昵称池——半框内两级切换：
+         上排 = 换什么（头像 / 昵称），下排页签 = 换谁的（TA / 我的），对应 pane-a/b/c/d -->
     <div class="poke-card" id="avlib-card" hidden>
       <div class="poke-card-head">
-        <span>头像互动 · <b id="avlib-name">TA</b></span>
+        <span>头像和昵称互动 · <b id="avlib-name">TA</b></span>
         <button class="poke-card-close" id="avlib-close">✕</button>
       </div>
       <div class="poke-card-scroll" id="avlib-scroll">
+        <div class="avlib-kinds">
+          <div class="avlib-kind active" id="avlib-kind-avatar">头像</div>
+          <div class="avlib-kind" id="avlib-kind-name">昵称</div>
+        </div>
         <div class="avlib-tabs">
           <div class="avlib-tab active" id="avlib-tab-a"><span id="avlib-pool-name">TA 的头像库</span><span class="avlib-tab-cnt">（<span id="avlib-count">0</span>）</span></div>
           <div class="avlib-tab" id="avlib-tab-b"><span id="avlib-me-tab-name">我的头像库</span><span class="avlib-tab-cnt">（<span id="avlib-me-count">0</span>）</span></div>
@@ -15030,6 +15075,44 @@ transition-duration: .01ms !important;
           <button class="div-draw" id="avlib-me-clear" style="background:rgba(0,0,0,.06);color:var(--ink)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
             清空我的头像池
+          </button>
+        </div>
+        <div id="avlib-pane-c" hidden>
+          <div class="avlib-toggle">
+            <div class="avlib-toggle-txt">
+              <div class="avlib-toggle-name">开启随机更换</div>
+              <div class="avlib-toggle-sub">TA 会每隔 1-8 小时随机更换一次昵称</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="avlib-nick-enabled"><span class="tk"></span></label>
+          </div>
+          <div class="avlib-names" id="avlib-nick-list"></div>
+          <div class="div-result-empty" id="avlib-nick-empty" hidden>还没有昵称，点击下方按钮添加</div>
+          <button class="div-draw" id="avlib-nick-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            添加昵称
+          </button>
+          <button class="div-draw" id="avlib-nick-clear" style="background:rgba(0,0,0,.06);color:var(--ink)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
+            清空昵称池
+          </button>
+        </div>
+        <div id="avlib-pane-d" hidden>
+          <div class="avlib-toggle">
+            <div class="avlib-toggle-txt">
+              <div class="avlib-toggle-name">TA 主动给我换昵称</div>
+              <div class="avlib-toggle-sub">TA 会每隔 1-8 小时主动给你换昵称，直接换或弹窗征求你同意</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="avlib-me-nick-enabled"><span class="tk"></span></label>
+          </div>
+          <div class="avlib-names" id="avlib-me-nick-list"></div>
+          <div class="div-result-empty" id="avlib-me-nick-empty" hidden>还没有昵称，点击下方按钮添加</div>
+          <button class="div-draw" id="avlib-me-nick-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            添加我的昵称
+          </button>
+          <button class="div-draw" id="avlib-me-nick-clear" style="background:rgba(0,0,0,.06);color:var(--ink)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
+            清空我的昵称池
           </button>
         </div>
       </div>
@@ -15405,9 +15488,9 @@ transition-duration: .01ms !important;
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18"/><path d="M12 8V5"/><path d="M9 5h6"/></svg></span>
             <span>心意柜</span>
           </button>
-          <button class="more-item" id="more-avatar" data-mcat="chat" title="头像互动">
+          <button class="more-item" id="more-avatar" data-mcat="chat" title="头像和昵称互动">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg></span>
-            <span>头像互动</span>
+            <span>头像和昵称互动</span>
           </button>
           <button class="more-item" id="more-drift" data-mcat="chat" title="漂流瓶（两个世界之间的海）">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5h4v3.2l1.5 2A7.2 7.2 0 0117 11.6V19a2 2 0 01-2 2H9a2 2 0 01-2-2v-7.4c0-1.4.46-2.77 1.5-3.9L10 5.7z"/><path d="M10.4 12.6h3.2"/><path d="M2.5 18.6c1.5 1.1 3 1.1 4.5 0s3-1.1 4.5 0 3 1.1 4.5 0 3-1.1 4.5 0"/></svg></span>
@@ -21779,8 +21862,8 @@ box.querySelector('p').textContent = want;
 function run() {
 const dis = document.querySelector('.splash-alert[data-anti-scam="d"]');
 const lockCard = document.getElementById('splash-cardlock');
-const b1 = ensureBar(BARS[0], (lockCard && lockCard.parentNode === document.getElementById('splash-notice')) ? (lockCard.nextSibling) : (dis ? dis.nextSibling : null));
-ensureBar(BARS[1], b1 ? b1.nextSibling : null);
+const b1 = ensureBar(BARS[0], null);
+ensureBar(BARS[1], (lockCard && lockCard.parentNode === document.getElementById('splash-notice')) ? (lockCard.nextSibling) : (dis ? dis.nextSibling : null));
 ensureSettings();
 ensureBulletin();
 setupCardLockCard();
@@ -31497,12 +31580,18 @@ if (!data && key === 'cs-avatar-user') data = store.get('avatar-user');
 if (avatarBatchCache) avatarBatchCache[key] = data || null;
 }
 if (data && data.length > 500 * 1024) data = null;
+if (el.__avApplied === (data || '')) return;
+el.__avApplied = data || '';
 if (data) {
+const cur = el.querySelector('img');
+if (cur) { cur.src = data; cur.alt = ''; }
+else {
 const img = document.createElement('img');
 img.src = data;
 img.alt = '';
 el.innerHTML = '';
 el.appendChild(img);
+}
 } else {
 el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#999999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>';
 }
@@ -32332,6 +32421,8 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 });
 }
 function retractViewHtml(rec) {
+const snap = (rec && typeof rec.orig === 'string') ? rec.orig.trim() : '';
+if (snap) return '<div class="recall-view-bubble ' + (rec.side === 'out' ? 'msg-out' : 'msg-in') + '"><div class="msg-bubble">' + snap + '</div></div>';
 const raw = String(rec && rec.text != null ? rec.text : '');
 const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
 const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
@@ -43764,6 +43855,15 @@ let h = 5381;
 for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
 return s.length + ':' + h;
 }
+function ccPoolKey(c) {
+try {
+if (typeof window.ccMediaCardIdent === 'function') {
+const k = window.ccMediaCardIdent(c);
+if (k) return 'i' + k;
+}
+} catch (e) {}
+return 'r' + ccImgKey(c);
+}
 function ccPoolRelease() { if (ccPoolT) { clearTimeout(ccPoolT); ccPoolT = null; } ccImgPool.clear(); ccImgPoolN = 0; }
 function ccPoolSchedule() {
 if (ccPoolT) clearTimeout(ccPoolT);
@@ -43811,7 +43911,7 @@ const isImg = c.indexOf('data:') === 0 || c.indexOf('@@m:') === 0 || /^https?:\/
 if (!isImg) return;
 const _ni = el.querySelector('img.cc-img');
 if (!_ni || !_ni.parentNode) return; // 当前不是 img 形态（如令牌缺失走文字占位）→ 不取也不动
-const _oi = ccPoolTake(ccImgKey(c));
+const _oi = ccPoolTake(ccPoolKey(c));
 if (!_oi) return;
 _ni.parentNode.replaceChild(_oi, _ni);
 }
@@ -43844,7 +43944,7 @@ d.className = 'cc-item glass';
 d.dataset.g = gname;
 d.dataset.idx = i;
 d.innerHTML = cardItemHtml(c);
-if (typeof c === 'string') d.dataset.ccSig = ccImgKey(c); // FIX #508：局部重建的卡同样带指纹（#509 改短键）
+if (typeof c === 'string') d.dataset.ccSig = ccPoolKey(c); // FIX #508：局部重建的卡同样带指纹（#509 改短键、#613 改令牌稳定身份）
 ccPoolAdopt(d, c); // FIX #509：同内容图从池里取回已解码 img（删一张卡不再让整组图片重载）
 attachCardData(d, c);
 if (manageMode && selected.has(gname + '\u0001' + i)) d.classList.add('sel');
@@ -44070,7 +44170,7 @@ el.dataset.g = it.gname;
 el.dataset.idx = it.i;
 el.innerHTML = cardItemHtml(it.c);
 if (typeof it.c === 'string') {
-el.dataset.ccSig = ccImgKey(it.c); // FIX #508/#509：内容短指纹，供复用判定
+el.dataset.ccSig = ccPoolKey(it.c); // FIX #508/#509：内容短指纹，供复用判定（#613 令牌稳定身份）
 ccPoolAdopt(el, it.c);             // FIX #509：从池取回同内容的已解码 img（取不到则保持新建）
 }
 attachCardData(el, it.c);
@@ -49841,7 +49941,7 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["买蛋糕",["甜品店橱窗","慕斯切块","提拉米苏一层层","芝士蛋糕绵密","巴斯克焦边","舒芙蕾会塌","戚风胚松软","奶油打发刚硬","动物奶油不腻","植物奶油少买","草莓塔摆满","芒果流心","巧克力淋酱","抹茶微苦回甘","红丝绒配奶酪","定制翻糖","写字牌插上","生日快乐巧克力片","蜡烛一包","数字蜡烛","蛋糕盒系带","捧着走稳点","冰箱腾一层","冷藏更好切","刀过热水再切","切面干净","一人一块","奶油蹭鼻子","帮你舔掉——用纸","许愿环节","吹蜡烛拍照","生日歌走调版","蛋糕第二天","早餐配牛奶","甜品使人快乐","热量明天再说","蛋糕是纪念日主角","定制提前三天","写错字重做","取货凭证","装饰草莓摘下来先吃","你负责吃我负责切","最后一块让给你","盒子留插牌","胚子烤裂了","奶油抹不匀","手残烘焙","失败的甜也好吃","甜品店新品","试营业半价","排队二十分钟","值这一口"]],
 ["挑西瓜",["瓜摊前敲一敲","弹一弹听声","嘭嘭是熟瓜","拍着闷响生","看纹路散开","瓜蒂卷须新鲜","底部黄圈","肚脐小的好","花纹清晰深浅匀","同一批挑最大","掂重量压手","过熟会空","切开来验","红瓤黑籽","沙瓤起砂","瓜皮薄脆","咔嚓裂开","甜到瓜心","中心一块最甜","挖着吃不用切","勺子插瓜上","抱着半个啃","吐籽瞄准远丢","瓜汁顺着手流","籽少品种好","无籽西瓜","麒麟瓜脆甜","8424经典","黑美人皮厚","冰镇两小时","井水湃过更甜","切条撒盐","盐引出甜","瓜皮削白肉","腌西瓜皮","瓜农现摘现卖","田里直接挑","弹指听音是学问","老板包熟不熟","不甜包换","切开不甜换一个","夏天是西瓜味的","一人一半拿勺挖","吃到只剩皮","瓜籽摆一排","瓜皮擦嘴","冰瓜伤胃适量","挑瓜玄学","今天这个准","你挑的保熟","切瓜手起刀落","瓜汁案板一片","甜得眯眼","夏天第一口瓜","捧着瓜看剧","瓜果季限定"]],
 ["削苹果皮",["苹果冲一冲","果蜡搓掉","削皮刀顺着转","皮一长条不断","皮像丝带","转着削不打顿","刀钝了费劲","削到果核停下","核周围最甜","带皮吃营养","打蜡的削皮","进口果厚蜡","盐水泡一泡","削完立刻吃","氧化变褐","柠檬水防变色","切月牙块","去核器一捅","果核弹出来","切丁拌酸奶","苹果块裹保鲜膜","便当带一盒","脆苹果咔嚓","面苹果起沙","甜脆品种","冰糖心切开","糖心透明","苹果香飘出来","随手擦一擦再给你","削皮给你是基本功","一整条不断得意","皮扔堆肥","果盘摆盘","牙签插小块","苹果派备料","肉桂粉撒一点","煮苹果水","蒸苹果软软","冰糖炖雪梨","热苹果茶","榨苹果汁","果肉氧化慢","切前才洗","冰箱拿出发凉","你爱吃脆我吃面","削两勺肉泥","给孩子的果泥","果篮常备","一天一苹果","苹果是万能水果","削好递你手里","先吃一片试甜","甜的话都归你","酸的被我包了","削苹果解压","转笔式刀法","皮挑战世界纪录","一皮到底不断","刀工是练的","果香满厨房","饭后一个果","帮我把皮削了","想吃你削的"]],
-["阳台看楼下",["扒着阳台往下看","楼下在修剪树","园艺师傅锯枝","锯末飘飘","洒水车过去了","彩虹跟着车","环卫工扫落叶","落叶装满车","早点摊出摊了","煎饼香味飘上来","快递车卸货","快递小哥小跑","外卖箱背着","电动车等红灯","喇叭声很密","小学生放学","书包一蹦一跳","红领巾歪了","遛狗的日常","狗子互相闻","捡便便袋备着","猫走墙头","流浪猫喂食点","纸箱窝着","晾衣杆对话","邻居阿姨喊话","楼上晾水滴下来","收衣服喊一嗓子","傍晚广场舞开跳","音响震楼","孩子写作业台灯亮","对面窗户的灯","一格一格亮起","谁家在炒菜","油烟机嗡嗡","辣椒呛味","劝架围观","夜里的楼下安静","只剩路灯","一盏一盏熄灭","晚归人车灯","钥匙声进门","阳台是观察站","站一会儿就好","看人间烟火","楼下的日子","我们也在被看","挥手打个招呼","保安巡逻手电","一光一灭走过","阳台的两把椅子","一人一杯看着楼下","看不腻的日常","楼下故事很多","编故事猜职业","那辆车的灯","猜他去哪","生活正在直播","我们是观众也是主角"]],
+["阳台看楼下",["扒着阳台往下看","楼下在修剪树","园艺师傅锯枝","锯末飘飘","洒水车过去了","彩虹跟着车","环卫工扫落叶","落叶装满车","早点摊出摊了","煎饼香味飘上来","快递车卸货","快递小哥小跑","外卖箱背着","电动车等红灯","喇叭声很密","遛狗的日常","狗子互相闻","捡便便袋备着","猫走墙头","流浪猫喂食点","纸箱窝着","晾衣杆对话","邻居阿姨喊话","楼上晾水滴下来","收衣服喊一嗓子","傍晚广场舞开跳","音响震楼","孩子写作业台灯亮","对面窗户的灯","一格一格亮起","谁家在炒菜","油烟机嗡嗡","辣椒呛味","劝架围观","夜里的楼下安静","只剩路灯","一盏一盏熄灭","晚归人车灯","钥匙声进门","阳台是观察站","站一会儿就好","看人间烟火","楼下的日子","我们也在被看","挥手打个招呼","保安巡逻手电","一光一灭走过","阳台的两把椅子","一人一杯看着楼下","看不腻的日常","楼下故事很多","编故事猜职业","那辆车的灯","猜他去哪","生活正在直播","我们是观众也是主角"]],
 ["等电梯",["电梯停在高层","数字慢慢变","12楼11楼10楼","怎么又上去了","反着下来了","早高峰排长龙","两梯四户不够","按下行的","箭头亮了","叮一声到了","里面满了","挤不进等下一趟","让里面先出","先下后上","按住开门键","帮人挡一下","外卖员冲进来","楼层全按了","憋笑忍住","电梯镜子里","顺一下头发","对视一下","低头看手机","信号一格","电梯里广播","到站语音报","超载报警响","下去一个","尴尬一笑","运货小车进","推着纸箱","医院电梯","消毒水味","手术电梯专用","货梯慢但宽","周末人少","随到随走","电梯坏了","贴着维修单","爬楼梯数层","六楼腿酸","物业来修","老板蹲着调试","缆绳检查","年检贴纸","电梯惊魂","轻微下坠感","扶好站稳","到楼层数着","最后一层叮","门开见光","回家第一趟电梯","等电梯的闲聊","两分钟也够说话","数字跳到一楼","门开了先出","回头按关门","慢慢关门缝","再见下次电梯","电梯是小型剧场","每个人一故事","同梯陌生人","礼让是日常","等电梯不急了","因为有你陪等"]],
 ["挤电梯",["早高峰电梯战","一群人涌来","快步卡位","侧身进去","贴着按钮站","按楼层手够远","麻烦帮我按12","谢谢回一句","人贴人站立","背包挪到胸前","书包顶到人","往里走走","最里面下不来","层层开门","每层都停","进来一个人叹口气","外卖箱横着","挡住半扇门","球鞋踩到鞋","小声抱歉","香水太冲","韭菜包子味","早餐味弥漫","咳嗽要捂口","手机外放抖音","偷偷侧目","偷笑不出声","电梯超重","最胖的被点名","都不出去","沉重气氛","一位小哥下去了","集体松口气","到一楼倾泻","人潮分流","回头看一眼","下一班又满","等第二趟","高峰期爬楼党","走楼梯更快","分秒必争","迟到预警","打卡前一分钟","电梯门缓缓合","狭小空间默契","都心照不宣","陌生人一瞬","也有一份体面","给你挡了门","等你进来","护在你前面","先出我垫后","把你护到角落","电梯里牵个手","偷牵一下","到站松开","短暂的两个世界","门一开各自角色","电梯里是恋人","门外是打工人","挤也要挤一起","上班搭子","同梯幸运","挤挤更健康","电梯社交学","低头也认得你","闻到你的洗发水","到家那趟最空","只有我们俩","慢悠悠下楼","不赶时间的电梯","电梯焦虑"]],
 ["仪式感餐桌",["餐桌擦干净","桌布铺平整","餐垫一人一张","筷子摆齐","勺子放右侧","碗垫上碟子","水杯斟八分","餐巾叠三角","纸巾抽出备好","花瓶插一枝","小烛台摆中央","盐罐胡椒瓶","酱料碟分装","主食篮垫布","汤碗先上","凉菜摆花边","热菜居中","菜盘转一转","开饭前拍照","今日份摆盘","普通一餐也认真","用最好的碗","新餐具开光","碗筷成对买","杯子碰一下","餐前说一句开动","细嚼慢咽","添饭不用喊","夹菜跨过桌面","汤别洒桌布","饭后收拾流水线","你收碗我擦桌","桌面恢复干净","餐桌是家的中心","好好吃顿饭","把日子过成样子","仪式感不贵","认真对待每一餐","家常菜也摆盘","今天谁洗碗","石头剪刀布定","餐桌小灯暖黄","影子投墙上","两人三菜一汤","吃得慢聊得长","这顿饭值得记录","摆盘新手","酱油碟画笑脸","汤匙轻放不出声","餐椅拉开等你","等你入座才动筷","一日三餐有座次","你对面永远空着","这就是家的样子"]],
@@ -57323,6 +57423,20 @@ function getEnabled() { const v = store.get('avatar-lib-enabled'); return v === 
 function getMeLib() { try { return JSON.parse(store.get('avatar-me-lib') || '[]'); } catch (e) { return []; } }
 function saveMeLib(list) { store.set('avatar-me-lib', JSON.stringify(list)); }
 function getMeEnabled() { const v = store.get('avatar-me-lib-enabled'); return v === null ? true : v === '1'; }
+function loadStrList(key) {
+try {
+const v = JSON.parse(store.get(key) || '[]');
+return Array.isArray(v) ? v.filter(x => typeof x === 'string' && x) : [];
+} catch (e) { return []; }
+}
+function getNickLib() { return loadStrList('nick-lib'); }
+function saveNickLib(list) { store.set('nick-lib', JSON.stringify(list)); }
+function getNickEnabled() { const v = store.get('nick-lib-enabled'); return v === null ? true : v === '1'; }
+function getMeNickLib() { return loadStrList('nick-me-lib'); }
+function saveMeNickLib(list) { store.set('nick-me-lib', JSON.stringify(list)); }
+function getMeNickEnabled() { const v = store.get('nick-me-lib-enabled'); return v === null ? true : v === '1'; }
+function curPartnerNick() { return store.get('cs-lbl-partner') || store.get('lbl-partner') || ''; }
+function curMyNick() { return store.get('cs-lbl-user') || store.get('lbl-user') || ''; }
 function chatName(chatKey, deskKey, fb) {
 let v = null;
 try { v = store.get(chatKey); } catch (e) {}
@@ -57419,22 +57533,54 @@ const avTabB = document.getElementById('avlib-tab-b');
 const avPaneA = document.getElementById('avlib-pane-a');
 const avPaneB = document.getElementById('avlib-pane-b');
 const avMeTabName = document.getElementById('avlib-me-tab-name');
+const avKindAvatar = document.getElementById('avlib-kind-avatar');
+const avKindName = document.getElementById('avlib-kind-name');
+const avPaneC = document.getElementById('avlib-pane-c');
+const avPaneD = document.getElementById('avlib-pane-d');
+const avNickList = document.getElementById('avlib-nick-list');
+const avNickEmpty = document.getElementById('avlib-nick-empty');
+const avNickEnabled = document.getElementById('avlib-nick-enabled');
+const avNickAdd = document.getElementById('avlib-nick-add');
+const avNickClear = document.getElementById('avlib-nick-clear');
+const avMeNickList = document.getElementById('avlib-me-nick-list');
+const avMeNickEmpty = document.getElementById('avlib-me-nick-empty');
+const avMeNickEnabled = document.getElementById('avlib-me-nick-enabled');
+const avMeNickAdd = document.getElementById('avlib-me-nick-add');
+const avMeNickClear = document.getElementById('avlib-me-nick-clear');
+let avKind = 'avatar', avOwner = 0;
+function kindIsName() { return avKind === 'name'; }
+function syncCounts() {
+if (avCount) avCount.textContent = (kindIsName() ? getNickLib() : getLib()).length;
+if (avMeCount) avMeCount.textContent = (kindIsName() ? getMeNickLib() : getMeLib()).length;
+}
 function syncVal() {
 if (avEnabled) avEnabled.checked = getEnabled();
 if (avMeEnabled) avMeEnabled.checked = getMeEnabled();
-if (avName) avName.textContent = cPartnerName();
-if (avPoolName) avPoolName.textContent = cPartnerName() + ' 的头像库';
-if (avMeTabName) {
+if (avNickEnabled) avNickEnabled.checked = getNickEnabled();
+if (avMeNickEnabled) avMeNickEnabled.checked = getMeNickEnabled();
 const myName = cUserName();
-avMeTabName.textContent = myName ? myName + ' 的头像库' : '我的头像库';
+if (avName) avName.textContent = cPartnerName();
+if (avPoolName) avPoolName.textContent = cPartnerName() + (kindIsName() ? ' 的昵称库' : ' 的头像库');
+if (avMeTabName) {
+if (kindIsName()) avMeTabName.textContent = myName ? myName + ' 的昵称库' : '我的昵称库';
+else avMeTabName.textContent = myName ? myName + ' 的头像库' : '我的头像库';
 }
+syncCounts();
 }
-function switchAvTab(me) {
+function syncAvPane() {
+const me = avOwner === 1, nameKind = kindIsName();
 if (avTabA) avTabA.classList.toggle('active', !me);
 if (avTabB) avTabB.classList.toggle('active', me);
-if (avPaneA) avPaneA.hidden = me;
-if (avPaneB) avPaneB.hidden = !me;
+if (avKindAvatar) avKindAvatar.classList.toggle('active', !nameKind);
+if (avKindName) avKindName.classList.toggle('active', nameKind);
+if (avPaneA) avPaneA.hidden = !(!nameKind && !me);
+if (avPaneB) avPaneB.hidden = !(!nameKind && me);
+if (avPaneC) avPaneC.hidden = !(nameKind && !me);
+if (avPaneD) avPaneD.hidden = !(nameKind && me);
+syncVal();
 }
+function switchAvTab(me) { avOwner = me ? 1 : 0; syncAvPane(); }
+function switchAvKind(name) { avKind = name ? 'name' : 'avatar'; syncAvPane(); }
 const avImgObserver = ('IntersectionObserver' in window)
 ? new IntersectionObserver((entries) => {
 for (const en of entries) {
@@ -57485,6 +57631,8 @@ function refreshAvGrids() {
 if (!avPage || avPage.hidden) return;
 renderGridSmart();
 renderMeGridSmart();
+renderNickGridSmart();
+renderMeNickGridSmart();
 }
 function renderGrid() {
 if (!avGrid) return;
@@ -57492,7 +57640,7 @@ const lib = getLib();
 const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
 if (avImgObserver) avGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 avGrid.innerHTML = '';
-if (avCount) avCount.textContent = lib.length;
+syncCounts(); // 计数归 syncCounts 管（同一排页签在头像/昵称两种大类下要显示各自条数）
 if (avEmpty) avEmpty.hidden = lib.length > 0;
 lib.forEach((src, idx) => {
 const d = document.createElement('div');
@@ -57525,7 +57673,7 @@ const lib = getMeLib();
 const current = store.get('cs-avatar-user') || store.get('avatar-user');
 if (avImgObserver) avMeGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
 avMeGrid.innerHTML = '';
-if (avMeCount) avMeCount.textContent = lib.length;
+syncCounts(); // 同上
 if (avMeEmpty) avMeEmpty.hidden = lib.length > 0;
 lib.forEach((src, idx) => {
 const d = document.createElement('div');
@@ -57551,20 +57699,100 @@ renderMeGrid();
 avMeGrid.appendChild(d);
 });
 }
+function updateNickGridNow() {
+if (!avNickList) return false;
+const lib = getNickLib();
+const current = curPartnerNick();
+const cells = avNickList.querySelectorAll('.avlib-name-cell');
+if (cells.length !== lib.length) return false;
+for (let i = 0; i < lib.length; i++) {
+const tx = cells[i].querySelector('.avlib-name-txt');
+if (!tx || tx.textContent !== lib[i]) return false;
+}
+lib.forEach((name, idx) => { cells[idx].classList.toggle('avlib-now', name === current); });
+return true;
+}
+function updateMeNickGridNow() {
+if (!avMeNickList) return false;
+const lib = getMeNickLib();
+const current = curMyNick();
+const cells = avMeNickList.querySelectorAll('.avlib-name-cell');
+if (cells.length !== lib.length) return false;
+for (let i = 0; i < lib.length; i++) {
+const tx = cells[i].querySelector('.avlib-name-txt');
+if (!tx || tx.textContent !== lib[i]) return false;
+}
+lib.forEach((name, idx) => { cells[idx].classList.toggle('avlib-now', name === current); });
+return true;
+}
+function renderNickGridSmart() { if (!updateNickGridNow()) renderNickGrid(); }
+function renderMeNickGridSmart() { if (!updateMeNickGridNow()) renderMeNickGrid(); }
+function buildNickCell(name, libFn, saveFn, rerender, onPick) {
+const d = document.createElement('div');
+d.className = 'avlib-name-cell';
+const txt = document.createElement('span');
+txt.className = 'avlib-name-txt';
+txt.textContent = name;
+txt.title = name;
+const delBtn = document.createElement('button');
+delBtn.className = 'avlib-name-del';
+delBtn.textContent = '✕';
+d.appendChild(txt);
+d.appendChild(delBtn);
+txt.addEventListener('click', () => onPick(name));
+delBtn.addEventListener('click', () => {
+const l = libFn();
+const i = l.indexOf(name);
+if (i < 0) return;
+l.splice(i, 1);
+saveFn(l);
+rerender();
+syncVal();
+});
+return d;
+}
+function renderNickGrid() {
+if (!avNickList) return;
+const lib = getNickLib();
+const current = curPartnerNick();
+avNickList.innerHTML = '';
+syncCounts();
+if (avNickEmpty) avNickEmpty.hidden = lib.length > 0;
+lib.forEach(name => {
+const d = buildNickCell(name, getNickLib, saveNickLib, renderNickGrid, switchNickFromLib);
+if (name === current) d.classList.add('avlib-now');
+avNickList.appendChild(d);
+});
+}
+function renderMeNickGrid() {
+if (!avMeNickList) return;
+const lib = getMeNickLib();
+const current = curMyNick();
+avMeNickList.innerHTML = '';
+syncCounts();
+if (avMeNickEmpty) avMeNickEmpty.hidden = lib.length > 0;
+lib.forEach(name => {
+const d = buildNickCell(name, getMeNickLib, saveMeNickLib, renderMeNickGrid, switchMyNickFromLib);
+if (name === current) d.classList.add('avlib-now');
+avMeNickList.appendChild(d);
+});
+}
 function openAvlib() {
 if (!avPage) return;
-try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); } catch (e) {}
+try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); restoreLib('nick-lib'); restoreLib('nick-me-lib'); } catch (e) {}
 const pc = document.getElementById('poke-card');
 if (pc) pc.hidden = true;
 const ep = document.getElementById('emoji-panel');
 if (ep) ep.hidden = true;
 renderGridSmart();   // FIX #509：打开时不整格重建——库没变只同步高亮（旧路径每次打开都重建=图片闪）
 renderMeGridSmart(); // FIX #509 同上
-syncVal();
+renderNickGridSmart();
+renderMeNickGridSmart();
+syncAvPane(); // 两个大类 + 四个 pane 的显隐/文案/计数一次性同步（内含 syncVal）
 avPage.hidden = false;
 }
 document.addEventListener('contact-switched', function () {
-try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); } catch (e) {}
+try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); restoreLib('nick-lib'); restoreLib('nick-me-lib'); } catch (e) {}
 });
 function closeAvlib() {
 if (avPage) avPage.hidden = true;
@@ -57575,6 +57803,8 @@ const avClose = document.getElementById('avlib-close');
 if (avClose) avClose.addEventListener('click', closeAvlib);
 if (avTabA) avTabA.addEventListener('click', () => switchAvTab(false));
 if (avTabB) avTabB.addEventListener('click', () => switchAvTab(true));
+if (avKindAvatar) avKindAvatar.addEventListener('click', () => switchAvKind(false));
+if (avKindName) avKindName.addEventListener('click', () => switchAvKind(true));
 const moreAvatar = document.getElementById('more-avatar');
 if (moreAvatar) {
 moreAvatar.addEventListener('click', (e) => {
@@ -57593,6 +57823,18 @@ syncVal();
 if (avMeEnabled) {
 avMeEnabled.addEventListener('change', () => {
 store.set('avatar-me-lib-enabled', avMeEnabled.checked ? '1' : '0');
+syncVal();
+});
+}
+if (avNickEnabled) {
+avNickEnabled.addEventListener('change', () => {
+store.set('nick-lib-enabled', avNickEnabled.checked ? '1' : '0');
+syncVal();
+});
+}
+if (avMeNickEnabled) {
+avMeNickEnabled.addEventListener('change', () => {
+store.set('nick-me-lib-enabled', avMeNickEnabled.checked ? '1' : '0');
 syncVal();
 });
 }
@@ -57650,6 +57892,24 @@ btn.addEventListener('click', () => input.click());
 }
 bindPoolUpload(avUpload, getLib, saveLib, () => { renderGrid(); syncVal(); });
 bindPoolUpload(avMeUpload, getMeLib, saveMeLib, () => { renderMeGrid(); syncVal(); });
+function bindNickAdd(btn, listFn, saveFn, rerender) {
+if (!btn) return;
+btn.addEventListener('click', () => {
+if (!window.openModal) return;
+window.openModal('添加昵称', '', (v) => {
+const val = (v || '').trim();
+if (!val) return;
+const list = listFn();
+if (list.indexOf(val) >= 0) { toast('这个昵称已经在池子里了'); return; }
+list.push(val);
+saveFn(list);
+rerender();
+toast('已添加昵称「' + val + '」');
+}, { maxlength: 30, placeholder: '输入一个昵称（最多 30 字）' });
+});
+}
+bindNickAdd(avNickAdd, getNickLib, saveNickLib, renderNickGrid);
+bindNickAdd(avMeNickAdd, getMeNickLib, saveMeNickLib, renderMeNickGrid);
 function bindPoolClear(btn, saveFn, rerender, title, okText) {
 if (!btn) return;
 btn.addEventListener('click', () => {
@@ -57664,17 +57924,25 @@ toast(okText);
 }
 bindPoolClear(avClear, saveLib, () => { renderGrid(); syncVal(); }, '清空头像池？', '已清空头像池');
 bindPoolClear(avMeClear, saveMeLib, () => { renderMeGrid(); syncVal(); }, '清空我的头像池？', '已清空我的头像池');
+bindPoolClear(avNickClear, saveNickLib, () => { renderNickGrid(); syncVal(); }, '清空昵称池？', '已清空昵称池');
+bindPoolClear(avMeNickClear, saveMeNickLib, () => { renderMeNickGrid(); syncVal(); }, '清空我的昵称池？', '已清空我的昵称池');
 function applyAvatarImg(data, out, chatOnly) {
 const chatAv = document.getElementById(out ? 'chat-user-av' : 'chat-partner-av');
 const deskRing = chatOnly ? null : document.querySelector(out ? '#avatar-user .ring' : '#avatar-partner .ring');
 const applyTo = (el) => {
 if (!el) return;
-el.innerHTML = '';
+if (el.__avApplied === (data || '')) return;
+el.__avApplied = data || '';
 if (data) {
+const cur = el.querySelector('img');
+if (cur) { cur.src = data; cur.alt = ''; }
+else {
 const img = document.createElement('img');
 img.src = data;
 img.alt = '';
+el.innerHTML = '';
 el.appendChild(img);
+}
 } else {
 el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#999999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>';
 }
@@ -57873,7 +58141,164 @@ try { setInterval(checkAvatarLibRefresh, 60000); } catch (e) {}
 checkAvatarLibRefresh();
 try { setInterval(checkMeAvatarRefresh, 60000); } catch (e) {}
 checkMeAvatarRefresh();
+function applyPartnerNick(name) {
+const oldEff = store.get('cs-lbl-partner') || 'TA';
+if (name) store.set('cs-lbl-partner', name); else store.remove('cs-lbl-partner');
+const newEff = store.get('cs-lbl-partner') || 'TA';
+if (oldEff !== newEff) {
+try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff); } catch (e) {}
+}
+try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
 syncVal();
+}
+function applyMyNick(name) {
+if (name) store.set('cs-lbl-user', name); else store.remove('cs-lbl-user');
+try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
+syncVal();
+}
+function replyNickInvite(accepted) {
+const ta = cPartnerName(), me = cUserName();
+chatSystem(accepted
+? ta + ' 同意了' + me + '的换昵称邀请'
+: ta + ' 拒绝了' + me + '的换昵称邀请');
+}
+function replyMeNickInvite(accepted) {
+const ta = cPartnerName(), me = cUserName();
+chatSystem(accepted
+? me + ' 同意了' + ta + '的换昵称邀请'
+: me + ' 拒绝了' + ta + '的换昵称邀请');
+}
+function switchNickFromLib(name) {
+const lib = getNickLib();
+if (!name || lib.indexOf(name) === -1) return;
+const before = store.get('cs-lbl-partner');
+const nextHours = String(1 + Math.random() * 7);
+const inviteHit = Math.random() * 100 < INVITE_PROB;
+const agreeHit = Math.random() * 100 < AGREE_PROB;
+store.set('nick-lib-last', String(Date.now()));
+store.set('nick-lib-next', nextHours);
+if (inviteHit && !agreeHit) {
+store.set('nick-lib-cur-hash', strHash(before || ''));
+updateNickGridNow();
+replyNickInvite(false);
+return;
+}
+applyPartnerNick(name);
+store.set('nick-lib-cur-hash', strHash(name));
+updateNickGridNow();
+if (inviteHit) replyNickInvite(true);
+else { toast('昵称已切换'); chatSystem(cUserName() + ' 更换了 ' + name + ' 的昵称'); }
+}
+function switchMyNickFromLib(name) {
+const lib = getMeNickLib();
+if (!name || lib.indexOf(name) === -1) return;
+applyMyNick(name);
+store.set('nick-me-lib-cur-hash', strHash(name));
+updateMeNickGridNow();
+toast('昵称已更换');
+chatSystem(cUserName() + ' 更换了昵称');
+}
+function showMeNickInvite(name) {
+if (!window.openModal) return;
+const ta = cPartnerName();
+window.openModal(ta + ' 的换昵称邀请', '', (v) => {
+if (v === '1') {
+applyMyNick(name);
+store.set('nick-me-lib-cur-hash', strHash(name));
+updateMeNickGridNow();
+replyMeNickInvite(true);
+} else {
+replyMeNickInvite(false);
+}
+}, {
+noInput: true,
+lock: true,
+pills: [{ label: '同意', value: '1' }, { label: '拒绝', value: '0' }],
+pill: '1',
+staticText: ta + ' 邀请你换上这个昵称'
+});
+const se = document.getElementById('modal-static');
+if (se) {
+const p = document.createElement('div');
+p.textContent = name;
+p.style.cssText = 'font-size:20px;font-weight:700;text-align:center;margin:10px 0 2px;word-break:break-all;';
+se.appendChild(p);
+}
+}
+function getMeNickLast() { const v = parseInt(store.get('nick-me-lib-last'), 10); return isNaN(v) ? 0 : v; }
+function getMeNickNext() { const v = parseFloat(store.get('nick-me-lib-next')); return isNaN(v) ? 0 : v; }
+function checkMeNickRefresh() {
+try {
+if (!getMeNickEnabled()) return;
+const now = Date.now();
+let last = getMeNickLast();
+let next = getMeNickNext();
+if (last > now || last < 0 || isNaN(last)) { last = 0; next = 0; }
+if ((now - last) / 36e5 < next) return;
+const lib = getMeNickLib();
+if (!lib.length) return;
+const name = lib[Math.floor(Math.random() * lib.length)];
+if (!name) return;
+if (name === curMyNick()) return;
+const curHash = store.get('nick-me-lib-cur-hash');
+if (curHash && strHash(name) === curHash) return;
+const invite = Math.random() * 100 < INVITE_PROB;
+if (invite) {
+const mask = document.getElementById('modal-mask');
+if (mask && !mask.hidden) return;
+}
+store.set('nick-me-lib-last', String(now));
+store.set('nick-me-lib-next', String(1 + Math.random() * 7));
+if (invite) {
+showMeNickInvite(name);
+if (document.visibilityState === 'hidden' && window.bgNotifyCheck) {
+const iname = store.get('lbl-partner') || 'TA';
+window.bgNotifyCheck(iname + ' 想给你换昵称', Date.now(), { name: iname });
+}
+} else {
+applyMyNick(name);
+store.set('nick-me-lib-cur-hash', strHash(name));
+updateMeNickGridNow();
+const text = cPartnerName() + ' 更换了你的昵称';
+chatSystem(text);
+toast(text);
+}
+} catch (e) {}
+}
+function getNickLast() { const v = parseInt(store.get('nick-lib-last'), 10); return isNaN(v) ? 0 : v; }
+function getNickNext() { const v = parseFloat(store.get('nick-lib-next')); return isNaN(v) ? 0 : v; }
+function checkNickLibRefresh() {
+try {
+if (!getNickEnabled()) return;
+const now = Date.now();
+let last = getNickLast();
+let next = getNickNext();
+if (last > now || last < 0 || isNaN(last)) { last = 0; next = 0; }
+if ((now - last) / 36e5 < next) return;
+const lib = getNickLib();
+if (!lib.length) return;
+const name = lib[Math.floor(Math.random() * lib.length)];
+if (!name) return;
+if (name === curPartnerNick()) return;
+const curHash = store.get('nick-lib-cur-hash');
+if (curHash && strHash(name) === curHash) return;
+store.set('nick-lib-last', String(now));
+store.set('nick-lib-next', String(1 + Math.random() * 7));
+applyPartnerNick(name);
+store.set('nick-lib-cur-hash', strHash(name));
+updateNickGridNow();
+const text = cPartnerName() + ' 更换了昵称';
+chatSystem(text);
+try {
+if (window.bgNotifyCheck) window.bgNotifyCheck(text, Date.now(), { name: cPartnerName() });
+} catch (e) {}
+} catch (e) {}
+}
+try { setInterval(checkNickLibRefresh, 60000); } catch (e) {}
+checkNickLibRefresh();
+try { setInterval(checkMeNickRefresh, 60000); } catch (e) {}
+checkMeNickRefresh();
+syncAvPane();
 function restoreLib(key) {
 if (!window.idbGet) return;
 const myPrefix = window.activePrefix();
@@ -57901,6 +58326,8 @@ tryOnce();
 }
 try { restoreLib('avatar-lib'); } catch (e) {}
 try { restoreLib('avatar-me-lib'); } catch (e) {}
+try { restoreLib('nick-lib'); } catch (e) {}
+try { restoreLib('nick-me-lib'); } catch (e) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("avatar-lib.js");
 } catch (__e) { try { console.error("[JS] avatar-lib.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[avatar-lib.js] " + String(__e && __e.message || __e)); } })();
@@ -64114,16 +64541,49 @@ if (--pending === 0) finish();
 });
 finish();
 }
+function kaWithTimeout(p, ms) {
+return new Promise(function (resolve, reject) {
+let done = false;
+const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
+try {
+p.then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+} catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
+});
+}
+function kaSWReady() {
+if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return Promise.resolve(null);
+const start = function () {
+return navigator.serviceWorker.getRegistration().then(function (reg) {
+return (reg && reg.active) ? reg : null;
+}).catch(function () { return null; }).then(function (reg) {
+if (reg) return reg;
+try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {}
+return kaWithTimeout(navigator.serviceWorker.ready, 4000).then(function (r2) {
+return r2 || null;
+}).catch(function () { return null; });
+});
+};
+return kaWithTimeout(start(), 5000).catch(function () { return null; });
+}
 function showSysNotification(title, opts) {
 opts = opts || {};
 return new Promise(function (resolve) {
 try {
 if (!('Notification' in window) || Notification.permission !== 'granted') { resolve(false); return; }
+const pageFallback = function () {
+const noMedia = Object.assign({}, opts);
+delete noMedia.image;
+delete noMedia.icon;
+delete noMedia.badge;
+try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
+};
 if ('serviceWorker' in navigator && navigator.serviceWorker) {
 const swOpts = Object.assign({}, opts);
 if (!swOpts.urgency) swOpts.urgency = 'high';
 if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
-navigator.serviceWorker.ready.then(function (reg) {
+kaSWReady().then(function (reg) {
+if (!reg) { pageFallback(); return; }
 const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
 let ladderIdx = 0;
 const tryNext = function () {
@@ -64131,23 +64591,14 @@ if (ladderIdx >= STRIP_LADDER.length) { resolve(false); return; }
 const attempt = Object.assign({}, swOpts);
 STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
 prepMediaBlobs(attempt, function () {
-reg.showNotification(title, attempt).then(function () { resolve(true); }, tryNext);
+kaWithTimeout(reg.showNotification(title, attempt), 4000)
+.then(function () { resolve(true); }, tryNext);
 });
 };
 tryNext();
-}).catch(function () {
-const noMedia = Object.assign({}, opts);
-delete noMedia.image;
-delete noMedia.icon;
-delete noMedia.badge;
-try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
-});
+}).catch(pageFallback);
 } else {
-const noMedia = Object.assign({}, opts);
-delete noMedia.image;
-delete noMedia.icon;
-delete noMedia.badge;
-try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
+pageFallback();
 }
 } catch (e) { resolve(false); }
 });
@@ -64266,6 +64717,7 @@ setTimeout(reheatBgSwitches, 16000); // 回填整体挂起设备的兜底
 const testBtn = document.getElementById('bg-notify-test');
 if (testBtn) {
 testBtn.addEventListener('click', function () {
+toast('正在检查通知环境…');
 const env = [];
 if (!('Notification' in window)) {
 env.push('✗ 当前浏览器不支持 Notification API');
@@ -64320,6 +64772,15 @@ env.push('  提示：若通知仍不显示头像 → 系统通知样式由 Chrom
 } catch (e) {}
 const isHttps = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 env.push(isHttps ? '✓ 访问协议：HTTPS 或本地' : '✗ 访问协议：' + location.protocol + '//（安卓 Chrome 需 HTTPS 才弹通知，GitHub Pages 部署后即是 HTTPS）');
+try {
+if (!('serviceWorker' in navigator) || !navigator.serviceWorker) {
+env.push('✗ 后台服务：当前浏览器不支持 Service Worker');
+} else if (navigator.serviceWorker.controller) {
+env.push('✓ 后台服务：Service Worker 已接管');
+} else {
+env.push('! 后台服务：Service Worker 尚未接管（后台通知可能发不出；已自动尝试重新注册，稍后重试一次）');
+}
+} catch (e) {}
 try {
 const rc = (window.replyCfg && window.replyCfg()) || {};
 const asEn = rc['as-en'] === undefined ? 1 : rc['as-en'];
@@ -96105,7 +96566,7 @@ setTimeout(maybeShow, 300); // 留一点开屏退出动画缓冲
 }, 300);
 })();
 (function () {
-const W1 = 'Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。';
+const W1 = '本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。';
 const W2 = '二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
 function mkWatchBar(tag, title, text) {
 const b = document.createElement('div');
@@ -96121,12 +96582,12 @@ try {
 const n = document.getElementById('splash-notice');
 if (!n) return;
 const dis = n.querySelector('.splash-alert[data-anti-scam="d"]');
+const lock = n.querySelector('.splash-alert[data-anti-scam="l"]');
 if (!n.querySelector('.splash-alert[data-anti-scam="1"]')) {
-n.insertBefore(mkWatchBar('1', '防骗提醒', W1), dis ? dis.nextSibling : n.firstChild);
+n.insertBefore(mkWatchBar('1', '防骗提醒', W1), n.firstChild);
 }
 if (!n.querySelector('.splash-alert[data-anti-scam="2"]')) {
-const b1 = n.querySelector('.splash-alert[data-anti-scam="1"]');
-n.insertBefore(mkWatchBar('2', '转载署名 · 严禁倒卖', W2), b1 ? b1.nextSibling : (dis ? dis.nextSibling : n.firstChild));
+n.insertBefore(mkWatchBar('2', '转载署名 · 严禁倒卖', W2), lock ? lock.nextSibling : (dis ? dis.nextSibling : n.firstChild));
 }
 } catch (e) { /* 静默：看门狗绝不能成为错误源 */ }
 }, 5000);
@@ -97793,7 +98254,7 @@ const HUB = [
 { n: '红包', d: '双向红包：预设档/随机/自定义金额、留言与封面', k: '红包 转账 钱', go: ['.app[data-app="chat"]', '#more-rp'] },
 { n: '心意币 · 心意市集', d: '220+ 件商品分 12 类，送礼给 TA；也能许愿让 TA 挑一件送你（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币 心愿单 许愿 TA送我 联系人送我礼物 概率', go: ['.app[data-app="market"]'] },
 { n: '心意柜', d: '收到/送出的礼物册与统计（桌面有独立图标）', k: '礼物柜 收藏 礼物', go: ['.app[data-app="giftbox"]'] },
-{ n: '头像互动', d: '换聊天头像：上传多张头像库、点图即换，可开随机自动换头像（与桌面头像独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像', go: ['.app[data-app="chat"]', '#more-avatar'] },
+{ n: '头像和昵称互动', d: '换聊天头像和聊天昵称：头像可上传多张头像库点图即换；昵称可存多个文字昵称点名字即换；两边都能开随机自动更换（与桌面头像/昵称独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像 昵称 换昵称 昵称库 随机换昵称 自动换昵称 主动给我换昵称 改名字 聊天昵称', go: ['.app[data-app="chat"]', '#more-avatar'] },
 { n: '漂流瓶', d: '两个世界之间的海：捡瓶子/放瓶子', k: '漂流瓶 海 瓶子', go: ['.app[data-app="chat"]', '#more-drift'] },
 { n: '帮我决定', d: '是/否或自定义选项随机决定，结果可发聊天', k: '决定 选择 纠结', go: ['.app[data-app="chat"]', '#more-decide'] },
 { n: '多人决定', d: '成员名单各自随机出结果，逐行发送', k: '多人 决定 抽签', go: ['.app[data-app="chat"]', '#more-gdecide'] },
@@ -98286,7 +98747,7 @@ document.head.appendChild(st);
 const STEPS = [
 { n: '1', h: '设置「我」和「TA」', d: '回桌面，点顶部两个头像 / 昵称，即可改名、换头像（这里是桌面那一套）。',
 warn: '桌面的昵称 / 头像与聊天里的是<b>两套、互不同步</b>：桌面改完，聊天里仍显示默认「我」「TA」；聊天里的名字和头像要在「聊天页右上角 → 聊天设置 → 形象」里单独设置。',
-tip: '聊天头像另有一条快路：聊天输入栏左边的「更多功能」（⋯）→ 互动类 → <b>头像互动</b>——可上传多张头像库、点库里的图即换聊天头像，还能开「TA 随机换头像 / TA 主动给我换头像」（每 1-8 小时一次）。',
+tip: '聊天头像和聊天昵称另有一条快路：聊天输入栏左边的「更多功能」（⋯）→ 互动类 → <b>头像和昵称互动</b>——头像可上传多张头像库、点库里的图即换；昵称可存多个文字昵称、点名字即换；两边都能开「TA 随机更换 / TA 主动给我换」（每 1-8 小时一次）。',
 go: 'name' },
 { n: '2', h: '先添加字卡', d: '底部「字卡库」→ 公用字卡 / 专属字卡 添加或导入；不加字卡，TA 就没有话可说。', go: 'cards' },
 { n: '3', h: '开始聊天', d: '回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。', go: 'chat' }
@@ -101384,4 +101845,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3rido8 -->
+<!-- __MOCHI_EOF__ mu3yq9sj -->

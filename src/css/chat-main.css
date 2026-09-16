@@ -1627,3 +1627,38 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 [data-theme="dark"] .voice-card.recording .voice-wave i { opacity:.9; }
 [data-theme="dark"] .msg-voice-play.voice-play-btn { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16); }
 [data-theme="dark"] .voice-rec-btn { border-color:rgba(255,255,255,.28); color:#fff; }
+
+/* ---- FIX 2026-09-16 #572b 撤回原文查看浮层 ----
+   点【撤回了一条消息】弹只读卡片看原文，列表一条消息都不动（原来就地展开＝气泡变高，
+   必然把列表一侧顶走：补偿口径上移 3~6 条、不补偿下移 8 条）。观感对齐 #modal-mask/#img-view-mask
+   既有浮层；z-index 92 高于 #msg-actions(80)，低于开屏(999)。dark 模式走 base 变量自动适配。 */
+.recall-view {
+  position:fixed; inset:0; z-index:92;
+  background:rgba(0,0,0,.32);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+.recall-view[hidden] { display:none; }
+.recall-view-card {
+  width:min(320px, 86vw); max-height:min(72vh, calc(100% - 20px));
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  background:var(--phone-bg-b, #f2f2f2); color:var(--msg-in-ink, #111111);
+  border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.2);
+  padding:14px 14px 10px; display:flex; flex-direction:column; gap:10px;
+}
+.recall-view-title { font-size:12px; font-weight:700; opacity:.6; }
+.recall-view-body { font-size:14px; line-height:1.6; word-break:break-word; min-width:0; }
+.recall-view-text { white-space:pre-wrap; }
+.recall-view-img { max-width:100%; max-height:52vh; border-radius:10px; display:block; margin:0 auto; object-fit:contain; }
+.recall-view-ph { font-size:13px; opacity:.7; }
+.recall-view-close {
+  align-self:flex-end; border:none; background:transparent; color:inherit;
+  font-family:inherit; font-size:13px; padding:6px 12px; border-radius:10px;
+  cursor:pointer; opacity:.7; -webkit-tap-highlight-color:transparent;
+}
+.recall-view-close:active { background:rgba(0,0,0,.08); }
+/* #572c：卡片里的原文按「原来那条气泡」的样子渲染（用户要的就是这个观感）——
+   外层复用 .msg-bubble 自身的底色/内边距/圆角/字号，侧别靠 .msg-in/.msg-out 决定明暗 */
+.recall-view-bubble { display:flex; max-width:100%; }
+.recall-view-bubble.msg-out { justify-content:flex-end; }
+.recall-view-bubble .msg-bubble { max-width:100%; white-space:pre-wrap; }
