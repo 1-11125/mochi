@@ -540,6 +540,7 @@ const FIX_SENTINELS = [
   { name: '#119 桌面美化·方案分享 URL shareBeautyLink（base64 hash URL，启动读 #beauty= 自动弹导入）', file: 'js/personalize.js', needle: 'const shareBeautyLink = () =>' },
   { name: '#602 方案分享链接接收端去掉前缀偏移（#beauty= 共 8 字符；原 slice(7) 把 base64 切成 =xxx 致 atob 抛错被吞、对方打开不弹导入）', file: 'js/personalize.js', needle: 'location.hash.slice(8)' },
   { name: '#602b 分享链接处理包进独立函数（原 return 穿透 outer IIFE，用途不符/命中 0 项时跳过其后所有初始化）', file: 'js/personalize.js', needle: '(function handleSharedBeauty() {' },
+  { name: '#602h 分享链接复制回退 copyFrom（execCommand 优先 + 超时兜底；失败弹窗展示链接本体，修原 noInput 隐藏 input 导致「请手动复制」却看不到链接）', file: 'js/personalize.js', needle: 'const copyFrom = (text) =>' },
   { name: '#602c 分享链接不带主题（生成端剔除 __theme__，不改对方深/浅色）', file: 'js/personalize.js', needle: "if (k === '__theme__') return;" },
   { name: '#602d 分享链接剔除图片组件清单 desk-images（防对方导入后得到空壳组件）', file: 'js/personalize.js', needle: "k === 'desk-images' || bigImg" },
   { name: '#602e 导入分享链接时丢弃主题（旧/手改链接带 __theme__ 也不应用）', file: 'js/personalize.js', needle: "delete data['__theme__'];" },
@@ -711,7 +712,18 @@ const FIX_SENTINELS = [
   { name: '#190/#260 保活音频安卓幅度（0.006→0.02 恢复：#190/#207 底噪根因在 220Hz 频率已换 18kHz，0.0003 电平距 audible 线仅 20% 余量、Edge/Chromium 152 收紧判定即丢冻结豁免=vivo X200s「后台保活失败」；iOS 0.002 bit 级不动）', file: 'js/bg-keep.js', needle: 'kaIsIOS() ? 0.002 : 0.02' },
   { name: '防倒卖回填·远程时效公告bulletin在位判定（notice.json下发text+until过期自动摘除,所有联网副本含二传显示）', file: 'js/clock.js', needle: "(!bulletin.until || Date.now() < bulletin.until)" },
   { name: '防倒卖回填·公告内容变化重写（标题固定「公告」+text 精确比对）', file: 'js/clock.js', needle: "if (box.textContent !== '公告' + want)" },
-  { name: '防倒卖第二锚点·pwa.js在位看门狗（clock.js回填被删时的独立兜底,5s补回缺失声明；#315b 起回填插免责卡之后）', file: 'js/pwa.js', needle: "n.insertBefore(mkWatchBar('1', '防骗提醒', W1), dis ? dis.nextSibling : n.firstChild)" },
+  { name: '防倒卖第二锚点·pwa.js在位看门狗（clock.js回填被删时的独立兜底,5s补回缺失声明；#621 起两张声明合并为「免费·署名·防倒卖」一张，补回公告区最顶）', file: 'js/pwa.js', needle: "n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild)" },
+  // ==== 2026-09-16 #613 防骗提醒卡提到开屏第 1 张 + 免费声明「本站完全免费…禁止以盈利为目的」并进防骗卡与必读摘要首条（用户：「这个要放在前面醒目的位置，现在太靠后了」「放在开屏的防骗提醒里吧」）====
+  { name: '#613 防骗卡（第 1 张）正文新增免费声明加粗句在 template 静态 DOM（删则退回只有防骗账号文案，用户要求的免费声明在首屏消失）', file: 'template.html', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong>' },
+  { name: '#613 免费声明进「必读摘要」首条并高亮（删则回落到折叠区/第五章，用户原话「太靠后」重现）', file: 'template.html', needle: '<p class="splash-hl">本站完全免费，没有收过任何人一分钱' },
+  { name: '#613 防骗卡重建锚点＝公告区最顶（改回免责卡/锁卡之后＝用户「防骗提醒位置太靠后」回归）', file: 'js/clock.js', needle: 'ensureBar(BARS[0], null)' },
+  { name: '#621 pwa.js 看门狗补回合并声明卡也落到公告区最顶（与 clock.js/静态顺序一致）', file: 'js/pwa.js', needle: "mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild" },
+  { name: '#613 在线公告源 notice.json alert 同含免费声明句（静态/远程双源一致，删则联网用户看到的防骗卡少这句）', file: 'pwa/notice.json', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费。' },
+  // ==== 2026-09-16 #621 防骗 + 署名禁倒卖合并为一张置顶声明卡（用户要求「并成一张」）====
+  { name: '#621 合并声明卡标题（免费 · 署名 · 防倒卖，template 静态卡）', file: 'template.html', needle: '免费 · 署名 · 防倒卖' },
+  { name: '#621 旧「转载署名·严禁倒卖」独立卡不得复活（已并入 tag 1；absent）', file: 'template.html', needle: 'data-anti-scam="2"', absent: true },
+  { name: '#621 clock.js 合并卡按 keys 拼接正文（删＝正文退回只取单字段，署名段丢失）', file: 'js/clock.js', needle: 'function barText(bar) {' },
+  { name: '#621 clock.js BARS 单卡双权威字段（keys alert+alert2；删＝署名段不回填）', file: 'js/clock.js', needle: "keys: ['alert', 'alert2']" },
   { name: '#154 朋友圈评论「我的表情包」与聊天面板同源·暴露chat最新内存副本（IDB权威自愈，修store层旧LS快照/大键挂起导致的两侧不同步）', file: 'js/chat.js', needle: 'window.getMyEmojiGroups = function () { return myGroups || []; };' },
   { name: '#154 朋友圈评论「我的表情包」优先读chat内存副本（chat.js异常时旧store读兜底）', file: 'js/feed.js', needle: 'if (window.getMyEmojiGroups) {' },
   { name: '#156 群聊模式占卜图标强制收隐藏池（任意位置都隐藏，修「群聊开启后桌面占卜图标不消失」——原只在首页图标组原位时才收；#393 起带 !divPin 豁免， needle 同步收窄）', file: 'js/personalize.js', needle: 'if (divBtn && divBtn.parentNode !== pool && !divPin) {' },
@@ -1109,7 +1121,10 @@ const FIX_SENTINELS = [
   { name: '#329/#414 造句手法三选一·mjf-style 语气词式/撤回式/换字卡内容式（删则手法选择失效＝三模式不可切，回退固定撤回式；#414 改 let 供混合模式重掷）', file: 'js/dream-free.js', needle: "let style = Math.max(0, Math.min(2, Number(c['mjf-style']) || 1));" },
   { name: '#326 词边界来源·内置词典正向最大匹配切词（删则插入点随机＝可能截在词中间出病句）', file: 'js/dream-free.js', needle: 'if (dict.has(str.slice(i, i + L))) { len = L; break; }' },
   { name: '#317/324 造句入库·ccAppendCards 双作用域写 mjfree 分类（删则新句不进「梦角自由造句」字卡分类；#324 加 scope 分库参数）', file: 'js/chatcard.js', needle: "window.ccAppendCards = function (type, group, cards, scope) {" },
-  { name: '#324/#364 造句分库·dreamFreeSave 按 mjf-pub 概率分库、单联系人 100% 专属（删则全部写专属＝多桌面公用库不再积累梦角语料）', file: 'js/dream-free.js', needle: "const usePublic = cids > 1 && Math.random() * 100 < pubProb;" },
+  // ==== 2026-09-16 #622「其他互动功能字卡」角标误计梦角自由造句（用户报「梦角自由造句的点数显示在其他功能字卡里」）：#353 起 mjfree 只在【可自定义字卡】公用/专属入口显示、功能入口 tab 已隐藏，但角标仍按 CC_FUNC_KEYS 全量计数 ====
+  { name: '#622a 功能字卡角标键剔除 mjfree（删/改回 CC_FUNC_KEYS＝梦角自由造句的点数又跑进「其他互动功能字卡」角标，用户报障复发）', file: 'js/chatcard.js', needle: "const CC_FUN_COUNT_KEYS = CC_FUNC_KEYS.filter(k => k !== 'mjfree');" },
+  { name: '#622b 专属功能字卡角标计数走剔除后的键（定义在、计数却用回 CC_FUNC_KEYS 则 #622a 形同虚设）', file: 'js/chatcard.js', needle: 'if (libCounts.fun < 0) libCounts.fun = countOfKeys(og, CC_FUN_COUNT_KEYS);' },
+  { name: '#324/#364/#622 造句分库·dreamFreeSave 一律按 mjf-pub 概率分库（2026-09-16 #622 去掉「仅多联系人生效」门：改回 cids>1 条件＝单联系人又被锁死 100% 专属、用户点名的「100% 归公用 / 80-20 分流」落空）', file: 'js/dream-free.js', needle: 'const usePublic = Math.random() * 100 < pubProb;' },
   { name: '#317 replyOnce 接线·dreamFreePick 命中替换回复+入库（删则开关存在但永不生效）', file: 'js/chat.js', needle: 'window.dreamFreePick && window.dreamFreePick(c)' },
   { name: '#301 词典自建词条并入词典分类（删则自建语录/词不再进词典 tab 与拼字引擎）', file: 'js/default-cards.js', needle: "const gw = base.find(g => g[0].indexOf('词库') === 0)" },
   // ==== 2026-09-11 #306 小游戏 UI 收口（连连看/消消乐棋盘 gap 溢出截断、头部标题被挤竖排、拍卖会「不拍了」白字白底隐形）+ 全部小游戏通用全屏 .game-fs ====
@@ -1221,7 +1236,9 @@ const FIX_SENTINELS = [
   { name: '#348 自定义出价（删＝长按无反应只能三档出价）', file: 'js/auction.js', needle: 'customBidModal(' },
   { name: '#348 TA 按行为状态差异化跟价台词（改回固定池＝四状态语气趋同）', file: 'js/auction.js', needle: 'pick(m.calls)' },
   // ==== 2026-09-12 #349 游戏面板跨桌面串名串档：snake 五个存储键（昵称/战绩/最高分/存档）与 pong 存档键都是【模块加载时冻结】的桌面 cid——加载时在 A 桌面、切到 B 桌面后开面板读写仍是 A 的键（任何机型必现）。改动态 activePrefix()/activeStore（同其余游戏面板既有模式）====
-  { name: '#349 贪吃蛇标题名走 activeStore 动态命名空间（改回裸读冻结 PARTNER_KEY＝切桌面标题串名）', file: 'js/snake-game.js', needle: "nst.get('cs-lbl-partner') || nst.get('lbl-partner')" },
+  // #616（2026-09-16）：「其他功能改用桌面昵称」把这处的键序从 cs 优先翻成 lbl 优先，
+  //   锚点同步（意图不变：名字从**活动 store** nst 现读、不是加载时冻结的 PARTNER_KEY）
+  { name: '#349 贪吃蛇标题名走 activeStore 动态命名空间（改回裸读冻结 PARTNER_KEY＝切桌面标题串名）', file: 'js/snake-game.js', needle: "nst.get('lbl-partner') || nst.get('cs-lbl-partner')" },
   { name: '#349 贪吃蛇战绩/最高分/存档键动态取桌面（改回加载时冻结 const PREFIX＝切桌面串档）', file: 'js/snake-game.js', needle: "function keyScore() { return prefix() + ':snake-score'; }" },
   { name: '#349 乒乓存档键动态取桌面（改回顶层 const SAVE_KEY 冻结 cid＝切桌面串档）', file: 'js/pong.js', needle: "function saveKey() { return (window.activePrefix && window.activePrefix() || 'xy-home-v2') + ':pong-saved'; }" },
   // ==== 2026-09-12 #350 词典页整页滚动：v3.36.x 场景开关/概率块插到列表上方后漏加 #239 同款规则，列表被 flex 挤成 6~29px＝「词典点进去上下滑不了」（多机型）====
@@ -1558,7 +1575,9 @@ const FIX_SENTINELS = [
   //      ③浇水有效期 24h→36h（WATER_SEC）、凋谢宽限 48h→72h（WILT_SEC=259200）、新增温室装饰满保水；
   //      ④工具条「补种」空地按上次品种一键补齐（不消耗 rareInv 稀有库存））====
   { name: '#446 扩建改自愿·开垦资格到顶分支（plotN≥资格给提示弹窗；删则回退等级自动送地，「建这么多养不过来」复发）', file: 'js/garden.js', needle: 'if (cur >= ent) {' },
-  { name: '#446 plotN 存量迁移（load 按当时等级一次性补齐资格＝老玩家已有的地不缩一块；删则存量玩家升级后地块被裁回 12 块）', file: 'js/garden.js', needle: 'd.plotN = PLOTS + (lv0 >= 3 ? 2 : 0)' },
+  { name: '#446/#601e plotN 存量迁移（load 默认 12 块；存档 12 块之后已有花则保留到最远那株＝老玩家的花一块不少。删则存量玩家升级地块被裁回 12 且花被截）', file: 'js/garden.js', needle: 'd.plotN = _maxP >= PLOTS ? (_maxP + 1) : PLOTS;' },
+  { name: '#601f 装饰商店 emoji 可见（emoji 外套白底圆)；删则绿底上的白色字形 emoji 又「看不见」', file: 'js/garden.js', needle: 'garden-decor-shop-ico' },
+  { name: '#601f 装饰商店 emoji 可见（白底圆样式）；删则 emoji 回落绿底低对比', file: 'css/garden.css', needle: '.garden-decor-shop-ico {' },
   { name: '#446 里程碑奖励与地块脱钩（跨 Lv3/5/8/12 送稀有种子；删则「不开垦=亏升级奖励」的强制感回归）', file: 'js/garden.js', needle: 'msgs.push("🎁 里程碑奖励：稀有种子「"' },
   { name: '#446 一键补种（空地按上次品种补齐且不消耗稀有库存；删则 30 块地日常=逐块点种植，养护负担复发）', file: 'js/garden.js', needle: 'data.lastSeed && T[data.lastSeed] && !T[data.lastSeed].rare' },
   { name: '#446 浇水有效期 36h（waterLvl 分母 WATER_SEC；删则回退 24h 天天浇＝多地块高负担复发）', file: 'js/garden.js', needle: 'plot.watered) / WATER_SEC);' },
@@ -1712,15 +1731,23 @@ const FIX_SENTINELS = [
   { name: '#508a 头像池高亮更新函数（删则换头像回退整格重建＝图片全部重新解码闪烁复发）', file: 'js/avatar-lib.js', needle: 'function updateGridNow() {' },
   { name: '#508b 我的头像池高亮更新函数（删则换我的头像回退整格重建闪烁复发）', file: 'js/avatar-lib.js', needle: 'function updateMeGridNow() {' },
   { name: '#508c 高亮更新保底回退重建：格数或内容不符才走 renderGrid（删则库真变化时高亮不同步）', file: 'js/avatar-lib.js', needle: 'avGrid.querySelectorAll(\'.avlib-cell\')' },
-  { name: '#508d 字卡库建卡写内容指纹（#509 改 djb2 短键 ccImgKey；删则整格重渲无从识别未变化卡＝复用失效闪烁复发）', file: 'js/chatcard.js', needle: 'el.dataset.ccSig = ccImgKey(it.c);' },
+  { name: '#508d 字卡库建卡写内容指纹（#509 改短键、#613 改令牌稳定身份 ccPoolKey；删则整格重渲无从识别未变化卡＝复用失效闪烁复发）', file: 'js/chatcard.js', needle: 'el.dataset.ccSig = ccPoolKey(it.c);' },
   { name: '#508e 字卡库重渲前回收已解码 img（#509 改为回收进模块池 ccPoolHarvest(list)；删则已解码图全部丢弃重建＝闪烁复发）', file: 'js/chatcard.js', needle: 'ccPoolHarvest(list);' },
   { name: '#508f 同指纹原位移植已解码 img（删则重渲即重新解码＝闪烁复发）', file: 'js/chatcard.js', needle: '_ni.parentNode.replaceChild(_oi, _ni)' },
   // ==== 2026-09-15 #509「每次打开都闪」（红米 K80 Chrome 等多机型，用户明说其他设备型号也有）：#508 只覆盖「点选换头像」与「字卡库当次 render 内移植」，**打开路径**没覆盖——①openAvlib() 每次打开都整格重建（实证打开→关闭→再打开 8/8 img 全被替换）；②字卡库真实进页路径是「openCcPage 先按 cur='text' 渲一遍清空 list → 点『表情包』tab 再渲第二遍」，第二次要用的节点已离开 DOM＝当次收集抓不到＝整格新建（实证 12/12）；rebuildGroupAfterRemove（删一张卡重建整组）同族。修复=①复用判定改返回值，打开走 renderGridSmart/renderMeGridSmart（库没变零重建）＋restoreLib 回填后同口径刷新；②新增模块级图片节点回收池（上限 150 + 闲置 3 分钟释放）跨 render 存活，回收/取用覆盖整格重渲与局部重建 ====
   { name: '#509a 头像互动打开路径复用优先（删则每次打开半框整格重建＝图片闪一下重新加载复发，多机型同发）', file: 'js/avatar-lib.js', needle: 'if (!updateGridNow()) renderGrid();' },
   { name: '#509b 我的头像池打开路径复用优先（删则切到「我的头像库」页签同样每次重载）', file: 'js/avatar-lib.js', needle: 'if (!updateMeGridNow()) renderMeGrid();' },
-  { name: '#509c 模块级图片节点回收池取用（删则跨 render 无池可取＝每次进表情包页整格新建重解码）', file: 'js/chatcard.js', needle: 'ccPoolTake(ccImgKey(c))' },
+  { name: '#509c 模块级图片节点回收池取用（#613 键改令牌稳定身份；删则跨 render 无池可取＝每次进表情包页整格新建重解码）', file: 'js/chatcard.js', needle: 'ccPoolTake(ccPoolKey(c))' },
   { name: '#509d 局部重建（删卡重建整组）前回收图片节点（删则删一张卡该分组图片全部重载）', file: 'js/chatcard.js', needle: 'ccPoolHarvest(el);' },
   { name: '#509e 回收池闲置整池释放（删则已解码位图长期驻留内存，大库机型内存压力回升）', file: 'js/chatcard.js', needle: 'setTimeout(ccPoolRelease, 180000)' },
+  // ==== 2026-09-16 #617「图片闪一下重新加载」第三轮（红米 K80 Chrome 等多机型，用户明说其他设备型号也有）——两条互相独立的根因，均是 #457/#508/#509/#547 收口面之外的：
+  //   ①头像：fillAvatar 无条件 el.innerHTML=''+新建 img 赋 src ⇒ 每次调用都换节点＝重新解码＋空一帧；换头像走 refreshChatAvatars() 把全部气泡头像+顶栏一起换（无头 390×844 实测 17 个 img 节点新建 / 17 次 load），回前台·切桌面 (convergeAvatars) 同路 ⇒ 整列头像一起闪。
+  //   ②字卡库表情包页：回收池键 ccImgKey 按「原始字符串」算，而同一张卡有 dataURL 与 @@m: 令牌两种形态（ccPoolAdopt 的 isImg 判定本就同时认），形态一翻键就变 ⇒ 池全 miss ⇒ 已解码节点成孤儿、整格新建重解码。小图 (<64KB) 不令牌化 ⇒ 只用小图夹具的旧回归脚本永远绿。
+  //   修复＝①值没变不碰 DOM（__avApplied 守卫）＋值变了只改现有 img.src 不拆节点；②池键改用 ccMediaCardIdent（令牌↔原文同一身份，#547 同口径）。零机型分支、零视觉改动 ====
+  { name: '#617a 头像落值守卫（删则值没变也整块重建节点＝换头像/回前台整列头像闪+重载复发）', file: 'js/chat.js', needle: "if (el.__avApplied === (data || '')) return;" },
+  { name: '#617b 头像改值只改现有 img.src 不拆节点（删则退回 el.innerHTML=\'\'+新建 img＝该位置空一帧再出现）', file: 'js/chat.js', needle: "if (cur) { cur.src = data; cur.alt = ''; }" },
+  { name: '#617c 字卡库回收池键改令牌稳定身份（删则 dataURL↔@@m 一翻池全 miss＝表情包页每次打开图片重新加载复发）', file: 'js/chatcard.js', needle: 'const k = window.ccMediaCardIdent(c);' },
+  { name: '#617d 头像实时生效落值守卫 applyAvatarImg（删则头像互动点选换头像把整列 .msg-in/.msg-out 气泡头像拆节点重建＝闪+重载复发；此函数才是「点选换头像」真正走的路，#617a 的 fillAvatar 只覆盖刷新侧）', file: 'js/avatar-lib.js', needle: 'if (el.__avApplied === want) return;' },
   // ==== 2026-09-15 #510 联系人发来的「亲亲/贴贴申请」弹窗同意后系统消息无留痕（用户报「我同意后，系统消息里没有相关消息」）：贴贴邀请（cuddle）原链路同意只震动+TA 回应一句、拒绝只发婉拒话术，聊天记录里没有任何系统消息；口径对齐换头像邀请（avatar-lib replyMeInvite）与听歌邀请（music-player sm-req-*）。猜拳/游戏类邀请不补（对局结果另有系统消息，避免同一件事留痕两次）====
   { name: '#510a 贴贴邀请同意写系统消息（删则同意后聊天无「你接受了 × 的贴贴邀请」留痕＝原报障复发）', file: 'js/chat.js', needle: "你接受了 ' + name + ' 的贴贴邀请" },
   { name: '#510b 贴贴邀请拒绝写系统消息（删则拒绝后只剩婉拒话术、系统消息留痕丢失）', file: 'js/chat.js', needle: "你拒绝了 ' + name + ' 的贴贴邀请" },
@@ -1740,6 +1767,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #513a 语料口径校对（用户点名「使用的是 自定义字卡的公用字卡＋专属字卡＋系统预设的默认聊天字卡＋默认聊天字卡·词典」）：①默认聊天字卡源此前只取 main 主字卡，与 字卡库→系统预设→默认聊天字卡 页的四分类（主字卡/颜文字/emoji/拍一拍）不同口径；②词典源漏滤逐张关闭（字库→词典里关掉的语录仍被当源句），与词典拼字 quote-spell.js 口径不一致。修复：defaultPool 遍历四分类并尊重分类开关 defaultCardCat + 逐张关闭；dictPool 补 isDefaultCardOff('dict', …) ====
   { name: '#513d 造句·默认聊天字卡源＝四分类同源（改回只取 main＝拍一拍字卡不再作源句，与字卡库页口径脱节）', file: 'js/dream-free.js', needle: "const DEF_CATS = ['main', 'kaomoji', 'emoji', 'touch'];" },
   { name: '#513e 造句·词典源逐张关闭过滤（删＝字卡库→词典里关掉的语录仍被抽作源句，与词典拼字口径不一致）', file: 'js/dream-free.js', needle: "return filterCorpus(all.filter(t => !(window.isDefaultCardOff && window.isDefaultCardOff('dict', t))));" },
+  { name: '#622c 存公用库概率行标签去掉「（多联系人）」（标签写回多联系人限定＝单联系人用户仍以为这项对自己无效而不去调，用户报障复发）', file: 'template.html', needle: '存公用库概率（0=全专属/100=全公用）' },
   // ==== 2026-09-15 #515 系统预设字卡三页「触发概率显示 + 可调」（用户报「字卡库的系统预设字卡里，聊天回应字卡 / 使用情绪字卡 / 寻踪日常字卡 3 个功能页面里都没有显示触发的概率和可调整的按钮功能」）：这四项概率此前全写死在代码里——情绪 70%（+连续衰减 70/60/45/30/20）、心意 40%、交流意图 40%、回应字卡整条替换 30%，寻踪日常推送的 dcf-checkin 只挂在【其他互动功能字卡】页（寻踪页自己看不到也改不了）。修复＝三页各补概率行 + 消费点接线（未设键回退原写死值＝默认行为不变），寻踪那处与功能字卡页共用同一个 dcf-checkin、改一处两处同步；行为断言见 tools/verify-card-prob-pages.mjs（HEAD 基线 5/27 → 修复 27/27） ====
   { name: '#515a 聊天情绪字卡页三类概率 stepper（删＝该页又变回「只有总开关、没有显示触发的概率和可调整的按钮」＝原报障复发）', file: 'template.html', needle: 'id="mc-prob-mood-val"' },
   { name: '#515b 聊天回应字卡页两个消费点概率 stepper（整条替换 rcard-prob + 连接词追加 cf-prob，删＝该页概率不可见不可调）', file: 'template.html', needle: 'id="cf-prob-val"' },
@@ -1861,7 +1889,10 @@ const FIX_SENTINELS = [
   //   以 type:'text' 落库，气泡直出 URL。#533 堵住入库口，这里补渲染/归一化自愈。
   { name: '#534a 聊天图片直链识别只认「带图片扩展名的单条直链」（改成宽松判定＝普通网址被误当图片裂图）', file: 'js/chat.js', needle: 'return /^https?:\\/\\/[^\\s"\'<>]+\\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#][^\\s"\'<>]*)?$/i.test(s.trim());' },
   { name: '#534b 存量图片直链消息渲染自愈（删/改＝历史乱码消息又整段 URL 糊在气泡里）', file: 'js/chat.js', needle: 'const __urlImg = !__blankMsg && chatIsImageUrlCard(__rawText);' },
-  { name: '#534c 存量图片直链消息入库自愈补 type=image（删/改＝刷新后仍当文字消息，只靠渲染兜底）', file: 'js/chat.js', needle: 'if (r && (r.type === \'text\' || !r.type) && typeof r.text === \'string\' && (r.text.indexOf(\'data:image/\') === 0 || chatIsImageUrlCard(r.text))) {' },
+  // 2026-09-16 跨会话同步：本锚点条件因 #624（多图消息不误判为单图直链）加了一道
+  // `!hasMultiImgParts(r)` 守卫，修复逻辑仍在、只是表达式变长 ⇒ 同步 needle 到现实现。
+  // 若 #624 侧另有改法，请以彼时实现为准再同步一次（勿直接删本条）。
+  { name: '#534c 存量图片直链消息入库自愈补 type=image（删/改＝刷新后仍当文字消息，只靠渲染兜底）', file: 'js/chat.js', needle: 'if (r && (r.type === \'text\' || !r.type) && !hasMultiImgParts(r) && typeof r.text === \'string\' && (r.text.indexOf(\'data:image/\') === 0 || chatIsImageUrlCard(r.text))) {' },
   { name: '#534d 朋友圈内容类型开关下沉到池层（删/改＝关了颜文字，TA 评论/回复照样按写死 15% 发颜文字）', file: 'js/feed.js', needle: 'if (!feedTypeOn(cid, \'kaomoji\')) kaomoji.length = 0;' },
   { name: '#534e 信箱内容类型开关下沉到池层（删/改＝关了颜文字，系统预设补池仍按分类占比注入正文）', file: 'js/mail.js', needle: 'if (!tcfg.kaomojiEn) { kaomoji.length = 0; defKaomoji.length = 0; }' },
   { name: '#534f 信箱默认字卡注入权重同步受内容类型开关约束（删/改＝关掉的分类仍占抽签权重）', file: 'js/mail.js', needle: 'if (k === \'kaomoji\' && !mcfg.kaomojiEn) return 0;' },
@@ -1980,10 +2011,12 @@ const FIX_SENTINELS = [
   { name: '#577e 功能大全昵称条目关键词补「桌面昵称 / 不同步」（删则搜「桌面昵称」找不到这两条）', file: 'js/feature-hub.js', needle: '昵称 名字 联系人 改名 聊天昵称 桌面昵称 不同步 不一样 没变 显示 TA' },
   // ---- #577b 用户追加（2026-09-16）：「聊天里的更换头像，你没说可以直接在聊天设置里更换，
   //      或在聊天输入栏左边打开更多功能里的【头像互动】上传头像库可互动」——漏了头像互动这条换聊天头像的路 ----
-  { name: '#577f 引导写明「更多功能 → 头像互动」换聊天头像快路（删则只剩聊天设置一条路，头像互动没人知道）', file: 'js/onboarding.js', needle: '聊天头像另有一条快路' },
+  // #616（2026-09-16）：「头像互动」整块改名「头像和昵称互动」后，这三条 needle 里的旧名
+  //   在 src 里已不存在（同步改成新文案的锚点，哨兵意图不变：这条快路还在、还写得出入口名）
+  { name: '#577f 引导写明「更多功能 → 头像和昵称互动」换聊天头像/昵称快路（删则只剩聊天设置一条路，这个入口没人知道）', file: 'js/onboarding.js', needle: '聊天头像和聊天昵称另有一条快路' },
   { name: '#577g 引导 tip 提示块渲染分支（删则 tip 文案不再渲染）', file: 'js/onboarding.js', needle: 's.tip ? ' },
-  { name: '#577h 功能介绍·快速开始补头像互动路径（删则又只剩「聊天设置 → 形象」一条）', file: 'template.html', needle: '头像互动</b>——上传多张头像库、点图即换' },
-  { name: '#577i 功能大全「头像互动」条目说明与关键词（删则搜「头像库 / 随机换头像」找不到）', file: 'js/feature-hub.js', needle: '换聊天头像：上传多张头像库、点图即换' },
+  { name: '#577h 功能介绍·快速开始补头像和昵称互动路径（删则又只剩「聊天设置 → 形象」一条）', file: 'template.html', needle: '头像和昵称互动</b>——头像侧可上传多张头像库' },
+  { name: '#577i 功能大全「头像和昵称互动」条目说明与关键词（删则搜「头像库 / 随机换头像 / 昵称库」找不到）', file: 'js/feature-hub.js', needle: '换聊天头像和聊天昵称：头像可上传多张头像库点图即换' },
   // ==== 2026-09-16 #550 设置页搜索精准化（跨域登记：personalize.js 归 AI-B 本会话占用，见 WORKLOG） ====
   { name: '#550a 设置搜索取词剔除「功能说明」.tag 胶囊（删则搜功能/说明几乎全行命中回流）', file: 'js/personalize.js', needle: "c.querySelectorAll('.tag').forEach(x => x.remove());" },
   { name: '#550b 设置搜索口语词别名表（删则搜壁纸/通知/概率/夜间等 0 命中回流）', file: 'js/personalize.js', needle: "'深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode'" },
@@ -2294,6 +2327,113 @@ const FIX_SENTINELS = [
   //    .ce-box[data-for^="ta-opts-"] ====
   { name: '#612 弹窗多行框滚动链放行·contain→auto（改回 contain 则框内滚到底后手指落在框上整个弹窗滚不动＝链接导入无法下滑导入复发）', file: 'css/base.css', needle: 'max-height:38vh;\noverflow-y:auto;\n-webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
   { name: '#612 弹窗目标分组胶囊行滚动链放行·contain→auto（同族第二处；改回 contain 则胶囊行到边界后弹窗同样滚不动）', file: 'css/base.css', needle: 'max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
+  { name: '#614 通知发送链 SW.ready 超时兜底（删掉＝SW 被回收/注册失败时 ready 永不落地，后台通知「点测试没反应」+ 弹窗不发复发）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(navigator.serviceWorker.ready, 4000)' },
+  { name: '#614 ready 拿不到现役 SW 时回退页面通知路径（删掉＝不可用时永远 pending、测试按钮无反馈）', file: 'js/bg-keep.js', needle: 'if (!reg) { pageFallback(); return; }' },
+  { name: '#614 showNotification 自身也加超时（删掉＝个别内核返回的 Promise 不落地时发送链卡死）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(reg.showNotification(title, attempt), 4000)' },
+  { name: '#614 测试按钮点击即时反馈（删掉＝要等发送链 settle 才有提示，SW 卡住时用户看到「点了没反应」）', file: 'js/bg-keep.js', needle: "toast('正在检查通知环境…');" },
+  // ==== 2026-09-16 #616 新增【昵称互动】并入原【头像互动】并改名【头像和昵称互动】（用户原话：「我想新增一个和聊天里的【头像互动】逻辑和机制一样的【昵称互动】功能，可以存入多个文字昵称，联系人给我还有自己更换聊天昵称，直接在【头像互动】功能里加，【头像互动】的功能名字修改为【头像和昵称互动】」）====
+  // 昵称池与头像池同机制（点击即换 + 邀请同意/拒绝 + 定时随机 1-8 小时），四条哨兵各守一个「删掉就静默失效」的面。
+  { name: '#616a 昵称池点击换昵称入口（删掉＝半框里点昵称没反应，只剩头像还能换）', file: 'js/avatar-lib.js', needle: 'function switchNickFromLib(name) {' },
+  { name: '#616b 换昵称接 chat.js 改名钩子（删掉＝历史系统消息仍叫旧昵称，「改完名旧消息没跟着变」复发）', file: 'js/avatar-lib.js', needle: 'if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff);' },
+  { name: '#616c 联系人昵称池定时随机更换（删掉＝「TA 随机换昵称」开关形同虚设，永不自动更换）', file: 'js/avatar-lib.js', needle: 'setInterval(checkNickLibRefresh, 60000)' },
+  { name: '#616d 头像/昵称两级 pane 切换（删掉＝切到「昵称」大类看不到昵称池，或切回「头像」两个 pane 同时露出来）', file: 'js/avatar-lib.js', needle: 'if (avPaneC) avPaneC.hidden = !(nameKind && !me);' },
+  { name: '#616e 空池也要显示空态提示（删掉＝「库没变」快路径把空库误判成已渲染，四个池的「还没有…点击下方按钮添加」永不出现）', file: 'js/avatar-lib.js', needle: 'function emptyHintMismatch(el, lib) { return !!el && el.hidden !== (lib.length > 0); }' },
+  { name: '#616f 昵称事件消息豁免改名清扫（删掉＝第二次改名把旧记录改写成 {ta}，两条记录看起来一模一样＝用户报的「看不出换了什么昵称」复发）', file: 'js/chat.js', needle: 'if (r.nickKeep) return false;' },
+  { name: '#616g 昵称系统消息文案写明「换成了「XXX」」（删掉＝退回「XX 更换了昵称」，看不出换成哪个昵称，与 #616f 配套）', file: 'js/avatar-lib.js', needle: "function nickMsgPartner(to) { return 'TA 把聊天昵称换成了「' + to + '」'; }" },
+  { name: '#616h 昵称事件消息渲染原样呈现（回退成无条件 pokePersonMap＝「我把 TA 的昵称换成了「小满」」被回填成「我把 小满 的昵称换成了「小满」」自指句）', file: 'js/chat.js', needle: "m.innerHTML = '<span>' + (rec.nickKeep ? escTxt(rec.text) : pokeIconHtml(pokePersonMap(rec.text, __taNm, __meNm))) + '</span>' +" },
+  { name: '#616i 昵称池读取净化（删掉＝纯零宽字符条目又进池，顶栏/系统消息引号里渲染成空白＝用户报的「换成了「」」复发）', file: 'js/avatar-lib.js', needle: 'v.map(cleanNick).filter(Boolean)' },
+  { name: '#616j 换昵称回应消息取实际生效昵称且空名不写引号（删掉＝引号内可能出现空值，用户报障形态复发）', file: 'js/avatar-lib.js', needle: "const to = String(name || store.get('cs-lbl-user') || '');" },
+  // ==== 2026-09-16 #616k~n 昵称作用域收口（用户：「关于聊天昵称，因为变更多，只需要更换聊天里的
+  //   昵称；其他功能里的昵称跟随设置里的桌面联系人昵称就行（并且昵称互动里需要小字说明）」）：
+  //   18 个非聊天读点从「cs 优先」翻成「桌面优先、聊天兜底」。逐个哨兵不现实，这里守四个代表面：
+  //   模板小字说明（用户点名要的）+ 通话/主页记录（易被漏的共用取名链）+ 此间（会持久化梦角名）。
+  //   其余 14 处靠 verify-nick-interact 的 J 组行为断言兜（此间/Pong 两条真读 UI 的用例）。
+  { name: '#616k 昵称池小字说明（删掉＝用户不知道其他功能跟的是桌面昵称，会在通话/游戏里找不到刚换的名字）', file: 'template.html', needle: '其他功能</b>显示的都是桌面昵称' },
+  { name: '#616m 通话昵称改回桌面优先（改回 cs-lbl-partner 优先＝来电横幅/通话小框跟着昵称池一起变）', file: 'js/call.js', needle: "const nick = store.get('lbl-partner') || store.get('cs-lbl-partner')" },
+  { name: '#616n 此间本尊名字漂移对齐目标改走桌面优先（改回 cs 优先＝自动播种的梦角名被昵称池轮换带着改）', file: 'js/cjian.js', needle: "const lb = String(s.get('lbl-partner') || '').trim();\nif (lb) return lb;" },
+  { name: '#616p 小游戏伙伴名跟桌面昵称（Pong 代表；改回 cs 优先＝游戏里名字跟着聊天昵称频繁变）', file: 'js/pong.js', needle: "s.get('lbl-partner') || s.get('cs-lbl-partner')" },
+  // ===== #611 开屏「其他说明与常见问题 / 四、全屏失效 / 八、系统预设字卡」移入 设置→关于→常见问题
+  //   （用户要求开屏删除、内容搬到设置；开屏 notice.json 是线上生效源、template 为兜底，两处同删）=====
+  { name: '#611a 关于段新增「常见问题」分组标题', file: 'template.html', needle: 'gs-title">常见问题' },
+  { name: '#611b 常见问题 5 行入口（取末行 id 作锚）', file: 'template.html', needle: 'id="row-faq-preset"' },
+  { name: '#611c 常见问题只读弹窗接线（删＝行点了没反应）', file: 'js/personalize.js', needle: "bind('row-faq-app'" },
+  { name: '#611d 常见问题说明登记（删＝该组少「功能说明」胶囊、也搜不到）', file: 'js/settings-help.js', needle: "sel: '#row-faq-app'" },
+  { name: '#611e 功能大全收录常见问题入口', file: 'js/feature-hub.js', needle: "go: ['#row-faq-preset']" },
+  { name: '#611f 开屏不得再有「四、关于全屏模式失效」（已移入设置→关于→常见问题，absent）', file: 'template.html', needle: '【四、关于全屏模式失效】', absent: true },
+  { name: '#611g 开屏不得再有「八、关于系统预设字卡和功能设置」（已移入设置→关于→常见问题，absent）', file: 'template.html', needle: '【八、关于系统预设字卡和功能设置】', absent: true },
+  { name: '#611h notice.json 不得再有「全屏模式失效」章节（线上开屏生效源，absent）', file: 'pwa/notice.json', needle: '关于全屏模式失效', absent: true },
+  { name: '#611i notice.json 不得再有「系统预设字卡和功能设置」章节（线上开屏生效源，absent）', file: 'pwa/notice.json', needle: '关于系统预设字卡和功能设置', absent: true },
+  // ===== #615（2026-09-16）此间分组条「全部」总览固定居首 =====
+  //   用户原话：「此间的【全部】应该放在第一个，目前是放在末尾，不好查看啊」。
+  //   针写成「全部 chip + 其后的 contacts 循环」两行相邻（minifyJs 保行边界）；
+  //   顺序被换回末尾时这两行不再相邻＝必红。只写 `chip('全部', ALL);` 拦不住顺序。
+  { name: '#615 此间「全部」chip 排在 contacts 循环之前（换回末尾＝这两行相邻关系消失，报障复发）', file: 'js/cjian.js', needle: "chip('全部', ALL);\ncontacts().forEach(ct => chip(contactName(ct.id), ct.id));" },
+  // ===== #618（2026-09-16）自检页「批量修复」按 hidden 显隐失效 =====
+  //   根因：`.storage-clear{display:block}` 是作者样式，盖过 UA `[hidden]{display:none}`，
+  //   `#card-audit-apply` 的 hidden 永远无效 → 未进批量模式「应用所选」也常驻可见，
+  //   点它只提示「请先勾选要修复的项」，用户以为「批量修复没用」。needle 为补回 hidden
+  //   语义的规则本身（删掉/改成 !important 之外写法即失效；minifyCss 后仍为唯一）。
+  { name: '#618 `.storage-clear[hidden]` 补回 display:none（删掉＝作者 display:block 再次盖过 UA hidden，「应用所选」常驻、批量修复看着没用复发）', file: 'css/setting.css', needle: '.storage-clear[hidden] { display:none; }' },
+  // ===== #620（2026-09-16）「TA在身边」位置面板底部「问 TA 一声『你在哪？』」点了要回聊天页 =====
+  //   用户原话：「底部点击【问ta一声 你在哪】应该返回聊天页面啊」。旧实现只 chatSendMsg + toast，
+  //   全屏位置面板不退（桌面寻踪页进入时 #page-chat 还隐藏着）＝看不到任何结果。
+  //   两条 needle 都取逻辑表达式（都已确认在 js/p2-features.js 内唯一、不依赖缩进/注释，
+  //   minifyJs 会删整行 // 注释与行首缩进）：①「不在聊天页就进聊天页」的判定行
+  //   ② askWhere 里发完消息后的回页调用。整块 backToChatAfterAsk 被重写掉＝①消失。
+  { name: '#620a 问 TA 一声后不在聊天页则进聊天页（删掉/改回只 toast＝用户报的「点了没反应」复发）', file: 'js/p2-features.js', needle: 'if (chatPage.hidden) { if (window.enterChat) window.enterChat(); return; }' },
+  { name: '#620b askWhere 发完「你在哪？」立即回聊天页（删掉＝位置面板不退、聊天页仍隐藏）', file: 'js/p2-features.js', needle: 'backToChatAfterAsk();' },
+  // ===== #621（2026-09-16）「我的拍一拍」输入框占位文字超出输入框 =====
+  //   用户原话：「打开【拍一拍】页面的【我的拍一拍】，下方输入框里『输入拍一拍文字，
+  //   如：拍了拍你的脸蛋』文字超出输入框了」。根因（无头 390×844 安卓实测）：mobile-adapt
+  //   转出的 .ce-box 占位继承 white-space:pre-wrap，长占位（16px 自然宽约 272px）在约 155px
+  //   的内宽里折成两行、撑出定高 40px 的框底（实测 clientH 39 / scrollH 49）。
+  //   needle 取「选择器 + 单行截断三条声明」整块（缺任一条＝占位又会折行溢出，报障复发）；
+  //   已确认该组合在 css/chat-main.css 内唯一、minifyCss 保行边界。
+  { name: '#621 拍一拍输入框占位单行截断（删掉/改回 pre-wrap＝长占位折行溢出框底，用户报障复发）', file: 'css/chat-main.css', needle: '.poke-input.ce-box:empty::before {\ndisplay:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' },
+  // ===== #623（2026-09-16）查岗互动卡片作答弹窗默认选中「同意」侧 =====
+  //   用户原话：「关于联系人发送的查岗互动卡片，和桌面查岗互动卡片，都没有默认是在【同意】
+  //   的地方，我每次都要多点几遍」。两处弹窗各一条默认值：跨桌面查岗/求聊天（incoming-requests）
+  //   与联系人查岗作答（ck-question openCkReply）；另两条锁同批修掉的「弹窗与卡面不同源」
+  //   （meToTa 方向卡面是「要不要来查查我呀？」＋好呀/不要，弹窗此前拿原始题库题）。
+  //   needle 全部取逻辑表达式（已确认各自在对应文件内唯一、不依赖缩进/注释，minifyJs 只去
+  //   行首缩进与整行 // 注释，行边界保留）。
+  { name: '#623a 跨桌面查岗/求聊天弹窗默认选中同意侧（删掉 pill 预设＝又要先点胶囊再点【确认】，用户报障复发）', file: 'js/incoming-requests.js', needle: "pill: req.kind === 'call' ? undefined : 'reply'" },
+  { name: '#623b 查岗作答的同意侧标签表（删掉/改空＝affirmOptValue 恒 undefined，「默认选中同意」失效）', file: 'js/ck-question.js', needle: "const AFFIRM_LABELS = ['同意', '好呀', '好哒', '好啊', '好的', '好', '可以', '行', '接受', '要'];" },
+  { name: '#623c 查岗作答弹窗预设同意侧胶囊（删掉＝互动动作/带同意选项的题又要点两下）', file: 'js/ck-question.js', needle: 'pill: isSingle ? affirmOptValue(optList) : undefined,' },
+  { name: '#623d 跨桌面查岗卡传卡面给作答弹窗（删掉＝meToTa 方向弹窗又弹出另一道题，选项也对不上）', file: 'js/ck-question.js', needle: 'openCkReply(msgIdx, q, isDeskCk ? deskCkCard : null);' },
+  { name: '#623e 作答弹窗按卡面取选项（改回一律用原始题 q.options＝#623d 的传参形同虚设）', file: 'js/ck-question.js', needle: 'const optList = isDeskCard ? (Array.isArray(deskCard.opts) && deskCard.opts.length ? deskCard.opts : null)' },
+  // ===== #625（2026-09-16）提问记录「在联系人桌面发生的记录切回主页看不到」=====
+  //   用户原话：「联系人提的问题和吐槽都不能在主页的【提问记录】里同步更新；主页里的记录
+  //   也没能同步更新」（RedmiNote12Turbo/Chrome，其他机型同报）。零机型分支的纯逻辑缺口：
+  //   记录按设计写在【发生所在联系人桌面】，而 5 个分类里只有「TA的询问」做了跨桌面汇总，
+  //   小问题/好奇/吐槽/邀请·问问 仍 `tcLoad().history` 一类只读当前桌面命名空间 ⇒ 切回主页全空。
+  //   needle 取「该分类改走汇总」的那一行赋值 + 汇总/清空/回退的逻辑表达式（各自在
+  //   js/ta-ask.js 内唯一、不依赖缩进；minifyJs 只去行首缩进与整行注释，行边界保留）。
+  { name: '#625a 小问题记录改走跨桌面汇总（改回 tcLoad().history＝在联系人桌面答的小问题切回主页又看不到，用户报障复发）', file: 'js/ta-ask.js', needle: 'const h = allDeskHistories(KEY2);' },
+  { name: '#625b 好奇记录改走跨桌面汇总（改回 tcuLoad().history＝同上复发）', file: 'js/ta-ask.js', needle: 'const h = allDeskHistories(KEY3);' },
+  { name: '#625c 吐槽记录改走跨桌面汇总（改回 trLoad().history＝用户点名的「吐槽不同步」复发）', file: 'js/ta-ask.js', needle: 'const h = allDeskHistories(KEY4);' },
+  { name: '#625d 邀请/问问记录改走跨桌面汇总（改回裸 store.get＝在联系人桌面发出的邀请切回主页看不到）', file: 'js/ta-ask.js', needle: "const h = allDeskHistories('invite-ask-history');" },
+  { name: '#625e 多桌面合并后按时间倒序（改回 slice().reverse()＝各桌记录成块拼接、时间倒错）', file: 'js/ta-ask.js', needle: 'out.sort(function (a, b) { return (Number(b && b.ts) || 0) - (Number(a && a.ts) || 0); });' },
+  { name: '#625f 清空按钮同口径清全桌面（改回只清当前桌面＝列表里的别桌记录清不掉，清了个寂寞）', file: 'js/ta-ask.js', needle: 'clearDeskHistories(key);' },
+  { name: '#625g default 桌面老档回退（删掉＝未迁移用户的 default 记录在别的桌面看是空的）', file: 'js/ta-ask.js', needle: "const ns = window.xyStore(GNS + ':default').get(key);" },
+  { name: '#625h 「TA的询问」跨桌面汇总不被本批重写带掉（改回 taAskLoad().history＝最早的 #489 同族缺口复活）', file: 'js/ta-ask.js', needle: "const h = allDeskHistories('ta-ask');" },
+  // ===== #624（2026-09-16）聊天「一条消息两张图」：TA 表情包/图片概率独立判定 + 多图记录不被折叠 =====
+  //   用户原话：「为什么我无法触发，联系人给我发的一条消息里有两个图片，字卡库的公用字卡和
+  //   专属字卡里的【表情包】或【图片】」＋「聊天里一条消息里我和联系人都可以发送多个图片」（要求
+  //   补使用说明、且不要覆盖修改引发跨机型回归）。零机型、零 UA 分支，纯概率/渲染逻辑。
+  //   ①genReplyText 两条概率独立（都命中＝1 表情包 + 1 图片同一条）；②genOneReply 直传 parts；
+  //   ③normCell/migrateLegacy 遇 parts ≥2 张图不再把 text 升级成 type:'image'（否则刷新后
+  //   渲染走单图分支只剩一张）；④periodWarmText / genChatStyleReply 不把图片载荷当文本改写/返回。
+  //   needle 均为逻辑表达式，各自在所属 src 文件内唯一（minifyJs 去行首缩进，行内空格保留）。
+  { name: '#624a 多图消息守卫函数（删掉＝parts≥2 张图的 text 载荷被升级成 type:image，刷新后第二张起丢失）', file: 'js/chat.js', needle: 'function hasMultiImgParts(r) {' },
+  { name: '#624b normCell 升级单图前先排除多图消息（删掉 !hasMultiImgParts(r)＝同 #624a 复发）', file: 'js/chat.js', needle: "!hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken" },
+  { name: '#624c 表情包/图片概率独立判定·两者同命中同条消息两张图（改回 else if 互斥＝用户「无法触发两个图片」复发）', file: 'js/chat.js', needle: 'if (stHit && imHit) {' },
+  { name: '#624d genOneReply 直传多图 parts（删掉＝被默认字卡覆盖换文本、或在下方单图追加处再叠一张）', file: 'js/chat.js', needle: "if (r.parts && r.parts.length) return { text: t, type: 'text', parts: r.parts };" },
+  { name: '#624e 多图消息不经经期温柔语态改写（删掉＝给图片载荷 text 加前后缀，横幅/引用文本变乱）', file: 'js/chat.js', needle: "rep.text.indexOf('data:') !== 0 && window.periodWarmText" },
+  { name: '#624f 多图消息不把图片载荷当聊天字卡文本返回 ta-ask（删掉＝ta-ask 把 data: 串当文本发出）', file: 'js/chat.js', needle: "!(rep && rep.parts && rep.parts.length && t.indexOf('data:') === 0)" },
+  { name: '#624g 功能介绍补「一条消息多张图，我和 TA 都可以」（删掉＝使用说明缺这条能力，用户报「说明里也缺少」）', file: 'template.html', needle: '一条消息还能放多张图' },
+  { name: '#624h 使用说明补「可一次选多张，同一条消息一起发出」+ TA 两图触发说明（删掉＝使用说明缺多图）', file: 'template.html', needle: '可一次选多张，同一条消息里一起发出' },
+  { name: '#624i 功能大全「表情包管理」补多图关键词（删掉＝搜「多图 / 多个图片」搜不到）', file: 'js/feature-hub.js', needle: '图片/表情可一条消息发多张' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

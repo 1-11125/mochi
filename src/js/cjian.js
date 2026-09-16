@@ -525,15 +525,15 @@
       if (!s || s.get(SEED_KEY)) return;
       const list = loadRoster(cid);
       if (list.length) { s.set(SEED_KEY, '1'); return; }
-      // v3.33.x #409：播种名改走 effective 昵称链——cs-lbl-partner（聊天设置昵称，用户在
-      // 聊天里实际看到的名字）优先，回退桌面 lbl-partner → 联系人名片名，与 2026-09-03
-      // 全站昵称回退链约定对齐。旧链只看 lbl-partner/注册名：用户只设了聊天昵称时，
-      // 梦角名与聊天对不上，多联系人下观感就是「名字串了」。
+      // v3.33.x #409：播种名走 effective 昵称链。2026-09-16（#616 用户要求）把顺序倒过来：
+      // 桌面 lbl-partner 优先、聊天 cs-lbl-partner 兜底——此间属于「其他功能」，昵称池频繁
+      // 轮换的聊天昵称不该带着梦角名一起变；桌面没设过时仍退回聊天昵称（#409 要解决的
+      // 「只设了聊天昵称时梦角名与聊天对不上」照旧兜住，见下方 effNick 同口径）。
       let name = '';
       try {
-        const cs = s.get('cs-lbl-partner');
-        if (cs) name = cs;
-        if (!name) { const lbl = s.get('lbl-partner'); if (lbl) name = lbl; }
+        const lbl = s.get('lbl-partner');
+        if (lbl) name = lbl;
+        if (!name) { const cs = s.get('cs-lbl-partner'); if (cs) name = cs; }
         if (!name) name = contactName(cid);
       } catch (e) {}
       list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid, own: 1 });
@@ -552,15 +552,19 @@
   //   永不自动搬；② 梦角名必须落在「它物理所在桌面」的全部身份标识之外；③ 且精确命中
   //   「唯一另一个桌面」的身份标识（0 个=无名可归、多个=撞名，都不搬）；④ 目标桌面已有
   //   同名梦角则跳过（不制造重复）。身份链与 seedIfEmpty 播种链同源：
-  //   cs-lbl-partner（聊天独立昵称）→ lbl-partner（桌面昵称）→ 联系人名片名。
+  //   lbl-partner（桌面昵称）→ cs-lbl-partner（聊天独立昵称）→ 联系人名片名。
+  //   2026-09-16（#616）：顺序倒成桌面优先——这个值既是「本尊名字漂移对齐」的目标（见①，
+  //   会把自动播种的梦角名纠成它），也是此间卡片显示的名字，属「其他功能」，不该跟着
+  //   昵称池轮换的聊天昵称变。identSet 仍同时收两个键（那是身份**集合**，用于认亲，
+  //   多收不多伤：名字是按旧聊天昵称播种出来的存量梦角照样认得出归属）。
   function effNick(cid) {
     try {
       const s = storeOf(cid);
       if (s) {
-        const cs = String(s.get('cs-lbl-partner') || '').trim();
-        if (cs) return cs;
         const lb = String(s.get('lbl-partner') || '').trim();
         if (lb) return lb;
+        const cs = String(s.get('cs-lbl-partner') || '').trim();
+        if (cs) return cs;
       }
     } catch (e) {}
     return contactName(cid);
@@ -1101,8 +1105,9 @@
       });
       bar.appendChild(b);
     }
-    contacts().forEach(ct => chip(contactName(ct.id), ct.id));
+    // FIX 2026-09-16 #615 「全部」总览固定排在分组条首位（原在末尾，桌面多了要横滑到底才点得到）
     chip('全部', ALL);
+    contacts().forEach(ct => chip(contactName(ct.id), ct.id));
   }
   function setView(v) {
     if (viewCid === v) return;

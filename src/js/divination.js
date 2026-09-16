@@ -398,7 +398,7 @@
   }
   // v3.9.x：占卜从聊天页进入（聊天域）——优先读聊天专用昵称，未设置回退桌面昵称
   function storeName() {
-    try { return store.get('cs-lbl-partner') || store.get('lbl-partner') || ''; } catch (e) { return ''; }
+    try { return store.get('lbl-partner') || store.get('cs-lbl-partner') || ''; } catch (e) { return ''; }
   }
   function buildSummary(cards, mode, question) {
     let line = '';

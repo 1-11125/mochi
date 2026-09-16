@@ -880,7 +880,11 @@
     return false;
   }
 
-  // 胜负：谁分高谁赢（#341 语义保留）。duo/pvp 按各自分数；coop 按 P1+P2 队伍合计 vs TA。
+  // 胜负：撞死的一方输（#604 起）。对局以「任一蛇撞死」收局（checkEnd），撞死=出局这条直觉
+  // 优先于分数：原口径「谁分高谁赢」在我方撞死、分数却高于对方时弹「你赢了」（用户报
+  // 「我输了显示我赢」，任何机型浏览器必现）。现在按存活判：我死 TA 活=负 / TA 死我活=胜 /
+  // 同 tick 一起撞死（头对头）=平；pvp 是 P1 vs P2，coop 是 P1+P2 队伍 vs TA（队友死=队伍输）。
+  // 分数只作展示（结算页仍列出），不再决定胜负；两侧都活着（非死亡收局，正常走不到）才退回比分数。
   function endGame() {
     if (!state) return;
     state.status = 'over';
@@ -891,10 +895,13 @@
     const osFinal = Math.floor(state.opp.score);
     const p2Final = state.p2 ? Math.floor(state.p2.score) : 0;
     const teamFinal = psFinal + (mode === 'coop' ? p2Final : 0);
+    const myAlive = !!state.player.alive && !(state.p2 && !state.p2.alive);   // coop：队友死=我方输
+    const oppAlive = !!state.opp.alive;
     let result;
-    if (mode === 'pvp') result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
-    else if (mode === 'coop') result = teamFinal > osFinal ? 'win' : teamFinal < osFinal ? 'lose' : 'draw';
-    else result = psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw';
+    if (!myAlive && oppAlive) result = 'lose';
+    else if (myAlive && !oppAlive) result = 'win';
+    else if (!myAlive && !oppAlive) result = 'draw';
+    else result = (mode === 'coop' ? teamFinal : psFinal) > osFinal ? 'win' : (mode === 'coop' ? teamFinal : psFinal) < osFinal ? 'lose' : 'draw';
     if (result === 'win') SFX.win();
     const d = {
       result: result,
@@ -1056,8 +1063,12 @@
     const cw = cssW / gW(), ch = cssH / gH(), cs = Math.min(cw, ch);
     const dead = !snake.alive;
     const dark = themeDark();
-    const bodyC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : bodyColor;
-    const headC = dead ? (dark ? '#4a4a52' : '#cfcfd4') : headColor;
+    // FIX 2026-09-16 #604：死亡不再把整条蛇刷成中性灰（原先 dead 时头身统一换成灰）——
+    // 收局后画布停在冻结的最后一帧，灰化让场上颜色与结算页的 🟢P1 / 🟠P2（pvp）对不上，
+    // 两条蛇一起撞死时更是两条全灰（用户报「对局结束时两只蛇的颜色不对」）。
+    // 保留本蛇配色，死亡改由 × 眼 + 画布 snk-die 抖动/红晕（#352）表达，冻结帧仍认得出谁是谁。
+    const bodyC = bodyColor;
+    const headC = headColor;
     const prevBody = snake._prev || null;   // 步进前快照（snapshotPrev 统一维护）
     const interp = !dead && prevBody && alpha > 0 && alpha < 1;
     const pts = [];
@@ -1246,6 +1257,23 @@
   }
 
   // ---- 面板开关 ----
+  // 贪吃蛇打开时的默认形态：手机/平板一律全屏（占满视口、地图按屏幕放大更好玩），
+  // 真桌面保持半框。判据与 device.js 的窗口级判定同源，不看单一 innerWidth——
+  // 详见 openSnakePanel 里的 #604 说明（桌面版网站模式 / 手机横屏两族都栽在宽度上）。
+  function wantFullscreenDefault() {
+    try {
+      const d = window.mochiDevice;
+      if (d && (d.isMobile || d.isTablet)) return true;   // 全站唯一设备判定源
+    } catch (e) {}
+    try { if (document.documentElement.classList.contains('force-mobile')) return true; } catch (e) {}
+    if (window.innerWidth < 900) return true;             // 兜底：device.js 未就绪/判定未出
+    try {
+      // 触摸设备（手机横屏等宽视口）：coarse + hover:none 才算——触摸笔记本带鼠标时
+      // hover 为 hover，不受影响（桌面形态不变）
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.matchMedia('(hover: none)').matches) return true;
+    } catch (e) {}
+    return false;
+  }
   function openSnakePanel() {
     if (!panel) return;
     ['poke-card', 'emoji-panel', 'chat-ask-panel', 'chat-search', 'chat-divine-panel', 'chat-decision-panel', 'chat-rps-panel', 'chat-rp-panel', 'chat-call-panel', 'chat-pong-panel'].forEach(function (id) { const el = $(id); if (el) el.hidden = true; });
@@ -1258,7 +1286,7 @@
       let pname = 'TA';
       try {
         const nst = window.activeStore && window.activeStore();
-        pname = (nst && (nst.get('cs-lbl-partner') || nst.get('lbl-partner'))) || pname;
+        pname = (nst && (nst.get('lbl-partner') || nst.get('cs-lbl-partner'))) || pname;
       } catch (e) {}
       nameEl.textContent = pname;
     }
@@ -1269,10 +1297,16 @@
     panel.hidden = false;
     renderScore();
     renderBest();   // 最长纪录行要先落到 DOM：toggleFs 会按当时可见的兄弟块量画布，晚一行就把按钮顶出屏
-    // 手机端默认全屏（占满视口、地图按屏幕放大更好玩）；桌面端重置全屏
-    const mobile = window.innerWidth < 900;
-    if (mobile) { if (!isFs) toggleFs(); }
-    else { if (isFs) toggleFs(); }
+    // FIX 2026-09-16 #604：默认形态不再只看 window.innerWidth，改与 device.js 的全站设备
+    // 判定同源。用户报「好多手机使用这个功能是迷你框，无法正常玩」——两种手机都栽在这条
+    // 宽度判断上：①桌面版网站模式（Edge/Via 把 layout viewport 拉到 980，device.js 已用
+    // html.force-mobile 兜底成手机形态，innerWidth 却仍是 980）；②手机横屏（视口 ≥900）。
+    // 两者都判成「桌面」→ 面板停在半框，视口一矮 applyCell 自查把画布一路收到 6px 格子
+    // 下限（实测 980×600 下 176px、横屏 932 下 90px）＝根本没法玩。
+    // 手机/平板（含 force-mobile 兜底）或触摸设备一律默认全屏；真桌面（宽屏 + 精细指针）
+    // 保持半框（原行为不变）。
+    if (wantFullscreenDefault()) { if (!isFs) toggleFs(); }
+    else if (isFs) toggleFs();
     paused = false;
     if (pauseBtn) pauseBtn.textContent = '⏸';
     if (canSave(state) && validState(state)) {

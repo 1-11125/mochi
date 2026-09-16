@@ -279,6 +279,27 @@
 .dc-toggle-name { font-size:15px; font-weight:700; }
 .dc-toggle-sub { font-size:11px; color:var(--muted); margin-top:3px; }
 
+/* v3.43.x：预设字卡页设置区顶部 tag 分类（分段控件观感）——点 tag 展开对应设置面板，
+   默认全部收起，首屏只留字卡列表；避免四组设置全堆在页顶把列表顶出屏外。
+   面板 hidden 由 default-cards.js 的 mountSetTabs 控制。 */
+.dc-set-tabs {
+  display:flex; gap:4px; margin:10px 12px 0; padding:4px; flex-shrink:0;
+  background:rgba(0,0,0,.05); border-radius:14px;
+}
+.dc-set-tab {
+  flex:1; display:inline-flex; align-items:center; justify-content:center; gap:3px;
+  padding:8px 6px; font-size:12.5px; font-weight:600; font-family:inherit;
+  color:rgba(0,0,0,.5); background:transparent; border:none; border-radius:10px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  transition:background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.dc-set-tab .dct-ar { font-style:normal; font-size:9px; opacity:.55; transition:transform .18s ease; }
+.dc-set-tab.active { background:#fff; color:#111; box-shadow:0 1px 3px rgba(0,0,0,.13); }
+.dc-set-tab.active .dct-ar { transform:rotate(180deg); opacity:.75; }
+[data-theme="dark"] .dc-set-tabs { background:rgba(255,255,255,.08); }
+[data-theme="dark"] .dc-set-tab { color:rgba(255,255,255,.55); }
+[data-theme="dark"] .dc-set-tab.active { background:rgba(255,255,255,.16); color:#fff; box-shadow:none; }
+
 /* 分组筛选栏 */
 .cc-groups-bar {
   display:flex; gap:8px; overflow-x:auto; padding:0 2px 10px;
@@ -1750,6 +1771,54 @@
 }
 .avlib-del:active { background:rgba(224,85,85,.8); }
 #avlib-upload { margin-bottom:10px; }
+
+/* 头像和昵称互动：大类切换（头像 / 昵称）——2026-09-16 新增昵称池后与下方
+   联系人/我的页签构成两级切换（上排＝换什么，下排＝换谁的）。用分段控件的
+   「槽 + 高亮块」形态，与 .avlib-tab 的实心/描边页签在视觉上分层，避免两级
+   切换看起来是同一排四个页签。 */
+.avlib-kinds {
+  display:flex; gap:6px; margin:0 0 10px; padding:3px;
+  border-radius:12px; background:rgba(0,0,0,.06);
+}
+.avlib-kind {
+  flex:1; text-align:center; padding:7px 6px; border-radius:9px;
+  font-size:13px; font-weight:700; color:#666; cursor:pointer;
+  user-select:none; -webkit-user-select:none;
+  transition:background .15s, color .15s;
+}
+.avlib-kind.active { background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.avlib-kind:active { opacity:.8; }
+
+/* 昵称池的小字说明（#616 用户要求）：聊天昵称因为会被昵称池频繁轮换，只影响聊天页，
+   其他功能一律跟桌面昵称——这句必须写在池子旁边，否则用户会在通话/小游戏里找变化。 */
+.avlib-note {
+  font-size:11px; line-height:1.65; color:var(--muted);
+  background:rgba(0,0,0,.035); border-radius:8px;
+  padding:6px 8px; margin:8px 0 10px;
+}
+.avlib-note b { font-weight:700; }
+
+/* 昵称池：一条昵称＝一个胶囊（点文字换昵称、点右侧 ✕ 删这一条）。
+   昵称是变长文字，用 flex-wrap 的胶囊行而非固定列网格——长昵称最多占满一行后截断，
+   不会像网格那样把长名字压成两行或撑破卡片 */
+.avlib-names { display:flex; flex-wrap:wrap; gap:8px; padding:4px 0 8px; }
+.avlib-name-cell {
+  display:flex; align-items:center; gap:6px; max-width:100%;
+  padding:8px 10px; border-radius:12px;
+  background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
+}
+.avlib-name-txt {
+  font-size:13px; line-height:1.4; color:var(--ink); cursor:pointer;
+  max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+/* 当前正在使用的聊天昵称：与 .avlib-cell.avlib-now 同款高亮 */
+.avlib-name-cell.avlib-now { outline:2px solid var(--ink); outline-offset:-2px; border-color:transparent; }
+.avlib-name-del {
+  flex:0 0 auto; width:16px; height:16px; padding:0; border:none; border-radius:50%;
+  background:rgba(0,0,0,.12); color:#666; font-size:10px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.avlib-name-del:active { background:rgba(224,85,85,.8); color:#fff; }
 
 /* 管理分组面板 */
 .mg-mask {

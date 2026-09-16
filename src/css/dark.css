@@ -753,6 +753,17 @@
 [data-theme="dark"] .mg-add:active { background:var(--dark-hover); }
 [data-theme="dark"] .decor-done { background:rgba(255,255,255,.15); color:#fff; }
 [data-theme="dark"] .avlib-cell { background:var(--dark-hover); border-color:var(--dark-border); }
+/* 2026-09-16 昵称池 + 大类切换：与上方 .avlib-cell 同族——chat-pages.css 硬编码的
+   白底/深字在深色下会变成白块浅字，这里统一翻成深底浅字 */
+[data-theme="dark"] .avlib-name-cell { background:var(--dark-hover); border-color:var(--dark-border); }
+[data-theme="dark"] .avlib-name-del { background:rgba(255,255,255,.16); color:#bbb; }
+[data-theme="dark"] .avlib-kinds { background:rgba(255,255,255,.07); }
+/* 昵称池小字说明：浅色下是浅灰蒙底，深色下反过来给一点亮底 */
+[data-theme="dark"] .avlib-note { background:rgba(255,255,255,.06); }
+[data-theme="dark"] .avlib-kind { color:#999; }
+/* 选中块：与同排的 .avlib-tab.active 同一口径——深色下 var(--ink) 翻成 #f0f0f0，
+   文字必须取深色，否则浅块浅字＝看不出选中 */
+[data-theme="dark"] .avlib-kind.active { background:var(--ink); color:#111; }
 [data-theme="dark"] .ff-sec,
 [data-theme="dark"] .ff-row { background:var(--dark-card-92); border-color:rgba(255,255,255,.08); }
 [data-theme="dark"] .ff-desktop-av { background:#2a2a2a; }

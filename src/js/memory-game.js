@@ -515,7 +515,7 @@
     if (partnerNameEl) {
       try {
         const s = window.activeStore && window.activeStore();
-        partnerNameEl.textContent = (s && (s.get('cs-lbl-partner') || s.get('lbl-partner'))) || (window.taWord ? window.taWord() : 'TA');
+        partnerNameEl.textContent = (s && (s.get('lbl-partner') || s.get('cs-lbl-partner'))) || (window.taWord ? window.taWord() : 'TA');
       } catch (e) { partnerNameEl.textContent = partnerName(); }
     }
     stopTimers();

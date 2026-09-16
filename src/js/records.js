@@ -8,13 +8,15 @@
     const p = (n) => (n < 10 ? '0' + n : '' + n);
     return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
-  // #441：主页各记录的联系人显示名统一走与聊天/通话一致的取名链（cs-lbl-partner → 桌面
-  // lbl-partner → 联系人名片名 → TA）。此前各渲染点只读桌面键 lbl-partner——联系人管理
-  // 新建、从未改过昵称的联系人该键为空，通话记录/换头像/抓包/心意币/关心全部显示「TA」，
-  // 多联系人下分不清记录属于谁，观感＝「跨桌面通话记录串了、没显示实际联系人的电话」。
+  // #441：主页各记录的联系人显示名统一走一条取名链（桌面 lbl-partner → 聊天 cs-lbl-partner
+  // → 联系人名片名 → TA）。此前各渲染点只读桌面键 lbl-partner——联系人管理新建、从未改过
+  // 昵称的联系人该键为空，通话记录/换头像/抓包/心意币/关心全部显示「TA」，多联系人下分不清
+  // 记录属于谁，观感＝「跨桌面通话记录串了、没显示实际联系人的电话」。
+  // 2026-09-16（#616）：桌面昵称提到聊天昵称之前——主页属于「其他功能」，不该被昵称池频繁
+  // 轮换的聊天昵称带着一起变；桌面没设过时仍退回聊天昵称，只设过聊天昵称的老用户显示不变。
   function dispName() {
-    return store.get('cs-lbl-partner')
-      || store.get('lbl-partner')
+    return store.get('lbl-partner')
+      || store.get('cs-lbl-partner')
       || (window.contactNameFor ? window.contactNameFor(window.__activeCid || 'default') : '')
       || (window.taWord ? window.taWord() : 'TA');
   }

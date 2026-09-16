@@ -937,7 +937,7 @@
       // v3.9.x：双人乒乓从聊天页进入（聊天域）——优先读聊天专用昵称，未设置回退桌面昵称
       try {
         const s = window.activeStore && window.activeStore();
-        partnerNameEl.textContent = (s && (s.get('cs-lbl-partner') || s.get('lbl-partner'))) || (window.taWord ? window.taWord() : 'TA');
+        partnerNameEl.textContent = (s && (s.get('lbl-partner') || s.get('cs-lbl-partner'))) || (window.taWord ? window.taWord() : 'TA');
       } catch (e) { partnerNameEl.textContent = window.taWord ? window.taWord() : 'TA'; }
     }
     if (isFs) toggleFs();   // 防上次全屏残留

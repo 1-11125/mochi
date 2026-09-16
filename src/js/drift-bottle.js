@@ -24,7 +24,7 @@
   // ---- 基础工具 ----
   function S() { try { return window.activeStore(); } catch (e) { return null; } }
   function pn() {
-    try { const s = S(); return (s && (s.get('cs-lbl-partner') || s.get('lbl-partner'))) || 'TA'; } catch (e) { return 'TA'; }
+    try { const s = S(); return (s && (s.get('lbl-partner') || s.get('cs-lbl-partner'))) || 'TA'; } catch (e) { return 'TA'; }
   }
   function rnd(a) { return a[Math.floor(Math.random() * a.length)]; }
   function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }

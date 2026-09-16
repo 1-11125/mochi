@@ -1,9 +1,12 @@
-// ===== 功能：头像互动（联系人头像池 + 我的头像池） =====
-// 聊天页内底部半框：两个头像池——联系人头像池（按昵称命名）与我的头像池，
-// 各自支持上传多张 + 删除单张 + 清空 + 开关
-// 定时随机更换联系人聊天头像（1-8 小时）；更换时聊天显示"昵称 更换了头像"
+// ===== 功能：头像和昵称互动（联系人头像池 + 我的头像池 + 联系人昵称池 + 我的昵称池） =====
+// 聊天页内底部半框：两级切换——上排选「换什么」（头像 / 昵称），下排页签选「换谁的」（TA / 我的）。
+// 四个池子各自支持添加多条 + 删除单条 + 清空 + 开关。
+// 头像池（v3.6.x 起）：上传多张图片，定时随机更换联系人聊天头像（1-8 小时）；
+// 更换时聊天显示"昵称 更换了头像"。
 // 我的头像池：联系人也会定时（1-8 小时）主动给我换头像——有概率直接换，
-// 有概率弹窗邀请我同意/拒绝（机制与联系人随机换头像一致，计时独立）
+// 有概率弹窗邀请我同意/拒绝（机制与联系人随机换头像一致，计时独立）。
+// 昵称池（2026-09-16 新增）：存的是文字，点击即换聊天昵称（联系人 cs-lbl-partner /
+// 我 cs-lbl-user）；随机更换、邀请回应、弹窗邀请、计时与头像池逐条对齐，计时相互独立。
 // 上传/清空有成功/失败提示（toast）
 (function () {
   const uid = window.activePrefix();
@@ -37,6 +40,34 @@
   function getMeLib() { try { return JSON.parse(store.get('avatar-me-lib') || '[]'); } catch (e) { return []; } }
   function saveMeLib(list) { store.set('avatar-me-lib', JSON.stringify(list)); }
   function getMeEnabled() { const v = store.get('avatar-me-lib-enabled'); return v === null ? true : v === '1'; }
+  // 昵称清洗（FIX 2026-09-16 #616：用户报「我同意了 TA 的换昵称邀请，我的昵称换成了「」」——
+  // 引号里是空的）。根因：**只由零宽字符组成的昵称能穿过 trim()**——U+200B 零宽空格等既不是
+  // JS 的 WhiteSpace 也不可见，`'   '.trim()` 会清空但 `'\u200B'.trim()` 原样保留，
+  // 于是「看着是空的名字」进了池子，写进 cs-lbl-* 后顶栏也是空白、消息引号里也是空白。
+  // 从粘贴来源（网页/聊天记录）带进这类字符很常见，所以按「入库前剥掉」处理：
+  // 零宽/方向控制/BOM/软连字符一律去掉，再去首尾空白；剥完为空＝这条不是昵称，丢弃。
+  const INVIS_RE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u206A-\u206F\uFEFF\u180E]/g;
+  function cleanNick(s) {
+    return String(s == null ? '' : s).replace(INVIS_RE, '').trim().slice(0, 30);
+  }
+  // 昵称池（2026-09-16）：结构是字符串数组，键位与头像池一一对应（nick-lib ↔ avatar-lib）。
+  // 读入时清洗 + 过滤——历史脏值（导入损坏、手工改存储、上面那种零宽条目）不该把
+  // 「看着是空的名字」写进 cs-lbl-*，也不该让池子里留一条点不到的空白胶囊。
+  function loadStrList(key) {
+    try {
+      const v = JSON.parse(store.get(key) || '[]');
+      return Array.isArray(v) ? v.map(cleanNick).filter(Boolean) : [];
+    } catch (e) { return []; }
+  }
+  function getNickLib() { return loadStrList('nick-lib'); }
+  function saveNickLib(list) { store.set('nick-lib', JSON.stringify(list)); }
+  function getNickEnabled() { const v = store.get('nick-lib-enabled'); return v === null ? true : v === '1'; }
+  function getMeNickLib() { return loadStrList('nick-me-lib'); }
+  function saveMeNickLib(list) { store.set('nick-me-lib', JSON.stringify(list)); }
+  function getMeNickEnabled() { const v = store.get('nick-me-lib-enabled'); return v === null ? true : v === '1'; }
+  // 昵称池高亮/随机去重当前生效值口径与头像池一致：聊天专用键优先、回退桌面键
+  function curPartnerNick() { return store.get('cs-lbl-partner') || store.get('lbl-partner') || ''; }
+  function curMyNick() { return store.get('cs-lbl-user') || store.get('lbl-user') || ''; }
 
   // v3.9.x：头像库半框是聊天页内功能（聊天域）——昵称优先读聊天专用键 cs-lbl-*，
   // 未设置回退桌面键 lbl-*。
@@ -173,24 +204,62 @@
   const avPaneA = document.getElementById('avlib-pane-a');
   const avPaneB = document.getElementById('avlib-pane-b');
   const avMeTabName = document.getElementById('avlib-me-tab-name');
+  // 昵称池（2026-09-16）
+  const avKindAvatar = document.getElementById('avlib-kind-avatar');
+  const avKindName = document.getElementById('avlib-kind-name');
+  const avPaneC = document.getElementById('avlib-pane-c');
+  const avPaneD = document.getElementById('avlib-pane-d');
+  const avNickList = document.getElementById('avlib-nick-list');
+  const avNickEmpty = document.getElementById('avlib-nick-empty');
+  const avNickEnabled = document.getElementById('avlib-nick-enabled');
+  const avNickAdd = document.getElementById('avlib-nick-add');
+  const avNickClear = document.getElementById('avlib-nick-clear');
+  const avMeNickList = document.getElementById('avlib-me-nick-list');
+  const avMeNickEmpty = document.getElementById('avlib-me-nick-empty');
+  const avMeNickEnabled = document.getElementById('avlib-me-nick-enabled');
+  const avMeNickAdd = document.getElementById('avlib-me-nick-add');
+  const avMeNickClear = document.getElementById('avlib-me-nick-clear');
 
+  // 半框两级状态：avKind=换什么（头像/昵称），avOwner=换谁的（0=TA，1=我的）
+  let avKind = 'avatar', avOwner = 0;
+  function kindIsName() { return avKind === 'name'; }
+  // 页签计数跟随当前大类——同一排页签在两种大类下要显示各自的池子条数
+  function syncCounts() {
+    if (avCount) avCount.textContent = (kindIsName() ? getNickLib() : getLib()).length;
+    if (avMeCount) avMeCount.textContent = (kindIsName() ? getMeNickLib() : getMeLib()).length;
+  }
   function syncVal() {
     if (avEnabled) avEnabled.checked = getEnabled();
     if (avMeEnabled) avMeEnabled.checked = getMeEnabled();
+    if (avNickEnabled) avNickEnabled.checked = getNickEnabled();
+    if (avMeNickEnabled) avMeNickEnabled.checked = getMeNickEnabled();
+    const myName = cUserName();
     if (avName) avName.textContent = cPartnerName();
-    if (avPoolName) avPoolName.textContent = cPartnerName() + ' 的头像库';
+    // 页签文案跟随大类与当前昵称（改了昵称后「XX 的昵称库」要跟着变）
+    if (avPoolName) avPoolName.textContent = cPartnerName() + (kindIsName() ? ' 的昵称库' : ' 的头像库');
     if (avMeTabName) {
-      const myName = cUserName();
-      avMeTabName.textContent = myName ? myName + ' 的头像库' : '我的头像库';
+      if (kindIsName()) avMeTabName.textContent = myName ? myName + ' 的昵称库' : '我的昵称库';
+      else avMeTabName.textContent = myName ? myName + ' 的头像库' : '我的头像库';
     }
+    syncCounts();
   }
-  // 顶部页签切换：联系人头像库 / 我的头像库（点页签直接切换）
-  function switchAvTab(me) {
+  // 四个 pane 的显隐由两级状态共同决定（pane-a/b=头像TA/头像我，pane-c/d=昵称TA/昵称我）
+  function syncAvPane() {
+    const me = avOwner === 1, nameKind = kindIsName();
     if (avTabA) avTabA.classList.toggle('active', !me);
     if (avTabB) avTabB.classList.toggle('active', me);
-    if (avPaneA) avPaneA.hidden = me;
-    if (avPaneB) avPaneB.hidden = !me;
+    if (avKindAvatar) avKindAvatar.classList.toggle('active', !nameKind);
+    if (avKindName) avKindName.classList.toggle('active', nameKind);
+    if (avPaneA) avPaneA.hidden = !(!nameKind && !me);
+    if (avPaneB) avPaneB.hidden = !(!nameKind && me);
+    if (avPaneC) avPaneC.hidden = !(nameKind && !me);
+    if (avPaneD) avPaneD.hidden = !(nameKind && me);
+    syncVal();
   }
+  // 页签切换：TA 的池 / 我的池（点页签直接切换，两级状态不变）
+  function switchAvTab(me) { avOwner = me ? 1 : 0; syncAvPane(); }
+  // 大类切换：头像 / 昵称
+  function switchAvKind(name) { avKind = name ? 'name' : 'avatar'; syncAvPane(); }
   // v3.42.x 头像互动图片懒加载——与表情面板/字卡库同一机制（data-src + IntersectionObserver）：
   // 头像池多张全尺寸图一次全量解码 = 中端机型主线程卡死、头像显示不出（跨机型报障同族）。
   // 只给进入视口的图补 src；无 IntersectionObserver 的浏览器回退即时补 src（行为不变）。
@@ -226,10 +295,17 @@
   // 打开路径先试复用；库真变了（上传/删除/清空/换桌面）照旧整格重建。
   // 顺带修 #508 遗留：原实现用 forEach + `return`（只退出当次回调）触发重建，遇到多个不一致
   // 项会连续重建多次——改 for 循环，首处不一致即返回。
+  // FIX 2026-09-16 #616（昵称池落地时顺带发现的既有缺陷，头像/昵称四个池同族）：
+  // 「库没变就不重建」的判定只看格子数与内容——空库时 cells.length(0)===lib.length(0)，
+  // 循环不跑、直接 return true，于是 renderXxx() 永不执行，**空态提示条（#avlib-empty 等）
+  // 永远停在模板初始的 hidden 上**：新用户头像池/昵称池为空时看不到「还没有…点击下方按钮添加」，
+  // 只有上传过再清空才会出现（那次走的是直接 render）。判定里补上空态提示的显隐比对。
+  function emptyHintMismatch(el, lib) { return !!el && el.hidden !== (lib.length > 0); }
   function updateGridNow() {
     if (!avGrid) return false;
     const lib = getLib();
     const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
+    if (emptyHintMismatch(avEmpty, lib)) return false;
     const cells = avGrid.querySelectorAll('.avlib-cell');
     if (cells.length !== lib.length) return false;
     for (let i = 0; i < lib.length; i++) {
@@ -244,6 +320,7 @@
     if (!avMeGrid) return false;
     const lib = getMeLib();
     const current = store.get('cs-avatar-user') || store.get('avatar-user');
+    if (emptyHintMismatch(avMeEmpty, lib)) return false;
     const cells = avMeGrid.querySelectorAll('.avlib-cell');
     if (cells.length !== lib.length) return false;
     for (let i = 0; i < lib.length; i++) {
@@ -262,6 +339,8 @@
     if (!avPage || avPage.hidden) return;
     renderGridSmart();
     renderMeGridSmart();
+    renderNickGridSmart();
+    renderMeNickGridSmart();
   }
   function renderGrid() {
     if (!avGrid) return;
@@ -270,7 +349,7 @@
     const current = store.get('cs-avatar-partner') || store.get('avatar-partner');
     if (avImgObserver) avGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
     avGrid.innerHTML = '';
-    if (avCount) avCount.textContent = lib.length;
+    syncCounts(); // 计数归 syncCounts 管（同一排页签在头像/昵称两种大类下要显示各自条数）
     if (avEmpty) avEmpty.hidden = lib.length > 0;
     lib.forEach((src, idx) => {
       const d = document.createElement('div');
@@ -308,7 +387,7 @@
     const current = store.get('cs-avatar-user') || store.get('avatar-user');
     if (avImgObserver) avMeGrid.querySelectorAll('img[data-src]').forEach(im => { try { avImgObserver.unobserve(im); } catch (e) {} }); // v3.42.x
     avMeGrid.innerHTML = '';
-    if (avMeCount) avMeCount.textContent = lib.length;
+    syncCounts(); // 同上
     if (avMeEmpty) avMeEmpty.hidden = lib.length > 0;
     lib.forEach((src, idx) => {
       const d = document.createElement('div');
@@ -336,12 +415,100 @@
     });
   }
 
+  // ===== 昵称池渲染（2026-09-16）=====
+  // 与头像网格同一套「内容没变就不重建」口径：点一条换昵称只改 .avlib-now 高亮，
+  // 不重建节点（重建会丢掉正在滚动的视口位置，也让长按选中态闪掉）。文字没有解码成本，
+  // 复用这一口径纯粹是为了与头像侧行为一致、便于同一批回归脚本覆盖。
+  function updateNickGridNow() {
+    if (!avNickList) return false;
+    const lib = getNickLib();
+    const current = curPartnerNick();
+    if (emptyHintMismatch(avNickEmpty, lib)) return false; // 同 updateGridNow 的空态提示修复
+    const cells = avNickList.querySelectorAll('.avlib-name-cell');
+    if (cells.length !== lib.length) return false;
+    for (let i = 0; i < lib.length; i++) {
+      const tx = cells[i].querySelector('.avlib-name-txt');
+      if (!tx || tx.textContent !== lib[i]) return false;
+    }
+    lib.forEach((name, idx) => { cells[idx].classList.toggle('avlib-now', name === current); });
+    return true;
+  }
+  function updateMeNickGridNow() {
+    if (!avMeNickList) return false;
+    const lib = getMeNickLib();
+    const current = curMyNick();
+    if (emptyHintMismatch(avMeNickEmpty, lib)) return false; // 同上
+    const cells = avMeNickList.querySelectorAll('.avlib-name-cell');
+    if (cells.length !== lib.length) return false;
+    for (let i = 0; i < lib.length; i++) {
+      const tx = cells[i].querySelector('.avlib-name-txt');
+      if (!tx || tx.textContent !== lib[i]) return false;
+    }
+    lib.forEach((name, idx) => { cells[idx].classList.toggle('avlib-now', name === current); });
+    return true;
+  }
+  function renderNickGridSmart() { if (!updateNickGridNow()) renderNickGrid(); }
+  function renderMeNickGridSmart() { if (!updateMeNickGridNow()) renderMeNickGrid(); }
+  // 一条昵称 = 一个胶囊：点文字换昵称，点右侧 ✕ 删除这一条。
+  // 删除按值定位（不是按下标）——昵称池允许重复值被上层的查重挡掉，但历史数据/导入可能带重复，
+  // 按下标删会删错那一条。
+  function buildNickCell(name, libFn, saveFn, rerender, onPick) {
+    const d = document.createElement('div');
+    d.className = 'avlib-name-cell';
+    const txt = document.createElement('span');
+    txt.className = 'avlib-name-txt';
+    txt.textContent = name;
+    txt.title = name;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'avlib-name-del';
+    delBtn.textContent = '✕';
+    d.appendChild(txt);
+    d.appendChild(delBtn);
+    txt.addEventListener('click', () => onPick(name));
+    delBtn.addEventListener('click', () => {
+      const l = libFn();
+      const i = l.indexOf(name);
+      if (i < 0) return;
+      l.splice(i, 1);
+      saveFn(l);
+      rerender();
+      syncVal();
+    });
+    return d;
+  }
+  function renderNickGrid() {
+    if (!avNickList) return;
+    const lib = getNickLib();
+    const current = curPartnerNick();
+    avNickList.innerHTML = '';
+    syncCounts();
+    if (avNickEmpty) avNickEmpty.hidden = lib.length > 0;
+    lib.forEach(name => {
+      const d = buildNickCell(name, getNickLib, saveNickLib, renderNickGrid, switchNickFromLib);
+      if (name === current) d.classList.add('avlib-now');
+      avNickList.appendChild(d);
+    });
+  }
+  function renderMeNickGrid() {
+    if (!avMeNickList) return;
+    const lib = getMeNickLib();
+    const current = curMyNick();
+    avMeNickList.innerHTML = '';
+    syncCounts();
+    if (avMeNickEmpty) avMeNickEmpty.hidden = lib.length > 0;
+    lib.forEach(name => {
+      const d = buildNickCell(name, getMeNickLib, saveMeNickLib, renderMeNickGrid, switchMyNickFromLib);
+      if (name === current) d.classList.add('avlib-now');
+      avMeNickList.appendChild(d);
+    });
+  }
+
   // 打开/关闭半框
   function openAvlib() {
     if (!avPage) return;
     // v3.9.x：打开前补读新桌面 IDB 权威数据（头像池大键切桌面后可能只在 IDB，
     // 慢 IDB 下 memoryCache 未回填 → store.get 读空显示「暂无头像」）
-    try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); } catch (e) {}
+    try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); restoreLib('nick-lib'); restoreLib('nick-me-lib'); } catch (e) {}
     // 关闭其他底部半框（拍一拍/表情包）
     const pc = document.getElementById('poke-card');
     if (pc) pc.hidden = true;
@@ -349,12 +516,14 @@
     if (ep) ep.hidden = true;
     renderGridSmart();   // FIX #509：打开时不整格重建——库没变只同步高亮（旧路径每次打开都重建=图片闪）
     renderMeGridSmart(); // FIX #509 同上
-    syncVal();
+    renderNickGridSmart();
+    renderMeNickGridSmart();
+    syncAvPane(); // 两个大类 + 四个 pane 的显隐/文案/计数一次性同步（内含 syncVal）
     avPage.hidden = false;
   }
   // v3.9.x：切桌面后同样补读新桌面头像池（restoreLib 内部校验桌面归属 + 内容更多才覆盖）
   document.addEventListener('contact-switched', function () {
-    try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); } catch (e) {}
+    try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); restoreLib('nick-lib'); restoreLib('nick-me-lib'); } catch (e) {}
   });
   function closeAvlib() {
     if (avPage) avPage.hidden = true;
@@ -366,9 +535,12 @@
   window.closeAvlib = closeAvlib;
   const avClose = document.getElementById('avlib-close');
   if (avClose) avClose.addEventListener('click', closeAvlib);
-  // 顶部页签点击切换
+  // 顶部页签点击切换（换谁的：TA / 我的）
   if (avTabA) avTabA.addEventListener('click', () => switchAvTab(false));
   if (avTabB) avTabB.addEventListener('click', () => switchAvTab(true));
+  // 大类切换（换什么：头像 / 昵称）
+  if (avKindAvatar) avKindAvatar.addEventListener('click', () => switchAvKind(false));
+  if (avKindName) avKindName.addEventListener('click', () => switchAvKind(true));
   // 聊天页更多功能 → 头像互动
   const moreAvatar = document.getElementById('more-avatar');
   if (moreAvatar) {
@@ -389,6 +561,19 @@
   if (avMeEnabled) {
     avMeEnabled.addEventListener('change', () => {
       store.set('avatar-me-lib-enabled', avMeEnabled.checked ? '1' : '0');
+      syncVal();
+    });
+  }
+  // 昵称池开关（与头像池各自独立，语义一一对应）
+  if (avNickEnabled) {
+    avNickEnabled.addEventListener('change', () => {
+      store.set('nick-lib-enabled', avNickEnabled.checked ? '1' : '0');
+      syncVal();
+    });
+  }
+  if (avMeNickEnabled) {
+    avMeNickEnabled.addEventListener('change', () => {
+      store.set('nick-me-lib-enabled', avMeNickEnabled.checked ? '1' : '0');
       syncVal();
     });
   }
@@ -447,6 +632,46 @@
   }
   bindPoolUpload(avUpload, getLib, saveLib, () => { renderGrid(); syncVal(); });
   bindPoolUpload(avMeUpload, getMeLib, saveMeLib, () => { renderMeGrid(); syncVal(); });
+  // 添加昵称：**多行批量**，一行一个（用户反馈「添加昵称不能批量添加」）。
+  // 走全站唯一弹窗方案的多行框——不用 prompt（安卓 IAB 无 prompt），也不自造弹层。
+  // 安卓上这个 textarea 会被 mobile-adapt 转成 contenteditable 的 .ce-box，取值靠
+  // personalize.js readModalVal 的多行兜底（按 DOM 结构还原换行），所以这里拿到的一定是
+  // 带真实换行的整段文本；拆行对 \r\n / \r / \n 三种都兼容（粘贴来源可能是 Windows 记事本）。
+  // 单条上限 30 字与聊天设置里改昵称的口径一致（那边靠 input maxlength 拦，多行框没有
+  // 逐行 maxlength，所以这里按行截断，避免整行被无声丢弃）。
+  // 查重：同名只留一条——昵称池的高亮/随机去重都按值比较，重复项会让「当前生效」
+  // 高亮到两条、随机也更容易抽到同一个名字反复触发；同一批里的重复也一并挡下。
+  function bindNickAdd(btn, listFn, saveFn, rerender) {
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (!window.openModal) return;
+      window.openModal('添加昵称', '', (v) => {
+        // 拆行除 \r\n / \r / \n 外还要认 U+2028/U+2029（从网页、聊天记录整段复制常见）
+        // 与 U+0085——只认 \n 的话这种粘贴会粘成「一条超长昵称」被截到 30 字。
+        const raw = String(v || '').split(/\r\n|\r|\n|\u2028|\u2029|\u0085/);
+        const lines = raw.map(cleanNick).filter(Boolean);
+        // 剥掉零宽字符后为空的那些行如实计入「跳过」，不让用户看着粘了 5 行却只进了 3 条还找不到原因
+        const blank = raw.length - lines.length;
+        if (!lines.length) { toast('没有可添加的昵称（都是空行或只有不可见字符）'); return; }
+        const list = listFn();
+        let dup = 0;
+        lines.forEach(n => { if (list.indexOf(n) >= 0) { dup++; return; } list.push(n); });
+        const added = lines.length - dup;
+        if (!added) { toast(dup > 1 ? '这 ' + dup + ' 个昵称都已经在池子里了' : '这个昵称已经在池子里了'); return; }
+        saveFn(list);
+        rerender();
+        const tail = (dup ? '，' + dup + ' 个已存在' : '') + (blank ? '，跳过 ' + blank + ' 个空行' : '');
+        if (dup || blank) toast('已添加 ' + added + ' 个昵称' + tail);
+        else toast(added > 1 ? '已添加 ' + added + ' 个昵称' : '已添加昵称「' + lines[0] + '」');
+      }, {
+        textarea: true, textareaRows: 6,
+        textareaPlaceholder: '一行一个昵称，可一次粘贴多个（每个最多 30 字）',
+        staticText: '一行一个，空行会自动跳过；池子里已有的不会重复添加。'
+      });
+    });
+  }
+  bindNickAdd(avNickAdd, getNickLib, saveNickLib, renderNickGrid);
+  bindNickAdd(avMeNickAdd, getMeNickLib, saveMeNickLib, renderMeNickGrid);
   // 清空（两个头像池共用）
   function bindPoolClear(btn, saveFn, rerender, title, okText) {
     if (!btn) return;
@@ -462,6 +687,8 @@
   }
   bindPoolClear(avClear, saveLib, () => { renderGrid(); syncVal(); }, '清空头像池？', '已清空头像池');
   bindPoolClear(avMeClear, saveMeLib, () => { renderMeGrid(); syncVal(); }, '清空我的头像池？', '已清空我的头像池');
+  bindPoolClear(avNickClear, saveNickLib, () => { renderNickGrid(); syncVal(); }, '清空昵称池？', '已清空昵称池');
+  bindPoolClear(avMeNickClear, saveMeNickLib, () => { renderMeNickGrid(); syncVal(); }, '清空我的昵称池？', '已清空我的昵称池');
 
   // v3.12.x：联系人头像换头像不再写桌面键——setAvatarBoth/removeAvatarBoth 已随「桌面与聊天
   // 头像解耦」移除，所有路径只写聊天专用键 cs-avatar-partner（与我的头像 cs-avatar-user 同规则）。
@@ -478,12 +705,26 @@
     const deskRing = chatOnly ? null : document.querySelector(out ? '#avatar-user .ring' : '#avatar-partner .ring');
     const applyTo = (el) => {
       if (!el) return;
-      el.innerHTML = '';
+      // FIX 2026-09-16 #617 头像「闪一下重新加载」（红米 K80 Chrome 等多机型，用户明说其他设备
+      //   型号也有）：原实现无条件 el.innerHTML='' + 新建 img + 赋 src，于是「换一张头像」会把
+      //   整列已渲染气泡头像（下方 forEach 的 .msg-in/.msg-out .msg-av）连同顶栏一起拆掉重建——
+      //   旧节点先被清空（该位置空一帧）＋新节点从零解码 ⇒ 用户看到的「图片会闪和重新加载」。
+      //   实测（无头 390×844，头像互动点第 3 张）：16 个 .msg-av 节点被替换、17 次 load。
+      //   收口：值没变＝DOM 一律不碰（__avApplied 记录已落地的值）；值变了也只改现有 img 的 src，
+      //   不拆节点——浏览器继续画旧图直到新图解好，不出现空帧。零机型分支、零视觉改动。
+      const want = data || '';
+      if (el.__avApplied === want) return;
+      el.__avApplied = want;
       if (data) {
-        const img = document.createElement('img');
-        img.src = data;
-        img.alt = '';
-        el.appendChild(img);
+        const cur = el.querySelector('img');
+        if (cur) { cur.src = data; cur.alt = ''; }
+        else {
+          const img = document.createElement('img');
+          img.src = data;
+          img.alt = '';
+          el.innerHTML = '';
+          el.appendChild(img);
+        }
       } else {
         el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#999999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>';
       }
@@ -494,8 +735,11 @@
   }
   // 聊天里显示系统消息（chatAddSystem 会持久化，下次进聊天也能看到）
   // img：可选，消息里附带换的头像图片
-  function chatSystem(text, img) {
-    if (window.chatAddSystem) window.chatAddSystem(text, { img: img });
+  // keep（#616）：昵称类消息传 true —— 正文里带引号的昵称是**当时发生的事实**，
+  // 要豁免 chat.js 的改名清扫（否则第二次改名后旧记录会被改写成「换成了当前名」，
+  // 两条记录长得一模一样，用户报的「看不出换了什么昵称」会更严重）。
+  function chatSystem(text, img, keep) {
+    if (window.chatAddSystem) window.chatAddSystem(text, { img: img, nickKeep: !!keep });
     // 记录：换头像事件（写入主页「换头像记录」，含事件文案 + 头像缩略图）。
     // records.js 在 avatar-lib 之后加载，启动即触发的换头像可能赶不上
     // addAvatarRecord 定义 → 延迟到下一轮 tick 再补写
@@ -754,7 +998,227 @@
   try { setInterval(checkMeAvatarRefresh, 60000); } catch (e) {}
   checkMeAvatarRefresh();
 
-  syncVal();
+  // ===== 昵称池业务逻辑（2026-09-16）=====
+  // 与头像池逐条对齐：点击即换 + 有概率触发 TA 回应（同意/拒绝）+ 定时随机更换 +
+  // TA 主动给我换（直接换或弹窗邀请）。四个池子的概率/周期常量复用同一组，仅存储键独立。
+  //
+  // 关键差异（为什么昵称不能照抄头像的写入路径）：换头像只改 cs-avatar-*，不牵动任何文案；
+  // 换昵称改的是全站到处在引用的显示名，必须额外走 chat.js 的改名钩子
+  //（chatSysNickChanged：把历史系统消息里的旧昵称清扫成 {ta} 占位符，渲染时替换成当前昵称），
+  // 否则改完名聊天记录里旧消息还叫旧名字（与聊天设置里改昵称的行为保持一致）。
+  function applyPartnerNick(name) {
+    const oldEff = store.get('cs-lbl-partner') || 'TA';
+    if (name) store.set('cs-lbl-partner', name); else store.remove('cs-lbl-partner');
+    const newEff = store.get('cs-lbl-partner') || 'TA';
+    if (oldEff !== newEff) {
+      try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff); } catch (e) {}
+    }
+    try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
+    syncVal();
+  }
+  // 我的昵称：chat.js 只维护 {ta} 占位符，没有对应的 {me} 清扫机制，所以按聊天设置里
+  // 「我的昵称」的既有口径处理——写入 + 界面同步，随后系统消息渲染时即取到新名。
+  function applyMyNick(name) {
+    if (name) store.set('cs-lbl-user', name); else store.remove('cs-lbl-user');
+    try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
+    syncVal();
+  }
+  // 系统消息文案统一口径（#616 用户反馈「系统消息没有显示联系人更换了什么昵称」）：
+  // 每条都必须写清「谁把谁的昵称换成了什么」——只写「XX 更换了昵称」时，主语本身是换后的
+  // 新昵称，用户既看不出换成了什么，也分不清这条说的是联系人还是自己（「我的昵称库」那条
+  // 尤其容易被读成「联系人改名了」，而顶栏显示的是联系人的名字、当然不会变）。
+  // 引号里的昵称走 keep=true 豁免改名清扫，历史记录保持当时的事实。
+  // 注：这类消息仍按普通系统消息渲染（special='poke'），正文里的「TA」会被 renderMsg 的
+  // pokePersonMap 回填成当前昵称（所以写"TA 把…"读起来就是"{当前名} 把…"）；被引号包住的
+  // 昵称若恰好含 TA/ta/他/她 这几个 token 仍会被该回填改写——与全站其它系统消息同一口径
+  // （现有通话/红包/寻踪等消息都如此），本次不收窄，避免为病态昵称扩大 chat.js 改动面。
+  function nickMsgPartner(to) { return 'TA 把聊天昵称换成了「' + to + '」'; }
+  function nickMsgMeSet(to) { return '我把 TA 的聊天昵称换成了「' + to + '」'; }
+  function nickMsgMeSelf(to) { return '我把自己的聊天昵称换成了「' + to + '」'; }
+  function nickMsgTaSetMine(to) { return 'TA 把我的聊天昵称换成了「' + to + '」'; }
+
+  // 换昵称的回应文案（对齐头像池 replyInvite：聊天消息 + 黑色小字 toast）
+  // 「换成了「X」」里的 X 取**实际生效值**（先参数、参数无效则回落到键里已写入的值），
+  // 二者都取不到时整句去掉引号从句——绝不让空引号「」出现在用户面前（#616 用户报障）。
+  function replyNickInvite(accepted, name) {
+    const to = String(name || store.get('cs-lbl-partner') || '');
+    const text = accepted
+      ? (to ? 'TA 同意了我的换昵称邀请，昵称换成了「' + to + '」' : 'TA 同意了我的换昵称邀请')
+      : 'TA 拒绝了我的换昵称邀请，昵称保持不变';
+    chatSystem(text, null, true);
+    toast(text);
+  }
+  // 用户要求（2026-09-16）：「我同意了 TA 的换昵称邀请…」这条**不再弹黑色小字**——
+  // 同意/拒绝是用户自己刚在弹窗里点的，聊天里又已落了记录，再弹一次只是噪音。
+  // （另一条 replyNickInvite 保留 toast：那是 TA 对我点选昵称的随机回应，是我没预期到的信息）
+  function replyMeNickInvite(accepted, name) {
+    const to = String(name || store.get('cs-lbl-user') || '');
+    const text = accepted
+      ? (to ? '我同意了 TA 的换昵称邀请，我的昵称换成了「' + to + '」' : '我同意了 TA 的换昵称邀请')
+      : '我拒绝了 TA 的换昵称邀请，昵称保持不变';
+    chatSystem(text, null, true);
+  }
+  // 手动点击 TA 的昵称池：立即换聊天昵称（cs-lbl-partner）
+  // 有概率触发 TA 的回应（同意保持 / 拒绝保持原样），并重置随机更换计时
+  function switchNickFromLib(name) {
+    const lib = getNickLib();
+    if (!name || lib.indexOf(name) === -1) return;
+    const before = store.get('cs-lbl-partner');
+    // 邀请回应/计时随机数先同步按原顺序掷完（与头像池同序，回归脚本可钉死序列）
+    const nextHours = String(1 + Math.random() * 7);
+    const inviteHit = Math.random() * 100 < INVITE_PROB;
+    const agreeHit = Math.random() * 100 < AGREE_PROB;
+    // 手动更换后重置随机计时：1-8 小时后才可能再随机换
+    store.set('nick-lib-last', String(Date.now()));
+    store.set('nick-lib-next', nextHours);
+    if (inviteHit && !agreeHit) {
+      // 拒绝：昵称保持原样。与头像池「先写再回滚」等价——不写就没有回滚，少一次多余的重渲染。
+      // cur-hash 记回当前实际生效值，避免随机计时立刻把同一条再抽一次。
+      store.set('nick-lib-cur-hash', strHash(before || ''));
+      updateNickGridNow();
+      replyNickInvite(false);
+      return;
+    }
+    applyPartnerNick(name);
+    store.set('nick-lib-cur-hash', strHash(name));
+    updateNickGridNow();
+    if (inviteHit) replyNickInvite(true, name);
+    else { toast('昵称已切换'); chatSystem(nickMsgMeSet(name), null, true); }
+  }
+  // 手动点击我的昵称池：立即把我的聊天昵称换成这条（cs-lbl-user）
+  function switchMyNickFromLib(name) {
+    const lib = getMeNickLib();
+    if (!name || lib.indexOf(name) === -1) return;
+    applyMyNick(name);
+    store.set('nick-me-lib-cur-hash', strHash(name));
+    updateMeNickGridNow();
+    toast('昵称已更换');
+    chatSystem(nickMsgMeSelf(name), null, true);
+  }
+  // TA 主动给我换昵称：弹窗邀请（带新昵称预览，我同意则换上 / 拒绝则保持原样）
+  function showMeNickInvite(name) {
+    if (!window.openModal) return;
+    // 空昵称不发邀请：脏数据（历史遗留的零宽条目）不该弹出一个「邀请你换上这个昵称」却
+    // 什么都不显示的锁定弹窗——那是个点不掉又没内容的死局
+    name = cleanNick(name);
+    if (!name) return;
+    const ta = cPartnerName();
+    window.openModal(ta + ' 的换昵称邀请', '', (v) => {
+      if (v === '1') {
+        applyMyNick(name);
+        store.set('nick-me-lib-cur-hash', strHash(name));
+        updateMeNickGridNow();
+        replyMeNickInvite(true, name);
+      } else {
+        replyMeNickInvite(false);
+      }
+    }, {
+      noInput: true,
+      // 与换头像邀请同款锁定弹窗——点遮罩/取消都不关闭，必须点同意/拒绝
+      lock: true,
+      pills: [{ label: '同意', value: '1' }, { label: '拒绝', value: '0' }],
+      pill: '1',
+      staticText: ta + ' 邀请你换上这个昵称'
+    });
+    // 弹窗里附上新昵称预览（openModal 只支持文字，预览追加进 static 区）
+    const se = document.getElementById('modal-static');
+    if (se) {
+      const p = document.createElement('div');
+      p.textContent = name;
+      p.style.cssText = 'font-size:20px;font-weight:700;text-align:center;margin:10px 0 2px;word-break:break-all;';
+      se.appendChild(p);
+    }
+  }
+  // 我的昵称池定时更换（机制/概率与联系人随机换昵称一致，计时独立）
+  function getMeNickLast() { const v = parseInt(store.get('nick-me-lib-last'), 10); return isNaN(v) ? 0 : v; }
+  function getMeNickNext() { const v = parseFloat(store.get('nick-me-lib-next')); return isNaN(v) ? 0 : v; }
+  function checkMeNickRefresh() {
+    try {
+      // 与头像池一致：不判断 document.hidden——后台也照常检查，到点就换 + 写聊天消息 +
+      // 发后台通知（前台时 bgNotifyCheck 自己会跳过发送）
+      if (!getMeNickEnabled()) return;
+      const now = Date.now();
+      let last = getMeNickLast();
+      let next = getMeNickNext();
+      // 异常时间戳 → 归零，下次检查立即触发
+      if (last > now || last < 0 || isNaN(last)) { last = 0; next = 0; }
+      if ((now - last) / 36e5 < next) return;
+      const lib = getMeNickLib();
+      if (!lib.length) return;
+      const name = lib[Math.floor(Math.random() * lib.length)];
+      if (!name) return;
+      // 随机到当前昵称：跳过不换，也不推进计时（60 秒后再随机一次）
+      if (name === curMyNick()) return;
+      const curHash = store.get('nick-me-lib-cur-hash');
+      if (curHash && strHash(name) === curHash) return;
+      const invite = Math.random() * 100 < INVITE_PROB;
+      if (invite) {
+        // 已有其他弹窗打开时本次跳过（不推进计时，60 秒后再触发）
+        const mask = document.getElementById('modal-mask');
+        if (mask && !mask.hidden) return;
+      }
+      // 推进周期：下次 1-8 小时
+      store.set('nick-me-lib-last', String(now));
+      store.set('nick-me-lib-next', String(1 + Math.random() * 7));
+      if (invite) {
+        showMeNickInvite(name);
+        // 后台时弹窗不可见，发系统通知让用户知道有换昵称邀请
+        if (document.visibilityState === 'hidden' && window.bgNotifyCheck) {
+          const iname = store.get('lbl-partner') || 'TA';
+          window.bgNotifyCheck(iname + ' 想给你换昵称', Date.now(), { name: iname });
+        }
+      } else {
+        applyMyNick(name);
+        store.set('nick-me-lib-cur-hash', strHash(name));
+        updateMeNickGridNow();
+        const text = nickMsgTaSetMine(name);
+        chatSystem(text, null, true);
+        toast(text);
+      }
+    } catch (e) {}
+  }
+  // 联系人昵称池定时随机更换：每 60 秒轮询 + 启动立即检查；
+  // 上次/下次时间戳持久化（last=0 / next=0 初始值 → 首次加载立即换一次），
+  // 换完后 next = 1 + random*7 小时；刷新页面周期不重置；异常时间戳归零重试。
+  function getNickLast() { const v = parseInt(store.get('nick-lib-last'), 10); return isNaN(v) ? 0 : v; }
+  function getNickNext() { const v = parseFloat(store.get('nick-lib-next')); return isNaN(v) ? 0 : v; }
+  function checkNickLibRefresh() {
+    try {
+      if (!getNickEnabled()) return;
+      const now = Date.now();
+      let last = getNickLast();
+      let next = getNickNext();
+      if (last > now || last < 0 || isNaN(last)) { last = 0; next = 0; }
+      // 时间未到就先不解析昵称池
+      if ((now - last) / 36e5 < next) return;
+      const lib = getNickLib();
+      if (!lib.length) return;
+      const name = lib[Math.floor(Math.random() * lib.length)];
+      if (!name) return;
+      // 随机到当前生效的聊天昵称：跳过不换，也不推进计时
+      if (name === curPartnerNick()) return;
+      // 与头像池同口径：再比对上次已换入池条目的哈希，防同一条被反复选中时重复发系统消息
+      const curHash = store.get('nick-lib-cur-hash');
+      if (curHash && strHash(name) === curHash) return;
+      store.set('nick-lib-last', String(now));
+      store.set('nick-lib-next', String(1 + Math.random() * 7));
+      applyPartnerNick(name);
+      store.set('nick-lib-cur-hash', strHash(name));
+      updateNickGridNow();
+      // 聊天里写明「TA 把聊天昵称换成了「XXX」」+ 补发后台通知（发送者名取换后的新昵称）
+      const text = nickMsgPartner(name);
+      chatSystem(text, null, true);
+      try {
+        if (window.bgNotifyCheck) window.bgNotifyCheck(text, Date.now(), { name: cPartnerName() });
+      } catch (e) {}
+    } catch (e) {}
+  }
+  try { setInterval(checkNickLibRefresh, 60000); } catch (e) {}
+  checkNickLibRefresh();
+  try { setInterval(checkMeNickRefresh, 60000); } catch (e) {}
+  checkMeNickRefresh();
+
+  syncAvPane();
   // v3.5.93：头像池大键（图片 dataURL）可能只存在 IndexedDB（导入兜底写入/运行时大键策略），
   // localStorage 读不到 → 启动时从 IDB 补读进内存缓存；半框是打开时才渲染的，届时自然读到
   // v3.9.x：① 发起时捕获 myPrefix，回调校验桌面归属——否则慢 IDB（OPPO Chrome）迟到回调
@@ -789,4 +1253,6 @@
   }
   try { restoreLib('avatar-lib'); } catch (e) {}
   try { restoreLib('avatar-me-lib'); } catch (e) {}
+  try { restoreLib('nick-lib'); } catch (e) {}
+  try { restoreLib('nick-me-lib'); } catch (e) {}
 })();

@@ -1222,7 +1222,7 @@
     let name = taName();
     try {
       const st = window.activeStore && window.activeStore();
-      name = (st && (st.get('cs-lbl-partner') || st.get('lbl-partner'))) || name;
+      name = (st && (st.get('lbl-partner') || st.get('cs-lbl-partner'))) || name;
     } catch (e) {}
     if (partnerNameEl) partnerNameEl.textContent = name;
     if (footNameEl) footNameEl.textContent = name;
