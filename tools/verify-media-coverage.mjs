@@ -104,12 +104,14 @@ const CHAT_LS = 'xy-home-v2:chat-msgs';
   });
   eq('LS 引用面：localStorage 里的聊天键令牌照常计入', { ok: r.ok, referenced: r.referenced, inPool: r.inPool, missing: r.missing }, { ok: true, referenced: 1, inPool: 1, missing: 0 });
 
-  // 8 非聊天/收藏/群聊/尾巴键里的令牌不计入引用
+  // 8 引用面口径（#506 起）：聊天/收藏/群聊/尾巴 + 字卡库 cc-groups(-public) 都算引用——
+  //   库内令牌指向的池条目若不进 keep，会被存储清理误删＝字卡库图片（含导出还原源）永久丢失；
+  //   其余键（settings 等业务键）里的令牌仍不计入
   r = await makeEnv({
-    idbKeys: ['xy-home-v2:media:' + H1, CHAT_IDB, 'xy-home-v2:cc-groups-public', 'xy-home-v2:settings'],
-    idbData: { [CHAT_IDB]: '@@m:' + H1, 'xy-home-v2:cc-groups-public': '@@m:' + H2, 'xy-home-v2:settings': '{"a":"@@m:' + H3 + '"}', ['xy-home-v2:media:' + H1]: DATA }
+    idbKeys: ['xy-home-v2:media:' + H1, 'xy-home-v2:media:' + H2, CHAT_IDB, 'xy-home-v2:cc-groups-public', 'xy-home-v2:settings'],
+    idbData: { [CHAT_IDB]: '@@m:' + H1, 'xy-home-v2:cc-groups-public': '@@m:' + H2, 'xy-home-v2:settings': '{"a":"@@m:' + H3 + '"}', ['xy-home-v2:media:' + H1]: DATA, ['xy-home-v2:media:' + H2]: DATA }
   });
-  eq('非引用键不计入：只认聊天/收藏/群聊/尾巴', { referenced: r.referenced, inPool: r.inPool }, { referenced: 1, inPool: 1 });
+  eq('引用面：字卡库令牌计入（#506）、settings 等其余键不计入', { referenced: r.referenced, inPool: r.inPool, missing: r.missing }, { referenced: 2, inPool: 2, missing: 0 });
 
   // 9 池值非法（空串/非 data:）→ 计缺失
   r = await makeEnv({

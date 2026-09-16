@@ -2,15 +2,15 @@
 // 用法：先 `node build.mjs`，再 `node tools/verify-storage-export-info.mjs`
 // 被测对象是**产物 index.html**（用户实际打开的那一份）。
 // 断言：
-//   T1     小库导出：不弹「选备份范围」（阈值以下直接导），打包完成出现「备份已打包完成」弹窗
+//   T1     小库导出：先弹「选择导出范围」（#582 起每次导出都选一次范围），选完整备份后打包完成出现「备份已打包完成」弹窗
 //          （measureProject 统计进度遮罩不卡死流程）
 //   T2     查看存储占比：「浏览器整域已用/配额」含「（占 X%）」；「本项目占用合计」含「占浏览器配额」
 //          （原实现只有绝对字节＝用户报「内存占比显示不全」）
 //   T3     设置页「压缩图片」入口：点击 row-img-compress 触发扫描并弹「压缩图片」弹窗
 //          （img-compress.js 上线时漏加 template 锚点＝功能全站无入口）
 //   T4     查看存储页压缩卡：#st-img-compress / #st-img-compress-btn 在位，点按钮同样触发扫描弹窗
-//   T5     大库导出：IDB 种 2×90MB + 音乐键后点导出 → 弹「先选备份范围」，正文含「占浏览器配额约」「预计
-//          导出文件体积：完整备份 ≈」「不含音乐文件 ≈」，且 完整 > 不含音乐，四枚 pills 在位（可取消）
+//   T5     大库导出：IDB 种 2×90MB + 音乐键后点导出 → 弹「选择导出范围」，正文含「占配额」「预估文件：
+//          完整 …、不含音乐 …、仅聊天记录 …」，且 完整 > 不含音乐，五枚 pills（含取消）在位
 //   T6     全程无 JS 运行时错误
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -121,9 +121,10 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, devic
 // ===== T1 小库导出：不弹选范围，能走完打包 =====
 await coldStart();
 await evalJs("window.runBackupExport(); true");
-const t1ModeModal = await waitFor("(function(){var t=(document.getElementById('modal-title')||{}).textContent||'';return t.indexOf('先选备份范围')>=0;})()", 8, 250);
+const t1ModeModal = await waitFor("(function(){var t=(document.getElementById('modal-title')||{}).textContent||'';return t.indexOf('选择导出范围')>=0;})()", 30, 250);
+if (t1ModeModal) await evalJs("(function(){var ok=document.getElementById('modal-ok');if(ok)ok.click();return 1;})()");
 const t1Done = await waitFor("(function(){var t=(document.getElementById('modal-title')||{}).textContent||'';return t.indexOf('备份已打包完成')>=0;})()", 120, 500);
-check('T1 小库导出不弹选范围且能打包完成', !t1ModeModal && t1Done, 'mode弹窗=' + t1ModeModal + ' 打包完成=' + t1Done);
+check('T1 小库导出：范围弹窗→完整备份→打包完成', t1ModeModal && t1Done, '范围弹窗=' + t1ModeModal + ' 打包完成=' + t1Done);
 if (t1Done) await closeModal();
 
 // ===== T2 查看存储：两条占用行带配额占比 =====
@@ -161,23 +162,26 @@ const seeded = await evalJs(`(async function(){
 })()`);
 check('S5 播种 182MB 测试数据', seeded === 'ok', seeded);
 await evalJs("window.runBackupExport(); true");
-const t5modal = await waitFor("(function(){var t=(document.getElementById('modal-title')||{}).textContent||'';return t.indexOf('先选备份范围')>=0;})()", 160, 500);
+const t5modal = await waitFor("(function(){var t=(document.getElementById('modal-title')||{}).textContent||'';return t.indexOf('选择导出范围')>=0;})()", 160, 500);
 const t5txt = t5modal ? await modalText() : '';
-const hasPct = t5txt.indexOf('占浏览器配额约') >= 0;
-const hasFull = t5txt.indexOf('预计导出文件体积：完整备份 ≈') >= 0;
-const hasNoMusic = t5txt.indexOf('不含音乐文件 ≈') >= 0;
+const hasPct = t5txt.indexOf('占配额') >= 0;
+const hasFull = t5txt.indexOf('预估文件：完整') >= 0;
+const hasNoMusic = t5txt.indexOf('不含音乐') >= 0;
 function parseMB(s) { const m = /([\d.]+)\s*(B|KB|MB|GB)/.exec(s); if (!m) return NaN; const v = parseFloat(m[1]); return m[2] === 'GB' ? v * 1024 : m[2] === 'KB' ? v / 1024 : m[2] === 'B' ? v / 1048576 : v; }
 let fullMB = NaN, noMusicMB = NaN;
 if (hasFull && hasNoMusic) {
-  const afterFull = t5txt.slice(t5txt.indexOf('完整备份 ≈') + 7, t5txt.indexOf('不含音乐文件 ≈'));
-  const afterNM = t5txt.slice(t5txt.indexOf('不含音乐文件 ≈') + 9, t5txt.indexOf('不含音乐文件 ≈') + 60);
-  fullMB = parseMB(afterFull); noMusicMB = parseMB(afterNM);
+  const seg = t5txt.slice(t5txt.indexOf('预估文件：完整'));
+  const afterFull = seg.slice(seg.indexOf('完整') + 2, seg.indexOf('、不含音乐'));
+  const nmStart = seg.indexOf('不含音乐') + 4;
+  const nmEnd = seg.indexOf('、仅聊天记录') >= 0 ? seg.indexOf('、仅聊天记录') : nmStart + 40;
+  fullMB = parseMB(afterFull); noMusicMB = parseMB(seg.slice(nmStart, nmEnd));
 }
 const t5pills = await evalJs("(function(){var p=document.getElementById('modal-pills');if(!p||p.hidden)return 0;return p.querySelectorAll('button,.mp-item,[class*=pill]').length;})()");
-check('T5 大库导出弹「先选备份范围」', t5modal, t5modal ? '' : (t5txt || '弹窗未出现').slice(0, 120));
+const t5labels = await evalJs("(function(){var p=document.getElementById('modal-pills');if(!p||p.hidden)return '';return JSON.stringify(Array.prototype.map.call(p.querySelectorAll('button,.mp-item,[class*=pill]'),function(x){return x.textContent;}));})()");
+check('T5 大库导出弹「选择导出范围」（#582：每次导出都选一次范围）', t5modal, t5modal ? '' : (t5txt || '弹窗未出现').slice(0, 120));
 check('T5a 弹窗带配额占比', hasPct, t5txt.split('\n')[0]);
 check('T5b 弹窗带各模式导出文件预估且 完整>不含音乐', hasFull && hasNoMusic && fullMB > noMusicMB, 'full=' + fullMB + 'MB noMusic=' + noMusicMB + 'MB');
-check('T5c 四枚范围 pills 在位（完整/不含音乐/只备份/取消）', t5pills >= 4, 'pills=' + t5pills);
+check('T5c 范围 pills 在位（完整/不含音乐/只备份文字/仅聊天记录/取消）', t5pills >= 5 && String(t5labels).indexOf('取消') >= 0, 'pills=' + t5pills + ' ' + String(t5labels).slice(0, 120));
 if (await modalOpen()) await closeModal();
 await evalJs("(async function(){try{await window.idbDelete('xy-home-v2:tmpv-497-a');await window.idbDelete('xy-home-v2:tmpv-497-b');await window.idbDelete('xy-home-v2:default:music-file:v497');}catch(e){}return true;})()");
 
