@@ -5,7 +5,7 @@
 .cg-title { display:flex; align-items:center; gap:7px; margin:16px 6px 7px; font-size:11.5px; font-weight:600; color:var(--muted,#999); letter-spacing:.6px; }
 .cg-title::before { content:""; width:3px; height:11px; border-radius:2px; background:var(--ink,#111); opacity:.8; }
 .cg-title:first-of-type, .cg-title:first-child { margin-top:8px; }
-/* FIX 2026-09-16 #575 设置页/美化页顶部搜索框「外框没有颜色区分」（用户报手机端看不出搜索框）：
+/* FIX 2026-09-16 #578 设置页/美化页顶部搜索框「外框没有颜色区分」（用户报手机端看不出搜索框）：
    原外观写死在 template 的内联 style 上，而 border/background 用的是带 var() 的简写——
    手机端 mobile-adapt.js 把 input 转成 .ce-box div 时按【属性名】逐个复制内联样式，带 var()
    的简写复制不过去：可见的 .ce-box 实测 border:0px none ＋ background:rgba(0,0,0,0)，
@@ -17,6 +17,10 @@
 [data-theme="dark"] .theme-search { background:var(--input-bg,#2a2a2a); }
 .theme-search:focus { border-color:var(--input-focus-border,#999); }
 .theme-search::placeholder { color:var(--hint-ink,#b5b5b5); }
+/* 转换后的 .ce-box 是 white-space:pre-wrap 的 contenteditable，占位文字会随宽度折行：
+   370px 屏上补上边框后正好差 2px 折成两行（360×640 的机型原本就折），搜索框被撑高到两行。
+   占位提示固定单行＋省略号（只约束 ::before 提示，用户输入仍按 pre-wrap 换行、不裁字） */
+.ce-box.theme-search:empty::before { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* 顶部标签切换（手机桌面美化：颜色/尺寸/背景/图标/方案；聊天设置：美化/功能/数据），
    分区互斥显示。简约黑白：无灰色底块、无灰条，选中项黑色文字+下划线，与全局黑白风格一致 */
 .them-tabs { position:sticky; top:0; z-index:6; display:flex; gap:0; padding:8px 4px 0; background:var(--bg-b); border-bottom:1px solid rgba(0,0,0,.06); flex-shrink:0; }

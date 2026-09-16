@@ -278,6 +278,16 @@ const FIX_SENTINELS = [
   { name: '#471 设置页「导出全部桌面聊天记录」UI（template.html；改 id/删除即 cs-export-all 失效复发）', file: 'template.html', needle: 'id="cs-export-all"' },
   { name: '#471 设置页「导入全部桌面聊天记录」UI（template.html；改 id/删除即 cs-import-all 失效复发）', file: 'template.html', needle: 'id="cs-import-all"' },
   { name: '#471 设置页全部桌面导入分路写回（data-backup.js importChatAllGo：非当前桌面走 writeDeskChat 写 IDB+账本+LS 快照，删掉即导入全部桌面只写当前桌面、旧桌面全部丢失复发）', file: 'js/data-backup.js', needle: 'function writeDeskChat(cid, arr) {' },
+  // #577（2026-09-16 用户：「设置里导出数据和导入数据，缺少可选 导出/导入全部桌面联系人的聊天记录」）——
+  // 原来「仅聊天记录」只在数据 >150MB 的导出弹窗里存在，导入侧干脆没有这条路。
+  { name: '#577 导出选范围不再按体积设门槛（absent：出现 MODE_ASK_BYTES 即回退「小库不弹、仅聊天记录选不到」——用户报的「缺少可选」根因）', file: 'js/data-backup.js', needle: 'MODE_ASK_BYTES', absent: true },
+  { name: '#577 导出弹窗「仅聊天记录」胶囊（删/改 value 即设置页选不到只导聊天）', file: 'js/data-backup.js', needle: "{ label: '仅聊天记录', value: 'chat' }" },
+  { name: '#577 「仅聊天记录」范围＝各桌面 chat-msgs（含旧顶层键）+ 群聊键（删 GROUP_CHAT_KEY_RE 分支即群聊记录不再进备份）', file: 'js/data-backup.js', needle: 'function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }' },
+  { name: '#577 聊天备份带上消息引用到的媒体池条目（@@m: 令牌指向的池键；删即换机恢复后图片语音全空，原设备上还看不出来）', file: 'js/data-backup.js', needle: 'mediaRefQueue = Array.from(mediaRefs);' },
+  { name: '#577 导入入口先选范围（完整备份 / 仅聊天记录；删即导入数据又只剩整包一条路，会覆盖设置字卡音乐）', file: 'js/data-backup.js', needle: "if (v === 'chat') { window.runChatAllImport(); return; }" },
+  { name: '#577 聊天导入认旧顶层键 xy-home-v2:chat-msgs 与各联系人 c<base36> 命名空间（旧正则只认 c\\d+，默认桌面的旧顶层键会被整段漏掉）', file: 'js/data-backup.js', needle: 'const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;' },
+  { name: '#577 聊天导入写回群聊（走 gcWriteGroupMsgs；删即备份里的群聊记录导不回来＝只导不入）', file: 'js/data-backup.js', needle: 'if (window.gcWriteGroupMsgs) return window.gcWriteGroupMsgs(w.gid, w.arr);' },
+  { name: '#577 群聊消息写回通道（group-chat.js gcWriteGroupMsgs：lite 快照 + IDB 权威，条数与全量一致防旧快照压住新导入；删即群聊导入静默无效）', file: 'js/group-chat.js', needle: 'window.gcWriteGroupMsgs = function (gid, arr) {' },
   // #359→#437（2026-09-14 用户确认同内容须可重发，多机型同报误吞）：发件侧媒体窗口 8000→800ms。
   // 原锚（return 8000）随口径演进更新；800ms 仍吞机械双派发（150ms 双 click/606ms 长任务延迟），
   // 有意重发（重开面板 ≥1s）放行；收件侧 60000ms 不变。
@@ -1937,6 +1947,12 @@ const FIX_SENTINELS = [
   { name: '#577c 功能介绍·快速开始写明聊天昵称要单独设（删则又只说「设置双方昵称、头像」）', file: 'template.html', needle: '聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>' },
   { name: '#577d 聊天设置「昵称与头像」标题标注聊天专用（删则设置页不提与桌面独立，用户仍以为改桌面即生效）', file: 'template.html', needle: '昵称与头像（聊天专用 · 与桌面各自独立，互不同步）' },
   { name: '#577e 功能大全昵称条目关键词补「桌面昵称 / 不同步」（删则搜「桌面昵称」找不到这两条）', file: 'js/feature-hub.js', needle: '昵称 名字 联系人 改名 聊天昵称 桌面昵称 不同步 不一样 没变 显示 TA' },
+  // ---- #577b 用户追加（2026-09-16）：「聊天里的更换头像，你没说可以直接在聊天设置里更换，
+  //      或在聊天输入栏左边打开更多功能里的【头像互动】上传头像库可互动」——漏了头像互动这条换聊天头像的路 ----
+  { name: '#577f 引导写明「更多功能 → 头像互动」换聊天头像快路（删则只剩聊天设置一条路，头像互动没人知道）', file: 'js/onboarding.js', needle: '聊天头像另有一条快路' },
+  { name: '#577g 引导 tip 提示块渲染分支（删则 tip 文案不再渲染）', file: 'js/onboarding.js', needle: 's.tip ? ' },
+  { name: '#577h 功能介绍·快速开始补头像互动路径（删则又只剩「聊天设置 → 形象」一条）', file: 'template.html', needle: '头像互动</b>——上传多张头像库、点图即换' },
+  { name: '#577i 功能大全「头像互动」条目说明与关键词（删则搜「头像库 / 随机换头像」找不到）', file: 'js/feature-hub.js', needle: '换聊天头像：上传多张头像库、点图即换' },
   // ==== 2026-09-16 #550 设置页搜索精准化（跨域登记：personalize.js 归 AI-B 本会话占用，见 WORKLOG） ====
   { name: '#550a 设置搜索取词剔除「功能说明」.tag 胶囊（删则搜功能/说明几乎全行命中回流）', file: 'js/personalize.js', needle: "c.querySelectorAll('.tag').forEach(x => x.remove());" },
   { name: '#550b 设置搜索口语词别名表（删则搜壁纸/通知/概率/夜间等 0 命中回流）', file: 'js/personalize.js', needle: "'深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode'" },
@@ -2050,6 +2066,39 @@ const FIX_SENTINELS = [
   { name: '#576a 弹窗直达按钮挂导出行（删/改＝又只报错不带动作，第一步「先导出备份」没人知道怎么做）', file: 'js/idb.js', needle: "idbFailAct('#row-export'" },
   { name: '#576b 直达走设置页分组tab+滚动链路（删＝按钮点了停在原地/跳错分组，兜底提示也不出）', file: 'js/idb.js', needle: "el.closest('.them-sec')" },
   { name: '#576c openModal 控制器补 ctl.close（删＝跳转成功弹窗关不掉，盖在设置页上）', file: 'js/personalize.js', needle: 'close: function () { try { close(); } catch (e) {} }' },
+  // ==== 2026-09-16 #578 设置页/美化页顶部搜索框「外框没有颜色区分」（用户报手机端看不出是输入框）。
+  // 根因：外观写死在 template 内联 style，border/background 是带 var() 的简写——安卓
+  // mobile-adapt.js 把 input 转成 .ce-box 时按属性名逐个复制内联样式，带 var() 的简写复制
+  // 不过去，可见的 .ce-box 实测 border:0px none + 全透明底＝外框连底色一起消失（浅色下原本
+  // 也只是白底压白底＋10% 黑细线）。改走 .theme-search 类样式（input 与其 ce-box 同吃一份规则）。
+  // 行为断言 tools/verify-set-search-frame.mjs（安卓转换态/未转换态 × 明暗，RED 基线 4 红）====
+  { name: '#578a 搜索框外观走类样式（删规则/改选择器＝回到内联样式，安卓转换后外框消失）', file: 'css/setting.css', needle: '.theme-search { width:100%; box-sizing:border-box;' },
+  { name: '#578b 外框/内边距用输入框专用 token 且底色可辨（边框改回 var(--card-border) 的 10% 淡线＝浅色下白底压白底复发；底色是加底块的那条）', file: 'css/setting.css', needle: 'background:var(--static-bg,rgba(0,0,0,.05)); border:1px solid var(--input-border,#e0e0e0); border-radius:9px;' },
+  { name: '#578c 深色专用底色（删＝深色退回 6% 白底压在 #1c1c1c 上，几乎看不出输入框）', file: 'css/setting.css', needle: '[data-theme="dark"] .theme-search { background:var(--input-bg,#2a2a2a); }' },
+  { name: '#578d 搜索框占位文字单行不折行（删＝370px 屏上补边框后差 2px 折成两行、框被撑高一倍）', file: 'css/setting.css', needle: '.ce-box.theme-search:empty::before { display:block; white-space:nowrap;' },
+  // 🔧 2026-09-16 #579 会话收窄此锚（原 needle 只写 `border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff)`，
+  // 该片段在 chat-settings.js / personalize.js / group-chat.js 三处**动态创建**的搜索框内联样式里各有一份
+  // → 全量构建恒报「删除型哨兵又回来了」（假红、退出码 1），而真正要守的 template 内联样式有没有写回根本判不出来。
+  // 补上 template 侧独有的 `padding:8px 10px;` 前缀后（JS 三处是 `padding:9px 11px;`），src 与产物均 0 命中，锚点收唯一。
+  // ⚠️ 请 #578 会话确认此换锚符合原意（该批 verify-set-search-frame.mjs 不受影响）。
+  { name: '#578e 搜索框外观必须留在类样式、不得写回内联（内联里带 var() 的 border/background 会被 ce-box 转换丢弃＝用户报的「外框没有颜色区分」原样复发）', file: 'template.html', needle: 'padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd)', absent: true },
+  // ==== 2026-09-16 #579 美化页「边看边调」入口提到最前 + 最显眼（用户原话「桌面美化里的【边看边调】
+  // 功能应该放最前面而且最显眼」）。此前它是 desk-quick 行里 5 个按钮的最后一个、跟四个「跳到某设置行」
+  // 的小描边胶囊同款（实测 67×37px / 字重 600 / 无说明行）＝进美化页第一眼看不到这个主功能。
+  // 现为标题正下方整宽主色条（366×61px / 字重 700 / 带一行说明，--btn-bg+--btn-ink 随主题色联动）。
+  // 位置与体量的行为断言 tools/verify-beauty-cta-first.mjs（RED 基线＝还原旧形态 6/7 红）====
+  { name: '#579a 边看边调入口改整宽主色条（改回 dq-btn 小胶囊＝用户「找不到边看边调」复发；类名即形态锚点）', file: 'template.html', needle: 'class="dq-primary" id="dq-drawer"' },
+  { name: '#579b 边看边调不得退回 desk-quick 行的小按钮形态（旧形态是行内最后一个 dq-btn；加回＝入口重新淹没在四个跳转按钮里）', file: 'template.html', needle: '边看边调</button>', absent: true },
+  // ==== 2026-09-16 #580 桌面翻页圆点与滑动不同步（用户：「切换 1/2/3 桌面页时，底部导航
+  // 圆点反应慢，没有与我滑动完全同步」）。根因：desktop-slider.js 的 scroll 监听里
+  // clearTimeout + setTimeout(sync,120)，每次滚动事件都把同步推到 120ms 后 ＝ 滚动全程圆点
+  // 被冻结、松手吸附结束才跳一次（实测滞后 127ms），叠加圆点变形动画 250ms ≈ 0.4s 迟到感。
+  // 修复：rAF 每帧跟随 + 每帧零查询零样式读取（gap/圆点数组缓存），圆点变形 250→160ms、
+  // .dots 加 contain:layout 隔离 width 动画的布局抖动（安卓/iOS 逐帧同步不得引入卡顿）。
+  // 行为断言 tools/verify-desk-dots-sync.mjs（跟手延迟 / 逐帧开销 / 无长帧）====
+  { name: '#580a 圆点滚动中每帧跟随（改回 setTimeout/smooth 收尾＝滚动期间圆点又冻结、松手后才动，用户报的「不同步」原样复发）', file: 'js/desktop-slider.js', needle: 'if (!rafId) rafId = requestAnimationFrame(syncFrame);' },
+  { name: '#580b 每帧步长走缓存、不逐帧 getComputedStyle（删缓存＝滚动的每一帧都强制样式重算，安卓低端机掉帧）', file: 'js/desktop-slider.js', needle: 'if (gapCache === null) gapCache = parseFloat(getComputedStyle(pages).columnGap) || 0;' },
+  { name: '#580c 圆点容器 contain:layout（删＝圆点 width 变形每帧重排外泄到 #page-phone 整个桌面壳，滚动中掉帧）', file: 'css/home.css', needle: 'contain:layout;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

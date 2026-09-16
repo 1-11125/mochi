@@ -62,9 +62,12 @@
     '[data-theme="dark"] .mg-guide-step{background:rgba(255,255,255,.07)}' +
     '[data-theme="dark"] .mg-guide-btn.ghost{background:rgba(255,255,255,.1)}' +
     '[data-theme="dark"] .mg-guide-go{color:#8fb4ef}' +
-    // #577：步骤内的补充提示块（桌面 / 聊天两套昵称的说明用，配色走暖色警示）
+    // #577：步骤内的补充提示块——warn 暖色（说明/警告，如两套昵称）、tip 蓝色（另一条更快的操作路径）
     '.mg-guide-warn{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(214,132,60,.13);color:#9a5520;font-size:11.5px;line-height:1.6}' +
-    '[data-theme="dark"] .mg-guide-warn{background:rgba(214,132,60,.18);color:#e4ae7f}';
+    '[data-theme="dark"] .mg-guide-warn{background:rgba(214,132,60,.18);color:#e4ae7f}' +
+    // #577b（用户 2026-09-16 追加：「聊天里的更换头像，你没说可以直接在聊天设置里更换，或……头像互动上传头像库」）
+    '.mg-guide-tip{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(47,111,208,.1);color:#2f6fd0;font-size:11.5px;line-height:1.6}' +
+    '[data-theme="dark"] .mg-guide-tip{background:rgba(47,111,208,.16);color:#8fb4ef}';
   document.head.appendChild(st);
 
   const STEPS = [
@@ -74,6 +77,10 @@
     // ——所以只教「点桌面顶部改名」会让用户以为聊天里的名字也会跟着变，必须写明是两套、在哪单独设。
     { n: '1', h: '设置「我」和「TA」', d: '回桌面，点顶部两个头像 / 昵称，即可改名、换头像（这里是桌面那一套）。',
       warn: '桌面的昵称 / 头像与聊天里的是<b>两套、互不同步</b>：桌面改完，聊天里仍显示默认「我」「TA」；聊天里的名字和头像要在「聊天页右上角 → 聊天设置 → 形象」里单独设置。',
+      // #577b：#577 只写了「聊天设置 → 形象」一条换聊天头像的路，漏了聊天页内的「头像互动」
+      // 半框（模板 #more-avatar / avatar-lib.js，可上传多张头像库、点图即换、定时随机换）——
+      // 两条路写的是同一套聊天域键 cs-avatar-*，桌面头像都不受影响。
+      tip: '聊天头像另有一条快路：聊天输入栏左边的「更多功能」（⋯）→ 互动类 → <b>头像互动</b>——可上传多张头像库、点库里的图即换聊天头像，还能开「TA 随机换头像 / TA 主动给我换头像」（每 1-8 小时一次）。',
       go: 'name' },
     { n: '2', h: '先添加字卡', d: '底部「字卡库」→ 公用字卡 / 专属字卡 添加或导入；不加字卡，TA 就没有话可说。', go: 'cards' },
     { n: '3', h: '开始聊天', d: '回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。', go: 'chat' }
@@ -94,6 +101,7 @@
         + '<span class="mg-guide-n">' + s.n + '</span>'
         + '<span class="mg-guide-b"><span class="mg-guide-h">' + s.h + '</span><span class="mg-guide-d">' + s.d + '</span>'
         + (s.warn ? '<span class="mg-guide-warn">' + s.warn + '</span>' : '')
+        + (s.tip ? '<span class="mg-guide-tip">' + s.tip + '</span>' : '')
         + '</span>'
         + '<span class="mg-guide-go">去 →</span></div>';
     });

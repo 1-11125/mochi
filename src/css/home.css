@@ -343,10 +343,18 @@
 .dots {
   position:absolute; left:0; right:0; bottom:6px;
   display:flex; justify-content:center; gap:8px; padding:0;
+  /* v3.27.x（#580）：圆点跟随手指改成每帧切换（desktop-slider.js），而 active 是
+     「宽度 7px→20px」的变形——width 动画每帧都会触发一次布局。圆点是 #page-phone
+     的绝对定位子元素，不加隔离时这段布局脏标会波及整个桌面壳（几十个图标/组件）。
+     尺寸由 left/right 内定，隔离后子元素变化不会外泄，滚动的每一帧都省下这笔重排。
+     不支持 contain 的旧内核直接忽略该行，无副作用。 */
+  contain:layout;
 }
 .dot {
   width:7px; height:7px; border-radius:99px; background:rgba(0,0,0,.18); cursor:pointer;
-  transition:width .25s ease, background .25s ease;
+  /* v3.27.x（#580）：.25s → .16s。圆点现在贴着手指走，变形尾巴就是「不同步感」的
+     后半段（用户反馈「反应慢」）；缩短后仍在松手前收完，观感是跟手而非迟到。 */
+  transition:width .16s ease, background .16s ease;
 }
 .dot.active { width:20px; background:var(--ink); }
 /* 桌面内容底部留白：滚动到底时最后一项不被悬浮圆点盖住 */

@@ -1465,7 +1465,7 @@
       <div class="set-title">设置</div>
       <!-- #542：设置项上百行、找一项要滚很久——顶部搜索框实时过滤 .set-row（跨 5 个 tag 显示匹配项），
            逻辑复刻美化页的 theme-search（personalize.js bindSettingsSearch）；清空后回到原 tag -->
-      <!-- #575：外观（含边框/底色）走 setting.css 的 .theme-search 类样式——写在内联 style 上
+      <!-- #578：外观（含边框/底色）走 setting.css 的 .theme-search 类样式——写在内联 style 上
            会被安卓 ce-box 转换丢掉（带 var() 的 border/background 简写复制不过去），手机端外框消失 -->
       <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
       <!-- v3.33.x：设置页顶部 tag 分类——设置项太多一页堆到底，用户找不到功能；
@@ -1606,12 +1606,12 @@
       <div class="set-group glass">
         <div class="set-row" id="row-export">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导出数据</div>
+          <div class="txt">导出数据<span class="sub">点开可选「仅聊天记录」：各桌面联系人 + 群聊，换机只搬聊天</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="set-row" id="row-import">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导入数据</div>
+          <div class="txt">导入数据<span class="sub">点开可选「仅聊天记录」：只恢复各桌面联系人与群聊，其他数据不动</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- v3.16.x：复制诊断信息——遇设备/浏览器兼容问题时，用户一键复制本机环境信息发给开发者，
@@ -1809,7 +1809,7 @@
         </span>
         <span class="ch-name">手机桌面美化</span>
       </div>
-      <!-- FIX 2026-09-16 #577：边看边调入口提到美化页最前（用户原话「应该放最前面而且最显眼」）。
+      <!-- FIX 2026-09-16 #579：边看边调入口提到美化页最前（用户原话「应该放最前面而且最显眼」）。
            此前它是下面 desk-quick 行里 5 个按钮的最后一个（跟四个「跳到某个设置行」的小描边按钮
            同款样式），进美化页第一眼看不到这个「边调边看」的主功能。现放标题正下方的整宽主色条
            （--btn-bg/--btn-ink 与主题色联动、深色模式自动反色），搜索框与 5 个 tab 都排在它之后。 -->
@@ -1820,7 +1820,7 @@
         </span>
         <span style="flex:none;font-size:12px;font-weight:700">打开 ›</span>
       </button>
-      <!-- #575：同设置页搜索框，外观走 .theme-search 类样式（内联带 var() 的边框在安卓 ce-box 转换后丢失） -->
+      <!-- #578：同设置页搜索框，外观走 .theme-search 类样式（内联带 var() 的边框在安卓 ce-box 转换后丢失） -->
       <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="theme-search-input" placeholder="搜索美化项（如 圆角/壁纸/主题色）"></div>
       <div class="them-tabs" id="them-tabs">
         <div class="them-tab active" data-tab="color">颜色</div>
@@ -1836,7 +1836,7 @@
         <button class="dq-btn" id="dq-theme" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">深色模式</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
-        <!-- FIX 2026-09-16 #577：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条，
+        <!-- FIX 2026-09-16 #579：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条，
              这一行只留四个「跳到对应设置行」的快捷按钮。 -->
       </div>
       <div class="them-sec" data-sec="color">
@@ -2560,7 +2560,7 @@
             <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li">全新环境首次打开会<b>自动弹一次「新手引导」3 步</b>：设置「我」和「TA」→ 添加字卡 → 开始聊天，每步可一键跳到对应位置；老用户想重看走 <b>设置 → 工具 → 新手引导</b>。</div>
-              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。</div>
+              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。换聊天头像还有一条路：聊天页「更多功能」（输入栏左边的 ⋯）→ 互动类 → <b>头像互动</b>——上传多张头像库、点图即换，还能开「TA 随机换头像 / TA 主动给我换头像」。</div>
               <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
               <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
               <div class="lic-li">手机桌面：左右滑动切换页面，点图标进入聊天 / 字卡 / 查岗 / 日历 / 信箱 / 朋友圈 / 音乐 / 占卜 / 花园等各功能。</div>

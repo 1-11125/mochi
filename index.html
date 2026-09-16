@@ -1079,10 +1079,11 @@ touch-action:pan-x pan-y;
 .dots {
 position:absolute; left:0; right:0; bottom:6px;
 display:flex; justify-content:center; gap:8px; padding:0;
+contain:layout;
 }
 .dot {
 width:7px; height:7px; border-radius:99px; background:rgba(0,0,0,.18); cursor:pointer;
-transition:width .25s ease, background .25s ease;
+transition:width .16s ease, background .16s ease;
 }
 .dot.active { width:20px; background:var(--ink); }
 .page-slide { padding-bottom:18px; }
@@ -7155,6 +7156,11 @@ border-radius: 999px; cursor: pointer; user-select: none;
 .cg-title { display:flex; align-items:center; gap:7px; margin:16px 6px 7px; font-size:11.5px; font-weight:600; color:var(--muted,#999); letter-spacing:.6px; }
 .cg-title::before { content:""; width:3px; height:11px; border-radius:2px; background:var(--ink,#111); opacity:.8; }
 .cg-title:first-of-type, .cg-title:first-child { margin-top:8px; }
+.theme-search { width:100%; box-sizing:border-box; padding:8px 10px; font-size:13px; line-height:1.45; color:var(--ink,#111); background:var(--static-bg,rgba(0,0,0,.05)); border:1px solid var(--input-border,#e0e0e0); border-radius:9px; outline:none; }
+[data-theme="dark"] .theme-search { background:var(--input-bg,#2a2a2a); }
+.theme-search:focus { border-color:var(--input-focus-border,#999); }
+.theme-search::placeholder { color:var(--hint-ink,#b5b5b5); }
+.ce-box.theme-search:empty::before { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .them-tabs { position:sticky; top:0; z-index:6; display:flex; gap:0; padding:8px 4px 0; background:var(--bg-b); border-bottom:1px solid rgba(0,0,0,.06); flex-shrink:0; }
 .them-tab { flex:1; text-align:center; font-size:12.5px; font-weight:600; padding:9px 0 8px; color:rgba(0,0,0,.35); border-bottom:2px solid transparent; border-radius:0; background:transparent; cursor:pointer; transition:color .15s,border-color .15s; }
 .them-tab.active { color:#111; border-bottom-color:#111; }
@@ -9713,9 +9719,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789520842349">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.715</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 09:07<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789522138599">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.717</b></span>
+        <span class="sv-deploy">部署于 2026-09-16 09:28<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10879,7 +10885,9 @@ transition-duration: .01ms !important;
       <div class="set-title">设置</div>
       <!-- #542：设置项上百行、找一项要滚很久——顶部搜索框实时过滤 .set-row（跨 5 个 tag 显示匹配项），
            逻辑复刻美化页的 theme-search（personalize.js bindSettingsSearch）；清空后回到原 tag -->
-      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"></div>
+      <!-- #578：外观（含边框/底色）走 setting.css 的 .theme-search 类样式——写在内联 style 上
+           会被安卓 ce-box 转换丢掉（带 var() 的 border/background 简写复制不过去），手机端外框消失 -->
+      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="set-search-input" placeholder="搜索设置项（如 壁纸 / 备份 / 通知 / 概率）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
       <!-- v3.33.x：设置页顶部 tag 分类——设置项太多一页堆到底，用户找不到功能；
            复用全站 .them-tabs/.them-sec 互斥显示观感（聊天设置/手机桌面美化同款） -->
       <div class="them-tabs" id="set-tabs">
@@ -11018,12 +11026,12 @@ transition-duration: .01ms !important;
       <div class="set-group glass">
         <div class="set-row" id="row-export">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导出数据</div>
+          <div class="txt">导出数据<span class="sub">点开可选「仅聊天记录」：各桌面联系人 + 群聊，换机只搬聊天</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="set-row" id="row-import">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导入数据</div>
+          <div class="txt">导入数据<span class="sub">点开可选「仅聊天记录」：只恢复各桌面联系人与群聊，其他数据不动</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- v3.16.x：复制诊断信息——遇设备/浏览器兼容问题时，用户一键复制本机环境信息发给开发者，
@@ -11098,7 +11106,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.715</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.717</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11221,7 +11229,19 @@ transition-duration: .01ms !important;
         </span>
         <span class="ch-name">手机桌面美化</span>
       </div>
-      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="theme-search-input" placeholder="搜索美化项（如 圆角/壁纸/主题色）" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)"></div>
+      <!-- FIX 2026-09-16 #579：边看边调入口提到美化页最前（用户原话「应该放最前面而且最显眼」）。
+           此前它是下面 desk-quick 行里 5 个按钮的最后一个（跟四个「跳到某个设置行」的小描边按钮
+           同款样式），进美化页第一眼看不到这个「边调边看」的主功能。现放标题正下方的整宽主色条
+           （--btn-bg/--btn-ink 与主题色联动、深色模式自动反色），搜索框与 5 个 tab 都排在它之后。 -->
+      <button class="dq-primary" id="dq-drawer" type="button" style="display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:10px 12px 0;padding:11px 14px;border:1px solid var(--btn-bg,#111);border-radius:12px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0">
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;line-height:1.25">边看边调</span>
+          <span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：桌面在上、控件在下，改哪看哪、即时生效</span>
+        </span>
+        <span style="flex:none;font-size:12px;font-weight:700">打开 ›</span>
+      </button>
+      <!-- #578：同设置页搜索框，外观走 .theme-search 类样式（内联带 var() 的边框在安卓 ce-box 转换后丢失） -->
+      <div class="theme-search-wrap" style="padding:8px 12px 0"><input class="theme-search" id="theme-search-input" placeholder="搜索美化项（如 圆角/壁纸/主题色）"></div>
       <div class="them-tabs" id="them-tabs">
         <div class="them-tab active" data-tab="color">颜色</div>
         <div class="them-tab" data-tab="size">尺寸</div>
@@ -11236,7 +11256,8 @@ transition-duration: .01ms !important;
         <button class="dq-btn" id="dq-theme" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">深色模式</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
-        <button class="dq-btn" id="dq-drawer" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--ink,#111);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;font-weight:600;cursor:pointer">边看边调</button>
+        <!-- FIX 2026-09-16 #579：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条，
+             这一行只留四个「跳到对应设置行」的快捷按钮。 -->
       </div>
       <div class="them-sec" data-sec="color">
       <div class="cg-title">颜色与透明度</div>
@@ -11441,7 +11462,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.715</span>
+              <span class="lic-ver">v3.26.717</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -11824,7 +11845,7 @@ transition-duration: .01ms !important;
           <details class="lic-grp">
             <summary><span class="lg-num">23</span><span class="lg-name">个性化</span><span class="lg-count">18</span></summary>
             <div class="lg-body">
-          <div class="lic-li">联系人昵称和我的昵称在桌面双方头像组件下方修改</div>
+          <div class="lic-li">联系人昵称和我的昵称：桌面那一套在桌面双方头像组件下方修改（或 设置 → 通用 → 联系人 / 桌面）；聊天里显示的名字是另一套，要去 聊天设置 → 形象 单独设置，两者互不同步</div>
           <div class="lic-li">联系人名称与头像，消息头像形状（圆形 / 方形）</div>
           <div class="lic-li">可自定义上传全局字体（聊天及其他页面全局生效）和自定义聊天气泡</div>
           <div class="lic-li">聊天壁纸、气泡样式、气泡框大小；聊天壁纸图库可存多张一键切换</div>
@@ -11959,7 +11980,7 @@ transition-duration: .01ms !important;
             <summary><span class="lg-num">1</span><span class="lg-name">快速开始</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li">全新环境首次打开会<b>自动弹一次「新手引导」3 步</b>：设置「我」和「TA」→ 添加字卡 → 开始聊天，每步可一键跳到对应位置；老用户想重看走 <b>设置 → 工具 → 新手引导</b>。</div>
-              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。</div>
+              <div class="lic-li">先在 <b>设置 → 通用 → 联系人 / 桌面</b> 新建联系人，并设置双方昵称、头像。<b>注意这是「桌面」那一套</b>：聊天里显示的名字 / 头像与它<b>互相独立、不会同步</b>，未设置时聊天里固定显示默认「我」「TA」，要去 <b>聊天页右上角 → 聊天设置 → 形象</b> 里的「我的昵称 / 联系人昵称 / 我的头像 / 联系人头像」单独再设一次。换聊天头像还有一条路：聊天页「更多功能」（输入栏左边的 ⋯）→ 互动类 → <b>头像互动</b>——上传多张头像库、点图即换，还能开「TA 随机换头像 / TA 主动给我换头像」。</div>
               <div class="lic-li">添加字卡：底部导航「字卡库」→ 公用字卡 / 专属字卡 里添加；也可以导入 milk 字卡库的 json，或用「自定义字卡·全量导入」。</div>
               <div class="lic-li">发消息：首页点联系人进入聊天，输入后发送。TA 的回复、主动消息、互动邀请都是<b>按概率随机触发</b>的。</div>
               <div class="lic-li">手机桌面：左右滑动切换页面，点图标进入聊天 / 字卡 / 查岗 / 日历 / 信箱 / 朋友圈 / 音乐 / 占卜 / 花园等各功能。</div>
@@ -12052,7 +12073,7 @@ transition-duration: .01ms !important;
               <div class="lic-li"><b>发语音</b>：先在 聊天设置 打开「我可发送语音」，输入栏左侧出现「麦克风」按钮，点击录音（最长 60 秒，可试听后发送）；需要允许麦克风权限。</div>
               <div class="lic-li"><b>拍一拍 / 搜索记录</b>：在聊天「+」的更多功能面板里。</div>
               <div class="lic-li"><b>切换联系人 / 桌面</b>：各联系人的数据相互独立；专属字卡、收藏等属于当前联系人。</div>
-              <div class="lic-li"><b>改昵称 / 头像</b>：在桌面双方头像组件下方修改，或 设置 → 通用 → 联系人 / 桌面。</div>
+              <div class="lic-li"><b>改昵称 / 头像</b>：桌面那一套在桌面双方头像组件下方修改，或 设置 → 通用 → 联系人 / 桌面；<b>聊天里显示的名字 / 头像是另一套</b>，在 聊天设置 → 形象 单独设置（未设时聊天里显示默认「我」「TA」），两者互不同步。</div>
             </div>
           </details>
           <details class="lic-grp">
@@ -13782,7 +13803,7 @@ transition-duration: .01ms !important;
         <span class="ch-name">朋友圈好友列表</span>
       </div>
       <div class="cal-scroll">
-        <div class="ff-help">在这里设置每个人在朋友圈里展示的头像与昵称，不影响聊天里的头像昵称。未设置时默认沿用聊天。</div>
+        <div class="ff-help">在这里设置每个人在朋友圈里展示的头像与昵称，不影响桌面和聊天里的头像昵称。未设置时默认沿用<b>桌面</b>的昵称 / 头像（不是聊天里的）。</div>
         <div id="feed-friends-list"></div>
       </div>
     </div>
@@ -15410,7 +15431,7 @@ transition-duration: .01ms !important;
       </div>
       <!-- v3.8.x：聊天专用昵称/头像（与桌面 deco-widget 的 lbl-*/avatar-* 完全独立，
            桌面只能在桌面改，聊天只能在聊天设置改；未设时聊天页显示默认占位 TA/我 + 人形图标） -->
-      <div class="gs-title" data-tag="profile">昵称与头像</div>
+      <div class="gs-title" data-tag="profile">昵称与头像（聊天专用 · 与桌面各自独立，互不同步）</div>
       <div class="set-group glass" data-tag="profile">
         <div class="set-row" id="cs-lbl-partner">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
@@ -22153,30 +22174,46 @@ if (!pages) return;
 function getSlides() { return Array.prototype.slice.call(pages.querySelectorAll('.page-slide')); }
 function getDots() { return Array.prototype.slice.call(document.querySelectorAll('#desktop-dots .dot')); }
 let idx = 0;
+let dotsCache = [];
+let gapCache = null;
+function refreshCache() {
+dotsCache = getDots();
+gapCache = null;
+}
 function pageStep() {
-const g = parseFloat(getComputedStyle(pages).columnGap) || 0;
-return pages.clientWidth + g;
+if (gapCache === null) gapCache = parseFloat(getComputedStyle(pages).columnGap) || 0;
+return pages.clientWidth + gapCache;
+}
+function paint(cur) {
+if (cur === idx) return;
+idx = cur;
+for (let k = 0; k < dotsCache.length; k++) dotsCache[k].classList.toggle('active', k === idx);
+}
+function sync() {
+if (!pages.clientWidth) return;
+const step = pageStep();
+if (!(step > 0)) return;
+const max = Math.max(dotsCache.length - 1, 0);
+paint(Math.max(0, Math.min(max, Math.round(pages.scrollLeft / step))));
 }
 function go(i) {
+refreshCache(); // 圆点可能刚被重建过（点击落在 deskRebuild 之后的首帧）
 const slides = getSlides();
 idx = Math.max(0, Math.min(slides.length - 1, i));
 if (!pages.clientWidth) return;
 pages.scrollLeft = idx * pageStep();
-getDots().forEach((d, k) => d.classList.toggle('active', k === idx));
+for (let k = 0; k < dotsCache.length; k++) dotsCache[k].classList.toggle('active', k === idx);
 }
-function sync() {
-if (!pages.clientWidth) return;
-const pos = pages.scrollLeft / pageStep();
-const cur = Math.round(pos);
-if (cur !== idx) {
-idx = cur;
-getDots().forEach((d, k) => d.classList.toggle('active', k === idx));
+let rafId = 0;
+let settleTimer = null;
+function syncFrame() {
+rafId = 0;
+sync();
 }
-}
-let scrollTimer = null;
 pages.addEventListener('scroll', () => {
-clearTimeout(scrollTimer);
-scrollTimer = setTimeout(sync, 120);
+if (!rafId) rafId = requestAnimationFrame(syncFrame);
+clearTimeout(settleTimer);
+settleTimer = setTimeout(sync, 80);
 }, { passive: true });
 document.getElementById('desktop-dots').addEventListener('click', (e) => {
 const dot = e.target.closest('.dot');
@@ -22184,12 +22221,14 @@ if (!dot) return;
 go(getDots().indexOf(dot));
 });
 window.addEventListener('resize', () => {
+refreshCache(); // 视口变了重算 gap 缓存（clientWidth 每帧现读，无需缓存）
 if (pages.clientWidth) pages.scrollLeft = idx * pageStep();
 });
 const phonePage = document.getElementById('page-phone');
 if (phonePage) {
 const mo = new MutationObserver(() => {
 if (!phonePage.hidden && pages.clientWidth) {
+refreshCache();
 pages.scrollLeft = idx * pageStep();
 sync();
 }
@@ -22208,11 +22247,13 @@ d.className = 'dot' + (i === idx ? ' active' : '');
 dotsBox.appendChild(d);
 }
 }
+refreshCache();
 if (pages.clientWidth) {
 pages.scrollLeft = idx * pageStep();
 sync();
 }
 };
+refreshCache();
 sync();
 window.deskGo = go;
 window.deskIdx = function () { return idx; };
@@ -40239,6 +40280,27 @@ return !!(p && !p.hidden);
 }
 window.gcSendDecisionText = gcSendDecisionText;
 window.gcIsVisible = gcIsVisible;
+window.gcWriteGroupMsgs = function (gid, arr) {
+try {
+if (!Array.isArray(arr)) return false;
+const g = gid || 'default';
+const key = groupMsgKey(g);
+try {
+const snap = JSON.stringify(gcLiteSnapArray(arr));
+if (snap.length <= GC_SNAP_LIMIT) localStorage.setItem(key, snap);
+else localStorage.removeItem(key);
+} catch (e) { try { localStorage.removeItem(key); } catch (e2) {} }
+if (g === curGid) {
+gFlushPersistNow();
+msgs = arr.filter(m => m && typeof m === 'object');
+saveNow();
+renderAll();
+return true;
+}
+if (window.idbSet) window.idbSet(key, arr);
+return true;
+} catch (e) { return false; }
+};
 function sendGcSticker(src) {
 if (!src) return;
 const rec = { side: 'out', type: 'sticker', text: src, ts: Date.now() };
@@ -93453,15 +93515,39 @@ pack.stat = stat;
 return pack;
 }
 const LS_SMALL_LIMIT = 20 * 1024;        // ≤ 此体积的键进备份的 ls 段（localStorage），其余进 idb 段
-const MODE_ASK_BYTES = 150 * 1024 * 1024; // 本机数据超过这个量才弹「选备份范围」，小库不打扰
 const MODE_IMPORT_WARN = 120 * 1024 * 1024; // 成品文件超过这个体积就如实提示「新设备可能导不回」
 const MUSIC_KEY_RE = /:music-file:/;      // 本地上传音乐的文件体：最占体积、且新设备上可重新添加
 const MEDIA_POOL_KEY_RE = /^xy-home-v2:media:[0-9a-f]{32}$/;
-const CHAT_KEY_RE = /:?chat-msgs$/;
+const CHAT_KEY_RE = /(?:^|:)chat-msgs$/;
+const GROUP_CHAT_KEY_RE = /^xy-home-v2:(?:group-chat-msgs|gc-msgs-.+)$/;
+function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }
+const MEDIA_TOKEN_RE = /@@m:([0-9a-f]{32})/g;
+function collectMediaHashes(v, out) {
+const scan = (s) => {
+if (typeof s !== 'string' || s.indexOf('@@m:') < 0) return;
+MEDIA_TOKEN_RE.lastIndex = 0;
+let m;
+while ((m = MEDIA_TOKEN_RE.exec(s))) out.add(m[1]);
+};
+try {
+if (typeof v === 'string') { scan(v); return; }
+if (!Array.isArray(v)) return;
+for (let i = 0; i < v.length; i++) {
+const m = v[i];
+if (!m || typeof m !== 'object') continue;
+scan(m.text); scan(m.img); scan(m.voice);
+if (m.quote && typeof m.quote === 'object') {
+scan(m.quote.t);
+if (Array.isArray(m.quote.imgs)) for (let j = 0; j < m.quote.imgs.length; j++) scan(m.quote.imgs[j]);
+}
+if (Array.isArray(m.parts)) for (let j = 0; j < m.parts.length; j++) { const p = m.parts[j]; if (p && typeof p === 'object') scan(p.v); }
+}
+} catch (e) {}
+}
 function exportCfg(mode) {
 if (mode === 'no-music') return { mode: mode, label: '不含音乐文件', note: '不含本地音乐文件', skip: (k) => MUSIC_KEY_RE.test(k), strip: false };
 if (mode === 'text') return { mode: mode, label: '只备份文字', note: '不含图片/语音/音乐附件', skip: (k) => MUSIC_KEY_RE.test(k) || MEDIA_POOL_KEY_RE.test(k), strip: true };
-if (mode === 'chat') return { mode: mode, label: '仅聊天记录', note: '只导出聊天记录', skip: (k) => !CHAT_KEY_RE.test(k), strip: false };
+if (mode === 'chat') return { mode: mode, label: '仅聊天记录', note: '只含各桌面聊天与群聊记录', skip: (k) => !isChatMsgKey(k), strip: false, mediaRefs: true };
 return { mode: 'full', label: '完整备份', note: '全部数据完整', skip: () => false, strip: false };
 }
 let expStage = '';
@@ -93502,6 +93588,9 @@ return new Promise((resolve) => {
 impShow('正在准备导出…', '正在统计本机数据体积…', 8);
 const lsChars = {};
 let projFile = 0, projStorage = 0, musicFile = 0;
+let chatFile = 0;
+const poolSize = {};
+const mediaRefs = new Set();
 try {
 for (let i = 0; i < localStorage.length; i++) {
 const k = localStorage.key(i);
@@ -93510,9 +93599,18 @@ const v = localStorage.getItem(k) || '';
 const c = k.length + v.length;
 lsChars[k] = c;
 projFile += c; projStorage += c * 2;
+if (isChatMsgKey(k)) { chatFile += c; collectMediaHashes(v, mediaRefs); }
 }
 } catch (e) {}
-const finish = (ok) => resolve({ ok: ok, projFile: projFile, projStorage: projStorage, musicFile: musicFile });
+const finish = (ok) => {
+if (ok) {
+mediaRefs.forEach(function (h) {
+const s = poolSize['xy-home-v2:media:' + h];
+if (s) chatFile += s;
+});
+}
+resolve({ ok: ok, projFile: projFile, projStorage: projStorage, musicFile: musicFile, chatFile: chatFile });
+};
 const listFn = window.idbListKeys;
 if (!listFn || !window.idbGetMany) { finish(false); return; }
 Promise.resolve(listFn()).then(function (keys) {
@@ -93539,11 +93637,15 @@ else if (v !== undefined && v !== null) c = JSON.stringify(v).length;
 } catch (e) { c = 0; }
 const isMusic = MUSIC_KEY_RE.test(String(k));
 const lsC = lsChars[k];
+const isChat = isChatMsgKey(String(k));
+const own = c + Math.round(blob * 4 / 3);
 if (lsC !== undefined && lsC <= LS_SMALL_LIMIT) { c = 0; blob = 0; } // 小键已按 LS 计过，IDB 同值不重复计
-else if (lsC !== undefined) { projFile -= lsC; projStorage -= lsC * 2; } // 大键以 IDB 权威值为准（同导出路径）
+else if (lsC !== undefined) { projFile -= lsC; projStorage -= lsC * 2; if (isChat) chatFile -= lsC; } // 大键以 IDB 权威值为准（同导出路径）
 projFile += c + Math.round(blob * 4 / 3);
 projStorage += c * 2 + blob;
-if (isMusic) musicFile += c + Math.round(blob * 4 / 3);
+if (isMusic) musicFile += own;
+if (isChat) { chatFile += c + Math.round(blob * 4 / 3); collectMediaHashes(v, mediaRefs); }
+if (MEDIA_POOL_KEY_RE.test(String(k))) poolSize[String(k)] = own;
 });
 impShow('正在准备导出…', '正在统计本机数据体积 ' + pos + '/' + list.length, Math.round(pos / Math.max(1, list.length) * 40));
 setTimeout(step, 0);
@@ -93560,26 +93662,31 @@ const finish = (m) => { if (settled) return; settled = true; resolve(m); };
 const ask = (info, usage) => {
 impHide();
 const bigRef = info ? info.projFile : usage;
-if (bigRef <= MODE_ASK_BYTES || !window.openModal) { finish('full'); return; }
+if (!window.openModal) { finish('full'); return; }
 const head = info
 ? ('本机数据实测约 ' + fmtSize(info.projStorage) +
 (info.quota ? '，占浏览器配额约 ' + Math.max(0.1, Math.round(info.projStorage / info.quota * 1000) / 10) + '%' : '') + '。\n' +
 '预计导出文件体积：完整备份 ≈ ' + fmtSize(info.projFile) +
 '；不含音乐文件 ≈ ' + fmtSize(Math.max(0, info.projFile - info.musicFile)) +
+'；仅聊天记录 ≈ ' + fmtSize(info.chatFile || 0) +
+'（各桌面与群聊消息 + 消息引用到的图片/语音）' +
 '；只备份文字＝剥离全部图片/语音/音乐后明显更小（以导出完成提示为准）。\n')
 : ('本机数据约 ' + fmtSize(usage) + '（整个域名的占用口径，含同域其他站点，仅供参考）。\n');
-window.openModal('本机数据约 ' + fmtSize(info ? info.projFile : usage) + '，先选备份范围', '', function (v) {
+window.openModal('选择导出范围' + (bigRef ? '（本机数据约 ' + fmtSize(bigRef) + '）' : ''), '', function (v) {
 finish(v || 'full');
 }, {
 noInput: true, okText: '开始导出', pill: 'full', lock: true,
 pills: [{ label: '完整备份', value: 'full' }, { label: '不含音乐文件', value: 'no-music' },
-{ label: '只备份文字', value: 'text' }, { label: '取消', value: 'cancel' }],
+{ label: '只备份文字', value: 'text' }, { label: '仅聊天记录', value: 'chat' },
+{ label: '取消', value: 'cancel' }],
 staticText: head +
 '完整备份：全部数据都进文件（含本地音乐文件、图片、语音）。文件最大，' +
 '超过约 ' + fmtSize(MODE_IMPORT_WARN) + ' 时新设备可能「导得出去、导不回来」（导入要把整个文件一次读进内存）。\n' +
 '不含音乐文件：跳过本地上传的歌曲，其余数据完整，音乐到新设备重新添加即可。\n' +
 '只备份文字：再跳过图片/语音等附件，聊天记录与字卡只保留文字，体积最小。\n' +
-'三种模式都会完整备份聊天记录的文字、设置与字卡文本。' +
+'仅聊天记录：只带走聊天——全部桌面联系人（含默认桌面）与群聊的记录，消息引用到的图片/语音一并打包；' +
+'设置、字卡、朋友圈、音乐都不进文件。换机只想搬聊天、或数据太大先保住聊天时选它。\n' +
+'前三种（完整备份 / 不含音乐文件 / 只备份文字）都会完整备份聊天记录的文字、设置与字卡文本。' +
 (info ? '\n（体积按当前数据实测估算，最终以导出完成提示的精确大小为准）' : '')
 });
 };
@@ -93625,7 +93732,7 @@ else { small[k] = v; cover.see(k, v); }
 }
 } catch (e) {}
 function isAuthorityKey(k) {
-return /:chat-msgs$/.test(k) || /:feed-posts$/.test(k);
+return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k);
 }
 const exportMissing = []; // 权威键降级记录（只剩有损快照或丢失）
 let idbKeys = [];
@@ -93656,6 +93763,9 @@ if (isAuthorityKey(k)) { try { delete small[k]; } catch (e) {} } // 有损 LS �
 if (!overSmallLimit(v, LS_SMALL_LIMIT)) { small[k] = v; return null; }
 return { k: k, v: v, own: own };
 }
+const mediaRefs = new Set();
+let mediaRefQueue = null, mediaRefCursor = 0;
+const mediaRefSeen = {};
 const estTotal = Math.max(1, idbKeys.length + Object.keys(lsBig).length);
 let cursor = 0;      // idbKeys 游标
 let tailKeys = null; // idbKeys 走完后，lsBig 里没被 IDB 收录的键（最终兜底）
@@ -93683,6 +93793,7 @@ v = await window.idbGet(k);
 }
 if (v !== undefined && v !== null) {
 expKeyBytes = typeof v === 'string' ? v.length * 2 : (v instanceof Blob ? v.size : 0);
+if (cfg.mediaRefs) collectMediaHashes(v, mediaRefs);
 if (v instanceof Blob) {
 const ent = routeValue(k, 'data:' + (v.type || 'audio/mpeg') + ';base64,' + await blobToBase64(v), true);
 delete lsBig[k]; // 已收录 IDB 权威值，不再回落 LS 兜底
@@ -93716,6 +93827,23 @@ if (lsV !== null) { const ent = routeValue(k, lsV, false); if (ent) return ent; 
 exportMissing.push(k);
 }
 } catch (e) {} // 单键失败跳过，继续导出其余键
+}
+if (cfg.mediaRefs) {
+if (mediaRefQueue === null) mediaRefQueue = Array.from(mediaRefs);
+while (mediaRefCursor < mediaRefQueue.length) {
+const mk = 'xy-home-v2:media:' + mediaRefQueue[mediaRefCursor++];
+if (mediaRefSeen[mk]) continue;
+mediaRefSeen[mk] = 1;
+expKey = mk;
+expKeyBytes = 0;
+impShow('正在导出…', '正在打包聊天图片/语音 ' + mediaRefCursor + ' / ' + mediaRefQueue.length, pct());
+try {
+const mv = await window.idbGet(mk);
+if (mv === undefined || mv === null) continue;
+const ment = routeValue(mk, mv, true);
+if (ment) return ment; // 大条目交打包器流式写（小条目已并进 ls 段）
+} catch (e) {}
+}
 }
 if (tailKeys === null) tailKeys = Object.keys(lsBig);
 while (tailCursor < tailKeys.length) {
@@ -94346,21 +94474,25 @@ then: (f) => { if (!seq) f(); return seq; },
 function arrByteLen(arr) {
 try { let n = 0; for (let i = 0; i < arr.length; i++) { const m = arr[i]; if (m && typeof m === 'object') { const t = m.text; if (typeof t === 'string') n += t.length; const im = m.img; if (typeof im === 'string') n += im.length; const vc = m.voice; if (typeof vc === 'string') n += vc.length; n += 64; } else n += 32; } return n; } catch (e) { return 0; }
 }
-window.runChatAllImport = function () {
+window.runChatAllImport = function (file) {
+if (file) { chatAllImportRead(file); return; }
 const input = document.createElement('input');
 input.type = 'file';
 input.accept = '.json,application/json';
 input.onchange = () => {
 const f = input.files && input.files[0];
 if (!f) return;
+chatAllImportRead(f);
+};
+input.click();
+};
+function chatAllImportRead(f) {
 const reader = new FileReader();
 reader.onload = () => {
 let data;
 try { data = JSON.parse(String(reader.result || '')); } catch (e) { toast('无效的聊天记录文件'); return; }
 if (!data || typeof data !== 'object') { toast('无效的聊天记录文件'); return; }
-const MOCHI_PREFIX = 'xy-home-v2:';
-const chatKeyRe = /^xy-home-v2:(default|c\d+):chat-msgs$/;
-const metaKeyRe = /^xy-home-v2:(default|c\d+):chat-meta$/;
+const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;
 const mediaKeyRe = /^xy-home-v2:media:/;
 const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
 const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
@@ -94369,54 +94501,56 @@ if (lsObj[k] !== undefined) return { v: lsObj[k], from: 'ls' };
 if (idbObj[k] !== undefined) return { v: idbObj[k], from: 'idb' };
 return null;
 };
-let chatKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => chatKeyRe.test(k));
+const allKeys = Object.keys(lsObj).concat(Object.keys(idbObj));
+let chatKeys = allKeys.filter(k => chatKeyRe.test(k));
+let groupKeys = allKeys.filter(k => GROUP_CHAT_KEY_RE.test(k));
 let singleMsgs = null;
-if (!chatKeys.length) {
+if (!chatKeys.length && !groupKeys.length) {
 if (Array.isArray(data)) singleMsgs = data;
 else if (data.msgs && Array.isArray(data.msgs)) singleMsgs = data.msgs;
 else if (data.ls && data.ls['xy-home-v2:chat-msgs'] !== undefined) {
 try { const raw = data.ls['xy-home-v2:chat-msgs']; singleMsgs = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { singleMsgs = null; }
 }
 }
-if (!chatKeys.length && !Array.isArray(singleMsgs)) { toast('文件里没有可导入的聊天记录数据'); return; }
+if (!chatKeys.length && !groupKeys.length && !Array.isArray(singleMsgs)) { toast('文件里没有可导入的聊天记录数据'); return; }
 const fmt = (t) => t ? new Date(t).toLocaleString() : '未知';
 const arrOf = (k) => {
 const raw = pickRaw(k);
 if (!raw) return [];
 try { const a = typeof raw.v === 'string' ? JSON.parse(raw.v) : raw.v; return Array.isArray(a) ? a : []; } catch (e) { return []; }
 };
+const cidOf = (k) => { const s = k.split(':'); return s.length <= 2 ? 'default' : (s[1] || 'default'); };
 const preview = [];
 if (chatKeys.length) {
 chatKeys.forEach(k => {
 const a = arrOf(k);
-const cid = (k.split(':')[1] || 'default');
+const cid = cidOf(k);
 preview.push('· ' + (cid === 'default' ? '默认桌面' : cid) + '：' + a.length + ' 条' +
 (a.length ? '（最早 ' + fmt(a[0] && a[0].ts) + '）' : ''));
 });
-} else {
+}
+groupKeys.forEach(k => {
+const a = arrOf(k);
+const gid = k === 'xy-home-v2:group-chat-msgs' ? 'default' : k.slice('xy-home-v2:gc-msgs-'.length);
+preview.push('· 群聊' + (gid === 'default' ? '（默认群）' : ' ' + gid) + '：' + a.length + ' 条' +
+(a.length ? '（最早 ' + fmt(a[0] && a[0].ts) + '）' : ''));
+});
+if (!chatKeys.length && !groupKeys.length) {
 preview.push('· 当前桌面（默认）：' + singleMsgs.length + ' 条' +
 (singleMsgs.length ? '（最早 ' + fmt(singleMsgs[0] && singleMsgs[0].ts) + '）' : ''));
 }
-const mediaKeys = Object.keys(lsObj).concat(Object.keys(idbObj)).filter(k => mediaKeyRe.test(k));
-if (mediaKeys.length) preview.push('· 附带媒体图片 ' + mediaKeys.length + ' 项');
-preview.push('导入将覆盖对应桌面的全部聊天记录（不可恢复），其他数据不受影响。');
+const mediaKeys = allKeys.filter(k => mediaKeyRe.test(k));
+if (mediaKeys.length) preview.push('· 附带图片/语音 ' + mediaKeys.length + ' 项');
+preview.push('导入将覆盖对应桌面/群聊的全部聊天记录（不可恢复），其他数据不受影响。');
 if (!window.openModal) return;
-window.openModal('确认导入全部桌面聊天记录？', '', () => {
-importChatAllGo(data, chatKeys, singleMsgs, mediaKeys);
+window.openModal('确认导入聊天记录？', '', () => {
+importChatAllGo(chatKeys, groupKeys, singleMsgs, mediaKeys, pickRaw);
 }, { noInput: true, staticText: preview.join('\n') });
 };
 reader.onerror = () => { toast('文件读取失败，请重试'); };
 reader.readAsText(f, 'utf-8');
-};
-input.click();
-};
-function importChatAllGo(data, chatKeys, singleMsgs, mediaKeys) {
-const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
-const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
-const pickRaw = (k) => {
-if (lsObj[k] !== undefined) return lsObj[k];
-return idbObj[k];
-};
+}
+function importChatAllGo(chatKeys, groupKeys, singleMsgs, mediaKeys, pickRaw) {
 const cur = window.__activeCid || 'default';
 const writes = [];
 let totalN = 0;
@@ -94426,11 +94560,12 @@ totalN += singleMsgs.length;
 }
 chatKeys.forEach(k => {
 const raw = pickRaw(k);
-if (raw === undefined) return;
+if (!raw || raw.v === undefined) return;
 let arr;
-try { arr = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return; }
+try { arr = typeof raw.v === 'string' ? JSON.parse(raw.v) : raw.v; } catch (e) { return; }
 if (!Array.isArray(arr)) return;
-const cid = (k.split(':')[1] || 'default');
+const s = k.split(':');
+const cid = s.length <= 2 ? 'default' : (s[1] || 'default');
 totalN += arr.length;
 if (cid === cur) {
 if (window.chatImportMsgs) window.chatImportMsgs(arr);
@@ -94438,19 +94573,33 @@ if (window.chatImportMsgs) window.chatImportMsgs(arr);
 writes.push({ kind: 'chat', cid: cid, arr: arr });
 }
 });
+groupKeys.forEach(k => {
+const raw = pickRaw(k);
+if (!raw || raw.v === undefined) return;
+let arr;
+try { arr = typeof raw.v === 'string' ? JSON.parse(raw.v) : raw.v; } catch (e) { return; }
+if (!Array.isArray(arr)) return;
+const gid = k === 'xy-home-v2:group-chat-msgs' ? 'default' : k.slice('xy-home-v2:gc-msgs-'.length);
+totalN += arr.length;
+writes.push({ kind: 'group', gid: gid, arr: arr });
+});
 let p = Promise.resolve();
 writes.forEach((w) => {
+if (w.kind === 'group') {
+p = p.then(() => { if (window.gcWriteGroupMsgs) return window.gcWriteGroupMsgs(w.gid, w.arr); });
+} else {
 p = p.then(() => writeDeskChat(w.cid, w.arr));
+}
 });
 mediaKeys.forEach(k => {
-const v = pickRaw(k);
-if (v === undefined) return;
+const raw = pickRaw(k);
+if (!raw || raw.v === undefined) return;
 if (window.idbSet) {
-p = p.then(() => window.idbSet(k, v));
+p = p.then(() => window.idbSet(k, raw.v));
 }
 });
 p.then(() => {
-toast('已导入全部桌面聊天记录（' + totalN + ' 条）');
+toast('聊天记录已导入（' + totalN + ' 条，覆盖对应桌面/群聊）');
 }).catch((e) => {
 toast('导入失败：' + (e && e.message || '未知错误'));
 });
@@ -94462,6 +94611,24 @@ exportRow.addEventListener('click', () => { window.runBackupExport(); });
 const importRow = document.getElementById('row-import');
 if (importRow) {
 importRow.addEventListener('click', () => {
+if (!window.openModal) { pickImportFile(); return; }
+window.openModal('选择导入范围', '', (v) => {
+if (v === 'chat') { window.runChatAllImport(); return; }
+if (v === 'cancel') return;
+pickImportFile();
+}, {
+noInput: true, okText: '开始导入', pill: 'full', lock: true,
+pills: [{ label: '完整备份（全部数据）', value: 'full' },
+{ label: '仅聊天记录（全部桌面联系人）', value: 'chat' },
+{ label: '取消', value: 'cancel' }],
+staticText: '完整备份：按备份文件恢复全部数据（会覆盖本机现有数据，含设置 / 字卡 / 朋友圈 / 音乐等）。\n' +
+'仅聊天记录：只恢复备份里的聊天记录——全部桌面联系人（含默认桌面）与群聊，' +
+'消息里引用到的图片/语音一并恢复；设置、字卡、朋友圈、音乐一律不动。\n' +
+'两种都能读「导出数据」产生的备份文件；仅聊天记录还会识别单桌导出的聊天文件。'
+});
+});
+}
+function pickImportFile() {
 const input = document.createElement('input');
 input.type = 'file';
 input.style.position = 'fixed';
@@ -94476,7 +94643,6 @@ if (f) doImport(f);
 };
 input.click();
 setTimeout(() => { try { if (input.parentNode) input.remove(); } catch (e) {} }, 120000);
-});
 }
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("data-backup.js");
@@ -96518,8 +96684,8 @@ const HUB = [
 { n: '联系人气泡颜色', d: 'TA 发的消息气泡背景色', k: '气泡 颜色 联系人 TA 背景', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-in-bg'] },
 { n: '联系人消息文字颜色', d: 'TA 发的消息文字颜色', k: '文字 颜色 联系人 TA 消息', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-in-ink'] },
 { n: '气泡 CSS', d: '自定义 CSS 进一步美化气泡（进阶）', k: 'css 样式 美化 气泡 进阶', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-css'] },
-{ n: '联系人昵称', d: '改 TA 在聊天里的显示昵称', k: '昵称 名字 联系人 改名', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-partner'] },
-{ n: '我的昵称', d: '改我在聊天里的显示昵称', k: '昵称 名字 我的 改名', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-user'] },
+{ n: '联系人昵称', d: '改 TA 在聊天里的显示昵称（桌面昵称与聊天昵称互不同步，要各自设置）', k: '昵称 名字 联系人 改名 聊天昵称 桌面昵称 不同步 不一样 没变 显示 TA', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-partner'] },
+{ n: '我的昵称', d: '改我在聊天里的显示昵称（桌面昵称与聊天昵称互不同步，要各自设置）', k: '昵称 名字 我的 改名 聊天昵称 桌面昵称 不同步 不一样 没变 显示', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-lbl-user'] },
 { n: '联系人头像', d: '换 TA 的头像（可上传/清空）', k: '头像 联系人 换 上传', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-avatar-partner'] },
 { n: '我的头像', d: '换我的头像（可上传/清空）', k: '头像 我的 换 上传', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-avatar-user'] },
 { n: '隐藏发送按钮', d: '隐藏聊天输入栏发送按钮（仍可回车发送）', k: '发送 按钮 隐藏 输入', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-send-show'] },
@@ -96580,7 +96746,7 @@ const HUB = [
 { n: '红包', d: '双向红包：预设档/随机/自定义金额、留言与封面', k: '红包 转账 钱', go: ['.app[data-app="chat"]', '#more-rp'] },
 { n: '心意币 · 心意市集', d: '220+ 件商品分 12 类，送礼给 TA（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币', go: ['.app[data-app="market"]'] },
 { n: '心意柜', d: '收到/送出的礼物册与统计（桌面有独立图标）', k: '礼物柜 收藏 礼物', go: ['.app[data-app="giftbox"]'] },
-{ n: '头像互动', d: '换头像邀请、头像池、定时自动换头像', k: '头像 换头像', go: ['.app[data-app="chat"]', '#more-avatar'] },
+{ n: '头像互动', d: '换聊天头像：上传多张头像库、点图即换，可开随机自动换头像（与桌面头像独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像', go: ['.app[data-app="chat"]', '#more-avatar'] },
 { n: '漂流瓶', d: '两个世界之间的海：捡瓶子/放瓶子', k: '漂流瓶 海 瓶子', go: ['.app[data-app="chat"]', '#more-drift'] },
 { n: '帮我决定', d: '是/否或自定义选项随机决定，结果可发聊天', k: '决定 选择 纠结', go: ['.app[data-app="chat"]', '#more-decide'] },
 { n: '多人决定', d: '成员名单各自随机出结果，逐行发送', k: '多人 决定 抽签', go: ['.app[data-app="chat"]', '#more-gdecide'] },
@@ -96672,8 +96838,8 @@ const HUB = [
 { n: '通话设置', d: '来电/接听/挂断等触发概率与通话背景', k: '通话设置 电话 概率', go: ['#row-call-settings'] },
 { n: '通话背景图片', d: '通话页面背景图自定义上传', k: '通话 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-bg-row'] },
 { n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
-{ n: '数据导出', d: '导出全部数据为备份文件（请定期备份）', k: '导出 备份 数据', go: ['#row-export'] },
-{ n: '数据导入', d: '从备份文件恢复，含预览与进度', k: '导入 恢复 数据', go: ['#row-import'] },
+{ n: '数据导出', d: '导出全部数据为备份文件；点开可选「仅聊天记录」（各桌面联系人 + 群聊，换机只搬聊天）', k: '导出 备份 数据 可选 只导出 仅 聊天记录 全部桌面', go: ['#row-export'] },
+{ n: '数据导入', d: '从备份文件恢复（含预览与进度）；点开可选「仅聊天记录」（只恢复各桌面联系人与群聊）', k: '导入 恢复 数据 可选 只导入 仅 聊天记录 全部桌面', go: ['#row-import'] },
 { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录；页内「字卡图去重入库」做字卡库瘦身', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },
 { n: '字卡库瘦身 · 字卡图去重', d: '把字卡库里的内联图片转成媒体池令牌，同一张图全库只存一份（库键大幅缩小、减轻卡顿；图片显示与发送不变）', k: '字卡 去重 瘦身 存储 图片 卡顿 体积', go: ['#row-storage-view'] },
 { n: '卡顿自检 · 一键优化', d: '字卡库数据过大卡顿时，扫描分级并一键预热修复', k: '卡顿 优化 性能 流畅 预热', go: ['#row-perf-optimize'] },
@@ -96688,7 +96854,7 @@ const HUB = [
 { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
 { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
 { n: '功能诊断', d: '逐个测试全部功能是否正常（约15秒）', k: '功能诊断 自检 测试', go: ['#row-func-diag'] },
-{ n: '新手引导', d: '3 步上手：设置「我」和「TA」→ 添加字卡 → 开始聊天（全新环境首次打开会自动弹一次）', k: '新手 引导 上手 教程 怎么开始 不会用 从哪开始', go: ['#row-guidebook'] },
+{ n: '新手引导', d: '3 步上手：设置「我」和「TA」→ 添加字卡 → 开始聊天（含桌面 / 聊天两套昵称的区别；全新环境首次打开会自动弹一次）', k: '新手 引导 上手 教程 怎么开始 不会用 从哪开始 昵称 桌面 聊天', go: ['#row-guidebook'] },
 { n: '使用说明', d: '完整说明：快速开始 / 安装方式 / iPhone·iOS 限制 / 数据备份 / 常见问题', k: '使用说明 教程 帮助 安装 ios 限制 备份 常见问题', go: ['#row-guide'] },
 { n: '功能介绍与许可', d: '原创声明、二传二改许可、灵感来源', k: '介绍 许可 关于 版权', go: ['#row-about'] }
 ] }
@@ -96943,8 +97109,8 @@ var DESC = [
 { sel: '#bg-notify', name: '后台通知', d: '开启后 TA 在后台发来消息时弹出系统通知。\n默认：关闭。\n机制：开启会请求系统通知权限，授权成功后自动联动开启「后台保活」；若权限被系统回收会自动关闭本项，需 HTTPS 环境。\n影响范围：全局生效。可用右侧「测试」检查本机通知是否正常。' },
 { sel: '#sf-edge-guard', name: '全屏边缘防误触', d: '全屏时在屏幕左右边缘加一层拦截，尽量挡住国产浏览器自带的边缘上/下滑（调音量/亮度）手势。\n默认：关闭。\n机制：仅在进入全屏时生效；对系统级手势可能无效，最可靠仍是浏览器设置里关闭边缘滑动调节。\n影响范围：按联系人桌面独立保存。' },
 { sel: '#desk-msg-en', name: '桌面消息弹窗', d: '开启后，不在聊天页时 TA 发来新消息会在桌面顶部弹出消息横幅。\n默认：开启。\n影响范围：按联系人桌面独立保存；关闭后仅在聊天页内看到消息，不再弹横幅。' },
-{ sel: '#row-export', name: '导出数据', d: '把本机全部数据（所有桌面的聊天 / 字卡 / 设置等）导出为一份备份文件，用于换机或防丢失。\n机制：纯本地导出，无后端。\n影响范围：全量数据。\niOS Safari 可能被系统清空存储，建议定期导出；本行也是「定期备份提醒」记录导出时间的来源。' },
-{ sel: '#row-import', name: '导入数据', d: '从备份文件恢复数据，会覆盖 / 合并本机现有数据。\n机制：导入后触发数据回填，请等待恢复完成再操作。\n影响范围：全量数据。\n建议：导入前先「导出数据」留底。' },
+{ sel: '#row-export', name: '导出数据', d: '导出备份文件，用于换机或防丢失。点开先选范围：完整备份 / 不含音乐文件 / 只备份文字 / 仅聊天记录（全部桌面联系人 + 群聊，消息引用到的图片语音一并带走）。\n机制：纯本地导出，无后端。\n影响范围：按所选范围；「仅聊天记录」不算全量备份，不更新定期备份提醒的导出时间。\niOS Safari 可能被系统清空存储，建议定期导出完整备份。' },
+{ sel: '#row-import', name: '导入数据', d: '从备份文件恢复数据。点开先选范围：「完整备份」按文件覆盖本机全部数据（设置/字卡/朋友圈/音乐等），「仅聊天记录」只恢复各桌面联系人与群聊的聊天、其他数据一律不动（可从整份备份里单独找回聊天）。\n机制：导入后触发数据回填，请等待恢复完成再操作。\n建议：导入前先「导出数据」留底。' },
 { sel: '#safe-top-force', name: '顶部避让修正', d: 'iOS 专用修正：顶部「Mochi」行与手机系统时间重叠时开启；底部出现白带时关闭。\n默认：关闭（系统保留形态）。\n机制：改后会自动刷新页面生效。\n影响范围：全局，仅影响 iOS 顶部安全区避让。' },
 { sel: '#row-diagnostics', name: '设备兼容诊断', d: '采集本机设备与浏览器环境信息，一键复制发给开发者排障。\n机制：只读，不改动任何业务数据；有未读兼容错误时行上显示角标，点开即清零。' },
 { sel: '#row-screen-diag', name: '屏幕适配诊断', d: '定位跨设备屏幕适配问题（顶部空白 / 底部裁切 / 缩放异常），生成可读报告与机读签名，可导出或复制。\n机制：只读；产生的诊断记录可在「查看存储」里清理。' },
@@ -97053,11 +97219,14 @@ st.textContent =
 '[data-theme="dark"] .mg-guide-btn.ghost{background:rgba(255,255,255,.1)}' +
 '[data-theme="dark"] .mg-guide-go{color:#8fb4ef}' +
 '.mg-guide-warn{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(214,132,60,.13);color:#9a5520;font-size:11.5px;line-height:1.6}' +
-'[data-theme="dark"] .mg-guide-warn{background:rgba(214,132,60,.18);color:#e4ae7f}';
+'[data-theme="dark"] .mg-guide-warn{background:rgba(214,132,60,.18);color:#e4ae7f}' +
+'.mg-guide-tip{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;background:rgba(47,111,208,.1);color:#2f6fd0;font-size:11.5px;line-height:1.6}' +
+'[data-theme="dark"] .mg-guide-tip{background:rgba(47,111,208,.16);color:#8fb4ef}';
 document.head.appendChild(st);
 const STEPS = [
 { n: '1', h: '设置「我」和「TA」', d: '回桌面，点顶部两个头像 / 昵称，即可改名、换头像（这里是桌面那一套）。',
 warn: '桌面的昵称 / 头像与聊天里的是<b>两套、互不同步</b>：桌面改完，聊天里仍显示默认「我」「TA」；聊天里的名字和头像要在「聊天页右上角 → 聊天设置 → 形象」里单独设置。',
+tip: '聊天头像另有一条快路：聊天输入栏左边的「更多功能」（⋯）→ 互动类 → <b>头像互动</b>——可上传多张头像库、点库里的图即换聊天头像，还能开「TA 随机换头像 / TA 主动给我换头像」（每 1-8 小时一次）。',
 go: 'name' },
 { n: '2', h: '先添加字卡', d: '底部「字卡库」→ 公用字卡 / 专属字卡 添加或导入；不加字卡，TA 就没有话可说。', go: 'cards' },
 { n: '3', h: '开始聊天', d: '回桌面点「聊天」图标，随便发一条消息试试（TA 会按概率回复）。', go: 'chat' }
@@ -97077,6 +97246,7 @@ html += '<div class="mg-guide-step" data-gstep="' + s.go + '">'
 + '<span class="mg-guide-n">' + s.n + '</span>'
 + '<span class="mg-guide-b"><span class="mg-guide-h">' + s.h + '</span><span class="mg-guide-d">' + s.d + '</span>'
 + (s.warn ? '<span class="mg-guide-warn">' + s.warn + '</span>' : '')
++ (s.tip ? '<span class="mg-guide-tip">' + s.tip + '</span>' : '')
 + '</span>'
 + '<span class="mg-guide-go">去 →</span></div>';
 });
@@ -99836,4 +100006,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mu3ei73h -->
+<!-- __MOCHI_EOF__ mu3f9zaf -->

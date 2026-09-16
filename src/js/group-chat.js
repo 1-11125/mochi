@@ -1019,6 +1019,34 @@
   }
   window.gcSendDecisionText = gcSendDecisionText;
   window.gcIsVisible = gcIsVisible;
+  // v3.36.x #577：把某个群的历史写回本地（供设置页「导入数据 → 仅聊天记录」一次性恢复全部群聊，
+  // data-backup.js importChatAllGo 调用；本文件是群聊键 xy-home-v2:gc-msgs-<gid> /
+  // xy-home-v2:group-chat-msgs 的唯一写入方，gcLiteSnapArray/gcWriteMsgs 的规矩都由这里守）。
+  // 写入与 gcWriteMsgs 同路：lite 快照（条数不变、只剥大负载）进 LS + 全量数组进 IDB（权威）。
+  // 当前群额外同步内存与界面（否则屏上还是导入前的旧记录，切走再回来才刷新）；非当前群只落盘。
+  window.gcWriteGroupMsgs = function (gid, arr) {
+    try {
+      if (!Array.isArray(arr)) return false;
+      const g = gid || 'default';
+      const key = groupMsgKey(g);
+      try {
+        const snap = JSON.stringify(gcLiteSnapArray(arr));
+        // 快照与全量条数一致，loadMsgs 的「IDB 条目更多才覆盖」判定不会让旧快照压住这次导入；
+        // 超过 LS 上限就整键删掉（宁可没有快照，也不留一份会把新导入顶回去的旧快照）
+        if (snap.length <= GC_SNAP_LIMIT) localStorage.setItem(key, snap);
+        else localStorage.removeItem(key);
+      } catch (e) { try { localStorage.removeItem(key); } catch (e2) {} }
+      if (g === curGid) {
+        gFlushPersistNow();
+        msgs = arr.filter(m => m && typeof m === 'object');
+        saveNow();
+        renderAll();
+        return true;
+      }
+      if (window.idbSet) window.idbSet(key, arr);
+      return true;
+    } catch (e) { return false; }
+  };
   // 表情包直接发送（复用聊天页表情包面板的插入模式回调，见下方 gc-emoji-btn）
   function sendGcSticker(src) {
     if (!src) return;

@@ -77,6 +77,15 @@ T('B1 window.openMochiGuide 已定义', await ev(`typeof window.openMochiGuide =
 await ev(`window.openMochiGuide()`);
 await sleep(120);
 T('B2 引导弹层可见（3 步）', await ev(`(()=>{const m=document.querySelector('.mg-guide-mask'); return !!m && !m.hidden && m.querySelectorAll('[data-gstep]').length===3;})()`));
+// B2a #577（用户 2026-09-16：引导没说明「桌面昵称和聊天昵称独立、需单独设置」）——第 1 步必须
+// 渲染出补充提示块，并写明「两套 / 不同步」+「聊天设置 → 形象」这条单独设置路径。
+T('B2a 引导第 1 步写明桌面 / 聊天两套昵称及聊天侧设置路径', await ev(`(()=>{const w=document.querySelector('[data-gstep="name"] .mg-guide-warn'); if(!w) return false; const t=w.textContent; return t.indexOf('两套')>=0 && t.indexOf('不同步')>=0 && t.indexOf('聊天设置')>=0 && t.indexOf('形象')>=0;})()`));
+T('B2b 引导提示块有可见样式（未设样式＝说明退回裸文字）', await ev(`(()=>{const w=document.querySelector('[data-gstep="name"] .mg-guide-warn'); if(!w) return false; const s=getComputedStyle(w); return s.display==='block' && parseFloat(s.fontSize)>0;})()`));
+// B2c #577b（用户追加 2026-09-16：「聊天里的更换头像，你没说可以直接在聊天设置里更换，
+// 或在聊天输入栏左边打开更多功能里的【头像互动】上传头像库可互动」）——第 1 步还要给出
+// 「更多功能 → 头像互动」这条换聊天头像的路，并与 .mg-guide-warn 区分成独立蓝色提示块。
+T('B2c 引导第 1 步补「更多功能 → 头像互动」换聊天头像路径', await ev(`(()=>{const p=document.querySelector('[data-gstep="name"] .mg-guide-tip'); if(!p) return false; const t=p.textContent; return t.indexOf('更多功能')>=0 && t.indexOf('头像互动')>=0 && t.indexOf('头像库')>=0 && t.indexOf('随机换头像')>=0;})()`));
+T('B2d 头像互动提示块与昵称提示块样式区分且可点区不受影响', await ev(`(()=>{const p=document.querySelector('[data-gstep="name"] .mg-guide-tip'); const w=document.querySelector('[data-gstep="name"] .mg-guide-warn'); if(!p||!w) return false; const a=getComputedStyle(p), b=getComputedStyle(w); return a.display==='block' && a.backgroundColor!==b.backgroundColor && document.querySelectorAll('[data-gstep]').length===3;})()`));
 // B3 点第 3 步 → 进聊天页
 await ev(`document.querySelector('[data-gstep="chat"]').click()`);
 await sleep(150);
