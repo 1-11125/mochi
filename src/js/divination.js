@@ -365,6 +365,80 @@
     Object.defineProperty(window, '__LENO__', { get: lenoDeck, configurable: true });
   } catch (e) { window.__LENO__ = LENO; }
 
+  // ---- v3.27.x：占卜对象（选一个桌面联系人 → 该次牌面/解读写入 TA 的主页「占卜记录」）----
+  // 缺实现补齐：chat.js / records.js 一直按 `window.divine*` 调用这组接口但源码里没有
+  // （`#div-targets`/`#div-chat-targets` 永远空白、主页「占卜记录」永远空、「查看牌面」
+  // 点了没反应）。这里补全：不选＝存当前桌面；选了某联系人＝存该联系人桌面。
+  let divineTarget = '';   // '' = 不选（存到当前桌面）
+  let homePending = [];    // IDB 回填完成前暂存的待写主页记录
+  function curStore() { return (window.activeStore && window.activeStore()) || store; }
+  function targetName(cid) {
+    cid = cid || (window.__activeCid || 'default');
+    try {
+      let v = '';
+      if (cid === (window.__activeCid || 'default')) {
+        const s = curStore();
+        v = s.get('lbl-partner') || s.get('cs-lbl-partner') || '';
+      } else {
+        const s = window.storeFor(cid);
+        v = s.get('lbl-partner') || s.get('cs-lbl-partner') || '';
+      }
+      return v || (window.contactNameFor ? window.contactNameFor(cid) : '') || (window.taWordFor ? window.taWordFor(cid) : 'TA');
+    } catch (e) { return 'TA'; }
+  }
+  function loadDivineTarget() {
+    try { divineTarget = curStore().get('divine-target') || ''; } catch (e) { divineTarget = ''; }
+    if (divineTarget && window.getContacts && !window.getContacts().some(c => c && c.id === divineTarget)) divineTarget = '';
+  }
+  function syncTargets() {
+    document.querySelectorAll('[data-dtarget]').forEach(b =>
+      b.classList.toggle('sel', (b.getAttribute('data-dtarget') || '') === divineTarget));
+  }
+  function renderTargetsInto(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    loadDivineTarget();
+    const contacts = (window.getContacts && window.getContacts()) || [];
+    const chips = [{ cid: '', label: '不选' }];
+    contacts.forEach(c => { if (c && c.id) chips.push({ cid: c.id, label: targetName(c.id) }); });
+    el.innerHTML = chips.map(x =>
+      '<button type="button" class="div-mode' + ((x.cid || '') === divineTarget ? ' sel' : '') +
+      '" data-dtarget="' + escHtml(x.cid || '') + '">' + escHtml(x.label) + '</button>').join('');
+    if (!el.dataset.dtBound) {
+      el.dataset.dtBound = '1';
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-dtarget]');
+        if (!b) return;
+        divineTarget = b.getAttribute('data-dtarget') || '';
+        try { curStore().set('divine-target', divineTarget); } catch (e2) {}
+        syncTargets();
+      });
+    }
+  }
+  window.divineRenderTargets = function (id) { try { renderTargetsInto(id); } catch (e) {} };
+  window.divineGetTarget = function () { return divineTarget; };
+  window.divineTargetName = function (cid) { return targetName(cid); };
+  // 写主页「占卜记录」（records-divine，per-cid 桌面）；恢复窗口内暂存，回填后再合并
+  function writeHomeRec(cid, record) {
+    let list = [];
+    try { list = JSON.parse(window.storeFor(cid).get('records-divine') || '[]'); } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    if (!list.some(x => x && x.ts === record.ts)) list.unshift(record);
+    if (list.length > 100) list = list.slice(0, 100);
+    try { window.storeFor(cid).set('records-divine', JSON.stringify(list)); } catch (e) {}
+  }
+  function saveToHome(record, target) {
+    const cid = target || (window.__activeCid || 'default');
+    if (!histReady) { homePending.push({ cid: cid, record: record }); return; }
+    writeHomeRec(cid, record);
+  }
+  function flushHomePending() {
+    if (!homePending.length) return;
+    const arr = homePending; homePending = [];
+    arr.forEach(p => { try { writeHomeRec(p.cid, p.record); } catch (e) {} });
+  }
+  window.divineSaveToHomeHistory = function (record, target) { try { saveToHome(record, target); } catch (e) {} };
+
   // ---- 牌面渲染（divination.js 自己的两处牌面展示；聊天页走合成图标路径） ----
   function faceActive(c) {
     if (!isFaceKey(c.icon)) return false;
@@ -658,6 +732,7 @@
       histReady = true;
       migrateLegacyHist();
       flushPendingHist();
+      try { flushHomePending(); } catch (e) {}
       // v3.9.x：IDB 回填完成后补渲染历史区——文件加载时 renderHistOnOpen 可能在
       // idbRestore 完成前调用，此时 store.get('divine-history') 读到空（LS/memoryCache
       // 均无），历史区渲染空白；恢复完成后必须补渲染一次，否则已有历史记录显示不出来
@@ -818,10 +893,15 @@
           const summary = buildSummary(cards, snapMode, question);
           renderDrawResult(cards, snapMode, question, summary);
           // 保存记录（v3.7.x：每个联系人桌面独立，store 动态绑定当前桌面）
+          const snapTarget = divineTarget; // v3.27.x：快照点击时的占卜对象
+          const record = { ts: Date.now(), mode: snapMode, count: snapCount, question: question, cards: cards, summary: summary };
+          if (snapTarget) record.target = targetName(snapTarget);
           const list = histLoad();
-          list.unshift({ ts: Date.now(), mode: snapMode, count: snapCount, question: question, cards: cards, summary: summary });
+          list.unshift(record);
           histSave(list);
           renderHistory();
+          // v3.27.x：写入占卜对象的主页「占卜记录」（不选＝当前桌面）
+          try { saveToHome(record, snapTarget); } catch (e) {}
           // v3.7.x：自动发送开关——开启后抽牌完成自动把结果发到聊天
           if (autoSendGet()) {
             const myCid = window.__activeCid || 'default';
@@ -862,6 +942,8 @@
   function renderHistOnOpen() {
     try { renderHistory(); } catch (e) {}
     try { syncAutoToggle(); } catch (e) {}
+    // 占卜对象 chips（首次 + 切联系人后重渲染；当前桌面选择记忆在 per-cid 的 divine-target）
+    try { renderTargetsInto('div-targets'); } catch (e) {}
   }
   renderHistOnOpen();
   document.addEventListener('contact-switched', renderHistOnOpen);
@@ -1262,6 +1344,10 @@
   window.divineBuildResultText = buildResultText;
   window.divineCopyResultText = copyResultText;
   window.divineSendResult = function (m, cards, summary, question) { sendToChat(m, cards, summary, question); };
+  // v3.27.x：主页「占卜记录 → 查看牌面」复用占卜页完整结果渲染（records.js 已负责切页）
+  window.divineRenderResult = function (cards, m, question, summary) {
+    try { renderDrawResult(cards, m, question, summary); } catch (e) {}
+  };
   // v3.27.x：牌面数据 API（图鉴页按钮内部用；也便于测试）
   window.divineFaces = {
     exportJSON: buildFaceExport,

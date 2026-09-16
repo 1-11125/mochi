@@ -9,7 +9,18 @@
 // v3.7.x：默认关闭——未做任何选择（缺省）或显式选「静音」（'none'）时均不播放；
 //   需在音效设置页主动点选内置音效或上传自定义音频后才会生效（用户要求）。
 (function () {
-  const store = window.activeStore();
+  // #643：音效作用范围可切换——「所有桌面共用」时读写全局命名空间（xy-home-v2: 根），
+  //   关闭时维持原行为（每联系人桌面各自一套）。包装层只改这一处，页内所有
+  //   store.get/set/remove（含 playSfx 播放时的读取）自动跟随，外部调用方零改动。
+  const rawStore = window.activeStore();
+  const gStore = window.xyStore('xy-home-v2');
+  function sfxUnified() { try { return gStore.get('sfx-unified') === '1'; } catch (e) { return false; } }
+  window.sfxUnified = sfxUnified;
+  const store = {
+    get(k) { return (sfxUnified() ? gStore : rawStore).get(k); },
+    set(k, v) { (sfxUnified() ? gStore : rawStore).set(k, v); },
+    remove(k) { (sfxUnified() ? gStore : rawStore).remove(k); }
+  };
   function toast(msg) {
     let t = document.getElementById('cc-toast');
     if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -473,6 +484,31 @@
   document.addEventListener('contact-switched', () => {
     renderAllSfx();
   });
+
+  // #643：作用范围开关——「所有桌面共用音效设置」
+  //   开启：以当前桌面的六项设置（三类自定义 + 三类内置选择）作为共用底稿写入全局槽；
+  //         各桌面自己的设置保留不动，之后关掉开关即原样恢复各桌面独立。
+  //   关闭：回到每桌面各自一套（原行为，默认）。
+  const sfxUniToggle = document.getElementById('sfx-unified');
+  function syncSfxUniRow() { if (sfxUniToggle) sfxUniToggle.checked = sfxUnified(); }
+  if (sfxUniToggle) {
+    sfxUniToggle.addEventListener('change', () => {
+      const on = !!sfxUniToggle.checked;
+      try { gStore.set('sfx-unified', on ? '1' : '0'); } catch (e) {}
+      if (on) {
+        ['sfx-ring', 'sfx-in', 'sfx-out', 'sfx-ring-b', 'sfx-in-b', 'sfx-out-b'].forEach(k => {
+          const v = rawStore.get(k);
+          if (v !== null && v !== undefined && v !== '') gStore.set(k, v); else gStore.remove(k);
+        });
+        toast('已切换为全部桌面共用（以当前桌面的设置为共用设置）');
+      } else {
+        toast('已切换为各桌面各自设置');
+      }
+      renderAllSfx();
+    });
+    syncSfxUniRow();
+  }
+  document.addEventListener('contact-switched', syncSfxUniRow);
 
   // 设置页入口：点行 → 独立音效设置页；返回回设置页
   // 事件委托绑定（document 级）：确保点击一定生效，不受其他脚本/异常影响

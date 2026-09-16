@@ -5336,6 +5336,8 @@ return true;
 window.tryActiveInvite = tryActiveInvite;
 function tryAutoSend() {
 try {
+// 夜间模式（设置里开启后 22:00–7:00 生效）：联系人不再主动发消息（拍一拍/邀请/查岗同链一并暂停）
+if (window.nightModeActive && window.nightModeActive()) { try { console.log('[mochi-auto] night mode, skip'); } catch(e){} return; }
 const c = cfg();
 // FIX 2026-09-05 #187 专属字卡串桌面：tryAutoSend 异步链（await 取回字卡可数秒+每条消息
 // setTimeout 再数百~2600ms）此前无 sameCid 守卫——B 桌面触发的主动消息在用户切到 A 桌面后
@@ -9261,7 +9263,7 @@ emojiCatBar = document.createElement('div');
 emojiCatBar.className = 'emoji-cats';
 [['sticker', '表情包'], ['kaomoji', '颜文字'], ['emoji', 'emoji']].forEach(([cat, label]) => {
 const c = document.createElement('button');
-c.className = 'emoji-g-chip';
+c.className = 'emoji-cat-chip';
 c.type = 'button';
 c.dataset.ecat = cat;
 c.textContent = label;
@@ -9285,6 +9287,7 @@ if (emojiTextTools || !emojiPanel) return;
 const tools = emojiPanel.querySelector('.emoji-tools');
 if (!tools || !tools.parentNode) return;
 emojiTextTools = document.createElement('div');
+emojiTextTools.id = 'emoji-text-tools'; // 快照/回归脚本按 id 定位
 emojiTextTools.className = 'emoji-tools';
 emojiTextTools.hidden = true;
 const importBtn = document.createElement('button');
@@ -9938,7 +9941,7 @@ const hts = taStickerHidden();
 ensureEmojiCatBar();
 ensureEmojiTextTools();
 if (emojiCat !== 'sticker' && textCatHidden(emojiCat)) emojiCat = 'sticker';
-if (emojiCatBar) emojiCatBar.querySelectorAll('.emoji-g-chip').forEach(c => {
+if (emojiCatBar) emojiCatBar.querySelectorAll('.emoji-cat-chip').forEach(c => {
 const cat = c.dataset.ecat;
 c.hidden = cat !== 'sticker' && textCatHidden(cat);
 c.classList.toggle('sel', cat === emojiCat);

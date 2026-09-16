@@ -853,6 +853,40 @@
   function fontVal() { return store.get(FONT_KEY) || ''; }
   function fontSet(v) { store.set(FONT_KEY, v); }
   function fontRemove() { store.remove(FONT_KEY); }
+  // #642 字体去重：上传型字体（几 MB 的 dataURL）按内容哈希存【全局唯一一份】
+  //   xy-home-v2:font-blob-<hash>，各桌面 cs-font 只存轻量引用 '@@font:<hash>' ——
+  //   3 个桌面用同一个字体只占 1 份存储（此前「同步到全部桌面」会整份复制 N 份）。
+  //   哈希只做「同内容合并」用途（djb2 + 长度），碰撞概率对人工上传场景可忽略。
+  function fontHash(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
+    return (h >>> 0).toString(36) + '-' + s.length.toString(36);
+  }
+  function fontBlobPut(hash, dataURL) { try { window.xyStore('xy-home-v2').set('font-blob-' + hash, dataURL); } catch (e) {} }
+  function fontSetDataFor(s, dataURL) {
+    const h = fontHash(dataURL);
+    fontBlobPut(h, dataURL);
+    try { s.set(FONT_KEY, '@@font:' + h); } catch (e) {}
+  }
+  function fontSetData(dataURL) { fontSetDataFor(store, dataURL); }
+  let _fontHydrating = {};
+  // 引用展开：'@@font:<hash>' → 全局唯一下载的 dataURL；同步读不到（大键只进 IDB /
+  //   被 OOM 预算 defer）时异步 idbGet 补读一次并重应用，补读落地前按「未设字体」渲染。
+  function fontResolved() {
+    const v = fontVal();
+    if (v.indexOf('@@font:') !== 0) return v;
+    const hash = v.slice(7);
+    const g = window.xyStore('xy-home-v2');
+    const blob = g.get('font-blob-' + hash);
+    if (blob) return blob;
+    if (window.idbGet && !_fontHydrating[hash]) {
+      _fontHydrating[hash] = true;
+      window.idbGet('xy-home-v2:font-blob-' + hash).then(b => {
+        if (b && typeof b === 'string' && b.length > 2) { fontBlobPut(hash, b); applyFont(); csFontChanged(); }
+      }).catch(() => {});
+    }
+    return '';
+  }
   // 全部桌面 id（default + 各联系人）
   function deskFontCids() {
     const ids = ['default'];
@@ -899,8 +933,26 @@
   }
   // 桌面美化页入口（personalize.js）的「同步到全部桌面」按钮复用同一份实现，避免两处漂移
   window.csFontSyncAllDesks = syncFontAllDesks;
+  // #642：美化页上传/下载字体也走「全局唯一份 + 轻量引用」（实现只有这一份）
+  window.csFontStoreData = fontSetData;
+  // #642：存量迁移——把各桌面 cs-font 里的整份 dataURL 收敛为「全局唯一份 + 轻量引用」；
+  //   幂等（已是引用的跳过），同内容多桌面自动合并到同一 blob。启动一次 + restore-done
+  //   再补一次（上传型大键要等 IDB 回填才读得到）。
+  function migrateFontBlobs() {
+    try {
+      if (!window.storeFor) return;
+      deskFontCids().forEach((id) => {
+        try {
+          const s = window.storeFor(id);
+          const v = s.get(FONT_KEY);
+          if (v && v.indexOf('data:') === 0) fontSetDataFor(s, v);
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+  window.migrateFontBlobs = migrateFontBlobs;
   function applyFont() {
-    const v = fontVal();
+    const v = fontResolved();
     const setVal = document.getElementById('cs-font-val');
     if (setVal) setVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
     // 同一个值已在位就不再重注入——dataURL 字体可达 MB 级，而切桌面/回填兜底都会调到这里
@@ -937,7 +989,7 @@
       window.openTCPanel('全局字体', '' +
         '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
         // v3.6.x：字体名做 HTML 转义——原逻辑直接拼接 value 属性，字体名含 " 或 < 会破坏弹层结构
-        '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (fontVal() && fontVal().indexOf('data:') !== 0 && fontVal().indexOf('http') !== 0 ? ' value="' + String(fontVal()).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
+        '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (fontResolved() && fontResolved().indexOf('data:') !== 0 && fontResolved().indexOf('http') !== 0 ? ' value="' + String(fontResolved()).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
         '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
         // #628：字体按桌面独立（每个联系人可各自排版）——其它桌面也要用同一个字体时点这颗同步，
         // 不必逐个桌面重新上传（上传型字体可达几 MB，重传很麻烦）
@@ -953,7 +1005,7 @@
           toast('正在读取字体文件…');
           const reader = new FileReader();
           reader.onload = () => {
-            fontSet(reader.result);
+            fontSetData(reader.result); // #642：存全局唯一份 + 轻量引用（同内容跨桌面只存一份）
             document.getElementById('tc-mask').hidden = true;
             applyFont();
             csFontChanged();
@@ -983,7 +1035,7 @@
           }).then(blob => {
             const rd = new FileReader();
             rd.onload = () => {
-              fontSet(rd.result);
+              fontSetData(rd.result); // #642：全局唯一份 + 引用
               document.getElementById('tc-mask').hidden = true;
               applyFont();
               csFontChanged();
@@ -1018,6 +1070,9 @@
   }
   // 中间版「全局字体」残留的根键回填到各桌面（一次性、幂等；大键等 restore-done 再补）
   demoteFontGlobal();
+  // #642：存量整份字体收敛为全局唯一下载（幂等；大键等 restore-done 再补一次）
+  migrateFontBlobs();
+  try { document.addEventListener('mochi-restore-done', () => { migrateFontBlobs(); applyFont(); }); } catch (e) {}
   applyFont();
 
   // ================= 气泡 CSS（自定义样式，极简黑白灰） =================

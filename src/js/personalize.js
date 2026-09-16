@@ -2434,6 +2434,7 @@ try {
       '使用说明': '教程 帮助 常见问题 安装',
       '导出数据': '备份 保存 导出',
       '导入数据': '恢复 还原 迁移 换机',
+      '修改摸鱼天数': '恢复 找回 补回 归零 重来 已摸鱼',
       '设备兼容诊断': '诊断 兼容 报错 环境',
       '顶部避让修正': '安全区 白带 重叠 刘海',
       '屏幕适配诊断': '适配 屏幕 空白 裁切',
@@ -2452,7 +2453,7 @@ try {
       '联系人 / 桌面': 'lxrzm', '开启群聊': 'kqql', '跨桌面查岗': 'kzmcg', '查岗频率': 'cgpl', '打电话': 'dh',
       '深色模式': 'ssms', '手机桌面美化': 'sjzmmh', '回复设置': 'hfsz', '通话设置': 'thsz', '音效设置': 'yxsz',
       '功能大全': 'gndq', '应用锁': 'yys', '开屏问答门': 'kpwdm', '手机布局': 'sjbj', '离线消息提醒': 'lxxtx',
-      '使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
+      '使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '修改摸鱼天数': 'xgmyts', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
       '屏幕适配诊断': 'pmspzd', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
       '字卡使用状态自检': 'zksyztzj', '清除本地数据': 'qcbdsj', '新手引导': 'xsyd', '功能介绍': 'gnjs'
     };
@@ -4308,9 +4309,18 @@ try {
   const deskCsFontVal = document.getElementById('desk-cs-font-val');
   const CS_FONT_KEY = 'cs-font';
   const deskCsFontValOf = () => { try { return store.get(CS_FONT_KEY) || ''; } catch (e) { return ''; } };
-  function applyDeskCsFont() {
+  // #642：cs-font 现在存的是「轻量引用 @@font:<hash>」，真身在全局唯一下载键里——
+  //   展示/应用前先展开；blob 未就绪（大键等 IDB 回填）时按空处理，chat-settings 侧的
+  //   异步补读落地后会广播 cs-font-changed，这里跟着重渲染。
+  function deskCsFontResolved() {
     const v = deskCsFontValOf();
-    if (deskCsFontVal) deskCsFontVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
+    if (v.indexOf('@@font:') !== 0) return v;
+    try { return window.xyStore('xy-home-v2').get('font-blob-' + v.slice(7)) || ''; } catch (e) { return ''; }
+  }
+  function applyDeskCsFont() {
+    const v = deskCsFontResolved();
+    const raw = deskCsFontValOf();
+    if (deskCsFontVal) deskCsFontVal.textContent = raw ? ((raw.indexOf('data:') === 0 || raw.indexOf('@@font:') === 0) ? '已上传' : raw) : '默认';
     // 同一个值已在位就不再重注入（dataURL 字体可达 MB 级，切桌面/回填兜底都会调到这里）
     const old = document.getElementById('cs-font-style');
     if (old && old.__fontVal === v) return;
@@ -4343,9 +4353,11 @@ try {
     deskCsFontRow.addEventListener('click', () => {
       if (!window.openTCPanel) return;
       const cur = deskCsFontValOf();
+      // #642：引用值（@@font:）不回填到字体名输入框（它不是字体名）
+      const curName = (cur && cur.indexOf('@@font:') === 0) ? '' : cur;
       window.openTCPanel('全局字体', '' +
         '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
-        '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (cur && cur.indexOf('data:') !== 0 && cur.indexOf('http') !== 0 ? ' value="' + String(cur).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
+        '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (curName && curName.indexOf('data:') !== 0 && curName.indexOf('http') !== 0 ? ' value="' + String(curName).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
         '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
         // #628：其它桌面也要用同一个字体时点这颗同步（走 chat-settings.js 同一份实现），不必逐个桌面重传
         '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
@@ -4360,7 +4372,8 @@ try {
           toast('正在读取字体文件…');
           const reader = new FileReader();
           reader.onload = () => {
-            store.set(CS_FONT_KEY, reader.result);
+            if (window.csFontStoreData) window.csFontStoreData(reader.result); // #642：全局唯一份 + 引用
+            else store.set(CS_FONT_KEY, reader.result);
             document.getElementById('tc-mask').hidden = true;
             applyDeskCsFont();
             try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
@@ -4393,7 +4406,8 @@ try {
           }).then(blob => {
             const rd = new FileReader();
             rd.onload = () => {
-              store.set(CS_FONT_KEY, rd.result);
+              if (window.csFontStoreData) window.csFontStoreData(rd.result); // #642：全局唯一份 + 引用
+              else store.set(CS_FONT_KEY, rd.result);
               document.getElementById('tc-mask').hidden = true;
               applyDeskCsFont();
               try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
@@ -7094,6 +7108,63 @@ try {
         updateFishDays();
       }
     }
+  })();
+
+  // ===== v3.27.x #645：修改摸鱼天数（设置 → 工具，#row-fish-days）=====
+  // 背景：fish-log（全局键，天数 = 日期去重个数）遇浏览器丢数据后从 0 重来，
+  // 用户要求能手动改回原天数。走 openModal 数字输入：目标 > 现有 → 在最早一天之前
+  // 往回补连续自然日（真实打卡日全部保留、仍是最近的日子）；目标 < 现有 → 保留最近
+  // n 天（今天/近期打卡日不动）。写回走 gStore.set（内存 + LS + IDB 同链路），
+  // #290 规范化/自愈只做并集合并，不会把这里的结果清掉。
+  (function () {
+    const row = document.getElementById('row-fish-days');
+    if (!row || typeof window.openModal !== 'function') return;
+    const fmtDate = (dt) =>
+      dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    function fishToast(msg) {
+      let t = document.getElementById('cc-toast');
+      if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+      t.textContent = msg;
+      t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+    }
+    row.addEventListener('click', function () {
+      const cur = normalizeFishLog().length;
+      const HINT = '当前已摸鱼 ' + cur + ' 天。数据丢失后天数会从 0 重新开始，输入原来的天数即可改回；之后打卡/聊天仍按自然日 +1。';
+      const ctl = window.openModal('修改摸鱼天数', cur ? String(cur) : '', function (v) {
+        const sv = String(v == null ? '' : v).trim();
+        if (!/^\d+$/.test(sv)) { ctl.hint('请输入 0 起的整数天数'); ctl.stay(); return; }
+        const n = parseInt(sv, 10);
+        if (n > 36500) { ctl.hint('最多 36500 天（约 100 年），别填太大'); ctl.stay(); return; }
+        const list = normalizeFishLog().slice().sort();
+        if (n === list.length) { ctl.hint('现在就是 ' + n + ' 天，没有变化'); ctl.stay(); return; }
+        let out;
+        if (n < list.length) {
+          out = list.slice(list.length - n); // 收缩：丢最旧的，最近 n 天（含今天）不动
+        } else {
+          out = list.slice();
+          let d;
+          if (out.length) {
+            const p = out[0].split('-').map(Number);
+            d = new Date(p[0], p[1] - 1, p[2]); // 非空：在最早一天之前回补，真实打卡日全保留
+          } else {
+            const now = new Date();
+            d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 空日志（数据丢失场景）：从今天往回补
+            d.setDate(d.getDate() + 1); // 循环先自减再入组，起点设明天＝首个入组日期是今天
+          }
+          for (let i = n - out.length; i > 0; i--) { d.setDate(d.getDate() - 1); out.unshift(fmtDate(d)); }
+        }
+        gStore.set('fish-log', JSON.stringify(out));
+        updateFishDays();
+        fishToast('已改为「已摸鱼 ' + n + ' 天」');
+      }, {
+        inputmode: 'numeric',
+        maxlength: 6,
+        placeholder: cur ? ('当前 ' + cur + ' 天，输入新天数') : '输入目标天数',
+        staticText: HINT
+      });
+    });
   })();
 
   // 今日情话：每天固定随机一条（按日期种子，当天不变，隔天换新）

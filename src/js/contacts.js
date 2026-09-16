@@ -23,6 +23,9 @@
     // 同 bg-* 道理是全局根键，绝不随联系人隔离，防 migrateLegacy 搬进 default 并删根键
     // （挂起键丢了=用户回来接不到重响的来电）。
     'incoming-requests', 'desk-checkin-en', 'desk-call-en', 'desk-freq-mode', 'call-hold',
+    // v3.27.x：night-mode-en（夜间模式总开关）同为全局根键，全桌面通、不随联系人隔离。
+    // 漏排除会被 migrateLegacy 每次刷新搬进 default 并删根键 → 开关自己关掉、夜间静默失效。
+    'night-mode-en',
     // v3.12.x：group-chat-msgs（群聊消息，v3.8 起全局存储于根命名空间）——同 bg-* 道理，
     // 不是旧顶层业务键。此前漏排除导致每次刷新 migrateLegacy 把群聊记录搬进 default:
     // 并删根键，群聊页读根键为空 → 历史看似清空（数据滞留 default: 副本）+ 迁移循环空转。
@@ -172,6 +175,8 @@
     // chat-settings.js 的 demoteFontGlobal() 会把根键值回填给各桌面再删根键；在它删掉之前，
     // 若漏排除，migrateLegacy 会把根键当旧顶层业务键迁进 default 并删根键 → 只剩 default 桌面可见。
     'cs-font',
+    // v3.26.x #643：音效作用范围开关（sfx.js）——全局根键（共/分是全局偏好，不随联系人隔离）
+    'sfx-unified',
     // FIX 2026-09-16 #629 开屏「刷了还是旧版」指引：ver-check.js 的「本机已尝试过更新但没
     // 换上」标记（记 线上ts|次数|时刻）是全局根键——不随联系人隔离，且必须跨会话留存才认得出
     // 「这台设备更新失败过」（与 pwa.js 的 ver-update-ack-ts / ver-update-notify 同族，见上方
@@ -190,6 +195,10 @@
     // v3.9.x：reply-gc-* 群聊全局设置键同样不能迁移（无冒号，原逻辑会误判为旧业务键）
     if (r.indexOf('reply-gc-') === 0) return true;
     if (r.indexOf('music-file:') === 0) return true;
+    // #642：字体去重的全局唯一下载键 font-blob-<hash>（chat-settings.js / personalize.js
+    // 写入端）走根命名空间——内容哈希后缀可变，EXCLUDE 精确名单盖不住，按前缀挡迁移。
+    // 漏挡会被 migrateLegacy 当旧顶层业务键迁进 default 并删根键 → 所有桌面字体丢。
+    if (r.indexOf('font-blob-') === 0) return true;
     // 梦角档案：narc-* 走根命名空间（全局共享，memo-arc.js），绝不能当旧顶层业务键迁移
     // （否则切换桌面后档案/当前梦角读全局键读不到，"消失"）。narc-cur 亦不例外。
     if (r.indexOf('narc-') === 0) return true;

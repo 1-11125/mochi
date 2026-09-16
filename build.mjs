@@ -216,6 +216,14 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  { name: '夜间模式开关判定（开且落在 22:00–7:00）——删掉/改回恒真恒假＝设置里开了夜间模式也不生效', file: 'js/incoming-requests.js', needle: 'window.nightModeActive = function () { return nightModeEn() && isNightHours(); };' },
+  { name: '夜间模式暂停跨桌面查岗/来电/求聊天（删掉 early return＝夜里其他桌面照常弹查岗/来电）', file: 'js/incoming-requests.js', needle: 'if (window.nightModeActive && window.nightModeActive()) return;' },
+  { name: '夜间模式暂停联系人主动发消息（删掉＝夜里 TA 照常主动发消息，gate 失效）', file: 'js/chat.js', needle: "if (window.nightModeActive && window.nightModeActive()) { try { console.log('[mochi-auto] night mode, skip'); } catch(e){} return; }" },
+  { name: '夜间模式暂停联系人主动打电话（删掉＝夜里 TA 照常来电；多行锚点绑在「夜间判定紧接 currentCall 判定」这一处）', file: 'js/call.js', needle: 'if (window.nightModeActive && window.nightModeActive()) return;\nif (currentCall) return;' },
+  { name: '#642a 字体上传存「全局唯一份+轻量引用」@@font:<hash>（改回整份 dataURL 直写＝同字体 N 桌面存 N 份，用户报「3个桌面同一字体存3份内存炸了」复发）', file: 'js/chat-settings.js', needle: "s.set(FONT_KEY, '@@font:' + h)" },
+  { name: '#642b 字体引用异步补读（删掉＝大键在 IDB/被 OOM 预算 defer 时引用展开为空，字体刷新后丢）', file: 'js/chat-settings.js', needle: "'xy-home-v2:font-blob-' + hash" },
+  { name: '#642c migrateLegacy 按前缀挡 font-blob-* 全局键（漏挡＝每次刷新被当旧顶层键迁进 default 并删根键，全部桌面字体丢失）', file: 'js/contacts.js', needle: "if (r.indexOf('font-blob-') === 0) return true;" },
+  { name: '#643a 音效 store 包装按开关路由全局/桌面命名空间（改回直连 activeStore＝「所有桌面共用音效」开关失效复发）', file: 'js/sfx.js', needle: '(sfxUnified() ? gStore : rawStore).get(k)' },
   { name: '#545 全站自定义下拉（.mochi-custom-select）打开时显式 display:block（删掉/改回 \'\' ＝清内联后回落样式表 display:none，浮层永远打不开，全站下拉「点了没反应」复发，vivo X200s+Edge 等多机型）', file: 'js/ta-ask.js', needle: "list.style.display = 'block';" },
   { name: '#498 后台通知精确相等查重无条件拦（60秒间隔豁免复活＝切后台马上弹几分钟前看过的字卡，红米K80 等多设备复发）', file: 'js/bg-keep.js', needle: 'if (mf === key) return true;' },
   { name: '#498 后台通知历史查重窗口 5 分钟（改成 60 秒内才拦＝窗口外撞车内容重弹看过的消息）', file: 'js/bg-keep.js', needle: 'const NOTIFY_CHAT_DUP_MS = 5 * 60000;' },
@@ -1097,6 +1105,8 @@ const FIX_SENTINELS = [
   // ==== 2026-09-11 #289 摸鱼打卡刷新后要求重打（按钮状态只在回填完成前读一次，LS 写失败/IDB 为主机型每次刷新都显示未打卡）====
   { name: '#289 打卡按钮状态随回填完成/写日志自愈事件重同步（删监听则 LS 缺失机型刷新后永远显示未打卡、需重打）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-restore-done', function () { try { syncCheckinBtn(); updateFishDays(); } catch (e) {} });" },
   { name: '#290 摸鱼天数回填后再合并+规范化自愈（删监听则各桌面旧副本迟到永远漏算、重复/脏值虚高不修）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-restore-done', fishLogHeal);" },
+  // ==== 2026-09-17 #644 数据丢失后手动修改「已摸鱼天数」（设置 → 工具 #row-fish-days）====
+  { name: '#644 修改摸鱼天数·修正结果写回全局 fish-log（天数=去重日期数；删则弹窗确定后不保存，重开归零）', file: 'js/personalize.js', needle: "gStore.set('fish-log', JSON.stringify(out));" },
   // ==== 2026-09-11 #291 经期桌面卡文字重叠（OPPO Reno6+雨见/Firefox152：160px 卡内 dpd-inner 绝对居中无底部预留，Gecko 默认行高更高，dpd-sub 与绝对定位 dpd-bar-cap 几何重叠；Chrome 擦边幸免故仅部分浏览器现形）====
   { name: '#291 经期卡防重叠·dpd-inner 底部预留 26px（删则 Gecko 行高下副标题与进度条说明叠字复发）', file: 'css/home.css', needle: 'padding-bottom:26px' },
   // ==== 2026-09-11 #292 问问ta批量导入单选题（【】为问题、其后每行一个选项）+ 问卷答题结束时间（过点不发新问、不能再作答）====
@@ -1774,6 +1784,9 @@ const FIX_SENTINELS = [
   { name: '#513a 梦角自由造句总开关默认开（DEFAULTS mjf-en=1；改回 0＝装上仍是关的、用户点名「需要默认打开」落空）', file: 'js/reply-settings.js', needle: "'mjf-en': 1, 'mjf-prob': 20," },
   { name: '#513b 造句混合模式默认开（DEFAULTS mjf-mix=1；改回 0＝默认只走 mjf-style 单一手法、三手法不再交替）', file: 'js/reply-settings.js', needle: "'mjf-mix': 1," },
   { name: '#513c 存量开关 0→1 一次性迁移+标记键（删＝已保存过设置的设备仍停在关，用户看到「默认还是没打开」＝原报障复发）', file: 'js/reply-settings.js', needle: "s.set('reply-mjf-on-migrated', '1');" },
+  // ==== 2026-09-17 #644 逐卡连发「不受条数限制」默认翻回开（用户翻案 #443，多机型报「默认开启、按钮却是关的」）：#443 曾把 qs-noLimit 默认 1→0 并把存量收口成 0；本轮恢复 #350 默认开，#443 已写盘的存量 '0' 由 migrateQsNoLimitBack 按标记键反向补迁（标记 1→2，用户此后手动关闭不再被纠正）====
+  { name: '#644a 逐卡连发不受条数限制默认开（DEFAULTS qs-noLimit=1；改回 0＝新装设备按钮默认关、连发被 reply-max 截断＝本条报障复发）', file: 'js/reply-settings.js', needle: "'qs-multi': 1, 'qs-noLimit': 1," },
+  { name: '#644b #443 存量 0 反向补迁 0→1+标记升 2（删＝已写盘设备仍停在关，按钮照旧显示关＝报障复发）', file: 'js/reply-settings.js', needle: "if (String(s.get('reply-qs-noLimit')) === '0') { s.set('reply-qs-noLimit', '1'); changed = true; }" },
   // ==== 2026-09-15 #511 拍一拍手势泄漏族 + 进聊天气泡「先变 2 条再恢复」（用户三条同批报障）：①桌面点开【聊天】进页面，联系人最新一条消息变 2 个又恢复＝LS 快照与内存 msgs 的合并签名只比 ts|side|原文前64字符，同一逻辑消息 LS 侧是 base64、内存侧已令牌化（#256）判成两条 → 首帧渲 2 个气泡、后台归一化又合并回 1；写侧（mergeLsSnapshotWith）与读侧（loadMsgs）各有一份同款内联签名，只修一处＝半修。②点联系人头像有时没打开拍一拍页、直接发出拍一拍 ③「我的拍一拍」tab 打开该页默认弹输入法＝同源：touch/pointer 路在 touchend 里同步开面板并渲染字卡/输入行，紧随的合成 click 落点已在面板内（落字卡＝误发+面板一闪而过；落输入框＝聚焦弹键盘，输入行仅 mine tab 显示故只有该 tab 复现）。上一轮修复只声明了 pokeOpenClickGate 却从未赋值（闸恒 0）＝拦截器形同虚设，本条即报障复发的直接原因 ====
   { name: '#511a 两处合并点统一走 lsMergeSig（删/退回内联签名＝跨形式同一条判成两条、进聊天气泡先变 2 个再恢复复发）', file: 'js/chat.js', needle: 'msgsNow.map(lsMergeSig)' },
   { name: '#511b 进页读侧合并同样走 lsMergeSig（只修写侧＝LS 里继续存两份，下次进页照样先 2 后 1）', file: 'js/chat.js', needle: 'lsArr.map(lsMergeSig)' },
@@ -2521,6 +2534,9 @@ const FIX_SENTINELS = [
   { name: '#642c 群聊操作条接入同一跟随助手（删掉＝群聊操作条乱跑复发）', file: 'js/group-chat.js', needle: 'window.mochiFollowActionBar(gcMsgActions, bk, closeGcMsgActions)' },
   { name: '#643a chat-body 盒尺寸 ResizeObserver 接线（删掉＝键盘收起恢复高度后最新消息悬半屏无人回钉）', file: 'js/chat.js', needle: "if (!cb643 || typeof ResizeObserver === 'undefined') return;" },
   { name: '#643b 盒子真变高后按钉住闸回钉贴底（删掉＝#643 只观察不动作，半屏残留照旧）', file: 'js/chat.js', needle: 'if (chatPinnedBottom && chatVisible()) scrollChatBottom();' },
+  // v3.26.x #645：通知栏媒体卡此前只有播放/暂停/上下首（用户反馈「没有下一首等功能按钮」）。
+  // 任务号原认领 #644，与并行会话（摸鱼天数批 / 逐卡连发翻案批的 #644a/b）撞号，改 #645
+  { name: '#645a 音乐通知栏 seekto 拖动定位接线（删掉＝媒体卡没有进度基准拖不动，快进快退/划掉停止的收尾也一并丢失）', file: 'js/music-player.js', needle: "setActionHandler('seekto', function (d)" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

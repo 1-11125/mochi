@@ -986,7 +986,16 @@ body.cs-time-divider .msg-time-divider { display:flex; }
   flex-shrink:0; scrollbar-width:none; -ms-overflow-style:none;
 }
 .emoji-cats::-webkit-scrollbar { display:none; }
-.emoji-cats .emoji-g-chip { flex:0 0 auto; }
+/* 分类 chip 独立类名：不与 .emoji-g-chip 混用，避免面板级 .emoji-g-chip 选择器把分类行误当分组（verify-emoji-recent 教训） */
+.emoji-cat-chip {
+  flex:0 0 auto; padding:7px 14px; font-size:12px; border-radius:99px;
+  border:1px solid rgba(0,0,0,.1); background:rgba(255,255,255,.92);
+  color:#666; cursor:pointer; font-family:inherit; font-weight:600;
+  -webkit-tap-highlight-color:transparent;
+}
+.emoji-cat-chip.sel { background:var(--ink); color:#fff; border-color:var(--ink); }
+[data-theme="dark"] .emoji-cat-chip { background:var(--dark-hover); border-color:var(--dark-border-12); color:var(--dark-soft); }
+[data-theme="dark"] .emoji-cat-chip.sel { background:var(--btn-bg); color:var(--btn-ink); border-color:var(--btn-bg); }
 .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
 .emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
 #emoji-list .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }

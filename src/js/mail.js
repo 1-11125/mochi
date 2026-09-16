@@ -609,6 +609,8 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       maxCards: c['ml-max-cards'] !== undefined ? c['ml-max-cards'] : 50,
       // #296：写信总开关裸读（不走 prob()——prob 把 0 兜底回默认值，开关关闭=0 必须原样保留）
       writeEn: c['ml-write-en'] !== undefined ? Number(c['ml-write-en']) : 1,
+      // #645：每周摸鱼小结寄信开关裸读（同 writeEn 口径——关闭=0 必须原样保留）
+      fishWeekEn: c['ml-fish-week-en'] !== undefined ? Number(c['ml-fish-week-en']) : 1,
       writeProb: prob('ml-write-prob', 30),
       writeMin: c['ml-write-min'] !== undefined ? c['ml-write-min'] : 1,
       writeMax: c['ml-write-max'] !== undefined ? c['ml-write-max'] : 120,
@@ -635,7 +637,7 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     try {
       const s = window.storeFor(cid);
       [['ml-min-cards', 'minCards'], ['ml-max-cards', 'maxCards'],
-       ['ml-write-en', 'writeEn'],
+       ['ml-write-en', 'writeEn'], ['ml-fish-week-en', 'fishWeekEn'],
        ['ml-write-prob', 'writeProb'], ['ml-write-min', 'writeMin'], ['ml-write-max', 'writeMax'],
        ['ml-write-daily-max', 'dailyMax'], ['ml-reply-prob', 'replyProb'],
        ['ml-reply-min', 'replyMin'], ['ml-reply-max', 'replyMax'],
@@ -954,6 +956,9 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     // 当前桌面权威加载（mailDbReady）完成前不写——同 maybeIncomingLetterFor 守卫，
     // 防止把剥图快照当全量列表写回覆盖 IDB 带图信件
     if (cid === (window.__activeCid || 'default') && !mailDbReady) return;
+    // #645：回复设置→信箱「摸鱼小结寄信」开关（ml-fish-week-en）——关闭后不再寄小结；
+    // 判定放在防重发标记写入之前，关掉再开若仍在周一~周三补发窗口内会补上该周小结
+    if (!mailCfgFor(cid).fishWeekEn) return;
     const cs = csFor(cid);
     const now = window.__fishWeekNowOverride ? window.__fishWeekNowOverride() : new Date(); // 测试钩子：生产为 null
     const day = now.getDay(); // 0=日

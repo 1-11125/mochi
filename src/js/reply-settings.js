@@ -33,7 +33,10 @@
     // 回复的一部分，应计入「回复条数最多」（用户报「只设最多回复 2 条但联系人一直超」）；
     // 旧默认已随「保存设置」全量写盘的存量由 migrateQsNoLimitOld 按标记键一次性收口，
     // 此后用户手动再打开的 '1' 不再被迁移（标记式而非值式，原因见迁移函数注释）
-    'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
+    // FIX 2026-09-17 #644：qs-noLimit 默认 0→1（用户翻案 #443，多机型报「默认该是开的、按钮却是关的」）
+    // ——恢复 #350 定稿默认开；#443 已落盘的存量 '0' 由 migrateQsNoLimitBack 按标记键反向收口，
+    // 此后用户手动再关闭的 '0' 不再被纠正（标记升级为 2，同 migrateQsCcOld 模式）
+    'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
     // v3.28.x #317：梦角自由造句——mjf-prob 触发概率（%）：梦角说话按概率「截断某几个字
     // 重新造句」，新句自动存进自定义聊天字卡新分类「梦角自由造句」（dream-free.js，
     // chat.js replyOnce 消费）
@@ -106,6 +109,8 @@
     'ml-write-en': 1,
     'ml-reply-prob': 80, 'ml-reply-min': 1, 'ml-reply-max': 480,
     'ml-kaomoji-en': 1, 'ml-emoji-en': 1, 'ml-sticker-en': 1,
+    // #645：每周摸鱼小结寄信开关（默认开）——关闭后 TA 不再寄「本周摸鱼小结」（含周一~周三补发窗口）
+    'ml-fish-week-en': 1,
     // 动态（星言朋友圈设置）
     'fd-like-prob': 60, 'fd-like-speed-min': 1, 'fd-like-speed-max': 60,
     'fd-comment-prob': 70, 'fd-comment-speed-min': 1, 'fd-comment-speed-max': 60,
@@ -252,7 +257,7 @@
       }
     });
     // 开关
-    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -364,6 +369,7 @@
     'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
     'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
     'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
+    'ml-fish-week-en': '摸鱼小结寄信',
     'fd-kaomoji-en': '朋友圈颜文字', 'fd-emoji-en': '朋友圈emoji', 'fd-sticker-en': '朋友圈表情包', 'fd-image-en': '朋友圈图片',
     'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
     'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
@@ -393,7 +399,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -667,7 +673,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });
@@ -880,6 +886,33 @@
     } catch (e) {}
   }
   migrateQsNoLimitOld();
+  // FIX 2026-09-17 #644：逐卡连发「不受条数限制」默认翻回 1 的反向补迁——#443 的
+  // migrateQsNoLimitOld 已把各桌面存盘的 '1' 收成 '0' 并落标记 reply-qs-nl-migrated=1；
+  // 现在用户翻案（多机型报「默认开启、按钮却是关的」），对经历过上轮迁移（标记=1）且
+  // 当前值为 '0' 的桌面改回 '1'，标记升级为 2（防重复跑；新装设备从未经历迁移、标记缺失，
+  // DEFAULTS=1 直接生效不进本函数分支）。上轮迁移后用户手动关过的与被迁移成 '0' 的无法
+  // 区分，会被一并打开一次（同 #310/#388 的取舍）；此后用户再自行关闭（标记=2）不再被纠正。
+  function migrateQsNoLimitBack() {
+    try {
+      if (!window.getContacts || !window.storeFor) return;
+      const cids = [window.__activeCid || 'default'];
+      (window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+      let changed = false;
+      cids.forEach(cid => {
+        try {
+          const s = window.storeFor(cid);
+          if (!s) return;
+          if (String(s.get('reply-qs-nl-migrated')) !== '1') return;
+          if (String(s.get('reply-qs-noLimit')) === '0') { s.set('reply-qs-noLimit', '1'); changed = true; }
+          s.set('reply-qs-nl-migrated', '2');
+        } catch (e) {}
+      });
+      if (changed) {
+        try { if (window.console && console.log) console.log('[reply-settings] 已反向迁移逐卡连发不受条数限制 0→1（#443 存量补迁，#644）'); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  migrateQsNoLimitBack();
   // v3.26.x #513：「梦角自由造句」总开关（mjf-en）与「混合模式」（mjf-mix）默认 0→1 的
   // 一次性收口迁移——用户点名「梦角自由造句和梦角自由造句的混合模式需要默认打开」。
   // 与 #443 同因：旧默认 '0' 会随「保存设置」按钮全量写盘（saveCurrentReplyPage 把开关清单

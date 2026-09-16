@@ -2744,8 +2744,40 @@
         navigator.mediaSession.setActionHandler('nexttrack', function () { try { next(); } catch (e) {} });
         navigator.mediaSession.setActionHandler('previoustrack', function () { try { prev(); } catch (e) {} });
       } catch (e) {}
+      // v3.26.x #645：补齐 seek/stop 四个动作——此前媒体卡只有播放/暂停/上下首，
+      // 拖动定位、快进快退、划掉卡片停止分别依赖 seekto/seekbackward/seekforward/stop
+      try {
+        navigator.mediaSession.setActionHandler('seekbackward', function (d) { try { if (audio) audio.currentTime = Math.max(0, audio.currentTime - ((d && d.seekOffset) || 10)); } catch (e) {} });
+        navigator.mediaSession.setActionHandler('seekforward', function (d) { try { if (audio) audio.currentTime = Math.min(isFinite(audio.duration) ? audio.duration : Infinity, audio.currentTime + ((d && d.seekOffset) || 10)); } catch (e) {} });
+        navigator.mediaSession.setActionHandler('seekto', function (d) { try { if (audio && d && isFinite(d.seekTime)) audio.currentTime = Math.max(0, Math.min(isFinite(audio.duration) ? audio.duration : Infinity, d.seekTime)); } catch (e) {} });
+        navigator.mediaSession.setActionHandler('stop', function () { try { stopFromMediaSession(); } catch (e) {} });
+      } catch (e) {}
+      try { syncMediaPosition(); } catch (e) {}
       try { window.__musicPlaying = playing; } catch (e) {}
     } catch (e) {}
+  }
+  // v3.26.x #645：通知栏进度条状态——不 setPositionState 媒体卡就没有进度条、拖动定位没基准；
+  // 流式音频 duration=Infinity 不上报；position 越界部分内核会直接拒收，夹到 [0, duration]
+  function syncMediaPosition() {
+    try {
+      if (!('mediaSession' in navigator) || !navigator.mediaSession || !navigator.mediaSession.setPositionState) return;
+      if (!audio || !isFinite(audio.duration) || audio.duration <= 0) return;
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate > 0 ? audio.playbackRate : 1,
+        position: Math.min(Math.max(audio.currentTime, 0), audio.duration)
+      });
+    } catch (e) {}
+  }
+  // v3.26.x #645：通知栏「停止/划掉卡片」＝彻底停止（同删除/失败清场：teardown + 清 currentId +
+  // 刷新悬浮条/列表）；teardownAudio 会派发 music-media-release 让 bg-keep 恢复保活条
+  function stopFromMediaSession() {
+    wantPlay = false;
+    clearBgResume();
+    teardownAudio();
+    currentId = null;
+    updatePlayerBar();
+    renderLibrary();
   }
   function setupHandlers(m) {
     audio.onended = function () { handleEnded(); };
@@ -2783,6 +2815,8 @@
         } else { armAutoResume(); }
       }
     };
+    // v3.26.x #645：播放中持续上报进度（timeupdate 约 4Hz），通知栏进度条随播放走
+    audio.ontimeupdate = function () { try { syncMediaPosition(); } catch (e) {} };
     audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
       try { updateMediaSession(true); } catch (e) {} };
     audio.onpause = function () { syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击

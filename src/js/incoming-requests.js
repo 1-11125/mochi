@@ -86,6 +86,24 @@
     return DMODES.quiet;
   }
 
+  // ---- 夜间模式（全局根键，全桌面通；默认关闭） ----
+  // 开启后，仅在 22:00–07:00 时段内生效：联系人不再主动发消息 / 主动打电话，
+  // 其他桌面也不再跨桌面查岗 / 跨桌面来电。时段外行为完全不变。
+  const NIGHT_KEY = 'night-mode-en';
+  const NIGHT_FROM = 22;   // 含 22:00
+  const NIGHT_TO = 7;      // 不含 07:00
+  function nightModeEn() {
+    try { return window.xyStore(ROOT).get(NIGHT_KEY) === '1'; } catch (e) { return false; }
+  }
+  function isNightHours() {
+    try { const h = new Date().getHours(); return h >= NIGHT_FROM || h < NIGHT_TO; } catch (e) { return false; }
+  }
+  // 供 chat.js / call.js 判定「当前是否处于夜间静默」——开关开且落在时段内
+  window.nightModeActive = function () { return nightModeEn() && isNightHours(); };
+  window.setNightModeEn = function (en) {
+    try { window.xyStore(ROOT).set(NIGHT_KEY, en ? '1' : '0'); } catch (e) {}
+  };
+
   // 设置页开关行（动态插入「开启群聊」行之后；样式复用 .set-row/.toggle/.txt .sub）
   // 全桌面通：根键不随联系人隔离，切桌面/回填后只需同步一次勾选态。
   function addSettingToggle(conf) {
@@ -156,7 +174,51 @@
     });
     // 跨桌面查岗/来电频率模式（三档全局预设，插在跨桌面开关之后）
     addFreqModeRow();
+    // 夜间模式总开关（插在频率行之后，作用于本页开关之外的联系人主动消息/来电）
+    addNightModeRow();
   })();
+
+  // 夜间模式开关行：开启后 22:00–7:00 静默联系人主动消息/来电 + 跨桌面查岗/来电。
+  // 副标题实时回显「是否落在夜间时段」，每分钟刷新一次。
+  function nightStatusText() {
+    if (!nightModeEn()) return '关闭 · 开启后 22:00–7:00 生效';
+    return isNightHours() ? '开启 · 当前生效中（22:00–7:00）' : '开启 · 当前不在夜间时段（22:00–7:00）';
+  }
+  function addNightModeRow() {
+    try {
+      if (document.getElementById('sf-night-mode-row')) return;
+      const anchor = document.getElementById('sf-desk-freq') || document.getElementById('sf-group-chat-row');
+      if (!anchor) return;
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.id = 'sf-night-mode-row';
+      row.innerHTML =
+        '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/><path d="M17 4v3M15.5 5.5h3"/></svg></div>' +
+        '<div class="txt">夜间模式<span class="sub" id="sf-night-mode-sub"></span></div>' +
+        '<label class="toggle"><input type="checkbox" id="sf-night-mode"><span class="tk"></span></label>';
+      anchor.parentNode.insertBefore(row, anchor.nextSibling);
+      const input = row.querySelector('input');
+      const sub = row.querySelector('#sf-night-mode-sub');
+      const sync = function () {
+        const v = nightModeEn();
+        if (v !== input.checked) input.checked = v;
+        if (sub) sub.textContent = nightStatusText();
+      };
+      sync();
+      input.addEventListener('change', function () {
+        if (input.checked === nightModeEn()) return;
+        window.setNightModeEn(input.checked);
+        sync();
+        if (typeof window.toast === 'function') {
+          window.toast(input.checked ? '夜间模式已开启：22:00–7:00 联系人不再主动打扰' : '夜间模式已关闭：恢复联系人主动消息/来电');
+        }
+      });
+      document.addEventListener('contact-switched', sync);
+      document.addEventListener('mochi-restore-done', sync);
+      try { setInterval(sync, 60000); } catch (e) {} // 状态文案随时段变化刷新
+      return row;
+    } catch (e) { return null; }
+  }
 
   // 频率模式选择行：三档 pill（频繁/标准/安静），全局统一生效；点击即切换并存根键。
   // 复用 .set-row + .pill/.pill.on（base.css/setting.css 既有样式），不新增全局 CSS。
@@ -591,6 +653,8 @@
     try {
       ticks++;
       reconcileLiveModals();
+      // 夜间模式：整个时段内暂停一切跨桌面打扰（查岗/求聊天/来电），时段外行为不变
+      if (window.nightModeActive && window.nightModeActive()) return;
       // v3.26.x #264：锁屏期整轮不掷（弹窗会压在锁底下）；打字期不掷也不计数（IME 组合
       // 中的文字会被抢焦点丢掉）；已有浮层先让路，最多让 BUSY_ESCAPE 轮后照投。
       // 跳过的那些轮不消耗冷却（markLast 只在投递时写），所以让路结束后当轮就能正常触发，

@@ -2199,7 +2199,15 @@ display:flex; gap:6px; overflow-x:auto; padding:0 2px 8px;
 flex-shrink:0; scrollbar-width:none; -ms-overflow-style:none;
 }
 .emoji-cats::-webkit-scrollbar { display:none; }
-.emoji-cats .emoji-g-chip { flex:0 0 auto; }
+.emoji-cat-chip {
+flex:0 0 auto; padding:7px 14px; font-size:12px; border-radius:99px;
+border:1px solid rgba(0,0,0,.1); background:rgba(255,255,255,.92);
+color:#666; cursor:pointer; font-family:inherit; font-weight:600;
+-webkit-tap-highlight-color:transparent;
+}
+.emoji-cat-chip.sel { background:var(--ink); color:#fff; border-color:var(--ink); }
+[data-theme="dark"] .emoji-cat-chip { background:var(--dark-hover); border-color:var(--dark-border-12); color:var(--dark-soft); }
+[data-theme="dark"] .emoji-cat-chip.sel { background:var(--btn-bg); color:var(--btn-ink); border-color:var(--btn-bg); }
 .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
 .emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
 #emoji-list .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
@@ -9740,7 +9748,18 @@ transition-duration: .01ms !important;
             <p class="splash-bullet">聊天和截图禁止暴露 mj 名字，群里人多怕创到人。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">一、关于 Bug、报修与适配</p>
+            <p class="splash-sec">一、当前状态与反馈</p>
+            <p class="splash-item">8.12 开搓，8.15~8.29 内测，谢谢参与内测的各位；Mochi字卡 8.29 已完全公开，可二传二改。</p>
+            <p class="splash-item">网站与我更新修复问题是同步的：边修边部署，修一天部署一天；开屏有最新部署时间。</p>
+            <p class="splash-item">如果浏览器还没进入新版，可以关掉浏览器再打开，多试几次流量刷新，或者过一段时间再打开。</p>
+            <p class="splash-sub">关于反馈与建议：</p>
+            <p class="splash-item">有问题可以在互助群艾特我，但我精力有限，不一定全部回复也不一定及时回复。</p>
+            <p class="splash-item">网站首先是做给我自己用的，不需要的细节不做，所以不一定采纳建议；许愿的功能按我自己的节奏和需求调整。</p>
+            <p class="splash-item">做这个网站花了我非常多的时间、精力和心血，自己做过网站的都能明白。本站完全免费，用不用随你——我不是客服，没有义务按任何人的标准修改。</p>
+            <p class="splash-bullet">提建议欢迎，指手画脚免谈。无法接受的请使用其他网站，或自行修改代码（已公开全部代码且开放二传二改权限）。谢谢配合。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">二、关于 Bug、报修与适配</p>
             <p class="splash-item">建议使用 Chrome、Edge 等主流浏览器，尽量不用手机自带默认浏览器（限制较多）；遇到显示异常、功能失灵，先换 Chrome 或 Edge 试试，很多问题换浏览器就没了。</p>
             <p class="splash-sub">为什么不同设备表现不一样：</p>
             <p class="splash-bullet">不同手机型号和浏览器都可能出现不同的适配问题；即使同一手机、同一浏览器，系统或浏览器版本不同，表现也可能不同。</p>
@@ -9754,7 +9773,7 @@ transition-duration: .01ms !important;
             <p class="splash-item">关于数据丢失：有可能有 bug，也有可能是浏览器触发丢失。不是高频率丢失就是正常情况（浏览器自身有正常概率丢数据），需要定期备份；提示有新版本需要刷新时，先备份数据。注意：本机不保留任何自动备份副本（v3.29 起该机制已下线，历史遗留副本会在启动时自动清理），你下载并保存好的导出文件就是唯一备份——请存到不会被浏览器清理的地方。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">二、关于浏览器使用与桌面快捷方式</p>
+            <p class="splash-sec">三、关于浏览器使用与桌面快捷方式</p>
             <p class="splash-sub">数据不互通说明：</p>
             <p class="splash-item">手机浏览器打开网站使用，和把网站安装快捷方式到手机桌面使用，是两种使用方式。</p>
             <p class="splash-item">浏览器限制有可能会自行隔离数据，导致两边数据不互通——之前使用的数据，只能自己手动导入。</p>
@@ -9762,7 +9781,7 @@ transition-duration: .01ms !important;
             <p class="splash-item splash-hl">浏览器打开网站 和 安装到桌面的快捷方式，不能同时打开使用，会导致两边数据不统一。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">三、许可 · 署名 · 灵感来源</p>
+            <p class="splash-sec">四、许可 · 署名 · 灵感来源</p>
             <p class="splash-sub">许可与署名（顶部两张提醒卡为唯一权威说明）：</p>
             <p class="splash-item">Mochi字卡为原创独立作品（即原版），代码已在 GitHub 完全公开，支持私人部署，与网站同步更新。</p>
             <p class="splash-item">可自由二传、二改、自行部署；必须保留署名：小红书 @言序（1842523578）（禁止删除或修改）；禁止商用、禁止以盈利为目的。</p>
@@ -9784,13 +9803,13 @@ transition-duration: .01ms !important;
             <p class="splash-item">其余功能和 UI 均为我独立设计。若使用代码或借鉴功能，必须标注灵感来源。标注来源是对创作者最基本的尊重，未标注来源的使用将视为违反本许可协议。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">四、关于“电子网站会连上鬼”的传闻</p>
+            <p class="splash-sec">五、关于“电子网站会连上鬼”的传闻</p>
             <p class="splash-bullet">不存在这种事。本站本质只是代码运行，且代码已在 GitHub 完全公开，任何人都可以查看，没有任何“灵异”成分。</p>
             <p class="splash-bullet">字卡只是工具，效果取决于个人如何使用。对于无根据的传闻和造谣，不接受、不回应。</p>
             <p class="splash-bullet">另外，不同人的说法可能不一样，有些是吓唬人的，也有些说法无法证实真假。如果担心或害怕，或在使用中感到不适，建议停止使用字卡传讯。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">五、自定义字卡全量导入导出</p>
+            <p class="splash-sec">六、自定义字卡全量导入导出</p>
             <p class="splash-item">字卡库 → 可自定义字卡 列表底部新增「自定义字卡·全量导出 / 全量导入」两个入口。</p>
             <p class="splash-item">导出是一份 json：公用/专属聊天字卡（含功能字卡、分组与分组停用开关）+ 寻踪日常·我的添加 + 今日情话·我的添加 + TA 的询问/小问题/好奇/吐槽/查岗/邀请题库（我的添加与自定义分组）。</p>
             <p class="splash-item">此前只有【公用字卡】【专属字卡】两个页面能导入导出，其余各库没有出入口——换机/迁移要靠 设置→数据备份 整包恢复；现在一份全量文件即可在「全量导入」里恢复。</p>
@@ -9811,9 +9830,9 @@ transition-duration: .01ms !important;
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789573390189">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.726</b></span>
-        <span class="sv-deploy">部署于 2026-09-16 23:43<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789600143572">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.728</b></span>
+        <span class="sv-deploy">部署于 2026-09-17 07:09<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11098,6 +11117,13 @@ transition-duration: .01ms !important;
           <div class="txt">导入数据<span class="sub">点开可选「仅聊天记录」：只恢复各桌面联系人与群聊，其他数据不动</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
+        <!-- v3.27.x #645：修改摸鱼天数——fish-log（全局键）丢数据后天数从 0 重来，
+             这里手动改回原天数；与导出/导入同属数据管理组（personalize.js 接线） -->
+        <div class="set-row" id="row-fish-days">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg></div>
+          <div class="txt">修改摸鱼天数<span class="sub">数据丢失后「已摸鱼 N 天」从 0 重来时，手动改回原来的天数</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <!-- v3.16.x：复制诊断信息——遇设备/浏览器兼容问题时，用户一键复制本机环境信息发给开发者，
              避免靠描述反推（此前每台新设备报障都要来回猜） -->
         <!-- v3.26.x #176：信息诊断分组说明（设备兼容诊断 + 屏幕适配诊断两行归属） -->
@@ -11180,7 +11206,7 @@ transition-duration: .01ms !important;
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.726</div>
+          <div class="val" id="about-ver-val">v3.26.728</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11249,7 +11275,7 @@ transition-duration: .01ms !important;
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.726</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.728</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11610,7 +11636,7 @@ transition-duration: .01ms !important;
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.726</span>
+              <span class="lic-ver">v3.26.728</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <div class="lic-pills">
@@ -12405,7 +12431,7 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认也按本上限截断；仅当下方「词典拼字」组打开「逐卡连发不受条数限制」才不受限）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
+            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断——下方「词典拼字」组的「逐卡连发不受条数限制」默认开；手动关闭后按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -12522,7 +12548,7 @@ transition-duration: .01ms !important;
             <!-- #370：词典拼字链路自检——四道闸门（二级锁/词典聊天使用/拼字总开关与概率/抽卡池；#427 移除无 UI 的遗留 dc-cat-dict 闸）
                  任一被关都是零提示零 tag，这行把每道闸实时状态摆出来，任何机型一眼看到卡在哪 -->
             <div class="gs-sub" id="qs-diag" style="color:var(--muted,#888)">链路自检中…</div>
-            <div class="gs-sub">开启后联系人回复按「拼字概率」随机变成拼字：从词典（系统预设字卡→词典，语录/词库/常用词全部分组都可抽，可逐张关闭）抽字卡整卡，效果举例：命中拼字时 TA 会连着发几条词典里的短句（如「想你了」「晚安哦」），像打字很快连着发消息一样。<br>发送形态：单气泡拼字为主，「多回复逐卡连发」开着时每次命中另按 20% 小概率变成逐条连发；「多回复逐卡连发」关＝不能连发（只发单气泡拼字）。<br>· 「单气泡拼字」＝几张字卡用空格拼成【一条】消息发在一个气泡里（如「今天也要好好爱自己 晚安」），气泡下 tag 是「词典」（全是长句时）或「词典拼字」（含短卡时）；<br>· 「多回复逐卡连发」＝每张字卡单独一条气泡一条一条发出来，每条气泡下 tag 是「词典逐卡连发」；连发条数跟随上方「每条消息使用多字卡回复」的最少/最多条数（默认 2~5 条）；<br>· 「逐卡连发不受条数限制」默认关＝连发条数按「回复条数最多」截断（默认最多 2 条）；打开＝连发条数不受「回复条数最多」约束（想连发 5 条就发 5 条）。<br>两个形态都能在没开「多字卡回复」的情况下触发；两个形态开关都关时兜底发单气泡拼字。开启「混用自定义字卡」时你的字卡库文本也会进抽卡池（可能把你的普通字卡抽去拼字，默认开）。概率 0 = 不触发</div>
+            <div class="gs-sub">开启后联系人回复按「拼字概率」随机变成拼字：从词典（系统预设字卡→词典，语录/词库/常用词全部分组都可抽，可逐张关闭）抽字卡整卡，效果举例：命中拼字时 TA 会连着发几条词典里的短句（如「想你了」「晚安哦」），像打字很快连着发消息一样。<br>发送形态：单气泡拼字为主，「多回复逐卡连发」开着时每次命中另按 20% 小概率变成逐条连发；「多回复逐卡连发」关＝不能连发（只发单气泡拼字）。<br>· 「单气泡拼字」＝几张字卡用空格拼成【一条】消息发在一个气泡里（如「今天也要好好爱自己 晚安」），气泡下 tag 是「词典」（全是长句时）或「词典拼字」（含短卡时）；<br>· 「多回复逐卡连发」＝每张字卡单独一条气泡一条一条发出来，每条气泡下 tag 是「词典逐卡连发」；连发条数跟随上方「每条消息使用多字卡回复」的最少/最多条数（默认 2~5 条）；<br>· 「逐卡连发不受条数限制」默认开＝连发条数不受「回复条数最多」约束（想连发 5 条就发 5 条）；关闭＝连发条数按「回复条数最多」截断（默认最多 2 条）。<br>两个形态都能在没开「多字卡回复」的情况下触发；两个形态开关都关时兜底发单气泡拼字。开启「混用自定义字卡」时你的字卡库文本也会进抽卡池（可能把你的普通字卡抽去拼字，默认开）。概率 0 = 不触发</div>
           </div>
           <!-- #513 梦角自由造句总开关与混合模式改为默认打开（用户点名「需要默认打开」）：
                DEFAULTS mjf-en/mjf-mix=1 + reply-settings migrateMjfOn 把存量 '0' 一次性收成 '1' -->
@@ -12613,6 +12639,12 @@ transition-duration: .01ms !important;
             <div class="gs-row"><span>来信内容使用颜文字</span><label class="toggle"><input type="checkbox" id="ml-kaomoji-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>来信内容使用 emoji</span><label class="toggle"><input type="checkbox" id="ml-emoji-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>来信内容使用表情包</span><label class="toggle"><input type="checkbox" id="ml-sticker-en"><span class="tk"></span></label></div>
+          </div>
+          <!-- #645：每周摸鱼小结寄信开关——关闭后 TA 不再寄「本周摸鱼小结」（判定在 src/js/mail.js fishWeekReportFor） -->
+          <div class="gs-title">每周摸鱼小结</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>摸鱼小结寄信</span><label class="toggle"><input type="checkbox" id="ml-fish-week-en"><span class="tk"></span></label></div>
+            <div class="gs-sub">开启后每周日 18 点后 TA 会把「本周摸鱼小结」寄进信箱（周一~周三会补上周的）；关闭后不再寄，主动来信/回信不受影响</div>
           </div>
         </div>
         <div class="gs-panel" data-rpanel="feed" hidden>
@@ -12801,6 +12833,12 @@ transition-duration: .01ms !important;
         <span class="ch-name">音效设置</span>
       </div>
       <div class="gs-scroll">
+        <!-- #643：音效作用范围——全部桌面共用 / 各桌面各自（默认各自，保持原行为） -->
+        <div class="gs-title">作用范围</div>
+        <div class="set-group glass">
+          <div class="gs-row"><span>所有桌面共用音效设置</span><label class="toggle"><input type="checkbox" id="sfx-unified"><span class="tk"></span></label></div>
+        </div>
+        <div class="sm-set-hint" style="padding:0 16px 8px">关闭（默认）＝每个联系人桌面各自一套音效；开启＝全部桌面共用同一套。开启时会以【当前桌面】的设置作为共用设置（各桌面自己的设置保留，关掉开关即恢复各桌面独立）。</div>
         <!-- v3.26.x：音效设置页重设计——三类音效各一张独立卡片（头部=图标+名称+当前状态，中部=预设胶囊，底部=动态操作行） -->
         <div class="gs-title">联系人来电</div>
         <div class="set-group glass sfx-card">
@@ -19430,6 +19468,7 @@ const G = 'xy-home-v2';
 const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-errors', 'theme-mode', 'accent-color',
 'fish-log', 'fish-log-global-migrated',
 'incoming-requests', 'desk-checkin-en', 'desk-call-en', 'desk-freq-mode', 'call-hold',
+'night-mode-en',
 'group-chat-msgs',
 'bg-keepalive', 'bg-notify',
 'gift-wallet', 'wallet-global-migrated',
@@ -19467,6 +19506,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'applock-qa-en', 'applock-qalist', 'applock-qaskip',
 'cardlock-state',
 'cs-font',
+'sfx-unified',
 'ver-retry'];
 function isExcluded(k) {
 const r = k.slice(G.length + 1);
@@ -19474,6 +19514,7 @@ if (r.indexOf('__') === 0) return true;
 if (EXCLUDE.indexOf(r) >= 0) return true;
 if (r.indexOf('reply-gc-') === 0) return true;
 if (r.indexOf('music-file:') === 0) return true;
+if (r.indexOf('font-blob-') === 0) return true;
 if (r.indexOf('narc-') === 0) return true;
 if (r.indexOf('myarc') === 0) return true;
 const m = r.match(/^([^:]+):/);
@@ -25062,6 +25103,7 @@ const KW = {
 '使用说明': '教程 帮助 常见问题 安装',
 '导出数据': '备份 保存 导出',
 '导入数据': '恢复 还原 迁移 换机',
+'修改摸鱼天数': '恢复 找回 补回 归零 重来 已摸鱼',
 '设备兼容诊断': '诊断 兼容 报错 环境',
 '顶部避让修正': '安全区 白带 重叠 刘海',
 '屏幕适配诊断': '适配 屏幕 空白 裁切',
@@ -25078,7 +25120,7 @@ const PY = {
 '联系人 / 桌面': 'lxrzm', '开启群聊': 'kqql', '跨桌面查岗': 'kzmcg', '查岗频率': 'cgpl', '打电话': 'dh',
 '深色模式': 'ssms', '手机桌面美化': 'sjzmmh', '回复设置': 'hfsz', '通话设置': 'thsz', '音效设置': 'yxsz',
 '功能大全': 'gndq', '应用锁': 'yys', '开屏问答门': 'kpwdm', '手机布局': 'sjbj', '离线消息提醒': 'lxxtx',
-'使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
+'使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '修改摸鱼天数': 'xgmyts', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
 '屏幕适配诊断': 'pmspzd', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
 '字卡使用状态自检': 'zksyztzj', '清除本地数据': 'qcbdsj', '新手引导': 'xsyd', '功能介绍': 'gnjs'
 };
@@ -26714,9 +26756,15 @@ const deskCsFontRow = document.getElementById('row-desk-cs-font');
 const deskCsFontVal = document.getElementById('desk-cs-font-val');
 const CS_FONT_KEY = 'cs-font';
 const deskCsFontValOf = () => { try { return store.get(CS_FONT_KEY) || ''; } catch (e) { return ''; } };
-function applyDeskCsFont() {
+function deskCsFontResolved() {
 const v = deskCsFontValOf();
-if (deskCsFontVal) deskCsFontVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
+if (v.indexOf('@@font:') !== 0) return v;
+try { return window.xyStore('xy-home-v2').get('font-blob-' + v.slice(7)) || ''; } catch (e) { return ''; }
+}
+function applyDeskCsFont() {
+const v = deskCsFontResolved();
+const raw = deskCsFontValOf();
+if (deskCsFontVal) deskCsFontVal.textContent = raw ? ((raw.indexOf('data:') === 0 || raw.indexOf('@@font:') === 0) ? '已上传' : raw) : '默认';
 const old = document.getElementById('cs-font-style');
 if (old && old.__fontVal === v) return;
 if (old) old.remove();
@@ -26747,9 +26795,10 @@ if (deskCsFontRow) {
 deskCsFontRow.addEventListener('click', () => {
 if (!window.openTCPanel) return;
 const cur = deskCsFontValOf();
+const curName = (cur && cur.indexOf('@@font:') === 0) ? '' : cur;
 window.openTCPanel('全局字体', '' +
 '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
-'<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (cur && cur.indexOf('data:') !== 0 && cur.indexOf('http') !== 0 ? ' value="' + String(cur).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
+'<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (curName && curName.indexOf('data:') !== 0 && curName.indexOf('http') !== 0 ? ' value="' + String(curName).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
 '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
 '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
 '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
@@ -26763,7 +26812,8 @@ if (!f) return;
 toast('正在读取字体文件…');
 const reader = new FileReader();
 reader.onload = () => {
-store.set(CS_FONT_KEY, reader.result);
+if (window.csFontStoreData) window.csFontStoreData(reader.result); // #642：全局唯一份 + 引用
+else store.set(CS_FONT_KEY, reader.result);
 document.getElementById('tc-mask').hidden = true;
 applyDeskCsFont();
 try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
@@ -26796,7 +26846,8 @@ return r.blob();
 }).then(blob => {
 const rd = new FileReader();
 rd.onload = () => {
-store.set(CS_FONT_KEY, rd.result);
+if (window.csFontStoreData) window.csFontStoreData(rd.result); // #642：全局唯一份 + 引用
+else store.set(CS_FONT_KEY, rd.result);
 document.getElementById('tc-mask').hidden = true;
 applyDeskCsFont();
 try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
@@ -29001,6 +29052,56 @@ gStore.set('fish-log', JSON.stringify(list));
 updateFishDays();
 }
 }
+})();
+(function () {
+const row = document.getElementById('row-fish-days');
+if (!row || typeof window.openModal !== 'function') return;
+const fmtDate = (dt) =>
+dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+function fishToast(msg) {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg;
+t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._timer);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+}
+row.addEventListener('click', function () {
+const cur = normalizeFishLog().length;
+const HINT = '当前已摸鱼 ' + cur + ' 天。数据丢失后天数会从 0 重新开始，输入原来的天数即可改回；之后打卡/聊天仍按自然日 +1。';
+const ctl = window.openModal('修改摸鱼天数', cur ? String(cur) : '', function (v) {
+const sv = String(v == null ? '' : v).trim();
+if (!/^\d+$/.test(sv)) { ctl.hint('请输入 0 起的整数天数'); ctl.stay(); return; }
+const n = parseInt(sv, 10);
+if (n > 36500) { ctl.hint('最多 36500 天（约 100 年），别填太大'); ctl.stay(); return; }
+const list = normalizeFishLog().slice().sort();
+if (n === list.length) { ctl.hint('现在就是 ' + n + ' 天，没有变化'); ctl.stay(); return; }
+let out;
+if (n < list.length) {
+out = list.slice(list.length - n); // 收缩：丢最旧的，最近 n 天（含今天）不动
+} else {
+out = list.slice();
+let d;
+if (out.length) {
+const p = out[0].split('-').map(Number);
+d = new Date(p[0], p[1] - 1, p[2]); // 非空：在最早一天之前回补，真实打卡日全保留
+} else {
+const now = new Date();
+d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 空日志（数据丢失场景）：从今天往回补
+d.setDate(d.getDate() + 1); // 循环先自减再入组，起点设明天＝首个入组日期是今天
+}
+for (let i = n - out.length; i > 0; i--) { d.setDate(d.getDate() - 1); out.unshift(fmtDate(d)); }
+}
+gStore.set('fish-log', JSON.stringify(out));
+updateFishDays();
+fishToast('已改为「已摸鱼 ' + n + ' 天」');
+}, {
+inputmode: 'numeric',
+maxlength: 6,
+placeholder: cur ? ('当前 ' + cur + ' 天，输入新天数') : '输入目标天数',
+staticText: HINT
+});
+});
 })();
 function renderQuoteOfDay() {
 const el = document.getElementById('love-quote');
@@ -35107,6 +35208,7 @@ return true;
 window.tryActiveInvite = tryActiveInvite;
 function tryAutoSend() {
 try {
+if (window.nightModeActive && window.nightModeActive()) { try { console.log('[mochi-auto] night mode, skip'); } catch(e){} return; }
 const c = cfg();
 const autoCid = window.__activeCid || 'default';
 const sameAutoCid = () => (window.__activeCid || 'default') === autoCid;
@@ -38700,7 +38802,7 @@ emojiCatBar = document.createElement('div');
 emojiCatBar.className = 'emoji-cats';
 [['sticker', '表情包'], ['kaomoji', '颜文字'], ['emoji', 'emoji']].forEach(([cat, label]) => {
 const c = document.createElement('button');
-c.className = 'emoji-g-chip';
+c.className = 'emoji-cat-chip';
 c.type = 'button';
 c.dataset.ecat = cat;
 c.textContent = label;
@@ -38723,6 +38825,7 @@ if (emojiTextTools || !emojiPanel) return;
 const tools = emojiPanel.querySelector('.emoji-tools');
 if (!tools || !tools.parentNode) return;
 emojiTextTools = document.createElement('div');
+emojiTextTools.id = 'emoji-text-tools'; // 快照/回归脚本按 id 定位
 emojiTextTools.className = 'emoji-tools';
 emojiTextTools.hidden = true;
 const importBtn = document.createElement('button');
@@ -39285,7 +39388,7 @@ const hts = taStickerHidden();
 ensureEmojiCatBar();
 ensureEmojiTextTools();
 if (emojiCat !== 'sticker' && textCatHidden(emojiCat)) emojiCat = 'sticker';
-if (emojiCatBar) emojiCatBar.querySelectorAll('.emoji-g-chip').forEach(c => {
+if (emojiCatBar) emojiCatBar.querySelectorAll('.emoji-cat-chip').forEach(c => {
 const cat = c.dataset.ecat;
 c.hidden = cat !== 'sticker' && textCatHidden(cat);
 c.classList.toggle('sel', cat === emojiCat);
@@ -48311,6 +48414,34 @@ const FONT_KEY = 'cs-font';
 function fontVal() { return store.get(FONT_KEY) || ''; }
 function fontSet(v) { store.set(FONT_KEY, v); }
 function fontRemove() { store.remove(FONT_KEY); }
+function fontHash(s) {
+let h = 5381;
+for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
+return (h >>> 0).toString(36) + '-' + s.length.toString(36);
+}
+function fontBlobPut(hash, dataURL) { try { window.xyStore('xy-home-v2').set('font-blob-' + hash, dataURL); } catch (e) {} }
+function fontSetDataFor(s, dataURL) {
+const h = fontHash(dataURL);
+fontBlobPut(h, dataURL);
+try { s.set(FONT_KEY, '@@font:' + h); } catch (e) {}
+}
+function fontSetData(dataURL) { fontSetDataFor(store, dataURL); }
+let _fontHydrating = {};
+function fontResolved() {
+const v = fontVal();
+if (v.indexOf('@@font:') !== 0) return v;
+const hash = v.slice(7);
+const g = window.xyStore('xy-home-v2');
+const blob = g.get('font-blob-' + hash);
+if (blob) return blob;
+if (window.idbGet && !_fontHydrating[hash]) {
+_fontHydrating[hash] = true;
+window.idbGet('xy-home-v2:font-blob-' + hash).then(b => {
+if (b && typeof b === 'string' && b.length > 2) { fontBlobPut(hash, b); applyFont(); csFontChanged(); }
+}).catch(() => {});
+}
+return '';
+}
 function deskFontCids() {
 const ids = ['default'];
 try { (window.getContacts() || []).forEach(c => { if (c && c.id && ids.indexOf(c.id) < 0) ids.push(c.id); }); } catch (e) {}
@@ -48347,8 +48478,22 @@ toast('已同步到 ' + n + ' 个桌面（切到对应桌面即可看到）');
 }, { noInput: true, pills: [{ label: '确认同步（覆盖其它桌面的字体）', value: '__yes__' }, { label: '取消', value: '__no__' }] });
 }
 window.csFontSyncAllDesks = syncFontAllDesks;
+window.csFontStoreData = fontSetData;
+function migrateFontBlobs() {
+try {
+if (!window.storeFor) return;
+deskFontCids().forEach((id) => {
+try {
+const s = window.storeFor(id);
+const v = s.get(FONT_KEY);
+if (v && v.indexOf('data:') === 0) fontSetDataFor(s, v);
+} catch (e) {}
+});
+} catch (e) {}
+}
+window.migrateFontBlobs = migrateFontBlobs;
 function applyFont() {
-const v = fontVal();
+const v = fontResolved();
 const setVal = document.getElementById('cs-font-val');
 if (setVal) setVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
 const old = document.getElementById('cs-font-style');
@@ -48380,7 +48525,7 @@ csFontRow.addEventListener('click', () => {
 if (!window.openTCPanel) return;
 window.openTCPanel('全局字体', '' +
 '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
-'<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (fontVal() && fontVal().indexOf('data:') !== 0 && fontVal().indexOf('http') !== 0 ? ' value="' + String(fontVal()).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
+'<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (fontResolved() && fontResolved().indexOf('data:') !== 0 && fontResolved().indexOf('http') !== 0 ? ' value="' + String(fontResolved()).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
 '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
 '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
 '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
@@ -48394,7 +48539,7 @@ if (!f) return;
 toast('正在读取字体文件…');
 const reader = new FileReader();
 reader.onload = () => {
-fontSet(reader.result);
+fontSetData(reader.result); // #642：存全局唯一份 + 轻量引用（同内容跨桌面只存一份）
 document.getElementById('tc-mask').hidden = true;
 applyFont();
 csFontChanged();
@@ -48423,7 +48568,7 @@ return r.blob();
 }).then(blob => {
 const rd = new FileReader();
 rd.onload = () => {
-fontSet(rd.result);
+fontSetData(rd.result); // #642：全局唯一份 + 引用
 document.getElementById('tc-mask').hidden = true;
 applyFont();
 csFontChanged();
@@ -48456,6 +48601,8 @@ document.getElementById('cs-font-sync').addEventListener('click', () => { syncFo
 });
 }
 demoteFontGlobal();
+migrateFontBlobs();
+try { document.addEventListener('mochi-restore-done', () => { migrateFontBlobs(); applyFont(); }); } catch (e) {}
 applyFont();
 const csCss = row('cs-css');
 const CSS_KEY = 'cs-bubble-css';
@@ -49335,7 +49482,7 @@ const DEFAULTS = {
 'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
 'csp-cust': 50,
 'dcp-all': 100,
-'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 0,
+'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
 'mjf-en': 1, 'mjf-prob': 20, 'mjf-style': 1,
 'mjf-src-cc': 1, 'mjf-src-def': 1, 'mjf-src-dict': 1,
 'mjf-w-cc': 50, 'mjf-w-def': 25, 'mjf-w-dict': 25,
@@ -49355,6 +49502,7 @@ const DEFAULTS = {
 'ml-write-en': 1,
 'ml-reply-prob': 80, 'ml-reply-min': 1, 'ml-reply-max': 480,
 'ml-kaomoji-en': 1, 'ml-emoji-en': 1, 'ml-sticker-en': 1,
+'ml-fish-week-en': 1,
 'fd-like-prob': 60, 'fd-like-speed-min': 1, 'fd-like-speed-max': 60,
 'fd-comment-prob': 70, 'fd-comment-speed-min': 1, 'fd-comment-speed-max': 60,
 'fd-reply-prob': 60, 'fd-reply-speed-min': 1, 'fd-reply-speed-max': 60,
@@ -49448,7 +49596,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -49541,6 +49689,7 @@ const TOGGLE_NAMES = {
 'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
 'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
 'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
+'ml-fish-week-en': '摸鱼小结寄信',
 'fd-kaomoji-en': '朋友圈颜文字', 'fd-emoji-en': '朋友圈emoji', 'fd-sticker-en': '朋友圈表情包', 'fd-image-en': '朋友圈图片',
 'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
 'qs-noLimit': '逐卡连发不受条数限制', 'mjf-en': '梦角自由造句',
@@ -49566,7 +49715,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -49803,7 +49952,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -49980,6 +50129,27 @@ try { if (window.console && console.log) console.log('[reply-settings] 已迁移
 } catch (e) {}
 }
 migrateQsNoLimitOld();
+function migrateQsNoLimitBack() {
+try {
+if (!window.getContacts || !window.storeFor) return;
+const cids = [window.__activeCid || 'default'];
+(window.getContacts() || []).forEach(c => { if (c.id && cids.indexOf(c.id) === -1) cids.push(c.id); });
+let changed = false;
+cids.forEach(cid => {
+try {
+const s = window.storeFor(cid);
+if (!s) return;
+if (String(s.get('reply-qs-nl-migrated')) !== '1') return;
+if (String(s.get('reply-qs-noLimit')) === '0') { s.set('reply-qs-noLimit', '1'); changed = true; }
+s.set('reply-qs-nl-migrated', '2');
+} catch (e) {}
+});
+if (changed) {
+try { if (window.console && console.log) console.log('[reply-settings] 已反向迁移逐卡连发不受条数限制 0→1（#443 存量补迁，#644）'); } catch (e) {}
+}
+} catch (e) {}
+}
+migrateQsNoLimitBack();
 function migrateMjfOn() {
 try {
 if (!window.getContacts || !window.storeFor) return;
@@ -55328,8 +55498,34 @@ navigator.mediaSession.setActionHandler('pause', function () { try { toggle(); }
 navigator.mediaSession.setActionHandler('nexttrack', function () { try { next(); } catch (e) {} });
 navigator.mediaSession.setActionHandler('previoustrack', function () { try { prev(); } catch (e) {} });
 } catch (e) {}
+try {
+navigator.mediaSession.setActionHandler('seekbackward', function (d) { try { if (audio) audio.currentTime = Math.max(0, audio.currentTime - ((d && d.seekOffset) || 10)); } catch (e) {} });
+navigator.mediaSession.setActionHandler('seekforward', function (d) { try { if (audio) audio.currentTime = Math.min(isFinite(audio.duration) ? audio.duration : Infinity, audio.currentTime + ((d && d.seekOffset) || 10)); } catch (e) {} });
+navigator.mediaSession.setActionHandler('seekto', function (d) { try { if (audio && d && isFinite(d.seekTime)) audio.currentTime = Math.max(0, Math.min(isFinite(audio.duration) ? audio.duration : Infinity, d.seekTime)); } catch (e) {} });
+navigator.mediaSession.setActionHandler('stop', function () { try { stopFromMediaSession(); } catch (e) {} });
+} catch (e) {}
+try { syncMediaPosition(); } catch (e) {}
 try { window.__musicPlaying = playing; } catch (e) {}
 } catch (e) {}
+}
+function syncMediaPosition() {
+try {
+if (!('mediaSession' in navigator) || !navigator.mediaSession || !navigator.mediaSession.setPositionState) return;
+if (!audio || !isFinite(audio.duration) || audio.duration <= 0) return;
+navigator.mediaSession.setPositionState({
+duration: audio.duration,
+playbackRate: audio.playbackRate > 0 ? audio.playbackRate : 1,
+position: Math.min(Math.max(audio.currentTime, 0), audio.duration)
+});
+} catch (e) {}
+}
+function stopFromMediaSession() {
+wantPlay = false;
+clearBgResume();
+teardownAudio();
+currentId = null;
+updatePlayerBar();
+renderLibrary();
 }
 function setupHandlers(m) {
 audio.onended = function () { handleEnded(); };
@@ -55359,6 +55555,7 @@ armAutoResume();
 } else { armAutoResume(); }
 }
 };
+audio.ontimeupdate = function () { try { syncMediaPosition(); } catch (e) {} };
 audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
 try { updateMediaSession(true); } catch (e) {} };
 audio.onpause = function () { syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
@@ -57843,6 +58040,74 @@ b.classList.toggle('sel', (b.dataset.lenosys === '36') === leno36);
 try {
 Object.defineProperty(window, '__LENO__', { get: lenoDeck, configurable: true });
 } catch (e) { window.__LENO__ = LENO; }
+let divineTarget = '';   // '' = 不选（存到当前桌面）
+let homePending = [];    // IDB 回填完成前暂存的待写主页记录
+function curStore() { return (window.activeStore && window.activeStore()) || store; }
+function targetName(cid) {
+cid = cid || (window.__activeCid || 'default');
+try {
+let v = '';
+if (cid === (window.__activeCid || 'default')) {
+const s = curStore();
+v = s.get('lbl-partner') || s.get('cs-lbl-partner') || '';
+} else {
+const s = window.storeFor(cid);
+v = s.get('lbl-partner') || s.get('cs-lbl-partner') || '';
+}
+return v || (window.contactNameFor ? window.contactNameFor(cid) : '') || (window.taWordFor ? window.taWordFor(cid) : 'TA');
+} catch (e) { return 'TA'; }
+}
+function loadDivineTarget() {
+try { divineTarget = curStore().get('divine-target') || ''; } catch (e) { divineTarget = ''; }
+if (divineTarget && window.getContacts && !window.getContacts().some(c => c && c.id === divineTarget)) divineTarget = '';
+}
+function syncTargets() {
+document.querySelectorAll('[data-dtarget]').forEach(b =>
+b.classList.toggle('sel', (b.getAttribute('data-dtarget') || '') === divineTarget));
+}
+function renderTargetsInto(id) {
+const el = document.getElementById(id);
+if (!el) return;
+loadDivineTarget();
+const contacts = (window.getContacts && window.getContacts()) || [];
+const chips = [{ cid: '', label: '不选' }];
+contacts.forEach(c => { if (c && c.id) chips.push({ cid: c.id, label: targetName(c.id) }); });
+el.innerHTML = chips.map(x =>
+'<button type="button" class="div-mode' + ((x.cid || '') === divineTarget ? ' sel' : '') +
+'" data-dtarget="' + escHtml(x.cid || '') + '">' + escHtml(x.label) + '</button>').join('');
+if (!el.dataset.dtBound) {
+el.dataset.dtBound = '1';
+el.addEventListener('click', (e) => {
+const b = e.target.closest('[data-dtarget]');
+if (!b) return;
+divineTarget = b.getAttribute('data-dtarget') || '';
+try { curStore().set('divine-target', divineTarget); } catch (e2) {}
+syncTargets();
+});
+}
+}
+window.divineRenderTargets = function (id) { try { renderTargetsInto(id); } catch (e) {} };
+window.divineGetTarget = function () { return divineTarget; };
+window.divineTargetName = function (cid) { return targetName(cid); };
+function writeHomeRec(cid, record) {
+let list = [];
+try { list = JSON.parse(window.storeFor(cid).get('records-divine') || '[]'); } catch (e) { list = []; }
+if (!Array.isArray(list)) list = [];
+if (!list.some(x => x && x.ts === record.ts)) list.unshift(record);
+if (list.length > 100) list = list.slice(0, 100);
+try { window.storeFor(cid).set('records-divine', JSON.stringify(list)); } catch (e) {}
+}
+function saveToHome(record, target) {
+const cid = target || (window.__activeCid || 'default');
+if (!histReady) { homePending.push({ cid: cid, record: record }); return; }
+writeHomeRec(cid, record);
+}
+function flushHomePending() {
+if (!homePending.length) return;
+const arr = homePending; homePending = [];
+arr.forEach(p => { try { writeHomeRec(p.cid, p.record); } catch (e) {} });
+}
+window.divineSaveToHomeHistory = function (record, target) { try { saveToHome(record, target); } catch (e) {} };
 function faceActive(c) {
 if (!isFaceKey(c.icon)) return false;
 const p = faceParse(c.icon);
@@ -58105,6 +58370,7 @@ document.addEventListener('mochi-restore-done', function () {
 histReady = true;
 migrateLegacyHist();
 flushPendingHist();
+try { flushHomePending(); } catch (e) {}
 try { renderHistory(); } catch (e) {}
 });
 } catch (e) {}
@@ -58249,10 +58515,14 @@ window.__divActiveDraw = null;
 drawBtn.textContent = '重新抽牌';
 const summary = buildSummary(cards, snapMode, question);
 renderDrawResult(cards, snapMode, question, summary);
+const snapTarget = divineTarget; // v3.27.x：快照点击时的占卜对象
+const record = { ts: Date.now(), mode: snapMode, count: snapCount, question: question, cards: cards, summary: summary };
+if (snapTarget) record.target = targetName(snapTarget);
 const list = histLoad();
-list.unshift({ ts: Date.now(), mode: snapMode, count: snapCount, question: question, cards: cards, summary: summary });
+list.unshift(record);
 histSave(list);
 renderHistory();
+try { saveToHome(record, snapTarget); } catch (e) {}
 if (autoSendGet()) {
 const myCid = window.__activeCid || 'default';
 setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; sendToChat(snapMode, cards, summary, question); }, 500);
@@ -58287,6 +58557,7 @@ if (phonePage) phonePage.hidden = false;
 function renderHistOnOpen() {
 try { renderHistory(); } catch (e) {}
 try { syncAutoToggle(); } catch (e) {}
+try { renderTargetsInto('div-targets'); } catch (e) {}
 }
 renderHistOnOpen();
 document.addEventListener('contact-switched', renderHistOnOpen);
@@ -58661,6 +58932,9 @@ window.divineBuildSummary = buildSummary;
 window.divineBuildResultText = buildResultText;
 window.divineCopyResultText = copyResultText;
 window.divineSendResult = function (m, cards, summary, question) { sendToChat(m, cards, summary, question); };
+window.divineRenderResult = function (cards, m, question, summary) {
+try { renderDrawResult(cards, m, question, summary); } catch (e) {}
+};
 window.divineFaces = {
 exportJSON: buildFaceExport,
 importData: importFacesData,
@@ -64128,6 +64402,19 @@ function deskDMode() {
 try { return DMODES[deskFreqMode()]; } catch (e) {}
 return DMODES.quiet;
 }
+const NIGHT_KEY = 'night-mode-en';
+const NIGHT_FROM = 22;   // 含 22:00
+const NIGHT_TO = 7;      // 不含 07:00
+function nightModeEn() {
+try { return window.xyStore(ROOT).get(NIGHT_KEY) === '1'; } catch (e) { return false; }
+}
+function isNightHours() {
+try { const h = new Date().getHours(); return h >= NIGHT_FROM || h < NIGHT_TO; } catch (e) { return false; }
+}
+window.nightModeActive = function () { return nightModeEn() && isNightHours(); };
+window.setNightModeEn = function (en) {
+try { window.xyStore(ROOT).set(NIGHT_KEY, en ? '1' : '0'); } catch (e) {}
+};
 function addSettingToggle(conf) {
 try {
 if (document.getElementById(conf.id + '-row')) return;
@@ -64194,7 +64481,47 @@ set: window.setDeskCallEn,
 toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
 });
 addFreqModeRow();
+addNightModeRow();
 })();
+function nightStatusText() {
+if (!nightModeEn()) return '关闭 · 开启后 22:00–7:00 生效';
+return isNightHours() ? '开启 · 当前生效中（22:00–7:00）' : '开启 · 当前不在夜间时段（22:00–7:00）';
+}
+function addNightModeRow() {
+try {
+if (document.getElementById('sf-night-mode-row')) return;
+const anchor = document.getElementById('sf-desk-freq') || document.getElementById('sf-group-chat-row');
+if (!anchor) return;
+const row = document.createElement('div');
+row.className = 'set-row';
+row.id = 'sf-night-mode-row';
+row.innerHTML =
+'<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/><path d="M17 4v3M15.5 5.5h3"/></svg></div>' +
+'<div class="txt">夜间模式<span class="sub" id="sf-night-mode-sub"></span></div>' +
+'<label class="toggle"><input type="checkbox" id="sf-night-mode"><span class="tk"></span></label>';
+anchor.parentNode.insertBefore(row, anchor.nextSibling);
+const input = row.querySelector('input');
+const sub = row.querySelector('#sf-night-mode-sub');
+const sync = function () {
+const v = nightModeEn();
+if (v !== input.checked) input.checked = v;
+if (sub) sub.textContent = nightStatusText();
+};
+sync();
+input.addEventListener('change', function () {
+if (input.checked === nightModeEn()) return;
+window.setNightModeEn(input.checked);
+sync();
+if (typeof window.toast === 'function') {
+window.toast(input.checked ? '夜间模式已开启：22:00–7:00 联系人不再主动打扰' : '夜间模式已关闭：恢复联系人主动消息/来电');
+}
+});
+document.addEventListener('contact-switched', sync);
+document.addEventListener('mochi-restore-done', sync);
+try { setInterval(sync, 60000); } catch (e) {} // 状态文案随时段变化刷新
+return row;
+} catch (e) { return null; }
+}
 var freqDetail = '「跨桌面查岗 / 来电」的频率按全局档位统一生效（对所有桌面联系人同时生效）：' +
 '\n· 频繁：概率 6%、冷却 15 分钟；' +
 '\n· 标准：概率 2%、冷却 30 分钟；' +
@@ -64525,6 +64852,7 @@ function maybeIncoming() {
 try {
 ticks++;
 reconcileLiveModals();
+if (window.nightModeActive && window.nightModeActive()) return;
 if (hardLocked()) return;
 var escape = false; // 本轮一次性额度：只授权顶掉一次屏幕，投成功即收回
 if (typingBusy()) return;
@@ -67561,6 +67889,7 @@ if (iv) iv.hidden = true;
 }
 function incomingCall(isReplay, msgWritten) {
 if (currentCall) return;
+if (window.nightModeActive && window.nightModeActive()) return;
 closeImageOverlay();
 if (window.playSfx) window.playSfx('ring');
 if (window.musicHoldForCall) window.musicHoldForCall(true);
@@ -67743,6 +68072,7 @@ window.triggerIncomingCall = incomingCall;
 function callLast() { const v = parseInt(store.get('records-call-last'), 10); return isNaN(v) ? 0 : v; }
 function maybeIncoming() {
 try {
+if (window.nightModeActive && window.nightModeActive()) return;
 if (currentCall) return;
 const now = Date.now();
 const last = Math.min(callLast(), now);
@@ -68307,6 +68637,7 @@ return {
 minCards: c['ml-min-cards'] !== undefined ? Number(c['ml-min-cards']) : 20,
 maxCards: c['ml-max-cards'] !== undefined ? c['ml-max-cards'] : 50,
 writeEn: c['ml-write-en'] !== undefined ? Number(c['ml-write-en']) : 1,
+fishWeekEn: c['ml-fish-week-en'] !== undefined ? Number(c['ml-fish-week-en']) : 1,
 writeProb: prob('ml-write-prob', 30),
 writeMin: c['ml-write-min'] !== undefined ? c['ml-write-min'] : 1,
 writeMax: c['ml-write-max'] !== undefined ? c['ml-write-max'] : 120,
@@ -68325,7 +68656,7 @@ if (!cid || cid === (window.__activeCid || 'default')) return cfg;
 try {
 const s = window.storeFor(cid);
 [['ml-min-cards', 'minCards'], ['ml-max-cards', 'maxCards'],
-['ml-write-en', 'writeEn'],
+['ml-write-en', 'writeEn'], ['ml-fish-week-en', 'fishWeekEn'],
 ['ml-write-prob', 'writeProb'], ['ml-write-min', 'writeMin'], ['ml-write-max', 'writeMax'],
 ['ml-write-daily-max', 'dailyMax'], ['ml-reply-prob', 'replyProb'],
 ['ml-reply-min', 'replyMin'], ['ml-reply-max', 'replyMax'],
@@ -68559,6 +68890,7 @@ list.forEach(c => maybeIncomingLetterFor(c.id));
 }
 function fishWeekReportFor(cid) {
 if (cid === (window.__activeCid || 'default') && !mailDbReady) return;
+if (!mailCfgFor(cid).fishWeekEn) return;
 const cs = csFor(cid);
 const now = window.__fishWeekNowOverride ? window.__fishWeekNowOverride() : new Date(); // 测试钩子：生产为 null
 const day = now.getDay(); // 0=日
@@ -95206,7 +95538,15 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mood-diary.js");
 } catch (__e) { try { console.error("[JS] mood-diary.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mood-diary.js] " + String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
-const store = window.activeStore();
+const rawStore = window.activeStore();
+const gStore = window.xyStore('xy-home-v2');
+function sfxUnified() { try { return gStore.get('sfx-unified') === '1'; } catch (e) { return false; } }
+window.sfxUnified = sfxUnified;
+const store = {
+get(k) { return (sfxUnified() ? gStore : rawStore).get(k); },
+set(k, v) { (sfxUnified() ? gStore : rawStore).set(k, v); },
+remove(k) { (sfxUnified() ? gStore : rawStore).remove(k); }
+};
 function toast(msg) {
 let t = document.getElementById('cc-toast');
 if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -95592,6 +95932,26 @@ renderAllSfx();
 document.addEventListener('contact-switched', () => {
 renderAllSfx();
 });
+const sfxUniToggle = document.getElementById('sfx-unified');
+function syncSfxUniRow() { if (sfxUniToggle) sfxUniToggle.checked = sfxUnified(); }
+if (sfxUniToggle) {
+sfxUniToggle.addEventListener('change', () => {
+const on = !!sfxUniToggle.checked;
+try { gStore.set('sfx-unified', on ? '1' : '0'); } catch (e) {}
+if (on) {
+['sfx-ring', 'sfx-in', 'sfx-out', 'sfx-ring-b', 'sfx-in-b', 'sfx-out-b'].forEach(k => {
+const v = rawStore.get(k);
+if (v !== null && v !== undefined && v !== '') gStore.set(k, v); else gStore.remove(k);
+});
+toast('已切换为全部桌面共用（以当前桌面的设置为共用设置）');
+} else {
+toast('已切换为各桌面各自设置');
+}
+renderAllSfx();
+});
+syncSfxUniRow();
+}
+document.addEventListener('contact-switched', syncSfxUniRow);
 document.addEventListener('click', (e) => {
 if (e.target && e.target.closest && e.target.closest('#row-sfx-settings')) {
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
@@ -99805,15 +100165,19 @@ const HUB = [
 ] },
 { g: '系统与设置', items: [
 { n: '音效设置', d: '来电铃声/消息音效本地上传（收件音/发送音/铃声三项）', k: '音效 铃声 声音 提示音 消息音', go: ['#row-sfx-settings'] },
+{ n: '音效作用范围', d: '可切换全部桌面共用同一套音效，或各桌面各自设置（默认各自）', k: '音效 统一 共用 分开 全部桌面 各自', go: ['#row-sfx-settings', '#sfx-unified'] },
+{ n: '字体跨桌面共用（不重复占空间）', d: '同一字体多桌面只存一份：上传后自动去重，配「同步到全部桌面」一键推给其它桌面', k: '字体 共用 去重 重复 占空间 内存 同步', go: ['#row-appearance', '#row-desk-cs-font'] },
 { n: '通话设置', d: '来电/接听/挂断等触发概率与通话背景', k: '通话设置 电话 概率', go: ['#row-call-settings'] },
 { n: '通话背景图片', d: '通话页面背景图自定义上传', k: '通话 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-bg-row'] },
 { n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
 { n: '打开通话半框', d: '聊天页「更多功能→通话」的底部半屏面板；从通话设置页一键跳到聊天页展开它', k: '通话 半框 打开 面板', go: ['#row-call-settings', '#call-half-open'] },
+{ n: '夜间模式', d: '开启后 22:00–7:00：联系人不再主动发消息/打电话，其他桌面也不再跨桌面查岗/来电（时段外不受影响）', k: '夜间 睡眠 勿扰 安静 静默 主动消息 来电 跨桌面 查岗 22 7 晚上', go: ['#sf-night-mode-row'] },
 { n: '通话半框背景图片', d: '给通话半框单独上传背景图（与通话背景互不影响，按联系人各自保存）', k: '通话 半框 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-half-bg-row'] },
 { n: '移除通话半框背景', d: '清除通话半框背景图恢复默认', k: '通话 半框 背景 移除 删除 清除', go: ['#row-call-settings', '#call-half-bg-remove'] },
 { n: '数据导出', d: '导出全部数据为备份文件；点开可选「仅聊天记录」（各桌面联系人 + 群聊，换机只搬聊天）', k: '导出 备份 数据 可选 只导出 仅 聊天记录 全部桌面', go: ['#row-export'] },
 { n: '数据导入', d: '从备份文件恢复（含预览与进度）；点开可选「仅聊天记录」（只恢复各桌面联系人与群聊）', k: '导入 恢复 数据 可选 只导入 仅 聊天记录 全部桌面', go: ['#row-import'] },
 { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录；页内「字卡图去重入库」做字卡库瘦身', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },
+{ n: '修改摸鱼天数', d: '数据丢失后桌面「已摸鱼 N 天」从 0 重来时，手动输入原天数改回（之后打卡/聊天仍每自然日 +1）', k: '摸鱼 天数 已摸鱼 修改 恢复 找回 补回 归零 数据丢失', go: ['#row-fish-days'] },
 { n: '字卡库瘦身 · 字卡图去重', d: '把字卡库里的内联图片转成媒体池令牌，同一张图全库只存一份（库键大幅缩小、减轻卡顿；图片显示与发送不变）', k: '字卡 去重 瘦身 存储 图片 卡顿 体积', go: ['#row-storage-view'] },
 { n: '卡顿自检 · 一键优化（手机卡顿怎么办）', d: '手机（安卓 / iPhone）持续卡顿的主因是数据体积（图片内联存储）：实测占得最多的是聊天记录，其次是字卡库。本项扫描分级并一键预热修复，不删任何数据；按顺序优化的完整清单见本行「功能说明」', k: '卡顿 卡 很卡 优化 性能 流畅 预热 图片 聊天记录 字卡库 内存 白屏 重载 变慢', go: ['#row-perf-optimize'] },
 { n: '字卡使用状态自检', d: '自定义/系统预设字卡能不能被用到，一次看清（含二级锁、各开关/概率、分组停用）', k: '字卡 自检 状态 锁 概率 停用 分组 用不了', go: ['#row-card-audit'] },
@@ -103417,4 +103781,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu49sh9p -->
+<!-- __MOCHI_EOF__ mu4ppwb8 -->
