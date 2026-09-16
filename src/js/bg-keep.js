@@ -32,6 +32,105 @@
     t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
   }
 
+  // ===== v3.44.x：保活音频可换（默认静音音频 / 用户上传自定义音频）=====
+  // 用户反馈：保活音频会占用手机音频通道、影响其他 App 的声音。
+  // 让用户能换一段自己的音频（白噪音 / 助眠声，或一段更彻底的静音文件）。全部存全局根键：
+  // __ka-audio（dataURL，xyStore 超 200KB 自动只进 IDB）＋ __ka-audio-on / __ka-audio-name
+  // （小键）。__ 前缀在 contacts.js isExcluded 内，不会被 migrateLegacy 误迁进 default。
+  let kaCustomAudio = null;
+  let kaCustomAudioName = '';
+  function kaCustomOn() { try { return gGet('__ka-audio-on') === '1'; } catch (e) { return false; } }
+  function kaAudioLabel() { return (kaCustomAudio || kaCustomOn()) ? '自定义音频' : '默认静音音频'; }
+  function kaApplyCustomAudio() {
+    if (!kaCustomAudio || !keepAudio || !keepAudio.el) return;
+    try {
+      if (keepAudio.el.src !== kaCustomAudio) {
+        keepAudio.el.src = kaCustomAudio;
+        if (!musicNowPlaying()) {
+          const p = keepAudio.el.play();
+          if (p && p.catch) p.catch(function () {});
+        }
+      }
+    } catch (e) {}
+  }
+  function kaLoadCustomAudio() {
+    if (!kaCustomOn() || kaCustomAudio) return;
+    try {
+      if (!window.idbGet) return;
+      window.idbGet(GNS + ':__ka-audio').then(function (v) {
+        if (v && typeof v === 'string' && v.length > 10) {
+          kaCustomAudio = v;
+          try { kaCustomAudioName = gGet('__ka-audio-name') || ''; } catch (e) {}
+          kaApplyCustomAudio();
+          syncKaAudioUI();
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  function kaSetDefaultAudio() {
+    kaCustomAudio = null;
+    kaCustomAudioName = '';
+    try {
+      window.xyStore(GNS).remove('__ka-audio');
+      window.xyStore(GNS).remove('__ka-audio-on');
+      window.xyStore(GNS).remove('__ka-audio-name');
+    } catch (e) {}
+    if (keepEnabled && keepAudio && keepAudio.el) {
+      try {
+        keepAudio.el.src = ensureKeepAudioDataUrl();
+        keepAudio.el.volume = 0.05;
+        if (!musicNowPlaying()) { const p = keepAudio.el.play(); if (p && p.catch) p.catch(function () {}); }
+      } catch (e) {}
+    }
+    syncKaAudioUI();
+    toast('已恢复默认静音音频');
+  }
+  function kaPickCustomAudio() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = function () {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      if (f.size > 3 * 1024 * 1024) toast('音频较大（>3MB），可能占用较多存储空间');
+      toast('正在读取音频…');
+      const r = new FileReader();
+      r.onload = function () {
+        kaCustomAudio = String(r.result || '');
+        kaCustomAudioName = f.name || '自定义音频';
+        try {
+          window.xyStore(GNS).set('__ka-audio', kaCustomAudio);
+          window.xyStore(GNS).set('__ka-audio-on', '1');
+          window.xyStore(GNS).set('__ka-audio-name', kaCustomAudioName);
+        } catch (e) {}
+        if (keepEnabled && keepAudio && keepAudio.el) {
+          try { keepAudio.el.volume = 1; } catch (e) {}
+          kaApplyCustomAudio();
+        }
+        syncKaAudioUI();
+        toast('已设为自定义保活音频（按原音量循环播放）');
+      };
+      r.onerror = function () { toast('音频读取失败'); };
+      r.readAsDataURL(f);
+    };
+    input.click();
+  }
+  function openKaAudioPicker() {
+    if (!window.openModal) return;
+    const pills = [
+      { label: '默认静音音频', value: 'default' },
+      { label: '上传自定义音频', value: 'upload' }
+    ];
+    if (kaCustomAudio || kaCustomOn()) pills.push({ label: '清除自定义', value: 'clear' });
+    const hasCustom = !!(kaCustomAudio || kaCustomOn());
+    const cur = kaAudioLabel() + (hasCustom && kaCustomAudioName ? '（' + kaCustomAudioName + '）' : '');
+    const txt = '后台保活需要在后台持续播放一段音频来让页面保持运行。\n\n· 默认静音音频：内置生成、近乎无声，推荐。\n· 自定义音频：上传自己的音频（白噪音 / 助眠声，或更彻底的静音文件），按原音量循环播放。\n\n注意：任何持续播放的音频都会占用手机音频通道，可能影响其他 App 的声音（详见「后台保活」功能说明）。\n当前：' + cur;
+    window.openModal('【保活音频】', '', function (v) {
+      if (v === 'default' || v === 'clear') kaSetDefaultAudio();
+      else if (v === 'upload') kaPickCustomAudio();
+    }, { noInput: true, pillSubmit: true, staticText: txt, pills: pills });
+  }
+
   // ================= 后台保活 =================
   let keepAudio = null;
   let keepInterval = null;
@@ -409,11 +508,13 @@
     if (keepAudio) return;
     try {
       // v3.5.160：保活音频改用 <audio> 元素循环播放极轻正弦波——媒体通知条才会显示
-      const src = ensureKeepAudioDataUrl();
+      // v3.44.x：优先用用户上传的自定义音频；否则内置默认静音音频
+      const src = kaCustomAudio || ensureKeepAudioDataUrl();
       if (!src) { if (showToast) toast('后台保活启动失败（无法生成保活音频）'); return; }
       const keepEl = document.createElement('audio');
       keepEl.loop = true;
-      keepEl.volume = 0.05;          // 低但非静音（近零音量会被 Chrome 无声节流）
+      // 自定义音频是用户主动选的（白噪音/助眠等），按原音量播放；默认静音音频压到近无声
+      keepEl.volume = kaCustomAudio ? 1 : 0.05;
       keepEl.src = src;
       keepEl.setAttribute('playsinline', '');
       // v3.13.x：play/pause 事件跟踪——play 成功刷新"最近播过"，外部打断（pause）
@@ -658,6 +759,9 @@
       keepUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
       keepEnabled = kaBtn.checked;
       gSet('bg-keepalive', keepEnabled ? '1' : '0');
+      // FIX 2026-09-16 #601d：记住「用户手动关过保活」——开启「后台通知」时的自动联动
+      // 与任何回填不得再把它强行打开（用户反馈：关掉后过一会/重开又变回开启）。
+      gSet('__ka-user-off', keepEnabled ? '0' : '1');
       if (keepEnabled) startKeepAlive(true);
       else stopKeepAlive(true);
     });
@@ -671,9 +775,28 @@
       if (old !== null) { gSet('bg-keepalive', old); saved = old; }
     }
     keepEnabled = saved === null ? false : saved === '1';
+    // FIX 2026-09-16 #601d：用户手动关过的保活，启动时一律保持关闭——防任何来源（旧版迁移 /
+    // 通知联动 / 存储回填）把存储里的值又写成 '1' 造成「重开又自己变回开启」。
+    if (gGet('__ka-user-off') === '1') {
+      keepEnabled = false;
+      if (saved === '1') gSet('bg-keepalive', '0');
+    }
     syncKeepUI();
     if (keepEnabled) startKeepAlive(false);
   })();
+
+  // ===== v3.44.x：保活音频选择入口（「保活音频」行右侧按钮）=====
+  const kaAudioBtn = document.getElementById('bg-keep-audio-btn');
+  function syncKaAudioUI() { if (kaAudioBtn) kaAudioBtn.textContent = kaAudioLabel(); }
+  if (kaAudioBtn) kaAudioBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    openKaAudioPicker();
+  });
+  kaLoadCustomAudio();
+  syncKaAudioUI();
+  // IDB 回填异步：回填完成后补读一次自定义音频（小键可能在 LS 被清后才到位）
+  try { document.addEventListener('mochi-restore-done', function () { kaLoadCustomAudio(); syncKaAudioUI(); }); } catch (e) {}
 
   // ================= 后台通知 =================
   let notifyEnabled = false;
@@ -767,11 +890,55 @@
     });
     finish();
   }
+  // FIX 2026-09-16 #614 通知发送链「永不落地」加固（多机型同报：后台通知「点测试没反应」+
+  //   后台弹窗不再弹；以前正常）。根因：showSysNotification 唯一等 navigator.serviceWorker.ready
+  //   的 .then 才发通知/出结果——SW 被系统回收、注册在弱网下失败、或 active worker 不可用时，
+  //   ready 会一直 pending（既不 resolve 也不 reject，无 catch 可兜）⇒ 测试按钮永远等不到
+  //   .then（没有任何反馈）、后台通知也永远发不出去。加固（零机型分支、不改业务语义）：
+  //   ① ready / showNotification 都加超时，任何一环卡住都必然 settle；
+  //   ② ready 拿不到现役 SW 时主动补注册一次（自愈被回收/注册失败的场景）；
+  //   ③ 仍不可用则回退页面 Notification 路径（前台可见时同样能弹）。
+  function kaWithTimeout(p, ms) {
+    return new Promise(function (resolve, reject) {
+      let done = false;
+      const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
+      try {
+        p.then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+          function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+      } catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
+    });
+  }
+  function kaSWReady() {
+    // 返回 Promise<reg|null>：永不 reject（调用方按 null 回退页面路径）
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return Promise.resolve(null);
+    const start = function () {
+      return navigator.serviceWorker.getRegistration().then(function (reg) {
+        return (reg && reg.active) ? reg : null;
+      }).catch(function () { return null; }).then(function (reg) {
+        if (reg) return reg;
+        // 无现役 SW：补注册一次自愈（原实现只在 pwa.js load 时注册一次，失败即长期不可用）
+        try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {}
+        return kaWithTimeout(navigator.serviceWorker.ready, 4000).then(function (r2) {
+          return r2 || null;
+        }).catch(function () { return null; });
+      });
+    };
+    return kaWithTimeout(start(), 5000).catch(function () { return null; });
+  }
   function showSysNotification(title, opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
       try {
         if (!('Notification' in window) || Notification.permission !== 'granted') { resolve(false); return; }
+        const pageFallback = function () {
+          // SW 不可用回退页面路径：去掉 image/icon/badge（页面 Notification 对
+          // dataURL 图片/图标不稳定，带上会导致整条通知失败，v3.5.118 教训）
+          const noMedia = Object.assign({}, opts);
+          delete noMedia.image;
+          delete noMedia.icon;
+          delete noMedia.badge;
+          try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
+        };
         if ('serviceWorker' in navigator && navigator.serviceWorker) {
           // v3.5.137：urgency:'high' 让通知以「高紧迫度」发送——Chrome 安卓上
           // 高紧迫度通知更可能以悬浮（head-up）形式显示在屏幕上方，而不是只进
@@ -785,7 +952,8 @@
           // 未生成完成时回退原始 icon-512 URL（已启动即预热，首条通知前通常已就绪）。
           // v3.14.x：badge 同样走 Blob 直传（prepMediaBlobs 统一转换）
           if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
-          navigator.serviceWorker.ready.then(function (reg) {
+          kaSWReady().then(function (reg) {
+            if (!reg) { pageFallback(); return; }
             // v3.14.x：逐级降级重发——带 image 失败 → 去 image；仍失败 → 去 badge；
             // 最后连 icon 也去掉只发纯文字。保证文字通知不因任一媒体字段异常整条丢失
             const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
@@ -795,25 +963,15 @@
               const attempt = Object.assign({}, swOpts);
               STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
               prepMediaBlobs(attempt, function () {
-                reg.showNotification(title, attempt).then(function () { resolve(true); }, tryNext);
+                // #614：showNotification 本身也加超时——防止个别内核返回的 Promise 不落地
+                kaWithTimeout(reg.showNotification(title, attempt), 4000)
+                  .then(function () { resolve(true); }, tryNext);
               });
             };
             tryNext();
-          }).catch(function () {
-            // SW 不可用回退页面路径：去掉 image/icon/badge（页面 Notification 对
-            // dataURL 图片/图标不稳定，带上会导致整条通知失败，v3.5.118 教训）
-            const noMedia = Object.assign({}, opts);
-            delete noMedia.image;
-            delete noMedia.icon;
-            delete noMedia.badge;
-            try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
-          });
+          }).catch(pageFallback);
         } else {
-          const noMedia = Object.assign({}, opts);
-          delete noMedia.image;
-          delete noMedia.icon;
-          delete noMedia.badge;
-          try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
+          pageFallback();
         }
       } catch (e) { resolve(false); }
     });
@@ -863,10 +1021,16 @@
           setTimeout(function () {
             const keep = document.getElementById('bg-keepalive');
             const keepOn = keepEnabled;
-            if (!keepOn) {
+            // FIX 2026-09-16 #601d：用户已手动关过保活（存储 '0' 或标记 __ka-user-off=1）时
+            // 不再强行打开——尊重用户选择，只提醒「通知要靠保活才收得到后台消息」。
+            const userWantsKeepOff = gGet('bg-keepalive') === '0' || gGet('__ka-user-off') === '1';
+            if (!keepOn && userWantsKeepOff) {
+              toast('你已手动关闭「后台保活」，保持你的设置；但后台消息可能收不到通知，需要时请手动开启');
+            } else if (!keepOn) {
               if (keep) keep.checked = true;
               keepEnabled = true;
               gSet('bg-keepalive', '1');
+              gSet('__ka-user-off', '0');
               startKeepAlive(false);
               syncKeepUI();
               toast('已自动开启后台保活（后台消息必需）');
@@ -917,7 +1081,7 @@
   // 边界：用户本会话手动动过某个开关 → 该开关不再重读覆盖（他的操作就是最新值）。
   function reheatBgSwitches() {
     if (!keepUserTouched) {
-      const wantKeep = gGet('bg-keepalive') === '1';
+      const wantKeep = gGet('bg-keepalive') === '1' && gGet('__ka-user-off') !== '1';
       if (wantKeep !== keepEnabled) {
         keepEnabled = wantKeep;
         syncKeepUI();
@@ -958,6 +1122,9 @@
   const testBtn = document.getElementById('bg-notify-test');
   if (testBtn) {
     testBtn.addEventListener('click', function () {
+      // FIX 2026-09-16 #614：先给即时反馈——原实现要等通知发送链 settle 才出结果，
+      //   SW 若不可用会一直等（用户＝「点测试没反应」）。现在点击立刻有提示。
+      toast('正在检查通知环境…');
       const env = [];
       if (!('Notification' in window)) {
         env.push('✗ 当前浏览器不支持 Notification API');
@@ -1018,6 +1185,17 @@
       } catch (e) {}
       const isHttps = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       env.push(isHttps ? '✓ 访问协议：HTTPS 或本地' : '✗ 访问协议：' + location.protocol + '//（安卓 Chrome 需 HTTPS 才弹通知，GitHub Pages 部署后即是 HTTPS）');
+      // FIX 2026-09-16 #614：补 Service Worker 状态——它在「通知发不出」里占大头，
+      //   且之前诊断不显示；SW 未接管时通知走页面回退（仅前台可见）。
+      try {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker) {
+          env.push('✗ 后台服务：当前浏览器不支持 Service Worker');
+        } else if (navigator.serviceWorker.controller) {
+          env.push('✓ 后台服务：Service Worker 已接管');
+        } else {
+          env.push('! 后台服务：Service Worker 尚未接管（后台通知可能发不出；已自动尝试重新注册，稍后重试一次）');
+        }
+      } catch (e) {}
       // v3.5.144：聊天消息后台弹窗诊断——后台收不到聊天消息 ≠ 通知问题，
       // 多数是「后台根本没产生聊天消息」：主动发送按间隔+概率随机触发，且需页面存活
       try {

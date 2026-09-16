@@ -105,7 +105,10 @@
     //    微信式交互：按返回先关面板（表情/更多/拍一拍/搜索/半框等），再退页面
     const layers = ['img-view-mask', 'modal-mask', 'qa-mask', 'tc-mask', 'poke-card', 'emoji-panel',
       'chat-more-panel', 'chat-search', 'chat-decision-panel', 'chat-divine-panel', 'chat-snake-panel',
-      'avlib-card', 'ck-panel', 'feed-notice-panel', 'desk-msg', 'chat-ask-panel', 'msg-actions'];
+      'avlib-card', 'ck-panel', 'feed-notice-panel', 'desk-msg', 'chat-ask-panel', 'msg-actions',
+      // FIX 2026-09-16 #640：设置 → 工具 →「使用提示」面板（page-coach.js 动态创建，登记进
+      // mobile-adapt 的 FLOAT_SELECTORS 同族）——返回键先关面板，不直接退页面
+      'pc-sheet-mask'];
     for (const id of layers) {
       const el = document.getElementById(id);
       if (el && !el.hidden) { el.hidden = true; return; }

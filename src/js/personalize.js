@@ -2013,10 +2013,10 @@ try {
     });
   }
   // v3.27.x：快捷面板（项5）——美化页常用项直达，避免进多层菜单
+  // #602：「深色模式」快捷按钮移除（设置页已有入口，这里重复）
   (function bindQuickPanel() {
     const bind = (id, targetId) => { const b = document.getElementById(id); const t = document.getElementById(targetId); if (b && t) b.addEventListener('click', () => t.click()); };
     bind('dq-accent', 'row-accent-color');
-    bind('dq-theme', 'row-theme-mode');
     bind('dq-bg', 'row-bg-preset');
     bind('dq-radius', 'row-desk-card-radius');
     // v3.27.x #146：dq-random（随机美化快捷入口）已随「一键随机美化」功能一并删除
@@ -3735,18 +3735,31 @@ try {
   // JSON.parse 抛错被最外层 catch 吞掉，连失败提示都没有。用户设了自定义壁纸就发不出去。
   // 现在：链接只带「配色/尺寸/圆角/内置壁纸预设」等小体积项；带图壁纸不进链接（数据太大），
   // 生成时如实告知走「导出文件」。另对最终 URL 长度设硬上限，超限就明确报错、不静默生成坏链接。
-  const SHARE_URL_MAX = 60000;
+  // #602 优化：硬上限从 60000 收到 16000。分享链接的 fragment 不会发给服务器，浏览器本身能吃很长，
+  // 真正的风险是聊天软件/复制过程把长链接截断——截断后对方拿到坏链接（以前是静默失败，现已在接收端
+  // 明确报「链接不完整」）。16000 足以覆盖几乎所有真实美化数据，又大幅远离易被截断的区间。
+  const SHARE_URL_MAX = 16000;
+  // 超过这个长度就提示「可能被截断」，但仍允许生成（数据本身完整）
+  const SHARE_URL_WARN = 4000;
   const isBeautyImageKey = (k) => /^(phone-bg|page-bg-|card-bg-|desk-image-src-|phone-bg-item-)/.test(k);
   const shareBeautyLink = () => {
     try {
+      // #602：本地文件方式（file:// / 其它非 http(s)）打开的页面，生成的链接对方打不开
+      //（origin 会是 "null"，路径也只是本机绝对路径）。直接引导走文件导出，不生成坏链接。
+      if (!/^https?:$/.test(location.protocol)) {
+        toast('当前以本地文件方式打开，生成的链接对方打不开。请改用「导出美化方案」把方案文件发给对方');
+        return;
+      }
       const full = collectBeautyFull();
       const data = {};
-      let stripped = 0;
       Object.keys(full).forEach(k => {
+        // #602：分享链接不带主题——主题归设置页管，导入不该把对方的深/浅色改掉
+        if (k === '__theme__') return;
         // 大图（dataURL / 图片键）不带进链接；色值、百分比、预设名等小项照常带
         const v = full[k];
         const bigImg = typeof v === 'string' && v.indexOf('data:') === 0;
-        if (bigImg || (isBeautyImageKey(k) && typeof v === 'string' && v.length > 2048)) { stripped++; return; }
+        // #602：图片组件清单 desk-images 必须跟图片本体一起剔除，否则对方导入后会得到一排空壳组件
+        if (k === 'desk-images' || bigImg || (isBeautyImageKey(k) && typeof v === 'string' && v.length > 2048)) { return; }
         data[k] = v;
       });
       let json = JSON.stringify(data);
@@ -3757,40 +3770,102 @@ try {
         toast('这份美化太大，无法生成分享链接，请改用「导出美化方案」发文件');
         return;
       }
-      const note = stripped
-        ? '分享链接已复制（不含 ' + stripped + ' 项图片/壁纸，对方导入后需自行设置壁纸）'
-        : '分享链接已复制，发给对方打开即可导入';
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => toast(note)).catch(() => { if (window.openModal) window.openModal('分享链接', url, () => {}, { staticText: stripped ? '请手动复制下方链接发给对方（不含壁纸图片，对方导入后需自行设置壁纸）' : '请手动复制下方链接发给对方', noInput: true }); });
-      } else if (window.openModal) { window.openModal('分享链接', url, () => {}, { staticText: stripped ? '请手动复制下方链接发给对方（不含壁纸图片，对方导入后需自行设置壁纸）' : '请手动复制下方链接发给对方，对方打开会自动弹导入提示', noInput: true }); }
-      else { toast('已生成链接（见控制台）'); try { console.log(url); } catch (e) {} }
+      // #602：链接只同步配色/尺寸等小项——不含图片（含图片组件），也不改对方主题，提示如实说明
+      // 设置行副标题/功能介绍页已有完整说明，toast 只给最要紧的两句，避免手机上过长被截断
+      const scopeNote = '只同步配色/尺寸/圆角/内置壁纸/布局等小项，不含图片，也不改对方深色模式';
+      const longNote = url.length > SHARE_URL_WARN ? '；链接较长，个别聊天软件可能截断，若对方提示链接损坏请改用「导出美化方案」发文件' : '';
+      const note = '分享链接已复制，发给对方打开即可导入（不含图片，也不改对方深色模式）' + longNote;
+      // #602 优化：复制优先走 execCommand（无权限体系、不弹系统授权；部分安卓 WebView 上
+      // navigator.clipboard.writeText 会拒绝甚至 Promise 悬空），失败再回退 clipboard API 并加 1.2s 超时。
+      // 两条都失败时弹窗展示链接本体供长按复制——原实现给 openModal 传了 noInput:true，input 被隐藏，
+      // 弹窗里根本没有链接可复制（提示「请手动复制下方链接」却看不到链接）。
+      const copyFrom = (text) => new Promise((resolve) => {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+          document.body.appendChild(ta);
+          try { ta.select(); } catch (e) {}
+          let ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+          setTimeout(() => { try { document.body.removeChild(ta); } catch (e) {} }, 800);
+          if (ok) { resolve(true); return; }
+        } catch (e) {}
+        let done = false;
+        const fin = (v) => { if (done) return; done = true; resolve(v); };
+        try { setTimeout(() => fin(false), 1200); } catch (e) {}
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => fin(true), () => fin(false));
+          else fin(false);
+        } catch (e) { fin(false); }
+      });
+      const showShareLink = () => {
+        if (!window.openModal) { toast('已生成链接（见控制台）'); try { console.log(url); } catch (e) {} return; }
+        window.openModal('分享链接', '', () => {}, {
+          noInput: true,
+          staticText: '自动复制未成功，请长按下面的链接复制后发给对方：\n\n' + url + '\n\n' + scopeNote + longNote,
+          copyBtn: { label: '复制链接', fn: function () { copyFrom(url).then((ok) => toast(ok ? '已复制到剪贴板' : '复制失败，请长按上面链接手动复制')); } }
+        });
+      };
+      copyFrom(url).then((ok) => { if (ok) toast(note); else showShareLink(); });
     } catch (e) { toast('生成链接失败：' + ((e && e.message) || '未知原因')); }
   };
   const beautyShareRow = document.getElementById('row-beauty-share');
   if (beautyShareRow) beautyShareRow.addEventListener('click', shareBeautyLink);
   // 启动读 hash 自动弹导入分享方案
-  try {
-    if (location.hash && location.hash.indexOf('#beauty=') === 0) {
-      const b64 = location.hash.slice(7);
-      const json = decodeURIComponent(escape(atob(b64)));
-      const data = JSON.parse(json);
-      if (window.openModal && typeof data === 'object' && data) {
-        // FIX 2026-09-15 #527：分享链接同样做用途校验 + 命中项数为 0 时不覆盖
-        if (beautyKindMismatch(data)) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
-        const shareHit = recognizeBeauty(data);
-        if (!shareHit) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
-        const ctl = window.openModal('导入分享的美化方案？', '', (v) => {
-          if (v !== 'ok') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; }
-          try { pushBeautyUndo(); } catch (e) {}
-          const applied = applyBeautyData(data, 'all');
-          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-          toast('已导入 ' + applied + ' 项，刷新生效');
-          reloadAfterBeautyWrite();
-        }, { noInput: true, pillSubmit: true, staticText: '从分享链接导入美化方案，将覆盖当前桌面美化', pills: [{ label: '导入', value: 'ok' }] });
-        if (ctl && ctl.pills) ctl.pills([{ label: '导入', value: 'ok' }], 'ok');
-      }
+  // FIX 2026-09-16 #602：整段包进独立函数——原 return 会穿透到 personalize 外层 IIFE，
+  // 遇到「用途不符 / 命中 0 项」的 #beauty= 链接时，其后所有初始化（主题开关绑定、预览浮条、
+  // 页签、引导等）会被整段跳过，桌面美化相关功能集体不工作。包一层后 return 只结束本段。
+  (function handleSharedBeauty() {
+    if (!location.hash || location.hash.indexOf('#beauty=') !== 0) return;
+    const cleanHash = () => { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} };
+    let data = null;
+    try {
+      // #602 加固：先做一次 percent 解码，兼容个别客户端把片段里的 + 编码成 %2B 导致 atob 崩
+      const b64 = decodeURIComponent(location.hash.slice(8)).replace(/-/g, '+').replace(/_/g, '/');
+      data = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    } catch (e) {
+      // #602：解不出来不再静默——最常见是链接被聊天软件/复制截断。明确告知并给出「导出文件」正路。
+      cleanHash();
+      const msg = '这条分享链接不完整或已损坏（多半被聊天软件截断了）。请让 TA 用「导出美化方案」把方案文件发给你，或重新发送完整链接。';
+      if (window.openModal) window.openModal('分享链接无法读取', '', () => {}, { noInput: true, pillSubmit: true, staticText: msg, pills: [{ label: '知道了', value: 'ok' }] });
+      else toast(msg);
+      return;
     }
-  } catch (e) {}
+    // #602：分享链接不应用主题——即使旧链接/手改链接带了 __theme__ 也丢掉，避免悄悄改对方明暗
+    if (data && typeof data === 'object') delete data['__theme__'];
+    if (!window.openModal || typeof data !== 'object' || !data) return;
+    // FIX 2026-09-15 #527：分享链接同样做用途校验 + 命中项数为 0 时不覆盖
+    if (beautyKindMismatch(data)) { cleanHash(); return; }
+    const shareHit = recognizeBeauty(data);
+    if (!shareHit) { cleanHash(); toast('这条链接里没有可导入的桌面美化项'); return; }
+    // #602：启动弹窗优先级——openModal 全站唯一、后开的覆盖先开的。延迟到「开屏收起 + 800ms 内
+    // 没有任何弹窗」才弹导入提示，避免被首启引导 / 备份提醒等启动弹窗顶掉；30s 兜底防永不出现。
+    let opened = false;
+    const openImport = () => {
+      if (opened) return; opened = true;
+      const ctl = window.openModal('导入分享的美化方案？', '', (v) => {
+        if (v !== 'ok') { cleanHash(); return; }
+        try { pushBeautyUndo(); } catch (e) {}
+        const applied = applyBeautyData(data, 'all');
+        cleanHash();
+        toast('已导入 ' + applied + ' 项，刷新生效');
+        reloadAfterBeautyWrite();
+      }, { noInput: true, pillSubmit: true, staticText: '从分享链接导入美化方案，将覆盖当前桌面美化（不含图片，也不会改动深色模式）', pills: [{ label: '导入', value: 'ok' }] });
+      if (ctl && ctl.pills) ctl.pills([{ label: '导入', value: 'ok' }], 'ok');
+    };
+    let quietMs = 0;
+    const timer = setInterval(() => {
+      if (opened) { clearInterval(timer); return; }
+      const splash = document.getElementById('splash');
+      const splashGone = !splash || splash.classList.contains('hide') || splash.hidden;
+      const mask = document.getElementById('modal-mask');
+      const modalOpen = !!(mask && !mask.hidden);
+      if (splashGone && !modalOpen) { quietMs += 250; if (quietMs >= 800) { clearInterval(timer); openImport(); } }
+      else quietMs = 0;
+    }, 250);
+    setTimeout(() => { try { clearInterval(timer); openImport(); } catch (e) {} }, 30000);
+  })();
   // v3.27.x：完整外观方案（项9）——桌面+聊天美化合并保存/应用，跨域用 window.collectChatBeauty/applyChatBeautyData
   const FULL_SCHEMES_KEY = 'full-beauty-schemes';
   const getFullSchemes = () => { try { const a = JSON.parse(gStore.get(FULL_SCHEMES_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
@@ -3942,7 +4017,7 @@ try {
     show(tabs[0] ? tabs[0].dataset.tab : 'basic');
   })();
 
-  // ===== 设置 → 工具：使用说明页导航 + 页内搜索（#row-guide → #page-guide；说明内容静态在 template.html） =====
+  // ===== 设置 → 关于 → 帮助与支持：使用说明页导航 + 页内搜索（#row-guide → #page-guide；说明内容静态在 template.html） =====
   (function initGuideNav() {
     const page = document.getElementById('page-guide');
     const row = document.getElementById('row-guide');
@@ -4225,24 +4300,32 @@ try {
   // ===== v3.27.x：全局字体（桌面美化快捷入口，与聊天设置「全局字体」互通同一功能） =====
   // 复用 chat-settings.js 的存储键 'cs-font' + 同款 applyFont 逻辑（@font-face 注入 / body+html font-family），
   // 两边任一改动写同一键、应用同一全局 DOM，天然互通。applyDeskCsFont 与 chat-settings 的 applyFont 都
-  // 先 remove id="cs-font-style" 再注入，幂等可重复调用。store = activeStore() 与 chat-settings 同款 per-cid。
+  // 先 remove id="cs-font-style" 再注入，幂等可重复调用。
+  // v3.26.x #628：字体按桌面各存各的（每个联系人可各自排版），面板里新增「同步到全部桌面」按钮——
+  //   用户报「上传字体，无法应用到全部桌面」，缺的就是这一步。同步实现只有一份（chat-settings.js
+  //   暴露的 window.csFontSyncAllDesks），本文件的按钮调用它，避免两处逻辑漂移。
   const deskCsFontRow = document.getElementById('row-desk-cs-font');
   const deskCsFontVal = document.getElementById('desk-cs-font-val');
   const CS_FONT_KEY = 'cs-font';
   const deskCsFontValOf = () => { try { return store.get(CS_FONT_KEY) || ''; } catch (e) { return ''; } };
   function applyDeskCsFont() {
-    const old = document.getElementById('cs-font-style');
-    if (old) old.remove();
     const v = deskCsFontValOf();
     if (deskCsFontVal) deskCsFontVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
+    // 同一个值已在位就不再重注入（dataURL 字体可达 MB 级，切桌面/回填兜底都会调到这里）
+    const old = document.getElementById('cs-font-style');
+    if (old && old.__fontVal === v) return;
+    if (old) old.remove();
     if (!v) {
-      document.body.style.fontFamily = '';
-      document.documentElement.style.fontFamily = '';
+      if (document.body.style.fontFamily || document.documentElement.style.fontFamily) {
+        document.body.style.fontFamily = '';
+        document.documentElement.style.fontFamily = '';
+      }
       return;
     }
     if (v.indexOf('data:') === 0) {
       const st = document.createElement('style');
       st.id = 'cs-font-style';
+      st.__fontVal = v;
       st.textContent = '@font-face{font-family:"cs-custom-font";src:url("' + v + '");font-display:swap;}' +
         'body,html{font-family:"cs-custom-font",sans-serif !important;}';
       document.head.appendChild(st);
@@ -4253,15 +4336,20 @@ try {
     document.body.style.fontFamily = '"' + v + '",sans-serif';
     document.documentElement.style.fontFamily = '"' + v + '",sans-serif';
   }
+  // 与聊天设置那侧互相回显（cs-font-changed 广播；本函数不广播，避免两边成环）
+  document.addEventListener('cs-font-changed', applyDeskCsFont);
   applyDeskCsFont();
   if (deskCsFontRow) {
     deskCsFontRow.addEventListener('click', () => {
       if (!window.openTCPanel) return;
       const cur = deskCsFontValOf();
       window.openTCPanel('全局字体', '' +
-        '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后全局生效</label>' +
+        '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
         '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (cur && cur.indexOf('data:') !== 0 && cur.indexOf('http') !== 0 ? ' value="' + String(cur).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
-        '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>');
+        '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
+        // #628：其它桌面也要用同一个字体时点这颗同步（走 chat-settings.js 同一份实现），不必逐个桌面重传
+        '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
+        '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
       document.getElementById('cs-font-upload').addEventListener('click', () => {
         const inp = document.createElement('input');
         inp.type = 'file';
@@ -4275,17 +4363,23 @@ try {
             store.set(CS_FONT_KEY, reader.result);
             document.getElementById('tc-mask').hidden = true;
             applyDeskCsFont();
-            toast('字体已应用成功');
+            try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
+            toast('字体已应用到本桌面');
           };
           reader.onerror = () => { toast('字体文件读取失败，请重试'); };
           reader.readAsDataURL(f);
         };
         inp.click();
       });
+      document.getElementById('cs-font-sync').addEventListener('click', () => {
+        if (window.csFontSyncAllDesks) window.csFontSyncAllDesks();
+        else toast('同步入口未就绪，请稍后重试');
+      });
       document.getElementById('cs-font-clear').addEventListener('click', () => {
-        store.remove(CS_FONT_KEY);
+        try { store.remove(CS_FONT_KEY); } catch (e) {}
         document.getElementById('tc-mask').hidden = true;
         applyDeskCsFont();
+        try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
         toast('已恢复默认字体');
       });
       document.getElementById('cs-font-ok').addEventListener('click', () => {
@@ -4302,12 +4396,14 @@ try {
               store.set(CS_FONT_KEY, rd.result);
               document.getElementById('tc-mask').hidden = true;
               applyDeskCsFont();
+              try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
               toast('字体下载并应用成功');
             };
             rd.onerror = () => {
               store.set(CS_FONT_KEY, name);
               document.getElementById('tc-mask').hidden = true;
               applyDeskCsFont();
+              try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
               toast('字体读取失败，已按字体名应用');
             };
             rd.readAsDataURL(blob);
@@ -4315,6 +4411,7 @@ try {
             store.set(CS_FONT_KEY, name);
             document.getElementById('tc-mask').hidden = true;
             applyDeskCsFont();
+            try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
             toast('链接下载失败，已按字体名应用');
           });
           return;
@@ -4322,7 +4419,8 @@ try {
         store.set(CS_FONT_KEY, name);
         document.getElementById('tc-mask').hidden = true;
         applyDeskCsFont();
-        toast('字体已应用成功');
+        try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {}
+        toast('字体已应用到本桌面');
       });
     });
   }
@@ -7817,6 +7915,68 @@ try {
       if (setPage) setPage.hidden = false;
     });
   }
+
+  // #606（2026-09-16）「关于」分类信息行：版本与更新 / 开源与致谢 / 隐私与数据安全 / 联系与反馈。
+  // 均为只读说明，统一走 openModal 弹窗（noInput + staticText）；「检查更新」复用开屏同一条
+  // 刷新链 window.mochiRefreshNow（pwa.js 暴露），不新增网络轮询。
+  // #620 维护提示：「开源与致谢」与「功能介绍与许可」现在都直接打开 #page-about（单一出处，不再各写一份）；
+  //    「联系作者」的账号与设置页底部 .set-alert 防骗声明同源，账号变更时请一并同步。
+  (function initAboutInfo() {
+    const bind = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', fn);
+    };
+    const open = (title, text, opts, cb) => {
+      if (!window.openModal) return;
+      window.openModal(title, '', cb || function () {}, Object.assign({ noInput: true, staticText: text }, opts || {}));
+    };
+    // 版本号从行内 .val 读（构建时 __APP_VERSION__ 已替换），不依赖从未赋值的 window.APP_VERSION
+    bind('row-changelog', () => {
+      const el = document.getElementById('about-ver-val');
+      const ver = (el && el.textContent.trim()) || '（未知）';
+      open('版本与更新',
+        '当前版本：' + ver + '\n\n有新版本时，开屏「Mochi 字卡传讯」下方会出现「⇩ 有新版本 · 点此更新」，点一下即可更新到最新。\n\n更新只替换程序文件，本机的聊天记录、字卡、头像、壁纸、音乐等数据全部保留，不会被清除。\n\n作者已决定月底停更：之后不再维护更新、互助群月底解散（详见开屏公告）。\n\n本次更新了哪些内容：以开屏公告为准（公告可在线更新，每次上线会写在里面）。',
+        { okText: '知道了', pills: [{ label: '检查更新（刷新到最新）', value: 'ok' }], pillSubmit: true },
+        (v) => { if (v === 'ok' && typeof window.mochiRefreshNow === 'function') window.mochiRefreshNow(); });
+    });
+    // #620：开源与致谢不再另写一份（与 #page-about 的「许可 / 关于星言字卡与灵感来源」重复），
+    // 改为直接打开功能介绍页，单一出处。
+    bind('row-opensource', () => {
+      document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
+      const aboutPage = document.getElementById('page-about');
+      if (aboutPage) aboutPage.hidden = false;
+    });
+    bind('row-privacy', () => {
+      open('隐私与数据安全',
+        '本站是纯本地应用：无后端、无账号、无需联网，你的聊天记录、字卡、头像、壁纸、音乐等全部数据只保存在本机浏览器存储里（localStorage + IndexedDB），作者看不到、也不会收集或上传。\n\n请留意：卸载应用或清除浏览器数据会一并删除本机数据且无法找回——唯一可靠的防线是定期「导出数据」完整备份。\n\niOS Safari 等可能被系统自动清空存储，建议常导出完整备份。\n\n「应用锁」「开屏问答门」用于防旁人日常偷看；数据存于本机，懂技术的人仍可读取本机数据。');
+    });
+    bind('row-contact', () => {
+      open('联系作者 / 反馈',
+        '作者只有两个账号：小红书 @言序（1842523578）、抖音 @言序（58334080131）。\n\n作者不玩抖音、不回消息，账号仅用于发布本站链接。本站完全免费，任何收费均为诈骗。\n\n作者已决定月底停更：互助群月底解散，之后不再答疑、不再帮看 bug；网站仍开源免费，代码可自行下载修改。\n\n遇到问题建议先看「使用说明」，并用 工具 → 设备兼容诊断 一键复制本机环境信息再反馈。');
+    });
+    // #611：以下 5 条原在开屏（「其他说明与常见问题」/「四、关于全屏模式失效」/「八、关于系统预设字卡和功能设置」），
+    // 按用户要求从开屏删除、移入设置 → 关于 → 常见问题（只读弹窗）。
+    bind('row-faq-app', () => {
+      open('关于“会不会做成 App”',
+        '暂不考虑。原因是网站功能非常多——如果功能少还好说，功能太多的情况下，做成 App 可能出现的 Bug 只会更多，而且和设备、浏览器一样存在适配问题：不同手机的屏幕、系统、性能都不一样，要做到所有手机都适配，Bug 可能需要全部重写一遍。我没有这种精力和金钱。');
+    });
+    bind('row-faq-app2', () => {
+      open('关于“自己转 App 使用”',
+        '类似“一个木函”那种链接转应用的方式，没有我的原代码，本质是浏览器套壳，不是真正的 App，反而可能出现非常多的适配问题。所以不如直接浏览器使用，体验更稳定。');
+    });
+    bind('row-faq-addcard', () => {
+      open('怎么添加字卡',
+        '本站的系统预设字卡都是补充类和小功能衍生字卡，关于个人使用得根据个人情况添加 mj 聊天字卡。\n\n聊天、写信、朋友圈 添加 自定义字卡里的【公用字卡】和【专享字卡】即可。');
+    });
+    bind('row-faq-fullscreen', () => {
+      open('全屏模式失效',
+        '如果你是把浏览器切到后台，再切回来，全屏会失效——这是浏览器限制，只能手动重新开全屏。\n\n或者可以使用“浏览器安装快捷方式到手机桌面”的方式使用，这样可以全屏。\n\n但注意：手机自身顶部栏是手机系统限制，需要自己手动开全屏模式隐藏，且切到后台后同样会失效。');
+    });
+    bind('row-faq-preset', () => {
+      open('系统预设字卡与功能设置',
+        '建议打开使用。（我自己用是默认全开）\n\n初衷就是为了不限制梦角表达，如果关掉，反而限制了它，和基础传讯网站没什么差别——正是因为以前接触的字卡传讯类型太简单才做的。\n\n建议先全部打开使用，再根据个人适应情况调整。');
+    });
+  })();
 
   // ===== v3.26.x：查看存储——看全站功能占用空间 + 手动清理错误诊断记录 =====
   // 用户反馈「存储已用 1.x GB」：这里把 localStorage + IndexedDB 按功能归类展示占用，

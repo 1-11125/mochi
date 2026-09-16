@@ -21,14 +21,17 @@
   const OFFICIAL_NOTICE = 'https://ling233330-star.github.io/mochi/notice.json';
   const MARK_KEY = '小红书@言序（1842523578）';
   // 两条声明：tag 对应静态 DOM 的 data-anti-scam 标记；key 为 notice.json 权威字段；marks 为在位判定特征词
+  // #621：防骗 + 署名禁倒卖合并为一张置顶声明卡（用户要求「并成一张」）。
+  // keys = 该卡按序拼接的 notice.json 权威字段（alert + alert2）；marks = 在位判定特征词（两段特征都在才算在位）。
   const BARS = [
-    { tag: '1', title: '防骗提醒', key: 'alert', marks: ['免费', '诈骗', MARK_KEY],
-      fallback: 'Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。' },
-    { tag: '2', title: '转载署名 · 严禁倒卖', key: 'alert2', marks: ['署名', '倒卖', MARK_KEY],
-      fallback: '二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。' }
+    { tag: '1', title: '免费 · 署名 · 防倒卖', keys: ['alert', 'alert2'],
+      marks: ['免费', '诈骗', '署名', '倒卖', MARK_KEY] }
   ];
-  const texts = {}; // key -> 当前权威文案（先本地兜底，官方拉取后覆盖）
-  BARS.forEach(function (b) { texts[b.key] = b.fallback; });
+  const texts = {}; // notice 字段 -> 当前权威文案（先本地兜底，官方拉取后覆盖）
+  texts['alert'] = 'Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。';
+  texts['alert2'] = '二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
+  // 一张卡正文 = 各权威字段按序拼接
+  function barText(bar) { return bar.keys.map(function (k) { return texts[k] || ''; }).filter(Boolean).join(' '); }
   // 判定一条置顶块文案是否仍为官方声明（标题+全部特征词在位才认为在位，避免每次重建；
   // 空白归一化——文案里「小红书 @言序」带空格而锚点串不带，空格差异不能算被篡改）
   function marked(box, bar) {
@@ -36,7 +39,7 @@
     const title = bar.title.replace(/\s+/g, '');
     return t.indexOf(title) > -1 && bar.marks.every(function (m) { return t.indexOf(m) > -1; });
   }
-  // 开屏置顶块（#splash-notice 最顶部两条：防骗在上、署名禁倒卖紧随）
+  // 开屏置顶块（#613 起：防骗卡在 #splash-notice 第 1 张；署名禁倒卖卡仍在置顶声明区 = 防未成年锁卡之后）
   function ensureBar(bar, refNode) {
     const notice = document.getElementById('splash-notice');
     if (!notice) return null;
@@ -57,7 +60,7 @@
     if (!marked(box, bar)) { // 缺失或被改 → 重建/改写回官方文案
       box.innerHTML = '<div class="splash-alert-t"></div><p></p>';
       box.querySelector('.splash-alert-t').textContent = bar.title;
-      box.querySelector('p').textContent = texts[bar.key];
+      box.querySelector('p').textContent = barText(bar);
     }
     return box;
   }
@@ -93,8 +96,8 @@
     if (!box) {
       box = document.createElement('div');
       box.className = 'splash-alert';
-      const b2 = notice.querySelector('.splash-alert[data-anti-scam="2"]');
-      notice.insertBefore(box, b2 ? b2.nextSibling : notice.firstChild);
+      const b1 = notice.querySelector('.splash-alert[data-anti-scam="1"]');
+      notice.insertBefore(box, b1 ? b1.nextSibling : notice.firstChild);
     }
     box.setAttribute('data-anti-scam', '3');
     if (box.textContent !== '公告' + want) { // 内容变化 → 重写（标题固定「公告」）
@@ -104,13 +107,9 @@
     }
   }
   function run() {
-    // #315b 免责声明卡（静态 DOM，data-anti-scam="d"）固定最顶——防骗/署名卡都插它后面；
-    // 它不在位（被删）时 dis 为 null，退回 firstChild，行为与旧版一致
-    const dis = document.querySelector('.splash-alert[data-anti-scam="d"]');
-    // #319 防未成年人锁卡在免责卡之后（同属置顶声明区）；1/2 回填继续让位
-    const lockCard = document.getElementById('splash-cardlock');
-    const b1 = ensureBar(BARS[0], (lockCard && lockCard.parentNode === document.getElementById('splash-notice')) ? (lockCard.nextSibling) : (dis ? dis.nextSibling : null));
-    ensureBar(BARS[1], b1 ? b1.nextSibling : null);
+    // #613/#621：合并置顶声明卡（免费 · 署名 · 防倒卖）重建锚点 = 公告区最顶——refNode 传 null，
+    // ensureBar 落到 notice.firstChild；只影响「卡被删后重建插到哪」，静态顺序由 template.html 决定。
+    ensureBar(BARS[0], null);
     ensureSettings();
     ensureBulletin();
     setupCardLockCard();
@@ -245,9 +244,9 @@
     .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
     .then(function (d) {
       let dirty = false;
-      BARS.forEach(function (b) {
-        if (d && typeof d[b.key] === 'string' && d[b.key].trim() && d[b.key].trim() !== texts[b.key]) {
-          texts[b.key] = d[b.key].trim();
+      ['alert', 'alert2'].forEach(function (k) {
+        if (d && typeof d[k] === 'string' && d[k].trim() && d[k].trim() !== texts[k]) {
+          texts[k] = d[k].trim();
           dirty = true;
         }
       });
@@ -657,45 +656,6 @@ function buildSplashToc(list) {
               sum.appendChild(p);
             });
             list.appendChild(sum);
-          }
-          // 前置提示块（App 说明 / 系统预设字卡等引导内容，非必读 → 收进折叠条目，避免首屏一上来就一大片字）
-          if (Array.isArray(data.tip) && data.tip.length) {
-            const gwrap = document.createElement('div');
-            // 首次打开强制展开阅读；已读后再次打开才折叠
-            gwrap.className = 'splash-sec-wrap splash-sec-collapsible'
-              + (window.__splashForceExpand ? '' : ' is-collapsed');
-            const gh = document.createElement('p');
-            gh.className = 'splash-sec';
-            gh.textContent = '其他说明与常见问题';
-            const gbody = document.createElement('div');
-            gbody.className = 'splash-sec-content';
-            data.tip.forEach(function (t) {
-              const tip = document.createElement('div');
-              tip.className = 'splash-tip';
-              if (t && typeof t === 'object') {
-                if (t.h !== undefined) {
-                  const h = document.createElement('p');
-                  h.className = 'splash-tip-h';
-                  h.textContent = String(t.h);
-                  tip.appendChild(h);
-                }
-                if (Array.isArray(t.p)) {
-                  t.p.forEach(function (txt) {
-                    const p = document.createElement('p');
-                    p.textContent = String(txt);
-                    tip.appendChild(p);
-                  });
-                }
-              } else {
-                const p = document.createElement('p');
-                p.textContent = String(t);
-                tip.appendChild(p);
-              }
-              gbody.appendChild(tip);
-            });
-            gwrap.appendChild(gh);
-            gwrap.appendChild(gbody);
-            list.appendChild(gwrap);
           }
           // 章节：字符串=自动编号条目；{h}=子标题；{b}=子列表项
           // v3.8.y：开屏公告折叠成章节索引，点标题展开细节

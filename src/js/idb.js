@@ -971,9 +971,16 @@
     try { if (window.idbDelete) window.idbDelete(WRJ_MARK + key); } catch (e) {}
   }
   function wrjRecord(key, v) {
-    if (typeof v !== 'string' || v.length > WRJ_VAL_LIMIT) return;
     if (!key || key === WRJ_KEY || key.indexOf('__') >= 0) return;
     if (isChatMsgsKey(key) || /:chat-meta$/.test(key) || key.indexOf('music-file:') >= 0) return;
+    // FIX 2026-09-16 #628：大值（>64KB，壁纸/头像/上传字体等只进 IDB+内存的键）不进 LS 日志，
+    //   但必须【清掉同一键残留的小值条目】——xyStore.set 写大值时 removeItem 掉了 LS 值，若日志里
+    //   那条旧小值还在，下次启动 wrjReplay 会把它回放进「内存+LS」，而 idbRestore 以「LS 有值且未
+    //   标脏」为准 ⇒ IDB 里刚写的大值整场会话被遮蔽（实测：先输入字体名、之后再上传字体文件，
+    //   重进变回上次的字体名；壁纸「先选渐变预设、再上传图片」同型）。wrjForget 同时撤掉该键的
+    //   IDB 时间戳标记，避免 wrjMergeFromIdb 再把旧值当权威。
+    if (typeof v === 'string' && v.length > WRJ_VAL_LIMIT) { wrjForget(key); return; }
+    if (typeof v !== 'string') return;
     if (!_wrj) _wrj = wrjLoad(wrjLsRaw());
     const t = Date.now();
     _wrj = _wrj.filter(function (e) { return e.k !== key; });

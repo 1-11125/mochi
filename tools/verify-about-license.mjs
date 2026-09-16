@@ -118,7 +118,8 @@ let r4 = J(await evalJs("(function(){var h=document.getElementById('page-about')
 check('T4 许可区合并完成：原创定位+第三方署名齐全', r4.original && r4.noOldBase && r4.licenseHead && r4.felix && r4.multi, JSON.stringify(r4));
 
 // T5 许可（LICENSE）与灵感来源（README.md）卡置于顶部、位于功能清单之前；旧「许可与署名/README 配文」已移除
-let r5 = J(await evalJs("(function(){var pg=document.getElementById('page-about');var cards=Array.prototype.slice.call(pg.querySelectorAll('.cal-card'));var li=-1,ab=-1,fe=-1;for(var i=0;i<cards.length;i++){var h=cards[i].querySelector('.lic-h');var ht=h?(h.textContent||''):'';if(li<0&&ht.indexOf('许可')>=0)li=i;if(ab<0&&ht.indexOf('关于星言字卡与灵感来源')>=0)ab=i;if(fe<0&&cards[i].querySelector('.lic-grp'))fe=i;}var html=pg.innerHTML;return JSON.stringify({li:li,ab:ab,fe:fe,top:li>0&&ab===li+1&&fe===ab+1,mustSource:html.indexOf('必须标注灵感来源')>=0,noOld:html.indexOf('README 配文')<0&&html.indexOf('许可与署名')<0});})()"));
+// 注：许可卡与灵感来源卡之间还夹着「二传与二改说明」卡（后加），故只断言相对顺序（li < ab < 功能清单），不再要求相邻。
+let r5 = J(await evalJs("(function(){var pg=document.getElementById('page-about');var cards=Array.prototype.slice.call(pg.querySelectorAll('.cal-card'));var li=-1,ab=-1,fe=-1;for(var i=0;i<cards.length;i++){var h=cards[i].querySelector('.lic-h');var ht=h?(h.textContent||''):'';if(li<0&&ht.indexOf('许可')>=0)li=i;if(ab<0&&ht.indexOf('关于星言字卡与灵感来源')>=0)ab=i;if(fe<0&&cards[i].querySelector('.lic-grp'))fe=i;}var html=pg.innerHTML;return JSON.stringify({li:li,ab:ab,fe:fe,top:li>=1&&ab>li&&fe>ab,mustSource:html.indexOf('必须标注灵感来源')>=0,noOld:html.indexOf('README 配文')<0&&html.indexOf('许可与署名')<0});})()"));
 check('T5 许可/灵感来源卡置顶且先于功能清单，旧块已删', r5.top && r5.mustSource && r5.noOld, JSON.stringify(r5));
 
 // T6 返回按钮回设置页；旧 license 页不存在

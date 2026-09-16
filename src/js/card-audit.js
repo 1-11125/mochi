@@ -239,7 +239,7 @@
     if (note) lines.push(stripHtml(note));
     lines.push('');
   }
-  function addFix(id, fn) { fixMap[id] = fn; }
+  function addFix(id, fn, describe) { fixMap[id] = fn; if (describe) fixDesc[id] = describe; }
   function addIssue(lv, text) {
     if (lv === 'warn' || lv === 'bad') issueCount++;
     issues.push({ lv: lv, text: text });
@@ -248,25 +248,34 @@
   // ---------- 修复动作 ----------
   function fixProb(id, key, def, after) {
     addFix(id, function () {
+      recordUndo('own', key);
       var ok = storeSet(key, def);
       if (ok && after) { try { after(); } catch (e) {} }
       return ok ? true : 'fail';
-    });
+    }, function () { return [key + '：' + num(store(key), def) + '% → ' + def + '%']; });
   }
   function fixEnable(id, key, after) {
-    addFix(id, function () { var ok = storeSet(key, '1'); if (ok && after) { try { after(); } catch (e) {} } return ok ? true : 'fail'; });
+    addFix(id, function () {
+      recordUndo('own', key);
+      var ok = storeSet(key, '1');
+      if (ok && after) { try { after(); } catch (e) {} }
+      return ok ? true : 'fail';
+    }, function () { return [key + '：关闭 → 开启']; });
   }
   function fixGroupOff(id, scope, type) {
     addFix(id, function () {
       var key = scope === 'public' ? 'cc-groups-public-off' : 'cc-groups-off';
-      var raw = scope === 'public' ? glob(key) : store(key);
-      var o = {}; try { o = JSON.parse(raw || '{}') || {}; } catch (e) { o = {}; }
+      var o = offRecord(scope);
       if (!o[type]) return false;
+      recordUndo(scope, key);
       delete o[type];
       var json = JSON.stringify(o);
       var ok = scope === 'public' ? globSet(key, json) : storeSet(key, json);
       try { if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite(); } catch (e) {}
       return ok ? true : 'fail';
+    }, function () {
+      var o = offRecord(scope); var n = (o[type] || []).length;
+      return ['启用' + (scope === 'public' ? '公用' : '本桌面') + '「' + (CC_LABEL[type] || type) + '」被停用的 ' + n + ' 个分组'];
     });
   }
   function fixCardOffs(id, cat) {
@@ -274,9 +283,9 @@
       var ks = offKeysOf(cat);
       if (!ks.length) return false;
       var ok = false;
-      ks.forEach(function (short) { if (storeSet(short, '0')) ok = true; });
+      ks.forEach(function (short) { recordUndo('own', short); if (storeSet(short, '0')) ok = true; });
       return ok ? true : 'fail';
-    });
+    }, function () { return ['恢复「' + (CC_LABEL[cat] || cat) + '」已单卡关闭的 ' + offKeysOf(cat).length + ' 张字卡']; });
   }
   function registerBulk(id) { bulkFixes.push(id); }
 
@@ -284,7 +293,7 @@
   function build() {
     offCache = buildOffIndex();
     presetCntCache = {}; poolCache = {};
-    sections = []; lines = []; fixMap = {}; bulkFixes = []; issueCount = 0; issues = [];
+    sections = []; lines = []; fixMap = {}; fixDesc = {}; bulkFixes = []; issueCount = 0; issues = [];
 
     var lock = locked();
     var dcEn = boolOf(store('dc-enabled'), true);
@@ -446,6 +455,10 @@
         bulkFixes.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });
         try { if (window.dcfRefreshUI) DCF.forEach(function (d) { window.dcfRefreshUI(d[0]); }); } catch (e) {}
         return true;
+      }, function () {
+        var out = [];
+        bulkFixes.forEach(function (id) { try { if (fixDesc[id]) out = out.concat(fixDesc[id]()); } catch (e) {} });
+        return out;
       });
       verdictInner += '<div class="ca-fixbar"><button class="storage-clear" type="button" data-fix="__allfix">一键修复系统预设可用</button></div>';
       verdictInner += '<div class="ca-sub">上述修复只把「概率回默认、开关打开、分组启用、单卡关闭清空」，不改动任何字卡内容；二级密码锁需本人去开屏解锁。</div>';
@@ -715,11 +728,29 @@
     oInner += rowHtml('　情绪池张数', dataCount(MC.mood) + ' 张（不受二级锁影响）', 'mute');
     var rcEn = boolOf(store('rc-enabled'), true), rcProb = num(store('rcard-prob'), 30);
     var idRc = 'inl-rc';
-    addFix(idRc, function () { if (!boolOf(store('rc-enabled'), true)) storeSet('rc-enabled', '1'); if (num(store('rcard-prob'), 30) === 0) storeSet('rcard-prob', 30); return true; });
+    addFix(idRc, function () {
+      if (!boolOf(store('rc-enabled'), true)) { recordUndo('own', 'rc-enabled'); storeSet('rc-enabled', '1'); }
+      if (num(store('rcard-prob'), 30) === 0) { recordUndo('own', 'rcard-prob'); storeSet('rcard-prob', 30); }
+      return true;
+    }, function () {
+      var a = [];
+      if (!boolOf(store('rc-enabled'), true)) a.push('rc-enabled：关闭 → 开启');
+      if (num(store('rcard-prob'), 30) === 0) a.push('rcard-prob：0% → 30%');
+      return a.length ? a : ['聊天回应字卡已是默认'];
+    });
     oInner += rowHtml('聊天回应字卡（rc-enabled / rcard-prob）', (rcEn ? '开启' : '关闭') + ' · 整条替换 ' + rcProb + '%（' + humanProb(rcProb, 'reply') + '） · 连接词追加 cf-prob ' + num(store('cf-prob'), 20) + '% · ' + dataCount(MC.followup) + ' 张', (rcEn && rcProb > 0) ? 'ok' : 'warn', { fix: (!rcEn || rcProb === 0) ? idRc : '', edit: 'replyCards' });
     var tmEn = boolOf(store('tm-enabled'), true), tmProb = num(store('tm-prob'), 15);
     var idTm = 'inl-tm';
-    addFix(idTm, function () { if (!boolOf(store('tm-enabled'), true)) storeSet('tm-enabled', '1'); if (num(store('tm-prob'), 15) === 0) storeSet('tm-prob', 15); return true; });
+    addFix(idTm, function () {
+      if (!boolOf(store('tm-enabled'), true)) { recordUndo('own', 'tm-enabled'); storeSet('tm-enabled', '1'); }
+      if (num(store('tm-prob'), 15) === 0) { recordUndo('own', 'tm-prob'); storeSet('tm-prob', 15); }
+      return true;
+    }, function () {
+      var a = [];
+      if (!boolOf(store('tm-enabled'), true)) a.push('tm-enabled：关闭 → 开启');
+      if (num(store('tm-prob'), 15) === 0) a.push('tm-prob：0% → 15%');
+      return a.length ? a : ['TA 的心情已是默认'];
+    });
     oInner += rowHtml('TA 的心情（tm-enabled / tm-prob）', (tmEn ? '开启' : '关闭') + ' · ' + tmProb + '%（' + humanProb(tmProb, 'reply') + '） · ' + dataCount((window.TA_MOOD_DATA || {}).groups) + ' 张', (tmEn && tmProb > 0) ? 'ok' : 'warn', { fix: (!tmEn || tmProb === 0) ? idTm : '', edit: 'taMood' });
     [['quote-cards-default', '桌面今日情话', 'quoteCards'], ['loc-lib-default', 'TA在身边位置卡', 'locCards'], ['checkin-cards-default', '寻踪日常字卡', 'checkinCards']].forEach(function (t) {
       var on = boolOf(store(t[0]), true), id = 'inl-' + t[0];
@@ -810,7 +841,7 @@
         while (wrap.firstChild) bodyEl.appendChild(wrap.firstChild);
       }
       if (i < secs.length) setTimeout(step, 0);
-      else applyFilter();
+      else { injectPicks(); applyFilter(); }
     })();
   }
   // 「只看有问题」：隐藏 ✓/灰字的行与无问题的卡片（问题信号＝本体带 ca-warn/ca-bad/✕漏斗/修复按钮）
@@ -952,6 +983,120 @@
     btn.textContent = '收起';
   }
 
+  // ---------- 修复：预览确认 + 单级撤销 + 勾选批量 ----------
+  function updateUndoBtn() { if (undoBtn) undoBtn.disabled = !undoStack.length; }
+  function confirmFix(id) {
+    var fn = fixMap[id];
+    if (!fn) return;
+    var lines = [];
+    try { if (fixDesc[id]) lines = fixDesc[id]() || []; } catch (e) {}
+    if (lines.length && window.openModal) {
+      var ctl = window.openModal('确认修复（可撤销）', '', function (v) { if (v === 'ok') applyFix(id); },
+        { noInput: true, big: true, staticText: '将进行以下修改（只改设置，不改动字卡内容）：\n\n' + lines.map(function (x) { return '· ' + x; }).join('\n') + '\n\n修复后可点顶部「撤销上次」还原。' });
+      try { if (ctl && ctl.okText) ctl.okText('确认修复'); } catch (e) {}
+    } else {
+      applyFix(id);
+    }
+  }
+  function applyFix(id) {
+    var fn = fixMap[id];
+    if (!fn) return;
+    undoStack = [];
+    var res = false;
+    try { res = fn(); } catch (e) { res = 'fail'; }
+    try { if (res !== false && res !== 'fail' && window.dcfRefreshUI) DCF.forEach(function (d) { window.dcfRefreshUI(d[0]); }); } catch (e) {}
+    updateUndoBtn();
+    render();
+    if (res === false) toast('没有需要修复的项（或已是最新）');
+    else if (res === 'fail') toast('修复未生效：本机存储可能已满或被拦截');
+    else toast('已修复，可点「撤销上次」还原');
+  }
+  function undoLastFix() {
+    if (!undoStack.length) { toast('没有可撤销的修复'); return; }
+    var n = 0;
+    undoStack.forEach(function (u) {
+      if (u.old === null || u.old === undefined) { if (storeRemoveScope(u.scope, u.key)) n++; }
+      else { if (storeSetScope(u.scope, u.key, u.old)) n++; }
+    });
+    undoStack = [];
+    updateUndoBtn();
+    try { if (window.dcfRefreshUI) DCF.forEach(function (d) { window.dcfRefreshUI(d[0]); }); } catch (e) {}
+    render();
+    toast(n ? '已撤销上次修复' : '撤销失败');
+  }
+  // 勾选模式：在每个可修复行插入复选框（跳过总「一键修复」）
+  function injectPicks() {
+    if (!pickMode) return;
+    bodyEl.querySelectorAll('[data-fix]').forEach(function (btn) {
+      var id = btn.getAttribute('data-fix');
+      if (id === '__allfix') return;
+      var row = btn.closest ? btn.closest('.storage-row') : null;
+      if (!row || row.querySelector('.ca-pick')) return;
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'ca-pick';
+      cb.setAttribute('data-pick', id);
+      cb.checked = true;
+      row.classList.add('ca-pick-row');
+      var b = row.querySelector('b');
+      if (b) b.insertBefore(cb, b.firstChild);
+    });
+    updatePickCount();
+  }
+  function updatePickCount() {
+    if (!applyBtn) return;
+    applyBtn.textContent = '应用所选 (' + bodyEl.querySelectorAll('.ca-pick:checked').length + ')';
+  }
+  function applySelected() {
+    var ids = [];
+    bodyEl.querySelectorAll('.ca-pick:checked').forEach(function (cb) { ids.push(cb.getAttribute('data-pick')); });
+    if (!ids.length) { toast('请先勾选要修复的项'); return; }
+    var lines = [];
+    ids.forEach(function (id) { try { if (fixDesc[id]) lines = lines.concat(fixDesc[id]()); } catch (e) {} });
+    var run = function () {
+      undoStack = [];
+      var n = 0;
+      ids.forEach(function (id) { try { if (fixMap[id] && fixMap[id]() !== false) n++; } catch (e) {} });
+      try { if (window.dcfRefreshUI) DCF.forEach(function (d) { window.dcfRefreshUI(d[0]); }); } catch (e) {}
+      updateUndoBtn();
+      render();
+      toast('已修复 ' + n + ' 项，可点「撤销上次」还原');
+    };
+    if (window.openModal) {
+      var ctl2 = window.openModal('确认修复所选 ' + ids.length + ' 项（可撤销）', '', function (v) { if (v === 'ok') run(); },
+        { noInput: true, big: true, staticText: '将进行以下修改（只改设置，不改动字卡内容）：\n\n' + lines.map(function (x) { return '· ' + x; }).join('\n') + '\n\n修复后可点顶部「撤销上次」还原。' });
+      try { if (ctl2 && ctl2.okText) ctl2.okText('确认修复'); } catch (e) {}
+    } else run();
+  }
+  function togglePickMode() {
+    pickMode = !pickMode;
+    if (pickBtn) pickBtn.textContent = pickMode ? '退出批量' : '批量修复';
+    if (applyBtn) applyBtn.hidden = !pickMode;
+    render();
+    // FIX 2026-09-16 #618：进入批量模式给一句明确指引（勾选是默认全选），并区分「无可修项」，
+    //   否则按钮文字在顶部、复选框在下方滚动区，用户看不到变化就以为功能没用。
+    if (pickMode) setTimeout(function () {
+      var n = bodyEl.querySelectorAll('.ca-pick').length;
+      toast(n ? '已进入批量修复：已自动勾选 ' + n + ' 项，点顶部「应用所选」确认' : '当前没有可批量修复的问题项');
+    }, 260);
+  }
+  function exportReport() {
+    var payload = {
+      app: 'mochi', kind: 'card-audit',
+      generatedAt: new Date().toISOString(),
+      desktop: deskName(activeCid()),
+      issues: issues.map(function (v) { return { level: v.lv, text: v.text }; }),
+      report: lastText
+    };
+    var d = new Date();
+    var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
+    var fname = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
+    if (window.mochiExportFile) {
+      try { window.mochiExportFile(JSON.stringify(payload, null, 2), fname, '字卡使用状态自检报告'); return; } catch (e) {}
+    }
+    copyReport();
+  }
+
   // ---------- 复制/轻提示 ----------
   function toast(msg) {
     try {
@@ -982,8 +1127,10 @@
   }
 
   // ---------- 事件 ----------
-  function openAudit() {
+  function openAudit(from) {
     try {
+      // #595b：记录来源页——从「回复设置」快捷按钮进入时返回回复设置，否则回设置页
+      window.__cardAuditFrom = from || '';
       document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
       page.hidden = false;
       render();
@@ -994,11 +1141,15 @@
   function closeAudit() {
     try {
       document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
-      var s = document.getElementById('page-setting');
+      var dest = window.__cardAuditFrom === 'reply' ? 'page-reply-settings' : 'page-setting';
+      var s = document.getElementById(dest);
       if (s) s.hidden = false;
     } catch (e) {}
   }
-  if (row) row.addEventListener('click', openAudit);
+  if (row) row.addEventListener('click', function () { openAudit(''); });
+  // #595b：回复设置页「字卡使用状态自检」快捷按钮
+  var rpsAuditBtn = document.getElementById('rps-card-audit');
+  if (rpsAuditBtn) rpsAuditBtn.addEventListener('click', function () { openAudit('reply'); });
   if (back) back.addEventListener('click', closeAudit);
   if (refreshBtn) refreshBtn.addEventListener('click', function () { render(); toast('已重新自检'); });
   if (copyBtn) copyBtn.addEventListener('click', copyReport);
@@ -1007,6 +1158,11 @@
     filterBtn.textContent = onlyProblems ? '显示全部' : '只看有问题';
     applyFilter();
   });
+  if (pickBtn) pickBtn.addEventListener('click', togglePickMode);
+  if (applyBtn) applyBtn.addEventListener('click', applySelected);
+  if (undoBtn) undoBtn.addEventListener('click', undoLastFix);
+  if (exportBtn) exportBtn.addEventListener('click', exportReport);
+  updateUndoBtn();
 
   // 委托：修复 / 跳转 / 桌面明细
   document.addEventListener('click', function (e) {
@@ -1015,15 +1171,7 @@
     var fixBtn = t.closest('[data-fix]');
     if (fixBtn) {
       e.preventDefault();
-      var id = fixBtn.getAttribute('data-fix');
-      var fn = fixMap[id];
-      if (!fn) return;
-      var res = false;
-      try { res = fn(); } catch (err) { res = 'fail'; }
-      render();
-      if (res === false) toast('没有需要修复的项（或已是最新）');
-      else if (res === 'fail') toast('修复未生效：本机存储可能已满或被拦截');
-      else toast('已修复，正在重新自检');
+      confirmFix(fixBtn.getAttribute('data-fix'));
       return;
     }
     var jumpEl = t.closest('[data-jump]');
@@ -1032,6 +1180,10 @@
     if (deskBtn) { e.preventDefault(); expandDesk(deskBtn); return; }
     var loadBtn = t.closest('[data-load]');
     if (loadBtn) { e.preventDefault(); loadFullCards(); return; }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t && t.classList && t.classList.contains('ca-pick')) updatePickCount();
   });
 
   // 大库 IDB 回填挂起时：取回完整字卡后重新自检

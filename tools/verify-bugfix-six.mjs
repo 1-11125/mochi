@@ -1,7 +1,8 @@
 // ===== 回归脚本：六项用户反馈修复（v3.11.x） =====
 // 用法：node build.mjs && node tools/verify-bugfix-six.mjs
 // 覆盖：
-//   B1 贪吃蛇胜负按最终得分判定（endGame 内 psFinal/osFinal 比较，存活仅触发结束）
+//   B1 贪吃蛇胜负按存活判定（#604 起：撞死的一方输、同 tick 双死=平；原「按最终得分」口径
+//      正是用户报的「我输了显示我赢」根因，行为断言见 tools/verify-snake-result-color.mjs）
 //   B2 Pong 侧位对应：比分「TA x : y 你」/ 提示「右侧挡板」（玩家实际控制右板）
 //   B3 记账分类管理二级弹窗可正常打开并添加分类（openModal 嵌套 setTimeout 修复）
 //   B4 朋友圈通知带评论/回复定位 + 缩略图；TA 评论回应两种动态都发通知
@@ -87,7 +88,10 @@ function check(name, ok, info) {
 try {
   // ---- 源码级断言（构建产物包含修复标记） ----
   const built = readFileSync(join(root, 'index.html'), 'utf8');
-  check('S1 贪吃蛇按得分判胜负代码在产物中', built.includes("psFinal > osFinal ? 'win' : psFinal < osFinal ? 'lose' : 'draw'"));
+  // #604（2026-09-16）口径变更：胜负改按存活判（原「谁分高谁赢」在「我方撞死、分数却领先」时
+  // 弹「你赢了」＝用户报障）。本条仍守同一个接缝（endGame 内算出 result），只换判据；
+  // 行为断言（B1~B5 各模式 + 收局帧颜色）见 tools/verify-snake-result-color.mjs
+  check('S1 贪吃蛇胜负按存活判定（撞死的一方输，得分只作展示）', built.includes("if (!myAlive && oppAlive) result = 'lose';") && built.includes('const myAlive = !!state.player.alive'));
   check('S2a Pong 比分顺序 TA 在前你在后（称呼跟随 taFit 契约）', built.includes("'<span class=\"pong-s-ta\">' + s.opponentScore + ' ' + (window.taFit ? window.taFit('TA') : 'TA') + '</span><span class=\"pong-s-sep\">:</span><span class=\"pong-s-you\">你 ' + s.playerScore"));
   check('S2b Pong 提示改为右侧挡板', built.includes('你控制右侧挡板') && !built.includes('左半边上下拖动'));
   check('S3 记账添加改内联表单（原 openModal 二级弹窗架构已移除，#acc-amount 直存直报）', built.includes("getElementById('acc-amount')") && built.includes("'acc-save'") && built.includes("toast('已记 '"));

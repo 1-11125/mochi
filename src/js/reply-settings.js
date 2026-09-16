@@ -55,8 +55,10 @@
     // 打开」），存量 '0' 同由 migrateMjfOn 一次性收成 '1'
     // FIX 2026-09-15 #513 混合模式默认 0→1（同批：用户点名「混合模式需要默认打开」）
     'mjf-mix': 1,
-    // v3.33.x #364：mjf-pub 造句存公用库概率（%，默认 80）——多桌面联系人时新句按此概率
-    // 进公用库、其余进专属库；仅 1 个联系人时固定进专属库（不受此项影响），dream-free.js 消费
+    // v3.33.x #364：mjf-pub 造句存公用库概率（%，默认 80）——新句按此概率进公用库、
+    // 其余进当前联系人专属库；0=全专属、100=全公用。
+    // FIX 2026-09-16 #622：原实现只在多联系人时生效（单联系人固定进专属，用户点名要能自己调），
+    // 现单联系人也认本设置，dream-free.js 消费
     'mjf-pub': 80,
     // v3.28.x #329：mjf-style 造句手法三选一（默认 1=撤回式）——0=语气词式（截词补语气词/
     // 句尾加语气后缀等五手法）；1=撤回式截断（词边界切尾、前缀成新句）；2=换字卡内容式
@@ -747,11 +749,21 @@
   }
   // 单页内三分类 tab 切换
   const rpTab = (k) => {
-    document.querySelectorAll('#page-reply-settings .fav-tab').forEach(x => x.classList.toggle('sel', x.dataset.rp === k));
+    document.querySelectorAll('#page-reply-settings .fav-tab[data-rp]').forEach(x => x.classList.toggle('sel', x.dataset.rp === k));
     document.querySelectorAll('#page-reply-settings .gs-panel').forEach(p => { p.hidden = p.dataset.rpanel !== k; });
   };
-  document.querySelectorAll('#page-reply-settings .fav-tab').forEach(tab => {
+  document.querySelectorAll('#page-reply-settings .fav-tab[data-rp]').forEach(tab => {
     tab.addEventListener('click', () => rpTab(tab.dataset.rp));
+  });
+  // v3.44.x：聊天面板二级分类（回复与主动 / 字卡与概率 / 拼字造句）——只切 .rps-panel，不影响上方主 tab
+  const rpsTab = (k) => {
+    document.querySelectorAll('#page-reply-settings .rps-tab').forEach(x => x.classList.toggle('sel', x.dataset.rps === k));
+    document.querySelectorAll('#page-reply-settings .rps-panel').forEach(p => { p.hidden = p.dataset.rps !== k; });
+    const sc = document.querySelector('#page-reply-settings .gs-scroll');
+    if (sc) sc.scrollTop = 0;
+  };
+  document.querySelectorAll('#page-reply-settings .rps-tab').forEach(tab => {
+    tab.addEventListener('click', () => rpsTab(tab.dataset.rps));
   });
   // 返回：设置页
   const replyBack = document.getElementById('reply-back');

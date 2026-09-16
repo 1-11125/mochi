@@ -140,16 +140,27 @@ for (let i = 0; i < 100; i++) {
   if (pubGroups.mjfree[0][1].length > beforePub) pubN++; else if (groups.mjfree[0][1].length > beforeOwn) ownN++;
 }
 ok(pubN > 60 && pubN < 95 && ownN >= 5, 'C4 多联系人时 80% 公用/20% 专属分库（100 掷：公用 ' + pubN + '/专属 ' + ownN + '）');
-// #324 单联系人：100% 专属
+// FIX 2026-09-16 #622 单联系人同样认 mjf-pub（改动点＝去掉 cids>1 门）：100=全公用 / 0=全专属
 w.getContacts = () => [];
-let ownOnly = 0;
+w.replyCfg = () => ({ 'mjf-pub': 100 });
+let onePub = 0;
 for (let i = 0; i < 30; i++) {
-  const t = '单联系人-' + i;
+  const t = '单联系人公-' + i;
+  const beforePub = pubGroups.mjfree[0][1].length;
+  save(t);
+  if (pubGroups.mjfree[0][1].length > beforePub) onePub++;
+}
+ok(onePub === 30 && groups.mjfree[0][1].every(x => x.indexOf('单联系人公-') !== 0), '#622 C5 单联系人 + mjf-pub=100 → 100% 公用库（30/30，专属零写入）');
+w.replyCfg = () => ({ 'mjf-pub': 0 });
+let oneOwn = 0;
+for (let i = 0; i < 30; i++) {
+  const t = '单联系人专-' + i;
   const beforeOwn = groups.mjfree[0][1].length;
   save(t);
-  if (groups.mjfree[0][1].length > beforeOwn) ownOnly++;
+  if (groups.mjfree[0][1].length > beforeOwn) oneOwn++;
 }
-ok(ownOnly === 30 && pubGroups.mjfree[0][1].every(x => x.indexOf('单联系人-') !== 0), 'C5 单联系人 100% 专属库（30/30，公用零写入）');
+ok(oneOwn === 30 && pubGroups.mjfree[0][1].every(x => x.indexOf('单联系人专-') !== 0), '#622 C5b 单联系人 + mjf-pub=0 → 100% 专属库（30/30，公用零写入）');
+w.replyCfg = null;
 
 // —— H #413 语料来源三选+权重（默认全开=全部字卡，按权重归一化抽源）——
 // 沙盒默认字卡 3 张全部「默认」前缀，断言按前缀判来源

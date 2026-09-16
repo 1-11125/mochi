@@ -456,6 +456,10 @@
     // v3.20.x 曾用 pillSubmit「点选即提交」，用户反馈「还没点确认就跳转桌面」——
     // 点「现在回TA」胶囊瞬间就执行了，缺明确确认步骤。改回：选项 + 底部确认按钮。
     // 未选任何选项就点【确认】→ 保持弹窗并提示先选（pillVal 为 null，绝不误跳转）。
+    // FIX 2026-09-16 #623：同意侧默认选中（查岗「现在回TA」/ 求聊天「同意」）——用户报
+    //「桌面查岗互动卡片没有默认在【同意】，每次都要多点几遍」（此前必须先点胶囊再点【确认】）。
+    // 来电「接听」不预设：误触【确认】会先挂断进行中的通话再转接（见 goReply），
+    // 代价太高，保持必须显式选择；确认按钮仍在，误点不会执行。
     let modalCtl = null;
     modalCtl = window.openModal(title, '', function (v) {
       if (v === null || v === undefined) {
@@ -484,7 +488,9 @@
       noInput: true,
       lock: true,
       staticText: staticText,
-      pills: [{ label: '稍后', value: 'later' }, { label: okText, value: 'reply' }]
+      pills: [{ label: '稍后', value: 'later' }, { label: okText, value: 'reply' }],
+      // FIX 2026-09-16 #623：默认选中同意侧（见上注释）；来电不预设
+      pill: req.kind === 'call' ? undefined : 'reply'
     });
     try { if (modalCtl && modalCtl.okText) modalCtl.okText('确认'); } catch (e) {}
     liveModals[req.cid] = title; // v3.26.x #264：登记活弹窗，弹窗被顶掉/关闭时对账释放 pending

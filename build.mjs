@@ -541,6 +541,10 @@ const FIX_SENTINELS = [
   { name: '#602 方案分享链接接收端去掉前缀偏移（#beauty= 共 8 字符；原 slice(7) 把 base64 切成 =xxx 致 atob 抛错被吞、对方打开不弹导入）', file: 'js/personalize.js', needle: 'location.hash.slice(8)' },
   { name: '#602b 分享链接处理包进独立函数（原 return 穿透 outer IIFE，用途不符/命中 0 项时跳过其后所有初始化）', file: 'js/personalize.js', needle: '(function handleSharedBeauty() {' },
   { name: '#602h 分享链接复制回退 copyFrom（execCommand 优先 + 超时兜底；失败弹窗展示链接本体，修原 noInput 隐藏 input 导致「请手动复制」却看不到链接）', file: 'js/personalize.js', needle: 'const copyFrom = (text) =>' },
+  { name: '#602i 分享链接生成拦截非 http(s)（file:// 本地打开时 origin=null，不再生成打不开的坏链接）', file: 'js/personalize.js', needle: '!/^https?:$/.test(location.protocol)' },
+  { name: '#602j 分享链接接收端损坏/截断不再静默（明确弹「无法读取」并引导导出文件）', file: 'js/personalize.js', needle: '这条分享链接不完整或已损坏' },
+  { name: '#602k 导入提示延迟到开屏收起且无其它弹窗时再弹（openModal 唯一，避被首启引导/备份提醒顶掉）', file: 'js/personalize.js', needle: 'let quietMs = 0;' },
+  { name: '#602l 分享链接硬上限收到 16000（远离易被聊天软件截断的区间）', file: 'js/personalize.js', needle: 'const SHARE_URL_MAX = 16000;' },
   { name: '#602c 分享链接不带主题（生成端剔除 __theme__，不改对方深/浅色）', file: 'js/personalize.js', needle: "if (k === '__theme__') return;" },
   { name: '#602d 分享链接剔除图片组件清单 desk-images（防对方导入后得到空壳组件）', file: 'js/personalize.js', needle: "k === 'desk-images' || bigImg" },
   { name: '#602e 导入分享链接时丢弃主题（旧/手改链接带 __theme__ 也不应用）', file: 'js/personalize.js', needle: "delete data['__theme__'];" },
@@ -558,7 +562,7 @@ const FIX_SENTINELS = [
   { name: '应用锁设置页开关行（template.html #applock-en，防并行会话把设置入口改丢）', file: 'template.html', needle: 'id="applock-en"' },
   { name: '开屏问答门（applock.js 问答题门禁，防并行会话删除——隐私门即失效）', file: 'js/applock.js', needle: 'applock-qaskip' },
   { name: '开屏问答门设置行（template.html #applock-qa-en，防并行会话把入口改丢）', file: 'template.html', needle: 'id="applock-qa-en"' },
-  { name: '#319 cardlock-state 进 migrateLegacy 排除清单（解锁状态全局根键不被迁进 default 并删根键，否则输对密码刷新后闸门仍全锁）', file: 'js/contacts.js', needle: "'cardlock-state'];" },
+  { name: '#319 cardlock-state 进 migrateLegacy 排除清单（解锁状态全局根键不被迁进 default 并删根键，否则输对密码刷新后闸门仍全锁）', file: 'js/contacts.js', needle: "'cardlock-state'," },
   { name: '#319 card-lock 存量自愈（被误迁进 default 的解锁状态启动时搬回根键，老用户不用重输密码）', file: 'js/card-lock.js', needle: "localStorage.getItem('xy-home-v2:default:cardlock-state')" },
   { name: '#389 cardlock 解锁状态走 xyStore（写日志+IDB+每键标记+自愈链，修 Edge/荣耀杀进程回滚 localStorage 解锁态退回 locked→密码框重弹，多机型同因零机型分支）', file: 'js/card-lock.js', needle: "addEventListener('mochi-wrj-heal'" },
   { name: '#389 开屏锁卡监听解锁状态事件重渲染（自愈晚到不再显示「输入密码解锁」假象）', file: 'js/clock.js', needle: "addEventListener('mochi-cardlock-open'" },
@@ -715,7 +719,7 @@ const FIX_SENTINELS = [
   { name: '防倒卖第二锚点·pwa.js在位看门狗（clock.js回填被删时的独立兜底,5s补回缺失声明；#621 起两张声明合并为「免费·署名·防倒卖」一张，补回公告区最顶）', file: 'js/pwa.js', needle: "n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild)" },
   // ==== 2026-09-16 #613 防骗提醒卡提到开屏第 1 张 + 免费声明「本站完全免费…禁止以盈利为目的」并进防骗卡与必读摘要首条（用户：「这个要放在前面醒目的位置，现在太靠后了」「放在开屏的防骗提醒里吧」）====
   { name: '#613 防骗卡（第 1 张）正文新增免费声明加粗句在 template 静态 DOM（删则退回只有防骗账号文案，用户要求的免费声明在首屏消失）', file: 'template.html', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong>' },
-  { name: '#613 免费声明进「必读摘要」首条并高亮（删则回落到折叠区/第五章，用户原话「太靠后」重现）', file: 'template.html', needle: '<p class="splash-hl">本站完全免费，没有收过任何人一分钱' },
+  { name: '#613/#620 免费声明进「必读摘要」并高亮（删则回落到折叠区/章节，用户原话「太靠后」重现；#620 口径改写后锚点同步）', file: 'template.html', needle: '<p class="splash-hl">本站完全免费，个人出资搭建' },
   { name: '#613 防骗卡重建锚点＝公告区最顶（改回免责卡/锁卡之后＝用户「防骗提醒位置太靠后」回归）', file: 'js/clock.js', needle: 'ensureBar(BARS[0], null)' },
   { name: '#621 pwa.js 看门狗补回合并声明卡也落到公告区最顶（与 clock.js/静态顺序一致）', file: 'js/pwa.js', needle: "mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild" },
   { name: '#613 在线公告源 notice.json alert 同含免费声明句（静态/远程双源一致，删则联网用户看到的防骗卡少这句）', file: 'pwa/notice.json', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费。' },
@@ -724,6 +728,11 @@ const FIX_SENTINELS = [
   { name: '#621 旧「转载署名·严禁倒卖」独立卡不得复活（已并入 tag 1；absent）', file: 'template.html', needle: 'data-anti-scam="2"', absent: true },
   { name: '#621 clock.js 合并卡按 keys 拼接正文（删＝正文退回只取单字段，署名段丢失）', file: 'js/clock.js', needle: 'function barText(bar) {' },
   { name: '#621 clock.js BARS 单卡双权威字段（keys alert+alert2；删＝署名段不回填）', file: 'js/clock.js', needle: "keys: ['alert', 'alert2']" },
+  // ==== 2026-09-16 #620 开屏公告去重 + 口径统一（用户：公告重复多、作者决定月底解散）====
+  { name: '#620a 开屏口径·互助群月底解散（notice 线上生效源）', file: 'pwa/notice.json', needle: '互助群月底解散' },
+  { name: '#620b 开屏口径·群即将解散（template 离线兜底）', file: 'template.html', needle: '群即将解散：' },
+  { name: '#620c 作者公告页不再重复「关于二级密码」卡（absent；已并入主公告）', file: 'template.html', needle: '>关于二级密码<', absent: true },
+  { name: '#620d 作者公告页不再重复「关于二传和二改」卡（absent；已并入主公告）', file: 'template.html', needle: '>关于二传和二改<', absent: true },
   { name: '#154 朋友圈评论「我的表情包」与聊天面板同源·暴露chat最新内存副本（IDB权威自愈，修store层旧LS快照/大键挂起导致的两侧不同步）', file: 'js/chat.js', needle: 'window.getMyEmojiGroups = function () { return myGroups || []; };' },
   { name: '#154 朋友圈评论「我的表情包」优先读chat内存副本（chat.js异常时旧store读兜底）', file: 'js/feed.js', needle: 'if (window.getMyEmojiGroups) {' },
   { name: '#156 群聊模式占卜图标强制收隐藏池（任意位置都隐藏，修「群聊开启后桌面占卜图标不消失」——原只在首页图标组原位时才收；#393 起带 !divPin 豁免， needle 同步收窄）', file: 'js/personalize.js', needle: 'if (divBtn && divBtn.parentNode !== pool && !divPin) {' },
@@ -1432,6 +1441,15 @@ const FIX_SENTINELS = [
   { name: '#415 查看存储·扫描结果体积列右对齐可折行（.storage-row b 同族；删则多库合计长文本整行不折又超屏）', file: 'css/setting.css', needle: '.storage-row b { font-weight:600; font-size:12.5px; text-align:right; flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }' },
   { name: '#415b 压缩图片·压缩后字卡库缓存强制重载（删则压缩写回后本会话聊天回复池/字卡管理页继续发旧图）', file: 'js/chatcard.js', needle: 'window.ccReloadGroupsAfterExternalWrite = function () {' },
   { name: '#415b 压缩图片·压缩前弹窗提醒先导出备份（删则压缩覆盖原图无提示，用户无备份意识）', file: 'js/img-compress.js', needle: '压缩会覆盖原图（替换成更小的版本），原图不留底、不可撤销' },
+  // ==== 2026-09-17 #633 压缩图片覆盖面补齐（用户报「压缩图片打开，里面扫描不到所有桌面，也不显示
+  //      公用字卡+专属字卡里上传的图片、头像互动的头像库的图片」）。三条根因：①桌面清单只取联系人注册表
+  //      → 「键在、注册表里没有」的桌面整桌漏扫；②字卡库内联大图经 #554 令牌化后真身在媒体池，旧实现把
+  //      @@m: 令牌一律当「共享图」跳过＝用户上传过图片却报 0 张；③头像库值不是 dataURL 而是 JSON 数组，
+  //      从未进过扫描面。四条哨兵都取「逻辑锚点」（修复生效时必然存在、逻辑被改则消失）====
+  { name: '#633 桌面清单取「注册表 ∪ 实际键清单」（删则键在注册表里没有的桌面整桌漏扫，「扫描不到所有桌面」复发）', file: 'js/img-compress.js', needle: 'const m = /^xy-home-v2:([^:]+):(?:cc-groups|avatar-lib|avatar-me-lib)$/.exec(String(k));' },
+  { name: '#633 字卡库内联图令牌化后按媒体池条目一起算/一起压（删则用户明明上传过图片仍报 0 张复发）', file: 'js/img-compress.js', needle: 'if (h) { if (keySet[MEDIA_PREFIX + h]) hashes[h] = true; return; }' },
+  { name: '#633 头像互动的头像库进扫描/压缩面（删则头像库里的大图永不参与压缩）', file: 'js/img-compress.js', needle: "key: 'avatar-lib', label: label + ' · 头像库' });" },
+  { name: '#633 池条目同键换值前摘掉待落盘旧值（删则 300ms 防抖窗口内 flush 会用旧值把压缩结果盖回去）', file: 'js/media-pool.js', needle: 'writeBuf = writeBuf.filter(function (p) { return !(p && p.k === FULL + h); });' },
   // ==== 2026-09-14 图片丢失核对（OPPO Find X9/Edge 实报「图片显示异常」，其他设备型号也有；诊断实证媒体池空、
   //      聊天全是 @@m: 令牌→渲染占位「媒体数据缺失，可用数据备份重新导入恢复」。代码面防线已齐
   //      （#275 备份不带池不剥值 / #387 公用库写回堵口 / #397/#402 占位与自愈 / #186 写池回滚 / #118 导入保留旧键），
@@ -2043,6 +2061,13 @@ const FIX_SENTINELS = [
   { name: '#554b 迁移保险丝「不变小不写」（删/改＝异常场景可能把库写大/写坏）', file: 'js/chatcard.js', needle: 'if (!replaced || outStr.length >= raw.length) continue;' },
   { name: '#554c 迁移入口 mochiCcPersistTokenize（删＝查看存储「字卡图去重入库」永远提示不支持，存量内联图永不能瘦身）', file: 'js/chatcard.js', needle: 'window.mochiCcPersistTokenize = function (prog) {' },
   { name: '#554d 查看存储「字卡图去重入库」入口行（删＝用户无入口触发库键瘦身）', file: 'template.html', needle: 'id="st-cc-tokbtn"' },
+  // ==== 2026-09-16 #632 超大库「添加卡即 iOS 闪退」自动瘦身门（打开字卡库按存储键体积自动
+  // 检测，在 parse 编辑树【之前】运行 #554 迁移缩库；用户明说其他设备型号同发、要求勿引发
+  // 跨机型回归，故判据只用「存储键字节」零机型分支）。任一删除/移位＝199MB 级库编辑树常驻 +
+  // 添加时整库 JSON.stringify 三份叠加 → iOS WebKit jetsam（添加表情包/字卡闪退）症状回流。====
+  { name: '#632a 超大库阈值+检测（改/删＝打开字卡库不再自动瘦身，199MB 库添加卡闪退复发）', file: 'js/chatcard.js', needle: 'const CC_BIG_SLIM_THRESHOLD = 16 * 1024 * 1024;' },
+  { name: '#632b 瘦身门在 hydrate/loadGroups 之前（删/挪后＝先 parse 199MB 编辑树再瘦身，峰值更高）', file: 'js/chatcard.js', needle: 'maybeAutoSlimLib().then(function () {' },
+  { name: '#632c 迁移单遍扫描（改回先收集全部 URL＝199MB 库迁移自身即 OOM，瘦身永远失败）', file: 'js/chatcard.js', needle: 'const seenTok = new Set();' },
   // ==== 2026-09-16 #560 字卡库瘦身整组删除写进双冒号垃圾键（#554 插桩时发现的存量 bug）====
   // storage-slim 的 libs 用 G='xy-home-v2:'（带尾冒号），mochiCcSlimDeleteGroup 里
   // xyStore(prefix).set 内部再拼 '':'+key ＝ 写出 xy-home-v2::cc-groups-public——真实键从未被改，
@@ -2056,6 +2081,13 @@ const FIX_SENTINELS = [
   { name: '#570a 开屏检测行有新版分支（删则开屏永远不出「是不是新版」结论行，功能静默消失）', file: 'js/ver-check.js', needle: "set('stale', '⇩ 有新版本（落后' + gapStr(ts - localTs) + '）· 点此更新', true);" },
   { name: '#570b pwa 预取刷新链暴露给开屏（删则「点此更新」退回裸 reload＝弱网/iOS 刷完仍旧版）', file: 'js/pwa.js', needle: 'window.mochiRefreshNow = function () { refreshNow(); };' },
   { name: '#570c 开屏检测行静态锚点（删则 ver-check.js 找不到挂载点直接 return＝功能消失）', file: 'template.html', needle: 'id="splash-ver-check"' },
+  // ==== 2026-09-16 #629 开屏「刷了还是旧版」指引（用户反馈「无线网和流量都正常、多次刷新仍是
+  // 旧版」；同族 #157/#273/#570。锚点取「已刷过却仍旧版」的判定表达式——它被删/被短路即整条
+  // 指引消失、开屏只剩「点此更新」，用户又开始连点） ====
+  { name: '#629a 开屏「已刷过却仍旧版」判定（删/短路＝指引不出现，用户继续连点刷新＝真因被掩盖）', file: 'js/ver-check.js', needle: 'if (retryMarked() || isReloadEntry()) {' },
+  // 同批：标记键是全局根键，漏登记 EXCLUDE 会被 migrateLegacy 每次刷新迁进 default 并删根键
+  // （同 #231 的 ver-update-ack-ts/ver-update-notify）。实测写入后 navigate 2.2s 读回即 null。
+  { name: '#629b 标记根键登记 EXCLUDE（删＝标记写一次就没，开屏永远只出「点此更新」）', file: 'js/contacts.js', needle: "'ver-retry'" },
   // ==== 2026-09-16 #557 字卡库搜索精准化（跨域登记：chatcard.js 属 AI-A 业务，用户直派修「搜一个字多几个字全出现」，见 WORKLOG） ====
   { name: '#557a 字卡库搜索精确/开头/包含排序分节（删/换回私有实现＝与全站搜索语义漂移）', file: 'js/chatcard.js', needle: 'r.__rank = ms ? ms.rank(r.t, kw) : 2;' },
   { name: '#557b 字卡库多词搜索最长词为锚调注册方（删则多词整串当单词条恒 0 命中回流）', file: 'js/chatcard.js', needle: 'const anchor = ms ? ms.anchor(terms) : terms[0];' },
@@ -2199,6 +2231,17 @@ const FIX_SENTINELS = [
   { name: '#592a 「使用提示」点击的可见反馈 helper（删掉＝点击又只剩静默重置，用户看不到任何反应）', file: 'js/page-coach.js', needle: 'function tipToast(msg) {' },
   { name: '#592b helper 里自绘 #cc-toast 分支的自动收起计时（删掉＝只留从未被赋值的 window.toast 死通道）', file: 'js/page-coach.js', needle: "clearTimeout(t._timer); t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2400);" },
   { name: '#592c 重置行点击接线到可见反馈（回退成 window.toast(...)＝「点击没有任何反应」原样复发）', file: 'js/page-coach.js', needle: "tipToast('已重置：再进入那些页面会重新看到上手提示');" },
+  // ==== 2026-09-16 #640（用户**第二次**报同一句话：「点击【使用提示】什么反应也没有，根本没有设计这个功能」）
+  //   #592 只补上了「点击有反馈」这一层，屏幕上仍只有 2.4s 后消失的 toast + 看不见的标记复位，
+  //   用户无法判断它做了什么；而行文案把「字卡库」写在最前，已有字卡的用户进字卡库按设计
+  //   （REG.chatcard.need）永不提示＝承诺里最显眼那条永远不出现。改：点击开「使用提示」面板，
+  //   逐页列出「提示什么 / 现在还会不会再提示（诚实标出 need 门）/ 去看看」，重置结果常驻面板。
+  //   行为断言 tools/verify-page-coach.mjs B6.3~B6.8（真实产物 RED 8 红 → GREEN 37/37）。
+  //   ⚠️ 面板是动态创建后挂 body，故也登记了 float/返回键清单（#640c/#640d）＝关面板必须能解开滚动锁
+  { name: '#640a 使用提示面板本体（删＝点击退回「只闪一个 toast」，用户又看不到这行到底做了什么）', file: 'js/page-coach.js', needle: "sheet.id = 'pc-sheet-mask';" },
+  { name: '#640b 面板逐页状态诚实标出 need 门（字卡库已有字卡＝不再提示；删/改回恒定「会提示」＝又在承诺一个不会发生的事）', file: 'js/page-coach.js', needle: "cfg.skipText || '这页当前不需要提示'" },
+  { name: '#640c 面板登记进 FLOAT_SELECTORS（删＝面板打开后底层设置页仍可滑动、关掉后也可能残留滚动锁）', file: 'js/mobile-adapt.js', needle: "'#pc-sheet-mask'" },
+  { name: '#640d 面板登记进 tabs.js 返回键浮层清单（删＝安卓返回键穿过面板直接退页面）', file: 'js/tabs.js', needle: "'pc-sheet-mask'" },
   // ==== #584 卡顿被误判为 bug 的性能两修（都在 chatcard.js：列表页搜索防抖 / 预压缩串行化）====
   // 行为断言 tools/verify-cc-jank-fix.mjs（RED=1 回退并发预热复现「主线程被连续解码编码霸占」）
   { name: '#584a 字卡库列表页搜索走防抖包装（回退成 input 直连 filterEntries＝每敲一键全量重扫 7k+ 预设字卡）', file: 'js/chatcard.js', needle: "searchInput2.addEventListener('input', ccSearchInput);" },
@@ -2434,6 +2477,50 @@ const FIX_SENTINELS = [
   { name: '#624g 功能介绍补「一条消息多张图，我和 TA 都可以」（删掉＝使用说明缺这条能力，用户报「说明里也缺少」）', file: 'template.html', needle: '一条消息还能放多张图' },
   { name: '#624h 使用说明补「可一次选多张，同一条消息一起发出」+ TA 两图触发说明（删掉＝使用说明缺多图）', file: 'template.html', needle: '可一次选多张，同一条消息里一起发出' },
   { name: '#624i 功能大全「表情包管理」补多图关键词（删掉＝搜「多图 / 多个图片」搜不到）', file: 'js/feature-hub.js', needle: '图片/表情可一条消息发多张' },
+  // ===== #626（2026-09-16）寻踪「更新了一条日常」系统消息改名后同 ts 变两条（用户：同会话不刷新就出现 2 条）=====
+  //   根因：该消息正文内嵌联系人昵称；改昵称时 sysNickSweepMsgs 只清扫 msgs（并落盘），
+  //   chat-tail 兜底日志仍是旧名 ⇒ 下次 chatTailMerge 按 ts|side|正文 签名判不出同一条，
+  //   把旧名那条当「未落盘新消息」补回 ⇒ 同 ts 两条、文字不同又永远合不掉。
+  //   修复：凡清扫 msgs 的 oldName，同步清扫 chat-tail。needle 均为逻辑入口/调用，各自唯一。
+  { name: '#626a 尾巴日志昵称清扫唯一入口（删掉＝改名后 chat-tail 留旧名，重载補回重复一条），needle 均为逻辑锚', file: 'js/chat.js', needle: 'function chatTailSweepNick(oldName) {' },
+  { name: '#626b 改名钩子接尾巴清扫（删掉＝当前会话改名后尾巴日志不同步，重复复发）', file: 'js/chat.js', needle: 'try { chatTailSweepNick(oldName); }' },
+  { name: '#626c 惰性补扫·最近旧名分支同步清尾巴（删掉＝重启后补扫不清尾巴，重载補回重复）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[hist.length - 1])' },
+  { name: '#626d 惰性补扫·历次旧名循环同步清尾巴（删掉＝备份导入等绕过钩子的改名仍留重复）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[i])' },
+  // ===== #627（2026-09-16 用户实报）信息诊断「本来就没错误为什么显示红点」：错误环把浏览器
+  //   对非同源脚本的统一遮罩文案 "Script error."（无栈）也收进来 → 角标常亮假报障。本应用
+  //   全内联同源，真错误必带真实 message+stack，故无栈遮罩可安全放行。needle 均为逻辑锚
+  //   （非函数名），各自在 device.js 唯一：删任一处即对应回归。
+  { name: '#627a 跨域遮罩无栈错误放行（删掉＝系统/输入法注入脚本的 "Script error." 又进错误环，红点假报障复发）', file: 'js/device.js', needle: '!st && /^Script error' },
+  { name: '#627b 遮罩条目识别器（删掉＝readErrs/purge 无从判历史残留条目，升级后旧红点清不掉）', file: 'js/device.js', needle: '!it.stack && /^Script error' },
+  { name: '#627c 启动清历史遗留遮罩条目（删掉＝升级前已入环的 "Script error." 常亮角标，用户仍困惑）', file: 'js/device.js', needle: 'kept = o.filter(function (it) { return !isOpaqueScriptErr(it); })' },
+  // ===== #628（2026-09-16 用户实报）「上传字体，无法应用到全部桌面」：字体按桌面各存各的
+  //   （per-cid，与壁纸/气泡一致），缺的是「一键推给其它桌面」——面板新增「同步到全部桌面」
+  //   按钮 + 实现 syncFontAllDesks（两个入口都有，实现只有一份在 chat-settings.js）；另把
+  //   中间版（曾把字体改成根键全局单值）的残留根键回填给各桌面后删掉。needle 均为逻辑锚。
+  { name: '#628a 字体面板有「同步到全部桌面」按钮（删掉＝用户报障原样复发：字体只能在当前桌面用）', file: 'js/chat-settings.js', needle: '同步到全部桌面</button>' },
+  { name: '#628b 同步实现把当前桌面字体写到其它每个桌面（删/改＝按钮成死键或只写一半桌面）', file: 'js/chat-settings.js', needle: 'others.forEach((id) => { try { window.storeFor(id).set(FONT_KEY, v); n++; } catch (e) {} });' },
+  { name: '#628c 同步入口暴露给桌面美化页复用（删掉＝设置→外观→全局字体 那颗按钮没反应）', file: 'js/chat-settings.js', needle: 'window.csFontSyncAllDesks = syncFontAllDesks;' },
+  { name: '#628d 中间版根键残留回填各桌面后删除（删掉＝用过中间版的用户只剩 default 桌面有字体）', file: 'js/chat-settings.js', needle: "try { window.xyStore('xy-home-v2').remove(FONT_KEY); } catch (e) {}" },
+  { name: '#628e 字体注入·同值不重复（删掉＝每次切桌面重建整个 MB 级 @font-face 字符串，安卓/iOS 切换发卡）', file: 'js/chat-settings.js', needle: 'if (old && old.__fontVal === v) return;' },
+  { name: '#628f 全局字体键排除迁移（防 migrateLegacy 把中间版残留根键迁进 default 并删根键）', file: 'js/contacts.js', needle: "'cs-font'," },
+  { name: '#628g 大值写入清掉同一键的旧小值日志条目（删掉＝先填字体名后上传字体，重进被回放成上次的字体名）', file: 'js/idb.js', needle: 'if (typeof v === \'string\' && v.length > WRJ_VAL_LIMIT) { wrjForget(key); return; }' },
+  { name: '#628h 桌面美化入口的同步按钮接线（删掉＝该入口面板里的同步按钮点了没反应）', file: 'js/personalize.js', needle: 'if (window.csFontSyncAllDesks) window.csFontSyncAllDesks();' },
+  // ==== 2026-09-16 #636 表情包面板【颜文字】【emoji】分类 + 我的文字库 + 设置两隐藏开关（新功能防覆盖锚：
+  //      分类行/文字网格被并行重写抹掉＝面板回到只有表情包三 tab；两开关被删＝分类无法隐藏）====
+  { name: '#636a 面板文字分类渲染入口（颜文字/emoji 清列表后走文字网格并截断图片路径；删/改＝新分类空白或误走图片网格）', file: 'js/chat.js', needle: "emojiList.innerHTML = '';\nrenderEmojiTextPanel();\nreturn;" },
+  { name: '#636b 设置「隐藏颜文字/隐藏emoji」两开关（删/改＝分类无法隐藏，读键分支失效）', file: 'js/chat-settings.js', needle: "['hide-tab-kaomoji', '隐藏颜文字'" },
+  // ===== #642/#643（2026-09-16 用户实报，iPhone 17 Pro Edge 等多机型，要求勿致跨机型回归）
+  //   #642「点消息弹出的引用/操作条乱跑，飞到离气泡很远的地方」＝操作条 fixed 只定位一次，
+  //     键盘开合动画 / Edge iOS vv 平移 / 贴底滚动 / 图片撑高后留在原地；修复＝
+  //     window.mochiFollowActionBar 跟随锚点（单聊 chat.js + 群聊 group-chat.js 共用）。
+  //   #643「发消息后消息和屏幕都上移、最新消息跑到屏幕上半部分」＝键盘收起恢复 .phone 高度后
+  //     无人回钉（#466 只挂 vv resize，iOS 漏派发/时序竞态）；修复＝chat-body 盒尺寸
+  //     ResizeObserver 回钉（仍受 chatPinnedBottom 闸约束，#162 契约不变）。
+  { name: '#642a 操作条跟随锚点助手（删掉＝键盘开合/视口平移/贴底滚动后操作条留在原地乱跑）', file: 'js/chat.js', needle: 'window.mochiFollowActionBar = function (bar, anchor, onClose) {' },
+  { name: '#642b 操作条定位误差自校正（删掉＝内核 fixed 包含块语义差异时一次定位即偏）', file: 'js/chat.js', needle: 'const _maDx = x - m.left, _maDy = y - m.top;' },
+  { name: '#642c 群聊操作条接入同一跟随助手（删掉＝群聊操作条乱跑复发）', file: 'js/group-chat.js', needle: 'window.mochiFollowActionBar(gcMsgActions, bk, closeGcMsgActions)' },
+  { name: '#643a chat-body 盒尺寸 ResizeObserver 接线（删掉＝键盘收起恢复高度后最新消息悬半屏无人回钉）', file: 'js/chat.js', needle: "if (!cb643 || typeof ResizeObserver === 'undefined') return;" },
+  { name: '#643b 盒子真变高后按钉住闸回钉贴底（删掉＝#643 只观察不动作，半屏残留照旧）', file: 'js/chat.js', needle: 'if (chatPinnedBottom && chatVisible()) scrollChatBottom();' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

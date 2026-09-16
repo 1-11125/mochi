@@ -155,6 +155,36 @@
     }).catch(function () { return null; });
   };
 
+  // FIX 2026-09-17 #633 池条目同键换值（压缩图片功能 img-compress.js 调用）：字卡库内联大图
+  // 经 #554「自动去重缩库」令牌化后真身在池里（库键只剩 @@m:<hash>），要减小字卡库占用就只能
+  // 落在这个池值上。池是内容寻址（键 = SHA-256(值) 前缀），这里**只换值、不动键**——所有
+  // 消费方（渲染观察器 / 字卡库导出还原 mochiMediaResolve / GC 引用面 / Coverage 体检 /
+  // Rebuild 自愈）都按令牌查键，键不变就全部照常命中；Rebuild 只补「缺失/空串」条目，
+  // 不会把压缩后的值当坏值覆盖回去。
+  // 三处会话状态必须一起收口，否则留坑：
+  //   · map 热缓存 → 不换则本会话继续渲染旧大图，且令牌化命中 map 直接返回＝内存里又把
+  //     压缩省下的那份吃回来；
+  //   · writeBuf 待落盘 → 同哈希还在 300ms 防抖缓冲里时，flush 会用旧值把压缩结果盖回去；
+  //   · missing / tokTried 占位 → 换成有效值后要解除，否则已渲染的「图片缺失」占位与
+  //     dataset.tokTried 标记会挡住重扫，图不恢复。
+  // 只由调用方在「新值确实更小」时调用；本函数不校验体积、不改任何业务数据，失败返回 false。
+  window.mochiMediaReplace = function (hash, dataUrl) {
+    const h = String(hash || '');
+    if (!TOKEN_RE.test(TOK + h)) return Promise.resolve(false);
+    if (typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) return Promise.resolve(false);
+    try { writeBuf = writeBuf.filter(function (p) { return !(p && p.k === FULL + h); }); } catch (e0) {}
+    return window.idbSet(FULL + h, dataUrl).then(function (ok) {
+      if (!ok) return false;
+      map.set(h, dataUrl);
+      missing.delete(h);
+      try { window.mochiMediaPhRestore(h, dataUrl); } catch (ePH) {} // #439 原位换回自愈
+      let nodes;
+      try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e2) { nodes = []; }
+      Array.prototype.forEach.call(nodes, function (el) { el.src = dataUrl; });
+      return true;
+    }).catch(function () { return false; });
+  };
+
   async function sha256Hex(str) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
     const arr = new Uint8Array(buf);

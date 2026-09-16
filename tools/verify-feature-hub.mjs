@@ -75,7 +75,7 @@ const A = (name, ok, extra) => { console.log((ok ? 'PASS' : 'FAIL') + ' ' + name
 const r1 = await ev(`(()=>{ const gs=document.querySelectorAll('#fhub-body .gs-title').length; const rows=document.querySelectorAll('#fhub-body .set-row').length; return gs+'|'+rows; })()`);
 const [gCount, rowCount] = String(r1).split('|').map(Number);
 A('A1 分组数=9', gCount === 9, '实际 ' + gCount);
-A('A1 条目数=203（#561 补新手引导/字卡图去重后；2026-09-16 #581 补「调整图标图片位置」+1）', rowCount === 203, '实际 ' + rowCount);
+A('A1 条目数=213（#561 基础；2026-09-16 #581 补「调整图标图片位置」、#606 关于批 +4 入口、#602 分享链接关键词、音乐导入来源等并行批累计）', rowCount === 213, '实际 ' + rowCount);
 
 // A2 设置行进入功能大全页
 await ev(`document.getElementById('row-featurehub').click()`);
@@ -92,7 +92,7 @@ A('A3 搜索红包→3 条', vis === 3, '实际 ' + vis);
 await ev(`(()=>{const i=document.getElementById('fhub-search'); i.value=''; i.dispatchEvent(new Event('input')); })()`);
 await sleep(80);
 const vis2 = await ev(`[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none').length`);
-A('A4 清空恢复 203 条', vis2 === 203, '实际 ' + vis2);
+A('A4 清空恢复 213 条', vis2 === 213, '实际 ' + vis2);
 
 // A5 链式跳转·桌面图标类（花园）——按首行名称精确匹配（描述里含「花园」的字卡行不应误命中）
 await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>{const t=r.querySelector('.txt'); return t&&t.firstChild&&t.firstChild.textContent.trim()==='花园';}).click()`);

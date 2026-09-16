@@ -148,15 +148,23 @@ ok(Number(ratioBars) >= 1, 'B3i 预设覆盖率条存在', 'count=' + ratioBars)
 const replyJumps = await evalJs("(function(){return document.querySelectorAll('#card-audit-body [data-jump=\"@reply:chat\"]').length;})()");
 ok(Number(replyJumps) >= 1, 'B3j 回复设置侧行带「调整」直达 回复设置→聊天', 'count=' + replyJumps);
 
-// B4 一键修复真的写回默认（先种 reply-dcp-all=0 / dcf-fish=0，再点 inl-dcp 修复）
+// B4 修复：确认预览弹窗 → 写回默认 → 单级撤销
 await evalJs("(function(){try{window.activeStore().set('reply-dcp-all','0');window.activeStore().set('dcf-fish','0');}catch(e){}var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");
 await sleep(1400);
 const before = J(await evalJs("(function(){try{return JSON.stringify({all:window.activeStore().get('reply-dcp-all'),fish:window.activeStore().get('dcf-fish')});}catch(e){return '{}';}})()"));
 ok(String(before.all) === '0', 'B4a 修复前 reply-dcp-all=0（种入生效）', JSON.stringify(before));
 await evalJs("(function(){var b=document.querySelector('#card-audit-body [data-fix=\"inl-dcp\"]');if(b)b.click();return true;})()");
-await sleep(900);
+await sleep(400);
+const cfm = J(await evalJs("(function(){var m=document.getElementById('modal-mask');var t=document.getElementById('modal-title');return JSON.stringify({open:!!m&&!m.hidden,title:t?t.textContent:''});})()"));
+ok(cfm.open === true && (cfm.title || '').indexOf('确认修复') >= 0, 'B4a2 点修复弹「确认修复」预览弹窗', JSON.stringify(cfm));
+await evalJs("(function(){var o=document.getElementById('modal-ok');if(o)o.click();return true;})()");
+await sleep(800);
 const after = await evalJs("(function(){try{return String(window.activeStore().get('reply-dcp-all'));}catch(e){return null;}})()");
-ok(after === '100', 'B4b 点「一键修复」后 reply-dcp-all 回到 100', 'after=' + after);
+ok(after === '100', 'B4b 确认后 reply-dcp-all 回到 100', 'after=' + after);
+await evalJs("(function(){var u=document.getElementById('card-audit-undo');if(u)u.click();return true;})()");
+await sleep(800);
+const undone = await evalJs("(function(){try{return String(window.activeStore().get('reply-dcp-all'));}catch(e){return null;}})()");
+ok(undone === '0', 'B4c「撤销上次」把 reply-dcp-all 还原为 0', 'undone=' + undone);
 
 // B5 跳转：点 data-jump 跳到目标（customOwn → 字卡库/专属页）
 await evalJs("(function(){var r=document.getElementById('row-card-audit');if(r)r.click();return true;})()");
@@ -177,6 +185,31 @@ await evalJs("(function(){window.__hydrated=false;var o=window.hydrateLibScopes;
 await sleep(500);
 const hydrated = await evalJs("window.__hydrated===true");
 ok(hydrated === true, 'B8 点「加载完整字卡」触发 hydrateLibScopes', 'hydrated=' + hydrated);
+
+// B9 批量修复：进入勾选模式后每行出现复选框；「应用所选」按 hidden 显隐（#618）
+// #618 根因：`.storage-clear{display:block}` 作者样式盖过 UA `[hidden]{display:none}`，
+//   导致未进批量模式「应用所选」也常驻可见、点了只提示「请先勾选」→ 用户以为批量修复没用。
+//   断言 computed display（不是 hidden 属性，属性一直是 true 但 CSS 不生效）。
+const applyHiddenBefore = await evalJs("(function(){var b=document.getElementById('card-audit-apply');return b?getComputedStyle(b).display:null;})()");
+ok(applyHiddenBefore === 'none', 'B9a 未进批量模式时「应用所选」按 hidden 隐藏（#618，显示值=' + applyHiddenBefore + '）', 'display=' + applyHiddenBefore);
+await evalJs("(function(){try{window.libScopesDeferred=function(){return false;};}catch(e){}var p=document.getElementById('card-audit-pick');if(p)p.click();return true;})()");
+await sleep(1300);
+const picks = await evalJs("(function(){return document.querySelectorAll('#card-audit-body .ca-pick').length;})()");
+ok(Number(picks) >= 1, 'B9 批量修复模式注入可勾选复选框', 'count=' + picks);
+const applyShownAfter = await evalJs("(function(){var b=document.getElementById('card-audit-apply');return b?getComputedStyle(b).display:null;})()");
+ok(applyShownAfter && applyShownAfter !== 'none', 'B9b#618）', 'display=' + applyShownAfter);
+// B9c 勾选态 → 应用所选 计数联动 + 真写回（选第一项取消勾选，确认计数下降）
+const pickCountBefore = await evalJs("(function(){var b=document.getElementById('card-audit-apply');return b?b.textContent:'';})()");
+await evalJs("(function(){var c=document.querySelector('#card-audit-body .ca-pick');if(c){c.checked=false;c.dispatchEvent(new Event('change',{bubbles:true}));}return true;})()");
+await sleep(200);
+const pickCountAfter = await evalJs("(function(){var b=document.getElementById('card-audit-apply');return b?b.textContent:'';})()");
+ok(pickCountBefore !== pickCountAfter, 'B9c 取消勾选后「应用所选」计数联动', pickCountBefore + ' -> ' + pickCountAfter);
+
+// B10 导出文件：调用 mochiExportFile（不真的落盘）
+await evalJs("(function(){window.__exported=null;var o=window.mochiExportFile;window.mochiExportFile=function(j,f){window.__exported={len:(j||'').length,f:f};return Promise.resolve('ok');};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
+await sleep(300);
+const exp = J(await evalJs("(function(){return JSON.stringify(window.__exported||{});})()"));
+ok(exp && exp.len > 0 && (exp.f || '').indexOf('card-audit') >= 0, 'B10 「导出文件」调用 mochiExportFile 生成报告', JSON.stringify(exp));
 
 try { chrome.kill(); } catch (e) {}
 server.close();

@@ -1574,11 +1574,25 @@ if (ckRefresh) {
     } catch (e) {}
     return [];
   }
+  // FIX 2026-09-16 #620：问完 TA 落回聊天页——「你在哪？」与 TA 随后回的位置卡都在聊天里，
+  // 旧实现只发消息 + toast，全屏位置面板不退（桌面寻踪页进入时 #page-chat 还隐藏着），
+  // 用户看不到任何结果＝「点了没反应」。已在聊天页则只收面板 + 贴底，不重进页（避免整窗重渲）。
+  function backToChatAfterAsk() {
+    closeLocPanel();
+    if (window.closeCkPanel) window.closeCkPanel();
+    const chatPage = document.getElementById('page-chat');
+    if (!chatPage) return;
+    if (chatPage.hidden) { if (window.enterChat) window.enterChat(); return; }
+    const body = document.getElementById('chat-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  }
   function askWhere() {
     if (asking) return;
     asking = true;
     if (window.chatSendMsg) window.chatSendMsg('你在哪？');
     toast(window.taFit ? window.taFit('已问 TA 一声，等 TA 回位置…') : '已问 TA 一声，等 TA 回位置…');
+    // FIX 2026-09-16 #620：发完立刻回聊天页（面板收起也在这里面做）
+    backToChatAfterAsk();
     setTimeout(() => {
       asking = false;
       // v3.13.x：词源 = 字卡库；方位/距离组空（被全关）时回退内置默认词兜底
@@ -4392,8 +4406,28 @@ if (ckRefresh) {
   // chk 中断后 lastTa 不更新、下次继续报）。本作用域自备同语义助手（走 window.dcfGet，
   // 未设置时 dcfGet 内部已回退内置默认表）。
   function dcfPFish(def) { try { if (window.dcfGet) return window.dcfGet('fish'); } catch (e) {} return def; }
+  // FIX 2026-09-16 #604：游戏面板/游戏页开着时不飘「摸鱼浮字」——这条浮字是限时可点的
+  // 「点我抓包」（pointer-events:auto + fixed 居中偏下），正好盖在棋盘与方向键上抢点按，
+  // 用户报「玩游戏的时候还会触发联系人摸鱼抓包弹窗，挡住我玩游戏」。
+  // 判据＝任一游戏面板/游乐室页可见；hidden=false 但零渲染盒（早已切页的残留态）不算，
+  // 与 mobile-adapt floatIsOpen 同口径（#427 踩过零渲染盒误判）。
+  const GAME_PANEL_IDS = ['chat-snake-panel', 'chat-pong-panel', 'chat-brick-panel', 'chat-rps-panel', 'chat-c4-panel',
+    'chat-gomoku-panel', 'chat-linkup-panel', 'chat-match3-panel', 'chat-memory-panel', 'chat-ms-panel',
+    'chat-fish-panel', 'chat-auction-panel', 'chat-gift-panel', 'chat-arcade-panel', 'page-arcade', 'chat-rp-panel'];
+  function gamePanelOpen() {
+    try {
+      for (let i = 0; i < GAME_PANEL_IDS.length; i++) {
+        const el = document.getElementById(GAME_PANEL_IDS[i]);
+        if (el && !el.hidden && el.getClientRects().length > 0) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
   function chk() {
     if (document.hidden) return;
+    // 放在 taChimeAllow/taChimeUse 之前：跳过时不吃 45 分钟冷却与每日 12 次额度，
+    // 出游戏后这次涨值照样能飘（lastTa 不推进，delta 留着）。
+    if (gamePanelOpen()) return;
     const s = window.activeStore && window.activeStore(); if (!s) return;
     let cur = 0; try { cur = parseInt(s.get('fish-total-ta') || '0', 10) || 0; } catch (e) {}
     if (lastTa === null) { lastTa = cur; return; }

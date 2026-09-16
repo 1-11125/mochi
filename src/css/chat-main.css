@@ -743,6 +743,14 @@ body.cs-time-divider .msg-time-divider { display:flex; }
   background:#f4f4f5; -webkit-appearance:none; appearance:none; box-shadow:none;
 }
 .poke-input:focus { border-color:var(--ink); background:#fff; }
+/* FIX 2026-09-16 #621：安卓 mobile-adapt 把输入框转成 .ce-box 后占位文字继承 .ce-box 的
+   white-space:pre-wrap（且 contenteditable 吃 base.css 的 16px），长占位（「输入拍一拍文字，
+   如：拍了拍你的脸蛋」16px 自然宽约 272px ＞ 输入框内宽约 155px）折成两行，超出定高 40px
+   的框底（.ce-box overflow 默认 visible）＝用户所见「文字超出输入框」。单行截断 + 省略号，
+   与原生 input 占位表现一致（同 setting.css .theme-search 修法） */
+.poke-input.ce-box:empty::before {
+  display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 /* 存入：把输入的文字保存到当前选中的分组（描边次级按钮，与发送区分） */
 .poke-input-save {
   flex-shrink:0; height:40px; border:1px solid rgba(0,0,0,.18); border-radius:11px;
@@ -972,6 +980,21 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .emoji-item:active { background:rgba(0,0,0,.05); }
 .emoji-item img { width:82%; height:82%; object-fit:contain; border-radius:0; display:block; }
 .emoji-empty { text-align:center; color:#c0c0c0; font-size:12px; padding:30px 0; }
+/* v3.26.x #636 表情包面板【颜文字】【emoji】分类：分类行（JS 注入 .emoji-cats，chip 复用 .emoji-g-chip）+ 文字网格 */
+.emoji-cats {
+  display:flex; gap:6px; overflow-x:auto; padding:0 2px 8px;
+  flex-shrink:0; scrollbar-width:none; -ms-overflow-style:none;
+}
+.emoji-cats::-webkit-scrollbar { display:none; }
+.emoji-cats .emoji-g-chip { flex:0 0 auto; }
+.emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
+.emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
+#emoji-list .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
+#emoji-list .emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
+.emoji-grid-text .emoji-item { aspect-ratio:auto; min-height:54px; padding:9px 6px; }
+.emoji-grid-text .emoji-item:nth-child(2n) { border-right:none; }
+.emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; }
+.emoji-grid-emoji .emoji-text-item { font-size:25px; line-height:1.2; word-break:keep-all; }
 
 /* v3.11.x锛氭壒閲忓彂閫侀潰鏉库€斺€斿鐢?.poke-card 搴曢儴鍗婃甯冨眬 */
 .batch-card { max-height:62%; }

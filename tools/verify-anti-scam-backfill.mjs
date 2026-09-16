@@ -3,11 +3,13 @@
 //   1) 置顶声明是二传者最想删的内容——静态 DOM 可被从二传部署里删掉/改掉；
 //   2) 该回填机制 f7a8b5c 首建后曾被 0965278 清理整块移除（修复被并行会话覆盖实例）。
 // 机制（clock.js 顶部 IIFE）：JS 常量兜底 + fetch 官方 notice.json(alert/alert2) 强刷
-//   「开屏两条置顶声明 data-anti-scam=1/2 + 设置页 set-alert」；缺失重建插最顶、
-//   文案被改（标题+全部特征词 marks 不在位）重写回官方版。
+//   「开屏合并置顶声明 data-anti-scam=1（#621 起防骗+署名并成一张「免费 · 署名 · 防倒卖」）+ 设置页 set-alert」；
+//   缺失重建插最顶、文案被改（标题+全部特征词 marks 不在位）重写回官方版。
 // 用例（模拟二传者各种删改手段）：
-//   1) 官方正常加载：两条置顶条在最顶、文案官方版、设置页声明含署名禁倒卖句
-//   2) 静态条被整体删除（二传改 HTML）→ 回填重建两条到最顶
+//   1) 官方正常加载：合并声明卡在公告区最顶、文案官方版、
+//      #613 免费声明（没有收过任何人一分钱…禁止以盈利为目的）在合并卡 + 必读摘要、设置页声明含署名禁倒卖句
+//      （#620 起必读摘要首条为「原公告已移动至设置→关于」提示）
+//   2) 静态条被整体删除（二传改 HTML）→ 回填重建合并卡到最顶
 //   3) 静态条文案被篡改成收费内容 → 回填重写回官方版
 //   4) 官方 notice.json 不可达（断网/被墙）→ 静态兜底仍在
 //   5) 删条+断网叠加（离线二传副本）→ 仍从 JS 常量重建
@@ -39,15 +41,13 @@ if (!chromePath) { console.error('找不到 Chrome/Edge'); process.exit(1); }
 
 // —— 模拟二传者改副本：对构建产物 index.html 做字符串手术 ——
 const RE_B1 = /<div class="splash-alert" data-anti-scam="1">[\s\S]*?<\/p>\s*<\/div>/;
-const RE_B2 = /<div class="splash-alert" data-anti-scam="2">[\s\S]*?<\/p>\s*<\/div>/;
 const modes = {
-  // 删条：整块移除两条静态置顶声明（保留其余页面）
-  strip(html) { return html.replace(RE_B1, '').replace(RE_B2, ''); },
+  // 删条：整块移除合并静态置顶声明（保留其余页面）
+  strip(html) { return html.replace(RE_B1, ''); },
   // 篡改文案：标题保留、正文改成收费内容（特征词 全部消失 → marked() 判不在位）
   tamper(html) {
     return html
-      .replace(RE_B1, '<div class="splash-alert" data-anti-scam="1">\n          <div class="splash-alert-t">防骗提醒</div>\n          <p><strong>Mochi字卡高级版每月收费。</strong>购买后解锁全部功能与隐藏字卡。</p>\n        </div>')
-      .replace(RE_B2, '<div class="splash-alert" data-anti-scam="2">\n          <div class="splash-alert-t">转载署名 · 严禁倒卖</div>\n          <p>转发本站链接需付费加入会员群。</p>\n        </div>');
+      .replace(RE_B1, '<div class="splash-alert" data-anti-scam="1">\n          <div class="splash-alert-t">免费 · 署名 · 防倒卖</div>\n          <p><strong>Mochi字卡高级版每月收费。</strong>购买后解锁全部功能与隐藏字卡。</p>\n        </div>');
   }
 };
 
@@ -139,10 +139,14 @@ async function waitCond(expr, timeout = 6000) {
   }
 }
 
-const B1_OK = "(function(){var b=document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"1\"]');var t=(b?b.textContent:'').replace(/\\s+/g,'');return !!b&&t.indexOf('防骗提醒')>-1&&t.indexOf('免费')>-1&&t.indexOf('诈骗')>-1&&t.indexOf('小红书@言序（1842523578）')>-1;})()";
-const B2_OK = "(function(){var b=document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"2\"]');var t=(b?b.textContent:'').replace(/\\s+/g,'');return !!b&&t.indexOf('转载署名')>-1&&t.indexOf('署名')>-1&&t.indexOf('倒卖')>-1&&t.indexOf('小红书@言序（1842523578）')>-1;})()";
-// #319 起新顺序：免责(d) → 防未成年锁卡(l) → 防骗(1)（1 不再紧邻 d，中间隔着锁卡）
-const B1_TOP = "(function(){var n=document.getElementById('splash-notice');var d=n.querySelector('.splash-alert[data-anti-scam=\"d\"]');var l=n.querySelector('.splash-alert[data-anti-scam=\"l\"]');var b=n.querySelector('.splash-alert[data-anti-scam=\"1\"]');return !!b&&!!d&&!!l&&n.firstElementChild===d&&d.nextElementSibling===l&&l.nextElementSibling===b;})()";
+const B1_OK = "(function(){var b=document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"1\"]');var t=(b?b.textContent:'').replace(/\\s+/g,'');return !!b&&t.indexOf('免费·署名·防倒卖')>-1&&t.indexOf('免费')>-1&&t.indexOf('诈骗')>-1&&t.indexOf('署名')>-1&&t.indexOf('倒卖')>-1&&t.indexOf('小红书@言序（1842523578）')>-1;})()";
+// #621：防骗卡 + 署名禁倒卖卡合并为一张（tag '1'，标题「免费 · 署名 · 防倒卖」），补回锚点 = 公告区最顶
+const B1_TOP = "(function(){var n=document.getElementById('splash-notice');var b=n.querySelector('.splash-alert[data-anti-scam=\"1\"]');var d=n.querySelector('.splash-alert[data-anti-scam=\"d\"]');var l=n.querySelector('.splash-alert[data-anti-scam=\"l\"]');return !!b&&n.firstElementChild===b&&!!d&&!!l;})()";
+// #613 免费声明（「本站完全免费，没有收过任何人一分钱…禁止以盈利为目的」）在合并卡里 + 必读摘要内，其余位置不再重复
+const B1_FREE = "(function(){var b=document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"1\"]');if(!b)return false;var t=b.textContent;return t.indexOf('没有收过任何人一分钱')>-1&&t.indexOf('禁止以盈利为目的')>-1&&t.indexOf('个人出资和花费时间搭建的')>-1;})()";
+// #620 起必读摘要首条为「原公告部分内容已移动至设置→关于」提示，免费声明移到其后：两条都在摘要内
+const SUM_FIRST = "(function(){var s=document.querySelector('.splash-summary');if(!s)return false;var t=s.textContent;return t.indexOf('原公告')>-1&&t.indexOf('已移动至')>-1&&t.indexOf('没有收过任何人一分钱')>-1;})()";
+const FREE_ONLY_TWO = "(function(){var t=document.getElementById('splash-notice');if(!t)return false;var ps=t.querySelectorAll('p'),n=0;for(var i=0;i<ps.length;i++){if(ps[i].textContent.indexOf('没有收过任何人一分钱')>-1)n++;}return n===2;})()";
 const SET_OK = "(function(){var b=document.querySelector('#page-setting .set-alert');var t=b?b.textContent:'';return !!b&&t.indexOf('小红书@言序（1842523578）')>-1&&t.indexOf('免费')>-1&&t.indexOf('倒卖')>-1;})()";
 // 拦截官方 notice.json：mode='abort' 模拟断网/官方源不可达；mode=对象 → 用假官方应答 fulfill（测 bulletin 远程下发）
 async function interceptOfficial(mode) {
@@ -168,54 +172,52 @@ const OFFICIAL_JSON = {
 };
 
 // ============ 用例 1：官方正常加载 ============
-console.log('\n===== 用例1 官方正常加载：两条置顶声明在最顶 =====');
+console.log('\n===== 用例1 官方正常加载：合并声明卡在公告区最顶（#621）+ 免费声明在卡与必读摘要 =====');
 await load();
-check('防骗置顶条在位且文案官方版', await waitCond(B1_OK));
-check('署名禁倒卖置顶条在位且文案官方版', await waitCond(B2_OK));
-check('防骗条位于公告区最顶（第一个元素子节点）', await ev(B1_TOP) === true);
+check('合并置顶条在位且文案官方版（免费/署名/防倒卖）', await waitCond(B1_OK));
+check('合并声明卡位于公告区最顶（第一个元素子节点）', await ev(B1_TOP) === true);
+check('#613 合并卡正文含免费声明（没有收过任何人一分钱 / 个人出资 / 禁止以盈利为目的）', await waitCond(B1_FREE));
+check('#620 必读摘要含「原公告已移动」提示与免费声明（在线 notice.json 渲染后）', await waitCond(SUM_FIRST));
+check('#613 免费声明全文只出现两处（合并卡 + 必读摘要；旧位置无重复）', await waitCond(FREE_ONLY_TWO));
 check('设置页底部声明含署名+免费+禁倒卖', await waitCond(SET_OK));
 
 // ============ 用例 2：二传副本删掉静态置顶条 → 回填重建 ============
 console.log('\n===== 用例2 二传副本删条 → 重建到最顶 =====');
 await load('strip');
-check('删除后回填重建防骗条且文案官方版', await waitCond(B1_OK));
-check('删除后回填重建署名禁倒卖条且文案官方版', await waitCond(B2_OK));
-check('重建的防骗条插回公告区最顶', await ev(B1_TOP) === true);
+check('删除后回填重建合并声明卡且文案官方版', await waitCond(B1_OK));
+check('重建的合并卡插回公告区最顶', await ev(B1_TOP) === true);
+check('#613 重建的合并卡（JS 常量兜底）同样含免费声明句', await waitCond(B1_FREE));
 
 // ============ 用例 3：二传副本篡改文案 → 重写回官方版 ============
 console.log('\n===== 用例3 二传副本篡改成收费文案 → 重写官方版 =====');
 await load('tamper');
-check('防骗条被重写回官方版（收费篡改文案被清除）', await waitCond(B1_OK + "&&(document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"1\"]').textContent.indexOf('高级版')===-1)"));
-check('署名条被重写回官方版（会员群篡改文案被清除）', await waitCond(B2_OK + "&&(document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"2\"]').textContent.indexOf('会员群')===-1)"));
+check('合并声明卡被重写回官方版（收费篡改文案被清除）', await waitCond(B1_OK + "&&(document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"1\"]').textContent.indexOf('高级版')===-1)"));
 
 // ============ 用例 4：官方 notice.json 不可达 → 静态兜底仍在 ============
 console.log('\n===== 用例4 官方源不可达（拦截 ling233330-star.github.io）→ 兜底在位 =====');
 await interceptOfficial('abort');
 await load();
-check('官方源失败后防骗条仍在（静态兜底）', await waitCond(B1_OK));
-check('官方源失败后署名禁倒卖条仍在（静态兜底）', await waitCond(B2_OK));
+check('官方源失败后合并声明卡仍在（静态兜底）', await waitCond(B1_OK));
 
 // ============ 用例 5：删条+断网叠加 → JS 常量重建 ============
 console.log('\n===== 用例5 离线二传副本删条 → JS 常量重建 =====');
 await load('strip');
-check('断网+删条后防骗条仍被重建（常量兜底）', await waitCond(B1_OK));
-check('断网+删条后署名条仍被重建（常量兜底）', await waitCond(B2_OK));
+check('断网+删条后合并声明卡仍被重建（常量兜底）', await waitCond(B1_OK));
 await interceptOfficial(null);
 
 // ============ 用例 6：加载后运行时删条 → pwa.js 看门狗 5s 内补回 ============
 console.log('\n===== 用例6 运行时删条 → pwa.js 看门狗（第二锚点）补回 =====');
 await load();
-await ev("(function(){var n=document.getElementById('splash-notice');var a=n.querySelectorAll('.splash-alert[data-anti-scam=\"1\"],.splash-alert[data-anti-scam=\"2\"]');for(var i=0;i<a.length;i++)a[i].remove();return a.length;})()");
+await ev("(function(){var n=document.getElementById('splash-notice');var a=n.querySelectorAll('.splash-alert[data-anti-scam=\"1\"]');for(var i=0;i<a.length;i++)a[i].remove();return a.length;})()");
 await sleep(6500); // 看门狗 5s 一跳
-check('运行时删除后看门狗补回防骗条', await waitCond(B1_OK, 3000));
-check('运行时删除后看门狗补回署名条', await waitCond(B2_OK, 3000));
+check('运行时删除后看门狗补回合并声明卡', await waitCond(B1_OK, 3000));
 
 // ============ 用例 7：官方远程下发时效公告 → 开屏显示「公告」条 ============
 console.log('\n===== 用例7 官方 notice.json 下发 bulletin → 远程公告显示 =====');
 await interceptOfficial(Object.assign({}, OFFICIAL_JSON, { bulletin: { text: '测试公告：若你打开的地址并非官方发布，即为倒卖副本', until: 4102444800000 } }));
 await load();
 check('远程公告条显示且标题为「公告」', await waitCond("(function(){var b=document.querySelector('#splash-notice .splash-alert[data-anti-scam=\"3\"]');return !!b&&b.textContent.indexOf('倒卖副本')>-1&&b.querySelector('.splash-alert-t').textContent==='公告';})()"));
-check('下发公告时两条固定声明不受影响仍在位', (await ev(B1_OK)) === true && (await ev(B2_OK)) === true);
+check('下发公告时合并固定声明不受影响仍在位', (await ev(B1_OK)) === true);
 
 // ============ 用例 8：公告过期 → 自动摘除 ============
 console.log('\n===== 用例8 bulletin 过期 → 自动摘除 =====');

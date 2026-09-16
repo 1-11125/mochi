@@ -83,7 +83,8 @@ const m = await ev(`(function(){
 })()`);
 const o = JSON.parse(String(m));
 chk('A1 美化页存在可见的 #dq-drawer', o.visible === true, m);
-chk('A2 入口已移出 desk-quick 行（该行只剩 4 个跳转按钮）', o.inQuick === false && o.quickChipCount === 4, m);
+// #602：「深色模式」快捷按钮已从该行移除（功能在设置页），故剩 3 个跳转按钮
+chk('A2 入口已移出 desk-quick 行（该行只剩 3 个跳转按钮）', o.inQuick === false && o.quickChipCount === 3, m);
 chk('A3 排在最前：在搜索框之上', o.aboveSearch === true, m);
 chk('A4 排在最前：在 5 个 tab 之上', o.aboveTabs === true, m);
 chk('A5 排在最前：在第一个分区之上', o.aboveFirstSec === true, m);

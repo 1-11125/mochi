@@ -72,7 +72,7 @@ html { margin:0; padding:0; }
 /* ===== 开屏加载动画 ===== */
 .splash {
   position:fixed; inset:0; z-index:999;
-  background:var(--card-bg);
+  background:radial-gradient(130% 42% at 50% 0%, var(--sp-glow) 0%, transparent 72%), var(--card-bg);
   /* v3.8.y：整页一体滚动——列布局：.splash-box 占满剩余并自身滚动（顶部+公告一起滚），底部操作区常驻 */
   display:flex; flex-direction:column; align-items:center;
   transition:opacity .4s ease;
@@ -97,45 +97,49 @@ html { margin:0; padding:0; }
 .splash-box {
   flex:1; min-height:0; width:100%; overflow-y:auto;
   display:flex; flex-direction:column; align-items:center;
-  box-sizing:border-box; text-align:center; padding:26px 20px 12px;
+  box-sizing:border-box; text-align:center; padding:30px 18px 18px;
   scrollbar-width:none; -ms-overflow-style:none;
 }
 .splash-box::-webkit-scrollbar { display:none; }
 /* v3.8.y：顶部品牌区卡片框——logo/标题/署名/原作信息统一装进一个精致白卡片 */
 .splash-brandcard {
-  width:min(322px, 100%); box-sizing:border-box;
-  padding:24px 20px 20px;
-  background:var(--card-bg); border:1px solid rgba(0,0,0,.07);
-  border-radius:20px;
+  width:min(324px, 100%); box-sizing:border-box;
+  padding:30px 22px 24px;
+  background:var(--card-bg); border:1px solid var(--sp-line);
+  border-radius:22px;
+  box-shadow:0 10px 32px rgba(0,0,0,.05);
   display:flex; flex-direction:column; align-items:center;
   animation:splash-fade-up .6s ease .04s backwards;
 }
 .splash-brandcard .splash-logo {
-  width:74px; height:74px; margin:0 auto 16px;
+  width:76px; height:76px; margin:0 auto 18px;
   /* v3.8.y：正方形里显示爱心——圆角收紧为小圆角(18%)，避免此前大圆角(32%)略显圆/近圆 */
-  border-radius:18px;
-  background:var(--card-bg); border:1px solid rgba(0,0,0,.08);
+  border-radius:20px;
+  background:var(--card-bg); border:1px solid var(--sp-line);
+  box-shadow:0 6px 18px rgba(0,0,0,.05);
   display:flex; align-items:center; justify-content:center;
   animation:splash-pop .7s ease .1s backwards;
 }
 .splash-logo svg { width:38px; height:38px; }
-.splash-title { font-size:18px; font-weight:800; letter-spacing:2px; color:var(--ink); }
+.splash-title { font-size:19px; font-weight:800; letter-spacing:3px; color:var(--ink); }
 /* v3.8.y：署名移到顶部，紧跟标题下方的小字 */
-.splash-brand { margin-top:8px; font-size:11px; color:var(--muted); letter-spacing:1px; }
-/* v3.8.y：原作/部署信息（署名下方）——小灰字低调展示使用网站/GitHub 库 */
-.splash-source { margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); text-align:center; width:100%; }
-.splash-source-line { font-size:9px; color:var(--hint-ink); line-height:1.8; letter-spacing:0; white-space:nowrap; }
+.splash-brand { margin-top:10px; font-size:11px; color:var(--muted); letter-spacing:1.2px; line-height:1.9; }
+/* v3.8.y：原作/部署信息（署名下方）——小灰字低调展示使用网站/GitHub 库；
+   #611 后极简改版：虚线分隔改细实线，靠留白而非分割线区分层级 */
+.splash-source { margin-top:16px; padding-top:16px; border-top:1px solid var(--sp-line); text-align:center; width:100%; }
+.splash-source-line { font-size:9px; color:var(--hint-ink); line-height:1.9; letter-spacing:0; white-space:nowrap; }
 /* v3.26.x：置顶澄清行可换行——nowrap 仅供单行网址/署名，长句澄清不换行会超出手机屏幕 */
-.splash-source-line.splash-clarify { white-space:normal; padding:0 10px; }
+.splash-source-line.splash-clarify { white-space:normal; padding:0 14px; line-height:1.95; }
 .splash-source-url { color:var(--ink); font-weight:600; }
 /* v3.8.y：底部统一卡片框——版本/加载/提示/按钮装进一个白卡片，与顶部品牌卡片呼应 */
 .splash-footcard {
-  width:min(322px, 100%); box-sizing:border-box;
-  padding:14px 18px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));
-  background:var(--card-bg); border:1px solid rgba(0,0,0,.07);
-  border-radius:20px;
+  width:min(324px, 100%); box-sizing:border-box;
+  padding:16px 20px calc(16px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));
+  background:var(--card-bg); border:1px solid var(--sp-line);
+  border-radius:22px;
+  box-shadow:0 10px 32px rgba(0,0,0,.05);
   display:flex; flex-direction:column; align-items:center;
-  margin-bottom:calc(var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)) + 18px);
+  margin-bottom:calc(var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)) + 20px);
   animation:splash-fade-up .6s ease .4s backwards;
 }
 /* v3.8.y：底部版本块——两行：名称+版本(加粗) / 部署时间+实时秒数，去等宽字体、字号加大适配手机 */
@@ -152,90 +156,70 @@ html { margin:0; padding:0; }
 .splash-ver .sv-check.warn { opacity:.85; }
 /* v3.5.111：开屏公告卡片（白纸卡片，与全局简约风格一致）；v3.8.y：不再自滚，随 .splash-box 整页滚动 */
 .splash-notice {
-  margin:14px auto 0; width:min(322px, 100%); text-align:left;
-  background:var(--card-bg); border:1px solid rgba(0,0,0,.07);
-  border-radius:20px; padding:18px 18px 20px;
+  margin:16px auto 0; width:min(324px, 100%); text-align:left;
+  background:var(--card-bg); border:1px solid var(--sp-line);
+  border-radius:22px; padding:22px 20px 24px;
+  box-shadow:0 10px 32px rgba(0,0,0,.05);
   animation:splash-fade-up .6s ease .32s backwards;
 }
-.splash-notice-title { font-size:14px; font-weight:800; color:var(--ink); text-align:center; margin-bottom:5px; letter-spacing:1.5px; }
-.splash-notice-sub { font-size:10.5px; font-weight:600; color:var(--muted); text-align:center; margin-bottom:16px; letter-spacing:1.5px; }
-.splash-notice-list p { font-size:11.5px; line-height:1.75; color:var(--soft-ink); }
+.splash-notice-title { font-size:15px; font-weight:800; color:var(--ink); text-align:center; margin-bottom:6px; letter-spacing:2px; }
+.splash-notice-sub { font-size:10.5px; font-weight:600; color:var(--muted); text-align:center; margin-bottom:18px; letter-spacing:1.5px; }
+.splash-notice-list p { font-size:12px; line-height:1.8; color:var(--soft-ink); }
 /* v3.8.x：公告版式层级——黑白简约语义变量（明/暗主题分别取值）：
    章节标题(黑竖条+加粗) > 子标题 > 编号条目(浅灰圆标) > 子列表项(·前缀) */
-.splash { --sp-ink:#111111; --sp-soft:rgba(17,17,17,.07); }
-[data-theme="dark"] .splash { --sp-ink:#e8e8e8; --sp-soft:rgba(255,255,255,.09); }
-/* 顶部提示块（App 说明 / 系统预设字卡等引导内容） */
-.splash-tip {
-  margin:0 0 12px; padding:10px 14px 11px 16px;
-  background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:8px;
-}
-.splash-tip p { color:var(--soft-ink); line-height:1.75; }
-.splash-tip p + p { margin-top:6px; }
-.splash-tip .splash-tip-h { color:var(--ink); font-weight:800; font-size:12px; }
+.splash { --sp-ink:#111111; --sp-soft:rgba(17,17,17,.055); --sp-line:rgba(17,17,17,.08); --sp-glow:rgba(17,17,17,.045); }
+[data-theme="dark"] .splash { --sp-ink:#e8e8e8; --sp-soft:rgba(255,255,255,.075); --sp-line:rgba(255,255,255,.12); --sp-glow:rgba(255,255,255,.05); }
 /* v3.8.z：必读摘要——深色卡片置顶，承载必读内容，视觉上最醒目 */
 .splash-summary {
-  margin:0 0 14px; padding:12px 14px 13px 14px;
-  background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:8px;
+  margin:0 0 16px; padding:14px 15px 15px 16px;
+  background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:12px;
 }
-.splash-summary-title { font-size:12px; font-weight:800; color:var(--ink); margin-bottom:7px; letter-spacing:.6px; }
-.splash-summary p { font-size:11.5px; line-height:1.75; color:var(--soft-ink); }
-.splash-summary p + p { margin-top:6px; }
+.splash-summary-title { font-size:12px; font-weight:800; color:var(--ink); margin-bottom:9px; letter-spacing:.8px; }
+.splash-summary p { font-size:12px; line-height:1.8; color:var(--soft-ink); }
+.splash-summary p + p { margin-top:7px; }
 /* v3.26.x #575（用户 2026-09-16 反馈）：开屏「新手上路 3 步」蓝色引导卡已整块删除（DOM 在 template.html
    同批撤除），此处 .splash-onboard* 样式一并清掉。新手引导改由 onboarding.js 弹层承担，勿再补回。 */
-/* v3.27.x：防骗置顶声明——固定在公告最顶部，防收费诈骗醒目提示 */
+/* v3.27.x：防骗置顶声明——固定在公告最顶部，防收费诈骗醒目提示；
+   #611 后极简改版：整框描边改「淡底 + 左侧竖条」，减少视觉噪音 */
 .splash-alert {
-  margin:0 0 14px; padding:10px 14px 11px 14px;
-  background:var(--sp-soft); border:1.5px solid var(--sp-ink); border-radius:8px;
+  margin:0 0 14px; padding:12px 15px 13px 16px;
+  background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:12px;
 }
 .splash-alert .splash-alert-t {
-  font-size:12px; font-weight:800; color:var(--sp-ink); letter-spacing:.5px; margin-bottom:5px;
+  font-size:12px; font-weight:800; color:var(--sp-ink); letter-spacing:.5px; margin-bottom:6px;
+  display:flex; align-items:center; gap:7px;
 }
-.splash-alert .splash-alert-t::before { content:"!"; display:inline-block; width:15px; height:15px; line-height:15px; text-align:center; margin-right:5px; border-radius:50%; background:var(--sp-ink); color:#fff; font-size:11px; font-weight:800; vertical-align:-2px; }
-.splash-alert p { font-size:12px; line-height:1.7; color:var(--soft-ink); }
+.splash-alert .splash-alert-t::before { content:""; width:6px; height:6px; flex:none; border-radius:2px; background:var(--sp-ink); }
+.splash-alert p { font-size:12px; line-height:1.75; color:var(--soft-ink); }
+.splash-alert p + p { margin-top:6px; }
 .splash-alert strong { color:var(--ink); font-weight:800; }
 /* v3.27.x #315b：免责声明——红色警示形态，比防骗/署名卡更醒目（未成年人禁止使用） */
 .splash-alert.splash-disclaimer {
-  padding:12px 14px 13px;
-  background:#fdecec; border:2px solid #d23430; border-radius:10px;
-  box-shadow:0 2px 8px rgba(210,52,48,.18);
+  padding:13px 15px 14px 16px;
+  background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
 }
-.splash-alert.splash-disclaimer .splash-alert-t { color:#c22b27; font-size:13.5px; letter-spacing:1px; }
+.splash-alert.splash-disclaimer .splash-alert-t { color:#c22b27; font-size:13px; letter-spacing:1px; }
 .splash-alert.splash-disclaimer .splash-alert-t::before { background:#c22b27; }
-.splash-alert.splash-disclaimer p { color:#7a1d1a; font-size:13px; font-weight:700; line-height:1.75; }
-.splash-alert.splash-disclaimer strong { color:#c22b27; font-weight:900; }
+.splash-alert.splash-disclaimer p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-disclaimer strong { color:#c22b27; font-weight:800; }
 [data-theme="dark"] .splash-alert.splash-disclaimer { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }
 [data-theme="dark"] .splash-alert.splash-disclaimer .splash-alert-t { color:#ff8080; }
 [data-theme="dark"] .splash-alert.splash-disclaimer .splash-alert-t::before { background:#ff8080; color:#3a0d0d; }
 [data-theme="dark"] .splash-alert.splash-disclaimer p { color:#f0c6c6; }
 [data-theme="dark"] .splash-alert.splash-disclaimer strong { color:#ff8080; }
 /* v3.26.x：开屏最顶·使用前提卡——蓝色警示形态（字卡传讯/纯代码/无 AI/不是小手机，先了解再用） */
-.splash-alert.splash-what { background:#e8f0fc; border:2px solid #3a6fc4; border-radius:10px; }
+.splash-alert.splash-what { background:#e8f0fc; border-left:3px solid #3a6fc4; border-radius:12px; }
 .splash-alert.splash-what .splash-alert-t { color:#27538f; }
 .splash-alert.splash-what .splash-alert-t::before { background:#3a6fc4; }
-.splash-alert.splash-what p { color:#1e3a5f; font-size:13px; font-weight:700; line-height:1.75; }
-.splash-alert.splash-what strong { color:#27538f; font-weight:900; }
+.splash-alert.splash-what p { color:#1e3a5f; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-what strong { color:#27538f; font-weight:800; }
 [data-theme="dark"] .splash-alert.splash-what { background:rgba(58,111,196,.16); border-color:#6f9bde; }
 [data-theme="dark"] .splash-alert.splash-what .splash-alert-t { color:#a8c6f0; }
 [data-theme="dark"] .splash-alert.splash-what .splash-alert-t::before { background:#a8c6f0; color:#0e2240; }
 [data-theme="dark"] .splash-alert.splash-what p { color:#c8daf4; }
 [data-theme="dark"] .splash-alert.splash-what strong { color:#a8c6f0; }
-/* v3.33.x：开屏最顶·禁带「小手机 tag」恶意扩圈——红色强警示形态，比免责卡更醒目（置 #splash-notice 首位） */
-.splash-alert.splash-tagban {
-  padding:13px 15px 14px;
-  background:#fdeaea; border:2.5px solid #d23430; border-radius:10px;
-  box-shadow:0 3px 10px rgba(210,52,48,.22);
-}
-.splash-alert.splash-tagban .splash-alert-t { color:#c22b27; font-size:14px; letter-spacing:1px; }
-.splash-alert.splash-tagban .splash-alert-t::before { background:#c22b27; }
-.splash-alert.splash-tagban p { color:#7a1d1a; font-size:13px; font-weight:700; line-height:1.75; }
-.splash-alert.splash-tagban strong { color:#c22b27; font-weight:900; }
-[data-theme="dark"] .splash-alert.splash-tagban { background:rgba(210,52,48,.18); border-color:#ff6b66; box-shadow:none; }
-[data-theme="dark"] .splash-alert.splash-tagban .splash-alert-t { color:#ff9090; }
-[data-theme="dark"] .splash-alert.splash-tagban .splash-alert-t::before { background:#ff6b66; color:#3a0d0d; }
-[data-theme="dark"] .splash-alert.splash-tagban p { color:#f4cccc; }
-[data-theme="dark"] .splash-alert.splash-tagban strong { color:#ff9090; }
 /* v3.27.x #319：防未成年人·系统内置字卡锁卡——琥珀警示形态 + 解锁动作按钮 */
-.splash-alert.splash-cardlock { background:#fdf3e0; border:2px solid #c07f1f; }
+.splash-alert.splash-cardlock { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }
 .splash-alert.splash-cardlock .splash-alert-t::before { background:#9a6410; }
 .splash-alert.splash-cardlock p { color:#6b4a0e; }
@@ -259,16 +243,16 @@ html { margin:0; padding:0; }
 .splash.under-modal { z-index:80; }
 /* 章节容器：编号在章节内重新从 1 开始；章节间拉开间距；折叠章节样式 */
 .splash-sec-wrap { counter-reset: notice; }
-.splash-sec-wrap + .splash-sec-wrap { margin-top:12px; }
+.splash-sec-wrap + .splash-sec-wrap { margin-top:16px; }
 /* v3.8.y：开屏公告「书签目录」——可折叠入口：默认收起，点头展开竖排章节索引 */
 .splash-toc {
-  margin:0 0 14px;
-  border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  margin:0 0 16px;
+  border:1px solid var(--sp-line); border-radius:14px; overflow:hidden;
   background:var(--card-bg);
 }
 .splash-toc-head {
   display:flex; align-items:center; justify-content:space-between; gap:8px;
-  width:100%; padding:12px 14px;
+  width:100%; padding:13px 15px;
   font-size:13px; font-weight:800; letter-spacing:.5px;
   color:var(--ink); background:transparent; border:0; text-align:left;
   cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
@@ -280,13 +264,13 @@ html { margin:0; padding:0; }
   font-size:11px; line-height:1; color:var(--muted); transition:transform .25s ease;
 }
 .splash-toc.open .splash-toc-chev { transform:rotate(180deg); }
-.splash-toc-body { display:none; border-top:1px solid var(--line); counter-reset: toc; }
+.splash-toc-body { display:none; border-top:1px solid var(--sp-line); counter-reset: toc; }
 .splash-toc.open .splash-toc-body { display:block; }
 .splash-toc-chip {
   display:flex; align-items:center; gap:10px;
-  width:100%; padding:11px 14px;
+  width:100%; padding:12px 15px;
   font-size:12px; font-weight:700; line-height:1.2; letter-spacing:.4px;
-  color:var(--muted); background:transparent; border:0; border-bottom:1px solid var(--line);
+  color:var(--muted); background:transparent; border:0; border-bottom:1px solid var(--sp-line);
   text-align:left; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
   transition:color .2s ease, background .2s ease;
 }
@@ -303,11 +287,11 @@ html { margin:0; padding:0; }
 .splash-toc-chip.active::before { color:var(--sp-ink); }
 /* v3.8.y：可折叠章节：标题可点击，点击展开/折叠细节内容 */
 .splash-sec-collapsible {
-  border-radius:12px; overflow:hidden;
-  background:var(--sp-soft); border:1px solid rgba(0,0,0,.05);
-  scroll-margin-top:10px; /* 书签跳转时顶部留白，避免贴边 */
+  border-radius:14px; overflow:hidden;
+  background:var(--sp-soft); border:1px solid var(--sp-line);
+  scroll-margin-top:12px; /* 书签跳转时顶部留白，避免贴边 */
 }
-[data-theme="dark"] .splash-sec-collapsible { border-color:rgba(255,255,255,.06); }
+[data-theme="dark"] .splash-sec-collapsible { border-color:var(--sp-line); }
 .splash-sec-collapsible .splash-sec {
   margin:0; padding:13px 14px; cursor:pointer; /* 右侧加内边距，避免折叠箭头贴边被圆角裁切 */
   user-select:none; -webkit-tap-highlight-color:transparent;
@@ -329,13 +313,13 @@ html { margin:0; padding:0; }
 /* 章节标题：黑色竖条 + 加粗 */
 .splash-sec {
   display:flex; align-items:center; gap:9px;
-  margin-bottom:9px; font-size:13px; font-weight:800; color:var(--ink); letter-spacing:.5px;
+  margin-bottom:10px; font-size:13.5px; font-weight:800; color:var(--ink); letter-spacing:.5px;
 }
-.splash-sec::before { content:""; width:3px; height:14px; border-radius:2px; background:var(--sp-ink); flex-shrink:0; }
+.splash-sec::before { content:""; width:3px; height:15px; border-radius:2px; background:var(--sp-ink); flex-shrink:0; }
 /* 子标题（如「为什么必须附上型号和浏览器：」） */
-.splash-sub { margin:12px 0 6px; font-size:11.5px; font-weight:800; color:var(--ink); letter-spacing:.5px; }
+.splash-sub { margin:14px 0 7px; font-size:11.5px; font-weight:800; color:var(--ink); letter-spacing:.5px; }
 /* 编号条目：浅灰圆角数字标 */
-.splash-item { counter-increment:notice; position:relative; padding-left:23px; margin-bottom:9px; line-height:1.75; }
+.splash-item { counter-increment:notice; position:relative; padding-left:24px; margin-bottom:10px; line-height:1.75; }
 .splash-item:last-child { margin-bottom:0; }
 .splash-item::before {
   content:counter(notice);
@@ -349,7 +333,7 @@ html { margin:0; padding:0; }
    双选择器压过 .splash-notice-list p / .splash-summary p 的软墨色 */
 .splash-notice-list .splash-hl, .splash-summary .splash-hl { color:#e8590c; font-weight:800; }
 /* 子列表项：黑色 · 前缀，与编号条目文字对齐 */
-.splash-bullet { position:relative; padding-left:23px; margin-bottom:6px; line-height:1.7; }
+.splash-bullet { position:relative; padding-left:24px; margin-bottom:7px; line-height:1.75; }
 .splash-bullet::before {
   content:"·"; position:absolute; left:8px; top:-1px;
   font-size:15px; font-weight:800; color:var(--sp-ink); line-height:1.6;
@@ -358,11 +342,11 @@ html { margin:0; padding:0; }
    v3.5.120：数据加载完成前按钮 hidden 不显示（clock.js 控制），
    加载期间显示 .splash-loading 提示，就绪后按钮才出现 */
 .splash-enter {
-  display:inline-block; margin-top:14px; padding:11px 40px;
+  display:inline-block; margin-top:16px; padding:13px 44px;
   background:var(--btn-bg); color:var(--btn-ink); font-size:13px; font-weight:700;
-  border-radius:99px; letter-spacing:2px; cursor:pointer;
+  border-radius:99px; letter-spacing:3px; cursor:pointer;
   -webkit-tap-highlight-color:transparent; user-select:none;
-  box-shadow:0 3px 10px rgba(0,0,0,.12);
+  box-shadow:0 8px 22px rgba(0,0,0,.16);
   transition:opacity .35s ease, transform .12s ease;
 }
 .splash-enter:active { opacity:.75; transform:scale(.97); }

@@ -123,7 +123,9 @@ console.log('【#260 双锚与取证】（WebRTC 第二冻结豁免锚 + 后台�
 console.log('【播放元素】（保活机制载体，防文本级回归）');
 {
   ok('<audio> 循环 loop=true 仍在', /keepEl\.loop\s*=\s*true/.test(src));
-  ok('volume = 0.05 未被改（低但非静音，近零音量会被 Chrome 无声节流）', /keepEl\.volume\s*=\s*0\.05\s*;/.test(src));
+  // v3.44.x 保活音频可选后：默认静音音频仍是 0.05，自定义音频按 volume=1（kaCustomAudio ? 1 : 0.05）。
+  // 断言仍锚「默认音 0.05 未被顺手改」——低但非静音，近零音量会被 Chrome 无声节流。
+  ok('volume 默认档 = 0.05 未被改（kaCustomAudio ? 1 : 0.05）', /keepEl\.volume\s*=\s*kaCustomAudio\s*\?\s*1\s*:\s*0\.05\s*;/.test(src));
   ok('媒体会话声明 playing 仍在（audible 豁免另一半）', /playbackState\s*=\s*'playing'/.test(src));
 }
 

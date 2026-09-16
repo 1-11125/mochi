@@ -104,7 +104,9 @@ function bigSeed() {
     const mine = i % 2 === 0;
     l.push({ who: mine ? '\u6211' : 'TA', act: (mine ? '\u7ed9\u82b1\u6d47\u4e86\u6c34 #' : '\u6536\u83b7\u4e86\u4e00\u6735\u82b1 #') + i, tm: now - (120 - i) * 600 });
   }
-  return { p: p, plotN: 30, l: l, lpc: now, dex: {}, exp: 15, inv: {}, rareInv: {},
+  // #601e：pnUser=1＝用户手动开垦过 → load() 的「旧档尾部全空则收回 12 块」不生效，
+  // 保证本用例（#446「已有地不裁」）仍在测；旧档无标记的收缩行为见 verify-garden-plotn.mjs
+  return { p: p, plotN: 30, pnUser: 1, l: l, lpc: now, dex: {}, exp: 15, inv: {}, rareInv: {},
     st: { p: 3, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 },
     decor: {}, visitor: null, achv: {},
     lastLoginDay: today, lastWaterDay: today, lvSeen: 2,
@@ -216,9 +218,11 @@ check('C6 到下限后再点收地不再收缩（plotN 仍 4，不裁花）', s 
 //    「资格向下钳制被加回」，两者都不会报错、只会静默改地块数；行为面由 B1/B2 覆盖）
 const built = readFileSync(join(root, 'index.html'), 'utf8');
 const entExpr = 'return PLOTS + (lv >= 3 ? 2 : 0) + (lv >= 5 ? 2 : 0) + (lv >= 8 ? 2 : 0) + (lv >= 12 ? 4 : 0);';
-const migExpr = 'd.plotN = PLOTS + (lv0 >= 3 ? 2 : 0) + (lv0 >= 5 ? 2 : 0) + (lv0 >= 8 ? 2 : 0) + (lv0 >= 12 ? 4 : 0);';
+// #601e：缺 plotN 的迁移默认改为 12 块，且 12 块之后已有花则保留到最远那株（绝不裁花）——
+// 与「等级只解锁开垦资格」的本意一致；旧公式（按等级补到 22）会造成「远超 12 块」，已废弃。
+const migExpr = 'd.plotN = _maxP >= PLOTS ? (_maxP + 1) : PLOTS;';
 check('A1 开垦资格梯度＝Lv.3/5/8 各 +2、Lv.12 +4（满配 22）', built.includes(entExpr), built.includes(entExpr) ? 'found' : 'missing');
-check('A2 空档迁移公式与资格公式同梯度（老玩家不会被裁到旧档位）', built.includes(migExpr), built.includes(migExpr) ? 'found' : 'missing');
+check('A2 空档迁移＝默认 12，12 块之后有花则保留到最远那株（不裁花；不再按等级补到 22）', built.includes(migExpr), built.includes(migExpr) ? 'found' : 'missing');
 check('A3 资格不再向下钳制 plotN（防静默裁掉老玩家多种的地）', !/n > ent \? ent : n/.test(built) && built.includes('return data.plotN || PLOTS;'));
 check('A4 养护放宽：浇水 48h / 凋谢 96h', built.includes('var WATER_SEC = 172800;') && built.includes('var WILT_SEC = 345600;'));
 

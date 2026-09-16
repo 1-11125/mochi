@@ -1072,6 +1072,19 @@
     // 表情不带文字，无 @提及，成员按概率随机回复
     scheduleReply('');
   }
+  // v3.26.x #636：颜文字/emoji 文字卡在群聊直接发送（面板回调第二个参数 kind==='text' 区分于图片）
+  function sendGcText(t) {
+    if (!t) return;
+    const rec = { side: 'out', text: t, ts: Date.now() };
+    const qv = gcTakeQuoteValue();
+    if (qv) rec.quote = qv;
+    msgs.push(rec);
+    saveMsgs();
+    renderMsg(rec);
+    followGcBottom(true);
+    if (window.playSfx) window.playSfx('out');
+    scheduleReply('');
+  }
 
   // ---- 回复内容生成（从该成员字卡池随机选，兜底数组） ----
   // v3.9.x：群聊回复全部走群聊回复设置（reply-settings.js 的 gc-* 键，全局生效）：
@@ -3065,7 +3078,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const epEl = document.getElementById('emoji-panel');
     if (epEl && !epEl.hidden) { window.closeEmojiPanelForInsert && window.closeEmojiPanelForInsert(); return; }
     // allowUrl：链接保存的表情在群聊里直接发送（仅信纸插入才限 data:）
-    window.openEmojiPanelForInsert((src) => sendGcSticker(src), { allowUrl: true });
+    // #636：kind==='text' 是颜文字/emoji 文字卡，走纯文字消息
+    window.openEmojiPanelForInsert((src, kind) => { if (kind === 'text') sendGcText(src); else sendGcSticker(src); }, { allowUrl: true });
     // mail-emoji-mode 会把面板压低到 bottom:64px（写信页布局），群聊页与聊天页一致用默认 96px
     document.body.classList.remove('mail-emoji-mode');
   });
@@ -3116,6 +3130,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   let gcActiveMsgEl = null;
   let gcActiveMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 gcIdx 错位，对齐聊天页）
   function closeGcMsgActions() {
+    if (gcMsgActions && typeof gcMsgActions.__maFollowStop === 'function') { try { gcMsgActions.__maFollowStop(); } catch (e) {} } // FIX 2026-09-16 #642 摘跟随监听
     if (gcMsgActions) gcMsgActions.hidden = true;
     gcActiveMsgEl = null;
     gcActiveMsgSnap = null;
@@ -3158,23 +3173,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         delBtn.hidden = !(delEn && side === 'in');
       }
       gcMsgActions.hidden = false;
-      // 定位：气泡上方居中，放不下换下方；clamp 在视口内（与聊天页同款算法）
+      // FIX 2026-09-16 #642 定位与跟随都交给共享助手 window.mochiFollowActionBar（chat.js 定义，
+      // 单聊群聊一份实现）：定位算法与旧块一致（上方居中、放不下换下方、clamp 视口内），打开后
+      // 键盘开合动画/Edge iOS vv 平移/来消息贴底滚动/图片撑高都会实时跟随气泡重算，修「群聊操作条
+      // 乱跑/飞到离气泡很远的地方」同款（旧实现只定位一次＝视口一变就留在原地）
       try {
-        const bRect = bk.getBoundingClientRect();
-        const aw = gcMsgActions.offsetWidth || 120;
-        const ah = gcMsgActions.offsetHeight || 50;
-        const vv = window.visualViewport;
-        const vw = vv ? vv.width : window.innerWidth;
-        const vh = vv ? vv.height : window.innerHeight;
-        let x = bRect.left + bRect.width / 2 - aw / 2;
-        x = Math.max(10, Math.min(vw - aw - 10, x));
-        let y = bRect.top - ah - 8;
-        const below = bRect.bottom + 8;
-        const aboveFits = y >= 50;
-        const belowFits = below + ah <= vh - 8;
-        y = aboveFits || !belowFits ? y : below;
-        gcMsgActions.style.left = x + 'px';
-        gcMsgActions.style.top = y + 'px';
+        const _gPlace = window.mochiFollowActionBar && window.mochiFollowActionBar(gcMsgActions, bk, closeGcMsgActions);
+        if (_gPlace) _gPlace();
       } catch (err) {}
     }
     let gcHoldTimer = null;

@@ -226,22 +226,41 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  // FIX 2026-09-16 #623 查岗作答弹窗默认选中「同意」侧：用户报「联系人发送的查岗互动卡片、
+  // 桌面查岗互动卡片都没有默认在【同意】，我每次都要多点几遍」——此前必须先点一次选项、
+  // 再点一次底部按钮。只在选项里确实存在同意侧标签时预设；中性选项（在家/在外面/在公司…）
+  // 保持不预设，否则点一次【确定】就把随便一个答案当作答提交了。
+  const AFFIRM_LABELS = ['同意', '好呀', '好哒', '好啊', '好的', '好', '可以', '行', '接受', '要'];
+  function affirmOptValue(list) {
+    if (!Array.isArray(list) || !list.length) return undefined;
+    for (let i = 0; i < list.length; i++) {
+      const t = (list[i] && list[i].t != null) ? String(list[i].t).trim() : '';
+      if (AFFIRM_LABELS.indexOf(t) >= 0) return t;
+    }
+    return undefined;
+  }
+
   // 自动弹窗路径：单选 pills 弹窗 / 文字输入弹窗
   //（点击聊天里的卡片走 chat.js 通用链路：就地展开 → openCkReply 兜底）
-  function openCkReply(msgIdx, q) {
+  // deskCard：跨桌面查岗卡（buildDeskCkCard 的结果）——传了就以「聊天里那张卡」的字面出弹窗
+  function openCkReply(msgIdx, q, deskCard) {
     if (!window.openModal) return;
-    const isAction = q.type === 'action';
+    const isDeskCard = !!(deskCard && deskCard.text);
+    const isAction = !isDeskCard && q.type === 'action';
     const actionOpts = isAction ? [{ t: '好呀', reply: q.accept || ['乖，过来。'] }, { t: '不要', reply: q.reject || ['下次吧。'] }] : null;
-    const isSingle = isAction || (q.type === 'single' && Array.isArray(q.options) && q.options.length);
+    // FIX 2026-09-16 #623：跨桌面查岗卡的作答弹窗与卡面同源——此前一律用原始题库题 q，meToTa
+    // 方向（卡面是「要不要来查查我呀？」＋好呀/不要）会弹出另一道题、选项也对不上（抽到文字题
+    // 时更直接弹出一个问错问题的输入框）；现在按卡面文案/选项出，方向两侧都对得上。
+    const optList = isDeskCard ? (Array.isArray(deskCard.opts) && deskCard.opts.length ? deskCard.opts : null)
+      : (isAction ? actionOpts : (q.type === 'single' && Array.isArray(q.options) && q.options.length ? q.options : null));
+    const isSingle = !!optList;
+    const qText = isDeskCard ? deskCard.text : q.text;
     window.openModal(isAction ? '互动回应' : '查岗回答', '', function (v) {
       const answer = (v || '').trim();
       if (!answer) { toast(isSingle ? '请选择一个答案' : '请输入回答'); return; }
       let preset = null;
-      if (isAction) {
-        const o = (actionOpts || []).filter(function (x) { return String(x.t) === answer; })[0];
-        if (o) preset = o.reply;
-      } else if (isSingle) {
-        const o = (q.options || []).filter(function (x) { return String(x.t) === answer; })[0];
+      if (isSingle) {
+        const o = optList.filter(function (x) { return String(x.t) === answer; })[0];
         if (o) preset = o.reply;
       } else {
         const defs = ['收到你的回答。', '好呀，我知道了。', '你这么说，我记住了。'];
@@ -250,8 +269,10 @@
       }
       if (window.chatAskReply) window.chatAskReply(msgIdx, answer, preset);
     }, {
-      staticText: isAction ? ('TA 想跟你互动：' + q.text) : ('TA 问你：' + q.text),
-      pills: isSingle ? (isAction ? actionOpts : q.options).map(function (o) { return { label: o.t, value: o.t }; }) : null,
+      staticText: isDeskCard ? (deskCard.hint + qText) : (isAction ? ('TA 想跟你互动：' + qText) : ('TA 问你：' + qText)),
+      pills: isSingle ? optList.map(function (o) { return { label: o.t, value: o.t }; }) : null,
+      // FIX 2026-09-16 #623：默认选中同意侧（选项里有才预设）＝打开就是选好的，点一下确定即可
+      pill: isSingle ? affirmOptValue(optList) : undefined,
       noInput: isSingle,
       // v3.20.x：查岗/互动单选作答——点选即提交（无需再点底部确定），避免用户点选项
       // 后误以为已选上实则未提交，导致卡片不更新、无回答气泡
@@ -326,7 +347,7 @@
         const stale = window.interactPopupStale ? window.interactPopupStale(popSchedAt) : (Date.now() - popSchedAt > 4000);
         if (stale || document.hidden) return;
         if (chatInputFocused() || cardPopupBusy()) return;
-        if (msgIdx >= 0) openCkReply(msgIdx, q);
+        if (msgIdx >= 0) openCkReply(msgIdx, q, isDeskCk ? deskCkCard : null);
       }, 400);
     }
     try { store.set('ckq-last-at', String(Date.now())); } catch (e) {}

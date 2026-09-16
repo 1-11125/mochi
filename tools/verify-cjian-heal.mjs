@@ -179,7 +179,7 @@ try {
       ok('H1 景元桌面不再挂着应星的梦角', !inJing.some((s) => s.indexOf('应星|') === 0), r);
       ok('H2 景元桌面本尊重新播种（自己的名字）', inJing.some((s) => s.indexOf('景元|') === 0), r);
       ok('H2 卡片左侧名字与分组一致', Array.isArray(r && r.cardNames) && r.cardNames.join(',') === '景元', r && r.cardNames);
-      ok('H2 分组高亮在景元', Array.isArray(r && r.chips) && r.chips.join(',') === '应星,景元[on],全部', r && r.chips);
+      ok('H2 分组高亮在景元（「全部」居首，#615）', Array.isArray(r && r.chips) && r.chips.join(',') === '全部,应星,景元[on]', r && r.chips);
     }
   }
 

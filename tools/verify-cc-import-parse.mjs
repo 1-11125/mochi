@@ -39,7 +39,10 @@ function run(fileBytes, opts) {
     calls.apply.push({ mode: mode, keys: Object.keys(data || {}) });
   };
   const toast = (m) => calls.toasts.push(String(m));
-  const factory = new Function('pickFiles', 'applyImportData', 'toast', 'FileReader', 'window', 'return (' + fnSrc + ');');
+  // v3.36.x #603：导入侧拆出 importFromFile（文件通道/粘贴通道共用同一解析链），切片区间现在
+  // 含 pickImportFile + pasteImportFile + importFromFile 三个函数声明——不能再当单个函数表达式
+  // 求值，改为按语句列表求值后取 pickImportFile（断言全未改动，仍在跑真实源码）
+  const factory = new Function('pickFiles', 'applyImportData', 'toast', 'FileReader', 'window', fnSrc + '\nreturn pickImportFile;');
   factory(pickFiles, applyImportData, toast, FR, win)('merge');
   return { calls: calls, win: win };
 }

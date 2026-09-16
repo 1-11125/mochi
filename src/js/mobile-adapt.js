@@ -2554,6 +2554,9 @@
   // #297：补四款小游戏半框（五子棋/连连看/消消乐/心意币拍卖会，同族登记）
   // v3.27.x 壁纸图库批：#cs-bg-panel（聊天壁纸图库）+ #phone-bg-gallery-panel（桌面壁纸图库）
   const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
+    // FIX 2026-09-16 #640：设置 → 工具 →「使用提示」面板（page-coach.js 动态创建的底部半框）——
+    // 与 .mg-mask / #beauty-drawer 同族；未登记＝面板打开后底层设置页仍可被滑动，关掉也可能残留滚动锁
+    '#pc-sheet-mask',
     // FIX 2026-09-15 #527：边看边调底部抽屉——盖在桌面上的固定层，打开时同样要锁背景滚动
     //（此前未登记，抽屉打开后底层桌面仍可被滑动）
     // FIX 2026-09-16 #581：图标图片位置调整面板同族（personalize.js openIconFitPanel 建的固定底半框）

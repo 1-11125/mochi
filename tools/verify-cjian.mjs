@@ -135,7 +135,8 @@ try {
   ok('今日时间轴渲染 12 行', hero && hero.todayRows === 12, hero && hero.todayRows);
   ok('有梦角时空态提示隐藏', hero && hero.emptyHidden, hero && hero.emptyHidden);
   const bar = await evalJs("(function () { const b = document.getElementById('cj-groups'); if (!b) return null; const cs = Array.prototype.map.call(b.querySelectorAll('.cj-gchip'), function (x) { return x.textContent; }); return { n: cs.length, labels: cs, on: (b.querySelector('.cj-gchip.on') || {}).textContent }; })()");
-  ok('桌面分组条渲染（各桌面 chips + 「全部」，当前桌面高亮）', bar && bar.n === 2 && bar.labels.indexOf('全部') >= 0 && bar.on !== '全部' && bar.on === bar.labels[0], bar);
+  // #615：「全部」固定居首（原排在末尾，桌面多了要横滑到底才点得到）
+  ok('桌面分组条渲染（「全部」居首 + 各桌面 chips，当前桌面高亮）', bar && bar.n === 2 && bar.labels[0] === '全部' && bar.on !== '全部' && bar.on === bar.labels[bar.labels.length - 1], bar);
   // v3.14.x 回归：新梦角初始状态必须落盘，30s 心跳重渲染不得重抽
   const persist = await evalJs("(function () { const cid = window.__activeCid || 'default'; const P = 'xy-home-v2:' + cid + ':'; const r = JSON.parse(localStorage.getItem(P + 'cjian-roster') || '[]'); const id = r[0] && r[0].id; const st1 = JSON.parse(localStorage.getItem(P + 'cjian-state') || '{}'); if (!id || !st1[id]) return { hasState: false }; const before = st1[id].p + '|' + st1[id].a; window.renderCjian(false); const st2 = JSON.parse(localStorage.getItem(P + 'cjian-state') || '{}'); return { hasState: true, same: st2[id].p + '|' + st2[id].a === before, sinceKept: st2[id].sinceP === st1[id].sinceP }; })()");
   ok('新梦角初始状态已落盘（30s 重渲染不重抽、时间戳稳定）', persist && persist.hasState && persist.same && persist.sinceKept, persist);
@@ -145,7 +146,7 @@ try {
   await evalJs("window.openCjian(); true");
   await sleep(250);
   const bar2 = await evalJs("(function () { const b = document.getElementById('cj-groups'); return Array.prototype.map.call(b.querySelectorAll('.cj-gchip'), function (x) { return x.textContent; }); })()");
-  ok('新桌面的梦角出现在分组条（含「小柒」与「全部」）', bar2 && bar2.length === 3 && bar2.indexOf('小柒') >= 0 && bar2[bar2.length - 1] === '全部', bar2);
+  ok('新桌面的梦角出现在分组条（「全部」居首 + 含「小柒」）', bar2 && bar2.length === 3 && bar2.indexOf('小柒') >= 0 && bar2[0] === '全部', bar2);
   // 点「小柒」直接切换查看别的桌面的梦角（自动播种，名字取该桌 TA）
   await evalJs("(function () { const cs = document.querySelectorAll('#cj-groups .cj-gchip'); for (let i = 0; i < cs.length; i++) { if (cs[i].textContent === '小柒') { cs[i].click(); break; } } return true; })()");
   await sleep(200);
@@ -157,8 +158,8 @@ try {
   const all = await evalJs("(function () { return { heads: Array.prototype.map.call(document.querySelectorAll('#cj-list .cj-group-head'), function (x) { return x.textContent; }), cards: document.querySelectorAll('#cj-list .cj-card').length, emptyHidden: document.getElementById('cj-empty').hidden }; })()");
   ok('「全部」总览按桌面分组（两个分组头）', all && all.heads.length === 2 && all.heads[1].indexOf('小柒') >= 0, all);
   ok('「全部」总览同时显示所有桌面的梦角卡片', all && all.cards === 2 && all.emptyHidden, all);
-  // 切回当前桌面
-  await evalJs("(function () { const cs = document.querySelectorAll('#cj-groups .cj-gchip'); if (cs.length) cs[0].click(); return true; })()");
+  // 切回当前桌面（#615 起 cs[0] 是「全部」，当前桌面 chip 在其后一位）
+  await evalJs("(function () { const cs = document.querySelectorAll('#cj-groups .cj-gchip'); if (cs.length > 1) cs[1].click(); return true; })()");
   await sleep(200);
 
   console.log('\n== T3 时间引擎 ==');

@@ -1237,7 +1237,9 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       // 复用聊天同一个表情包面板（插入模式：点击表情插入信纸）
       // v3.26.x：贴进信纸正文前先压缩超大表情包 dataURL（见 chatcard.js shrinkMediaUrl）——
       //   否则写信/回信把几百 KB 原图拼进 content，信箱主键超 200KB 剥图成「图片」文字
-      if (window.openEmojiPanelForInsert) window.openEmojiPanelForInsert((src) => {
+      // #636：kind==='text' 是颜文字/emoji 文字卡，按纯文本插入信纸（不走 sticker: 标记）
+      if (window.openEmojiPanelForInsert) window.openEmojiPanelForInsert((src, kind) => {
+        if (kind === 'text') { mailInsertInto(textarea, src); return; }
         try { if (window.shrinkMediaUrl) { window.shrinkMediaUrl(src, (small) => { mailInsertInto(textarea, 'sticker:' + (small || src)); }); return; } } catch (e) {}
         mailInsertInto(textarea, 'sticker:' + src);
       }, { allowUrl: true });

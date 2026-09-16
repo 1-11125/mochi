@@ -54,7 +54,9 @@
     if (rmEdit) rmEdit.hidden = !bg;
   }
   // v3.12.x：上传逻辑抽成 pickCallBg()——设置页 #call-bg-row 与通话半框 #call-bg-edit-row 两个入口共用
-  function pickCallBg() {
+  // #641：支持指定存储键（默认通话背景 call-bg；传 call-half-bg 即「通话半框背景」）
+  function pickCallBg(key, msg) {
+    const bgKey = key || CALL_BG_KEY;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -72,9 +74,9 @@
             c.height = Math.max(1, Math.round(img.height * scale));
             c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
             const data = c.toDataURL('image/jpeg', 0.85);
-            store.set(CALL_BG_KEY, data);
-            applyCallBg();
-            toast('通话背景已设置');
+            store.set(bgKey, data);
+            if (bgKey === CALL_HALF_BG_KEY) applyCallHalfBg(); else applyCallBg();
+            toast(msg || '通话背景已设置');
           } catch (e) {
             toast('图片处理失败');
           }
@@ -121,6 +123,45 @@
       toast('已恢复默认通话背景');
     });
   }
+  // #641：通话半框背景图片——只作用于聊天页「更多功能→通话」的半屏面板（#chat-call-panel），
+  //   与通话大面板/小框的通话背景（call-bg）互不影响；按联系人桌面独立保存。
+  const CALL_HALF_BG_KEY = 'call-half-bg';
+  function applyCallHalfBg() {
+    const bg = store.get(CALL_HALF_BG_KEY) || '';
+    const half = document.getElementById('chat-call-panel');
+    if (half) {
+      if (bg) {
+        half.style.backgroundImage = 'url("' + bg + '")';
+        half.style.backgroundSize = 'cover';
+        half.style.backgroundPosition = 'center';
+      } else {
+        half.style.backgroundImage = '';
+      }
+    }
+    const val = document.getElementById('call-half-bg-val');
+    if (val) val.textContent = bg ? '已设置' : '默认';
+    const rm = document.getElementById('call-half-bg-remove');
+    if (rm) rm.hidden = !bg;
+  }
+  const callHalfBgRow = document.getElementById('call-half-bg-row');
+  if (callHalfBgRow) callHalfBgRow.addEventListener('click', () => pickCallBg(CALL_HALF_BG_KEY, '通话半框背景已设置'));
+  const callHalfBgRm = document.getElementById('call-half-bg-remove');
+  if (callHalfBgRm) {
+    callHalfBgRm.addEventListener('click', () => {
+      store.remove(CALL_HALF_BG_KEY);
+      applyCallHalfBg();
+      toast('已恢复默认通话半框背景');
+    });
+  }
+  // #641：通话设置页「打开通话半框」——跳到当前联系人的聊天页并展开通话半框
+  const callHalfOpenRow = document.getElementById('call-half-open');
+  if (callHalfOpenRow) {
+    callHalfOpenRow.addEventListener('click', () => {
+      if (!window.enterChat || !window.openChatCallPanel) { toast('通话半框暂不可用'); return; }
+      window.enterChat();
+      window.openChatCallPanel();
+    });
+  }
   // v3.5.94：通话背景大键可能只存在 IndexedDB（导入兜底写入/大键只进 IDB）→ 启动补读后重新应用
   // v3.6.x：修复——这段补读原本被错位写进「上传背景图片」的回调里，只在用户上传图片时才执行，
   //   页面加载时从不运行，导致导入数据后通话背景无法从 IndexedDB 恢复；移回模块顶层随加载执行
@@ -134,12 +175,23 @@
           applyCallBg();
         }
       });
+      // #641：通话半框背景同为大图键，启动补读同款兜底
+      window.idbGet(myPrefix + ':' + CALL_HALF_BG_KEY).then(v => {
+        if (window.activePrefix() !== myPrefix) return;
+        if (v && typeof v === 'string' && v.length > 2 && !store.get(CALL_HALF_BG_KEY)) {
+          store.set(CALL_HALF_BG_KEY, v);
+          applyCallHalfBg();
+        }
+      });
     }
   } catch (e) {}
   applyCallBg();
+  applyCallHalfBg();
   // v3.26.x：切换联系人桌面后重读当前桌面的通话背景——.call-panel/#call-mini 是全站共享 DOM，
   //   背景图 style 只在加载/上传/移除时写入，切桌面不刷新就会残留上一个联系人的背景（跨桌面串图）
+  // #641：通话半框背景同样按桌面各存各的，切桌面一并重读重涂（#368 原锚行保持原样）
   document.addEventListener('contact-switched', applyCallBg);
+  document.addEventListener('contact-switched', applyCallHalfBg);
 
   // v3.7.x：通话小框开关（每联系人桌面独立，默认开启）
   //   - 开启：接通后 2 秒自动最小化为底部悬浮小框（原行为）

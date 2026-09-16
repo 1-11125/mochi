@@ -307,6 +307,34 @@
       toast('默认字卡' + label + '占比：' + nv + '%');
     });
   });
+  // v3.43.x：设置区顶部 tag 分类 + 点击展开——默认全部收起（首屏只留字卡列表），
+  //   点 tag 展开对应设置面板，再点同一 tag 收起；同一时刻只开一个，避免又堆成一团。
+  //   列表始终显示（面板在 tag 与列表之间展开），不隐藏列表，虚拟窗口无需重排。
+  //   barId → 面板 id = panelPrefix + key（key 取按钮 data-dcset）；keys 为该 bar 的面板顺序。
+  //   两个页面共用：聊天默认字卡页（dc-set-*）与词典页（dict-set-*）。
+  function mountSetTabs(barId, panelPrefix, keys) {
+    const bar = document.getElementById(barId);
+    if (!bar) return;
+    let openKey = '';
+    function apply(key) {
+      openKey = key || '';
+      keys.forEach(function (k) {
+        const el = document.getElementById(panelPrefix + k);
+        if (el) el.hidden = (k !== openKey);
+      });
+      bar.querySelectorAll('.dc-set-tab[data-dcset]').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.dcset === openKey);
+      });
+    }
+    bar.addEventListener('click', function (e) {
+      const b = e.target && e.target.closest ? e.target.closest('.dc-set-tab[data-dcset]') : null;
+      if (!b) return;
+      apply(b.dataset.dcset === openKey ? '' : b.dataset.dcset);
+    });
+    apply('');
+  }
+  mountSetTabs('dc-set-tabs', 'dc-set-', ['scene', 'prob', 'cat']);
+  mountSetTabs('dict-set-tabs', 'dict-set-', ['use', 'prob']);
   // v3.32.x：功能字卡使用概率绑定——其他互动功能字卡页（含查岗页）每个分类一个
   //   stepper，存键 dcf-<分类>（per-cid，随桌面命名空间）。未设置时回退该分类的
   //   历史默认值（= 改版前代码里写死的触发概率），行为不变；设 0 即该分类字卡

@@ -133,6 +133,9 @@
     // 共用）都是全局根键。此前漏排除，被 migrateLegacy 迁进 default 桌面并删 LS 根键 →
     // IDB 不可用场景下方案列表/开关刷新后消失。
     'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker',
+    // v3.26.x #636：表情包面板「隐藏颜文字 / 隐藏emoji」开关（chat-settings.js 注入行，聊天/群聊/
+    // 写信共用同一面板）同为全局根键——出生即进 EXCLUDE，不会产生需要回收的 default 副本。
+    'hide-tab-kaomoji', 'hide-tab-emoji',
     // #231：完整外观方案（personalize.js full-beauty-schemes，v3.27.x 桌面+聊天合并方案的
     // 方案列表）、美化撤销栈（personalize.js beauty-undo-stack）、更新条一版一弹记忆
     // （pwa.js ver-update-ack-ts / ver-update-notify，#225v2）都是全局根键——此前漏排除，
@@ -162,7 +165,20 @@
     // #319 防未成年人锁解锁状态（card-lock.js）：全局根键（不随联系人隔离），闸门
     // isOpen 只读根键——此前漏排除，解锁后刷新被 migrateLegacy 当旧顶层业务键迁进
     // default 并删根键 → 永远读不到 'open'，闸门全锁（用户：输对密码刷新后毫无变化）
-    'cardlock-state'];
+    'cardlock-state',
+    // v3.26.x #628：全局字体仍按桌面各存各的（cs-font，per-cid —— 每个联系人可各自排版），
+    // 跨桌面由面板里的「同步到全部桌面」按钮显式推过去。这里排除的是【根键同名的中间版残留】：
+    // 本号初版曾把字体改成根键 xy-home-v2:cs-font（所有桌面共用一个值），那版用户升级到现版后，
+    // chat-settings.js 的 demoteFontGlobal() 会把根键值回填给各桌面再删根键；在它删掉之前，
+    // 若漏排除，migrateLegacy 会把根键当旧顶层业务键迁进 default 并删根键 → 只剩 default 桌面可见。
+    'cs-font',
+    // FIX 2026-09-16 #629 开屏「刷了还是旧版」指引：ver-check.js 的「本机已尝试过更新但没
+    // 换上」标记（记 线上ts|次数|时刻）是全局根键——不随联系人隔离，且必须跨会话留存才认得出
+    // 「这台设备更新失败过」（与 pwa.js 的 ver-update-ack-ts / ver-update-notify 同族，见上方
+    // #231）。漏排除＝migrateLegacy 每次刷新把它当旧顶层业务键迁进 default 并删根键，标记写一次
+    // 就没了 → 开屏永远只出「点此更新」、等 3~5 分钟/换流量的指引不再出现（实测：写入后 navigate
+    // 2.2s 读回即 null）。
+    'ver-retry'];
   function isExcluded(k) {
     const r = k.slice(G.length + 1);
     // #233：__ 前缀＝系统键（idb.js 根命名空间专用：__wr-journal 写日志＝LS 回滚自愈

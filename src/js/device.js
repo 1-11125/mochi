@@ -473,16 +473,39 @@
   // v3.26.x：错误记录读取（LS 优先，读不到回退 IndexedDB）。
   // LS 有值直接同步返回（快路径，不触发异步）；LS 为空/解析失败才查 IDB——
   // 本地数据恢复/清空后 IDB 仍保留副本，错误记录得以找回。
+  // FIX 2026-09-16 #627：跨域脚本遮罩条目识别——"Script error." 且无栈＝浏览器对非同源
+  // 脚本报错的统一占位，不是本应用代码抛的；升级前已入环的历史条目同样按此清理。
+  function isOpaqueScriptErr(it) {
+    return !!(it && !it.stack && /^Script error\.?$/i.test(String(it.msg || '').trim()));
+  }
+  // 启动时清掉历史遗留的跨域遮罩条目——否则角标会为已不再采集的假错误常亮，
+  // 用户点开诊断只见一条无栈「Script error.」无从判断（本函数的第一次运行即清旧记录）。
+  function purgeOpaqueDiagErrs() {
+    try {
+      const raw = localStorage.getItem(ERR_KEY);
+      if (!raw) return;
+      const o = JSON.parse(raw);
+      if (!Array.isArray(o)) return;
+      const kept = o.filter(function (it) { return !isOpaqueScriptErr(it); });
+      if (kept.length === o.length) return;
+      const s = JSON.stringify(kept);
+      try { localStorage.setItem(ERR_KEY, s); } catch (e1) {}
+      try { if (window.idbSet) window.idbSet(ERR_KEY, s); } catch (e2) {}
+      try { refreshBadge(); } catch (e3) {}
+    } catch (e) {}
+  }
   function readErrs(cb) {
     let arr = [];
     try {
       const raw = localStorage.getItem(ERR_KEY);
       if (raw) { const o = JSON.parse(raw); if (Array.isArray(o)) arr = o; }
     } catch (e) {}
+    arr = arr.filter(function (it) { return !isOpaqueScriptErr(it); });
     if (arr.length || !window.idbGet) { try { cb(arr); } catch (e) {} return; }
     window.idbGet(ERR_KEY).then(function (raw) {
       let o = [];
       try { if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) o = p; } } catch (e) {}
+      o = o.filter(function (it) { return !isOpaqueScriptErr(it); });
       try { cb(o); } catch (e) {}
     }).catch(function () { try { cb([]); } catch (e) {} });
   }
@@ -515,6 +538,12 @@
           m = '资源加载失败 <' + tag + '> ' + url.slice(0, 120);
         }
       } catch (e2) {}
+      // FIX 2026-09-16 #627 跨域脚本异常遮罩放行：浏览器对非同源脚本报错统一给
+      // "Script error."（无细节、无 stack）。本应用全内联同源，真错误必带真实
+      // message+stack；此文案只会来自系统/输入法/翻译/扩展注入脚本，进错误环
+      // 只制造假红点（iPhone15ProMax Safari 实测用户困惑「本来没错误为什么有红点」）。
+      // 无栈时静默放行；有栈的真错误照常入环。
+      if (!st && /^Script error\.?$/i.test(String(m || '').trim())) return;
       if (m) pushErr(m, st);
     }, true);
   } catch (e) {}
@@ -1967,6 +1996,7 @@
       });
     } catch (e) {}
   }
+  try { purgeOpaqueDiagErrs(); } catch (e) {}
   try { refreshBadge(); } catch (e) {}
   // v3.26.x：暴露给「查看存储」页——手动清理错误诊断记录后角标同步归零
   try { window.mochiRefreshDiagBadge = refreshBadge; } catch (e) {}

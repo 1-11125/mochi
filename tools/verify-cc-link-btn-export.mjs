@@ -136,6 +136,26 @@ try {
     ['text', 'kaomoji', 'emoji', 'poke', 'voice', 'fish', 'music', 'mjfree'].every(t => visMap[t] === false),
     vis);
 
+  // ---- ①b #605：空列表快捷按钮里「链接导入」同样只属于表情包/图片 ----
+  // 种子把 kaomoji/emoji/poke 留空，正好渲染空态；旧实现条件 `isVoice ? ''`＝除语音外
+  // 所有分类空态都渲染链接导入（点了只吃守卫 toast＝死按钮），这里逐 tab 断死。
+  const emptyVis = await evalJs(`(function(){
+    var out = {};
+    ['kaomoji','emoji','poke'].forEach(function(t){
+      var tab = document.querySelector('#cc-tabs .cc-tab[data-type="'+t+'"]');
+      if (tab) tab.click();
+      var eb = document.querySelector('[data-cc-empty="import"]');
+      var el = document.querySelector('[data-cc-empty="link"]');
+      out[t] = { link: !!el, importText: eb ? eb.textContent.trim() : '' };
+    });
+    return JSON.stringify(out);
+  })()`);
+  const ev = JSON.parse(emptyVis || '{}');
+  check('①b 空态「链接导入」只属于表情包/图片（非媒体分类空态不得出现；#605）',
+    !!ev.kaomoji && ev.kaomoji.link === false && ev.emoji.link === false && ev.poke.link === false &&
+    ev.kaomoji.importText === '批量导入字卡',
+    emptyVis);
+
   // ---- ② 导出数据 ----
   // 回 sticker tab，打开导出弹窗
   await evalJs("(function(){var t=document.querySelector('.cc-tab[data-type=\"sticker\"]');if(t)t.click();return !!t;})()");
@@ -164,6 +184,20 @@ try {
   const sum = await evalJs(`(document.getElementById('ce-summary')||{textContent:''}).textContent`);
   check('② 汇总行默认全选', sum.indexOf('7 张字卡') >= 0, sum.trim());
   await evalJs("(function(){var b=document.getElementById('ce-do');if(b)b.click();return !!b;})()");
+  // v3.36.x #603：导出改为「先选导出方式 → 导出文件走 data-backup 三级降级链」。无头桌面
+  // Chrome 没有 navigator.share/showSaveFilePicker，链路必然落到第三级「确认后 a[download]」，
+  // 所以这里把两步点下去（选「导出文件」→ 确认弹窗点确定）就能在同一个 URL.createObjectURL
+  // 接缝上抓到内容——#506 的令牌还原断言全部原样保留。
+  await sleep(700);
+  const expPills = await evalJs(`(function(){var o=[];document.querySelectorAll('#modal-pills .pill').forEach(function(p){o.push(p.textContent);});return o.join(' | ');})()`);
+  // 还原/缺失提示在「选择导出方式」弹窗的正文里（静态文案），导出前就能看到——必须在点
+  // 胶囊之前取：点完这颗弹窗就关，同一元素紧接着被下一层弹窗（确认下载）复用
+  const expStatic = await evalJs(`(document.getElementById('modal-static')||{textContent:''}).textContent`);
+  if (String(expPills).indexOf('导出文件') >= 0) {
+    await evalJs("(function(){var ps=document.querySelectorAll('#modal-pills .pill');for(var i=0;i<ps.length;i++){if(ps[i].textContent.indexOf('导出文件')>=0){ps[i].click();return 1;}}return 0;})()");
+  }
+  await sleep(700);
+  await evalJs("(function(){var b=document.getElementById('modal-ok');if(b)b.click();return !!b;})()");
   await sleep(2500);
   const cap = await evalJs(`window.__cap || ''`);
   if (!cap) { console.log('② 导出未捕获内容, err=', await evalJs('window.__capErr||""')); }
@@ -177,8 +211,10 @@ try {
     check('② 池缺失令牌保留原样不丢卡', cards.indexOf('@@m:' + h2) >= 0);
     check('② 已还原令牌不在导出文件残留', cap.indexOf(h1) < 0);
     check('② 文字字卡不受影响', true);
-    const toast2 = await evalJs(`(document.getElementById('cc-toast')||{textContent:''}).textContent`);
-    check('② 导出 toast 带还原/缺失计数', toast2.indexOf('1 张图片已从媒体池还原进文件') >= 0 && toast2.indexOf('1 张图片数据缺失无法还原') >= 0, toast2.trim());
+    const toast2 = expStatic;
+    check('② 导出方式弹窗写明还原/缺失计数（#603 起提示在弹窗正文，导出前可见）',
+      toast2.indexOf('1 张图片已从媒体池还原进文件') >= 0 && toast2.indexOf('1 张图片数据缺失无法还原') >= 0,
+      String(toast2).replace(/\s+/g, ' ').slice(0, 120));
     console.log('② text 仍完整:', JSON.stringify(j.text));
   }
   // 库里实际内容（编辑树视角）

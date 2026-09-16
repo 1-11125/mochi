@@ -270,7 +270,7 @@ try {
   ok('激活桌面 cta 种下 starter「小桃」', r && r.cta && r.cta.join(',') === '小桃', r);
   ok('default 桌面仍未被播种', !r.default, r);
   const uiC2 = await evalJs("(function () { function t(s){return Array.prototype.map.call(document.querySelectorAll(s),function(n){return n.textContent})} return { chips: t('#cj-groups .cj-gchip').join('|'), cards: t('#cj-list .cj-card-name').join('|') }; })()");
-  ok('UI 列表显示 starter 小桃、chips 正确', uiC2 && uiC2.chips === '宝贝|小桃|全部' && uiC2.cards === '小桃', uiC2);
+  ok('UI 列表显示 starter 小桃、chips 正确（「全部」居首，#615）', uiC2 && uiC2.chips === '全部|宝贝|小桃' && uiC2.cards === '小桃', uiC2);
 
   console.log('\n== C3 删光梦角后不复活 ==');
   await evalJs("(function () { localStorage.setItem('xy-home-v2:cta:cjian-roster', '[]'); localStorage.setItem('xy-home-v2:cta:cjian-seeded', '1'); return true; })()");
@@ -293,7 +293,7 @@ try {
   await evalJs("(function(){ const a=document.querySelector('.app[data-app=\"cjian\"]'); if(a) a.click(); return true; })()");
   await sleep(300);
   let ui = await evalJs("(function () { function t(s){return Array.prototype.map.call(document.querySelectorAll(s),function(n){return n.textContent})} return { chips: t('#cj-groups .cj-gchip').join('|'), cards: t('#cj-list .cj-card-name').join('|') }; })()");
-  ok('激活桌面 cta 列表只有 阿桃', ui && ui.chips === '宝贝|小桃|全部' && ui.cards === '阿桃', ui);
+  ok('激活桌面 cta 列表只有 阿桃（「全部」居首，#615）', ui && ui.chips === '全部|宝贝|小桃' && ui.cards === '阿桃', ui);
   await evalJs("(function(){ const cs=document.querySelectorAll('#cj-groups .cj-gchip'); for(const c of cs) if(c.textContent==='全部'){c.click();break;} return true; })()");
   await sleep(250);
   ui = await evalJs("(function () { function t(s){return Array.prototype.map.call(document.querySelectorAll(s),function(n){return n.textContent})} return { heads: t('#cj-list .cj-group-head span:first-child').join('|'), cards: t('#cj-list .cj-card-name').join('|') }; })()");

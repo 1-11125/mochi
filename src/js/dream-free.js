@@ -8,7 +8,8 @@
 //   comma  25%  词间隙加逗号（如「今天也要，好好爱自己」）；
 //   space  25%  词间隙加空格（与词典拼字单气泡同味道）。
 // 词边界来自内置词典（DEFAULT_CARD_DATA.dict「词库*」分组，正向最大匹配切词）。
-// 入库规则（#324）：多联系人 80% 进公用库 / 20% 进专属库；单联系人 100% 专属库。
+// 入库规则（#324，2026-09-16 #622 起不再按联系人数量分档）：一律按 mjf-pub（存公用库概率，
+// 默认 80）分库——0=全专属 / 100=全公用 / 80=80% 公用 + 20% 专属，多联系人、单联系人都一样。
 // 设置项（回复设置 → 聊天 tab「梦角自由造句」组）：mjf-en（#513 起默认开）、mjf-prob（默认 20%）。
 // #413 语料来源扩展（默认=全部字卡，三源可选+权重可调）：
 //   mjf-src-cc 自定义聊天字卡（默认开，原唯一语料）/ mjf-src-def 默认聊天字卡（默认开）/
@@ -277,9 +278,12 @@
       return null;
     } catch (e) { return null; }
   };
-  // 造句结果入库（#324 分库规则 / #364 概率可调）：多联系人时按回复设置 mjf-pub
-  // （存公用库概率，默认 80%）进公用库、其余进当前联系人专属库；
-  // 只有一个桌面联系人时 100% 进专属库（公用库没有分享对象，全部留专属），不受该设置影响。
+  // 造句结果入库（#324 分库规则 / #364 概率可调 / #622 单联系人同样可调）：
+  // 一律按回复设置 mjf-pub（存公用库概率，默认 80%）分库——0=100% 进当前联系人专属库、
+  // 100=100% 进公用库、其余按该概率掷（如 80=80% 公用 / 20% 专属）。
+  // FIX 2026-09-16 #622：原实现只在「多联系人」时生效（单联系人固定 100% 专属），
+  // 用户点名要能自己把造句 100% 归公用 / 100% 归专属 / 80-20 分流——故去掉 cids>1 门，
+  // 单联系人同样认这个设置（放到公用库＝以后每个桌面的联系人都能用，用户明确要的语义）。
   // 写 cc-groups 的 mjfree 分类「梦角自由造句」分组（chatcard.js window.ccAppendCards，
   // 写守卫/去重/持久化复用；scope 'public'|'own' 双作用域）
   window.dreamFreeSave = function (txt) {
@@ -287,19 +291,13 @@
       const v = String(txt == null ? '' : txt);
       if (!v || v.indexOf('data:') === 0 || v.indexOf('|||') >= 0) return false;
       if (!window.ccAppendCards) return false;
-      let cids = 1;
-      try {
-        const set = new Set([window.__activeCid || 'default']);
-        (window.getContacts && window.getContacts() || []).forEach(c => { if (c && c.id) set.add(c.id); });
-        cids = set.size;
-      } catch (e) { cids = 1; }
       let pubProb = 80;
       try {
         const c = window.replyCfg && window.replyCfg();
         const n = c ? Number(c['mjf-pub']) : NaN;
         if (c && c['mjf-pub'] != null && c['mjf-pub'] !== '' && Number.isFinite(n)) pubProb = Math.max(0, Math.min(100, n));
       } catch (e) {}
-      const usePublic = cids > 1 && Math.random() * 100 < pubProb;
+      const usePublic = Math.random() * 100 < pubProb;
       return !!window.ccAppendCards('mjfree', '梦角自由造句', [v], usePublic ? 'public' : 'own');
     } catch (e) { return false; }
   };

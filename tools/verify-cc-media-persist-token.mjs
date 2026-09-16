@@ -36,7 +36,7 @@ const cc = read('src/js/chatcard.js');
 J('A1 迁移入口 mochiCcPersistTokenize 存在', cc.includes('window.mochiCcPersistTokenize = function (prog) {'));
 J('A2 迁移保险丝「不变小不写」在位', cc.includes('if (!replaced || outStr.length >= raw.length) continue;'));
 J('A3 上传口令牌化 hook 在位', cc.includes("if (cur !== 'voice' && window.mochiMediaTokenize && typeof data === 'string' && data.length >= CC_CC_TOK_MIN) {"));
-J('A4 池先令牌后（tokenize 在写回前完成，失败即整库放弃）', cc.indexOf('mochiMediaTokenize(url, { noCache: true })') >= 0 && cc.includes('if (failed) { byUrl.clear();'));
+J('A4 池先令牌后（tokenize 在写回前完成，失败即整库放弃）', cc.indexOf('mochiMediaTokenize(url, { noCache: true })') >= 0 && cc.includes('if (failed) { seenTok.clear();'));
 J('A5 template 查看存储入口行在位', read('src/template.html').includes('id="st-cc-tokbtn"'));
 
 // ---- B 组：行为断言 ----

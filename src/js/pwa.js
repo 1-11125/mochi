@@ -592,8 +592,7 @@
 // 缺失（二传者运行时删除、或 clock.js 回填整段被删），5 秒内用本地常量补回——想彻底去掉声明必须
 // 同时改 clock.js 与本文件两处。只补缺失、绝不改写已在位内容，与 clock.js 的 marked 判定互不干扰。
 (function () {
-  const W1 = 'Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。';
-  const W2 = '二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
+  const W = '本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
   function mkWatchBar(tag, title, text) {
     const b = document.createElement('div');
     b.className = 'splash-alert';
@@ -607,14 +606,9 @@
     try {
       const n = document.getElementById('splash-notice');
       if (!n) return;
-      // #315b 免责声明卡（data-anti-scam="d"）固定最顶——回填重建的 1/2 都插它后面；它被删时退回最顶（旧行为）
-      const dis = n.querySelector('.splash-alert[data-anti-scam="d"]');
+      // #613/#621：合并置顶声明卡（免费 · 署名 · 防倒卖，原防骗卡+署名卡并成一张）补回锚点 = 公告区最顶
       if (!n.querySelector('.splash-alert[data-anti-scam="1"]')) {
-        n.insertBefore(mkWatchBar('1', '防骗提醒', W1), dis ? dis.nextSibling : n.firstChild);
-      }
-      if (!n.querySelector('.splash-alert[data-anti-scam="2"]')) {
-        const b1 = n.querySelector('.splash-alert[data-anti-scam="1"]');
-        n.insertBefore(mkWatchBar('2', '转载署名 · 严禁倒卖', W2), b1 ? b1.nextSibling : (dis ? dis.nextSibling : n.firstChild));
+        n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild);
       }
     } catch (e) { /* 静默：看门狗绝不能成为错误源 */ }
   }, 5000);

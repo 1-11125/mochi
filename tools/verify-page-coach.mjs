@@ -11,7 +11,8 @@
 // 验证（无头 Chrome 384×752 真实产物）：S 层源码断言 + B 层行为断言——
 //   B1 进字卡库出现提示条（含首选动作与索引 toggle）；B2 展开索引条目数正确可点；
 //   B3 离开再进不再出现（已看标记生效）；B4 进美化页也提示；
-//   B5 已经有字卡时字卡库不提示（need 门）；B6 设置里的重置行存在且点击后标记清空、提示重现；
+//   B5 已经有字卡时字卡库不提示（need 门）；B6 设置里的「使用提示」行存在且点击开面板（#640 起：
+//   面板逐页列出「提示什么 / 现在还会不会再提示 / 去看看」，重置结果常驻面板，0 位移、翻页/关面板锁均正常）；
 //   B7 朋友圈空态带「我来发第一条」按钮（委托既有发布入口）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -31,6 +32,8 @@ const pcSrc = readSrc('src/js/page-coach.js');
 const hubSrc = readSrc('src/js/feature-hub.js');
 const ctSrc = readSrc('src/js/contacts.js');
 const bmSrc = readSrc('build.mjs');
+const maSrc = readSrc('src/js/mobile-adapt.js');
+const tbSrc = readSrc('src/js/tabs.js');
 console.log('S 层（源码作用域）');
 chk('S1 提示条插入页面内（不是弹窗）', pcSrc.includes('page.insertBefore(buildBar(cfg), page.firstChild);'));
 chk('S2 每页一次标记键', pcSrc.includes("const MARK = G + '__coach-seen';"));
@@ -38,8 +41,16 @@ chk('S3 功能大全目录表只读查询暴露（文案单一事实源）', hub
 chk('S4 标记键进 contacts.js 免迁白名单', ctSrc.includes("'__coach-seen',"));
 chk('S5 新模块登记进 build.mjs jsFiles', bmSrc.includes("'onboarding.js', 'page-coach.js'"));
 chk('S6 设置页重置行 + 复位接口', pcSrc.includes('id="row-pagetips"') && pcSrc.includes('window.mochiPageTipsReset = resetAll;'));
-// #589：原实现只调 window.toast（全项目从未赋值过）＝重置成功但零可见反馈
+// #592：原实现只调 window.toast（全项目从未赋值过）＝重置成功但零可见反馈
 chk('S8 重置行点击有可见反馈通道（自绘 #cc-toast，不再只靠 window.toast）', pcSrc.includes("t.id = 'cc-toast'; document.body.appendChild(t);") && pcSrc.includes("tipToast('已重置"));
+// #640（用户第二次报同一句「点击使用提示什么反应也没有，根本没有设计这个功能」）：行文案把「字卡库」
+// 写在最前，而已有字卡的用户进字卡库按设计永不提示（REG.chatcard.need）＝承诺里最显眼那条不出现，
+// 重置在屏幕上又只留一个 2.4 秒 toast ⇒ 点击改为开面板（哪几页有提示 / 提示什么 / 现在还会不会再提示 / 结果常驻）
+chk('S9 新面板带 id 挂 body（id 形态＝可进 mobile-adapt FLOAT_SELECTORS）', pcSrc.includes("sheet.id = 'pc-sheet-mask';"));
+chk('S10 面板登记进 mobile-adapt 背景滚动锁清单', maSrc.includes("'#pc-sheet-mask'"));
+chk('S11 面板登记进 tabs.js 返回键浮层清单', tbSrc.includes("'pc-sheet-mask'"));
+chk('S12 面板列出每页提示 + 状态 + 直达入口', pcSrc.includes('<div class="pc-sh-item" data-shgo="') && pcSrc.includes("cfg.skipText || '这页当前不需要提示'") && pcSrc.includes('去看看 →'));
+chk('S13 重置结果常驻面板（不再只靠 toast）', pcSrc.includes('msg.textContent = n') && pcSrc.includes('msg.hidden = false;'));
 const empties = [
   ['js/memo-app.js', 'memo-empty-add'],
   ['js/feed.js', 'feed-empty-pub'],
@@ -199,8 +210,35 @@ const b5 = await evalJs(`(async function () {
 })()`);
 chk('B5 已有字卡时字卡库不再提示（不打扰已完成用户）', b5 && b5.bars === 0, JSON.stringify(b5));
 
-// B6 设置里的重置行（#589：行要真的在「工具」省区里可见，点击要有可见反馈——原实现只调
-//   从未被赋值的 window.toast：重置其实成功了，但屏幕上零变化＝用户报的「点击没有任何反应」）
+// B5.1（#640 的诚实状态）：同一情形下面板必须**说出**这条不再提示，而不是让用户去字卡库白等一场
+//（用户「点击什么反应也没有」的一半成因：行文案把字卡库列最前，而它按设计永远不出现）
+const b5p = await evalJs(`(async function () {
+  const t = document.querySelector('.tab[data-page="page-phone"]'); if (t) t.click();
+  await new Promise(r => setTimeout(r, 250));
+  const st = document.querySelector('.tab[data-page="page-setting"]'); if (st) st.click();
+  await new Promise(r => setTimeout(r, 500));
+  const tt = document.querySelector('#set-tabs .them-tab[data-tab="tools"]'); if (tt) tt.click();
+  await new Promise(r => setTimeout(r, 400));
+  const row = document.getElementById('row-pagetips');
+  if (!row) return { row: false };
+  row.click();
+  await new Promise(r => setTimeout(r, 400));
+  const sh = document.getElementById('pc-sheet-mask');
+  if (!sh || sh.hidden) return { row: true, panel: false };
+  const items = sh.querySelectorAll('.pc-sh-item');
+  const st0 = (items[0].querySelector('.pc-sh-st') || {}).textContent || '';
+  sh.querySelector('[data-shreset]').click();
+  await new Promise(r => setTimeout(r, 400));
+  const msg = (sh.querySelector('.pc-sh-msg') || {}).textContent || '';
+  sh.querySelector('[data-shclose]').click();
+  return { row: true, panel: true, status0: st0, msg: msg };
+})()`);
+chk('B5.1 已有字卡时面板对字卡库明说「这页不再提示」（不明说＝用户以为功能坏了）',
+  b5p && b5p.panel && /不再提示/.test(b5p.status0 || '') && /已经有字卡/.test(b5p.status0 || ''), JSON.stringify(b5p));
+chk('B5.2 重置结果按「真正还会提示的页数」报数（已有字卡＝2 页，不是照抄 3 页）',
+  b5p && b5p.panel && /的 2 个页面/.test(b5p.msg || ''), JSON.stringify(b5p));
+
+// B6 设置里的重置行（#592 行要真的在「工具」省区里可见+点击有可见反馈；#640 起点击＝开面板）
 const b6 = await evalJs(`(async function () {
   window.mochiPageTipsReset();
   const t = document.querySelector('.tab[data-page="page-setting"]');
@@ -212,27 +250,76 @@ const b6 = await evalJs(`(async function () {
   const row = document.getElementById('row-pagetips');
   if (!row) return { row: false };
   const rect = row.getBoundingClientRect();
-  const toastBefore = document.getElementById('cc-toast');
   row.click();
   await new Promise(r => setTimeout(r, 400));
-  const toast = document.getElementById('cc-toast');
-  const cs = toast ? getComputedStyle(toast) : null;
+  const sh = document.getElementById('pc-sheet-mask');
+  const cs = sh ? getComputedStyle(sh) : null;
+  const r2 = sh ? sh.getBoundingClientRect() : null;
+  const items = sh ? sh.querySelectorAll('.pc-sh-item') : [];
+  const txt = (el, sel) => { const x = el && el.querySelector(sel); return x ? x.textContent : ''; };
   return {
     row: true,
     sec: row.closest('.them-sec') ? row.closest('.them-sec').getAttribute('data-sec') : null,
     visible: !!(row.offsetParent || row.getClientRects().length) && rect.height > 0,
-    cleared: !localStorage.getItem('xy-home-v2:__coach-seen'),
-    toastBefore: !!toastBefore,
-    toast: !!toast,
-    toastText: toast ? toast.textContent : '',
-    toastShown: !!(toast && toast.className.indexOf('show') >= 0),
-    toastOpacity: cs ? cs.opacity : '',
+    panelShown: !!(sh && !sh.hidden && cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity || 1) > 0.05),
+    panelInView: !!(r2 && r2.height > 0 && r2.top >= 0 && r2.bottom <= innerHeight + 1),
+    items: items.length,
+    names: Array.prototype.map.call(items, x => txt(x, '.pc-sh-h span')),
+    statuses: Array.prototype.map.call(items, x => txt(x, '.pc-sh-st')),
+    goes: Array.prototype.filter.call(items, x => x.querySelector('.pc-sh-go')).length,
+    resetBtn: !!sh && !!sh.querySelector('[data-shreset]'),
+    floats: (window.__mochiStuckProbe ? (window.__mochiStuckProbe() || {}).openFloats : null) || []
   };
 })()`);
 chk('B6 设置 → 工具存在「使用提示」重置行', b6 && b6.row, JSON.stringify(b6));
 chk('B6.0 该行在「工具」省区内且真实可见（有高度、非 display:none）', b6 && b6.visible && b6.sec === 'tools', JSON.stringify(b6));
-chk('B6.1 点击重置后已看标记清空（可重新看提示）', b6 && b6.cleared, JSON.stringify(b6));
-chk('B6.2 点击后有可见反馈（#cc-toast 出现·show·不透明·有文案；#589 修复前为死代码 window.toast）', b6 && b6.toast && b6.toastShown && b6.toastOpacity === '1' && b6.toastText.length > 0, JSON.stringify(b6));
+chk('B6.3 点击该行出现「使用提示」面板且完整落在屏幕内（#640·修前点击只闪一个 toast）', b6 && b6.panelShown && b6.panelInView, JSON.stringify(b6));
+chk('B6.4 面板逐页列出「哪页有提示 / 现在还会不会再提示 / 去看看」', b6 && b6.items === 3 && b6.goes === 3 && b6.statuses.every(s => s.length > 0) && b6.names.join('|').indexOf('字卡库') >= 0, JSON.stringify(b6));
+// 注：新生环境的「全新环境·导入备份」等首访浮层本身就会一直持有背景滚动锁，故这里断言「面板在
+// mobile-adapt 的浮层清单里被识别为打开」（=登记生效），而不是裸看 body.scroll-lock。
+chk('B6.5 面板被 mobile-adapt 认作打开中的浮层（#pc-sheet-mask 已进 FLOAT_SELECTORS＝背景会被锁）', b6 && b6.floats.indexOf('#pc-sheet-mask') >= 0, JSON.stringify(b6));
+
+// #640 重置动作在面板内：标记清空 + toast + 结果常驻面板
+const b6r = await evalJs(`(async function () {
+  try { localStorage.setItem('xy-home-v2:__coach-seen', JSON.stringify(['chatcard', 'theme'])); } catch (e) {}
+  const sh = document.getElementById('pc-sheet-mask');
+  const btn = sh && sh.querySelector('[data-shreset]');
+  if (!btn) return { btn: false };
+  btn.click();
+  await new Promise(r => setTimeout(r, 400));
+  const toast = document.getElementById('cc-toast');
+  const cs = toast ? getComputedStyle(toast) : null;
+  const msg = sh.querySelector('.pc-sh-msg');
+  return {
+    btn: true,
+    cleared: !localStorage.getItem('xy-home-v2:__coach-seen'),
+    toastShown: !!(toast && toast.className.indexOf('show') >= 0 && cs.opacity === '1' && toast.textContent.length > 0),
+    toastText: toast ? toast.textContent : '',
+    msgShown: !!(msg && !msg.hidden),
+    msgText: msg ? msg.textContent : '',
+    stillOpen: !sh.hidden
+  };
+})()`);
+chk('B6.1 点「重新显示这些提示」后已看标记清空（可重新看提示）', b6r && b6r.cleared, JSON.stringify(b6r));
+chk('B6.2 同一次点击有可见反馈（#cc-toast 出现·带 show·opacity=1·有文案；#592 修复前为死代码 window.toast）', b6r && b6r.toastShown, JSON.stringify(b6r));
+chk('B6.6 重置结果常驻面板（不随 toast 消失；#640 修前屏上零落脚点）', b6r && b6r.msgShown && /已重新显示/.test(b6r.msgText), JSON.stringify(b6r));
+
+// #640 面板内「去看看」＝关面板 + 切到该页（字卡库）
+const b6go = await evalJs(`(async function () {
+  const sh = document.getElementById('pc-sheet-mask');
+  if (!sh || sh.hidden) { const r = document.getElementById('row-pagetips'); if (r) r.click(); await new Promise(r2 => setTimeout(r2, 400)); }
+  const s2 = document.getElementById('pc-sheet-mask');
+  const items = s2 ? s2.querySelectorAll('.pc-sh-item') : [];
+  if (!items.length) return { items: 0 };
+  items[0].click();
+  await new Promise(r => setTimeout(r, 1000));
+  const pg = document.getElementById('page-chatcard');
+  const sh2 = document.getElementById('pc-sheet-mask');
+  const floats = (window.__mochiStuckProbe ? (window.__mochiStuckProbe() || {}).openFloats : null) || [];
+  return { items: items.length, closed: s2.hidden, pageOpen: !!(pg && !pg.hidden), sheetHidden: !!(sh2 && sh2.hidden), floats: floats };
+})()`);
+chk('B6.7 面板「去看看」关面板并切到对应页面（字卡库）', b6go && b6go.closed && b6go.pageOpen, JSON.stringify(b6go));
+chk('B6.8 关面板后自己不再是「打开中的浮层」（残留＝设置页/字卡库滑不动，同 #527 家族）', b6go && b6go.sheetHidden && b6go.floats.indexOf('#pc-sheet-mask') < 0, JSON.stringify(b6go));
 
 // B7 朋友圈空态带动作按钮（委托既有发布入口）
 const b7 = await evalJs(`(async function () {

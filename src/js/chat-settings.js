@@ -844,24 +844,82 @@
 
   // ================= 全局字体（上传本地字体 / 输入字体名或链接，v3.5.34 起全局应用） =================
   const csFontRow = row('cs-font');
+  // v3.26.x #628：字体仍按桌面各存各的（键 cs-font，per-cid，与壁纸/气泡/字号等同桌面美化一致，
+  //   每个联系人桌面可以各自排版）。用户报的「上传字体，无法应用到全部桌面」缺的是「一键推给
+  //   其它桌面」这一步 —— 面板里新增「同步到全部桌面」按钮（syncFontAllDesks，两个入口都有）。
+  //   ⚠️ default 桌面的 activeStore() 是 contacts.js 的 defaultStore：它的 get 会回退读根键、
+  //   set/remove 会连带处理同名根键——写入统一走下面三个函数，便于 demoteFontGlobal 处理中间版残留。
   const FONT_KEY = 'cs-font';
   function fontVal() { return store.get(FONT_KEY) || ''; }
+  function fontSet(v) { store.set(FONT_KEY, v); }
+  function fontRemove() { store.remove(FONT_KEY); }
+  // 全部桌面 id（default + 各联系人）
+  function deskFontCids() {
+    const ids = ['default'];
+    try { (window.getContacts() || []).forEach(c => { if (c && c.id && ids.indexOf(c.id) < 0) ids.push(c.id); }); } catch (e) {}
+    return ids;
+  }
+  // 字体变更广播：桌面美化页「全局字体」行（personalize.js）与这里是同键同功能，
+  // 任一边改动后另一边即时回显（apply* 内不广播，防两边互相触发成环）
+  function csFontChanged() { try { document.dispatchEvent(new Event('cs-font-changed')); } catch (e) {} }
+  // v3.26.x #628：反向兼容——本号初版（中间版本）曾把字体改存【根键】xy-home-v2:cs-font
+  //   （所有桌面共用一个值）。现改回「每个桌面各存各的」+同步按钮，故把那版残留的根键值回填给
+  //   每个【还没设字体】的桌面（不覆盖各桌面已有的字体），再删掉根键——否则那版用户只有
+  //   default 桌面看得到字体。根值是上传型 dataURL 时得等 idbRestore 回填才读得到，故 restore-done 再补一次。
+  function demoteFontGlobal() {
+    try {
+      if (!window.storeFor) return;
+      let root = '';
+      try { root = window.xyStore('xy-home-v2').get(FONT_KEY) || ''; } catch (e) {}
+      if (!root) return;
+      deskFontCids().forEach(id => {
+        try { const s = window.storeFor(id); if (!s.get(FONT_KEY)) s.set(FONT_KEY, root); } catch (e) {}
+      });
+      try { window.xyStore('xy-home-v2').remove(FONT_KEY); } catch (e) {}
+      applyFont();
+      csFontChanged();
+    } catch (e) {}
+  }
+  // 「同步到全部桌面」：把当前桌面的字体推给其它所有桌面（含还没设字体的），二次确认后一次写齐。
+  // 与聊天壁纸的「把壁纸和图库同步到全部联系人」同款交互（会覆盖对方桌面现有的字体，故要确认）。
+  function syncFontAllDesks() {
+    const v = fontVal();
+    if (!v) { toast('当前桌面还没有自定义字体：先上传字体或输入字体名，点「应用」'); return; }
+    const me = (window.getActiveContact && window.getActiveContact()) || 'default';
+    const others = deskFontCids().filter(id => id !== me);
+    if (!others.length) { toast('现在只有这一个桌面，无需同步'); return; }
+    if (!window.openModal || !window.storeFor) return;
+    window.openModal('同步字体到全部桌面', '', (r) => {
+      if (r !== '__yes__') return;
+      let n = 0;
+      others.forEach((id) => { try { window.storeFor(id).set(FONT_KEY, v); n++; } catch (e) {} });
+      csFontChanged();
+      toast('已同步到 ' + n + ' 个桌面（切到对应桌面即可看到）');
+    }, { noInput: true, pills: [{ label: '确认同步（覆盖其它桌面的字体）', value: '__yes__' }, { label: '取消', value: '__no__' }] });
+  }
+  // 桌面美化页入口（personalize.js）的「同步到全部桌面」按钮复用同一份实现，避免两处漂移
+  window.csFontSyncAllDesks = syncFontAllDesks;
   function applyFont() {
-    // 移除旧的字体样式
-    const old = document.getElementById('cs-font-style');
-    if (old) old.remove();
     const v = fontVal();
     const setVal = document.getElementById('cs-font-val');
     if (setVal) setVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
+    // 同一个值已在位就不再重注入——dataURL 字体可达 MB 级，而切桌面/回填兜底都会调到这里
+    const old = document.getElementById('cs-font-style');
+    if (old && old.__fontVal === v) return;
+    // 移除旧的字体样式
+    if (old) old.remove();
     if (!v) {
-      document.body.style.fontFamily = '';
-      document.documentElement.style.fontFamily = '';
+      if (document.body.style.fontFamily || document.documentElement.style.fontFamily) {
+        document.body.style.fontFamily = '';
+        document.documentElement.style.fontFamily = '';
+      }
       return;
     }
     // dataURL → @font-face 注入 + 全局应用（body/html 继承到全部页面，不只聊天）
     if (v.indexOf('data:') === 0) {
       const st = document.createElement('style');
       st.id = 'cs-font-style';
+      st.__fontVal = v;
       st.textContent = '@font-face{font-family:"cs-custom-font";src:url("' + v + '");font-display:swap;}' +
         'body,html{font-family:"cs-custom-font",sans-serif !important;}';
       document.head.appendChild(st);
@@ -877,10 +935,14 @@
     csFontRow.addEventListener('click', () => {
       if (!window.openTCPanel) return;
       window.openTCPanel('全局字体', '' +
-        '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后全局生效</label>' +
+        '<div class="sm-fld"><label>上传本地字体（ttf / otf / woff / woff2），应用后本桌面全部页面生效</label>' +
         // v3.6.x：字体名做 HTML 转义——原逻辑直接拼接 value 属性，字体名含 " 或 < 会破坏弹层结构
         '<input class="tc-input" id="cs-font-name" placeholder="也可直接输入字体名或链接，如 Microsoft YaHei"' + (fontVal() && fontVal().indexOf('data:') !== 0 && fontVal().indexOf('http') !== 0 ? ' value="' + String(fontVal()).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
-        '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>');
+        '<div class="mail-actions"><button class="cc-tool" id="cs-font-upload">上传字体</button><button class="cc-tool" id="cs-font-clear">恢复默认</button><button class="cc-tool" id="cs-font-ok">应用</button></div>' +
+        // #628：字体按桌面独立（每个联系人可各自排版）——其它桌面也要用同一个字体时点这颗同步，
+        // 不必逐个桌面重新上传（上传型字体可达几 MB，重传很麻烦）
+        '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
+        '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
       document.getElementById('cs-font-upload').addEventListener('click', () => {
         const inp = document.createElement('input');
         inp.type = 'file';
@@ -891,10 +953,11 @@
           toast('正在读取字体文件…');
           const reader = new FileReader();
           reader.onload = () => {
-            store.set(FONT_KEY, reader.result);
+            fontSet(reader.result);
             document.getElementById('tc-mask').hidden = true;
             applyFont();
-            toast('字体已应用成功');
+            csFontChanged();
+            toast('字体已应用到本桌面');
           };
           reader.onerror = () => { toast('字体文件读取失败，请重试'); };
           reader.readAsDataURL(f);
@@ -902,9 +965,10 @@
         inp.click();
       });
       document.getElementById('cs-font-clear').addEventListener('click', () => {
-        store.remove(FONT_KEY);
+        fontRemove();
         document.getElementById('tc-mask').hidden = true;
         applyFont();
+        csFontChanged();
         toast('已恢复默认字体');
       });
       document.getElementById('cs-font-ok').addEventListener('click', () => {
@@ -919,33 +983,41 @@
           }).then(blob => {
             const rd = new FileReader();
             rd.onload = () => {
-              store.set(FONT_KEY, rd.result);
+              fontSet(rd.result);
               document.getElementById('tc-mask').hidden = true;
               applyFont();
+              csFontChanged();
               toast('字体下载并应用成功');
             };
             rd.onerror = () => {
-              store.set(FONT_KEY, name);
+              fontSet(name);
               document.getElementById('tc-mask').hidden = true;
               applyFont();
+              csFontChanged();
               toast('字体读取失败，已按字体名应用');
             };
             rd.readAsDataURL(blob);
           }).catch(() => {
-            store.set(FONT_KEY, name);
+            fontSet(name);
             document.getElementById('tc-mask').hidden = true;
             applyFont();
+            csFontChanged();
             toast('链接下载失败，已按字体名应用');
           });
           return;
         }
-        store.set(FONT_KEY, name);
+        fontSet(name);
         document.getElementById('tc-mask').hidden = true;
         applyFont();
-        toast('字体已应用成功');
+        csFontChanged();
+        toast('字体已应用到本桌面');
       });
+      // #628：一键把本桌面字体推给其它桌面（实现见 syncFontAllDesks，桌面美化入口复用同一份）
+      document.getElementById('cs-font-sync').addEventListener('click', () => { syncFontAllDesks(); });
     });
   }
+  // 中间版「全局字体」残留的根键回填到各桌面（一次性、幂等；大键等 restore-done 再补）
+  demoteFontGlobal();
   applyFont();
 
   // ================= 气泡 CSS（自定义样式，极简黑白灰） =================
@@ -1062,6 +1134,7 @@
     let n = 0;
     CHAT_BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined) { store.set(k, data[k]); n++; } });
     try { applySettings(); applyCss(); applyFont(); } catch (e) {}
+    try { csFontChanged(); } catch (e) {}
     return n;
   };
   // FIX #527：聊天美化导入的兑底备份——此前 chatSchemeImport 直接覆盖、无「导入前备份」、
@@ -1587,9 +1660,10 @@
       });
       window.idbGet(myPrefix + ':' + FONT_KEY).then(v => {
         if (window.activePrefix() !== myPrefix) return;
-        if (v && typeof v === 'string' && v.length > 2 && !store.get(FONT_KEY)) {
-          store.set(FONT_KEY, v);
+        if (v && typeof v === 'string' && v.length > 2 && !fontVal()) {
+          fontSet(v);
           applyFont();
+          csFontChanged();
         }
       });
       // v3.14.x：气泡 CSS 同款兜底——LS 写失败（配额满）或被浏览器清理后值只剩 IDB 副本，
@@ -1609,6 +1683,9 @@
   //   上方 idbGet 补读又被 !store.get() 条件跳过（idbRestore 先回填 memoryCache 时）→
   //   字体刷新后不应用。数据就绪后兜底再应用一次（applyFont 幂等，重复调用安全）
   document.addEventListener('mochi-restore-done', function () {
+    // #628：上传的字体是 dataURL 大键（只进 IDB+memoryCache），回填完成才读得到——中间版
+    // 「全局字体」残留根键的回填在此补一次（小值在上面初始化时已处理）
+    try { demoteFontGlobal(); } catch (e) {}
     try { applyFont(); } catch (e) {}
     try { applyProfile(); } catch (e) {}
     // v3.14.x：气泡 CSS 补应用——boot 时 applyCss 跑在 IDB 回填完成前（值只在 IDB 时
@@ -1616,11 +1693,11 @@
     // applyCss 幂等：会话内已写入时 memoryCache 值更新，重应用无副作用
     try { applyCss(); } catch (e) {}
   });
-  // v3.6.x：多桌面——切换联系人后重新应用聊天美化（壁纸/气泡颜色/字号/形状按新桌面）
-  // v3.9.x 修复：气泡 CSS / 全局字体也是按联系人存储（cs-bubble-css / cs-font），
-  // 但注入的 <style>（cs-bubble-style / cs-font-style）是全局标签，切换联系人后必须
-  // 一并重应用/清除，否则 A 桌面的自定义气泡样式/字体会一直盖在 B 桌面上（改一个
-  // 联系人所有联系人的气泡都跟着变）。
+  // v3.6.x：多桌面——切换联系人后重新应用聊天美化（壁纸/气泡颜色/字号/形状/字体均按新桌面）
+  // v3.9.x 修复：气泡 CSS / 全局字体也是按联系人存储（cs-bubble-css / cs-font），但注入的
+  // <style>（cs-bubble-style / cs-font-style）是全局标签，切换联系人后必须一并重应用/清除，
+  // 否则 A 桌面的自定义气泡样式/字体会一直盖在 B 桌面上（改一个联系人所有联系人的气泡都跟着变）。
+  // #628：字体加了「同值不重复注入」守卫，切到字体相同的桌面时不会重建 MB 级 @font-face。
   document.addEventListener('contact-switched', function () {
     try { applySettings(); } catch (e) {}
     try { applyProfile(); } catch (e) {}
@@ -1922,5 +1999,43 @@
     });
     csAddSync(syncHts);
     document.addEventListener('contact-switched', syncHts);
+  }
+
+  // v3.26.x #636：「隐藏颜文字 / 隐藏emoji」两开关——与上方「隐藏联系人的表情包」同款口径：
+  //   全局根键 xy-home-v2:hide-tab-*（contacts.js EXCLUDE 排除迁移，聊天/群聊/写信共用同一面板），
+  //   默认关＝分类显示；写回广播 hide-tab-changed，chat.js 即时重渲面板。行本身由 JS 注入到
+  //   「表情包」分组（锚 cs-hide-ta-sticker-row），template.html 不动（该文件常有多会话在途）。
+  const htsRow = document.getElementById('cs-hide-ta-sticker-row');
+  if (htsRow && htsRow.parentNode) {
+    const GNS2 = 'xy-home-v2';
+    const HIDE_CATS = [
+      ['hide-tab-kaomoji', '隐藏颜文字', '隐藏后，表情包面板不再显示【颜文字】分类（字卡库数据不受影响）'],
+      ['hide-tab-emoji', '隐藏emoji', '隐藏后，表情包面板不再显示【emoji】分类（字卡库数据不受影响）']
+    ];
+    let prevRow = htsRow;
+    HIDE_CATS.forEach(([key, label, sub]) => {
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.id = 'cs-' + key + '-row';
+      row.innerHTML =
+        '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01"/><path d="M8.5 14a4.5 4.5 0 007 0"/></svg></div>' +
+        '<div class="txt">' + label + '<span class="sub">' + sub + '</span></div>' +
+        '<label class="toggle"><input type="checkbox"><span class="tk"></span></label>';
+      const box = row.querySelector('input');
+      const catGet = () => { try { return window.xyStore(GNS2).get(key) === '1'; } catch (e) { return false; } };
+      const catSet = (en) => { try { window.xyStore(GNS2).set(key, en ? '1' : '0'); } catch (e) {} };
+      const syncCat = () => { const v = catGet(); if (v !== box.checked) box.checked = v; };
+      syncCat();
+      box.addEventListener('change', () => {
+        if (box.checked === catGet()) return;
+        catSet(box.checked);
+        try { document.dispatchEvent(new Event('hide-tab-changed')); } catch (e) {}
+        toast(box.checked ? '已隐藏：表情包面板不再显示【' + label.replace('隐藏', '') + '】' : '已恢复显示【' + label.replace('隐藏', '') + '】');
+      });
+      csAddSync(syncCat);
+      document.addEventListener('contact-switched', syncCat);
+      prevRow.parentNode.insertBefore(row, prevRow.nextSibling);
+      prevRow = row;
+    });
   }
 })();
