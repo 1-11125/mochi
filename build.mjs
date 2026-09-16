@@ -2202,16 +2202,16 @@ const FIX_SENTINELS = [
   { name: '#588d 关心页问卡时间戳预排序 + 二分（回退全表 some＝聊天上千条时 O(n²) 卡住「关心」页签复发）', file: 'js/records.js', needle: 'const hasAskCardNear = (t) => {' },
   { name: '#588e ask-msg 改调二分判据（删＝退回对全表 some 的 O(n²) 实现）', file: 'js/records.js', needle: 'const nearCard = hasAskCardNear(t);' },
   { name: '#588f 花园读回期「正在读取」提示（删＝LS 未回填时先画空花园，用户以为数据全丢）', file: 'js/garden.js', needle: 'toast("正在读取本地花园数据…");' },
-  // ==== 2026-09-16 #589 朋友圈贴纸「点击照片选贴纸位置」提示条挡住使用（用户明说多机型同报）====
+  // ==== 2026-09-16 #593 朋友圈贴纸「点击照片选贴纸位置」提示条挡住使用（用户明说多机型同报）====
   // 用户原话：「朋友圈的贴纸功能【点击照片选贴纸位置】的提示，会挡住使用」。
   // 根因：提示条绝对定位钉在照片顶部（照片高约 104px 时占 33px≈顶部 1/3），点那一带被提示条接走
   //   ＝被当成「取消」——一张都贴不上、模式还退出；系统字号越大压得越多＝多机型同现象。
   // 行为断言 tools/verify-feed-sticker-pos.mjs 的 S0/A2/E1/E2/E4（旧实现 A2/E1/E2 必红）。
-  { name: '#589a 提示条插在配图区之前（删/改回 box.appendChild＝又压回照片上、点顶部贴不上复发）', file: 'js/feed.js', needle: 'box.parentNode.insertBefore(hint, box);' },
-  { name: '#589b 提示条移除按 ctx 引用（提示条已不在配图区内，退回 ctx.box.querySelector 会删不掉、提示条常驻）', file: 'js/feed.js', needle: 'if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);' },
-  { name: '#589c 选位期间看门狗主动收尾（卡片被局部/全量重渲染换掉节点时不留提示条与选位态）', file: 'js/feed.js', needle: 'const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);' },
-  { name: '#589d 提示条覆盖式定位已删除（absent：absolute+top:0+z-index:3 压照片的旧形态复活即报警）', file: 'css/chat-pages.css', needle: '.feed-pick-hint { position: absolute', absent: true },
-  { name: '#589e 提示条双保险 pointer-events:none（即便被改回覆盖式也保证点得穿到照片）', file: 'css/chat-pages.css', needle: 'gap: 8px; margin: 8px 0 0; padding: 7px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px; pointer-events: none; }' },
+  { name: '#593a 提示条插在配图区之前（删/改回 box.appendChild＝又压回照片上、点顶部贴不上复发）', file: 'js/feed.js', needle: 'box.parentNode.insertBefore(hint, box);' },
+  { name: '#593b 提示条移除按 ctx 引用（提示条已不在配图区内，退回 ctx.box.querySelector 会删不掉、提示条常驻）', file: 'js/feed.js', needle: 'if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);' },
+  { name: '#593c 选位期间看门狗主动收尾（卡片被局部/全量重渲染换掉节点时不留提示条与选位态）', file: 'js/feed.js', needle: 'const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);' },
+  { name: '#593d 提示条覆盖式定位已删除（absent：absolute+top:0+z-index:3 压照片的旧形态复活即报警）', file: 'css/chat-pages.css', needle: '.feed-pick-hint { position: absolute', absent: true },
+  { name: '#593e 提示条双保险 pointer-events:none（即便被改回覆盖式也保证点得穿到照片）', file: 'css/chat-pages.css', needle: 'gap: 8px; margin: 8px 0 0; padding: 7px 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; border-radius: 8px; pointer-events: none; }' },
   // ==== 2026-09-16 #590 切换桌面联系人 → 打开聊天「所有消息变 2 条再回弹恢复」（多机型同报）====
   // 根因：媒体令牌化后同一条消息 LS 快照存原文（base64 /「名称|||data:audio」）、IDB 权威副本
   // 存 @@m: 令牌，权威合并的去重签名只比原文 ⇒ 判成两条 ⇒ 快照副本被 append 回来（同 ts ⇒
