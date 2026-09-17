@@ -1574,6 +1574,21 @@
           <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
+        <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
+             跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
+             顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
+        <div class="set-row" id="row-screen-adj-top">
+          <div class="txt">屏幕微调·顶部<span class="sub">顶部内容被状态栏遮挡/离得太远时调（当前 0px，正=下移）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-screen-adj-bottom">
+          <div class="txt">屏幕微调·底部<span class="sub">底部导航栏悬空/被手机手势条裁掉时调（当前 0px，正=上移）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-screen-adj-h">
+          <div class="txt">屏幕微调·页面高度<span class="sub">页面底部留白/内容超出屏幕时调（当前 0px，正=变高）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <div class="set-row" id="row-screen-diag">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M8 6h8"/></svg></div>
           <div class="txt">屏幕适配诊断<span class="sub">顶部空白 / 底部裁切 / 缩放异常一键定位</span></div>
@@ -5921,6 +5936,15 @@
         </div>
       </div>
       <div class="chat-body gc-body" id="gc-body"></div>
+      <!-- #710：群聊记录加载进度提示——群消息大键 IDB 异步读库期间在消息区中央覆盖非阻塞
+           进度条（与单聊 #chat-loading 同款样式类，pointer-events:none 不挡滚动/点击），
+           group-chat.js 读库落定后自动隐藏 -->
+      <div class="chat-loading" id="gc-loading" hidden>
+        <div class="chat-loading-card">
+          <div class="chat-loading-bar"><i></i></div>
+          <span class="chat-loading-txt">正在加载群聊记录…</span>
+        </div>
+      </div>
       <div class="chat-typing gc-typing" id="gc-typing" hidden></div>
       <!-- v3.16.x：待引用预览条（点气泡→引用 后出现，与聊天页 #chat-draft-quote 同款样式） -->
       <div class="chat-draft-quote" id="gc-quote-bar" hidden></div>

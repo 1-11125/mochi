@@ -2931,3 +2931,80 @@
     } catch (e) { return null; }
   };
 })();
+
+// ===== v3.26.x #707：屏幕位置微调（设置 → 信息诊断 → 三行手动偏移，用户自调）=====
+// 背景（用户直派）：跨设备屏幕适配问题修不完（各内核对 innerHeight/visualViewport/安全区
+// 的口径不同且随系统版本漂移，iOS 26 键盘行为即是例证），与其全靠代码猜每台设备，
+// 不如给用户一个本机永久的手动微调入口。三轴：顶部避让偏移（--mochi-safe-top）、
+// 底部安全区偏移（--mochi-safe-bottom）、页面高度偏移（--mochi-ios-h）。
+// 实现：**双层值包装**——包装 documentElement.style 的 set/remove/get，写入方（syncVvFit/
+// _aSyncCoverTop 等）照常写「系统基准值」，包装层落 DOM 的恒为「基准+偏移」；写入方的
+// getPropertyValue 比较拿到的也是偏移后值，虽然会因基准≠所见而多调一次 setProperty，
+// 但 DOM 值不变＝零重排零抖动（setProperty 同值写入对样式无效）。用户改偏移时只重放
+// 已缓存基准，立即生效、无需刷新。底部独立处理：iOS 侧没人写 --mochi-safe-bottom
+// （回落 env()），偏移≠0 时直接写 calc(env()+偏移)，安卓键盘期「钉 0」路径照旧直写
+// （键盘期偏移让位），收键盘后由 1s 复述循环补回。范围 ±80px，存根命名空间 LS
+// （跨桌面共用——屏幕是设备属性，不随联系人走）。
+(function () {
+  var PFX = 'xy-home-v2:';
+  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h' };
+  function loadAdj(k) {
+    try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
+  }
+  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h') };
+  var el = document.documentElement;
+  var st = el.style;
+  var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
+  var base = {};           // var 名 -> 系统基准 px（包装层缓存）
+  var origSet = st.setProperty.bind(st);
+  var origRemove = st.removeProperty.bind(st);
+  var origGet = st.getPropertyValue.bind(st);
+  function lsSet(k, v) { try { if (v) localStorage.setItem(PFX + KEYS[k], String(v)); else localStorage.removeItem(PFX + KEYS[k]); } catch (e) {} }
+  function applyBottom() {
+    try {
+      if (adj.bottom) origSet('--mochi-safe-bottom', 'calc(env(safe-area-inset-bottom, 0px) + ' + adj.bottom + 'px)');
+      else if (origGet('--mochi-safe-bottom').indexOf('calc(env(') === 0) origRemove('--mochi-safe-bottom');
+    } catch (e) {}
+  }
+  function applyCached() {
+    for (var n in base) {
+      try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
+    }
+    applyBottom();
+  }
+  st.setProperty = function (n, v) {
+    n = String(n).toLowerCase();
+    if (NAMES[n] !== undefined) {
+      var b = parseFloat(v); if (isNaN(b)) b = 0;
+      base[n] = b;
+      v = (b + adj[NAMES[n]]) + 'px';
+    }
+    return origSet(n, v);
+  };
+  st.removeProperty = function (n) {
+    n = String(n).toLowerCase();
+    if (NAMES[n] !== undefined) delete base[n];
+    return origRemove(n);
+  };
+  st.getPropertyValue = function (n) {
+    n = String(n).toLowerCase();
+    if (NAMES[n] !== undefined && base[n] !== undefined) return (base[n] + adj[NAMES[n]]) + 'px';
+    return origGet(n);
+  };
+  // 底部复述循环：安卓收键盘会 removeProperty 掉我们的 calc 写入，1s 内补回（iOS 侧无人写，幂等）
+  setInterval(applyBottom, 1000);
+  applyCached();
+  // 设置页接线 API（personalize.js 弹窗用）：读当前偏移 / 设置并立即生效
+  window.mochiScreenAdj = {
+    all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h }; },
+    set: function (k, v) {
+      if (!(k in adj)) return false;
+      v = parseInt(v, 10);
+      if (isNaN(v) || v < -80 || v > 80) return false;
+      adj[k] = v;
+      lsSet(k, v || '');
+      applyCached();
+      return true;
+    }
+  };
+})();

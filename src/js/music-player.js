@@ -696,8 +696,8 @@
       { url: 'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
       // 与播放同源的 meting 主实例（官方榜单全量；用户自建歌单只有 detail 首屏 10 首）
       { url: 'https://api.injahow.cn/meting/?type=playlist&id=' + pid, parse: parseMetingPlaylist },
-      // 备用 meting 镜像（独立域名——别的源被拦/不可达时兜底；字段名 title/author 已归一）
-      { url: 'https://api.i-meto.com/meting/api?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
+      // #709：原第三路 meting 镜像 api.i-meto.com 已死（2026-09-17 实测整体 401，与
+      // corsproxy.io 401 同族），留着只会给每次歌单导入刷一条「网络失败」日志，移除。
       // 兜底：网易官方 v6 详情（tracks 带 fee/时长，trackCount 是全量曲目数，供缺口如实
       // 提示）。公共代理是持续死亡的消耗品（#254：cors.sh 域名注销、allorigins 522、
       // corsproxy.io 401），排在 meting 之后＝同源数时不抢 meting 那条既有链路，只有给出
@@ -778,6 +778,43 @@
   // 一次全量补齐并刷新列表）；代理全挂则对剩余歌曲逐个 <audio> 探测（见 enqueueDurProbe）
   // v3.10.x：同一趟 v6 详情顺带识别 VIP/付费曲（fee=1/4）——meting 导入源不带 fee，
   // 拿到 v6 后把「本次新导入」的 VIP 从库里移除并提示；只动本批 addedIds，不碰已有歌曲
+  // #709：把「本批 VIP/付费歌移出音乐库」收敛成共享助手——官方 v6 fee 路径与 meting 探测
+  // 兜底路径（probeOneDuration onerror → confirmVipViaMeting）同口径：只动本批、正在播的
+  // 先停、同一句提示。零机型分支。
+  function removeBatchVipSongs(tracks) {
+    if (!tracks || !tracks.length) return;
+    const vipIds = tracks.map(m => m.id);
+    library = library.filter(x => vipIds.indexOf(x.id) < 0);
+    if (currentId && vipIds.indexOf(currentId) >= 0) { teardownAudio(); currentId = null; updatePlayerBar(); renderLibrary(); }
+    saveLibrary();
+    renderPage();
+    toast('已自动移除 ' + tracks.length + ' 首 VIP/付费歌曲（网页外链无法播放）');
+  }
+  // #709：meting type=url 单曲 VIP 二次确认——免费歌必 302→音频 CDN（r.redirected 或
+  // content-type audio/*），VIP/失效歌返回 200 + 非音频正文且无跳转（与
+  // resolveNeteaseDirectUrl 同判据）。fetch 失败/超时＝离线或服务不可达＝「未知」，
+  // 一律按非 VIP 处理（宁可不删，绝不误删）。背景：歌单导入的 VIP 前置过滤依赖
+  // 官方 v6 详情（走公共 CORS 代理），proxy.cors.sh 等已域名级失联（#700 实测）＝
+  // 全机型 VIP 歌都不再被自动移除，只剩「可能为会员/失效歌曲」的播放失败提示，
+  // 与常见问题里「歌单导入会自动移除这类歌曲」的承诺不符。
+  function confirmVipViaMeting(id, cb) {
+    let controller;
+    try { controller = new AbortController(); } catch (e) { controller = null; }
+    const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 8000);
+    fetch(neteaseMetingUrl(id), controller ? { signal: controller.signal } : undefined)
+      .then(function (r) {
+        clearTimeout(timer);
+        var ct = '';
+        try { ct = (r.headers && r.headers.get('content-type')) || ''; } catch (e) {}
+        var free = !!(r.redirected || /^audio\//i.test(ct));
+        setTimeout(function () {
+          try { controller && controller.abort(); } catch (e) {}
+          mochiSafeCancelBody(r);
+        }, 0);
+        cb(!free);
+      })
+      .catch(function () { clearTimeout(timer); cb(false); });
+  }
   function enrichImportedDurations(id, trackIds) {
     const missing = trackIds.map(findTrack).filter(m => m && m.neteaseId && !m.duration);
     if (!missing.length) return;
@@ -789,14 +826,7 @@
       }
       if (feeMap && Object.keys(feeMap).length) {
         const vipTracks = trackIds.map(findTrack).filter(m => m && m.neteaseId && (feeMap[m.neteaseId] === 1 || feeMap[m.neteaseId] === 4));
-        if (vipTracks.length) {
-          const vipIds = vipTracks.map(m => m.id);
-          library = library.filter(x => vipIds.indexOf(x.id) < 0);
-          if (currentId && vipIds.indexOf(currentId) >= 0) { teardownAudio(); currentId = null; updatePlayerBar(); renderLibrary(); }
-          saveLibrary();
-          renderPage();
-          toast('已自动移除 ' + vipTracks.length + ' 首 VIP/付费歌曲（网页外链无法播放）');
-        }
+        removeBatchVipSongs(vipTracks); // #709：移除逻辑收敛到共享助手（meting 探测兜底同口径）
       }
       missing.forEach(m => { if (!m.duration) enqueueDurProbe(m); });
     });
@@ -995,7 +1025,22 @@
       try { tmp.referrerPolicy = 'no-referrer'; } catch (e) {}
       tmp.preload = 'metadata';
       tmp.onloadedmetadata = function () { finish(tmp.duration || 0); };
-      tmp.onerror = function () { finish(0); };
+      tmp.onerror = function () {
+        // #709：探测失败≠都是 VIP（断网/超时也走这里）——对歌单导入的歌用 meting
+        // type=url 二次确认后再移除（免费歌必 302→音频 CDN；确认离线时不删）。
+        // 只对 sm_pl_ 批次生效＝与官方 v6 fee 路径同口径（FAQ 承诺「歌单导入会自动
+        // 移除 VIP」）；单曲链接导入维持既有「播放失败提示/移出窗」文档口径。
+        // 二次请求只花在已确认放不出声的歌上，健康歌零额外请求。
+        finish(0);
+        if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id)) {
+          m._vipChecked = true;
+          confirmVipViaMeting(m.neteaseId, function (isVip) {
+            if (!isVip) return;
+            const mm = findTrack(m.id);
+            if (mm) removeBatchVipSongs([mm]);
+          });
+        }
+      };
       tmp.src = neteaseMetingUrl(m.neteaseId);
     } catch (e) { finish(0); }
   }

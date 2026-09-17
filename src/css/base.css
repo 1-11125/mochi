@@ -557,14 +557,11 @@ html.force-mobile #page-chat { background: var(--page-bg-grad); }
 html.force-mobile button, html.force-mobile .app, html.force-mobile .set-row,
 html.force-mobile .tab, html.force-mobile .msg, html.force-mobile .feed-post,
 html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
-/* v3.9.x：桌面卡片缩放在手机端禁用（同 home.css @media(max-width:900px) 块，
-   force-mobile 下该媒体查询不命中，此处兜底；选择器跨域引用 home.css 类名但不改其逻辑）
-   v3.16.x：选择器随 home.css 同步——三页统一 .page-slide 缩放，兜底也统一 */
-html.force-mobile .page-slide,
-html.force-mobile .deco-widget, html.force-mobile .mini-card, html.force-mobile .checkin,
-html.force-mobile .weekend-box, html.force-mobile .music-widget,
-html.force-mobile .memo-card, html.force-mobile .mood-card, html.force-mobile .week-card,
-html.force-mobile .desk-period, html.force-mobile .app-grid, html.force-mobile .mini-row { zoom:1; }
+/* v3.9.x：桌面卡片缩放在手机端禁用——#707 起改由 JS 类门控兜底（personalize.js
+   syncDeskZoomClass：宽窗>900px 且非平板且缩放值≠1 才挂 html.desk-zoom-font/card），
+   手机端根本不产生 zoom 声明，此处原 html.force-mobile 的 zoom:1 重置块已删——
+   zoom:1 的声明本身也会把子树带进 WebKit 新 zoom 实现的继承/布局路径
+   （iOS 卡顿红线，见 home.css #707 注释） */
 
 /* v3.5.139：真全屏（Fullscreen API / PWA display_override 直启）时 .phone 铺满整个窗口——
    桌面 F11 等全屏由 fullscreen.js 加 .fs-active 类触发；PWA 安装直启走 display-mode 媒体查询。
@@ -885,11 +882,9 @@ html.tablet .phone .page.full .chat-head { padding-top:calc(10px + var(--mochi-s
 html.tablet .phone .page.full { padding-bottom:0; }
 html.tablet #page-chat { background:var(--page-bg-grad); }
 html.tablet .tabbar { margin-bottom:var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)); }
-/* 平板不应用桌面缩放（zoom 是 iOS 卡顿红线；平板按手机端体验处理，与竖屏一致） */
-html.tablet .page-slide { zoom:1; }
-html.tablet .deco-widget, html.tablet .mini-card, html.tablet .checkin,
-html.tablet .weekend-box, html.tablet .music-widget, html.tablet .memo-card,
-html.tablet .mood-card, html.tablet .week-card, html.tablet .desk-period, html.tablet .app-grid, html.tablet .mini-row { zoom:1; }
+/* 平板不应用桌面缩放——#707 起由 JS 类门控保证（syncDeskZoomClass 对 isTablet 永不挂
+   html.desk-zoom-font/card，zoom 声明不存在），原 html.tablet 的 zoom:1 重置已删：
+   声明 zoom:1 本身也会让平板子树进 WebKit 新 zoom 实现的路径（iOS 卡顿红线） */
 /* 平板大屏：桌面图标放大、消息气泡限宽（避免整行过长） */
 html.tablet .app .app-ico { width:64px; height:64px; }
 html.tablet .app .app-name { font-size:12px; }

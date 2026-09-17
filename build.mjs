@@ -1540,6 +1540,18 @@ const FIX_SENTINELS = [
   // ==== 2026-09-17 #706 聊天「所有消息不贴底、停在上半屏/中部；输入栏只有打字时可见；发消息低栏弹跳」（iPhone 17 Safari 26.6 iOS 独立应用实报、多机型同现，用户直派要求勿致他型回归）——#466/#643 两级回钉都是「事件触发+60ms 单次防抖」，iOS 26 Safari 起 interactive-widget=resizes-content 被真正执行（键盘期 innerHeight 本体参与变形、vv/inner 分多帧落位），回钉写入落在中间态布局后无人再校正＝列表永久停错位。修复=几何看门狗：聊天页可见且钉住态时每 250ms 复核 scrollTop 是否等于 chatScrollMax（行隐藏态口径），差 >8px 且视口变形落定（最近 180ms 无 vv/inner 变化）才补钉——只认几何事实、机型零分支；仍受 #162 钉住闸（用户翻历史解钉绝不拽底）与 #416 ≤8px 口径约束 ====
   { name: '#706a 贴底几何看门狗补钉判定（删回事件单发制则 iOS 26 键盘变形后消息永久停半屏＝主诉回归）', file: 'js/chat.js', needle: 'if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();' },
   { name: '#706b 看门狗视口变形落定闸（删回变形中就写则发消息低栏钳位回弹＝弹跳回归）', file: 'js/chat.js', needle: 'if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定' },
+  // ==== 2026-09-18 #707 屏幕位置微调（用户直派：「设置自由一点，用户自己调和设置」——跨设备屏幕适配修不完，给本机永久手动三轴偏移）——mobile-adapt.js 包装 documentElement.style 的 set/remove/get 做「系统基准+用户偏移」双层（写入方无感、DOM 同值写零重排零抖动），底部独立写 calc(env()+偏移)（安卓键盘期钉 0 照旧、收键后 1s 复述补回）；personalize.js 三行弹窗接线（±80px，0=恢复默认）；偏移存根命名空间 LS（跨桌面共用） ====
+  { name: '#707a 顶层样式双层值包装（删回直写则用户偏移被系统写入方按基准覆写＝微调失效回归）', file: 'js/mobile-adapt.js', needle: "if (NAMES[n] !== undefined && base[n] !== undefined) return (base[n] + adj[NAMES[n]]) + 'px';" },
+  { name: '#707b 底部偏移 calc(env) 写入（删回写裸 px 则无 env 基准的机型手势条区算错）', file: 'js/mobile-adapt.js', needle: "'calc(env(safe-area-inset-bottom, 0px) + ' + adj.bottom + 'px)'" },
+  { name: '#707c 设置页三行接线走 mochiScreenAdj（删则弹窗改值不落层＝改了没反应）', file: 'js/personalize.js', needle: 'window.mochiScreenAdj.set(cfg.k, n);' },
+  // ==== 2026-09-18 #709 音乐遗留（自查发现，#700 同族收尾；编号让位：#707 已被屏幕微调/滑动卡顿两批占用、#708 已被通知自检占用）——歌单导入的 VIP 自动移除依赖官方 v6 详情走公共 CORS 代理，proxy.cors.sh 等已域名级失联（#700 实测）＝全机型 VIP 歌都不再被自动移除，与常见问题「歌单导入会自动移除这类歌曲」承诺不符。修复=时长探测（meting <audio>）失败的歌用 meting type=url 二次确认（免费歌必 302→音频 CDN；VIP/失效歌 200+非音频正文且无跳转；fetch 失败＝离线＝宁可不删），确认 VIP 才按 v6 fee 路径同口径移除（仅 sm_pl_ 歌单批次，单曲链接维持既有文档口径）；移除逻辑收敛 removeBatchVipSongs 共享助手；移除已死 meting 镜像 api.i-meto.com（2026-09-17 实测整体 401）====
+  { name: '#709a meting type=url VIP 二次确认判据（删则歌单导入的 VIP 永不移除＝FAQ 承诺落空回归）', file: 'js/music-player.js', needle: 'var free = !!(r.redirected || /^audio\\//i.test(ct));' },
+  { name: '#709b 探测失败仅对 sm_pl_ 歌单批次二次确认＋_vipChecked 去重（删/放开到单曲则断网误删或重复请求）', file: 'js/music-player.js', needle: "if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id))" },
+  { name: '#709c VIP 移除收敛共享助手（v6 fee 路径与探测兜底同口径；删回两份内联则改一处漏一处）', file: 'js/music-player.js', needle: 'function removeBatchVipSongs(tracks)' },
+  // ==== 2026-09-18 #710 群聊「进群白屏干等无加载反馈」（#703 同族收尾，用户确认补；编号让位：#708 已被通知自检批占用）——enterGroupChat→loadMsgs 先渲 LS 快照、再 IDB 异步读群消息大键，大群/LS 空窗口整屏空白零提示（群聊页此前连进度条元素都没有）。修复=①template 群聊页加 #gc-loading（复用单聊 .chat-loading 同款样式类，跨域改 template 仅追加此锚）；②loadMsgs 读库前置位、落定/切群/兜底 12s 即收起（gcLoadSeq 作废旧等待，#243 串群守卫路径不误收） ====
+  { name: '#710a 群聊页加载条模板锚点（删则进度条无处挂载＝进群白屏无反馈回归）', file: 'template.html', needle: 'id="gc-loading"' },
+  { name: '#710b 进度条显隐绑「页面可见且权威在途」（删回则 LS 快照先到时读库窗口零反馈）', file: 'js/group-chat.js', needle: 'gcLoadingEl.hidden = !(page && !page.hidden && gcAuthPending);' },
+  { name: '#710c 读库落定收起＋切群作废旧等待（删则进度条挂死/旧群等待误收新群进度条）', file: 'js/group-chat.js', needle: 'function gcLoadSettle(seq)' },
   // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
@@ -2517,14 +2529,14 @@ const FIX_SENTINELS = [
   { name: '#612 弹窗多行框滚动链放行·contain→auto（改回 contain 则框内滚到底后手指落在框上整个弹窗滚不动＝链接导入无法下滑导入复发）', file: 'css/base.css', needle: 'max-height:38vh;\noverflow-y:auto;\n-webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
   { name: '#612 弹窗目标分组胶囊行滚动链放行·contain→auto（同族第二处；改回 contain 则胶囊行到边界后弹窗同样滚不动）', file: 'css/base.css', needle: 'max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;\noverscroll-behavior:auto;' },
   { name: '#614 通知发送链 SW.ready 超时兜底（删掉＝SW 被回收/注册失败时 ready 永不落地，后台通知「点测试没反应」+ 弹窗不发复发）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(navigator.serviceWorker.ready, 4000)' },
-  { name: '#614/#673 ready 拿不到现役 SW 时回退页面通知路径（隐藏态先挂「就绪即补发」，删掉＝不可用时永远 pending、测试按钮无反馈）', file: 'js/bg-keep.js', needle: 'if (!reg) { if (hidden) swNotifyLater(title, opts); pageFallback(); return; }' },
+  { name: '#614/#673 ready 拿不到现役 SW 时回退页面通知路径（隐藏态先挂「就绪即补发」，删掉＝不可用时永远 pending、测试按钮无反馈）', file: 'js/bg-keep.js', needle: 'if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }' },
   { name: '#614/#673 showNotification 超时用 thunk 形式（删掉 thunk 退回先求值写法＝同步 throw 穿透回调，发送链卡死且降级重发不跑）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)' },
   { name: '#614 测试按钮点击即时反馈（删掉＝要等发送链 settle 才有提示，SW 卡住时用户看到「点了没反应」）', file: 'js/bg-keep.js', needle: "toast('正在检查通知环境…');" },
   // ==== 2026-09-17 #673 后台弹窗「又收不到」：过渡期不再整条吞新消息 + 发送链静默丢失口子（红米K80 Chrome 等多机型） ====
   { name: '#673 过渡期（切后台头15秒）由「一律不弹」改为按内容判定（退回无条件 return 则 TA 回复在 1~40 秒延迟内落窗＝聊天有、通知栏没有复发）', file: 'js/bg-keep.js', needle: 'recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }' },
   { name: '#673 过渡期内容判定窗 30 分钟（缩短到常规 5 分钟＝切后台瞬间重放几分钟前看过的字卡又弹，#498 防重弹面失守）', file: 'js/bg-keep.js', needle: 'const NOTIFY_FRESH_CHAT_DUP_MS = 30 * 60000;' },
   { name: '#673 隐藏态页面通道不谎报成功（删掉 resolve(!hidden) 改回无条件 true＝用户侧什么都没弹、调用方却记「已通知」且测试按钮写「已发送」）', file: 'js/bg-keep.js', needle: 'resolve(!hidden);' },
-  { name: '#673 SW 未就绪时「就绪即补发」（删掉＝弱网/被回收重建窗口里的通知整条丢，后台关屏再也收不到）', file: 'js/bg-keep.js', needle: 'function swNotifyLater(title, opts) {' },
+  { name: '#673 SW 未就绪时「就绪即补发」（删掉＝弱网/被回收重建窗口里的通知整条丢，后台关屏再也收不到）', file: 'js/bg-keep.js', needle: 'function swNotifyLater(title, opts, chanOut) {' },
   { name: '#673 通知通道如实上报（删掉＝测试按钮又把页面回退说成「已发送（Service Worker）」，故障层被指错）', file: 'js/bg-keep.js', needle: 'window.bgNotifyLastChannel = function () { return lastNotifyChannel; };' },
   { name: '#673 头像裁剪截止时间（删掉＝Image 回调不来时 showSysNotification 永不调用，通知静默消失）', file: 'js/bg-keep.js', needle: "if (!cropFired.v) { cropFired.v = true; sendFinal(''); }" },
   { name: '#673 过渡期运营判定探针 transitionBlocks（删掉＝回归脚本测不到「过渡期内全新消息放行/重放拦截」，跨机型回归失守）', file: 'js/bg-keep.js', needle: 'transitionBlocks: transitionBlocks,' },
@@ -2965,6 +2977,32 @@ const FIX_SENTINELS = [
   { name: '#705a kaWithTimeout 兼容 thunk（删回直接 p.then 则函数入参 TypeError→降级链秒耗尽＝后台通知全灭复发）', file: 'js/bg-keep.js', needle: "const pr = (typeof p === 'function') ? p() : p;" },
   { name: '#705b clearCallActive SS/LS 同步写 {ts:0} 墓碑（改回 removeItem 则挂断后页面被杀时 SS/LS 全空→落 IDB 回读→幽灵通话复活）', file: 'js/call.js', needle: "sessionStorage.setItem(CALL_ACTIVE_KEY, '{\"ts\":0}')" },
   { name: '#705c 通话结束重写来电冷却戳（删则去电后/后台来电接完后冷却仍按触发时刻算＝挂断 1~3 分钟后联系人又打来）', file: 'js/call.js', needle: "try { store.set('records-call-last', String(Date.now())); } catch (e) {}" },
+  // ===== #707（2026-09-17 用户直派：iPhone15ProMax Safari26.6/Via，「全局滑动卡顿 + 桌面翻页灰屏」，
+  //   诊断实锤：html 类带 tablet＝「请求桌面网站」伪装 UA 误判平板；翻页帧采样 p90≈991ms、长任务为零
+  //   ＝渲染合成层卡，非 JS。三修＋一仪器，全零机型分支：①device.js Macintosh 伪装分支补 screen 短边
+  //   ≥600（iPhone 全系回到手机布局，iPad mini 744 起照常平板）；②zoom 声明按类门控（Safari 18.2 起
+  //   WebKit 新 zoom 实现自述 tricky、26.4 仍在修性能缺陷，zoom:1 声明本身也让整个桌面子树进 zoom
+  //   继承/布局路径——改后手机/平板/默认值零 zoom 声明，宽窗非平板且值≠1 才有）；③删翻页容器
+  //   -webkit-overflow-scrolling:touch（legacy 动量旗标钉在出灰屏的那一层上）；④翻页采样剔除切后台
+  //   冻结帧（此前一条 144s 后台间隙把均值拉成假「严重卡顿 2543ms」，真值看 p90）。
+  { name: '#707a 平板误判补屏宽下限（删 _mScreen>=600＝iPhone 开「请求桌面网站」后 Macintosh 伪装 UA 再被误判成 .tablet 平板布局，非主流路径回流）', file: 'js/device.js', needle: "&& navigator.maxTouchPoints > 1 && 'ontouchstart' in window && _mScreen >= 600);" },
+  { name: '#707b zoom 声明按类门控-字号（改回无前缀 .page-slide{zoom:var()}＝手机桌面整个子树又常年带 zoom 声明参与 WebKit 新 zoom 实现）', file: 'css/home.css', needle: 'html.desk-zoom-font .page-slide { zoom:var(--desk-font-scale, 1); }' },
+  { name: '#707c zoom 声明按类门控-卡片（同上，11 类卡片组）', file: 'css/home.css', needle: 'html.desk-zoom-card .deco-widget, html.desk-zoom-card .mini-row, html.desk-zoom-card .checkin,' },
+  { name: '#707d 手机端 zoom 兜底随门控加前缀（删块＝桌面模拟器窗口拖窄 <900px 时缩放不再被钉回 1，老兜底语义丢失；needle 按压缩后形态＝续行无缩进）', file: 'css/home.css', needle: 'html.desk-zoom-font .page-slide,\nhtml.desk-zoom-card .deco-widget' },
+  { name: '#707e 类门控写值接线-主设置页（删 syncDeskZoomClass 调用＝滑块拖了值类不刷新，缩放在新门控下不生效；needle 按压缩后形态）', file: 'js/personalize.js', needle: "document.documentElement.style.setProperty('--desk-font-scale', String(pct / 100));\nif (deskFontVal) deskFontVal.textContent = pct === DESK_FONT_DEFAULT ? '默认' : pct + '%';\nsyncDeskZoomClass();" },
+  { name: '#707f 类门控函数本体（删函数＝所有接线调用抛 ReferenceError，桌面字号/卡片大小设置全废）', file: 'js/personalize.js', needle: 'function syncDeskZoomClass() {' },
+  { name: '#707g 翻页容器删 legacy 动量旗标（写回 -webkit-overflow-scrolling:touch＝出灰屏的那层又钉回老式滚动路径；needle 按压缩后形态）', file: 'css/home.css', needle: 'scroll-snap-type:x mandatory;\nscrollbar-width:none;' },
+  { name: '#707h 翻页采样剔除后台冻结帧（删 document.hidden 分支＝一条 144s 后台间隙再次把均值拉成假「严重卡顿」，报障判读被带偏；needle 按压缩后形态）', file: 'js/desktop-slider.js', needle: "if (typeof document !== 'undefined' && document.hidden) {\nhid++;\nlast = 0;" },
+  { name: '#707i 诊断标注剔除后台帧数（删＝样本剔没剔、剔了几条在诊断里看不见）', file: 'js/device.js', needle: "'（已剔除后台帧 ' + dp.hid + '）'" },
+  // ==== 2026-09-18 #708 后台通知「自检/测试按钮」优化（用户直派：通知链四轮回归后，自检也要能自证清白）====
+  //  ①通道按本次调用独立收集（showSysNotification/swNotifyLater 第三参 chanOut 回调）——不再读全局
+  //    lastNotifyChannel（共享变量，真实消息/来电谁后发谁写，自检会读到别条通知的通道＝结果串台）；
+  //  ②结果分层说真话：sw=「已真正提交系统显示」＋全机型没弹出三步引导；四级降级全败=「系统/内核拒绝」，
+  //    不再误报「SW 未就绪/权限被禁」（#705 期间自检正是这么指错层的）；
+  //  ③8 秒超时哨兵：发送链卡死不落定（#614「点测试没反应」形态）当场报「发送链未落定·应用内故障」。
+  { name: '#708a 通道按调用独立回报（删掉 chanOut 管道＝自检读全局共享通道、结果可被真实消息/来电串台）', file: 'js/bg-keep.js', needle: 'function showSysNotification(title, opts, chanOut) {' },
+  { name: '#708b 自检 SW 通道真话文案（退回笼统「已发送」＝#705 形态故障时指错层）', file: 'js/bg-keep.js', needle: '✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）' },
+  { name: '#708c 自检 8 秒超时哨兵（删掉＝发送链卡死时「点测试没反应」#614 形态回归）', file: 'js/bg-keep.js', needle: '✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -66,7 +66,7 @@
    ⚠️ .mini-card/.memo-card/.mood-card 不单独 zoom：它们嵌套在 .mini-row 内，
    若与容器都 zoom 会双重缩放（77→88.55→101.8），与单层缩放的 .week-card（89.1）
    不一致；由 .mini-row 容器统一缩放一次。
-   FIX 2026-09-17 #698（跨域改动声明见 WORKLOG）：两条 zoom 规则加 html.desk-zoom-font /
+   FIX 2026-09-17 #707（跨域改动声明见 WORKLOG）：两条 zoom 规则加 html.desk-zoom-font /
    html.desk-zoom-card 前缀（personalize.js 挂类：宽窗>900px 且非平板且缩放值≠1 才挂）
    ——Safari 18.2 起 WebKit 重写 zoom（标准化实现），官方自述「genuinely tricky」且
    26.4 仍在修其性能/继承缺陷；值是 zoom:1 的声明本身也会让子树进 zoom 继承/布局路径。
@@ -77,7 +77,7 @@ html.desk-zoom-font .page-slide { zoom:var(--desk-font-scale, 1); }
 html.desk-zoom-card .deco-widget, html.desk-zoom-card .mini-row, html.desk-zoom-card .checkin,
 html.desk-zoom-card .weekend-box, html.desk-zoom-card .music-widget,
 html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom-card .app-grid { zoom:var(--desk-card-scale, 1); }
-/* 桌面模拟器窗口拖窄（<900px）时仍不缩放（原手机端兜底语义，随 #698 加前缀保同特异性）；
+/* 桌面模拟器窗口拖窄（<900px）时仍不缩放（原手机端兜底语义，随 #707 加前缀保同特异性）；
    真手机/平板不挂类，本块与其余 zoom 规则均不命中＝零声明 */
 @media (max-width: 900px) {
   html.desk-zoom-font .page-slide,
@@ -348,7 +348,7 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
   overflow-x:auto; overflow-y:hidden;
   scroll-snap-type:x mandatory;
   scrollbar-width:none; -ms-overflow-style:none;
-  /* FIX 2026-09-17 #698：删 -webkit-overflow-scrolling:touch——iOS 老式动量滚动旗标
+  /* FIX 2026-09-17 #707：删 -webkit-overflow-scrolling:touch——iOS 老式动量滚动旗标
      （现代 WebKit 动量是默认，该属性只会把滚动容器钉在 legacy 路径/旧合成假设上），
      而本元素正是用户报「翻页灰屏 + 秒级掉帧」的横向翻页层（iOS 26 多机型）。
      删除对现代内核零行为变化（动量本来就有），老内核本就少见且动量非默认也只是

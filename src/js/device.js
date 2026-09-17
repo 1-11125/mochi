@@ -85,7 +85,7 @@
   // 无模拟器外壳，竖屏/横屏观感一致）。
   // iPadOS 13+ 的 UA 伪装成 Macintosh（桌面 macOS UA + 触摸屏 maxTouchPoints>1），
   // 老系统 UA 带 iPad 关键字，两种都覆盖。
-  // FIX 2026-09-17 #698：Macintosh 伪装分支补「screen 短边 ≥600 CSS px」——iPhone 的
+  // FIX 2026-09-17 #707：Macintosh 伪装分支补「screen 短边 ≥600 CSS px」——iPhone 的
   // Safari/Via 开「请求桌面网站」后 UA 同样变成 Macintosh（iPhone15ProMax 实测
   // platform=MacIntel + maxTouchPoints=5 + screen=430×932，诊断「html 类:tablet、
   // 判定依据:tablet」），原分支把这类手机整体判成平板走 .tablet 布局（全局
@@ -1200,6 +1200,8 @@
         const when = dp.t ? new Date(dp.t).toLocaleString() : '?';
         L.push('桌面翻页帧耗时（' + dp.n + ' 帧现场采样 · ' + when + ' · ' + (dp.pages || '?') + ' 页）：'
           + '平均 ' + dp.mean + 'ms / p90 ' + dp.p90 + 'ms / 最慢 ' + dp.worst + 'ms'
+          // #707：采样已剔除切后台/锁屏冻结帧（否则一条 144s 的后台间隙会把均值拉成假「严重卡顿」）
+          + (dp.hid ? '（已剔除后台帧 ' + dp.hid + '）' : '')
           + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
       } else {
         L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');

@@ -444,11 +444,6 @@ html.force-mobile #page-chat { background: var(--page-bg-grad); }
 html.force-mobile button, html.force-mobile .app, html.force-mobile .set-row,
 html.force-mobile .tab, html.force-mobile .msg, html.force-mobile .feed-post,
 html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
-html.force-mobile .page-slide,
-html.force-mobile .deco-widget, html.force-mobile .mini-card, html.force-mobile .checkin,
-html.force-mobile .weekend-box, html.force-mobile .music-widget,
-html.force-mobile .memo-card, html.force-mobile .mood-card, html.force-mobile .week-card,
-html.force-mobile .desk-period, html.force-mobile .app-grid, html.force-mobile .mini-row { zoom:1; }
 .fs-active .phone, .fs-css-active .phone {
 width:100vw; height:100vh; height:100svh; height:100dvh;
 max-width:none; border-radius:0; box-shadow:none;
@@ -559,10 +554,6 @@ html.tablet .phone .page.full .chat-head { padding-top:calc(10px + var(--mochi-s
 html.tablet .phone .page.full { padding-bottom:0; }
 html.tablet #page-chat { background:var(--page-bg-grad); }
 html.tablet .tabbar { margin-bottom:var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)); }
-html.tablet .page-slide { zoom:1; }
-html.tablet .deco-widget, html.tablet .mini-card, html.tablet .checkin,
-html.tablet .weekend-box, html.tablet .music-widget, html.tablet .memo-card,
-html.tablet .mood-card, html.tablet .week-card, html.tablet .desk-period, html.tablet .app-grid, html.tablet .mini-row { zoom:1; }
 html.tablet .app .app-ico { width:64px; height:64px; }
 html.tablet .app .app-name { font-size:12px; }
 html.tablet .msg:not(.msg-ask):not(.msg-center) { max-width:70%; }
@@ -9992,9 +9983,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789663066908">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.733</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 00:37<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789684089311">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.734</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 06:28<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11346,6 +11337,21 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
+        <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
+             跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
+             顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
+        <div class="set-row" id="row-screen-adj-top">
+          <div class="txt">屏幕微调·顶部<span class="sub">顶部内容被状态栏遮挡/离得太远时调（当前 0px，正=下移）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-screen-adj-bottom">
+          <div class="txt">屏幕微调·底部<span class="sub">底部导航栏悬空/被手机手势条裁掉时调（当前 0px，正=上移）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-screen-adj-h">
+          <div class="txt">屏幕微调·页面高度<span class="sub">页面底部留白/内容超出屏幕时调（当前 0px，正=变高）；本机永久保存</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <div class="set-row" id="row-screen-diag">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M8 6h8"/></svg></div>
           <div class="txt">屏幕适配诊断<span class="sub">顶部空白 / 底部裁切 / 缩放异常一键定位</span></div>
@@ -11412,7 +11418,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.733</div>
+          <div class="val" id="about-ver-val">v3.26.734</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11481,7 +11487,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.733</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.734</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11861,7 +11867,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.733</span>
+              <span class="lic-ver">v3.26.734</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -15693,6 +15699,15 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       <div class="chat-body gc-body" id="gc-body"></div>
+      <!-- #710：群聊记录加载进度提示——群消息大键 IDB 异步读库期间在消息区中央覆盖非阻塞
+           进度条（与单聊 #chat-loading 同款样式类，pointer-events:none 不挡滚动/点击），
+           group-chat.js 读库落定后自动隐藏 -->
+      <div class="chat-loading" id="gc-loading" hidden>
+        <div class="chat-loading-card">
+          <div class="chat-loading-bar"><i></i></div>
+          <span class="chat-loading-txt">正在加载群聊记录…</span>
+        </div>
+      </div>
       <div class="chat-typing gc-typing" id="gc-typing" hidden></div>
       <!-- v3.16.x：待引用预览条（点气泡→引用 后出现，与聊天页 #chat-draft-quote 同款样式） -->
       <div class="chat-draft-quote" id="gc-quote-bar" hidden></div>
@@ -17303,6 +17318,7 @@ if (dp && dp.n) {
 const when = dp.t ? new Date(dp.t).toLocaleString() : '?';
 L.push('桌面翻页帧耗时（' + dp.n + ' 帧现场采样 · ' + when + ' · ' + (dp.pages || '?') + ' 页）：'
 + '平均 ' + dp.mean + 'ms / p90 ' + dp.p90 + 'ms / 最慢 ' + dp.worst + 'ms'
++ (dp.hid ? '（已剔除后台帧 ' + dp.hid + '）' : '')
 + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
 } else {
 L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');
@@ -23392,7 +23408,14 @@ if (perfOn) return;
 perfOn = true;
 const gaps = [];
 let last = 0;
+let hid = 0;
 const tick = (now) => {
+if (typeof document !== 'undefined' && document.hidden) {
+hid++;
+last = 0;
+requestAnimationFrame(tick);
+return;
+}
 if (last) gaps.push(now - last);
 last = now;
 if (gaps.length < PERF_FRAMES) { requestAnimationFrame(tick); return; }
@@ -23401,7 +23424,7 @@ gaps.sort((a, b) => a - b);
 const sum = gaps.reduce((a, b) => a + b, 0);
 try {
 localStorage.setItem(PERF_KEY, JSON.stringify({
-t: Date.now(), n: gaps.length,
+t: Date.now(), n: gaps.length, hid: hid,
 mean: Math.round(sum / gaps.length),
 p90: Math.round(gaps[Math.floor(gaps.length * 0.9)]),
 worst: Math.round(gaps[gaps.length - 1]),
@@ -25608,10 +25631,12 @@ if (zoomWorks) {
 wrap.appendChild(mkSlider('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, 1, '%', 100, (v) => {
 document.documentElement.style.setProperty('--desk-font-scale', String(parseInt(v, 10) / 100));
 store.set('desk-font-size', v);
+syncDeskZoomClass(); // #707：值≠1 才挂缩放类（见 applyDeskFontPct 同编号注释）
 }));
 wrap.appendChild(mkSlider('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, 1, '%', 100, (v) => {
 document.documentElement.style.setProperty('--desk-card-scale', String(parseInt(v, 10) / 100));
 store.set('desk-card-scale', v);
+syncDeskZoomClass(); // #707
 }));
 } else {
 const nt = document.createElement('div');
@@ -27572,6 +27597,19 @@ toast('字体已应用到本桌面');
 });
 }
 document.addEventListener('contact-switched', applyDeskCsFont);
+function syncDeskZoomClass() {
+try {
+const d = document.documentElement;
+const wide = !!(window.matchMedia && window.matchMedia('(min-width: 901px)').matches);
+const tab = !!(window.mochiDevice && window.mochiDevice.isTablet);
+const fs = parseFloat(d.style.getPropertyValue('--desk-font-scale'));
+const cs = parseFloat(d.style.getPropertyValue('--desk-card-scale'));
+const onF = wide && !tab && fs > 0 && Math.abs(fs - 1) > 0.001;
+const onC = wide && !tab && cs > 0 && Math.abs(cs - 1) > 0.001;
+if (onF !== d.classList.contains('desk-zoom-font')) d.classList.toggle('desk-zoom-font', onF);
+if (onC !== d.classList.contains('desk-zoom-card')) d.classList.toggle('desk-zoom-card', onC);
+} catch (e) {}
+}
 const deskFontRow = document.getElementById('row-desk-font-size');
 const deskFontVal = document.getElementById('desk-font-size-val');
 const DESK_FONT_DEFAULT = 100;
@@ -27583,6 +27621,7 @@ return DESK_FONT_DEFAULT;
 const applyDeskFontPct = (pct) => {
 document.documentElement.style.setProperty('--desk-font-scale', String(pct / 100));
 if (deskFontVal) deskFontVal.textContent = pct === DESK_FONT_DEFAULT ? '默认' : pct + '%';
+syncDeskZoomClass();
 };
 applyDeskFontPct(getDeskFontPct());
 if (deskFontRow) {
@@ -27598,7 +27637,7 @@ store.set('desk-font-size', String(pct)); applyDeskFontPct(pct); syncDeskFontUI(
 }, {
 noInput: true,
 slider: { min: 85, max: 120, step: 1, value: current, label: '拖动调整桌面字号', unit: '%',
-onChange: (val) => { document.documentElement.style.setProperty('--desk-font-scale', String(val / 100)); } },
+onChange: (val) => { document.documentElement.style.setProperty('--desk-font-scale', String(val / 100)); syncDeskZoomClass(); } },
 pills: [{ label: '恢复默认', value: '__reset__' }],
 });
 });
@@ -27614,6 +27653,7 @@ return DESK_CARD_DEFAULT;
 const applyDeskCardPct = (pct) => {
 document.documentElement.style.setProperty('--desk-card-scale', String(pct / 100));
 if (deskCardVal) deskCardVal.textContent = pct === DESK_CARD_DEFAULT ? '默认' : pct + '%';
+syncDeskZoomClass();
 };
 applyDeskCardPct(getDeskCardPct());
 if (deskCardRow) {
@@ -27629,7 +27669,7 @@ store.set('desk-card-scale', String(pct)); applyDeskCardPct(pct); syncDeskCardUI
 }, {
 noInput: true,
 slider: { min: 80, max: 120, step: 1, value: current, label: '拖动调整卡片大小', unit: '%',
-onChange: (val) => { document.documentElement.style.setProperty('--desk-card-scale', String(val / 100)); } },
+onChange: (val) => { document.documentElement.style.setProperty('--desk-card-scale', String(val / 100)); syncDeskZoomClass(); } },
 pills: [{ label: '恢复默认', value: '__reset__' }],
 });
 });
@@ -29859,6 +29899,51 @@ inputmode: 'numeric',
 maxlength: 6,
 placeholder: cur ? ('当前 ' + cur + ' 天，输入新天数') : '输入目标天数',
 staticText: HINT
+});
+});
+})();
+(function () {
+const ROWS = [
+{ id: 'row-screen-adj-top', k: 'top', name: '顶部', hint: '顶部内容被手机状态栏遮挡就填正数（往下移）、离得太远填负数（往上移）。', sign: '正=下移' },
+{ id: 'row-screen-adj-bottom', k: 'bottom', name: '底部', hint: '底部导航栏被手机手势条裁掉就填正数（往上移）、悬空离底太远填负数（往下移）。', sign: '正=上移' },
+{ id: 'row-screen-adj-h', k: 'h', name: '页面高度', hint: '页面底部有大片空白就填正数（撑满）、内容超出屏幕被裁就填负数（收短）。', sign: '正=变高' }
+];
+function adjToast(msg) {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg;
+t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._timer);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2200);
+}
+function adjSubText(row, v) {
+const sub = row.querySelector('.sub');
+if (sub) sub.textContent = sub.textContent.replace(/当前 -?\d+px/, '当前 ' + v + 'px');
+}
+ROWS.forEach(function (cfg) {
+const row = document.getElementById(cfg.id);
+if (!row || typeof window.openModal !== 'function') return;
+row.addEventListener('click', function () {
+const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[cfg.k]) || 0;
+const HINT = '当前' + cfg.name + '偏移 ' + cur + 'px。' + cfg.hint + '范围 -80~80 的整数（单位像素），填 0 或清空＝恢复默认。改完立即生效、本机永久保存；配合「屏幕适配诊断」核对效果。注意：这是你的本机手动修正，换设备不会跟着走，各设备各自调。';
+const ctl = window.openModal('屏幕微调·' + cfg.name + '（' + cfg.sign + '）', cur ? String(cur) : '', function (v) {
+const sv = String(v == null ? '' : v).trim();
+let n = 0;
+if (sv !== '') {
+if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入 -80~80 的整数（单位像素）'); ctl.stay(); return; }
+n = parseInt(sv, 10);
+if (n < -80 || n > 80) { ctl.hint('范围是 -80~80，别填太大'); ctl.stay(); return; }
+}
+if (!window.mochiScreenAdj) { ctl.hint('微调层未就绪，请刷新后重试'); ctl.stay(); return; }
+window.mochiScreenAdj.set(cfg.k, n);
+adjSubText(row, n);
+adjToast(n ? ('屏幕微调·' + cfg.name + ' 已设为 ' + n + 'px') : ('屏幕微调·' + cfg.name + ' 已恢复默认（0px）'));
+}, {
+inputmode: 'numeric',
+maxlength: 4,
+placeholder: cur ? ('当前 ' + cur + 'px，输入新偏移（0=恢复默认）') : '输入偏移像素（正/负整数，0=默认）',
+staticText: HINT
+});
 });
 });
 })();
@@ -42149,6 +42234,18 @@ if (!body) return;
 const G = 'xy-home-v2';
 const MSG_KEY = G + ':group-chat-msgs';
 const page = document.getElementById('page-group-chat');
+const gcLoadingEl = document.getElementById('gc-loading');
+let gcAuthPending = false; // 权威读库是否在途（切群/重进由 gcLoadSeq 作废旧等待）
+let gcLoadSeq = 0;
+function updateGcLoading() {
+if (!gcLoadingEl) return;
+gcLoadingEl.hidden = !(page && !page.hidden && gcAuthPending);
+}
+function gcLoadSettle(seq) {
+if (seq !== gcLoadSeq) return; // 已切群/重进：本次等待作废，由新一次 loadMsgs 管理
+gcAuthPending = false;
+updateGcLoading();
+}
 const input = document.getElementById('gc-input');
 const sendBtn = document.getElementById('gc-send');
 const backBtn = document.getElementById('gc-back');
@@ -42615,20 +42712,25 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('beforeunload', () => gFlushPersistNow());
 function loadMsgs() {
 const key = groupMsgKey(curGid);
+gcAuthPending = true;
+const seq = ++gcLoadSeq;
+updateGcLoading();
+setTimeout(function () { gcLoadSettle(seq); }, 12000); // 兜底：idbGet 迟迟不落定也不把进度条挂死
 try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { msgs = []; }
 if (!Array.isArray(msgs)) msgs = [];
 try {
 if (window.idbGet) {
 window.idbGet(key).then(v => {
 if (key !== groupMsgKey(curGid)) return;
-if (v === undefined || v === null) return;
+if (v === undefined || v === null) { gcLoadSettle(seq); return; }
 let a = null;
 if (Array.isArray(v)) a = v;
 else { try { const p = JSON.parse(v); if (Array.isArray(p)) a = p; } catch (e2) {} }
 if (a && a.length >= msgs.length) { msgs = a; renderAll(); }
-}).catch(() => {});
-}
-} catch (e) {}
+gcLoadSettle(seq); // #710：权威落定（合入或放弃）即收起进度条
+}).catch(() => { gcLoadSettle(seq); });
+} else { gcLoadSettle(seq); }
+} catch (e) { gcLoadSettle(seq); }
 }
 function fmtTime(ts) {
 const d = new Date(ts);
@@ -56574,7 +56676,6 @@ const pid = encodeURIComponent(String(id));
 const sources = [
 { url: 'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
 { url: 'https://api.injahow.cn/meting/?type=playlist&id=' + pid, parse: parseMetingPlaylist },
-{ url: 'https://api.i-meto.com/meting/api?server=netease&type=playlist&id=' + pid, parse: parseMetingPlaylist },
 { url: 'https://proxy.cors.sh/' + apiUrl, parse: parseOfficialPlaylist },
 { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl), parse: parseOfficialPlaylist }
 ];
@@ -56640,6 +56741,33 @@ done({ ok: true, added: added, skipped: skipped, vip: vip, miss: miss });
 if (addedIds.length) enrichImportedDurations(id, addedIds);
 });
 }
+function removeBatchVipSongs(tracks) {
+if (!tracks || !tracks.length) return;
+const vipIds = tracks.map(m => m.id);
+library = library.filter(x => vipIds.indexOf(x.id) < 0);
+if (currentId && vipIds.indexOf(currentId) >= 0) { teardownAudio(); currentId = null; updatePlayerBar(); renderLibrary(); }
+saveLibrary();
+renderPage();
+toast('已自动移除 ' + tracks.length + ' 首 VIP/付费歌曲（网页外链无法播放）');
+}
+function confirmVipViaMeting(id, cb) {
+let controller;
+try { controller = new AbortController(); } catch (e) { controller = null; }
+const timer = setTimeout(() => { try { controller && controller.abort(); } catch (e) {} }, 8000);
+fetch(neteaseMetingUrl(id), controller ? { signal: controller.signal } : undefined)
+.then(function (r) {
+clearTimeout(timer);
+var ct = '';
+try { ct = (r.headers && r.headers.get('content-type')) || ''; } catch (e) {}
+var free = !!(r.redirected || /^audio\//i.test(ct));
+setTimeout(function () {
+try { controller && controller.abort(); } catch (e) {}
+mochiSafeCancelBody(r);
+}, 0);
+cb(!free);
+})
+.catch(function () { clearTimeout(timer); cb(false); });
+}
 function enrichImportedDurations(id, trackIds) {
 const missing = trackIds.map(findTrack).filter(m => m && m.neteaseId && !m.duration);
 if (!missing.length) return;
@@ -56651,14 +56779,7 @@ if (any) { saveLibrary(); renderPage(); }
 }
 if (feeMap && Object.keys(feeMap).length) {
 const vipTracks = trackIds.map(findTrack).filter(m => m && m.neteaseId && (feeMap[m.neteaseId] === 1 || feeMap[m.neteaseId] === 4));
-if (vipTracks.length) {
-const vipIds = vipTracks.map(m => m.id);
-library = library.filter(x => vipIds.indexOf(x.id) < 0);
-if (currentId && vipIds.indexOf(currentId) >= 0) { teardownAudio(); currentId = null; updatePlayerBar(); renderLibrary(); }
-saveLibrary();
-renderPage();
-toast('已自动移除 ' + vipTracks.length + ' 首 VIP/付费歌曲（网页外链无法播放）');
-}
+removeBatchVipSongs(vipTracks); // #709：移除逻辑收敛到共享助手（meting 探测兜底同口径）
 }
 missing.forEach(m => { if (!m.duration) enqueueDurProbe(m); });
 });
@@ -56826,7 +56947,17 @@ tmp = new Audio();
 try { tmp.referrerPolicy = 'no-referrer'; } catch (e) {}
 tmp.preload = 'metadata';
 tmp.onloadedmetadata = function () { finish(tmp.duration || 0); };
-tmp.onerror = function () { finish(0); };
+tmp.onerror = function () {
+finish(0);
+if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id)) {
+m._vipChecked = true;
+confirmVipViaMeting(m.neteaseId, function (isVip) {
+if (!isVip) return;
+const mm = findTrack(m.id);
+if (mm) removeBatchVipSongs([mm]);
+});
+}
+};
 tmp.src = neteaseMetingUrl(m.neteaseId);
 } catch (e) { finish(0); }
 }
@@ -68618,7 +68749,7 @@ try { return store.get(k); } catch (e) { return null; }
 function gSet(k, v) {
 try { if (window.xyStore) window.xyStore(GNS).set(k, v); } catch (e) {}
 }
-function toast(msg) {
+function toast(msg, dur) {
 let t = document.getElementById('cc-toast');
 if (!t) {
 t = document.createElement('div');
@@ -68628,7 +68759,7 @@ document.body.appendChild(t);
 t.textContent = msg;
 t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
 clearTimeout(t._timer);
-t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
 }
 let kaCustomAudio = null;
 let kaCustomAudioName = '';
@@ -69276,7 +69407,8 @@ return kaWithTimeout(start(), 5000).catch(function () { return null; });
 let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
 window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
 let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
-function swNotifyLater(title, opts) {
+function swNotifyLater(title, opts, chanOut) {
+const note = function (ch) { lastNotifyChannel = ch; if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} } };
 if (swLaterTimer) return;
 if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
 let done = false;
@@ -69288,41 +69420,45 @@ finish();
 const o = Object.assign({}, opts);
 delete o.image; delete o.icon; delete o.badge;
 if (!o.urgency) o.urgency = 'high';
-try { reg.showNotification(title, o); lastNotifyChannel = 'sw'; } catch (e) {}
+try { reg.showNotification(title, o); note('sw'); } catch (e) {}
 }).catch(function () { finish(); });
 }
-function showSysNotification(title, opts) {
+function showSysNotification(title, opts, chanOut) {
 opts = opts || {};
+const note = function (ch) {
+lastNotifyChannel = ch;
+if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
+};
 return new Promise(function (resolve) {
 try {
-if (!('Notification' in window) || Notification.permission !== 'granted') { lastNotifyChannel = 'none'; resolve(false); return; }
+if (!('Notification' in window) || Notification.permission !== 'granted') { note('none'); resolve(false); return; }
 const hidden = document.visibilityState === 'hidden';
 const pageFallback = function () {
 const noMedia = Object.assign({}, opts);
 delete noMedia.image;
 delete noMedia.icon;
 delete noMedia.badge;
-lastNotifyChannel = 'page';
+note('page');
 try {
 new Notification(title, noMedia);
 resolve(!hidden);
-} catch (e) { lastNotifyChannel = 'none'; resolve(false); }
+} catch (e) { note('none'); resolve(false); }
 };
 if ('serviceWorker' in navigator && navigator.serviceWorker) {
 const swOpts = Object.assign({}, opts);
 if (!swOpts.urgency) swOpts.urgency = 'high';
 if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
 kaSWReady().then(function (reg) {
-if (!reg) { if (hidden) swNotifyLater(title, opts); pageFallback(); return; }
+if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }
 const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
 let ladderIdx = 0;
 const tryNext = function () {
-if (ladderIdx >= STRIP_LADDER.length) { lastNotifyChannel = 'none'; resolve(false); return; }
+if (ladderIdx >= STRIP_LADDER.length) { note('none'); resolve(false); return; }
 const attempt = Object.assign({}, swOpts);
 STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
 prepMediaBlobs(attempt, function () {
 kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
-.then(function () { lastNotifyChannel = 'sw'; resolve(true); }, tryNext);
+.then(function () { note('sw'); resolve(true); }, tryNext);
 });
 };
 tryNext();
@@ -69330,7 +69466,7 @@ tryNext();
 } else {
 pageFallback();
 }
-} catch (e) { lastNotifyChannel = 'none'; resolve(false); }
+} catch (e) { note('none'); resolve(false); }
 });
 }
 function requestNotifyPermission(cb, failCb) {
@@ -69531,23 +69667,31 @@ return;
 }
 try {
 const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
-showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }).then(function (ok) {
-const ch = (typeof window.bgNotifyLastChannel === 'function') ? window.bgNotifyLastChannel() : '';
-if (ch === 'sw') {
-env.push('✓ 测试通知已发送（Service Worker：后台关屏也能弹）');
-} else if (ch === 'page') {
+let testChan = '';
+let testSettled = false;
+showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
+testSettled = true;
+if (testChan === 'sw' && ok) {
+env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
+env.push('  屏幕上没看到？①下拉通知栏找「后台通知测试」；②系统设置→应用通知→本浏览器→允许通知＋悬浮横幅（小米/红米「悬浮通知」、vivo/OPPO「横幅通知＋锁屏显示」）；③省电策略勿限制本浏览器后台');
+} else if (testChan === 'page') {
 env.push(ok
 ? '✓ 测试通知已发送（页面通道：只在此页处于前台时显示）'
 : '! 未真正送达：Service Worker 未就绪，页面通道在后台会被系统抑制（稍后自动补发，或刷新页面重试）');
 } else {
-env.push('✗ 通知未受理：Service Worker 未就绪 / 权限或系统通知被禁（稍后重试或刷新页面）');
+env.push('✗ 测试通知提交失败：四级降级重发均被浏览器/系统拒绝（权限已允许仍被拒＝去系统设置→应用→本浏览器→通知查总开关；仍不行请带「诊断信息」反馈）');
 }
 const _mdN = (window.mochiDevice || {}).env || {};
-if (_mdN.notifyQuirk && ch === 'sw') {
+if (_mdN.notifyQuirk && testChan === 'sw') {
 env.push('悬浮开关：系统设置→通知管理→Chrome→通知类别/横幅通知→打开「在屏幕上方显示」');
 }
-toast('测试结果：\n' + env.join('\n'));
+toast('测试结果：\n' + env.join('\n'), 9000);
 });
+setTimeout(function () {
+if (testSettled) return;
+env.push('✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）——请用「诊断信息」一键反馈');
+toast('测试结果：\n' + env.join('\n'), 9000);
+}, 8000);
 } catch (e) {
 toast('发送失败：\n' + env.join('\n'));
 }
@@ -104192,6 +104336,7 @@ const HUB = [
 { n: '字卡锁（未成年人保护）', d: '防未成年人模式：内置字卡全锁定，二级验证密码解锁', k: '字卡锁 未成年人 保护 锁 密码 解锁', where: '开屏公告区的「内置字卡锁定」卡，点「输入密码解锁」' },
 { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
 { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
+{ n: '屏幕位置微调', d: '顶部/底部/页面高度三轴手动偏移（±80px），不同设备的屏幕错位自己调，本机永久保存', k: '屏幕 微调 位置 偏移 顶部 底部 页面高度 错位 悬空 遮挡 裁切 自己 调', go: ['#row-screen-adj-top'] },
 { n: '功能诊断', d: '逐个测试全部功能是否正常（约15秒）', k: '功能诊断 自检 测试', go: ['#row-func-diag'] },
 { n: '新手引导', d: '3 步上手：设置「我」和「TA」→ 添加字卡 → 开始聊天（含桌面 / 聊天两套昵称的区别；全新环境首次打开会自动弹一次）', k: '新手 引导 上手 教程 怎么开始 不会用 从哪开始 昵称 桌面 聊天', go: ['#row-guidebook'] },
 { n: '使用说明', d: '完整说明：快速开始 / 安装方式 / iPhone·iOS 限制 / 数据备份 / 常见问题', k: '使用说明 教程 帮助 安装 ios 限制 备份 常见问题', go: ['#row-guide'] },
@@ -104467,6 +104612,7 @@ var DESC = [
 { sel: '#safe-top-force', name: '顶部避让修正', d: 'iOS 专用修正：顶部「Mochi」行与手机系统时间重叠时开启；底部出现白带时关闭。\n默认：关闭（系统保留形态）。\n机制：改后会自动刷新页面生效。\n影响范围：全局，仅影响 iOS 顶部安全区避让。' },
 { sel: '#row-diagnostics', name: '设备兼容诊断', d: '采集本机设备与浏览器环境信息，一键复制发给开发者排障。\n机制：只读，不改动任何业务数据；有未读兼容错误时行上显示角标，点开即清零。\n很多「像 bug 的问题」其实是设备 / 浏览器限制（App 内置浏览器能力受限、国产浏览器没有通知能力、iOS 顶部状态栏藏不掉、浏览器「桌面版网站」模式让布局变形、系统省电杀掉后台等），逐条对照见 设置 → 关于 → 使用说明 第 12 节「设备与浏览器限制」；报修时请带上本行复制的信息。' },
 { sel: '#row-screen-diag', name: '屏幕适配诊断', d: '定位跨设备屏幕适配问题（顶部空白 / 底部裁切 / 缩放异常），生成可读报告与机读签名，可导出或复制。\n机制：只读；产生的诊断记录可在「查看存储」里清理。' },
+{ sel: '#row-screen-adj-top', name: '屏幕位置微调', d: '不同设备屏幕错位的手动修正：顶部（内容被状态栏遮挡/离太远）、底部（导航栏悬空/被手势条裁掉）、页面高度（底部留白/内容超出）三轴各 ±80px。\n机制：填像素偏移（正负整数，0=恢复默认），立即生效、存本机永久保存（跨桌面共用、换设备不跟随）；与「屏幕适配诊断」配合使用——先诊断看错多少 px，再来这里填对应偏移。' },
 { sel: '#row-func-diag', name: '功能诊断', d: '逐个测试全部功能入口 / 页面 / 图标能否正常打开与关闭（约 15 秒），自动判定「正常 / 需注意 / 异常」。\n机制：只读，测试期间会临时开合页面，不改业务数据。' },
 { sel: '#row-storage-view', name: '查看存储', d: '查看本地存储占用：按功能列出 localStorage 与 IndexedDB 的空间，并可定向清理诊断记录、本地音乐、同域其他站点等（不动业务数据）。\n也可从这里进入图片压缩。\n手机卡顿多是「存的东西太多」：字卡库大的话，这里能看清是谁在占地方。「字卡库瘦身」会把重复的图只留一份，明显腾出空间；「媒体池重建」是聊天里图片显示不出来时用来找回图片的，跟卡顿无关。' },
 { sel: '#row-img-compress', name: '压缩图片', d: '把历史遗留的偏大图片按「新上传」同标准重新压缩一遍，覆盖原图、不可撤销。\n默认：上传时已自动压缩，本项只处理旧图。\n机制：会跳过动图（GIF）、和聊天共用的图、以及本来就小的图。\n影响范围：字卡库与桌面美化等图片数据。\n大图片是手机（安卓 / iOS）卡顿与存储膨胀的主因之一；字卡库里的超大图片卡（单张超过 512KB）可在「字卡使用状态自检」里看到。' },
@@ -107855,6 +108001,67 @@ lastHeal: his
 } catch (e) { return null; }
 };
 })();
+(function () {
+var PFX = 'xy-home-v2:';
+var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h' };
+function loadAdj(k) {
+try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
+}
+var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h') };
+var el = document.documentElement;
+var st = el.style;
+var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
+var base = {};           // var 名 -> 系统基准 px（包装层缓存）
+var origSet = st.setProperty.bind(st);
+var origRemove = st.removeProperty.bind(st);
+var origGet = st.getPropertyValue.bind(st);
+function lsSet(k, v) { try { if (v) localStorage.setItem(PFX + KEYS[k], String(v)); else localStorage.removeItem(PFX + KEYS[k]); } catch (e) {} }
+function applyBottom() {
+try {
+if (adj.bottom) origSet('--mochi-safe-bottom', 'calc(env(safe-area-inset-bottom, 0px) + ' + adj.bottom + 'px)');
+else if (origGet('--mochi-safe-bottom').indexOf('calc(env(') === 0) origRemove('--mochi-safe-bottom');
+} catch (e) {}
+}
+function applyCached() {
+for (var n in base) {
+try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
+}
+applyBottom();
+}
+st.setProperty = function (n, v) {
+n = String(n).toLowerCase();
+if (NAMES[n] !== undefined) {
+var b = parseFloat(v); if (isNaN(b)) b = 0;
+base[n] = b;
+v = (b + adj[NAMES[n]]) + 'px';
+}
+return origSet(n, v);
+};
+st.removeProperty = function (n) {
+n = String(n).toLowerCase();
+if (NAMES[n] !== undefined) delete base[n];
+return origRemove(n);
+};
+st.getPropertyValue = function (n) {
+n = String(n).toLowerCase();
+if (NAMES[n] !== undefined && base[n] !== undefined) return (base[n] + adj[NAMES[n]]) + 'px';
+return origGet(n);
+};
+setInterval(applyBottom, 1000);
+applyCached();
+window.mochiScreenAdj = {
+all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h }; },
+set: function (k, v) {
+if (!(k in adj)) return false;
+v = parseInt(v, 10);
+if (isNaN(v) || v < -80 || v > 80) return false;
+adj[k] = v;
+lsSet(k, v || '');
+applyCached();
+return true;
+}
+};
+})();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 } catch (__e) { try { console.error("[JS] mobile-adapt.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mobile-adapt.js] " + String(__e && __e.message || __e)); } })();</script>
 
@@ -107878,4 +108085,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu5r6k9o -->
+<!-- __MOCHI_EOF__ mu63p59b -->

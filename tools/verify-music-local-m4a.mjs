@@ -17,8 +17,14 @@
 //   C1 播放对 MediaError.code=4 跳过徒劳重试并给「转成 mp3」精确提示（源码接线）
 //   C2 导入探测计数反馈 + 列表「放不了」徽标 + 真播放自愈清除（源码接线）
 //   C3 fetchNeteaseInfo 歌名识别首选 meting song 源（排在死代理抓页之前）
+//   C4 短链解析失败两处 toast 都不再静默（源码接线）
 //   D1 短链歌点播放＝解析失败时必须有 toast（不再静默返回）——stub 掉 fetch 强制解析失败，
 //      真实点击库内 163cn.tv 歌曲行，断言 #cc-toast 出现「解析失败」指引
+//   E1（#709）confirmVipViaMeting 行为断言（抽真实函数体＋stub fetch）：302→非 VIP；
+//      200+text/html→VIP；200+audio/*→非 VIP；fetch 拒绝（离线）→非 VIP（宁可不删）
+//   E2（#709）时长探测失败仅对 sm_pl_ 歌单批次二次确认＋_vipChecked 去重（源码接线）
+//   E3（#709）v6 fee 路径与探测兜底共用 removeBatchVipSongs（源码接线）
+//   E4（#709）已死 meting 镜像 api.i-meto.com 已从歌单源移除（401 刷「网络失败」日志）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -228,6 +234,46 @@ try {
   check('C4 短链解析失败两处 toast 都不再静默',
     mpSrc.indexOf('分享链接解析失败（解析服务受限）') >= 0 &&
     mpSrc.indexOf('网易云分享链接解析失败：先用浏览器打开这条链接') >= 0);
+
+  // ---- E（#709）：歌单导入 VIP 移除的 meting 兜底 ----
+  const metUrlFn = extractFn(mpSrc, 'neteaseMetingUrl');
+  const confVipFn = extractFn(mpSrc, 'confirmVipViaMeting');
+  check('E1.0 从 src 抽到 neteaseMetingUrl / confirmVipViaMeting 函数体', !!metUrlFn && !!confVipFn);
+  if (metUrlFn && confVipFn) {
+    // 注入 neteaseMetingUrl/mochiSafeCancelBody/fetch 后原样执行函数体（零改动）
+    const injected = new Function('neteaseMetingUrl', 'mochiSafeCancelBody', 'fetch',
+      'return (' + confVipFn.toString().replace(/^function confirmVipViaMeting\(id, cb\) \{/, 'function (id, cb) {') + ')');
+    const mkRes = (redirected, ct) => ({ redirected, headers: { get: () => ct }, body: null });
+    const cases = [
+      ['E1 302 跳转（免费歌）→ 非 VIP', Promise.resolve(mkRes(true, 'text/html')), false],
+      ['E1 200+text/html 无跳转（VIP/失效）→ VIP', Promise.resolve(mkRes(false, 'text/html')), true],
+      ['E1 200+audio/* 无跳转（直链音频）→ 非 VIP', Promise.resolve(mkRes(false, 'audio/mpeg')), false],
+      ['E1 fetch 拒绝（离线）→ 非 VIP（宁可不删）', Promise.reject(new Error('offline')), false],
+    ];
+    for (const [name, fetchP, want] of cases) {
+      let got = null, err = null;
+      try {
+        got = await new Promise((resolve) => {
+          let timer = setTimeout(() => resolve('超时未回调'), 4000);
+          try {
+            injected(metUrlFn, () => {}, () => fetchP)('12345', (isVip) => { clearTimeout(timer); resolve(isVip); });
+          } catch (e) { clearTimeout(timer); resolve('异常:' + e.message); }
+        });
+      } catch (e) { err = e.message; }
+      check(name, got === want, err ? ('异常:' + err) : ('got=' + JSON.stringify(got)));
+    }
+  }
+  check('E2 时长探测失败仅对 sm_pl_ 歌单批次二次确认＋_vipChecked 去重（源码接线）',
+    mpSrc.indexOf("if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id))") >= 0 &&
+    mpSrc.indexOf('confirmVipViaMeting(m.neteaseId') >= 0 &&
+    mpSrc.indexOf('removeBatchVipSongs([mm]') >= 0);
+  check('E3 v6 fee 路径与探测兜底共用 removeBatchVipSongs',
+    mpSrc.indexOf('removeBatchVipSongs(vipTracks)') >= 0 &&
+    mpSrc.indexOf('function removeBatchVipSongs(tracks)') >= 0);
+  check('E4 已死 meting 镜像 api.i-meto.com 已从歌单源移除（qijieya/injahow 仍在）',
+    mpSrc.indexOf('i-meto.com/meting/api') < 0 &&
+    mpSrc.indexOf('api.qijieya.cn/meting/?server=netease&type=playlist') >= 0 &&
+    mpSrc.indexOf('api.injahow.cn/meting/?type=playlist') >= 0);
 
   // D1 行为验证：stub 掉 fetch（强制所有解析代理瞬间失败）→ 真点库内短链歌 → 必须有 toast 指引
   const d1 = await evalJs(`(async function(){

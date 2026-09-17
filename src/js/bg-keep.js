@@ -19,7 +19,7 @@
   function gSet(k, v) {
     try { if (window.xyStore) window.xyStore(GNS).set(k, v); } catch (e) {}
   }
-  function toast(msg) {
+  function toast(msg, dur) {
     let t = document.getElementById('cc-toast');
     if (!t) {
       t = document.createElement('div');
@@ -29,7 +29,8 @@
     t.textContent = msg;
     t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
     clearTimeout(t._timer);
-    t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+    // #708 自检结果多行可读：支持自定义驻留（默认仍 2s）
+    t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
   }
 
   // ===== v3.44.x：保活音频可换（默认静音音频 / 用户上传自定义音频）=====
@@ -949,7 +950,9 @@
   let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
   window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
   let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
-  function swNotifyLater(title, opts) {
+  function swNotifyLater(title, opts, chanOut) {
+    // #708：补发通道同样按调用独立回报（与 showSysNotification 的 note 同口径）
+    const note = function (ch) { lastNotifyChannel = ch; if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} } };
     if (swLaterTimer) return;
     if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
     let done = false;
@@ -962,14 +965,21 @@
       // 补发求稳：媒体字段全不带——纯文字通知最不容易被内核/系统挑掉（错过一次就不再错过）
       delete o.image; delete o.icon; delete o.badge;
       if (!o.urgency) o.urgency = 'high';
-      try { reg.showNotification(title, o); lastNotifyChannel = 'sw'; } catch (e) {}
+      try { reg.showNotification(title, o); note('sw'); } catch (e) {}
     }).catch(function () { finish(); });
   }
-  function showSysNotification(title, opts) {
+  function showSysNotification(title, opts, chanOut) {
     opts = opts || {};
+    // #708 自检优化：通道回报支持「每次调用独立收集」——lastNotifyChannel 是全局共享，
+    // 真实消息/来电/测试谁后发谁写，自检读全局可能读到别的通知的通道＝结果串台。
+    // 各决策点改走 note()：全局语义不变，调用方第三参传回调即可拿到自己那一条的通道。
+    const note = function (ch) {
+      lastNotifyChannel = ch;
+      if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
+    };
     return new Promise(function (resolve) {
       try {
-        if (!('Notification' in window) || Notification.permission !== 'granted') { lastNotifyChannel = 'none'; resolve(false); return; }
+        if (!('Notification' in window) || Notification.permission !== 'granted') { note('none'); resolve(false); return; }
         const hidden = document.visibilityState === 'hidden';
         const pageFallback = function () {
           // SW 不可用回退页面路径：去掉 image/icon/badge（页面 Notification 对
@@ -978,12 +988,12 @@
           delete noMedia.image;
           delete noMedia.icon;
           delete noMedia.badge;
-          lastNotifyChannel = 'page';
+          note('page');
           try {
             new Notification(title, noMedia);
             // #673：隐藏态下页面通知被内核静默抑制，不算「已提交显示」
             resolve(!hidden);
-          } catch (e) { lastNotifyChannel = 'none'; resolve(false); }
+          } catch (e) { note('none'); resolve(false); }
         };
         if ('serviceWorker' in navigator && navigator.serviceWorker) {
           // v3.5.137：urgency:'high' 让通知以「高紧迫度」发送——Chrome 安卓上
@@ -1001,13 +1011,13 @@
           kaSWReady().then(function (reg) {
             // #673：SW 未就绪（被回收/弱网注册中）时先挂「就绪即补发」——隐藏态下
             // 页面通道根本不会显示，不补发就是整条丢；前台则直接走页面通道（可见即能弹）
-            if (!reg) { if (hidden) swNotifyLater(title, opts); pageFallback(); return; }
+            if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }
             // v3.14.x：逐级降级重发——带 image 失败 → 去 image；仍失败 → 去 badge；
             // 最后连 icon 也去掉只发纯文字。保证文字通知不因任一媒体字段异常整条丢失
             const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
             let ladderIdx = 0;
             const tryNext = function () {
-              if (ladderIdx >= STRIP_LADDER.length) { lastNotifyChannel = 'none'; resolve(false); return; }
+              if (ladderIdx >= STRIP_LADDER.length) { note('none'); resolve(false); return; }
               const attempt = Object.assign({}, swOpts);
               STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
               prepMediaBlobs(attempt, function () {
@@ -1015,7 +1025,7 @@
                 // #673：thunk 形式——同步 throw 也必须落进超时器的 reject 通道（原写法先求值，
                 //   异常直接穿透回调＝发送链卡死、降级重发不跑）
                 kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
-                  .then(function () { lastNotifyChannel = 'sw'; resolve(true); }, tryNext);
+                  .then(function () { note('sw'); resolve(true); }, tryNext);
               });
             };
             tryNext();
@@ -1023,7 +1033,7 @@
         } else {
           pageFallback();
         }
-      } catch (e) { lastNotifyChannel = 'none'; resolve(false); }
+      } catch (e) { note('none'); resolve(false); }
     });
   }
   // v3.5.114：请求权限（支持成功/失败回调）——失败时开关要弹回关闭，
@@ -1267,30 +1277,43 @@
         return;
       }
       // 环境 OK：真发一条测试通知（走 SW showNotification，页面隐藏也能显示）
+      // #708 自检优化（四轮通知回归 #614/#673/#675/#705 的教训——自检必须说真话、说准层、不装死）：
+      //   ①通道按本次调用独立收集（第三参回调），不再读全局 lastNotifyChannel——
+      //     它是共享变量，真实消息/来电谁后发谁写，自检可能读到别条通知的通道＝结果串台；
+      //   ②sw 成功＝「已真正提交系统显示」＋全机型「没弹出」三步引导（不再只提示小米系）；
+      //   ③四级降级全失败＝明确报「系统/内核拒绝」（权限已 granted 仍被拒＝查系统应用通知总开关），
+      //     不再误报成「SW 未就绪/权限被禁」（#705 期间自检正是这么指错层的）；
+      //   ④8 秒超时兜底：发送链若卡死不落定（#614「点测试没反应」形态），当场报
+      //     「发送链未落定·应用内故障」——自检自身不允许静默失效。
       try {
         const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
-        showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }).then(function (ok) {
-          // FIX 2026-09-17 #673：如实报告这次走了哪条通道——原实现不管走 SW 还是页面
-          //   回退都写「✓ 测试通知已发送（Service Worker）」，SW 未就绪时用户看到"已发送"
-          //   却什么都没弹（真机报障正是这一形态），诊断反而把故障层指错（#614 同族）。
-          const ch = (typeof window.bgNotifyLastChannel === 'function') ? window.bgNotifyLastChannel() : '';
-          if (ch === 'sw') {
-            env.push('✓ 测试通知已发送（Service Worker：后台关屏也能弹）');
-          } else if (ch === 'page') {
+        let testChan = '';
+        let testSettled = false;
+        showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
+          testSettled = true;
+          if (testChan === 'sw' && ok) {
+            env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
+            env.push('  屏幕上没看到？①下拉通知栏找「后台通知测试」；②系统设置→应用通知→本浏览器→允许通知＋悬浮横幅（小米/红米「悬浮通知」、vivo/OPPO「横幅通知＋锁屏显示」）；③省电策略勿限制本浏览器后台');
+          } else if (testChan === 'page') {
             env.push(ok
               ? '✓ 测试通知已发送（页面通道：只在此页处于前台时显示）'
               : '! 未真正送达：Service Worker 未就绪，页面通道在后台会被系统抑制（稍后自动补发，或刷新页面重试）');
           } else {
-            env.push('✗ 通知未受理：Service Worker 未就绪 / 权限或系统通知被禁（稍后重试或刷新页面）');
+            env.push('✗ 测试通知提交失败：四级降级重发均被浏览器/系统拒绝（权限已允许仍被拒＝去系统设置→应用→本浏览器→通知查总开关；仍不行请带「诊断信息」反馈）');
           }
           // 红米/小米：系统级通知可能拦截（API 不报错但通知不显示）
           // v3.26.x 收口第二批：UA 特判改读 device.js env.notifyQuirk（唯一嗅探处）
           const _mdN = (window.mochiDevice || {}).env || {};
-          if (_mdN.notifyQuirk && ch === 'sw') {
+          if (_mdN.notifyQuirk && testChan === 'sw') {
             env.push('悬浮开关：系统设置→通知管理→Chrome→通知类别/横幅通知→打开「在屏幕上方显示」');
           }
-          toast('测试结果：\n' + env.join('\n'));
+          toast('测试结果：\n' + env.join('\n'), 9000);
         });
+        setTimeout(function () {
+          if (testSettled) return;
+          env.push('✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）——请用「诊断信息」一键反馈');
+          toast('测试结果：\n' + env.join('\n'), 9000);
+        }, 8000);
       } catch (e) {
         toast('发送失败：\n' + env.join('\n'));
       }

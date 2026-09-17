@@ -121,6 +121,14 @@ t('T5 force 来电通知放行（共 2 条、标题=TA来电）', calls5.length 
 const errs = await ev('(window.__jsErrors&&window.__jsErrors.length)||0');
 t('T6 页面零 JS 异常', errs === 0, 'jsErrors=' + errs);
 
+// T7 自检按钮说真话（#708）：点击真实「测试」按钮 → 结果必须分层归因（SW 通道=「已真正提交系统显示」）
+//   且 8s 超时哨兵不误触（正常链路应在 8s 内出结果）
+await ev("document.getElementById('bg-notify-test') && document.getElementById('bg-notify-test').click()");
+let toastTxt = '';
+for (let i = 0; i < 18; i++) { await sleep(500); toastTxt = String(await ev("(function(){var t=document.getElementById('cc-toast'); return t?(t.textContent||''):'';})()")); if (toastTxt.indexOf('测试结果') >= 0) break; }
+t('T7a 自检报出真实通道（SW=已真正提交系统显示）', toastTxt.indexOf('已发送并真正提交系统显示') >= 0 && toastTxt.indexOf('Service Worker 通道') >= 0, toastTxt.split('\n')[0] + ' | len=' + toastTxt.length);
+t('T7b 超时哨兵不误触（正常链路不报「测试超时」）', toastTxt.indexOf('测试超时') < 0, '');
+
 try { chrome.kill(); } catch (e) {}
 server.close();
 const pass = results.filter(r => r.ok).length;

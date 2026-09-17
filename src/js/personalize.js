@@ -2252,10 +2252,12 @@ try {
             wrap.appendChild(mkSlider('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, 1, '%', 100, (v) => {
               document.documentElement.style.setProperty('--desk-font-scale', String(parseInt(v, 10) / 100));
               store.set('desk-font-size', v);
+              syncDeskZoomClass(); // #707：值≠1 才挂缩放类（见 applyDeskFontPct 同编号注释）
             }));
             wrap.appendChild(mkSlider('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, 1, '%', 100, (v) => {
               document.documentElement.style.setProperty('--desk-card-scale', String(parseInt(v, 10) / 100));
               store.set('desk-card-scale', v);
+              syncDeskZoomClass(); // #707
             }));
           } else {
             const nt = document.createElement('div');
@@ -4469,6 +4471,27 @@ try {
   document.addEventListener('contact-switched', applyDeskCsFont);
 
   // ===== v3.6.x：桌面字号（滑块 85~120%，默认 100%） =====
+  // FIX 2026-09-17 #707：桌面缩放类门控（单点实现，所有写值路径都要调它）——只有
+  // 「宽窗(>901px) 且非平板 且 缩放值≠1」才给 <html> 挂 desk-zoom-font / desk-zoom-card，
+  // home.css 里带这两个前缀的 zoom 声明才真正存在；其余形态（手机/平板/默认值）零
+  // zoom 声明。背景：Safari 18.2 起 WebKit 重写 zoom（标准化实现），官方自述该实现
+  // 「genuinely tricky」、26.4 仍在修其性能/继承缺陷，而 zoom:1 的声明本身就会让整个
+  // 桌面子树常年进 zoom 继承/布局路径（iOS 卡顿红线；真机 iPhone15ProMax 报「全局
+  // 滑动卡顿 + 翻页灰屏」，诊断 html 类带 tablet＝伪装 UA 误判走了非主流布局）。
+  // 视觉语义与旧版完全一致：旧版手机端 zoom 恒被 CSS 兜成 1（声明仍在、值被钉死）。
+  function syncDeskZoomClass() {
+    try {
+      const d = document.documentElement;
+      const wide = !!(window.matchMedia && window.matchMedia('(min-width: 901px)').matches);
+      const tab = !!(window.mochiDevice && window.mochiDevice.isTablet);
+      const fs = parseFloat(d.style.getPropertyValue('--desk-font-scale'));
+      const cs = parseFloat(d.style.getPropertyValue('--desk-card-scale'));
+      const onF = wide && !tab && fs > 0 && Math.abs(fs - 1) > 0.001;
+      const onC = wide && !tab && cs > 0 && Math.abs(cs - 1) > 0.001;
+      if (onF !== d.classList.contains('desk-zoom-font')) d.classList.toggle('desk-zoom-font', onF);
+      if (onC !== d.classList.contains('desk-zoom-card')) d.classList.toggle('desk-zoom-card', onC);
+    } catch (e) {}
+  }
   const deskFontRow = document.getElementById('row-desk-font-size');
   const deskFontVal = document.getElementById('desk-font-size-val');
   const DESK_FONT_DEFAULT = 100;
@@ -4480,6 +4503,7 @@ try {
   const applyDeskFontPct = (pct) => {
     document.documentElement.style.setProperty('--desk-font-scale', String(pct / 100));
     if (deskFontVal) deskFontVal.textContent = pct === DESK_FONT_DEFAULT ? '默认' : pct + '%';
+    syncDeskZoomClass();
   };
   applyDeskFontPct(getDeskFontPct());
   if (deskFontRow) {
@@ -4495,7 +4519,7 @@ try {
       }, {
         noInput: true,
         slider: { min: 85, max: 120, step: 1, value: current, label: '拖动调整桌面字号', unit: '%',
-          onChange: (val) => { document.documentElement.style.setProperty('--desk-font-scale', String(val / 100)); } },
+          onChange: (val) => { document.documentElement.style.setProperty('--desk-font-scale', String(val / 100)); syncDeskZoomClass(); } },
         pills: [{ label: '恢复默认', value: '__reset__' }],
       });
     });
@@ -4513,6 +4537,7 @@ try {
   const applyDeskCardPct = (pct) => {
     document.documentElement.style.setProperty('--desk-card-scale', String(pct / 100));
     if (deskCardVal) deskCardVal.textContent = pct === DESK_CARD_DEFAULT ? '默认' : pct + '%';
+    syncDeskZoomClass();
   };
   applyDeskCardPct(getDeskCardPct());
   if (deskCardRow) {
@@ -4528,7 +4553,7 @@ try {
       }, {
         noInput: true,
         slider: { min: 80, max: 120, step: 1, value: current, label: '拖动调整卡片大小', unit: '%',
-          onChange: (val) => { document.documentElement.style.setProperty('--desk-card-scale', String(val / 100)); } },
+          onChange: (val) => { document.documentElement.style.setProperty('--desk-card-scale', String(val / 100)); syncDeskZoomClass(); } },
         pills: [{ label: '恢复默认', value: '__reset__' }],
       });
     });
@@ -7291,6 +7316,56 @@ try {
         maxlength: 6,
         placeholder: cur ? ('当前 ' + cur + ' 天，输入新天数') : '输入目标天数',
         staticText: HINT
+      });
+    });
+  })();
+
+  // ===== v3.26.x #707：屏幕位置微调（设置 → 信息诊断，三行）=====
+  // 接线 template 三行（row-screen-adj-top/bottom/h）→ mobile-adapt.js 的 mochiScreenAdj
+  // （双层值包装，写入方无感）。openModal 单输入 ±80px 整数；0/清空=恢复默认。
+  // sub 文案里的「当前 Npx」随设置即时改写；偏移存根命名空间 LS，跨桌面共用。
+  (function () {
+    const ROWS = [
+      { id: 'row-screen-adj-top', k: 'top', name: '顶部', hint: '顶部内容被手机状态栏遮挡就填正数（往下移）、离得太远填负数（往上移）。', sign: '正=下移' },
+      { id: 'row-screen-adj-bottom', k: 'bottom', name: '底部', hint: '底部导航栏被手机手势条裁掉就填正数（往上移）、悬空离底太远填负数（往下移）。', sign: '正=上移' },
+      { id: 'row-screen-adj-h', k: 'h', name: '页面高度', hint: '页面底部有大片空白就填正数（撑满）、内容超出屏幕被裁就填负数（收短）。', sign: '正=变高' }
+    ];
+    function adjToast(msg) {
+      let t = document.getElementById('cc-toast');
+      if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+      t.textContent = msg;
+      t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2200);
+    }
+    function adjSubText(row, v) {
+      const sub = row.querySelector('.sub');
+      if (sub) sub.textContent = sub.textContent.replace(/当前 -?\d+px/, '当前 ' + v + 'px');
+    }
+    ROWS.forEach(function (cfg) {
+      const row = document.getElementById(cfg.id);
+      if (!row || typeof window.openModal !== 'function') return;
+      row.addEventListener('click', function () {
+        const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[cfg.k]) || 0;
+        const HINT = '当前' + cfg.name + '偏移 ' + cur + 'px。' + cfg.hint + '范围 -80~80 的整数（单位像素），填 0 或清空＝恢复默认。改完立即生效、本机永久保存；配合「屏幕适配诊断」核对效果。注意：这是你的本机手动修正，换设备不会跟着走，各设备各自调。';
+        const ctl = window.openModal('屏幕微调·' + cfg.name + '（' + cfg.sign + '）', cur ? String(cur) : '', function (v) {
+          const sv = String(v == null ? '' : v).trim();
+          let n = 0;
+          if (sv !== '') {
+            if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入 -80~80 的整数（单位像素）'); ctl.stay(); return; }
+            n = parseInt(sv, 10);
+            if (n < -80 || n > 80) { ctl.hint('范围是 -80~80，别填太大'); ctl.stay(); return; }
+          }
+          if (!window.mochiScreenAdj) { ctl.hint('微调层未就绪，请刷新后重试'); ctl.stay(); return; }
+          window.mochiScreenAdj.set(cfg.k, n);
+          adjSubText(row, n);
+          adjToast(n ? ('屏幕微调·' + cfg.name + ' 已设为 ' + n + 'px') : ('屏幕微调·' + cfg.name + ' 已恢复默认（0px）'));
+        }, {
+          inputmode: 'numeric',
+          maxlength: 4,
+          placeholder: cur ? ('当前 ' + cur + 'px，输入新偏移（0=恢复默认）') : '输入偏移像素（正/负整数，0=默认）',
+          staticText: HINT
+        });
       });
     });
   })();

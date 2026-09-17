@@ -87,7 +87,19 @@
     perfOn = true;
     const gaps = [];
     let last = 0;
+    // FIX 2026-09-17 #707：切后台/锁屏期间 rAF 冻结（或部分内核降到 1fps），恢复后的
+    // 第一帧会量出「整段后台时长」的巨帧——真机实测 60 帧样本里混进一条 144s 后台
+    // 间隙，把「平均 2543ms」整行拉成严重卡顿（p90 才是真实水平），报障判读被带偏。
+    // 现改为：隐藏帧只重置基线不记样本，恢复后重采；剔除条数随 hid 字段落键，
+    // 诊断【性能】一节据此标注「已剔除后台帧 N」。
+    let hid = 0;
     const tick = (now) => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        hid++;
+        last = 0;
+        requestAnimationFrame(tick);
+        return;
+      }
       if (last) gaps.push(now - last);
       last = now;
       if (gaps.length < PERF_FRAMES) { requestAnimationFrame(tick); return; }
@@ -96,7 +108,7 @@
       const sum = gaps.reduce((a, b) => a + b, 0);
       try {
         localStorage.setItem(PERF_KEY, JSON.stringify({
-          t: Date.now(), n: gaps.length,
+          t: Date.now(), n: gaps.length, hid: hid,
           mean: Math.round(sum / gaps.length),
           p90: Math.round(gaps[Math.floor(gaps.length * 0.9)]),
           worst: Math.round(gaps[gaps.length - 1]),

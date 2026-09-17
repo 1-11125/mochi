@@ -9,6 +9,20 @@
   const G = 'xy-home-v2';
   const MSG_KEY = G + ':group-chat-msgs';
   const page = document.getElementById('page-group-chat');
+  // #710：群聊记录加载进度条（与单聊 #chat-loading 同款样式类）——群消息大键 IDB 异步读库
+  // 期间消息区可能只有空 LS 快照甚至全空＝「进群白屏干等无反馈」。读库前置位、落定即收起。
+  const gcLoadingEl = document.getElementById('gc-loading');
+  let gcAuthPending = false; // 权威读库是否在途（切群/重进由 gcLoadSeq 作废旧等待）
+  let gcLoadSeq = 0;
+  function updateGcLoading() {
+    if (!gcLoadingEl) return;
+    gcLoadingEl.hidden = !(page && !page.hidden && gcAuthPending);
+  }
+  function gcLoadSettle(seq) {
+    if (seq !== gcLoadSeq) return; // 已切群/重进：本次等待作废，由新一次 loadMsgs 管理
+    gcAuthPending = false;
+    updateGcLoading();
+  }
   const input = document.getElementById('gc-input');
   const sendBtn = document.getElementById('gc-send');
   const backBtn = document.getElementById('gc-back');
@@ -567,6 +581,11 @@
   window.addEventListener('beforeunload', () => gFlushPersistNow());
   function loadMsgs() {
     const key = groupMsgKey(curGid);
+    // #710：读库前置位（口径同单聊 #703）——LS 同步 parse 前先让进度条就位；落定/切群即收
+    gcAuthPending = true;
+    const seq = ++gcLoadSeq;
+    updateGcLoading();
+    setTimeout(function () { gcLoadSettle(seq); }, 12000); // 兜底：idbGet 迟迟不落定也不把进度条挂死
     try { msgs = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { msgs = []; }
     if (!Array.isArray(msgs)) msgs = [];
     try {
@@ -576,15 +595,17 @@
           // key 不再是当前群的键就整包丢弃；否则旧群数据会覆盖当前群 msgs 并被下次
           // 保存回写进新群的存储键（A 群历史灌进 B 群）
           if (key !== groupMsgKey(curGid)) return;
-          if (v === undefined || v === null) return;
+          // #710：无权威数据（键不存在/读取超时兜底返回空）＝没有更多内容要等了，收起进度条
+          if (v === undefined || v === null) { gcLoadSettle(seq); return; }
           // #426：IDB 值双形态兼容——小记录为 JSON 字符串（与旧数据一致），大记录为数组直存
           let a = null;
           if (Array.isArray(v)) a = v;
           else { try { const p = JSON.parse(v); if (Array.isArray(p)) a = p; } catch (e2) {} }
           if (a && a.length >= msgs.length) { msgs = a; renderAll(); }
-        }).catch(() => {});
-      }
-    } catch (e) {}
+          gcLoadSettle(seq); // #710：权威落定（合入或放弃）即收起进度条
+        }).catch(() => { gcLoadSettle(seq); });
+      } else { gcLoadSettle(seq); }
+    } catch (e) { gcLoadSettle(seq); }
   }
 
   // ---- 渲染 ----
