@@ -85,13 +85,22 @@
   // 无模拟器外壳，竖屏/横屏观感一致）。
   // iPadOS 13+ 的 UA 伪装成 Macintosh（桌面 macOS UA + 触摸屏 maxTouchPoints>1），
   // 老系统 UA 带 iPad 关键字，两种都覆盖。
+  // FIX 2026-09-17 #698：Macintosh 伪装分支补「screen 短边 ≥600 CSS px」——iPhone 的
+  // Safari/Via 开「请求桌面网站」后 UA 同样变成 Macintosh（iPhone15ProMax 实测
+  // platform=MacIntel + maxTouchPoints=5 + screen=430×932，诊断「html 类:tablet、
+  // 判定依据:tablet」），原分支把这类手机整体判成平板走 .tablet 布局（全局
+  // touch-action 改写等一整套非主流路径）。真 iPad 伪装时 screen 短边最小 744
+  // （iPad mini）≥600 照常平板；触摸屏 Mac 短边 ≥982 不受影响；iPhone 全系
+  // （短边 ≤440）回到手机布局。注意 isIOS 的同款伪装分支不动——iPhone 本就是 iOS，
+  // 键盘/安全区/standalone 适配必须照走。
   let isTablet = false;
   try {
     const plat = String(navigator.platform || '');
     // v3.7.x：/iPad/ 分支加 Android 排除——UA 伪装成 iPad 的安卓窄屏机（OPPO/Via 等）
     //   会被误判为平板走手机全屏布局，内容整屏拉宽。真 iPad 不含 Android 关键字，安全
+    const _mScreen = Math.min((screen && screen.width) || 0, (screen && screen.height) || 0);
     isTablet = (/iPad/i.test(ua) || plat === 'iPad') && !/android/i.test(ua) ||
-      ((plat === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+      ((plat === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window && _mScreen >= 600);
     // #555：安卓平板判定——此前只认 iPad/Macintosh 触摸屏，安卓平板（荣耀平板/EC-PAD01
     // 等用户真实设备）竖屏被当手机全屏拉宽、横屏掉进桌面 390px 外壳。UA 特征：安卓平板
     // 无 Mobile 关键字（安卓手机 UA 恒带 Mobile），再加短边 ≥600 CSS px 双保险，防个别

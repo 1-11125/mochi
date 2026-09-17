@@ -120,7 +120,7 @@ async function seedAndLoad(seedExpr) {
 
 const POLLUTE = `(function(){
   var P='xy-home-v2:default:';
-  var quotes=['我偏爱你。','我只对你这样。','过来，让我抱一下。','别走，再陪我一会儿。','你是我的例外。','用户自己写的一句情话呀'];
+  var quotes=['我偏爱你','我只对你这样','过来，让我抱一下','别走，再陪我一会儿','你是我的例外','用户自己写的一句情话呀'];
   localStorage.setItem(P+'quote-cards', JSON.stringify(quotes.map(function(t){return {t:t}})));
   var places=['在家','在公司','在咖啡店','用户加的秘密基地'];
   localStorage.setItem(P+'checkin-cards-place', JSON.stringify(places.map(function(t){return {t:t}})));

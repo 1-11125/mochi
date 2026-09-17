@@ -216,12 +216,31 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-09-17 #697 群聊设置「美化聊天」升成独立顶部 tag + 完整美化（含边看边调）====
+  // 用户：「你要设置里的美化聊天功能没有在顶部变成单独tag，而且没有和聊天里一样的，完整的美化
+  // 功能包括边看边调功能。」（确认＝群聊设置面板）
+  { name: '#697a 群聊设置顶部 tag 含独立「美化」（删掉＝又退回「通用」下的一行，用户报障复发）', file: 'js/group-chat.js', needle: "['beauty', '美化']" },
+  { name: '#697b 切 tag 记忆 gcSetTab（删掉＝美化段里改一个值就整段重建弹回「形象」）', file: 'js/group-chat.js', needle: 'gcSetTab = tab.dataset.gt;' },
+  { name: '#697c 群聊美化「边看边调」抽屉（删掉 openGcBeautyDrawer＝群聊美化退回只能弹窗调、看不到效果）', file: 'js/group-chat.js', needle: 'function openGcBeautyDrawer() {' },
+  { name: '#697d 气泡透明度/栏位不透明度/位置微调五键默认值（删掉＝群聊比单聊少这三组，用户「完整的美化功能」诉求回退）', file: 'js/group-chat.js', needle: "'bubble-op': 100, 'head-op': 92, 'input-op': 92, 'head-inset': 0, 'input-inset': 0," },
+  { name: '#697e 气泡透明度→rgba 写回底色变量（删掉/改回直写 in-bg＝拖滑杆气泡颜色不变）', file: 'js/group-chat.js', needle: 'function gcApplyBubbleSurfaceWith(op) {' },
+  { name: '#697f 群聊页栏位底色/留白 CSS 作用域规则（删掉＝顶栏不透明度/位置微调无效果，且不许动 chat-main.css 共享规则）', file: 'css/group-chat.css', needle: '#page-group-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }' },
+  // #698（用户直派四项）哨兵——2026-09-17
+  { name: '#698a 群聊顶栏人数含我（删掉 +1＝顶栏/群列表人数又少了「我」，用户报「群聊人数里少了用户」）', file: 'js/group-chat.js', needle: 'const n = getMembers().length + 1;' },
+  { name: '#698b 点顶部群名不再打开切换群聊面板（删掉＝弹面板回流，用户「影响我使用，删掉」；needle=该监听里仅剩的触发继续说行，文件内唯一）', file: 'js/group-chat.js', needle: "if (gcCfg()['gc-cs-trigger-name'] === 1) gcCsFireContinue();" },
+  { name: '#698c 群聊头像/昵称互动池子（删掉 openInterPanel＝群聊又没有头像互动/昵称互动）', file: 'js/group-chat.js', needle: 'function openInterPanel(mode) {' },
+  { name: '#698c 互动池子存储键（删掉＝池子数据无处落盘，互动半框空壳）', file: 'js/group-chat.js', needle: "const INTER_KEYS = { av: 'gc-avpool', nick: 'gc-nickpool' };" },
+  { name: '#698d 群聊音效键走全局根命名空间（删掉 isGcKey 分流＝群聊音效跟随当前桌面/#643 开关，全局一套失效）', file: 'js/sfx.js', needle: 'function isGcKey(k) { return typeof k === \'string\' && k.indexOf(\'sfx-gc-\') === 0; }' },
+  { name: '#698d 群聊播放入口未设置回退单聊（删掉 playSfxGc＝群聊音效设置选了也不响/回退逻辑丢失）', file: 'js/sfx.js', needle: 'window.playSfxGc = function (type) {' },
+  { name: '#698d 音效设置页群聊两张卡片 DOM（删掉＝音效设置里又没有群聊）', file: 'template.html', needle: 'id="sfx-gcin-presets"' },
   { name: '聊天边看边调入口跟随主题色（写死浅紫＝用户「我原来是黑白风格」的配色错位复发；逻辑锚=主题色派生的淡底声明，chat-settings.js 内唯一）', file: 'js/chat-settings.js', needle: "-webkit-tap-highlight-color:transparent;flex-shrink:0';" },
   { name: '聊天边看边调开启胶囊用主题色实底（写死 #493478/#fff＝不跟随主题色复发）', file: 'js/chat-settings.js', needle: 'border:1px solid var(--btn-bg,#111);border-radius:999px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);white-space:nowrap">点击开启 ›</span>\';' },
   { name: '聊天桌面通知切回聊天头像：显式头像同步落值缓存', file: 'js/chat.js', needle: 'deskMsgAv.__avApplied = opts.av;' },
   { name: '#653a 查岗弹窗作答下标失效重定位（删掉＝弹窗→作答间隙 msgs 位移时回答被静默丢弃，聊天卡片不更新需再点一次，#653 报障根因；逻辑锚=重定位赋值行，chat.js 内唯一）', file: 'js/chat.js', needle: "if (_r && _r.special === 'ask-card' && _r.askStatus !== 'answered') { msgIdx = _i; rec = _r; break; }" },
   { name: '#653b ta-ask 包装层探针同款重定位（删掉＝错位下标下 deskCk 查岗卡被误写进「TA的询问」记录、askTs 取空）', file: 'js/ta-ask.js', needle: "const _fixedIdx = locateCardIdx(msgIdx, 'ask-card', 'askStatus');" },
   { name: '#650 多字卡拼接随机标点符号池（删掉/改回 join(\' \')＝六种拼接符全部失效退回纯空格，设置页「拼接符号」形同虚设；逻辑锚=省略号入池行，chat.js 内唯一）', file: 'js/chat.js', needle: "if (c['py-punct-el'] === 1) pool.push('......');" },
+  { name: '#694a 拼接符号六枚默认全开（改回 py-punct-per: 0＝句号默认又关掉，用户定稿「全部开启、自己选择开关某个」失效；逻辑锚=六键连写的默认值行，reply-settings.js 内唯一）', file: 'js/reply-settings.js', needle: "'py-punct-space': 1, 'py-punct-dou': 1, 'py-punct-per': 1, 'py-punct-ex': 1, 'py-punct-q': 1, 'py-punct-el': 1," },
+  { name: '#694b 拼接符号选中态压过 :hover（删掉/改回裸 .ppy-chip.sel＝点上去 :hover 常驻把选中底色换成浅灰，用户报「点开、点关都没有颜色变化」复发；逻辑锚=选中态 :hover 变体行，css/setting.css 内唯一）', file: 'css/setting.css', needle: '.ppy-chips .ppy-chip.sel:hover,' },
   { name: '夜间模式开关判定（开且落在 22:00–7:00）——删掉/改回恒真恒假＝设置里开了夜间模式也不生效', file: 'js/incoming-requests.js', needle: 'window.nightModeActive = function () { return nightModeEn() && isNightHours(); };' },
   { name: '夜间模式暂停跨桌面查岗/来电/求聊天（删掉 early return＝夜里其他桌面照常弹查岗/来电）', file: 'js/incoming-requests.js', needle: 'if (window.nightModeActive && window.nightModeActive()) return;' },
   { name: '夜间模式暂停联系人主动发消息（删掉＝夜里 TA 照常主动发消息，gate 失效）', file: 'js/chat.js', needle: "if (window.nightModeActive && window.nightModeActive()) { try { console.log('[mochi-auto] night mode, skip'); } catch(e){} return; }" },
@@ -1288,7 +1307,10 @@ const FIX_SENTINELS = [
   { name: '#345 撤回先掷签后投递·silent 接线（改回 silent: i > 0＝撤回消息重新弹通知、进聊天内容消失＝「刚主动发的消息被吞」回归）', file: 'js/chat.js', needle: 'silent: i > 0 || willRetract' },
   // ==== 2026-09-16 #556 回复链/拍一拍撤回先掷签（#345 同族收口②③，OPPO Reno6 5G 雨见 Firefox 报障「弹窗显示的字卡进聊天压根没有、是别的字卡（弹窗说早安、进聊只剩撤回墓碑+别的卡）」，用户明说多机型同现与设备无关；#550~#552 编号已被并行批次占用故顺延）：#345 只收口了 tryAutoSend，replyOnce（scheduleReply/continueChat/拍一拍追问共经）与 sendPoke 仍在 addIn 弹桌面横幅/系统通知后才掷 rc-prob——900ms 后 partialRetractMsg/retractMsg 撤回＝通知承诺的内容进聊天只剩墓碑/缺段＋同批其它字卡。修复：同 #345 投递前定生死，命中撤回的本条 silent 落地（不弹通知、不播音效、角标照增），900ms 后照常撤回，rc-refix 补发正常投递。行为断言 tools/verify-reply-retract-order.mjs 18 断言 ====
   { name: '#556 回复链撤回先掷签（replyOnce 掷签挪回 addIn 之前；删＝通知先弹再撤回吞内容＝「弹窗说的那句进聊天没有」回归）', file: 'js/chat.js', needle: "const willRetractR = hit(c['rc-prob'])" },
-  { name: '#556 拍一拍撤回先掷签·silent 接线（sendPoke 命中撤回必须静默落地；删 silent＝撤回消息重新弹通知＝同族回归）', file: 'js/chat.js', needle: 'addIn(r.text, { type: r.type, silent: willRetractP })' },
+  // 锚点 2026-09-17 收窄：并行批 #693 在同一行追加 tag/tagNoDup（多字卡回复来源 chip）后原整行
+  // needle 失配变哑哨兵——改取「命中撤回才可能出现的 silent 入参」半段（chat.js 内 willRetractP
+  // 仅此处一处），#693 的 tag 增删都不影响本锚，删 silent＝本锚立即消失。
+  { name: '#556 拍一拍撤回先掷签·silent 接线（sendPoke 命中撤回必须静默落地；删 silent＝撤回消息重新弹通知＝同族回归）', file: 'js/chat.js', needle: 'silent: willRetractP,' },
   // ==== 2026-09-12 #346 拍卖会余缺陷批（用户「全部修复」）：结算后开🎒回不去汇总／转赠无确认易误触／寄到时背包列表 data-i 错位可能送错件／余额不足出价键静默置灰／TA掂量中返回文案误报／音效开关不记忆／矮屏(横屏)半框 68% 太挤。行为断言 tools/verify-auction-overlay.mjs G 组 ====
   { name: '#346 结算汇总 showSummary 独立成函数（内联回 endSession＝结算被🎒覆盖后回不去本场汇总）', file: 'js/auction.js', needle: 'function showSummary() {' },
   { name: '#346 转赠走全站 openModal 确认（删＝点「送TA」立即移出不可撤回＝误触丢拍品）', file: 'js/auction.js', needle: '送出后不可撤回。' },
@@ -1482,6 +1504,24 @@ const FIX_SENTINELS = [
   { name: '#406 挂起双写拆开（删则 LS 配额满一抛整块中止、IDB 也不写＝通知照发回前台什么也没有）', file: 'js/call.js', needle: 'window.idbSet(CALL_HOLD_KEY, h);' },
   { name: '#406 回前台/冷启动挂起回读 IDB 兜底（删则 LS 配额满时挂起只落 IDB、回前台读不到＝无弹窗也无未接）', file: 'js/call.js', needle: 'window.idbGet(CALL_HOLD_KEY)' },
   { name: '#406 后台来电重响补首发系统消息（删/改回 !isReplay 则后台触发来电聊天里永远没有来电系统消息）', file: 'js/call.js', needle: '(!isReplay || !msgWritten) && window.chatAddSystem' },
+  // ==== 2026-09-17 #699 刷新后通话没续上、也没补「通话中断」记录（多机型，用户直派）——saveCallActive 里 sessionStorage 与 localStorage 双写同处一个 try，存储亚健康机型（LS 配额满 QuotaExceededError 同 #406 实锤 / 隐私模式 / WebView 禁用 sessionStorage）第一句一抛整块中止，call-active 一份都没落盘＝recoverCall 读不到任何标记，通话不续也不记；且该标记从没写 IDB（call-hold #406 补了、call-active 漏了）。修复=①三路写入拆开各吃各的 try＋追加 IDB 副本；②recoverCall 回读链 sessionStorage→localStorage→IDB；③clearCallActive 写 {ts:0} 墓碑防 idbRestore 幽灵回填；④IDB 副本卡 10 分钟新鲜度窗（同 #120/callInProgress 口径），防数天后翻旧通话 ====
+  { name: '#699a call-active 三路写入拆开＋IDB 副本（删/并回同一 try 则存储亚健康机型一抛全丢＝刷新后通话不续也不记）', file: 'js/call.js', needle: 'window.idbSet(CALL_ACTIVE_KEY, JSON.parse(payload))' },
+  { name: '#699b clearCallActive 写 {ts:0} 墓碑（删则 idbRestore 用 IDB 旧值回填出幽灵标记）', file: 'js/call.js', needle: 'window.idbSet(CALL_ACTIVE_KEY, { ts: 0 })' },
+  { name: '#699c recoverCall 回读链补 IDB 兜底（删则两路 LS 都没写成时永远读不回）', file: 'js/call.js', needle: "recoverProcess(ih, 'idb')" },
+  // ==== 2026-09-17 #700 音乐：本地上传 m4a「导入一直不成功/无法播放」+ 网易云分享链接「导进去但无法播放」（荣耀X50i/Edge 实报、多机型同现，用户直派）——
+  //      实测：短链歌本身免费可播（injahow 302→https CDN），坏在 163cn.tv 解析环节——proxy.cors.sh 域名失联/allorigins 超时＝全机型一致解析必败，且解析失败后导入与播放双双静默返回＝「点播放毫无反应」；
+  //      fetchNeteaseInfo 歌名识别全押死代理→歌名停在「网易云音乐-数字」；本地 m4a 导入时 tmp 探测 onerror（加密格式/ALAC 编码解不动）代码不看不报、播放双路白试 8s 只给笼统提示；面板说明「先下载成音频文件再传」与事实不符（App 下载的多带加密）＝用户指「说明有错误」。
+  //      修复=短链解析失败两处给可执行指引不再静默；歌名识别首选 meting type=song（CORS 开放、实测存活）；本地上传文件头 MIME 嗅探＋探测反馈（probeFail 徽标+toast 计数+onplay 自愈）＋MediaError.code=4 跳过徒劳 dataURL 重试给「转 mp3」精确提示（其余失败 blob↔dataURL 互备原样保留，不碰永恒/夸克兜底）；说明三处纠错 ====
+  { name: '#700a 本地文件 MIME 嗅探链（删则 m4a/安卓空 type 一律标 audio/mpeg，严格内核拒载回归）', file: 'js/music-player.js', needle: "sniffAudioMime(buf) || file.type || mimeFromName(file.name) || 'audio/mpeg'" },
+  { name: '#700b 导入时探测解不动的文件即计数（删则顶着「已上传」成功提示反复重传回归）', file: 'js/music-player.js', needle: 'probeBad++;' },
+  { name: '#700c 列表「放不了」徽标接线（删则用户看不出哪首是解不动的文件）', file: 'js/music-player.js', needle: "m.probeFail ? '<span class=\"sm-src sm-src-bad\">放不了</span>'" },
+  { name: '#700d 真播放成功自愈清 probeFail（删则探测误报永不消失）', file: 'js/music-player.js', needle: 'delete m.probeFail; saveLibrary(); renderLibrary();' },
+  { name: '#700e MediaError.code=4 跳过徒劳 dataURL 重试＋精确提示（删回则加密/ALAC 文件白等 8 秒只剩笼统报错；其余失败路径仍互备不受影响）', file: 'js/music-player.js', needle: '放不了这个文件：编码不被本机浏览器支持' },
+  { name: '#700f 短链播放时解析失败不再静默返回（删则点播放毫无反应＝主诉回归）', file: 'js/music-player.js', needle: '分享链接解析失败（解析服务受限）' },
+  { name: '#700g 短链导入时解析失败不再静默（删则短链原样入库毫无提示回归）', file: 'js/music-player.js', needle: '网易云分享链接解析失败：先用浏览器打开这条链接' },
+  { name: '#700h 歌名识别首选 meting song 接口（删回死代理抓页链路则歌名全停在「网易云音乐-数字」）', file: 'js/music-player.js', needle: 'meting/?server=netease&type=song&id=' },
+  { name: '#700i 功能介绍页「上传音乐只认不加密的标准音频」说明（删则加密文件放不出又被当网站 bug）', file: 'template.html', needle: '上传音乐只认不加密的标准音频' },
+  { name: '#700j 「放不了」徽标样式（删则徽标无色不可辨）', file: 'css/chat-pages.css', needle: '.sm-src-bad' },
   // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
@@ -2366,10 +2406,21 @@ const FIX_SENTINELS = [
   { name: '#581b 放大后位移+缩放表达式（改回只 object-position＝正方形原图放大后无法移动，用户「移动按钮里图片的位置」诉求落空）', file: 'js/personalize.js', needle: "translate(' + tx + '%, ' + ty + '%) scale(" },
   { name: '#581h 位移方向与「壁纸定位/object-position」同口径（负号：值大＝看更靠右/靠下的一段；改回正号＝同一根滑杆在放大前后把画面推向相反一侧，用户会觉得「位置滑杆时灵时不灵」）', file: 'js/personalize.js', needle: 'const tx = -Math.round(((x - 50) / 50) * ((z - 100) / 2) * 100) / 100;' },
   { name: '#581c 边看边调抽屉补批量上传图标图片入口（删＝用户报的「边看边调里缺少批量上传按钮」复发）', file: 'js/personalize.js', needle: '批量上传桌面图标图片（可多选）' },
-  { name: '#581d 「调整图片位置」待选标记（删＝从抽屉/设置页进去后点图标不开位置面板，只弹普通图标菜单）', file: 'js/personalize.js', needle: 'if (window.__iconAdjustPick) { openIconFitPanel(app); return; }' },
+  { name: '#581d 「调整图片位置」待选标记（删＝从抽屉/设置页进去后点图标不开位置面板，只弹普通图标菜单；逻辑锚=待选分支里有图才开面板那一行）', file: 'js/personalize.js', needle: "if (app && app.dataset.app && store.get('app-icon-' + app.dataset.app)) { openIconFitPanel(app); return; }" },
   { name: '#581e 设置页「调整图标图片位置」行（删＝该功能在设置页无入口，只能靠装修模式摸到）', file: 'template.html', needle: 'id="row-icon-fit"' },
   { name: '#581f 位置面板登记进 FLOAT_SELECTORS（删＝面板打开时底层桌面仍可滑动，与抽屉 #527n 同族）', file: 'js/mobile-adapt.js', needle: "'#beauty-drawer', '#icon-fit-panel'];" },
   { name: '#581g 功能大全补「调整图标图片位置」条目（删＝搜「图标 位置」找不到该功能）', file: 'js/feature-hub.js', needle: "{ n: '调整图标图片位置'," },
+  // ==== 2026-09-17 #696 装修模式「点桌面图标上传图片」失效（用户直派：「桌面的边看边调功能，不能
+  // 上传单个图标的图片」「原装修模式点击桌面图标上传图片失效了」）。根因＝#581 的「调整图片位置」待选
+  // 标记 __iconAdjustPick 悬空：走到「没有自定义图片」的图标时 openIconFitPanel 早退、标记没消费，
+  // 此后每次点图标都被劫持（有图弹位置面板 / 无图只弹提示），图标菜单不再出现、整会话不自愈。
+  // 三条逻辑锚分别锁定「消费标记后才分支」「退出装修收掉挂起状态」「边看边调补单个上传入口」。
+  // ⚠️ 多行 needle 必须按**压缩后的样子**写（minifyJs 去行首缩进）：续行前面不能带源码缩进，
+  // 否则 src 里能命中（哑哨兵体检放过多行针）、产物里永远命中不了＝构建恒定报缺失（实测踩过）。
+  // 行为断言 tools/verify-icon-img-fit.mjs（F1~F7）====
+  { name: '#696a 待选标记先消费再分支（改回先转 openIconFitPanel＝无图图标让它早退，标记悬空把之后每次点图标都劫持进位置面板，「点图标上传图片失效」复发）', file: 'js/personalize.js', needle: "window.__iconAdjustPick = false;\nif (app && app.dataset.app && store.get('app-icon-' + app.dataset.app)) { openIconFitPanel(app); return; }" },
+  { name: '#696b 退出装修收掉挂起标记与位置面板（删＝点了「调整图片位置」没点图标就退出，标记留到下次进装修，那次点图标弹的是位置面板）', file: 'js/personalize.js', needle: "window.__iconAdjustPick = false;\nconst fitPanelEl = document.getElementById('icon-fit-panel');" },
+  { name: '#696c 边看边调「图标」分区补单个上传入口（删＝抽屉里只有批量与调整位置，用户报的「边看边调不能上传单个图标的图片」复发）', file: 'js/personalize.js', needle: "mkAct('上传单个图标图片（点图标）'" },
   // ==== #588 卡顿/误判为 bug 的性能批（gift-shop 每件一次 JSON.parse / records 关心页 O(n²) / garden 空花园无提示）====
   // 行为断言 tools/verify-jank-batch2.mjs（RED=1 内联还原三处旧形态，断言逐条转红）
   { name: '#588a TA 心愿 id 集合记忆化入口（删＝giftItemHtml 每件礼物重解析一次心愿单，302 件＝302 次 JSON.parse）', file: 'js/gift-shop.js', needle: 'function taWishIds() {' },
@@ -2801,6 +2852,8 @@ const FIX_SENTINELS = [
   { name: '#679e 已有自带三行数据入口的功能页不重复注入（删掉＝聊天设置/信箱/朋友圈里出现两套导出导入清空）', file: 'js/feature-data.js', needle: 'if (!f.page || f.btns) return;' },
   { name: '#679g 功能页显示时重算数据量（删掉＝加了数据后卡上还显示旧项数/旧体积，计数谎报）', file: 'js/feature-data.js', needle: "attributeFilter: ['hidden'], subtree: true" },
   { name: '#679h 重算按「功能登记的 page」匹配页面 id（误写成 f.id 比较＝重算永不触发，卡上计数长期停在陈旧值）', file: 'js/feature-data.js', needle: 'if (!f.page || f.page !== pageEl.id) return;' },
+  { name: '#679i 容器被功能模块整块重写后补挂数据卡（删掉＝打开「我的档案」等页时卡被 innerHTML 冲掉，用户根本看不到入口；实测 #myarc-root 每次打开都重建）', file: 'js/feature-data.js', needle: 'if (!host.isConnected || host.querySelector(\'[data-fbar="\' + f.id + \'"]\')) return;' },
+  { name: '#679j 消息列表型页面不注入数据卡（删掉 gc 跳过＝卡混进群聊消息流、每次渲染被重建，且可能干扰贴底）', file: 'js/feature-data.js', needle: 'var FD_SKIP = { room: 1, gc: 1 };' },
   { name: '#679f 功能页数据卡样式类（删掉＝卡内按钮裸排无布局，挤压原功能页内容）', file: 'css/feature-data.css', needle: '.fd-fbar { margin:10px 12px; padding:12px 14px; }' },
   // #678 通话中仍被跨桌面来电打扰（OPPO Reno6 5G + 雨见浏览器，明说多机型）：跨桌面来电调度
   //   只看了 layerBusy() 的 #call-mask，通话最小化到小框后该层是 hidden，且浮层让路上限到期会
@@ -2875,6 +2928,14 @@ const FIX_SENTINELS = [
   { name: '#691h 模式键进全局根键 EXCLUDE（删掉＝被 migrateLegacy 迁进 default 桌面并删根键，开关刷新后失效）', file: 'js/contacts.js', needle: "'chat-textcard-direct'," },
   { name: '#691i 面板内切换按钮显隐＝只跟文字分类、且插入模式按调用方开口径（删掉/改成常显＝表情包图片分类与写信插入模式也多出个没用的按钮）', file: 'js/chat.js', needle: "emojiTextModeBar.hidden = emojiCat === 'sticker' || !!(emojiInsertCb && !emojiTextModeApplies);" },
   { name: '#691j 面板内切换按钮写同一个全局键（漏写＝面板里切了、聊天设置/群聊读到的还是旧模式）', file: 'js/chat.js', needle: "window.xyStore(MYE_G_PREFIX).set(TEXTCARD_DIRECT_KEY, en ? '1' : '0');" },
+  // ===== #695（2026-09-17 用户直派）：此间【去找TA】跨桌面直达聊天的卡顿
+  //   主页这一帧从未被绘制（setActiveContact 尾部显示 → enterChat 立刻盖掉），旧实现仍把
+  //   卡片背景/页面背景整批重新解码应用。下述四条是「延后 + 主页显示前补跑」的接线，
+  //   删掉任一条即退回「点一下卡住」（逻辑锚=调用/观察语句，personalize.js 内各自唯一）。
+  { name: '#695a buildDeskPages 的整页背景重应用走 whenDeskVisible 门（删掉＝切桌面直达聊天时又同步重解码整屏页面背景）', file: 'js/personalize.js', needle: 'whenDeskVisible(applyPageBgs);' },
+  { name: '#695b 切桌面综合监听器的桌面视觉重应用走门、壁纸 UI（设置页）仍当场同步（删掉＝同步卡顿复发／整条延后＝设置页读到旧桌面的壁纸预设）', file: 'js/personalize.js', needle: 'if (whenDeskVisible(refreshDeskVisuals)) { try { syncBgUI(); } catch (e) {} }' },
+  { name: '#695c 直读兜底（rescueDeskVisuals）结算后的重应用同口径走门（删掉＝聊天页出现后 400ms 左右又整屏重解码一次）', file: 'js/personalize.js', needle: 'const done = () => { if (!refreshed) { refreshed = true; try { whenDeskVisible(refreshDeskVisuals); } catch (e) {} } };' },
+  { name: '#695d 主页显示前的补跑触发器＝盯 #page-phone 的 hidden 变化（删掉/改坏＝待办永不补跑，跨桌面直达聊天后回主页看到上一桌面的背景与头像）', file: 'js/personalize.js', needle: "deskVisualWatch.observe(home, { attributes: true, attributeFilter: ['hidden'] });" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -169,7 +169,7 @@ check('B2 关闭一张查岗预设卡后系统预设总和 -1（' + before + ' �
 await loadApp(`(function(){
   localStorage.clear(); try{indexedDB.deleteDatabase('mochi-db')}catch(e){};
   var P='xy-home-v2:default:';
-  var quotes=['我偏爱你。','我只对你这样。','用户自己写的一句情话呀'];
+  var quotes=['我偏爱你','我只对你这样','用户自己写的一句情话呀'];
   localStorage.setItem(P+'quote-cards', JSON.stringify(quotes.map(function(t){return {t:t}})));
   var places=['在家','在公司','用户加的秘密基地'];
   localStorage.setItem(P+'checkin-cards-place', JSON.stringify(places.map(function(t){return {t:t}})));

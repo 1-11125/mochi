@@ -141,6 +141,10 @@
     // v3.28.x：对齐聊天美化——气泡边缘圆角 / 时间轴颜色 / 正在输入颜色
     'bubble-radius': '18px', 'time-ink': '#111111', 'typing-ink': '#8a8a8a',
     'av-shape': 'circle', 'time-style': 'under-av',
+    // FIX 2026-09-17 #697：对齐聊天美化——气泡底色不透明度 / 栏位不透明度 / 栏位位置微调
+    // （用户：「群聊设置里的美化聊天没有和聊天里一样完整的美化功能」——单聊 #655/#673 有
+    //  这三组，群聊只有颜色/字号/圆角；默认值与单聊 CHAT_SURFACE_SETTINGS 一致）
+    'bubble-op': 100, 'head-op': 92, 'input-op': 92, 'head-inset': 0, 'input-inset': 0,
     'bg': '', 'font': '', 'css': '',
     // v3.16.x：成员群聊昵称显示开关（on = 成员消息头像上方显示昵称，默认不显示）
     'show-name': 'off'
@@ -205,6 +209,38 @@
     return GC_BEAUTY_DEFAULTS[k];
   }
   function gcBeautySave() { try { gcBeautyStore().set('gc-beauty', JSON.stringify(gcBeautyStored)); } catch (e) {} }
+  // FIX 2026-09-17 #697：气泡底色 → rgba（气泡透明度用；与单聊 _csHexRgb 同口径）。
+  // 认不出（rgba()/变量/关键字）时返回 null，调用方原样落色，绝不把颜色改坏。
+  function gcHexRgb(c) {
+    const s = String(c === undefined || c === null ? '' : c).trim();
+    let m = /^#([0-9a-f]{3})$/i.exec(s);
+    if (m) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16)];
+    m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)];
+    return null;
+  }
+  function gcClampNum(v, min, max, def) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return def;
+    return Math.max(min, Math.min(max, Math.round(n)));
+  }
+  // 气泡底色（含透明度）：op<100 时转 rgba 写进 --msg-in-bg/--msg-out-bg（群聊页无对比度守卫，
+  // 直接改底色变量与单聊 --cs-in-surface 等效；op=100 时保持纯色，CSS 自定义背景仍可覆盖）
+  function gcApplyBubbleSurfaceWith(op) {
+    const page = document.getElementById('page-group-chat');
+    if (!page) return;
+    const o = gcClampNum(op, 0, 100, 100);
+    const surf = (color) => {
+      if (o >= 100) return color;
+      const rgb = gcHexRgb(color);
+      return rgb ? 'rgba(' + rgb.join(',') + ',' + (o / 100) + ')' : color;
+    };
+    page.style.setProperty('--msg-in-bg', surf(gcBeautyGet('in-bg')));
+    page.style.setProperty('--msg-out-bg', surf(gcBeautyGet('out-bg')));
+  }
+  function gcApplyBubbleSurface() {
+    gcApplyBubbleSurfaceWith(gcBeautyGet('bubble-op'));
+  }
   // 设置（空值/默认值 → 删除键）；应用 + 刷新设置面板回显
   function gcBeautySet(k, v) {
     const def = GC_BEAUTY_DEFAULTS[k];
@@ -217,12 +253,17 @@
     try { if (settingsPanel && !settingsPanel.hidden) renderSettingsPanel(); } catch (e) {}
   }
   // 群聊页局部字体（不污染全局 body/html）
+  let gcFontApplied = null;
   function applyGcFont() {
     const page = document.getElementById('page-group-chat');
+    const v = gcBeautyGet('font');
+    // FIX 2026-09-17 #697：值没变不重建 @font-face——上传字体是 dataURL（可达数 MB），
+    // 边看边调拖滑杆时 applyGcBeauty 每次输入都调用本函数，重建＝每帧重解析整份字体
+    if (v === gcFontApplied && (!v || document.getElementById('gc-font-style'))) return;
+    gcFontApplied = v;
     const old = document.getElementById('gc-font-style');
     if (old) old.remove();
     if (page) page.style.fontFamily = '';
-    const v = gcBeautyGet('font');
     if (!v) return;
     if (v.indexOf('data:') === 0) {
       const st = document.createElement('style');
@@ -262,10 +303,10 @@
     const page = document.getElementById('page-group-chat');
     if (!page) return;
     const g = gcBeautyGet;
-    page.style.setProperty('--msg-in-bg', g('in-bg'));
     page.style.setProperty('--msg-in-ink', g('in-ink'));
-    page.style.setProperty('--msg-out-bg', g('out-bg'));
     page.style.setProperty('--msg-out-ink', g('out-ink'));
+    // FIX 2026-09-17 #697：气泡底色经「气泡透明度」处理后写入（默认 100% ＝纯色，行为不变）
+    gcApplyBubbleSurface();
     page.style.setProperty('--chat-font-size', g('font-size'));
     page.style.setProperty('--chat-bubble-pad', g('bubble-size'));
     // v3.28.x：对齐聊天美化——气泡边缘圆角 / 时间轴颜色 / 正在输入颜色
@@ -275,6 +316,12 @@
     page.style.setProperty('--send-bg', g('send-bg'));
     page.style.setProperty('--send-ink', g('send-ink'));
     page.style.setProperty('--msg-av-radius', g('av-shape') === 'square' ? '10px' : '50%');
+    // FIX 2026-09-17 #697：栏位不透明度 / 位置微调（与单聊 #655 同款 --cs-* 局部变量，
+    // CSS 规则在 group-chat.css 按 #page-group-chat 作用域接管，不动 chat-main.css 共享规则）
+    page.style.setProperty('--cs-head-opacity', String(gcClampNum(g('head-op'), 0, 100, 92) / 100));
+    page.style.setProperty('--cs-input-opacity', String(gcClampNum(g('input-op'), 0, 100, 92) / 100));
+    page.style.setProperty('--cs-head-inset', gcClampNum(g('head-inset'), 0, 80, 0) + 'px');
+    page.style.setProperty('--cs-input-inset', gcClampNum(g('input-inset'), 0, 80, 0) + 'px');
     const sendBtn = document.getElementById('gc-send');
     if (sendBtn) sendBtn.style.display = g('send-show') === 'hide' ? 'none' : '';
     // 时间轴样式：page 级类（始终挂类，含默认 under-av 的还原规则，隔离聊天页 body 级类）
@@ -1007,7 +1054,7 @@
     saveMsgs();
     renderMsg(rec);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     if (input) { input.textContent = ''; try { input._gcLastTyped = ''; } catch (e2) {} } // #401 清空同步作废快照（程序化清空不派发 input 事件，防幻影重发）
     gcDraftImgs = [];
     renderGcDraft();
@@ -1023,7 +1070,7 @@
     saveMsgs();
     renderMsg(rec);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('in');
+    if (window.playSfxGc) window.playSfxGc('in'); // #698d：走群聊专属音效（未设置回退单聊）
   }
   function gcIsVisible() {
     const p = document.getElementById('page-group-chat');
@@ -1071,7 +1118,7 @@
     saveMsgs();
     renderMsg(rec);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     // 表情不带文字，无 @提及，成员按概率随机回复
     scheduleReply('');
   }
@@ -1085,7 +1132,7 @@
     saveMsgs();
     renderMsg(rec);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     scheduleReply('');
   }
   // v3.26.x #691：颜文字/emoji 填入群聊输入栏（与聊天页同一个模式开关；尾部追加，不清空已打的字）。
@@ -1313,7 +1360,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       saveMsgs();
       renderMsg(rec, msgs.length - 1);
       followGcBottom();
-      if (sfx && window.playSfx) window.playSfx(sfx);
+      if (sfx && window.playSfxGc) window.playSfxGc(sfx);
       return msgs.length - 1;
     }
     try {
@@ -1531,7 +1578,9 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   // ---- 进入/退出 ----
   function updateGroupName() {
     const g = currentGroup();
-    const n = getMembers().length;
+    // #698a：人数含我——getMembers() 只列联系人成员，「我」也是群成员，+1（与成员面板里
+    // 「我」那行对齐；单聊顶栏无人数不受影响）
+    const n = getMembers().length + 1;
     const nm = (g && g.name) ? g.name : '群聊';
     if (nameEl) nameEl.textContent = nm + '(' + n + ')';
   }
@@ -1656,15 +1705,172 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     refreshGroupViews();
     toast('已移除成员');
   }
-  // 点击群名标题 → 打开群聊列表面板（切换 / 新建 / 删除群聊；群成员入口在三点菜单）
-  // #676：回复设置→群聊「点顶部昵称触发」开启（gc-cs-trigger-name，默认开）时，点群名
-  // 先触发一轮「让对方继续说」再打开列表面板（与聊天页点昵称触发继续说同语义）；
-  // 开启后切换群聊走右上角三点菜单「切换群聊」，面板入口不受影响。
+  // 点击群名标题：#698b（用户直派「点顶部群聊昵称会打开切换群聊页面，影响使用，删掉」）——
+  // 不再打开群聊列表面板；切换/新建/删除群聊走右上角三点菜单「切换群聊」（入口不变）。
+  // #676 的「点顶部昵称触发一轮继续说」保留（那是该点击的既定语义，弹面板才是被投诉点）。
   if (nameEl) nameEl.addEventListener('click', () => {
     if (gcCfg()['gc-cs-trigger-name'] === 1) gcCsFireContinue();
-    renderGroupsPanel();
-    if (groupsPanel) groupsPanel.hidden = false;
   });
+
+  // ---- #698c：头像互动 / 昵称互动（用户直派「群聊没有头像互动和昵称互动」） ----
+  // 对齐单聊 avatar-lib 的核心交互：池子存多条（头像=dataURL 已压缩 / 昵称=文字），
+  // 点池子条目＝立即换成该目标的群聊形象（写 gc-profiles，与设置面板手工设置同一路径），
+  // 并发一条「×× 更换了头像/昵称」系统消息。池子按目标（我 / 各成员）分开存，
+  // 全局键 xy-home-v2:gc-avpool / gc-nickpool（群聊形象本就全局，不随桌面隔离）。
+  // 与单聊的差异（刻意从简）：不做 1-8 小时定时随机更换与邀请弹窗（那套机制绑定
+  // 单聊 cs-avatar-* 键与桌面计时器），群聊版先做「池子 + 点击即换 + 随机换一个」。
+  const interPanel = document.getElementById('gc-inter-panel');
+  const interBody = document.getElementById('gc-inter-body');
+  const interTitle = document.getElementById('gc-inter-title');
+  const interClose = document.getElementById('gc-inter-close');
+  let interMode = 'av';   // 'av' 头像池 | 'nick' 昵称池
+  let interTarget = 'me'; // 'me' | <cid>
+  const INTER_KEYS = { av: 'gc-avpool', nick: 'gc-nickpool' };
+  function interPoolLoad() {
+    try {
+      const v = JSON.parse(gcProfileStore().get(INTER_KEYS[interMode]) || '{}');
+      return (v && typeof v === 'object') ? v : {};
+    } catch (e) { return {}; }
+  }
+  function interPoolSave(map) {
+    try { gcProfileStore().set(INTER_KEYS[interMode], JSON.stringify(map)); } catch (e) {}
+  }
+  function interTargets() { return ['me'].concat(getMembers().map(m => m.id)); }
+  function interCurVal(key) {
+    const p = gcProfileGet(key);
+    return interMode === 'av' ? (p.avatar || '') : (p.name || '');
+  }
+  // 换形象后的系统消息（居中样式，复用拍一拍/决定结果那路渲染；不响音效）
+  function gcInterSys(text) {
+    try {
+      const rec = { side: 'in', cid: 'system', name: '系统', text: text, ts: Date.now(), special: 'system' };
+      msgs.push(rec); saveMsgs(); renderMsg(rec); followGcBottom(true);
+    } catch (e) {}
+  }
+  function interApply(data) {
+    if (!data) return;
+    if (interMode === 'av') gcProfileSet(interTarget, undefined, data);
+    else gcProfileSet(interTarget, data, undefined);
+    const who = interTarget === 'me' ? myName() : memberName(interTarget);
+    gcInterSys(who + (interMode === 'av' ? ' 更换了头像' : ' 更换了昵称'));
+    renderInterPanel();
+  }
+  function renderInterPanel() {
+    if (!interBody) return;
+    if (interTitle) interTitle.textContent = interMode === 'av' ? '头像互动' : '昵称互动';
+    interBody.innerHTML = '';
+    // —— 换谁（目标 pills）——
+    const pills = document.createElement('div');
+    pills.className = 'gc-inter-pills';
+    interTargets().forEach(key => {
+      const b = document.createElement('button');
+      b.className = 'gc-inter-pill' + (key === interTarget ? ' on' : '');
+      b.textContent = key === 'me' ? myName() : memberName(key);
+      b.addEventListener('click', () => { interTarget = key; renderInterPanel(); });
+      pills.appendChild(b);
+    });
+    interBody.appendChild(pills);
+    const hint = document.createElement('div');
+    hint.className = 'gc-inter-hint';
+    hint.textContent = interMode === 'av'
+      ? '点一张头像＝立即换成 TA 的群聊头像；先选上方目标再点。'
+      : '点一个昵称＝立即换成 TA 的群聊昵称；先选上方目标再点。';
+    interBody.appendChild(hint);
+    // —— 池子 ——
+    const map = interPoolLoad();
+    const list = Array.isArray(map[interTarget]) ? map[interTarget] : [];
+    const curVal = interCurVal(interTarget);
+    const grid = document.createElement('div');
+    grid.className = interMode === 'av' ? 'gc-inter-grid' : 'gc-inter-grid nick';
+    list.forEach((data, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'gc-inter-cell' + (data === curVal ? ' cur' : '');
+      if (interMode === 'av') {
+        const av = document.createElement('div');
+        av.className = 'gc-inter-av';
+        fillAv(av, data);
+        cell.appendChild(av);
+      } else {
+        const nm = document.createElement('span');
+        nm.className = 'gc-inter-nick';
+        nm.textContent = data;
+        cell.appendChild(nm);
+      }
+      const del = document.createElement('button');
+      del.className = 'gc-inter-del';
+      del.textContent = '✕';
+      del.title = '从池子里删除';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        list.splice(i, 1);
+        if (!list.length) delete map[interTarget]; else map[interTarget] = list;
+        interPoolSave(map);
+        renderInterPanel();
+      });
+      cell.appendChild(del);
+      cell.addEventListener('click', () => interApply(data));
+      grid.appendChild(cell);
+    });
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'gc-inter-hint';
+      empty.textContent = interMode === 'av' ? '池子还是空的，先「上传头像」加几张。' : '池子还是空的，先「添加昵称」加几个。';
+      grid.appendChild(empty);
+    }
+    interBody.appendChild(grid);
+    // —— 操作行：添加 / 随机换一个 ——
+    const ops = document.createElement('div');
+    ops.className = 'gc-inter-ops';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'gc-set-btn';
+    addBtn.textContent = interMode === 'av' ? '上传头像' : '添加昵称';
+    addBtn.addEventListener('click', () => {
+      if (interMode === 'av') {
+        pickAvatarFile((data) => {
+          if (!data) return;
+          const m2 = interPoolLoad();
+          const l2 = Array.isArray(m2[interTarget]) ? m2[interTarget] : [];
+          if (l2.indexOf(data) >= 0) { toast('这张头像已在池子里'); return; }
+          l2.push(data);
+          m2[interTarget] = l2;
+          interPoolSave(m2);
+          renderInterPanel();
+          toast('已加入头像池');
+        });
+      } else {
+        if (!window.openModal) return;
+        window.openModal('添加昵称', '', (v) => {
+          const t = (v == null ? '' : String(v)).replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u206A-\u206F\uFEFF\u180E]/g, '').trim().slice(0, 30);
+          if (!t) { toast('昵称不能为空'); return; }
+          const m2 = interPoolLoad();
+          const l2 = Array.isArray(m2[interTarget]) ? m2[interTarget] : [];
+          if (l2.indexOf(t) >= 0) { toast('这个昵称已在池子里'); return; }
+          l2.push(t);
+          m2[interTarget] = l2;
+          interPoolSave(m2);
+          renderInterPanel();
+        }, { maxlength: 30 });
+      }
+    });
+    const randBtn = document.createElement('button');
+    randBtn.className = 'gc-set-btn';
+    randBtn.textContent = '随机换一个';
+    randBtn.addEventListener('click', () => {
+      const l2 = (Array.isArray(map[interTarget]) ? map[interTarget] : []).filter(x => x !== curVal);
+      if (!l2.length) { toast('池子里没有别的可换了'); return; }
+      interApply(l2[Math.floor(Math.random() * l2.length)]);
+    });
+    ops.appendChild(addBtn);
+    ops.appendChild(randBtn);
+    interBody.appendChild(ops);
+  }
+  function openInterPanel(mode) {
+    interMode = mode || interMode;
+    if (interTargets().indexOf(interTarget) < 0) interTarget = 'me';
+    renderInterPanel();
+    if (interPanel) interPanel.hidden = false;
+  }
+  if (interClose) interClose.addEventListener('click', () => { if (interPanel) interPanel.hidden = true; });
   if (membersClose) membersClose.addEventListener('click', () => { if (membersPanel) membersPanel.hidden = true; });
 
   // ---- 群聊列表面板（v3.26.x：切换 / 新建 / 删除群聊） ----
@@ -1682,7 +1888,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
             : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.4 3.8 5.5 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.5-3.8-9S9.5 5.4 12 3z"/></svg>') +
         '</div>' +
         '<span class="gc-mp-name">' + escapeHtml(g.name) +
-          '<span class="gc-mp-sub">成员 ' + n + ' 人' + (g.id === 'default' ? ' · 全部联系人' : '') + '</span></span>' +
+          '<span class="gc-mp-sub">成员 ' + (n + 1) + ' 人' + (g.id === 'default' ? ' · 全部联系人' : '') + '</span></span>' +
         (g.id === curGid ? '<span class="gc-mp-tag gc-gp-cur">当前</span>' : '') +
         (g.id !== 'default' ? '<button class="gc-set-btn ghost gc-gp-del">删除</button>' : '');
       const delBtn = row.querySelector('.gc-gp-del');
@@ -1921,8 +2127,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     };
     input.click();
   }
-  // 渲染设置面板：主视图（我的群聊 + 成员群聊形象 + 美化入口） / 美化视图（同聊天设置的美化行）
+  // 渲染设置面板：主视图（顶部 tag：形象/回复/美化/通用/数据） / 美化子视图（#376 旧入口，保留）
   let gcBeautyView = false;
+  // FIX 2026-09-17 #697：记住当前顶部 tag——美化段的控件改一下就走 gcBeautySet → renderSettingsPanel
+  // 整段重建，不复位就会把用户弹回「形象」（单聊设置页同款处理：只重画不换 tab）
+  let gcSetTab = 'profile';
   function setPanelTitle(t) {
     try {
       const h = settingsPanel && settingsPanel.querySelector('.gc-set-head span');
@@ -1941,26 +2150,33 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const esc = escapeHtml;
     // v3.29.x：顶部 tag 分类（形象/回复/通用/数据）——复用全站 .them-tabs/.them-tab 观感
     //（暗色随变量适配），点击互斥显隐对应 .gc-set-sec 段；默认「形象」。
+    // FIX 2026-09-17 #697：「美化聊天」由「通用」下的子视图升成独立顶部 tag（用户：「美化聊天功能
+    // 没有在顶部变成单独tag」）——美化段内容复用 renderBeautyView(host)，控件改一下整段重建时按
+    // gcSetTab 复位，不弹回「形象」；「通用」里那一行保留为快捷入口（点它切到美化 tag，不再进子视图）
     const tabsRow = document.createElement('div');
     tabsRow.className = 'them-tabs gc-set-tabs';
-    const GTABS = [['profile', '形象'], ['reply', '回复'], ['general', '通用'], ['data', '数据']];
-    tabsRow.innerHTML = GTABS.map((t, i) =>
-      '<div class="them-tab' + (i === 0 ? ' active' : '') + '" data-gt="' + t[0] + '">' + t[1] + '</div>').join('');
+    const GTABS = [['profile', '形象'], ['reply', '回复'], ['beauty', '美化'], ['general', '通用'], ['data', '数据']];
+    if (!GTABS.some(t => t[0] === gcSetTab)) gcSetTab = 'profile';
+    tabsRow.innerHTML = GTABS.map(t =>
+      '<div class="them-tab' + (t[0] === gcSetTab ? ' active' : '') + '" data-gt="' + t[0] + '">' + t[1] + '</div>').join('');
     settingsBody.appendChild(tabsRow);
     const secs = {};
-    GTABS.forEach((t, i) => {
+    GTABS.forEach(t => {
       const s = document.createElement('div');
       s.className = 'gc-set-sec';
       s.dataset.gt = t[0];
-      if (i !== 0) s.hidden = true;
+      if (t[0] !== gcSetTab) s.hidden = true;
       settingsBody.appendChild(s);
       secs[t[0]] = s;
     });
     tabsRow.addEventListener('click', (e) => {
       const tab = e.target.closest('.them-tab');
       if (!tab) return;
+      gcSetTab = tab.dataset.gt;
       tabsRow.querySelectorAll('.them-tab').forEach(x => x.classList.toggle('active', x === tab));
       GTABS.forEach(t => { secs[t[0]].hidden = (t[0] !== tab.dataset.gt); });
+      // 美化段按需渲染：首屏按默认 tag 建视图，切过来时才第一次画（改值重建由本函数末尾统一处理）
+      if (gcSetTab === 'beauty' && !secs.beauty.innerHTML) renderBeautyView(secs.beauty);
     });
     // 各段写入指针：sec('x') 后续 appendChild 落到对应 tag 段
     let curSec = null;
@@ -2055,6 +2271,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       const p = gcProfileGet(m.id);
       (curSec||settingsBody).appendChild(item(m.id, p.name || '', p.avatar || '', deskPartnerName(m.id)));
     });
+    // —— #698c 头像互动/昵称互动入口（池子管理半框） ——
+    const interRow = document.createElement('div');
+    interRow.className = 'gc-set-ops';
+    interRow.innerHTML = '<button class="gc-set-btn" data-inter="av">头像互动</button>' +
+      '<button class="gc-set-btn" data-inter="nick">昵称互动</button>';
+    interRow.querySelector('[data-inter="av"]').addEventListener('click', () => openInterPanel('av'));
+    interRow.querySelector('[data-inter="nick"]').addEventListener('click', () => openInterPanel('nick'));
+    (curSec||settingsBody).appendChild(interRow);
     // —— 成员昵称显示（v3.16.x：是否在消息头像上方显示群聊昵称） ——
     const nmRow = beautyRow('成员昵称显示', gcBeautyGet('show-name') === 'on' ? '头像上方显示' : '不显示', () => {
       pickGcPills('show-name', '成员昵称显示', [
@@ -2289,6 +2513,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     note.className = 'gc-set-note';
     note.textContent = '成员回复内容来自：公用字卡 + 该成员桌面专属字卡 + 系统默认字卡；某成员桌面关闭【聊天使用】，聊天和群聊里这个成员都不再使用系统默认字卡。';
     (curSec||settingsBody).appendChild(note);
+    // FIX 2026-09-17 #697：美化 tag 段——选中时才渲染（面板每次重建都重画一次，取值始终最新）
+    if (gcSetTab === 'beauty') renderBeautyView(secs.beauty);
   }
 
   // 主设置视图行（成员昵称显示等）：纯文字行，与美化视图的 set-row 图标行分开
@@ -2302,14 +2528,18 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   // ================= 美化视图（#288 重设计：对齐聊天设置页观感——gs-title 分组标题 +
   // set-group.glass 玻璃卡片 + set-row 图标行，样式类全站通用/暗色随变量适配；
   // 行类保留 gc-set-row、.txt 仅放行名，供 verify-gc-color / verify-gc-settings 按文本点行） =================
-  function renderBeautyView() {
+  // FIX 2026-09-17 #697：host 参数——传「美化」tag 段时渲染进段里（带返回条的子视图模式仍可传空）
+  function renderBeautyView(host) {
     const g = gcBeautyGet;
-    // 返回主设置
-    const back = document.createElement('div');
-    back.className = 'gc-set-back';
-    back.innerHTML = '<span class="arr">‹</span> 返回群聊设置';
-    back.addEventListener('click', () => { gcBeautyView = false; renderSettingsPanel(); });
-    settingsBody.appendChild(back);
+    const rootEl = host || settingsBody;
+    if (!host) {
+      // 返回主设置（仅子视图模式；tag 模式靠顶部标签切回）
+      const back = document.createElement('div');
+      back.className = 'gc-set-back';
+      back.innerHTML = '<span class="arr">‹</span> 返回群聊设置';
+      back.addEventListener('click', () => { gcBeautyView = false; renderSettingsPanel(); });
+      settingsBody.appendChild(back);
+    }
     const svgIco = (p) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
     const ICO = {
       bg: svgIco('<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/>'),
@@ -2335,20 +2565,31 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       const ttl = document.createElement('div');
       ttl.className = 'gs-title';
       ttl.textContent = t;
-      settingsBody.appendChild(ttl);
+      rootEl.appendChild(ttl);
       curGroup = document.createElement('div');
       curGroup.className = 'set-group glass';
-      settingsBody.appendChild(curGroup);
+      rootEl.appendChild(curGroup);
     };
     const add = (label, val, fn, ico) => {
       const row = document.createElement('div');
       row.className = 'set-row gc-set-row';
       row.innerHTML = '<div class="ico">' + (ico || '') + '</div><span class="txt">' + escapeHtml(label) + '</span><span class="val">' + escapeHtml(val) + '</span>';
       row.addEventListener('click', fn);
-      (curGroup || settingsBody).appendChild(row);
+      (curGroup || rootEl).appendChild(row);
       return row;
     };
     const bgLabel = (v, def) => v === def ? '默认 ' + def : v;
+    // FIX 2026-09-17 #697：边看边调入口（与单聊 #673 同款，配色跟随主题色 var(--btn-bg)）
+    const liveBtn = document.createElement('button');
+    liveBtn.type = 'button';
+    liveBtn.id = 'gc-live-adjust';
+    liveBtn.style.cssText = 'display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:10px 12px 0;padding:11px 14px;border:1px solid var(--btn-bg,#111);border-radius:12px;background:color-mix(in srgb, var(--btn-bg,#111) 10%, transparent);color:var(--ink,#111);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0';
+    liveBtn.innerHTML = '<span style="flex:1;min-width:0">' +
+      '<span style="display:block;font-size:15px;font-weight:700;line-height:1.25">边看边调</span>' +
+      '<span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：群聊在上、控件在下，改哪看哪、即时生效</span>' +
+      '</span><span style="flex:none;font-size:12px;font-weight:700;padding:7px 10px;border:1px solid var(--btn-bg,#111);border-radius:999px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);white-space:nowrap">点击开启 ›</span>';
+    liveBtn.addEventListener('click', openGcBeautyDrawer);
+    rootEl.insertBefore(liveBtn, rootEl.firstChild);
     // —— 壁纸 ——
     gtitle('壁纸');
     add('聊天壁纸', g('bg') ? '已设置' : '未设置', () => pickGcWallpaper(), ICO.bg);
@@ -2359,6 +2600,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     add('我的消息文字颜色', bgLabel(g('out-ink'), '#ffffff'), () => pickGcColor('out-ink', '我的消息文字颜色', gcInkSwatches()), ICO.ink);
     add('联系人气泡颜色', bgLabel(g('in-bg'), '#ffffff'), () => pickGcColor('in-bg', '联系人气泡颜色', GC_BUBBLE_BG), ICO.palette);
     add('联系人消息文字颜色', bgLabel(g('in-ink'), '#111111'), () => pickGcColor('in-ink', '联系人消息文字颜色', gcInkSwatches()), ICO.ink);
+    // FIX 2026-09-17 #697：气泡底色不透明度（对齐单聊「聊天气泡透明度」）
+    add('气泡透明度', gcClampNum(g('bubble-op'), 0, 100, 100) + '%', () => pickGcSlider('bubble-op', '聊天气泡透明度', '只调气泡底色，文字始终清晰', 0, 100, '%'), ICO.eye);
+    // FIX 2026-09-17 #697：栏位不透明度 / 位置微调（对齐单聊「顶栏/底栏与气泡透明」组）
+    gtitle('顶栏 / 底栏');
+    add('顶栏不透明度', gcClampNum(g('head-op'), 0, 100, 92) + '%', () => pickGcSlider('head-op', '顶栏不透明度', '0% 全透明、100% 不透明，文字按钮不变淡', 0, 100, '%', '--cs-head-opacity'), ICO.sendbar);
+    add('底栏不透明度', gcClampNum(g('input-op'), 0, 100, 92) + '%', () => pickGcSlider('input-op', '输入栏不透明度', '0% 全透明、100% 不透明，文字按钮不变淡', 0, 100, '%', '--cs-input-opacity'), ICO.sendbar);
+    add('顶栏下移', gcClampNum(g('head-inset'), 0, 80, 0) + 'px', () => pickGcSlider('head-inset', '顶栏向下移动', '留白参与布局，消息区随之缩短', 0, 80, 'px', '--cs-head-inset'), ICO.clock);
+    add('底栏上移', gcClampNum(g('input-inset'), 0, 80, 0) + 'px', () => pickGcSlider('input-inset', '底栏向上移动', '留白参与布局，消息区随之缩短', 0, 80, 'px', '--cs-input-inset'), ICO.clock);
     // —— 发送按钮 ——
     gtitle('发送按钮');
     add('发送按钮显示/隐藏', g('send-show') === 'hide' ? '隐藏' : '显示', () => pickGcPills('send-show', '显示发送按钮', [
@@ -2409,6 +2658,30 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     if (!window.openModal) return;
     window.openModal(title, '', (v) => { if (v) gcBeautySet(key, v); }, {
       pills: pills, pill: gcBeautyGet(key) || def, noInput: true
+    });
+  }
+  // FIX 2026-09-17 #697：栏位/气泡数值滑杆（0-100% 或 0-80px）。
+  // 拖动即时预览（onChange 直接写页面变量/重算 rgba），点「应用」才落库（同 pickGcBubbleRadius 口径）
+  function pickGcSlider(key, title, label, min, max, unit, cssVar) {
+    if (!window.openModal) return;
+    const page = document.getElementById('page-group-chat');
+    const def = GC_BEAUTY_DEFAULTS[key];
+    const cur = gcClampNum(gcBeautyGet(key), min, max, gcClampNum(def, min, max, min));
+    const preview = (n) => {
+      if (!page) return;
+      if (key === 'bubble-op') { gcApplyBubbleSurfaceWith(n); return; }
+      if (!cssVar) return;
+      page.style.setProperty(cssVar, unit === '%' ? String(n / 100) : n + 'px');
+    };
+    window.openModal(title, '', (v) => {
+      gcBeautySet(key, gcClampNum(v, min, max, cur));
+    }, {
+      noInput: true,
+      slider: {
+        min: min, max: max, step: 1, value: cur,
+        label: label, unit: unit, preview: true,
+        onChange: (val) => preview(gcClampNum(val, min, max, cur))
+      }
     });
   }
   // 群聊壁纸上传（同聊天设置：按物理像素上限压缩）
@@ -2563,12 +2836,338 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     });
   }
 
+  // ================= v3.34.x #697：群聊美化「边看边调」（对齐单聊 #673 / 桌面 #527） =================
+  // 用户：「群聊设置里的美化聊天……没有和聊天里一样的完整美化功能包括边看边调」。
+  // 形态与单聊 openChatBeautyDrawer 逐字同款：关掉设置面板（群聊页露出来）→ 底部半透明抽屉
+  // （40vh 上限、可收起）→ 控件即时写 gc-beauty 并 applyGcBeauty，改哪看哪、无「确定/取消」。
+  // 刻意不加 backdrop-filter（AGENTS.md 的 iOS 卡顿红线）。
+  function gcDrawerEl() {
+    let d = document.getElementById('gc-beauty-drawer');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'gc-beauty-drawer';
+      document.body.appendChild(d);
+      d.addEventListener('click', (e) => e.stopPropagation());
+    }
+    return d;
+  }
+  function hideGcBeautyDrawer() {
+    const d = document.getElementById('gc-beauty-drawer');
+    if (d) d.style.display = 'none';
+  }
+  // 点桌面图标/底部导航/群聊返回 = 离开群聊页，抽屉跟着收（否则浮在半空盖住别页）
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('.tab') || t.closest('#gc-back') || t.closest('.app[data-app]')) hideGcBeautyDrawer();
+  }, true);
+  let gcDrawerSec = 'bubble';
+  function openGcBeautyDrawer() {
+    try { if (settingsPanel) settingsPanel.hidden = true; } catch (e) {}
+    const d = gcDrawerEl();
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+    d.innerHTML = '';
+    const grip = document.createElement('div');
+    grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
+    d.appendChild(grip);
+    const mkMini = (label, fn, cssExtra) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const hd = document.createElement('div');
+    hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
+    const hdTxt = document.createElement('span');
+    hdTxt.textContent = '边看边调（即时生效）';
+    hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const panelBody = document.createElement('div');
+    panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+    const body = document.createElement('div');
+    body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+    const foldBtn = mkMini('收起', () => {
+      const willFold = panelBody.style.display !== 'none';
+      panelBody.style.display = willFold ? 'none' : 'flex';
+      foldBtn.textContent = willFold ? '展开' : '收起';
+    });
+    const closeBtn = mkMini('\u2715', () => {
+      hideGcBeautyDrawer();
+      // FIX 2026-09-17 #697：与单聊 #673 同口径——✕ 关抽屉回「群聊设置 → 美化」，
+      // 不回就成了「浮层一关只能在群聊页干瞪眼」
+      try { gcSetTab = 'beauty'; renderSettingsPanel(); if (settingsPanel) settingsPanel.hidden = false; } catch (e) {}
+    }, ';padding:4px 8px');
+    hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+    d.appendChild(hd);
+    const chipsRow = document.createElement('div');
+    chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
+    panelBody.appendChild(chipsRow);
+    panelBody.appendChild(body);
+    d.appendChild(panelBody);
+    const mkSlider = (label, get, set, min, max, step, unit, preview) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px';
+      const lb = document.createElement('span');
+      lb.textContent = label;
+      lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1;
+      const cur = gcClampNum(get(), min, max, min);
+      inp.value = String(cur);
+      inp.style.cssText = 'flex:1;min-width:0';
+      const vv = document.createElement('span');
+      vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:46px;text-align:right';
+      vv.textContent = cur + unit;
+      inp.addEventListener('input', () => {
+        const n = gcClampNum(inp.value, min, max, cur);
+        vv.textContent = n + unit;
+        if (preview) preview(n);
+        set(n);
+      });
+      row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+      return row;
+    };
+    const mkPills = (label, items, get, set) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+      const lb = document.createElement('span');
+      lb.textContent = label;
+      lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888)';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+      const cur = get();
+      const paint = (onBtn) => Array.prototype.forEach.call(row.children, c => {
+        const on = c === onBtn;
+        c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+        c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+        c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+      });
+      items.forEach(it => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = it.label;
+        b.style.cssText = 'font-size:11.5px;padding:5px 9px;border-radius:8px;cursor:pointer;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
+        if (it.value === cur) paint(b);
+        b.addEventListener('click', () => { set(it.value); paint(b); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(lb); wrap.appendChild(row);
+      return wrap;
+    };
+    let colorItems = [];
+    let paletteHost = null;
+    const mkColorItem = (label, key, def, swatchList) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--card-border,#ddd);border-radius:9px;cursor:pointer;min-width:0';
+      const sw = document.createElement('span');
+      const curGet = () => { try { return gcBeautyGet(key) || def; } catch (e) { return def; } };
+      sw.style.cssText = 'width:18px;height:18px;border-radius:5px;border:1px solid var(--card-border,#ddd);flex:none;background:' + curGet();
+      const tx = document.createElement('span');
+      tx.textContent = label;
+      tx.style.cssText = 'font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      const paint = () => { sw.style.background = curGet(); };
+      const curSet = (v) => {
+        try { gcBeautySet(key, v === null ? '' : v); } catch (e) {}
+        paint();
+      };
+      el.appendChild(sw); el.appendChild(tx); paint();
+      el.addEventListener('click', () => {
+        colorItems.forEach(it => { it.el.style.borderColor = 'var(--card-border,#ddd)'; });
+        el.style.borderColor = 'var(--ink,#111)';
+        renderGcPalette({ el, label, curGet, curSet, swatchList });
+      });
+      colorItems.push({ el, paint });
+      return el;
+    };
+    const renderGcPalette = (item) => {
+      if (!paletteHost) return;
+      paletteHost.innerHTML = '';
+      const strip = document.createElement('div');
+      strip.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+      const cur = String(item.curGet() || '').toLowerCase();
+      (item.swatchList || []).forEach(swItem => {
+        const dot = document.createElement('span');
+        const c = swItem.color;
+        dot.style.cssText = 'width:23px;height:23px;border-radius:7px;border:1px solid ' + (String(c).toLowerCase() === cur ? 'var(--ink,#111)' : 'var(--card-border,#ddd)') + ';cursor:pointer;flex:none;background:' + c;
+        dot.title = swItem.label || c;
+        dot.addEventListener('click', () => { item.curSet(c); renderGcPalette(item); });
+        strip.appendChild(dot);
+      });
+      const defBtn = document.createElement('button');
+      defBtn.type = 'button'; defBtn.textContent = '默认';
+      defBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      defBtn.addEventListener('click', () => { item.curSet(null); renderGcPalette(item); });
+      strip.appendChild(defBtn);
+      const hexBtn = document.createElement('button');
+      hexBtn.type = 'button'; hexBtn.textContent = '手输色值';
+      hexBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      hexBtn.addEventListener('click', () => {
+        if (!window.openModal) return;
+        window.openModal('输入' + item.label + '色值', String(item.curGet() || '#111111'), (v) => {
+          const c = String(v || '').trim();
+          if (!/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c)) { toast('请输入 # 开头的色值，如 #ffd6e0'); return; }
+          item.curSet(c); renderGcPalette(item);
+        }, { placeholder: '#ffd6e0' });
+      });
+      strip.appendChild(hexBtn);
+      paletteHost.appendChild(strip);
+      const tip = document.createElement('div');
+      tip.style.cssText = 'font-size:10.5px;color:var(--muted,#999);margin-top:5px';
+      tip.textContent = '正在调「' + item.label + '」，点色块即时生效';
+      paletteHost.appendChild(tip);
+    };
+    const mkGrid = (items) => {
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+      items.forEach(el => grid.appendChild(el));
+      return grid;
+    };
+    const mkNote = (txt) => {
+      const n = document.createElement('div');
+      n.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+      n.textContent = txt;
+      return n;
+    };
+    const mkAct = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const page = document.getElementById('page-group-chat');
+    const SECS = [
+      { key: 'bubble', label: '气泡', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        wrap.appendChild(mkGrid([
+          mkColorItem('我的气泡色', 'out-bg', '#111111', GC_BUBBLE_BG),
+          mkColorItem('我的文字色', 'out-ink', '#ffffff', gcInkSwatches()),
+          mkColorItem('联系人气泡色', 'in-bg', '#ffffff', GC_BUBBLE_BG),
+          mkColorItem('联系人文字色', 'in-ink', '#111111', gcInkSwatches())
+        ]));
+        paletteHost = document.createElement('div');
+        wrap.appendChild(paletteHost);
+        wrap.appendChild(mkSlider('气泡透明度', () => gcBeautyGet('bubble-op'), v => gcBeautySet('bubble-op', v), 0, 100, 1, '%', (n) => gcApplyBubbleSurfaceWith(n)));
+        wrap.appendChild(mkSlider('气泡圆角', () => parseInt(gcBeautyGet('bubble-radius'), 10) || 0, v => gcBeautySet('bubble-radius', v + 'px'), 0, 40, 1, 'px', (n) => { if (page) page.style.setProperty('--chat-bubble-radius', n + 'px'); }));
+        wrap.appendChild(mkPills('气泡字号', GC_FONT_SIZES, () => gcBeautyGet('font-size'), v => gcBeautySet('font-size', v)));
+        wrap.appendChild(mkPills('气泡框大小', GC_BUBBLE_SIZES, () => gcBeautyGet('bubble-size'), v => gcBeautySet('bubble-size', v)));
+        wrap.appendChild(mkPills('头像形状', [{ label: '圆形', value: 'circle' }, { label: '方形', value: 'square' }], () => gcBeautyGet('av-shape'), v => gcBeautySet('av-shape', v)));
+        wrap.appendChild(mkPills('时间轴样式', GC_BEAUTY_STYLES, () => gcBeautyGet('time-style'), v => gcBeautySet('time-style', v)));
+        return wrap;
+      } },
+      { key: 'bar', label: '栏位', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        wrap.appendChild(mkSlider('顶栏不透明度', () => gcBeautyGet('head-op'), v => gcBeautySet('head-op', v), 0, 100, 1, '%', (n) => { if (page) page.style.setProperty('--cs-head-opacity', String(n / 100)); }));
+        wrap.appendChild(mkSlider('底栏不透明度', () => gcBeautyGet('input-op'), v => gcBeautySet('input-op', v), 0, 100, 1, '%', (n) => { if (page) page.style.setProperty('--cs-input-opacity', String(n / 100)); }));
+        wrap.appendChild(mkSlider('顶栏下移', () => gcBeautyGet('head-inset'), v => gcBeautySet('head-inset', v), 0, 80, 1, 'px', (n) => { if (page) page.style.setProperty('--cs-head-inset', n + 'px'); }));
+        wrap.appendChild(mkSlider('底栏上移', () => gcBeautyGet('input-inset'), v => gcBeautySet('input-inset', v), 0, 80, 1, 'px', (n) => { if (page) page.style.setProperty('--cs-input-inset', n + 'px'); }));
+        wrap.appendChild(mkGrid([
+          mkColorItem('发送按钮色', 'send-bg', '#111111', GC_SEND_BG),
+          mkColorItem('发送文字色', 'send-ink', '#ffffff', GC_INK_COLORS),
+          mkColorItem('正在输入颜色', 'typing-ink', '#8a8a8a', GC_INK_COLORS),
+          mkColorItem('时间轴颜色', 'time-ink', '#111111', GC_INK_COLORS)
+        ]));
+        paletteHost = null;
+        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置微调只作用于群聊页。'));
+        return wrap;
+      } },
+      { key: 'type', label: '字体 · 其他', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        const finp = document.createElement('input');
+        finp.type = 'text'; finp.className = 'tc-input';
+        finp.placeholder = '字体名，如 Microsoft YaHei（清空＝恢复默认）';
+        const fv = gcBeautyGet('font');
+        if (fv && fv.indexOf('data:') !== 0 && fv.indexOf('http') !== 0) finp.value = fv;
+        finp.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)';
+        finp.addEventListener('input', () => { gcBeautySet('font', (finp.value || '').trim()); });
+        wrap.appendChild(mkNote('群聊字体（边打边看，清空输入框即恢复默认）'));
+        wrap.appendChild(finp);
+        wrap.appendChild(mkAct('上传字体文件（ttf / otf / woff / woff2）', () => {
+          const inp = document.createElement('input');
+          inp.type = 'file';
+          inp.accept = '.ttf,.otf,.woff,.woff2';
+          inp.onchange = () => {
+            const f = inp.files && inp.files[0];
+            if (!f) return;
+            toast('正在读取字体文件…');
+            const reader = new FileReader();
+            reader.onload = () => { gcBeautySet('font', reader.result); toast('字体已应用到群聊页'); };
+            reader.onerror = () => { toast('字体文件读取失败，请重试'); };
+            reader.readAsDataURL(f);
+          };
+          inp.click();
+        }));
+        const ta = document.createElement('textarea');
+        ta.className = 'tc-input'; ta.rows = 3;
+        ta.placeholder = '气泡 CSS，如 border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.12)';
+        ta.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;font-size:12.5px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111);resize:vertical';
+        try { ta.value = gcBeautyGet('css') || ''; } catch (e) {}
+        let cssTimer = null;
+        ta.addEventListener('input', () => {
+          clearTimeout(cssTimer);
+          cssTimer = setTimeout(() => {
+            const el = ta;
+            let v = '';
+            try { v = el.value || ''; } catch (e) {}
+            if (!String(v).trim()) {
+              try {
+                const box = el.__ceBox || (el.parentNode && el.parentNode.querySelector('.ce-box'));
+                const t = box ? (box.innerText || box.textContent || '') : '';
+                if (String(t).trim()) v = String(t);
+              } catch (e) {}
+            }
+            gcBeautySet('css', String(v).trim());
+          }, 160);
+        });
+        wrap.appendChild(mkNote('气泡 CSS（边写边套用，只对群聊页生效）'));
+        wrap.appendChild(ta);
+        wrap.appendChild(mkAct('换群聊壁纸 / 清空壁纸', () => {
+          hideGcBeautyDrawer();
+          setTimeout(() => {
+            if (gcBeautyGet('bg')) { gcBeautySet('bg', ''); toast('已恢复默认壁纸'); }
+            else pickGcWallpaper();
+          }, 0);
+        }));
+        wrap.appendChild(mkNote('想逐项精调（含美化方案保存/导出等）回群聊设置→美化，点对应一行即可。'));
+        return wrap;
+      } }
+    ];
+    const renderSec = (key) => {
+      gcDrawerSec = key;
+      Array.prototype.forEach.call(chipsRow.children, c => {
+        const on = c.dataset.sec === key;
+        c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+        c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+        c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+      });
+      body.innerHTML = '';
+      paletteHost = null;
+      colorItems = [];
+      const sec = SECS.filter(s => s.key === key)[0];
+      if (sec) body.appendChild(sec.build());
+    };
+    SECS.forEach(s => {
+      const c = document.createElement('button');
+      c.type = 'button'; c.textContent = s.label; c.dataset.sec = s.key;
+      c.style.cssText = 'flex:1;font-size:11.5px;padding:5px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      c.addEventListener('click', () => renderSec(s.key));
+      chipsRow.appendChild(c);
+    });
+    renderSec(gcDrawerSec);
+    d.style.display = 'flex';
+  }
+
   // ================= 群聊美化方案（v3.28.x：保存/应用/改名/删除/导出/导入） =================
   // 与聊天美化方案同语义，键为 gc-beauty 的各子键，存储于全局命名空间（所有桌面通用）
   const GC_SCHEMES_KEY = 'gc-beauty-schemes';
   const GC_BEAUTY_KEYS = [
     'bg', 'css', 'font', 'font-size', 'bubble-size', 'bubble-radius',
     'av-shape', 'time-style', 'time-ink', 'typing-ink',
+    // FIX 2026-09-17 #697：新增三组与单聊对齐的键——方案导出/导入/应用要一并带上
+    'bubble-op', 'head-op', 'input-op', 'head-inset', 'input-inset',
     'out-bg', 'out-ink', 'in-bg', 'in-ink', 'send-bg', 'send-ink', 'send-show'
   ];
   const gcSchemesStore = () => { try { return gcProfileStore(); } catch (e) { return null; } };
@@ -2892,8 +3491,9 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   // FIX 2026-09-12 #376 关闭面板时复位美化子视图：在「美化聊天」子视图里关掉面板后
   // 重开，原实现直接落在美化视图而非群聊设置主页（gcBeautyView 残留未复位）
-  if (settingsClose) settingsClose.addEventListener('click', () => { gcBeautyView = false; if (settingsPanel) settingsPanel.hidden = true; });
-  if (settingsPanel) settingsPanel.addEventListener('click', (e) => { if (e.target === settingsPanel) { gcBeautyView = false; settingsPanel.hidden = true; } });
+  // FIX 2026-09-17 #697 同口径：独立「美化」tag 也要复位（否则关在美化 tag 上、重开仍落在美化）
+  if (settingsClose) settingsClose.addEventListener('click', () => { gcBeautyView = false; gcSetTab = 'profile'; if (settingsPanel) settingsPanel.hidden = true; });
+  if (settingsPanel) settingsPanel.addEventListener('click', (e) => { if (e.target === settingsPanel) { gcBeautyView = false; gcSetTab = 'profile'; settingsPanel.hidden = true; } });
 
   // ---- @提及面板 ----
   function renderAtPanel() {
@@ -2971,7 +3571,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       const gap = c['gc-cs-normal'] === 1 ? i * (1200 + Math.random() * 1600) : i * 400;
       setTimeout(() => memberReply(cid, '', gid, true), gap);
     });
-    if (window.playSfx) window.playSfx('in');
+    if (window.playSfxGc) window.playSfxGc('in'); // #698d：走群聊专属音效（未设置回退单聊）
   }
   // 语音：复用聊天页录音半框，录完发到群聊
   function gcSendVoice(dataUrl, durSec) {
@@ -2981,7 +3581,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     saveMsgs();
     renderMsg(rec, msgs.length - 1);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     scheduleReply('');
   }
   // 批量发送：复用聊天页批量面板，条目发到群聊（文字/图片/表情各成一条）
@@ -3008,7 +3608,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       }
     });
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     scheduleReply('');
   }
   // #152：与聊天页 chat-continue-btn 同款防吞——安卓键盘收起叠着手势时输入栏位移，
@@ -3455,7 +4055,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     saveMsgs();
     renderMsg(rec);
     followGcBottom(true);
-    if (window.playSfx) window.playSfx('out');
+    if (window.playSfxGc) window.playSfxGc('out'); // #698d：走群聊专属音效（未设置回退单聊）
     // 被拍成员按既有成员回复链反应（拍回来/回消息，概率走群聊回复设置）——
     // 对齐聊天页拍一拍后 TA 会已读/拍回/回复的语义
     setTimeout(() => { try { memberReply(cid, rec.text, curGid); } catch (err) {} }, 1200 + Math.random() * 1600);

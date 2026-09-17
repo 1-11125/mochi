@@ -434,6 +434,14 @@
     //（页面标题格式："歌曲名 - 歌手名 - 单曲 - 网易云音乐"），多 CORS 代理兜底
     const songPageUrl = 'https://music.163.com/song?id=' + id;
     const apis = [
+      // #700：meting song 接口作首选——与播放/封面同源的 api.injahow.cn（CORS 开放、
+      // 大陆可直连，2026-09-17 实测存活），返回 JSON [{name,artist,pic,...}]。此前的歌名
+      // 识别全押在公共 CORS 代理抓歌曲页上，而 proxy.cors.sh 域名已失联、allorigins 超时
+      // （荣耀X50i/Edge 诊断「网络失败」实证）→ 所有链接导入的歌名都停在「网易云音乐-数字」。
+      { url: 'https://api.injahow.cn/meting/?server=netease&type=song&id=' + encodeURIComponent(String(id)), isText: true, parse(t) {
+          let d; try { d = JSON.parse(t); } catch (e) { return null; }
+          const s = d && d[0];
+          return s && s.name ? { name: s.name, artist: s.artist || '', pic: s.pic || '' } : null; } },
       // v3.9.x：proxy.cors.sh（Cloudflare Workers，稳定可用）放首位；allorigins/corsproxy 兜底
       { url: 'https://proxy.cors.sh/' + songPageUrl, isText: true, parse(t) {
           return parseNeteasePageTitle(t); } },
@@ -1134,7 +1142,11 @@
     window.openTCPanel('添加本地音乐', '' +
       '<div class="sm-form">' +
       '<div class="sm-fld"><label>上传到播放列表</label><select class="tc-input" id="sm-local-pl">' + targetPlOptions() + '</select></div>' +
-      '<div class="sm-fld-hint">选择一首或多首本地音频（mp3 / m4a / aac / ogg / wav / flac）存放进上面的歌单；选「新建歌单」可先建一个歌单再上传。<br>整首音乐已经存在手机里（下载 / 导出成的音频文件）时用这里；如果歌还在别的 App 里（QQ音乐 / 酷狗 / B站 等），要先把它下载成音频文件再上传——App 的「分享」链接不能直接导入。</div>' +
+      // #700：说明纠错（用户实报「音乐里本地上传说明有错误」+ 多机型「导入一直不成功」）——
+      // 旧文案让用户「先把它下载成音频文件再上传」，但音乐 App 里下载/缓存的歌曲文件
+      // 大多带加密（ncm/mflac/mgg/kgm 等，即使扩展名是 .mp3/.flac/.m4a 也放不出声），
+      // 无损 .m4a（ALAC）安卓 Chromium 也不支持——照旧文案操作必然「导入成功却放不出」。
+      '<div class="sm-fld-hint">选择一首或多首本地音频（mp3 / m4a / aac / ogg / wav / flac）存放进上面的歌单；选「新建歌单」可先建一个歌单再上传。<br>整首音乐已经存在手机里（自己转换 / 无版权保护的下载 / 录音等）时用这里；如果歌还在别的 App 里（QQ音乐 / 酷狗 / B站 等），App 的「分享」链接不能直接导入。<br><b>⚠ 文件必须是不加密的标准音频：</b>音乐 App 里下载 / 缓存的歌曲文件大多带了加密，即使扩展名是 .mp3 / .flac / .m4a 也放不出声；无损 .m4a（ALAC 编码）部分浏览器也不支持。上传后点一下播放试试，放不出来的建议转成 <b>mp3</b>（兼容性最好）再上传。</div>' +
       '</div>' +
       '<div class="mail-actions"><button class="cc-tool" id="sm-local-cancel">取消</button><button class="cc-tool" id="sm-local-ok">选择文件上传</button></div>');
     document.getElementById('sm-local-cancel').addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; });
@@ -1151,6 +1163,30 @@
       });
     });
   }
+  // #700：上传文件的真实 MIME——优先按文件头嗅探。安卓选择器对 .m4a 常回空 type 或
+  // video/mp4，旧代码一律兜底 'audio/mpeg'，MP4/AAC 容器内容被标成 mpeg，严格校验
+  // MIME 的内核会拒载；嗅探不出再信 file.type，再按扩展名猜，最后才 audio/mpeg。
+  function sniffAudioMime(buf) {
+    try {
+      if (!(buf instanceof ArrayBuffer) || buf.byteLength < 12) return '';
+      const u = new Uint8Array(buf, 0, Math.min(16, buf.byteLength));
+      const ascii = (a, b) => { let s = ''; for (let i = a; i < b && i < u.length; i++) s += String.fromCharCode(u[i]); return s; };
+      if (ascii(4, 8) === 'ftyp') return 'audio/mp4';
+      if (ascii(0, 4) === 'fLaC') return 'audio/flac';
+      if (ascii(0, 4) === 'OggS') return 'audio/ogg';
+      if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return 'audio/wav';
+      if (ascii(0, 3) === 'ID3') return 'audio/mpeg';
+      if (u[0] === 0xFF && (u[1] & 0xE0) === 0xE0) return ((u[1] & 0xF6) === 0xF0) ? 'audio/aac' : 'audio/mpeg';
+    } catch (e) {}
+    return '';
+  }
+  function mimeFromName(n) {
+    const e = ((/\.([a-z0-9]+)$/i.exec(String(n || '')) || [])[1] || '').toLowerCase();
+    return { mp3: 'audio/mpeg', m4a: 'audio/mp4', m4b: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac' }[e] || '';
+  }
+  function localFileMime(file, buf) {
+    return sniffAudioMime(buf) || file.type || mimeFromName(file.name) || 'audio/mpeg';
+  }
   function uploadFiles(files) {
     const list = Array.from(files);
     if (!list.length) return;
@@ -1166,7 +1202,13 @@
     // 列表里有歌但播放时读不到音频。写入失败自动回退存 dataURL 字符串（老内核 100% 支持，
     // 播放路径 dataUrlToBlob 会转回 Blob 播）。readAsArrayBuffer 失败同样回退 readAsDataURL。
     let idx = 0;
-    const done = () => { saveLibrary(); renderPage(); toast('已上传 ' + list.length + ' 首音乐（点歌曲右侧 ⋯ 可设置封面）'); };
+    let probeBad = 0; // #700：导入时浏览器就解不动的文件数（加密格式/编码不支持）
+    const done = () => {
+      saveLibrary(); renderPage();
+      // #700：探测出放不了的文件在完成提示里如实说（旧行为一律报「已上传」成功）
+      if (probeBad) toast('已上传 ' + list.length + ' 首音乐，其中 ' + probeBad + ' 首本机浏览器可能放不了（加密格式或编码不支持）——放不了的建议转成 mp3 再重新上传');
+      else toast('已上传 ' + list.length + ' 首音乐（点歌曲右侧 ⋯ 可设置封面）');
+    };
     const readFile = (file, cb, failCb) => {
       const r1 = new FileReader();
       r1.onload = () => { if (r1.result instanceof ArrayBuffer) cb(r1.result, true); else cb(r1.result, false); };
@@ -1181,13 +1223,13 @@
     };
     const storePayload = (id, file, buf) => {
       // 优先 Blob（紧凑）；ArrayBuffer 成功 → Blob；否则原样（dataURL 字符串）
-      const payload = buf instanceof ArrayBuffer ? new Blob([buf], { type: file.type || 'audio/mpeg' }) : buf;
+      const payload = buf instanceof ArrayBuffer ? new Blob([buf], { type: localFileMime(file, buf) }) : buf;
       const key = MUSIC_PREFIX + ':music-file:' + id;
       const toDataUrl = (cb) => {
         const fr = new FileReader();
         fr.onload = () => cb(fr.result);
         fr.onerror = () => cb(null);
-        const src = payload instanceof Blob ? payload : new Blob([buf], { type: file.type || 'audio/mpeg' });
+        const src = payload instanceof Blob ? payload : new Blob([buf], { type: localFileMime(file, buf) });
         try { fr.readAsDataURL(src); } catch (e) { cb(null); }
       };
       // localStorage 最终兜底：直接写（绕过 xyStore 大键只进 IDB 的限制）；
@@ -1233,7 +1275,7 @@
         const name = file.name.replace(/\.[^.]+$/, '');
         const item = { id: id, name: name, artist: '', url: '', source: 'local', duration: 0, playlistId: localPlId || 'default', addedAt: Date.now() };
         library.push(item);
-        const payload = buf instanceof ArrayBuffer ? new Blob([buf], { type: file.type || 'audio/mpeg' }) : buf;
+        const payload = buf instanceof ArrayBuffer ? new Blob([buf], { type: localFileMime(file, buf) }) : buf;
         localBlobCache[id] = payload; // v3.29.x 内存缓存：playTrack 同步读取保留用户手势
         // 尝试读取时长（读不到也能播放；3s 超时兜底，不阻塞队列）
         const tmp = document.createElement('audio');
@@ -1257,7 +1299,15 @@
           if (m && tmp.duration) { m.duration = tmp.duration; }
           finishMeta();
         };
-        tmp.onerror = finishMeta;
+        tmp.onerror = function () {
+          // #700：导入当场就知道浏览器解不动这个文件（加密格式/不支持的编码）——
+          // 标记到歌曲上（列表出「放不了」徽标）并在完成 toast 里计数，不让用户
+          // 顶着「已上传」的成功提示反复重传（同一首歌在 IDB 存两份的教训）。
+          probeBad++;
+          const it = findTrack(id);
+          if (it) { try { it.probeFail = 1; } catch (e) {} }
+          finishMeta();
+        };
         metaTimer = setTimeout(finishMeta, 3000);
         if (payload instanceof Blob) {
           tmpUrl = URL.createObjectURL(payload);
@@ -1407,7 +1457,13 @@
               // 网易云分享短链：导入时异步解析出真实歌曲 ID，成功后复位该曲目的
               // neteaseId/url/歌名；失败保持现状（原样短链 + 播放兜底提示），不误改。
               resolveNetShortLink(ln, rid => {
-                if (!rid) return;
+                if (!rid) {
+                  // #700：解析失败不再无声（proxy.cors.sh 等公共代理 2026-09 起域名级失联＝
+                  // 全机型解析必败，旧版短链原样入库毫无提示，用户只知道「导进去放不了」）。
+                  // 给出可执行替代路径：浏览器打开分享链接，从地址栏取完整链接 / 数字 ID。
+                  toast('网易云分享链接解析失败：先用浏览器打开这条链接，再把地址栏里 music.163.com/song?id=数字 的完整链接或数字粘贴导入');
+                  return;
+                }
                 const m = findTrack(id);
                 if (m) {
                   m.neteaseId = rid;
@@ -1806,8 +1862,9 @@
           const icon = active && audio && !audio.paused
             ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
             : '<path d="M8 5.5v13l11-6.5z"/>';
+          // #700：导入时探测解不动的本地歌出「放不了」徽标（真播出来过一次就自动消失）
           const badge = m.source === 'local'
-            ? '<span class="sm-src sm-src-local">本地</span>'
+            ? '<span class="sm-src sm-src-local">本地</span>' + (m.probeFail ? '<span class="sm-src sm-src-bad">放不了</span>' : '')
             : '<span class="sm-src">网络</span>';
           const checked = musicBatch && batchSel.has(m.id) ? ' sel' : '';
           const chk = musicBatch ? '<span class="sm-batch-chk"></span>' : '';
@@ -2068,19 +2125,36 @@
       return;
     }
     let failoverUsed = false; // 防止 blob:↔dataURL 之间无限切换
+    // #700：记录浏览器真实的 MediaError.code——code=4（SRC_NOT_SUPPORTED）＝数据已经
+    // 拿到了、是「编码解不动」（音乐 App 下载的加密文件 / 无损 ALAC m4a 在安卓 Chromium
+    // 都是这个错）。这种失败换 dataURL 重试必然同样失败（同一段字节换封装），白等 8 秒
+    // 还给一句笼统提示；直接给可执行的精确建议。其余失败（永恒浏览器 blob 静默失败等
+    // 无 error 事件的场景）仍走 blob↔dataURL 互备，不动。
+    let lastErrCode = 0;
+    const failMsg = () => lastErrCode === 4
+      ? '放不了这个文件：编码不被本机浏览器支持（常见于加密格式或无损 m4a）——建议转成 mp3 再重新上传'
+      : '播放失败：浏览器无法加载音频';
     // 用指定 src 建 audio 并启动播放，4 秒无 onplay/无进度 → 切另一种 src
     function startWithSrc(src, isBlob) {
       if (currentId !== m.id) return;
+      lastErrCode = 0;
       if (isBlob) { revokeObjectUrl(); curObjectUrl = src; }
       audio = createAudio();;
+      try { audio.addEventListener('error', function () { lastErrCode = (audio && audio.error) ? audio.error.code : 0; }); } catch (e) {}
       audio.src = src;
       startPlayback(m);
       let wd = setTimeout(() => {
         wd = null;
         if (currentId !== m.id || !audio) return; // 已切歌/已 teardown
         if (audio.currentTime > 0) return; // 已在播，blob:/dataURL 成功
+        if (lastErrCode === 4) { // #700：编码解不动＝重试徒劳，直接精确报错
+          toast(failMsg());
+          try { audio.pause(); } catch (e) {}
+          try { syncPlayIcons(false); } catch (e) {}
+          return;
+        }
         if (failoverUsed) { // 两种 src 都失败
-          toast('播放失败：浏览器无法加载音频');
+          toast(failMsg());
           try { audio.pause(); } catch (e) {}
           try { syncPlayIcons(false); } catch (e) {}
           return;
@@ -2817,7 +2891,8 @@
     };
     // v3.26.x #645：播放中持续上报进度（timeupdate 约 4Hz），通知栏进度条随播放走
     audio.ontimeupdate = function () { try { syncMediaPosition(); } catch (e) {} };
-    audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
+    audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // #700：真播出来＝导入时的「放不了」探测是误报，自愈清除
+      if (m && m.probeFail) { try { delete m.probeFail; saveLibrary(); renderLibrary(); } catch (e) {} }; // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
       try { updateMediaSession(true); } catch (e) {} };
     audio.onpause = function () { syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
       // v3.27.x：TA 暂停再播放互动进行中不补播（TA 稍后会自己点播放恢复）
@@ -2927,7 +3002,7 @@
     }
     // 网易云分享短链（历史已导入的 163cn.tv 曲目）：URL 里没歌曲 ID，旧包把它当普通
     // 直链播必然失败。播放这一刻再异步解析一次真实 ID，成功后复位 neteaseId/url 并
-    // 重新走正式播放；失败（当前不发解析下一次也不重试）保持原样交给下方兜底提示。
+    // 重新走正式播放；失败（#700：明确 toast 指引替代导入路径，不再无声返回）。
     // 只在网易云短链宿主且尚未解析过时触发，绝不拦截普通可播链接。
     if (isNetShortLink(String(m.url || '')) && !m.neteaseId && !m._netShortDirty) {
       m._netShortDirty = true; // 内存标记，避免每次点播都反复试（解析失败也不死循环）
@@ -2943,8 +3018,12 @@
           playTrack(m.id, fromWidget);
           return;
         }
-        // 解析失败：恢复可重试（下次点播再试一次），并继续原样播放下方兜底
+        // 解析失败：恢复可重试（下次点播再试一次）。#700：不再静默返回——旧版这里
+        // 什么都不做＝点播放毫无反应（用户主诉「导进去但无法播放」的另一半）；解析服务
+        // 全挂时短链永远变不成可播链接，如实提示并给替代导入路径，也不把原始短链硬喂给
+        // <audio>（那只会错误计入「会员/坏链」失败次数，诱导删掉其实免费可播的歌）。
         cur._netShortDirty = false;
+        toast('分享链接解析失败（解析服务受限）：可用浏览器打开这条链接，把地址栏里 music.163.com/song?id=数字 的完整链接或数字粘贴导入');
       });
       return;
     }

@@ -109,9 +109,9 @@ check('A0 开屏可正常进入', entered === 'in', String(entered));
 await evalJs('window.__mochiFdNoReload = true;');
 
 // ---------- B 组：注入扫描（卡必须在各自 .page 里面） ----------
-// 期望集合＝登记了 page 的功能 − 自带三行入口的（chat/信箱/朋友圈，自己有）− 刻意跳过的
-// （房间：固定全屏场景 overflow:hidden，塞卡会挤压小屋，见 feature-data.js FD_SKIP 注释）。
-const EXPECT_NO_BAR = ['room'];
+// 期望集合＝登记了 page 的功能 − 自带三行入口的（chat/字卡库/信箱/朋友圈，自己有）− 刻意跳过的
+// （房间：固定全屏场景 overflow:hidden；群聊：#gc-body 是消息列表，卡会混进消息流。见 FD_SKIP）。
+const EXPECT_NO_BAR = ['room', 'gc'];
 const sweep = await json(`(function(){
   var M = window.mochiFeatureData;
   var feats = M.features;
@@ -132,8 +132,8 @@ const sweep = await json(`(function(){
     withPage: feats.filter(function(f){return !!f.page;}).length,
     skippedOwn: feats.filter(function(f){return !!f.page && !!f.btns;}).map(function(f){return f.id;}) });
 })()`);
-check('B1 每个该有的功能页里都有数据管理卡（缺失 0）',
-  sweep && sweep.missing.length === 0 && sweep.inside >= 20,
+check('B1 每个该有的功能页里都有数据管理卡（缺失 0，25 处）',
+  sweep && sweep.missing.length === 0 && sweep.inside >= 25,
   JSON.stringify({ inside: sweep && sweep.inside, missing: sweep && sweep.missing }));
 check('B2 卡在其所在 .page 内（页面隐藏时随之隐藏，不会跑到桌面首页）',
   sweep && sweep.missing.length === 0 && sweep.reports.every(function (r) { return r.indexOf('→') > 0; }),
@@ -150,6 +150,40 @@ check('B3 卡上三枚按钮齐全（导出/导入/清空）',
     return true;
   })()`) === true);
 
+// ---------- B4 生存性：被功能模块整块 innerHTML 重写的容器里，卡必须还在 ----------
+// 根因实录（2026-09-17 检查发现）：#myarc-root 每次打开「我的档案」都被 my-arc.js
+// `root.innerHTML = h` 整块重写，卡被冲掉＝用户根本看不到入口（首轮脚本只查「卡在 DOM 里」，
+// 漏掉了这一层）。watchBarHost 用 childList 观察者按需补挂。这里用真实点桌面图标 + 离开 + 再进
+// 来复现/守住：只靠 DOM 扫描（B1）测不出这个回归。
+{
+  const surv = await json(`(function(){
+    var out = [];
+    return Promise.resolve().then(function () {
+      var p = document.getElementById('page-my-arc');
+      var icon = document.querySelector('.app[data-app="my-arc"]');
+      if (icon) icon.click();
+      return new Promise(function (res) { setTimeout(res, 700); });
+    }).then(function () {
+      var p = document.getElementById('page-my-arc');
+      out.push(!!(p && p.querySelector('[data-fbar="myarc"]')));
+      document.querySelectorAll('.page').forEach(function (pg) { pg.hidden = true; });
+      return new Promise(function (res) { setTimeout(res, 250); });
+    }).then(function () {
+      var icon = document.querySelector('.app[data-app="my-arc"]');
+      if (icon) icon.click();
+      return new Promise(function (res) { setTimeout(res, 700); });
+    }).then(function () {
+      var p = document.getElementById('page-my-arc');
+      out.push(!!(p && p.querySelector('[data-fbar="myarc"]')));
+      document.querySelectorAll('.page').forEach(function (pg) { pg.hidden = true; });
+      return JSON.stringify({ first: out[0], second: out[1] });
+    });
+  })()`);
+  check('B4 「我的档案」页被模块 innerHTML 重写后卡仍在（两次进入都在）',
+    surv && surv.first === true && surv.second === true, JSON.stringify(surv));
+}
+
+
 // ---------- C 组：已有自带入口的功能页不得重复注入 ----------
 {
   const dup = await json(`(function(){
@@ -161,15 +195,15 @@ check('B3 卡上三枚按钮齐全（导出/导入/清空）',
     });
     return JSON.stringify(bad);
   })()`);
-  check('C1 聊天设置/信箱/朋友圈等自带三行入口的页面内不再出现第二套数据卡',
+  check('C1 聊天设置/字卡库/信箱/朋友圈等自带入口的页面内不再出现第二套数据卡',
     Array.isArray(dup) && dup.length === 0, JSON.stringify(dup));
   check('C2 这些功能自己的原入口仍在（未被本批改动）',
     await evalJs(`(function(){
-      var ids = ['cs-export-msgs','cs-import-msgs','cs-clear-msgs','mail-export','mail-import','mail-clear','feed-clear-all'];
+      var ids = ['cs-export-msgs','cs-import-msgs','cs-clear-msgs','mail-export','mail-import','mail-clear','feed-clear-all','cc-export','cc-import-data','cc-clear-all'];
       var miss = ids.filter(function (i) { return !document.getElementById(i); });
       return miss.length === 0 ? 'ok' : ('missing:' + miss.join(','));
     })()`) === 'ok',
-    String(await evalJs(`(function(){return ['cs-export-msgs','mail-export','feed-clear-all'].map(function(i){return i+'='+!!document.getElementById(i);}).join(' ');})()`)));
+    String(await evalJs(`(function(){return ['cs-export-msgs','mail-export','feed-clear-all','cc-export'].map(function(i){return i+'='+!!document.getElementById(i);}).join(' ');})()`)));
 }
 
 // ---------- D 组：真实点选——进花园页 → 卡上「导出数据」 ----------

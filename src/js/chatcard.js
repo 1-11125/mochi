@@ -1195,7 +1195,12 @@
   }
   // v3.25.x：数据迟到重算——restore-done 时内存缓存才刚有数据（iOS 上常晚于首屏渲染），
   // 此前没有任何时点会重算两行角标，0 就一直挂着。启动回填完成即强制重算一次。
-  document.addEventListener('mochi-restore-done', function () { refreshLibCounts(true); });
+  document.addEventListener('mochi-restore-done', function () {
+    refreshLibCounts(true);
+    // #680：名称键可能在首屏读之后才由 IDB 回填，缓存必须失效（否则名称/标签要等下次刷新才出现）
+    namesInvalidate();
+    if (ccPageOpen()) { try { renderGroupsBar(); render(); } catch (e) {} }
+  });
 
   // v3.6.x：只更新各类计数（tab 徽标/分组栏/总数），不重建列表 DOM——
   // 删除字卡/删除分组等高频操作改局部移除 DOM + 本函数，替代整页 render()

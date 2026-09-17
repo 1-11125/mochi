@@ -106,45 +106,6 @@ A('A3a 名称写入 cc-media-names（键为内容身份）', storedName === '可
 A('A3b 卡片标签即时显示名称（无重渲染闪烁）', b.caps.indexOf('可爱猫猫') >= 0 && b.btns.indexOf('改') >= 0, JSON.stringify(b));
 
 A('A4a 内联搜名称命中该卡', (await inlineSearch('可爱猫猫')) >= 1);
-{
-  const probe = await ev(`(()=>{ const i=document.getElementById('cc-search-input'); const L=document.getElementById('cc-list');
-    const before=L.innerHTML.length; let mo=0; const ob=new MutationObserver(function(m){mo+=m.length;}); ob.observe(L,{childList:true,subtree:true});
-    i.value='zzz绝不存在'; i.dispatchEvent(new Event('input',{bubbles:true}));
-    return new Promise(function(res){ setTimeout(function(){ ob.disconnect(); res(JSON.stringify({before:before, after:L.innerHTML.length, mo:mo, errs:(window.__jsErrors||[]).slice(0,2), q:(document.getElementById('cc-search-input')||{}).value})); }, 600); }); })()`);
-  console.log('D4b', probe);
-}
-{
-  const probe2 = await ev(`(()=>{ const i=document.getElementById('cc-search-input'); const L=document.getElementById('cc-list');
-    const before=L.innerHTML.length; i.value='zzz绝不存在'; i.dispatchEvent(new Event('input',{bubbles:true}));
-    i.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-    return new Promise(function(res){ setTimeout(function(){ res(JSON.stringify({before:before, after:L.innerHTML.length, val:i.value, errs:(window.__jsErrors||[]).slice(0,2)})); }, 400); }); })()`);
-  console.log('D4c', probe2);
-}
-{
-  const probe3 = await ev(`(()=>{ const i=document.getElementById('cc-search-input'); const L=document.getElementById('cc-list');
-    let sets=0; const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
-    Object.defineProperty(L,'innerHTML',{configurable:true,get:function(){return d.get.call(this);},set:function(v){sets++;d.set.call(this,v);}});
-    i.value='zzz绝不存在'; i.dispatchEvent(new Event('input',{bubbles:true}));
-    return new Promise(function(res){ setTimeout(function(){ delete L.innerHTML; res(JSON.stringify({sets:sets, errs:(window.__jsErrors||[]).slice(0,2)})); }, 500); }); })()`);
-  console.log('D4d', probe3);
-}
-{
-  const probe4 = await ev(`(()=>{ const i=document.getElementById('cc-search-input'); window.__late=0; window.__tick=0;
-    i.addEventListener('input', function(){ setTimeout(function(){window.__late++;},120); });
-    i.value='zzz探针'; i.dispatchEvent(new Event('input',{bubbles:true}));
-    return new Promise(function(res){ setTimeout(function(){ res(JSON.stringify({late:window.__late})); }, 600); }); })()`);
-  console.log('D4e', probe4);
-}
-{
-  const probe5 = await ev(`(()=>{ const i=document.getElementById('cc-search-input'); window.__sched=[];
-    const orig=window.setTimeout;
-    window.setTimeout=function(fn,ms){ const rec={src:String(fn).slice(0,50), ms:ms, ran:false};
-      const wrapped=function(){ rec.ran=true; try{ return fn.apply(this, arguments); }catch(e){ rec.err=String(e).slice(0,80); throw e; } };
-      window.__sched.push(rec); return orig.call(window, wrapped, ms); };
-    i.value='zzz绝不存在'; i.dispatchEvent(new Event('input',{bubbles:true}));
-    return new Promise(function(res){ setTimeout(function(){ window.setTimeout=orig; res(JSON.stringify(window.__sched)); }, 600); }); })()`);
-  console.log('D4f', probe5);
-}
 A('A4b 内联搜不存在的词零卡', (await inlineSearch('zzz绝不存在')) === 0);
 await inlineSearch('');
 
@@ -153,9 +114,7 @@ await inject(); await tab('image');
 A('A5a 未命名图片搜 data: 特征零命中', (await inlineSearch('base64')) === 0);
 await inlineSearch('');
 b = JSON.parse(await badge());
-console.log('D5b', await ev(`JSON.stringify({sel:(document.querySelector('#cc-tabs .cc-tab.sel')||{}).dataset?document.querySelector('#cc-tabs .cc-tab.sel').dataset.type:'', q:(document.getElementById('cc-search-input')||{}).value, items:document.querySelectorAll('#cc-list .cc-item').length, head:document.getElementById('cc-list').innerHTML.slice(0,80), imgN:(document.querySelector('#cc-tabs .cc-tab[data-type="image"] .cc-tab-n')||{}).textContent})`));
 A('A5b 未命名图片列表项有「＋」无标签', b.items >= 1 && b.caps.length === 0 && b.btns.indexOf('＋') >= 0, JSON.stringify(b));
-await inlineSearch('');
 
 // ==== A6：清空名称后标签消失（在图片卡上做：dataURL 卡不会被标「图片丢失」）====
 await inject(); await tab('image');

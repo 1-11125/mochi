@@ -6274,11 +6274,13 @@ setTimeout(() => {
 hideTyping();
 if (hit(c2['touch-prob'])) { performPoke(); return; }
 const r = genOneReply(c2);
+// #693 多字卡回复 tag 同口径：拍一拍追问也走 genOneReply 抽卡链路，命中多字卡回复时补挂来源 chip
+const rMulti = pyMultiDrawn;
 // FIX 2026-09-16 #553 撤回先掷签（#345 同族收口③：拍一拍追问）——原与 #345 修复前的
 // tryAutoSend 同病：addIn 弹横幅/系统通知后才掷 rc-prob，900ms 后 retractMsg＝通知已承诺的
 // 内容进聊天没有。投递前定生死：命中撤回的本条静默落地（未读角标照增），900ms 后照常撤回。
 const willRetractP = hit(c2['rc-prob']);
-const m2 = addIn(r.text, { type: r.type, silent: willRetractP });
+const m2 = addIn(r.text, { type: r.type, silent: willRetractP, tag: rMulti ? '多字卡回复' : undefined, tagNoDup: true });
 if (willRetractP && m2) {
 setTimeout(() => { retractMsg(m2, 'in'); }, 900);
 }
@@ -6914,7 +6916,7 @@ if ((window.__activeCid || 'default') !== myCid) return;
 try {
 const c = cfg();
 const rep = genOneReply(c);
-addInTyped(rep.text, { type: rep.type, parts: rep.parts });
+addInTyped(rep.text, { type: rep.type, parts: rep.parts, tag: pyMultiDrawn ? '多字卡回复' : undefined, tagNoDup: true });
 } catch (e) {}
 }, randInt(800, 2000));
 }

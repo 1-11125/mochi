@@ -168,8 +168,17 @@
 /* #650 多字卡「拼接符号」多选 chips——药丸复用 .gs-row .tag，选中态对齐 .rps-tab.sel；
    .dis＝「拼接随机标点」总开关关闭时置灰（仍可点，方便提前配好符号池） */
 .ppy-chips { display:flex; flex-wrap:wrap; gap:6px 6px; justify-content:flex-end; max-width:62%; }
-.ppy-chip.sel { background:var(--ink,#111); color:#fff; border-color:var(--ink,#111); }
-[data-theme="dark"] .ppy-chip.sel { background:var(--btn-bg,#eee); color:var(--btn-ink,#111); border-color:var(--btn-bg,#eee); }
+/* FIX 2026-09-17 #694：选中态原先写成 .ppy-chip.sel（特异性 0,2,0），被上面那条
+   `.gs-row .tag:hover`（0,3,0；暗色 0,4,0）压过——手指点上去 :hover 常驻，选中底色/字色
+   当场被换成 hover 的浅灰，用户看到「点亮。没颜色变化、再点关也没变化」（用户实报）。
+   这里把选中态整体提到 hover 之上（连 :hover/:focus-visible 变体一起写死），
+   `.dis` 置灰语义不变。 */
+.ppy-chips .ppy-chip.sel,
+.ppy-chips .ppy-chip.sel:hover,
+.ppy-chips .ppy-chip.sel:focus-visible { background:var(--ink,#111); color:#fff; border-color:var(--ink,#111); }
+[data-theme="dark"] .ppy-chips .ppy-chip.sel,
+[data-theme="dark"] .ppy-chips .ppy-chip.sel:hover,
+[data-theme="dark"] .ppy-chips .ppy-chip.sel:focus-visible { background:var(--btn-bg,#eee); color:var(--btn-ink,#111); border-color:var(--btn-bg,#eee); }
 .ppy-chip.dis { opacity:.45; }
 /* v3.33.x #523：时间入口按钮 + 自绘日期/时间选择器（替代原生 datetime-local——原生弹层在部分
    设备/桌面预览下锚点不受控、会飘出手机框甚至屏幕外。同类先例：批量导入的目标分组原生 select 改自绘胶囊） */

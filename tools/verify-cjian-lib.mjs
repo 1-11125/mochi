@@ -34,7 +34,7 @@ function check(desc, ok, detail) {
   const quoted = (lib.match(/"[^"]*"|'[^']*'/g) || []);
   check('A2 预设池共 17 条文案（5+6+4+2，不含组名）', quoted.length - groups.length === 17, { n: quoted.length - groups.length });
   check('A3 播报池含内置兜底原句（气息/落空 各至少含一句与 cjian.js 兜底一致）',
-    lib.includes('可以感觉到一点熟悉的气息。') && lib.includes('没有感觉到谁。'));
+    lib.includes('可以感觉到一点熟悉的气息') && lib.includes('没有感觉到谁'));
 
   const tplSrc = readFileSync(join(root, 'src', 'template.html'), 'utf8');
   // v3.16.x：功能触发字卡已从「聊天默认字卡」拆到独立页 page-fun-cards（#fc-tabs），
@@ -186,11 +186,11 @@ check('B2 「此间」tab 渲染四组 17 张（在场感知5/空闲状态6/感�
   grp);
 const tog = JSON.parse(await evalJs(`(function(){
   try{
-    var it=[].slice.call(document.querySelectorAll('#fc-list .cc-item')).find(function(x){return (x.textContent||'').indexOf('没有感觉到谁。')>=0;});
+    var it=[].slice.call(document.querySelectorAll('#fc-list .cc-item')).find(function(x){return (x.textContent||'').indexOf('没有感觉到谁')>=0;});
     if(!it)return JSON.stringify({err:'no-item'});
     var input=it.querySelector('input');
     input.checked=false;input.dispatchEvent(new Event('change',{bubbles:true}));
-    var offKey='dc-off-cjian:'+decodeURIComponent('%E6%B2%A1%E6%9C%89%E6%84%9F%E8%A7%89%E5%88%B0%E8%B0%81%E3%80%82');
+    var offKey='dc-off-cjian:'+decodeURIComponent('%E6%B2%A1%E6%9C%89%E6%84%9F%E8%A7%89%E5%88%B0%E8%B0%81');
     var vOff=localStorage.getItem('xy-home-v2:default:'+offKey);
     input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));
     var vOn=localStorage.getItem('xy-home-v2:default:'+offKey);

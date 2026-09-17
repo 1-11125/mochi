@@ -444,17 +444,25 @@
       name: currentCall.name || '', av: currentCall.av || '', ts: Date.now()
     });
   }
+  // FIX 2026-09-17 #698：三路写入拆开各吃各的 try + 追加 IndexedDB 兜底——
+  //   原实现 sessionStorage 与 localStorage 同处一个 try，部分机型（LS 配额满 QuotaExceededError
+  //   #406 已实锤 / 隐私模式 / WebView 禁用 sessionStorage）第一句一抛整块中止，
+  //   call-active 一份都没落盘＝刷新后通话不续上、也不补「通话中断」记录（多机型反馈）。
+  //   与 #406 的 call-hold 同口径：IDB 副本保证任何存储亚健康机型都读得回（recoverCall 回读链
+  //   sessionStorage → localStorage → IDB，新鲜度窗口见 recoverProcess）。
   function saveCallActive() {
-    try {
-      if (!currentCall) return;
-      const payload = callActivePayload();
-      sessionStorage.setItem(CALL_ACTIVE_KEY, payload);
-      try { localStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
-    } catch (e) {}
+    if (!currentCall) return;
+    const payload = callActivePayload();
+    try { sessionStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
+    try { localStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
+    try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, JSON.parse(payload)); } catch (e) {}
   }
   function clearCallActive() {
     try { sessionStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
     try { localStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
+    // 写 {ts:0} 墓碑而非删除（同 clearCallHold 口径）：防 idbRestore 用 IDB 旧值回填出幽灵标记；
+    // 无 connectedTime 的值 recoverCall 读到即清，幂等无副作用
+    try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, { ts: 0 }); } catch (e) {}
   }
   function fillAv(el, data) {
     if (!el) return;
@@ -1068,18 +1076,28 @@
   // v3.26.x：启动恢复——上次通话因刷新/崩溃中断（call-active 未被 endCall 清除）→ 补写「通话中断」记录
   //   必须在 mochi-restore-done 后执行：此时 records-call 已从 IDB 回填到 LS，unshift 写回不会覆盖。
   //   mochi-restore-done 一定在回填完成后派发（idb.js finish()），即使保险丝超时最终完成也会派发。
+  // FIX 2026-09-17 #698：回读链扩成 sessionStorage → localStorage → IndexedDB（#406 call-hold 同口径）——
+  //   saveCallActive 三路写入后，任何一路幸存就能续上；恢复处理拆到 recoverProcess（异步回读 IDB 后仍能走同一处理）
   function recoverCall() {
     let info = null;
     try { info = JSON.parse(sessionStorage.getItem(CALL_ACTIVE_KEY) || 'null'); } catch (e) { info = null; }
+    if (info) { recoverProcess(info, 'ss'); return; }
     // v3.26.x：#120 sessionStorage 空 → 读 localStorage 兜底（关浏览器/PWA 重开场景）。
     //   同标签普通刷新 sessionStorage 仍在，优先读它以保持原行为。
-    let fromLs = false;
-    if (!info) {
-      try { info = JSON.parse(localStorage.getItem(CALL_ACTIVE_KEY) || 'null'); } catch (e) { info = null; }
-      fromLs = !!info;
+    try { info = JSON.parse(localStorage.getItem(CALL_ACTIVE_KEY) || 'null'); } catch (e) { info = null; }
+    if (info) { recoverProcess(info, 'ls'); return; }
+    // #698：两路都空（写入端被配额/隐私模式整块吞掉）→ 回读 IDB 副本
+    if (window.idbGet) {
+      window.idbGet(CALL_ACTIVE_KEY).then(function (ih) {
+        if (ih && ih.ts) recoverProcess(ih, 'idb');
+      }).catch(function () {});
     }
-    if (!info) return;
+  }
+  function recoverProcess(info, src) {
     if (!info.connectedTime) { clearCallActive(); return; } // 未接通就中断（响铃/呼叫中刷新），不恢复不记
+    // #698：IDB 副本永久留存，必须卡新鲜度（心跳每 20 秒刷 ts，10 分钟窗同 callInProgress/#120 口径），
+    // 否则数天后重开会翻出早已结束的旧通话；LS 副本维持原 #120 行为不变
+    if (src === 'idb' && Date.now() - (info.ts || 0) > 600000) { clearCallActive(); return; }
     const cid = info.cid || 'default';
     const dir = info.direction || 'out';
     const name = info.name || 'TA';
@@ -1087,7 +1105,7 @@
     if (callCfg().resume !== 0) {
       // #120 localStorage 兜底只恢复「新鲜」标记（心跳每 20 秒刷 ts；10 分钟窗覆盖 iPadOS
       //   杀后台后不久重开），超窗视为早已结束：静默清标记，不恢复也不翻旧账
-      if (fromLs && Date.now() - (info.ts || 0) > 600000) { clearCallActive(); return; }
+      if (src !== 'ss' && Date.now() - (info.ts || 0) > 600000) { clearCallActive(); return; }
       try {
         currentCall = { cid: cid, direction: dir, status: 'connected', startTime: info.startTime || info.connectedTime, connectedTime: info.connectedTime, durationSec: 0, name: name, av: info.av || '' };
         shownAv = null; shownName = null;

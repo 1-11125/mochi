@@ -1594,7 +1594,16 @@ try {
     // FIX 2026-09-16 #581：调整图片位置优先——①面板开着时再点图标＝换目标；②「调整图标图片位置」
     // 入口置了 __iconAdjustPick，点哪个图标就调哪个（不用先认出菜单里的同名项）
     if (window.__iconFitPanelOpen) { openIconFitPanel(app); return; }
-    if (window.__iconAdjustPick) { openIconFitPanel(app); return; }
+    if (window.__iconAdjustPick) {
+      // FIX 2026-09-17 #696：这个标记必须先消费掉、再判走哪条分支。此前直接转给
+      // openIconFitPanel：点到的图标「没有自定义图片」时它早退、标记原样留着，于是之后
+      // 每一次点图标都被劫持——有图的弹位置面板、没图的只弹一句提示，图标菜单不再出现
+      // ＝用户报的「装修模式点桌面图标上传图片失效」，而且整会话不自愈（要刷新页面）。
+      window.__iconAdjustPick = false;
+      if (app && app.dataset.app && store.get('app-icon-' + app.dataset.app)) { openIconFitPanel(app); return; }
+      // 没传过图的图标：不吞这次点击，直接落到下面的图标菜单——用户当场选「上传图片」
+      toast('这个图标还没有自定义图片，先上传一张');
+    }
     // v3.27.x：批量换图队列——「批量上传图标图片」载入多张后，依次点桌面图标按顺序
     // 换上（每点一个消耗一张），队列清空自动恢复正常图标菜单。绕过弹窗直接换图，
     // 是批量场景的专用快路径；透明度沿用该图标已存设置。
@@ -1798,12 +1807,14 @@ try {
     if (iconFitHi) { try { iconFitHi.style.boxShadow = '0 0 0 3px rgba(47,111,208,.85)'; } catch (e) {} }
   };
   const openIconFitPanel = (app) => {
+    // FIX 2026-09-17 #696：早退分支也要消费掉「等待点图标」标记——否则标记悬空会把后面每次
+    // 点图标都送进这里（无图只弹提示、连图标菜单都出不来）。见 openIconMenu 同条注释。
+    window.__iconAdjustPick = false;
     if (!app || !app.dataset.app || !store.get('app-icon-' + app.dataset.app)) {
       toast('这个图标还没有自定义图片，先上传一张');
       return;
     }
     const key = app.dataset.app;
-    window.__iconAdjustPick = false;
     let p = document.getElementById('icon-fit-panel');
     if (!p) {
       p = document.createElement('div');
@@ -2292,6 +2303,16 @@ try {
             b.addEventListener('click', fn);
             return b;
           };
+          // FIX 2026-09-17 #696：补「只换一个图标」的入口（用户原话「边看边调功能不能上传单个
+          // 图标的图片」——原来这里只有批量多选和调整位置，想换一个图标得先按批量流程）。
+          // 只负责「进装修模式、等用户点图标」，换图仍走装修模式的图标菜单（上传图片→选图），
+          // 与批量入口一样不重复实现；进之前清掉位置标记，否则点图标弹的是位置面板。
+          wrap.appendChild(mkAct('上传单个图标图片（点图标）', () => {
+            d.style.display = 'none';
+            try { enterDecor(); } catch (e) {}
+            window.__iconAdjustPick = false;
+            toast('点桌面上要换图的图标，选「上传图片」');
+          }));
           wrap.appendChild(mkAct('批量上传桌面图标图片（可多选）', () => {
             d.style.display = 'none';
             const row = document.getElementById('row-icon-batch');
@@ -2307,7 +2328,7 @@ try {
           wrap.appendChild(fitBtn);
           const note = document.createElement('div');
           note.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
-          note.textContent = '上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传；装修模式点图标 →「调整图片位置」也是同一套。';
+          note.textContent = '换单个图标＝点「上传单个图标图片」后点桌面图标选「上传图片」；换一批用批量上传。上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传。';
           wrap.appendChild(note);
           return wrap;
         } }
@@ -4734,7 +4755,7 @@ try {
     const miss = keys.filter(k => !store.get(k));
     if (!miss.length) return;
     let left = miss.length, refreshed = false;
-    const done = () => { if (!refreshed) { refreshed = true; try { refreshDeskVisuals(); } catch (e) {} } };
+    const done = () => { if (!refreshed) { refreshed = true; try { whenDeskVisible(refreshDeskVisuals); } catch (e) {} } };
     miss.forEach(k => {
       window.idbGet(pfx + ':' + k).then(v => {
         if (v && typeof v === 'string' && v.length > 2 && !store.get(k)) {
@@ -4754,6 +4775,48 @@ try {
     try { applyPageBgs(); } catch (e) {}
     try { renderDeskImages(); } catch (e) {}
     try { syncBgUI(); } catch (e) {}
+  }
+  // ===== FIX 2026-09-17 #695 切桌面「直达聊天」时桌面视觉延后到主页真正显示前 =====
+  // 症状（用户直派）：此间里点某位跨桌面梦角的【去找TA】直达聊天，点击后要卡一下。
+  // 根因：cjian.js 的【去找TA】在同一次任务里先 setActiveContact 再 enterChat——前者尾部
+  //   把主页显示出来，后者立刻又把它盖掉，主页这一帧从未被绘制；但 contact-switched 扇出
+  //   已经把卡片背景/页面背景（MB 级 dataURL）整批重新解码应用（无头 4× CPU 节流实测
+  //   refreshDeskVisuals ≈ 150ms + buildDeskPages 的 applyPageBgs，占整次点击同步耗时约 3/4）。
+  // 口径：#249 群聊「隐藏态不重渲 + 脏标记」（group-chat.js gcSwitchDirty）同一模式。
+  // 做法：主页不可见时只登记待办、不干活；主页真正显示前补跑一次——MutationObserver 回调
+  //   与 microtask 都早于本帧绘制，观感与「当时就应用」完全一致（不会闪一帧旧桌面）。
+  //   先例：本文件 1350 行的 #147 壁纸观察器同款盯 #page-phone 的 hidden 变化。
+  const deskVisualJobs = new Set();   // 待补跑的桌面视觉重应用（去重＝同一个重应用函数只排一次）
+  let deskVisualWatch = null;         // 主页显示触发器（只建一次）
+  const homeVisibleNow = () => {
+    const home = document.getElementById('page-phone');
+    return !!home && !home.hidden;
+  };
+  function flushDeskVisualJobs() {
+    if (!deskVisualJobs.size) return;
+    const jobs = Array.from(deskVisualJobs);
+    deskVisualJobs.clear();
+    jobs.forEach(function (fn) { try { fn(); } catch (e) {} });
+  }
+  function ensureDeskVisualWatch() {
+    if (deskVisualWatch || !window.MutationObserver) return;
+    const home = document.getElementById('page-phone');
+    if (!home) return;
+    try {
+      deskVisualWatch = new MutationObserver(function () { if (homeVisibleNow()) flushDeskVisualJobs(); });
+      deskVisualWatch.observe(home, { attributes: true, attributeFilter: ['hidden'] });
+    } catch (e) { deskVisualWatch = null; }
+  }
+  // 主页可见＝当场跑（与修复前完全一致）；不可见＝登记待办，主页真正显示前补跑。
+  // 返回 true＝本次已延后（调用方需当场补跑那些「与主页可见性无关」的项，如设置页的壁纸 UI）。
+  function whenDeskVisible(fn) {
+    if (homeVisibleNow()) { try { fn(); } catch (e) {} return false; }
+    deskVisualJobs.add(fn);
+    ensureDeskVisualWatch();
+    // 微任务重查：同一次任务里「显示主页 → 随即被别的页盖掉」（此间【去找TA】就是这条路径）
+    // 时主页始终没被绘制过，待办保留到主页真正显示那一刻
+    Promise.resolve().then(function () { if (homeVisibleNow()) flushDeskVisualJobs(); });
+    return true;
   }
   // 初始化 + 多桌面切换后重应用
   applyAllCardBgs();
@@ -5225,7 +5288,10 @@ try {
       slides.push(s);
     }
     // 应用每页背景图（v3.10.x：抽出为 applyPageBgs，供回填完成后/切桌面后单独重应用）
-    applyPageBgs();
+    // FIX 2026-09-17 #695：主页不可见时不在这里重解码整页背景（切桌面直达聊天时主页
+    //   一帧都没画过，这份钱白付），登记待办、主页真正显示前补跑。syncPagesUI 是设置页
+    //   的页面管理 UI，与主页可见性无关，保持同步（否则跨桌面后设置页会显示旧桌面的页数）。
+    whenDeskVisible(applyPageBgs);
     if (window.deskRebuild) window.deskRebuild();
     syncPagesUI();
     setTimeout(function () { if (window.ensureP3) window.ensureP3(); }, 50);
@@ -6669,6 +6735,14 @@ try {
     // v3.27.x：批量换图队列没点完就退出装修 → 队列作废（留在队列里会让下次进
     // 装修点的第一个图标莫名被换图）
     if (window.__iconBatchQ && window.__iconBatchQ.length) { window.__iconBatchQ = null; toast('批量换图未点完，已作废'); }
+    // FIX 2026-09-17 #696：退出装修一并收掉「点图标上传/调位置」的挂起状态与位置面板——
+    // 用户从抽屉/设置页点了「调整图标图片位置」却直接退出（没点图标）时，标记会留到下一次
+    // 进装修，把那次点图标劫持成位置面板（表现为「点图标上传图片失效」）。
+    window.__iconAdjustPick = false;
+    const fitPanelEl = document.getElementById('icon-fit-panel');
+    if (fitPanelEl && fitPanelEl.style.display !== 'none') { try { fitPanelEl.style.display = 'none'; } catch (e) {} }
+    window.__iconFitPanelOpen = false;
+    iconFitHighlight(null);
     try { document.dispatchEvent(new Event('decor-exited')); } catch (e) {}
   }
   // v3.5.131：暴露给 tabs.js 返回键（返回时退出编辑态，防止"点了没反应"）
@@ -9214,7 +9288,10 @@ try {
     try { restoreAppIcons(); } catch (e) {}
     // v3.10.x：切桌面后按新命名空间重应用卡片背景/页面背景/图片组件 + 直读兜底
     //（这些大图键只存 IndexedDB，切桌面瞬间 memoryCache 可能还没新桌面的值）
-    try { refreshDeskVisuals(); } catch (e) {}
+    // FIX 2026-09-17 #695：主页不可见（切桌面后直接进了聊天）时改登记待办、主页真正
+    //   显示前补跑；refreshDeskVisuals 内含的 syncBgUI 是设置页壁纸 UI（与主页可见性
+    //   无关，跨桌面后必须读到新桌面的值），延后时当场补跑一次。
+    if (whenDeskVisible(refreshDeskVisuals)) { try { syncBgUI(); } catch (e) {} }
     try { rescueDeskVisuals(); } catch (e) {}
     // v3.6.x：小组件三色（背景/边框/按钮）按桌面独立——切换后重新应用新桌面的值
     try { applyWidgetColor(store.get('widget-bg-color') || '#ffffff'); } catch (e) {}

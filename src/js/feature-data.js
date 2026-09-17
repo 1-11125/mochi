@@ -51,13 +51,13 @@
     { id: 'chat', name: '聊天', group: '聊天与社交', scope: 'desk', page: 'page-chat', btns: 'cs-export-msgs,cs-import-msgs,cs-clear-msgs',
       desc: '聊天记录、聊天设置（气泡/字号/时间轴/输入栏）、表情包与文字库、拍一拍、红包、引用',
       res: [/^chat-/, /^cs-(?!avatar-|lbl-)/, /^rp-cover-/, /^rp-wallet$/, /^emoji-last$/, /^my-emoji-groups$/, /^my-text-groups$/, /^my-invite-groups$/, /^mye-global-migrated$/, /^hide-tab-/, /^hide-ta-sticker$/, /^invite-ask-history$/, /^poke-/, /^rps-score$/, /^scroll-anchor-auto$/, /^sysmsg-nick-/, /^more-tab$/, /^more-cat$/, /^mail-emoji-mode$/, /^qixi-today$/] },
-    { id: 'gc', name: '群聊', group: '聊天与社交', scope: 'desk',
+    { id: 'gc', name: '群聊', group: '聊天与社交', scope: 'desk', page: 'page-group-chat',
       desc: '群聊记录、群分组、群成员资料、群聊美化与设置',
       res: [/^gc-/, /^group-chat-msgs$/] },
-    { id: 'cards', name: '字卡库与回复设置', group: '聊天与社交', scope: 'desk',
+    { id: 'cards', name: '字卡库与回复设置', group: '聊天与社交', scope: 'desk', page: 'page-custom-cards', btns: 'cc-export,cc-import-data,cc-clear-all',
       desc: '自定义/公用/默认字卡、词典、TA 回复字卡、各类概率与开关（回复设置）',
       res: [/^cc-/, /^quote-cards/, /^reply-/, /^dc-/, /^dcf-/, /^dict-/, /^rcard-/, /^tm-/, /^rps-/] },
-    { id: 'fav', name: '收藏', group: '聊天与社交', scope: 'desk',
+    { id: 'fav', name: '收藏', group: '聊天与社交', scope: 'desk', page: 'page-fav',
       desc: '我收藏的消息/字卡/图片与 TA 的收藏',
       res: [/^fav-msgs$/, /^fav-img-/, /^fav-media-/, /^fav-settings/] },
     { id: 'identity', name: '昵称与头像', group: '聊天与社交', scope: 'desk',
@@ -72,7 +72,7 @@
     { id: 'feed', name: '朋友圈', group: '聊天与社交', scope: 'both', page: 'page-feed', btns: 'feed-clear-all',
       desc: '全部动态、评论点赞、通知提醒、封面与昵称头像',
       res: [/^feed-/] },
-    { id: 'ask', name: 'TA 的提问与问卷', group: '聊天与社交', scope: 'desk',
+    { id: 'ask', name: 'TA 的提问与问卷', group: '聊天与社交', scope: 'desk', page: 'page-ta-ask',
       desc: 'TA 的提问/选择题/好奇/吐槽、问卷作答记录、询问提醒时间',
       res: [/^ta-ask$/, /^ta-survey$/, /^ta-choose$/, /^ta-curious$/, /^ta-roast$/, /^ta-cc-state$/, /^ta-checkin$/, /^interact-card-last$/, /^ta-chime:/] },
     { id: 'requests', name: '跨桌面查岗 / 来电开关', group: '聊天与社交', scope: 'global',
@@ -163,7 +163,7 @@
     { id: 'lock', name: '二级密码锁', group: '桌面与系统', scope: 'desk',
       desc: '应用锁密码、密保问答、锁定开关与字卡锁状态',
       res: [/^applock/, /^cardlock/] },
-    { id: 'sys', name: '音效与开屏设置', group: '桌面与系统', scope: 'both',
+    { id: 'sys', name: '音效与开屏设置', group: '桌面与系统', scope: 'both', page: 'page-sfx-settings',
       desc: '音效总开关与统一模式、开屏公告已读、引导完成标记、数据备份提醒时间',
       res: [/^sfx-/, /^notice-/, /^onboarding/, /^guide-/, /^splash-/, /^backup-/, /^last-export$/, /^install-/] }
   ];
@@ -172,6 +172,8 @@
   // 值＝该功能页里的**滚动内容容器**（卡 append 进容器末尾：随内容滚动、位于页面最下方，
   // 不占固定高度容器的位置、不挤压原有布局）。只用各功能 template/JS 已有的静态 class/id，
   // 不改任何归属文件。找不到挂点的功能页放弃注入（绝不动原页面结构），见 FD_SKIP。
+  // ⚠️ 有的容器会被所属模块整块 innerHTML 重写（实测：#myarc-root ← my-arc.js、#gc-body ←、
+  // #fav-list ← 等），所以注入后必须挂 childList 观察者把卡补回，见 watchBarHost。
   var FD_MOUNTS = {
     calendar: '.cal-scroll',
     records: '.cal-scroll',
@@ -194,11 +196,17 @@
     period: '.period-scroll',
     accounting: '.acc-scroll',
     gift: '.market-body',
-    mood: '.cal-scroll'
+    mood: '.cal-scroll',
+    fav: '#fav-list',
+    ask: '.gs-scroll',
+    sys: '.gs-scroll'
   };
-  // 刻意不注入的功能页：房间页 #page-room 是 overflow:hidden 的固定全屏场景（场景/clamp 高度/
-  // 底部按钮条各占一份），塞任何卡片都会挤压小屋内景。要加得先重排房间布局，留给后续批次。
-  var FD_SKIP = { room: 1 };
+  // 刻意不注入的功能页：
+  //   · 房间页 #page-room 是 overflow:hidden 的固定全屏场景（场景/clamp 高度/底部按钮条各占
+  //     一份），塞任何卡片都会挤压小屋内景；要加得先重排房间布局。
+  //   · 群聊页 #page-group-chat 的主体 #gc-body 就是**消息列表**，卡会混进消息流里、且每次渲染
+  //     都被重建，既难看也可能干扰贴底逻辑；群聊数据改走集中页（设置 → 工具 → 各功能数据管理）。
+  var FD_SKIP = { room: 1, gc: 1 };
 
   // 一个键最多归属一个功能（first match wins）——避免同一键被两个功能各删一次/各导一份
   function featureOfKey(full, cid) {
@@ -642,7 +650,22 @@
       var host = fdBarHost(f, pageEl);
       if (!host) return;
       host.appendChild(buildFdBar(f));   // 容器末尾：随内容滚动，位于该功能页最下方
+      watchBarHost(f, host);
     });
+  }
+  // #679 生存性：容器被所属模块整块重写时把卡补回去（实测 #myarc-root 每次打开都被
+  // my-arc.js 的 innerHTML 冲掉＝用户打开「我的档案」根本看不到卡）。用 childList 观察者按需
+  // 补挂，不轮询；补挂后重算一次计数（新节点是「统计中…」）。
+  function watchBarHost(f, host) {
+    if (!window.MutationObserver || host.__fdBarWatch) return;
+    try {
+      host.__fdBarWatch = 1;
+      new MutationObserver(function () {
+        if (!host.isConnected || host.querySelector('[data-fbar="' + f.id + '"]')) return;
+        host.appendChild(buildFdBar(f));
+        fdCount(f);
+      }).observe(host, { childList: true });
+    } catch (e) {}
   }
   function fdBarClick(e) {
     var b = e.target.closest ? e.target.closest('.fd-btn, .fd-fbar-go') : null;

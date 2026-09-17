@@ -18,6 +18,18 @@
   content: attr(data-ph); color: #aaa; pointer-events: none;
 }
 
+/* ---- v3.34.x #697：群聊美化「栏位不透明度 / 位置微调」----
+   与 chat-main.css 的 #page-chat 同款规则，但只作用于群聊页（不碰共享文件、不串聊天页）：
+   ::before/::after 是参与 flex 布局的留白（#655 口径：消息区随栏位内移缩短，不用 transform/zoom）；
+   --cs-bar-rgb 定义白/深底，不透明度取 JS applyGcBeauty 写入的 --cs-* 局部变量（默认 .92 不变）。 */
+#page-group-chat::before, #page-group-chat::after { content:''; display:block; flex-shrink:0; }
+#page-group-chat::before { height:var(--cs-head-inset, 0px); }
+#page-group-chat::after { height:var(--cs-input-inset, 0px); }
+#page-group-chat { --cs-bar-rgb:255,255,255; }
+[data-theme="dark"] #page-group-chat { --cs-bar-rgb:30,30,30; }
+#page-group-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }
+#page-group-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }
+
 /* ---- 右上角三点下拉菜单（v3.9.x） ---- */
 .gc-head { position: relative; }
 
@@ -271,3 +283,35 @@
   border-radius: 999px; cursor: pointer; user-select: none;
 }
 .gc-earlier:active { opacity: .65; }
+
+/* ===== #698c：头像互动/昵称互动半框 ===== */
+.gc-inter-pills { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px 0; }
+.gc-inter-pill {
+  padding: 4px 10px; border-radius: 999px; border: none; cursor: pointer;
+  font-size: 12px; color: var(--ink, #111);
+  background: var(--card-soft, rgba(127, 127, 127, .14));
+}
+.gc-inter-pill.on { background: #111111; color: #ffffff; }
+.gc-inter-hint { padding: 8px 14px 2px; font-size: 11.5px; color: var(--muted, #8a8a8a); }
+.gc-inter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px 14px; }
+.gc-inter-grid.nick { grid-template-columns: repeat(3, 1fr); }
+.gc-inter-cell {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border-radius: 12px; padding: 4px;
+}
+.gc-inter-cell:active { opacity: .7; }
+.gc-inter-cell.cur { outline: 2px solid #111111; outline-offset: -2px; }
+.gc-inter-av { width: 100%; aspect-ratio: 1 / 1; }
+.gc-inter-av img, .gc-inter-av svg { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.gc-inter-nick {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; padding: 8px 10px; border-radius: 999px;
+  background: var(--card-soft, rgba(127, 127, 127, .14));
+}
+.gc-inter-del {
+  position: absolute; top: -4px; right: -4px; width: 18px; height: 18px;
+  border-radius: 50%; border: none; background: rgba(0, 0, 0, .55); color: #fff;
+  font-size: 10px; line-height: 18px; padding: 0; cursor: pointer;
+}
+.gc-inter-ops { display: flex; gap: 8px; padding: 8px 14px 14px; }
+.gc-inter-ops .gc-set-btn { flex: 1; }

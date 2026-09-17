@@ -68,6 +68,10 @@ function buildEnv() {
     const ccTokGen = { pub: 0, own: 0 };
     const ccTokMemo = new Map();
     let ccTokMemoChars = 0;
+    // #547 引入：token→内容短指纹（ccMediaCardIdent 令牌化前后同身份用）。沙箱此前漏桩，
+    // 导致提取出的 ccTokenizeGiantMedia 一跑就 ReferenceError（恒红，非被测逻辑问题）。
+    const ccTokMemoRev = new Map();
+    ${extractFn(src, 'ccMediaFrag')}
     let pubCache = { marker: 'pub-old' };
     let ownPoolCache = null;
     let groups = null;

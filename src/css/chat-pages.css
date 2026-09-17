@@ -2601,6 +2601,8 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
   padding:0 5px; border-radius:5px; flex-shrink:0;
 }
 .sm-src-local { color:var(--ink); border-color:var(--ink); }
+/* #700：导入时浏览器解不动的本地歌「放不了」徽标（真播出来过会自动消失） */
+.sm-src-bad { color:var(--accent,#e74c5e); border-color:var(--accent,#e74c5e); }
 .sm-song-dur { font-size:11px; color:var(--muted); flex-shrink:0; }
 .sm-song-more {
   width:26px; height:26px; border:none; background:transparent; color:#999;

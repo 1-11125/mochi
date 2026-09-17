@@ -99,9 +99,9 @@ await search('功能');
 v = await visRows();
 const grpChatGone = !(await rowVisible('#sf-group-chat-row'));
 const fhub = await rowVisible('#row-featurehub');
-// 上限 8：设置页里正文/DESC 真实含「功能」的行已有 8 个（功能大全/功能诊断/查看存储/字卡使用状态自检
-// + 关于批的 功能介绍 与 3 条 FAQ 名含「功能」）；关键是「功能说明」胶囊不制造噪声（见 B1）且开启群聊不误中。
-A('B2 搜「功能」无胶囊噪声（开启群聊行不误中、功能大全在列）', grpChatGone && fhub && v.length > 0 && v.length <= 8, 'hits=' + v.length + ' [' + v.join(',') + ']');
+// 上限 9：设置页里正文/DESC/标题真实含「功能」的行已有 9 个（功能大全/功能诊断/查看存储/字卡使用状态自检
+// + 各功能数据管理 + 关于批的 功能介绍 与 3 条 FAQ 名含「功能」）；关键是「功能说明」胶囊不制造噪声（见 B1）且开启群聊不误中。
+A('B2 搜「功能」无胶囊噪声（开启群聊行不误中、功能大全在列）', grpChatGone && fhub && v.length > 0 && v.length <= 9, 'hits=' + v.length + ' [' + v.join(',') + ']');
 
 // B3 占位符示例词逐一可命中（修复前壁纸/通知/概率均 0 命中）
 await search('壁纸'); v = await visRows();

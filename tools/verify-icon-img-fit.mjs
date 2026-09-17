@@ -215,6 +215,119 @@ const oE2 = (typeof mE2 === 'string' && mE2.charAt(0) === '{') ? JSON.parse(mE2)
 chk('E3 设置页行点击 → 进装修模式并等待点图标', oE2.pick === true && oE2.decor === true, mE2);
 chk('E4 全程零未捕获异常', (await ev("JSON.stringify(window.__jsErrors||[])")).length <= 2, await ev("JSON.stringify((window.__jsErrors||[]).slice(-3))"));
 
+// ---- F. #696 装修模式「点桌面图标上传图片」失效（用户直派） ----
+// 根因：__iconAdjustPick 悬空——点到的图标没有自定义图片时 openIconFitPanel 早退、标记没消费，
+// 之后每次点图标都被劫持（有图弹位置面板 / 无图只弹提示），图标菜单再也不出现、整会话不自愈。
+// 状态起点＝E3（row-icon-fit 已点，pick=true、decor-on）。断言前先把残留弹窗/标题清干净，
+// 否则「标题仍是图标设置」会把空点击误判成通过。
+const noImgKey = await ev(`(function(){
+  var apps=document.querySelectorAll('.app[data-app]');
+  for(var i=0;i<apps.length;i++){ if(!apps[i].querySelector('.app-ico img')) return apps[i].dataset.app; }
+  return '';
+})()`);
+const clearOverlays = async () => {
+  await ev("(function(){var k=document.getElementById('modal-mask');if(k)k.hidden=true;var t=document.getElementById('modal-title');if(t)t.textContent='';var p=document.getElementById('icon-fit-panel');if(p)p.style.display='none';window.__iconFitPanelOpen=false;return true;})()");
+  await sleep(250);
+};
+// 点图标并拿到图标菜单状态。⚠️ 数据备份提醒等**定时弹窗**会随机插进来抢走这一次点击
+//（实测踩到：标题变成「数据备份提醒」）——先关掉再点，若标题不是「图标设置」就关掉重点一次。
+const clickIconForMenu = async (key) => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await clearOverlays();
+    await ev(`(function(){var a=document.querySelector('.app[data-app="${key}"]');if(a)a.click();return true;})()`);
+    await sleep(550);
+    const st = JSON.parse(String(await modalState()));
+    // 只对「被别的弹窗抢走」重试。⚠️ 「没弹窗」/「弹的是位置面板」都是**被测行为本身**、
+    // 必须原样返回——早先写成「非图标菜单就重来」时，第二次点击会把悬空标记顺手消费掉，
+    // 于是 RED 基线从 4 红缩到 2 红（判别力被重试逻辑吃掉，实测踩到）。
+    if (st.modalOpen && st.title !== '图标设置') continue;
+    return st;
+  }
+  return JSON.parse(String(await modalState()));
+};
+const modalState = () => ev(`(function(){var k=document.getElementById('modal-mask');var t=document.getElementById('modal-title');
+  var p=document.getElementById('icon-fit-panel');
+  return JSON.stringify({ pick:!!window.__iconAdjustPick, modalOpen:k?!k.hidden:false, title:t?t.textContent:'',
+    fitOpen:!!p&&getComputedStyle(p).display!=='none',
+    pills:(function(){var o=[];Array.prototype.forEach.call(document.querySelectorAll('#modal-pills button'),function(bb){o.push(bb.textContent);});return o;})() });})()`);
+chk('F0 找得到一个「没有自定义图片」的桌面图标（下面几条都拿它验证）', typeof noImgKey === 'string' && noImgKey.length > 0, noImgKey);
+await clearOverlays();
+
+// F1~F2：边看边调抽屉补「上传单个图标图片」入口（用户原话「边看边调功能不能上传单个图标的图片」）
+await ev("(function(){var r=document.getElementById('row-appearance');if(r)r.click();return true;})()");
+await sleep(400);
+await ev("(function(){var b=document.getElementById('dq-drawer');if(b)b.click();return true;})()");
+await sleep(600);
+await ev("(function(){var d=document.getElementById('beauty-drawer');Array.prototype.forEach.call(d.querySelectorAll('button'),function(b){if(b.textContent==='图标')b.click();});return true;})()");
+await sleep(300);
+const mF1 = await ev("(function(){var d=document.getElementById('beauty-drawer');var t=d.textContent||'';return JSON.stringify({hasOne:/上传单个图标图片/.test(t),hasBatch:/批量上传桌面图标图片/.test(t)});})()");
+const oF1 = JSON.parse(String(mF1));
+chk('F1 「图标」分区有「上传单个图标图片（点图标）」入口（＋原批量入口仍在）', oF1.hasOne === true && oF1.hasBatch === true, mF1);
+await ev("(function(){var d=document.getElementById('beauty-drawer');Array.prototype.forEach.call(d.querySelectorAll('button'),function(b){if(b.textContent.indexOf('上传单个图标图片')>=0)b.click();});return true;})()");
+await sleep(500);
+const mF2 = await ev("(function(){var d=document.getElementById('beauty-drawer');var p=document.getElementById('page-phone');return JSON.stringify({drawerHidden:getComputedStyle(d).display==='none',decor:p.classList.contains('decor-on'),pick:!!window.__iconAdjustPick});})()");
+const oF2 = JSON.parse(String(mF2));
+chk('F2 点它 → 抽屉收起、进装修模式、不带位置标记（点图标弹的是图标菜单）', oF2.drawerHidden === true && oF2.decor === true && oF2.pick === false, mF2);
+
+// F3~F4：装修模式点「没有自定义图」的图标 → 图标菜单（含上传图片）→ 真能弹出文件选择器
+const oF3 = await clickIconForMenu(noImgKey);
+const mF3 = JSON.stringify(oF3);
+chk('F3 点无自定义图的图标 → 弹图标菜单（含「上传图片」），不是位置面板', oF3.modalOpen === true && oF3.title === '图标设置' && oF3.fitOpen === false && oF3.pills.indexOf('上传图片') >= 0, mF3);
+// ⚠️ 断言口径：template 里**本来就有**三个静态 <input type=file>（#modal-file-input / feed 两个），
+// 所以「document 里存在 input[type=file]」恒为真、毫无判别力（本批初版就写成这样，已改）。
+// 改为拦 HTMLInputElement.prototype.click，记下每次文件框点击的 accept / id / 内联样式，
+// 再断言「点到的是一个动态创建（无 id、left:-9999px 离屏）且 accept=image/* 的输入框」。
+await ev(`(function(){
+  window.__filePicks = [];
+  if (!window.__filePickHooked) {
+    window.__filePickHooked = 1;
+    var orig = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function () {
+      try { if (this.type === 'file') window.__filePicks.push({ accept: this.accept || '', id: this.id || '', style: this.getAttribute('style') || '' }); } catch (e) {}
+      try { return orig.apply(this, arguments); } catch (e) { return undefined; }
+    };
+  }
+  return true;
+})()`);
+await ev("(function(){Array.prototype.forEach.call(document.querySelectorAll('#modal-pills button'),function(b){if((b.textContent||'')==='上传图片')b.click();});return true;})()");
+await sleep(200);
+await ev("(function(){var ok=document.getElementById('modal-ok');if(ok)ok.click();return true;})()");
+await sleep(400);
+const mF4 = await ev(`(function(){
+  var picks = window.__filePicks || [];
+  var dyn = picks.filter(function(p){ return /image\\//.test(p.accept) && p.id === '' && /-9999px/.test(p.style); });
+  return JSON.stringify({ picks: picks.length, dynPicks: dyn.length, sample: picks.slice(-2) });
+})()`);
+chk('F4 选「上传图片」+确定 → 真的拉起了文件选择器（拦截到的动态 image/* 离屏输入框点击）', JSON.parse(String(mF4)).dynPicks >= 1, mF4);
+await ev("(function(){var p=document.querySelectorAll('input[type=file]');Array.prototype.forEach.call(p,function(i){if(!i.id)i.remove();});return true;})()");
+
+// F5：悬空标记回归——调整位置模式下点到无图图标，标记必须当场消费，后续点图标仍出菜单
+await clearOverlays();
+await ev("(function(){var r=document.getElementById('row-icon-fit');if(r)r.click();return true;})()");
+await sleep(400);
+const oF5 = await clickIconForMenu(noImgKey);
+const mF5 = JSON.stringify(oF5);
+chk('F5a 调整位置模式点到无图图标：退回图标菜单（modalOpen+标题）且标记已消费', oF5.modalOpen === true && oF5.title === '图标设置' && oF5.pick === false, mF5);
+const oF5b = await clickIconForMenu('chat');
+const mF5b = JSON.stringify(oF5b);
+chk('F5b 紧接着点有自定义图的图标 → 仍是图标菜单（若标记悬空这里会变成位置面板＝用户报的「点图标上传图片失效」）', oF5b.modalOpen === true && oF5b.title === '图标设置' && oF5b.fitOpen === false, mF5b);
+await clearOverlays();
+
+// F6：点了「调整图片位置」却没点图标就退出装修 → 挂起状态与位置面板都要收掉，下次进装修点图标照常出菜单
+await ev("(function(){var r=document.getElementById('row-icon-fit');if(r)r.click();return true;})()");
+await sleep(400);
+await ev("(function(){var d=document.getElementById('decor-done');if(d)d.click();return true;})()");
+await sleep(400);
+const mF6 = await ev("(function(){var p=document.getElementById('icon-fit-panel');return JSON.stringify({pick:!!window.__iconAdjustPick,panelOpen:!!p&&getComputedStyle(p).display!=='none',decor:document.getElementById('page-phone').classList.contains('decor-on')});})()");
+const oF6 = JSON.parse(String(mF6));
+chk('F6 退出装修收掉挂起标记 / 位置面板 / decor-on', oF6.pick === false && oF6.panelOpen === false && oF6.decor === false, mF6);
+await ev("(function(){var r=document.getElementById('row-custom-icon');if(r)r.click();return true;})()");
+await sleep(500);
+const oF7 = await clickIconForMenu('chat');
+const mF7 = JSON.stringify(oF7);
+chk('F7 重新进装修点图标 → 照常弹图标菜单（「点桌面图标上传图片」没有失效）', oF7.modalOpen === true && oF7.title === '图标设置' && oF7.fitOpen === false, mF7);
+chk('F8 全程零未捕获异常（含 F 段）', (await ev("JSON.stringify(window.__jsErrors||[])")).length <= 2, await ev("JSON.stringify((window.__jsErrors||[]).slice(-3))"));
+
 ch.kill(); try { rmSync(tmp, { recursive: true, force: true }); } catch (e) {} server.close();
 const f = results.filter(x => !x).length;
 console.log(f ? ('FAILED ' + f + '/' + results.length) : ('ALL PASS ' + results.length + '/' + results.length));

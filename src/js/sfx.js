@@ -16,10 +16,13 @@
   const gStore = window.xyStore('xy-home-v2');
   function sfxUnified() { try { return gStore.get('sfx-unified') === '1'; } catch (e) { return false; } }
   window.sfxUnified = sfxUnified;
+  // #698d：群聊音效键（sfx-gc-*）恒走全局根命名空间——群聊是全局功能（消息/成员都不随
+  // 桌面隔离），音效也应一套全局，不跟随「当前桌面」也不受 #643 共用开关影响
+  function isGcKey(k) { return typeof k === 'string' && k.indexOf('sfx-gc-') === 0; }
   const store = {
-    get(k) { return (sfxUnified() ? gStore : rawStore).get(k); },
-    set(k, v) { (sfxUnified() ? gStore : rawStore).set(k, v); },
-    remove(k) { (sfxUnified() ? gStore : rawStore).remove(k); }
+    get(k) { if (isGcKey(k)) return gStore.get(k); return (sfxUnified() ? gStore : rawStore).get(k); },
+    set(k, v) { if (isGcKey(k)) { gStore.set(k, v); return; } (sfxUnified() ? gStore : rawStore).set(k, v); },
+    remove(k) { if (isGcKey(k)) { gStore.remove(k); return; } (sfxUnified() ? gStore : rawStore).remove(k); }
   };
   function toast(msg) {
     let t = document.getElementById('cc-toast');
@@ -29,9 +32,9 @@
     clearTimeout(t._timer);
     t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2200);
   }
-  const KEYS = { ring: 'sfx-ring', in: 'sfx-in', out: 'sfx-out' };
-  const BKEYS = { ring: 'sfx-ring-b', in: 'sfx-in-b', out: 'sfx-out-b' };
-  const NAMES = { ring: '联系人来电铃声', in: '联系人发送和回复消息', out: '我发送和回复消息' };
+  const KEYS = { ring: 'sfx-ring', in: 'sfx-in', out: 'sfx-out', 'gc-in': 'sfx-gc-in', 'gc-out': 'sfx-gc-out' };
+  const BKEYS = { ring: 'sfx-ring-b', in: 'sfx-in-b', out: 'sfx-out-b', 'gc-in': 'sfx-gc-in-b', 'gc-out': 'sfx-gc-out-b' };
+  const NAMES = { ring: '联系人来电铃声', in: '联系人发送和回复消息', out: '我发送和回复消息', 'gc-in': '群聊收消息', 'gc-out': '群聊发消息' };
 
   // ================= 内置音效库（v3.7.x） =================
   // 全部由 Web Audio API 合成，无外部资源、不占 localStorage。
@@ -46,11 +49,14 @@
   const PRESET_ORDER = {
     ring: ['ring-warm', 'ring-classic'],
     in: ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick'],
-    out: ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick']
+    out: ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick'],
+    // #698d：群聊收发与单聊同款内置音效可选
+    'gc-in': ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick'],
+    'gc-out': ['bubble', 'ding', 'bird', 'drop', 'piano', 'tick']
   };
   // v3.7.x：默认关闭——不再有"缺省即播默认内置"的兜底；
   //   缺省（无键）与显式「静音」（'none'）在 sfxState/playSfx 中统一按静音处理。
-  const PRESET_CONTAINERS = { ring: 'sfx-ring-presets', in: 'sfx-in-presets', out: 'sfx-out-presets' };
+  const PRESET_CONTAINERS = { ring: 'sfx-ring-presets', in: 'sfx-in-presets', out: 'sfx-out-presets', 'gc-in': 'sfx-gcin-presets', 'gc-out': 'sfx-gcout-presets' };
 
   // AudioContext 单例：首建 + 每次播放前 resume（iOS 自动播放策略要求）
   let _ctx = null;
@@ -345,6 +351,17 @@
       if (bid !== 'none' && bid && SYNTHS[bid]) playBuiltin(bid, type === 'ring' && loop);
     } catch (e) {}
   };
+  // #698d：群聊收发音效入口——读 sfx-gc-in / sfx-gc-out（全局键）；两类都没设置过
+  // （用户没在音效设置里动过群聊卡）时回退单聊同名类别，保持升级前「群聊跟随当前
+  // 桌面音效」的既有听感；显式「静音」则静音不回退。
+  window.playSfxGc = function (type) {
+    const gcType = (type === 'in') ? 'gc-in' : 'gc-out';
+    const singleType = (type === 'in') ? 'in' : 'out';
+    try {
+      const touched = store.get(KEYS[gcType]) || store.get(BKEYS[gcType]);
+      window.playSfx(touched ? gcType : singleType, { loop: false });
+    } catch (e) { try { window.playSfx(singleType, { loop: false }); } catch (e2) {} }
+  };
   // 停止长音（来电铃声）：同时停自定义 Audio 与内置 BufferSource
   window.stopSfx = function (type) {
     if (type === 'ring') {
@@ -423,7 +440,7 @@
   }
   // 状态显示
   function updateVals() {
-    [['ring', 'sfx-ring-val'], ['in', 'sfx-in-val'], ['out', 'sfx-out-val']].forEach((pair) => {
+    [['ring', 'sfx-ring-val'], ['in', 'sfx-in-val'], ['out', 'sfx-out-val'], ['gc-in', 'sfx-gcin-val'], ['gc-out', 'sfx-gcout-val']].forEach((pair) => {
       const el = document.getElementById(pair[1]);
       if (el) el.textContent = sfxState(pair[0]).label;
     });
@@ -456,9 +473,13 @@
     renderPresets('ring', PRESET_CONTAINERS.ring);
     renderPresets('in', PRESET_CONTAINERS.in);
     renderPresets('out', PRESET_CONTAINERS.out);
+    renderPresets('gc-in', PRESET_CONTAINERS['gc-in']); // #698d：群聊收发两张卡片
+    renderPresets('gc-out', PRESET_CONTAINERS['gc-out']);
     renderTools('ring', 'sfx-ring-tools');
     renderTools('in', 'sfx-in-tools');
     renderTools('out', 'sfx-out-tools');
+    renderTools('gc-in', 'sfx-gcin-tools');
+    renderTools('gc-out', 'sfx-gcout-tools');
     updateVals();
   }
 
