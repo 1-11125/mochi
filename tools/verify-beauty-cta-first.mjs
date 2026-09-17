@@ -93,6 +93,57 @@ chk('A7 最显眼：整宽主色条（宽 ≥ 页面 85% 且高 ≥ 46px）', o.
 chk('A8 最显眼：底色与同页小胶囊按钮不同（不再是同款描边小按钮）', o.differsFromChip === true, m);
 chk('A9 最显眼：标题加粗放大（≥700 / ≥14px）+ 一行说明', o.fw === '700' && o.fs >= 14 && o.hasHint === true, m);
 
+for (const width of [360, 390]) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 2, mobile: true });
+  for (const theme of ['light', 'dark']) {
+    const appearance = await ev(`(function(){
+      document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)});
+      var accent = ${JSON.stringify(theme)} === 'dark' ? { bg:'#f0f0f0', ink:'#111111' } : { bg:'#111111', ink:'#ffffff' };
+      document.documentElement.style.setProperty('--btn-bg', accent.bg);
+      document.documentElement.style.setProperty('--btn-ink', accent.ink);
+      var btn=document.getElementById('dq-drawer'), action=btn.lastElementChild;
+      var cs=getComputedStyle(btn), ac=getComputedStyle(action);
+      function lum(color){
+        // color-mix 的结果在 Chrome 里是 color(srgb 0~1) 形式；rgb() 是 0~255。两种都要能算。
+        var m=(color.match(/[\\d.]+/g)||[]).map(Number);
+        var scale = color.indexOf('color(')===0 ? 255 : 1;
+        var rgb=m.slice(0,3).map(function(v){ v=(v*scale)/255; return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4); });
+        return rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722;
+      }
+      var bg=lum(cs.backgroundColor), ink=lum(cs.color);
+      var r=btn.getBoundingClientRect(), ar=action.getBoundingClientRect();
+      return {contrast:(Math.max(bg,ink)+0.05)/(Math.min(bg,ink)+0.05),
+        follows: cs.color === (accent.bg==='#111111' ? 'rgb(17, 17, 17)' : 'rgb(240, 240, 240)'),
+        noPurple: cs.backgroundColor!=='rgb(240, 234, 255)' && cs.color!=='rgb(73, 52, 120)' && ac.backgroundColor!=='rgb(255, 255, 255)',
+        action:action.textContent.indexOf('点击开启')>=0 && parseFloat(ac.borderRadius)>20 && ac.backgroundColor!==cs.backgroundColor,
+        fits:btn.scrollWidth<=btn.clientWidth+1 && ar.right<=r.right && r.right<=window.innerWidth,
+        enabled:!btn.disabled && cs.cursor==='pointer'};
+    })()`);
+    chk('C ' + width + 'px/' + theme + ' 跟随主题色（文字=主题色）、对比度≥4.5、开启胶囊且不溢出',
+      appearance && appearance.follows && appearance.noPurple && appearance.contrast >= 4.5 && appearance.action && appearance.fits && appearance.enabled,
+      JSON.stringify(appearance));
+    const matching = await ev(`(function(){
+      var desk=document.getElementById('dq-drawer'), chat=document.getElementById('cs-live-adjust');
+      if(!desk || !chat) return false;
+      return ['backgroundColor','color','borderTopColor'].every(function(prop){
+        return getComputedStyle(desk)[prop]===getComputedStyle(chat)[prop] &&
+          getComputedStyle(desk.lastElementChild)[prop]===getComputedStyle(chat.lastElementChild)[prop];
+      }) && chat.lastElementChild.textContent===desk.lastElementChild.textContent;
+    })()`);
+    chk('D ' + width + 'px/' + theme + ' 聊天与桌面入口及开启胶囊配色一致', matching === true, matching);
+  }
+}
+// ---- E. 换主题色：两个入口同时跟随（证明颜色来自主题变量而非写死） ----
+const accentFollow = await ev(`(function(){
+  document.documentElement.style.setProperty('--btn-bg','#2f6fd0');
+  document.documentElement.style.setProperty('--btn-ink','#ffffff');
+  var desk=getComputedStyle(document.getElementById('dq-drawer'));
+  var chat=getComputedStyle(document.getElementById('cs-live-adjust'));
+  return desk.color==='rgb(47, 111, 208)' && chat.color===desk.color;
+})()`);
+chk('E 自定义主题色时两个入口同时跟随（非写死颜色）', accentFollow === true, accentFollow);
+await ev("document.documentElement.setAttribute('data-theme','light')");
+
 // ---- B. 行为：点了仍然打开抽屉 ----
 await ev("(function(){var b=document.getElementById('dq-drawer');if(b)b.click();return true;})()");
 await sleep(800);
@@ -110,6 +161,26 @@ chk('B1 点入口打开边看边调抽屉', oB.shown === true, mB);
 chk('B2 抽屉仍是贴底、高度 ≤ 40vh（不盖掉大半个桌面）', oB.bottomPinned === true && oB.pctOfVh <= 40, mB);
 chk('B3 抽屉标题仍是「边看边调」', oB.title === true, mB);
 chk('B4 全程零未捕获异常', (await ev("JSON.stringify(window.__jsErrors||[])")).length <= 2, await ev("JSON.stringify((window.__jsErrors||[]).slice(-3))"));
+
+// ---- F. 美化页整理（2026-09-17）：5 段并为 3 段，设置行零丢失、切换正常 ----
+const mF = await ev(`(function(){
+  var page=document.getElementById('page-theme');
+  var tabs=[].map.call(document.querySelectorAll('#them-tabs .them-tab'),function(t){return t.dataset.tab;});
+  var secs=[].map.call(page.querySelectorAll('.them-sec'),function(s){return s.dataset.sec;});
+  var ids=[].map.call(page.querySelectorAll('.set-row[id]'),function(r){return r.id;});
+  var out={tabs:tabs.join(','),secs:secs.join(','),rowN:ids.length,dup:ids.length!==new Set(ids).size,perTab:{}};
+  tabs.forEach(function(name){
+    var t=document.querySelector('#them-tabs .them-tab[data-tab="'+name+'"]'); if(t)t.click();
+    var vis=[].filter.call(page.querySelectorAll('.them-sec'),function(s){return !s.hidden;}).map(function(s){return s.dataset.sec;});
+    var visibleRows=[].reduce.call(page.querySelectorAll('.them-sec:not([hidden]) .set-row'),function(n,r){return n+1;},0);
+    out.perTab[name]=vis.join('+')+'|'+visibleRows;
+  });
+  return JSON.stringify(out);
+})()`);
+const oF = JSON.parse(String(mF));
+chk('F1 三个 tab（基础/壁纸与图标/方案）对应三段，无多余段', oF.tabs === 'basic,wall,scheme' && oF.secs === 'basic,wall,scheme', mF);
+chk('F2 33 个设置行全部保留且 id 不重复', oF.rowN === 33 && oF.dup === false, mF);
+chk('F3 每段只显示自己那一段（互斥切换正常，各段有可见行）', ['basic', 'wall', 'scheme'].every(function(k){ var p=(oF.perTab[k]||'').split('|'); return p[0]===k && Number(p[1])>0; }), mF);
 
 ch.kill(); try { rmSync(tmp, { recursive: true, force: true }); } catch (e) {} server.close();
 const f = results.filter(x => !x).length;

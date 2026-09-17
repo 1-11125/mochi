@@ -33,7 +33,18 @@ const server = createServer((req, res) => {
     if (!p.startsWith(root)) { res.writeHead(403); res.end(); return; }
     if (statSync(p).isDirectory()) p = join(p, 'index.html');
     res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
-    res.end(readFileSync(p));
+    if (process.env.MOCHI_AVATAR_SOURCE === '1' && p === join(root, 'index.html')) {
+      const src = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
+      const start = src.indexOf('function showDeskPopup(opts) {');
+      const end = src.indexOf('function extractDeskMsg(rec) {', start);
+      const html = readFileSync(p, 'utf8');
+      const outStart = html.indexOf('function showDeskPopup(opts) {');
+      const outEnd = html.indexOf('function extractDeskMsg(rec) {', outStart);
+      if (start < 0 || end < start || outStart < 0 || outEnd < outStart) throw new Error('头像函数定位失败');
+      res.end(html.slice(0, outStart) + src.slice(start, end) + html.slice(outEnd));
+    } else {
+      res.end(readFileSync(p));
+    }
   } catch (e) { res.writeHead(404); res.end('nf'); }
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -146,6 +157,17 @@ await sleep(300);
   const after = await evalJs(`document.getElementById('desk-msg-av').innerHTML`);
   check('D1 isHidden 分支不发前台横幅', !!r && r.shown === false, JSON.stringify(r));
   check('D2 isHidden 分支不改弹窗头像 DOM', before === after, '');
+}
+
+{
+  await evalJs(`window.activeStore().set('cs-avatar-partner', ${JSON.stringify(RED)});`);
+  const chat = await evalJs(popAndRead + '()');
+  check('E1 聊天通知先显示当前聊天红图', !!chat && String(chat.html).includes('ff2255'));
+  const feed = await evalJs(popAndRead + `(${JSON.stringify(GOLD)})`);
+  check('E2 朋友圈通知独立显示金图', !!feed && String(feed.html).includes('ffaa22'));
+  const nextChat = await evalJs(popAndRead + '()');
+  check('E3 朋友圈之后的聊天通知恢复当前聊天红图', !!nextChat && String(nextChat.html).includes('ff2255'), nextChat && nextChat.html);
+  check('E4 聊天通知不残留朋友圈金图', !!nextChat && !String(nextChat.html).includes('ffaa22'));
 }
 
 const passed = results.filter((x) => x.ok).length;

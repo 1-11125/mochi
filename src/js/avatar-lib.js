@@ -525,13 +525,20 @@
     //   再打开时整格重新解码＝每次打开都闪一下。**这条节点身份测不出**（#508/#509/#617 的断言
     //   都只看节点有没有被替换，节点一直没换、照样闪），所以在显示前主动 decode 一次：位图还在
     //   时 decode 立即兑现（不可感知），被回收过时先解码完再显示＝不再出现空帧 / 逐格冒出。
-    //   上限 120ms（绝不因为解码慢把半框卡住）；首次打开还没有已加载图＝同步显示，行为同旧版。
-    avShowWhenDecoded(function () { avPage.hidden = false; });
+    //   #692：不再 120ms 强行显示——与表情包面板同一处缺口（解码没完就显示＝空帧/逐格冒出，
+    //   且等待期间关闭会被回调重新弹出）。改为解码结算后再显示，世代令牌防串场，兜底 1s。
+    const myToken = ++avShowToken;
+    avShowWhenDecoded(function () { avPage.hidden = false; }, myToken);
   }
+  let avShowToken = 0; // #692：头像互动半框「解码后再显示」世代令牌（关闭/重开作废，防空回调弹出）
   // #662：把头像库网格里已赋 src 的图 decode 完再执行 show（openAvlib 用）
-  function avShowWhenDecoded(show) {
+  function avShowWhenDecoded(show, token) {
     let shown = false;
-    const fin = function () { if (shown) return; shown = true; try { show(); } catch (e) {} };
+    const fin = function () {
+      if (shown) return; shown = true;
+      if (token !== undefined && token !== avShowToken) return; // #692 已关闭/已重开：本次显示作废
+      try { show(); } catch (e) {}
+    };
     if (!window.Promise) { fin(); return; }
     const grids = [avGrid, avMeGrid];
     const jobs = [];
@@ -546,13 +553,14 @@
     }
     if (!jobs.length) { fin(); return; }
     Promise.all(jobs).then(fin, fin);
-    setTimeout(fin, 120);
+    setTimeout(fin, 1000); // #692 兜底：decode 迟迟不结算也不把半框挂死（不再用 120ms 提前放行）
   }
   // v3.9.x：切桌面后同样补读新桌面头像池（restoreLib 内部校验桌面归属 + 内容更多才覆盖）
   document.addEventListener('contact-switched', function () {
     try { restoreLib('avatar-lib'); restoreLib('avatar-me-lib'); restoreLib('nick-lib'); restoreLib('nick-me-lib'); } catch (e) {}
   });
   function closeAvlib() {
+    avShowToken++; // #692：作废未兑现的「解码后显示」
     if (avPage) avPage.hidden = true;
   }
   window.openAvlib = openAvlib;

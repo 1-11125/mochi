@@ -28,6 +28,12 @@
      重新盖住壁纸层；.page z-index:2 同值后到者胜（DOM 序在 .phone 里更靠后），
      页面内容不受影响。 */
   position:absolute; inset:0; z-index:2; pointer-events:none;
+  /* FIX 2026-09-17 #690：inset 简写是 2020 年才有的（Safari 14.1 / Chromium 87），
+     老内核整条丢弃 → 本层塌成 0×0（无头实测 390×844 → 0×0）→ 桌面「背景遮罩」
+     滑块怎么调都没有任何变化，用户当成功能坏了。同款兜底：先用四条长手 + 宽高
+     撑满，再让支持 inset 的内核用简写覆盖（两条同时写＝任一侧生效，零机型分支；
+     房内同款写法见 chat-pages.css 的 .poke-card.game-fs 注释）。 */
+  top:0; right:0; bottom:0; left:0; width:100%; height:100%;
   background:rgba(255,255,255,var(--desk-bg-mask-op,0));
   border-radius:inherit;
 }
@@ -42,6 +48,10 @@
   filter:blur(var(--desk-bg-blur,0px));
   -webkit-filter:blur(var(--desk-bg-blur,0px));
   top:-24px !important; left:-24px !important; right:-24px !important; bottom:-24px !important;
+  /* #690：图层自带的宽高兜底（无头里 100%，老内核不认识 inset 时靠它撑满）必须让位——
+     四条长手定了 -24 外扩，若 width/height 仍为 100%，右/下两侧的外扩会被
+     「宽高优先于 right/bottom」吃掉，模糊边缘重新发虚（#240 修过的症状）。 */
+  width:auto !important; height:auto !important;
 }
 /* v3.6.x：桌面字号/卡片大小可调。
    ⚠️ iOS 卡顿红线（AGENTS.md / WORKLOG）：zoom 是 WebKit 已知卡顿源，会把元素踢出
@@ -250,7 +260,10 @@
 .we-btn b { font-size:13px; }
 
 /* 应用图标 */
-.app-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 8px; padding:2px 8px 6px; }
+/* FIX 2026-09-17 #690：gap 简写（grid 别名写进 `gap` 是 Safari 11.1/Chromium 66 起）
+   在老内核上被丢弃 → 图标行距/列距归零，图标挤成一坨（用户读成「桌面不正常」）。
+   grid-gap 与其完全同义、老内核也认，两条同写＝谁认用谁，现代内核取值一致。 */
+.app-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-gap:14px 8px; gap:14px 8px; padding:2px 8px 6px; }
 /* v3.16.x：三页功能图标完全一致（大小/行高/间距）——第三页默认 12 个图标 3 行，
    与 1/2 页 8 个图标 2 行同用默认行高 96px、图标 58px、行距 14px；
    第三页多一行的空间由经期卡让出（见 .desk-period min-height 190→160），
@@ -259,15 +272,28 @@
 .app { display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; }
 .app .app-ico {
   /* v3.5.133：min(58px, 21vw)——极窄屏（<305px）固定 58px 会撑爆 4 列网格被裁 */
+  /* FIX 2026-09-17 #690：老内核整条丢弃不认识的 min() 函数（iOS Safari < 11.1 等）
+     → width/height 回退 auto → 图标盒收缩成 svg 的 28px，三页图标网格整体塌掉、
+     底部错位（用户报「桌面的三页灰屏/不正常」，多机型同现）。先给纯像素兜底，
+     支持 min() 的内核对同属性后写者胜、行为与改前完全一致。 */
+  width:58px; height:58px;
   width:min(58px, 21vw); height:min(58px, 21vw); border-radius:var(--app-ico-radius);
   background: rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
   box-shadow:0 2px 8px rgba(0,0,0,.04);
   display:flex; align-items:center; justify-content:center;
   transition:transform .18s ease, box-shadow .18s ease;
 }
-.app:hover .app-ico {
-  transform:translateY(-2px) scale(1.05);
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
+/* FIX 2026-09-17 #690：抬手放大/加深阴影只在「真正有悬停能力」的内核生效。
+   触摸内核（iOS/安卓）把 :hover 粘在最后一次点击上——点过的图标一直浮着不落
+   （用户可见的假状态），且该元素带着 box-shadow 过渡参与后续每一帧合成/栅格化
+   （桌面横滑时逐帧重绘的额外开销，卡顿/发热的加成项）。鼠标/桌面模拟器行为不变
+   （hover:hover 为真），触摸端回到无悬停的干净态。同款 hover 门控写法见
+   chat-pages.css 的五子棋/扫雷配色行。 */
+@media (hover:hover) {
+  .app:hover .app-ico {
+    transform:translateY(-2px) scale(1.05);
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+  }
 }
 .app .app-ico svg { width:28px; height:28px; stroke:var(--ink); }
 .app .app-ico img { width:100%; height:100%; object-fit:cover; border-radius:18px; display:block; }
@@ -400,6 +426,9 @@
   background:rgba(0,0,0,.4);
 }
 .desk-lib-box {
+  /* FIX 2026-09-17 #690：min() 兜底（同 .app-ico）——老内核丢弃整条声明时面板
+     宽度回退 auto，组件库弹窗撑成整屏。width+max-width 组合与 min() 取值等价 */
+  width:88vw; max-width:380px;
   width:min(88vw,380px); max-height:78vh; overflow:auto;
   background:#fff; border-radius:16px; padding:16px;
   box-shadow:0 8px 30px rgba(0,0,0,.2);

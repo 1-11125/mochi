@@ -1296,7 +1296,10 @@
     if (!valid.length) { toast('文件里没有可导入的牌面'); return; }
     window.openModal('导入 ' + valid.length + ' 张牌面', '', (v) => {
       if (!v) return;
-      applyImport(valid, v === 'replace', data.leno36, data.oneBased);
+      toast('正在导入 ' + valid.length + ' 张牌面…');
+      requestAnimationFrame(() => setTimeout(() => {
+        applyImport(valid, v === 'replace', data.leno36, data.oneBased);
+      }, 0));
     }, { noInput: true, pillSubmit: true, pill: 'merge', staticText: '「合并」保留现有牌面并覆盖同名；「覆盖」先清空现有牌面再导入。', pills: [{ label: '合并导入', value: 'merge' }, { label: '覆盖导入', value: 'replace' }] });
   }
   function applyImport(list, replace, l36, oneB) {
@@ -1338,11 +1341,16 @@
     const defaultMode = facePanelCid || 'tarot';
     const oneBased = faceOneBased;
     const skipped = [];
-    let done = 0;
+    const doneSet = new Set();
+    const existing = new Set(loadFaceIdx().map(x => x.m + '|' + x.n));
+    const overwritten = new Set();
     const step = (i) => {
       if (i >= list.length) {
         renderFaceList(); renderFaceGallery();
-        if (done) toast('批量导入 ' + done + ' 张牌面' + (skipped.length ? '，跳过 ' + skipped.length + ' 个' : ''));
+        if (doneSet.size) {
+          const ow = overwritten.size ? '，覆盖同名 ' + overwritten.size + ' 张' : '';
+          toast('批量导入 ' + doneSet.size + ' 张牌面' + ow + (skipped.length ? '，跳过 ' + skipped.length + ' 个' : ''));
+        }
         else toast('没识别到对应牌（文件名需含牌名或编号）');
         if (skipped.length && window.openModal) {
           const names = skipped.slice(0, 15).join('、') + (skipped.length > 15 ? ' 等' : '');
@@ -1357,10 +1365,12 @@
       rd.onload = () => {
         compressImg(rd.result, 720, 0.85).then((full) => {
           if (!full) { skipped.push(f.name); step(i + 1); return; }
-          compressImg(rd.result, 256, 0.82).then((thb) => {
+          compressImg(rd.result, 200, 0.82).then((thb) => {
             if (!thb) { skipped.push(f.name); step(i + 1); return; }
             storeFaceFromDataUrls(hit.m, hit.n, full, thb);
-            done++;
+            const key = hit.m + '|' + hit.n;
+            if (existing.has(key) || doneSet.has(key)) overwritten.add(key);
+            doneSet.add(key);
             step(i + 1);
           });
         });
@@ -1438,7 +1448,7 @@
       rd.onload = () => {
         compressImg(rd.result, 720, 0.85).then((full) => {
           if (!full) { toast('图片过大或无法读取，请换一张'); return; }
-          compressImg(rd.result, 256, 0.82).then((thb) => {
+          compressImg(rd.result, 200, 0.82).then((thb) => {
             if (!thb) { toast('图片处理失败，请换一张'); return; }
             storeFaceFromDataUrls(target.m, target.n, full, thb);
             renderFaceList(); renderFaceGallery();
@@ -1454,12 +1464,17 @@
       jsonInput.value = '';
       if (!f) return;
       const rd = new FileReader();
+      toast('正在读取牌面文件…');
       rd.onload = () => {
-        let d = null;
-        try { d = JSON.parse(String(rd.result || '')); } catch (e) { toast('文件解析失败，请选择导出的牌面 JSON'); return; }
-        importFacesData(d);
+        toast('正在解析牌面数据…');
+        requestAnimationFrame(() => setTimeout(() => {
+          let d = null;
+          try { d = JSON.parse(String(rd.result || '')); } catch (e) { toast('文件解析失败，请选择导出的牌面 JSON'); return; }
+          importFacesData(d);
+        }, 0));
       };
       rd.onerror = () => toast('文件读取失败');
+      rd.onabort = () => toast('已取消读取牌面文件');
       rd.readAsText(f);
     });
   }

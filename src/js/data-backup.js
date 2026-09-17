@@ -1635,11 +1635,15 @@
       const ns = 'xy-home-v2:' + cid;
       if (window.xyStore) {
         window.xyStore(ns).remove('chat-tail');
+        // FIX 2026-09-17 #127：聊天增量日志（chat-arch）也一并清——导入写回的是整包，
+        // 旧日志若留着会在下次 loadMsgs 里被当成「新消息」回放，叠到刚导入的历史上。
+        window.xyStore(ns).remove('chat-arch');
         // default 桌面还兼容旧顶层键（contacts.js defaultStore 的读回退），一并清
         if (cid === 'default') window.xyStore('xy-home-v2').remove('chat-tail');
         return;
       }
       try { localStorage.removeItem(ns + ':chat-tail'); } catch (e) {}
+      try { localStorage.removeItem(ns + ':chat-arch'); } catch (e) {}
       if (cid === 'default') { try { localStorage.removeItem('xy-home-v2:chat-tail'); } catch (e) {} }
     } catch (e) {}
   }

@@ -1049,6 +1049,22 @@
     };
   };
   window.hangupCall = function () { userHangup(); };
+  // v3.26.x #678：通话占用门——供 incoming-requests.js / 其它模块查询「此刻是否正占着电话」。
+  //   用户报「明明一直通话中联系人还是会打电话过来」（OPPO Reno6 5G + 雨见，明说多机型）：
+  //   跨桌面来电调度只看了 layerBusy() 的 #call-mask——通话最小化到悬浮小框时 call-mask 是
+  //   hidden，且浮层让路上限（BUSY_ESCAPE 3 轮）到期后强制顶屏，于是通话中照样弹出「XX 来电了」；
+  //   且切到别的桌面后，正在通话的那个联系人不再是激活桌面 → 连「正在跟你通话的人」都会再打一次。
+  //   currentCall 为空时回退读 call-active 标记（刷新/后台重建期间通话尚未恢复，心跳 ts ≤20s
+  //   刷新；10 分钟新鲜度窗口与 recoverCall 同口径）——只放行「确实没在通话」的场景。
+  window.callInProgress = function () {
+    if (currentCall) return true;
+    try {
+      const raw = sessionStorage.getItem(CALL_ACTIVE_KEY) || localStorage.getItem(CALL_ACTIVE_KEY);
+      const info = raw ? JSON.parse(raw) : null;
+      if (info && info.connectedTime && Date.now() - (info.ts || 0) <= 600000) return true;
+    } catch (e) {}
+    return false;
+  };
   // v3.26.x：启动恢复——上次通话因刷新/崩溃中断（call-active 未被 endCall 清除）→ 补写「通话中断」记录
   //   必须在 mochi-restore-done 后执行：此时 records-call 已从 IDB 回填到 LS，unshift 写回不会覆盖。
   //   mochi-restore-done 一定在回填完成后派发（idb.js finish()），即使保险丝超时最终完成也会派发。

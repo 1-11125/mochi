@@ -953,6 +953,26 @@
   // 初始窗口取 200 兼容既有回归（verify-feed-comment-perf 种子 151 条需全量可见）。
   const FEED_RENDER_MAX = 200, FEED_LOAD_STEP = 100;
   let feedShownMain = 0, feedShownAll = 0;
+  // FIX 2026-09-17 #669 打开朋友圈卡顿（用户报障，红米K80 Chrome，明说多机型同现）：
+  //   列表是「动态正文 + 评论 + 内联 dataURL 配图」拼成的整数 MB 字符串（实测 200 条动态
+  //   ＝4.0MB 标记），而桌面图标每次点击都走 openFeedPage → render() 整包重建：CPU 节流 4×
+  //   实测冷开 281ms、紧接着再开 368ms，Profiler 里 set innerHTML 占绝对多数（同串重新赋值
+  //   就要 327ms）。这里给渲染结果算一份轻量签名（桌面 + 窗口条数 + 显示身份 + 记忆卡 +
+  //   窗口内每条动态的身份/赞/评论/贴纸/配图数），完全一致且列表里已有节点时跳过重建——
+  //   反复进出朋友圈不再白付一次解析；数据一变签名就变（点赞换人、来新评论、发新动态、
+  //   切联系人、点掉回忆卡都会变），绝不会拿旧 DOM 当新数据。
+  let feedRenderSig = '';
+  function feedRenderSignature(posts, shown, name, memId) {
+    const parts = [window.activePrefix(), shown, name, memId, posts.length];
+    for (let i = 0; i < shown; i++) {
+      const p = posts[i];
+      if (!p) { parts.push('-'); continue; }
+      parts.push(p.id, p.ts, (p.content || '').length, (p.likes || []).join('/'),
+        (p.comments || []).length, (p.stickers || []).length,
+        ((p.imgs && p.imgs.length) || (p.img ? 1 : 0)));
+    }
+    return parts.join('|');
+  }
   function feedMoreBtnHtml(remaining) {
     return '<button class="feed-more-btn" type="button">查看更早的动态（还有 ' + remaining + ' 条）</button>';
   }
@@ -996,11 +1016,17 @@
     const name = partnerName();
     // #302：回忆闪回——那年今天的动态以记忆卡形式置顶（今日点 ✕ 后当天不再出现）
     const memPost = feedMemoryPost();
-    const memHtml = (memPost && !feedMemDismissed()) ? feedMemBannerHtml(memPost) : '';
+    const memShown = !!(memPost && !feedMemDismissed());
+    const memHtml = memShown ? feedMemBannerHtml(memPost) : '';
+    // FIX 2026-09-17 #669 内容与上次渲染完全一致时跳过整包重建（见 feedRenderSignature 注释；
+    //   反复点桌面图标进朋友圈是主要受益路径，避免每次都重新解析数 MB 标记）
+    const sig = feedRenderSignature(posts, feedShownMain, name, memShown ? memPost.id : '');
+    if (sig === feedRenderSig && listEl.firstChild) return;
     listEl.innerHTML = memHtml + (posts.length
       ? posts.slice(0, feedShownMain).map(p => postCardHtml(p, name)).join('') +
         (posts.length > feedShownMain ? feedMoreBtnHtml(posts.length - feedShownMain) : '')
       : '<div class="ta-empty">还没有动态，TA 会不定期分享生活<br><button class="memo-send-btn" id="feed-empty-pub" style="margin-top:8px">我来发第一条</button></div>');
+    feedRenderSig = sig;
     const clearBtn = document.getElementById('feed-head-clear');
     if (clearBtn) clearBtn.hidden = !posts.length;
     bindEvents(listEl);
@@ -1031,17 +1057,97 @@
   }
   // ===== #302 贴纸回复 =====
   // 贴纸来源：TA 的表情包 + 我的表情包（复用评论条同一来源，只收 dataURL）
-  function feedAllStickers() {
+  // FIX 2026-09-17 #669 用户报障（红米K80 Chrome，明说多机型同现）两件：
+  //   ①「贴纸面板里不能像表情包面板一样打开分类」——原实现是一块「选个贴纸贴到照片上」的平铺
+  //     网格（feedAllStickers 把 TA/我的分组拍平），既没有分组可点、也不显示分组名。改为与评论
+  //     表情面板同源、同交互：分组胶囊栏（默认「全部」＝原有平铺，保持既有回归按第一格点击的
+  //     行为），点胶囊切分组。
+  //   ②「里面没有联系人用的 emoji 贴纸」——TA 回贴时 30% 会贴一个 emoji（feedTaPickSticker 里
+  //     那组硬编码 emoji），而面板只列图片贴纸，用户选不到 TA 会贴的那类。这里把 emoji 抽成
+  //     常量 FEED_STICKER_EMOJI，TA 回贴与面板共用，并作为「emoji 贴纸」分组列出。
+  const FEED_STICKER_EMOJI = ['\u2764\ufe0f', '\ud83d\ude18', '\ud83e\udd70', '\ud83d\udc4d', '\ud83d\ude02', '\ud83c\udf08', '\u2728', '\ud83c\udf80', '\ud83d\ude3b', '\ud83e\udd17'];
+  function feedStickerGroups() {
     const savedTab = comStickerTab;
-    const out = [];
-    try {
-      comStickerTab = 'ta'; comStickerGroups().forEach(g => (g[1] || []).forEach(s => out.push(s)));
-      comStickerTab = 'mine'; comStickerGroups().forEach(g => (g[1] || []).forEach(s => out.push(s)));
-    } catch (e) {}
+    let ta = [], mine = [];
+    try { comStickerTab = 'ta'; ta = comStickerGroups(); } catch (e) { ta = []; }
+    try { comStickerTab = 'mine'; mine = comStickerGroups(); } catch (e) { mine = []; }
     comStickerTab = savedTab;
+    const out = [];
+    (ta || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'ta' + i, label: String(g[0]), kind: 'img', items: g[1] }); });
+    (mine || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'mn' + i, label: '\u6211\u7684\u00b7' + String(g[0]), kind: 'img', items: g[1] }); });
+    out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });
     return out;
   }
   let feedStickerCard = null;
+  let feedStickerCur = '';
+  // 当前分组的条目（''＝全部：分组顺序在前、emoji 收尾，与旧版平铺一致）
+  function feedStickerItems() {
+    const groups = feedStickerGroups();
+    if (!feedStickerCur) {
+      const all = [];
+      groups.forEach(g => g.items.forEach(v => all.push({ kind: g.kind, v: v })));
+      return all;
+    }
+    const g = groups.find(x => x.key === feedStickerCur);
+    return g ? g.items.map(v => ({ kind: g.kind, v: v })) : [];
+  }
+  function feedRenderStickerBar() {
+    const bar = document.getElementById('feed-sticker-groups');
+    if (!bar) return;
+    bar.innerHTML = '';
+    const groups = feedStickerGroups();
+    const total = groups.reduce((n, g) => n + g.items.length, 0);
+    const chips = [['', '\u5168\u90e8' + total]].concat(groups.map(g => [g.key, g.label + g.items.length]));
+    chips.forEach(pair => {
+      const key = pair[0], label = pair[1];
+      const c = document.createElement('span');
+      c.className = 'emoji-g-chip' + ((feedStickerCur || '') === key ? ' sel' : '');
+      c.textContent = label;
+      c.addEventListener('click', (e) => {
+        e.stopPropagation();
+        feedStickerCur = (feedStickerCur === key ? '' : key);
+        feedRenderStickerBar();
+        feedRenderStickerList();
+      });
+      bar.appendChild(c);
+    });
+    bar.hidden = groups.length <= 1;   // 只有 emoji 一组时不显示胶囊栏
+  }
+  function feedRenderStickerList() {
+    const list = document.getElementById('feed-sticker-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const items = feedStickerItems();
+    if (!items.length) {
+      list.innerHTML = '<div class="ta-empty">\u6682\u65e0\u8d34\u7eb8\uff0c\u8bf7\u5230\u81ea\u5b9a\u4e49\u5b57\u5361 \u2192 \u8868\u60c5\u5305 \u4e0a\u4f20</div>';
+      return;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+    items.forEach(it => {
+      const d = document.createElement('div');
+      d.className = 'emoji-item';
+      d.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (it.kind === 'emoji') feedPickStickerPos(feedStickerCard.dataset.pid, '', it.v);
+        else feedPickStickerPos(feedStickerCard.dataset.pid, it.v);
+      });
+      if (it.kind === 'emoji') {
+        // emoji 贴纸：与照片上已贴的 emoji 同一样式（.feed-sticker-emoji，样式复用零新增）
+        const sp = document.createElement('span');
+        sp.className = 'feed-sticker-emoji';
+        sp.textContent = it.v;
+        d.appendChild(sp);
+      } else {
+        const img = document.createElement('img');
+        img.src = it.v;
+        img.alt = '\u8d34\u7eb8';
+        d.appendChild(img);
+      }
+      grid.appendChild(d);
+    });
+    list.appendChild(grid);
+  }
   function openFeedStickerPanel(pid) {
     if (!feedStickerCard) {
       feedStickerCard = document.createElement('div');
@@ -1056,9 +1162,10 @@
       feedStickerCard.hidden = true;
       feedStickerCard.innerHTML =
         '<div class="emoji-head">' +
-          '<div class="emoji-tabs"><span class="emoji-tab sel">选个贴纸贴到照片上</span></div>' +
-          '<button class="poke-card-close" data-fsc="1">✕</button>' +
+          '<div class="emoji-tabs"><span class="emoji-tab sel">\u9009\u4e2a\u8d34\u7eb8\u8d34\u5230\u7167\u7247\u4e0a</span></div>' +
+          '<button class="poke-card-close" data-fsc="1">\u2715</button>' +
         '</div>' +
+        '<div class="emoji-groups" id="feed-sticker-groups"></div>' +
         '<div class="poke-card-scroll" style="min-height:100px;max-height:36vh" id="feed-sticker-list"></div>';
       document.body.appendChild(feedStickerCard);
       feedStickerCard.querySelector('[data-fsc]').addEventListener('click', () => { feedStickerCard.hidden = true; });
@@ -1066,29 +1173,9 @@
     }
     feedStickerCard.dataset.pid = pid;
     feedStickerCard.hidden = false;
-    const list = document.getElementById('feed-sticker-list');
-    const srcs = feedAllStickers();
-    list.innerHTML = '';
-    if (!srcs.length) {
-      list.innerHTML = '<div class="ta-empty">暂无表情包，请到自定义字卡 → 表情包 上传</div>';
-      return;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'emoji-grid';
-    srcs.forEach(src => {
-      const d = document.createElement('div');
-      d.className = 'emoji-item';
-      const img = document.createElement('img');
-      img.src = src;
-      img.alt = '贴纸';
-      d.appendChild(img);
-      d.addEventListener('click', (e) => {
-        e.stopPropagation();
-        feedPickStickerPos(feedStickerCard.dataset.pid, src);
-      });
-      grid.appendChild(d);
-    });
-    list.appendChild(grid);
+    feedStickerCur = '';           // 每次打开回「全部」
+    feedRenderStickerBar();
+    feedRenderStickerList();
   }
   function feedRandStickerPos() {
     return { x: Math.round(6 + Math.random() * 74), y: Math.round(6 + Math.random() * 70) };
@@ -1109,11 +1196,12 @@
     ctx.box.classList.remove('feed-sticker-picking');
     if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);
   }
-  function feedPickStickerPos(pid, src) {
+  // FIX 2026-09-17 #669 emoji 参数：贴纸面板的「emoji 贴纸」分组（图片贴纸走 src，emoji 走 emoji）
+  function feedPickStickerPos(pid, src, emoji) {
     feedCancelPickSticker();
     const post = document.getElementById('feed-post-' + pid);
     const box = post ? post.querySelector('.feed-imgs') : null;
-    if (!box) { addFeedSticker(pid, { src }); return; }
+    if (!box) { addFeedSticker(pid, { src: src, emoji: emoji }); return; }
     feedStickerCard.hidden = true;
     box.classList.add('feed-sticker-picking');
     const hint = document.createElement('div');
@@ -1129,7 +1217,7 @@
       const x = Math.round(Math.min(90, Math.max(4, ((e.clientX - r.left) / Math.max(1, r.width)) * 100)));
       const y = Math.round(Math.min(90, Math.max(6, ((e.clientY - r.top) / Math.max(1, r.height)) * 100)));
       feedCancelPickSticker();
-      addFeedSticker(pid, { src, x, y });
+      addFeedSticker(pid, { src: src, emoji: emoji, x: x, y: y });
     };
     box.addEventListener('click', onPick, true);
     // FIX 2026-09-16 #593：选位期间卡片被局部/全量重渲染（评论/点赞/TA 回贴/换列表都是换节点）会让监听器跟着旧节点作废，
@@ -1179,8 +1267,8 @@
     const srcs = [];
     g.forEach(x => (x[1] || []).forEach(s => srcs.push(s)));
     if (srcs.length && Math.random() < 0.7) return { src: srcs[Math.floor(Math.random() * srcs.length)] };
-    const EM = ['❤️', '😘', '🥰', '👍', '😂', '🌈', '✨', '🎀', '😻', '🤗'];
-    return { emoji: EM[Math.floor(Math.random() * EM.length)] };
+    // FIX 2026-09-17 #669 与贴纸面板「emoji 贴纸」分组共用同一常量（面板要能选到 TA 会贴的那种）
+    return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };
   }
   function removeFeedSticker(pid, i) {
     if (!window.openModal) return;

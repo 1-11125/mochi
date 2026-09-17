@@ -111,9 +111,54 @@ const restored = await ev(`(()=>{ const w=document.querySelector('#page-chatcard
   return JSON.stringify({ wrapHidden: !w || w.hidden, customVis: c && !c.hidden, tab: tab ? tab.getAttribute('data-ccsect') : '' }); })()`);
 A('B5 清空恢复分区视图', (() => { try { const o = JSON.parse(restored); return o.wrapHidden && o.customVis && o.tab === 'custom'; } catch (e) { return false; } })(), restored);
 
+// ==== #680：图片/表情包令牌不再直出乱码；媒体卡只按「用户填写的名称」参与搜索 ====
+// 背景：用户报搜索「@@m:5c58a523… 自定义聊天字卡 · 图片」乱码，并要求图片/表情包可编辑
+// 名称、无名称时不参与搜索。这里注入一张令牌贴纸 + 一张 dataURL 图片 + 一张语音卡实测。
+const TOK = '@@m:' + 'a'.repeat(32);
+await ev(`(()=>{ const st=window.activeStore();
+  st.set('cc-groups', JSON.stringify({ text:[['默认分组',['测试文字卡内容']]], sticker:[['贴纸组',[${JSON.stringify(TOK)}]]], image:[['图片组',['data:image/png;base64,iVBORw0KGgo=']]], poke:[], voice:[['语音组',['早安语音'+String.fromCharCode(124,124,124)+'data:audio/mpeg;base64,AAAA']]] }));
+  st.set('cc-media-names', '{}');
+  if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite();
+  return 1; })()`);
+await sleep(200);
+
+// B7 令牌子串（'aaaa'）不再搜出图片卡、结果里没有 @@m: 乱码
+await search('aaaa');
+s = JSON.parse(await snap());
+A('B7a 搜令牌子串零命中（未命名图片不被搜出）', s.rows.length === 0 && !s.heads.some(h => h.indexOf('找到') === 0), 'rows=' + s.rows.length);
+await search(TOK.slice(0, 20));
+s = JSON.parse(await snap());
+A('B7b 搜令牌前缀不直出 @@m: 乱码', s.rows.every(t => t.indexOf('@@m:') < 0) && s.rows.length === 0, 'rows=' + JSON.stringify(s.rows));
+await search('base64');
+s = JSON.parse(await snap());
+A('B7c 搜 dataURL 特征（base64）不搜出图片卡', s.rows.length === 0, 'rows=' + s.rows.length);
+
+// B8 文字卡搜索不回归
+await search('测试文字');
+s = JSON.parse(await snap());
+A('B8 文字卡仍可正常搜到', s.rows.some(t => t === '测试文字卡内容'), 'rows=' + JSON.stringify(s.rows));
+
+// B9 给令牌贴纸命名后按名称可搜，且结果显示名称而非令牌
+await ev(`(()=>{ const c=${JSON.stringify(TOK)};
+  const k='i'+window.ccMediaCardIdent(c);
+  window.activeStore().set('cc-media-names', JSON.stringify({[k]:'我的可爱贴纸'}));
+  if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite();
+  return k; })()`);
+await sleep(200);
+await search('可爱贴纸');
+s = JSON.parse(await snap());
+A('B9 命名后按名称可搜到且不显示令牌', s.rows.length > 0 && s.rows[0] === '我的可爱贴纸' && s.rows.every(t => t.indexOf('@@m:') < 0), 'rows=' + JSON.stringify(s.rows));
+
+// B10 语音卡按「名称|||」前缀可搜（不直出音频数据）
+await search('早安语音');
+s = JSON.parse(await snap());
+A('B10 语音按名称可搜、不显示音频 dataURL', s.rows.some(t => t === '早安语音') && s.rows.every(t => t.indexOf('data:audio') < 0), 'rows=' + JSON.stringify(s.rows));
+
+// B11 清空恢复注入前状态（避免影响后续断言）
+await search('');
+
 // B6 零 JS 错误
 const e = await ev('window.__jsErrors ? window.__jsErrors.length : -1');
 A('B6 零 JS 错误', e === 0, 'errs=' + e);
-
 console.log(fail === 0 ? 'ALL PASS' : 'FAIL ' + fail);
 process.exit(fail === 0 ? 0 : 1);

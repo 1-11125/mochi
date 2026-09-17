@@ -12,6 +12,42 @@
   // undefined）。device.js 是 jsFiles 第一个文件，初始化放最前面，后面所有文件的
   // 启动异常才有地方落，诊断信息的「启动文件异常」一节才有数据。
   try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
+  // ===== 全局轻提示 window.toast（v3.27.x）=====
+  // 用户反馈：「设置里好多开启/关闭开关，点了没有任何提示，不知道到底切没切」。
+  // 根因：全项目 20+ 个文件（incoming-requests / ta-ask / ta-mood / reply-settings /
+  //   quote-cards / feed / mail / period …）的开关反馈都写成
+  //   `if (typeof window.toast === 'function') window.toast('…已开启')`，
+  //   但从来没有一处给 window.toast 赋过值——全站唯一的提示通道是死的，只有少数
+  //   模块自己另画一份（device.js 诊断、page-coach、chat-settings 群聊开关才有兜底），
+  //   其余开关点了屏幕上零变化（device.js 下方与 page-coach.js 各自记录过这条死通道）。
+  // 这里补上唯一实现：复用全站既有的 #cc-toast 元素 + .cc-toast.show 类（样式与
+  //   2.6s 自动淡出动画在 chat-pages.css），与既有自绘兜底同一元素、同一观感，
+  //   不会出现两个提示叠在一起。__lastToastAt 供设置页统一开关反馈去重
+  //   （settings-help.js：模块已给专属文案时不再补通用文案）。
+  try {
+    window.toast = function (msg) {
+      try {
+        const text = (msg === undefined || msg === null) ? '' : String(msg);
+        if (!text) return;
+        window.__lastToastAt = Date.now();
+        const show = function () {
+          let t = document.getElementById('cc-toast');
+          if (!t) {
+            t = document.createElement('div');
+            t.id = 'cc-toast';
+            if (!document.body) { setTimeout(show, 0); return; }
+            document.body.appendChild(t);
+          }
+          t.textContent = text;
+          // 先摘 .show 再挂回：重放 CSS 自动淡出动画（重开时旧动画不互相干扰）
+          t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+          clearTimeout(t._timer);
+          t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2600);
+        };
+        show();
+      } catch (e) {}
+    };
+  } catch (e) {}
   // 只在真实手机窄屏启用（桌面模拟器外壳不受影响）
   // v3.5.137：900px——Moto G100 等 2400px 物理屏 / DPR 2.75-3 的 CSS 视口约 800-873px，
   // 原 768px 上限会误判为桌面（显示 390px 小手机框 + 两侧灰底）
@@ -1097,6 +1133,16 @@
     } catch (e) { L.push('serviceWorker=读取失败'); }
     L.push('storage.persist=' + !!(navigator.storage && navigator.storage.persist));
     L.push('CSS dvh=' + cssSupports('height: 1dvh') + '  svh=' + cssSupports('height: 1svh') + '  env(safe-area)=' + cssSupports('padding-top: env(safe-area-inset-top)'));
+    // #690：老内核「静默丢声明」体检——inset / min() / gap(简写) 都是近年内核才有，
+    // 不支持时 CSS 不报错、只是整条声明不生效（桌面壁纸层与背景遮罩层塌成 0×0、
+    // 图标盒缩水、图标间距归零），用户看到的是「桌面一片灰白／排版乱」却以为功能坏了。
+    // 每个降级点都有兜底，#690 之后此处应全为 ok；出现 false 说明又漏了一处兜底。
+    try {
+      L.push('老内核降级项：inset=' + (cssSupports('inset: 0') ? 'ok' : '不支持(已兜底)')
+        + '  min()=' + (cssSupports('width: min(1px, 2vw)') ? 'ok' : '不支持(已兜底)')
+        + '  gap简写=' + (cssSupports('gap: 1px') ? 'ok' : '不支持(已兜底)')
+        + '  :has()=' + (cssSupports('selector(:has(a))') ? 'ok' : '不支持(未用)'));
+    } catch (e) {}
     L.push('安卓输入框已转 ce-box=' + !!document.querySelector('.ce-box'));
     // #260：保活现场——「后台保活失败/收不到通知」类报障直接出证据，不再靠口述猜。
     // 心跳 = bg-keep.js 在页面隐藏期每 30s 写 IDB 的计数/时间戳轨迹：相邻拍间隔
@@ -1135,6 +1181,21 @@
       if (fpsIdx < 0) return;
       L[fpsIdx] = fps > 0 ? '实测帧率≈' + fps + ' fps（500ms 现场采样，高刷屏>60 正常）' : '实测帧率：rAF 未触发（页面在后台被节流）';
     }));
+    // #690：桌面翻页帧耗时（用户上一次翻页时由 desktop-slider.js 现场采样）。
+    // 上面那行「实测帧率」是打开诊断这一刻**静态页**的读数，翻页卡顿在它上面看不出来
+    // ——用户报「滑三页灰屏/卡顿/手机发烫」时，这行才是能判定的证据：
+    // 平均帧间隔 >33ms＝掉帧、>100ms＝明显卡（且与页数成正比＝图层栅格化吃满）。
+    try {
+      const dp = JSON.parse(localStorage.getItem('xy-home-v2:__diag-deskperf') || 'null');
+      if (dp && dp.n) {
+        const when = dp.t ? new Date(dp.t).toLocaleString() : '?';
+        L.push('桌面翻页帧耗时（' + dp.n + ' 帧现场采样 · ' + when + ' · ' + (dp.pages || '?') + ' 页）：'
+          + '平均 ' + dp.mean + 'ms / p90 ' + dp.p90 + 'ms / 最慢 ' + dp.worst + 'ms'
+          + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
+      } else {
+        L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');
+      }
+    } catch (e) {}
     let memTxt = '不支持（仅 Chrome 系）';
     try {
       const pm = performance.memory;

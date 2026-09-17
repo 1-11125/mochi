@@ -755,6 +755,84 @@
   const ICON_EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
   const ICON_EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><path d="M14.12 14.12a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
   function ccOffScope() { return ccScope === 'public' ? 'public' : 'own'; }
+
+  // ================= #680 媒体字卡名称（图片 / 表情包） =================
+  // 用户需求（2026-09-17）：「公用字卡和专属字卡里要新增图片和表情包，也可以编辑名称，
+  // 然后可以搜索，如果没有上传名称搜索的时候不应该搜索出来」——图片/表情包卡体是
+  // dataURL/@@m: 令牌（无文字），此前搜索直接把令牌当正文匹配＝结果列表直出乱码
+  //（用户报的「@@m:5c58a523… 自定义聊天字卡 · 图片」）。
+  // 设计：名称独立于卡体存储（卡体保持原字符串＝回复池/备份/令牌化零改动），
+  // 键「内容身份 ccPoolKey(c)」——该身份跨令牌化稳定（ccMediaCardIdent），
+  // 因此重命名不会因 #554/#632 令牌化而失效。分作用域存：公用 / 专属互不影响。
+  // 搜索：有名称才按名称命中；没填名称的图片/表情包不参与搜索（用户明确要求）。
+  const PUB_NAME_KEY = 'cc-media-names-public';
+  const NAME_KEY = 'cc-media-names';
+  let nameCache = {};
+  function nameStore(scope) { return scope === 'public' ? pubStore() : store; }
+  function nameKey(scope) { return scope === 'public' ? PUB_NAME_KEY : NAME_KEY; }
+  function namesFor(scope) {
+    const k = scope === 'public' ? 'public' : 'own';
+    if (!nameCache[k]) {
+      let o = null;
+      try { const v = nameStore(k).get(nameKey(k)); o = v ? JSON.parse(v) : null; } catch (e) {}
+      nameCache[k] = (o && typeof o === 'object') ? o : {};
+    }
+    return nameCache[k];
+  }
+  function namesInvalidate() { nameCache = {}; }
+  function ccCardName(c) {
+    try { return namesFor(ccOffScope())[ccPoolKey(c)] || ''; } catch (e) { return ''; }
+  }
+  // 跨作用域取名（字卡库列表页搜索是「公用+专属合并」视图，两个作用域的名称都要认）
+  function ccCardNameAny(c) {
+    try {
+      const k = ccPoolKey(c);
+      return namesFor('own')[k] || namesFor('public')[k] || '';
+    } catch (e) { return ''; }
+  }
+  function ccSetCardName(c, name) {
+    const scope = ccOffScope();
+    const map = namesFor(scope);
+    const k = ccPoolKey(c);
+    const v = String(name == null ? '' : name).trim();
+    if (v) map[k] = v; else delete map[k];
+    try { nameStore(scope).set(nameKey(scope), JSON.stringify(map)); } catch (e) {}
+  }
+  // 编辑某张图片/表情包的名称（空名称＝清除，之后不再参与搜索）
+  function ccEditCardName(c) {
+    if (!window.openModal) return;
+    const old = ccCardName(c);
+    window.openModal('编辑图片名称', old, (v) => {
+      const val = String(v == null ? '' : v).trim();
+      ccSetCardName(c, val);
+      if (q) render(); else updateCardDomName(c);
+      toast(val ? '名称已保存：' + val : '已清除名称');
+    }, { placeholder: '给这张图起个名字，之后可搜索；留空＝不参与搜索' });
+  }
+  // 只刷新该卡节点的名称标签/按钮态（不动图片节点，避免重解码闪烁）
+  function updateCardDomName(c) {
+    try {
+      const sig = ccPoolKey(c);
+      list.querySelectorAll('.cc-item').forEach(el => {
+        if (el.dataset.ccSig !== sig) return;
+        const nm = ccCardName(c);
+        const cap = el.querySelector('.cc-name-cap');
+        if (nm) {
+          if (cap) cap.textContent = nm;
+          else { const d = document.createElement('div'); d.className = 'cc-name-cap'; d.style.cssText = CC_NAME_CAP_CSS; d.textContent = nm; el.appendChild(d); }
+        } else if (cap) cap.remove();
+        const b = el.querySelector('.cc-name-edit');
+        if (b) b.textContent = nm ? '改' : '＋';
+      });
+    } catch (e) {}
+  }
+  // 名称标签/编辑按钮样式（内联，避免动共享 CSS 文件）
+  const CC_NAME_CAP_CSS = 'position:absolute;left:4px;right:4px;bottom:4px;padding:2px 6px;border-radius:8px;'
+    + 'background:rgba(0,0,0,.55);color:#fff;font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;'
+    + 'text-overflow:ellipsis;pointer-events:none;';
+  const CC_NAME_BTN_CSS = 'position:absolute;right:4px;top:4px;width:22px;height:22px;padding:0;border:0;border-radius:50%;'
+    + 'background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:22px;text-align:center;cursor:pointer;z-index:2;';
+
   // 分组 header HTML（停用标记 + 眼睛按钮），render 与局部重建共用
   function groupHeaderHtml(gname, count) {
     const off = isGroupOff(ccOffScope(), cur, gname);
@@ -829,7 +907,7 @@
       if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) {
         return '<div class="cc-txt"><div class="t" style="color:var(--muted)">[图片丢失]</div></div>';
       }
-      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>';
+      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
     }
     // v3.11.x：链接导入的字卡存原始 http(s) 链接（图床不允许跨域转存时的回退形态），
     // 缩略图同样按图片渲染；懒加载 observer 只做 data-src→src 拷贝，对链接天然兼容
@@ -838,9 +916,19 @@
       // v3.6.x：data-src 懒加载——表情包/图片多时不一次性解码全部 dataURL，
       // 只解码进入视口的图（render 里用 IntersectionObserver 补 src），
       // 删除/重渲染也不再有全量解码开销
-      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>';
+      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
     }
     return '<div class="cc-txt"><div class="t">' + esc(c) + '</div></div>';
+  }
+  // #680：图片/表情包格的名称标签 + 名称编辑按钮（仅这两类显示；文字/语音有自己的文本）
+  function ccNameBadgeHtml(c) {
+    try {
+      if (manageMode) return ''; // 管理模式整格用于勾选，不叠加名称按钮
+      if (cur !== 'sticker' && cur !== 'image') return '';
+      const nm = ccCardName(c);
+      return '<button type="button" class="cc-name-edit" title="' + (nm ? '编辑名称' : '添加名称') + '" style="' + CC_NAME_BTN_CSS + '">' + (nm ? '改' : '＋') + '</button>'
+        + (nm ? '<div class="cc-name-cap" style="' + CC_NAME_CAP_CSS + '">' + esc(nm) + '</div>' : '');
+    } catch (e) { return ''; }
   }
 
   // v3.6.x：分类 tab 显示每个大分类的字卡数量（主字卡/颜文字/emoji/表情包/图片/拍一拍/语音）
@@ -903,6 +991,16 @@
       const s = c.slice(p + 3);
       if (s.indexOf('data:audio') === 0) audioSrcMap.set(pb, s);
     }
+    // #680：图片/表情包名称编辑按钮——stopPropagation 保证不触发外层的「查看大图」
+    const nb = d.querySelector('.cc-name-edit');
+    if (nb && !nb.__ccNameBound) {
+      nb.__ccNameBound = true;
+      nb.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        ccEditCardName(c);
+      });
+    }
   }
 
   // v3.7.x：单卡点击编辑——文字类字卡（主字卡/颜文字/emoji/拍一拍）在卡片上直接点击
@@ -944,7 +1042,10 @@
     if (node) {
       if (imgObserver) node.querySelectorAll('img[data-src]').forEach(im => { try { imgObserver.unobserve(im); } catch (e) {} });
       if (q) {
-        const matches = (typeof val === 'string' && val.indexOf('data:') !== 0) && val.indexOf(q) >= 0;
+        // #680：与 render() 同口径（图片/表情包按名称匹配；未命名恒不匹配）
+        const terms = window.mochiSearch ? window.mochiSearch.terms(window.mochiSearch.qnorm(q)) : [q.toLowerCase()];
+        const mt = ccCardMatchText(val);
+        const matches = !!mt && terms.every(w => mt.indexOf(w) >= 0);
         if (matches) {
           node.innerHTML = cardItemHtml(val);
           attachCardData(node, val);
@@ -1004,6 +1105,7 @@
   // pubInvalidate 清公用库缓存；groups 按当前作用域重读存储；角标强制重算。聊天页下次取池即新图。
   window.ccReloadGroupsAfterExternalWrite = function () {
     pubInvalidate();
+    namesInvalidate(); // #680：外部写回可能改了图片/表情包名称，缓存必须失效
     libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
     // v3.42.x #455：管理页开着才重载编辑树（页关着保持懒加载态，池视图已随
     // pubInvalidate 失效、下次取池现算），不再无条件把大库 parse 副本拉进堆
@@ -1406,10 +1508,43 @@
     toast('字卡已移动');
   }
 
+  // #680：列表内联搜索的「可匹配文本」口径（与跨库搜索一致）——图片/表情包按名称、
+  // 语音按名称前缀、其余按正文；未命名的图片/表情包返回空串＝恒不匹配（用户要求：
+  // 没有名称时搜不出来）。返回空串也顺带把裸令牌/图链挡在正文匹配之外（不再直出乱码）。
+  function ccCardMatchText(c, type) {
+    try {
+      const t = type || cur;
+      if (typeof c !== 'string' || !c) return '';
+      if (t === 'sticker' || t === 'image') return ccCardName(c).toLowerCase();
+      if (t === 'voice') {
+        const bar = c.indexOf('|||');
+        if (bar > 0 && c.slice(bar + 3).indexOf('data:audio') === 0) return c.slice(0, bar).toLowerCase();
+        return c.toLowerCase();
+      }
+      if (c.indexOf('data:') === 0 || c.indexOf('@@m:') === 0 || /^https?:\/\//i.test(c)) return '';
+      return c.toLowerCase();
+    } catch (e) { return ''; }
+  }
+
   function render() {
     const token = ++renderToken;
     rendering = true;
     renderTabCounts();
+    let mediaHelp = document.getElementById('cc-media-help');
+    const showMediaHelp = cur === 'sticker' || cur === 'image';
+    if (!mediaHelp && showMediaHelp) {
+      mediaHelp = document.createElement('div');
+      mediaHelp.id = 'cc-media-help';
+      mediaHelp.style.cssText = 'margin:8px 16px;font-size:12px;line-height:1.7;color:var(--muted,#888);';
+      list.parentNode.insertBefore(mediaHelp, list);
+    }
+    if (mediaHelp) {
+      mediaHelp.style.display = showMediaHelp ? '' : 'none';
+      mediaHelp.textContent = showMediaHelp
+        ? '支持批量上传：点击「批量导入」可一次选择多张。若无法多选，可能是当前浏览器或系统文件选择器的限制，建议换一个浏览器使用。'
+          + (cur === 'sticker' ? '表情包在聊天中以较小尺寸显示，适合发送表情贴纸；图片则以较大尺寸显示。' : '图片在聊天中以较大尺寸显示，适合展示照片或图片细节；表情包则以较小尺寸显示。')
+        : '';
+    }
     // 表情包分类：网格一行四个；图片分类：网格一行两个；emoji 分类：网格一行六个；其他分类保持行式列表
     list.classList.toggle('cc-grid', cur === 'sticker');
     list.classList.toggle('cc-grid2', cur === 'image');
@@ -1430,8 +1565,8 @@
       const kwN = terms.join(' ');
       shown = shown
         .map(([g, arr]) => [g, arr
-          .map((c, oi) => { const o = { c: c, oi: oi }; o.rk = window.mochiSearch ? window.mochiSearch.rank(c, kwN) : 2; return o; })
-          .filter(x => (typeof x.c === 'string' && x.c.indexOf('data:') !== 0) && terms.every(w => x.c.toLowerCase().indexOf(w) >= 0))
+          .map((c, oi) => { const mt = ccCardMatchText(c); const o = { c: c, oi: oi }; o.rk = window.mochiSearch ? window.mochiSearch.rank(mt, kwN) : 2; return o; })
+          .filter(x => { const mt = ccCardMatchText(x.c); return !!mt && terms.every(w => mt.indexOf(w) >= 0); })
           .sort((a, b) => a.rk - b.rk || a.oi - b.oi)])
         .filter(([g, arr]) => arr.length || terms.every(w => g.toLowerCase().indexOf(w) >= 0));
     }
@@ -1698,7 +1833,24 @@
       Object.keys(groups).forEach(function (type) {
         (groups[type] || []).forEach(function (grp) {
           const gname = grp[0]; const cards = grp[1] || [];
-          cards.forEach(function (c) { const txt = typeof c === 'string' ? c : (c && c.t) || ''; if (txt && txt.toLowerCase().indexOf(kw) >= 0) out.push({ t: txt, cat: gname }); });
+          // FIX 2026-09-17 #680 跨库搜索只收文字卡：媒体形态（@@m: 令牌 / dataURL / 图链 /
+          // 语音「名称|||data:audio」）整条剔出——令牌/链接卡命中即直出乱码（用户报障）；
+          // 语音按「名称|||」前缀匹配；图片/表情包只按用户填写的名称匹配，未命名不参与搜索
+          //（用户明确要求「没有上传名称搜索的时候不应该搜索出来」）。
+          cards.forEach(function (c) {
+            if (typeof c !== 'string' || !c) return;
+            if (type === 'sticker' || type === 'image') {
+              const nm = ccCardNameAny(c);
+              if (nm && nm.toLowerCase().indexOf(kw) >= 0) out.push({ t: nm, cat: gname });
+              return;
+            }
+            if (window.ccTextCardOnly && !window.ccTextCardOnly(c)) {
+              const bar = c.indexOf('|||');
+              if (!(bar > 0 && c.slice(bar + 3).indexOf('data:audio') === 0)) return;
+            }
+            const txt = c.split('|||')[0] || c;
+            if (txt && txt.toLowerCase().indexOf(kw) >= 0) out.push({ t: txt, cat: gname });
+          });
         });
       });
     } catch (e) {}
@@ -1928,8 +2080,12 @@
       if (curGroup && curGroup !== gname) return;
       arr.forEach((c, i) => {
         // v3.7.x：搜索态下「全选」只选当前过滤视图可见的卡（与 render 过滤条件一致），
-        // 避免连带选中屏幕外的卡片
-        if (q && !((typeof c === 'string' && c.indexOf('data:') !== 0) && c.indexOf(q) >= 0)) return;
+        // 避免连带选中屏幕外的卡片。#680 起与 render 同口径（图片/表情包按名称）
+        if (q) {
+          const terms = window.mochiSearch ? window.mochiSearch.terms(window.mochiSearch.qnorm(q)) : [q.toLowerCase()];
+          const mt = ccCardMatchText(c);
+          if (!mt || !terms.every(w => mt.indexOf(w) >= 0)) return;
+        }
         keys.push(gname + '\u0001' + i);
       });
     });
@@ -3152,6 +3308,9 @@
           if (manageMode) exitManage();
           q = '';
           curGroup = '';
+          // #680：图片/表情包名称随卡一起清（避免残留孤儿名称）
+          try { nameStore(ccOffScope()).set(nameKey(ccOffScope()), '{}'); } catch (e0) {}
+          namesInvalidate();
           const si = document.getElementById('cc-search-input');
           if (si) si.value = '';
           selected.clear();
@@ -3940,6 +4099,7 @@
     if (editSaveTimer) { clearTimeout(editSaveTimer); editSaveTimer = null; }
     pubInvalidate();
     offInvalidate(); // v3.30.x：专属停用集合按联系人隔离，切桌面必须失效缓存
+    namesInvalidate(); // #680：图片/表情包名称按桌面作用域存，切桌面必须失效缓存
     ccAuthSeen.own = false; // v3.26.x #193：新桌面的权威键尚未取回，写守卫重新生效
     libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1;
     // v3.42.x #455：切桌面不再无条件全量 parse 新桌面库进编辑树（原实现每次切换
@@ -4413,6 +4573,7 @@
     flushCcSave();
     ccScope = scope === 'public' ? 'public' : 'own';
     pubInvalidate();
+    namesInvalidate(); // #680：名称缓存分作用域，切作用域必须重读
     // v3.32.x：startTab 可指定起始分类（其他互动功能字卡入口直接落到第一个功能 tab）
     cur = (startTab && CC_ALL_TYPES.indexOf(startTab) >= 0) ? startTab : 'text';
     q = ''; curGroup = '';

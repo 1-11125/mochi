@@ -925,11 +925,44 @@
     };
     return kaWithTimeout(start(), 5000).catch(function () { return null; });
   }
+  // FIX 2026-09-17 #673 发送链三处「静默丢失」补齐（与 #614 同族——用户又报「后台弹窗收不到」，
+  //   红米K80 Chrome 等多机型同现）。#614 解决的是 ready/showNotification 的 Promise 永不落地，
+  //   本次是同一类「不报错、也不发」的剩余三个口子：
+  //   ① 同步抛错逃逸：kaWithTimeout(reg.showNotification(...)) 是先求值再包超时——showNotification
+  //      同步 throw 时异常穿透 prepMediaBlobs 回调（落进 dataUrlToBlob 的 fetch promise ＝未处理
+  //      拒绝），发送链既不 resolve 也不走降级重发 ⇒ 整条通知静默消失、测试按钮也无结果。改为传 thunk。
+  //   ② 页面通道在隐藏态不可显示却报成功：Chrome 安卓对隐藏页面的 new Notification() 静默抑制
+  //      （不弹也不报错），原实现 resolve(true) ⇒ 调用方 markNotified（该内容此后不再弹）＋ 测试按钮
+  //      写「✓ 测试通知已发送（Service Worker）」＝用户侧什么都没弹、诊断还说一切正常。现在隐藏态
+  //      走页面通道一律 resolve(false)（未真正提交显示，不记「已通知」指纹，补发成功还能弹）。
+  //   ③ SW 未就绪时整条丢：只等一次窗口就判死，弱网/刚被回收重建即永久丢失。现在隐藏态挂一次
+  //      「就绪即补发」（swNotifyLater，最多等 60s），仍就绪不了才回退页面通道。
+  //   ④ lastNotifyChannel 如实记录本次实际走的通道——测试按钮据此说真话，诊断不再指错层。
+  let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
+  window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
+  let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
+  function swNotifyLater(title, opts) {
+    if (swLaterTimer) return;
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
+    let done = false;
+    const finish = function () { done = true; if (swLaterTimer) { clearTimeout(swLaterTimer); swLaterTimer = null; } };
+    swLaterTimer = setTimeout(finish, 60000);
+    kaWithTimeout(navigator.serviceWorker.ready, 60000).then(function (reg) {
+      if (done || !reg) return;
+      finish();
+      const o = Object.assign({}, opts);
+      // 补发求稳：媒体字段全不带——纯文字通知最不容易被内核/系统挑掉（错过一次就不再错过）
+      delete o.image; delete o.icon; delete o.badge;
+      if (!o.urgency) o.urgency = 'high';
+      try { reg.showNotification(title, o); lastNotifyChannel = 'sw'; } catch (e) {}
+    }).catch(function () { finish(); });
+  }
   function showSysNotification(title, opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
       try {
-        if (!('Notification' in window) || Notification.permission !== 'granted') { resolve(false); return; }
+        if (!('Notification' in window) || Notification.permission !== 'granted') { lastNotifyChannel = 'none'; resolve(false); return; }
+        const hidden = document.visibilityState === 'hidden';
         const pageFallback = function () {
           // SW 不可用回退页面路径：去掉 image/icon/badge（页面 Notification 对
           // dataURL 图片/图标不稳定，带上会导致整条通知失败，v3.5.118 教训）
@@ -937,7 +970,12 @@
           delete noMedia.image;
           delete noMedia.icon;
           delete noMedia.badge;
-          try { new Notification(title, noMedia); resolve(true); } catch (e) { resolve(false); }
+          lastNotifyChannel = 'page';
+          try {
+            new Notification(title, noMedia);
+            // #673：隐藏态下页面通知被内核静默抑制，不算「已提交显示」
+            resolve(!hidden);
+          } catch (e) { lastNotifyChannel = 'none'; resolve(false); }
         };
         if ('serviceWorker' in navigator && navigator.serviceWorker) {
           // v3.5.137：urgency:'high' 让通知以「高紧迫度」发送——Chrome 安卓上
@@ -953,19 +991,23 @@
           // v3.14.x：badge 同样走 Blob 直传（prepMediaBlobs 统一转换）
           if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
           kaSWReady().then(function (reg) {
-            if (!reg) { pageFallback(); return; }
+            // #673：SW 未就绪（被回收/弱网注册中）时先挂「就绪即补发」——隐藏态下
+            // 页面通道根本不会显示，不补发就是整条丢；前台则直接走页面通道（可见即能弹）
+            if (!reg) { if (hidden) swNotifyLater(title, opts); pageFallback(); return; }
             // v3.14.x：逐级降级重发——带 image 失败 → 去 image；仍失败 → 去 badge；
             // 最后连 icon 也去掉只发纯文字。保证文字通知不因任一媒体字段异常整条丢失
             const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
             let ladderIdx = 0;
             const tryNext = function () {
-              if (ladderIdx >= STRIP_LADDER.length) { resolve(false); return; }
+              if (ladderIdx >= STRIP_LADDER.length) { lastNotifyChannel = 'none'; resolve(false); return; }
               const attempt = Object.assign({}, swOpts);
               STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
               prepMediaBlobs(attempt, function () {
                 // #614：showNotification 本身也加超时——防止个别内核返回的 Promise 不落地
-                kaWithTimeout(reg.showNotification(title, attempt), 4000)
-                  .then(function () { resolve(true); }, tryNext);
+                // #673：thunk 形式——同步 throw 也必须落进超时器的 reject 通道（原写法先求值，
+                //   异常直接穿透回调＝发送链卡死、降级重发不跑）
+                kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
+                  .then(function () { lastNotifyChannel = 'sw'; resolve(true); }, tryNext);
               });
             };
             tryNext();
@@ -973,7 +1015,7 @@
         } else {
           pageFallback();
         }
-      } catch (e) { resolve(false); }
+      } catch (e) { lastNotifyChannel = 'none'; resolve(false); }
     });
   }
   // v3.5.114：请求权限（支持成功/失败回调）——失败时开关要弹回关闭，
@@ -1220,16 +1262,24 @@
       try {
         const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
         showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }).then(function (ok) {
-          if (ok) {
-            env.push('✓ 测试通知已发送（Service Worker）');
-            // 红米/小米：系统级通知可能拦截（API 不报错但通知不显示）
-            // v3.26.x 收口第二批：UA 特判改读 device.js env.notifyQuirk（唯一嗅探处）
-            const _mdN = (window.mochiDevice || {}).env || {};
-            if (_mdN.notifyQuirk) {
-              env.push('悬浮开关：系统设置→通知管理→Chrome→通知类别/横幅通知→打开「在屏幕上方显示」');
-            }
+          // FIX 2026-09-17 #673：如实报告这次走了哪条通道——原实现不管走 SW 还是页面
+          //   回退都写「✓ 测试通知已发送（Service Worker）」，SW 未就绪时用户看到"已发送"
+          //   却什么都没弹（真机报障正是这一形态），诊断反而把故障层指错（#614 同族）。
+          const ch = (typeof window.bgNotifyLastChannel === 'function') ? window.bgNotifyLastChannel() : '';
+          if (ch === 'sw') {
+            env.push('✓ 测试通知已发送（Service Worker：后台关屏也能弹）');
+          } else if (ch === 'page') {
+            env.push(ok
+              ? '✓ 测试通知已发送（页面通道：只在此页处于前台时显示）'
+              : '! 未真正送达：Service Worker 未就绪，页面通道在后台会被系统抑制（稍后自动补发，或刷新页面重试）');
           } else {
-            env.push('✗ 通知发送未受理（权限或系统通知被禁）');
+            env.push('✗ 通知未受理：Service Worker 未就绪 / 权限或系统通知被禁（稍后重试或刷新页面）');
+          }
+          // 红米/小米：系统级通知可能拦截（API 不报错但通知不显示）
+          // v3.26.x 收口第二批：UA 特判改读 device.js env.notifyQuirk（唯一嗅探处）
+          const _mdN = (window.mochiDevice || {}).env || {};
+          if (_mdN.notifyQuirk && ch === 'sw') {
+            env.push('悬浮开关：系统设置→通知管理→Chrome→通知类别/横幅通知→打开「在屏幕上方显示」');
           }
           toast('测试结果：\n' + env.join('\n'));
         });
@@ -1343,6 +1393,14 @@
   const NOTIFY_CHAT_DUP_MS = 5 * 60000;  // v3.20.x：历史聊天查重 15→5 分钟
   const NOTIFY_SENT_DUP_MS = 2 * 60000;  // v3.20.x：已发通知查重 6→2 分钟
   const NOTIFY_SEEN_DUP_MS = 3 * 60000;  // v3.20.x：前台看过记忆 15→3 分钟
+  // FIX 2026-09-17 #673：过渡期（切后台头 15s）的「看过内容」判定窗——比常规 5 分钟更宽。
+  //   过渡期原来是「一律不弹」，防的是切后台瞬间积压定时器重放用户刚看过的内容；代价是把
+  //   这 15 秒里真正新产生的消息也整条丢掉：TA 回复延迟默认 1~40 秒（设置→回复速度），
+  //   用户发完消息立刻切出应用时回复常落在窗内 ⇒ 聊天记录里有、通知栏始终没有
+  //   （红米K80 Chrome 等多机型同报「后台弹窗又收不到」）。
+  //   现过渡期只做内容判定，且窗口加宽到 30 分钟：重放内容（#498 防重弹面）拦得更死，
+  //   真新内容放行。窗口只在过渡期用，窗外的常规判定仍走 NOTIFY_CHAT_DUP_MS 5 分钟。
+  const NOTIFY_FRESH_CHAT_DUP_MS = 30 * 60000;
   // v3.23.x：lastNotifySentAt 已随 batchBurst 一并移除（重放放大器，见 bgNotifyCheck 内注释）
   // 通知文本归一化：剥 dataURL/语音 ||| 段/SVG 标签，去空白后取前 100 字符做指纹
   function normNotifyKey(raw) {
@@ -1384,12 +1442,13 @@
   // 最近窗口内聊天记录里 TA 是否已说过同样内容（扫尾部最多 150 条，命中即回）
   // v3.14.x：refTs=本次通知对应的到达时刻——用于把「这条新消息自己刚入库的条目」
   // 排除出扫描（卡片类是提示语+卡面两条几乎同时入库，见循环内说明）
-  function recentChatDup(key, refTs) {
+  function recentChatDup(key, refTs, windowMs) {
     if (!key) return false;
     try {
       const arr = window.getChatMsgs ? window.getChatMsgs() : null;
       if (!arr || !arr.length) return false;
-      const cutoff = Date.now() - NOTIFY_CHAT_DUP_MS;
+      // FIX 2026-09-17 #673：窗口可传入（默认常规 5 分钟）——过渡期用加宽窗判定「已看过/重放」
+      const cutoff = Date.now() - (windowMs || NOTIFY_CHAT_DUP_MS);
       // v3.13.x 修复：聊天消息到达是「先入库（addRec msgs.push）再走 bgNotifyCheck」，
       // 查重扫历史会把【刚到达的这条】自己判成"最近说过"而吞掉通知（用户表现：联系人
       // 发消息有提示音但从不弹窗）。v3.14.x 演进：不再按下标跳过末尾条目——卡片类是
@@ -1489,10 +1548,16 @@
   // 当前会被哪道闸门拦下
   window.bgNotifyGateInfo = function (text, img, refTs) {
     const nkey = msgFingerprint(text, img);
+    // FIX 2026-09-17 #673：过渡期由「一律不弹」改为「只拦看过的内容」——这里把运营判定那
+    //   一步（过渡期内 + 该内容是聊天近期已有内容）暴露给回归脚本：全新消息在这两步下组合
+    //   =false（放行），重放内容 =true（拦截）。守卫住「切后台头 15s 不再整条吞 TA 新回复」。
+    const transitionBlocks = lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+      recentChatDup(nkey, refTs, NOTIFY_FRESH_CHAT_DUP_MS);
     return {
       hiddenForMs: Date.now() - lastVisibleAt,
       // v3.16.x：过渡期用「切后台时刻 lastHiddenAt」——切后台头 15 秒内的积压消息不弹
       tooFreshHidden: lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS,
+      transitionBlocks: transitionBlocks,
       dupNotified: notifiedDup(nkey),
       dupSeen: seenDup(nkey),
       dupInChat: recentChatDup(nkey, refTs),
@@ -1521,7 +1586,13 @@
     // v3.16.x：过渡期闸门改用「切后台时刻」——lastVisibleAt 是最近一次回前台时间，
     // 前台久驻后（如看了 10 分钟）它很旧，切后台瞬间积压的定时器批量到点产生的
     // 一堆消息会全部通过闸门 → 弹出大量看过的内容。改为切后台头 15 秒内一律不弹
-    if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS) { gateStats.tooFresh++; return; }
+    // FIX 2026-09-17 #673：过渡期由「一律不弹」改为「只拦看过的内容」——防重弹本意完整
+    //   保留（切后台瞬间积压定时器重放的都是聊天记录里已有的内容，加宽窗拦得更死，见
+    //   NOTIFY_FRESH_CHAT_DUP_MS），但不再连这 15 秒内真正新产生的消息一起吞掉
+    //   （用户报障形态：发完消息就切出去，TA 在 1~40 秒随机延迟内回复 → 落在窗内 →
+    //   聊天有、通知栏没有）。force（来电等一次性事件）照旧绕过。
+    if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+        recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }
     // v3.23.x：回退 v3.22.x 的 batchBurst（30 秒内同文案放行）——实测是重放放大器：
     // 切后台后 15 秒过渡期一过，撞车内容在上一条通知 30 秒内可绕过全部去重再次弹出，
     // 正是「切后台马上弹几分钟前看过的消息」的组成来源。v3.22.x 想解决的「批量连发
@@ -1596,7 +1667,18 @@
       // v3.15.x：裁剪失败不再丢弃头像——回退原图交给 showSysNotification 的
       // prepMediaBlobs 转 Blob；此前裁剪失败 cb('') 会直接丢头像导致通知无头像
       // v3.20.x：data: 与 http(s) 头像都走 1:1 裁剪，杜绝通知 icon 位拉伸变形
-      cropAvatarToSquare(bigIcon, function (u) { sendFinal(u || bigIcon); });
+      // FIX 2026-09-17 #673：裁剪加截止时间——makeAvatarThumb 依赖 Image.onload/onerror，
+      //   页面被后台冻结/解码卡住时两个回调都不来 ⇒ showSysNotification 永不被调用、
+      //   通知静默消失（与 #614 同族的「永不落地」，只是卡在图片这一步）。到点未回
+      //   照发（不带头像，showSysNotification 会兜底 mochi 图标），不再等一张图。
+      const cropFired = { v: false };
+      const cropTimer = setTimeout(function () { if (!cropFired.v) { cropFired.v = true; sendFinal(''); } }, 1200);
+      cropAvatarToSquare(bigIcon, function (u) {
+        clearTimeout(cropTimer);
+        if (cropFired.v) return;
+        cropFired.v = true;
+        sendFinal(u || bigIcon);
+      });
     } else {
       sendFinal(bigIcon);
     }

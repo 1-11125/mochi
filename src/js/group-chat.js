@@ -32,6 +32,9 @@
   // （显隐跟随当前桌面的聊天设置，与聊天页 cs-voice-send/cs-trigger-bar/cs-batch-send 一致）
   const gcMicBtn = document.getElementById('gc-mic-btn');
   const gcContinueBtn = document.getElementById('gc-continue-btn');
+  // #674：顶部三点菜单左侧的「让对方继续说」快捷按钮（不走设置开关，恒显；
+  // 输入栏那枚仍按 cs-trigger-bar 显隐，两者是同一动作的两个入口）
+  const gcHeadContinueBtn = document.getElementById('gc-head-continue');
   const gcBatchBtn = document.getElementById('gc-batch-btn');
   const gcDraftBar = document.getElementById('gc-draft');
   const gcDraftItems = document.getElementById('gc-draft-items');
@@ -1085,6 +1088,16 @@
     if (window.playSfx) window.playSfx('out');
     scheduleReply('');
   }
+  // v3.26.x #691：颜文字/emoji 填入群聊输入栏（与聊天页同一个模式开关；尾部追加，不清空已打的字）。
+  //   模式读全局根键 chat-textcard-direct（聊天设置→表情包 的「颜文字/emoji 点击直接发送」），
+  //   默认关＝填入输入栏，发不发由用户点「发送」决定。
+  function gcInsertTextToInput(t) {
+    if (!input || typeof t !== 'string' || !t) return;
+    input.textContent = (input.textContent || '') + t;
+    // 程序化写入不派发 input 事件，补一条带 bubbles 的让「最近输入快照」与所见内容同步（#401 同口径）
+    try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    try { toast('已填入输入栏，点「发送」发出'); } catch (e) {}
+  }
 
   // ---- 回复内容生成（从该成员字卡池随机选，兜底数组） ----
   // v3.9.x：群聊回复全部走群聊回复设置（reply-settings.js 的 gc-* 键，全局生效）：
@@ -1093,6 +1106,7 @@
     const d = {
       'gc-prob': 60, 'gc-rs-min': 1, 'gc-rs-max': 40,
       'gc-reply-min': 1, 'gc-reply-max': 2,
+      'gc-cs-normal': 0, 'gc-cs-trigger-name': 1, 'gc-cs-trigger-bar': 0,
       'gc-touch-prob': 5, 'gc-sticker-prob': 10, 'gc-emoji-prob': 5, 'gc-image-prob': 5, 'gc-voice-prob': 10,
       'gc-kaomoji-prob': 5, 'gc-quote-prob': 30, 'gc-rc-prob': 25, 'gc-rc-refix': 35,
       'gc-py-en': 1, 'gc-py-prob': 50, 'gc-py-min': 2, 'gc-py-max': 5
@@ -1408,13 +1422,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   // v3.9.x：成员回复——按群聊回复设置：回复速度/条数/拍一拍/表情包/emoji/图片/语音/
   // 颜文字/引用/撤回（含撤回补发），与聊天页被动回复语义一致
-  function memberReply(cid, quoteText, gid) {
+  function memberReply(cid, quoteText, gid, continuation) {
     if (gid === undefined) gid = curGid; // FIX 串群 #242：未传时兜底当前群
     const c = gcCfg();
+    const immediate = continuation && c['gc-cs-normal'] !== 1;
     const name = memberName(cid);
     const rsMin = Math.max(1, Number(c['gc-rs-min']) || 1);
     const rsMax = Math.max(rsMin, Number(c['gc-rs-max']) || rsMin);
-    const delay = (rsMin + Math.random() * Math.max(1, rsMax - rsMin)) * 1000;
+    const delay = immediate ? 0 : (rsMin + Math.random() * Math.max(1, rsMax - rsMin)) * 1000;
     if (gid === curGid) showTyping(name);
     setTimeout(() => {
       if (gid === curGid) hideTyping();
@@ -1642,7 +1657,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     toast('已移除成员');
   }
   // 点击群名标题 → 打开群聊列表面板（切换 / 新建 / 删除群聊；群成员入口在三点菜单）
-  if (nameEl) nameEl.addEventListener('click', () => { renderGroupsPanel(); if (groupsPanel) groupsPanel.hidden = false; });
+  // #676：回复设置→群聊「点顶部昵称触发」开启（gc-cs-trigger-name，默认开）时，点群名
+  // 先触发一轮「让对方继续说」再打开列表面板（与聊天页点昵称触发继续说同语义）；
+  // 开启后切换群聊走右上角三点菜单「切换群聊」，面板入口不受影响。
+  if (nameEl) nameEl.addEventListener('click', () => {
+    if (gcCfg()['gc-cs-trigger-name'] === 1) gcCsFireContinue();
+    renderGroupsPanel();
+    if (groupsPanel) groupsPanel.hidden = false;
+  });
   if (membersClose) membersClose.addEventListener('click', () => { if (membersPanel) membersPanel.hidden = true; });
 
   // ---- 群聊列表面板（v3.26.x：切换 / 新建 / 删除群聊） ----
@@ -2924,14 +2946,19 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   function syncGcInputBtns() {
     if (gcMicBtn) gcMicBtn.style.display = gcSettingOn('cs-voice-send') ? '' : 'none';
-    if (gcContinueBtn) gcContinueBtn.style.display = gcSettingOn('cs-trigger-bar') ? '' : 'none';
+    // #676：输入栏继续说按钮显隐＝桌面开关 cs-trigger-bar 或 回复设置→群聊「底部聊天栏按钮触发」（gc-cs-trigger-bar）
+    if (gcContinueBtn) gcContinueBtn.style.display = (gcSettingOn('cs-trigger-bar') || gcCfg()['gc-cs-trigger-bar'] === 1) ? '' : 'none';
     if (gcBatchBtn) gcBatchBtn.style.display = gcSettingOn('cs-batch-send') ? '' : 'none';
   }
   // 「继续说」：和聊天页 continueChat 同语义——强制让成员回复（无 @ 时随机 1-2 个，不按回复概率过滤）
+  // #676：continuation=true 时受回复设置「群聊 · 让对方继续说」三开关约束——
+  // · gc-cs-normal 关（默认）＝点击后立即回复，不走 gc-rs-min/max 正常回复时间；
+  //   开＝按正常回复时间（gc-rs-min~gc-rs-max 随机延迟）
   function gcContinueSay() {
     const gid = curGid; // FIX 串群 #242：同 scheduleReply 绑定来源群
     const members = getMembers();
     if (!members.length) return;
+    const c = gcCfg();
     const mentioned = [];
     if (input) {
       const t = (input.innerText || '').trim();
@@ -2941,7 +2968,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       ? mentioned.slice()
       : members.slice(0, Math.max(1, Math.min(2, members.length))).map(m => m.id);
     chosen.forEach((cid, i) => {
-      setTimeout(() => memberReply(cid, '', gid), i * (1200 + Math.random() * 1600));
+      const gap = c['gc-cs-normal'] === 1 ? i * (1200 + Math.random() * 1600) : i * 400;
+      setTimeout(() => memberReply(cid, '', gid, true), gap);
     });
     if (window.playSfx) window.playSfx('in');
   }
@@ -2998,6 +3026,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     gcContinueBtn.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; gcCsFireContinue(); });
     gcContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); gcCsFireContinue(); });
   }
+  // #674：顶部「让对方继续说」按钮——与输入栏那枚共用 gcCsFireContinue（同防重入、同 stopPropagation：
+  // 顶部点击不冒泡到 document，三点菜单的外点关闭逻辑不被这一下牵着走）
+  if (gcHeadContinueBtn) {
+    gcHeadContinueBtn.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; gcCsFireContinue(); });
+    gcHeadContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); showMoreMenu(false); gcCsFireContinue(); });
+  }
   if (gcMicBtn) gcMicBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!window.openVoicePanelFor) return;
@@ -3014,6 +3048,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   document.addEventListener('voice-send-changed', syncGcInputBtns);
   document.addEventListener('batch-send-changed', syncGcInputBtns);
   document.addEventListener('continue-say-changed', syncGcInputBtns);
+  document.addEventListener('gc-continue-say-changed', syncGcInputBtns);
   // 切换桌面后（群聊成员/设置可能变化）刷新按钮显隐
   document.addEventListener('contact-switched', syncGcInputBtns);
 
@@ -3079,7 +3114,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     if (epEl && !epEl.hidden) { window.closeEmojiPanelForInsert && window.closeEmojiPanelForInsert(); return; }
     // allowUrl：链接保存的表情在群聊里直接发送（仅信纸插入才限 data:）
     // #636：kind==='text' 是颜文字/emoji 文字卡，走纯文字消息
-    window.openEmojiPanelForInsert((src, kind) => { if (kind === 'text') sendGcText(src); else sendGcSticker(src); }, { allowUrl: true });
+    // #691：文字卡改看聊天设置里的模式——默认「填入群聊输入栏」，开了「点击直接发送」才直接发出
+    window.openEmojiPanelForInsert((src, kind) => {
+      if (kind !== 'text') { sendGcSticker(src); return; }
+      if (window.textCardDirectMode && window.textCardDirectMode()) { sendGcText(src); return; }
+      gcInsertTextToInput(src);
+    }, { allowUrl: true, textModeApplies: true }); // #691i：群聊点卡片行为受模式键支配，面板内保留模式切换按钮
     // mail-emoji-mode 会把面板压低到 bottom:64px（写信页布局），群聊页与聊天页一致用默认 96px
     document.body.classList.remove('mail-emoji-mode');
   });

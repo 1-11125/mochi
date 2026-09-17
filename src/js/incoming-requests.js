@@ -466,6 +466,12 @@
   function deliver(req, force) {
     const q = queue();
     if (q.some(x => x.cid === req.cid && x.status === 'pending')) return false; // 未处理不重复
+    // v3.26.x #678：通话中一律不投「来电」——前台弹窗会压在通话画面上，后台路径还会发
+    //   「快回来接听」通知并挂起一条来电（回前台重响），用户视角全是「通话中还被打电话」；
+    //   弹窗里的「接听」更会把当前通话直接挂断（#441 设计）。这里是最后一道闸：拒绝即不入队、
+    //   不写冷却（markLast 在后面），挂断后下一轮照样能正常触发。
+    //   放在 force 之前＝用户手动触发（设置里的测试入口）同样受闸，通话中不制造第二种通话。
+    if (req.kind === 'call' && window.callInProgress && window.callInProgress()) return false;
     if (!document.hidden && (hardLocked() || typingBusy())) return false;
     // v3.26.x #264：浮层占用时默认不投——#modal-mask 是全站唯一 DOM，同一轮里后一个
     // 联系人的投递会把前一个刚投出的弹窗顶掉，被顶掉那侧回调永不触发＝孤儿 pending。
@@ -684,7 +690,9 @@
         // #159：去掉 !document.hidden 前台门控——后台命中时 deliver() 的 hidden 分支
         // 会发「XX来电」系统通知并释放 pending，原门控让该分支对 call 永远走不到
         // （跨桌面联系人挂后台从不来电，与 #150 同桌面口径不一致＝报障根因）
-        if (deskCallEn()) {
+        // v3.26.x #678：通话占用中整轮不掷来电——用户报「明明一直通话中联系人还是会打电话过来」
+        //（OPPO Reno6 5G + 雨见，多机型）。不掷＝连随机数都不消耗、冷却不动，挂断后下一轮照常可触发。
+        if (deskCallEn() && !(window.callInProgress && window.callInProgress())) {
           const dm = deskDMode();
           const callCool = dm.cool;
           const callProb = dm.prob;

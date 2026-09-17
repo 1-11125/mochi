@@ -130,6 +130,16 @@ try {
   await sleep(150);
   const d4 = await evalJs(`window.bgNotifyGateInfo('任意文本')`);
   ok('切后台后 tooFreshHidden=true（过渡期内积压不弹）', d4 && d4.tooFreshHidden === true, d4);
+  // FIX 2026-09-17 #673：过渡期由「一律不弹」改为「只拦看过的内容」——此刻仍处过渡窗内，
+  //   全新消息必须放行、聊天近期已有内容必须拦截（#498 防重弹面不失守）
+  const d4new = await evalJs(`window.bgNotifyGateInfo('过渡期全新的TA回复' + Date.now())`);
+  ok('过渡期内全新消息 transitionBlocks=false（放行：不再整条吞 TA 新回复）', d4new && d4new.transitionBlocks === false && d4new.tooFreshHidden === true, d4new);
+  // 重放内容须在聊天数组尾部且新近才会被 recentChatDup 扫到（T3 在数组末尾追加了 40 分钟前旧消息，
+  // 从尾部扫描会先撞到它并 break）——这里现场追加再判，避免探测顺序依赖
+  await evalJs(`window.chatAddSystem && window.chatAddSystem('过渡期重复内容验证'); true`);
+  await sleep(120);
+  const d4dup = await evalJs(`window.bgNotifyGateInfo('过渡期重复内容验证')`);
+  ok('过渡期内聊天已有内容 transitionBlocks=true（重放仍拦：#498 不失守）', d4dup && d4dup.transitionBlocks === true, d4dup);
   await evalJs(`(function(){
     try {
       Object.defineProperty(document, 'visibilityState', { get: function(){ return 'visible'; }, configurable: true });

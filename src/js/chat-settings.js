@@ -2368,5 +2368,398 @@
       prevRow.parentNode.insertBefore(row, prevRow.nextSibling);
       prevRow = row;
     });
+
+    // v3.26.x #691：颜文字/emoji 点击行为模式（用户直派：「点击后输入聊天输入栏，我自己选择发」
+    //   或「直接点击就发送」，在聊天设置里切换）。与上方 hide-tab-* 同口径——全局根键
+    //   chat-textcard-direct（contacts.js EXCLUDE 排除迁移，聊天/群聊共用同一面板），
+    //   '1'=点击直接发送、其余/缺省=点击填入输入栏（默认）。模式在 chat.js 点击时现读，
+    //   无需广播；改完即时生效（面板下次点击就走新模式）。
+    const tcRow = document.createElement('div');
+    tcRow.className = 'set-row';
+    tcRow.id = 'cs-chat-textcard-direct-row';
+    tcRow.innerHTML =
+      '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M8 10h8M8 13.5h5"/></svg></div>' +
+      '<div class="txt">颜文字/emoji 点击直接发送<span class="sub">关（默认）：点击后只填进聊天输入栏，可连点多条，发不发由你点「发送」决定；开：点一下立刻发出。只对【颜文字】【emoji】两个分类生效，表情包图片不受影响。</span></div>' +
+      '<label class="toggle"><input type="checkbox"><span class="tk"></span></label>';
+    const tcBox = tcRow.querySelector('input');
+    const tcGet = () => { try { return window.xyStore(GNS2).get('chat-textcard-direct') === '1'; } catch (e) { return false; } };
+    const tcSet = (en) => { try { window.xyStore(GNS2).set('chat-textcard-direct', en ? '1' : '0'); } catch (e) {} };
+    const tcSync = () => { const v = tcGet(); if (v !== tcBox.checked) tcBox.checked = v; };
+    tcSync();
+    tcBox.addEventListener('change', () => {
+      if (tcBox.checked === tcGet()) return;
+      tcSet(tcBox.checked);
+      toast(tcBox.checked
+        ? '已设置：点【颜文字】【emoji】直接发送'
+        : '已设置：点【颜文字】【emoji】先填入输入栏，由你决定何时发送');
+    });
+    csAddSync(tcSync);
+    document.addEventListener('contact-switched', tcSync);
+    prevRow.parentNode.insertBefore(tcRow, prevRow.nextSibling);
   }
+
+  // ================= v3.34.x #673：聊天美化「边看边调」（对齐桌面美化 #527/#562/#579） =================
+  // 用户原话：「聊天设置里的美化也能像桌面美化一样做边看边调的功能吗？」
+  // 桌面那套的形态是「打开调色条：桌面在上、控件在下，改哪看哪、即时生效」（personalize.js
+  // openBeautyDrawer）。聊天美化此前只有居中弹窗逐个设置——弹窗把聊天页整个盖住，调的时候看不到
+  // 效果（用户先反馈的「顶栏/底栏与气泡透明、聊天气泡透明度、气泡 CSS、全局字体…都不能预览」
+  // 就是这个根因：不是数值没生效，而是生效结果被弹窗挡着）。本批补齐同一套交互，控件换成聊天
+  // 气泡域的键，语义与桌面抽屉一致：
+  //   ① 入口 #cs-live-adjust——注入在聊天设置→美化 段最上方。JS 注入而非改 template.html：与本文件
+  //      上方「隐藏颜文字/隐藏emoji」两行同款做法（template.html 常有多会话在途，不抢文件）；
+  //   ② 点开＝切到聊天页（消息已在 DOM 里，零重渲染）＋底部抽屉（40vh 上限、半透明、可收起）；
+  //   ③ 控件即时写存储 + applySettings()/applyCss()/applyFont()——与桌面抽屉同语义：没有「确定/
+  //      取消」，✕ 只关抽屉并回聊天设置页，不与设置行弹窗的「确认后生效」语义打架；
+  //   ④ 三个分区互斥显示（气泡 / 栏位 / 字体·其他）：控件全堆一起内容会超高、盖掉大半屏，
+  //      这是桌面抽屉 #527b 踩过的坑。
+  function csDrawerEl() {
+    let d = document.getElementById('chat-beauty-drawer');
+    if (!d) { d = document.createElement('div'); d.id = 'chat-beauty-drawer'; document.body.appendChild(d); }
+    return d;
+  }
+  // 关闭抽屉 → 回「聊天设置」页的美化段（导航口径对齐桌面抽屉的 showThemePage：
+  // 只对当前未隐藏的页写 hidden，避免 44 页观察器被同值写全部唤醒——见 chat.js #336 注释）
+  function csDrawerClose() {
+    try {
+      const d = document.getElementById('chat-beauty-drawer');
+      if (d) d.style.display = 'none';
+      document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+      const pg = document.getElementById('page-chat-settings');
+      if (pg) pg.hidden = false;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const st = document.querySelector('.tab[data-page="page-setting"]');
+      if (st) st.classList.add('active');
+      const tabs = document.getElementById('cs-tabs');
+      if (tabs) { const b = tabs.querySelector('.them-tab[data-tab="beautify"]'); if (b) b.click(); }
+    } catch (e) {}
+  }
+  let csDrawerSec = 'bubble';
+  function openChatBeautyDrawer() {
+    // 1) 切到聊天页——消息已在 DOM 里，直接看真效果（与桌面抽屉同款导航口径）
+    try {
+      document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+      const chat = document.getElementById('page-chat');
+      if (chat) chat.hidden = false;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const ct = document.querySelector('.tab[data-page="page-chat"]');
+      if (ct) ct.classList.add('active');
+    } catch (e) {}
+    const d = csDrawerEl();
+    // 观感与桌面抽屉逐字同款：贴底、40vh 上限、半透明底（不透明会把聊天页挡死，
+    // #562 用户原话「又不是半透明的页面，还是会遮挡其他东西我看不见」）；刻意不加
+    // backdrop-filter——AGENTS.md 的 iOS 卡顿红线。
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+    d.innerHTML = '';
+    const grip = document.createElement('div');
+    grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
+    d.appendChild(grip);
+    const mkMini = (label, fn, cssExtra) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const hd = document.createElement('div');
+    hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
+    const hdTxt = document.createElement('span');
+    hdTxt.textContent = '边看边调（即时生效）';
+    hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const panelBody = document.createElement('div');
+    panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+    const body = document.createElement('div');
+    body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
+    const foldBtn = mkMini('收起', () => {
+      const willFold = panelBody.style.display !== 'none';
+      panelBody.style.display = willFold ? 'none' : 'flex';
+      foldBtn.textContent = willFold ? '展开' : '收起';
+    });
+    const closeBtn = mkMini('\u2715', () => { csDrawerClose(); }, ';padding:4px 8px');
+    hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+    d.appendChild(hd);
+    const chipsRow = document.createElement('div');
+    chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
+    panelBody.appendChild(chipsRow);
+    panelBody.appendChild(body);
+    d.appendChild(panelBody);
+    // 单行滑杆（标签固定宽 + 滑杆 + 数值），行高与桌面抽屉一致
+    const mkSlider = (label, get, set, min, max, step, unit) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px';
+      const lb = document.createElement('span');
+      lb.textContent = label;
+      lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1;
+      inp.value = String(get());
+      inp.style.cssText = 'flex:1;min-width:0';
+      const vv = document.createElement('span');
+      vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:46px;text-align:right';
+      vv.textContent = inp.value + unit;
+      inp.addEventListener('input', () => {
+        vv.textContent = inp.value + unit;
+        set(Number(inp.value));
+      });
+      row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+      return row;
+    };
+    // 胶囊单选行（字号 / 气泡框大小 / 头像形状 / 时间轴样式）
+    const mkPills = (label, items, get, set) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+      const lb = document.createElement('span');
+      lb.textContent = label;
+      lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888)';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+      const cur = get();
+      const paint = (onBtn) => Array.prototype.forEach.call(row.children, c => {
+        const on = c === onBtn;
+        c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+        c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+        c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+      });
+      items.forEach(it => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = it.label;
+        b.style.cssText = 'font-size:11.5px;padding:5px 9px;border-radius:8px;cursor:pointer;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
+        if (it.value === cur) paint(b);
+        b.addEventListener('click', () => { set(it.value); paint(b); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(lb); wrap.appendChild(row);
+      return wrap;
+    };
+    // 颜色项：2 列网格里的可点小块，点它就在下方就地展开调色盘（即时生效）。
+    // 不用原生 <input type=color>——真机上会被渲染成一大块（桌面抽屉 #527b 的坑）。
+    let colorItems = [];
+    let paletteHost = null;
+    const mkColorItem = (label, key, def, swatchList) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--card-border,#ddd);border-radius:9px;cursor:pointer;min-width:0';
+      const sw = document.createElement('span');
+      sw.style.cssText = 'width:18px;height:18px;border-radius:5px;border:1px solid var(--card-border,#ddd);flex:none;background:' + def;
+      const tx = document.createElement('span');
+      tx.textContent = label;
+      tx.style.cssText = 'font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      const curGet = () => { try { return store.get(key) || def; } catch (e) { return def; } };
+      const paint = () => { sw.style.background = curGet(); };
+      const curSet = (v) => {
+        try { if (v === null) store.remove(key); else store.set(key, v); } catch (e) {}
+        applySettings(); paint();
+      };
+      el.appendChild(sw); el.appendChild(tx); paint();
+      el.addEventListener('click', () => {
+        colorItems.forEach(it => { it.el.style.borderColor = 'var(--card-border,#ddd)'; });
+        el.style.borderColor = 'var(--ink,#111)';
+        renderCsPalette({ el, label, curGet, curSet, swatchList });
+      });
+      colorItems.push({ el, paint });
+      return el;
+    };
+    const renderCsPalette = (item) => {
+      if (!paletteHost) return;
+      paletteHost.innerHTML = '';
+      const strip = document.createElement('div');
+      strip.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+      const cur = String(item.curGet() || '').toLowerCase();
+      (item.swatchList || []).forEach(swItem => {
+        const dot = document.createElement('span');
+        const c = swItem.color;
+        dot.style.cssText = 'width:23px;height:23px;border-radius:7px;border:1px solid ' + (String(c).toLowerCase() === cur ? 'var(--ink,#111)' : 'var(--card-border,#ddd)') + ';cursor:pointer;flex:none;background:' + c;
+        dot.title = swItem.label || c;
+        dot.addEventListener('click', () => { item.curSet(c); renderCsPalette(item); });
+        strip.appendChild(dot);
+      });
+      const defBtn = document.createElement('button');
+      defBtn.type = 'button'; defBtn.textContent = '默认';
+      defBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      defBtn.addEventListener('click', () => { item.curSet(null); renderCsPalette(item); });
+      strip.appendChild(defBtn);
+      const hexBtn = document.createElement('button');
+      hexBtn.type = 'button'; hexBtn.textContent = '手输色值';
+      hexBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      hexBtn.addEventListener('click', () => {
+        if (!window.openModal) return;
+        window.openModal('输入' + item.label + '色值', String(item.curGet() || '#111111'), (v) => {
+          const c = String(v || '').trim();
+          if (!/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c)) { toast('请输入 # 开头的色值，如 #ffd6e0'); return; }
+          item.curSet(c); renderCsPalette(item);
+        }, { placeholder: '#ffd6e0' });
+      });
+      strip.appendChild(hexBtn);
+      paletteHost.appendChild(strip);
+      const tip = document.createElement('div');
+      tip.style.cssText = 'font-size:10.5px;color:var(--muted,#999);margin-top:5px';
+      tip.textContent = '正在调「' + item.label + '」，点色块即时生效';
+      paletteHost.appendChild(tip);
+    };
+    const mkGrid = (items) => {
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+      items.forEach(el => grid.appendChild(el));
+      return grid;
+    };
+    const mkNote = (txt) => {
+      const n = document.createElement('div');
+      n.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+      n.textContent = txt;
+      return n;
+    };
+    const mkAct = (label, fn, bold) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer' + (bold ? ';font-weight:600' : '');
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const DEF = themeDefaults();
+    const setSurface = (i, v) => { try { store.set(CHAT_SURFACE_SETTINGS[i].key, String(v)); } catch (e) {} applySettings(); };
+    const SECS = [
+      { key: 'bubble', label: '气泡', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        wrap.appendChild(mkGrid([
+          mkColorItem('我的气泡色', 'cs-out-bg', DEF.outBg, BUBBLE_BG_COLORS),
+          mkColorItem('我的文字色', 'cs-out-ink', DEF.outInk, BUBBLE_INK_COLORS),
+          mkColorItem('联系人气泡色', 'cs-in-bg', DEF.inBg, BUBBLE_BG_COLORS),
+          mkColorItem('联系人文字色', 'cs-in-ink', DEF.inInk, BUBBLE_INK_COLORS)
+        ]));
+        paletteHost = document.createElement('div');
+        wrap.appendChild(paletteHost);
+        wrap.appendChild(mkSlider('气泡透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[2]), v => setSurface(2, v), 0, 100, 1, '%'));
+        wrap.appendChild(mkSlider('气泡圆角', () => (parseInt(store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT, 10) || 0), v => { try { store.set('cs-bubble-radius', v + 'px'); } catch (e) {} applySettings(); }, 0, 40, 1, 'px'));
+        wrap.appendChild(mkPills('气泡字号', FONT_SIZES, () => store.get('cs-font-size') || '14px', v => { try { store.set('cs-font-size', v); } catch (e) {} applySettings(); }));
+        wrap.appendChild(mkPills('气泡框大小', BUBBLE_SIZES, () => store.get('cs-bubble-size') || '11px 14px', v => { try { store.set('cs-bubble-size', v); } catch (e) {} applySettings(); }));
+        wrap.appendChild(mkNote('气泡透明度只调底色，文字始终清晰；自定义气泡 CSS 写了 background 时以 CSS 为准。'));
+        return wrap;
+      } },
+      { key: 'bar', label: '栏位', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[0]), v => setSurface(0, v), 0, 100, 1, '%'));
+        wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
+        wrap.appendChild(mkSlider('顶栏下移', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), 0, 80, 1, 'px'));
+        wrap.appendChild(mkSlider('底栏上移', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), 0, 80, 1, 'px'));
+        wrap.appendChild(mkGrid([
+          mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
+          mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
+          mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS)
+        ]));
+        paletteHost = document.createElement('div');
+        wrap.appendChild(paletteHost);
+        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置微调只作用于本桌面。'));
+        return wrap;
+      } },
+      { key: 'type', label: '字体 · 其他', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        // 全局字体：输入即生效（不是「打完再点应用」），上传按钮复用设置行同一套存储链路
+        const finp = document.createElement('input');
+        finp.type = 'text'; finp.className = 'tc-input';
+        finp.placeholder = '字体名，如 Microsoft YaHei（清空＝恢复默认）';
+        const fr = fontResolved();
+        if (fr && fr.indexOf('data:') !== 0 && fr.indexOf('http') !== 0) finp.value = fr;
+        finp.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)';
+        finp.addEventListener('input', () => {
+          const v = (finp.value || '').trim();
+          try { if (!v) fontRemove(); else fontSet(v); } catch (e) {}
+          applyFont(); csFontChanged();
+        });
+        wrap.appendChild(mkNote('全局字体（边打边看，清空输入框即恢复默认）'));
+        wrap.appendChild(finp);
+        wrap.appendChild(mkAct('上传字体文件（ttf / otf / woff / woff2）', () => {
+          const inp = document.createElement('input');
+          inp.type = 'file';
+          inp.accept = '.ttf,.otf,.woff,.woff2';
+          inp.onchange = () => {
+            const f = inp.files && inp.files[0];
+            if (!f) return;
+            toast('正在读取字体文件…');
+            const reader = new FileReader();
+            reader.onload = () => { fontSetData(reader.result); applyFont(); csFontChanged(); toast('字体已应用到本桌面'); };
+            reader.onerror = () => { toast('字体文件读取失败，请重试'); };
+            reader.readAsDataURL(f);
+          };
+          inp.click();
+        }));
+        // 气泡 CSS：输入即套用（160ms 防抖），边写边看气泡变化
+        const ta = document.createElement('textarea');
+        ta.id = 'cs-drawer-css'; ta.className = 'tc-input'; ta.rows = 3;
+        ta.placeholder = '气泡 CSS，如 border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.12)';
+        ta.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;font-size:12.5px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111);resize:vertical';
+        try { ta.value = store.get(CSS_KEY) || ''; } catch (e) {}
+        let cssTimer = null;
+        ta.addEventListener('input', () => {
+          clearTimeout(cssTimer);
+          cssTimer = setTimeout(() => {
+            const v = cssReadVal(ta).trim();
+            try { if (v) store.set(CSS_KEY, v); else store.remove(CSS_KEY); } catch (e) {}
+            applyCss();
+          }, 160);
+        });
+        wrap.appendChild(mkNote('气泡 CSS（边写边套用；写 background 会覆盖上面的气泡透明度）'));
+        wrap.appendChild(ta);
+        wrap.appendChild(mkAct('清空气泡 CSS', () => {
+          try { store.remove(CSS_KEY); } catch (e) {}
+          ta.value = '';
+          applyCss();
+          toast('已清空气泡样式');
+        }));
+        wrap.appendChild(mkPills('头像形状', [{ label: '圆形', value: 'circle' }, { label: '方形', value: 'square' }], () => store.get('cs-av-shape') || 'circle', v => { try { store.set('cs-av-shape', v); } catch (e) {} applySettings(); }));
+        wrap.appendChild(mkPills('时间轴样式', TIME_STYLES, () => store.get('cs-time-style') || 'under-av', v => {
+          try { store.set('cs-time-style', v); } catch (e) {}
+          applySettings();
+          // divider（时间分隔线）要补插 DOM，其余样式纯 CSS 即时生效（同 #cs-time-style 行）
+          if (v === 'divider' && window.chatReRenderTime) { try { window.chatReRenderTime(); } catch (e) {} }
+        }));
+        wrap.appendChild(mkAct('换聊天壁纸 / 从图库切换', () => {
+          csDrawerClose();
+          setTimeout(() => { const r = document.getElementById('cs-bg-upload'); if (r) r.click(); }, 0);
+        }));
+        wrap.appendChild(mkNote('想逐项精调（含「同步到全部桌面」「恢复默认」等）回聊天设置→美化，点对应一行即可。'));
+        return wrap;
+      } }
+    ];
+    const renderSec = (key) => {
+      csDrawerSec = key;
+      Array.prototype.forEach.call(chipsRow.children, c => {
+        const on = c.dataset.sec === key;
+        c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+        c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+        c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+      });
+      body.innerHTML = '';
+      paletteHost = null;
+      colorItems = [];
+      const sec = SECS.filter(s => s.key === key)[0];
+      if (sec) body.appendChild(sec.build());
+    };
+    SECS.forEach(s => {
+      const c = document.createElement('button');
+      c.type = 'button'; c.textContent = s.label; c.dataset.sec = s.key;
+      c.style.cssText = 'flex:1;font-size:11.5px;padding:5px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      c.addEventListener('click', () => renderSec(s.key));
+      chipsRow.appendChild(c);
+    });
+    renderSec(csDrawerSec);
+    d.style.display = 'flex';
+  }
+  // 入口按钮：注入聊天设置→美化 段最上方（JS 注入，不动 template.html——同文件上方两开关的做法）
+  (function injectCsLiveAdjust() {
+    const sec = document.querySelector('#page-chat-settings .them-sec[data-sec="beautify"]');
+    if (!sec || document.getElementById('cs-live-adjust')) return;
+    const b = document.createElement('button');
+    b.id = 'cs-live-adjust';
+    b.type = 'button';
+    b.style.cssText = 'display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:10px 12px 0;padding:11px 14px;border:1px solid var(--card-border,#ddd);border:1px solid color-mix(in srgb, var(--btn-bg,#111) 40%, var(--card-bg,#fff));border-radius:12px;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--btn-bg,#111) 10%, var(--card-bg,#fff));color:var(--btn-bg,#111);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0';
+    b.innerHTML = '<span style="flex:1;min-width:0">' +
+      '<span style="display:block;font-size:15px;font-weight:700;line-height:1.25">边看边调</span>' +
+      '<span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：聊天在上、控件在下，改哪看哪、即时生效</span>' +
+      '</span><span style="flex:none;font-size:12px;font-weight:700;padding:7px 10px;border:1px solid var(--btn-bg,#111);border-radius:999px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);white-space:nowrap">点击开启 ›</span>';
+    b.addEventListener('click', openChatBeautyDrawer);
+    const first = sec.querySelector('.gs-title');
+    if (first) sec.insertBefore(b, first); else sec.appendChild(b);
+  })();
 })();

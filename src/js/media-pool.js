@@ -475,13 +475,15 @@
       // → 这些引用的表情/图片令牌被误判孤儿删除 = 单发表情包/图片变空白气泡且不可逆。
       // 修复：REFS 扩到群聊+尾巴键；并追加扫描 localStorage 同名键（读到的令牌全部进 keep，
       // 宁可漏删绝不误删；LS 读异常时放弃本次清理）。
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
       // FIX 2026-09-15 #506 引用面补字卡库两键：#387 修复前写回泄漏/旧备份导入会把 @@m: 令牌
       // 留在 cc-groups / cc-groups-public 里，同样引用池条目——不进 keep 会被误判孤儿删除
       // ＝字卡库图片（含导出还原源）永久丢失。GC 与 Coverage 两处同批。
       // FIX 2026-09-17 #665f 引用面再补朋友圈两键：贴纸/配图写进动态时存的就是 @@m: 令牌
       //（字卡库 ≥64KB 表情包经池视图令牌化），只被朋友圈引用的池条目若不在 keep 里，
       // 清理孤儿会把它们删掉＝照片上的贴纸永久变「图片缺失」（宁可漏删绝不误删，此处只加不减）。
+      // FIX 2026-09-17 #127 引用面再补聊天增量日志键 chat-arch：分片后「基准包之后的新消息」
+      // 只存在这个键里——不进 keep 会把最新几条消息引用的图片/语音当孤儿删掉（永久坏图）。
       const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
       try {
         for (let li = 0; li < localStorage.length; li++) {
@@ -567,7 +569,7 @@
     return (async function () {
       const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
       const SCAN_RE = /@@m:([0-9a-f]{32})/g;
       let keys;
       try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }

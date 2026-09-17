@@ -211,6 +211,46 @@ await sleep(300);
 const exp = J(await evalJs("(function(){return JSON.stringify(window.__exported||{});})()"));
 ok(exp && exp.len > 0 && (exp.f || '').indexOf('card-audit') >= 0, 'B10 「导出文件」调用 mochiExportFile 生成报告', JSON.stringify(exp));
 
+// B11 #677 单卡关闭计数必须按【值】而不是「键在不在」
+//   根因：default-cards.js 的 setCardOff 写 off ? '1' : '0'，重新打开也不删键；
+//   旧实现按键存在计数 ⇒ ①曾经关过又打开的卡被当成关闭（凭空报「已全部单卡关闭」）；
+//   ②「恢复单卡」写 '0' 后计数不变 ⇒ 告警与按钮原样重画＝用户说的「按恢复没有反应」。
+await evalJs("(function(){var p=document.getElementById('card-audit-pick');if(p&&document.getElementById('card-audit-apply').hidden===false)p.click();return true;})()");
+await sleep(300);
+const seedOff = J(await evalJs(`(function(){var d=(window.DEFAULT_CARD_DATA&&window.DEFAULT_CARD_DATA.touch)||[];var out=[];d.forEach(function(g){if(Array.isArray(g)&&Array.isArray(g[1]))g[1].forEach(function(c){out.push(c);});});var st=window.activeStore();out.forEach(function(c){st.set('dc-off-touch:'+c,'1');});return JSON.stringify({n:out.length,first:out[0]||''});})()`));
+ok(seedOff.n > 0, 'B11 前置：把「拍一拍」分类全部预设卡置为关闭（值=1）', JSON.stringify(seedOff));
+await evalJs("(function(){var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");
+await sleep(1500);
+const allOff = J(await evalJs(`(function(){var b=document.getElementById('card-audit-body');var t=b?b.textContent:'';var pre=(window.activePrefix?window.activePrefix():'x')+':dc-off-';var st=window.activeStore();var idx={};var n=0;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(!k||k.indexOf(pre)!==0)continue;var rest=k.slice(pre.length);if(st.get(rest)!=='1')continue;var c=rest.indexOf(':');var cat=c<0?rest:rest.slice(0,c);idx[cat]=(idx[cat]||0)+1;n++;}var d=(window.DEFAULT_CARD_DATA&&window.DEFAULT_CARD_DATA.touch)||[];var tt=0;d.forEach(function(g){if(Array.isArray(g)&&Array.isArray(g[1]))tt+=g[1].length;});return JSON.stringify({warn:t.indexOf('已全部单卡关闭')>=0,btn:document.querySelectorAll('#card-audit-body [data-fix="inl-dc-off-touch"]').length,prefix:window.activePrefix?window.activePrefix():null,replicated:idx,presetTouch:tt,bodyLen:t.length,head:t.slice(0,60)});})()`));
+ok(allOff.warn === true && allOff.btn >= 1, 'B11a 全部真关闭时照旧报「已全部单卡关闭」并给「恢复单卡」按钮', JSON.stringify(allOff));
+
+await evalJs("(function(){var b=document.querySelector('#card-audit-body [data-fix=\"inl-dc-off-touch\"]');if(b)b.click();return true;})()");
+await sleep(400);
+await evalJs("(function(){var o=document.getElementById('modal-ok');if(o)o.click();return true;})()");
+await sleep(1200);
+const afterFix = J(await evalJs(`(function(){var d=(window.DEFAULT_CARD_DATA&&window.DEFAULT_CARD_DATA.touch)||[];var ks=[];d.forEach(function(g){if(Array.isArray(g)&&Array.isArray(g[1]))g[1].forEach(function(c){ks.push(c);});});var st=window.activeStore();var vals=ks.map(function(c){return st.get('dc-off-touch:'+c);});var b=document.getElementById('card-audit-body');var t=b?b.textContent:'';return JSON.stringify({allZero:vals.every(function(v){return v==='0';}),vals:vals.slice(0,3),warn:t.indexOf('已全部单卡关闭')>=0,btn:document.querySelectorAll('#card-audit-body [data-fix="inl-dc-off-touch"]').length});})()`));
+ok(afterFix.allZero === true, 'B11b 「恢复单卡」把所有卡写回 0（开启）', JSON.stringify(afterFix.vals));
+ok(afterFix.warn === false && afterFix.btn === 0, 'B11c 修复后告警与按钮一起消失（旧实现：键仍在 → 计数不变 → 原样重画＝「按恢复没反应」）', JSON.stringify(afterFix));
+// B11d：值=0 的旧键不得再被算成「关闭」（重新打开过的卡）
+const reqZero = J(await evalJs(`(function(){var b=document.getElementById('card-audit-body');return JSON.stringify({warn:(b?b.textContent:'').indexOf('已全部单卡关闭')>=0});})()`));
+ok(reqZero.warn === false, 'B11d 值=0 的历史键不被计入「单卡关闭」（键在不在 ≠ 关没关）', JSON.stringify(reqZero));
+
+// B12 #677 导出报告绝不能为空
+//   根因：lastText 只在 build() 末行赋值，而 build() 没有兜底；未打开过自检页（或 build
+//   中途抛错被 openAudit/refreshAll 吞掉）时 lastText 恒为空串 ⇒ 导出文件里 report 为空
+//   ＝用户报的「自检报告导出没有内容」。修复：exportReport 现取一次 + 兜底头 + 错误可见。
+await cdp('Page.navigate', { url: baseUrl + '/index.html' });
+await sleep(2600);
+await evalJs("(function(){window.__exported=null;window.mochiExportFile=function(j,f){window.__exported={len:(j||'').length,f:f,raw:j};return Promise.resolve('ok');};return true;})()");
+// 关键：完全不打开自检页就点导出（旧实现此时 lastText='' → report 空串）
+await evalJs("(function(){var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
+await sleep(600);
+const exp2 = J(await evalJs("(function(){try{return JSON.stringify(JSON.parse(window.__exported.raw));}catch(e){return '{}';}})()"));
+ok(!!(exp2 && typeof exp2.report === 'string' && exp2.report.length > 200 && exp2.report.indexOf('自检结论') >= 0), 'B12a 未打开自检页直接导出→报告仍是真实自检正文（旧实现 report 为空串）', 'reportLen=' + (exp2 && exp2.report ? exp2.report.length : 0));
+ok(exp2 && exp2.report.indexOf('二级密码锁') >= 0 && exp2.report.indexOf('卡数据健康') >= 0, 'B12b 导出报告含完整分节正文', (exp2 && exp2.report || '').slice(0, 30));
+ok(exp2 && typeof exp2.buildError === 'string' && exp2.version && exp2.generatedAt && 'ua' in exp2, 'B12c 导出报告带头部字段（version/generatedAt/ua/buildError）', JSON.stringify({ v: exp2 && exp2.version, b: exp2 && exp2.buildError }));
+ok(exp2 && exp2.buildError === '', 'B12d 正常路径 buildError 为空（未误报内部错误）', JSON.stringify(exp2 && exp2.buildError));
+
 try { chrome.kill(); } catch (e) {}
 server.close();
 console.log('\n== 字卡使用状态自检验证: ' + pass + '/' + (pass + fail) + ' ==');

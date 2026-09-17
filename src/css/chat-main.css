@@ -1020,6 +1020,22 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .emoji-grid-text:not(.emoji-grid-emoji) .emoji-item:nth-child(2n) { border-right:none; }
 .emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; }
 .emoji-grid-emoji .emoji-text-item { font-size:25px; line-height:1.2; word-break:keep-all; }
+/* #691i: click-mode toggle button shown inside the kaomoji/emoji categories
+   (same key as the row in chat settings; main line = current behavior, sub line = what tapping switches to) */
+.emoji-text-mode {
+  display:flex; flex-direction:column; align-items:stretch; gap:2px;
+  width:100%; flex:0 0 auto; box-sizing:border-box;
+  margin:0 0 8px; padding:8px 11px; border-radius:10px;
+  border:1px solid rgba(0,0,0,.12); background:rgba(255,255,255,.92);
+  color:var(--ink); font-family:inherit; text-align:left; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.emoji-text-mode[hidden] { display:none; }
+.emoji-text-mode:active { background:rgba(0,0,0,.05); }
+.emoji-text-mode .etm-main { font-size:12px; font-weight:700; }
+.emoji-text-mode .etm-sub { font-size:10px; line-height:1.35; font-weight:500; color:var(--muted); }
+[data-theme="dark"] .emoji-text-mode { background:var(--dark-hover); border-color:var(--dark-border-12); }
+[data-theme="dark"] .emoji-text-mode:active { background:rgba(255,255,255,.1); }
 
 /* v3.11.x锛氭壒閲忓彂閫侀潰鏉库€斺€斿鐢?.poke-card 搴曢儴鍗婃甯冨眬 */
 .batch-card { max-height:62%; }

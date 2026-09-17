@@ -645,6 +645,9 @@
     if (!k || typeof k !== 'string') return false;
     if (k.indexOf('xy-home-v2:') !== 0) return false;
     const tail = k.slice('xy-home-v2:'.length);
+    // FIX 2026-09-17 #127：聊天增量日志键 chat-arch 同族——它只存 IDB、由 chat.js 直读，
+    // 回填进 LS/memoryCache 只会白占配额，与 chat-msgs 一并排除。
+    if (tail === 'chat-arch' || /^[^:]+:chat-arch$/.test(tail)) return true;
     return tail === 'chat-msgs' || /^[^:]+:chat-msgs$/.test(tail);
   }
   // v3.42.x #426：群聊消息键（全局 xy-home-v2:group-chat-msgs / 自定义群 xy-home-v2:gc-msgs-<gid>，

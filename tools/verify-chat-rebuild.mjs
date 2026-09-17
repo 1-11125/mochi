@@ -210,6 +210,11 @@ function makeGateEnv(msgs, renderStart) {
     renderWindow: () => { rwCalls.push(1); },
     scrollChatBottom: () => {},
     sysNickCatchup: () => false,
+    // #675 起删除走 patchNormRemovalsInPlace 原位收敛（真实 DOM 补丁沙箱测不了）；沙箱只验
+    // 「收敛不可用时回退保守整窗」的契约，故桩成恒 false＝等价旧行为，G2/G3 语义不变
+    patchNormRemovalsInPlace: () => false,
+    // 并行在途批把 finish 落盘改为 persistChatHistory（内部再调 persistMsgsToIdb）；沙箱抽取不含其函数体，补同义桩保 G1 落盘断言有效
+    persistChatHistory: function (pre, arr) { this.persistMsgsToIdb(pre + ':chat-msgs', arr); },
     chatLedgerGuard: () => true,
     persistMsgsToIdb: () => { persistCalls++; },
     writeLsSnapshot: () => {},

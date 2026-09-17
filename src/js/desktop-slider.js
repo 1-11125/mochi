@@ -69,6 +69,44 @@
     for (let k = 0; k < dotsCache.length; k++) dotsCache[k].classList.toggle('active', k === idx);
   }
 
+  // ===== v3.27.x（#690）：翻页帧耗时现场采样 =====
+  // 背景：用户报「桌面三页滑动灰屏/卡顿/手机发烫（iOS 多机型同现）」，而无头内核
+  // （无 GPU 的 WebKit/Blink）复现不出真机的图层栅格化与显存压力——诊断里那句
+  // 「实测帧率≈61 fps」是**打开诊断那一刻**的静态值，跟翻页现场无关，于是每次
+  // 报障都只能猜。这里补上唯一可信的读数来源：用户自己翻页的那一秒。
+  // 约束（本文件性能红线不变，见文件头）：
+  //   ① 只在翻页进行中采，采满 PERF_FRAMES 帧（≈1 秒）即停——空闲/静止页零开销；
+  //   ② 每帧只做 performance.now() 相减 + 数组 push，不查 DOM、不读样式；
+  //   ③ 收尾也只跑一次：写一个全局小键（同 mobile-adapt 的 __diag-stuck 做法），
+  //      设置→诊断【性能】段读出。同一秒内不重复起采（perfOn 闸）。
+  const PERF_KEY = 'xy-home-v2:__diag-deskperf';
+  const PERF_FRAMES = 60;
+  let perfOn = false;
+  function perfSample() {
+    if (perfOn) return;
+    perfOn = true;
+    const gaps = [];
+    let last = 0;
+    const tick = (now) => {
+      if (last) gaps.push(now - last);
+      last = now;
+      if (gaps.length < PERF_FRAMES) { requestAnimationFrame(tick); return; }
+      perfOn = false;
+      gaps.sort((a, b) => a - b);
+      const sum = gaps.reduce((a, b) => a + b, 0);
+      try {
+        localStorage.setItem(PERF_KEY, JSON.stringify({
+          t: Date.now(), n: gaps.length,
+          mean: Math.round(sum / gaps.length),
+          p90: Math.round(gaps[Math.floor(gaps.length * 0.9)]),
+          worst: Math.round(gaps[gaps.length - 1]),
+          pages: dotsCache.length // 圆点数＝桌面页数（随手可得，不额外查 DOM）
+        }));
+      } catch (e) {}
+    };
+    requestAnimationFrame(tick);
+  }
+
   // v3.27.x（#580）：滚动中每帧跟随——手指滑到哪，圆点跟到哪（原来只在松手后 120ms 才动）
   let rafId = 0;
   let settleTimer = null;
@@ -78,6 +116,7 @@
   }
   pages.addEventListener('scroll', () => {
     if (!rafId) rafId = requestAnimationFrame(syncFrame);
+    perfSample(); // #690：翻页现场记一段帧耗时（静止时不跑）
     // 吸附/回弹终点再校一次：末次 scroll 事件与 snap 终点可能差一帧亚像素；
     // 对不派 rAF 的内核（后台标签页/被节流）也是兜底。跟随本身由上面的 rAF 负责。
     clearTimeout(settleTimer);

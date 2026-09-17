@@ -85,7 +85,7 @@ function makeSandbox(hangRef) {
     MutationObserver: class { observe() {} },
     document: {
       addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
-      visibilityState: 'visible', querySelectorAll: () => [],
+      visibilityState: 'visible', querySelectorAll: () => [], getElementById: () => null,
     },
     indexedDB: makeIdbStub(sandboxStore, hangRef),
   };

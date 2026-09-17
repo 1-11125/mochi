@@ -49,7 +49,11 @@
   function stripLetterImg(l) {
     if (!l || typeof l !== 'object') return l;
     const c = Object.assign({}, l);
-    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]'); t = mailCleanDisplay(t); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
+    // FIX 2026-09-17 #681 快照只剥 dataURL、保留媒体池令牌（原实现把 @@m:hash 也剥成 [图片]）——
+    //   令牌 44 字符不占快照预算，却是「图在哪」的唯一线索：权威主键（IDB）读不到时 load() 只剩
+    //   快照，令牌留住才能由 media-pool 观察器解回真图（#665 软占位/有界重读可自愈），否则图永久
+    //   退化成「[图片]」文字（同 #667 朋友圈快照口径）。通知/摘要处的令牌清洗保持不变。
+    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]'); t = mailCleanDisplay(t); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
     c.content = strip(c.content);
     if (c.myReply) { c.myReply = Object.assign({}, c.myReply); c.myReply.content = strip(c.myReply.content); }
     if (c.partnerReply) { c.partnerReply = Object.assign({}, c.partnerReply); c.partnerReply.content = strip(c.partnerReply.content); }

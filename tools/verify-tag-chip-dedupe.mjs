@@ -170,6 +170,42 @@ const t5 = await evalJs(`(function(){
 })()`);
 check('T5 chatAddIn(tag) 新消息同样只留标签不重复正文', t5 === '[""]', t5);
 
+// #677 多字卡回复 tag：opts.tagExtra 附加来源 chip 与 opts.tag 并存（不替换词典/词典拼字 tag）
+const chipsOf = (needle) => `(function(){
+  var out=null;
+  Array.prototype.forEach.call(document.querySelectorAll('#page-chat .msg-in .msg-bubble'),function(b){
+    if((b.textContent||'').indexOf(${JSON.stringify(needle)})>=0){
+      var mm=b.querySelector('.msg-moods');
+      out=Array.prototype.map.call(mm?mm.querySelectorAll('.msg-mood-tag'):[],function(x){return x.textContent});
+    }
+  });
+  return JSON.stringify(out);
+})()`;
+
+await evalJs("(function(){try{window.chatAddIn('多字卡并存正文',{tag:'词典拼字',tagExtra:[{tag:'多字卡回复',label:''}],tagNoDup:true});}catch(e){}return true;})()");
+await evalJs("(function(){try{window.chatAddIn('多字卡单标签正文',{tag:'多字卡回复',tagNoDup:true});}catch(e){}return true;})()");
+await sleep(500);
+const t6 = await evalJs(chipsOf('多字卡并存正文'));
+check('T6 词典拼字 tag 与多字卡回复 tag 同时渲染（并存不互斥）', t6 === '["词典拼字","多字卡回复"]', t6);
+const t7 = await evalJs(chipsOf('多字卡单标签正文'));
+check('T7 只有多字卡回复时单独渲染一枚 chip', t7 === '["多字卡回复"]', t7);
+
+// 持久化：重进聊天（整页重载 + 从存储真实加载）后两枚 chip 仍在
+await cdp('Page.navigate', { url: baseUrl + '/blank.html' });
+await sleep(400);
+await boot();
+await evalJs("(function(){var a=document.querySelector('.app[data-app=chat]');if(a){a.click();return 'click';}document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-chat')});return 'force';})()");
+await sleep(900);
+const t8 = await evalJs(chipsOf('多字卡并存正文'));
+check('T8 重进聊天后两枚 chip 随消息持久化仍在', t8 === '["词典拼字","多字卡回复"]', t8);
+
+// 源码接线锚点：genOneReply 判定置位 + replyOnce 各分支挂 tag（防重写抹掉）
+check('S4 多字卡抽卡分支按 n>=2 置位判定', chatSrc.includes('if (n >= 2) pyMultiDrawn = true;'));
+check('S5 replyOnce 取用判定（词典/梦角换血不回冲）', chatSrc.includes('const pyMultiHit = pyMultiDrawn;'));
+check('S6 词典单气泡/梦角分支并列挂 tagExtra', (chatSrc.match(/tagExtra: pyMultiExtra,\r?\n/g) || []).length === 2 && chatSrc.includes('tagExtra: si === 0 ? pyMultiExtra : null,'));
+check('S7 普通回复路径挂多字卡回复 tag', chatSrc.includes("tag: pyMultiHit ? '多字卡回复' : undefined"));
+check('S8 addIn 合并 opts.tag 与 opts.tagExtra 而非替换', chatSrc.includes('_tagMood ? _tagMood.concat(_tagExtra) : _tagExtra'));
+
 const errs = await evalJs('JSON.stringify(window.__jsErrors || [])');
 check('E1 全程无 JS 异常', errs === '[]', String(errs));
 

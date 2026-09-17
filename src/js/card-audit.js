@@ -30,6 +30,7 @@
 
   var GNS = 'xy-home-v2';
   var lastText = '';
+  var buildErr = '';   // 本次 build 的内部错误（非空＝页面顶部出错误卡、导出报告带原因）
   var sections = [];   // 本次 build 的分节 HTML
   var lines = [];      // 本次 build 的纯文本报告
   var fixMap = {};     // 修复按钮 id → 执行函数（每次 build 重建）
@@ -87,15 +88,31 @@
   }
 
   // 单卡关闭计数：<prefix>:dc-off-<cat>:<内容>。一次自检内「一次性索引 + 缓存」，不再反复扫。
+  // FIX 2026-09-17 #677：关闭态存在【值】里，不是「键在不在」——default-cards.js
+  //   setCardOff 写的是 off ? '1' : '0'，重新打开也不会删键（消费端 isDefaultCardOff
+  //   同样只判 === '1'，多份验证脚本按「关=1/开=0」断言）。旧实现按键存在计数，于是：
+  //   ① 只要用户曾经把某一类的每张卡都关过再打开，本页就会凭空报「已全部单卡关闭」；
+  //   ② 更关键的是「恢复单卡」只把值改成 '0'、键仍在 ⇒ 计数分毫不变 ⇒ 告警行与按钮
+  //      原样重画，用户看到的就是「按恢复没有反应」（用户 2026-09-17 报障，iPhone 等机型）。
+  //   改判值后与消费端同口径：修复写 '0' ⇒ 立刻不再计入 ⇒ 告警与按钮一起消失。
   var offCache = null; // {cat:n}
+  // 入参必须是【相对键】dc-off-<cat>:<内容>（即去掉 activePrefix() 后的形状）——store() 自己
+  // 会补前缀，传成 '<cat>:<内容>' 会读到不存在的键、恒判「未关闭」（#677 首版就踩了：
+  // offCount 恒 0 ⇒ 告警全不出现；verify B11a 当场抓到）。
+  function offValue(rel) { return store(rel); }          // 内存缓存优先（LS 写失败时仍准）
+  function isOffRel(rel) { return offValue(rel) === '1'; }
+  var OFF_PREFIX = 'dc-off-';
   function buildOffIndex() {
     var idx = {};
     try {
-      var pre = activePrefix() + ':dc-off-';
+      var pre = activePrefix() + ':';
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
         if (!k || k.indexOf(pre) !== 0) continue;
-        var rest = k.slice(pre.length);
+        var rel = k.slice(pre.length);
+        if (rel.indexOf(OFF_PREFIX) !== 0) continue;
+        if (!isOffRel(rel)) continue;
+        var rest = rel.slice(OFF_PREFIX.length);
         var c = rest.indexOf(':');
         var cat = c < 0 ? rest : rest.slice(0, c);
         idx[cat] = (idx[cat] || 0) + 1;
@@ -107,10 +124,13 @@
   function offKeysOf(cat) {
     var out = [];
     try {
-      var pre = activePrefix() + ':dc-off-' + cat + ':';
+      var pre = activePrefix() + ':' + OFF_PREFIX + cat + ':';
+      var preLen = activePrefix().length + 1;
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        if (k && k.indexOf(pre) === 0) out.push(k.slice(activePrefix().length + 1));
+        if (!k || k.indexOf(pre) !== 0) continue;
+        var rel = k.slice(preLen);                        // = dc-off-<cat>:<内容>
+        if (isOffRel(rel)) out.push(rel);                 // 只收真·关闭（值 = '1'）的卡
       }
     } catch (e) {}
     return out;
@@ -451,10 +471,14 @@
     Object.keys(ownOff).forEach(function (t) { if ((ownOff[t] || []).length) { var id = 'fx-goff-own-' + t; fixGroupOff(id, 'own', t); registerBulk(id); } });
     Object.keys(pubOff).forEach(function (t) { if ((pubOff[t] || []).length) { var id2 = 'fx-goff-pub-' + t; fixGroupOff(id2, 'public', t); registerBulk(id2); } });
     if (bulkFixes.length) {
+      // FIX 2026-09-17 #677：原来无条件 return true——即使每一项都没能落地（例如单卡关闭
+      //   计数口径错导致「恢复单卡」是空转），toast 也照样说「已修复」，等于给用户
+      //   「点了有用」的假反馈。改为按实际落地数回报。
       addFix('__allfix', function () {
-        bulkFixes.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });
+        var n = 0;
+        bulkFixes.forEach(function (id) { try { if (fixMap[id]) { var r = fixMap[id](); if (r !== false && r !== 'fail') n++; } } catch (e) {} });
         try { if (window.dcfRefreshUI) DCF.forEach(function (d) { window.dcfRefreshUI(d[0]); }); } catch (e) {}
-        return true;
+        return n > 0 ? true : false;
       }, function () {
         var out = [];
         bulkFixes.forEach(function (id) { try { if (fixDesc[id]) out = out.concat(fixDesc[id]()); } catch (e) {} });
@@ -584,8 +608,9 @@
     chainInner += rowHtml('主动发送（as-en · as-prob）', (asEn ? '开 · ' + clampPct(num(store('as-prob'), 30)) + '%' : '关（TA 不主动找你）') + (dndEn ? ' · 免打扰中' : ''), 'mute', { edit: '@reply:chat' });
     if (replyFixables.length) {
       addFix('__allfix-reply', function () {
-        replyFixables.forEach(function (id) { try { if (fixMap[id]) fixMap[id](); } catch (e) {} });
-        return true;
+        var n = 0;   // 同 __allfix：按实际落地数回报，全空转时不假报「已修复」
+        replyFixables.forEach(function (id) { try { if (fixMap[id]) { var r = fixMap[id](); if (r !== false && r !== 'fail') n++; } } catch (e) {} });
+        return n > 0 ? true : false;
       });
       chainInner += '<div class="ca-fixbar"><button class="storage-clear" type="button" data-fix="__allfix-reply">一键恢复字卡链路</button></div>';
       chainInner += '<div class="ca-sub">只把「开关打开、概率回默认」——不改字卡内容、不动你的回复速度/条数等偏好。</div>';
@@ -827,10 +852,33 @@
   }
 
   // ---------- 渲染（分帧填充，避免大库首开空白） ----------
+  // FIX 2026-09-17 #677：build() 此前完全没有兜底，而唯一的两个调用方（openAudit /
+  //   refreshAll）都把异常吞掉 ⇒ 一旦自检中途抛错：页面停在上一帧（或模板里的静态占位）、
+  //   lastText 不更新（首开即恒为空串）。用户那边看到的就是「自检页像是能用，但导出
+  //   报告里什么内容都没有」（2026-09-17 报障）。这里把错误本身写进报告与页面：
+  //   任何情况下报告都有内容、失败原因直接可见，不再靠猜。
+  function errText(e) { try { return (e && (e.message || e.name)) ? String(e.message || e.name) : String(e); } catch (e2) { return '未知错误'; } }
+  // 版本号：设置页面包屑里的 #about-ver-val 是构建时替换的真值（window.APP_VERSION 未必赋值，
+  //   见 personalize.js 同款注释），取不到再退回全局量。
+  function appVer() {
+    try { var el = document.getElementById('about-ver-val'); var t = el && String(el.textContent || '').trim(); if (t && t.indexOf('__') < 0) return t; } catch (e) {}
+    try { return String(window.APP_VERSION || '未知'); } catch (e2) { return '未知'; }
+  }
   function render() {
-    var r = build();
+    var r;
+    buildErr = '';
+    try { r = build(); }
+    catch (e) {
+      buildErr = errText(e);
+      lastText = (lines.length ? lines.join('\n') + '\n\n' : '') +
+        '【自检未能完成】读取数据时出错：' + buildErr +
+        '\n（本页只跑完了上面这些检查项；请把这份报告发给开发者）';
+      r = { issueCount: issueCount + 1 };
+    }
     updateBadge(r.issueCount);
     var secs = sections.slice();
+    if (buildErr) secs.unshift(cardHtml('自检未能完成（内部错误）',
+      '<div class="ca-banner ca-bad">⚠ 自检中途出错，下面显示的是出错前已跑完的部分：<br><b>' + esc(buildErr) + '</b><br>请把本页「导出文件」的报告发给开发者。</div>', null));
     bodyEl.innerHTML = '';
     var i = 0;
     (function step() {
@@ -1000,7 +1048,10 @@
   }
   function applyFix(id) {
     var fn = fixMap[id];
-    if (!fn) return;
+    // FIX 2026-09-17 #677：原来这里静默 return——确认弹窗弹出后若期间有过一次后台
+    //   render()（切桌面/回填完成等事件）重建了 fixMap，用户点「确认修复」会什么都不发生、
+    //   连提示都没有（又一种「按恢复没有反应」）。补一句可见反馈。
+    if (!fn) { toast('这一项已刷新，请重新点「修复」'); render(); return; }
     undoStack = [];
     var res = false;
     try { res = fn(); } catch (e) { res = 'fail'; }
@@ -1081,10 +1132,21 @@
     }, 260);
   }
   function exportReport() {
+    // FIX 2026-09-17 #677：报告为空就现取一次（正常路径零影响：render() 已填过）。
+    // 兜底再兜底——任何情况下导出文件都带「可读的头 + 原因」，绝不出现「导出了但没内容」。
+    if (!lastText) { try { render(); } catch (e) {} }
+    if (!lastText) {
+      lastText = '【自检报告为空】没有取到自检结果。\n可能原因：自检页尚未完成首次渲染（请返回上一页重新打开「字卡使用状态自检」再导出）。\n'
+        + '版本：' + appVer() + '\n时间：' + new Date().toLocaleString() + '\n设备：' + (navigator.userAgent || '');
+    }
     var payload = {
       app: 'mochi', kind: 'card-audit',
+      version: appVer(),
       generatedAt: new Date().toISOString(),
+      ua: navigator.userAgent || '',
       desktop: deskName(activeCid()),
+      buildError: buildErr || '',
+      issueCount: issueCount,
       issues: issues.map(function (v) { return { level: v.lv, text: v.text }; }),
       report: lastText
     };

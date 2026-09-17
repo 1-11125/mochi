@@ -17,9 +17,8 @@ const src = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
 const marker = 'window.mochiMapBubbleCss = function';
 const start = src.indexOf(marker);
 if (start < 0) { console.error('✗ chat.js 里找不到 mochiMapBubbleCss（被删/被改名？）'); process.exit(1); }
-// 取 marker 起到 IIFE 结尾，剥掉尾部 `})();`，在沙箱 window 里求值出真函数
-let tail = src.slice(start);
-const endMarker = tail.indexOf('};\n})();');
+const tail = src.slice(start);
+const endMarker = tail.search(/^\};[ \t]*\r?$/m);
 if (endMarker < 0) { console.error('✗ 找不到函数结尾锚点'); process.exit(1); }
 const fnSrc = tail.slice(0, endMarker + 2);
 const window = {};

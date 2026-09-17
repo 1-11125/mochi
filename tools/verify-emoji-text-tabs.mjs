@@ -202,10 +202,35 @@ try {
   check('B TA 专属颜文字分组自动选中（开心2）', !!(b && b.chips.join(',').indexOf('开心2') >= 0), JSON.stringify(b && b.chips));
   check('B 文字网格渲染专属卡（2 张，首张内容正确）', !!(b && b.textItems.length === 2 && b.textItems[0] === '(＝^ω^＝)'), JSON.stringify(b && b.textItems));
   check('B 颜文字 2 列网格：行内留线、行尾去线（Y,N）', !!(b && b.cols === 2 && borderSig(b.hborders) === 'YN'), JSON.stringify({ cols: b && b.cols, b: b && b.hborders }));
-  check('B 点卡片关闭面板', await click('#emoji-list .emoji-text-item'));
+  // ===== B2（#691）：点卡片的两种模式——默认「填入输入栏」，设置里可切成「点击直接发送」 =====
+  // 用户直派：「点击后输入聊天输入栏，我自己选择发；或者手动打开『直接点击就发送』的功能」。
+  // 默认（键缺省）＝填入输入栏：点一下只追加进 #chat-input，不发消息、面板不关（可连点）。
+  const modeDefault = await evalJs(`(function(){ try { var v = window.xyStore('xy-home-v2').get('chat-textcard-direct'); return (v === null || v === undefined) ? '__none__' : String(v); } catch(e){ return 'ERR'; } })()`);
+  check('B2 模式键缺省（＝填入输入栏）', modeDefault === '__none__', String(modeDefault));
+  check('B2 点卡片（默认模式）', await click('#emoji-list .emoji-text-item'));
+  await sleep(250);
+  const ins = await evalJs(`(function(){
+    var p = document.getElementById('emoji-panel'), i = document.getElementById('chat-input'), body = document.getElementById('chat-body');
+    return { open: !!(p && !p.hidden), text: i ? i.textContent : null,
+      bubble: !!body && body.textContent.indexOf('(＝^ω^＝)') >= 0 }; })()`);
+  check('B2 默认模式：文字填入输入栏', !!(ins && ins.text === '(＝^ω^＝)'), JSON.stringify(ins && ins.text));
+  check('B2 默认模式：不发出消息（聊天区无该内容）', !!(ins && ins.bubble === false), '');
+  check('B2 默认模式：面板保持打开（可继续点）', !!(ins && ins.open === true), '');
+  check('B2 连点第二张', await evalJs(`(function(){ var its=document.querySelectorAll('#emoji-list .emoji-text-item'); if(its[1]){ its[1].click(); return true; } return false; })()`));
+  await sleep(250);
+  const appended = await evalJs(`(function(){ var i=document.getElementById('chat-input'); return i ? i.textContent : null; })()`);
+  check('B2 连点＝尾部追加不清空', appended === '(＝^ω^＝)(￣▽￣)~*', String(appended));
+  // 切成「点击直接发送」：模式在点击时现读，无需重开面板
+  await evalJs(`(function(){ var i=document.getElementById('chat-input'); if(i) i.textContent=''; return true; })()`);
+  await evalJs(`window.xyStore('xy-home-v2').set('chat-textcard-direct','1')`);
+  check('B2 开「点击直接发送」后点同一张卡片', await click('#emoji-list .emoji-text-item'));
   await sleep(300);
-  const sentBody = await evalJs(`(function(){ var el=document.getElementById('chat-body'); return el ? el.textContent.indexOf('(＝^ω^＝)') >= 0 : false; })()`);
-  check('B 点卡片把颜文字作为纯文字消息发出', !!sentBody);
+  const dir = await evalJs(`(function(){
+    var p = document.getElementById('emoji-panel'), body = document.getElementById('chat-body'), i = document.getElementById('chat-input');
+    return { open: !!(p && !p.hidden), bubble: !!body && body.textContent.indexOf('(＝^ω^＝)') >= 0, text: i ? i.textContent : null }; })()`);
+  check('B2 直接发送：内容作为纯文字消息发出', !!(dir && dir.bubble === true), JSON.stringify(dir));
+  check('B2 直接发送：面板关闭且不碰输入栏', !!(dir && dir.open === false && dir.text === ''), JSON.stringify(dir));
+  await evalJs(`window.xyStore('xy-home-v2').remove('chat-textcard-direct')`); // 复原缺省，后续段落按默认模式走
 
   // ================= C：公用作用域 =================
   check('C 重开面板', await click('#chat-emoji-btn'));
@@ -291,6 +316,23 @@ try {
     return { r1: !!r1, r2: !!r2, cb: !!b1, checked: b1 ? b1.checked : null };
   })()`);
   check('G 设置页两开关行已注入且默认关', !!(rowsInjected && rowsInjected.r1 && rowsInjected.r2 && rowsInjected.cb && rowsInjected.checked === false), JSON.stringify(rowsInjected));
+
+  // ===== G2（#691）：点卡片模式开关行——注入位置/小字说明/拨动写键 =====
+  const modeRow = await evalJs(`(function(){
+    var r = document.getElementById('cs-chat-textcard-direct-row');
+    if (!r) return { row: false };
+    var sub = r.querySelector('.txt .sub'), box = r.querySelector('input');
+    return { row: true, cls: r.className, sub: sub ? sub.textContent : '', box: !!box,
+      checked: box ? box.checked : null, knob: !!r.querySelector('.toggle .tk') }; })()`);
+  check('G2 模式开关行已注入（set-row + 开关，默认关）', !!(modeRow && modeRow.row && modeRow.box && modeRow.knob && modeRow.cls.indexOf('set-row') >= 0 && modeRow.checked === false), JSON.stringify(modeRow));
+  check('G2 小字说明写清两种模式与作用范围', !!(modeRow && /填进聊天输入栏/.test(modeRow.sub) && /立刻发出/.test(modeRow.sub) && /表情包图片不受影响/.test(modeRow.sub)), modeRow && modeRow.sub);
+  const modeToggleWritten = await evalJs(`(function(){
+    var r = document.getElementById('cs-chat-textcard-direct-row'); if (!r) return null;
+    var b = r.querySelector('input'); b.checked = true;
+    b.dispatchEvent(new Event('change', { bubbles: true }));
+    return window.xyStore('xy-home-v2').get('chat-textcard-direct'); })()`);
+  check('G2 拨开关写入全局键 chat-textcard-direct=1', modeToggleWritten === '1', String(modeToggleWritten));
+  await evalJs(`window.xyStore('xy-home-v2').remove('chat-textcard-direct')`); // 复原缺省
   await evalJs(`window.xyStore('xy-home-v2').set('hide-tab-kaomoji','1')`);
   await click('#emoji-close');
   await sleep(200);

@@ -843,7 +843,14 @@ try {
     if (bgLayer || !phoneEl) return bgLayer;
     bgLayer = document.createElement('div');
     bgLayer.id = 'phone-bg-layer';
-    bgLayer.style.cssText = 'position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;';
+    // FIX 2026-09-17 #690（老内核兜底，零机型分支）：只写 inset:0 时，不认识 inset
+    // 简写的内核（Safari 14.1 / Chromium 87 之前——含 iOS 11、vivo 系等老内核，见
+    // chat-pages.css 的 .game-fs 同款注释）会整条丢弃该声明 → 本图层没有
+    // top/left/right/bottom，空 div 收缩成 0×0（无头实测：老内核解析结果 0×0，
+    // 现代内核 390×844）→ 桌面壁纸整层不显示、「换壁纸」点了没反应，桌面只剩
+    // .phone 底色＝一片灰白（用户报「三页灰屏」）。四条长手 + 宽高与 inset 同义，
+    // 同时给出＝谁认用谁。
+    bgLayer.style.cssText = 'position:absolute;inset:0;top:0;right:0;bottom:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:0;';
     phoneEl.insertBefore(bgLayer, phoneEl.firstChild);
     return bgLayer;
   };
@@ -5880,6 +5887,53 @@ try {
   if (window.__mochiDataReady) applyGroupChatMode();
   else document.addEventListener('mochi-restore-done', applyGroupChatMode);
 
+  // ===== v3.27.x #670：设置 → 工具 →【占卜】入口（#row-open-divination，模板静态行）=====
+  // 背景（用户直派）：群聊模式开启期间桌面占卜图标按 #156 收进隐藏池（第一页留给「群聊」），
+  // 桌面就找不到占卜了——用户要求把「打开占卜」放到「设置 → 工具」里，并在说明里讲清楚。
+  // 打开路径复用桌面占卜图标的 click 处理器（divination.js 绑定，含「打开即渲染历史 +
+  // 同步自动发送开关」）；图标被收进隐藏池时仍是同一个节点、监听器没丢，.click() 照样生效
+  // ＝与点桌面图标行为逐字一致。图标确实不在（模板被改/被删）时才走兜底导航（同 feature-data
+  // 的 openPage 写法：隐所有 .page、显 #page-divine），至少保证进得去占卜页。
+  // 行下小字随群聊开关切换，把「为什么桌面没有图标」当场说明（#670 的「这点也要说明」）。
+  (function () {
+    const row = document.getElementById('row-open-divination');
+    if (!row) return;
+    const sub = document.getElementById('open-divination-sub');
+    const SUB_ON = '群聊模式开启中：桌面占卜图标已收起，点这里直接打开（与点桌面图标等效，历史记录照常）';
+    const SUB_OFF = '塔罗 78 张 / 雷诺曼 40 张，三种牌阵；与点桌面【占卜】图标等效';
+    function openDivinePage() {
+      const icon = document.querySelector('.app[data-app="divination"]');
+      if (icon) { try { icon.click(); return; } catch (e) {} }
+      document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
+      const dp = document.getElementById('page-divine');
+      if (dp) dp.hidden = false;
+    }
+    function groupChatOn() {
+      try {
+        const v = window.xyStore ? window.xyStore('xy-home-v2').get('group-chat-enabled') : null;
+        if (v !== null && v !== undefined) return v === '1';
+      } catch (e) {}
+      try { return store.get('group-chat-enabled') === '1'; } catch (e) { return false; }
+    }
+    // 桌面图标是否真的被收起＝群聊开启 且 用户没在装修里显式固定占卜（#393 的
+    // divination-desk-pin=1 豁免）；固定过的桌面图标照常显示，小字不能说「已收起」。
+    function deskIconHidden() {
+      if (!groupChatOn()) return false;
+      try { return store.get('divination-desk-pin') !== '1'; } catch (e) { return true; }
+    }
+    function syncSub() { if (sub) sub.textContent = deskIconHidden() ? SUB_ON : SUB_OFF; }
+    row.addEventListener('click', openDivinePage);
+    syncSub();
+    document.addEventListener('group-chat-mode-changed', syncSub);
+    document.addEventListener('contact-switched', syncSub);
+    // 装修里显式把占卜加回/移出桌面会改写 divination-desk-pin（#393），退出装修后重算小字
+    document.addEventListener('decor-exited', syncSub);
+    // 同 applyGroupChatMode：#670 也依赖全局键 group-chat-enabled，localStorage 被清理后
+    // 该键可能只在 IndexedDB，idbRestore 回填完成后再同步一次小字（回填前读到的可能是空）。
+    if (window.__mochiDataReady) syncSub();
+    else document.addEventListener('mochi-restore-done', syncSub);
+  })();
+
   // 组件库面板：列出所有组件 + 当前位置，点击「添加到此页」
   function openDeskLib(pageSlide, pageIdx) {
     const lib = document.createElement('div');
@@ -8068,7 +8122,10 @@ try {
       'xy-home-v2:__diag-env',
       'xy-home-v2:__diag-lt',
       'xy-home-v2:__diag-net',
-      'xy-home-v2:__diag-tap'
+      'xy-home-v2:__diag-tap',
+      // #690：桌面翻页帧耗时采样（desktop-slider.js 写、诊断【性能】读）——同为诊断
+      // 缓存，一并进「清理错误诊断记录」，不然每次翻页的样本会一直留在键里。
+      'xy-home-v2:__diag-deskperf'
     ];
 
     function fmtBytes(n) {

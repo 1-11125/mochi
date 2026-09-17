@@ -3542,6 +3542,20 @@
     if (cb) cb.checked = settings.floatEn;
   }
 
+  // ===== 音乐互动台词统一走「静默」通道（FIX 2026-09-17 #673）=====
+  // 全站既有约定：互动功能自己派生的 TA 台词不响「联系人发送和回复消息」音效——
+  //   小游戏（pong/snake/memory-game/gomoku/linkup/connect-four/breakout/match3）、
+  //   摸鱼/拍卖会/多人决定等十余处都用 `chatAddIn(text, { silent: true })`。
+  // 音乐互动（暂停/恢复/收藏/切歌/随机挑歌/换播放模式/预订下一首/一起听邀请）漏了这一步：
+  //   它们是**由你正在听的这首歌自动派生**的环境事件，不是 TA 在找你说话，却因为
+  //   `chatAddSystem` 默认 special='poke' 走进了「有人给你发消息」的响铃通道 ——
+  //   听歌时每掷中一次概率就响一次提示音盖在音乐上（用户报障：vivo iQOO Z9x Edge 等多机型
+  //   「播放导入的本地歌时出现消息提示音，音乐没法正常听」），其中「TA 暂停再播放」还会把
+  //   音乐真的停 3.5 秒。silent 只影响音效与桌面横幅：字卡照常进聊天、未读角标照常 +1
+  //   （与小游戏口径完全一致），也不影响 TA 找你说话的正常消息。
+  function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true }); } catch (e) {} }
+  function taMusicSay(text) { try { if (window.chatAddIn) window.chatAddIn(text, { silent: true }); } catch (e) {} }
+
   // ================= 联系人的收藏 =================
   // v3.14.x：我播放歌曲时，联系人按设置概率把这首歌收进「TA的收藏」（独立于我的收藏）。
   // 存 music-favs-ta（与音乐库同在 default 全局命名空间），tab 标题用联系人昵称动态渲染。
@@ -3606,7 +3620,7 @@
         const name = partnerName();
         const trackName = mm.name || '未知歌曲';
         try { toast(window.taFit ? window.taFit(name + ' 收藏了这首歌') : (name + ' 收藏了《' + trackName + '》')); } catch (e) {}
-        if (window.chatAddSystem) window.chatAddSystem(name + ' 收藏了歌曲《' + trackName + '》');
+        taMusicSys(name + ' 收藏了歌曲《' + trackName + '》');
       }
     }, 10000 + Math.floor(Math.random() * 15000));
   }
@@ -3918,7 +3932,7 @@
       const askMsg = switching
         ? name + ' 想邀请你切换到《' + trackName + '》' + artist
         : name + ' 想和你一起听《' + trackName + '》' + artist;
-      if (window.chatAddSystem) window.chatAddSystem(askMsg);
+      taMusicSys(askMsg);
       if (window.openTCPanel) {
         window.openTCPanel('音乐', '' +
           '<div class="sm-req">' +
@@ -3935,7 +3949,7 @@
           history.push({ id: 'smh_' + Date.now(), trackId: '', trackName: '', triggerType: '拒绝了 TA 的听歌邀请《' + esc(trackName) + '》', rejected: true, ts: Date.now() });
           if (history.length > 500) history = history.slice(-500);
           saveHistory(); renderHistory();
-          if (window.chatAddSystem) window.chatAddSystem('你拒绝了 ' + name + ' 的听歌邀请');
+          taMusicSys('你拒绝了 ' + name + ' 的听歌邀请');
         });
         document.getElementById('sm-req-yes').addEventListener('click', () => {
           document.getElementById('tc-mask').hidden = true;
@@ -3947,7 +3961,7 @@
           const accMsg = switchNow
             ? '你接受了邀请，已切换到《' + (track.name || '未知歌曲') + '》'
             : '你接受了 ' + name + ' 的听歌邀请，一起听《' + (track.name || '未知歌曲') + '》';
-          if (window.chatAddSystem) window.chatAddSystem(accMsg);
+          taMusicSys(accMsg);
           reqData = null;
           toast('开始播放');
         });
@@ -3975,7 +3989,7 @@
         const name = partnerName();
         const trackName = candidate.name || '未知歌曲';
         const artist = candidate.artist ? ' - ' + candidate.artist : '';
-        if (window.chatAddSystem) window.chatAddSystem(name + ' 预订了下一首要听的歌：《' + trackName + '》' + artist);
+        taMusicSys(name + ' 预订了下一首要听的歌：《' + trackName + '》' + artist);
         addRecord(candidate.id, 'TA 预订了下一首');
       }
     }
@@ -4000,7 +4014,7 @@
       if (list.length > 1) {
         const others = list.filter(x => x.id !== currentId);
         const t = others[Math.floor(Math.random() * others.length)];
-        if (window.chatAddSystem) window.chatAddSystem(name + ' 切到了下一首《' + (t.name || '未知歌曲') + '》');
+        taMusicSys(name + ' 切到了下一首《' + (t.name || '未知歌曲') + '》');
         addRecord(t.id, 'TA 切到了下一首');
         // v3.5.129：延迟回调校验 currentId——期间用户手动切了歌就不再抢播
         setTimeout(() => { if (currentId === endedId) playTrack(t.id); }, 300);
@@ -4012,7 +4026,7 @@
       const list = playableList();
       if (list.length > 1) {
         const t = list[Math.floor(Math.random() * list.length)];
-        if (window.chatAddSystem) window.chatAddSystem(name + ' 随机挑了一首《' + (t.name || '未知歌曲') + '》');
+        taMusicSys(name + ' 随机挑了一首《' + (t.name || '未知歌曲') + '》');
         addRecord(t.id, 'TA 随机挑了一首');
         setTimeout(() => { if (currentId === endedId) playTrack(t.id); }, 300);
         return true;
@@ -4022,7 +4036,7 @@
     if (r < pNext + pRand + pMode) {
       cycleMode();
       const modeLabel = { list: '顺序播放', shuffle: '随机播放', single: '单曲循环' }[mode];
-      if (window.chatAddSystem) window.chatAddSystem(name + ' 把播放模式换成了' + modeLabel);
+      taMusicSys(name + ' 把播放模式换成了' + modeLabel);
       addModeRecord(modeLabel);
     }
     return false;
@@ -4040,12 +4054,25 @@
   const DEF_TA_PAUSE_CARDS = ['先暂停一下，听我说句话', '嘘——让音乐停一会儿', '（TA 按下了暂停键）'];
   const DEF_TA_RESUME_CARDS = ['好啦，继续听吧', '又帮你按了播放，接着听', '（TA 又按下了播放键）'];
   let taPauseActive = false;      // TA 暂停进行中（禁止后台补播/手势补播打扰）
+  let taPauseFiredId = null;      // 本次互动「已真的暂停过」的歌曲 id（#673：用户介入打断时据它记账）
   let taPauseTimer = null;        // 掷骰子命中后的延迟触发定时器
   let taPauseResumeTimer = null;  // TA 恢复播放定时器
   let taPauseDoneId = null;       // 已互动过的歌曲 id（同一首歌不重复触发）
   let taPauseCooldownAt = 0;      // 上次互动完成时间戳（冷却期内不连发）
+  // #673：互动被用户/通话/切歌打断时也要记账。
+  // 旧实现只清活动态、不写 taPauseDoneId 与冷却——而用户听到音乐被 TA 暂停后的**第一反应
+  // 就是点一下播放**（toggle → cancelTaPause），这一次互动于是不留任何痕迹：同一首歌乃至
+  // 紧接着点开的每一首都还能再掷中，用户看到的现象就是「不管点哪首歌，一播放就被打断、
+  // 还响一声消息提示音」。与正常完成同口径记账（该歌不再触发 + 进入冷却）即根治。
+  function bookTaPauseFired(id) {
+    if (!id) return;
+    taPauseDoneId = id;
+    taPauseCooldownAt = Date.now();
+  }
   function cancelTaPause() {
+    if (taPauseActive && taPauseFiredId) bookTaPauseFired(taPauseFiredId);
     taPauseActive = false;
+    taPauseFiredId = null;
     if (taPauseTimer) { clearTimeout(taPauseTimer); taPauseTimer = null; }
     if (taPauseResumeTimer) { clearTimeout(taPauseResumeTimer); taPauseResumeTimer = null; }
   }
@@ -4060,7 +4087,8 @@
       if (!arr.length) return;
       let m = arr[Math.floor(Math.random() * arr.length)];
       if (window.taFit) m = window.taFit(m);
-      if (window.chatAddIn) window.chatAddIn(m);
+      // #673：走音乐互动静默通道——听歌时这张字卡本身不该响提示音（见 taMusicSys 处说明）
+      taMusicSay(m);
     } catch (e) {}
   }
   // 开始播放一首歌时掷一次骰子；命中则在该歌播放 10~25s 后执行「暂停→恢复」互动。
@@ -4069,7 +4097,7 @@
     cancelTaPause();
     if (!settings.taPauseEn) return;                                  // 权限开关关闭：彻底不触发
     if (currentId && currentId === taPauseDoneId) return;             // 同一首歌只互动一次
-    if (Date.now() - taPauseCooldownAt < (settings.cooldownMs || 600000)) return; // 冷却期内不连发
+    if (Date.now() - taPauseCooldownAt < (settings.cooldownMs ?? 600000)) return; // 冷却期内不连发（#673：`??` 让「无冷却」=0 真正生效；`||` 会把设置成 0 的「无冷却」当成 600000，与 3913/3978 两处冷却判定不一致＝选「无冷却」却仍冷却 10 分钟＝「一播就被打断」难复现、交互频率异常）
     const p = probOf(settings.taPauseProb, 3);
     if (p <= 0 || Math.random() * 100 >= p) return;
     if (!currentId || !audio) return;
@@ -4079,26 +4107,34 @@
       if (taPauseActive || !audio || !currentId || currentId !== endedId || audio.paused) return;
       if (callHoldPending || document.hidden) return; // 通话/后台不打扰
       taPauseActive = true;
+      taPauseFiredId = endedId; // #673：记下「这次真的暂停过了」，用户介入打断时据此记账
       wantPlay = true; // 保留播放意图（TA 稍后会恢复，不按「用户主动暂停」处理）
       try { audio.pause(); } catch (e) {}
-      try { const nm = partnerName(); if (window.chatAddSystem) window.chatAddSystem(nm + ' 暂停了音乐'); } catch (e) {}
+      try { const nm = partnerName(); taMusicSys(nm + ' 暂停了音乐'); } catch (e) {}
       taPauseSendCard('TA 暂停播放', DEF_TA_PAUSE_CARDS);
       // 3.5s 后 TA 点播放恢复（校验仍是同一首歌；非手势播放被拒走 muted 解锁兜底）
       taPauseResumeTimer = setTimeout(function () {
         taPauseResumeTimer = null;
-        if (!taPauseActive || !audio || !currentId || currentId !== endedId) { taPauseActive = false; return; }
+        if (!taPauseActive || !audio || !currentId || currentId !== endedId) { taPauseActive = false; taPauseFiredId = null; return; }
         taPauseActive = false;
+        taPauseFiredId = null;
         // 防连发：互动完成——该歌标记已互动、进入冷却（切歌后 currentId 变化自然重置）
-        taPauseDoneId = endedId;
-        taPauseCooldownAt = Date.now();
+        bookTaPauseFired(endedId);
         const p2 = audio.play();
         if (p2 && p2.catch) p2.catch(function () {
           if (!audio) return; // v3.28.x：判空防 null.play()（3.5s 恢复窗口内可能已切歌/停止）
           try { audio.muted = true; } catch (e) {}
           const p3 = audio.play();
-          if (p3 && p3.then) p3.then(function () { try { if (audio) audio.muted = false; } catch (e) {} }).catch(function () {});
+          if (p3 && p3.then) p3.then(function () { try { if (audio) audio.muted = false; } catch (e) {} }).catch(function () {
+            // #673：非手势恢复被彻底拒绝时不能把音乐丢在暂停态——旧实现这里静默收场，
+            // 而前台没有补播看门狗（tryResumePlayback 只在 document.hidden 时跑、
+            // resumeOnForeground 只在切回前台时跑），表现成「TA 暂停后音乐再也放不出来，
+            // 只能自己再点一下播放」。挂上既有的手势恢复通道（下一次触摸/点击即恢复播放）。
+            try { syncPlayIcons(false); } catch (e) {}
+            try { armAutoResume(); } catch (e) {}
+          });
         });
-        try { const nm = partnerName(); if (window.chatAddSystem) window.chatAddSystem(nm + ' 又播放了音乐'); } catch (e) {}
+        try { const nm = partnerName(); taMusicSys(nm + ' 又播放了音乐'); } catch (e) {}
         taPauseSendCard('TA 恢复播放', DEF_TA_RESUME_CARDS);
       }, 3500);
     }, 10000 + Math.floor(Math.random() * 15000));
@@ -4225,7 +4261,7 @@
         const name = partnerName();
         const trackName = track.name || '未知歌曲';
         const artist = track.artist ? ' - ' + track.artist : '';
-        if (window.chatAddSystem) window.chatAddSystem(name + ' 想和你一起听《' + trackName + '》' + artist);
+        taMusicSys(name + ' 想和你一起听《' + trackName + '》' + artist);
         if (window.openTCPanel) {
           window.openTCPanel('音乐', '<div class="sm-req"><div class="sm-req-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><div class="sm-req-hint">' + name + ' 想和你一起听：</div><div class="sm-req-name">《' + esc(trackName) + '》</div></div><div class="mail-actions"><button class="cc-tool" id="sm-req-no">稍后</button><button class="cc-tool" id="sm-req-yes">一起听</button></div>');
         }

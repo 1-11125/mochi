@@ -36,9 +36,9 @@ const A = (name, ok, extra) => { total++; console.log((ok ? 'PASS' : 'FAIL') + '
 const sh = read('js/settings-help.js');
 A('S1 settings-help 后台弹窗长文在位（使用说明 + 收不到排查）',
   sh.includes('后台弹窗 · 使用说明') && sh.includes('【收不到怎么办】') && sh.includes('【开启步骤（安卓）】'));
-A('S2 settings-help 卡顿长文在位（原因 + 占地方实测排序 + 按顺序优化清单）',
+A('S2 settings-help 卡顿长文在位（原因分几类 + 谁最占地方看用户自己的 + 按顺序优化清单）',
   sh.includes('手机卡顿怎么办（安卓 / iPhone）· 使用说明') && sh.includes('【按这个顺序优化') && sh.includes('不要用「清除本地数据」来治卡顿')
-  && sh.includes('实测出现过单个聊天数据块 155MB / 1656 条') && sh.includes('别误会：不是让你少存图'));
+  && sh.includes('没有统一答案，看你自己的') && sh.includes('别照别人的排序删自己的数据') && sh.includes('别误会：不是让你少存图'));
 A('S3 settings-help 使用说明行已登记（#row-guide 说明可被设置搜索命中）', sh.includes("sel: '#row-guide'"));
 A('S4 settings-help 设备限制清单入口挂在设备兼容诊断行',
   sh.includes('像 bug 的问题') && sh.includes('使用说明 第 12 节'));
@@ -47,8 +47,26 @@ A('S5 使用说明页三节标题在位',
 A('S6 设置页两条可见提示（后台通知行 / 卡顿自检行）在位',
   tpl.includes('id="bg-notify-sub"') && tpl.includes('id="perf-help-sub"'));
 
-A('S7 说明页第 11 节含「占地方实测排序 / 卡法不同 / 别误会少存图」三条要点',
-  tpl.includes('到底谁在占地方（实测排序）') && tpl.includes('iPhone 和安卓的「卡法」不一样') && tpl.includes('别误会：不是让你少存图'));
+A('S7 说明页第 11 节含「谁占地方每台手机不一样 / iPhone 和安卓不一样 / 别让你少存图」三条要点',
+  tpl.includes('哪一样占得最多，每台手机都不一样') && tpl.includes('iPhone 和安卓不一样') && tpl.includes('不是让你少存图'));
+
+// S8 口径守卫（2026-09-17 用户反馈「写的不是全部情况，而是我之前的案例」）：
+// 三个用户可见面（设置页行下小字 / 功能说明 / 功能中心收录）都不能把「某一台手机上的实测排序」
+// 当成所有人的结论——必须「成因分几类 + 先看『查看存储』看用户自己哪一项最大」。
+const fh = read('js/feature-hub.js');
+const hubEntry = (fh.match(/\{ n: '卡顿自检[\s\S]*?\},/) || [''])[0];
+A('S8 三处卡顿文案都不写死「某一样最大」，一律「成因分类 + 看用户自己」',
+  tpl.includes('哪一样最多，每台手机都不一样') && tpl.includes('看你自己哪一项最大')
+  && hubEntry.includes('哪一块最占地方因人而异') && hubEntry.includes('先到「查看存储」看清自己这一台')
+  && !hubEntry.includes('实测占得最多的是聊天记录'));
+
+// S9 平台口径（2026-09-17 用户直派结论）：「iPhone＝装到桌面 + 别存太多（图片最占）；
+// 安卓＝好很多但长期也要清」。同时守住两处被用户当场质疑过的错误说法（添加到主屏幕提高内存、
+// 「更不容易被系统清内存」）——iPhone 装到桌面也一样会被系统关掉重开（#377 就是独立 PWA 的 OOM 家族）。
+A('S9 第 11 节写明 iPhone / 安卓两句差异，且不再出现「装到桌面就能多用内存」的说法',
+  tpl.includes('先记住两句话') && tpl.includes('用久了也要清')
+  && tpl.includes('这不是「能多用内存」') && tpl.includes('长期用也要定期清')
+  && !tpl.includes('更不容易被系统清内存') && !tpl.includes('内存表现也更稳'));
 
 // ---- 起本地服务 + 无头 Chrome ----
 const server = createServer((req, res) => {
@@ -135,9 +153,9 @@ await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=t
 
 await clickCapsule('#row-perf-optimize'); await sleep(200);
 mt = await modalText();
-A('P3 卡顿自检「功能说明」= 卡顿原因 + 占地方排序 + 用户可做的优化清单',
+A('P3 卡顿自检「功能说明」= 卡顿原因分几类 + 谁最占地方看用户自己的 + 用户可做的优化清单',
   mt.includes('手机卡顿怎么办（安卓 / iPhone）· 使用说明') && mt.includes('字卡库瘦身') && mt.includes('压缩图片') && mt.includes('不要用「清除本地数据」来治卡顿')
-  && mt.includes('实测出现过单个聊天数据块 155MB / 1656 条') && mt.includes('别误会：不是让你少存图'),
+  && mt.includes('没有统一答案，看你自己的') && mt.includes('别照别人的排序删自己的数据') && mt.includes('别误会：不是让你少存图'),
   'len=' + (mt ? mt.length : 0));
 await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=true; })()`);
 

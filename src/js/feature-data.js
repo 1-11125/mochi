@@ -1,4 +1,4 @@
-// ===== 功能：各功能数据 单独导出 / 导入 / 清空（v3.27.x） =====
+﻿// ===== 功能：各功能数据 单独导出 / 导入 / 清空（v3.27.x） =====
 // 需求（用户 2026-09-17）：桌面上每个功能都要能「单独导出数据 / 导入数据 / 清空数据」，
 // 原来只有聊天、朋友圈、信箱三处零散实现（chat-settings.js 的 cs-export-msgs 三行、
 // feed.js 的 feed-clear-all、mail.js 的 mailExportData/mailImportFile/mailClearAll），
@@ -45,8 +45,10 @@
   // ================= 功能登记表 =================
   // scope：'desk' 当前桌面 / 'global' 全局共用 / 'both' 两类都含
   // res：后缀正则（匹配 parseKey 后的 suffix，不含命名空间）
+  // page：该功能自己的页面 id（#679 各功能页内直达入口；跨域声明见 WORKLOG——
+  //       只读各功能 template/JS 已有的静态 id，不改任何归属文件）
   var FEATURES = [
-    { id: 'chat', name: '聊天', group: '聊天与社交', scope: 'desk',
+    { id: 'chat', name: '聊天', group: '聊天与社交', scope: 'desk', page: 'page-chat', btns: 'cs-export-msgs,cs-import-msgs,cs-clear-msgs',
       desc: '聊天记录、聊天设置（气泡/字号/时间轴/输入栏）、表情包与文字库、拍一拍、红包、引用',
       res: [/^chat-/, /^cs-(?!avatar-|lbl-)/, /^rp-cover-/, /^rp-wallet$/, /^emoji-last$/, /^my-emoji-groups$/, /^my-text-groups$/, /^my-invite-groups$/, /^mye-global-migrated$/, /^hide-tab-/, /^hide-ta-sticker$/, /^invite-ask-history$/, /^poke-/, /^rps-score$/, /^scroll-anchor-auto$/, /^sysmsg-nick-/, /^more-tab$/, /^more-cat$/, /^mail-emoji-mode$/, /^qixi-today$/] },
     { id: 'gc', name: '群聊', group: '聊天与社交', scope: 'desk',
@@ -61,13 +63,13 @@
     { id: 'identity', name: '昵称与头像', group: '聊天与社交', scope: 'desk',
       desc: '双方当前昵称、头像、聊天页昵称与头像（各功能显示处共用这份资料）',
       res: [/^lbl-user$/, /^lbl-partner$/, /^cs-lbl-/, /^avatar-user$/, /^avatar-partner$/, /^cs-avatar-/, /^records-avatar$/] },
-    { id: 'interact', name: '头像和昵称互动', group: '聊天与社交', scope: 'desk',
+    { id: 'interact', name: '头像和昵称互动', group: '聊天与社交', scope: 'desk', page: 'page-interact',
       desc: '头像库/昵称库与其自动更换进度、开关',
       res: [/^avatar-lib/, /^avatar-me-lib/, /^nick-lib/] },
-    { id: 'mail', name: '信箱', group: '聊天与社交', scope: 'desk',
+    { id: 'mail', name: '信箱', group: '聊天与社交', scope: 'desk', page: 'page-mail', btns: 'mail-export,mail-import,mail-clear',
       desc: '收信/寄信/回信、待回信计划、信箱设置（含每周摸鱼小结）',
       res: [/^mail-/, /^ml-/] },
-    { id: 'feed', name: '朋友圈', group: '聊天与社交', scope: 'both',
+    { id: 'feed', name: '朋友圈', group: '聊天与社交', scope: 'both', page: 'page-feed', btns: 'feed-clear-all',
       desc: '全部动态、评论点赞、通知提醒、封面与昵称头像',
       res: [/^feed-/] },
     { id: 'ask', name: 'TA 的提问与问卷', group: '聊天与社交', scope: 'desk',
@@ -77,70 +79,70 @@
       desc: '跨桌面查岗开关与频率、跨桌面来电、夜间静默模式、待处理请求',
       res: [/^incoming-requests$/, /^desk-checkin-en$/, /^desk-call-en$/, /^desk-freq-mode$/, /^desk-msg-en$/, /^night-mode-en$/] },
 
-    { id: 'calendar', name: '日历与每日留言', group: '桌面功能', scope: 'desk',
+    { id: 'calendar', name: '日历与每日留言', group: '桌面功能', scope: 'desk', page: 'page-calendar',
       desc: '每日留言、心情与语录历史、恋爱开始日、首次使用日、日历标注',
       res: [/^cal-/, /^memo-(?!app)/, /^mood-history$/, /^quote-history$/, /^today-mood-/, /^first-use-date$/, /^love-start$/] },
-    { id: 'records', name: '纪念与统计', group: '桌面功能', scope: 'desk',
+    { id: 'records', name: '纪念与统计', group: '桌面功能', scope: 'desk', page: 'page-home',
       desc: '纪念日、通话记录、关心/摸鱼收获等纪念页数据',
       res: [/^records-(?!coin)/] },
-    { id: 'divination', name: '占卜', group: '桌面功能', scope: 'desk',
+    { id: 'divination', name: '占卜', group: '桌面功能', scope: 'desk', page: 'page-divine',
       desc: '占卜历史、自定义牌面与图鉴、牌面编号开关',
       res: [/^divine-/, /^divf-/] },
-    { id: 'music', name: '音乐', group: '桌面功能', scope: 'global',
+    { id: 'music', name: '音乐', group: '桌面功能', scope: 'global', page: 'page-music',
       desc: '本地上传的音乐文件、歌单、收藏、播放顺序与播放记录',
       res: [/^music-/] },
     { id: 'fish', name: '摸鱼与上班天数', group: '桌面功能', scope: 'both',
       desc: '摸鱼累计天数、上班打卡天数、双方各自的摸鱼记录',
       res: [/^fish-/, /^work-/, /^day-fish/, /^day-work/, /^weekend-fish/] },
-    { id: 'tongpin', name: '同频', group: '桌面功能', scope: 'desk',
+    { id: 'tongpin', name: '同频', group: '桌面功能', scope: 'desk', page: 'page-tongpin',
       desc: '同频状态与发送记录',
       res: [/^tongpin-/] },
-    { id: 'shenshou', name: '伸手', group: '桌面功能', scope: 'desk',
+    { id: 'shenshou', name: '伸手', group: '桌面功能', scope: 'desk', page: 'page-shenshou',
       desc: '伸手次数、上次伸手时间与字卡',
       res: [/^shenshou-/] },
-    { id: 'water', name: '喝水', group: '桌面功能', scope: 'desk',
+    { id: 'water', name: '喝水', group: '桌面功能', scope: 'desk', page: 'page-water',
       desc: '喝水目标与历史、连续天数、提醒语',
       res: [/^water-/] },
-    { id: 'eat', name: '吃什么', group: '桌面功能', scope: 'desk',
+    { id: 'eat', name: '吃什么', group: '桌面功能', scope: 'desk', page: 'page-eat',
       desc: '菜单、抽取历史与提醒开关',
       res: [/^eat-/] },
-    { id: 'piggy', name: '存钱罐', group: '桌面功能', scope: 'desk',
+    { id: 'piggy', name: '存钱罐', group: '桌面功能', scope: 'desk', page: 'page-piggy',
       desc: '存钱目标与流水、心意币两套罐子、来访记录',
       res: [/^piggy-/] },
-    { id: 'pomo', name: '番茄钟', group: '桌面功能', scope: 'desk',
+    { id: 'pomo', name: '番茄钟', group: '桌面功能', scope: 'desk', page: 'page-pomodoro',
       desc: '番茄钟设置、累计次数与今日进度、陪伴记录',
       res: [/^pomo-/] },
-    { id: 'checkin', name: '打卡与查岗记录', group: '桌面功能', scope: 'desk',
+    { id: 'checkin', name: '打卡与查岗记录', group: '桌面功能', scope: 'desk', page: 'page-checkin',
       desc: '打卡记录与历史、查岗卡片状态、连续天数',
       res: [/^checkin-/, /^ck-/, /^ck-off-/] },
-    { id: 'loc', name: '定位', group: '桌面功能', scope: 'desk',
+    { id: 'loc', name: '定位', group: '桌面功能', scope: 'desk', page: 'page-loc-cards',
       desc: '定位历史、气泡与特效开关、自动定位、定位组合',
       res: [/^loc-/, /^loc-auto/, /^loc-sense/] },
-    { id: 'garden', name: '花园', group: '桌面功能', scope: 'desk',
+    { id: 'garden', name: '花园', group: '桌面功能', scope: 'desk', page: 'page-garden',
       desc: '种下的花与生长进度、收获记录',
       res: [/^garden-/] },
-    { id: 'cjian', name: '此间与梦角档案', group: '桌面功能', scope: 'both',
+    { id: 'cjian', name: '此间与梦角档案', group: '桌面功能', scope: 'both', page: 'page-cjian',
       desc: '此间状态与换家标记、成员名册、梦角档案（含时辰区间）',
       res: [/^cjian-/, /^narc-/] },
-    { id: 'myarc', name: '我的档案', group: '桌面功能', scope: 'desk',
+    { id: 'myarc', name: '我的档案', group: '桌面功能', scope: 'desk', page: 'page-my-arc',
       desc: '我的档案资料与共享给 TA 的部分',
       res: [/^myarc/] },
-    { id: 'room', name: '房间', group: '桌面功能', scope: 'desk',
+    { id: 'room', name: '房间', group: '桌面功能', scope: 'desk', page: 'page-room',
       desc: '房间摆放与装修、家具位置',
       res: [/^room-/] },
-    { id: 'drift', name: '漂流瓶', group: '桌面功能', scope: 'desk',
+    { id: 'drift', name: '漂流瓶', group: '桌面功能', scope: 'desk', page: 'page-drift',
       desc: '我扔出/收到的漂流瓶与回复',
       res: [/^drift-/] },
-    { id: 'memo', name: '备忘录', group: '桌面功能', scope: 'desk',
+    { id: 'memo', name: '备忘录', group: '桌面功能', scope: 'desk', page: 'page-memo',
       desc: '备忘录条目、发送记录、全局迁移标记',
       res: [/^memo-app-/] },
-    { id: 'period', name: '经期记录', group: '桌面功能', scope: 'both',
+    { id: 'period', name: '经期记录', group: '桌面功能', scope: 'both', page: 'page-period',
       desc: '经期记录与预测、每日状态、关心语与提醒设置',
       res: [/^period-/] },
-    { id: 'accounting', name: '记账', group: '桌面功能', scope: 'desk',
+    { id: 'accounting', name: '记账', group: '桌面功能', scope: 'desk', page: 'page-accounting',
       desc: '账目记录、分类、预算与心意币记录',
       res: [/^accounting-/, /^records-coin/] },
-    { id: 'gift', name: '礼物与集市', group: '桌面功能', scope: 'both',
+    { id: 'gift', name: '礼物与集市', group: '桌面功能', scope: 'both', page: 'page-market',
       desc: '礼物盒、集市商品与自定义、钱包与心愿单、每日购买额度',
       res: [/^gift-/, /^market-/, /^giftbox-items$/, /^ml2_/, /^rp-wallet$/, /^wl-/, /^gift-wishlist/] },
     { id: 'decision', name: '抉择', group: '桌面功能', scope: 'global',
@@ -149,7 +151,7 @@
     { id: 'gdec', name: '群抉择', group: '桌面功能', scope: 'global',
       desc: '群抉择历史、成员与设置（全局，所有桌面共用）',
       res: [/^gdec-/] },
-    { id: 'mood', name: '心情日记', group: '桌面功能', scope: 'desk',
+    { id: 'mood', name: '心情日记', group: '桌面功能', scope: 'desk', page: 'page-mood',
       desc: '心情日记条目与记录',
       res: [/^mood-diary$/] },
     { id: 'games', name: '小游戏', group: '桌面功能', scope: 'desk',
@@ -165,6 +167,38 @@
       desc: '音效总开关与统一模式、开屏公告已读、引导完成标记、数据备份提醒时间',
       res: [/^sfx-/, /^notice-/, /^onboarding/, /^guide-/, /^splash-/, /^backup-/, /^last-export$/, /^install-/] }
   ];
+
+  // ================= #679 各功能页内数据卡的挂点 =================
+  // 值＝该功能页里的**滚动内容容器**（卡 append 进容器末尾：随内容滚动、位于页面最下方，
+  // 不占固定高度容器的位置、不挤压原有布局）。只用各功能 template/JS 已有的静态 class/id，
+  // 不改任何归属文件。找不到挂点的功能页放弃注入（绝不动原页面结构），见 FD_SKIP。
+  var FD_MOUNTS = {
+    calendar: '.cal-scroll',
+    records: '.cal-scroll',
+    interact: '.cal-scroll',
+    divination: '.div-scroll',
+    music: '.sm-scroll, .cal-scroll',
+    tongpin: '.tp-body',
+    shenshou: '.ss-body',
+    water: '.water-body',
+    eat: '.eat-body',
+    piggy: '.piggy-body',
+    pomo: '.pomo-body',
+    checkin: '.cal-scroll',
+    loc: '.gs-scroll',
+    garden: '.garden-scroll',
+    cjian: '#cj-main',
+    myarc: '.narc-scroll',
+    drift: '.drift-scroll',
+    memo: '.memo-body',
+    period: '.period-scroll',
+    accounting: '.acc-scroll',
+    gift: '.market-body',
+    mood: '.cal-scroll'
+  };
+  // 刻意不注入的功能页：房间页 #page-room 是 overflow:hidden 的固定全屏场景（场景/clamp 高度/
+  // 底部按钮条各占一份），塞任何卡片都会挤压小屋内景。要加得先重排房间布局，留给后续批次。
+  var FD_SKIP = { room: 1 };
 
   // 一个键最多归属一个功能（first match wins）——避免同一键被两个功能各删一次/各导一份
   function featureOfKey(full, cid) {
@@ -439,6 +473,10 @@
     input.click();
   }
 
+  // ================= #679 各功能页内操作（数据卡按钮） =================
+  // 按钮在功能页内点击＝与集中页完全同一条引擎路径（导出弹窗/导入范围/清空确认都一致）；
+  // 清空/导入完成后 scheduleReload 自动刷新，用户自然回到该功能页看新数据。
+
   // ================= 清空 =================
   function rmKey(info) {
     try { window.xyStore(nsOf(info.cid)).remove(info.suffix); } catch (e) {}
@@ -566,6 +604,104 @@
   }
   function byId(id) { for (var i = 0; i < FEATURES.length; i++) if (FEATURES[i].id === id) return FEATURES[i]; return null; }
 
+  // ================= #679 功能页内的数据管理入口 =================
+  // 需求（用户 2026-09-17）：导出/导入/清空「现在没有在每个功能里面显示，只显示在了集中里」。
+  // 做法：把一张「数据管理」卡注进每个功能自己的页面（fd-bar），三个按钮复用集中页同一条
+  // 导出/导入/清空引擎（含桌面隔离、媒体池保全、确认弹窗、导入范围选择）——不在 38 个功能
+  // 文件里各写一套，也不会与各功能的按钮/表格争布局（卡片是块级、独占一行）。
+  // 跳过三类：没有登记 page 的功能（锁/音效等设置型，本就没有独立页面入口）、已有自己三行
+  // 数据按钮的页面（chat-settings / 信箱 / 朋友圈，btns 字段登记原入口 id 供验证脚本对照）、
+  // 以及找不到锚点节点的页面（老版本产物/渲染失败时不注入，绝不影响原页面）。
+  function fdBarHost(f, pageEl) {
+    if (f.btns || FD_SKIP[f.id]) return null;
+    var sel = FD_MOUNTS[f.id];
+    if (!sel) return null;
+    var host = pageEl.querySelector(sel);
+    return host || null;
+  }
+  function buildFdBar(f) {
+    var card = document.createElement('div');
+    card.className = 'cal-card glass fd-fbar';
+    card.setAttribute('data-fbar', f.id);
+    card.innerHTML =
+      '<div class="fd-fbar-head"><span class="fd-fbar-name">' + esc(f.name) + ' · 数据管理</span>' +
+      '<button class="fd-fbar-go" type="button" data-op="open" data-fid="' + esc(f.id) + '">全部功能 ›</button></div>' +
+      '<div class="fd-count" data-fcount="' + esc(f.id) + '">统计中…</div>' +
+      '<div class="fd-btns">' +
+      '<button class="fd-btn" type="button" data-op="export" data-fid="' + esc(f.id) + '">导出数据</button>' +
+      '<button class="fd-btn" type="button" data-op="import" data-fid="' + esc(f.id) + '">导入数据</button>' +
+      '<button class="fd-btn danger" type="button" data-op="clear" data-fid="' + esc(f.id) + '">清空数据</button>' +
+      '</div>';
+    return card;
+  }
+  function mountFdBars() {
+    FEATURES.forEach(function (f) {
+      if (!f.page) return;
+      var pageEl = document.getElementById(f.page);
+      if (!pageEl || pageEl.querySelector('[data-fbar]')) return;
+      var host = fdBarHost(f, pageEl);
+      if (!host) return;
+      host.appendChild(buildFdBar(f));   // 容器末尾：随内容滚动，位于该功能页最下方
+    });
+  }
+  function fdBarClick(e) {
+    var b = e.target.closest ? e.target.closest('.fd-btn, .fd-fbar-go') : null;
+    if (!b) return;
+    var f = byId(b.getAttribute('data-fid'));
+    if (!f) return;
+    var op = b.getAttribute('data-op');
+    if (op === 'export') exportFeature(f);
+    else if (op === 'import') pickFile(f);
+    else if (op === 'clear') clearFeature(f);
+    else if (op === 'open') openPage();
+  }
+  function fdCount(f) {
+    var el = document.querySelector('[data-fcount="' + f.id + '"]');
+    if (!el || el.dataset.done) return;
+    keysOf(f, curCid()).then(function (keys) {
+      if (el.dataset.done) return;
+      el.dataset.done = '1';
+      if (!keys.length) { el.textContent = '本桌面暂无数据'; el.classList.add('empty'); return; }
+      return readValues(keys).then(function (values) {
+        var st = summarize(values);
+        el.textContent = st.keyCount + ' 项 · ' + fmtSize(st.bytes) + (st.items ? ' · 约 ' + st.items + ' 条' : '');
+      });
+    });
+  }
+  function refreshFdCounts() {
+    FEATURES.forEach(function (f) {
+      if (!f.page || f.btns) return;
+      if (!document.querySelector('[data-fcount="' + f.id + '"]')) return;
+      fdCount(f);
+    });
+  }
+  // #679 计数不谎报：卡上的「几项 · 多少 B」只在注入后算一次会越用越旧（用户加了数据仍显示
+  // 旧值）。改成每次该功能页被显示时重算——用 MutationObserver 盯 .page 的 hidden 属性变化
+  // （不轮询、不碰各功能自己的显示逻辑；只有 .page 本身且变为可见时才动作）。
+  function refreshPageCount(pageEl) {
+    FEATURES.forEach(function (f) {
+      if (!f.page || f.page !== pageEl.id) return;
+      var el = pageEl.querySelector('[data-fcount="' + f.id + '"]');
+      if (!el) return;
+      delete el.dataset.done;
+      el.classList.remove('empty');
+      fdCount(f);
+    });
+  }
+  function watchPageVisibility() {
+    var root = document.querySelector('.phone') || document.body;
+    if (!root || !window.MutationObserver) return;
+    try {
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var t = muts[i].target;
+          if (!t || !t.classList || !t.classList.contains('page') || t.hidden) continue;
+          refreshPageCount(t);
+        }
+      }).observe(root, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+    } catch (e) {}
+  }
+
   function init() {
     page = document.getElementById('page-feature-data');
     bodyEl = document.getElementById('feature-data-body');
@@ -593,6 +729,15 @@
       refreshCounts();
       toast('已重新统计');
     });
+    // #679：功能页内数据管理卡——注入 + 事件委托（卡在各自 .page 里，页面 hidden 时
+    // .page[hidden] 自动连带隐藏，无需额外显隐逻辑）。各功能页有静态的（template）与
+    // 运行时生成的（p2-features / memo-app 等），且数据回填可能晚于本脚本，故多次补注入。
+    mountFdBars();
+    document.addEventListener('click', fdBarClick, true);
+    watchPageVisibility();
+    setTimeout(mountFdBars, 800);
+    setTimeout(function () { mountFdBars(); refreshFdCounts(); }, 2500);
+    document.addEventListener('mochi-restore-done', function () { mountFdBars(); refreshFdCounts(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
@@ -611,6 +756,8 @@
     importFile: function (fid, file, cb) { var f = byId(fid); return f ? importFromFile(f, file, cb) : null; },
     clearFeature: function (fid, cb) { var f = byId(fid); return f ? clearFeature(f, cb) : null; },
     describe: function (fid) { var f = byId(fid); return f ? { id: f.id, name: f.name, scope: f.scope } : null; },
+    // #679：功能页内数据卡（供验证脚本与后续功能接续）
+    fdBarOf: function (fid) { var f = byId(fid); return f && f.page && !f.btns && document.querySelector('[data-fbar="' + f.id + '"]') ? true : false; },
     // 重叠自检：同一键被多个功能匹配＝清空/导出会互相牵连（供 verify 脚本断言为空）
     overlaps: function () { return allKeys().then(function (keys) { var m = {}; keys.forEach(function (k) { var f = featureOfKey(k, curCid()); if (f) m[k] = f.id; }); return m; }); }
   };

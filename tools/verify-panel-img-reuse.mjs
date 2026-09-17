@@ -46,9 +46,9 @@ chk('A1 面板保留「内容签名短路」（#457/#547 未回退）', chatSrc.
 chk('A2 面板新建走回收池（禁止退回无条件 emojiNewImg 整格新建）', chatSrc.includes('function emojiAdoptImg(src)') && chatSrc.includes('const img = emojiAdoptImg(src);'));
 chk('A3 一切整格重写都先回收旧节点（emojiList.innerHTML 写入前统一回收）', chatSrc.includes('set: function (v) { emojiPoolHarvest(); _emojiIH.set.call(this, v); }'));
 chk('A4 池身份走令牌稳定身份（#547 ccMediaCardIdent，令牌↔原文同身份）', chatSrc.includes('if (window.ccMediaCardIdent) return window.ccMediaCardIdent(src);'));
-chk('A5 显示前预解码（#662：位图被回收后重开不再逐格重新解码）', chatSrc.includes('function emojiShowWhenDecoded(show)') && chatSrc.includes('emojiShowWhenDecoded(showEmoji);'));
+chk('A5 显示前预解码（#662/#692：解码结算后才显示，等待期关闭即作废）', chatSrc.includes('function emojiShowWhenDecoded(show, token)') && chatSrc.includes('if (token !== undefined && token !== emojiShowToken) return;'));
 chk('A6 头像侧 #617 落值守卫未回退（值没变不碰 DOM）', avSrc.includes('if (el.__avApplied === want) return;') && chatSrc.includes("if (el.__avApplied === (data || '')) return;"));
-chk('A7 头像互动半框显示前同样预解码', avSrc.includes('function avShowWhenDecoded(') && avSrc.includes('avShowWhenDecoded(function () { avPage.hidden = false; });'));
+chk('A7 头像互动半框显示前同样预解码（#662/#692 同口径）', avSrc.includes('function avShowWhenDecoded(show, token)') && avSrc.includes('if (token !== undefined && token !== avShowToken) return;'));
 
 // ---------- B 轴：真实产物 ----------
 const candidates = [
