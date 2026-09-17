@@ -159,6 +159,10 @@ try {
   ok('P1d 英雄区统计含旧数据（了解1/共同记录3/重要时刻1/还不了解1）', (await narcHas('共同记录')) && (await narcHas('还不了解')));
   const knowCnt = await evalJs('(function(){var r=document.querySelectorAll(".narc-mrow");for(var i=0;i<r.length;i++){if(r[i].getAttribute("data-view")=="knows"){var c=r[i].querySelector(".nm-count");return c?c.textContent:"";}}return "";})()');
   ok('P1e 了解计数徽章 = 1（旧数据）', knowCnt === '1', knowCnt);
+  // #712：顶部「不是 AI」说明——总览常驻且必须是 narc-root 第一个元素；分区子页不出现
+  ok('P1f 顶部「不是 AI」说明存在且位于最顶', (await evalJs('(function(){var r=document.getElementById("narc-root");var n=r.firstElementChild;return !!n&&n.className=="narc-ai-note"&&n.textContent.indexOf("本站没有任何 AI 功能，梦角档案只是记录")>=0;})()')) === true);
+  await navTo('who');
+  ok('P1g 分区子页不显示顶部说明', (await evalJs('(function(){return document.getElementById("narc-root").querySelector(".narc-ai-note")==null;})()')) === true);
 
   // ---- P2 TA是谁 字段编辑 ----
   console.log('\n== P2 TA是谁 ==');

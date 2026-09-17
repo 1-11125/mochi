@@ -305,6 +305,8 @@
     syncCur();
     const r = roster();
     let h = '';
+    // #712：顶部常驻说明——梦角档案不是 AI（用户直派：网站没有任何 AI 功能，这里只是记录的功能）
+    if (view === 'home') h += '<div class="narc-ai-note">这里不是 AI：本站没有任何 AI 功能，梦角档案只是记录——里面每一条都由你自己写下。</div>';
     h += '<div class="narc-chips">';
     r.forEach(c => {
       h += '<button class="narc-chip' + (!c.virtual && c.id === cur ? ' on' : '') + '" data-op="pick-roster" data-rid="' + esc(c.id) + '" data-cid="' + esc(c.cid || '') + '">' + esc(c.name) + '</button>';

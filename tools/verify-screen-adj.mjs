@@ -101,7 +101,8 @@ function check(desc, ok, detail) {
 const built = readFileSync(join(root, 'index.html'), 'utf8');
 check('B1a 产物含双层值包装 get 覆写', built.includes("if (NAMES[n] !== undefined && base[n] !== undefined) return (base[n] + adj[NAMES[n]]) + 'px';"));
 check('B1b 产物含底部 calc(env) 偏移写入', built.includes("'calc(env(safe-area-inset-bottom, 0px) + ' + adj.bottom + 'px)'"));
-check('B1c 产物含设置页接线 mochiScreenAdj.set', built.includes('window.mochiScreenAdj.set(cfg.k, n);'));
+check('B1c 产物含统一面板接线 applyAxis', built.includes('function applyAxis(ax, nv, silent) {'));
+check('B1d 产物含桌面轴消费规则（#desktop-pages padding-top var）', built.includes('#desktop-pages { padding-top: var(--mochi-desk-adj, 0px); }'));
 
 // 加载一轮：基线（无偏移）
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
@@ -146,6 +147,12 @@ const sv = JSON.parse(sim || '{}');
 check('B2 模拟写入方 set 800px → DOM 落 824px（基准+偏移双层）', sv.h === '824px', sim);
 check('B3 模拟写入方 set 62px → DOM 落 74px（基准+偏移双层）', sv.top === '74px', sim);
 check('B3b 写入方 removeProperty 后偏移层一并摘除（不留幽灵值）', sv.afterRemove === '', sim);
+const deskv = await evalJs("(function(){ localStorage.setItem('xy-home-v2:screen-adj-desk','30'); location.reload(); return true; })()");
+await sleep(3000);
+const deskAfter = await evalJs("(function(){ return document.documentElement.style.getPropertyValue('--mochi-desk-adj') || ''; })()");
+check('B4b 桌面轴 +30px 落 var（#desktop-pages 随之有 padding-top）', deskAfter === '30px', 'desk=' + deskAfter);
+const shiftAfter = await evalJs("(function(){ var st=document.documentElement.style; st.setProperty('--mochi-shift-adj','-12px'); var ph=getComputedStyle(document.querySelector('.phone')).top; st.removeProperty('--mochi-shift-adj'); return ph; })()");
+check('B4c 整体位移轴 -12px → .phone computed top=-12px（相对位移生效）', shiftAfter === '-12px', 'top=' + shiftAfter);
 check('B4 底部偏移 calc(env)+16px 写入', /calc\(env\(safe-area-inset-bottom,\s*0px\)\s*\+\s*16px\)/.test(av.bottom || ''), 'bottom=' + av.bottom);
 
 // B5 运行时归零

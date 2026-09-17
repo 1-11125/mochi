@@ -5567,9 +5567,12 @@ lastMineIdx = -1;
 // ===== #650 多字卡「拼接随机标点」：多条字卡拼一条时的中间连接符 =====
 // 「拼接随机标点」总开关（py-punct-en，默认开）开启时，每两条字卡的中间从「拼接符号」池
 //（py-punct-space 空格 / py-punct-dou ，/ py-punct-per 。/ py-punct-ex ！/ py-punct-q ？/
-// py-punct-el ......；设置页六选 N、至少保留一个）随机抽一个相连，每处独立随机。总开关关
-// 或池意外全空＝回退单个空格（原行为）。消费点：genOneReply（多字卡回复）/ replyOnce
-// 词典拼字单气泡 / genChatStyleReply（ta-ask 同源回应）；设置 UI 在 reply-settings.js #650 段。
+// py-punct-el ...... / #712 py-punct-dash ——（默认开））随机抽一个相连，每处独立随机。
+// 设置页七选 N、至少保留一个（内置+自定义合计）；#712 起另有自定义符号：cfg 附带的
+// py-punct-custom＝JSON [{s,on}] 串（reply-py-punct-custom 键原样随读，见 reply-settings.js
+// #650 段），只取 on=1 入池。总开关关或池意外全空＝回退单个空格（原行为）。消费点：
+// genOneReply（多字卡回复）/ replyOnce 词典拼字单气泡 / genChatStyleReply（ta-ask 同源回应）；
+// 设置 UI 在 reply-settings.js #650 段。
 function pyJoinCards(segs, c) {
 if (!Array.isArray(segs) || !segs.length) return '';
 if (segs.length === 1) return String(segs[0] == null ? '' : segs[0]);
@@ -5582,6 +5585,12 @@ if (c['py-punct-per'] === 1) pool.push('。');
 if (c['py-punct-ex'] === 1) pool.push('！');
 if (c['py-punct-q'] === 1) pool.push('？');
 if (c['py-punct-el'] === 1) pool.push('......');
+if (c['py-punct-dash'] === 1) pool.push('——'); // #712 内置「——」（默认开）
+// #712 用户自定义符号（reply-py-punct-custom＝[{s,on}] JSON 串；只取 on=1，
+// 关掉的自定义符号不进随机池）
+let pyc = null;
+try { pyc = JSON.parse(c['py-punct-custom'] || '[]'); } catch (e) {}
+if (Array.isArray(pyc)) pyc.forEach(it => { if (it && typeof it.s === 'string' && it.s && it.on === 1) pool.push(it.s); });
 }
 if (!pool || !pool.length) pool = [' '];
 let out = String(segs[0] == null ? '' : segs[0]);

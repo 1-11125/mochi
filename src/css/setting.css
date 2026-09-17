@@ -180,6 +180,11 @@
 [data-theme="dark"] .ppy-chips .ppy-chip.sel:hover,
 [data-theme="dark"] .ppy-chips .ppy-chip.sel:focus-visible { background:var(--btn-bg,#eee); color:var(--btn-ink,#111); border-color:var(--btn-bg,#eee); }
 .ppy-chip.dis { opacity:.45; }
+/* #712 自定义拼接符号：chip 内右侧「×」删除钮（仅自定义 chip 有，内置只能开关不能删）＋
+   「＋」添加钮虚线边框与内置 chip 区分；删除钮继承 chip 文字色，选中/未选中都有对比 */
+.ppy-chip .ppy-x { font-style:normal; margin-left:5px; padding:0 1px; opacity:.5; }
+.ppy-chip.sel .ppy-x, .ppy-chip.sel:hover .ppy-x { opacity:.85; }
+.ppy-chips .ppy-chip#ppy-add { border-style:dashed; }
 /* v3.33.x #523：时间入口按钮 + 自绘日期/时间选择器（替代原生 datetime-local——原生弹层在部分
    设备/桌面预览下锚点不受控、会飘出手机框甚至屏幕外。同类先例：批量导入的目标分组原生 select 改自绘胶囊） */
 .deadline-btn {

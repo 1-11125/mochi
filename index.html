@@ -844,6 +844,7 @@ box-shadow:0 4px 16px rgba(0,0,0,.18);
 #reply-guide-hint .rgh-go { flex:none; font-weight:700; color:#f5c452; white-space:nowrap; }
 .reply-guide-note { padding:10px 14px 2px; }
 img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height: 48px; object-fit: contain; opacity: .5; }
+.phone { top: var(--mochi-shift-adj, 0px); }
 :root {
 --widget-bg:#ffffff;
 --widget-border:rgba(0,0,0,.1);
@@ -1012,6 +1013,7 @@ display:flex; align-items:center; gap:3px;
 }
 .we-btn:active { transform:scale(.95); }
 .we-btn b { font-size:13px; }
+#desktop-pages { padding-top: var(--mochi-desk-adj, 0px); }
 .app-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-gap:14px 8px; gap:14px 8px; padding:2px 8px 6px; }
 .app { display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; }
 .app .app-ico {
@@ -7529,6 +7531,9 @@ cursor:pointer; line-height:1.4; white-space:nowrap;
 [data-theme="dark"] .ppy-chips .ppy-chip.sel:hover,
 [data-theme="dark"] .ppy-chips .ppy-chip.sel:focus-visible { background:var(--btn-bg,#eee); color:var(--btn-ink,#111); border-color:var(--btn-bg,#eee); }
 .ppy-chip.dis { opacity:.45; }
+.ppy-chip .ppy-x { font-style:normal; margin-left:5px; padding:0 1px; opacity:.5; }
+.ppy-chip.sel .ppy-x, .ppy-chip.sel:hover .ppy-x { opacity:.85; }
+.ppy-chips .ppy-chip#ppy-add { border-style:dashed; }
 .deadline-btn {
 flex:none; text-align:right; cursor:pointer; -webkit-tap-highlight-color:transparent;
 white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -9088,6 +9093,7 @@ background:var(--card-bg); border:1px solid var(--card-border); color:var(--soft
 font-size:13px; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
 .narc-chip.on { background:var(--ink); border-color:var(--ink); color:#fff; font-weight:700; }
 .narc-addchip { background:none; border-style:dashed; color:var(--soft-ink,#777); }
+.narc-ai-note { margin:0 2px 10px; padding:8px 12px; border-radius:12px; background:var(--card-bg); border:1px dashed var(--card-border); font-size:11.5px; color:var(--muted,#999); line-height:1.6; }
 .narc-hero { border-radius:16px; padding:16px 16px 14px; background:var(--card-bg); border:1px solid var(--card-border); }
 .narc-hero-top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
 .narc-name { font-size:19px; font-weight:800; color:var(--ink); }
@@ -9995,9 +10001,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789684766248">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.735</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 06:39<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789685528713">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.736</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 06:52<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11352,16 +11358,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
              跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
              顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
-        <div class="set-row" id="row-screen-adj-top">
-          <div class="txt">屏幕微调·顶部<span class="sub">顶部内容被状态栏遮挡/离得太远时调（当前 0px，正=下移）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-screen-adj-bottom">
-          <div class="txt">屏幕微调·底部<span class="sub">底部导航栏悬空/被手机手势条裁掉时调（当前 0px，正=上移）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-screen-adj-h">
-          <div class="txt">屏幕微调·页面高度<span class="sub">页面底部留白/内容超出屏幕时调（当前 0px，正=变高）；本机永久保存</span></div>
+        <div class="set-row" id="row-screen-adj">
+          <div class="txt">屏幕位置设置<span class="sub">一个面板调全部：顶部/底部/页面高度/桌面/整体位移（全屏图标偏上、整页偏移遮挡都在这里）；本机永久保存</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="set-row" id="row-screen-diag">
@@ -11430,7 +11428,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.735</div>
+          <div class="val" id="about-ver-val">v3.26.736</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11499,7 +11497,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.735</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.736</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11879,7 +11877,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.735</span>
+              <span class="lic-ver">v3.26.736</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -12218,9 +12216,10 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">19</span><span class="lg-name">梦角档案 / 我的档案</span><span class="lg-count">7</span></summary>
+            <summary><span class="lg-num">19</span><span class="lg-name">梦角档案 / 我的档案</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
           <div class="lic-li">【梦角档案】认识 TA：九个分区——TA 是谁 / 喜好 / 习惯 / 与我的相处 / 我对 TA 的了解 / 位置感 / 物品 / 我们的共同记录 / 当前 IF 世界</div>
+          <div class="lic-li">梦角档案不是 AI：本站没有任何 AI 功能，只是手动记录——内容全部由你自己写下</div>
           <div class="lic-li">发现卡片记录你对 TA 的了解（来源标注 + 确定程度圆点），「还不了解」疑问清单可转成发现，理解变化全程留痕</div>
           <div class="lic-li">共同记录六类 + 时间线视图，相处小事可升格为重要时刻</div>
           <div class="lic-li">【我的档案】认识自己：写给某位 TA 的自我说明——关于我 / 喜好 / 习惯 / 物品 / 我和 TA（期望的相处方式）/ 对自己的描述 / IF 世界母档</div>
@@ -12791,14 +12790,16 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>最少条数</span><div class="stepper" data-k="py-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="py-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最多条数</span><div class="stepper" data-k="py-max" data-min="2" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="py-max-val" readonly><button class="stp-max">+</button></div></div>
             <!-- #650 拼接随机标点：开启后每两条字卡的中间从「拼接符号」池随机抽一个相连
-                 （空格/，/。/！/？/...... 可多选、每处独立随机）。默认＝六种全部点亮
+                 （空格/，/。/！/？/....../—— 可多选、每处独立随机）。默认＝七种全部点亮
                  （FIX 2026-09-17 #694 用户定稿「空格、。！？...... 全部开启，然后用户可以自己选择开启或关闭某个」；
-                 此前默认不含句号）；关闭＝只用空格（原样）。
+                 FIX 2026-09-18 #712 用户直派「拼接符号新增一个：—— 默认开启」＋「系统自带的不变，
+                 只能开关，但是用户可以自己添加」：点「＋」添加自定义符号、自定义 chip 点「×」删除）；
+                 关闭＝只用空格（原样）。
                  符号池状态由 reply-settings.js #650 段渲染（ppy-chips），join 逻辑在 chat.js pyJoinCards -->
             <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="py-punct-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span></div></div>
+            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
             <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
-            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？...... 六种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池</div>
+            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池</div>
           </div>
           </div>
           <!-- 拼字造句组：词典拼字 / 梦角自由造句 -->
@@ -29915,48 +29916,112 @@ staticText: HINT
 });
 })();
 (function () {
-const ROWS = [
-{ id: 'row-screen-adj-top', k: 'top', name: '顶部', hint: '顶部内容被手机状态栏遮挡就填正数（往下移）、离得太远填负数（往上移）。', sign: '正=下移' },
-{ id: 'row-screen-adj-bottom', k: 'bottom', name: '底部', hint: '底部导航栏被手机手势条裁掉就填正数（往上移）、悬空离底太远填负数（往下移）。', sign: '正=上移' },
-{ id: 'row-screen-adj-h', k: 'h', name: '页面高度', hint: '页面底部有大片空白就填正数（撑满）、内容超出屏幕被裁就填负数（收短）。', sign: '正=变高' }
+const AXES = [
+{ k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=正数下移；离得太远=负数上移' },
+{ k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部导航栏被手势条裁掉=正数上移；悬空离底太远=负数下移' },
+{ k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=正数撑满；内容超出屏幕被裁=负数收短' },
+{ k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=正数往下拉回' },
+{ k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了导致顶部或底部被遮挡：正=整页下移、负=上移' }
 ];
-function adjToast(msg) {
+let panel = null;
+function toast(msg) {
 let t = document.getElementById('cc-toast');
 if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
 t.textContent = msg;
 t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
 clearTimeout(t._timer);
-t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2200);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 1800);
 }
-function adjSubText(row, v) {
-const sub = row.querySelector('.sub');
-if (sub) sub.textContent = sub.textContent.replace(/当前 -?\d+px/, '当前 ' + v + 'px');
+function valElOf(k) { return panel ? panel.querySelector('[data-adj-val="' + k + '"]') : null; }
+function refreshVals() {
+if (!panel || !window.mochiScreenAdj) return;
+const cur = window.mochiScreenAdj.all();
+AXES.forEach(ax => {
+const el = valElOf(ax.k);
+if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + cur[ax.k] + 'px';
+});
 }
-ROWS.forEach(function (cfg) {
-const row = document.getElementById(cfg.id);
-if (!row || typeof window.openModal !== 'function') return;
-row.addEventListener('click', function () {
-const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[cfg.k]) || 0;
-const HINT = '当前' + cfg.name + '偏移 ' + cur + 'px。' + cfg.hint + '范围 -80~80 的整数（单位像素），填 0 或清空＝恢复默认。改完立即生效、本机永久保存；配合「屏幕适配诊断」核对效果。注意：这是你的本机手动修正，换设备不会跟着走，各设备各自调。';
-const ctl = window.openModal('屏幕微调·' + cfg.name + '（' + cfg.sign + '）', cur ? String(cur) : '', function (v) {
+function applyAxis(ax, nv, silent) {
+if (!window.mochiScreenAdj || !window.mochiScreenAdj.set(ax.k, nv)) return;
+refreshVals();
+if (!silent) toast(ax.name + ' ' + (nv > 0 ? '+' : '') + nv + 'px');
+}
+function buildPanel() {
+panel = document.createElement('div');
+panel.id = 'screen-adj-panel';
+panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:62vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+const grip = document.createElement('div');
+grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
+panel.appendChild(grip);
+const head = document.createElement('div');
+head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
+head.innerHTML = '<b style="font-size:14px">屏幕位置设置</b><span style="font-size:11px;color:#888;flex:1">改完立即生效 · 本机永久保存（各设备各自调）</span>';
+const done = document.createElement('button');
+done.textContent = '完成';
+done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
+done.addEventListener('click', closePanel);
+head.appendChild(done);
+panel.appendChild(head);
+const tip = document.createElement('div');
+tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
+tip.textContent = '配合「屏幕适配诊断」使用：先看诊断差多少像素，再来填对应偏移。步进一次 ±2px，点中间数值可精确输入（范围见各行）。';
+panel.appendChild(tip);
+const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+AXES.forEach(ax => {
+const row = document.createElement('div');
+row.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+const lbl = document.createElement('div');
+lbl.style.cssText = 'flex:1;min-width:0';
+lbl.innerHTML = '<div style="font-size:13px;font-weight:600">' + ax.name + ' <span style="font-weight:400;color:#888">（' + ax.min + '~' + ax.max + 'px）</span></div><div style="font-size:10.5px;color:#999;line-height:1.4">' + ax.hint + '</div>';
+row.appendChild(lbl);
+const mkBtn = (txt, delta) => {
+const b = document.createElement('button');
+b.textContent = txt;
+b.style.cssText = 'flex:none;width:34px;height:30px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;border-radius:8px;cursor:pointer';
+b.addEventListener('click', () => {
+const v = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
+const nv = Math.max(ax.min, Math.min(ax.max, v + delta));
+if (nv !== v) applyAxis(ax, nv);
+});
+return b;
+};
+row.appendChild(mkBtn('−', -2));
+const val = document.createElement('button');
+val.setAttribute('data-adj-val', ax.k);
+val.style.cssText = 'flex:none;min-width:56px;height:30px;border:none;background:transparent;color:var(--ink,#111);font-size:13px;font-weight:700;cursor:pointer';
+val.addEventListener('click', () => {
+const cur = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
+if (typeof window.openModal !== 'function') return;
+const ctl = window.openModal(ax.name + '偏移（' + ax.min + '~' + ax.max + 'px，0=默认）', cur ? String(cur) : '', function (v) {
 const sv = String(v == null ? '' : v).trim();
 let n = 0;
 if (sv !== '') {
-if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入 -80~80 的整数（单位像素）'); ctl.stay(); return; }
+if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入整数像素'); ctl.stay(); return; }
 n = parseInt(sv, 10);
-if (n < -80 || n > 80) { ctl.hint('范围是 -80~80，别填太大'); ctl.stay(); return; }
+if (n < ax.min || n > ax.max) { ctl.hint('范围 ' + ax.min + '~' + ax.max); ctl.stay(); return; }
 }
-if (!window.mochiScreenAdj) { ctl.hint('微调层未就绪，请刷新后重试'); ctl.stay(); return; }
-window.mochiScreenAdj.set(cfg.k, n);
-adjSubText(row, n);
-adjToast(n ? ('屏幕微调·' + cfg.name + ' 已设为 ' + n + 'px') : ('屏幕微调·' + cfg.name + ' 已恢复默认（0px）'));
-}, {
-inputmode: 'numeric',
-maxlength: 4,
-placeholder: cur ? ('当前 ' + cur + 'px，输入新偏移（0=恢复默认）') : '输入偏移像素（正/负整数，0=默认）',
-staticText: HINT
+applyAxis(ax, n);
+}, { inputmode: 'numeric', maxlength: 4, placeholder: '当前 ' + cur + 'px' });
 });
+row.appendChild(val);
+row.appendChild(mkBtn('+', +2));
+panel.appendChild(row);
 });
+const reset = document.createElement('button');
+reset.textContent = '全部恢复默认（五轴归零）';
+reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
+reset.addEventListener('click', () => {
+AXES.forEach(ax => applyAxis(ax, 0, true));
+toast('屏幕位置已全部恢复默认');
+});
+panel.appendChild(reset);
+document.body.appendChild(panel);
+}
+function closePanel() { if (panel) { panel.remove(); panel = null; } }
+const entry = document.getElementById('row-screen-adj');
+if (entry) entry.addEventListener('click', () => {
+if (!panel) buildPanel();
+refreshVals();
 });
 })();
 function renderQuoteOfDay() {
@@ -36211,6 +36276,10 @@ if (c['py-punct-per'] === 1) pool.push('。');
 if (c['py-punct-ex'] === 1) pool.push('！');
 if (c['py-punct-q'] === 1) pool.push('？');
 if (c['py-punct-el'] === 1) pool.push('......');
+if (c['py-punct-dash'] === 1) pool.push('——'); // #712 内置「——」（默认开）
+let pyc = null;
+try { pyc = JSON.parse(c['py-punct-custom'] || '[]'); } catch (e) {}
+if (Array.isArray(pyc)) pyc.forEach(it => { if (it && typeof it.s === 'string' && it.s && it.on === 1) pool.push(it.s); });
 }
 if (!pool || !pool.length) pool = [' '];
 let out = String(segs[0] == null ? '' : segs[0]);
@@ -52300,6 +52369,7 @@ const DEFAULTS = {
 'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
 'py-punct-en': 1,
 'py-punct-space': 1, 'py-punct-dou': 1, 'py-punct-per': 1, 'py-punct-ex': 1, 'py-punct-q': 1, 'py-punct-el': 1,
+'py-punct-dash': 1,
 'csp-cust': 50,
 'dcp-all': 100,
 'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1, 'qs-multi': 1, 'qs-noLimit': 1,
@@ -52367,6 +52437,7 @@ try { if (k.indexOf('gc-') === 0) gcWrite(k, String(n)); else ls.set('reply-' + 
 }
 out[k] = n;
 });
+try { out['py-punct-custom'] = String(ls.get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
 return out;
 }
 window.replyCfg = getCfg;
@@ -52380,6 +52451,7 @@ let n = (v === null || v === undefined || v === '') ? DEFAULTS[k] : Number(v);
 if (isNaN(n)) n = DEFAULTS[k];
 out[k] = n;
 });
+try { out['py-punct-custom'] = String((s || ls).get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
 return out;
 };
 window.groupChatCfg = function () {
@@ -52566,31 +52638,107 @@ try { if (window.applyContinueSayUI) window.applyContinueSayUI(); } catch (e) {}
 }
 });
 (function () {
-const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......']];
+const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——']];
+const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——'];
+const CUST_KEY = 'reply-py-punct-custom';
 const box = document.getElementById('ppy-chips');
 function ppyToast(msg, ms) {
 const d = ccToastEnsure();
 if (d) { d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show'; clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, ms || 1800); }
 }
+function pyCustGet() {
+let arr = null;
+try { arr = JSON.parse(ls.get(CUST_KEY) || '[]'); } catch (e) {}
+if (!Array.isArray(arr)) arr = [];
+return arr.filter(it => it && typeof it.s === 'string' && it.s);
+}
+function pyCustSet(list) { try { ls.set(CUST_KEY, JSON.stringify(list)); } catch (e) {} }
+function ppyOtherSel(cfg, skipKey, skipIdx) {
+let n = POOL.filter(p => p[0] !== skipKey && cfg[p[0]] === 1).length;
+pyCustGet().forEach((it, i) => { if (i !== skipIdx && it && it.on === 1) n++; });
+return n;
+}
+function renderCust() {
+if (!box) return;
+box.querySelectorAll('.ppy-chip[data-c]').forEach(el => el.remove());
+const add = document.getElementById('ppy-add');
+const dis = getCfg()['py-punct-en'] !== 1;
+pyCustGet().forEach((it, i) => {
+const el = document.createElement('span');
+el.className = 'tag ppy-chip ppy-chip-c' + (it.on === 1 ? ' sel' : '') + (dis ? ' dis' : '');
+el.dataset.c = String(i);
+el.textContent = it.s;
+const x = document.createElement('i');
+x.className = 'ppy-x';
+x.textContent = '×';
+el.appendChild(x);
+if (add && add.parentNode === box) box.insertBefore(el, add); else box.appendChild(el);
+});
+}
 function ppySync() {
 if (!box) return;
 const cfg = getCfg();
 const en = cfg['py-punct-en'] === 1;
-box.querySelectorAll('.ppy-chip').forEach(ch => {
+box.querySelectorAll('.ppy-chip[data-k]').forEach(ch => {
 const k = ch.dataset.k;
 if (!k) return;
 ch.classList.toggle('sel', cfg[k] === 1);
 ch.classList.toggle('dis', !en);
 });
+const add = document.getElementById('ppy-add');
+if (add) add.classList.toggle('dis', !en);
+renderCust();
+}
+function ppyAddFlow() {
+if (pyCustGet().length >= 8) { ppyToast('自定义拼接符号最多添加 8 个（可删掉不要的再加）', 2400); return; }
+if (!window.openModal) return;
+window.openModal('添加拼接符号', '', function (v) {
+const s = String(v == null ? '' : v).trim();
+if (!s) { ppyToast('没有输入符号', 2000); return; }
+if (s.length > 6) { ppyToast('符号最长 6 个字符', 2000); return; }
+const list = pyCustGet();
+if (list.length >= 8) { ppyToast('自定义拼接符号最多添加 8 个（可删掉不要的再加）', 2400); return; }
+if (BUILTIN_VALS.indexOf(s) > -1) { ppyToast('这是系统自带符号，点亮对应 chip 即可', 2400); return; }
+if (list.some(it => it.s === s)) { ppyToast('该自定义符号已存在', 2000); return; }
+list.push({ s: s, on: 1 });
+pyCustSet(list);
+ppySync();
+toastSaved('添加拼接符号 ' + s, true);
+}, { maxlength: 6, placeholder: '输入符号，如 ～ / ### / 💕' });
 }
 if (box) {
 box.addEventListener('click', (ev) => {
+if (ev.target.closest('#ppy-add')) { ppyAddFlow(); return; }
 const ch = ev.target.closest('.ppy-chip');
-if (!ch || !ch.dataset.k) return;
+if (!ch) return;
+if (ch.dataset.c != null) {
+const i = Number(ch.dataset.c);
+const list = pyCustGet();
+const it = list[i];
+if (!it) return;
+const del = !!ev.target.closest('.ppy-x');
+if (it.on === 1 && ppyOtherSel(getCfg(), null, i) === 0) {
+ppyToast('拼接符号至少保留一个（想回到纯空格请关上方「拼接随机标点」）', 2400);
+return;
+}
+if (del) {
+list.splice(i, 1);
+pyCustSet(list);
+ppySync();
+ppyToast('已删除拼接符号 ' + it.s);
+} else {
+it.on = it.on === 1 ? 0 : 1;
+pyCustSet(list);
+ppySync();
+toastSaved('拼接符号 ' + it.s, it.on === 1);
+}
+return;
+}
 const k = ch.dataset.k;
+if (!k) return;
 const cfg = getCfg();
 const on = cfg[k] === 1;
-if (on && !POOL.some(p => p[0] !== k && cfg[p[0]] === 1)) {
+if (on && ppyOtherSel(cfg, k, -1) === 0) {
 ppyToast('拼接符号至少保留一个（想回到纯空格请关上方「拼接随机标点」）', 2400);
 return;
 }
@@ -81538,6 +81686,7 @@ if (!root) return;
 syncCur();
 const r = roster();
 let h = '';
+if (view === 'home') h += '<div class="narc-ai-note">这里不是 AI：本站没有任何 AI 功能，梦角档案只是记录——里面每一条都由你自己写下。</div>';
 h += '<div class="narc-chips">';
 r.forEach(c => {
 h += '<button class="narc-chip' + (!c.virtual && c.id === cur ? ' on' : '') + '" data-op="pick-roster" data-rid="' + esc(c.id) + '" data-cid="' + esc(c.cid || '') + '">' + esc(c.name) + '</button>';
@@ -104352,7 +104501,7 @@ const HUB = [
 { n: '字卡锁（未成年人保护）', d: '防未成年人模式：内置字卡全锁定，二级验证密码解锁', k: '字卡锁 未成年人 保护 锁 密码 解锁', where: '开屏公告区的「内置字卡锁定」卡，点「输入密码解锁」' },
 { n: '设备兼容诊断', d: '一键复制本机环境信息发给开发者排查', k: '诊断 兼容 环境 报障', go: ['#row-diagnostics'] },
 { n: '屏幕适配诊断', d: '顶部空白/底部裁切/缩放异常一键定位', k: '屏幕 适配 诊断 顶部空白 裁切', go: ['#row-screen-diag'] },
-{ n: '屏幕位置微调', d: '顶部/底部/页面高度三轴手动偏移（±80px），不同设备的屏幕错位自己调，本机永久保存', k: '屏幕 微调 位置 偏移 顶部 底部 页面高度 错位 悬空 遮挡 裁切 自己 调', go: ['#row-screen-adj-top'] },
+{ n: '屏幕位置设置', d: '一个面板调全部：顶部/底部/页面高度/桌面/整体位移五轴手动偏移，全屏图标偏上、整页偏移遮挡都自己调，本机永久保存', k: '屏幕 位置 设置 微调 偏移 顶部 底部 页面高度 桌面 图标 整体 位移 错位 悬空 遮挡 裁切 全屏 自己 调', go: ['#row-screen-adj'] },
 { n: '功能诊断', d: '逐个测试全部功能是否正常（约15秒）', k: '功能诊断 自检 测试', go: ['#row-func-diag'] },
 { n: '新手引导', d: '3 步上手：设置「我」和「TA」→ 添加字卡 → 开始聊天（含桌面 / 聊天两套昵称的区别；全新环境首次打开会自动弹一次）', k: '新手 引导 上手 教程 怎么开始 不会用 从哪开始 昵称 桌面 聊天', go: ['#row-guidebook'] },
 { n: '使用说明', d: '完整说明：快速开始 / 安装方式 / iPhone·iOS 限制 / 数据备份 / 常见问题', k: '使用说明 教程 帮助 安装 ios 限制 备份 常见问题', go: ['#row-guide'] },
@@ -104628,7 +104777,7 @@ var DESC = [
 { sel: '#safe-top-force', name: '顶部避让修正', d: 'iOS 专用修正：顶部「Mochi」行与手机系统时间重叠时开启；底部出现白带时关闭。\n默认：关闭（系统保留形态）。\n机制：改后会自动刷新页面生效。\n影响范围：全局，仅影响 iOS 顶部安全区避让。' },
 { sel: '#row-diagnostics', name: '设备兼容诊断', d: '采集本机设备与浏览器环境信息，一键复制发给开发者排障。\n机制：只读，不改动任何业务数据；有未读兼容错误时行上显示角标，点开即清零。\n很多「像 bug 的问题」其实是设备 / 浏览器限制（App 内置浏览器能力受限、国产浏览器没有通知能力、iOS 顶部状态栏藏不掉、浏览器「桌面版网站」模式让布局变形、系统省电杀掉后台等），逐条对照见 设置 → 关于 → 使用说明 第 12 节「设备与浏览器限制」；报修时请带上本行复制的信息。' },
 { sel: '#row-screen-diag', name: '屏幕适配诊断', d: '定位跨设备屏幕适配问题（顶部空白 / 底部裁切 / 缩放异常），生成可读报告与机读签名，可导出或复制。\n机制：只读；产生的诊断记录可在「查看存储」里清理。' },
-{ sel: '#row-screen-adj-top', name: '屏幕位置微调', d: '不同设备屏幕错位的手动修正：顶部（内容被状态栏遮挡/离太远）、底部（导航栏悬空/被手势条裁掉）、页面高度（底部留白/内容超出）三轴各 ±80px。\n机制：填像素偏移（正负整数，0=恢复默认），立即生效、存本机永久保存（跨桌面共用、换设备不跟随）；与「屏幕适配诊断」配合使用——先诊断看错多少 px，再来这里填对应偏移。' },
+{ sel: '#row-screen-adj', name: '屏幕位置设置', d: '一个面板调全部屏幕错位：顶部（被状态栏遮挡/离太远）、底部（导航栏悬空/被手势条裁掉）、页面高度（底部留白/内容超出）、桌面图标区（全屏时图标整体偏上）、整体位移（整页偏上/偏下导致顶部或底部被遮挡）五轴。\n机制：面板里步进 ±2px 或点数值精确输入（各轴范围不同），改完立即生效、存本机永久保存（跨桌面共用、换设备不跟随）、「全部恢复默认」一键归零；与「屏幕适配诊断」配合使用——先诊断看差多少 px，再来填对应偏移。' },
 { sel: '#row-func-diag', name: '功能诊断', d: '逐个测试全部功能入口 / 页面 / 图标能否正常打开与关闭（约 15 秒），自动判定「正常 / 需注意 / 异常」。\n机制：只读，测试期间会临时开合页面，不改业务数据。' },
 { sel: '#row-storage-view', name: '查看存储', d: '查看本地存储占用：按功能列出 localStorage 与 IndexedDB 的空间，并可定向清理诊断记录、本地音乐、同域其他站点等（不动业务数据）。\n也可从这里进入图片压缩。\n手机卡顿多是「存的东西太多」：字卡库大的话，这里能看清是谁在占地方。「字卡库瘦身」会把重复的图只留一份，明显腾出空间；「媒体池重建」是聊天里图片显示不出来时用来找回图片的，跟卡顿无关。' },
 { sel: '#row-img-compress', name: '压缩图片', d: '把历史遗留的偏大图片按「新上传」同标准重新压缩一遍，覆盖原图、不可撤销。\n默认：上传时已自动压缩，本项只处理旧图。\n机制：会跳过动图（GIF）、和聊天共用的图、以及本来就小的图。\n影响范围：字卡库与桌面美化等图片数据。\n大图片是手机（安卓 / iOS）卡顿与存储膨胀的主因之一；字卡库里的超大图片卡（单张超过 512KB）可在「字卡使用状态自检」里看到。' },
@@ -107762,6 +107911,7 @@ window.addEventListener('orientationchange', function () { _aCoverEnvCache = -1;
 const FLOAT_SELECTORS = ['#tc-mask', '#cc-export-mask', '#cc-scope-mask', '#call-mask', '#feed-notice-panel', '#feed-comment-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-ask-panel', '#qa-mask', '#chat-more-panel', '#gc-more-panel', '#chat-search', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-rps-panel', '#chat-call-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#avlib-card', '#ck-panel', '#loc-panel', '.mg-mask', '#modal-mask', '#dl-picker-mask', '#msg-actions', '#gc-msg-actions', '#desk-image-viewer', '.desk-lib', '#gc-members-panel', '#gc-at-panel', '#gc-settings-panel', '#img-view-mask', '#chat-rp-panel', '#batch-panel', '#eat-switch-overlay', '#voice-panel', '#applock-mask', '#cs-bg-panel', '#phone-bg-gallery-panel', '#feed-sticker-card',
 '#pc-sheet-mask',
 '#cs-input-order-panel',
+'#screen-adj-panel',
 '#beauty-drawer', '#icon-fit-panel'];
 let kbPanelDocked = false;
 function kbDockPanels() {
@@ -108019,11 +108169,11 @@ lastHeal: his
 })();
 (function () {
 var PFX = 'xy-home-v2:';
-var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h' };
+var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift' };
 function loadAdj(k) {
 try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
 }
-var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h') };
+var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift') };
 var el = document.documentElement;
 var st = el.style;
 var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -108038,11 +108188,25 @@ if (adj.bottom) origSet('--mochi-safe-bottom', 'calc(env(safe-area-inset-bottom,
 else if (origGet('--mochi-safe-bottom').indexOf('calc(env(') === 0) origRemove('--mochi-safe-bottom');
 } catch (e) {}
 }
+function applyDesk() {
+try {
+if (adj.desk) origSet('--mochi-desk-adj', adj.desk + 'px');
+else if (origGet('--mochi-desk-adj')) origRemove('--mochi-desk-adj');
+} catch (e) {}
+}
+function applyShift() {
+try {
+if (adj.shift) origSet('--mochi-shift-adj', adj.shift + 'px');
+else if (origGet('--mochi-shift-adj')) origRemove('--mochi-shift-adj');
+} catch (e) {}
+}
 function applyCached() {
 for (var n in base) {
 try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
 }
 applyBottom();
+applyDesk();
+applyShift();
 }
 st.setProperty = function (n, v) {
 n = String(n).toLowerCase();
@@ -108101,4 +108265,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu643nl4 -->
+<!-- __MOCHI_EOF__ mu64jzwp -->

@@ -1543,7 +1543,11 @@ const FIX_SENTINELS = [
   // ==== 2026-09-18 #707 屏幕位置微调（用户直派：「设置自由一点，用户自己调和设置」——跨设备屏幕适配修不完，给本机永久手动三轴偏移）——mobile-adapt.js 包装 documentElement.style 的 set/remove/get 做「系统基准+用户偏移」双层（写入方无感、DOM 同值写零重排零抖动），底部独立写 calc(env()+偏移)（安卓键盘期钉 0 照旧、收键后 1s 复述补回）；personalize.js 三行弹窗接线（±80px，0=恢复默认）；偏移存根命名空间 LS（跨桌面共用） ====
   { name: '#707a 顶层样式双层值包装（删回直写则用户偏移被系统写入方按基准覆写＝微调失效回归）', file: 'js/mobile-adapt.js', needle: "if (NAMES[n] !== undefined && base[n] !== undefined) return (base[n] + adj[NAMES[n]]) + 'px';" },
   { name: '#707b 底部偏移 calc(env) 写入（删回写裸 px 则无 env 基准的机型手势条区算错）', file: 'js/mobile-adapt.js', needle: "'calc(env(safe-area-inset-bottom, 0px) + ' + adj.bottom + 'px)'" },
-  { name: '#707c 设置页三行接线走 mochiScreenAdj（删则弹窗改值不落层＝改了没反应）', file: 'js/personalize.js', needle: 'window.mochiScreenAdj.set(cfg.k, n);' },
+  { name: '#707c 设置页统一面板接线走 mochiScreenAdj（删则步进/输入改值不落层＝改了没反应）', file: 'js/personalize.js', needle: 'function applyAxis(ax, nv, silent) {' },
+  { name: '#707l 整体位移轴消费规则（删则整页偏移遮挡无处拉回＝.phone top 位移失效）', file: 'css/base.css', needle: '.phone { top: var(--mochi-shift-adj, 0px); }' },
+  { name: '#707m 整体位移轴写入（删则设了位移也不落 var＝整体位移没反应）', file: 'js/mobile-adapt.js', needle: "if (adj.shift) origSet('--mochi-shift-adj', adj.shift + 'px');" },
+  { name: '#707j 桌面轴消费规则（删则全屏图标偏上无处拉回＝#desktop-pages padding-top 失效）', file: 'css/home.css', needle: '#desktop-pages { padding-top: var(--mochi-desk-adj, 0px); }' },
+  { name: '#707k 桌面轴写入（删则设了偏移也不落 var＝桌面微调没反应）', file: 'js/mobile-adapt.js', needle: "if (adj.desk) origSet('--mochi-desk-adj', adj.desk + 'px');" },
   // ==== 2026-09-18 #709 音乐遗留（自查发现，#700 同族收尾；编号让位：#707 已被屏幕微调/滑动卡顿两批占用、#708 已被通知自检占用）——歌单导入的 VIP 自动移除依赖官方 v6 详情走公共 CORS 代理，proxy.cors.sh 等已域名级失联（#700 实测）＝全机型 VIP 歌都不再被自动移除，与常见问题「歌单导入会自动移除这类歌曲」承诺不符。修复=时长探测（meting <audio>）失败的歌用 meting type=url 二次确认（免费歌必 302→音频 CDN；VIP/失效歌 200+非音频正文且无跳转；fetch 失败＝离线＝宁可不删），确认 VIP 才按 v6 fee 路径同口径移除（仅 sm_pl_ 歌单批次，单曲链接维持既有文档口径）；移除逻辑收敛 removeBatchVipSongs 共享助手；移除已死 meting 镜像 api.i-meto.com（2026-09-17 实测整体 401）====
   { name: '#709a meting type=url VIP 二次确认判据（删则歌单导入的 VIP 永不移除＝FAQ 承诺落空回归）', file: 'js/music-player.js', needle: 'var free = !!(r.redirected || /^audio\\//i.test(ct));' },
   { name: '#709b 探测失败仅对 sm_pl_ 歌单批次二次确认＋_vipChecked 去重（删/放开到单曲则断网误删或重复请求）', file: 'js/music-player.js', needle: "if (m && m.neteaseId && /^sm_pl_/.test(m.id) && !m._vipChecked && findTrack(m.id))" },
@@ -1556,6 +1560,12 @@ const FIX_SENTINELS = [
   { name: '#711a 顶栏负值（上移）＝::before 负 margin-bottom（改回单向留白即消失＝顶栏再也不能上移）', file: 'css/chat-main.css', needle: 'margin-bottom:min(var(--cs-head-inset, 0px), 0px);' },
   { name: '#711b 底栏负值（下移）＝负 margin-bottom 叠加 --cs-input-mb-base 环境基准（改成裸 min() 直写＝宽屏悬浮 16px 底距被 ID 特异性打没、输入栏默认位上飘）', file: 'css/chat-main.css', needle: 'margin-bottom:calc(var(--cs-input-mb-base, 0px) + min(var(--cs-input-inset, 0px), 0px));' },
   { name: '#711c 位置值域双向钳制（surfaceClamp 吃 item.min；改回 Math.max(0,…)＝负值一律被打回 0＝双向退化回单向）', file: 'js/chat-settings.js', needle: 'const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));' },
+  // ==== 2026-09-18 #712 多字卡「拼接符号」新增内置「——」（默认开）＋自定义符号（用户直派「拼接符号新增一个：—— 默认开启」「系统自带的不变，只能开关，但是用户可以自己添加」）——内置七枚（空格/，/。/！/？/....../——）只能点亮/取消；「＋」弹 openModal 添加自定义（≤6 字符、≤8 个、与内置/已有去重），自定义 chip 点本体开关、点「×」删除，「至少保留一个」改按内置+自定义合计判。自定义存 reply-py-punct-custom＝JSON [{s,on}]（非数值键、故意不进 DEFAULTS——getCfg 数字兜底与 saveAllContactsDo 全键同步都会写坏数组；随 getCfg/replyCfgFor 附带原串），pyJoinCards 只取 on=1 入池 ====
+  { name: '#712a 内置「——」入池（删则——永远不会被拼进多字卡，设置页开关变摆设）', file: 'js/chat.js', needle: "if (c['py-punct-dash'] === 1) pool.push('——');" },
+  { name: '#712b 自定义符号按 on=1 入池（改成无脑全收＝关掉的自定义符号照样出现、开关失效）', file: 'js/chat.js', needle: "if (it && typeof it.s === 'string' && it.s && it.on === 1) pool.push(it.s);" },
+  { name: '#712c cfg 附带自定义原串（DEFAULTS 外挂直读；删则 pyJoinCards 永远读不到自定义符号）', file: 'js/reply-settings.js', needle: "out['py-punct-custom'] = String(ls.get('reply-py-punct-custom')" },
+  { name: '#712d 自定义符号落盘（删则添加/删除/开关都不持久化、刷新即丢）', file: 'js/reply-settings.js', needle: 'ls.set(CUST_KEY, JSON.stringify(list))' },
+  { name: '#712e 模板「——」chip 与「＋」添加钮（删则设置页看不到新符号、没法加自定义）', file: 'template.html', needle: 'data-k="py-punct-dash"' },
   // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
@@ -3007,6 +3017,8 @@ const FIX_SENTINELS = [
   { name: '#708a 通道按调用独立回报（删掉 chanOut 管道＝自检读全局共享通道、结果可被真实消息/来电串台）', file: 'js/bg-keep.js', needle: 'function showSysNotification(title, opts, chanOut) {' },
   { name: '#708b 自检 SW 通道真话文案（退回笼统「已发送」＝#705 形态故障时指错层）', file: 'js/bg-keep.js', needle: '✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）' },
   { name: '#708c 自检 8 秒超时哨兵（删掉＝发送链卡死时「点测试没反应」#614 形态回归）', file: 'js/bg-keep.js', needle: '✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）' },
+  // ==== 2026-09-18 #712 梦角档案顶部「不是 AI」常驻说明（用户直派：网站没有任何 AI 功能，这个只是记录的功能）——「梦角/认识TA」的说法易被误解成 AI 角色或自动生成；开屏使用前提卡虽已写明「纯代码运行、没有任何 AI」，但功能页内没有就地讲清。修复=memo-arc 总览页（view=home，含无梦角空态）渲染顶部常驻一条说明，分区子页不加（返回总览即可见）；功能介绍页第 19 节补同口径一行（lg-count 7→8）====
+  { name: '#712a 顶部说明正文（删掉/改没「本站没有任何 AI 功能…只是记录」表述＝误解回归）', file: 'js/memo-arc.js', needle: '本站没有任何 AI 功能，梦角档案只是记录' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

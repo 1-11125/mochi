@@ -1577,16 +1577,8 @@
         <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
              跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
              顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
-        <div class="set-row" id="row-screen-adj-top">
-          <div class="txt">屏幕微调·顶部<span class="sub">顶部内容被状态栏遮挡/离得太远时调（当前 0px，正=下移）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-screen-adj-bottom">
-          <div class="txt">屏幕微调·底部<span class="sub">底部导航栏悬空/被手机手势条裁掉时调（当前 0px，正=上移）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-screen-adj-h">
-          <div class="txt">屏幕微调·页面高度<span class="sub">页面底部留白/内容超出屏幕时调（当前 0px，正=变高）；本机永久保存</span></div>
+        <div class="set-row" id="row-screen-adj">
+          <div class="txt">屏幕位置设置<span class="sub">一个面板调全部：顶部/底部/页面高度/桌面/整体位移（全屏图标偏上、整页偏移遮挡都在这里）；本机永久保存</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="set-row" id="row-screen-diag">
@@ -2443,9 +2435,10 @@
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">19</span><span class="lg-name">梦角档案 / 我的档案</span><span class="lg-count">7</span></summary>
+            <summary><span class="lg-num">19</span><span class="lg-name">梦角档案 / 我的档案</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
           <div class="lic-li">【梦角档案】认识 TA：九个分区——TA 是谁 / 喜好 / 习惯 / 与我的相处 / 我对 TA 的了解 / 位置感 / 物品 / 我们的共同记录 / 当前 IF 世界</div>
+          <div class="lic-li">梦角档案不是 AI：本站没有任何 AI 功能，只是手动记录——内容全部由你自己写下</div>
           <div class="lic-li">发现卡片记录你对 TA 的了解（来源标注 + 确定程度圆点），「还不了解」疑问清单可转成发现，理解变化全程留痕</div>
           <div class="lic-li">共同记录六类 + 时间线视图，相处小事可升格为重要时刻</div>
           <div class="lic-li">【我的档案】认识自己：写给某位 TA 的自我说明——关于我 / 喜好 / 习惯 / 物品 / 我和 TA（期望的相处方式）/ 对自己的描述 / IF 世界母档</div>
@@ -3016,14 +3009,16 @@
             <div class="gs-row"><span>最少条数</span><div class="stepper" data-k="py-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="py-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最多条数</span><div class="stepper" data-k="py-max" data-min="2" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="py-max-val" readonly><button class="stp-max">+</button></div></div>
             <!-- #650 拼接随机标点：开启后每两条字卡的中间从「拼接符号」池随机抽一个相连
-                 （空格/，/。/！/？/...... 可多选、每处独立随机）。默认＝六种全部点亮
+                 （空格/，/。/！/？/....../—— 可多选、每处独立随机）。默认＝七种全部点亮
                  （FIX 2026-09-17 #694 用户定稿「空格、。！？...... 全部开启，然后用户可以自己选择开启或关闭某个」；
-                 此前默认不含句号）；关闭＝只用空格（原样）。
+                 FIX 2026-09-18 #712 用户直派「拼接符号新增一个：—— 默认开启」＋「系统自带的不变，
+                 只能开关，但是用户可以自己添加」：点「＋」添加自定义符号、自定义 chip 点「×」删除）；
+                 关闭＝只用空格（原样）。
                  符号池状态由 reply-settings.js #650 段渲染（ppy-chips），join 逻辑在 chat.js pyJoinCards -->
             <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="py-punct-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span></div></div>
+            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
             <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
-            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？...... 六种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池</div>
+            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池</div>
           </div>
           </div>
           <!-- 拼字造句组：词典拼字 / 梦角自由造句 -->

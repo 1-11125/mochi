@@ -25,6 +25,9 @@
     // 同用），设置 UI 见本文件 #650 段（ppy-chips）
     'py-punct-en': 1,
     'py-punct-space': 1, 'py-punct-dou': 1, 'py-punct-per': 1, 'py-punct-ex': 1, 'py-punct-q': 1, 'py-punct-el': 1,
+    // #712：内置「——」（默认开，用户直派「拼接符号新增一个：—— 默认开启」）——未写盘设备
+    // 走本默认 1；已写盘设备的 0/1 是用户自己的选择，无迁移（同 #694 口径）
+    'py-punct-dash': 1,
     // v3.40.x #370c：csp-cust 回复文本「自定义字卡占比」（%，默认 50）——联系人回话里的
     // 纯文字卡，多大比例保留「你自定义的字卡」、其余让系统默认聊天字卡覆盖（默认字卡本身还
     // 受默认字卡「聊天使用」概率与分类权重控制）。0=尽量用默认字卡，100=全用自定义。chat.js
@@ -201,6 +204,10 @@
       }
       out[k] = n;
     });
+    // #712 自定义拼接符号——非数值键，故意不进 DEFAULTS：上面循环的数字兜底会把数组/
+    // JSON 串改写成默认值，saveAllContactsDo 按 DEFAULTS 全键 String() 同步也会写坏；
+    // 这里只把存储原串随 cfg 附带出去（pyJoinCards 按 JSON [{s,on}] 解析，只取 on=1）
+    try { out['py-punct-custom'] = String(ls.get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
     return out;
   }
   window.replyCfg = getCfg;
@@ -217,6 +224,8 @@
       if (isNaN(n)) n = DEFAULTS[k];
       out[k] = n;
     });
+    // #712 同 getCfg：自定义拼接符号原串附带（按目标联系人桌面读，join 侧消费）
+    try { out['py-punct-custom'] = String((s || ls).get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
     return out;
   };
   // v3.9.x：群聊页/群聊回复逻辑读取群聊回复设置（含默认值）
@@ -442,37 +451,126 @@
       });
     }
   });
-  // ===== #650：多字卡「拼接符号」池（六选 N 多选 chips） =====
-  // 与上方通用开关不同：六个符号不是 checkbox，而是「拼接符号」行里的药丸 chips
+  // ===== #650：多字卡「拼接符号」池（七枚内置多选 chips + #712 自定义符号） =====
+  // 与上方通用开关不同：符号不是 checkbox，而是「拼接符号」行里的药丸 chips
   //（template.html #ppy-chips，选中态样式 .ppy-chip.sel 在 setting.css）——点击即存即显
-  //（toast 同款）；至少保留一个：把最后一个点掉的尝试拦下、不落盘。总开关 py-punct-en
-  // 关闭时 chips 置灰（仍可点，方便提前配好符号池）。join 消费在 chat.js pyJoinCards。
+  //（toast 同款）；至少保留一个：把最后一个点掉的尝试拦下、不落盘（#712 起按「内置＋自定义」
+  // 合计口径判）。总开关 py-punct-en 关闭时 chips 置灰（仍可点，方便提前配好符号池）。
+  // #712 用户直派「系统自带的不变，只能开关，但是用户可以自己添加」：内置七枚（含新增的
+  // 「——」，默认开）只能点亮/取消、不能删；点「＋」弹 openModal 添加自定义符号（最长
+  // 6 字符、最多 8 个、与内置/已有去重），自定义 chip 点本体开关、点「×」删除（删除也受
+  // 「至少保留一个」拦）。自定义存 reply-py-punct-custom＝JSON [{s,on}]（不进 DEFAULTS，
+  // 随 getCfg/replyCfgFor 附带原串，join 消费在 chat.js pyJoinCards）。
   (function () {
-    const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......']];
+    const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——']];
+    // #712 内置符号实际值（去重判定用；空格的 chip 文案是「空格」、真值是 ' '）
+    const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——'];
+    const CUST_KEY = 'reply-py-punct-custom';
     const box = document.getElementById('ppy-chips');
     function ppyToast(msg, ms) {
       const d = ccToastEnsure();
       if (d) { d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show'; clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, ms || 1800); }
     }
+    // #712 自定义符号读写（走 activeStore 动态代理＝随当前桌面隔离，与其他回复设置同款）
+    function pyCustGet() {
+      let arr = null;
+      try { arr = JSON.parse(ls.get(CUST_KEY) || '[]'); } catch (e) {}
+      if (!Array.isArray(arr)) arr = [];
+      return arr.filter(it => it && typeof it.s === 'string' && it.s);
+    }
+    function pyCustSet(list) { try { ls.set(CUST_KEY, JSON.stringify(list)); } catch (e) {} }
+    // #712 「至少保留一个」统一口径：内置（除 skipKey）＋自定义（除 skipIdx）的选中合计
+    function ppyOtherSel(cfg, skipKey, skipIdx) {
+      let n = POOL.filter(p => p[0] !== skipKey && cfg[p[0]] === 1).length;
+      pyCustGet().forEach((it, i) => { if (i !== skipIdx && it && it.on === 1) n++; });
+      return n;
+    }
+    // #712 自定义 chips 重渲（插在「＋」前；data-c 下标与存储数组一一对应，不带 data-k
+    // ——ppySync 的内置循环按 [data-k] 扫，不会把自定义误当内置改写选中态）
+    function renderCust() {
+      if (!box) return;
+      box.querySelectorAll('.ppy-chip[data-c]').forEach(el => el.remove());
+      const add = document.getElementById('ppy-add');
+      const dis = getCfg()['py-punct-en'] !== 1;
+      pyCustGet().forEach((it, i) => {
+        const el = document.createElement('span');
+        el.className = 'tag ppy-chip ppy-chip-c' + (it.on === 1 ? ' sel' : '') + (dis ? ' dis' : '');
+        el.dataset.c = String(i);
+        el.textContent = it.s;
+        const x = document.createElement('i');
+        x.className = 'ppy-x';
+        x.textContent = '×';
+        el.appendChild(x);
+        if (add && add.parentNode === box) box.insertBefore(el, add); else box.appendChild(el);
+      });
+    }
     function ppySync() {
       if (!box) return;
       const cfg = getCfg();
       const en = cfg['py-punct-en'] === 1;
-      box.querySelectorAll('.ppy-chip').forEach(ch => {
+      box.querySelectorAll('.ppy-chip[data-k]').forEach(ch => {
         const k = ch.dataset.k;
         if (!k) return;
         ch.classList.toggle('sel', cfg[k] === 1);
         ch.classList.toggle('dis', !en);
       });
+      const add = document.getElementById('ppy-add');
+      if (add) add.classList.toggle('dis', !en);
+      renderCust();
+    }
+    // #712 添加自定义符号（openModal 确定后必关弹窗；校验不过 toast 提示、用户重开再输）
+    function ppyAddFlow() {
+      if (pyCustGet().length >= 8) { ppyToast('自定义拼接符号最多添加 8 个（可删掉不要的再加）', 2400); return; }
+      if (!window.openModal) return;
+      window.openModal('添加拼接符号', '', function (v) {
+        const s = String(v == null ? '' : v).trim();
+        if (!s) { ppyToast('没有输入符号', 2000); return; }
+        if (s.length > 6) { ppyToast('符号最长 6 个字符', 2000); return; }
+        const list = pyCustGet();
+        if (list.length >= 8) { ppyToast('自定义拼接符号最多添加 8 个（可删掉不要的再加）', 2400); return; }
+        if (BUILTIN_VALS.indexOf(s) > -1) { ppyToast('这是系统自带符号，点亮对应 chip 即可', 2400); return; }
+        if (list.some(it => it.s === s)) { ppyToast('该自定义符号已存在', 2000); return; }
+        list.push({ s: s, on: 1 });
+        pyCustSet(list);
+        ppySync();
+        toastSaved('添加拼接符号 ' + s, true);
+      }, { maxlength: 6, placeholder: '输入符号，如 ～ / ### / 💕' });
     }
     if (box) {
       box.addEventListener('click', (ev) => {
+        if (ev.target.closest('#ppy-add')) { ppyAddFlow(); return; }
         const ch = ev.target.closest('.ppy-chip');
-        if (!ch || !ch.dataset.k) return;
+        if (!ch) return;
+        // #712 自定义 chip（data-c）：点「×」删除 / 点本体开关——删除与关掉最后一个选中
+        // 符号一样被「至少保留一个」拦下
+        if (ch.dataset.c != null) {
+          const i = Number(ch.dataset.c);
+          const list = pyCustGet();
+          const it = list[i];
+          if (!it) return;
+          const del = !!ev.target.closest('.ppy-x');
+          if (it.on === 1 && ppyOtherSel(getCfg(), null, i) === 0) {
+            ppyToast('拼接符号至少保留一个（想回到纯空格请关上方「拼接随机标点」）', 2400);
+            return;
+          }
+          if (del) {
+            list.splice(i, 1);
+            pyCustSet(list);
+            ppySync();
+            ppyToast('已删除拼接符号 ' + it.s);
+          } else {
+            it.on = it.on === 1 ? 0 : 1;
+            pyCustSet(list);
+            ppySync();
+            toastSaved('拼接符号 ' + it.s, it.on === 1);
+          }
+          return;
+        }
         const k = ch.dataset.k;
+        if (!k) return;
         const cfg = getCfg();
         const on = cfg[k] === 1;
-        if (on && !POOL.some(p => p[0] !== k && cfg[p[0]] === 1)) {
+        if (on && ppyOtherSel(cfg, k, -1) === 0) {
           ppyToast('拼接符号至少保留一个（想回到纯空格请关上方「拼接随机标点」）', 2400);
           return;
         }

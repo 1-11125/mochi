@@ -2622,6 +2622,9 @@
     //   整段是 #581f 哨兵的 needle 原文，直接往那行追加会改掉它、把别人的锚点弄哑。
     '#cs-input-order-panel',
     // FIX 2026-09-16 #581：图标图片位置调整面板同族（personalize.js openIconFitPanel 建的固定底半框）
+    // FIX 2026-09-18 #707：屏幕位置设置面板（personalize.js 建的底部半框）——同族登记防滚动穿透；
+    //   本行插在 #581f 锚点行之前（那行原文一个字都不能动）
+    '#screen-adj-panel',
     '#beauty-drawer', '#icon-fit-panel'];
   // v3.15.x：键盘弹起时把锚定在 .phone 底部的悬浮面板（更多功能/帮我决定/占卜/
   // 问问TA/红包/拍一拍等）重新锚定到可视区底部=输入栏上方。关键前提：键盘开启时
@@ -2947,11 +2950,11 @@
 // （跨桌面共用——屏幕是设备属性，不随联系人走）。
 (function () {
   var PFX = 'xy-home-v2:';
-  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h' };
+  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift' };
   function loadAdj(k) {
     try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
   }
-  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h') };
+  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift') };
   var el = document.documentElement;
   var st = el.style;
   var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -2966,11 +2969,30 @@
       else if (origGet('--mochi-safe-bottom').indexOf('calc(env(') === 0) origRemove('--mochi-safe-bottom');
     } catch (e) {}
   }
+  // #707 桌面图标区轴：独立写 --mochi-desk-adj（home.css 的 #desktop-pages padding-top 消费）——
+  // 全屏/全屏页隐藏状态栏后桌面内容整体偏上，用户用该轴自由拉回；无人写基准，直接写偏移值
+  function applyDesk() {
+    try {
+      if (adj.desk) origSet('--mochi-desk-adj', adj.desk + 'px');
+      else if (origGet('--mochi-desk-adj')) origRemove('--mochi-desk-adj');
+    } catch (e) {}
+  }
+  // #707 整体位移轴：.phone 相对定位 top 偏移（base.css 消费）——整页上/下移，治「整体位置
+  // 偏了导致顶部或底部被遮挡」；正=下移、负=上移。relative 不改文档流、不产生 transform
+  // 包含块（技术红线只禁 zoom/scale，位移不缩放无卡顿面）
+  function applyShift() {
+    try {
+      if (adj.shift) origSet('--mochi-shift-adj', adj.shift + 'px');
+      else if (origGet('--mochi-shift-adj')) origRemove('--mochi-shift-adj');
+    } catch (e) {}
+  }
   function applyCached() {
     for (var n in base) {
       try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
     }
     applyBottom();
+    applyDesk();
+    applyShift();
   }
   st.setProperty = function (n, v) {
     n = String(n).toLowerCase();

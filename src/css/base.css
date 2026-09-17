@@ -1328,3 +1328,8 @@ html.ios-cover-top .phone .statusbar {
 /* FIX 2026-09-13 #387 媒体池令牌缺数据占位（media-pool 观察器打标）——公用库跨设备共享
    不带池键时令牌解不出图，纯白不可辨；置灰+占位尺寸诚实可见，导入完整备份后自动恢复 */
 img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height: 48px; object-fit: contain; opacity: .5; }
+
+/* v3.26.x #707 屏幕微调·整体位移轴（mobile-adapt.js mochiScreenAdj 写 var）：
+   整页相对偏移，治「某些屏幕整体位置偏上/偏下导致顶部或底部被遮挡」。正=下移、负=上移。
+   .phone 本就 position:relative（base.css 顶部主规则），top 位移不改文档流、无缩放（技术红线只禁 zoom/scale） */
+.phone { top: var(--mochi-shift-adj, 0px); }

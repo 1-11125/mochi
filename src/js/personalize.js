@@ -7320,53 +7320,118 @@ try {
     });
   })();
 
-  // ===== v3.26.x #707：屏幕位置微调（设置 → 信息诊断，三行）=====
-  // 接线 template 三行（row-screen-adj-top/bottom/h）→ mobile-adapt.js 的 mochiScreenAdj
-  // （双层值包装，写入方无感）。openModal 单输入 ±80px 整数；0/清空=恢复默认。
-  // sub 文案里的「当前 Npx」随设置即时改写；偏移存根命名空间 LS，跨桌面共用。
+  // ===== v3.26.x #707：屏幕位置设置（设置 → 工具区，统一面板，五轴）=====
+  // 接线 template 单行（#row-screen-adj）→ 底部半框面板（beauty-drawer 同族、已登记
+  // FLOAT_SELECTORS 防滚动穿透）。五轴：顶部 / 底部 / 页面高度 / 桌面 / 整体位移；
+  // 步进按钮 ±2px 即时生效，点数值走 openModal 精确输入；「恢复默认」一键全归零。
+  // 偏移存根命名空间 LS，跨桌面共用（屏幕是设备属性）；mobile-adapt.js mochiScreenAdj 落层。
   (function () {
-    const ROWS = [
-      { id: 'row-screen-adj-top', k: 'top', name: '顶部', hint: '顶部内容被手机状态栏遮挡就填正数（往下移）、离得太远填负数（往上移）。', sign: '正=下移' },
-      { id: 'row-screen-adj-bottom', k: 'bottom', name: '底部', hint: '底部导航栏被手机手势条裁掉就填正数（往上移）、悬空离底太远填负数（往下移）。', sign: '正=上移' },
-      { id: 'row-screen-adj-h', k: 'h', name: '页面高度', hint: '页面底部有大片空白就填正数（撑满）、内容超出屏幕被裁就填负数（收短）。', sign: '正=变高' }
+    const AXES = [
+      { k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=正数下移；离得太远=负数上移' },
+      { k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部导航栏被手势条裁掉=正数上移；悬空离底太远=负数下移' },
+      { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=正数撑满；内容超出屏幕被裁=负数收短' },
+      { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=正数往下拉回' },
+      { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了导致顶部或底部被遮挡：正=整页下移、负=上移' }
     ];
-    function adjToast(msg) {
+    let panel = null;
+    function toast(msg) {
       let t = document.getElementById('cc-toast');
       if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
       t.textContent = msg;
       t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
       clearTimeout(t._timer);
-      t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2200);
+      t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 1800);
     }
-    function adjSubText(row, v) {
-      const sub = row.querySelector('.sub');
-      if (sub) sub.textContent = sub.textContent.replace(/当前 -?\d+px/, '当前 ' + v + 'px');
-    }
-    ROWS.forEach(function (cfg) {
-      const row = document.getElementById(cfg.id);
-      if (!row || typeof window.openModal !== 'function') return;
-      row.addEventListener('click', function () {
-        const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[cfg.k]) || 0;
-        const HINT = '当前' + cfg.name + '偏移 ' + cur + 'px。' + cfg.hint + '范围 -80~80 的整数（单位像素），填 0 或清空＝恢复默认。改完立即生效、本机永久保存；配合「屏幕适配诊断」核对效果。注意：这是你的本机手动修正，换设备不会跟着走，各设备各自调。';
-        const ctl = window.openModal('屏幕微调·' + cfg.name + '（' + cfg.sign + '）', cur ? String(cur) : '', function (v) {
-          const sv = String(v == null ? '' : v).trim();
-          let n = 0;
-          if (sv !== '') {
-            if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入 -80~80 的整数（单位像素）'); ctl.stay(); return; }
-            n = parseInt(sv, 10);
-            if (n < -80 || n > 80) { ctl.hint('范围是 -80~80，别填太大'); ctl.stay(); return; }
-          }
-          if (!window.mochiScreenAdj) { ctl.hint('微调层未就绪，请刷新后重试'); ctl.stay(); return; }
-          window.mochiScreenAdj.set(cfg.k, n);
-          adjSubText(row, n);
-          adjToast(n ? ('屏幕微调·' + cfg.name + ' 已设为 ' + n + 'px') : ('屏幕微调·' + cfg.name + ' 已恢复默认（0px）'));
-        }, {
-          inputmode: 'numeric',
-          maxlength: 4,
-          placeholder: cur ? ('当前 ' + cur + 'px，输入新偏移（0=恢复默认）') : '输入偏移像素（正/负整数，0=默认）',
-          staticText: HINT
-        });
+    function valElOf(k) { return panel ? panel.querySelector('[data-adj-val="' + k + '"]') : null; }
+    function refreshVals() {
+      if (!panel || !window.mochiScreenAdj) return;
+      const cur = window.mochiScreenAdj.all();
+      AXES.forEach(ax => {
+        const el = valElOf(ax.k);
+        if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + cur[ax.k] + 'px';
       });
+    }
+    function applyAxis(ax, nv, silent) {
+      if (!window.mochiScreenAdj || !window.mochiScreenAdj.set(ax.k, nv)) return;
+      refreshVals();
+      if (!silent) toast(ax.name + ' ' + (nv > 0 ? '+' : '') + nv + 'px');
+    }
+    function buildPanel() {
+      panel = document.createElement('div');
+      panel.id = 'screen-adj-panel';
+      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:62vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+      const grip = document.createElement('div');
+      grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
+      panel.appendChild(grip);
+      const head = document.createElement('div');
+      head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
+      head.innerHTML = '<b style="font-size:14px">屏幕位置设置</b><span style="font-size:11px;color:#888;flex:1">改完立即生效 · 本机永久保存（各设备各自调）</span>';
+      const done = document.createElement('button');
+      done.textContent = '完成';
+      done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
+      done.addEventListener('click', closePanel);
+      head.appendChild(done);
+      panel.appendChild(head);
+      const tip = document.createElement('div');
+      tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
+      tip.textContent = '配合「屏幕适配诊断」使用：先看诊断差多少像素，再来填对应偏移。步进一次 ±2px，点中间数值可精确输入（范围见各行）。';
+      panel.appendChild(tip);
+      const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+      AXES.forEach(ax => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'flex:1;min-width:0';
+        lbl.innerHTML = '<div style="font-size:13px;font-weight:600">' + ax.name + ' <span style="font-weight:400;color:#888">（' + ax.min + '~' + ax.max + 'px）</span></div><div style="font-size:10.5px;color:#999;line-height:1.4">' + ax.hint + '</div>';
+        row.appendChild(lbl);
+        const mkBtn = (txt, delta) => {
+          const b = document.createElement('button');
+          b.textContent = txt;
+          b.style.cssText = 'flex:none;width:34px;height:30px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;border-radius:8px;cursor:pointer';
+          b.addEventListener('click', () => {
+            const v = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
+            const nv = Math.max(ax.min, Math.min(ax.max, v + delta));
+            if (nv !== v) applyAxis(ax, nv);
+          });
+          return b;
+        };
+        row.appendChild(mkBtn('−', -2));
+        const val = document.createElement('button');
+        val.setAttribute('data-adj-val', ax.k);
+        val.style.cssText = 'flex:none;min-width:56px;height:30px;border:none;background:transparent;color:var(--ink,#111);font-size:13px;font-weight:700;cursor:pointer';
+        val.addEventListener('click', () => {
+          const cur = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
+          if (typeof window.openModal !== 'function') return;
+          const ctl = window.openModal(ax.name + '偏移（' + ax.min + '~' + ax.max + 'px，0=默认）', cur ? String(cur) : '', function (v) {
+            const sv = String(v == null ? '' : v).trim();
+            let n = 0;
+            if (sv !== '') {
+              if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入整数像素'); ctl.stay(); return; }
+              n = parseInt(sv, 10);
+              if (n < ax.min || n > ax.max) { ctl.hint('范围 ' + ax.min + '~' + ax.max); ctl.stay(); return; }
+            }
+            applyAxis(ax, n);
+          }, { inputmode: 'numeric', maxlength: 4, placeholder: '当前 ' + cur + 'px' });
+        });
+        row.appendChild(val);
+        row.appendChild(mkBtn('+', +2));
+        panel.appendChild(row);
+      });
+      const reset = document.createElement('button');
+      reset.textContent = '全部恢复默认（五轴归零）';
+      reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
+      reset.addEventListener('click', () => {
+        AXES.forEach(ax => applyAxis(ax, 0, true));
+        toast('屏幕位置已全部恢复默认');
+      });
+      panel.appendChild(reset);
+      document.body.appendChild(panel);
+    }
+    function closePanel() { if (panel) { panel.remove(); panel = null; } }
+    const entry = document.getElementById('row-screen-adj');
+    if (entry) entry.addEventListener('click', () => {
+      if (!panel) buildPanel();
+      refreshVals();
     });
   })();
 

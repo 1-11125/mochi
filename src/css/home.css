@@ -274,6 +274,10 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
 /* FIX 2026-09-17 #690：gap 简写（grid 别名写进 `gap` 是 Safari 11.1/Chromium 66 起）
    在老内核上被丢弃 → 图标行距/列距归零，图标挤成一坨（用户读成「桌面不正常」）。
    grid-gap 与其完全同义、老内核也认，两条同写＝谁认用谁，现代内核取值一致。 */
+/* v3.26.x #707 屏幕微调·桌面轴：全屏（fs-active/ios-fs-active）隐藏状态栏后桌面内容整体
+   偏上（该偏移量各机型安全区不同），用户在 设置→信息诊断→屏幕微调·桌面 自由拉回；
+   mobile-adapt.js mochiScreenAdj 写 --mochi-desk-adj（±60px），默认 0 = 原布局零变化 */
+#desktop-pages { padding-top: var(--mochi-desk-adj, 0px); }
 .app-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-gap:14px 8px; gap:14px 8px; padding:2px 8px 6px; }
 /* v3.16.x：三页功能图标完全一致（大小/行高/间距）——第三页默认 12 个图标 3 行，
    与 1/2 页 8 个图标 2 行同用默认行高 96px、图标 58px、行距 14px；
