@@ -1522,6 +1522,24 @@ const FIX_SENTINELS = [
   { name: '#700h 歌名识别首选 meting song 接口（删回死代理抓页链路则歌名全停在「网易云音乐-数字」）', file: 'js/music-player.js', needle: 'meting/?server=netease&type=song&id=' },
   { name: '#700i 功能介绍页「上传音乐只认不加密的标准音频」说明（删则加密文件放不出又被当网站 bug）', file: 'template.html', needle: '上传音乐只认不加密的标准音频' },
   { name: '#700j 「放不了」徽标样式（删则徽标无色不可辨）', file: 'css/chat-pages.css', needle: '.sm-src-bad' },
+  // ==== 2026-09-17 #703 聊天冷进「没有加载缓冲动画、卡几秒」（用户直派：切桌面后点开聊天，屏上零反馈数秒）——切桌面后进聊天，LS 尾部快照（或快速预读）先把 msgs 填上几条，updateChatLoading 的「!msgs.length」前置把进度条压掉；权威大包继续读数秒后 200 气泡+百张图集中渲染解码（无头 4× 节流实证：进度条全程未显示、803ms 长任务）。修复=①条件去掉 msgs 前置（聊天页可见且权威未就绪即显示）；②enterChat 先置位再 loadMsgs（LS 同步 parse 前先让进度条就位）；③权威读库收尾补一次收起（覆盖 changed=false 且屏上已有内容、不走 renderWindow 的路径） ====
+  { name: '#703a 进度条条件去掉 msgs 为空前置（删回则快照先到时整段权威读取窗口零加载反馈＝主诉回归；表达式锚归 #526，本条锚行尾注释）', file: 'js/chat.js', needle: '// #703：去掉「msgs 为空」前置' },
+  { name: '#703b enterChat 先置位进度条再 loadMsgs（删回则 LS 同步 parse 期间零反馈）', file: 'js/chat.js', needle: 'updateChatLoading(); // #703：先于 loadMsgs 置位' },
+  { name: '#703c 权威读库收尾收起进度条（删则 changed=false 且屏上已有快照时进度条挂死不收）', file: 'js/chat.js', needle: '// #703：权威就绪即收起进度条' },
+  // ==== 2026-09-17 #704 表情包面板「每次打开所有图片重新加载」大库残留（用户直派：#662/#692 后真机仍现）——emojiShowWhenDecoded 对面板里全部 img[src] await decode，大库几十上百张在低内存机型隐藏期被回收位图，总解码时长远超 1s 兜底＝兜底放行后剩余图逐张冒出（1s 兜底在大库机型是常规路径而非保险）。修复=首屏优先：前 16 张 data-src 图同步补 src、按 DOM 序前 24 张 await decode 后即显示、其余 fire-and-forget 预热不挡显示 ====
+  { name: '#704a 面板显示只等首屏解码（删回 await 全部则大库机型超 1s 兜底放行＝逐张冒出回归）', file: 'js/chat.js', needle: 'const EMOJI_DECODE_AWAIT_MAX = 24;' },
+  { name: '#704b 首屏 data-src 图同步补 src 不等懒加载泵（删回则首屏图干等 50ms/4 张泵＝打开变慢）', file: 'js/chat.js', needle: "im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码" },
+  // ==== 2026-09-17 #701 自定义字卡「全量导出点击没反应」（红米 Note 11 5G 夸克实报、多机型同现，用户直派）——点击后整条前置 Promise 链（hydrateLibScopes IDB 大键取回 / ccExportExpandTokens 媒体池还原）任一环在部分安卓壳上挂起不落定＝.then 干等，无 toast 无弹窗零反馈；且全量导出/导入缺范围说明（专属部分=当前桌面联系人，用户直派补说明）。修复=①导出先弹范围说明弹窗（开始导出才跑链）＋点后立刻「正在准备导出…」toast；②取回/还原两环 ccFullWithTimeout 超时兜底（4s/8s）按已就绪数据继续，catch 不再吞；③导入链同款超时兜底＋导入弹窗补「专属导入到当前桌面」说明；④模板两入口副标题补专属归属说明 ====
+  { name: '#701a 全量导出前置链超时兜底（删回 .then 干等则安卓壳 IDB 取回挂起＝点导出零反应回归）', file: 'js/chatcard.js', needle: 'ccFullWithTimeout(Promise.resolve(hydrateLibScopes([\'public\', \'own\'])).catch(() => {}), 4000, null).then(build)' },
+  { name: '#701b 媒体池令牌还原超时兜底＋catch（删则 @@m 令牌还原挂起同样静默卡死；旧 needle 带字面 \\n 永不匹配＝哑哨兵，2026-09-17 收口）', file: 'js/chatcard.js', needle: 'Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).catch(() => [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }])' },
+  { name: '#701c 全量导出范围说明弹窗（专属=当前桌面；删则用户不知道导了什么、专属归属哪桌面）', file: 'js/chatcard.js', needle: '「专属」部分换机恢复时，请切到对应联系人桌面再导入' },
+  { name: '#701d 导出点击即有反馈 toast（删则说明弹窗外链路期间零反馈）', file: 'js/chatcard.js', needle: "toast('正在准备导出…')" },
+  { name: '#701e 全量导入链超时兜底（删回 .then 干等则安卓壳导入选完方式后无反应）', file: 'js/chatcard.js', needle: "ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(() => { ccFullApply(d, mode); })" },
+  { name: '#701f 导入弹窗补专属归属说明（删则跨桌面导入弄丢专属字卡不可知）', file: 'js/chatcard.js', needle: '如文件来自别的桌面，请先切到对应联系人桌面再导入' },
+  { name: '#701g 全量导出入口副标题标明专属=当前桌面（删则列表页看不出导出归属）', file: 'template.html', needle: '专属部分=当前桌面联系人）</div>' },
+  // ==== 2026-09-17 #706 聊天「所有消息不贴底、停在上半屏/中部；输入栏只有打字时可见；发消息低栏弹跳」（iPhone 17 Safari 26.6 iOS 独立应用实报、多机型同现，用户直派要求勿致他型回归）——#466/#643 两级回钉都是「事件触发+60ms 单次防抖」，iOS 26 Safari 起 interactive-widget=resizes-content 被真正执行（键盘期 innerHeight 本体参与变形、vv/inner 分多帧落位），回钉写入落在中间态布局后无人再校正＝列表永久停错位。修复=几何看门狗：聊天页可见且钉住态时每 250ms 复核 scrollTop 是否等于 chatScrollMax（行隐藏态口径），差 >8px 且视口变形落定（最近 180ms 无 vv/inner 变化）才补钉——只认几何事实、机型零分支；仍受 #162 钉住闸（用户翻历史解钉绝不拽底）与 #416 ≤8px 口径约束 ====
+  { name: '#706a 贴底几何看门狗补钉判定（删回事件单发制则 iOS 26 键盘变形后消息永久停半屏＝主诉回归）', file: 'js/chat.js', needle: 'if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();' },
+  { name: '#706b 看门狗视口变形落定闸（删回变形中就写则发消息低栏钳位回弹＝弹跳回归）', file: 'js/chat.js', needle: 'if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定' },
   // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
@@ -1953,7 +1971,7 @@ const FIX_SENTINELS = [
   { name: '#525a 清除本地数据落在「工具」段且为该段末项（搬回「关于」段＝用户报的分类错位复发；锚在段闭合注释上，行被搬走时锚同步消失）', file: 'template.html', needle: '</div><!-- /them-sec tools · row-reset -->' },
   { name: '#525b 「关于」段不再承载清除本地数据（旧分组注释复活＝清除本地数据被搬回关于段）', file: 'template.html', needle: '<!-- 关于：清除本地数据 + 版本 + 防骗声明（常驻底部，不随标签切换） -->', absent: true },
   // ==== 2026-09-15 #526 新建联系人首次进聊天不再显示「正在加载聊天记录…」（空桌面白等 2.5s 空库二次复核） ====
-  { name: '#526 已知空库（新联系人/空桌面）不显示聊天记录加载进度条（删 chatKnownEmpty 判定＝新建联系人首次进聊天又白等 2.5s 空库复核才收起进度条）', file: 'js/chat.js', needle: 'chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty && !msgs.length);' },
+  { name: '#526 已知空库（新联系人/空桌面）不显示聊天记录加载进度条（删 chatKnownEmpty 判定＝新建联系人首次进聊天又白等 2.5s 空库复核才收起进度条；needle 随 #703 去 msgs 前置演进，2026-09-17）', file: 'js/chat.js', needle: 'chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty);' },
   // ==== 2026-09-15 #527 模块加载体检：诊断「启动文件异常」带文件名 + 语法错致整段未加载可自查 ====
   { name: '#527 模块加载体检（__mochiLoaded 对比 __mochiJsFiles 定位整段未加载的文件；删掉＝语法错/启动抛错导致的功能整块失效无法自查）', file: 'js/device.js', needle: "'模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length" },
   // ==== 2026-09-15 #528 诊断置顶结论聚合 + 桌面模拟器外壳底部几何误报豁免 ====
@@ -2936,6 +2954,17 @@ const FIX_SENTINELS = [
   { name: '#695b 切桌面综合监听器的桌面视觉重应用走门、壁纸 UI（设置页）仍当场同步（删掉＝同步卡顿复发／整条延后＝设置页读到旧桌面的壁纸预设）', file: 'js/personalize.js', needle: 'if (whenDeskVisible(refreshDeskVisuals)) { try { syncBgUI(); } catch (e) {} }' },
   { name: '#695c 直读兜底（rescueDeskVisuals）结算后的重应用同口径走门（删掉＝聊天页出现后 400ms 左右又整屏重解码一次）', file: 'js/personalize.js', needle: 'const done = () => { if (!refreshed) { refreshed = true; try { whenDeskVisible(refreshDeskVisuals); } catch (e) {} } };' },
   { name: '#695d 主页显示前的补跑触发器＝盯 #page-phone 的 hidden 变化（删掉/改坏＝待办永不补跑，跨桌面直达聊天后回主页看到上一桌面的背景与头像）', file: 'js/personalize.js', needle: "deskVisualWatch.observe(home, { attributes: true, attributeFilter: ['hidden'] });" },
+  // ==== 2026-09-17 #705 两连修（用户直派 vivo X200S Edge，「多机型」「后台通知功能全部失效」＋「接通电话后联系人还会再打电话」）====
+  //  通知全灭根因：#673 把 showNotification 调用改成传 thunk function(){ return reg.showNotification(...) }，
+  //    但 kaWithTimeout 仍只认 Promise——函数没有 .then → TypeError 进 catch → reject → STRIP_LADDER 四级
+  //    降级被同一个 TypeError 连环「失败」秒耗尽 → resolve(false)，reg.showNotification 从未执行。
+  //    无头实测（修复前产物）：gateStats.sent=1 而 showNotification 0 次调用、全程无报错＝所有机型后台通知静默全灭。
+  //  通话两修：①#698 的 recoverCall IDB 兜底回读遇「挂断后 IDB 墓碑未落地页面即被杀」（vivo/Edge 杀渲染进程
+  //    常态）→ 幽灵通话复活；②来电冷却戳只在「联系人来电触发」时写——去电从不写、来电从触发起算＝接完/打完
+  //    电话后 1~3 分钟即可能再来一通。
+  { name: '#705a kaWithTimeout 兼容 thunk（删回直接 p.then 则函数入参 TypeError→降级链秒耗尽＝后台通知全灭复发）', file: 'js/bg-keep.js', needle: "const pr = (typeof p === 'function') ? p() : p;" },
+  { name: '#705b clearCallActive SS/LS 同步写 {ts:0} 墓碑（改回 removeItem 则挂断后页面被杀时 SS/LS 全空→落 IDB 回读→幽灵通话复活）', file: 'js/call.js', needle: "sessionStorage.setItem(CALL_ACTIVE_KEY, '{\"ts\":0}')" },
+  { name: '#705c 通话结束重写来电冷却戳（删则去电后/后台来电接完后冷却仍按触发时刻算＝挂断 1~3 分钟后联系人又打来）', file: 'js/call.js', needle: "try { store.set('records-call-last', String(Date.now())); } catch (e) {}" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

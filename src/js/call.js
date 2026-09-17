@@ -458,8 +458,17 @@
     try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, JSON.parse(payload)); } catch (e) {}
   }
   function clearCallActive() {
-    try { sessionStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
-    try { localStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
+    // FIX 2026-09-17 #705 SS/LS 同步写 {ts:0} 墓碑而非 removeItem——#698 给 recoverCall 加了
+    //   IDB 兜底回读，而这里的 IDB 墓碑是异步的：挂断后页面在墓碑落地前被杀/刷新（vivo/Edge
+    //   杀渲染进程常态），下次启动 SS/LS 全空 → 落进 IDB 回读 → 拿到仍是「通话中」的新鲜快照
+    //   ＝幽灵通话复活（小框凭空弹「正在通话」、恢复关闭时补写幽灵「通话中断」记录，用户观感
+    //   即「接完/挂了之后 TA 又打来」）。SS/LS 墓碑是同步落地的，recoverCall 的 SS/LS 路径
+    //   读到无 connectedTime 即清除并 return，不再落到 IDB 兜底；真中断恢复语义不受影响
+    //   （真中断＝kill 时 endCall 没跑＝SS/LS 里还是真实快照）。写 {ts:0} 而非删除＝同
+    //   clearCallHold 口径，防 idbRestore 用 IDB 旧值回填出幽灵标记；无 connectedTime 的值
+    //   recoverCall/callInProgress 读到即视为无通话，幂等无副作用。
+    try { sessionStorage.setItem(CALL_ACTIVE_KEY, '{"ts":0}'); } catch (e) {}
+    try { localStorage.setItem(CALL_ACTIVE_KEY, '{"ts":0}'); } catch (e) {}
     // 写 {ts:0} 墓碑而非删除（同 clearCallHold 口径）：防 idbRestore 用 IDB 旧值回填出幽灵标记；
     // 无 connectedTime 的值 recoverCall 读到即清，幂等无副作用
     try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, { ts: 0 }); } catch (e) {}
@@ -613,6 +622,13 @@
   //   接通后结束 → 系统消息明确「通话已挂断 / 对方已挂断 · 时长 xx」
   function endCall(text, holdSilent) {
     clearCallActive(); // v3.26.x：正常结束清除进行中标记（中断恢复靠残留检测）
+    // FIX 2026-09-17 #705 任何一通电话结束都重写来电冷却戳——原实现只在「联系人来电触发」
+    //   那一刻写 records-call-last：①去电（placeCall）从不写＝打完电话后联系人可能马上
+    //   又打来；②来电从「触发」起算 5 分钟，而后台来电（#161 响铃挂起）常要等用户回来看
+    //   才被接听，接完时冷却已所剩无几＝「接通电话后联系人还会再打电话」（用户直派，
+    //   多机型）。改为结束时刻起算：每通电话（含未接/拒绝/挂起收尾）结束后 5 分钟内
+    //   maybeIncoming 一律不再掷来电，与「冷却至少 5 分钟」的产品语义一致。
+    try { store.set('records-call-last', String(Date.now())); } catch (e) {}
     // v3.5.127：所有结束路径（超时/拒绝/挂断/对方挂断）统一停铃声
     if (window.stopSfx) window.stopSfx('ring');
     // v3.5.129：通话结束恢复音乐播放/悬浮小框

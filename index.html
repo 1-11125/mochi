@@ -877,13 +877,15 @@ filter:blur(var(--desk-bg-blur,0px));
 top:-24px !important; left:-24px !important; right:-24px !important; bottom:-24px !important;
 width:auto !important; height:auto !important;
 }
-.page-slide { zoom:var(--desk-font-scale, 1); }
-.deco-widget, .mini-row, .checkin, .weekend-box, .music-widget,
-.week-card, .desk-period, .app-grid { zoom:var(--desk-card-scale, 1); }
+html.desk-zoom-font .page-slide { zoom:var(--desk-font-scale, 1); }
+html.desk-zoom-card .deco-widget, html.desk-zoom-card .mini-row, html.desk-zoom-card .checkin,
+html.desk-zoom-card .weekend-box, html.desk-zoom-card .music-widget,
+html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom-card .app-grid { zoom:var(--desk-card-scale, 1); }
 @media (max-width: 900px) {
-.page-slide,
-.deco-widget, .mini-row, .checkin, .weekend-box, .music-widget,
-.week-card, .desk-period, .app-grid { zoom:1; }
+html.desk-zoom-font .page-slide,
+html.desk-zoom-card .deco-widget, html.desk-zoom-card .mini-row, html.desk-zoom-card .checkin,
+html.desk-zoom-card .weekend-box, html.desk-zoom-card .music-widget,
+html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom-card .app-grid { zoom:1; }
 }
 .deco-widget {
 position:relative; height:190px; border-radius:26px;
@@ -1056,7 +1058,6 @@ box-shadow:0 1px 4px rgba(0,0,0,.08); box-sizing:border-box;
 flex:1; min-height:0; display:flex;
 overflow-x:auto; overflow-y:hidden;
 scroll-snap-type:x mandatory;
--webkit-overflow-scrolling:touch;
 scrollbar-width:none; -ms-overflow-style:none;
 touch-action:pan-x pan-y;
 gap:var(--desk-page-gap, 8px);
@@ -9991,9 +9992,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789660571679">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.732</b></span>
-        <span class="sv-deploy">部署于 2026-09-17 23:56<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789663066908">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.733</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 00:37<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10435,11 +10436,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <!-- v3.34.x：自定义字卡全量导入导出——覆盖下方全部自定义库（聊天字卡双作用域/功能卡/寻踪/情话/TA六类） -->
       <div class="chat-item glass" id="li-cc-full-export">
         <div class="av"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></div>
-        <div class="ci"><div class="n">自定义字卡·全量导出</div><div class="m">公用/专属字卡·功能卡·寻踪·情话·TA互动 一份 json 备份</div></div>
+        <div class="ci"><div class="n">自定义字卡·全量导出</div><div class="m">公用＋专属字卡·功能卡·寻踪·情话·TA互动 一份 json（专属部分=当前桌面联系人）</div></div>
       </div>
       <div class="chat-item glass" id="li-cc-full-import">
         <div class="av"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 19h16"/></svg></div>
-        <div class="ci"><div class="n">自定义字卡·全量导入</div><div class="m">从全量导出 json 恢复 · 支持追加合并/整包替换</div></div>
+        <div class="ci"><div class="n">自定义字卡·全量导入</div><div class="m">从全量导出 json 恢复 · 追加合并/整包替换（专属导入到当前桌面）</div></div>
       </div>
       </div>
       <div class="cc-sect-body" id="cc-sect-preset" hidden>
@@ -11411,7 +11412,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.732</div>
+          <div class="val" id="about-ver-val">v3.26.733</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11480,7 +11481,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.732</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.733</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11860,7 +11861,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.732</span>
+              <span class="lic-ver">v3.26.733</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -16464,8 +16465,9 @@ else localStorage.removeItem(LAYOUT_KEY);
 let isTablet = false;
 try {
 const plat = String(navigator.platform || '');
+const _mScreen = Math.min((screen && screen.width) || 0, (screen && screen.height) || 0);
 isTablet = (/iPad/i.test(ua) || plat === 'iPad') && !/android/i.test(ua) ||
-((plat === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+((plat === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window && _mScreen >= 600);
 const _tw = (screen && screen.width) || 0, _th = (screen && screen.height) || 0;
 if (!isTablet && /Android/i.test(ua) && !/Mobile/i.test(ua) && Math.min(_tw, _th) >= 600) isTablet = true;
 } catch (e) {}
@@ -32673,6 +32675,7 @@ setTimeout(function () {
 try { if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, true); } catch (e) {}
 }, 0);
 }
+try { updateChatLoading(); } catch (e) {} // #703：权威就绪即收起进度条（覆盖 changed=false 且屏上已有快照内容、不走 renderWindow 的路径）
 if (typeof v === 'string' && v.length > CHAT_STR_THRESHOLD && idbArr && idbArr.length) {
 setTimeout(function () {
 try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistory(myPrefix, msgs, true); } catch (e) {}
@@ -32943,7 +32946,7 @@ return !!(p && !p.hidden);
 }
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty && !msgs.length);
+chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty); // #703：去掉「msgs 为空」前置
 }
 let chatPinnedBottom = true;
 function chatScrollMax() {
@@ -34197,6 +34200,20 @@ if (chatPinnedBottom && chatVisible()) scrollChatBottom();
 }, 60);
 }).observe(cb643);
 })();
+let _vvGeomChangeTs = 0;
+(function () {
+const vv706 = window.visualViewport;
+const mark706 = function () { _vvGeomChangeTs = Date.now(); };
+if (vv706) { vv706.addEventListener('resize', mark706); vv706.addEventListener('scroll', mark706); }
+window.addEventListener('resize', mark706);
+})();
+setInterval(function () {
+if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT) return;
+if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
+const cb706 = document.getElementById('chat-body');
+if (!cb706) return;
+if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
+}, 250);
 body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;
@@ -36394,8 +36411,8 @@ fillAvatar('chat-user-av', 'cs-avatar-user');
 fillAvatar('chat-partner-av', 'cs-avatar-partner');
 if (window.applyChatSettings) window.applyChatSettings();
 clearChatUnread();
+updateChatLoading(); // #703：先于 loadMsgs 置位——loadMsgs 里同步 parse LS 快照可能上百毫秒，先让进度条就位
 loadMsgs();
-updateChatLoading(); // 记录未就绪时显示「正在加载聊天记录…」进度条
 if (!inplacePatchIfSameWindow()) renderWindow(false, true);
 scrollToBottom();
 if (window.requestAnimationFrame) {
@@ -40716,6 +40733,7 @@ if (morePanel) morePanel.hidden = true;
 emojiShowWhenDecoded(showEmoji, myToken);
 hydrateCcForChatPanels(() => { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); });
 }
+const EMOJI_DECODE_AWAIT_MAX = 24;
 function emojiShowWhenDecoded(show, token) {
 let shown = false;
 const fin = function () {
@@ -40724,12 +40742,24 @@ if (token !== undefined && token !== emojiShowToken) return; // #692 已关闭/�
 try { show(); } catch (e) {}
 };
 if (!emojiList || !window.Promise) { fin(); return; }
-const imgs = emojiList.querySelectorAll('img[src]');
+const imgs = emojiList.querySelectorAll('img');
 if (!imgs.length) { fin(); return; }
 const jobs = [];
+let awaited = 0;
 for (let i = 0; i < imgs.length; i++) {
 const im = imgs[i];
+if (im.dataset && im.dataset.src && !im.getAttribute('src') && i < 16) {
+im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码
+im.removeAttribute('data-src');
+try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
+}
+if (!im.getAttribute('src')) continue;
+if (awaited < EMOJI_DECODE_AWAIT_MAX) {
+awaited++;
 try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+} else {
+try { if (im.decode) im.decode().catch(function () {}); } catch (e) {} // #704：首屏外只预热不等待
+}
 }
 if (!jobs.length) { fin(); return; }
 Promise.all(jobs).then(fin, fin);
@@ -48090,6 +48120,13 @@ else toast('已导入 ' + res.added + ' 张字卡' + fmt + (res.dup ? '，自动
 const CC_FULL_MARK = 'mochi-ccfull';
 const CC_FULL_CK_KEYS = ['place', 'action', 'msg'];
 const CC_FULL_TA_LIBS = [['taAsk', 'ta-ask'], ['taChoose', 'ta-choose'], ['taCurious', 'ta-curious'], ['taRoast', 'ta-roast'], ['taCheckin', 'ta-checkin'], ['taInvite', 'ta-invite']];
+function ccFullWithTimeout(p, ms, fb) {
+return new Promise((res) => {
+let done = false;
+const t = setTimeout(() => { if (!done) { done = true; res(fb); } }, ms);
+Promise.resolve(p).then(v => { if (!done) { done = true; clearTimeout(t); res(v); } }, () => { if (!done) { done = true; clearTimeout(t); res(fb); } });
+});
+}
 function ccFullRd(st, k, dft) {
 try { const v = JSON.parse(st.get(k) || 'null'); return v == null ? dft : v; } catch (e) { return dft; }
 }
@@ -48191,6 +48228,15 @@ st.set(key, JSON.stringify(o));
 const liCcFullExport = document.getElementById('li-cc-full-export');
 if (liCcFullExport) {
 liCcFullExport.addEventListener('click', () => {
+if (!window.openModal) { ccFullDoExport(); return; }
+window.openModal('导出自定义字卡（全量）', '', (mode) => { if (mode === 'go') ccFullDoExport(); }, {
+noInput: true,
+staticText: '导出范围：\n· 聊天字卡：公用（全桌面共享）＋ 专属（只含当前桌面联系人的字卡），含分组与分组停用开关\n· 寻踪日常 / 今日情话：我的添加与自定义分组\n· TA 六类题库（询问 / 小问题 / 好奇 / 吐槽 / 查岗 / 邀请）\n注意：「专属」部分换机恢复时，请切到对应联系人桌面再导入；全量导出不代替 设置→数据备份 的整包备份',
+pills: [{ label: '开始导出', value: 'go' }]
+});
+});
+function ccFullDoExport() {
+try { toast('正在准备导出…'); } catch (e0) {}
 const build = () => {
 try {
 const data = {};
@@ -48220,7 +48266,11 @@ CC_FULL_CK_KEYS.forEach(k => { nItems += Array.isArray(data.checkin[k].list) ? d
 nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
 CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
 const out = { app: CC_FULL_MARK, v: 1, time: Date.now(), data: data };
-Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).then(rs => {
+ccFullWithTimeout(
+Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).catch(() => [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]),
+8000,
+[{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]
+).then(rs => {
 const okN = rs[0].ok + rs[1].ok, missN = rs[0].miss + rs[1].miss;
 ccSaveExportJson(JSON.stringify(out), 'mochi自定义字卡全量.json', 'mochi 自定义字卡（全量）',
 '已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题' +
@@ -48229,8 +48279,8 @@ ccSaveExportJson(JSON.stringify(out), 'mochi自定义字卡全量.json', 'mochi 
 });
 } catch (e) { toast('导出失败：' + ((e && e.message) || '内部错误')); }
 };
-Promise.resolve(hydrateLibScopes(['public', 'own'])).then(build);
-});
+ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(build);
+}
 }
 const liCcFullImport = document.getElementById('li-cc-full-import');
 if (liCcFullImport) {
@@ -48238,7 +48288,7 @@ liCcFullImport.addEventListener('click', () => {
 if (!window.openModal) return;
 window.openModal('导入自定义字卡（全量）', '', (mode) => { ccFullPickFile(mode); }, {
 noInput: true,
-staticText: '选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
+staticText: '导入范围：文件里的 聊天字卡（公用＋专属）/ 寻踪日常 / 今日情话 / TA 六类题库。\n注意：「专属」部分会导入到当前桌面联系人——如文件来自别的桌面，请先切到对应联系人桌面再导入。\n选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
 pills: [
 { label: '追加合并（自动去重）', value: 'merge' },
 { label: '整包替换（覆盖现有）', value: 'replace' }
@@ -48280,7 +48330,7 @@ if (!d || typeof d !== 'object' || data.app !== CC_FULL_MARK) {
 fail('不是「自定义字卡·全量导出」文件——公用/专属聊天字卡请进对应管理页用「导入数据」，整包恢复请用「设置→数据备份」');
 return;
 }
-Promise.resolve(hydrateLibScopes(['public', 'own'])).then(() => { ccFullApply(d, mode); });
+ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(() => { ccFullApply(d, mode); });
 };
 reader.onload = () => {
 const raw = String(reader.result || '');
@@ -69202,7 +69252,8 @@ return new Promise(function (resolve, reject) {
 let done = false;
 const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
 try {
-p.then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+const pr = (typeof p === 'function') ? p() : p;
+Promise.resolve(pr).then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
 function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
 } catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
 });
@@ -70718,8 +70769,8 @@ try { localStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
 try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, JSON.parse(payload)); } catch (e) {}
 }
 function clearCallActive() {
-try { sessionStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
-try { localStorage.removeItem(CALL_ACTIVE_KEY); } catch (e) {}
+try { sessionStorage.setItem(CALL_ACTIVE_KEY, '{"ts":0}'); } catch (e) {}
+try { localStorage.setItem(CALL_ACTIVE_KEY, '{"ts":0}'); } catch (e) {}
 try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, { ts: 0 }); } catch (e) {}
 }
 function fillAv(el, data) {
@@ -70842,6 +70893,7 @@ s.set('records-call', JSON.stringify(list.slice(0, 50)));
 }
 function endCall(text, holdSilent) {
 clearCallActive(); // v3.26.x：正常结束清除进行中标记（中断恢复靠残留检测）
+try { store.set('records-call-last', String(Date.now())); } catch (e) {}
 if (window.stopSfx) window.stopSfx('ring');
 if (window.musicHoldForCall) window.musicHoldForCall(false);
 stopTimers();
@@ -107826,4 +107878,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu5pp2xr -->
+<!-- __MOCHI_EOF__ mu5r6k9o -->

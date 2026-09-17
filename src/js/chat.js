@@ -1411,6 +1411,7 @@ setTimeout(function () {
 try { if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, true); } catch (e) {}
 }, 0);
 }
+try { updateChatLoading(); } catch (e) {} // #703：权威就绪即收起进度条（覆盖 changed=false 且屏上已有快照内容、不走 renderWindow 的路径）
 // v3.26.x OOM：旧大数据字符串存量（升级前写入的 chat-msgs 单键字符串）后台一次性
 // 转数组直存——此后每次读库免整包 JSON.parse（消除数百 MB 解析尖峰与秒级主线程阻塞）。
 // 放在 if(changed) 之外：无本地改动（changed=false）的常见大数据场景也要迁移。
@@ -1745,12 +1746,16 @@ const p = document.getElementById('page-chat');
 return !!(p && !p.hidden);
 }
 // v3.26.x：聊天记录加载进度条显隐——消息区为空且权威数据未就绪时显示「正在加载聊天记录…」，
-//   读库完成（chatDbReady=true 且 msgs 非空）或离开聊天页自动隐藏
+//   读库完成（chatDbReady=true）或离开聊天页自动隐藏
 // FIX 2026-09-15 #526：已知空库（新联系人/空桌面，chatKnownEmpty）不再显示——没有历史可读，
 //   原来新建联系人首次进聊天会白等 2.5s 空库复核才收起进度条
+// FIX 2026-09-17 #703：去掉「msgs 为空」前置——切桌面后进聊天，LS 尾部快照（或快速预读）
+//   先把 msgs 填上几条，权威大包还要再读数秒，旧条件在这段窗口把进度条压掉＝屏上零反馈、
+//   权威到达时 200 气泡+百张图集中解码＝「没有加载缓冲动画、卡几秒」（无头 4× 节流实证：
+//   进度条全程未显示、803ms 长任务）。只要权威未就绪且聊天页可见就显示；就绪即收起。
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty && !msgs.length);
+chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty); // #703：去掉「msgs 为空」前置
 }
 // FIX #162（iPad Air 7 / iPadOS 26 Safari：对方回一条消息视图就向上漂一次，不贴最新消息）
 // 贴底钉住态：程序化滚到底时置真，用户手动触摸/滚轮滚动即解除；复写与图片补滚只在钉住时进行
@@ -3320,6 +3325,31 @@ if (chatPinnedBottom && chatVisible()) scrollChatBottom();
 }, 60);
 }).observe(cb643);
 })();
+// FIX 2026-09-17 #706（iPhone 17 Safari 26.6 iOS 独立应用实报「聊天里所有消息不贴底、
+// 一直停在上半屏/中部，输入栏只有打字（键盘压缩布局）时才可见」，用户明说多机型同现，
+// 要求勿致其他机型回归）：#466/#643 两级回钉都是「事件触发 + 60ms 单次防抖」——事件只在
+// 几何变化的**某一帧**发一次，iOS 26 Safari 起 viewport meta 的 interactive-widget=
+// resizes-content 被真正执行（键盘期 innerHeight 本体也参与变形、vv/inner 分多帧落位），
+// 回钉写入常落在中间态布局上，此后事件不再发、RO 也定格 ＝ 无人再校正，列表永久停错位。
+// 修法：**几何看门狗**——聊天页可见且钉住态时周期复核「scrollTop 是否等于贴底目标
+// （chatScrollMax，行隐藏态口径）」，不等于且视口变形已落定（最近 180ms 无 vv/inner 变化）
+// 就补钉。只认几何事实、不认任何事件，机型/内核零分支；仍受 #162 钉住闸约束（用户翻历史
+// ＝解钉，绝不拽底）、#416 口径（≤8px 算贴底不折腾）、平滑滚动/批量渲染期让路。「变形中
+// 不写、落定后一次校正」同时消掉发消息瞬间「低栏弹跳」的钳位回弹（写入不再落在瞬态布局上）。
+let _vvGeomChangeTs = 0;
+(function () {
+const vv706 = window.visualViewport;
+const mark706 = function () { _vvGeomChangeTs = Date.now(); };
+if (vv706) { vv706.addEventListener('resize', mark706); vv706.addEventListener('scroll', mark706); }
+window.addEventListener('resize', mark706);
+})();
+setInterval(function () {
+if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT) return;
+if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
+const cb706 = document.getElementById('chat-body');
+if (!cb706) return;
+if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
+}, 250);
 // FIX #162：消息图片是 loading=lazy，加载完成晚于滚底，加载后内容长高会把视图从底部顶开
 //（iPadOS 26 Safari 尤其明显＝「回一条滑一次」）——钉住期间任何消息图片 onload 后回到底部
 body.addEventListener('load', (e) => {
@@ -5913,8 +5943,8 @@ fillAvatar('chat-user-av', 'cs-avatar-user');
 fillAvatar('chat-partner-av', 'cs-avatar-partner');
 if (window.applyChatSettings) window.applyChatSettings();
 clearChatUnread();
+updateChatLoading(); // #703：先于 loadMsgs 置位——loadMsgs 里同步 parse LS 快照可能上百毫秒，先让进度条就位
 loadMsgs();
-updateChatLoading(); // 记录未就绪时显示「正在加载聊天记录…」进度条
 // v3.26.x #220 聊天重开不闪：屏上消息区仍与当前 msgs 同窗同貌（同桌面、同条数、
 // 渲染后归一化没改过窗口内容、窗口未裁剪——顶部上翻裁剪后 renderStart>0 不满足）
 // 时，重复进入聊天页不再整窗重建 200 气泡（img 全部重新解码=肉眼跳动，小米15Pro
@@ -10686,6 +10716,13 @@ hydrateCcForChatPanels(() => { if (emojiPanel && !emojiPanel.hidden) renderEmoji
 }
 // #662：把面板里已赋 src 的图 decode 完再执行 show（上面 openEmojiPanel 用；头像互动半框同款见
 //   avatar-lib.js 的 avShowWhenDecoded）。decode() 只影响位图缓存，不改 src、不新建节点、不动布局。
+// FIX 2026-09-17 #704：只等「首屏范围」的解码，不再等全部——旧实现对 emojiList 里所有 img[src]
+//   逐张 await decode，大库（几十上百张，位图在隐藏期被低内存机型回收）总解码时长远超 1s 兜底，
+//   兜底放行后剩余图逐张冒出＝用户看到的「每次打开所有图片都重新加载」（#692 的 1s 兜底恰是
+//   大库机型的常规路径而非保险）。收口：①#704 前几张 data-src 图同步补 src（不等 50ms/4 张的泵，
+//   首屏别干等）；②按 DOM 序前 EMOJI_DECODE_AWAIT_MAX 张（≈首屏两三行）await decode 后即显示；
+//   ③其余已赋 src 的图 fire-and-forget 预热解码，不挡显示（滚动到时位图已就绪或按需即解）。
+const EMOJI_DECODE_AWAIT_MAX = 24;
 function emojiShowWhenDecoded(show, token) {
   let shown = false;
   const fin = function () {
@@ -10694,12 +10731,24 @@ function emojiShowWhenDecoded(show, token) {
     try { show(); } catch (e) {}
   };
   if (!emojiList || !window.Promise) { fin(); return; }
-  const imgs = emojiList.querySelectorAll('img[src]');
+  const imgs = emojiList.querySelectorAll('img');
   if (!imgs.length) { fin(); return; }
   const jobs = [];
+  let awaited = 0;
   for (let i = 0; i < imgs.length; i++) {
     const im = imgs[i];
-    try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+    if (im.dataset && im.dataset.src && !im.getAttribute('src') && i < 16) {
+      im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码
+      im.removeAttribute('data-src');
+      try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
+    }
+    if (!im.getAttribute('src')) continue;
+    if (awaited < EMOJI_DECODE_AWAIT_MAX) {
+      awaited++;
+      try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+    } else {
+      try { if (im.decode) im.decode().catch(function () {}); } catch (e) {} // #704：首屏外只预热不等待
+    }
   }
   if (!jobs.length) { fin(); return; }
   Promise.all(jobs).then(fin, fin);

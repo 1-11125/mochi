@@ -38,8 +38,8 @@ const src = readFileSync(join(root, 'src/js/bg-keep.js'), 'utf8');
 A('A1 kaWithTimeout 超时助手在位', src.includes('function kaWithTimeout(p, ms) {'));
 A('A2 kaSWReady 自愈就绪助手在位', src.includes('function kaSWReady() {'));
 A('A3 ready 接超时', src.includes('kaWithTimeout(navigator.serviceWorker.ready, 4000)'));
-A('A4 ready 空值走 pageFallback', src.includes('if (!reg) { pageFallback(); return; }'));
-A('A5 showNotification 接超时', src.includes('kaWithTimeout(reg.showNotification(title, attempt), 4000)'));
+A('A4 ready 空值走 pageFallback（隐藏态挂就绪即补发）', src.includes('if (hidden) swNotifyLater(title, opts); pageFallback(); return;'));
+A('A5 showNotification 接超时（#673 改 thunk 形态、#705 修 kaWithTimeout 兼容）', src.includes('kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)'));
 A('A6 测试按钮即时反馈文案在位', src.includes("toast('正在检查通知环境…');"));
 
 await cdp('Page.enable'); await cdp('Runtime.enable');

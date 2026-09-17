@@ -3013,6 +3013,16 @@
   const CC_FULL_MARK = 'mochi-ccfull';
   const CC_FULL_CK_KEYS = ['place', 'action', 'msg'];
   const CC_FULL_TA_LIBS = [['taAsk', 'ta-ask'], ['taChoose', 'ta-choose'], ['taCurious', 'ta-curious'], ['taRoast', 'ta-roast'], ['taCheckin', 'ta-checkin'], ['taInvite', 'ta-invite']];
+  // #701：链路任一环（IDB 大键取回 / 媒体池令牌还原）在部分安卓壳（夸克等）上可能挂起不落定——
+  // 原实现 .then 干等＝「点了全量导出没反应」。统一加超时兜底：超时/失败按「未取回/未还原」继续，
+  // 宁可导出当前已就绪的数据也不静默卡死；每一步失败都有 toast。
+  function ccFullWithTimeout(p, ms, fb) {
+    return new Promise((res) => {
+      let done = false;
+      const t = setTimeout(() => { if (!done) { done = true; res(fb); } }, ms);
+      Promise.resolve(p).then(v => { if (!done) { done = true; clearTimeout(t); res(v); } }, () => { if (!done) { done = true; clearTimeout(t); res(fb); } });
+    });
+  }
   function ccFullRd(st, k, dft) {
     try { const v = JSON.parse(st.get(k) || 'null'); return v == null ? dft : v; } catch (e) { return dft; }
   }
@@ -3119,7 +3129,18 @@
   }
   const liCcFullExport = document.getElementById('li-cc-full-export');
   if (liCcFullExport) {
+    // #701：导出前先弹范围说明（用户反馈「缺少详细说明」「没说明专属=当前桌面」）；
+    // 点「开始导出」才真正跑导出链，链路全程有反馈（准备中 toast / 失败 toast / 超时兜底）
     liCcFullExport.addEventListener('click', () => {
+      if (!window.openModal) { ccFullDoExport(); return; }
+      window.openModal('导出自定义字卡（全量）', '', (mode) => { if (mode === 'go') ccFullDoExport(); }, {
+        noInput: true,
+        staticText: '导出范围：\n· 聊天字卡：公用（全桌面共享）＋ 专属（只含当前桌面联系人的字卡），含分组与分组停用开关\n· 寻踪日常 / 今日情话：我的添加与自定义分组\n· TA 六类题库（询问 / 小问题 / 好奇 / 吐槽 / 查岗 / 邀请）\n注意：「专属」部分换机恢复时，请切到对应联系人桌面再导入；全量导出不代替 设置→数据备份 的整包备份',
+        pills: [{ label: '开始导出', value: 'go' }]
+      });
+    });
+    function ccFullDoExport() {
+      try { toast('正在准备导出…'); } catch (e0) {}
       const build = () => {
         try {
           const data = {};
@@ -3149,8 +3170,12 @@
           nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
           CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
           const out = { app: CC_FULL_MARK, v: 1, time: Date.now(), data: data };
-          // #506：cc 双作用域同样先还原媒体池令牌再落文件
-          Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).then(rs => {
+          // #506：cc 双作用域同样先还原媒体池令牌再落文件；#701：还原挂起/失败 8s 兜底放行（令牌原样进文件）
+          ccFullWithTimeout(
+            Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).catch(() => [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]),
+            8000,
+            [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]
+          ).then(rs => {
             const okN = rs[0].ok + rs[1].ok, missN = rs[0].miss + rs[1].miss;
             ccSaveExportJson(JSON.stringify(out), 'mochi自定义字卡全量.json', 'mochi 自定义字卡（全量）',
             '已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题' +
@@ -3159,9 +3184,10 @@
           });
         } catch (e) { toast('导出失败：' + ((e && e.message) || '内部错误')); }
       };
-      // 导出前也走权威取回链：挂起在 IDB 的大键先拉回 store 再读（与列表页角标同一防线）
-      Promise.resolve(hydrateLibScopes(['public', 'own'])).then(build);
-    });
+      // 导出前也走权威取回链：挂起在 IDB 的大键先拉回 store 再读（与列表页角标同一防线）；
+      // #701：取回在部分安卓壳上可能永不落定——4s 超时按当前已就绪数据继续导出，不再静默干等
+      ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(build);
+    }
   }
   const liCcFullImport = document.getElementById('li-cc-full-import');
   if (liCcFullImport) {
@@ -3169,7 +3195,7 @@
       if (!window.openModal) return;
       window.openModal('导入自定义字卡（全量）', '', (mode) => { ccFullPickFile(mode); }, {
         noInput: true,
-        staticText: '选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
+        staticText: '导入范围：文件里的 聊天字卡（公用＋专属）/ 寻踪日常 / 今日情话 / TA 六类题库。\n注意：「专属」部分会导入到当前桌面联系人——如文件来自别的桌面，请先切到对应联系人桌面再导入。\n选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
         pills: [
           { label: '追加合并（自动去重）', value: 'merge' },
           { label: '整包替换（覆盖现有）', value: 'replace' }
@@ -3215,8 +3241,8 @@
             fail('不是「自定义字卡·全量导出」文件——公用/专属聊天字卡请进对应管理页用「导入数据」，整包恢复请用「设置→数据备份」');
             return;
           }
-          // 大键先走权威取回链（同导出口径），落定后再合并/替换写入
-          Promise.resolve(hydrateLibScopes(['public', 'own'])).then(() => { ccFullApply(d, mode); });
+          // 大键先走权威取回链（同导出口径），落定后再合并/替换写入；#701：4s 超时兜底不静默
+          ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(() => { ccFullApply(d, mode); });
         };
         reader.onload = () => {
           const raw = String(reader.result || '');

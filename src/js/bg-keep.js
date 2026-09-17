@@ -903,7 +903,15 @@
       let done = false;
       const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
       try {
-        p.then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+        // FIX 2026-09-17 #705 兼容 thunk——#673 把 showNotification 调用改成本函数不支持的
+        //   thunk 形态（传 function 而非 Promise），而这里仍直接 p.then：函数没有 .then →
+        //   TypeError 进 catch → reject → STRIP_LADDER 四级降级被同一个 TypeError 连环「失败」
+        //   秒耗尽 → resolve(false)，reg.showNotification 从未执行。后果＝#673 部署后所有
+        //   机型后台通知全灭（无头实测 gateStats.sent=1 而 showNotification 0 次调用、无任何
+        //   报错）。修法：传函数则先调用取 Promise（同步 throw 同样落进本 catch），传
+        //   Promise 维持原行为；Promise.resolve 兜住返回 undefined 的实现。
+        const pr = (typeof p === 'function') ? p() : p;
+        Promise.resolve(pr).then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
           function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
       } catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
     });
