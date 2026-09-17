@@ -12,7 +12,8 @@
 //                   旧「一次性定位」块已移除（absent）。
 //   B 轴（真实产物）：点气泡开操作条＝贴着气泡（垂直缝隙 ≤40px）；滚动消息列表＝操作条实时跟随
 //                   （无修复时距离 ≈ 滚动量 380px，判别点明确）；锚点气泡被删＝下次几何变化时
-//                   菜单自动关闭；.phone 高度压缩→恢复（模拟键盘开合）＝回钉贴底（距底 ≤8px）。
+//                   菜单自动关闭；贴底态内容长高后 .phone 压缩→恢复（键盘期来消息形态）＝
+//                   回钉贴底（无修复时 scrollTop 停旧值、恢复后 dist≈ΔH≈60px 离底，判别点明确）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -49,8 +50,7 @@ check('A8 旧「一次性定位」块已移除（absent：群聊直接写 style.
   !gcSrc.includes("gcMsgActions.style.top = y + 'px';"));
 if (results.some(r => !r.ok)) {
   console.log('----');
-  console.log('A 轴有 FAIL：源码锚缺失（修复被覆盖或未接入），B 轴跳过');
-  process.exit(1);
+  console.log('A 轴有 FAIL：源码锚缺失（修复被覆盖或未接入）——继续跑 B 轴取行为级 RED 对照');
 }
 
 // ---------- B 轴：真实浏览器行为 ----------
@@ -231,12 +231,19 @@ await sleep(250);
 const b3hidden = await evalJs(`(function(){ var m = document.getElementById('msg-actions'); return m ? !!m.hidden : null; })()`);
 check('B3 锚点气泡被删后菜单自动关闭', b3hidden === true, 'hidden=' + b3hidden);
 
-// B4 .phone 高度压缩→恢复（模拟键盘开合）：盒子真变高后回钉贴底
-await evalJs("(function(){var cb=document.getElementById('chat-body'); cb.scrollTop = cb.scrollHeight; return 1;})()");
-await sleep(200);
+// B4 .phone 压缩→恢复 × 内容长高（模拟「键盘开着时来消息/图片撑高」的真实形态）：
+// 贴底态先追加一条消息（内容高 +ΔH，视图离底 ΔH 且此刻无人回钉），随后压缩 .phone（键盘开）
+// 再恢复（键盘收）。有 RO 回钉＝压缩帧内 scrollTop 就跟到新 max、恢复后贴底（dist≤8）；
+// 无修复＝scrollTop 停在旧值 H1−F，恢复后 dist≈ΔH 离底（判别点，基线实测 ≈60px）
 const phoneH = await evalJs(`(function(){
+  var cb = document.getElementById('chat-body');
+  cb.scrollTop = cb.scrollHeight; // 先回到贴底
+  var m = document.createElement('div');
+  m.className = 'msg msg-out';
+  m.innerHTML = '<div class="msg-bubble">键盘期长高的消息</div>';
+  cb.appendChild(m); // 内容长高、视图离底（真实形态：键盘期来消息/图片撑高）
   var ph = document.querySelector('.phone');
-  ph.style.height = Math.round(window.innerHeight * 0.66) + 'px'; // 模拟键盘压下
+  ph.style.height = Math.round(window.innerHeight * 0.66) + 'px'; // 键盘压下（此刻 RO 应回钉）
   return ph.style.height;
 })()`);
 await sleep(250);
