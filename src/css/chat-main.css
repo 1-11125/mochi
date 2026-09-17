@@ -489,10 +489,30 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .page.full .chat-body { padding: 14px 18px 28px; } /* v3.5.48 搴曢儴鐣欑櫧鍔犲ぇ锛氭渶鍚庝竴鏉℃秷鎭笉璐磋緭鍏ユ爮 */
 .page.full .chat-input-row { margin: 8px 18px 16px; }
 
-/* #655：留白参与 flex 布局，消息区随栏位内移缩短；不改安全区或键盘定位。 */
+/* #655：留白参与 flex 布局，消息区随栏位内移缩短；不改安全区或键盘定位。
+   #708：inset 支持负值双向——正值仍走留白高度（max 取正部），负值走负 margin
+   （min 取负部）：顶栏上移＝::before 负 margin-bottom 把整列内容上提（底栏由
+   flex:1 的消息区锚在原地）；底栏下移＝输入栏负 margin-bottom 让 margin-box
+   变短、自身越过容器底沿（#page-chat overflow:hidden 裁掉超出），消息区随之
+   伸长。全程仍是 flex 布局（无 transform/zoom）。
+   底栏基准 margin 分环境：宽屏悬浮 16px（chat-main 顶部 .page.full 规则）/
+   ≤900px 通栏、force-mobile、tablet 均 0px（base.css）——用 --cs-input-mb-base
+   按环境镜像后叠加负向偏移，避免 ID 特异性覆盖把 16px 基准打没。 */
 #page-chat::before, #page-chat::after { content:''; display:block; flex-shrink:0; }
-#page-chat::before { height:var(--cs-head-inset, 0px); }
-#page-chat::after { height:var(--cs-input-inset, 0px); }
+#page-chat::before {
+  height:max(var(--cs-head-inset, 0px), 0px);
+  margin-bottom:min(var(--cs-head-inset, 0px), 0px);
+}
+#page-chat::after { height:max(var(--cs-input-inset, 0px), 0px); }
+#page-chat > .chat-input-row {
+  --cs-input-mb-base:16px;
+  margin-bottom:calc(var(--cs-input-mb-base, 0px) + min(var(--cs-input-inset, 0px), 0px));
+}
+@media (max-width: 900px) {
+  #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
+}
+html.force-mobile #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
+html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat { --cs-bar-rgb:255,255,255; }
 [data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
 #page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }

@@ -132,13 +132,21 @@
     { key: 'cs-head-opacity', label: '顶部栏不透明度', def: 92, max: 100, unit: '%' },
     { key: 'cs-input-opacity', label: '底部输入栏不透明度', def: 92, max: 100, unit: '%' },
     { key: 'cs-bubble-opacity', label: '气泡底色不透明度', def: 100, max: 100, unit: '%' },
-    { key: 'cs-head-inset', label: '顶部栏向下移动', def: 0, max: 80, unit: 'px' },
-    { key: 'cs-input-inset', label: '底部栏向上移动', def: 0, max: 80, unit: 'px' }
+    // #708：位置微调改双向——正值保持原方向（顶栏下移/底栏上移），负值反向
+    //（顶栏上移/底栏下移）；存值语义不变，旧数据 0~80 的含义原样兼容。
+    { key: 'cs-head-inset', label: '顶部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值下移、负值上移' },
+    { key: 'cs-input-inset', label: '底部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值上移、负值下移' }
   ];
+  // #708：统一钳制（位置两项 min=-80 双向；其余项无 min 按 0 起单向上限）
+  const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
   function surfaceValue(item) {
     const raw = store.get(item.key);
     const n = raw === null || raw === undefined || String(raw).trim() === '' ? item.def : Number(raw);
-    return Number.isFinite(n) ? Math.max(0, Math.min(item.max, Math.round(n))) : item.def;
+    return Number.isFinite(n) ? surfaceClamp(item, n) : item.def;
+  }
+  // #708：带方向箭头的值显示（正负各一箭头，0 显示「0」）
+  function surfaceArrow(v, posArrow, negArrow) {
+    return v > 0 ? posArrow + v : v < 0 ? negArrow + (-v) : '0';
   }
   function applyChatSurfaces(inBg, outBg) {
     if (!chatPage) return;
@@ -154,7 +162,7 @@
     const labels = {
       'cs-bar-op-val': '顶 ' + values[0] + '% / 底 ' + values[1] + '%',
       'cs-bubble-op-val': values[2] + '% 不透明',
-      'cs-bar-pos-val': '顶 ↓' + values[3] + ' / 底 ↑' + values[4] + 'px',
+      'cs-bar-pos-val': '顶 ' + surfaceArrow(values[3], '↓', '↑') + ' / 底 ' + surfaceArrow(values[4], '↑', '↓') + 'px',
       'cs-typing-ink-val': store.get('cs-typing-ink') || '#8a8a8a'
     };
     Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el) el.textContent = labels[id]; });
@@ -773,12 +781,12 @@
       if (window.activePrefix() !== cid) return;
       const n = Number(v);
       if (!Number.isFinite(n)) return;
-      store.set(item.key, String(Math.max(0, Math.min(item.max, Math.round(n)))));
+      store.set(item.key, String(surfaceClamp(item, n)));
       applySettings();
     }, {
       noInput: true,
-      slider: { min: 0, max: item.max, step: 1, value: surfaceValue(item), unit: item.unit,
-        label: item.unit === '%' ? '0% 全透明 · 100% 不透明；确认后生效' : '0px 为默认位置；保留安全区，确认后生效' },
+      slider: { min: item.min != null ? item.min : 0, max: item.max, step: 1, value: surfaceValue(item), unit: item.unit,
+        label: item.unit === '%' ? '0% 全透明 · 100% 不透明；确认后生效' : '0px 为默认位置；' + (item.posHint || '调整位置') + '；保留安全区，确认后生效' },
       pills: [{ label: '恢复默认', value: item.def }]
     });
   }
@@ -2640,8 +2648,8 @@
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
         wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[0]), v => setSurface(0, v), 0, 100, 1, '%'));
         wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
-        wrap.appendChild(mkSlider('顶栏下移', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), 0, 80, 1, 'px'));
-        wrap.appendChild(mkSlider('底栏上移', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), 0, 80, 1, 'px'));
+        wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px'));
+        wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px'));
         wrap.appendChild(mkGrid([
           mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
           mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
@@ -2649,7 +2657,7 @@
         ]));
         paletteHost = document.createElement('div');
         wrap.appendChild(paletteHost);
-        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置微调只作用于本桌面。'));
+        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置 0 为默认（顶栏正=下移/负=上移，底栏正=上移/负=下移），只作用于本桌面。'));
         return wrap;
       } },
       { key: 'type', label: '字体 · 其他', build: () => {

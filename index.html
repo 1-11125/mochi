@@ -1791,8 +1791,20 @@ box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
 .page.full .chat-body { padding: 14px 18px 28px; } .page.full .chat-input-row { margin: 8px 18px 16px; }
 #page-chat::before, #page-chat::after { content:''; display:block; flex-shrink:0; }
-#page-chat::before { height:var(--cs-head-inset, 0px); }
-#page-chat::after { height:var(--cs-input-inset, 0px); }
+#page-chat::before {
+height:max(var(--cs-head-inset, 0px), 0px);
+margin-bottom:min(var(--cs-head-inset, 0px), 0px);
+}
+#page-chat::after { height:max(var(--cs-input-inset, 0px), 0px); }
+#page-chat > .chat-input-row {
+--cs-input-mb-base:16px;
+margin-bottom:calc(var(--cs-input-mb-base, 0px) + min(var(--cs-input-inset, 0px), 0px));
+}
+@media (max-width: 900px) {
+#page-chat > .chat-input-row { --cs-input-mb-base:0px; }
+}
+html.force-mobile #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
+html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat { --cs-bar-rgb:255,255,255; }
 [data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
 #page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }
@@ -9983,9 +9995,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789684089311">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.734</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 06:28<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789684766248">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.735</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 06:39<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11418,7 +11430,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.734</div>
+          <div class="val" id="about-ver-val">v3.26.735</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11487,7 +11499,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.734</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.735</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11867,7 +11879,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.734</span>
+              <span class="lic-ver">v3.26.735</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -16054,7 +16066,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
         <div class="set-row" id="cs-bar-pos">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
-          <div class="txt">顶栏 / 底栏位置微调<span class="sub">顶栏向下、底栏向上各 0–80px；设为 0 恢复默认</span></div>
+          <div class="txt">顶栏 / 底栏位置微调<span class="sub">上下各 ±80px（顶栏正=下移、底栏正=上移，负值反向）；设为 0 恢复默认</span></div>
           <div class="val" id="cs-bar-pos-val">默认</div>
         </div>
       </div>
@@ -49981,13 +49993,17 @@ const CHAT_SURFACE_SETTINGS = [
 { key: 'cs-head-opacity', label: '顶部栏不透明度', def: 92, max: 100, unit: '%' },
 { key: 'cs-input-opacity', label: '底部输入栏不透明度', def: 92, max: 100, unit: '%' },
 { key: 'cs-bubble-opacity', label: '气泡底色不透明度', def: 100, max: 100, unit: '%' },
-{ key: 'cs-head-inset', label: '顶部栏向下移动', def: 0, max: 80, unit: 'px' },
-{ key: 'cs-input-inset', label: '底部栏向上移动', def: 0, max: 80, unit: 'px' }
+{ key: 'cs-head-inset', label: '顶部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值下移、负值上移' },
+{ key: 'cs-input-inset', label: '底部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值上移、负值下移' }
 ];
+const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
 function surfaceValue(item) {
 const raw = store.get(item.key);
 const n = raw === null || raw === undefined || String(raw).trim() === '' ? item.def : Number(raw);
-return Number.isFinite(n) ? Math.max(0, Math.min(item.max, Math.round(n))) : item.def;
+return Number.isFinite(n) ? surfaceClamp(item, n) : item.def;
+}
+function surfaceArrow(v, posArrow, negArrow) {
+return v > 0 ? posArrow + v : v < 0 ? negArrow + (-v) : '0';
 }
 function applyChatSurfaces(inBg, outBg) {
 if (!chatPage) return;
@@ -50002,7 +50018,7 @@ chatPage.style.setProperty('--cs-' + side + '-surface', rgb ? 'rgba(' + rgb.join
 const labels = {
 'cs-bar-op-val': '顶 ' + values[0] + '% / 底 ' + values[1] + '%',
 'cs-bubble-op-val': values[2] + '% 不透明',
-'cs-bar-pos-val': '顶 ↓' + values[3] + ' / 底 ↑' + values[4] + 'px',
+'cs-bar-pos-val': '顶 ' + surfaceArrow(values[3], '↓', '↑') + ' / 底 ' + surfaceArrow(values[4], '↑', '↓') + 'px',
 'cs-typing-ink-val': store.get('cs-typing-ink') || '#8a8a8a'
 };
 Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el) el.textContent = labels[id]; });
@@ -50540,12 +50556,12 @@ window.openModal(item.label, '', v => {
 if (window.activePrefix() !== cid) return;
 const n = Number(v);
 if (!Number.isFinite(n)) return;
-store.set(item.key, String(Math.max(0, Math.min(item.max, Math.round(n)))));
+store.set(item.key, String(surfaceClamp(item, n)));
 applySettings();
 }, {
 noInput: true,
-slider: { min: 0, max: item.max, step: 1, value: surfaceValue(item), unit: item.unit,
-label: item.unit === '%' ? '0% 全透明 · 100% 不透明；确认后生效' : '0px 为默认位置；保留安全区，确认后生效' },
+slider: { min: item.min != null ? item.min : 0, max: item.max, step: 1, value: surfaceValue(item), unit: item.unit,
+label: item.unit === '%' ? '0% 全透明 · 100% 不透明；确认后生效' : '0px 为默认位置；' + (item.posHint || '调整位置') + '；保留安全区，确认后生效' },
 pills: [{ label: '恢复默认', value: item.def }]
 });
 }
@@ -52149,8 +52165,8 @@ const wrap = document.createElement('div');
 wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
 wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[0]), v => setSurface(0, v), 0, 100, 1, '%'));
 wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
-wrap.appendChild(mkSlider('顶栏下移', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), 0, 80, 1, 'px'));
-wrap.appendChild(mkSlider('底栏上移', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), 0, 80, 1, 'px'));
+wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px'));
+wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px'));
 wrap.appendChild(mkGrid([
 mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
 mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
@@ -52158,7 +52174,7 @@ mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS)
 ]));
 paletteHost = document.createElement('div');
 wrap.appendChild(paletteHost);
-wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置微调只作用于本桌面。'));
+wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置 0 为默认（顶栏正=下移/负=上移，底栏正=上移/负=下移），只作用于本桌面。'));
 return wrap;
 } },
 { key: 'type', label: '字体 · 其他', build: () => {
@@ -108085,4 +108101,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu63p59b -->
+<!-- __MOCHI_EOF__ mu643nl4 -->

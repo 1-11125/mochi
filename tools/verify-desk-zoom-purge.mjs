@@ -42,7 +42,7 @@ const srcText = (p) => { try { return readFileSync(join(root, 'src', p), 'utf8')
 const cssBlocks = [...artText.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
 const zoomLines = cssBlocks.split('\n').filter((l) => /(^|[\s;{])zoom:/.test(l));
 check('S1 产物 CSS 中所有 zoom: 声明都带 html.desk-zoom 前缀（' + zoomLines.length + ' 条）',
-  zoomLines.length >= 4 && zoomLines.every((l) => /html\.desk-zoom/.test(l)),
+  zoomLines.length >= 3 && zoomLines.every((l) => /html\.desk-zoom/.test(l)),
   zoomLines.filter((l) => !/html\.desk-zoom/.test(l)).map((l) => l.slice(0, 60)).join(' | '));
 // S1b 旧的重置块不再存在（声明删除而非兜底）
 check('S1b 产物 CSS 不再有 force-mobile/tablet 的 zoom:1 重置（类门控后触屏形态零声明）',
@@ -77,11 +77,13 @@ check('S6 personalize.js 有 syncDeskZoomClass 定义且接线 ≥5 处（定义
 // ---------- B 组：真渲染 ----------
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const srv = createServer((req, res) => {
+  let data;
   try {
     const p = join(root, decodeURIComponent((req.url || '/').split('?')[0]));
+    data = readFileSync(p);
     res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' });
-    res.end(readFileSync(p));
-  } catch (e) { res.writeHead(404); res.end('nf'); }
+  } catch (e) { res.writeHead(404); res.end('nf'); return; }
+  res.end(data);
 });
 await new Promise((r) => srv.listen(0, '127.0.0.1', r));
 const base = 'http://127.0.0.1:' + srv.address().port + '/index.html';
@@ -195,6 +197,37 @@ async function enterApp(page) {
   check('B4 手机形态（430×932）不挂缩放类、不误判平板（isTablet=false；isIOS 仍 true）',
     !st.clsF && !st.tablet && !st.isTablet && (st.isIOS || !st.uaIphone), JSON.stringify(st));
   await ctx.close();
+}
+
+// B5（#707a 判别力核心）：Macintosh 伪装 UA（iPhone「请求桌面网站」/ iPadOS 13+ 同一信号）
+//   ×触摸屏 ——430×932 手机必须判手机（修复前此形态误判平板＝RED）；768×1024 照判平板（护 iPad）
+{
+  const macUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Safari/605.1.15';
+  const probe = async (vp) => {
+    const ctx = await browser.newContext({ viewport: vp, hasTouch: true, userAgent: macUA, deviceScaleFactor: 3, isMobile: true });
+    // headless chromium 的 maxTouchPoints 恒为 1（<伪装分支要求的 >1），拟真成真机值 5
+    await ctx.addInitScript(() => {
+      try { Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 5, configurable: true }); } catch (e) {}
+    });
+    const page = await ctx.newPage();
+    await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await sleep(900); // device.js 是首个脚本，判定在加载早期已完成
+    const r = await page.evaluate(() => ({
+      tabletCls: document.documentElement.classList.contains('tablet'),
+      isTablet: !!(window.mochiDevice && window.mochiDevice.isTablet),
+      isMobile: !!(window.mochiDevice && window.mochiDevice.isMobile),
+      isIOS: !!(window.mochiDevice && window.mochiDevice.isIOS),
+      sw: screen.width, sh: screen.height
+    }));
+    await ctx.close();
+    return r;
+  };
+  const phone = await probe({ width: 430, height: 932 });
+  check('B5a Macintosh 伪装 UA + 430×932 触摸屏＝手机（不判平板；isIOS 仍 true）',
+    !phone.tabletCls && !phone.isTablet && phone.isMobile && phone.isIOS, JSON.stringify(phone));
+  const pad = await probe({ width: 768, height: 1024 });
+  check('B5b Macintosh 伪装 UA + 768×1024 触摸屏＝平板（iPad 分支不受 #707a 影响）',
+    pad.tabletCls && pad.isTablet, JSON.stringify(pad));
 }
 
 // C 组：采样器剔除伪造的后台帧

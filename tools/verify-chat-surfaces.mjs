@@ -33,9 +33,22 @@ test('bubble alpha changes paint only', () => {
   assert.equal(props.get('--cs-out-surface'), 'rgba(17,17,17,0.3)');
 });
 test('invalid numbers fall back and bounds clamp', () => {
-  values.set('cs-head-opacity', 'NaN'); values.set('cs-input-inset', '999'); values.set('cs-head-inset', '-20'); apply();
+  values.set('cs-head-opacity', 'NaN'); values.set('cs-input-inset', '999'); values.set('cs-head-inset', '-999'); apply();
   assert.equal(props.get('--cs-head-opacity'), '0.92'); assert.equal(props.get('--cs-input-inset'), '80px');
-  assert.equal(props.get('--cs-head-inset'), '0px');
+  assert.equal(props.get('--cs-head-inset'), '-80px');
+});
+test('negative inset passes through for bidirectional bars (#708)', () => {
+  values.set('cs-head-inset', '-20'); values.set('cs-input-inset', '-30'); apply();
+  assert.equal(props.get('--cs-head-inset'), '-20px');
+  assert.equal(props.get('--cs-input-inset'), '-30px');
+  values.set('cs-head-inset', '0'); values.set('cs-input-inset', '0'); apply();
+  assert.equal(props.get('--cs-head-inset'), '0px'); assert.equal(props.get('--cs-input-inset'), '0px');
+});
+test('inset settings declare bidirectional range with sign hints', () => {
+  assert(source.includes("{ key: 'cs-head-inset', label: '顶部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值下移、负值上移' }"));
+  assert(source.includes("{ key: 'cs-input-inset', label: '底部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值上移、负值下移' }"));
+  assert(source.includes("surfaceArrow(values[3], '↓', '↑')"));
+  assert(source.includes("surfaceArrow(values[4], '↑', '↓')"));
 });
 test('each new entry exists once', () => {
   for (const id of ['cs-bar-op', 'cs-bubble-op', 'cs-bar-pos', 'cs-typing-ink'])
@@ -49,10 +62,15 @@ test('beauty schemes preserve all new values', () => {
   const keys = source.match(/const CHAT_BEAUTY_KEYS = \[([\s\S]*?)\];/)[1];
   for (const key of ['cs-head-opacity','cs-input-opacity','cs-bubble-opacity','cs-head-inset','cs-input-inset']) assert(keys.includes("'" + key + "'"));
 });
-test('position controls reserve real flex space', () => {
-  assert(css.includes('#page-chat::before { height:var(--cs-head-inset, 0px); }'));
-  assert(css.includes('#page-chat::after { height:var(--cs-input-inset, 0px); }'));
+test('position controls reserve real flex space and support reverse direction', () => {
   assert(css.includes("content:''; display:block; flex-shrink:0;"));
+  assert(css.includes('height:max(var(--cs-head-inset, 0px), 0px);'));
+  assert(css.includes('height:max(var(--cs-input-inset, 0px), 0px);'));
+  assert(css.includes('margin-bottom:min(var(--cs-head-inset, 0px), 0px);'));
+  assert(css.includes('margin-bottom:calc(var(--cs-input-mb-base, 0px) + min(var(--cs-input-inset, 0px), 0px));'));
+  assert(css.includes('@media (max-width: 900px) {\n  #page-chat > .chat-input-row { --cs-input-mb-base:0px; }'));
+  assert(css.includes('html.force-mobile #page-chat > .chat-input-row { --cs-input-mb-base:0px; }'));
+  assert(css.includes('html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }'));
 });
 test('bar alpha supports dark theme and stays single-chat scoped', () => {
   assert(css.includes('[data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }'));

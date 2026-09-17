@@ -1552,6 +1552,10 @@ const FIX_SENTINELS = [
   { name: '#710a 群聊页加载条模板锚点（删则进度条无处挂载＝进群白屏无反馈回归）', file: 'template.html', needle: 'id="gc-loading"' },
   { name: '#710b 进度条显隐绑「页面可见且权威在途」（删回则 LS 快照先到时读库窗口零反馈）', file: 'js/group-chat.js', needle: 'gcLoadingEl.hidden = !(page && !page.hidden && gcAuthPending);' },
   { name: '#710c 读库落定收起＋切群作废旧等待（删则进度条挂死/旧群等待误收新群进度条）', file: 'js/group-chat.js', needle: 'function gcLoadSettle(seq)' },
+  // ==== 2026-09-18 #711 聊天美化「顶栏/底栏位置」只能单向（顶栏仅下移、底栏仅上移，值域 0~80 且 surfaceValue 把负值钳回 0＝反方向物理不可达，用户直派「只能上调不能下调」）→ 双向化：正值走原留白高度（max 取正部），负值走负 margin（min 取负部）——顶栏上移＝::before 负 margin-bottom 整列上提（底栏被 flex:1 消息区锚在原地）；底栏下移＝输入栏负 margin-bottom 越过容器底沿（overflow:hidden 裁掉）。底栏基准 margin 分环境镜像（宽屏悬浮 16px / ≤900px 通栏、force-mobile、tablet 均 0），避免 ID 特异性覆盖把 16px 基准打没。存值语义不变，旧数据 0~80 原样兼容 ====
+  { name: '#711a 顶栏负值（上移）＝::before 负 margin-bottom（改回单向留白即消失＝顶栏再也不能上移）', file: 'css/chat-main.css', needle: 'margin-bottom:min(var(--cs-head-inset, 0px), 0px);' },
+  { name: '#711b 底栏负值（下移）＝负 margin-bottom 叠加 --cs-input-mb-base 环境基准（改成裸 min() 直写＝宽屏悬浮 16px 底距被 ID 特异性打没、输入栏默认位上飘）', file: 'css/chat-main.css', needle: 'margin-bottom:calc(var(--cs-input-mb-base, 0px) + min(var(--cs-input-inset, 0px), 0px));' },
+  { name: '#711c 位置值域双向钳制（surfaceClamp 吃 item.min；改回 Math.max(0,…)＝负值一律被打回 0＝双向退化回单向）', file: 'js/chat-settings.js', needle: 'const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));' },
   // ==== 2026-09-13 #408 美化导入「解析失败」（IQOO Neo10 vivo 浏览器实报，多机型同族）——美化/聊天美化导入裸 JSON.parse(v.trim()) 一刀切，安卓各浏览器 ce-box 粘贴链路（nbsp/零宽字符/换行块）与聊天 App 转发链路（包裹说明文字/中文引号/全角标点/尾逗号）弄脏 JSON 即失败；#171 字卡导入已修同族，美化两处没跟。修复=personalize.js 全局自救解析器 mochiParsePastedJSON（隐形字符清洗→裁剪首{到末}→字符串外全角标点/尾逗号归一，只在真解析成功且为顶层对象时采用），两处导入接入 + 失败带真实报错并写 __jsErrors 诊断现场；聊天美化空文本静默 return 的「无反应」补提示 ====
   { name: '#408 粘贴导入 JSON 自救解析器（删则安卓各机型粘贴/转发弄脏的方案 JSON 直接解析失败）', file: 'js/personalize.js', needle: "new Error('不是有效的方案 JSON')" },
   { name: '#408 桌面美化导入接入自救解析+诊断现场（删则报障只见「解析失败」无真因）', file: 'js/personalize.js', needle: "'[美化导入] '" },
