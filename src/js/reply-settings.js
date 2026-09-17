@@ -13,6 +13,16 @@
     'kaomoji-prob': 5, 'quote-prob': 30,
     'rc-prob': 25, 'rc-refix': 35, 'rc-en': 1, 'cf-prob': 20,
     'py-en': 1, 'py-prob': 50, 'py-min': 2, 'py-max': 5,
+    // #650：多字卡「拼接随机标点」——py-punct-en 总开关（默认开）；六个拼接符号池开关
+    //（py-punct-space 空格 / py-punct-dou ，/ py-punct-per 。/ py-punct-ex ！/ py-punct-q ？
+    // / py-punct-el ......）。**默认＝空格+四种标点（，！？......）随机混拼、不含句号**
+    //（py-punct-per 默认 0，用户 09:5x 追加定稿「4种标点不要句号+空格的模式要默认开启」；
+    // 其余五枚默认 1）。键未随任何构建上线过、无存量写盘，直接翻默认值即可无需迁移。
+    // 每两条字卡中间独立随机掷一个；总开关关＝固定只用空格（原行为）；池全关会被设置页
+    // 拦下（至少保留一个）。join 消费在 chat.js pyJoinCards（多字卡回复 + 词典拼字单气泡
+    // 同用），设置 UI 见本文件 #650 段（ppy-chips）
+    'py-punct-en': 1,
+    'py-punct-space': 1, 'py-punct-dou': 1, 'py-punct-per': 0, 'py-punct-ex': 1, 'py-punct-q': 1, 'py-punct-el': 1,
     // v3.40.x #370c：csp-cust 回复文本「自定义字卡占比」（%，默认 50）——联系人回话里的
     // 纯文字卡，多大比例保留「你自定义的字卡」、其余让系统默认聊天字卡覆盖（默认字卡本身还
     // 受默认字卡「聊天使用」概率与分类权重控制）。0=尽量用默认字卡，100=全用自定义。chat.js
@@ -257,7 +267,7 @@
       }
     });
     // 开关
-    ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -363,7 +373,7 @@
   // 开关交互
   // #351：所有开关变更后即时保存并 toast 反馈「已保存：开关名（开/关）」——用户反馈改了没提示
   const TOGGLE_NAMES = {
-    'py-en': '多字卡回复', 'as-en': '主动发送', 'dnd-en': '免打扰', 'as-badge': '主动发送爱心标识',
+    'py-en': '多字卡回复', 'py-punct-en': '拼接随机标点', 'as-en': '主动发送', 'dnd-en': '免打扰', 'as-badge': '主动发送爱心标识',
     'ml-kaomoji-en': '信箱颜文字', 'ml-emoji-en': '信箱emoji', 'ml-sticker-en': '信箱表情包',
     'cs-normal': '让对方继续说', 'cs-trigger-name': '昵称触发继续说', 'cs-trigger-bar': '聊天栏继续说按钮',
     'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
@@ -399,7 +409,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -411,6 +421,54 @@
       });
     }
   });
+  // ===== #650：多字卡「拼接符号」池（六选 N 多选 chips） =====
+  // 与上方通用开关不同：六个符号不是 checkbox，而是「拼接符号」行里的药丸 chips
+  //（template.html #ppy-chips，选中态样式 .ppy-chip.sel 在 setting.css）——点击即存即显
+  //（toast 同款）；至少保留一个：把最后一个点掉的尝试拦下、不落盘。总开关 py-punct-en
+  // 关闭时 chips 置灰（仍可点，方便提前配好符号池）。join 消费在 chat.js pyJoinCards。
+  (function () {
+    const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......']];
+    const box = document.getElementById('ppy-chips');
+    function ppyToast(msg, ms) {
+      const d = ccToastEnsure();
+      if (d) { d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show'; clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, ms || 1800); }
+    }
+    function ppySync() {
+      if (!box) return;
+      const cfg = getCfg();
+      const en = cfg['py-punct-en'] === 1;
+      box.querySelectorAll('.ppy-chip').forEach(ch => {
+        const k = ch.dataset.k;
+        if (!k) return;
+        ch.classList.toggle('sel', cfg[k] === 1);
+        ch.classList.toggle('dis', !en);
+      });
+    }
+    if (box) {
+      box.addEventListener('click', (ev) => {
+        const ch = ev.target.closest('.ppy-chip');
+        if (!ch || !ch.dataset.k) return;
+        const k = ch.dataset.k;
+        const cfg = getCfg();
+        const on = cfg[k] === 1;
+        if (on && !POOL.some(p => p[0] !== k && cfg[p[0]] === 1)) {
+          ppyToast('拼接符号至少保留一个（想回到纯空格请关上方「拼接随机标点」）', 2400);
+          return;
+        }
+        window.saveReplyCfg(k, on ? 0 : 1);
+        ppySync();
+        const nm = (POOL.find(p => p[0] === k) || ['', k])[1];
+        toastSaved('拼接符号 ' + nm, !on);
+      });
+    }
+    ppySync();
+    const ppyEnEl = document.getElementById('py-punct-en');
+    if (ppyEnEl) ppyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
+    // 切桌面 / 备份回填 / 写日志修正后重读显示（与 #515 三页概率行同口径）
+    ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(evN => {
+      document.addEventListener(evN, () => { try { ppySync(); } catch (e) {} });
+    });
+  })();
   // #370：词典拼字链路自检——四道闸门（二级锁/词典聊天使用/拼字总开关与概率/抽卡池；#427 移除无 UI 的遗留 dc-cat-dict 闸）
   //   任一被关都是「联系人永不发词典字卡、永不出现词典 tag」且零提示（用户多设备实报，
   //   干净环境全链路验证通过=存量状态差异）。这里把每道闸的实时状态摆进设置页，
@@ -673,7 +731,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

@@ -519,7 +519,34 @@
     renderNickGridSmart();
     renderMeNickGridSmart();
     syncAvPane(); // 两个大类 + 四个 pane 的显隐/文案/计数一次性同步（内含 syncVal）
-    avPage.hidden = false;
+    // FIX 2026-09-17 #662 头像互动「图片闪一下重新加载」（红米 K80 Chrome 等多机型，用户明说其他
+    //   设备型号也有）：与聊天表情包面板同族、同一条机制——半框平时是 display:none 挂着的，
+    //   图在隐藏期间浏览器可以回收已解码位图（中端/低内存机型更积极，正对应「其他设备型号也有」），
+    //   再打开时整格重新解码＝每次打开都闪一下。**这条节点身份测不出**（#508/#509/#617 的断言
+    //   都只看节点有没有被替换，节点一直没换、照样闪），所以在显示前主动 decode 一次：位图还在
+    //   时 decode 立即兑现（不可感知），被回收过时先解码完再显示＝不再出现空帧 / 逐格冒出。
+    //   上限 120ms（绝不因为解码慢把半框卡住）；首次打开还没有已加载图＝同步显示，行为同旧版。
+    avShowWhenDecoded(function () { avPage.hidden = false; });
+  }
+  // #662：把头像库网格里已赋 src 的图 decode 完再执行 show（openAvlib 用）
+  function avShowWhenDecoded(show) {
+    let shown = false;
+    const fin = function () { if (shown) return; shown = true; try { show(); } catch (e) {} };
+    if (!window.Promise) { fin(); return; }
+    const grids = [avGrid, avMeGrid];
+    const jobs = [];
+    for (let g = 0; g < grids.length; g++) {
+      const grid = grids[g];
+      if (!grid) continue;
+      const imgs = grid.querySelectorAll('img[src]');
+      for (let i = 0; i < imgs.length; i++) {
+        const im = imgs[i];
+        try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+      }
+    }
+    if (!jobs.length) { fin(); return; }
+    Promise.all(jobs).then(fin, fin);
+    setTimeout(fin, 120);
   }
   // v3.9.x：切桌面后同样补读新桌面头像池（restoreLib 内部校验桌面归属 + 内容更多才覆盖）
   document.addEventListener('contact-switched', function () {
@@ -699,6 +726,18 @@
   // data 为空时恢复默认人物图标
   // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
   function applyAvatarImg(data, out, chatOnly) {
+    // FIX 2026-09-17 #662：新头像先离屏 decode 一次再落到整列节点——换一次头像会同时改
+    //   顶栏 + 8~16 个气泡头像的 src（实测 15 次 src 赋值），不带预热时各节点各自等解码，
+    //   低端机上是「整列头像一个个换/闪一下」；这里只预热位图缓存，不改 src、不新建节点、
+    //   不阻塞本次赋值（fire-and-forget），失败也不影响任何行为。
+    if (data) {
+      try {
+        const _warm = new Image();
+        _warm.decoding = 'async';
+        _warm.src = data;
+        if (_warm.decode) { const _p = _warm.decode(); if (_p && _p.catch) _p.catch(function () {}); }
+      } catch (e) {}
+    }
     const chatAv = document.getElementById(out ? 'chat-user-av' : 'chat-partner-av');
     // v3.9.x：chatOnly=true 时只更新聊天域（顶部栏 + 消息气泡），不动桌面 deco-widget 头像——
     // TA 主动给我换头像 / 我在头像互动半框手动换"我的头像"都属聊天域，桌面头像独立

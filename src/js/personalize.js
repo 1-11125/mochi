@@ -7131,7 +7131,7 @@ try {
     }
     row.addEventListener('click', function () {
       const cur = normalizeFishLog().length;
-      const HINT = '当前已摸鱼 ' + cur + ' 天。数据丢失后天数会从 0 重新开始，输入原来的天数即可改回；之后打卡/聊天仍按自然日 +1。';
+      const HINT = '当前已摸鱼 ' + cur + ' 天。摸鱼天数＝使用网站的累计天数：当天在站内聊天、打卡或有互动就记 1 天（同一天不重复计）。数据丢失后天数会从 0 重新开始，输入原来的天数即可改回；改回后照常每天 +1。';
       const ctl = window.openModal('修改摸鱼天数', cur ? String(cur) : '', function (v) {
         const sv = String(v == null ? '' : v).trim();
         if (!/^\d+$/.test(sv)) { ctl.hint('请输入 0 起的整数天数'); ctl.stay(); return; }

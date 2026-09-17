@@ -192,9 +192,12 @@
       const row = document.createElement('div');
       row.className = 'set-row';
       row.id = 'sf-night-mode-row';
+      // #659：行内挂「功能说明」胶囊（与上方查岗/来电/频率三行同款）——文案统一登记在
+      // settings-help.js 的 #sf-night-mode-row，点击由该文件全局委托打开弹窗（本处不再重复一份文案）；
+      // data-setdesc 同时把说明并进设置页搜索素材（#573），搜「勿扰/静默」也能找到本行。
       row.innerHTML =
         '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/><path d="M17 4v3M15.5 5.5h3"/></svg></div>' +
-        '<div class="txt">夜间模式<span class="sub" id="sf-night-mode-sub"></span></div>' +
+        '<div class="txt">夜间模式<span class="tag" id="sf-night-mode-tag" data-setdesc="#sf-night-mode-row" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span><span class="sub" id="sf-night-mode-sub"></span></div>' +
         '<label class="toggle"><input type="checkbox" id="sf-night-mode"><span class="tk"></span></label>';
       anchor.parentNode.insertBefore(row, anchor.nextSibling);
       const input = row.querySelector('input');

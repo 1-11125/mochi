@@ -261,7 +261,14 @@
   // resolve，上层 loadMsgs 回调永不执行，聊天记录渲染空后无法补回。加超时保护：
   // 4s 未返回则重试一次（新事务，偶发挂起可自愈），再 4s 仍未返回则 resolve(undefined)
   // 让上层走 LS 兜底/保险丝，避免永久卡死。总上限 8s（原 8+8=16s 进聊天页空白太久）。
-  window.idbGet = function (key) {
+  // FIX 2026-09-17 #665a 读结果「歧义」标记（可选第二参，只增不改返回值语义）：
+  //   `undefined` 有两种来源——①键真不存在（onsuccess 拿到 undefined）；②事务挂起超时/
+  //   连接丢失/打开失败（本文件上方各安卓内核实录）。上层媒体池必须区分：把②当①会永久
+  //   拉黑一个其实存在的媒体池条目（朋友圈/聊天的令牌贴纸「有时看不到、很随机」，#665）。
+  //   传入一个对象即得 `info.ambiguous === true`（仅②置位），不传参的调用方行为一字不变。
+  window.idbGet = function (key, info) {
+    const ambiable = (info && typeof info === 'object') ? info : null;
+    const amb = () => { if (ambiable) ambiable.ambiguous = true; };
     return open().then(db => new Promise((resolve) => {
       let done = false;
       let timer = null;
@@ -271,8 +278,8 @@
           const tx = db.transaction(STORE, 'readonly');
           const req = tx.objectStore(STORE).get(key);
           req.onsuccess = () => finish(req.result);
-          req.onerror = () => { if (connLost(req.error)) dbPromise = null; finish(undefined); };
-        } catch (e) { if (connLost(e)) dbPromise = null; finish(undefined); }
+          req.onerror = () => { if (connLost(req.error)) dbPromise = null; amb(); finish(undefined); };
+        } catch (e) { if (connLost(e)) dbPromise = null; amb(); finish(undefined); }
       }
       let retried = false;
       timer = setTimeout(function () {
@@ -285,15 +292,16 @@
           open().then(function (db2) {
             db = db2;
             run();
-            timer = setTimeout(function () { dbPromise = null; finish(undefined); }, 4000);
-          }).catch(function () { finish(undefined); });
+            timer = setTimeout(function () { dbPromise = null; amb(); finish(undefined); }, 4000);
+          }).catch(function () { amb(); finish(undefined); });
           return;
         }
         dbPromise = null;
+        amb();
         finish(undefined);
       }, 4000);
       run();
-    })).catch(() => undefined);
+    })).catch(() => { amb(); return undefined; });
   };
 
   // v3.5.117：批量读取（单事务内多个 get，替代 N 次独立事务）——

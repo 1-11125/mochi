@@ -198,7 +198,12 @@ async function main() {
 }
 // ============ E. 源码接线断言 ============
 ok('C1 renderEmojiGroup 渲染即预热组内令牌', /grid\.className = 'emoji-grid';\s*emojiWarmGroupTokens\(arr\)/.test(chatSrc));
-ok('C2 mine/非 mine 两分支 img 都走 emojiNewImg 统一创建', (chatSrc.match(/const img = emojiNewImg\(src\);/g) || []).length === 2);
+// #662（2026-09-17）：面板 img 由「无条件 emojiNewImg 新建」改为 emojiAdoptImg（先取回收池里同
+// 身份的旧节点＝已解码的零重解码，取不到才新建）——本项断言随之改口径：两分支仍必须走同一个统一
+// 入口，且入口内部仍以 emojiNewImg 造新节点（decoding=async + 懒加载能力不丢）。
+ok('C2 mine/非 mine 两分支 img 都走统一入口（#662 回收池，新建仍落到 emojiNewImg）',
+  (chatSrc.match(/const img = emojiAdoptImg\(src\);/g) || []).length === 2
+  && /function emojiAdoptImg\(src\)[\s\S]{0,400}?const img = emojiNewImg\(src\);/.test(chatSrc));
 ok('C3 懒加载窗口按面板 40vh 容器收窄 120px（300px 是字卡库全屏列表口径，面板照搬＝3 屏全触发）', chatSrc.indexOf("rootMargin: '120px 0px'") >= 0 && chatSrc.indexOf("rootMargin: '300px 0px'") < 0);
 ok('C4 无 IntersectionObserver 兜底保留（旧内核全量补 src，能力不删零分支）', /img\.setAttribute\('src', img\.dataset\.src \|\| ''\)/.test(chatSrc));
 ok('C5 重绘前清泵队列与定时器（防补到游离节点）', /emojiLazyQueue\.length = 0;[^]*?clearTimeout\(emojiLazyT\)/.test(chatSrc));

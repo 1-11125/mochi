@@ -91,7 +91,7 @@
     return input;
   }
   const callBgRow = document.getElementById('call-bg-row');
-  if (callBgRow) callBgRow.addEventListener('click', pickCallBg);
+  if (callBgRow) callBgRow.addEventListener('click', () => pickCallBg(CALL_BG_KEY));
   // v3.12.x：聊天页「更多功能→通话」半框内直接修改联系人头像 / 通话卡片背景图片
   //   - 联系人头像行 → 收起通话半框，打开「头像互动」半框（上传/点选即换，写 cs-avatar-partner）
   //   - 通话背景图片行 → 与设置页同款上传流程
@@ -106,7 +106,7 @@
     });
   }
   const callBgEditRow = document.getElementById('call-bg-edit-row');
-  if (callBgEditRow) callBgEditRow.addEventListener('click', pickCallBg);
+  if (callBgEditRow) callBgEditRow.addEventListener('click', () => pickCallBg(CALL_BG_KEY));
   const callBgEditRm = document.getElementById('call-bg-edit-remove');
   if (callBgEditRm) {
     callBgEditRm.addEventListener('click', () => {
@@ -142,6 +142,11 @@
     if (val) val.textContent = bg ? '已设置' : '默认';
     const rm = document.getElementById('call-half-bg-remove');
     if (rm) rm.hidden = !bg;
+    // #651：通话功能页同款入口行随存值同步回显（与设置页两处入口共用状态）
+    const evalVal = document.getElementById('call-half-bg-edit-val');
+    if (evalVal) evalVal.textContent = bg ? '已设置' : '默认';
+    const evalRm = document.getElementById('call-half-bg-edit-remove');
+    if (evalRm) evalRm.hidden = !bg;
   }
   const callHalfBgRow = document.getElementById('call-half-bg-row');
   if (callHalfBgRow) callHalfBgRow.addEventListener('click', () => pickCallBg(CALL_HALF_BG_KEY, '通话半框背景已设置'));
@@ -162,6 +167,65 @@
       window.openChatCallPanel();
     });
   }
+  // #651：通话功能页（聊天「更多功能→通话」半框）内直接上传/移除「通话半框背景」——
+  //   与设置页 #call-half-bg-row 同键 call-half-bg、共用 pickCallBg；行值回显由 applyCallHalfBg 同步
+  const callHalfBgEditRow = document.getElementById('call-half-bg-edit-row');
+  if (callHalfBgEditRow) callHalfBgEditRow.addEventListener('click', () => pickCallBg(CALL_HALF_BG_KEY, '通话半框背景已设置'));
+  const callHalfBgEditRm = document.getElementById('call-half-bg-edit-remove');
+  if (callHalfBgEditRm) {
+    callHalfBgEditRm.addEventListener('click', () => {
+      store.remove(CALL_HALF_BG_KEY);
+      applyCallHalfBg();
+      toast('已恢复默认通话半框背景');
+    });
+  }
+  // #651：「打开来电弹窗」预览——在通话功能页里直接打开「联系人来电」时的大弹窗
+  //   （.call-mask/.call-panel，非迷你小框 #call-mini）看看效果。纯 DOM 预览：不掷概率、
+  //   不写记录/系统消息、不播音效、不碰 currentCall；标题标「· 预览」提示非真实来电；
+  //   预览期盖一层透明拦截层，点弹窗/遮罩任意处退出，绝不会误触真实接听/拒绝按钮。
+  //   真实来电/去电触发时 incomingCall/placeCall 开头调 closeCallPreview() 立即让位。
+  let callPreviewOn = false;
+  function closeCallPreview() {
+    if (!callPreviewOn) return;
+    callPreviewOn = false;
+    const m = document.getElementById('call-mask');
+    const title = m && m.querySelector('.call-title');
+    if (title) title.textContent = '语音通话';
+    if (m) m.hidden = true;
+    const catcher = document.getElementById('call-preview-catcher');
+    if (catcher && catcher.parentNode) catcher.parentNode.removeChild(catcher);
+    setMaskBtns('none');
+  }
+  function previewCallPopup() {
+    if (callPreviewOn) { closeCallPreview(); return; }
+    if (currentCall) { toast('当前正在通话中'); return; }
+    const m = document.getElementById('call-mask');
+    if (!m) { toast('通话弹窗暂不可用'); return; }
+    fillAv(document.getElementById('call-av'), partnerAv());
+    const nm = document.getElementById('call-name');
+    if (nm) nm.textContent = partnerName();
+    const st = document.getElementById('call-status');
+    if (st) st.textContent = '对方来电...';
+    const du = document.getElementById('call-duration');
+    if (du) du.textContent = '00:00';
+    const cd = document.getElementById('call-countdown');
+    if (cd) cd.hidden = true;
+    const title = m.querySelector('.call-title');
+    if (title) title.textContent = '语音通话 · 预览';
+    setMaskBtns('ringing');
+    m.hidden = false;
+    const catcher = document.createElement('div');
+    catcher.id = 'call-preview-catcher';
+    catcher.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;';
+    catcher.addEventListener('click', closeCallPreview);
+    m.appendChild(catcher);
+    callPreviewOn = true;
+    toast('预览模式：点击任意处退出');
+  }
+  const callViewRow = document.getElementById('call-view-row');
+  if (callViewRow) callViewRow.addEventListener('click', previewCallPopup);
+  // 预览中切桌面：通话功能页随切换收起，预览弹窗一并退出（姓名/头像不残留上一桌面）
+  document.addEventListener('contact-switched', closeCallPreview);
   // v3.5.94：通话背景大键可能只存在 IndexedDB（导入兜底写入/大键只进 IDB）→ 启动补读后重新应用
   // v3.6.x：修复——这段补读原本被错位写进「上传背景图片」的回调里，只在用户上传图片时才执行，
   //   页面加载时从不运行，导致导入数据后通话背景无法从 IndexedDB 恢复；移回模块顶层随加载执行
@@ -709,6 +773,8 @@
     if (currentCall) return;
     // 夜间模式：兜住所有直达来电入口（含跨桌面接听、响铃挂起恢复），时段内一律不响铃
     if (window.nightModeActive && window.nightModeActive()) return;
+    // #651：预览中的弹窗立即让位给真实来电（不拆拦截层，接听/拒绝会点不到）
+    closeCallPreview();
     closeImageOverlay();
     // v3.5.60：来电播放设置的铃声音效
     if (window.playSfx) window.playSfx('ring');
@@ -800,6 +866,8 @@
   // 去电：拨打 → 忙线/拒绝/接通/未接（星言概率）
   window.placeCall = function () {
     if (currentCall) { toast('已有通话中'); return; }
+    // #651：预览中手动拨打——先拆预览弹层再进入真实去电
+    closeCallPreview();
     const name = partnerName();
     currentCall = bindCall({ direction: 'out', status: 'calling', startTime: Date.now(), durationSec: 0 });
     // v3.6.x：绑定本次通话对象——结果定时器回调里校验 currentCall === callRef，

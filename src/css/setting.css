@@ -165,6 +165,12 @@
 .gs-row .tag:hover, .gs-row .tag:focus-visible { background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.12); outline:none; }
 [data-theme="dark"] .gs-row .tag { color:#aaa; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.06); }
 [data-theme="dark"] .gs-row .tag:hover, [data-theme="dark"] .gs-row .tag:focus-visible { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+/* #650 多字卡「拼接符号」多选 chips——药丸复用 .gs-row .tag，选中态对齐 .rps-tab.sel；
+   .dis＝「拼接随机标点」总开关关闭时置灰（仍可点，方便提前配好符号池） */
+.ppy-chips { display:flex; flex-wrap:wrap; gap:6px 6px; justify-content:flex-end; max-width:62%; }
+.ppy-chip.sel { background:var(--ink,#111); color:#fff; border-color:var(--ink,#111); }
+[data-theme="dark"] .ppy-chip.sel { background:var(--btn-bg,#eee); color:var(--btn-ink,#111); border-color:var(--btn-bg,#eee); }
+.ppy-chip.dis { opacity:.45; }
 /* v3.33.x #523：时间入口按钮 + 自绘日期/时间选择器（替代原生 datetime-local——原生弹层在部分
    设备/桌面预览下锚点不受控、会飘出手机框甚至屏幕外。同类先例：批量导入的目标分组原生 select 改自绘胶囊） */
 .deadline-btn {

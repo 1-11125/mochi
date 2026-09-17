@@ -489,6 +489,17 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 .page.full .chat-body { padding: 14px 18px 28px; } /* v3.5.48 搴曢儴鐣欑櫧鍔犲ぇ锛氭渶鍚庝竴鏉℃秷鎭笉璐磋緭鍏ユ爮 */
 .page.full .chat-input-row { margin: 8px 18px 16px; }
 
+/* #655：留白参与 flex 布局，消息区随栏位内移缩短；不改安全区或键盘定位。 */
+#page-chat::before, #page-chat::after { content:''; display:block; flex-shrink:0; }
+#page-chat::before { height:var(--cs-head-inset, 0px); }
+#page-chat::after { height:var(--cs-input-inset, 0px); }
+#page-chat { --cs-bar-rgb:255,255,255; }
+[data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
+#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }
+#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }
+#page-chat .msg-in .msg-bubble { background:var(--cs-in-surface, var(--msg-in-bg, #ffffff)); }
+#page-chat .msg-out .msg-bubble { background:var(--cs-out-surface, var(--msg-out-bg, #111111)); }
+
 /* 杈撳叆鏍忓浘鏍囨寜閽紙鏇村鍔熻兘 / 琛ㄦ儏鍖咃級 */
 .ch-input-btn {
   width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:0;
@@ -1001,7 +1012,12 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 #emoji-list .emoji-grid.emoji-grid-text { grid-template-columns:repeat(2, 1fr); }
 #emoji-list .emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
 .emoji-grid-text .emoji-item { aspect-ratio:auto; min-height:54px; padding:9px 6px; }
-.emoji-grid-text .emoji-item:nth-child(2n) { border-right:none; }
+/* FIX 2026-09-17 #666（用户直派）：emoji 子分类的网格同时挂 .emoji-grid-text 与 .emoji-grid-emoji
+   （chat.js renderEmojiTextGroup 的 className），而这条 2n 去右线规则是给「文字 2 列」网格用的、
+   特异性(0,3,0) 高于 .emoji-item:nth-child(4n)(0,2,0)——在 4 列 emoji 网格里第 2 格的右线（即
+   中间那两格之间的竖线）也被摘掉＝每行中间缺一条线。加 :not(.emoji-grid-emoji) 收窄作用域后，
+   4 列网格重新由 4n 规则管（行尾去线），2 列文字网格行为不变。 */
+.emoji-grid-text:not(.emoji-grid-emoji) .emoji-item:nth-child(2n) { border-right:none; }
 .emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; }
 .emoji-grid-emoji .emoji-text-item { font-size:25px; line-height:1.2; word-break:keep-all; }
 

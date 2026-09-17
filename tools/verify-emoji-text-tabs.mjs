@@ -8,6 +8,9 @@
 //   （全局键 hide-tab-kaomoji / hide-tab-emoji，默认关＝显示）。
 // 实现：chat.js emojiCat 分类行（JS 注入 .emoji-cats）+ renderEmojiTextPanel 文字网格；
 //   my-text-groups 全局键；chat-settings.js 注入两开关行（广播 hide-tab-changed）。
+// #666 追加（2026-09-17 用户直派）：A/B/F2 三条 computed border-right 断言——emoji 4 列网格
+//   同挂 .emoji-grid-text，那条给 2 列文字网格用的「2n 去右线」会把第 2 格右线也摘掉＝
+//   一行四格里中间两个之间缺一条竖线（用户报障）。
 // 注意：本文件字符串里不要出现反引号（颜文字测试样本一律选不含 ` 的），避免模板串转义事故。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -89,6 +92,20 @@ function check(name, ok, info) {
   if (ok) { pass++; console.log('PASS  ' + name + (info ? '  [' + info + ']' : '')); }
   else { fail++; console.log('FAIL  ' + name + (info ? '  [' + info + ']' : '')); }
 }
+// #666：1px 在本页运行环境里会被算成 0.666667px 之类的小数（页面缩放/DPR），
+// 所以竖线断言只判「有没有线」（Y/N），不判绝对值——判的是「行内竖线在不在」这个行为。
+function borderSig(list) {
+  return (list || []).map(function (v) { return parseFloat(v) > 0 ? 'Y' : 'N'; }).join('');
+}
+// #666：sticker 分类的网格是异步填充的（#435 懒加载/面板水合），断言前先等网格出现
+async function waitGrid(maxMs) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < maxMs) {
+    if (await evalJs(`!!document.querySelector('#emoji-list .emoji-grid')`)) return true;
+    await sleep(150);
+  }
+  return false;
+}
 
 async function navigate(query) {
   await cdp('Page.navigate', { url: baseUrl + '/index.html' + (query || '') });
@@ -108,8 +125,18 @@ const SNAP = `(function(){
     return (d.childNodes.length && d.childNodes[0].nodeType === 3) ? d.childNodes[0].textContent : d.textContent;
   });
   var grid = p.querySelector('#emoji-list .emoji-grid');
+  // #666：网格列数 + 每格 computed 右边线宽——用来验「一行 N 个」时的竖线是否断在行内
+  var cols = 0, hborders = [];
+  if (grid) {
+    try { cols = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(function(s){ return s; }).length; } catch (e) {}
+    hborders = [].slice.call(p.querySelectorAll('#emoji-list .emoji-grid > .emoji-item')).map(function(d){
+      return getComputedStyle(d).borderRightWidth;
+    });
+  }
   var tt = document.getElementById('emoji-text-tools');
   return { open: true,
+    cols: cols,
+    hborders: hborders,
     cats: cats.map(function(c){ return { cat: c.dataset.ecat, hidden: c.hidden === true, sel: c.classList.contains('sel') }; }),
     visTabs: visTabs.map(function(t){ return t.dataset.etab; }),
     taLabel: (p.querySelector('[data-etab="ta"]')||{}).textContent || '',
@@ -132,7 +159,7 @@ try {
     try {
       var tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
       var own = { text:[], image:[], poke:[], voice:[], sticker:[['TA表情',[tiny,tiny]]],
-        kaomoji:[['开心',['(＝^ω^＝)','(￣▽￣)~*']]], emoji:[['常用',['😂','🥰']]] };
+        kaomoji:[['开心',['(＝^ω^＝)','(￣▽￣)~*']]], emoji:[['常用',['😂','🥰']],['四列组',['😀','😁','😃','😄']]] };
       var pub = { text:[], image:[], poke:[], voice:[], sticker:[],
         kaomoji:[['公用开心',['(◕‿◕)']]], emoji:[['公用E',['😭','🙄']]] };
       window.activeStore().set('cc-groups', JSON.stringify(own));
@@ -154,11 +181,18 @@ try {
   await sleep(500);
   check('A 表情按钮可打开面板', await click('#chat-emoji-btn'));
   await sleep(350);
+  await waitGrid(3000);
   let a = await evalJs(SNAP);
   check('A 分类行 3 个 chip 且默认选中表情包', !!(a && a.open && a.cats.length === 3 && a.cats[0].cat === 'sticker' && a.cats[0].sel && !a.cats[1].sel), JSON.stringify(a && a.cats));
   check('A sticker：3 个作用域 tab 可见', !!(a && a.visTabs.join(',') === 'public,ta,mine'), JSON.stringify(a && a.visTabs));
   check('A sticker：分组栏照旧（TA表情2）且无文字网格', !!(a && a.chips.join(',').indexOf('TA表情2') >= 0 && a.textItems.length === 0), JSON.stringify(a && a.chips));
   check('A sticker：图片工具行显示、文字工具行隐藏', !!(a && a.toolsShown === false), '');
+  // 相邻面：#666 只动「文字网格」的去右线规则，sticker 的 4 列网格必须一字不变
+  // （sticker 分组默认不自动选中——先点分组 chip 再等网格落地）
+  check('A 点选 sticker 分组（等待网格渲染）', !!(await click('#emoji-groups .emoji-g-chip')) && (await waitGrid(3000)));
+  await sleep(300);
+  let a2 = await evalJs(SNAP);
+  check('A sticker 4 列网格行内竖线完整（第 1/2 格都留右线，只行尾去线）', !!(a2 && a2.cols === 4 && borderSig(a2.hborders) === 'YY'), JSON.stringify({ cols: a2 && a2.cols, b: a2 && a2.hborders }));
 
   // ================= B：颜文字分类（TA 专属）+ 点卡片发纯文字 =================
   check('B 切到颜文字分类', await click('.emoji-cats .emoji-cat-chip[data-ecat="kaomoji"]'));
@@ -167,6 +201,7 @@ try {
   check('B 作用域 tab 文案跟随分类（TA 的颜文字）', !!(b && /的颜文字$/.test(b.taLabel || '')), b && b.taLabel);
   check('B TA 专属颜文字分组自动选中（开心2）', !!(b && b.chips.join(',').indexOf('开心2') >= 0), JSON.stringify(b && b.chips));
   check('B 文字网格渲染专属卡（2 张，首张内容正确）', !!(b && b.textItems.length === 2 && b.textItems[0] === '(＝^ω^＝)'), JSON.stringify(b && b.textItems));
+  check('B 颜文字 2 列网格：行内留线、行尾去线（Y,N）', !!(b && b.cols === 2 && borderSig(b.hborders) === 'YN'), JSON.stringify({ cols: b && b.cols, b: b && b.hborders }));
   check('B 点卡片关闭面板', await click('#emoji-list .emoji-text-item'));
   await sleep(300);
   const sentBody = await evalJs(`(function(){ var el=document.getElementById('chat-body'); return el ? el.textContent.indexOf('(＝^ω^＝)') >= 0 : false; })()`);
@@ -237,6 +272,16 @@ try {
   let f = await evalJs(SNAP);
   check('F emoji 分组自动选中（常用2）与内容', !!(f && f.chips.join(',').indexOf('常用2') >= 0 && f.textItems.join(',') === '😂,🥰'), JSON.stringify({ chips: f && f.chips, items: f && f.textItems }));
   check('F emoji 网格走 4 列大字号样式', !!(f && /emoji-grid-emoji/.test(f.gridClass || '')), f && f.gridClass);
+
+  // ================= F2（#666）：emoji 4 列网格的行内竖线不能断 =================
+  // 用户报障：「emoji 里正常显示是一行四个，但是中间的两个没有线分开，缺一条线」。
+  // 根因＝emoji 网格同挂 .emoji-grid-text，2n 去右线规则特异性更高 → 第 2 格右线（中间竖线）被摘。
+  // 判别口径：4 列时右边线序列必须是 1px,1px,1px,0px（前三格留、第 4 格行尾去）。
+  check('F2 切到 4 个 emoji 的分组', await evalJs(`(function(){ var cs=document.querySelectorAll('#emoji-groups .emoji-g-chip'); for (var i=0;i<cs.length;i++){ if (cs[i].textContent.indexOf('四列组')===0){ cs[i].click(); return true; } } return false; })()`));
+  await sleep(300);
+  let f2 = await evalJs(SNAP);
+  check('F2 该分组仍是 4 列网格', !!(f2 && f2.cols === 4 && f2.textItems.length === 4), JSON.stringify({ cols: f2 && f2.cols, items: f2 && f2.textItems }));
+  check('F2 每行只在第 4 格去右线（Y,Y,Y,N＝中间竖线不断）', !!(f2 && borderSig(f2.hborders) === 'YYYN'), JSON.stringify(f2 && f2.hborders));
 
   // ================= G：隐藏开关（设置行注入 + 分类 chip 隐藏/回落） =================
   const rowsInjected = await evalJs(`(function(){

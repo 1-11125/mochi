@@ -162,7 +162,9 @@
         const g = JSON.parse(raw);
         if (!g || !g.text) return;
         (g.text || []).forEach(([gname, arr]) => (arr || []).forEach(c => {
-          if (typeof c === 'string' && c.indexOf('|||') < 0 && c.indexOf('data:') !== 0 && !(window.mochiMediaIsToken && window.mochiMediaIsToken(c))) set[c] = 1; // FIX 2026-09-13 #394 令牌卡不入统计卡集
+          // FIX 2026-09-13 #394 令牌卡不入统计卡集；FIX 2026-09-17 #648 补嵌套令牌（indexOf 口径，
+          // 全串锚定测不出混排）与 #533 裸图链——否则榜上直出令牌串/整段 URL
+          if (typeof c === 'string' && c.indexOf('|||') < 0 && c.indexOf('data:') !== 0 && c.indexOf('@@m:') < 0 && !/^https?:\/\//i.test(c) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(c))) set[c] = 1;
         }));
       });
     } catch (e) {}
@@ -231,6 +233,7 @@
       if (!m || typeof m.text !== 'string' || !m.side) return;
       if (m.special || m.retracted) return;
       if (m.text.indexOf('data:') === 0 || m.text.indexOf('http') === 0) return;
+      if (m.text.indexOf('@@m:') >= 0) return; // FIX 2026-09-17 #648 混排令牌的消息也不入「常用文字字卡」榜（榜面文本会直出令牌串）
       if (window.mochiMediaIsToken && window.mochiMediaIsToken(m.text)) return; // FIX 2026-09-13 #394 存量乱码消息不入「常用文字字卡」榜
       const core = m.text.replace(EXPR_CORE_RE, '');
       if (!core) return;

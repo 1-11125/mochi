@@ -710,6 +710,7 @@
 [data-theme="dark"] .divf-io-btn { color:#111; }
 [data-theme="dark"] #divf-import { background:var(--dark-hover); color:var(--ink); }
 [data-theme="dark"] .divf-empty { color:#666; }
+[data-theme="dark"] .divf-batch-btn { background:var(--dark-card-92); border-color:var(--dark-border); color:var(--ink); }
 [data-theme="dark"] .div-chat-faces-btn { background:var(--dark-card-92); border-color:var(--dark-border); color:var(--ink); }
 [data-theme="dark"] .ck-location { border-bottom-color:rgba(255,255,255,.06); }
 [data-theme="dark"] .ck-loc-entry { border-color:rgba(255,255,255,.22); background:var(--static-bg); }

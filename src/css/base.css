@@ -381,6 +381,14 @@ html { margin:0; padding:0; }
   margin-top:16px; font-size:12px; color:var(--hint-ink); letter-spacing:1px;
 }
 .splash-loading[hidden] { display:none; }
+/* #657：开屏等待较久时的一行原因说明——用户把开屏慢当 bug，就地解释比让他翻公告有效。
+   小字 + 次级色限宽，不抢上面那句加载提示的视线 */
+.splash-loading-sub {
+  margin:7px auto 0; max-width:264px;
+  font-size:10.5px; line-height:1.55; letter-spacing:.2px;
+  color:var(--hint-ink); opacity:.9;
+}
+.splash-loading-sub[hidden] { display:none; }
 /* v3.26.x：数据加载较慢时的「仍要进入」逃生口——弱化样式（小字、下划线、次级色），
    表明是"非推荐、数据可能不全"的非常规入口，与主按钮区分 */
 .splash-force-enter {

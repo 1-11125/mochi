@@ -177,6 +177,9 @@
     'cs-font',
     // v3.26.x #643：音效作用范围开关（sfx.js）——全局根键（共/分是全局偏好，不随联系人隔离）
     'sfx-unified',
+    // #646：打开应用的入口行为（打开时先进入此间 / 默认进入的桌面）——全局根键，不随联系人隔离，
+    // 漏排除会被 migrateLegacy 当旧顶层业务键迁进 default 并删根键（非 default 桌面读不到＝开关自己关）
+    'entry-cjian-first', 'entry-default-contact', 'entry-show-list',
     // FIX 2026-09-16 #629 开屏「刷了还是旧版」指引：ver-check.js 的「本机已尝试过更新但没
     // 换上」标记（记 线上ts|次数|时刻）是全局根键——不随联系人隔离，且必须跨会话留存才认得出
     // 「这台设备更新失败过」（与 pwa.js 的 ver-update-ack-ts / ver-update-notify 同族，见上方
@@ -930,6 +933,232 @@
     row.appendChild(ok); row.appendChild(no); box.appendChild(row);
     m2.appendChild(box); showContactModal(m2);
   }
+
+  // ===== #646：进入桌面入口流程（打开时先进入此间 / 默认进入的桌面）=====
+  // 三个设置都存全局根键（EXCLUDE 已登记），默认关闭：
+  //   entry-cjian-first      '1'=每次打开应用先进入此间，看完返回时弹出「选择本次进入的桌面」
+  //   entry-show-list        '1'=每次打开应用直接弹出全部联系人列表，点一个进入其桌面
+  //   entry-default-contact  联系人 id；设置后每次打开应用直接进入该桌面（空=关闭）
+  // 优先级：默认桌面已设时取代「先进入此间」与「显示联系人列表」（两者强制关闭并置灰）；
+  //         先进入此间 开启时走此间→选择桌面，未开则「显示联系人列表」直接弹列表。
+  function entryCjianFirstOn() {
+    try { return regStore().get('entry-cjian-first') === '1'; } catch (e) { return false; }
+  }
+  function entryShowListOn() {
+    try { return regStore().get('entry-show-list') === '1'; } catch (e) { return false; }
+  }
+  function entryDefaultCid() {
+    let id = '';
+    try { id = regStore().get('entry-default-contact') || ''; } catch (e) {}
+    if (!id) return '';
+    try { return getContacts().some(c => c && c.id === id) ? id : ''; } catch (e) { return ''; }
+  }
+  function closeEntryPicker() {
+    const ov = document.getElementById('entry-picker');
+    if (ov) { ov.style.display = 'none'; ov.hidden = true; }
+  }
+  function ensureEntryPicker() {
+    let ov = document.getElementById('entry-picker');
+    if (!ov) {
+      ov = el('div'); ov.id = 'entry-picker'; ov.hidden = true;
+      ov.style.cssText = 'position:fixed;inset:0;z-index:10060;display:none;flex-direction:column;background:var(--bg-b,#fff);color:var(--ink,#111)';
+      document.body.appendChild(ov);
+    }
+    return ov;
+  }
+  // 选择桌面「页」：mode='entry' 本次进入（选中即切换桌面）；mode='setDefault' 设置默认（选中写设置键、不切桌面）
+  function openContactPicker(opts) {
+    opts = opts || {};
+    const mode = opts.mode === 'setDefault' ? 'setDefault' : 'entry';
+    const ov = ensureEntryPicker();
+    const curDef = entryDefaultCid();
+    ov.innerHTML = '';
+    const head = el('div'); head.style.cssText = 'padding:22px 20px 6px;font-size:20px;font-weight:700';
+    head.textContent = mode === 'entry' ? '选择本次进入的桌面' : '默认进入的桌面';
+    ov.appendChild(head);
+    const sub = el('div'); sub.style.cssText = 'padding:0 20px 14px;font-size:12px;color:var(--muted,#888);line-height:1.6';
+    sub.textContent = mode === 'entry'
+      ? (opts.sub || '看完此间了，选一个联系人桌面进入吧。')
+      : '开启后，每次打开应用直接进入所选桌面；选「关闭」即不设置。';
+    ov.appendChild(sub);
+    const wrap = el('div'); wrap.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:2px 16px 18px;display:flex;flex-direction:column;gap:10px';
+    const mkCard = function (title, tagText, isCurrent, tagOn) {
+      const card = el('div');
+      card.style.cssText = 'display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--card-border,#eee);border-radius:14px;background:var(--card-bg,#fff);cursor:pointer';
+      const nm = el('div', '', '<div style="font-size:15px;font-weight:600">' + title + '</div>' +
+        (isCurrent ? '<div style="font-size:11px;color:var(--muted,#999)">当前桌面</div>' : ''));
+      nm.style.flex = '1';
+      card.appendChild(nm);
+      if (tagText) {
+        const tag = el('div', '', tagText);
+        tag.style.cssText = 'font-size:11px;padding:2px 9px;border-radius:9px;border:1px solid ' +
+          (tagOn ? 'rgba(26,138,95,.4);color:#1a8a5f;background:rgba(26,138,95,.08)' : 'rgba(0,0,0,.08);color:var(--muted,#888)');
+        card.appendChild(tag);
+      }
+      return card;
+    };
+    if (mode === 'setDefault') {
+      const off = mkCard('关闭（不设置）', '', false, false);
+      off.addEventListener('click', function () {
+        try { regStore().set('entry-default-contact', ''); } catch (e) {}
+        closeEntryPicker();
+        if (opts.onDone) opts.onDone();
+      });
+      wrap.appendChild(off);
+    }
+    getContacts().forEach(function (c) {
+      const isCurrent = c.id === (window.__activeCid || 'default');
+      const isDef = c.id === curDef;
+      const card = mkCard(c.name || c.id, (mode === 'entry' && isDef) ? '默认' : '', isCurrent, false);
+      card.addEventListener('click', function () {
+        if (mode === 'setDefault') {
+          try { regStore().set('entry-default-contact', c.id); } catch (e) {}
+          closeEntryPicker();
+          if (opts.onDone) opts.onDone();
+        } else {
+          closeEntryPicker();
+          try { if (c.id !== (window.__activeCid || 'default')) window.setActiveContact(c.id); } catch (e) {}
+        }
+      });
+      wrap.appendChild(card);
+    });
+    ov.appendChild(wrap);
+    if (mode === 'setDefault') {
+      const cancel = el('button', '', '取消');
+      cancel.style.cssText = 'margin:0 16px 18px;padding:11px;border:1px solid var(--card-border,#eee);border-radius:12px;background:var(--btn-cancel-bg,#fafafa);color:var(--btn-cancel-ink,#555);font-size:14px';
+      cancel.addEventListener('click', function () { closeEntryPicker(); if (opts.onDone) opts.onDone(); });
+      ov.appendChild(cancel);
+    }
+    ov.hidden = false; ov.style.display = 'flex';
+  }
+  window.__openContactPicker = openContactPicker;
+
+  // 开屏进入此间时注入的引导条（不侵入 cjian.js：作为 #page-cjian 的直接子节点插在顶栏下）
+  function removeCjianHint() {
+    const h = document.getElementById('entry-cjian-hint');
+    if (h && h.parentNode) h.parentNode.removeChild(h);
+  }
+  function showCjianHint() {
+    removeCjianHint();
+    const page = document.getElementById('page-cjian');
+    if (!page) return;
+    const hint = el('div', '', '点每位梦角的【去找TA】直接进入 TA 的桌面；点左上角返回，则选择本次进入哪个桌面。若某位梦角没有状态显示，点下方【感知此间】看看 TA 此刻在哪、在做什么。');
+    hint.id = 'entry-cjian-hint';
+    hint.style.cssText = 'margin:8px 12px 0;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.6;color:var(--muted,#666);background:rgba(127,106,216,.08);border:1px solid rgba(127,106,216,.2)';
+    const head = page.querySelector('.chat-head');
+    if (head && head.parentNode === page) page.insertBefore(hint, head.nextSibling);
+    else page.insertBefore(hint, page.firstChild);
+  }
+
+  // 打开应用进入后调用（clock.js finishEnter 接线）：应用默认桌面 / 先进入此间
+  window.mochiContactEntryFlow = function () {
+    if (window.__mochiEntryFlowDone) return;
+    window.__mochiEntryFlowDone = true;
+    const def = entryDefaultCid();
+    if (def && def !== (window.__activeCid || 'default')) {
+      try { window.setActiveContact(def); } catch (e) {}
+    }
+    if (!entryCjianFirstOn()) {
+      // 「打开时显示联系人列表」：不在此间停留，直接弹出全部联系人列表，点一个进入其桌面
+      if (entryShowListOn()) openContactPicker({ mode: 'entry', sub: '选一个联系人桌面进入吧。' });
+      return;
+    }
+    if (!window.openCjian) { openContactPicker({ mode: 'entry' }); return; }
+    let page = null;
+    try { page = document.getElementById('page-cjian'); } catch (e) {}
+    if (!page) { openContactPicker({ mode: 'entry' }); return; }
+    let fired = false;
+    // 不侵入 cjian.js：观察 #page-cjian 的 hidden 变化，用户离开此间时决定去向
+    const obs = new MutationObserver(function () {
+      if (!page.hidden || fired) return;
+      fired = true;
+      try { obs.disconnect(); } catch (e) {}
+      removeCjianHint();
+      // 点【去找TA】＝用户已显式选定目标（此间会切到该联系人并打开聊天页）→ 直接进入，不再弹选择桌面页；
+      // 只有点左上角返回（回桌面主页 #page-phone）才弹「选择本次进入的桌面」
+      const chat = document.getElementById('page-chat');
+      if (chat && !chat.hidden) return;
+      setTimeout(function () { openContactPicker({ mode: 'entry' }); }, 0);
+    });
+    try { obs.observe(page, { attributes: true, attributeFilter: ['hidden'] }); } catch (e) {}
+    try {
+      window.__cjianFrom = '';
+      window.openCjian();
+      showCjianHint();
+      // 开屏进入此间时默认停在「全部」总览（openCjian 内部默认回到当前桌面，这里点选「全部」chip 切过去；
+      // 不侵入 cjian.js——setView(ALL) 只改视图、不持久化、不影响之后从桌面正常进入）
+      const chips = document.querySelectorAll('#cj-groups .cj-gchip');
+      for (let i = 0; i < chips.length; i++) {
+        if (chips[i].textContent === '全部') { chips[i].click(); break; }
+      }
+    } catch (e) {
+      try { obs.disconnect(); } catch (e2) {}
+      removeCjianHint();
+      openContactPicker({ mode: 'entry' });
+    }
+  };
+
+  // #646：设置页「打开时先进入此间」开关 + 「打开时显示联系人列表」开关 + 「默认进入的桌面」入口
+  // 「默认进入的桌面」开启时取代前面两个入口选择：二者强制关闭且置灰不可改（关掉默认桌面后恢复）
+  function syncEntryModes() {
+    const hasDef = !!entryDefaultCid();
+    const cbC = document.getElementById('entry-cjian-first');
+    const cbL = document.getElementById('entry-show-list');
+    if (hasDef) {
+      try {
+        if (regStore().get('entry-cjian-first') === '1') regStore().set('entry-cjian-first', '0');
+        if (regStore().get('entry-show-list') === '1') regStore().set('entry-show-list', '0');
+      } catch (e) {}
+      if (cbC) cbC.checked = false;
+      if (cbL) cbL.checked = false;
+    }
+    if (cbC) cbC.disabled = hasDef;
+    if (cbL) cbL.disabled = hasDef;
+    const rowC = document.getElementById('row-entry-cjian-first');
+    const rowL = document.getElementById('row-entry-show-list');
+    if (rowC) rowC.style.opacity = hasDef ? '.5' : '';
+    if (rowL) rowL.style.opacity = hasDef ? '.5' : '';
+    let tip = document.getElementById('entry-cjian-first-tip');
+    if (hasDef) {
+      if (!tip && rowC && rowC.parentNode) {
+        tip = el('div', 'gs-sub', '已由「默认进入的桌面」取代：每次打开直接进入所选桌面，不再先进入此间或显示联系人列表。要恢复，请把上面的默认桌面设为「关闭」。');
+        tip.id = 'entry-cjian-first-tip';
+        rowC.parentNode.insertBefore(tip, rowC.nextSibling);
+      }
+    } else if (tip && tip.parentNode) {
+      tip.parentNode.removeChild(tip);
+    }
+  }
+  const efCjian = document.getElementById('entry-cjian-first');
+  if (efCjian) {
+    try { efCjian.checked = entryCjianFirstOn(); } catch (e) {}
+    efCjian.addEventListener('change', function () {
+      try { regStore().set('entry-cjian-first', efCjian.checked ? '1' : '0'); } catch (e) {}
+    });
+  }
+  const efList = document.getElementById('entry-show-list');
+  if (efList) {
+    try { efList.checked = entryShowListOn(); } catch (e) {}
+    efList.addEventListener('change', function () {
+      try { regStore().set('entry-show-list', efList.checked ? '1' : '0'); } catch (e) {}
+    });
+  }
+  const efDefRow = document.getElementById('row-entry-default-contact');
+  if (efDefRow) {
+    const refreshDefVal = function () {
+      const val = document.getElementById('entry-default-contact-val');
+      if (!val) return;
+      const id = entryDefaultCid();
+      const c = id ? getContacts().find(x => x.id === id) : null;
+      val.textContent = c ? (c.name || c.id) : '关闭';
+    };
+    refreshDefVal();
+    efDefRow.addEventListener('click', function () {
+      openContactPicker({ mode: 'setDefault', onDone: function () { refreshDefVal(); syncEntryModes(); } });
+    });
+  }
+  syncEntryModes();
+  document.addEventListener('contact-switched', syncEntryModes);
 
   // 设置页入口
   const row = document.getElementById('row-contacts');

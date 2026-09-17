@@ -80,7 +80,12 @@
   function flushMissingMarks() {
     markT = null;
     if (!markQueue.size) return;
-    const list = Array.prototype.slice.call(markQueue); markQueue.clear();
+    // FIX 2026-09-17 #665e 确认缺失的「图片缺失」占位自 #397 攒批改造起从未生效：
+    // Array.prototype.slice.call(Set) 恒为空数组（Set 不是 array-like，没有 length/下标），
+    // 于是下面 list.indexOf(...) 永远 < 0、每张图都提前 return——占位打不上，img 仍保留
+    // @@m: 令牌 src，浏览器把它当相对 URL 请求 404（正是 #402 要消除的裂图/黑块），
+    // 用户侧表现即「贴纸加载不出来、且没有任何缺失提示」。改 Array.from 让攒批真正落地。
+    const list = Array.from(markQueue); markQueue.clear();
     let nodes;
     try { nodes = document.querySelectorAll('img[src^="' + TOK + '"]'); } catch (e) { nodes = []; }
     Array.prototype.forEach.call(nodes, function (el) {
@@ -122,6 +127,54 @@
     });
   };
   const inflight = {};              // hash -> true（渲染侧单飞取回）
+  // FIX 2026-09-17 #665d 读失败（超时/连接丢失）≠「池里没有」——旧实现把两者一律当确认缺失：
+  //   ①已渲染的那张图不再重试、直接留成坏图；②mochiMediaTokenMissing 置位后 isMediaImg 把该
+  //   令牌字卡整条剔出 getMediaGroups → 朋友圈「贴纸」面板里这张直接消失（用户报「朋友圈贴纸
+  //   有时能看到有时看不到、很随机」，多机型同现）。而 idbGet 的 undefined 有两种来源（键真
+  //   不存在 / 事务挂起超时或连接丢失，#665a），设备 IO 越慢越容易撞上＝机型相关、会话随机。
+  //   修法：只有「确认不存在」才拉黑；读失败走「软占位」——照常显示图片缺失占位（不发无效
+  //   请求，#402 语义不变）、但不进 missing（字卡/贴纸列表不掉项），并按有界预算自行重读，
+  //   读到真身即原位换回。有界是关键：不无限重试，防 #450 读槽被饿死型死循环。
+  const phImgs = new Map();         // hash -> Set<img>（正显示软占位、待池读回后原位换回）
+  const softTry = new Map();        // hash -> 已用重试次数
+  const SOFT_RETRY_MS = [1200, 4000, 10000];
+  function restorePhImgs(h, v) {
+    const set = phImgs.get(h);
+    if (!set) return;
+    phImgs.delete(h);
+    set.forEach(function (el) {
+      try { el.classList.remove('media-tok-missing'); el.removeAttribute('alt'); el.src = v; } catch (e) {}
+    });
+  }
+  function softMissImg(img, h) {
+    if (img) {
+      try { img.classList.add('media-tok-missing'); img.alt = '图片缺失'; img.src = MISS_PLACEHOLDER; } catch (e) {}
+      let set = phImgs.get(h);
+      if (!set) { set = new Set(); phImgs.set(h, set); }
+      set.add(img);
+    }
+    const n = softTry.get(h) || 0;
+    if (n >= SOFT_RETRY_MS.length) return;   // 预算用尽：保持占位，等重渲染/下次会话再试
+    softTry.set(h, n + 1);
+    setTimeout(function () {
+      const info = {};
+      let p;
+      try { p = window.idbGet(FULL + h, info); } catch (e) { p = null; }
+      if (!p || !p.then) return;
+      p.then(function (v) {
+        if (typeof v === 'string' && v.indexOf('data:image/') === 0) {
+          softTry.delete(h);
+          missing.delete(h);
+          if (!map.has(h)) map.set(h, v);
+          restorePhImgs(h, v);
+          return;
+        }
+        if (info.ambiguous) { softMissImg(null, h); return; }   // 仍是读失败：预算内再试
+        missing.add(h);                                        // 这回读到了「确实没有」→ 原缺失语义
+        markMissing(h);
+      }).catch(function () {});
+    }, SOFT_RETRY_MS[n]);
+  }
   let writeBuf = [];                // 待落池 [{k,v}]
   let flushT = null;
   // 真实现（OK 路径）：令牌→池内容；未知哈希/非令牌→null（调用方按 null 回退原值）
@@ -280,7 +333,8 @@
       missRetryPump();
     };
     const __tokWatch = setTimeout(function () { __tokSettle(); }, TOK_WATCH_MS);
-    window.idbGet(FULL + h).then(function (v2) {
+    const info = {};                 // #665d：idbGet 读失败（超时/连接丢失）→ info.ambiguous
+    window.idbGet(FULL + h, info).then(function (v2) {
       __tokSettle();
       // FIX 2026-09-10 #275 池值体检：池里只可能存 data:image/ 字符串（tokenize 入口已保证）。
       // 读到空串/脏值（旧「只备份文字」备份把池 dataURL 剥成 "" 再导入所致）绝不能当有效数据：
@@ -301,11 +355,16 @@
           missRetryPump();
           return;
         }
+        // FIX 2026-09-17 #665d 读失败（超时/连接丢失，idbGet 的 undefined 与「键不存在」不可分）：
+        // 不当确认缺失——不拉黑（贴纸/字卡列表不掉项），软占位 + 有界重读自愈。
+        if (info.ambiguous) { softMissImg(img, h); return; }
         missing.add(h); markMissing(h); return;
       }
       missing.delete(h); // 后续读到有效值＝池已补回（导入完整备份等），解除剔除/占位
       map.set(h, v2);
       try { window.mochiMediaPhRestore(h, v2); } catch (ePH) {} // #439 已换文字占位的原位换回自愈
+      restorePhImgs(h, v2); // #665d 软占位（读失败）的 img 原位换回真图
+      softTry.delete(h);
       let nodes;
       try { nodes = document.querySelectorAll('img[src="' + TOK + h + '"]'); } catch (e) { nodes = []; }
       Array.prototype.forEach.call(nodes, function (el) { el.src = v2; });
@@ -416,10 +475,13 @@
       // → 这些引用的表情/图片令牌被误判孤儿删除 = 单发表情包/图片变空白气泡且不可逆。
       // 修复：REFS 扩到群聊+尾巴键；并追加扫描 localStorage 同名键（读到的令牌全部进 keep，
       // 宁可漏删绝不误删；LS 读异常时放弃本次清理）。
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?)$/;
       // FIX 2026-09-15 #506 引用面补字卡库两键：#387 修复前写回泄漏/旧备份导入会把 @@m: 令牌
       // 留在 cc-groups / cc-groups-public 里，同样引用池条目——不进 keep 会被误判孤儿删除
       // ＝字卡库图片（含导出还原源）永久丢失。GC 与 Coverage 两处同批。
+      // FIX 2026-09-17 #665f 引用面再补朋友圈两键：贴纸/配图写进动态时存的就是 @@m: 令牌
+      //（字卡库 ≥64KB 表情包经池视图令牌化），只被朋友圈引用的池条目若不在 keep 里，
+      // 清理孤儿会把它们删掉＝照片上的贴纸永久变「图片缺失」（宁可漏删绝不误删，此处只加不减）。
       const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
       try {
         for (let li = 0; li < localStorage.length; li++) {
@@ -505,7 +567,7 @@
     return (async function () {
       const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?)$/;
+      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?)$/;
       const SCAN_RE = /@@m:([0-9a-f]{32})/g;
       let keys;
       try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }

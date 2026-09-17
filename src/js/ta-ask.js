@@ -21,6 +21,13 @@
     t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
   }
   function escG(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  // FIX 2026-09-17 #648 问答/收藏记录页「TA回应」列——存量落库的媒体卡回应（@@m: 令牌/
+  // 「名称|||data:」/图链）先清洗为 [图片]/名称再转义；此前这些列表直拼 f.reply/x.reply
+  //（连转义都没有），既直出令牌串又可能把导入数据里的 HTML 当标签执行
+  function taReplyShow(s) {
+    const t = (window.askCardReplyClean ? window.askCardReplyClean(s) : String(s == null ? '' : s));
+    return escG(window.taFit ? window.taFit(t) : t);
+  }
   // v3.7.x：系统预设 tab 内联展示 TA 回应话术池（只读，开关在「互动回应」tab）——
   // 询问/吐槽 文字题无题自带回应，每个问题下内联通用池（getInteractPool 同源）
   function interactPoolInlineHtml(poolName) {
@@ -752,7 +759,10 @@
       // 互动回应会把「http://…png」当话术发出来
       const words = cards.filter(s => typeof s === 'string' && s.indexOf('data:') !== 0 && s.indexOf('|||') < 0 && !/^https?:\/\//i.test(s) && !(window.mochiMediaIsToken && window.mochiMediaIsToken(s)) && s.trim());
       const preset = (Array.isArray(presetPool) ? presetPool : [])
-        .filter(c => !(window.isDefaultCardOff && window.isDefaultCardOff('interact', c)));
+        .filter(c => !(window.isDefaultCardOff && window.isDefaultCardOff('interact', c)))
+        // FIX 2026-09-17 #648 预设池同款媒体守卫——上层裸抽直传的媒体卡（@@m: 令牌/裸图链/
+        // 「名称|||data:」/data: 载荷）不再原样返回，否则互动卡「TA：」行直出令牌串
+        .filter(c => !(typeof c === 'string' && (c.indexOf('data:') === 0 || c.indexOf('|||') >= 0 || /^https?:\/\//i.test(c) || (window.mochiMediaIsToken && window.mochiMediaIsToken(c)))));
       const hasPreset = preset.length > 0;
       if (hasPreset && words.length) {
         // 预设池 90% / 字卡库 10%
@@ -762,7 +772,8 @@
         const copy = words.slice();
         const out = [];
         while (out.length < n) out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
-        return out.join(' ');
+        // #650 多张字卡连接符同走「拼接随机标点」符号池（chat.js pyJoinCards；关＝空格原样）
+        return (window.pyJoinCards && window.replyCfg) ? window.pyJoinCards(out, window.replyCfg()) : out.join(' ');
       }
       if (hasPreset) return preset[Math.floor(Math.random() * preset.length)];
       if (words.length) return words[Math.floor(Math.random() * words.length)];
@@ -800,7 +811,8 @@
       }
       if (window.quoteSpellPick && window.replyCfg) {
         const sp = window.quoteSpellPick(window.replyCfg());
-        if (sp && Array.isArray(sp.segs) && sp.segs.length) return sp.segs.join(' ');
+        // #650 单气泡拼字连接符同走「拼接随机标点」符号池（关＝空格原样）
+        if (sp && Array.isArray(sp.segs) && sp.segs.length) return (window.pyJoinCards ? window.pyJoinCards(sp.segs, window.replyCfg()) : sp.segs.join(' '));
       }
     } catch (e) {}
     return null;
@@ -948,7 +960,14 @@
   if (window.chatAskReply && !window.__taAskReplyWrapped) {
     const _origChatAskReply = window.chatAskReply;
     window.chatAskReply = function (msgIdx, answer, reply, opts) {
-      const rec = getCardAt(msgIdx);
+      // FIX 2026-09-17 #653：弹窗→作答隔着异步间隙时 msgIdx 可能位移（同 chat.js chatAskReply
+      // 内的重定位守卫）——探针若读错槽位，deskCk 查岗卡会被误判成普通询问写进 history、
+      // askTs 取空。先按 locateCardIdx 同款守卫重定位，再判断 deskCk / 取 askTs。
+      let rec = getCardAt(msgIdx);
+      if (!rec || rec.special !== 'ask-card' || rec.askStatus === 'answered') {
+        const _fixedIdx = locateCardIdx(msgIdx, 'ask-card', 'askStatus');
+        if (_fixedIdx >= 0) { msgIdx = _fixedIdx; rec = getCardAt(_fixedIdx); }
+      }
       // deskCk 查岗卡也走 ask-card，但不属于"TA的询问"，不进提问记录
       if (rec && rec.deskCk) return _origChatAskReply.call(this, msgIdx, answer, reply, opts);
       // v3.26.x #291：过了问卷答题结束时间后询问卡不能再作答（文字/单选两条路径都经此统一拦截）
@@ -1909,7 +1928,8 @@ window.openTCPanel = openTCPanel;
       html += '<div class="tc-res-label">TA心里的答案</div><div class="tc-res-pref">' + String(prefTxt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>';
     }
     html += '<div class="tc-res-line"></div>';
-    html += '<div class="tc-res-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(rec.choiceReply || '') : (rec.choiceReply || '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>';
+    const _chShow = (window.askCardReplyClean ? window.askCardReplyClean(rec.choiceReply || '') : (rec.choiceReply || '')); // FIX 2026-09-17 #648 存量媒体卡回应清洗后展示
+    html += '<div class="tc-res-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(_chShow) : _chShow).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>';
     html += '<div class="tc-res-match ' + (isPref ? 'pref' : '') + '">' + String(rec.choiceMatch || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>';
     if (Math.random() < 0.4 && _tcChain < 2) {
       html += '<div class="tc-res-cont" id="tc-cont">TA还想问一个 ▸</div>';
@@ -2327,7 +2347,7 @@ window.openTCPanel = openTCPanel;
         html += '<div class="tc-listitem"><div class="tc-li-top"><span class="tc-li-q">[' + (TC_CAT_LABEL[f.cat] || '') + '] ' + f.q + '</span>' +
           '<button class="tc-li-del" data-i="' + i + '" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg></button></div>' +
           (f.my ? '<div class="tc-li-line">你当时选了：' + f.my + '</div>' : '') +
-          (f.reply ? '<div class="tc-li-line">TA回应：' + f.reply + '</div>' : '') +
+          (f.reply ? '<div class="tc-li-line">TA回应：' + taReplyShow(f.reply) + '</div>' : '') +
           '<div class="tc-li-time">收藏于 ' + time + '</div></div>';
       });
       openTCPanel('收藏', html);
@@ -2703,9 +2723,10 @@ window.openTCPanel = openTCPanel;
     const title = document.getElementById('qa-title');
     if (!mask || !body) return;
     if (title) title.textContent = window.taFit ? window.taFit('TA的好奇') : 'TA的好奇';
+    const _crShow = (window.askCardReplyClean ? window.askCardReplyClean(rec.curiousReply || '') : (rec.curiousReply || '')); // FIX 2026-09-17 #648 存量媒体卡回应清洗后展示
     body.innerHTML = '<div class="qa-q">' + String(rec.curiousQuestion || rec.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>' +
       '<div class="qa-mine">你说：' + String(rec.curiousAnswer || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>' +
-      '<div class="qa-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(rec.curiousReply || '') : (rec.curiousReply || '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>' +
+      '<div class="qa-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(_crShow) : _crShow).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>' +
       '<div class="qa-close" id="qa-close2">收起来</div>';
     mask.hidden = false;
     document.getElementById('qa-close2').addEventListener('click', () => { mask.hidden = true; });
@@ -3341,9 +3362,10 @@ window.openTCPanel = openTCPanel;
     const title = document.getElementById('qa-title');
     if (!mask || !body) return;
     if (title) title.textContent = window.taFit ? window.taFit('TA的吐槽') : 'TA的吐槽';
+    const _trShow = (window.askCardReplyClean ? window.askCardReplyClean(rec.roastReply || '') : (rec.roastReply || '')); // FIX 2026-09-17 #648 存量媒体卡回应清洗后展示
     body.innerHTML = '<div class="qa-q">“' + String(rec.roastText || rec.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>' +
       '<div class="qa-mine">你说：' + String(rec.roastAnswer || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>' +
-      '<div class="qa-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(rec.roastReply || '') : (rec.roastReply || '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>' +
+      '<div class="qa-reply"><b>' + (window.taFit ? window.taFit('TA：') : 'TA：') + '</b>“' + String(window.taFit ? window.taFit(_trShow) : _trShow).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '”</div>' +
       '<div class="qa-close" id="qa-close2">收起来</div>';
     mask.hidden = false;
     document.getElementById('qa-close2').addEventListener('click', () => { mask.hidden = true; });
@@ -3686,7 +3708,7 @@ window.openTCPanel = openTCPanel;
     if (askEl) {
       const h = allDeskHistories('ta-ask');
       askEl.innerHTML = h.length
-        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">问：' + x.q + '</div>' + (x.status === 'pending' ? '<div class="tc-li-pending">待回答</div>' : '<div class="tc-li-line">你：' + x.a + '</div>' + (x.reply ? '<div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + (window.taFit ? window.taFit(x.reply) : x.reply) + '</div>' : '')) + '<div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
+        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">问：' + escG(x.q) + '</div>' + (x.status === 'pending' ? '<div class="tc-li-pending">待回答</div>' : '<div class="tc-li-line">你：' + escG(x.a) + '</div>' + (x.reply ? '<div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + taReplyShow(x.reply) + '</div>' : '')) + '<div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
         : '<div class="ta-empty">暂无询问记录</div>';
     }
     // TA的小问题
@@ -3694,7 +3716,7 @@ window.openTCPanel = openTCPanel;
     if (chEl) {
       const h = allDeskHistories(KEY2);
       chEl.innerHTML = h.length
-        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + x.q + '</div><div class="tc-li-line">你的选择：' + x.my + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + (window.taFit ? window.taFit(x.reply) : x.reply) + '</div><div class="tc-li-match">' + x.match + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
+        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + escG(x.q) + '</div><div class="tc-li-line">你的选择：' + escG(x.my) + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + taReplyShow(x.reply) + '</div><div class="tc-li-match">' + escG(x.match) + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
         : '<div class="ta-empty">暂无小问题记录</div>';
     }
     // TA的好奇
@@ -3702,7 +3724,7 @@ window.openTCPanel = openTCPanel;
     if (cuEl) {
       const h = allDeskHistories(KEY3);
       cuEl.innerHTML = h.length
-        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + x.q + '</div><div class="tc-li-line">你：' + x.my + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + (window.taFit ? window.taFit(x.reply) : x.reply) + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
+        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + escG(x.q) + '</div><div class="tc-li-line">你：' + escG(x.my) + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + taReplyShow(x.reply) + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
         : '<div class="ta-empty">暂无好奇记录</div>';
     }
     // TA的吐槽
@@ -3710,7 +3732,7 @@ window.openTCPanel = openTCPanel;
     if (roEl) {
       const h = allDeskHistories(KEY4);
       roEl.innerHTML = h.length
-        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + x.roast + '</div><div class="tc-li-line">你：' + x.my + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + (window.taFit ? window.taFit(x.reply) : x.reply) + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
+        ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' + escG(x.roast) + '</div><div class="tc-li-line">你：' + escG(x.my) + '</div><div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + taReplyShow(x.reply) + '</div><div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
         : '<div class="ta-empty">暂无吐槽记录</div>';
     }
     // 邀请 / 问问 TA（我的提问 + 联系人答案）
@@ -3720,7 +3742,7 @@ window.openTCPanel = openTCPanel;
       inEl.innerHTML = h.length
         ? h.map(x => '<div class="tc-listitem"><div class="tc-li-q">' +
             (x.type === 'invite' ? '邀请：' : '问：') + String(x.q || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>' +
-            '<div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + String(window.taFit ? window.taFit(x.a || '') : (x.a || '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '</div>' +
+            '<div class="tc-li-line">' + (window.taFit ? window.taFit('TA：') : 'TA：') + escG(window.taFit ? window.taFit(window.askCardReplyClean ? window.askCardReplyClean(x.a || '') : (x.a || '')) : (window.askCardReplyClean ? window.askCardReplyClean(x.a || '') : (x.a || ''))) + '</div>' +
             '<div class="tc-li-time">' + fmtDT(x.ts) + '</div></div>').join('')
         : '<div class="ta-empty">暂无邀请/问问记录</div>';
     }
@@ -3924,7 +3946,8 @@ window.openTCPanel = openTCPanel;
       const n = 1 + Math.floor(Math.random() * Math.min(5, words.length));
       const copy = words.slice(); const out = [];
       while (out.length < n) out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
-      t = out.join(' ');
+      // #650 文字题多张字卡连接符同走「拼接随机标点」符号池（关＝空格原样）
+      t = (window.pyJoinCards && window.replyCfg) ? window.pyJoinCards(out, window.replyCfg()) : out.join(' ');
     }
     try {
       const dc = window.getDefaultCards && window.getDefaultCards('chat');

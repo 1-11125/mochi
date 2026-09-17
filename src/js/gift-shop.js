@@ -656,7 +656,9 @@
     // #539 giftInOn「TA 送我礼物」总开关：默认 1=允许联系人给我送礼物（用户 2026-09-15 要求默认开启）；
     // #312 时代显式关过（存 0）的用户保持关闭不动，只有从未设置过的用户才落到新默认。
     // giftInPct=「TA 送我礼物」随机送礼概率（默认 5，旧实现写死 5% 无处可调）。
-    return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
+    // #660 wishChatOn「TA 的心愿发到聊天」总开关：默认 1=开（用户 2026-09-17 要求默认开启）；
+    // wishChatPct=TA 把商品加进自己心愿单时，顺带把这份心愿发进聊天的概率（默认 60）。
+    return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), wishChatOn: s.wishChatOn === 0 ? 0 : 1, wishChatPct: clampPct(s.wishChatPct, 60), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
   }
   function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
   // #585 设置口径一次性升级（用户 2026-09-16 报「联系人从来不会买礼物送到聊天」，根因之一）：
@@ -693,12 +695,21 @@
   //   ＝每开一次心意市集/聊天送礼面板就 302 次 parse（无头实测开面板明显慢半拍）。
   //   只在读侧缓存「id 集合」，不动 wishLoad 语义（避免缓存到数组后被写方原地改动产生别名 bug）；
   //   失效点挂在 wishSave 上——WL_TA_KEY 的全部写路径都走 wishSave（已核对无直写 set）。
+  // #660：缓存必须按桌面打标——心愿单是 per-cid 数据而缓存是模块级变量，切联系人后旧集合
+  //   会张冠李戴（市集「☆ TA许愿的」角标、聊天「TA 的心愿」卡片的待买/已送出判定都按新桌面
+  //   的数据读，却拿到上一个桌面的 id）。原先只有 wishSave 会清缓存，切桌面不清。
   let _taWishIds = null;
+  let _taWishIdsFor = '';
+  function taWishIdsFor() {
+    try { return (window.activePrefix ? window.activePrefix() : '') || String(window.__activeCid || ''); } catch (e) { return ''; }
+  }
   function taWishIds() {
-    if (!_taWishIds) {
+    const tag = taWishIdsFor();
+    if (!_taWishIds || _taWishIdsFor !== tag) {
       const ids = new Set();
       wishLoad(WL_TA_KEY).forEach(function (x) { if (x && x.giftId) ids.add(x.giftId); });
       _taWishIds = ids;
+      _taWishIdsFor = tag;
     }
     return _taWishIds;
   }
@@ -711,6 +722,40 @@
     return true;
   }
   function wishTaRemove(id) { wishSave(WL_TA_KEY, wishLoad(WL_TA_KEY).filter(function (x) { return x.giftId !== id; })); }
+
+  // #660「TA 的心愿发到聊天」（用户 2026-09-17：把商品放进清单时有概率发到聊天里，让我给 TA 买）：
+  // TA 把商品加进自己的心愿单那一刻，按设置概率把这份心愿作为一张卡片发进聊天。
+  // 卡片自带商品快照字段（商品日后被改/删不影响已发出的卡片），渲染在 chat.js 的
+  // special:'wish' 分支；「待买 / 已送出」不写进记录——聊天渲染时按 TA 心愿单的实时数据判
+  // （买下即 wishTaRemove），省掉一次跨文件的记录状态回写。
+  function wishChatPush(gift) {
+    try {
+      if (!gift || !gift.id || !window.chatAddGift) return false;
+      window.chatAddGift({
+        side: 'in', special: 'wish',
+        text: '想要「' + (gift.name || '这个') + '」',
+        wishGiftId: gift.id, wishGiftName: gift.name, wishGiftEmoji: gift.emoji,
+        wishGiftImg: gift.img || '', wishGiftPrice: gift.price, wishGiftCat: gift.cat,
+        wishGiftWish: gift.wish || '送给你', wishTs: Date.now()
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+  // 聊天渲染「TA 的心愿」卡片时问「这件还在 TA 的心愿单里吗」——读不到就当还在（宁可多显示
+  // 一次【送 TA】也不要凭空宣告已送出）。
+  window.giftTaWishHas = function (id) { try { return taWishIds().has(id); } catch (e) { return true; } };
+  // 聊天里点【送 TA】的入口：复用市集购买弹窗（同一扣款 + 心意柜 + 聊天送礼链路），
+  // 成交后回调让 chat.js 把卡片就地转「已送出」（DOM 与下标在 chat.js 手里，本文件不碰聊天记录）。
+  window.giftBuyFromWishCard = function (rec, done) {
+    if (!rec || !rec.wishGiftId) return false;
+    if (!taWishIds().has(rec.wishGiftId)) { toast(partnerName() + ' 的心愿单里已经没有这件啦'); return false; }
+    openBuyDialog({
+      id: rec.wishGiftId, name: rec.wishGiftName || '礼物', emoji: rec.wishGiftEmoji || '🎁',
+      img: rec.wishGiftImg || '', price: Number(rec.wishGiftPrice || 0), cat: rec.wishGiftCat || '',
+      wish: rec.wishGiftWish || '送给你'
+    }, { fromTaWish: true, onDone: done });
+    return true;
+  };
 
   function cardPool() { const pool = []; try { const d = window.DEFAULT_CARD_DATA; if (d && d.main) { d.main.forEach(function (c) { if (c && c[1]) c[1].forEach(function (x) { if (x) pool.push(x); }); }); } } catch (e) {} return pool; }
   function taWish(gift) {
@@ -864,7 +909,10 @@
         const giftW = pick(poolW);
         taWl.unshift(wishSnap(giftW));
         wishSave(WL_TA_KEY, taWl.slice(0, WL_MAX));
-        toast(partnerName() + ' 把「' + giftW.name + '」加进了 TA 的心愿单');
+        // #660：加进清单的同一刻按概率把这份心愿发进聊天（让我给 TA 买）。已发卡片就不再叠
+        // 一条 toast（卡片本身就是提示）；开关关闭 / 概率没中 / 聊天链路不可用时回落旧提示。
+        const pushed = !!(st.wishChatOn && Math.random() * 100 < st.wishChatPct && wishChatPush(giftW));
+        if (!pushed) toast(partnerName() + ' 把「' + giftW.name + '」加进了 TA 的心愿单');
         return;
       }
     }
@@ -925,6 +973,8 @@
         // 任何途径买下 TA 正许愿的礼物都算心愿兑现：送出即从 TA 心愿单移除（礼物进 TA 的心意柜「收到的」）
         wishTaRemove(gift.id);
         closeTc(); toast('已送出');
+        // #660：从聊天「TA 的心愿」卡片点进来的，成交后让聊天把那张卡就地转「已送出」
+        if (opts.onDone) { try { opts.onDone(); } catch (e) {} }
       }
     });
     if (cancelBtn) cancelBtn.addEventListener('click', closeTc);
@@ -956,7 +1006,7 @@
       ? (stG.giftInOn
         ? '在市集点开商品选「加入心愿单」即可许愿（不花钱）。' + esc(partnerName()) + ' 会按概率买下送你，礼物进「心意柜-收到的」并从心愿单移除；概率在「心意集市和心意柜设置」里可调。'
         : '在市集点开商品选「加入心愿单」即可许愿（不花钱）。「TA 送我礼物」总开关当前关闭，TA 不会买下心愿；想恢复去「心意集市和心意柜设置」打开。')
-      : '这里是 ' + esc(partnerName()) + ' 许的愿望（TA 逛市集时也会按概率把想要的加进来）。点「送 TA」买下送出：礼物进聊天和 TA 的心意柜-收到的，并自动从心愿单移除；市集里 TA 正许愿的商品也会标出来。';
+      : '这里是 ' + esc(partnerName()) + ' 许的愿望（TA 逛市集时也会按概率把想要的加进来，并有概率把这份心愿发一张卡片到聊天提醒你）。点「送 TA」买下送出：礼物进聊天和 TA 的心意柜-收到的，并自动从心愿单移除；市集里 TA 正许愿的商品也会标出来。';
     const emptyTxt = wishTab === 'my'
       ? '心愿单还是空的<br>去心意市集挑一件，点「加入心愿单」'
       : (esc(partnerName()) + ' 还没许愿<br>TA 逛市集时会自己加进来');
@@ -999,9 +1049,12 @@
       '<div class="gs-row"><div class="gs-lab">心愿单功能<span class="gs-sub">TA 买我的心愿单礼物送我 / TA 把想要的加进自己的心愿单</span></div><div class="gs-switch' + (st.wlOn ? ' on' : '') + '" data-gsw="wlOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 买下我的心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlBuyPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlBuyPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 加进自己心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlAddPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlAddPct + '"><span class="gs-pct">%</span></div></div>' +
+      // #660：TA 把商品放进自己清单那一刻，有概率把这份心愿发到聊天（我点卡片上的【送 TA】一键买下）
+      '<div class="gs-row"><div class="gs-lab">TA 的心愿发到聊天<span class="gs-sub">TA 把商品加进自己心愿单时，按概率把这份心愿发一张卡片到聊天，你点【送 TA】即可买下送出；默认开启</span></div><div class="gs-switch' + (st.wishChatOn ? ' on' : '') + '" data-gsw="wishChatOn"></div></div>' +
+      '<div class="gs-row"><div class="gs-lab">TA 心愿发到聊天概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wishChatPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wishChatPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
-      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
+      '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 的心愿发到聊天：TA 把商品加进自己心愿单的那一刻，按概率把这份心愿发一张卡片到聊天（默认开启、默认 60%），卡片上点【送 TA】就能买下送出，送完卡片自动变「已送出」；关掉开关或概率调 0，TA 就只默默加进心愿单、不再发卡片（聊天仍可在心意柜「看看 TA 的心愿单」里看到）。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
     window.openTCPanel('心意集市和心意柜设置', html);
     document.querySelectorAll('#tc-body [data-gsw]').forEach(function (sw) {
       sw.addEventListener('click', function () {

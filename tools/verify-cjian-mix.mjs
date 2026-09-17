@@ -206,10 +206,16 @@ try {
   ok('纠偏标记已落盘（一次性）', markB === '1', markB);
 
   console.log('\n== B2 标记幂等：之后用户手动放的不再折腾 ==');
-  await evalJs("(function () { const l = JSON.parse(localStorage.getItem('xy-home-v2:cta:cjian-roster') || '[]'); l.push({ id: 'dB10', name: '宝贝', offsetMin: 0 }); localStorage.setItem('xy-home-v2:cta:cjian-roster', JSON.stringify(l)); return true; })()");
+  // 「用户手动放」必须走应用存储契约（xyStore.set＝内存+LS+写日志+IDB 同步落；管理界面
+  // 「添加梦角」的 saveRoster 底层就是它，真实添加自带 manual:1，cid 跟随所在桌面）。
+  // 不能裸写 localStorage：idb.js 的 wrj 写日志（#339 系，杀进程回滚自愈）会把「日志里
+  // 没有的 LS 直写」当系统回滚治愈回旧值——裸写版用例曾因此长红（本组旧 3 红之二），非产品缺陷。
+  await evalJs("(function () { const S = window.xyStore('xy-home-v2:cta'); const l = JSON.parse(S.get('cjian-roster') || '[]'); l.push({ id: 'dB10', name: '宝贝', offsetMin: 0, cid: 'cta', manual: 1 }); S.set('cjian-roster', JSON.stringify(l)); return true; })()");
   await navigate(url);
+  await evalJs("(function(){ const a=document.querySelector('.app[data-app=\"cjian\"]'); if(a) a.click(); return true; })()");
+  await sleep(400);
   r = await rosters();
-  ok('标记后手动放在小桃桌面的「宝贝」不被搬走', r && r.cta && r.cta.indexOf('宝贝') >= 0, r);
+  ok('标记后手动放在小桃桌面的「宝贝」不被搬走（重开此间自愈后仍在）', r && r.cta && r.cta.indexOf('宝贝') >= 0, r);
 
   console.log('\n== B3 同名幻影替换（外来者带痕迹、家里无痕迹） ==');
   await scenario(REG_SEED + `
@@ -273,7 +279,9 @@ try {
   ok('UI 列表显示 starter 小桃、chips 正确（「全部」居首，#615）', uiC2 && uiC2.chips === '全部|宝贝|小桃' && uiC2.cards === '小桃', uiC2);
 
   console.log('\n== C3 删光梦角后不复活 ==');
-  await evalJs("(function () { localStorage.setItem('xy-home-v2:cta:cjian-roster', '[]'); localStorage.setItem('xy-home-v2:cta:cjian-seeded', '1'); return true; })()");
+  // 「用户删光」同 B2 走应用存储契约（管理界面删除路径同落点）；裸写 LS 会被 wrj 写日志
+  // 按「系统回滚」治愈回旧值＝刚删的名单复活（存储层设计行为，非 bug；旧 3 红之一）。
+  await evalJs("(function () { const S = window.xyStore('xy-home-v2:cta'); S.set('cjian-roster', '[]'); S.set('cjian-seeded', '1'); return true; })()");
   await navigate(url);
   await evalJs("(function(){ const a=document.querySelector('.app[data-app=\"cjian\"]'); if(a) a.click(); return true; })()");
   await sleep(400);

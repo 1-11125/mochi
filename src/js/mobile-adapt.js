@@ -1584,6 +1584,10 @@
         // open=h<_aH-60 恒真 → _aKb 卡真、.phone 内联高锁死残留值。_aKbAt=会话开启
         // 时刻、_aVvChgAt=vv 最近变化时刻（避开收起动画）、_aVvStale=残留读数闩。
         var _aKbAt = 0, _aVvChgAt = Date.now(), _aVvStale = false;
+        // FIX 2026-09-17 #657：键盘收缩「读数静音闩」——几何反证判过键盘不在场后（见下方
+        // touchstart 反证路），残留读数还会让 250ms 轮询每拍重新收缩（抽动）；本闩只在读数
+        // 真的变化或回基准时解除（_aBump 的触摸/按键续期不解，否则同一次滑动就把闩解掉）。
+        var _aKbMute = false;
         // v3.10.x：当前聚焦的文本元素（focusin 可靠上报，部分安卓浏览器
         // activeElement 在 contenteditable 上返回 <body>，单看它会漏判聚焦）
         var _aTextFocused = null;
@@ -1654,6 +1658,15 @@
         setInterval(function () {
           try {
             if (document.visibilityState !== 'visible') return;
+            // FIX 2026-09-17 #657 之二：平移补偿「成孤儿」自愈——纯算术恒等式，零机型分支。
+            // _aPanComp 的补偿量恒等于当时读到的残留平移（.phone 内联 top = vv.offsetTop）；
+            // 读数已归零而 .phone 仍带内联 top ⇒ 补偿失去依据（浏览器自行清了平移却未派事件、
+            // 或焦点滞留使各路复原都进不去）＝整壳被按旧偏移推下：顶部露 body 底色、下半截出屏，
+            // 即用户所见「整页飞出去、只显示手机上半屏」。此处按恒等式清掉；读数非零时
+            // _aPanComp 刚写的就是同值，判定不成立——健康设备零命中，键盘会话期不参与
+            //（会话内由 _aPanComp/_aPinPan 逐拍维护，含收起动画期的零强制读契约）。
+            if (!_aKb && !_aProv && !_aClosing && _aPhone.style.top
+                && Math.abs(Math.round(_aVV.offsetTop || 0)) <= 4) _aPhone.style.removeProperty('top');
             try { syncSafeBottomA(); } catch (eSB1) {} // FIX 2026-09-15 #530：键盘期底部安全区归零，1s 对账（漏 vv 事件也能收口）
             // FIX 2026-09-10 #267：键盘态卡死自愈（焦点侧证据，与下面 #236/#209 的视口侧
             // 证据互补）。安卓软键盘必然依附一个聚焦的可编辑元素，而本模块的触摸/按键/
@@ -1977,7 +1990,10 @@
           var h = _aVV.height;
           // FIX 2026-09-07 #236：vv 回基准=读数健康，解除残留闩；高度变化刷新稳定
           // 时刻（收起动画每帧都变，1s 看门狗凭「vv 已稳 1.2s」避开动画中途误清）
-          if (h >= _aH - 60) _aVvStale = false;
+          if (h >= _aH - 60) _aVvStale = false; // #236：vv 回基准=读数诚实，解除残留闩
+          // FIX 2026-09-17 #657：读数回基准、或读数又动了（＝新的真实键盘信号）都解除静音闩；
+          // 静音期读数纹丝不动，故这里解不掉（输入法字条显隐、真键盘再弹出都会改 h）。
+          if (h !== _aPrevH || h >= _aH - 60) _aKbMute = false;
           if (h !== _aPrevH) _aVvChgAt = Date.now();
           // FIX 2026-09-14 #479：窗口级改尺寸甄别与基线重锚。Edge/Chrome 自由小窗、分屏、
           // 桌面缩放窗口把【布局视口】inner 与 vv 一起永久改小，视口签名与键盘弹出全同
@@ -2018,7 +2034,9 @@
           //（_aH 已=当前窗口高，此判据自然为假）；焦点闸另兜住纯 vv 缩、无聚焦的
           // 窗口形态（地址栏/工具条显隐：inner 不动、只 vv 缩 → 不满足重锚条件，
           // 旧版这里会幽灵停靠），防幽灵键盘会话。
-          var open = (!_aVvStale && h < _aH - 60 && _focNow); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁；#479：必然伴随文本聚焦）
+          // #657：_aKbMute=已被几何反证判「键盘不在场」的残留读数，不得再据它收缩（读数真的
+          // 变化/回基准即解除，见函数头）。
+          var open = (!_aVvStale && !_aKbMute && h < _aH - 60 && _focNow); // 可视高度明显变小 = 键盘弹出（#236：残留读数闩抑制纯 vv 信号；真键盘不受影响——inner 同缩走原判/交互与回基准解锁；#479：必然伴随文本聚焦）
           if (!open && h > _aH) _aH = h; // 无键盘时更新基准，地址栏变化不误判
           if (open && !_aKb) { _aClosing = false; _aKb = true; _aVvShrunkSeen = true; _aKbAt = Date.now(); _aPhone.style.alignSelf = 'flex-start'; kbDockPanels(); _aProvClear(); }
           if (!open && _aKb) {
@@ -2294,7 +2312,7 @@
               var _visBottomC = (_aVV.offsetTop || 0) + _aVV.height;
               _kbCovered = !!(_rC && _rC.height > 0 && _aCoverBottom(tgt) > _visBottomC + 12);
             } catch (eCov) {}
-            if (!_aKb && !_aProv &&
+            if (!_aKb && !_aProv && !_aKbMute &&
                 Date.now() - _aFocusAt > 900 &&
                 Date.now() - kbLastTouchAt < 1500 &&
                 kbTouchArmed(tgt) &&
@@ -2302,7 +2320,7 @@
                 Math.abs(_aVV.height - _aH) <= 2 &&
                 Math.abs(ih - _aIH) <= 2 && _kbCovered) {
               _aProvDock();
-            } else if (!_aKb && !_aProv &&
+            } else if (!_aKb && !_aProv && !_aKbMute &&
                 Date.now() - _aFocusAt > 900 &&
                 kbTouchArmed(tgt) &&
                 Date.now() > kbHardKeyUntil) {
@@ -2321,6 +2339,45 @@
         try {
           document.addEventListener('touchstart', _aBump, { passive: true, capture: true });
         } catch (e) {}
+        // FIX 2026-09-17 #657：键盘期收缩高「第五条复原路」——几何反证（零机型分支）。
+        // 用户实报（vivo X200S + Edge，明说其他机型也有）：信箱→打开写信页面，滑动屏幕时
+        // 整页飞出去、只显示手机上半屏。根因：软键盘收缩靠可视视口读数，而安卓收键盘/滑动
+        // 不 blur——焦点仍留在输入框（写信页 ce-box）上时，四条兄弟复原路全被挡住：
+        // #209/#236 视口闸（读数滞留小值时 _dK 落在深缩带 ≥22%、绕开 #236 的残留带判定）、
+        // #267 活焦点闸、#542 焦点闸，都要「焦点已离开」或「读数回基准」才动 ⇒ .phone 内联
+        // 收缩高永久停在键盘期数值＝只显示上半屏，用户往下滑（滑的是半屏下方的空白区）也不
+        // 回来（无头实测复现：vv 滞留 414/740、滑动后 2.6s 仍是 414px）。
+        // 本条证据与焦点、读数都无关，只认几何反证：可视视口底边以下那块区域若真被软键盘
+        // 占据，浏览器不会把触摸派发给页面——页面收到落在视口底边以下的真实触摸点 ⇒ 键盘必
+        // 不在场。命中即按 #209/#236/#542 同款动作复原，并置 _aKbMute 闩防残留读数每 250ms
+        // 把 .phone 抽回去。健康设备恒不命中（键盘真在场时该区域触摸归键盘）；只作用于
+        // vv 收缩的真键盘会话，悬浮/推定停靠（_aProv）族行为零变化。
+        var _aProofT = null;
+        try {
+          document.addEventListener('touchstart', function (e) {
+            try {
+              if (!_aKb || _aProv || _aClosing) return;       // 只管 vv 收缩的键盘会话
+              if (Date.now() - _aKbAt < 1200) return;         // 会话刚开始（弹起/首帧定位）不判
+              if (Date.now() - _aVvChgAt < 400) return;       // 读数刚变＝动画中途，不判
+              var t = e.touches && e.touches[0];
+              if (!t || _aIsText(e.target)) return;           // 触摸落在输入框上＝用户去点输入框，不判
+              if (!(t.clientY > Math.round((_aVV.offsetTop || 0) + _aVV.height) + 24)) return;
+              clearTimeout(_aProofT);
+              _aProofT = setTimeout(function () {
+                try {
+                  if (!_aKb || _aProv || _aClosing) return;
+                  if (Date.now() - _aVvChgAt < 400) return;
+                  _aKbMute = true; _aVvStale = true;
+                  _aKb = false; _aClosing = false;
+                  _aPhone.style.height = '';
+                  _aPhone.style.alignSelf = '';
+                  _aPanComp();
+                  kbUndockPanels();
+                } catch (e2) {}
+              }, 60);
+            } catch (e1) {}
+          }, { passive: true, capture: true });
+        } catch (ePT) {}
         try {
           // keydown 用捕获，输入法组合（keyCode 229）也持续刷新，保证长时间打字不误清除
           document.addEventListener('keydown', _aBump, true);
@@ -2559,6 +2616,11 @@
     '#pc-sheet-mask',
     // FIX 2026-09-15 #527：边看边调底部抽屉——盖在桌面上的固定层，打开时同样要锁背景滚动
     //（此前未登记，抽屉打开后底层桌面仍可被滑动）
+    // FIX 2026-09-17 #660：聊天设置「输入栏按钮位置」排序面板同族（chat-settings.js
+    //   openInputOrderPanel 建的整屏遮罩，#cs-bg-panel 同款结构）——未登记＝面板开着时
+    //   底层设置页仍可被滑动。单独占一行登记：末行 '  #beauty-drawer', '#icon-fit-panel'];'
+    //   整段是 #581f 哨兵的 needle 原文，直接往那行追加会改掉它、把别人的锚点弄哑。
+    '#cs-input-order-panel',
     // FIX 2026-09-16 #581：图标图片位置调整面板同族（personalize.js openIconFitPanel 建的固定底半框）
     '#beauty-drawer', '#icon-fit-panel'];
   // v3.15.x：键盘弹起时把锚定在 .phone 底部的悬浮面板（更多功能/帮我决定/占卜/

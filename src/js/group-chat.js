@@ -3344,14 +3344,22 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   const GC_POKE_PRESETS = ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀'];
   function gcPokeActions() {
     const out = GC_POKE_PRESETS.slice();
-    try { (window.getPokeCards() || []).forEach(x => { if (typeof x === 'string' && x && out.indexOf(x) < 0) out.push(x); }); } catch (e) {}
+    // FIX 2026-09-17 #648g 拍一拍短语池媒体守卫（与 chat.js pokeTextOnly 同口径）——
+    // 自建分组/字卡库【拍一拍】里混入的令牌/图链/||| 卡不进面板、不被发出
+    const _pkOk = function (x) {
+      if (typeof x !== 'string' || !x.trim()) return false;
+      if (x.indexOf('data:') === 0 || x.indexOf('|||') >= 0 || x.indexOf('@@m:') >= 0) return false;
+      if (/^https?:\/\//i.test(x)) return false;
+      return true;
+    };
+    try { (window.getPokeCards() || []).forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); } catch (e) {}
     [['poke-groups-mine', false], ['poke-user-mine', true]].forEach(([k, flat]) => {
       try {
         const v = JSON.parse(window.activeStore().get(k) || 'null');
         if (flat && Array.isArray(v)) {
-          v.forEach(x => { if (typeof x === 'string' && x.trim() && out.indexOf(x) < 0) out.push(x); });
+          v.forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); });
         } else if (Array.isArray(v)) {
-          v.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) g[1].forEach(x => { if (typeof x === 'string' && x.trim() && out.indexOf(x) < 0) out.push(x); }); });
+          v.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) g[1].forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); });
         }
       } catch (e) {}
     });

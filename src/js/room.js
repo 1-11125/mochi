@@ -233,6 +233,42 @@
   const sceneEl = $id('room-scene'), wallEl = $id('room-wall'), floorEl = $id('room-floor');
   const taEl = $id('room-ta'), bubbleEl = $id('room-bubble'), statusEl = $id('room-status');
 
+  function manualBrightness() {
+    const s = S(), raw = s && s.get('room-brightness');
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(50, Math.min(150, n)) : null;
+  }
+  function applyBrightness() {
+    const value = manualBrightness();
+    sceneEl.classList.toggle('r-manual-light', value !== null);
+    sceneEl.style.setProperty('--room-bright', String(value === null ? lum() : value / 100));
+    const slider = $id('room-brightness');
+    if (slider) {
+      slider.value = String(value === null ? 100 : value);
+      $id('room-brightness-value').textContent = value === null ? '自动' : value + '%';
+      $id('room-brightness-auto').disabled = value === null;
+    }
+  }
+  function bindBrightness() {
+    const controls = document.createElement('div');
+    controls.className = 'r-brightness';
+    controls.innerHTML = '<label for="room-brightness">亮度 <output id="room-brightness-value" for="room-brightness">自动</output></label>' +
+      '<input id="room-brightness" type="range" min="50" max="150" step="5" value="100" aria-label="房间亮度">' +
+      '<button id="room-brightness-auto" type="button">自动</button>';
+    sceneEl.parentNode.insertBefore(controls, sceneEl);
+    $id('room-brightness').addEventListener('input', function () {
+      const s = S(); if (!s) return;
+      s.set('room-brightness', this.value);
+      applyBrightness();
+    });
+    $id('room-brightness-auto').addEventListener('click', function () {
+      const s = S(); if (!s) return;
+      s.remove('room-brightness');
+      applyBrightness();
+    });
+  }
+
   function buildCells() {
     if (!floorEl || floorEl.dataset.cells) return;
     floorEl.dataset.cells = '1';
@@ -256,7 +292,7 @@
     const night = isNight(), w = weather();
     sceneEl.classList.toggle('night', night);
     sceneEl.classList.toggle('raining', !night && w.t === '小雨');
-    sceneEl.style.setProperty('--room-bright', String(lum()));
+    applyBrightness();
     wallEl.className = 'r-wall wall-' + d.wall;
     floorEl.className = 'r-floor floor-' + d.floor;
     $id('room-win-a').className = 'r-window wa' + (night ? ' nw' : '');
@@ -656,6 +692,7 @@
         '摆着的家具：' + placedCount() + '/' + capOf() + ' · 仓库还有 ' + invN + ' 件\n' +
         '小屋点数：🏠 ' + d.pts + '\n' +
         nextTxt + '\n\n' +
+        '场景上方可调亮度（50%–150%），按联系人桌面保存；手动模式不再叠加夜间压暗，点「自动」恢复昼夜和灯光。只影响屋内画面，不改变设备屏幕亮度。\n\n' +
         '这不是一个任务游戏。想进来的时候进来看看，\n摸摸植物，看看窗外，坐一会儿，就好了。'
     });
   }
@@ -851,8 +888,12 @@
       if (page.hidden) return;
       if (e.target && e.target.closest && e.target.closest('#room-banner-cancel')) { try { banner(null); } catch (er) {} }
     }, true);
+    bindBrightness();
     bindScene();
     bindDrag();
+    document.addEventListener('mochi-restore-done', function () {
+      if (!page.hidden) applyBrightness();
+    });
     setInterval(tick, 1000);
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && !page.hidden) { renderScene(); renderStatus(); }

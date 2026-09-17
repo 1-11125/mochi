@@ -314,6 +314,8 @@
   //   移除首开 forceExpand 全展开逻辑（默认折叠即可）。
   const enterEl = document.getElementById('splash-enter');
   const loadingEl = document.getElementById('splash-loading');
+  // #657：开屏等待较久时的「为什么慢」一行说明（默认 hidden，判据见 updateEnterState）
+  const loadingSubEl = document.getElementById('splash-loading-sub');
   const hintEl = document.getElementById('splash-enter-hint');
   // #315c：一次性年龄确认闸门——勾选「已年满 18 周岁并同意全部说明」后才可进入；
   //   确认一次永久记住（xy-home-v2:age-confirmed），之后开屏自动勾上不重复打断。
@@ -417,6 +419,9 @@
     // 在线上必抛 ReferenceError（每次进入 uncaught、提醒永远不弹，多机型同报）；
     // 改走 window 挂载 + 守卫调用，缺失/异常都不阻断进入。
     try { if (window.maybeCardLockReminder) window.maybeCardLockReminder(); } catch (e) {}
+    // #646：进入桌面入口流程——默认进入的桌面 / 打开时先进入此间（两项设置均默认关闭）。
+    // 放在数据已就绪的进入收尾处；缺失或异常都不阻断进入。
+    try { if (window.mochiContactEntryFlow) window.mochiContactEntryFlow(); } catch (e) {}
   }
   let scrolledBottom = false;
   function checkScrolled() {
@@ -442,6 +447,13 @@
       // 数据未就绪 → 仍在加载数据；数据已就绪但页面资源未加载完 → 提示等待页面
       loadingEl.hidden = r && loaded();
       loadingEl.textContent = (!ready() && slow) ? '数据较多，仍在加载…' : (r ? '正在加载页面…' : '正在加载数据…');
+    }
+    // #657：只在「等得比较久」时才就地解释原因（用户普遍把开屏慢当 bug）——两种形态：
+    //   数据多尚未就绪（slow）／数据已就绪但整页 5.5MB 资源还没加载完（正在加载页面…）。
+    //   正常几秒读完的冷启动不显示，避免多一行无谓文字。要求加载提示在位，防出现"有解释没提示"。
+    if (loadingSubEl) {
+      const loadingShown = loadingEl ? !loadingEl.hidden : false;
+      loadingSubEl.hidden = !(loadingShown && ((!ready() && slow) || (r && !loaded())));
     }
     if (hintEl) hintEl.hidden = !r || !loaded() || ok;
     if (enterEl) {

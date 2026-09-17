@@ -3631,11 +3631,13 @@
     return out;
   };
   // 拍一拍字卡（自定义字卡里【拍一拍】分类）
+  // FIX 2026-09-17 #648f 同款媒体守卫——拍一拍池语义＝纯文字短语，#554/#632 全库令牌化后
+  // 落进【拍一拍】分类的令牌/图链/||| 卡不剔出的话，TA 抽中即拼进「TA 拍了拍你 …」直出乱码
   window.getPokeCards = function () {
     maybeHydrateReplyPool();
     const g = replyPoolGroups();
     const out = [];
-    (g['poke'] || []).forEach(([name, arr]) => arr.forEach(c => out.push(c)));
+    (g['poke'] || []).forEach(([name, arr]) => arr.forEach(c => { if (ccFuncTextOnly(c)) out.push(c); }));
     return out;
   };
   // 拍一拍分组（分组名 + 字卡数组），供拍一拍页面展示
@@ -3685,6 +3687,24 @@
   // 引用相等 O(1) 判新；任何写库（set 换新串）自动失效重算——功能触发频率高，
   // 每次都 buildGroupsFrom 整库 JSON.parse 会卡（大库百 MB 级，用户实测卡顿根因之一）。
   let ccFuncOwnSrc = null, ccFuncOwnMap = null;
+  // FIX 2026-09-17 #648 功能字卡池媒体守卫（#383 令牌直出家族收口到源头）——#554「字卡图
+  // 去重入库」/#632 自动瘦身把库内 ≥CC_CC_TOK_MIN 的内联图整库替换成 @@m: 令牌（字符串级
+  // 替换不分分类），链接导入的裸 http(s) 图链与「名称|||data:」形卡也一直在库；本函数旧过滤
+  // 只挡 data:，令牌/URL/||| 卡全漏进 互动回应/查岗/摸鱼/游戏回应 等文字话术池＝TA 抽中即
+  // 直出令牌串（vivo V2528A+Edge 等多机型同报）。功能池语义＝纯文字话术，媒体形态一律不入
+  // 池；聊天通用池（getCustomCards）走 getPool 消费端既有守卫，不受本过滤影响。
+  function ccFuncTextOnly(c) {
+    if (typeof c !== 'string' || !c.trim()) return false;
+    if (c.indexOf('data:') === 0) return false;
+    if (c.indexOf('|||') >= 0) return false;
+    // indexOf 口径（#426 同款教训）：mochiMediaIsToken 全串锚定，令牌嵌在长文本里测不出
+    if (c.indexOf('@@m:') >= 0) return false;
+    if (window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return false;
+    if (/^https?:\/\//i.test(c)) return false;
+    return true;
+  }
+  // #648f 暴露给拍一拍等「纯文字话术池」复用（chat.js/group-chat.js 运行期经 window 取用）
+  window.ccTextCardOnly = ccFuncTextOnly;
   function ownFuncMap() {
     let raw = null;
     try { raw = store.get('cc-groups'); } catch (e) {}
@@ -3695,7 +3715,7 @@
       const g = filterGroupsByOff(buildGroupsFrom(raw), 'own');
       CC_FUNC_KEYS.forEach(k => (g[k] || []).forEach(grp => {
         if (!Array.isArray(grp) || !Array.isArray(grp[1])) return;
-        grp[1].forEach(c => { if (typeof c === 'string' && c && c.indexOf('data:') !== 0) map[k].push(c); });
+        grp[1].forEach(c => { if (ccFuncTextOnly(c)) map[k].push(c); });
       }));
     } catch (e) {}
     ccFuncOwnMap = map;
@@ -3709,7 +3729,7 @@
       const pg = filterGroupsByOff(pubGroupsRaw(), 'public');
       (pg[cat] || []).forEach(grp => {
         if (!Array.isArray(grp) || !Array.isArray(grp[1])) return;
-        grp[1].forEach(c => { if (typeof c === 'string' && c && c.indexOf('data:') !== 0) out.push(c); });
+        grp[1].forEach(c => { if (ccFuncTextOnly(c)) out.push(c); });
       });
     } catch (e) {}
     return out;
@@ -3951,7 +3971,8 @@
     try { if (window.hydrateLibForCid) window.hydrateLibForCid(cid); } catch (e) {}
     const g = replyPoolGroupsFor(cid);
     const out = [];
-    (g['poke'] || []).forEach(([name, arr]) => (arr || []).forEach(c => out.push(c)));
+    // #648f 同 getPokeCards：媒体形态卡不进拍一拍池（群聊成员抽中直出乱码同族）
+    (g['poke'] || []).forEach(([name, arr]) => (arr || []).forEach(c => { if (ccFuncTextOnly(c)) out.push(c); }));
     return out;
   };
   window.getMediaCardsFor = function (cid, type) {

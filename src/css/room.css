@@ -94,6 +94,17 @@
 .r-scene.night .r-floor { filter: brightness(.55) saturate(.85); }
 .r-scene.night .wall-starw, .r-scene.night .wall-nightw { filter: brightness(.8); }
 
+.r-scene.night.r-manual-light .r-wall,
+.r-scene.night.r-manual-light .r-floor { filter: none; transition: none; }
+.r-scene.r-manual-light.room-in { animation: none; }
+.r-scene.r-manual-light { transition: none; }
+.r-brightness { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; color: var(--ink); font-size: 12px; }
+.r-brightness label { flex: none; }
+.r-brightness output { display: inline-block; min-width: 34px; }
+.r-brightness input[type="range"] { flex: 1; min-width: 0; width: 0; height: 32px; padding: 0; accent-color: var(--ink); }
+.r-brightness button { flex: none; min-height: 32px; padding: 4px 8px; color: var(--ink); background: var(--glass-bg, rgba(255,255,255,.55)); border: 1px solid var(--card-border); border-radius: 8px; }
+.r-brightness button:disabled { opacity: .5; }
+
 /* 门与窗（固定布景） */
 .r-door {
   position: absolute; left: 3.5%; top: 8%;

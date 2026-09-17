@@ -152,6 +152,24 @@ mt = await modalText();
 A('P5 设备兼容诊断「功能说明」点名设备/浏览器限制清单', mt.includes('浏览器限制') && mt.includes('第 12 节'));
 await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=true; })()`);
 
+// #659 夜间模式行（incoming-requests.js 动态插入）：胶囊在行内、点开＝作用/默认/机制/影响范围，
+// 且点胶囊不会顺手把开关拨动（胶囊在 .txt 内、与 label.toggle 无关）
+const nightOn = () => ev(`(()=>{ const i=document.getElementById('sf-night-mode'); return !!i && i.checked; })()`);
+A('P5a 夜间模式行「功能说明」胶囊在位（动态行自带、未被 inject 跳过）',
+  await ev(`(()=>{ const t=document.querySelector('#sf-night-mode-tag'); const r=document.getElementById('sf-night-mode-row');
+    return !!t && !!r && r.querySelector('.txt')===t.parentNode && t.getAttribute('data-setdesc')==='#sf-night-mode-row'; })()`));
+const beforeToggle = await nightOn();
+await clickCapsule('#sf-night-mode-row'); await sleep(200);
+mt = await modalText();
+const nightTitle = await ev(`(()=>{ const t=document.getElementById('modal-title'); return t ? t.textContent : ''; })()`);
+A('P5b 夜间模式「功能说明」= 时段 + 默认 + 机制 + 影响范围四段且不拨开关',
+  nightTitle.indexOf('夜间模式') >= 0 &&
+  mt.includes('22:00–次日 07:00') && mt.includes('默认：关闭') && mt.includes('无需手动操作') &&
+  mt.includes('跨桌面查岗') && mt.includes('跨桌面来电') &&
+  mt.includes('不受影响') && (await nightOn()) === beforeToggle,
+  'len=' + (mt ? mt.length : 0) + ' title=' + nightTitle + ' toggle=' + beforeToggle);
+await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=true; })()`);
+
 // 设置搜索：卡顿 / 后台弹窗 / 浏览器限制 都能找到入口行
 await setSearch('卡顿'); await sleep(150);
 const perfVis = await rowVisible('#row-perf-optimize');
@@ -161,6 +179,12 @@ await setSearch('后台弹窗'); await sleep(150);
 A('P7 设置搜索「后台弹窗」命中 使用说明', await rowVisible('#row-guide'));
 await setSearch('浏览器限制'); await sleep(150);
 A('P8 设置搜索「浏览器限制」命中 设备兼容诊断', await rowVisible('#row-diagnostics'));
+// #659：说明文案并入搜索素材（行上胶囊带 data-setdesc，#573 数据驱动）——只出现在说明里的词也能搜到本行
+await setSearch('勿扰'); await sleep(150);
+A('P8b 设置搜索「勿扰」（只在夜间模式说明里）命中夜间模式行', await rowVisible('#sf-night-mode-row'));
+await setSearch('功能说明'); await sleep(150);
+const capsuleNoise = await ev(`(()=>[...document.querySelectorAll('#page-setting .set-row')].filter(r=>r.style.display!=='none').length)()`);
+A('P8c 胶囊文本仍不入搜索素材（搜「功能说明」零命中，夜间模式行不误中）', capsuleNoise === 0, 'hits=' + capsuleNoise);
 await setSearch(''); await sleep(150);
 
 // ---- G 使用说明页：节数 / 计数 / 页内搜索 ----

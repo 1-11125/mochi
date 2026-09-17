@@ -117,6 +117,14 @@
     } catch (e) {}
     return [];
   }
+  // FIX 2026-09-17 #667 快照只剥「大体积」的图片本体（dataURL），保留媒体池令牌 @@m:hash：
+  //   令牌只有 44 字符、不占快照预算，却能随时从池里解回真图。旧实现连令牌一起换成
+  //   「[图片]」文字——一旦权威键读不到（大键只在 IDB、Edge 杀后台/IDB 挂起、LS 被清），
+  //   这份剥图快照就成了渲染与写回的来源，评论区 TA 的表情包/图片就永久退化成「[图片]」
+  //   两个字（多机型反复报障：聊天里正常、朋友圈评论只剩图字）。渲染端 inlineBody 与
+  //   媒体池观察器本就认令牌（#386），保留它不引入新形态。
+  const SNAP_MEDIA_RE = /data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g;
+  function stripMediaBody(s) { return String(s == null ? '' : s).replace(SNAP_MEDIA_RE, '[图片]'); }
   // 剥图：动态/评论/回复里的图片 dataURL 换占位文本，头像清空（快照只保文本历史）
   function stripPostImg(p) {
     if (!p || typeof p !== 'object') return p;
@@ -125,7 +133,7 @@
     c.authorAv = '';
     c.taAv = '';
     if (typeof c.content === 'string') {
-      c.content = c.content.replace(/data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]');
+      c.content = stripMediaBody(c.content);
       if (c.content.length > 8192) c.content = c.content.slice(0, 8192) + '…';
     }
     if (Array.isArray(c.comments)) {
@@ -133,7 +141,7 @@
         if (!co || typeof co !== 'object') return co;
         const cc = Object.assign({}, co);
         if (typeof cc.content === 'string') {
-          cc.content = cc.content.replace(/data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]');
+          cc.content = stripMediaBody(cc.content);
           if (cc.content.length > 8192) cc.content = cc.content.slice(0, 8192) + '…';
         }
         if (Array.isArray(cc.replies)) {
@@ -141,7 +149,7 @@
             if (!r || typeof r !== 'object') return r;
             const rr = Object.assign({}, r);
             if (typeof rr.content === 'string') {
-              rr.content = rr.content.replace(/data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g, '[图片]').replace(/@@m:[0-9a-f]{32}/g, '[图片]');
+              rr.content = stripMediaBody(rr.content);
               if (rr.content.length > 8192) rr.content = rr.content.slice(0, 8192) + '…';
             }
             return rr;
@@ -337,6 +345,15 @@
   //   「回复有时是表情包缩略图、有时只剩 图片 两个字」。改为按 ts+作者 收敛为同一条，
   //   并入时优先保留含真实 data:image 的那版（删掉剥图占位）。
   function itemKey(o) { return (o && o.ts ? o.ts : 0) + '|' + (o.role || o.by || '') + '|' + (o.authorName || ''); }
+  // FIX 2026-09-17 #667 媒体身份判定（合并择优用）：dataURL 或媒体池令牌。令牌要在「整串」
+  //   与「图文混排」两种形态下都认得出——旧实现用整串令牌判定（mochiMediaIsToken），
+  //   「好可爱 @@m:hash」这种混排评论被判成「没有图」，剥图快照那版（内容是 [图片] 文字）
+  //   就被当成并列版本留下，图永远回不来（纯图评论那条路 v3.26.x 已修，混排是漏网口；
+  //   字卡库经 #554 令牌化后，混排已是朋友圈评论的常态形态）。
+  function hasMediaBody(s) {
+    const t = String(s == null ? '' : s);
+    return /data:image\//.test(t) || /@@m:[0-9a-f]{32}/.test(t);
+  }
   function deeperList(a, b) {
     const byKey = {};
     const put = (o) => {
@@ -346,8 +363,8 @@
       if (!prev) { byKey[k] = Object.assign({}, o); return; }
       if (Array.isArray(o.replies) && o.replies.length) prev.replies = deeperList(prev.replies || [], o.replies);
       else if (!Array.isArray(prev.replies) && Array.isArray(o.replies)) prev.replies = o.replies;
-      const prevImg = /data:image\//.test(String(prev.content || '')) || (window.mochiMediaIsToken && window.mochiMediaIsToken(String(prev.content || '').trim()));
-      const oImg = /data:image\//.test(String(o.content || '')) || (window.mochiMediaIsToken && window.mochiMediaIsToken(String(o.content || '').trim()));
+      const prevImg = hasMediaBody(prev.content);
+      const oImg = hasMediaBody(o.content);
       if (!prevImg && oImg) prev.content = o.content;
     };
     (a || []).forEach(put);
@@ -364,7 +381,10 @@
     const older = newer === a ? b : a;
     const out = Object.assign({}, older, newer);
     // 剥图快照侧 content 内联图被换成 [图片]、imgs/头像被清空——取未剥图的完整版
-    if ((older.content || '').length > (newer.content || '').length) out.content = older.content;
+    // FIX 2026-09-17 #667 与评论/回复同款择优：含媒体的那一版优先（两侧同为有图/同为无图
+    //   时退回原「长度更长」口径），避免剥图版把正文里的图换成「[图片]」文字后被留下。
+    const oMedia = hasMediaBody(older.content), nMedia = hasMediaBody(newer.content);
+    if (oMedia !== nMedia ? oMedia : (older.content || '').length > (newer.content || '').length) out.content = older.content;
     out.imgs = (newer.imgs && newer.imgs.length) ? newer.imgs : (older.imgs || []);
     if (!out.authorAv && older.authorAv) out.authorAv = older.authorAv;
     if (!out.taAv && older.taAv) out.taAv = older.taAv;
@@ -456,7 +476,12 @@
   function scheduleSnap(arr) {
     snapPending = arr;
     if (snapTimer) return;
-    snapTimer = setTimeout(() => { snapTimer = null; flushSnap(); }, 800);
+    // FIX 2026-09-17 #667 去抖回调不再先清 snapTimer：flushSnap 头部以 snapTimer 判活
+    //   （`if (!snapTimer) return;`），旧写法回调里先置空＝进 flushSnap 立即空返回，
+    //   800ms 尾随落盘整条失效——快照只在切后台/离页（pagehide/visibilitychange）才更新，
+    //   常年停在旧时刻。而这份陈旧的剥图快照正是「[图片]」占位的载体（#667 主因），
+    //   越晚刷新越久地遮住完整内容。flushSnap 自己会 clearTimeout + 置空，重复无害。
+    snapTimer = setTimeout(() => { flushSnap(); }, 800);
   }
   try {
     window.addEventListener('pagehide', function () { flushFeedWrite(); flushSnap(); });
@@ -2674,13 +2699,21 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         if (Array.isArray(idbArr)) base = idbArr.map(normPost);
       }
       let cur = [];
+      let curFromSnap = false;
       const raw = store.get(KEY);
       if (raw !== null) { try { const a = JSON.parse(raw); if (Array.isArray(a)) cur = a.map(normPost); } catch (e) {} }
-      if (!cur.length) cur = loadSnap().map(normPost);
+      if (!cur.length) { const sn = loadSnap(); if (sn.length) { curFromSnap = true; cur = sn.map(normPost); } }
       const merged = mergePosts(base, mergePosts(cur, pending));
       if (!merged.length) { if (authOk && feedPending === pending) feedPending = null; return; }
       // #496：内存真相与权威合并结果同拍刷新（此后 load() 以 merged 为准，不再重 parse）
-      feedMem = merged;
+      // FIX 2026-09-17 #667 降级兜底不得当内存真相：权威键没读到、本次靠剥图快照顶起来的
+      //   merged 只够渲染应急，不能抬成会话内的最新整包。旧实现无条件 feedMem = merged：
+      //   此后 load() 被这份剥图版遮蔽，用户点赞/评论触发的写回就把剥图版当「最新整包」写进
+      //   权威键——#188 写守卫查的是持久层（store.get/idbHasKey），看不见写入源已被 feedMem
+      //   掉包，于是图永久变「[图片]」。不设 feedMem＝load() 继续读持久层/快照，权威副本一旦
+      //   可读（idbRestore 回填 / LS 恢复）下一次 load() 就恢复完整内容，与守卫同源。
+      const degraded = !authOk && curFromSnap;
+      if (!degraded) feedMem = merged;
       // #187：写回走守卫——权威读失败且手上可能是剥图快照时，探测确认权威键仍在就绝不写回
       feedGuardWrite(JSON.stringify(merged)).then(written => {
         if (written) {
