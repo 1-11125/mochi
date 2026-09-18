@@ -3761,15 +3761,36 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   });
 
   // ---- 插入图片按钮：多选图片 → 压缩 → 草稿条预览，随发送合并为组合消息（同聊天页）----
-  if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
+  // FIX 2026-09-18 #753（#677/#717/#738 同族）：原实现是全站最弱的一档——**每次点击现场 new
+  // 一个 input 且从未挂进文档**就 `fi.click()`。三重问题叠加：
+  //   ① 未挂文档 → iOS Safari 不保证派发 change/带上 files（#677 实录「加了图片会消失」）；
+  //   ② 纯 JS 合成 click → 小米系等分叉内核静默忽略（#739 实录「点了没反应」）；
+  //   ③ 无 label 兜底、无 accept 前置保证 → iOS 首次激活退回通用文件选择器（相册不在候选里）。
+  // 改为与聊天页 chat.js 完全同构：**常驻一个 sr-only input 挂 body** + accept 在 click 之前
+  // + 原生 label 兜底（#738 device.js mochiFilePickLabel）+ fromLabel 跳过 JS click 防双开。
+  // 压缩管线（720 / JPEG 0.85 画布压缩、解码失败按原图兜底）一字不动。
+  let gcImgInput = null;
+  function gcImgPicker() {
+    if (gcImgInput) {
+      try { gcImgInput.accept = 'image/*'; } catch (e) {}
+      return gcImgInput;
+    }
     const fi = document.createElement('input');
-    fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
+    fi.type = 'file';
+    fi.id = 'gc-img-pick'; // 常驻身份（诊断/测试句柄）
+    // sr-only clip 写法（不用 display:none——#717/#738 已全站收口的写法）
+    fi.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+    // accept 必须落在 click 之前（否则 iOS 首次激活退回文件管理器而非相册）
+    fi.accept = 'image/*'; fi.multiple = true;
     fi.onchange = () => {
       const files = Array.prototype.slice.call(fi.files || []);
-      if (!files.length) return;
+      fi.value = ''; // 允许重选同一张
+      // 空 FileList：与聊天页同口径给可见反馈，不再静默吞掉（#677h）
+      if (!files.length) { toast('没有取到图片，请再选一次'); return; }
       files.forEach(f => {
         const reader = new FileReader();
+        // 读取失败必须可见（#677g 同口径）
+        reader.onerror = () => { toast('图片读取失败，请换一张再试'); };
         reader.onload = () => {
           const img = new Image();
           img.onload = () => {
@@ -3779,7 +3800,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
               c.width = Math.max(1, Math.round(img.width * scale));
               c.height = Math.max(1, Math.round(img.height * scale));
               c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              gcDraftImgs.push(c.toDataURL('image/jpeg', 0.85));
+              // iOS 画布超限时 toDataURL 回 "data:,"（空图）——绝不把空图当图片塞进草稿（#677 同口径）
+              const out = c.toDataURL('image/jpeg', 0.85);
+              if (out && out.indexOf('data:image/') === 0 && out.length > 128) gcDraftImgs.push(out);
+              else gcDraftImgs.push(reader.result);
             } catch (err) {
               gcDraftImgs.push(reader.result);
             }
@@ -3795,7 +3819,20 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         reader.readAsDataURL(f);
       });
     };
-    fi.click();
+    document.body.appendChild(fi);
+    gcImgInput = fi;
+    // 原生 label 激活层（等 input 挂进文档、id/accept 就位后才接）
+    if (window.mochiFilePickLabel && gcImgBtn) window.mochiFilePickLabel(gcImgBtn, fi);
+    return fi;
+  }
+  if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const fi = gcImgPicker();
+    // 输入栏整段重建后按钮是新节点、label 层会丢 ⇒ 每次点按幂等补挂（只在缺失时补）
+    try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
+    // 点击若来自原生 label，内核已自行打开选择器——跳过 JS click 防双开（#738 同口径）
+    if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
+    try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
   });
 
   // 点击面板背景关闭

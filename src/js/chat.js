@@ -386,10 +386,25 @@ chatHotFrom = idx.blocks.length - hotKeys.length;
 chatHotBaseN = hotN; // #722：账本守卫基准=热片条数（内存此后=热片+新增）
 const headN = Math.max(0, (idx.total || hotN) - hotN);
 chatColdHead = []; chatColdFrom = 0; chatColdDone = headN === 0; chatColdHydrating = false; chatRebased = false;
-return Promise.all(hotKeys.map(function (k) { return window.idbGet(prefix + ':' + k); })).then(function (parts) {
+// #722：热块读取沿用 #716 口径——按块字节放大读等待窗（2MB 块在 4× 节流的手机上
+// 结构化克隆就可能超默认 4s ⇒ undefined＝读失败重试循环），且逐块串行读（并行会叠加峰值）。
+let p = Promise.resolve();
+const parts = [];
+hotKeys.forEach(function (k, ki) {
+const bytes = (chatBlkIdx && chatBlkIdx.blocks[chatHotFrom + ki] && chatBlkIdx.blocks[chatHotFrom + ki].bytes) || 1048576;
+const hint = { minWaitMs: 4000 + Math.min(28000, Math.ceil((bytes || 1048576) / 1048576) * 2000) };
+p = p.then(function () { return window.idbGet(prefix + ':' + k, hint); }).then(function (v) { parts.push(v); });
+});
+return p.then(function () {
 if (window.activePrefix() !== prefix) return null;
 let hot = [], miss = false;
-parts.forEach(function (p2) { if (!Array.isArray(p2)) { miss = true; return; } hot = hot.concat(p2); });
+parts.forEach(function (p2) {
+// #722：块值双形态兼容（persistMsgsToIdb 对小尾块存 JSON 字符串、大块存数组直存）——与旧读路径同口径
+let a = p2;
+if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { miss = true; return; } }
+if (!Array.isArray(a)) { miss = true; return; }
+hot = hot.concat(a);
+});
 if (miss || !hot.length) return null; // 块读失败 → 回到旧读路径语义（=读失败重试，绝不置 ready）
 return hot;
 }).catch(function () { return null; });
@@ -668,6 +683,12 @@ const CHAT_TAIL_TEXT_MAX = 1000;
 function chatTailSig(m) {
 try { return ((m && m.ts) || 0) + '|' + (m.side || '') + '|' + String((m && m.text) || '').slice(0, 120); } catch (e) { return ''; }
 }
+// FIX 2026-09-18 #749：尾巴日志「是否已落盘」的**稳定身份**——ts(毫秒)+side+special。
+// 不含 text（正文会被 normCell 归一化/编辑原地改写，拿它当身份＝改写后判定漂移→重复回放）。
+// 与 idbTsSide / recKindCovers 的记录身份口径同源（ts 毫秒精确且同侧）。
+function chatTailId(m) {
+try { return ((m && m.ts) || 0) + '|' + (m.side || '') + '|' + (m.special || ''); } catch (e) { return ''; }
+}
 function chatTailRead() {
 try {
 const arr = JSON.parse(store.get('chat-tail') || '[]');
@@ -724,12 +745,26 @@ function chatTailMerge() {
 try {
 const arr = chatTailRead();
 if (!arr.length || !Array.isArray(msgs)) return;
+// FIX 2026-09-18 #749（iQOO Neo9 + Chrome 等跨机型：聊天里同一条消息重复成多条，我方与
+// 联系人两侧都有；切换联系人再进就没、只退出聊天页再进又有＝每次权威读库都再回放一份）：
+// 根因＝「已落盘」判定只看 chatTailSig（ts|side|正文前 120 字符）——而正文是**可被原地改写的
+// 字段**：后台归一化 normCell 会把图标类正文换血（ICON_BELL→ICON_TEL、poke 的「✉️」→ICON_ENV），
+// 消息编辑/词典重建正文同理。正文一改，日志里的旧签名与 msgs 对不上 ⇒ 判「这条还没落盘」
+// ⇒ 回放一份 ⇒ 与原消息并存成重复；下次读库再判一次、再回放一份＝「一直重复多条」。
+// 修法＝补一层**不受正文改写影响**的身份判定：ts（毫秒精度）+ side + special 已是本项目既定的
+// 记录身份口径（见 idbTsSide 的 lite 残留过滤 / recKindCovers 注释），msgs 里同一身份已存在
+// ⇒ 该条早就落盘了，绝不回放。文本签名（chatTailSig）**保持为原判定**只作正向补充，两套口径
+// 任一命中即视为已落盘＝零误伤（合法新消息 ts 是本会话新取的毫秒值，不会与既有消息撞身份）。
 const have = new Set();
-for (let i = 0; i < msgs.length; i++) have.add(chatTailSig(msgs[i]));
+const haveId = new Set();
+for (let i = 0; i < msgs.length; i++) {
+have.add(chatTailSig(msgs[i]));
+haveId.add(chatTailId(msgs[i]));
+}
 const add = [];
 for (let i = 0; i < arr.length; i++) {
 const j = arr[i];
-if (!j || have.has(chatTailSig(j))) continue;
+if (!j || have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue;
 // FIX 2026-09-05 #206 旧版日志里的存量媒体存根不得回放：data:/@@m: 开头却无 type 的条目
 // 只可能是旧版截断收录的媒体数据——回放即「乱码文字气泡 → 被 normCell 归一化按 data:image/
 // 前缀误迁移成 image → 截断 base64 解码失败 = 坏图空白方框」，且与原消息并存成重复。跳过，
@@ -4781,6 +4816,15 @@ try { store.set('desk-msg-en', deskMsgToggle.checked ? '1' : '0'); } catch (e) {
 function addRec(rec) {
 if (!rec.ts) rec.ts = Date.now();
 const len = msgs.length;
+// FIX 2026-09-18 #744（HUAWEI Mate 40 Pro + Edge 等跨机型偶发「联系人消息重复一条变两条」）：
+// 结构性双写守卫——同一条 rec「对象引用」被原样塞进 msgs 两次（某条投递链对同一对象两次进入
+// 本函数）时，直接丢弃第二次，绝不产生双气泡/双写盘。零误伤：每条合法消息都是新对象，同一对象
+// 引用连续出现只可能来自真实的重复投递 bug，不可能来自两条「内容相同」的合法消息（#437 语义
+// 不变）。触发时记进 window.__mochiDupAdd 供后续定位双写来源（诊断用、不断言、不弹窗）。
+if (len && msgs[len - 1] === rec) {
+try { (window.__mochiDupAdd = window.__mochiDupAdd || []).push(Date.now() + ':' + String((rec.text != null) ? rec.text : '').slice(0, 24) + ':' + String(rec.side || '')); } catch (eD) {}
+return null;
+}
 // #256：实时去重改与刷新归一化同口径——mediaTxtEq 跨形式比对 + dupGapMs 统一窗口
 // （sticker/image/voice 型收件侧 60000ms，覆盖多字卡回复条间隔 randInt(1200,2800)；
 // 旧 1200ms 窗整体漏过该间隔＝同款表情包一批两张，刷新后才被归一化删掉一张）。
@@ -12312,12 +12356,33 @@ if (imgBtn) {
 //   （与 avatar-lib.js bindPoolUpload 同款——那份上传在多机型上一直是正常的），而不是每次
 //   新建——既不用在弹选择器期间回收节点（慢选择器上回收会打断选择），也不会随点按堆积。
 //   每次 change 后清 value，保证「连着选同一张图」也会再次派发 change。
+// FIX 2026-09-18 #753：**本入口当时漏接 #738 的原生 label 激活**（#677 只解决了「挂文档」，
+//   没解决「小米系分叉内核忽略 JS 合成 click」）——用户 iPhone 13 Pro Max Safari 复报「聊天
+//   界面的插入图片不是相册而是文件管理」。三个叠加原因，必须同时治：
+//   ① 这里原写 `fi.style.display='none'`，是 #738 之后全站唯一还在用 display:none 的 file
+//      input（avatar-lib #717/#738、personalize、chat-settings、group-chat、feed 都换成了
+//      sr-only clip）。部分内核对 display:none 元素的激活更苛刻，且 display:none 是
+//      #717/#738 明确点名要消灭的写法 ⇒ 统一回 sr-only clip。
+//   ② 无 label 兜底：小米系内核忽略 JS click 时，这一枚按钮就彻底没反应。
+//   ③ **属性顺序**：原 accept 写在 click 之前看似没事，但 iOS 首次激活时「accept 还没生效」
+//      会退回通用文档选择器（Files），相册反而不在候选里——正是用户看到的现象。改为
+//      「先设 accept/multiple 与常驻身份 → 再接 label → 最后才 click」，并在每次打开前重申
+//      accept，杜绝任何「带着旧/空 accept 去激活」的窗口。
 let chatImgInput = null;
 function chatImgPicker() {
-if (chatImgInput) return chatImgInput;
+if (chatImgInput) {
+// 重申 accept（历史版本/外部代码改过也纠回来）——激活前 accept 必须已生效
+try { chatImgInput.accept = 'image/*'; } catch (e) {}
+return chatImgInput;
+}
 const fi = document.createElement('input');
-fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
-fi.style.display = 'none';
+fi.type = 'file';
+// FIX 2026-09-18 #753：常驻身份（诊断/测试句柄；#739 已立「新增选择入口给稳定 id」的先例）
+fi.id = 'chat-img-pick';
+// FIX 2026-09-18 #753：sr-only clip 写法（与 #738 五入口同一口径，不再用 display:none）
+fi.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+// accept 必须落在 click 之前（否则 iOS 首次激活退回文件管理器而非相册）
+fi.accept = 'image/*'; fi.multiple = true;
 fi.onchange = () => {
 const files = Array.prototype.slice.call(fi.files || []);
 fi.value = '';
@@ -12327,6 +12392,16 @@ files.forEach(addDraftImg);
 };
 document.body.appendChild(fi);
 chatImgInput = fi;
+// FIX 2026-09-18 #753：把输入框接上原生 label 激活层（必须等 input 挂进文档、id/accept 就位后）
+if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi);
+return fi;
+}
+// FIX 2026-09-18 #753：单聊输入栏可能被 #708「顶栏/底栏位置」等流程整段重建（innerHTML），
+// 重建后按钮上是新节点、label 激活层随之丢失 ⇒ 每次点按先幂等补挂一次（不再重复 insert，
+// 只在缺失时补），与 feed.js renderCover 重建后补挂同一口径。
+function chatImgPickBridge() {
+const fi = chatImgPicker();
+try { if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi); } catch (e) {}
 return fi;
 }
 // 单张图片：读取 → 解码 → 压缩。任何一步失败都必须【可见】，且必须落一张进草稿——
@@ -12371,7 +12446,10 @@ try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片�
 }
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
-try { chatImgPicker().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
+// FIX 2026-09-18 #753：点击若来自原生 label 激活层，内核已自行打开选择器——跳过 JS 合成
+// click，避免同一手势双开选择器（与 #738 五入口同一口径）
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
+try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
 });
 }
 function buildParts(text) {

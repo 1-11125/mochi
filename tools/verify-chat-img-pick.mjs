@@ -6,6 +6,13 @@
 //      不保证带上 files（同文件「批量发送→图片」一直是挂到 body 再用，多机型正常）；
 //   ② 失败面全静默：没有 reader.onerror、img 既不 onload 也不 onerror 时无超时、空 FileList 直接
 //      return——读取/解码/没选到文件都表现为「什么都没有，控制台也没报错」。
+// ===== #753（2026-09-18，同族第四波）新增 C 组断言 =====
+// 用户（iPhone 13 Pro Max + Safari）复报：「聊天界面发不了图片，点插入图片打开的不是相册，是文件夹
+// 管理页面」，明说其他设备型号也有。#677 只解决了「挂文档」；#717/#738 给头像五入口补了
+// display:none→sr-only 与原生 label 兜底，**但两个聊天图片入口都没接上**。三个叠加原因：
+//   ① 单聊仍写 display:none（#717/#738 点名要消灭的写法）；② 无 label 原生激活层；
+//   ③ accept 未落在 click 之前——iOS 首次激活时 accept 尚未生效，退回通用文档选择器（Files），
+//      相册不在候选里＝用户看到的「打开的文件夹管理页面」。C 组断言专盯这三条 + 双入口同口径。
 // 用法：node build.mjs && node tools/verify-chat-img-pick.mjs
 // 用法（RED 基线/隔离根）：SERVE_ROOT=<目录> node tools/verify-chat-img-pick.mjs
 import { spawn } from 'node:child_process';
@@ -165,6 +172,111 @@ ok(b5.items >= 1 && (b5.toast || '').length > 0, 'B5 图片解码失败也落草
 await sleep(1500);
 const b6b = J(await evalJs(`(function(){return JSON.stringify({leftover:document.querySelectorAll('body > input[type=file]').length});})()`));
 ok(Number(b6b.leftover) <= Number(baseInputs.n) + 1, 'B6 点三次图片按钮后也只多一个常驻选择器（不随点按堆积）', JSON.stringify({ base: baseInputs.n, after: b6b.leftover }));
+
+// ===== #753 C 组：原生 label 激活 + sr-only 形态 + accept 前置（相册 vs 文件管理器）=====
+// 用独立的常驻选择器 id 精确定位（不再靠 __capIn 捕获顺序），并记录「激活那一刻的 accept」
+const c2 = J(await evalJs(`(function(){
+  var i=document.getElementById('chat-img-pick');
+  if(!i)return JSON.stringify({err:'no-input'});
+  var btn=document.getElementById('chat-img-btn');
+  var l=btn?btn.querySelector('label[data-file-pick-for="chat-img-pick"]'):null;
+  return JSON.stringify({
+    has:true, conn:i.isConnected, accept:String(i.accept||''), multiple:!!i.multiple,
+    disp:i.style.display||'', clip:String(i.style.clip||'').indexOf('rect')===0,
+    opacity:i.style.opacity||'', cls:!!l, forId:l?l.htmlFor:'',
+    nLabel: btn?btn.querySelectorAll('label[data-file-pick-for]').length:-1
+  });
+})()`));
+ok(c2.has === true && c2.conn === true && c2.disp !== 'none' && c2.clip === true && c2.opacity === '1',
+  'C1 单聊选择器常驻挂文档且为 sr-only clip 形态（display:none／opacity:0＝部分内核对不可见 input 拒绝激活；detached＝iOS 选完不派发 change）', JSON.stringify(c2));
+ok(String(c2.accept) === 'image/*' && c2.multiple === true,
+  'C2 单聊选择器 accept=image/* 且 multiple（accept 空/缺失＝弹出通用文件管理器，相册不在候选里）', JSON.stringify(c2));
+ok(c2.cls === true && c2.forId === 'chat-img-pick' && c2.nLabel === 1,
+  'C3 单聊图片按钮内有唯一原生 label 激活层指向该 input（无 label＝小米系分叉内核忽略 JS click 时点了没反应）', JSON.stringify(c2));
+
+// C4 行为：真实点 label → 内核原生转发激活 input，且事件方跳过 JS 兜底（恰一次，不双开）
+//   并在捕获监听里校验「激活那一刻 accept 已生效」——这正是 #753「弹出文件管理器而非相册」的判据
+const probe = J(await evalJs(`(function(){
+  window.__ci = { clicks: [] };
+  if(!window.__ciHooked){
+    window.__ciHooked = true;
+    document.addEventListener('click', function(e){
+      try{
+        var t=e.target;
+        if(t && t.tagName==='INPUT' && String(t.type).toLowerCase()==='file'){
+          window.__ci.clicks.push({id:t.id||'',isFile:true,connected:!!t.isConnected,accept:String(t.accept||''),disp:t.style.display||'',clip:String(t.style.clip||'').indexOf('rect')===0});
+        }
+      }catch(err){}
+    }, true);
+  }
+  return JSON.stringify({hooked:true});
+})()`));
+await evalJs(`(function(){
+  var b=document.getElementById('chat-img-btn');
+  var l=b&&b.querySelector('label[data-file-pick-for="chat-img-pick"]');
+  if(l) l.click();
+  return true;
+})()`);
+await sleep(320);
+const afterClk = J(await evalJs(`(function(){var c=window.__ci.clicks;return JSON.stringify({n:c.length,last:c[c.length-1]||null});})()`));
+ok(probe.hooked === true && afterClk.n === 1 && afterClk.last && afterClk.last.id === 'chat-img-pick'
+  && afterClk.last.isFile === true && afterClk.last.connected === true,
+  'C4 点 label → 原生转发激活单聊选择器（恰一次，事件方跳过 JS click 兜底＝同手势不双开）', JSON.stringify(afterClk));
+ok(afterClk.last && String(afterClk.last.accept) === 'image/*',
+  'C5【#753 核心】激活那一刻 accept 已生效为 image/*（accept 在 click 之后才设＝首次激活带空 accept 去问系统，iOS 退回文件管理器＝用户报「打开的是文件夹管理页面」）',
+  JSON.stringify(afterClk.last));
+
+// C6 群聊入口同口径（同一套模具，防止只修单聊）
+const c6 = J(await evalJs(`(function(){
+  var b=document.getElementById('gc-img-btn');
+  if(!b)return JSON.stringify({err:'no-btn'});
+  b.click();
+  var i=document.getElementById('gc-img-pick');
+  if(!i)return JSON.stringify({err:'no-input'});
+  var l=b.querySelector('label[data-file-pick-for="gc-img-pick"]');
+  return JSON.stringify({
+    has:true, conn:i.isConnected, accept:String(i.accept||''), multiple:!!i.multiple,
+    disp:i.style.display||'', clip:String(i.style.clip||'').indexOf('rect')===0,
+    cls:!!l, forId:l?l.htmlFor:'', nLabel:b.querySelectorAll('label[data-file-pick-for]').length
+  });
+})()`));
+await sleep(320);
+ok(c6.has === true && c6.conn === true && String(c6.accept) === 'image/*' && c6.multiple === true
+  && c6.disp !== 'none' && c6.clip === true && c6.cls === true && c6.forId === 'gc-img-pick' && c6.nLabel === 1,
+  'C6 群聊图片选择器同口径（常驻挂文档 + sr-only clip + accept 前置 + 唯一 label 激活层）', JSON.stringify(c6));
+
+// C7 行为：点群聊 label → 原生激活对应 input（恰一次）且 accept 已生效
+const beforeG = J(await evalJs(`(function(){return JSON.stringify({n:(window.__ci.clicks||[]).length});})()`)).n;
+await evalJs(`(function(){
+  var b=document.getElementById('gc-img-btn');
+  var l=b&&b.querySelector('label[data-file-pick-for="gc-img-pick"]');
+  if(l) l.click();
+  return true;
+})()`);
+await sleep(320);
+const gcClk = J(await evalJs(`(function(){var c=window.__ci.clicks;return JSON.stringify({n:c.length,last:c[c.length-1]||null});})()`));
+ok(gcClk.n === beforeG + 1 && gcClk.last && gcClk.last.id === 'gc-img-pick' && String(gcClk.last.accept) === 'image/*',
+  'C7 点群聊 label → 原生转发激活对应选择器且 accept 已生效（恰一次）', JSON.stringify(gcClk));
+
+// C8 幂等：反复点按钮不堆节点（每个入口恒 1 个 input + 1 个 label）
+const c8 = J(await evalJs(`(function(){
+  var b=document.getElementById('chat-img-btn');
+  for(var i=0;i<5;i++) b.click();
+  var g=document.getElementById('gc-img-btn');
+  for(var j=0;j<5;j++) g.click();
+  return JSON.stringify({
+    chatInp:document.querySelectorAll('input[type=file]#chat-img-pick').length,
+    gcInp:document.querySelectorAll('input[type=file]#gc-img-pick').length,
+    chatLabel:b.querySelectorAll('label[data-file-pick-for]').length,
+    gcLabel:g.querySelectorAll('label[data-file-pick-for]').length
+  });
+})()`));
+await sleep(250);
+ok(c8.chatInp === 1 && c8.gcInp === 1 && c8.chatLabel === 1 && c8.gcLabel === 1,
+  'C8 两入口各连点 5 次仍只有 1 个选择器 + 1 个 label（防节点堆积、防 label 重复 insert）', JSON.stringify(c8));
+
+const errs2 = await evalJs("(function(){return JSON.stringify(window.__jsErrors||[]);})()");
+ok(String(errs2) === '[]' || String(errs2) === 'null', 'Z2 全程零 JS 异常（含 #753 C 组）', errs2);
 
 const errs = await evalJs("(function(){return JSON.stringify(window.__jsErrors||[]);})()");
 ok(String(errs) === '[]' || String(errs) === 'null', 'Z 全程零 JS 异常', errs);

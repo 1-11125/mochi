@@ -1298,7 +1298,9 @@ const FIX_SENTINELS = [
   { name: '#337 VirtualKeyboard 实测尺拉起（删则悬浮键盘只能 58% 盲猜，高占比输入法停靠不足仍被盖）', file: 'js/mobile-adapt.js', needle: 'vk.overlaysContent = true;' },
   { name: '#337 欠深自纠逐拍收紧（删则保底停靠不足时输入栏仍被盖不自愈）', file: 'js/mobile-adapt.js', needle: 'var ph = Math.max(Math.round(base * 0.34), cur - Math.round(base * 0.08));' },
   // ==== 2026-09-11 #336 信息诊断导出 docx 无反应（荣耀畅玩80Pro 自带浏览器对合成 a[download]+blob URL 静默忽略）：接入数据备份同款三级降级链 window.mochiExportBlob（①系统分享面板 ②系统保存框 ③确认后 a[download]），裸下载只作兜底；两处诊断弹窗统一走 diagExportDocx。行为断言 tools/verify-docx-export.mjs E5~E11 ====
-  { name: '#336 诊断 docx 走三级降级链（删则壳浏览器点导出docx无反应=用户报障回流）', file: 'js/device.js', needle: "window.mochiExportBlob(blob, fname, 'mochi 诊断报告'" },
+  // #746 同批换 needle：diagExportDocx 第 5 参 shareTitle 参数化分享标题后，原锚 'mochi 诊断报告'
+  //   硬编码已改为 shareTitle || 'mochi 诊断报告'——#336 锚点随之收到新表达式（同批换锚，见 AGENTS.md）。
+  { name: '#336 诊断 docx 走三级降级链（删则壳浏览器点导出docx无反应=用户报障回流）', file: 'js/device.js', needle: 'window.mochiExportBlob(blob, fname, shareTitle' },
   { name: '#336 mochiExportBlob Blob 版导出（删则分享面板/保存框通道断链，仅剩裸下载）', file: 'js/data-backup.js', needle: 'window.mochiExportBlob = function (blob, fname, shareTitle, saveTypes)' },
   { name: '#338 心情日记 TA心情独立（删则 taMoodFor 恢复读我的当日记录、35% 概率跟随＝我记录心情后 TA 心情被改成同款）', file: 'js/mood-diary.js', needle: "hashStr('ta-mood-indep|'" },
   // ==== 2026-09-12 #339 设置改完退后台/等一两小时回退成默认值（默认字卡概率/回复速度/emoji 概率等全站小键，多机型；LS 回滚家族第五层 #82/#88/#226/#229/#233/#265）：wrj 启动回放 wrjReplay 把回滚日志里的旧值 idbSet 回写 IDB 踩掉新值，wrjMergeFromIdb 按「标记更新→取 IDB 值自愈」读到的恰是被踩掉的旧值＝自愈被自己废掉。修复：回放只救 内存+LS，绝不回写 IDB。行为断言 tools/verify-wrj-replay-no-stomp.mjs 红绿对照 ====
@@ -2998,7 +3000,7 @@ const FIX_SENTINELS = [
   { name: '#677c 自检渲染的异常兜底（删掉＝build 抛错时页面停在旧帧、lastText 为空＝「导出没有内容」复发）', file: 'js/card-audit.js', needle: "function render() {\nvar r;\nbuildErr = '';\ntry { r = build(); }" },
   { name: '#677d 导出前报告空则现取一次（删掉＝未打开过自检页直接导出时 report 又是空串）', file: 'js/card-audit.js', needle: 'if (!lastText) { try { render(); } catch (e) {} }' },
   { name: '#677e 一键修复按实际落地数回报（改回无条件 return true＝全部空转也报「已修复」的假反馈）', file: 'js/card-audit.js', needle: 'bulkFixes.forEach(function (id) { try { if (fixMap[id]) { var r = fixMap[id](); if (r !== false && r !== \'fail\') n++; } } catch (e) {} });' },
-  { name: '#677f 图片选择器 input 常驻并挂进文档再 click（改回 detached／每次新建＝iOS Safari 选完图不派发 change、图片进不了聊天复发）', file: 'js/chat.js', needle: "document.body.appendChild(fi);\nchatImgInput = fi;\nreturn fi;" },
+  { name: '#677f 图片选择器 input 常驻并挂进文档再 click（改回 detached／每次新建＝iOS Safari 选完图不派发 change、图片进不了聊天复发）', file: 'js/chat.js', needle: "document.body.appendChild(fi);\nchatImgInput = fi;" },
   { name: '#677g 选图链路失败可见（删掉 reader.onerror/解码超时＝读取或解码失败时彻底静默，用户只看到「加了图片但没了」）', file: 'js/chat.js', needle: "reader.onerror = () => { settled = true; toast('图片读取失败，请换一张再试'); };" },
   { name: '#677h 空 FileList 可见反馈（改回 if (!files.length) return;＝iOS 选完没带上文件时一点提示都没有）', file: 'js/chat.js', needle: "if (!files.length) { toast('没有取到图片，请再选一次'); return; }" },
   // ===== #680（2026-09-17 用户直派）字卡库顶部搜索直出图片令牌乱码 ＋ 图片/表情包名称 =====
@@ -3163,6 +3165,63 @@ const FIX_SENTINELS = [
   { name: '#739f 头像互动池 label 激活（删＝添加/添加我的头像在小米系无反应）', file: 'js/avatar-lib.js', needle: 'window.mochiFilePickLabel(btn, input);' },
   { name: '#739g 开屏红色警示卡（删＝「安卓别用自带浏览器」提示从开屏消失，用户直派要求常驻显眼标红）', file: 'template.html', needle: 'data-browser-warn="1"' },
   { name: '#739h 警示卡红色样式（删＝开屏警示卡退化成普通灰卡不再标红）', file: 'css/base.css', needle: '.splash-alert.splash-browser .splash-alert-t { color:#c22b27;' },
+  // ===== #753（2026-09-18 用户直派：iPhone 13 Pro Max Safari「聊天界面发不了图片，点插入图片打开的是
+  //   文件管理页面而不是相册」，明说其他机型也有）——#677/#717/#738 同族的**第四波**，本次是「聊天图片
+  //   入口从没接过原生 label 兜底」这一处漏网：三个叠加原因（display:none 写法 + 无 label + accept 未
+  //   落在 click 之前）一起治，两个入口（单聊 chat.js / 群聊 group-chat.js）回同一模具。
+  //   改回任一条＝「点插入图片弹文件管理器/相册不在候选里/点了没反应」复发的入口。
+  { name: '#753a 单聊图片选择器 sr-only clip（改回 display:none＝全站唯一残留的不可见激活写法，#717/#738 点名要消灭，部分内核拒绝激活）', file: 'js/chat.js', needle: "fi.id = 'chat-img-pick';" },
+  { name: '#753b 单聊图片选择器 accept 落在 click 之前（把 accept 挪回 click 之后/丢掉＝iOS 首次激活退回通用文件选择器，相册不在候选里＝用户报「打开的是文件夹管理页面」复发）', file: 'js/chat.js', needle: "fi.accept = 'image/*'; fi.multiple = true;\nfi.onchange = () => {" },
+  { name: '#753c 单聊图片按钮原生 label 激活（删＝小米系分叉内核忽略 JS 合成 click 时该按钮彻底没反应）', file: 'js/chat.js', needle: 'if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi);' },
+  { name: '#753d 单聊图片按钮 fromLabel 跳过（删＝label 原生已开选择器时 JS 兜底再 click 一次＝同一手势双开选择器）', file: 'js/chat.js', needle: 'if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;\ntry { chatImgPickBridge().click(); }' },
+  { name: '#753e 群聊图片选择器常驻挂文档 sr-only clip（改回点击时现场 new 且未挂文档＝iOS 不派发 change「加了图片会消失」＋小米系合成 click 被忽略「点了没反应」双双复发）', file: 'js/group-chat.js', needle: "document.body.appendChild(fi);\ngcImgInput = fi;" },
+  { name: '#753f 群聊图片选择器 sr-only 形态（改回 display:none＝全站唯一残留的不可见激活写法，部分内核拒绝激活）', file: 'js/group-chat.js', needle: "fi.id = 'gc-img-pick'; // 常驻身份（诊断/测试句柄）\nfi.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;" },
+  { name: '#753i 群聊图片选择器 sr-only 形态＋常驻挂文档＋label 激活三连（改回「现场新建未挂文档 + display:none + 无 label」＝相册打不开/点了没反应复发）', file: 'js/group-chat.js', needle: "white-space:nowrap;';\nfi.accept = 'image/*'; fi.multiple = true;\nfi.onchange = () => {\nconst files = Array.prototype.slice.call(fi.files || []);\nfi.value = ''; // 允许重选同一张\nif (!files.length) { toast('没有取到图片，请再选一次'); return; }" },
+  { name: '#753g 群聊图片按钮原生 label 激活（删＝群聊插图在小米系无反应）', file: 'js/group-chat.js', needle: 'if (window.mochiFilePickLabel && gcImgBtn) window.mochiFilePickLabel(gcImgBtn, fi);' },
+  { name: '#753h 群聊空 FileList 可见反馈（改回 if (!files.length) return;＝选完没带上文件时一点提示都没有，#677h 同口径）', file: 'js/group-chat.js', needle: "const files = Array.prototype.slice.call(fi.files || []);\nfi.value = ''; // 允许重选同一张\nif (!files.length) { toast('没有取到图片，请再选一次'); return; }" },
+  { name: '#742 进聊天复位钉住态（删掉并在重开时停在旧滚动位＋原生锚定开着＝「进聊天不自动到最新、跳到旧记录、加载完不落底」跨机型回归）', file: 'js/chat.js', needle: 'body.classList.remove(\'scroll-anchor-auto\');' },
+  { name: '#743 长输入框保首行防抖补位（删掉＝写信/回信 tall textarea 又被拖底、首行被遮＋上下乱抖跨机型回归；短输入框走原拖底分支不受影响）', file: 'js/mobile-adapt.js', needle: "var _topHidden = sr.top - r.top;" },
+  { name: '#744 同对象引用双写守卫（删掉＝同一 rec 被某条投递链原样入 addRec 两次时双气泡/双写盘跨机型复发；该守卫零误伤，不影响 #437 同内容发送语义）', file: 'js/chat.js', needle: 'msgs[len - 1] === rec' },
+  { name: '#745a 帮我决定出答案两拍化（删＝答案渲染与历史全量重写/聊天落盘调度同拍，大记录设备出答案冻几秒回流）', file: 'js/decision.js', needle: 'window.requestIdleCallback(runSettle, { timeout: 600 })' },
+  { name: '#745b 多人决定出答案两拍化（同 #745a 口径）', file: 'js/group-decision.js', needle: 'window.requestIdleCallback(gdRunSettle, { timeout: 600 })' },
+  // ==== 2026-09-18 #746 字卡使用状态自检「导出文件」从 JSON 改 docx（用户直派：导出的 .json 手机上没有关联应用打开＝「无法导出」；
+  //      与诊断报告 #227 同解：docx 由 Word/WPS 直接打开转发。主链复用 device.js diagExportDocx 三级降级（分享面板→保存框→确认后下载），
+  //      第 5 参 shareTitle 参数化分享标题；card-audit.js 主链调 mochiDiagExportDocx、head 段承接原 JSON payload 结构化字段、JSON 链降兜底 ====
+  { name: '#746a docx 导出入口分享标题参数化（改回硬编码「mochi 诊断报告」＝字卡自检导出标题口径错乱，第 5 参透传断）', file: 'js/device.js', needle: "shareTitle || 'mochi 诊断报告'" },
+  { name: '#746b 字卡自检导出走 docx 主链（删掉＝退回 JSON 导出，用户手机上导出的文件打不开＝「无法导出 docx」复发）', file: 'js/card-audit.js', needle: "window.mochiDiagExportDocx(head + lastText, 'mochi-card-audit-'" },
+  // ==== 2026-09-18 #747 默认字卡开关切联系人桌面不刷新（用户实报 iPhone17Pro Edge「关闭默认字卡使用时依旧能发、再看又是开的」，多机型同现）——根因：default-cards.js 的 contact-switched 监听只刷新 dcf-* 概率行，漏刷 dc-enabled/dc-use-*/dc-cat-*/dc-overall-*/dc-prob-* 开关 UI；这些键 per-cid 隔离，切桌面后已渲染的 checkbox 停留旧桌面勾选，用户在旧状态上操作 → setCat/setUse 写到当前桌面但 UI 显示旧桌面 → 关了写错桌面、切回 default 照发、再看又是开的。修：抽 syncDcSwitchUI() 统一刷新全部 dc-*/dcf-* 开关与概率行，contact-switched 与 mochi-restore-done 都调 ====
+  { name: '#747 切联系人桌面刷新默认字卡开关UI（删＝dc-* per-cid 开关在设置页显示旧桌面勾选，用户关了写错桌面→关了还能发、再看又是开的多机型复发）', file: 'js/default-cards.js', needle: 'document.addEventListener(ev, function () { try { syncDcSwitchUI(); } catch (e) {} });' },
+  // ==== 2026-09-18 #748 四类互动卡概率写入 `parseInt||5` 吃 0（用户实报「吐槽概率调0依旧触发发送」）——根因：ta-ask.js 询问/小问题/好奇/吐槽四类概率写入 `parseInt(value,10)||5`，0 是 falsy 被回退成默认 5，存盘值 5 而非 0，定时触发 maybeTriggerTR 仍有 5% 概率掷中。修：改 `Math.max(0,Math.min(100,parseInt(value,10)||0))` 钳 0~100 保留 0；读取侧 `typeof s.prob==='number'?s.prob:5` 本就正确无需改 ====
+  { name: '#748a 吐槽概率0不被||5吃掉（删＝tr-prob 写 0 存成 5，吐槽概率调0依旧触发复发）', file: 'js/ta-ask.js', needle: 'Math.max(0, Math.min(100, parseInt(trProb.value, 10) || 0))' },
+  { name: '#748b 询问概率0不被||5吃掉（同 #748a）', file: 'js/ta-ask.js', needle: 'Math.max(0, Math.min(100, parseInt(askProb.value, 10) || 0))' },
+  { name: '#748c 小问题概率0不被||5吃掉（同 #748a）', file: 'js/ta-ask.js', needle: 'Math.max(0, Math.min(100, parseInt(tcProb.value, 10) || 0))' },
+  { name: '#748d 好奇概率0不被||5吃掉（同 #748a）', file: 'js/ta-ask.js', needle: 'Math.max(0, Math.min(100, parseInt(tcuProb.value, 10) || 0))' },
+  // ==== 2026-09-18 #749 聊天消息重复成多条（iQOO Neo9 + Chrome 实报，多机型复现）====
+  // 用户：「聊天里会弹出重复消息，切换聊天人退出重新进就没有了，但如果退出聊天页面再进去就有了。
+  // 我的消息和联系人的消息都一直重复多条，其实就是只发了一条，但显示成了多条。」
+  // 根因：chatTailMerge 的「是否已落盘」判定只用 chatTailSig ＝ ts|side|text[:120]。而 normCell
+  // 会**原地改写** r.text（ICON_BELL→ICON_TEL、拍一拍 ✉️→ICON_ENV），编辑消息/词典重建同样改写正文。
+  // 正文一变，尾巴日志条目的签名就与 msgs 对不上 ⇒ 被判定「还没落盘」⇒ 回放成重复条目；日志又永不清空
+  // ⇒ 之后每次权威读库都再回放一份。修法：加与正文无关的稳定身份 chatTailId ＝ ts(毫秒)|side|special
+  //（与 idbTsSide / recKindCovers 的记录身份口径同源），回放前先按它查重。
+  { name: '#749a 尾巴日志稳定身份 chatTailId（删＝回放判重退回比正文，正文被归一化/编辑后就重复回放，用户报障复发）', file: 'js/chat.js', needle: 'function chatTailId(m) {' },
+  { name: '#749b 回放前建 haveId 身份集（删＝判定漂移复发）', file: 'js/chat.js', needle: 'haveId.add(chatTailId(msgs[i]));' },
+  { name: '#749c 回放条目按稳定身份跳过已落盘者（删＝重复消息回放复发）', file: 'js/chat.js', needle: '|| haveId.has(chatTailId(j))' },
+  // ==== 2026-09-18 #750 聊天壁纸打字时变小 / 比例变（同机型实报）====
+  // 用户：「聊天里背景图有问题，打字背景图会变小，比例大小会变。」
+  // 两个叠加根因：
+  //   #750b（先）：#731 把「铺满裁剪」档 value 定成 'fill' 并原样写进 style.backgroundSize——
+  //         'fill' 不是合法 background-size，浏览器整条声明丢弃 ⇒ 计算值回退 auto（按原图原始像素
+  //         渲染，压缩壁纸可达 2160×4096）⇒ 只能看到中间一小块，盒子一变露出的那块就变。
+  //   #750（主）：就算修正成 cover，安卓键盘弹出时 mobile-adapt.syncAndroidKb 把 .phone 内联高度
+  //         压到 visualViewport.height ⇒ cover 按变矮后的盒重算缩放比 ⇒ 图整体缩小。
+  //         修法：把绘制尺寸冻结在「无键盘时的盒尺寸」折算出的显式像素（Wpx Hpx）；只在宽度变化
+  //        （旋转/真改窗口）或盒变高（键盘收起）时重锚，取不到尺寸时回退关键字（零机型回归）。
+  { name: '#750a 壁纸铺满档位映射成合法 CSS（删＝fill/未知值又写出非法声明→回退 auto，图又按原图原始像素渲染）', file: 'js/chat-settings.js', needle: 'function csBgFitCss(fit) {' },
+  { name: '#750b 冻结盒尺寸基线（删＝键盘压矮盒后 cover 重算缩放比，图变小复发）', file: 'js/chat-settings.js', needle: 'function csBgStableBox() {' },
+  { name: '#750c 按冻结盒折算显式像素尺寸（删＝冻结失效，图仍随盒缩）', file: 'js/chat-settings.js', needle: 'function csBgPaintSize(fit, box) {' },
+  { name: '#750d 原图尺寸量取（删＝取不到 naturalWidth，只能回退关键字，冻结不生效）', file: 'js/chat-settings.js', needle: 'function csBgMeasure(url, cb) {' },
+  { name: '#750e 应用处优先写冻结像素值（删＝仍写关键字，键盘期重算缩放比）', file: 'js/chat-settings.js', needle: 'const paint = csBgPaintSize(fit, csBgStableBox());' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
