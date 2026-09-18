@@ -516,6 +516,16 @@ html { margin:0; padding:0; }
      否则 calc(100dvh-48px) 无效、高度回退内容撑开（底部又截断） */
   height:min(844px, calc(100dvh - 48px));
   height:min(844px, calc(100vh - 48px));
+  /* FIX 2026-09-19 #815 整屏空白地板（与机型/内核无关的结构性下限）：键盘期 .phone 的高度由
+     mobile-adapt.js 按 visualViewport.height 逐帧写内联值，而部分内核（QQ 浏览器 X5、国产壳）
+     在键盘弹出/收起动画期会瞬时上报 0 或极小值——内联高被写没＝整壳塌成一条，用户看到的正是
+     「要输入文字的时候屏幕空白、还一闪一闪」。JS 侧写高点散布十余处（#794 已据此否决过加
+     偏移轴），逐处钳值必漂移，故在 CSS 单点收口：min-height 永远压过内联 height，地板取
+     min(120px, 18 视口高) —— 矮屏/小窗按比例缩，绝不挡住真实键盘停靠（真键盘最多占布局视口
+     约六成，剩余远高于此地板）。老内核不认 dvh：后写的那条被整条丢弃，退回 vh 版（同 #690
+     /#762 的退化阶梯套路）。 */
+  min-height:min(120px, 18vh);
+  min-height:min(120px, 18dvh);
   border-radius:44px; padding:16px calc(18px + var(--mochi-side-adj,0px)) 18px;
   display:flex; flex-direction:column;
   /* v3.26.x #399：整壳是【永不滚动】的裁剪框——overflow:clip 让 .phone 不再是滚动

@@ -426,6 +426,8 @@ box-sizing:border-box;
 width:390px; max-width:100vw; flex-shrink:0; position:relative;
 height:min(844px, calc(100dvh - 48px));
 height:min(844px, calc(100vh - 48px));
+min-height:min(120px, 18vh);
+min-height:min(120px, 18dvh);
 border-radius:44px; padding:16px calc(18px + var(--mochi-side-adj,0px)) 18px;
 display:flex; flex-direction:column;
 overflow:hidden; overflow:clip;
@@ -10166,9 +10168,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789773638955">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789774043015">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 07:20<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 07:27<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -23942,13 +23944,49 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("clock.js");
 const tabs = document.querySelectorAll('.tab');
 const pages = document.querySelectorAll('.page');
 const sdLeaveSnap = () => { try { if (window.__mochiLeaveSnap) window.__mochiLeaveSnap('switch'); } catch (e) {} };
+let _lastVisId = '', _healAt = 0, _healRaf = 0;
+try { window.__mochiBlankHeal = window.__mochiBlankHeal || { n: 0, at: 0, last: '' }; } catch (e0) {}
+function liveVisiblePage() {
+const live = document.querySelectorAll('.page');
+for (let i = 0; i < live.length; i++) if (!live[i].hidden) return live[i];
+return null;
+}
+function healBlank() {
+if (_healRaf) return;
+_healRaf = requestAnimationFrame(() => {
+_healRaf = 0;
+try {
+if (liveVisiblePage()) return; // 正常中间态：已经有人把页显出来了
+const sp = document.getElementById('splash');
+if (sp && !sp.classList.contains('hide')) return;
+if (!window.__mochiDataReady) return;
+const now = Date.now();
+if (now - _healAt < 800) return;
+const back = document.getElementById(_lastVisId) || document.getElementById('page-phone');
+if (!back) return;
+_healAt = now;
+back.hidden = false;
+const h = window.__mochiBlankHeal;
+h.n++; h.at = now; h.last = back.id;
+try { if (window.__jsErrors) window.__jsErrors.push('整屏空白自愈 ' + h.n + ' 次：切页后无任何可见页面，已补回 ' + back.id + '（最后可见页 ' + (_lastVisId || '?') + '）'); } catch (e1) {}
+} catch (e2) {}
+});
+}
+function hideAllPages() {
+document.querySelectorAll('.page').forEach(p => { if (!p.hidden) p.hidden = true; }); // 同值不写：#336/#338 不唤醒无关页观察器
+}
 tabs.forEach(tab => {
 tab.addEventListener('click', () => {
 sdLeaveSnap();
+const target = document.getElementById(tab.dataset.page || '');
+if (!target) {
+try { if (window.__jsErrors) window.__jsErrors.push('底部 tab 目标页缺失（data-page=' + (tab.dataset.page || '?') + '），已放弃本次切页'); } catch (e3) {}
+return;
+}
 tabs.forEach(t => t.classList.remove('active'));
 tab.classList.add('active');
-pages.forEach(p => { if (!p.hidden) p.hidden = true; }); // FIX #338 同值写也发 mutation（Blink 实测同值 3 连写=3 条记录），44 页全扫=唤醒全部页面观察器
-document.getElementById(tab.dataset.page).hidden = false;
+hideAllPages();
+target.hidden = false;
 });
 });
 const FULL_PAGES = ['page-chat', 'page-group-chat', 'page-chat-settings', 'page-custom-cards', 'page-default-cards', 'page-fun-cards', 'page-mood-cards', 'page-reply-cards', 'page-theme', 'page-fav', 'page-fav-settings', 'page-memory', 'page-calendar', 'page-period', 'page-accounting', 'page-garden', 'page-divine', 'page-music', 'page-stats', 'page-interact', 'page-checkin', 'page-ta-ask', 'page-ta-ask-survey', 'page-ta-choose', 'page-ta-curious', 'page-ta-roast', 'page-ta-checkin', 'page-ta-invite', 'page-checkin-cards', 'page-quote-cards', 'page-home', 'page-mail', 'page-mail-write', 'page-mail-reply', 'page-feed', 'page-feed-all', 'page-feed-friends', 'page-license', 'page-about', 'page-guide', 'page-featurehub', 'page-reply-settings', 'page-call-settings', 'page-sfx-settings', 'page-memo-arc', 'page-cjian', 'page-room', 'page-drift', 'page-my-arc', 'page-mood'];
@@ -23956,6 +23994,9 @@ let _scPhone = null, _scTabbar = null, _scLastSig = null;
 function syncChrome() {
 let visible = null;
 for (let i = 0; i < pages.length; i++) { if (!pages[i].hidden) { visible = pages[i]; break; } }
+if (!visible) visible = liveVisiblePage();
+if (visible) _lastVisId = visible.id;
+else healBlank();
 const isFull = visible ? FULL_PAGES.indexOf(visible.id) >= 0 : false;
 const sig = (visible ? visible.id : '') + '|' + (isFull ? '1' : '0');
 if (sig === _scLastSig) return;
@@ -23981,16 +24022,17 @@ const themeBack = document.getElementById('theme-back');
 if (appearanceRow && themePage) {
 appearanceRow.addEventListener('click', () => {
 sdLeaveSnap();
-pages.forEach(p => { if (!p.hidden) p.hidden = true; }); // FIX #338 同值写也发 mutation（Blink 实测同值 3 连写=3 条记录），44 页全扫=唤醒全部页面观察器
+hideAllPages(); // FIX #815：实时清单，运行中才建的 .page 也一并关掉
 themePage.hidden = false;
 });
 }
 if (themeBack) {
 themeBack.addEventListener('click', () => {
 sdLeaveSnap();
-pages.forEach(p => { if (!p.hidden) p.hidden = true; }); // FIX #338 同值写也发 mutation（Blink 实测同值 3 连写=3 条记录），44 页全扫=唤醒全部页面观察器
 const setPage = document.getElementById('page-setting');
-if (setPage) setPage.hidden = false;
+if (!setPage) { hideAllPages(); themePage.hidden = false; return; } // FIX #815：兜底退回主题页，不留零可见页
+hideAllPages();
+setPage.hidden = false;
 });
 }
 })();
@@ -79054,4 +79096,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu7l0i7f -->
+<!-- __MOCHI_EOF__ mu7l95zb -->
