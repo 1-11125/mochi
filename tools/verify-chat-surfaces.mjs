@@ -92,9 +92,13 @@ test('wallpaper fit default matches legacy hardcoded value', () => {
   assert(source.includes("{ label: '铺满裁剪', value: 'fill' }"));
   for (const def of ["{ label: '完整显示', value: 'contain' }", "{ label: '平铺', value: 'tile' }", "{ label: '拉伸填满', value: 'stretch' }"]) assert(source.includes(def));
   const bg = source.slice(source.indexOf('const bgLayer = csBgLayer();'));
-  assert(bg.includes("bgLayer.style.backgroundSize = csBgFitCss(fit);"));
+  // #782：尺寸/位置改走「铺满方式 + 位置缩放三键」的单一写入点，缺省三键下仍是 csBgFitCss(档) + 居中
+  assert(bg.includes("const szWanted = adj.s === 100 ? csBgFitCss(fit) : adj.s + '%';"));
+  assert(bg.includes("if (bgLayer.style.backgroundSize !== szWanted) bgLayer.style.backgroundSize = szWanted;"));
+  assert(bg.includes("const psWanted = adj.x + '% ' + adj.y + '%';"));
+  assert(bg.includes("if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosition = psWanted;"));
+  assert(source.includes('const CS_BG_ADJ = { x: 50, y: 50, s: 100 };'));
   assert(bg.includes("bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';"));
-  assert(bg.includes("bgLayer.style.backgroundPosition = 'center';"));
   // #762：默认档（fill）经 csBgFitCss 映射回 cover＝与历史写死值逐字一致；壁纸不得再写回页面自身
   const fitFn = source.slice(source.indexOf('function csBgFitCss(fit) {'));
   assert(fitFn.slice(0, fitFn.indexOf('\n  }')).includes("return 'cover';"));

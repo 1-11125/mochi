@@ -199,6 +199,76 @@
     const v = store.get('cs-bg-fit');
     return CS_BG_FITS.some(f => f.value === v) ? v : CS_BG_FIT_DEFAULT;
   };
+  // #782：壁纸「水平/垂直位置 + 缩放」——与桌面壁纸「壁纸定位与缩放」同一套口径与同一组
+  // 语义（位置 0~100% 走 background-position 百分比、50 = 居中；缩放 100 = 交给铺满方式，
+  // >100 走 background-size 单值＝按层宽放大）。三个键缺省时逐像素与改造前一致。
+  const CS_BG_ADJ = { x: 50, y: 50, s: 100 };
+  const CS_BG_ADJ_KEYS = ['cs-bg-pos-x', 'cs-bg-pos-y', 'cs-bg-size'];
+  const csBgAdjNum = (raw, def, min, max) => {
+    if (raw === null || raw === undefined || raw === '') return def;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : def;
+  };
+  function csBgAdj() {
+    const s = store.get('cs-bg-size');
+    return {
+      x: csBgAdjNum(store.get('cs-bg-pos-x'), CS_BG_ADJ.x, 0, 100),
+      y: csBgAdjNum(store.get('cs-bg-pos-y'), CS_BG_ADJ.y, 0, 100),
+      s: (s && s !== 'cover') ? csBgAdjNum(s, CS_BG_ADJ.s, 100, 300) : CS_BG_ADJ.s
+    };
+  }
+  // FIX 2026-09-18 #781：打字时壁纸换一个比例（用户实报「不输入与输入是两个比例」，且明说
+  // 全部手机都这样）。#762 的下限是 `min-height:100lvh`——把「壁纸的盒」交给一个视口单位。
+  // 但视口单位只在「键盘不动布局视口」的内核里是常量：iOS 添加到桌面后的 standalone、以及
+  // 走 resizes-content 的内核会把布局视口整个压矮，于是 vh/lvh/dvh/svh 四者一起缩
+  // （真 WebKit 实测：视口 844→470 时四个单位全部读到 470）⇒ 下限跟着塌，壁纸换比例。
+  // 同一实测还证明第二半：下限当初只挂在 .cs-bg-fill 上，「完整显示」档在键盘期整图从
+  // 390x740 缩到 245x464——用户看到的就是这个。
+  // 改法＝不再指望视口单位，自己记住「确实没有键盘时」的页面高，写成 --cs-bg-h 供 CSS 取
+  // max（见 chat-main.css 的 #781 块）。零机型分支：判据全是可观测状态（mobile-adapt 有没有
+  // 给 .phone 写内联高、有没有文本框在聚焦），不按 UA/内核分叉。
+  // 判据＝「键盘余温期内只涨不跌，其余时候跟随当前页面盒」。之所以不是无脑只涨不跌：
+  // 实测（verify-chat-bg-fill B5b/B6）视口先长后缩时，永不回落的下限会把壁纸留在放大档
+  // （445x844 → 475x900），正是 #751「莫名其妙放大」的老症状。余温期只覆盖键盘那一下：
+  // 键盘收起是异步的，focusout 后 320ms 那次采样可能仍读到被压矮的中间态，此时不回落。
+  // 宽度一变（旋转 / 改窗口）整桶作废重记，否则横屏会留着竖屏的大下限把图糊成放大。
+  const csBgStable = { w: 0, h: 0, kbUntil: 0 };
+  const csBgKbWarm = () => { csBgStable.kbUntil = Date.now() + 700; };
+  function csBgStableSample() {
+    if (!chatPage) return;
+    const phoneEl = document.querySelector('.phone');
+    if (phoneEl && phoneEl.style.height) { csBgKbWarm(); return; } // mobile-adapt 键盘期内联高＝盒是被压矮的假值
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) { csBgKbWarm(); return; }
+    const w = chatPage.clientWidth, h = chatPage.clientHeight;
+    if (!w || !h) return; // 聊天页 hidden（display:none）时读到的 0 不算数
+    if (window.innerHeight && h > window.innerHeight + 2) return; // 页面盒不可能高于视口＝瞬时脏读数
+    if (w !== csBgStable.w) { csBgStable.w = w; csBgStable.h = h; }
+    else if (h < csBgStable.h && Date.now() < csBgStable.kbUntil) { /* 余温期：这次不回落 */ }
+    else csBgStable.h = h;
+    const px = csBgStable.h + 'px';
+    if (chatPage.style.getPropertyValue('--cs-bg-h') !== px) chatPage.style.setProperty('--cs-bg-h', px);
+  }
+  let csBgStableTimer = 0;
+  let csBgStableBound = false;
+  function csBgStableOnBlur() { csBgKbWarm(); csBgStableLater(); }
+  function csBgStableLater() {
+    // 事件绑定推迟到首次采样时（而不是模块顶层）：tools/verify-chat-surfaces.mjs 会把本文件
+    // 这一段截出来在 node vm 里跑，那里没有 window/document.addEventListener。
+    if (!csBgStableBound) {
+      csBgStableBound = true;
+      if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+      // 采样时机＝视口会变的几个节点（键盘开/合各触发一次 vv resize）与文本框失焦之后。
+      // 刻意不监听 visualViewport 的 scroll：聊天里高频事件，为省一次 clientHeight 读数
+      // 把重排拉进滚动路径不值（同 #765 的口径），而滚动本身不改页面盒高。
+      window.addEventListener('resize', csBgStableLater);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', csBgStableLater);
+      document.addEventListener('focusout', csBgStableOnBlur);
+    }
+    clearTimeout(csBgStableTimer);
+    // 320ms：键盘收起后 mobile-adapt 要清内联高 + 重排，早读会取到中间态
+    csBgStableTimer = setTimeout(csBgStableSample, 320);
+  }
   // #731 壁纸延伸到顶栏/输入栏：壁纸画在 #page-chat 的边框盒上（含栏位 padding 区），
   // 一直就在栏位底下；看不见是因为栏位自己画了半透明底色（--cs-*-opacity，默认 92%）。
   // 打开＝给两个栏位底色挂上「0 不透明度」的内联变量把底色让开，壁纸自然透上来，
@@ -347,19 +417,28 @@
     const bgLayer = csBgLayer();
     if (bg && bgLayer) {
       const fit = csBgFit();
+      const adj = csBgAdj();
       const url = 'url("' + bg + '")';
       if (bgLayer.style.backgroundImage !== url) bgLayer.style.backgroundImage = url;
-      bgLayer.style.backgroundSize = csBgFitCss(fit);
+      // #782：缩放 100% ＝「按铺满方式」（CSS 关键字，#762 的口径不变）；拉大后换成单值
+      // 百分比（宽按层的 N%、高保比例）＝桌面壁纸同款语义。位置两轴走百分比。
+      const szWanted = adj.s === 100 ? csBgFitCss(fit) : adj.s + '%';
+      const psWanted = adj.x + '% ' + adj.y + '%';
+      if (bgLayer.style.backgroundSize !== szWanted) bgLayer.style.backgroundSize = szWanted;
       bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
-      bgLayer.style.backgroundPosition = 'center';
+      if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosition = psWanted;
       bgLayer.style.display = 'block';
-      // lvh 下限只对「铺满裁剪」生效（规则在 chat-main.css）：contain / stretch / tile 的语义
-      // 本就是「按当前可见区域铺」，给它们加下限会让「完整显示」被裁掉一截。
+      // #781：四档共用的下限靠这个类挂（.cs-bg-fill 那条是 #762 的，特异性相同、写在后面才赢）
+      chatPage.classList.toggle('cs-bg-on', true);
+      // 两条下限分工：下面这条 .cs-bg-fill 是 #762 的（纯视口单位，只有铺满档享受）；
+      // #781 的 .cs-bg-on 那条才是四档共用、且取 max(视口单位, --cs-bg-h)（规则都在 chat-main.css）。
       chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
+      csBgStableLater();
     } else {
       if (bgLayer) { bgLayer.style.display = 'none'; bgLayer.style.backgroundImage = ''; }
       if (chatPage) {
         chatPage.classList.remove('cs-bg-fill');
+        chatPage.classList.remove('cs-bg-on');
         // 清壁纸时把铺满方式残影一并抹掉（含 #750~#756 期间直接写在页面身上的内联样式）
         if (chatPage.style.backgroundImage) {
           chatPage.style.backgroundImage = '';
@@ -380,6 +459,12 @@
     // #731：铺满方式回显（没壁纸时给「先上传壁纸」的提示，避免用户改了个看不见的档位）
     const fitItem = CS_BG_FITS.filter(f => f.value === csBgFit())[0] || CS_BG_FITS[0];
     set('cs-bg-fit-val', bg ? fitItem.label : '上传壁纸后生效');
+    // #782：位置/缩放回显（未动过 = 居中 · 默认）
+    {
+      const a = csBgAdj();
+      set('cs-bg-adjust-val', (a.x === 50 && a.y === 50 && a.s === 100) ? '居中 · 默认'
+        : '水平 ' + a.x + '% · 垂直 ' + a.y + '% · 缩放 ' + a.s + '%');
+    }
     set('cs-bg-fullbars-val', store.get('cs-bg-fullbars') === '1' ? '开 · 栏位透明' : '关 · 栏位盖住');
     const rm = document.getElementById('cs-bg-remove');
     if (rm) rm.hidden = !bg;
@@ -699,6 +784,101 @@
       });
     });
   }
+  // #782：聊天壁纸「水平/垂直位置 + 缩放」——与桌面壁纸「壁纸定位与缩放」同款三个滑杆。
+  // 行由 JS 注入在「壁纸铺满方式」之后（template.html 常有多会话在途，沿用 #636/#691 做法）。
+  const setCsBgAdj = (patch) => {
+    const cur = csBgAdj();
+    const next = {
+      x: patch.x == null ? cur.x : csBgAdjNum(patch.x, CS_BG_ADJ.x, 0, 100),
+      y: patch.y == null ? cur.y : csBgAdjNum(patch.y, CS_BG_ADJ.y, 0, 100),
+      s: patch.s == null ? cur.s : csBgAdjNum(patch.s, CS_BG_ADJ.s, 100, 300)
+    };
+    try {
+      // 默认值一律不写盘（删键）——「没动过」与「动回默认」在数据上同形，方案/备份不留噪音
+      if (next.x === CS_BG_ADJ.x) store.remove('cs-bg-pos-x'); else store.set('cs-bg-pos-x', String(next.x));
+      if (next.y === CS_BG_ADJ.y) store.remove('cs-bg-pos-y'); else store.set('cs-bg-pos-y', String(next.y));
+      if (next.s === CS_BG_ADJ.s) store.remove('cs-bg-size'); else store.set('cs-bg-size', String(next.s));
+    } catch (e) {}
+    applySettings();
+    return next;
+  };
+  const openCsBgAdjPanel = () => {
+    if (!store.get('cs-bg')) { toast('先上传聊天壁纸，再调它的位置与缩放'); return; }
+    let m = document.getElementById('cs-bg-adj-panel');
+    if (!m) {
+      m = document.createElement('div');
+      m.id = 'cs-bg-adj-panel';
+      m.style.cssText = 'position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;background:rgba(0,0,0,.4);display:none';
+      m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+      document.body.appendChild(m);
+    }
+    const a = csBgAdj();
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'width:min(86vw,360px);background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.25)';
+    const hd = document.createElement('div');
+    hd.style.cssText = 'font-size:15px;font-weight:700;margin-bottom:12px';
+    hd.textContent = '壁纸位置与缩放';
+    wrap.appendChild(hd);
+    const mkAdjSlider = (label, val, min, max, step, on) => {
+      const r = document.createElement('div');
+      r.style.cssText = 'margin-bottom:12px';
+      const lb = document.createElement('div');
+      lb.style.cssText = 'font-size:12px;color:var(--muted,#888);margin-bottom:4px';
+      lb.textContent = label;
+      const line = document.createElement('div');
+      line.style.cssText = 'display:flex;align-items:center';
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step || 1; inp.value = val;
+      inp.style.cssText = 'flex:1;min-width:0';
+      const vv = document.createElement('span');
+      vv.style.cssText = 'font-size:11px;color:var(--muted,#999);margin-left:6px;flex:none;width:44px;text-align:right';
+      vv.textContent = val + '%';
+      inp.addEventListener('input', () => { vv.textContent = inp.value + '%'; on(parseInt(inp.value, 10)); });
+      line.appendChild(inp); line.appendChild(vv);
+      r.appendChild(lb); r.appendChild(line);
+      return r;
+    };
+    wrap.appendChild(mkAdjSlider('水平位置', a.x, 0, 100, 1, (v) => setCsBgAdj({ x: v })));
+    wrap.appendChild(mkAdjSlider('垂直位置', a.y, 0, 100, 1, (v) => setCsBgAdj({ y: v })));
+    wrap.appendChild(mkAdjSlider('缩放', a.s, 100, 300, 5, (v) => setCsBgAdj({ s: v })));
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11.5px;color:var(--muted,#888);line-height:1.5;margin:2px 0 10px';
+    note.textContent = '值越大＝看图片越靠右/越靠下的一段；缩放 100% 就是上面的「铺满方式」，拉大后再拖位置。想边看边调：在聊天页拉开美化抽屉的「栏位」区。';
+    wrap.appendChild(note);
+    const act = document.createElement('div');
+    act.style.cssText = 'display:flex;gap:8px';
+    const reset = document.createElement('button');
+    reset.textContent = '重置';
+    reset.style.cssText = 'flex:1;padding:9px;border:1px solid var(--card-border,#eee);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
+    reset.addEventListener('click', () => {
+      try { CS_BG_ADJ_KEYS.forEach((k) => store.remove(k)); } catch (e) {}
+      applySettings();
+      m.style.display = 'none';
+      toast('已重置为居中铺满');
+    });
+    const okBtn = document.createElement('button');
+    okBtn.textContent = '完成';
+    okBtn.style.cssText = 'flex:1;padding:9px;border:none;border-radius:9px;background:var(--ink,#111);color:#fff';
+    okBtn.addEventListener('click', () => { m.style.display = 'none'; toast('已应用'); });
+    act.appendChild(reset); act.appendChild(okBtn);
+    wrap.appendChild(act);
+    m.innerHTML = '';
+    m.appendChild(wrap);
+    m.style.display = 'flex';
+  };
+  {
+    const fitRow = row('cs-bg-fit');
+    if (fitRow && fitRow.parentNode && !document.getElementById('cs-bg-adjust')) {
+      const adjRow = document.createElement('div');
+      adjRow.className = 'set-row';
+      adjRow.id = 'cs-bg-adjust';
+      adjRow.innerHTML = '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18" opacity=".55"/><circle cx="12" cy="12" r="3"/></svg></div>'
+        + '<div class="txt">壁纸位置与缩放<span class="sub">水平 / 垂直位置（50 = 居中）与缩放比例，仅对上传的壁纸生效</span></div>'
+        + '<div class="val" id="cs-bg-adjust-val">居中 · 默认</div>';
+      adjRow.addEventListener('click', openCsBgAdjPanel);
+      fitRow.parentNode.insertBefore(adjRow, fitRow.nextSibling);
+    }
+  }
   // #731：壁纸延伸到顶栏/输入栏（默认关——0 是用户裁决的默认值）
   const csBgFullbarsRow = row('cs-bg-fullbars');
   if (csBgFullbarsRow) {
@@ -841,7 +1021,9 @@
     // v3.26.x：聊天昵称与桌面解耦（用户要求不再跟随桌面）——未设置时显示默认占位提示，
     // 不再显示「跟随桌面（xx）」，也不回退读桌面 lbl-partner/lbl-user
     const lp = store.get('cs-lbl-partner');
-    set('cs-lbl-partner-val', lp || '未设置（默认 TA）');
+    // FIX 2026-09-18 #775h：未单独设置聊天昵称时，聊天里实际显示的是「联系人名片名」（顶栏
+    // 一直在用这条链），提示文案照旧写死「默认 TA」会让用户以为设置行和顶栏不是同一个名字
+    set('cs-lbl-partner-val', lp || ('未设置（当前显示「' + (window.chatPartnerName ? window.chatPartnerName() : 'TA') + '」）'));
     const lu = store.get('cs-lbl-user');
     set('cs-lbl-user-val', lu || '未设置（默认 我）');
     const ap = store.get('cs-avatar-partner');
@@ -863,9 +1045,12 @@
         const val = (v || '').trim();
         // v3.25.x：有效昵称变化时触发系统消息昵称清扫（chat.js），历史系统消息称呼跟随
         // v3.26.x：与桌面解耦后有效昵称基线只看 cs-lbl-partner（默认 TA），不再掺入桌面键
-        const oldEff = store.get('cs-lbl-partner') || 'TA';
+        // FIX 2026-09-18 #775e：基线改用聊天里实际显示的旧名（chatPartnerName 现含
+        // 「联系人名片名」回退环）——只按 cs-lbl-partner 取旧名时，「从未设过聊天昵称、
+        // 只在联系人管理里改过名」的用户屏上旧名是名片名，清扫却拿 'TA' 去扫＝旧名扫不掉。
+        const oldEff = window.chatPartnerName ? window.chatPartnerName() : (store.get('cs-lbl-partner') || 'TA');
         if (val) store.set('cs-lbl-partner', val); else store.remove('cs-lbl-partner');
-        if (oldEff !== (val || 'TA')) {
+        if (oldEff !== (window.chatPartnerName ? window.chatPartnerName() : (val || 'TA'))) {
           try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff); } catch (e) {}
         }
         applyProfile();
@@ -880,7 +1065,14 @@
       const cur = store.get('cs-lbl-user') || '';
       window.openModal('我的昵称', cur, (v) => {
         const val = (v || '').trim();
+        // FIX 2026-09-18 #775c：此前这条只写键、不走改名钩子——「我的昵称」在聊天设置里
+        // 改了，聊天里已发出的拍一拍仍是旧名（联系人那一行有 chatSysNickChanged，这一行
+        // 没有对应的 {me} 侧），与用户报障「给我和联系人都换了昵称，拍一拍没变」同病。
+        const oldEff = store.get('cs-lbl-user') || '我';
         if (val) store.set('cs-lbl-user', val); else store.remove('cs-lbl-user');
+        if (oldEff !== (val || '我')) {
+          try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff, 'me'); } catch (e) {}
+        }
         applyProfile();
       }, { maxlength: 30 });
     });
@@ -1482,7 +1674,8 @@
     'cs-send-bg', 'cs-send-ink', 'cs-send-show',
     'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset',
     // #731：壁纸铺满方式 + 壁纸延伸到栏位（同一份美化方案应记住这两个观感开关）
-    'cs-bg-fit', 'cs-bg-fullbars'
+    // #782：壁纸位置与缩放三键（方案/备份/导入必须一起走，否则换桌面图就跳位）
+    'cs-bg-fit', 'cs-bg-fullbars', 'cs-bg-pos-x', 'cs-bg-pos-y', 'cs-bg-size'
   ];
   const getChatSchemes = () => {
     try { const a = JSON.parse(gStoreChat.get(CHAT_SCHEMES_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -3087,6 +3280,14 @@
             try { store.set('cs-bg-fullbars', v === 'on' ? '1' : '0'); } catch (e) {}
             applySettings();
           }));
+        // #782：壁纸位置/缩放——抽屉里这三条能边看边调（设置页那行面板里是同一组键、同一个
+        // 写入点 setCsBgAdj）。缩放 100% 时尺寸仍由上面「壁纸铺满方式」决定，拉大才接管。
+        if (store.get('cs-bg')) {
+          wrap.appendChild(mkSlider('壁纸 水平位置', () => csBgAdj().x, v => setCsBgAdj({ x: v }), 0, 100, 1, '%', CS_BG_ADJ.x));
+          wrap.appendChild(mkSlider('壁纸 垂直位置', () => csBgAdj().y, v => setCsBgAdj({ y: v }), 0, 100, 1, '%', CS_BG_ADJ.y));
+          wrap.appendChild(mkSlider('壁纸 缩放', () => csBgAdj().s, v => setCsBgAdj({ s: v }), 100, 300, 5, '%', CS_BG_ADJ.s));
+          wrap.appendChild(mkNote('图被裁掉的部分靠这两条位置滑杆找回来（值越大＝看越靠右/靠下的一段）；缩放 100% 就是按铺满方式，双击滑杆回默认。'));
+        }
         wrap.appendChild(mkGrid([
           mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
           mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),

@@ -573,6 +573,24 @@ html.tablet #page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:10
    代价＝一块全屏纹理内存（约 1.3MB），且只在设了壁纸时存在（未设时该层 display:none，不成层）。 */
 #cs-bg-layer { transform:translateZ(0); }
 
+/* #781 稳定盒扩到四档，且不再依赖视口单位（真 WebKit 实测补的洞）：
+   上面 #762 的下限写着 `min-height:100lvh`，前提是「lvh 是设备常量」。这个前提只在
+   「键盘不缩布局视口」的内核成立——iOS 装成 PWA（standalone）以及走 resizes-content 的
+   内核会把布局视口整个压矮，此时 vh/lvh/dvh/svh 一起跟着缩（实测视口 844→470 时四个单位
+   全读到 470）⇒ 下限一起塌，打字时壁纸换一个比例（用户实报「全部手机都这样」）。
+   另一半更直接：#762 的下限只挂在 .cs-bg-fill 上，「完整显示」档键盘期整图从
+   390x740 缩到 245x464。本块把下限按「有壁纸」这个条件挂（.cs-bg-on 由 chat-settings.js
+   写），四档一律；高度取 max(视口单位, JS 实测的 --cs-bg-h) —— --cs-bg-h 是「确实没有键盘
+   时」的页面高，视口单位缩了它也还在。
+   三条声明分写＝退化阶梯，不认识的那条被整条丢弃：老内核只剩 100vh（同 #690/#762 套路），
+   不认 lvh 但认 max() 的内核用 100vh 版，都认的内核按大视口 lvh 版。
+   与 #762 那两条同特异性（2 ID + 1 类），写在后面才赢——所以这个类不能省。 */
+@media (max-width: 900px) {
+  #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:max(100vh, var(--cs-bg-h, 0px)); min-height:max(100lvh, var(--cs-bg-h, 0px)); }
+}
+html.force-mobile #page-chat.cs-bg-on > #cs-bg-layer,
+html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:max(100vh, var(--cs-bg-h, 0px)); min-height:max(100lvh, var(--cs-bg-h, 0px)); }
+
 /* 杈撳叆鏍忓浘鏍囨寜閽紙鏇村鍔熻兘 / 琛ㄦ儏鍖咃級 */
 .ch-input-btn {
   width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:0;
