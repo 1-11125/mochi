@@ -3536,6 +3536,9 @@ const FIX_SENTINELS = [
   { name: '#794g 微调面板按住看默认对比（删＝拖方向拿不准时无法快速对比调整前后）', file: 'js/personalize.js', needle: "holdBtn.addEventListener('pointerdown', holdOn)" },
   { name: '#794h 恢复备份带屏幕偏移时点名提醒（删＝换机恢复把旧机的偏移带进本机且无提示）', file: 'js/data-backup.js', needle: 'screen-adj-(top|bottom|h|desk|shift|text|side)' },
   { name: '#794i 微调面板打开即现场探测建议行（删＝面板回到纯手拖，诊断发现不主动送上门）', file: 'js/personalize.js', needle: 'window.mochiScreenFixSuggest ? window.mochiScreenFixSuggest() : []' },
+  // ==== 2026-09-19 #800 后台通知「一条内容弹两条一模一样的系统通知」根治（红米 K80 Chrome 实报「联系人更换昵称的系统消息重复一条」，用户点名其他消息可能同病、其他设备型号也有；#744/#766/#776/#796 同族新通道）：同一条消息在**同一同步任务**里被投两次——addRec→showDeskMsg 一路 + 机制显式补发一路（avatar-lib 昵称/头像池定时更换、ta-ask 五处、ck-question、incoming-requests 查岗卡），而已发指纹 markNotified 原在 showSysNotification().then(ok) 异步回调里才落账（发送链前段还有头像裁剪 Image onload 最长 1200ms 截止），第二发到达时 notifiedDup/seenDup 查空、recentChatDup 又有「刚入库 2.5s 内条目自排除」＝双弹。修复＝决定发送的同步点记账＋发送失败回调里回滚（v3.12.x 失败可重试语义不变）。零机型分支；行为断言见 tools/verify-notify-dup-gate.mjs ====
+  { name: '#800a 决定发送即同步记账（记账仍在发送成功回调＝同任务第二发查空放行，一条内容弹两条一模一样的通知回归）', file: 'js/bg-keep.js', needle: 'gateStats.sent++; markNotified(nkey);' },
+  { name: '#800b 发送失败回滚早记账（删掉＝发送失败后 2 分钟内同内容不再重试，「经常收不到」家族回归）', file: 'js/bg-keep.js', needle: 'notifiedRecently.delete(nkey);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

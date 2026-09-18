@@ -10166,9 +10166,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789750871580">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789769467990">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 01:01<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 06:11<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -65551,7 +65551,7 @@ if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_
 recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }
 if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
 if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
-gateStats.sent++;
+gateStats.sent++; markNotified(nkey);
 hiddenSentCount++;
 hiddenSentName = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
 const name = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
@@ -65580,8 +65580,9 @@ if (iconVal) opts.icon = iconVal;
 if (previewImg) opts.image = previewImg;
 showSysNotification(name, opts).then(function (ok) {
 if (ok) {
-markNotified(nkey);
 try { if (extra.msgTs && window.__mochiMsgNotified) window.__mochiMsgNotified(extra.msgTs, 'in'); } catch (e) {}
+} else {
+notifiedRecently.delete(nkey); // #800：发送失败回滚决定点早记账，保留「失败可重试」
 }
 });
 };
@@ -79025,4 +79026,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu77gisc -->
+<!-- __MOCHI_EOF__ mu7ij3va -->

@@ -1788,7 +1788,17 @@
     // 本就不会被内容去重拦截
     if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
     if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
-    gateStats.sent++;
+    // FIX 2026-09-19 #800：受理记账从「发送成功回调」提前到「决定发送」的同步点——
+    // markNotified 原在 showSysNotification().then(ok) 里才落账，而发送链前段还有头像
+    // 裁剪（Image onload，#673 起最长 1200ms 截止）等异步段。同一条消息在**同一同步任务**
+    // 里被投两次时（昵称/头像池定时更换、ta-ask/ck-question/incoming-requests 互动卡：
+    // addRec→showDeskMsg→bgNotifyCheck 一路 ＋ 各机制显式补发一路，如 avatar-lib 昵称
+    // 定时更换就先后调了两次），第二发在第一发落账前到达，notifiedDup/seenDup/
+    // recentChatDup（刚入库 2.5s 内条目自排除）全部查空放行 ＝ 一条内容弹两条一模一样
+    // 的系统通知（红米 K80 Chrome 实报「联系人换昵称系统消息重复一条」，其他消息机制
+    // 同构、其他设备型号同现）。改为决定发送即同步记账；发送失败在回调里回滚
+    // （v3.12.x「受理成功才记已发、失败可重试」语义不变）。零机型分支。
+    gateStats.sent++; markNotified(nkey);
     // v3.19.x：累加「本次后台实际发送的通知数」——回前台汇总用它（见 visibilitychange
     // 处理器），发送者名取本次通知标题
     hiddenSentCount++;
@@ -1849,10 +1859,12 @@
       // v3.12.x：受理成功才记入"已通知"指纹（窗口内同内容不再重弹）
       showSysNotification(name, opts).then(function (ok) {
         if (ok) {
-          markNotified(nkey);
           // FIX 2026-09-18 #780：受理成功再按【消息身份】落一个永久标记（随 rec 落盘）——
           // 内容指纹的 2 分钟已发窗口会被冻结时长熬过期，身份标记不会。写失败一律静默。
+          // （#800：内容指纹的已发记账已提前到决定发送的同步点，这里只剩身份标记。）
           try { if (extra.msgTs && window.__mochiMsgNotified) window.__mochiMsgNotified(extra.msgTs, 'in'); } catch (e) {}
+        } else {
+          notifiedRecently.delete(nkey); // #800：发送失败回滚决定点早记账，保留「失败可重试」
         }
       });
     };
