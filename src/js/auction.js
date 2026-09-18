@@ -148,6 +148,9 @@
     if (!soundOn) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // FIX 2026-09-18 #718：iOS 锁屏/切后台回来 ctx 被系统挂起，不 resume 则整局哑音
+      //（snake-game/connect-four 同款修法；全站音效模块最后一个漏网）
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = freq; o.type = 'sine';
       g.gain.value = vol || 0.16;

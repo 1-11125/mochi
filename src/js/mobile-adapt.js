@@ -1977,7 +1977,18 @@
           try {
             var d = document.documentElement;
             var _kbOn = !!(_aProv || (_aVV && _aH > 0 && _aVV.height > 0 && _aVV.height < _aH - 60));
-            var _next = _kbOn ? '0px' : '';
+            // FIX 2026-09-18 #719：e2e 浏览器（Edge/Android 15+，页面顶进系统状态栏/
+            // 手势条而 env()=0）键盘收起回落不摘属性——改落判定器 e2e 底部避让估式
+            // （手势条 16/z），否则 tabbar/输入栏退回 0 避让＝被手势条盖住（#530 同位
+            // 维护点、零机型分支：非 e2e 形态 e2eBrowser 恒 false，回落 '' 摘除原样）。
+            // env 读 _aCoverEnvCache（跨层 var——typeof 守卫防不同嵌套层 ReferenceError；
+            // 未初始化按 0 传：e2e 形态本就要求 env<20，_aSyncCoverTop 探针稍后自会补齐口径）。
+            var _fcB = null;
+            try {
+              _fcB = window.mochiViewportForm({ standalone: false, envTop: (typeof _aCoverEnvCache !== 'undefined' && _aCoverEnvCache >= 0) ? _aCoverEnvCache : 0, innerH: window.innerHeight || 0, screenH: (window.screen && window.screen.height) || 0, innerW: window.innerWidth || 0, screenW: (window.screen && window.screen.width) || 0, iosMajor: 0, safMajor: 0, andr: true, safeTopForce: false, e2eLatch: !!window.__mochiE2eLatch });
+            } catch (eF2) {}
+            if (_fcB && _fcB.e2eBrowser && !window.__mochiE2eLatch) window.__mochiE2eLatch = true;
+            var _next = _kbOn ? '0px' : ((_fcB && _fcB.e2eBrowser && _fcB.safeBottom) ? _fcB.safeBottom + 'px' : '');
             if (_next === _aSafeB) return;
             _aSafeB = _next;
             if (_next) d.style.setProperty('--mochi-safe-bottom', _next);
@@ -2559,6 +2570,12 @@
       // 摘除。常规安卓浏览器 env=0 → safeTop=0 → 摘除属性，与旧版行为一致；其余消费方
       //（chat-head 等）fallback 本就是 env()，写入同值=零视觉变化。高度侧刻意不动：
       // 浏览器形态布局视口=inner，.phone 贴 inner 不造文档滚动量（#199 同款语义）。
+      // #719：e2e 浏览器形态闩——Edge/Android 15+ 页面顶进系统状态栏而 env()=0，
+      // 判定器靠「inner 超出整屏 + 缩放渲染」几何签名识别（e2e-browser）；Edge 底部
+      // 工具条隐匿瞬间 inner 变大逸出判定带，闩住该形态不掉避让（页面此时仍在系统
+      // 状态栏下）。挂 window（__mochiE2eLatch）：_aSyncCoverTop 与 syncSafeBottomA
+      // 分处安卓段不同嵌套层，不依赖跨层闭包可见性；置位后仅 orientationchange
+      // 重探时自清（旋转几何全变需重新进门）。诊断/verify 可只读探针。
       var _aCoverEnvCache = -1;
       function _aSyncCoverTop() {
         try {
@@ -2575,7 +2592,10 @@
               document.body.removeChild(_p);
             } catch (e4) { _aCoverEnvCache = 0; }
           }
-          var _fc = window.mochiViewportForm({ standalone: false, envTop: _aCoverEnvCache, innerH: _ih, screenH: _sh, iosMajor: 0, safMajor: 0, andr: true, safeTopForce: false });
+          // #719：sig 补 innerW/screenW（缩放渲染证据）+ e2eLatch（工具条隐匿不掉避让）；
+          // safeTop>0 的写变量+挂类路径复用 #236 原样（base.css html.mochi-cover-top 消费）
+          var _fc = window.mochiViewportForm({ standalone: false, envTop: _aCoverEnvCache, innerH: _ih, screenH: _sh, innerW: window.innerWidth || 0, screenW: (window.screen && window.screen.width) || 0, iosMajor: 0, safMajor: 0, andr: true, safeTopForce: false, e2eLatch: !!window.__mochiE2eLatch });
+          if (_fc.e2eBrowser && !window.__mochiE2eLatch) window.__mochiE2eLatch = true;
           var _st = _fc.safeTop || 0;
           var _px = _st ? _st + 'px' : '';
           if (_d.style.getPropertyValue('--mochi-safe-top') !== _px) {
@@ -2588,7 +2608,7 @@
       try { _aSyncCoverTop(); } catch (e) {}
       try {
         window.addEventListener('resize', _aSyncCoverTop);
-        window.addEventListener('orientationchange', function () { _aCoverEnvCache = -1; _aSyncCoverTop(); });
+        window.addEventListener('orientationchange', function () { _aCoverEnvCache = -1; window.__mochiE2eLatch = false; _aSyncCoverTop(); });
       } catch (e) {}
     } catch (e) {}
   }

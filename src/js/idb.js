@@ -269,6 +269,11 @@
   window.idbGet = function (key, info) {
     const ambiable = (info && typeof info === 'object') ? info : null;
     const amb = () => { if (ambiable) ambiable.ambiguous = true; };
+    // #716：读等待窗可按值体积放大（minWaitMs>4000 才生效，其余调用方行为一字不变）——
+    //   41MB 级 chat-msgs 在手机上单次读取+反序列化就超默认 4s+4s，每次尝试都超时=undefined，
+    //   上层重试 6 次每次重读整包全部失败＝「正在加载聊天记录」挂很久也进不去（红米 K80 实报）。
+    //   写入侧 idbSetAll 早已按字节放大超时（+2000/256KB），读取侧一直漏了同款。
+    const minWait = (ambiable && typeof ambiable.minWaitMs === 'number' && ambiable.minWaitMs > 4000) ? Math.min(60000, ambiable.minWaitMs) : 4000;
     return open().then(db => new Promise((resolve) => {
       let done = false;
       let timer = null;
@@ -292,14 +297,14 @@
           open().then(function (db2) {
             db = db2;
             run();
-            timer = setTimeout(function () { dbPromise = null; amb(); finish(undefined); }, 4000);
+            timer = setTimeout(function () { dbPromise = null; amb(); finish(undefined); }, minWait);
           }).catch(function () { amb(); finish(undefined); });
           return;
         }
         dbPromise = null;
         amb();
         finish(undefined);
-      }, 4000);
+      }, minWait);
       run();
     })).catch(() => { amb(); return undefined; });
   };
@@ -659,6 +664,48 @@
   }
 
   // 恢复：从 IndexedDB 读回 localStorage 缺失的键（初始化时调用）
+  // #718 LS 残留大键一次性补扫——对齐 xyStore.set 的既有政策（>LS_BIG_LIMIT 的值只进
+  // IDB+内存、删 LS 副本）：老版本写入的键在内容长到超限后没再被 set 过＝LS 里挂着
+  // 200KB+ 残留副本（双倍存储＋诊断「LS 残留大键」告警，实测 cmt37eved7if:fav-msgs=207KB）。
+  // 安全边界：①【内存已持有该键】直接清 LS 副本（读取零影响，xyStore.get 内存优先）；
+  // ②内存没有的（＝残留键的常态：idbRestore 回填「跳过已有 LS 值的键」，所以这类键本来
+  // 就不在内存缓存里）先从 IDB 权威读回、写进内存缓存再清——保证清完 get() 仍拿到同值；
+  // IDB 里读不到/键不存在 → 一律保留 LS（可能是唯一副本），绝不冒险；
+  // ③chat-msgs / gc-msgs / chat-arch / chat-meta 是 chat.js / group-chat.js 有意维护的
+  // LS 兜底快照族，一律不碰；④回填就绪后 20s 才跑、每会话至多一遍，避开启动关键窗口。
+  function lsResidueSweep() {
+    try {
+      if (!memoryCache) return;
+      const cands = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf('xy-home-v2:') !== 0) continue;
+        if (isChatMsgsKey(k) || isGroupMsgsKey(k) || /:chat-(meta|arch)$/.test(k)) continue;
+        const v = localStorage.getItem(k) || '';
+        if (v.length <= LS_BIG_LIMIT) continue;
+        cands.push([k, v.length]);
+      }
+      if (!cands.length) return;
+      let swept = 0, bytes = 0;
+      const drop = function (k, len) {
+        try { localStorage.removeItem(k); swept++; bytes += len * 2; } catch (e) {}
+      };
+      cands.forEach(function (x) {
+        const k = x[0];
+        if (Object.prototype.hasOwnProperty.call(memoryCache, k)) { drop(k, x[1]); return; }
+        if (!window.idbGet) return; // 没有 IDB 读接口：保留 LS（唯一副本）
+        window.idbGet(k).then(function (v) {
+          if (v === undefined || v === null) return; // IDB 无权威副本 → 保留 LS
+          try { memoryCache[k] = v; } catch (e) { return; }
+          drop(k, x[1]);
+          if (swept) {
+            try { console.info('[mochi] LS 残留大键补扫：清理 ' + swept + ' 键 ≈ ' + Math.round(bytes / 1024) + 'KB'); } catch (e) {}
+          }
+        }).catch(function () {});
+      });
+    } catch (e) {}
+  }
+  window.lsResidueSweep = lsResidueSweep; // #718：verify 直调入口
   // v3.14.x OOM 防线（修复荣耀等安卓真机「开屏卡住→网页崩溃」）：
   //   原实现把所有键无上限读入 memoryCache 驻留——重度数据用户（几十 MB 字卡/
   //   图片键）启动回填时 JS 堆被推到渲染进程上限直接崩溃（diag-oom-repro.mjs
@@ -677,6 +724,8 @@
       readySent = true;
       try { window.__mochiDataReady = true; } catch (e) {}
       try { document.dispatchEvent(new Event('mochi-restore-done')); } catch (e) {}
+      // #718：回填就绪后延迟做一次「LS 残留大键补扫」（每会话至多一遍，见 lsResidueSweep）
+      try { setTimeout(lsResidueSweep, 20000); } catch (e) {}
     };
     let finished = false;
     const finish = function () {

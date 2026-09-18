@@ -375,7 +375,7 @@
     }
     m.innerHTML = '';
     const box = document.createElement('div');
-    box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
+    box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
     const hd = document.createElement('div');
     hd.innerHTML = '<div style="font-size:16px;font-weight:600">聊天壁纸</div><div style="font-size:12px;color:var(--muted,#888);margin-top:4px">可存多张，点缩略图即切换；误删 5 秒内可撤销</div>';
     box.appendChild(hd);
@@ -1576,7 +1576,7 @@
     head.innerHTML = '<div style="font-size:16px;font-weight:600;margin-bottom:4px">聊天美化方案</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">方案在所有联系人桌面通用（含气泡颜色/CSS、背景图、字体、时间轴等），点「应用」一键切换当前聊天外观</div>';
     box.appendChild(head);
     const list = document.createElement('div'); list.className = 'cm-list';
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;flex:1;min-height:0';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0';
     const schemes = getChatSchemes();
     if (!schemes.length) {
       const empty = document.createElement('div');
@@ -2110,7 +2110,7 @@
     box.appendChild(hd);
     // 预览条：按当前顺序把这一排画出来（含输入框与固定的发送按钮）
     const prev = document.createElement('div');
-    prev.style.cssText = 'display:flex;align-items:center;gap:6px;padding:10px;margin:10px 0 12px;border-radius:12px;background:var(--bg-b,#f5f5f5);overflow-x:auto;-webkit-overflow-scrolling:touch';
+    prev.style.cssText = 'display:flex;align-items:center;gap:6px;padding:10px;margin:10px 0 12px;border-radius:12px;background:var(--bg-b,#f5f5f5);overflow-x:auto';;
     order.forEach((t) => {
       if (t === 'input') {
         const iw = document.createElement('div');
@@ -2231,7 +2231,7 @@
       document.body.appendChild(m);
       m.addEventListener('click', (e) => { if (e.target === m) closeInputOrderPanel(); });
       const box = document.createElement('div');
-      box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
+      box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
       m.appendChild(box);
     }
     renderInputOrderPanel();
@@ -2456,7 +2456,7 @@
     // 观感与桌面抽屉逐字同款：贴底、40vh 上限、半透明底（不透明会把聊天页挡死，
     // #562 用户原话「又不是半透明的页面，还是会遮挡其他东西我看不见」）；刻意不加
     // backdrop-filter——AGENTS.md 的 iOS 卡顿红线。
-    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
     d.innerHTML = '';
     const grip = document.createElement('div');
     grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';

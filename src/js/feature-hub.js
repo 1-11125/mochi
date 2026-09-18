@@ -293,7 +293,7 @@
   // ---- 样式（自包含注入，不动 base.css；配色走全局变量 --ink/--muted，深色模式自动跟随） ----
   const hubStyle = document.createElement('style');
   hubStyle.textContent =
-    '.fhub-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}.fhub-tabs::-webkit-scrollbar{display:none}' +
+    '.fhub-tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 14px 8px;scrollbar-width:none}.fhub-tabs::-webkit-scrollbar{display:none}' +
     '.fhub-tag{flex:0 0 auto;padding:6px 13px;border-radius:20px;font-size:12px;color:var(--muted,#666);background:rgba(0,0,0,.055);white-space:nowrap;cursor:pointer;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}.fhub-tag:active{transform:scale(.97)}.fhub-tag.on{color:#fff;background:#111}' +
     '.fhub-hot{display:flex;gap:8px;align-items:center;padding:10px 2px 0}.fhub-hot-label{flex:0 0 auto;font-size:12px;color:var(--muted,#999)}' +
     '.fhub-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 0 4px}' +

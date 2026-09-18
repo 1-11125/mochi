@@ -800,7 +800,7 @@
     // v3.11.x：颜色改主题变量（内联硬编码浅色在深色模式下白底白字不可见）
     box.style.cssText = 'width:min(92vw,420px);max-height:80vh;display:flex;flex-direction:column;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
     box.appendChild(el('div', '', '<div style="font-size:16px;font-weight:600;margin-bottom:4px">联系人 / 桌面</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">每个联系人数据独立；除朋友圈外，还有部分功能数据在所有桌面共用。<b id="cm-fn-explain">【功能说明】</b><br>「称呼」可设置消息里 TA 的性别叫法（他 / 她 / 不设置）</div>'));
-    const list = el('div', 'cm-list'); list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;flex:1;min-height:0';
+    const list = el('div', 'cm-list'); list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0';
     getContacts().forEach(c => {
       const row = el('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--card-border,#eee);border-radius:10px';
@@ -864,7 +864,7 @@
     const m = ensureModal();
     m.innerHTML = '';
     const box = el('div');
-    box.style.cssText = 'width:min(92vw,420px);max-height:80vh;display:flex;flex-direction:column;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.2);overflow-y:auto;-webkit-overflow-scrolling:touch';
+    box.style.cssText = 'width:min(92vw,420px);max-height:80vh;display:flex;flex-direction:column;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.2);overflow-y:auto';;
     const txt =
       '<div style="font-size:16px;font-weight:600;margin-bottom:8px">数据互通说明</div>' +
       '<div style="font-size:13px;font-weight:600;color:var(--danger-ink,#a32d2d);margin-bottom:6px">所有桌面共用的数据</div>' +
@@ -986,7 +986,7 @@
       ? (opts.sub || '看完此间了，选一个联系人桌面进入吧。')
       : '开启后，每次打开应用直接进入所选桌面；选「关闭」即不设置。';
     ov.appendChild(sub);
-    const wrap = el('div'); wrap.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:2px 16px 18px;display:flex;flex-direction:column;gap:10px';
+    const wrap = el('div'); wrap.style.cssText = 'flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:2px 16px 18px;display:flex;flex-direction:column;gap:10px';
     const mkCard = function (title, tagText, isCurrent, tagOn) {
       const card = el('div');
       card.style.cssText = 'display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--card-border,#eee);border-radius:14px;background:var(--card-bg,#fff);cursor:pointer';

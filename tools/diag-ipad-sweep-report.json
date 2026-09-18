@@ -1,0 +1,887 @@
+{
+ "sweep": [
+  {
+   "cfg": "iPad mini 竖屏 768×1024",
+   "head": {
+    "rule": "tablet",
+    "m": true,
+    "t": true,
+    "ios": true,
+    "cls": "tablet ios-vv-fit",
+    "iw": 768,
+    "ih": 1024,
+    "sw": 1440,
+    "sh": 960,
+    "tp": 10
+   },
+   "tested": 742,
+   "tiny": 52,
+   "fails": [
+    {
+     "page": "page-phone",
+     "el": "div.page-slide>div#deco-widget>div.deco-avatars>div#avatar-user",
+     "rect": [
+      416,
+      85,
+      80,
+      109
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div#daily-greet>div",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-phone",
+     "el": "div.page-slide>div#deco-widget>div.deco-avatars>div#avatar-partner",
+     "rect": [
+      272,
+      85,
+      80,
+      109
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div#daily-greet>div",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-loc-cards",
+     "el": "div.gs-scroll>div.cal-card.glass>div.fd-btns>button.fd-btn",
+     "rect": [
+      45,
+      926,
+      221,
+      35
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-loc-cards",
+     "el": "div.gs-scroll>div.cal-card.glass>div.fd-btns>button.fd-btn",
+     "rect": [
+      274,
+      926,
+      221,
+      35
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-loc-cards",
+     "el": "div.gs-scroll>div.cal-card.glass>div.fd-btns>button.fd-btn.danger",
+     "rect": [
+      502,
+      926,
+      221,
+      35
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div#page-setting>div.them-sec>div.set-group.glass>div#row-appearance",
+     "rect": [
+      19,
+      951,
+      731,
+      56
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.tabbar>div.tab>svg>path",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-appearance>div.txt>span.tag",
+     "rect": [
+      159,
+      971,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      213,
+      695,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "iPad Air 竖屏 820×1180",
+   "head": {
+    "rule": "tablet",
+    "m": true,
+    "t": true,
+    "ios": true,
+    "cls": "tablet ios-vv-fit",
+    "iw": 820,
+    "ih": 1180,
+    "sw": 1440,
+    "sh": 960,
+    "tp": 10
+   },
+   "tested": 773,
+   "tiny": 55,
+   "fails": [
+    {
+     "page": "page-chatcard",
+     "el": "div.phone>div#page-chatcard>div#cc-sect-custom>div#li-ta-checkin-mine",
+     "rect": [
+      18,
+      1119,
+      784,
+      75
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      213,
+      747,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "iPad 横屏 1180×820",
+   "head": {
+    "rule": "tablet",
+    "m": false,
+    "t": true,
+    "ios": true,
+    "cls": "tablet ios-vv-fit",
+    "iw": 1180,
+    "ih": 820,
+    "sw": 1440,
+    "sh": 960,
+    "tp": 10
+   },
+   "tested": 691,
+   "tiny": 43,
+   "fails": [
+    {
+     "page": "page-setting",
+     "el": "div#page-setting>div.them-sec>div.set-group.glass>div#row-entry-show-list",
+     "rect": [
+      19,
+      691,
+      1143,
+      95
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html.tablet.ios-vv-fit>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-entry-show-list>div.txt>span.tag",
+     "rect": [
+      75,
+      750,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      213,
+      1107,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "iPad Pro 12.9 横屏 1366×1024",
+   "head": {
+    "rule": "tablet",
+    "m": false,
+    "t": true,
+    "ios": true,
+    "cls": "tablet ios-vv-fit",
+    "iw": 1366,
+    "ih": 1024,
+    "sw": 1440,
+    "sh": 960,
+    "tp": 10
+   },
+   "tested": 757,
+   "tiny": 53,
+   "fails": [
+    {
+     "page": "page-chatcard",
+     "el": "div.phone>div#page-chatcard>div#cc-sect-custom>div#li-ta-curious-mine",
+     "rect": [
+      18,
+      948,
+      1330,
+      75
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div#page-setting>div.them-sec>div.set-group.glass>div#row-appearance",
+     "rect": [
+      19,
+      951,
+      1329,
+      56
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.tabbar>div.tab>svg>path",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-appearance>div.txt>span.tag",
+     "rect": [
+      159,
+      971,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      213,
+      1293,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "iPhone 390×844",
+   "head": {
+    "rule": "viewport<=900",
+    "m": true,
+    "t": false,
+    "ios": true,
+    "cls": "ios-vv-fit",
+    "iw": 390,
+    "ih": 844,
+    "sw": 390,
+    "sh": 844,
+    "tp": 10
+   },
+   "tested": 652,
+   "tiny": 40,
+   "fails": [
+    {
+     "page": "page-chatcard",
+     "el": "div.phone>div#page-chatcard>div#cc-sect-custom>div#li-quote-cards-mine",
+     "rect": [
+      18,
+      744,
+      354,
+      75
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.phone>div.tabbar>div.tab>svg",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-entry-show-list>div.txt>span.tag",
+     "rect": [
+      75,
+      775,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-storage",
+     "el": "div#page-storage>div.cal-scroll>div.cal-card.glass>button#st-goto-music",
+     "rect": [
+      55,
+      762,
+      281,
+      42
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.phone>div.tabbar>div.tab>svg",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      213,
+      317,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "安卓小屏 360×740",
+   "head": {
+    "rule": "viewport<=900",
+    "m": true,
+    "t": false,
+    "ios": false,
+    "cls": "",
+    "iw": 360,
+    "ih": 740,
+    "sw": 360,
+    "sh": 740,
+    "tp": 10
+   },
+   "tested": 643,
+   "tiny": 23,
+   "fails": [
+    {
+     "page": "page-chatcard",
+     "el": "div.phone>div#page-chatcard>div#cc-sect-custom>div#li-checkin-cards-mine",
+     "rect": [
+      18,
+      662,
+      324,
+      75
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.phone>div.tabbar>div.tab>svg",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-entry-cjian-first>div.txt>span.tag",
+     "rect": [
+      75,
+      663,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      37,
+      234,
+      287,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  },
+  {
+   "cfg": "PC 宽屏 1440×900 强制外壳",
+   "head": {
+    "rule": "pref:pc",
+    "m": false,
+    "t": false,
+    "ios": false,
+    "cls": "",
+    "iw": 1440,
+    "ih": 900,
+    "sw": 1440,
+    "sh": 960,
+    "tp": 10
+   },
+   "tested": 727,
+   "tiny": 43,
+   "fails": [
+    {
+     "page": "page-chatcard",
+     "el": "div.phone>div#page-chatcard>div#cc-sect-custom>div#li-quote-cards-mine",
+     "rect": [
+      543,
+      785,
+      354,
+      75
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.tabbar>div.tab>svg>path",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div#page-setting>div.them-sec>div.set-group.glass>div#row-entry-show-list",
+     "rect": [
+      544,
+      739,
+      353,
+      112
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "html>body>div.phone>div.tabbar",
+     "hitPe": "auto",
+     "hitZ": "2",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-setting",
+     "el": "div.set-group.glass>div#row-entry-show-list>div.txt>span.tag",
+     "rect": [
+      600,
+      815,
+      64,
+      21
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "body>div.phone>div.tabbar>div.tab.active",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-storage",
+     "el": "div#page-storage>div.cal-scroll>div.cal-card.glass>button#st-goto-music",
+     "rect": [
+      580,
+      806,
+      281,
+      42
+     ],
+     "pe": "auto",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.tabbar>div.tab>svg>path",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "static"
+    },
+    {
+     "page": "page-memory",
+     "el": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>button#love-date-btn",
+     "rect": [
+      562,
+      242,
+      317,
+      46
+     ],
+     "pe": "none",
+     "pos": "static",
+     "z": "auto",
+     "hit": "div.mem-scroll>div.mem-card.glass>div.mem-date-wrap>input#love-date-input",
+     "hitPe": "auto",
+     "hitZ": "auto",
+     "hitPos": "absolute"
+    }
+   ]
+  }
+ ],
+ "floats": {
+  "ipad-mini-p": {
+   "vub": {
+    "l": 0,
+    "t": 0,
+    "r": 768,
+    "b": 49,
+    "w": 768
+   },
+   "pwa": {
+    "l": 629,
+    "t": 969,
+    "r": 752,
+    "b": 1008,
+    "w": 123
+   },
+   "loc": {
+    "l": 0,
+    "t": 603,
+    "r": 768,
+    "b": 1024,
+    "w": 768
+   },
+   "mus": {
+    "l": 0,
+    "t": 1003,
+    "r": 768,
+    "b": 1024,
+    "w": 768
+   },
+   "gcs": {
+    "l": 0,
+    "t": 0,
+    "r": 768,
+    "b": 1024,
+    "w": 768
+   },
+   "smf": {
+    "l": 12,
+    "t": 80,
+    "r": 242,
+    "b": 187,
+    "w": 230
+   },
+   "phone": {
+    "l": 0,
+    "t": 0,
+    "r": 768,
+    "b": 1024,
+    "w": 768
+   }
+  },
+  "ipad-air-p": {
+   "vub": {
+    "l": 0,
+    "t": 0,
+    "r": 820,
+    "b": 49,
+    "w": 820
+   },
+   "pwa": {
+    "l": 681,
+    "t": 1125,
+    "r": 804,
+    "b": 1164,
+    "w": 123
+   },
+   "loc": {
+    "l": 0,
+    "t": 759,
+    "r": 820,
+    "b": 1180,
+    "w": 820
+   },
+   "mus": {
+    "l": 0,
+    "t": 1159,
+    "r": 820,
+    "b": 1180,
+    "w": 820
+   },
+   "gcs": {
+    "l": 0,
+    "t": 0,
+    "r": 820,
+    "b": 1180,
+    "w": 820
+   },
+   "smf": {
+    "l": 12,
+    "t": 80,
+    "r": 242,
+    "b": 187,
+    "w": 230
+   },
+   "phone": {
+    "l": 0,
+    "t": 0,
+    "r": 820,
+    "b": 1180,
+    "w": 820
+   }
+  },
+  "ipad-land": {
+   "vub": {
+    "l": 395,
+    "t": 24,
+    "r": 785,
+    "b": 73,
+    "w": 390
+   },
+   "pwa": {
+    "l": 646,
+    "t": 741,
+    "r": 769,
+    "b": 780,
+    "w": 123
+   },
+   "loc": {
+    "l": 395,
+    "t": 375,
+    "r": 785,
+    "b": 796,
+    "w": 390
+   },
+   "mus": {
+    "l": 395,
+    "t": 775,
+    "r": 785,
+    "b": 796,
+    "w": 390
+   },
+   "gcs": {
+    "l": 395,
+    "t": 24,
+    "r": 785,
+    "b": 796,
+    "w": 390
+   },
+   "smf": {
+    "l": 407,
+    "t": 104,
+    "r": 637,
+    "b": 211,
+    "w": 230
+   },
+   "phone": {
+    "l": 0,
+    "t": 0,
+    "r": 1180,
+    "b": 820,
+    "w": 1180
+   }
+  },
+  "ipad-pro-l": {
+   "vub": {
+    "l": 488,
+    "t": 90,
+    "r": 878,
+    "b": 139,
+    "w": 390
+   },
+   "pwa": {
+    "l": 739,
+    "t": 879,
+    "r": 862,
+    "b": 918,
+    "w": 123
+   },
+   "loc": {
+    "l": 488,
+    "t": 513,
+    "r": 878,
+    "b": 934,
+    "w": 390
+   },
+   "mus": {
+    "l": 488,
+    "t": 913,
+    "r": 878,
+    "b": 934,
+    "w": 390
+   },
+   "gcs": {
+    "l": 488,
+    "t": 90,
+    "r": 878,
+    "b": 934,
+    "w": 390
+   },
+   "smf": {
+    "l": 500,
+    "t": 170,
+    "r": 730,
+    "b": 277,
+    "w": 230
+   },
+   "phone": {
+    "l": 0,
+    "t": 0,
+    "r": 1366,
+    "b": 1024,
+    "w": 1366
+   }
+  },
+  "pc": {
+   "vub": {
+    "l": 525,
+    "t": 28,
+    "r": 915,
+    "b": 77,
+    "w": 390
+   },
+   "pwa": {
+    "l": 776,
+    "t": 817,
+    "r": 899,
+    "b": 856,
+    "w": 123
+   },
+   "loc": {
+    "l": 525,
+    "t": 451,
+    "r": 915,
+    "b": 872,
+    "w": 390
+   },
+   "mus": {
+    "l": 525,
+    "t": 851,
+    "r": 915,
+    "b": 872,
+    "w": 390
+   },
+   "gcs": {
+    "l": 525,
+    "t": 28,
+    "r": 915,
+    "b": 872,
+    "w": 390
+   },
+   "smf": {
+    "l": 537,
+    "t": 108,
+    "r": 767,
+    "b": 215,
+    "w": 230
+   },
+   "phone": {
+    "l": 525,
+    "t": 28,
+    "r": 915,
+    "b": 872,
+    "w": 390
+   }
+  }
+ }
+}

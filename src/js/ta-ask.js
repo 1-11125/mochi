@@ -4096,26 +4096,113 @@ window.openTCPanel = openTCPanel;
   };
   // v3.33.x #523：只读「问卷详情」弹窗（点聊天里的问卷卡片打开）——题干/选项/TA 逐题作答，
   // 不再跳批量设置问卷页（用户报「点已交卷卡片却打开了批量设置问卷的页面」）。
+  // #713 问卷详情（用户直派：详情里没有整体卡片的收藏、也没有单个问题的批量收藏）：
+  // ①「收藏整份问卷」→ 聊天收藏夹（复用 chat.js favCardFromMsg 卡片快照/判重，含 TA 作答留档）；
+  // ②逐题勾选「☆ 收藏所选」/「★ 全部收藏题目」→ 题目按文本查重后存入 问问TA 题库（我的添加·日常），
+  //   单选题带选项（≥2 个才成单选，与批量导入同口径），以后可再问。
+  // 弹层走 openTCPanel（TA的小问题结果面板同款壳；openModal 只塞得下纯文本、挂不了按钮）
   window.openSurveyDetail = function (rec) {
     try {
       const qs = Array.isArray(rec && rec.surveyQs) ? rec.surveyQs : [];
       const answers = Array.isArray(rec && rec.surveyAnswers) ? rec.surveyAnswers : [];
       const done = !!(rec && rec.surveyStatus === 'done');
       const nDone = answers.filter(a => typeof a === 'string' && a.trim()).length;
-      const lines = [];
-      lines.push('你发出的问卷 · ' + qs.length + ' 题');
-      lines.push('状态：' + (done ? '已交卷' : 'TA 作答中（已答 ' + nDone + '/' + qs.length + '）'));
-      if (rec && rec.surveyTs) lines.push('发出时间：' + fmtDeadlineText(rec.surveyTs));
-      lines.push('');
+      if (!qs.length) { toast('这份问卷没有题目'); return; }
+      // 题库文本查重（系统预设与我的添加都算「已在题库」，避免收藏出重复题）
+      const bankTexts = function () {
+        const set = {};
+        try { (taAskLoad().questions || []).forEach(b => { if (b && b.text) set[String(b.text)] = true; }); } catch (e) {}
+        return set;
+      };
+      let bankSet = bankTexts();
+      const favStates = qs.map(q => !!bankSet[String((q && q.text) || '').trim()]);
+      const actBtnCss = 'border:1px solid rgba(127,127,127,.3);background:rgba(127,127,127,.12);color:var(--ink);border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer';
+      let html = '';
+      html += '<div class="tc-hint">' + escT('你发出的问卷 · 共 ' + qs.length + ' 题 · ' + (done ? '已交卷' : 'TA 作答中（已答 ' + nDone + '/' + qs.length + '）')) + (rec && rec.surveyTs ? '<br>' + escT('发出时间：' + fmtDeadlineText(rec.surveyTs)) : '') + '</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0 2px">' +
+        '<button id="sv-fav-card" style="' + actBtnCss + '">♡ 收藏整份问卷</button>' +
+        '<button id="sv-fav-allbtn" style="' + actBtnCss + '">★ 全部收藏题目</button>' +
+        '</div>';
+      html += '<div style="display:flex;align-items:center;gap:14px;justify-content:center;margin:8px 0 10px">' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="sv-fav-chkall" style="width:15px;height:15px">全选</label>' +
+        '<button id="sv-fav-sel" style="' + actBtnCss + '">☆ 收藏所选</button>' +
+        '</div>';
+      html += '<div id="sv-detail-list">';
       qs.forEach((q, i) => {
-        lines.push((i + 1) + '. ' + (q.text || ''));
-        if (Array.isArray(q.options) && q.options.length) lines.push('   选项：' + q.options.join(' / '));
-        let a = answers[i];
-        a = (typeof a === 'string' && a.trim()) ? (window.taFit ? window.taFit(a) : a) : '（未作答）';
-        lines.push('   TA：' + a);
+        const a = answers[i];
+        const aTxt = (typeof a === 'string' && a.trim()) ? (window.taFit ? window.taFit(a) : a) : '';
+        const opts = (q && Array.isArray(q.options) && q.options.length) ? q.options : null;
+        html += '<div class="tc-listitem" style="text-align:left">' +
+          '<div class="tc-li-top">' +
+          '<input type="checkbox" class="sv-fav-cb" data-i="' + i + '" style="width:16px;height:16px;flex-shrink:0;cursor:pointer">' +
+          '<span class="tc-li-q">' + (i + 1) + '. ' + escT((q && q.text) || '') + (opts ? ' <span class="tc-known">单选·' + opts.length + '选项</span>' : '') + '</span>' +
+          '<span class="sv-fav-state" data-i="' + i + '" style="font-size:11px;font-weight:600;color:#c2864b;flex-shrink:0;white-space:nowrap">' + (favStates[i] ? '★ 已收藏' : '') + '</span>' +
+          '</div>' +
+          (opts ? '<div class="tc-li-line">选项：' + escT(opts.join(' / ')) + '</div>' : '') +
+          (aTxt ? '<div class="tc-li-line" style="color:#3b7a4e;font-weight:600">TA：' + escT(aTxt) + '</div>' : '<div class="tc-li-line">（未作答）</div>') +
+          '</div>';
       });
-      if (window.openModal) window.openModal('问卷详情', '', () => {}, { noInput: true, big: true, staticText: lines.join('\n') });
-      else toast('问卷详情加载失败');
+      html += '</div>';
+      openTCPanel('问卷详情', html);
+
+      const syncStates = function () {
+        document.querySelectorAll('#sv-detail-list .sv-fav-state').forEach(el => {
+          const i = Number(el.dataset.i);
+          if (el) el.textContent = favStates[i] ? '★ 已收藏' : '';
+        });
+      };
+      // 收藏进题库：按题干精确查重；成功后就地刷新 ★ 徽标（面板保持打开，可继续读/继续选）
+      const favIntoBank = function (idxList, fromAll) {
+        const d = taAskLoad();
+        let added = 0, dup = 0;
+        idxList.forEach(i => {
+          const q = qs[i];
+          const text = String((q && q.text) || '').trim();
+          if (!text) { dup++; return; }
+          if ((d.questions || []).some(b => b && String(b.text || '') === text)) { dup++; return; }
+          const nq = { id: 'q_' + Date.now() + '_' + Math.floor(Math.random() * 9999), text: text, cat: 'daily', enabled: true, isPreset: false };
+          if (q && Array.isArray(q.options) && q.options.length >= 2) { nq.type = 'single'; nq.options = q.options.slice(0, 12).map(o => String(o)); }
+          d.questions.push(nq);
+          added++;
+        });
+        if (!added) { toast(fromAll ? '全部题目都已在题库里' : '所选题目都已在题库里'); return; }
+        taAskSave(d);
+        bankSet = bankTexts();
+        qs.forEach((q, i) => { favStates[i] = !!bankSet[String((q && q.text) || '').trim()]; });
+        syncStates();
+        toast('已收藏 ' + added + ' 道题到问问TA题库' + (dup ? '（' + dup + ' 道已在题库）' : ''));
+      };
+      const cardBtn = document.getElementById('sv-fav-card');
+      if (cardBtn) cardBtn.addEventListener('click', () => {
+        let idx = -1;
+        try {
+          const mlist = (window.getChatMsgs ? window.getChatMsgs() : []) || [];
+          for (let i = mlist.length - 1; i >= 0; i--) {
+            const r = mlist[i];
+            if (r && (r === rec || (rec.surveyTs && r.special === 'ask-survey' && r.surveyTs === rec.surveyTs))) { idx = i; break; }
+          }
+        } catch (e) {}
+        if (idx >= 0 && window.favCardFromMsg) window.favCardFromMsg(idx);
+        else toast('找不到原问卷卡片');
+      });
+      const allBtn = document.getElementById('sv-fav-allbtn');
+      if (allBtn) allBtn.addEventListener('click', () => {
+        const rest = [];
+        qs.forEach((q, i) => { if (!favStates[i]) rest.push(i); });
+        if (!rest.length) { toast('全部题目都已在题库里'); return; }
+        favIntoBank(rest, true);
+      });
+      const selBtn = document.getElementById('sv-fav-sel');
+      if (selBtn) selBtn.addEventListener('click', () => {
+        const picked = [];
+        document.querySelectorAll('#sv-detail-list .sv-fav-cb').forEach(cb => { if (cb.checked) picked.push(Number(cb.dataset.i)); });
+        if (!picked.length) { toast('请先勾选要收藏的题目'); return; }
+        favIntoBank(picked, false);
+      });
+      const chkAll = document.getElementById('sv-fav-chkall');
+      if (chkAll) chkAll.addEventListener('change', () => {
+        document.querySelectorAll('#sv-detail-list .sv-fav-cb').forEach(cb => { cb.checked = chkAll.checked; });
+      });
     } catch (e) {}
   };
   // v3.33.x #523：关闭批量问卷页并回到聊天页（「发出后自动返回」与返回键共用；

@@ -2131,22 +2131,32 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       } catch (e) { resolve(null); }
     });
   }
-  function pickAvatarFile(cb) {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        compressHead(reader.result, 256).then(data => {
-          if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-          cb(data);
-        });
-      };
-      reader.readAsDataURL(f);
+  // FIX 2026-09-18 #717：群聊头像选择器改「常驻挂文档」（#677 同族）——原本点击时动态创建、
+  // 未挂进文档就 click()：红米/真我等 Android Edge 系静默忽略不弹选择器（点了没反应）、iOS
+  // Safari 选完不保证派发 change。与 chat-settings.js headInput 已验证套路一致；压缩管线
+  // compressHead 256 一字不动。
+  let gcAvatarPickCb = null;
+  const gcAvatarPickInput = document.createElement('input');
+  gcAvatarPickInput.type = 'file'; gcAvatarPickInput.accept = 'image/*';
+  gcAvatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(gcAvatarPickInput);
+  gcAvatarPickInput.onchange = () => {
+    const f = gcAvatarPickInput.files && gcAvatarPickInput.files[0];
+    gcAvatarPickInput.value = ''; // 允许重选同一文件
+    if (!f) return;
+    const cb = gcAvatarPickCb; gcAvatarPickCb = null;
+    const reader = new FileReader();
+    reader.onload = () => {
+      compressHead(reader.result, 256).then(data => {
+        if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+        if (cb) cb(data);
+      });
     };
-    input.click();
+    reader.readAsDataURL(f);
+  };
+  function pickAvatarFile(cb) {
+    gcAvatarPickCb = cb;
+    try { gcAvatarPickInput.click(); } catch (e) { gcAvatarPickCb = null; toast('无法打开相册，请重试'); }
   }
   // 渲染设置面板：主视图（顶部 tag：形象/回复/美化/通用/数据） / 美化子视图（#376 旧入口，保留）
   let gcBeautyView = false;
@@ -2886,7 +2896,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   function openGcBeautyDrawer() {
     try { if (settingsPanel) settingsPanel.hidden = true; } catch (e) {}
     const d = gcDrawerEl();
-    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
     d.innerHTML = '';
     const grip = document.createElement('div');
     grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
@@ -3463,7 +3473,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     head.innerHTML = '<div style="font-size:16px;font-weight:600;margin-bottom:4px">群聊美化方案</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">方案在所有联系人桌面通用（含气泡颜色/CSS、背景图、字体、圆角、时间轴等），点「应用」一键切换群聊外观</div>';
     box.appendChild(head);
     const list = document.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;flex:1;min-height:0';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0';
     const schemes = getGcSchemes();
     if (!schemes.length) {
       const empty = document.createElement('div');

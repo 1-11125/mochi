@@ -96,7 +96,6 @@
 .rps-tabs {
   display:flex; gap:6px; padding:2px 14px 8px; flex-shrink:0;
   overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
-  -webkit-overflow-scrolling:touch;
 }
 .rps-tabs::-webkit-scrollbar { display:none; }
 .rps-tab {

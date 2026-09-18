@@ -2857,7 +2857,7 @@ if (ckRefresh) {
     var pressTimer = null;
     de.addEventListener('touchstart', function (e) { if (e.touches.length > 1) return; pressTimer = setTimeout(function () { rmDish(); }, 600); }, { passive: true });
     de.addEventListener('touchend', function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-    de.addEventListener('touchmove', function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+    de.addEventListener('touchmove', function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }, { passive: true }); // #721 同上，被动化
     de.addEventListener('mousedown', function () { pressTimer = setTimeout(function () { rmDish(); }, 600); });
     de.addEventListener('mouseup', function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
     de.addEventListener('mouseleave', function () { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });

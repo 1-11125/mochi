@@ -229,7 +229,17 @@ const pauseAt = await waitFor(async () => PAUSE_RE.test(await evInTexts()), 3200
 check('B1 概率 100% 时 TA 暂停互动照常触发（聊天出现「暂停播放」字卡）', pauseAt >= 0, { pauseAt });
 const resumeAt = await waitFor(async () => RESUME_RE.test(await evInTexts()), 12000);
 check('B2 3.5s 后出现「TA 恢复播放」字卡（互动链路未被动过）', resumeAt >= 0, { resumeAt });
-const favAt = await waitFor(async () => /收藏了歌曲/.test(await evSysInTexts()), 32000);
+let favAt = await waitFor(async () => /收藏了歌曲/.test(await evSysInTexts()), 32000);
+if (favAt < 0) {
+  // 去竞态重试：收藏定时器（点播后 10~25s）若恰落在 TA 暂停互动的 3.5s 静音窗内，
+  // 按产品设计「听歌中途暂停不再收藏」会放弃且不重排（scheduleTaFavCheck 只在
+  // playTrack 时挂）＝本次播放收藏被吞，属时序巧合而非回归。重播同一首歌＝重新
+  // 挂定时器；该歌的暂停互动已在 B1 触发并被 #673 记账（同歌再播不再暂停），
+  // 第二遍没有暂停窗，收藏必在 10~25s 内照常触发。
+  await clickSong('v673_a');
+  await waitFor(async () => evalJs('window.__musicPlaying === true'), 8000);
+  favAt = await waitFor(async () => /收藏了歌曲/.test(await evSysInTexts()), 34000);
+}
 check('B3 「TA 收藏了歌曲《…》」照常进聊天（收藏链路未被动过）', favAt >= 0, { favAt });
 
 // 核心：音乐互动事件明细 + 音效时间线

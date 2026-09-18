@@ -271,6 +271,7 @@ try {
 if (v === undefined || v === null || chatLedger[prefix] !== undefined) return;
 const o = typeof v === 'string' ? JSON.parse(v) : v;
 if (o && typeof o.n === 'number' && o.n > 0) chatLedger[prefix] = o.n;
+if (o && typeof o.b === 'number' && o.b >= 0) chatLedgerBytes[prefix] = o.b; // #716：字节账本一并回填，大键读等待窗要用
 } catch (e) {}
 }).catch(function () {});
 } catch (e) {}
@@ -1179,7 +1180,16 @@ const myPrefix = window.activePrefix();
 // v3.26.x #90：先补读条数账本（小键，几乎不会超时）。大键读取失败时它是唯一
 // 能回答「库里到底有多少条」的依据，落盘守卫全靠它。
 try { chatLedgerLoad(myPrefix); } catch (e) {}
-window.idbGet(myPrefix + ':chat-msgs').then(v => {
+// #716：按账本字节放大本次读取的等待窗——idbGet 默认 4s+4s，41MB 级历史在手机上
+// 单次读取+反序列化就超 8s ⇒ 每次尝试都超时=undefined → 重试 6 次每次重读 41MB 全失败
+// ＝「正在加载聊天记录」挂很久也进不去（红米 K80 default:chat-msgs=41.2MB 实报）。
+// 口径同写入侧 idbSetAll（+2000/256KB）：2000ms/MB、上限 +28s、总上限 60s。
+let bigReadMs = 0;
+try {
+const lb = chatLedgerBytes[myPrefix];
+if (typeof lb === 'number' && lb > 2 * 1024 * 1024) bigReadMs = 4000 + Math.min(28000, Math.ceil(lb / 1048576) * 2000);
+} catch (e0) {}
+window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined).then(v => {
 if (window.activePrefix() !== myPrefix) return;
 if (v === undefined || v === null) {
 // v3.14.x：先区分「键确实不存在」与「读取失败/超时」——idbGet 超时兜底也
@@ -2844,7 +2854,16 @@ d.innerHTML = '<span>' + timeDividerText(cur.ts) + '</span>';
 body.appendChild(d);
 }
 let suppressScrollUntil = 0; // 程序化滚动后短暂忽略 scroll 事件（防渲染本身触发向上加载）
-function renderWindow(keepScroll, clampTop) {
+// #718：整窗渲染分帧——冷路径（keepScroll=false）窗口 ≥80 条时，renderMsg 循环一口气建
+// 200 条＝单条 500~900ms 长任务（权威到达/冷进聊天那一下「卡住＋进度条冻结」，红米 K80
+// 诊断单 898/924ms 长任务实证）。分帧＝每批 RENDER_CHUNK 条进 fragment、帧间让出主线程
+// （进度条动画恢复），构建完一次换装。keepScroll=true 的用户触发重渲走原同步路径（视觉
+// 零变化）；forceSync 给「返回即需要 body 节点」的调用方（addRec 重钳位返回 lastElementChild）。
+// 世代令牌防重入：新一轮 renderWindow 作废旧构建（frag 丢弃、状态由新轮重新登记）。
+const RENDER_CHUNK = 50;
+const RENDER_CHUNK_MIN = 80;
+let _rwToken = 0;
+function renderWindow(keepScroll, clampTop, forceSync) {
 const len = msgs.length;
 const prevTop = keepScroll ? body.scrollTop : 0;
 const prevHeight = keepScroll ? body.scrollHeight : 0;
@@ -2864,16 +2883,10 @@ batchRendering = true;
 const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
-for (let i = start; i < len; i++) {
-maybeInsertDivider(i);
-const _rm = msgs[i];
-if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
-(Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
-_liteIdx.push(i);
-}
-const m = renderMsg(msgs[i]);
-m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必须为真实下标）
-}
+let i = start;
+const myToken = ++_rwToken;
+const finishSwap = function () {
+if (myToken !== _rwToken) return; // 已被新一轮 renderWindow 作废
 if (_liteIdx.length) windowRenderedLite = _liteIdx;
 appendAvatarBatch(false);
 appendTarget = null;
@@ -2885,10 +2898,44 @@ body.scrollTop = prevTop + (body.scrollHeight - prevHeight);
 if (pendingOutScroll) {
 pendingOutScroll = false;
 scrollChatBottom();
+} else if (!keepScroll && chatPinnedBottom) {
+scrollChatBottom(); // #718 分帧路径：调用方紧跟的 scrollToBottom 跑在换装前（空 body＝空操作），这里补真正的贴底
 }
 suppressScrollUntil = Date.now() + 200; // 本轮渲染/滚动结束后 200ms 内不响应 scroll
 restoreInplaceDrafts();
 updateChatLoading(); // 渲染完成（有内容或就绪）→ 隐藏加载进度条
+};
+const buildChunk = function () {
+if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿
+const end = Math.min(i + RENDER_CHUNK, len);
+for (; i < end; i++) {
+maybeInsertDivider(i);
+const _rm = msgs[i];
+if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
+(Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
+_liteIdx.push(i);
+}
+const m = renderMsg(msgs[i]);
+m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必须为真实下标）
+}
+if (i < len) { setTimeout(buildChunk, 0); return; }
+finishSwap();
+};
+if (!keepScroll && !forceSync && (len - start) >= RENDER_CHUNK_MIN && window.requestAnimationFrame) {
+setTimeout(buildChunk, 0); // #718 分帧构建
+return;
+}
+for (; i < len; i++) {
+maybeInsertDivider(i);
+const _rm = msgs[i];
+if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
+(Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
+_liteIdx.push(i);
+}
+const m = renderMsg(msgs[i]);
+m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必须为真实下标）
+}
+finishSwap();
 }
 window.chatReRenderTime = function () {
 if (chatPage.hidden || !body.children.length) return;
@@ -3263,7 +3310,7 @@ loadNewerIncremental();
 // 一条消息才会重新钉住，期间联系人来消息全部不跟底（表现「不自动滚到最新」）
 // FIX #416：回钉只认「真的滚到底」（≤8px）——旧阈值 120px 把「上翻读最新一条就停下」
 // 也当回钉，每次点滑动都被拽回最底下（见 chatAtBottom 注释）
-else if (!chatPinnedBottom && chatAtBottom()) {
+else if (!chatPinnedBottom && !chatTouchActive && chatAtBottom()) { // #716：手势进行中不回钉（防刚离底 ≤8px 被误判「滚回贴底」拽回）
 scrollChatBottom();
 }
 }, 100);
@@ -3276,16 +3323,20 @@ scrollChatBottom();
 // FIX #416：轻点回钉同样只认「真的贴到底」——旧 chatNearBottom（离底<120px）让用户
 // 上翻看最新消息时随便一点气泡就被拽回最底
 let chatUnpinTsY = 0;
+let chatTouchActive = false; // #716：触摸手势进行中——手势刚开始、离底还 ≤8px 时，「解钉后滚回贴底＝回钉」防抖会误判回钉，随后 #706 看门狗每 250ms 把进行中的上滑拽回底＝「反复回弹」（红米 K80 实报：刚开始滑动最明显）。手势期两个自动回钉都让路
 body.addEventListener('touchstart', function (e) {
 try { chatUnpinTsY = e.touches[0].clientY; } catch (err) { chatUnpinTsY = 0; }
+chatTouchActive = true;
 unpinChatAndAnchor();
 }, { passive: true, capture: true });
 body.addEventListener('touchend', function (e) {
+chatTouchActive = false; // #716：手势结束才恢复自动回钉资格
 try {
 const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);
 if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
+body.addEventListener('touchcancel', function () { chatTouchActive = false; }, { passive: true }); // #716
 body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
 // FIX #466（红米/小米 Chrome 等多机型报「发送消息时界面闪到最顶上半部分再恢复」）：
 // 安卓键盘弹出/收起会让 mobile-adapt 按 visualViewport 高度改 .phone 高度，聊天 scrollTop
@@ -3344,7 +3395,7 @@ if (vv706) { vv706.addEventListener('resize', mark706); vv706.addEventListener('
 window.addEventListener('resize', mark706);
 })();
 setInterval(function () {
-if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT) return;
+if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
@@ -3533,6 +3584,7 @@ return '<div class="msg-survey-card' + (done ? ' done' : '') + '">' +
 '<div class="msg-survey-head">你发出的问卷 · ' + qs.length + ' 题</div>' +
 '<div class="msg-survey-list">' + (rows || '<div class="msg-survey-item">（问卷内容缺失）</div>') + '</div>' +
 '<div class="msg-survey-tip">' + (done ? '已交卷 · 点击查看问卷详情' : 'TA 正在作答 · 已答 ' + nDone + '/' + qs.length + '，点击查看进度') + '</div>' +
+favHeartHtml(rec, true) +
 '</div>';
 }
 // v3.33.x #521：问卷进度回写——ta-ask.js 在 TA 每答一题/交卷时调用，按 surveyTs 定位
@@ -4495,7 +4547,7 @@ saveMsgs();
 // 才重钳位到最新 RENDER_MAX——与滚动加载侧的裁剪语义一致，DOM 上限不变。
 if (renderStart > 0 && msgs.length - renderStart > WINDOW_MAX &&
 (rec.side === 'out' || chatNearBottom())) {
-renderWindow(false, true);
+renderWindow(false, true, true); // #718 forceSync：本路径返回即要 body.lastElementChild
 scrollChatBottom();
 return body.lastElementChild;
 }
@@ -8847,6 +8899,20 @@ else if (special === 'gift') { q = (rec.giftName || '礼物') + (rec.giftWish ? 
 else if (special === 'dish') { q = (rec.dishName || '菜肴') + (rec.dishWish ? '：“' + rec.dishWish + '”' : '') + (rec.dishPrice != null ? ' · ¥' + Number(rec.dishPrice || 0).toFixed(2) : ''); }
 // #660：TA 的心愿卡——补齐快照，收藏心形才不是「点了没反应」（同上面 #v3.28.x 那批的口径）
 else if (special === 'wish') { q = (rec.wishGiftName || '礼物') + '（' + chatPartnerName() + '的心愿）' + (rec.wishGiftPrice != null ? ' · ¥' + Number(rec.wishGiftPrice || 0).toFixed(2) : ''); }
+// #713 批量问卷整卡收藏快照：题目列表（qarr）与 TA 作答（aarr）随卡入库，收藏页按问卷卡重放；
+// 题干/选项/答案各自截断，防大问卷把收藏键撑爆
+else if (special === 'ask-survey') {
+const sqs = Array.isArray(rec.surveyQs) ? rec.surveyQs : [];
+const sans = Array.isArray(rec.surveyAnswers) ? rec.surveyAnswers : [];
+const qarr = sqs.slice(0, 99).map(sq => {
+const it = { t: String((sq && sq.text) || '').slice(0, 120) };
+if (sq && Array.isArray(sq.options) && sq.options.length) it.o = sq.options.slice(0, 12).map(o => String(o).slice(0, 60));
+return it;
+});
+q = '问卷 · ' + sqs.length + ' 题' + (qarr.length && qarr[0].t ? '：' + qarr[0].t : '');
+return { kind: 'card', special: special, q: q, mine: '', ta: '', ts: rec.ts || Date.now(),
+qarr: qarr, aarr: sans.slice(0, 99).map(a => String(a || '').slice(0, 300)) };
+}
 else return null;
 return { kind: 'card', special: special, q: q, mine: mine, ta: ta, ts: rec.ts || Date.now() };
 }
@@ -8858,10 +8924,12 @@ if (!f) return;
 if (window.addMyFavItem(f)) toast('已收藏互动卡片');
 else toast('已收藏过这张卡片');
 };
-function favHeartHtml(rec) {
-const heart = '<button class="msg-fav-heart" title="收藏整张互动卡片"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>收藏</button>';
+// #713 批量问卷卡片收藏：always=true 常显（问卷卡整卡点击=看详情，没有单题卡那套
+// 「点卡片浮现 .show-fav」机制，心形藏起来就永远没人看得到）
+function favHeartHtml(rec, always) {
+const heart = '<button class="msg-fav-heart"' + (always ? ' style="display:inline-flex"' : '') + ' title="收藏整张互动卡片"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>收藏</button>';
 let time = '';
-if (rec && rec.ts) {
+if (!always && rec && rec.ts) {
 const who = rec.side === 'out' ? chatUserName() : chatPartnerName();
 time = '<div class="msg-fav-time">' + escTxt(who) + ' ' + fmtTime(rec.ts) + ' 发送</div>';
 }
@@ -9413,7 +9481,7 @@ return;
 }
 const FAV_KIND_LABEL = {
 'ask-choose': '小问题', 'ask-curious': '好奇', 'ask-roast': '吐槽',
-'ask-card': '问问TA', 'invite': '邀请TA', 'ask': '问问TA',
+'ask-card': '问问TA', 'invite': '邀请TA', 'ask': '问问TA', 'ask-survey': '问卷',
 'redpacket': '红包', 'flower': '送花', 'gift': '礼物', 'dish': '佳肴'
 };
 function favTextHtml(s) {
@@ -9443,9 +9511,20 @@ const label = FAV_KIND_LABEL[f.special] || '互动卡片';
 let html = '<div class="fav-item-card">' +
 '<span class="fav-item-tag">互动卡片 · ' + label + '</span>' +
 '<div class="fav-item-q">' + (f.special === 'invite' ? (window.taFit ? window.taFit('邀请TA') : '邀请TA') + ' · ' : '') + escTxt(f.q || '') + '</div>';
+// #713 批量问卷收藏重放：题目列表 + TA 作答（行内样式沿用问卷卡配色，零新 CSS）
+if (f.special === 'ask-survey' && Array.isArray(f.qarr) && f.qarr.length) {
+const aarr = Array.isArray(f.aarr) ? f.aarr : [];
+html += '<div style="text-align:left;display:flex;flex-direction:column;gap:8px;margin-top:2px">' + f.qarr.map((x, i) => {
+let r = '<div><div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.5;word-break:break-word">' + (i + 1) + '. ' + escTxt((x && x.t) || '') + '</div>';
+if (x && Array.isArray(x.o) && x.o.length) r += '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-word">选项：' + escTxt(x.o.join(' / ')) + '</div>';
+if (aarr[i]) r += '<div class="fav-item-a" style="margin-top:2px;word-break:break-word">TA：' + escTxt(aarr[i]) + '</div>';
+return r + '</div>';
+}).join('') + '</div>';
+} else {
 if (f.mine) html += '<div class="fav-item-a">✓ 我：' + escTxt(f.mine) + '</div>';
 if (f.ta) html += '<div class="fav-item-r">' + (window.taFit ? window.taFit('TA：') : 'TA：') + escTxt(window.taFit ? window.taFit(askCardReplyClean(f.ta)) : askCardReplyClean(f.ta)) + '</div>'; // #648g 存量收藏快照的媒体卡回应同样清洗
 if (!f.mine && !f.ta) html += '<div class="fav-item-tip">等待回应…</div>';
+}
 html += '</div>';
 m.innerHTML = html + side;
 fillAvatar(m.querySelector('.msg-av'), 'cs-avatar-user');
@@ -9573,7 +9652,7 @@ renderFav();
 }, 600);
 }, { passive: true });
 m.addEventListener('touchend', () => clearTimeout(pressTimer));
-m.addEventListener('touchmove', () => clearTimeout(pressTimer));
+m.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true }); // #721 处理体只清定时器，被动化免低端机列表滚动被主线程阻塞
 m.addEventListener('contextmenu', (e) => {
 e.preventDefault();
 const fav2 = getFav();
@@ -10761,7 +10840,7 @@ function emojiShowWhenDecoded(show, token) {
   }
   if (!jobs.length) { fin(); return; }
   Promise.all(jobs).then(fin, fin);
-  setTimeout(fin, 1000); // #692 兜底：decode 迟迟不结算也不把面板挂死（不再用 120ms 提前放行）
+  setTimeout(fin, 2500); // #692 兜底：decode 迟迟不结算也不把面板挂死；#716：1s→2.5s——大库机型首屏 24 张解码超 1s 时半途放行＝用户看到的「每次打开图片闪烁重载」（红米 K80 实报），上限仍在防挂死
 }
 function closeEmojiPanel() {
 emojiShowToken++; // #692：作废未兑现的「解码后显示」——等图期间关掉面板不再被自动弹出

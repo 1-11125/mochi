@@ -65,6 +65,10 @@
 /* ---- 群聊设置面板（整页全屏，v3.9.x；v3.42.x 主视图由底部弹层改为全屏，与聊天设置一致） ---- */
 .gc-settings-panel {
   position: fixed; left: 0; right: 0; top: 0;
+  /* FIX 2026-09-18 #718：补 height:100vh 前置兜底——不支持 dvh 的老内核（<Chrome 108 / iOS <15.4）
+     整条 min() 失效＝面板高度塌成内容高、长设置列表不可滚；与聊天设置面板（chat-pages.css 同款
+     双声明）对齐，v3.42.x 改全屏时漏带这行。 */
+  height: 100vh;
   height: min(var(--mochi-ios-h, 100dvh), 100dvh);
   background: #fff; z-index: 210; overflow: hidden;
   display: flex; flex-direction: column;
@@ -233,6 +237,14 @@
   display: flex; flex-direction: column;
 }
 .gc-at-panel[hidden] { display: none; }
+/* v3.26.x #714：电脑端宽屏视口 fixed 面板锚回手机壳（壳几何推导与老内核回退见 base.css
+   同号注释）：群设置整页/@提及面板原为「视口贴边全宽」，电脑上按钮落到窗口左右边缘＝
+   飞出屏幕。改为壳中线±195px、壳上下沿定位；html:not 链排除满屏形态
+   （force-mobile/真全屏时 .phone=100vw，贴边即贴壳）。≤900px 手机不进查询。 */
+@media (min-width: 901px) {
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .gc-settings-panel { left: calc(50% - 195px); right: calc(50% - 195px); top: max(24px, 50vh - 422px); height: min(844px, calc(100vh - 48px)); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .gc-at-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+}
 .gc-at-head { padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,.06); font-size: 13px; color: #888; }
 .gc-at-body { overflow-y: auto; padding: 4px 0; }
 .gc-at-item {

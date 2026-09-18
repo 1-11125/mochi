@@ -679,14 +679,27 @@
   // 超时未回 → resumeHeldCall 补写「未接来电」记录+系统消息。
   const CALL_HOLD_MS = 3 * 60 * 1000;
   const CALL_HOLD_KEY = 'xy-home-v2:call-hold';
+  // FIX 2026-09-18 #722（用户直派「接了电话却被记未接」，vivo/Edge/iOS 多机型）：
+  //   挂起带「写入运行期」标识（每次页面运行随机）。消费侧据此区分两种值：
+  //   ①同运行期切后台写下的真挂起（响铃切后台→回前台）＝保有「超时补写未接」语义；
+  //   ②跨运行期从持久层幸存下来的值＝两种来源都是假象——clearCallHold 的 {ts:0} 墓碑
+  //   对 IDB 是异步写，消费后进程被杀/刷新（vivo/Edge 常态，#705 call-active 同款实锤）
+  //   会让旧挂起残留 IDB；iOS 系统级清 LS 后 idbRestore 又拿 IDB 旧值回填进 LS。
+  //   这类孤儿被 resumeHeldCall 当真挂起消费时，旧实现无条件补写「来电 · 未接听」
+  //   ＝用户明明接通了电话（甚至通话刚被 recoverCall 恢复成接通态），切后台回前台
+  //   聊天里却多一条未接。跨运行期孤儿一律静默清（见 resumeHeldCall/resumeProcessHold）
+  const HOLD_SID = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   function heldMissedHtml(nm) {
     return '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' + nm + ' 来电 · 未接听';
   }
   function holdIncomingCall(name, cid, avOverride, msgWritten) {
     let prev = null;
     try { prev = readCallHold(); } catch (e) {}
-    // 覆盖前先处理上一条已超时未处理的挂起（页面冻结期间第二次来电的场景）
-    if (prev && prev.cid && Date.now() - prev.ts > CALL_HOLD_MS) {
+    // 覆盖前先处理上一条已超时未处理的挂起（页面冻结期间第二次来电的场景）。
+    // FIX 2026-09-18 #722：只补写「本运行期写下」的过期挂起；跨运行期读到的旧挂起是
+    //   墓碑 flush 竞态/LS 回填孤儿（见 HOLD_SID 注释），其未接语义不可信，静默让位
+    //   （新挂起连 sid 一起覆盖写入，孤儿就此自愈清除）
+    if (prev && prev.cid && prev.sid === HOLD_SID && Date.now() - prev.ts > CALL_HOLD_MS) {
       notifyCallEnd(prev.cid, heldMissedHtml(prev.name || partnerName()), 'in', '未接听');
     }
     // FIX 2026-09-13 #406 挂起双写拆开：原 LS setItem 与 idbSet 同处一个 try——LS 配额满
@@ -694,7 +707,7 @@
     // 无弹窗也无未接消息（OPPO Reno14 Edge 实报 + 多机型同族；诊断「LS 写入失败」实锤）。
     // msgWritten＝来电系统消息「打来了语音通话」是否已写过（前台响铃已写传 true，
     // 后台触发未写传 false，重响补首发见 resumeProcessHold/incomingCall）
-    const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten };
+    const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten, sid: HOLD_SID };
     try { localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h)); } catch (e) {}
     if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
     bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
@@ -731,18 +744,28 @@
   function resumeHeldCall() {
     if (holdBusy) return;
     const h = readCallHold();
-    if (h) { clearCallHold(); resumeProcessHold(h); return; }
+    // FIX 2026-09-18 #722：第二参 crossRun＝挂起并非本运行期写下（sid 对不上＝持久层
+    //   幸存值/冷启动恢复）。同运行期的真挂起才保有「超时补写未接」语义，见 resumeProcessHold
+    if (h) { clearCallHold(); resumeProcessHold(h, h.sid !== HOLD_SID); return; }
     if (window.idbGet) {
       holdBusy = true;
       window.idbGet(CALL_HOLD_KEY).then(function (ih) {
         holdBusy = false;
         if (!ih || !ih.ts) return;
+        // FIX 2026-09-18 #722：能走到 IDB 兜底，说明 LS 墓碑/LS 本身已不在——此刻 IDB
+        //   里还有带 ts 的挂起，只可能是 clearCallHold 那笔异步 IDB 墓碑被杀进程/刷新
+        //   打断（vivo/Edge 杀渲染进程常态）或 iOS 清 LS 后被 idbRestore 回填的孤儿，
+        //   不是正在等待重响的真挂起。旧实现拿来就当真挂起消费，超时兜底分支无条件
+        //   补写「来电 · 未接听」＝接通的电话切后台回前台被记未接（多机型实报）。
+        //   修复：IDB 兜底先卡 3 分钟新鲜度——超窗孤儿只重写墓碑自愈、绝不再补未接；
+        //   窗内（iOS 清 LS 但确实 3 分钟内回来）仍重响，crossRun=true 保有 #161 冷启动重响
+        if (Date.now() - ih.ts > CALL_HOLD_MS) { clearCallHold(); return; }
         clearCallHold();
-        resumeProcessHold(ih);
+        resumeProcessHold(ih, true);
       }).catch(function () { holdBusy = false; });
     }
   }
-  function resumeProcessHold(h) {
+  function resumeProcessHold(h, crossRun) {
     const cur = window.__activeCid || 'default';
     if (Date.now() - h.ts <= CALL_HOLD_MS && !currentCall) {
       if (h.cid === cur) { incomingCall(true, !!h.msg); return; }
@@ -757,7 +780,11 @@
         }
       }
     }
-    notifyCallEnd(h.cid || cur, heldMissedHtml(h.name || partnerName()), 'in', '未接听');
+    // FIX 2026-09-18 #722：补写未接须同时满足——①挂起是本运行期写下的（crossRun=false；
+    //   跨运行期孤儿见 resumeHeldCall 注释）②此刻没有活通话（刷新恢复/接通中的通话在场
+    //   时补未接＝用户接了电话却被记未接的第二个保险闸）。不满足即静默丢弃，挂起已被
+    //   调用方清为 {ts:0} 墓碑，幂等自愈
+    if (!crossRun && !currentCall) notifyCallEnd(h.cid || cur, heldMissedHtml(h.name || partnerName()), 'in', '未接听');
   }
   // 监听联系人重命名事件，实时同步通话昵称
   document.addEventListener('contact-renamed', (e) => {

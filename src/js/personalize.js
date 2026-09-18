@@ -140,37 +140,51 @@
       ring.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg>';
     }
   }
+  // FIX 2026-09-18 #717（小米8 等多机型报「换头像，点导入图片没反应」，#677 同族）：此处原本
+  // 点击时动态创建 input、**未挂进文档**就 click()——红米/真我等 Android Edge 系对这种用法会
+  // 静默忽略（不弹系统选择器＝点了没反应），iOS Safari 对未挂载 input 不保证派发 change。
+  // 改与 chat-settings.js headInput / chatcard.js pickFiles 已验证套路一致：常驻单个 input
+  // 永久挂 body、移出屏幕可见（不用 display:none）、复用前清 value、click 包 try/catch 失败
+  // 给可见提示。压缩/落库管线（compressImage 256 / store.set）一字不动。
+  let avatarPickCb = null;
+  const avatarPickInput = document.createElement('input');
+  avatarPickInput.type = 'file'; avatarPickInput.accept = 'image/*';
+  avatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(avatarPickInput);
+  avatarPickInput.onchange = () => {
+    const f = avatarPickInput.files && avatarPickInput.files[0];
+    avatarPickInput.value = ''; // 允许重选同一文件
+    if (!f) return;
+    const cb = avatarPickCb; avatarPickCb = null;
+    const reader = new FileReader();
+    reader.onload = () => {
+      compressImage(reader.result, 256).then(data => {
+        // v3.6.x：压缩失败/图片过大返回 null——不再存原图（防 iOS 解码崩溃），提示换图
+        if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+        if (cb) cb(data);
+      });
+    };
+    reader.readAsDataURL(f);
+  };
   function bindAvatar(id, key) {
     const box = document.getElementById(id);
     if (!box) return;
     applyAvatar(id, key);
     box.addEventListener('click', (e) => {
       e.stopPropagation();
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          compressImage(reader.result, 256).then(data => {
-            // v3.6.x：压缩失败/图片过大返回 null——不再存原图（防 iOS 解码崩溃），提示换图
-            if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-            const ring = box.querySelector('.ring');
-            // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
-            if (ring) {
-              ring.innerHTML = '';
-              const img = document.createElement('img');
-              img.src = data;
-              img.alt = '';
-              ring.appendChild(img);
-            }
-            store.set(key, data);
-          });
-        };
-        reader.readAsDataURL(f);
+      avatarPickCb = (data) => {
+        const ring = box.querySelector('.ring');
+        // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
+        if (ring) {
+          ring.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = data;
+          img.alt = '';
+          ring.appendChild(img);
+        }
+        store.set(key, data);
       };
-      input.click();
+      try { avatarPickInput.click(); } catch (err) { avatarPickCb = null; toast('无法打开相册，请重试'); }
     });
   }
   bindAvatar('avatar-user', 'avatar-user');
@@ -1073,7 +1087,7 @@ try {
     if (!m) { m = document.createElement('div'); m.id = 'phone-bg-gallery-panel'; m.style.cssText = 'position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;background:rgba(0,0,0,.4);display:none'; document.body.appendChild(m); m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; }); }
     m.innerHTML = '';
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'width:min(90vw,400px);max-height:84vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.25)';
+    wrap.style.cssText = 'width:min(90vw,400px);max-height:84vh;overflow-y:auto;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.25)';
     const hd = document.createElement('div');
     hd.innerHTML = '<div style="font-size:15px;font-weight:700">我的壁纸图库</div><div style="font-size:12px;color:var(--muted,#888);margin-top:4px">可存多张壁纸，点缩略图即切换；误删 5 秒内可撤销</div>';
     wrap.appendChild(hd);
@@ -2074,7 +2088,7 @@ try {
       // FIX 2026-09-16 #562：面板改半透明（用户报「又不是半透明的页面，还是会遮挡其他东西我看不见」）——
       // 底色 72% 不透明 + 不透明度更高时保留原观感（color-mix 不支持的老内核回落上一句纯色，行为不变）；
       // 同时高度上限 44vh→40vh，给桌面留更多可视区。刻意不加 backdrop-filter：AGENTS 的 iOS 卡顿红线。
-      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
       d.innerHTML = '';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
@@ -3632,7 +3646,7 @@ try {
     head.innerHTML = '<div style="font-size:16px;font-weight:600;margin-bottom:4px">美化方案</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">方案在所有联系人桌面通用，点「应用」一键切换当前桌面外观</div>';
     box.appendChild(head);
     const list = document.createElement('div'); list.className = 'cm-list';
-    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;flex:1;min-height:0';
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0';
     const schemes = getSchemes();
     // v3.27.x：内置方案置顶（只读，不可改名/删除）——开箱即用，应用走 applyBeautyData
     BUILTIN_SCHEMES.forEach((s) => {
@@ -7359,7 +7373,7 @@ try {
     function buildPanel() {
       panel = document.createElement('div');
       panel.id = 'screen-adj-panel';
-      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:62vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:62vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
       panel.appendChild(grip);
@@ -9127,7 +9141,7 @@ try {
         let done = false;
         const bar = document.createElement('div');
         bar.id = 'perf-heal-bar';
-        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+        bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);'; /* #718 env 补 ,0px：老内核不支持 env 时整条 max() 失效＝提示条贴出屏 */
         bar.textContent = '正在准备…';
         (document.body || document.documentElement).appendChild(bar);
         function showProg(pct, label) {

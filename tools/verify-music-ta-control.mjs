@@ -179,7 +179,11 @@ let favHit = false;
 for (let i = 0; i < 40 && !favHit; i++) { // 最多等 ~32s（判定延迟 10~25s + 余量）
   await sleep(800);
   const raw = await evalJs("(function(){try{return window.activeStore().get('music-favs-ta');}catch(e){return null;}})()");
-  try { favHit = (JSON.parse(raw || '[]').indexOf('mtc_a') >= 0); } catch (e) {}
+  try {
+    // 兼容两代格式：旧=纯 id 字符串数组；v3.26.x 起=歌曲快照对象数组 {id,...}
+    const arr = JSON.parse(raw || '[]');
+    favHit = arr.some(x => x === 'mtc_a' || (x && x.id === 'mtc_a'));
+  } catch (e) {}
 }
 check('C2 听一会儿后联系人按 100% 概率收藏了这首歌（music-favs-ta）', favHit);
 await evalJs("(function(){var t=document.querySelector('#page-music .fav-tab[data-mtab=\"favta\"]');if(t)t.click();return true;})()");

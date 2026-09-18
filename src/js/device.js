@@ -157,17 +157,30 @@
     ['desktop-ua+vv<=900+mobile-input', sig.uaDesk && sig.vvW > 0 && sig.vvW <= 900 && (sig.oriApi || mobileInput)]
   ];
   let viewportFixed = false;
+  // FIX 2026-09-18 #718：meta 内容统一出口——两处改写（device-width／显式像素）只差宽度段，
+  // interactive-widget 按平台选：iOS=resizes-content（mobile-adapt.js 同款；resizes-visual 下
+  // iOS 键盘收缩 .phone 异常）、安卓=resizes-visual。原两处写死 resizes-visual，iOS 桌面伪装
+  // ＋内核不认 viewport 改写时，本函数 rAF 晚跑会把 mobile-adapt 已改的 resizes-content
+  // 盖回去＝键盘适配退回异常形态。
+  function viewportMetaContent(widthPart) {
+    return widthPart + ', initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=' + (isIOSUa() ? 'resizes-content' : 'resizes-visual');
+  }
   // 把 layout viewport 拉回设备宽度：改 viewport meta → 不奏效再改显式像素宽度 →
   // 仍不奏效才加 html.force-mobile 类作 CSS 保底（base.css 复刻手机端关键规则）。
   function applyViewportFix() {
     if (viewportFixed) return;
+    // v3.26.x #714：用户手动选了桌面外壳（?pc=1 / 设置「桌面布局（强制）」）时整条不执行——
+    // 本函数在 RULES 命中时同步调用、而手动偏好是其后才覆盖 isMobile；异步 rAF 链
+    // （meta 改写→两帧后加 force-mobile 类）不看最终判定，会把手选 pc 的用户强改成
+    // 满屏手机布局（触屏/小屏 PC + 强制 pc 可复现的混合态：JS 认为桌面、CSS 却满屏）。
+    if (layoutPref === 'pc') return;
     viewportFixed = true;
     // 改 viewport meta 把 layout viewport 拉回设备宽度——让 CSS
     // @media(max-width:900px) 自然命中，所有手机端规则生效。桌面站点
     // 模式浏览器可能忽略 meta，下方加 force-mobile 类作 CSS 保底。
     try {
       document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-        m.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual');
+        m.setAttribute('content', viewportMetaContent('width=device-width'));
       });
     } catch (e) {}
     // 等一帧看媒体查询是否命中；未命中说明该内核「桌面站点」模式下连
@@ -195,7 +208,7 @@
             } catch (e2) {}
             if (vw) {
               document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-                m.setAttribute('content', 'width=' + vw + ', initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual');
+                m.setAttribute('content', viewportMetaContent('width=' + vw));
               });
             }
             requestAnimationFrame(function () {
@@ -247,8 +260,14 @@
   // 且 ios-pwa-standalone 类不加、#114/#129 安全区补偿在 iPad 全部失效。补 Macintosh
   // 伪装分支——与上方 isTablet 第二分支同信号（真桌面 Mac maxTouchPoints=0 不会误判，
   // iPadOS 触摸屏 maxTouchPoints≥5）。
-  const isIOS = (/iphone|ipad|ipod/i.test(ua) && !/android/i.test(ua) && !window.MSStream) ||
-    ((navigator.platform === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+  // FIX 2026-09-18 #718：iOS 判定收成具名函数——applyViewportFix 的同步 meta 改写段在其
+  // 调用点（本 const 初始化之前执行）就要按平台选 interactive-widget 关键字，直接引用
+  // const 会 TDZ；函数声明提升后两处共享同一判定，防口径漂移。
+  function isIOSUa() {
+    return (/iphone|ipad|ipod/i.test(ua) && !/android/i.test(ua) && !window.MSStream) ||
+      ((navigator.platform === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);
+  }
+  const isIOS = isIOSUa();
   const isAndroid = /android/i.test(ua);
   // v3.6.x：Via 浏览器（UA 特征）——实测其 WebView 禁用了方向锁（lock 无效），
   // 网页全屏必转横屏，fullscreen.js 需据此走 CSS 兜底
@@ -2380,6 +2399,12 @@ window.mochiViewportForm = function (sig) {
   const safMajor = sig.safMajor || (function () { try { var m = /Version\/(\d+)\./.exec(String(navigator.userAgent || '')); return m ? +m[1] : 0; } catch (e) { return 0; } })();
   const standalone = !!sig.standalone;
   const diff = (screenH > 0 && innerH > 0) ? (screenH - innerH) : 0;
+  // v3.26.x #719：e2e 浏览器几何信号——布局视口超出整屏的量（e2eOverH）与页面被
+  // 缩放渲染的证据（e2eZ=screenW/innerW<1，devicePixelRatio≈z×系统密度）。物理上
+  // 页面不可能比整屏还高，超出的那段必被系统栏覆盖；宽度超出＋DPR 缩小＝缩放渲染
+  // 实锤而非 screen 坏值（#278 家族两轴同时坏值极罕见，带内上限再挡一层）。
+  const e2eOverH = (screenH > 0 && innerH > 0) ? (innerH - screenH) : 0;
+  const e2eZ = (sig.screenW > 0 && sig.innerW > 0 && sig.innerW > sig.screenW) ? (sig.screenW / sig.innerW) : 0;
   // env 探针门槛：standalone 或疑似沉浸式壳（screen≈inner）才值得建探针 DOM
   const needEnvProbe = ((screenH > 0 && innerH > 0 && diff <= 2) || standalone);
   // #236：安卓浏览器覆盖形态扩展——HeyTapBrowser（OPPO K13 Turbo Pro 实报）等安卓壳
@@ -2387,6 +2412,22 @@ window.mochiViewportForm = function (sig) {
   // 下方，与 #199 沉浸壳同需「状态栏自身抬升 + .phone 贴 inner」。sig.andr 只由安卓
   // 执行器/采集器传入，iOS（不传/false）维持 #199 原判式零回归
   const coverBrowser = !standalone && envTop >= 20 && (diff <= 2 || !!sig.andr);
+  // v3.26.x #719：Edge/Android 15+「edge-to-edge 浏览器」形态（OPPO Find X9 Pro +
+  // Edge 实报，用户明说多机型同现）：viewport-fit=cover 生效的系统上页面画进系统
+  // 状态栏/手势条区，但 env(safe-area-inset-*) 恒报 0——#236 HeyTapBrowser 的姊妹
+  // 形态（那款报 env≥40 走 coverBrowser，本形态 env=0 只能靠几何签名识别）：布局
+  // 视口比整屏还高＋布局宽比 screen 宽（Find X9 Pro 现场 inner=400×810 / screen=
+  // 360×785 / DPR 2.699≈0.9×3.0，810×0.9=729=785−Edge 底部工具条 56 全数对账＝
+  // 页面顶到物理屏顶、系统状态栏悬浮其上）。修正＝顶部按状态栏高、底部按手势条高
+  // 自动避让（估式 28/z、16/z；仍偏可经 屏幕位置设置 五轴本机精调）。带内 [3,64]：
+  // 下限滤 DPR 取整噪声；上限既排除 #278 screen 坏值家族（畅享70Pro screen<inner
+  // 达 535，该家族铺满 inner 即正确、不避让），也排除更高缩放档的非 e2e 浏览器
+  // （chrome≥100 时 80% 缩放 overH≈71 会闯入 64~96 段，故上限收 64 不放宽）。
+  // Edge 工具条隐匿瞬间 overH≈87 逸出带＝调用方用 sig.e2eLatch 闩住不掉避让
+  //（见 mobile-adapt _aSyncCoverTop / syncSafeBottomA；旋转重探时自清）。
+  const e2eBase = !standalone && !!sig.andr && envTop < 20
+    && e2eOverH >= 3 && e2eZ > 0.5 && e2eZ <= 1;
+  const e2eBrowser = e2eBase && (e2eOverH <= 64 || !!sig.e2eLatch);
   // #185/#186：用户在设置页声明本机属「覆盖形态」（与保留/已避让信号相同无法程序
   // 区分，用户自服）：顶部避让 env 探针优先、env=0 用 diff（=保留的状态栏高）兜底。
   // 声明优先级最高（执行器原语义：force 先判并置 _resStand=false——漏掉这步 forced
@@ -2400,7 +2441,10 @@ window.mochiViewportForm = function (sig) {
   let safeTop;
   if (forceCover) safeTop = (envTop >= 20) ? envTop : ((diff >= 20 && diff <= 160) ? diff : 0);
   else if (resStand) safeTop = 0;
-  else safeTop = ((standalone || coverBrowser) && envTop >= 20 && envTop <= 160) ? envTop : 0;
+  // #719：e2e 浏览器顶部避让估式——系统状态栏高按缩放折算成页面 px（28/z），
+  // 钳 [20,40]；估不准的部分留给 屏幕位置设置·顶部轴 本机精调（#707 双层包装照常叠加）。
+  else safeTop = ((standalone || coverBrowser) && envTop >= 20 && envTop <= 160) ? envTop
+    : (e2eBrowser ? Math.min(40, Math.max(20, Math.round(e2eZ > 0 ? 28 / e2eZ : 28))) : 0);
   // 期望 .phone 底边 / 全屏期望屏高：保留/iPad/浏览器壳贴 inner（超 inner=文档
   // 滚动量=与自愈 pin 对打）；#186 force 声明=屏高（safeTop+inner 补满屏底，修
   // 18.3 底部白边的正确期望，原实现误写 innerH）；覆盖形态=envTop+inner、min 屏高
@@ -2412,13 +2456,15 @@ window.mochiViewportForm = function (sig) {
   // .phone（贴 inner 铺满、布局本身正常）被误判「底部超出 535px」+「底部导航栏被裁」
   // 自动采集刷错误环。坏值弃用回退 envTop+innerH（执行器 vh 同源，行为=维持现状
   // 铺满可视区零变化）；screenH 正常（≥inner）的机型 min 钳制语义不变零回归。
-  const expBase = (coverBrowser || resStand || ipadForm) ? innerH
+  // #719：e2e 浏览器同保留/浏览器壳——贴 inner（页面本就铺到布局视口底，底部遮挡
+  // 由 --mochi-safe-bottom 消费方自身避让，不靠撑高 .phone）。
+  const expBase = (coverBrowser || resStand || ipadForm || e2eBrowser) ? innerH
     : (forceCover ? ((screenH >= innerH ? screenH : 0) || (safeTop + innerH))
       : Math.min((screenH >= innerH ? screenH : 0) || (envTop + innerH), envTop + innerH));
   // 期望状态栏顶位（诊断 ③）：保留形态系统已避让=12 兜底；其余=max(env,12)。
   // force 时 resStand=false → forced 设备（如 14 Pro/26.6 sbTop≈73）不再被
-  // expect=12+60 误判「顶部双倍避让」
-  const expTop = resStand ? 12 : Math.max(envTop, 12);
+  // expect=12+60 误判「顶部双倍避让」；#719 e2e=自动避让估式自身。
+  const expTop = resStand ? 12 : (e2eBrowser ? safeTop : Math.max(envTop, 12));
   // #537：iOS 独立应用·覆盖形态（非保留/非 iPad/非 force 的 standalone + env∈[20,160]；
   // 16Pro/26.1、17/26.6 等实测均落此支）= 执行器要让模拟状态栏自身抬升到系统状态栏下方
   // （base.css html.ios-cover-top 规则消费）+ 非全屏高度须含顶部安全区（expBase=整屏）。
@@ -2428,9 +2474,14 @@ window.mochiViewportForm = function (sig) {
   // 各形态恒 false（各自避让链已在），非 standalone 恒 false（浏览器壳走 coverBrowser）。
   const iosCover = standalone && !forceCover && !resStand && !ipadForm && envTop >= 20 && envTop <= 160;
   const form = forceCover ? 'force-cover' : resStand ? 'reserved' : ipadForm ? 'ipad'
-    : coverBrowser ? 'cover-browser' : (envTop >= 20 ? 'covered' : (diff >= 20 ? 'avoided' : 'plain'));
+    : coverBrowser ? 'cover-browser' : e2eBrowser ? 'e2e-browser'
+    : (envTop >= 20 ? 'covered' : (diff >= 20 ? 'avoided' : 'plain'));
   return { form: form, resStand: resStand, ipadForm: ipadForm, coverBrowser: coverBrowser,
     forceCover: forceCover, iosCover: iosCover, needEnvProbe: needEnvProbe, safeTop: safeTop,
+    // #719：e2e 底部避让估式（手势条高 16/z，钳 [12,28]）——安卓执行器
+    // syncSafeBottomA 键盘收起回落时消费；非 e2e 恒 0（零回归）。
+    safeBottom: e2eBrowser ? Math.min(28, Math.max(12, Math.round(e2eZ > 0 ? 16 / e2eZ : 16))) : 0,
+    e2eBrowser: e2eBrowser,
     expBase: expBase, expTop: expTop, envTop: envTop, diff: diff,
     standalone: standalone, iosMajor: iosMajor };
 };
@@ -2501,11 +2552,12 @@ window.mochiViewportForm = function (sig) {
     const envTop = inp.envTop || 0;
     const varTop = inp.varTop || 0;
     const diff = inp.diff || 0;
-    const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: envTop, innerH: inp.innerH || 0, screenH: inp.screenH || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force });
+    const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: envTop, innerH: inp.innerH || 0, screenH: inp.screenH || 0, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force });
     let mode;
     if (Fm.forceCover) mode = '覆盖形态（用户已在设置声明：顶部避让修正开启，#186）';
     else if (Fm.resStand) mode = '系统保留形态（iOS 18.x standalone：系统已把网页起点放在状态栏下方，env 仍报真实高度；页面不再避让、高度贴 inner，#200）';
     else if (Fm.ipadForm) mode = 'iPad 形态（inner=屏高已含整屏，diff=0：状态栏悬浮、页面 padding 避让，高度贴 inner/屏高，#184）';
+    else if (Fm.e2eBrowser) mode = 'edge-to-edge 浏览器形态（Android 15+：页面顶进系统状态栏/底入手势条而 env() 未报值，#719——已自动顶部避让 ' + Fm.safeTop + 'px/底部 ' + (Fm.safeBottom || 0) + 'px；仍偏请用 屏幕位置设置 五轴精调）';
     else if (envTop >= 20) mode = '覆盖形态（页面顶到屏幕最顶，系统栏悬浮其上）' + (Fm.coverBrowser ? '，浏览器覆盖壳（#199/#236：状态栏自身抬升、.phone 贴 inner）' : (Fm.iosCover ? '，独立应用覆盖（#537：.phone 铺满物理屏、状态栏自身抬升到系统栏下方、html/body 同高顶对齐）' : ''));
     else if (diff >= 20) mode = '已避让形态（系统已把网页起点放在状态栏下方，页面不应再加顶部 padding）';
     else mode = '无安全区/常规视口';
@@ -2523,8 +2575,9 @@ window.mochiViewportForm = function (sig) {
       // 其余形态沿用元素顶口径（含 .phone padding）零变化
       // #537：iOS 独立应用覆盖形态同款——.phone 铺满整块物理屏（顶=屏幕 0），避让
       // 改由 html.ios-cover-top 规则抬 .statusbar 自身 padding；仍按「元素顶」判会
-      // 恒报 ✗顶部重叠（修好也红），故与浏览器壳一并取有效顶位。
-      const sbEffTop = (Fm.coverBrowser || Fm.iosCover) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+      // 恒报 ✗顶部重叠（修好也红），故与浏览器壳一并取有效顶位；#719 e2e 同理
+      // （mochi-cover-top 类已挂、避让在状态栏自身 padding）。
+      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
       if (sbEffTop > expect + 60) add(false, '顶部双倍避让', '✗ 状态栏实测顶位 ' + sbEffTop + 'px，明显超过安全区顶部 ' + expect + 'px（#148 修复的双倍白带形态复发，连本条反馈）');
       // v3.26.x #208：加 diff ≥ envTop−8 守卫——顶部重叠只在「覆盖形态」信号
       // （inner=screen−envTop）下才有意义；iPhone17 等保留形态设备在切后台回来
@@ -2817,7 +2870,7 @@ window.mochiViewportForm = function (sig) {
     // v3.27.x：机读签名行——用户整段复制，开发者可脚本解析对号/录 verify 台账；
     // 键序固定勿动（下游脚本按名取值）
     let sigForm = '';
-    try { sigForm = (window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, iosMajor: inp.iosMajor, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {}).form || ''; } catch (eS) {}
+    try { sigForm = (window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {}).form || ''; } catch (eS) {}
     const sig = { v: sdVerCache, form: sigForm, scale: inp.scale, env: inp.envTop, varTop: inp.varTop, diff: inp.diff, innerW: inp.innerW, innerH: inp.innerH, vvH: inp.vvH, screenH: inp.screenH, phoneW: inp.phoneW, phoneH: inp.phoneH, phoneBottom: inp.phoneBottom, sb: inp.sbTop, tab: inp.tabBottom, iosH: inp.iosH, dpr: inp.dpr, standalone: !!inp.standalone, fs: !!inp.fsActive, andr: !!inp.andr, tablet: !!inp.tablet, ori: inp.orientation, bad: F.filter(function (f) { return !f.ok; }).map(function (f) { return f.name; }) };
     L.push('SIG ' + JSON.stringify(sig));
     L.push('');

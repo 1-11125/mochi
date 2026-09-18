@@ -46,7 +46,6 @@
   flex:1; min-height:0; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none;
   padding:6px 18px; display:flex; flex-direction:column; gap:14px;
   background:transparent; position:relative;
-  -webkit-overflow-scrolling:touch;
   /* v3.5.124锛氭粴鍔ㄨ竟鐣屼笉绌块€忊€斺€旀秷鎭尯婊氬埌椤?搴曚笉鍐嶅甫鍔ㄩ〉闈紙鍚《閮ㄦ爮锛夋粴鍔?*/
   overscroll-behavior:contain;
   /* v3.6.x锛氬己鍒剁嫭绔嬪悎鎴愬眰鈥斺€旈儴鍒嗘墜鏈烘祻瑙堝櫒锛堣€?WebKit/鍥戒骇鍐呮牳锛夊湪鐐瑰嚮杈撳叆鏍忋€?     閿洏寮瑰嚭銆?phone 琚攣瀹氫负 fixed 涓旈珮搴﹂鍙樼殑鐬棿锛屾粴鍔ㄥ鍣ㄧ粯鍒跺眰澶辨晥锛?     娑堟伅鍖哄唴瀹逛粛鍦?DOM 閲屽嵈涓嶇粯鍒?鈫?鑱婂ぉ椤电櫧灞忥紙鍙戦€佹秷鎭Е鍙戦噸鎺掑悗鎵嶆仮澶嶏級銆?     translateZ(0) 璁╂秷鎭尯濮嬬粓鏈夌嫭绔嬬粯鍒跺眰锛涚幇浠ｆ祻瑙堝櫒瀵规粴鍔ㄥ鍣ㄨ嚜鍔ㄥ缓灞傦紝
@@ -1276,7 +1275,7 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 .msg-survey-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
 .msg-survey-item { font-size:13px; color:var(--ink); line-height:1.5; }
 .msg-survey-q { font-weight:600; word-break:break-word; }
-.msg-survey-opts { display:flex; flex-wrap:nowrap; justify-content:center; gap:6px; margin-top:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.msg-survey-opts { display:flex; flex-wrap:nowrap; justify-content:center; gap:6px; margin-top:6px; overflow-x:auto; }
 /* 选项观感对齐单题作答的选项 chip（.msg-inplace .ip-chip：白底 + 细边 + 墨色字），
    不再用灰色小标签；TA 选中的那个加 .sel 高亮（同 .ip-opt-row.sel 口径） */
 .msg-survey-opt {

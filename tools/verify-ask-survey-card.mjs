@@ -184,18 +184,24 @@ ok(s3.answers === 2, 'S3 两题答案行齐全', String(s3.answers));
 ok(s3.sel === '看电影', 'S3 选项对齐单题 chip 且 TA 选中的那个高亮 .sel', s3.sel);
 ok(s3.last.indexOf('最近有点累') >= 0, 'S3 文字题答案渲染正确', s3.last);
 
-// —— S4 点击卡片打开只读「问卷详情」弹窗（不再跳批量设置问卷页） ——
+// —— S4 点击卡片打开只读「问卷详情」面板（不再跳批量设置问卷页；#713 起为 openTCPanel 面板＋收藏操作条） ——
 await evalJs("(function(){var c=document.querySelector('.msg-survey-card');if(c)c.click();return true;})()");
 await sleep(500);
 const s4 = JSON.parse(await evalJs(`(function(){
   var p=document.getElementById('page-ta-ask-survey');
-  var mask=document.getElementById('modal-mask');
-  var st=document.getElementById('modal-static');
-  return JSON.stringify({surveyPageOpen:!!(p&&!p.hidden), modalOpen:!!(mask&&!mask.hidden), text:(st?st.textContent:'')});
+  var mask=document.getElementById('tc-mask');
+  return JSON.stringify({surveyPageOpen:!!(p&&!p.hidden), panelOpen:!!(mask&&!mask.hidden),
+    title:(document.getElementById('tc-panel-title')||{}).textContent||'',
+    body:(document.getElementById('tc-body')||{}).textContent||'',
+    favCard:!!document.getElementById('sv-fav-card'),
+    favAll:!!document.getElementById('sv-fav-allbtn'),
+    favSel:!!document.getElementById('sv-fav-sel'),
+    cbs:document.querySelectorAll('#sv-detail-list .sv-fav-cb').length});
 })()`) || '{}');
-ok(s4.modalOpen === true && s4.surveyPageOpen === false, 'S4 点击卡片打开只读问卷详情弹窗、不再跳批量设置问卷页', JSON.stringify({open:s4.modalOpen, page:s4.surveyPageOpen}));
-ok(/问卷详情|你发出的问卷/.test(s4.text || '') && /TA：/.test(s4.text || ''), 'S4 详情弹窗含题干与 TA 作答', (s4.text || '').slice(0, 60));
-await evalJs("(function(){var b=document.getElementById('modal-cancel');if(b)b.click();return true;})()");
+ok(s4.panelOpen === true && s4.surveyPageOpen === false, 'S4 点击卡片打开只读问卷详情面板、不再跳批量设置问卷页', JSON.stringify({open:s4.panelOpen, page:s4.surveyPageOpen}));
+ok(s4.title === '问卷详情' && /更喜欢哪种约会/.test(s4.body || '') && /TA：/.test(s4.body || ''), 'S4 详情面板含题干与 TA 作答', (s4.body || '').slice(0, 60));
+ok(s4.favCard === true && s4.favAll === true && s4.favSel === true && s4.cbs === 2, 'S4 详情面板有整卡收藏＋单题批量收藏操作条（#713）', JSON.stringify({c:s4.favCard,a:s4.favAll,s:s4.favSel,cbs:s4.cbs}));
+await evalJs("(function(){var b=document.getElementById('tc-mask-close');if(b)b.click();return true;})()");
 await sleep(200);
 
 // —— S4b 自绘时间选择器（#523）：在手机框内弹出、不飞出屏幕，可设置并回显 ——

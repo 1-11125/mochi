@@ -380,6 +380,15 @@ html { margin:0; padding:0; }
 .splash-loading {
   margin-top:16px; font-size:12px; color:var(--hint-ink); letter-spacing:1px;
 }
+/* #716：加载中省略号步进动画——大数据桌面（IDB 41MB 级）恢复期给「缓冲感」，
+   纯 width 步进不触发重排层级、开销可忽略；数据就绪该行 hidden 后动画随之无成本 */
+.splash-loading::after {
+  content:'···';
+  display:inline-block; width:0; overflow:hidden; vertical-align:bottom;
+  text-align:left; letter-spacing:1px;
+  animation:splashDots 1.2s steps(3,end) infinite;
+}
+@keyframes splashDots { 0% { width:0; } 100% { width:3.2em; } }
 .splash-loading[hidden] { display:none; }
 /* #657：开屏等待较久时的一行原因说明——用户把开屏慢当 bug，就地解释比让他翻公告有效。
    小字 + 次级色限宽，不抢上面那句加载提示的视线 */
@@ -1111,7 +1120,6 @@ html.ios-cover-top .phone .statusbar {
 .modal-textarea.ce-box {
   max-height:38vh;
   overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
   overscroll-behavior:auto;
 }
 /* v3.25.x：长文只读弹窗（诊断信息）——宽版 + 放大多行框，避免窄小而难核对；
@@ -1128,7 +1136,9 @@ html.ios-cover-top .phone .statusbar {
    输入框视觉上「往上滑」（iPhone16P/iOS26 Safari 批量导入弹窗报障）。顶对齐后
    弹窗位置锚定顶部（安全区上边距兜底），高度变化只影响底边，输入区不再移动 */
 .modal-mask.modal-kb-dock { align-items: flex-start; }
-.modal-mask.modal-kb-dock .modal { margin-top: max(10px, env(safe-area-inset-top)); }
+/* FIX 2026-09-18 #718：env 补 ,0px 内定值——不支持 env 的老内核整条 max() 失效＝键盘期顶对齐
+   弹窗丢上边距贴死状态栏；与全站 var(--mochi-safe-*, env(..., 0px)) 双兜底口径对齐 */
+.modal-mask.modal-kb-dock .modal { margin-top: max(10px, env(safe-area-inset-top, 0px)); }
 .modal-swatches { display:flex; flex-wrap:wrap; gap:12px; margin-top:4px; }
 .modal-swatches[hidden] { display:none; }
 .modal-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
@@ -1142,7 +1152,7 @@ html.ios-cover-top .phone .statusbar {
    胶囊行溢出仍先在行内滚，到边界放行给 .modal */
 .modal-group-chips {
   display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;
-  max-height:36vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  max-height:36vh; overflow-y:auto;
   overscroll-behavior:auto;
 }
 .modal-group-chips[hidden] { display:none; }
@@ -1268,6 +1278,19 @@ html.ios-cover-top .phone .statusbar {
 }
 .ver-update-bar[hidden] { display:none; }
 .ver-update-bar .vub-txt { font-weight:600; }
+/* v3.26.x #714：电脑端宽屏（>900px，桌面模拟器外壳形态）视口 fixed 浮层锚回手机壳——
+   手机上「视口=手机壳」，fixed 通栏条/贴边钮贴边即贴壳；电脑上视口 1440+，同样写法会
+   落到浏览器窗口边缘＝「按钮飞出屏幕」（用户实报）。壳几何（v3.5.139 布局推导）：
+   壳中线=视口中线、壳宽 390 ⇒ 壳左右沿=50%±195px；body padding24+双轴 flex 居中、
+   壳高 min(844px,100dvh-48px) ⇒ 壳上/下沿距视口沿=max(24px, 50vh-422px)。
+   :not 链排除满屏形态（html.force-mobile 伪装兜底 / .fs-active 等真全屏时
+   .phone=100vw，贴视口边=贴壳，此时锚回 390 反而错位）。老内核不识 max()/嵌套
+   calc/:not 链时整条声明丢弃、回退原视口贴边（同改动前宽屏表现）；
+   ≤900px 手机不进查询、零影响。 */
+@media (min-width: 901px) {
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .ver-update-bar { top: max(24px, 50vh - 422px); left: calc(50% - 195px); right: calc(50% - 195px); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-install, html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-ios-hint { right: calc(50% - 179px); bottom: calc(max(24px, 50vh - 422px) + 16px); }
+}
 .ver-update-bar .vub-act {
   flex-shrink:0; padding:5px 14px; border-radius:99px;
   background:var(--card-bg); color:var(--ink); font-weight:700; cursor:pointer;

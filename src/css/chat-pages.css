@@ -601,7 +601,6 @@
 .fav-tabs {
   display:flex; gap:7px; padding:4px 18px 8px; flex-shrink:0;
   overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
-  -webkit-overflow-scrolling:touch;
 }
 .fav-tabs::-webkit-scrollbar { display:none; }
 .fav-tab {
@@ -1305,7 +1304,7 @@
 .div-card-row {
   display:flex; gap:7px; overflow-x:auto; padding:6px 2px;
   scrollbar-width:none; -ms-overflow-style:none;
-  -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+  overscroll-behavior-x:contain;
 }
 .div-card-row::-webkit-scrollbar { display:none; }
 .div-pile-card {
@@ -1597,7 +1596,7 @@
 .loc-title b { font-weight:800; }
 /* 滚动容器（头部固定，内容整体滚动） */
 .loc-scroll {
-  flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  flex:1; min-height:0; overflow-y:auto;
 }
 .loc-body {
   padding:14px 16px calc(18px + var(--mochi-safe-bottom, env(safe-area-inset-bottom, 0px)));
@@ -2561,7 +2560,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 /* 音乐库分类筛选条 —— v3.9.x（全部音乐 / 未分类音乐 / 各歌单，横向滚动） */
 .music-lib-filter {
   display:flex; gap:8px; margin-bottom:12px; overflow-x:auto;
-  scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; -ms-overflow-style:none;
 }
 .music-lib-filter::-webkit-scrollbar { display:none; }
 .mlf-chip {
@@ -2758,6 +2757,18 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
   display:flex; flex-direction:column; gap:7px; user-select:none; cursor:grab;
 }
 .sm-float[hidden] { display:none; }
+/* v3.26.x #714：电脑端宽屏视口 fixed 浮层锚回手机壳（壳几何推导与老内核回退见 base.css
+   同号注释）：批量操作条/位置面板/寻踪全屏/音乐批量条/悬浮小框原为「视口贴边」，在
+   电脑上按钮落到窗口边缘＝飞出屏幕。改为壳中线±壳内原偏移、壳上下沿叠加原偏移；
+   html:not 链排除满屏形态（force-mobile/真全屏时 .phone=100vw，贴边即贴壳）；
+   loc-full 四长手（同 #428 老内核兼容口径）。≤900px 手机不进查询、行为不变。 */
+@media (min-width: 901px) {
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .cc-manage-bar { left: calc(50% - 177px); right: calc(50% - 177px); bottom: calc(max(24px, 50vh - 422px) + 18px); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel.loc-full { top: max(24px, 50vh - 422px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); left: calc(50% - 195px); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .music-batch-bar { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .sm-float { left: calc(50% - 183px); top: calc(max(24px, 50vh - 422px) + 80px); }
+}
 .sm-f-info { width:100%; min-width:0; padding-right:18px; }
 .sm-f-name {
   display:block;
@@ -3337,7 +3348,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .msg-snake-side { font-weight:700; min-width:24px; }
 
 /* ===== v3.x：同频 / 伸手 页（桌面第三页动态注入） ===== */
-.tp-body, .ss-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:14px 14px 40px; }
+.tp-body, .ss-body { flex:1; overflow-y:auto; box-sizing:border-box; padding:14px 14px 40px; }
 .tp-card { padding:16px 14px; margin-bottom:14px; border-radius:14px; }
 .tp-label { font-size:13px; color:var(--ink-soft,#888); margin-bottom:8px; }
 .tp-status { font-size:20px; font-weight:600; min-height:28px; }
@@ -3372,7 +3383,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 @keyframes ssTrace { 0%{ left:-60%; opacity:0; } 30%{ opacity:1; } 100%{ left:120%; opacity:0; } }
 
 /* ===== 喝水 / 吃什么 页（桌面第三页动态注入） ===== */
-.water-body, .eat-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:14px 14px 40px; }
+.water-body, .eat-body { flex:1; overflow-y:auto; box-sizing:border-box; padding:14px 14px 40px; }
 .water-card { padding:24px 18px; border-radius:14px; text-align:center; margin-bottom:16px; }
 .water-num { font-size:48px; font-weight:700; color:var(--ink,#222); line-height:1; }
 .water-unit { font-size:14px; color:var(--ink-soft,#999); margin:6px 0 14px; }
@@ -3473,7 +3484,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .eat-switch-go[disabled] { opacity:.45; pointer-events:none; }
 
 /* ===== 番茄钟 页（桌面第三页动态注入） ===== */
-.pomo-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:14px 14px 40px; }
+.pomo-body { flex:1; overflow-y:auto; box-sizing:border-box; padding:14px 14px 40px; }
 .pomo-card { padding:18px 16px 20px; border-radius:14px; text-align:center; margin-bottom:16px; }
 .pomo-tabs { display:flex; gap:8px; justify-content:center; margin-bottom:14px; }
 .pomo-tab { font-size:13px; font-family:inherit; border:none; border-radius:16px; padding:7px 16px; background:rgba(0,0,0,.07); color:var(--ink-soft,#666); -webkit-tap-highlight-color:transparent; }
@@ -3522,7 +3533,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .pmp-menu button[data-pmpc="quit"] { color:#e8533d; border-color:rgba(232,83,61,.3); }
 
 /* ===== 番茄钟 · 陪伴模式专属聊天窗（独立页，不进普通聊天记录） ===== */
-.pmp-c-list { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:14px 14px 20px; display:flex; flex-direction:column; gap:10px; scrollbar-width:none; -ms-overflow-style:none; overscroll-behavior:contain; }
+.pmp-c-list { flex:1; min-height:0; overflow-y:auto; box-sizing:border-box; padding:14px 14px 20px; display:flex; flex-direction:column; gap:10px; scrollbar-width:none; -ms-overflow-style:none; overscroll-behavior:contain; }
 .pmp-c-list::-webkit-scrollbar { display:none; }
 .pmp-c-row { display:flex; flex-shrink:0; }
 .pmp-c-row.me { justify-content:flex-end; }
@@ -3553,7 +3564,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .pmp-c-chat .pmp-c-empty { font-size:11px; line-height:1.8; }
 
 /* ===== 存钱罐（桌面第三页）：金色小金库 ===== */
-.piggy-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:14px 14px 40px; }
+.piggy-body { flex:1; overflow-y:auto; box-sizing:border-box; padding:14px 14px 40px; }
 .piggy-hero { padding:22px 18px 20px; border-radius:14px; text-align:center; margin-bottom:16px; }
 .piggy-goal-name { font-size:13px; color:#b7791f; margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .piggy-bal { font-size:44px; font-weight:700; color:var(--ink,#222); line-height:1.1; font-variant-numeric:tabular-nums; }
@@ -3794,7 +3805,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .cj-groups {
   display: flex; gap: 8px; align-items: center;
   overflow-x: auto; margin: 0 -18px 2px; padding: 6px 18px 10px;
-  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+ scrollbar-width: none;
   position: -webkit-sticky; position: sticky; top: 0; z-index: 5;
 }
 .cj-groups::-webkit-scrollbar { display: none; }
@@ -4511,7 +4522,7 @@ select.mochi-custom-select-native { display:none; }
 .mochi-custom-select.open .mochi-custom-select-caret { transform:rotate(180deg); }
 .mochi-custom-select-list {
   display:none; position:absolute; top:calc(100% + 4px); left:0; min-width:100%; z-index:60;
-  max-height:34vh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  max-height:34vh; overflow-y:auto; overscroll-behavior:contain;
   background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px;
   box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; box-sizing:border-box;
   scrollbar-width:none; -ms-overflow-style:none;

@@ -540,20 +540,31 @@
       try { show(); } catch (e) {}
     };
     if (!window.Promise) { fin(); return; }
+    // #716：只等「首屏范围」的解码，不再等全部——旧实现对两个网格全部 img[src] await decode，
+    // 大头像库在低内存机型隐藏期位图被回收，总解码超兜底＝半途放行、首屏逐格冒出＝用户看到的
+    // 「换头像打开页面图片闪烁重载」（#704 表情面板同族收口，红米 K80 实报）。前 24 张
+    // （≈半框首屏两三行）await 后即显示；其余 fire-and-forget 预热不挡显示。
+    const AV_DECODE_AWAIT_MAX = 24;
     const grids = [avGrid, avMeGrid];
     const jobs = [];
+    let awaited = 0;
     for (let g = 0; g < grids.length; g++) {
       const grid = grids[g];
       if (!grid) continue;
       const imgs = grid.querySelectorAll('img[src]');
       for (let i = 0; i < imgs.length; i++) {
         const im = imgs[i];
-        try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+        if (awaited < AV_DECODE_AWAIT_MAX) {
+          awaited++;
+          try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+        } else {
+          try { if (im.decode) im.decode().catch(function () {}); } catch (e) {} // #716：首屏外只预热不等待
+        }
       }
     }
     if (!jobs.length) { fin(); return; }
     Promise.all(jobs).then(fin, fin);
-    setTimeout(fin, 1000); // #692 兜底：decode 迟迟不结算也不把半框挂死（不再用 120ms 提前放行）
+    setTimeout(fin, 2500); // #716：1s→2.5s——首屏解码慢的机型半途放行＝可见「闪烁重载」；上限仍在防挂死
   }
   // v3.9.x：切桌面后同样补读新桌面头像池（restoreLib 内部校验桌面归属 + 内容更多才覆盖）
   document.addEventListener('contact-switched', function () {
@@ -617,7 +628,12 @@
     if (!btn) return;
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-    input.style.display = 'none';
+    input.id = (btn.id || 'avlib') + '-file-pick'; // FIX 2026-09-18 #717：常驻池选择器身份（诊断/测试句柄，按按钮唯一）
+    // FIX 2026-09-18 #717：display:none 换成「移出屏幕仍可见」——部分机型/老 WebView 对
+    // display:none 的 file input 程序化 click() 可能静默不弹选择器（点了没反应），与
+    // chat-settings.js headInput 同款 offscreen 样式。input 仍常驻挂 body、onchange 里清
+    // value，行为面不变。
+    input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
     document.body.appendChild(input);
     input.onchange = () => {
       const files = Array.prototype.slice.call(input.files || []);
@@ -663,7 +679,10 @@
         }
       }
     };
-    btn.addEventListener('click', () => input.click());
+    // FIX 2026-09-18 #717：click 失败不再静默——部分机型上 click() 被策略拦截/抛错时给可见提示
+    btn.addEventListener('click', () => {
+      try { input.click(); } catch (e) { toast('无法打开相册，请重试'); }
+    });
   }
   bindPoolUpload(avUpload, getLib, saveLib, () => { renderGrid(); syncVal(); });
   bindPoolUpload(avMeUpload, getMeLib, saveMeLib, () => { renderMeGrid(); syncVal(); });

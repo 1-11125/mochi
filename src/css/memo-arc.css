@@ -1,5 +1,5 @@
 /* ===== 梦角档案（桌面第三页「梦角档案」进入，src/js/memo-arc.js） ===== */
-.narc-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box; padding:12px 14px 120px; scrollbar-width:none; -ms-overflow-style:none; }
+.narc-scroll { flex:1; overflow-y:auto; box-sizing:border-box; padding:12px 14px 120px; scrollbar-width:none; -ms-overflow-style:none; }
 .narc-scroll::-webkit-scrollbar { display:none; }
 
 /* ---- 梦角切换筹码 ---- */

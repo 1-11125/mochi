@@ -2068,35 +2068,41 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     });
   }
   // 点头像 → 更换朋友圈头像（独立于聊天头像 v3.8.x，按当前桌面生效）
+  // FIX 2026-09-18 #717：选择器改「常驻挂文档」（#677 同族）——原本点击时动态创建、未挂进
+  // 文档就 click()：部分机型（红米/真我等 Android Edge 系）静默不弹选择器、iOS Safari 选完
+  // 不保证派发 change＝点了没反应。压缩/落库管线（canvas 256 → feed-user-avatar）一字不动。
+  const feedAvPickInput = document.createElement('input');
+  feedAvPickInput.type = 'file'; feedAvPickInput.accept = 'image/*';
+  feedAvPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(feedAvPickInput);
+  feedAvPickInput.onchange = () => {
+    const f = feedAvPickInput.files && feedAvPickInput.files[0];
+    feedAvPickInput.value = ''; // 允许重选同一文件
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, 256 / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(img.width * scale));
+          c.height = Math.max(1, Math.round(img.height * scale));
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          window.activeStore().set('feed-user-avatar', c.toDataURL('image/jpeg', 0.85));
+          renderCover();
+          toast('朋友圈头像已更新');
+        } catch (err) { toast('图片处理失败'); }
+      };
+      img.onerror = () => toast('图片读取失败');
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+  };
   if (coverAvEl) {
     coverAvEl.addEventListener('click', (e) => {
       e.stopPropagation();
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-              const c = document.createElement('canvas');
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              window.activeStore().set('feed-user-avatar', c.toDataURL('image/jpeg', 0.85));
-              renderCover();
-              toast('朋友圈头像已更新');
-            } catch (err) { toast('图片处理失败'); }
-          };
-          img.onerror = () => toast('图片读取失败');
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(f);
-      };
-      input.click();
+      try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); }
     });
   }
   // 点昵称 → 修改朋友圈昵称（独立于聊天昵称 v3.8.x，按当前桌面生效）
