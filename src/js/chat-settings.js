@@ -1014,9 +1014,11 @@
     };
     reader.readAsDataURL(f);
   };
-  function pickHead(cb) {
-    headCb = cb;
-    try { headInput.click(); } catch (e) { toast('无法打开相册，请重试'); }
+  function armHead(cb) { headCb = cb; }
+  function headActivate() {
+    var _fb = () => { try { headInput.click(); } catch (e) { headCb = null; toast('无法打开相册，请重试'); } };
+    if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fb);
+    else _fb();
   }
   function applyProfile() {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -1082,16 +1084,14 @@
   const csAp = row('cs-avatar-partner');
   if (csAp) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
-    csAp.addEventListener('click', (e) => {
-      // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 不转发）时连 JS 兜底也跳过＝
-      // 「点我的/TA 的头像完全没反应」（用户实报面）；改为 guard 事后确认未弹出再补 click
-      var _fb = () => pickHead(data => {
+    csAp.addEventListener('click', () => {
+      // FIX 2026-09-19 #813：先武装回调、再激活（原 _fb 内才 arm＝label 转发成功的内核永远拿不到回调）
+      armHead((data) => {
         store.set('cs-avatar-partner', data);
         applyProfile();
         try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
       });
-      if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fb);
-      else _fb();
+      headActivate();
     });
   }
   const csApRm = row('cs-avatar-partner-remove');
@@ -1105,15 +1105,14 @@
   const csAu = row('cs-avatar-user');
   if (csAu) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
-    csAu.addEventListener('click', (e) => {
-      // FIX 2026-09-18 #756：同 csAp——原 fromLabel 早退＝国产内核上完全没反应
-      var _fbU = () => pickHead(data => {
+    csAu.addEventListener('click', () => {
+      // FIX 2026-09-19 #813：同 csAp——先武装再激活
+      armHead((data) => {
         store.set('cs-avatar-user', data);
         applyProfile();
         try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
       });
-      if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fbU);
-      else _fbU();
+      headActivate();
     });
   }
   const csAuRm = row('cs-avatar-user-remove');

@@ -3418,7 +3418,7 @@ const FIX_SENTINELS = [
   { name: '#756g 群聊「上传头像」改走 guard', file: 'js/group-chat.js', needle: "if (window.mochiFilePickGuard) window.mochiFilePickGuard(gcAvatarPickInput, _fb);" },
   { name: '#756h 群聊「插入图片」改走 guard', file: 'js/group-chat.js', needle: "if (window.mochiFilePickGuard) window.mochiFilePickGuard(fi, _fb);" },
   { name: '#756i 设置页「TA 的头像」改走 guard', file: 'js/chat-settings.js', needle: "if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fb);" },
-  { name: '#756j 设置页「我的头像」改走 guard', file: 'js/chat-settings.js', needle: "if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fbU);" },
+  { name: '#756j 设置页头像行点按时先武装回调（#813 换锚：两行合并进 headActivate 单点激活，本条改钉武装调用点；改回「在兜底里才 arm」即消失）', file: 'js/chat-settings.js', needle: "armHead((data) => {" },
   { name: '#756k 音乐歌单封面改走 guard', file: 'js/music-player.js', needle: "if (_input && window.mochiFilePickGuard) window.mochiFilePickGuard(_input, pickCover);" },
   // 反哨兵（absent）：全站禁止再出现「点源自 label 就直接 return」的早退写法
   { name: '#756z 全站禁止 fromLabel 早退（`fromLabel(e)) return`）——该写法会掐死国产内核上的唯一兜底路径', file: 'js/', needle: 'mochiFilePickFromLabel(e)) return', absent: true },
@@ -3543,6 +3543,8 @@ const FIX_SENTINELS = [
   { name: '#809a 思考时间点击即持久化（删＝关面板重开回默认，设置形同虚设）', file: 'js/chat.js', needle: "store.set('ask-think-secs', String(n));" },
   { name: '#809b 半框思考时间 stepper 行（删＝设置入口消失，功能不可达）', file: 'js/chat.js', needle: 'id="chat-ask-think"' },
   { name: '#809c ask 回答延迟读设置（改回固定随机＝用户设置不生效，思考时间恒 1.5~4 秒）', file: 'js/chat.js', needle: '}, askThinkSecsLoad() * 1000);' },
+  { name: '#813a 聊天设置头像：武装与激活拆两步（armHead 只武装、headActivate 只激活；删＝回到「arm+click 融合且挂在 onMiss 兜底上」，label 转发成功的内核上选完图静默丢弃）', file: 'js/chat-settings.js', needle: 'function armHead(cb) { headCb = cb; }' },
+  { name: '#813b 删除型：旧融合式激活函数不得回流（复活＝label 转发成功的内核永远拿不到回调）', file: 'js/chat-settings.js', needle: 'function pickHead(', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
