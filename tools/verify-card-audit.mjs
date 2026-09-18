@@ -205,11 +205,11 @@ await sleep(200);
 const pickCountAfter = await evalJs("(function(){var b=document.getElementById('card-audit-apply');return b?b.textContent:'';})()");
 ok(pickCountBefore !== pickCountAfter, 'B9c 取消勾选后「应用所选」计数联动', pickCountBefore + ' -> ' + pickCountAfter);
 
-// B10 导出文件：调用 mochiExportFile（不真的落盘）
-await evalJs("(function(){window.__exported=null;var o=window.mochiExportFile;window.mochiExportFile=function(j,f){window.__exported={len:(j||'').length,f:f};return Promise.resolve('ok');};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
+// B10 导出文件：走 docx 主链 #746（mock mochiDiagExportDocx，不真的落盘）
+await evalJs("(function(){window.__exported=null;window.mochiDiagExportDocx=function(t,f,fm,tf,st){window.__exported={len:(t||'').length,f:f,st:st};return true;};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
 await sleep(300);
 const exp = J(await evalJs("(function(){return JSON.stringify(window.__exported||{});})()"));
-ok(exp && exp.len > 0 && (exp.f || '').indexOf('card-audit') >= 0, 'B10 「导出文件」调用 mochiExportFile 生成报告', JSON.stringify(exp));
+ok(exp && exp.len > 0 && (exp.f || '').indexOf('card-audit') >= 0 && (exp.f || '').indexOf('.docx') > 0, 'B10 「导出文件」走 docx 主链（mochiDiagExportDocx，文件名 .docx）', JSON.stringify(exp));
 
 // B11 #677 单卡关闭计数必须按【值】而不是「键在不在」
 //   根因：default-cards.js 的 setCardOff 写 off ? '1' : '0'，重新打开也不删键；
@@ -235,21 +235,27 @@ ok(afterFix.warn === false && afterFix.btn === 0, 'B11c 修复后告警与按钮
 const reqZero = J(await evalJs(`(function(){var b=document.getElementById('card-audit-body');return JSON.stringify({warn:(b?b.textContent:'').indexOf('已全部单卡关闭')>=0});})()`));
 ok(reqZero.warn === false, 'B11d 值=0 的历史键不被计入「单卡关闭」（键在不在 ≠ 关没关）', JSON.stringify(reqZero));
 
-// B12 #677 导出报告绝不能为空
+// B12 #677 导出报告绝不能为空 ＋ #746 docx 口径
 //   根因：lastText 只在 build() 末行赋值，而 build() 没有兜底；未打开过自检页（或 build
 //   中途抛错被 openAudit/refreshAll 吞掉）时 lastText 恒为空串 ⇒ 导出文件里 report 为空
 //   ＝用户报的「自检报告导出没有内容」。修复：exportReport 现取一次 + 兜底头 + 错误可见。
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 await sleep(2600);
-await evalJs("(function(){window.__exported=null;window.mochiExportFile=function(j,f){window.__exported={len:(j||'').length,f:f,raw:j};return Promise.resolve('ok');};return true;})()");
+await evalJs("(function(){window.__exported=null;window.mochiDiagExportDocx=function(t,f,fm,tf,st){window.__exported={len:(t||'').length,f:f,st:st,text:t};return true;};return true;})()");
 // 关键：完全不打开自检页就点导出（旧实现此时 lastText='' → report 空串）
 await evalJs("(function(){var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
 await sleep(600);
-const exp2 = J(await evalJs("(function(){try{return JSON.stringify(JSON.parse(window.__exported.raw));}catch(e){return '{}';}})()"));
-ok(!!(exp2 && typeof exp2.report === 'string' && exp2.report.length > 200 && exp2.report.indexOf('自检结论') >= 0), 'B12a 未打开自检页直接导出→报告仍是真实自检正文（旧实现 report 为空串）', 'reportLen=' + (exp2 && exp2.report ? exp2.report.length : 0));
-ok(exp2 && exp2.report.indexOf('二级密码锁') >= 0 && exp2.report.indexOf('卡数据健康') >= 0, 'B12b 导出报告含完整分节正文', (exp2 && exp2.report || '').slice(0, 30));
-ok(exp2 && typeof exp2.buildError === 'string' && exp2.version && exp2.generatedAt && 'ua' in exp2, 'B12c 导出报告带头部字段（version/generatedAt/ua/buildError）', JSON.stringify({ v: exp2 && exp2.version, b: exp2 && exp2.buildError }));
-ok(exp2 && exp2.buildError === '', 'B12d 正常路径 buildError 为空（未误报内部错误）', JSON.stringify(exp2 && exp2.buildError));
+const exp2 = J(await evalJs("(function(){var x=window.__exported||{};var t=x.text||'';return JSON.stringify({len:t.length,head:t.slice(0,500),all:t,f:x.f});})()"));
+ok(exp2 && exp2.len > 200 && exp2.all.indexOf('自检结论') >= 0, 'B12a 未打开自检页直接导出→docx 仍是真实自检正文（旧实现 report 为空串）', 'len=' + (exp2 && exp2.len));
+ok(exp2 && exp2.all.indexOf('二级密码锁') >= 0 && exp2.all.indexOf('卡数据健康') >= 0, 'B12b docx 导出报告含完整分节正文', (exp2 && exp2.all || '').slice(0, 30));
+ok(exp2 && exp2.head.indexOf('版本：') >= 0 && exp2.head.indexOf('时间：') >= 0 && exp2.head.indexOf('设备：') >= 0 && exp2.head.indexOf('当前桌面：') >= 0, 'B12c docx 头部承接原 JSON payload 字段（版本/时间/设备/桌面）', (exp2 && exp2.head || '').slice(0, 120));
+ok(exp2 && exp2.all.indexOf('自检中途出错') < 0, 'B12d 正常路径无内部错误行（buildError 空时不写「自检中途出错：」）', (exp2 && exp2.head || '').slice(0, 120));
+ok(exp2 && (exp2.f || '').indexOf('.docx') > 0, 'B12e 导出文件名后缀 .docx', exp2 && exp2.f);
+// B12f 兜底链：mochiDiagExportDocx 不在（旧产物/极端内核）→ 退回原 JSON 链，绝不空手
+await evalJs("(function(){window.__exported2=null;window.mochiDiagExportDocx=undefined;window.mochiExportFile=function(j,f){window.__exported2={len:(j||'').length,f:f};return Promise.resolve('ok');};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
+await sleep(400);
+const exp3 = J(await evalJs("(function(){var x=window.__exported2||{};return JSON.stringify({len:x.len,f:x.f});})()"));
+ok(exp3 && exp3.len > 0 && (exp3.f || '').indexOf('.json') > 0, 'B12f docx 入口缺失时退回 JSON 兜底链（仍可导出，不空手）', JSON.stringify(exp3));
 
 try { chrome.kill(); } catch (e) {}
 server.close();

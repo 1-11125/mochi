@@ -2029,7 +2029,7 @@
   // failToast 同时被当「函数调用」和「文案判断」用，屏幕适配诊断调用方传 4 参
   // （第3参=文案串、第4参=sdToast 被丢弃），一旦走 legacy 分支必抛
   // 「failToast is not a function」且被按钮 try/catch 吞掉＝导出静默失败。
-  function diagExportDocx(text, basePrefix, failMsg, toastFn) {
+  function diagExportDocx(text, basePrefix, failMsg, toastFn, shareTitle) {
     const fname = (basePrefix || 'mochi-diag-') + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.docx';
     const tf = (typeof toastFn === 'function') ? toastFn : diagToast;
     const legacy = function () {
@@ -2042,7 +2042,10 @@
     let blob = null;
     try { blob = buildDocxBlob(text); } catch (e) { blob = null; }
     if (!blob) { legacy(); return; }
-    window.mochiExportBlob(blob, fname, 'mochi 诊断报告', [
+    // #746（2026-09-18）：第 5 参 shareTitle 把分享面板/保存框标题参数化——
+    // 「字卡使用状态自检」导出复用本入口，标题显示「字卡使用状态自检报告」；
+    // 不传保持旧值「mochi 诊断报告」，既有诊断调用方零感知。
+    window.mochiExportBlob(blob, fname, shareTitle || 'mochi 诊断报告', [
       { description: 'Word 文档', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] } }
     ]).then(function (res) { if (res === 'fail') legacy(); });
   }
@@ -2838,7 +2841,8 @@ window.mochiViewportForm = function (sig) {
     L.push('html类：' + inp.htmlClass);
     L.push('系统=' + (inp.osLine || '未知') + '（形态判定依赖系统版本，#184/#200）');
     L.push('env(safe-area-inset-bottom)=' + inp.envBottom + 'px  视口平移=offTop:' + (inp.vvOffTop || 0) + '/offLeft:' + (inp.vvOffLeft || 0));
-    L.push('键盘残留=' + (inp.kb ? ('kbActive=' + !!inp.kb.kbActive + ' 锁=' + !!inp.kb.docLocked + ' 基线 inner/vv=' + inp.kb.fullInner + '/' + inp.kb.fullVv) : 'n/a'));
+    L.push('键盘残留=' + (inp.kb ? ('kbActive=' + !!inp.kb.kbActive + ' 锁=' + !!inp.kb.docLocked + ' 基线 inner/vv=' + inp.kb.fullInner + '/' + inp.kb.fullVv) : 'n/a')
+      + '  --mochi-safe-bottom=' + (function () { try { var _v = getComputedStyle(document.documentElement).getPropertyValue('--mochi-safe-bottom').trim(); return _v ? _v + 'px' : '(未设/回落 ' + inp.envBottom + 'px)'; } catch (e) { return '?'; } })());
     L.push('');
     L.push('== 顶部安全区 ==');
     L.push('env(safe-area-inset-top)=' + inp.envTop + 'px  --mochi-safe-top=' + inp.varTop + 'px  diff(screen−inner)=' + inp.diff + 'px');
@@ -2860,6 +2864,17 @@ window.mochiViewportForm = function (sig) {
         if (gapB > 4) L.push('⚠ 聊天输入栏未贴底：底边距可视区底 ' + gapB + 'px（键盘已收；反复出现请整段反馈）');
         else if (gapB < -4) L.push('⚠ 聊天输入栏超出可视区 ' + (-gapB) + 'px');
         else L.push('输入栏贴底 ✓');
+      }
+      // v3.30 定位增强：安卓端 __mochiIosKb 恒空 → kbActive 恒假，上面「键盘期/gapB」两条
+      // 对安卓全 n/a，键盘弹起的「输入栏悬空」拿不到现场（用户 vivo iQOO15+Edge 实报）。
+      // 此处不看内部键盘标志，直接以可视底(vv)对照实际输入栏：vv 显著小于 inner（键盘在
+      // 场的可视证据）且输入栏底离 vv 底过大 → 精确报悬空量 + safe-bottom 现值。纯诊断
+      // 输出，不涉检测/布局，零机型分支（跨安卓/iOS 统一语义）。
+      if (c.inputBottom != null && inp.vvH > 0 && inp.innerH - inp.vvH >= 24) {
+        const _gapV = inp.vvH - c.inputBottom;
+        L.push('键盘可视态：vv 较布局内缩 ' + (inp.innerH - inp.vvH) + 'px  输入栏底距可视底=' + _gapV + 'px（阈值 ≤24px）');
+        if (_gapV > 24) L.push('  ✗ 输入栏悬空 ' + _gapV + 'px：未贴键盘（#282/#236 族：键盘检测未置位或 --mochi-safe-bottom/.phone 收缩未归零——请整段反馈即可对号修）');
+        else L.push('  贴可视底 ✓（≤24px）');
       }
     } catch (eR1) {}
     try {
@@ -3352,8 +3367,67 @@ window.mochiViewportForm = function (sig) {
 // JS 合成 click：把透明 <label for=inputId> 铺满触发按钮内部，用户手指物理点在 label 上，
 // 由内核按 HTML 原生行为转发激活 file input（label→input 转发是核心规范行为，所有浏览器
 // 分叉实现一致——中文移动网「sr-only input + label 当按钮」通吃全平台的通用上传写法）。
-// JS click() 保留为兜底：点击若来自 label（原生激活已开选择器），事件方用
-// mochiFilePickFromLabel 跳过合成 click，防止同一手势双开。
+//
+// ⚠️ FIX 2026-09-18 #756（本族第六波，用户二次报障「其他手机型号也这样」）：
+// 上面那条「label 转发是所有分叉实现一致的核心行为」的假设**在国产内核上是错的**。
+// 实测（vivo X200s + 百度 SP-engine/T7，症状与用户实报逐条吻合）：label 被正确铺满、
+// htmlFor 也指对了 input，但内核**既不转发激活、也不报错、也不派发任何可用于判断的事件**
+// ——点击就这样被无声吞掉。而 #738 的配套写法 `if (fromLabel(e)) return;`（见各入口）
+// 本意是「label 已原生开过选择器，别再 JS click 一次免得双开」，实际效果却是：
+//   label 存在 ⇒ 一律认作「原生激活已成功」⇒ 永远跳过 JS 兜底 ⇒ 全站入口全灭、零反馈。
+// 于是 #738 把「小米系上 JS click 不灵」修成了「国产内核上两条路都不走」——这正是用户说的
+// 「反复出现」：每轮都在赌「哪条激活路径在这台机器上通」，赌错就整族复发。
+//
+// 根治口径（不再赌）：**两条路都留着，但让它们互为兜底、且以「是否真的弹了选择器」为准**。
+// 具体＝label 只当作「加速路径」而非「唯一路径」：点击后起一个极短计时器，若在窗口期内
+// 没有观察到「选择器已开」的信号（input 取得焦点／change 事件／click 落到 input 上），
+// 就补一次 JS click()。信号一旦出现即撤销兜底，双开不可能发生。
+// 判断依据全部是**可观测事实**，不含任何机型/UA 分支——这是本族不再复发的关键。
+window.__mochiPickArmed = window.__mochiPickArmed || { seq: 0, opened: 0 };
+// 入口侧调用：告知「本次手势已由 label 走过原生激活」，只做记录，不阻断 JS 兜底
+window.mochiFilePickFromLabel = function (e) {
+  try {
+    var hit = !!(e && e.target && e.target.closest && e.target.closest('label[data-file-pick-for]'));
+    if (hit) window.__mochiPickArmed.opened++;
+    return hit;
+  } catch (err) { return false; }
+};
+// 入口侧统一调用（替代原 `if (fromLabel(e)) return;` 的早退写法）：
+// onMiss 在「窗口期内确实没弹出选择器」时执行，用于补 JS click() 兜底。
+// 返回 true＝判定已开（调用方无需再做任何事）。
+window.mochiFilePickGuard = function (input, onMiss) {
+  var token = ++window.__mochiPickArmed.seq;
+  var openedAt = window.__mochiPickArmed.opened;
+  var settled = false;
+  var finish = function (ok) {
+    if (settled) return;
+    settled = true;
+    if (!ok && typeof onMiss === 'function') { try { onMiss(); } catch (e) {} }
+  };
+  // 信号一：input 获得焦点（安卓/桌面 Chromium 弹选择器时的共同表现）
+  var onFocus = function () { cleanup(); finish(true); };
+  // 信号二：input 的 click 事件（原生转发会派发）
+  var onClick = function () { cleanup(); finish(true); };
+  // 信号三：用户真的选了文件（change 必然晚于选择器打开）
+  var onChange = function () { cleanup(); finish(true); };
+  function cleanup() {
+    try { input.removeEventListener('focus', onFocus); } catch (e) {}
+    try { input.removeEventListener('click', onClick); } catch (e) {}
+    try { input.removeEventListener('change', onChange); } catch (e) {}
+  }
+  try { input.addEventListener('focus', onFocus); } catch (e) {}
+  try { input.addEventListener('click', onClick); } catch (e) {}
+  try { input.addEventListener('change', onChange); } catch (e) {}
+  // 窗口期：国产内核「转发激活」即使发生也在同一帧内落地，60ms 足够区分；
+  // 但焦点/change 可能晚到，故超时后只做「补一次 click」，不做任何状态重置。
+  setTimeout(function () {
+    if (settled) return;
+    if (window.__mochiPickArmed.opened !== openedAt) { cleanup(); settled = true; return; } // label 路径已生效
+    cleanup();
+    finish(false); // 没等到任何信号 → 判定「这次没弹出」，走兜底
+  }, 60);
+  return { done: function () { cleanup(); settled = true; }, token: token };
+};
 window.mochiFilePickLabel = function (btn, input) {
   try {
     if (!btn || !input || !btn.appendChild) return;
@@ -3370,7 +3444,57 @@ window.mochiFilePickLabel = function (btn, input) {
     label.htmlFor = input.id;
   } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
-// 点击是否来自选择器 label（是＝原生激活已打开选择器，跳过 JS click 兜底）
-window.mochiFilePickFromLabel = function (e) {
-  try { return !!(e && e.target && e.target.closest && e.target.closest('label[data-file-pick-for]')); } catch (err) { return false; }
+
+// ===== 统一文件选择入口（FIX 2026-09-18 #755）——同族第五波根治 =====
+// 用户（vivo X200s + 百度浏览器，SP-engine/T7 内核）实报「任何图片，上传无反应；上传头像点了相册
+// 点了图片，但是没有任何反应」，明说其他机型也有、要求不要覆盖式修补。第五波复盘：#677（input 要
+// 挂文档）→ #717（去 display:none）→ #738（加原生 label）→ #753（聊天两入口 + accept 前置）四轮
+// 修的都是「同一个模具的另一个入口」，而**全站仍有十余个入口在点击时现场 new 一个 input、从不挂
+// 文档、无 label 兜底、accept 也常迟到**——每修一处，下次用户就在另一处报同一个症状，这正是
+// 「反复出现」的结构性原因。本轮不再逐个入口手抄模具（手抄必然漏），改成**单一实现 + 全站调用**：
+// 一个常驻 sr-only clip input 挂 body（给稳定 id）+ 先设 accept/multiple 与样式 + 接原生 label 激活层
+// + 最后才 click()，顺序固定在一个函数里，调用方无法写错顺序。
+//   opts.id       常驻 input 的稳定 id（诊断/验证句柄）
+//   opts.accept   ∈ 'image/*' | 'audio/*' | '.json,...' | '.ttf,...' 等（**必须在 click 前生效**，
+//                 否则 iOS/部分内核首次激活会退回通用文档选择器——#753 的核心判据）
+//   opts.multiple 是否多选
+//   opts.btn      触发按钮（可选）：给了就接 mochiFilePickLabel 原生激活层兜底
+//   opts.onFiles  (files: File[]) => void，读取完成回调（空 FileList 也会回调，调用方自行提示）
+//   opts.noClick  true＝只登记/复用 input 与回调、不立刻激活（供「多个按钮共用一个选择器、
+//                 想先挂好 label 再在各自 click 里激活」的场景；默认 false 即刻激活）
+// 返回常驻 input（同一 id 复用，绝不随点按堆积节点）。
+window.mochiFilePick = function (opts) {
+  var o = opts || {};
+  var id = o.id || 'mochi-file-pick';
+  var input = null; // 常驻单例：同一 id 复用，绝不随点按堆积节点 mochi-755-single
+  try { input = document.getElementById(id); } catch (e) {}
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = id;
+    // sr-only clip：不可用 display:none（#717/#738 已证部分内核对不可见 input 拒绝激活），
+    // 也不能 detached（#677：iOS 对未挂载 file input 不保证派发 change／不保证带上 files）
+    input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+    document.body.appendChild(input);
+  }
+  // ★ 属性顺序：accept/multiple 必须落在任何 click() 之前（#753 判据）
+  try { input.accept = o.accept || ''; } catch (e) {}
+  input.multiple = !!o.multiple;
+  // 读取回调每次重设（闭包随调用方变，常驻 input 不能留旧回调）
+  input.onchange = function () {
+    var files = Array.prototype.slice.call(input.files || []);
+    try { input.value = ''; } catch (e) {} // 允许重选同一文件
+    if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
+  };
+  // 原生 label 激活层（部分分叉内核忽略 JS 合成 click；注意 #756 实测：label 在国产内核上
+  // 也可能既不转发也不报错，故它只是「加速路径」，真正的兜底见下方 activate()）
+  if (o.btn && window.mochiFilePickLabel) window.mochiFilePickLabel(o.btn, input);
+  // ★ 激活：不再「有 label 就跳过 JS click」（那是 #738~#755 整族复发的根源，见上方 #756 说明）。
+  // 统一走 mochiFilePickGuard —— 先给原生转发一个窗口期，只有确认「没弹出选择器」才补 JS click。
+  var activate = function () { try { input.click(); } catch (e) { if (o.onError) { try { o.onError(e); } catch (x) {} } } };
+  if (!o.noClick) {
+    if (o.btn && window.mochiFilePickGuard) window.mochiFilePickGuard(input, activate);
+    else activate();
+  }
+  return input;
 };

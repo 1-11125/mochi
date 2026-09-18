@@ -391,12 +391,12 @@
   // 无自定义音频：仅显示「上传自定义音频」；有自定义：显示「试听自定义 / 清除自定义」。
   // 上传：FileReader → dataURL（超 3MB 提示可能过大）；上传即替换内置，内置键清除
   function handleUpload(type) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+    window.mochiFilePick({
+      id: 'mochi-sfx-pick', accept: 'audio/*',
+      onFiles: (files) => {
+      const f = files && files[0];
+      if (!f) { toast('没有取到音频，请再选一次'); return; }
       if (f.size > 3 * 1024 * 1024) { toast('音频较大（>3MB），可能占用较多存储空间'); }
       toast('正在读取音频…');
       const reader = new FileReader();
@@ -408,8 +408,8 @@
       };
       reader.onerror = () => { toast('音频读取失败'); };
       reader.readAsDataURL(f);
-    };
-    input.click();
+      }
+    });
   }
   // 清除：仅移除自定义上传音频，回落到内置音效（或保持用户选的静音）
   function handleClear(type) {

@@ -1139,6 +1139,28 @@
       lastText = '【自检报告为空】没有取到自检结果。\n可能原因：自检页尚未完成首次渲染（请返回上一页重新打开「字卡使用状态自检」再导出）。\n'
         + '版本：' + appVer() + '\n时间：' + new Date().toLocaleString() + '\n设备：' + (navigator.userAgent || '');
     }
+    // FIX 2026-09-18 #746：导出格式从 JSON 改为 docx（用户直派）——导出的 .json 在手机上
+    //   没有关联应用打开，等于「导出文件用不了」；与诊断报告 #227 同解：docx 由 Word/WPS
+    //   直接打开、可直接转发。主链复用 device.js 三级降级导出入口（分享面板→保存框→
+    //   确认后下载），head 段承接原 JSON payload 结构化字段（版本/时间/设备/桌面/内部错误），
+    //   信息不丢；mochiDiagExportDocx 不在（旧产物/极端内核）→ 降回原 JSON 链兜底，
+    //   copyReport 仍是最后兜底——任何路径都不会空手而归。
+    var head = '版本：' + appVer()
+      + '\n时间：' + new Date().toLocaleString()
+      + '\n设备：' + (navigator.userAgent || '')
+      + '\n当前桌面：' + deskName(activeCid())
+      + (buildErr ? '\n自检中途出错：' + buildErr : '')
+      + '\n\n';
+    var d = new Date();
+    var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
+    var fname = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.docx';
+    if (typeof window.mochiDiagExportDocx === 'function') {
+      try {
+        window.mochiDiagExportDocx(head + lastText, 'mochi-card-audit-',
+          'docx 下载未能触发，请改用「复制报告」粘贴给开发者', toast, '字卡使用状态自检报告');
+        return;
+      } catch (e) {}
+    }
     var payload = {
       app: 'mochi', kind: 'card-audit',
       version: appVer(),
@@ -1150,11 +1172,9 @@
       issues: issues.map(function (v) { return { level: v.lv, text: v.text }; }),
       report: lastText
     };
-    var d = new Date();
-    var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
-    var fname = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
+    var fnameJson = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
     if (window.mochiExportFile) {
-      try { window.mochiExportFile(JSON.stringify(payload, null, 2), fname, '字卡使用状态自检报告'); return; } catch (e) {}
+      try { window.mochiExportFile(JSON.stringify(payload, null, 2), fnameJson, '字卡使用状态自检报告'); return; } catch (e) {}
     }
     copyReport();
   }

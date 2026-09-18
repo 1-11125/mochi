@@ -564,32 +564,36 @@
     return id;
   }
   // 持久化多选 input：一次可加多张，逐张按序入库（压缩本身异步，串行防内存叠加）
-  const csBgFileInput = document.createElement('input');
-  csBgFileInput.type = 'file'; csBgFileInput.accept = 'image/*'; csBgFileInput.multiple = true;
-  csBgFileInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-  document.body.appendChild(csBgFileInput);
-  csBgFileInput.onchange = () => {
-    const fs = Array.prototype.slice.call(csBgFileInput.files || []);
-    csBgFileInput.value = ''; // 允许重选同一文件
-    if (!fs.length) return;
-    let ok = 0;
-    toast('正在处理 ' + fs.length + ' 张图片…');
-    let chain = Promise.resolve();
-    fs.forEach((f) => {
-      chain = chain.then(() => new Promise((res) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          csBgAdd(reader.result).then((id) => { if (id) ok++; res(); });
-        };
-        reader.onerror = () => res();
-        reader.readAsDataURL(f);
-      }));
+  // FIX 2026-09-18 #755：由自建 input（offscreen+opacity:0）收编进统一入口 window.mochiFilePick
+  // （device.js 常驻 sr-only clip）——opacity:0 的不可见 input 在部分国产内核同样拒绝激活，
+  // 与 display:none 同族。回调逻辑（逐张串行入库/面板刷新）一字未动。
+  function csBgPickFiles() {
+    window.mochiFilePick({
+      id: 'dev-cs-bg-pick',
+      accept: 'image/*',
+      multiple: true,
+      onFiles: (fs) => {
+        if (!fs.length) return;
+        let ok = 0;
+        toast('正在处理 ' + fs.length + ' 张图片…');
+        let chain = Promise.resolve();
+        fs.forEach((f) => {
+          chain = chain.then(() => new Promise((res) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              csBgAdd(reader.result).then((id) => { if (id) ok++; res(); });
+            };
+            reader.onerror = () => res();
+            reader.readAsDataURL(f);
+          }));
+        });
+        chain.then(() => {
+          if (ok) { toast('已加入 ' + ok + ' 张壁纸'); }
+          if (document.getElementById('cs-bg-panel') && document.getElementById('cs-bg-panel').style.display === 'flex') openCsBgPanel();
+        });
+      }
     });
-    chain.then(() => {
-      if (ok) { toast('已加入 ' + ok + ' 张壁纸'); }
-      if (document.getElementById('cs-bg-panel') && document.getElementById('cs-bg-panel').style.display === 'flex') openCsBgPanel();
-    });
-  };
+  }
   // 壁纸图库面板：缩略图网格（点图切换 / × 删除 + 5 秒内可撤销）+ 多选上传 + 同步到全部联系人
   // 优化①：高亮只看 active-id，渲染不读全图（缩略图缺失时才读对应一张现生成）
   // 优化⑤：删除改为单击即删 + 底部「撤销」条（5 秒后作废），比两击确认更不怕手滑
@@ -691,7 +695,7 @@
     const upBtn = document.createElement('button');
     upBtn.textContent = '＋ 上传新图（可多选）';
     upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
-    upBtn.addEventListener('click', () => { try { csBgFileInput.click(); } catch (e) { toast('无法打开相册，请重试'); } });
+    upBtn.addEventListener('click', () => { try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); } });
     box.appendChild(upBtn);
     if (cur) {
       const rmBtn = document.createElement('button');
@@ -748,7 +752,7 @@
     // 会静默忽略（不弹系统选择器）。改为持久化 input（初始化时创建一次、永久挂 body、
     // 移出屏幕、每次复用），与 avatar-lib.js bindPoolUpload 已验证可用套路一致。
     // v3.27.x：入口改为壁纸图库面板（多张保存+点击切换）；上传逻辑挪进面板
-    // （csBgFileInput 持久化 input 保留——真机已验证的「初始化即创建」套路不变）。
+    // （#755 起改走统一入口 window.mochiFilePick，常驻 sr-only clip，不再自建 input）。
     csBg.addEventListener('click', () => {
       // 旧数据自动迁移：已有单张壁纸但图库为空 → 收进图库成为第 1 张（异步，不挡面板打开）
       if (store.get('cs-bg') && !csBgList().length) {
@@ -977,12 +981,15 @@
   if (csAp) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
     csAp.addEventListener('click', (e) => {
-      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
-      pickHead(data => {
+      // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 不转发）时连 JS 兜底也跳过＝
+      // 「点我的/TA 的头像完全没反应」（用户实报面）；改为 guard 事后确认未弹出再补 click
+      var _fb = () => pickHead(data => {
         store.set('cs-avatar-partner', data);
         applyProfile();
         try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
       });
+      if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fb);
+      else _fb();
     });
   }
   const csApRm = row('cs-avatar-partner-remove');
@@ -997,12 +1004,14 @@
   if (csAu) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
     csAu.addEventListener('click', (e) => {
-      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
-      pickHead(data => {
+      // FIX 2026-09-18 #756：同 csAp——原 fromLabel 早退＝国产内核上完全没反应
+      var _fbU = () => pickHead(data => {
         store.set('cs-avatar-user', data);
         applyProfile();
         try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
       });
+      if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fbU);
+      else _fbU();
     });
   }
   const csAuRm = row('cs-avatar-user-remove');
@@ -1366,25 +1375,25 @@
         '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
         '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
       document.getElementById('cs-font-upload').addEventListener('click', () => {
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = '.ttf,.otf,.woff,.woff2';
-        inp.onchange = () => {
-          const f = inp.files && inp.files[0];
-          if (!f) return;
-          toast('正在读取字体文件…');
-          const reader = new FileReader();
-          reader.onload = () => {
-            fontSetData(reader.result); // #642：存全局唯一份 + 轻量引用（同内容跨桌面只存一份）
-            document.getElementById('tc-mask').hidden = true;
-            applyFont();
-            csFontChanged();
-            toast('字体已应用到本桌面');
-          };
-          reader.onerror = () => { toast('字体文件读取失败，请重试'); };
-          reader.readAsDataURL(f);
-        };
-        inp.click();
+        // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+        window.mochiFilePick({
+          id: 'mochi-cs-font-pick', accept: '.ttf,.otf,.woff,.woff2',
+          onFiles: (files) => {
+            const f = files && files[0];
+            if (!f) { toast('没有取到字体文件，请再选一次'); return; }
+            toast('正在读取字体文件…');
+            const reader = new FileReader();
+            reader.onload = () => {
+              fontSetData(reader.result); // #642：存全局唯一份 + 轻量引用（同内容跨桌面只存一份）
+              document.getElementById('tc-mask').hidden = true;
+              applyFont();
+              csFontChanged();
+              toast('字体已应用到本桌面');
+            };
+            reader.onerror = () => { toast('字体文件读取失败，请重试'); };
+            reader.readAsDataURL(f);
+          }
+        });
       });
       document.getElementById('cs-font-clear').addEventListener('click', () => {
         fontRemove();
@@ -2036,12 +2045,12 @@
   const csImport = row('cs-import-msgs');
   if (csImport) {
     csImport.addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (!f) return;
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+      window.mochiFilePick({
+        id: 'mochi-cs-import-pick', accept: '.json,application/json',
+        onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到文件，请再选一次'); return; }
         // FileReader 全兼容（旧 iOS File.text() 不支持）
         const reader = new FileReader();
         reader.onload = () => {
@@ -2070,8 +2079,8 @@
         };
         reader.onerror = () => { toast('文件读取失败，请重试'); };
         reader.readAsText(f, 'utf-8');
-      };
-      input.click();
+        }
+      });
     });
   }
 
@@ -2759,6 +2768,7 @@
   // 关闭抽屉 → 回「聊天设置」页的美化段（导航口径对齐桌面抽屉的 showThemePage：
   // 只对当前未隐藏的页写 hidden，避免 44 页观察器被同值写全部唤醒——见 chat.js #336 注释）
   function csDrawerClose() {
+    try { csDemoBubbles(false); } catch (e) {}
     try {
       const d = document.getElementById('chat-beauty-drawer');
       if (d) d.style.display = 'none';
@@ -2771,6 +2781,59 @@
       const tabs = document.getElementById('cs-tabs');
       if (tabs) { const b = tabs.querySelector('.them-tab[data-tab="beautify"]'); if (b) b.click(); }
     } catch (e) {}
+  }
+  // ===== #760（2026-09-18）：抽屉遮挡自救三件套（拖动落位 / 键盘抬升 / 打开滚底+示例气泡） =====
+  // ① 拖动：桌面 #562 只留下 beautyDockTop 的声明、实现从未落地（grip 一直是纯装饰的误导
+  //    affordance），聊天版把同一口径补齐：会话内记忆、不落盘（纯 UI 位置，不碰数据层）。
+  // ② 键盘：抽屉是 fixed 层，安卓 resizes-visual 下键盘弹起时仍锚布局视口底＝「全局字体 /
+  //    气泡 CSS」两个输入框缩到键盘后面（桌面抽屉没有文本输入，此坑聊天版独有；桌面抽屉的
+  //    键盘停靠走 FLOAT_PANEL_SELECTORS absolute 锚 .phone，但那是贴底布局面板的专属，
+  //    抽屉可拖动后不再贴底，所以这里用 visualViewport 自算抬升）。
+  //    公式 innerHeight - vv.height - vv.offsetTop 对 iOS 的整页 pan 同样成立：已上移的
+  //    部分体现在 offsetTop 里，抵消后 lift 恰为剩余遮挡高度。
+  let csBeautyDockBot = null; // null=贴底；否则＝距屏幕底边 px（会话内）
+  let csKbLiftBound = false;
+  function csDrawerApplyBottom() {
+    const d = document.getElementById('chat-beauty-drawer');
+    if (!d || d.style.display === 'none') return;
+    const vv = window.visualViewport;
+    const lift = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    d.style.bottom = Math.max(lift, csBeautyDockBot || 0) + 'px';
+    const vh = vv ? vv.height : window.innerHeight;
+    d.style.maxHeight = lift ? Math.max(150, Math.round(vh * 0.45)) + 'px' : '40vh';
+  }
+  function csDrawerBindKbLift() {
+    if (csKbLiftBound || !window.visualViewport) return;
+    csKbLiftBound = true;
+    const f = () => { try { csDrawerApplyBottom(); } catch (e) {} };
+    try {
+      window.visualViewport.addEventListener('resize', f);
+      window.visualViewport.addEventListener('scroll', f);
+    } catch (e) {}
+  }
+  // ③ 空对话示例气泡：新联系人/清空过记录时聊天页一片空白，「改哪看哪」无从看起。
+  //    注入一对（入站带标识+时间、出站短文本），只进 DOM——零 store.set、零 msgs 写入，
+  //    开/关抽屉都会清掉，绝不残留进正常聊天。
+  function csDemoBubbles(on) {
+    const body = document.getElementById('chat-body');
+    if (!body) return;
+    Array.prototype.forEach.call(body.querySelectorAll('.msg[data-cs-demo]'), n => n.remove());
+    if (!on) return;
+    const mk = (out, text) => {
+      const m = document.createElement('div');
+      m.className = 'msg ' + (out ? 'msg-out' : 'msg-in');
+      m.dataset.csDemo = '1';
+      const side = '<div class="msg-side"><div class="msg-av"></div><span class="msg-time">13:14</span></div>';
+      m.innerHTML = out
+        ? '<div class="msg-bubble">' + text + '</div>' + side
+        : side + '<div class="msg-bubble"><span class="msg-hi-mark">*~*</span>' + text + '</div>';
+      // 示例气泡没有 data-idx，chat.js 各点按链路都有 idx undefined 守卫，这里再 stopPropagation 一道
+      ['click', 'dblclick', 'contextmenu', 'touchend'].forEach(ev => m.addEventListener(ev, e => { e.stopPropagation(); }));
+      try { if (window.fillAvatar) { window.fillAvatar(m.querySelector('.msg-av'), out ? 'cs-avatar-user' : 'cs-avatar-partner'); } } catch (e) {}
+      return m;
+    };
+    body.appendChild(mk(false, '这是一条示例气泡（仅供预览，不会发送也不会保存）——改气泡颜色、透明度、圆角、字号就在这看效果'));
+    body.appendChild(mk(true, '我的气泡也长这样～'));
   }
   let csDrawerSec = 'bubble';
   function openChatBeautyDrawer() {
@@ -2796,7 +2859,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = label;
-      b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:4px 9px;cursor:pointer' + (cssExtra || '');
+      b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:6px 11px;cursor:pointer' + (cssExtra || '');
       b.addEventListener('click', fn);
       return b;
     };
@@ -2805,6 +2868,36 @@
     const hdTxt = document.createElement('span');
     hdTxt.textContent = '边看边调（即时生效）';
     hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    // #760：grip 小横条与标题行可竖向拖动（此前 grip 是纯装饰）。用 pointer 事件 +
+    // setPointerCapture：桌面版 #660 的教训——不夺回控制权触摸序列会被内核抢成滚动，
+    // 表现为「抖一下拖不动」。header 里的按钮不参与拖动（pointerdown 让行，否则点不动）。
+    const bindDockDrag = (el) => {
+      el.style.touchAction = 'none';
+      let sy = 0, sb = 0, drag = false;
+      el.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button')) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        drag = true; sy = e.clientY; sb = csBeautyDockBot || 0;
+        try { el.setPointerCapture(e.pointerId); } catch (er) {}
+        e.preventDefault();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        csBeautyDockBot = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), Math.round(sb + sy - e.clientY)));
+        csDrawerApplyBottom();
+        e.preventDefault();
+      });
+      const up = () => {
+        if (!drag) return;
+        drag = false;
+        if ((csBeautyDockBot || 0) < 24) csBeautyDockBot = null; // 接近底部＝吸附回贴底
+        csDrawerApplyBottom();
+      };
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      el.style.cursor = 'grab';
+    };
+    bindDockDrag(grip);
     const panelBody = document.createElement('div');
     panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
     const body = document.createElement('div');
@@ -2814,16 +2907,18 @@
       panelBody.style.display = willFold ? 'none' : 'flex';
       foldBtn.textContent = willFold ? '展开' : '收起';
     });
-    const closeBtn = mkMini('\u2715', () => { csDrawerClose(); }, ';padding:4px 8px');
+    const closeBtn = mkMini('\u2715', () => { csDrawerClose(); }, ';padding:6px 10px');
     hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
     d.appendChild(hd);
+    bindDockDrag(hd); // grip 只有 4px 高，标题行才是主拖拽把手
     const chipsRow = document.createElement('div');
     chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
     panelBody.appendChild(chipsRow);
     panelBody.appendChild(body);
     d.appendChild(panelBody);
     // 单行滑杆（标签固定宽 + 滑杆 + 数值），行高与桌面抽屉一致
-    const mkSlider = (label, get, set, min, max, step, unit) => {
+    // #760：多传一个 def 即获得「双击滑杆恢复默认」（拖动中看数值变化已够，复位不必回设置页）
+    const mkSlider = (label, get, set, min, max, step, unit, def) => {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:8px';
       const lb = document.createElement('span');
@@ -2840,6 +2935,14 @@
         vv.textContent = inp.value + unit;
         set(Number(inp.value));
       });
+      if (def !== undefined) {
+        inp.title = '双击恢复默认';
+        inp.addEventListener('dblclick', () => {
+          inp.value = String(def);
+          vv.textContent = def + unit;
+          set(Number(def));
+        });
+      }
       row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
       return row;
     };
@@ -2928,6 +3031,15 @@
         }, { placeholder: '#ffd6e0' });
       });
       strip.appendChild(hexBtn);
+      // #760：调色盘选完色就占着两行高——给个就地收起口（再点色块可再展开）
+      const hideBtn = document.createElement('button');
+      hideBtn.type = 'button'; hideBtn.textContent = '收起';
+      hideBtn.style.cssText = 'font-size:11px;padding:3px 8px;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      hideBtn.addEventListener('click', () => {
+        paletteHost.innerHTML = '';
+        colorItems.forEach(it => { it.el.style.borderColor = 'var(--card-border,#ddd)'; });
+      });
+      strip.appendChild(hideBtn);
       paletteHost.appendChild(strip);
       const tip = document.createElement('div');
       tip.style.cssText = 'font-size:10.5px;color:var(--muted,#999);margin-top:5px';
@@ -2967,8 +3079,8 @@
         ]));
         paletteHost = document.createElement('div');
         wrap.appendChild(paletteHost);
-        wrap.appendChild(mkSlider('气泡透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[2]), v => setSurface(2, v), 0, 100, 1, '%'));
-        wrap.appendChild(mkSlider('气泡圆角', () => (parseInt(store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT, 10) || 0), v => { try { store.set('cs-bubble-radius', v + 'px'); } catch (e) {} applySettings(); }, 0, 40, 1, 'px'));
+        wrap.appendChild(mkSlider('气泡透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[2]), v => setSurface(2, v), 0, 100, 1, '%', CHAT_SURFACE_SETTINGS[2].def));
+        wrap.appendChild(mkSlider('气泡圆角', () => (parseInt(store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT, 10) || 0), v => { try { store.set('cs-bubble-radius', v + 'px'); } catch (e) {} applySettings(); }, 0, 40, 1, 'px', parseInt(BUBBLE_RADIUS_DEFAULT, 10)));
         // #732：气泡 CSS 冲突说明（原 #725 是红字「暂不生效」，方案已改）。现在两个滑块
         // 强制生效（applyCssEnforce 用 ID 级特异性 + !important 回写），所以这里只说清
         // 「谁赢」以及哪些声明会因此失效——不再是让用户自己去删 CSS 的坏消息。
@@ -2991,10 +3103,17 @@
       { key: 'bar', label: '栏位', build: () => {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
-        wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[0]), v => setSurface(0, v), 0, 100, 1, '%'));
-        wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
-        wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px'));
-        wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px'));
+        wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[0]), v => setSurface(0, v), 0, 100, 1, '%', CHAT_SURFACE_SETTINGS[0].def));
+        wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%', CHAT_SURFACE_SETTINGS[1].def));
+        wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px', CHAT_SURFACE_SETTINGS[3].def));
+        wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px', CHAT_SURFACE_SETTINGS[4].def));
+        // #760：补「发送按钮显示/隐藏」——设置页有这行（cs-send-show），抽屉此前漏了，
+        // 而它恰好要在聊天页面上看效果，是最该进抽屉的一项。
+        wrap.appendChild(mkPills('发送按钮', [{ label: '显示', value: 'show' }, { label: '隐藏（回车发送）', value: 'hide' }],
+          () => store.get('cs-send-show') || 'show', v => {
+            try { store.set('cs-send-show', v); } catch (e) {}
+            applySettings();
+          }));
         // #731：壁纸铺满方式 + 壁纸延伸到栏位（都在「栏位」区，改哪看哪）
         wrap.appendChild(mkPills('壁纸铺满方式', CS_BG_FITS, csBgFit, v => {
           try { store.set('cs-bg-fit', v); } catch (e) {}
@@ -3034,19 +3153,19 @@
         wrap.appendChild(mkNote('全局字体（边打边看，清空输入框即恢复默认）'));
         wrap.appendChild(finp);
         wrap.appendChild(mkAct('上传字体文件（ttf / otf / woff / woff2）', () => {
-          const inp = document.createElement('input');
-          inp.type = 'file';
-          inp.accept = '.ttf,.otf,.woff,.woff2';
-          inp.onchange = () => {
-            const f = inp.files && inp.files[0];
-            if (!f) return;
+          // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+          window.mochiFilePick({
+            id: 'mochi-cs-drawer-font-pick', accept: '.ttf,.otf,.woff,.woff2',
+            onFiles: (files) => {
+            const f = files && files[0];
+            if (!f) { toast('没有取到字体文件，请再选一次'); return; }
             toast('正在读取字体文件…');
             const reader = new FileReader();
             reader.onload = () => { fontSetData(reader.result); applyFont(); csFontChanged(); toast('字体已应用到本桌面'); };
             reader.onerror = () => { toast('字体文件读取失败，请重试'); };
             reader.readAsDataURL(f);
-          };
-          inp.click();
+            }
+          });
         }));
         // 气泡 CSS：输入即套用（160ms 防抖），边写边看气泡变化
         const ta = document.createElement('textarea');
@@ -3078,6 +3197,13 @@
           // divider（时间分隔线）要补插 DOM，其余样式纯 CSS 即时生效（同 #cs-time-style 行）
           if (v === 'divider' && window.chatReRenderTime) { try { window.chatReRenderTime(); } catch (e) {} }
         }));
+        // #760：补「时间轴文字色」——设置页有这行（cs-time-ink），调时间轴样式/位置时
+        // 正需要当场看颜色效果，放这里与时间轴样式相邻。
+        wrap.appendChild(mkGrid([
+          mkColorItem('时间轴文字色', 'cs-time-ink', DEF.timeInk, BUBBLE_INK_COLORS)
+        ]));
+        paletteHost = document.createElement('div');
+        wrap.appendChild(paletteHost);
         wrap.appendChild(mkAct('换聊天壁纸 / 从图库切换', () => {
           csDrawerClose();
           setTimeout(() => { const r = document.getElementById('cs-bg-upload'); if (r) r.click(); }, 0);
@@ -3094,10 +3220,10 @@
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
         const setOff = (key, v) => { try { store.set(key, String(clampOffset(v))); } catch (e) {} applySettings(); };
         wrap.appendChild(mkNote('气泡 CSS 改了气泡大小/内边距后，标识和时间轴的位置可能跟着偏——这里手动校准。0 = 默认位置'));
-        wrap.appendChild(mkSlider('标识 左右', () => clampOffset(store.get('cs-mark-x')), v => setOff('cs-mark-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
-        wrap.appendChild(mkSlider('标识 上下', () => clampOffset(store.get('cs-mark-y')), v => setOff('cs-mark-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
-        wrap.appendChild(mkSlider('时间轴 左右', () => clampOffset(store.get('cs-time-x')), v => setOff('cs-time-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
-        wrap.appendChild(mkSlider('时间轴 上下', () => clampOffset(store.get('cs-time-y')), v => setOff('cs-time-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+        wrap.appendChild(mkSlider('标识 左右', () => clampOffset(store.get('cs-mark-x')), v => setOff('cs-mark-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
+        wrap.appendChild(mkSlider('标识 上下', () => clampOffset(store.get('cs-mark-y')), v => setOff('cs-mark-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
+        wrap.appendChild(mkSlider('时间轴 左右', () => clampOffset(store.get('cs-time-x')), v => setOff('cs-time-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
+        wrap.appendChild(mkSlider('时间轴 上下', () => clampOffset(store.get('cs-time-y')), v => setOff('cs-time-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
         wrap.appendChild(mkAct('位置全部恢复默认', () => {
           ['cs-mark-x', 'cs-mark-y', 'cs-time-x', 'cs-time-y'].forEach(k => { try { store.remove(k); } catch (e) {} });
           applySettings();
@@ -3125,12 +3251,24 @@
     SECS.forEach(s => {
       const c = document.createElement('button');
       c.type = 'button'; c.textContent = s.label; c.dataset.sec = s.key;
-      c.style.cssText = 'flex:1;font-size:11.5px;padding:5px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+      c.style.cssText = 'flex:1;font-size:11.5px;padding:7px 0;border:1px solid var(--card-border,#ddd);border-radius:8px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
       c.addEventListener('click', () => renderSec(s.key));
       chipsRow.appendChild(c);
     });
     renderSec(csDrawerSec);
     d.style.display = 'flex';
+    // #760：恢复会话内拖动位置 + 键盘抬升监听；打开即滚到最新一条（用户此前停在半屏
+    // 中间时只能看到时间轴碎片）；空对话注入示例气泡，保证「改哪看哪」永远有得看。
+    try {
+      csDemoBubbles(false);
+      csDrawerApplyBottom();
+      csDrawerBindKbLift();
+      const cb = document.getElementById('chat-body');
+      if (cb) {
+        if (!cb.querySelector('.msg')) csDemoBubbles(true);
+        cb.scrollTop = cb.scrollHeight;
+      }
+    } catch (e) {}
   }
   // 入口按钮：注入聊天设置→美化 段最上方（JS 注入，不动 template.html——同文件上方两开关的做法）
   (function injectCsLiveAdjust() {

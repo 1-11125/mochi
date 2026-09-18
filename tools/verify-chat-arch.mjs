@@ -212,8 +212,14 @@ api.persistChatHistory('P', ten);
 api.chatArchSetBaseline('P', ten);
 ten = ten.concat([{ ts: 3, side: 'in', text: 'x'.repeat(5 * 1024 * 1024) }]);
 api.persistChatHistory('P', ten);
-check('B10 单条超大消息触发字节上限压缩（不把 4MB+ 反复写进日志）',
-  ckpt().length === 3 && arch() === undefined, 'ckpt=' + ckpt().length + ' arch=' + JSON.stringify(arch()));
+await new Promise(function (r) { setTimeout(r, 400); }); // #722：分块写入是异步链，等一拍再断言
+// #722 起：>4MB（CHAT_BLK_MIN）不再整包重写，改分块直存（chat-blk-* + blk-idx），两种形态都算「没写日志」
+let blkIdxP = null;
+try { const raw = store.get('P:chat-blk-idx'); blkIdxP = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
+const ckptV = ckpt(), archV = arch();
+const blockified = blkIdxP && blkIdxP.total === 3 && Array.isArray(blkIdxP.blocks) && archV === undefined && ckptV === undefined;
+check('B10 单条超大消息触发字节上限压缩（不把 4MB+ 反复写进日志；#722 起超 4MB 走分块直存）',
+  (ckptV && ckptV.length === 3 && archV === undefined) || blockified, 'ckpt=' + (ckptV ? ckptV.length : 'gone') + ' arch=' + JSON.stringify(archV) + ' blkTotal=' + (blkIdxP && blkIdxP.total));
 } catch (e) {
   check('B 核心机制行为（修复前基线：chat.js 无 persistChatHistory / chat-arch 分片机制）', false, String(e && e.message));
 }

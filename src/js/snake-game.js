@@ -226,7 +226,8 @@
   }
   function setupCanvas() {
     if (!canvas) return;
-    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // dpr 上限 2：全屏 34×46 格 ×dpr3 位图约 2100×2900，低端安卓每帧填充吃不消，且 2 与 3 肉眼无差
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx = canvas.getContext('2d');   // 幂等，供 applyCell 重设 transform
     if (isFs) {
       // 全屏：空闲/结束态顺便把「下一局」地图按 FS_CELL 放大到接近满屏；
@@ -718,7 +719,10 @@
     });
     if (!candidates.length) { o.nextDir = { x: o.dir.x, y: o.dir.y }; return; }
     const target = currentTarget();
-    const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head, o) }; });
+    // 占位表每 tick 建一次复用：蛇身在本次决策内不会移动，原实现每个候选方向都全蛇重扫一遍（4 次/step）
+    const blocked = {};
+    activeSnakes().forEach(function (s) { s.body.forEach(function (p) { blocked[p.x + ',' + p.y] = true; }); });
+    const scored = candidates.map(function (d) { return { d: d, score: scoreDirection(d, target, head, o, blocked) }; });
     scored.sort(function (a, b) { return b.score - a.score; });
     let chosen;
     if ((behavior.current === 'randomTurn' || behavior.current === 'detour') && scored.length >= 2) {
@@ -729,7 +733,7 @@
     o.nextDir = chosen;
   }
 
-  function scoreDirection(d, target, head, o) {
+  function scoreDirection(d, target, head, o, blocked) {
     const nx = head.x + d.x, ny = head.y + d.y;
     let score = 0;
     if (target) {
@@ -737,7 +741,7 @@
       const w = behavior.speedUp ? 4 : 2;
       score += (gW() + gH() - dist) * w;
     }
-    score += floodFillSize(nx, ny) * 0.6;
+    score += floodFillSize(nx, ny, blocked) * 0.6;
     for (let i = 1; i < o.body.length; i++) {
       const s = o.body[i];
       const dd = Math.abs(nx - s.x) + Math.abs(ny - s.y);
@@ -755,9 +759,7 @@
     return score;
   }
 
-  function floodFillSize(sx, sy) {
-    const blocked = {};
-    activeSnakes().forEach(function (s) { s.body.forEach(function (p) { blocked[p.x + ',' + p.y] = true; }); });
+  function floodFillSize(sx, sy, blocked) {
     const visited = {};
     const q = [[sx, sy]];
     visited[sx + ',' + sy] = true;
@@ -889,6 +891,9 @@
     if (!state) return;
     state.status = 'over';
     stopFrame();
+    // 最后一帧是 step 前的插值中间态（frame 里 step 后 status 已离开 playing 就不再 render），
+    // 收局后补一次整格对齐渲染，冻结画面才能停在真正的死亡位置。
+    render(0);
     clearSaved();
     const mode = state.mode || 'duo';
     const psFinal = Math.floor(state.player.score);
@@ -1075,7 +1080,8 @@
     for (let i = 0; i < snake.body.length; i++) {
       const s = snake.body[i];
       let x = s.x, y = s.y;
-      if (interp && prevBody[i]) {
+      // 穿墙跨边界的格不做线性插值：14→0 会在屏上整条"倒车"滑回去，直接落新格
+      if (interp && prevBody[i] && Math.abs(s.x - prevBody[i].x) <= 1 && Math.abs(s.y - prevBody[i].y) <= 1) {
         x = prevBody[i].x + (s.x - prevBody[i].x) * alpha;
         y = prevBody[i].y + (s.y - prevBody[i].y) * alpha;
       }

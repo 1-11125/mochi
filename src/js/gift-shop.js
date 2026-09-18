@@ -1233,11 +1233,13 @@
   // ---- 商品图片上传（自定义商品可传实拍图，未传回退 emoji）----
   // 持久化隐藏 file input（初始化创建一次、永久挂 body）——安卓 Edge 等对
   // 「点击时动态创建 input + 立即 click()」会静默忽略合成点击（同头像上传修复结论）
+  // FIX 2026-09-18 #755：样式由 offscreen+opacity:0 换标准 sr-only clip（#717/#738 已验证：
+  // 部分内核对不可见 input 的激活更苛刻，clip 写法命中区为零、不挡点击且更兼容）。
   let gmImg = '';
   const gmImgInput = document.createElement('input');
   gmImgInput.id = 'gm-img-input';
   gmImgInput.type = 'file'; gmImgInput.accept = 'image/*';
-  gmImgInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  gmImgInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   // 初始化即挂 body（同 chat-settings headInput：创建一次、永久挂载、每次复用）
   try { document.body.appendChild(gmImgInput); } catch (e) {}
   gmImgInput.onchange = function () {

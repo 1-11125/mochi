@@ -1069,10 +1069,10 @@
           '<button class="divf-io-btn" id="divf-export">导出数据</button>' +
           '<button class="divf-io-btn" id="divf-import">导入数据</button>' +
         '</div>' +
-      '</div>' +
-      '<input type="file" accept="image/*" id="divf-imgfile" hidden>' +
-      '<input type="file" accept="image/*" multiple id="divf-batchfile" hidden>' +
-      '<input type="file" accept=".json,application/json" id="divf-jsonfile" hidden>';
+      '</div>';
+    // mochi-755-all：占卜三处 file input 原先写在 HTML 模板串里（hidden 属性＝display:none，
+    // 部分国产内核拒绝激活不可见 input，点「换牌面/批量上传/导入」无任何反应）→ 改走统一入口
+    // window.mochiFilePick（device.js），常驻 sr-only clip 挂 body，本文件不再创建 input 节点。
   }
 
   function initFaceUI() {
@@ -1221,8 +1221,31 @@
 
   function pickFaceFile(m, n) {
     pendingUpload = { m: m, n: n };
-    const inp = document.getElementById('divf-imgfile');
-    if (inp) inp.click();
+    // mochi-755-all：统一入口（accept 必须在 click 之前落定，否则首次激活带空 accept＝弹通用文件管理器）
+    window.mochiFilePick({
+      id: 'dev-divf-img-pick',
+      accept: 'image/*',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f || !pendingUpload) { pendingUpload = null; return; }
+        const target = pendingUpload;
+        pendingUpload = null;
+        const rd = new FileReader();
+        rd.onload = () => {
+          compressImg(rd.result, 720, 0.85).then((full) => {
+            if (!full) { toast('图片过大或无法读取，请换一张'); return; }
+            compressImg(rd.result, 200, 0.82).then((thb) => {
+              if (!thb) { toast('图片处理失败，请换一张'); return; }
+              storeFaceFromDataUrls(target.m, target.n, full, thb);
+              renderFaceList(); renderFaceGallery();
+              toast('已设为「' + target.n + '」的牌面');
+            });
+          });
+        };
+        rd.onerror = () => toast('图片读取失败');
+        rd.readAsDataURL(f);
+      }
+    });
   }
   function deleteFace(m, n) {
     window.openModal('删除「' + n + '」的自定义牌面？', '', (v) => {
@@ -1418,12 +1441,39 @@
     const ex = pg.querySelector('#divf-export');
     if (ex) ex.addEventListener('click', exportFacesData);
     const imp = pg.querySelector('#divf-import');
-    const jsonInput = pg.querySelector('#divf-jsonfile');
-    if (imp && jsonInput) imp.addEventListener('click', () => jsonInput.click());
-    const imgInput = pg.querySelector('#divf-imgfile');
-    const batchInput = pg.querySelector('#divf-batchfile');
+    if (imp) imp.addEventListener('click', () => {
+      // mochi-755-all：统一入口（本文件不再持有 input 节点）
+      window.mochiFilePick({
+        id: 'dev-divf-json-pick',
+        accept: '.json,application/json',
+        onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) return;
+          const rd = new FileReader();
+          toast('正在读取牌面文件…');
+          rd.onload = () => {
+            toast('正在解析牌面数据…');
+            requestAnimationFrame(() => setTimeout(() => {
+              let d = null;
+              try { d = JSON.parse(String(rd.result || '')); } catch (e) { toast('文件解析失败，请选择导出的牌面 JSON'); return; }
+              importFacesData(d);
+            }, 0));
+          };
+          rd.onerror = () => toast('文件读取失败');
+          rd.onabort = () => toast('已取消读取牌面文件');
+          rd.readAsText(f);
+        }
+      });
+    });
     const batchBtn = pg.querySelector('#divf-batch');
-    if (batchBtn && batchInput) batchBtn.addEventListener('click', () => batchInput.click());
+    if (batchBtn) batchBtn.addEventListener('click', () => {
+      window.mochiFilePick({
+        id: 'dev-divf-batch-pick',
+        accept: 'image/*',
+        multiple: true,
+        onFiles: (arr) => { if (arr && arr.length) handleBatchFiles(arr); }
+      });
+    });
     const obBtn = pg.querySelector('#divf-onebased');
     obBtn_sync();
     if (obBtn) obBtn.addEventListener('click', () => {
@@ -1432,51 +1482,8 @@
       obBtn_sync();
       toast(faceOneBased ? '已开启：塔罗纯编号按 1–78 对应' : '已关闭：塔罗纯编号按 0–77 对应');
     });
-    if (batchInput) batchInput.addEventListener('change', () => {
-      // 必须先拷出 FileList 再清空 value——FileList 是活引用，清空后 length 归 0
-      const arr = batchInput.files ? Array.prototype.slice.call(batchInput.files) : [];
-      batchInput.value = '';
-      if (arr.length) handleBatchFiles(arr);
-    });
-    if (imgInput) imgInput.addEventListener('change', () => {
-      const f = imgInput.files && imgInput.files[0];
-      imgInput.value = '';
-      if (!f || !pendingUpload) return;
-      const target = pendingUpload;
-      pendingUpload = null;
-      const rd = new FileReader();
-      rd.onload = () => {
-        compressImg(rd.result, 720, 0.85).then((full) => {
-          if (!full) { toast('图片过大或无法读取，请换一张'); return; }
-          compressImg(rd.result, 200, 0.82).then((thb) => {
-            if (!thb) { toast('图片处理失败，请换一张'); return; }
-            storeFaceFromDataUrls(target.m, target.n, full, thb);
-            renderFaceList(); renderFaceGallery();
-            toast('已设为「' + target.n + '」的牌面');
-          });
-        });
-      };
-      rd.onerror = () => toast('图片读取失败');
-      rd.readAsDataURL(f);
-    });
-    if (jsonInput) jsonInput.addEventListener('change', () => {
-      const f = jsonInput.files && jsonInput.files[0];
-      jsonInput.value = '';
-      if (!f) return;
-      const rd = new FileReader();
-      toast('正在读取牌面文件…');
-      rd.onload = () => {
-        toast('正在解析牌面数据…');
-        requestAnimationFrame(() => setTimeout(() => {
-          let d = null;
-          try { d = JSON.parse(String(rd.result || '')); } catch (e) { toast('文件解析失败，请选择导出的牌面 JSON'); return; }
-          importFacesData(d);
-        }, 0));
-      };
-      rd.onerror = () => toast('文件读取失败');
-      rd.onabort = () => toast('已取消读取牌面文件');
-      rd.readAsText(f);
-    });
+    // mochi-755-all：批量上传/换牌面/导入的 change 处理已内联进各自 mocchiFilePick 的 onFiles，
+    // 原 batchInput/imgInput/jsonInput 三个监听随节点一起移除（节点不再由本文件创建）。
   }
 
   // ---- 初始化：构建 UI + 载入已存牌面（IDB 回填完成后再补一次） ----

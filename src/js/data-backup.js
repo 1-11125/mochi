@@ -882,8 +882,8 @@
     // v3.29.x：副本已下线——不再承诺「本机另有副本可恢复」，统一如实说明下载文件是唯一备份。
     if (window.openModal) {
       window.openModal('备份已打包完成（' + sizeStr + '）', '', () => {
-        if (anchorDownload(blob, fname)) toast(doneText);
-        else toast('仍未触发下载。请重新点击「导出数据」并确认保存下载文件——这份文件是你的唯一备份');
+        afterDownloadAttempt(blob, fname, undefined, undefined,
+          doneText, '仍未触发下载。请重新点击「导出数据」并确认保存下载文件——这份文件是你的唯一备份');
       }, { noInput: true, big: true, staticText: coverText + '\n数据已经打包好，还没开始保存。\n点「确定」开始下载保存到本机，点「取消」放弃本次保存。\n（请务必确认下载保存成功：本机不再另存副本，这个文件就是唯一备份）' });
     } else {
       toast('备份已打包（' + sizeStr + '），请重新点击「导出数据」触发下载并保存文件（唯一备份）');
@@ -965,6 +965,81 @@
     } catch (e) { return false; }
   }
 
+  // FIX 2026-09-18 #758（用户直派：小米 civi4pro 夸克「导出docx也无法下载」，明说其他机型也有）：
+  //   合成 a[download]（blob: URL）在壳浏览器上没有任何成功/失败回调可判——夸克/华为这类内核的
+  //   下载管理器接受度各不相同，很多机型**静默丢弃**（不弹提示、不落文件，见 BUGS.md 同族记录：
+  //   #172/#173/#333/#701/字卡库导出）。走到「确定后下载」这一步说明分享面板已不可用（本机就
+  //   没有保存框），一旦它也被丢弃，用户就彻底没辙——他只会说「点了没反应 / 无法下载」。
+  //   修法（零新增嗅探，复用 device.js 已有的 env.brokenFileShare）：
+  //   ①下载触发后**把判断权交给用户**——给一个「没开始下载？换一种方式」按钮：真实手势点一下
+  //     走系统分享面板（#333 结论：该类内核唯一可靠的保存通道），分享也不可用时退 data: URL
+  //     直下（不经 blob:，绕开「下载管理器取不到 blob 数据」的机型差异，仅 ≤2MB 小文件用）；
+  //   ②只对 brokenFileShare 内核（夸克/华为）多这一步——其他内核下载本就正常，不加多余步骤；
+  //   ③三级链的 Promise 补 catch 兜底：任何一环意外 reject 时退回裸 a[download]，不再静默死掉。
+  function brokenFileShareEnv() {
+    return !!((window.mochiDevice || {}).env || {}).brokenFileShare;
+  }
+  // data: URL 直下（≤2MB）——与 anchorDownload 是两条不同的取数路径：data: 自带数据，
+  // 不依赖下载管理器去解 blob: 句柄，故对「能下 data: 但下不了 blob:」的内核有效。
+  function anchorDownloadDataUrl(blob, fname, cb) {
+    try {
+      if (!blob || blob.size > 2 * 1024 * 1024) { cb(false); return; }
+      const fr = new FileReader();
+      fr.onload = function () {
+        try {
+          const a = document.createElement('a');
+          a.href = String(fr.result || '');
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { try { if (a.parentNode) a.parentNode.removeChild(a); } catch (e) {} }, 5000);
+          cb(true);
+        } catch (e) { cb(false); }
+      };
+      fr.onerror = function () { cb(false); };
+      fr.readAsDataURL(blob);
+    } catch (e) { cb(false); }
+  }
+  // 用户点「没开始下载？换一种方式」后的换路：系统分享面板 → data: 直下 → 文字指引
+  function altSaveFile(blob, fname, shareTitle, saveTypes) {
+    const tipFail = '这台浏览器拦住了网页下载：请用 Chrome / Edge / Safari 打开本页再导出，或点【复制】把文字发给开发者';
+    const tryDataUrl = function () {
+      anchorDownloadDataUrl(blob, fname, function (ok) {
+        toast(ok ? '已用另一种方式触发下载「' + fname + '」，请到下载列表确认'
+          : tipFail);
+      });
+    };
+    try {
+      const file = new File([blob], fname, { type: blob.type || 'application/octet-stream' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' }).then(
+          function () { toast('已通过系统分享保存「' + fname + '」'); },
+          function () { tryDataUrl(); } // 面板没弹/被系统拒绝 → 换 data: 直下
+        );
+        return;
+      }
+    } catch (e) {}
+    tryDataUrl();
+  }
+  // 统一的「触发下载 + 判断权交给用户」收口（#757 备份导出 / mochiExportFile / mochiExportBlob 三处共用）
+  function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText) {
+    let ok = false;
+    try { ok = anchorDownload(blob, fname); } catch (e) { ok = false; }
+    toast(ok ? (doneText || '已开始下载') : (failText || '下载未能触发'));
+    if (!brokenFileShareEnv()) return; // 其他内核一步到位，不加多余步骤
+    // 壳浏览器：给用户一个自己能按的换路按钮（见上方 #758 注释）。延迟一拍再弹，
+    // 让用户先看到下载是否真的开始（浏览器下载列表/系统通知栏），而不是被第二个弹窗盖住判断。
+    setTimeout(function () {
+      if (!window.openModal) return;
+      window.openModal('文件已保存了吗？', '', null, {
+        noInput: true,
+        staticText: '请到浏览器「下载列表 / 通知栏」确认文件是否已保存：\n' + fname
+          + '\n\n如果没看到文件（部分手机浏览器会静默拦下网页下载），点下面的按钮换一种方式保存。',
+        exportBtn: { label: '没开始下载？换一种方式', fn: function () { try { altSaveFile(blob, fname, shareTitle, saveTypes); } catch (e) {} } }
+      });
+    }, 700);
+  }
+
   // v3.26.x #172：通用「小文件导出」三级降级链（美化方案/聊天方案等）——
   // 与 saveBackupFile 同源：①系统分享面板（iPhone 主屏安装 standalone 没有下载管理器、
   // a[download] 静默无反应的唯一可用保存通道）②系统保存框 ③确认后 a[download] 下载。
@@ -978,13 +1053,12 @@
       if (res === 'cancel') return 'cancel';
       if (window.openModal) {
         window.openModal('文件已打包（' + fmtSize(blob.size) + '）', '', () => {
-          if (anchorDownload(blob, fname)) toast('已导出「' + fname + '」');
-          else toast('仍未触发下载，请改用复制文字或换系统浏览器重试');
+          afterDownloadAttempt(blob, fname, title, undefined, '已导出「' + fname + '」', '仍未触发下载，请改用复制文字或换系统浏览器重试');
         }, { noInput: true, staticText: '点「确定」开始下载保存到本机，点「取消」放弃本次保存。' });
         return 'blocked';
       }
       return 'fail';
-    });
+    }).catch(() => 'fail'); // #758：意外 reject 也退回调用方的兜底链，不再静默死掉
   };
 
   // FIX 2026-09-11 #333：Blob 版三级降级导出（诊断 docx 等任意二进制文件用）——
@@ -999,13 +1073,12 @@
       if (res === 'fail') return 'fail';
       if (window.openModal) {
         window.openModal('文件已打包（' + fmtSize(blob.size) + '）', '', () => {
-          if (anchorDownload(blob, fname)) toast('已开始下载「' + fname + '」');
-          else toast('仍未触发下载，请改用复制文字或换系统浏览器重试');
+          afterDownloadAttempt(blob, fname, shareTitle, saveTypes, '已开始下载「' + fname + '」', '仍未触发下载，请改用复制文字或换系统浏览器重试');
         }, { noInput: true, staticText: '点「确定」开始下载保存到本机，点「取消」放弃本次保存。' });
         return 'blocked';
       }
       return 'fail';
-    });
+    }).catch(() => 'fail'); // #758：意外 reject 也退回调用方的兜底链（docx 走 legacy 裸下载），不再静默死掉
   };
 
   // v3.27.x：体积友好显示——<1MB 显示 KB，≥1MB 显示 MB（原导出只显示 KB，大备份上千 KB 不便读）
@@ -1692,15 +1765,15 @@
   // 不传则弹本机文件选择器（原行为）。
   window.runChatAllImport = function (file) {
     if (file) { chatAllImportRead(file); return; }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      chatAllImportRead(f);
-    };
-    input.click();
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+    window.mochiFilePick({
+      id: 'mochi-chatall-import-pick', accept: '.json,application/json',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到文件，请再选一次'); return; }
+        chatAllImportRead(f);
+      }
+    });
   };
   function chatAllImportRead(f) {
     const reader = new FileReader();
@@ -1893,20 +1966,15 @@
     // 合成点击，改 position:fixed 移出屏幕而非 display:none 最稳）；
     // 不设 accept 过滤——部分国产 ROM 文件选择器对 accept 过滤有兼容 bug，
     // 选错文件会在导入时被校验提示「不是 mochi 导出的数据文件」
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.style.position = 'fixed';
-    input.style.left = '-9999px';
-    input.style.top = '0';
-    input.style.opacity = '0';
-    document.body.appendChild(input);
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      try { input.remove(); } catch (e) {}
-      if (f) doImport(f);
-    };
-    input.click();
-    // 兜底：用户一直不选文件时清理隐藏 input（onchange 触发后已 remove，仅防泄漏）
-    setTimeout(() => { try { if (input.parentNode) input.remove(); } catch (e) {} }, 120000);
+    // FIX 2026-09-18 #755：改走统一入口（常驻挂文档 + label 原生激活兜底）；accept 仍刻意留空
+    //（上面的 ROM 兼容理由不变），另从「点按即 new 再 remove」改为常驻复用。
+    window.mochiFilePick({
+      id: 'mochi-backup-import-pick', accept: '',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到文件，请再选一次'); return; }
+        doImport(f);
+      }
+    });
   }
 })();

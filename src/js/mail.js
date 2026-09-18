@@ -1200,39 +1200,37 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     }
   }
   // 上传本地图片：多选 → 压缩到 720px 后按大图（image:）插入信纸
+  // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 accept 迟到＋无 label 兜底＋
+  // 每次调用 new 一个 input 再 remove）
   function mailUploadImage(textarea) {
-    const fi = document.createElement('input');
-    fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
-    fi.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-    document.body.appendChild(fi);
-    fi.onchange = () => {
-      const files = Array.prototype.slice.call(fi.files || []);
-      fi.remove();
-      if (!files.length) return;
-      files.forEach(f => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const c = document.createElement('canvas');
-              const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
-            } catch (err) {
-              mailInsertInto(textarea, 'image:' + reader.result);
-            }
+    window.mochiFilePick({
+      id: 'mochi-mail-img-pick', accept: 'image/*', multiple: true,
+      onFiles: (files) => {
+        if (!files.length) { toast('没有取到图片，请再选一次'); return; }
+        files.forEach(f => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const c = document.createElement('canvas');
+                const scale = Math.min(1, 720 / Math.max(img.width, img.height));
+                c.width = Math.max(1, Math.round(img.width * scale));
+                c.height = Math.max(1, Math.round(img.height * scale));
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
+              } catch (err) {
+                mailInsertInto(textarea, 'image:' + reader.result);
+              }
+            };
+            img.onerror = () => toast('图片读取失败');
+            img.src = reader.result;
           };
-          img.onerror = () => toast('图片读取失败');
-          img.src = reader.result;
-        };
-        reader.onerror = () => toast('图片读取失败');
-        reader.readAsDataURL(f);
-      });
-    };
-    fi.click();
+          reader.onerror = () => toast('图片读取失败');
+          reader.readAsDataURL(f);
+        });
+      }
+    });
   }
   // 绑定写信/回信工具栏（v3.6.x 只保留 表情包 / 图片 两个按钮）
   function bindMailToolbar(scope, textareaId) {
@@ -1354,14 +1352,15 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
   const mailImportBtn = document.getElementById('mail-import');
   if (mailImportBtn) {
     mailImportBtn.addEventListener('click', () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (f) mailImportFile(f);
-      };
-      input.click();
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+      window.mochiFilePick({
+        id: 'mochi-mail-import-pick', accept: '.json,application/json',
+        onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) { toast('没有取到文件，请再选一次'); return; }
+          mailImportFile(f);
+        }
+      });
     });
   }
   const mailClearBtn = document.getElementById('mail-clear');

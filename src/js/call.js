@@ -57,12 +57,12 @@
   // #641：支持指定存储键（默认通话背景 call-bg；传 call-half-bg 即「通话半框背景」）
   function pickCallBg(key, msg) {
     const bgKey = key || CALL_BG_KEY;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+    return window.mochiFilePick({
+      id: 'mochi-call-bg-pick', accept: 'image/*',
+      onFiles: (files) => {
+      const f = files && files[0];
+      if (!f) { toast('没有取到图片，请再选一次'); return; }
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
@@ -86,9 +86,8 @@
       };
       reader.onerror = () => toast('图片读取失败');
       reader.readAsDataURL(f);
-    };
-    input.click();
-    return input;
+      }
+    });
   }
   const callBgRow = document.getElementById('call-bg-row');
   if (callBgRow) callBgRow.addEventListener('click', () => pickCallBg(CALL_BG_KEY));
@@ -123,19 +122,21 @@
       toast('已恢复默认通话背景');
     });
   }
-  // #641：通话半框背景图片——只作用于聊天页「更多功能→通话」的半屏面板（#chat-call-panel），
+  // #641：通话半框背景图片——只作用于联系人来电/通话时的半弹框（#call-mini 通话小框），
   //   与通话大面板/小框的通话背景（call-bg）互不影响；按联系人桌面独立保存。
+  //   v3.42.x 修正：原指向聊天页「更多功能→通话」的 #chat-call-panel（功能页面），
+  //   改为指向 #call-mini（来电/通话时的半弹框）。
   const CALL_HALF_BG_KEY = 'call-half-bg';
   function applyCallHalfBg() {
     const bg = store.get(CALL_HALF_BG_KEY) || '';
-    const half = document.getElementById('chat-call-panel');
-    if (half) {
+    const mini = document.getElementById('call-mini');
+    if (mini) {
       if (bg) {
-        half.style.backgroundImage = 'url("' + bg + '")';
-        half.style.backgroundSize = 'cover';
-        half.style.backgroundPosition = 'center';
+        mini.style.backgroundImage = 'url("' + bg + '")';
+        mini.style.backgroundSize = 'cover';
+        mini.style.backgroundPosition = 'center';
       } else {
-        half.style.backgroundImage = '';
+        mini.style.backgroundImage = '';
       }
     }
     const val = document.getElementById('call-half-bg-val');
@@ -437,11 +438,16 @@
   //   iPadOS 杀后台后重开时会整体清空（主屏幕 PWA 重开同此），恢复逻辑就读不到任何标记，
   //   「刷新后恢复通话」失效（iPad Air 7 + Safari 实测反馈）。localStorage 持久保留，
   //   作兜底副本；新鲜度窗口见 recoverCall（防止几天后重开翻出旧通话）。
+  // FIX 2026-09-18 #757：标记里不再带头像 dataURL（实测该键在真机诊断里 52.0 KB——就是
+  //   avatar-partner 的 base64 被整份塞进 payload）。它每 20 秒被三路各写一遍，是弱内核
+  //   （夸克/UC 系分叉内核）上「写入偶发失败 / 标记过期」的放大器；恢复时 syncCallAv 本就按
+  //   归属桌面重读头像（cs-avatar-partner → avatar-partner），payload 里的 av 只是 store 读取
+  //   抛异常时的兜底。字段保留为空串（老值仍能被 recoverProcess 兼容读回），键体重回 <1KB。
   function callActivePayload() {
     return JSON.stringify({
       cid: currentCall.cid, direction: currentCall.direction, status: currentCall.status,
       startTime: currentCall.startTime, connectedTime: currentCall.connectedTime || 0,
-      name: currentCall.name || '', av: currentCall.av || '', ts: Date.now()
+      name: currentCall.name || '', av: '', ts: Date.now()
     });
   }
   // FIX 2026-09-17 #698：三路写入拆开各吃各的 try + 追加 IndexedDB 兜底——
@@ -456,6 +462,28 @@
     try { sessionStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
     try { localStorage.setItem(CALL_ACTIVE_KEY, payload); } catch (e) {}
     try { if (window.idbSet) window.idbSet(CALL_ACTIVE_KEY, JSON.parse(payload)); } catch (e) {}
+  }
+  // FIX 2026-09-18 #757（用户直派：小米 civi4pro 夸克「刷新后概率出现电话挂断，但无挂断记录；
+  //   刷新重新打开，通话和通话时间也没有续上」，用户明说其他机型也有）：恢复窗口原实现是
+  //   「心跳 ts 10 分钟窗」，而心跳是 setInterval——页面被系统冻结/杀进程时（锁屏、切后台、
+  //   浏览器回收标签页；安卓 5 分钟后 Freeze）它根本不跑，ts 就停在被冻结那一刻。用户回来
+  //   （尤其浏览器杀后台后重开＝新运行期、sessionStorage 已空）走 localStorage 兜底时，这通
+  //   电话被判「早已结束」→ clearCallActive 静默清标记：不续上、不补记录，整通电话无声消失。
+  //   实测复现（tools/verify-call-refresh-resume.mjs C 轴）：SS 丢失 + LS 的 ts 停在 11 分钟
+  //   前 ⇒ 通话消失且 records-call 零条。修法四条：
+  //   ①恢复窗口改用「通话语义的墙钟上限」CALL_RESUME_WINDOW——锁屏/挂后台整场都算通话；
+  //   ②超窗不再静默：SS/LS 是本机同步写下的真实标记（正常结束必留 {ts:0} 墓碑），超窗即
+  //     补写「通话中断」记录；IDB 兜底副本维持原 10 分钟静默窗（#705 的幽灵复活防线靠它）；
+  //   ③隐藏/冻结/离页时立刻冲刷一次标记（见下方监听），让 ts 精确停在「页面最后一次存活」，
+  //     而不是上一个 20 秒心跳；
+  //   ④恢复中途出错也补记录（原来只 clearCallActive＝同样无声消失）。
+  const CALL_RESUME_WINDOW = 6 * 3600 * 1000; // #757：SS/LS 墙钟窗（锁屏/后台整场通话都算）
+  const CALL_IDB_WINDOW = 600000;             // #120/#705：IDB 兜底副本的新鲜度窗，原样不变
+  // #757：把「页面要走了」这一刻的现场立刻落盘（connected 通话才算；响铃/去电中会被
+  //   endCall 清成墓地，status 判据天然把它们排除，与本函数注册顺序无关）。
+  function flushCallActive() {
+    if (!currentCall || currentCall.status !== 'connected') return;
+    saveCallActive();
   }
   function clearCallActive() {
     // FIX 2026-09-17 #705 SS/LS 同步写 {ts:0} 墓碑而非 removeItem——#698 给 recoverCall 加了
@@ -808,6 +836,16 @@
       resumeHeldCall();
     }
   });
+  // FIX 2026-09-18 #757：隐藏/冻结/离页三处立刻冲刷通话标记（见 CALL_RESUME_WINDOW 注释）——
+  //   页面被系统冻结或杀进程前最后能跑的时机就是这里，把 ts 停在此刻（同运行期此前的
+  //   sessionStorage 快路径不受影响，这三行只让跨运行期的兜底副本更准、更晚过期）。
+  //   注册在上方 visibilitychange 之后：响铃切后台那条路径先 endCall 清成 {ts:0} 墓碑，
+  //   本回调再进来时 currentCall 已空、自然不写（不会把刚清掉的标记复活）。
+  document.addEventListener('visibilitychange', function () {
+    try { if (document.visibilityState === 'hidden') flushCallActive(); } catch (e) {}
+  });
+  window.addEventListener('pagehide', function () { try { flushCallActive(); } catch (e) {} });
+  document.addEventListener('freeze', function () { try { flushCallActive(); } catch (e) {} });
   // v3.6.x：通话弹层开始时先关闭大图查看器——img-view-mask z-index 高于 call-mask，
   // 不关的话来电/去电面板被大图完全盖住，接听/拒绝按钮点不到
   function closeImageOverlay() {
@@ -1138,17 +1176,28 @@
   }
   function recoverProcess(info, src) {
     if (!info.connectedTime) { clearCallActive(); return; } // 未接通就中断（响铃/呼叫中刷新），不恢复不记
+    const age = Date.now() - (info.ts || 0);
     // #698：IDB 副本永久留存，必须卡新鲜度（心跳每 20 秒刷 ts，10 分钟窗同 callInProgress/#120 口径），
     // 否则数天后重开会翻出早已结束的旧通话；LS 副本维持原 #120 行为不变
-    if (src === 'idb' && Date.now() - (info.ts || 0) > 600000) { clearCallActive(); return; }
+    // FIX 2026-09-18 #757：窗分档（见 CALL_RESUME_WINDOW 注释）——IDB 兜底副本仍卡 10 分钟
+    // 静默窗（#705 幽灵复活防线：能走到 IDB 说明 SS/LS 都被系统清过，那里的「通话中」不可信）；
+    // SS/LS 是本机同步写下的真实标记，用 6 小时墙钟窗（心跳在页面冻结时不跑，10 分钟心跳窗
+    // 会把「锁屏/后台整场通话」误判成早已结束 ⇒ 用户报的「刷新后电话没了」）。
+    const windowMs = src === 'idb' ? CALL_IDB_WINDOW : CALL_RESUME_WINDOW;
+    if (age > windowMs) {
+      clearCallActive();
+      // #757：超窗的 SS/LS 快照＝这通电话从没写过结束记录（正常结束必留 {ts:0} 墓碑，早被
+      //   上面 !connectedTime 分支拦掉），旧实现静默清掉正是「无挂断记录」的来源——改为按
+      //   「关闭恢复」同一条链补写「通话中断」，让用户至少能看到这通电话结束在哪。
+      //   IDB 孤儿维持静默（#705：异步墓碑丢失/iOS 清 LS 回填，补记录＝幽灵未接）。
+      if (src !== 'idb') writeInterruptRecord(info);
+      return;
+    }
     const cid = info.cid || 'default';
     const dir = info.direction || 'out';
     const name = info.name || 'TA';
     // v3.26.x：开启「刷新后恢复通话」→ 重建通话 UI + 从接通时刻继续计时（TA 本地模拟，无需重连）
     if (callCfg().resume !== 0) {
-      // #120 localStorage 兜底只恢复「新鲜」标记（心跳每 20 秒刷 ts；10 分钟窗覆盖 iPadOS
-      //   杀后台后不久重开），超窗视为早已结束：静默清标记，不恢复也不翻旧账
-      if (src !== 'ss' && Date.now() - (info.ts || 0) > 600000) { clearCallActive(); return; }
       try {
         currentCall = { cid: cid, direction: dir, status: 'connected', startTime: info.startTime || info.connectedTime, connectedTime: info.connectedTime, durationSec: 0, name: name, av: info.av || '' };
         shownAv = null; shownName = null;
@@ -1166,11 +1215,30 @@
         }
         startCallDuration();
         saveCallActive(); // #120 回写 sessionStorage（后续刷新优先走 sessionStorage 快路径）+ 刷新 ts
-      } catch (e) { clearCallActive(); }
+      } catch (e) {
+        // #757：恢复中途出错（机型内核差异导致某个渲染/计时调用抛错）——旧实现只 clearCallActive
+        //   ＝通话无声消失且无记录；改为先把半截通话清干净（currentCall 已赋值的场景，否则
+        //   callInProgress 恒真、后续联系人来电全被占用门拦死），再补一条中断记录。
+        currentCall = null; shownAv = null; shownName = null;
+        if (mini) mini.hidden = true;
+        if (mask) mask.hidden = true;
+        if (cdEl) cdEl.hidden = true;
+        clearCallActive();
+        writeInterruptRecord(info);
+      }
       return;
     }
     // 关闭恢复 → 记中断记录
     clearCallActive();
+    writeInterruptRecord(info);
+  }
+  // FIX 2026-09-18 #757：中断记录统一出口（原为「关闭恢复」分支内联代码）——三条路径共用：
+  //   「关闭恢复」设置、超窗的 SS/LS 快照、恢复中途出错。语义不变：归属桌面写 records-call
+  //   （ended='interrupt'）+ 聊天系统消息 + 主页通话卡重渲染。
+  function writeInterruptRecord(info) {
+    const cid = info.cid || 'default';
+    const dir = info.direction || 'out';
+    const name = info.name || 'TA';
     const dur = Math.max(0, Math.floor((info.ts - info.connectedTime) / 1000));
     const durTxt = dur > 0 ? ' · 时长 ' + fmtDur(dur) : '';
     const recText = '通话中断（页面刷新或异常退出）' + durTxt;

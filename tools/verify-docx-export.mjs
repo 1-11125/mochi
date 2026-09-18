@@ -94,11 +94,25 @@ ok((devSrc.match(/exportDocx\(/g) || []).length === 2, 'E2 exportDocx=1 处 lega
 ok(!/exportTxt/.test(devSrc), 'E3 旧 exportTxt 已清干净（不留死代码/旧锚）');
 ok(tplSrc.includes('id="modal-export" hidden>导出docx<'), 'E4 弹窗导出按钮默认文案=导出docx');
 // #336：两处按钮统一走 diagExportDocx（三级降级链：分享面板→保存框→确认下载）
-ok(devSrc.includes('diagExportDocx(c ? c.text() : cur)'), 'E5 信息诊断导出走 diagExportDocx 统一入口');
-ok(devSrc.includes("diagExportDocx(c ? c.text() : r.text, 'mochi-screen-diag-'"), 'E6 屏幕诊断导出走统一入口且带独立文件名前缀');
-ok(devSrc.includes('typeof window.mochiExportBlob !== \'function\'') && devSrc.includes('window.mochiExportBlob(blob, fname, \'mochi 诊断报告\''), 'E7 主链路=mochiExportBlob，缺失时回退 legacy');
-ok(/function diagExportDocx\(text, basePrefix, failToast\)/.test(devSrc) && devSrc.includes('buildDocxBlob(text)'), 'E8 diagExportDocx 定义齐全（仍用 buildDocxBlob 产物）');
+// E6~E8 锚点更新（2026-09-18 #758 会话，陈旧锚点修正）：#382 把 diagExportDocx 形参收窄成
+//   (text, basePrefix, failMsg, toastFn, shareTitle)、#746 又把分享标题参数化，且屏幕诊断那处
+//   调用点已折行并改走 window.mochiDiagExportDocx——旧锚点（failToast / 裸串 'mochi 诊断报告' /
+//   单行匹配）从此恒红，属「资产过期」而非回归（已在未改动该文件的副本上复现同样三条红）。
+//   统一改成「空白折叠后匹配」，对折行免疫。
+const devFlat = devSrc.replace(/\s+/g, ' ');
+ok(devFlat.includes('diagExportDocx(c ? c.text() : cur)'), 'E5 信息诊断导出走 diagExportDocx 统一入口');
+ok(devFlat.includes("(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'"), 'E6 屏幕诊断导出走统一入口且带独立文件名前缀');
+ok(devFlat.includes("typeof window.mochiExportBlob !== 'function'") && devFlat.includes("window.mochiExportBlob(blob, fname, shareTitle || 'mochi 诊断报告'"), 'E7 主链路=mochiExportBlob，缺失时回退 legacy');
+ok(devFlat.includes('function diagExportDocx(text, basePrefix, failMsg, toastFn, shareTitle)') && devSrc.includes('buildDocxBlob(text)'), 'E8 diagExportDocx 定义齐全（仍用 buildDocxBlob 产物）');
 ok(bakSrc.includes('window.mochiExportBlob = function (blob, fname, shareTitle, saveTypes)'), 'E9 data-backup 暴露 Blob 版三级降级导出');
+// E12~E15（#758 新增）：壳浏览器「下载静默被丢弃」时的第二条活路（用户直派：夸克「导出docx也无法下载」）
+ok(bakSrc.includes('function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText)')
+  && bakSrc.includes('if (!brokenFileShareEnv()) return;'), 'E12 下载触发后按内核给换路追问（非 brokenFileShare 内核不加多余步骤）');
+ok(bakSrc.includes('function anchorDownloadDataUrl(blob, fname, cb)') && bakSrc.includes('blob.size > 2 * 1024 * 1024'), 'E13 data: URL 直下通道在位（≤2MB，与 blob: 不同的取数路径）');
+ok(bakSrc.includes("navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' })"), 'E14 换路首选手势触发的系统分享面板（该类内核唯一可靠保存通道）');
+ok((bakSrc.match(/afterDownloadAttempt\(blob, fname/g) || []).length === 4, 'E15 三条导出路径（整包备份/小文件导出/Blob 导出）= 1 处定义 + 3 处调用，全部接上换路收口');
+ok(bakSrc.includes("}).catch(() => 'fail')"), 'E16 三级链 Promise 补 catch 兜底（意外 reject 时不再静默死掉）');
+
 ok(bakSrc.includes('async function saveBackupFile(blob, fname, shareTitle, saveTypes)') && bakSrc.includes("type: blob.type || 'application/json;charset=utf-8'"), 'E10 saveBackupFile 参数化分享标题/MIME（备份默认行为不变）');
 ok(bakSrc.includes("types: saveTypes || [{ description: 'JSON 备份', accept: { 'application/json': ['.json'] } }]"), 'E11 保存框类型参数化（docx 不会被强改 .json 后缀）；默认 JSON 不变');
 

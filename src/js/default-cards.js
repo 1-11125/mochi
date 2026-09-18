@@ -531,43 +531,46 @@
   // v3.26.x：小键写日志异步合并（idb.js mochi-wrj-heal）把 dc-* 键修正后，重同步
   // 总开关/场景开关/分类开关的 UI——修荣耀 Edge 杀进程回滚 LS 后「开关退出重进变回去」
   // 且已打开的设置页仍显示旧值的问题
-  document.addEventListener('mochi-wrj-heal', function () {
-    try {
-      enabledEl.checked = getEnabled();
-      ['chat', 'mail', 'feed'].forEach(function (k) {
-        const el = document.getElementById('dc-use-' + k);
-        if (el) el.checked = getUse(k);
-      });
-      ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
-        const el = document.getElementById('dc-cat-' + k);
-        if (el) el.checked = getCat(k);
-      });
-      // v3.28.x：使用概率 stepper 同样随 heal 重同步
-      ['chat', 'mail', 'feed'].forEach(function (k) {
-        const valEl = document.getElementById('dc-overall-' + k + '-val');
-        if (valEl) valEl.value = String(dcOverallVal(k));
-      });
-      // v3.33.x：分类占比 stepper 同样随 heal 重同步
-      ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
-        const valEl = document.getElementById('dc-prob-' + k + '-val');
-        if (valEl) valEl.value = String(getProb(k));
-      });
-      // v3.32.x：功能字卡概率 stepper 同样随 heal 重同步（v3.26.x #515：改走 dcfRefreshUI，
-      //   同时刷新同键的全部 stepper，如寻踪日常字卡页那一个）
-      Object.keys(DCF_DEF).forEach(function (k) {
-        dcfRefreshUI(k);
-      });
-      // v3.33.x：功能字卡总开关同样随 heal 重同步
-      const deEl = document.getElementById('dcf-enabled');
-      if (deEl) deEl.checked = dcfEnabled();
-    } catch (e) {}
-  });
-  // v3.26.x #515：切换到另一个桌面联系人 / IDB 回填完成后，概率行重新读键——dcf-* 是 per-cid 键，
-  //   不重读会把上一个桌面的数值留在屏幕上（寻踪日常字卡页与功能字卡页同键，dcfRefreshUI 一并刷新）
-  ['contact-switched', 'mochi-restore-done'].forEach(function (ev) {
-    document.addEventListener(ev, function () {
-      try { Object.keys(DCF_DEF).forEach(function (k) { dcfRefreshUI(k); }); } catch (e) {}
+  // v3.26.x：默认字卡开关 UI 重同步——dc-* 与 dcf-* 都是 per-cid 键，切换联系人桌面 /
+  //   IDB 回填 / 小键写日志修正后，已渲染的 checkbox/stepper 不会自动重读，会把上一个桌面
+  //   的勾选/数值留在屏幕上。用户在旧状态上操作 → 写到当前桌面但 UI 显示旧桌面 →
+  //   "关了还能发、再看又是开的"（#745 多机型同现，根因＝contact-switched 漏刷 dc-* 开关）
+  function syncDcSwitchUI() {
+    enabledEl.checked = getEnabled();
+    ['chat', 'mail', 'feed'].forEach(function (k) {
+      const el = document.getElementById('dc-use-' + k);
+      if (el) el.checked = getUse(k);
     });
+    ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
+      const el = document.getElementById('dc-cat-' + k);
+      if (el) el.checked = getCat(k);
+    });
+    // v3.28.x：使用概率 stepper 同样重同步
+    ['chat', 'mail', 'feed'].forEach(function (k) {
+      const valEl = document.getElementById('dc-overall-' + k + '-val');
+      if (valEl) valEl.value = String(dcOverallVal(k));
+    });
+    // v3.33.x：分类占比 stepper 同样重同步
+    ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
+      const valEl = document.getElementById('dc-prob-' + k + '-val');
+      if (valEl) valEl.value = String(getProb(k));
+    });
+    // v3.32.x：功能字卡概率 stepper（v3.26.x #515：改走 dcfRefreshUI，同时刷新同键全部 stepper）
+    Object.keys(DCF_DEF).forEach(function (k) {
+      dcfRefreshUI(k);
+    });
+    // v3.33.x：功能字卡总开关同样重同步
+    const deEl = document.getElementById('dcf-enabled');
+    if (deEl) deEl.checked = dcfEnabled();
+  }
+  document.addEventListener('mochi-wrj-heal', function () { try { syncDcSwitchUI(); } catch (e) {} });
+  // v3.26.x #515 / #745：切换联系人桌面 / IDB 回填完成后，所有 dc-* / dcf-* 开关与概率行
+  //   重新读键——dcf-* 是 per-cid 键，不重读会把上一个桌面的数值留在屏幕上（寻踪日常字卡页
+  //   与功能字卡页同键，dcfRefreshUI 一并刷新）；#745 补：dc-enabled/dc-use-*/dc-cat-*/dc-overall-*/
+  //   dc-prob-* 同为 per-cid，此前 contact-switched 漏刷这些开关，用户在联系人桌面关了默认字卡
+  //   后切回 default 桌面，设置页仍显示旧桌面勾选状态，写入到非预期桌面 → 关了还能发、再看又是开的
+  ['contact-switched', 'mochi-restore-done'].forEach(function (ev) {
+    document.addEventListener(ev, function () { try { syncDcSwitchUI(); } catch (e) {} });
   });
 
   // ---- 双页共用渲染内核 ----

@@ -651,7 +651,20 @@
       scroller.__nudgeGeom = geomKey;
       scroller.__nudgeVH = vhNow;
       if (r.bottom > sr.bottom - 8) {
-        scroller.scrollTop = Math.max(0, scroller.scrollTop + (r.bottom - sr.bottom) + 16);
+        // FIX 2026-09-18 #743（HUAWEI Mate 40 Pro + Edge 等跨机型报「写信/回信打字看不见第一行、
+        // 页面疯狂上下抖动」，用户要求勿致其他机型回归）：旧实现一律把输入框底边拖进可视——
+        // 多行长文写信/回信（.mail-compose-input rows=10~12）在键盘收缩后的可视区内比容器还高，
+        // 拖底边入视必然把首行顶出可视上沿（==「第一行看不见」），且每次键入·内容长高全量拖一遍
+        // == 上下乱抖。改为：输入框比可视容器还高 或 首行已被卷出可视时，只回卷到顶部保住第一行，
+        // 绝不往下拖；普通短输入框（聊天/问问TA/占卜等，比可视区矮）走原拖底逻辑，行为逐字节不变。
+        var ovf = r.bottom - (sr.bottom - 8);
+        var _elH = (active && active.offsetHeight) || 0;
+        var _topHidden = sr.top - r.top; // >0 ＝ 输入框顶部已卷到可视上沿之上
+        if ((_topHidden > 0) || (_elH > (sr.height - 8))) {
+          if (_topHidden > 0) scroller.scrollTop = Math.max(0, scroller.scrollTop - _topHidden - 8);
+        } else {
+          scroller.scrollTop = Math.max(0, scroller.scrollTop + ovf + 16);
+        }
       }
     } catch (e) {}
   }
@@ -2645,6 +2658,13 @@
     // FIX 2026-09-18 #707：屏幕位置设置面板（personalize.js 建的底部半框）——同族登记防滚动穿透；
     //   本行插在 #581f 锚点行之前（那行原文一个字都不能动）
     '#screen-adj-panel',
+    // FIX 2026-09-18 #760：聊天美化「边看边调」抽屉（chat-settings.js openChatBeautyDrawer）——
+    //   与 #beauty-drawer 同族固定底半框（未登记＝抽屉开着底层聊天页整页仍可被滑）。
+    //   消息区 #chat-body 自带独立 overflow 滚动 + overscroll-behavior:contain，不受
+    //   .page overflow:hidden 影响，锁了仍可滚消息核对效果；键盘抬升走 visualViewport
+    //   （见 chat-settings.js #760），故不入 FLOAT_PANEL_SELECTORS（那套 absolute 锚 .phone
+    //   贴底，抽屉可拖动后不再是贴底布局元素）。插在 #581f 哨兵原文行之前，末行不动。
+    '#chat-beauty-drawer',
     '#beauty-drawer', '#icon-fit-panel'];
   // v3.15.x：键盘弹起时把锚定在 .phone 底部的悬浮面板（更多功能/帮我决定/占卜/
   // 问问TA/红包/拍一拍等）重新锚定到可视区底部=输入栏上方。关键前提：键盘开启时

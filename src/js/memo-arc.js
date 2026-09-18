@@ -725,15 +725,18 @@
     imgTarget = { kind: kind, id: id };
     ensureImgInput().click();
   }
+  // FIX 2026-09-18 #755：原实现用 display:none（#717/#738 点名要消灭的写法，部分内核对不可见
+  // input 拒绝激活）——改走统一入口的 sr-only clip 常驻 input（挂 body + accept 前置 + label 兜底）
   function ensureImgInput() {
     let inp = document.getElementById('narc-img-input');
     if (inp) return inp;
     inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none'; inp.id = 'narc-img-input';
+    inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'narc-img-input';
+    inp.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
     inp.addEventListener('change', function () {
       const f = inp.files && inp.files[0];
       const tgt = imgTarget; imgTarget = null; inp.value = '';
-      if (!f || !tgt || !tgt.id) return;
+      if (!f || !tgt || !tgt.id) { if (!f) toast('没有取到图片，请再选一次'); return; }
       compressImg(f, function (dataURL) {
         const arc = ensureArc(cur);
         const it = imgListOf(tgt.kind, arc).find(x => x.id === tgt.id);

@@ -744,6 +744,14 @@
         k !== 'xy-home-v2:__auto-backup-snapshot' &&
         // v3.26.x：小键写日志的每键时间戳标记不是业务数据，不回填
         k.indexOf('__wr-j:') < 0 &&
+        // FIX 2026-09-18 #757 跨域改动（idb.js=AI-B 域，用户直派修 bug，已在 WORKLOG 声明）：
+        //   通话进行中标记（call.js 的全局根键）不回填 localStorage——它有三路副本、语义各不相同：
+        //   SS/LS 是 call.js 亲笔同步写下的「真实标记」（正常挂断必留 {ts:0} 墓碑），IDB 是兜底
+        //   副本（异步墓碑可能丢失，只能按 10 分钟窗当「孤儿」处理）。这里代抄一次就把 IDB 孤儿
+        //   变成看似 call.js 亲笔写的 LS 标记，「挂了之后 TA 又打来」的幽灵通话（#705 实锤）
+        //   会在 6 小时墙钟窗内被续上。call.js 自己有 IDB 回读路径（recoverCall: SS→LS→IDB，
+        //   IDB 档仍卡 10 分钟），不需要这里代抄。
+        k !== 'xy-home-v2:call-active' &&
         k !== BIG_IDX_KEY);
       if (!need.length) { finish(); return; }
       // v3.14.x：大键驻留预算——低内存手机（deviceMemory≤4GB）更保守。

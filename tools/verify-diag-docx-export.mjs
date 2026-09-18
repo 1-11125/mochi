@@ -157,6 +157,96 @@ await sleep(800);
 const ac = await evalJs(`window.__exp.aclick`);
 check('B5 确认后 a[download] 下载触发', !!ac && ac.indexOf('.docx') > 0, 'aclick=' + ac);
 
+// ===== B5b~B5e：#758 壳浏览器（夸克/华为）「下载静默被丢弃」的第二条活路 =====
+// 用户直派（小米 civi4pro 夸克「导出docx也无法下载」）：合成 a[download]（blob:）没有成功回调，
+//   壳浏览器静默丢弃时用户彻底没辙。修复＝brokenFileShare 内核在下载触发后多给一个
+//   「没开始下载？换一种方式」按钮（真实手势走系统分享面板 → 退 data: URL 直下）。
+await sleep(700); // afterDownloadAttempt 里的 700ms 延迟
+const b5b = await evalJs(`(function(){
+  const mask = document.getElementById('modal-mask');
+  const exp = document.getElementById('modal-export');
+  return JSON.stringify({ open: !!mask && !mask.hidden,
+    title: document.getElementById('modal-title').textContent,
+    expVisible: !!exp && !exp.hidden, expLabel: exp ? exp.textContent : '' });
+})()`);
+let oo = null; try { oo = JSON.parse(b5b); } catch (e) {}
+check('B5b 普通浏览器（非 brokenFileShare）不多这一步：下载后不弹追问弹窗',
+  oo && oo.title !== '文件已保存了吗？', b5b);
+
+// 打开 brokenFileShare 环境（夸克/华为同款）后重走一遍：确认弹窗 → 确定 → 追问弹窗 + 换路按钮
+await evalJs(`(function(){
+  try { window.mochiDevice.env.brokenFileShare = true; } catch(e){}
+  return true;
+})()`);
+await evalJs(`(function(){ (window.mochiDiagExportDocx || function(){})( '壳浏览器换路测试正文', 'mochi-docx-alt-', '失败文案', function(){}); return true; })()`);
+await sleep(900);
+await evalJs(`(function(){ const ok = document.getElementById('modal-ok'); if (ok && !ok.hidden) ok.click(); return true; })()`);
+await sleep(1400);
+const b5c = await evalJs(`(function(){
+  const mask = document.getElementById('modal-mask');
+  const exp = document.getElementById('modal-export');
+  return JSON.stringify({ open: !!mask && !mask.hidden,
+    title: document.getElementById('modal-title').textContent,
+    expVisible: !!exp && !exp.hidden, expLabel: exp ? exp.textContent : '' });
+})()`);
+oo = null; try { oo = JSON.parse(b5c); } catch (e) {}
+check('B5c brokenFileShare 内核：下载后弹「文件已保存了吗？」并给出换路按钮',
+  oo && oo.title === '文件已保存了吗？' && oo.expVisible && (oo.expLabel || '').indexOf('换一种方式') >= 0, b5c);
+
+// 点换路按钮：分享面板可用 → 必须把 docx 作为 File 交给 navigator.share（#333 该类内核唯一可靠通道）
+const b5d = await evalJs(`(function(){
+  return new Promise(function (res) {
+    window.__alt = { share: 0, name: '', type: '' };
+    const okShare = navigator.canShare, oShare = navigator.share;
+    navigator.canShare = function () { return true; };
+    navigator.share = function (o) {
+      window.__alt.share++;
+      window.__alt.name = (o && o.files && o.files[0] && o.files[0].name) || '';
+      window.__alt.type = (o && o.files && o.files[0] && o.files[0].type) || '';
+      return Promise.resolve();
+    };
+    const exp = document.getElementById('modal-export');
+    if (!exp || exp.hidden) { navigator.canShare = okShare; navigator.share = oShare; res(JSON.stringify({ err: 'no-btn' })); return; }
+    exp.click();
+    setTimeout(function () {
+      navigator.canShare = okShare; navigator.share = oShare;
+      res(JSON.stringify(window.__alt));
+    }, 800);
+  });
+})()`);
+oo = null; try { oo = JSON.parse(b5d); } catch (e) {}
+check('B5d 换路按钮 → 真实手势调 navigator.share 交出 .docx File（系统分享面板）',
+  oo && oo.share === 1 && /\.docx$/.test(oo.name || '') && (oo.type || '').indexOf('wordprocessingml') >= 0, b5d);
+
+// 分享面板也不可用/被系统拒绝（夸克式「面板不弹直接拒」）→ 退 data: URL 直下（不经 blob:）
+const b5e = await evalJs(`(function(){
+  return new Promise(function (res) {
+    const okShare = navigator.canShare, oShare = navigator.share;
+    let dataHref = '';
+    const oc = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { if (String(this.href).indexOf('data:') === 0) dataHref = this.download; return oc.call(this); };
+    navigator.canShare = function () { return true; };
+    navigator.share = function () { return Promise.reject(new Error('NotAllowedError')); };
+    (window.mochiDiagExportDocx || function(){})( 'dataURL 换路测试', 'mochi-docx-alt2-', '失败文案', function(){});
+    setTimeout(function () {
+      const ok = document.getElementById('modal-ok');
+      if (ok && !ok.hidden) ok.click();
+      setTimeout(function () {
+        const exp = document.getElementById('modal-export');
+        if (exp && !exp.hidden) exp.click();
+        setTimeout(function () {
+          navigator.canShare = okShare; navigator.share = oShare;
+          HTMLAnchorElement.prototype.click = oc;
+          res(JSON.stringify({ dataHref: dataHref }));
+        }, 900);
+      }, 1200);
+    }, 700);
+  });
+})()`);
+oo = null; try { oo = JSON.parse(b5e); } catch (e) {}
+check('B5e 分享也不可用 → 退 data: URL 直下（与 blob: 不同的取数路径，壳浏览器第二条活路）',
+  oo && /\.docx$/.test(oo.dataHref || ''), b5e);
+
 // B6 legacy 兜底：mochiExportBlob 不可用时走裸下载+回调提示（形参收窄后不再抛 failToast is not a function）
 const b6 = await evalJs(`(function(){
   return new Promise(function (res) {

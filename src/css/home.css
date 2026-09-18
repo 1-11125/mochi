@@ -374,6 +374,17 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
   touch-action:pan-x pan-y;
 }
 .page-slide::-webkit-scrollbar { display:none; }
+/* #754 桌面翻页卡顿（iPhone 15 Pro Max 实报：翻页 平均186ms / p90 719ms / 最慢3611ms；
+   诊断【性能】长任务>50ms 为零＝主线程没堵，卡在合成/栅格层。本元素是「横向快照滚动容器
+   + 每页自带纵向滚动」的嵌套滚动层，整页背景图（page-bg-N）画在会移动的滚动页上——
+   与 #147 修壁纸的同源病灶：图层纹理不被保活时，翻页每帧重栅格化/重解码整屏大图。
+   修法=有整页背景图的桌面（.has-page-bg，personalize.js 按 DOM 实态挂/摘）在触屏设备上
+   把三页提升为独立合成层：翻页只平移纹理，不再逐帧重栅格化。
+   ⚠️ 门控说明（防跨机型回归）：①仅触屏设备（hover:none + pointer:coarse）——电脑端外壳
+   布局与图层行为零变化；②无整页背景图不挂类＝零额外显存（纯文字/图标页无收益故不付代价）。 */
+@media (hover: none) and (pointer: coarse) {
+  .desktop-pages.has-page-bg .page-slide { will-change: transform; }
+}
 
 /* 分页指示器（v3.6.x：不再占一整行——悬浮在桌面底部中央，不挤占/遮挡功能图标） */
 #page-phone { position:relative; }

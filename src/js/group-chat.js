@@ -1848,8 +1848,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     // FIX 2026-09-18 #738：原生 label 激活兜底（只挂头像模式；昵称按钮不能变成选图）
     if (interMode === 'av' && window.mochiFilePickLabel) window.mochiFilePickLabel(addBtn, gcAvatarPickInput);
     addBtn.addEventListener('click', (e) => {
-      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
+      // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 不转发）时把 JS 兜底也跳过＝
+      // 「上传头像点了没反应」。改为 guard 事后确认未弹出再补 click（仅头像模式需要）。
       if (interMode === 'av') {
+        var _fb = () => { try { gcAvatarPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+        if (window.mochiFilePickGuard) window.mochiFilePickGuard(gcAvatarPickInput, _fb);
+        else _fb();
         pickAvatarFile((data) => {
           if (!data) return;
           const m2 = interPoolLoad();
@@ -2473,12 +2477,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     }));
     // 导入：读取 JSON → 预览确认 → 覆盖当前群记录（兼容单聊导出/裸数组/整份备份）
     (curSec||settingsBody).appendChild(gcDataLink('导入聊天记录', '从 JSON 文件导入并覆盖当前群聊记录', false, () => {
-      const inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = '.json,application/json';
-      inp.onchange = () => {
-        const f = inp.files && inp.files[0];
-        if (!f) return;
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+      window.mochiFilePick({
+        id: 'mochi-gc-import-pick', accept: '.json,application/json',
+        onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到文件，请再选一次'); return; }
         const reader = new FileReader();
         reader.onload = () => {
           let data;
@@ -2516,8 +2520,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         };
         reader.onerror = () => { toast('文件读取失败，请重试'); };
         reader.readAsText(f, 'utf-8');
-      };
-      inp.click();
+        }
+      });
     }));
     // 清空当前群记录（危险操作二次确认；自定义群连消息键一并清）
     (curSec||settingsBody).appendChild(gcDataLink('删除全部聊天记录', '清空「' + curGroupName + '」的全部消息（不可恢复）', true, () => {
@@ -2721,12 +2725,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     });
   }
   // 群聊壁纸上传（同聊天设置：按物理像素上限压缩）
+  // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
   function pickGcWallpaper() {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
+    window.mochiFilePick({
+      id: 'mochi-gc-wallpaper-pick', accept: 'image/*',
+      onFiles: (files) => {
+      const f = files && files[0];
+      if (!f) { toast('没有取到图片，请再选一次'); return; }
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
@@ -2747,9 +2752,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         img.onerror = () => { toast('图片读取失败，请换一张'); };
         img.src = reader.result;
       };
+      reader.onerror = () => { toast('图片读取失败，请换一张'); };
       reader.readAsDataURL(f);
-    };
-    input.click();
+      }
+    });
   }
   // 气泡框大小（openTCPanel 预设 + 自定义，同聊天设置）
   function pickGcBubbleSize() {
@@ -2810,11 +2816,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       '<input class="tc-input" id="gc-font-name" placeholder="也可直接输入字体名，如 Microsoft YaHei"' + (cur && cur.indexOf('data:') !== 0 && cur.indexOf('http') !== 0 ? ' value="' + String(cur).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"' : '') + '></div>' +
       '<div class="mail-actions"><button class="cc-tool" id="gc-font-upload">上传字体</button><button class="cc-tool" id="gc-font-clear">恢复默认</button><button class="cc-tool" id="gc-font-ok">应用</button></div>');
     document.getElementById('gc-font-upload').addEventListener('click', () => {
-      const inp = document.createElement('input');
-      inp.type = 'file'; inp.accept = '.ttf,.otf,.woff,.woff2';
-      inp.onchange = () => {
-        const f = inp.files && inp.files[0];
-        if (!f) return;
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+      window.mochiFilePick({
+        id: 'mochi-gc-fontdlg-pick', accept: '.ttf,.otf,.woff,.woff2',
+        onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到字体文件，请再选一次'); return; }
         toast('正在读取字体文件…');
         const reader = new FileReader();
         reader.onload = () => {
@@ -2824,8 +2831,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         };
         reader.onerror = () => { toast('字体文件读取失败，请重试'); };
         reader.readAsDataURL(f);
-      };
-      inp.click();
+        }
+      });
     });
     document.getElementById('gc-font-clear').addEventListener('click', () => {
       gcBeautySet('font', '');
@@ -3122,19 +3129,19 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         wrap.appendChild(mkNote('群聊字体（边打边看，清空输入框即恢复默认）'));
         wrap.appendChild(finp);
         wrap.appendChild(mkAct('上传字体文件（ttf / otf / woff / woff2）', () => {
-          const inp = document.createElement('input');
-          inp.type = 'file';
-          inp.accept = '.ttf,.otf,.woff,.woff2';
-          inp.onchange = () => {
-            const f = inp.files && inp.files[0];
-            if (!f) return;
-            toast('正在读取字体文件…');
-            const reader = new FileReader();
-            reader.onload = () => { gcBeautySet('font', reader.result); toast('字体已应用到群聊页'); };
-            reader.onerror = () => { toast('字体文件读取失败，请重试'); };
-            reader.readAsDataURL(f);
-          };
-          inp.click();
+          // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+          window.mochiFilePick({
+            id: 'mochi-gc-font-pick', accept: '.ttf,.otf,.woff,.woff2',
+            onFiles: (files) => {
+              const f = files && files[0];
+              if (!f) { toast('没有取到字体文件，请再选一次'); return; }
+              toast('正在读取字体文件…');
+              const reader = new FileReader();
+              reader.onload = () => { gcBeautySet('font', reader.result); toast('字体已应用到群聊页'); };
+              reader.onerror = () => { toast('字体文件读取失败，请重试'); };
+              reader.readAsDataURL(f);
+            }
+          });
         }));
         const ta = document.createElement('textarea');
         ta.className = 'tc-input'; ta.rows = 3;
@@ -3830,9 +3837,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const fi = gcImgPicker();
     // 输入栏整段重建后按钮是新节点、label 层会丢 ⇒ 每次点按幂等补挂（只在缺失时补）
     try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
-    // 点击若来自原生 label，内核已自行打开选择器——跳过 JS click 防双开（#738 同口径）
-    if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
-    try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
+    // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 存在但不转发）时连 JS 兜底
+    // 一起跳过＝「插图片点了完全没反应」；改由 guard 事后确认真未弹出再补 click
+    var _fb = () => { try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+    if (window.mochiFilePickGuard) window.mochiFilePickGuard(fi, _fb);
+    else _fb();
   });
 
   // 点击面板背景关闭

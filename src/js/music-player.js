@@ -1199,12 +1199,15 @@
       resolveTargetPlSel('sm-local-pl', (pid) => {
         localPlId = pid || 'default';
         document.getElementById('tc-mask').hidden = true;
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = 'audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac';
-        inp.multiple = true;
-        inp.onchange = function () { if (this.files && this.files.length) uploadFiles(this.files); };
-        inp.click();
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到，
+      // #700 用户就报过多机型「导入一直不成功」——同一族病灶的音频面）
+      window.mochiFilePick({
+        id: 'mochi-music-local-pick', accept: 'audio/*,.mp3,.m4a,.aac,.ogg,.wav,.flac', multiple: true,
+        onFiles: (files) => {
+          if (!files.length) { toast('没有取到音频文件，请再选一次'); return; }
+          uploadFiles(files);
+        }
+      });
       });
     });
   }
@@ -1798,28 +1801,43 @@
     const covPrev = document.getElementById('sm-pe-cov-prev');
     const covUp = document.getElementById('sm-pe-cov-up');
     const covClear = document.getElementById('sm-pe-cov-clear');
-    const covInput = document.createElement('input');
-    covInput.type = 'file'; covInput.accept = 'image/*'; covInput.style.display = 'none';
-    document.body.appendChild(covInput);
-    covInput.onchange = function () {
-      const f = covInput.files && covInput.files[0];
-      covInput.value = '';
-      if (!f) return;
-      compressCover(f, function (dv) {
-        if (!dv) { toast('封面读取失败，请换一张图片'); return; }
-        pl.cover = dv;
-        savePlaylists(); renderPage();
-        covPrev.classList.add('has-cov');
-        covPrev.style.backgroundImage = 'url(\'' + dv + '\')';
-        covClear.hidden = false;
-        const cur = findTrack(currentId);
-        if (cur && cur.playlistId === pid && settings.widgetCoverMode === 'playlist') setWidgetCover(cur);
-        toast('歌单封面已设置');
+    // FIX 2026-09-18 #755：原实现 covInput 用 display:none（#717/#738 点名要消灭的写法，
+    // 部分内核对不可见 input 拒绝激活）＋无 label 兜底＋accept 迟到。改走统一入口：常驻
+    // sr-only clip input 挂 body、accept 前置；covUp / covPrev 两个按钮各接一层原生 label 激活。
+    const covPickOpts = {
+      id: 'mochi-pl-cover-pick', accept: 'image/*',
+      onFiles: function (files) {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        compressCover(f, function (dv) {
+          if (!dv) { toast('封面读取失败，请换一张图片'); return; }
+          pl.cover = dv;
+          savePlaylists(); renderPage();
+          covPrev.classList.add('has-cov');
+          covPrev.style.backgroundImage = 'url(\'' + dv + '\')';
+          covClear.hidden = false;
+          const cur = findTrack(currentId);
+          if (cur && cur.playlistId === pid && settings.widgetCoverMode === 'playlist') setWidgetCover(cur);
+          toast('歌单封面已设置');
+        });
+      }
+    };
+    // 先把常驻 input 建好（noClick：此时不激活，只登记回调与 label）
+    window.mochiFilePick({ id: 'mochi-pl-cover-pick', accept: 'image/*', noClick: true, onFiles: covPickOpts.onFiles });
+    const pickCover = () => { try { window.mochiFilePick(covPickOpts); } catch (e) {} };
+    const onPickBtn = (btn) => {
+      if (!btn) return;
+      if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, document.getElementById('mochi-pl-cover-pick'));
+      btn.addEventListener('click', (e) => {
+        // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 不转发）时连 JS 兜底也跳过
+        // ＝「换封面点了没反应」；改为 guard 事后确认未弹出再补激活
+        const _input = document.getElementById('mochi-pl-cover-pick');
+        if (_input && window.mochiFilePickGuard) window.mochiFilePickGuard(_input, pickCover);
+        else pickCover();
       });
     };
-    const pickCover = () => { try { covInput.click(); } catch (e) {} };
-    if (covUp) covUp.addEventListener('click', pickCover);
-    if (covPrev) covPrev.addEventListener('click', pickCover);
+    onPickBtn(covUp);
+    onPickBtn(covPrev);
     if (covClear) covClear.addEventListener('click', () => {
       pl.cover = '';
       savePlaylists(); renderPage();
@@ -3936,29 +3954,39 @@
     const covPrev = document.getElementById('sm-e-cov-prev');
     const covUp = document.getElementById('sm-e-cov-up');
     const covClear = document.getElementById('sm-e-cov-clear');
-    const covInput = document.createElement('input');
-    covInput.type = 'file';
-    covInput.accept = 'image/*';
-    covInput.style.display = 'none';
-    document.body.appendChild(covInput);
-    covInput.onchange = function () {
-      const f = covInput.files && covInput.files[0];
-      covInput.value = '';
-      if (!f) return;
-      compressCover(f, function (dv) {
-        if (!dv) { toast('封面读取失败，请换一张图片'); return; }
-        m.cover = dv;
-        saveLibrary();
-        renderPage();
-        covPrev.classList.add('has-cov');
-        covPrev.style.backgroundImage = 'url(\'' + dv + '\')';
-        covClear.hidden = false;
-        toast('封面已设置');
+    // FIX 2026-09-18 #755：同歌单封面——原实现 display:none 的 detached 单例＋无 label 兜底，
+    // 改走统一入口（常驻 sr-only clip + accept 前置 + 按钮原生 label 激活）。
+    const covPickOpts = {
+      id: 'mochi-track-cover-pick', accept: 'image/*',
+      onFiles: function (files) {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        compressCover(f, function (dv) {
+          if (!dv) { toast('封面读取失败，请换一张图片'); return; }
+          m.cover = dv;
+          saveLibrary();
+          renderPage();
+          covPrev.classList.add('has-cov');
+          covPrev.style.backgroundImage = 'url(\'' + dv + '\')';
+          covClear.hidden = false;
+          toast('封面已设置');
+        });
+      }
+    };
+    window.mochiFilePick({ id: 'mochi-track-cover-pick', accept: 'image/*', noClick: true, onFiles: covPickOpts.onFiles });
+    const pickCover = () => { try { window.mochiFilePick(covPickOpts); } catch (e) {} };
+    const onPickBtn = (btn) => {
+      if (!btn) return;
+      if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, document.getElementById('mochi-track-cover-pick'));
+      btn.addEventListener('click', (e) => {
+        // FIX 2026-09-18 #756：同歌单封面——国产内核 label 不转发时需 guard 补 JS click
+        const _input = document.getElementById('mochi-track-cover-pick');
+        if (_input && window.mochiFilePickGuard) window.mochiFilePickGuard(_input, pickCover);
+        else pickCover();
       });
     };
-    const pickCover = () => { try { covInput.click(); } catch (e) {} };
-    if (covUp) covUp.addEventListener('click', pickCover);
-    if (covPrev) covPrev.addEventListener('click', pickCover);
+    onPickBtn(covUp);
+    onPickBtn(covPrev);
     if (covClear) covClear.addEventListener('click', () => {
       m.cover = '';
       saveLibrary();

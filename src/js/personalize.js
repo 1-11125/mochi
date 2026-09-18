@@ -177,7 +177,8 @@
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(box, avatarPickInput);
     box.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
+      // ★ 先把回调武装好，再激活选择器（#756：兜底 click 会延后 60ms 触发，
+      //   若回调在激活之后才赋值，用户秒选文件时会拿到 null 回调＝存不上）
       avatarPickCb = (data) => {
         const ring = box.querySelector('.ring');
         // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
@@ -190,7 +191,12 @@
         }
         store.set(key, data);
       };
-      try { avatarPickInput.click(); } catch (err) { avatarPickCb = null; toast('无法打开相册，请重试'); }
+      // FIX 2026-09-18 #756：原 `if (fromLabel(e)) return;` 会在「label 存在但内核不转发」时
+      // 连 JS 兜底一起跳过＝彻底没反应（国产内核实况）。改为：label 只作加速路径，
+      // 由 mochiFilePickGuard 确认「确实没弹出」后补 JS click。
+      var _fallback = () => { try { avatarPickInput.click(); } catch (err) { avatarPickCb = null; toast('无法打开相册，请重试'); } };
+      if (window.mochiFilePickGuard) window.mochiFilePickGuard(avatarPickInput, _fallback);
+      else _fallback();
     });
   }
   bindAvatar('avatar-user', 'avatar-user');
@@ -326,7 +332,6 @@ try {
     const selectEl = document.getElementById('modal-select');
     const groupChipsEl = document.getElementById('modal-group-chips');
     const fileBtn = document.getElementById('modal-file');
-    const fileInput = document.getElementById('modal-file-input');
     const okBtn = document.getElementById('modal-ok');
     const cancelBtn = document.getElementById('modal-cancel');
     const copyBtn = document.getElementById('modal-copy');
@@ -494,9 +499,17 @@ try {
         }
       }
       // txt 文件导入
+      // FIX 2026-09-18 #755：原 #modal-file-input 写在 template.html 里带 style="display:none"
+      // （部分国产内核拒绝激活不可见 input）→ 收编进统一入口 window.mochiFilePick。
       if (fileBtn) {
         fileBtn.hidden = !opts.txtImport;
-        fileBtn.onclick = () => { if (fileInput) fileInput.click(); };
+        fileBtn.onclick = () => {
+          window.mochiFilePick({
+            id: 'dev-modal-file-pick',
+            accept: '.txt,.json,text/plain,application/json',
+            onFiles: (files) => readTxtInto(files && files[0])
+          });
+        };
       }
       // 色板
       swatches.hidden = !(opts.swatches && opts.swatches.length);
@@ -717,46 +730,45 @@ try {
       selectEl.addEventListener('change', () => { selectedGroup = selectEl.value || null; });
     }
     // txt 文件读取
-    if (fileInput) {
-      fileInput.addEventListener('change', () => {
-        const f = fileInput.files && fileInput.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          // v3.18.x：修复 txt 乱码——readAsText 默认按 UTF-8 解码，中文 txt 常为
-          // GBK/GB2312（ANSI）编码（Windows 记事本等保存），会被解成乱码。
-          // 改为读 ArrayBuffer 探测编码：能按 UTF-8 严格解（合法序列+自动去 BOM）就用 UTF-8，
-          // 解不了说明是 GBK 系，回退用 gb18030（GBK 超集）解码。
-          let txt = '';
-          try {
-            const buf = reader.result;
-            if (buf) {
+    // FIX 2026-09-18 #755：原监听挂在模板 input 上；收编后改由 readTxtInto(f) 承接，
+    // 编码探测/自动提交逻辑一字未动（仅入口从 change 事件换成 onFiles 回调）。
+    function readTxtInto(f) {
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        // v3.18.x：修复 txt 乱码——readAsText 默认按 UTF-8 解码，中文 txt 常为
+        // GBK/GB2312（ANSI）编码（Windows 记事本等保存），会被解成乱码。
+        // 改为读 ArrayBuffer 探测编码：能按 UTF-8 严格解（合法序列+自动去 BOM）就用 UTF-8，
+        // 解不了说明是 GBK 系，回退用 gb18030（GBK 超集）解码。
+        let txt = '';
+        try {
+          const buf = reader.result;
+          if (buf) {
+            try {
+              txt = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+            } catch (e) {
               try {
-                txt = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-              } catch (e) {
-                try {
-                  txt = new TextDecoder('gb18030').decode(buf);
-                } catch (e2) {
-                  txt = new TextDecoder('utf-8').decode(buf); // 兜底
-                }
+                txt = new TextDecoder('gb18030').decode(buf);
+              } catch (e2) {
+                txt = new TextDecoder('utf-8').decode(buf); // 兜底
               }
             }
-          } catch (e) { txt = String(reader.result || ''); }
-          if (textarea) textarea.value = txt;
-          // v3.27.x：文件导入直接生效——否则选完文件还需再点一次「确定」，
-          // 手机上用户以为选了文件就导入、没点确定，导致「导入了却没应用」。
-          // 仅 opts.txtImportAuto 的弹窗开启自动提交（opts 经 _modalOpts 引用，
-          // 直接引用函数参数 opts 会 ReferenceError，见 IIFE 顶部注释）。
-          // 直接 cb(txt) 而非 fire()：导入弹窗为 noInput（无输入框/textarea），
-          // fire() 的 noInput 分支会传 'ok' 导致 JSON 解析失败。
-          if (_modalOpts && _modalOpts.txtImportAuto) {
-            try { if (cb) cb(txt); } catch (e) {}
-            try { close(); } catch (e) {}
           }
-        };
-        reader.readAsArrayBuffer(f);
-        fileInput.value = '';
-      });
+        } catch (e) { txt = String(reader.result || ''); }
+        if (textarea) textarea.value = txt;
+        // v3.27.x：文件导入直接生效——否则选完文件还需再点一次「确定」，
+        // 手机上用户以为选了文件就导入、没点确定，导致「导入了却没应用」。
+        // 仅 opts.txtImportAuto 的弹窗开启自动提交（opts 经 _modalOpts 引用，
+        // 直接引用函数参数 opts 会 ReferenceError，见 IIFE 顶部注释）。
+        // 直接 cb(txt) 而非 fire()：导入弹窗为 noInput（无输入框/textarea），
+        // fire() 的 noInput 分支会传 'ok' 导致 JSON 解析失败。
+        if (_modalOpts && _modalOpts.txtImportAuto) {
+          try { if (cb) cb(txt); } catch (e) {}
+          try { close(); } catch (e) {}
+        }
+      };
+      reader.onerror = () => { try { window.toast && window.toast('文件读取失败'); } catch (e) {} };
+      reader.readAsArrayBuffer(f);
     }
     okBtn.addEventListener('click', () => {
       // v3.5.130：回调抛异常（如存储配额满）也必须关闭弹窗，防止残留卡死
@@ -1195,33 +1207,29 @@ try {
     upBtn.textContent = '＋ 上传新图（可多选）';
     upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
     upBtn.addEventListener('click', () => {
-      // input 现挂 body 再 click（v3.15.x 套路：未挂 DOM 的 input.click() 部分真机不弹选择器）
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-      input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-      document.body.appendChild(input);
-      input.onchange = () => {
-        const fs = Array.prototype.slice.call(input.files || []);
-        try { if (input.parentNode) input.remove(); } catch (e) {}
-        if (!fs.length) return;
-        let ok = 0;
-        toast('正在处理 ' + fs.length + ' 张图片…');
-        let chain = Promise.resolve();
-        fs.forEach((f) => {
-          chain = chain.then(() => new Promise((res) => {
-            const reader = new FileReader();
-            reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; res(); }); };
-            reader.onerror = () => res();
-            reader.readAsDataURL(f);
-          }));
-        });
-        chain.then(() => {
-          if (ok) toast('已加入 ' + ok + ' 张壁纸');
-          if (document.getElementById('phone-bg-gallery-panel') && document.getElementById('phone-bg-gallery-panel').style.display === 'flex') openPhoneBgPanel();
-        });
-      };
-      input.onblur = () => { setTimeout(() => { try { if (input.parentNode) input.remove(); } catch (e) {} }, 1500); };
-      try { input.click(); } catch (e) { try { input.remove(); } catch (e2) {} toast('无法打开相册，请重试'); }
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现虽挂 body，但 accept 迟到、无 label
+      // 原生激活兜底、每次点按 new 一个再 remove；vivo X200s/百度浏览器报「上传无反应」的同族面）
+      window.mochiFilePick({
+        id: 'mochi-phonebg-gallery-pick', accept: 'image/*', multiple: true, btn: upBtn,
+        onFiles: (fs) => {
+          if (!fs.length) { toast('没有取到图片，请再选一次'); return; }
+          let ok = 0;
+          toast('正在处理 ' + fs.length + ' 张图片…');
+          let chain = Promise.resolve();
+          fs.forEach((f) => {
+            chain = chain.then(() => new Promise((res) => {
+              const reader = new FileReader();
+              reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; res(); }); };
+              reader.onerror = () => res();
+              reader.readAsDataURL(f);
+            }));
+          });
+          chain.then(() => {
+            if (ok) toast('已加入 ' + ok + ' 张壁纸');
+            if (document.getElementById('phone-bg-gallery-panel') && document.getElementById('phone-bg-gallery-panel').style.display === 'flex') openPhoneBgPanel();
+          });
+        }
+      });
     });
     wrap.appendChild(upBtn);
     if (cur) {
@@ -1652,17 +1660,13 @@ try {
     const ico = app.querySelector('.app-ico');
     const hasCustom = !!store.get('app-icon-' + key);
     const pickFile = () => {
-      // v3.15.x：input 先挂 body 再 click——未挂 DOM 的 <input type=file>.click() 在
-      // 部分内核（iOS Safari / vivo Edge 等真机）不弹选择器（v3.8.x chatcard pickFiles
-      // 同款教训），选完/取消后移除防残留
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-      document.body.appendChild(input);
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        try { if (input.parentNode) input.remove(); } catch (e) {}
-        if (!f) { return; }
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现虽挂 body，但 accept 迟到、无 label
+      // 原生激活兜底、每次点按 new 一个再 remove——注意历史注释点名的「vivo Edge」正是本族机型）
+      window.mochiFilePick({
+        id: 'mochi-appicon-pick', accept: 'image/*',
+        onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
         const reader = new FileReader();
         // v3.2x.x：上传图片卡顿很久——解码全分辨率位图 + 压到 256px 在
         // 主线程同步执行，原图大时界面会卡死数秒且毫无反馈看起来像假死。
@@ -1689,9 +1693,8 @@ try {
           }, 80);
         };
         reader.readAsDataURL(f);
-      };
-      input.onblur = () => { setTimeout(() => { try { if (input.parentNode) input.remove(); } catch (e) {} }, 1500); };
-      try { input.click(); } catch (e) { try { input.remove(); } catch (e2) {} }
+        }
+      });
     };
     const moveApp = (dir) => {
       if (!grid) return;
@@ -2003,14 +2006,12 @@ try {
         return;
       }
       function startPick() {
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-        input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-        document.body.appendChild(input);
-        input.onchange = () => {
-          const fs = Array.prototype.slice.call(input.files || []);
-          try { if (input.parentNode) input.remove(); } catch (e) {}
-          if (!fs.length) return;
+        // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 accept 迟到＋无 label 兜底＋
+        // 每次点按 new 一个 input 再 remove；本族机型包括 vivo Edge）
+        window.mochiFilePick({
+          id: 'mochi-icon-batch-pick', accept: 'image/*', multiple: true,
+          onFiles: (fs) => {
+          if (!fs.length) { toast('没有取到图片，请再选一次'); return; }
           toast('正在处理 ' + fs.length + ' 张图片…');
           const imgs = [];
           let chain = Promise.resolve();
@@ -2033,9 +2034,8 @@ try {
             enterDecor();
             toast('已载入 ' + imgs.length + ' 张——到桌面按顺序点图标，每点一个换一张');
           });
-        };
-        input.onblur = () => { setTimeout(() => { try { if (input.parentNode) input.remove(); } catch (e) {} }, 1500); };
-        try { input.click(); } catch (e) { try { input.remove(); } catch (e2) {} toast('无法打开相册，请重试'); }
+          }
+        });
       }
       startPick();
     });
@@ -2128,8 +2128,15 @@ try {
       panelBody.appendChild(chipsRow);
       panelBody.appendChild(body);
       d.appendChild(panelBody);
+      // FIX #边看边调：一次会话内首次真正改动时快照一次，让「边看边调」也纳入撤销栈
+      // （此前只有设置页各行 pushBeautyUndo，抽屉里乱调无从撤销）。arm 后不再重复压栈。
+      let undoArmed = false;
+      const armUndo = () => { if (undoArmed) return; undoArmed = true; try { pushBeautyUndo(); } catch (e) {} };
       // 单行滑杆：标签 74px + 滑杆 + 数值 40px（比原「标签另起一行的竖排」省一半高度）
-      const mkSlider = (label, key, varName, min, max, step, unit, defVal, rawSet) => {
+      // apply(v)=纯视觉即时应用（不写库），persist(v)=落库；两者分离到 input/change 两个事件：
+      // 拖动过程每帧只跑廉价的 setProperty，localStorage 同步写只在松手（change）触发一次，
+      // 消除拖动掉帧（旧实现每个 input 事件都同步 store.set，一次拖动能数百次）。
+      const mkSlider = (label, key, varName, min, max, step, unit, defVal, apply, persist) => {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:8px';
         const lb = document.createElement('span');
@@ -2143,11 +2150,10 @@ try {
         const vv = document.createElement('span');
         vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
         vv.textContent = inp.value + unit;
-        inp.addEventListener('input', () => {
-          vv.textContent = inp.value + unit;
-          if (rawSet) rawSet(inp.value);
-          else { document.documentElement.style.setProperty(varName, inp.value + unit); store.set(key, inp.value); }
-        });
+        const doApply = apply || ((v) => { document.documentElement.style.setProperty(varName, v + unit); });
+        const doPersist = persist || ((v) => store.set(key, v));
+        inp.addEventListener('input', () => { vv.textContent = inp.value + unit; armUndo(); doApply(inp.value); });
+        inp.addEventListener('change', () => { doPersist(inp.value); });
         row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
         return row;
       };
@@ -2174,6 +2180,7 @@ try {
           sw.style.background = c || '#ffffff';
         };
         const curSet = (v) => {
+          armUndo();
           // FIX 2026-09-16 #562：可选 onSet——「主题色」走与设置页同一套 applier（同时写
           // --btn-bg/--btn-ink 与键），修「边看边调点主题色只有 --btn-bg 变、--btn-ink 不跟随」。
           if (onSet) { try { onSet(v); } catch (e) {} paint(); return; }
@@ -2257,26 +2264,26 @@ try {
           txBtn.addEventListener('click', () => { d.style.display = 'none'; try { enterDecor(); } catch (e) {} });
           wrap.appendChild(txBtn);
           wrap.appendChild(mkSlider('透明度', 'widget-opacity', '--widget-opacity', 40, 100, 5, '%', 100, (v) => {
-            const n = parseInt(v, 10) / 100;
-            document.documentElement.style.setProperty('--widget-opacity', String(n));
-            store.set('widget-opacity', String(Math.round(n * 100)));
+            applyWidgetOpacity(parseInt(v, 10)); // 复用设置页 applier：写 --widget-opacity + 同步标签
           }));
           return wrap;
         } },
         { key: 'size', label: '尺寸', build: () => {
           const wrap = document.createElement('div');
           wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
-          wrap.appendChild(mkSlider('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 1, 'px', 16));
-          wrap.appendChild(mkSlider('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 1, 'px', 18));
+          wrap.appendChild(mkSlider('组件圆角', 'desk-card-radius', '--desk-card-radius', 0, 30, 1, 'px', 20, (v) => {
+            applyCardRadius(parseInt(v, 10)); // 复用设置页 applier（写 var + 「默认」文案）
+          }, (v) => { const n = parseInt(v, 10); if (n === 20) store.remove('desk-card-radius'); else store.set('desk-card-radius', String(n)); }));
+          wrap.appendChild(mkSlider('图标圆角', 'ico-radius', '--app-ico-radius', 0, 30, 1, 'px', 18, (v) => {
+            applyIcoRadius(parseInt(v, 10));
+          }));
           if (zoomWorks) {
             wrap.appendChild(mkSlider('桌面字号', 'desk-font-size', '--desk-font-scale', 85, 120, 1, '%', 100, (v) => {
               document.documentElement.style.setProperty('--desk-font-scale', String(parseInt(v, 10) / 100));
-              store.set('desk-font-size', v);
               syncDeskZoomClass(); // #707：值≠1 才挂缩放类（见 applyDeskFontPct 同编号注释）
             }));
             wrap.appendChild(mkSlider('卡片大小', 'desk-card-scale', '--desk-card-scale', 80, 120, 1, '%', 100, (v) => {
               document.documentElement.style.setProperty('--desk-card-scale', String(parseInt(v, 10) / 100));
-              store.set('desk-card-scale', v);
               syncDeskZoomClass(); // #707
             }));
           } else {
@@ -2290,16 +2297,12 @@ try {
         { key: 'bg', label: '背景', build: () => {
           const wrap = document.createElement('div');
           wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
-          wrap.appendChild(mkSlider('背景模糊', 'bg-blur', '--bg-blur', 0, 20, 1, 'px', 0, (v) => {
-            const n = parseInt(v, 10);
-            document.documentElement.style.setProperty('--bg-blur', n + 'px');
-            if (n > 0) store.set('bg-blur', String(n)); else store.remove('bg-blur');
-          }));
-          wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--bg-mask-op', 0, 80, 5, '%', 0, (v) => {
-            const n = parseInt(v, 10);
-            document.documentElement.style.setProperty('--bg-mask-op', String(n / 100));
-            if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op');
-          }));
+          wrap.appendChild(mkSlider('背景模糊', 'bg-blur', '--desk-bg-blur', 0, 20, 1, 'px', 0, (v) => {
+            applyBgBlur(parseInt(v, 10)); // 写 --desk-bg-blur + toggle .desk-blur-on（旧代码写死变量名 --bg-blur 无人消费＝调了没反应）
+          }, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('bg-blur', String(n)); else store.remove('bg-blur'); }));
+          wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--desk-bg-mask-op', 0, 80, 5, '%', 0, (v) => {
+            applyBgMaskOp(parseInt(v, 10)); // 写 --desk-bg-mask-op（旧代码写死 --bg-mask-op 无人消费）
+          }, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op'); }));
           const bgBtn = document.createElement('button');
           bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
           bgBtn.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
@@ -4413,12 +4416,12 @@ try {
         '<div class="sm-fld" style="margin-top:10px"><label>其它桌面也要用这个字体？</label>' +
         '<button id="cs-font-sync" style="width:100%;padding:10px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:13px">同步到全部桌面</button></div>');
       document.getElementById('cs-font-upload').addEventListener('click', () => {
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = '.ttf,.otf,.woff,.woff2';
-        inp.onchange = () => {
-          const f = inp.files && inp.files[0];
-          if (!f) return;
+        // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+        window.mochiFilePick({
+          id: 'mochi-deskcs-font-pick', accept: '.ttf,.otf,.woff,.woff2',
+          onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) { toast('没有取到字体文件，请再选一次'); return; }
           toast('正在读取字体文件…');
           const reader = new FileReader();
           reader.onload = () => {
@@ -4431,8 +4434,8 @@ try {
           };
           reader.onerror = () => { toast('字体文件读取失败，请重试'); };
           reader.readAsDataURL(f);
-        };
-        inp.click();
+          }
+        });
       });
       document.getElementById('cs-font-sync').addEventListener('click', () => {
         if (window.csFontSyncAllDesks) window.csFontSyncAllDesks();
@@ -4881,27 +4884,29 @@ try {
     const img = store.get('card-bg-' + type);
 
     const widgetEl = anchorEl ? anchorEl.closest('[data-desk-widget]') : null;
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
     const pickFile = () => {
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          // v3.10.x：压缩并保证 <=450KB（渲染防护阈值 500KB 留余量）——超限自动降边长重压，
-          // 防止「设置成功、重启后被渲染防护跳过变白板」
-          compressImageFit(reader.result, 1000, 450 * 1024).then(data => {
-            if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-            store.set('card-bg-' + type, data);
-            applyCardBg(type);
-            syncCardBgUIs();
-            toast(name + '背景已设置');
-          });
-        };
-        reader.readAsDataURL(f);
-      };
-      input.click();
+      window.mochiFilePick({
+        id: 'mochi-card-bg-pick', accept: 'image/*',
+        onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) { toast('没有取到图片，请再选一次'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            // v3.10.x：压缩并保证 <=450KB（渲染防护阈值 500KB 留余量）——超限自动降边长重压，
+            // 防止「设置成功、重启后被渲染防护跳过变白板」
+            compressImageFit(reader.result, 1000, 450 * 1024).then(data => {
+              if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+              store.set('card-bg-' + type, data);
+              applyCardBg(type);
+              syncCardBgUIs();
+              toast(name + '背景已设置');
+            });
+          };
+          reader.onerror = () => toast('图片读取失败，请换一张再试');
+          reader.readAsDataURL(f);
+        }
+      });
     };
     const moveWidget = (dir) => {
       if (!widgetEl || !widgetEl.parentNode) return;
@@ -5209,6 +5214,14 @@ try {
         s.style.backgroundPosition = '';
       }
     }
+    // #754 桌面翻页卡顿（iPhone 15 Pro Max 实报：翻页 平均186ms / p90 719ms / 最慢3611ms，
+    // 长任务为零＝卡在合成/栅格层）：有整页背景图的桌面挂类，触屏设备据此把三页提升为
+    // 独立合成层——翻页只平移纹理，不再对整屏背景图逐帧重栅格化/重解码；与 #147 壁纸
+    // 「常驻图层纹理保持存活、不再反复解码」同源修法。读 DOM 实态自校正（页背景增删后
+    // 本函数必被调用），无整页背景图不挂类＝零额外显存。
+    var anyPageBg = false;
+    for (var j = 0; j < slides.length; j++) { if (slides[j] && slides[j].style.backgroundImage) { anyPageBg = true; break; } }
+    if (pagesBox.classList.contains('has-page-bg') !== anyPageBg) pagesBox.classList.toggle('has-page-bg', anyPageBg);
   };
   // FIX 2026-09-15 #495：deskLayout 定义自 4397 行处上移至此——冷启动 personalize.js 顶层
   // 4288 行同步调用 buildDeskPages()，其删页收缩分支（原 4104 行）调用 deskLayout() 时该
@@ -5368,26 +5381,28 @@ try {
       row.appendChild(ico); row.appendChild(txt); row.appendChild(val);
       row.addEventListener('click', () => {
         const bg = store.get('page-bg-' + i);
+        // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
         const pickPageBg = () => {
-          const input = document.createElement('input');
-          input.type = 'file'; input.accept = 'image/*';
-          input.onchange = () => {
-            const f = input.files && input.files[0];
-            if (!f) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-              // v3.10.x：压缩并保证 <=4.5MB（渲染防护 6MB 留余量），超限自动降边长重压
-              compressImageFit(reader.result, phoneBgMaxSide(), 4.5 * 1024 * 1024).then(data => {
-                if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-                store.set('page-bg-' + i, data);
-                buildDeskPages();
-                syncRowUI();
-                toast((i === 0 ? '首页' : '第 ' + (i + 1) + ' 页') + '背景已设置');
-              });
-            };
-            reader.readAsDataURL(f);
-          };
-          input.click();
+          window.mochiFilePick({
+            id: 'mochi-page-bg-pick', accept: 'image/*',
+            onFiles: (files) => {
+              const f = files && files[0];
+              if (!f) { toast('没有取到图片，请再选一次'); return; }
+              const reader = new FileReader();
+              reader.onload = () => {
+                // v3.10.x：压缩并保证 <=4.5MB（渲染防护 6MB 留余量），超限自动降边长重压
+                compressImageFit(reader.result, phoneBgMaxSide(), 4.5 * 1024 * 1024).then(data => {
+                  if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+                  store.set('page-bg-' + i, data);
+                  buildDeskPages();
+                  syncRowUI();
+                  toast((i === 0 ? '首页' : '第 ' + (i + 1) + ' 页') + '背景已设置');
+                });
+              };
+              reader.onerror = () => toast('图片读取失败，请换一张再试');
+              reader.readAsDataURL(f);
+            }
+          });
         };
         if (bg && window.openModal) {
           window.openModal((i === 0 ? '首页' : '第 ' + (i + 1) + ' 页') + '背景图', '', (v) => {
@@ -6350,51 +6365,55 @@ try {
     renderDeskImages();
     toast(dir === 'up' ? '已上移' : '已下移');
   }
-  // 上传新图片到指定页
+  // 上传新图片到指定页（FIX 2026-09-18 #755：统一走 window.mochiFilePick，原实现 detached＋无 label）
   function addDeskImage(pageIdx) {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        compressImage(reader.result, 1280).then(data => {
-          if (!data) { toast('图片过大或格式不支持，请换一张'); return; }
-          const id = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-          const meta = loadDeskImagesMeta();
-          meta.push({ id: id, page: pageIdx, addedAt: Date.now() });
-          saveDeskImagesMeta(meta);
-          const srcKey = window.activePrefix() + ':desk-image-src-' + id;
-          if (window.idbSet) window.idbSet(srcKey, data); else store.set('desk-image-src-' + id, data);
-          renderDeskImages();
-          toast('已添加图片');
-        });
-      };
-      reader.readAsDataURL(f);
-    };
-    input.click();
+    window.mochiFilePick({
+      id: 'mochi-desk-img-add-pick', accept: 'image/*',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          compressImage(reader.result, 1280).then(data => {
+            if (!data) { toast('图片过大或格式不支持，请换一张'); return; }
+            const id = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            const meta = loadDeskImagesMeta();
+            meta.push({ id: id, page: pageIdx, addedAt: Date.now() });
+            saveDeskImagesMeta(meta);
+            const srcKey = window.activePrefix() + ':desk-image-src-' + id;
+            if (window.idbSet) window.idbSet(srcKey, data); else store.set('desk-image-src-' + id, data);
+            renderDeskImages();
+            toast('已添加图片');
+          });
+        };
+        reader.onerror = () => toast('图片读取失败，请换一张再试');
+        reader.readAsDataURL(f);
+      }
+    });
   }
-  // 换图
+  // FIX 2026-09-18 #755：原实现点击时现场 new input 且**从不挂文档**（#677 判据）＋无 label 兜底
+  // ＋accept 迟到——vivo X200s/百度浏览器（T7 内核）报「上传无反应」的同族面。统一走
+  // window.mochiFilePick（常驻挂文档 + accept 前置 + label 激活 + 最后 click）。
   function changeDeskImage(id) {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        compressImage(reader.result, 1280).then(data => {
-          if (!data) { toast('图片过大或格式不支持'); return; }
-          const srcKey = window.activePrefix() + ':desk-image-src-' + id;
-          if (window.idbSet) window.idbSet(srcKey, data); else store.set('desk-image-src-' + id, data);
-          renderDeskImages();
-          toast('已更换图片');
-        });
-      };
-      reader.readAsDataURL(f);
-    };
-    input.click();
+    window.mochiFilePick({
+      id: 'mochi-desk-img-pick', accept: 'image/*',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          compressImage(reader.result, 1280).then(data => {
+            if (!data) { toast('图片过大或格式不支持'); return; }
+            const srcKey = window.activePrefix() + ':desk-image-src-' + id;
+            if (window.idbSet) window.idbSet(srcKey, data); else store.set('desk-image-src-' + id, data);
+            renderDeskImages();
+            toast('已更换图片');
+          });
+        };
+        reader.onerror = () => toast('图片读取失败，请换一张再试');
+        reader.readAsDataURL(f);
+      }
+    });
   }
   // 删除图片组件
   function removeDeskImage(id) {

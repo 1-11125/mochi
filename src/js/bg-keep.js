@@ -92,12 +92,12 @@
     toast('已恢复默认静音音频');
   }
   function kaPickCustomAudio() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = function () {
-      const f = input.files && input.files[0];
-      if (!f) return;
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+    window.mochiFilePick({
+      id: 'mochi-ka-audio-pick', accept: 'audio/*',
+      onFiles: function (files) {
+      const f = files && files[0];
+      if (!f) { toast('没有取到音频，请再选一次'); return; }
       if (f.size > 3 * 1024 * 1024) toast('音频较大（>3MB），可能占用较多存储空间');
       toast('正在读取音频…');
       const r = new FileReader();
@@ -118,8 +118,8 @@
       };
       r.onerror = function () { toast('音频读取失败'); };
       r.readAsDataURL(f);
-    };
-    input.click();
+      }
+    });
   }
   function openKaAudioPicker() {
     if (!window.openModal) return;

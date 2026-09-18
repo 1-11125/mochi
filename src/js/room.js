@@ -33,7 +33,7 @@
     // 与机型无关、只与时段和是否点灯有关）。「夜晚更暗」由既有 .night 分层调暗
     // （.r-wall .52 / .r-floor .55）表达；场景层只承担点灯增亮：每盏亮灯 +0.12，封顶 1.3。
     let v = 1;
-    Object.keys(d.lit).forEach(k => { if (d.lit[k]) v += 0.12; });
+    d.fx.forEach(it => { if (d.lit[it.i]) v += 0.12; });
     return Math.min(1.3, v);
   }
   let toastT = null;
@@ -65,15 +65,28 @@
     senseFar: ['好像有一点熟悉的感觉。', '说不上来。……但在。', '很远。但没有离开。'],
     senseNone: ['没有人。', '感觉不到。', '……很安静。']
   };
+  // FIX 2026-09-18 #759：字卡库【房间】tab 的分组名是中文（DEFAULT_CARD_DATA.room），FB 的键是
+  // 英文。此前 sayLine 把 CAT[*].grp（='beside'/'furnuse'/'water'…）直接当分组名传给
+  // getLibPool('room', 分组)，库里查无此组 ⇒ 家具类话术从头到尾只落到 FB 那 3~5 句内置短句，
+  // 库内 60+ 句一次没出现过，且用户逐张开关（dc-off-room:*，键是库内文案）对家具完全无效。
+  // 现在统一经这张表换算；已是中文分组名的调用方原样透传（表里没有对应英文键）。
+  const GRP = {
+    enter: '进门', greet: '打招呼', near: '靠近', beside: '坐到旁边', look: '看TA',
+    occupied: 'TA的反应', comeover: 'TA的反应', lamp: '家具互动', furnuse: '家具互动',
+    windowl: '窗边', night: '夜晚', water: '浇水', wish: '许愿', music: '音乐', tea: '热茶',
+    senseNear: '方位感知', senseFar: '方位感知', senseNone: '方位感知'
+  };
   function sayLine(group, fallbackKey, noFit) {
     // v3.32.x #132：房间字卡概率接 dcf-room（默认 100=点击必有回应，0=点击不出字卡）
     try { if (window.dcfGet && !(Math.random() * 100 < window.dcfGet('room'))) return ''; } catch (e) {}
     let arr = null;
-    try { arr = window.getLibPool ? window.getLibPool('room', group, FB[fallbackKey] || []) : null; } catch (e) {}
+    try { arr = window.getLibPool ? window.getLibPool('room', GRP[group] || group, FB[fallbackKey] || []) : null; } catch (e) {}
     if (!arr || !arr.length) arr = FB[fallbackKey] || [];
     else {
       try { if (window.isDefaultCardOff) { const f = arr.filter(c => !window.isDefaultCardOff('room', c)); if (f.length) arr = f; } } catch (e) {}
     }
+    // 池与兜底同时为空（分组不存在 + FB 无该键）时不出声：rnd([]) 会把字面量 "undefined" 吐进气泡
+    if (!arr.length) return '';
     let t = String(rnd(arr)).replace(/\{n\}/g, pn());
     if (!noFit) { try { if (window.taFit) t = window.taFit(t); } catch (e) {} }
     return t;
@@ -149,6 +162,16 @@
     o.fx = o.fx.filter(it => it && it.i && CAT[it.t] && it.x >= 0 && it.x < COLS && it.y >= 0 && it.y < ROWS);
     const seen = {};
     o.fx = o.fx.filter(it => { if (seen[it.i]) return false; seen[it.i] = 1; return true; });
+    // FIX 2026-09-18 #759：旧档灯光迁移——d.lit 曾按「家具类型」记（desklamp/candle…），现按
+    // 「在场实例 id」记（同种两盏可一开一关、收回即清）。键不是任何实例 id ⇒ 判定为旧档类型键：
+    // 亮着则搬到该类型第一件在场家具上，场上已无该类型家具的残键直接丢弃（原本就该丢）。
+    Object.keys(o.lit).forEach(k => {
+      if (o.fx.some(f => f.i === k)) return;
+      const wasOn = o.lit[k];
+      delete o.lit[k];
+      const first = wasOn && o.fx.find(f => f.t === k);
+      if (first) o.lit[first.i] = true;
+    });
   }
   function load() {
     try {
@@ -303,7 +326,7 @@
     d.fx.forEach(it => {
       const c = CAT[it.t]; if (!c) return;
       const el = document.createElement('div');
-      el.className = 'r-furn' + (it.r ? ' r-flip' : '') + (d.lit[it.t] ? ' r-lit' : '') + (c.flk ? ' r-flkc' : '');
+      el.className = 'r-furn' + (it.r ? ' r-flip' : '') + (d.lit[it.i] ? ' r-lit' : '') + (c.flk ? ' r-flkc' : '');
       const p = pctPos(it.x, it.y);
       el.style.left = p.l + '%'; el.style.top = p.t + '%';
       if (it.t === 'vase' && d.vaseFlower) el.innerHTML = c.e + '<u class="r-bloom">🌸</u>';
@@ -311,7 +334,7 @@
       el.dataset.i = it.i;
       floorEl.appendChild(el);
       // 点亮的灯在地板投一滩暖光（蜡烛/星星灯带火苗闪烁）
-      if (d.lit[it.t]) {
+      if (d.lit[it.i]) {
         const pool = document.createElement('div');
         pool.className = 'r-pool' + (c.flk ? ' r-pool-f' : '');
         pool.style.left = p.l + '%'; pool.style.top = (p.t + 4.2) + '%';
@@ -365,12 +388,16 @@
       : (pn() + ' 正在' + actLabel() + '。');
   }
   let bubT = null;
-  function bubble(t) {
+  // FIX 2026-09-18 #759：双段话术的时序常量。首条气泡原为固定 3800ms，而补话都排在 900~1300ms
+  // 且带「上一条还挂着就让路」的守卫 ⇒ 守卫必命中，点灯/关灯/夜里点窗的第二句从未播出过。
+  // 现在首条短驻留（BUB_SHORT），补话时刻排在其后（BUB_AGAIN），守卫恢复成有意义的让路判断。
+  const BUB_SHORT = 2100, BUB_AGAIN = 2250;
+  function bubble(t, ms) {
     if (!t) return; // v3.32.x #132：sayLine 概率门控关断时返回空串，不出空气泡
     bubbleEl.textContent = t;
     bubbleEl.hidden = false;
     bubbleEl.classList.remove('pop'); void bubbleEl.offsetWidth; bubbleEl.classList.add('pop');
-    clearTimeout(bubT); bubT = setTimeout(() => { bubbleEl.hidden = true; }, 3800);
+    clearTimeout(bubT); bubT = setTimeout(() => { bubbleEl.hidden = true; }, ms || 3800);
   }
   function updHud() {
     $id('room-chip-lv').textContent = '🏡 Lv.' + d.lv;
@@ -497,9 +524,10 @@
   function useFurniture(inst) {
     const c = CAT[inst.t];
     if (c.lamp) {
-      const on = !d.lit[inst.t];
-      d.lit[inst.t] = on; save(); renderScene();
-      bubble(on ? (isNight() ? '灯亮起来了，房间一下子软了。' : '亮着也很好看。') : '关掉灯，安静了一会儿。');
+      const on = !d.lit[inst.i];
+      if (on) d.lit[inst.i] = true; else delete d.lit[inst.i]; // 关灯即删键：lit 表里只留在场且亮着的灯
+      save(); renderScene();
+      bubble(on ? (isNight() ? '灯亮起来了，房间一下子软了。' : '亮着也很好看。') : '关掉灯，安静了一会儿。', BUB_SHORT);
       gainPts(1, 'n'); vib(15);
       if (on) lampFeedback(inst, on); else lampOffFeedback(inst);
       return;
@@ -511,9 +539,9 @@
       return;
     }
     const taHere = d.ta.x === inst.x && d.ta.y === inst.y;
-    bubble(sayLine(c.grp, c.grp));
-    if (taHere && !d.ta.faint) setTimeout(() => bubble(sayLine(c.grp, 'occupied')), 1100);
-    else if (Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y) <= 1.6 && Math.random() < 0.45) setTimeout(() => bubble(sayLine(c.grp, 'comeover')), 1100);
+    bubble(sayLine(c.grp, c.grp), BUB_SHORT);
+    if (taHere && !d.ta.faint) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(sayLine('occupied', 'occupied')); }, BUB_AGAIN);
+    else if (Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y) <= 1.6 && Math.random() < 0.45) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(sayLine('comeover', 'comeover')); }, BUB_AGAIN);
     if (inst.t === 'kettle' && Math.random() < 0.5) { d.ta.tx = inst.x; d.ta.ty = Math.min(ROWS - 1, inst.y + 1); }
     gainPts(1, 'n'); vib(12);
   }
@@ -521,8 +549,8 @@
   function lampFeedback(inst, on) {
     if (!on) return;
     const c = CAT[inst.t];
-    const g = c.grp === 'night' ? '夜晚' : (c.grp === 'wish' ? '许愿' : '灯亮');
-    const line = sayLine(g, '灯亮');
+    const g = c.grp === 'night' ? 'night' : (c.grp === 'wish' ? 'wish' : 'lamp');
+    const line = sayLine(g, g);
     const dist = Math.hypot(d.ta.x - inst.x, d.ta.y - inst.y);
     const near = dist <= 1.6, chance = near ? 0.8 : 0.45;
     if (Math.random() < chance && line) {
@@ -532,15 +560,15 @@
         d.ta.nextAt = Date.now() + ri(22, 40) * 1000;
         save(); renderTa(); renderStatus();
       }
-      setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, near ? 900 : 1300);
+      setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, near ? BUB_AGAIN : BUB_AGAIN + 400);
     }
   }
   // 关灯反馈：TA 已在屋内有小概率回应一句
   function lampOffFeedback(inst) {
     const c = CAT[inst.t];
     if (c.grp === 'wish' || isNight() || Math.random() >= 0.35) return;
-    const line = sayLine('灯亮', '灯亮');
-    if (line) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, 1100);
+    const line = sayLine('lamp', 'lamp');
+    if (line) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(line); }, BUB_AGAIN);
   }
   function furnMenu(inst) {
     const c = CAT[inst.t];
@@ -558,6 +586,7 @@
       else if (v === 'back') {
         d.fx = d.fx.filter(x => x.i !== inst.i);
         d.inv[inst.t] = (d.inv[inst.t] || 0) + 1;
+        delete d.lit[inst.i]; // 收回即清灯光态：残键会让 lum() 按「不存在的灯」继续增亮
         if (d.ta.x === inst.x && d.ta.y === inst.y) { d.ta.tx = ri(0, COLS - 1); d.ta.ty = ri(0, ROWS - 1); }
         checkLevel(); save(); renderScene(); updHud();
         toast('已收回仓库：' + c.n);
@@ -799,8 +828,9 @@
       if (e.target.closest('#room-ta')) { taMenu(); return; }
       if (e.target.closest('.r-window')) {
         const w = weather();
-        bubble((isNight() ? '🌙 ' : w.i + ' ') + sayLine('窗边', 'windowl'));
-        if (isNight()) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(sayLine('夜晚', 'night')); }, 1200);
+        const wl = sayLine('窗边', 'windowl');
+        if (wl) bubble((isNight() ? '🌙 ' : w.i + ' ') + wl, BUB_SHORT);
+        if (isNight()) setTimeout(() => { if (!bubbleEl.hidden) return; bubble(sayLine('夜晚', 'night')); }, BUB_AGAIN);
         gainPts(1, 'n'); vib(10);
         return;
       }

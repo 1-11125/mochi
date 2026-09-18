@@ -405,23 +405,42 @@
         results[m] = shuffled.slice(0, Math.min(n, shuffled.length)).join('、');
       });
       const resultStr = selectedMembers.map(m => m + '：' + results[m]).join('\n');
+      // FIX 2026-09-18 #745 出答案卡顿（同 decision.js 口径）：答案渲染与重活拆两拍——历史全量重写
+      // （≤1000 条 parse+stringify+同步 setItem）＋聊天投递（addRec/gcSendDecisionText 级联
+      // schedulePersist：gcMsgsBytes 全量遍历 + 快照/整包 stringify，大记录桌面主线程秒级冻结）
+      // 让路到空闲拍（最迟 600ms 补完）；拍间切桌面则放弃写入（沿用原 cid 守卫口径）。
       resultEl.textContent = resultStr;
       resultEl.classList.add('done');
-      // 历史记录（全部保存）
-      const h = loadHistory();
-      h.unshift({ id: 'gd_' + Date.now(), type: type, question: question, members: selectedMembers, results: results, options: options, ts: Date.now() });
-      if (h.length > 1000) h.splice(1000);
-      saveHistory(h);
-      // 发送结果：从群聊打开→发到群聊（系统消息，逐成员一行）；聊天页打开→发到聊天
-      if (loadSettings().replyToChat) {
-        const lines = selectedMembers.map(m => '【' + m + '】' + results[m]);
-        const replyText = type === 'typeb' && options
-          ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
-          : '【多人决定】' + question + '\n' + lines.join('\n');
-        if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-        else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
-      }
-      toast('多人决定已完成');
+      const gdSettle = () => {
+        if ((window.__activeCid || 'default') !== myCid) return;
+        // 历史记录（全部保存）
+        const h = loadHistory();
+        h.unshift({ id: 'gd_' + Date.now(), type: type, question: question, members: selectedMembers, results: results, options: options, ts: Date.now() });
+        if (h.length > 1000) h.splice(1000);
+        saveHistory(h);
+        // 发送结果：从群聊打开→发到群聊（系统消息，逐成员一行）；聊天页打开→发到聊天
+        if (loadSettings().replyToChat) {
+          const lines = selectedMembers.map(m => '【' + m + '】' + results[m]);
+          const replyText = type === 'typeb' && options
+            ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
+            : '【多人决定】' + question + '\n' + lines.join('\n');
+          if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
+          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
+        }
+        toast('多人决定已完成');
+      };
+      // #745：重活让路——空闲拍执行（真机忙时顺延到 idle，不跟答案渲染抢拍）；80ms 定时器兜底
+      // （无头/idle 饥饿下保证投递上限），先到先得互斥。
+      let gdSettled = false;
+      const gdRunSettle = () => {
+        if (gdSettled) return;
+        gdSettled = true;
+        try { if (gdIdleId && window.cancelIdleCallback) window.cancelIdleCallback(gdIdleId); } catch (e) {}
+        clearTimeout(gdSettleT);
+        gdSettle();
+      };
+      let gdIdleId = window.requestIdleCallback ? window.requestIdleCallback(gdRunSettle, { timeout: 600 }) : 0;
+      const gdSettleT = setTimeout(gdRunSettle, 80);
     }, thinkTime * 1000);
   }
 

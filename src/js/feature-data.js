@@ -470,15 +470,15 @@
     });
   }
   function pickFile(f, cb) {
-    var input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.onchange = function () {
-      var file = input.files && input.files[0];
-      if (!file) return;
-      importFromFile(f, file, cb);
-    };
-    input.click();
+    // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+    window.mochiFilePick({
+      id: 'mochi-featuredata-import-pick', accept: '.json,application/json',
+      onFiles: function (files) {
+        var file = files && files[0];
+        if (!file) { try { toast('没有取到文件，请再选一次'); } catch (e) {} return; }
+        importFromFile(f, file, cb);
+      }
+    });
   }
 
   // ================= #679 各功能页内操作（数据卡按钮） =================

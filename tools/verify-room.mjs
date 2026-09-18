@@ -112,6 +112,30 @@ async function readyPage() {
   const built = readFileSync(join(root, 'index.html'), 'utf8');
   check('A9 v2 新墙纸主题（暮色/奶油条纹/棋盘砖）已入产物', built.includes('.wall-dusk') && built.includes('.wall-stripe') && built.includes('.wall-checkerw'));
   check('A10 prefers-reduced-motion 减弱动效已入产物', built.includes('prefers-reduced-motion'));
+
+  // A11/A12 #759 字卡分组接线（结构性防回归）：CAT 用的 grp → GRP 映射 → 字卡库真实分组名
+  {
+    const roomJs = readFileSync(join(root, 'src/js/room.js'), 'utf8');
+    const cardData = readFileSync(join(root, 'src/js/default-cards-data.js'), 'utf8');
+    const block = (src, head) => (src.match(new RegExp(head + '\\s*=\\s*\\{([\\s\\S]*?)\\n  \\};')) || [])[1] || '';
+    const grpMap = {};
+    [...block(roomJs, 'const GRP').matchAll(/(\w+)\s*:\s*'([^']+)'/g)].forEach(m => { grpMap[m[1]] = m[2]; });
+    const fbKeys = new Set([...block(roomJs, 'const FB').matchAll(/^\s{4}(\w+)\s*:/gm)].map(m => m[1]));
+    const catBlock = block(roomJs, 'const CAT');
+    const catGrps = new Set([...catBlock.matchAll(/grp:\s*'([^']+)'/g)].map(m => m[1]));
+    // 代码里直接以字面量传给 sayLine 的英文分组键（occupied / comeover / lamp）
+    const litGrps = new Set([...roomJs.matchAll(/sayLine\('([a-z][a-zA-Z]*)'/g)].map(m => m[1]));
+    const used = new Set([...catGrps, ...litGrps]);
+    const libRoom = (cardData.match(/window\.DEFAULT_CARD_DATA\.room = \[([\s\S]*?)\n\];/) || [])[1] || '';
+    const libGroups = new Set([...libRoom.matchAll(/^\s*\["([^"]+)",\s*\[/gm)].map(m => m[1]));
+    const noMap = [...used].filter(k => !grpMap[k]);
+    const ghostGroup = [...used].filter(k => grpMap[k] && !libGroups.has(grpMap[k]));
+    const noFb = [...used].filter(k => !fbKeys.has(k));
+    check('A11 CAT/sayLine 用到的每个分组键都登记进 GRP 且有 FB 兜底', used.size > 0 && !noMap.length && !noFb.length,
+      'used=' + used.size + ' 未映射=' + noMap.join(',') + ' 无兜底=' + noFb.join(','));
+    check('A12 GRP 映射到的分组名在字卡库【房间】里真实存在（库里改名/漏登记即红）', !ghostGroup.length && libGroups.size >= 12,
+      '库内分组=' + libGroups.size + ' 查无此组=' + ghostGroup.map(k => k + '→' + grpMap[k]).join(','));
+  }
 }
 
 // ================= B 组：无头运行时 =================
@@ -224,7 +248,7 @@ try { const o = JSON.parse(eng); engOk = !!(o.re && o.act); engDetail = eng; } c
 check('B21 冷却到期 TA 自主重抽行为', engOk, engDetail);
 
 // ---- v2 UI 升级项：光斑/插花徽章/入场动画/放置高亮/长按拖拽 ----
-await evalJs("(function(){window.closeRoom();var cid=window.__activeCid||'default';var dt=new Date();var tk=dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();var d={fx:[{i:'a1',t:'desklamp',x:2,y:1,r:0},{i:'a2',t:'vase',x:4,y:2,r:0}],inv:{},pts:20,lv:3,wall:'dusk',floor:'wood',day:tk,lit:{desklamp:true},vaseFlower:true,earn:{day:tk,n:0,ta:0},ta:{x:0,y:3,act:'idle',tx:0,ty:3,faint:false,nextAt:Date.now()+60000}};window.storeFor(cid).set('room-data',JSON.stringify(d));window.openRoom();return true;})()");
+await evalJs("(function(){window.closeRoom();var cid=window.__activeCid||'default';var dt=new Date();var tk=dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();var d={fx:[{i:'a1',t:'desklamp',x:2,y:1,r:0},{i:'a2',t:'vase',x:4,y:2,r:0}],inv:{},pts:20,lv:3,wall:'dusk',floor:'wood',day:tk,lit:{a1:true},vaseFlower:true,earn:{day:tk,n:0,ta:0},ta:{x:0,y:3,act:'idle',tx:0,ty:3,faint:false,nextAt:Date.now()+60000}};window.storeFor(cid).set('room-data',JSON.stringify(d));window.openRoom();return true;})()");
 await sleep(550);
 check('B22 点亮的灯在地板投暖光斑（.r-pool×1）', await evalJs("document.querySelectorAll('#room-floor .r-pool').length===1"));
 check('B23 花瓶插花徽章（花园联动 🌸）', await evalJs("!!document.querySelector('#room-floor .r-bloom')"));
@@ -252,6 +276,100 @@ const dragRes = await evalJs("(async function(){var cid=window.__activeCid||'def
 let dragOk = false;
 try { const o = JSON.parse(dragRes); dragOk = o.to === '5,3' && o.from !== '5,3'; } catch (e) {}
 check('B26 长按家具拖拽换格（pointer 序列）', dragOk, dragRes);
+
+// ================= C 组：#759 修复取证（字卡分组接线 / 双段气泡 / 灯光按实例） =================
+async function openWith(o) {
+  await evalJs("(function(){window.closeRoom();return true;})()");
+  await setRoom(JSON.stringify(o));
+  await evalJs("(function(){window.openRoom();return true;})()");
+  await sleep(650);
+}
+function baseRoom(fx, extra) {
+  const dt = new Date();
+  const tk = dt.getFullYear() + '-' + (dt.getMonth() + 1) + '-' + dt.getDate();
+  return Object.assign({
+    fx: fx, inv: {}, pts: 30, lv: 3, wall: 'cream', floor: 'wood', day: tk, lit: {},
+    earn: { day: tk, n: 0, ta: 0 }, ta: { x: 0, y: 3, act: 'idle', tx: 0, ty: 3, faint: false, nextAt: Date.now() + 900000 }
+  }, extra || {});
+}
+async function readBub() {
+  return evalJs("(function(){var b=document.getElementById('room-bubble');return JSON.stringify({h:!!b.hidden,t:b.textContent||''});})()");
+}
+async function furnAct(instId, pillIdx) {
+  const c = await evalJs("(function(){var el=document.querySelector('#room-floor .r-furn[data-i=\"" + instId + "\"]');if(!el)return 'nofurn';el.click();return 'ok';})()");
+  if (c !== 'ok') return c;
+  await sleep(430);
+  const r = await evalJs("(function(){var ps=document.querySelectorAll('#modal-pills .pill');var p=ps[" + pillIdx + "];if(!p)return 'nopill';p.click();document.getElementById('modal-ok').click();return 'used';})()");
+  await sleep(120);
+  return r;
+}
+
+// C1 点沙发「坐下」：气泡必须是字卡库【坐到旁边】里的原句
+//     取证手法＝把该组除一张以外的全部逐张关掉（dc-off-room:*），剩下的那张就是唯一答案；
+//     修复前分组名传的是英文键 → 库里查不到 → 出的是 FB.beside 内置短句 → 与 target 不等 → RED。
+await openWith(baseRoom([{ i: 's1', t: 'sofa', x: 2, y: 1, r: 0 }]));
+const target = await evalJs("(function(){try{var s=window.storeFor(window.__activeCid||'default');var p=window.getLibPool('room','坐到旁边',[]);var t=null;for(var i=0;i<p.length;i++){if(!/他|TA|\\{n\\}/.test(p[i])){t=p[i];break;}}if(!t)return 'nopick';for(var j=0;j<p.length;j++){if(p[j]!==t)s.set('dc-off-room:'+p[j],'1');}return t;}catch(e){return 'err:'+e.message;}})()");
+const c1act = await furnAct('s1', 0);
+const c1bub = JSON.parse(await readBub() || '{}');
+check('C1 点家具冒出的话术来自字卡库池（关掉其余卡后＝唯一那张原句）',
+  typeof target === 'string' && target !== 'nopick' && c1act === 'used' && c1bub.t === target,
+  'target=' + target + ' got=' + (c1bub && c1bub.t) + ' act=' + c1act);
+const c1noUndef = await evalJs("(function(){return document.getElementById('room-bubble').textContent.indexOf('undefined')<0;})()");
+check('C1b 气泡不出现字面量 undefined', c1noUndef === true);
+await evalJs("(function(){var s=window.storeFor(window.__activeCid||'default');var p=window.getLibPool('room','坐到旁边',[]);for(var i=0;i<p.length;i++)s.remove('dc-off-room:'+p[i]);return true;})()");
+await sleep(150);
+
+// C2 库内整组关掉仍要出声（既不出空气泡也不出 undefined）
+//     注：现实现「全关」时复用的是已关的库内池而非 FB 兜底（`if (f.length) arr = f`），
+//     与文件头注释写的「全关回退内置兜底」不符——本条只断言"仍出声"，不锁定是哪一份文案。
+const c2offAll = await evalJs("(function(){var s=window.storeFor(window.__activeCid||'default');var p=window.getLibPool('room','坐到旁边',[]);for(var i=0;i<p.length;i++)s.set('dc-off-room:'+p[i],'1');return p.length;})()");
+await furnAct('s1', 0);
+const c2bub = JSON.parse(await readBub() || '{}');
+check('C2 库内整组关掉仍出声（不出空气泡／不出 undefined）', c2offAll > 0 && !!c2bub.t && !c2bub.h && c2bub.t !== 'undefined',
+  c2bub && c2bub.t);
+await evalJs("(function(){var s=window.storeFor(window.__activeCid||'default');var p=window.getLibPool('room','坐到旁边',[]);for(var i=0;i<p.length;i++)s.remove('dc-off-room:'+p[i]);return true;})()");
+await sleep(150);
+
+// C3 同种两盏灯各自独立开关（修复前 lit 按类型记＝一盏亮两盏一起亮）
+await openWith(baseRoom([{ i: 'L1', t: 'desklamp', x: 1, y: 1, r: 0 }, { i: 'L2', t: 'desklamp', x: 4, y: 1, r: 0 }], { lit: { L1: true } }));
+const c3a = await evalJs("(function(){var f=document.getElementById('room-floor');return JSON.stringify({lit:f.querySelectorAll('.r-furn.r-lit').length,pool:f.querySelectorAll('.r-pool').length});})()");
+await furnAct('L2', 0); // 点亮第二盏
+const c3b = await evalJs("(function(){var f=document.getElementById('room-floor');var s=window.__roomState();return JSON.stringify({lit:f.querySelectorAll('.r-furn.r-lit').length,pool:f.querySelectorAll('.r-pool').length,keys:Object.keys(s.lit).sort().join(',')});})()");
+await furnAct('L1', 0); // 关掉第一盏（同一 act 按钮即开关）
+const c3c = await evalJs("(function(){var s=window.__roomState();return Object.keys(s.lit).sort().join(',');})()");
+check('C3 同种两盏灯可各自开关（1 亮→2 亮→只剩 L2 亮）',
+  c3a === '{"lit":1,"pool":1}' && c3b === '{"lit":2,"pool":2,"keys":"L1,L2"}' && c3c === 'L2',
+  [c3a, c3b, c3c].join(' | '));
+
+// C4 收回亮着的灯：lit 不留残键、整屋亮度回落到 1（修复前残键让 lum() 继续按有灯增亮）
+await furnAct('L2', 3); // 收回仓库
+const c4 = await evalJs("(function(){var s=window.__roomState();return JSON.stringify({lit:Object.keys(s.lit).length,bright:document.getElementById('room-scene').style.getPropertyValue('--room-bright'),furn:document.querySelectorAll('#room-floor .r-furn').length});})()");
+check('C4 收回亮灯后 lit 清干净且亮度回落 1', c4 === '{"lit":0,"bright":"1","furn":1}', c4);
+
+// C5 旧档迁移：lit 按「家具类型」存的老存档 → 搬到该类型第一件在场实例，类型残键丢弃
+await openWith(baseRoom([{ i: 'M1', t: 'candle', x: 1, y: 2, r: 0 }, { i: 'M2', t: 'desklamp', x: 3, y: 2, r: 0 }], { lit: { candle: true, clock: true } }));
+const c5 = await evalJs("(function(){var s=window.__roomState();return JSON.stringify({keys:Object.keys(s.lit).sort(),lit:document.querySelectorAll('#room-floor .r-furn.r-lit').length});})()");
+check('C5 旧档类型键迁移为实例键（candle:true→M1；无在场家具的 clock:true 丢弃）', c5 === '{"keys":"M1","lit":1}', c5);
+
+// C6 点灯后的第二条补话真能播出（修复前被首条 3800ms 常驻 + 让路守卫挡死＝从未播过）
+await openWith(baseRoom([{ i: 'P1', t: 'desklamp', x: 2, y: 1, r: 0 }], { ta: { x: 2, y: 2, act: 'idle', tx: 2, ty: 2, faint: false, nextAt: Date.now() + 900000 } }));
+let c6got = false, c6bad = '', c6log = [];
+for (let round = 0; round < 4 && !c6got; round++) {
+  const st = await evalJs("(function(){var s=window.__roomState();return s.lit.P1?'on':'off';})()");
+  if (st === 'on') { await furnAct('P1', 0); await sleep(2700); } // 先拧灭，下一拍才测「点亮」
+  await furnAct('P1', 0);
+  const first = JSON.parse(await readBub() || '{}');
+  if (first.t && first.t.indexOf('undefined') >= 0) c6bad = '首条=' + first.t;
+  for (const w of [400, 400, 400, 400, 400, 400]) {
+    await sleep(w);
+    const now = JSON.parse(await readBub() || '{}');
+    if (now.t && now.t.indexOf('undefined') >= 0) c6bad = '补话=' + now.t;
+    if (!now.h && now.t && now.t !== first.t) { c6got = true; c6log.push('r' + round + ':' + now.t); break; }
+  }
+  if (!c6got) c6log.push('r' + round + ':只见到「' + (first.t || '') + '」');
+}
+check('C6 点灯补话能播出（4 轮内至少一次接上第二条；TA 在旁边时概率 0.8）', c6got && !c6bad, c6log.join(' / ') + (c6bad ? ' ⚠' + c6bad : ''));
+check('C6b 双段话术全程无字面量 undefined（#759 分组查无 ⇒ rnd([]) 吐 undefined）', !c6bad, c6bad);
 
 chrome.kill();
 server.close();

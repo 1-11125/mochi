@@ -33,7 +33,12 @@ check('A1 saveCallActive 三路写入拆开各吃各的 try（并回同一 try�
   /try \{ sessionStorage\.setItem\(CALL_ACTIVE_KEY, payload\); \} catch \(e\) \{\}\s*\n\s*try \{ localStorage\.setItem\(CALL_ACTIVE_KEY, payload\); \} catch \(e\) \{\}\s*\n\s*try \{ if \(window\.idbSet\) window\.idbSet\(CALL_ACTIVE_KEY, JSON\.parse\(payload\)\); \} catch \(e\) \{\}/.test(callSrc));
 check('A2 clearCallActive 写 {ts:0} 墓碑进 IDB（防 idbRestore 幽灵回填）', callSrc.includes('window.idbSet(CALL_ACTIVE_KEY, { ts: 0 })'));
 check('A3 recoverCall 回读链补 IDB 兜底（recoverProcess(ih, \'idb\')）', callSrc.includes("recoverProcess(ih, 'idb')"));
-check('A4 IDB 副本卡 10 分钟新鲜度窗（防数天后翻出早已结束的旧通话）', callSrc.includes("src === 'idb' && Date.now() - (info.ts || 0) > 600000"));
+// A4 口径更新（2026-09-18 #757 会话）：#698 的 IDB 新鲜度窗在 #757 里被收进「窗分档」
+//   ——IDB 副本仍卡 10 分钟（CALL_IDB_WINDOW，原样保留＝#705 幽灵复活防线），SS/LS 改用
+//   6 小时墙钟窗（CALL_RESUME_WINDOW）。锚点随之从内联表达式挪到分档表达式本身。
+check('A4 IDB 副本仍卡 10 分钟新鲜度窗（#757 分档后原样保留，防数天后翻出旧通话/幽灵复活）',
+  callSrc.includes('const CALL_IDB_WINDOW = 600000;')
+  && callSrc.includes("const windowMs = src === 'idb' ? CALL_IDB_WINDOW : CALL_RESUME_WINDOW;"));
 if (results.some(r => !r.ok)) {
   console.log('----');
   console.log('A 轴有 FAIL：源码锚缺失（修复被覆盖或未接入），B 轴跳过');
@@ -234,6 +239,143 @@ try {
   })()`);
   o = null; try { o = JSON.parse(b6); } catch (e) {}
   check('B6 过期 IDB 旧标记：不恢复旧通话、标记被清（10 分钟新鲜度窗）', o && o.noGhost && o.cleared, b6);
+
+  // ================= C 轴（#757）：页面被冻结/杀进程后的「墙钟恢复」=================
+  // 用户直派（小米 civi4pro 夸克，明说其他机型也有）：刷新/重开后概率出现「电话挂断、
+  // 无挂断记录，通话和通话时间也没续上」。根因＝恢复窗口按「心跳 ts 10 分钟窗」判定，而
+  // 心跳是 setInterval——页面被系统冻结/杀掉时根本不跑，ts 停在被冻结那一刻；用户回来
+  // （尤其杀后台后重开＝新运行期、sessionStorage 已空）走 LS 兜底时被判「早已结束」→
+  // 静默清标记：不续上、不补记录。RED 判别：C2/C3 在旧产物上必红（通话消失、records 空）。
+  // 场景构造＝「SS 丢失 + LS/IDB 快照 ts 停在 N 分钟前」（页面冻结的等价现场）。
+  async function reload(pauseMs) {
+    await cdp('Page.navigate', { url: baseUrl + '/index.html' });
+    if (!(await waitAppReady())) throw new Error('C 轴刷新后应用未就绪');
+    await sleep(pauseMs || 900);
+  }
+  // 清场：挂断活通话 + 清三路标记 + 清通话记录（否则上一场景的活通话会在 pagehide
+  //   冲刷时把种子覆盖成「新鲜」标记，测出来的就不是本场景）
+  async function resetCall() {
+    await evalJs(`(async function(){
+      try { if (window.getCallState && window.getCallState()) window.hangupCall(); } catch(e){}
+      try { sessionStorage.removeItem('${CALL_KEY}'); } catch(e){}
+      try { localStorage.removeItem('${CALL_KEY}'); } catch(e){}
+      try { await window.idbSet('${CALL_KEY}', { ts: 0 }); } catch(e){}
+      try { localStorage.removeItem('xy-home-v2:default:records-call'); } catch(e){}
+      try { if (window.idbSet) window.idbSet('xy-home-v2:default:records-call', []); } catch(e){}
+      return 'reset';
+    })()`);
+    await sleep(320); // 等挂断收尾（心跳停表）落定
+  }
+  // ageMs＝种子快照的 ts 距今多久（＝页面已冻结多久）；clearSs＝SS 是否被内核清掉
+  async function seedSnapshot(ageMs, clearSs) {
+    return evalJs(`(async function(){
+      var p = { cid:'default', direction:'out', status:'connected',
+        startTime: Date.now()-600000, connectedTime: Date.now()-600000, name:'TA', av:'', ts: Date.now()-${ageMs} };
+      var s = JSON.stringify(p);
+      try { sessionStorage.setItem('${CALL_KEY}', s); } catch(e){}
+      try { localStorage.setItem('${CALL_KEY}', s); } catch(e){}
+      try { await window.idbSet('${CALL_KEY}', p); } catch(e){}
+      ${clearSs ? `try { sessionStorage.removeItem('${CALL_KEY}'); } catch(e){}` : ''}
+      return 'seeded';
+    })()`);
+  }
+  async function recsHit(needle) {
+    const r = await evalJs(`(function(){
+      try { var a = JSON.parse(localStorage.getItem('xy-home-v2:default:records-call')||'[]');
+        return String((a && a[0] && a[0].text)||''); } catch(e){ return 'err'; }
+    })()`);
+    return String(r || '').indexOf(needle) >= 0;
+  }
+
+  // C1 源码锚：窗分档（SS/LS 墙钟窗 vs IDB 10 分钟静默窗）＋隐藏/冻结冲刷在位
+  check('C1 恢复窗分档（CALL_RESUME_WINDOW 墙钟窗 / CALL_IDB_WINDOW IDB 静默窗）+ 隐藏/冻结冲刷',
+    callSrc.includes("const windowMs = src === 'idb' ? CALL_IDB_WINDOW : CALL_RESUME_WINDOW;")
+    && callSrc.includes('function flushCallActive()') && callSrc.includes("addEventListener('freeze'"),
+    '');
+
+  // C2/C3 用户场景复刻：SS 被清 + LS 快照 ts 停在 11 分钟前（锁屏/后台冻结）→ 刷新必须续上
+  await resetCall();
+  await seedSnapshot(11 * 60 * 1000, true);
+  await reload(1400);
+  const c2 = await waitCallConnected(8000);
+  check('C2 SS 被内核清掉 + 标记 ts 停在 11 分钟前 → 刷新后通话仍续上（旧产物：整通消失）', !!c2, JSON.stringify(c2));
+  check('C3 续上后通话时长从接通时刻继续（未从头计时）', !!c2 && c2.durationSec >= 595, c2 ? String(c2.durationSec) : 'null');
+
+  // C4 超窗（8 小时，远超墙钟窗）：不恢复旧通话，但必须留一条「通话中断」记录
+  //    （旧实现静默清标记＝用户报的「无挂断记录」）
+  await resetCall();
+  await seedSnapshot(8 * 3600 * 1000, true);
+  await reload(1600);
+  const c4state = await evalJs(`JSON.stringify(window.getCallState ? window.getCallState() : null)`);
+  const c4ghost = c4state && c4state !== 'null';
+  check('C4a 超窗（8 小时）快照不恢复旧通话', !c4ghost, String(c4state));
+  check('C4b 超窗快照补写「通话中断」记录（旧产物：静默消失、记录为零）', await recsHit('通话中断'), '');
+
+  // C5 通话中派发 visibilitychange(hidden)（页面被冻结/杀进程前最后时机）→ 标记 ts 必须刷新
+  await resetCall();
+  await evalJs(`Math.random = (function(){ return function(){ return 0.5; }; })(); window.placeCall(); 'dialing'`);
+  const c5conn = await waitCallConnected();
+  // 先把标记改旧（模拟「上一次心跳已是 20 分钟前」的冻结现场），再触发隐藏
+  await evalJs(`(function(){
+    var p = { cid:'default', direction:'out', status:'connected', startTime: Date.now()-1200000,
+      connectedTime: Date.now()-1200000, name:'TA', av:'', ts: Date.now()-1200000 };
+    try { localStorage.setItem('${CALL_KEY}', JSON.stringify(p)); } catch(e){}
+    try { sessionStorage.setItem('${CALL_KEY}', JSON.stringify(p)); } catch(e){}
+    return 'aged';
+  })()`);
+  await evalJs(`(function(){
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    try { document.dispatchEvent(new Event('visibilitychange')); } catch(e){}
+    try { window.dispatchEvent(new Event('pagehide')); } catch(e){}
+    return new Date().toISOString();
+  })()`);
+  await sleep(200);
+  const c5 = await evalJs(`(function(){
+    try { var o = JSON.parse(localStorage.getItem('${CALL_KEY}')||'null');
+      return JSON.stringify({ age: o ? Date.now() - o.ts : null, connected: !!(o && o.connectedTime) }); } catch(e){ return 'err'; }
+  })()`);
+  o = null; try { o = JSON.parse(c5); } catch (e) {}
+  check('C5 通话中隐藏/离页 → 标记 ts 立刻冲刷到当下（页面冻结前把现场落盘）',
+    !!c5conn && o && o.connected && o.age !== null && o.age < 5000, c5);
+  // 收尾：挂断本场景的通话，避免影响 C6/D 轴
+  await evalJs(`(function(){
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    try { window.hangupCall(); } catch(e){}
+    return 'done';
+  })()`);
+  await sleep(300);
+
+  // C6 标记瘦身（#757 顺带）：payload 不再内嵌头像 dataURL —— 恢复后头像仍要从 store 重读出来
+  //   （RED 判别：把 av 写回 payload 则 C6 的「键体 <1KB」红；把 syncCallAv 的 store 读删掉则
+  //   「恢复后头像仍在」红）
+  await resetCall();
+  await evalJs(`(function(){
+    var av = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+    try { localStorage.setItem('xy-home-v2:default:avatar-partner', av); } catch(e){}
+    try { localStorage.setItem('xy-home-v2:default:cs-avatar-partner', av); } catch(e){}
+    return 'av-seeded';
+  })()`);
+  await seedSnapshot(4 * 60 * 1000, true);
+  const c6size = await evalJs(`(function(){ try { return String((localStorage.getItem('${CALL_KEY}')||'').length); } catch(e){ return 'err'; } })()`);
+  await reload(1400);
+  const c6 = await waitCallConnected(8000);
+  const c6av = await evalJs(`(function(){
+    var el = document.getElementById('call-mini-av');
+    return JSON.stringify({ hasImg: !!(el && el.querySelector('img')), len: ${Number(c6size) || 0} });
+  })()`);
+  o = null; try { o = JSON.parse(c6av); } catch (e) {}
+  check('C6a 通话标记键体不再内嵌头像（<1KB，弱内核写入失败的放大器已拆）',
+    Number(c6size) > 0 && Number(c6size) < 1024, String(c6size));
+  check('C6b 标记瘦身后续上通话仍显示头像（按归属桌面从 store 重读）', !!c6 && o && o.hasImg, c6av);
+  await evalJs(`(function(){ try { window.hangupCall(); } catch(e){} return 'done'; })()`);
+  await sleep(300);
+  await evalJs(`(function(){
+    try { localStorage.removeItem('xy-home-v2:default:avatar-partner'); } catch(e){}
+    try { localStorage.removeItem('xy-home-v2:default:cs-avatar-partner'); } catch(e){}
+    return 'clean';
+  })()`);
 
   const errs = jsErrors.filter((e) => e.indexOf('quota') < 0); // B4 故意抛的 quota 不算
   check('B7 全程无意外 JS 异常', errs.length === 0, errs.slice(0, 2).join(' | '));

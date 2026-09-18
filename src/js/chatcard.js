@@ -310,30 +310,15 @@
     return 'data:' + extMime + ';base64,' + payload;
   }
   const IMG_TYPES = MEDIA_TYPES;
-  let ccFileInput = null, ccPickSeq = 0;
-  // v3.8.x：iOS Safari 下未挂到 DOM 的 <input type=file>.click() 不会弹出选择器，
-  // 必须先 appendChild 到 body。这里统一封装：建隐藏 input → 挂 body → 点击 → 回调后清理。
+  // FIX 2026-09-18 #755：改走全站统一入口 window.mochiFilePick（常驻 sr-only clip input 挂 body、
+  // accept 强制落在 click() 之前、可选原生 label 激活层）。原实现虽已挂 body，但用 offscreen+opacity:0
+  // 的不可见写法且 accept 与 click 的相对顺序不保证，vivo X200s/百度浏览器（T7 内核）报「上传无反应」
+  // 的同族面；同时把「拿 seq 防串台」的旧手法收进统一实现（onchange 每次重设＝天然不会串）。
   function pickFiles(accept, multiple, onFiles) {
-    let input = ccFileInput;
-    if (!input) {
-    input = document.createElement('input');
-    input.type = 'file';
-    input.id = 'cc-file-pick';
-    input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-    document.body.appendChild(input);
-    ccFileInput = input;
-    }
-    const seq = ++ccPickSeq;
-    input.accept = accept || '';
-    input.multiple = !!multiple;
-    try { input.value = ''; } catch (e) {} // 允许重选同一文件
-    input.onchange = () => {
-    if (seq !== ccPickSeq) return;
-      const files = Array.prototype.slice.call(input.files || []);
-      try { input.value = ''; } catch (e) {}
-      if (onFiles) onFiles(files);
-    };
-    try { input.click(); } catch (e) {}
+    window.mochiFilePick({
+      id: 'cc-file-pick', accept: accept || '', multiple: !!multiple,
+      onFiles: (files) => { if (onFiles) onFiles(files); }
+    });
   }
   // v3.6.x：剔除系统内置预设字卡（BUILTIN 同分组同内容）与空分组，只保留用户添加的字卡；
   // 返回是否发生了删除（供调用方决定是否写回）

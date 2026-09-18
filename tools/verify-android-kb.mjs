@@ -103,6 +103,11 @@ check('键盘弹出后 .phone 收缩到可视高度', shrunk === KB_H + 'px', St
 // 输入栏底部应在可视区域内（不被键盘盖住）
 const inputPos = JSON.parse(await evalJs("(function(){var ir=document.querySelector('.chat-input-row');if(!ir)return '{}';var r=ir.getBoundingClientRect();return JSON.stringify({bottom:Math.round(r.bottom),vh:window.visualViewport?window.visualViewport.height:window.innerHeight});})()") || '{}');
 check('聊天输入栏底部在可视高度内（不被键盘盖住）', inputPos.bottom !== undefined && inputPos.bottom <= inputPos.vh + 2, JSON.stringify(inputPos));
+// v3.30 防回归「输入法底部悬空（不贴键盘）」：输入栏应紧贴可视区底（键盘上沿）。
+// 允许设计留白 ≤24px（.phone 关键字 padding-bottom / 输入栏 margin），悬空超 24px 判 FAIL。
+// 真机键盘弹起时 resizes-visual 布局视口不变、仅 vv 缩，本仿真直接改视口高=vv 收缩，
+// 与真机 main 链同判据（syncAndroidKb 把 .phone height 钉到 vv.height）。
+check('聊天输入栏紧贴可视底（无悬空超过 24px）', inputPos.bottom !== undefined && inputPos.bottom >= inputPos.vh - 24, JSON.stringify(inputPos));
 
 // 模拟键盘收起：高度恢复 844
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });

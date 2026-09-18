@@ -1718,31 +1718,30 @@ if (comImg) {
     e.stopPropagation();
     if (comImgBusy) return;
     comImgBusy = true;
-    const fi = document.createElement('input');
-    fi.type = 'file'; fi.accept = 'image/*';
-    fi.style.display = 'none';
-    document.body.appendChild(fi);
-    const done = () => {
-      comImgBusy = false;
-      try { fi.remove(); } catch (err) {}
-    };
-    fi.onchange = () => {
-      done();
-      const f = fi.files && fi.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        compressCommentImg(reader.result, 240).then(data => {
-          comImgData.push(data);
-          renderComPv();
-          if (comInput) comInput.focus();
-        });
-      };
-      reader.readAsDataURL(f);
-    };
-    fi.addEventListener('cancel', done);
-    fi.click();
-    setTimeout(done, 5000);
+    // FIX 2026-09-18 #755：原来用 fi.style.display='none'（#717/#738 点名要消灭的写法，部分内核
+    // 对不可见 input 拒绝激活）＋无 label 兜底＋accept 迟到。统一走 window.mochiFilePick 常驻复用，
+    // 不再每次点按现场 new 一个 input 再 remove，也不再用 5s 定时器猜「取消」。
+    let settled = false;
+    const done = () => { if (settled) return; settled = true; comImgBusy = false; };
+    window.mochiFilePick({
+      id: 'mochi-com-img-pick', accept: 'image/*',
+      onFiles: (files) => {
+        done();
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          compressCommentImg(reader.result, 240).then(data => {
+            if (!data) { toast('图片过大或格式不支持'); return; }
+            comImgData.push(data);
+            renderComPv();
+            if (comInput) comInput.focus();
+          });
+        };
+        reader.onerror = () => toast('图片读取失败，请换一张再试');
+        reader.readAsDataURL(f);
+      }
+    });
   });
 }
 function submitComment() {
@@ -1992,7 +1991,6 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   const feedInput = document.getElementById('feed-input');
   if (feedInput) feedInput.dataset.ceDone = '1';
   const pickBtn = document.getElementById('feed-pick-img');
-  const pickFile = document.getElementById('feed-pick-file');
   const preview = document.getElementById('feed-preview');
   let pickedImgs = [];
   const MAX_PICK = 9;
@@ -2020,19 +2018,26 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       renderPreview();
     }));
   }
-  if (pickBtn && pickFile) {
-    pickBtn.addEventListener('click', () => pickFile.click());
-    pickFile.addEventListener('change', () => {
-      const files = Array.from(pickFile.files || []);
-      if (!files.length) return;
-      if (pickedImgs.length + files.length > MAX_PICK) { toast('最多发布 ' + MAX_PICK + ' 张图片'); }
-      files.slice(0, MAX_PICK - pickedImgs.length).forEach(f => {
-        compressImage(f, (dataUrl) => {
-          pickedImgs.push(dataUrl);
-          renderPreview();
-        });
+  if (pickBtn) {
+    // FIX 2026-09-18 #755：收编进统一入口——原 #feed-pick-file 写在 template.html 里带 hidden 属性
+    // （＝display:none），部分国产内核拒绝激活不可见 input＝点「添加图片」毫无反应。节点改由
+    // device.js 常驻 sr-only clip 提供，本处只管回调。
+    pickBtn.addEventListener('click', () => {
+      window.mochiFilePick({
+        id: 'dev-feed-pick-img',
+        accept: 'image/*',
+        multiple: true,
+        onFiles: (files) => {
+          if (!files.length) return;
+          if (pickedImgs.length + files.length > MAX_PICK) { toast('最多发布 ' + MAX_PICK + ' 张图片'); }
+          files.slice(0, MAX_PICK - pickedImgs.length).forEach(f => {
+            compressImage(f, (dataUrl) => {
+              pickedImgs.push(dataUrl);
+              renderPreview();
+            });
+          });
+        }
       });
-      pickFile.value = '';
     });
   }
   // ===== 朋友圈封面交互（v3.5.62：直接点击，不用相机按钮） =====
@@ -2040,11 +2045,27 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   //  - 点封面我的头像 → 更换头像（与桌面「我」头像一致）
   //  - 点封面我的昵称 → 修改昵称（与桌面昵称一致）
   const coverEl = document.getElementById('feed-cover');
-  const coverFile = document.getElementById('feed-cover-file');
   const coverAvEl = document.getElementById('feed-my-av');
   const coverNameEl = document.getElementById('feed-my-name');
+  // FIX 2026-09-18 #755：封面背景的 file input 原写在 template.html（hidden 属性＝display:none）
+  // → 收编进统一入口，按需惰性创建（点封面时才有回调），不再持有模板节点。
+  function pickCoverBg() {
+    window.mochiFilePick({
+      id: 'dev-feed-cover-bg',
+      accept: 'image/*',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) return;
+        compressImage(f, (dataUrl) => {
+          window.activeStore().set('feed-cover-bg', dataUrl);
+          renderCover();
+          toast('朋友圈背景已更新');
+        });
+      }
+    });
+  }
   // 点封面背景 → 更换/恢复
-  if (coverEl && coverFile) {
+  if (coverEl) {
     coverEl.addEventListener('click', (e) => {
       // 头像/昵称点击不触发换背景（它们自己有处理）
       if (e.target === coverAvEl || coverAvEl && coverAvEl.contains(e.target)) return;
@@ -2052,23 +2073,13 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       if (coverBg()) {
         if (window.openModal) {
           window.openModal('已设置朋友圈背景', '', (v) => {
-            if (v === '1') coverFile.click();
+            if (v === '1') pickCoverBg();
             if (v === '2') { window.activeStore().set('feed-cover-bg', ''); renderCover(); toast('已恢复默认背景'); }
           }, { noInput: true, pills: [{ label: '更换背景', value: '1' }, { label: '恢复默认', value: '2' }] });
         }
       } else {
-        coverFile.click();
+        pickCoverBg();
       }
-    });
-    coverFile.addEventListener('change', () => {
-      const f = coverFile.files && coverFile.files[0];
-      if (!f) return;
-      compressImage(f, (dataUrl) => {
-        window.activeStore().set('feed-cover-bg', dataUrl);
-        renderCover();
-        toast('朋友圈背景已更新');
-      });
-      coverFile.value = '';
     });
   }
   // 点头像 → 更换朋友圈头像（独立于聊天头像 v3.8.x，按当前桌面生效）
@@ -2110,8 +2121,11 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
     coverAvEl.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
-      try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); }
+      // FIX 2026-09-18 #756：原 fromLabel 早退在「label 存在但国产内核不转发」时连 JS 兜底
+      // 一起跳过＝完全没反应；改为 guard 事后确认未弹出再补 click
+      var _fb = () => { try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+      if (window.mochiFilePickGuard) window.mochiFilePickGuard(feedAvPickInput, _fb);
+      else _fb();
     });
   }
   // 点昵称 → 修改朋友圈昵称（独立于聊天昵称 v3.8.x，按当前桌面生效）
@@ -2481,19 +2495,20 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       } else {
         pickCoverFile();
       }
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
       function pickCoverFile() {
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = 'image/*';
-        input.onchange = () => {
-          const f = input.files && input.files[0];
-          if (!f) return;
-          compressImage(f, (dataUrl) => {
-            feedAllStore().set(key, dataUrl);
-            renderFeedAllCover();
-            toast('朋友圈背景已更新');
-          });
-        };
-        input.click();
+        window.mochiFilePick({
+          id: 'mochi-feed-cover-pick', accept: 'image/*',
+          onFiles: (files) => {
+            const f = files && files[0];
+            if (!f) { toast('没有取到图片，请再选一次'); return; }
+            compressImage(f, (dataUrl) => {
+              feedAllStore().set(key, dataUrl);
+              renderFeedAllCover();
+              toast('朋友圈背景已更新');
+            });
+          }
+        });
       }
     });
   }
@@ -2501,32 +2516,34 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     feedAllAv.addEventListener('click', (e) => {
       e.stopPropagation();
       const key = 'feed-ta-avatar';
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*';
-      input.onchange = () => {
-        const f = input.files && input.files[0];
-        if (!f) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-              const c = document.createElement('canvas');
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              feedAllStore().set(key, c.toDataURL('image/jpeg', 0.85));
-              renderFeedAllCover();
-              toast('头像已更新');
-            } catch (err) { toast('图片处理失败'); }
+      // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
+      window.mochiFilePick({
+        id: 'mochi-feed-allav-pick', accept: 'image/*',
+        onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) { toast('没有取到图片，请再选一次'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const scale = Math.min(1, 256 / Math.max(img.width, img.height));
+                const c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(img.width * scale));
+                c.height = Math.max(1, Math.round(img.height * scale));
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                feedAllStore().set(key, c.toDataURL('image/jpeg', 0.85));
+                renderFeedAllCover();
+                toast('头像已更新');
+              } catch (err) { toast('图片处理失败'); }
+            };
+            img.onerror = () => toast('图片读取失败');
+            img.src = reader.result;
           };
-          img.onerror = () => toast('图片读取失败');
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(f);
-      };
-      input.click();
+          reader.onerror = () => toast('图片读取失败');
+          reader.readAsDataURL(f);
+        }
+      });
     });
   }
   if (feedAllName) {
@@ -2553,33 +2570,35 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0116 0"/></svg>';
   }
   // 选择并压缩头像（256），写入指定 key，成功后刷新好友列表
+  // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
   function pickAvatarAndSet(st, key) {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-            const c = document.createElement('canvas');
-            c.width = Math.max(1, Math.round(img.width * scale));
-            c.height = Math.max(1, Math.round(img.height * scale));
-            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-            st.set(key, c.toDataURL('image/jpeg', 0.85));
-            renderFeedFriends();
-            toast('朋友圈头像已更新');
-          } catch (err) { toast('图片处理失败'); }
+    window.mochiFilePick({
+      id: 'mochi-feed-av-pick', accept: 'image/*',
+      onFiles: (files) => {
+        const f = files && files[0];
+        if (!f) { toast('没有取到图片，请再选一次'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const scale = Math.min(1, 256 / Math.max(img.width, img.height));
+              const c = document.createElement('canvas');
+              c.width = Math.max(1, Math.round(img.width * scale));
+              c.height = Math.max(1, Math.round(img.height * scale));
+              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+              st.set(key, c.toDataURL('image/jpeg', 0.85));
+              renderFeedFriends();
+              toast('朋友圈头像已更新');
+            } catch (err) { toast('图片处理失败'); }
+          };
+          img.onerror = () => toast('图片读取失败');
+          img.src = reader.result;
         };
-        img.onerror = () => toast('图片读取失败');
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(f);
-    };
-    input.click();
+        reader.onerror = () => toast('图片读取失败');
+        reader.readAsDataURL(f);
+      }
+    });
   }
   // 好友列表单行：person = {id,isMe,deskName,deskAv,feedName,feedAv,nameKey,avKey}
   function ffRow(person) {

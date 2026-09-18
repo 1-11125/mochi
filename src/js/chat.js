@@ -372,6 +372,25 @@ chatBlkWriting = false;
 if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkRewriteTail(prefix, a); }
 });
 }
+// 清掉某前缀下的全部分块键与索引（clearChatHistory / 导入 用）。**必须按前缀扫盘**：
+// 会话没打开过该桌面时 chatBlkIdx 为 null，只看内存索引会漏删磁盘块 → 清空后下次启动
+// blk-idx 回放把已清历史复活、导入后旧索引遮蔽新记录。两路都做（内存索引已知时立即删，
+// 再扫盘兜底），删除请求先于新格式写入下发（同一连接事务按调用顺序排队）。
+function chatBlkPurgePrefix(prefix) {
+try {
+if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) {
+chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(prefix + ':' + b.k); } catch (e) {} });
+}
+if (window.idbDelete) { try { window.idbDelete(prefix + ':chat-blk-idx'); } catch (e) {} }
+if (window.idbListKeys && window.idbDelete) {
+window.idbListKeys().then(function (keys) {
+(keys || []).forEach(function (k) {
+if (typeof k === 'string' && k.indexOf(prefix + ':chat-blk-') === 0) { try { window.idbDelete(k); } catch (e) {} }
+});
+}).catch(function () {});
+}
+} catch (e) {}
+}
 // 读侧热片装载：读末尾热块 → 交给权威读链的既有合并/守卫/渲染体（v=热片数组，语义=「读到的权威」）
 function chatBlkHotLoad(prefix, idxRaw) {
 const idx = JSON.parse(idxRaw);
@@ -388,6 +407,8 @@ const headN = Math.max(0, (idx.total || hotN) - hotN);
 chatColdHead = []; chatColdFrom = 0; chatColdDone = headN === 0; chatColdHydrating = false; chatRebased = false;
 // #722：热块读取沿用 #716 口径——按块字节放大读等待窗（2MB 块在 4× 节流的手机上
 // 结构化克隆就可能超默认 4s ⇒ undefined＝读失败重试循环），且逐块串行读（并行会叠加峰值）。
+// 末块（最新那段）必须读成——它决定聊天页能不能开；更早的热块尽力而为，读失败不清空
+// 整体结果（那块落在热片之前的序号里，由后台水合/rebase 按序补上，绝不丢消息）。
 let p = Promise.resolve();
 const parts = [];
 hotKeys.forEach(function (k, ki) {
@@ -398,13 +419,19 @@ p = p.then(function () { return window.idbGet(prefix + ':' + k, hint); }).then(f
 return p.then(function () {
 if (window.activePrefix() !== prefix) return null;
 let hot = [], miss = false;
-parts.forEach(function (p2) {
+for (let pi = 0; pi < parts.length; pi++) {
+let a = parts[pi];
 // #722：块值双形态兼容（persistMsgsToIdb 对小尾块存 JSON 字符串、大块存数组直存）——与旧读路径同口径
-let a = p2;
-if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { miss = true; return; } }
-if (!Array.isArray(a)) { miss = true; return; }
+if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { a = null; } }
+const isLast = (pi === parts.length - 1);
+if (!Array.isArray(a)) {
+// 末块（最新那段）必须读成——它决定聊天页能不能开，失败＝本次读失败去重试，绝不置 ready；
+// 更早的热块尽力而为：读失败只跳过该块（它在热片之前，由后台水合/rebase 按序补上，绝不丢消息）
+if (isLast) { miss = true; return; }
+continue;
+}
 hot = hot.concat(a);
-});
+}
 if (miss || !hot.length) return null; // 块读失败 → 回到旧读路径语义（=读失败重试，绝不置 ready）
 return hot;
 }).catch(function () { return null; });
@@ -455,6 +482,7 @@ const v = inplaceDrafts[k]; delete inplaceDrafts[k]; inplaceDrafts[String(Number
 try { if (typeof inplaceFocusIdx === 'number' && inplaceFocusIdx >= 0) inplaceFocusIdx += n; } catch (e) {}
 try { body.querySelectorAll('[data-idx]').forEach(function (el) { el.dataset.idx = String(Number(el.dataset.idx) + n); }); } catch (e) {}
 try { chatArchSetBaseline(window.activePrefix(), msgs); } catch (e) {} // 基准 refs 升级为全量：此后编辑任何消息都能被指纹检出
+try { syncLastMineText(); } catch (e) {} // #722 自查：lastMineIdx 是 msgs 下标，并入冷头后整体位移——直接重算（引用「我最后一条」的回复不会指错位）
 }
 // 把基准段+日志收口成整包（切桌面/离页/导出前调用；外部模块只读 chat-msgs 时也看得到全量）
 function chatConsolidate(prefix) {
@@ -4555,10 +4583,10 @@ try { chatLedger[window.activePrefix()] = 0; } catch (e) {}
 try { store.remove('chat-msgs'); } catch (e) {}
 try { store.remove('chat-arch'); } catch (e) {} // FIX 2026-09-17 #127：增量日志一并清（否则刷新后回放复活）
 try { store.remove('chat-meta'); } catch (e) {}
-try { // #722：分块格式的块键与索引一并清（否则清空后刷新，blk-idx 回放复活全部历史）
-const cp = window.activePrefix();
-if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
-try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+try {
+// #722：分块格式的块键与索引一并清（否则清空后刷新，blk-idx 回放复活全部历史）。
+// 走扫盘助手而非内存索引——本次会话没读过该桌面时 chatBlkIdx 是 null，只看内存会漏删。
+chatBlkPurgePrefix(window.activePrefix());
 } catch (e) {}
 chatBlkResetState(); // #722：分块状态复位（此后保存走旧格式/重新分块）
 chatTailClear(); // #180：清空记录＝日志一并清（否则刷新后已清内容回放复活）
@@ -4581,10 +4609,10 @@ windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRen
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 chatArchClearBaseline(); // FIX 2026-09-17 #127：整包替换＝旧基准段/日志作废
-try { // #722：导入替换＝旧分块状态作废（persistChatHistory 会按新数组重新分块/整包，旧块键成孤儿，随后按 idx 复位前的记录清不掉——这里先记下旧块键，写入新格式后统一删）
-const cp = window.activePrefix();
-if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
-try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+try {
+// #722：导入替换＝旧分块状态与磁盘块全部作废（扫盘删，不依赖内存索引；漏删会让旧 blk-idx
+// 遮蔽刚导入的整包＝用户看到导入「没生效」）
+chatBlkPurgePrefix(window.activePrefix());
 } catch (e) {}
 chatBlkResetState(); // #722：导入=全新历史，块状态复位（persistChatHistory 按新数组重新分块）
 try { store.remove('chat-arch'); } catch (e) {}
@@ -7520,7 +7548,7 @@ img.src = dataUrl;
 const rpCoverPreview = document.getElementById('rp-cover-preview');
 const rpCoverUploadBtn = document.getElementById('rp-cover-upload');
 const rpCoverDelBtn = document.getElementById('rp-cover-del');
-let rpCoverFileInput = null;
+// FIX 2026-09-18 #755：rpCoverFileInput（detached 单例）已随该入口改走 window.mochiFilePick 移除
 function rpRenderCover() {
 	const side = rpSide;
 	const cover = rpCoverGet(side);
@@ -7544,13 +7572,13 @@ function rpRenderCover() {
 if (rpCoverUploadBtn) {
 rpCoverUploadBtn.addEventListener('click', (e) => {
 e.stopPropagation();
-if (!rpCoverFileInput) {
-rpCoverFileInput = document.createElement('input');
-rpCoverFileInput.type = 'file';
-rpCoverFileInput.accept = 'image/*';
-rpCoverFileInput.addEventListener('change', () => {
-const f = rpCoverFileInput.files[0];
-if (!f) return;
+// FIX 2026-09-18 #755：原实现 detached（从未挂文档，且没有 appendChild）——iOS 对未挂载
+// file input 不派发 change，部分安卓内核合成 click 静默失效。统一走 window.mochiFilePick。
+window.mochiFilePick({
+id: 'mochi-rp-cover-pick', accept: 'image/*', btn: rpCoverUploadBtn,
+onFiles: (files) => {
+const f = files && files[0];
+if (!f) { toast('没有取到图片，请再选一次'); return; }
 const reader = new FileReader();
 reader.onload = () => {
 rpCompressCover(reader.result).then(data => {
@@ -7560,11 +7588,10 @@ rpRenderCover();
 toast('封面已设置');
 });
 };
+reader.onerror = () => toast('图片读取失败，请换一张再试');
 reader.readAsDataURL(f);
-rpCoverFileInput.value = '';
-});
 }
-rpCoverFileInput.click();
+});
 });
 }
 if (rpCoverDelBtn) {
@@ -11432,24 +11459,16 @@ if (batchImg) {
 batchImg.addEventListener('click', (e) => {
 e.stopPropagation();
 batchPicking = true;
-const fi = document.createElement('input');
-fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
-fi.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
-document.body.appendChild(fi);
-fi.onchange = () => {
+// FIX 2026-09-18 #755：统一走 window.mochiFilePick（原来虽挂文档，但无 label 兜底、accept 迟到，
+// 且每次点按现场 new 一个 input 再 remove——常驻复用后不随点按堆节点）
+window.mochiFilePick({
+id: 'mochi-batch-img-pick', accept: 'image/*', multiple: true,
+onFiles: (files) => {
 batchPicking = false;
-const files = Array.prototype.slice.call(fi.files || []);
-fi.value = '';
-try { fi.remove(); } catch (err2) {}
 if (files.length) batchAddImages(files);
-};
-fi.onblur = () => {
-setTimeout(() => {
-batchPicking = false;
-try { if (fi.parentNode) fi.remove(); } catch (err2) {}
-}, 800);
-};
-try { fi.click(); } catch (err2) { batchPicking = false; try { fi.remove(); } catch (err3) {} }
+else toast('没有取到图片，请再选一次');
+}
+});
 });
 }
 const batchClear = document.getElementById('batch-clear');
@@ -11954,11 +11973,13 @@ const myeAdd = document.getElementById('mye-add');
 if (myeAdd) {
 myeAdd.addEventListener('click', (e) => {
 e.stopPropagation();
-const fi = document.createElement('input');
-fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
-fi.onchange = () => {
-const files = Array.prototype.slice.call(fi.files || []);
-if (!files.length) return;
+// FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到，
+// 用户报「点了相册点了图片但没有任何反应」＝选完文件后回调链完全没被触发）
+window.mochiFilePick({
+id: 'mochi-myemoji-pick', accept: 'image/*', multiple: true,
+onFiles: (files) => {
+try {
+if (!files.length) { toast('没有取到图片，请再选一次'); return; }
 let g = null;
 if (myCurGroup) g = myGroups.find(x => x[0] === myCurGroup) || null;
 if (!g && myGroups.length) g = myGroups[0];
@@ -12009,8 +12030,9 @@ else toast('已添加 ' + okCount + ' 个表情');
 reader.onerror = () => { done++; if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('部分图片读取失败'); } };
 reader.readAsDataURL(f);
 });
-};
-fi.click();
+} catch (err) { toast('添加表情失败，请重试'); }
+}
+});
 });
 }
 function splitUrlItems(raw) {
@@ -12446,10 +12468,12 @@ try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片�
 }
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
-// FIX 2026-09-18 #753：点击若来自原生 label 激活层，内核已自行打开选择器——跳过 JS 合成
-// click，避免同一手势双开选择器（与 #738 五入口同一口径）
-if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
-try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
+// FIX 2026-09-18 #756：原「点源自 label 就直接 return」会在国产内核（label 存在但不转发）
+// 时把 JS 兜底也一并跳过＝用户报的「点了相册点了图片完全没反应」。改为先给原生转发一个
+// 窗口期，确认确实没弹出再补 JS click（与全站入口同一口径）。
+var _fb = () => { try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+if (window.mochiFilePickGuard) window.mochiFilePickGuard(chatImgPickBridge(), _fb);
+else _fb();
 });
 }
 function buildParts(text) {

@@ -1064,7 +1064,7 @@
   const askProb = document.getElementById('ta-ask-prob');
   if (askProb) askProb.addEventListener('input', () => {
     const d = taAskLoad();
-    d.settings.prob = parseInt(askProb.value, 10) || 5;
+    d.settings.prob = Math.max(0, Math.min(100, parseInt(askProb.value, 10) || 0));
     taAskSave(d);
     const v = document.getElementById('ta-ask-prob-val');
     if (v) v.textContent = askProb.value + '%';
@@ -2240,7 +2240,7 @@ window.openTCPanel = openTCPanel;
   if (tcProb) {
     tcProb.addEventListener('input', () => {
       const d = tcLoad();
-      d.settings.prob = parseInt(tcProb.value, 10) || 5;
+      d.settings.prob = Math.max(0, Math.min(100, parseInt(tcProb.value, 10) || 0));
       tcSave(d);
       const v = document.getElementById('tc-prob-val');
       if (v) v.textContent = tcProb.value + '%';
@@ -2913,7 +2913,7 @@ window.openTCPanel = openTCPanel;
   });
   const tcuProb = document.getElementById('tcu-prob');
   if (tcuProb) tcuProb.addEventListener('input', () => {
-    const d = tcuLoad(); d.settings.prob = parseInt(tcuProb.value, 10) || 5; tcuSave(d);
+    const d = tcuLoad(); d.settings.prob = Math.max(0, Math.min(100, parseInt(tcuProb.value, 10) || 0)); tcuSave(d);
     const v = document.getElementById('tcu-prob-val'); if (v) v.textContent = tcuProb.value + '%';
     toast('触发概率已设为 ' + tcuProb.value + '%');
   });
@@ -3545,7 +3545,7 @@ window.openTCPanel = openTCPanel;
   });
   const trProb = document.getElementById('tr-prob');
   if (trProb) trProb.addEventListener('input', () => {
-    const d = trLoad(); d.settings.prob = parseInt(trProb.value, 10) || 5; trSave(d);
+    const d = trLoad(); d.settings.prob = Math.max(0, Math.min(100, parseInt(trProb.value, 10) || 0)); trSave(d);
     const v = document.getElementById('tr-prob-val'); if (v) v.textContent = trProb.value + '%';
     toast('触发概率已设为 ' + trProb.value + '%');
   });

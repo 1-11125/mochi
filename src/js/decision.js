@@ -329,22 +329,43 @@
         const n = Math.floor(Math.random() * maxSelect) + 1;
         result = shuffled.slice(0, Math.min(n, shuffled.length)).join('、');
       }
+      // FIX 2026-09-18 #745 出答案卡顿（用户报「思考时间设 1 秒，出答案页面冻几秒」）：答案渲染与重活拆两拍——
+      // 原实现同一拍里做「历史全量重写」（≤1000 条 parse+stringify+同步 setItem，几百 KB 级）＋聊天投递
+      // （addRec/gcSendDecisionText 会级联 schedulePersist：msgsBytes 全量遍历 + 快照/整包 stringify，
+      // 大记录桌面主线程秒级冻结）；倒计时结束瞬间撞上＝用户视角「答案出不来/出了页面卡死」。
+      // 现第一拍只画结果（立即上屏），重活让路到空闲拍（最迟 600ms 补完，投递肉眼无差）；
+      // 拍间切桌面则放弃写入（沿用原 cid 守卫口径）。
       resultEl.textContent = result;
       resultEl.classList.add('done');
-      // 历史记录（全部保存）
-      const h = loadHistory();
-      h.unshift({ id: 'd_' + Date.now(), type: type, question: question, result: result, options: options, ts: Date.now() });
-      if (h.length > 1000) h.splice(1000);
-      saveHistory(h);
-      // 发送结果：从群聊打开→发到群聊（系统消息）；聊天页打开→发到聊天（联系人回复样式）
-      if (loadSettings().replyToChat) {
-        const replyText = type === 'typeb' && options
-          ? '【帮我决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n→ ' + result
-          : '【帮我决定】' + question + ' → ' + result;
-        if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-        else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
-      }
-      toast('帮我决定已完成');
+      const settle = () => {
+        if ((window.__activeCid || 'default') !== myCid) return;
+        // 历史记录（全部保存）
+        const h = loadHistory();
+        h.unshift({ id: 'd_' + Date.now(), type: type, question: question, result: result, options: options, ts: Date.now() });
+        if (h.length > 1000) h.splice(1000);
+        saveHistory(h);
+        // 发送结果：从群聊打开→发到群聊（系统消息）；聊天页打开→发到聊天（联系人回复样式）
+        if (loadSettings().replyToChat) {
+          const replyText = type === 'typeb' && options
+            ? '【帮我决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n→ ' + result
+            : '【帮我决定】' + question + ' → ' + result;
+          if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
+          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
+        }
+        toast('帮我决定已完成');
+      };
+      // #745：重活让路——空闲拍执行（真机忙时顺延到 idle，不跟答案渲染抢拍）；80ms 定时器兜底
+      // （无头/idle 饥饿下保证投递上限），先到先得互斥。
+      let settled = false;
+      const runSettle = () => {
+        if (settled) return;
+        settled = true;
+        try { if (idleId && window.cancelIdleCallback) window.cancelIdleCallback(idleId); } catch (e) {}
+        clearTimeout(settleT);
+        settle();
+      };
+      let idleId = window.requestIdleCallback ? window.requestIdleCallback(runSettle, { timeout: 600 }) : 0;
+      const settleT = setTimeout(runSettle, 80);
     }, thinkTime * 1000);
   }
 
