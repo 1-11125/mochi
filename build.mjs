@@ -3222,6 +3222,21 @@ const FIX_SENTINELS = [
   { name: '#750c 按冻结盒折算显式像素尺寸（删＝冻结失效，图仍随盒缩）', file: 'js/chat-settings.js', needle: 'function csBgPaintSize(fit, box) {' },
   { name: '#750d 原图尺寸量取（删＝取不到 naturalWidth，只能回退关键字，冻结不生效）', file: 'js/chat-settings.js', needle: 'function csBgMeasure(url, cb) {' },
   { name: '#750e 应用处优先写冻结像素值（删＝仍写关键字，键盘期重算缩放比）', file: 'js/chat-settings.js', needle: 'const paint = csBgPaintSize(fit, csBgStableBox());' },
+  // ==== 2026-09-18 #751 聊天壁纸「莫名其妙放大」（OPPO Reno14 + Edge，多机型同现）====
+  // 用户：「聊天里的背景图片的比例变了，莫名其妙放大了。」
+  // 根因：#750 的基线是只涨不跌的棘轮（`else if (h > csBgStableH) csBgStableH = h;`），
+  //      前提假设「键盘只会压矮高度」。但手机 .phone 走 height:100dvh，dvh 随地址栏自动隐藏
+  //      而变大（诊断实测 inner=735/screen=791）⇒ 地址栏收起把基线永久抬到 791 档，回来不降
+  //      ⇒ cover 按大盒折算 ⇒ 壁纸放大 7.6% 且不复原（tools/verify-chat-bg-ratchet.mjs 实录）。
+  // 修法：棘轮→「键盘闸门 + 双读 settle + 双向重锚」；键盘期一律不重锚（保 #750 不缩），
+  //      非键盘期读数连续两次一致才采纳、且允许升高也允许回落。
+  { name: '#751a 键盘闸门（探针 或 .phone 内联高 ＝ 键盘压矮，不得重锚；删＝打字时图又跟着缩）', file: 'js/chat-settings.js', needle: 'function csBgPhonePinned() {' },
+  { name: '#751b 键盘/抖动统一判据（删＝只有探针兜底，无头/极端内核下闸门失效）', file: 'js/chat-settings.js', needle: 'function csBgKbOpen() {' },
+  { name: '#751c 双读 settle 后双向重锚（删＝退回只涨不跌棘轮，地址栏收起后壁纸永久放大）', file: 'js/chat-settings.js', needle: 'if (csBgPendN >= 2) {' },
+  { name: '#751d resize 后补一次延迟复核走完 settle（删＝一次 resize 突发只读一次，待确认态永远凑不齐）', file: 'js/chat-settings.js', needle: '}, 260);' },
+  // ==== 2026-09-18 #754 桌面翻页卡顿·合成层修复（iPhone 15 Pro Max 自带浏览器/独立应用实报「刚进网站会顺，一会就卡着不动、连续点好几次才能切换」，明说其他机型也有；诊断实锤：桌面翻页 平均186ms / p90 719ms / 最慢3611ms 而【性能】长任务>50ms 为零＝主线程没堵、卡在合成/栅格层，且 html 类无 tablet、无 zoom 声明＝#707 那批已修面之外）。根因＝整页背景图（page-bg-N，用户实测 273.7KB）画在「横向快照滚动 + 每页自带纵向滚动」的嵌套滚动页 `.page-slide` 上，翻页时图层纹理不被保活即逐帧重栅格化/重解码整屏大图（与 #147 壁纸「常驻图层纹理保持存活、不再反复解码」同源病灶）。修复＝personalize.js applyPageBgs 按 DOM 实态挂 `.has-page-bg` 类（无整页背景图不挂＝零额外显存），home.css 在触屏门控下把三页提升为独立合成层（翻页只平移纹理）。门控防跨机型回归：仅 hover:none + pointer:coarse；电脑端外壳零变化。node --check 过（personalize.js）；行为验证 tools/verify-desk-flip-layer.mjs ====
+  { name: '#754a 桌面翻页合成层提升（删＝整页背景图在滚动页上被逐帧重栅格化，翻页秒级掉帧回归）', file: 'css/home.css', needle: '.desktop-pages.has-page-bg .page-slide { will-change: transform; }' },
+  { name: '#754b 整页背景图实态挂类（删＝合成层规则永不命中，修复空转）', file: 'js/personalize.js', needle: "pagesBox.classList.toggle('has-page-bg', anyPageBg);" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
