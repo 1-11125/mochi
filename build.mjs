@@ -204,6 +204,24 @@ html = html.split('__APP_VERSION__').join(APP_VERSION);
 // 几百字节被截断，SW 完整性校验仍能判定残缺」。sw.js isCompleteHtml 靠它判定。
 html += '\n<!-- __MOCHI_EOF__ ' + buildStamp + ' -->\n';
 
+// v3.26.x #797 结构闸：模板尾部破损（说明文字漏出注释外→样本标签变野 <script>）曾让正文裸奔出
+// 白色乱码条（body 级，所有页面可见），并把 #pwa-install/#pwa-ios-hint/#mochi-html-eof 连同
+// </body> 整段吞进一个永不执行的死脚本（实测产物 45 开 44 闭）。三道硬校验，任一失守 exit 1：
+// ① script 开/闭标签数必须相等（主闸：位置检查看不出「脚本体未闭合吞尾」）；② 尾部三锚点必须
+// 存在且都在最后一个 </script> 之后；③ 不得含 src="js/*.js" 样本标签（注释文字漏出的指纹）。
+(function () {
+  const opens = (html.match(/<script\b/g) || []).length;
+  const closes = (html.match(/<\/script>/g) || []).length;
+  const lastClose = html.lastIndexOf('</script>');
+  const bad = [];
+  if (opens !== closes) bad.push('script 开/闭标签数不等（' + opens + ' 开 / ' + closes + ' 闭）＝有未闭合标签吞尾部 DOM');
+  ['id="pwa-install"', 'id="pwa-ios-hint"', 'id="mochi-html-eof"'].forEach(function (t) {
+    if (html.indexOf(t) < 0 || html.indexOf(t) < lastClose) bad.push('尾部锚点 ' + t + ' 缺失或被吞进脚本体');
+  });
+  if (html.indexOf('src="js/*.js"') >= 0) bad.push('产物含样本标签 src="js/*.js"＝模板注释文字漏出注释外');
+  if (bad.length) { console.error('❌ #797 结构闸：' + bad.join('；') + '（查 src/template.html 尾部注释是否被改破）'); process.exit(1); }
+})();
+
 if (!CHECK_SENTINELS) {
 // PERF-PLAN 阶段 1：写外置产物 js/<file>——先清空目录（防文件改名/移回 core 后旧文件
 // 残留，被 sw precache 扫到、被提交进库）；不带构建戳（PERF-PLAN §3：未改文件字节
@@ -254,6 +272,9 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-09-19 #797 全页面右侧白色乱码条（用户直派紧急）：template 外置锚说明文字写在注释结尾之外＝构建替换后成正文裸文本（body 级全页面可见），其中样本 <script defer src="js/*.js"> 被当真开标签吞掉其后全部尾部 DOM。修法＝说明收回独立注释＋构建期结构闸（html 组装段末）。====
+  { name: '#797a 外置锚说明整体在注释内（<!-- 前缀是承重逻辑：说明移出注释＝此针消失且说明变正文裸文本）', file: 'template.html', needle: '<!-- PERF-PLAN 阶段 1' },
+  { name: '#797b 删除型：外置锚注释结尾后不得直接跟说明文字（回流＝乱码白条＋尾部 DOM 被吞复发）', file: 'template.html', needle: '-->（PERF-PLAN', absent: true },
   // ==== 2026-09-18 #770 卡顿自检（#726）三处修正（红米 K80 Chrome 实报：停在设置页自检，
   // 报告却称「掉帧集中:占卜(100%)」，且「结论:流畅(未捕获掉帧)」与下方「掉帧 1 帧」并存）====
   { name: '#770a 掉帧归因读最上层全屏页（改回读 .app 桌面图标＝图标显隐不随页面切换，停任何页采样都记到最后一个可见图标头上，归因恒错）', file: 'js/perf-check.js', needle: "querySelectorAll('.page:not([hidden])')" },

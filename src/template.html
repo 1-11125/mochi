@@ -6812,7 +6812,8 @@
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
 /*__SCRIPTS__*/</script>
-<!-- __SCRIPTS_EXT__ -->（PERF-PLAN 阶段 1：ext 外置脚本 defer 注入锚，构建时替换为 <script defer src="js/*.js">；勿删，删＝外置机制失效回全内联）
+<!-- __SCRIPTS_EXT__ -->
+<!-- PERF-PLAN 阶段 1：上一行是 ext 外置脚本 defer 注入锚，构建时被整体替换为 35 个外置 js 标签；本行说明必须连同注释符号一起整体留在注释内，勿删。#797 教训：说明若写在注释结尾之外＝变正文裸文本（全页面右侧白色乱码条），其中的标签样本会被浏览器当真开标签，吞掉其后全部尾部 DOM -->
 
   <!-- PWA 安装到桌面按钮（Chrome/Edge 触发 beforeinstallprompt 时显示） -->
   <button class="pwa-install" id="pwa-install" hidden>
