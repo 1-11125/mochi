@@ -10094,9 +10094,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789696211298">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.738</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 09:50<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789703438918">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.739</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 11:50<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11533,7 +11533,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.738</div>
+          <div class="val" id="about-ver-val">v3.26.739</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11602,7 +11602,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.738</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.739</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11982,7 +11982,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.738</span>
+              <span class="lic-ver">v3.26.739</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -13205,7 +13205,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="txt">移除通话半框背景</div>
           </div>
         </div>
-        <div class="sm-set-hint" style="padding:0 16px 8px">【通话半框】是聊天页「更多功能 → 通话」打开的底部半屏面板。「打开通话半框」会跳到当前联系人的聊天页并展开它；「通话半框背景图片」只作用于这个半框（与上面的通话背景互不影响），按联系人各自保存。</div>
+        <div class="sm-set-hint" style="padding:0 16px 8px">【通话半框背景图片】作用于联系人来电/通话时的半弹框（通话小框 #call-mini），与通话大面板/小框的通话背景互不影响，按联系人各自保存。</div>
       </div>
     </div>
 
@@ -14820,8 +14820,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="call-panel-row call-panel-row-danger" id="call-bg-edit-remove" hidden title="移除通话背景图片">
             <span class="cpr-txt">移除通话背景</span><span class="cpr-val">恢复默认</span>
           </div>
-          <!-- #651：通话功能页内直接上传/移除「通话半框背景」（与设置页同键 call-half-bg，实时回显本半框） -->
-          <div class="call-panel-row" id="call-half-bg-edit-row" title="设置通话半框背景图片（只作用于本半框，与通话背景互不影响）">
+          <!-- #651：通话功能页内直接上传/移除「通话半框背景」（与设置页同键 call-half-bg，实时回显本半框；作用于来电/通话小框 #call-mini） -->
+          <div class="call-panel-row" id="call-half-bg-edit-row" title="设置通话半框背景图片（只作用于来电/通话小框 #call-mini，与通话背景互不影响）">
             <span class="cpr-txt">通话半框背景图片</span><span class="cpr-val" id="call-half-bg-edit-val"></span>
           </div>
           <div class="call-panel-row call-panel-row-danger" id="call-half-bg-edit-remove" hidden title="移除通话半框背景图片">
@@ -18144,7 +18144,7 @@ try { URL.revokeObjectURL(url); } catch (e2) {}
 return true;
 } catch (e) { return false; }
 }
-function diagExportDocx(text, basePrefix, failMsg, toastFn) {
+function diagExportDocx(text, basePrefix, failMsg, toastFn, shareTitle) {
 const fname = (basePrefix || 'mochi-diag-') + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.docx';
 const tf = (typeof toastFn === 'function') ? toastFn : diagToast;
 const legacy = function () {
@@ -18157,7 +18157,7 @@ if (typeof window.mochiExportBlob !== 'function') { legacy(); return; }
 let blob = null;
 try { blob = buildDocxBlob(text); } catch (e) { blob = null; }
 if (!blob) { legacy(); return; }
-window.mochiExportBlob(blob, fname, 'mochi 诊断报告', [
+window.mochiExportBlob(blob, fname, shareTitle || 'mochi 诊断报告', [
 { description: 'Word 文档', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] } }
 ]).then(function (res) { if (res === 'fail') legacy(); });
 }
@@ -18712,7 +18712,8 @@ L.push('standalone=' + !!inp.standalone + '  全屏模式=' + (inp.fsActive ? '�
 L.push('html类：' + inp.htmlClass);
 L.push('系统=' + (inp.osLine || '未知') + '（形态判定依赖系统版本，#184/#200）');
 L.push('env(safe-area-inset-bottom)=' + inp.envBottom + 'px  视口平移=offTop:' + (inp.vvOffTop || 0) + '/offLeft:' + (inp.vvOffLeft || 0));
-L.push('键盘残留=' + (inp.kb ? ('kbActive=' + !!inp.kb.kbActive + ' 锁=' + !!inp.kb.docLocked + ' 基线 inner/vv=' + inp.kb.fullInner + '/' + inp.kb.fullVv) : 'n/a'));
+L.push('键盘残留=' + (inp.kb ? ('kbActive=' + !!inp.kb.kbActive + ' 锁=' + !!inp.kb.docLocked + ' 基线 inner/vv=' + inp.kb.fullInner + '/' + inp.kb.fullVv) : 'n/a')
++ '  --mochi-safe-bottom=' + (function () { try { var _v = getComputedStyle(document.documentElement).getPropertyValue('--mochi-safe-bottom').trim(); return _v ? _v + 'px' : '(未设/回落 ' + inp.envBottom + 'px)'; } catch (e) { return '?'; } })());
 L.push('');
 L.push('== 顶部安全区 ==');
 L.push('env(safe-area-inset-top)=' + inp.envTop + 'px  --mochi-safe-top=' + inp.varTop + 'px  diff(screen−inner)=' + inp.diff + 'px');
@@ -18733,6 +18734,12 @@ const gapB = inp.innerH - c.inputBottom;
 if (gapB > 4) L.push('⚠ 聊天输入栏未贴底：底边距可视区底 ' + gapB + 'px（键盘已收；反复出现请整段反馈）');
 else if (gapB < -4) L.push('⚠ 聊天输入栏超出可视区 ' + (-gapB) + 'px');
 else L.push('输入栏贴底 ✓');
+}
+if (c.inputBottom != null && inp.vvH > 0 && inp.innerH - inp.vvH >= 24) {
+const _gapV = inp.vvH - c.inputBottom;
+L.push('键盘可视态：vv 较布局内缩 ' + (inp.innerH - inp.vvH) + 'px  输入栏底距可视底=' + _gapV + 'px（阈值 ≤24px）');
+if (_gapV > 24) L.push('  ✗ 输入栏悬空 ' + _gapV + 'px：未贴键盘（#282/#236 族：键盘检测未置位或 --mochi-safe-bottom/.phone 收缩未归零——请整段反馈即可对号修）');
+else L.push('  贴可视底 ✓（≤24px）');
 }
 } catch (eR1) {}
 try {
@@ -32492,10 +32499,22 @@ chatHotFrom = idx.blocks.length - hotKeys.length;
 chatHotBaseN = hotN; // #722：账本守卫基准=热片条数（内存此后=热片+新增）
 const headN = Math.max(0, (idx.total || hotN) - hotN);
 chatColdHead = []; chatColdFrom = 0; chatColdDone = headN === 0; chatColdHydrating = false; chatRebased = false;
-return Promise.all(hotKeys.map(function (k) { return window.idbGet(prefix + ':' + k); })).then(function (parts) {
+let p = Promise.resolve();
+const parts = [];
+hotKeys.forEach(function (k, ki) {
+const bytes = (chatBlkIdx && chatBlkIdx.blocks[chatHotFrom + ki] && chatBlkIdx.blocks[chatHotFrom + ki].bytes) || 1048576;
+const hint = { minWaitMs: 4000 + Math.min(28000, Math.ceil((bytes || 1048576) / 1048576) * 2000) };
+p = p.then(function () { return window.idbGet(prefix + ':' + k, hint); }).then(function (v) { parts.push(v); });
+});
+return p.then(function () {
 if (window.activePrefix() !== prefix) return null;
 let hot = [], miss = false;
-parts.forEach(function (p2) { if (!Array.isArray(p2)) { miss = true; return; } hot = hot.concat(p2); });
+parts.forEach(function (p2) {
+let a = p2;
+if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { miss = true; return; } }
+if (!Array.isArray(a)) { miss = true; return; }
+hot = hot.concat(a);
+});
 if (miss || !hot.length) return null; // 块读失败 → 回到旧读路径语义（=读失败重试，绝不置 ready）
 return hot;
 }).catch(function () { return null; });
@@ -32714,6 +32733,9 @@ const CHAT_TAIL_TEXT_MAX = 1000;
 function chatTailSig(m) {
 try { return ((m && m.ts) || 0) + '|' + (m.side || '') + '|' + String((m && m.text) || '').slice(0, 120); } catch (e) { return ''; }
 }
+function chatTailId(m) {
+try { return ((m && m.ts) || 0) + '|' + (m.side || '') + '|' + (m.special || ''); } catch (e) { return ''; }
+}
 function chatTailRead() {
 try {
 const arr = JSON.parse(store.get('chat-tail') || '[]');
@@ -32758,11 +32780,15 @@ try {
 const arr = chatTailRead();
 if (!arr.length || !Array.isArray(msgs)) return;
 const have = new Set();
-for (let i = 0; i < msgs.length; i++) have.add(chatTailSig(msgs[i]));
+const haveId = new Set();
+for (let i = 0; i < msgs.length; i++) {
+have.add(chatTailSig(msgs[i]));
+haveId.add(chatTailId(msgs[i]));
+}
 const add = [];
 for (let i = 0; i < arr.length; i++) {
 const j = arr[i];
-if (!j || have.has(chatTailSig(j))) continue;
+if (!j || have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue;
 const jt = typeof j.text === 'string' ? j.text : '';
 if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) continue;
 const r = { ts: j.ts, side: j.side, special: j.special, text: jt };
@@ -36028,6 +36054,10 @@ try { store.set('desk-msg-en', deskMsgToggle.checked ? '1' : '0'); } catch (e) {
 function addRec(rec) {
 if (!rec.ts) rec.ts = Date.now();
 const len = msgs.length;
+if (len && msgs[len - 1] === rec) {
+try { (window.__mochiDupAdd = window.__mochiDupAdd || []).push(Date.now() + ':' + String((rec.text != null) ? rec.text : '').slice(0, 24) + ':' + String(rec.side || '')); } catch (eD) {}
+return null;
+}
 for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt; i--) {
 const p = msgs[i];
 if (!p || p.special || rec.special) continue;
@@ -37245,6 +37275,8 @@ const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
 if (phoneTab) phoneTab.classList.add('active');
 document.querySelectorAll('.page').forEach(p => { if (!p.hidden) p.hidden = true; }); // FIX #336 同值写也发 mutation，44 页全扫=唤醒全部页面观察器
 chatPage.hidden = false;
+chatPinnedBottom = true;
+body.classList.remove('scroll-anchor-auto');
 try { if (window.hydrateLibScopes) window.hydrateLibScopes(['own', 'public']); } catch (e) {}
 fillAvatar('chat-user-av', 'cs-avatar-user');
 fillAvatar('chat-partner-av', 'cs-avatar-partner');
@@ -42708,10 +42740,15 @@ const imgBtn = document.getElementById('chat-img-btn');
 if (imgBtn) {
 let chatImgInput = null;
 function chatImgPicker() {
-if (chatImgInput) return chatImgInput;
+if (chatImgInput) {
+try { chatImgInput.accept = 'image/*'; } catch (e) {}
+return chatImgInput;
+}
 const fi = document.createElement('input');
-fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
-fi.style.display = 'none';
+fi.type = 'file';
+fi.id = 'chat-img-pick';
+fi.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+fi.accept = 'image/*'; fi.multiple = true;
 fi.onchange = () => {
 const files = Array.prototype.slice.call(fi.files || []);
 fi.value = '';
@@ -42720,6 +42757,12 @@ files.forEach(addDraftImg);
 };
 document.body.appendChild(fi);
 chatImgInput = fi;
+if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi);
+return fi;
+}
+function chatImgPickBridge() {
+const fi = chatImgPicker();
+try { if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi); } catch (e) {}
 return fi;
 }
 function addDraftImg(file) {
@@ -42760,7 +42803,8 @@ try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片�
 }
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
-try { chatImgPicker().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
+try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
 });
 }
 function buildParts(text) {
@@ -46266,15 +46310,24 @@ gcInsertTextToInput(src);
 }, { allowUrl: true, textModeApplies: true }); // #691i：群聊点卡片行为受模式键支配，面板内保留模式切换按钮
 document.body.classList.remove('mail-emoji-mode');
 });
-if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
-e.stopPropagation();
+let gcImgInput = null;
+function gcImgPicker() {
+if (gcImgInput) {
+try { gcImgInput.accept = 'image/*'; } catch (e) {}
+return gcImgInput;
+}
 const fi = document.createElement('input');
-fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
+fi.type = 'file';
+fi.id = 'gc-img-pick'; // 常驻身份（诊断/测试句柄）
+fi.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+fi.accept = 'image/*'; fi.multiple = true;
 fi.onchange = () => {
 const files = Array.prototype.slice.call(fi.files || []);
-if (!files.length) return;
+fi.value = ''; // 允许重选同一张
+if (!files.length) { toast('没有取到图片，请再选一次'); return; }
 files.forEach(f => {
 const reader = new FileReader();
+reader.onerror = () => { toast('图片读取失败，请换一张再试'); };
 reader.onload = () => {
 const img = new Image();
 img.onload = () => {
@@ -46284,7 +46337,9 @@ const scale = Math.min(1, 720 / Math.max(img.width, img.height));
 c.width = Math.max(1, Math.round(img.width * scale));
 c.height = Math.max(1, Math.round(img.height * scale));
 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-gcDraftImgs.push(c.toDataURL('image/jpeg', 0.85));
+const out = c.toDataURL('image/jpeg', 0.85);
+if (out && out.indexOf('data:image/') === 0 && out.length > 128) gcDraftImgs.push(out);
+else gcDraftImgs.push(reader.result);
 } catch (err) {
 gcDraftImgs.push(reader.result);
 }
@@ -46299,7 +46354,17 @@ img.src = reader.result;
 reader.readAsDataURL(f);
 });
 };
-fi.click();
+document.body.appendChild(fi);
+gcImgInput = fi;
+if (window.mochiFilePickLabel && gcImgBtn) window.mochiFilePickLabel(gcImgBtn, fi);
+return fi;
+}
+if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
+e.stopPropagation();
+const fi = gcImgPicker();
+try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return;
+try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); }
 });
 if (atPanel) atPanel.addEventListener('click', (e) => { if (e.target === atPanel) atPanel.hidden = true; });
 const gcMsgActions = document.getElementById('gc-msg-actions');
@@ -50682,6 +50747,50 @@ clearTimeout(t._timer);
 t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 }
 const chatPage = document.getElementById('page-chat');
+let csBgStableW = 0, csBgStableH = 0;
+function csBgStableBox() {
+try {
+const w = chatPage ? Math.round(chatPage.clientWidth) : 0;
+const h = chatPage ? Math.round(chatPage.clientHeight) : 0;
+if (!w || !h) return null;
+if (w !== csBgStableW) { csBgStableW = w; csBgStableH = h; }
+else if (h > csBgStableH) { csBgStableH = h; } // 盒变高（键盘收起/地址栏收起）＝抬高基线
+return { w: csBgStableW, h: csBgStableH };
+} catch (e) { return null; }
+}
+function csBgPaintSize(fit, box) {
+if (!box) return null;
+try {
+if (fit === 'stretch') return '100% 100%';
+if (fit === 'tile') return 'auto';
+const nat = chatPage && chatPage.__csBgNat;
+if (!nat || !nat.w || !nat.h) return null;
+const sx = box.w / nat.w, sy = box.h / nat.h;
+const s = fit === 'contain' ? Math.min(sx, sy) : Math.max(sx, sy); // fill/未知 ⇒ cover 语义
+return Math.round(nat.w * s) + 'px ' + Math.round(nat.h * s) + 'px';
+} catch (e) { return null; }
+}
+function csBgFitCss(fit) {
+if (fit === 'stretch') return '100% 100%';
+if (fit === 'tile') return 'auto';
+if (fit === 'contain') return 'contain';
+return 'cover'; // 'fill' / 未知值 ⇒ 铺满裁剪（#731 设计原意）
+}
+function csBgMeasure(url, cb) {
+try {
+if (!chatPage || !url) return;
+if (chatPage.__csBgNat && chatPage.__csBgNat.url === url) { cb && cb(); return; }
+const im = new Image();
+im.onload = () => {
+try {
+chatPage.__csBgNat = { url: url, w: im.naturalWidth || 0, h: im.naturalHeight || 0 };
+} catch (e) {}
+cb && cb();
+};
+im.onerror = () => { cb && cb(); };
+im.src = url;
+} catch (e) { cb && cb(); }
+}
 const CS_BG_GLIST = 'cs-bg-glist';
 const CS_BG_MAX = 12; // 图库容量上限（每张压缩后可达 MB 级，防无上限堆爆 IDB）
 const csBgList = () => {
@@ -50895,7 +51004,13 @@ bg = null;
 if (bg && chatPage) {
 const fit = csBgFit();
 if (chatPage.style.backgroundImage !== 'url("' + bg + '")') chatPage.style.backgroundImage = 'url("' + bg + '")';
-chatPage.style.backgroundSize = fit === 'stretch' ? '100% 100%' : (fit === 'tile' ? 'auto' : fit);
+const paint = csBgPaintSize(fit, csBgStableBox());
+if (!paint && fit !== 'tile') {
+if (!(chatPage.__csBgNat && chatPage.__csBgNat.url === bg)) {
+csBgMeasure(bg, () => { try { applySettings(); } catch (e) {} });
+}
+}
+chatPage.style.backgroundSize = paint || csBgFitCss(fit);
 chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
 chatPage.style.backgroundPosition = 'center';
 } else if (chatPage && chatPage.style.backgroundImage) {
@@ -50923,6 +51038,18 @@ try { applyCssEnforce(); } catch (e) {}
 }
 window.applyChatSettings = applySettings;
 window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
+try {
+let _bgResizeTimer = null;
+const _bgResize = () => {
+if (_bgResizeTimer) clearTimeout(_bgResizeTimer);
+_bgResizeTimer = setTimeout(() => {
+_bgResizeTimer = null;
+try { applySettings(); } catch (e) {}
+}, 120);
+};
+window.addEventListener('resize', _bgResize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', _bgResize);
+} catch (e) {}
 applySettings();
 try {
 new MutationObserver(() => { try { applySettings(); } catch (e) {} })
@@ -50980,6 +51107,8 @@ store.set('cs-bg-item-' + id, data);
 csBgMakeThumb(data, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, th); });
 store.set('cs-bg', data);
 store.set(CS_BG_ACTIVE, id);
+try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {}
+csBgMeasure(data, () => { try { applySettings(); } catch (e) {} });
 applySettings();
 return id;
 }
@@ -51053,7 +51182,7 @@ if (full) csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-ite
 cell.appendChild(im);
 cell.addEventListener('click', () => {
 const full = store.get('cs-bg-item-' + id);
-if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
+if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {} csBgMeasure(full, () => { try { applySettings(); } catch (e) {} }); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
 });
 const del = document.createElement('div');
 del.textContent = '×';
@@ -55511,8 +55640,7 @@ if (window.openModal) {
 window.openModal(title, '', function () {}, { noInput: true, staticText: txt + '\n\n当前使用概率：' + n + '%' });
 }
 });
-document.addEventListener('mochi-wrj-heal', function () {
-try {
+function syncDcSwitchUI() {
 enabledEl.checked = getEnabled();
 ['chat', 'mail', 'feed'].forEach(function (k) {
 const el = document.getElementById('dc-use-' + k);
@@ -55535,12 +55663,10 @@ dcfRefreshUI(k);
 });
 const deEl = document.getElementById('dcf-enabled');
 if (deEl) deEl.checked = dcfEnabled();
-} catch (e) {}
-});
+}
+document.addEventListener('mochi-wrj-heal', function () { try { syncDcSwitchUI(); } catch (e) {} });
 ['contact-switched', 'mochi-restore-done'].forEach(function (ev) {
-document.addEventListener(ev, function () {
-try { Object.keys(DCF_DEF).forEach(function (k) { dcfRefreshUI(k); }); } catch (e) {}
-});
+document.addEventListener(ev, function () { try { syncDcSwitchUI(); } catch (e) {} });
 });
 const V_PAD = 0.8;    // 视口上下各多渲染 0.8 屏（重建频率 ≈ 每滚 0.8 屏一次）
 const V_MINW = 24;    // 窗口条目数下限（小屏/高条目时兜底，避免窗口过窄）
@@ -65083,7 +65209,7 @@ toast(askChatCard.checked ? '互动卡回应已接通聊天字卡/词典（文�
 const askProb = document.getElementById('ta-ask-prob');
 if (askProb) askProb.addEventListener('input', () => {
 const d = taAskLoad();
-d.settings.prob = parseInt(askProb.value, 10) || 5;
+d.settings.prob = Math.max(0, Math.min(100, parseInt(askProb.value, 10) || 0));
 taAskSave(d);
 const v = document.getElementById('ta-ask-prob-val');
 if (v) v.textContent = askProb.value + '%';
@@ -66183,7 +66309,7 @@ const tcProb = document.getElementById('tc-prob');
 if (tcProb) {
 tcProb.addEventListener('input', () => {
 const d = tcLoad();
-d.settings.prob = parseInt(tcProb.value, 10) || 5;
+d.settings.prob = Math.max(0, Math.min(100, parseInt(tcProb.value, 10) || 0));
 tcSave(d);
 const v = document.getElementById('tc-prob-val');
 if (v) v.textContent = tcProb.value + '%';
@@ -66807,7 +66933,7 @@ toast(tcuDefault.checked ? '系统预设问题已开启' : '系统预设问题�
 });
 const tcuProb = document.getElementById('tcu-prob');
 if (tcuProb) tcuProb.addEventListener('input', () => {
-const d = tcuLoad(); d.settings.prob = parseInt(tcuProb.value, 10) || 5; tcuSave(d);
+const d = tcuLoad(); d.settings.prob = Math.max(0, Math.min(100, parseInt(tcuProb.value, 10) || 0)); tcuSave(d);
 const v = document.getElementById('tcu-prob-val'); if (v) v.textContent = tcuProb.value + '%';
 toast('触发概率已设为 ' + tcuProb.value + '%');
 });
@@ -67384,7 +67510,7 @@ toast(trDefault.checked ? '系统预设字卡已开启' : '系统预设字卡已
 });
 const trProb = document.getElementById('tr-prob');
 if (trProb) trProb.addEventListener('input', () => {
-const d = trLoad(); d.settings.prob = parseInt(trProb.value, 10) || 5; trSave(d);
+const d = trLoad(); d.settings.prob = Math.max(0, Math.min(100, parseInt(trProb.value, 10) || 0)); trSave(d);
 const v = document.getElementById('tr-prob-val'); if (v) v.textContent = trProb.value + '%';
 toast('触发概率已设为 ' + trProb.value + '%');
 });
@@ -71936,14 +72062,14 @@ toast('已恢复默认通话背景');
 const CALL_HALF_BG_KEY = 'call-half-bg';
 function applyCallHalfBg() {
 const bg = store.get(CALL_HALF_BG_KEY) || '';
-const half = document.getElementById('chat-call-panel');
-if (half) {
+const mini = document.getElementById('call-mini');
+if (mini) {
 if (bg) {
-half.style.backgroundImage = 'url("' + bg + '")';
-half.style.backgroundSize = 'cover';
-half.style.backgroundPosition = 'center';
+mini.style.backgroundImage = 'url("' + bg + '")';
+mini.style.backgroundSize = 'cover';
+mini.style.backgroundPosition = 'center';
 } else {
-half.style.backgroundImage = '';
+mini.style.backgroundImage = '';
 }
 }
 const val = document.getElementById('call-half-bg-val');
@@ -90418,6 +90544,8 @@ result = shuffled.slice(0, Math.min(n, shuffled.length)).join('、');
 }
 resultEl.textContent = result;
 resultEl.classList.add('done');
+const settle = () => {
+if ((window.__activeCid || 'default') !== myCid) return;
 const h = loadHistory();
 h.unshift({ id: 'd_' + Date.now(), type: type, question: question, result: result, options: options, ts: Date.now() });
 if (h.length > 1000) h.splice(1000);
@@ -90430,6 +90558,17 @@ if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(reply
 else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
 }
 toast('帮我决定已完成');
+};
+let settled = false;
+const runSettle = () => {
+if (settled) return;
+settled = true;
+try { if (idleId && window.cancelIdleCallback) window.cancelIdleCallback(idleId); } catch (e) {}
+clearTimeout(settleT);
+settle();
+};
+let idleId = window.requestIdleCallback ? window.requestIdleCallback(runSettle, { timeout: 600 }) : 0;
+const settleT = setTimeout(runSettle, 80);
 }, thinkTime * 1000);
 }
 function renderHistory() {
@@ -90822,6 +90961,8 @@ results[m] = shuffled.slice(0, Math.min(n, shuffled.length)).join('、');
 const resultStr = selectedMembers.map(m => m + '：' + results[m]).join('\n');
 resultEl.textContent = resultStr;
 resultEl.classList.add('done');
+const gdSettle = () => {
+if ((window.__activeCid || 'default') !== myCid) return;
 const h = loadHistory();
 h.unshift({ id: 'gd_' + Date.now(), type: type, question: question, members: selectedMembers, results: results, options: options, ts: Date.now() });
 if (h.length > 1000) h.splice(1000);
@@ -90835,6 +90976,17 @@ if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(rep
 else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
 }
 toast('多人决定已完成');
+};
+let gdSettled = false;
+const gdRunSettle = () => {
+if (gdSettled) return;
+gdSettled = true;
+try { if (gdIdleId && window.cancelIdleCallback) window.cancelIdleCallback(gdIdleId); } catch (e) {}
+clearTimeout(gdSettleT);
+gdSettle();
+};
+let gdIdleId = window.requestIdleCallback ? window.requestIdleCallback(gdRunSettle, { timeout: 600 }) : 0;
+const gdSettleT = setTimeout(gdRunSettle, 80);
 }, thinkTime * 1000);
 }
 function renderHistory() {
@@ -105633,10 +105785,10 @@ const HUB = [
 { n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
 { n: '打开通话半框', d: '聊天页「更多功能→通话」的底部半屏面板；从通话设置页一键跳到聊天页展开它', k: '通话 半框 打开 面板', go: ['#row-call-settings', '#call-half-open'] },
 { n: '夜间模式', d: '开启后 22:00–7:00：联系人不再主动发消息/打电话，其他桌面也不再跨桌面查岗/来电（时段外不受影响）', k: '夜间 睡眠 勿扰 安静 静默 主动消息 来电 跨桌面 查岗 22 7 晚上', go: ['#sf-night-mode-row'] },
-{ n: '通话半框背景图片', d: '给通话半框单独上传背景图（与通话背景互不影响，按联系人各自保存）', k: '通话 半框 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-half-bg-row'] },
-{ n: '移除通话半框背景', d: '清除通话半框背景图恢复默认', k: '通话 半框 背景 移除 删除 清除', go: ['#row-call-settings', '#call-half-bg-remove'] },
+{ n: '通话半框背景图片', d: '给联系人来电/通话小框单独上传背景图（与通话背景互不影响，按联系人各自保存）', k: '通话 半框 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-half-bg-row'] },
+{ n: '移除通话半框背景', d: '清除联系人来电/通话小框背景图恢复默认', k: '通话 半框 背景 移除 删除 清除', go: ['#row-call-settings', '#call-half-bg-remove'] },
 { n: '打开来电弹窗预览', d: '在通话半框里直接打开「联系人来电」时的大弹窗看看效果（非迷你小框）；点任意处退出，不产生真实通话', k: '通话 来电 弹窗 半框 预览 查看 打开', go: ['.app[data-app="chat"]', '#more-call', '#call-view-row'] },
-{ n: '通话半框背景（半框内入口）', d: '不用去设置页，在通话半框里直接上传/移除半框专属背景，与「通话半框背景图片」同款', k: '通话 半框 背景 图片 上传 壁纸 移除', go: ['.app[data-app="chat"]', '#more-call', '#call-half-bg-edit-row'] },
+{ n: '通话半框背景（半框内入口）', d: '不用去设置页，在通话半框里直接上传/移除来电小框专属背景，与「通话半框背景图片」同款', k: '通话 半框 背景 图片 上传 壁纸 移除', go: ['.app[data-app="chat"]', '#more-call', '#call-half-bg-edit-row'] },
 { n: '数据导出', d: '导出全部数据为备份文件；点开可选「仅聊天记录」（各桌面联系人 + 群聊，换机只搬聊天）', k: '导出 备份 数据 可选 只导出 仅 聊天记录 全部桌面', go: ['#row-export'] },
 { n: '数据导入', d: '从备份文件恢复（含预览与进度）；点开可选「仅聊天记录」（只恢复各桌面联系人与群聊）', k: '导入 恢复 数据 可选 只导入 仅 聊天记录 全部桌面', go: ['#row-import'] },
 { n: '查看存储占用', d: '按功能看本地存储占用，可清诊断记录；页内「字卡图去重入库」做字卡库瘦身', k: '存储 占用 空间 清理', go: ['#row-storage-view'] },
@@ -107413,6 +107565,22 @@ if (!lastText) {
 lastText = '【自检报告为空】没有取到自检结果。\n可能原因：自检页尚未完成首次渲染（请返回上一页重新打开「字卡使用状态自检」再导出）。\n'
 + '版本：' + appVer() + '\n时间：' + new Date().toLocaleString() + '\n设备：' + (navigator.userAgent || '');
 }
+var head = '版本：' + appVer()
++ '\n时间：' + new Date().toLocaleString()
++ '\n设备：' + (navigator.userAgent || '')
++ '\n当前桌面：' + deskName(activeCid())
++ (buildErr ? '\n自检中途出错：' + buildErr : '')
++ '\n\n';
+var d = new Date();
+var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
+var fname = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.docx';
+if (typeof window.mochiDiagExportDocx === 'function') {
+try {
+window.mochiDiagExportDocx(head + lastText, 'mochi-card-audit-',
+'docx 下载未能触发，请改用「复制报告」粘贴给开发者', toast, '字卡使用状态自检报告');
+return;
+} catch (e) {}
+}
 var payload = {
 app: 'mochi', kind: 'card-audit',
 version: appVer(),
@@ -107424,11 +107592,9 @@ issueCount: issueCount,
 issues: issues.map(function (v) { return { level: v.lv, text: v.text }; }),
 report: lastText
 };
-var d = new Date();
-var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
-var fname = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
+var fnameJson = 'mochi-card-audit-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
 if (window.mochiExportFile) {
-try { window.mochiExportFile(JSON.stringify(payload, null, 2), fname, '字卡使用状态自检报告'); return; } catch (e) {}
+try { window.mochiExportFile(JSON.stringify(payload, null, 2), fnameJson, '字卡使用状态自检报告'); return; } catch (e) {}
 }
 copyReport();
 }
@@ -107935,7 +108101,14 @@ if (scroller.__nudgeGeom === geomKey && Math.abs(vhNow - (scroller.__nudgeVH || 
 scroller.__nudgeGeom = geomKey;
 scroller.__nudgeVH = vhNow;
 if (r.bottom > sr.bottom - 8) {
-scroller.scrollTop = Math.max(0, scroller.scrollTop + (r.bottom - sr.bottom) + 16);
+var ovf = r.bottom - (sr.bottom - 8);
+var _elH = (active && active.offsetHeight) || 0;
+var _topHidden = sr.top - r.top; // >0 ＝ 输入框顶部已卷到可视上沿之上
+if ((_topHidden > 0) || (_elH > (sr.height - 8))) {
+if (_topHidden > 0) scroller.scrollTop = Math.max(0, scroller.scrollTop - _topHidden - 8);
+} else {
+scroller.scrollTop = Math.max(0, scroller.scrollTop + ovf + 16);
+}
 }
 } catch (e) {}
 }
@@ -109424,4 +109597,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu6awyn6 -->
+<!-- __MOCHI_EOF__ mu6f7vie -->
