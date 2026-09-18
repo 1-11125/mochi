@@ -3539,6 +3539,10 @@ const FIX_SENTINELS = [
   // ==== 2026-09-19 #800 后台通知「一条内容弹两条一模一样的系统通知」根治（红米 K80 Chrome 实报「联系人更换昵称的系统消息重复一条」，用户点名其他消息可能同病、其他设备型号也有；#744/#766/#776/#796 同族新通道）：同一条消息在**同一同步任务**里被投两次——addRec→showDeskMsg 一路 + 机制显式补发一路（avatar-lib 昵称/头像池定时更换、ta-ask 五处、ck-question、incoming-requests 查岗卡），而已发指纹 markNotified 原在 showSysNotification().then(ok) 异步回调里才落账（发送链前段还有头像裁剪 Image onload 最长 1200ms 截止），第二发到达时 notifiedDup/seenDup 查空、recentChatDup 又有「刚入库 2.5s 内条目自排除」＝双弹。修复＝决定发送的同步点记账＋发送失败回调里回滚（v3.12.x 失败可重试语义不变）。零机型分支；行为断言见 tools/verify-notify-dup-gate.mjs ====
   { name: '#800a 决定发送即同步记账（记账仍在发送成功回调＝同任务第二发查空放行，一条内容弹两条一模一样的通知回归）', file: 'js/bg-keep.js', needle: 'gateStats.sent++; markNotified(nkey);' },
   { name: '#800b 发送失败回滚早记账（删掉＝发送失败后 2 分钟内同内容不再重试，「经常收不到」家族回归）', file: 'js/bg-keep.js', needle: 'notifiedRecently.delete(nkey);' },
+  // ==== 2026-09-19 #809 问问TA 发单题「思考时间（秒）」可自定义（用户直派「和帮我决定群来决定一样的自定义思考时间，默认就是现在的秒」）——半框注入同款 stepper（1~10 秒，点击即持久化 per-cid 键 ask-think-secs），ask 分支延迟改 askThinkSecsLoad()*1000（默认 3 秒＝原随机 1500+rand*2500 常用档；invite 分支保持随机不变）。行为断言见 tools/verify-ask-think-time.mjs ====
+  { name: '#809a 思考时间点击即持久化（删＝关面板重开回默认，设置形同虚设）', file: 'js/chat.js', needle: "store.set('ask-think-secs', String(n));" },
+  { name: '#809b 半框思考时间 stepper 行（删＝设置入口消失，功能不可达）', file: 'js/chat.js', needle: 'id="chat-ask-think"' },
+  { name: '#809c ask 回答延迟读设置（改回固定随机＝用户设置不生效，思考时间恒 1.5~4 秒）', file: 'js/chat.js', needle: '}, askThinkSecsLoad() * 1000);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

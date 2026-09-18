@@ -8494,6 +8494,36 @@ if (opts.__ceBox) opts.__ceBox.style.display = 'none';
 else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = 'none';
 }
 }
+// v3.26.x #809：问问TA「思考时间（秒）」——同帮我决定/多人决定的 stepper（1~10 秒），
+// per-cid 持久化（store 即当前桌面命名空间），默认 3 秒＝原随机 1.5~4 秒的常用档；
+// 只在 ask（问问TA）模式显示，invite（邀请TA）模式隐藏（.gs-row[hidden] 已有 #727 兜底）。
+function askThinkSecsLoad() {
+try { const n = parseInt(store.get('ask-think-secs'), 10); return (n >= 1 && n <= 10) ? n : 3; } catch (e) { return 3; }
+}
+function ensureChatAskThinkRow() {
+if (!chatAskPanel) return;
+const askBody = chatAskPanel.querySelector('.chat-ask-body');
+if (!askBody) return;
+let row = chatAskPanel.querySelector('.chat-ask-think-row');
+if (!row) {
+row = document.createElement('div');
+row.className = 'gs-row chat-ask-think-row';
+row.innerHTML = '<span>思考时间（秒）</span><div class="stepper" id="chat-ask-think" data-min="1" data-max="10" data-step="1"><button type="button" class="stp-min">−</button><input class="stp-val" id="chat-ask-think-val" readonly><button type="button" class="stp-max">+</button></div>';
+const actions = askBody.querySelector('.chat-ask-actions');
+if (actions) askBody.insertBefore(row, actions); else askBody.appendChild(row);
+const val = row.querySelector('.stp-val');
+const clampSave = () => {
+let n = parseInt(val.value, 10);
+if (!(n >= 1 && n <= 10)) n = 3;
+val.value = n;
+store.set('ask-think-secs', String(n));
+};
+row.querySelector('.stp-min').addEventListener('click', (e) => { if (e) e.stopPropagation(); val.value = (parseInt(val.value, 10) || 3) - 1; clampSave(); });
+row.querySelector('.stp-max').addEventListener('click', (e) => { if (e) e.stopPropagation(); val.value = (parseInt(val.value, 10) || 3) + 1; clampSave(); });
+}
+row.hidden = chatAskMode !== 'ask';
+row.querySelector('.stp-val').value = askThinkSecsLoad();
+}
 function askBoxes() {
 const arr = [chatAskInput, document.getElementById('chat-ask-opts')];
 return arr.filter(Boolean).map(el => ({ inp: el, box: el.__ceBox || el }));
@@ -8568,6 +8598,7 @@ function openChatAskPanel(mode) {
 if (!chatAskPanel) return;
 chatAskMode = mode || 'invite';
 ensureChatAskTypeRow();
+ensureChatAskThinkRow();
 resetChatAskType();
 if (chatAskTitle) chatAskTitle.textContent = chatAskMode === 'invite' ? '邀请TA' : '问问TA';
 if (chatAskInput) {
@@ -8718,7 +8749,7 @@ if (window.renderAskRecords) window.renderAskRecords();
 setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
 }
 applyAskAnswer();
-}, 1500 + Math.random() * 2500);
+}, askThinkSecsLoad() * 1000); // #809：思考时间用户可调（1~10 秒），默认 3 秒；原 1500+rand*2500
 }
 }
 // v3.26.x：邀请发送逻辑从 submitChatAsk 抽出，供「我的邀请」字卡点卡直接复用（可重复发送，

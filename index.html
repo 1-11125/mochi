@@ -10166,9 +10166,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789769467990">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789772107153">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 06:11<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 06:55<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -39780,6 +39780,33 @@ if (opts.__ceBox) opts.__ceBox.style.display = 'none';
 else if (opts.previousElementSibling && opts.previousElementSibling.classList && opts.previousElementSibling.classList.contains('ce-box')) opts.previousElementSibling.style.display = 'none';
 }
 }
+function askThinkSecsLoad() {
+try { const n = parseInt(store.get('ask-think-secs'), 10); return (n >= 1 && n <= 10) ? n : 3; } catch (e) { return 3; }
+}
+function ensureChatAskThinkRow() {
+if (!chatAskPanel) return;
+const askBody = chatAskPanel.querySelector('.chat-ask-body');
+if (!askBody) return;
+let row = chatAskPanel.querySelector('.chat-ask-think-row');
+if (!row) {
+row = document.createElement('div');
+row.className = 'gs-row chat-ask-think-row';
+row.innerHTML = '<span>思考时间（秒）</span><div class="stepper" id="chat-ask-think" data-min="1" data-max="10" data-step="1"><button type="button" class="stp-min">−</button><input class="stp-val" id="chat-ask-think-val" readonly><button type="button" class="stp-max">+</button></div>';
+const actions = askBody.querySelector('.chat-ask-actions');
+if (actions) askBody.insertBefore(row, actions); else askBody.appendChild(row);
+const val = row.querySelector('.stp-val');
+const clampSave = () => {
+let n = parseInt(val.value, 10);
+if (!(n >= 1 && n <= 10)) n = 3;
+val.value = n;
+store.set('ask-think-secs', String(n));
+};
+row.querySelector('.stp-min').addEventListener('click', (e) => { if (e) e.stopPropagation(); val.value = (parseInt(val.value, 10) || 3) - 1; clampSave(); });
+row.querySelector('.stp-max').addEventListener('click', (e) => { if (e) e.stopPropagation(); val.value = (parseInt(val.value, 10) || 3) + 1; clampSave(); });
+}
+row.hidden = chatAskMode !== 'ask';
+row.querySelector('.stp-val').value = askThinkSecsLoad();
+}
 function askBoxes() {
 const arr = [chatAskInput, document.getElementById('chat-ask-opts')];
 return arr.filter(Boolean).map(el => ({ inp: el, box: el.__ceBox || el }));
@@ -39842,6 +39869,7 @@ function openChatAskPanel(mode) {
 if (!chatAskPanel) return;
 chatAskMode = mode || 'invite';
 ensureChatAskTypeRow();
+ensureChatAskThinkRow();
 resetChatAskType();
 if (chatAskTitle) chatAskTitle.textContent = chatAskMode === 'invite' ? '邀请TA' : '问问TA';
 if (chatAskInput) {
@@ -39959,7 +39987,7 @@ if (window.renderAskRecords) window.renderAskRecords();
 setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
 }
 applyAskAnswer();
-}, 1500 + Math.random() * 2500);
+}, askThinkSecsLoad() * 1000); // #809：思考时间用户可调（1~10 秒），默认 3 秒；原 1500+rand*2500
 }
 }
 function sendInviteContent(content) {
@@ -79026,4 +79054,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu7ij3va -->
+<!-- __MOCHI_EOF__ mu7k3o9d -->
