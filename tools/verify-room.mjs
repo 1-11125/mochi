@@ -91,6 +91,11 @@ async function readyPage() {
   for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
   await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide'))s.click();return true;})()");
   await sleep(900);
+  // #319：系统内置字卡默认上锁，锁定时 getLibPool/defaultCardGroups 一律返回空数组。
+  // 不解锁就没法断言「话术来自字卡库」——库池恒空 ⇒ C1/C2 只能红在环境上，与修复无关。
+  // cardLockOpen() 每次现读 xyStore，故这里翻了键立即生效，不必重进页面。
+  await evalJs("(function(){try{window.xyStore('xy-home-v2').set('cardlock-state','open');}catch(e){}return true;})()");
+  await sleep(200);
 }
 
 // ================= A 组：静态接线（直接读源文件） =================
@@ -107,8 +112,10 @@ async function readyPage() {
   check('A6 tabs.js FULL_PAGES 含 page-room', tabs.includes("'page-room'"));
   const cardData = readFileSync(join(root, 'src/js/default-cards-data.js'), 'utf8');
   check('A7 DEFAULT_CARD_DATA.room 独立语句注册', cardData.includes('window.DEFAULT_CARD_DATA.room = ['));
-  const cardsJs = readFileSync(join(root, 'src/js/default-cards.js'), 'utf8');
-  check('A8 字卡库注入「房间」tab', cardsJs.includes("[data-type=\"room\"]") && cardsJs.includes("房间"));
+  const cardsJs = readFileSync(join(root, 'src/js/chatcard.js'), 'utf8');
+  // A8 曾钉字面量 `[data-type="room"]`——分类 chip 现由模板动态拼 data-type，源码里已无该字面串
+  // （在途树与 HEAD 双双红＝脚本腐烂，不是功能缺失）。改钉真实存在的分类名登记表。
+  check('A8 「房间」分类已登记进字卡库（room → 房间）', cardsJs.includes("room: '房间'"), 'chatcard.js CAT_NAMES/CAT 表');
   const built = readFileSync(join(root, 'index.html'), 'utf8');
   check('A9 v2 新墙纸主题（暮色/奶油条纹/棋盘砖）已入产物', built.includes('.wall-dusk') && built.includes('.wall-stripe') && built.includes('.wall-checkerw'));
   check('A10 prefers-reduced-motion 减弱动效已入产物', built.includes('prefers-reduced-motion'));
@@ -129,12 +136,13 @@ async function readyPage() {
     const libRoom = (cardData.match(/window\.DEFAULT_CARD_DATA\.room = \[([\s\S]*?)\n\];/) || [])[1] || '';
     const libGroups = new Set([...libRoom.matchAll(/^\s*\["([^"]+)",\s*\[/gm)].map(m => m[1]));
     const noMap = [...used].filter(k => !grpMap[k]);
-    const ghostGroup = [...used].filter(k => grpMap[k] && !libGroups.has(grpMap[k]));
+    // 扫全表而非只扫 used：HEAD 那种「GRP 整张表不存在」的树里 used∩grpMap 为空 ⇒ 空集恒真＝假绿
+    const ghostGroup = Object.keys(grpMap).filter(k => !libGroups.has(grpMap[k]));
     const noFb = [...used].filter(k => !fbKeys.has(k));
     check('A11 CAT/sayLine 用到的每个分组键都登记进 GRP 且有 FB 兜底', used.size > 0 && !noMap.length && !noFb.length,
       'used=' + used.size + ' 未映射=' + noMap.join(',') + ' 无兜底=' + noFb.join(','));
-    check('A12 GRP 映射到的分组名在字卡库【房间】里真实存在（库里改名/漏登记即红）', !ghostGroup.length && libGroups.size >= 12,
-      '库内分组=' + libGroups.size + ' 查无此组=' + ghostGroup.map(k => k + '→' + grpMap[k]).join(','));
+    check('A12 GRP 映射到的分组名在字卡库【房间】里真实存在（库里改名/漏登记即红）', Object.keys(grpMap).length > 0 && !ghostGroup.length && libGroups.size >= 12,
+      'GRP项=' + Object.keys(grpMap).length + ' 库内分组=' + libGroups.size + ' 查无此组=' + ghostGroup.map(k => k + '→' + grpMap[k]).join(','));
   }
 }
 
@@ -349,7 +357,7 @@ check('C4 收回亮灯后 lit 清干净且亮度回落 1', c4 === '{"lit":0,"bri
 // C5 旧档迁移：lit 按「家具类型」存的老存档 → 搬到该类型第一件在场实例，类型残键丢弃
 await openWith(baseRoom([{ i: 'M1', t: 'candle', x: 1, y: 2, r: 0 }, { i: 'M2', t: 'desklamp', x: 3, y: 2, r: 0 }], { lit: { candle: true, clock: true } }));
 const c5 = await evalJs("(function(){var s=window.__roomState();return JSON.stringify({keys:Object.keys(s.lit).sort(),lit:document.querySelectorAll('#room-floor .r-furn.r-lit').length});})()");
-check('C5 旧档类型键迁移为实例键（candle:true→M1；无在场家具的 clock:true 丢弃）', c5 === '{"keys":"M1","lit":1}', c5);
+check('C5 旧档类型键迁移为实例键（candle:true→M1；无在场家具的 clock:true 丢弃）', c5 === '{"keys":["M1"],"lit":1}', c5);
 
 // C6 点灯后的第二条补话真能播出（修复前被首条 3800ms 常驻 + 让路守卫挡死＝从未播过）
 await openWith(baseRoom([{ i: 'P1', t: 'desklamp', x: 2, y: 1, r: 0 }], { ta: { x: 2, y: 2, act: 'idle', tx: 2, ty: 2, faint: false, nextAt: Date.now() + 900000 } }));

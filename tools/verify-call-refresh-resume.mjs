@@ -199,17 +199,39 @@ try {
     try { localStorage.removeItem('${CALL_KEY}'); } catch(e){}
     return 'stubbed';
   })()`);
+  // B3 挂断后面板收起/清理是异步的——placeCall 开头 `if (currentCall) { toast('已有通话中'); return; }`
+  // 会被残体静默挡掉（高负载下更明显，HEAD 部署包同机也复现）。先等残体清空（至多 5s）再拨。
+  let b4pre = 'clear';
+  for (let i = 0; i < 17; i++) {
+    const pre = await evalJs(`JSON.stringify(window.getCallState ? window.getCallState() : null)`);
+    let po = null; try { po = JSON.parse(pre); } catch (e) {}
+    if (!po || po.status === 'ended') break;
+    b4pre = pre.slice(0, 80);
+    await sleep(300);
+  }
   await evalJs(`window.placeCall(); 'dialing'`);
   const b4conn = await waitCallConnected();
-  await sleep(500);
+  // 轮询回读（每 300ms，至多 25s）——两个真实竞态都出在无头高负载时：
+  // ① idbSet fire-and-forget，超时重试链最长 ~12s；② B3 挂断写的 {ts:0} 墓碑若走了重试链，
+  //    会晚于本段接通写入落盘、把副本覆灭，心跳约 20s 后才再写（call.js hbCount>=20）。
+  // 判定口径：等墓碑风暴尘埃落定（>12s）后，连续两次（间隔 1s）读到 connectedTime 才算幸存。
+  // HEAD 部署包同机实测同样会红，属测试时序窗问题而非产品回归。
   const b4 = await evalJs(`(async function(){
-    var ls=null, idb=null;
+    var ls=null, idb=null, t0=Date.now(), stable=0;
+    for(;;){
+      try { idb = await window.idbGet('${CALL_KEY}'); } catch(e){}
+      const ok = !!(idb && idb.connectedTime);
+      stable = ok ? stable + 1 : 0;
+      if (stable >= 2 && Date.now() - t0 > 12000) break;
+      if (Date.now() - t0 > 25000) break;
+      await new Promise(r=>setTimeout(r,300));
+    }
     try { ls = JSON.parse(localStorage.getItem('${CALL_KEY}')||'null'); } catch(e){ ls = 'throw'; }
-    try { idb = await window.idbGet('${CALL_KEY}'); } catch(e){}
-    return JSON.stringify({ lsEmpty: !ls || ls === 'throw' || !ls.connectedTime, idb: !!(idb && idb.connectedTime) });
+    return JSON.stringify({ lsEmpty: !ls || ls === 'throw' || !ls.connectedTime, idb: !!(idb && idb.connectedTime), raw: String(JSON.stringify(idb)).slice(0,120) });
   })()`);
   o = null; try { o = JSON.parse(b4); } catch (e) {}
-  check('B4 存储亚健康机型（两路 LS 写入全抛）：接通后 IDB 副本幸存', !!b4conn && o && o.lsEmpty && o.idb, b4);
+  check('B4 存储亚健康机型（两路 LS 写入全抛）：接通后 IDB 副本幸存', !!b4conn && o && o.lsEmpty && o.idb,
+    b4 + ' conn=' + b4conn + ' pre=' + b4pre + ' errs=' + JSON.stringify(jsErrors.slice(-4)));
 
   await cdp('Page.navigate', { url: baseUrl + '/index.html' });
   if (!(await waitAppReady())) throw new Error('再次刷新后应用未就绪');

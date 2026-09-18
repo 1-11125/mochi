@@ -122,21 +122,19 @@
       toast('已恢复默认通话背景');
     });
   }
-  // #641：通话半框背景图片——只作用于联系人来电/通话时的半弹框（#call-mini 通话小框），
+  // #641：通话半框背景图片——只作用于聊天页「更多功能→通话」的半屏面板（#chat-call-panel），
   //   与通话大面板/小框的通话背景（call-bg）互不影响；按联系人桌面独立保存。
-  //   v3.42.x 修正：原指向聊天页「更多功能→通话」的 #chat-call-panel（功能页面），
-  //   改为指向 #call-mini（来电/通话时的半弹框）。
   const CALL_HALF_BG_KEY = 'call-half-bg';
   function applyCallHalfBg() {
     const bg = store.get(CALL_HALF_BG_KEY) || '';
-    const mini = document.getElementById('call-mini');
-    if (mini) {
+    const half = document.getElementById('chat-call-panel');
+    if (half) {
       if (bg) {
-        mini.style.backgroundImage = 'url("' + bg + '")';
-        mini.style.backgroundSize = 'cover';
-        mini.style.backgroundPosition = 'center';
+        half.style.backgroundImage = 'url("' + bg + '")';
+        half.style.backgroundSize = 'cover';
+        half.style.backgroundPosition = 'center';
       } else {
-        mini.style.backgroundImage = '';
+        half.style.backgroundImage = '';
       }
     }
     const val = document.getElementById('call-half-bg-val');

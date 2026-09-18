@@ -1517,6 +1517,7 @@ user-select:none; -webkit-user-select:none;
 }
 .msg-in .msg-bubble { background: var(--msg-in-bg, #ffffff); color: var(--msg-in-ink, #111111); }
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
+.msg-bubble > span { white-space:pre-wrap; }
 .msg-enter {
 animation: msgPopIn .4s cubic-bezier(.22,1,.36,1) both;
 }
@@ -1844,6 +1845,12 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))); }
 #page-chat .msg-in .msg-bubble { background:var(--cs-in-surface, var(--msg-in-bg, #ffffff)); }
 #page-chat .msg-out .msg-bubble { background:var(--cs-out-surface, var(--msg-out-bg, #111111)); }
+@media (max-width: 900px) {
+#page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:100lvh; }
+}
+html.force-mobile #page-chat.cs-bg-fill #cs-bg-layer,
+html.tablet #page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:100lvh; }
+#cs-bg-layer { transform:translateZ(0); }
 .ch-input-btn {
 width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:0;
 background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
@@ -2272,7 +2279,7 @@ color:#666; cursor:pointer; font-family:inherit; font-weight:600;
 #emoji-list .emoji-grid.emoji-grid-emoji { grid-template-columns:repeat(4, 1fr); }
 .emoji-grid-text .emoji-item { aspect-ratio:auto; min-height:54px; padding:9px 6px; }
 .emoji-grid-text:not(.emoji-grid-emoji) .emoji-item:nth-child(2n) { border-right:none; }
-.emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; }
+.emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; white-space:pre-wrap; }
 .emoji-grid-emoji .emoji-text-item { font-size:25px; line-height:1.2; word-break:keep-all; }
 .emoji-text-mode {
 display:flex; flex-direction:column; align-items:stretch; gap:2px;
@@ -2361,7 +2368,7 @@ display:block; font-size:10px; font-weight:700;
 color:inherit; opacity:.6; margin-bottom:2px;
 }
 .msg-quote-text {
-color:inherit; opacity:.8; word-break:break-word;
+color:inherit; opacity:.8; word-break:break-word; white-space:pre-wrap;
 display:inline-block; vertical-align:top; max-width:100%;
 max-height:2.8em; overflow:hidden;
 }
@@ -6482,6 +6489,7 @@ padding:9px 11px; border-radius:12px; background:rgba(90,140,190,.08);
 font-size:12px; color:#5a7c95;
 }
 .fish-sellbar b { color:#e8963a; font-size:13px; }
+.fish-capnote { margin-top:6px; text-align:center; font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .fish-sell {
 flex-shrink:0; padding:8px 16px; border:none; border-radius:99px;
 font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; color:#fff;
@@ -7717,17 +7725,23 @@ button.ca-jump { background:none; border:0; color:inherit; font:inherit; padding
 [data-theme="dark"] .ca-badge { background:#ef7b76; color:#1a1a1a; }
 .tabbar {
 margin-top:10px; display:flex; justify-content:space-around;
-flex-shrink:0; background:#ffffff;
+flex-shrink:0; background:var(--tabbar-bg-color, var(--tabbar-base-bg, #ffffff));
+background:color-mix(in srgb, var(--tabbar-bg-color, var(--tabbar-base-bg, #ffffff)) calc(var(--tabbar-bg-a, 1) * 100%), transparent);
 border:1px solid rgba(0,0,0,.12);
-border-radius:22px; padding:8px 6px; z-index:2;
+border-radius:var(--tabbar-radius, 22px); padding:8px 6px; z-index:2;
 }
+.tabbar.tabbar-blur-on { -webkit-backdrop-filter:blur(var(--tabbar-blur, 10px)); backdrop-filter:blur(var(--tabbar-blur, 10px)); }
 .tabbar .tab {
 display:flex; align-items:center; justify-content:center; flex:1;
 color:var(--muted); cursor:pointer; padding:12px 6px; border-radius:14px;
-transition:color .18s ease, background .18s ease;
+transition:color .18s ease, background .18s ease, opacity .18s ease;
+opacity:var(--tabbar-ico-a, 1);
 }
 .tabbar .tab.active { color:var(--ink); background:transparent; }
-.tabbar .tab svg { width:23px; height:23px; }
+.tabbar .tab svg { width:var(--tabbar-ico-size, 23px); height:var(--tabbar-ico-size, 23px); }
+.tabbar .tab img { width:var(--tabbar-ico-size, 23px); height:var(--tabbar-ico-size, 23px); object-fit:cover; display:block; border-radius:calc(var(--tabbar-ico-size, 23px) * .3); }
+.tabbar.tabbar-faint:active { border-color:rgba(120,120,120,.85); }
+.tabbar.tabbar-faint:active .tab { opacity:1; }
 .tabbar[hidden] { display:none; }
 .phone.no-statusbar { padding:0; }
 .phone.no-statusbar .statusbar { display:none; }
@@ -8083,7 +8097,7 @@ background: var(--dark-hover);
 [data-theme="dark"] .mg-op { border-color: var(--dark-border-12); color: var(--muted); }
 [data-theme="dark"] .mg-op:active { background: var(--dark-hover); color: var(--ink); }
 [data-theme="dark"] .mg-subcat { border-top-color: var(--dark-border-12); }
-[data-theme="dark"] .tabbar { background:var(--dark-card-92); border-color:var(--dark-border-12); }
+[data-theme="dark"] .tabbar { --tabbar-base-bg:var(--dark-card-92); border-color:var(--dark-border-12); }
 [data-theme="dark"] .tabbar .tab.active { background:var(--dark-hover); }
 [data-theme="dark"] .ch-back svg,
 [data-theme="dark"] .set-row .ico svg,
@@ -9875,6 +9889,16 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
 .fd-fbar .fd-btns { margin-top:10px; }
 .fd-fbar[hidden] { display:none; }
 [data-theme="dark"] .fd-fbar-name { color:#fff; }
+:root { --mochi-text-adj: 0px; }
+#screen-adj-panel[hidden] { display: none !important; }
+.msg-bubble { font-size: calc(var(--chat-font-size, 14px) + var(--mochi-text-adj, 0px)); }
+.msg-quote { font-size: calc(12px + var(--mochi-text-adj, 0px)); }
+.chat-input { font-size: calc(15px + var(--mochi-text-adj, 0px)); }
+.phone .chat-input[contenteditable="true"] { font-size: calc(15px + var(--mochi-text-adj, 0px)); }
+.ch-name { font-size: calc(17px + var(--mochi-text-adj, 0px)); }
+.set-row .txt { font-size: calc(14px + var(--mochi-text-adj, 0px)); }
+.set-row .txt .sub { font-size: calc(11.5px + var(--mochi-text-adj, 0px)); }
+.gc-set-row .txt { font-size: calc(14px + var(--mochi-text-adj, 0px)); }
 </style>
 </head>
 <body>
@@ -10097,9 +10121,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789712038248">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.743</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 14:13<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789720050786">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.744</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 16:27<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10108,7 +10132,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <!-- #657：等得比较久时就地解释「为什么慢、不是坏了」——用户普遍把开屏等待当成 bug，
            而这一刻他盯着的是这里、不会去翻公告章节。默认 hidden，只在
            「数据多未就绪(slow)」或「数据已就绪但整页 5.5MB 资源还没加载完」时由 clock.js 显示 -->
-      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要读完整个网站的代码，再取回存在你本机的数据；设备越旧、数据越多就越慢，属正常，不是坏了。</div>
+      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要先联网下载整个网站的代码，再取回存在你本机的数据；网速慢、设备越旧、数据越多都会更慢，属正常，不是坏了。若长时间停在「正在加载页面」，多与当前网络连不上有关（某些 WiFi 对本站不稳定），换一个网络（WiFi 与流量互换）再试通常就能打开。</div>
       <!-- v3.8.y：必须把公告滑到底才能进入——未到底时按钮置灰不可点，下方提示滑动 -->
       <div class="splash-enter-hint" id="splash-enter-hint" hidden>请滑到底部后进入</div>
       <!-- #315c：一次性年龄确认勾选——勾选后才可进入（clock.js 门控），确认一次后永久记住；
@@ -11385,9 +11409,21 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <!-- v3.26.x 关于分类：使用说明（#row-guide / #guide-sub）已上移到「关于 → 帮助与支持」，
            与新手引导、功能介绍同属「了解应用」类；工具 tag 只留会改数据的操作 -->
       <div class="them-sec" data-sec="tools">
+      <!-- v3.27.x #764：屏幕适配微调——#707「屏幕位置设置」合并升级收口（用户拍板：独立功能、放显眼位）。
+           跨机型屏幕适配偏差（遮挡/裁切/留白/白带）自动修不完，把处置权交给用户：六轴滑杆实时预览
+           （顶部/底部/页面高度/桌面/整体位移/文字大小）+ 双击滑杆复位 + 一键还原；存根命名空间 LS
+           （屏幕是设备属性，跨桌面共用、换设备不跟随）。文字轴＝文字组逐条 calc 叠加（display-tune.css），
+           不碰整页 zoom/scale 红线。id 沿用 row-screen-adj＝mochiScreenAdj/哨兵/搜索别名接线不断。 -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-screen-adj">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？六轴滑杆边拖边看、当场见效，双击滑杆复位，一键恢复默认；本机永久保存（换设备各自调）</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+      </div>
       <!-- #532 字卡使用状态自检（card-audit.js）——用户点名「放在【工具】靠前的地方」，
            独立成组：一眼看懂自定义/系统预设字卡能不能用、怎么调。
-           （#606 后「使用说明」已移入「关于 → 帮助与支持」，本行现为工具 tag 首项） -->
+           （#606 后「使用说明」已移入「关于 → 帮助与支持」） -->
       <div class="set-group glass">
         <div class="set-row" id="row-card-audit">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4"/><path d="M9 12l2 2 8-8"/><path d="M15 3h6v6"/></svg></div>
@@ -11451,13 +11487,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
-        <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
-             跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
-             顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
-        <div class="set-row" id="row-screen-adj">
-          <div class="txt">屏幕位置设置<span class="sub">一个面板调全部：顶部/底部/页面高度/桌面/整体位移（全屏图标偏上、整页偏移遮挡都在这里）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
+        <!-- v3.27.x #764：原「屏幕位置设置」行（#707）已合并升级为工具区首位的「屏幕适配微调」独立组，本组只留诊断两行 -->
         <div class="set-row" id="row-screen-diag">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M8 6h8"/></svg></div>
           <div class="txt">屏幕适配诊断<span class="sub">顶部空白 / 底部裁切 / 缩放异常一键定位</span></div>
@@ -11536,7 +11566,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.743</div>
+          <div class="val" id="about-ver-val">v3.26.744</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11605,7 +11635,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.743</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.744</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11774,6 +11804,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <button class="dq-btn" id="dq-accent" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">主题色</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
+        <button class="dq-btn" id="dq-tabbar" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">底部栏</button>
         <!-- FIX 2026-09-16 #579：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条。
              这一行只留「跳到对应设置行」的快捷按钮；#602 起「深色模式」快捷按钮移除（设置页已有入口）。 -->
       </div>
@@ -11933,6 +11964,19 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">恢复默认桌面<span class="sub">恢复默认布局与页数</span></div>
         </div>
       </div>
+      <!-- FIX v3.26.x #769：底部导航栏美化组（行绑定在 personalize.js，勿改 id）；
+           「底部栏美化」＝唤起边看边调并停在「底部栏」分区 -->
+      <div class="cg-title">底部导航栏</div>
+      <div class="set-group glass">
+        <div class="set-row" id="row-tabbar-icons">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="3"/><circle cx="8" cy="17.5" r="1.2"/><circle cx="16" cy="17.5" r="1.2"/><path d="M7 10l3-3 3 3M17 4v6" /></svg></div>
+          <div class="txt">上传底部栏按钮图片<span class="sub">首页 / 字卡 / 设置 三按钮各传各的 · 可更换或恢复默认</span></div>
+        </div>
+        <div class="set-row" id="row-tabbar-beauty">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="3"/><path d="M8 17.5h.01M12 17.5h.01M16 17.5h.01M12 3v7M9.5 7.5L12 10l2.5-2.5"/></svg></div>
+          <div class="txt">底部栏美化<span class="sub">背景/整栏透明度 · 底色 · 圆角 · 模糊 · 图标大小（打开边看边调·底部栏）</span></div>
+        </div>
+      </div>
       <div class="them-sec" data-sec="scheme">
       <div class="cg-title">美化方案 · 保存 / 切换 / 备份</div>
       <div class="set-group glass">
@@ -11985,7 +12029,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.743</span>
+              <span class="lic-ver">v3.26.744</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -23759,7 +23803,8 @@ window.addEventListener('popstate', () => {
 const layers = ['img-view-mask', 'modal-mask', 'qa-mask', 'tc-mask', 'poke-card', 'emoji-panel',
 'chat-more-panel', 'chat-search', 'chat-decision-panel', 'chat-divine-panel', 'chat-snake-panel',
 'avlib-card', 'ck-panel', 'feed-notice-panel', 'desk-msg', 'chat-ask-panel', 'msg-actions',
-'pc-sheet-mask'];
+'pc-sheet-mask',
+'screen-adj-panel'];
 for (const id of layers) {
 const el = document.getElementById(id);
 if (el && !el.hidden) { el.hidden = true; return; }
@@ -24407,6 +24452,7 @@ try { syncFishUI(); } catch (e) {}
 try { if (!gStore.get('fish-log-global-migrated')) migrateFishLogGlobal(true); } catch (e) {}
 try { updateFishDays(); } catch (e) {}
 try { restoreAppIcons(); } catch (e) {}
+try { restoreTabbarIcons(); } catch (e) {} // #769h1 回填后重绘底部栏
 try { restoreAppIconOrder(); } catch (e) {}
 try { applyBgVisibility(); } catch (e) {}
 try { refreshDeskVisuals(); } catch (e) {}
@@ -25429,6 +25475,110 @@ applyAppIconFit(app);
 });
 };
 restoreAppIcons();
+const TABBAR_PAGES = ['page-phone', 'page-chatcard', 'page-setting'];
+const TABBAR_PAGE_NAMES = { 'page-phone': '首页', 'page-chatcard': '字卡', 'page-setting': '设置' };
+const tabbarNum = (key, def, min, max) => {
+const n = parseInt(store.get(key), 10);
+return isNaN(n) ? def : Math.max(min, Math.min(max, n));
+};
+const applyTabbarStyle = () => {
+const bar = document.querySelector('.tabbar');
+const rs = document.documentElement.style;
+const bgOp = tabbarNum('tabbar-bg-op', 100, 0, 100);
+const wholeOp = tabbarNum('tabbar-whole-op', 100, 0, 100);
+const bgA = Math.round(bgOp * wholeOp) / 10000; // 背景＝两根滑杆叠乘
+const icoA = Math.max(wholeOp, 12) / 100;       // 图标层整栏透明度 12% 下限
+['--tabbar-bg-a', '--tabbar-ico-a', '--tabbar-bg-color', '--tabbar-radius', '--tabbar-blur', '--tabbar-ico-size'].forEach(p => rs.removeProperty(p));
+if (bgA < 1) rs.setProperty('--tabbar-bg-a', String(bgA));
+if (icoA < 1) rs.setProperty('--tabbar-ico-a', String(icoA));
+const bgc = store.get('tabbar-bg-color');
+if (bgc) rs.setProperty('--tabbar-bg-color', bgc);
+const rad = tabbarNum('tabbar-radius', 22, 0, 30);
+if (rad !== 22) rs.setProperty('--tabbar-radius', rad + 'px');
+const blur = tabbarNum('tabbar-blur', 0, 0, 20);
+if (blur > 0) rs.setProperty('--tabbar-blur', blur + 'px');
+const isz = tabbarNum('tabbar-icon-size', 23, 18, 34);
+if (isz !== 23) rs.setProperty('--tabbar-ico-size', isz + 'px');
+if (!bar) return;
+bar.classList.toggle('tabbar-blur-on', blur > 0);
+bar.classList.toggle('tabbar-faint', bgOp < 50 || wholeOp < 50);
+};
+const applyTabIconLook = (tab) => {
+const img = tab.querySelector('img');
+if (!img) return;
+img.style.opacity = String(tabbarNum('tab-icon-opacity', 100, 0, 100) / 100);
+};
+const paintTabIcon = (tab, data) => {
+const svg = tab.querySelector('svg');
+if (svg) svg.style.display = data ? 'none' : '';
+let img = tab.querySelector('img');
+if (data) {
+if (!img) { img = document.createElement('img'); img.alt = ''; tab.appendChild(img); }
+else if (img.src === data) { applyTabIconLook(tab); return; } // #249 恒等跳过：同源不重解码
+img.src = data;
+} else if (img) img.remove();
+applyTabIconLook(tab);
+};
+const restoreTabbarIcons = () => {
+document.querySelectorAll('.tabbar .tab').forEach(tab => {
+const key = tab.dataset.page;
+if (!key) return;
+let saved = store.get('tab-icon-' + key);
+if (saved && saved.length > 500 * 1024) {
+try { if (saved.length > 12 * 1024 * 1024) store.remove('tab-icon-' + key); } catch (e) {}
+saved = null;
+}
+paintTabIcon(tab, saved);
+});
+applyTabbarStyle();
+};
+const tabIconMenu = (pageKey) => {
+const name = TABBAR_PAGE_NAMES[pageKey] || pageKey;
+const tabOf = () => document.querySelector('.tabbar .tab[data-page="' + pageKey + '"]');
+const pick = () => {
+window.mochiFilePick({
+id: 'mochi-tabicon-pick', accept: 'image/*',
+onFiles: (files) => {
+const f = files && files[0];
+if (!f) { toast('没有取到图片，请再选一次'); return; }
+const reader = new FileReader();
+reader.onload = () => {
+toast('正在处理图片…');
+setTimeout(() => { // 让出当前帧使 toast 先渲染（app-icon 上传同口径，防主线程同步压缩假死）
+compressImage(reader.result, 256).then((data) => {
+if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+store.set('tab-icon-' + pageKey, data);
+const tab = tabOf();
+if (tab) paintTabIcon(tab, data);
+toast('「' + name + '」按钮图标已更新');
+});
+}, 80);
+};
+reader.onerror = () => toast('读取图片失败，请重试');
+reader.readAsDataURL(f);
+}
+});
+};
+if (store.get('tab-icon-' + pageKey)) {
+window.openModal('「' + name + '」按钮图标', '', (v) => {
+if (v === 'clear') {
+store.remove('tab-icon-' + pageKey);
+const tab = tabOf();
+if (tab) paintTabIcon(tab, null);
+toast('「' + name + '」按钮已恢复默认图标');
+} else if (v === 'pick') pick();
+}, {
+noInput: true, staticText: '该按钮正在使用自定义图片：',
+pills: [{ label: '更换图片', value: 'pick' }, { label: '移除恢复默认', value: 'clear' }]
+});
+} else pick();
+};
+const resetTabbarBeauty = () => {
+TABBAR_PAGES.forEach(pk => store.remove('tab-icon-' + pk));
+['tab-icon-opacity', 'tabbar-bg-op', 'tabbar-whole-op', 'tabbar-bg-color', 'tabbar-radius', 'tabbar-blur', 'tabbar-icon-size'].forEach(k => store.remove(k));
+restoreTabbarIcons();
+};
+restoreTabbarIcons();
 const restoreAppIconOrder = () => {
 const allGrids = Array.prototype.slice.call(document.querySelectorAll('.app-grid'));
 const byKey = {};
@@ -25869,14 +26019,28 @@ window.__iconAdjustPick = true;
 toast('点桌面上要调整的图标，就能调它的图片位置');
 });
 }
+const tabbarStyleRow = document.getElementById('row-tabbar-beauty');
+if (tabbarStyleRow) {
+tabbarStyleRow.addEventListener('click', () => openBeautyDrawer('tabbar'));
+}
+const tabbarIconRow = document.getElementById('row-tabbar-icons');
+if (tabbarIconRow) {
+tabbarIconRow.addEventListener('click', () => {
+window.openModal('上传底部栏按钮图片', '', (v) => { if (v) tabIconMenu(v); }, {
+noInput: true, staticText: '要换哪个按钮？（屏幕底部一行，从左到右）',
+pills: TABBAR_PAGES.map(pk => ({ label: TABBAR_PAGE_NAMES[pk], value: pk }))
+});
+});
+}
 (function bindQuickPanel() {
 const bind = (id, targetId) => { const b = document.getElementById(id); const t = document.getElementById(targetId); if (b && t) b.addEventListener('click', () => t.click()); };
 bind('dq-accent', 'row-accent-color');
 bind('dq-bg', 'row-bg-preset');
 bind('dq-radius', 'row-desk-card-radius');
+bind('dq-tabbar', 'row-tabbar-beauty'); // #769：底部栏直达
 })();
 let beautyDockTop = null;
-const openBeautyDrawer = () => {
+const openBeautyDrawer = (secKey) => {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
 if (phoneTab) phoneTab.classList.add('active');
@@ -26127,6 +26291,60 @@ note.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
 note.textContent = '换单个图标＝点「上传单个图标图片」后点桌面图标选「上传图片」；换一批用批量上传。上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传。';
 wrap.appendChild(note);
 return wrap;
+} },
+{ key: 'tabbar', label: '底部栏', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+const upRow = document.createElement('div');
+upRow.style.cssText = 'display:flex;gap:6px';
+TABBAR_PAGES.forEach(pk => {
+const b = document.createElement('button');
+b.textContent = TABBAR_PAGE_NAMES[pk] + '按钮图片';
+b.style.cssText = 'flex:1;font-size:11.5px;padding:7px 0;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+b.addEventListener('click', () => tabIconMenu(pk));
+upRow.appendChild(b);
+});
+wrap.appendChild(upRow);
+const setBarVar = (name, v) => { if (v === null || v === undefined || v === '') document.documentElement.style.removeProperty(name); else document.documentElement.style.setProperty(name, v); };
+wrap.appendChild(mkSlider('图片透明度', 'tab-icon-opacity', '', 20, 100, 5, '%', 100, (v) => {
+document.querySelectorAll('.tabbar .tab img').forEach(im => { im.style.opacity = String(parseInt(v, 10) / 100); });
+}, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tab-icon-opacity'); else store.set('tab-icon-opacity', String(n)); }));
+wrap.appendChild(mkSlider('背景透明度', 'tabbar-bg-op', '', 0, 100, 5, '%', 100, (v) => {
+const w = tabbarNum('tabbar-whole-op', 100, 0, 100);
+setBarVar('--tabbar-bg-a', (parseInt(v, 10) * w) >= 10000 ? null : String(Math.round(parseInt(v, 10) * w) / 10000));
+}, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tabbar-bg-op'); else store.set('tabbar-bg-op', String(n)); applyTabbarStyle(); }));
+wrap.appendChild(mkSlider('整栏透明度', 'tabbar-whole-op', '', 0, 100, 5, '%', 100, (v) => {
+const n = parseInt(v, 10);
+const bg = tabbarNum('tabbar-bg-op', 100, 0, 100);
+setBarVar('--tabbar-bg-a', (n * bg) >= 10000 ? null : String(Math.round(n * bg) / 10000));
+setBarVar('--tabbar-ico-a', String(Math.max(n, 12) / 100)); // 12% 图标下限：背景可全透，图标永远留一丝影
+const bar = document.querySelector('.tabbar');
+if (bar) bar.classList.toggle('tabbar-faint', bg < 50 || n < 50);
+}, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tabbar-whole-op'); else store.set('tabbar-whole-op', String(n)); applyTabbarStyle(); }));
+wrap.appendChild(mkSlider('栏圆角', 'tabbar-radius', '--tabbar-radius', 0, 30, 1, 'px', 22, null, (v) => { const n = parseInt(v, 10); if (n === 22) store.remove('tabbar-radius'); else store.set('tabbar-radius', String(n)); }));
+wrap.appendChild(mkSlider('背景模糊', 'tabbar-blur', '', 0, 20, 1, 'px', 0, (v) => {
+const n = parseInt(v, 10);
+setBarVar('--tabbar-blur', n > 0 ? n + 'px' : null);
+const bar = document.querySelector('.tabbar');
+if (bar) bar.classList.toggle('tabbar-blur-on', n > 0);
+}, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('tabbar-blur', String(n)); else store.remove('tabbar-blur'); }));
+wrap.appendChild(mkSlider('图标大小', 'tabbar-icon-size', '--tabbar-ico-size', 18, 34, 1, 'px', 23, null, (v) => { const n = parseInt(v, 10); if (n === 23) store.remove('tabbar-icon-size'); else store.set('tabbar-icon-size', String(n)); }));
+paletteHost = document.createElement('div');
+const cgrid = document.createElement('div');
+cgrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+cgrid.appendChild(mkColorItem('栏背景色', 'tabbar-bg-color', '--tabbar-bg-color', false));
+wrap.appendChild(cgrid);
+wrap.appendChild(paletteHost);
+const rst = document.createElement('button');
+rst.textContent = '恢复底部栏默认';
+rst.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+rst.addEventListener('click', () => { armUndo(); resetTabbarBeauty(); renderSec('tabbar'); toast('底部栏已恢复默认'); });
+wrap.appendChild(rst);
+const nt = document.createElement('div');
+nt.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+nt.textContent = '「背景透明度」只稀释底色；「整栏透明度」连图标一起淡出——图标保底 12%、按屏下瞬间显形，不会消失找不回。按钮图片点上面三个按钮上传（已传过可选更换/移除）。';
+wrap.appendChild(nt);
+return wrap;
 } }
 ];
 let activeSec = 'color';
@@ -26153,6 +26371,7 @@ c.addEventListener('click', () => renderSec(s.key));
 chipsRow.appendChild(c);
 });
 renderSec(activeSec);
+if (secKey) renderSec(secKey);
 d.style.display = 'flex';
 };
 const showThemePage = () => {
@@ -26232,7 +26451,7 @@ const KW = {
 '查岗频率': '次数',
 '打电话': '拨打 通话',
 '深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode',
-'手机桌面美化': '壁纸 主题 图标 字体 字号 圆角 装修 装扮 小组件 桌面美化',
+'手机桌面美化': '壁纸 主题 图标 字体 字号 圆角 装修 装扮 小组件 桌面美化 底部栏 底栏 导航栏 tabbar',
 '回复设置': '概率 回复速度 拍一拍 撤回 已读 触发 自动回复 聊天',
 '通话设置': '来电 挂断 通话背景 铃声',
 '音效设置': '声音 铃声 提示音 静音',
@@ -26248,6 +26467,7 @@ const KW = {
 '设备兼容诊断': '诊断 兼容 报错 环境',
 '顶部避让修正': '安全区 白带 重叠 刘海',
 '屏幕适配诊断': '适配 屏幕 空白 裁切',
+'屏幕适配微调': '微调 字号 文字大小 放大 变小 偏移 遮挡 裁切 留白 白带 状态栏 手势条 屏幕错位 位置',
 '功能诊断': '检测 测试',
 '查看存储': '空间 清理 占用',
 '压缩图片': '图片 瘦身',
@@ -26262,7 +26482,7 @@ const PY = {
 '深色模式': 'ssms', '手机桌面美化': 'sjzmmh', '回复设置': 'hfsz', '通话设置': 'thsz', '音效设置': 'yxsz',
 '功能大全': 'gndq', '应用锁': 'yys', '开屏问答门': 'kpwdm', '手机布局': 'sjbj', '离线消息提醒': 'lxxtx',
 '使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '修改摸鱼天数': 'xgmyts', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
-'屏幕适配诊断': 'pmspzd', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
+'屏幕适配诊断': 'pmspzd', '屏幕适配微调': 'pmspwt', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
 '字卡使用状态自检': 'zksyztzj', '清除本地数据': 'qcbdsj', '新手引导': 'xsyd', '功能介绍': 'gnjs'
 };
 const rowHay = (r) => {
@@ -26881,6 +27101,8 @@ const BEAUTY_KEYS = [
 'widget-opacity', 'ico-radius', 'ico-shape',
 'widget-bg-color', 'widget-border-color', 'widget-btn-color', 'widget-btn-text-color', 'widget-heart-color',
 'app-name-color',
+'tabbar-bg-op', 'tabbar-whole-op', 'tabbar-bg-color', 'tabbar-radius', 'tabbar-blur', 'tabbar-icon-size',
+'tab-icon-opacity',
 'desk-layout', 'desk-page-count',
 'desk-images', 'desk-texts', 'desk-countdowns',
 ];
@@ -26914,6 +27136,10 @@ document.querySelectorAll('.app-grid').forEach(grid => {
 const k = 'app-icon-order-' + grid.dataset.app;
 const v = store.get(k);
 if (v) data[k] = v;
+});
+TABBAR_PAGES.forEach(pk => {
+const v = store.get('tab-icon-' + pk);
+if (v) data['tab-icon-' + pk] = v;
 });
 } catch (e) {}
 try {
@@ -27004,12 +27230,12 @@ const allow = (k) => {
 if (scope === 'all') return true;
 if (scope === 'color') return SCOPE_COLOR_KEYS.indexOf(k) >= 0 || k === '__accent__' || k === '__theme__';
 if (scope === 'bg') return SCOPE_BG_KEYS.indexOf(k) >= 0 || /^page-bg-/.test(k);
-if (scope === 'layout') return SCOPE_LAYOUT_KEYS.indexOf(k) >= 0 || k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k === 'hidden-icons';
+if (scope === 'layout') return SCOPE_LAYOUT_KEYS.indexOf(k) >= 0 || k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k.indexOf('tab-icon-') === 0 || k === 'hidden-icons';
 return true;
 };
 BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined && allow(k)) { store.set(k, data[k]); n++; } });
 Object.keys(data).forEach(k => {
-if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0) && data[k] !== undefined && allow(k)) {
+if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k.indexOf('tab-icon-') === 0) && data[k] !== undefined && allow(k)) {
 store.set(k, data[k]); n++;
 }
 });
@@ -27388,6 +27614,7 @@ store.remove('app-icon-pos-x-' + k);
 store.remove('app-icon-pos-y-' + k);
 });
 document.querySelectorAll('.app-grid').forEach(g => { if (g.dataset.app) store.remove('app-icon-order-' + g.dataset.app); });
+TABBAR_PAGES.forEach(pk => store.remove('tab-icon-' + pk));
 try { localStorage.removeItem('xy-home-v2:accent-color'); } catch (e) {}
 try { localStorage.removeItem('xy-home-v2:theme-mode'); } catch (e) {}
 } catch (e) {}
@@ -30333,28 +30560,25 @@ staticText: HINT
 })();
 (function () {
 const AXES = [
-{ k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=正数下移；离得太远=负数上移' },
-{ k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部导航栏被手势条裁掉=正数上移；悬空离底太远=负数下移' },
-{ k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=正数撑满；内容超出屏幕被裁=负数收短' },
-{ k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=正数往下拉回' },
-{ k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了导致顶部或底部被遮挡：正=整页下移、负=上移' }
+{ k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
+{ k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
+{ k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
+{ k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
+{ k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
+{ k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
 ];
 let panel = null;
-function toast(msg) {
-let t = document.getElementById('cc-toast');
-if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
-t.textContent = msg;
-t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
-clearTimeout(t._timer);
-t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 1800);
-}
+const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
 function valElOf(k) { return panel ? panel.querySelector('[data-adj-val="' + k + '"]') : null; }
+function sliderOf(k) { return panel ? panel.querySelector('[data-adj-slider="' + k + '"]') : null; }
 function refreshVals() {
 if (!panel || !window.mochiScreenAdj) return;
 const cur = window.mochiScreenAdj.all();
 AXES.forEach(ax => {
 const el = valElOf(ax.k);
-if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + cur[ax.k] + 'px';
+if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + (cur[ax.k] || 0) + 'px';
+const sl = sliderOf(ax.k);
+if (sl) sl.value = cur[ax.k] || 0;
 });
 }
 function applyAxis(ax, nv, silent) {
@@ -30371,7 +30595,7 @@ grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--c
 panel.appendChild(grip);
 const head = document.createElement('div');
 head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
-head.innerHTML = '<b style="font-size:14px">屏幕位置设置</b><span style="font-size:11px;color:#888;flex:1">改完立即生效 · 本机永久保存（各设备各自调）</span>';
+head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1">拖一下立即可见 · 本机永久保存（各设备各自调）</span>';
 const done = document.createElement('button');
 done.textContent = '完成';
 done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
@@ -30380,55 +30604,46 @@ head.appendChild(done);
 panel.appendChild(head);
 const tip = document.createElement('div');
 tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
-tip.textContent = '配合「屏幕适配诊断」使用：先看诊断差多少像素，再来填对应偏移。步进一次 ±2px，点中间数值可精确输入（范围见各行）。';
+tip.textContent = '拖动滑杆边看边调（面板上方就是效果现场），双击滑杆回默认 0；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
 panel.appendChild(tip);
 const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
 AXES.forEach(ax => {
 const row = document.createElement('div');
-row.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+row.style.cssText = 'flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+const line = document.createElement('div');
+line.style.cssText = 'display:flex;align-items:center;gap:8px';
 const lbl = document.createElement('div');
-lbl.style.cssText = 'flex:1;min-width:0';
-lbl.innerHTML = '<div style="font-size:13px;font-weight:600">' + ax.name + ' <span style="font-weight:400;color:#888">（' + ax.min + '~' + ax.max + 'px）</span></div><div style="font-size:10.5px;color:#999;line-height:1.4">' + ax.hint + '</div>';
-row.appendChild(lbl);
-const mkBtn = (txt, delta) => {
-const b = document.createElement('button');
-b.textContent = txt;
-b.style.cssText = 'flex:none;width:34px;height:30px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;border-radius:8px;cursor:pointer';
-b.addEventListener('click', () => {
-const v = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
-const nv = Math.max(ax.min, Math.min(ax.max, v + delta));
-if (nv !== v) applyAxis(ax, nv);
-});
-return b;
-};
-row.appendChild(mkBtn('−', -2));
-const val = document.createElement('button');
+lbl.style.cssText = 'flex:1;min-width:0;font-size:13px;font-weight:600';
+lbl.innerHTML = ax.name + ' <span style="font-weight:400;color:#888;font-size:11px">（' + ax.min + '~' + ax.max + 'px）</span>';
+line.appendChild(lbl);
+const val = document.createElement('span');
 val.setAttribute('data-adj-val', ax.k);
-val.style.cssText = 'flex:none;min-width:56px;height:30px;border:none;background:transparent;color:var(--ink,#111);font-size:13px;font-weight:700;cursor:pointer';
-val.addEventListener('click', () => {
-const cur = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
-if (typeof window.openModal !== 'function') return;
-const ctl = window.openModal(ax.name + '偏移（' + ax.min + '~' + ax.max + 'px，0=默认）', cur ? String(cur) : '', function (v) {
-const sv = String(v == null ? '' : v).trim();
-let n = 0;
-if (sv !== '') {
-if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入整数像素'); ctl.stay(); return; }
-n = parseInt(sv, 10);
-if (n < ax.min || n > ax.max) { ctl.hint('范围 ' + ax.min + '~' + ax.max); ctl.stay(); return; }
-}
-applyAxis(ax, n);
-}, { inputmode: 'numeric', maxlength: 4, placeholder: '当前 ' + cur + 'px' });
+val.style.cssText = 'flex:none;min-width:52px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums';
+line.appendChild(val);
+row.appendChild(line);
+const sub = document.createElement('div');
+sub.style.cssText = 'font-size:10.5px;color:#999;line-height:1.4;margin:1px 0 3px';
+sub.textContent = ax.hint;
+row.appendChild(sub);
+const rng = document.createElement('input');
+rng.type = 'range';
+rng.setAttribute('data-adj-slider', ax.k);
+rng.min = ax.min; rng.max = ax.max; rng.step = 1;
+rng.value = cur0[ax.k] || 0;
+rng.style.cssText = 'width:100%;margin:0;accent-color:#111';
+rng.addEventListener('input', () => {
+applyAxis(ax, parseInt(rng.value, 10) || 0, true);
 });
-row.appendChild(val);
-row.appendChild(mkBtn('+', +2));
+rng.addEventListener('dblclick', () => { applyAxis(ax, 0); });
+row.appendChild(rng);
 panel.appendChild(row);
 });
 const reset = document.createElement('button');
-reset.textContent = '全部恢复默认（五轴归零）';
+reset.textContent = '全部恢复默认（六轴归零）';
 reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
 reset.addEventListener('click', () => {
 AXES.forEach(ax => applyAxis(ax, 0, true));
-toast('屏幕位置已全部恢复默认');
+toast('屏幕适配微调已全部恢复默认');
 });
 panel.appendChild(reset);
 document.body.appendChild(panel);
@@ -30437,6 +30652,7 @@ function closePanel() { if (panel) { panel.remove(); panel = null; } }
 const entry = document.getElementById('row-screen-adj');
 if (entry) entry.addEventListener('click', () => {
 if (!panel) buildPanel();
+else panel.hidden = false; // 安卓返回键走 tabs.js 只置 hidden，重开要显回来（防 zombie 面板）
 refreshVals();
 });
 })();
@@ -32198,6 +32414,7 @@ renderDeskWidgets();
 document.addEventListener('contact-switched', function () {
 try { applyBgVisibility(); } catch (e) {}
 try { restoreAppIcons(); } catch (e) {}
+try { restoreTabbarIcons(); } catch (e) {} // #769h2 切桌面重刷底部栏
 if (whenDeskVisible(refreshDeskVisuals)) { try { syncBgUI(); } catch (e) {} }
 try { rescueDeskVisuals(); } catch (e) {}
 try { applyWidgetColor(store.get('widget-bg-color') || '#ffffff'); } catch (e) {}
@@ -32822,6 +33039,15 @@ return Array.isArray(arr) ? arr : [];
 function chatTailClear() {
 try { store.remove('chat-tail'); } catch (e) {}
 }
+function chatTailRetire(keep) {
+try {
+const arr = chatTailRead();
+if (!Array.isArray(arr) || !arr.length) return;
+const k = Array.isArray(keep) ? keep : [];
+if (k.length === arr.length) return; // 一条都没覆盖，不写盘
+try { store.set('chat-tail', JSON.stringify(k)); } catch (e) {}
+} catch (e) {}
+}
 const CHAT_TAIL_INTERACT_FIELDS = ['askQuestion', 'askOptions', 'askType', 'deskCk', 'deskCkDir',
 'choiceQuestion', 'choiceOptions', 'choicePref', 'choiceCat',
 'curiousQuestion', 'curiousQuick', 'curiousReplies', 'curiousFollowup', 'curiousQid', 'curiousCat',
@@ -32852,28 +33078,37 @@ const arr = chatTailRead().filter(j => chatTailSig(j) !== sig);
 store.set('chat-tail', JSON.stringify(arr));
 } catch (e) {}
 }
-function chatTailMerge() {
+function chatTailMerge(forPrefix) {
 try {
+if (forPrefix && typeof window.activePrefix === 'function' && window.activePrefix() !== forPrefix) return 0;
 const arr = chatTailRead();
 if (!arr.length || !Array.isArray(msgs)) return;
 const have = new Set();
 const haveId = new Set();
+let winFrom = Infinity;
 for (let i = 0; i < msgs.length; i++) {
 have.add(chatTailSig(msgs[i]));
 haveId.add(chatTailId(msgs[i]));
+const t0 = msgs[i] && msgs[i].ts;
+if (typeof t0 === 'number' && t0 < winFrom) winFrom = t0;
 }
 const add = [];
+const keep = []; // 本次仍须保留的日志条目（#766：命中＝已确认落盘，回收）
 for (let i = 0; i < arr.length; i++) {
 const j = arr[i];
-if (!j || have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue;
+if (!j) continue;
+if (have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue; // 已在这份权威历史里＝职责完成，摘除
+if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }
 const jt = typeof j.text === 'string' ? j.text : '';
-if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) continue;
+if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) { keep.push(j); continue; }
+keep.push(j);
 const r = { ts: j.ts, side: j.side, special: j.special, text: jt };
 if (j.x && typeof j.x === 'object') {
 for (const k in j.x) { if (Object.prototype.hasOwnProperty.call(j.x, k)) r[k] = j.x[k]; }
 }
 add.push(r);
 }
+chatTailRetire(keep); // #766：已被历史覆盖的条目当场退休，日志不再长期留着重复的源头
 if (!add.length) return 0;
 msgs = msgs.concat(add).sort((a, b) => ((a && a.ts) || 0) - ((b && b.ts) || 0));
 saveMsgs();
@@ -33428,7 +33663,7 @@ try { if (window.idbSet) persistChatHistory(myPrefix, msgs, true); } catch (e) {
 writeLsSnapshot(msgs, myPrefix, true);
 }
 try { chatLedgerSave(myPrefix, (msgs && msgs.length) || 0, msgsBytes(msgs)); } catch (e) {}
-try { chatTailMerge(); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）
+try { chatTailMerge(myPrefix); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）；#766 同命名空间才回放
 try { updateChatLoading(); } catch (e) {} // FIX 2026-09-15 #526：确认空库后收起进度条
 }
 return;
@@ -33501,7 +33736,7 @@ chatDbReady = true;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数组）＝不再是「已知空库」，进度条交回常规判定
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
-try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
+try { if (chatTailMerge(myPrefix) > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条；FIX #766 传入 myPrefix＝日志必须与这份 msgs 同命名空间才回放
 try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
 if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {
 setTimeout(function () {
@@ -34786,7 +35021,7 @@ const prevPendingOut = pendingOutScroll;
 batchRendering = true;
 for (let u = 0; u < liteUpgrade.length; u++) {
 const ui = liteUpgrade[u];
-const old = body.querySelector('.msg[data-idx="' + ui + '"]');
+const old = body.querySelector('[data-idx="' + ui + '"]');
 if (!old) { batchRendering = false; return false; }
 let nu = null;
 try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
@@ -35009,10 +35244,10 @@ const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
 for (let i = renderEnd; i < newEnd; i++) {
-if (body.querySelector('.msg[data-idx="' + i + '"]')) continue;
+if (body.querySelector('[data-idx="' + i + '"]')) continue;
 if (!anchor) {
 for (let j = i + 1; j < len && !anchor; j++) {
-anchor = body.querySelector('.msg[data-idx="' + j + '"]');
+anchor = body.querySelector('[data-idx="' + j + '"]');
 }
 }
 maybeInsertDivider(i);
@@ -35051,7 +35286,9 @@ body.removeChild(f);
 renderStart = targetStart;
 }
 let bodyScrollTimer = null;
+let _chatScrollActTs = 0; // #765：列表最近一次滚动时刻（手指拖动/抬手后的惯性滑行/滚轮都算），看门狗据此让路
 body.addEventListener('scroll', function () {
+_chatScrollActTs = Date.now(); // #765：写在抑制判定之前——程序写入与用户滑动同样需要让路
 if (Date.now() < suppressScrollUntil) return;
 if (bodyScrollTimer) return;
 bodyScrollTimer = setTimeout(function () {
@@ -35115,6 +35352,7 @@ window.addEventListener('resize', mark706);
 })();
 setInterval(function () {
 if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
@@ -35278,6 +35516,7 @@ return;
 function renderMsg(rec) {
 const m = document.createElement('div');
 m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，批量渲染只覆盖 data-idx 不动它
+m.dataset.idx = msgs.length - 1;
 if (!batchRendering) m.classList.add('msg-enter');
 const __fit = rec.side !== 'out' && !!window.taFit;
 const __taNm = chatPartnerName();
@@ -50793,76 +51032,22 @@ clearTimeout(t._timer);
 t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 }
 const chatPage = document.getElementById('page-chat');
-let csBgStableW = 0, csBgStableH = 0;
-let csBgPendW = 0, csBgPendH = 0, csBgPendN = 0; // 待确认读数（连续两次一致才采纳）
-function csBgPhonePinned() {
-try {
-const ph = document.querySelector('.phone');
-return !!(ph && ph.style && ph.style.height);
-} catch (e) { return false; }
+function csBgLayer() {
+if (!chatPage) return null;
+let l = document.getElementById('cs-bg-layer');
+if (!l) {
+l = document.createElement('div');
+l.id = 'cs-bg-layer';
+l.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:none;';
+chatPage.insertBefore(l, chatPage.firstChild);
 }
-function csBgKbOpen() {
-try {
-const a = window.__mochiAndroidKb && window.__mochiAndroidKb();
-if (a && (a.kbActive || a.prov)) return true;
-const i = window.__mochiIosKb && window.__mochiIosKb();
-if (i && i.kbActive) return true;
-} catch (e) {}
-return csBgPhonePinned();
-}
-function csBgStableBox() {
-try {
-const w = chatPage ? Math.round(chatPage.clientWidth) : 0;
-const h = chatPage ? Math.round(chatPage.clientHeight) : 0;
-if (!w || !h) return null;
-if (!csBgStableW) { csBgStableW = w; csBgStableH = h; return { w: csBgStableW, h: csBgStableH }; }
-if (w !== csBgStableW) {
-csBgStableW = w; csBgStableH = h; csBgPendN = 0;
-return { w: csBgStableW, h: csBgStableH };
-}
-if (h === csBgStableH) { csBgPendN = 0; return { w: csBgStableW, h: csBgStableH }; }
-if (csBgKbOpen()) { csBgPendN = 0; return { w: csBgStableW, h: csBgStableH }; }
-if (h === csBgPendH) {
-csBgPendN++;
-if (csBgPendN >= 2) {
-csBgStableH = h; csBgPendN = 0;
-}
-} else { csBgPendH = h; csBgPendN = 1; }
-return { w: csBgStableW, h: csBgStableH };
-} catch (e) { return null; }
-}
-function csBgPaintSize(fit, box) {
-if (!box) return null;
-try {
-if (fit === 'stretch') return '100% 100%';
-if (fit === 'tile') return 'auto';
-const nat = chatPage && chatPage.__csBgNat;
-if (!nat || !nat.w || !nat.h) return null;
-const sx = box.w / nat.w, sy = box.h / nat.h;
-const s = fit === 'contain' ? Math.min(sx, sy) : Math.max(sx, sy); // fill/未知 ⇒ cover 语义
-return Math.round(nat.w * s) + 'px ' + Math.round(nat.h * s) + 'px';
-} catch (e) { return null; }
+return l;
 }
 function csBgFitCss(fit) {
 if (fit === 'stretch') return '100% 100%';
-if (fit === 'tile') return 'auto';
+if (fit === 'tile') return '33.333% auto';
 if (fit === 'contain') return 'contain';
 return 'cover'; // 'fill' / 未知值 ⇒ 铺满裁剪（#731 设计原意）
-}
-function csBgMeasure(url, cb) {
-try {
-if (!chatPage || !url) return;
-if (chatPage.__csBgNat && chatPage.__csBgNat.url === url) { cb && cb(); return; }
-const im = new Image();
-im.onload = () => {
-try {
-chatPage.__csBgNat = { url: url, w: im.naturalWidth || 0, h: im.naturalHeight || 0 };
-} catch (e) {}
-cb && cb();
-};
-im.onerror = () => { cb && cb(); };
-im.src = url;
-} catch (e) { cb && cb(); }
 }
 const CS_BG_GLIST = 'cs-bg-glist';
 const CS_BG_MAX = 12; // 图库容量上限（每张压缩后可达 MB 级，防无上限堆爆 IDB）
@@ -51074,23 +51259,27 @@ if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
 try { store.remove('cs-bg'); } catch (e) {}
 bg = null;
 }
-if (bg && chatPage) {
+const bgLayer = csBgLayer();
+if (bg && bgLayer) {
 const fit = csBgFit();
-if (chatPage.style.backgroundImage !== 'url("' + bg + '")') chatPage.style.backgroundImage = 'url("' + bg + '")';
-const paint = csBgPaintSize(fit, csBgStableBox());
-if (!paint && fit !== 'tile') {
-if (!(chatPage.__csBgNat && chatPage.__csBgNat.url === bg)) {
-csBgMeasure(bg, () => { try { applySettings(); } catch (e) {} });
-}
-}
-chatPage.style.backgroundSize = paint || csBgFitCss(fit);
-chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
-chatPage.style.backgroundPosition = 'center';
-} else if (chatPage && chatPage.style.backgroundImage) {
+const url = 'url("' + bg + '")';
+if (bgLayer.style.backgroundImage !== url) bgLayer.style.backgroundImage = url;
+bgLayer.style.backgroundSize = csBgFitCss(fit);
+bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
+bgLayer.style.backgroundPosition = 'center';
+bgLayer.style.display = 'block';
+chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
+} else {
+if (bgLayer) { bgLayer.style.display = 'none'; bgLayer.style.backgroundImage = ''; }
+if (chatPage) {
+chatPage.classList.remove('cs-bg-fill');
+if (chatPage.style.backgroundImage) {
 chatPage.style.backgroundImage = '';
 chatPage.style.backgroundSize = '';
 chatPage.style.backgroundRepeat = '';
 chatPage.style.backgroundPosition = '';
+}
+}
 }
 set('cs-font-size-val', fs);
 const pn = BUBBLE_SIZES.find(p => p.value === pad);
@@ -51111,21 +51300,6 @@ try { applyCssEnforce(); } catch (e) {}
 }
 window.applyChatSettings = applySettings;
 window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
-try {
-let _bgResizeTimer = null;
-const _bgResize = () => {
-if (_bgResizeTimer) clearTimeout(_bgResizeTimer);
-_bgResizeTimer = setTimeout(() => {
-_bgResizeTimer = null;
-try { applySettings(); } catch (e) {}
-try {
-setTimeout(() => { try { applySettings(); } catch (e) {} }, 260);
-} catch (e) {}
-}, 120);
-};
-window.addEventListener('resize', _bgResize);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', _bgResize);
-} catch (e) {}
 applySettings();
 try {
 new MutationObserver(() => { try { applySettings(); } catch (e) {} })
@@ -51183,8 +51357,6 @@ store.set('cs-bg-item-' + id, data);
 csBgMakeThumb(data, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, th); });
 store.set('cs-bg', data);
 store.set(CS_BG_ACTIVE, id);
-try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {}
-csBgMeasure(data, () => { try { applySettings(); } catch (e) {} });
 applySettings();
 return id;
 }
@@ -51259,7 +51431,7 @@ if (full) csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-ite
 cell.appendChild(im);
 cell.addEventListener('click', () => {
 const full = store.get('cs-bg-item-' + id);
-if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {} csBgMeasure(full, () => { try { applySettings(); } catch (e) {} }); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
+if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
 });
 const del = document.createElement('div');
 del.textContent = '×';
@@ -71240,19 +71412,65 @@ const kp = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
 if (!kp || !kp.keep) env.push('✗ 后台保活：未开启（后台不产生消息，通知无从弹起）');
 else env.push(kp.audio && !kp.audio.paused ? '✓ 后台保活：音频播放中' : '! 后台保活：音频已暂停（回本页自动恢复；后台消息可能到不了）');
 } catch (e) {}
+let verStale = false;
+const verP = new Promise(function (resolve) {
+const fin = function () { resolve(); };
+try {
+const sv = document.getElementById('splash-ver');
+const localTs = Number(sv && sv.getAttribute('data-build-ts')) || 0;
+kaWithTimeout(function () { return fetch('./version.json?v=' + Date.now()); }, 4000)
+.then(function (r) { return r && r.json ? r.json() : null; })
+.then(function (d) {
+const ts = Number(d && d.ts) || 0;
+if (!localTs || !ts) env.push('! 版本：没问到线上版本（网络受限，不影响本测试）');
+else if (ts > localTs) {
+verStale = true;
+env.push('✗ 旧包正在运行：本页 ' + new Date(localTs).toLocaleString() + ' · 线上最新 ' + new Date(ts).toLocaleString() + '——「什么都没改弹窗突然全没」的常见原因，彻底关闭浏览器重开（升级新版本）后再测');
+} else env.push('✓ 版本已最新：' + new Date(ts).toLocaleString());
+fin();
+}, function () { env.push('! 版本：没拉到 version.json（网络受限，不影响本测试）'); fin(); });
+} catch (e) { fin(); }
+});
 try {
 const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
 let testChan = '';
 let testSettled = false;
+let testOk = false;
 let resultShown = false;
+const askSeen = function () {
+if (typeof window.openModal !== 'function') return;
+window.openModal('自检确认', '', function (choice) {
+if (choice === 'seen') { toast('✓ 弹窗链路全通：以后后台消息没弹时，先回来点这个测试', 4000); return; }
+if (choice !== 'miss') return;
+const MARKS = ['①', '②', '③', '④'];
+const steps = [];
+const push = function (s) { steps.push(MARKS[steps.length] + ' ' + s); };
+if (verStale) push('先升级：本页是旧版本包——彻底关闭浏览器再重开（或点顶部「刷新使用新版」），旧包＝「没改任何东西弹窗突然全没」的头号原因');
+push('重置浏览器通知权限：浏览器设置 → 网站设置 → 通知 → 把本站「关闭」再「允许」，然后强杀浏览器重开（「权限明明开着、通知却消失好几天」多数被这一步救活——JS 读到的一直是 granted，坏的是浏览器内部那条通道）');
+push('系统通知设置：系统设置 → 通知管理 → 本浏览器 → 总开关打开、「允许横幅通知/在屏幕上方显示」打开、通知重要性选「提醒」；国产 ROM（vivo/OPPO/小米/华为）每项可能各自独立');
+push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）');
+steps.push('每做完一步就按 Home 键把页面切到后台、让 TA 发一条消息验证；全部走完仍不弹 → 用「信息诊断」里的反馈入口一键上报');
+window.openModal('没弹出 → 按顺序排查（实效从高到低）', '', function () {}, {
+noInput: true, big: true,
+staticText: steps.join('\n')
+});
+}, {
+noInput: true, lock: true,
+staticText: '刚才屏幕上方弹出「后台通知测试」横幅了吗？\n（通知栏里有小图标 ≠ 屏幕上方弹出；前台发送通常只进通知栏，要验横幅请按 Home 切后台后再测一次）',
+pills: [{ label: '看到了，顶部弹出', value: 'seen' }, { label: '没看到', value: 'miss' }],
+pillSubmit: true
+});
+};
 const showResult = function () {
 if (resultShown) return;
 resultShown = true;
 toast('测试结果：\n' + env.join('\n'), 6000);
+if (testChan === 'sw' && testOk) askSeen();
 };
 const testWasHidden = document.hidden;
 showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
 testSettled = true;
+testOk = !!ok;
 if (testChan === 'sw' && ok) {
 env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
 const queueCheck = kaSWReady().then(function (reg) {
@@ -71273,16 +71491,16 @@ env.push('✓ 发送时页面在后台——屏幕上方应有横幅；没看见
 env.push('! 前台发送不弹顶层横幅——要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出');
 }
 }).catch(function () {});
-setTimeout(showResult, 2500); // 队列回读卡住也出结果
-queueCheck.then(showResult);
+Promise.all([queueCheck, verP]).then(showResult);
+setTimeout(showResult, 4500); // 队列回读/版本比对卡住也出结果
 } else if (testChan === 'page') {
 env.push(ok
 ? '✓ 测试通知已发送（页面通道：仅本页前台可见）'
 : '! 未真正送达：后台服务未就绪，页面通道在后台会被系统抑制（已挂自动补发，或刷新页面重试）');
-showResult();
+verP.then(showResult);
 } else {
 env.push('✗ 测试通知提交失败：被浏览器/系统拒绝——见本行「功能说明」排查（权限已允许仍被拒＝查系统设置里本浏览器的通知总开关）');
-showResult();
+verP.then(showResult);
 }
 });
 setTimeout(function () {
@@ -72259,14 +72477,14 @@ toast('已恢复默认通话背景');
 const CALL_HALF_BG_KEY = 'call-half-bg';
 function applyCallHalfBg() {
 const bg = store.get(CALL_HALF_BG_KEY) || '';
-const mini = document.getElementById('call-mini');
-if (mini) {
+const half = document.getElementById('chat-call-panel');
+if (half) {
 if (bg) {
-mini.style.backgroundImage = 'url("' + bg + '")';
-mini.style.backgroundSize = 'cover';
-mini.style.backgroundPosition = 'center';
+half.style.backgroundImage = 'url("' + bg + '")';
+half.style.backgroundSize = 'cover';
+half.style.backgroundPosition = 'center';
 } else {
-mini.style.backgroundImage = '';
+half.style.backgroundImage = '';
 }
 }
 const val = document.getElementById('call-half-bg-val');
@@ -73104,10 +73322,25 @@ t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 function csFor(cid) { return cid ? window.storeFor(cid) : store; }
 function prefixFor(cid) { return cid ? ('xy-home-v2:' + cid) : window.activePrefix(); }
 function snapKey(cid) { return prefixFor(cid) + ':' + SNAP_KEY; }
+const _loadCache = new Map();
+function cachedParse(k, raw) {
+let list;
+const hit = _loadCache.get(k);
+if (hit && hit.raw === raw) {
+list = hit.list;
+} else {
+try { list = JSON.parse(raw); } catch (e) { list = null; }
+if (!Array.isArray(list)) return [];
+if (_loadCache.size > 8) _loadCache.delete(_loadCache.keys().next().value);
+_loadCache.set(k, { raw, list });
+}
+return list.map(x => (x && typeof x === 'object') ? Object.assign({}, x) : x);
+}
 function loadSnap(cid) {
 try {
-const v = localStorage.getItem(snapKey(cid));
-if (v) { const a = JSON.parse(v); if (Array.isArray(a)) return a; }
+const k = snapKey(cid);
+const v = localStorage.getItem(k);
+if (v) return cachedParse(k, v);
 } catch (e) {}
 return [];
 }
@@ -73128,7 +73361,7 @@ function load(cid) {
 const cs = csFor(cid);
 let list = [];
 const raw = cs.get(KEY);
-if (raw !== null) { try { list = JSON.parse(raw); } catch (e) { list = []; } }
+if (raw !== null) list = cachedParse(prefixFor(cid) + ':' + KEY, raw);
 if (!list.length) { try { const v = loadSnap(cid); if (v.length) list = v; } catch (e) {} }
 if (!cid && !mailDbReady && mailPending && mailPending.length) {
 const map = {};
@@ -73207,12 +73440,12 @@ return el && !el.hidden;
 });
 }
 function openMailPage() {
-try { checkPendingReply(); } catch (e) {}
-render();
-updateBadge();
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 const mp = document.getElementById('page-mail');
 if (mp) mp.hidden = false;
+try { checkPendingReply(); } catch (e) {}
+render();
+updateBadge();
 }
 window.openMailPage = openMailPage;
 function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -73228,7 +73461,7 @@ if (src.indexOf('http') === 0 && pre !== 'sticker:' && pre !== 'image:') {
 return seg(all); // 普通网址（无附图前缀）按文本保留
 }
 const attrs = String(src).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-return '<img class="mail-body-img" src="' + attrs + '" alt="表情"> ';
+return '<img class="mail-body-img" decoding="async" src="' + attrs + '" alt="表情"> ';
 });
 }
 function shortDesc(s, fit) {
@@ -73428,21 +73661,23 @@ if (!pending.length) return;
 const name = partnerNameFor(cid);
 const rest = [];
 let changed = false;
+const list = load(cid);
+let landed = false;
 pending.forEach(p => {
 if (!p || !p.id) { changed = true; return; }
-const list = load(cid);
 const idx = list.findIndex(x => x.id === p.id);
 if (idx < 0) { changed = true; return; }          // 信件已不存在 → 丢弃计划
 if (list[idx].partnerReply) { changed = true; return; } // 已有 TA 回信 → 丢弃计划
 if (p.due > now) { rest.push(p); return; }        // 未到期 → 保留
 list[idx].partnerReply = { content: p.content, tm: now };
-save(list, cid);
+landed = true;
 notifyMailToChat(cid, name + ' 给你回了信', { mailNotice: true });
 if (cid === (window.__activeCid || 'default') && window.showDeskPopup && !mailPageVisible()) {
 window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String(p.content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
 }
 changed = true;
 });
+if (landed) save(list, cid);
 if (changed) replyPendingSave(rest, cid);
 if (cid === (window.__activeCid || 'default')) { render(); updateBadge(); }
 } catch (e) {}
@@ -73451,54 +73686,46 @@ function checkPendingReply() {
 const list = (window.getContacts && window.getContacts()) || [{ id: 'default' }];
 list.forEach(c => checkPendingReplyFor(c.id));
 }
+function mailItemHtml(l, dir, name) {
+const tag = dir === 'in'
+? (l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>'))
+: (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '');
+return '<div class="mail-item" data-id="' + escHtml(l.id) + '">' +
+'<div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
+'<div class="mail-item-body"><div class="mail-item-title">' + (dir === 'in' ? '来自 ' : '寄给 ') + name + tag + '</div>' +
+'<div class="mail-item-desc">' + shortDesc(l.content, dir === 'in') + '</div></div>' +
+'<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>';
+}
 function render() {
+const mpEl = document.getElementById('page-mail');
+if (mpEl && mpEl.hidden) return;
 const list = load().slice().sort((a, b) => b.tm - a.tm);
 const name = partnerName();
 const inEl = document.getElementById('mail-in-list');
 const outEl = document.getElementById('mail-out-list');
 const inList = list.filter(l => l.type === 'received');
 if (inEl) {
-inEl.innerHTML = inList.length
-? inList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-'<div class="mail-item-body"><div class="mail-item-title">来自 ' + name +
-(l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>')) + '</div>' +
-'<div class="mail-item-desc">' + shortDesc(l.content, true) + '</div></div>' +
-'<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('')
-: '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>';
-if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) {
-const html = inList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-'<div class="mail-item-body"><div class="mail-item-title">来自 ' + name +
-(l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>')) + '</div>' +
-'<div class="mail-item-desc">' + shortDesc(l.content, true) + '</div></div>' +
-'<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('');
-inEl.innerHTML = html;
-}
-inEl.querySelectorAll('.mail-item').forEach(it => it.addEventListener('click', () => {
-const l = list.find(x => x.id === it.dataset.id);
-if (l) openLetter(l);
-}));
+const inHtml = inList.map(l => mailItemHtml(l, 'in', name)).join('');
+inEl.innerHTML = inHtml || '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>';
+if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) inEl.innerHTML = inHtml;
 }
 const outList = list.filter(l => l.type === 'sent');
 if (outEl) {
-outEl.innerHTML = outList.length
-? outList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-'<div class="mail-item-body"><div class="mail-item-title">寄给 ' + name + (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '') + '</div>' +
-'<div class="mail-item-desc">' + shortDesc(l.content) + '</div></div>' +
-'<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('')
-: '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>';
-if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) {
-const html = outList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-'<div class="mail-item-body"><div class="mail-item-title">寄给 ' + name + (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '') + '</div>' +
-'<div class="mail-item-desc">' + shortDesc(l.content) + '</div></div>' +
-'<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('');
-outEl.innerHTML = html;
+const outHtml = outList.map(l => mailItemHtml(l, 'out', name)).join('');
+outEl.innerHTML = outHtml || '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>';
+if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) outEl.innerHTML = outHtml;
 }
-outEl.querySelectorAll('.mail-item').forEach(it => it.addEventListener('click', () => {
-const l = list.find(x => x.id === it.dataset.id);
+}
+function mailListItemClick(e) {
+const it = e.target && e.target.closest ? e.target.closest('.mail-item') : null;
+if (!it) return;
+const l = load().find(x => x.id === it.dataset.id);
 if (l) openLetter(l);
-}));
 }
-}
+['mail-in-list', 'mail-out-list'].forEach((lid) => {
+const el = document.getElementById(lid);
+if (el) el.addEventListener('click', mailListItemClick);
+});
 function sendLetter() {
 const input = document.getElementById('mail-input');
 const content = input ? readMailVal(input).trim() : '';
@@ -73874,7 +74101,10 @@ list.forEach(c => { try { fishWeekReportFor(c.id); } catch (e) {} });
 window.fishWeekTick = fishWeekTick; // v3.13.x：暴露给专项验证脚本（生产内部定时器同样调它）
 checkPendingReply(); // 启动立即补查（当前桌面未就绪由内部守卫跳过，就绪后回调再补）
 setTimeout(() => {
-setInterval(() => { maybeIncomingLetter(); checkPendingReply(); fishWeekTick(); }, 60000);
+setInterval(() => {
+if (document.visibilityState === 'hidden' && !window.bgNotifyCheck) return;
+maybeIncomingLetter(); checkPendingReply(); fishWeekTick();
+}, 60000);
 maybeIncomingLetter();
 fishWeekTick();
 }, (20 + Math.random() * 40) * 1000);
@@ -73927,11 +74157,11 @@ showPage('page-mail-write');
 });
 }
 const mailWriteBack = document.getElementById('mail-write-back');
-if (mailWriteBack) mailWriteBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); showPage('page-mail'); });
+if (mailWriteBack) mailWriteBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); showPage('page-mail'); render(); });
 const mailSend = document.getElementById('mail-send');
 if (mailSend) mailSend.addEventListener('click', sendLetter);
 const mailReplyBack = document.getElementById('mail-reply-back');
-if (mailReplyBack) mailReplyBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); viewLetter = null; showPage('page-mail'); });
+if (mailReplyBack) mailReplyBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); viewLetter = null; showPage('page-mail'); render(); });
 const mailReplySend = document.getElementById('mail-reply-send');
 if (mailReplySend) mailReplySend.addEventListener('click', submitReply);
 function selectMailTab(name) {
@@ -89212,11 +89442,15 @@ return Math.min(5, k);
 function capOf() { return LV_CAP[Math.min(d.lv, LV_CAP.length - 1)]; }
 function itemAt(x, y) { return d.fx.find(f => f.x === x && f.y === y) || null; }
 function ownedCount(t) { return (d.inv[t] || 0) + d.fx.filter(x => x.t === t).length; }
+const EARN_CAP = { ta: { cap: 5, name: '陪 TA 互动' }, n: { cap: 10, name: '家具互动' } };
 function gainPts(n, kind) {
 const tk = todayKey();
 if (d.earn.day !== tk) d.earn = { day: tk, n: 0, ta: 0 };
-if (kind === 'ta') { if (d.earn.ta >= 5) return false; d.earn.ta++; }
-else if (kind === 'n') { if (d.earn.n >= 10) return false; d.earn.n++; }
+const lim = EARN_CAP[kind];
+if (lim) {
+if (d.earn[kind] >= lim.cap) { toast('今天「' + lim.name + '」的小屋点数到上限啦（' + lim.cap + '/' + lim.cap + '），明天再来'); return false; }
+d.earn[kind]++;
+}
 d.pts += n; updHud(); floatPts('+' + n + '🏠'); return true;
 }
 function checkLevel() {
@@ -89247,8 +89481,8 @@ if (raw == null || raw === '') return null;
 const n = Number(raw);
 return Number.isFinite(n) ? Math.max(50, Math.min(150, n)) : null;
 }
-function applyBrightness() {
-const value = manualBrightness();
+function applyBrightness(value) {
+if (value === undefined) value = manualBrightness();
 sceneEl.classList.toggle('r-manual-light', value !== null);
 sceneEl.style.setProperty('--room-bright', String(value === null ? lum() : value / 100));
 const slider = $id('room-brightness');
@@ -89258,6 +89492,22 @@ $id('room-brightness-value').textContent = value === null ? '自动' : value + '
 $id('room-brightness-auto').disabled = value === null;
 }
 }
+let brightWriteT = null, brightLastAt = 0;
+function writeBright(v) {
+const s = S(); if (!s) return;
+if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; }
+const now = Date.now();
+if (now - brightLastAt >= 300) { brightLastAt = now; s.set('room-brightness', v); return; }
+brightWriteT = setTimeout(function () {
+brightWriteT = null; brightLastAt = Date.now();
+s.set('room-brightness', v);
+}, 320);
+}
+function flushBright(v) {
+if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; }
+brightLastAt = 0;
+writeBright(v);
+}
 function bindBrightness() {
 const controls = document.createElement('div');
 controls.className = 'r-brightness';
@@ -89266,14 +89516,22 @@ controls.innerHTML = '<label for="room-brightness">亮度 <output id="room-brigh
 '<button id="room-brightness-auto" type="button">自动</button>';
 sceneEl.parentNode.insertBefore(controls, sceneEl);
 $id('room-brightness').addEventListener('input', function () {
-const s = S(); if (!s) return;
-s.set('room-brightness', this.value);
-applyBrightness();
+const v = Number(this.value);
+applyBrightness(v); // 即时生效不回读存储（存储此刻可能还压在合并窗口里）
+writeBright(v);
+});
+$id('room-brightness').addEventListener('change', function () {
+flushBright(Number(this.value));
 });
 $id('room-brightness-auto').addEventListener('click', function () {
 const s = S(); if (!s) return;
+if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; } // 迟到写回会复活刚删的键
 s.remove('room-brightness');
 applyBrightness();
+});
+document.addEventListener('visibilitychange', function () {
+if (!document.hidden || !brightWriteT) return;
+flushBright(Number($id('room-brightness').value));
 });
 }
 function buildCells() {
@@ -89464,7 +89722,10 @@ else if (dy) ta.y += dy > 0 ? 1 : -1;
 renderTa();
 }
 function tick() {
-if (page.hidden || document.hidden) return;
+if (page.hidden || document.hidden) {
+if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
+return;
+}
 const moving = d.ta.x !== d.ta.tx || d.ta.y !== d.ta.ty;
 if (moving && !stepTimer) stepTimer = setInterval(stepOnce, 780);
 if (!moving && stepTimer) { clearInterval(stepTimer); stepTimer = null; }
@@ -89638,10 +89899,15 @@ Object.keys(CAT).forEach(t => {
 const c = CAT[t];
 if (ownedCount(t) >= MAX_PER_TYPE) return;
 const lock = c.lv > d.lv;
-pills.push({ label: c.e + ' ' + c.n + ' · ' + c.cost + '🏠' + (lock ? ' 🔒Lv' + c.lv : ''), value: lock ? '' : 'b:' + t });
+pills.push({ label: c.e + ' ' + c.n + ' · ' + c.cost + '🏠' + (lock ? ' 🔒Lv' + c.lv : (d.pts < c.cost ? '（还差 ' + (c.cost - d.pts) + '）' : '')), value: lock ? 'lock:' + t : 'b:' + t });
 });
 window.openModal('兑换家具（有 🏠' + d.pts + '）', '', function (v) {
 if (!v) return;
+if (v.indexOf('lock:') === 0) {
+const lc = CAT[v.slice(5)];
+if (lc) toast('🔒 ' + lc.n + '：小屋 Lv.' + lc.lv + ' 解锁（现在 Lv.' + d.lv + '），多互动攒舒适度就会升');
+return;
+}
 const t = v.slice(2), c = CAT[t];
 if (d.pts < c.cost) { toast('点数还不够，多进来待一会儿就有了'); return; }
 d.pts -= c.cost; d.inv[t] = (d.inv[t] || 0) + 1;
@@ -95842,6 +96108,11 @@ function todayKey() { const d = new Date(); return d.getFullYear() + '-' + Strin
 function fenToStr(fen) { const y = fen / 100; return y.toFixed(y >= 100 ? 0 : 2); }
 function pickPool(name, fb) { try { if (window.getInteractPool) { const p = window.getInteractPool(name, fb); if (p && p.length) return p; } } catch (e) {} return fb; }
 let audioCtx = null, soundOn = true;
+function setSoundOn(on, persist) {
+soundOn = !!on;
+if (soundBtn) { soundBtn.textContent = soundOn ? '🔊' : '🔇'; soundBtn.classList.toggle('off', !soundOn); }
+if (persist) { try { writeJSON('fishing-sound', { on: soundOn }); } catch (e) {} }
+}
 function beep(freq, dur, vol, type) {
 if (!soundOn) return;
 try {
@@ -95930,8 +96201,27 @@ const builtin = GIFT_NOTES[item.giftNote || item.id] || ['这个给你。', '想
 const pool = pickPool('游戏胜利·回应', builtin);
 return pool && pool.length ? pick(pool) : pick(builtin);
 }
-function readJSON(key, fb) { const s = store(); if (!s) return fb; try { const v = JSON.parse(s.get(key) || 'null'); return v == null ? fb : v; } catch (e) { return fb; } }
-function writeJSON(key, v) { const s = store(); if (s) s.set(key, JSON.stringify(v)); }
+const _jsonCache = {};
+function _cacheNs(key) { try { return (window.activePrefix ? window.activePrefix() : '') + '|' + key; } catch (e) { return '|' + key; } }
+function readJSON(key, fb) {
+const s = store(); if (!s) return fb;
+const ns = _cacheNs(key);
+try {
+const raw = s.get(key) || 'null';
+const c = _jsonCache[ns];
+if (c && c.raw === raw) return c.val == null ? fb : c.val;
+const v = JSON.parse(raw);
+_jsonCache[ns] = { raw: raw, val: v };
+return v == null ? fb : v;
+} catch (e) { delete _jsonCache[ns]; return fb; }
+}
+function writeJSON(key, v) {
+const s = store(); if (!s) return;
+const ns = _cacheNs(key);
+const raw = JSON.stringify(v);
+try { s.set(key, raw); } catch (e) { delete _jsonCache[ns]; throw e; }
+_jsonCache[ns] = { raw: raw, val: v };
+}
 function dexKey() { return 'fishing-dex'; }
 function loadDex() { const d = readJSON(dexKey(), {}); return (d && typeof d === 'object') ? d : {}; }
 function saveDex(d) { writeJSON(dexKey(), d); }
@@ -96246,8 +96536,8 @@ const d = dishOf(entry.fishId); if (!d) return null;
 const now = Math.floor(Date.now() / 1000), elapsed = now - entry.startedAt;
 return { dish: d, done: elapsed >= d.cookSec, progress: Math.min(1, elapsed / d.cookSec), remainSec: Math.max(0, d.cookSec - elapsed), elapsed: elapsed };
 }
-function loadBox() { const s = store(); if (!s) return []; try { const a = JSON.parse(s.get('giftbox-items') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-function saveBox(a) { const s = store(); if (s) s.set('giftbox-items', JSON.stringify(a)); }
+function loadBox() { const a = readJSON('giftbox-items', null); return Array.isArray(a) ? a : []; }
+function saveBox(a) { writeJSON('giftbox-items', a); }
 const TA_COOK_WISH = ['给你尝尝。', '刚做好的，趁热吃。', '这道菜想让你试试。', '用心做的，希望你喜欢。'];
 function cookMine(fishId) {
 const d = dishOf(fishId); if (!d) { toast('这种鱼不能烹饪'); return; }
@@ -96367,7 +96657,7 @@ default: return '待着';
 function renderPage() {
 if (!pageEl) return;
 let key;
-if (curTab === 'today') key = 'today:' + JSON.stringify(loadToday());
+if (curTab === 'today') key = 'today:' + JSON.stringify(loadToday()) + ':' + fishCoinCap();
 else if (curTab === 'dex') key = 'dex:' + JSON.stringify(loadDex()) + ':' + JSON.stringify(loadStats());
 else if (curTab === 'cook') {
 const ck2 = loadCook();
@@ -96417,11 +96707,13 @@ html += '<div class="fish-row"><span class="fish-ico">' + it.icon + '</span><spa
 });
 return html;
 }
+const capUsed = fishCoinCap();
 const html =
 '<div class="fish-sub">今日收获</div>' +
 '<div class="fish-subhead">你</div>' + rows('mine') +
 '<div class="fish-subhead">' + esc(taWord()) + '</div>' + rows('ta') +
-'<div class="fish-sellbar">' + (count ? '<span>可出售 ' + count + ' 件 · <b>+' + fenToStr(total) + '</b> 心意币（勾「留」不卖）</span>' : '<span>没有可出售的收获</span>') + '<button class="fish-sell" id="fish-sell-btn"' + (count ? '' : ' disabled') + '>出售</button></div>';
+'<div class="fish-sellbar">' + (count ? '<span>可出售 ' + count + ' 件 · <b>+' + fenToStr(total) + '</b> 心意币（勾「留」不卖）</span>' : '<span>没有可出售的收获</span>') + '<button class="fish-sell" id="fish-sell-btn"' + (count ? '' : ' disabled') + '>出售</button></div>' +
+(capUsed > 0 ? '<div class="fish-capnote">今日售出所得 ¥' + fenToStr(capUsed) + ' / 上限 ¥104（出售+烹饪共用，明日重置）</div>' : '');
 return html;
 }
 function renderDex() {
@@ -96497,7 +96789,7 @@ return html;
 function fmtTs(ts) { const d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 if (castBtn) castBtn.addEventListener('click', function (e) { e.stopPropagation(); castMine(); });
 if (reelBtn) reelBtn.addEventListener('click', function (e) { e.stopPropagation(); reelMine(); });
-if (soundBtn) soundBtn.addEventListener('click', function (e) { e.stopPropagation(); soundOn = !soundOn; soundBtn.textContent = soundOn ? '🔊' : '🔇'; soundBtn.classList.toggle('off', !soundOn); });
+if (soundBtn) soundBtn.addEventListener('click', function (e) { e.stopPropagation(); setSoundOn(!soundOn, true); });
 if (pageEl) pageEl.addEventListener('click', function (e) {
 const sell = e.target.closest && e.target.closest('#fish-sell-btn');
 if (sell) { e.stopPropagation(); sellAll(); return; }
@@ -96561,6 +96853,7 @@ if (partnerNameEl) partnerNameEl.textContent = taWord();
 stopTaTimer();
 taTimer = setInterval(taStep, 1200);
 startTogetherTimer();
+try { const sp = readJSON('fishing-sound', null); if (sp && typeof sp.on === 'boolean') setSoundOn(sp.on, false); } catch (e) {}
 statusEl.dataset.keep = '1';
 statusEl.textContent = '你和 ' + taWord() + ' 在水边坐下，点「抛竿」开始。';
 render();
@@ -106356,7 +106649,7 @@ var DESC = [
 { sel: '#sf-group-chat-row', name: '开启群聊', d: '开启后桌面出现「群聊」入口，可新建群聊、邀请联系人一起聊天（同时桌面占卜图标会收进隐藏池——第一页留给群聊入口，需要用占卜时走 设置 → 工具 → 占卜，与点桌面图标等效；若在桌面装修里手动固定过占卜则不受影响）。\n默认：关闭。\n影响范围：全局，所有桌面/联系人共用；关闭只是隐藏入口，已有群聊数据保留。' },
 { sel: '#sf-night-mode-row', name: '夜间模式', d: '开启后只在夜里 22:00–次日 07:00 生效：这段时间内 TA 不再主动发消息（拍一拍、邀请、主动查岗等同一条链一并暂停）、不再主动打来电话，其他桌面也不会跨桌面查岗 / 求聊天 / 来电。时段外（07:00–22:00）行为完全不变，进出时段自动切换、无需手动操作。\n默认：关闭（要整夜勿扰 / 免打扰时再打开）。\n机制：只拦「TA / 其他桌面主动发起」的打扰——你自己发的消息、回复互动、主动拨打电话都不受限制；本项是全站共用的一个总闸，所有桌面一起生效（不随联系人区分），切换后立刻生效。\n影响范围：联系人主动消息 / 主动来电 / 跨桌面查岗 / 跨桌面求聊天 / 跨桌面来电；聊天记录、字卡、桌面设置等数据不受影响。\n行下小字会显示当前状态并自动刷新：「开启 · 当前生效中（22:00–7:00）」＝此刻正处夜间时段；「开启 · 当前不在夜间时段」＝已开启，到 22:00 才起作用。' },
 { sel: '#row-theme-mode', name: '深色模式', d: '切换全站主题。\n点击选择：「关闭」=浅色、「已开启」=深色、「跟随系统」=随手机系统明暗自动切换。\n默认：浅色。\n影响范围：全局所有页面，不随桌面区分。' },
-{ sel: '#row-appearance', name: '手机桌面美化', d: '进入桌面美化子页：主题配色、壁纸、图标、字号、圆角、桌面组件等的总入口。\n影响范围：子页内多数美化项按联系人桌面独立保存（每个桌面可不同）。\n本行只是入口，不改变任何设置。' },
+{ sel: '#row-appearance', name: '手机桌面美化', d: '进入桌面美化子页：主题配色、壁纸、图标、字号、圆角、桌面组件等的总入口。\n新增（#769）：底部导航栏也能美化——首页/字卡/设置三个按钮可各自上传图标图片（可调图片透明度、更换或恢复默认），整条栏可调背景/整栏透明度、底色、圆角、模糊、图标大小；在「边看边调 → 底部栏」分区或设置页「底部导航栏」组操作。\n影响范围：子页内多数美化项按联系人桌面独立保存（每个桌面可不同）。\n本行只是入口，不改变任何设置。' },
 { sel: '#row-entry-cjian-first', name: '打开时先进入此间', d: '开启后，每次打开应用先进入「此间」；看完此间返回时弹出「选择本次进入的桌面」页，由你决定这次进入哪个联系人桌面。\n默认：关闭。\n影响范围：全局设置，不随桌面区分。\n用法：在此间里点某位梦角的【去找TA】＝直接进入 TA 的桌面（跳过选择页）；点左上角返回则弹出选择页。\n注意：一旦在下面设置了「默认进入的桌面」，本项会被取代（自动关闭并置灰），因为默认桌面已决定每次进入哪个桌面；把默认桌面设为「关闭」即可恢复本项。' },
 { sel: '#row-entry-show-list', name: '打开时显示联系人列表', d: '开启后，每次打开应用直接列出全部联系人 / 桌面，点其中一位即进入 TA 的桌面。\n默认：关闭。\n影响范围：全局设置，不随桌面区分。\n与「打开时先进入此间」的区别：本项不经过此间，打开即出列表；两者同时开启时以「先进入此间」为准（此间看完后同样会出这份列表）。\n注意：一旦在下面设置了「默认进入的桌面」，本项会被取代（自动关闭并置灰）；把默认桌面设为「关闭」即可恢复。' },
 { sel: '#row-entry-default-contact', name: '默认进入的桌面', d: '设置后，每次打开应用直接进入所选联系人桌面。\n默认：关闭（不设置，沿用上次所在的桌面）。\n影响范围：全局设置，不随桌面区分。\n取代关系：本项开启时会自动关闭并禁用「打开时先进入此间」和「打开时显示联系人列表」——默认桌面已决定每次进入哪个桌面，不再需要每次选择；把本项设为「关闭」即可恢复这两项。\n注意：所选桌面被删除时会自动退回「关闭」并恢复上述两项。' },
@@ -106376,7 +106669,7 @@ var DESC = [
 { sel: '#safe-top-force', name: '顶部避让修正', d: 'iOS 专用修正：顶部「Mochi」行与手机系统时间重叠时开启；底部出现白带时关闭。\n默认：关闭（系统保留形态）。\n机制：改后会自动刷新页面生效。\n影响范围：全局，仅影响 iOS 顶部安全区避让。' },
 { sel: '#row-diagnostics', name: '设备兼容诊断', d: '采集本机设备与浏览器环境信息，一键复制发给开发者排障。\n机制：只读，不改动任何业务数据；有未读兼容错误时行上显示角标，点开即清零。\n很多「像 bug 的问题」其实是设备 / 浏览器限制（App 内置浏览器能力受限、国产浏览器没有通知能力、iOS 顶部状态栏藏不掉、浏览器「桌面版网站」模式让布局变形、系统省电杀掉后台等），逐条对照见 设置 → 关于 → 使用说明 第 12 节「设备与浏览器限制」；报修时请带上本行复制的信息。' },
 { sel: '#row-screen-diag', name: '屏幕适配诊断', d: '定位跨设备屏幕适配问题（顶部空白 / 底部裁切 / 缩放异常），生成可读报告与机读签名，可导出或复制。\n机制：只读；产生的诊断记录可在「查看存储」里清理。' },
-{ sel: '#row-screen-adj', name: '屏幕位置设置', d: '一个面板调全部屏幕错位：顶部（被状态栏遮挡/离太远）、底部（导航栏悬空/被手势条裁掉）、页面高度（底部留白/内容超出）、桌面图标区（全屏时图标整体偏上）、整体位移（整页偏上/偏下导致顶部或底部被遮挡）五轴。\n机制：面板里步进 ±2px 或点数值精确输入（各轴范围不同），改完立即生效、存本机永久保存（跨桌面共用、换设备不跟随）、「全部恢复默认」一键归零；与「屏幕适配诊断」配合使用——先诊断看差多少 px，再来填对应偏移。' },
+{ sel: '#row-screen-adj', name: '屏幕适配微调', d: '跨机型屏幕适配没对上（顶部被状态栏遮挡、底部被手势条裁掉、页面底部留白、全屏时桌面图标偏上、整页偏移、正文太小）都在这一处自己调：六轴滑杆边拖边看、当场见效，双击滑杆回默认 0，「全部恢复默认」一键归零。\n机制：偏移轴（顶部/底部/页面高度/桌面/整体位移）以「系统基准+你的偏移」双层落层，不破坏自动适配；文字大小轴只在气泡/输入框/设置列表等正文原字号上叠加，不是整页缩放。\n改完本机永久保存（跨桌面共用、换设备不跟随）；与「屏幕适配诊断」配合使用——先诊断差多少 px，再来拖对应轴。' },
 { sel: '#row-func-diag', name: '功能诊断', d: '逐个测试全部功能入口 / 页面 / 图标能否正常打开与关闭（约 15 秒），自动判定「正常 / 需注意 / 异常」。\n机制：只读，测试期间会临时开合页面，不改业务数据。' },
 { sel: '#row-storage-view', name: '查看存储', d: '查看本地存储占用：按功能列出 localStorage 与 IndexedDB 的空间，并可定向清理诊断记录、本地音乐、同域其他站点等（不动业务数据）。\n也可从这里进入图片压缩。\n手机卡顿多是「存的东西太多」：字卡库大的话，这里能看清是谁在占地方。「字卡库瘦身」会把重复的图只留一份，明显腾出空间；「媒体池重建」是聊天里图片显示不出来时用来找回图片的，跟卡顿无关。' },
 { sel: '#row-img-compress', name: '压缩图片', d: '把历史遗留的偏大图片按「新上传」同标准重新压缩一遍，覆盖原图、不可撤销。\n默认：上传时已自动压缩，本项只处理旧图。\n机制：会跳过动图（GIF）、和聊天共用的图、以及本来就小的图。\n影响范围：字卡库与桌面美化等图片数据。\n大图片是手机（安卓 / iOS）卡顿与存储膨胀的主因之一；字卡库里的超大图片卡（单张超过 512KB）可在「字卡使用状态自检」里看到。' },
@@ -109796,11 +110089,13 @@ lastHeal: his
 })();
 (function () {
 var PFX = 'xy-home-v2:';
-var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift' };
+var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text' };
+var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12] };
 function loadAdj(k) {
-try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
+try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); var rg = RANGE[k] || [-80, 80];
+return (!isNaN(v) && v >= rg[0] && v <= rg[1]) ? v : 0; } catch (e) { return 0; }
 }
-var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift') };
+var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text') };
 var el = document.documentElement;
 var st = el.style;
 var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -109827,6 +110122,12 @@ if (adj.shift) origSet('--mochi-shift-adj', adj.shift + 'px');
 else if (origGet('--mochi-shift-adj')) origRemove('--mochi-shift-adj');
 } catch (e) {}
 }
+function applyText() {
+try {
+if (adj.text) origSet('--mochi-text-adj', adj.text + 'px');
+else if (origGet('--mochi-text-adj')) origRemove('--mochi-text-adj');
+} catch (e) {}
+}
 function applyCached() {
 for (var n in base) {
 try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
@@ -109834,6 +110135,7 @@ try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
 applyBottom();
 applyDesk();
 applyShift();
+applyText();
 }
 st.setProperty = function (n, v) {
 n = String(n).toLowerCase();
@@ -109857,11 +110159,12 @@ return origGet(n);
 setInterval(applyBottom, 1000);
 applyCached();
 window.mochiScreenAdj = {
-all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h }; },
+all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; },
 set: function (k, v) {
 if (!(k in adj)) return false;
 v = parseInt(v, 10);
-if (isNaN(v) || v < -80 || v > 80) return false;
+var rg = RANGE[k] || [-80, 80];
+if (isNaN(v) || v < rg[0] || v > rg[1]) return false;
 adj[k] = v;
 lsSet(k, v || '');
 applyCached();
@@ -109892,4 +110195,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu6kc6so -->
+<!-- __MOCHI_EOF__ mu6p3xb6 -->

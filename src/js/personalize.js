@@ -225,6 +225,8 @@ try {
         // v3.5.116：回填完成后一并重绘桌面图标 + 壁纸——
         //   自定义图标/壁纸大键可能只存 IDB，回填完成前桌面显示的是默认/空白
         try { restoreAppIcons(); } catch (e) {}
+        // #769：底部栏按钮图片同为大键只存 IDB——回填完成后一并重绘
+        try { restoreTabbarIcons(); } catch (e) {} // #769h1 回填后重绘底部栏
         // FIX 2026-09-10 #265：图标【顺序】同款——app-icon-order-* 的 LS 副本与写日志都可能
         //   读不到（配额清理 / 日志 40 条预算把该键挤掉），脚本加载期那次同步应用只能拿到空值，
         //   回填把值送进存储层后却没人再排一次 → 用户装修的图标顺序整会话不生效（看起来就是
@@ -1515,6 +1517,125 @@ try {
     });
   };
   restoreAppIcons();
+  // ===== v3.26.x #769：底部导航栏美化（三按钮可上传图标图片 + 栏样式）=====
+  // 键族（per-cid store，与 app-icon-* 同族，随美化方案导入/导出/撤销走，见 collectBeauty）：
+  //   tab-icon-<page>    按钮图片（compressImage 256 后的 dataURL），<page>=data-page 稳定身份
+  //   tab-icon-opacity   图片透明度 0~100（只作用上传的 img，默认 SVG 不受影响——
+  //                      applyAppIconOpacity 同口径；三按钮共用一根滑杆，widget-opacity 同款）
+  //   tabbar-bg-op / tabbar-whole-op / tabbar-bg-color / tabbar-radius / tabbar-blur / tabbar-icon-size
+  // 整栏透明度双保险（防「栏透明到消失、找不回」的设计缺陷）：
+  //   ① 图标层 12% 下限——背景可全透，图标永远留一丝影（Math.max(wholeOp, 12) 是唯一锚点）；
+  //   ② 触摸显形——任一透明度 <50% 挂 tabbar-faint，按压瞬间描边+图标全可见（tabbar.css）。
+  const TABBAR_PAGES = ['page-phone', 'page-chatcard', 'page-setting'];
+  const TABBAR_PAGE_NAMES = { 'page-phone': '首页', 'page-chatcard': '字卡', 'page-setting': '设置' };
+  const tabbarNum = (key, def, min, max) => {
+    const n = parseInt(store.get(key), 10);
+    return isNaN(n) ? def : Math.max(min, Math.min(max, n));
+  };
+  const applyTabbarStyle = () => {
+    const bar = document.querySelector('.tabbar');
+    const rs = document.documentElement.style;
+    const bgOp = tabbarNum('tabbar-bg-op', 100, 0, 100);
+    const wholeOp = tabbarNum('tabbar-whole-op', 100, 0, 100);
+    const bgA = Math.round(bgOp * wholeOp) / 10000; // 背景＝两根滑杆叠乘
+    const icoA = Math.max(wholeOp, 12) / 100;       // 图标层整栏透明度 12% 下限
+    ['--tabbar-bg-a', '--tabbar-ico-a', '--tabbar-bg-color', '--tabbar-radius', '--tabbar-blur', '--tabbar-ico-size'].forEach(p => rs.removeProperty(p));
+    if (bgA < 1) rs.setProperty('--tabbar-bg-a', String(bgA));
+    if (icoA < 1) rs.setProperty('--tabbar-ico-a', String(icoA));
+    const bgc = store.get('tabbar-bg-color');
+    if (bgc) rs.setProperty('--tabbar-bg-color', bgc);
+    const rad = tabbarNum('tabbar-radius', 22, 0, 30);
+    if (rad !== 22) rs.setProperty('--tabbar-radius', rad + 'px');
+    const blur = tabbarNum('tabbar-blur', 0, 0, 20);
+    if (blur > 0) rs.setProperty('--tabbar-blur', blur + 'px');
+    const isz = tabbarNum('tabbar-icon-size', 23, 18, 34);
+    if (isz !== 23) rs.setProperty('--tabbar-ico-size', isz + 'px');
+    if (!bar) return;
+    bar.classList.toggle('tabbar-blur-on', blur > 0);
+    bar.classList.toggle('tabbar-faint', bgOp < 50 || wholeOp < 50);
+  };
+  const applyTabIconLook = (tab) => {
+    const img = tab.querySelector('img');
+    if (!img) return;
+    img.style.opacity = String(tabbarNum('tab-icon-opacity', 100, 0, 100) / 100);
+  };
+  // 图片与默认 SVG 共存切换（svg 只隐藏不删除＝#467/#477 模板结构锚依赖 .tab 内部形态，
+  // 且恢复默认无需任何备份键）
+  const paintTabIcon = (tab, data) => {
+    const svg = tab.querySelector('svg');
+    if (svg) svg.style.display = data ? 'none' : '';
+    let img = tab.querySelector('img');
+    if (data) {
+      if (!img) { img = document.createElement('img'); img.alt = ''; tab.appendChild(img); }
+      else if (img.src === data) { applyTabIconLook(tab); return; } // #249 恒等跳过：同源不重解码
+      img.src = data;
+    } else if (img) img.remove();
+    applyTabIconLook(tab);
+  };
+  const restoreTabbarIcons = () => {
+    document.querySelectorAll('.tabbar .tab').forEach(tab => {
+      const key = tab.dataset.page;
+      if (!key) return;
+      let saved = store.get('tab-icon-' + key);
+      // 与 app-icon 同款大图防护（v3.6.x 起）：超 500KB 本次跳过渲染，超 12MB 清除——
+      // 旧版压缩失败存过超大原图，真机解码会崩溃/卡死
+      if (saved && saved.length > 500 * 1024) {
+        try { if (saved.length > 12 * 1024 * 1024) store.remove('tab-icon-' + key); } catch (e) {}
+        saved = null;
+      }
+      paintTabIcon(tab, saved);
+    });
+    applyTabbarStyle();
+  };
+  // 上传/更换/移除（边看边调「底部栏」分区与设置页共用；已自定义时先问做哪个，不直接进相册）
+  const tabIconMenu = (pageKey) => {
+    const name = TABBAR_PAGE_NAMES[pageKey] || pageKey;
+    const tabOf = () => document.querySelector('.tabbar .tab[data-page="' + pageKey + '"]');
+    const pick = () => {
+      window.mochiFilePick({
+        id: 'mochi-tabicon-pick', accept: 'image/*',
+        onFiles: (files) => {
+          const f = files && files[0];
+          if (!f) { toast('没有取到图片，请再选一次'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            toast('正在处理图片…');
+            setTimeout(() => { // 让出当前帧使 toast 先渲染（app-icon 上传同口径，防主线程同步压缩假死）
+              compressImage(reader.result, 256).then((data) => {
+                if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+                store.set('tab-icon-' + pageKey, data);
+                const tab = tabOf();
+                if (tab) paintTabIcon(tab, data);
+                toast('「' + name + '」按钮图标已更新');
+              });
+            }, 80);
+          };
+          reader.onerror = () => toast('读取图片失败，请重试');
+          reader.readAsDataURL(f);
+        }
+      });
+    };
+    if (store.get('tab-icon-' + pageKey)) {
+      window.openModal('「' + name + '」按钮图标', '', (v) => {
+        if (v === 'clear') {
+          store.remove('tab-icon-' + pageKey);
+          const tab = tabOf();
+          if (tab) paintTabIcon(tab, null);
+          toast('「' + name + '」按钮已恢复默认图标');
+        } else if (v === 'pick') pick();
+      }, {
+        noInput: true, staticText: '该按钮正在使用自定义图片：',
+        pills: [{ label: '更换图片', value: 'pick' }, { label: '移除恢复默认', value: 'clear' }]
+      });
+    } else pick();
+  };
+  // 「恢复底部栏默认」：清空整族键 + 清变量 + 重绘（抽屉与将来入口共用）
+  const resetTabbarBeauty = () => {
+    TABBAR_PAGES.forEach(pk => store.remove('tab-icon-' + pk));
+    ['tab-icon-opacity', 'tabbar-bg-op', 'tabbar-whole-op', 'tabbar-bg-color', 'tabbar-radius', 'tabbar-blur', 'tabbar-icon-size'].forEach(k => store.remove(k));
+    restoreTabbarIcons();
+  };
+  restoreTabbarIcons();
   // v3.6.x：恢复图标网格内自定义顺序（app-icon-order-<grid.app> 存 data-app 数组）
   // FIX 2026-09-12 #351：跨页图标归位——旧实现只在「节点已在本网格」时重排，而模板
   // 每次启动都把图标放回默认网格，跨页拖动（只存目标页顺序）永远无法还原 = 「退出重进
@@ -2050,6 +2171,21 @@ try {
       toast('点桌面上要调整的图标，就能调它的图片位置');
     });
   }
+  // FIX v3.26.x #769：设置页「底部导航栏」两个入口——样式行直接唤起边看边调并停在
+  // 「底部栏」分区（改哪看哪）；上传行走 tabIconMenu（与抽屉同一实现，不重复）
+  const tabbarStyleRow = document.getElementById('row-tabbar-beauty');
+  if (tabbarStyleRow) {
+    tabbarStyleRow.addEventListener('click', () => openBeautyDrawer('tabbar'));
+  }
+  const tabbarIconRow = document.getElementById('row-tabbar-icons');
+  if (tabbarIconRow) {
+    tabbarIconRow.addEventListener('click', () => {
+      window.openModal('上传底部栏按钮图片', '', (v) => { if (v) tabIconMenu(v); }, {
+        noInput: true, staticText: '要换哪个按钮？（屏幕底部一行，从左到右）',
+        pills: TABBAR_PAGES.map(pk => ({ label: TABBAR_PAGE_NAMES[pk], value: pk }))
+      });
+    });
+  }
   // v3.27.x：快捷面板（项5）——美化页常用项直达，避免进多层菜单
   // #602：「深色模式」快捷按钮移除（设置页已有入口，这里重复）
   (function bindQuickPanel() {
@@ -2057,6 +2193,7 @@ try {
     bind('dq-accent', 'row-accent-color');
     bind('dq-bg', 'row-bg-preset');
     bind('dq-radius', 'row-desk-card-radius');
+    bind('dq-tabbar', 'row-tabbar-beauty'); // #769：底部栏直达
     // v3.27.x #146：dq-random（随机美化快捷入口）已随「一键随机美化」功能一并删除
   })();
   // FIX 2026-09-15 #527：边看边调改为「底部抽屉」。
@@ -2070,7 +2207,8 @@ try {
   // 会话内记住拖到的纵向位置；null=贴底（默认）。放模块作用域不落盘：纯 UI 位置，避免与
   // contacts.js 的根键迁移/EXCLUDE 清单打交道。
   let beautyDockTop = null;
-  const openBeautyDrawer = () => {
+  // #769：可选 secKey＝直接打开指定分区（设置页「底部栏美化」行直达「底部栏」）；省略=停留上次分区
+  const openBeautyDrawer = (secKey) => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
     if (phoneTab) phoneTab.classList.add('active');
@@ -2356,6 +2494,66 @@ try {
           note.textContent = '换单个图标＝点「上传单个图标图片」后点桌面图标选「上传图片」；换一批用批量上传。上传过的图片可单独调「缩放 / 水平位置 / 垂直位置」，即时生效、不用重新上传。';
           wrap.appendChild(note);
           return wrap;
+        } },
+        // FIX v3.26.x #769：底部导航栏美化分区（用户「底部导航栏的三个图标按钮，也可以上传图标
+        // 图片。然后也可以调整透明度。调整这一行的透明度和这一行的样式」）。全部控件走
+        // #769 模块同一套键与 applier（tabIconMenu / applyTabbarStyle / resetTabbarBeauty），
+        // 与设置页入口零重复实现。
+        { key: 'tabbar', label: '底部栏', build: () => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+          const upRow = document.createElement('div');
+          upRow.style.cssText = 'display:flex;gap:6px';
+          TABBAR_PAGES.forEach(pk => {
+            const b = document.createElement('button');
+            b.textContent = TABBAR_PAGE_NAMES[pk] + '按钮图片';
+            b.style.cssText = 'flex:1;font-size:11.5px;padding:7px 0;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);cursor:pointer';
+            b.addEventListener('click', () => tabIconMenu(pk));
+            upRow.appendChild(b);
+          });
+          wrap.appendChild(upRow);
+          const setBarVar = (name, v) => { if (v === null || v === undefined || v === '') document.documentElement.style.removeProperty(name); else document.documentElement.style.setProperty(name, v); };
+          wrap.appendChild(mkSlider('图片透明度', 'tab-icon-opacity', '', 20, 100, 5, '%', 100, (v) => {
+            // 只作用上传的图片（默认 SVG 不受影响），三按钮同值——applyAppIconOpacity 同口径
+            document.querySelectorAll('.tabbar .tab img').forEach(im => { im.style.opacity = String(parseInt(v, 10) / 100); });
+          }, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tab-icon-opacity'); else store.set('tab-icon-opacity', String(n)); }));
+          wrap.appendChild(mkSlider('背景透明度', 'tabbar-bg-op', '', 0, 100, 5, '%', 100, (v) => {
+            // 拖动过程即时预览＝只重算背景叠乘（图标层由「整栏透明度」决定，互不干扰）
+            const w = tabbarNum('tabbar-whole-op', 100, 0, 100);
+            setBarVar('--tabbar-bg-a', (parseInt(v, 10) * w) >= 10000 ? null : String(Math.round(parseInt(v, 10) * w) / 10000));
+          }, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tabbar-bg-op'); else store.set('tabbar-bg-op', String(n)); applyTabbarStyle(); }));
+          wrap.appendChild(mkSlider('整栏透明度', 'tabbar-whole-op', '', 0, 100, 5, '%', 100, (v) => {
+            const n = parseInt(v, 10);
+            const bg = tabbarNum('tabbar-bg-op', 100, 0, 100);
+            setBarVar('--tabbar-bg-a', (n * bg) >= 10000 ? null : String(Math.round(n * bg) / 10000));
+            setBarVar('--tabbar-ico-a', String(Math.max(n, 12) / 100)); // 12% 图标下限：背景可全透，图标永远留一丝影
+            const bar = document.querySelector('.tabbar');
+            if (bar) bar.classList.toggle('tabbar-faint', bg < 50 || n < 50);
+          }, (v) => { const n = parseInt(v, 10); if (n >= 100) store.remove('tabbar-whole-op'); else store.set('tabbar-whole-op', String(n)); applyTabbarStyle(); }));
+          wrap.appendChild(mkSlider('栏圆角', 'tabbar-radius', '--tabbar-radius', 0, 30, 1, 'px', 22, null, (v) => { const n = parseInt(v, 10); if (n === 22) store.remove('tabbar-radius'); else store.set('tabbar-radius', String(n)); }));
+          wrap.appendChild(mkSlider('背景模糊', 'tabbar-blur', '', 0, 20, 1, 'px', 0, (v) => {
+            const n = parseInt(v, 10);
+            setBarVar('--tabbar-blur', n > 0 ? n + 'px' : null);
+            const bar = document.querySelector('.tabbar');
+            if (bar) bar.classList.toggle('tabbar-blur-on', n > 0);
+          }, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('tabbar-blur', String(n)); else store.remove('tabbar-blur'); }));
+          wrap.appendChild(mkSlider('图标大小', 'tabbar-icon-size', '--tabbar-ico-size', 18, 34, 1, 'px', 23, null, (v) => { const n = parseInt(v, 10); if (n === 23) store.remove('tabbar-icon-size'); else store.set('tabbar-icon-size', String(n)); }));
+          paletteHost = document.createElement('div');
+          const cgrid = document.createElement('div');
+          cgrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+          cgrid.appendChild(mkColorItem('栏背景色', 'tabbar-bg-color', '--tabbar-bg-color', false));
+          wrap.appendChild(cgrid);
+          wrap.appendChild(paletteHost);
+          const rst = document.createElement('button');
+          rst.textContent = '恢复底部栏默认';
+          rst.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+          rst.addEventListener('click', () => { armUndo(); resetTabbarBeauty(); renderSec('tabbar'); toast('底部栏已恢复默认'); });
+          wrap.appendChild(rst);
+          const nt = document.createElement('div');
+          nt.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+          nt.textContent = '「背景透明度」只稀释底色；「整栏透明度」连图标一起淡出——图标保底 12%、按屏下瞬间显形，不会消失找不回。按钮图片点上面三个按钮上传（已传过可选更换/移除）。';
+          wrap.appendChild(nt);
+          return wrap;
         } }
       ];
       let activeSec = 'color';
@@ -2382,6 +2580,7 @@ try {
         chipsRow.appendChild(c);
       });
       renderSec(activeSec);
+      if (secKey) renderSec(secKey);
       d.style.display = 'flex';
   };
   // 回到「手机桌面美化」页（抽屉关闭/跳转用）。
@@ -2475,7 +2674,7 @@ try {
       '查岗频率': '次数',
       '打电话': '拨打 通话',
       '深色模式': '夜间模式 暗色模式 黑暗模式 夜间 暗色 黑暗 黑色 主题 dark mode',
-      '手机桌面美化': '壁纸 主题 图标 字体 字号 圆角 装修 装扮 小组件 桌面美化',
+      '手机桌面美化': '壁纸 主题 图标 字体 字号 圆角 装修 装扮 小组件 桌面美化 底部栏 底栏 导航栏 tabbar',
       '回复设置': '概率 回复速度 拍一拍 撤回 已读 触发 自动回复 聊天',
       '通话设置': '来电 挂断 通话背景 铃声',
       '音效设置': '声音 铃声 提示音 静音',
@@ -2491,6 +2690,7 @@ try {
       '设备兼容诊断': '诊断 兼容 报错 环境',
       '顶部避让修正': '安全区 白带 重叠 刘海',
       '屏幕适配诊断': '适配 屏幕 空白 裁切',
+      '屏幕适配微调': '微调 字号 文字大小 放大 变小 偏移 遮挡 裁切 留白 白带 状态栏 手势条 屏幕错位 位置',
       '功能诊断': '检测 测试',
       '查看存储': '空间 清理 占用',
       '压缩图片': '图片 瘦身',
@@ -2507,7 +2707,7 @@ try {
       '深色模式': 'ssms', '手机桌面美化': 'sjzmmh', '回复设置': 'hfsz', '通话设置': 'thsz', '音效设置': 'yxsz',
       '功能大全': 'gndq', '应用锁': 'yys', '开屏问答门': 'kpwdm', '手机布局': 'sjbj', '离线消息提醒': 'lxxtx',
       '使用说明': 'sysm', '导出数据': 'dcsj', '导入数据': 'drsj', '修改摸鱼天数': 'xgmyts', '设备兼容诊断': 'sbjrzd', '顶部避让修正': 'dbbrxz',
-      '屏幕适配诊断': 'pmspzd', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
+      '屏幕适配诊断': 'pmspzd', '屏幕适配微调': 'pmspwt', '功能诊断': 'gnzd', '查看存储': 'ckcc', '压缩图片': 'ystp', '卡顿自检': 'kdzj',
       '字卡使用状态自检': 'zksyztzj', '清除本地数据': 'qcbdsj', '新手引导': 'xsyd', '功能介绍': 'gnjs'
     };
     // 行搜索素材 = 标题 + .sub 说明 + 分区名 + settings-help 说明文案（#573）+ 命中 key 的别名/拼音；
@@ -3193,6 +3393,9 @@ try {
     'widget-opacity', 'ico-radius', 'ico-shape',
     'widget-bg-color', 'widget-border-color', 'widget-btn-color', 'widget-btn-text-color', 'widget-heart-color',
     'app-name-color',
+    // #769：底部导航栏样式键（图片本体 tab-icon-<page> 为动态键，在 collectBeauty 单独收集）
+    'tabbar-bg-op', 'tabbar-whole-op', 'tabbar-bg-color', 'tabbar-radius', 'tabbar-blur', 'tabbar-icon-size',
+    'tab-icon-opacity',
     'desk-layout', 'desk-page-count',
     'desk-images', 'desk-texts', 'desk-countdowns',
   ];
@@ -3230,6 +3433,11 @@ try {
         const k = 'app-icon-order-' + grid.dataset.app;
         const v = store.get(k);
         if (v) data[k] = v;
+      });
+      // #769：底部栏按钮图片（动态键，同 app-icon-* 口径；样式键与图片透明度已在 BEAUTY_KEYS）
+      TABBAR_PAGES.forEach(pk => {
+        const v = store.get('tab-icon-' + pk);
+        if (v) data['tab-icon-' + pk] = v;
       });
     } catch (e) {}
     // 动态键：图片组件本体（desk-image-src-<id> 只进 IDB+内存缓存，此前不导出 → 导入后空壳）
@@ -3331,12 +3539,13 @@ try {
       if (scope === 'all') return true;
       if (scope === 'color') return SCOPE_COLOR_KEYS.indexOf(k) >= 0 || k === '__accent__' || k === '__theme__';
       if (scope === 'bg') return SCOPE_BG_KEYS.indexOf(k) >= 0 || /^page-bg-/.test(k);
-      if (scope === 'layout') return SCOPE_LAYOUT_KEYS.indexOf(k) >= 0 || k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k === 'hidden-icons';
+      if (scope === 'layout') return SCOPE_LAYOUT_KEYS.indexOf(k) >= 0 || k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k.indexOf('tab-icon-') === 0 || k === 'hidden-icons';
       return true;
     };
     BEAUTY_KEYS.forEach(k => { if (data[k] !== undefined && allow(k)) { store.set(k, data[k]); n++; } });
     Object.keys(data).forEach(k => {
-      if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0) && data[k] !== undefined && allow(k)) {
+      // #769：tab-icon- 为底部栏按钮图片动态键（BEAUTY_KEYS 只列静态样式键）
+      if ((k.indexOf('app-icon-') === 0 || k.indexOf('desk-image-src-') === 0 || k.indexOf('tab-icon-') === 0) && data[k] !== undefined && allow(k)) {
         store.set(k, data[k]); n++;
       }
     });
@@ -3770,6 +3979,8 @@ try {
             store.remove('app-icon-pos-y-' + k);
           });
           document.querySelectorAll('.app-grid').forEach(g => { if (g.dataset.app) store.remove('app-icon-order-' + g.dataset.app); });
+          // #769：底部栏按钮图片一并清掉（样式键在 BEAUTY_KEYS 里已被上面 forEach 覆盖）
+          TABBAR_PAGES.forEach(pk => store.remove('tab-icon-' + pk));
           try { localStorage.removeItem('xy-home-v2:accent-color'); } catch (e) {}
           try { localStorage.removeItem('xy-home-v2:theme-mode'); } catch (e) {}
         } catch (e) {}
@@ -7359,35 +7570,33 @@ try {
     });
   })();
 
-  // ===== v3.26.x #707：屏幕位置设置（设置 → 工具区，统一面板，五轴）=====
-  // 接线 template 单行（#row-screen-adj）→ 底部半框面板（beauty-drawer 同族、已登记
-  // FLOAT_SELECTORS 防滚动穿透）。五轴：顶部 / 底部 / 页面高度 / 桌面 / 整体位移；
-  // 步进按钮 ±2px 即时生效，点数值走 openModal 精确输入；「恢复默认」一键全归零。
+  // ===== v3.27.x #707→#764：屏幕适配微调（设置 → 工具区首位，独立显眼分组，六轴滑杆）=====
+  // #707 原「屏幕位置设置」：±2px 步进按钮 + 点数值 openModal 手输——用户看不到拖动效果只能猜。
+  // #764 合并升级：入口挪到工具区第一组；每轴改 range 滑杆「边拖边看」实时生效（面板只占下半屏，
+  // 上半屏就是预览现场），双击滑杆复位 0；新增「文字大小」第六轴（--mochi-text-adj，
+  // display-tune.css 只叠加气泡/输入框/设置行等文字组，零 zoom/scale）。
   // 偏移存根命名空间 LS，跨桌面共用（屏幕是设备属性）；mobile-adapt.js mochiScreenAdj 落层。
   (function () {
     const AXES = [
-      { k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=正数下移；离得太远=负数上移' },
-      { k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部导航栏被手势条裁掉=正数上移；悬空离底太远=负数下移' },
-      { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=正数撑满；内容超出屏幕被裁=负数收短' },
-      { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=正数往下拉回' },
-      { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了导致顶部或底部被遮挡：正=整页下移、负=上移' }
+      { k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
+      { k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
+      { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
+      { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
+      { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
+      { k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
     ];
     let panel = null;
-    function toast(msg) {
-      let t = document.getElementById('cc-toast');
-      if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
-      t.textContent = msg;
-      t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
-      clearTimeout(t._timer);
-      t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 1800);
-    }
+    const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
     function valElOf(k) { return panel ? panel.querySelector('[data-adj-val="' + k + '"]') : null; }
+    function sliderOf(k) { return panel ? panel.querySelector('[data-adj-slider="' + k + '"]') : null; }
     function refreshVals() {
       if (!panel || !window.mochiScreenAdj) return;
       const cur = window.mochiScreenAdj.all();
       AXES.forEach(ax => {
         const el = valElOf(ax.k);
-        if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + cur[ax.k] + 'px';
+        if (el) el.textContent = (cur[ax.k] > 0 ? '+' : '') + (cur[ax.k] || 0) + 'px';
+        const sl = sliderOf(ax.k);
+        if (sl) sl.value = cur[ax.k] || 0;
       });
     }
     function applyAxis(ax, nv, silent) {
@@ -7404,7 +7613,7 @@ try {
       panel.appendChild(grip);
       const head = document.createElement('div');
       head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
-      head.innerHTML = '<b style="font-size:14px">屏幕位置设置</b><span style="font-size:11px;color:#888;flex:1">改完立即生效 · 本机永久保存（各设备各自调）</span>';
+      head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1">拖一下立即可见 · 本机永久保存（各设备各自调）</span>';
       const done = document.createElement('button');
       done.textContent = '完成';
       done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
@@ -7413,55 +7622,46 @@ try {
       panel.appendChild(head);
       const tip = document.createElement('div');
       tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
-      tip.textContent = '配合「屏幕适配诊断」使用：先看诊断差多少像素，再来填对应偏移。步进一次 ±2px，点中间数值可精确输入（范围见各行）。';
+      tip.textContent = '拖动滑杆边看边调（面板上方就是效果现场），双击滑杆回默认 0；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
       panel.appendChild(tip);
       const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
       AXES.forEach(ax => {
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+        row.style.cssText = 'flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;align-items:center;gap:8px';
         const lbl = document.createElement('div');
-        lbl.style.cssText = 'flex:1;min-width:0';
-        lbl.innerHTML = '<div style="font-size:13px;font-weight:600">' + ax.name + ' <span style="font-weight:400;color:#888">（' + ax.min + '~' + ax.max + 'px）</span></div><div style="font-size:10.5px;color:#999;line-height:1.4">' + ax.hint + '</div>';
-        row.appendChild(lbl);
-        const mkBtn = (txt, delta) => {
-          const b = document.createElement('button');
-          b.textContent = txt;
-          b.style.cssText = 'flex:none;width:34px;height:30px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;border-radius:8px;cursor:pointer';
-          b.addEventListener('click', () => {
-            const v = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
-            const nv = Math.max(ax.min, Math.min(ax.max, v + delta));
-            if (nv !== v) applyAxis(ax, nv);
-          });
-          return b;
-        };
-        row.appendChild(mkBtn('−', -2));
-        const val = document.createElement('button');
+        lbl.style.cssText = 'flex:1;min-width:0;font-size:13px;font-weight:600';
+        lbl.innerHTML = ax.name + ' <span style="font-weight:400;color:#888;font-size:11px">（' + ax.min + '~' + ax.max + 'px）</span>';
+        line.appendChild(lbl);
+        const val = document.createElement('span');
         val.setAttribute('data-adj-val', ax.k);
-        val.style.cssText = 'flex:none;min-width:56px;height:30px;border:none;background:transparent;color:var(--ink,#111);font-size:13px;font-weight:700;cursor:pointer';
-        val.addEventListener('click', () => {
-          const cur = (window.mochiScreenAdj ? window.mochiScreenAdj.all()[ax.k] : 0) || 0;
-          if (typeof window.openModal !== 'function') return;
-          const ctl = window.openModal(ax.name + '偏移（' + ax.min + '~' + ax.max + 'px，0=默认）', cur ? String(cur) : '', function (v) {
-            const sv = String(v == null ? '' : v).trim();
-            let n = 0;
-            if (sv !== '') {
-              if (!/^-?\d+$/.test(sv)) { ctl.hint('请输入整数像素'); ctl.stay(); return; }
-              n = parseInt(sv, 10);
-              if (n < ax.min || n > ax.max) { ctl.hint('范围 ' + ax.min + '~' + ax.max); ctl.stay(); return; }
-            }
-            applyAxis(ax, n);
-          }, { inputmode: 'numeric', maxlength: 4, placeholder: '当前 ' + cur + 'px' });
+        val.style.cssText = 'flex:none;min-width:52px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums';
+        line.appendChild(val);
+        row.appendChild(line);
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:10.5px;color:#999;line-height:1.4;margin:1px 0 3px';
+        sub.textContent = ax.hint;
+        row.appendChild(sub);
+        const rng = document.createElement('input');
+        rng.type = 'range';
+        rng.setAttribute('data-adj-slider', ax.k);
+        rng.min = ax.min; rng.max = ax.max; rng.step = 1;
+        rng.value = cur0[ax.k] || 0;
+        rng.style.cssText = 'width:100%;margin:0;accent-color:#111';
+        rng.addEventListener('input', () => {
+          applyAxis(ax, parseInt(rng.value, 10) || 0, true);
         });
-        row.appendChild(val);
-        row.appendChild(mkBtn('+', +2));
+        rng.addEventListener('dblclick', () => { applyAxis(ax, 0); });
+        row.appendChild(rng);
         panel.appendChild(row);
       });
       const reset = document.createElement('button');
-      reset.textContent = '全部恢复默认（五轴归零）';
+      reset.textContent = '全部恢复默认（六轴归零）';
       reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
       reset.addEventListener('click', () => {
         AXES.forEach(ax => applyAxis(ax, 0, true));
-        toast('屏幕位置已全部恢复默认');
+        toast('屏幕适配微调已全部恢复默认');
       });
       panel.appendChild(reset);
       document.body.appendChild(panel);
@@ -7470,6 +7670,7 @@ try {
     const entry = document.getElementById('row-screen-adj');
     if (entry) entry.addEventListener('click', () => {
       if (!panel) buildPanel();
+      else panel.hidden = false; // 安卓返回键走 tabs.js 只置 hidden，重开要显回来（防 zombie 面板）
       refreshVals();
     });
   })();
@@ -9508,6 +9709,8 @@ try {
   document.addEventListener('contact-switched', function () {
     try { applyBgVisibility(); } catch (e) {}
     try { restoreAppIcons(); } catch (e) {}
+    // #769：底部导航栏图标/样式同为 per-cid 键——切桌面后按新命名空间重刷
+    try { restoreTabbarIcons(); } catch (e) {} // #769h2 切桌面重刷底部栏
     // v3.10.x：切桌面后按新命名空间重应用卡片背景/页面背景/图片组件 + 直读兜底
     //（这些大图键只存 IndexedDB，切桌面瞬间 memoryCache 可能还没新桌面的值）
     // FIX 2026-09-17 #695：主页不可见（切桌面后直接进了聊天）时改登记待办、主页真正

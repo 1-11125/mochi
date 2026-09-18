@@ -114,6 +114,9 @@ function check(desc, ok, detail) {
 const built = readFileSync(join(root, 'index.html'), 'utf8');
 check('B1a 产物含看门狗补钉判定（cb706.scrollTop < chatScrollMax() - 8）', built.includes('if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();'));
 check('B1b 产物含视口变形落定闸（_vvGeomChangeTs < 180）', built.includes('if (Date.now() - _vvGeomChangeTs < 180) return;'));
+// B1c 静态（#765）：聊天壁纸常驻层必须独立成合成层，否则聊天页每次内容变化的失效区都波及它、
+// 整张 cover 位图被重新缩放光栅（设了壁纸后滚动/发消息发涩）。
+check('B1c 产物含壁纸层提合成层（#cs-bg-layer { transform:translateZ(0); }）', built.includes('#cs-bg-layer { transform:translateZ(0); }'));
 
 // 进入聊天页
 await evalJs("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-chat');});var a=document.querySelector('.app[data-app=chat]');if(a)a.click();return true;})()");
@@ -152,6 +155,27 @@ await sleep(1200);
 const b4end = await evalJs("(function(){var cb=document.getElementById('chat-body');var t=document.getElementById('chat-typing');var th=(t&&!t.hidden&&t.offsetHeight)?t.offsetHeight:0;return JSON.stringify({st:Math.round(cb.scrollTop),target:Math.max(0,cb.scrollHeight-(cb.clientHeight+th))});})()");
 const b4endV = JSON.parse(b4end);
 check('B4 变形落定后看门狗补钉到位', b4endV.st >= b4endV.target - 8, 'mid=' + b4mid + ' end=' + b4end);
+
+// B5 行为（#765）：滚动未落定期看门狗必须让路。iOS 上 chatTouchActive 只到 touchend，抬手后的
+// 惯性滑行期列表仍在滚，看门狗照写 scrollTop＝用户「往上滑被拽回底部」的 iPhone 残根。
+// 错位手法刻意用「只加 chat-body 的 padding-bottom」：scrollHeight（＝贴底目标）变大而 chat-body
+// 盒子尺寸不变 ⇒ #643 RO 与 #466 vv 两条回钉路都不被触发，场上只有 250ms 看门狗会来补钉；
+// 每 120ms 派发合成 scroll 事件＝惯性滑行期的真实滚动沿（先派一发再改 padding，消除首个
+// tick 抢在让路生效前写入的窗口）。断言只看几何：场上唯一能修这份错位的就是看门狗，所以
+// 「仍然错位」＝「一次都没写」，落定后「到位」＝「写了」——不必插桩 scrollTop（其描述符挂在
+// Element.prototype 上，实例插桩易取错原型反而把读法弄坏）。
+await evalJs("(function(){var cb=document.getElementById('chat-body');cb.dispatchEvent(new Event('scroll'));cb.style.paddingBottom='420px';window.__b5=setInterval(function(){cb.dispatchEvent(new Event('scroll'));},120);return true;})()");
+await sleep(900); // 期间看门狗约摸到 3 个 tick，全应被「滚动未落定」闸挡下
+const b5mid = await evalJs("(function(){var cb=document.getElementById('chat-body');var t=document.getElementById('chat-typing');var th=(t&&!t.hidden&&t.offsetHeight)?t.offsetHeight:0;return JSON.stringify({st:Math.round(cb.scrollTop),target:Math.max(0,cb.scrollHeight-(cb.clientHeight+th))});})()");
+const b5midV = JSON.parse(b5mid);
+check('B5a 惯性滑行期（滚动事件持续派发）看门狗不写、错位保持', b5midV.st < b5midV.target - 8, b5mid);
+await evalJs("(function(){clearInterval(window.__b5);return true;})()");
+await sleep(1400); // 落定（>200ms 无 scroll）后看门狗应照 #706 补钉
+const b5end = await evalJs("(function(){var cb=document.getElementById('chat-body');var t=document.getElementById('chat-typing');var th=(t&&!t.hidden&&t.offsetHeight)?t.offsetHeight:0;return JSON.stringify({st:Math.round(cb.scrollTop),target:Math.max(0,cb.scrollHeight-(cb.clientHeight+th))});})()");
+const b5endV = JSON.parse(b5end);
+check('B5b 滚动落定后仍照 #706 补钉（让路≠不修）', b5endV.st >= b5endV.target - 8, 'mid=' + b5mid + ' end=' + b5end);
+await evalJs("(function(){var cb=document.getElementById('chat-body');cb.style.paddingBottom='';cb.scrollTop=cb.scrollHeight;return true;})()");
+await sleep(600);
 
 // B3 行为：解钉后看门狗不得拽底——派发 wheel（#162 真实滚动意图通道）后上翻
 await evalJs("(function(){var cb=document.getElementById('chat-body');cb.dispatchEvent(new WheelEvent('wheel',{deltaY:-120,bubbles:true}));cb.scrollTop=Math.max(0,cb.scrollTop-400);return true;})()");

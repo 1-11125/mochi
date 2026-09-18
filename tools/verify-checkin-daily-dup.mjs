@@ -141,8 +141,11 @@ await evalJs("(function(){ window.activeStore().set('cs-lbl-partner','小满'); 
 await sleep(1500);
 o = JSON.parse((await evalJs(CNT)) || '{}');
 check('B1 改名后 msgs 仍只有 1 条（尾巴清扫未把旧名补回）', o.n === 1, JSON.stringify(o));
-check('B2 尾巴日志里的旧名也被清扫（不再留「TA 更新了一条日常」）',
-  Array.isArray(o.tail) && o.tail.length === 1 && o.tail[0].indexOf('{ta}') === 0, JSON.stringify(o.tail));
+// #766 之后日志条目被权威历史覆盖即退休，故此处的不变量是「日志里没有带旧名的条目」：
+// 既可能是清扫后的 {ta} 形态，也可能整条已退休（空）——两种都算职责完成。
+// 原缺陷形态（旧名原文躺在日志里等着被回放进已改名的历史）仍然必红。
+check('B2 尾巴日志里没有带旧名的条目（已清扫或已随历史退休）',
+  Array.isArray(o.tail) && o.tail.every((t) => t.indexOf('{ta}') === 0) && o.tail.every((t) => t.indexOf('TA 更新') < 0), JSON.stringify(o.tail));
 
 // B3：重载（loadMsgs → chatTailMerge 的确定性回放路径），断言不翻倍
 await cdp('Page.navigate', { url: URL });

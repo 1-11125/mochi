@@ -91,10 +91,14 @@ test('wallpaper fit default matches legacy hardcoded value', () => {
   assert(source.includes("const CS_BG_FIT_DEFAULT = 'fill';"));
   assert(source.includes("{ label: '铺满裁剪', value: 'fill' }"));
   for (const def of ["{ label: '完整显示', value: 'contain' }", "{ label: '平铺', value: 'tile' }", "{ label: '拉伸填满', value: 'stretch' }"]) assert(source.includes(def));
-  const bg = source.slice(source.indexOf("let bg = store.get('cs-bg');"));
-  assert(bg.includes("chatPage.style.backgroundSize = fit === 'stretch' ? '100% 100%' : (fit === 'tile' ? 'auto' : fit);"));
-  assert(bg.includes("chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';"));
-  assert(bg.includes("chatPage.style.backgroundPosition = 'center';"));
+  const bg = source.slice(source.indexOf('const bgLayer = csBgLayer();'));
+  assert(bg.includes("bgLayer.style.backgroundSize = csBgFitCss(fit);"));
+  assert(bg.includes("bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';"));
+  assert(bg.includes("bgLayer.style.backgroundPosition = 'center';"));
+  // #762：默认档（fill）经 csBgFitCss 映射回 cover＝与历史写死值逐字一致；壁纸不得再写回页面自身
+  const fitFn = source.slice(source.indexOf('function csBgFitCss(fit) {'));
+  assert(fitFn.slice(0, fitFn.indexOf('\n  }')).includes("return 'cover';"));
+  assert(!/chatPage\.style\.backgroundSize = '[^']/.test(source));
 });
 // #731 壁纸延伸到栏位：生效值语义必须双向（开=0，关=回落到用户自己的不透明度）
 test('bar ink variables let wallpaper through and preserve stored values', () => {

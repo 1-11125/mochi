@@ -222,11 +222,17 @@
   function capOf() { return LV_CAP[Math.min(d.lv, LV_CAP.length - 1)]; }
   function itemAt(x, y) { return d.fx.find(f => f.x === x && f.y === y) || null; }
   function ownedCount(t) { return (d.inv[t] || 0) + d.fx.filter(x => x.t === t).length; }
+  // #766 每日互动点数上限（判定与提示文案同源；改数值只改这里）
+  const EARN_CAP = { ta: { cap: 5, name: '陪 TA 互动' }, n: { cap: 10, name: '家具互动' } };
   function gainPts(n, kind) {
     const tk = todayKey();
     if (d.earn.day !== tk) d.earn = { day: tk, n: 0, ta: 0 };
-    if (kind === 'ta') { if (d.earn.ta >= 5) return false; d.earn.ta++; }
-    else if (kind === 'n') { if (d.earn.n >= 10) return false; d.earn.n++; }
+    const lim = EARN_CAP[kind];
+    if (lim) {
+      // 原为静默 return false：调用方全都不看返回值 ⇒ 撞限后字卡照播、点数不加、零解释
+      if (d.earn[kind] >= lim.cap) { toast('今天「' + lim.name + '」的小屋点数到上限啦（' + lim.cap + '/' + lim.cap + '），明天再来'); return false; }
+      d.earn[kind]++;
+    }
     d.pts += n; updHud(); floatPts('+' + n + '🏠'); return true;
   }
   function checkLevel() {
@@ -262,8 +268,8 @@
     const n = Number(raw);
     return Number.isFinite(n) ? Math.max(50, Math.min(150, n)) : null;
   }
-  function applyBrightness() {
-    const value = manualBrightness();
+  function applyBrightness(value) {
+    if (value === undefined) value = manualBrightness();
     sceneEl.classList.toggle('r-manual-light', value !== null);
     sceneEl.style.setProperty('--room-bright', String(value === null ? lum() : value / 100));
     const slider = $id('room-brightness');
@@ -273,6 +279,25 @@
       $id('room-brightness-auto').disabled = value === null;
     }
   }
+  // #766 亮度落盘节流：xyStore.set 每次都是同步 localStorage + 一个 IDB 写事务，
+  // 拖动 range 一步一发（50→150 step5＝21 事务）。生效走内存，落盘 300ms 合并，
+  // change 离手与切后台各补一次——丢的只是合并窗口内那一步，不是整条偏好。
+  let brightWriteT = null, brightLastAt = 0;
+  function writeBright(v) {
+    const s = S(); if (!s) return;
+    if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; }
+    const now = Date.now();
+    if (now - brightLastAt >= 300) { brightLastAt = now; s.set('room-brightness', v); return; }
+    brightWriteT = setTimeout(function () {
+      brightWriteT = null; brightLastAt = Date.now();
+      s.set('room-brightness', v);
+    }, 320);
+  }
+  function flushBright(v) {
+    if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; }
+    brightLastAt = 0;
+    writeBright(v);
+  }
   function bindBrightness() {
     const controls = document.createElement('div');
     controls.className = 'r-brightness';
@@ -281,14 +306,22 @@
       '<button id="room-brightness-auto" type="button">自动</button>';
     sceneEl.parentNode.insertBefore(controls, sceneEl);
     $id('room-brightness').addEventListener('input', function () {
-      const s = S(); if (!s) return;
-      s.set('room-brightness', this.value);
-      applyBrightness();
+      const v = Number(this.value);
+      applyBrightness(v); // 即时生效不回读存储（存储此刻可能还压在合并窗口里）
+      writeBright(v);
+    });
+    $id('room-brightness').addEventListener('change', function () {
+      flushBright(Number(this.value));
     });
     $id('room-brightness-auto').addEventListener('click', function () {
       const s = S(); if (!s) return;
+      if (brightWriteT) { clearTimeout(brightWriteT); brightWriteT = null; } // 迟到写回会复活刚删的键
       s.remove('room-brightness');
       applyBrightness();
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden || !brightWriteT) return;
+      flushBright(Number($id('room-brightness').value));
     });
   }
 
@@ -490,7 +523,12 @@
     renderTa();
   }
   function tick() {
-    if (page.hidden || document.hidden) return;
+    if (page.hidden || document.hidden) {
+      // #766 离房/后台必须停已建的步进计时器：本函数只挡「新建」，早退后 780ms 的
+      // stepTimer 仍在跑（stepOnce 挪 TA + renderTa），切桌面/挂后台白烧 CPU。
+      if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
+      return;
+    }
     const moving = d.ta.x !== d.ta.tx || d.ta.y !== d.ta.ty;
     if (moving && !stepTimer) stepTimer = setInterval(stepOnce, 780);
     if (!moving && stepTimer) { clearInterval(stepTimer); stepTimer = null; }
@@ -677,10 +715,16 @@
       const c = CAT[t];
       if (ownedCount(t) >= MAX_PER_TYPE) return;
       const lock = c.lv > d.lv;
-      pills.push({ label: c.e + ' ' + c.n + ' · ' + c.cost + '🏠' + (lock ? ' 🔒Lv' + c.lv : ''), value: lock ? '' : 'b:' + t });
+      pills.push({ label: c.e + ' ' + c.n + ' · ' + c.cost + '🏠' + (lock ? ' 🔒Lv' + c.lv : (d.pts < c.cost ? '（还差 ' + (c.cost - d.pts) + '）' : '')), value: lock ? 'lock:' + t : 'b:' + t });
     });
     window.openModal('兑换家具（有 🏠' + d.pts + '）', '', function (v) {
       if (!v) return;
+      // #766 锁定项原以 value:'' 入列＝点确定后回调早退、零反馈；现给明确去向
+      if (v.indexOf('lock:') === 0) {
+        const lc = CAT[v.slice(5)];
+        if (lc) toast('🔒 ' + lc.n + '：小屋 Lv.' + lc.lv + ' 解锁（现在 Lv.' + d.lv + '），多互动攒舒适度就会升');
+        return;
+      }
       const t = v.slice(2), c = CAT[t];
       if (d.pts < c.cost) { toast('点数还不够，多进来待一会儿就有了'); return; }
       d.pts -= c.cost; d.inv[t] = (d.inv[t] || 0) + 1;

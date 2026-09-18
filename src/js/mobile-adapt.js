@@ -2990,11 +2990,14 @@
 // （跨桌面共用——屏幕是设备属性，不随联系人走）。
 (function () {
   var PFX = 'xy-home-v2:';
-  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift' };
+  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text' };
+  // #764 文字大小轴：只叠加在「文字组」字号上（display-tune.css 逐条 calc），范围 0~12px；其余偏移轴维持 ±80
+  var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12] };
   function loadAdj(k) {
-    try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); return (v >= -80 && v <= 80 && !isNaN(v)) ? v : 0; } catch (e) { return 0; }
+    try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); var rg = RANGE[k] || [-80, 80];
+      return (!isNaN(v) && v >= rg[0] && v <= rg[1]) ? v : 0; } catch (e) { return 0; }
   }
-  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift') };
+  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text') };
   var el = document.documentElement;
   var st = el.style;
   var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -3026,6 +3029,14 @@
       else if (origGet('--mochi-shift-adj')) origRemove('--mochi-shift-adj');
     } catch (e) {}
   }
+  // #764 文字大小轴：独立写 --mochi-text-adj（display-tune.css 的文字组规则逐条 calc 消费）——
+  // 只在气泡/输入框/设置行等可读文案的原字号上叠加 px，不动任何容器尺寸、零 zoom/scale
+  function applyText() {
+    try {
+      if (adj.text) origSet('--mochi-text-adj', adj.text + 'px');
+      else if (origGet('--mochi-text-adj')) origRemove('--mochi-text-adj');
+    } catch (e) {}
+  }
   function applyCached() {
     for (var n in base) {
       try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
@@ -3033,6 +3044,7 @@
     applyBottom();
     applyDesk();
     applyShift();
+    applyText();
   }
   st.setProperty = function (n, v) {
     n = String(n).toLowerCase();
@@ -3056,13 +3068,14 @@
   // 底部复述循环：安卓收键盘会 removeProperty 掉我们的 calc 写入，1s 内补回（iOS 侧无人写，幂等）
   setInterval(applyBottom, 1000);
   applyCached();
-  // 设置页接线 API（personalize.js 弹窗用）：读当前偏移 / 设置并立即生效
+  // 设置页接线 API（personalize.js 面板用）：读当前偏移 / 设置并立即生效
   window.mochiScreenAdj = {
-    all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h }; },
+    all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; },
     set: function (k, v) {
       if (!(k in adj)) return false;
       v = parseInt(v, 10);
-      if (isNaN(v) || v < -80 || v > 80) return false;
+      var rg = RANGE[k] || [-80, 80];
+      if (isNaN(v) || v < rg[0] || v > rg[1]) return false;
       adj[k] = v;
       lsSet(k, v || '');
       applyCached();

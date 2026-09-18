@@ -102,6 +102,7 @@ function check(desc, ok, detail) {
 }
 
 const KEY = 'xy-home-v2:default:chat-msgs';
+const TAIL = 'xy-home-v2:default:chat-tail'; // #180 同步尾巴日志（整包换种子时必须一并清零）
 // 种子：n 条纯文本历史（唯一文案「历史#i」，out/in 交替），无图片避免 LS 有损剥离干扰
 function seed(n) {
   const t = Date.now() - n * 60000;
@@ -121,6 +122,10 @@ async function bootWithSeed(n) {
     try {
       localStorage.setItem('${KEY}', ${JSON.stringify(s)});
       await window.idbSet('${KEY}', ${JSON.stringify(s)});
+      // 整包换成种子时，上一次运行留在尾巴日志里的消息必须一并清零：那是产品「未落盘」台账，
+      // 留着它＝权威读库后 chatTailMerge 如实回放上一轮的消息 ⇒ A0 数到的条数天然大于种子数。
+      localStorage.removeItem('${TAIL}');
+      if (window.idbDelete) await window.idbDelete('${TAIL}');
       return true;
     } catch (e) { return false; }
   })()`);
@@ -174,8 +179,14 @@ const WIGGLE = `(function(){
 {
   await bootWithSeed(120); // ≤ RENDER_MAX(200)：进入后 renderStart=0，收消息走增量追加路径
   await openChat();
-  const base = await evalJs(`window.getChatMsgs().length`);
-  check('A0 历史加载完整', base === 120, 'msgs=' + base);
+  // 产品开屏会往聊天里注入「当日提醒」（拍一拍 + 日常状态各一条，一天一次），整包条数天然大于种子数；
+  // A0 要证的是「历史一条不少、一条不多」，因此按种子文案逐条数，而不是比总长。
+  const base = JSON.parse(await evalJs(`(function(){
+    var a=window.getChatMsgs(), seen={}, dup=0, hit=0;
+    a.forEach(function(m){ var t=String((m&&m.text)||''); if(t.indexOf('历史#')!==0) return; if(seen[t])dup++; else{seen[t]=1;hit++;} });
+    return JSON.stringify({total:a.length, hit:hit, dup:dup, kinds:Object.keys(seen).length});
+  })()`) || '{}');
+  check('A0 历史加载完整（种子 120 条各在位一次，无丢失无重复）', base.hit === 120 && base.kinds === 120 && base.dup === 0, JSON.stringify(base));
 
   // A1 TA 文本消息：注入（自动贴底滚动即产生 scroll 事件）+ 显式轻扫
   await evalJs(`window.chatAddIn('TA测试消息甲')`);

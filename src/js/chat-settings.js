@@ -16,124 +16,52 @@
   }
   // 壁纸铺满整个聊天页（含顶部栏/输入栏）
   const chatPage = document.getElementById('page-chat');
-  // FIX 2026-09-18 #750（iQOO Neo9 + Chrome 等多机型报「聊天里打字时背景图会变小、比例会变」）：
-  // 根因＝壁纸铺在 #page-chat 的边框盒上且用 background-size:cover/size 关键字，而安卓键盘弹出时
-  // mobile-adapt.syncAndroidKb 会把 .phone 的内联高度压到 visualViewport.height（#page-chat 随之
-  // 变矮）——cover 会按**新盒尺寸**重算缩放比 ⇒ 同一张图在键盘期被整体缩小、比例跟着变（不是图被
-  // 裁，是缩放比变了）。用户视角「打字背景图变小、比例大小会变」。
-  // 修法（零机型分支、纯几何）：把壁纸的**绘制尺寸冻结**在「无键盘时的盒尺寸」上——cover 语义自己
-  // 算成像素值写进 background-size（Wpx Hpx），键盘期盒子变矮只裁不缩，松开即复位。
-  // 取不到盒尺寸（隐藏中）时回退原来的关键字写法，行为与改动前一致。
+  // FIX 2026-09-18 #762：聊天壁纸「铺满方式」四档全废、连默认档都不再铺满（用户实报），
+  // 根治＝把壁纸从「画在 #page-chat 自己身上」改成「画在它的一个常驻子层上」。
   //
-  // FIX 2026-09-18 #751（OPPO Reno14 + Edge 151 等多机型报「聊天里背景图片比例变了、莫名其妙放大了」）：
-  // #750 的基线是**只涨不跌的棘轮**（`else if (h > csBgStableH) csBgStableH = h;`），前提假设是
-  // 「键盘只会压矮高度」。但手机端 .phone 走 `height:100dvh`，而 **dvh 本身会随地址栏自动隐藏而变大**
-  // （用户诊断实测 inner=735 / screen=791）。OPPO/Edge 在消息区滚动时地址栏自动收起 → dvh 涨到 791
-  // → resize → applySettings 读到更大的盒高 → 基线被**永久**抬到 791 档；地址栏回来后盒高落回 735，
-  // 但棘轮永不下降 ⇒ cover 按「791 档大盒」折算像素 ⇒ 壁纸被放大 7.6% 且再也不复原
-  // （tools/verify-chat-bg-ratchet.mjs 的 RED 基线实录：388x735 → 417x791 → 停在 417x791）。
-  // 修法＝把棘轮换成「**键盘闸门 + 双双向稳定确认**」的基线：
-  //   · 键盘开启期（__mochiAndroidKb().kbActive/prov）一律不重锚——保住 #750 的原目标（打字时图不缩）；
-  //   · 非键盘期的新读数必须**连续两次读数一致**（settle）才认，避免地址栏动画中间态被当稳态；
-  //   · settle 后**允许升高也允许回落**（这才是治「放大」的关键）；宽度变化＝换环境立即重锚。
-  // 键盘闸门是「真键盘 vs dvh 抖动」的唯一可靠判别（mobile-adapt 已把它作为权威信号导出）。
-  // FIX #751 补充：**键盘期 .phone 会被 mobile-adapt 写上内联 height**（_setPhoneH 唯一写入口）。
-  // 这个内联高度是「当前盒高是被键盘压出来的」的直接证据，且不依赖 __mochiAndroidKb 探针能否
-  // 拉起（无头/极端内核下探针可能不可用）——两条判据取或，闸门更稳。
-  let csBgStableW = 0, csBgStableH = 0;
-  let csBgPendW = 0, csBgPendH = 0, csBgPendN = 0; // 待确认读数（连续两次一致才采纳）
-  function csBgPhonePinned() {
-    try {
-      const ph = document.querySelector('.phone');
-      return !!(ph && ph.style && ph.style.height);
-    } catch (e) { return false; }
+  // 为什么必须换掉 #750/#751 那条路：#750 为了「安卓键盘压矮盒子时壁纸不跟着缩」，把
+  // background-size 从 CSS 关键字改成**按某个冻结盒折算出的显式像素**（锚盒 + 折算 + 量原图
+  // 三件套），#751 又给锚盒加了「键盘闸门 + 双读 settle」。
+  // 但那个盒只能靠运行期读数得到，而读数窗口里全是脏值——用本仓库脚本对着 HEAD 产物复跑即实录
+  // （MOCHI_ROOT=<HEAD 构建目录> node tools/verify-chat-bg-fill.mjs）：
+  //   进聊天即 painted=379x718 而盒是 390x844 ⇒ 上下各露一条页面底色（＝「没有正常铺满」）；
+  //   视口涨一次再回落，painted 永久停在 445x844（棘轮残留＝「莫名其妙放大」）；
+  //   平铺档折算出 auto ⇒ 2160x4096 的原图在 390 宽屏幕上只露中间一小块（＝「平铺没反应」）。
+  // 显式像素只保证盖住「锚定那一刻的盒」，真实盒一大就露底 ⇒ 这不是参数没调好，是这条路本身
+  // 要一个「一直变、又必须提前知道」的盒。改法＝让壁纸的盒与页面盒脱钩，尺寸交回浏览器算：
+  //   这一层 height:100%，手机端「铺满裁剪」档另加 `min-height:100lvh` 下限（见 chat-main.css）。
+  //   lvh 是设备常量（浏览器 UI 全隐时的大视口），键盘弹出（mobile-adapt 把 .phone 内联高压到
+  //   visualViewport.height）和地址栏自动收起（dvh 涨落）都改不动它 ⇒ cover 的缩放比恒定：
+  //   打字时不缩（#750 的目标）、不会「莫名其妙放大」（#751 的目标）、也不可能露底（本批的目标）；
+  //   超出页面盒的那一截由 #page-chat 的 overflow:hidden 裁掉，层顶边固定在页面顶 ⇒ 打字期间
+  //   看到的壁纸与打字前逐像素相同。原图尺寸/盒尺寸/键盘探针一律不再需要，相关代码全部删除。
+  // 层叠零风险：.page 本身就是 `position:relative; z-index:2`（base.css）＝独立层叠上下文，
+  // 子层 z-index:-1 恰好落在「#page-chat 自己的底色之上、气泡与栏位等所有内容之下」，
+  // 不需要给任何内容元素补 z-index（补了反而会把 .chat-body 变成新的层叠上下文、
+  // 困住内部那些指望与页面外元素比大小的浮层）。
+  function csBgLayer() {
+    if (!chatPage) return null;
+    let l = document.getElementById('cs-bg-layer');
+    if (!l) {
+      l = document.createElement('div');
+      l.id = 'cs-bg-layer';
+      // 内联兜底写四长手 + 宽高，不能只靠 CSS 文件的 inset 简写——老内核（Chromium<87 /
+      // Safari<14.1）把不认识的属性整条丢弃，空 div 缺 top/left 会塌成 0x0（同 #690a 桌面壁纸层）。
+      l.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:none;';
+      chatPage.insertBefore(l, chatPage.firstChild);
+    }
+    return l;
   }
-  function csBgKbOpen() {
-    try {
-      const a = window.__mochiAndroidKb && window.__mochiAndroidKb();
-      if (a && (a.kbActive || a.prov)) return true;
-      const i = window.__mochiIosKb && window.__mochiIosKb();
-      if (i && i.kbActive) return true;
-    } catch (e) {}
-    return csBgPhonePinned();
-  }
-  function csBgStableBox() {
-    try {
-      const w = chatPage ? Math.round(chatPage.clientWidth) : 0;
-      const h = chatPage ? Math.round(chatPage.clientHeight) : 0;
-      if (!w || !h) return null;
-      // 首次：直接锚定（此时通常无键盘，且必须给出一个可用基线）
-      if (!csBgStableW) { csBgStableW = w; csBgStableH = h; return { w: csBgStableW, h: csBgStableH }; }
-      // 宽度变化（旋转 / 桌面窗口改尺寸 / 进全屏）＝换环境，立即重锚（不受键盘闸门限制：
-      // 宽度在键盘期不会变，真变了就是换环境）
-      if (w !== csBgStableW) {
-        csBgStableW = w; csBgStableH = h; csBgPendN = 0;
-        return { w: csBgStableW, h: csBgStableH };
-      }
-      // 高度一致 → 无需改动，清掉待确认态
-      if (h === csBgStableH) { csBgPendN = 0; return { w: csBgStableW, h: csBgStableH }; }
-      // 键盘开启期（探针为真 或 .phone 被 pin 了内联高）：高度变化一律视为键盘/视口抖动，
-      // 绝不重锚 —— 这是 #750 的核心保证（打字时图不缩），#751 一字未动。
-      if (csBgKbOpen()) { csBgPendN = 0; return { w: csBgStableW, h: csBgStableH }; }
-      // 非键盘期的高度变化：连续两次读数一致才采纳（避开地址栏收起/展开动画中间态）。
-      // 双向生效——既允许升高（dvh 变大＝新稳态），也允许回落（地址栏回来＝治好棘轮放大）。
-      if (h === csBgPendH) {
-        csBgPendN++;
-        if (csBgPendN >= 2) {
-          csBgStableH = h; csBgPendN = 0;
-          // 回落时基线被拉低＝换了一套更小的几何，画布上旧的大尺寸必须重写（下面 applySettings
-          // 会立刻按新 baseline 重算 paint 并写入 style，无需额外处理）。
-        }
-      } else { csBgPendH = h; csBgPendN = 1; }
-      return { w: csBgStableW, h: csBgStableH };
-    } catch (e) { return null; }
-  }
-  // 按冻结盒尺寸把 cover / contain 折算成显式像素（cover=取大缩放比铺满并溢出裁剪，contain=取小）
-  function csBgPaintSize(fit, box) {
-    if (!box) return null;
-    try {
-      if (fit === 'stretch') return '100% 100%';
-      if (fit === 'tile') return 'auto';
-      // 原图尺寸未知时算不出 cover/contain 的像素值，返回 null 让调用方走关键字兜底
-      // （cover/contain 本身无法冻结，只有折算成显式像素才能在键盘期不缩）。
-      const nat = chatPage && chatPage.__csBgNat;
-      if (!nat || !nat.w || !nat.h) return null;
-      const sx = box.w / nat.w, sy = box.h / nat.h;
-      const s = fit === 'contain' ? Math.min(sx, sy) : Math.max(sx, sy); // fill/未知 ⇒ cover 语义
-      return Math.round(nat.w * s) + 'px ' + Math.round(nat.h * s) + 'px';
-    } catch (e) { return null; }
-  }
-  // FIX #750b（与 #750 同批，同一症状的另一半根因）：UI 档位值不是合法 CSS。
-  // #731 引入四档时把「铺满裁剪」的 value 定成 'fill'，注释写着「与历史行为逐字一致
-  // （background-size:cover + position:center）」——但代码实际把 'fill' 原样写进
-  // style.backgroundSize。'fill' **不是合法的 background-size 值**，浏览器整条声明丢弃
-  // ⇒ 计算值回退 auto（按原图原始像素渲染）。用户上传的压缩壁纸通常是 2160×4096 级别，
-  // 在 360 宽的盒子里 auto + no-repeat + center 只露出中间一小块，且**盒子一变（键盘压矮）
-  // 露出的那块就跟着变** ⇒ 用户报「打字时背景图变小、比例会变」。
-  // 修法：把 UI 值映射成合法 CSS 关键字（fill→cover，恰好是 #731 注释里声明的原意）。
-  // 已写盘设备若存过 'cs-bg-fit'，语义不变（用户选的还是那档），只是它终于真正生效。
+  // 四档 UI 值 → 合法 CSS（#750b 的成果保留：'fill' 不是合法 background-size，当年原样写进
+  // style 被内核整条丢弃、计算值回退 auto，是「壁纸只露中间一小块」的第一半根因）。
   function csBgFitCss(fit) {
     if (fit === 'stretch') return '100% 100%';
-    if (fit === 'tile') return 'auto';
+    // 平铺必须给一个「看得见重复」的尺寸：压缩壁纸通常是 2160x4096 级别，按原图像素平铺
+    // （background-size:auto）一屏只露中间一小块，观感与「放大」无异＝用户报的「平铺没反应」。
+    // 改按层宽 1/3 起铺、高度保持比例 ⇒ 任何尺寸的图都恒定三列重复。
+    if (fit === 'tile') return '33.333% auto';
     if (fit === 'contain') return 'contain';
     return 'cover'; // 'fill' / 未知值 ⇒ 铺满裁剪（#731 设计原意）
-  }
-
-  // 量一次壁纸原图尺寸（缓存到 chatPage.__csBgNat，data URL 解码结果稳定，只做一次）
-  function csBgMeasure(url, cb) {
-    try {
-      if (!chatPage || !url) return;
-      if (chatPage.__csBgNat && chatPage.__csBgNat.url === url) { cb && cb(); return; }
-      const im = new Image();
-      im.onload = () => {
-        try {
-          chatPage.__csBgNat = { url: url, w: im.naturalWidth || 0, h: im.naturalHeight || 0 };
-        } catch (e) {}
-        cb && cb();
-      };
-      im.onerror = () => { cb && cb(); };
-      im.src = url;
-    } catch (e) { cb && cb(); }
   }
 
   // v3.27.x 聊天壁纸图库的存储小助手（必须放 applySettings 首次调用之前——
@@ -413,31 +341,33 @@
       try { store.remove('cs-bg'); } catch (e) {}
       bg = null;
     }
-    // #731：铺满方式由 cs-bg-fit 决定（默认档与旧写死值逐字一致）。重复档位不再走
-    // 「backgroundImage 没变就整体跳过」——改档位时图没变但 size/repeat 必须重写。
-    // FIX #750：size 优先写「冻结盒尺寸折算出的像素值」（键盘压矮盒子不改变缩放比＝图不会变小），
-    // 取不到原图尺寸时回退原关键字写法（与改动前一致，零机型回归）。
-    if (bg && chatPage) {
+    // #731：铺满方式由 cs-bg-fit 决定；#762：写在常驻图层 #cs-bg-layer 上，尺寸交回 CSS 关键字。
+    // 改档位时图没变但 size/repeat 必须重写，故只有 backgroundImage 走「值变才写」守卫
+    //（大图 dataURL 反复重写会让 iOS Safari 重新解码，同 #147 政策）。
+    const bgLayer = csBgLayer();
+    if (bg && bgLayer) {
       const fit = csBgFit();
-      if (chatPage.style.backgroundImage !== 'url("' + bg + '")') chatPage.style.backgroundImage = 'url("' + bg + '")';
-      const paint = csBgPaintSize(fit, csBgStableBox());
-      // 冻结像素尺寸是「键盘期图不缩」的唯一实现路径；原图尺寸没量到就先量（量完回调重跑本函数）。
-      // 这里必须自愈：模块初始化时 cs-bg 往往还是空的（数据层尚未回填），只在初始化量一次是不够的
-      // ——切壁纸/导入方案/恢复备份都可能在初始化之后才写 cs-bg。量在途时先按关键字回退，行为与改前一致。
-      if (!paint && fit !== 'tile') {
-        if (!(chatPage.__csBgNat && chatPage.__csBgNat.url === bg)) {
-          csBgMeasure(bg, () => { try { applySettings(); } catch (e) {} });
+      const url = 'url("' + bg + '")';
+      if (bgLayer.style.backgroundImage !== url) bgLayer.style.backgroundImage = url;
+      bgLayer.style.backgroundSize = csBgFitCss(fit);
+      bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
+      bgLayer.style.backgroundPosition = 'center';
+      bgLayer.style.display = 'block';
+      // lvh 下限只对「铺满裁剪」生效（规则在 chat-main.css）：contain / stretch / tile 的语义
+      // 本就是「按当前可见区域铺」，给它们加下限会让「完整显示」被裁掉一截。
+      chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
+    } else {
+      if (bgLayer) { bgLayer.style.display = 'none'; bgLayer.style.backgroundImage = ''; }
+      if (chatPage) {
+        chatPage.classList.remove('cs-bg-fill');
+        // 清壁纸时把铺满方式残影一并抹掉（含 #750~#756 期间直接写在页面身上的内联样式）
+        if (chatPage.style.backgroundImage) {
+          chatPage.style.backgroundImage = '';
+          chatPage.style.backgroundSize = '';
+          chatPage.style.backgroundRepeat = '';
+          chatPage.style.backgroundPosition = '';
         }
       }
-      chatPage.style.backgroundSize = paint || csBgFitCss(fit);
-      chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
-      chatPage.style.backgroundPosition = 'center';
-    } else if (chatPage && chatPage.style.backgroundImage) {
-      chatPage.style.backgroundImage = '';
-      // 清壁纸时一并把铺满方式复位，避免留下 repeat/size 残影影响下一次上传的呈现
-      chatPage.style.backgroundSize = '';
-      chatPage.style.backgroundRepeat = '';
-      chatPage.style.backgroundPosition = '';
     }
     set('cs-font-size-val', fs);
     const pn = BUBBLE_SIZES.find(p => p.value === pad);
@@ -463,27 +393,8 @@
   }
   window.applyChatSettings = applySettings;
   window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
-  // FIX #750：resize 重跑——真尺寸变化（旋转 / 桌面窗口 / 进全屏 / 键盘收起）需要按新盒高重算
-  // 冻结尺寸；键盘弹出只压矮高度、基线不会被拉低（见 csBgStableBox），故键盘期重跑结果不变＝零抖动。
-  // 原图尺寸的量取不在这里做：applySettings 内部自愈（初次 + 切壁纸 + 恢复备份都覆盖）。
-  try {
-    let _bgResizeTimer = null;
-    const _bgResize = () => {
-      if (_bgResizeTimer) clearTimeout(_bgResizeTimer);
-      _bgResizeTimer = setTimeout(() => {
-        _bgResizeTimer = null;
-        try { applySettings(); } catch (e) {}
-        // #751：基线「双读一致才采纳」的 settle 复核——一次 resize 突发只会调一次 applySettings，
-        // 单次读数只会把待确认态记到 1 次、永远凑不齐 2 次 ⇒ 这里补一次延迟复核把 settle 走完。
-        // 键盘期 csBgStableBox 直接早退（不重锚），故本复核在打字期是无副作用的空转。
-        try {
-          setTimeout(() => { try { applySettings(); } catch (e) {} }, 260);
-        } catch (e) {}
-      }, 120);
-    };
-    window.addEventListener('resize', _bgResize);
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', _bgResize);
-  } catch (e) {}
+  // #762：这里原有的 resize 重跑（#750 为「按新盒高重算冻结尺寸」而加）整块删除——壁纸尺寸
+  // 不再由 JS 折算，resize 期重跑 applySettings 只是白白在每次键盘/旋转时重写一遍样式。
   applySettings();
   // v3.11.x：深色/浅色切换时重算默认配色（personalize.js 切换 html data-theme，
   // 这里监听属性变化即时重写内联变量，不用跨模块调用）
@@ -557,9 +468,6 @@
     csBgMakeThumb(data, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, th); });
     store.set('cs-bg', data);
     store.set(CS_BG_ACTIVE, id);
-    // FIX #750：换新图先量原图尺寸再应用（量完重跑 applySettings，冻结像素尺寸即刻到位）
-    try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {}
-    csBgMeasure(data, () => { try { applySettings(); } catch (e) {} });
     applySettings();
     return id;
   }
@@ -643,7 +551,7 @@
       cell.addEventListener('click', () => {
         // 只在此刻读被点中的那一张全图（active-id 判断已由对账保证一致）
         const full = store.get('cs-bg-item-' + id);
-        if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); try { if (chatPage) chatPage.__csBgNat = null; } catch (e) {} csBgMeasure(full, () => { try { applySettings(); } catch (e) {} }); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
+        if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
       });
       const del = document.createElement('div');
       del.textContent = '×';

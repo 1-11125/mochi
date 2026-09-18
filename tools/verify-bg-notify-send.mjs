@@ -132,6 +132,29 @@ t('T7b 超时哨兵不误触（正常链路不报「测试超时」）', toastTx
 for (let i = 0; i < 12; i++) { if (toastTxt.indexOf('系统通知队列') >= 0) break; await sleep(500); toastTxt = String(await ev("(function(){var t=document.getElementById('cc-toast'); return t?(t.textContent||''):'';})()")); }
 t('T7c 端到端归因：结果含系统通知队列回读行（#724 受理≠挂出）', toastTxt.indexOf('系统通知队列') >= 0, toastTxt.split('\n')[toastTxt.split('\n').length - 1]);
 
+// T8 #761 旧包检测层：结果必含版本行（本地 version.json 与产物同批构建 → 期望「版本已最新」）
+const hasVerLine = toastTxt.indexOf('版本已最新') >= 0 || toastTxt.indexOf('旧包正在运行') >= 0;
+t('T8 自检含版本真伪行（#761 旧包检测）', hasVerLine, toastTxt.indexOf('版本') >= 0 ? toastTxt.split('\n').find((l) => l.indexOf('版本') >= 0) : '无版本行');
+
+// T9 #761 结果问人本人：SW 发送成功后必弹「弹了吗」确认框；选「没看到」→ 按实效排序的实操指引
+let askShown = false;
+for (let i = 0; i < 14; i++) { await sleep(500); askShown = await ev("(function(){var m=document.getElementById('modal-mask'); var tt=document.getElementById('modal-title'); return !!(m && !m.hidden && tt && (tt.textContent||'').indexOf('自检确认') >= 0);})()"); if (askShown) break; }
+t('T9a 发送成功后弹「弹了吗」确认框', askShown, 'modalShown=' + askShown);
+if (askShown) {
+  const qStatic = String(await ev("(function(){var s=document.getElementById('modal-static'); return s?(s.textContent||''):'';})()"));
+  t('T9b 确认框说明「通知栏≠屏幕上方横幅」', qStatic.indexOf('屏幕上方') >= 0, qStatic.slice(0, 40));
+  await ev("(function(){var ps=document.getElementById('modal-pills').children; for (var i=0;i<ps.length;i++){ if((ps[i].textContent||'').indexOf('没看到')>=0){ ps[i].click(); return 1; } } return 0; })()");
+  let guide = '';
+  for (let i = 0; i < 10; i++) { await sleep(400); guide = String(await ev("(function(){var s=document.getElementById('modal-static'); return s?(s.textContent||''):'';})()")); if (guide.indexOf('重置浏览器通知权限') >= 0) break; }
+  t('T9c 选「没看到」→ 实操指引含权限重开步（用户实测恢复项）', guide.indexOf('重置浏览器通知权限') >= 0, guide.slice(0, 50));
+  t('T9d 指引含「屏幕上方显示」横幅开关与省电项', guide.indexOf('在屏幕上方显示') >= 0 && guide.indexOf('省电') >= 0, '');
+  await ev("(function(){var o=document.getElementById('modal-ok'); if(o) o.click();})()");
+}
+
+// T10 收尾复查零 JS 异常（确认框/指引弹窗全链路不炸）
+const errs2 = await ev('(window.__jsErrors&&window.__jsErrors.length)||0');
+t('T10 新增自检层全链路零 JS 异常', errs2 === 0, 'jsErrors=' + errs2);
+
 try { chrome.kill(); } catch (e) {}
 server.close();
 const pass = results.filter(r => r.ok).length;

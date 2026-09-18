@@ -216,7 +216,9 @@ const t7 = J(await evalJs(`(function(){
   var g=document.querySelector('#fish-page .fish-dex-grid');
   return JSON.stringify({grid:!!g,items:g?g.querySelectorAll('.fish-dex-item').length:0,got:g?g.querySelectorAll('.fish-dex-item.got').length:0,checks:g?g.querySelectorAll('.fish-dex-check').length:0});
 })()`));
-check('T7 图鉴 14 格渲染且新发现项带 ✓', t7.grid && t7.items === 14 && t7.got >= 1 && t7.checks === t7.got, JSON.stringify(t7));
+// 格数从源 ITEMS 动态数（#548 批扩充到 17 档后硬编码 14 恒红，改跟随源码）
+const dexN = ((fishSrc.match(/const ITEMS = \[[\s\S]*?\n  \];/) || [''])[0].match(/\{ id:/g) || []).length;
+check('T7 图鉴全格渲染（格数=源 ITEMS 档数）且新发现项带 ✓', t7.grid && dexN > 0 && t7.items === dexN && t7.got >= 1 && t7.checks === t7.got, JSON.stringify(t7) + ' dexN=' + dexN);
 
 // ---- T8 TA 送礼 tab：空态 + 种礼物后渲染 + 兑换到账（v3.16.x 二调价 ¥5.2=520分） ----
 await evalJs("(function(){document.querySelector('.fish-tab[data-ftab=\"gifts\"]').click();return true;})()");
@@ -268,6 +270,34 @@ await sleep(250);
 const t12 = await evalJs("getComputedStyle(document.querySelector('.fish-water'),'::before').animationName");
 await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 check('T12 prefers-reduced-motion 下波纹动画关闭', t12 === 'none', String(t12));
+
+// ---- T14 #763 日封顶用量提示：出过收入后今日页出现 .fish-capnote 且金额与 fishing-coin-day 一致 ----
+await evalJs("(function(){window.openFishPanel();document.querySelector('.fish-tab[data-ftab=\"today\"]').click();return true;})()");
+await sleep(300);
+const t14 = J(await evalJs(`(function(){
+  var n=document.querySelector('#fish-page .fish-capnote');
+  var k=Object.keys(localStorage).find(function(x){return x.indexOf('fishing-coin-day')>=0;});
+  var day=k?JSON.parse(localStorage.getItem(k)):null;
+  var y=day&&typeof day.used==='number'?day.used/100:null;
+  return JSON.stringify({note:n?n.textContent:null,used:day?day.used:null,amt:y==null?null:y.toFixed(y>=100?0:2)});
+})()`));
+check('T14 日封顶提示在位且金额=fishing-coin-day 用量（fenToStr 同式）',
+  !!t14.note && t14.used > 0 && t14.note.indexOf('上限 ¥104') >= 0 && t14.note.indexOf('¥' + t14.amt) >= 0, JSON.stringify(t14));
+
+// ---- T15 #763 静音偏好持久化：点灭 → 落盘 → 重开面板仍静音（原重开即丢） ----
+await evalJs("(function(){document.getElementById('fish-sound').click();return true;})()");
+await sleep(150);
+const t15a = J(await evalJs(`(function(){
+  var b=document.getElementById('fish-sound');
+  var k=Object.keys(localStorage).find(function(x){return x.indexOf('fishing-sound')>=0;});
+  return JSON.stringify({btn:b.textContent,off:b.classList.contains('off'),raw:k?localStorage.getItem(k):null});
+})()`));
+await evalJs("(function(){window.closeFishPanel();window.openFishPanel();return true;})()");
+await sleep(250);
+const t15b = await evalJs("document.getElementById('fish-sound').textContent");
+await evalJs("(function(){document.getElementById('fish-sound').click();return true;})()"); /* 复位开声，不污染后续用例 */
+check('T15 静音偏好落盘 fishing-sound 且重开面板回读仍静音',
+  t15a.btn === '🔇' && t15a.off === true && /"on":false/.test(t15a.raw || '') && t15b === '🔇', JSON.stringify(t15a) + ' 重开=' + t15b);
 
 // ---- T13 全程无 JS 异常 ----
 check('T13 全程无 JS 异常', excs.length === 0, excs.join(' | '));

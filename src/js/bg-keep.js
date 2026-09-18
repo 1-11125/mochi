@@ -1263,26 +1263,81 @@
       //   环境体检/分步排查在本行下方说明（gs-sub）、本行「功能说明」胶囊、信息诊断三处本就全有，
       //   测试结果里整段复读＝十几个 env 行把 toast 撑爆（字飞出黑框）且根本读不完；叠加 #708 的
       //   9 秒驻留被 CSS 动画固定 2.6s 淡出吞掉（见 toast() 内 #724 注释）＝「结果一闪就没、测试失效」。
-      //   现在结果只留测试本体：保活锚一行 + 发送结论一至两行。
+      //   现在结果只留测试本体：保活锚一行 + 版本一行 + 发送结论一至两行。
       try {
         const kp = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
         if (!kp || !kp.keep) env.push('✗ 后台保活：未开启（后台不产生消息，通知无从弹起）');
         else env.push(kp.audio && !kp.audio.paused ? '✓ 后台保活：音频播放中' : '! 后台保活：音频已暂停（回本页自动恢复；后台消息可能到不了）');
       } catch (e) {}
+      // FIX 2026-09-18 #761 自检补「旧包检测」层（用户实报：权限一直开着没动过，弹窗消失两天；
+      //   把浏览器通知权限关掉再打开后弹窗恢复）。API 侧 Notification.permission 恒报 granted，
+      //   JS 看不出浏览器把该站通知通道拧死；而「重开权限」必然伴随页面重载——手机上最隐蔽的
+      //   等价操作＝旧包在跑：这两天通知链正好经历 #673 全灭→#705 修复的发布窗口，设备若缓存
+      //   着故障包，表现就是「什么都没改、弹窗突然全没」。自检必须明说本页是不是线上最新版。
+      //   比对构建时注入的 splash-ver data-build-ts 与线上 version.json，零机型分支。
+      let verStale = false;
+      const verP = new Promise(function (resolve) {
+        const fin = function () { resolve(); };
+        try {
+          const sv = document.getElementById('splash-ver');
+          const localTs = Number(sv && sv.getAttribute('data-build-ts')) || 0;
+          kaWithTimeout(function () { return fetch('./version.json?v=' + Date.now()); }, 4000)
+            .then(function (r) { return r && r.json ? r.json() : null; })
+            .then(function (d) {
+              const ts = Number(d && d.ts) || 0;
+              if (!localTs || !ts) env.push('! 版本：没问到线上版本（网络受限，不影响本测试）');
+              else if (ts > localTs) {
+                verStale = true;
+                env.push('✗ 旧包正在运行：本页 ' + new Date(localTs).toLocaleString() + ' · 线上最新 ' + new Date(ts).toLocaleString() + '——「什么都没改弹窗突然全没」的常见原因，彻底关闭浏览器重开（升级新版本）后再测');
+              } else env.push('✓ 版本已最新：' + new Date(ts).toLocaleString());
+              fin();
+            }, function () { env.push('! 版本：没拉到 version.json（网络受限，不影响本测试）'); fin(); });
+        } catch (e) { fin(); }
+      });
       try {
         const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
         let testChan = '';
         let testSettled = false;
+        let testOk = false;
         let resultShown = false;
+        // FIX 2026-09-18 #761 结果问人本人：JS 全绿 ≠ 用户真看到横幅（浏览器端通知通道被拧死时
+        //   API 不报错、队列回读也可能正常）。发送成功后追问一句「弹了吗」，没弹就给按实效排序的
+        //   实操指引——「权限关掉再打开＋强杀浏览器」正是本次用户实测恢复有效的那一步。
+        const askSeen = function () {
+          if (typeof window.openModal !== 'function') return;
+          window.openModal('自检确认', '', function (choice) {
+            if (choice === 'seen') { toast('✓ 弹窗链路全通：以后后台消息没弹时，先回来点这个测试', 4000); return; }
+            if (choice !== 'miss') return;
+            const MARKS = ['①', '②', '③', '④'];
+            const steps = [];
+            const push = function (s) { steps.push(MARKS[steps.length] + ' ' + s); };
+            if (verStale) push('先升级：本页是旧版本包——彻底关闭浏览器再重开（或点顶部「刷新使用新版」），旧包＝「没改任何东西弹窗突然全没」的头号原因');
+            push('重置浏览器通知权限：浏览器设置 → 网站设置 → 通知 → 把本站「关闭」再「允许」，然后强杀浏览器重开（「权限明明开着、通知却消失好几天」多数被这一步救活——JS 读到的一直是 granted，坏的是浏览器内部那条通道）');
+            push('系统通知设置：系统设置 → 通知管理 → 本浏览器 → 总开关打开、「允许横幅通知/在屏幕上方显示」打开、通知重要性选「提醒」；国产 ROM（vivo/OPPO/小米/华为）每项可能各自独立');
+            push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）');
+            steps.push('每做完一步就按 Home 键把页面切到后台、让 TA 发一条消息验证；全部走完仍不弹 → 用「信息诊断」里的反馈入口一键上报');
+            window.openModal('没弹出 → 按顺序排查（实效从高到低）', '', function () {}, {
+              noInput: true, big: true,
+              staticText: steps.join('\n')
+            });
+          }, {
+            noInput: true, lock: true,
+            staticText: '刚才屏幕上方弹出「后台通知测试」横幅了吗？\n（通知栏里有小图标 ≠ 屏幕上方弹出；前台发送通常只进通知栏，要验横幅请按 Home 切后台后再测一次）',
+            pills: [{ label: '看到了，顶部弹出', value: 'seen' }, { label: '没看到', value: 'miss' }],
+            pillSubmit: true
+          });
+        };
         const showResult = function () {
           if (resultShown) return;
           resultShown = true;
           toast('测试结果：\n' + env.join('\n'), 6000);
+          if (testChan === 'sw' && testOk) askSeen();
         };
         // 「屏幕上方弹出」检查：system 横幅 JS 读不到，只能按发送时刻页面前台/后台如实归因＋引导复核
         const testWasHidden = document.hidden;
         showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
           testSettled = true;
+          testOk = !!ok;
           if (testChan === 'sw' && ok) {
             env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
             // #724 端到端自检：API 受理 ≠ 系统真挂出来（系统通知总开关被关时 showNotification 照常
@@ -1308,16 +1363,16 @@
                 env.push('! 前台发送不弹顶层横幅——要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出');
               }
             }).catch(function () {});
-            setTimeout(showResult, 2500); // 队列回读卡住也出结果
-            queueCheck.then(showResult);
+            Promise.all([queueCheck, verP]).then(showResult);
+            setTimeout(showResult, 4500); // 队列回读/版本比对卡住也出结果
           } else if (testChan === 'page') {
             env.push(ok
               ? '✓ 测试通知已发送（页面通道：仅本页前台可见）'
               : '! 未真正送达：后台服务未就绪，页面通道在后台会被系统抑制（已挂自动补发，或刷新页面重试）');
-            showResult();
+            verP.then(showResult);
           } else {
             env.push('✗ 测试通知提交失败：被浏览器/系统拒绝——见本行「功能说明」排查（权限已允许仍被拒＝查系统设置里本浏览器的通知总开关）');
-            showResult();
+            verP.then(showResult);
           }
         });
         setTimeout(function () {

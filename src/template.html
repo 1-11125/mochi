@@ -259,7 +259,7 @@
       <!-- #657：等得比较久时就地解释「为什么慢、不是坏了」——用户普遍把开屏等待当成 bug，
            而这一刻他盯着的是这里、不会去翻公告章节。默认 hidden，只在
            「数据多未就绪(slow)」或「数据已就绪但整页 5.5MB 资源还没加载完」时由 clock.js 显示 -->
-      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要读完整个网站的代码，再取回存在你本机的数据；设备越旧、数据越多就越慢，属正常，不是坏了。</div>
+      <div class="splash-loading-sub" id="splash-loading-sub" hidden>首次打开要先联网下载整个网站的代码，再取回存在你本机的数据；网速慢、设备越旧、数据越多都会更慢，属正常，不是坏了。若长时间停在「正在加载页面」，多与当前网络连不上有关（某些 WiFi 对本站不稳定），换一个网络（WiFi 与流量互换）再试通常就能打开。</div>
       <!-- v3.8.y：必须把公告滑到底才能进入——未到底时按钮置灰不可点，下方提示滑动 -->
       <div class="splash-enter-hint" id="splash-enter-hint" hidden>请滑到底部后进入</div>
       <!-- #315c：一次性年龄确认勾选——勾选后才可进入（clock.js 门控），确认一次后永久记住；
@@ -1536,9 +1536,21 @@
       <!-- v3.26.x 关于分类：使用说明（#row-guide / #guide-sub）已上移到「关于 → 帮助与支持」，
            与新手引导、功能介绍同属「了解应用」类；工具 tag 只留会改数据的操作 -->
       <div class="them-sec" data-sec="tools">
+      <!-- v3.27.x #764：屏幕适配微调——#707「屏幕位置设置」合并升级收口（用户拍板：独立功能、放显眼位）。
+           跨机型屏幕适配偏差（遮挡/裁切/留白/白带）自动修不完，把处置权交给用户：六轴滑杆实时预览
+           （顶部/底部/页面高度/桌面/整体位移/文字大小）+ 双击滑杆复位 + 一键还原；存根命名空间 LS
+           （屏幕是设备属性，跨桌面共用、换设备不跟随）。文字轴＝文字组逐条 calc 叠加（display-tune.css），
+           不碰整页 zoom/scale 红线。id 沿用 row-screen-adj＝mochiScreenAdj/哨兵/搜索别名接线不断。 -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-screen-adj">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？六轴滑杆边拖边看、当场见效，双击滑杆复位，一键恢复默认；本机永久保存（换设备各自调）</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+      </div>
       <!-- #532 字卡使用状态自检（card-audit.js）——用户点名「放在【工具】靠前的地方」，
            独立成组：一眼看懂自定义/系统预设字卡能不能用、怎么调。
-           （#606 后「使用说明」已移入「关于 → 帮助与支持」，本行现为工具 tag 首项） -->
+           （#606 后「使用说明」已移入「关于 → 帮助与支持」） -->
       <div class="set-group glass">
         <div class="set-row" id="row-card-audit">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-4"/><path d="M9 12l2 2 8-8"/><path d="M15 3h6v6"/></svg></div>
@@ -1602,13 +1614,7 @@
           <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
-        <!-- v3.26.x #707：屏幕位置微调（三轴手动偏移，mobile-adapt.js mochiScreenAdj 接线）——
-             跨设备屏幕适配修不完（各内核口径不同且随系统版本漂移），给用户本机永久的手动微调：
-             顶部/底部/页面高度三轴 ±80px，改完立即生效、存根命名空间（跨桌面共用）。0=恢复默认 -->
-        <div class="set-row" id="row-screen-adj">
-          <div class="txt">屏幕位置设置<span class="sub">一个面板调全部：顶部/底部/页面高度/桌面/整体位移（全屏图标偏上、整页偏移遮挡都在这里）；本机永久保存</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
+        <!-- v3.27.x #764：原「屏幕位置设置」行（#707）已合并升级为工具区首位的「屏幕适配微调」独立组，本组只留诊断两行 -->
         <div class="set-row" id="row-screen-diag">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M8 6h8"/></svg></div>
           <div class="txt">屏幕适配诊断<span class="sub">顶部空白 / 底部裁切 / 缩放异常一键定位</span></div>
@@ -1925,6 +1931,7 @@
         <button class="dq-btn" id="dq-accent" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">主题色</button>
         <button class="dq-btn" id="dq-bg" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">壁纸</button>
         <button class="dq-btn" id="dq-radius" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">圆角</button>
+        <button class="dq-btn" id="dq-tabbar" style="flex:1;min-width:64px;padding:9px 6px;border:1px solid var(--card-border,#ddd);border-radius:10px;background:var(--card-bg,#fff);color:var(--ink,#111);font-size:12px;cursor:pointer">底部栏</button>
         <!-- FIX 2026-09-16 #579：原 #dq-drawer（边看边调）不在此行——已提到页面最上方整宽主色条。
              这一行只留「跳到对应设置行」的快捷按钮；#602 起「深色模式」快捷按钮移除（设置页已有入口）。 -->
       </div>
@@ -2082,6 +2089,19 @@
         <div class="set-row" id="row-desk-reset">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">恢复默认桌面<span class="sub">恢复默认布局与页数</span></div>
+        </div>
+      </div>
+      <!-- FIX v3.26.x #769：底部导航栏美化组（行绑定在 personalize.js，勿改 id）；
+           「底部栏美化」＝唤起边看边调并停在「底部栏」分区 -->
+      <div class="cg-title">底部导航栏</div>
+      <div class="set-group glass">
+        <div class="set-row" id="row-tabbar-icons">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="3"/><circle cx="8" cy="17.5" r="1.2"/><circle cx="16" cy="17.5" r="1.2"/><path d="M7 10l3-3 3 3M17 4v6" /></svg></div>
+          <div class="txt">上传底部栏按钮图片<span class="sub">首页 / 字卡 / 设置 三按钮各传各的 · 可更换或恢复默认</span></div>
+        </div>
+        <div class="set-row" id="row-tabbar-beauty">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="18" height="7" rx="3"/><path d="M8 17.5h.01M12 17.5h.01M16 17.5h.01M12 3v7M9.5 7.5L12 10l2.5-2.5"/></svg></div>
+          <div class="txt">底部栏美化<span class="sub">背景/整栏透明度 · 底色 · 圆角 · 模糊 · 图标大小（打开边看边调·底部栏）</span></div>
         </div>
       </div>
       <div class="them-sec" data-sec="scheme">

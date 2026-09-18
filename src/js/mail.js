@@ -38,10 +38,32 @@
   function csFor(cid) { return cid ? window.storeFor(cid) : store; }
   function prefixFor(cid) { return cid ? ('xy-home-v2:' + cid) : window.activePrefix(); }
   function snapKey(cid) { return prefixFor(cid) + ':' + SNAP_KEY; }
+  // v3.27.x 性能：load()/loadSnap 解析缓存——信件含 dataURL 时主键可达数百 KB，一次交互里
+  // openMailPage（render+updateBadge）、openLetter（重查最新+标已读）会反复 JSON.parse 全量
+  // 列表，是手机端信箱卡顿主因。原始串未变 ⇒ 复用上次的解析结果；返回时逐封浅拷贝——调用方
+  // 普遍「改了 load 结果再 save」（read=true / unshift / 赋 myReply），共享对象引用会把未
+  // 落盘的中间态漏进缓存。数据一变原始串必变 ⇒ 未命中自然失效，无需手动清。
+  // 顺带收紧原实现的坏数据路径：raw 解析出非数组（旧实现 list=null/'…' 等继续往下走，
+  // .length/.filter 抛错）统一按空列表处理，交给快照兜底与暂存合并。
+  const _loadCache = new Map();
+  function cachedParse(k, raw) {
+    let list;
+    const hit = _loadCache.get(k);
+    if (hit && hit.raw === raw) {
+      list = hit.list;
+    } else {
+      try { list = JSON.parse(raw); } catch (e) { list = null; }
+      if (!Array.isArray(list)) return [];
+      if (_loadCache.size > 8) _loadCache.delete(_loadCache.keys().next().value);
+      _loadCache.set(k, { raw, list });
+    }
+    return list.map(x => (x && typeof x === 'object') ? Object.assign({}, x) : x);
+  }
   function loadSnap(cid) {
     try {
-      const v = localStorage.getItem(snapKey(cid));
-      if (v) { const a = JSON.parse(v); if (Array.isArray(a)) return a; }
+      const k = snapKey(cid);
+      const v = localStorage.getItem(k);
+      if (v) return cachedParse(k, v);
     } catch (e) {}
     return [];
   }
@@ -67,7 +89,7 @@
     const cs = csFor(cid);
     let list = [];
     const raw = cs.get(KEY);
-    if (raw !== null) { try { list = JSON.parse(raw); } catch (e) { list = []; } }
+    if (raw !== null) list = cachedParse(prefixFor(cid) + ':' + KEY, raw);
     // v3.7.x：主键缺失兜底——大列表只进 IDB（Edge 丢 IDB / LS 被清）时读剥图快照，
     //   文本+标题+时间保留；IDB 存活时模块底部 idbGet 会随后用完整数据重渲染
     if (!list.length) { try { const v = loadSnap(cid); if (v.length) list = v; } catch (e) {} }
@@ -179,14 +201,17 @@
   // 打开信箱页（渲染 + 清角标），供信箱图标点击与弹窗点击共用
   // v3.10.x：暴露给 chat.js——聊天里的信件通知（写了一封信/给你回了信等）可点击直达
   function openMailPage() {
+    // v3.27.x 性能：先显示 page-mail 再补查/渲染——render() 现在只在信箱页可见时干活
+    //（后台落地路径不再白建列表 DOM），进页这一刻按需渲染；红米 K80「先可见再写入」
+    // 防御口径同 submitReply/sendLetter。
+    document.querySelectorAll('.page').forEach(p => p.hidden = true);
+    const mp = document.getElementById('page-mail');
+    if (mp) mp.hidden = false;
     // v3.9.x：打开信箱立即补查到期回信/来信——iOS 短会话里 60s 定时器往往没机会跑，
     // 用户「点开信箱」这一刻正是最该看到 TA 回信的时刻
     try { checkPendingReply(); } catch (e) {}
     render();
     updateBadge();
-    document.querySelectorAll('.page').forEach(p => p.hidden = true);
-    const mp = document.getElementById('page-mail');
-    if (mp) mp.hidden = false;
   }
   window.openMailPage = openMailPage;
   // 写信纸 HTML（简约卡片：标题 + 寄信人/时间 + 正文）
@@ -212,7 +237,10 @@
         return seg(all); // 普通网址（无附图前缀）按文本保留
       }
       const attrs = String(src).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      return '<img class="mail-body-img" src="' + attrs + '" alt="表情"> ';
+      // v3.27.x 性能：decoding="async"——dataURL 图默认同步解码占弹层首帧（点开带图
+      // 信件时的迟滞来源），异步解码让位主线程；与桌面/聊天/朋友圈图片同款做法。
+      // 不加 loading="lazy"（dataURL 无网络请求，lazy 无效）。
+      return '<img class="mail-body-img" decoding="async" src="' + attrs + '" alt="表情"> ';
     });
   }
   // 信箱列表摘要：剔除图片/表情包 dataURL（含标记前缀），避免显示超长 base64 乱码
@@ -470,16 +498,20 @@
       const name = partnerNameFor(cid);
       const rest = [];
       let changed = false;
+      // v3.27.x 性能：load 提到循环外——原实现每条到期计划都重新 load(cid)（全列表再
+      // parse+排序一遍），多条计划即多次全量读；改为读一次、全部落地后统一 save 一次
+      //（少写一遍持久层，行为不变：同 id 多计划命中已回信分支同样丢弃后续）。
+      const list = load(cid);
+      let landed = false;
       pending.forEach(p => {
         if (!p || !p.id) { changed = true; return; }
-        const list = load(cid);
         const idx = list.findIndex(x => x.id === p.id);
         if (idx < 0) { changed = true; return; }          // 信件已不存在 → 丢弃计划
         if (list[idx].partnerReply) { changed = true; return; } // 已有 TA 回信 → 丢弃计划
         if (p.due > now) { rest.push(p); return; }        // 未到期 → 保留
         // 到期：落地 TA 回信
         list[idx].partnerReply = { content: p.content, tm: now };
-        save(list, cid);
+        landed = true;
         notifyMailToChat(cid, name + ' 给你回了信', { mailNotice: true });
         // v3.5.107：TA 回信且不在信箱页 → 前台桌面弹窗（仅当前激活桌面才弹，用户能看到）
         if (cid === (window.__activeCid || 'default') && window.showDeskPopup && !mailPageVisible()) {
@@ -488,6 +520,7 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
         }
         changed = true;
       });
+      if (landed) save(list, cid);
       if (changed) replyPendingSave(rest, cid);
       if (cid === (window.__activeCid || 'default')) { render(); updateBadge(); }
     } catch (e) {}
@@ -496,8 +529,29 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     const list = (window.getContacts && window.getContacts()) || [{ id: 'default' }];
     list.forEach(c => checkPendingReplyFor(c.id));
   }
+  // 列表项 HTML（v3.27.x 渲染模板收口：原 render() 把同一份拼接写了 4 遍——
+  // 收/寄 × 正常/红米重试——收敛为一处，红米重试防御的调用点与语义不变。
+  // dir:'in' 收到的信 / 'out' 寄出的信）
+  function mailItemHtml(l, dir, name) {
+    const tag = dir === 'in'
+      ? (l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>'))
+      : (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '');
+    // v3.27.x：data-id 过 escHtml——导入备份的信件 id 是外部输入，原实现裸拼进属性
+    // 可逃逸引号注入 HTML；dataset 读回时属性实体自动还原，匹配逻辑不变
+    return '<div class="mail-item" data-id="' + escHtml(l.id) + '">' +
+      '<div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
+      '<div class="mail-item-body"><div class="mail-item-title">' + (dir === 'in' ? '来自 ' : '寄给 ') + name + tag + '</div>' +
+      '<div class="mail-item-desc">' + shortDesc(l.content, dir === 'in') + '</div></div>' +
+      '<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>';
+  }
   // 渲染列表
   function render() {
+    // v3.27.x 性能：信箱页不可见 ⇒ 跳过。后台落地路径（60s 来信/回信 tick、启动 idb
+    // 回调、保险丝）都会各调一次 render，原实现在用户停在桌面时也重建两份完整列表
+    // HTML（每封信再跑剥 base64 正则）——全是白做的 UI 活。列表 DOM 无脏状态依赖：
+    // 进页唯一入口 openMailPage 显示后才渲染，寄信/回信路径也先 showPage 再 render。
+    const mpEl = document.getElementById('page-mail');
+    if (mpEl && mpEl.hidden) return;
     const list = load().slice().sort((a, b) => b.tm - a.tm);
     const name = partnerName();
     const inEl = document.getElementById('mail-in-list');
@@ -505,50 +559,33 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     // 收到的信：TA 来信 + 已回信
     const inList = list.filter(l => l.type === 'received');
     if (inEl) {
-      inEl.innerHTML = inList.length
-        ? inList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-            '<div class="mail-item-body"><div class="mail-item-title">来自 ' + name +
-              (l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>')) + '</div>' +
-            '<div class="mail-item-desc">' + shortDesc(l.content, true) + '</div></div>' +
-            '<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('')
-        : '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>';
+      const inHtml = inList.map(l => mailItemHtml(l, 'in', name)).join('');
+      inEl.innerHTML = inHtml || '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>';
       // v3.26.x：防御 innerHTML 未生效——个别安卓内核（红米 K80 Chrome）对 hidden 元素
       // innerHTML 渲染延迟，列表项数与数据不符时重试一次（红米 K80 反馈「列表空」）。
-      if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) {
-        const html = inList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-          '<div class="mail-item-body"><div class="mail-item-title">来自 ' + name +
-            (l.myReply ? ' <span class="mail-tag">已回信</span>' : (l.read ? '' : ' <span class="mail-tag new">新来信</span>')) + '</div>' +
-          '<div class="mail-item-desc">' + shortDesc(l.content, true) + '</div></div>' +
-          '<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('');
-        inEl.innerHTML = html;
-      }
-      inEl.querySelectorAll('.mail-item').forEach(it => it.addEventListener('click', () => {
-        const l = list.find(x => x.id === it.dataset.id);
-        if (l) openLetter(l);
-      }));
+      if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) inEl.innerHTML = inHtml;
     }
     // 寄出的信
     const outList = list.filter(l => l.type === 'sent');
     if (outEl) {
-      outEl.innerHTML = outList.length
-        ? outList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-            '<div class="mail-item-body"><div class="mail-item-title">寄给 ' + name + (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '') + '</div>' +
-            '<div class="mail-item-desc">' + shortDesc(l.content) + '</div></div>' +
-            '<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('')
-        : '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>';
-      if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) {
-        const html = outList.map(l => '<div class="mail-item" data-id="' + l.id + '"><div class="mail-item-av"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>' +
-          '<div class="mail-item-body"><div class="mail-item-title">寄给 ' + name + (l.partnerReply ? ' <span class="mail-tag">对方已回信</span>' : '') + '</div>' +
-          '<div class="mail-item-desc">' + shortDesc(l.content) + '</div></div>' +
-          '<div class="mail-item-time">' + fmtDT(l.tm) + '</div></div>').join('');
-        outEl.innerHTML = html;
-      }
-      outEl.querySelectorAll('.mail-item').forEach(it => it.addEventListener('click', () => {
-        const l = list.find(x => x.id === it.dataset.id);
-        if (l) openLetter(l);
-      }));
+      const outHtml = outList.map(l => mailItemHtml(l, 'out', name)).join('');
+      outEl.innerHTML = outHtml || '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>';
+      if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) outEl.innerHTML = outHtml;
     }
   }
+  // v3.27.x 性能：列表项点击改容器级事件委托（一次绑定）——原实现每次 render 给每封信
+  // 重挂 click，开销随信件数线性增长；点击按 dataset id 现查信件（load 有解析缓存），
+  // openLetter 内部本就会重取最新完整数据，行为不变
+  function mailListItemClick(e) {
+    const it = e.target && e.target.closest ? e.target.closest('.mail-item') : null;
+    if (!it) return;
+    const l = load().find(x => x.id === it.dataset.id);
+    if (l) openLetter(l);
+  }
+  ['mail-in-list', 'mail-out-list'].forEach((lid) => {
+    const el = document.getElementById(lid);
+    if (el) el.addEventListener('click', mailListItemClick);
+  });
   // 存储时保留媒体标记前缀（sticker:/image:）——渲染时靠前缀区分表情包小图/图片大图
   // v3.6.x：旧实现提交时剥掉前缀，renderBody 匹配不到 sticker: 导致表情包按大图显示；
   // 现在保留前缀存储；历史无前缀数据仍按大图显示不变
@@ -1050,7 +1087,15 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
   //   每日上限守卫，跟随补查只会更及时不会刷屏。
   checkPendingReply(); // 启动立即补查（当前桌面未就绪由内部守卫跳过，就绪后回调再补）
   setTimeout(() => {
-    setInterval(() => { maybeIncomingLetter(); checkPendingReply(); fishWeekTick(); }, 60000);
+    setInterval(() => {
+      // v3.27.x 性能：后台空转守卫——hidden 且无后台通知通道（bgNotifyCheck 缺失）时，
+      // 本轮来信/回信落地用户全都看不见（弹窗走不了、渲染已被 render 门槛跳过），
+      // 回前台由 eagerCheck 立即补查，及时性不损失。
+      // 有 bgNotifyCheck 时照跑＝不能跳：「人在后台仍收到来信通知」是 #673 起的
+      // 产品功能（showDeskPopup isHidden→bgNotifyCheck），跳过＝负优化。
+      if (document.visibilityState === 'hidden' && !window.bgNotifyCheck) return;
+      maybeIncomingLetter(); checkPendingReply(); fishWeekTick();
+    }, 60000);
     maybeIncomingLetter();
     fishWeekTick();
   }, (20 + Math.random() * 40) * 1000);
@@ -1114,12 +1159,12 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     });
   }
   const mailWriteBack = document.getElementById('mail-write-back');
-  if (mailWriteBack) mailWriteBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); showPage('page-mail'); });
+  if (mailWriteBack) mailWriteBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); showPage('page-mail'); render(); });
   const mailSend = document.getElementById('mail-send');
   if (mailSend) mailSend.addEventListener('click', sendLetter);
   // 回信页：返回 / 寄出
   const mailReplyBack = document.getElementById('mail-reply-back');
-  if (mailReplyBack) mailReplyBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); viewLetter = null; showPage('page-mail'); });
+  if (mailReplyBack) mailReplyBack.addEventListener('click', () => { if (window.closeEmojiPanel) window.closeEmojiPanel(); viewLetter = null; showPage('page-mail'); render(); });
   const mailReplySend = document.getElementById('mail-reply-send');
   if (mailReplySend) mailReplySend.addEventListener('click', submitReply);
   // tab 切换（v3.10.x 抽成函数：寄信成功后自动跳「寄出的信」复用）

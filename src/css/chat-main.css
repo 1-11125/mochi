@@ -103,6 +103,13 @@
 }
 .msg-in .msg-bubble { background: var(--msg-in-bg, #ffffff); color: var(--msg-in-ink, #111111); }
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
+/* FIX 2026-09-18 颜文字发到聊天「变奇怪」：气泡正文 span 用默认 white-space:normal，把
+   颜文字里有意义的连续空格折叠掉（如「(◕ ‿ ◕)」「( ˘  ̫ ˘ )」被压成单空格），而输入框
+   .chat-input 是 white-space:pre-wrap，于是发出后与「正常显示」不一致。HTML 空白折叠是
+   全浏览器通用行为＝各机型都复现，故这一条通用规则一次覆盖单聊+群聊所有气泡正文，无机型分支。
+   \n 已由 escTxtBr 转成 <br>，pre-wrap 只影响空格/制表符，不会双换行；引用块在 .msg-quote
+   div 内（非气泡直接子 span）不受影响。 */
+.msg-bubble > span { white-space:pre-wrap; }
 
 /* 消息入场动画：仅新增消息（非批量渲染）时触发。
    柔和上浮淡入——用「指数减速」曲线（ease-out-quint，起步快、末端自然落定）取代
@@ -533,14 +540,38 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat { --cs-bar-rgb:255,255,255; }
 [data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
 /* #731：栏位底色读「生效值」变量（--cs-*-opacity-ink）——聊天美化「壁纸延伸到顶栏/输入栏」
-   打开时由 JS 把它写成 0，壁纸就从栏位底下透上来（壁纸本来就铺在 #page-chat 的边框盒上、
-   含栏位区）。未打开时该变量不存在，回落到 --cs-*-opacity（默认 .92）＝外观与改造前一致；
+   打开时由 JS 把它写成 0，壁纸就从栏位底下透上来（#762 起壁纸画在 #page-chat 的常驻子层
+   #cs-bg-layer 上，该层与页面同盒、含栏位区）。未打开时该变量不存在，回落到 --cs-*-opacity（默认 .92）＝外观与改造前一致；
    写法上保持「一律走 var(--cs-*-opacity-ink, var(--cs-*-opacity, .92))」，让 verify-chat-surfaces
    的既有锚点与新开关共存（旧的「不透明度 0%」路径照旧生效）。 */
 #page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))); }
 #page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))); }
 #page-chat .msg-in .msg-bubble { background:var(--cs-in-surface, var(--msg-in-bg, #ffffff)); }
 #page-chat .msg-out .msg-bubble { background:var(--cs-out-surface, var(--msg-out-bg, #111111)); }
+
+/* #762 聊天壁纸常驻图层（#cs-bg-layer，由 chat-settings.js 创建）——手机端「铺满裁剪」档给
+   lvh 下限：键盘压矮 .phone（#750 症状「打字时图变小」）与地址栏自动收起涨落 dvh（#751 症状
+   「莫名其妙放大」）都改不动这一层的盒 ⇒ cover 缩放比恒定、且永不露底（多出的一截由
+   #page-chat 的 overflow:hidden 裁掉，层顶边钉在页面顶 ⇒ 打字期间看到的壁纸与打字前逐像素相同）。
+   为什么是 lvh 而不是 dvh/svh：dvh 正是抖动源（随地址栏涨落）；svh 偏小，地址栏收起时按它折算
+   会露底；lvh 是设备常量（浏览器 UI 全隐时的大视口）＝按「最大可见区域」铺满。
+   三处通栏形态同口径（.phone 都是 100dvh）：≤900px 真机、html.force-mobile、html.tablet；
+   宽屏模拟器外壳不加下限——那里没有键盘内联高也没有 dvh 涨落，height:100% 就是精确盒。
+   老内核（Chromium<87 / Safari<14.1）不认 lvh ⇒ 退回 100vh（安卓/iOS 的 vh 语义即「UI 全隐的
+   大视口」，同口径）；两条声明分写，不认识的那条被整条丢弃（同 #690 老内核兜底套路）。 */
+@media (max-width: 900px) {
+  #page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:100lvh; }
+}
+html.force-mobile #page-chat.cs-bg-fill #cs-bg-layer,
+html.tablet #page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:100lvh; }
+
+/* #765 壁纸层提独立合成层（iOS 卡顿收口）：这一层不参与 .chat-body 的滚动，但不提层时它和
+   顶栏/输入栏/typing 行同属一个绘制层——聊天页每次内容变化（新消息、打字行显隐、图片解码回填）
+   的失效区都会波及它，引擎要把整张 cover 位图重新缩放＋光栅一遍（位图越大越贵，正是「设了聊天
+   壁纸之后发消息/滚动发涩」的来路）。translateZ(0) 让它自成一帧缓冲，内容变化只重绘内容层。
+   用 translateZ(0) 而不是 will-change：老 WebKit 不认 will-change（与本文件 #690 老内核兜底同口径）。
+   代价＝一块全屏纹理内存（约 1.3MB），且只在设了壁纸时存在（未设时该层 display:none，不成层）。 */
+#cs-bg-layer { transform:translateZ(0); }
 
 /* 杈撳叆鏍忓浘鏍囨寜閽紙鏇村鍔熻兘 / 琛ㄦ儏鍖咃級 */
 .ch-input-btn {
@@ -1060,7 +1091,7 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
    中间那两格之间的竖线）也被摘掉＝每行中间缺一条线。加 :not(.emoji-grid-emoji) 收窄作用域后，
    4 列网格重新由 4n 规则管（行尾去线），2 列文字网格行为不变。 */
 .emoji-grid-text:not(.emoji-grid-emoji) .emoji-item:nth-child(2n) { border-right:none; }
-.emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; }
+.emoji-text-item { font-size:13px; line-height:1.4; word-break:break-all; text-align:center; white-space:pre-wrap; }
 .emoji-grid-emoji .emoji-text-item { font-size:25px; line-height:1.2; word-break:keep-all; }
 /* #691i: click-mode toggle button shown inside the kaomoji/emoji categories
    (same key as the row in chat settings; main line = current behavior, sub line = what tapping switches to) */
@@ -1163,7 +1194,7 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
   color:inherit; opacity:.6; margin-bottom:2px;
 }
 .msg-quote-text {
-  color:inherit; opacity:.8; word-break:break-word;
+  color:inherit; opacity:.8; word-break:break-word; white-space:pre-wrap;
   /* 超长内容（旧数据里的 base64 引用）最多两行，不铺满整屏；
      inline-block 而非 -webkit-box，保持与 .msg-quote-imgs 同行排布 */
   display:inline-block; vertical-align:top; max-width:100%;

@@ -726,6 +726,27 @@ return Array.isArray(arr) ? arr : [];
 function chatTailClear() {
 try { store.remove('chat-tail'); } catch (e) {}
 }
+// FIX 2026-09-18 #766（用户报障：聊天里我发/TA 发的消息「莫名其妙一条变多条」，刷新还在、全部
+// 类型都有、有的机型有有的没有）：**尾巴日志的寿命收口**。日志唯一职责＝兜住「整包还没落盘
+// 进程就被杀掉」的最近几条（#180 立项目的）；可旧实现从头到尾**只在超 60 条时滚动丢弃、从不在
+// 条目已被历史覆盖后摘除**——于是库里早已存着这些消息、日志里也永远留着一份，任何一次「内存里
+// 没有但日志里有」（#722 热片只装载尾部、某个热块读失败留空洞、慢内核整包读超时退回 LS 有损
+// 快照、异步链里切了联系人而日志读的是对方命名空间、导入/清空顶掉历史）都会被 chatTailMerge
+// 当成「这条还没落盘」补一份进内存，随后 saveMsgs 把它**固化进库**＝刷新还在、越用越多。
+// 修法＝权威读库后把「本次已确认在历史里（命中 have/haveId）」的条目从日志摘除：这类条目按定义
+// 就是刚从库里读出来的，回收零风险，日志从此只保留真正待兜底的那一小段。
+// **必须走 store 层**（而非直写 localStorage）：chat-tail 在 localStorage 与 IndexedDB 各有一份
+// 副本（idb.js 镜像 + 启动 idbRestore 回填，实测两副本并存），绕过 store 只改 LS 会被下次启动的
+// IDB 旧副本原样复活＝白改；store.set 同时更新内存缓存/LS/IDB 镜像三处。
+function chatTailRetire(keep) {
+try {
+const arr = chatTailRead();
+if (!Array.isArray(arr) || !arr.length) return;
+const k = Array.isArray(keep) ? keep : [];
+if (k.length === arr.length) return; // 一条都没覆盖，不写盘
+try { store.set('chat-tail', JSON.stringify(k)); } catch (e) {}
+} catch (e) {}
+}
 // 只收纯文本/轻消息：img/voice/大 parts 同步写 LS 会写爆，仍走整包落盘链路
 // FIX 2026-09-05 #206 表情包「重复 + 乱码 → 空白方框」（Oppo A5 Pro/Via 等多机型）：
 // 日志只收「能一字不差回放」的消息。sticker/image 型消息的 text 就是媒体数据本体
@@ -769,8 +790,13 @@ store.set('chat-tail', JSON.stringify(arr));
 } catch (e) {}
 }
 // 权威读库成功后调用：日志中不在当前历史里的条目按 ts 归位合并（整包落盘仍走 saveMsgs 守卫链）
-function chatTailMerge() {
+function chatTailMerge(forPrefix) {
 try {
+// FIX 2026-09-18 #766：命名空间一致性闸门。本函数内读日志走的是 store＝**当前激活联系人**，而调用
+// 方（loadMsgs 异步链）手里的 msgs 属于**发起读取时**的 myPrefix。链里用户切了联系人＝两者不同源，
+// 把对方的日志当「本会话未落盘的消息」回放进这个联系人的历史 ⇒ 凭空重复、且随后 saveMsgs 固化进库
+// （刷新还在）。是否命中取决于切换时机与读库快慢——正是「同样的操作有的手机有、有的没有」的来路。
+if (forPrefix && typeof window !== 'undefined' && typeof window.activePrefix === 'function' && window.activePrefix() !== forPrefix) return 0;
 const arr = chatTailRead();
 if (!arr.length || !Array.isArray(msgs)) return;
 // FIX 2026-09-18 #749（iQOO Neo9 + Chrome 等跨机型：聊天里同一条消息重复成多条，我方与
@@ -785,20 +811,33 @@ if (!arr.length || !Array.isArray(msgs)) return;
 // 任一命中即视为已落盘＝零误伤（合法新消息 ts 是本会话新取的毫秒值，不会与既有消息撞身份）。
 const have = new Set();
 const haveId = new Set();
+let winFrom = Infinity;
 for (let i = 0; i < msgs.length; i++) {
 have.add(chatTailSig(msgs[i]));
 haveId.add(chatTailId(msgs[i]));
+const t0 = msgs[i] && msgs[i].ts;
+if (typeof t0 === 'number' && t0 < winFrom) winFrom = t0;
 }
 const add = [];
+const keep = []; // 本次仍须保留的日志条目（#766：命中＝已确认落盘，回收）
 for (let i = 0; i < arr.length; i++) {
 const j = arr[i];
-if (!j || have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue;
+if (!j) continue;
+if (have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue; // 已在这份权威历史里＝职责完成，摘除
+// FIX 2026-09-18 #766：**早于本次装载窗口的条目一律不回放**。have/haveId 判的是「这条不在内存
+// 里」，而 #722 之后内存 msgs 可能只是历史的热片（尾部块）——更早的消息正躺在没并进内存的头块里，
+// 「不在 msgs」≠「不在库」。某块读失败留空洞、慢内核只读到尾部时，把这类条目补进内存＝凭空多
+// 一份重复，还会被随后的 saveMsgs 固化进库。日志的兜底职责只覆盖「最近一段没落盘的」，比窗口
+// 更早的一律宁可不兜底、绝不回放（纯时序判定，零机型分支；小历史整包装载时 winFrom=最早一条，
+// 本闸门恒不生效＝常规路径行为一字不变）。
+if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }
 // FIX 2026-09-05 #206 旧版日志里的存量媒体存根不得回放：data:/@@m: 开头却无 type 的条目
 // 只可能是旧版截断收录的媒体数据——回放即「乱码文字气泡 → 被 normCell 归一化按 data:image/
 // 前缀误迁移成 image → 截断 base64 解码失败 = 坏图空白方框」，且与原消息并存成重复。跳过，
 // 该条随日志 60 条滚动自然淘汰，不再新增（chatTailAppend 已拒收媒体型消息）。
 const jt = typeof j.text === 'string' ? j.text : '';
-if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) continue;
+if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) { keep.push(j); continue; }
+keep.push(j);
 // #337：互动卡条目还原问题/选项字段（旧版日志条目无 x＝照旧只回放四字段）
 const r = { ts: j.ts, side: j.side, special: j.special, text: jt };
 if (j.x && typeof j.x === 'object') {
@@ -806,6 +845,7 @@ for (const k in j.x) { if (Object.prototype.hasOwnProperty.call(j.x, k)) r[k] = 
 }
 add.push(r);
 }
+chatTailRetire(keep); // #766：已被历史覆盖的条目当场退休，日志不再长期留着重复的源头
 if (!add.length) return 0;
 msgs = msgs.concat(add).sort((a, b) => ((a && a.ts) || 0) - ((b && b.ts) || 0));
 saveMsgs();
@@ -1574,7 +1614,7 @@ writeLsSnapshot(msgs, myPrefix, true);
 }
 // #90：已确认库里没有 chat-msgs，账本随之对齐真实状态（过期的高账本不该再拦正常保存）
 try { chatLedgerSave(myPrefix, (msgs && msgs.length) || 0, msgsBytes(msgs)); } catch (e) {}
-try { chatTailMerge(); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）
+try { chatTailMerge(myPrefix); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）；#766 同命名空间才回放
 try { updateChatLoading(); } catch (e) {} // FIX 2026-09-15 #526：确认空库后收起进度条
 }
 return;
@@ -1670,7 +1710,7 @@ chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数�
 // v3.14.x：本命名空间已读到权威（此后空数组落盘才被允许——内存已含全部历史）
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
-try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
+try { if (chatTailMerge(myPrefix) > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条；FIX #766 传入 myPrefix＝日志必须与这份 msgs 同命名空间才回放
 // v3.26.x #90：账本基线＝刚读到的库内条数（同值不重复落盘，见 chatLedgerSave 节流）
 try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
 // #722 迁移：旧整包格式的大历史首次读成功后，后台一次性重排成分块格式（此后进聊天只读热片）。
@@ -3304,7 +3344,7 @@ const prevPendingOut = pendingOutScroll;
 batchRendering = true;
 for (let u = 0; u < liteUpgrade.length; u++) {
 const ui = liteUpgrade[u];
-const old = body.querySelector('.msg[data-idx="' + ui + '"]');
+const old = body.querySelector('[data-idx="' + ui + '"]');
 if (!old) { batchRendering = false; return false; }
 let nu = null;
 try { nu = renderMsg(msgs[ui]); } catch (e) { nu = null; }
@@ -3570,10 +3610,15 @@ const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
 for (let i = renderEnd; i < newEnd; i++) {
-if (body.querySelector('.msg[data-idx="' + i + '"]')) continue;
+// FIX 2026-09-18 #766：幂等守卫改**纯属性选择器**。旧写法 `.msg[data-idx="i"]` 只认 .msg 类，而
+// 拍一拍/系统提示/游戏结算等节点类名各异（msg-poke / msg-rps / msg-pong / msg-center…）不带 .msg
+// ⇒ 这类消息「已经画过」查不出来 ⇒ 缺口补画时原样再画一遍＝用户看到的「一条消息变多条」。
+// data-idx 是渲染路径统一写入的定位属性（见 renderMsg 头部与 pruneWindow/querySelectorAll('[data-idx]')
+// 既有口径），按属性查与类名彻底解耦，今后新增消息类型也自动受保护。anchor 定位同理。
+if (body.querySelector('[data-idx="' + i + '"]')) continue;
 if (!anchor) {
 for (let j = i + 1; j < len && !anchor; j++) {
-anchor = body.querySelector('.msg[data-idx="' + j + '"]');
+anchor = body.querySelector('[data-idx="' + j + '"]');
 }
 }
 maybeInsertDivider(i);
@@ -3612,7 +3657,9 @@ body.removeChild(f);
 renderStart = targetStart;
 }
 let bodyScrollTimer = null;
+let _chatScrollActTs = 0; // #765：列表最近一次滚动时刻（手指拖动/抬手后的惯性滑行/滚轮都算），看门狗据此让路
 body.addEventListener('scroll', function () {
+_chatScrollActTs = Date.now(); // #765：写在抑制判定之前——程序写入与用户滑动同样需要让路
 if (Date.now() < suppressScrollUntil) return;
 if (bodyScrollTimer) return;
 bodyScrollTimer = setTimeout(function () {
@@ -3704,6 +3751,9 @@ if (chatPinnedBottom && chatVisible()) scrollChatBottom();
 // 就补钉。只认几何事实、不认任何事件，机型/内核零分支；仍受 #162 钉住闸约束（用户翻历史
 // ＝解钉，绝不拽底）、#416 口径（≤8px 算贴底不折腾）、平滑滚动/批量渲染期让路。「变形中
 // 不写、落定后一次校正」同时消掉发消息瞬间「低栏弹跳」的钳位回弹（写入不再落在瞬态布局上）。
+// #765（iOS 收口，判定口径不变）：#716 的 chatTouchActive 只覆盖到 touchend，抬手后的**惯性滑行**
+// 期列表照旧在滚，此时看门狗仍会写 scrollTop＝「往上滑被拽回底部」在 iPhone 上的残根。故再加一
+// 闸：滚动落定（200ms 内无 scroll 事件）前一律让路，与「变形中不写」同构、零机型分支。
 let _vvGeomChangeTs = 0;
 (function () {
 const vv706 = window.visualViewport;
@@ -3713,6 +3763,7 @@ window.addEventListener('resize', mark706);
 })();
 setInterval(function () {
 if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
@@ -3924,6 +3975,14 @@ return;
 function renderMsg(rec) {
 const m = document.createElement('div');
 m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，批量渲染只覆盖 data-idx 不动它
+// FIX 2026-09-18 #766（用户报障：聊天里我发/TA 发的消息「莫名其妙一条变多条」，点发送那一刻就两条、
+// 刷新还在、有的机型有有的没有）：身份锚必须在**创建节点时**统一写入。此前 data-idx 散落在各分支
+// 里手写（invite/ask/红包等写了，poke·ask-msg/call/rps/pong/brick/memory/snake 等提前 return 的分支
+// 从未写过），函数末尾那句兜底（`side==='in'||'out'` 才写）对这些提前 return 的分支根本不可达 ⇒
+// 这些节点在 DOM 里「无下标」⇒ 补画缺口的幂等守卫查不到它 ⇒ **同一条消息被原样再画一遍**。
+// 批量/整窗渲染侧本就按真实下标覆盖（见 renderWindow 与 loadOlder/loadNewerIncremental 的
+// `m.dataset.idx = i`），此处预写 msgs.length-1 与旧兜底句口径一致、零新语义。
+m.dataset.idx = msgs.length - 1;
 if (!batchRendering) m.classList.add('msg-enter');
 const __fit = rec.side !== 'out' && !!window.taFit;
 const __taNm = chatPartnerName();

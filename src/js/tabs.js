@@ -108,7 +108,10 @@
       'avlib-card', 'ck-panel', 'feed-notice-panel', 'desk-msg', 'chat-ask-panel', 'msg-actions',
       // FIX 2026-09-16 #640：设置 → 工具 →「使用提示」面板（page-coach.js 动态创建，登记进
       // mobile-adapt 的 FLOAT_SELECTORS 同族）——返回键先关面板，不直接退页面
-      'pc-sheet-mask'];
+      'pc-sheet-mask',
+      // #764：屏幕适配微调面板（personalize.js 动态创建）——返回键先关面板；
+      // 这里只置 hidden，入口点击侧已做 panel.hidden=false 复活，不会留 zombie
+      'screen-adj-panel'];
     for (const id of layers) {
       const el = document.getElementById(id);
       if (el && !el.hidden) { el.hidden = true; return; }

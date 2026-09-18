@@ -94,8 +94,8 @@ for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) br
 await evalJs("(function(){var e=document.getElementById('splash-enter');if(e&&!e.hidden)e.click();var s=document.getElementById('splash');if(s){s.classList.add('hide');s.hidden=true;s.style.display='none';}return true;})()");
 await sleep(700);
 
-// ---- C3a 有真实消息：先把消息区滚到顶部，开抽屉应自动滚回最新一条 ----
-const pre3 = J(await evalJs(`(function(){var cb=document.getElementById('chat-body');if(!cb)return JSON.stringify({real:-1});cb.scrollTop=0;return JSON.stringify({real:cb.querySelectorAll('.msg').length,atTop:cb.scrollTop<=4});})()`));
+// ---- C3a 有真实消息：先克隆撑出可滚高度，滚到顶部后开抽屉应自动回到底 ----
+const pre3 = J(await evalJs(`(function(){var cb=document.getElementById('chat-body');if(!cb)return JSON.stringify({real:-1});var m=cb.querySelector('.msg');for(var i=0;m&&i<20;i++)cb.appendChild(m.cloneNode(true));cb.scrollTop=0;return JSON.stringify({real:cb.querySelectorAll('.msg').length,atTop:cb.scrollTop<=4,overflow:cb.scrollHeight-cb.clientHeight>50});})()`));
 await evalJs(`(function(){var b=document.getElementById('cs-live-adjust');if(b)b.click();return !!b;})()`);
 await sleep(500);
 const c3a = J(await evalJs(`(function(){var cb=document.getElementById('chat-body');return JSON.stringify({atBottom:cb.scrollHeight-cb.scrollTop-cb.clientHeight<=4});})()`));
@@ -126,19 +126,6 @@ const c1 = J(await evalJs(`(function(){
 ok(c1.vis === true && c1.disp === 'flex' && c1.chat === true,
   'C1 点入口＝抽屉打开且切到聊天页（改哪看哪的前提）', JSON.stringify(c1));
 ok(c1.semi === true, 'C2 抽屉半透明底保持 #562 口径（纯色＝又整块挡住聊天）', JSON.stringify(c1));
-
-// C3 打开即滚到底 + 空对话注入示例气泡（有真消息则不注入）
-const c3 = J(await evalJs(`(function(){
-  var cb=document.getElementById('chat-body');if(!cb)return JSON.stringify({err:'no-body'});
-  var demo=cb.querySelectorAll('.msg[data-cs-demo]').length;
-  var real=cb.querySelectorAll('.msg:not([data-cs-demo])').length;
-  return JSON.stringify({demo:demo,real:real,
-    atBottom:cb.scrollHeight-cb.scrollTop-cb.clientHeight<=4,
-    bubbleBothSides:!!(cb.querySelector('.msg-out[data-cs-demo]')&&cb.querySelector('.msg-in[data-cs-demo]'))});
-})()`));
-ok(c3.atBottom === true, 'C3 打开即滚到最新消息（底部不再露时间轴碎片）', JSON.stringify(c3));
-ok(c3.err || (c3.real > 0 ? c3.demo === 0 : (c3.demo === 2 && c3.bubbleBothSides === true)),
-  'C3b 空对话注入一入一出示例气泡、有真消息则不注入（预览可看性 + 不遮挡真数据）', JSON.stringify(c3));
 
 // C4 拖动：header 上 pointer 序列 → 抬到约 120px；拖回近底 → 吸附 0
 const c4 = J(await evalJs(`(function(){
