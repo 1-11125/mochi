@@ -644,6 +644,21 @@ try {
           }
         }
       }
+      // v3.27.x #794：opts.extraBtn——第三个自定义按钮位（#modal-extra，诊断报告
+      // 「一键修正」这类"看完就地行动"场景；copy/export 是"带走"，extra 是"修"）。
+      // 每次打开按 opts 重置显隐与文案，不传保持隐藏，对既有弹窗零影响。
+      const extraBtnEl = document.getElementById('modal-extra');
+      if (extraBtnEl) {
+        const cfg3 = opts.extraBtn || null;
+        extraBtnEl.hidden = !cfg3;
+        extraBtnEl.onclick = null;
+        if (cfg3) {
+          if (cfg3.label) extraBtnEl.textContent = cfg3.label;
+          if (typeof cfg3.fn === 'function') {
+            extraBtnEl.onclick = function () { try { cfg3.fn(ctl); } catch (e) {} };
+          }
+        }
+      }
       return ctl;
     };
     // iOS Safari：<input type="color"> 处于 display:none（hidden）时 .click() 不会弹取色器，
@@ -7583,7 +7598,8 @@ try {
       { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
       { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
       { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
-      { k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
+      { k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' },
+      { k: 'side', name: '左右安全边', min: 0, max: 12, hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' }
     ];
     let panel = null;
     const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
@@ -7619,11 +7635,58 @@ try {
       done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
       done.addEventListener('click', closePanel);
       head.appendChild(done);
+      // #794：按住看默认（A/B 对比）——按住期间全部轴临时归零预览出厂形态，
+      // 松手恢复按住前的值；拖方向拿不准时按一下就知道该往哪边拖
+      const holdBtn = document.createElement('button');
+      holdBtn.textContent = '按住看默认';
+      holdBtn.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:99px;padding:6px 12px;cursor:pointer';
+      let heldSnap = null;
+      const holdOn = function () {
+        if (heldSnap || !window.mochiScreenAdj) return;
+        heldSnap = window.mochiScreenAdj.all();
+        AXES.forEach(function (ax) { applyAxis(ax, 0, true); });
+        holdBtn.textContent = '松手恢复';
+      };
+      const holdOff = function () {
+        if (!heldSnap) return;
+        const snap = heldSnap; heldSnap = null;
+        AXES.forEach(function (ax) { applyAxis(ax, snap[ax.k] || 0, true); });
+        holdBtn.textContent = '按住看默认';
+        refreshVals();
+      };
+      holdBtn.addEventListener('pointerdown', holdOn);
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { holdBtn.addEventListener(ev, holdOff); });
+      head.insertBefore(holdBtn, done);
       panel.appendChild(head);
       const tip = document.createElement('div');
       tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
       tip.textContent = '拖动滑杆边看边调（面板上方就是效果现场），双击滑杆回默认 0；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
       panel.appendChild(tip);
+      // #794：诊断建议行——打开面板即现场探测一次（device.js 只读采集+判定同源），
+      // 有可修项才显示；点「一键修正」直接写入对应轴，不用再跑诊断报告
+      try {
+        const sug = (window.mochiScreenFixSuggest ? window.mochiScreenFixSuggest() : []) || [];
+        if (sug.length) {
+          const srow = document.createElement('div');
+          srow.style.cssText = 'flex:none;display:flex;align-items:center;gap:8px;border:1px solid #d9a400;background:#fff8e0;color:#6b5200;font-size:11.5px;line-height:1.5;border-radius:10px;padding:8px 10px';
+          const stxt = document.createElement('span');
+          stxt.style.cssText = 'flex:1;min-width:0';
+          stxt.textContent = '诊断发现：' + sug.map(function (s) { return s.why; }).join('、');
+          srow.appendChild(stxt);
+          const sbtn = document.createElement('button');
+          sbtn.textContent = '一键修正';
+          sbtn.style.cssText = 'flex:none;border:none;background:#8a6d00;color:#fff;font-size:11.5px;font-weight:700;border-radius:99px;padding:5px 12px;cursor:pointer';
+          sbtn.addEventListener('click', function () {
+            let n = 0;
+            sug.forEach(function (s) { try { if (window.mochiScreenAdj.set(s.axis, s.delta)) n++; } catch (e) {} });
+            toast(n ? ('已按诊断应用 ' + n + ' 项修正') : '没有可应用的修正');
+            refreshVals();
+            if (srow.parentNode) srow.remove();
+          });
+          srow.appendChild(sbtn);
+          panel.appendChild(srow);
+        }
+      } catch (eSug) {}
       const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
       AXES.forEach(ax => {
         const row = document.createElement('div');
@@ -7657,13 +7720,80 @@ try {
         panel.appendChild(row);
       });
       const reset = document.createElement('button');
-      reset.textContent = '全部恢复默认（六轴归零）';
+      reset.textContent = '全部恢复默认（各轴归零）';
       reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
       reset.addEventListener('click', () => {
         AXES.forEach(ax => applyAxis(ax, 0, true));
         toast('屏幕适配微调已全部恢复默认');
       });
       panel.appendChild(reset);
+      // #794：适配码（换机/情侣互帮）——把当前各轴值打成一串 MCADJ1 码，对方在
+      // 「屏幕适配微调→导入适配码」粘贴即套用（值域校验走 mochiScreenAdj.set，
+      // 越界/残缺项自动忽略，不会把对方面板写坏）
+      const MOCHI_ADJ_TAG = 'MCADJ1:';
+      const ADJ_CODE_MAP = { t: 'top', b: 'bottom', h: 'h', d: 'desk', s: 'shift', x: 'text', e: 'side' };
+      function adjCodeExport() {
+        const a = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+        const o = {};
+        Object.keys(ADJ_CODE_MAP).forEach(function (k) { o[k] = a[ADJ_CODE_MAP[k]] || 0; });
+        return MOCHI_ADJ_TAG + JSON.stringify(o);
+      }
+      function adjCodeImport(str) {
+        str = String(str || '');
+        const at = str.indexOf(MOCHI_ADJ_TAG);
+        if (at < 0) return -1;
+        const b0 = str.indexOf('{', at);
+        const b1 = str.lastIndexOf('}');
+        if (b0 < 0 || b1 <= b0) return -1;
+        let o = null;
+        try { o = JSON.parse(str.slice(b0, b1 + 1)); } catch (e) { return -1; }
+        if (!o || typeof o !== 'object') return -1;
+        let n = 0;
+        Object.keys(ADJ_CODE_MAP).forEach(function (k) {
+          if (o[k] !== undefined && window.mochiScreenAdj.set(ADJ_CODE_MAP[k], o[k])) n++;
+        });
+        return n;
+      }
+      const codeRow = document.createElement('div');
+      codeRow.style.cssText = 'flex:none;display:flex;gap:8px;margin-top:6px';
+      const expBtn = document.createElement('button');
+      expBtn.textContent = '复制适配码';
+      expBtn.style.cssText = 'flex:1;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
+      expBtn.addEventListener('click', function () {
+        const code = adjCodeExport();
+        let settled = false;
+        const fin = function (ok) {
+          if (settled) return; settled = true;
+          toast(ok ? '适配码已复制，发给对方在本面板「导入适配码」粘贴' : '复制失败，请手动抄录：' + code);
+        };
+        try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(code).then(function () { fin(true); }, function () { fin(false); }); return; } } catch (e1) {}
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = code;
+          ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok2 = document.execCommand('copy');
+          window.mochiKillCopySelection && window.mochiKillCopySelection(ta);
+          document.body.removeChild(ta);
+          fin(!!ok2);
+        } catch (e2) { fin(false); }
+      });
+      codeRow.appendChild(expBtn);
+      const impBtn = document.createElement('button');
+      impBtn.textContent = '导入适配码';
+      impBtn.style.cssText = expBtn.style.cssText;
+      impBtn.addEventListener('click', function () {
+        window.openModal('导入适配码', '', function (v) {
+          const n = adjCodeImport(v);
+          if (n < 0) { toast('适配码无法识别——请让对方在「屏幕适配微调」里点「复制适配码」后整段发来'); return; }
+          refreshVals();
+          toast(n ? ('已应用对方适配码（' + n + ' 项生效）') : '适配码与本机现状一致，无需改动');
+        });
+      });
+      codeRow.appendChild(impBtn);
+      panel.appendChild(codeRow);
       document.body.appendChild(panel);
     }
     function closePanel() { if (panel) { panel.remove(); panel = null; } }

@@ -3855,6 +3855,8 @@
         <div class="modal-btns">
           <!-- v3.25.x：导出按钮——诊断文本变长后部分手机剪贴板复制不全，下载文件兜底（opts.exportBtn）；#227 起 txt 改 docx（Word/WPS 直开） -->
           <!-- v3.26.x：补 type="button"——全站唯一漏写类型的按钮组；缺 type 默认是 submit，在个别 webview 里点【复制/导出/取消/确定】可能触发表单默认行为导致整页刷新（用户反馈） -->
+          <!-- v3.27.x #794：第三自定义按钮位（opts.extraBtn）——诊断报告「一键修正」等"就地行动"场景；不传保持隐藏，对既有弹窗零影响 -->
+          <button type="button" class="modal-btn copy" id="modal-extra" hidden>一键修正</button>
           <button type="button" class="modal-btn copy" id="modal-export" hidden>导出docx</button>
           <button type="button" class="modal-btn copy" id="modal-copy" hidden>复制</button>
           <button type="button" class="modal-btn cancel" id="modal-cancel">取消</button>

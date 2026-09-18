@@ -1248,9 +1248,17 @@
     function confirmAndImport(d) {
       if (!window.openModal) return;
       const summary = backupSummary(d);
+      // #794：屏幕适配偏移是设备属性——备份来自别的机型时，恢复会把那台机的各轴偏移
+      // 带进本机（iOS 系统级清存储后恢复备份正是最常见路径）。备份里带非零偏移时在
+      // 确认弹窗里点名提醒；不阻止导入（同机重装场景那些偏移本来就是对的）。
+      let adjNote = '';
+      try {
+        const adjKeys = Object.keys(d.ls || {}).filter(k => /^xy-home-v2:screen-adj-(top|bottom|h|desk|shift|text|side)$/.test(k) && parseInt(d.ls[k], 10));
+        if (adjKeys.length) adjNote = '\n\n⚠ 这份备份带有屏幕适配偏移（' + adjKeys.length + ' 项，属于原来的那台设备）。换设备恢复后若出现错位/裁切，到 设置→屏幕适配微调 点「全部恢复默认」再重新拖，或用「屏幕适配诊断→一键修正」。';
+      } catch (eA) {}
       window.openModal('确定导入数据？将覆盖当前所有数据，且无法恢复。', '', () => {
         doImportGo(d);
-      }, { noInput: true, staticText: summary });
+      }, { noInput: true, staticText: summary + adjNote });
     }
     if (!hasMochiKeys) {
       // 前缀兼容：文件通过 app 校验但键前缀不是 xy-home-v2:。探测文件里键的

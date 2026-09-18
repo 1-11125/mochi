@@ -516,7 +516,7 @@ html { margin:0; padding:0; }
      否则 calc(100dvh-48px) 无效、高度回退内容撑开（底部又截断） */
   height:min(844px, calc(100dvh - 48px));
   height:min(844px, calc(100vh - 48px));
-  border-radius:44px; padding:16px 18px 18px;
+  border-radius:44px; padding:16px calc(18px + var(--mochi-side-adj,0px)) 18px;
   display:flex; flex-direction:column;
   /* v3.26.x #399：整壳是【永不滚动】的裁剪框——overflow:clip 让 .phone 不再是滚动
      容器，内核「滚进视野」的滚动链到此为止（回信页整壳被内核滚走的根因见 .ce-ghost
@@ -547,7 +547,7 @@ html { margin:0; padding:0; }
     box-sizing:border-box;
     width:100vw; height:100vh; height:100svh; height:100dvh;
     border-radius:0; box-shadow:none;
-    padding:0 18px 18px;
+    padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
   }
   .statusbar {
     /* v3.5.127：max 兜底——真全屏挖孔屏 env() 返回 0 时保留 14px 最小留白。
@@ -572,7 +572,7 @@ html.force-mobile .phone {
   box-sizing:border-box;
   width:100vw; height:100vh; height:100svh; height:100dvh;
   border-radius:0; box-shadow:none;
-  padding:0 18px 18px;
+  padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 html.force-mobile .statusbar {
   padding-top:max(calc(14px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))), 14px);
@@ -610,13 +610,13 @@ html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
 .fs-active .phone, .fs-css-active .phone {
   width:100vw; height:100vh; height:100svh; height:100dvh;
   max-width:none; border-radius:0; box-shadow:none;
-  padding:0 18px 18px;
+  padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 @media (display-mode: fullscreen) {
   .phone {
     width:100vw; height:100vh; height:100svh; height:100dvh;
     max-width:none; border-radius:0; box-shadow:none;
-    padding:0 18px 18px;
+    padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
   }
 }
 
@@ -895,7 +895,7 @@ html.tablet .phone {
   width:100vw; max-width:none; flex-shrink:0;
   height:100vh; height:100svh; height:100dvh;
   border-radius:0; box-shadow:none;
-  padding:0 18px 18px;
+  padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 html.tablet .phone.no-statusbar { padding:0; }
 html.tablet .statusbar {

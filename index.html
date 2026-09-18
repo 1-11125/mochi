@@ -426,7 +426,7 @@ box-sizing:border-box;
 width:390px; max-width:100vw; flex-shrink:0; position:relative;
 height:min(844px, calc(100dvh - 48px));
 height:min(844px, calc(100vh - 48px));
-border-radius:44px; padding:16px 18px 18px;
+border-radius:44px; padding:16px calc(18px + var(--mochi-side-adj,0px)) 18px;
 display:flex; flex-direction:column;
 overflow:hidden; overflow:clip;
 box-shadow:0 30px 70px rgba(0,0,0,.1), inset 0 0 0 1px var(--phone-inset);
@@ -439,7 +439,7 @@ html, body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; 
 box-sizing:border-box;
 width:100vw; height:100vh; height:100svh; height:100dvh;
 border-radius:0; box-shadow:none;
-padding:0 18px 18px;
+padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 .statusbar {
 padding-top:max(calc(14px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))), 14px);
@@ -451,7 +451,7 @@ html.force-mobile .phone {
 box-sizing:border-box;
 width:100vw; height:100vh; height:100svh; height:100dvh;
 border-radius:0; box-shadow:none;
-padding:0 18px 18px;
+padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 html.force-mobile .statusbar {
 padding-top:max(calc(14px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))), 14px);
@@ -479,13 +479,13 @@ html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
 .fs-active .phone, .fs-css-active .phone {
 width:100vw; height:100vh; height:100svh; height:100dvh;
 max-width:none; border-radius:0; box-shadow:none;
-padding:0 18px 18px;
+padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 @media (display-mode: fullscreen) {
 .phone {
 width:100vw; height:100vh; height:100svh; height:100dvh;
 max-width:none; border-radius:0; box-shadow:none;
-padding:0 18px 18px;
+padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 }
 html.ios-vv-fit:not(.ios-pwa-standalone) .phone,
@@ -564,7 +564,7 @@ html.tablet .phone {
 width:100vw; max-width:none; flex-shrink:0;
 height:100vh; height:100svh; height:100dvh;
 border-radius:0; box-shadow:none;
-padding:0 18px 18px;
+padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
 html.tablet .phone.no-statusbar { padding:0; }
 html.tablet .statusbar {
@@ -10166,9 +10166,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789750188909">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.748</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 00:49<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789750871580">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
+        <span class="sv-deploy">部署于 2026-09-19 01:01<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11643,7 +11643,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.748</div>
+          <div class="val" id="about-ver-val">v3.26.0</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11712,7 +11712,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.748</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.0</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12106,7 +12106,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.748</span>
+              <span class="lic-ver">v3.26.0</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -13763,6 +13763,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="modal-btns">
           <!-- v3.25.x：导出按钮——诊断文本变长后部分手机剪贴板复制不全，下载文件兜底（opts.exportBtn）；#227 起 txt 改 docx（Word/WPS 直开） -->
           <!-- v3.26.x：补 type="button"——全站唯一漏写类型的按钮组；缺 type 默认是 submit，在个别 webview 里点【复制/导出/取消/确定】可能触发表单默认行为导致整页刷新（用户反馈） -->
+          <!-- v3.27.x #794：第三自定义按钮位（opts.extraBtn）——诊断报告「一键修正」等"就地行动"场景；不传保持隐藏，对既有弹窗零影响 -->
+          <button type="button" class="modal-btn copy" id="modal-extra" hidden>一键修正</button>
           <button type="button" class="modal-btn copy" id="modal-export" hidden>导出docx</button>
           <button type="button" class="modal-btn copy" id="modal-copy" hidden>复制</button>
           <button type="button" class="modal-btn cancel" id="modal-cancel">取消</button>
@@ -18952,8 +18954,17 @@ r.text += '\n== 历史对比 ==\n' + sdHistCompare(r.inp);
 r.text += '\n' + sdHistTimeline();
 sdArchive(r, 'manual');
 if (window.openModal) {
+const sdFix = screenFixCalc(r.inp);
 window.openModal('屏幕适配诊断', r.text, null, {
 noInput: true, textarea: true, textareaRows: 16, big: true,
+extraBtn: sdFix.length ? {
+label: '一键修正',
+fn: function () {
+let n = 0;
+sdFix.forEach(function (s) { try { if (window.mochiScreenAdj && window.mochiScreenAdj.set(s.axis, s.delta)) n++; } catch (e3) {} });
+sdToast(n ? ('已按诊断应用 ' + n + ' 项修正（个别项需刷新一次生效）') : '没有可应用的修正（对应轴已手动调过）');
+}
+} : null,
 exportBtn: {
 label: '导出docx',
 fn: function (c) {
@@ -18968,6 +18979,39 @@ sdCopy(r.text).then(function (ok) { sdToast(ok ? '报告已复制到剪贴板，
 });
 });
 }
+function screenFixCalc(inp) {
+const out = [];
+try {
+const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {};
+const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()) || {};
+const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+if (inp.sbTop != null && cur.top === 0) {
+if (!Fm.resStand && inp.envTop >= 20 && inp.diff >= inp.envTop - 8 && sbEffTop < inp.envTop - 5) {
+out.push({ axis: 'top', delta: Math.min(80, Math.round(inp.envTop - sbEffTop)), why: '顶部重叠 ' + Math.round(inp.envTop - sbEffTop) + 'px' });
+} else if (sbEffTop > Fm.expTop + 60) {
+out.push({ axis: 'top', delta: Math.max(-80, -Math.round(sbEffTop - Fm.expTop)), why: '顶部双倍避让 ' + Math.round(sbEffTop - Fm.expTop) + 'px' });
+}
+}
+const kbShrink = inp.vvH > 0 ? inp.innerH - inp.vvH : 0;
+const kbDocking = kbShrink >= Math.round(inp.innerH * 0.22);
+if (!kbDocking && inp.isMobileDev !== false) {
+if (inp.phoneBottom != null && inp.innerH && cur.h === 0) {
+const under = Math.round(Fm.expBase - inp.phoneBottom);
+if (under > 2) out.push({ axis: 'h', delta: Math.min(80, under), why: '底部少填 ' + under + 'px 白带' });
+else if (under < -2) out.push({ axis: 'h', delta: Math.max(-80, under), why: '底部超出 ' + (-under) + 'px' });
+}
+if (inp.tabBottom != null && inp.innerH && cur.bottom === 0) {
+const overB = Math.round(inp.tabBottom - (Fm.expBase - (inp.envBottom || 0)));
+if (overB > 2) out.push({ axis: 'bottom', delta: Math.min(80, overB), why: '底部导航栏被裁 ' + overB + 'px' });
+else if (overB < -60) out.push({ axis: 'bottom', delta: Math.max(-80, overB), why: '底部导航栏悬空 ' + (-overB) + 'px' });
+}
+}
+} catch (e) {}
+return out;
+}
+window.mochiScreenFixSuggest = function () {
+try { return screenFixCalc(collectFitInp()); } catch (e) { return []; }
+};
 function bindSafeTopForce() {
 const el = document.getElementById('safe-top-force');
 if (!el) return;
@@ -24938,6 +24982,18 @@ exportBtn.onclick = function () { try { cfg2.fn(ctl); } catch (e) {} };
 }
 }
 }
+const extraBtnEl = document.getElementById('modal-extra');
+if (extraBtnEl) {
+const cfg3 = opts.extraBtn || null;
+extraBtnEl.hidden = !cfg3;
+extraBtnEl.onclick = null;
+if (cfg3) {
+if (cfg3.label) extraBtnEl.textContent = cfg3.label;
+if (typeof cfg3.fn === 'function') {
+extraBtnEl.onclick = function () { try { cfg3.fn(ctl); } catch (e) {} };
+}
+}
+}
 return ctl;
 };
 customBtn.addEventListener('click', function () {
@@ -30735,7 +30791,8 @@ const AXES = [
 { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
 { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
 { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
-{ k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
+{ k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' },
+{ k: 'side', name: '左右安全边', min: 0, max: 12, hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' }
 ];
 let panel = null;
 const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
@@ -30771,11 +30828,54 @@ done.textContent = '完成';
 done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
 done.addEventListener('click', closePanel);
 head.appendChild(done);
+const holdBtn = document.createElement('button');
+holdBtn.textContent = '按住看默认';
+holdBtn.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:99px;padding:6px 12px;cursor:pointer';
+let heldSnap = null;
+const holdOn = function () {
+if (heldSnap || !window.mochiScreenAdj) return;
+heldSnap = window.mochiScreenAdj.all();
+AXES.forEach(function (ax) { applyAxis(ax, 0, true); });
+holdBtn.textContent = '松手恢复';
+};
+const holdOff = function () {
+if (!heldSnap) return;
+const snap = heldSnap; heldSnap = null;
+AXES.forEach(function (ax) { applyAxis(ax, snap[ax.k] || 0, true); });
+holdBtn.textContent = '按住看默认';
+refreshVals();
+};
+holdBtn.addEventListener('pointerdown', holdOn);
+['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { holdBtn.addEventListener(ev, holdOff); });
+head.insertBefore(holdBtn, done);
 panel.appendChild(head);
 const tip = document.createElement('div');
 tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
 tip.textContent = '拖动滑杆边看边调（面板上方就是效果现场），双击滑杆回默认 0；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
 panel.appendChild(tip);
+try {
+const sug = (window.mochiScreenFixSuggest ? window.mochiScreenFixSuggest() : []) || [];
+if (sug.length) {
+const srow = document.createElement('div');
+srow.style.cssText = 'flex:none;display:flex;align-items:center;gap:8px;border:1px solid #d9a400;background:#fff8e0;color:#6b5200;font-size:11.5px;line-height:1.5;border-radius:10px;padding:8px 10px';
+const stxt = document.createElement('span');
+stxt.style.cssText = 'flex:1;min-width:0';
+stxt.textContent = '诊断发现：' + sug.map(function (s) { return s.why; }).join('、');
+srow.appendChild(stxt);
+const sbtn = document.createElement('button');
+sbtn.textContent = '一键修正';
+sbtn.style.cssText = 'flex:none;border:none;background:#8a6d00;color:#fff;font-size:11.5px;font-weight:700;border-radius:99px;padding:5px 12px;cursor:pointer';
+sbtn.addEventListener('click', function () {
+let n = 0;
+sug.forEach(function (s) { try { if (window.mochiScreenAdj.set(s.axis, s.delta)) n++; } catch (e) {} });
+toast(n ? ('已按诊断应用 ' + n + ' 项修正') : '没有可应用的修正');
+refreshVals();
+if (srow.parentNode) srow.remove();
+});
+srow.appendChild(sbtn);
+panel.appendChild(srow);
+}
+} catch (eSug) {}
 const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
 AXES.forEach(ax => {
 const row = document.createElement('div');
@@ -30809,13 +30909,77 @@ row.appendChild(rng);
 panel.appendChild(row);
 });
 const reset = document.createElement('button');
-reset.textContent = '全部恢复默认（六轴归零）';
+reset.textContent = '全部恢复默认（各轴归零）';
 reset.style.cssText = 'flex:none;margin-top:6px;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
 reset.addEventListener('click', () => {
 AXES.forEach(ax => applyAxis(ax, 0, true));
 toast('屏幕适配微调已全部恢复默认');
 });
 panel.appendChild(reset);
+const MOCHI_ADJ_TAG = 'MCADJ1:';
+const ADJ_CODE_MAP = { t: 'top', b: 'bottom', h: 'h', d: 'desk', s: 'shift', x: 'text', e: 'side' };
+function adjCodeExport() {
+const a = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+const o = {};
+Object.keys(ADJ_CODE_MAP).forEach(function (k) { o[k] = a[ADJ_CODE_MAP[k]] || 0; });
+return MOCHI_ADJ_TAG + JSON.stringify(o);
+}
+function adjCodeImport(str) {
+str = String(str || '');
+const at = str.indexOf(MOCHI_ADJ_TAG);
+if (at < 0) return -1;
+const b0 = str.indexOf('{', at);
+const b1 = str.lastIndexOf('}');
+if (b0 < 0 || b1 <= b0) return -1;
+let o = null;
+try { o = JSON.parse(str.slice(b0, b1 + 1)); } catch (e) { return -1; }
+if (!o || typeof o !== 'object') return -1;
+let n = 0;
+Object.keys(ADJ_CODE_MAP).forEach(function (k) {
+if (o[k] !== undefined && window.mochiScreenAdj.set(ADJ_CODE_MAP[k], o[k])) n++;
+});
+return n;
+}
+const codeRow = document.createElement('div');
+codeRow.style.cssText = 'flex:none;display:flex;gap:8px;margin-top:6px';
+const expBtn = document.createElement('button');
+expBtn.textContent = '复制适配码';
+expBtn.style.cssText = 'flex:1;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:8px 0;cursor:pointer';
+expBtn.addEventListener('click', function () {
+const code = adjCodeExport();
+let settled = false;
+const fin = function (ok) {
+if (settled) return; settled = true;
+toast(ok ? '适配码已复制，发给对方在本面板「导入适配码」粘贴' : '复制失败，请手动抄录：' + code);
+};
+try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(code).then(function () { fin(true); }, function () { fin(false); }); return; } } catch (e1) {}
+try {
+const ta = document.createElement('textarea');
+ta.value = code;
+ta.setAttribute('readonly', '');
+ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+document.body.appendChild(ta);
+ta.select();
+const ok2 = document.execCommand('copy');
+window.mochiKillCopySelection && window.mochiKillCopySelection(ta);
+document.body.removeChild(ta);
+fin(!!ok2);
+} catch (e2) { fin(false); }
+});
+codeRow.appendChild(expBtn);
+const impBtn = document.createElement('button');
+impBtn.textContent = '导入适配码';
+impBtn.style.cssText = expBtn.style.cssText;
+impBtn.addEventListener('click', function () {
+window.openModal('导入适配码', '', function (v) {
+const n = adjCodeImport(v);
+if (n < 0) { toast('适配码无法识别——请让对方在「屏幕适配微调」里点「复制适配码」后整段发来'); return; }
+refreshVals();
+toast(n ? ('已应用对方适配码（' + n + ' 项生效）') : '适配码与本机现状一致，无需改动');
+});
+});
+codeRow.appendChild(impBtn);
+panel.appendChild(codeRow);
 document.body.appendChild(panel);
 }
 function closePanel() { if (panel) { panel.remove(); panel = null; } }
@@ -74340,9 +74504,14 @@ const hasMochiKeys = lsLooksMochi;
 function confirmAndImport(d) {
 if (!window.openModal) return;
 const summary = backupSummary(d);
+let adjNote = '';
+try {
+const adjKeys = Object.keys(d.ls || {}).filter(k => /^xy-home-v2:screen-adj-(top|bottom|h|desk|shift|text|side)$/.test(k) && parseInt(d.ls[k], 10));
+if (adjKeys.length) adjNote = '\n\n⚠ 这份备份带有屏幕适配偏移（' + adjKeys.length + ' 项，属于原来的那台设备）。换设备恢复后若出现错位/裁切，到 设置→屏幕适配微调 点「全部恢复默认」再重新拖，或用「屏幕适配诊断→一键修正」。';
+} catch (eA) {}
 window.openModal('确定导入数据？将覆盖当前所有数据，且无法恢复。', '', () => {
 doImportGo(d);
-}, { noInput: true, staticText: summary });
+}, { noInput: true, staticText: summary + adjNote });
 }
 if (!hasMochiKeys) {
 const allKeys = Object.keys(data.ls || {}).concat(Object.keys(data.idb || {}));
@@ -78707,13 +78876,13 @@ lastHeal: his
 })();
 (function () {
 var PFX = 'xy-home-v2:';
-var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text' };
-var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12] };
+var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text', side: 'screen-adj-side' };
+var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12], side: [0, 12] };
 function loadAdj(k) {
 try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); var rg = RANGE[k] || [-80, 80];
 return (!isNaN(v) && v >= rg[0] && v <= rg[1]) ? v : 0; } catch (e) { return 0; }
 }
-var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text') };
+var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text'), side: loadAdj('side') };
 var el = document.documentElement;
 var st = el.style;
 var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -78746,6 +78915,12 @@ if (adj.text) origSet('--mochi-text-adj', adj.text + 'px');
 else if (origGet('--mochi-text-adj')) origRemove('--mochi-text-adj');
 } catch (e) {}
 }
+function applySide() {
+try {
+if (adj.side) origSet('--mochi-side-adj', adj.side + 'px');
+else if (origGet('--mochi-side-adj')) origRemove('--mochi-side-adj');
+} catch (e) {}
+}
 function applyCached() {
 for (var n in base) {
 try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
@@ -78754,6 +78929,7 @@ applyBottom();
 applyDesk();
 applyShift();
 applyText();
+applySide();
 }
 st.setProperty = function (n, v) {
 n = String(n).toLowerCase();
@@ -78777,7 +78953,7 @@ return origGet(n);
 setInterval(applyBottom, 1000);
 applyCached();
 window.mochiScreenAdj = {
-all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; },
+all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text, side: adj.side }; },
 set: function (k, v) {
 if (!(k in adj)) return false;
 v = parseInt(v, 10);
@@ -78849,4 +79025,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu771w19 -->
+<!-- __MOCHI_EOF__ mu77gisc -->

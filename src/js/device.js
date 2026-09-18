@@ -2974,8 +2974,19 @@ window.mochiViewportForm = function (sig) {
           if (window.openModal) {
             // #227：补「导出docx」按钮——此前本弹窗只有自动复制，报告长时手机剪贴板
             // 可能截断，走文件转发最稳（docx 用 Word/WPS 打开不乱码）
+            // #794：诊断→修正闭环——报告弹窗带「一键修正」（有可修项才显示），
+            // 点了直接写入对应轴，用户不用再拿着报告去微调面板逐根对滑杆
+            const sdFix = screenFixCalc(r.inp);
             window.openModal('屏幕适配诊断', r.text, null, {
               noInput: true, textarea: true, textareaRows: 16, big: true,
+              extraBtn: sdFix.length ? {
+                label: '一键修正',
+                fn: function () {
+                  let n = 0;
+                  sdFix.forEach(function (s) { try { if (window.mochiScreenAdj && window.mochiScreenAdj.set(s.axis, s.delta)) n++; } catch (e3) {} });
+                  sdToast(n ? ('已按诊断应用 ' + n + ' 项修正（个别项需刷新一次生效）') : '没有可应用的修正（对应轴已手动调过）');
+                }
+              } : null,
               exportBtn: {
                 label: '导出docx',
                 fn: function (c) {
@@ -2993,6 +3004,46 @@ window.mochiViewportForm = function (sig) {
       });
     });
   }
+  // ===== v3.27.x #794：诊断→修正闭环 =====
+  // 把判定器 ✗ 条目折算成 mochiScreenAdj 轴值建议（与 screenDiagJudge 同阈值同豁免：
+  // 键盘停靠期/桌面外壳不判底、resStand 不判顶、已手动调过的轴跳过）。只读计算，
+  // 应用与否交给调用方——诊断报告「一键修正」按钮、屏幕适配微调面板顶部的建议行。
+  function screenFixCalc(inp) {
+    const out = [];
+    try {
+      const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {};
+      const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()) || {};
+      // 顶部：状态栏有效顶位（浏览器壳/独立覆盖/e2e 形态含状态栏自身 padding，与判定器 ③ 同口径）
+      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+      if (inp.sbTop != null && cur.top === 0) {
+        if (!Fm.resStand && inp.envTop >= 20 && inp.diff >= inp.envTop - 8 && sbEffTop < inp.envTop - 5) {
+          out.push({ axis: 'top', delta: Math.min(80, Math.round(inp.envTop - sbEffTop)), why: '顶部重叠 ' + Math.round(inp.envTop - sbEffTop) + 'px' });
+        } else if (sbEffTop > Fm.expTop + 60) {
+          out.push({ axis: 'top', delta: Math.max(-80, -Math.round(sbEffTop - Fm.expTop)), why: '顶部双倍避让 ' + Math.round(sbEffTop - Fm.expTop) + 'px' });
+        }
+      }
+      // 底部：键盘停靠期（#282）/桌面模拟器外壳（#528）豁免，与判定器 ④/⑤b 同口径
+      const kbShrink = inp.vvH > 0 ? inp.innerH - inp.vvH : 0;
+      const kbDocking = kbShrink >= Math.round(inp.innerH * 0.22);
+      if (!kbDocking && inp.isMobileDev !== false) {
+        if (inp.phoneBottom != null && inp.innerH && cur.h === 0) {
+          const under = Math.round(Fm.expBase - inp.phoneBottom);
+          if (under > 2) out.push({ axis: 'h', delta: Math.min(80, under), why: '底部少填 ' + under + 'px 白带' });
+          else if (under < -2) out.push({ axis: 'h', delta: Math.max(-80, under), why: '底部超出 ' + (-under) + 'px' });
+        }
+        if (inp.tabBottom != null && inp.innerH && cur.bottom === 0) {
+          const overB = Math.round(inp.tabBottom - (Fm.expBase - (inp.envBottom || 0)));
+          if (overB > 2) out.push({ axis: 'bottom', delta: Math.min(80, overB), why: '底部导航栏被裁 ' + overB + 'px' });
+          else if (overB < -60) out.push({ axis: 'bottom', delta: Math.max(-80, overB), why: '底部导航栏悬空 ' + (-overB) + 'px' });
+        }
+      }
+    } catch (e) {}
+    return out;
+  }
+  // 跨闭包暴露：personalize.js 屏幕适配微调面板打开时现场探测一次（只读，毫秒级）
+  window.mochiScreenFixSuggest = function () {
+    try { return screenFixCalc(collectFitInp()); } catch (e) { return []; }
+  };
   // ===== #176：快照存档 + 常驻监视 + 异常形态自动上报 =====
   // 历史快照：手动诊断/监视捕获各存一份（上限 8 份），报告末尾自动与上一次对比，
   // 哪项数值变了直接列出——『正常时 vs 异常时』不用再靠记忆。

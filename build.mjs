@@ -1630,7 +1630,7 @@ const FIX_SENTINELS = [
   // 由 display-tune.css 逐条 calc 叠加（气泡/输入框/设置行等文字组），刻意不走 zoom/scale（红线）；
   // all() 旧版只回三轴＝面板上桌面/整体位移显示 undefinedpx，本批一并补齐 ====
   { name: '#764a 文字轴写入 --mochi-text-adj（删＝文字大小拖了没反应＝第六轴失效复发）', file: 'js/mobile-adapt.js', needle: "if (adj.text) origSet('--mochi-text-adj', adj.text + 'px');" },
-  { name: '#764b all() 回满六轴（删回三轴＝面板桌面/整体位移显示 undefinedpx、滑杆初值丢）', file: 'js/mobile-adapt.js', needle: "all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; }," },
+  { name: '#764b all() 回满七轴（删回三轴＝面板桌面/整体位移显示 undefinedpx、滑杆初值丢；2026-09-19 #794 加 side 轴随新形态换锚）', file: 'js/mobile-adapt.js', needle: 'all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text, side: adj.side }; },' },
   { name: '#764c 文字大小轴注册（删行＝面板只剩五轴、字号诉求回流）', file: 'js/personalize.js', needle: "{ k: 'text', name: '文字大小', min: 0, max: 12" },
   { name: '#764d 滑杆实时预览接线（删＝又退回步进/手输猜值模式）', file: 'js/personalize.js', needle: "rng.setAttribute('data-adj-slider', ax.k);" },
   { name: '#764e 文字轴消费规则（删＝--mochi-text-adj 无人消费，字号轴空转）', file: 'css/display-tune.css', needle: '.msg-bubble { font-size: calc(var(--chat-font-size, 14px) + var(--mochi-text-adj, 0px)); }' },
@@ -3514,6 +3514,28 @@ const FIX_SENTINELS = [
   { name: '#776e 读侧 IDB 增量闸门走共享副本键（删＝后台归一化/迟到权威合并把副本并回内存）', file: 'js/chat.js', needle: 'if (chatRecKeysHit(idbCopies, m)) return false;' },
   { name: '#776f 增量日志合并登记基准包副本键（删＝chat-arch 与基准包重叠的两份各留一条，压缩窗口翻倍）', file: 'js/chat.js', needle: 'ckptSigs.add(sigOf(ckptArr[ci])); chatRecKeysAdd(ckptCopies, ckptArr[ci]);' },
   { name: '#776g 重复体检探针在位（删＝真机报障说不出「还剩哪种重复」，只能凭猜修通道；设置页诊断面板读它）', file: 'js/chat.js', needle: 'window.__mochiDupCensus = function () {' },
+  // ===== #787 聊天美化上传字体失效根治（fontSetDataFor 带回执 + fontResolved 补读不烧毁；2026-09-19 补登，needle 已 grep 各 1 处）=====
+  { name: '#787a 字体补读限量重试闸门（删＝回到一次烧毁：弱内核一次挂起整场不补读，「字体有时好有时坏」复发）', file: 'js/chat-settings.js', needle: 'if (window.idbGet && !_fontHydrating[hash] && tries < 5) {' },
+  { name: '#787b 补读带歧义标记（删＝读失败与真没有不可区分，gone 误判/漏判、重试失效）', file: 'js/chat-settings.js', needle: "window.idbGet('xy-home-v2:font-blob-' + hash, info)" },
+  { name: '#787c 上传字体持久化带回执（删＝blob 写 IDB 失败静默丢，重启后字体消失复发）', file: 'js/chat-settings.js', needle: "window.idbSet('xy-home-v2:font-blob-' + h, dataURL)" },
+  { name: '#787d 回退直存的过期守卫（删＝晚到回执可覆盖用户后续换的字体）', file: 'js/chat-settings.js', needle: "if (s.get(FONT_KEY) !== '@@font:' + h) return;" },
+  { name: '#787e 字体丢失状态可见（删＝blob 丢失后设置行显示生引用串/误报默认，用户无从发现）', file: 'js/chat-settings.js', needle: '字体文件丢失，请重新上传' },
+  // ===== #792 关于页「数据与存储（重要）」必读 5 条（2026-09-19 补登）=====
+  { name: '#792a 关于·数据与存储必读组锚行（删＝小白必读 5 条整组消失）', file: 'template.html', needle: 'id="about-storage-note"' },
+  { name: '#792b 无痕模式清空说明（删＝无痕模式危害提醒消失；文案在 personalize.js 详版弹窗）', file: 'js/personalize.js', needle: '的设计就是【关掉就全部清空】' },
+  // ===== #793 开屏「停更公告」横幅（2026-09-19 补登）=====
+  { name: '#793a 开屏停更公告标题（删/改＝2026年9月底停更口径不再首屏可见）', file: 'template.html', needle: '停更公告 · 2026年9月底后永久停更' },
+  { name: '#793b 停更横幅正文样式（删＝横幅退回无样式裸文本；minifyCss 只剥注释/行首缩进，行内空格保留＝此 needle 产物侧同样命中）', file: 'css/base.css', needle: '.splash-stopupdate p { font-size:12.5px' },
+  // ===== #794 屏幕适配「诊断→修正」闭环 + 第七轴 + 适配码（2026-09-19）=====
+  { name: '#794a 左右安全边轴落层（删＝曲面屏安全边滑杆拖了无效）', file: 'js/mobile-adapt.js', needle: "origSet('--mochi-side-adj', adj.side + 'px')" },
+  { name: '#794b .phone 各形态 padding 消费左右安全边（删＝轴值落了层也没人用）', file: 'css/base.css', needle: 'var(--mochi-side-adj,0px)' },
+  { name: '#794c 诊断→修正建议计算器（删＝诊断报告/微调面板都没有一键修正，回到「看完报告再逐根对滑杆」）', file: 'js/device.js', needle: 'window.mochiScreenFixSuggest = function' },
+  { name: '#794d 诊断报告一键修正按钮（删＝报告只能看不能修）', file: 'js/device.js', needle: "label: '一键修正'" },
+  { name: '#794e openModal 第三自定义按钮位接线（删＝extraBtn 永不显示）', file: 'js/personalize.js', needle: 'const cfg3 = opts.extraBtn || null;' },
+  { name: '#794f 适配码格式 tag（删/改＝导出的码对方导不进）', file: 'js/personalize.js', needle: "const MOCHI_ADJ_TAG = 'MCADJ1:'" },
+  { name: '#794g 微调面板按住看默认对比（删＝拖方向拿不准时无法快速对比调整前后）', file: 'js/personalize.js', needle: "holdBtn.addEventListener('pointerdown', holdOn)" },
+  { name: '#794h 恢复备份带屏幕偏移时点名提醒（删＝换机恢复把旧机的偏移带进本机且无提示）', file: 'js/data-backup.js', needle: 'screen-adj-(top|bottom|h|desk|shift|text|side)' },
+  { name: '#794i 微调面板打开即现场探测建议行（删＝面板回到纯手拖，诊断发现不主动送上门）', file: 'js/personalize.js', needle: 'window.mochiScreenFixSuggest ? window.mochiScreenFixSuggest() : []' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

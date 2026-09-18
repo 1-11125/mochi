@@ -2990,14 +2990,15 @@
 // （跨桌面共用——屏幕是设备属性，不随联系人走）。
 (function () {
   var PFX = 'xy-home-v2:';
-  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text' };
+  var KEYS = { top: 'screen-adj-top', bottom: 'screen-adj-bottom', h: 'screen-adj-h', desk: 'screen-adj-desk', shift: 'screen-adj-shift', text: 'screen-adj-text', side: 'screen-adj-side' };
   // #764 文字大小轴：只叠加在「文字组」字号上（display-tune.css 逐条 calc），范围 0~12px；其余偏移轴维持 ±80
-  var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12] };
+  // #794 左右安全边轴：曲面/瀑布屏内容贴边时两侧同时内收，单向 0~12px（在 .phone 既有 18px 横向内边距上叠加）
+  var RANGE = { top: [-80, 80], bottom: [-80, 80], h: [-80, 80], desk: [-60, 60], shift: [-60, 60], text: [0, 12], side: [0, 12] };
   function loadAdj(k) {
     try { var v = parseInt(localStorage.getItem(PFX + KEYS[k]), 10); var rg = RANGE[k] || [-80, 80];
       return (!isNaN(v) && v >= rg[0] && v <= rg[1]) ? v : 0; } catch (e) { return 0; }
   }
-  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text') };
+  var adj = { top: loadAdj('top'), bottom: loadAdj('bottom'), h: loadAdj('h'), desk: loadAdj('desk'), shift: loadAdj('shift'), text: loadAdj('text'), side: loadAdj('side') };
   var el = document.documentElement;
   var st = el.style;
   var NAMES = { '--mochi-safe-top': 'top', '--mochi-ios-h': 'h' };
@@ -3037,6 +3038,14 @@
       else if (origGet('--mochi-text-adj')) origRemove('--mochi-text-adj');
     } catch (e) {}
   }
+  // #794 左右安全边轴：独立写 --mochi-side-adj（base.css 的 .phone 五个形态块 padding 消费，
+  // 叠加在既有 18px 横向内边距上）；无人写基准，直接写偏移值，0=不写（回落默认 18px）
+  function applySide() {
+    try {
+      if (adj.side) origSet('--mochi-side-adj', adj.side + 'px');
+      else if (origGet('--mochi-side-adj')) origRemove('--mochi-side-adj');
+    } catch (e) {}
+  }
   function applyCached() {
     for (var n in base) {
       try { origSet(n, (base[n] + adj[NAMES[n]]) + 'px'); } catch (e) {}
@@ -3045,6 +3054,7 @@
     applyDesk();
     applyShift();
     applyText();
+    applySide();
   }
   st.setProperty = function (n, v) {
     n = String(n).toLowerCase();
@@ -3070,7 +3080,7 @@
   applyCached();
   // 设置页接线 API（personalize.js 面板用）：读当前偏移 / 设置并立即生效
   window.mochiScreenAdj = {
-    all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; },
+    all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text, side: adj.side }; },
     set: function (k, v) {
       if (!(k in adj)) return false;
       v = parseInt(v, 10);
