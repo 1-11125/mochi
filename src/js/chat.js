@@ -7395,19 +7395,31 @@ const k = ASK_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
 store.set(k, String((Number(store.get(k)) || 0) + 1));
 }
 // v3.15.x：TA 也会随机「向 Mochi 申请」心意币——金额与红包同款随机分布（genRpAmount），
-// 概率门读取存钱罐右上角设置的申请概率（默认 4%，不沿用红包七夕加成）；
-// v3.28.x：每日申请次数上限可设——存钱罐设置第四步写根键 piggy-coin-ask-limit（默认 0=不限）；
-// 入 TA 的 systemBalance，聊天留 askcoin 卡片
-function askDailyMax() {
-try { const v = parseInt((window.xyStore('xy-home-v2')).get('piggy-coin-ask-limit'), 10); if (isFinite(v) && v >= 0) return v; } catch (e) {}
+// 概率门读红包半框设置的申请概率（默认 4%，不沿用红包七夕加成）；
+// v3.29.x：概率与每日上限改为「每个联系人单独设」——红包半框「设置」写 cs-rp-ask-prob /
+// cs-rp-ask-daily-max（与自动发红包两行同域同口径）。该联系人没单独设过时回退旧的存钱罐
+// 全局根键（piggy-coin-prob.ask / piggy-coin-ask-limit），历史设置不丢。
+// 取值挂 window 供 chat-settings.js 复用，防两处默认值漂移。入 TA 的 systemBalance，聊天留 askcoin 卡片
+function rpAskProbRate() {
+let v = NaN;
+try { v = parseFloat(store.get('cs-rp-ask-prob')); } catch (e) {}
+if (isFinite(v)) return Math.max(0, Math.min(100, v)) / 100;
+try { const p = JSON.parse((window.xyStore('xy-home-v2')).get('piggy-coin-prob') || 'null'); if (p && typeof p.ask === 'number') return Math.max(0, Math.min(1, p.ask)); } catch (e) {}
+return 0.04;
+}
+function rpAskDailyMax() {
+let v = NaN;
+try { v = parseInt(store.get('cs-rp-ask-daily-max'), 10); } catch (e) {}
+if (isFinite(v) && v >= 0) return v;
+try { const g = parseInt((window.xyStore('xy-home-v2')).get('piggy-coin-ask-limit'), 10); if (isFinite(g) && g >= 0) return g; } catch (e) {}
 return 0;
 }
+window.rpAskProbRate = rpAskProbRate;
+window.rpAskDailyMax = rpAskDailyMax;
 function trySystemAskMochi() {
-const askMax = askDailyMax();
+const askMax = rpAskDailyMax();
 if (askMax > 0 && askDailyCount() >= askMax) return;
-let baseRate = 0.04;
-try { const p = JSON.parse((window.xyStore('xy-home-v2')).get('piggy-coin-prob') || 'null'); if (p && typeof p.ask === 'number') baseRate = p.ask; } catch (e) {}
-if (Math.random() >= baseRate) return;
+if (Math.random() >= rpAskProbRate()) return;
 const amtFen = genRpAmount(5200000);
 if (amtFen < 1) return;
 	askDailyIncr();

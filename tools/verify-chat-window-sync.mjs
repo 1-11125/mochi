@@ -205,12 +205,14 @@ const WIGGLE = `(function(){
   check('A2 系统提示消息只显示 1 条', a2 === 1, 'count=' + a2);
 
   // A3 互动卡片（ask-msg 引导条 + ask-card 卡片，ta-ask 同款注入方式）不双条
-  await evalJs(`window.chatAddSystem('TA想问你一个问题。',{special:'ask-msg'})`);
+  // 引导条文本必须自带夹具标记：产品文案「TA想问你一个问题。」由 ta-ask.js 随机询问注入，
+  // 撞进同一测试窗口就多出一条同文本的 ask-msg＝按文本计数的判据不成立（实测 tip=2 偶发红）。
+  await evalJs(`window.chatAddSystem('A3夹具引导条·勿改此文本',{special:'ask-msg'})`);
   await evalJs(`window.chatAddSystem('今晚吃什么好呢?',{special:'ask-card',askQuestion:'今晚吃什么好呢?',askOptions:null,askType:'text'})`);
   await sleep(500);
   await evalJs(WIGGLE);
   await sleep(500);
-  const a3a = await evalJs(countTextJs('TA想问你一个问题。'));
+  const a3a = await evalJs(countTextJs('A3夹具引导条·勿改此文本'));
   const a3b = await evalJs(countTextJs('今晚吃什么好呢?'));
   check('A3 互动卡片只显示 1 张（引导条+卡片）', a3a === 1 && a3b === 1, 'tip=' + a3a + ' card=' + a3b);
 

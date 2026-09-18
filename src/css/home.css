@@ -37,6 +37,18 @@
   background:rgba(255,255,255,var(--desk-bg-mask-op,0));
   border-radius:inherit;
 }
+/* #765d 桌面壁纸层提独立合成层（与聊天壁纸层 #cs-bg-layer 的 #765a 同构收口）：这层不参与任何
+   页面滚动，但不提层时它与 .statusbar/.phone-bg-mask/首页内容同属一个绘制层——桌面每次内容变化
+   （换壁纸透明度过渡之外，还有卡片重绘、时钟/倒计时 textContent 更新、图标重排）的失效区都会
+   波及它，引擎要把整张全屏 cover 位图重新缩放＋光栅一遍；开了「背景模糊」时更贵——下面 #240 那条
+   `filter:blur()` 落在非合成层上＝每次失效都在绘制阶段重跑一次全屏模糊。提层后 GPU 只在真正需要
+   时重采样，blur 结果缓存成纹理。
+   ⚠️ 更正 #240 注释里的假设：「壁纸层是 #147 常驻合成层」不成立——WebKit 只在 opacity 过渡**期间**
+   临时提层，过渡结束纹理即释放，静止态它就是普通非合成层；要常驻必须自带提升线索。
+   选 translateZ(0) 不选 will-change：老 WebKit 不认 will-change（与本文件 #690 老内核兜底同口径）；
+   也**不是** zoom / scale（AGENTS.md iOS 红线只禁缩放类 transform，平移零成本）。
+   代价＝一块全屏纹理内存（约 1.3MB），只在设了桌面壁纸时存在（未设时该层 opacity:0 且无背景图）。 */
+#phone-bg-layer { transform:translateZ(0); }
 /* FIX 2026-09-07 #240：模糊载体从 mask 的 backdrop-filter 改为壁纸层自滤 filter。
    #219 提层后诊断样式全对（mask z2 + blur-on + backdrop computed 正确），但
    小米15Pro/Chrome 151 真机仍「模糊/遮罩调整无感」＝backdrop-filter 对 z1 兄弟

@@ -108,6 +108,27 @@ const css = readFileSync(join(root, 'src/css/home.css'), 'utf8');
 const js = readFileSync(join(root, 'src/js/personalize.js'), 'utf8');
 check('B7 静态锚：home.css 自滤规则+personalize.js 挂类', css.indexOf('.phone.desk-blur-on #phone-bg-layer') >= 0 && js.indexOf("classList.toggle('desk-blur-on', px > 0)") >= 0);
 
+// B8（#765d）壁纸层真被提成独立合成层，且提层不改几何/层序
+// （B5/B6 收尾时把 .desk-blur-on 与 --desk-bg-blur 关掉了，这里先恢复 blur 态，
+//   几何口径才与 B3 的「外扩 -24 ⇒ 390+48」一致）
+await page.evaluate(() => {
+  document.querySelector('.phone').classList.add('desk-blur-on');
+  document.documentElement.style.setProperty('--desk-bg-blur', '12px');
+});
+await page.waitForTimeout(300);
+const b8 = await page.evaluate(() => {
+  const l = document.getElementById('phone-bg-layer');
+  const cs = getComputedStyle(l);
+  const r = l.getBoundingClientRect();
+  return { transform: cs.transform, willChange: cs.willChange, top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), z: cs.zIndex };
+});
+check('B8 壁纸层 computed transform 已提层（非 none）且几何不变（外扩 -24、z1）', b8.transform !== 'none' && b8.top === -24 && b8.left === -24 && b8.z === '1' && b8.w === 390 + 48, JSON.stringify(b8));
+
+// B9（#765d）静态锚：src 与产物都在（产物形态＝minify 剥注释后的单行）
+const builtHtml = readFileSync(join(root, 'index.html'), 'utf8');
+check('B9a src/home.css 含提层声明', css.indexOf('#phone-bg-layer { transform:translateZ(0); }') >= 0);
+check('B9b 产物含提层声明', builtHtml.indexOf('#phone-bg-layer { transform:translateZ(0); }') >= 0);
+
 await browser.close();
 server.close();
 const pass = results.filter(Boolean).length;

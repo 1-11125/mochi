@@ -1678,6 +1678,11 @@ html.tablet #page-chat.cs-bg-fill #cs-bg-layer { min-height:100vh; min-height:10
   font-size:13px; font-weight:700; color:var(--ink);
   padding:6px 2px 10px; letter-spacing:.3px;
 }
+/* 红包半框设置区分两组（自动发红包 / 申请心意币）：第二组起加分隔线上间距 */
+.rp-settings-title ~ .rp-settings-title {
+  margin-top:10px; padding-top:12px;
+  border-top:1px solid var(--card-border,rgba(0,0,0,.08));
+}
 .rp-settings .set-row {
   background:rgba(0,0,0,.03); border-radius:14px; margin-bottom:8px; border-bottom:none;
 }

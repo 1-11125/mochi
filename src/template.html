@@ -2292,7 +2292,7 @@
           <div class="lic-li">发出的红包约 80% 概率被领取并致谢，24 小时未领取自动退回；长按可退回待领红包</div>
           <div class="lic-li">TA 平时也会主动发红包（每天最多 5 次），七夕更爱发大额</div>
           <div class="lic-li">余额不足也能照发照买：直接透支成负数不拦截，后续收红包 / 申请回正</div>
-          <div class="lic-li">「向 Mochi 申请心意币」：点击任意余额行弹出，可给我和 TA 双向充值入账；TA 也会随机向 Mochi 申请（每天最多 2 次）并在聊天留下记录</div>
+          <div class="lic-li">「向 Mochi 申请心意币」：点击任意余额行弹出，可给我和 TA 双向充值入账；TA 也会随机向 Mochi 申请并在聊天留下申请记录——申请概率与每日上限在聊天页红包的「设置」里按每个联系人单独调整（默认 4%、不限次数）</div>
           <div class="lic-li">心意市集：220+ 件默认商品分 12 类，支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
           <div class="lic-li">送礼给 TA：挑商品写心意留言送出，礼物卡片飞进聊天并同步存进心意柜；TA 每天 5% 概率主动从市集挑礼物回礼（最多 3 次）</div>
           <div class="lic-li">心意柜：收到 / 送出礼物册，「TA 送我的 / 我送 TA 的」分类翻看与统计</div>
@@ -5529,8 +5529,9 @@
             <button class="poke-card-close" id="chat-rp-close">✕</button>
           </div>
         </div>
-        <!-- v3.29.x：TA 自动发红包设置（原聊天设置页「红包」组移入红包半框，入口=头部「设置」按钮）。
-             每联系人独立：概率默认 4%（0-100%）、每日上限默认 5（0=不限）；
+        <!-- v3.29.x：TA 自动发红包 / 自动申请心意币设置（原聊天设置页「红包」组移入红包半框，入口=头部「设置」按钮）。
+             每联系人独立：发红包概率默认 4%（0-100%）、每日上限默认 5（0=不限）；申请概率默认 4%、申请上限默认 0=不限，
+             申请两项（cs-rp-ask-prob / cs-rp-ask-daily-max）由 chat.js trySystemAskMochi 读，未单独设过时回退旧的存钱罐全局根键；
              chat.js trySystemAutoSend 读 cs-rp-auto-prob / cs-rp-daily-max -->
         <div class="rp-settings" id="rp-settings" hidden>
           <div class="rp-settings-title">TA 自动发红包</div>
@@ -5541,6 +5542,15 @@
           <div class="set-row" id="cs-rp-daily-max">
             <div class="txt">TA 每日发红包上限<span class="sub">联系人每天最多主动发红包的次数，填 0 表示不限制</span></div>
             <div class="val" id="cs-rp-daily-max-val">5 次</div>
+          </div>
+          <div class="rp-settings-title">TA 申请心意币</div>
+          <div class="set-row" id="cs-rp-ask-prob">
+            <div class="txt">TA 申请心意币概率<span class="sub">联系人有概率向 Mochi 申请一笔心意币（记进聊天申请记录），每个联系人可单独设置</span></div>
+            <div class="val" id="cs-rp-ask-prob-val">4%</div>
+          </div>
+          <div class="set-row" id="cs-rp-ask-daily-max">
+            <div class="txt">TA 每日申请上限<span class="sub">联系人每天最多申请心意币的次数，填 0 表示不限制</span></div>
+            <div class="val" id="cs-rp-ask-daily-max-val">不限</div>
           </div>
           <button class="rp-send rp-settings-done" id="rp-settings-done" type="button">完成</button>
         </div>

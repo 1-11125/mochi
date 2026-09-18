@@ -219,6 +219,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-18 #765 iOS 卡顿收口（壁纸层提合成层 + 贴底看门狗滚动期让路）====
   { name: '#765a 聊天壁纸层独立成合成层（删掉＝聊天页内容变化波及壁纸层，整张 cover 位图被重新缩放光栅，「设了壁纸后滚动/发消息发涩」复发；needle=该行整体，chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '#cs-bg-layer { transform:translateZ(0); }' },
   { name: '#765b 贴底看门狗滚动期让路（删掉＝iOS 抬手后惯性滑行期仍被写 scrollTop，#716「往上滑被拽回底部」的 iPhone 残根回流；needle=200ms 让路判定行，chat.js 内唯一）', file: 'js/chat.js', needle: 'if (Date.now() - _chatScrollActTs < 200) return;' },
+  { name: '#765d 桌面壁纸层独立成合成层（删掉＝桌面每次内容变化连带把全屏壁纸重新缩放光栅，且 #240 那条全屏 filter:blur 落在非合成层上每次失效重跑——「开了背景模糊的机型桌面发涩」复发；needle=该行整体，home.css 内唯一）', file: 'css/home.css', needle: '#phone-bg-layer { transform:translateZ(0); }' },
   // ==== 2026-09-17 #697 群聊设置「美化聊天」升成独立顶部 tag + 完整美化（含边看边调）====
   // 用户：「你要设置里的美化聊天功能没有在顶部变成单独tag，而且没有和聊天里一样的，完整的美化
   // 功能包括边看边调功能。」（确认＝群聊设置面板）

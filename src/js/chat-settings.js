@@ -2553,14 +2553,68 @@
       }, { maxlength: 2 });
     });
     document.addEventListener('contact-switched', rpMaxSync);
-    // v3.29.x：组合同步入口，供红包半框打开时一次刷新两个显示值（见上方 csRpSyncProb）。
-    if (typeof window !== 'undefined') {
-      window.csRpSyncMax = rpMaxSync;
-      window.csRpSettingsSync = function () {
-        try { if (window.csRpSyncProb) window.csRpSyncProb(); } catch (e) {}
-        try { if (window.csRpSyncMax) window.csRpSyncMax(); } catch (e) {}
-      };
-    }
+    // v3.29.x：组合同步入口统一在下方申请两行之后定义（一次刷新四行），此处只挂各自入口。
+    if (typeof window !== 'undefined') window.csRpSyncMax = rpMaxSync;
+  }
+
+  // v3.29.x：TA 申请心意币的概率 / 每日上限——原来藏在存钱罐「心意币存钱」右上角设置的全局两项，
+  // 移到红包半框「设置」里按联系人单独设（与自动发红包两行同入口）。显示值复用 chat.js 挂出的
+  // window.rpAskProbRate / window.rpAskDailyMax（内含「本联系人没单独设过 → 回退旧存钱罐全局根键」
+  // 的默认口径），本文件只负责写入当前联系人命名空间，消费方是 chat.js trySystemAskMochi。
+  const csRpAskProb = row('cs-rp-ask-prob');
+  if (csRpAskProb) {
+    const rpAskProbGet = () => {
+      let r = 0.04; try { if (window.rpAskProbRate) r = window.rpAskProbRate(); } catch (e) {}
+      return Math.max(0, Math.min(100, Math.round(r * 100)));
+    };
+    const rpAskProbSync = () => { const el = document.getElementById('cs-rp-ask-prob-val'); if (el) el.textContent = rpAskProbGet() + '%'; };
+    rpAskProbSync();
+    csRpAskProb.addEventListener('click', () => {
+      if (!window.openModal) return;
+      window.openModal('TA 申请心意币概率（0-100%·每联系人独立）', String(rpAskProbGet()), (v) => {
+        let n = parseFloat(String(v || '').trim());
+        if (!isFinite(n)) n = 4;
+        n = Math.max(0, Math.min(100, Math.round(n)));
+        store.set('cs-rp-ask-prob', String(n));
+        rpAskProbSync();
+        toast('已设置：TA 申请心意币概率为 ' + n + '%');
+      }, { maxlength: 3 });
+    });
+    document.addEventListener('contact-switched', rpAskProbSync);
+    if (typeof window !== 'undefined') window.csRpSyncAskProb = rpAskProbSync;
+  }
+
+  const csRpAskMax = row('cs-rp-ask-daily-max');
+  if (csRpAskMax) {
+    const rpAskMaxGet = () => {
+      let v = 0; try { if (window.rpAskDailyMax) v = window.rpAskDailyMax(); } catch (e) {}
+      return (isFinite(v) && v >= 0) ? v : 0;
+    };
+    const rpAskMaxSync = () => { const el = document.getElementById('cs-rp-ask-daily-max-val'); if (el) el.textContent = rpAskMaxGet() === 0 ? '不限' : rpAskMaxGet() + ' 次'; };
+    rpAskMaxSync();
+    csRpAskMax.addEventListener('click', () => {
+      if (!window.openModal) return;
+      window.openModal('TA 每日申请心意币上限（0-99 次·0=不限）', String(rpAskMaxGet()), (v) => {
+        let n = parseInt(String(v || '').trim(), 10);
+        if (!isFinite(n)) n = 0;
+        n = Math.max(0, Math.min(99, n));
+        store.set('cs-rp-ask-daily-max', String(n));
+        rpAskMaxSync();
+        toast(n === 0 ? '已设置：TA 申请心意币不限次数' : '已设置：TA 每天最多申请 ' + n + ' 次');
+      }, { maxlength: 2 });
+    });
+    document.addEventListener('contact-switched', rpAskMaxSync);
+    if (typeof window !== 'undefined') window.csRpSyncAskMax = rpAskMaxSync;
+  }
+
+  // 红包半框打开时一次刷新四行显示值（chat.js openRpSettings 调用 window.csRpSettingsSync）
+  if (typeof window !== 'undefined') {
+    window.csRpSettingsSync = function () {
+      try { if (window.csRpSyncProb) window.csRpSyncProb(); } catch (e) {}
+      try { if (window.csRpSyncMax) window.csRpSyncMax(); } catch (e) {}
+      try { if (window.csRpSyncAskProb) window.csRpSyncAskProb(); } catch (e) {}
+      try { if (window.csRpSyncAskMax) window.csRpSyncAskMax(); } catch (e) {}
+    };
   }
 
   // v3.12.x：「隐藏联系人的表情包」开关——默认关闭，全局生效（存根命名空间，与
