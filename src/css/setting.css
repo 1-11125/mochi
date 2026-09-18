@@ -184,6 +184,10 @@
 .ppy-chip .ppy-x { font-style:normal; margin-left:5px; padding:0 1px; opacity:.5; }
 .ppy-chip.sel .ppy-x, .ppy-chip.sel:hover .ppy-x { opacity:.85; }
 .ppy-chips .ppy-chip#ppy-add { border-style:dashed; }
+/* FIX 2026-09-18 #727：`.gs-row{display:flex}` 会压过 UA 的 `[hidden]{display:none}`
+   （同款坑已见 chat-main.css .poke-tools / chat-pages.css .cc-tab / setting.css .storage-clear）
+   ——「标识抽取方式」行靠 hidden 切换显隐（点亮 ≥2 枚才出），不补这条会永远显示。 */
+.gs-row[hidden] { display:none; }
 /* v3.33.x #523：时间入口按钮 + 自绘日期/时间选择器（替代原生 datetime-local——原生弹层在部分
    设备/桌面预览下锚点不受控、会飘出手机框甚至屏幕外。同类先例：批量导入的目标分组原生 select 改自绘胶囊） */
 .deadline-btn {

@@ -633,7 +633,7 @@
     // display:none 的 file input 程序化 click() 可能静默不弹选择器（点了没反应），与
     // chat-settings.js headInput 同款 offscreen 样式。input 仍常驻挂 body、onchange 里清
     // value，行为面不变。
-    input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+    input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;'; // FIX 2026-09-18 #738：sr-only clip 写法（原 offscreen+opacity:0），原生 label 兜底见下
     document.body.appendChild(input);
     input.onchange = () => {
       const files = Array.prototype.slice.call(input.files || []);
@@ -680,8 +680,12 @@
       }
     };
     // FIX 2026-09-18 #717：click 失败不再静默——部分机型上 click() 被策略拦截/抛错时给可见提示
-    btn.addEventListener('click', () => {
-      try { input.click(); } catch (e) { toast('无法打开相册，请重试'); }
+    // FIX 2026-09-18 #738：原生 label 激活兜底——小米 MiuiBrowser 等对 JS 合成 click() 仍静默
+    // 不弹选择器（#717 修复后小米17 Pro 实报）；透明 label 铺满按钮、内核原生转发激活 input
+    if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, input);
+    btn.addEventListener('click', (e) => {
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
+      try { input.click(); } catch (err) { toast('无法打开相册，请重试'); }
     });
   }
   bindPoolUpload(avUpload, getLib, saveLib, () => { renderGrid(); syncVal(); });

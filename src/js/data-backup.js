@@ -323,7 +323,8 @@
   // 其余设置/字卡/音乐全部跳过，体积最小、用来快速保住最不可再生的聊天记录。
   // v3.36.x #582：锚点收严为「行首或冒号紧跟 chat-msgs」——旧的 /:?chat-msgs$/ 靠子串命中，
   // 顺带把 group-chat-msgs 也吞进来（群聊靠下面的 GROUP_CHAT_KEY_RE 显式收，语义不变、不再靠巧合）。
-  const CHAT_KEY_RE = /(?:^|:)chat-msgs$/;
+  // #722：分块格式——大历史基准包拆成 chat-blk-<seq> 块键 + chat-blk-idx 索引，导出/导入必须成对带上
+  const CHAT_KEY_RE = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+)$/;
   // v3.36.x #582：群聊消息键（全局键，不随联系人桌面切换）——默认群 xy-home-v2:group-chat-msgs、
   // 自定义群 xy-home-v2:gc-msgs-<gid>（键名见 group-chat.js groupMsgKey）。群聊记录同属「聊天记录」，
   // 导出与导入必须成对带上：只导不导回＝恢复后群聊全空，只导不入文件＝清库/换机后群聊记录直接蒸发。
@@ -332,7 +333,7 @@
   // v3.36.x #582：权威键＝IndexedDB 是完整权威值、localStorage 只是「有损小快照」（chat.js 的
   // ≤2MB 副本会剥图/截断，也可能干脆没写）。导出与体积预估都必须取 IDB 值——绝不能因为「LS 里
   // 已经收了这个小键」就把 IDB 值跳过（旧预估正是这么做的，实测把整个聊天记录的体积算成 0）。
-  function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); }
+  function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || /:chat-blk-(?:idx|[0-9]+)$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); } // #722：块键是 IDB 权威（LS 无副本）
   // v3.36.x #582：#142 媒体池令牌化后，聊天里的图片/语音本体存在池键 xy-home-v2:media:<hash32>，
   // 消息体只留 @@m:<hash> 引用。「仅聊天记录」必须把消息实际引用到的池条目一并打包——否则备份在
   // 原设备上看不出问题（池还在），换机/清库恢复后图片语音全空（令牌失配），而用户以为「聊天都备了」。
@@ -1650,6 +1651,16 @@
   function writeDeskChat(cid, arr) {
     const key = 'xy-home-v2:' + cid;
     clearDeskTail(cid);
+    // #722：目标桌面旧分块键一并清（blk-idx 残留＝读侧继续用旧块、刚导入的整包被遮蔽）
+    try {
+      if (window.idbListKeys && window.idbDelete) {
+        window.idbListKeys().then(function (keys) {
+          (keys || []).forEach(function (k) {
+            if (typeof k === 'string' && k.indexOf(key + ':chat-blk-') === 0) { try { window.idbDelete(k); } catch (e2) {} }
+          });
+        }).catch(function () {});
+      } else { try { window.idbDelete && window.idbDelete(key + ':chat-blk-idx'); } catch (e2) {} }
+    } catch (e) {}
     let seq = Promise.resolve();
     if (window.idbSet) {
       seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
@@ -1700,6 +1711,31 @@
       // 各桌面 chat-msgs（含默认桌面旧顶层键 xy-home-v2:chat-msgs）
       const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;
       const mediaKeyRe = /^xy-home-v2:media:/;
+      // #722 分块格式备份：把各桌面的 chat-blk-idx + chat-blk-<seq> 组装回整包，以旧键形态
+      // （<prefix>:chat-msgs）注入 idbObj——下游选择/预览/导入按旧键流转，零改动。缺任一块
+      // ＝组装失败宁可不导（绝不导出半份历史）。
+      try {
+        Object.keys(idbObj).forEach(function (k) {
+          if (!/:chat-blk-idx$/.test(k)) return;
+          let idx = null;
+          try { idx = typeof idbObj[k] === 'string' ? JSON.parse(idbObj[k]) : idbObj[k]; } catch (e) { return; }
+          if (!idx || !Array.isArray(idx.blocks) || !idx.blocks.length) return;
+          const prefix = k.slice(0, k.length - ':chat-blk-idx'.length);
+          let full = [];
+          for (let bi = 0; bi < idx.blocks.length; bi++) {
+            const rawB = idbObj[prefix + ':' + idx.blocks[bi].k];
+            let part = null;
+            try { part = typeof rawB === 'string' ? JSON.parse(rawB) : rawB; } catch (e) { return; }
+            if (!Array.isArray(part)) return;
+            full = full.concat(part);
+          }
+          const msgKey = prefix + ':chat-msgs';
+          const cur = idbObj[msgKey];
+          const curLen = typeof cur === 'string' ? cur.length : (Array.isArray(cur) ? -1 : -2);
+          if (cur === undefined || (curLen >= 0 && full.join('').length > curLen) || curLen === -1) idbObj[msgKey] = full;
+          try { if (lsObj[msgKey] === undefined) lsObj[msgKey] = full; } catch (e) {}
+        });
+      } catch (e) {}
       // 提取规则：LS 段优先（导出的 ls 段里 chat-msgs 存的也是 IDB 权威值——见 runExport 的
       // 权威键路由），IDB 段兜底同键
       const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};

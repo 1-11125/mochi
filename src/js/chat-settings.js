@@ -138,7 +138,42 @@
     { key: 'cs-input-inset', label: '底部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值上移、负值下移' }
   ];
   // #708：统一钳制（位置两项 min=-80 双向；其余项无 min 按 0 起单向上限）
+  // #731 聊天壁纸「铺满方式」：把写死的 cover 变成用户可选的一档。
+  // 默认档（'fill'）与历史行为逐字一致（background-size:cover + position:center），
+  // 未写盘设备零视觉变化；'tile' 是唯一改 background-repeat 的档。
+  const CS_BG_FITS = [
+    { label: '铺满裁剪', value: 'fill' },
+    { label: '完整显示', value: 'contain' },
+    { label: '平铺', value: 'tile' },
+    { label: '拉伸填满', value: 'stretch' }
+  ];
+  const CS_BG_FIT_DEFAULT = 'fill';
+  const csBgFit = () => {
+    const v = store.get('cs-bg-fit');
+    return CS_BG_FITS.some(f => f.value === v) ? v : CS_BG_FIT_DEFAULT;
+  };
+  // #731 壁纸延伸到顶栏/输入栏：壁纸画在 #page-chat 的边框盒上（含栏位 padding 区），
+  // 一直就在栏位底下；看不见是因为栏位自己画了半透明底色（--cs-*-opacity，默认 92%）。
+  // 打开＝给两个栏位底色挂上「0 不透明度」的内联变量把底色让开，壁纸自然透上来，
+  // 但存量 --cs-head/input-opacity 的自定义值原样保留（关掉即恢复，零数据改动）。
+  // 0 是经用户裁决的默认值——本开关默认关。
+  function applyChatBarInk() {
+    if (!chatPage) return;
+    const on = store.get('cs-bg-fullbars') === '1';
+    const bars = [['--cs-head-opacity', '--cs-head-opacity-ink'], ['--cs-input-opacity', '--cs-input-opacity-ink']];
+    bars.forEach(function (pair) {
+      if (on) chatPage.style.setProperty(pair[1], '0');
+      else chatPage.style.removeProperty(pair[1]);
+    });
+  }
   const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
+  // #728：标识 / 时间轴位置偏移的统一钳制 + 解析（±40px 双向，越界/非法一律回 0）
+  const OFFSET_MIN = -40, OFFSET_MAX = 40;
+  function clampOffset(raw) {
+    const n = Number(raw);
+    if (raw === null || raw === undefined || String(raw).trim() === '' || !Number.isFinite(n)) return 0;
+    return Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, Math.round(n)));
+  }
   function surfaceValue(item) {
     const raw = store.get(item.key);
     const n = raw === null || raw === undefined || String(raw).trim() === '' ? item.def : Number(raw);
@@ -148,11 +183,20 @@
   function surfaceArrow(v, posArrow, negArrow) {
     return v > 0 ? posArrow + v : v < 0 ? negArrow + (-v) : '0';
   }
+  // 生效值：让开壁纸时栏位底色为 0，否则取用户存的 --cs-*-opacity（默认 92）
+  function barOpacityInk(index) {
+    if (store.get('cs-bg-fullbars') === '1') return 0;
+    return surfaceValue(CHAT_SURFACE_SETTINGS[index]);
+  }
   function applyChatSurfaces(inBg, outBg) {
     if (!chatPage) return;
     const values = CHAT_SURFACE_SETTINGS.map(surfaceValue);
     CHAT_SURFACE_SETTINGS.forEach((item, i) => {
-      chatPage.style.setProperty('--' + item.key, item.unit === '%' ? values[i] / 100 : values[i] + 'px');
+      // #731：栏位不透明度在本元素上真正生效的是「让开壁纸」变量（未开时它就是原值），
+      // 逐项变量照旧写出（设置页滑杆与回显共用），只把栏位两项的写入值换成生效值。
+      const v = item.key === 'cs-head-opacity' ? barOpacityInk(0)
+        : item.key === 'cs-input-opacity' ? barOpacityInk(1) : values[i];
+      chatPage.style.setProperty('--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
     });
     // Keep opaque colors intact for the existing contrast guard; alpha affects only bubble paint.
     [['in', inBg], ['out', outBg]].forEach(([side, color]) => {
@@ -189,6 +233,16 @@
     // 时间轴颜色（默认黑/深色模式灰）
     const timeInk = store.get('cs-time-ink') || DEF.timeInk;
     root.style.setProperty('--msg-time-ink', timeInk);
+    // #728：标识 / 时间轴位置微调（自定义气泡 CSS 改了 padding 后硬编码偏移会失真）。
+    // 存 raw 数字串，未设置＝写 0px（与「未设置」视觉同值，且 calc 里能直接相加）。
+    const markDX = clampOffset(store.get('cs-mark-x'));
+    const markDY = clampOffset(store.get('cs-mark-y'));
+    root.style.setProperty('--msg-mark-x', markDX + 'px');
+    root.style.setProperty('--msg-mark-y', markDY + 'px');
+    const timeDX = clampOffset(store.get('cs-time-x'));
+    const timeDY = clampOffset(store.get('cs-time-y'));
+    root.style.setProperty('--msg-time-dx', timeDX + 'px');
+    root.style.setProperty('--msg-time-dy', timeDY + 'px');
     // 正在输入中颜色（默认灰）
     const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
     root.style.setProperty('--typing-ink', typingInk);
@@ -220,6 +274,10 @@
     TIME_STYLES.forEach(s => document.body.classList.remove('cs-time-' + s.value));
     if (ts !== 'under-av') document.body.classList.add('cs-time-' + ts);
     set('cs-time-style-val', tsLabel);
+    // #728：标识 / 时间轴位置微调回显（全 0 显示「默认」）
+    const fmtOff = (x, y) => (x === 0 && y === 0) ? '默认' : '左右 ' + x + ' / 上下 ' + y + 'px';
+    set('cs-mark-pos-val', fmtOff(markDX, markDY));
+    set('cs-time-pos-val', fmtOff(timeDX, timeDY));
     // 聊天壁纸：铺满整个聊天页
     // v3.6.x：值没变时不重写 style——applySettings 在每次进入聊天页时调用，
     // 反复重设 background-image（大图 dataURL）会让浏览器重新解码、触发重绘
@@ -236,14 +294,20 @@
       try { store.remove('cs-bg'); } catch (e) {}
       bg = null;
     }
+    // #731：铺满方式由 cs-bg-fit 决定（默认档与旧写死值逐字一致）。重复档位不再走
+    // 「backgroundImage 没变就整体跳过」——改档位时图没变但 size/repeat 必须重写。
     if (bg && chatPage) {
-      if (chatPage.style.backgroundImage !== 'url("' + bg + '")') {
-        chatPage.style.backgroundImage = 'url("' + bg + '")';
-        chatPage.style.backgroundSize = 'cover';
-        chatPage.style.backgroundPosition = 'center';
-      }
+      const fit = csBgFit();
+      if (chatPage.style.backgroundImage !== 'url("' + bg + '")') chatPage.style.backgroundImage = 'url("' + bg + '")';
+      chatPage.style.backgroundSize = fit === 'stretch' ? '100% 100%' : (fit === 'tile' ? 'auto' : fit);
+      chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
+      chatPage.style.backgroundPosition = 'center';
     } else if (chatPage && chatPage.style.backgroundImage) {
       chatPage.style.backgroundImage = '';
+      // 清壁纸时一并把铺满方式复位，避免留下 repeat/size 残影影响下一次上传的呈现
+      chatPage.style.backgroundSize = '';
+      chatPage.style.backgroundRepeat = '';
+      chatPage.style.backgroundPosition = '';
     }
     set('cs-font-size-val', fs);
     const pn = BUBBLE_SIZES.find(p => p.value === pad);
@@ -253,12 +317,22 @@
     set('cs-bg-val', bg ? '已设置' : '');
     // v3.27.x：回显带上图库张数（提示图库里有存货，点行可切换）
     try { const gl = csBgList(); if (gl.length) set('cs-bg-val', '已设置 · 库 ' + gl.length + ' 张'); } catch (e) {}
+    // #731：铺满方式回显（没壁纸时给「先上传壁纸」的提示，避免用户改了个看不见的档位）
+    const fitItem = CS_BG_FITS.filter(f => f.value === csBgFit())[0] || CS_BG_FITS[0];
+    set('cs-bg-fit-val', bg ? fitItem.label : '上传壁纸后生效');
+    set('cs-bg-fullbars-val', store.get('cs-bg-fullbars') === '1' ? '开 · 栏位透明' : '关 · 栏位盖住');
     const rm = document.getElementById('cs-bg-remove');
     if (rm) rm.hidden = !bg;
     _ensureBubbleContrast();
+    applyChatBarInk();
     applyChatSurfaces(inBg, outBg);
+    // #732：滑块值变化时同步刷新「气泡 CSS 强制生效层」——挂在这里是因为所有入口
+    // （设置页滑块 / 边看边调抽屉 / 导入美化方案）最终都走 applySettings()，
+    // 挂一处即全覆盖，不会漏入口。函数定义在下方 applyCss 段（函数声明提升，此处可调用）。
+    try { applyCssEnforce(); } catch (e) {}
   }
   window.applyChatSettings = applySettings;
+  window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
   applySettings();
   // v3.11.x：深色/浅色切换时重算默认配色（personalize.js 切换 html data-theme，
   // 这里监听属性变化即时重写内联变量，不用跨模块调用）
@@ -542,6 +616,41 @@
       applySettings();
     });
   }
+  // #731：壁纸铺满方式（四档）
+  const csBgFitRow = row('cs-bg-fit');
+  if (csBgFitRow) {
+    csBgFitRow.addEventListener('click', () => {
+      if (!window.openModal) return;
+      window.openModal('壁纸铺满方式', '', v => {
+        if (!CS_BG_FITS.some(f => f.value === v)) return;
+        try { store.set('cs-bg-fit', v); } catch (e) {}
+        applySettings();
+        if (!store.get('cs-bg')) toast('已记住：上传壁纸后就会按这个方式显示');
+      }, {
+        noInput: true,
+        pill: csBgFit(),
+        pills: CS_BG_FITS.map(f => ({ label: f.label, value: f.value }))
+      });
+    });
+  }
+  // #731：壁纸延伸到顶栏/输入栏（默认关——0 是用户裁决的默认值）
+  const csBgFullbarsRow = row('cs-bg-fullbars');
+  if (csBgFullbarsRow) {
+    csBgFullbarsRow.addEventListener('click', () => {
+      if (!window.openModal) return;
+      const on = store.get('cs-bg-fullbars') === '1';
+      window.openModal('壁纸延伸到顶栏 / 输入栏', '', v => {
+        if (v !== 'on' && v !== 'off') return;
+        try { store.set('cs-bg-fullbars', v === 'on' ? '1' : '0'); } catch (e) {}
+        applySettings();
+        toast(v === 'on' ? '已让开栏位底色：壁纸一直铺到屏幕上下边缘' : '已恢复：顶栏与输入栏照旧盖住壁纸');
+      }, {
+        noInput: true,
+        pill: on ? 'on' : 'off',
+        pills: [{ label: '开 · 让开栏位底色', value: 'on' }, { label: '关 · 保持默认', value: 'off' }]
+      });
+    });
+  }
 
   const csAvShape = row('cs-av-shape');
   if (csAvShape) {
@@ -576,6 +685,33 @@
       });
     });
   }
+  // #728：标识 / 时间轴位置微调（两行共用一套弹窗逻辑：左右 + 上下两个方向）
+  // 与顶栏/底栏位置同理，只是这两个是「气泡 CSS 改了尺寸后的补偿偏移」。
+  // 弹窗用 noInput 的 pills 无法表达连续值，这里走 openModal + 两步输入：
+  // 先用 pills 选方向组，再用手输数值——但两步弹窗体验差，改为**点行直接开「边看边调」抽屉的微调分区**
+  // （可拖着看效果），同时保持「数值可精确输入」：抽屉里 4 个滑块旁的数值可读，
+  // 精确输入走长按/双击行时的 openModal（下面实现）。
+  const csPosRow = (rowId, valId, label, xKey, yKey) => {
+    const el = row(rowId);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      if (!window.openModal) return;
+      const curX = clampOffset(store.get(xKey)), curY = clampOffset(store.get(yKey));
+      const show = () => (curX === 0 && curY === 0) ? '默认（0, 0）' : '左右 ' + curX + 'px / 上下 ' + curY + 'px';
+      window.openModal(label + '（' + show() + '）', '', (v) => {
+        // 支持「8,4」「8 4」两种写法：第一个数左右、第二个数上下；只填一个＝只改左右
+        const parts = String(v == null ? '' : v).split(/[\s,，/]+/).filter(s => s !== '');
+        if (!parts.length) return;
+        const nx = clampOffset(parts[0]);
+        const ny = parts.length > 1 ? clampOffset(parts[1]) : clampOffset(store.get(yKey));
+        try { store.set(xKey, String(nx)); store.set(yKey, String(ny)); } catch (e) {}
+        applySettings();
+        toast(label + '已保存：左右 ' + nx + 'px / 上下 ' + ny + 'px');
+      }, { placeholder: '左右,上下  例：8,-4（0 = 默认位置）' });
+    });
+  };
+  csPosRow('cs-mark-pos', 'cs-mark-pos-val', '主动发送标识位置', 'cs-mark-x', 'cs-mark-y');
+  csPosRow('cs-time-pos', 'cs-time-pos-val', '时间轴位置', 'cs-time-x', 'cs-time-y');
   // ================= 聊天专用昵称/头像（与桌面独立） =================
   // v3.8.x：聊天设置里编辑的昵称/头像只存 cs-lbl-*/cs-avatar-* 键，聊天页只读这套键；
   // 桌面 deco-widget 的 lbl-*/avatar-* 完全独立。未设时聊天页显示默认占位（TA/我 + 人形图标）。
@@ -611,7 +747,10 @@
   let headCb = null;
   const headInput = document.createElement('input');
   headInput.type = 'file'; headInput.accept = 'image/*';
-  headInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  headInput.id = 'cs-head-pick';
+  // FIX 2026-09-18 #738：offscreen+opacity:0 换标准 sr-only clip 写法；原生 label 兜底
+  // 见 device.js mochiFilePickLabel（小米浏览器对 JS 合成 click 静默不弹选择器，#717 后小米17 Pro 实报）。
+  headInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(headInput);
   headInput.onchange = () => {
     const f = headInput.files && headInput.files[0];
@@ -682,7 +821,9 @@
   }
   const csAp = row('cs-avatar-partner');
   if (csAp) {
-    csAp.addEventListener('click', () => {
+    if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
+    csAp.addEventListener('click', (e) => {
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
       pickHead(data => {
         store.set('cs-avatar-partner', data);
         applyProfile();
@@ -700,7 +841,9 @@
   }
   const csAu = row('cs-avatar-user');
   if (csAu) {
-    csAu.addEventListener('click', () => {
+    if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
+    csAu.addEventListener('click', (e) => {
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
       pickHead(data => {
         store.set('cs-avatar-user', data);
         applyProfile();
@@ -1168,6 +1311,38 @@
     } catch (e) {}
     return v;
   }
+  // ===== #732：滑块「强制生效层」 =====
+  // 为什么需要它：气泡透明度/圆角滑块只写 --cs-in-surface / --chat-bubble-radius 变量，
+  // 而用户自传的气泡 CSS 经 mochiMapBubbleCss 有三条注入路径全都压过这两个变量——
+  //   ① 纯声明（无 {}）→ wrap() 输出带 !important；② 认不出类名 → 整包兜底同样带 !important；
+  //   ③ 认得出类名 → 映射分支不带 !important，但 <style> 挂在 head 末尾、同特异性后胜。
+  // 用户报「我滑动了，但没有任何区别」就是这个原因（#725 只加了红字说明，未真正解决）。
+  // 策略（零回归关键）：只在用户「真的动过滑块」（当前值 ≠ 默认值）时才追加强制层，
+  // 没碰过滑块的人视觉完全不变；一旦动过就以滑块为准，压过上述三条路径。
+  // 选择器用 #page-chat + 双类 .msg-bubble.msg-bubble 提特异性，作用域钉在单聊，
+  // 不泄漏群聊（与 #536 同口径）。
+  function applyCssEnforce() {
+    const old = document.getElementById('cs-bubble-enforce');
+    if (old) old.remove();
+    const rules = [];
+    try {
+      const opItem = CHAT_SURFACE_SETTINGS.filter(s => s.key === 'cs-bubble-opacity')[0];
+      const op = opItem ? surfaceValue(opItem) : 100;
+      if (opItem && op !== opItem.def) {
+        rules.push('#page-chat .msg-in .msg-bubble.msg-bubble{background:var(--cs-in-surface)!important}');
+        rules.push('#page-chat .msg-out .msg-bubble.msg-bubble{background:var(--cs-out-surface)!important}');
+      }
+      const rad = store.get('cs-bubble-radius');
+      if (rad != null && String(rad).trim() !== '' && String(rad) !== BUBBLE_RADIUS_DEFAULT) {
+        rules.push('#page-chat .msg-bubble.msg-bubble{border-radius:var(--chat-bubble-radius,18px)!important}');
+      }
+    } catch (e) {}
+    if (!rules.length) return;
+    const st = document.createElement('style');
+    st.id = 'cs-bubble-enforce';
+    st.textContent = rules.join('');
+    document.head.appendChild(st);
+  }
   function applyCss() {
     const old = document.getElementById('cs-bubble-style');
     if (old) old.remove();
@@ -1234,7 +1409,9 @@
     'cs-bubble-radius', 'cs-av-shape', 'cs-time-style', 'cs-time-ink', 'cs-typing-ink',
     'cs-out-bg', 'cs-out-ink', 'cs-in-bg', 'cs-in-ink',
     'cs-send-bg', 'cs-send-ink', 'cs-send-show',
-    'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset'
+    'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset',
+    // #731：壁纸铺满方式 + 壁纸延伸到栏位（同一份美化方案应记住这两个观感开关）
+    'cs-bg-fit', 'cs-bg-fullbars'
   ];
   const getChatSchemes = () => {
     try { const a = JSON.parse(gStoreChat.get(CHAT_SCHEMES_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -2638,9 +2815,23 @@
         wrap.appendChild(paletteHost);
         wrap.appendChild(mkSlider('气泡透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[2]), v => setSurface(2, v), 0, 100, 1, '%'));
         wrap.appendChild(mkSlider('气泡圆角', () => (parseInt(store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT, 10) || 0), v => { try { store.set('cs-bubble-radius', v + 'px'); } catch (e) {} applySettings(); }, 0, 40, 1, 'px'));
+        // #732：气泡 CSS 冲突说明（原 #725 是红字「暂不生效」，方案已改）。现在两个滑块
+        // 强制生效（applyCssEnforce 用 ID 级特异性 + !important 回写），所以这里只说清
+        // 「谁赢」以及哪些声明会因此失效——不再是让用户自己去删 CSS 的坏消息。
+        try {
+          const cssTxt = String(store.get('cs-bubble-css') || '');
+          const hitBg = /(^|[^-\w])background(-color|-image)?\s*:/i.test(cssTxt);
+          const hitRa = /(^|[^-\w])border(-(top|bottom|left|right)){0,2}-radius\s*:/i.test(cssTxt);
+          if (hitBg || hitRa) {
+            const bits = [hitBg && '底色', hitRa && '圆角'].filter(Boolean).join('、');
+            const warn = mkNote('气泡 CSS 里写了' + bits + '声明，这两个滑块会覆盖它（其余声明如阴影、边框照常生效）；想完全按 CSS 来，就把对应声明删掉。');
+            warn.style.color = 'var(--muted,#999)';
+            wrap.appendChild(warn);
+          }
+        } catch (e) {}
         wrap.appendChild(mkPills('气泡字号', FONT_SIZES, () => store.get('cs-font-size') || '14px', v => { try { store.set('cs-font-size', v); } catch (e) {} applySettings(); }));
         wrap.appendChild(mkPills('气泡框大小', BUBBLE_SIZES, () => store.get('cs-bubble-size') || '11px 14px', v => { try { store.set('cs-bubble-size', v); } catch (e) {} applySettings(); }));
-        wrap.appendChild(mkNote('气泡透明度只调底色，文字始终清晰；自定义气泡 CSS 写了 background 时以 CSS 为准。'));
+        wrap.appendChild(mkNote('气泡透明度只调底色，文字始终清晰；自定义气泡 CSS 写了 background 时，滑块值优先（动过滑块即覆盖 CSS）。'));
         return wrap;
       } },
       { key: 'bar', label: '栏位', build: () => {
@@ -2650,6 +2841,17 @@
         wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
         wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px'));
         wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px'));
+        // #731：壁纸铺满方式 + 壁纸延伸到栏位（都在「栏位」区，改哪看哪）
+        wrap.appendChild(mkPills('壁纸铺满方式', CS_BG_FITS, csBgFit, v => {
+          try { store.set('cs-bg-fit', v); } catch (e) {}
+          applySettings();
+          if (!store.get('cs-bg')) toast('已记住：上传壁纸后就会按这个方式显示');
+        }));
+        wrap.appendChild(mkPills('壁纸延伸到栏位', [{ label: '开', value: 'on' }, { label: '关', value: 'off' }],
+          () => (store.get('cs-bg-fullbars') === '1' ? 'on' : 'off'), v => {
+            try { store.set('cs-bg-fullbars', v === 'on' ? '1' : '0'); } catch (e) {}
+            applySettings();
+          }));
         wrap.appendChild(mkGrid([
           mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
           mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
@@ -2707,7 +2909,7 @@
             applyCss();
           }, 160);
         });
-        wrap.appendChild(mkNote('气泡 CSS（边写边套用；写 background 会覆盖上面的气泡透明度）'));
+        wrap.appendChild(mkNote('气泡 CSS（边写边套用；写 background / border-radius 时，上方两个滑块动过则以滑块为准）'));
         wrap.appendChild(ta);
         wrap.appendChild(mkAct('清空气泡 CSS', () => {
           try { store.remove(CSS_KEY); } catch (e) {}
@@ -2727,6 +2929,28 @@
           setTimeout(() => { const r = document.getElementById('cs-bg-upload'); if (r) r.click(); }, 0);
         }));
         wrap.appendChild(mkNote('想逐项精调（含「同步到全部桌面」「恢复默认」等）回聊天设置→美化，点对应一行即可。'));
+        return wrap;
+      } },
+      // #728：标识 / 时间轴位置微调——用户上传自定义气泡 CSS 后气泡的 padding/尺寸变了，
+      // 标识（气泡左上角）与时间轴（气泡下方/外侧等）的硬编码偏移就跟着偏，甚至被气泡
+      // 边缘裁掉或压住文字。这里给四个偏移量（横向/纵向各一对），即拖即见。
+      // 默认全 0＝与改造前完全一致（CSS 侧是 calc(基准 + var(...))，var 未定义回退 0）。
+      { key: 'tune', label: '微调', build: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+        const setOff = (key, v) => { try { store.set(key, String(clampOffset(v))); } catch (e) {} applySettings(); };
+        wrap.appendChild(mkNote('气泡 CSS 改了气泡大小/内边距后，标识和时间轴的位置可能跟着偏——这里手动校准。0 = 默认位置'));
+        wrap.appendChild(mkSlider('标识 左右', () => clampOffset(store.get('cs-mark-x')), v => setOff('cs-mark-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+        wrap.appendChild(mkSlider('标识 上下', () => clampOffset(store.get('cs-mark-y')), v => setOff('cs-mark-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+        wrap.appendChild(mkSlider('时间轴 左右', () => clampOffset(store.get('cs-time-x')), v => setOff('cs-time-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+        wrap.appendChild(mkSlider('时间轴 上下', () => clampOffset(store.get('cs-time-y')), v => setOff('cs-time-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+        wrap.appendChild(mkAct('位置全部恢复默认', () => {
+          ['cs-mark-x', 'cs-mark-y', 'cs-time-x', 'cs-time-y'].forEach(k => { try { store.remove(k); } catch (e) {} });
+          applySettings();
+          renderSec('tune');
+          toast('标识与时间轴位置已恢复默认');
+        }));
+        wrap.appendChild(mkNote('左右：正值往右、负值往左；上下：正值往下、负值往上。时间轴要先在「字体 · 其他」里选好样式再调。'));
         return wrap;
       } }
     ];

@@ -96,7 +96,9 @@ console.log('【安卓路径】（OPPO R15 HeyTapBrowser 真实 UA）');
   })());
   ok('首样本 = 0（sin(0)，循环起点干净）', w.s[0] === 0, 's[0]=' + w.s[0]);
   ok('峰值幅度 ≈ 0.02（#260 恢复值，#190 降幅语义已由 18kHz 频率承接）', Math.abs(a.peakAmp - 0.02) < 0.0005, 'peak=' + a.peakAmp.toFixed(5));
-  ok('数字电平 amp×volume=0.001 > 0.00025（4 倍余量：跌破即后台冻结=保活失效，#260 根因）', a.peakAmp * 0.05 > 0.00025, (a.peakAmp * 0.05).toFixed(6));
+  // #724：基础档音量 0.05→KA_VOL_BASE=0.2（新内核 audible 判定再收紧＝K80「挂后台回来被刷新」
+  // 实报的电平余量加固）；amp×volume=0.004（-48dBFS），18kHz 频率继续扛物理不可闻
+  ok('数字电平 amp×volume=0.004 > 0.00025（16 倍余量：#724 KA_VOL_BASE 分级，跌破即后台冻结=保活失效）', a.peakAmp * 0.2 > 0.00025, (a.peakAmp * 0.2).toFixed(6));
   // 零样本只出现在波形过零附近（占比由幅度决定：安卓 ≈2%、iOS ≈0.5%，220Hz 旧版时代即如此）。
   // 本断言防的是「全零/大面积零=数字静音」形态，不是零样本归零
   ok('非零样本比例 > 95%（防「全零=数字静音」形态）', (() => { let nz = 0; for (let i = 0; i < w.s.length; i++) if (w.s[i] !== 0) nz++; return nz / w.s.length; })() > 0.95);
@@ -123,9 +125,12 @@ console.log('【#260 双锚与取证】（WebRTC 第二冻结豁免锚 + 后台�
 console.log('【播放元素】（保活机制载体，防文本级回归）');
 {
   ok('<audio> 循环 loop=true 仍在', /keepEl\.loop\s*=\s*true/.test(src));
-  // v3.44.x 保活音频可选后：默认静音音频仍是 0.05，自定义音频按 volume=1（kaCustomAudio ? 1 : 0.05）。
-  // 断言仍锚「默认音 0.05 未被顺手改」——低但非静音，近零音量会被 Chrome 无声节流。
-  ok('volume 默认档 = 0.05 未被改（kaCustomAudio ? 1 : 0.05）', /keepEl\.volume\s*=\s*kaCustomAudio\s*\?\s*1\s*:\s*0\.05\s*;/.test(src));
+  // v3.44.x 保活音频可选：自定义音频按 volume=1；#724 起默认静音音频基础档 KA_VOL_BASE=0.2
+  //（原 0.05——新内核 audible 判定收紧后豁免丢失＝后台整页冻结/丢弃，K80 实报）。断言锚
+  // 「分级常量在位 + 启动/恢复默认两处都吃 KA_VOL_BASE」——近零音量会被 Chrome 无声节流。
+  ok('#724 分级常量在位（KA_VOL_BASE=0.2 / KA_VOL_MAX=0.35）', /const KA_VOL_BASE = 0\.2, KA_VOL_MAX = 0\.35;/.test(src));
+  ok('启动 volume 走基础档（kaCustomAudio ? 1 : KA_VOL_BASE）', /keepEl\.volume\s*=\s*kaCustomAudio\s*\?\s*1\s*:\s*KA_VOL_BASE\s*;/.test(src));
+  ok('恢复默认音频同吃基础档（原硬编码 0.05 已收口）', !/keepAudio\.el\.volume = 0\.05;/.test(src) && /keepAudio\.el\.volume = KA_VOL_BASE;/.test(src));
   ok('媒体会话声明 playing 仍在（audible 豁免另一半）', /playbackState\s*=\s*'playing'/.test(src));
 }
 

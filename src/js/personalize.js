@@ -149,7 +149,10 @@
   let avatarPickCb = null;
   const avatarPickInput = document.createElement('input');
   avatarPickInput.type = 'file'; avatarPickInput.accept = 'image/*';
-  avatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  avatarPickInput.id = 'mochi-avatar-pick';
+  // FIX 2026-09-18 #738：offscreen+opacity:0 换标准 sr-only clip 写法——小米浏览器对不可见
+  // input 的激活更苛刻；clip 后命中区为零、不挡任何点击。原生 label 兜底见 device.js mochiFilePickLabel。
+  avatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(avatarPickInput);
   avatarPickInput.onchange = () => {
     const f = avatarPickInput.files && avatarPickInput.files[0];
@@ -170,8 +173,11 @@
     const box = document.getElementById(id);
     if (!box) return;
     applyAvatar(id, key);
+    // FIX 2026-09-18 #738：原生 label 激活兜底（小米浏览器对 JS 合成 click 静默不弹选择器）
+    if (window.mochiFilePickLabel) window.mochiFilePickLabel(box, avatarPickInput);
     box.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
       avatarPickCb = (data) => {
         const ring = box.querySelector('.ring');
         // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
@@ -9097,6 +9103,49 @@ try {
         row.classList.toggle('open');
       });
     }
+  })();
+
+  // ===== #726 卡顿自检·渲染层实测（设置→工具「卡顿自检」行）——与下方 #411 数据层一键优化互补：
+  // 10 秒 rAF 帧间隔现场实测（可去任意页面复现），报告含掉帧率/集中页/键盘期占比/本地数据画像，
+  // 报告走只读大弹窗（同功能诊断样式）。检测逻辑全在 perf-check.js，这里只做行接线/进度浮条/弹报告。
+  (function () {
+    const row = document.getElementById('row-perf-check');
+    if (!row || !window.mochiPerfCheck) return;
+    const sub = row.querySelector('.sub');
+    function echoLast() {
+      try {
+        const r = JSON.parse(localStorage.getItem(window.mochiPerfCheck.LAST_KEY) || 'null');
+        if (r && r.verdict && sub) sub.textContent = '上次：' + r.verdict + '（掉帧 ' + r.jankPct + '%）· ' + new Date(r.t).toLocaleString().replace(/^\d+\/\d+\/\d+\s*/, '');
+      } catch (e) {}
+    }
+    echoLast();
+    let bar = null;
+    function showBar(txt) {
+      try {
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.id = 'perf-check-bar';
+          bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+          document.body.appendChild(bar);
+        }
+        bar.textContent = txt;
+      } catch (e) {}
+    }
+    function hideBar() { try { if (bar && bar.parentNode) bar.parentNode.removeChild(bar); } catch (e) {} bar = null; }
+    row.addEventListener('click', function () {
+      if (!window.openModal || window.mochiPerfCheck.running()) return;
+      window.openModal('卡顿自检（渲染层实测）', '', function () {
+        // 点确定＝开始：弹窗即关，用户去任意页面正常操作 10 秒，底部浮条实时倒数，结束自动弹报告
+        window.mochiPerfCheck.start(10000, function (p) {
+          showBar('卡顿实测中…剩 ' + p.left + ' 秒｜已采 ' + p.frames + ' 帧，掉帧 ' + p.janky + '（可正常使用手机，去卡的地方操作）');
+        }).then(function (r) {
+          hideBar();
+          if (!r) return;
+          echoLast();
+          window.openModal('卡顿自检报告', r.text, null, { noInput: true, textarea: true, textareaRows: 16, big: true });
+        });
+      }, { staticText: '点「确定」开始 10 秒实测：期间正常使用手机（去感觉卡的地方滚动/操作），结束后自动弹出报告。采样只在本机进行、不上传数据。', noInput: true });
+    });
   })();
 
   // ===== v3.26.x #411：卡顿自检 · 一键优化（只优化不删除） =====

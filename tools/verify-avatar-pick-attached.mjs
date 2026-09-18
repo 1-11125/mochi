@@ -112,6 +112,7 @@ await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
         isFile: String(this.type).toLowerCase() === 'file',
         connected: !!this.isConnected,
         left: (this.style && this.style.left) || '',
+        clip: (this.style && this.style.clip) || '',
         display: (this.style && this.style.display) || ''
       });
     }catch(e){}
@@ -134,7 +135,10 @@ ok(base.fileN >= 1, 'P0 加载期已有常驻 file input（修复前头像三处
 await evalJs("(function(){var e=document.getElementById('avatar-partner');if(e)e.click();return true;})()");
 await sleep(300);
 const a1 = J(await evalJs(`(function(){var c=window.__fpick.clicks;var r=c[c.length-1];return JSON.stringify(r||{none:true});})()`));
-ok(a1.idx != null && a1.idx >= 0 && a1.idx < base.n && a1.isFile === true && a1.connected === true && a1.left === '-9999px' && a1.display !== 'none',
+// #739 起 offscreen(-9999px) 换标准 sr-only clip 写法：位置断言二选一（旧离屏 or 新 clip+opacity:1）
+const offOrSr = (r) => r.connected === true && r.display !== 'none' && (r.left === '-9999px' || (r.left === '0px' && String(r.clip).indexOf('rect') === 0));
+
+ok(a1.idx != null && a1.idx >= 0 && a1.idx < base.n && a1.isFile === true && offOrSr(a1),
   'A1 桌面头像点击走「常驻+挂文档+移出屏幕」选择器（旧实现＝点击时新建 detached input ⇒ 红米/真我 Edge 不弹、iOS 不派发 change）', JSON.stringify({ click: a1, base: base.n }));
 
 // A2 头像互动面板两个「添加头像」按钮：各自走常驻 offscreen 池选择器（id 按按钮唯一、可见形态非 display:none）
@@ -144,16 +148,16 @@ const a2a = J(await evalJs(`(function(){var c=window.__fpick.clicks;return JSON.
 await evalJs("(function(){var a=document.getElementById('avlib-me-upload');if(a)a.click();return true;})()");
 await sleep(250);
 const a2b = J(await evalJs(`(function(){var c=window.__fpick.clicks;return JSON.stringify(c[c.length-1]||{none:true});})()`));
-ok(a2a.id === 'avlib-upload-file-pick' && a2a.idx >= 0 && a2a.idx < base.n && a2a.isFile === true && a2a.connected === true && a2a.display !== 'none' && a2a.left === '-9999px',
+ok(a2a.id === 'avlib-upload-file-pick' && a2a.idx >= 0 && a2a.idx < base.n && a2a.isFile === true && offOrSr(a2a),
   'A2a 头像互动「添加头像」走常驻 offscreen 池选择器（旧实现 display:none ⇒ 老 WebView 点了没反应）', JSON.stringify(a2a));
-ok(a2b.id === 'avlib-me-upload-file-pick' && a2b.idx >= 0 && a2b.idx < base.n && a2b.isFile === true && a2b.connected === true && a2b.display !== 'none' && a2b.left === '-9999px' && a2b.idx !== a2a.idx,
+ok(a2b.id === 'avlib-me-upload-file-pick' && a2b.idx >= 0 && a2b.idx < base.n && a2b.isFile === true && offOrSr(a2b) && a2b.idx !== a2a.idx,
   'A2b 「添加我的头像」同样走自己的常驻 offscreen 池选择器（两池各自常驻、不随点按新建）', JSON.stringify({ a2a: a2a.idx, a2b: a2b.idx }));
 
 // A3 朋友圈头像（#feed-my-av）：常驻挂文档（旧实现点击时新建 detached input）
 await evalJs("(function(){var e=document.getElementById('feed-my-av');if(e)e.click();return true;})()");
 await sleep(300);
 const a3 = J(await evalJs(`(function(){var c=window.__fpick.clicks;return JSON.stringify(c[c.length-1]||{none:true});})()`));
-ok(a3.idx != null && a3.idx >= 0 && a3.idx < base.n && a3.isFile === true && a3.connected === true && a3.left === '-9999px' && a3.display !== 'none',
+ok(a3.idx != null && a3.idx >= 0 && a3.idx < base.n && a3.isFile === true && offOrSr(a3),
   'A3 朋友圈头像点击走「常驻+挂文档+移出屏幕」选择器（旧实现 detached）', JSON.stringify({ click: a3, base: base.n }));
 
 // A4 群聊头像 pickAvatarFile 是动态面板按钮（GUI 路径太深）→ 产物源断言：常驻挂文档初始化在位

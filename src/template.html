@@ -73,6 +73,15 @@
           <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
           <p><strong>二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。</strong>严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。</p>
         </div>
+        <!-- v3.26.x #738（用户 2026-09-18 小米17 Pro 自带浏览器直派「安卓不建议使用手机自带的浏览器，
+             可能会有很多兼容问题，这个开屏要在显眼的地方，要标红」）——红色警示卡置顶第二位（防倒卖卡之后）；
+             静态 DOM（data-browser-warn 标记，不占 data-anti-scam 命名空间、与 clock.js 看门狗认领不冲突），
+             在线 notice.json 覆盖只改公告列表，不影响此处；同章文案另见 notice.json「浏览器兼容提醒」节 -->
+        <div class="splash-alert splash-browser" data-browser-warn="1">
+          <div class="splash-alert-t">安卓用户 · 请勿使用手机自带浏览器</div>
+          <p><strong>安卓手机不建议使用自带浏览器打开本站（小米 / 华为 / OPPO / vivo / 荣耀 / 夸克等），自带浏览器兼容问题多。</strong>已实测出现：点导入 / 添加按钮没反应（系统相册弹不出来）、显示错位、卡顿等。</p>
+          <p>建议改用 <strong>Chrome 或 Edge 浏览器</strong>打开本站；或在浏览器菜单里「添加到主屏幕 / 安装应用」，之后从桌面图标进入。</p>
+        </div>
         <!-- v3.26.x：使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
              #611 后合并原「不是小手机 · 禁止扩圈」卡（去重，两卡同一主题）；静态 DOM（tag 'w' 非数字，
              与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处 -->
@@ -212,6 +221,18 @@
             <p class="splash-item">五根轴各管一种错位：顶部内容被状态栏遮挡/离太远→「顶部」；底部导航栏被手势条裁掉/悬空→「底部」；页面底部留白/内容超出→「页面高度」；全屏时桌面图标按钮整体偏上→「桌面图标区」；整页偏上/偏下导致顶部或底部被遮挡→「整体位移」。</p>
             <p class="splash-item">用法：面板里 − / + 步进（一次 ±2px）或点数值精确输入，改完立即生效、本机永久保存；「全部恢复默认」一键归零；每台设备各自调、互不影响、不随联系人走。</p>
             <p class="splash-item">建议先跑 设置 → 屏幕适配诊断 看差多少像素，再来填对应偏移；聊天页内还可配合聊天设置→美化 的「顶栏/底栏位置」滑杆单独微调。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">八、卡顿自检（卡不卡，10 秒实测）</p>
+            <p class="splash-item">新增「卡顿自检」：手机卡不卡不用靠感觉——设置 → 卡顿自检，点确定后正常去用 10 秒（去卡的地方滚动、操作都行），结束自动弹出实测报告。</p>
+            <p class="splash-item">报告包含：掉帧率与分级（流畅/轻度/中度/重度）、最慢一帧、掉帧集中在哪个页面、键盘弹出期占比、本地数据量画像，并给出对症建议；若查明是字卡库等数据过大，会指向旁边的「卡顿自检 · 一键优化」（不删数据）。</p>
+            <p class="splash-item">说明：不支持长任务观测的内核（如 iOS WebKit）用帧间隔等效判定；切后台/锁屏的时间自动剔除、不会误报成卡顿；采样只在本机进行，不上传任何数据。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">九、主动发送标识（不只有小爱心了）</p>
+            <p class="splash-item">TA 主动找你的消息，气泡左上角那个小标识以前固定是爱心，现在可以换、也可以自己加：设置 → 回复设置 → 聊天 → 主动发送（联系人找你）→「标识」。</p>
+            <p class="splash-item">内置五枚都能点亮（爱心 ♥ / 星星 ★ / 月亮 ☾ / 闪光 ✦ / 小爪 🐾），系统自带的只能开关、不能删除；点「＋」可以添加自己的标识，emoji 和文字都可以（最长 4 个字符、最多 8 个），自定义的点本体开关、点「×」删除。</p>
+            <p class="splash-item">点亮一枚＝每条主动消息都用它；点亮多枚＝多出「抽取方式」一行，可选「每次随机」或「按顺序轮换」。关掉「主动发送标识」总开关＝一枚都不显示（原来关掉爱心的效果）。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">关于使用过程中的更新提醒</p>
@@ -1614,6 +1635,14 @@
           <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
         </div>
+        <!-- #726：卡顿自检（渲染层实测）——与下方 #411「一键优化」（数据层）互补：
+             10 秒 rAF 帧间隔现场实测（可去任意页面复现），掉帧率/集中页/键盘期占比 + 对症建议；
+             后台/锁屏冻结帧自动剔除；数据只在本机。 -->
+        <div class="set-row" id="row-perf-check">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 12l4.5-4.5"/><path d="M21 12h-3"/></svg></div>
+          <div class="txt">卡顿自检<span class="sub">实测 10 秒帧率，给出掉帧率/集中页/建议；数据只在本机</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <!-- v3.26.x #411：卡顿自检 · 一键优化——字卡库数据过大（曾实测过公用库 40MB+ 的案例）是
              iOS/安卓间歇卡顿的常见原因之一，本行扫描分级 + 非破坏预热（取回挂起大键 + 令牌化回复池，不删数据） -->
         <div class="set-row" id="row-perf-optimize">
@@ -2181,7 +2210,7 @@
           <div class="lic-li">聊天可同时发送图文消息（表情包或上传图片），一条消息还能放多张图——我和 TA 都可以</div>
           <div class="lic-li">聊天可引用消息，引用可发送表情包 + 文字</div>
           <div class="lic-li">联系人可随机收藏我发送的消息；我也可以收藏联系方发送的消息</div>
-          <div class="lic-li">主动发送：TA 会主动找你，可调概率、间隔与免打扰</div>
+          <div class="lic-li">主动发送：TA 会主动找你，可调概率、间隔、免打扰与消息标识（内置五种 + 自定义）</div>
           <div class="lic-li">聊天里点击顶部栏联系人的头像可打开【寻踪 TA 的日常】页面</div>
           <div class="lic-li">聊天页面点击顶部栏联系人的昵称，可以让对方立即发送消息</div>
           <div class="lic-li">可搜索聊天记录并跳转到对应位置</div>
@@ -2589,7 +2618,7 @@
             <summary><span class="lg-num">29</span><span class="lg-name">回复设置</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
           <div class="lic-li">六面板 tab：聊天 / 群聊 / 信箱 / 朋友圈 / 查岗 / 其他，参数按联系人独立保存（群聊面板全局共用）</div>
-          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 爱心标识）</div>
+          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 标识可换可自定义）</div>
           <div class="lic-li">信箱：信件内容字卡条数、联系人主动写信（每天最多 / 概率 / 最短最长时间）、联系人回信（概率 / 最短最长时间）、写信内容类型</div>
           <div class="lic-li">朋友圈：互动设置（点赞 / 评论 / 回复概率及速度 / 回赞概率）、回复内容设置（多字卡概率 / 最多字卡数 / 表情包概率）、TA 发朋友圈设置（主动发概率 / 每天最多 / 冷却 / 间隔 / 字卡条数 / 内容类型）、清除所有朋友圈数据</div>
           <div class="lic-li">群聊：每个成员回复概率 / 速度 / 条数与各类附加行为概率，独立于主聊天设置</div>
@@ -2945,7 +2974,18 @@
             <div class="gs-row"><span>发送条数最多</span><div class="stepper" data-k="as-count-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">主动发送是 TA 自己找你，与上方「回复条数」无关：一次连发几条由这两项控制（默认 1~2 条），主动消息也不计入「回复条数」上限</div>
             <div class="gs-row"><span>免打扰（弱化主动发送）</span><label class="toggle"><input type="checkbox" id="dnd-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>主动发送爱心标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
+            <!-- v3.6.x：主动发送标识——联系人主动找你的消息气泡左上角小标识（原为固定小爱心）
+                 FIX 2026-09-18 #727 用户直派「联系人主动发送的消息，现在是小爱心的标识，
+                 帮我新增，可以用别的标识和自定义标识」：内置五枚（爱心/星星/月亮/闪光/小爪）
+                 可多选、只能开关不能删；点「＋」添加自定义标识（最长 4 字符、最多 8 个），
+                 自定义点「×」删除；点亮 ≥2 枚时出现「抽取方式」行（随机/轮换）。
+                 总开关关闭＝一枚都不显示（原「关掉爱心」语义）；池内全关兜底回爱心。
+                 标识池状态由 reply-settings.js #727 段渲染（asb-chips），
+                 渲染消费在 chat.js 主动发送标识分支（window.asBadgePool） -->
+            <div class="gs-row"><span>主动发送标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>标识</span><div class="ppy-chips" id="asb-chips"><span class="tag ppy-chip" data-k="as-badge-heart">♥</span><span class="tag ppy-chip" data-k="as-badge-star">★</span><span class="tag ppy-chip" data-k="as-badge-moon">☾</span><span class="tag ppy-chip" data-k="as-badge-spark">✦</span><span class="tag ppy-chip" data-k="as-badge-paw">🐾</span><span class="tag ppy-chip" id="asb-add" title="添加自定义标识">＋</span></div></div>
+            <div class="gs-row" id="asb-rand-row" hidden><span>抽取方式</span><span class="ppy-chips"><span class="tag ppy-chip" data-asbrand="1">每次随机</span><span class="tag ppy-chip" data-asbrand="0">按顺序轮换</span></span></div>
+            <div class="gs-sub">联系人主动找你的消息，气泡左上角会显示这里的标识（原来固定是爱心）。点亮想要的标识（可多选）：只点亮一枚＝每条主动消息都用它；点亮多枚＝按下方「抽取方式」随机抽一枚或按顺序轮换。系统自带的五枚只能开关、不能删除；点「＋」可添加自己的标识（最长 4 个字符、最多 8 个，emoji 也可以），自定义标识点本体开关、点「×」删除。关掉上方「主动发送标识」总开关＝不再显示任何标识</div>
           </div>
           <div class="gs-title">让对方继续说</div>
           <div class="set-group glass">
@@ -6280,6 +6320,16 @@
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
           <div class="txt">移除聊天壁纸</div>
         </div>
+        <div class="set-row" id="cs-bg-fit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/><path d="M3 9h2M19 9h2M3 15h2M19 15h2"/></svg></div>
+          <div class="txt">壁纸铺满方式<span class="sub">铺满裁剪（填满、可能被裁）/ 完整显示（全图不裁、可能留边）/ 平铺 / 拉伸填满</span></div>
+          <div class="val" id="cs-bg-fit-val">铺满裁剪</div>
+        </div>
+        <div class="set-row" id="cs-bg-fullbars">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 16h18" opacity=".55"/></svg></div>
+          <div class="txt">壁纸延伸到顶栏 / 输入栏<span class="sub">默认关：顶栏与输入栏有自己的底色会盖住壁纸；打开后让开底色，壁纸一直铺到屏幕上下边缘</span></div>
+          <div class="val" id="cs-bg-fullbars-val">关 · 栏位盖住</div>
+        </div>
       </div>
       <div class="gs-title">顶栏 / 底栏与气泡透明</div>
       <div class="set-group glass">
@@ -6329,6 +6379,20 @@
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
           <div class="txt">时间轴样式</div>
           <div class="val" id="cs-time-style-val">头像下方</div>
+        </div>
+        <!-- FIX 2026-09-18 #728：标识 / 时间轴位置微调——上传自定义气泡 CSS 后气泡尺寸与内边距
+             变了，标识（气泡左上角）与时间轴的默认位置会跟着偏，甚至被气泡边缘裁掉或压住文字。
+             两行各自点开是「左右 / 上下」两个方向的偏移（±40px，0=默认）；也可在
+             聊天设置→美化→「边看边调」抽屉的「微调」分区里拖着调、即时看效果。 -->
+        <div class="set-row" id="cs-mark-pos">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="txt">主动发送标识位置<span class="sub">气泡 CSS 改了气泡大小后标识偏移时，在这里校准</span></div>
+          <div class="val" id="cs-mark-pos-val">默认</div>
+        </div>
+        <div class="set-row" id="cs-time-pos">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 1.5M4 4l2 2"/></svg></div>
+          <div class="txt">时间轴位置<span class="sub">改过气泡大小/内边距后时间轴偏移时，在这里校准</span></div>
+          <div class="val" id="cs-time-pos-val">默认</div>
         </div>
       </div>
       <div class="gs-title">气泡颜色 / CSS</div>

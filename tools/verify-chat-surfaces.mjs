@@ -74,13 +74,51 @@ test('position controls reserve real flex space and support reverse direction', 
 });
 test('bar alpha supports dark theme and stays single-chat scoped', () => {
   assert(css.includes('[data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }'));
-  assert(css.includes('#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }'));
-  assert(css.includes('#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }'));
+  // #731：栏位底色改读「生效值」变量（--cs-*-opacity-ink 存在时优先，否则回落用户存的
+  // --cs-*-opacity，再回落 .92 默认）——三层链路缺任一层都会让「壁纸延伸到栏位」或
+  // 「栏位不透明度滑杆」其中之一失效，故整条 var 链一起锚。
+  assert(css.includes('#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))); }'));
+  assert(css.includes('#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))); }'));
 });
 test('sliders commit only on confirmation and protect contact changes', () => {
   const edit = source.slice(source.indexOf('  function editChatSurface('), source.indexOf('  function bindChatSurfaceGroup('));
   assert(edit.includes('if (window.activePrefix() !== cid) return;'));
   assert(!edit.includes('onChange:'));
   assert(edit.includes("{ label: '恢复默认', value: item.def }"));
+});
+// #731 壁纸铺满方式：默认档必须与历史写死值逐字一致（cover + center）
+test('wallpaper fit default matches legacy hardcoded value', () => {
+  assert(source.includes("const CS_BG_FIT_DEFAULT = 'fill';"));
+  assert(source.includes("{ label: '铺满裁剪', value: 'fill' }"));
+  for (const def of ["{ label: '完整显示', value: 'contain' }", "{ label: '平铺', value: 'tile' }", "{ label: '拉伸填满', value: 'stretch' }"]) assert(source.includes(def));
+  const bg = source.slice(source.indexOf("let bg = store.get('cs-bg');"));
+  assert(bg.includes("chatPage.style.backgroundSize = fit === 'stretch' ? '100% 100%' : (fit === 'tile' ? 'auto' : fit);"));
+  assert(bg.includes("chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';"));
+  assert(bg.includes("chatPage.style.backgroundPosition = 'center';"));
+});
+// #731 壁纸延伸到栏位：生效值语义必须双向（开=0，关=回落到用户自己的不透明度）
+test('bar ink variables let wallpaper through and preserve stored values', () => {
+  assert(source.includes('function barOpacityInk(index) {'));
+  assert(source.includes("if (store.get('cs-bg-fullbars') === '1') return 0;"));
+  assert(source.includes('return surfaceValue(CHAT_SURFACE_SETTINGS[index]);'));
+  assert(source.includes("chatPage.style.setProperty(pair[1], '0');"));
+  assert(source.includes('chatPage.style.removeProperty(pair[1]);'));
+  assert(css.includes('var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))'));
+  assert(css.includes('var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))'));
+});
+test('wallpaper fit and fullbar controls are reachable from both entries', () => {
+  assert.equal(template.split('id="cs-bg-fit"').length - 1, 1);
+  assert.equal(template.split('id="cs-bg-fullbars"').length - 1, 1);
+  assert(template.includes('id="cs-bg-fit-val"') && template.includes('id="cs-bg-fullbars-val"'));
+  assert(source.includes("const csBgFitRow = row('cs-bg-fit');"));
+  assert(source.includes("const csBgFullbarsRow = row('cs-bg-fullbars');"));
+  // 边看边调抽屉：两个控件都必须在「栏位」分区内
+  const barSec = source.slice(source.indexOf("{ key: 'bar', label: '栏位'"), source.indexOf("{ key: 'type', label: '字体 · 其他'"));
+  assert(barSec.includes("mkPills('壁纸铺满方式'"));
+  assert(barSec.includes("mkPills('壁纸延伸到栏位'"));
+});
+test('new wallpaper keys are carried by beauty schemes', () => {
+  const keys = source.match(/const CHAT_BEAUTY_KEYS = \[([\s\S]*?)\];/)[1];
+  for (const key of ['cs-bg-fit', 'cs-bg-fullbars']) assert(keys.includes("'" + key + "'"));
 });
 console.log(`${passed}/${passed} source and isolated-function checks passed (not a full UI test)`);

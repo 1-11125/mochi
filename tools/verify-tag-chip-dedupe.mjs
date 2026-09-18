@@ -2,6 +2,8 @@
 // 用户反馈：触发摸鱼抓包后，聊天里「抓包回应字卡一行 + [摸鱼抓包]标签行同文一行」内容重复。
 // 修复（chat.js v3.16.x）：renderMsg / 收藏视图渲染 mood 行时，label===正文 → 只留标签胶囊；
 // 真实情绪/心意/交流意图字卡 label≠正文不受影响。
+// #677：opts.tagExtra 附加来源 chip 与 opts.tag 并列（两枚同时渲染、持久化）。
+// #726：词典逐卡连发不再挂「多字卡回复」来源 chip（T9 真实链路）；单气泡拼字保持两枚并列（T10）。
 // 用法：node tools/verify-tag-chip-dedupe.mjs（自组装 src 页面，不依赖构建产物）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -199,12 +201,54 @@ await sleep(900);
 const t8 = await evalJs(chipsOf('多字卡并存正文'));
 check('T8 重进聊天后两枚 chip 随消息持久化仍在', t8 === '["词典拼字","多字卡回复"]', t8);
 
+// ===== #726 词典逐卡连发 不再挂「多字卡回复」来源 chip（走真实回复链路，不是造一条消息）=====
+// 用户报障：字卡 tag 出现「词典逐卡连发」时，错误的也显示了「多字卡回复」的 tag。
+// 根因：replyOnce 在 genOneReply 之后立刻取 pyMultiDrawn 挂 chip；词典拼字是「整条换血」——
+//   逐卡连发每条气泡只装一张词典卡、来源就是词典，那枚 chip 标的是已被丢弃的那次多字卡抽卡。
+// 断言：#726 逐卡连发批里任何一条气泡都不得出现「多字卡回复」；单气泡拼字（一条气泡多张卡，
+//   #693 用户口径「可同时出现」）保持两枚 chip 并列——两侧都测，防本批把 #693 一起收掉。
+const setReply = (obj) => evalJs('(function(){var o=' + JSON.stringify(obj) + ';for(var k in o){try{window.saveReplyCfg(k,o[k]);}catch(e){}}return true;})()');
+// 词典场景闸是 per-cid 键：聊天使用=开、聊天概率=100（否则拼字可能整条不触发、断言测的是「没发生」）
+await evalJs("(function(){try{var s=window.activeStore();if(s){s.set('dict-use-chat','1');s.set('dict-overall-chat','100');}}catch(e){}return true;})()");
+// py-prob=100 恒命中「多字卡回复」抽卡、py-min=py-max=2 → n>=2 必置位 pyMultiDrawn（＝修复前必挂 chip 的前置）
+// qs-prob=100 拼字恒命中；rc-prob=0 防撤回把气泡换成墓碑；cs-normal=0 → count=1、delay 300~1000ms
+await setReply({ 'py-en': 1, 'py-prob': 100, 'py-min': 2, 'py-max': 2, 'qs-en': 1, 'qs-prob': 100, 'rc-prob': 0, 'touch-prob': 0, 'rn-prob': 0 });
+await evalJs("(function(){window.maybeMusicRequest=null;window.tryTaMoodShare=function(){return null;};window.periodCheckCare=null;window.triggerEmotionChain=function(){return null;};window.callMaybeTrigger=null;window.maybeAutoGift=null;return true;})()");
+// 只贴一层 wrapper 强制拼字形态（one=true 单气泡 / false 逐卡连发），不动其它行为
+const forceSpellForm = (one) => evalJs("(function(){var o=window.quoteSpellPick;window.quoteSpellPick=function(c){var r=o?o(c):null;if(r&&r.segs)r.one=" + one + ";return r;};return true;})()");
+const inCount = () => evalJs("document.querySelectorAll('#chat-body .msg.msg-in').length");
+const chipsAfter = (n0) => evalJs(`(function(){
+  var all=[].slice.call(document.querySelectorAll('#chat-body .msg.msg-in'));
+  return JSON.stringify(all.slice(${n0}).map(function(x){
+    return [].map.call(x.querySelectorAll('.msg-mood-tag'),function(t){return t.textContent});
+  }));
+})()`);
+const rowsOf = (s) => { try { return JSON.parse(s) || []; } catch (e) { return []; } };
+
+await forceSpellForm(false);
+const n9 = await inCount();
+await evalJs('(function(){try{window.continueChat();}catch(e){}return true;})()');
+await sleep(7000);
+const t9 = await chipsAfter(n9);
+const t9rows = rowsOf(t9).filter(r => r.indexOf('词典逐卡连发') >= 0);
+check('T9a 真实链路发出词典逐卡连发批（≥1 条气泡带该 tag）', t9rows.length >= 1, t9);
+check('T9b 逐卡连发每条气泡只有「词典逐卡连发」一枚 chip，不出现「多字卡回复」', t9rows.length >= 1 && t9rows.every(r => r.length === 1 && r[0] === '词典逐卡连发'), t9);
+
+await forceSpellForm(true);
+const n10 = await inCount();
+await evalJs('(function(){try{window.continueChat();}catch(e){}return true;})()');
+await sleep(5000);
+const t10 = await chipsAfter(n10);
+const t10rows = rowsOf(t10).filter(r => r.indexOf('词典逐卡连发') < 0 && (r.indexOf('词典') >= 0 || r.indexOf('词典拼字') >= 0));
+check('T10 单气泡拼字仍并列两枚 chip（词典/词典拼字 ＋ 多字卡回复，#693 口径不回归）', t10rows.length === 1 && t10rows[0].length === 2 && t10rows[0].indexOf('多字卡回复') >= 0, t10);
+
 // 源码接线锚点：genOneReply 判定置位 + replyOnce 各分支挂 tag（防重写抹掉）
 check('S4 多字卡抽卡分支按 n>=2 置位判定', chatSrc.includes('if (n >= 2) pyMultiDrawn = true;'));
-check('S5 replyOnce 取用判定（词典/梦角换血不回冲）', chatSrc.includes('const pyMultiHit = pyMultiDrawn;'));
-check('S6 词典单气泡/梦角分支并列挂 tagExtra', (chatSrc.match(/tagExtra: pyMultiExtra,\r?\n/g) || []).length === 2 && chatSrc.includes('tagExtra: si === 0 ? pyMultiExtra : null,'));
+check('S5 replyOnce 取用判定（词典单气泡/梦角换血不回冲）', chatSrc.includes('const pyMultiHit = pyMultiDrawn;'));
+check('S6 词典单气泡/梦角分支并列挂 tagExtra（逐卡连发不挂见 S9）', (chatSrc.match(/tagExtra: pyMultiExtra,\r?\n/g) || []).length === 2 && !chatSrc.includes('tagExtra: si === 0 ? pyMultiExtra : null,'));
 check('S7 普通回复路径挂多字卡回复 tag', chatSrc.includes("tag: pyMultiHit ? '多字卡回复' : undefined"));
 check('S8 addIn 合并 opts.tag 与 opts.tagExtra 而非替换', chatSrc.includes('_tagMood ? _tagMood.concat(_tagExtra) : _tagExtra'));
+check('S9 #726 逐卡连发分支不再挂 tagExtra（改回在「词典逐卡连发」与 tagNoDup 之间插 tagExtra＝用户报障复发）', chatSrc.includes("tag: '词典逐卡连发',\n tagNoDup: true"));
 
 const errs = await evalJs('JSON.stringify(window.__jsErrors || [])');
 check('E1 全程无 JS 异常', errs === '[]', String(errs));

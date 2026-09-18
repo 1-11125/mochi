@@ -1288,8 +1288,11 @@ html.ios-cover-top .phone .statusbar {
    calc/:not 链时整条声明丢弃、回退原视口贴边（同改动前宽屏表现）；
    ≤900px 手机不进查询、零影响。 */
 @media (min-width: 901px) {
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .ver-update-bar { top: max(24px, 50vh - 422px); left: calc(50% - 195px); right: calc(50% - 195px); }
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-install, html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-ios-hint { right: calc(50% - 179px); bottom: calc(max(24px, 50vh - 422px) + 16px); }
+  /* #717：:not(.tablet) 排除平板——html.tablet 时 .phone=100vw 全宽铺满（无 390 外壳），
+     视口贴边即贴壳；不排除会把浮层锚到「幽灵外壳」挤到平板屏幕中央（iPad 横屏 1180×820
+     实测 vub 落 395..785、群设置整页仅 390 宽；iPad Pro 竖屏 1024 同命中） */
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .ver-update-bar { top: max(24px, 50vh - 422px); left: calc(50% - 195px); right: calc(50% - 195px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .pwa-install, html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .pwa-ios-hint { right: calc(50% - 179px); bottom: calc(max(24px, 50vh - 422px) + 16px); }
 }
 .ver-update-bar .vub-act {
   flex-shrink:0; padding:5px 14px; border-radius:99px;
@@ -1356,3 +1359,14 @@ img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height
    整页相对偏移，治「某些屏幕整体位置偏上/偏下导致顶部或底部被遮挡」。正=下移、负=上移。
    .phone 本就 position:relative（base.css 顶部主规则），top 位移不改文档流、无缩放（技术红线只禁 zoom/scale） */
 .phone { top: var(--mochi-shift-adj, 0px); }
+
+/* v3.26.x #738：安卓自带浏览器兼容警示卡——红色警示形态（同 #315b 免责卡先例，置顶第二位） */
+.splash-alert.splash-browser {
+  padding:13px 15px 14px 16px;
+  background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
+}
+.splash-alert.splash-browser .splash-alert-t { color:#c22b27; font-size:13px; letter-spacing:1px; }
+.splash-alert.splash-browser .splash-alert-t::before { background:#c22b27; }
+.splash-alert.splash-browser p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-browser strong { color:#c22b27; font-weight:800; }
+[data-theme="dark"] .splash-alert.splash-browser { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }

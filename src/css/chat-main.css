@@ -142,13 +142,30 @@
   position:absolute;
   /* v3.26.x：贴在气泡内部左上角（top:2px/left:4px），与默认 padding 11px/14px 配合
      落在气泡内边距阔围内不压文字。用户反馈「半溢出气泡外侧 -3px/-3px」会飞出气泡，改回气泡内。*/
-  top:2px; left:4px;
+  /* FIX 2026-09-18 #728：位置可微调——用户上传自定义气泡 CSS 后 padding 变了，硬编码
+     的 2px/4px 就偏了、甚至被气泡边缘裁掉/压住文字。改为「基准 + 偏移变量」叠加，
+     用户可在 聊天设置→美化→标识位置 或 边看边调→微调 里自己校准。
+     基线 2px/4px 原样保留＝未设置（--msg-mark-x/y 未定义时 calc 回退 0）零变化。 */
+  top:calc(2px + var(--msg-mark-y, 0px)); left:calc(4px + var(--msg-mark-x, 0px));
   width:10px; height:10px;
   color:#ff4d6a;
   pointer-events:none;
   z-index:5;
   display:block;
   /* v3.26.x：移除双层 drop-shadow 投影（白色发光+黑色投影）。浅色气泡上黑色投影呈灰色阴影，用户反馈删掉 */
+}
+/* FIX 2026-09-18 #727：主动发送标识的「文本形态」（内置星星/月亮/闪光/小爪 + 用户自定义标识）
+   与 .msg-hi-heart 同位置同语义（气泡内部左上角、不压文字）——爱心仍走 SVG，其余走文本节点。
+   字号取 9px 略小于爱心 10px（文本有自带行高留白，等宽会显得更大）；line-height:1 防撑高气泡。
+   #728：与爱心共用同一组偏移变量，两种形态一起校准（同一用户场景、不该分开调）。 */
+.msg-hi-mark {
+  position:absolute;
+  top:calc(2px + var(--msg-mark-y, 0px)); left:calc(4px + var(--msg-mark-x, 0px));
+  font-size:9px; line-height:1;
+  color:#ff4d6a;
+  pointer-events:none;
+  z-index:5;
+  display:block;
 }
 
 /* 澶村儚鍒楋細澶村儚 + 鏃堕棿杞达紙鏃堕棿鍦ㄥご鍍忓簳涓嬶級 */
@@ -166,31 +183,32 @@
 /* 姘旀场涓嬫柟锛氭椂闂翠粠澶村儚鍒楃Щ鍒版皵娉′笅娌匡紙缁濆瀹氫綅鐩稿娑堟伅琛岋紝琛屽唴鍙暀澶村儚锛?*/
 body.cs-time-under-bubble .msg { position:relative; }
 body.cs-time-under-bubble .msg-side .msg-time {
-  position:absolute; top:calc(100% + 3px); padding:2px 8px; border-radius:10px;
+  position:absolute; top:calc(100% + 3px + var(--msg-time-dy, 0px)); padding:2px 8px; border-radius:10px;
   background:rgba(0,0,0,.05); opacity:.6; letter-spacing:.3px; z-index:2;
 }
-body.cs-time-under-bubble .msg-in .msg-side .msg-time { right:0; }
-body.cs-time-under-bubble .msg-out .msg-side .msg-time { left:0; }
+body.cs-time-under-bubble .msg-in .msg-side .msg-time { right:calc(0px - var(--msg-time-dx, 0px)); }
+body.cs-time-under-bubble .msg-out .msg-side .msg-time { left:calc(0px + var(--msg-time-dx, 0px)); }
 /* 鏃堕棿姘旀场锛氬ご鍍忎笌鏃堕棿骞舵帓锛屾椂闂磋兌鍥婂湪澶村儚澶栦晶锛堣创杩戝睆骞曡竟涓€渚э級锛岀旱鍚戝眳涓?*/
 body.cs-time-bubble .msg-side { display:flex; flex-direction:row; align-items:center; gap:8px; }
 body.cs-time-bubble .msg-side .msg-time {
   padding:3px 8px; border-radius:10px; background:rgba(0,0,0,.05);
   opacity:.6; letter-spacing:.3px;
+  transform:translate(var(--msg-time-dx, 0px), var(--msg-time-dy, 0px));
 }
 /* 姘旀场澶栦晶鎮诞锛氬皬鑳跺泭娴湪姘旀场澶栦晶涓婅锛堣创杩戝睆骞曡竟閭ｄ竴瑙掞級 */
 body.cs-time-float .msg { position:relative; }
 body.cs-time-float .msg-side .msg-time {
-  position:absolute; top:-4px; padding:2px 8px; border-radius:10px;
+  position:absolute; top:calc(-4px + var(--msg-time-dy, 0px)); padding:2px 8px; border-radius:10px;
   background:rgba(0,0,0,.06); opacity:.65; letter-spacing:.3px; z-index:2;
 }
-body.cs-time-float .msg-in .msg-side .msg-time { right:-4px; }
-body.cs-time-float .msg-out .msg-side .msg-time { left:-4px; }
+body.cs-time-float .msg-in .msg-side .msg-time { right:calc(-4px - var(--msg-time-dx, 0px)); }
+body.cs-time-float .msg-out .msg-side .msg-time { left:calc(-4px + var(--msg-time-dx, 0px)); }
 /* 娑堟伅涓婃柟灞呬腑锛氭暣琛屾媺婊★紝鏃堕棿鑳跺泭灞呬腑鎮诞鍦ㄦ秷鎭笂鏂癸紙绫讳技绯荤粺鏃堕棿鍒嗛殧鏉★級 */
 body.cs-time-center .msg { position:relative; padding-top:18px; width:100%; max-width:100%; }
 body.cs-time-center .msg-in { justify-content:flex-start; }
 body.cs-time-center .msg-out { justify-content:flex-end; }
 body.cs-time-center .msg-side .msg-time {
-  position:absolute; top:0; left:50%; transform:translateX(-50%);
+  position:absolute; top:calc(0px + var(--msg-time-dy, 0px)); left:50%; transform:translateX(-50%) translateX(var(--msg-time-dx, 0px));
   padding:2px 10px; border-radius:10px; background:rgba(0,0,0,.05);
   opacity:.6; letter-spacing:.3px;
 }
@@ -514,8 +532,13 @@ html.force-mobile #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat { --cs-bar-rgb:255,255,255; }
 [data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
-#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }
-#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }
+/* #731：栏位底色读「生效值」变量（--cs-*-opacity-ink）——聊天美化「壁纸延伸到顶栏/输入栏」
+   打开时由 JS 把它写成 0，壁纸就从栏位底下透上来（壁纸本来就铺在 #page-chat 的边框盒上、
+   含栏位区）。未打开时该变量不存在，回落到 --cs-*-opacity（默认 .92）＝外观与改造前一致；
+   写法上保持「一律走 var(--cs-*-opacity-ink, var(--cs-*-opacity, .92))」，让 verify-chat-surfaces
+   的既有锚点与新开关共存（旧的「不透明度 0%」路径照旧生效）。 */
+#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))); }
+#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))); }
 #page-chat .msg-in .msg-bubble { background:var(--cs-in-surface, var(--msg-in-bg, #ffffff)); }
 #page-chat .msg-out .msg-bubble { background:var(--cs-out-surface, var(--msg-out-bg, #111111)); }
 
@@ -1444,7 +1467,9 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 /* ===== 瀹藉睆锛圥C 娴忚鍣ㄩ瑙堬紝>900px锛夛細閫氳瘽灏忔鏀惰繘 .phone 妯℃嫙妗?=====
    v3.10.x锛氭洿澶氬姛鑳介潰鏉?.poke-card 鍚勫姛鑳藉崐妗?琛ㄦ儏鍖呴潰鏉垮凡鍦ㄥ熀纭€瑙勫垯閲岀粺涓€鏀?   position:absolute锛堥敭鐩樺仠闈?+ 瀹藉睆閿氬畾涓€娆¤В鍐筹級锛屾澶勫彧鍓?.call-mini鈥斺€?   瀹冨熀纭€瑙勫垯浠嶆槸 fixed锛堟嫋鍔ㄥ畾浣嶅潗鏍囨寜瑙嗗彛璁＄畻锛岀湡鏈轰笉鍔級锛屽灞忎笅 .phone 鏄?   灞呬腑妯℃嫙妗嗭紝fixed 浼氶敋瀹氥€愭祻瑙堝櫒绐楀彛銆戞帀鍒版墜鏈烘澶栵紝鏁呬粎绐勫睆澶栨敼 absolute銆?   html:not(.force-mobile) 鎺掗櫎銆屾墜鏈轰吉瑁呮闈?UA銆嶅満鏅紙涓嶅姩鐪熸満琛屼负锛夈€?*/
 @media (min-width: 901px) {
-  html:not(.force-mobile) .call-mini {
+  /* #717：:not(.tablet)——平板 .phone=100vw 全宽铺满且原点=视口原点，fixed 与 JS 拖拽视口坐标
+     语义一致（大屏手机），不跟随 390 外壳 absolute 化 */
+  html:not(.force-mobile):not(.tablet) .call-mini {
     position:absolute;
   }
 }
@@ -1509,7 +1534,9 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
   padding:9px 14px; font-size:13px; font-weight:600;
   border:1px solid rgba(0,0,0,.12); border-radius:12px;
   background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
-  -webkit-tap-highlight-color:transparent; transition:all .15s ease;
+  -webkit-tap-highlight-color:transparent;
+  /* #722 transition:all 收敛为状态实际变化的属性（防未来布局属性被卷进逐帧 reflow，iOS 敏感） */
+  transition:background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
 }
 .rp-amt.sel { background:#111; color:#fff; border-color:#111; }
 .rp-amt:active { transform:translateY(1px); }
@@ -1679,16 +1706,25 @@ html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
   transition:opacity .15s ease, background .15s ease, border-color .15s ease;
 }
 .voice-rec-btn {
+  position:relative; /* #722 呼吸圈走伪元素 */
   border:1.5px solid rgba(0,0,0,.18); background:transparent; color:var(--ink);
 }
 .voice-rec-btn:active { opacity:.7; }
 .voice-rec-btn.rec {
   background:#e5484d; border-color:transparent; color:#fff;
-  animation:voiceRecPulse 1.15s ease-in-out infinite;
 }
-@keyframes voiceRecPulse {
-  0%,100% { box-shadow:0 0 0 0 rgba(229,72,77,.35); }
-  50% { box-shadow:0 0 0 7px rgba(229,72,77,0); }
+/* #722 iOS 去无限 box-shadow 动画（阴影插值每帧重绘不进合成器＝录音全程持续重绘面）：
+   红圈静态烘焙在 ::after 上，只动 transform/opacity 合成属性，视觉同为扩散淡出呼吸圈 */
+.voice-rec-btn.rec::after {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  box-shadow:0 0 0 5px rgba(229,72,77,.35);
+  opacity:0; pointer-events:none;
+  animation:voiceRecPulseRing 1.15s ease-in-out infinite;
+}
+@keyframes voiceRecPulseRing {
+  0% { transform:scale(1); opacity:0; }
+  30% { opacity:1; }
+  100% { transform:scale(1.35); opacity:0; }
 }
 .voice-send-big {
   /* border 同 rec 保持 1.5px（透明）：Chromium 对 basis 0% 的 flex 按钮，一方有 border

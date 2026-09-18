@@ -224,6 +224,18 @@
   100% { opacity:0; transform:translate(-50%, 10px); }
 }
 
+/* #724 多行长文案收纳（跨域声明：AI-B 修后台通知测试「字飞出黑色框」，用户直派）——
+   #cc-toast 原本无换行/限高约束：消息里的 \n 被 white-space:normal 折成空格、
+   十几行诊断挤成一坨超高胶囊＝黑框文字溢出观感。pre-line 按行渲染、限高裁剪兜底、
+   长 URL/长串强制断行；单行短提示观感不变（仍居中、胶囊形）。 */
+#cc-toast {
+  white-space:pre-line;
+  line-height:1.45;
+  max-height:min(60vh, 420px);
+  overflow:hidden;
+  overflow-wrap:break-word;
+}
+
 /* ===== 聊天默认字卡页 ===== */
 /* v3.7.x：iOS 性能优化——main 分类 4621 张 .cc-item.glass，.glass 的 box-shadow × 4621
    触发大量 paint、.cc-item 的 transform transition 让每卡成合成层候选，iOS Safari
@@ -2763,11 +2775,11 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
    html:not 链排除满屏形态（force-mobile/真全屏时 .phone=100vw，贴边即贴壳）；
    loc-full 四长手（同 #428 老内核兼容口径）。≤900px 手机不进查询、行为不变。 */
 @media (min-width: 901px) {
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .cc-manage-bar { left: calc(50% - 177px); right: calc(50% - 177px); bottom: calc(max(24px, 50vh - 422px) + 18px); }
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel.loc-full { top: max(24px, 50vh - 422px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); left: calc(50% - 195px); }
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .music-batch-bar { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
-  html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .sm-float { left: calc(50% - 183px); top: calc(max(24px, 50vh - 422px) + 80px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .cc-manage-bar { left: calc(50% - 177px); right: calc(50% - 177px); bottom: calc(max(24px, 50vh - 422px) + 18px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .loc-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .loc-panel.loc-full { top: max(24px, 50vh - 422px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); left: calc(50% - 195px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .music-batch-bar { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+  html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .sm-float { left: calc(50% - 183px); top: calc(max(24px, 50vh - 422px) + 80px); }
 }
 .sm-f-info { width:100%; min-width:0; padding-right:18px; }
 .sm-f-name {
@@ -3869,10 +3881,18 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .c4-land { animation:c4land .18s ease-out; }
 @keyframes c4land { 0% { transform:scale(1,1); } 45% { transform:scale(1.06,.88); } 100% { transform:scale(1,1); } }
 .c4-wincol::before { background:rgba(127,127,127,.06); }
-.c4-win { animation:c4win .9s ease-in-out infinite alternate; }
-@keyframes c4win {
-  from { filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
-  to { filter:brightness(1.25) drop-shadow(0 0 7px rgba(255,224,138,.9)); }
+/* #722 iOS 去无限 filter 动画（brightness/drop-shadow 插值每帧重绘不进合成器＝胜利态常驻重绘面）：
+   金晕+提亮烘焙在棋子 ::after 上，只动 opacity/transform 合成属性，视觉同为金光呼吸 */
+.c4-win::after {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  background:rgba(255,236,180,.30); /* 模拟 brightness(1.25) 提亮 */
+  box-shadow:0 0 7px 1px rgba(255,224,138,.9); /* 模拟金色 drop-shadow，静态烘焙 */
+  opacity:0; pointer-events:none; z-index:2;
+  animation:c4winGlow .9s ease-in-out infinite alternate;
+}
+@keyframes c4winGlow {
+  from { opacity:0; transform:scale(1); }
+  to { opacity:1; transform:scale(1.06); }
 }
 .c4-shake { animation:c4shake .26s ease-in-out; }
 @keyframes c4shake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-3px); } 50% { transform:translateX(3px); } 75% { transform:translateX(-2px); } }
@@ -3886,7 +3906,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 /* 弱动效偏好：落子/庆祝动画关闭（布局不受影响） */
 @media (prefers-reduced-motion: reduce) {
   .c4-disc { transition-duration:0s !important; }
-  .c4-land, .c4-win, .c4-shake { animation:none; }
+  .c4-land, .c4-win, .c4-win::after, .c4-shake { animation:none; }
 }
 
 /* ===== 合作扫雷（聊天页底部半框，复用 .poke-card 容器与 .pong-overlay 组件） ===== */
@@ -4096,11 +4116,17 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .fish-btn:disabled { opacity:.55; box-shadow:none; }
 .fish-btn[hidden] { display:none; }
 .fish-reel {
+  position:relative; /* #722 提亮层走伪元素 */
   background:linear-gradient(135deg,#f2994a,#e8683a);
   box-shadow:0 3px 8px rgba(232,104,58,.35);
-  animation:fishreelpulse 1s ease-in-out infinite;
 }
-@keyframes fishreelpulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.14); } }
+/* #722 iOS 去无限 brightness 动画（filter 插值每帧重绘不进合成器）：改白洗层 opacity 脉冲，视觉同为呼吸提亮 */
+.fish-reel::after {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  background:#fff; opacity:0; pointer-events:none;
+  animation:fishReelPulse 1s ease-in-out infinite;
+}
+@keyframes fishReelPulse { 0%,100% { opacity:0; } 50% { opacity:.14; } }
 
 /* 页签：今日收获 / 鱼图鉴 / TA送我的 */
 .fish-tabs { display:flex; gap:8px; padding:0 4px; }
@@ -4193,7 +4219,7 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 @media (prefers-reduced-motion: reduce) {
   .fish-water::before { animation:none; }
   .fish-bobber { animation:none !important; }
-  .fish-reel { animation:none; }
+  .fish-reel, .fish-reel::after { animation:none; } /* #722 同步伪层 */
   .fish-scene[data-mine="biting"] .fish-me .fish-rod,
   .fish-scene[data-ta="biting"] .fish-ta .fish-rod { animation:none; }
   .fish-splash { animation-duration:.01s; opacity:0; }

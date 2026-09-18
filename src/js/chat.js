@@ -67,6 +67,7 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：换桌面重新判定
+chatBlkResetState(); // #722：换桌面＝分块/热片/冷头状态全部复位（新桌面读自己的块或旧整包）
 sessionChangedIdx.clear();
 // FIX 2026-09-15 #489：切桌面即作废屏上渲染凭据——聊天 body 的旧 DOM 属于上个会话，
 // 切走期间记录可能被跨桌面补投递原地改写（如 问问TA/邀请TA 的 answered），同窗补丁只
@@ -203,10 +204,38 @@ try { localStorage.removeItem(prefix + ':' + CHAT_ARCH_KEY); } catch (e) {}
 }
 // 统一聊天历史落盘入口：能复用基准段就只写增量日志，否则整包重写基准包并清日志。
 // forceFull=true 强制整包（清空/导入/离页收口用，保证外部只读键方看到完整历史）。
+// FIX 2026-09-18 #722 聊天冷片懒读（#127b 落地）：整包基准包超 CHAT_BLK_MIN 时改为
+// 「分块直存」（<prefix>:chat-blk-<seq> 数组键 + <prefix>:chat-blk-idx 索引），读侧只读
+// 末尾热片（~2MB）即可开聊天，更早的块按需取回——41MB 级桌面进聊天从整读数秒降到几百毫秒。
+// 小历史（≤4MB）与旧格式读/写路径一字不变；chat-arch 增量日志语义不变（新消息仍追加日志）。
+// 块格式下「基准段」= 热片/全量内存（chatArchSetBaseline 照常登记），可复用就追加日志；
+// 不可复用（热片内有编辑/归一化变更）且头部冷块未并入内存时走「尾部块重写」（头块不动），
+// 内存已有全量（rebase/导入）则整组重分块。详见 chatBlkWriteFull/chatBlkRewriteTail。
 function persistChatHistory(prefix, arr, forceFull) {
 try {
 if (!window.idbSet) return;
 if (!Array.isArray(arr)) arr = [];
+if (chatBlkIdx) {
+// —— 分块格式在位 ——
+// forceFull 在分块格式下不再强制整组重写：blocks+log 本就是「外部可见的完整历史」，
+// 可复用就追加日志（否则每次切桌面的 chatConsolidate 都白付一次尾部块重写）；
+// 清空/导入走 chatBlkIdx 复位后的新写路径，不经过本分支。
+if (arr.length && chatArchBytes >= CHAT_ARCH_MIN_CKPT && chatArchReusable(prefix, arr)) {
+const base = chatArchRef.length;
+if (arr.length === base) { chatArchPurge(prefix); return; } // 与基准包全等，无增量
+const log = arr.slice(base);
+if (log.length <= CHAT_ARCH_MAX && msgsBytes(log) <= CHAT_ARCH_BYTES) {
+persistMsgsToIdb(prefix + ':' + CHAT_ARCH_KEY, log);
+return;
+}
+}
+if (!chatRebased) {
+chatBlkRewriteTail(prefix, arr); // 热片对齐尾部块重写（头部冷块不在内存也不需要；未 rebase 时内存绝不是全量，绝不能走整组重写=丢头部）
+return;
+}
+chatBlkWriteFull(prefix, arr); // 内存全量（rebase 后/导入）：整组重分块
+return;
+}
 if (!forceFull && arr.length && chatArchBytes >= CHAT_ARCH_MIN_CKPT && chatArchReusable(prefix, arr)) {
 const base = chatArchRef.length;
 if (arr.length === base) { chatArchPurge(prefix); return; } // 与基准包全等，无增量
@@ -216,10 +245,201 @@ persistMsgsToIdb(prefix + ':' + CHAT_ARCH_KEY, log);
 return;
 }
 }
+if (msgsBytes(arr) > CHAT_BLK_MIN) { chatBlkWriteFull(prefix, arr); return; } // #722 大历史直接分块，不再写整包
 persistMsgsToIdb(prefix + ':chat-msgs', arr);
 chatArchPurge(prefix);
 chatArchSetBaseline(prefix, arr);
 } catch (e) {}
+}
+// ===== #722 聊天冷片懒读：分块存储核心 =====
+// 存储形态（大历史才启用，阈值 CHAT_BLK_MIN=4MB）：
+//   <prefix>:chat-blk-<seq>  数组直存的「块」（每块 ≤CHAT_BLK_BYTES 浅估）
+//   <prefix>:chat-blk-idx    索引 {v:1, blocks:[{k,bytes,n}...], total, nextSeq}
+//   <prefix>:chat-msgs       旧整包键（分块后删除；旧格式读路径保持兼容）
+// 读侧：loadMsgs 先读 blk-idx，在位则只读「末尾热块」（≈2MB）+ chat-arch 日志回放＝开聊天；
+//   更早的块由 chatColdEnsureHydrated 后台逐块取回（chatColdHead 暂存），getChatMsgs 用
+//   head.concat(msgs) 永远返回完整历史（统计/导出/补投递等消费方零改动）。
+// 上滑到热片顶部时 chatRebaseCold 一次性把头并入 msgs 并位移窗口/草稿下标（此后内存全量）。
+const CHAT_BLK_MIN = 4 * 1024 * 1024;
+const CHAT_BLK_BYTES = 2 * 1024 * 1024;
+const CHAT_BLK_HOT_N = 300;      // 热片至少覆盖的条数（不足再往前多取一块）
+const CHAT_BLK_HOT_MAX = 2;      // 热片最多取的块数
+let chatBlkIdx = null;           // 在位标记（null=旧整包格式）
+let chatBlkTotal = 0;            // 全量条数（账本口径用，热片读时内存只有尾部）
+let chatBlkWriting = false;      // 分块写单飞闸（并发请求合并，收尾取最新）
+let chatBlkPending = null;       // 写期间到达的最新全量（收尾后补写）
+let chatHotFrom = 0;             // 热片覆盖的块下标起点（尾部重写时保留其前的头块）
+let chatColdHead = [];           // 已取回未并入 msgs 的头部消息（时间正序）
+let chatColdFrom = 0;            // 尚未取回的头块下标
+let chatColdDone = true;         // 头块是否已全部取回
+let chatColdHydrating = false;
+let chatRebased = false;         // 冷头是否已并入 msgs（此后内存=全量）
+let chatHotBaseN = 0;            // 热片装载时的条数（#722 分块格式下账本守卫的比对基准）
+function chatBlkResetState() {
+chatBlkIdx = null; chatBlkTotal = 0; chatHotFrom = 0; chatHotBaseN = 0;
+chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatColdHydrating = false; chatRebased = false;
+}
+// 浅估分块：块内条数不定，按 msgsBytes 同口径的字节浅估切（每块 ≤CHAT_BLK_BYTES）
+function chatBlkSplit(arr) {
+const out = [];
+let cur = [], bytes = 0;
+for (let i = 0; i < arr.length; i++) {
+const m = arr[i];
+cur.push(m);
+bytes += 96 + (m && typeof m.text === 'string' ? m.text.length : 0) + (m && typeof m.img === 'string' ? m.img.length : 0);
+if (bytes >= CHAT_BLK_BYTES) { out.push(cur); cur = []; bytes = 0; }
+}
+if (cur.length) out.push(cur);
+return out;
+}
+// 全量重分块：arr 必须是完整历史（rebase 后内存 / 导入）。单飞：写期间的新请求记 pending 收尾补写。
+function chatBlkWriteFull(prefix, arr) {
+if (chatBlkWriting) { chatBlkPending = arr.slice(); return; }
+chatBlkWriting = true;
+const old = chatBlkIdx;
+const seq = (old && old.nextSeq) || 0;
+const chunks = chatBlkSplit(arr);
+const blocks = [];
+let p = Promise.resolve();
+let s = seq;
+chunks.forEach(function (c) {
+const k = 'chat-blk-' + (s++);
+const a = c;
+p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
+});
+});
+p = p.then(function () {
+const idx = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
+return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx)).then(function (ok) {
+if (ok === false) throw new Error('idx-write-fail');
+chatBlkIdx = idx; chatBlkTotal = arr.length;
+chatHotFrom = Math.max(0, blocks.length - 1);
+chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatRebased = false;
+chatArchPurge(prefix);
+chatArchSetBaseline(prefix, arr);
+try { if (window.idbDelete) window.idbDelete(prefix + ':chat-msgs'); } catch (e) {}
+try { localStorage.removeItem(prefix + ':chat-msgs'); } catch (e) {}
+// 清掉旧格式的孤儿块键（idx 里不再引用的 chat-blk-*）
+try {
+const live = {}; blocks.forEach(function (b) { live[b.k] = 1; });
+if (old && Array.isArray(old.blocks)) old.blocks.forEach(function (b) { if (!live[b.k] && window.idbDelete) window.idbDelete(prefix + ':' + b.k); });
+} catch (e) {}
+});
+}).catch(function () { scheduleIdbRetry(); }).then(function () {
+chatBlkWriting = false;
+if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkWriteFull(prefix, a); }
+});
+}
+// 尾部块重写：不可追加（热片内有编辑/归一化变更）且头部冷块不在内存时——热片本来就是
+// 整块对齐取的，直接用内存里的热片（±新增尾部）重写它覆盖的那几个块，头块一个字节不动。
+function chatBlkRewriteTail(prefix, arr) {
+if (chatBlkWriting) { chatBlkPending = arr.slice(); return; }
+chatBlkWriting = true;
+const idx = chatBlkIdx;
+const head = (idx.blocks || []).slice(0, chatHotFrom);
+// 尾部段＝内存热片本身（热片本就按整块对齐取，arr[0] 恰是尾部块首条；绝不 slice——
+// headN 是全量口径条数、与本地内存下标无关，切了就是把 41MB 桌面写成空尾＝灾难性丢历史）
+const tailArr = arr;
+const seq = idx.nextSeq || 0;
+const chunks = chatBlkSplit(tailArr);
+const blocks = head.slice();
+let p = Promise.resolve();
+let s = seq;
+const newKeys = [];
+chunks.forEach(function (c) {
+const k = 'chat-blk-' + (s++);
+const a = c;
+newKeys.push(k);
+p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
+});
+});
+p = p.then(function () {
+const idx2 = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
+return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx2)).then(function (ok) {
+if (ok === false) throw new Error('idx-write-fail');
+chatBlkIdx = idx2; chatBlkTotal = arr.length;
+// 重写后块边界变了：热片重新对齐到末尾整块
+chatHotFrom = head.length;
+const live = {}; blocks.forEach(function (b) { live[b.k] = 1; });
+(idx.blocks || []).forEach(function (b) { if (!live[b.k] && window.idbDelete) window.idbDelete(prefix + ':' + b.k); });
+chatArchPurge(prefix);
+chatArchSetBaseline(prefix, arr);
+});
+}).catch(function () { scheduleIdbRetry(); }).then(function () {
+chatBlkWriting = false;
+if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkRewriteTail(prefix, a); }
+});
+}
+// 读侧热片装载：读末尾热块 → 交给权威读链的既有合并/守卫/渲染体（v=热片数组，语义=「读到的权威」）
+function chatBlkHotLoad(prefix, idxRaw) {
+const idx = JSON.parse(idxRaw);
+if (!idx || !Array.isArray(idx.blocks) || !idx.blocks.length) return Promise.resolve(null);
+chatBlkIdx = idx; chatBlkTotal = idx.total || 0;
+const hotKeys = [];
+let hotN = 0;
+for (let b = idx.blocks.length - 1; b >= 0 && hotN < CHAT_BLK_HOT_N && hotKeys.length < CHAT_BLK_HOT_MAX; b--) {
+hotKeys.unshift(idx.blocks[b].k); hotN += idx.blocks[b].n || 0;
+}
+chatHotFrom = idx.blocks.length - hotKeys.length;
+chatHotBaseN = hotN; // #722：账本守卫基准=热片条数（内存此后=热片+新增）
+const headN = Math.max(0, (idx.total || hotN) - hotN);
+chatColdHead = []; chatColdFrom = 0; chatColdDone = headN === 0; chatColdHydrating = false; chatRebased = false;
+return Promise.all(hotKeys.map(function (k) { return window.idbGet(prefix + ':' + k); })).then(function (parts) {
+if (window.activePrefix() !== prefix) return null;
+let hot = [], miss = false;
+parts.forEach(function (p2) { if (!Array.isArray(p2)) { miss = true; return; } hot = hot.concat(p2); });
+if (miss || !hot.length) return null; // 块读失败 → 回到旧读路径语义（=读失败重试，绝不置 ready）
+return hot;
+}).catch(function () { return null; });
+}
+// 头部冷块后台逐块取回（读侧开聊天后空闲推进；loadOlderIncremental 顶部边界也会触发）
+function chatColdEnsureHydrated() {
+if (chatColdDone || chatColdHydrating || !chatBlkIdx || chatRebased || !window.idbGet) return;
+chatColdHydrating = true;
+const myPrefix = window.activePrefix();
+const step = function () {
+if (window.activePrefix() !== myPrefix || !chatBlkIdx || chatRebased) { chatColdHydrating = false; return; }
+if (chatColdFrom >= chatHotFrom) { chatColdDone = true; chatColdHydrating = false; return; }
+const blk = chatBlkIdx.blocks[chatColdFrom];
+window.idbGet(myPrefix + ':' + blk.k).then(function (v) {
+if (window.activePrefix() !== myPrefix) { chatColdHydrating = false; return; }
+if (!Array.isArray(v)) { chatColdHydrating = false; return; } // #722 读失败：下标不前移，留待下次触发重试同块
+chatColdHead = v.concat(chatColdHead); // 头块按时间正序前插
+chatColdFrom++;
+setTimeout(step, 30);
+}).catch(function () { chatColdHydrating = false; });
+};
+step();
+}
+// 上滑到热片顶部：头部冷块一次性并入 msgs，并位移所有「窗口/草稿/归一化」下标状态与 DOM
+// data-idx（真实下标此后=本地下标，内存自此为全量；基准段 refs 同步升级为全量）。
+function chatRebaseCold() {
+const n = chatColdHead.length;
+if (!n || chatRebased) return;
+msgs = chatColdHead.concat(msgs);
+chatColdHead = [];
+chatRebased = true;
+renderStart += n; renderEnd += n;
+if (windowRenderedN) windowRenderedN += n;
+if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.map(function (i2) { return i2 + n; });
+try {
+if (sessionChangedIdx && sessionChangedIdx.size) {
+const s2 = Array.from(sessionChangedIdx).map(function (i2) { return i2 + n; });
+sessionChangedIdx.clear(); s2.forEach(function (i2) { sessionChangedIdx.add(i2); });
+}
+} catch (e) {}
+try { if (Array.isArray(normChangedIdxs)) normChangedIdxs = normChangedIdxs.map(function (i2) { return i2 + n; }); } catch (e) {}
+try { if (typeof normOrigIdx === 'number' && normOrigIdx >= 0) normOrigIdx += n; } catch (e) {}
+try {
+Object.keys(inplaceDrafts).forEach(function (k) {
+const v = inplaceDrafts[k]; delete inplaceDrafts[k]; inplaceDrafts[String(Number(k) + n)] = v;
+});
+} catch (e) {}
+try { if (typeof inplaceFocusIdx === 'number' && inplaceFocusIdx >= 0) inplaceFocusIdx += n; } catch (e) {}
+try { body.querySelectorAll('[data-idx]').forEach(function (el) { el.dataset.idx = String(Number(el.dataset.idx) + n); }); } catch (e) {}
+try { chatArchSetBaseline(window.activePrefix(), msgs); } catch (e) {} // 基准 refs 升级为全量：此后编辑任何消息都能被指纹检出
 }
 // 把基准段+日志收口成整包（切桌面/离页/导出前调用；外部模块只读 chat-msgs 时也看得到全量）
 function chatConsolidate(prefix) {
@@ -312,7 +532,11 @@ function chatPrefetchIfLight(load) {
 // 返回 true=允许整包落盘（账本已更新）；false=可疑缩水，已拒绝落盘
 function chatLedgerGuard(prefix, arr) {
 const n = Array.isArray(arr) ? arr.length : 0;
-const base = chatLedger[prefix];
+let base = chatLedger[prefix];
+// #722 分块格式：内存只有热片（尾部），全量条数账本（idx.total）对不上——守卫基准改用
+// 「热片装载时的条数」（头部在不可变块里物理上不会缩水；可缩水的只有尾部，仍被守卫覆盖）。
+// 头部整块丢失由 blk-idx/块键读失败路径兜底（读失败绝不置 ready），不走本守卫。
+if (chatBlkIdx && typeof chatHotBaseN === 'number' && chatHotBaseN > 0) base = chatHotBaseN;
 if (typeof base === 'number' && base >= CHAT_LEDGER_MIN && n * 2 < base) {
 if (!chatLedgerWarned[prefix]) {
 chatLedgerWarned[prefix] = 1;
@@ -740,7 +964,7 @@ if (document.visibilityState === 'hidden') flushSave();
 else if (deskMsgEl && !deskMsgEl.hidden) hideDeskMsg();
 });
 } catch (e) {}
-window.getChatMsgs = function () { return msgs; };
+window.getChatMsgs = function () { return chatColdHead.length ? chatColdHead.concat(msgs) : msgs; }; // #722：冷头未并入时也返回完整历史（浅拼接，统计/导出/补投递等消费方零改动）
 try { window.__mochiProf = window.__mochiProf || {}; } catch (e) {}
 function __prof(t) { try { window.__mochiProf[t] = performance.now(); } catch (e) {} }
 // ===== v3.26.x OOM 防线：聊天大数据量分批/延迟归一化 =====
@@ -1189,7 +1413,16 @@ try {
 const lb = chatLedgerBytes[myPrefix];
 if (typeof lb === 'number' && lb > 2 * 1024 * 1024) bigReadMs = 4000 + Math.min(28000, Math.ceil(lb / 1048576) * 2000);
 } catch (e0) {}
-window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined).then(v => {
+// #722 分块格式门：blk-idx 在位＝大历史已分块，只读末尾热片（~2MB）喂进下方同一条
+// 权威合并/守卫/渲染链（chatBlkHotLoad 返回热片数组当 v；块读失败返回 null＝按读失败重试，
+// 绝不当空库），不再整读 41MB 级基准包。索引不在位＝旧整包格式，走原路径一字不变。
+window.idbGet(myPrefix + ':chat-blk-idx').then(function (bidxRaw) {
+if (window.activePrefix() !== myPrefix) return null;
+if (bidxRaw && typeof bidxRaw === 'string' && bidxRaw.indexOf('"v"') >= 0) {
+return chatBlkHotLoad(myPrefix, bidxRaw);
+}
+return window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined);
+}).then(v => {
 if (window.activePrefix() !== myPrefix) return;
 if (v === undefined || v === null) {
 // v3.14.x：先区分「键确实不存在」与「读取失败/超时」——idbGet 超时兜底也
@@ -1376,7 +1609,17 @@ authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
 try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
 // v3.26.x #90：账本基线＝刚读到的库内条数（同值不重复落盘，见 chatLedgerSave 节流）
-try { chatLedgerSave(myPrefix, idbArr.length, msgsBytes(idbArr)); } catch (e) {}
+try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
+// #722 迁移：旧整包格式的大历史首次读成功后，后台一次性重排成分块格式（此后进聊天只读热片）。
+// 延后 15s（避开开屏/进聊天关键窗口）；单飞与失败重试由 chatBlkWriteFull/scheduleIdbRetry 承担。
+if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {
+setTimeout(function () {
+try {
+if (window.activePrefix() !== myPrefix || chatBlkIdx || chatBlkWriting) return;
+if (Array.isArray(msgs) && msgs.length > 100) chatBlkWriteFull(myPrefix, msgs);
+} catch (e) {}
+}, 15000);
+}
 // FIX 2026-09-17 #127：基准段＝本次读到的基准包（不含日志）——此后新消息只写增量日志；
 // 基准段一旦被原地改动/增删，chatArchReusable 会拒绝复用并自动整包重写（安全闸）。
 try { chatArchSetBaseline(myPrefix, ckptArr); } catch (e) {}
@@ -1433,6 +1676,9 @@ try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistor
 }
 // v3.26.x：读库完成后调度后台分批归一化（幂等，仅对当前联系跑一次）
 scheduleDeferredNormalization();
+// #722：热片渲染完成后稍候推进头部冷块后台取回（getChatMsgs 随时可给全量；用户极快
+// 上滑到顶时 loadOlderIncremental 也会主动触发）
+try { setTimeout(chatColdEnsureHydrated, 2500); } catch (e) {}
 // FIX 2026-09-10 #283 冷启动收敛触发：语音令牌化原只挂在 mochi-restore-done（IDB 整轮
 // 挂起时永不到达）与切桌面事件上——只在两事件间使用的设备历史语音永远不被收口。pass 自带
 // 权威守卫/WeakSet 去重/幂等，读库成功后延迟跑一次即可覆盖冷启动路径
@@ -3205,7 +3451,15 @@ return true;
 }
 function loadOlderIncremental() {
 const len = msgs.length;
+if (renderStart <= 0 || renderStart >= len) {
+// #722：已到已加载历史的顶部——头部冷块还有货就先 rebase（并入+位移下标），并入后
+// renderStart>0，本次直接继续走增量；冷块还在后台取回时先触发取回，等下一轮滚动。
+if (renderStart <= 0 && !chatRebased) {
+if (chatColdHead.length) { chatRebaseCold(); loadOlderIncremental(); return; }
+if (!chatColdDone) chatColdEnsureHydrated();
+}
 if (renderStart <= 0 || renderStart >= len) return;
+}
 const newStart = Math.max(0, renderStart - LOAD_STEP);
 if (newStart === renderStart) return;
 const beforeTop = body.scrollTop;
@@ -4151,16 +4405,44 @@ openPokeCard();
 if (rec.side === 'in' && rec.initiative && !rec.retracted) {
 try {
 const c = cfg();
-if (cfgn(c, 'as-badge', 1) === 1 && !b.querySelector('.msg-hi-heart')) {
-const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-svg.setAttribute('class', 'msg-hi-heart');
-svg.setAttribute('viewBox', '0 0 24 24');
-svg.setAttribute('fill', 'currentColor');
-svg.setAttribute('aria-hidden', 'true');
-const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-path.setAttribute('d', 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
-svg.appendChild(path);
-b.insertBefore(svg, b.firstChild);
+if (cfgn(c, 'as-badge', 1) === 1 && !b.querySelector('.msg-hi-heart') && !b.querySelector('.msg-hi-mark')) {
+// FIX 2026-09-18 #727 用户直派「联系人主动发送的消息，现在是小爱心的标识，
+// 帮我新增，可以用别的标识和自定义标识」：标识池由 reply-settings.js #727 段提供
+//（window.asBadgePool 读 cfg 的内置五枚 + 自定义，只取 on=1）。口径：
+//  · 池为空（全关）→ 兜底回爱心，保证「开着总开关就一定有标识」的既有观感；
+//  · 单枚 → 直接用它；多枚 → as-badge-rand=1 每次随机、=0 按消息序号轮换（同一条稳定）；
+//  · 爱心沿用原 SVG（保留既有 path 与 .msg-hi-heart 的绝对定位/配色语义，零视觉回归），
+//    其余内置与自定义均为文本节点（.msg-hi-mark，样式见 chat-main.css）。
+let pool = [];
+try { pool = (window.asBadgePool ? window.asBadgePool(c) : []) || []; } catch (e) { pool = []; }
+if (!pool.length) pool = [{ s: '♥', builtin: 1 }];
+let pick = pool[0];
+if (pool.length > 1) {
+  if (cfgn(c, 'as-badge-rand', 1) === 1) {
+    pick = pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    // 按顺序轮换：用消息时间戳做稳定索引（同一条消息重渲仍是同一枚，不会闪变）
+    const seed = Number(rec.ts) || 0;
+    pick = pool[Math.abs(Math.floor(seed / 1000)) % pool.length];
+  }
+}
+if (pick && pick.builtin === 1 && pick.s === '♥') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'msg-hi-heart');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'currentColor');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
+  svg.appendChild(path);
+  b.insertBefore(svg, b.firstChild);
+} else if (pick && pick.s) {
+  const mk = document.createElement('span');
+  mk.className = 'msg-hi-mark';
+  mk.setAttribute('aria-hidden', 'true');
+  mk.textContent = String(pick.s);
+  b.insertBefore(mk, b.firstChild);
+}
 }
 } catch (e) {}
 }
@@ -4238,6 +4520,12 @@ try { chatLedger[window.activePrefix()] = 0; } catch (e) {}
 try { store.remove('chat-msgs'); } catch (e) {}
 try { store.remove('chat-arch'); } catch (e) {} // FIX 2026-09-17 #127：增量日志一并清（否则刷新后回放复活）
 try { store.remove('chat-meta'); } catch (e) {}
+try { // #722：分块格式的块键与索引一并清（否则清空后刷新，blk-idx 回放复活全部历史）
+const cp = window.activePrefix();
+if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
+try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+} catch (e) {}
+chatBlkResetState(); // #722：分块状态复位（此后保存走旧格式/重新分块）
 chatTailClear(); // #180：清空记录＝日志一并清（否则刷新后已清内容回放复活）
 if (body) body.innerHTML = '';
 clearChatUnread();
@@ -4258,6 +4546,12 @@ windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRen
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 chatArchClearBaseline(); // FIX 2026-09-17 #127：整包替换＝旧基准段/日志作废
+try { // #722：导入替换＝旧分块状态作废（persistChatHistory 会按新数组重新分块/整包，旧块键成孤儿，随后按 idx 复位前的记录清不掉——这里先记下旧块键，写入新格式后统一删）
+const cp = window.activePrefix();
+if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
+try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+} catch (e) {}
+chatBlkResetState(); // #722：导入=全新历史，块状态复位（persistChatHistory 按新数组重新分块）
 try { store.remove('chat-arch'); } catch (e) {}
 try { if (window.idbSet) persistChatHistory(window.activePrefix(), msgs, true); } catch (e) {}
 writeLsSnapshot(msgs, undefined, true);
@@ -5279,7 +5573,8 @@ try { await ensureReplyCardsReady(); } catch (e) {}
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
 let rep = genOneReply(c);
-// #677 本批是否由「多字卡回复」抽卡分支产生（genOneReply 置位；词典拼字/梦角造句换血不回冲）
+// #677 本批是否由「多字卡回复」抽卡分支产生（genOneReply 置位；词典单气泡/梦角造句换血不回冲，
+// FIX 2026-09-18 #726：逐卡连发每条气泡只装一张卡、来源即词典，该形态不挂此 chip）
 const pyMultiHit = pyMultiDrawn;
 // FIX 2026-09-16 #624 多图消息（parts 里是图片、text 为媒体载荷）不参与经期温柔语态改写——
 // 否则会给 data: 串加上前后缀，污染 rec.text（气泡仍走 parts，但横幅/引用/通知文本变乱）。
@@ -5334,9 +5629,11 @@ let m = null;
 // #349/#350 tag 规则：单气泡＝按抽到的字卡长度（全部 >4 字完整句→「词典」；含 1~4 字短卡→「词典拼字」）；
 // 多回复逐卡连发＝固定「词典逐卡连发」（每条气泡都带，一眼区分这是逐卡连发玩法）
 const dictTag = (rep.spell && rep.spell.every(t => (t || '').length > 4)) ? '词典' : '词典拼字';
-// #677 「多字卡回复」来源 tag（与词典/词典拼字 tag 并存，不替换）：单气泡形态直接并列挂上；
-// 多回复逐卡连发形态只挂本批第一张卡（与「词典逐卡连发」同挂一条），避免每条气泡重复标签。
-// 渲染侧 msg-mood 逐条渲染 rec.mood，两枚 chip 并列不丢；tag 随消息持久化，重进聊天仍在。
+// #677 「多字卡回复」来源 tag（与词典/词典拼字 tag 并存，不替换）：单气泡形态（一条气泡里多张卡，
+// 语义与「每条消息使用多字卡回复」相符）直接并列挂上。FIX 2026-09-18 #726 逐卡连发形态不再挂它
+// （用户实报「出现词典逐卡连发时错误的也显示了多字卡回复」）——逐卡连发每条气泡只装一张词典卡、
+// 来源就是词典，再挂「多字卡回复」是与内容不符的来源标注；单气泡拼字保持两枚并列（#693 用户口径）。
+// 渲染侧 msg-mood 逐条渲染 rec.mood，chip 并列不丢；tag 随消息持久化，重进聊天仍在。
 const pyMultiExtra = pyMultiHit ? [{ tag: '多字卡回复', label: '' }] : null;
 // FIX 2026-09-16 #553 撤回先掷签后投递（#345 同族收口②：回复链）——rc-prob 原在 addIn 之后
 // 才掷：桌面横幅/系统通知已把内容承诺给用户（如「早安」），900ms 后 partialRetractMsg 撤回＝
@@ -5375,8 +5672,9 @@ parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts
 silent: si > 0 ? true : (silent || willRetractR),
 // #350：逐卡连发的每条气泡挂「词典逐卡连发」tag（与单气泡的词典/词典拼字区分，
 // tagNoDup 不重复正文，chip 随消息持久化重进聊天仍在）
+// FIX 2026-09-18 #726 本路不挂「多字卡回复」来源 chip（#677 曾挂在本批首条）：逐卡连发
+// 每条气泡只有一张词典卡，来源就是词典；只有单气泡拼字才并列挂两枚。
  tag: '词典逐卡连发',
- tagExtra: si === 0 ? pyMultiExtra : null,
  tagNoDup: true
  });
 }
@@ -5997,9 +6295,19 @@ const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
 if (phoneTab) phoneTab.classList.add('active');
 document.querySelectorAll('.page').forEach(p => { if (!p.hidden) p.hidden = true; }); // FIX #336 同值写也发 mutation，44 页全扫=唤醒全部页面观察器
 chatPage.hidden = false;
-// v3.28.x：进入聊天页即按需取回字卡库（冷启动挂起大键）——专属字卡优先（回复池主源），
-// 公用随后；配合 replyOnce 内的等待，避免首条/持续回复落兜底卡。
-try { if (window.hydrateLibScopes) window.hydrateLibScopes(['own', 'public']); } catch (e) {}
+	// FIX 2026-09-18 #742（HUAWEI Mate 40 Pro + Edge 等多机型报「进聊天不自动到最新、像跳到旧记录、
+	// 滑动乱跳、加载完还得自己翻」）：进聊天页必须复位「贴底钉住」并关回原生滚动锚定——
+	// 上次会话若在聊天里滚动过（unpinChatAndAnchor 已把 .scroll-anchor-auto 挂上、chatPinnedBottom
+	// 置 false），本会话重开聊天走「同窗补丁」路径（inplacePatchIfSameWindow 命中＝不整窗重建）
+	// 时，聊天停在旧 scrollTop＋原生锚定（overflow-anchor:auto）开着→图片迟到解码/懒加载重排时
+	// 视图被拽回旧记录、又不回底。此处复位钉住态 + 摘掉锚定类，使重开聊天恒以「最新消息」收尾
+	//（钉住时期全部 scrollChatBottom 链、image onload 补滚、chatEntrySettle 1.2s 补齐全部生效）。
+	// 零机型分支：只在进聊天这一瞬复位，用户进语音/后台期间聊天内滚动语义（#162/#378/#416）不变。
+	chatPinnedBottom = true;
+	body.classList.remove('scroll-anchor-auto');
+	// v3.28.x：进入聊天页即按需取回字卡库（冷启动挂起大键）——专属字卡优先（回复池主源），
+	// 公用随后；配合 replyOnce 内的等待，避免首条/持续回复落兜底卡。
+	try { if (window.hydrateLibScopes) window.hydrateLibScopes(['own', 'public']); } catch (e) {}
 fillAvatar('chat-user-av', 'cs-avatar-user');
 fillAvatar('chat-partner-av', 'cs-avatar-partner');
 if (window.applyChatSettings) window.applyChatSettings();
@@ -11195,6 +11503,7 @@ let voiceStartTs = 0, voiceDataUrl = '', voiceDur = 0, voiceSilent = false, voic
 // voiceStopWatchdog=onstop 迟到/丢失 3s 自行结账；voiceStopSettled=本次停止已结账闩（onstop/看门狗/异常
 // 三路只走一路）；voiceMimeFallback=指定容器录出空数据后下次改用浏览器默认容器（isTypeSupported 谎报的壳唯一退路）
 let voiceStopping = false, voiceStopWatchdog = null, voiceStopSettled = false, voiceMimeFallback = false;
+let voiceStopTs = 0; // FIX #6xx 停止时刻钉死：慢壳 onstop 迟到/看门狗收尾时用「点停止那一刻」算时长，不再按结账瞬间 Date.now() 虚涨（报障：录 3 秒点结束卡住后变 20 秒）
 function voiceEnabled() {
 try { return store.get('cs-voice-send') === '1'; } catch (e) { return false; }
 }
@@ -11341,6 +11650,7 @@ try { await startVoiceRecInner(); } finally { voiceStarting = false; }
 }
 async function startVoiceRecInner() {
 voiceStopSettled = false; // FIX #228 新一轮录音：停止结账闩复位
+voiceStopTs = 0; // FIX #6xx 新一轮录音：停止时刻清零，待 stop 时钉住
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
 toast('当前浏览器不支持录音'); return;
 }
@@ -11416,7 +11726,10 @@ const rb = document.getElementById('voice-record-btn');
 if (rb) rb.classList.remove('rec');
 if (voiceRec && voiceRec.state === 'recording') {
 voiceStopping = true; // FIX #228 结账前挡住重入（连点停止/立刻再开始都会偷句柄）
+voiceStopTs = Date.now(); // FIX #6xx 停止时刻钉死：时长按此刻算，不按结账瞬间（慢壳 onstop 迟到会虚涨）
 armVoiceStopWatchdog(); // FIX #228 慢壳 onstop 迟到/丢失兜底
+const st0 = document.getElementById('voice-status');
+if (st0) st0.textContent = '正在停止录音…'; // FIX #6xx 立即反馈：onstop 迟到窗口不再显示定格「正在录音…」像卡死
 try { voiceRec.stop(); } catch (e) { voiceFinalizeStop(); } // stop 都抛了就没有 onstop，直接结账（空数据走可见失败）
 } else {
 voiceStopStream();
@@ -11441,7 +11754,10 @@ voiceStopStream();
 voiceRec = null;
 const wasSilent = voiceSilent;
 voiceSilent = false;
-const durSec = Math.max(1, Math.round((Date.now() - voiceStartTs) / 1000));
+// FIX #6xx 时长按「点停止那一刻」算，不按结账瞬间：慢壳 onstop 迟到/看门狗收尾期间 Date.now() 已流逝，
+// 原来会导致「录 3 秒点结束→卡住→变 20 秒」的虚涨；voiceStopTs 由 stopVoiceRec 钉住，未钉住兜底 startTs
+const stopTs = voiceStopTs || voiceStartTs;
+const durSec = Math.max(1, Math.round((stopTs - voiceStartTs) / 1000));
 const blob = new Blob(voiceChunks.length ? voiceChunks : [], { type: (voiceChunks[0] && voiceChunks[0].type) || 'audio/webm' });
 voiceChunks = [];
 const rb = document.getElementById('voice-record-btn');
@@ -11459,7 +11775,7 @@ toast('录音失败：本浏览器没返回声音数据，请再录一次');
 }
 return; // 关闭面板打断的录音直接丢弃（原语义保留）
 }
-if (Date.now() - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
+if (stopTs - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
 voiceMimeFallback = false; // FIX #228 本容器录到了数据：清兜底标记，沿用当前 mime 选择策略
 const fr = new FileReader();
 fr.onload = () => {

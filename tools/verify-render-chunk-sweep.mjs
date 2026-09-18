@@ -48,10 +48,11 @@ chk('A1 分帧批大小常量在位（#720a）', chatSrc.includes('const RENDER_
 chk('A2 世代令牌防重入（#720b）', chatSrc.includes('if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; }'));
 chk('A3 分帧换装后补贴底（#720c）', chatSrc.includes('scrollChatBottom(); // #718 分帧路径'));
 chk('A4 forceSync 路径给「返回即需节点」的调用方（#720d）', chatSrc.includes('renderWindow(false, true, true); // #718 forceSync'));
-chk('A5 LS 补扫助手（#720e）', idbSrc.includes('function lsResidueSweep()'));
-chk('A6 兜底族键排除（#720f）', idbSrc.includes('if (isChatMsgsKey(k) || isGroupMsgsKey(k) || /:chat-(meta|arch)$/.test(k)) continue;'));
-chk('A7 补扫安全边界：内存已持有才直接清 LS（#720g）', idbSrc.includes('if (Object.prototype.hasOwnProperty.call(memoryCache, k)) { drop(k, x[1]); return; }'));
-chk('A8 补扫：内存没有时先从 IDB 权威补进内存再清 LS（#720h）', idbSrc.includes('if (v === undefined || v === null) return; // IDB 无权威副本 → 保留 LS'));
+chk('A5 LS 残留大键清扫在既有 #139 机制上（单一实现，不重复造轮子）', idbSrc.includes('window.idbLsResidueSweep = lsResidueSweep;') && (idbSrc.match(/function lsResidueSweep()/g) || []).length === 1);
+chk('A6 聊天 LS 快照族排除（删则兜底副本被当残留清掉）', idbSrc.includes('if (isChatMsgsKey(k)) return false;                  // 聊天 LS 快照是唯一备份，绝不动'));
+chk('A7 先写后删（绝不先删后写）', idbSrc.includes('// IDB 缺失/落后 → 以 LS 为最新追平 IDB，写成功且 LS 未变才删（绝不先删后写）'));
+chk('A8 补扫失败重试闸（#721a）', idbSrc.includes('if (_lsSweepFail && _lsSweepTries < 2) {'));
+chk('A9 追平写失败计数（#721b）', idbSrc.includes('const markFail = function () { _lsSweepFail = true; };'));
 
 // ---------- B 轴 ----------
 const candidates = [
@@ -226,32 +227,33 @@ chk('B5 分帧重入后 DOM [data-idx] 严格递增无重复（世代令牌防�
 // ---- B6~B7 LS 残留大键补扫 ----
 const r4 = await evalJs(`(async function(){
   var KEY = window.activePrefix() + ':fav-msgs';
-  // 先确保内存缓存持有该键（真机形态：回填已读入内存），再把 >200KB 的 LS 残留副本补回去
-  // （模拟老版本写入后内容涨过 LS_BIG_LIMIT、此后未再 set 的残留态）
-  var memVal = null; try { memVal = window.activeStore().get('fav-msgs'); } catch (e) {}
-  var beforeLs = null;
-  for (var pass = 1; pass <= 2; pass++) {
-    if (pass === 2) {
-      try { localStorage.setItem(KEY, memVal); } catch (e) {}
-      beforeLs = localStorage.getItem(KEY);
-    }
-    if (pass === 1) { if (window.lsResidueSweep) window.lsResidueSweep(); continue; }
-  }
-  if (window.lsResidueSweep) window.lsResidueSweep();
-  await new Promise(function (r) { setTimeout(r, 200); });
+  var sweep = window.idbLsResidueSweep;
+  // 残留形态：>200KB 的 LS 副本 + IDB 同值（老版本写入后内容涨过 LS_BIG_LIMIT 未再 set）
+  var big = { list: [] };
+  for (var k = 0; k < 300; k++) big.list.push({ t: 'f' + k, v: new Array(900).fill('y').join('') });
+  var bj = JSON.stringify(big);
+  if (window.idbSet) { try { await window.idbSet(KEY, bj); } catch (e) {} }
+  try { window.activeStore().set('chat-msgs', window.activeStore().get('chat-msgs') || '[]'); } catch (e) {}
+  var chatLsProbe = window.activePrefix() + ':chat-msgs';
+  try { if (!localStorage.getItem(chatLsProbe)) localStorage.setItem(chatLsProbe, '[[probe]]'); } catch (e) {}
+  try { localStorage.setItem(KEY, bj); } catch (e) { return 'setItem-fail ' + e.message; }
+  var beforeLs = localStorage.getItem(KEY);
+  if (sweep) sweep();
+  await new Promise(function (r) { setTimeout(r, 1500); });
   var afterLs = localStorage.getItem(KEY);
-  var chatLs = localStorage.getItem(window.activePrefix() + ':chat-msgs');
   var val = null; try { val = window.activeStore().get('fav-msgs'); } catch (e) {}
   return JSON.stringify({
+    hasSweep: !!sweep,
     beforeLen: (beforeLs || '').length,
     afterLen: (afterLs || '').length,
     valLen: (val || '').length,
-    chatLsKept: (chatLs || '').length > 0
+    chatLsKept: (localStorage.getItem(chatProbeSafe()) || '').length > 0
   });
+  function chatProbeSafe() { return chatLsProbe; }
 })()`);
 const j4 = r4 ? JSON.parse(r4) : {};
-chk('B6 LS 残留大键被清（>200KB 副本移除）', j4.beforeLen > 200000 && j4.afterLen === 0, r4);
-chk('B7 补扫后读取不受影响（内存/IDB 仍同值）且聊天 LS 兜底快照保留', j4.valLen > 200000 && j4.chatLsKept, r4);
+chk('B6 LS 残留大键被清（>200KB 副本移除）', j4.hasSweep && j4.beforeLen > 200000 && j4.afterLen === 0, r4);
+chk('B7 清扫后读取不受影响（内存/IDB 仍同值）且聊天 LS 兜底快照保留', j4.valLen > 200000 && j4.chatLsKept, r4);
 
 // ---- Z 零异常 ----
 const errs = await evalJs('JSON.stringify(window.__jsErrors||[])');

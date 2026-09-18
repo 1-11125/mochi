@@ -475,7 +475,8 @@
       // → 这些引用的表情/图片令牌被误判孤儿删除 = 单发表情包/图片变空白气泡且不可逆。
       // 修复：REFS 扩到群聊+尾巴键；并追加扫描 localStorage 同名键（读到的令牌全部进 keep，
       // 宁可漏删绝不误删；LS 读异常时放弃本次清理）。
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
+      // #722：分块基准包（chat-blk-*）也引用令牌，进 keep 面
+      const REFS = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
       // FIX 2026-09-15 #506 引用面补字卡库两键：#387 修复前写回泄漏/旧备份导入会把 @@m: 令牌
       // 留在 cc-groups / cc-groups-public 里，同样引用池条目——不进 keep 会被误判孤儿删除
       // ＝字卡库图片（含导出还原源）永久丢失。GC 与 Coverage 两处同批。
@@ -569,7 +570,8 @@
     return (async function () {
       const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
       if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-      const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
+      // #722：分块基准包（chat-blk-*）也引用令牌，进 keep 面
+      const REFS = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
       const SCAN_RE = /@@m:([0-9a-f]{32})/g;
       let keys;
       try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }

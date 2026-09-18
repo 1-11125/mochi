@@ -57,7 +57,7 @@
 .market-cats { display: flex; gap: 14px; padding: 18px 14px 10px; overflow-x: auto; }
 .market-cats::-webkit-scrollbar { display: none; }
 .market-cat { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; padding: 2px; transition: transform 0.15s; }
-.market-cat-ico { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 25px; transition: all 0.18s; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); background: #f2f2f5 !important; }
+.market-cat-ico { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 25px; transition: background 0.18s, box-shadow 0.18s, transform 0.18s; /* #722 all→具体：状态只变这三样 */ box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); background: #f2f2f5 !important; }
 .market-cat.sel .market-cat-ico { background: #1f1f1f !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); transform: scale(1.06); }
 .market-cat.sel .market-cat-ico::after { content: ''; }
 .market-cat-name { font-size: 11.5px; color: #8a8a8a; white-space: nowrap; }
@@ -99,7 +99,7 @@
 .gift-balance:active { opacity: 0.6; }
 .gift-cats { display: flex; gap: 7px; padding: 8px 14px 4px; overflow-x: auto; }
 .gift-cats::-webkit-scrollbar { display: none; }
-.gift-cat { flex-shrink: 0; padding: 6px 14px; border-radius: 99px; background: #f2f2f5; color: #555; font-size: 13px; border: none; cursor: pointer; transition: all 0.15s; }
+.gift-cat { flex-shrink: 0; padding: 6px 14px; border-radius: 99px; background: #f2f2f5; color: #555; font-size: 13px; border: none; cursor: pointer; transition: background 0.15s, color 0.15s, box-shadow 0.15s; /* #722 all→具体 */ }
 .gift-cat.sel { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .gift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 14px 24px; }
 .gift-grid .gift-item { border-radius: 14px; }
@@ -121,13 +121,13 @@
 .gm-img-row { display: flex; align-items: center; gap: 10px; }
 .gm-img-prev { width: 64px; height: 64px; border-radius: 14px; background: #f7f7f7; border: 1px dashed rgba(0, 0, 0, 0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; box-sizing: border-box; flex-shrink: 0; }
 .gm-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gm-img-btn { padding: 9px 16px; border-radius: 99px; border: 1px solid rgba(0, 0, 0, 0.15); background: #fff; color: #111; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.gm-img-btn { padding: 9px 16px; border-radius: 99px; border: 1px solid rgba(0, 0, 0, 0.15); background: #fff; color: #111; font-size: 13px; cursor: pointer; transition: transform 0.15s, background 0.15s, border-color 0.15s; /* #722 all→具体 */ }
 .gm-img-btn:active { transform: scale(0.96); background: #f2f2f5; }
 
 /* ===== 心意市集底部工具（黑白简约胶囊） =====
    v3.26.x：+flex-wrap（新增心愿单/设置后共 5 颗胶囊，360px 窄屏需换行） */
 .market-foot { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; padding: 0 14px; }
-.market-tool { padding: 10px 24px; border-radius: 99px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.1); color: #111; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.market-tool { padding: 10px 24px; border-radius: 99px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.1); color: #111; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s; /* #722 all→具体 */ font-weight: 500; }
 .market-tool:active { background: #f2f2f5; transform: scale(0.97); }
 
 /* ===== 心意柜 hero + tab（黑白简约，融入整体） ===== */
@@ -140,7 +140,7 @@
 .giftbox-stat-num { font-size: 20px; font-weight: 700; margin-top: 4px; line-height: 1; color: #111; }
 .giftbox-stat-lbl { font-size: 11px; color: #8a8a8a; margin-top: 3px; }
 .giftbox-tabs { display: flex; gap: 8px; padding: 0 14px 4px; width: 100%; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
-.gb-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13.5px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.gb-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13.5px; cursor: pointer; transition: background 0.15s, color 0.15s; /* #722 all→具体 */ font-weight: 500; }
 .gb-tab.sel { background: #111; color: #fff; }
 .giftbox-scroll { padding: 12px 14px 80px; width: 100%; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
 .giftbox-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -166,7 +166,7 @@
 .gb-wish { width: 100%; min-height: 66px; padding: 11px 14px; border-radius: 13px; border: 1px solid rgba(0, 0, 0, 0.1); background: #f7f7f7; font-size: 14px; resize: none; box-sizing: border-box; font-family: inherit; color: #333; transition: border 0.15s; }
 .gb-wish:focus { border-color: #111; outline: none; }
 .gb-actions { display: flex; gap: 10px; }
-.gb-cancel, .gb-ok { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 15px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.gb-cancel, .gb-ok { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 15px; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.15s; /* #722 all→具体 */ font-weight: 500; }
 .gb-cancel { background: #f2f2f5; color: #555; }
 .gb-ok { background: #111; color: #fff; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18); }
 .gb-ok:active { transform: scale(0.97); }
@@ -258,12 +258,12 @@ textarea.gm-input { min-height: 52px; resize: none; }
 
 /* ===== v3.26.x 心愿单 + 心意集市和心意柜设置（gift-shop.js 渲染） ===== */
 /* 购买弹窗：心愿单按钮 + 底部小字提示 */
-.gb-wishbtn { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 14px; cursor: pointer; transition: all 0.15s; font-weight: 500; background: #f2f2f5; color: #111; }
+.gb-wishbtn { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 14px; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.15s; /* #722 all→具体 */ font-weight: 500; background: #f2f2f5; color: #111; }
 .gb-wishbtn:active { transform: scale(0.96); }
 .gb-tiny { margin-top: 10px; font-size: 11px; color: #b5b5b5; line-height: 1.6; text-align: center; }
 /* 心愿单面板：双 tab + 行列表 */
 .wish-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.wish-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500; white-space: nowrap; }
+.wish-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, box-shadow 0.15s; /* #722 all→具体 */ font-weight: 500; white-space: nowrap; }
 .wish-tab.sel { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .wish-hint { font-size: 11.5px; color: #a5a5a5; line-height: 1.8; margin-bottom: 8px; }
 .wish-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05); }

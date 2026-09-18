@@ -664,48 +664,6 @@
   }
 
   // 恢复：从 IndexedDB 读回 localStorage 缺失的键（初始化时调用）
-  // #718 LS 残留大键一次性补扫——对齐 xyStore.set 的既有政策（>LS_BIG_LIMIT 的值只进
-  // IDB+内存、删 LS 副本）：老版本写入的键在内容长到超限后没再被 set 过＝LS 里挂着
-  // 200KB+ 残留副本（双倍存储＋诊断「LS 残留大键」告警，实测 cmt37eved7if:fav-msgs=207KB）。
-  // 安全边界：①【内存已持有该键】直接清 LS 副本（读取零影响，xyStore.get 内存优先）；
-  // ②内存没有的（＝残留键的常态：idbRestore 回填「跳过已有 LS 值的键」，所以这类键本来
-  // 就不在内存缓存里）先从 IDB 权威读回、写进内存缓存再清——保证清完 get() 仍拿到同值；
-  // IDB 里读不到/键不存在 → 一律保留 LS（可能是唯一副本），绝不冒险；
-  // ③chat-msgs / gc-msgs / chat-arch / chat-meta 是 chat.js / group-chat.js 有意维护的
-  // LS 兜底快照族，一律不碰；④回填就绪后 20s 才跑、每会话至多一遍，避开启动关键窗口。
-  function lsResidueSweep() {
-    try {
-      if (!memoryCache) return;
-      const cands = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k || k.indexOf('xy-home-v2:') !== 0) continue;
-        if (isChatMsgsKey(k) || isGroupMsgsKey(k) || /:chat-(meta|arch)$/.test(k)) continue;
-        const v = localStorage.getItem(k) || '';
-        if (v.length <= LS_BIG_LIMIT) continue;
-        cands.push([k, v.length]);
-      }
-      if (!cands.length) return;
-      let swept = 0, bytes = 0;
-      const drop = function (k, len) {
-        try { localStorage.removeItem(k); swept++; bytes += len * 2; } catch (e) {}
-      };
-      cands.forEach(function (x) {
-        const k = x[0];
-        if (Object.prototype.hasOwnProperty.call(memoryCache, k)) { drop(k, x[1]); return; }
-        if (!window.idbGet) return; // 没有 IDB 读接口：保留 LS（唯一副本）
-        window.idbGet(k).then(function (v) {
-          if (v === undefined || v === null) return; // IDB 无权威副本 → 保留 LS
-          try { memoryCache[k] = v; } catch (e) { return; }
-          drop(k, x[1]);
-          if (swept) {
-            try { console.info('[mochi] LS 残留大键补扫：清理 ' + swept + ' 键 ≈ ' + Math.round(bytes / 1024) + 'KB'); } catch (e) {}
-          }
-        }).catch(function () {});
-      });
-    } catch (e) {}
-  }
-  window.lsResidueSweep = lsResidueSweep; // #718：verify 直调入口
   // v3.14.x OOM 防线（修复荣耀等安卓真机「开屏卡住→网页崩溃」）：
   //   原实现把所有键无上限读入 memoryCache 驻留——重度数据用户（几十 MB 字卡/
   //   图片键）启动回填时 JS 堆被推到渲染进程上限直接崩溃（diag-oom-repro.mjs
@@ -724,8 +682,6 @@
       readySent = true;
       try { window.__mochiDataReady = true; } catch (e) {}
       try { document.dispatchEvent(new Event('mochi-restore-done')); } catch (e) {}
-      // #718：回填就绪后延迟做一次「LS 残留大键补扫」（每会话至多一遍，见 lsResidueSweep）
-      try { setTimeout(lsResidueSweep, 20000); } catch (e) {}
     };
     let finished = false;
     const finish = function () {
@@ -1254,10 +1210,18 @@
   //     再写才删 LS（写失败本轮跳过下轮收敛；绝不先删后写）。
   //   · IDB 值是非字符串（结构化存储）→ 不动（不是本清扫的目标形态）。
   let _lsSweepDone = false;
+  // #721：失败重试——原实现一次性闩到底（_lsSweepDone），可候选里只要有一项在存储繁忙
+  // 时刻读不到/追平写失败就整会话不再清（用户诊断单里 207KB 残留跨会话存活即此形态：
+  // 回填后 20s 正是 IDB 事务高峰）。现记录本轮是否留了没清干净的候选，留了就稍后重试
+  // （上限 2 次、每次间隔 60s），存储一直不健康时不无限循环。
+  let _lsSweepFail = false;
+  let _lsSweepTries = 0;
   function lsResidueSweep() {
     if (_lsSweepDone) return;
     _lsSweepDone = true;
+    _lsSweepFail = false;
     if (!window.idbGet || !window.idbSet) return;
+    const markFail = function () { _lsSweepFail = true; };
     let names = [];
     try { names = Object.keys(localStorage); } catch (e) { return; }
     const cands = names.filter(function (k) {
@@ -1272,7 +1236,15 @@
     });
     let i = 0;
     (function step() {
-      if (i >= cands.length) return;
+      if (i >= cands.length) {
+        // 本轮收尾：有候选没清干净（读写失败/超时）→ 允许稍后重试一轮（上限 2 次）
+        if (_lsSweepFail && _lsSweepTries < 2) {
+          _lsSweepTries++;
+          _lsSweepDone = false;
+          setTimeout(lsResidueSweep, 60000);
+        }
+        return;
+      }
       const k = cands[i++];
       let lsVal = null;
       try { lsVal = localStorage.getItem(k); } catch (e) {}
@@ -1295,10 +1267,10 @@
               if (!(k in memoryCache)) memoryCache[k] = lsVal;
               try { localStorage.removeItem(k); } catch (e) {}
             }
-          }
+          } else { markFail(); } // #721 追平写失败（配额满/事务挂了）：这轮没清掉，稍后重试
           next();
-        }).catch(next);
-      }).catch(function () { setTimeout(step, 0); });
+        }).catch(function () { markFail(); next(); });
+      }).catch(function () { markFail(); setTimeout(step, 0); });
     })();
   }
   document.addEventListener('mochi-restore-done', function () { setTimeout(lsResidueSweep, 20000); });

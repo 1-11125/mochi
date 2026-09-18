@@ -863,7 +863,11 @@
     // v3.8.x：封面显示我在朋友圈的独立身份（feed-user-*），回退聊天身份
     const myAvStr = feedUserAv();
     const myNameStr = feedUserName();
-    if (myAvEl) myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
+    if (myAvEl) {
+      myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
+      // FIX 2026-09-18 #739：innerHTML 重建会把 label 激活层冲掉，渲染后补挂（幂等）
+      try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(myAvEl, feedAvPickInput); } catch (e) {}
+    }
     if (myNameEl) myNameEl.textContent = myNameStr;
     const cover = document.getElementById('feed-cover');
     if (cover) {
@@ -2073,7 +2077,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   // 不保证派发 change＝点了没反应。压缩/落库管线（canvas 256 → feed-user-avatar）一字不动。
   const feedAvPickInput = document.createElement('input');
   feedAvPickInput.type = 'file'; feedAvPickInput.accept = 'image/*';
-  feedAvPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  feedAvPickInput.id = 'feed-av-pick';
+  // FIX 2026-09-18 #738：sr-only clip 写法＋原生 label 兜底（device.js mochiFilePickLabel）
+  feedAvPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(feedAvPickInput);
   feedAvPickInput.onchange = () => {
     const f = feedAvPickInput.files && feedAvPickInput.files[0];
@@ -2100,8 +2106,11 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     reader.readAsDataURL(f);
   };
   if (coverAvEl) {
+    // FIX 2026-09-18 #738：原生 label 激活兜底（小米浏览器对 JS 合成 click 静默不弹选择器）
+    if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
     coverAvEl.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
       try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); }
     });
   }

@@ -1845,7 +1845,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const addBtn = document.createElement('button');
     addBtn.className = 'gc-set-btn';
     addBtn.textContent = interMode === 'av' ? '上传头像' : '添加昵称';
-    addBtn.addEventListener('click', () => {
+    // FIX 2026-09-18 #738：原生 label 激活兜底（只挂头像模式；昵称按钮不能变成选图）
+    if (interMode === 'av' && window.mochiFilePickLabel) window.mochiFilePickLabel(addBtn, gcAvatarPickInput);
+    addBtn.addEventListener('click', (e) => {
+      if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
       if (interMode === 'av') {
         pickAvatarFile((data) => {
           if (!data) return;
@@ -2138,7 +2141,9 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   let gcAvatarPickCb = null;
   const gcAvatarPickInput = document.createElement('input');
   gcAvatarPickInput.type = 'file'; gcAvatarPickInput.accept = 'image/*';
-  gcAvatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  gcAvatarPickInput.id = 'gc-avatar-pick';
+  // FIX 2026-09-18 #738：sr-only clip 写法＋原生 label 兜底（device.js mochiFilePickLabel）
+  gcAvatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(gcAvatarPickInput);
   gcAvatarPickInput.onchange = () => {
     const f = gcAvatarPickInput.files && gcAvatarPickInput.files[0];

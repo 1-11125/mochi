@@ -1184,6 +1184,11 @@
         else kpParts.push('音频=无（保活未起）');
         if (kp.ms) kpParts.push('媒体条=' + (kp.ms.metadata ? '有' : '无') + ' ' + kp.ms.state);
         kpParts.push('WebRTC=' + kp.pc);
+        // #724：取证计数（bg-keep 持久化）——断流=隐藏期定时器停摆过（冻结/丢弃实锤）、
+        // 后台终止=上个会话没能活着回来（标签被系统丢弃/杀掉，回来自动重载）
+        if (kp.ev && (kp.ev.stall > 0 || kp.ev.died > 0)) {
+          kpParts.push('历史取证：断流' + kp.ev.stall + '次/后台终止' + kp.ev.died + '次（>0＝保活曾被冻结或页面曾被系统回收）');
+        }
         if (kp.hb) {
           const tr = kp.hb.trail || [];
           let gap = 0;
@@ -3340,3 +3345,32 @@ window.mochiViewportForm = function (sig) {
     and: function (hayLower, terms) { return terms.every(function (w) { return hayLower.indexOf(w) >= 0; }); }
   };
 })();
+
+// ===== 文件选择器原生 label 激活（FIX 2026-09-18 #738）——小米 MiuiBrowser 等分叉内核对
+// 「常驻挂文档 input + 程序化 input.click()」仍可能静默不弹系统选择器（#717 修复后小米17 Pro
+// 实报三个头像入口全灭；#677/#717 同族第三波）。业界对这类顽固兼容问题的最稳解＝不再依赖
+// JS 合成 click：把透明 <label for=inputId> 铺满触发按钮内部，用户手指物理点在 label 上，
+// 由内核按 HTML 原生行为转发激活 file input（label→input 转发是核心规范行为，所有浏览器
+// 分叉实现一致——中文移动网「sr-only input + label 当按钮」通吃全平台的通用上传写法）。
+// JS click() 保留为兜底：点击若来自 label（原生激活已开选择器），事件方用
+// mochiFilePickFromLabel 跳过合成 click，防止同一手势双开。
+window.mochiFilePickLabel = function (btn, input) {
+  try {
+    if (!btn || !input || !btn.appendChild) return;
+    if (!input.id) input.id = 'mochi-file-pick-' + Date.now().toString(36);
+    if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+    var mark = 'data-file-pick-for';
+    var label = btn.querySelector('label[' + mark + '="' + input.id + '"]');
+    if (!label) {
+      label = document.createElement('label');
+      label.setAttribute(mark, input.id);
+      label.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;';
+      btn.appendChild(label);
+    }
+    label.htmlFor = input.id;
+  } catch (e) { /* 兼容助手绝不能成为错误源 */ }
+};
+// 点击是否来自选择器 label（是＝原生激活已打开选择器，跳过 JS click 兜底）
+window.mochiFilePickFromLabel = function (e) {
+  try { return !!(e && e.target && e.target.closest && e.target.closest('label[data-file-pick-for]')); } catch (err) { return false; }
+};

@@ -128,6 +128,9 @@ let toastTxt = '';
 for (let i = 0; i < 18; i++) { await sleep(500); toastTxt = String(await ev("(function(){var t=document.getElementById('cc-toast'); return t?(t.textContent||''):'';})()")); if (toastTxt.indexOf('测试结果') >= 0) break; }
 t('T7a 自检报出真实通道（SW=已真正提交系统显示）', toastTxt.indexOf('已发送并真正提交系统显示') >= 0 && toastTxt.indexOf('Service Worker 通道') >= 0, toastTxt.split('\n')[0] + ' | len=' + toastTxt.length);
 t('T7b 超时哨兵不误触（正常链路不报「测试超时」）', toastTxt.indexOf('测试超时') < 0, '');
+// T7c #724 端到端归因：受理≠挂出——结果必须含系统通知队列回读行（结果瘦身后的新自检层）
+for (let i = 0; i < 12; i++) { if (toastTxt.indexOf('系统通知队列') >= 0) break; await sleep(500); toastTxt = String(await ev("(function(){var t=document.getElementById('cc-toast'); return t?(t.textContent||''):'';})()")); }
+t('T7c 端到端归因：结果含系统通知队列回读行（#724 受理≠挂出）', toastTxt.indexOf('系统通知队列') >= 0, toastTxt.split('\n')[toastTxt.split('\n').length - 1]);
 
 try { chrome.kill(); } catch (e) {}
 server.close();

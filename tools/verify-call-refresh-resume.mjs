@@ -184,9 +184,14 @@ try {
   // B4/B5 RED 判别核心：模拟存储亚健康机型（sessionStorage.setItem 与 localStorage.setItem 全抛，
   //   复刻 #699/#406 故障形态）→ 去电接通 → 两路 LS 必然全空、IDB 副本必须幸存（双写拆开+IDB 兜底）；
   //   该状态下刷新 → 仍能从 IDB 续上（原实现此处 call-active 一份都没有＝通话消失且无记录）
+  //   口径更新（2026-09-18 #722 会话，对照 #705 墓碑制）：先摘掉 B3 挂断留下的 SS/LS {"ts":0}
+  //   墓碑——recoverCall 读到 SS 墓碑即 return、从不下探 IDB，不摘就测不到「仅 IDB 幸存」这条链
+  //   （原版此处恒红＝过期口径，非回归）。
   await evalJs(`(function(){
     sessionStorage.setItem = function(){ throw new Error('quota'); };
     localStorage.setItem = function(){ throw new Error('quota'); };
+    try { sessionStorage.removeItem('${CALL_KEY}'); } catch(e){}
+    try { localStorage.removeItem('${CALL_KEY}'); } catch(e){}
     return 'stubbed';
   })()`);
   await evalJs(`window.placeCall(); 'dialing'`);
@@ -208,18 +213,24 @@ try {
   check('B5 同机型刷新：仅 IDB 副本幸存也能续上通话', !!b5, JSON.stringify(b5));
   await evalJs(`window.hangupCall(); 'hangup'`);
 
-  // B6 IDB 里塞 2 小时前的旧标记（心跳早停＝早已结束）→ 刷新后不恢复、不翻旧账
+  // B6 IDB 里塞 2 小时前的旧标记（心跳早停＝早已结束）→ 刷新后不恢复、不翻旧账。
+  //   口径更新（2026-09-18 #722 会话，对照 #705 墓碑制）：clearCallActive 现写 {"ts":0}
+  //   墓碑而非 removeItem，「被清」＝读到 ts:0 墓碑；且种子前先摘掉 SS/LS 旧标记，
+  //   让 recoverCall 真正走到 IDB 兜底回读路径（原版 SS 墓碑命中即 return，测不到 A4）。
   await evalJs(`(async function(){
     await window.idbSet('${CALL_KEY}', { cid:'default', direction:'out', status:'connected',
       startTime: Date.now()-7200000, connectedTime: Date.now()-7200000, name:'TA', av:'', ts: Date.now()-7200000 });
+    try { sessionStorage.removeItem('${CALL_KEY}'); } catch(e){}
+    try { localStorage.removeItem('${CALL_KEY}'); } catch(e){}
     return 'seeded';
   })()`);
   await cdp('Page.navigate', { url: baseUrl + '/index.html' });
   if (!(await waitAppReady())) throw new Error('三次刷新后应用未就绪');
   await sleep(1200);
   const b6 = await evalJs(`(function(){
+    function tomb(v){ if(!v) return true; try { var o=JSON.parse(v); return !!o && o.ts===0; } catch(e){ return false; } }
     var st = window.getCallState ? window.getCallState() : null;
-    return JSON.stringify({ noGhost: !st, cleared: !sessionStorage.getItem('${CALL_KEY}') && !localStorage.getItem('${CALL_KEY}') });
+    return JSON.stringify({ noGhost: !st, cleared: tomb(sessionStorage.getItem('${CALL_KEY}')) && tomb(localStorage.getItem('${CALL_KEY}')) });
   })()`);
   o = null; try { o = JSON.parse(b6); } catch (e) {}
   check('B6 过期 IDB 旧标记：不恢复旧通话、标记被清（10 分钟新鲜度窗）', o && o.noGhost && o.cleared, b6);

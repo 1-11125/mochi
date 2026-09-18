@@ -16,7 +16,9 @@
   font-size: 11px; color: var(--ink); opacity: .85;
   background: var(--glass-bg, rgba(255,255,255,.55));
   border: 1px solid rgba(0,0,0,.06); border-radius: 999px;
-  padding: 4px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  /* #722 去 backdrop-filter（iOS WebKit 每帧重采样 backdrop，页面又带常驻动画＝持续合成开销；
+     同 base.css v3.6.x 弹窗先例），玻璃感靠 --glass-bg 半透明底保留 */
+  padding: 4px 10px;
 }
 /* 点数飘字（+n🏠） */
 .r-fly {
@@ -152,11 +154,13 @@
   animation: rMeteor 7s linear infinite;
 }
 .r-window.wb.nw .r-sky::after { animation-delay: 3.4s; }
+/* #722 iOS 去 left 动画（布局属性每帧 reflow）：改 translateX 合成位移。
+   几何换算：sweep＝(-34%→128%)×窗宽＝162%窗宽；流星自宽 36%窗宽 → 162/36＝450% 自宽 */
 @keyframes rMeteor {
-  0% { left: -34%; opacity: 0; }
+  0% { transform: rotate(-22deg) translateX(0); opacity: 0; }
   5% { opacity: .95; }
-  11% { left: 128%; opacity: 0; }
-  100% { left: 128%; opacity: 0; }
+  11% { transform: rotate(-22deg) translateX(450%); opacity: 0; }
+  100% { transform: rotate(-22deg) translateX(450%); opacity: 0; }
 }
 
 /* 下雨时窗外雨滴下滑 */
@@ -171,9 +175,13 @@
 /* ---- 地板格（放置/移动模式：可放绿色呼吸、被占灰掉） ---- */
 .r-cell { position: absolute; box-sizing: border-box; border-radius: 6px; }
 .r-cell:hover { background: rgba(255,255,255,.18); }
+/* #722 呼吸底色移到 ::before（原动画 background 每帧重绘不进合成器；outline 常驻不参与呼吸） */
 .r-scene.placing .r-cell.ok {
   outline: 1.5px solid rgba(96,168,96,.65); outline-offset: -3px;
-  background: rgba(122,200,122,.12);
+}
+.r-scene.placing .r-cell.ok::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: rgba(122,200,122,.28); opacity: .29; pointer-events: none;
   animation: rBreath 1.6s ease-in-out infinite;
 }
 .r-scene.placing .r-cell.bad {
@@ -185,7 +193,8 @@
   background: rgba(110,200,110,.26);
   animation: none;
 }
-@keyframes rBreath { 0%,100% { background: rgba(122,200,122,.08); } 50% { background: rgba(122,200,122,.28); } }
+.r-scene.placing .r-cell.tgt::before { animation: none; } /* #722 ok+tgt 同挂时呼吸层一并关 */
+@keyframes rBreath { 0%,100% { opacity: .29; } 50% { opacity: 1; } } /* .28 底色 × .29 ≈ 原 0% 帧 .08 */
 
 /* ---- 家具 ---- */
 .r-furn {
@@ -330,7 +339,7 @@
   max-width: 92%;
   background: rgba(28,26,22,.82); color: #fff;
   border-radius: 999px; padding: 7px 8px 7px 14px;
-  font-size: 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  font-size: 12px; /* #722 去 backdrop-filter（同 .r-chip，iOS 每帧重采样开销） */
   white-space: nowrap;
 }
 .r-banner span { overflow: hidden; text-overflow: ellipsis; }
@@ -351,8 +360,7 @@
   font-size: 12.5px; line-height: 1.7; color: var(--ink);
   background: var(--glass-bg, rgba(255,255,255,.55));
   border: 1px solid rgba(0,0,0,.06); border-radius: 12px;
-  padding: 10px 12px;
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  padding: 10px 12px; /* #722 去 backdrop-filter（同 .r-chip） */
 }
 
 /* ---- 底部操作条 ---- */

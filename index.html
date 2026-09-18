@@ -809,8 +809,8 @@ box-shadow:0 4px 16px rgba(0,0,0,.25);
 .ver-update-bar[hidden] { display:none; }
 .ver-update-bar .vub-txt { font-weight:600; }
 @media (min-width: 901px) {
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .ver-update-bar { top: max(24px, 50vh - 422px); left: calc(50% - 195px); right: calc(50% - 195px); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-install, html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .pwa-ios-hint { right: calc(50% - 179px); bottom: calc(max(24px, 50vh - 422px) + 16px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .ver-update-bar { top: max(24px, 50vh - 422px); left: calc(50% - 195px); right: calc(50% - 195px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .pwa-install, html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .pwa-ios-hint { right: calc(50% - 179px); bottom: calc(max(24px, 50vh - 422px) + 16px); }
 }
 .ver-update-bar .vub-act {
 flex-shrink:0; padding:5px 14px; border-radius:99px;
@@ -855,6 +855,15 @@ box-shadow:0 4px 16px rgba(0,0,0,.18);
 .reply-guide-note { padding:10px 14px 2px; }
 img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height: 48px; object-fit: contain; opacity: .5; }
 .phone { top: var(--mochi-shift-adj, 0px); }
+.splash-alert.splash-browser {
+padding:13px 15px 14px 16px;
+background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
+}
+.splash-alert.splash-browser .splash-alert-t { color:#c22b27; font-size:13px; letter-spacing:1px; }
+.splash-alert.splash-browser .splash-alert-t::before { background:#c22b27; }
+.splash-alert.splash-browser p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-browser strong { color:#c22b27; font-weight:800; }
+[data-theme="dark"] .splash-alert.splash-browser { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }
 :root {
 --widget-bg:#ffffff;
 --widget-border:rgba(0,0,0,.1);
@@ -1533,8 +1542,17 @@ to { opacity: 1; transform: none; }
 }
 .msg-hi-heart {
 position:absolute;
-top:2px; left:4px;
+top:calc(2px + var(--msg-mark-y, 0px)); left:calc(4px + var(--msg-mark-x, 0px));
 width:10px; height:10px;
+color:#ff4d6a;
+pointer-events:none;
+z-index:5;
+display:block;
+}
+.msg-hi-mark {
+position:absolute;
+top:calc(2px + var(--msg-mark-y, 0px)); left:calc(4px + var(--msg-mark-x, 0px));
+font-size:9px; line-height:1;
 color:#ff4d6a;
 pointer-events:none;
 z-index:5;
@@ -1550,28 +1568,29 @@ opacity:.5;
 }
 body.cs-time-under-bubble .msg { position:relative; }
 body.cs-time-under-bubble .msg-side .msg-time {
-position:absolute; top:calc(100% + 3px); padding:2px 8px; border-radius:10px;
+position:absolute; top:calc(100% + 3px + var(--msg-time-dy, 0px)); padding:2px 8px; border-radius:10px;
 background:rgba(0,0,0,.05); opacity:.6; letter-spacing:.3px; z-index:2;
 }
-body.cs-time-under-bubble .msg-in .msg-side .msg-time { right:0; }
-body.cs-time-under-bubble .msg-out .msg-side .msg-time { left:0; }
+body.cs-time-under-bubble .msg-in .msg-side .msg-time { right:calc(0px - var(--msg-time-dx, 0px)); }
+body.cs-time-under-bubble .msg-out .msg-side .msg-time { left:calc(0px + var(--msg-time-dx, 0px)); }
 body.cs-time-bubble .msg-side { display:flex; flex-direction:row; align-items:center; gap:8px; }
 body.cs-time-bubble .msg-side .msg-time {
 padding:3px 8px; border-radius:10px; background:rgba(0,0,0,.05);
 opacity:.6; letter-spacing:.3px;
+transform:translate(var(--msg-time-dx, 0px), var(--msg-time-dy, 0px));
 }
 body.cs-time-float .msg { position:relative; }
 body.cs-time-float .msg-side .msg-time {
-position:absolute; top:-4px; padding:2px 8px; border-radius:10px;
+position:absolute; top:calc(-4px + var(--msg-time-dy, 0px)); padding:2px 8px; border-radius:10px;
 background:rgba(0,0,0,.06); opacity:.65; letter-spacing:.3px; z-index:2;
 }
-body.cs-time-float .msg-in .msg-side .msg-time { right:-4px; }
-body.cs-time-float .msg-out .msg-side .msg-time { left:-4px; }
+body.cs-time-float .msg-in .msg-side .msg-time { right:calc(-4px - var(--msg-time-dx, 0px)); }
+body.cs-time-float .msg-out .msg-side .msg-time { left:calc(-4px + var(--msg-time-dx, 0px)); }
 body.cs-time-center .msg { position:relative; padding-top:18px; width:100%; max-width:100%; }
 body.cs-time-center .msg-in { justify-content:flex-start; }
 body.cs-time-center .msg-out { justify-content:flex-end; }
 body.cs-time-center .msg-side .msg-time {
-position:absolute; top:0; left:50%; transform:translateX(-50%);
+position:absolute; top:calc(0px + var(--msg-time-dy, 0px)); left:50%; transform:translateX(-50%) translateX(var(--msg-time-dx, 0px));
 padding:2px 10px; border-radius:10px; background:rgba(0,0,0,.05);
 opacity:.6; letter-spacing:.3px;
 }
@@ -1818,8 +1837,8 @@ html.force-mobile #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 html.tablet #page-chat > .chat-input-row { --cs-input-mb-base:0px; }
 #page-chat { --cs-bar-rgb:255,255,255; }
 [data-theme="dark"] #page-chat { --cs-bar-rgb:30,30,30; }
-#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }
-#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }
+#page-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))); }
+#page-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))); }
 #page-chat .msg-in .msg-bubble { background:var(--cs-in-surface, var(--msg-in-bg, #ffffff)); }
 #page-chat .msg-out .msg-bubble { background:var(--cs-out-surface, var(--msg-out-bg, #111111)); }
 .ch-input-btn {
@@ -2599,7 +2618,7 @@ cursor:grab; user-select:none; touch-action:none;
 .call-mini:active { cursor:grabbing; }
 .call-mini[hidden] { display:none; }
 @media (min-width: 901px) {
-html:not(.force-mobile) .call-mini {
+html:not(.force-mobile):not(.tablet) .call-mini {
 position:absolute;
 }
 }
@@ -2655,7 +2674,8 @@ padding:2px 7px; border-radius:99px;
 padding:9px 14px; font-size:13px; font-weight:600;
 border:1px solid rgba(0,0,0,.12); border-radius:12px;
 background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
--webkit-tap-highlight-color:transparent; transition:all .15s ease;
+-webkit-tap-highlight-color:transparent;
+transition:background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
 }
 .rp-amt.sel { background:#111; color:#fff; border-color:#111; }
 .rp-amt:active { transform:translateY(1px); }
@@ -2807,16 +2827,22 @@ cursor:pointer; -webkit-tap-highlight-color:transparent;
 transition:opacity .15s ease, background .15s ease, border-color .15s ease;
 }
 .voice-rec-btn {
-border:1.5px solid rgba(0,0,0,.18); background:transparent; color:var(--ink);
+position:relative; border:1.5px solid rgba(0,0,0,.18); background:transparent; color:var(--ink);
 }
 .voice-rec-btn:active { opacity:.7; }
 .voice-rec-btn.rec {
 background:#e5484d; border-color:transparent; color:#fff;
-animation:voiceRecPulse 1.15s ease-in-out infinite;
 }
-@keyframes voiceRecPulse {
-0%,100% { box-shadow:0 0 0 0 rgba(229,72,77,.35); }
-50% { box-shadow:0 0 0 7px rgba(229,72,77,0); }
+.voice-rec-btn.rec::after {
+content:''; position:absolute; inset:0; border-radius:inherit;
+box-shadow:0 0 0 5px rgba(229,72,77,.35);
+opacity:0; pointer-events:none;
+animation:voiceRecPulseRing 1.15s ease-in-out infinite;
+}
+@keyframes voiceRecPulseRing {
+0% { transform:scale(1); opacity:0; }
+30% { opacity:1; }
+100% { transform:scale(1.35); opacity:0; }
 }
 .voice-send-big {
 border:1.5px solid transparent; background:var(--btn-bg,#111); color:var(--btn-ink,#fff);
@@ -3008,6 +3034,13 @@ animation: ccToastAutoHide 2.6s ease forwards;
 @keyframes ccToastAutoHide {
 0%, 88% { opacity:1; transform:translate(-50%, 0); }
 100% { opacity:0; transform:translate(-50%, 10px); }
+}
+#cc-toast {
+white-space:pre-line;
+line-height:1.45;
+max-height:min(60vh, 420px);
+overflow:hidden;
+overflow-wrap:break-word;
 }
 #dc-list .cc-item { box-shadow: none; transition: none; }
 #dc-list .cc-item:active { transform: none; }
@@ -5202,11 +5235,11 @@ display:flex; flex-direction:column; gap:7px; user-select:none; cursor:grab;
 }
 .sm-float[hidden] { display:none; }
 @media (min-width: 901px) {
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .cc-manage-bar { left: calc(50% - 177px); right: calc(50% - 177px); bottom: calc(max(24px, 50vh - 422px) + 18px); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .loc-panel.loc-full { top: max(24px, 50vh - 422px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); left: calc(50% - 195px); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .music-batch-bar { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .sm-float { left: calc(50% - 183px); top: calc(max(24px, 50vh - 422px) + 80px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .cc-manage-bar { left: calc(50% - 177px); right: calc(50% - 177px); bottom: calc(max(24px, 50vh - 422px) + 18px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .loc-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .loc-panel.loc-full { top: max(24px, 50vh - 422px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); left: calc(50% - 195px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .music-batch-bar { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .sm-float { left: calc(50% - 183px); top: calc(max(24px, 50vh - 422px) + 80px); }
 }
 .sm-f-info { width:100%; min-width:0; padding-right:18px; }
 .sm-f-name {
@@ -6191,10 +6224,14 @@ font-family: inherit; -webkit-tap-highlight-color: transparent;
 .c4-land { animation:c4land .18s ease-out; }
 @keyframes c4land { 0% { transform:scale(1,1); } 45% { transform:scale(1.06,.88); } 100% { transform:scale(1,1); } }
 .c4-wincol::before { background:rgba(127,127,127,.06); }
-.c4-win { animation:c4win .9s ease-in-out infinite alternate; }
-@keyframes c4win {
-from { filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
-to { filter:brightness(1.25) drop-shadow(0 0 7px rgba(255,224,138,.9)); }
+.c4-win::after {
+content:''; position:absolute; inset:0; border-radius:inherit;
+background:rgba(255,236,180,.30); box-shadow:0 0 7px 1px rgba(255,224,138,.9); opacity:0; pointer-events:none; z-index:2;
+animation:c4winGlow .9s ease-in-out infinite alternate;
+}
+@keyframes c4winGlow {
+from { opacity:0; transform:scale(1); }
+to { opacity:1; transform:scale(1.06); }
 }
 .c4-shake { animation:c4shake .26s ease-in-out; }
 @keyframes c4shake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-3px); } 50% { transform:translateX(3px); } 75% { transform:translateX(-2px); } }
@@ -6207,7 +6244,7 @@ to { filter:brightness(1.25) drop-shadow(0 0 7px rgba(255,224,138,.9)); }
 .c4-dot-ta { background:radial-gradient(circle at 34% 28%, #ffe59a 0%, #f2b63c 60%, #cf951d 100%); }
 @media (prefers-reduced-motion: reduce) {
 .c4-disc { transition-duration:0s !important; }
-.c4-land, .c4-win, .c4-shake { animation:none; }
+.c4-land, .c4-win, .c4-win::after, .c4-shake { animation:none; }
 }
 #chat-ms-panel { height:auto; max-height:86%; }
 #chat-ms-panel .poke-card-scroll { min-height:0; max-height:none; }
@@ -6397,11 +6434,15 @@ box-shadow:0 3px 8px rgba(61,127,196,.35);
 .fish-btn:disabled { opacity:.55; box-shadow:none; }
 .fish-btn[hidden] { display:none; }
 .fish-reel {
-background:linear-gradient(135deg,#f2994a,#e8683a);
+position:relative; background:linear-gradient(135deg,#f2994a,#e8683a);
 box-shadow:0 3px 8px rgba(232,104,58,.35);
-animation:fishreelpulse 1s ease-in-out infinite;
 }
-@keyframes fishreelpulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.14); } }
+.fish-reel::after {
+content:''; position:absolute; inset:0; border-radius:inherit;
+background:#fff; opacity:0; pointer-events:none;
+animation:fishReelPulse 1s ease-in-out infinite;
+}
+@keyframes fishReelPulse { 0%,100% { opacity:0; } 50% { opacity:.14; } }
 .fish-tabs { display:flex; gap:8px; padding:0 4px; }
 .fish-tab {
 flex:1; padding:8px 0; border:none; border-radius:12px; font-size:12.5px; font-weight:600;
@@ -6482,8 +6523,7 @@ pointer-events:none; animation:fishrise 1.15s ease-out forwards;
 @media (prefers-reduced-motion: reduce) {
 .fish-water::before { animation:none; }
 .fish-bobber { animation:none !important; }
-.fish-reel { animation:none; }
-.fish-scene[data-mine="biting"] .fish-me .fish-rod,
+.fish-reel, .fish-reel::after { animation:none; } .fish-scene[data-mine="biting"] .fish-me .fish-rod,
 .fish-scene[data-ta="biting"] .fish-ta .fish-rod { animation:none; }
 .fish-splash { animation-duration:.01s; opacity:0; }
 }
@@ -6912,7 +6952,7 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .market-cats { display: flex; gap: 14px; padding: 18px 14px 10px; overflow-x: auto; }
 .market-cats::-webkit-scrollbar { display: none; }
 .market-cat { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; padding: 2px; transition: transform 0.15s; }
-.market-cat-ico { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 25px; transition: all 0.18s; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); background: #f2f2f5 !important; }
+.market-cat-ico { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 25px; transition: background 0.18s, box-shadow 0.18s, transform 0.18s; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); background: #f2f2f5 !important; }
 .market-cat.sel .market-cat-ico { background: #1f1f1f !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); transform: scale(1.06); }
 .market-cat.sel .market-cat-ico::after { content: ''; }
 .market-cat-name { font-size: 11.5px; color: #8a8a8a; white-space: nowrap; }
@@ -6948,7 +6988,7 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .gift-balance:active { opacity: 0.6; }
 .gift-cats { display: flex; gap: 7px; padding: 8px 14px 4px; overflow-x: auto; }
 .gift-cats::-webkit-scrollbar { display: none; }
-.gift-cat { flex-shrink: 0; padding: 6px 14px; border-radius: 99px; background: #f2f2f5; color: #555; font-size: 13px; border: none; cursor: pointer; transition: all 0.15s; }
+.gift-cat { flex-shrink: 0; padding: 6px 14px; border-radius: 99px; background: #f2f2f5; color: #555; font-size: 13px; border: none; cursor: pointer; transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
 .gift-cat.sel { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .gift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 14px 24px; }
 .gift-grid .gift-item { border-radius: 14px; }
@@ -6966,10 +7006,10 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .gm-img-row { display: flex; align-items: center; gap: 10px; }
 .gm-img-prev { width: 64px; height: 64px; border-radius: 14px; background: #f7f7f7; border: 1px dashed rgba(0, 0, 0, 0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; overflow: hidden; box-sizing: border-box; flex-shrink: 0; }
 .gm-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gm-img-btn { padding: 9px 16px; border-radius: 99px; border: 1px solid rgba(0, 0, 0, 0.15); background: #fff; color: #111; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.gm-img-btn { padding: 9px 16px; border-radius: 99px; border: 1px solid rgba(0, 0, 0, 0.15); background: #fff; color: #111; font-size: 13px; cursor: pointer; transition: transform 0.15s, background 0.15s, border-color 0.15s; }
 .gm-img-btn:active { transform: scale(0.96); background: #f2f2f5; }
 .market-foot { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; padding: 0 14px; }
-.market-tool { padding: 10px 24px; border-radius: 99px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.1); color: #111; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.market-tool { padding: 10px 24px; border-radius: 99px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.1); color: #111; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s; font-weight: 500; }
 .market-tool:active { background: #f2f2f5; transform: scale(0.97); }
 .giftbox-hero { margin: 14px; padding: 22px 20px; border-radius: 18px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.06); color: #111; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04); }
 .giftbox-hero-title { font-size: 22px; font-weight: 700; letter-spacing: 1.5px; color: #111; }
@@ -6980,7 +7020,7 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .giftbox-stat-num { font-size: 20px; font-weight: 700; margin-top: 4px; line-height: 1; color: #111; }
 .giftbox-stat-lbl { font-size: 11px; color: #8a8a8a; margin-top: 3px; }
 .giftbox-tabs { display: flex; gap: 8px; padding: 0 14px 4px; width: 100%; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
-.gb-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13.5px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.gb-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13.5px; cursor: pointer; transition: background 0.15s, color 0.15s; font-weight: 500; }
 .gb-tab.sel { background: #111; color: #fff; }
 .giftbox-scroll { padding: 12px 14px 80px; width: 100%; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
 .giftbox-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -7004,7 +7044,7 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .gb-wish { width: 100%; min-height: 66px; padding: 11px 14px; border-radius: 13px; border: 1px solid rgba(0, 0, 0, 0.1); background: #f7f7f7; font-size: 14px; resize: none; box-sizing: border-box; font-family: inherit; color: #333; transition: border 0.15s; }
 .gb-wish:focus { border-color: #111; outline: none; }
 .gb-actions { display: flex; gap: 10px; }
-.gb-cancel, .gb-ok { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 15px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.gb-cancel, .gb-ok { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 15px; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.15s; font-weight: 500; }
 .gb-cancel { background: #f2f2f5; color: #555; }
 .gb-ok { background: #111; color: #fff; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18); }
 .gb-ok:active { transform: scale(0.97); }
@@ -7081,11 +7121,11 @@ cursor: pointer; padding: 0;
 [data-theme="dark"] .market-search { color: #e8e8ea; }
 [data-theme="dark"] .market-search::placeholder { color: #6b6b70; }
 [data-theme="dark"] .market-search-clear { color: #98989e; }
-.gb-wishbtn { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 14px; cursor: pointer; transition: all 0.15s; font-weight: 500; background: #f2f2f5; color: #111; }
+.gb-wishbtn { flex: 1; padding: 12px 0; border-radius: 13px; border: none; font-size: 14px; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.15s; font-weight: 500; background: #f2f2f5; color: #111; }
 .gb-wishbtn:active { transform: scale(0.96); }
 .gb-tiny { margin-top: 10px; font-size: 11px; color: #b5b5b5; line-height: 1.6; text-align: center; }
 .wish-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.wish-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500; white-space: nowrap; }
+.wish-tab { flex: 1; padding: 9px 0; border-radius: 99px; background: #f2f2f5; color: #555; border: none; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, box-shadow 0.15s; font-weight: 500; white-space: nowrap; }
 .wish-tab.sel { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .wish-hint { font-size: 11.5px; color: #a5a5a5; line-height: 1.8; margin-bottom: 8px; }
 .wish-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05); }
@@ -7338,8 +7378,8 @@ display: flex; flex-direction: column;
 }
 .gc-at-panel[hidden] { display: none; }
 @media (min-width: 901px) {
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .gc-settings-panel { left: calc(50% - 195px); right: calc(50% - 195px); top: max(24px, 50vh - 422px); height: min(844px, calc(100vh - 48px)); }
-html:not(.force-mobile):not(.fs-active):not(.fs-css-active) .gc-at-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .gc-settings-panel { left: calc(50% - 195px); right: calc(50% - 195px); top: max(24px, 50vh - 422px); height: min(844px, calc(100vh - 48px)); }
+html:not(.force-mobile):not(.tablet):not(.fs-active):not(.fs-css-active) .gc-at-panel { left: calc(50% - 195px); right: calc(50% - 195px); bottom: max(24px, 50vh - 422px); }
 }
 .gc-at-head { padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,.06); font-size: 13px; color: #888; }
 .gc-at-body { overflow-y: auto; padding: 4px 0; }
@@ -7553,6 +7593,7 @@ cursor:pointer; line-height:1.4; white-space:nowrap;
 .ppy-chip .ppy-x { font-style:normal; margin-left:5px; padding:0 1px; opacity:.5; }
 .ppy-chip.sel .ppy-x, .ppy-chip.sel:hover .ppy-x { opacity:.85; }
 .ppy-chips .ppy-chip#ppy-add { border-style:dashed; }
+.gs-row[hidden] { display:none; }
 .deadline-btn {
 flex:none; text-align:right; cursor:pointer; -webkit-tap-highlight-color:transparent;
 white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -8871,9 +8912,15 @@ transition: width .4s ease; min-width:0; overflow:hidden;
 [data-season="2"] .garden-plot { border-color: rgba(255,183,77,.32); }
 [data-season="3"] .garden-plot { border-color: rgba(189,223,253,.45); }
 .garden-plot.rare { box-shadow: 0 0 14px rgba(255,215,0,.45), inset 0 0 8px rgba(255,235,150,.2); }
-.garden-plot.rare .garden-plant-emoji { filter: drop-shadow(0 0 6px rgba(255,215,0,.7)); }
-.garden-plot.rare.bloomed .garden-plant-emoji { animation: gardenSway 3.2s ease-in-out infinite, gardenRareGlow 2s ease-in-out infinite; }
-@keyframes gardenRareGlow { 0%,100% { filter: drop-shadow(0 0 5px rgba(255,215,0,.5)); } 50% { filter: drop-shadow(0 0 10px rgba(255,215,0,.9)); } }
+.garden-plot.rare .garden-plant-emoji { position:relative; filter: drop-shadow(0 0 6px rgba(255,215,0,.7)); }
+.garden-plot.rare.bloomed .garden-plant-emoji { animation: gardenSway 3.2s ease-in-out infinite; }
+.garden-plot.rare.bloomed .garden-plant-emoji::after {
+content:''; position:absolute; inset:-45%; z-index:-1; border-radius:50%;
+background:radial-gradient(circle, rgba(255,215,0,.55), rgba(255,215,0,0) 70%);
+opacity:.4; pointer-events:none;
+animation:gardenRareHalo 2s ease-in-out infinite;
+}
+@keyframes gardenRareHalo { 0%,100% { opacity:.4; transform:scale(.9); } 50% { opacity:1; transform:scale(1.1); } }
 .garden-dex-sub { font-size: 12px; font-weight: 700; margin: 10px 0 6px; color: #f9a825; }
 .garden-dex-grid.rare-grid .garden-dex-item.rare { background: linear-gradient(90deg, rgba(255,215,0,.12), rgba(255,149,0,.08)); border: 1px solid rgba(255,215,0,.3); }
 .garden-dex-item.rare .dex-emoji { filter: drop-shadow(0 0 3px rgba(255,215,0,.6)); }
@@ -9030,7 +9077,7 @@ color: #c67800;
 @media (prefers-reduced-motion: reduce) {
 .garden-plot.bloomed .garden-plant-emoji,
 .garden-plot.rare.bloomed .garden-plant-emoji { animation: none !important; }
-.garden-fx { display: none !important; }
+.garden-plot.rare.bloomed .garden-plant-emoji::after { animation: none !important; } .garden-fx { display: none !important; }
 }
 .garden-dex-bar { margin-bottom: 10px; }
 .garden-dex-search { width: 100%; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,.1); background: rgba(255,255,255,.8); font-size: 13px; margin-bottom: 8px; box-sizing: border-box; font-family: inherit; color: var(--ink); }
@@ -9239,7 +9286,7 @@ position: relative;
 font-size: 11px; color: var(--ink); opacity: .85;
 background: var(--glass-bg, rgba(255,255,255,.55));
 border: 1px solid rgba(0,0,0,.06); border-radius: 999px;
-padding: 4px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+padding: 4px 10px;
 }
 .r-fly {
 position: absolute; top: -13px; right: 4px; z-index: 5;
@@ -9354,10 +9401,10 @@ animation: rMeteor 7s linear infinite;
 }
 .r-window.wb.nw .r-sky::after { animation-delay: 3.4s; }
 @keyframes rMeteor {
-0% { left: -34%; opacity: 0; }
+0% { transform: rotate(-22deg) translateX(0); opacity: 0; }
 5% { opacity: .95; }
-11% { left: 128%; opacity: 0; }
-100% { left: 128%; opacity: 0; }
+11% { transform: rotate(-22deg) translateX(450%); opacity: 0; }
+100% { transform: rotate(-22deg) translateX(450%); opacity: 0; }
 }
 .r-scene.raining .r-sky::before {
 content: ''; position: absolute; left: 0; right: 0; top: -120%; height: 340%;
@@ -9370,7 +9417,10 @@ pointer-events: none;
 .r-cell:hover { background: rgba(255,255,255,.18); }
 .r-scene.placing .r-cell.ok {
 outline: 1.5px solid rgba(96,168,96,.65); outline-offset: -3px;
-background: rgba(122,200,122,.12);
+}
+.r-scene.placing .r-cell.ok::before {
+content: ''; position: absolute; inset: 0; border-radius: inherit;
+background: rgba(122,200,122,.28); opacity: .29; pointer-events: none;
 animation: rBreath 1.6s ease-in-out infinite;
 }
 .r-scene.placing .r-cell.bad {
@@ -9382,8 +9432,7 @@ outline: 2px solid rgba(80,170,90,.85); outline-offset: -3px;
 background: rgba(110,200,110,.26);
 animation: none;
 }
-@keyframes rBreath { 0%,100% { background: rgba(122,200,122,.08); } 50% { background: rgba(122,200,122,.28); } }
-.r-furn {
+.r-scene.placing .r-cell.tgt::before { animation: none; } @keyframes rBreath { 0%,100% { opacity: .29; } 50% { opacity: 1; } } .r-furn {
 position: absolute; z-index: 5;
 transform: translate(-50%, -92%);
 font-size: clamp(24px, 7vw, 34px);
@@ -9504,8 +9553,7 @@ display: flex; align-items: center; gap: 8px;
 max-width: 92%;
 background: rgba(28,26,22,.82); color: #fff;
 border-radius: 999px; padding: 7px 8px 7px 14px;
-font-size: 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-white-space: nowrap;
+font-size: 12px; white-space: nowrap;
 }
 .r-banner span { overflow: hidden; text-overflow: ellipsis; }
 .r-banner button {
@@ -9522,9 +9570,7 @@ white-space: pre-line;
 font-size: 12.5px; line-height: 1.7; color: var(--ink);
 background: var(--glass-bg, rgba(255,255,255,.55));
 border: 1px solid rgba(0,0,0,.06); border-radius: 12px;
-padding: 10px 12px;
-backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-}
+padding: 10px 12px; }
 .r-bar { display: flex; gap: 8px; }
 .r-bar button {
 flex: 1; border: 0; border-radius: 14px;
@@ -9873,6 +9919,15 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
           <p><strong>二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。</strong>严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。</p>
         </div>
+        <!-- v3.26.x #738（用户 2026-09-18 小米17 Pro 自带浏览器直派「安卓不建议使用手机自带的浏览器，
+             可能会有很多兼容问题，这个开屏要在显眼的地方，要标红」）——红色警示卡置顶第二位（防倒卖卡之后）；
+             静态 DOM（data-browser-warn 标记，不占 data-anti-scam 命名空间、与 clock.js 看门狗认领不冲突），
+             在线 notice.json 覆盖只改公告列表，不影响此处；同章文案另见 notice.json「浏览器兼容提醒」节 -->
+        <div class="splash-alert splash-browser" data-browser-warn="1">
+          <div class="splash-alert-t">安卓用户 · 请勿使用手机自带浏览器</div>
+          <p><strong>安卓手机不建议使用自带浏览器打开本站（小米 / 华为 / OPPO / vivo / 荣耀 / 夸克等），自带浏览器兼容问题多。</strong>已实测出现：点导入 / 添加按钮没反应（系统相册弹不出来）、显示错位、卡顿等。</p>
+          <p>建议改用 <strong>Chrome 或 Edge 浏览器</strong>打开本站；或在浏览器菜单里「添加到主屏幕 / 安装应用」，之后从桌面图标进入。</p>
+        </div>
         <!-- v3.26.x：使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
              #611 后合并原「不是小手机 · 禁止扩圈」卡（去重，两卡同一主题）；静态 DOM（tag 'w' 非数字，
              与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处 -->
@@ -10014,6 +10069,18 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-item">建议先跑 设置 → 屏幕适配诊断 看差多少像素，再来填对应偏移；聊天页内还可配合聊天设置→美化 的「顶栏/底栏位置」滑杆单独微调。</p>
           </div>
           <div class="splash-sec-wrap">
+            <p class="splash-sec">八、卡顿自检（卡不卡，10 秒实测）</p>
+            <p class="splash-item">新增「卡顿自检」：手机卡不卡不用靠感觉——设置 → 卡顿自检，点确定后正常去用 10 秒（去卡的地方滚动、操作都行），结束自动弹出实测报告。</p>
+            <p class="splash-item">报告包含：掉帧率与分级（流畅/轻度/中度/重度）、最慢一帧、掉帧集中在哪个页面、键盘弹出期占比、本地数据量画像，并给出对症建议；若查明是字卡库等数据过大，会指向旁边的「卡顿自检 · 一键优化」（不删数据）。</p>
+            <p class="splash-item">说明：不支持长任务观测的内核（如 iOS WebKit）用帧间隔等效判定；切后台/锁屏的时间自动剔除、不会误报成卡顿；采样只在本机进行，不上传任何数据。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">九、主动发送标识（不只有小爱心了）</p>
+            <p class="splash-item">TA 主动找你的消息，气泡左上角那个小标识以前固定是爱心，现在可以换、也可以自己加：设置 → 回复设置 → 聊天 → 主动发送（联系人找你）→「标识」。</p>
+            <p class="splash-item">内置五枚都能点亮（爱心 ♥ / 星星 ★ / 月亮 ☾ / 闪光 ✦ / 小爪 🐾），系统自带的只能开关、不能删除；点「＋」可以添加自己的标识，emoji 和文字都可以（最长 4 个字符、最多 8 个），自定义的点本体开关、点「×」删除。</p>
+            <p class="splash-item">点亮一枚＝每条主动消息都用它；点亮多枚＝多出「抽取方式」一行，可选「每次随机」或「按顺序轮换」。关掉「主动发送标识」总开关＝一枚都不显示（原来关掉爱心的效果）。</p>
+          </div>
+          <div class="splash-sec-wrap">
             <p class="splash-sec">关于使用过程中的更新提醒</p>
             <p class="splash-bullet">月底停更前，网站仍会按需更新修复，开屏有最新部署时间。</p>
             <p class="splash-bullet">不同设备的服务器节点可能还没更新。如果设备没同步到最新版本，可以用流量多刷新几次，或者晚几个小时再试。</p>
@@ -10027,9 +10094,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789690619923">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.737</b></span>
-        <span class="sv-deploy">部署于 2026-09-18 08:16<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789696211298">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.738</b></span>
+        <span class="sv-deploy">部署于 2026-09-18 09:50<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11414,6 +11481,14 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
         </div>
+        <!-- #726：卡顿自检（渲染层实测）——与下方 #411「一键优化」（数据层）互补：
+             10 秒 rAF 帧间隔现场实测（可去任意页面复现），掉帧率/集中页/键盘期占比 + 对症建议；
+             后台/锁屏冻结帧自动剔除；数据只在本机。 -->
+        <div class="set-row" id="row-perf-check">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 12l4.5-4.5"/><path d="M21 12h-3"/></svg></div>
+          <div class="txt">卡顿自检<span class="sub">实测 10 秒帧率，给出掉帧率/集中页/建议；数据只在本机</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
         <!-- v3.26.x #411：卡顿自检 · 一键优化——字卡库数据过大（曾实测过公用库 40MB+ 的案例）是
              iOS/安卓间歇卡顿的常见原因之一，本行扫描分级 + 非破坏预热（取回挂起大键 + 令牌化回复池，不删数据） -->
         <div class="set-row" id="row-perf-optimize">
@@ -11458,7 +11533,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.737</div>
+          <div class="val" id="about-ver-val">v3.26.738</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11527,7 +11602,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.737</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.738</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -11907,7 +11982,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.737</span>
+              <span class="lic-ver">v3.26.738</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -11981,7 +12056,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">聊天可同时发送图文消息（表情包或上传图片），一条消息还能放多张图——我和 TA 都可以</div>
           <div class="lic-li">聊天可引用消息，引用可发送表情包 + 文字</div>
           <div class="lic-li">联系人可随机收藏我发送的消息；我也可以收藏联系方发送的消息</div>
-          <div class="lic-li">主动发送：TA 会主动找你，可调概率、间隔与免打扰</div>
+          <div class="lic-li">主动发送：TA 会主动找你，可调概率、间隔、免打扰与消息标识（内置五种 + 自定义）</div>
           <div class="lic-li">聊天里点击顶部栏联系人的头像可打开【寻踪 TA 的日常】页面</div>
           <div class="lic-li">聊天页面点击顶部栏联系人的昵称，可以让对方立即发送消息</div>
           <div class="lic-li">可搜索聊天记录并跳转到对应位置</div>
@@ -12389,7 +12464,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <summary><span class="lg-num">29</span><span class="lg-name">回复设置</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
           <div class="lic-li">六面板 tab：聊天 / 群聊 / 信箱 / 朋友圈 / 查岗 / 其他，参数按联系人独立保存（群聊面板全局共用）</div>
-          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 爱心标识）</div>
+          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 标识可换可自定义）</div>
           <div class="lic-li">信箱：信件内容字卡条数、联系人主动写信（每天最多 / 概率 / 最短最长时间）、联系人回信（概率 / 最短最长时间）、写信内容类型</div>
           <div class="lic-li">朋友圈：互动设置（点赞 / 评论 / 回复概率及速度 / 回赞概率）、回复内容设置（多字卡概率 / 最多字卡数 / 表情包概率）、TA 发朋友圈设置（主动发概率 / 每天最多 / 冷却 / 间隔 / 字卡条数 / 内容类型）、清除所有朋友圈数据</div>
           <div class="lic-li">群聊：每个成员回复概率 / 速度 / 条数与各类附加行为概率，独立于主聊天设置</div>
@@ -12745,7 +12820,18 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>发送条数最多</span><div class="stepper" data-k="as-count-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="as-count-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">主动发送是 TA 自己找你，与上方「回复条数」无关：一次连发几条由这两项控制（默认 1~2 条），主动消息也不计入「回复条数」上限</div>
             <div class="gs-row"><span>免打扰（弱化主动发送）</span><label class="toggle"><input type="checkbox" id="dnd-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>主动发送爱心标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
+            <!-- v3.6.x：主动发送标识——联系人主动找你的消息气泡左上角小标识（原为固定小爱心）
+                 FIX 2026-09-18 #727 用户直派「联系人主动发送的消息，现在是小爱心的标识，
+                 帮我新增，可以用别的标识和自定义标识」：内置五枚（爱心/星星/月亮/闪光/小爪）
+                 可多选、只能开关不能删；点「＋」添加自定义标识（最长 4 字符、最多 8 个），
+                 自定义点「×」删除；点亮 ≥2 枚时出现「抽取方式」行（随机/轮换）。
+                 总开关关闭＝一枚都不显示（原「关掉爱心」语义）；池内全关兜底回爱心。
+                 标识池状态由 reply-settings.js #727 段渲染（asb-chips），
+                 渲染消费在 chat.js 主动发送标识分支（window.asBadgePool） -->
+            <div class="gs-row"><span>主动发送标识</span><label class="toggle"><input type="checkbox" id="as-badge"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>标识</span><div class="ppy-chips" id="asb-chips"><span class="tag ppy-chip" data-k="as-badge-heart">♥</span><span class="tag ppy-chip" data-k="as-badge-star">★</span><span class="tag ppy-chip" data-k="as-badge-moon">☾</span><span class="tag ppy-chip" data-k="as-badge-spark">✦</span><span class="tag ppy-chip" data-k="as-badge-paw">🐾</span><span class="tag ppy-chip" id="asb-add" title="添加自定义标识">＋</span></div></div>
+            <div class="gs-row" id="asb-rand-row" hidden><span>抽取方式</span><span class="ppy-chips"><span class="tag ppy-chip" data-asbrand="1">每次随机</span><span class="tag ppy-chip" data-asbrand="0">按顺序轮换</span></span></div>
+            <div class="gs-sub">联系人主动找你的消息，气泡左上角会显示这里的标识（原来固定是爱心）。点亮想要的标识（可多选）：只点亮一枚＝每条主动消息都用它；点亮多枚＝按下方「抽取方式」随机抽一枚或按顺序轮换。系统自带的五枚只能开关、不能删除；点「＋」可添加自己的标识（最长 4 个字符、最多 8 个，emoji 也可以），自定义标识点本体开关、点「×」删除。关掉上方「主动发送标识」总开关＝不再显示任何标识</div>
           </div>
           <div class="gs-title">让对方继续说</div>
           <div class="set-group glass">
@@ -16080,6 +16166,16 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
           <div class="txt">移除聊天壁纸</div>
         </div>
+        <div class="set-row" id="cs-bg-fit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/><path d="M3 9h2M19 9h2M3 15h2M19 15h2"/></svg></div>
+          <div class="txt">壁纸铺满方式<span class="sub">铺满裁剪（填满、可能被裁）/ 完整显示（全图不裁、可能留边）/ 平铺 / 拉伸填满</span></div>
+          <div class="val" id="cs-bg-fit-val">铺满裁剪</div>
+        </div>
+        <div class="set-row" id="cs-bg-fullbars">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 16h18" opacity=".55"/></svg></div>
+          <div class="txt">壁纸延伸到顶栏 / 输入栏<span class="sub">默认关：顶栏与输入栏有自己的底色会盖住壁纸；打开后让开底色，壁纸一直铺到屏幕上下边缘</span></div>
+          <div class="val" id="cs-bg-fullbars-val">关 · 栏位盖住</div>
+        </div>
       </div>
       <div class="gs-title">顶栏 / 底栏与气泡透明</div>
       <div class="set-group glass">
@@ -16129,6 +16225,20 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
           <div class="txt">时间轴样式</div>
           <div class="val" id="cs-time-style-val">头像下方</div>
+        </div>
+        <!-- FIX 2026-09-18 #728：标识 / 时间轴位置微调——上传自定义气泡 CSS 后气泡尺寸与内边距
+             变了，标识（气泡左上角）与时间轴的默认位置会跟着偏，甚至被气泡边缘裁掉或压住文字。
+             两行各自点开是「左右 / 上下」两个方向的偏移（±40px，0=默认）；也可在
+             聊天设置→美化→「边看边调」抽屉的「微调」分区里拖着调、即时看效果。 -->
+        <div class="set-row" id="cs-mark-pos">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+          <div class="txt">主动发送标识位置<span class="sub">气泡 CSS 改了气泡大小后标识偏移时，在这里校准</span></div>
+          <div class="val" id="cs-mark-pos-val">默认</div>
+        </div>
+        <div class="set-row" id="cs-time-pos">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 1.5M4 4l2 2"/></svg></div>
+          <div class="txt">时间轴位置<span class="sub">改过气泡大小/内边距后时间轴偏移时，在这里校准</span></div>
+          <div class="val" id="cs-time-pos-val">默认</div>
         </div>
       </div>
       <div class="gs-title">气泡颜色 / CSS</div>
@@ -16475,7 +16585,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
-window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","img-compress.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","ver-check.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","mobile-adapt.js"];
+window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ["device.js","idb.js","contacts.js","applock.js","card-lock.js","dcp-master.js","media-pool.js","storage-slim.js","perf-check.js","img-compress.js","clock.js","tabs.js","desktop-slider.js","quote-cards.js","personalize.js","chat.js","group-chat.js","chatcard.js","chat-settings.js","reply-settings.js","fav-settings.js","default-cards-data.js","dict-ext-data.js","default-cards.js","quote-spell.js","dream-free.js","mood-followup-data.js","mood-reply-cards.js","ta-mood-data.js","ta-mood.js","music-player.js","calendar.js","divination.js","avatar-lib.js","ta-ask.js","ck-question.js","incoming-requests.js","ta-invite.js","bg-keep.js","records.js","call.js","mail.js","feed.js","loc-lib.js","p2-features.js","gift-shop.js","memo-app.js","memo-arc.js","my-arc.js","period.js","accounting.js","garden.js","room.js","drift-bottle.js","decision.js","group-decision.js","pong.js","snake-game.js","breakout.js","connect-four.js","coop-mine.js","fishing.js","memory-game.js","gomoku.js","linkup.js","match3.js","auction.js","arcade.js","mood-diary.js","sfx.js","fullscreen.js","data-backup.js","feature-data.js","pwa.js","ver-check.js","cjian.js","feature-hub.js","settings-help.js","onboarding.js","page-coach.js","card-audit.js","mobile-adapt.js"];
 (function () { try {
 (function () {
 try { window.__jsErrors = window.__jsErrors || []; } catch (e0) {}
@@ -17342,6 +17452,9 @@ if (kp.audio) kpParts.push('音频=' + (kp.audio.paused ? '暂停' : '播放') +
 else kpParts.push('音频=无（保活未起）');
 if (kp.ms) kpParts.push('媒体条=' + (kp.ms.metadata ? '有' : '无') + ' ' + kp.ms.state);
 kpParts.push('WebRTC=' + kp.pc);
+if (kp.ev && (kp.ev.stall > 0 || kp.ev.died > 0)) {
+kpParts.push('历史取证：断流' + kp.ev.stall + '次/后台终止' + kp.ev.died + '次（>0＝保活曾被冻结或页面曾被系统回收）');
+}
 if (kp.hb) {
 const tr = kp.hb.trail || [];
 let gap = 0;
@@ -19030,6 +19143,25 @@ return t.indexOf(nq) === 0 ? 1 : 2;
 and: function (hayLower, terms) { return terms.every(function (w) { return hayLower.indexOf(w) >= 0; }); }
 };
 })();
+window.mochiFilePickLabel = function (btn, input) {
+try {
+if (!btn || !input || !btn.appendChild) return;
+if (!input.id) input.id = 'mochi-file-pick-' + Date.now().toString(36);
+if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+var mark = 'data-file-pick-for';
+var label = btn.querySelector('label[' + mark + '="' + input.id + '"]');
+if (!label) {
+label = document.createElement('label');
+label.setAttribute(mark, input.id);
+label.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;';
+btn.appendChild(label);
+}
+label.htmlFor = input.id;
+} catch (e) { /* 兼容助手绝不能成为错误源 */ }
+};
+window.mochiFilePickFromLabel = function (e) {
+try { return !!(e && e.target && e.target.closest && e.target.closest('label[data-file-pick-for]')); } catch (err) { return false; }
+};
 if (window.__mochiLoaded) window.__mochiLoaded.push("device.js");
 } catch (__e) { try { console.error("[JS] device.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[device.js] " + String(__e && __e.message || __e)); } })();
 (function () { try {
@@ -19499,39 +19631,6 @@ function isGroupMsgsKey(k) {
 if (!k || typeof k !== 'string') return false;
 return k === 'xy-home-v2:group-chat-msgs' || /^xy-home-v2:gc-msgs-.+$/.test(k);
 }
-function lsResidueSweep() {
-try {
-if (!memoryCache) return;
-const cands = [];
-for (let i = 0; i < localStorage.length; i++) {
-const k = localStorage.key(i);
-if (!k || k.indexOf('xy-home-v2:') !== 0) continue;
-if (isChatMsgsKey(k) || isGroupMsgsKey(k) || /:chat-(meta|arch)$/.test(k)) continue;
-const v = localStorage.getItem(k) || '';
-if (v.length <= LS_BIG_LIMIT) continue;
-cands.push([k, v.length]);
-}
-if (!cands.length) return;
-let swept = 0, bytes = 0;
-const drop = function (k, len) {
-try { localStorage.removeItem(k); swept++; bytes += len * 2; } catch (e) {}
-};
-cands.forEach(function (x) {
-const k = x[0];
-if (Object.prototype.hasOwnProperty.call(memoryCache, k)) { drop(k, x[1]); return; }
-if (!window.idbGet) return; // 没有 IDB 读接口：保留 LS（唯一副本）
-window.idbGet(k).then(function (v) {
-if (v === undefined || v === null) return; // IDB 无权威副本 → 保留 LS
-try { memoryCache[k] = v; } catch (e) { return; }
-drop(k, x[1]);
-if (swept) {
-try { console.info('[mochi] LS 残留大键补扫：清理 ' + swept + ' 键 ≈ ' + Math.round(bytes / 1024) + 'KB'); } catch (e) {}
-}
-}).catch(function () {});
-});
-} catch (e) {}
-}
-window.lsResidueSweep = lsResidueSweep; // #718：verify 直调入口
 window.idbRestore = function (uidPrefix) {
 let readySent = false;
 const sendReady = function () {
@@ -19539,7 +19638,6 @@ if (readySent) return;
 readySent = true;
 try { window.__mochiDataReady = true; } catch (e) {}
 try { document.dispatchEvent(new Event('mochi-restore-done')); } catch (e) {}
-try { setTimeout(lsResidueSweep, 20000); } catch (e) {}
 };
 let finished = false;
 const finish = function () {
@@ -19897,10 +19995,14 @@ window.idbBigSize = function (key) {
 try { const s = _bigIdx[key]; return typeof s === 'number' ? s : null; } catch (e) { return null; }
 };
 let _lsSweepDone = false;
+let _lsSweepFail = false;
+let _lsSweepTries = 0;
 function lsResidueSweep() {
 if (_lsSweepDone) return;
 _lsSweepDone = true;
+_lsSweepFail = false;
 if (!window.idbGet || !window.idbSet) return;
+const markFail = function () { _lsSweepFail = true; };
 let names = [];
 try { names = Object.keys(localStorage); } catch (e) { return; }
 const cands = names.filter(function (k) {
@@ -19915,7 +20017,14 @@ return typeof v === 'string' && v.length > LS_BIG_LIMIT;
 });
 let i = 0;
 (function step() {
-if (i >= cands.length) return;
+if (i >= cands.length) {
+if (_lsSweepFail && _lsSweepTries < 2) {
+_lsSweepTries++;
+_lsSweepDone = false;
+setTimeout(lsResidueSweep, 60000);
+}
+return;
+}
 const k = cands[i++];
 let lsVal = null;
 try { lsVal = localStorage.getItem(k); } catch (e) {}
@@ -19936,10 +20045,10 @@ if (!memoryCache) memoryCache = {};
 if (!(k in memoryCache)) memoryCache[k] = lsVal;
 try { localStorage.removeItem(k); } catch (e) {}
 }
-}
+} else { markFail(); } // #721 追平写失败（配额满/事务挂了）：这轮没清掉，稍后重试
 next();
-}).catch(next);
-}).catch(function () { setTimeout(step, 0); });
+}).catch(function () { markFail(); next(); });
+}).catch(function () { markFail(); setTimeout(step, 0); });
 })();
 }
 document.addEventListener('mochi-restore-done', function () { setTimeout(lsResidueSweep, 20000); });
@@ -21922,7 +22031,7 @@ const keep = new Set();
 map.forEach(function (_v, h) { keep.add(h); });
 writeBuf.forEach(function (p) { keep.add(String(p.k).slice(FULL.length)); });
 Object.keys(inflight).forEach(function (h) { keep.add(h); });
-const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
+const REFS = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
 const refKeys = keys.filter(function (k) { return REFS.test(String(k)); });
 try {
 for (let li = 0; li < localStorage.length; li++) {
@@ -21993,7 +22102,7 @@ const prog = typeof arguments[0] === 'function' ? arguments[0] : null;
 return (async function () {
 const out = { ok: false, reason: '', referenced: 0, inPool: 0, missing: 0, missingSamples: [] };
 if (!window.idbListKeys || !window.idbGet || !window.idbGetMany) { out.reason = '接口不可用（需安全上下文/IDB）'; return out; }
-const REFS = /(?:^|:)(?:chat-msgs|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
+const REFS = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+|fav-msgs|group-chat-msgs|gc-msgs-[0-9A-Za-z_-]+|chat-tail|cc-groups(?:-public)?|feed-posts(?:-snap)?|chat-arch)$/;
 const SCAN_RE = /@@m:([0-9a-f]{32})/g;
 let keys;
 try { keys = await window.idbListKeys(); } catch (e) { out.reason = '键清单读取失败'; return out; }
@@ -22359,6 +22468,154 @@ return out;
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("storage-slim.js");
 } catch (__e) { try { console.error("[JS] storage-slim.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[storage-slim.js] " + String(__e && __e.message || __e)); } })();
+(function () { try {
+(function () {
+'use strict';
+if (window.mochiPerfCheck) return;
+var LAST_KEY = 'xy-home-v2:perf-check-last';
+var BG_GAP = 250;    // 帧间隔 >250ms ＝ 切后台/锁屏冻结帧，剔除不计（#707 同款教训：后台 144s 间隙会被误判成超级卡顿）
+var JANK_MS = 32;    // >32ms ＝ 掉帧（<31fps）
+var SEVERE_MS = 100; // >100ms ＝ 严重卡顿
+var KB_RATIO = 0.85; // 可视高度 < 视口高度 85% ＝ 键盘弹出期（iOS 键盘期视口变形掉帧常见）
+var PAGE_CN = { main: '手机桌面', chat: '聊天', 'group-chat': '群聊', home: '桌面二页', mail: '信箱', feed: '朋友圈', calendar: '日历', memory: '纪念', divination: '占卜', note: '备忘录', p2: '功能页', music: '音乐', records: '记录', garden: '花园', room: '房间', 'drift-bottle': '漂流瓶' };
+var _running = false;
+function curPage() {
+try {
+var apps = document.querySelectorAll('.app:not([hidden])');
+var el = apps[apps.length - 1];
+return (el && el.dataset && el.dataset.app) || '?';
+} catch (e) { return '?'; }
+}
+function kbOn() {
+try {
+var vv = window.visualViewport;
+return !!(vv && window.innerHeight && vv.height < window.innerHeight * KB_RATIO);
+} catch (e) { return false; }
+}
+function pct(n, d) { return d > 0 ? Math.round(n / d * 1000) / 10 : 0; }
+function verdictOf(jankPct, severe) {
+if (jankPct >= 20 || severe >= 10) return '重度';
+if (jankPct >= 8) return '中度';
+if (jankPct >= 2) return '轻度';
+return '流畅';
+}
+function storageAgg() {
+try {
+if (!window.mochiCcSlimScan || !window.mochiPerfAgg || !window.mochiPerfLevel) return null;
+var agg = window.mochiPerfAgg(window.mochiCcSlimScan());
+return (agg && agg.ok) ? agg : null;
+} catch (e) { return null; }
+}
+function start(ms, onTick) {
+return new Promise(function (resolve) {
+if (_running) return resolve(null);
+_running = true;
+ms = Math.max(3000, Math.min(30000, Number(ms) || 10000));
+onTick = typeof onTick === 'function' ? onTick : function () {};
+var rep = { t: Date.now(), ms: ms, frames: 0, janky: 0, severe: 0, worst: 0, hid: 0,
+kbFrames: 0, kbJanky: 0, pages: {}, lt: null };
+var lt = { ok: false, n: 0, worst: 0 }, po = null;
+try {
+po = new PerformanceObserver(function (list) {
+try {
+var es = list.getEntries() || [];
+for (var i = 0; i < es.length; i++) {
+if (es[i] && es[i].duration >= 50) { lt.n++; lt.worst = Math.max(lt.worst, Math.round(es[i].duration)); }
+}
+} catch (e2) {}
+});
+po.observe({ type: 'longtask' }); lt.ok = true;
+} catch (e) {}
+var last = performance.now(), t0 = last, raf = 0, done = false;
+function finish() {
+if (done) return;
+done = true;
+try { if (po) po.disconnect(); } catch (e) {}
+rep.lt = lt.ok ? lt : null;
+rep.jankPct = pct(rep.janky, rep.frames);
+rep.kbPct = pct(rep.kbJanky, rep.janky);     // 掉帧里键盘期占比
+rep.kbShare = pct(rep.kbFrames, rep.frames); // 全部帧里键盘期占比
+var top = null, topN = 0, tot = 0;
+for (var k in rep.pages) { tot += rep.pages[k]; if (rep.pages[k] > topN) { top = k; topN = rep.pages[k]; } }
+rep.topPage = tot > 0 ? top : '';
+rep.verdict = verdictOf(rep.jankPct, rep.severe);
+setTimeout(function () {
+var agg = storageAgg();
+rep.storage = agg ? { level: window.mochiPerfLevel(agg.totalBytes, agg.bigGroups), libs: agg.libs, mb: Math.round((agg.totalBytes || 0) / 104857) / 10 } : null;
+rep.text = buildText(rep);
+try { localStorage.setItem(LAST_KEY, JSON.stringify({ t: rep.t, verdict: rep.verdict, jankPct: rep.jankPct })); } catch (e2) {}
+_running = false;
+resolve(rep);
+}, 50);
+}
+function frame(now) {
+if (done) return;
+var d = now - last; last = now;
+if (document.hidden || d > BG_GAP) {
+rep.hid++; // 后台/锁屏冻结帧剔除，不计入样本
+} else {
+rep.frames++;
+var kb = kbOn();
+if (kb) rep.kbFrames++;
+if (d > JANK_MS) {
+rep.janky++;
+if (kb) rep.kbJanky++;
+if (d > SEVERE_MS) rep.severe++;
+if (d > rep.worst) rep.worst = Math.round(d);
+var p = curPage();
+rep.pages[p] = (rep.pages[p] || 0) + 1;
+}
+}
+if (now - t0 >= ms) return finish();
+raf = requestAnimationFrame(frame);
+}
+raf = requestAnimationFrame(frame);
+var tick = setInterval(function () {
+if (done) { clearInterval(tick); return; }
+onTick({ left: Math.max(0, Math.ceil((ms - (performance.now() - t0)) / 1000)), frames: rep.frames, janky: rep.janky, hid: rep.hid });
+}, 500);
+});
+}
+function buildText(r) {
+var L = [];
+L.push('结论：' + r.verdict + (r.verdict === '流畅' ? '（本窗口未捕获掉帧）' : '（掉帧率 ' + r.jankPct + '%）'));
+L.push('采样 ' + Math.round(r.ms / 1000) + ' 秒 / 有效帧 ' + r.frames + '（已剔除后台/锁屏冻结 ' + r.hid + ' 帧）');
+if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
+if (r.janky > 0) {
+L.push('· 掉帧 ' + r.janky + ' 帧（间隔>32ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
+if (r.topPage) L.push('· 掉帧集中：' + (PAGE_CN[r.topPage] || r.topPage) + '（' + pct(r.pages[r.topPage], r.janky) + '%）');
+if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
+}
+if (r.lt) {
+L.push(r.lt.n > 0 ? '· 长任务（>50ms 主线程阻塞）窗口内 ' + r.lt.n + ' 次，最长 ' + r.lt.worst + 'ms' : '· 长任务（>50ms）：窗口内无');
+} else {
+L.push('· 长任务：此内核不支持观测（iOS WebKit），已用帧间隔等效判定');
+}
+if (r.storage) {
+L.push('· 本地数据画像：字卡库 ' + r.storage.libs + ' 个作用域 约 ' + r.storage.mb + ' MB（' + (r.storage.level === '重' ? '较重' : r.storage.level === '中' ? '中度' : '轻量') + '）');
+}
+L.push('');
+L.push('建议：');
+var adv = [];
+if (r.storage && r.storage.level === '重') adv.push('本地数据过大（字卡库等）是本应用最常见的间歇卡顿主因——先做旁边「卡顿自检 · 一键优化」（不删数据）');
+if (r.verdict === '流畅') adv.push('本窗口未捕获掉帧；若体感仍卡，在卡顿出现的当下立即复测，更容易抓到现场');
+if (r.janky > 0 && r.topPage) adv.push('掉帧集中在「' + (PAGE_CN[r.topPage] || r.topPage) + '」——该页操作时最明显，可对照排查最近往该页存过的大图/长内容');
+if (r.kbJanky > 0 && r.kbPct >= 30) adv.push('掉帧多发生在键盘弹出期（iOS 视口变形属系统行为）：收起键盘复测对照，若明显好转则无需处理');
+if (r.verdict !== '流畅' && (!r.storage || r.storage.level !== '重')) adv.push('可按 设置→「手机卡顿说明」的顺序清一遍存量（先「查看存储」看哪项最大）；别用「清除本地数据」治卡顿');
+if (!adv.length) adv.push('保持现状即可');
+adv.forEach(function (a, i) { L.push((i + 1) + '. ' + a); });
+L.push('');
+L.push('（采样只在本机进行、不上传任何数据；掉帧＝帧间隔>' + JANK_MS + 'ms，后台/锁屏冻结帧已剔除）');
+return L.join('\n');
+}
+window.mochiPerfCheck = {
+start: start,
+running: function () { return _running; },
+LAST_KEY: LAST_KEY
+};
+})();
+if (window.__mochiLoaded) window.__mochiLoaded.push("perf-check.js");
+} catch (__e) { try { console.error("[JS] perf-check.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[perf-check.js] " + String(__e && __e.message || __e)); } })();
 (function () { try {
 (function () {
 const G = 'xy-home-v2:';
@@ -24020,7 +24277,8 @@ ring.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-w
 let avatarPickCb = null;
 const avatarPickInput = document.createElement('input');
 avatarPickInput.type = 'file'; avatarPickInput.accept = 'image/*';
-avatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+avatarPickInput.id = 'mochi-avatar-pick';
+avatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(avatarPickInput);
 avatarPickInput.onchange = () => {
 const f = avatarPickInput.files && avatarPickInput.files[0];
@@ -24040,8 +24298,10 @@ function bindAvatar(id, key) {
 const box = document.getElementById(id);
 if (!box) return;
 applyAvatar(id, key);
+if (window.mochiFilePickLabel) window.mochiFilePickLabel(box, avatarPickInput);
 box.addEventListener('click', (e) => {
 e.stopPropagation();
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
 avatarPickCb = (data) => {
 const ring = box.querySelector('.ring');
 if (ring) {
@@ -31532,6 +31792,44 @@ row.classList.toggle('open');
 }
 })();
 (function () {
+const row = document.getElementById('row-perf-check');
+if (!row || !window.mochiPerfCheck) return;
+const sub = row.querySelector('.sub');
+function echoLast() {
+try {
+const r = JSON.parse(localStorage.getItem(window.mochiPerfCheck.LAST_KEY) || 'null');
+if (r && r.verdict && sub) sub.textContent = '上次：' + r.verdict + '（掉帧 ' + r.jankPct + '%）· ' + new Date(r.t).toLocaleString().replace(/^\d+\/\d+\/\d+\s*/, '');
+} catch (e) {}
+}
+echoLast();
+let bar = null;
+function showBar(txt) {
+try {
+if (!bar) {
+bar = document.createElement('div');
+bar.id = 'perf-check-bar';
+bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+document.body.appendChild(bar);
+}
+bar.textContent = txt;
+} catch (e) {}
+}
+function hideBar() { try { if (bar && bar.parentNode) bar.parentNode.removeChild(bar); } catch (e) {} bar = null; }
+row.addEventListener('click', function () {
+if (!window.openModal || window.mochiPerfCheck.running()) return;
+window.openModal('卡顿自检（渲染层实测）', '', function () {
+window.mochiPerfCheck.start(10000, function (p) {
+showBar('卡顿实测中…剩 ' + p.left + ' 秒｜已采 ' + p.frames + ' 帧，掉帧 ' + p.janky + '（可正常使用手机，去卡的地方操作）');
+}).then(function (r) {
+hideBar();
+if (!r) return;
+echoLast();
+window.openModal('卡顿自检报告', r.text, null, { noInput: true, textarea: true, textareaRows: 16, big: true });
+});
+}, { staticText: '点「确定」开始 10 秒实测：期间正常使用手机（去感觉卡的地方滚动/操作），结束后自动弹出报告。采样只在本机进行、不上传数据。', noInput: true });
+});
+})();
+(function () {
 const row = document.getElementById('row-perf-optimize');
 if (!row) return;
 function pfmt(n) {
@@ -31938,6 +32236,7 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：换桌面重新判定
+chatBlkResetState(); // #722：换桌面＝分块/热片/冷头状态全部复位（新桌面读自己的块或旧整包）
 sessionChangedIdx.clear();
 windowStale = true;
 if (readyFuse) { clearTimeout(readyFuse); readyFuse = null; }
@@ -32044,6 +32343,23 @@ function persistChatHistory(prefix, arr, forceFull) {
 try {
 if (!window.idbSet) return;
 if (!Array.isArray(arr)) arr = [];
+if (chatBlkIdx) {
+if (arr.length && chatArchBytes >= CHAT_ARCH_MIN_CKPT && chatArchReusable(prefix, arr)) {
+const base = chatArchRef.length;
+if (arr.length === base) { chatArchPurge(prefix); return; } // 与基准包全等，无增量
+const log = arr.slice(base);
+if (log.length <= CHAT_ARCH_MAX && msgsBytes(log) <= CHAT_ARCH_BYTES) {
+persistMsgsToIdb(prefix + ':' + CHAT_ARCH_KEY, log);
+return;
+}
+}
+if (!chatRebased) {
+chatBlkRewriteTail(prefix, arr); // 热片对齐尾部块重写（头部冷块不在内存也不需要；未 rebase 时内存绝不是全量，绝不能走整组重写=丢头部）
+return;
+}
+chatBlkWriteFull(prefix, arr); // 内存全量（rebase 后/导入）：整组重分块
+return;
+}
 if (!forceFull && arr.length && chatArchBytes >= CHAT_ARCH_MIN_CKPT && chatArchReusable(prefix, arr)) {
 const base = chatArchRef.length;
 if (arr.length === base) { chatArchPurge(prefix); return; } // 与基准包全等，无增量
@@ -32053,10 +32369,180 @@ persistMsgsToIdb(prefix + ':' + CHAT_ARCH_KEY, log);
 return;
 }
 }
+if (msgsBytes(arr) > CHAT_BLK_MIN) { chatBlkWriteFull(prefix, arr); return; } // #722 大历史直接分块，不再写整包
 persistMsgsToIdb(prefix + ':chat-msgs', arr);
 chatArchPurge(prefix);
 chatArchSetBaseline(prefix, arr);
 } catch (e) {}
+}
+const CHAT_BLK_MIN = 4 * 1024 * 1024;
+const CHAT_BLK_BYTES = 2 * 1024 * 1024;
+const CHAT_BLK_HOT_N = 300;      // 热片至少覆盖的条数（不足再往前多取一块）
+const CHAT_BLK_HOT_MAX = 2;      // 热片最多取的块数
+let chatBlkIdx = null;           // 在位标记（null=旧整包格式）
+let chatBlkTotal = 0;            // 全量条数（账本口径用，热片读时内存只有尾部）
+let chatBlkWriting = false;      // 分块写单飞闸（并发请求合并，收尾取最新）
+let chatBlkPending = null;       // 写期间到达的最新全量（收尾后补写）
+let chatHotFrom = 0;             // 热片覆盖的块下标起点（尾部重写时保留其前的头块）
+let chatColdHead = [];           // 已取回未并入 msgs 的头部消息（时间正序）
+let chatColdFrom = 0;            // 尚未取回的头块下标
+let chatColdDone = true;         // 头块是否已全部取回
+let chatColdHydrating = false;
+let chatRebased = false;         // 冷头是否已并入 msgs（此后内存=全量）
+let chatHotBaseN = 0;            // 热片装载时的条数（#722 分块格式下账本守卫的比对基准）
+function chatBlkResetState() {
+chatBlkIdx = null; chatBlkTotal = 0; chatHotFrom = 0; chatHotBaseN = 0;
+chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatColdHydrating = false; chatRebased = false;
+}
+function chatBlkSplit(arr) {
+const out = [];
+let cur = [], bytes = 0;
+for (let i = 0; i < arr.length; i++) {
+const m = arr[i];
+cur.push(m);
+bytes += 96 + (m && typeof m.text === 'string' ? m.text.length : 0) + (m && typeof m.img === 'string' ? m.img.length : 0);
+if (bytes >= CHAT_BLK_BYTES) { out.push(cur); cur = []; bytes = 0; }
+}
+if (cur.length) out.push(cur);
+return out;
+}
+function chatBlkWriteFull(prefix, arr) {
+if (chatBlkWriting) { chatBlkPending = arr.slice(); return; }
+chatBlkWriting = true;
+const old = chatBlkIdx;
+const seq = (old && old.nextSeq) || 0;
+const chunks = chatBlkSplit(arr);
+const blocks = [];
+let p = Promise.resolve();
+let s = seq;
+chunks.forEach(function (c) {
+const k = 'chat-blk-' + (s++);
+const a = c;
+p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
+});
+});
+p = p.then(function () {
+const idx = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
+return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx)).then(function (ok) {
+if (ok === false) throw new Error('idx-write-fail');
+chatBlkIdx = idx; chatBlkTotal = arr.length;
+chatHotFrom = Math.max(0, blocks.length - 1);
+chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatRebased = false;
+chatArchPurge(prefix);
+chatArchSetBaseline(prefix, arr);
+try { if (window.idbDelete) window.idbDelete(prefix + ':chat-msgs'); } catch (e) {}
+try { localStorage.removeItem(prefix + ':chat-msgs'); } catch (e) {}
+try {
+const live = {}; blocks.forEach(function (b) { live[b.k] = 1; });
+if (old && Array.isArray(old.blocks)) old.blocks.forEach(function (b) { if (!live[b.k] && window.idbDelete) window.idbDelete(prefix + ':' + b.k); });
+} catch (e) {}
+});
+}).catch(function () { scheduleIdbRetry(); }).then(function () {
+chatBlkWriting = false;
+if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkWriteFull(prefix, a); }
+});
+}
+function chatBlkRewriteTail(prefix, arr) {
+if (chatBlkWriting) { chatBlkPending = arr.slice(); return; }
+chatBlkWriting = true;
+const idx = chatBlkIdx;
+const head = (idx.blocks || []).slice(0, chatHotFrom);
+const tailArr = arr;
+const seq = idx.nextSeq || 0;
+const chunks = chatBlkSplit(tailArr);
+const blocks = head.slice();
+let p = Promise.resolve();
+let s = seq;
+const newKeys = [];
+chunks.forEach(function (c) {
+const k = 'chat-blk-' + (s++);
+const a = c;
+newKeys.push(k);
+p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
+});
+});
+p = p.then(function () {
+const idx2 = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
+return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx2)).then(function (ok) {
+if (ok === false) throw new Error('idx-write-fail');
+chatBlkIdx = idx2; chatBlkTotal = arr.length;
+chatHotFrom = head.length;
+const live = {}; blocks.forEach(function (b) { live[b.k] = 1; });
+(idx.blocks || []).forEach(function (b) { if (!live[b.k] && window.idbDelete) window.idbDelete(prefix + ':' + b.k); });
+chatArchPurge(prefix);
+chatArchSetBaseline(prefix, arr);
+});
+}).catch(function () { scheduleIdbRetry(); }).then(function () {
+chatBlkWriting = false;
+if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkRewriteTail(prefix, a); }
+});
+}
+function chatBlkHotLoad(prefix, idxRaw) {
+const idx = JSON.parse(idxRaw);
+if (!idx || !Array.isArray(idx.blocks) || !idx.blocks.length) return Promise.resolve(null);
+chatBlkIdx = idx; chatBlkTotal = idx.total || 0;
+const hotKeys = [];
+let hotN = 0;
+for (let b = idx.blocks.length - 1; b >= 0 && hotN < CHAT_BLK_HOT_N && hotKeys.length < CHAT_BLK_HOT_MAX; b--) {
+hotKeys.unshift(idx.blocks[b].k); hotN += idx.blocks[b].n || 0;
+}
+chatHotFrom = idx.blocks.length - hotKeys.length;
+chatHotBaseN = hotN; // #722：账本守卫基准=热片条数（内存此后=热片+新增）
+const headN = Math.max(0, (idx.total || hotN) - hotN);
+chatColdHead = []; chatColdFrom = 0; chatColdDone = headN === 0; chatColdHydrating = false; chatRebased = false;
+return Promise.all(hotKeys.map(function (k) { return window.idbGet(prefix + ':' + k); })).then(function (parts) {
+if (window.activePrefix() !== prefix) return null;
+let hot = [], miss = false;
+parts.forEach(function (p2) { if (!Array.isArray(p2)) { miss = true; return; } hot = hot.concat(p2); });
+if (miss || !hot.length) return null; // 块读失败 → 回到旧读路径语义（=读失败重试，绝不置 ready）
+return hot;
+}).catch(function () { return null; });
+}
+function chatColdEnsureHydrated() {
+if (chatColdDone || chatColdHydrating || !chatBlkIdx || chatRebased || !window.idbGet) return;
+chatColdHydrating = true;
+const myPrefix = window.activePrefix();
+const step = function () {
+if (window.activePrefix() !== myPrefix || !chatBlkIdx || chatRebased) { chatColdHydrating = false; return; }
+if (chatColdFrom >= chatHotFrom) { chatColdDone = true; chatColdHydrating = false; return; }
+const blk = chatBlkIdx.blocks[chatColdFrom];
+window.idbGet(myPrefix + ':' + blk.k).then(function (v) {
+if (window.activePrefix() !== myPrefix) { chatColdHydrating = false; return; }
+if (!Array.isArray(v)) { chatColdHydrating = false; return; } // #722 读失败：下标不前移，留待下次触发重试同块
+chatColdHead = v.concat(chatColdHead); // 头块按时间正序前插
+chatColdFrom++;
+setTimeout(step, 30);
+}).catch(function () { chatColdHydrating = false; });
+};
+step();
+}
+function chatRebaseCold() {
+const n = chatColdHead.length;
+if (!n || chatRebased) return;
+msgs = chatColdHead.concat(msgs);
+chatColdHead = [];
+chatRebased = true;
+renderStart += n; renderEnd += n;
+if (windowRenderedN) windowRenderedN += n;
+if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.map(function (i2) { return i2 + n; });
+try {
+if (sessionChangedIdx && sessionChangedIdx.size) {
+const s2 = Array.from(sessionChangedIdx).map(function (i2) { return i2 + n; });
+sessionChangedIdx.clear(); s2.forEach(function (i2) { sessionChangedIdx.add(i2); });
+}
+} catch (e) {}
+try { if (Array.isArray(normChangedIdxs)) normChangedIdxs = normChangedIdxs.map(function (i2) { return i2 + n; }); } catch (e) {}
+try { if (typeof normOrigIdx === 'number' && normOrigIdx >= 0) normOrigIdx += n; } catch (e) {}
+try {
+Object.keys(inplaceDrafts).forEach(function (k) {
+const v = inplaceDrafts[k]; delete inplaceDrafts[k]; inplaceDrafts[String(Number(k) + n)] = v;
+});
+} catch (e) {}
+try { if (typeof inplaceFocusIdx === 'number' && inplaceFocusIdx >= 0) inplaceFocusIdx += n; } catch (e) {}
+try { body.querySelectorAll('[data-idx]').forEach(function (el) { el.dataset.idx = String(Number(el.dataset.idx) + n); }); } catch (e) {}
+try { chatArchSetBaseline(window.activePrefix(), msgs); } catch (e) {} // 基准 refs 升级为全量：此后编辑任何消息都能被指纹检出
 }
 function chatConsolidate(prefix) {
 try {
@@ -32119,7 +32605,8 @@ try { window.__xyChatLazyLoad = true; } catch (e2) {} // 大包/未知大小 →
 }
 function chatLedgerGuard(prefix, arr) {
 const n = Array.isArray(arr) ? arr.length : 0;
-const base = chatLedger[prefix];
+let base = chatLedger[prefix];
+if (chatBlkIdx && typeof chatHotBaseN === 'number' && chatHotBaseN > 0) base = chatHotBaseN;
 if (typeof base === 'number' && base >= CHAT_LEDGER_MIN && n * 2 < base) {
 if (!chatLedgerWarned[prefix]) {
 chatLedgerWarned[prefix] = 1;
@@ -32452,7 +32939,7 @@ if (document.visibilityState === 'hidden') flushSave();
 else if (deskMsgEl && !deskMsgEl.hidden) hideDeskMsg();
 });
 } catch (e) {}
-window.getChatMsgs = function () { return msgs; };
+window.getChatMsgs = function () { return chatColdHead.length ? chatColdHead.concat(msgs) : msgs; }; // #722：冷头未并入时也返回完整历史（浅拼接，统计/导出/补投递等消费方零改动）
 try { window.__mochiProf = window.__mochiProf || {}; } catch (e) {}
 function __prof(t) { try { window.__mochiProf[t] = performance.now(); } catch (e) {} }
 const ICON_BELL = '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M4.2 4.2l2.2 2.2M2 12h3M19 12h3M4.2 19.8l2.2-2.2M17.6 17.6l2.2 2.2"/><path d="M12 6a6 6 0 016 6v4h-3v-4a3 3 0 00-6 0v4H6v-4a6 6 0 016-6z"/><path d="M9 20h6"/></svg>';
@@ -32768,7 +33255,13 @@ try {
 const lb = chatLedgerBytes[myPrefix];
 if (typeof lb === 'number' && lb > 2 * 1024 * 1024) bigReadMs = 4000 + Math.min(28000, Math.ceil(lb / 1048576) * 2000);
 } catch (e0) {}
-window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined).then(v => {
+window.idbGet(myPrefix + ':chat-blk-idx').then(function (bidxRaw) {
+if (window.activePrefix() !== myPrefix) return null;
+if (bidxRaw && typeof bidxRaw === 'string' && bidxRaw.indexOf('"v"') >= 0) {
+return chatBlkHotLoad(myPrefix, bidxRaw);
+}
+return window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined);
+}).then(v => {
 if (window.activePrefix() !== myPrefix) return;
 if (v === undefined || v === null) {
 const idbKey = myPrefix + ':chat-msgs';
@@ -32906,7 +33399,15 @@ chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数�
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
 try { if (chatTailMerge() > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条
-try { chatLedgerSave(myPrefix, idbArr.length, msgsBytes(idbArr)); } catch (e) {}
+try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
+if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {
+setTimeout(function () {
+try {
+if (window.activePrefix() !== myPrefix || chatBlkIdx || chatBlkWriting) return;
+if (Array.isArray(msgs) && msgs.length > 100) chatBlkWriteFull(myPrefix, msgs);
+} catch (e) {}
+}, 15000);
+}
 try { chatArchSetBaseline(myPrefix, ckptArr); } catch (e) {}
 try {
 lastIdbLoadPrefix = window.activePrefix();
@@ -32942,6 +33443,7 @@ try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistor
 }, 0);
 }
 scheduleDeferredNormalization();
+try { setTimeout(chatColdEnsureHydrated, 2500); } catch (e) {}
 try { scheduleMediaPass(12000); } catch (e) {}
 }); // FIX 2026-09-17 #127：增量日志读取回调收口
 } catch (e) { /* 解析失败：不置 chatDbReady，下次进入再重试 */ }
@@ -34357,7 +34859,13 @@ return true;
 }
 function loadOlderIncremental() {
 const len = msgs.length;
+if (renderStart <= 0 || renderStart >= len) {
+if (renderStart <= 0 && !chatRebased) {
+if (chatColdHead.length) { chatRebaseCold(); loadOlderIncremental(); return; }
+if (!chatColdDone) chatColdEnsureHydrated();
+}
 if (renderStart <= 0 || renderStart >= len) return;
+}
 const newStart = Math.max(0, renderStart - LOAD_STEP);
 if (newStart === renderStart) return;
 const beforeTop = body.scrollTop;
@@ -35163,7 +35671,20 @@ openPokeCard();
 if (rec.side === 'in' && rec.initiative && !rec.retracted) {
 try {
 const c = cfg();
-if (cfgn(c, 'as-badge', 1) === 1 && !b.querySelector('.msg-hi-heart')) {
+if (cfgn(c, 'as-badge', 1) === 1 && !b.querySelector('.msg-hi-heart') && !b.querySelector('.msg-hi-mark')) {
+let pool = [];
+try { pool = (window.asBadgePool ? window.asBadgePool(c) : []) || []; } catch (e) { pool = []; }
+if (!pool.length) pool = [{ s: '♥', builtin: 1 }];
+let pick = pool[0];
+if (pool.length > 1) {
+if (cfgn(c, 'as-badge-rand', 1) === 1) {
+pick = pool[Math.floor(Math.random() * pool.length)];
+} else {
+const seed = Number(rec.ts) || 0;
+pick = pool[Math.abs(Math.floor(seed / 1000)) % pool.length];
+}
+}
+if (pick && pick.builtin === 1 && pick.s === '♥') {
 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 svg.setAttribute('class', 'msg-hi-heart');
 svg.setAttribute('viewBox', '0 0 24 24');
@@ -35173,6 +35694,13 @@ const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 path.setAttribute('d', 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
 svg.appendChild(path);
 b.insertBefore(svg, b.firstChild);
+} else if (pick && pick.s) {
+const mk = document.createElement('span');
+mk.className = 'msg-hi-mark';
+mk.setAttribute('aria-hidden', 'true');
+mk.textContent = String(pick.s);
+b.insertBefore(mk, b.firstChild);
+}
 }
 } catch (e) {}
 }
@@ -35247,6 +35775,12 @@ try { chatLedger[window.activePrefix()] = 0; } catch (e) {}
 try { store.remove('chat-msgs'); } catch (e) {}
 try { store.remove('chat-arch'); } catch (e) {} // FIX 2026-09-17 #127：增量日志一并清（否则刷新后回放复活）
 try { store.remove('chat-meta'); } catch (e) {}
+try { // #722：分块格式的块键与索引一并清（否则清空后刷新，blk-idx 回放复活全部历史）
+const cp = window.activePrefix();
+if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
+try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+} catch (e) {}
+chatBlkResetState(); // #722：分块状态复位（此后保存走旧格式/重新分块）
 chatTailClear(); // #180：清空记录＝日志一并清（否则刷新后已清内容回放复活）
 if (body) body.innerHTML = '';
 clearChatUnread();
@@ -35266,6 +35800,12 @@ windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRen
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 chatArchClearBaseline(); // FIX 2026-09-17 #127：整包替换＝旧基准段/日志作废
+try { // #722：导入替换＝旧分块状态作废（persistChatHistory 会按新数组重新分块/整包，旧块键成孤儿，随后按 idx 复位前的记录清不掉——这里先记下旧块键，写入新格式后统一删）
+const cp = window.activePrefix();
+if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(cp + ':' + b.k); } catch (e2) {} });
+try { if (window.idbDelete) window.idbDelete(cp + ':chat-blk-idx'); } catch (e2) {}
+} catch (e) {}
+chatBlkResetState(); // #722：导入=全新历史，块状态复位（persistChatHistory 按新数组重新分块）
 try { store.remove('chat-arch'); } catch (e) {}
 try { if (window.idbSet) persistChatHistory(window.activePrefix(), msgs, true); } catch (e) {}
 writeLsSnapshot(msgs, undefined, true);
@@ -36192,7 +36732,6 @@ type: 'text',
 parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
 silent: si > 0 ? true : (silent || willRetractR),
 tag: '词典逐卡连发',
-tagExtra: si === 0 ? pyMultiExtra : null,
 tagNoDup: true
 });
 }
@@ -41403,6 +41942,7 @@ const VOICE_MAX_MS = 60000;
 let voiceStream = null, voiceRec = null, voiceChunks = [], voiceTimer = null, voiceStarting = false; // FIX 2026-09-05 #169 录音启动进行中闸门
 let voiceStartTs = 0, voiceDataUrl = '', voiceDur = 0, voiceSilent = false, voicePreviewAudio = null, voiceVisHandler = null;
 let voiceStopping = false, voiceStopWatchdog = null, voiceStopSettled = false, voiceMimeFallback = false;
+let voiceStopTs = 0; // FIX #6xx 停止时刻钉死：慢壳 onstop 迟到/看门狗收尾时用「点停止那一刻」算时长，不再按结账瞬间 Date.now() 虚涨（报障：录 3 秒点结束卡住后变 20 秒）
 function voiceEnabled() {
 try { return store.get('cs-voice-send') === '1'; } catch (e) { return false; }
 }
@@ -41522,6 +42062,7 @@ try { await startVoiceRecInner(); } finally { voiceStarting = false; }
 }
 async function startVoiceRecInner() {
 voiceStopSettled = false; // FIX #228 新一轮录音：停止结账闩复位
+voiceStopTs = 0; // FIX #6xx 新一轮录音：停止时刻清零，待 stop 时钉住
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
 toast('当前浏览器不支持录音'); return;
 }
@@ -41595,7 +42136,10 @@ const rb = document.getElementById('voice-record-btn');
 if (rb) rb.classList.remove('rec');
 if (voiceRec && voiceRec.state === 'recording') {
 voiceStopping = true; // FIX #228 结账前挡住重入（连点停止/立刻再开始都会偷句柄）
+voiceStopTs = Date.now(); // FIX #6xx 停止时刻钉死：时长按此刻算，不按结账瞬间（慢壳 onstop 迟到会虚涨）
 armVoiceStopWatchdog(); // FIX #228 慢壳 onstop 迟到/丢失兜底
+const st0 = document.getElementById('voice-status');
+if (st0) st0.textContent = '正在停止录音…'; // FIX #6xx 立即反馈：onstop 迟到窗口不再显示定格「正在录音…」像卡死
 try { voiceRec.stop(); } catch (e) { voiceFinalizeStop(); } // stop 都抛了就没有 onstop，直接结账（空数据走可见失败）
 } else {
 voiceStopStream();
@@ -41615,7 +42159,8 @@ voiceStopStream();
 voiceRec = null;
 const wasSilent = voiceSilent;
 voiceSilent = false;
-const durSec = Math.max(1, Math.round((Date.now() - voiceStartTs) / 1000));
+const stopTs = voiceStopTs || voiceStartTs;
+const durSec = Math.max(1, Math.round((stopTs - voiceStartTs) / 1000));
 const blob = new Blob(voiceChunks.length ? voiceChunks : [], { type: (voiceChunks[0] && voiceChunks[0].type) || 'audio/webm' });
 voiceChunks = [];
 const rb = document.getElementById('voice-record-btn');
@@ -41633,7 +42178,7 @@ toast('录音失败：本浏览器没返回声音数据，请再录一次');
 }
 return; // 关闭面板打断的录音直接丢弃（原语义保留）
 }
-if (Date.now() - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
+if (stopTs - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
 voiceMimeFallback = false; // FIX #228 本容器录到了数据：清兜底标记，沿用当前 mime 选择策略
 const fr = new FileReader();
 fr.onload = () => {
@@ -43980,7 +44525,9 @@ ops.className = 'gc-inter-ops';
 const addBtn = document.createElement('button');
 addBtn.className = 'gc-set-btn';
 addBtn.textContent = interMode === 'av' ? '上传头像' : '添加昵称';
-addBtn.addEventListener('click', () => {
+if (interMode === 'av' && window.mochiFilePickLabel) window.mochiFilePickLabel(addBtn, gcAvatarPickInput);
+addBtn.addEventListener('click', (e) => {
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
 if (interMode === 'av') {
 pickAvatarFile((data) => {
 if (!data) return;
@@ -44252,7 +44799,8 @@ img.src = dataUrl;
 let gcAvatarPickCb = null;
 const gcAvatarPickInput = document.createElement('input');
 gcAvatarPickInput.type = 'file'; gcAvatarPickInput.accept = 'image/*';
-gcAvatarPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+gcAvatarPickInput.id = 'gc-avatar-pick';
+gcAvatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(gcAvatarPickInput);
 gcAvatarPickInput.onchange = () => {
 const f = gcAvatarPickInput.files && gcAvatarPickInput.files[0];
@@ -50227,7 +50775,33 @@ const CHAT_SURFACE_SETTINGS = [
 { key: 'cs-head-inset', label: '顶部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值下移、负值上移' },
 { key: 'cs-input-inset', label: '底部栏上下移动', def: 0, max: 80, min: -80, unit: 'px', posHint: '正值上移、负值下移' }
 ];
+const CS_BG_FITS = [
+{ label: '铺满裁剪', value: 'fill' },
+{ label: '完整显示', value: 'contain' },
+{ label: '平铺', value: 'tile' },
+{ label: '拉伸填满', value: 'stretch' }
+];
+const CS_BG_FIT_DEFAULT = 'fill';
+const csBgFit = () => {
+const v = store.get('cs-bg-fit');
+return CS_BG_FITS.some(f => f.value === v) ? v : CS_BG_FIT_DEFAULT;
+};
+function applyChatBarInk() {
+if (!chatPage) return;
+const on = store.get('cs-bg-fullbars') === '1';
+const bars = [['--cs-head-opacity', '--cs-head-opacity-ink'], ['--cs-input-opacity', '--cs-input-opacity-ink']];
+bars.forEach(function (pair) {
+if (on) chatPage.style.setProperty(pair[1], '0');
+else chatPage.style.removeProperty(pair[1]);
+});
+}
 const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
+const OFFSET_MIN = -40, OFFSET_MAX = 40;
+function clampOffset(raw) {
+const n = Number(raw);
+if (raw === null || raw === undefined || String(raw).trim() === '' || !Number.isFinite(n)) return 0;
+return Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, Math.round(n)));
+}
 function surfaceValue(item) {
 const raw = store.get(item.key);
 const n = raw === null || raw === undefined || String(raw).trim() === '' ? item.def : Number(raw);
@@ -50236,11 +50810,17 @@ return Number.isFinite(n) ? surfaceClamp(item, n) : item.def;
 function surfaceArrow(v, posArrow, negArrow) {
 return v > 0 ? posArrow + v : v < 0 ? negArrow + (-v) : '0';
 }
+function barOpacityInk(index) {
+if (store.get('cs-bg-fullbars') === '1') return 0;
+return surfaceValue(CHAT_SURFACE_SETTINGS[index]);
+}
 function applyChatSurfaces(inBg, outBg) {
 if (!chatPage) return;
 const values = CHAT_SURFACE_SETTINGS.map(surfaceValue);
 CHAT_SURFACE_SETTINGS.forEach((item, i) => {
-chatPage.style.setProperty('--' + item.key, item.unit === '%' ? values[i] / 100 : values[i] + 'px');
+const v = item.key === 'cs-head-opacity' ? barOpacityInk(0)
+: item.key === 'cs-input-opacity' ? barOpacityInk(1) : values[i];
+chatPage.style.setProperty('--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
 });
 [['in', inBg], ['out', outBg]].forEach(([side, color]) => {
 const rgb = _csHexRgb(color);
@@ -50273,6 +50853,14 @@ const rad = store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT;
 root.style.setProperty('--chat-bubble-radius', rad);
 const timeInk = store.get('cs-time-ink') || DEF.timeInk;
 root.style.setProperty('--msg-time-ink', timeInk);
+const markDX = clampOffset(store.get('cs-mark-x'));
+const markDY = clampOffset(store.get('cs-mark-y'));
+root.style.setProperty('--msg-mark-x', markDX + 'px');
+root.style.setProperty('--msg-mark-y', markDY + 'px');
+const timeDX = clampOffset(store.get('cs-time-x'));
+const timeDY = clampOffset(store.get('cs-time-y'));
+root.style.setProperty('--msg-time-dx', timeDX + 'px');
+root.style.setProperty('--msg-time-dy', timeDY + 'px');
 const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
 root.style.setProperty('--typing-ink', typingInk);
 const sendBg = store.get('cs-send-bg') || DEF.sendBg;
@@ -50296,19 +50884,25 @@ const tsLabel = (TIME_STYLES.find(s => s.value === ts) || {}).label || '头像�
 TIME_STYLES.forEach(s => document.body.classList.remove('cs-time-' + s.value));
 if (ts !== 'under-av') document.body.classList.add('cs-time-' + ts);
 set('cs-time-style-val', tsLabel);
+const fmtOff = (x, y) => (x === 0 && y === 0) ? '默认' : '左右 ' + x + ' / 上下 ' + y + 'px';
+set('cs-mark-pos-val', fmtOff(markDX, markDY));
+set('cs-time-pos-val', fmtOff(timeDX, timeDY));
 let bg = store.get('cs-bg');
 if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
 try { store.remove('cs-bg'); } catch (e) {}
 bg = null;
 }
 if (bg && chatPage) {
-if (chatPage.style.backgroundImage !== 'url("' + bg + '")') {
-chatPage.style.backgroundImage = 'url("' + bg + '")';
-chatPage.style.backgroundSize = 'cover';
+const fit = csBgFit();
+if (chatPage.style.backgroundImage !== 'url("' + bg + '")') chatPage.style.backgroundImage = 'url("' + bg + '")';
+chatPage.style.backgroundSize = fit === 'stretch' ? '100% 100%' : (fit === 'tile' ? 'auto' : fit);
+chatPage.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
 chatPage.style.backgroundPosition = 'center';
-}
 } else if (chatPage && chatPage.style.backgroundImage) {
 chatPage.style.backgroundImage = '';
+chatPage.style.backgroundSize = '';
+chatPage.style.backgroundRepeat = '';
+chatPage.style.backgroundPosition = '';
 }
 set('cs-font-size-val', fs);
 const pn = BUBBLE_SIZES.find(p => p.value === pad);
@@ -50317,12 +50911,18 @@ const rn = BUBBLE_RADII.find(p => p.value === rad);
 set('cs-bubble-radius-val', rn ? rn.label : (rad === '0px' ? '方形' : rad));
 set('cs-bg-val', bg ? '已设置' : '');
 try { const gl = csBgList(); if (gl.length) set('cs-bg-val', '已设置 · 库 ' + gl.length + ' 张'); } catch (e) {}
+const fitItem = CS_BG_FITS.filter(f => f.value === csBgFit())[0] || CS_BG_FITS[0];
+set('cs-bg-fit-val', bg ? fitItem.label : '上传壁纸后生效');
+set('cs-bg-fullbars-val', store.get('cs-bg-fullbars') === '1' ? '开 · 栏位透明' : '关 · 栏位盖住');
 const rm = document.getElementById('cs-bg-remove');
 if (rm) rm.hidden = !bg;
 _ensureBubbleContrast();
+applyChatBarInk();
 applyChatSurfaces(inBg, outBg);
+try { applyCssEnforce(); } catch (e) {}
 }
 window.applyChatSettings = applySettings;
+window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
 applySettings();
 try {
 new MutationObserver(() => { try { applySettings(); } catch (e) {} })
@@ -50574,6 +51174,39 @@ try { store.remove(CS_BG_ACTIVE); } catch (e) {}
 applySettings();
 });
 }
+const csBgFitRow = row('cs-bg-fit');
+if (csBgFitRow) {
+csBgFitRow.addEventListener('click', () => {
+if (!window.openModal) return;
+window.openModal('壁纸铺满方式', '', v => {
+if (!CS_BG_FITS.some(f => f.value === v)) return;
+try { store.set('cs-bg-fit', v); } catch (e) {}
+applySettings();
+if (!store.get('cs-bg')) toast('已记住：上传壁纸后就会按这个方式显示');
+}, {
+noInput: true,
+pill: csBgFit(),
+pills: CS_BG_FITS.map(f => ({ label: f.label, value: f.value }))
+});
+});
+}
+const csBgFullbarsRow = row('cs-bg-fullbars');
+if (csBgFullbarsRow) {
+csBgFullbarsRow.addEventListener('click', () => {
+if (!window.openModal) return;
+const on = store.get('cs-bg-fullbars') === '1';
+window.openModal('壁纸延伸到顶栏 / 输入栏', '', v => {
+if (v !== 'on' && v !== 'off') return;
+try { store.set('cs-bg-fullbars', v === 'on' ? '1' : '0'); } catch (e) {}
+applySettings();
+toast(v === 'on' ? '已让开栏位底色：壁纸一直铺到屏幕上下边缘' : '已恢复：顶栏与输入栏照旧盖住壁纸');
+}, {
+noInput: true,
+pill: on ? 'on' : 'off',
+pills: [{ label: '开 · 让开栏位底色', value: 'on' }, { label: '关 · 保持默认', value: 'off' }]
+});
+});
+}
 const csAvShape = row('cs-av-shape');
 if (csAvShape) {
 csAvShape.addEventListener('click', () => {
@@ -50604,6 +51237,26 @@ noInput: true
 });
 });
 }
+const csPosRow = (rowId, valId, label, xKey, yKey) => {
+const el = row(rowId);
+if (!el) return;
+el.addEventListener('click', () => {
+if (!window.openModal) return;
+const curX = clampOffset(store.get(xKey)), curY = clampOffset(store.get(yKey));
+const show = () => (curX === 0 && curY === 0) ? '默认（0, 0）' : '左右 ' + curX + 'px / 上下 ' + curY + 'px';
+window.openModal(label + '（' + show() + '）', '', (v) => {
+const parts = String(v == null ? '' : v).split(/[\s,，/]+/).filter(s => s !== '');
+if (!parts.length) return;
+const nx = clampOffset(parts[0]);
+const ny = parts.length > 1 ? clampOffset(parts[1]) : clampOffset(store.get(yKey));
+try { store.set(xKey, String(nx)); store.set(yKey, String(ny)); } catch (e) {}
+applySettings();
+toast(label + '已保存：左右 ' + nx + 'px / 上下 ' + ny + 'px');
+}, { placeholder: '左右,上下  例：8,-4（0 = 默认位置）' });
+});
+};
+csPosRow('cs-mark-pos', 'cs-mark-pos-val', '主动发送标识位置', 'cs-mark-x', 'cs-mark-y');
+csPosRow('cs-time-pos', 'cs-time-pos-val', '时间轴位置', 'cs-time-x', 'cs-time-y');
 function compressHead(dataUrl, maxSide) {
 return new Promise((resolve) => {
 if (typeof dataUrl === 'string' && dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
@@ -50626,7 +51279,8 @@ img.src = dataUrl;
 let headCb = null;
 const headInput = document.createElement('input');
 headInput.type = 'file'; headInput.accept = 'image/*';
-headInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+headInput.id = 'cs-head-pick';
+headInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(headInput);
 headInput.onchange = () => {
 const f = headInput.files && headInput.files[0];
@@ -50693,7 +51347,9 @@ applyProfile();
 }
 const csAp = row('cs-avatar-partner');
 if (csAp) {
-csAp.addEventListener('click', () => {
+if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
+csAp.addEventListener('click', (e) => {
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
 pickHead(data => {
 store.set('cs-avatar-partner', data);
 applyProfile();
@@ -50711,7 +51367,9 @@ try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
 }
 const csAu = row('cs-avatar-user');
 if (csAu) {
-csAu.addEventListener('click', () => {
+if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
+csAu.addEventListener('click', (e) => {
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
 pickHead(data => {
 store.set('cs-avatar-user', data);
 applyProfile();
@@ -51121,6 +51779,28 @@ if (String(t).trim()) return String(t);
 } catch (e) {}
 return v;
 }
+function applyCssEnforce() {
+const old = document.getElementById('cs-bubble-enforce');
+if (old) old.remove();
+const rules = [];
+try {
+const opItem = CHAT_SURFACE_SETTINGS.filter(s => s.key === 'cs-bubble-opacity')[0];
+const op = opItem ? surfaceValue(opItem) : 100;
+if (opItem && op !== opItem.def) {
+rules.push('#page-chat .msg-in .msg-bubble.msg-bubble{background:var(--cs-in-surface)!important}');
+rules.push('#page-chat .msg-out .msg-bubble.msg-bubble{background:var(--cs-out-surface)!important}');
+}
+const rad = store.get('cs-bubble-radius');
+if (rad != null && String(rad).trim() !== '' && String(rad) !== BUBBLE_RADIUS_DEFAULT) {
+rules.push('#page-chat .msg-bubble.msg-bubble{border-radius:var(--chat-bubble-radius,18px)!important}');
+}
+} catch (e) {}
+if (!rules.length) return;
+const st = document.createElement('style');
+st.id = 'cs-bubble-enforce';
+st.textContent = rules.join('');
+document.head.appendChild(st);
+}
 function applyCss() {
 const old = document.getElementById('cs-bubble-style');
 if (old) old.remove();
@@ -51177,7 +51857,8 @@ const CHAT_BEAUTY_KEYS = [
 'cs-bubble-radius', 'cs-av-shape', 'cs-time-style', 'cs-time-ink', 'cs-typing-ink',
 'cs-out-bg', 'cs-out-ink', 'cs-in-bg', 'cs-in-ink',
 'cs-send-bg', 'cs-send-ink', 'cs-send-show',
-'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset'
+'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset',
+'cs-bg-fit', 'cs-bg-fullbars'
 ];
 const getChatSchemes = () => {
 try { const a = JSON.parse(gStoreChat.get(CHAT_SCHEMES_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -52386,9 +53067,20 @@ paletteHost = document.createElement('div');
 wrap.appendChild(paletteHost);
 wrap.appendChild(mkSlider('气泡透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[2]), v => setSurface(2, v), 0, 100, 1, '%'));
 wrap.appendChild(mkSlider('气泡圆角', () => (parseInt(store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT, 10) || 0), v => { try { store.set('cs-bubble-radius', v + 'px'); } catch (e) {} applySettings(); }, 0, 40, 1, 'px'));
+try {
+const cssTxt = String(store.get('cs-bubble-css') || '');
+const hitBg = /(^|[^-\w])background(-color|-image)?\s*:/i.test(cssTxt);
+const hitRa = /(^|[^-\w])border(-(top|bottom|left|right)){0,2}-radius\s*:/i.test(cssTxt);
+if (hitBg || hitRa) {
+const bits = [hitBg && '底色', hitRa && '圆角'].filter(Boolean).join('、');
+const warn = mkNote('气泡 CSS 里写了' + bits + '声明，这两个滑块会覆盖它（其余声明如阴影、边框照常生效）；想完全按 CSS 来，就把对应声明删掉。');
+warn.style.color = 'var(--muted,#999)';
+wrap.appendChild(warn);
+}
+} catch (e) {}
 wrap.appendChild(mkPills('气泡字号', FONT_SIZES, () => store.get('cs-font-size') || '14px', v => { try { store.set('cs-font-size', v); } catch (e) {} applySettings(); }));
 wrap.appendChild(mkPills('气泡框大小', BUBBLE_SIZES, () => store.get('cs-bubble-size') || '11px 14px', v => { try { store.set('cs-bubble-size', v); } catch (e) {} applySettings(); }));
-wrap.appendChild(mkNote('气泡透明度只调底色，文字始终清晰；自定义气泡 CSS 写了 background 时以 CSS 为准。'));
+wrap.appendChild(mkNote('气泡透明度只调底色，文字始终清晰；自定义气泡 CSS 写了 background 时，滑块值优先（动过滑块即覆盖 CSS）。'));
 return wrap;
 } },
 { key: 'bar', label: '栏位', build: () => {
@@ -52398,6 +53090,16 @@ wrap.appendChild(mkSlider('顶栏不透明度', () => surfaceValue(CHAT_SURFACE_
 wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%'));
 wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px'));
 wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px'));
+wrap.appendChild(mkPills('壁纸铺满方式', CS_BG_FITS, csBgFit, v => {
+try { store.set('cs-bg-fit', v); } catch (e) {}
+applySettings();
+if (!store.get('cs-bg')) toast('已记住：上传壁纸后就会按这个方式显示');
+}));
+wrap.appendChild(mkPills('壁纸延伸到栏位', [{ label: '开', value: 'on' }, { label: '关', value: 'off' }],
+() => (store.get('cs-bg-fullbars') === '1' ? 'on' : 'off'), v => {
+try { store.set('cs-bg-fullbars', v === 'on' ? '1' : '0'); } catch (e) {}
+applySettings();
+}));
 wrap.appendChild(mkGrid([
 mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
 mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
@@ -52453,7 +53155,7 @@ try { if (v) store.set(CSS_KEY, v); else store.remove(CSS_KEY); } catch (e) {}
 applyCss();
 }, 160);
 });
-wrap.appendChild(mkNote('气泡 CSS（边写边套用；写 background 会覆盖上面的气泡透明度）'));
+wrap.appendChild(mkNote('气泡 CSS（边写边套用；写 background / border-radius 时，上方两个滑块动过则以滑块为准）'));
 wrap.appendChild(ta);
 wrap.appendChild(mkAct('清空气泡 CSS', () => {
 try { store.remove(CSS_KEY); } catch (e) {}
@@ -52472,6 +53174,24 @@ csDrawerClose();
 setTimeout(() => { const r = document.getElementById('cs-bg-upload'); if (r) r.click(); }, 0);
 }));
 wrap.appendChild(mkNote('想逐项精调（含「同步到全部桌面」「恢复默认」等）回聊天设置→美化，点对应一行即可。'));
+return wrap;
+} },
+{ key: 'tune', label: '微调', build: () => {
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+const setOff = (key, v) => { try { store.set(key, String(clampOffset(v))); } catch (e) {} applySettings(); };
+wrap.appendChild(mkNote('气泡 CSS 改了气泡大小/内边距后，标识和时间轴的位置可能跟着偏——这里手动校准。0 = 默认位置'));
+wrap.appendChild(mkSlider('标识 左右', () => clampOffset(store.get('cs-mark-x')), v => setOff('cs-mark-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+wrap.appendChild(mkSlider('标识 上下', () => clampOffset(store.get('cs-mark-y')), v => setOff('cs-mark-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+wrap.appendChild(mkSlider('时间轴 左右', () => clampOffset(store.get('cs-time-x')), v => setOff('cs-time-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+wrap.appendChild(mkSlider('时间轴 上下', () => clampOffset(store.get('cs-time-y')), v => setOff('cs-time-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px'));
+wrap.appendChild(mkAct('位置全部恢复默认', () => {
+['cs-mark-x', 'cs-mark-y', 'cs-time-x', 'cs-time-y'].forEach(k => { try { store.remove(k); } catch (e) {} });
+applySettings();
+renderSec('tune');
+toast('标识与时间轴位置已恢复默认');
+}));
+wrap.appendChild(mkNote('左右：正值往右、负值往左；上下：正值往下、负值往上。时间轴要先在「字体 · 其他」里选好样式再调。'));
 return wrap;
 } }
 ];
@@ -52542,7 +53262,9 @@ const DEFAULTS = {
 'mjf-pub': 80,
 'as-en': 1, 'as-prob': 30, 'as-min': 5, 'as-max': 10,
 'as-count-min': 1, 'as-count-max': 2, 'dnd-en': 0,
-'as-badge': 1,
+'as-badge-heart': 1,
+'as-badge-star': 0, 'as-badge-moon': 0, 'as-badge-spark': 0, 'as-badge-paw': 0,
+'as-badge-rand': 1,
 'ai-rps-en': 1, 'ai-rps-prob': 8, 'ai-game-en': 1, 'ai-game-prob': 5,
 'ai-cuddle-en': 1, 'ai-cuddle-prob': 5,
 'ai-cc-en': 1, 'ai-cc-prob': 4,
@@ -52600,6 +53322,7 @@ try { if (k.indexOf('gc-') === 0) gcWrite(k, String(n)); else ls.set('reply-' + 
 out[k] = n;
 });
 try { out['py-punct-custom'] = String(ls.get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
+try { out['as-badge-custom'] = String(ls.get('reply-as-badge-custom') || '[]'); } catch (e) { out['as-badge-custom'] = '[]'; }
 return out;
 }
 window.replyCfg = getCfg;
@@ -52614,6 +53337,7 @@ if (isNaN(n)) n = DEFAULTS[k];
 out[k] = n;
 });
 try { out['py-punct-custom'] = String((s || ls).get('reply-py-punct-custom') || '[]'); } catch (e) { out['py-punct-custom'] = '[]'; }
+try { out['as-badge-custom'] = String((s || ls).get('reply-as-badge-custom') || '[]'); } catch (e) { out['as-badge-custom'] = '[]'; }
 return out;
 };
 window.groupChatCfg = function () {
@@ -52667,7 +53391,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -52754,7 +53478,7 @@ try { val.blur(); } catch (err) {}
 });
 });
 const TOGGLE_NAMES = {
-'py-en': '多字卡回复', 'py-punct-en': '拼接随机标点', 'as-en': '主动发送', 'dnd-en': '免打扰', 'as-badge': '主动发送爱心标识',
+'py-en': '多字卡回复', 'py-punct-en': '拼接随机标点', 'as-en': '主动发送', 'dnd-en': '免打扰', 'as-badge': '主动发送标识',
 'ml-kaomoji-en': '信箱颜文字', 'ml-emoji-en': '信箱emoji', 'ml-sticker-en': '信箱表情包',
 'cs-normal': '让对方继续说', 'cs-trigger-name': '昵称触发继续说', 'cs-trigger-bar': '聊天栏继续说按钮',
 'gc-cs-normal': '群聊继续说按正常回复时间', 'gc-cs-trigger-name': '群聊昵称触发继续说', 'gc-cs-trigger-bar': '群聊底部继续说按钮',
@@ -52916,6 +53640,140 @@ if (ppyEnEl) ppyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
 ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(evN => {
 document.addEventListener(evN, () => { try { ppySync(); } catch (e) {} });
 });
+})();
+(function () {
+const POOL = [['as-badge-heart', '♥', '爱心'], ['as-badge-star', '★', '星星'], ['as-badge-moon', '☾', '月亮'], ['as-badge-spark', '✦', '闪光'], ['as-badge-paw', '🐾', '小爪']];
+const BUILTIN_VALS = ['♥', '★', '☾', '✦', '🐾'];
+const CUST_KEY = 'reply-as-badge-custom';
+const box = document.getElementById('asb-chips');
+function asbToast(msg, ms) {
+const d = ccToastEnsure();
+if (d) { d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show'; clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, ms || 1800); }
+}
+function asbCustGet() {
+let arr = null;
+try { arr = JSON.parse(ls.get(CUST_KEY) || '[]'); } catch (e) {}
+if (!Array.isArray(arr)) arr = [];
+return arr.filter(it => it && typeof it.s === 'string' && it.s);
+}
+function asbCustSet(list) { try { ls.set(CUST_KEY, JSON.stringify(list)); } catch (e) {} }
+function renderCust() {
+if (!box) return;
+box.querySelectorAll('.ppy-chip[data-c]').forEach(el => el.remove());
+const add = document.getElementById('asb-add');
+const dis = getCfg()['as-badge'] !== 1;
+asbCustGet().forEach((it, i) => {
+const el = document.createElement('span');
+el.className = 'tag ppy-chip ppy-chip-c' + (it.on === 1 ? ' sel' : '') + (dis ? ' dis' : '');
+el.dataset.c = String(i);
+el.textContent = it.s;
+const x = document.createElement('i');
+x.className = 'ppy-x';
+x.textContent = '×';
+el.appendChild(x);
+if (add && add.parentNode === box) box.insertBefore(el, add); else box.appendChild(el);
+});
+}
+function asbSync() {
+if (!box) return;
+const cfg = getCfg();
+const en = cfg['as-badge'] === 1;
+let selN = 0;
+box.querySelectorAll('.ppy-chip[data-k]').forEach(ch => {
+const k = ch.dataset.k;
+if (!k) return;
+if (cfg[k] === 1) selN++;
+ch.classList.toggle('sel', cfg[k] === 1);
+ch.classList.toggle('dis', !en);
+});
+const add = document.getElementById('asb-add');
+if (add) add.classList.toggle('dis', !en);
+const randRow = document.getElementById('asb-rand-row');
+if (randRow) randRow.hidden = !(en && selN + asbCustGet().filter(it => it.on === 1).length >= 2);
+const randEl = document.getElementById('as-badge-rand');
+if (randEl) { randEl.checked = cfg['as-badge-rand'] === 1; randEl.disabled = !en; }
+renderCust();
+}
+function asbAddFlow() {
+if (asbCustGet().length >= 8) { asbToast('自定义标识最多添加 8 个（可删掉不要的再加）', 2400); return; }
+if (!window.openModal) return;
+window.openModal('添加主动发送标识', '', function (v) {
+const s = String(v == null ? '' : v).trim();
+if (!s) { asbToast('没有输入标识', 2000); return; }
+if (s.length > 4) { asbToast('标识最长 4 个字符', 2000); return; }
+const list = asbCustGet();
+if (list.length >= 8) { asbToast('自定义标识最多添加 8 个（可删掉不要的再加）', 2400); return; }
+if (BUILTIN_VALS.indexOf(s) > -1) { asbToast('这是系统自带标识，点亮对应 chip 即可', 2400); return; }
+if (list.some(it => it.s === s)) { asbToast('该自定义标识已存在', 2000); return; }
+list.push({ s: s, on: 1 });
+asbCustSet(list);
+asbSync();
+toastSaved('标识 ' + s, true);
+}, { maxlength: 4, placeholder: '输入标识，如 🌙 / ❀ / 喵' });
+}
+if (box) {
+box.addEventListener('click', (ev) => {
+if (ev.target.closest('#asb-add')) { asbAddFlow(); return; }
+const ch = ev.target.closest('.ppy-chip');
+if (!ch) return;
+if (ch.dataset.c != null) {
+const i = Number(ch.dataset.c);
+const list = asbCustGet();
+const it = list[i];
+if (!it) return;
+const del = !!ev.target.closest('.ppy-x');
+if (del) {
+list.splice(i, 1);
+asbCustSet(list);
+asbSync();
+asbToast('已删除标识 ' + it.s);
+} else {
+it.on = it.on === 1 ? 0 : 1;
+asbCustSet(list);
+asbSync();
+toastSaved('标识 ' + it.s, it.on === 1);
+}
+return;
+}
+const k = ch.dataset.k;
+if (!k) return;
+const cfg = getCfg();
+const on = cfg[k] === 1;
+window.saveReplyCfg(k, on ? 0 : 1);
+asbSync();
+const nm = (POOL.find(p => p[0] === k) || ['', '', k])[2];
+toastSaved('标识 ' + nm, !on);
+});
+}
+asbSync();
+const asbEnEl = document.getElementById('as-badge');
+if (asbEnEl) asbEnEl.addEventListener('change', () => setTimeout(asbSync, 30));
+['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(evN => {
+document.addEventListener(evN, () => { try { asbSync(); } catch (e) {} });
+});
+window.asBadgePool = function (c) {
+try {
+c = c || {};
+const val = (k, d) => { const v = c[k]; return v === undefined ? d : v; };
+const out = [];
+POOL.forEach(p => { if (val(p[0], p[0] === 'as-badge-heart' ? 1 : 0) === 1) out.push({ s: p[1], builtin: 1 }); });
+let arr = null;
+try { arr = JSON.parse(c['as-badge-custom'] ? c['as-badge-custom'] : '[]'); } catch (e) {}
+if (Array.isArray(arr)) arr.forEach(it => { if (it && it.on === 1 && typeof it.s === 'string' && it.s) out.push({ s: it.s, builtin: 0 }); });
+return out;
+} catch (e) { return []; }
+};
+const randRow = document.getElementById('asb-rand-row');
+if (randRow) {
+randRow.addEventListener('click', (ev) => {
+const ch = ev.target.closest('[data-asbrand]');
+if (!ch) return;
+const v = Number(ch.dataset.asbrand);
+window.saveReplyCfg('as-badge-rand', v === 1 ? 1 : 0);
+asbSync();
+toastSaved('标识抽取方式 ' + (v === 1 ? '每次随机' : '按顺序轮换'), true);
+});
+}
 })();
 (function () {
 const diagEl = document.getElementById('qs-diag');
@@ -53142,7 +54000,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });
@@ -62863,7 +63721,7 @@ if (!btn) return;
 const input = document.createElement('input');
 input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
 input.id = (btn.id || 'avlib') + '-file-pick'; // FIX 2026-09-18 #717：常驻池选择器身份（诊断/测试句柄，按按钮唯一）
-input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;'; // FIX 2026-09-18 #738：sr-only clip 写法（原 offscreen+opacity:0），原生 label 兜底见下
 document.body.appendChild(input);
 input.onchange = () => {
 const files = Array.prototype.slice.call(input.files || []);
@@ -62909,8 +63767,10 @@ toast('添加失败，请选择有效的图片文件');
 }
 }
 };
-btn.addEventListener('click', () => {
-try { input.click(); } catch (e) { toast('无法打开相册，请重试'); }
+if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, input);
+btn.addEventListener('click', (e) => {
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
+try { input.click(); } catch (err) { toast('无法打开相册，请重试'); }
 });
 }
 bindPoolUpload(avUpload, getLib, saveLib, () => { renderGrid(); syncVal(); });
@@ -69174,6 +70034,7 @@ document.body.appendChild(t);
 t.textContent = msg;
 t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
 clearTimeout(t._timer);
+t.style.animationDuration = (dur || 2600) + 'ms';
 t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
 }
 let kaCustomAudio = null;
@@ -69217,7 +70078,7 @@ window.xyStore(GNS).remove('__ka-audio-name');
 if (keepEnabled && keepAudio && keepAudio.el) {
 try {
 keepAudio.el.src = ensureKeepAudioDataUrl();
-keepAudio.el.volume = 0.05;
+keepAudio.el.volume = KA_VOL_BASE; // #724：与启动档同源（原硬编码 0.05）
 if (!musicNowPlaying()) { const p = keepAudio.el.play(); if (p && p.catch) p.catch(function () {}); }
 } catch (e) {}
 }
@@ -69345,6 +70206,7 @@ setTimeout(syncKeepForMusic, 0);
 });
 } catch (e) {}
 })();
+const KA_VOL_BASE = 0.2, KA_VOL_MAX = 0.35;
 let KEEP_AUDIO_DATAURL = '';
 function kaIsIOS() {
 try { return !!(window.mochiDevice || {}).isIOS; } catch (e) {}
@@ -69494,6 +70356,15 @@ kaHbTimer = setInterval(kaHbTick, 30000);
 function kaHbStop() {
 if (kaHbTimer) { clearInterval(kaHbTimer); kaHbTimer = null; }
 }
+let kaEv = { stall: 0, died: 0 };
+try {
+const _evSaved = gGet('__ka-ev');
+if (_evSaved && String(_evSaved).charAt(0) === '{') {
+const _ev = JSON.parse(_evSaved);
+if (_ev && typeof _ev === 'object') kaEv = Object.assign(kaEv, _ev);
+}
+} catch (e) {}
+function kaEvSave() { try { gSet('__ka-ev', JSON.stringify(kaEv)); } catch (e) {} }
 document.addEventListener('visibilitychange', function () {
 if (document.visibilityState === 'hidden') {
 if (!keepEnabled) return;
@@ -69501,10 +70372,24 @@ kaHbStart();
 } else {
 if (kaHb) {
 kaHb.resumed = Date.now();
+if (kaHb.ts && kaHb.resumed - kaHb.ts > 90000) {
+kaEv.stall++; kaEvSave();
+try { if (keepAudio && keepAudio.el && !kaCustomAudio) keepAudio.el.volume = KA_VOL_MAX; } catch (e) {}
+}
 try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
 }
 kaHbStop();
 }
+});
+try {
+if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
+if (old && old.n > 0 && !old.resumed && !old.bye) { kaEv.died++; kaEvSave(); }
+}).catch(function () {});
+} catch (e) {}
+window.addEventListener('pagehide', function () {
+if (!kaHb) return;
+kaHb.bye = 1;
+try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
 });
 window.__kaProbe = function () {
 let audio = null, ms = null;
@@ -69518,7 +70403,8 @@ audio: audio,
 ms: ms,
 pc: kaPc1 ? (kaPc1.connectionState || 'new') : 'off',
 pcNext: kaWebrtcTimer ? kaWebrtcRebuildDelay : 0,
-hb: kaHb ? { n: kaHb.n, hid: kaHb.hid, ts: kaHb.ts, resumed: kaHb.resumed, trail: (kaHb.trail || []).slice() } : null
+hb: kaHb ? { n: kaHb.n, hid: kaHb.hid, ts: kaHb.ts, resumed: kaHb.resumed, trail: (kaHb.trail || []).slice() } : null,
+ev: { stall: kaEv.stall, died: kaEv.died }
 };
 };
 function startKeepAlive(showToast) {
@@ -69528,7 +70414,7 @@ const src = kaCustomAudio || ensureKeepAudioDataUrl();
 if (!src) { if (showToast) toast('后台保活启动失败（无法生成保活音频）'); return; }
 const keepEl = document.createElement('audio');
 keepEl.loop = true;
-keepEl.volume = kaCustomAudio ? 1 : 0.05;
+keepEl.volume = kaCustomAudio ? 1 : KA_VOL_BASE;
 keepEl.src = src;
 keepEl.setAttribute('playsinline', '');
 keepEl.addEventListener('play', function () { kaMarkPlayed(); });
@@ -70025,90 +70911,63 @@ runTest(env);
 });
 function runTest(env) {
 try {
-const verEl = document.querySelector('.ver');
-if (verEl) env.push('当前版本：' + (verEl.textContent || '').trim());
+const kp = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+if (!kp || !kp.keep) env.push('✗ 后台保活：未开启（后台不产生消息，通知无从弹起）');
+else env.push(kp.audio && !kp.audio.paused ? '✓ 后台保活：音频播放中' : '! 后台保活：音频已暂停（回本页自动恢复；后台消息可能到不了）');
 } catch (e) {}
-if (Notification.permission === 'granted') env.push('✓ 通知权限：已允许');
-else env.push('✗ 通知权限：被拒绝（去浏览器站点设置开启）');
-const keep = document.getElementById('bg-keepalive');
-const keepOn = keepEnabled;
-env.push(keepOn ? '✓ 后台保活：已开启' : '✗ 后台保活：未开启（TA 消息后台到不了，通知不会弹）');
-try {
-if (window.bgNotifyGateStats) {
-const st = window.bgNotifyGateStats();
-env.push('拦截统计（本次会话后台）：收到 ' + st.total + ' 条 · 过渡期拦 ' + st.tooFresh + ' · 重复拦 ' + st.dup + ' · 已发 ' + st.sent + '');
-}
-} catch (e) {}
-try {
-const avCs = store.get('cs-avatar-partner') || '';
-const avOld = store.get('avatar-partner') || '';
-const avUsed = avCs || avOld;
-if (!avUsed) {
-env.push('✗ 联系人头像：无数据（cs-avatar-partner 与 avatar-partner 均为空）');
-env.push('  解决：去【手机桌面美化】点 TA 头像上传一张图片');
-} else {
-env.push('✓ 联系人头像：' + (avUsed.length > 200 * 1024 ? '存在(' + Math.round(avUsed.length / 1024) + 'KB)' : '存在(' + Math.round(avUsed.length / 1024) + 'KB)') + ' · 来源:' + (avCs ? '聊天头像(cs)' : '桌面头像'));
-env.push('  提示：若通知仍不显示头像 → 系统通知样式由 Chrome/ROM 决定，部分机型需展开通知才显示大图');
-}
-} catch (e) {}
-const isHttps = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-env.push(isHttps ? '✓ 访问协议：HTTPS 或本地' : '✗ 访问协议：' + location.protocol + '//（安卓 Chrome 需 HTTPS 才弹通知，GitHub Pages 部署后即是 HTTPS）');
-try {
-if (!('serviceWorker' in navigator) || !navigator.serviceWorker) {
-env.push('✗ 后台服务：当前浏览器不支持 Service Worker');
-} else if (navigator.serviceWorker.controller) {
-env.push('✓ 后台服务：Service Worker 已接管');
-} else {
-env.push('! 后台服务：Service Worker 尚未接管（后台通知可能发不出；已自动尝试重新注册，稍后重试一次）');
-}
-} catch (e) {}
-try {
-const rc = (window.replyCfg && window.replyCfg()) || {};
-const asEn = rc['as-en'] === undefined ? 1 : rc['as-en'];
-if (asEn === 1) {
-const p = Number(rc['as-prob']) > 0 ? rc['as-prob'] : 30;
-const mn = Math.min(30, Number(rc['as-min']) || 5);
-const mx = Math.min(180, Number(rc['as-max']) || 10);
-env.push('✓ 主动发送：开启（每 ' + mn + '~' + mx + ' 分钟掷一次 · 概率 ' + p + '%）');
-if (rc['dnd-en'] === 1) env.push('  免打扰开启中（发送大幅减弱，最长 3 小时一次）');
-} else {
-env.push('✗ 主动发送：关闭（TA 不会主动发聊天消息 → 后台无聊天通知）');
-}
-env.push('  提示：TA 聊天消息按间隔随机产生，后台需保活让定时器存活才到点触发');
-} catch (e) {}
-if (!('Notification' in window) || Notification.permission !== 'granted') {
-toast('环境检查：\n' + env.join('\n'));
-return;
-}
 try {
 const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
 let testChan = '';
 let testSettled = false;
+let resultShown = false;
+const showResult = function () {
+if (resultShown) return;
+resultShown = true;
+toast('测试结果：\n' + env.join('\n'), 6000);
+};
+const testWasHidden = document.hidden;
 showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
 testSettled = true;
 if (testChan === 'sw' && ok) {
 env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
-env.push('  屏幕上没看到？①下拉通知栏找「后台通知测试」；②系统设置→应用通知→本浏览器→允许通知＋悬浮横幅（小米/红米「悬浮通知」、vivo/OPPO「横幅通知＋锁屏显示」）；③省电策略勿限制本浏览器后台');
+const queueCheck = kaSWReady().then(function (reg) {
+if (!reg || !reg.getNotifications) return null;
+return new Promise(function (res) {
+setTimeout(function () {
+try { reg.getNotifications().then(res, function () { res(null); }); } catch (e) { res(null); }
+}, 500);
+});
+}).then(function (list) {
+const found = !!(list && list.some && list.some(function (n) { return n && n.title === '后台通知测试'; }));
+env.push(found
+? '✓ 已确认进入系统通知队列——手机上没看到＝系统层拦截（通知总开关/悬浮横幅/省电限制），见本行「功能说明」排查'
+: '! 已提交但未进系统通知队列＝多半被系统拦截，见本行「功能说明」排查');
+if (found && testWasHidden) {
+env.push('✓ 发送时页面在后台——屏幕上方应有横幅；没看见＝系统层拦截（通知总开关/悬浮横幅/省电限制）见本行「功能说明」');
+} else if (found) {
+env.push('! 前台发送不弹顶层横幅——要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出');
+}
+}).catch(function () {});
+setTimeout(showResult, 2500); // 队列回读卡住也出结果
+queueCheck.then(showResult);
 } else if (testChan === 'page') {
 env.push(ok
-? '✓ 测试通知已发送（页面通道：只在此页处于前台时显示）'
-: '! 未真正送达：Service Worker 未就绪，页面通道在后台会被系统抑制（稍后自动补发，或刷新页面重试）');
+? '✓ 测试通知已发送（页面通道：仅本页前台可见）'
+: '! 未真正送达：后台服务未就绪，页面通道在后台会被系统抑制（已挂自动补发，或刷新页面重试）');
+showResult();
 } else {
-env.push('✗ 测试通知提交失败：四级降级重发均被浏览器/系统拒绝（权限已允许仍被拒＝去系统设置→应用→本浏览器→通知查总开关；仍不行请带「诊断信息」反馈）');
+env.push('✗ 测试通知提交失败：被浏览器/系统拒绝——见本行「功能说明」排查（权限已允许仍被拒＝查系统设置里本浏览器的通知总开关）');
+showResult();
 }
-const _mdN = (window.mochiDevice || {}).env || {};
-if (_mdN.notifyQuirk && testChan === 'sw') {
-env.push('悬浮开关：系统设置→通知管理→Chrome→通知类别/横幅通知→打开「在屏幕上方显示」');
-}
-toast('测试结果：\n' + env.join('\n'), 9000);
 });
 setTimeout(function () {
 if (testSettled) return;
 env.push('✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）——请用「诊断信息」一键反馈');
-toast('测试结果：\n' + env.join('\n'), 9000);
+showResult();
 }, 8000);
 } catch (e) {
-toast('发送失败：\n' + env.join('\n'));
+env.push('✗ 测试执行异常：' + (e && e.message ? e.message : e));
+toast('测试结果：\n' + env.join('\n'), 6000);
 }
 }
 }
@@ -73642,7 +74501,10 @@ const myAvEl = document.getElementById('feed-my-av');
 const myNameEl = document.getElementById('feed-my-name');
 const myAvStr = feedUserAv();
 const myNameStr = feedUserName();
-if (myAvEl) myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
+if (myAvEl) {
+myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
+try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(myAvEl, feedAvPickInput); } catch (e) {}
+}
 if (myNameEl) myNameEl.textContent = myNameStr;
 const cover = document.getElementById('feed-cover');
 if (cover) {
@@ -74675,7 +75537,8 @@ coverFile.value = '';
 }
 const feedAvPickInput = document.createElement('input');
 feedAvPickInput.type = 'file'; feedAvPickInput.accept = 'image/*';
-feedAvPickInput.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+feedAvPickInput.id = 'feed-av-pick';
+feedAvPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(feedAvPickInput);
 feedAvPickInput.onchange = () => {
 const f = feedAvPickInput.files && feedAvPickInput.files[0];
@@ -74702,8 +75565,10 @@ img.src = reader.result;
 reader.readAsDataURL(f);
 };
 if (coverAvEl) {
+if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
 coverAvEl.addEventListener('click', (e) => {
 e.stopPropagation();
+if (window.mochiFilePickFromLabel && window.mochiFilePickFromLabel(e)) return; // label 原生已开
 try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); }
 });
 }
@@ -100621,10 +101486,10 @@ const LS_SMALL_LIMIT = 20 * 1024;        // ≤ 此体积的键进备份的 ls �
 const MODE_IMPORT_WARN = 120 * 1024 * 1024; // 成品文件超过这个体积就如实提示「新设备可能导不回」
 const MUSIC_KEY_RE = /:music-file:/;      // 本地上传音乐的文件体：最占体积、且新设备上可重新添加
 const MEDIA_POOL_KEY_RE = /^xy-home-v2:media:[0-9a-f]{32}$/;
-const CHAT_KEY_RE = /(?:^|:)chat-msgs$/;
+const CHAT_KEY_RE = /(?:^|:)(?:chat-msgs|chat-blk-idx|chat-blk-[0-9]+)$/;
 const GROUP_CHAT_KEY_RE = /^xy-home-v2:(?:group-chat-msgs|gc-msgs-.+)$/;
 function isChatMsgKey(k) { return CHAT_KEY_RE.test(k) || GROUP_CHAT_KEY_RE.test(k); }
-function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); }
+function isAuthorityKey(k) { return /:chat-msgs$/.test(k) || /:chat-blk-(?:idx|[0-9]+)$/.test(k) || GROUP_CHAT_KEY_RE.test(k) || /:feed-posts$/.test(k); } // #722：块键是 IDB 权威（LS 无副本）
 const MEDIA_TOKEN_RE = /@@m:([0-9a-f]{32})/g;
 const UTF8_SAMPLE = 512;
 function estUtf8Bytes(s, esc) {
@@ -101594,6 +102459,15 @@ if (cid === 'default') { try { localStorage.removeItem('xy-home-v2:chat-tail'); 
 function writeDeskChat(cid, arr) {
 const key = 'xy-home-v2:' + cid;
 clearDeskTail(cid);
+try {
+if (window.idbListKeys && window.idbDelete) {
+window.idbListKeys().then(function (keys) {
+(keys || []).forEach(function (k) {
+if (typeof k === 'string' && k.indexOf(key + ':chat-blk-') === 0) { try { window.idbDelete(k); } catch (e2) {} }
+});
+}).catch(function () {});
+} else { try { window.idbDelete && window.idbDelete(key + ':chat-blk-idx'); } catch (e2) {} }
+} catch (e) {}
 let seq = Promise.resolve();
 if (window.idbSet) {
 seq = seq.then(() => window.idbSet(key + ':chat-msgs', arr.length ? arr : JSON.stringify(arr || null)));
@@ -101626,6 +102500,28 @@ try { data = JSON.parse(String(reader.result || '')); } catch (e) { toast('无�
 if (!data || typeof data !== 'object') { toast('无效的聊天记录文件'); return; }
 const chatKeyRe = /^xy-home-v2:(?:chat-msgs|(?:default|c[0-9a-z]{5,}):chat-msgs)$/;
 const mediaKeyRe = /^xy-home-v2:media:/;
+try {
+Object.keys(idbObj).forEach(function (k) {
+if (!/:chat-blk-idx$/.test(k)) return;
+let idx = null;
+try { idx = typeof idbObj[k] === 'string' ? JSON.parse(idbObj[k]) : idbObj[k]; } catch (e) { return; }
+if (!idx || !Array.isArray(idx.blocks) || !idx.blocks.length) return;
+const prefix = k.slice(0, k.length - ':chat-blk-idx'.length);
+let full = [];
+for (let bi = 0; bi < idx.blocks.length; bi++) {
+const rawB = idbObj[prefix + ':' + idx.blocks[bi].k];
+let part = null;
+try { part = typeof rawB === 'string' ? JSON.parse(rawB) : rawB; } catch (e) { return; }
+if (!Array.isArray(part)) return;
+full = full.concat(part);
+}
+const msgKey = prefix + ':chat-msgs';
+const cur = idbObj[msgKey];
+const curLen = typeof cur === 'string' ? cur.length : (Array.isArray(cur) ? -1 : -2);
+if (cur === undefined || (curLen >= 0 && full.join('').length > curLen) || curLen === -1) idbObj[msgKey] = full;
+try { if (lsObj[msgKey] === undefined) lsObj[msgKey] = full; } catch (e) {}
+});
+} catch (e) {}
 const lsObj = (data && typeof data.ls === 'object') ? data.ls : {};
 const idbObj = (data && typeof data.idb === 'object') ? data.idb : {};
 const pickRaw = (k) => {
@@ -102472,7 +103368,8 @@ overlaps: function () { return allKeys().then(function (keys) { var m = {}; keys
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("feature-data.js");
 } catch (__e) { try { console.error("[JS] feature-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feature-data.js] " + String(__e && __e.message || __e)); } })();
-(function () { try {
+</script>
+<script>(function () { try {
 (function () {
 try {
 if (navigator.storage && navigator.storage.persist) {
@@ -102924,8 +103821,7 @@ n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("pwa.js");
 } catch (__e) { try { console.error("[JS] pwa.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[pwa.js] " + String(__e && __e.message || __e)); } })();
-</script>
-<script>(function () { try {
+(function () { try {
 (function () {
 'use strict';
 if (location.protocol === 'file:') return;
@@ -108528,4 +109424,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu67l4b7 -->
+<!-- __MOCHI_EOF__ mu6awyn6 -->

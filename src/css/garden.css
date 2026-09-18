@@ -260,9 +260,18 @@
 
 /* ===== 稀有花发光 ===== */
 .garden-plot.rare { box-shadow: 0 0 14px rgba(255,215,0,.45), inset 0 0 8px rgba(255,235,150,.2); }
-.garden-plot.rare .garden-plant-emoji { filter: drop-shadow(0 0 6px rgba(255,215,0,.7)); }
-.garden-plot.rare.bloomed .garden-plant-emoji { animation: gardenSway 3.2s ease-in-out infinite, gardenRareGlow 2s ease-in-out infinite; }
-@keyframes gardenRareGlow { 0%,100% { filter: drop-shadow(0 0 5px rgba(255,215,0,.5)); } 50% { filter: drop-shadow(0 0 10px rgba(255,215,0,.9)); } }
+.garden-plot.rare .garden-plant-emoji { position:relative; filter: drop-shadow(0 0 6px rgba(255,215,0,.7)); }
+/* #722 iOS 去无限 drop-shadow 动画（filter 插值每帧重绘不进合成器＝稀有花常驻重绘面）：
+   呼吸光改 ::after 金晕盘只动 opacity/transform；花字本体保留静态基础光，
+   晕盘随 sway（transform）同摆；span 有 will-change:transform 自带层叠上下文，z-index:-1 不穿到花坛底下 */
+.garden-plot.rare.bloomed .garden-plant-emoji { animation: gardenSway 3.2s ease-in-out infinite; }
+.garden-plot.rare.bloomed .garden-plant-emoji::after {
+  content:''; position:absolute; inset:-45%; z-index:-1; border-radius:50%;
+  background:radial-gradient(circle, rgba(255,215,0,.55), rgba(255,215,0,0) 70%);
+  opacity:.4; pointer-events:none;
+  animation:gardenRareHalo 2s ease-in-out infinite;
+}
+@keyframes gardenRareHalo { 0%,100% { opacity:.4; transform:scale(.9); } 50% { opacity:1; transform:scale(1.1); } }
 
 /* ===== 图鉴稀有页 ===== */
 .garden-dex-sub { font-size: 12px; font-weight: 700; margin: 10px 0 6px; color: #f9a825; }
@@ -447,6 +456,7 @@
 @media (prefers-reduced-motion: reduce) {
   .garden-plot.bloomed .garden-plant-emoji,
   .garden-plot.rare.bloomed .garden-plant-emoji { animation: none !important; }
+  .garden-plot.rare.bloomed .garden-plant-emoji::after { animation: none !important; } /* #722 晕盘同步关 */
   .garden-fx { display: none !important; }
 }
 
