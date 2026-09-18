@@ -2275,6 +2275,10 @@
     const a = new Audio();
     try { a.style.display = 'none'; document.body.appendChild(a); } catch (e) {}
     liveAudioEls.push(a);
+    // #780：向后台保活模块发布「音乐到底在不在播」的只读出口——window.__musicPlaying
+    // 是布尔意图标志（onpause 在 wantPlay 为真时故意仍报 playbackState='playing'），
+    // 与元素真实状态可能脱节；bg-keep 让位判据需要元素级的 paused 才能自愈。
+    try { window.__mochiMusic = { el: a, want: function () { return !!wantPlay; } }; } catch (e) {}
     return a;
   }
   // v3.26.x：audio.src 赋值守卫——曲目 url 字段可能被存成脏值（空对象序列化成 '{}'），

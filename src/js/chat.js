@@ -675,7 +675,14 @@ const seen = new Set(msgsNow.map(lsMergeSig));
 // FIX 2026-09-16 #594：再补一层「媒体两种存法」互补判定（媒体池冷载时 lsMergeSig 展开不出
 // 原文）——否则写侧照样把同一条的旧形态副本存进 LS，下次进页读侧再翻倍（#511 同款半修）
 const kinds = recKindIndex(msgsNow);
-const merged = msgsNow.concat(old.filter(m => m && !seen.has(lsMergeSig(m)) && !recKindCovers(kinds, m))).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
+// FIX 2026-09-18 #776：写侧与读侧同口径——正文被换脸/令牌化后 lsMergeSig 与 recKindCovers 都对不上，
+// 旧形态副本会长期留在快照里，下次进页被读侧当成新消息补回来（一份变两份、刷新还在）。
+const copied = new Set();
+msgsNow.forEach(x => chatRecKeysAdd(copied, x));
+const merged = msgsNow.concat(old.filter(m => {
+if (!m || seen.has(lsMergeSig(m)) || recKindCovers(kinds, m)) return false;
+return !chatRecKeysHit(copied, m);
+})).sort((a, b) => (((a && a.ts) || 0) - ((b && b.ts) || 0)));
 performLsSnapWrite(merged, prefix);
 } catch (e) {}
 }
@@ -1124,6 +1131,8 @@ r.parts = __hpImgs.length ? [{ k: 'text', v: r.text }].concat(__hpImgs) : null;
 c = true;
 }
 }
+// FIX 2026-09-18 #773c 历史「多字卡回复」错标签自愈（判据与保守口径见 pyChipDropIfSingle 处注释）
+if (pyChipDropIfSingle(r)) c = true;
     if (r.special === 'poke' && typeof r.text === 'string' && r.text.indexOf('&lt;svg class=&quot;st-ico&quot;') === 0) {
       const mm = r.text.match(/^(&lt;svg class=&quot;st-ico&quot;[\s\S]*?&lt;\/svg&gt;)([\s\S]*)$/);
       if (mm) { r.text = mm[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&') + mm[2]; c = true; }
@@ -1310,6 +1319,7 @@ function runDeferredNormalization() {
   try { myPre = window.activePrefix(); } catch (e) { myPre = ''; }
   if (myPre !== normPrefix) { normPrefix = null; return; }
   let idx = 0, changed = false;
+  const idSeen = new Map(); // FIX 2026-09-18 #776：身份级重复收敛的下标登记（跨块共享，本轮归一化内有效）
   // v3.26.x #211：记录归一化改动的最靠后下标与结构性删除数。收尾时若改动全部落在
   // 当前渲染窗口之外（changedHi < renderStart），跳过整窗重建——renderWindow 会销毁
   // 重建整个消息区（气泡+图片全部重建重新解码=肉眼可见闪一下），是「打开聊天偶尔
@@ -1383,6 +1393,8 @@ function runDeferredNormalization() {
     if (nowPre !== normPrefix) { normPrefix = null; return; }
     const end = Math.min(N, idx + NORM_CHUNK);
     for (let i = idx; i < end; i++) { if (normCell(msgs[i])) { changed = true; changedHi = Math.max(changedHi, i); if (normChangedIdxs.indexOf(i) < 0) normChangedIdxs.push(i); try { normChangedRecs.push(msgs[i]); } catch (e) {} } }
+    const _id = collapseIdentityRange(idx, end + 1, idSeen); // FIX #776 身份级重复（正文签名看不见的那一类）
+    if (_id) { changed = true; removedAll += _id; }
     const _rm = normCollapseRange(idx, end + 1, msgs);
     if (_rm) { changed = true; removedAll += _rm; }
     if (end < N) { idx = end; setTimeout(tick, 0); }
@@ -1459,6 +1471,212 @@ removed++;
 }
 return removed;
 }
+// ===== FIX 2026-09-18 #776 聊天「一条变多条」第三通道：身份级重复（现有判据全看不见的那一类）=====
+// 本项目每条消息的 ts 都是 `Date.now()` 现取的毫秒值，落点 side 只有 in/out 两值 ⇒
+// 「ts 与 side 都相同」的两条记录按定义就是**同一条消息的两份副本**，不可能是两次发送
+// （真人连发同文本也撞不进同一毫秒）。这与 dupSig/lsMergeSig 那套「正文签名」判据是**互补**
+// 关系而非重复：正文签名只认「内容也一样」的副本，而所有回放通道（尾巴日志 #180、增量日志
+// chat-arch #127、LS 有损快照 #358、分块热片 #722）带回来的副本恰恰**正文不等**——
+//   · 库内那条已被 normCell 原地换脸/改名清扫/媒体令牌化（#749 在尾巴链上修过的同一件事，
+//     增量日志与快照合并这两处仍按正文判 ⇒ 漏）；
+//   · 快照那条被剥掉 img/voice（有损副本，img:'' vs dataURL ⇒ sigOf 不等）。
+// 判不出＝补回一份 ⇒ 屏上两条 ⇒ 落盘固化 ⇒「刷新还在、越用越多」。#766 关掉的是尾巴日志的
+// 长期驻留，本条关掉的是「正文形态漂移让副本认不出原件」这个更普遍的判别缺口，并顺带**自愈
+// 存量脏数据**（前几版已写进库的重复对，用户现在打开聊天就该看到它们消失，而不是留着）。
+// 保留哪一份：按信息完整度浅估保更全的那条（有损副本/半截正文不留），另一条删除。
+function chatRecIdKey(m) {
+if (!m) return '';
+const t = m.ts;
+if (typeof t !== 'number' || !(t > 0)) return ''; // 无 ts 的记录不参与身份判定（防「0|side」互撞误删）
+return t + '|' + (m.side || '');
+}
+// 类型级身份键：ts+side 之上再钉 special/type。**只到 ts+side 是不够的**——批量发送
+// （sendBatchItem，聊天输入栏「批量」一次发多张图/多条文本）是在同一个同步循环里逐条 addRec，
+// ts 全等于同一毫秒、side 全是 out，那是用户真发了 N 条。补上 special/type 后仍需下一级
+// 正文判定（chatRecCopyKey），因为批量里「同类型多条」正是那种形态。
+function chatRecKindKey(m) {
+const k = chatRecIdKey(m);
+if (!k) return '';
+const normT = (m.type === 'text' || !m.type) ? '' : String(m.type || '');
+return k + '|' + (m.special || '') + '|' + normT;
+}
+// 松散正文签名：与 dupSig 同族但**忽略媒体在场与存法**（img/voice 有无、令牌 vs 原文 vs 被剥空）
+// ——这正是「同一条消息的两份副本」最常见的差异（LS 有损快照把 img 剥成空串、#142 令牌化把原文
+// 换成 @@m: 令牌）。正文段走 mediaSigPart（展开令牌 + 长串只取长度与前 96 字符，与 #511/#594 同口径）。
+function chatRecLooseSig(m) {
+if (!m) return '';
+try {
+const normT = (m.type === 'text' || !m.type) ? '' : String(m.type || '');
+let ps = '';
+if (Array.isArray(m.parts) && m.parts.length) {
+ps = m.parts.map(function (p) { return (p && p.k ? p.k : '') + ':' + mediaSigPart(p && p.v).slice(0, 24); }).join(',');
+}
+return JSON.stringify({ s: m.side || '', t: normT, sp: m.special || '', x: mediaSigPart(m.text), ps: ps });
+} catch (e) { return ''; }
+}
+// 两条记录是否互为副本＝同一条消息被存/投了两份。判据（宁漏不误删）：①ts+side+special+type
+// 同一身份；②在此前提下「松散正文签名相同」（忽略媒体在场与存法）**或**「出生号 uid 相同」。
+// 五个落盘/回放闸门（实时 addRec、LS 快照写侧 mergeLsSnapshotWith、读侧 localNew、
+// chat-arch 增量合并、后台归一化）共用本口径。合法情形逐项核对过：真人连发同文本＝不同毫秒
+// （①分开）；批量一次发多张图＝同毫秒但正文不同且各带各自出生号（②两条判据都分开）；
+// 异侧同文＝side 不同（①分开）。
+//   ① 松散正文键——历史库里没有 uid 的存量记录只能靠正文认亲；
+//   ② uid 键——addRec 给每条消息打的出生号（见 chatRecStampUid）。有了它，「同一条消息
+//      被原地改过正文」（normCell 换脸/改名清扫/媒体令牌化）这一类副本才**仍然认得出**：
+//      正文已经不等，松散签名自然对不上，但出生号是随对象一起落库的，克隆回来一模一样。
+//      R6-B 实测就是这个形态：同 ts 同 side，一条 '旧形态'、一条 '新形态（正文已被原地改写）'，
+//      五条闸门全部漏过 → 屏上两条 → 落盘固化 →「刷新还在、越用越多」。
+// 为什么不删掉①只用 uid：存量数据没有 uid，判据一换就全漏。为什么 uid 键要带 kindKey 前缀：
+// 万一出生号因异常撞号，也只可能误伤「同一毫秒同侧同类型」，而那恰好是同一条消息的定义。
+function chatRecCopyKeys(m) {
+const out = [];
+const k = chatRecKindKey(m);
+if (!k) return out;
+const s = chatRecLooseSig(m);
+if (s) out.push(k + '|' + s);
+if (m && typeof m.uid === 'string' && m.uid) out.push(k + '#u' + m.uid);
+return out;
+}
+// 登记/查库两个方向各一个入口（闸门统一走这两个，避免又一处口径分叉）
+function chatRecKeysAdd(set, m) {
+const a = chatRecCopyKeys(m);
+for (let i = 0; i < a.length; i++) set.add(a[i]);
+return set;
+}
+function chatRecKeysHit(set, m) {
+const a = chatRecCopyKeys(m);
+for (let i = 0; i < a.length; i++) if (set.has(a[i])) return true;
+return false;
+}
+// 出生号：本会话随机盐 + ts 的 36 进制 + 自增序（同一毫秒连发的批量/多字卡各得一个，互不相同）。
+// 盐是必需的：命中同一 uid＝按定义判为同一条消息并删一份，若两次页面加载各自从 seq=1 重新数起、
+// 又恰好落在同一毫秒，就会跨会话撞号、把两条真消息并成一条。
+// 只在新消息进 msgs 时打（addRec）；从库里读出来的记录不补号——补了就成了「两条各自独立的
+// 新消息」，反而把该认的亲认掉了。
+const _recUidSalt = Math.random().toString(36).slice(2, 10);
+let _recUidSeq = 0;
+function chatRecStampUid(rec) {
+if (!rec || typeof rec !== 'object' || rec.uid) return;
+try {
+const t = (typeof rec.ts === 'number' && rec.ts > 0) ? rec.ts : Date.now();
+rec.uid = _recUidSalt + '-' + t.toString(36) + '-' + (++_recUidSeq).toString(36);
+} catch (e) {}
+}
+function chatRecIdScore(m) {
+if (!m) return -1;
+let s = 0;
+try {
+if (typeof m.text === 'string') s += m.text.length;
+if (typeof m.img === 'string') s += m.img.length ? 1000 + m.img.length : 0;
+if (typeof m.voice === 'string') s += m.voice.length ? 1000 + m.voice.length : 0;
+if (Array.isArray(m.parts) && m.parts.length) s += 2000 * m.parts.length;
+if (m.special) s += 500;
+if (m.askQuestion || m.choiceQuestion || m.curiousQuestion || m.roastText || m.inviteContent) s += 300;
+if (m.retracted) s -= 400; // 撤回态比原文更弱：优先保留未撤回的那份
+} catch (e) {}
+return s;
+}
+// 两条记录是否共享任一副本键（松散正文键 / uid 键）
+function chatRecKeysShare(a, b) {
+const ka = chatRecCopyKeys(a);
+if (!ka.length) return false;
+const kb = chatRecCopyKeys(b);
+if (!kb.length) return false;
+for (let i = 0; i < ka.length; i++) for (let j = 0; j < kb.length; j++) if (ka[i] === kb[j]) return true;
+return false;
+}
+// 按块运行的身份收敛（后台归一化 tick 调用，跨块共享 seen）：命中同身份的副本即删掉「信息更少」
+// 的那一份、另一份留在原位（只产生一次删除，DOM 侧走 #675 原位收敛，不必整窗重建）。
+// seen 登记的是下标，本块内一旦发生删除就会左移漂移 ⇒ 用前必校验「该下标此刻仍装着同一身份」，
+// 不符则重新登记（宁可这轮漏收、下一轮再收，绝不错删真消息）。
+function collapseIdentityRange(from, to, seen) {
+let removed = 0;
+try {
+if (!seen || typeof seen.set !== 'function') return 0;
+const n = msgs.length;
+const drop = new Set();
+for (let i = from; i < to && i < n; i++) {
+const m = msgs[i];
+if (!m || drop.has(i)) continue;
+const ks = chatRecCopyKeys(m);
+if (!ks.length) continue;
+let j;
+for (let q = 0; q < ks.length; q++) {
+const v = seen.get(ks[q]);
+if (v !== undefined && v !== i && !drop.has(v)) { j = v; break; }
+}
+if (j === undefined) { for (let q = 0; q < ks.length; q++) seen.set(ks[q], i); continue; }
+const other = msgs[j];
+if (!other || !chatRecKeysShare(other, m)) { // 下标漂移（本块删过东西）＝重新登记，绝不删
+for (let q = 0; q < ks.length; q++) seen.set(ks[q], i);
+continue;
+}
+const keep = chatRecIdScore(m) > chatRecIdScore(other) ? i : j;
+const lose = keep === i ? j : i;
+try { if (normRemovedRecs) normRemovedRecs.push(msgs[lose]); } catch (e) {}
+drop.add(lose);
+const kk = chatRecCopyKeys(msgs[keep]); // 幸存者的全部键指向它（第三份副本照此与它比）
+for (let q = 0; q < kk.length; q++) seen.set(kk[q], keep);
+removed++;
+}
+const idx = Array.from(drop).sort((a, b) => a - b);
+for (let d = idx.length - 1; d >= 0; d--) msgs.splice(idx[d], 1);
+} catch (e) {}
+return removed;
+}
+// FIX 2026-09-18 #776 诊断探针：重复体检。报障「一条变多条」时，光看条数说不出**还剩哪一种重复**，
+// 每轮都要重新猜通道。本探针按身份键（ts+side+special+type，见 chatRecKindKey）分组，把多出来的副本分成四类报出来：
+//   batch＝两条各带**不同**出生号（addRec 逐条打号，同毫秒批量发送就是这个形状）→ 不是重复；
+//   same＝正文/媒体形态一致（现有正文判据收得掉，出现＝收敛没跑或没回写）；
+//   uidc＝正文已不等但出生号相同（normCell 换脸/改名清扫/媒体令牌化原地改过正文）→ 认得出、收得掉；
+//   drift＝正文已不等且无出生号可认（升级前写的存量脏数据，宁漏不误删所以留在库里）。
+//   sus＝same+uidc+drift＝真正待修份数（drift>0 说明库里还有升级前的脏副本）。
+// 只读、单遍、绝不抛（诊断面板在谁手上都不能因为体检本身把页面搞挂）。
+window.__mochiDupCensus = function () {
+try {
+const byId = new Map();
+let uidN = 0;
+for (let i = 0; i < msgs.length; i++) {
+const m = msgs[i];
+if (!m) continue;
+if (m.uid) uidN++;
+const k = chatRecKindKey(m); // 裸 ts|side 不够：同一毫秒同侧投两张不同卡（ask-msg + ask-curious）是常态
+if (!k) continue;
+const g = byId.get(k);
+if (g) g.push(m); else byId.set(k, [m]);
+}
+let groups = 0, extra = 0, same = 0, uidc = 0, drift = 0, batch = 0;
+const eg = [];
+const head = function (m) {
+const t = String((m && m.text) || '').slice(0, 18);
+return t || ((m && (m.special || m.type)) ? String(m.special || m.type) : '(空)');
+};
+const kinds = {};
+byId.forEach(function (g) {
+if (!g || g.length < 2) return;
+groups++;
+extra += g.length - 1;
+for (let i = 1; i < g.length; i++) {
+const a = g[0], b = g[i];
+const ua = (typeof a.uid === 'string' && a.uid) ? a.uid : '';
+const ub = (typeof b.uid === 'string' && b.uid) ? b.uid : '';
+if (ua && ub && ua !== ub) { batch++; continue; } // 各带出生号＝同毫秒批量，不是副本
+if (chatRecLooseSig(a) && chatRecLooseSig(a) === chatRecLooseSig(b)) same++;
+else if (ua && ua === ub) uidc++;
+else drift++;
+if (eg.length < 3) eg.push((a.side || '?') + ':' + head(a) + ' ⟂ ' + head(b));
+}
+const kk = (g[0].special || g[0].type || 'text') + '×' + g.length;
+kinds[kk] = (kinds[kk] || 0) + 1;
+});
+let top = '';
+try {
+top = Object.keys(kinds).sort(function (a, b) { return kinds[b] - kinds[a]; }).slice(0, 3)
+.map(function (k) { return k + '(' + kinds[k] + '组)'; }).join(' ');
+} catch (e) {}
+return { total: msgs.length, groups: groups, extra: extra, same: same, uidc: uidc, drift: drift, batch: batch, sus: same + uidc + drift, uid: uidN, top: top, eg: eg };
+} catch (e) { return { err: String(e) }; }
+};
 function answeredRec(r) {
 if (!r) return false;
 if (r.special === 'ask-choose' && r.choiceStatus === 'answered') return true;
@@ -1650,8 +1868,9 @@ try { archArr = typeof av === 'string' ? JSON.parse(av) : av; } catch (e) { arch
 if (!Array.isArray(archArr)) archArr = [];
 if (archArr.length) {
 const ckptSigs = new Set();
-for (let ci = 0; ci < ckptArr.length; ci++) { if (ckptArr[ci]) ckptSigs.add(sigOf(ckptArr[ci])); }
-archArr = archArr.filter(function (m) { return m && !ckptSigs.has(sigOf(m)); });
+const ckptCopies = new Set(); // FIX 2026-09-18 #776：日志与基准包的拼接只认正文签名 sigOf ⇒ 基准包那条被剥掉媒体/换过存法时，日志里的同一条被当「正文不同的新消息」拼回来＝同一条两份（同 ts），事后任何正文判据都合不掉。副本键忽略媒体在场与存法，专治这一类
+for (let ci = 0; ci < ckptArr.length; ci++) { if (ckptArr[ci]) { ckptSigs.add(sigOf(ckptArr[ci])); chatRecKeysAdd(ckptCopies, ckptArr[ci]); } }
+archArr = archArr.filter(function (m) { return m && !ckptSigs.has(sigOf(m)) && !chatRecKeysHit(ckptCopies, m); });
 if (archArr.length) idbArr = ckptArr.concat(archArr).sort(function (a, b) { return (((a && a.ts) || 0) - ((b && b.ts) || 0)); });
 }
 } catch (e) {}
@@ -1667,6 +1886,8 @@ if (!hasLocal) {
   idbArr.forEach(x => { if (x) idbSigs.add(sigOf(x)); });
   __prof('ch2_sigset');
   const idbTsSide = new Set(idbArr.map(x => (((x && x.ts) || 0) + '|' + ((x && x.side) || ''))));
+  const idbCopies = new Set();
+  idbArr.forEach(x => chatRecKeysAdd(idbCopies, x));
   __prof('ch3_tsside');
   const liteResidue = (m) => !!(m && (m._lsLite || m.img === '' || m.voice === ''));
   // FIX 2026-09-16 #594：权威侧媒体形态索引——「同一条记录在快照里是原文、在库里是令牌」
@@ -1675,6 +1896,12 @@ if (!hasLocal) {
   __prof('ch3b_kinds');
   const localNew = curArr.filter(m => m && !idbSigs.has(sigOf(m))).filter(m => {
     if (recKindCovers(idbKinds, m)) return false;
+    // FIX 2026-09-18 #776：身份闸门从「仅有损残留」扩到任何一条本地记录——库里已有同一条消息的
+    // 另一种形态（正文被 normCell 换脸/改名清扫/令牌化后 sigOf 与媒体形态索引都认不出，见
+    // chatRecCopyKeys 注释），补回来就是凭空多一份、且事后合不掉。
+    // 判据必须是副本键而不是裸 ts+side：批量发送 sendBatchItem 会在同一毫秒同侧连推多条，
+    // 那是合法数据，按裸身份砍就会把「哥哥发的三条」并成一条。
+    if (chatRecKeysHit(idbCopies, m)) return false;
     if (!liteResidue(m)) return true;
     return !idbTsSide.has((((m && m.ts) || 0)) + '|' + ((m && m.side) || ''));
   });
@@ -1909,28 +2136,58 @@ return v || fb;
 }
 // v3.26.x：聊天昵称与桌面解耦——只读聊天专用键 cs-lbl-*，未设时默认 TA/我，
 // 不再回退读桌面 lbl-partner/lbl-user（v3.9.x 的「跟随桌面」按用户要求取消）
-function chatPartnerName() { return chatLabel('cs-lbl-partner', null, 'TA'); }
+// v3.30.x：拍一拍人称昵称制——不再走 T()（taFit 称呼替换），改用 pokePersonMap：
+// {ta}/{me} 与字卡里写死的 TA/ta/他/她 一律按 我的昵称/联系人昵称 回填
+// FIX 2026-09-18 #775（用户实报：改了昵称、消息里的拍一拍不变；多机型/多浏览器同报）：
+// 联系人昵称的解析链必须与聊天顶栏（updateChatPartnerName）、通话小框（contacts.js
+// contactNameFor 注释所记的同一次修复）完全一致——cs-lbl-partner → 联系人名片名 → 称呼词。
+// 本函数此前少了「名片名」这一环，于是只在「联系人管理」里改名的用户（没单独设过聊天昵称，
+// 即 cs-lbl-partner 为空）会看到顶栏跟着变、拍一拍仍写「TA」。链分叉＝观感「改名没生效」。
+// 与 v3.26.x「聊天昵称不跟随桌面美化昵称（lbl-partner）」不冲突：桌面美化键仍不参与本链，
+// 名片名是聊天域身份来源（顶栏一直在用），不是桌面装饰。
+function chatPartnerName() {
+const v = chatLabel('cs-lbl-partner', null, '');
+if (v) return v;
+const cn = window.contactNameFor ? window.contactNameFor(window.__activeCid || 'default') : '';
+return cn || (window.taWord ? window.taWord() : 'TA');
+}
 window.chatPartnerName = chatPartnerName;
 function chatUserName() { return chatLabel('cs-lbl-user', null, '我'); }
 // v3.25.x：系统消息昵称动态化——改名后历史系统消息称呼跟随当前昵称。
-// 存储：改名时把旧昵称从系统标记记录的 text 清扫成 {ta} 占位符（白名单=renderMsg 里走
-//   T(rec.text) 的分支，普通气泡 text 永不扫、永不换）；渲染：T() 把 {ta} 换回当前昵称。
+// 存储：改名时把旧昵称从系统标记记录的 text 清扫成 {ta}/{me} 占位符（白名单=renderMsg 里走
+//   T(rec.text) 的分支，普通气泡 text 永不扫、永不换）；渲染：T() 把占位符换回当前昵称。
 // {ta} 含花括号，不可能出现在 base64 字母表/svg 文本里；但被清扫的旧名可能撞上 base64/svg
 // 段（如默认名 TA），清扫按 taFit 同款分段保护。hist/swept 每桌面各存一份，loadMsgs 惰性补扫。
-function sysNickCur() { return chatPartnerName(); }
-function sysNickHistGet(st) {
+// FIX 2026-09-18 #775c：这套机制原先只有联系人（{ta}）一半，「我的昵称」没有对应的 {me}
+// 清扫（avatar-lib.js「chat.js 只维护 {ta} 占位符」注释即该缺口）。v3.26.x 起新拍一拍存的是
+// 占位符，但更早的历史里昵称是**字面**写进正文的——只改「我的昵称」时旧记录永远停在旧名，
+// 用户实报「给我和联系人换了昵称，拍一拍里的昵称还是没变」的两条根因之一。现按槽位并跑两份。
+const SYS_NICK_SLOTS = {
+ta: { cur: chatPartnerName, token: '{ta}', histKey: 'sysmsg-nick-hist', sweptKey: 'sysmsg-nick-swept', legacy: 'TA' },
+me: { cur: chatUserName, token: '{me}', histKey: 'sysmsg-user-nick-hist', sweptKey: 'sysmsg-user-nick-swept' }
+};
+function sysNickSlot(slot) { return SYS_NICK_SLOTS[slot === 'me' ? 'me' : 'ta']; }
+// 清扫前置豁免：空名无需扫；{me} 侧默认占位「我」「你」是人称代词而非用户起的名字，
+// 扫它＝把系统消息里的每个「我」批量换成 {me}（连「我们」「我的」都被牵动），不做。
+function sysNickSweepSkip(oldName, token) {
+if (!oldName) return true;
+return token === '{me}' && (oldName === '我' || oldName === '你');
+}
+function sysNickHistGet(st, slot) {
+const k = sysNickSlot(slot).histKey;
 try {
-const v = JSON.parse(st.get('sysmsg-nick-hist') || '[]');
+const v = JSON.parse(st.get(k) || '[]');
 if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x);
 } catch (e) {}
 return [];
 }
-function sysNickSweepText(s, oldName) {
+function sysNickSweepText(s, oldName, token) {
+const ph = token || '{ta}';
 const segs = String(s).split(/(<svg[\s\S]*?<\/svg>)/);
 for (let i = 0; i < segs.length; i += 2) {
 const parts = segs[i].split(/(data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+)/);
 for (let j = 0; j < parts.length; j += 2) {
-if (parts[j].indexOf(oldName) >= 0) parts[j] = parts[j].split(oldName).join('{ta}');
+if (parts[j].indexOf(oldName) >= 0) parts[j] = parts[j].split(oldName).join(ph);
 }
 segs[i] = parts.join('');
 }
@@ -1948,12 +2205,14 @@ return r.special === 'poke' || r.special === 'ask-msg' || r.special === 'call' |
 r.special === 'call-reply' || r.special === 'invite-reply' || r.special === 'pong' ||
 r.special === 'brick' || r.special === 'memory';
 }
-function sysNickSweepMsgs(arr, oldName) {
+function sysNickSweepMsgs(arr, oldName, slot) {
+const token = sysNickSlot(slot).token;
+if (sysNickSweepSkip(oldName, token)) return false;
 let changed = false;
 for (let i = 0; i < arr.length; i++) {
 const r = arr[i];
 if (!sysNickSweepable(r) || r.text.indexOf(oldName) < 0) continue;
-const t = sysNickSweepText(r.text, oldName);
+const t = sysNickSweepText(r.text, oldName, token);
 if (t !== r.text) { r.text = t; changed = true; }
 }
 return changed;
@@ -1963,16 +2222,17 @@ return changed;
 // {ta} 更新了一条日常、chat-tail 里还是「旧名 更新了一条日常」；下次 chatTailMerge 按
 // ts|side|正文 签名判不出同一条，把旧名那条当「未落盘的新消息」补回 ⇒ 同一 ts 两条、
 // 文字不同又永远合不掉（置顶/寻踪必现）。收口＝凡是清扫 msgs 的 oldName，同步清扫 chat-tail。
-function chatTailSweepNick(oldName) {
+function chatTailSweepNick(oldName, slot) {
 try {
-if (typeof oldName !== 'string' || !oldName) return false;
+const token = sysNickSlot(slot).token;
+if (typeof oldName !== 'string' || sysNickSweepSkip(oldName, token)) return false;
 const arr = chatTailRead();
 if (!arr.length) return false;
 let changed = false;
 for (let i = 0; i < arr.length; i++) {
 const j = arr[i];
 if (!sysNickSweepable(j) || j.text.indexOf(oldName) < 0) continue;
-const t = sysNickSweepText(j.text, oldName);
+const t = sysNickSweepText(j.text, oldName, token);
 if (t !== j.text) { j.text = t; changed = true; }
 }
 if (changed) store.set('chat-tail', JSON.stringify(arr));
@@ -1980,29 +2240,34 @@ return changed;
 } catch (e) { return false; }
 }
 function sysNickCatchup() {
-const cur = sysNickCur();
-const hist = sysNickHistGet(store);
-if (!hist.length) {
-try { store.set('sysmsg-nick-hist', JSON.stringify([cur])); store.set('sysmsg-nick-swept', '1'); } catch (e) {}
-return false;
-}
 let changed = false;
+['ta', 'me'].forEach(function (slotKey) {
+const S = sysNickSlot(slotKey);
+const cur = S.cur();
+const hist = sysNickHistGet(store, slotKey);
+if (!hist.length) {
+try { store.set(S.histKey, JSON.stringify([cur])); store.set(S.sweptKey, '1'); } catch (e) {}
+return;
+}
 if (hist[hist.length - 1] !== cur) {
-// 名字在上次会话后被改动（含绕过钩子的外部写入，如备份导入）：旧尾名清扫成 {ta}，与改名钩子同效
-if (sysNickSweepMsgs(msgs, hist[hist.length - 1])) changed = true;
-try { chatTailSweepNick(hist[hist.length - 1]); } catch (e) {} // FIX 2026-09-16 #626 尾巴日志同步清扫
+// 名字在上次会话后被改动（含绕过钩子的外部写入，如备份导入）：旧尾名清扫成占位符，与改名钩子同效
+if (sysNickSweepMsgs(msgs, hist[hist.length - 1], slotKey)) changed = true;
+try { chatTailSweepNick(hist[hist.length - 1], slotKey); } catch (e) {} // FIX 2026-09-16 #626 尾巴日志同步清扫
 hist.push(cur);
-try { store.set('sysmsg-nick-hist', JSON.stringify(hist)); } catch (e) {}
+try { store.set(S.histKey, JSON.stringify(hist)); } catch (e) {}
 }
 let swept = 0;
-try { swept = parseInt(store.get('sysmsg-nick-swept'), 10) || 0; } catch (e) {}
+try { swept = parseInt(store.get(S.sweptKey), 10) || 0; } catch (e) {}
 if (swept < hist.length) {
 for (let i = swept; i < hist.length; i++) {
-if (hist[i] && hist[i] !== cur && sysNickSweepMsgs(msgs, hist[i])) changed = true;
-if (hist[i] && hist[i] !== cur) { try { chatTailSweepNick(hist[i]); } catch (e) {} } // FIX 2026-09-16 #626 尾巴日志同步清扫
+if (hist[i] && hist[i] !== cur) {
+if (sysNickSweepMsgs(msgs, hist[i], slotKey)) changed = true;
+try { chatTailSweepNick(hist[i], slotKey); } catch (e) {} // FIX 2026-09-16 #626 尾巴日志同步清扫
 }
-try { store.set('sysmsg-nick-swept', String(hist.length)); } catch (e) {}
 }
+try { store.set(S.sweptKey, String(hist.length)); } catch (e) {}
+}
+});
 return changed;
 }
 let avatarBatchCache = null;
@@ -2080,23 +2345,17 @@ try { updateChatPartnerName(); } catch (e) {}
 const pname = document.getElementById('chat-partner-name');
 function updateChatPartnerName() {
 if (!pname) return;
-let saved = null;
-try { saved = store.get('cs-lbl-partner'); } catch (e) {}
-if (saved) { pname.textContent = saved; return; }
-// v3.26.x：聊天与桌面昵称解耦——不再回退读桌面 lbl-partner；未设聊天专用昵称时
-// 回退联系人名片名（联系人管理里的名字，非桌面美化昵称），最后默认 TA
-try {
-if (window.getContacts) {
-const c = window.getContacts().find(x => x.id === (window.__activeCid || 'default'));
-if (c && c.name) { pname.textContent = c.name; return; }
-}
-} catch (e) {}
-pname.textContent = window.taWord ? window.taWord() : 'TA';
+// 顶栏与消息内昵称（拍一拍/系统消息）共用 chatPartnerName 这一份解析链，不再各写一份
+pname.textContent = chatPartnerName();
 }
 updateChatPartnerName();
 window.renderChatHeader = updateChatPartnerName;
 try {
 document.addEventListener('mochi-wrj-heal', function () { try { updateChatPartnerName(); } catch (e) {} });
+// FIX 2026-09-18 #775g：联系人管理里改名（contacts.renameContact 派发 contact-renamed）后
+// 顶栏也按同一条取名链立刻重取——此前只有「聊天设置改昵称」「昵称池换名」两条路径会调
+// renderChatHeader，名片改名后回到聊天顶栏仍是旧名（用户读作「昵称没生效」）
+document.addEventListener('contact-renamed', function () { try { updateChatPartnerName(); } catch (e) {} });
 } catch (e) {}
 const typingEl = document.getElementById('chat-typing');
 let typingOn = false;
@@ -3166,6 +3425,16 @@ let renderEnd = 0;        // v3.10.x：渲染窗口终点（msgs 下标，开区
 let windowRenderedN = 0;
 let windowRenderedPrefix = null;
 let windowStale = false;
+// FIX 2026-09-18 #775b（用户实报：改了「我 / 联系人」的昵称，聊天里已发出的拍一拍仍是旧名）：
+// 昵称是**渲染期**回填的（{ta}/{me} 占位符 → 当前昵称），msgs 里的原文一字未变，所以
+// 「条数相同 + 同桌面 + 屏上不落后」的同窗补丁判据看不出屏上名字已过期，重开聊天页就跳过
+// 整窗重建 → 屏上停留在旧名（刷新/重开应用才恢复，故「有的手机有、有的手机没有」＝取决于
+// 该设备这次会话有没有真的重进聊天，与机型/内核无关）。补一条昵称凭据：整窗渲染时记下当时
+// 用的昵称签名，签名变了＝屏上昵称过期，同窗补丁作废、走整窗重建。
+let windowRenderedNicks = '';
+function chatNickSig() {
+try { return chatPartnerName() + '\u0001' + chatUserName(); } catch (e) { return ''; }
+}
 // FIX 2026-09-13 #402（进聊天跳动一下·多机型偶发）：归一化窗口内改动的下标清单。
 // runDeferredNormalization 的 tick 逐 chunk 填写（无结构删除时下标全程稳定），
 // finish 收尾据此对命中下标原位换节点（patchChangedInPlace），不再整窗重建。
@@ -3223,6 +3492,7 @@ renderEnd = len; // 整窗重建渲染到最新，窗口终点复位（裁剪状
 // N（条数没变，屏上仍是这份窗口），只有整窗渲染才重新登记。
 windowRenderedN = len;
 windowRenderedPrefix = window.activePrefix();
+windowRenderedNicks = chatNickSig(); // #775b：整窗渲染＝屏上昵称已刷新，登记当时的昵称签名
 windowStale = false;
 collectInplaceDrafts();
 windowRenderedLite = null;
@@ -3308,6 +3578,10 @@ const len = msgs.length;
 if (!len) return false;
 if (windowStale) return false;
 try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
+// #775b：昵称（拍一拍/系统消息里的 {ta}/{me} 回填来源）在屏上渲染之后被改过 → 屏上昵称已过期，
+// 原地补丁只补下标、不改文字，必须让调用方走整窗重建（含备份导入、聊天设置改名、昵称池换名、
+// 联系人管理改名等所有入口，比逐个入口挂钩子可靠）
+if (windowRenderedNicks !== chatNickSig()) return false;
 const grown = len - windowRenderedN;
 if (grown < 0) return false; // 屏上比权威多＝数据被裁/回滚，整窗重建兜底
 if (windowRenderedN === 0) return false; // 无屏上凭据（首渲场景）走原整窗渲染
@@ -4634,7 +4908,7 @@ sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0; // v3.6.x：分页窗口起点复位（消息已清空）
 // v3.26.x #220：消息清空＝屏上窗口作废（#220 同窗补丁凭据一并复位，防误判同窗）
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; normChangedRecs = []; normRemovedRecs = []; normOrigIdx = null; normSnapTail = null; // FIX #402/#675 随窗复位
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedNicks = ''; windowRenderedLite = null; normChangedIdxs = null; normChangedRecs = []; normRemovedRecs = []; normOrigIdx = null; normSnapTail = null; // FIX #402/#675 随窗复位
 cancelPersist();
 chatArchClearBaseline(); // FIX 2026-09-17 #127：清空＝基准段作废
 // v3.26.x #90：用户主动清空＝合法归零，账本必须同步（否则缩水守卫会一直拒绝后续保存）
@@ -4664,7 +4938,7 @@ sessionChangedIdx.clear();
 chatDbReady = true;
 renderStart = 0;
 // v3.26.x #220：整包导入替换＝屏上窗口作废（同窗补丁凭据复位）
-windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedLite = null; normChangedIdxs = null; normChangedRecs = []; normRemovedRecs = []; normOrigIdx = null; normSnapTail = null; // FIX #402/#675 随窗复位
+windowRenderedN = 0; windowRenderedPrefix = null; windowStale = false; windowRenderedNicks = ''; windowRenderedLite = null; normChangedIdxs = null; normChangedRecs = []; normRemovedRecs = []; normOrigIdx = null; normSnapTail = null; // FIX #402/#675 随窗复位
 cancelPersist();
 chatTailClear(); // #180：整包导入替换＝旧日志作废
 chatArchClearBaseline(); // FIX 2026-09-17 #127：整包替换＝旧基准段/日志作废
@@ -4723,7 +4997,7 @@ notifyT = notifyT + ' ' + phOf();
 const isHidden = opts.isHidden === true;
 if (isHidden) {
 if (window.bgNotifyCheck) {
-window.bgNotifyCheck(notifyT, Date.now(), { name: opts.name, img: opts.img, av: opts.av, avFixed: opts.avFixed === true });
+window.bgNotifyCheck(notifyT, opts.deliveredAt || Date.now(), { name: opts.name, img: opts.img, av: opts.av, avFixed: opts.avFixed === true, deliveredAt: opts.deliveredAt || 0, msgTs: opts.msgTs || 0 });
 }
 return;
 }
@@ -4792,11 +5066,11 @@ const info = extractDeskMsg(rec);
 const name = chatPartnerName();
 const isHidden = document.visibilityState === 'hidden';
 if (isHidden) {
-showDeskPopup({ name: name, text: info.text, type: rec.type, img: info.img, imgSub: info.imgSub, isHidden: true });
+showDeskPopup({ name: name, text: info.text, type: rec.type, img: info.img, imgSub: info.imgSub, msgTs: rec.ts || 0, isHidden: true });
 return;
 }
 if (chatVisible()) return;
-showDeskPopup({ name: name, text: info.text, type: rec.type, img: info.img, imgSub: info.imgSub, onClick: () => { if (!chatVisible()) enterChat(); }, isHidden: false });
+showDeskPopup({ name: name, text: info.text, type: rec.type, img: info.img, imgSub: info.imgSub, msgTs: rec.ts || 0, deliveredAt: rec.dAt || 0, isHidden: false });
 }
 function hideDeskMsg() {
 clearTimeout(deskMsgTimer);
@@ -4902,6 +5176,7 @@ try { store.set('desk-msg-en', deskMsgToggle.checked ? '1' : '0'); } catch (e) {
 }
 function addRec(rec) {
 if (!rec.ts) rec.ts = Date.now();
+chatRecStampUid(rec); // FIX #776：出生号——同一条消息被哪条通道克隆回去，认号不认正文
 const len = msgs.length;
 // FIX 2026-09-18 #744（HUAWEI Mate 40 Pro + Edge 等跨机型偶发「联系人消息重复一条变两条」）：
 // 结构性双写守卫——同一条 rec「对象引用」被原样塞进 msgs 两次（某条投递链对同一对象两次进入
@@ -4911,6 +5186,25 @@ const len = msgs.length;
 if (len && msgs[len - 1] === rec) {
 try { (window.__mochiDupAdd = window.__mochiDupAdd || []).push(Date.now() + ':' + String((rec.text != null) ? rec.text : '').slice(0, 24) + ':' + String(rec.side || '')); } catch (eD) {}
 return null;
+}
+// FIX 2026-09-18 #776（vivo X200 + Edge 151 等跨机型「一条变两/三条、越用越多」）：#744 只挡
+// 「同一个对象」被塞两次，挡不住**带着同一 ts 的克隆副本**再次投递（回复链重投、整页冻结解冻后
+// 积压重放、跨页补投递）。而下方 #256 正文去重对 `special` 卡片类是整条跳过的（`if (!p ||
+// p.special || rec.special) continue`）——所以拍一拍/互动卡/提醒/结算卡这类**唯一没有实时防重**
+// 的消息，恰好就是「卡片显示两条」报障里反复出现的一类。
+// 判据用副本键（ts+side+special+type ＋「松散正文签名相同」或「出生号 uid 相同」），不能用裸
+// ts+side：批量发送 sendBatchItem 在同一个同步循环里逐条 addRec，同一毫秒同侧 N 条是用户真发了
+// N 条（正文各不同、出生号也各不同，两条判据都分得开）。
+// 先比廉价 kindKey（每加一条只多算一次 stringify），命中再比正文，避免整窗全量重算。
+const _kk = chatRecKindKey(rec);
+if (_kk) {
+for (let i = len - 1, n = 0; i >= 0 && n < 200; i--, n++) {
+const p = msgs[i];
+if (!p || chatRecKindKey(p) !== _kk) continue;
+if (!chatRecKeysShare(p, rec)) continue; // 同毫秒不同类型的合法批量：留着
+try { (window.__mochiDupAdd = window.__mochiDupAdd || []).push('id:' + Date.now() + ':' + String((rec.text != null) ? rec.text : '').slice(0, 24) + ':' + String(rec.side || '')); } catch (eD) {}
+return null;
+}
 }
 // #256：实时去重改与刷新归一化同口径——mediaTxtEq 跨形式比对 + dupGapMs 统一窗口
 // （sticker/image/voice 型收件侧 60000ms，覆盖多字卡回复条间隔 randInt(1200,2800)；
@@ -4949,6 +5243,49 @@ window.__replyWaitT0 = null;
 }
 } catch (eRL) {}
 chatTailAppend(rec); // #180：同步尾巴日志先落 LS，再交低频整包落盘
+// FIX 2026-09-18 #780：给消息打「首次投递」身份标（写在 chatTailAppend 之后 → 尾巴日志
+// 与本条整包都带上，跨重载仍成立）——dAt＝投递到页面的时刻，dVis＝那一刻用户是否在场
+// （页面可见且在聊天页/桌面横幅可显示）。治的形态：整页冻结后解冻，积压的回复链一口气
+// 重投，而 bg-keep 的三道内容去重窗口（5min/2min/3min）起点全是 Date.now()，冻结一会儿
+// 就全部过期 → 用户刚在聊天里看过的内容被当新消息连弹进通知栏（「切后台突然弹前几分钟
+// 看过的消息」）。内容指纹这条路 v3.20.x 已证明是两难（加宽就误吞同文案的真消息），故
+// 改按【消息身份】判：ts+side 命中且此前有一次在场投递 ⇒ 永不再发系统通知，与文案、与
+// 隔多久都无关。只新增两个字段，不动 ts/side/text，渲染与落盘管线一字未改。
+try {
+rec.dAt = Date.now();
+rec.dVis = (document.visibilityState === 'visible' && (chatVisible() || !!document.getElementById('desk-msg'))) ? 1 : 0;
+} catch (eDM) {}
+// 按身份回读本条此前的投递记录；同 200ms 内算同一次投递链（返回 null＝无先前投递），
+// 供 bg-keep 的通知闸门与 tools/verify-bg-freeze.mjs 复用
+window.__mochiMsgDelivered = function (ts, side) {
+try {
+const arr = msgs;
+const now = Date.now();
+for (let i = arr.length - 1, n = 0; i >= 0 && n < 200; i--, n++) {
+const m = arr[i];
+if (!m || !m.dAt) continue;
+if ((m.ts || 0) !== (ts || 0) || (m.side || '') !== (side || '')) continue;
+if (now - m.dAt < 200) return null;
+return { at: m.dAt, vis: m.dVis ? 1 : 0, nAt: m.nAt || 0 };
+}
+} catch (eP) {}
+return null;
+};
+// 按身份给本条打「已弹过系统通知」标（bg-keep 在受理成功后回写）——内容指纹的 2 分钟
+// 已发窗口会被冻结时长熬过期，消息自身的身份标记不会：同一条再被任何机制投一次也弹不出第二遍
+window.__mochiMsgNotified = function (ts, side) {
+try {
+const arr = msgs;
+for (let i = arr.length - 1, n = 0; i >= 0 && n < 200; i--, n++) {
+const m = arr[i];
+if (!m || !m.dAt) continue;
+if ((m.ts || 0) !== (ts || 0) || (m.side || '') !== (side || '')) continue;
+m.nAt = Date.now();
+return true;
+}
+} catch (eN) {}
+return false;
+};
 saveMsgs();
 	// #660：TA 的心愿卡同礼物卡一样算「值得提醒」——它在等我去买，不提醒就等于没发（预览文本
 	// 走 rec.text「想要「XX」」，未读角标 / 桌面横幅 / 后台系统通知三处都能看懂）
@@ -5045,27 +5382,52 @@ window.chatAddInTyped = function (items, opts, firstDelay) { return addInTyped(i
 function addOut(text) {
 return addRec({ side: 'out', text: text });
 }
+// FIX 2026-09-18 #775d：聊天页不可见时（在「聊天设置」里改名后点返回＝cs-back 只把
+// page-chat 的 hidden 翻回 false，**不走 enterChat**，也就没有任何重渲时机）不整窗重建
+//（隐藏期重建既把 scrollTop 归零、又白画 200 个气泡），只把带昵称的系统消息原位换成新名
+// 节点，其余气泡零改动；原位守卫不过（窗口被裁/位移）就放弃，靠 #775b 的昵称签名让下次
+// 进聊天页走整窗重建——两条路合起来保证「回到聊天看到的就是新昵称」。
+function refreshNickNodesInPlace() {
+try {
+const idxs = [];
+const from = Math.max(0, renderStart);
+for (let i = from; i < msgs.length && i < renderEnd; i++) {
+if (msgs[i] && !msgs[i].nickKeep && sysNickSweepable(msgs[i])) idxs.push(i);
+}
+if (!idxs.length) return;
+patchChangedInPlace(idxs, from);
+} catch (e) {}
+}
 // v3.25.x：改名钩子（chat-settings 联系人昵称 / contacts 联系人改名同步 lbl-partner）。
 // 记录 hist 并立即清扫当前桌面内存 msgs + 重渲染聊天窗；非当前桌面由 contacts 只记
 // hist（chatSysNickChanged 不感知），等该桌面下次 loadMsgs 惰性补扫。
-window.chatSysNickChanged = function (oldName) {
+// FIX 2026-09-18 #775c：加 slot 形参（'ta' 默认＝联系人，'me'＝我的昵称），两套 hist/swept
+// 各走各的；#775b：聊天页当前不可见时不再只是「等下次重进」——除整窗重渲外还作废同窗补丁
+// 凭据（windowRenderedNicks 随渲染更新），下次进聊天必然按新昵称重画。
+window.chatSysNickChanged = function (oldName, slot) {
 try {
 if (typeof oldName !== 'string' || !oldName) return;
-const cur = sysNickCur();
-const hist = sysNickHistGet(store);
+const S = sysNickSlot(slot);
+const cur = S.cur();
+const hist = sysNickHistGet(store, slot);
 if (hist.indexOf(oldName) < 0) hist.push(oldName);
 if (hist.indexOf(cur) < 0) hist.push(cur);
-store.set('sysmsg-nick-hist', JSON.stringify(hist));
-if (oldName === cur) { store.set('sysmsg-nick-swept', String(hist.length)); return; }
+store.set(S.histKey, JSON.stringify(hist));
+if (oldName === cur) { store.set(S.sweptKey, String(hist.length)); return; }
 // 权威未就绪（开屏极早期）：只记 hist 不动 msgs、不推进 swept——否则清扫后的文本
 // 与 IDB 权威里的原文本签名不同，finalize 合并会当成两条重复记录；交给补扫。
 if (!chatDbReady) return;
-store.set('sysmsg-nick-swept', String(hist.length));
-// 改名后无论清扫是否有改动都要重渲染：系统消息显示走 {ta}→当前名替换，有改动时旧名
-// 已换成 {ta}、无改动（连续改名）时旧渲染缓存的名字已过期——不重渲染 DOM 会停留在旧名
-if (sysNickSweepMsgs(msgs, oldName)) saveMsgs();
-try { chatTailSweepNick(oldName); } catch (e) {} // FIX 2026-09-16 #626 尾巴日志同步清扫（防 chatTailMerge 用旧名原文补回一条重复）
-try { if (chatVisible()) renderWindow(true); } catch (e) {}
+store.set(S.sweptKey, String(hist.length));
+// 改名后无论清扫是否有改动都要重渲染：系统消息显示走占位符→当前名替换，有改动时旧名
+// 已换成占位符、无改动（连续改名）时旧渲染缓存的名字已过期——不重渲染 DOM 会停留在旧名
+if (sysNickSweepMsgs(msgs, oldName, slot)) saveMsgs();
+try { chatTailSweepNick(oldName, slot); } catch (e) {} // FIX 2026-09-16 #626 尾巴日志同步清扫（防 chatTailMerge 用旧名原文补回一条重复）
+try { if (chatVisible()) renderWindow(true); else refreshNickNodesInPlace(); } catch (e) {}
+// FIX 2026-09-18 #775i：改名基线换成「屏上实际显示名」（可能是联系人名片名）后，早期历史里
+// 写死的字面默认称呼「TA」就没人扫了（旧实现基线恰好是 'TA'，顺带扫成 {ta}）。该默认词记在
+// 槽表 legacy 上，没进过 hist 时按**同一条钩子**补扫一遍（记账/清扫/尾巴/重渲染不复制第二套）；
+// me 槽无 legacy——'我'/'你' 是人称代词，见 sysNickSweepSkip。
+if (S.legacy && oldName !== S.legacy && hist.indexOf(S.legacy) < 0) window.chatSysNickChanged(S.legacy, slot);
 } catch (e) {}
 };
 window.chatAddSystem = function (text, opts) {
@@ -6079,6 +6441,45 @@ for (let i = 1; i < segs.length; i++) out += pool[Math.floor(Math.random() * poo
 return out;
 }
 window.pyJoinCards = pyJoinCards; // 各文件独立作用域：ta-ask.js 互动卡回应/文字题同源复用走 window
+// FIX 2026-09-18 #773c 历史错标签自愈（用户要求「清理历史气泡的错标签」）：#773 前一张卡的
+// 气泡也可能把「多字卡回复」chip 写进 rec.mood 随消息持久化，判定修好后旧标签不会自己消失。
+// 消费点＝normCell 逐条体检（#451 同款存量治愈：幂等，清过不再触发，无需全局 swept 标志；
+// 改动走 #402 原位补丁不整窗重建）。判据＝按 #650 连接符池反推拼出的张数：切不出 ≥2 个
+// 非空段就视作一张卡。正文自身含连接符的单卡会保守留标——宁残留不误摘（摘错＝真信息丢失，
+// 残留只是多一枚旧 chip），与 #773「一张卡的气泡不该标多字卡」同口径。零机型分支。
+function pyChipSingleCardText(t, c) {
+if (typeof t !== 'string' || !t.trim()) return true; // 空文/纯空白＝不是拼出来的多张
+if (t.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(t))) return true; // 整条媒体载荷
+let seps = null;
+if (c && c['py-punct-en'] === 1) {
+seps = [];
+if (c['py-punct-space'] === 1) seps.push(' ');
+if (c['py-punct-dou'] === 1) seps.push('，');
+if (c['py-punct-per'] === 1) seps.push('。');
+if (c['py-punct-ex'] === 1) seps.push('！');
+if (c['py-punct-q'] === 1) seps.push('？');
+if (c['py-punct-el'] === 1) seps.push('......');
+if (c['py-punct-dash'] === 1) seps.push('——');
+try { const pyc = JSON.parse(c['py-punct-custom'] || '[]'); if (Array.isArray(pyc)) pyc.forEach(it => { if (it && typeof it.s === 'string' && it.s && it.on === 1) seps.push(it.s); }); } catch (e) {}
+if (!seps.length) seps = null;
+}
+if (!seps) seps = [' '];
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const pieces = t.split(new RegExp(seps.map(esc).sort((a, b) => b.length - a.length).join('|')));
+let n = 0;
+for (let i = 0; i < pieces.length; i++) if (pieces[i].trim()) n++;
+return n < 2;
+}
+function pyChipDropIfSingle(r) {
+try {
+if (!r || r.side !== 'in' || !Array.isArray(r.mood) || !r.mood.length) return false;
+if (!r.mood.some(md => md && md.tag === '多字卡回复')) return false; // 先走最便宜的门禁，再读 cfg
+if (!pyChipSingleCardText(r.text, cfg())) return false;
+const kept = r.mood.filter(md => !(md && md.tag === '多字卡回复'));
+r.mood = kept.length ? kept : undefined;
+return true;
+} catch (e) { return false; }
+}
 // v3.43.x #677 「多字卡回复」来源 tag 判定：genOneReply 内 多字卡回复(py-en) 抽卡分支命中且掷到
 // ≥2 张时置位（每次生成先重置），replyOnce 据此给本条（批）气泡挂 tag；与词典/词典拼字 tag 共存
 let pyMultiDrawn = false;
@@ -6089,9 +6490,12 @@ pyMultiDrawn = false;
 if (c['py-en'] === 1 && hit(c['py-prob']) && pool.text.length) {
 const nbTextPool = pool.text.filter(s => typeof s === 'string' && s.trim()); // FIX 2026-09-05 #185 多字卡拼接前先滤空白卡（否则 join 出纯空格空气泡）
 const n = randInt(c['py-min'], c['py-max']);
+const segs = pickN(nbTextPool.length ? nbTextPool : pool.text, n);
 // #677 掷到 1 张（用户把多字卡回复设成 1~1）不挂 tag：单个字卡与普通回复无从区分，标了反而误读
-if (n >= 2) pyMultiDrawn = true;
-t = pyJoinCards(pickN(nbTextPool.length ? nbTextPool : pool.text, n), c); // #650 中间连接符走「拼接随机标点」符号池（关＝空格，原样）
+// FIX 2026-09-18 #773 判据改用实际拼出的 segs.length，不用掷出的 n：pickN 无放回、池空即停，
+// 可用文字卡不足 n 张时只拼出更少张（旧写法 n>=2 就挂 tag＝一张卡的气泡标「多字卡回复」）
+if (segs.length >= 2) pyMultiDrawn = true;
+t = pyJoinCards(segs, c); // #650 中间连接符走「拼接随机标点」符号池（关＝空格，原样）
 } else {
 const r = genReplyText(c);
 t = r.text;
@@ -6110,14 +6514,18 @@ const cspCust = Number(c['csp-cust'] !== undefined ? c['csp-cust'] : 50);
 const keepCustomText = isFinite(cspCust) && hit(cspCust);
 const defs = (window.getDefaultCards && window.getDefaultCards()) || null;
 if (defs && !keepCustomText && defs.type === 'text' && defs.text) {
-	t = defs.text;
+	// FIX 2026-09-18 #773 整条换成一张默认字卡＝已不是多字卡，来源 tag 必须一起回冲
+	t = defs.text; pyMultiDrawn = false;
 }
 const replyWord = (window.getReplyCard && window.getReplyCard()) || '';
 if (replyWord) {
-t = replyWord;
+t = replyWord; pyMultiDrawn = false; // FIX 2026-09-18 #773 同上：聊天回应字卡整条替换成一张
 }
 // FIX 2026-09-05 #185 最终非空兜底：固定回复字卡（getReplyCard）/默认主字卡（defs.text）被设成
 // 空白内容时会无条件覆盖抽好的回复，必须在此拦下，否则联系人持续发空气泡
+// FIX 2026-09-18 #773b 全空白池拼出空文即将被下面兜底换成一张＝回冲，一张卡不得挂「多字卡回复」
+//（#185 原行一字未动＝其哨兵 needle 仍钉在原形态上）
+if (pyMultiDrawn && (typeof t !== 'string' || !t.trim())) pyMultiDrawn = false;
 if (typeof t !== 'string' || !t.trim()) t = pick(FALLBACK_REPLY_POOL);
 if (hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) { // FIX 2026-09-15 #518 连接词追加套系统预设字卡总档
 const w = (window.getFollowupWord && window.getFollowupWord(t)) || '';

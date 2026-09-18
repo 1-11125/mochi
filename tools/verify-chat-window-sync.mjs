@@ -251,7 +251,7 @@ const WIGGLE = `(function(){
   // 置顶状态注入 2 条 TA 消息（远离底部 → 走增量 append 成"脱尾"）
   await evalJs(`window.chatAddIn('深翻测试消息一')`);
   await sleep(250);
-  await evalJs(`window.chatAddSystem('TA想问你一个问题。',{special:'ask-msg'})`);
+  await evalJs(`window.chatAddSystem('B1夹具提问·勿改此文本',{special:'ask-msg'})`);
   await sleep(250);
   // 跳回底部 + 派发 scroll → 触发 loadNewerIncremental 补画缺口
   await evalJs(`(function(){var b=document.getElementById('chat-body');b.scrollTop=b.scrollHeight;b.dispatchEvent(new Event('scroll'));return 1;})()`);
@@ -259,7 +259,7 @@ const WIGGLE = `(function(){
   await evalJs(WIGGLE);
   await sleep(500);
   const b1 = await evalJs(countTextJs('深翻测试消息一'));
-  const b2 = await evalJs(countTextJs('TA想问你一个问题。'));
+  const b2 = await evalJs(countTextJs('B1夹具提问·勿改此文本'));
   check('B1 裁尾补画后脱尾消息不重画', b1 === 1 && b2 === 1, 'm=' + b1 + ' card=' + b2);
 
   const invB = JSON.parse(await evalJs(INVARIANT));

@@ -739,6 +739,19 @@
     m.appendChild(box);
     m.style.display = 'flex';
   }
+  // #783：设置页那一行与「边看边调」抽屉里的图库按钮共用同一入口（迁移 + 开面板），两处不分叉
+  function csBgOpenGallery() {
+    // 旧数据自动迁移：已有单张壁纸但图库为空 → 收进图库成为第 1 张（异步，不挡面板打开）
+    if (store.get('cs-bg') && !csBgList().length) {
+      const seed = store.get('cs-bg');
+      const id = 'g' + Date.now().toString(36);
+      csBgSaveList([id]);
+      store.set('cs-bg-item-' + id, seed);
+      store.set(CS_BG_ACTIVE, id);
+      csBgMakeThumb(seed, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, th); });
+    }
+    openCsBgPanel();
+  }
   const csBg = row('cs-bg-upload');
   if (csBg) {
     // v3.9.x：红米/真我等 Android Edge 对「点击时动态创建 + 立即 click()」的 file input
@@ -746,18 +759,7 @@
     // 移出屏幕、每次复用），与 avatar-lib.js bindPoolUpload 已验证可用套路一致。
     // v3.27.x：入口改为壁纸图库面板（多张保存+点击切换）；上传逻辑挪进面板
     // （#755 起改走统一入口 window.mochiFilePick，常驻 sr-only clip，不再自建 input）。
-    csBg.addEventListener('click', () => {
-      // 旧数据自动迁移：已有单张壁纸但图库为空 → 收进图库成为第 1 张（异步，不挡面板打开）
-      if (store.get('cs-bg') && !csBgList().length) {
-        const seed = store.get('cs-bg');
-        const id = 'g' + Date.now().toString(36);
-        csBgSaveList([id]);
-        store.set('cs-bg-item-' + id, seed);
-        store.set(CS_BG_ACTIVE, id);
-        csBgMakeThumb(seed, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, th); });
-      }
-      openCsBgPanel();
-    });
+    csBg.addEventListener('click', csBgOpenGallery);
   }
   const csBgRm = row('cs-bg-remove');
   if (csBgRm) {
@@ -1342,15 +1344,43 @@
     return (h >>> 0).toString(36) + '-' + s.length.toString(36);
   }
   function fontBlobPut(hash, dataURL) { try { window.xyStore('xy-home-v2').set('font-blob-' + hash, dataURL); } catch (e) {} }
-  function fontSetDataFor(s, dataURL) {
+  // FIX 2026-09-18 #787：上传字体「莫名失效」根治（用户实报，多设备型号复现；零机型分支——
+  //   判据全部取存储状态/时序，不碰 UA/内核）。两条根因都在 #642「全局唯一份+轻量引用」链路上：
+  //   ①写丢：blob 是 MB 级大键，只进 IDB+memoryCache；写入走 xyStore.set 内部 fire-and-forget 的
+  //   idbSet，挂起内核（真我/荣耀/小米 Edge）/iOS 切后台杀 IDB/配额 abort 时静默失败 →
+  //   「字体已应用」toast 照弹、持久层却没写进 → 重启后引用展开为空＝字体消失。
+  //   ②读烧：引用展开的异步补读「一次烧毁」（失败也不复位），弱内核撞上一次 4s+4s 挂起，
+  //   整场会话不再补读，数据明明在 IDB 字体却不应用＝「有时好有时坏」。
+  function fontSetDataFor(s, dataURL, silent) {
     const h = fontHash(dataURL);
+    delete _fontBlobGone[h]; // 同内容重新上传＝blob 重新写入，清「丢失」标记
     fontBlobPut(h, dataURL);
     try { s.set(FONT_KEY, '@@font:' + h); } catch (e) {}
+    // ①写丢根治：补一发带回执的 idbSet（同键同值，双写幂等），确认落盘才保留引用；
+    //   写不进则回退直存 dataURL——小字体（<200KB）落 LS 照样耐用，大字体至少本会话可用并如实提示。
+    //   过期守卫：回执到达前用户又换了/清了字体，则不动现值。
+    try {
+      if (window.idbSet) window.idbSet('xy-home-v2:font-blob-' + h, dataURL).then((ok) => {
+        if (ok) return;
+        try {
+          if (s.get(FONT_KEY) !== '@@font:' + h) return;
+          s.set(FONT_KEY, dataURL);
+          applyFont();
+          csFontChanged();
+          if (!silent) toast('本机存储写入失败，已改用兼容方式保存；重启后若字体丢失请重新上传');
+        } catch (e) {}
+      }).catch(() => {});
+    } catch (e) {}
   }
   function fontSetData(dataURL) { fontSetDataFor(store, dataURL); }
+  // #787 ②读烧根治：_fontHydrating 只当「在飞」标记防并发重复读；_fontHydrateTries 限整场会话
+  //   每 hash 至多 5 发；_fontBlobGone 只在 idbGet 给出「真没有」（非 ambiguous，见 #665a 歧义
+  //   标记）时置位停止重试——挂起/超时/读异常都按「没读到」退避后再来，不再一次失败全场报废。
   let _fontHydrating = {};
+  let _fontHydrateTries = {};
+  let _fontBlobGone = {};
   // 引用展开：'@@font:<hash>' → 全局唯一下载的 dataURL；同步读不到（大键只进 IDB /
-  //   被 OOM 预算 defer）时异步 idbGet 补读一次并重应用，补读落地前按「未设字体」渲染。
+  //   被 OOM 预算 defer）时异步 idbGet 补读并重应用，补读落地前按「未设字体」渲染。
   function fontResolved() {
     const v = fontVal();
     if (v.indexOf('@@font:') !== 0) return v;
@@ -1358,11 +1388,33 @@
     const g = window.xyStore('xy-home-v2');
     const blob = g.get('font-blob-' + hash);
     if (blob) return blob;
-    if (window.idbGet && !_fontHydrating[hash]) {
+    if (_fontBlobGone[hash]) return '';
+    const tries = _fontHydrateTries[hash] || 0;
+    if (window.idbGet && !_fontHydrating[hash] && tries < 5) {
       _fontHydrating[hash] = true;
-      window.idbGet('xy-home-v2:font-blob-' + hash).then(b => {
-        if (b && typeof b === 'string' && b.length > 2) { fontBlobPut(hash, b); applyFont(); csFontChanged(); }
-      }).catch(() => {});
+      _fontHydrateTries[hash] = tries + 1;
+      const info = {};
+      window.idbGet('xy-home-v2:font-blob-' + hash, info).then((b) => {
+        delete _fontHydrating[hash];
+        if (b && typeof b === 'string' && b.length > 2) {
+          delete _fontHydrateTries[hash];
+          delete _fontBlobGone[hash];
+          fontBlobPut(hash, b);
+          applyFont();
+          csFontChanged();
+          return;
+        }
+        if (info && info.ambiguous) {
+          // 读失败不是没有：退避后补读下一发（applyFont 会重走 fontResolved）
+          setTimeout(() => { applyFont(); }, 2500 * (tries + 1));
+        } else {
+          _fontBlobGone[hash] = true; // IDB 里真没有＝blob 丢失（多半是当年写入静默失败）
+          applyFont(); // 只为把设置行文案刷成「丢失」；fontResolved 见 gone 不再发读
+        }
+      }).catch(() => {
+        delete _fontHydrating[hash];
+        setTimeout(() => { applyFont(); }, 2500 * (tries + 1));
+      });
     }
     return '';
   }
@@ -1424,7 +1476,7 @@
         try {
           const s = window.storeFor(id);
           const v = s.get(FONT_KEY);
-          if (v && v.indexOf('data:') === 0) fontSetDataFor(s, v);
+          if (v && v.indexOf('data:') === 0) fontSetDataFor(s, v, true); // silent：启动迁移不弹 toast（#787）
         } catch (e) {}
       });
     } catch (e) {}
@@ -1432,8 +1484,15 @@
   window.migrateFontBlobs = migrateFontBlobs;
   function applyFont() {
     const v = fontResolved();
+    // #787：引用未展开时不再显示生引用串/误报「默认」——区分「读取中」与「字体文件丢失」，
+    //   用户看得出状态，不再「莫名其妙」
+    const rawVal = fontVal();
     const setVal = document.getElementById('cs-font-val');
-    if (setVal) setVal.textContent = v ? (v.indexOf('data:') === 0 ? '已上传' : v) : '默认';
+    if (setVal) {
+      if (v) setVal.textContent = v.indexOf('data:') === 0 ? '已上传' : v;
+      else if (rawVal.indexOf('@@font:') === 0) setVal.textContent = _fontBlobGone[rawVal.slice(7)] ? '字体文件丢失，请重新上传' : '已上传（读取中…）';
+      else setVal.textContent = '默认';
+    }
     // 同一个值已在位就不再重注入——dataURL 字体可达 MB 级，而切桌面/回填兜底都会调到这里
     const old = document.getElementById('cs-font-style');
     if (old && old.__fontVal === v) return;
@@ -1551,7 +1610,8 @@
   demoteFontGlobal();
   // #642：存量整份字体收敛为全局唯一下载（幂等；大键等 restore-done 再补一次）
   migrateFontBlobs();
-  try { document.addEventListener('mochi-restore-done', () => { migrateFontBlobs(); applyFont(); }); } catch (e) {}
+  // #787：回填完成清补读计数（预算重置）再补应用一次——restore 可能刚把 blob 带回可读状态
+  try { document.addEventListener('mochi-restore-done', () => { _fontHydrateTries = {}; migrateFontBlobs(); applyFont(); }); } catch (e) {}
   applyFont();
 
   // ================= 气泡 CSS（自定义样式，极简黑白灰） =================
@@ -2920,9 +2980,61 @@
     if (!d) { d = document.createElement('div'); d.id = 'chat-beauty-drawer'; document.body.appendChild(d); }
     return d;
   }
+  // #783 ①：抽屉开着时给浮层让位（层级自救）。抽屉是 z-index:95 的固定层，而它自己点开的
+  // 浮层全在它下面——openModal 的 #modal-mask 是 90、壁纸图库 #cs-bg-panel 89、#cs-bg-adj-panel
+  // 90（base.css:1076 注释已写明「.phone 无 z-index 不产生堆叠上下文」，故这些层级在同一层叠
+  // 上下文里直接比大小）。结果＝从抽屉里点「上传/图库/手输色值」，弹层藏在抽屉背后，用户看到的
+  // 是「点了没反应」。不改那几个全局层级（动 base.css 的 90/89 会牵全站），改由抽屉临时让位：
+  // 有浮层可见时把抽屉压到「最低那个浮层再减一」，浮层全部收起则回到抽屉自己的层级
+  // （csDrawerBaseZ：开抽屉时从元素读回，唯一事实源仍是 cssText 里那条 z-index:95——
+  //  写死 '95' 或置空都会漂移：置空＝'auto'，比同级后置元素还低）。
+  let csDrawerBaseZ = '';
+  const CS_DRAWER_OVERLAYS = ['.modal-mask', '#cs-bg-panel', '#cs-bg-adj-panel', '#qa-mask', '#tc-mask', '#chat-ask-panel'];
+  function csDrawerLayerTick() {
+    const d = document.getElementById('chat-beauty-drawer');
+    if (!d || d.style.display === 'none') return;
+    // 抽屉是挂在 body 上的固定层（z-index 95 / 最高 40vh），离开聊天页时它自己不会收——
+    // 实测切到桌面页后抽屉仍占 508~846，而底部导航在 740~804、z-index 只有 2＝整条导航被盖住。
+    // 这里只就地收起、不回聊天设置页（用户是自己走开的，csDrawerClose 那套导航会把人拽回去）。
+    const chat = document.getElementById('page-chat');
+    if (chat && chat.hidden) {
+      clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0;
+      d.style.display = 'none';
+      try { csDemoBubbles(false); } catch (e) {}
+      return;
+    }
+    let low = 0;
+    CS_DRAWER_OVERLAYS.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        // 先用零成本属性判掉收起的（.modal-mask 靠 [hidden]、各面板靠内联 display:none）：
+        // getComputedStyle 会强制样式重算，而这个闸门是 240ms 常驻轮询（iOS 性能批 #765d 口径），
+        // 绝大多数轮次「一个浮层都没有」＝零次 computed 读取才成立。
+        if (el.hidden || el.style.display === 'none') return;
+        if (!el.isConnected) return;
+        const cs = getComputedStyle(el);
+        // 「可见」要判得彻底：splash 未退时整棵 .phone 是 visibility:hidden（base.css:95），
+        // 那张开屏公告遮罩的 display 却仍是 flex——此刻抽屉自己也看不见，让它压着抽屉没有意义，
+        // 还会把抽屉一直钉在 89。零尺寸同理（收着的面板留个 0×0 的壳）。
+        if (cs.display === 'none' || cs.visibility !== 'visible') return;
+        const box = el.getBoundingClientRect();
+        if (!box.width || !box.height) return;
+        const z = parseInt(cs.zIndex, 10) || 0;
+        if (z && (!low || z < low)) low = z;
+      });
+    });
+    const want = low ? String(Math.max(1, low - 1)) : csDrawerBaseZ;
+    if (d.style.zIndex !== want) d.style.zIndex = want;
+  }
+  // #783 ②：壁纸身份（有没有图 + 当前用图库里哪张）变了就重渲染当前分区——抽屉里刚上传/刚
+  // 换图，那三条「壁纸 水平/垂直/缩放」滑杆（挂在「有壁纸」条件下）当场出现，不用关开抽屉。
+  let csDrawerWatchTimer = 0;
+  const csDrawerBgSig = () => {
+    try { return (store.get('cs-bg') ? '1' : '0') + '|' + String(store.get(CS_BG_ACTIVE) || ''); } catch (e) { return ''; }
+  };
   // 关闭抽屉 → 回「聊天设置」页的美化段（导航口径对齐桌面抽屉的 showThemePage：
   // 只对当前未隐藏的页写 hidden，避免 44 页观察器被同值写全部唤醒——见 chat.js #336 注释）
   function csDrawerClose() {
+    clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0;
     try { csDemoBubbles(false); } catch (e) {}
     try {
       const d = document.getElementById('chat-beauty-drawer');
@@ -3007,6 +3119,9 @@
     // backdrop-filter——AGENTS.md 的 iOS 卡顿红线。
     d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
     d.innerHTML = '';
+    // #783：读回抽屉自身层级作为让位后的回正值（cssText 是唯一事实源，这里不复制数字）
+    const csBaseZ = parseInt(getComputedStyle(d).zIndex, 10);
+    csDrawerBaseZ = csBaseZ > 0 ? String(csBaseZ) : '';
     const grip = document.createElement('div');
     grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
     d.appendChild(grip);
@@ -3270,6 +3385,23 @@
             applySettings();
           }));
         // #731：壁纸铺满方式 + 壁纸延伸到栏位（都在「栏位」区，改哪看哪）
+        // #783（用户 2026-09-18：「边看边调里不能上传背景图片啊」）：抽屉里此前只有档位/位置/
+        // 缩放，换图入口却留在聊天设置页（抽屉开着时那一页是隐藏的）＝能调不能换。这两按钮
+        // 复用设置页同一对函数（csBgPickFiles 走统一文件选择入口＋压缩入库，csBgOpenGallery＝
+        // 设置页那行的入口函数：旧数据迁移 + 图库面板，切换/删除/同步照旧），不另写一条上传链。
+        {
+          const glN = (function () { try { return csBgList().length; } catch (e) { return 0; } })();
+          // 两枚按钮走抽屉现成的两列网格（mkAct 不认 flex，裸 flex 行会按内容宽＝一长一短）
+          wrap.appendChild(mkGrid([
+            mkAct(store.get('cs-bg') ? '上传壁纸（可多选）' : '① 上传壁纸（可多选）', () => {
+              try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); }
+            }),
+            mkAct('图库 · 换一张' + (glN ? '（' + glN + '）' : ''), () => {
+              try { csBgOpenGallery(); } catch (e) { toast('图库打不开，请重试'); }
+            })
+          ]));
+          if (!store.get('cs-bg')) wrap.appendChild(mkNote('还没设置壁纸：先上传一张或从图库选一张，下面的铺满方式/位置/缩放才有得调。'));
+        }
         wrap.appendChild(mkPills('壁纸铺满方式', CS_BG_FITS, csBgFit, v => {
           try { store.set('cs-bg-fit', v); } catch (e) {}
           applySettings();
@@ -3367,10 +3499,8 @@
         ]));
         paletteHost = document.createElement('div');
         wrap.appendChild(paletteHost);
-        wrap.appendChild(mkAct('换聊天壁纸 / 从图库切换', () => {
-          csDrawerClose();
-          setTimeout(() => { const r = document.getElementById('cs-bg-upload'); if (r) r.click(); }, 0);
-        }));
+        // #783：换壁纸入口已搬进「栏位」分区（与铺满方式/位置/缩放同区，改哪看哪），
+        // 这里这条「先关抽屉、再程序点隐藏的设置页行」的旧路子删掉——同一抽屉两套入口、行为还不一样。
         wrap.appendChild(mkNote('想逐项精调（含「同步到全部桌面」「恢复默认」等）回聊天设置→美化，点对应一行即可。'));
         return wrap;
       } },
@@ -3420,6 +3550,17 @@
     });
     renderSec(csDrawerSec);
     d.style.display = 'flex';
+    // #783：层级让位 + 壁纸身份变化重渲染。抽屉内点「上传/图库」会开浮层（见 csDrawerLayerTick
+    // 注释的层级表），240ms 轮询足够覆盖「点开即让位、关掉即回正」的感知，且常驻监听只在抽屉
+    // 开着时挂（csDrawerClose 负责拆）。
+    clearInterval(csDrawerWatchTimer);
+    let csLastBgSig = csDrawerBgSig();
+    csDrawerLayerTick();
+    csDrawerWatchTimer = setInterval(() => {
+      csDrawerLayerTick();
+      const s = csDrawerBgSig();
+      if (s !== csLastBgSig) { csLastBgSig = s; try { renderSec(csDrawerSec); } catch (e) {} }
+    }, 240);
     // #760：恢复会话内拖动位置 + 键盘抬升监听；打开即滚到最新一条（用户此前停在半屏
     // 中间时只能看到时间轴碎片）；空对话注入示例气泡，保证「改哪看哪」永远有得看。
     try {

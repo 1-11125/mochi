@@ -30,11 +30,11 @@ function check(desc, ok, detail) {
 // ---------- A 轴：源码锚 ----------
 const chatSrc = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
 check('A1 chatTailSweepNick 唯一入口在位（尾巴日志昵称清扫）',
-  /function chatTailSweepNick\(oldName\) \{/.test(chatSrc));
+  /function chatTailSweepNick\(oldName, slot\) \{/.test(chatSrc));
 check('A2 改名钩子 chatSysNickChanged 接了尾巴清扫',
-  /sysNickSweepMsgs\(msgs, oldName\)\) saveMsgs\(\);\s*try \{ chatTailSweepNick\(oldName\); \}/.test(chatSrc));
+  /sysNickSweepMsgs\(msgs, oldName, slot\)\) saveMsgs\(\);\s*try \{ chatTailSweepNick\(oldName, slot\); \}/.test(chatSrc));
 check('A3 sysNickCatchup 两处清扫点都接了尾巴清扫',
-  (chatSrc.match(/chatTailSweepNick\(hist\[/g) || []).length >= 2 && /chatTailSweepNick\(hist\[hist\.length - 1\]\)/.test(chatSrc));
+  (chatSrc.match(/chatTailSweepNick\(hist\[/g) || []).length >= 2 && /chatTailSweepNick\(hist\[hist\.length - 1\], slotKey\)/.test(chatSrc));
 
 // ---------- 浏览器 ----------
 const candidates = [

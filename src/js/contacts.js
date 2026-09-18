@@ -377,9 +377,15 @@
         //   立即清扫+重渲染（chat.js chatSysNickChanged）；非当前桌面只记 hist，等该桌面
         //   下次 loadMsgs 惰性补扫。
         const csLbl = s.get('cs-lbl-partner');
-        const oldEff = csLbl || cur || 'TA';
+        // FIX 2026-09-18 #775f：有效名基线改按聊天里的实际显示链取——
+        // cs-lbl-partner → 联系人名片名 → 称呼词（chat.js chatPartnerName），不再掺桌面键
+        // lbl-partner：聊天里从来不看那个键（v3.26.x 解耦），掺进来会两头错位——用户只改
+        // 名片名时聊天显示名跟着变，这里却按桌面旧名判定「没变」，既不记 hist 也不清扫，
+        // 历史拍一拍里的旧名片名永远留在屏幕上。
+        const taWordId = window.taWordFor ? window.taWordFor(id) : 'TA';
+        const oldEff = csLbl || oldName || taWordId;
         if (!cur || cur === oldName) s.set('lbl-partner', c.name);
-        const newEff = csLbl || s.get('lbl-partner') || 'TA';
+        const newEff = csLbl || c.name || taWordId;
         if (newEff !== oldEff) {
           if (id === (window.__activeCid || 'default') && window.chatSysNickChanged) {
             try { window.chatSysNickChanged(oldEff); } catch (e) {}

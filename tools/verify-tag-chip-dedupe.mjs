@@ -243,7 +243,7 @@ const t10rows = rowsOf(t10).filter(r => r.indexOf('词典逐卡连发') < 0 && (
 check('T10 单气泡拼字仍并列两枚 chip（词典/词典拼字 ＋ 多字卡回复，#693 口径不回归）', t10rows.length === 1 && t10rows[0].length === 2 && t10rows[0].indexOf('多字卡回复') >= 0, t10);
 
 // 源码接线锚点：genOneReply 判定置位 + replyOnce 各分支挂 tag（防重写抹掉）
-check('S4 多字卡抽卡分支按 n>=2 置位判定', chatSrc.includes('if (n >= 2) pyMultiDrawn = true;'));
+check('S4 多字卡置位按实际拼出的 segs.length（#773 收口旧「按掷出的 n」），且整条替换成一张卡时回冲', chatSrc.includes('if (segs.length >= 2) pyMultiDrawn = true;') && chatSrc.includes('t = replyWord; pyMultiDrawn = false;'));
 check('S5 replyOnce 取用判定（词典单气泡/梦角换血不回冲）', chatSrc.includes('const pyMultiHit = pyMultiDrawn;'));
 check('S6 词典单气泡/梦角分支并列挂 tagExtra（逐卡连发不挂见 S9）', (chatSrc.match(/tagExtra: pyMultiExtra,\r?\n/g) || []).length === 2 && !chatSrc.includes('tagExtra: si === 0 ? pyMultiExtra : null,'));
 check('S7 普通回复路径挂多字卡回复 tag', chatSrc.includes("tag: pyMultiHit ? '多字卡回复' : undefined"));

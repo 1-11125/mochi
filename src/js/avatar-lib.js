@@ -1080,19 +1080,26 @@
   //（chatSysNickChanged：把历史系统消息里的旧昵称清扫成 {ta} 占位符，渲染时替换成当前昵称），
   // 否则改完名聊天记录里旧消息还叫旧名字（与聊天设置里改昵称的行为保持一致）。
   function applyPartnerNick(name) {
-    const oldEff = store.get('cs-lbl-partner') || 'TA';
+    // FIX 2026-09-18 #775e：旧名取「聊天里实际显示的值」（chatPartnerName 现含名片名回退），
+    // 只看 cs-lbl-partner 会拿 'TA' 去扫、屏上旧名片名扫不掉
+    const oldEff = window.chatPartnerName ? window.chatPartnerName() : (store.get('cs-lbl-partner') || 'TA');
     if (name) store.set('cs-lbl-partner', name); else store.remove('cs-lbl-partner');
-    const newEff = store.get('cs-lbl-partner') || 'TA';
+    const newEff = window.chatPartnerName ? window.chatPartnerName() : (store.get('cs-lbl-partner') || 'TA');
     if (oldEff !== newEff) {
       try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff); } catch (e) {}
     }
     try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
     syncVal();
   }
-  // 我的昵称：chat.js 只维护 {ta} 占位符，没有对应的 {me} 清扫机制，所以按聊天设置里
-  // 「我的昵称」的既有口径处理——写入 + 界面同步，随后系统消息渲染时即取到新名。
+  // 我的昵称：#775c 起 chat.js 已有 {me} 侧清扫（chatSysNickChanged(old, 'me')），
+  // 与联系人侧同规格——历史里字面写死的旧「我的」昵称扫成 {me} 占位符，渲染时取新名
   function applyMyNick(name) {
+    const oldEff = store.get('cs-lbl-user') || '我';
     if (name) store.set('cs-lbl-user', name); else store.remove('cs-lbl-user');
+    const newEff = store.get('cs-lbl-user') || '我';
+    if (oldEff !== newEff) {
+      try { if (window.chatSysNickChanged) window.chatSysNickChanged(oldEff, 'me'); } catch (e) {}
+    }
     try { if (window.renderChatHeader) window.renderChatHeader(); } catch (e) {}
     syncVal();
   }

@@ -2,7 +2,7 @@
 // 把 src/ 下的模板 + 按页面拆分的 CSS + 按功能拆分的 JS
 // 拼装成单个可直接双击打开的 index.html（完整功能）。
 // 用法：在 mochi 目录下运行  node build.mjs
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -91,6 +91,19 @@ function minifyCss(code) {
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css'];
 const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'ver-check.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'mobile-adapt.js'];
 
+// ===== PERF-PLAN 阶段 1：JS 外置化（2026-09-18）=====
+// 首开「3.8MB 内联 JS 主线程整段解析执行」是 iOS/中低端安卓卡顿的结构性大头
+//（PERF-PLAN §0 实测：首次使用、零数据也卡）。外置 = <script defer src="js/<file>">：
+// 浏览器流式编译 + 并行下载（defer 不阻塞解析、DOMContentLoaded 前按文档序执行），
+// SW 逐文件缓存 + GH Pages ETag 304（不带构建戳、未改文件字节不变 → 只下变更文件）。
+// 范围＝PERF-PLAN §2「ext 首批」26 文件 + 「二批」9 文件（divination/loc-lib 等；ta-ask 经 404 桩裁决门实测回退 core——并行批 #77x 新增的 p2-features 字卡导出在加载期直调 window.cardGroups.grpOnlyOptsHtml（ta-ask.js 定义），defer 下必炸，入边 120 名不虚传
+// 入边 15~120；首批上线验证后按 §2 裁决门 + 功能 verify 运行时验证通过后外置，21:1x 批）；
+// snapshot 后新增的 perf-check/feature-data/page-coach 保守留 core。
+// 改这份清单必须同步看 PERF-PLAN §2 的分级规则与 tools/verify-ext-boot.mjs 裁决门。
+const extFiles = ['calendar.js', 'mail.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'mood-diary.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'arcade.js', 'settings-help.js', 'onboarding.js', 'card-audit.js', 'divination.js', 'loc-lib.js', 'ck-question.js', 'ta-invite.js', 'gift-shop.js', 'feed.js', 'cjian.js', 'call.js', 'music-player.js'];
+const extSet = new Set(extFiles);
+const coreFiles = jsFiles.filter(f => !extSet.has(f));
+
 let html = read('template.html');
 // v3.26.x #301：模板 HTML 注释配平守卫——开屏批 07a6cab 曾在红包注释行漏写 `-->`
 // （结尾误成 `*/}`），注释一路吞到下一个 `-->`，净少吃一个 `<div class="set-group">`
@@ -144,14 +157,21 @@ function chunkScripts(items) {
 // 异常」无法归因到文件）。运行期用 __mochiLoaded vs 构建期注入的 __mochiJsFiles 求差，
 // 定位「整段没加载」的文件——补 __jsErrors 的盲区：语法错误在 parse 期抛出，包内
 // try/catch 兜不住，且每个 500KB script 块内任一文件语法错会整块不执行（十几个功能一起死）。
-const jsWrapped = jsFiles.map(f => {
+const jsWrapped = coreFiles.map(f => {
   const code = minifyJs(read(join('js', f)));
   return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
 });
 // 首块前置初始化：错误环 + 已加载清单 + 期望清单（jsFiles 即期望，运行期差集定位死块）
-jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + ';');
+jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + '; window.__mochiExtFiles = ' + JSON.stringify(extFiles) + ';');
 // 按 UTF-8 字节上限拆 script 块（iOS 15 单块解析崩溃防护，见上方注释）
 const scriptChunks = chunkScripts(jsWrapped);
+
+// PERF-PLAN 阶段 1：外置文件用与内联完全相同的包装（minify + IIFE try/catch +
+// __mochiLoaded 登记 + catch 写 __jsErrors）——诊断归因不分家、行为语义一致。
+const extWrapped = extFiles.map(f => {
+  const code = minifyJs(read(join('js', f)));
+  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
+});
 
 // v3.15.x：改用函数返回值注入——字符串替换会把包内 $&/$'/$` 当特殊模式处理，
 // 源码里出现这些序列（正则/模板片段）时产物被静默撑爆+残留占位符（2026-08-26 实测踩坑）
@@ -160,6 +180,13 @@ html = html.replace('/*__STYLES__*/', () => styles);
 // 每个功能文件仍是独立 IIFE+try/catch，块间顺序执行语义不变
 html = html.replace('/*__SCRIPTS__*/', () =>
   scriptChunks.map((c, i) => (i === 0 ? c.join('\n') : '</script>\n<script>' + c.join('\n'))).join('\n')
+);
+// PERF-PLAN 阶段 1：外置脚本注入（defer）——锚在主内联 script 元素闭合之后；
+// defer 保证 DOM 解析完、DOMContentLoaded 前按文档序（=extFiles 顺序，段内保持
+// jsFiles 原相对顺序）执行，全部 core 内联先行。core 加载期引用 ext 全局的风险
+// 由 tools/verify-ext-boot.mjs（404 桩裁决门）实证兜住。
+html = html.replace('<!-- __SCRIPTS_EXT__ -->', () =>
+  extFiles.map(f => '<script defer src="js/' + f + '"></script>').join('\n')
 );
 // 注入部署时间（开屏显示）
 html = html.replace('__BUILD_INFO__', buildInfo);
@@ -178,6 +205,14 @@ html = html.split('__APP_VERSION__').join(APP_VERSION);
 html += '\n<!-- __MOCHI_EOF__ ' + buildStamp + ' -->\n';
 
 if (!CHECK_SENTINELS) {
+// PERF-PLAN 阶段 1：写外置产物 js/<file>——先清空目录（防文件改名/移回 core 后旧文件
+// 残留，被 sw precache 扫到、被提交进库）；不带构建戳（PERF-PLAN §3：未改文件字节
+// 不变 → GH Pages ETag 304 → 增量更新只下变更文件）。
+const jsDir = join(root, 'js');
+rmSync(jsDir, { recursive: true, force: true });
+mkdirSync(jsDir, { recursive: true });
+extWrapped.forEach((code, i) => writeFileSync(join(jsDir, extFiles[i]), code));
+console.log('已外置 ' + extFiles.length + ' 个 JS → js/（' + extWrapped.reduce((n, c) => n + Buffer.byteLength(c, 'utf8'), 0) + ' 字节）；core 内联 ' + coreFiles.length + ' 个文件');
 const out = join(root, 'index.html');
 writeFileSync(out, html);
 console.log('已生成 index.html（' + html.length + ' 字节，' + (html.split('\n').length) + ' 行）');
@@ -200,6 +235,9 @@ sw = sw.replace(/const BUILD_INFO = '[^']*';/, "const BUILD_INFO = '" + buildInf
 if (!sw.includes('const BUILD_INFO')) {
   sw = sw.replace("const CACHE = 'mochi-" + buildStamp + "';", "const CACHE = 'mochi-" + buildStamp + "';\nconst BUILD_INFO = '" + buildInfo + "';");
 }
+// PERF-PLAN 阶段 1：sw 预缓存带上外置清单（离线首启/弱网首装才有 ext 可用）；
+// 完整性校验 isCompleteHtml 只对 index 生效（sw.js isIndexUrl 分支），js 文件直接 c.put。
+sw = sw.replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = ' + JSON.stringify(['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png'].concat(extFiles.map(f => './js/' + f))) + ';');
 writeFileSync(swPath, sw);
 console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版本: mochi-' + buildStamp + '）');
 } else {
@@ -216,6 +254,13 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-09-18 #770 卡顿自检（#726）三处修正（红米 K80 Chrome 实报：停在设置页自检，
+  // 报告却称「掉帧集中:占卜(100%)」，且「结论:流畅(未捕获掉帧)」与下方「掉帧 1 帧」并存）====
+  { name: '#770a 掉帧归因读最上层全屏页（改回读 .app 桌面图标＝图标显隐不随页面切换，停任何页采样都记到最后一个可见图标头上，归因恒错）', file: 'js/perf-check.js', needle: "querySelectorAll('.page:not([hidden])')" },
+  { name: '#770b 旧图标归因读取已删（回流＝「掉帧集中」恒报桌面图标名而非实际所在页）', file: 'js/perf-check.js', needle: "querySelectorAll('.app:not([hidden])')", absent: true },
+  { name: '#770c 掉帧阈值随实测刷新周期自适应（改回固定 32ms＝高刷屏漏计、持续掉帧窗口周期被抬高一劲也漏判；needle=自适应取阈值函数整体）', file: 'js/perf-check.js', needle: 'function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); }' },
+  { name: '#770d 「流畅」结论对零星掉帧说真话（改回无条件「未捕获掉帧」＝与下方「掉帧 N 帧」自相矛盾）', file: 'js/perf-check.js', needle: "r.jankPct + '%，可忽略）'" },
+  { name: '#770e 「掉帧集中」≥3 帧才输出（删＝单帧噪声也引导用户排查该页大图/长内容）', file: 'js/perf-check.js', needle: 'function concOk(r) { return r.janky >= 3 && !!r.topPage; }' },
   // ==== 2026-09-18 #765 iOS 卡顿收口（壁纸层提合成层 + 贴底看门狗滚动期让路）====
   { name: '#765a 聊天壁纸层独立成合成层（删掉＝聊天页内容变化波及壁纸层，整张 cover 位图被重新缩放光栅，「设了壁纸后滚动/发消息发涩」复发；needle=该行整体，chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '#cs-bg-layer { transform:translateZ(0); }' },
   { name: '#765b 贴底看门狗滚动期让路（删掉＝iOS 抬手后惯性滑行期仍被写 scrollTop，#716「往上滑被拽回底部」的 iPhone 残根回流；needle=200ms 让路判定行，chat.js 内唯一）', file: 'js/chat.js', needle: 'if (Date.now() - _chatScrollActTs < 200) return;' },
@@ -506,8 +551,8 @@ const FIX_SENTINELS = [
   { name: '自动备份副本已下线：启动时自动清理遗留副本释放空间（purgeLegacySnapshot）', file: 'js/data-backup.js', needle: 'purgeLegacySnapshot' },
   { name: '后台听歌不误报「会员/移出」弹窗（offerRemoveDamagedSong 后台直返不计数 + 回前台 bgResumeFails 清零）', file: 'js/music-player.js', needle: '后台冻结/断流误触发 onerror，不弹「移出」窗不计数' },
   { name: '#117 本地音乐刷新后播放失败（music-file 脏值守卫：plausibleLocalValue 形状校验 + LS 脏值跳过读 IDB + purgeLocalFile 清脏）', file: 'js/music-player.js', needle: 'function plausibleLocalValue(v) {' },
-  { name: '聊天昵称与桌面解耦（chatLabel dk=null 只读 cs-lbl-*，不回退桌面键）', file: 'js/chat.js', needle: "chatLabel('cs-lbl-partner', null, 'TA')" },
-  { name: '聊天设置昵称行不再显示跟随桌面（未设置显示默认占位）', file: 'js/chat-settings.js', needle: "未设置（默认 TA）" },
+  { name: '聊天联系人昵称取名链（chatLabel dk=null 不读桌面美化键＋名片名回退，删名片名环＝只改联系人管理改名后拍一拍仍显示 TA #775）', file: 'js/chat.js', needle: "chatLabel('cs-lbl-partner', null, '')" },
+  { name: '#775h 聊天设置昵称行显示实际生效名（未设聊天昵称时顶栏取的是联系人名片名，写死默认 TA 会让用户以为两处不是同一个名字）', file: 'js/chat-settings.js', needle: "未设置（当前显示「" },
   { name: '通话昵称与聊天域解耦（cs-lbl-partner 优先，回退名片名，不读桌面键）', file: 'js/call.js', needle: "window.contactNameFor ? window.contactNameFor(currentCall.cid) : '')" },
   { name: 'migrateLegacy def/root 提升函数顶部（修启动 ReferenceError 中断迁移）', file: 'js/contacts.js', needle: 'const root = window.xyStore(G);' },
   { name: 'iOS Edge 视口事件盲区兜底（window resize/工具条显隐 + 1s 轮询并进自愈，修输入栏下空一大块/页面上移残留）', file: 'js/mobile-adapt.js', needle: "addEventListener('orientationchange', onIosVvEvent)" },
@@ -1542,8 +1587,8 @@ const FIX_SENTINELS = [
   { name: '#704b 首屏 data-src 图同步补 src 不等懒加载泵（删回则首屏图干等 50ms/4 张泵＝打开变慢）', file: 'js/chat.js', needle: "im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码" },
   // ==== 2026-09-17 #701 自定义字卡「全量导出点击没反应」（红米 Note 11 5G 夸克实报、多机型同现，用户直派）——点击后整条前置 Promise 链（hydrateLibScopes IDB 大键取回 / ccExportExpandTokens 媒体池还原）任一环在部分安卓壳上挂起不落定＝.then 干等，无 toast 无弹窗零反馈；且全量导出/导入缺范围说明（专属部分=当前桌面联系人，用户直派补说明）。修复=①导出先弹范围说明弹窗（开始导出才跑链）＋点后立刻「正在准备导出…」toast；②取回/还原两环 ccFullWithTimeout 超时兜底（4s/8s）按已就绪数据继续，catch 不再吞；③导入链同款超时兜底＋导入弹窗补「专属导入到当前桌面」说明；④模板两入口副标题补专属归属说明 ====
   { name: '#701a 全量导出前置链超时兜底（删回 .then 干等则安卓壳 IDB 取回挂起＝点导出零反应回归）', file: 'js/chatcard.js', needle: 'ccFullWithTimeout(Promise.resolve(hydrateLibScopes([\'public\', \'own\'])).catch(() => {}), 4000, null).then(build)' },
-  { name: '#701b 媒体池令牌还原超时兜底＋catch（删则 @@m 令牌还原挂起同样静默卡死；旧 needle 带字面 \\n 永不匹配＝哑哨兵，2026-09-17 收口）', file: 'js/chatcard.js', needle: 'Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).catch(() => [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }])' },
-  { name: '#701c 全量导出范围说明弹窗（专属=当前桌面；删则用户不知道导了什么、专属归属哪桌面）', file: 'js/chatcard.js', needle: '「专属」部分换机恢复时，请切到对应联系人桌面再导入' },
+  { name: '#701b 媒体池令牌还原超时兜底＋catch（删则 @@m 令牌还原挂起同样静默卡死；2026-09-18 收口换锚＝导出链改四库并发 expJobs 后现形态，单行）', file: 'js/chatcard.js', needle: 'Promise.all(expJobs).catch(() => expJobs.map(zero))' },
+  { name: '#701c 全量导出范围说明弹窗（专属=当前桌面；删则用户不知道导了什么、专属归属哪桌面；2026-09-18 收口换锚＝弹窗文案改「专属」「互动功能字卡（专属库部分）」后现形态，单行）', file: 'js/chatcard.js', needle: '换机恢复时，请切到对应联系人桌面再导入' },
   { name: '#701d 导出点击即有反馈 toast（删则说明弹窗外链路期间零反馈）', file: 'js/chatcard.js', needle: "toast('正在准备导出…')" },
   { name: '#701e 全量导入链超时兜底（删回 .then 干等则安卓壳导入选完方式后无反应）', file: 'js/chatcard.js', needle: "ccFullWithTimeout(Promise.resolve(hydrateLibScopes(['public', 'own'])).catch(() => {}), 4000, null).then(() => { ccFullApply(d, mode); })" },
   { name: '#701f 导入弹窗补专属归属说明（删则跨桌面导入弄丢专属字卡不可知）', file: 'js/chatcard.js', needle: '如文件来自别的桌面，请先切到对应联系人桌面再导入' },
@@ -1584,6 +1629,12 @@ const FIX_SENTINELS = [
   { name: '#710a 群聊页加载条模板锚点（删则进度条无处挂载＝进群白屏无反馈回归）', file: 'template.html', needle: 'id="gc-loading"' },
   { name: '#710b 进度条显隐绑「页面可见且权威在途」（删回则 LS 快照先到时读库窗口零反馈）', file: 'js/group-chat.js', needle: 'gcLoadingEl.hidden = !(page && !page.hidden && gcAuthPending);' },
   { name: '#710c 读库落定收起＋切群作废旧等待（删则进度条挂死/旧群等待误收新群进度条）', file: 'js/group-chat.js', needle: 'function gcLoadSettle(seq)' },
+  // ==== 2026-09-18 #772 群聊「打开网页后第一次进群，聊天记录闪一下才正常」——enterGroupChat 先按 LS 快照 renderAll，随后 idbGet 权威回来时旧码 `a.length >= msgs.length` 含相等分支：小记录快照＝全量同内容，仍整页 innerHTML 清空重渲＋图片重新解码，冷启动 IDB 读取稍慢时两次渲染间隔肉眼可见＝闪屏。修复=同条数且快照非 lite（大记录裁剪/lite 场景照旧重渲）时只采纳权威数据不重渲 ====
+  { name: '#772 IDB 权威与快照同内容时跳过整页重渲（删回则每次进群必二连渲染＝冷启动闪屏回归）', file: 'js/group-chat.js', needle: 'if (!sameAsRendered) renderAll();' },
+  // ==== 2026-09-18 #773 「多字卡回复」来源 tag 与气泡实际内容不符（用户实报、多机型同现，零机型分支）——根因①判据用掷出张数 n 而非实拼 segs 数；②多字卡文本落到默认字卡/回应字卡/空文兜底三处整条替换不回冲；#773c＝历史气泡存量错 chip 由归一化逐条自愈（宁残留不误摘）。行为断言见 tools/verify-py-multicard-tag.mjs（A 组生成链＋B 组存量自愈） ====
+  { name: '#773 多字卡来源 tag 按实际拼出张数且整条替换时回冲（改回 n>=2 或删回冲＝一张卡挂「多字卡回复」回归）', file: 'js/chat.js', needle: 'if (segs.length >= 2) pyMultiDrawn = true;' },
+  { name: '#773b 空文兜底换一张前回冲多字卡标志（删＝全空白池拼空文落 #185 兜底换一张话术仍挂多字卡 chip）', file: 'js/chat.js', needle: 'if (pyMultiDrawn && (typeof t !==' },
+  { name: '#773c 历史多字卡错 chip 归一化逐条自愈（删＝存量气泡错标签永不清理，用户直派「清理历史气泡的错标签」）', file: 'js/chat.js', needle: 'if (pyChipDropIfSingle(r)) c = true;' },
   // ==== 2026-09-18 #716 红米 K80 Chrome 三联实报（多机型同族，用户直派「不要覆盖修改导致不同型号设备反复出现」）——①表情包面板/头像互动「每次打开图片闪烁重载」：#704 后表情侧兜底仍 1s、大库机型首屏 24 张解码超 1s 半途放行＝可见逐格冒出；头像互动半框（avatar-lib avShowWhenDecoded）还是「等全部 img[src] 解码」的 #704 修前形态。②桌面进聊天「正在加载聊天记录」挂很久进不去：idbGet 固定 4s+4s 读等待，41.2MB 的 default:chat-msgs 单次读取+反序列化超 8s ⇒ 每次尝试都超时=undefined → chat.js 6 次×5s 重试每次重读 41MB 全失败（写入侧 idbSetAll 早已按字节放大超时，读取侧漏了同款）。③聊天底部上滑看历史「反复回弹、刚开始滑动最明显」：touchstart 即解钉，但手势刚开始离底 ≤8px 时 #378「解钉后滚回贴底＝回钉」100ms 防抖误判回钉 → #706 看门狗每 250ms 与进行中的手势对打。修复=①表情兜底 1s→2.5s＋头像半框同款首屏 24 张 await/其余预热；②idbGet 支持 minWaitMs 按量放大（≤60s、其余调用方零变化）＋账本 b 字节回填＋loadMsgs 按量给提示窗；③chatTouchActive 手势闸——触摸期禁 #378 自动回钉、看门狗让路。④开屏「正在加载数据…」加省略号步进动画（缓冲感，纯 CSS） ====
   { name: '#716a idbGet 读等待窗可按量放大（删回固定 4s+4s 则 41MB 级历史永远读不出来＝加载不进去回归）', file: 'js/idb.js', needle: 'const minWait = (ambiable && typeof ambiable.minWaitMs === ' },
   { name: '#716b loadMsgs 按账本字节给读取提示窗（删则大键读取提示永不生效＝超时循环回归）', file: 'js/chat.js', needle: 'bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined' },
@@ -2600,7 +2651,7 @@ const FIX_SENTINELS = [
   { name: '#594c 媒体「原文 ↔ 令牌」互补判定入口（冷池下 expand 恒 null，这条是唯一拦得住的一层）', file: 'js/chat.js', needle: 'function recKindCovers(kindIndex, m) {' },
   { name: '#594d 权威合并接了互补判定（删＝LS 侧原文副本被当新消息并回，用户报障原样复发）', file: 'js/chat.js', needle: 'if (recKindCovers(idbKinds, m)) return false;' },
   { name: '#594e 读侧 LS 合并接了互补判定（删＝内存已令牌化时把快照原文副本 concat 回来）', file: 'js/chat.js', needle: '!recKindCovers(lsKinds, m)' },
-  { name: '#594f 写侧 LS 快照合并接了互补判定（删＝LS 里长期存两份同一条，下次进页照样先 2 后 1）', file: 'js/chat.js', needle: '!recKindCovers(kinds, m)' },
+  { name: '#594f 写侧 LS 快照合并接了互补判定（删＝LS 里长期存两份同一条，下次进页照样先 2 后 1）', file: 'js/chat.js', needle: 'if (!m || seen.has(lsMergeSig(m)) || recKindCovers(kinds, m)) return false;' },
   { name: '#594g 旧「原文直比」权威签名不得复活（absent：直接比 m.text＝跨形态判不出同一条，半修征兆）', file: 'js/chat.js', needle: 't: m && m.text, s: m && m.side', absent: true },
   // ===== #603 字卡库「导出数据 / 导入数据」在壳浏览器上点了没反应（红米 K70 至尊版 MIUI 自带浏览器，用户明说其他机型也有）=====
   // #755（2026-09-18）后这两条锚点从 chatcard.js 迁到 device.js：原来字卡库有一支手抄的常驻 input
@@ -2691,7 +2742,7 @@ const FIX_SENTINELS = [
   //   其余 14 处靠 verify-nick-interact 的 J 组行为断言兜（此间/Pong 两条真读 UI 的用例）。
   { name: '#616k 昵称池小字说明（删掉＝用户不知道其他功能跟的是桌面昵称，会在通话/游戏里找不到刚换的名字）', file: 'template.html', needle: '其他功能</b>显示的都是桌面昵称' },
   { name: '#616m 通话昵称改回桌面优先（改回 cs-lbl-partner 优先＝来电横幅/通话小框跟着昵称池一起变）', file: 'js/call.js', needle: "const nick = store.get('lbl-partner') || store.get('cs-lbl-partner')" },
-  { name: '#616n 此间本尊名字漂移对齐目标改走桌面优先（改回 cs 优先＝自动播种的梦角名被昵称池轮换带着改）', file: 'js/cjian.js', needle: "const lb = String(s.get('lbl-partner') || '').trim();\nif (lb) return lb;" },
+  { name: '#616n 此间本尊名字漂移对齐目标改走桌面优先（改回 cs 优先＝自动播种的梦角名被昵称池轮换带着改；2026-09-18 收口换锚＝旧双行 needle 随缩进碎裂，改钉取值链首返单行）', file: 'js/cjian.js', needle: 'if (lb) return lb;' },
   { name: '#616p 小游戏伙伴名跟桌面昵称（Pong 代表；改回 cs 优先＝游戏里名字跟着聊天昵称频繁变）', file: 'js/pong.js', needle: "s.get('lbl-partner') || s.get('cs-lbl-partner')" },
   // ===== #611 开屏「其他说明与常见问题 / 四、全屏失效 / 八、系统预设字卡」移入 设置→关于→常见问题
   //   （用户要求开屏删除、内容搬到设置；开屏 notice.json 是线上生效源、template 为兜底，两处同删）=====
@@ -2780,10 +2831,19 @@ const FIX_SENTINELS = [
   //   chat-tail 兜底日志仍是旧名 ⇒ 下次 chatTailMerge 按 ts|side|正文 签名判不出同一条，
   //   把旧名那条当「未落盘新消息」补回 ⇒ 同 ts 两条、文字不同又永远合不掉。
   //   修复：凡清扫 msgs 的 oldName，同步清扫 chat-tail。needle 均为逻辑入口/调用，各自唯一。
-  { name: '#626a 尾巴日志昵称清扫唯一入口（删掉＝改名后 chat-tail 留旧名，重载補回重复一条），needle 均为逻辑锚', file: 'js/chat.js', needle: 'function chatTailSweepNick(oldName) {' },
-  { name: '#626b 改名钩子接尾巴清扫（删掉＝当前会话改名后尾巴日志不同步，重复复发）', file: 'js/chat.js', needle: 'try { chatTailSweepNick(oldName); }' },
-  { name: '#626c 惰性补扫·最近旧名分支同步清尾巴（删掉＝重启后补扫不清尾巴，重载補回重复）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[hist.length - 1])' },
-  { name: '#626d 惰性补扫·历次旧名循环同步清尾巴（删掉＝备份导入等绕过钩子的改名仍留重复）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[i])' },
+  { name: '#626a 尾巴日志昵称清扫唯一入口（删掉＝改名后 chat-tail 留旧名，重载補回重复一条；#775c 起带 slot 形参＝签名演进，逻辑未动）', file: 'js/chat.js', needle: 'function chatTailSweepNick(oldName, slot) {' },
+  { name: '#626b 改名钩子接尾巴清扫（删掉＝当前会话改名后尾巴日志不同步，重复复发；#775c 带 slot＝签名演进）', file: 'js/chat.js', needle: 'try { chatTailSweepNick(oldName, slot); }' },
+  { name: '#626c 惰性补扫·最近旧名分支同步清尾巴（删掉＝重启后补扫不清尾巴，重载補回重复；#775c 按槽位补扫＝签名演进）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[hist.length - 1], slotKey)' },
+  { name: '#626d 惰性补扫·历次旧名循环同步清尾巴（删掉＝备份导入等绕过钩子的改名仍留重复；#775c 按槽位补扫＝签名演进）', file: 'js/chat.js', needle: 'chatTailSweepNick(hist[i], slotKey)' },
+  { name: '#775e 聊天设置·联系人昵称改名基线取实际显示名（改回只读 cs-lbl-partner＝旧名片名扫不掉，历史拍一拍停在旧名片名）', file: 'js/chat-settings.js', needle: "const oldEff = window.chatPartnerName ? window.chatPartnerName() : (store.get('cs-lbl-partner') || 'TA');" },
+  { name: '#775c2 聊天设置·我的昵称接 me 槽改名钩子（删掉这行＝改了「我的昵称」后聊天里的拍一拍仍旧名）', file: 'js/chat-settings.js', needle: "if (oldEff !== (val || '我')) {" },
+  { name: '#775c3 昵称池换「我的昵称」同走 me 槽钩子（删掉＝点昵称池改名后历史不跟随，与聊天设置那条路径不一致）', file: 'js/avatar-lib.js', needle: "const newEff = store.get('cs-lbl-user') || '我';" },
+  { name: '#775f 名片改名的聊天有效名基线走显示链（含名片名；改回掺桌面 lbl-partner＝只改名片时既不记 hist 也不清扫）', file: 'js/contacts.js', needle: 'const oldEff = csLbl || oldName || taWordId;' },
+  { name: '#775a 聊天联系人昵称取名链含联系人名片名回退（删掉这一环＝只在联系人管理里改过名的用户顶栏跟着变、拍一拍/系统消息仍显示 TA；多设备表现不一致取决于该设备设过没设 cs-lbl-partner）', file: 'js/chat.js', needle: "const cn = window.contactNameFor ? window.contactNameFor(window.__activeCid || 'default') : '';" },
+  { name: '#775b 同窗补丁的昵称签名作废（删掉这行＝改了昵称后重进聊天走原地补丁不重画文字，屏上永远停在旧昵称，刷新才恢复）', file: 'js/chat.js', needle: 'if (windowRenderedNicks !== chatNickSig()) return false;' },
+  { name: '#775c 昵称清扫表的 me 槽（删掉＝「我的昵称」改名后历史里字面写死的旧名永不跟随，只有 {ta} 侧会扫）', file: 'js/chat.js', needle: "me: { cur: chatUserName, token: '{me}', histKey: 'sysmsg-user-nick-hist', sweptKey: 'sysmsg-user-nick-swept' }" },
+  { name: '#775d 改名时聊天页不可见改为原位刷新昵称节点（改回只在可见时重渲＝聊天设置里改名后点返回按钮，屏上拍一拍仍是旧名）', file: 'js/chat.js', needle: 'try { if (chatVisible()) renderWindow(true); else refreshNickNodesInPlace(); } catch (e) {}' },
+  { name: '#775g 联系人名片改名后顶栏按同链重取（删掉监听＝名片改名回聊天顶栏仍是旧名）', file: 'js/chat.js', needle: "document.addEventListener('contact-renamed', function () { try { updateChatPartnerName(); } catch (e) {} });" },
   // ===== #627（2026-09-16 用户实报）信息诊断「本来就没错误为什么显示红点」：错误环把浏览器
   //   对非同源脚本的统一遮罩文案 "Script error."（无栈）也收进来 → 角标常亮假报障。本应用
   //   全内联同源，真错误必带真实 message+stack，故无栈遮罩可安全放行。needle 均为逻辑锚
@@ -2981,7 +3041,7 @@ const FIX_SENTINELS = [
   { name: '#127a 增量日志键与阈值（删＝退回整包重写，写放大回归）', file: 'js/chat.js', needle: "const CHAT_ARCH_KEY = 'chat-arch';" },
   { name: '#127b 基准段「未被动过」安全闸（删/放宽＝删改旧消息后仍只写日志→旧内容被覆盖不回，数据错乱）', file: 'js/chat.js', needle: 'if (chatArchPrefix !== prefix || !Array.isArray(chatArchRef) || !Array.isArray(arr)) return false;' },
   { name: '#127c 落盘入口分片判定（删＝每次仍整包重写基准包）', file: 'js/chat.js', needle: 'if (log.length <= CHAT_ARCH_MAX && msgsBytes(log) <= CHAT_ARCH_BYTES) {' },
-  { name: '#127d 读侧基准包+日志拼接去重（删＝压缩崩溃窗口留两份，消息翻倍；或日志不被读取＝新消息丢）', file: 'js/chat.js', needle: 'archArr = archArr.filter(function (m) { return m && !ckptSigs.has(sigOf(m)); });' },
+  { name: '#127d 读侧基准包+日志拼接去重（删＝压缩崩溃窗口留两份，消息翻倍；或日志不被读取＝新消息丢）', file: 'js/chat.js', needle: 'archArr = archArr.filter(function (m) { return m && !ckptSigs.has(sigOf(m)) && !chatRecKeysHit(ckptCopies, m); });' },
   { name: '#127e 读库成功后设基准段（删＝每次保存都判定不复用，分片失效退回整包）', file: 'js/chat.js', needle: 'try { chatArchSetBaseline(myPrefix, ckptArr); } catch (e) {}' },
   { name: '#127f 日志键不回填 LS（删＝聊天增量日志被回填进 localStorage，白占 5MB 配额）', file: 'js/idb.js', needle: "if (tail === 'chat-arch' || /^[^:]+:chat-arch$/.test(tail)) return true;" },
   { name: '#127g 导入写回前清日志键（删＝旧日志被当新消息回放，叠到刚导入的历史上）', file: 'js/data-backup.js', needle: "window.xyStore(ns).remove('chat-arch');" },
@@ -3415,6 +3475,24 @@ const FIX_SENTINELS = [
   { name: '#766d 早于本次装载窗口的日志条目一律不回放（删＝热片装载/块读空洞时把库里已有的更早消息再补一份进内存＝凭空重复）', file: 'js/chat.js', needle: 'if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }' },
   { name: '#766e 回放命名空间闸门（删＝异步链里切联系人后把对方联系人的尾巴日志回放进本会话历史＝串档重复）', file: 'js/chat.js', needle: "if (forPrefix && typeof window !== 'undefined' && typeof window.activePrefix === 'function' && window.activePrefix() !== forPrefix) return 0;" },
   { name: '#766f 确认空库路径也按命名空间回放（删掉带参调用＝该路径回退成跨源盲回放）', file: 'js/chat.js', needle: 'try { chatTailMerge(myPrefix); } catch (e) {}' },
+  // ==== 2026-09-18 PERF-PLAN 阶段 1「JS 外置化」机制在位（首开 3.8MB 全内联 → core 内联 + ext defer 外置 js/，iOS 首开解析卡顿结构性优化）====
+  { name: 'PERF-PLAN 阶段1 外置脚本标签在位（构建注入 <script defer src="js/...">；被移除＝外置机制被拆、首开回到 3.8MB 全内联单包＝iOS 首开卡顿回归。行为断言 tools/verify-ext-boot.mjs）', file: 'index.html', needle: '<script defer src="js/' },
+  // ==== 2026-09-18 #771 存钱罐「TA 塞心意币」从不触发根治（用户实报：心意币存钱一直没有 TA 存入）====
+  { name: '#771a app 入口按页签状态补触发心意币彩蛋（删＝页签停在上次位置重进 app 不走 click，TA 塞币/取回永远没机会跑）', file: 'js/p2-features.js', needle: 'if (coinBox && !coinBox.hidden) { piggyCoinMaybeTa(); piggyCoinMaybeTaWithdraw(); }' },
+  { name: '#771b last-visit 只在塞币真触发时刷新（改回进页签先盖章＝常看用户间隔被清零、概率压回裸 12%，体感等不到 TA 塞币）', file: 'js/p2-features.js', needle: 'if (Math.random() >= prob) return;\ntry { s.set(\'piggy-coin2-last-visit\', \'\' + Date.now()); } catch (e) {}' },
+  // ==== 2026-09-18 #776 聊天「一条变多条」身份层根治（vivo X200 Edge / Edge 151 实报：刷新、重启浏览器都在，2/3/多条）====
+  // 根因：五条落盘/回放闸门各自用「正文签名」认亲，而副本最常见的差异恰恰是正文被原地改写
+  //（normCell 换脸/改名清扫/媒体令牌化/LS 有损快照剥 img）——正文不等 ⇒ 判不出同一条 ⇒ 存两份、
+  // 屏上两条、落盘固化。方案＝出生号（addRec 给每条消息打盐号，随对象一起落库，克隆回来一模一样）
+  // ＋统一副本键（松散正文键 ∪ uid 键），五个闸门共用一个口径。行为断言 tools/verify-chat-dup-soak.mjs R6。
+  // 删掉下面任一条＝对应闸门退回「只认正文」，用户报障原样复发（且只在存量数据多的账号上复发）。
+  { name: '#776a 出生号打号入口（删＝同一条被原地改正文后彻底认不出是副本，五闸门全漏＝刷新还在、越用越多）', file: 'js/chat.js', needle: "rec.uid = _recUidSalt + '-' + t.toString(36) + '-' + (++_recUidSeq).toString(36);" },
+  { name: '#776b 副本键集合含 uid 键（只留正文键＝改写/令牌化过的副本照样漏网；删掉整行＝出生号白打）', file: 'js/chat.js', needle: "if (m && typeof m.uid === 'string' && m.uid) out.push(k + '#u' + m.uid);" },
+  { name: '#776c 实时 addRec 闸门走共享副本键（改回只比正文＝点发送那一刻就两条）', file: 'js/chat.js', needle: 'if (!chatRecKeysShare(p, rec)) continue;' },
+  { name: '#776d LS 快照写侧闸门走共享副本键（删＝快照里长期存两份同一条，下次进页读侧当新消息补回）', file: 'js/chat.js', needle: 'return !chatRecKeysHit(copied, m);' },
+  { name: '#776e 读侧 IDB 增量闸门走共享副本键（删＝后台归一化/迟到权威合并把副本并回内存）', file: 'js/chat.js', needle: 'if (chatRecKeysHit(idbCopies, m)) return false;' },
+  { name: '#776f 增量日志合并登记基准包副本键（删＝chat-arch 与基准包重叠的两份各留一条，压缩窗口翻倍）', file: 'js/chat.js', needle: 'ckptSigs.add(sigOf(ckptArr[ci])); chatRecKeysAdd(ckptCopies, ckptArr[ci]);' },
+  { name: '#776g 重复体检探针在位（删＝真机报障说不出「还剩哪种重复」，只能凭猜修通道；设置页诊断面板读它）', file: 'js/chat.js', needle: 'window.__mochiDupCensus = function () {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
@@ -3424,6 +3502,10 @@ try {
   const artifactText = function (s) {
     if (s.file && s.file.indexOf('pwa/') === 0) {
       try { return readFileSync(join(root, s.file.slice(4)), 'utf8'); } catch (e) { return ''; }
+    }
+    // PERF-PLAN 阶段 1：外置文件的哨兵改读 js/<file> 对应产物（外置后这些 needle 不在 index.html）
+    if (s.file && s.file.indexOf('js/') === 0 && extSet.has(s.file.slice(3))) {
+      try { return readFileSync(join(root, 'js', s.file.slice(3)), 'utf8'); } catch (e) { return ''; }
     }
     return built;
   };

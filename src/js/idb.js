@@ -663,6 +663,45 @@
     return k === 'xy-home-v2:group-chat-msgs' || /^xy-home-v2:gc-msgs-.+$/.test(k);
   }
 
+  // ==== 2026-09-18 #785 数据就绪三态原语：把「真没有内容」与「还没回填完」在 UI 上分开 ====
+  // 根因（与机型无关，是时序差）：IDB 回填快慢按数据量/机器差出一个数量级，慢机器上业务页
+  // 先读到的 localStorage 就是空值。页面各自把空值陈述成终态文案（「这一天还没有内容」
+  //「还没有收到信」），用户读成「数据丢了」并当 bug 报。开屏那层早就有了（12s 保险丝派发
+  // mochi-restore-slow + 「仍要进入」），但全项目只有开屏一个消费者，进入应用后没有第二层。
+  // 判据取时序状态而非机型/UA。
+  // 回填挂起兜底：整轮 restore 永不完成时 done 永不到达，无上限的转圈比误报的「还没有」更糟，
+  // 所以以启动（调 restore）时刻为锚给 2 分钟上限，超限即按权威空态陈述。
+  const DATA_PENDING_CEILING_MS = 120000;
+  window.mochiDataState = function () {
+    if (window.__mochiDataReady) return 'ready';
+    try {
+      if (window.__mochiLoadT && Date.now() - window.__mochiLoadT > DATA_PENDING_CEILING_MS) return 'timeout';
+    } catch (e) {}
+    try { if (window.__mochiDataSlow) return 'slow'; } catch (e) {}
+    return 'loading';
+  };
+  // 现值可能不完整：页面此时不得对用户陈述「没有内容」，应出加载占位并用 mochiOnDataReady 补渲
+  window.mochiDataPending = function () {
+    const s = window.mochiDataState();
+    return s === 'loading' || s === 'slow';
+  };
+  // 只写文本的槽位（日历里情话/备忘/心情/留言各一行）用
+  window.mochiLoadingText = function () { return '正在读取…'; };
+  // 整块空态（列表页的 .ta-empty 位）用
+  window.mochiLoadingHtml = function (what) {
+    return '<div class="mochi-data-loading">' + (what || '内容') + '还在读取，稍候会自动刷新</div>';
+  };
+  // 真就绪后补渲一次：已就绪＝调用方读到的就是权威值，直接返回什么都不做。
+  // 刻意不判页面可见性（区别于既有多处 if (!page.hidden) 闸门）——回填完成时用户不在这页，
+  // 那种闸门会让该模块永久停留在加载态；隐藏页写几行文本零成本，可见页面的重渲自有各自的
+  // 现读入口兜底（如 mail 的 render 开头按 hidden 早退）。
+  window.mochiOnDataReady = function (fn) {
+    if (window.mochiDataState() === 'ready') return;
+    try {
+      document.addEventListener('mochi-restore-done', function () { try { fn(); } catch (e) {} });
+    } catch (e) {}
+  };
+
   // 恢复：从 IndexedDB 读回 localStorage 缺失的键（初始化时调用）
   // v3.14.x OOM 防线（修复荣耀等安卓真机「开屏卡住→网页崩溃」）：
   //   原实现把所有键无上限读入 memoryCache 驻留——重度数据用户（几十 MB 字卡/

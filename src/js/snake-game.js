@@ -61,6 +61,7 @@
   let isFs = false;
   let pauseAt = 0;
   let cssW = 360, cssH = 360, dpr = 1;   // 画布 CSS 尺寸（全屏由 setupCanvas 按剩余空间计算）
+  let lastFitBox = null, refitSettle = 0;   // #774 视口抖动闸门：上次铺设照着的可用盒 / 落定定时器
   let particles = [], floaters = [], renderLastTime = 0;
   // 多点触控分轨（双人模式：左半屏=P1、右半屏=P2；经典模式整块画布都归 P1）
   let touchTracks = {};
@@ -189,16 +190,20 @@
     for (let i = 0; i < 4; i++) {
       cell = Math.max(minCell, cell);
       cssW = Math.round(cell * gW()); cssH = Math.round(cell * gH());
-      canvas.style.width = cssW + 'px';
-      canvas.style.height = cssH + 'px';
-      canvas.width = Math.round(cssW * dpr);       // 改位图尺寸会清空画布，调用方随后 render()
-      canvas.height = Math.round(cssH * dpr);
+      // 位图尺寸「赋同一个值」也会清空画布（HTMLCanvas 语义），清空＝整屏白一下：
+      // 只在真的变了才写 style 与位图，同值重铺一律跳过（#774 抖动期白闪的直接来源）
+      const bw = Math.round(cssW * dpr), bh = Math.round(cssH * dpr);
+      if (canvas.style.width !== cssW + 'px') canvas.style.width = cssW + 'px';
+      if (canvas.style.height !== cssH + 'px') canvas.style.height = cssH + 'px';
+      if (canvas.width !== bw) canvas.width = bw;
+      if (canvas.height !== bh) canvas.height = bh;
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!sc || !sc.clientHeight) break;          // 面板未布局（隐藏）时量不到，下次打开/resize 会重算
       const over = sc.scrollHeight - sc.clientHeight;
       if (over <= 0 || cell <= minCell) break;
       cell -= over / gH();
     }
+    if (sc && sc.clientHeight) lastFitBox = scrollAvail();   // 记下这次是照着哪个可用盒铺的
   }
   // 全屏：按当前地图把画布贴合到剩余空间（不改格数；开始按钮收起/结算块出现后调用）
   function fitCanvasBox() {
@@ -223,6 +228,22 @@
     if (!isFs) return;
     fitCanvasBox();
     render(0);                    // applyCell 改位图尺寸会清空画布
+  }
+  // #774 视口抖动闸门（iPhone 16 Pro + Safari 实报「玩的时候屏幕和蛇一直弹和闪」）：
+  // iOS 独立应用的对局期视口高会在 812↔874 之间反复跳（状态栏/底部横条区被系统改写），
+  // 安卓 Chrome 的地址栏收放同理；而画布每响应一次 resize 就是「整张地图换比例 + 位图重建」，
+  // 实测 2 秒抖动内地图在 230×388 ↔ 193×326 之间脉冲 16 次＝用户看到的弹＋闪。
+  // 改法：视口连续变化期间一律不重铺，等它安静 280ms 再量一次，量出来和上次铺设用的
+  // 可用盒一致（<2px）就整条跳过——抖动不再驱动布局，旋转/分屏这类真变化照旧收敛到一次重铺；
+  // 极端的「抖着不停且真的放不下」由 .poke-card-scroll 可纵向滚兜底（同既有 overflow 策略）。
+  function onViewportChange() {
+    clearTimeout(refitSettle);
+    refitSettle = setTimeout(function () {
+      if (!panel || panel.hidden || !canvas) return;
+      const av = scrollAvail();
+      if (lastFitBox && Math.abs(av.w - lastFitBox.w) < 2 && Math.abs(av.h - lastFitBox.h) < 2) return;
+      refitAll();
+    }, 280);
   }
   function setupCanvas() {
     if (!canvas) return;
@@ -293,7 +314,9 @@
     document.addEventListener('contact-switched', function () { try { closeSnakePanel(); state = null; behavior = null; } catch (e) {} });
     window.addEventListener('resize', function () {
       if (!panel || panel.hidden) return;
-      refitAll();   // FIX 2026-09-16：原只处理全屏，半框旋转后画布不重排——refitAll 内部按 isFs 分流
+      // FIX 2026-09-16：原只处理全屏，半框旋转后画布不重排——refitAll 内部按 isFs 分流
+      // #774：不再每个 resize 事件同步重铺（iOS/安卓视口抖动会把地图打成脉冲），改走落定闸门
+      onViewportChange();
     });
     // FIX 2026-09-16：切后台自动暂停+存档（原 saveGame 只挂在关面板，iOS Safari 后台杀页面丢进行中对局）
     document.addEventListener('visibilitychange', function () {

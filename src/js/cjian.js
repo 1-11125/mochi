@@ -529,13 +529,9 @@
       // 桌面 lbl-partner 优先、聊天 cs-lbl-partner 兜底——此间属于「其他功能」，昵称池频繁
       // 轮换的聊天昵称不该带着梦角名一起变；桌面没设过时仍退回聊天昵称（#409 要解决的
       // 「只设了聊天昵称时梦角名与聊天对不上」照旧兜住，见下方 effNick 同口径）。
-      let name = '';
-      try {
-        const lbl = s.get('lbl-partner');
-        if (lbl) name = lbl;
-        if (!name) { const cs = s.get('cs-lbl-partner'); if (cs) name = cs; }
-        if (!name) name = contactName(cid);
-      } catch (e) {}
+      // FIX 2026-09-18 #786b：取值链收进 effNick 一处（含「昵称撞了别的桌面的身份名就退回
+      // 本桌名片名」），新种下的本尊不会一出生就挂着另一个联系人的名字。
+      const name = effNick(cid);
       list.push({ id: makeId(), name: name || 'TA', offsetMin: 0, cid: cid, own: 1 });
       saveRoster(list, cid);
       s.set(SEED_KEY, '1');
@@ -557,7 +553,21 @@
   //   会把自动播种的梦角名纠成它），也是此间卡片显示的名字，属「其他功能」，不该跟着
   //   昵称池轮换的聊天昵称变。identSet 仍同时收两个键（那是身份**集合**，用于认亲，
   //   多收不多伤：名字是按旧聊天昵称播种出来的存量梦角照样认得出归属）。
-  function effNick(cid) {
+  // FIX 2026-09-18 #786b：某个名字是否已被【另一个桌面】认作身份（名片名 / 桌面 TA 昵称 /
+  // 聊天 TA 昵称任一）——三源与 identSet 同源。用于挡住「本尊名挂着别的联系人的名字」。
+  function otherClaimsName(cid, name) {
+    const n = String(name || '').trim();
+    if (!n) return false;
+    const list = contacts();
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i];
+      if (!o || o.id === cid) continue;
+      if (hasKey(identSet(o.id), n)) return true;
+    }
+    return false;
+  }
+  // 取值链原样（#616n 锚点：桌面 lbl-partner 优先、聊天 cs-lbl-partner 兜底、名片名最后）
+  function nickLabelChain(cid) {
     try {
       const s = storeOf(cid);
       if (s) {
@@ -568,6 +578,16 @@
       }
     } catch (e) {}
     return contactName(cid);
+  }
+  function effNick(cid) {
+    const card = contactName(cid);
+    const pick = nickLabelChain(cid);
+    // 昵称链取到的名字恰是另一个桌面的身份名（联系人改过名、renameContact 因 cur≠oldName
+    // 没同步 lbl-partner；聊天昵称被写成另一个梦角名；跨桌面查岗 ensureTaName 兜过旧名）
+    // → 此间的梦角卡片/今日轴就会显示「另一个联系人的名字」。本桌面自己的名片名不撞名时
+    // 用它；无撞名的常规场景零变化（#616 的取值顺序原样保留）。
+    if (pick && pick !== card && otherClaimsName(cid, pick) && !otherClaimsName(cid, card)) return card;
+    return pick;
   }
   function identSet(cid) {
     const out = {};
@@ -795,6 +815,11 @@
       loadRoster(ct.id).forEach(c => out.push({ c: c, cid: ct.id }));
     });
     return out;
+  }
+  // FIX 2026-09-18 #786：当前视图范围内的梦角列表（「全部」＝各桌面，单桌面＝只该桌面）
+  function scopeEntries() {
+    const s = scopeCids();
+    return flatEntries().filter(en => s.indexOf(en.cid) >= 0);
   }
   function cidOfDreamer(id) {
     let hit = '';
@@ -1265,8 +1290,14 @@
     }
     body.appendChild(traj);
     body.appendChild(el('div', 'cj-d-foot', '这不是TA的日程表，只是TA可能的样子。'));
-    // 上一位 / 下一位：不回列表直接切换查看别的梦角（跨桌面，循环）
-    const entries = flatEntries();
+    // 上一位 / 下一位：不回列表直接切换查看别的梦角
+    // FIX 2026-09-18 #786：翻页范围跟随当前视图——顶部选「单个联系人」tag 时只在该桌面自己的
+    // 名单里循环（旧实现恒用 flatEntries()＝全部桌面的梦角排一张表：点【景元】tag 进详情按
+    // 「下一位」直接翻到【符玄】【应星】桌面的梦角，观感＝「不同联系人数据串了、里面有别人
+    // 的名字」；多桌面/多机型同现，纯逻辑与设备无关）。「全部」总览照旧跨桌面循环。
+    // 兜底：详情条目已不在当前范围内（视图被外部改动 / 桌面被删）才退回全表，不留死路。
+    let entries = scopeEntries();
+    if (!entries.some(en => en.c.id === detailId)) entries = flatEntries();
     const pos = entries.findIndex(en => en.c.id === detailId);
     if (pos >= 0 && entries.length > 1) {
       function jump(en) { detailId = en.c.id; detailCid = en.cid; renderDetail(); }

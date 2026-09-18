@@ -39,7 +39,7 @@ check('A4 权威合并接了媒体形态互补判定',
 check('A5 读侧 LS 合并接了媒体形态互补判定',
   /!seen\.has\(lsMergeSig\(m\)\) && !recKindCovers\(lsKinds, m\)/.test(chatSrc));
 check('A6 写侧 LS 快照合并接了媒体形态互补判定',
-  /!seen\.has\(lsMergeSig\(m\)\) && !recKindCovers\(kinds, m\)/.test(chatSrc));
+  /seen\.has\(lsMergeSig\(m\)\) \|\| recKindCovers\(kinds, m\)/.test(chatSrc));
 check('A7 dupSig / lsMergeSig 共用 mediaFormText（口径不再分叉）',
   /const x = mediaFormText\(m\.text\);/.test(chatSrc) && !/window\.mochiMediaIsToken\(x\) && window\.mochiMediaExpand\) \{ const ex = window\.mochiMediaExpand\(x\); if \(ex\) x = ex; \}/.test(chatSrc));
 

@@ -560,7 +560,9 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     const inList = list.filter(l => l.type === 'received');
     if (inEl) {
       const inHtml = inList.map(l => mailItemHtml(l, 'in', name)).join('');
-      inEl.innerHTML = inHtml || '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>';
+      inEl.innerHTML = inHtml || ((window.mochiDataPending && window.mochiDataPending())
+        ? window.mochiLoadingHtml('收到的信')
+        : '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>');
       // v3.26.x：防御 innerHTML 未生效——个别安卓内核（红米 K80 Chrome）对 hidden 元素
       // innerHTML 渲染延迟，列表项数与数据不符时重试一次（红米 K80 反馈「列表空」）。
       if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) inEl.innerHTML = inHtml;
@@ -569,10 +571,14 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     const outList = list.filter(l => l.type === 'sent');
     if (outEl) {
       const outHtml = outList.map(l => mailItemHtml(l, 'out', name)).join('');
-      outEl.innerHTML = outHtml || '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>';
+      outEl.innerHTML = outHtml || ((window.mochiDataPending && window.mochiDataPending())
+        ? window.mochiLoadingHtml('寄出的信')
+        : '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>');
       if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) outEl.innerHTML = outHtml;
     }
   }
+  // #785：回填真完成后补渲一次（render 开头按 page-mail 不可见早退，隐藏时零代价）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { render(); } catch (e) {} });
   // v3.27.x 性能：列表项点击改容器级事件委托（一次绑定）——原实现每次 render 给每封信
   // 重挂 click，开销随信件数线性增长；点击按 dataset id 现查信件（load 有解析缓存），
   // openLetter 内部本就会重取最新完整数据，行为不变

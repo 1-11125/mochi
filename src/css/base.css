@@ -131,6 +131,22 @@ html { margin:0; padding:0; }
 /* v3.26.x：置顶澄清行可换行——nowrap 仅供单行网址/署名，长句澄清不换行会超出手机屏幕 */
 .splash-source-line.splash-clarify { white-space:normal; padding:0 14px; line-height:1.95; }
 .splash-source-url { color:var(--ink); font-weight:600; }
+/* v3.26.x #793：停更公告横幅（品牌卡内·署名行正下方，data-stop-update）——红色警示形态（同 #315b 免责卡红），
+   开屏第一屏第一眼必见；品牌卡整体居中排版，横幅自身改左对齐保正文可读性；暗色主题同批适配 */
+.splash-stopupdate {
+  margin:14px 0 0; width:100%; box-sizing:border-box;
+  padding:12px 14px 13px 15px;
+  background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
+  text-align:left;
+}
+.splash-stopupdate .splash-stopupdate-t { font-size:13px; font-weight:800; color:#c22b27; letter-spacing:1px; margin-bottom:6px; }
+.splash-stopupdate p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
+.splash-stopupdate p + p { margin-top:6px; }
+.splash-stopupdate strong { color:#c22b27; font-weight:800; }
+[data-theme="dark"] .splash-stopupdate { background:rgba(210,52,48,.16); border-color:#e05555; }
+[data-theme="dark"] .splash-stopupdate .splash-stopupdate-t { color:#ff8080; }
+[data-theme="dark"] .splash-stopupdate p { color:#f0c6c6; }
+[data-theme="dark"] .splash-stopupdate strong { color:#ff8080; }
 /* v3.8.y：底部统一卡片框——版本/加载/提示/按钮装进一个白卡片，与顶部品牌卡片呼应 */
 .splash-footcard {
   width:min(324px, 100%); box-sizing:border-box;
@@ -398,6 +414,21 @@ html { margin:0; padding:0; }
   color:var(--hint-ink); opacity:.9;
 }
 .splash-loading-sub[hidden] { display:none; }
+/* #785：进入应用后的「数据还在读取」占位（idb.js mochiLoadingHtml 出这块）。
+   与开屏那行同族但不抢视线：次级色小字居中，省略号复用 splashDots 步进动画。
+   真没有内容时各页出 .ta-empty 等终态文案，两者必须一眼可分——慢回填机器上
+   先读空值却陈述成「还没有收到信」，用户会当数据丢了来报 bug。 */
+.mochi-data-loading {
+  margin:18px auto; padding:2px 12px; max-width:280px;
+  font-size:12px; line-height:1.6; letter-spacing:.5px; text-align:center;
+  color:var(--hint-ink); opacity:.85;
+}
+.mochi-data-loading::after {
+  content:'···';
+  display:inline-block; width:0; overflow:hidden; vertical-align:bottom;
+  text-align:left; letter-spacing:1px;
+  animation:splashDots 1.2s steps(3,end) infinite;
+}
 /* v3.26.x：数据加载较慢时的「仍要进入」逃生口——弱化样式（小字、下划线、次级色），
    表明是"非推荐、数据可能不全"的非常规入口，与主按钮区分 */
 .splash-force-enter {

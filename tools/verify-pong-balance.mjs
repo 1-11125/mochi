@@ -36,7 +36,8 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 // ---- 测试专用组装：template + 仅 pong.js（前置注入虚拟时钟 shim），不碰仓库构建产物 ----
 const SHIM = `
 window.__VC = { t: 0, q: [], seq: 0 };
-try { __VC.t = performance.now.bind(performance)(); } catch (e) { __VC.t = 0; }
+// 原点必须钉死 0：读加载时的真实 performance.now 会让「固定种子」矩阵逐次跑随页面加载耗时
+// 漂移原点，恰好卡在 >= 判据边缘的帧窗口（hard×strong 长回合）偶发多跑/少跑一帧→超时与否不复现（#784 排查时实测同码三跑 1 红）。
 try { performance.now = function () { return __VC.t; }; } catch (e) {}
 window.requestAnimationFrame = function (cb) { __VC.q.push(cb); return ++__VC.seq; };
 window.cancelAnimationFrame = function () {};

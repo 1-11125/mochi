@@ -57,6 +57,32 @@ const freePort = () => new Promise((res) => {
   s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); });
 });
 
+// ===== 临时档目录清扫（2026-09-18 磁盘满事故根治，与文末 #162 进程清理配套）=====
+// 上面的进程清理只杀 chrome.exe，脚本 mkdtemp 出来的 mochi-* profile 目录会永久残留
+//（实测一晚堆积数十 GB 打满 C 盘：WORKLOG「21:5x 共享基础设施事故」条）。这里按
+// mtime 清扫 45 分钟前的 mochi-* 目录——并行会话正在跑的活跃档（mtime 新）不受影响；
+// Windows 句柄占用导致的单目录删除失败逐个忽略，下轮再清，绝不影响套件结论。
+async function sweepStaleProfiles() {
+  try {
+    const fs = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const base = tmpdir();
+    const cutoff = Date.now() - 45 * 60 * 1000;
+    let swept = 0;
+    for (const name of fs.readdirSync(base)) {
+      if (name.slice(0, 6) !== 'mochi-') continue;
+      try {
+        const full = join(base, name);
+        if (fs.statSync(full).mtimeMs > cutoff) continue;
+        fs.rmSync(full, { recursive: true, force: true });
+        swept++;
+      } catch (e) { /* 句柄占用/权限：忽略 */ }
+    }
+    if (swept) console.log('（已清扫 ' + swept + ' 个 45 分钟前残留的 mochi-* 临时档目录，防磁盘涨满复发）');
+  } catch (e) { /* 清理失败不影响套件结论 */ }
+}
+await sweepStaleProfiles();
+
 const RUN_ONE_PORT = 'MOCHI_CDP_PORT';
 const usesPortEnv = new Map();
 const scriptTimeout = new Map();
@@ -167,4 +193,5 @@ if (process.platform === 'win32') {
     console.log('（已清理残留验证用无头 Chrome，防 #162 型临时档涨盘）');
   } catch (e) { /* 清理失败不影响套件结论 */ }
 }
+await sweepStaleProfiles();
 process.exit(hard.length && STRICT ? 1 : 0);

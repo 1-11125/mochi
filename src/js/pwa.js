@@ -62,7 +62,8 @@
           if (e.data && e.data.type === 'PRECACHE_DONE') { done = true; doReload(); }
         };
         navigator.serviceWorker.addEventListener('message', _prMsg);
-        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: ['./index.html', './version.json'] });
+        // PERF-PLAN 阶段 1：带上外置 js/ 清单——弱网点「刷新使用新版」时 ext 一并预取落新缓存，防旧 index 配新 ext 的混合版本（SW 侧零改动，urls 数组本就支持）
+        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: ['./index.html', './version.json'].concat(window.__mochiExtFiles || []) });
         setTimeout(function () { if (!done) doReload(); }, 2500); // 兜底：SW 预取异常也刷新
       } else {
         doReload();

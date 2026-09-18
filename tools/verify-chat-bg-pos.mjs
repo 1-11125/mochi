@@ -1,4 +1,4 @@
-// ===== 专项验证：聊天壁纸「打字时换一个比例」根治（#781）+ 位置/缩放滑杆（#782）=====
+// ===== 专项验证：聊天壁纸「打字时换一个比例」根治（#781）+ 位置/缩放滑杆（#782）+ 抽屉里换壁纸（#783）=====
 // 需求（用户原话）：
 //   「之前说这个图片上传比例有问题的问题，这问题也依旧没有修复」
 //   「在我没有输入栏输入文字和在输入栏输入文字是两个比例」
@@ -12,21 +12,28 @@
 //   改法：JS 记住「确实没有键盘时」的页面高写成 --cs-bg-h，CSS 取 max(视口单位, --cs-bg-h)，
 //   四档一律；键盘期（.phone 有内联高 / 有文本框聚焦）不采样、且失焦后 700ms 余温内不回落，
 //   其余时候跟随当前盒（否则就是 #751「莫名其妙放大」）。
+// #783 需求（用户原话）：「边看边调里不能上传背景图片啊」
+//   两半：①抽屉里只有档位/位置/缩放，换图入口留在聊天设置页（抽屉开着时那页是隐藏的）；
+//   ②抽屉是 z-index:95 的固定层，而它点开的浮层全在它下面（openModal 90 / 图库面板 89）＝
+//   即便有入口，弹层也藏在抽屉背后＝「点了没反应」。改法见 chat-settings.js 的 #783 注释。
 // 用例组：
-//   S 静态：#781 CSS 三条声明在位、产物已接入、#762 原规则未被改动（同特异性写在后面）
+//   S 静态：#781 CSS 三条声明在位、产物已接入、#762 原规则未被改动（同特异性写在后面）、#783 接线
 //   A 缺省零改动：三个新键没设时，四档的 background-size/position 与线上包逐字节同形
 //   B 键盘不变性（三档 × 两种键盘模型）：绘制尺寸/图层高度逐字节不变（用户主诉本体）
 //   C 真·窗口缩小（无聚焦）必须回落：#751「涨上去不回落」不得回流
 //   D #782 抽屉滑杆：三条在位、当场写存储 + 计算值跟随、重进聊天仍在
 //   E #782 设置页行 + 面板：注入位置、回显文案、重置删键回默认
+//   G #783 抽屉里换壁纸：两个入口在位、上传走统一文件选择、图库面板浮到抽屉之上（让位）、
+//     收起后层级回正、壁纸身份变化不必关开抽屉就重渲染
 //   F 全程零 JS 异常
 // 用法：
 //   MOCHI_ROOT=<构建产物目录> node tools/verify-chat-bg-pos.mjs       # 默认用仓库根
-//   node tools/verify-chat-bg-pos.mjs --red   # 抠掉本批两处接入，证明本脚本判别力（必须红）
+//   node tools/verify-chat-bg-pos.mjs --red   # 抠掉本批四处接入（#781 CSS / #782 position /
+//                                             #   #783 让位 / #783 重渲染），证明判别力（必须红）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync, rmSync } from 'node:fs';
-import { join, normalize, extname } from 'node:path';
+import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = normalize(process.env.MOCHI_ROOT || join(normalize(dirname(fileURLToPath(import.meta.url))), '..'));
@@ -37,6 +44,11 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 const ADJ_CSS = '#page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:max(100vh, var(--cs-bg-h, 0px)); min-height:max(100lvh, var(--cs-bg-h, 0px)); }';
 const ADJ_JS = "const psWanted = adj.x + '% ' + adj.y + '%';";
+// #783 的两条逻辑锚点（src 与产物同形，各 1 处）：抽屉给浮层让位 / 壁纸身份变了重渲染分区
+const YIELD_JS = "const want = low ? String(Math.max(1, low - 1)) : csDrawerBaseZ;";
+const RESIG_JS = "if (s !== csLastBgSig) { csLastBgSig = s; try { renderSec(csDrawerSec); } catch (e) {} }";
+// 离开聊天页就地收起（G7 的靶心：短路它＝抽屉留在 body 上盖住目标页与底部导航）
+const AUTOHIDE_JS = 'if (chat && chat.hidden) {';
 
 const server = createServer((req, res) => {
   try {
@@ -50,7 +62,13 @@ const server = createServer((req, res) => {
       t = t.split(ADJ_CSS).join('#page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:100lvh; }');
       const n2 = t.includes(ADJ_JS) ? 1 : 0;
       t = t.replace(ADJ_JS, "const psWanted = 'center';");
-      console.log('[RED] 已抠掉 CSS 接入 ' + n1 + ' 处 / JS 接入 ' + n2 + ' 处');
+      const n3 = t.includes(YIELD_JS) ? 1 : 0;
+      t = t.replace(YIELD_JS, "const want = '';");
+      const n4 = t.includes(RESIG_JS) ? 1 : 0;
+      t = t.replace(RESIG_JS, "if (false) { csLastBgSig = s; try { renderSec(csDrawerSec); } catch (e) {} }");
+      const n5 = t.includes(AUTOHIDE_JS) ? 1 : 0;
+      t = t.replace(AUTOHIDE_JS, 'if (false) {');
+      console.log('[RED] 已抠掉 CSS 接入 ' + n1 + ' 处 / JS 接入 ' + n2 + ' 处 / 抽屉让位 ' + n3 + ' 处 / 换图重渲染 ' + n4 + ' 处 / 离页收起 ' + n5 + ' 处');
       body = Buffer.from(t, 'utf8');
     }
     res.writeHead(200, { 'Content-Type': types[extname(p).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
@@ -129,6 +147,14 @@ ok('S5 #782 三个键 + 单一写入点在位（默认值删键，不留噪音�
   /CS_BG_ADJ_KEYS = \['cs-bg-pos-x', 'cs-bg-pos-y', 'cs-bg-size'\]/.test(cj) && /const setCsBgAdj = \(patch\)/.test(cj) && /store\.remove\('cs-bg-pos-x'\)/.test(cj));
 ok('S6 #782 三键已进聊天美化导出/导入清单', /'cs-bg-pos-x', 'cs-bg-pos-y', 'cs-bg-size'/.test(cj.match(/const CHAT_BEAUTY_KEYS = \[[\s\S]*?\]/)?.[0] || ''));
 ok('S7 产物已接入（CSS 与 JS 两处都在 index.html）', prod.includes(ADJ_CSS) && prod.includes(ADJ_JS), prod.length + ' 字节');
+ok('S8 #783 抽屉层级让位在位（候选浮层清单 + 取最低者减一 + 关抽屉拆监听）',
+  /CS_DRAWER_OVERLAYS = \['\.modal-mask'/.test(cj) && cj.includes(YIELD_JS) && /clearInterval\(csDrawerWatchTimer\); csDrawerWatchTimer = 0;/.test(cj));
+ok('S9 #783 抽屉里有换壁纸的两个入口，且设置页与抽屉共用同一图库入口（不分叉出第二条上传链）',
+  /try \{ csBgPickFiles\(\); \} catch/.test(cj) && /mkAct\('图库 · 换一张'/.test(cj)
+  && /function csBgOpenGallery\(\)/.test(cj) && /try \{ csBgOpenGallery\(\); \} catch/.test(cj)
+  && /csBg\.addEventListener\('click', csBgOpenGallery\)/.test(cj));
+ok('S10 产物已接入 #783（让位与重渲染两条逻辑锚点各 1 处）',
+  (prod.split(YIELD_JS).length - 1) === 1 && (prod.split(RESIG_JS).length - 1) === 1, prod.length + ' 字节');
 
 // ================= 载入 =================
 const VW = 390, VH = 844;
@@ -369,6 +395,88 @@ ok('E3 「重置」→ 三键删除、计算值回缺省、回显文案回「居
   e2.store === '||' && e2.pos === '50% 50%' && e2.size === 'contain' && /居中/.test(String(e2v)), JSON.stringify({ store: e2.store, pos: e2.pos, size: e2.size, val: e2v }));
 const e3 = await evalJs(`(function(){var m=document.getElementById('cs-bg-adj-panel');return m?getComputedStyle(m).display:'gone';})()`);
 ok('E4 重置后面板自动收起（不打断继续看）', e3 === 'none' || e3 === 'gone', e3);
+
+// ================= G 组 #783 抽屉里就能换壁纸 =================
+console.log('== G 组 抽屉里换壁纸（入口 / 层级让位 / 换图后重渲染）==');
+// 图库里放一张（与当前壁纸同源），面板才有可点的缩略图
+await evalJs(`(function(){try{var p='xy-home-v2:default:';var d=localStorage.getItem(p+'cs-bg')||'';
+  localStorage.setItem(p+'cs-bg-glist',JSON.stringify(['gseed']));
+  localStorage.setItem(p+'cs-bg-item-gseed',d);
+  localStorage.setItem(p+'cs-bg-active-id','gseed');return 1;}catch(e){return 0;}})()`);
+await evalJs("(function(){var a=document.querySelector('.app[data-app=\"chat\"]');if(a)a.click();return 1;})()");
+await sleep(600);
+await evalJs("(function(){var b=document.getElementById('cs-live-adjust');if(b)b.click();return 1;})()");
+await sleep(500);
+await evalJs("(function(){var d=document.getElementById('chat-beauty-drawer');var c=d&&d.querySelector('button[data-sec=\"bar\"]');if(c)c.click();return 1;})()");
+await sleep(400);
+const drawerBtnText = () => evalJs(`(function(){var d=document.getElementById('chat-beauty-drawer');if(!d)return JSON.stringify({t:'',up:null,gal:null});
+  var out={t:'',up:null,gal:null};
+  Array.prototype.forEach.call(d.querySelectorAll('button'),function(b){var tx=(b.textContent||'').trim();var r=b.getBoundingClientRect();
+    if(/上传壁纸（可多选）/.test(tx))out.up=Math.round(r.width)+'x'+Math.round(r.height);
+    if(/图库 · 换一张/.test(tx))out.gal=Math.round(r.width)+'x'+Math.round(r.height);
+    out.t+=tx+'/';});
+  return JSON.stringify(out);})()`);
+const g1 = JSON.parse(String(await drawerBtnText()));
+const boxOK = (s) => { const m = /^(\d+)x(\d+)$/.exec(String(s || '')); return !!(m && +m[1] >= 80 && +m[2] >= 24); };
+ok('G1 抽屉「栏位」里有换壁纸的两个入口且都排得出尺寸（上传壁纸 + 图库 · 换一张）',
+  /上传壁纸（可多选）/.test(g1.t) && /图库 · 换一张/.test(g1.t) && boxOK(g1.up) && boxOK(g1.gal), JSON.stringify({ up: g1.up, gal: g1.gal }));
+// G2 上传入口：钩住 file input 的 click（不真弹系统选择器），验它走的是统一入口 mochiFilePick
+await evalJs("(function(){window.__pickClicks=0;var o=HTMLInputElement.prototype.click;" +
+  "HTMLInputElement.prototype.click=function(){if(this.type==='file'){window.__pickClicks++;return 1;}return o.apply(this,arguments);};return 1;})()");
+await evalJs("(function(){var d=document.getElementById('chat-beauty-drawer');var bs=d.querySelectorAll('button');" +
+  "for(var i=0;i<bs.length;i++){if((bs[i].textContent||'').indexOf('上传壁纸')>=0){bs[i].click();return 1;}}return 0;})()");
+await sleep(800);
+const g2 = JSON.parse(String(await evalJs(`(function(){var i=document.getElementById('dev-cs-bg-pick');
+  return JSON.stringify({clicks:window.__pickClicks||0,has:!!i,accept:i?i.accept:'',multi:i?!!i.multiple:false,attached:!!(i&&i.parentNode)});})()`)));
+ok('G2 点「上传壁纸」→ 走统一文件选择入口（常驻 input 在位、accept=image/* 且多选、click 已派发）',
+  g2.has && g2.clicks >= 1 && g2.accept === 'image/*' && g2.multi && g2.attached, JSON.stringify(g2));
+// G3 图库面板：抽屉必须让位，否则面板藏在抽屉背后＝用户看到的「点了没反应」（#783 本体）
+await evalJs("(function(){var d=document.getElementById('chat-beauty-drawer');var bs=d.querySelectorAll('button');" +
+  "for(var i=0;i<bs.length;i++){if((bs[i].textContent||'').indexOf('图库 · 换一张')>=0){bs[i].click();return 1;}}return 0;})()");
+await sleep(800);
+const g3 = JSON.parse(String(await evalJs(`(function(){var m=document.getElementById('cs-bg-panel'),d=document.getElementById('chat-beauty-drawer');
+  if(!m||!d) return JSON.stringify({err:'no-panel'});
+  var box=m.firstElementChild, r=box?box.getBoundingClientRect():null, hit='';
+  if(r){var e=document.elementFromPoint(r.left+r.width/2, r.top+14); hit=e?(m.contains(e)?'panel':((e.id||e.className||e.tagName)+'')) :'';}
+  return JSON.stringify({disp:getComputedStyle(m).display,mz:+getComputedStyle(m).zIndex,dz:+getComputedStyle(d).zIndex,hit:hit,thumb:m.querySelectorAll('img').length});})()`)));
+ok('G3 点「图库」→ 面板浮出且抽屉让位（面板层级压过抽屉、面板头部命中得到＝点在图上而不是隔着一层）',
+  g3.disp === 'flex' && g3.mz > g3.dz && g3.hit === 'panel' && g3.thumb >= 1, JSON.stringify(g3));
+await evalJs("(function(){var m=document.getElementById('cs-bg-panel');var bs=m.querySelectorAll('button');" +
+  "for(var i=0;i<bs.length;i++){if(bs[i].textContent==='关闭'){bs[i].click();return 1;}}m.style.display='none';return 0;})()");
+await sleep(800);
+const g4 = await evalJs("(function(){return getComputedStyle(document.getElementById('chat-beauty-drawer')).zIndex;})()");
+ok('G4 面板收起后抽屉层级回正（临时压低只是让位，不是永久改 CSS 95）', Number(g4) === 95, g4);
+// G5/G6 换壁纸后不必关开抽屉：抽屉里的三条壁纸滑杆随壁纸身份出现/收起
+const wSliders = () => evalJs(`(function(){var d=document.getElementById('chat-beauty-drawer');if(!d)return JSON.stringify({n:-1,txt:''});
+  var rs=d.querySelectorAll('input[type=range]'),n=0;
+  for(var i=0;i<rs.length;i++){var s=rs[i].parentNode.querySelector('span');if(s&&/^壁纸 /.test(s.textContent))n++;}
+  return JSON.stringify({n:n,txt:d.textContent||''});})()`);
+await evalJs("(function(){localStorage.removeItem('xy-home-v2:default:cs-bg');return 1;})()");
+await sleep(900);
+const g5 = JSON.parse(String(await wSliders()));
+ok('G5 抽屉开着时壁纸没了 → 提示改成「还没设置壁纸」，三条壁纸滑杆当场收起',
+  g5.n === 0 && /还没设置壁纸/.test(g5.txt), JSON.stringify(g5));
+await evalJs("(function(){var p='xy-home-v2:default:';localStorage.setItem(p+'cs-bg',localStorage.getItem(p+'cs-bg-item-gseed'));return 1;})()");
+await sleep(900);
+const g6 = JSON.parse(String(await wSliders()));
+ok('G6 抽屉里刚上传/刚换壁纸 → 不必关开抽屉，三条壁纸滑杆当场出现', g6.n === 3 && !/还没设置壁纸/.test(g6.txt), JSON.stringify(g6));
+// G7 离开聊天页：抽屉是挂在 body 上的固定层（z 95 / bottom 0），不收就把目标页连同底部导航一起盖住
+const drawerBox = () => evalJs(`(function(){var d=document.getElementById('chat-beauty-drawer');if(!d)return JSON.stringify({disp:null});
+  var r=d.getBoundingClientRect();var pg=document.querySelector('.page:not([hidden])');
+  return JSON.stringify({disp:getComputedStyle(d).display,z:+getComputedStyle(d).zIndex,page:pg?pg.id:'',h:Math.round(r.height)});})()`);
+await evalJs("(function(){var a=document.querySelector('.app[data-app=\"calendar\"]');if(a)a.click();return !!a;})()");
+await sleep(1200);
+const g7 = JSON.parse(String(await drawerBox()));
+ok('G7 离开聊天页 → 抽屉就地收起（不再占屏盖住目标页与底部导航），且不把人拽回聊天设置页',
+  g7.disp === 'none' && g7.page === 'page-calendar' && g7.h === 0, JSON.stringify(g7));
+// G8 就地收起之后抽屉还能正常再开（收起没把状态/定时器弄坏）
+await evalJs("(function(){var b=document.getElementById('cs-live-adjust');if(b)b.click();return !!b;})()");
+await sleep(1200);
+const g8 = JSON.parse(String(await drawerBox()));
+ok('G8 收起后再点入口仍能打开（回到聊天页 + 抽屉复现 + 层级回到基准）',
+  g8.disp === 'flex' && g8.page === 'page-chat' && g8.z === 95, JSON.stringify(g8));
+await evalJs("(function(){var d=document.getElementById('chat-beauty-drawer');var x=d.querySelector('.cs-drawer-close')||d.querySelector('button[title]');if(x)x.click();return 1;})()");
+await sleep(300);
 
 console.log('== F 运行期健康 ==');
 ok('F1 全程零 JS 异常', jsErrs.length === 0, jsErrs.slice(0, 3).join(' | '));

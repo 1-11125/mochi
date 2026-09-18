@@ -13,6 +13,15 @@
 //   A11 开屏公告双份镜像：template.html 第八章 与 notice.json 第八章同在（漏一份＝公告口径分裂）
 //   A12 build.mjs 登记 #726a~d 四条哨兵（删哨兵＝修复被覆盖时构建照绿）
 //   A13 node --check perf-check.js 语法过
+// —— #770 追加（2026-09-18 红米 K80 Chrome 实报：停在设置页自检，报告称「掉帧集中:占卜(100%)」，
+//    且「结论:流畅(未捕获掉帧)」与下方「掉帧 1 帧」并存）——
+//   A14 掉帧归因读最上层全屏页 .page（旧实现读 .app 桌面图标＝图标显隐不随页面切换，归因恒错）
+//   A15 旧桌面图标归因读取已删（回流＝「掉帧集中」恒报图标名而非实际所在页）
+//   A16 掉帧阈值自适应 jankThr + 24/34 上下限（固定 32ms 在高刷屏漏计、持续掉帧窗口漏判）
+//   A17 「流畅」但对零星掉帧的结论说真话（x% 可忽略；删＝与「掉帧 N 帧」自相矛盾回流）
+//   A18 「掉帧集中」≥3 帧门槛 concOk（单帧噪声不引导用户排查该页大图/长内容）
+//   A19 按页采样帧数 pageFrames + 页面分布行（集中度对比的分母）
+//   A20 build.mjs 登记 #770a~e 五条哨兵
 // 用法：node tools/verify-perf-check.mjs [rootDir]
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -82,6 +91,16 @@ check('A12 build.mjs 登记 #726a~d 哨兵', sent === 4, '实际 ' + sent);
 // A13 语法
 const ck = spawnSync(process.execPath, ['--check', join(root, 'src', 'js', 'perf-check.js')], { stdio: 'ignore' });
 check('A13 node --check perf-check.js', !ck.status, 'exit ' + ck.status);
+
+// —— #770 追加 ——
+check('A14 掉帧归因读最上层全屏页 .page', pc.includes("querySelectorAll('.page:not([hidden])')"));
+check('A15 旧桌面图标归因读取已删', !pc.includes(".app:not([hidden])"));
+check('A16 掉帧阈值自适应 jankThr + 24/34 上下限', pc.includes('function jankThr()') && pc.includes('var MIN_JANK = 24;') && pc.includes('var MAX_JANK = 34;'));
+check('A17 「流畅」+零星掉帧结论说真话（x% 可忽略）', pc.includes("'%，可忽略）'"));
+check('A18 「掉帧集中」≥3 帧门槛 concOk', pc.includes('function concOk(r)'));
+check('A19 按页采样帧数 pageFrames + 页面分布行', pc.includes('pageFrames') && pc.includes('采样期间主要在：'));
+const sent770 = (build.match(/#770[a-e] /g) || []).length;
+check('A20 build.mjs 登记 #770a~e 哨兵', sent770 === 5, '实际 ' + sent770);
 
 console.log('----');
 console.log('verify-perf-check: ' + pass + ' 通过 / ' + fail + ' 失败');

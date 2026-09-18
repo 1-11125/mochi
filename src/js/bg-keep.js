@@ -207,7 +207,20 @@
   // 策略：音乐播放期间（window.__musicPlaying=true）保活音频主动让位暂停——
   // 音乐自带活跃媒体会话（playbackState=playing），后台同样不被冻结，保活目的不丢；
   // 音乐停止/暂停后自动把保活音频拉回来。
-  function musicNowPlaying() { try { return !!window.__musicPlaying; } catch (e) { return false; } }
+  function musicNowPlaying() {
+    try { if (!window.__musicPlaying) return false; } catch (e) { return false; }
+    // #780 实效核验：标志说「在播」时再看元素真值。ROM/浏览器静默掐掉音频流不必然触发
+    // onpause ⇒ 标志卡在 true，而这里一卡就让位（主动 pause 保活音频），主豁免当场丢失、
+    // 整页冻结——红米 Chrome 151 取证形态「音频=暂停 · 媒体条=playing」即此。读到元素
+    // 明确 paused 才判「没在播」；拿不到只读出口时退回原语义（宁可让位，不回归 v3.10.x
+    // 修的音频拉锯）。
+    try {
+      const m = window.__mochiMusic;
+      if (m && m.el && m.el.paused === false) return true;
+      if (m && m.el && m.el.paused === true) return false;
+    } catch (e) {}
+    return true;
+  }
   function syncKeepForMusic() {
     if (!keepAudio || !keepAudio.el) return;
     try {
@@ -216,6 +229,13 @@
       } else if (keepEnabled && keepAudio.el.paused) {
         // 音乐停止，收回保活音频：已在退避轨道就让排程接管；否则立即试播
         if (kaTimer || kaDelay) return;
+        // #780：假死核验——标志仍在播而元素已停、且用户播放意图还在，替它推一把。
+        // 本模块只有只读出口，不推的话音乐一直不响、保活音频却已接管（媒体条挂着已暂停的歌）。
+        // want() 为假＝用户主动暂停，绝不越权恢复。
+        try {
+          const m = window.__mochiMusic;
+          if (window.__musicPlaying && m && m.el && m.el.paused && m.want && m.want()) m.el.unpause();
+        } catch (e) {}
         const p = keepAudio.el.play();
         if (p && p.catch) p.catch(function () {});
         // v3.17.x：音乐停止/暂停后把媒体条接管回「Mochi 后台保活」——
@@ -419,11 +439,31 @@
           .then(function (ans) { return b.setLocalDescription(ans); })
           .then(function () { return a.setRemoteDescription(b.localDescription); });
       };
-      wire(p1, p2).then(function () {
-        // SDP 交换完成后统一 flush 缓存的 ICE 候选
+      // #780：等两端 ICE 采集完成再 flush。原实现在 setLocalDescription 刚落地的同一拍
+      // 就 flush——而 gather 是异步的，那一刻 kaCand1/kaCand2 基本还是空的，两端都拿不到
+      // 对端候选 ⇒ connectionState 恒 'new'、永不 connected（真机取证 WebRTC=new 即此，
+      // 第二冻结豁免一直是死的）。3 秒兜底与 #673 给头像裁剪加截止同源：gather 卡住也要放行。
+      const gathered = function (pc) {
+        return new Promise(function (res) {
+          let done = false;
+          const fin = function () { if (!done) { done = true; res(); } };
+          try { if (pc.iceGatheringState === 'complete') { fin(); return; } } catch (e) { fin(); return; }
+          try {
+            pc.addEventListener('icegatheringstatechange', function () {
+              try { if (pc.iceGatheringState === 'complete') fin(); } catch (e) { fin(); }
+            });
+          } catch (e) { fin(); }
+          setTimeout(fin, 3000);
+        });
+      };
+      const flush = function () {
         try { for (let i = 0; i < kaCand2.length; i++) p1.addIceCandidate(kaCand2[i]); } catch (e) {}
         try { for (let i = 0; i < kaCand1.length; i++) p2.addIceCandidate(kaCand1[i]); } catch (e) {}
-      }).catch(function () { kaWebrtcStop(); kaWebrtcScheduleRebuild(); });
+      };
+      wire(p1, p2)
+        .then(function () { return Promise.all([gathered(p1), gathered(p2)]); })
+        .then(flush)
+        .catch(function () { kaWebrtcStop(); kaWebrtcScheduleRebuild(); });
       p1.onconnectionstatechange = function () {
         const st = p1.connectionState;
         if (st === 'connected') {
@@ -539,13 +579,28 @@
     let audio = null, ms = null;
     try { audio = keepAudio && keepAudio.el ? { paused: !!keepAudio.el.paused, volume: keepAudio.el.volume, loop: !!keepAudio.el.loop } : null; } catch (e) {}
     try { ms = ('mediaSession' in navigator && navigator.mediaSession) ? { metadata: !!navigator.mediaSession.metadata, state: navigator.mediaSession.playbackState } : null; } catch (e) {}
+    // #780：把「保活音频被谁按住」摊开——取证曾见「音频=暂停 而 媒体条=playing」互相矛盾，
+    // 现有字段判不出是 __musicPlaying 标志假死还是元素真停了，四项一起交即可分辨。
+    let music = null;
+    try {
+      const m = window.__mochiMusic;
+      music = {
+        flag: !!window.__musicPlaying,
+        paused: m && m.el ? !!m.el.paused : null,
+        want: m && m.want ? !!m.want() : null,
+        strict: musicNowPlaying()
+      };
+    } catch (e) {}
     return {
       keep: keepEnabled,
       notify: notifyEnabled,
       perm: ('Notification' in window) ? Notification.permission : 'unsupported',
       audio: audio,
       ms: ms,
+      music: music,
       pc: kaPc1 ? (kaPc1.connectionState || 'new') : 'off',
+      pcGathering: kaPc1 ? (function () { try { return kaPc1.iceGatheringState || '?'; } catch (e) { return '?'; } })() : 'off',
+      pcCand: (kaCand1.length + kaCand2.length) | 0,
       pcNext: kaWebrtcTimer ? kaWebrtcRebuildDelay : 0,
       hb: kaHb ? { n: kaHb.n, hid: kaHb.hid, ts: kaHb.ts, resumed: kaHb.resumed, trail: (kaHb.trail || []).slice() } : null,
       ev: { stall: kaEv.stall, died: kaEv.died }
@@ -621,7 +676,21 @@
             }
             if (!keepAudio.el.paused) {
               // 音频在跑就持续声明"正在播放"，维持媒体会话活跃
-              try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+              // FIX 2026-09-18 #780：隐藏态不再无条件重抢播放条——原实现每 5s 把
+              // playbackState 按回 'playing'，会把同浏览器另一标签页（网页版网易云等）
+              // 刚接管的系统媒体会话抢回来，真机表现＝通知栏条变成「Mochi 后台保活」+
+              // 用户的音乐被挤停。改为「谁在放音乐谁拿条」：隐藏态只在条确实还归保活自己
+              // 时才维持该信号，被接走（或没了）就让位。前台照旧，回前台由 healKeepAlive 接管。
+              let hold = true;
+              try {
+                if (document.visibilityState === 'hidden') {
+                  const md = navigator.mediaSession && navigator.mediaSession.metadata;
+                  hold = !!(md && String(md.title) === 'Mochi 后台保活');
+                }
+              } catch (e) { hold = true; }
+              if (hold) {
+                try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+              }
               // 稳定播放够久 → 复位退避连击（下次打断从头 5s 起退避）
               if (kaPauseStreak && Date.now() - kaLastPlayAt > kaStableMs()) kaPauseStreak = 0;
               return;
@@ -1640,7 +1709,7 @@
     return !!(last && Date.now() - last < NOTIFY_SEEN_DUP_MS);
   }
   // v3.13.x：拦截统计——诊断"只听见声音不弹窗"时一屏看出每条消息卡在哪道闸门
-  let gateStats = { total: 0, tooFresh: 0, dup: 0, sent: 0 };
+  let gateStats = { total: 0, tooFresh: 0, dup: 0, replay: 0, sent: 0 };
   window.bgNotifyGateStats = function () { return Object.assign({}, gateStats); };
   // 只读探针：诊断/回归用——给定文本（+可选图片 dataURL、可选本次到达时刻 refTs）
   // 当前会被哪道闸门拦下
@@ -1659,6 +1728,13 @@
       dupNotified: notifiedDup(nkey),
       dupSeen: seenDup(nkey),
       dupInChat: recentChatDup(nkey, refTs),
+      // #780：身份闸门读数——本条此前有一次「在场投递」或「已弹过通知」即为 true
+      identityBlocked: (function () {
+        try {
+          const d = window.__mochiMsgDelivered ? window.__mochiMsgDelivered(refTs, 'in') : null;
+          return !!(d && (d.vis || d.nAt));
+        } catch (e) { return false; }
+      })(),
       nkey: nkey
     };
   };
@@ -1676,6 +1752,20 @@
     const nkey = msgFingerprint(text, extra.img);
     if (document.visibilityState === 'visible') { markSeen(nkey); return; }
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    // FIX 2026-09-18 #780：消息身份闸门（治「切后台突然弹前几分钟看过的消息」）——
+    // 整页冻结解冻时积压的回复链一口气重投，下面三道内容去重窗口起点全是 Date.now()
+    // （已弹 2min / 已看 3min / 历史 5min），冻结几分钟就全部熬过期，重放被判成新内容。
+    // 内容指纹加宽会误吞同文案的真消息（v3.20.x 已反复折过），这里改按【消息身份】判：
+    // chat.js 每条消息首次投递时打了 dAt/dVis（dVis=1＝用户当场看得见），本次触发距那次
+    // 投递已 >200ms（非同一条投递链）且当时在场 ⇒ 这是重放，只留聊天记录与角标，不进通知栏。
+    // 同理 nAt（本条通知已受理过）永不再弹第二遍——内容指纹的 2 分钟窗会被冻结时长熬过期，
+    // 消息自身的身份标记不会。force（来电等一次性事件）照旧绕过。
+    if (!extra.force && extra.msgTs) {
+      try {
+        const d = window.__mochiMsgDelivered ? window.__mochiMsgDelivered(extra.msgTs, 'in') : null;
+        if (d && (d.vis || d.nAt)) { gateStats.replay++; return; }
+      } catch (e) {}
+    }
     gateStats.total++;
     // v3.31.x：extra.force —— 一次性事件（如来电通知）不适用过渡期/去重闸门：
     // 来电是「错过就没了」的单发事件，切后台头 15 秒内命中、或与近期通知文案
@@ -1758,7 +1848,12 @@
       if (previewImg) opts.image = previewImg;
       // v3.12.x：受理成功才记入"已通知"指纹（窗口内同内容不再重弹）
       showSysNotification(name, opts).then(function (ok) {
-        if (ok) markNotified(nkey);
+        if (ok) {
+          markNotified(nkey);
+          // FIX 2026-09-18 #780：受理成功再按【消息身份】落一个永久标记（随 rec 落盘）——
+          // 内容指纹的 2 分钟已发窗口会被冻结时长熬过期，身份标记不会。写失败一律静默。
+          try { if (extra.msgTs && window.__mochiMsgNotified) window.__mochiMsgNotified(extra.msgTs, 'in'); } catch (e) {}
+        }
       });
     };
     if (bigIcon) {

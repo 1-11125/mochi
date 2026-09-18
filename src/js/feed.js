@@ -967,7 +967,9 @@
   //   切联系人、点掉回忆卡都会变），绝不会拿旧 DOM 当新数据。
   let feedRenderSig = '';
   function feedRenderSignature(posts, shown, name, memId) {
-    const parts = [window.activePrefix(), shown, name, memId, posts.length];
+    // #785：签名并入加载闸门位——回填中/回填完两次的空列表必须算两次不同渲染，
+    // 否则 sig 早退会把「还在读取」占位一直留在屏上（真就绪后也不改口）。
+    const parts = [window.activePrefix(), window.mochiDataPending ? (window.mochiDataPending() ? 'L' : 'F') : 'F', shown, name, memId, posts.length];
     for (let i = 0; i < shown; i++) {
       const p = posts[i];
       if (!p) { parts.push('-'); continue; }
@@ -1029,12 +1031,19 @@
     listEl.innerHTML = memHtml + (posts.length
       ? posts.slice(0, feedShownMain).map(p => postCardHtml(p, name)).join('') +
         (posts.length > feedShownMain ? feedMoreBtnHtml(posts.length - feedShownMain) : '')
-      : '<div class="ta-empty">还没有动态，TA 会不定期分享生活<br><button class="memo-send-btn" id="feed-empty-pub" style="margin-top:8px">我来发第一条</button></div>');
+      : ((window.mochiDataPending && window.mochiDataPending())
+        ? window.mochiLoadingHtml('朋友圈内容')
+        : '<div class="ta-empty">还没有动态，TA 会不定期分享生活<br><button class="memo-send-btn" id="feed-empty-pub" style="margin-top:8px">我来发第一条</button></div>'));
     feedRenderSig = sig;
     const clearBtn = document.getElementById('feed-head-clear');
     if (clearBtn) clearBtn.hidden = !posts.length;
     bindEvents(listEl);
   }
+  // #785：回填真完成后补渲一次——跨就绪边界的改口由签名里的闸门位保证（见 feedRenderSignature）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () {
+    try { render(); } catch (e) {}
+    if (feedAllCid) { try { renderFeedAll(); } catch (e) {} }
+  });
   // v3.5.95：朋友圈图片点击放大（复用聊天大图查看器）
   // v3.6.x：抽成独立函数，主列表与「全部朋友圈」共用（原先全部朋友圈页图片点不动）
   function bindFeedImageClicks(listEl) {
@@ -2450,7 +2459,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     listEl.innerHTML = posts.length
       ? posts.slice(0, feedShownAll).map(p => postCardHtmlAll(p)).join('') +
         (posts.length > feedShownAll ? feedMoreBtnHtml(posts.length - feedShownAll) : '')
-      : '<div class="ta-empty">还没有动态</div>';
+      : ((window.mochiDataPending && window.mochiDataPending())
+        ? window.mochiLoadingHtml('该联系人的动态')
+        : '<div class="ta-empty">还没有动态</div>');
     // v3.7.x：全部朋友圈页与主列表共用事件绑定——点赞/评论/回复/删除/图片放大全可用
     //（bindEvents 里的 .feed-head-av 该页无此元素，自动跳过）
     bindEvents(listEl);

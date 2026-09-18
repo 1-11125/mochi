@@ -601,7 +601,18 @@
           let a = null;
           if (Array.isArray(v)) a = v;
           else { try { const p = JSON.parse(v); if (Array.isArray(p)) a = p; } catch (e2) {} }
-          if (a && a.length >= msgs.length) { msgs = a; renderAll(); }
+          // #772：进群时已按 LS 快照渲染过一次（enterGroupChat 的 renderAll），IDB 权威回来若
+          // 与快照同条数且快照非 lite（小记录快照＝全量同内容），再整页 renderAll 是纯重复——
+          // body.innerHTML 全清重渲＋图片重新解码＝首次打开网页冷启动 IDB 读取稍慢时，
+          // 两次渲染间隔肉眼可见＝「聊天记录闪一下才正常」。只在权威确实更多、或快照被
+          // 裁剪/lite 化（大记录场景）时才重渲；内容始终采纳权威（msgs = a）。
+          if (a && a.length >= msgs.length) {
+            let snapLite = false;
+            for (let i = 0; i < msgs.length; i++) { if (msgs[i] && msgs[i]._lsLite) { snapLite = true; break; } }
+            const sameAsRendered = a.length === msgs.length && !snapLite;
+            msgs = a;
+            if (!sameAsRendered) renderAll();
+          }
           gcLoadSettle(seq); // #710：权威落定（合入或放弃）即收起进度条
         }).catch(() => { gcLoadSettle(seq); });
       } else { gcLoadSettle(seq); }

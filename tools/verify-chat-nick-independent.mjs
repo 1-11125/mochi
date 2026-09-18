@@ -1,6 +1,7 @@
 // ===== 回归验证：聊天昵称与桌面彻底解耦（FIX-REGRESSION #45） =====
 // 背景：用户要求聊天设置「联系人昵称/我的昵称」不跟随桌面——聊天域只读 cs-lbl-*，
-// 未设默认 TA/我；桌面美化昵称只影响桌面。本脚本走真实链路：
+// 未设时走取名链 cs-lbl-partner → 联系人名片名 → 称呼词（#775a；我的昵称侧默认「我」）；
+// 桌面美化昵称只影响桌面。本脚本走真实链路：
 // 设桌面昵称 → 刷新 → 断言聊天页顶栏/聊天设置行不受影响 → 走弹窗设聊天昵称
 // → 断言生效+持久化 → 再断言桌面键未被波及。
 // 用法：node tools/verify-chat-nick-independent.mjs
@@ -59,12 +60,15 @@ await bootTo('page-chat-settings');
 const h1 = await page.evaluate("document.getElementById('chat-partner-name').textContent");
 check('未设聊天昵称时顶栏不跟随桌面昵称', h1 !== '桌面昵称甲', 'header=' + h1);
 const r1 = await page.evaluate("(function(){return {p:(document.getElementById('cs-lbl-partner-val')||{}).textContent, u:(document.getElementById('cs-lbl-user-val')||{}).textContent};})()");
-check('设置行未设时显示「未设置（默认 TA）」', r1.p === '未设置（默认 TA）', JSON.stringify(r1));
+// #775a 起未设聊天昵称时显示的是「联系人名片名」（不再是写死的 TA）；本夹具默认名片名＝「默认」。
+// 立意不变：它跟的是名片名，绝不跟桌面美化昵称。
+const cardName = await page.evaluate("(window.contactNameFor && window.contactNameFor(window.__activeCid)) || 'TA'");
+check('设置行未设时显示「未设置（当前显示「名片名」）」', r1.p === '未设置（当前显示「' + cardName + '」）', JSON.stringify(r1) + ' card=' + cardName);
 check('设置行未设时显示「未设置（默认 我）」', r1.u === '未设置（默认 我）', JSON.stringify(r1));
 const d1 = await page.evaluate("window.activeStore().get('lbl-partner')");
 check('桌面昵称键未被清除', d1 === '桌面昵称甲', 'lbl-partner=' + d1);
 const pn1 = await page.evaluate("window.chatPartnerName()");
-check('chatPartnerName 未设时为 TA', pn1 === 'TA', 'chatPartnerName=' + pn1);
+check('chatPartnerName 未设时取名片名（且不等于桌面昵称）', pn1 === cardName && pn1 !== '桌面昵称甲', 'chatPartnerName=' + pn1 + ' card=' + cardName);
 
 // 3. 走真实弹窗设聊天昵称（联系人 + 我的）
 await page.evaluate("(function(){document.getElementById('cs-lbl-partner').click();return true;})()");
@@ -93,7 +97,7 @@ await bootTo('page-chat-settings');
 const h3 = await page.evaluate("document.getElementById('chat-partner-name').textContent");
 const r3 = await page.evaluate("(document.getElementById('cs-lbl-partner-val')||{}).textContent");
 check('清空后顶栏回默认（不显示桌面昵称）', h3 !== '桌面昵称甲', 'header=' + h3);
-check('清空后行值回「未设置（默认 TA）」', r3 === '未设置（默认 TA）', 'row=' + r3);
+check('清空后行值回「未设置（当前显示「名片名」）」', r3 === '未设置（当前显示「' + cardName + '」）', 'row=' + r3);
 
 if (pageErrors.length) console.log('页面错误: ' + pageErrors.join(' | '));
 const fails = results.filter(r => !r.ok).length;

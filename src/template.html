@@ -40,6 +40,16 @@
         <div class="splash-title">mochi 摸鱼字卡</div>
         <!-- v3.8.y：署名（小红书）移到顶部，紧跟标题下方 -->
         <div class="splash-brand">小红书@言序（1842523578） · 抖音@言序（58334080131）</div>
+        <!-- v3.26.x #793：停更公告横幅——2026年9月底后永久停更＋停更后设备兼容 bug 不再代调（用户 2026-09-18 直派
+             「开屏第一页显眼的地方新增」）。放品牌卡署名行正下方＝开屏第一屏第一眼必见；红色警示形态（同 #315b 免责卡红）；
+             静态 DOM（data-stop-update 标记，不占 data-anti-scam / data-browser-warn 命名空间，与 clock.js / pwa.js
+             看门狗的认领与重建互不干扰）。#792 批已把「2026.9.30 完结永久停更」写进设置→关于，此处为开屏侧同步口径 -->
+        <div class="splash-stopupdate" data-stop-update="1">
+          <div class="splash-stopupdate-t">停更公告 · 2026年9月底后永久停更</div>
+          <p><strong>mochi字卡 2026年9月底后永久停更。</strong>停更后不会再帮人调不同人的设备型号的兼容 bug。</p>
+          <p>作者自己的手机使用无异常情况；其他人的设备上的问题，不报出来作者手机碰不到、也无法发现——不同手机型号的情况就是不同。</p>
+          <p><strong>永久停更以后，建议自己拿代码给 AI 调</strong>（代码已在 GitHub 完全开源，可自行下载修改）。</p>
+        </div>
         <!-- 设计作者说明：设计与开发均由作者一个人独立完成，紧跟署名下方 -->
         <div class="splash-source">
           <div class="splash-source-line">设计与开发均由作者@言序　一个人独立完成。</div>
@@ -114,7 +124,7 @@
         <div class="splash-notice-list">
           <div class="splash-summary">
             <p class="splash-summary-title">必读摘要</p>
-            <p class="splash-hl">【原公告】部分内容已移动至【设置】的【关于】里（打开路径：设置 → 关于 → 常见问题）。</p>
+            <p class="splash-hl">【有问题先去「关于」找答案，再去报修】原公告里大部分解答过的问题已移动至【设置 → 关于】：数据丢失 / 浏览器自动清数据 / 存储权限 / 无痕模式 / 备份恢复 / 会不会做成 App / 全屏失效等。打开路径：设置 → 关于 →「数据与存储（重要）」「常见问题」「使用说明」。</p>
             <p class="splash-hl">本站完全免费，个人出资搭建、代码开源，开放二传二改但禁止以盈利为目的；二传、分享必须标注署名：小红书 @言序（1842523578），严禁收费倒卖。作者已决定月底停更、互助群月底解散（详见「互助群公告」章）。</p>
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p class="splash-hl">关于二级验证密码（暗号）：6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（生日写在开屏目录里，不是最底下的部署时间）。解开后请勿二传。</p>
@@ -1681,6 +1691,38 @@
            2026.8.12 开工 ~ 2026.9.30 完结永久停更，没能把所有内容全部检查完写的有没有错误，需向用户明示仅供参考。
            用 set-alert 现成样式放分区顶部（不新增 set-group，verify-about-cat B1/B2/B5 口径不变；非 set-row，设置搜索不受影响） -->
       <div class="set-alert" id="about-eol-note"><b>本项目 2026.8.12 开工，2026.9.30 完结，之后永久停更、不再更新。</b>功能太多、工程量太大，没能把所有内容全部检查完、写的有没有错误没法逐一保证——所以本站所有内容仅供参考。停更后遇到问题可先看「使用说明」和「常见问题」；重要数据请定期导出备份。</div>
+      <!-- #792（2026-09-18 用户直派）：数据与存储必读——小白用户对「数据为什么会没」有大量重复疑问
+           （浏览器自动清数据 / 存储权限 / 无痕模式 / 备份 / 是不是 bug），逐条写成只读说明放关于段最顶。
+           三处同步：详版弹窗文案在 personalize.js initAboutInfo，短版功能说明在 settings-help.js，警示条+行在此 -->
+      <div class="set-alert" id="about-storage-note"><b>数据无价，先懂三条设备限制：</b>① 本站数据只存在你这台手机的这个浏览器里，没有云端、不会自动同步；② 浏览器 / 手机系统在「清理垃圾、释放空间、存储不足、长时间不打开」时会自动清掉网站数据；③ 无痕（隐私）模式一关就全部清空。这些都不是 bug、删了也找不回——唯一防线是定期导出备份（设置 → 工具 → 导出数据）。逐条详解见下方「数据与存储（重要）」。</div>
+      <div class="set-group glass">
+        <div class="gs-title">数据与存储（重要）</div>
+        <div class="set-row" id="row-faq-st-lose">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+          <div class="txt">数据为什么会自己没<span class="sub">浏览器/系统自动清除 · 设备限制 · 先看这条</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-st-perm">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg></div>
+          <div class="txt">浏览器的存储权限与设置<span class="sub">允许保存网站数据 · 关掉「自动清除」类开关</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-st-incog">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg></div>
+          <div class="txt">为什么不能用无痕模式<span class="sub">关掉就全部清空 · 无法找回</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-st-backup">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></div>
+          <div class="txt">怎么备份与恢复（唯一防线）<span class="sub">导出完整备份 · 存到浏览器清不到的地方</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-st-bug">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+          <div class="txt">丢数据了，怎么判断是不是 bug<span class="sub">先按清单自查 · 再按格式报修</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+      </div>
       <!-- 应用信息：功能介绍与许可 / 版本与更新 / 开源与致谢 -->
       <div class="set-group glass">
         <div class="gs-title">应用信息</div>
@@ -6770,6 +6812,7 @@
   // 早于所有功能模块，任何设备都不会出现输入框不可用的情况
   (function () { var _ci = document.getElementById('chat-input'); if (_ci) _ci.readOnly = false; })();
 /*__SCRIPTS__*/</script>
+<!-- __SCRIPTS_EXT__ -->（PERF-PLAN 阶段 1：ext 外置脚本 defer 注入锚，构建时替换为 <script defer src="js/*.js">；勿删，删＝外置机制失效回全内联）
 
   <!-- PWA 安装到桌面按钮（Chrome/Edge 触发 beforeinstallprompt 时显示） -->
   <button class="pwa-install" id="pwa-install" hidden>

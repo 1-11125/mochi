@@ -100,8 +100,8 @@ function check(desc, ok, detail) {
 
 const KEY = 'xy-home-v2:default:chat-msgs';
 // 构造种子历史：3 条纯文本 + 2 条带图（img 用短 dataURL 形态即可命中指纹逻辑）
-function seedJs(fullExtra) {
-  const t = Date.now() - 100000;
+function seedJs(fullExtra, t0) {
+  const t = t0 || (Date.now() - 100000);
   const recs = [
     { side: 'out', text: '早上好', ts: t + 1000 },
     { side: 'in', text: '早上好呀', ts: t + 2000 },
@@ -140,7 +140,12 @@ function seedJs(fullExtra) {
   return { full: JSON.stringify(recs), lite: JSON.stringify(lite), n: recs.length };
 }
 
+// 种子时间基准＝「现在往前 100s」，一次算好供写入与断言共用（开屏注入的记录 ts≈现在，落在窗口外，
+// 所以条数断言只统计种子区间内的记录，不再被应用自注入的当日提醒之类的记录污染）。
+const SEED_T = Date.now() - 100000;
+
 async function loadFresh(seedMode) {
+  const base = seedMode ? SEED_T : 0;
   await cdp('Page.navigate', { url: 'about:blank' });
   await evalJs(`(function(){ try{ indexedDB.deleteDatabase('xy-home-v2'); }catch(e){} try{ localStorage.clear(); sessionStorage.clear(); }catch(e){} return 1; })()`);
   await cdp('Page.navigate', { url: baseUrl + '/index.html' });
@@ -149,7 +154,7 @@ async function loadFresh(seedMode) {
   await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide'))s.click();return 1;})()");
   await sleep(500);
   if (seedMode) {
-    const s = seedJs(seedMode === 'dupe' ? 'dupe' : '');
+    const s = seedJs(seedMode === 'dupe' ? 'dupe' : '', base);
     const okSeed = await evalJs(`(async function(){
       try {
         localStorage.setItem('${KEY}', ${JSON.stringify(s.lite)});
@@ -169,10 +174,11 @@ async function loadFresh(seedMode) {
 
 // ---- A+C. LS 有损快照合并 + 存量重复自愈 ----
 await loadFresh('dupe'); // 种子含存量重复（C）：文本对/超窗对/异侧/系统提示/非相邻/卡片对/图片对
-const baseN = seedJs('dupe').n - 4; // 期望干净条数 = 种子数 - 4 对重复（晚上吃什么/poke/相同卡片/同图片）
+const baseN = seedJs('dupe', SEED_T).n - 4; // 期望干净条数 = 种子数 - 4 对重复（晚上吃什么/poke/相同卡片/同图片）
 const a = await evalJs(`(function(){
   try {
-    var m = window.getChatMsgs();
+    var all = window.getChatMsgs() || [];
+    var m = all.filter(function (r) { return r && r.ts >= ${SEED_T} && r.ts <= ${SEED_T} + 30000; });
     // 与 collapseRapidDups 同口径（dupSig）检查：只查【数组相邻】的重复对
     function sig(x){
       if(!x) return '';
@@ -201,7 +207,7 @@ const a = await evalJs(`(function(){
     var cnt = function(side, text){ var n=0; m.forEach(function(r){ if ((r.side||'')===side && (r.text||'')===text) n++; }); return n; };
     var cntAsk = function(q){ var n=0; m.forEach(function(r){ if (r.special==='ask-card' && r.askQuestion===q) n++; }); return n; };
     var cntImg = function(){ var n=0; m.forEach(function(r){ if (r.img && (r.text||'')==='img1') n++; }); return n; };
-    return JSON.stringify({ total: m.length, badDup: badDup,
+    return JSON.stringify({ total: m.length, allTotal: all.length, badDup: badDup,
       cntNight: cnt('out','晚上吃什么'), cntBye: cnt('out','明天见'),
       cntPoke: cnt('in','拍了拍你'), cntZaima: cnt('out','在吗'), cntOther: cnt('out','别的'),
       cntAskSame: cntAsk('今晚吃什么'), cntAskDiff: cntAsk('周末去哪玩'), cntImg: cntImg() });
@@ -209,7 +215,7 @@ const a = await evalJs(`(function(){
 })()`) || '{}';
 {
   let aObj = {}; try { aObj = JSON.parse(a); } catch (e) {}
-  check('AC1 合并后条数正确（有损副本不计入+存量重复已收敛）', aObj.total === baseN, 'total=' + aObj.total + ' expect=' + baseN);
+  check('AC1 合并后条数正确（有损副本不计入+存量重复已收敛）', aObj.total === baseN, 'seedTotal=' + aObj.total + ' expect=' + baseN + ' 含注入=' + aObj.allTotal);
   check('AC2 收敛窗口内无残留同内容重复对', Array.isArray(aObj.badDup) && aObj.badDup.length === 0, JSON.stringify(aObj.badDup));
   check('AC4 存量脏重复对已收敛为 1 条', aObj.cntNight === 1, 'cnt=' + aObj.cntNight);
   check('AC6 相邻同内容系统提示(poke)已收敛为 1 条', aObj.cntPoke === 1, 'cnt=' + aObj.cntPoke);
@@ -226,11 +232,12 @@ for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) br
 await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide'))s.click();return 1;})()");
 await sleep(2500);
 const a2 = await evalJs(`(function(){
-  try { return JSON.stringify({ total: window.getChatMsgs().length }); } catch (e) { return JSON.stringify({ err: String(e) }); }
+  try { var a=window.getChatMsgs()||[]; var s=a.filter(function(r){ return r && r.ts >= ${SEED_T} && r.ts <= ${SEED_T} + 30000; });
+    return JSON.stringify({ seed: s.length, injected: a.length - s.length }); } catch (e) { return JSON.stringify({ err: String(e) }); }
 })()`) || '{}';
 {
   let o = {}; try { o = JSON.parse(a2); } catch (e) {}
-  check('AC5 二次刷新条数稳定（自愈已回写）', o.total === baseN, 'total=' + o.total + ' expect=' + baseN);
+  check('AC5 二次刷新条数稳定（自愈已回写）', o.seed === baseN, 'seed=' + o.seed + ' expect=' + baseN + ' 另有开屏注入=' + o.injected);
 }
 
 // ---- B. 发送路径防重发窗口 ----

@@ -55,7 +55,7 @@ check('A7 切桌面收口并作废基准段（chatConsolidate + chatArchClearBas
   /try \{ chatConsolidate\(chatArchPrefix\); \} catch \(e\) \{\}\ntry \{ hideTyping\(\); \} catch \(e\) \{\}\nchatArchClearBaseline\(\);\nmsgs = \[\];/.test(chatSrc));
 check('A8 读侧拼接增量日志并去重（ckptSigs 过滤后按 ts 排序拼接）',
   /window\.idbGet\(myPrefix \+ ':chat-arch'\)\.then\(function \(av\) \{/.test(chatSrc) &&
-  /archArr = archArr\.filter\(function \(m\) \{ return m && !ckptSigs\.has\(sigOf\(m\)\); \}\);/.test(chatSrc) &&
+  /archArr = archArr\.filter\(function \(m\) \{ return m && !ckptSigs\.has\(sigOf\(m\)\) && !chatRecKeysHit\(ckptCopies, m\); \}\);/.test(chatSrc) &&
   /idbArr = ckptArr\.concat\(archArr\)\.sort\(/.test(chatSrc));
 check('A9 读库成功后设基准段（此后只写增量日志）',
   /try \{ chatArchSetBaseline\(myPrefix, ckptArr\); \} catch \(e\) \{\}/.test(chatSrc));
@@ -195,12 +195,14 @@ check('B8d 指纹只比对白名单字段（白名单外的附加字段不参与
   fp({ ts: 1, text: 'x' }) === fp({ ts: 1, text: 'x', someRandomFlag: 1 }));
 
 // B9 读侧去重行行为（从源码抽出表达式真跑）
-const dedupLine = /archArr = archArr\.filter\(function \(m\) \{ return m && !ckptSigs\.has\(sigOf\(m\)\); \}\);/.exec(chatSrc);
+const dedupLine = /archArr = archArr\.filter\(function \(m\) \{ return m && !ckptSigs\.has\(sigOf\(m\)\)( && !chatRecKeysHit\(ckptCopies, m\))?; \}\);/.exec(chatSrc);
 let merged = null;
 if (dedupLine) {
-  const run = new Function('archArr', 'ckptSigs', 'sigOf', dedupLine[0] + '\nreturn archArr;');
+  // 副本键一层（#776）在本脚本里以「不命中」桩代入——它的行为断言归 verify-chat-dup-soak R6；
+  // 这里只验「按签名去重」这条抽出来的表达式真跑起来确实只留真正的新条目。
+  const run = new Function('archArr', 'ckptSigs', 'sigOf', 'ckptCopies', 'chatRecKeysHit', dedupLine[0] + '\nreturn archArr;');
   const sigOf = (m) => m.sig;
-  merged = run([{ sig: 'a' }, { sig: 'c' }, { sig: 'b' }], new Set(['a', 'b']), sigOf);
+  merged = run([{ sig: 'a' }, { sig: 'c' }, { sig: 'b' }], new Set(['a', 'b']), sigOf, new Set(), () => false);
 }
 check('B9 日志与基准包重叠条目按签名去重（压缩崩溃窗口不翻倍，只留真正的新条目）',
   merged && merged.length === 1 && merged[0].sig === 'c', JSON.stringify(merged));

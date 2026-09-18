@@ -176,6 +176,9 @@
     // 闸门加在 personalize.js 的 addFish/addWork 入口：关闭后所有加分来源（60 秒自动累计、
     // 点击摸鱼按钮、番茄钟补偿摸鱼、抓包奖励翻倍）都不再写入，已有数值保留只停止增长
     'fish-en': 1, 'work-en': 1,
+    // #791 摸鱼抓包浮字总开关（默认开）——TA 摸鱼值上涨时桌面飘「摸鱼浮字／点我抓包」；
+    // 关＝不飘字不抓包（也不吃抓包的冷却与每日额度），摸鱼值累计本身由 fish-en 管，互不影响
+    'fish-grab-en': 1,
     // v3.9.x：群聊回复设置（群聊页全局生效，不随桌面隔离）——键前缀 gc-，
     // 存储在全局命名空间 xy-home-v2:reply-gc-*（见 getCfg 的全局读取分支），
     // 默认值：每个联系人回复概率 60%、回复速度 1~40 秒、回复条数 1~2、
@@ -289,6 +292,18 @@
     gcContinuePanel.insertBefore(section, gcContinuePanel.lastElementChild);
   }
 
+  // #791 摸鱼抓包浮字开关行——模板在途（并行会话占用 template.html），照 #577/群聊「让对方继续说」
+  // 的 JS 注入同构：挂进「摸鱼值 / 工作值」组（work-en 行后），id=fish-grab-en 走下方通用开关绑定
+  if (!document.getElementById('fish-grab-en')) {
+    const workRow = document.getElementById('work-en');
+    const fishGroup = workRow ? workRow.closest('.set-group') : null;
+    if (fishGroup) {
+      fishGroup.insertAdjacentHTML('beforeend',
+        '<div class="gs-row"><span>摸鱼抓包浮字</span><label class="toggle"><input type="checkbox" id="fish-grab-en"><span class="tk"></span></label></div>' +
+        '<div class="gs-sub">开启后 TA 摸鱼值上涨时桌面会飘「摸鱼浮字」，6 秒内点「点我抓包」双方摸鱼值翻倍＋TA 害羞回应；关闭后不再飘字、也没有抓包（摸鱼值本身照常累计），冷却与每日次数照旧不消耗</div>');
+    }
+  }
+
   function syncUI() {
     const cfg = getCfg();
     // stepper 数值
@@ -313,7 +328,7 @@
       }
     });
     // 开关
-    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -433,7 +448,7 @@
     'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
     'mjf-mix': '造句混合模式',
     'rc-en': '撤回后补发消息',
-    'fish-en': '摸鱼值累计', 'work-en': '工作值累计'
+    'fish-en': '摸鱼值累计', 'work-en': '工作值累计', 'fish-grab-en': '摸鱼抓包浮字'
   };
   // #388：cc-toast 元素全站懒创建（template.html 无静态元素，chat.js/device.js 等 20+ 文件
   //   都是「查不到就 createElement 补挂 body」）——本文件此前只查不建，用户直达回复设置页时
@@ -456,7 +471,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -1023,7 +1038,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en'].forEach(k => {
+      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

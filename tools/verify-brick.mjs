@@ -141,6 +141,13 @@ try {
   const txBefore = await evalJs(`window.__brickDebug.state.player.targetX`);
   // 清场：TA 互动卡可能随机弹出 #qa-mask 抢坐标触摸（T7c 的 TA 回应链路），先关掉
   await evalJs(`(function(){var q=document.getElementById('qa-mask');if(q&&!q.hidden){var c=document.getElementById('qa-mask-close');if(c)c.click();q.hidden=true;}return 1;})()`);
+  // 同类残留：开屏确认按个别形态下没点掉（hit=DIV#.splash-footcard 实测抢走过 T4 触摸），补一次确认＋末路摘除
+  await evalJs(`(function(){var sp=document.getElementById('splash');if(sp){var b=sp.querySelector('.splash-confirm-btn')||document.getElementById('splash-enter');if(b)b.click();}return 1;})()`);
+  await sleep(250);
+  await evalJs(`(function(){var sp=document.getElementById('splash');if(sp&&sp.parentNode)sp.parentNode.removeChild(sp);return 1;})()`);
+  await sleep(150);
+  // 同类残留③：开屏后有自动弹窗（openModal 大框 .modal--big，如卡片锁提醒/备份提醒）盖住画布抢 T4 触摸；点遮罩走其正常 close()
+  await evalJs(`(function(){var m=document.getElementById('modal-mask');if(m&&!m.hidden)m.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 1;})()`);
   await sleep(150);
   await cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rect.left + rect.width * 0.62, y: rect.top + rect.height * 0.85 }] });
   await cdp('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: rect.left + rect.width * 0.9, y: rect.top + rect.height * 0.85 }] });

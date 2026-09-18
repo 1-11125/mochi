@@ -993,7 +993,10 @@
       const got = Array.isArray(window.__mochiLoaded) ? window.__mochiLoaded : null;
       if (!exp || !got) return null;
       const gs = {}; got.forEach(function (n) { gs[n] = 1; });
-      return { expected: exp.slice(), loaded: got.slice(), missing: exp.filter(function (n) { return !gs[n]; }) };
+      // PERF-PLAN 阶段 1：ext 外置文件 defer 加载，弱网首访打开诊断的瞬间可能尚未执行完
+      // ——extPending＝还在下载/排队的外置文件（missing 的子集），不算「整段没执行」故障。
+      const extList = Array.isArray(window.__mochiExtFiles) ? window.__mochiExtFiles : [];
+      return { expected: exp.slice(), loaded: got.slice(), missing: exp.filter(function (n) { return !gs[n]; }), extPending: extList.filter(function (n) { return !gs[n]; }) };
     } catch (e) { return null; }
   };
   function collectDiag() {
@@ -1184,6 +1187,17 @@
         else kpParts.push('音频=无（保活未起）');
         if (kp.ms) kpParts.push('媒体条=' + (kp.ms.metadata ? '有' : '无') + ' ' + kp.ms.state);
         kpParts.push('WebRTC=' + kp.pc);
+        // #780：WebRTC 停在 new 时把采集状态一起打出——本次真机取证就是「WebRTC=new」
+        // 却看不出卡在 SDP 还是 ICE（实为候选 flush 早于 gather 完成，第二豁免恒死）。
+        if (kp.pc && kp.pc !== 'connected' && kp.pc !== 'off' && kp.pcGathering) {
+          kpParts.push('ICE采集=' + kp.pcGathering + '/候选' + (typeof kp.pcCand === 'number' ? kp.pcCand : '?') + '条');
+        }
+        // #780：在场信号自相矛盾取证——保活让位判据只看 __musicPlaying 标志，而音乐
+        // 「暂停但想播」时刻意保持 playbackState='playing'；标志与元素真值背离时保活
+        // 音频被误让位、主豁免当场丢失（＝后台整页冻结、消息与通知全停）。
+        if (kp.music && kp.music.flag && kp.music.paused === true) {
+          kpParts.push('在场信号矛盾：音乐标志说在播·元素实为暂停（保活音频被误让位，主豁免已丢）');
+        }
         // #724：取证计数（bg-keep 持久化）——断流=隐藏期定时器停摆过（冻结/丢弃实锤）、
         // 后台终止=上个会话没能活着回来（标签被系统丢弃/杀掉，回来自动重载）
         if (kp.ev && (kp.ev.stall > 0 || kp.ev.died > 0)) {
@@ -1562,6 +1576,21 @@
         });
       }));
     } catch (e) { try { L.push('桌面归属体检：读取失败'); } catch (e2) {} }
+    // FIX 2026-09-18 #776 重复体检：报障「一条变多条」时，光看条数说不出**还剩哪种重复**，每轮都要
+    // 重新猜通道。这一行直接写现场：还有几份「同身份多出来的副本」，其中多少正文一致（现有判据
+    // 该收掉）、多少只有出生号认得出、多少是升级前写的无号存量脏数据，同毫秒批量另算不算重复。
+    // 探针缺失＝chat.js 整体没跑起来。
+    try {
+      const dc = window.__mochiDupCensus && window.__mochiDupCensus();
+      if (!dc) L.push('重复体检(聊天)：探针缺失（chat.js 未加载）');
+      else if (dc.err) L.push('重复体检(聊天)：读取失败 ' + dc.err);
+      else if (dc.sus) L.push('重复体检(聊天)：⚠ 可疑副本 ' + dc.sus + ' 份（身份同 ' + dc.extra
+        + ' 份／其中同毫秒批量 ' + dc.batch + ' 份不算）＝正文一致 ' + dc.same + '／出生号认得出 ' + dc.uidc
+        + '／无号可认(存量) ' + dc.drift + ' · 带出生号 ' + dc.uid + '/' + dc.total
+        + (dc.top ? ' · 多见：' + dc.top : '')
+        + (dc.eg && dc.eg.length ? ' · 现场：' + dc.eg.join(' ∥ ') : ''));
+      else L.push('重复体检(聊天)：无身份级重复（共 ' + dc.total + ' 条，带出生号 ' + dc.uid + '）');
+    } catch (e) { try { L.push('重复体检(聊天)：读取失败'); } catch (e2) {} }
     // v3.26.x #264：跨桌面来消息体检——「查岗/来电开了好几天一次都没触发」的第一手现场：
     // 定时器活着吗、被什么闸门挡住、各联系人还要等多久、有没有从未应答的 pending 卡住队列。
     // 探针缺失＝incoming-requests.js 整体没跑起来（另一种根因），所以这一行本身就有诊断价值。
@@ -1657,7 +1686,13 @@
     try {
       const mc = window.mochiModuleCheck ? window.mochiModuleCheck() : null;
       if (!mc) L.push('模块加载体检：采集未启用（旧产物或初始化未接入）');
-      else if (mc.missing.length) L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：未加载 ' + mc.missing.join(', ') + '（该文件整段未执行＝语法错/启动抛错/漏接 jsFiles，对应功能可能整块失效）');
+      else if (mc.missing.length) {
+        // PERF-PLAN 阶段 1：全部缺的都在 ext 排队里＝弱网首访瞬态（defer 数秒内自愈），措辞降级不吓人
+        const pend = mc.extPending || [];
+        const hard = mc.missing.filter(function (n) { return pend.indexOf(n) < 0; });
+        if (!hard.length) L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：外置模块加载中 ' + pend.join(', ') + '（弱网首访瞬态，外置 js/ 数秒内自动就绪，非故障）');
+        else L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：未加载 ' + mc.missing.join(', ') + '（该文件整段未执行＝语法错/启动抛错/漏接 jsFiles，对应功能可能整块失效）');
+      }
       else L.push('模块加载体检：' + mc.expected.length + '/' + mc.expected.length + ' 全部加载完成');
     } catch (e) {}
     // v3.26.x #101：功能入口体检——用户报"帮我决定加载失败"但诊断说无启动异常，

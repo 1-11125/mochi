@@ -3112,58 +3112,127 @@
     });
     st.set(key, JSON.stringify(o));
   }
+  // 用户需求（2026-09-18）：①导出公用 / 导出专属拆成两个独立功能；②互动功能字卡
+  // （摸鱼/吃饭 等 13 类）再拆一个独立导出档——很多人不用这些功能，聊天字卡导出不再夹带，
+  // 只在「互动功能字卡」档导出它们；全量档仍含全部（老文件兼容）。
+  // 13 类互动功能分类 key（与分类 tab / EXPORT_CATS 一致）；辅助函数放公共区（导入侧 ccFullApply 也用）
+  const CC_FULL_FUN_TYPES = ['fish', 'eat', 'period', 'water', 'garden', 'sync', 'reach', 'cjian', 'room', 'piggy', 'drift', 'interact', 'music'];
+  // 从 cc 对象里挑出指定分类（挑互动=只留 13 类；挑聊天=剔掉 13 类），分组停用开关同口径过滤
+  function ccFullPickCc(o, keepFun) {
+    const out = {};
+    CC_ALL_TYPES.forEach(t => {
+      const isFun = CC_FULL_FUN_TYPES.indexOf(t) >= 0;
+      if (isFun !== keepFun) return;
+      out[t] = (o && Array.isArray(o[t])) ? o[t] : [];
+    });
+    return out;
+  }
+  function ccFullPickOff(o, keepFun) {
+    const out = {};
+    Object.keys(o || {}).forEach(t => {
+      const isFun = CC_FULL_FUN_TYPES.indexOf(t) >= 0;
+      if (isFun !== keepFun) return;
+      out[t] = o[t];
+    });
+    return out;
+  }
   const liCcFullExport = document.getElementById('li-cc-full-export');
   if (liCcFullExport) {
     // #701：导出前先弹范围说明（用户反馈「缺少详细说明」「没说明专属=当前桌面」）；
     // 点「开始导出」才真正跑导出链，链路全程有反馈（准备中 toast / 失败 toast / 超时兜底）
     liCcFullExport.addEventListener('click', () => {
-      if (!window.openModal) { ccFullDoExport(); return; }
-      window.openModal('导出自定义字卡（全量）', '', (mode) => { if (mode === 'go') ccFullDoExport(); }, {
+      if (!window.openModal) { ccFullDoExport('all'); return; }
+      window.openModal('导出自定义字卡', '', (mode) => { if (mode) ccFullDoExport(mode); }, {
         noInput: true,
-        staticText: '导出范围：\n· 聊天字卡：公用（全桌面共享）＋ 专属（只含当前桌面联系人的字卡），含分组与分组停用开关\n· 寻踪日常 / 今日情话：我的添加与自定义分组\n· TA 六类题库（询问 / 小问题 / 好奇 / 吐槽 / 查岗 / 邀请）\n注意：「专属」部分换机恢复时，请切到对应联系人桌面再导入；全量导出不代替 设置→数据备份 的整包备份',
-        pills: [{ label: '开始导出', value: 'go' }]
+        staticText: '选择导出范围（四档）：\n· 公用聊天字卡：全桌面共享（不含互动功能字卡），含分组与停用开关\n· 专属聊天字卡：只含当前桌面联系人的字卡（不含互动功能字卡），含分组与停用开关；寻踪日常 / 今日情话 / TA 六类题库（询问 / 小问题 / 好奇 / 吐槽 / 查岗 / 邀请）随本档导出\n· 互动功能字卡（单独）：摸鱼 / 吃饭 / 经期 / 喝水 / 花园 / 同频 / 伸手 / 此间 / 房间 / 存钱罐 / 漂流瓶 / 互动回应 / 音乐——公用与专属两个库都导，含停用开关；不用这些功能可忽略本档\n· 全量导出：以上全部\n注意：「专属」「互动功能字卡（专属库部分）」换机恢复时，请切到对应联系人桌面再导入；导出文件不代替 设置→数据备份 的整包备份',
+        pills: [
+          { label: '公用聊天字卡', value: 'pub' },
+          { label: '专属聊天字卡', value: 'own' },
+          { label: '互动功能字卡（单独）', value: 'fun' },
+          { label: '全量导出', value: 'all' }
+        ],
+        pill: 'pub'
       });
     });
-    function ccFullDoExport() {
+    function ccFullDoExport(scope) {
+      const wantPub = scope === 'all' || scope === 'pub';
+      const wantOwn = scope === 'all' || scope === 'own';
+      const wantFun = scope === 'all' || scope === 'fun';
       try { toast('正在准备导出…'); } catch (e0) {}
       const build = () => {
         try {
           const data = {};
-          data.ccPub = ccFullNormCc(ccFullRd(pubStore(), PUB_KEY, null));
-          data.ccOwn = ccFullNormCc(ccFullRd(store, 'cc-groups', null));
-          data.ccPubOff = ccFullRd(pubStore(), PUB_OFF_KEY, null);
-          data.ccOwnOff = ccFullRd(store, OFF_KEY, null);
-          data.checkin = {};
-          CC_FULL_CK_KEYS.forEach(k => {
-            data.checkin[k] = {
-              list: ccFullRd(store, 'checkin-cards-' + k, []),
-              groups: ccFullRd(store, 'checkin-cards-groups-' + k, [])
-            };
-          });
-          data.quote = {
-            list: ccFullRd(store, 'quote-cards', []),
-            groups: ccFullRd(store, 'quote-cards-groups', [])
-          };
-          CC_FULL_TA_LIBS.forEach(([name, key]) => {
-            const d = ccFullRd(store, key, null);
-            data[name] = (d && typeof d === 'object' && !Array.isArray(d))
-              ? { questions: Array.isArray(d.questions) ? d.questions : [], groups: Array.isArray(d.groups) ? d.groups : [] }
-              : { questions: [], groups: [] };
-          });
           let nItems = 0, nTa = 0;
-          CC_FULL_CK_KEYS.forEach(k => { nItems += Array.isArray(data.checkin[k].list) ? data.checkin[k].list.length : 0; });
-          nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
-          CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
-          const out = { app: CC_FULL_MARK, v: 1, time: Date.now(), data: data };
+          if (wantPub || wantFun || scope === 'all') {
+            const rawPub = ccFullNormCc(ccFullRd(pubStore(), PUB_KEY, null));
+            if (wantPub) {
+              data.ccPub = ccFullPickCc(rawPub, false);
+              data.ccPubOff = ccFullPickOff(ccFullRd(pubStore(), PUB_OFF_KEY, {}), false);
+            }
+            if (wantFun) {
+              data.ccPubFun = ccFullPickCc(rawPub, true);
+              data.ccPubFunOff = ccFullPickOff(ccFullRd(pubStore(), PUB_OFF_KEY, {}), true);
+            }
+          }
+          if (wantOwn || wantFun) {
+            const rawOwn = ccFullNormCc(ccFullRd(store, 'cc-groups', null));
+            if (wantOwn) {
+              data.ccOwn = ccFullPickCc(rawOwn, false);
+              data.ccOwnOff = ccFullPickOff(ccFullRd(store, OFF_KEY, {}), false);
+            }
+            if (wantFun) {
+              data.ccOwnFun = ccFullPickCc(rawOwn, true);
+              data.ccOwnFunOff = ccFullPickOff(ccFullRd(store, OFF_KEY, {}), true);
+            }
+          }
+          if (wantOwn) {
+            data.checkin = {};
+            CC_FULL_CK_KEYS.forEach(k => {
+              data.checkin[k] = {
+                list: ccFullRd(store, 'checkin-cards-' + k, []),
+                groups: ccFullRd(store, 'checkin-cards-groups-' + k, [])
+              };
+            });
+            data.quote = {
+              list: ccFullRd(store, 'quote-cards', []),
+              groups: ccFullRd(store, 'quote-cards-groups', [])
+            };
+            CC_FULL_TA_LIBS.forEach(([name, key]) => {
+              const d = ccFullRd(store, key, null);
+              data[name] = (d && typeof d === 'object' && !Array.isArray(d))
+                ? { questions: Array.isArray(d.questions) ? d.questions : [], groups: Array.isArray(d.groups) ? d.groups : [] }
+                : { questions: [], groups: [] };
+            });
+            CC_FULL_CK_KEYS.forEach(k => { nItems += Array.isArray(data.checkin[k].list) ? data.checkin[k].list.length : 0; });
+            nItems += Array.isArray(data.quote.list) ? data.quote.list.length : 0;
+            CC_FULL_TA_LIBS.forEach(([name]) => { nTa += Array.isArray(data[name].questions) ? data[name].questions.length : 0; });
+          }
+          const out = { app: CC_FULL_MARK, v: 1, scope: scope || 'all', time: Date.now(), data: data };
           // #506：cc 双作用域同样先还原媒体池令牌再落文件；#701：还原挂起/失败 8s 兜底放行（令牌原样进文件）
+          const expJobs = [];
+          ['ccPub', 'ccPubFun', 'ccOwn', 'ccOwnFun'].forEach(k => { if (data[k]) expJobs.push(ccExportExpandTokens(data[k])); });
+          const zero = () => ({ ok: 0, miss: 0 });
           ccFullWithTimeout(
-            Promise.all([ccExportExpandTokens(data.ccPub), ccExportExpandTokens(data.ccOwn)]).catch(() => [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]),
+            Promise.all(expJobs).catch(() => expJobs.map(zero)),
             8000,
-            [{ ok: 0, miss: 0 }, { ok: 0, miss: 0 }]
+            expJobs.map(zero)
           ).then(rs => {
-            const okN = rs[0].ok + rs[1].ok, missN = rs[0].miss + rs[1].miss;
-            ccSaveExportJson(JSON.stringify(out), 'mochi自定义字卡全量.json', 'mochi 自定义字卡（全量）',
-            '已导出全量字卡：聊天字卡 ' + (ccFullCardCount(data.ccPub) + ccFullCardCount(data.ccOwn)) + ' 张 · 寻踪/情话 ' + nItems + ' 条 · TA 题库 ' + nTa + ' 题' +
+            const okN = rs.reduce((s, r) => s + (r.ok || 0), 0), missN = rs.reduce((s, r) => s + (r.miss || 0), 0);
+            const scopeName = scope === 'pub' ? '公用聊天字卡' : scope === 'own' ? '专属聊天字卡' : scope === 'fun' ? '互动功能字卡' : '全量字卡';
+            const fname = scope === 'pub' ? 'mochi自定义字卡-公用.json' : scope === 'own' ? 'mochi自定义字卡-专属.json' : scope === 'fun' ? 'mochi自定义字卡-互动功能.json' : 'mochi自定义字卡全量.json';
+            const parts = [];
+            if (wantPub || wantFun) {
+              const nPub = (wantPub ? ccFullCardCount(data.ccPub) : 0) + (wantFun ? ccFullCardCount(data.ccPubFun) : 0);
+              if (nPub) parts.push('公用库 ' + nPub + ' 张');
+            }
+            if (wantOwn || wantFun) {
+              const nOwn = (wantOwn ? ccFullCardCount(data.ccOwn) : 0) + (wantFun ? ccFullCardCount(data.ccOwnFun) : 0);
+              if (nOwn) parts.push('专属库 ' + nOwn + ' 张');
+            }
+            if (wantOwn) { parts.push('寻踪/情话 ' + nItems + ' 条'); parts.push('TA 题库 ' + nTa + ' 题'); }
+            if (!parts.length) parts.push('0 张');
+            ccSaveExportJson(JSON.stringify(out), fname, 'mochi 自定义字卡（' + scopeName + '）',
+            '已导出' + scopeName + '：' + parts.join(' · ') +
               (okN ? ' · ' + okN + ' 张图片已从媒体池还原进文件' : '') +
               (missN ? '；' + missN + ' 张图片数据缺失无法还原' : ''));
           });
@@ -3178,9 +3247,9 @@
   if (liCcFullImport) {
     liCcFullImport.addEventListener('click', () => {
       if (!window.openModal) return;
-      window.openModal('导入自定义字卡（全量）', '', (mode) => { ccFullPickFile(mode); }, {
+      window.openModal('导入自定义字卡', '', (mode) => { ccFullPickFile(mode); }, {
         noInput: true,
-        staticText: '导入范围：文件里的 聊天字卡（公用＋专属）/ 寻踪日常 / 今日情话 / TA 六类题库。\n注意：「专属」部分会导入到当前桌面联系人——如文件来自别的桌面，请先切到对应联系人桌面再导入。\n选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
+        staticText: '导入范围：文件里包含的各库（公用聊天字卡 / 专属聊天字卡 / 互动功能字卡 / 寻踪日常 / 今日情话 / TA 六类题库）——公用、专属、互动功能、全量四种导出文件都支持，文件里没有的部分不动。\n注意：「专属」部分会导入到当前桌面联系人——如文件来自别的桌面，请先切到对应联系人桌面再导入。\n选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
         pills: [
           { label: '追加合并（自动去重）', value: 'merge' },
           { label: '整包替换（覆盖现有）', value: 'replace' }
@@ -3223,7 +3292,7 @@
           txt = ''; raw = null;
           const d = (data && typeof data === 'object' && !Array.isArray(data)) ? data.data : null;
           if (!d || typeof d !== 'object' || data.app !== CC_FULL_MARK) {
-            fail('不是「自定义字卡·全量导出」文件——公用/专属聊天字卡请进对应管理页用「导入数据」，整包恢复请用「设置→数据备份」');
+            fail('不是「自定义字卡导出」文件——公用/专属聊天字卡请进对应管理页用「导入数据」，整包恢复请用「设置→数据备份」');
             return;
           }
           // 大键先走权威取回链（同导出口径），落定后再合并/替换写入；#701：4s 超时兜底不静默
@@ -3242,11 +3311,46 @@
       try {
         const stat = { cc: 0, items: 0, ta: 0 };
         if (mode === 'replace') {
-          // 整包替换：文件里包含的各库清空后按文件写入；文件里没有的库不动
-          if (d.ccPub && typeof d.ccPub === 'object') { const o = ccFullNormCc(d.ccPub); pubStore().set(PUB_KEY, JSON.stringify(o)); stat.cc += ccFullCardCount(o); }
-          if (d.ccOwn && typeof d.ccOwn === 'object') { const o = ccFullNormCc(d.ccOwn); store.set('cc-groups', JSON.stringify(o)); stat.cc += ccFullCardCount(o); }
-          if (d.ccPubOff && typeof d.ccPubOff === 'object') pubStore().set(PUB_OFF_KEY, JSON.stringify(d.ccPubOff));
-          if (d.ccOwnOff && typeof d.ccOwnOff === 'object') store.set(OFF_KEY, JSON.stringify(d.ccOwnOff));
+          // 整包替换：文件里包含的各库清空后按文件写入；文件里没有的库不动。
+          // 互动功能字卡拆档后：聊天文件只替换聊天分类（保留库里现有 13 类功能卡），
+          // 功能卡文件只替换 13 类（保留聊天字卡）；旧版全量文件（功能卡混在 ccPub/ccOwn 内）
+          // 检测到功能分类有内容时按整库原样替换（含功能卡）。
+          const repCc = (st, key, chatKey, funKey) => {
+            const incChat = d[chatKey], incFun = d[funKey];
+            const hasChat = incChat && typeof incChat === 'object', hasFun = incFun && typeof incFun === 'object';
+            if (!hasChat && !hasFun) return;
+            const cur = ccFullNormCc(ccFullRd(st, key, {}));
+            const chatObj = hasChat ? ccFullNormCc(incChat) : null;
+            // 旧版全量文件：chat 键里已混有功能卡 → 整库按文件替换，不再拼装
+            const legacyFull = hasChat && CC_FULL_FUN_TYPES.some(t => (chatObj[t] || []).length);
+            let obj;
+            if (legacyFull) { obj = chatObj; stat.cc += ccFullCardCount(chatObj); }
+            else {
+              obj = hasChat ? ccFullMergeCc(ccFullPickCc(cur, true), chatObj).obj : ccFullPickCc(cur, false);
+              obj = hasFun ? ccFullMergeCc(obj, ccFullNormCc(incFun)).obj : obj;
+              if (hasChat) stat.cc += ccFullCardCount(chatObj);
+              if (hasFun) stat.cc += ccFullCardCount(incFun);
+            }
+            st.set(key, JSON.stringify(obj));
+          };
+          repCc(pubStore(), PUB_KEY, 'ccPub', 'ccPubFun');
+          repCc(store, 'cc-groups', 'ccOwn', 'ccOwnFun');
+          // 停用开关按分类级替换：文件里带的分类用文件值，没带的分类保留现有值
+          //（聊天文件不携带功能分类 → 功能卡停用状态不被误清；功能卡文件反之）
+          const repOff = (st, key) => {
+            const cur = ccFullRd(st, key, {});
+            const srcs = [];
+            ['ccPubOff', 'ccPubFunOff'].forEach(k => { const v = d[k]; if (v && typeof v === 'object' && !Array.isArray(v)) srcs.push(v); });
+            if (!srcs.length) return;
+            const incCats = {};
+            srcs.forEach(s => Object.keys(s).forEach(t => { incCats[t] = true; }));
+            const o = {};
+            Object.keys(cur || {}).forEach(t => { if (!incCats[t] && Array.isArray(cur[t])) o[t] = cur[t]; });
+            srcs.forEach(s => Object.keys(s).forEach(t => { if (Array.isArray(s[t])) o[t] = s[t]; }));
+            st.set(key, JSON.stringify(o));
+          };
+          repOff(pubStore(), PUB_OFF_KEY);
+          repOff(store, OFF_KEY);
           CC_FULL_CK_KEYS.forEach(k => {
             const c = d.checkin && d.checkin[k];
             if (!c || typeof c !== 'object') return;
@@ -3272,7 +3376,9 @@
           if (d.ccPub && typeof d.ccPub === 'object') { const r = ccFullMergeCc(ccFullRd(pubStore(), PUB_KEY, {}), d.ccPub); pubStore().set(PUB_KEY, JSON.stringify(r.obj)); stat.cc += r.added; }
           if (d.ccOwn && typeof d.ccOwn === 'object') { const r = ccFullMergeCc(ccFullRd(store, 'cc-groups', {}), d.ccOwn); store.set('cc-groups', JSON.stringify(r.obj)); stat.cc += r.added; }
           if (d.ccPubOff && typeof d.ccPubOff === 'object') ccFullMergeOff(pubStore(), PUB_OFF_KEY, d.ccPubOff);
+          if (d.ccPubFunOff && typeof d.ccPubFunOff === 'object') ccFullMergeOff(pubStore(), PUB_OFF_KEY, d.ccPubFunOff);
           if (d.ccOwnOff && typeof d.ccOwnOff === 'object') ccFullMergeOff(store, OFF_KEY, d.ccOwnOff);
+          if (d.ccOwnFunOff && typeof d.ccOwnFunOff === 'object') ccFullMergeOff(store, OFF_KEY, d.ccOwnFunOff);
           CC_FULL_CK_KEYS.forEach(k => {
             const c = d.checkin && d.checkin[k];
             if (!c || typeof c !== 'object') return;

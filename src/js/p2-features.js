@@ -1610,6 +1610,7 @@ if (ckRefresh) {
 
   // ---- 位置变化提醒气泡（TA 主动换位置时顶部轻提示） ----
   function showLocChangeBubble(text) {
+    if (store.get('loc-bubble') === '0') return; // 设置「换位提醒弹窗」关：TA 换位置不再弹黑色轻提示
     let bub = document.getElementById('loc-change-bubble');
     if (!bub) {
       bub = document.createElement('div');
@@ -1671,6 +1672,13 @@ if (ckRefresh) {
     html += '</div>';
     // #558 功能说明补全：光点落点规则原先只在代码注释里（用户问「再远一点会不会跑到屏幕右侧」）
     html += '<div class="loc-sec-sub" style="padding:10px 2px 0;line-height:1.7">光点落在哪儿，就是 TA 在哪儿：方位卡落在画面对应方向；距离卡、状态卡跟着最近一张方位卡的方位走——「再近一点」朝屏幕中心靠、「再远一点」朝屏幕边缘退开（上一张说的是「在你右边」时，光点贴屏幕右侧属正常）。</div>';
+    // 换位提醒设置组：TA 自动换位总开关 / 换位提醒弹窗 / 换位发到聊天（只管「TA 自动」这条路，手动发的位置卡不受限）
+    html += '<div class="set-group glass" style="margin:14px 2px 0">'
+      + '<div class="gs-row"><span>TA 自动换位</span><label class="toggle"><input type="checkbox" id="loc-auto-tg"' + (store.get('loc-auto') === '0' ? '' : ' checked') + '><span class="tk"></span></label></div>'
+      + '<div class="gs-row"><span>换位提醒弹窗</span><label class="toggle"><input type="checkbox" id="loc-bubble-tg"' + (store.get('loc-bubble') === '0' ? '' : ' checked') + '><span class="tk"></span></label></div>'
+      + '<div class="gs-row"><span>换位发到聊天</span><label class="toggle"><input type="checkbox" id="loc-chat-tg"' + (store.get('loc-chat') === '0' ? '' : ' checked') + '><span class="tk"></span></label></div>'
+      + '</div>'
+      + '<div class="gs-sub" style="padding:0 2px 10px">换位提醒弹窗：TA 自动换位置时顶部弹的黑色轻提示。<br>换位发到聊天：关掉后 TA 自动换位只记进「位置时间线」，不再发进聊天记录。<br>TA 自动换位：关掉后不再每隔几小时自动换位置（「问 TA 一声」不受影响）。</div>';
     // 问 TA 一声
     html += '<button class="loc-ask-btn" id="loc-ask-btn">问 TA 一声「你在哪？」</button>';
 
@@ -1678,6 +1686,18 @@ if (ckRefresh) {
 
     const askBtn = document.getElementById('loc-ask-btn');
     if (askBtn) askBtn.addEventListener('click', askWhere);
+
+    // 换位提醒三开关（写入 per-cid 键，doLocAuto / showLocChangeBubble 消费；重开「TA 自动换位」立刻重排下一次）
+    const bindLocTg = function (id, key) {
+      const tg = document.getElementById(id);
+      if (tg) tg.addEventListener('change', function () {
+        store.set(key, tg.checked ? '1' : '0');
+        if (key === 'loc-auto' && tg.checked) scheduleLocAuto();
+      });
+    };
+    bindLocTg('loc-auto-tg', 'loc-auto');
+    bindLocTg('loc-bubble-tg', 'loc-bubble');
+    bindLocTg('loc-chat-tg', 'loc-chat');
 
     // 日期切换
     const prevBtn = document.getElementById('loc-day-prev');
@@ -1735,6 +1755,7 @@ if (ckRefresh) {
   }
   function doLocAuto() {
     if (document.hidden || Date.now() < locWakeAt || !window.__mochiDataReady) return;
+    if (store.get('loc-auto') === '0') return; // 设置「TA 自动换位」关：到点也不发（拦设置后仍残留的当次定时器）
     const companion = ['在你身边', '一直没走远', '隔着世界在你身边', '隐约在你身旁', '在你看不到的地方'];
     let text;
     if (Math.random() < 0.7) {
@@ -1749,7 +1770,7 @@ if (ckRefresh) {
     const type = locTypeOf(text);
     const ts = Date.now();
     const oldCur = loadCur();
-    if (window.chatAddIn) window.chatAddIn(text);
+    if (store.get('loc-chat') !== '0' && window.chatAddIn) window.chatAddIn(text); // 设置「换位发到聊天」关：只记时间线＋弹提醒，不发进聊天
     saveCur({ text: text, type: type, ts: ts, auto: true });
     const hist = loadHist();
     hist.unshift({ text: text, type: type, ts: ts, auto: true });
@@ -3519,7 +3540,14 @@ if (ckRefresh) {
     vibrate([20, 60, 20]);
     setTimeout(() => { piggyShowMsg(window.taFit ? window.taFit(note + ' ¥' + piggyFmt(amt) + ' · 替TA存进去？') : (note + ' ¥' + piggyFmt(amt) + ' · 替TA存进去？')); }, 400);
   }
-  if (piggyApp) piggyApp.addEventListener('click', () => { if (editingNow()) return; openPage(piggyPage); piggyMaybeTa(); piggyRender(); });
+  // FIX 2026-09-18 #770：心意币页签若停在上次位置，重进 app 不再经过页签 click，TA 塞币/取回
+  // 两条彩蛋就永远没机会跑——app 入口按页签当前状态补触发一次（页签 click 路径保持原样）。
+  if (piggyApp) piggyApp.addEventListener('click', () => {
+    if (editingNow()) return;
+    openPage(piggyPage); piggyMaybeTa(); piggyRender();
+    const coinBox = document.querySelector('.piggy-coin');
+    if (coinBox && !coinBox.hidden) { piggyCoinMaybeTa(); piggyCoinMaybeTaWithdraw(); }
+  });
   document.getElementById('piggy-back').addEventListener('click', () => backHome(piggyPage));
   // 右上角设置：两步（存钱=TA随机塞 / 取钱=TA余额快没取回）
   // v3.29.x：原第 3、4 步「申请概率 / 申请每日上限」已移到聊天页红包半框「设置」，按联系人单独设
@@ -3544,7 +3572,7 @@ if (ckRefresh) {
       const cur = clampU(v); const nv = { deposit: p.deposit, withdraw: p.withdraw, ask: p.ask };
       nv[ks[phase]] = cur / 100; piggyCoinProbSave(nv);
       toast('已保存 ' + cur + '%');
-    }, { maxlength: 3, inputmode: 'decimal', placeholder: hints[0], staticText: '「TA 申请心意币」的概率与每日上限已移到聊天页红包的「设置」里，可按每个联系人单独设置。' });
+    }, { maxlength: 3, inputmode: 'decimal', placeholder: hints[0], staticText: '「TA 申请心意币」的概率与每日上限已移到聊天页红包的「设置」里，可按每个联系人单独设置。' + (function () { let g = 100; try { g = window.dcfGet ? window.dcfGet('piggy') : 100; } catch (e) {} return g < 100 ? ' ⚠ 已被「其他互动功能字卡 → 存钱罐」总闸压到 ' + g + '%，低于 100% 时 TA 塞币会被按比例拦截。' : ''; })() });
     ctl.okText('下一步');
   });
   // 存入/取出/小心愿：单弹窗两阶段（ctl.stay 就地切阶段）——取代旧「60ms 再开
@@ -3897,15 +3925,19 @@ if (ckRefresh) {
   function piggyCoinProbSave(p) { const s = piggyStore(); if (s) try { s.set('piggy-coin-prob', JSON.stringify(p || {})); } catch (e) {} }
   // TA 不定期塞心意币到共用存钱罐（越久未开概率越高，彩蛋不入 gift-wallet）；只在查看当前联系人时触发
   // v3.42.x #422：塞币彩蛋接入「其他互动功能字卡」的存钱罐概率（dcf-piggy，默认 100%＝原行为，0%＝不塞币也不发系统消息）
+  // FIX 2026-09-18 #770：last-visit 只在彩蛋真正触发时才刷新——旧写法「进页签先盖章再掷骰」，
+  // 用户越勤快看间隔越短、概率被压回裸 12%，体感永远等不到 TA 塞币；改为未触发时 gap 继续累积
+  //（上限仍封顶 0.95），「常来看」与「久没来」都能按时点概率正常出币。
   function piggyCoinMaybeTa() {
     if (!piggyCoinIsCurrent()) return;
     try { if (window.dcfGet && !(Math.random() * 100 < window.dcfGet('piggy'))) return; } catch (e) {}
     const s = piggyCoinStore(); if (!s) return;
     let last = 0; try { last = parseInt(s.get('piggy-coin2-last-visit') || '0', 10) || 0; } catch (e) {}
-    const gap = Date.now() - last; try { s.set('piggy-coin2-last-visit', '' + Date.now()); } catch (e) {}
+    const gap = Date.now() - last;
     const base = piggyCoinProbGet().deposit;
     const prob = gap > 12 * 3600000 ? Math.min(0.95, base + 0.33) : (gap > 3600000 ? Math.min(0.9, base + 0.13) : base);
     if (Math.random() >= prob) return;
+    try { s.set('piggy-coin2-last-visit', '' + Date.now()); } catch (e) {}
     const amt = COIN_TA_COINS[Math.floor(Math.random() * COIN_TA_COINS.length)];
     const note = COIN_TA_NOTES[Math.floor(Math.random() * COIN_TA_NOTES.length)];
     const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'in', amt: amt, note: 'TA 塞进来的' });
@@ -4425,6 +4457,13 @@ if (ckRefresh) {
     // 放在 taChimeAllow/taChimeUse 之前：跳过时不吃 45 分钟冷却与每日 12 次额度，
     // 出游戏后这次涨值照样能飘（lastTa 不推进，delta 留着）。
     if (gamePanelOpen()) return;
+    // #791 摸鱼抓包浮字开关（回复设置 →「摸鱼值 / 工作值」组「摸鱼抓包浮字」，存 reply-fish-grab-en，
+    // 默认开）：关＝不飘字也不抓包。放在 taChimeAllow 之前——不吃 45 分钟冷却与每日 12 次额度
+    //（与上面 gamePanelOpen 跳过同口径）；摸鱼值累计本身由 fish-en 管，这里不碰。
+    try {
+      const gv = window.replyCfg ? window.replyCfg()['fish-grab-en'] : undefined;
+      if (gv !== undefined && gv !== 1) return;
+    } catch (e) {}
     const s = window.activeStore && window.activeStore(); if (!s) return;
     let cur = 0; try { cur = parseInt(s.get('fish-total-ta') || '0', 10) || 0; } catch (e) {}
     if (lastTa === null) { lastTa = cur; return; }

@@ -50,7 +50,7 @@
   var FEATURES = [
     { id: 'chat', name: '聊天', group: '聊天与社交', scope: 'desk', page: 'page-chat', btns: 'cs-export-msgs,cs-import-msgs,cs-clear-msgs',
       desc: '聊天记录、聊天设置（气泡/字号/时间轴/输入栏）、表情包与文字库、拍一拍、红包、引用',
-      res: [/^chat-/, /^cs-(?!avatar-|lbl-)/, /^rp-cover-/, /^rp-wallet$/, /^emoji-last$/, /^my-emoji-groups$/, /^my-text-groups$/, /^my-invite-groups$/, /^mye-global-migrated$/, /^hide-tab-/, /^hide-ta-sticker$/, /^invite-ask-history$/, /^poke-/, /^rps-score$/, /^scroll-anchor-auto$/, /^sysmsg-nick-/, /^more-tab$/, /^more-cat$/, /^mail-emoji-mode$/, /^qixi-today$/] },
+      res: [/^chat-/, /^cs-(?!avatar-|lbl-)/, /^rp-cover-/, /^rp-wallet$/, /^emoji-last$/, /^my-emoji-groups$/, /^my-text-groups$/, /^my-invite-groups$/, /^mye-global-migrated$/, /^hide-tab-/, /^hide-ta-sticker$/, /^invite-ask-history$/, /^poke-/, /^rps-score$/, /^scroll-anchor-auto$/, /^sysmsg-/, /^more-tab$/, /^more-cat$/, /^mail-emoji-mode$/, /^qixi-today$/] },
     { id: 'gc', name: '群聊', group: '聊天与社交', scope: 'desk', page: 'page-group-chat',
       desc: '群聊记录、群分组、群成员资料、群聊美化与设置',
       res: [/^gc-/, /^group-chat-msgs$/] },
