@@ -3688,6 +3688,16 @@ const FIX_SENTINELS = [
   //   群聊设置抽屉镜像（group-chat.js cntNote）同文案随 #794 在途批收口、本批不携带。====
   { name: '#869a 单聊条数说明点破「每条消息」语义（删回笼统说明＝再被读成总上限、调大后联系人刷屏复发）', file: 'template.html', needle: '注意：这是「每条消息」的条数，不是 TA 一天最多发几条' },
   { name: '#869b 群聊条数说明点破「每条消息每个成员」语义（删＝群聊各算各的刷屏提醒缺失）', file: 'template.html', needle: '注意：这是「每条消息、每个成员」的条数' },
+  // ==== 2026-09-19 #875 「TA在身边」藏在寻踪里是设计（位置面板唯一入口就在寻踪半框/寻踪页），
+  //   但入口原是全宽浅色虚线的次要按钮、排在面板最底部 ⇒ 被读成寻踪的附加说明：用户既不知道
+  //   这是独立功能，也找不到只住在位置面板里的三个换位开关（TA 自动换位 / 换位提醒弹窗 /
+  //   换位发到聊天）。本批把两处入口改成图标＋主副两行＋箭头的功能卡，放置与点击行为一字未动；
+  //   四条针各钉一处改动面：两条入口 markup、一条副标题（用户找不到的就是它）、一条 CSS 卡片形态。====
+  { name: '#875a 寻踪半框入口改功能卡（退回「全宽浅色虚线」＝用户又把 TA在身边 读成寻踪的附加说明、找不到这个功能）', file: 'template.html', needle: 'id="ck-loc-entry"><span class="ck-loc-ico">' },
+  { name: '#875b 桌面寻踪页入口同款（两入口形态必须一致，否则从桌面进来的用户看不到改动）', file: 'template.html', needle: 'id="ck-loc-entry-desk"><span class="ck-loc-ico">' },
+  { name: '#875c 副标题点出「换位开关」（删＝收到 TA 自动换位消息想关掉的用户没有线索，三个开关仍只藏在位置面板里）', file: 'template.html', needle: '方位感知·位置时间线·换位开关' },
+  { name: '#875d 入口卡 flex 形态（退回 display:block 居中＝弱按钮复发，与两条 markup 针脱钩）', file: 'css/chat-pages.css', needle: '.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%;' },
+  { name: '#875e 矮屏抬起寻踪半框上限（删＝320×568/360×640 上入口被 56% 上限裁到滚动区外，用户仍看不见它）', file: 'css/chat-main.css', needle: '@media (max-height:700px) { #ck-panel { max-height:72%; } }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

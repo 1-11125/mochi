@@ -792,6 +792,11 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 /* 鏌ュ矖鍗婃锛氬唴瀹瑰皯锛岀缉灏忛珮搴︼紙鍙绾充笁琛屾棩甯?+ 鏇存柊鏃堕棿锛?*/
 #ck-panel { height:auto; max-height:56%; }
 #ck-panel .poke-card-scroll { min-height:0; max-height:none; }
+/* v3.26.x #875：矮屏抬起上限。入口从「全宽次要按钮」改成功能卡后比原来高 14px，而矮屏下
+   #ck-panel 的 56% 上限本就装不满内容——实测纯 HEAD 在 320×568 就需滚 47px、360×640 需 7px
+   （入口已被裁在滚动区外），改后恶化到 77px / 22px。矮屏抬到 72%：卡片仍是 height:auto，
+   内容不足时高度不变，只在放不下时不再把入口裁到可视区外；高屏（>700px）行为一字未动。 */
+@media (max-height:700px) { #ck-panel { max-height:72%; } }
 /* 甯垜鍐冲畾鍗婃锛氬唴瀹瑰锛岃皟澶ч珮搴︼紙鏈緭鍏ユ椂琛ㄥ崟涔熷畬鏁存樉绀猴紝涓嶇敤婊戝姩锛?*/
 #chat-decision-panel { height:auto; max-height:68%; }
 #chat-decision-panel .poke-card-scroll { min-height:0; max-height:none; }

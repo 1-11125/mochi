@@ -2079,6 +2079,7 @@ display:flex; align-items:center; justify-content:center;
 .poke-card-scroll::-webkit-scrollbar { display:none; }
 #ck-panel { height:auto; max-height:56%; }
 #ck-panel .poke-card-scroll { min-height:0; max-height:none; }
+@media (max-height:700px) { #ck-panel { max-height:72%; } }
 #chat-decision-panel { height:auto; max-height:68%; }
 #chat-decision-panel .poke-card-scroll { min-height:0; max-height:none; }
 #chat-decision-body .dec-inp-wrap .ce-box[data-for="dec-opts"] { max-height:176px; overflow-y:auto; overscroll-behavior:auto; }
@@ -4258,13 +4259,15 @@ cursor:pointer; font-family:inherit;
 .ck-location:last-of-type { border-bottom:none; }
 .ck-label { font-size:11px; color:var(--muted); letter-spacing:1px; }
 .ck-value { font-size:16px; font-weight:700; color:var(--ink); margin-top:5px; line-height:1.6; }
-.ck-loc-entry {
-display:block; width:100%; margin-top:14px; padding:11px 14px;
-border:1px dashed rgba(0,0,0,.18); border-radius:12px;
-background:rgba(255,255,255,.6); color:var(--ink);
-font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; text-align:center;
-}
+.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%; margin-top:14px; padding:10px 13px; border:1px solid rgba(255,160,90,.5); border-radius:14px; background:linear-gradient(135deg, rgba(255,196,140,.22), rgba(255,160,90,.10)); color:var(--ink); cursor:pointer; font-family:inherit; text-align:left; }
 .ck-loc-entry:active { background:rgba(0,0,0,.06); }
+.ck-loc-ico { flex-shrink:0; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #ffc48c, #ff8f4d); color:#fff; }
+.ck-loc-ico svg { width:17px; height:17px; }
+.ck-loc-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.ck-loc-t { font-size:14px; font-weight:800; line-height:1.3; }
+.ck-loc-s { font-size:11px; font-weight:500; color:var(--muted); line-height:1.35; }
+.ck-loc-arrow { flex-shrink:0; display:flex; color:var(--muted); }
+.ck-loc-arrow svg { width:15px; height:15px; }
 .loc-panel {
 position:fixed; left:0; right:0; bottom:0; z-index:78;
 max-height:90vh; display:flex; flex-direction:column;
@@ -10222,9 +10225,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789834715873">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789835792414">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 00:18<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 00:36<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -14753,7 +14756,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="ck-label">TA 想对你说</span>
             <div class="ck-value" id="ck-msg">—</div>
           </div>
-          <button class="ck-loc-entry" id="ck-loc-entry-desk">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：「TA在身边」藏在寻踪里是设计（位置面板的唯一入口就是这两处），但它原本是
+               全宽浅色虚线的次要按钮、排在本页卡片最底部，被读成寻踪的附加说明——用户既不知道这是
+               一个独立功能，也找不到只住在位置面板里的三个换位开关。改成图标＋主副两行＋箭头的
+               功能卡，放置与点击行为一字未动（仍由 p2-features.js 打开同一个位置面板）。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry-desk"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
         <div class="cal-card glass">
           <div class="cal-card-title">寻踪记录</div>
@@ -15663,7 +15670,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ck-location"><span class="ck-label">TA 在做什么</span><div class="ck-value" id="ck-p-action">—</div></div>
           <div class="ck-location"><span class="ck-label">TA 想对你说</span><div class="ck-value" id="ck-p-msg">—</div></div>
           <div class="ck-updated" id="ck-p-updated"></div>
-          <button class="ck-loc-entry" id="ck-loc-entry">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：与桌面寻踪页那颗同款（两入口形态必须一致）——图标＋主副两行＋箭头，
+               副标题点出位置面板里到底有什么，用户才知道这是一处独立功能、以及三个换位开关在哪。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
       </div>
       <!-- 拍一拍浮层卡片（聊天页内） -->
@@ -79411,4 +79420,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8ldlgh -->
+<!-- __MOCHI_EOF__ mu8m0o4e -->

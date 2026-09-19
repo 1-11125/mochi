@@ -4799,7 +4799,11 @@
             <span class="ck-label">TA 想对你说</span>
             <div class="ck-value" id="ck-msg">—</div>
           </div>
-          <button class="ck-loc-entry" id="ck-loc-entry-desk">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：「TA在身边」藏在寻踪里是设计（位置面板的唯一入口就是这两处），但它原本是
+               全宽浅色虚线的次要按钮、排在本页卡片最底部，被读成寻踪的附加说明——用户既不知道这是
+               一个独立功能，也找不到只住在位置面板里的三个换位开关。改成图标＋主副两行＋箭头的
+               功能卡，放置与点击行为一字未动（仍由 p2-features.js 打开同一个位置面板）。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry-desk"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
         <div class="cal-card glass">
           <div class="cal-card-title">寻踪记录</div>
@@ -5709,7 +5713,9 @@
           <div class="ck-location"><span class="ck-label">TA 在做什么</span><div class="ck-value" id="ck-p-action">—</div></div>
           <div class="ck-location"><span class="ck-label">TA 想对你说</span><div class="ck-value" id="ck-p-msg">—</div></div>
           <div class="ck-updated" id="ck-p-updated"></div>
-          <button class="ck-loc-entry" id="ck-loc-entry">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：与桌面寻踪页那颗同款（两入口形态必须一致）——图标＋主副两行＋箭头，
+               副标题点出位置面板里到底有什么，用户才知道这是一处独立功能、以及三个换位开关在哪。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
       </div>
       <!-- 拍一拍浮层卡片（聊天页内） -->
