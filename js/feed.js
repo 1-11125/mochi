@@ -916,7 +916,7 @@ return { box: box, blank: true };
 }
 function feedPickStickerPos(pid, src, emoji) {
 feedCancelPickSticker();
-const post = document.getElementById('feed-post-' + pid);
+const post = feedPostEl(pid);
 const made = post ? feedEnsureStickerBox(post) : null;
 const box = made ? made.box : null;
 if (!box) { addFeedSticker(pid, { src: src, emoji: emoji }); return; }
@@ -1030,8 +1030,13 @@ try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { 
 el.classList.add('feed-hl');
 setTimeout(() => el.classList.remove('feed-hl'), 2400);
 }
+function feedPostEl(pid) {
+const all = document.getElementById('page-feed-all');
+const scope = all && !all.hidden ? document.getElementById('feed-all-list') : document;
+return scope ? scope.querySelector('[id="feed-post-' + pid + '"]') : null;
+}
 function refreshPostCard(pid, preload) {
-const el = document.getElementById('feed-post-' + pid);
+const el = feedPostEl(pid);
 if (!el) { renderVisible(); return; }
 const p = (preload && preload.id === pid) ? preload : load().find(x => x.id === pid);
 if (!p) { renderVisible(); return; }
@@ -1177,7 +1182,17 @@ comImgData.splice(parseInt(b.dataset.i, 10), 1);
 renderComPv();
 }));
 }
+function feedCommentBarAdopt() {
+if (!comBar) return;
+const all = document.getElementById('page-feed-all');
+const host = all && !all.hidden ? all : document.getElementById('page-feed');
+if (!host || comBar.parentNode === host) return;
+host.appendChild(comBar);
+const panel = document.getElementById('feed-comment-panel');
+if (panel) host.appendChild(panel);
+}
 function showCommentBar(pid, replyTarget) {
+feedCommentBarAdopt();
 comPid = pid;
 comReplyTarget = replyTarget || null;
 comImgData = [];
@@ -1236,6 +1251,7 @@ let comStickerPanel = null;
 let comStickerTab = 'ta';   // 'ta' | 'mine'
 let comStickerCur = '';     // 当前分组
 function comStickerGroups() {
+if (comStickerTab === 'em') return [['emoji \u8868\u60c5', FEED_STICKER_EMOJI]];
 const onlyData = (groups) => (groups || [])
 .map(([n, a]) => [n, (a || []).filter(s => typeof s === 'string' && (s.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s))))])
 .filter(([, a]) => a.length);
@@ -1270,6 +1286,7 @@ comStickerPanel.innerHTML =
 '<div class="emoji-tabs">' +
 '<button class="emoji-tab sel" data-cs-tab="ta">TA \u7684\u8868\u60c5\u5305</button>' +
 '<button class="emoji-tab" data-cs-tab="mine">\u6211\u7684\u8868\u60c5\u5305</button>' +
+'<button class="emoji-tab" data-cs-tab="em">emoji \u8868\u60c5</button>' +
 '</div>' +
 '<button class="poke-card-close" data-cs="1">\u2715</button>' +
 '</div>' +
@@ -1320,20 +1337,31 @@ if (!groups.length) {
 list.innerHTML = '<div class="ta-empty">\u6682\u65e0\u8868\u60c5\u5305\uff0c\u8bf7\u5230\u81ea\u5b9a\u4e49\u5b57\u5361 \u2192 \u8868\u60c5\u5305 \u4e0a\u4f20</div>';
 return;
 }
-if (!comStickerCur) {
+const isEmoji = comStickerTab === 'em';
+if (!comStickerCur && !isEmoji) {
 list.innerHTML = '<div class="emoji-empty">\u70b9\u51fb\u4e0a\u65b9\u5206\u7ec4\u67e5\u770b\u8868\u60c5\u5305</div>';
 return;
 }
-const g = groups.find(x => x[0] === comStickerCur);
+const g = isEmoji ? groups[0] : groups.find(x => x[0] === comStickerCur);
 if (!g || !g[1].length) { list.innerHTML = '<div class="ta-empty">\u8be5\u5206\u7ec4\u6682\u65e0\u8868\u60c5\u5305</div>'; return; }
 const h = document.createElement('div');
 h.className = 'cc-group-header';
 h.innerHTML = '<span class="ccg-name">' + esc(g[0]) + '</span><span class="ccg-count">' + g[1].length + '</span>';
 list.appendChild(h);
 const grid = document.createElement('div');
-grid.className = 'emoji-grid'; // 复用聊天 4 列网格样式
+grid.className = isEmoji ? 'emoji-grid emoji-grid-text emoji-grid-emoji' : 'emoji-grid'; // 复用聊天 4 列网格样式
 g[1].forEach(src => {
 const d = document.createElement('div');
+if (isEmoji) {
+d.className = 'emoji-item emoji-text-item';
+d.textContent = src;
+d.addEventListener('click', (e) => {
+e.stopPropagation();
+if (comInput) comInput.value = (comInput.value || '') + src;
+});
+grid.appendChild(d);
+return;
+}
 d.className = 'emoji-item';
 const img = document.createElement('img');
 img.src = src;
@@ -1530,7 +1558,7 @@ ab.textContent = appN > 99 ? '99+' : String(appN);
 }
 }
 function jumpToPost(pid, ci, ri) {
-const el = document.getElementById('feed-post-' + pid);
+const el = feedPostEl(pid);
 if (!el) return;
 let target = el;
 if (ci != null && ci !== '') {

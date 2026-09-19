@@ -3636,6 +3636,20 @@ const FIX_SENTINELS = [
   { name: '#859c 既有医药商品已归入本分类（改回「日常用品」＝创可贴等又散进大分类翻不到）', file: 'js/gift-shop.js', needle: "price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' }" },
   { name: '#855a 寻踪预设＋自定义合并去重函数（删＝「使用系统预设」开启时回到自定义非空即整体顶掉预设的旧口径）', file: 'js/p2-features.js', needle: 'function ckMergeDef(custom, def)' },
   { name: '#855b genCheckin 开预设时合并抽取（删＝加过一张自定义字卡后地点/动作/话术预设全部退场）', file: 'js/p2-features.js', needle: 'places = ckMergeDef(places, DEF_PLACES);' },
+  // ==== 2026-09-19 #847 朋友圈两处评论入口缺口（接 #845 收口后用户点定的两项，零机型分支）——
+  //   ①个人页（#page-feed-all）点【评论】毫无反应：评论条与评论面板只长在 #page-feed 里，个人页是
+  //     另一个 .page，取消隐藏的是隐藏祖先内部的子节点＝屏幕上什么都不出现。修＝显示前 feedCommentBarAdopt()
+  //     把这两个节点搬挂到当前可见的那一页（全站仍是同一实例，id 不重复、监听不重绑）。
+  //   ②评论条贴纸面板只有图片表情包、没有 emoji 组：没传过表情包的桌面打开只看到「暂无表情包」。
+  //     修＝新增 em tab（源＝已入库常量 FEED_STICKER_EMOJI），emoji 走文本网格、点击进输入框，不进 comImgData。====
+  { name: '#847a 显示评论条前先搬挂到当前可见页（删＝个人页点【评论】依旧毫无反应，「评论按钮坏了」复发）', file: 'js/feed.js', needle: 'feedCommentBarAdopt();' },
+  { name: '#847b 搬挂幂等守卫（删＝每次点评论都重 append 一遍，同爹时也搬＝无谓重排；改回无条件 append 会让输入框失焦、草稿闪烁）', file: 'js/feed.js', needle: 'if (!host || comBar.parentNode === host) return;' },
+  { name: '#847c 评论面板 emoji 分组源（删＝em tab 只剩图片表情包，「暂无表情包」复发）', file: 'js/feed.js', needle: "if (comStickerTab === 'em') return [['emoji \\u8868\\u60c5', FEED_STICKER_EMOJI]];" },
+  { name: '#847d 评论面板第三个 tab 按钮在位（删＝用户根本点不到 emoji 组）', file: 'js/feed.js', needle: 'data-cs-tab="em"' },
+  { name: '#847e emoji 走文字网格类名（改回单类 emoji-grid＝emoji 被当图片渲染成坏图；删 isEmoji 判定则只剩「点分组查看」空态，emoji 组永远出不来）', file: 'js/feed.js', needle: "grid.className = isEmoji ? 'emoji-grid emoji-grid-text emoji-grid-emoji' : 'emoji-grid';" },
+  { name: '#847f 点 emoji 追加进评论输入框（改回 push 进 comImgData＝emoji 变成图片附件、还占 9 张图上限，发出去是坏图）', file: 'js/feed.js', needle: "if (comInput) comInput.value = (comInput.value || '') + src;" },
+  { name: '#847g 单卡定位按当前可见页取卡片（改回 getElementById＝主列表与个人页两套模板都输出 id=feed-post-<pid>，文档序第一份是隐藏页那份：个人页「评论发出去屏上这条动态不刷新」「点贴纸没反应」复发）', file: 'js/feed.js', needle: "const scope = all && !all.hidden ? document.getElementById('feed-all-list') : document;" },
+  { name: '#847h 贴纸选位也走可见页取卡（改回按 id 直取＝个人页铺的底纸与提示条插在看不见的卡片上）', file: 'js/feed.js', needle: 'const post = feedPostEl(pid);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

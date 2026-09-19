@@ -1234,7 +1234,7 @@
   // FIX 2026-09-17 #669 emoji 参数：贴纸面板的「emoji 贴纸」分组（图片贴纸走 src，emoji 走 emoji）
   function feedPickStickerPos(pid, src, emoji) {
     feedCancelPickSticker();
-    const post = document.getElementById('feed-post-' + pid);
+    const post = feedPostEl(pid);
     const made = post ? feedEnsureStickerBox(post) : null;
     const box = made ? made.box : null;
     if (!box) { addFeedSticker(pid, { src: src, emoji: emoji }); return; }
@@ -1362,8 +1362,17 @@
   //   全部事件重绑，重度图片数据下发一条评论就卡顿数百 ms~秒级（手机端明显）。
   //   改为只替换该动态的卡片节点，其余卡片 DOM 原地不动（不解码图片、不重绑事件）；
   //   卡片不在当前列表（刚发布/已删除/空态）时回退全量渲染兜底。
+  // FIX 2026-09-19 #847：主列表与个人页两套模板都输出 id="feed-post-<pid>"，两页同时在场时同一个 pid
+  //   有两份同 id 卡片，getElementById 只按文档序拿到第一份＝藏在隐藏页里的那份——个人页「评论发出去
+  //   屏上这条动态不刷新」「贴贴纸时底纸铺在看不见的卡上」。单卡定位一律走这里，按当前可见那页取。
+  function feedPostEl(pid) {
+    const all = document.getElementById('page-feed-all');
+    const scope = all && !all.hidden ? document.getElementById('feed-all-list') : document;
+    // 属性选择器（非 #id）：不依赖 pid 是否以数字开头，也不引入 CSS.escape 依赖
+    return scope ? scope.querySelector('[id="feed-post-' + pid + '"]') : null;
+  }
   function refreshPostCard(pid, preload) {
-    const el = document.getElementById('feed-post-' + pid);
+    const el = feedPostEl(pid);
     if (!el) { renderVisible(); return; }
     // v3.42.x 点赞卡顿：调用方（点赞/回赞）刚 load() 过就传 preload，省一次兆级全量 parse
     const p = (preload && preload.id === pid) ? preload : load().find(x => x.id === pid);
@@ -1534,7 +1543,20 @@ function renderComPv() {
     renderComPv();
   }));
 }
+// #847：评论条与评论面板只长在 #page-feed 里，而「全部朋友圈」是另一个 .page（个人页里点【评论】＝
+// 往隐藏的祖先内部取消隐藏，屏幕上什么都不出现）。显示前把这两个节点搬挂到当前可见的那一页——
+// 全站仍是同一个实例（id 不重复、监听不重绑），换页只是换爹。
+function feedCommentBarAdopt() {
+  if (!comBar) return;
+  const all = document.getElementById('page-feed-all');
+  const host = all && !all.hidden ? all : document.getElementById('page-feed');
+  if (!host || comBar.parentNode === host) return;
+  host.appendChild(comBar);
+  const panel = document.getElementById('feed-comment-panel');
+  if (panel) host.appendChild(panel);
+}
 function showCommentBar(pid, replyTarget) {
+  feedCommentBarAdopt();
   comPid = pid;
   comReplyTarget = replyTarget || null;
   comImgData = [];
@@ -1597,6 +1619,10 @@ let comStickerPanel = null;
 let comStickerTab = 'ta';   // 'ta' | 'mine'
 let comStickerCur = '';     // 当前分组
 function comStickerGroups() {
+  // #847：评论面板补「emoji 表情」组——原面板只有图片表情包，没传过表情包的桌面打开只看到
+  //   一句「暂无表情包」，与动态侧贴纸面板（有 emoji 贴纸组，#669/#845）不对等。
+  //   源用已入库的常量 FEED_STICKER_EMOJI（与动态侧面板同一批，选得到＝发得出）。
+  if (comStickerTab === 'em') return [['emoji \u8868\u60c5', FEED_STICKER_EMOJI]];
   // TA 的表情包：聊天字卡库 sticker 分类；我的表情包：my-emoji-groups
   // v3.11.x：只收 dataURL 表情——选中后会拼进评论/正文文本（data:image 正则识别），
   // 链接导入的 http(s) 表情拼进去只显示 URL 文字，先过滤掉
@@ -1640,6 +1666,7 @@ function openComStickerPanel() {
         '<div class="emoji-tabs">' +
           '<button class="emoji-tab sel" data-cs-tab="ta">TA \u7684\u8868\u60c5\u5305</button>' +
           '<button class="emoji-tab" data-cs-tab="mine">\u6211\u7684\u8868\u60c5\u5305</button>' +
+          '<button class="emoji-tab" data-cs-tab="em">emoji \u8868\u60c5</button>' +
         '</div>' +
         '<button class="poke-card-close" data-cs="1">\u2715</button>' +
       '</div>' +
@@ -1692,20 +1719,33 @@ function openComStickerPanel() {
       list.innerHTML = '<div class="ta-empty">\u6682\u65e0\u8868\u60c5\u5305\uff0c\u8bf7\u5230\u81ea\u5b9a\u4e49\u5b57\u5361 \u2192 \u8868\u60c5\u5305 \u4e0a\u4f20</div>';
       return;
     }
-    if (!comStickerCur) {
+    // #847：emoji tab 只有一个内置分组（且条目是文本不是图片），不必再点一次分组条
+    const isEmoji = comStickerTab === 'em';
+    if (!comStickerCur && !isEmoji) {
       list.innerHTML = '<div class="emoji-empty">\u70b9\u51fb\u4e0a\u65b9\u5206\u7ec4\u67e5\u770b\u8868\u60c5\u5305</div>';
       return;
     }
-    const g = groups.find(x => x[0] === comStickerCur);
+    const g = isEmoji ? groups[0] : groups.find(x => x[0] === comStickerCur);
     if (!g || !g[1].length) { list.innerHTML = '<div class="ta-empty">\u8be5\u5206\u7ec4\u6682\u65e0\u8868\u60c5\u5305</div>'; return; }
     const h = document.createElement('div');
     h.className = 'cc-group-header';
     h.innerHTML = '<span class="ccg-name">' + esc(g[0]) + '</span><span class="ccg-count">' + g[1].length + '</span>';
     list.appendChild(h);
     const grid = document.createElement('div');
-    grid.className = 'emoji-grid'; // 复用聊天 4 列网格样式
+    grid.className = isEmoji ? 'emoji-grid emoji-grid-text emoji-grid-emoji' : 'emoji-grid'; // 复用聊天 4 列网格样式
     g[1].forEach(src => {
       const d = document.createElement('div');
+      if (isEmoji) {
+        // FIX 2026-09-19 #847：emoji 是文本，只能进输入框（走下面的 img 分支会把 emoji 字符串当图片 src 变成坏图）
+        d.className = 'emoji-item emoji-text-item';
+        d.textContent = src;
+        d.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (comInput) comInput.value = (comInput.value || '') + src;
+        });
+        grid.appendChild(d);
+        return;
+      }
       d.className = 'emoji-item';
       // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
       const img = document.createElement('img');
@@ -1949,7 +1989,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     }
   }
   function jumpToPost(pid, ci, ri) {
-    const el = document.getElementById('feed-post-' + pid);
+    const el = feedPostEl(pid);
     if (!el) return;
     // v3.11.x：带评论/回复定位——优先滚动闪烁到具体那条评论/回复（找不到回退整条动态）
     let target = el;
