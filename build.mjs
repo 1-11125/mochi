@@ -3566,6 +3566,7 @@ const FIX_SENTINELS = [
   { name: '#815b 切页先取目标页再关其它页（改回先关后取＝目标 id 落空时全部页被关光，整屏空白）', file: 'js/tabs.js', needle: "const target = document.getElementById(tab.dataset.page || '');" },
   { name: '#815c 静态快照扫空时实时复查（删＝运行中新建的 .page 不在快照里，chrome 判定与自愈双失）', file: 'js/tabs.js', needle: 'if (!visible) visible = liveVisiblePage();' },
   { name: '#815d .phone 整屏空白地板（删＝内核瞬时上报 0 高时整壳塌成一条，「输入文字时白闪」复发；min-height 压内联 height，单点收口不随十余处写入点漂移）', file: 'css/base.css', needle: 'min-height:min(120px, 18dvh);' },
+  { name: '#821a 桌面昵称抬到头像 label 激活层之上（删掉 z-index＝点昵称又被覆盖层吞去弹相册，「点击无法修改」复发）', file: 'css/home.css', needle: 'cursor:pointer; position:relative; z-index:1; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

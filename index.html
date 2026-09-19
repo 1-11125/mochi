@@ -949,11 +949,7 @@ transition:transform .18s ease;
 .deco-avatar:active .ring { transform:scale(.95); }
 .deco-avatar .ring svg { width:34px; height:34px; }
 .deco-avatar .ring img { width:100%; height:100%; object-fit:cover; display:block; border-radius:var(--msg-av-radius, 50%); }
-.deco-avatar .lbl {
-font-size:11px; color:#666; font-weight:600; letter-spacing:.5px;
-background:#fff; border:1px solid rgba(0,0,0,.1);
-padding:3px 13px; border-radius:99px; cursor:pointer;
-}
+.deco-avatar .lbl { font-size:11px; color:#666; font-weight:600; letter-spacing:.5px; background:#fff; border:1px solid rgba(0,0,0,.1); padding:3px 13px; border-radius:99px; cursor:pointer; position:relative; z-index:1; }
 .deco-avatar .lbl:hover { background:rgba(0,0,0,.04); }
 .deco-heart {
 flex-shrink:0;
@@ -10167,9 +10163,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789796493782">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789796992691">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 13:41<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 13:49<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -79134,4 +79130,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu7ymd3q -->
+<!-- __MOCHI_EOF__ mu7yx22b -->

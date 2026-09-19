@@ -125,11 +125,11 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
 .deco-avatar .ring svg { width:34px; height:34px; }
 .deco-avatar .ring img { width:100%; height:100%; object-fit:cover; display:block; border-radius:var(--msg-av-radius, 50%); }
 /* 昵称：白底虚线描边胶囊，印章标签感 */
-.deco-avatar .lbl {
-  font-size:11px; color:#666; font-weight:600; letter-spacing:.5px;
-  background:#fff; border:1px solid rgba(0,0,0,.1);
-  padding:3px 13px; border-radius:99px; cursor:pointer;
-}
+/* FIX 2026-09-19 #821：#738 给 .deco-avatar 整盒铺的透明 label 激活层（absolute、z 自动）
+   盖住了昵称——点昵称命中的是 label＝弹相册、昵称弹窗永远出不来。抬一层让昵称回到
+   label 之上：点名=改昵称、点圆圈/其余区域=换头像，两条点击路径各归各。
+   规则收拢为单行＝哨兵 #821a 的 needle 是产物唯一单行片段（多行 needle 易碎）。 */
+.deco-avatar .lbl { font-size:11px; color:#666; font-weight:600; letter-spacing:.5px; background:#fff; border:1px solid rgba(0,0,0,.1); padding:3px 13px; border-radius:99px; cursor:pointer; position:relative; z-index:1; }
 .deco-avatar .lbl:hover { background:rgba(0,0,0,.04); }
 /* 中间爱心：直接显示爱心图标，无圆框 */
 .deco-heart {
