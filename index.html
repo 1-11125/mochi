@@ -10168,9 +10168,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789821197748">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789822175123">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 20:33<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 20:49<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -35930,6 +35930,21 @@ body.removeChild(f);
 }
 renderStart = targetStart;
 }
+function trimWindowTopQuiet(maxN) {
+const targetStart = Math.max(0, renderEnd - maxN);
+if (renderStart >= targetStart) return;
+const h0 = body.scrollHeight;
+while (body.firstChild) {
+const f = body.firstChild;
+const idx = f.dataset.idx;
+if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+body.removeChild(f);
+}
+renderStart = targetStart;
+const cut = h0 - body.scrollHeight;
+if (cut > 0) body.scrollTop = Math.max(0, body.scrollTop - cut);
+suppressScrollUntil = Date.now() + 200; // 本次程序化 scrollTop 写入不算用户滚动（否则补偿位会误触发上翻加载）
+}
 let bodyScrollTimer = null;
 let _chatScrollActTs = 0; // #765：列表最近一次滚动时刻（手指拖动/抬手后的惯性滑行/滚轮都算），看门狗据此让路
 body.addEventListener('scroll', function () {
@@ -37092,9 +37107,7 @@ incChatUnread();
 }
 if (renderStart > 0 && msgs.length - renderStart > WINDOW_MAX &&
 (rec.side === 'out' || chatNearBottom())) {
-renderWindow(false, true, true); // #718 forceSync：本路径返回即要 body.lastElementChild
-scrollChatBottom();
-return body.lastElementChild;
+trimWindowTopQuiet(RENDER_MAX);
 }
 maybeInsertDivider(msgs.length - 1);
 const el = renderMsg(rec);
@@ -79323,4 +79336,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8dbut0 -->
+<!-- __MOCHI_EOF__ mu8dwsyb -->

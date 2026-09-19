@@ -3505,7 +3505,8 @@ let suppressScrollUntil = 0; // 程序化滚动后短暂忽略 scroll 事件（�
 // 200 条＝单条 500~900ms 长任务（权威到达/冷进聊天那一下「卡住＋进度条冻结」，红米 K80
 // 诊断单 898/924ms 长任务实证）。分帧＝每批 RENDER_CHUNK 条进 fragment、帧间让出主线程
 // （进度条动画恢复），构建完一次换装。keepScroll=true 的用户触发重渲走原同步路径（视觉
-// 零变化）；forceSync 给「返回即需要 body 节点」的调用方（addRec 重钳位返回 lastElementChild）。
+// 零变化）；forceSync 给「返回即需要 body 节点」的调用方（#846 起暂无调用方——addRec 钳位改
+// trimWindowTopQuiet 静默裁顶，不再整窗重建）。
 // 世代令牌防重入：新一轮 renderWindow 作废旧构建（frag 丢弃、状态由新轮重新登记）。
 const RENDER_CHUNK = 50;
 const RENDER_CHUNK_MIN = 80;
@@ -3958,6 +3959,24 @@ if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应�
 body.removeChild(f);
 }
 renderStart = targetStart;
+}
+// v3.27.x #846「发完消息闪一下」专用钳位：与 pruneWindowTop 同为裁顶，但带上「视口不动」两件事
+// ——①只删 scrollTop 之上的节点（屏上可见区一个节点都不碰，故无重建无重解码）；②按删掉的高度
+// 补偿 scrollTop，删完画面纹丝不动。调用方随后照常增量追加新消息。
+function trimWindowTopQuiet(maxN) {
+const targetStart = Math.max(0, renderEnd - maxN);
+if (renderStart >= targetStart) return;
+const h0 = body.scrollHeight;
+while (body.firstChild) {
+const f = body.firstChild;
+const idx = f.dataset.idx;
+if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+body.removeChild(f);
+}
+renderStart = targetStart;
+const cut = h0 - body.scrollHeight;
+if (cut > 0) body.scrollTop = Math.max(0, body.scrollTop - cut);
+suppressScrollUntil = Date.now() + 200; // 本次程序化 scrollTop 写入不算用户滚动（否则补偿位会误触发上翻加载）
 }
 let bodyScrollTimer = null;
 let _chatScrollActTs = 0; // #765：列表最近一次滚动时刻（手指拖动/抬手后的惯性滑行/滚轮都算），看门狗据此让路
@@ -5349,9 +5368,12 @@ saveMsgs();
 // 才重钳位到最新 RENDER_MAX——与滚动加载侧的裁剪语义一致，DOM 上限不变。
 if (renderStart > 0 && msgs.length - renderStart > WINDOW_MAX &&
 (rec.side === 'out' || chatNearBottom())) {
-renderWindow(false, true, true); // #718 forceSync：本路径返回即要 body.lastElementChild
-scrollChatBottom();
-return body.lastElementChild;
+// v3.27.x #846（红米 K80 Chrome 实报「消息发出去之后屏幕还会闪一下」，多机型同现）：这里原来
+// 走 renderWindow 整窗重建＝屏上 400 个节点全删、同步重造最新 200 个气泡，img/头像全部重建
+// 重新解码＝肉眼整屏闪一下（无头实证一次发送 rm=400/add=200 节点、scrollTop 26086→12686）。
+// 历史 ≤400 条的桌面从不命中＝看着像"偶尔/机型相关"。钳位改裁视口外的顶部节点（DOM 上限照旧
+// 是 RENDER_MAX），新消息与常规收发同样走下面 renderMsg 增量追加。
+trimWindowTopQuiet(RENDER_MAX);
 }
 maybeInsertDivider(msgs.length - 1);
 const el = renderMsg(rec);

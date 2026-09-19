@@ -1697,7 +1697,7 @@ const FIX_SENTINELS = [
   { name: '#720a 整窗渲染分帧构建（删回一口气渲染则冷进/权威到达单条数百毫秒长任务回归）', file: 'js/chat.js', needle: 'const RENDER_CHUNK = 50;' },
   { name: '#720b 分帧世代令牌防重入（删则新一轮渲染与旧构建交错＝窗口错乱）', file: 'js/chat.js', needle: 'if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; }' },
   { name: '#720c 分帧路径补贴底（删则冷进时调用方的 scrollToBottom 跑在换装前＝空操作，页面不贴底）', file: 'js/chat.js', needle: 'scrollChatBottom(); // #718 分帧路径' },
-  { name: '#720d forceSync 路径（addRec 重钳位返回 body.lastElementChild 必须同步）', file: 'js/chat.js', needle: 'renderWindow(false, true, true); // #718 forceSync' },
+  { name: '#720d addRec 超限钳位走静默裁顶（#846 起；改回整窗重建则「发完消息屏幕闪一下」复发）', file: 'js/chat.js', needle: 'trimWindowTopQuiet(RENDER_MAX);' },
   { name: '#721a LS 残留补扫失败重试闸（删回一次闩到底则存储繁忙那轮没清掉的残留整会话不再清＝用户诊断单里 207KB 跨会话存活形态）', file: 'js/idb.js', needle: 'if (_lsSweepFail && _lsSweepTries < 2) {' },
   { name: '#721b 追平写失败计数（删则写失败静默当成功、重试闸永不触发）', file: 'js/idb.js', needle: 'const markFail = function () { _lsSweepFail = true; };' },
   { name: '#722a 分块格式门（blk-idx 在位只读热片，删回整读 41MB＝冷进聊天数秒卡顿回归）', file: 'js/chat.js', needle: "return chatBlkHotLoad(myPrefix, bidxRaw);" },
@@ -3600,6 +3600,13 @@ const FIX_SENTINELS = [
   { name: '#842f 两新键全局根键免迁（删＝每次刷新被 migrateLegacy 迁进 default 并删根键，非 default 桌面这两类最近区清空）', file: 'js/contacts.js', needle: "'emoji-recent-kaomoji', 'emoji-recent-emoji'," },
   { name: '#849a 加载期全分类组内去重＋main 跨分组去重（删则默认聊天字卡/互动回应等同文重复行复发）', file: 'js/default-cards.js', needle: "if (k !== 'dict' && Array.isArray(DATA[k])) dedupeCardGroups(DATA[k], k === 'main');" },
   { name: '#849b 词典重建链跨分组去重（词库与基础汉字等扩展分组同文只留一处；删则用户报的【嗯】重复复发）', file: 'js/default-cards.js', needle: 'DATA.dict = dedupeCardGroups(base, true);' },
+  // ==== 2026-09-19 #846 手机端「消息发出去之后屏幕闪一下」根治（红米 K80 Chrome 实报，用户点名勿做机型分支）——
+  //   无头实证：历史 >400 条的桌面进页后屏上窗口会被上翻加载撑到 WINDOW_MAX(400)，此后每发一条消息都命中
+  //   addRec 超限钳位分支＝renderWindow 整窗重建（400 节点全删、同步重造 200 气泡、img/头像全部重解码，
+  //   实测 rm=400/add=200、scrollTop 26086→12686）＝整屏闪一下；历史 ≤400 条的桌面从不命中＝假象为机型相关。
+  //   修法＝钳位改 trimWindowTopQuiet(RENDER_MAX) 静默裁顶（只删视口以上的节点＋按删掉高度补偿 scrollTop），
+  //   新消息照常走 renderMsg 增量追加；DOM 上限与 #211 口径不变。#720d 哨兵随本批换锚到新调用式。====
+  { name: '#846a 裁顶后按删掉高度补偿 scrollTop（删＝视口瞬间位移，「近底部发一条消息画面跳一下」；#846 静默钳位的前半）', file: 'js/chat.js', needle: 'if (cut > 0) body.scrollTop = Math.max(0, body.scrollTop - cut);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
