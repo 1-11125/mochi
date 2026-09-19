@@ -3650,6 +3650,12 @@ const FIX_SENTINELS = [
   { name: '#847f 点 emoji 追加进评论输入框（改回 push 进 comImgData＝emoji 变成图片附件、还占 9 张图上限，发出去是坏图）', file: 'js/feed.js', needle: "if (comInput) comInput.value = (comInput.value || '') + src;" },
   { name: '#847g 单卡定位按当前可见页取卡片（改回 getElementById＝主列表与个人页两套模板都输出 id=feed-post-<pid>，文档序第一份是隐藏页那份：个人页「评论发出去屏上这条动态不刷新」「点贴纸没反应」复发）', file: 'js/feed.js', needle: "const scope = all && !all.hidden ? document.getElementById('feed-all-list') : document;" },
   { name: '#847h 贴纸选位也走可见页取卡（改回按 id 直取＝个人页铺的底纸与提示条插在看不见的卡片上）', file: 'js/feed.js', needle: 'const post = feedPostEl(pid);' },
+  // ==== 2026-09-19 #857 帮我决定/多人决定/占卜「历史记录没保存」根治（用户直派：红米 K80 Chrome，明说其他机型也有、勿做机型分支）——三模块的历史写闸 histReady 只由 mochi-restore-done 监听器置位；JS 外置化后它们是 <script defer src="js/…"> 件，空库/快恢复时该事件早在监听注册前就派发完（idb.js sendReady），只挂监听永远等不到 → histReady 恒 false → saveHistory 把每条记录塞进 histPending 且永不落盘、存量迁移也永不执行（外置前同步内联必然赶上，故这几天才冒出来）。修＝就绪两层：已 __mochiDataReady 则立即补跑同一处理器，否则才挂监听；同批把切桌面时 histPending = null 的丢弃改成 flushPendingHist 落盘（这两个键走全局根命名空间，缓冲与桌面无关，丢弃＝白丢）。====
+  { name: '#857a 帮我决定写闸两层就绪（删＝回到只挂监听：defer 外置件错过 mochi-restore-done 后 histReady 恒 false、记录全进缓冲永不落盘）', file: 'js/decision.js', needle: 'if (window.__mochiDataReady) onDecHistRestore();' },
+  { name: '#857b 多人决定写闸两层就绪（同 #857a，删＝群聊决定历史不保存复发）', file: 'js/group-decision.js', needle: 'if (window.__mochiDataReady) onGdHistRestore();' },
+  { name: '#857c 占卜记录写闸两层就绪（同 #857a，删＝抽牌记录与主页占卜记录全被缓冲吞掉）', file: 'js/divination.js', needle: 'if (window.__mochiDataReady) onDivRestore();' },
+  { name: '#857d 帮我决定切桌面时缓冲落盘（改回置空＝恢复窗口内攒下的记录白丢）', file: 'js/decision.js', needle: 'try { histReady = true; flushPendingHist(); } catch (e) {}' },
+  { name: '#857e 多人决定切桌面时缓冲落盘（改回置空＝同上白丢；本文件写成裸语句，与 #857d 的 try 包裹形态各在其位，勿「统一」两条 needle）', file: 'js/group-decision.js', needle: 'histReady = true; flushPendingHist();' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

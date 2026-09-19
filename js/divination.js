@@ -718,14 +718,16 @@ merge(base);
 merge([]);
 }
 }
-try {
-document.addEventListener('mochi-restore-done', function () {
+function onDivRestore() {
 histReady = true;
 migrateLegacyHist();
 flushPendingHist();
 try { flushHomePending(); } catch (e) {}
 try { renderHistory(); } catch (e) {}
-});
+}
+try {
+if (window.__mochiDataReady) onDivRestore();
+else document.addEventListener('mochi-restore-done', onDivRestore);
 } catch (e) {}
 function fmtDT(ts) {
 const d = new Date(ts);

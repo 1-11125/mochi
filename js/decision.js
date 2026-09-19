@@ -117,16 +117,18 @@ store.set(MIGRATE_KEY, '1');
 });
 } catch (e) { return Promise.resolve(); }
 }
-try {
-document.addEventListener('mochi-restore-done', function () {
+function onDecHistRestore() {
 Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
 histReady = true;
 flushPendingHist();
 });
-});
+}
+try {
+if (window.__mochiDataReady) onDecHistRestore();
+else document.addEventListener('mochi-restore-done', onDecHistRestore);
 } catch (e) {}
 document.addEventListener('contact-switched', function () {
-try { histReady = true; histPending = null; } catch (e) {}
+try { histReady = true; flushPendingHist(); } catch (e) {}
 try { if (decideTimer) { clearTimeout(decideTimer); decideTimer = null; } } catch (e) {}
 try { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } } catch (e) {}
 });

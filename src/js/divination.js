@@ -793,17 +793,22 @@
       merge([]);
     }
   }
+  // #857（同 decision.js）：本模块 defer 外置后，空库/快恢复时 mochi-restore-done 早在这一行
+  // 执行前就派发完了，只挂监听＝永远等不到 → histReady 恒 false → 抽牌记录全塞进 histPending
+  // /homePending 且永不落盘。已就绪时立即补跑同一处理器。
+  function onDivRestore() {
+    histReady = true;
+    migrateLegacyHist();
+    flushPendingHist();
+    try { flushHomePending(); } catch (e) {}
+    // v3.9.x：IDB 回填完成后补渲染历史区——文件加载时 renderHistOnOpen 可能在
+    // idbRestore 完成前调用，此时 store.get('divine-history') 读到空（LS/memoryCache
+    // 均无），历史区渲染空白；恢复完成后必须补渲染一次，否则已有历史记录显示不出来
+    try { renderHistory(); } catch (e) {}
+  }
   try {
-    document.addEventListener('mochi-restore-done', function () {
-      histReady = true;
-      migrateLegacyHist();
-      flushPendingHist();
-      try { flushHomePending(); } catch (e) {}
-      // v3.9.x：IDB 回填完成后补渲染历史区——文件加载时 renderHistOnOpen 可能在
-      // idbRestore 完成前调用，此时 store.get('divine-history') 读到空（LS/memoryCache
-      // 均无），历史区渲染空白；恢复完成后必须补渲染一次，否则已有历史记录显示不出来
-      try { renderHistory(); } catch (e) {}
-    });
+    if (window.__mochiDataReady) onDivRestore();
+    else document.addEventListener('mochi-restore-done', onDivRestore);
   } catch (e) {}
   function fmtDT(ts) {
     const d = new Date(ts);

@@ -165,18 +165,24 @@
       });
     } catch (e) { return Promise.resolve(); }
   }
-  try {
-    document.addEventListener('mochi-restore-done', function () {
-      // 先把存量各桌面旧数据合并进全局根键，完成前不放开写保护
-      Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
-        histReady = true;
-        flushPendingHist();
-      });
+  // #857（同 decision.js）：本模块 defer 外置后，空库/快恢复时 mochi-restore-done 早在这一行
+  // 执行前就派发完了，只挂监听＝永远等不到 → histReady 恒 false → 每条记录塞进 histPending
+  // 且永不落盘。已就绪时立即补跑同一处理器。
+  function onGdHistRestore() {
+    // 先把存量各桌面旧数据合并进全局根键，完成前不放开写保护
+    Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
+      histReady = true;
+      flushPendingHist();
     });
+  }
+  try {
+    if (window.__mochiDataReady) onGdHistRestore();
+    else document.addEventListener('mochi-restore-done', onGdHistRestore);
   } catch (e) {}
-  // 多桌面：切联系人后重置权威状态 + 清掉挂起的决定定时器（防止 A 桌面的结果写到 B）
+  // 多桌面：切联系人时放开历史写保护（#857：本键走全局根命名空间，缓冲与桌面无关，
+  // 故此处落盘而非丢弃）+ 清掉挂起的决定定时器（防止 A 桌面的结果写到 B）
   document.addEventListener('contact-switched', function () {
-    try { histReady = true; histPending = null; } catch (e) {}
+    histReady = true; flushPendingHist();
     try { if (gdCountdownTimer) { clearInterval(gdCountdownTimer); gdCountdownTimer = null; } } catch (e) {}
     try { if (gdDecideTimer) { clearTimeout(gdDecideTimer); gdDecideTimer = null; } } catch (e) {}
   });

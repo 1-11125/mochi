@@ -138,18 +138,27 @@
       });
     } catch (e) { return Promise.resolve(); }
   }
-  try {
-    document.addEventListener('mochi-restore-done', function () {
-      // 先把存量各桌面旧数据合并进全局根键，完成前不放开写保护（防止半路写覆盖）
-      Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
-        histReady = true;
-        flushPendingHist();
-      });
+  // #857：就绪钩子两层化（零机型分支，与 #785b 同族）。本模块已改成 <script defer src="js/…">
+  // 外置件，而空库/快恢复时 mochi-restore-done 早在这一行执行前就由 idb.js 派发完了——只挂监听
+  // 永远等不到 → histReady 恒 false → saveHistory 把每条记录塞进 histPending 且永不落盘、存量
+  // 迁移也永不执行＝「历史记录没保存」（外置前是同步内联，监听必然赶上，故这几天才冒出来）。
+  function onDecHistRestore() {
+    // 先把存量各桌面旧数据合并进全局根键，完成前不放开写保护（防止半路写覆盖）
+    Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
+      histReady = true;
+      flushPendingHist();
     });
+  }
+  try {
+    if (window.__mochiDataReady) onDecHistRestore();
+    else document.addEventListener('mochi-restore-done', onDecHistRestore);
   } catch (e) {}
-  // v3.6.x：多桌面——切换联系人后重置历史权威状态（防止旧桌面的 histPending 串入新桌面）
+  // v3.6.x：多桌面——切换联系人时放开历史写保护（v3.27.x #857：本键走全局根命名空间，
+  // 缓冲与桌面无关，故此处是把恢复窗口内攒下的记录落盘，不再丢弃）
   document.addEventListener('contact-switched', function () {
-    try { histReady = true; histPending = null; } catch (e) {}
+    // #857：本键是全局根键（不分桌面），旧写法 histPending = null 等于把恢复窗口内攒下的记录
+    // 直接丢弃；改为放开写保护后立即落盘（flushPendingHist 无缓冲时自己早退）
+    try { histReady = true; flushPendingHist(); } catch (e) {}
     // v3.7.x：清掉挂起的决定定时器——否则切到 B 后回调执行，A 的决定历史/聊天结果写到 B
     try { if (decideTimer) { clearTimeout(decideTimer); decideTimer = null; } } catch (e) {}
     try { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } } catch (e) {}

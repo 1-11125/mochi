@@ -143,16 +143,18 @@ store.set(MIGRATE_KEY, '1');
 });
 } catch (e) { return Promise.resolve(); }
 }
-try {
-document.addEventListener('mochi-restore-done', function () {
+function onGdHistRestore() {
 Promise.resolve(migrateGlobalData()).catch(function () {}).then(function () {
 histReady = true;
 flushPendingHist();
 });
-});
+}
+try {
+if (window.__mochiDataReady) onGdHistRestore();
+else document.addEventListener('mochi-restore-done', onGdHistRestore);
 } catch (e) {}
 document.addEventListener('contact-switched', function () {
-try { histReady = true; histPending = null; } catch (e) {}
+histReady = true; flushPendingHist();
 try { if (gdCountdownTimer) { clearInterval(gdCountdownTimer); gdCountdownTimer = null; } } catch (e) {}
 try { if (gdDecideTimer) { clearTimeout(gdDecideTimer); gdDecideTimer = null; } } catch (e) {}
 });
