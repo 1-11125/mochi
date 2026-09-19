@@ -3630,6 +3630,8 @@ const FIX_SENTINELS = [
   { name: '#859a 「药品医护」分类登记在 CATS 末位（删＝第 13 类胶囊与整柜药一起退场，用户回到「市集里只有感冒药」）', file: 'js/gift-shop.js', needle: "'日常用品', '药品医护']" },
   { name: '#859b 外伤处理商品在位（碘伏等，与常备药同批；删＝「手受伤了要用的」那几件没有入口）', file: 'js/gift-shop.js', needle: "id: 'g_mediodine', name: '碘伏'" },
   { name: '#859c 既有医药商品已归入本分类（改回「日常用品」＝创可贴等又散进大分类翻不到）', file: 'js/gift-shop.js', needle: "price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' }" },
+  { name: '#855a 寻踪预设＋自定义合并去重函数（删＝「使用系统预设」开启时回到自定义非空即整体顶掉预设的旧口径）', file: 'js/p2-features.js', needle: 'function ckMergeDef(custom, def)' },
+  { name: '#855b genCheckin 开预设时合并抽取（删＝加过一张自定义字卡后地点/动作/话术预设全部退场）', file: 'js/p2-features.js', needle: 'places = ckMergeDef(places, DEF_PLACES);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

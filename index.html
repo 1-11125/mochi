@@ -10187,9 +10187,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789826662092">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789827210959">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 22:04<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 22:13<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -66949,6 +66949,13 @@ return v === null ? true : v === '1';
 }
 window.checkinEnabled = ckEn;
 window.checkinDeskOff = function () { return !ckEn(); };
+function ckMergeDef(custom, def) {
+const seen = {};
+return def.map(function (t) { return { t: t }; }).concat(custom).filter(function (x) {
+if (x && x.t != null && !seen[x.t]) { seen[x.t] = 1; return true; }
+return false;
+});
+}
 function genCheckin() {
 const useDefault = getCkDefault();
 let places = ckItems('place');
@@ -66957,6 +66964,11 @@ let msgs = ckItems('msg');
 if (!places.length) places = DEF_PLACES.map(t => ({ t }));
 if (!actions.length) actions = DEF_ACTIONS.map(t => ({ t }));
 if (!msgs.length) msgs = DEF_CHECK_MSGS.map(t => ({ t }));
+if (useDefault) {
+places = ckMergeDef(places, DEF_PLACES);
+actions = ckMergeDef(actions, DEF_ACTIONS);
+msgs = ckMergeDef(msgs, DEF_CHECK_MSGS);
+}
 const out = {};
 let place = useDefault ? places.filter(p => !isCkCardOff('place', p.t)) : places.filter(p => DEF_PLACES.indexOf(p.t) < 0 && !isCkCardOff('place', p.t));
 let action = useDefault ? actions.filter(a => !isCkCardOff('action', a.t)) : actions.filter(a => DEF_ACTIONS.indexOf(a.t) < 0 && !isCkCardOff('action', a.t));
@@ -79357,4 +79369,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8gkz4c -->
+<!-- __MOCHI_EOF__ mu8gwqmn -->

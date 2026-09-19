@@ -536,6 +536,16 @@ window.checkinEnabled = ckEn;
 // personalize.js 的 applyHiddenIcons 会把「不在隐藏名单里的图标」display 复位成 ''，
 // 它按这个口径判定寻踪图标是否该收起（否则用户从装修里恢复图标/切桌面就把入口放回来了）。
 window.checkinDeskOff = function () { return !ckEn(); };
+// #855：「使用系统预设」开启＝系统预设＋我的添加合并抽取（预设在前、按原文去重，同名自定义
+// 不重复计概率）。原写法预设只在自定义库为空时兜底，用户加过一张自定义字卡后整库地点/动作/
+// 话术预设全部退场＝各设备必现、与机型无关。单卡开关（ck-off-*）按原文记键，合并后照常生效。
+function ckMergeDef(custom, def) {
+  const seen = {};
+  return def.map(function (t) { return { t: t }; }).concat(custom).filter(function (x) {
+    if (x && x.t != null && !seen[x.t]) { seen[x.t] = 1; return true; }
+    return false;
+  });
+}
 function genCheckin() {
   const useDefault = getCkDefault();
   // v3.7.x：字卡可为 {t, grp} 对象——统一用 ckItems 取 .t
@@ -548,6 +558,12 @@ function genCheckin() {
   if (!places.length) places = DEF_PLACES.map(t => ({ t }));
   if (!actions.length) actions = DEF_ACTIONS.map(t => ({ t }));
   if (!msgs.length) msgs = DEF_CHECK_MSGS.map(t => ({ t }));
+  // #855：开关开启时合并系统预设（自定义空时上面已补预设，合并去重后不重复；关闭开关不走此支＝口径不变）
+  if (useDefault) {
+    places = ckMergeDef(places, DEF_PLACES);
+    actions = ckMergeDef(actions, DEF_ACTIONS);
+    msgs = ckMergeDef(msgs, DEF_CHECK_MSGS);
+  }
   const out = {};
   // 关闭「使用系统预设」时：只从用户添加的字卡里抽；某分类没有用户自定义则跳过该字段
   // v3.6.x：单卡开关过滤——用户关闭的字卡（ck-off-*）不参与抽取
