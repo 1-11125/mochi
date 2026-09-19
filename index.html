@@ -1346,6 +1346,12 @@ display:flex; align-items:center; justify-content:space-between; margin-bottom:9
 0%, 100% { transform:scaleY(.5); }
 50% { transform:scaleY(1); }
 }
+.mw-bars.playing.buffering { opacity:.7; }
+.mw-bars.playing.buffering rect { animation-name:bar-breathe; animation-duration:1.9s; }
+@keyframes bar-breathe {
+0%, 100% { transform:scaleY(.3); opacity:.4; }
+50% { transform:scaleY(.72); opacity:1; }
+}
 .mw-main { display:flex; align-items:center; gap:12px; }
 .mw-cover { flex-shrink:0; }
 .mw-vinyl {
@@ -1483,6 +1489,101 @@ pointer-events: none; opacity: 0; transition: opacity .2s;
 .desk-edge-hint.show { opacity: 1; }
 .desk-edge-hint.left { left: 0; background: linear-gradient(90deg, rgba(43,127,255,.28), transparent); }
 .desk-edge-hint.right { right: 0; background: linear-gradient(270deg, rgba(43,127,255,.28), transparent); }
+html.tablet {
+--tb-ico:88px; --tb-glyph:40px; --tb-name:14px;
+--tb-cols:6; --tb-rowgap:22px; --tb-colgap:16px; --tb-approw:150px;
+--tb-hero:250px; --tb-band:118px; --tb-bar:88px; --tb-period:210px;
+--tb-pagegap:18px;
+}
+@media (min-width:1000px) { html.tablet { --tb-cols:8; --tb-colgap:18px; } }
+@media (min-width:1250px) { html.tablet { --tb-ico:104px; --tb-glyph:46px; --tb-name:15px; } }
+@media (min-height:950px) {
+html.tablet {
+--tb-rowgap:24px; --tb-approw:172px;
+--tb-hero:260px; --tb-band:140px; --tb-bar:104px; --tb-period:240px;
+}
+}
+@media (min-width:1000px) and (min-height:950px) { html.tablet { --tb-approw:200px; } }
+html.tablet .app-grid {
+grid-template-columns:repeat(var(--tb-cols), 1fr);
+grid-gap:var(--tb-rowgap) var(--tb-colgap);
+gap:var(--tb-rowgap) var(--tb-colgap);
+grid-auto-rows:var(--tb-approw);
+align-items:center;
+padding:2px 4px 6px;
+}
+html.tablet .app { gap:10px; }
+html.tablet .app .app-ico { width:var(--tb-ico); height:var(--tb-ico); }
+html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }
+html.tablet .app .app-name { font-size:var(--tb-name); height:20px; line-height:20px; }
+html.tablet .app-badge { min-width:24px; height:24px; line-height:22px; font-size:13px; top:-6px; right:-8px; }
+html.tablet .page-slide, html.tablet .page-slide.desk-page {
+display:grid; grid-template-columns:1fr 1fr;
+grid-gap:var(--tb-pagegap); gap:var(--tb-pagegap);
+align-content:start;
+padding-top:14px;
+}
+html.tablet .page-slide > [data-desk-widget] { margin-top:0; margin-bottom:0; min-width:0; }
+html.tablet .page-slide > .app-grid,
+html.tablet .page-slide > .checkin,
+html.tablet .page-slide > .music-widget,
+html.tablet .page-slide > .desk-page-hint,
+html.tablet .page-slide > .desk-page-add { grid-column:1 / -1; }
+html.tablet .deco-widget, html.tablet .music-widget { height:var(--tb-hero); }
+html.tablet .deco-avatars { gap:32px; }
+html.tablet .deco-avatar .ring { width:118px; height:118px; }
+html.tablet .deco-avatar .ring svg { width:48px; height:48px; }
+html.tablet .deco-avatar .lbl { font-size:14px; padding:5px 18px; }
+html.tablet .deco-heart svg { width:28px; height:28px; }
+html.tablet .deco-love #love-days { font-size:30px; }
+html.tablet .deco-love #love-date { font-size:14px; }
+html.tablet #mw-cover { width:96px; height:96px; }
+html.tablet #mw-cover .mw-cover-ico { width:34px; height:34px; }
+html.tablet .mw-tag { font-size:13px; }
+html.tablet .mw-song { font-size:20px; }
+html.tablet .mw-artist { font-size:14px; }
+html.tablet .mw-bars { width:20px; height:20px; }
+html.tablet .mw-btn { width:34px; height:34px; }
+html.tablet .mw-btn svg, html.tablet .mw-heart svg { width:34px; height:34px; }
+html.tablet .mw-play svg { width:32px; height:32px; }
+html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }
+html.tablet .page-slide .mini-row .mini-card { height:auto; min-height:var(--tb-band); flex:1; }
+html.tablet .page-slide .mini-row .mc-top { font-size:14px; }
+html.tablet .page-slide .mini-row .mc-b { font-size:16px; height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row .mc-b b { font-size:20px; }
+html.tablet .page-slide .mini-row .mini-card[data-card-bg="fish"] .mc-b { height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row #love-quote { font-size:15px; height:auto; line-height:1.5; -webkit-line-clamp:4; }
+html.tablet .week-card { height:auto; min-height:var(--tb-band); justify-content:space-between; }
+html.tablet .we-days { font-size:17px; }
+html.tablet .we-sub { font-size:12px; }
+html.tablet .we-ta { font-size:13px; }
+html.tablet .we-ta .pair b { font-size:16px; }
+html.tablet .we-btn { font-size:15px; padding:9px 16px; }
+html.tablet .we-btn b { font-size:17px; }
+html.tablet .we-combo { font-size:13px; padding:3px 11px; }
+html.tablet .checkin { height:var(--tb-bar); padding:0 22px; gap:16px; }
+html.tablet .checkin .ck-heart { width:46px; height:46px; font-size:19px; }
+html.tablet .checkin .ck-txt { font-size:15px; }
+html.tablet .checkin .ck-btn { font-size:16px; padding:12px 22px; min-height:46px; }
+html.tablet .weekend-box { height:var(--tb-bar); padding:0 20px; }
+html.tablet .desk-period { height:var(--tb-period); padding:24px; }
+html.tablet .desk-period .dpd-label { font-size:17px; }
+html.tablet .desk-period .dpd-days { font-size:64px; }
+html.tablet .desk-period .dpd-sub { font-size:17px; }
+html.tablet .desk-period .dpd-bar-cap { font-size:14px; }
+html.tablet .desk-clock .dc-time { font-size:46px; }
+html.tablet .desk-clock .dc-date { font-size:16px; }
+html.tablet .desk-cal .dcal-title { font-size:17px; }
+html.tablet .desk-cal .dcal-cell { font-size:15px; height:34px; line-height:34px; }
+html.tablet .desk-timer .dt-disp { font-size:40px; }
+html.tablet .desk-timer .dt-mode-label { font-size:15px; }
+html.tablet .desk-timer .dt-btn { font-size:15px; }
+html.tablet .desk-anniv .da-label { font-size:15px; }
+html.tablet .desk-anniv .da-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-label { font-size:15px; }
+html.tablet .desk-countdown-widget .dcd-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-date { font-size:15px; }
+html.tablet .desk-text-widget p { font-size:17px; }
 .chat-head {
 display:flex; align-items:center; gap:10px;
 padding:8px 2px 12px; flex-shrink:0;
@@ -7843,6 +7944,9 @@ opacity:var(--tabbar-ico-a, 1);
 #page-chatcard .chat-item:last-child,
 #page-setting .set-group:last-of-type,
 #page-setting .ver { margin-bottom:20px; }
+html.tablet { --tabbar-ico-size:30px; }
+html.tablet .tabbar { padding:10px 8px; }
+html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }
 [data-theme="dark"] .phone-bg-mask { background:rgba(0,0,0,var(--desk-bg-mask-op,0)); }
 [data-theme="dark"] .deco-avatar .ring { background:#2a2a2a; border-color:var(--dark-border); }
 [data-theme="dark"] .deco-avatar .lbl { color:#aaa; background:var(--dark-card); border-color:var(--dark-border-12); }
@@ -10225,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789835792414">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789855540629">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 00:36<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 06:05<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -79420,4 +79524,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8m0o4e -->
+<!-- __MOCHI_EOF__ mu8xrxxx -->

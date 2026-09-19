@@ -79,3 +79,12 @@
 #page-chatcard .chat-item:last-child,
 #page-setting .set-group:last-of-type,
 #page-setting .ver { margin-bottom:20px; }
+
+/* ===== 平板（html.tablet）底部导航同步放大 =====
+   桌面轴按平板放大后，23px 的默认导航图标与 64.3px 的栏高在平板上明显偏小
+   （实测栏高与图标尺寸 iOS/iPad 各机型与手机完全一致）。默认档 23→30px 只作
+   「未个性化」时的兜底：personalize.js 写过图标大小的用户是 html 元素上的内联
+   自定义属性，优先级高于本条样式，其显式选择不受影响。 */
+html.tablet { --tabbar-ico-size:30px; }
+html.tablet .tabbar { padding:10px 8px; }
+html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }

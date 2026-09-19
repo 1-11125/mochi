@@ -672,6 +672,15 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
   0%, 100% { transform:scaleY(.5); }
   50% { transform:scaleY(1); }
 }
+/* #795 缓冲中（已按下播放、内核还没取到可播数据）：条换成慢速同频呼吸＋半透明，
+   与「真在播」的乱频跳动一眼可分；时间位文案由 music-player.js 的 syncPlayIcons 写「缓冲中」。
+   判据只有 JS 侧一条（musicBuffering 读 readyState/buffered/waiting 事件），零机型分支。 */
+.mw-bars.playing.buffering { opacity:.7; }
+.mw-bars.playing.buffering rect { animation-name:bar-breathe; animation-duration:1.9s; }
+@keyframes bar-breathe {
+  0%, 100% { transform:scaleY(.3); opacity:.4; }
+  50% { transform:scaleY(.72); opacity:1; }
+}
 
 .mw-main { display:flex; align-items:center; gap:12px; }
 .mw-cover { flex-shrink:0; }
@@ -852,3 +861,144 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
 .desk-edge-hint.show { opacity: 1; }
 .desk-edge-hint.left { left: 0; background: linear-gradient(90deg, rgba(43,127,255,.28), transparent); }
 .desk-edge-hint.right { right: 0; background: linear-gradient(270deg, rgba(43,127,255,.28), transparent); }
+
+/* ===== 平板（html.tablet）桌面适配：图标多列 + 组件两栏 + 尺寸随屏高升档 =====
+   背景：base.css 的 html.tablet 区块只把 .phone 改成 100vw 铺满（v3.7.x → #186），
+   桌面轴上的图标与组件仍是手机像素——只有图标盒 58→64px、图标名 11→12px，
+   其余高度与字号一条未改（.app-ico svg 恒 28px、.mini-card 恒 92px、卡内字号
+   9~13px）。1fr 网格于是把单格拉宽到 183~322px 而图标盒只占其中 20~35%
+   （手机端 74%），组件被拉成 774~1330px 宽、66~190px 高的横条，观感正是
+   「桌面没做平板兼容，小组件和图标都特别小、平板看起来很空」。
+   本节按「重排 ＋ 放大」重做平板桌面轴（实测：tools/verify-tablet-desktop.mjs）：
+   ① 重排：.page-slide 改两栏网格（组件成对并排），薄横条与图标组整宽；
+      图标网格列数 6（窄屏）/ 8（≥1000px）。重排吃掉横向空间，放大只用在
+      尺寸档上——实测横向需 2.08~3.50× 而纵向只给 1.09~1.53×，纯放大填不满。
+   ② 放大：--tb-* 一组变量统一给图标盒/字形/字号/各档卡高。矮屏（横屏平板，
+      桌面区约 650~700px）走基准档；高屏（竖屏平板，桌面区约 900~1070px，
+      含 12.9" 横屏）整体升一档——两档都按「内容基本填满桌面区」实测调过。
+   ③ 作用域：选择器全部带 html.tablet 前缀且写在 home.css（base.css 之后加载，
+      同特异性取后者），手机端与电脑端模拟器外壳（无 .tablet 类）零命中；
+      base.css 的平板高度链、.phone 宽度、聊天规则均不在本节范围内。
+   ⚠️ 桌面整体缩放仍走具体尺寸——不得引入 zoom / transform:scale（全站红线）。 */
+html.tablet {
+  /* 图标盒/字形按「盒占单格 75~85%」定档（手机端实测 74%）：窄平板 6 列时单格只有
+     103~114px，96px 盒会挤到 89~93%，故基准档 88px；≥1250px 宽屏单格 150px，
+     再放大一档到 104px（占 70%）。 */
+  --tb-ico:88px; --tb-glyph:40px; --tb-name:14px;
+  --tb-cols:6; --tb-rowgap:22px; --tb-colgap:16px; --tb-approw:150px;
+  --tb-hero:250px; --tb-band:118px; --tb-bar:88px; --tb-period:210px;
+  --tb-pagegap:18px;
+}
+@media (min-width:1000px) { html.tablet { --tb-cols:8; --tb-colgap:18px; } }
+@media (min-width:1250px) { html.tablet { --tb-ico:104px; --tb-glyph:46px; --tb-name:15px; } }
+@media (min-height:950px) {
+  html.tablet {
+    --tb-rowgap:24px; --tb-approw:172px;
+    --tb-hero:260px; --tb-band:140px; --tb-bar:104px; --tb-period:240px;
+  }
+}
+@media (min-width:1000px) and (min-height:950px) { html.tablet { --tb-approw:200px; } }
+
+/* —— 图标网格：多列 + 图标盒/字形放大（手机 58/28 → 96/44 起，高屏 104/48） —— */
+html.tablet .app-grid {
+  grid-template-columns:repeat(var(--tb-cols), 1fr);
+  grid-gap:var(--tb-rowgap) var(--tb-colgap);
+  gap:var(--tb-rowgap) var(--tb-colgap);
+  grid-auto-rows:var(--tb-approw);
+  align-items:center;
+  padding:2px 4px 6px;
+}
+html.tablet .app { gap:10px; }
+html.tablet .app .app-ico { width:var(--tb-ico); height:var(--tb-ico); }
+html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }
+html.tablet .app .app-name { font-size:var(--tb-name); height:20px; line-height:20px; }
+html.tablet .app-badge { min-width:24px; height:24px; line-height:22px; font-size:13px; top:-6px; right:-8px; }
+
+/* —— 桌面分页：两栏网格（组件成对并排） —— */
+html.tablet .page-slide, html.tablet .page-slide.desk-page {
+  display:grid; grid-template-columns:1fr 1fr;
+  grid-gap:var(--tb-pagegap); gap:var(--tb-pagegap);
+  align-content:start;
+  padding-top:14px;
+}
+/* 卡片的上下外边距交给网格 gap（手机端靠 margin 形成的纵向节奏），逐条清零 */
+html.tablet .page-slide > [data-desk-widget] { margin-top:0; margin-bottom:0; min-width:0; }
+/* 整宽项：图标组、打卡横幅、音乐播放器、空白页提示。
+   摸鱼倒计时（.weekend-box）保持半宽——它与「本周日常」在第二页配成一对
+   （本周日常内容只有标题＋星期条，单独和音乐卡同排会被拉成 300 高的空壳，
+   实测截图核过；音乐卡本身内容满、整宽不空）。 */
+html.tablet .page-slide > .app-grid,
+html.tablet .page-slide > .checkin,
+html.tablet .page-slide > .music-widget,
+html.tablet .page-slide > .desk-page-hint,
+html.tablet .page-slide > .desk-page-add { grid-column:1 / -1; }
+
+/* —— 首卡档：纪念日卡 / 音乐卡（+ 卡内可见元素同步放大） —— */
+html.tablet .deco-widget, html.tablet .music-widget { height:var(--tb-hero); }
+html.tablet .deco-avatars { gap:32px; }
+html.tablet .deco-avatar .ring { width:118px; height:118px; }
+html.tablet .deco-avatar .ring svg { width:48px; height:48px; }
+html.tablet .deco-avatar .lbl { font-size:14px; padding:5px 18px; }
+html.tablet .deco-heart svg { width:28px; height:28px; }
+html.tablet .deco-love #love-days { font-size:30px; }
+html.tablet .deco-love #love-date { font-size:14px; }
+html.tablet #mw-cover { width:96px; height:96px; }
+html.tablet #mw-cover .mw-cover-ico { width:34px; height:34px; }
+html.tablet .mw-tag { font-size:13px; }
+html.tablet .mw-song { font-size:20px; }
+html.tablet .mw-artist { font-size:14px; }
+html.tablet .mw-bars { width:20px; height:20px; }
+html.tablet .mw-btn { width:34px; height:34px; }
+html.tablet .mw-btn svg, html.tablet .mw-heart svg { width:34px; height:34px; }
+html.tablet .mw-play svg { width:32px; height:32px; }
+
+/* —— 第二档：双卡行在平板改为竖排（与首卡成对同高），卡内字号上一档 ——
+   选择器带 .page-slide 前缀：第三页有 `.page-slide.third .mini-row{flex-direction:row}`
+   与 `.page-slide.third .mini-row .memo-card{height:92px}` 两条更高特异性的手机端规则，
+   不加前缀压不住（实测第三页双卡行仍是横排、卡高被钉在 92px）。 */
+html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }
+html.tablet .page-slide .mini-row .mini-card { height:auto; min-height:var(--tb-band); flex:1; }
+html.tablet .page-slide .mini-row .mc-top { font-size:14px; }
+html.tablet .page-slide .mini-row .mc-b { font-size:16px; height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row .mc-b b { font-size:20px; }
+html.tablet .page-slide .mini-row .mini-card[data-card-bg="fish"] .mc-b { height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row #love-quote { font-size:15px; height:auto; line-height:1.5; -webkit-line-clamp:4; }
+
+/* —— 本周日常：与首卡同一行时随行高拉伸，内容纵向分布 —— */
+html.tablet .week-card { height:auto; min-height:var(--tb-band); justify-content:space-between; }
+html.tablet .we-days { font-size:17px; }
+html.tablet .we-sub { font-size:12px; }
+html.tablet .we-ta { font-size:13px; }
+html.tablet .we-ta .pair b { font-size:16px; }
+html.tablet .we-btn { font-size:15px; padding:9px 16px; }
+html.tablet .we-btn b { font-size:17px; }
+html.tablet .we-combo { font-size:13px; padding:3px 11px; }
+
+/* —— 第三档：打卡横幅 / 摸鱼倒计时（整宽，抬高一档） —— */
+html.tablet .checkin { height:var(--tb-bar); padding:0 22px; gap:16px; }
+html.tablet .checkin .ck-heart { width:46px; height:46px; font-size:19px; }
+html.tablet .checkin .ck-txt { font-size:15px; }
+html.tablet .checkin .ck-btn { font-size:16px; padding:12px 22px; min-height:46px; }
+html.tablet .weekend-box { height:var(--tb-bar); padding:0 20px; }
+
+/* —— 经期卡 —— */
+html.tablet .desk-period { height:var(--tb-period); padding:24px; }
+html.tablet .desk-period .dpd-label { font-size:17px; }
+html.tablet .desk-period .dpd-days { font-size:64px; }
+html.tablet .desk-period .dpd-sub { font-size:17px; }
+html.tablet .desk-period .dpd-bar-cap { font-size:14px; }
+
+/* —— 组件库其余组件（时钟/月历/计时器/纪念日倒计时/文案/倒计时）：文字数字上一档 —— */
+html.tablet .desk-clock .dc-time { font-size:46px; }
+html.tablet .desk-clock .dc-date { font-size:16px; }
+html.tablet .desk-cal .dcal-title { font-size:17px; }
+html.tablet .desk-cal .dcal-cell { font-size:15px; height:34px; line-height:34px; }
+html.tablet .desk-timer .dt-disp { font-size:40px; }
+html.tablet .desk-timer .dt-mode-label { font-size:15px; }
+html.tablet .desk-timer .dt-btn { font-size:15px; }
+html.tablet .desk-anniv .da-label { font-size:15px; }
+html.tablet .desk-anniv .da-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-label { font-size:15px; }
+html.tablet .desk-countdown-widget .dcd-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-date { font-size:15px; }
+html.tablet .desk-text-widget p { font-size:17px; }

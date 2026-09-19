@@ -3698,6 +3698,13 @@ const FIX_SENTINELS = [
   { name: '#875c 副标题点出「换位开关」（删＝收到 TA 自动换位消息想关掉的用户没有线索，三个开关仍只藏在位置面板里）', file: 'template.html', needle: '方位感知·位置时间线·换位开关' },
   { name: '#875d 入口卡 flex 形态（退回 display:block 居中＝弱按钮复发，与两条 markup 针脱钩）', file: 'css/chat-pages.css', needle: '.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%;' },
   { name: '#875e 矮屏抬起寻踪半框上限（删＝320×568/360×640 上入口被 56% 上限裁到滚动区外，用户仍看不见它）', file: 'css/chat-main.css', needle: '@media (max-height:700px) { #ck-panel { max-height:72%; } }' },
+  // ==== 2026-09-19 #872 平板桌面（html.tablet）「重排＋放大」：图标 6/8 列＋盒/字形放大（88/40、≥1250 宽 104/46）＋组件两栏网格。背景：base.css 的平板区块只给了 .phone 100vw 铺满，桌面轴仍是手机像素（图标盒 64、字形恒 28、组件高/字号一条未改）＝用户报「小组件和图标特别小、平板看起来很空」；实测横向需 2.08~3.50× 而纵向只给 1.09~1.53×，纯放大填不满，故重排吃横向、尺寸档按屏高分两档（横屏矮屏基准档/竖屏高屏升档）。规则全在 src/css/home.css 与 src/css/tabbar.css，作用域 html.tablet＝手机端与电脑外壳零命中 ====
+{ name: '#872a 平板桌面两栏网格（改回单列/块级＝组件回到整宽横条、横向又空掉）', file: 'css/home.css', needle: 'html.tablet .page-slide, html.tablet .page-slide.desk-page {' },
+{ name: '#872b 平板图标字形放大（删掉＝图标盒里恒 28px 字形，「图标特别小」复发）', file: 'css/home.css', needle: 'html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }' },
+{ name: '#872c 平板双卡行竖排（.page-slide 前缀压第三页 .page-slide.third 横排；改回＝第三页双卡行钉回 92px 横排）', file: 'css/home.css', needle: 'html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }' },
+{ name: '#872d 平板音乐卡整宽（改回半宽＝第二页「本周日常」与它同排被拉成 300 高空壳，截图实测）', file: 'css/home.css', needle: 'html.tablet .page-slide > .music-widget,' },
+{ name: '#872e 平板高屏尺寸档（竖屏 iPad 再升一档；删掉＝竖屏桌面区多出 ~250px 空底）', file: 'css/home.css', needle: '@media (min-height:950px) {' },
+{ name: '#872f 平板底部导航放大兜底（用户个性化过的内联变量优先；删掉＝桌面放大后导航仍 23px）', file: 'css/tabbar.css', needle: 'html.tablet { --tabbar-ico-size:30px; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
