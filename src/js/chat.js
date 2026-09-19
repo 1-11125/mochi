@@ -3430,7 +3430,44 @@ b.dataset.showing = '0';
 b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
+chatRetractToggleAfter('toggle'); // #871：展开/收起＝滚动区内容高突变，按钉住/解钉两态做贴底或落定重落
 };
+}
+// FIX 2026-09-19 #871（iPhone 12 Pro Max Safari 实报「展开撤回消息再收起／贴底轻划／划太快／点
+// 撤回字卡明细再打开，气泡和头像错位」，用户注明多机型同现）：就地展开/收起与「撤回 N 条字卡▾」
+// 明细开合都是**滚动容器内的高度突变**，无头实证 DOM 几何逐像素复原（错位不在布局层）——错位出
+// 自表现层：高度在滚动会话中途增减后，WebKit 的滚动树仍可按旧偏移呈现旧瓦片；而程序化 scrollTop
+// 修正要么缺席（解钉态零接管，靠内核钳位），要么迟到（钉住态等 250ms 看门狗，窗口里最后一行先被
+// 推出屏再弹回），要么对打（#162 图片 onload 双写是唯一没接 #716/#765 让路闸的写手，手势/惯性
+// 进行中当场写 scrollTop）。修法＝统一纪律，零机型分支，全部复用 #861 的落定锁：
+//   ①三处开合动作收尾走本助手：钉住态立即贴底（消掉 250ms 推出-弹回窗口）＋交 #861 落定锁复核
+//     一次（几何/滚动静默后补写，防内核丢写）；解钉态走 chatResyncScrollQuiet——滚动/触摸静默后
+//     显式钳回真实 max（收起缩短内容时 scrollTop>max 的超界不再依赖内核钳位时机）＋同值重落一枪
+//     （强制滚动树对新几何重对齐；Blink/Gecko 对同值写零副作用，健康引擎零变化）。
+//   ②#162 图片 onload 补滚接让路闸：滚动/触摸进行中不当场写，交 #861 落定锁；静默态保持原双写
+//     快路（#504 契约不变）。
+// #572d 既定语义不动：展开/收起对下方内容的推挤不做锚定补偿。
+function chatRetractToggleAfter(kind) {
+if (batchRendering || !chatVisible()) return;
+if (chatPinnedBottom) { scrollChatBottom(); chatRepinAfterSettle(); }
+else chatResyncScrollQuiet(kind);
+}
+let _rsyncT = null;
+let _rsyncDeadline = 0;
+function chatResyncScrollQuiet(kind) {
+if (_rsyncT || chatPinnedBottom) return; // 钉住态归 #861 落定锁管，不双排
+_rsyncDeadline = Date.now() + 1200;
+_rsyncT = setTimeout(chatResyncStep, 120);
+}
+function chatResyncStep() {
+_rsyncT = null;
+const now = Date.now();
+if (!chatVisible() || chatPinnedBottom) return; // 等待期用户已回钉＝归 #861 管
+if (!chatRepinQuietEnough(now)) { if (now < _rsyncDeadline) _rsyncT = setTimeout(chatResyncStep, 120); return; }
+const cb = document.getElementById('chat-body');
+if (!cb) return;
+const realMax = cb.scrollHeight - cb.clientHeight;
+cb.scrollTop = Math.min(cb.scrollTop, realMax); // 超界显式钳回；未超界＝同值重落（滚动树重对齐）
 }
 let batchRendering = false;
 let pendingOutScroll = false;
@@ -4121,6 +4158,9 @@ body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;
 if (!chatPinnedBottom || batchRendering || !chatVisible()) return;
+// #871：滚动/触摸进行中不再当场写（与用户手势对打＝贴底轻划错位源），交 #861 落定锁；
+// 静默态保持原双写快路（#504 契约：同步写当帧即修正，rAF 兜部分内核丢弃同步写）
+if (Date.now() - _chatScrollActTs < 200 || chatTouchActive) { chatRepinAfterSettle(); return; }
 scrollChatBottom(); requestAnimationFrame(scrollChatBottom); // FIX #504：同步写当帧即修正（load 先于新尺寸首帧绘制），rAF 留作部分内核丢弃同步写的兜底
 }, true);
 // FIX 2026-09-06 #202 表情/图片加载失败占位：#186 只覆盖了媒体池令牌缺失，其余失败路径
@@ -4755,6 +4795,7 @@ tip.addEventListener('click', (e) => {
 e.stopPropagation();
 const d = tip.nextElementSibling;
 if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+chatRetractToggleAfter('rc'); // #871：字卡明细开合同样是滚动区高度突变
 });
 }
 } else {
@@ -4811,6 +4852,7 @@ rctip.addEventListener('click', (e) => {
 e.stopPropagation();
 const d = rctip.nextElementSibling;
 if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+chatRetractToggleAfter('rcm'); // #871：情绪字卡明细开合同样是滚动区高度突变
 });
 }
 }

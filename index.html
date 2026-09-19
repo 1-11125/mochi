@@ -1346,6 +1346,12 @@ display:flex; align-items:center; justify-content:space-between; margin-bottom:9
 0%, 100% { transform:scaleY(.5); }
 50% { transform:scaleY(1); }
 }
+.mw-bars.playing.buffering { opacity:.7; }
+.mw-bars.playing.buffering rect { animation-name:bar-breathe; animation-duration:1.9s; }
+@keyframes bar-breathe {
+0%, 100% { transform:scaleY(.3); opacity:.4; }
+50% { transform:scaleY(.72); opacity:1; }
+}
 .mw-main { display:flex; align-items:center; gap:12px; }
 .mw-cover { flex-shrink:0; }
 .mw-vinyl {
@@ -1483,6 +1489,101 @@ pointer-events: none; opacity: 0; transition: opacity .2s;
 .desk-edge-hint.show { opacity: 1; }
 .desk-edge-hint.left { left: 0; background: linear-gradient(90deg, rgba(43,127,255,.28), transparent); }
 .desk-edge-hint.right { right: 0; background: linear-gradient(270deg, rgba(43,127,255,.28), transparent); }
+html.tablet {
+--tb-ico:88px; --tb-glyph:40px; --tb-name:14px;
+--tb-cols:6; --tb-rowgap:22px; --tb-colgap:16px; --tb-approw:150px;
+--tb-hero:250px; --tb-band:118px; --tb-bar:88px; --tb-period:210px;
+--tb-pagegap:18px;
+}
+@media (min-width:1000px) { html.tablet { --tb-cols:8; --tb-colgap:18px; } }
+@media (min-width:1250px) { html.tablet { --tb-ico:104px; --tb-glyph:46px; --tb-name:15px; } }
+@media (min-height:950px) {
+html.tablet {
+--tb-rowgap:24px; --tb-approw:172px;
+--tb-hero:260px; --tb-band:140px; --tb-bar:104px; --tb-period:240px;
+}
+}
+@media (min-width:1000px) and (min-height:950px) { html.tablet { --tb-approw:200px; } }
+html.tablet .app-grid {
+grid-template-columns:repeat(var(--tb-cols), 1fr);
+grid-gap:var(--tb-rowgap) var(--tb-colgap);
+gap:var(--tb-rowgap) var(--tb-colgap);
+grid-auto-rows:var(--tb-approw);
+align-items:center;
+padding:2px 4px 6px;
+}
+html.tablet .app { gap:10px; }
+html.tablet .app .app-ico { width:var(--tb-ico); height:var(--tb-ico); }
+html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }
+html.tablet .app .app-name { font-size:var(--tb-name); height:20px; line-height:20px; }
+html.tablet .app-badge { min-width:24px; height:24px; line-height:22px; font-size:13px; top:-6px; right:-8px; }
+html.tablet .page-slide, html.tablet .page-slide.desk-page {
+display:grid; grid-template-columns:1fr 1fr;
+grid-gap:var(--tb-pagegap); gap:var(--tb-pagegap);
+align-content:start;
+padding-top:14px;
+}
+html.tablet .page-slide > [data-desk-widget] { margin-top:0; margin-bottom:0; min-width:0; }
+html.tablet .page-slide > .app-grid,
+html.tablet .page-slide > .checkin,
+html.tablet .page-slide > .music-widget,
+html.tablet .page-slide > .desk-page-hint,
+html.tablet .page-slide > .desk-page-add { grid-column:1 / -1; }
+html.tablet .deco-widget, html.tablet .music-widget { height:var(--tb-hero); }
+html.tablet .deco-avatars { gap:32px; }
+html.tablet .deco-avatar .ring { width:118px; height:118px; }
+html.tablet .deco-avatar .ring svg { width:48px; height:48px; }
+html.tablet .deco-avatar .lbl { font-size:14px; padding:5px 18px; }
+html.tablet .deco-heart svg { width:28px; height:28px; }
+html.tablet .deco-love #love-days { font-size:30px; }
+html.tablet .deco-love #love-date { font-size:14px; }
+html.tablet #mw-cover { width:96px; height:96px; }
+html.tablet #mw-cover .mw-cover-ico { width:34px; height:34px; }
+html.tablet .mw-tag { font-size:13px; }
+html.tablet .mw-song { font-size:20px; }
+html.tablet .mw-artist { font-size:14px; }
+html.tablet .mw-bars { width:20px; height:20px; }
+html.tablet .mw-btn { width:34px; height:34px; }
+html.tablet .mw-btn svg, html.tablet .mw-heart svg { width:34px; height:34px; }
+html.tablet .mw-play svg { width:32px; height:32px; }
+html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }
+html.tablet .page-slide .mini-row .mini-card { height:auto; min-height:var(--tb-band); flex:1; }
+html.tablet .page-slide .mini-row .mc-top { font-size:14px; }
+html.tablet .page-slide .mini-row .mc-b { font-size:16px; height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row .mc-b b { font-size:20px; }
+html.tablet .page-slide .mini-row .mini-card[data-card-bg="fish"] .mc-b { height:auto; line-height:1.45; }
+html.tablet .page-slide .mini-row #love-quote { font-size:15px; height:auto; line-height:1.5; -webkit-line-clamp:4; }
+html.tablet .week-card { height:auto; min-height:var(--tb-band); justify-content:space-between; }
+html.tablet .we-days { font-size:17px; }
+html.tablet .we-sub { font-size:12px; }
+html.tablet .we-ta { font-size:13px; }
+html.tablet .we-ta .pair b { font-size:16px; }
+html.tablet .we-btn { font-size:15px; padding:9px 16px; }
+html.tablet .we-btn b { font-size:17px; }
+html.tablet .we-combo { font-size:13px; padding:3px 11px; }
+html.tablet .checkin { height:var(--tb-bar); padding:0 22px; gap:16px; }
+html.tablet .checkin .ck-heart { width:46px; height:46px; font-size:19px; }
+html.tablet .checkin .ck-txt { font-size:15px; }
+html.tablet .checkin .ck-btn { font-size:16px; padding:12px 22px; min-height:46px; }
+html.tablet .weekend-box { height:var(--tb-bar); padding:0 20px; }
+html.tablet .desk-period { height:var(--tb-period); padding:24px; }
+html.tablet .desk-period .dpd-label { font-size:17px; }
+html.tablet .desk-period .dpd-days { font-size:64px; }
+html.tablet .desk-period .dpd-sub { font-size:17px; }
+html.tablet .desk-period .dpd-bar-cap { font-size:14px; }
+html.tablet .desk-clock .dc-time { font-size:46px; }
+html.tablet .desk-clock .dc-date { font-size:16px; }
+html.tablet .desk-cal .dcal-title { font-size:17px; }
+html.tablet .desk-cal .dcal-cell { font-size:15px; height:34px; line-height:34px; }
+html.tablet .desk-timer .dt-disp { font-size:40px; }
+html.tablet .desk-timer .dt-mode-label { font-size:15px; }
+html.tablet .desk-timer .dt-btn { font-size:15px; }
+html.tablet .desk-anniv .da-label { font-size:15px; }
+html.tablet .desk-anniv .da-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-label { font-size:15px; }
+html.tablet .desk-countdown-widget .dcd-days { font-size:34px; }
+html.tablet .desk-countdown-widget .dcd-date { font-size:15px; }
+html.tablet .desk-text-widget p { font-size:17px; }
 .chat-head {
 display:flex; align-items:center; gap:10px;
 padding:8px 2px 12px; flex-shrink:0;
@@ -2079,6 +2180,7 @@ display:flex; align-items:center; justify-content:center;
 .poke-card-scroll::-webkit-scrollbar { display:none; }
 #ck-panel { height:auto; max-height:56%; }
 #ck-panel .poke-card-scroll { min-height:0; max-height:none; }
+@media (max-height:700px) { #ck-panel { max-height:72%; } }
 #chat-decision-panel { height:auto; max-height:68%; }
 #chat-decision-panel .poke-card-scroll { min-height:0; max-height:none; }
 #chat-decision-body .dec-inp-wrap .ce-box[data-for="dec-opts"] { max-height:176px; overflow-y:auto; overscroll-behavior:auto; }
@@ -4258,13 +4360,15 @@ cursor:pointer; font-family:inherit;
 .ck-location:last-of-type { border-bottom:none; }
 .ck-label { font-size:11px; color:var(--muted); letter-spacing:1px; }
 .ck-value { font-size:16px; font-weight:700; color:var(--ink); margin-top:5px; line-height:1.6; }
-.ck-loc-entry {
-display:block; width:100%; margin-top:14px; padding:11px 14px;
-border:1px dashed rgba(0,0,0,.18); border-radius:12px;
-background:rgba(255,255,255,.6); color:var(--ink);
-font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; text-align:center;
-}
+.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%; margin-top:14px; padding:10px 13px; border:1px solid rgba(255,160,90,.5); border-radius:14px; background:linear-gradient(135deg, rgba(255,196,140,.22), rgba(255,160,90,.10)); color:var(--ink); cursor:pointer; font-family:inherit; text-align:left; }
 .ck-loc-entry:active { background:rgba(0,0,0,.06); }
+.ck-loc-ico { flex-shrink:0; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #ffc48c, #ff8f4d); color:#fff; }
+.ck-loc-ico svg { width:17px; height:17px; }
+.ck-loc-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.ck-loc-t { font-size:14px; font-weight:800; line-height:1.3; }
+.ck-loc-s { font-size:11px; font-weight:500; color:var(--muted); line-height:1.35; }
+.ck-loc-arrow { flex-shrink:0; display:flex; color:var(--muted); }
+.ck-loc-arrow svg { width:15px; height:15px; }
 .loc-panel {
 position:fixed; left:0; right:0; bottom:0; z-index:78;
 max-height:90vh; display:flex; flex-direction:column;
@@ -7840,6 +7944,9 @@ opacity:var(--tabbar-ico-a, 1);
 #page-chatcard .chat-item:last-child,
 #page-setting .set-group:last-of-type,
 #page-setting .ver { margin-bottom:20px; }
+html.tablet { --tabbar-ico-size:30px; }
+html.tablet .tabbar { padding:10px 8px; }
+html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }
 [data-theme="dark"] .phone-bg-mask { background:rgba(0,0,0,var(--desk-bg-mask-op,0)); }
 [data-theme="dark"] .deco-avatar .ring { background:#2a2a2a; border-color:var(--dark-border); }
 [data-theme="dark"] .deco-avatar .lbl { color:#aaa; background:var(--dark-card); border-color:var(--dark-border-12); }
@@ -10222,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789834590321">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789856175521">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 00:16<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 06:16<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12299,7 +12406,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">TA 平时也会主动发红包（每天最多 5 次），七夕更爱发大额</div>
           <div class="lic-li">余额不足也能照发照买：直接透支成负数不拦截，后续收红包 / 申请回正</div>
           <div class="lic-li">「向 Mochi 申请心意币」：点击任意余额行弹出，可给我和 TA 双向充值入账；TA 也会随机向 Mochi 申请并在聊天留下申请记录——申请概率与每日上限在聊天页红包的「设置」里按每个联系人单独调整（默认 4%、不限次数）</div>
-          <div class="lic-li">心意市集：300+ 件默认商品分 13 类（含药品医护：常备药与外伤处理，如感冒药 / 退烧药 / 胃药 / 创可贴 / 碘伏 / 纱布），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
+          <div class="lic-li">心意市集：340+ 件默认商品分 15 类（含药品医护：常备药 / 外伤处理 / 经期关怀，以及节日节令、美妆个护；节日有粽子汤圆月饼，家里有口红面膜暖宝宝），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
           <div class="lic-li">送礼给 TA：挑商品写心意留言送出，礼物卡片飞进聊天并同步存进心意柜；TA 每天 5% 概率主动从市集挑礼物回礼（最多 3 次）</div>
           <div class="lic-li">心意柜：收到 / 送出礼物册，「TA 送我的 / 我送 TA 的」分类翻看与统计</div>
           <div class="lic-li">小游戏与种花奖励对齐红包金额体系（¥5.2 / 13.14 / 52 / 1314…），各自每日封顶防刷</div>
@@ -12976,7 +13083,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断——下方「词典拼字」组的「逐卡连发不受条数限制」默认开；手动关闭后按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
+            <div class="gs-sub"><b>这两项＝你每发 1 条消息，TA 就跟着回你几条（在最少~最多之间随机）。</b>默认 1~2 ＝ 你发一句、TA 回一两句。<b>注意：这是「每条消息」的条数，不是 TA 一天最多发几条，所以不建议调大</b>——调到 5 ＝ TA 每次都一口气连发 5 条、直接刷屏；你连着发的每句话还会各自触发一批（调到 5、你连发 3 句 ＝ 最多收到 15 条）。嫌 TA 话多就把这两项都调成 1；想彻底只回一条，去下方「字卡与概率」组关掉「多字卡回复」（关闭后这里设几条都只回 1 条）。</div>
+            <div class="gs-sub"><b>为什么有时收到的比上面设的还多</b>：这几类消息不占「回复条数」的名额、会额外多发——词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断，「词典拼字」组的「逐卡连发不受条数限制」默认开，手动关闭后才按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由下方「主动发送」组的「发送条数」单独控制）。所以把上面调到 N 只是限定「每发一条消息的基础回复」，不代表 TA 一天最多发 N 条。</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -13159,7 +13267,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="gc-rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="gc-reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="gc-reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限每位联系人「每发一条消息触发的基础回复」，撤回补发不计入上限，实际消息可能比设置的条数多</div>
+            <div class="gs-sub"><b>这两项＝你每发 1 条消息，群里每个回你的成员就各回你几条（在最少~最多之间随机）。</b>默认 1~2 条。<b>注意：这是「每条消息、每个成员」的条数，不是 TA 一天最多发几条，不建议调大</b>——成员是各算各的（调到 5、3 个人同时回你 ＝ 一屏 15 条），你连着发的每句话还各触发一批。嫌刷屏就把这两项都调成 1；关掉下面的「多字卡回复」总开关也能锁死一条（关闭后这里设几条都只回 1 条）。</div>
+            <div class="gs-sub">本上限只管「每发一条消息触发的这批基础回复」，撤回后的补发不占名额、会额外多发，所以实际收到的可能比这里设的条数多。</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="gc-touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-touch-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>表情包概率</span><div class="stepper" data-k="gc-sticker-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-sticker-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>emoji 概率</span><div class="stepper" data-k="gc-emoji-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-emoji-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -14751,7 +14860,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="ck-label">TA 想对你说</span>
             <div class="ck-value" id="ck-msg">—</div>
           </div>
-          <button class="ck-loc-entry" id="ck-loc-entry-desk">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：「TA在身边」藏在寻踪里是设计（位置面板的唯一入口就是这两处），但它原本是
+               全宽浅色虚线的次要按钮、排在本页卡片最底部，被读成寻踪的附加说明——用户既不知道这是
+               一个独立功能，也找不到只住在位置面板里的三个换位开关。改成图标＋主副两行＋箭头的
+               功能卡，放置与点击行为一字未动（仍由 p2-features.js 打开同一个位置面板）。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry-desk"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
         <div class="cal-card glass">
           <div class="cal-card-title">寻踪记录</div>
@@ -15661,7 +15774,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ck-location"><span class="ck-label">TA 在做什么</span><div class="ck-value" id="ck-p-action">—</div></div>
           <div class="ck-location"><span class="ck-label">TA 想对你说</span><div class="ck-value" id="ck-p-msg">—</div></div>
           <div class="ck-updated" id="ck-p-updated"></div>
-          <button class="ck-loc-entry" id="ck-loc-entry">TA在身边 · 看看 TA 在哪</button>
+          <!-- v3.26.x #875：与桌面寻踪页那颗同款（两入口形态必须一致）——图标＋主副两行＋箭头，
+               副标题点出位置面板里到底有什么，用户才知道这是一处独立功能、以及三个换位开关在哪。 -->
+          <button class="ck-loc-entry" id="ck-loc-entry"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
         </div>
       </div>
       <!-- 拍一拍浮层卡片（聊天页内） -->
@@ -35564,7 +35679,30 @@ b.dataset.showing = '0';
 b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
+chatRetractToggleAfter('toggle'); // #871：展开/收起＝滚动区内容高突变，按钉住/解钉两态做贴底或落定重落
 };
+}
+function chatRetractToggleAfter(kind) {
+if (batchRendering || !chatVisible()) return;
+if (chatPinnedBottom) { scrollChatBottom(); chatRepinAfterSettle(); }
+else chatResyncScrollQuiet(kind);
+}
+let _rsyncT = null;
+let _rsyncDeadline = 0;
+function chatResyncScrollQuiet(kind) {
+if (_rsyncT || chatPinnedBottom) return; // 钉住态归 #861 落定锁管，不双排
+_rsyncDeadline = Date.now() + 1200;
+_rsyncT = setTimeout(chatResyncStep, 120);
+}
+function chatResyncStep() {
+_rsyncT = null;
+const now = Date.now();
+if (!chatVisible() || chatPinnedBottom) return; // 等待期用户已回钉＝归 #861 管
+if (!chatRepinQuietEnough(now)) { if (now < _rsyncDeadline) _rsyncT = setTimeout(chatResyncStep, 120); return; }
+const cb = document.getElementById('chat-body');
+if (!cb) return;
+const realMax = cb.scrollHeight - cb.clientHeight;
+cb.scrollTop = Math.min(cb.scrollTop, realMax); // 超界显式钳回；未超界＝同值重落（滚动树重对齐）
 }
 let batchRendering = false;
 let pendingOutScroll = false;
@@ -36089,6 +36227,7 @@ body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;
 if (!chatPinnedBottom || batchRendering || !chatVisible()) return;
+if (Date.now() - _chatScrollActTs < 200 || chatTouchActive) { chatRepinAfterSettle(); return; }
 scrollChatBottom(); requestAnimationFrame(scrollChatBottom); // FIX #504：同步写当帧即修正（load 先于新尺寸首帧绘制），rAF 留作部分内核丢弃同步写的兜底
 }, true);
 const EMPTY_SNIFF_MAX_B64 = 96 * 1024;
@@ -36641,6 +36780,7 @@ tip.addEventListener('click', (e) => {
 e.stopPropagation();
 const d = tip.nextElementSibling;
 if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+chatRetractToggleAfter('rc'); // #871：字卡明细开合同样是滚动区高度突变
 });
 }
 } else {
@@ -36688,6 +36828,7 @@ rctip.addEventListener('click', (e) => {
 e.stopPropagation();
 const d = rctip.nextElementSibling;
 if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+chatRetractToggleAfter('rcm'); // #871：情绪字卡明细开合同样是滚动区高度突变
 });
 }
 }
@@ -79493,4 +79634,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8lawkx -->
+<!-- __MOCHI_EOF__ mu8y5jtt -->
