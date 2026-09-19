@@ -640,7 +640,7 @@ const FIX_SENTINELS = [
   // 任一被整块删掉或逻辑改坏即报警（needle 均为各自文件内唯一表达式）。
   { name: '#537 判定器给出 iOS 独立应用覆盖形态位（删/改判式 → 执行器不再挂 ios-cover-top，状态栏避让与容器钉高整链失效、整页上移复发）', file: 'js/device.js', needle: 'const iosCover = standalone && !forceCover && !resStand && !ipadForm && envTop >= 20 && envTop <= 160;' },
   { name: '#537 执行器按判定器挂/摘 ios-cover-top（逻辑侧唯一落地开关；删则 CSS 规则永不生效）', file: 'js/mobile-adapt.js', needle: "d.classList.toggle('ios-cover-top', _wantIosCover);" },
-  { name: '#537 iOS standalone html/body 钉到与 .phone 同高 + 顶对齐（修「整页上移 + 底部 31px 白条」；改回 100dvh 居中即复发。#114 全屏态同款父类 bug。作用域收在 .ios-cover-top：只有覆盖形态 --mochi-ios-h≠100dvh 才有位移可修）', file: 'css/base.css', needle: 'html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100dvh); min-height:0; align-items:flex-start; }' },
+  { name: '#537 iOS standalone html/body 钉到与 .phone 同高 + 顶对齐（修「整页上移 + 底部 31px 白条」；改回 100dvh 居中即复发。#114 全屏态同款父类 bug。作用域收在 .ios-cover-top：只有覆盖形态 --mochi-ios-h≠100dvh 才有位移可修。2026-09-19 #853 换锚：dvh 兜底收进 @supports，主行改 vh 基线）', file: 'css/base.css', needle: 'html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100vh); min-height:0; align-items:flex-start; }' },
   { name: '#537 iOS 独立应用覆盖形态 .phone 底部内边距归零（修「底部栏不贴手机底部」：原 18px 内边距与 tabbar 的 --mochi-safe-bottom 叠成 52px 空档）', file: 'css/base.css', needle: 'html.ios-cover-top .phone { padding-bottom:0; }' },
   { name: '#537 iOS 独立应用覆盖形态状态栏自身抬升（该形态 .phone 无顶部 padding 兜底链、窄屏 @media 的 env 留白又被后加载同特异性 .statusbar{padding:4px} 压死 → Mochi 行钻进系统状态栏＝诊断 ✗顶部重叠，删即复发）', file: 'css/base.css', needle: 'html.ios-cover-top .phone .statusbar {' },
   { name: '#129 iOS standalone 底部安全区不归零（screen-innerHeight>60 在 standalone 是系统状态栏/Home 指示条而非浏览器工具条，viewport-fit=cover 下 Home 指示条在可视区内，归零会让 tabbar/底部组件不避让被遮；standalone 下摘除属性回落 env() 正确避让）', file: 'js/mobile-adapt.js', needle: "sh - ih > 60 && !d.classList.contains('ios-pwa-standalone')" },
@@ -1336,7 +1336,7 @@ const FIX_SENTINELS = [
   { name: '#340 消消乐结算动画循环按距离等待（删则下落不等待、整盘退回瞬跳重绘）', file: 'js/match3.js', needle: 'animMs(FALL_MS)' },
   { name: '#306 半框头部标题禁止压缩换行（删则控件多的面板标题被挤成一字一行竖排）', file: 'css/chat-main.css', needle: '.poke-card-head > span { white-space:nowrap; }' },
   { name: '#306 拍卖会「不拍了」举牌行内可见样式（删则半透明白底+白字在白卡上完全隐形＝按钮像消失）', file: 'css/chat-pages.css', needle: '.au-bids .pong-overlay-btn2 { background:rgba(0,0,0,.07); color:var(--ink,#222); }' },
-  { name: '#306 小游戏共享全屏容器 .game-fs（fixed 满视口 + iOS 高度修复同款表达式，删则全屏按钮失效）', file: 'css/chat-pages.css', needle: 'height:100vh; height:min(var(--mochi-ios-h, 100dvh), 100dvh);' },
+  { name: '#306 小游戏共享全屏容器 .game-fs（fixed 满视口 + iOS 高度修复同款表达式，删则全屏按钮失效。2026-09-19 #853 换锚：dvh 行收进 @supports 老内核防作废）', file: 'css/chat-pages.css', needle: '@supports (height: 100dvh) { .poke-card.game-fs { height:min(var(--mochi-ios-h, 100dvh), 100dvh); } }' },
   { name: '#306 全屏切换接线·面板 toggle game-fs + 图标 ⛶/⤢（gomoku 代表登记，删则按钮点了没反应）', file: 'js/gomoku.js', needle: "panel.classList.toggle('game-fs', isFs)" },
   // ==== 2026-09-11 #309 连连看/消消乐未开局舞台最小高度（空棋盘 stage 高 0 → 「开始对局」覆盖层压成一条横线＝用户报「面板只有一条横线、打不开」）====
   { name: '#309 连连看未开局舞台 min-height（删则空棋盘高度 0，开始覆盖层压成横线、面板无法正常开局；消消乐同行同款）', file: 'css/chat-pages.css', needle: '.lk-stage { position:relative; width:100%; min-height:190px;' },
@@ -1752,7 +1752,7 @@ const FIX_SENTINELS = [
   { name: '#717c 朋友圈头像选择器常驻挂文档（同 #717a）', file: 'js/feed.js', needle: 'document.body.appendChild(feedAvPickInput);' },
   { name: '#717d 头像互动池选择器 offscreen+常驻身份（display:none 回归＝老 WebView 点添加头像没反应；id 按按钮唯一供诊断/测试定位）', file: 'js/avatar-lib.js', needle: "input.id = (btn.id || 'avlib') + '-file-pick';" },
   // ==== 2026-09-18 #718 机型兼容自查四小批（用户对检查报告派单「2345」；原拟 #717，登记时发现已被换头像批占用，顺延 #718）——①群聊设置面板补 height:100vh 前置兜底（<Chrome 108/iOS <15.4 无 dvh＝整条 min() 失效、面板塌成内容高长列表不可滚；聊天设置面板同款双声明早已有，v3.42.x 改全屏时漏带）；②device.js applyViewportFix 的 interactive-widget 按平台选（原两处写死 resizes-visual，iOS 桌面伪装+内核不认 viewport 改写时 rAF 晚跑会把 mobile-adapt 已改的 resizes-content 盖回去＝键盘适配退回异常形态；顺带把两处重复 meta 串收敛 viewportMetaContent 单一出口、isIOS 判定收 isIOSUa 具名函数防同步段 TDZ）；③auction.js beep 补 AudioContext suspended→resume（全站音效模块最后一个漏网，iOS 锁屏/切后台回来整局哑音）；④⑤ max(...,env(...)) 补 ,0px 内定值（base.css 键盘期弹窗顶距 / personalize.js 自愈提示条，老内核不支持 env 时整条 max() 失效）====
-  { name: '#718a 群聊设置面板 100vh 前置兜底（删则无 dvh 老内核面板高度塌成内容高、设置列表不可滚）', file: 'css/group-chat.css', needle: 'height: 100vh;\nheight: min(var(--mochi-ios-h, 100dvh), 100dvh);' },
+  { name: '#718a 群聊设置面板 100vh 前置兜底（删则无 dvh 老内核面板高度塌成内容高、设置列表不可滚。2026-09-19 #853 换锚：dvh 行收进 @supports，100vh 主行与 @supports 行各由 #718a/#853d 分钉）', file: 'css/group-chat.css', needle: '@supports (height: 100dvh) { .gc-settings-panel { height: min(var(--mochi-ios-h, 100dvh), 100dvh); } }' },
   { name: '#718b viewport 关键字按平台选（改回写死 resizes-visual＝iOS 桌面伪装机型被 rAF 晚跑盖回、键盘适配退回异常形态）', file: 'js/device.js', needle: "interactive-widget=' + (isIOSUa() ? 'resizes-content' : 'resizes-visual')" },
   { name: '#718c 拍卖会音效挂起自愈（删则 iOS 锁屏/切后台回来整局哑音；全站音效模块同款修法的最后一个）', file: 'js/auction.js', needle: "if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume().catch(function () {});" },
   { name: '#718d 键盘期弹窗顶距 env 带 0px 内定（删则不支持 env 的老内核整条 max() 失效＝弹窗贴死状态栏）', file: 'css/base.css', needle: 'max(10px, env(safe-area-inset-top, 0px))' },
@@ -3600,6 +3600,18 @@ const FIX_SENTINELS = [
   { name: '#842f 两新键全局根键免迁（删＝每次刷新被 migrateLegacy 迁进 default 并删根键，非 default 桌面这两类最近区清空）', file: 'js/contacts.js', needle: "'emoji-recent-kaomoji', 'emoji-recent-emoji'," },
   { name: '#849a 加载期全分类组内去重＋main 跨分组去重（删则默认聊天字卡/互动回应等同文重复行复发）', file: 'js/default-cards.js', needle: "if (k !== 'dict' && Array.isArray(DATA[k])) dedupeCardGroups(DATA[k], k === 'main');" },
   { name: '#849b 词典重建链跨分组去重（词库与基础汉字等扩展分组同文只留一处；删则用户报的【嗯】重复复发）', file: 'js/default-cards.js', needle: 'DATA.dict = dedupeCardGroups(base, true);' },
+  // ==== 2026-09-19 #853 iPad7/iOS15.3（Safari 15.3，诊断 SIG phone=2254 底=1647）「很多顶部底部按钮点不到＋聊天下滑到底整页弹回最上面」——
+  // 机制：WebKit<15.4 对不认识的 dvh/svh 单位不是 Chromium 式「解析期丢弃＝退回上一条 vh」，
+  // 而是把声明保留到计算期失败＝整个 height 属性作废成 auto（诊断历史快照 phone=794/1319/2254
+  // 恰为内容自然高、随页面波动；顶位三态均吻合 flex 居中公式＝height 属性确为 auto）。
+  // 于是 .phone 不再定高：文档可滚出数百 px，顶部/底部按钮轮流在视口外；聊天页内部滚动容器
+  // 失效、整页被当文档滚。「vh 前置+dvh 后置」阶梯（#718 等）只对 Chromium 系老内核成立，
+  // 对老 WebKit 必须让 dvh 声明根本不被看到＝收进 @supports (height: 100dvh)。现代内核
+  // @supports 为真、生效声明不变＝零现代回归。min-height 阶梯作废只失去下限、无塌陷，不在其列。
+  { name: '#853a .phone 实测高 vh 基线（ios-vv-fit 老内核退路；删＝iOS<15.4 浏览器态 .phone 高度作废成 auto＝文档可滚、顶底按钮出视口点不到）', file: 'css/base.css', needle: 'height:min(var(--mochi-ios-h, 100vh), 100vh)' },
+  { name: '#853b 平板 .phone 高度阶梯 svh/dvh 收进 @supports（删＝老 WebKit 把平板 .phone 高度作废成 auto＝内容高随页面波动）', file: 'css/base.css', needle: '@supports (height: 100dvh) { html.tablet .phone { height:100svh; height:100dvh; } }' },
+  { name: '#853c 全屏小游戏面板 dvh 行收进 @supports（删＝iOS<15.4 点全屏面板高度塌成内容高）', file: 'css/chat-pages.css', needle: '@supports (height: 100dvh) { #chat-snake-panel.snake-fs { height:min(var(--mochi-ios-h, 100dvh), 100dvh); } }' },
+  { name: '#853d standalone 覆盖形态 body 的 dvh 兜底收进 @supports（删＝iOS<15.4 键盘会话期 var 摘除时 body 高度作废成 auto＝覆盖形态整页居中位移复发）', file: 'css/base.css', needle: '@supports (height: 100dvh) { html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100dvh); } }' },
   // ==== 2026-09-19 #846 手机端「消息发出去之后屏幕闪一下」根治（红米 K80 Chrome 实报，用户点名勿做机型分支）——
   //   无头实证：历史 >400 条的桌面进页后屏上窗口会被上翻加载撑到 WINDOW_MAX(400)，此后每发一条消息都命中
   //   addRec 超限钳位分支＝renderWindow 整窗重建（400 节点全删、同步重造 200 气泡、img/头像全部重解码，

@@ -70,7 +70,16 @@ html,body { overflow-x:hidden;
    box-sizing/margin 显式声明：不依赖全局 * 重置（个别环境 * 规则不生效时，
    缺声明会退回浏览器默认的 content-box + body margin 8px，padding 外扩、
    margin 撑出页面上下 16px 灰色滚动条） */
-body { height:100vh; height:100dvh; padding:24px; box-sizing:border-box; margin:0; }
+body { height:100vh; padding:24px; box-sizing:border-box; margin:0; }
+/* #853：dvh 收进 @supports——老 WebKit（iOS<15.4）对不认识的 dvh/svh 单位不是 Chromium 那种
+   「解析期丢弃＝退回上一条 vh」，而是把声明保留到计算期失败＝整个属性作废成 auto（实测 iPad7
+   Safari 15.3：.phone 高度变内容自然高 794→1319→2254 随页面波动、文档可滚出 600px、顶部/底部
+   按钮轮流跑到视口外点不到、聊天下滑到底整页被拽回顶）。「vh 前置+dvh 后置」阶梯只对 Chromium
+   系老内核成立，对老 WebKit 必须让 dvh 声明根本不被看到＝收进 @supports (height: 100dvh)：
+   老内核条件为假看不到该声明、自然落前一条 vh；现代内核条件为真、生效声明与改动前一致＝零回归。
+   min-height 阶梯（18dvh / html,body 的 min-height 100dvh 兜底层）作废只等于「失去下限」，
+   无截断/塌陷风险，不在其列。 */
+@supports (height: 100dvh) { body { height:100dvh; } }
 html { margin:0; padding:0; }
 
 /* ===== 开屏加载动画 ===== */
@@ -559,10 +568,12 @@ html { margin:0; padding:0; }
     /* v3.5.139：显式声明——padding(0 18px 18px) 必须算进 100dvh 内，
        否则实际高度超视口、底部导航栏/组件被截 */
     box-sizing:border-box;
-    width:100vw; height:100vh; height:100svh; height:100dvh;
+    width:100vw; height:100vh;
     border-radius:0; box-shadow:none;
     padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
   }
+  /* #853：svh/dvh 收进 @supports（老 WebKit 计算期作废机制，见上） */
+  @supports (height: 100dvh) { .phone { height:100svh; height:100dvh; } }
   .statusbar {
     /* v3.5.127：max 兜底——真全屏挖孔屏 env() 返回 0 时保留 14px 最小留白。
        v3.28.x #114：优先用 JS 实测的 --mochi-safe-top（iOS standalone 下
@@ -584,10 +595,12 @@ html { margin:0; padding:0; }
 html.force-mobile, html.force-mobile body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; background:var(--bg-b, #fff); }
 html.force-mobile .phone {
   box-sizing:border-box;
-  width:100vw; height:100vh; height:100svh; height:100dvh;
+  width:100vw; height:100vh;
   border-radius:0; box-shadow:none;
   padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
+/* #853：svh/dvh 收进 @supports（老 WebKit 计算期作废机制，见上） */
+@supports (height: 100dvh) { html.force-mobile .phone { height:100svh; height:100dvh; } }
 html.force-mobile .statusbar {
   padding-top:max(calc(14px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))), 14px);
   padding-bottom:10px;
@@ -622,16 +635,20 @@ html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
    作用：壁纸（.phone 背景图）随之盖满全屏（电脑上包括模拟器两侧灰底），
    且 .phone 占满 100dvh 后底部导航栏/桌面组件必然完整显示，不再被固定高度推出屏幕。 */
 .fs-active .phone, .fs-css-active .phone {
-  width:100vw; height:100vh; height:100svh; height:100dvh;
+  width:100vw; height:100vh;
   max-width:none; border-radius:0; box-shadow:none;
   padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
+/* #853：svh/dvh 收进 @supports（老 WebKit 计算期作废机制，见上） */
+@supports (height: 100dvh) { .fs-active .phone, .fs-css-active .phone { height:100svh; height:100dvh; } }
 @media (display-mode: fullscreen) {
   .phone {
-    width:100vw; height:100vh; height:100svh; height:100dvh;
+    width:100vw; height:100vh;
     max-width:none; border-radius:0; box-shadow:none;
     padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
   }
+  /* #853：svh/dvh 收进 @supports（老 WebKit 计算期作废机制，见上） */
+  @supports (height: 100dvh) { .phone { height:100svh; height:100dvh; } }
 }
 
 /* v3.7.x：iOS PWA standalone（添加到主屏幕）+ black-translucent 下，100dvh 不包含
@@ -659,10 +676,22 @@ html.force-mobile .mail-item { -webkit-tap-highlight-color:transparent; }
    :not(.ios-pwa-standalone) 是必需的：本选择器特异性 (0,2,1) 高于下方
    .ios-pwa-standalone .phone 的 (0,2,0)，不加守卫会把 v3.15.x 的 standalone 100vh
    修复压回去；standalone 没有浏览器工具条，本就不需要这条 */
+/* #853：vh 基线先行——老 WebKit（iOS<15.4）上下面 dvh 版整条不可见（@supports 为假），
+   落本条：--mochi-ios-h 是 syncVvFit 实测 px、恒 ≤ 视口高，min 的第二个操作数用 vh 与
+   dvh 等效（首个操作数恒是更小的实测 px，vh 版只在属性缺位的瞬态生效）；现代内核
+   @supports 版后置胜出、生效声明与改动前一致 */
+html.ios-vv-fit:not(.ios-pwa-standalone) .phone,
+html.tablet.ios-vv-fit:not(.ios-pwa-standalone) .phone { height:min(var(--mochi-ios-h, 100vh), 100vh); }
+@supports (height: 100dvh) {
 html.ios-vv-fit:not(.ios-pwa-standalone) .phone,
 html.tablet.ios-vv-fit:not(.ios-pwa-standalone) .phone { height:min(var(--mochi-ios-h, 100dvh), 100dvh); }
+}
+.ios-pwa-standalone .phone,
+html.tablet.ios-pwa-standalone .phone { height:min(100vh, var(--mochi-ios-h, 100vh)); }
+@supports (height: 100dvh) {
 .ios-pwa-standalone .phone,
 html.tablet.ios-pwa-standalone .phone { height:min(100vh, var(--mochi-ios-h, 100dvh)); }
+}
 /* v3.27.x：iOS PWA standalone + ios-fs-active（已隐藏模拟状态栏）下，视口 innerHeight
    即完整可视高，100vh 却等于 screen.height（含被隐藏状态栏区）→ .phone 超出视口、
    body 可滚、桌面顶部/底部各被裁（iPhone17 Edge 反馈"图标按钮显示不全"）。
@@ -721,7 +750,11 @@ html.ios-pwa-standalone body { background: var(--bg-b); }
    min-height:0 必带：上方 html,body{min-height:100vh} 的 100vh 在 iOS=整块物理屏，
    不归零会把 body 顶高到 956，与 .phone 之间又生出居中位移。 */
 html.ios-pwa-standalone.ios-cover-top,
-html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100dvh); min-height:0; align-items:flex-start; }
+html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100vh); min-height:0; align-items:flex-start; }
+/* #853：dvh 兜底收进 @supports——老 WebKit 上键盘会话期 var 被摘除时该声明会把 body 高度
+   作废成 auto（容器塌陷＝覆盖形态整页居中位移复发）；100vh 版先行兜住（该形态仅 iOS
+   standalone 覆盖形态命中，iPad/保留形态 env=0 不相干）；现代内核 dvh 版胜出＝与改动前一致 */
+@supports (height: 100dvh) { html.ios-pwa-standalone.ios-cover-top body { height:var(--mochi-ios-h, 100dvh); } }
 /* v3.7.x：display-mode: standalone 媒体查询底色兜底（不依赖 fullscreen.js 加类）——
    iOS/安卓从主屏幕打开 PWA 时该媒体查询恒为真；若 JS 层 inIosStandalone 检测
    （navigator.standalone / matchMedia standalone）因任何原因失败、ios-pwa-standalone
@@ -907,10 +940,13 @@ html.tablet .phone {
      640/820 限宽居中——多台 iPad 用户反馈「四边不贴合」；横屏同改见下方媒体查询。
      内容阅读宽度由内部组件自行约束（横屏气泡 460px 封顶规则保留） */
   width:100vw; max-width:none; flex-shrink:0;
-  height:100vh; height:100svh; height:100dvh;
+  height:100vh;
   border-radius:0; box-shadow:none;
   padding:0 calc(18px + var(--mochi-side-adj,0px)) 18px;
 }
+/* #853：svh/dvh 收进 @supports（老 WebKit 计算期作废机制，见上）——iOS<15.4 平板落
+   上方 ios-vv-fit 的 vh 基线（--mochi-ios-h 实测 px），本条只在其缺位瞬态兜底 */
+@supports (height: 100dvh) { html.tablet .phone { height:100svh; height:100dvh; } }
 html.tablet .phone.no-statusbar { padding:0; }
 html.tablet .statusbar {
   padding-top:max(calc(14px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))), 14px);

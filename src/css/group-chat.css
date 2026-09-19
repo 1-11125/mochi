@@ -69,10 +69,13 @@
      整条 min() 失效＝面板高度塌成内容高、长设置列表不可滚；与聊天设置面板（chat-pages.css 同款
      双声明）对齐，v3.42.x 改全屏时漏带这行。 */
   height: 100vh;
-  height: min(var(--mochi-ios-h, 100dvh), 100dvh);
   background: #fff; z-index: 210; overflow: hidden;
   display: flex; flex-direction: column;
 }
+/* #853：dvh 行收进 @supports——老 WebKit（iOS<15.4）会把整条 height 作废成 auto（不是
+   Chromium 的解析期丢弃退回 100vh），#718 的「100vh 前置兜底」拦不住它；老内核看不到
+   @supports 块里的 dvh 行、落 100vh，现代内核 dvh 行胜出＝与改动前一致 */
+@supports (height: 100dvh) { .gc-settings-panel { height: min(var(--mochi-ios-h, 100dvh), 100dvh); } }
 .gc-settings-panel[hidden] { display: none; }
 .gc-set-head {
   display: flex; align-items: center; justify-content: space-between;
