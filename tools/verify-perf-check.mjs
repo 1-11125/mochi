@@ -22,6 +22,13 @@
 //   A18 「掉帧集中」≥3 帧门槛 concOk（单帧噪声不引导用户排查该页大图/长内容）
 //   A19 按页采样帧数 pageFrames + 页面分布行（集中度对比的分母）
 //   A20 build.mjs 登记 #770a~e 五条哨兵
+// —— #818 追加（2026-09-19 iOS 卡顿定位诊断增强：点按响应延迟/最慢帧现场/低电量档识别，
+//    全部仍只活在检测窗口内、窗口结束即拆＝零常驻开销）——
+//   A21 点按响应采样：窗口内 passive down 戳记＋下一帧结算（删＝「点了没反应」类 iOS 报障无数据）
+//   A22 响应监听随窗口拆除 removeEventListener（泄漏＝常驻监听自造卡顿源）
+//   A23 最慢帧现场 top3 截断（卡在哪个页/什么动作后可定位）
+//   A24 iOS 低电量 30fps 档识别 minD≥28（低电量减半帧率被误判成应用卡顿）
+//   A25 build.mjs 登记 #818a~d 四条哨兵
 // 用法：node tools/verify-perf-check.mjs [rootDir]
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -101,6 +108,14 @@ check('A18 「掉帧集中」≥3 帧门槛 concOk', pc.includes('function concO
 check('A19 按页采样帧数 pageFrames + 页面分布行', pc.includes('pageFrames') && pc.includes('采样期间主要在：'));
 const sent770 = (build.match(/#770[a-e] /g) || []).length;
 check('A20 build.mjs 登记 #770a~e 哨兵', sent770 === 5, '实际 ' + sent770);
+
+// —— #818 追加 ——
+check('A21 点按响应采样：窗口内 passive down 戳记＋下一帧结算', pc.includes("var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';") && pc.includes('var lat = now - lastDown; lastDown = -1;'));
+check('A22 响应监听随窗口拆除（removeEventListener 收尾）', pc.includes('removeEventListener(downEv, onDown)'));
+check('A23 最慢帧现场 top3 截断', pc.includes('scene.length = 3;'));
+check('A24 iOS 低电量 30fps 档识别（minD≥28ms）', pc.includes('rep.lp = minD >= 28;'));
+const sent818 = (build.match(/#818[a-d] /g) || []).length;
+check('A25 build.mjs 登记 #818a~d 哨兵', sent818 === 4, '实际 ' + sent818);
 
 console.log('----');
 console.log('verify-perf-check: ' + pass + ' 通过 / ' + fail + ' 失败');

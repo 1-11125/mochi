@@ -19,6 +19,14 @@
 // iOS Safari 无 longtask / performance.memory 观测——结论由帧间隔等效判定；长任务仅在
 // 内核支持时用窗口内自建 PerformanceObserver 附带计数，不支持自动降级（不碰 device.js
 // 常驻观察器）。零常驻开销：rAF 循环与观察器只在检测窗口内存在，结束即全部停止。
+// #818 iOS 卡顿定位诊断增强（三样，全部仍只活在检测窗口内，窗口结束即拆干净）：
+// ①点按响应延迟——窗口内 passive 按下戳记、下一帧结算「点到画面有反应」的真实等待
+//   （含主线程拥堵；iOS 无 longtask 时这比掉帧率更贴近「点了隔一下才动」的体感），
+//   报告中位/最慢/超 100ms 次数/最慢发生页；
+// ②最慢帧现场——掉帧按「采样第几秒·所在页·键盘期·是否切页后 0.5s 内」记 top3，
+//   把「卡在什么时候、哪个页、什么动作之后」说清楚，不再只有「最慢 N ms」一个孤数；
+// ③低电量档识别——实测刷新周期 ≥28ms（≈30fps 档）＝整机在半帧率运行：iOS 低电量
+//   模式会把帧率减半（系统行为、不是应用卡），报告点名提示关闭后复测对照，防误判。
 (function () {
   'use strict';
   if (window.mochiPerfCheck) return;
@@ -87,7 +95,8 @@
       ms = Math.max(3000, Math.min(30000, Number(ms) || 10000));
       onTick = typeof onTick === 'function' ? onTick : function () {};
       var rep = { t: Date.now(), ms: ms, frames: 0, janky: 0, severe: 0, worst: 0, hid: 0,
-                  kbFrames: 0, kbJanky: 0, pages: {}, pageFrames: {}, jankMs: 0, period: 0, fps: 0, lt: null };
+                  kbFrames: 0, kbJanky: 0, pages: {}, pageFrames: {}, jankMs: 0, period: 0, fps: 0, lt: null,
+                  int: null, scene: [], lp: false };
       // 长任务：窗口内自建观察器（iOS WebKit observe('longtask') 抛错 → ok=false 降级为纯帧间隔判定）
       var lt = { ok: false, n: 0, worst: 0 }, po = null;
       try {
@@ -102,16 +111,32 @@
         po.observe({ type: 'longtask' }); lt.ok = true;
       } catch (e) {}
       var last = performance.now(), t0 = last, raf = 0, done = false;
+      // #818 窗口内采样状态：点按戳记 / 切页时刻 / 最慢帧现场 top3（窗口结束全部随窗销毁）
+      var lastDown = -1, intArr = [], intWorst = -1, intWorstPg = '';
+      var swAt = -1e9, lastPgSeen = '', scene = [];
+      var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';
+      function onDown() { lastDown = performance.now(); }
+      try { document.addEventListener(downEv, onDown, { passive: true }); } catch (e) {}
       minD = 0;
       var first = true;
       function finish() {
         if (done) return;
         done = true;
         try { if (po) po.disconnect(); } catch (e) {}
+        try { document.removeEventListener(downEv, onDown); } catch (e) {} // #818 响应监听随窗拆除
         rep.lt = lt.ok ? lt : null;
         rep.jankMs = Math.round(jankThr());
         rep.period = Math.round(minD * 10) / 10;
         rep.fps = Math.round(rep.frames * 10000 / Math.max(1, rep.ms)) / 10;
+        // #818 点按响应聚合（中位/最慢/超 100ms 次数/最慢页）＋低电量档标记（周期 ≥28ms ≈ 30fps）
+        if (intArr.length) {
+          var sorted = intArr.slice().sort(function (a, b) { return a - b; });
+          var slowN = 0;
+          for (var si = 0; si < intArr.length; si++) { if (intArr[si] >= 100) slowN++; }
+          rep.int = { n: intArr.length, med: Math.round(sorted[Math.floor(sorted.length / 2)]), worst: Math.round(intWorst), slow: slowN, worstPg: intWorstPg };
+        }
+        rep.scene = scene;
+        rep.lp = minD >= 28;
         rep.jankPct = pct(rep.janky, rep.frames);
         rep.kbPct = pct(rep.kbJanky, rep.janky);     // 掉帧里键盘期占比
         rep.kbShare = pct(rep.kbFrames, rep.frames); // 全部帧里键盘期占比
@@ -138,6 +163,14 @@
           rep.frames++;
           var pg = curPage();
           rep.pageFrames[pg] = (rep.pageFrames[pg] || 0) + 1;
+          if (pg !== lastPgSeen) { lastPgSeen = pg; swAt = now; } // #818 切页时刻（最慢帧现场归因用）
+          if (lastDown >= 0) { // #818 点按→下一帧结算响应延迟（含主线程拥堵；≥2s 视为切后台噪声丢弃）
+            var lat = now - lastDown; lastDown = -1;
+            if (lat >= 0 && lat < 2000) {
+              intArr.push(lat);
+              if (lat > intWorst) { intWorst = lat; intWorstPg = pg; }
+            }
+          }
           if (first) { first = false; } // 首帧间隔是启动延迟，只计样本、不进周期/掉帧判定
           else {
             if (d >= 4 && (!minD || d < minD)) minD = d; // <4ms＝同 vsync 补帧伪象，不当刷新周期
@@ -149,6 +182,9 @@
               if (d > SEVERE_MS) rep.severe++;
               if (d > rep.worst) rep.worst = Math.round(d);
               rep.pages[pg] = (rep.pages[pg] || 0) + 1;
+              // #818 最慢帧现场 top3（掉帧本就低频，push+排序开销可忽略）
+              scene.push({ at: Math.round((now - t0) / 100) / 10, ms: Math.round(d), pg: pg, kb: kb ? 1 : 0, sw: (now - swAt) <= 500 ? 1 : 0 });
+              if (scene.length > 3) { scene.sort(function (a, b) { return b.ms - a.ms; }); scene.length = 3; }
             }
           }
         }
@@ -172,6 +208,7 @@
     L.push('结论：' + r.verdict + concl);
     var per = r.period > 0 ? '，正常帧间隔约 ' + r.period + 'ms' : '';
     L.push('采样 ' + Math.round(r.ms / 1000) + ' 秒 / 有效帧 ' + r.frames + '（平均 ' + r.fps + 'fps' + per + '；已剔除后台/锁屏冻结 ' + r.hid + ' 帧）');
+    if (r.lp) L.push('· 实测刷新周期约 ' + r.period + 'ms（≈30fps 档）：iOS 低电量模式会把帧率减半，属系统行为——开了低电量请关闭后复测对照');
     // #770：采样期间页面分布——帮读「掉帧集中」（该页采了多少帧才有可比性）
     var majors = [];
     for (var pk in r.pageFrames) { if (pk !== '?' && r.pageFrames[pk] > 0) majors.push([pk, r.pageFrames[pk]]); }
@@ -185,11 +222,22 @@
         L.push('· 掉帧集中：' + pageName(r.topPage) + '（掉帧 ' + r.pages[r.topPage] + '/' + (r.pageFrames[r.topPage] || 0) + ' 帧，该页 ' + pct(r.pages[r.topPage], r.pageFrames[r.topPage]) + '% vs 全窗 ' + r.jankPct + '%）');
       }
       if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
+      if (r.scene && r.scene.length) {
+        var ss = [];
+        for (var i2 = 0; i2 < r.scene.length; i2++) {
+          var sc = r.scene[i2];
+          ss.push('第' + sc.at + '秒 ' + pageName(sc.pg) + ' ' + sc.ms + 'ms' + (sc.kb ? '·键盘期' : '') + (sc.sw ? '·切页后' : ''));
+        }
+        L.push('· 最慢帧现场：' + ss.join('；') + '（「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本）');
+      }
     }
     if (r.lt) {
       L.push(r.lt.n > 0 ? '· 长任务（>50ms 主线程阻塞）窗口内 ' + r.lt.n + ' 次，最长 ' + r.lt.worst + 'ms' : '· 长任务（>50ms）：窗口内无');
     } else {
       L.push('· 长任务：此内核不支持观测（iOS WebKit），已用帧间隔等效判定');
+    }
+    if (r.int) {
+      L.push('· 点按响应：采样 ' + r.int.n + ' 次，中位 ' + r.int.med + 'ms、最慢 ' + r.int.worst + 'ms（最慢在' + pageName(r.int.worstPg) + '）' + (r.int.slow > 0 ? '；' + r.int.slow + ' 次超过 100ms＝「点了隔一下才动」体感的直接来源' : ''));
     }
     if (r.storage) {
       L.push('· 本地数据画像：字卡库 ' + r.storage.libs + ' 个作用域 约 ' + r.storage.mb + ' MB（' + (r.storage.level === '重' ? '较重' : r.storage.level === '中' ? '中度' : '轻量') + '）');
@@ -201,6 +249,8 @@
     if (r.janky === 0) adv.push('本窗口未捕获掉帧；若体感仍卡，在卡顿出现的当下立即复测，更容易抓到现场');
     else if (r.verdict === '流畅') adv.push('仅零星掉帧（' + r.janky + ' 帧、最慢 ' + r.worst + 'ms），属正常波动，无需处理');
     if (concOk(r)) adv.push('掉帧集中在「' + pageName(r.topPage) + '」——该页操作时最明显，可对照排查最近往该页存过的大图/长内容');
+    if (r.int && r.int.slow > 0) adv.push('点按响应最慢 ' + r.int.worst + 'ms（在「' + pageName(r.int.worstPg) + '」）：掉帧集中在操作瞬间，优先排查该页的大图/长列表/数据落盘时机');
+    if (r.lp && r.verdict === '流畅') adv.push('本机在约 30fps 档运行＝iOS 低电量模式减半帧率（系统行为），关闭低电量模式即可恢复，无需其他处理');
     if (r.kbJanky > 0 && r.kbPct >= 30) adv.push('掉帧多发生在键盘弹出期（iOS 视口变形属系统行为）：收起键盘复测对照，若明显好转则无需处理');
     if (r.verdict !== '流畅' && (!r.storage || r.storage.level !== '重')) adv.push('可按 设置→「手机卡顿说明」的顺序清一遍存量（先「查看存储」看哪项最大）；别用「清除本地数据」治卡顿');
     if (!adv.length) adv.push('保持现状即可');
