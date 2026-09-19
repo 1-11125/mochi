@@ -2860,6 +2860,10 @@ if (ckRefresh) {
     ctx.restore(); ctx.restore();
   }
   function eatDrawWheel(dishes, hlIdx) { const c = document.getElementById('eat-wheel'); if (!c) return; eatDrawWheelCore(c, dishes, hlIdx, eatSpinAngle); }
+  // #876 转盘指针在正上方（.eat-pointer top:-12px，svg 尖(10,18)朝下）＝屏幕 12 点方向＝画布角 3π/2；
+  // 转过 normalized 后指针压住的扇区＝画布角 (3π/2 - normalized) 所在片。旧公式按指针在右侧 0 角
+  // （2π - normalized）算，中奖片恒不在指针下＝高亮片与「今天吃」菜名和指针错开约 1/4 圈。
+  function eatIdxUnderPtr(normalized, n, slice) { return Math.floor((((3 * Math.PI / 2 - normalized) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)) / slice) % n; }
   function eatSpinWheel(dishes, cb) {
     if (eatSpinning) return;
     if (!dishes.length) { toast('当前菜单是空的，先添加菜名'); return; }
@@ -2887,7 +2891,7 @@ if (ckRefresh) {
       eatSpinTimer = null; clearTimeout(flashTimer);
       const n = dishes.length; const slice = 2 * Math.PI / n;
       const normalized = (totalAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      const idx = Math.floor(((2 * Math.PI - normalized + slice / 2) % (2 * Math.PI)) / slice) % n;
+      const idx = eatIdxUnderPtr(normalized, dishes.length, slice);
       var ptr = document.getElementById('eat-pointer'); if (ptr) { ptr.classList.add('pop'); setTimeout(function () { ptr.classList.remove('pop'); }, 500); }
       eatHlIdx = idx; eatDrawWheel(dishes, idx); vibrate([10, 40, 10]);
       eatHlTimer = setTimeout(function () { eatHlIdx = -1; eatDrawWheel(dishes); eatHlTimer = null; eatSpinning = false; eatSetBtns(false); }, 1200);
@@ -2960,7 +2964,7 @@ if (ckRefresh) {
       eatSwTimer = null; clearTimeout(flashTimer);
       const n = names.length; const slice = 2 * Math.PI / n;
       const normalized = (totalAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      const idx = Math.floor(((2 * Math.PI - normalized + slice / 2) % (2 * Math.PI)) / slice) % n;
+      const idx = eatIdxUnderPtr(normalized, names.length, slice);
       const ptr = document.getElementById('eat-switch-pointer'); if (ptr) { ptr.classList.add('pop'); setTimeout(() => ptr.classList.remove('pop'), 500); }
       eatSwHlIdx = idx; eatSwitchDraw(names, idx); vibrate([10, 40, 10]);
       if (nameEl) { nameEl.classList.add('fade'); setTimeout(() => { nameEl.textContent = names[idx]; nameEl.classList.remove('fade'); }, 200); }
