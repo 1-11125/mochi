@@ -11390,16 +11390,18 @@ function emojiRenderSigTarget(hts, pn) {
 // 当前面板解析不到的表情自动跳过（不显示死项）。
 const EMOJI_RECENT_KEY = 'emoji-recent';
 const EMOJI_RECENT_MAX = 8;
-function emojiRecentIdents() {
+function recentIdentsAt(key) {
 try {
-const v = JSON.parse(myEmojiStore().get(EMOJI_RECENT_KEY) || '[]');
+const v = JSON.parse(myEmojiStore().get(key) || '[]');
 if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x).slice(0, EMOJI_RECENT_MAX);
 } catch (e) {}
 return [];
 }
-function emojiRecentSave(ids) {
-try { myEmojiStore().set(EMOJI_RECENT_KEY, JSON.stringify(ids.slice(0, EMOJI_RECENT_MAX))); } catch (e) {}
+function recentSaveAt(key, ids) {
+try { myEmojiStore().set(key, JSON.stringify(ids.slice(0, EMOJI_RECENT_MAX))); } catch (e) {}
 }
+function emojiRecentIdents() { return recentIdentsAt(EMOJI_RECENT_KEY); }
+function emojiRecentSave(ids) { recentSaveAt(EMOJI_RECENT_KEY, ids); }
 function emojiRecordRecent(src) {
 if (typeof src !== 'string' || !src) return;
 const id = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent(src) : src.slice(0, 120);
@@ -11432,6 +11434,40 @@ found.forEach(x => srcs.push(x[1]));
 }
 return { ids: ids, srcs: srcs.slice(0, EMOJI_RECENT_MAX) };
 }
+// ===== #842 颜文字 / emoji 的「最近使用」（用户直派：这两类没有最近使用）=====
+// 与 #558 同口径但各分类独立一键（emoji-recent-kaomoji / emoji-recent-emoji，同为全局根键，
+// contacts.js EXCLUDE 已登记）。文字卡没有令牌化翻转问题，身份＝原文本身；解析时回查当前分类
+// 三池（TA 专属 / 公用 / 我的文字库），池里已删掉的文字自动跳过＝不显示死项。
+function textRecentKey() { return EMOJI_RECENT_KEY + '-' + emojiCat; }
+function emojiRecordRecentText(t) {
+if (typeof t !== 'string' || !t) return;
+const key = textRecentKey();
+const ids = recentIdentsAt(key).filter(x => x !== t);
+ids.unshift(t);
+recentSaveAt(key, ids);
+}
+function textRecentResolved() {
+const ids = recentIdentsAt(textRecentKey());
+const srcs = [];
+if (ids.length) {
+const want = {};
+ids.forEach((x, i) => { want[x] = i; });
+const found = [];
+const scan = (arr) => {
+(arr || []).forEach(t => {
+if (typeof t !== 'string' || !t) return;
+const oi = want[t];
+if (oi !== undefined && oi >= 0) { found.push([oi, t]); want[t] = -1; }
+});
+};
+((window.getScopedGroups && window.getScopedGroups(emojiCat, 'own')) || []).forEach(g => scan(g[1]));
+((window.getScopedGroups && window.getScopedGroups(emojiCat, 'public')) || []).forEach(g => scan(g[1]));
+(myTextGroups[emojiCat] || []).forEach(g => scan(g[1]));
+found.sort((a, b) => a[0] - b[0]);
+found.forEach(x => srcs.push(x[1]));
+}
+return { ids: ids, srcs: srcs.slice(0, EMOJI_RECENT_MAX) };
+}
 function renderEmojiGroupsBar(rec) {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -11441,7 +11477,7 @@ if (emojiCat !== 'sticker') {
 // #636：文字分类——分组取自当前作用域；没选过（或选的分组不在了）自动落到第一个非空分组
 list = textScopeGroups();
 cur = textCurGroup();
-if (!cur || !list.some(g => g[0] === cur)) { const hit = list.find(g => g[1] && g[1].length); textCurSet(hit ? hit[0] : ''); cur = textCurGroup(); }
+if (cur !== '__recent__' && (!cur || !list.some(g => g[0] === cur))) { const hit = list.find(g => g[1] && g[1].length); textCurSet(hit ? hit[0] : ''); cur = textCurGroup(); }
 } else if (emojiMode === 'public') {
 list = (window.getScopedGroups && window.getScopedGroups('sticker', 'public')) || [];
 cur = pubCurGroup;
@@ -11454,7 +11490,8 @@ cur = myCurGroup;
 }
 // #558 「⏱最近使用」chip 排最前；可解析到内容的才显示；我的批量管理模式不显示
 //（批量勾选只对分组原卡有意义，最近区走直发路径）；上次停在最近分组但本次不可解析时回落。
-const recChipShow = !!(rec && rec.srcs.length) && !(emojiMode === 'mine' && myBatchMode) && emojiCat === 'sticker';
+// #842：表情包/颜文字/emoji 三分类通用（各自一份根键）
+const recChipShow = !!(rec && rec.srcs.length) && !(emojiMode === 'mine' && (emojiCat === 'sticker' ? myBatchMode : myTextBatch));
 if (cur === '__recent__' && !recChipShow) cur = '';
 if (cur && cur !== '__recent__' && !list.some(g => g[0] === cur)) cur = '';
 const chips = (recChipShow ? [['__recent__', '⏱最近使用']] : [])
@@ -11533,10 +11570,19 @@ if (emojiCat !== 'sticker') { if (emojiBatchCount) emojiBatchCount.textContent =
 if (emojiBatchCount) emojiBatchCount.textContent = '已选 ' + mySel.size + ' 张';
 }
 // ===== #636：颜文字 / emoji 文字分类渲染（无图、无懒加载，不走 #457 指纹短路） =====
-function renderEmojiTextPanel() {
+function renderEmojiTextPanel(rec) {
 const list = textScopeGroups();
 const cur = textCurGroup();
 const catName = textCatLabel();
+if (cur === '__recent__') { // #842 文字分类最近使用虚拟分组（能解析到内容时优先于本作用域空态）
+const srcs = (rec && rec.srcs) || [];
+if (!srcs.length) {
+emojiList.innerHTML = '<div class="emoji-empty">最近使用的' + catName + '不在这里了<br>去分组里点一次就会出现在这里</div>';
+return;
+}
+renderEmojiTextGroup('__recent__', srcs);
+return;
+}
 if (!list.length) {
 emojiList.innerHTML = emojiMode === 'mine'
 ? '<div class="emoji-empty">暂无我的' + catName + '<br>点上方「批量导入」粘贴，一行一个</div>'
@@ -11575,6 +11621,7 @@ else if (ck) ck.remove();
 } else {
 d.addEventListener('click', (e) => {
 e.stopPropagation();
+try { emojiRecordRecentText(t); } catch (e0) {} // #842 最近使用：点击即记录（填入/直发/插入都算）
 if (emojiInsertCb) { // 写信/回信插入模式（回调方决定落位，含群聊输入栏，行为不变）
 const cb = emojiInsertCb;
 emojiInsertCb = null;
@@ -11638,12 +11685,12 @@ emojiTextTools.hidden = !(emojiMode === 'mine' && emojiCat !== 'sticker');
 if (mytBatchBtn) mytBatchBtn.textContent = myTextBatch ? '退出批量' : '批量管理';
 }
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && (emojiCat === 'sticker' ? myBatchMode : myTextBatch));
-var rec = emojiRecentResolved(); // #558：每次渲染解析一次最近使用（身份回查三池），bar 与最近分组/签名共用
+var rec = emojiCat === 'sticker' ? emojiRecentResolved() : textRecentResolved(); // #558：每次渲染解析一次最近使用（身份回查三池），bar 与最近分组/签名共用；#842 文字分类各解析自己那份
 emojiRecNow = rec;
 renderEmojiGroupsBar(rec);
 if (emojiCat !== 'sticker') { // #636：颜文字/emoji 走文字网格（无图、无懒加载，不做 #457 指纹短路）
 emojiList.innerHTML = '';
-renderEmojiTextPanel();
+renderEmojiTextPanel(rec);
 return;
 }
 	// FIX 2026-09-14 #457 内容指纹短路：目标与上次成功渲染一致且 DOM 仍在→跳过重建复用现有 img

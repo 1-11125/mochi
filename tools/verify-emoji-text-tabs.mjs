@@ -242,6 +242,8 @@ try {
   let c = await evalJs(SNAP);
   check('C 公用 tab 文案与公用分组（公用开心1）', !!(c && /公用颜文字/.test(c.pubLabel || '') && c.chips.join(',').indexOf('公用开心1') >= 0), JSON.stringify({ pub: c && c.pubLabel, chips: c && c.chips }));
   check('C 公用网格内容正确', !!(c && c.textItems.length === 1 && c.textItems[0] === '(◕‿◕)'), JSON.stringify(c && c.textItems));
+  // #842（用户直派：颜文字/emoji 没有最近使用）：B2 点过卡后，文字分类分组条最前也该有最近使用 chip
+  check('C 颜文字分类也有「⏱最近使用」chip 且排最前', !!(c && c.chips.length && c.chips[0].indexOf('最近使用') >= 0), JSON.stringify(c && c.chips));
 
   // ================= D：我的 + 批量导入（一行一个 + 【分组名】前缀 + 去重） =================
   check('D 切到我的作用域', await click('#emoji-panel .emoji-tab[data-etab="mine"]'));
@@ -278,14 +280,18 @@ try {
   await sleep(250);
   let e1 = await evalJs(SNAP);
   check('E 计数与勾选（已选 2 个）', !!(e1 && /已选 2 个/.test(e1.batchCount || '')), e1 && e1.batchCount);
+  // #842：批量勾选只对分组原卡有意义，批量模式下不出最近 chip（与表情包同口径）
+  check('E 我的批量管理模式下不出现「⏱最近使用」chip', !!(e1 && e1.chips.filter(function (t) { return t.indexOf('最近使用') >= 0; }).length === 0), JSON.stringify(e1 && e1.chips));
   check('E 点删除弹确认', await click('#emoji-batch-del'));
   await sleep(300);
   check('E 确认删除', await click('#modal-ok'));
   await sleep(400);
   const reopenE = await evalJs(`(function(){ var p=document.getElementById('emoji-panel'); return !!(p && !p.hidden); })()`);
   if (!reopenE) { await click('#chat-emoji-btn'); await sleep(300); }
+  // #842：文字分类也有「⏱最近使用」chip（B2 点过的那张仍能从 TA 池解析到），它不是分组残留——比分组 chips 时先剔除
   let e2 = await evalJs(SNAP);
-  check('E 删空分组自动清（chips 只剩 新组1，自动落到新组）', !!(e2 && e2.chips.join(',') === '新组1' && e2.textItems.length === 1 && e2.textItems[0] === '(๑•́ ₃ •̀๑)'), JSON.stringify({ chips: e2 && e2.chips, items: e2 && e2.textItems }));
+  const e2Groups = (e2 && e2.chips ? e2.chips : []).filter(function (t) { return t.indexOf('最近使用') < 0; });
+  check('E 删空分组自动清（分组 chips 只剩 新组1，自动落到新组）', !!(e2 && e2Groups.join(',') === '新组1' && e2.textItems.length === 1 && e2.textItems[0] === '(๑•́ ₃ •̀๑)'), JSON.stringify({ chips: e2 && e2.chips, items: e2 && e2.textItems }));
   check('E 退出批量', await click('#emoji-batch-exit'));
   await sleep(250);
 

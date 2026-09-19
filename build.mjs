@@ -2905,7 +2905,7 @@ const FIX_SENTINELS = [
   { name: '#628h 桌面美化入口的同步按钮接线（删掉＝该入口面板里的同步按钮点了没反应）', file: 'js/personalize.js', needle: 'if (window.csFontSyncAllDesks) window.csFontSyncAllDesks();' },
   // ==== 2026-09-16 #636 表情包面板【颜文字】【emoji】分类 + 我的文字库 + 设置两隐藏开关（新功能防覆盖锚：
   //      分类行/文字网格被并行重写抹掉＝面板回到只有表情包三 tab；两开关被删＝分类无法隐藏）====
-  { name: '#636a 面板文字分类渲染入口（颜文字/emoji 清列表后走文字网格并截断图片路径；删/改＝新分类空白或误走图片网格）', file: 'js/chat.js', needle: "emojiList.innerHTML = '';\nrenderEmojiTextPanel();\nreturn;" },
+  { name: '#636a 面板文字分类渲染入口（颜文字/emoji 清列表后走文字网格并截断图片路径；删/改＝新分类空白或误走图片网格）', file: 'js/chat.js', needle: "emojiList.innerHTML = '';\nrenderEmojiTextPanel(rec);\nreturn;" },
   { name: '#636b 设置「隐藏颜文字/隐藏emoji」两开关（删/改＝分类无法隐藏，读键分支失效）', file: 'js/chat-settings.js', needle: "['hide-tab-kaomoji', '隐藏颜文字'" },
   // ===== #642/#643（2026-09-16 用户实报，iPhone 17 Pro Edge 等多机型，要求勿致跨机型回归）
   //   #642「点消息弹出的引用/操作条乱跑，飞到离气泡很远的地方」＝操作条 fixed 只定位一次，
@@ -3575,6 +3575,13 @@ const FIX_SENTINELS = [
   { name: '#815c 静态快照扫空时实时复查（删＝运行中新建的 .page 不在快照里，chrome 判定与自愈双失）', file: 'js/tabs.js', needle: 'if (!visible) visible = liveVisiblePage();' },
   { name: '#815d .phone 整屏空白地板（删＝内核瞬时上报 0 高时整壳塌成一条，「输入文字时白闪」复发；min-height 压内联 height，单点收口不随十余处写入点漂移）', file: 'css/base.css', needle: 'min-height:min(120px, 18dvh);' },
   { name: '#821a 桌面昵称抬到头像 label 激活层之上（删掉 z-index＝点昵称又被覆盖层吞去弹相册，「点击无法修改」复发）', file: 'css/home.css', needle: 'cursor:pointer; position:relative; z-index:1; }' },
+  // ==== 2026-09-19 #842 表情面板【颜文字】【emoji】补「⏱最近使用」（用户直派：表情包有、这两类没有）。#636 的两类文字分类此前被 recChipShow 里的 emojiCat 判定硬挡成 sticker 专属，点击也不记录。本批＝点击记录＋按分类各存一份全局根键（emoji-recent-kaomoji / emoji-recent-emoji，身份＝文字原文、解析回查 TA 专属/公用/我的三池）＋chip 三分类通用＋停在最近分组时不被自动回落改选。行为断言 tools/verify-emoji-recent.mjs T 组 ====
+  { name: '#842a 颜文字/emoji 点击即记录（删＝这两类永不进最近区）', file: 'js/chat.js', needle: 'try { emojiRecordRecentText(t); } catch (e0) {}' },
+  { name: '#842b 最近结果按分类各解析一份（改回恒 emojiRecentResolved＝文字分类永远空、且文字条目混进图片身份池）', file: 'js/chat.js', needle: "emojiCat === 'sticker' ? emojiRecentResolved() : textRecentResolved()" },
+  { name: '#842c 最近 chip 三分类通用（回流成只给表情包＝颜文字/emoji 又没有最近使用了）', file: 'js/chat.js', needle: "!(emojiMode === 'mine' && (emojiCat === 'sticker' ? myBatchMode : myTextBatch))" },
+  { name: '#842d 文字分类停在最近分组不被自动回落改选（删＝下次渲染被改选到第一个非空分组，最近区一点就丢）', file: 'js/chat.js', needle: "if (cur !== '__recent__' && (!cur || !list.some(g => g[0] === cur)))" },
+  { name: '#842e 文字最近分组走文字网格渲染（删＝点 chip 出空态或错走图片路径）', file: 'js/chat.js', needle: "renderEmojiTextGroup('__recent__', srcs);" },
+  { name: '#842f 两新键全局根键免迁（删＝每次刷新被 migrateLegacy 迁进 default 并删根键，非 default 桌面这两类最近区清空）', file: 'js/contacts.js', needle: "'emoji-recent-kaomoji', 'emoji-recent-emoji'," },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

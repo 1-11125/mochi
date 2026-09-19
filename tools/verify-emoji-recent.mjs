@@ -36,6 +36,10 @@ chk('S5 emoji-recent 全局根键免迁（contacts.js EXCLUDE）', ctSrc.include
 const iRecentMine = chatSrc.indexOf("if (myCurGroup === '__recent__' && !myBatchMode) {");
 const iEmptyMine = chatSrc.indexOf('暂无我的表情包<br>点击上方「添加」上传');
 chk('S6 my 模式最近分支在空态早返回之前（顺序守卫）', iRecentMine > 0 && iEmptyMine > 0 && iRecentMine < iEmptyMine, 'recent@' + iRecentMine + ' empty@' + iEmptyMine);
+// #842：颜文字/emoji 两分类各自的最近使用（各存一份全局根键、身份＝原文）
+chk('S7 文字分类点击即记录（emojiRecordRecentText 进点击链）', chatSrc.includes('try { emojiRecordRecentText(t); } catch (e0) {}'));
+chk('S8 按分类各解析一份（sticker/文字两条身份路径）', chatSrc.includes("emojiCat === 'sticker' ? emojiRecentResolved() : textRecentResolved()") && chatSrc.includes('function textRecentResolved() {'));
+chk('S9 两新键全局根键免迁（contacts.js EXCLUDE）', ctSrc.includes("'emoji-recent-kaomoji', 'emoji-recent-emoji',"));
 
 // ---------- B 层：真实产物行为 ----------
 const candidates = [
@@ -260,6 +264,104 @@ const recAfterTok = await evalJs(`(async () => {
 chk('B7.2b 最近 chip 仍排最前（可解析）', recAfterTok && String(recAfterTok.chip0 || '').indexOf('最近使用') >= 0, JSON.stringify(recAfterTok && recAfterTok.chip0));
 chk('B7.3 翻转后最近区仍解析到 3 张（令牌卡身份回查成功）', recAfterTok && recAfterTok.n === 3 && String(recAfterTok.chip0 || '').indexOf('最近使用') >= 0, JSON.stringify(recAfterTok));
 chk('B7.4 记录仍为 3 条小身份串（未因大图存原文而膨胀）', recAfterTok && recAfterTok.ids === 3 && recAfterTok.size < 2000, JSON.stringify(recAfterTok));
+
+// ================= T 组（#842）：颜文字 / emoji 各自的「最近使用」 =================
+// 补种子：专属库加 kaomoji/emoji 两类文字分组
+await evalJs(`(async () => {
+  const json = JSON.stringify({ text: [], sticker: [['G1', ${JSON.stringify(SRC)}], ['G2', ['data:image/png;base64,' + 'B'.repeat(90000)]]], image: [], poke: [], voice: [],
+    kaomoji: [['开颜', ['(＝^ω^＝)', '(￣▽￣)~*']]], emoji: [['常用E', ['😂', '🥰']]] });
+  window.xyStore(window.activePrefix()).set('cc-groups', json);
+  if (window.ccReloadGroupsAfterExternalWrite) window.ccReloadGroupsAfterExternalWrite();
+  try { window.xyStore('xy-home-v2').remove('emoji-recent-kaomoji'); } catch (e) {}
+  try { window.xyStore('xy-home-v2').remove('emoji-recent-emoji'); } catch (e) {}
+  return 'seeded';
+})()`);
+await sleep(700);
+const catChips = `(Array.prototype.map.call(document.querySelectorAll('#emoji-panel .emoji-g-chip'), function (c) { return c.textContent; }))`;
+
+const t1 = await evalJs(`(async () => {
+  ${openPanel}
+  await new Promise(r => setTimeout(r, 900));
+  const cat = document.querySelector('.emoji-cats .emoji-cat-chip[data-ecat="kaomoji"]');
+  cat.click();
+  await new Promise(r => setTimeout(r, 700));
+  const chips0 = ${catChips};
+  const items = document.querySelectorAll('#emoji-list .emoji-text-item');
+  if (!items.length) return { err: 'no-text-item', chips0 };
+  items[0].click();
+  await new Promise(r => setTimeout(r, 400));
+  return { chips0, ids: JSON.parse(window.xyStore('xy-home-v2').get('emoji-recent-kaomoji') || '[]'), first: (items[0].textContent || '').trim() };
+})()`);
+chk('T1 颜文字分类首开无「最近使用」chip', t1 && String((t1.chips0 || [])[0] || '').indexOf('最近使用') < 0, JSON.stringify(t1 && t1.chips0));
+chk('T2 点颜文字即记录进 emoji-recent-kaomoji（身份＝原文）', !!(t1 && t1.ids && t1.ids.length === 1 && t1.ids[0] === t1.first), JSON.stringify(t1 && { ids: t1.ids, first: t1.first }));
+
+const t2 = await evalJs(`(async () => {
+  window.closeEmojiPanelForInsert();
+  ${openPanel}
+  await new Promise(r => setTimeout(r, 900));
+  const cat = document.querySelector('.emoji-cats .emoji-cat-chip[data-ecat="kaomoji"]');
+  cat.click();
+  await new Promise(r => setTimeout(r, 700));
+  const chips = ${catChips};
+  const chip = document.querySelectorAll('#emoji-panel .emoji-g-chip')[0];
+  chip.click();
+  await new Promise(r => setTimeout(r, 700));
+  const items = Array.prototype.map.call(document.querySelectorAll('#emoji-list .emoji-text-item'), function (d) { return (d.textContent || '').trim(); });
+  return { chip0: chips[0], items: items };
+})()`);
+chk('T3 重开颜文字分类：最近 chip 排最前', t2 && String(t2.chip0 || '').indexOf('最近使用') >= 0, JSON.stringify(t2 && t2.chip0));
+chk('T4 点最近 chip＝文字网格只渲染刚点那张', !!(t2 && t2.items.length === 1 && t2.items[0] === '(＝^ω^＝)'), JSON.stringify(t2));
+
+const t3 = await evalJs(`(async () => {
+  window.closeEmojiPanelForInsert();
+  ${openPanel}
+  await new Promise(r => setTimeout(r, 900));
+  document.querySelector('.emoji-cats .emoji-cat-chip[data-ecat="emoji"]').click();
+  await new Promise(r => setTimeout(r, 700));
+  const chips0 = ${catChips};
+  const items = document.querySelectorAll('#emoji-list .emoji-text-item');
+  if (!items.length) return { err: 'no-item', chips0 };
+  items[1].click();
+  await new Promise(r => setTimeout(r, 400));
+  return { chips0, eIds: JSON.parse(window.xyStore('xy-home-v2').get('emoji-recent-emoji') || '[]'), kIds: JSON.parse(window.xyStore('xy-home-v2').get('emoji-recent-kaomoji') || '[]'), sIds: JSON.parse(window.xyStore('xy-home-v2').get('emoji-recent') || '[]') };
+})()`);
+chk('T5 emoji 分类独立：切过去时还没有自己的最近 chip', t3 && String((t3.chips0 || [])[0] || '').indexOf('最近使用') < 0, JSON.stringify(t3 && t3.chips0));
+chk('T5.1 点 emoji 记录进 emoji-recent-emoji（🥰）', !!(t3 && t3.eIds && t3.eIds.length === 1 && t3.eIds[0] === '🥰'), JSON.stringify(t3 && t3.eIds));
+chk('T5.2 两分类互不串（kaomoji 键仍是那 1 条）', !!(t3 && t3.kIds && t3.kIds.length === 1 && t3.kIds[0] === '(＝^ω^＝)'), JSON.stringify(t3 && t3.kIds));
+chk('T5.3 文字条目不混进表情包根键 emoji-recent', !!(t3 && Array.isArray(t3.sIds) && t3.sIds.filter(x => x === '🥰' || x === '(＝^ω^＝)').length === 0), JSON.stringify(t3 && t3.sIds));
+
+// T6 次序与去重（文字分类同 #558 图片口径）：点第二张 → 再点同一张一次 → 最近区两张、最新在最前
+//（插信纸模式点一张会关面板，故每次点击之间重开；分类靠 emojiCat 模块态留在颜文字）
+const t6pick = `
+  window.closeEmojiPanelForInsert();
+  ${openPanel}
+  await new Promise(r => setTimeout(r, 900));
+  document.querySelector('.emoji-cats .emoji-cat-chip[data-ecat="kaomoji"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const g = Array.prototype.filter.call(document.querySelectorAll('#emoji-panel .emoji-g-chip'), function (c) { return c.textContent.indexOf('开颜') === 0; })[0];
+  if (!g) return { err: 'no-group-chip' };
+  g.click();
+  await new Promise(r => setTimeout(r, 600));
+  const items = document.querySelectorAll('#emoji-list .emoji-text-item');
+  if (items.length < 2) return { err: 'items=' + items.length };
+  items[1].click();`;
+await evalJs(`(async () => {${t6pick} return 1; })()`);
+await sleep(400);
+await evalJs(`(async () => {${t6pick} return 1; })()`); // 再点同一张：只前移，不重复占位
+await sleep(400);
+const t6 = await evalJs(`(async () => {
+  window.closeEmojiPanelForInsert();
+  ${openPanel}
+  await new Promise(r => setTimeout(r, 900));
+  document.querySelector('.emoji-cats .emoji-cat-chip[data-ecat="kaomoji"]').click();
+  await new Promise(r => setTimeout(r, 600));
+  const chip = document.querySelectorAll('#emoji-panel .emoji-g-chip')[0];
+  if (!chip || chip.textContent.indexOf('最近使用') < 0) return { err: 'chip0=' + (chip ? chip.textContent : 'none') };
+  chip.click();
+  await new Promise(r => setTimeout(r, 700));
+  return { rec: Array.prototype.map.call(document.querySelectorAll('#emoji-list .emoji-text-item'), function (d) { return (d.textContent || '').trim(); }) };
+})()`);
+chk('T6 颜文字最近区两张、最新点的前移且重复点不占两位', !!(t6 && t6.rec && t6.rec.length === 2 && t6.rec[0] === '(￣▽￣)~*' && t6.rec[1] === '(＝^ω^＝)'), JSON.stringify(t6));
 
 const errs0 = (await evalJs(`(window.__jsErrors || []).length`)) || 0;
 const errs = await evalJs(`(window.__jsErrors || []).length`);

@@ -10164,9 +10164,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789803105361">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789808991386">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 15:31<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 17:09<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20381,6 +20381,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'cc-scope-notice-done',
 'my-emoji-groups', 'mye-global-migrated',
 'emoji-recent',
+'emoji-recent-kaomoji', 'emoji-recent-emoji',
 '__coach-seen',
 'media-auto-check',
 'piggy-log', 'piggy-goal-name', 'piggy-goal-amt', 'piggy-cards', 'piggy-last-visit',
@@ -42378,16 +42379,18 @@ return sig + arr.length + '|' + sumLen + '|' + _f + '|' + _l;
 }
 const EMOJI_RECENT_KEY = 'emoji-recent';
 const EMOJI_RECENT_MAX = 8;
-function emojiRecentIdents() {
+function recentIdentsAt(key) {
 try {
-const v = JSON.parse(myEmojiStore().get(EMOJI_RECENT_KEY) || '[]');
+const v = JSON.parse(myEmojiStore().get(key) || '[]');
 if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x).slice(0, EMOJI_RECENT_MAX);
 } catch (e) {}
 return [];
 }
-function emojiRecentSave(ids) {
-try { myEmojiStore().set(EMOJI_RECENT_KEY, JSON.stringify(ids.slice(0, EMOJI_RECENT_MAX))); } catch (e) {}
+function recentSaveAt(key, ids) {
+try { myEmojiStore().set(key, JSON.stringify(ids.slice(0, EMOJI_RECENT_MAX))); } catch (e) {}
 }
+function emojiRecentIdents() { return recentIdentsAt(EMOJI_RECENT_KEY); }
+function emojiRecentSave(ids) { recentSaveAt(EMOJI_RECENT_KEY, ids); }
 function emojiRecordRecent(src) {
 if (typeof src !== 'string' || !src) return;
 const id = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent(src) : src.slice(0, 120);
@@ -42418,6 +42421,36 @@ found.forEach(x => srcs.push(x[1]));
 }
 return { ids: ids, srcs: srcs.slice(0, EMOJI_RECENT_MAX) };
 }
+function textRecentKey() { return EMOJI_RECENT_KEY + '-' + emojiCat; }
+function emojiRecordRecentText(t) {
+if (typeof t !== 'string' || !t) return;
+const key = textRecentKey();
+const ids = recentIdentsAt(key).filter(x => x !== t);
+ids.unshift(t);
+recentSaveAt(key, ids);
+}
+function textRecentResolved() {
+const ids = recentIdentsAt(textRecentKey());
+const srcs = [];
+if (ids.length) {
+const want = {};
+ids.forEach((x, i) => { want[x] = i; });
+const found = [];
+const scan = (arr) => {
+(arr || []).forEach(t => {
+if (typeof t !== 'string' || !t) return;
+const oi = want[t];
+if (oi !== undefined && oi >= 0) { found.push([oi, t]); want[t] = -1; }
+});
+};
+((window.getScopedGroups && window.getScopedGroups(emojiCat, 'own')) || []).forEach(g => scan(g[1]));
+((window.getScopedGroups && window.getScopedGroups(emojiCat, 'public')) || []).forEach(g => scan(g[1]));
+(myTextGroups[emojiCat] || []).forEach(g => scan(g[1]));
+found.sort((a, b) => a[0] - b[0]);
+found.forEach(x => srcs.push(x[1]));
+}
+return { ids: ids, srcs: srcs.slice(0, EMOJI_RECENT_MAX) };
+}
 function renderEmojiGroupsBar(rec) {
 if (!emojiGroupsBar) return;
 emojiGroupsBar.innerHTML = '';
@@ -42426,7 +42459,7 @@ let cur = '';
 if (emojiCat !== 'sticker') {
 list = textScopeGroups();
 cur = textCurGroup();
-if (!cur || !list.some(g => g[0] === cur)) { const hit = list.find(g => g[1] && g[1].length); textCurSet(hit ? hit[0] : ''); cur = textCurGroup(); }
+if (cur !== '__recent__' && (!cur || !list.some(g => g[0] === cur))) { const hit = list.find(g => g[1] && g[1].length); textCurSet(hit ? hit[0] : ''); cur = textCurGroup(); }
 } else if (emojiMode === 'public') {
 list = (window.getScopedGroups && window.getScopedGroups('sticker', 'public')) || [];
 cur = pubCurGroup;
@@ -42437,7 +42470,7 @@ cur = emojiCurGroup;
 list = myGroups;
 cur = myCurGroup;
 }
-const recChipShow = !!(rec && rec.srcs.length) && !(emojiMode === 'mine' && myBatchMode) && emojiCat === 'sticker';
+const recChipShow = !!(rec && rec.srcs.length) && !(emojiMode === 'mine' && (emojiCat === 'sticker' ? myBatchMode : myTextBatch));
 if (cur === '__recent__' && !recChipShow) cur = '';
 if (cur && cur !== '__recent__' && !list.some(g => g[0] === cur)) cur = '';
 const chips = (recChipShow ? [['__recent__', '⏱最近使用']] : [])
@@ -42515,10 +42548,19 @@ function updateBatchCount() {
 if (emojiCat !== 'sticker') { if (emojiBatchCount) emojiBatchCount.textContent = '已选 ' + myTextSel.size + ' 个'; return; } // #636
 if (emojiBatchCount) emojiBatchCount.textContent = '已选 ' + mySel.size + ' 张';
 }
-function renderEmojiTextPanel() {
+function renderEmojiTextPanel(rec) {
 const list = textScopeGroups();
 const cur = textCurGroup();
 const catName = textCatLabel();
+if (cur === '__recent__') { // #842 文字分类最近使用虚拟分组（能解析到内容时优先于本作用域空态）
+const srcs = (rec && rec.srcs) || [];
+if (!srcs.length) {
+emojiList.innerHTML = '<div class="emoji-empty">最近使用的' + catName + '不在这里了<br>去分组里点一次就会出现在这里</div>';
+return;
+}
+renderEmojiTextGroup('__recent__', srcs);
+return;
+}
 if (!list.length) {
 emojiList.innerHTML = emojiMode === 'mine'
 ? '<div class="emoji-empty">暂无我的' + catName + '<br>点上方「批量导入」粘贴，一行一个</div>'
@@ -42557,6 +42599,7 @@ else if (ck) ck.remove();
 } else {
 d.addEventListener('click', (e) => {
 e.stopPropagation();
+try { emojiRecordRecentText(t); } catch (e0) {} // #842 最近使用：点击即记录（填入/直发/插入都算）
 if (emojiInsertCb) { // 写信/回信插入模式（回调方决定落位，含群聊输入栏，行为不变）
 const cb = emojiInsertCb;
 emojiInsertCb = null;
@@ -42617,12 +42660,12 @@ emojiTextTools.hidden = !(emojiMode === 'mine' && emojiCat !== 'sticker');
 if (mytBatchBtn) mytBatchBtn.textContent = myTextBatch ? '退出批量' : '批量管理';
 }
 if (emojiBatch) emojiBatch.hidden = !(emojiMode === 'mine' && (emojiCat === 'sticker' ? myBatchMode : myTextBatch));
-var rec = emojiRecentResolved(); // #558：每次渲染解析一次最近使用（身份回查三池），bar 与最近分组/签名共用
+var rec = emojiCat === 'sticker' ? emojiRecentResolved() : textRecentResolved(); // #558：每次渲染解析一次最近使用（身份回查三池），bar 与最近分组/签名共用；#842 文字分类各解析自己那份
 emojiRecNow = rec;
 renderEmojiGroupsBar(rec);
 if (emojiCat !== 'sticker') { // #636：颜文字/emoji 走文字网格（无图、无懒加载，不做 #457 指纹短路）
 emojiList.innerHTML = '';
-renderEmojiTextPanel();
+renderEmojiTextPanel(rec);
 return;
 }
 var _sigTarget = emojiRenderSigTarget(hts, taTabEl ? taTabEl.textContent : '');
@@ -76493,7 +76536,7 @@ const HUB = [
 { n: '语音消息', d: '录音最长 60 秒，试听后发语音', k: '语音 录音 麦克风', go: ['.app[data-app="chat"]', '#chat-mic-btn'] },
 { n: '继续说', d: '让 TA 接着当前话题再说一段：聊天里是输入栏的「继续说」按钮（或点顶部昵称），群聊里是群聊页顶部三点菜单左侧那枚按钮（输入框 @ 了谁就由谁接着说）', k: '继续说 接着 续聊 续写 群聊', where: '聊天输入栏上的「继续说」按钮；群聊页右上角三点菜单左侧同样的图标' },
 { n: '输入栏按钮位置', d: '自定义底部输入栏这一排按钮的左右顺序：录音、继续说、批量发送等开关按钮与输入框本身都能移动，「发送」固定在最右端。只管位置，不改变各按钮的开关与显隐', k: '输入栏 按钮 位置 顺序 排列 排序 自定义 图标 底部', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-input-order'] },
-{ n: '表情包管理', d: '我的表情包分组/上传/批量删除（聊天表情面板；面板顶部有「⏱ 最近使用」分组，自动记最近发过的表情）；图片/表情可一条消息发多张', k: '表情包 表情 管理 上传 分组 斗图 最近使用 常用 多图 多张 两个图片 一条消息 多个图片', go: ['.app[data-app="chat"]', '#chat-emoji-btn'] },
+{ n: '表情包管理', d: '我的表情包分组/上传/批量删除（聊天表情面板；面板顶部有「⏱ 最近使用」分组，表情包/颜文字/emoji 三个分类各记各的最近点用）；图片/表情可一条消息发多张', k: '表情包 表情 管理 上传 分组 斗图 最近使用 常用 多图 多张 两个图片 一条消息 多个图片 颜文字 分类', go: ['.app[data-app="chat"]', '#chat-emoji-btn'] },
 { n: '批量提问问卷', d: '你批量出题，TA 限时作答交卷', k: '问卷 提问 批量 出题 考试 答题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask', '#ta-ask-survey-open'] },
 { n: '拍一拍', d: '拍 TA 一下，TA 也会拍回来', k: '拍一拍 互动', go: ['.app[data-app="chat"]', '#more-poke'] },
 { n: '引用回复', d: '引用某条消息回复，可带表情包+文字', k: '引用 回复', where: '聊天里长按任意消息' },
@@ -79174,4 +79217,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu82k2mp -->
+<!-- __MOCHI_EOF__ mu8628be -->

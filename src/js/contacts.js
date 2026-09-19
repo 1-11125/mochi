@@ -71,6 +71,10 @@
     // <100 字符的小 JSON），全局根键跨桌面共享（同 my-emoji-groups 口径）。漏排除会被
     // migrateLegacy 当旧顶层业务键迁进 default 并删根键（最近区非 default 桌面清空）。
     'emoji-recent',
+    // #842（2026-09-19）：颜文字/emoji 两个文字分类各自的「最近使用」（chat.js
+    // emojiRecordRecentText/textRecentResolved）——同为全局根键（面板跨桌面共用一份），
+    // 漏排除会被迁进 default 并删根键＝非 default 桌面这两类的最近区清空。
+    'emoji-recent-kaomoji', 'emoji-recent-emoji',
     // #572（2026-09-16，AI-A page-coach.js 会话跨域登记 WORKLOG）：页面内「先做这个」提示的
     // 已看页标记（__coach-seen 存已提示过的页 id 数组）——全局根键，漏排除会被 migrateLegacy
     // 当旧顶层业务键迁进 default 并删根键，提示在非 default 桌面反复弹。
