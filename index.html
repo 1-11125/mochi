@@ -10164,9 +10164,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789799876760">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789803105361">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 14:37<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 15:31<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -17927,6 +17927,17 @@ else if (dc.sus) L.push('重复体检(聊天)：⚠ 可疑副本 ' + dc.sus + ' 
 + (dc.eg && dc.eg.length ? ' · 现场：' + dc.eg.join(' ∥ ') : ''));
 else L.push('重复体检(聊天)：无身份级重复（共 ' + dc.total + ' 条，带出生号 ' + dc.uid + '）');
 } catch (e) { try { L.push('重复体检(聊天)：读取失败'); } catch (e2) {} }
+try {
+const cut = [];
+(window.__mochiMsgCut || []).forEach(s => { s = String(s); const m = /^[0-9]+:([a-zA-Z0-9_]+):/.exec(s); cut.push({ tag: m ? m[1] : 'other', s }); });
+(window.__mochiDupAdd || []).forEach(s => { s = String(s); const m = /^(lk|id):/.exec(s); cut.push({ tag: m ? m[1] : 'obj', s }); });
+cut.sort((a, b) => a.s < b.s ? -1 : 1);
+const tally = {};
+cut.forEach(c => { tally[c.tag] = (tally[c.tag] || 0) + 1; });
+const tk = Object.keys(tally).sort((a, b) => tally[b] - tally[a]);
+L.push('消息被吞体检：本会话防重层共切 ' + cut.length + ' 笔'
++ (tk.length ? '（' + tk.map(k => k + '×' + tally[k]).join('／') + '，最近：' + cut[cut.length - 1].s.slice(-42) + '）' : '（无）'));
+} catch (e) { try { L.push('消息被吞体检：读取失败'); } catch (e2) {} }
 try {
 const ip = window.__mochiIncomingProbe && window.__mochiIncomingProbe();
 if (!ip) L.push('跨桌面来消息体检：探针缺失（incoming-requests 未加载）');
@@ -32918,11 +32929,11 @@ let persistTimer = null;        // 排队中标记（rIdle/timeout）
 let persistRun = null;          // 待执行落盘闭包（tail 只保留最新一次）
 function runPersist() {
 persistTimer = null;
-const run = persistRun;
-persistRun = null;
-if (!run) return;
+if (!persistRun) return;
 const wait = PERSIST_MIN_GAP - (performance.now() - lastPersistAt);
 if (wait > 0) { persistTimer = setTimeout(runPersist, wait); return; }
+const run = persistRun;
+persistRun = null;
 try { run(); lastPersistAt = performance.now(); } catch (e) {}
 }
 function schedulePersist(writer) {
@@ -33852,6 +33863,14 @@ if (Array.isArray(m.parts) && m.parts.some(p => p && p.k === 'img') && (m.side |
 if ((m.side || '') === 'out' && (m.type === 'text' || !m.type) && !m.img && !m.voice && !m.special) return 800;
 return DUP_GAP_TEXT;
 }
+window.__mochiMsgCut = window.__mochiMsgCut || [];
+function chatMsgCutMark(tag, m) {
+try {
+const a = window.__mochiMsgCut;
+a.push(Date.now() + ':' + tag + ':' + ((m && m.side) || '') + ':' + String((m && m.text) != null ? m.text : ((m && m.special) || '')).slice(0, 20));
+if (a.length > 40) a.shift();
+} catch (e) {}
+}
 function normCollapseRange(from, to) {
 let removed = 0;
 try {
@@ -33864,7 +33883,8 @@ if (a.dedupExempt || b.dedupExempt) continue; // FIX 2026-09-15 #544 决定答�
 const hasContent = (a.text && a.text.length) || a.img || a.voice || !!a.special || (a.parts && a.parts.length);
 if (!hasContent) continue;
 const dts = (a.ts || 0) - (b.ts || 0);
-if (dts < 0 || dts > dupGapMs(a)) continue;
+if (dts !== 0) continue;
+chatMsgCutMark('g814ts', a); // #814d
 try { if (normRemovedRecs) normRemovedRecs.push(a); } catch (e) {} // FIX #675：被删记录对象留给原位收敛
 msgs.splice(i, 1); removed++;
 }
@@ -36999,7 +37019,7 @@ try { (window.__mochiDupAdd = window.__mochiDupAdd || []).push('id:' + Date.now(
 return null;
 }
 }
-for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt; i--) {
+for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt && (rec.side || '') === 'out'; i--) {
 const p = msgs[i];
 if (!p || p.special || rec.special) continue;
 if ((p.side || '') !== (rec.side || '')) continue;
@@ -37007,6 +37027,7 @@ if (!!p.img !== !!rec.img) continue;
 if (!mediaTxtEq(p.text, rec.text)) continue;
 const dts = (rec.ts || 0) - (p.ts || 0);
 if (dts >= 0 && dts <= dupGapMs(rec)) {
+chatMsgCutMark('g814out', rec); // #814d：发件侧 800ms 短闩命中留痕（正常只应见机械双击；频出＝发守卫层有回归）
 saveMsgs();
 try { if ((rec.side || '') === 'out' && !rec.silent && typeof toast === 'function') toast('同样的内容刚发送过，未重复发送'); } catch (e) {}
 return null;
@@ -38009,7 +38030,29 @@ return true;
 } catch (e) { return false; }
 }
 let pyMultiDrawn = false;
+let __genLastCid = null, __genLastSig = '';
+function chatGenRepSig(r) {
+if (!r) return '';
+let s = (r.type || '') + '|' + (typeof r.text === 'string' ? r.text : '');
+try {
+const ps = r.parts;
+if (Array.isArray(ps)) for (let i = 0; i < ps.length; i++) { const p = ps[i]; if (p && p.k === 'img') s += '|i:' + (p.sub || '') + ':' + (typeof p.v === 'string' ? p.v.slice(0, 96) : ''); }
+} catch (e) {}
+return s;
+}
 function genOneReply(c) {
+let rep = genOneReplyDraw(c), sig = chatGenRepSig(rep);
+try {
+const cid = window.__activeCid || 'default';
+if (sig && cid === __genLastCid && sig === __genLastSig) {
+const rep2 = genOneReplyDraw(c), sig2 = chatGenRepSig(rep2);
+if (sig2 && sig2 !== sig) { rep = rep2; sig = sig2; } // 池子太小仍掷不出第二张＝接受同款，不删已生成消息
+}
+__genLastCid = cid; __genLastSig = sig;
+} catch (e) {}
+return rep;
+}
+function genOneReplyDraw(c) {
 const pool = getPool();
 let t, type = 'text';
 pyMultiDrawn = false;
@@ -79131,4 +79174,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu80mvfc -->
+<!-- __MOCHI_EOF__ mu82k2mp -->

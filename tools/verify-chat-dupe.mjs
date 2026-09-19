@@ -11,8 +11,10 @@
 //   B. 发送路径重复触发兜底：同一文本在防重发窗口内第二次走 addMsg（输入法重组/
 //      自动填充把已清空输入"复活"后再点发送等场景）应被吞掉；窗口外重发放行。
 //      断言：窗口内重复发送只产生 1 条 out 记录；>窗口后允许再发。
-//   C. 存量重复自愈：历史里已存在的「同 side+同 text+相邻且 Δts≤600ms」重复对
-//      （历史版本 bug 已写入 IDB），加载时应收敛为 1 条并回写。
+//   C. 存量重复自愈：历史里已存在的重复对。#814（2026-09-19）契约改版——normCollapseRange 只回并
+//      【同毫秒】重投副本（dts!==0 一律保留）：跨毫秒的存量内容重复对不再被刷新侧回吞（旧契约把
+//      「TA 真发的合法第二条」一起吞＝用户报的「消息被吞」，见 tools/verify-msg-swallow.mjs S1~S4）；
+//      同毫秒副本对仍收敛为 1（dupSig 内容判据保留）。发件侧实时 800ms 机械双派发窗口（B 组）零改动。
 // 需要：Node 21+ + 本机 Chrome/Edge（CHROME_PATH 可指定）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -110,8 +112,8 @@ function seedJs(fullExtra, t0) {
     { side: 'in', text: '我也发一个', ts: t + 5000, img: 'data:image/png;base64,' + 'B'.repeat(40) }
   ];
   if (fullExtra === 'dupe') {
-    // C 组用：历史里已存在重复对（历史 bug 写入的存量脏数据）
-    // 1) 相邻同文本快速重复（Δts=120ms）→ 收敛为 1
+    // C 组用：历史里已存在重复对（历史 bug 写入的存量脏数据）。#814 契约：跨毫秒对保留、同毫秒对收敛
+    // 1) 相邻同文本快速重复（Δts=120ms，跨毫秒）→ 按 #814b 保留 2 条（不再刷新侧回吞）
     recs.push({ side: 'out', text: '晚上吃什么', ts: t + 6000 });
     recs.push({ side: 'out', text: '晚上吃什么', ts: t + 6120 });
     // 2) 超出收敛窗口（Δts=15000ms>2500ms）的同文本人工重发 → 必须保留 2 条
@@ -120,21 +122,24 @@ function seedJs(fullExtra, t0) {
     // 3) 异侧（我发+TA回）同文本 → 保留 2 条
     recs.push({ side: 'out', text: '哈哈', ts: t + 9000 });
     recs.push({ side: 'in', text: '哈哈', ts: t + 9050 });
-    // 4) 相邻同内容系统提示（poke 双发形态）→ 收敛为 1
+    // 4) 相邻同内容系统提示（poke 双发形态，Δts=50ms 跨毫秒）→ 按 #814b 保留 2 条
     recs.push({ side: 'in', special: 'poke', text: '拍了拍你', ts: t + 9200 });
     recs.push({ side: 'in', special: 'poke', text: '拍了拍你', ts: t + 9250 });
     // 5) 非相邻（中间隔着其他消息）同文本 → 保留 2 条
     recs.push({ side: 'out', text: '在吗', ts: t + 9400 });
     recs.push({ side: 'out', text: '别的', ts: t + 9450 });
     recs.push({ side: 'out', text: '在吗', ts: t + 9500 });
-    // 6) 两张完全相同的互动卡片（ask-card 双发/合并翻倍形态）→ 收敛为 1；
+    // 6) 两张完全相同的互动卡片（ask-card 双发/合并翻倍形态，Δts=20ms 跨毫秒）→ 按 #814b 保留 2 条；
     //    紧接着另一张【不同问题】的卡片 → 保留（不同内容不误删）
     recs.push({ side: 'in', special: 'ask-card', askQuestion: '今晚吃什么', askType: 'text', askStatus: 'pending', ts: t + 9600 });
     recs.push({ side: 'in', special: 'ask-card', askQuestion: '今晚吃什么', askType: 'text', askStatus: 'pending', ts: t + 9620 });
     recs.push({ side: 'in', special: 'ask-card', askQuestion: '周末去哪玩', askType: 'text', askStatus: 'pending', ts: t + 9700 });
-    // 7) 相邻同图片消息（同 img dataURL）→ 收敛为 1
+    // 7) 相邻同图片消息（同 img dataURL，Δts=50ms 跨毫秒）→ 按 #814b 保留 2 条
     recs.push({ side: 'in', text: 'img1', img: 'data:image/png;base64,' + 'C'.repeat(40), ts: t + 9800 });
     recs.push({ side: 'in', text: 'img1', img: 'data:image/png;base64,' + 'C'.repeat(40), ts: t + 9850 });
+    // 8) 【同毫秒】重投副本对（ts 完全相同）→ 仍收敛为 1（#814b 保留的同毫秒回并路径＋dupSig 判据）
+    recs.push({ side: 'out', text: '同毫秒副本', ts: t + 9900 });
+    recs.push({ side: 'out', text: '同毫秒副本', ts: t + 9900 });
   }
   const lite = recs.map(m => (m.img ? Object.assign({}, m, { img: '' }) : m));
   return { full: JSON.stringify(recs), lite: JSON.stringify(lite), n: recs.length };
@@ -173,8 +178,8 @@ async function loadFresh(seedMode) {
 }
 
 // ---- A+C. LS 有损快照合并 + 存量重复自愈 ----
-await loadFresh('dupe'); // 种子含存量重复（C）：文本对/超窗对/异侧/系统提示/非相邻/卡片对/图片对
-const baseN = seedJs('dupe', SEED_T).n - 4; // 期望干净条数 = 种子数 - 4 对重复（晚上吃什么/poke/相同卡片/同图片）
+await loadFresh('dupe'); // 种子含存量重复（C）：文本对/超窗对/异侧/系统提示/非相邻/卡片对/图片对/同毫秒对
+const baseN = seedJs('dupe', SEED_T).n - 1; // 期望干净条数 = 种子数 - 1（仅同毫秒副本对收敛；跨毫秒存量对按 #814b 契约保留）
 const a = await evalJs(`(function(){
   try {
     var all = window.getChatMsgs() || [];
@@ -210,17 +215,23 @@ const a = await evalJs(`(function(){
     return JSON.stringify({ total: m.length, allTotal: all.length, badDup: badDup,
       cntNight: cnt('out','晚上吃什么'), cntBye: cnt('out','明天见'),
       cntPoke: cnt('in','拍了拍你'), cntZaima: cnt('out','在吗'), cntOther: cnt('out','别的'),
-      cntAskSame: cntAsk('今晚吃什么'), cntAskDiff: cntAsk('周末去哪玩'), cntImg: cntImg() });
+      cntAskSame: cntAsk('今晚吃什么'), cntAskDiff: cntAsk('周末去哪玩'), cntImg: cntImg(),
+      cntSameMs: cnt('out','同毫秒副本') });
   } catch (e) { return JSON.stringify({ err: String(e) }); }
 })()`) || '{}';
 {
   let aObj = {}; try { aObj = JSON.parse(a); } catch (e) {}
-  check('AC1 合并后条数正确（有损副本不计入+存量重复已收敛）', aObj.total === baseN, 'seedTotal=' + aObj.total + ' expect=' + baseN + ' 含注入=' + aObj.allTotal);
-  check('AC2 收敛窗口内无残留同内容重复对', Array.isArray(aObj.badDup) && aObj.badDup.length === 0, JSON.stringify(aObj.badDup));
-  check('AC4 存量脏重复对已收敛为 1 条', aObj.cntNight === 1, 'cnt=' + aObj.cntNight);
-  check('AC6 相邻同内容系统提示(poke)已收敛为 1 条', aObj.cntPoke === 1, 'cnt=' + aObj.cntPoke);
-  check('AC7 完全相同互动卡片收敛为 1 / 不同问题卡片保留', aObj.cntAskSame === 1 && aObj.cntAskDiff === 1, 'same=' + aObj.cntAskSame + ' diff=' + aObj.cntAskDiff);
-  check('AC8 相邻同图片消息已收敛为 1 条', aObj.cntImg === 1, 'cnt=' + aObj.cntImg);
+  const bd = JSON.stringify(aObj.badDup || []);
+  check('AC1 合并后条数正确（有损副本不计入+同毫秒副本已收敛）', aObj.total === baseN, 'seedTotal=' + aObj.total + ' expect=' + baseN + ' 含注入=' + aObj.allTotal);
+  check('AC2 刷新只并同毫秒副本：窗口内残留对恰为 4 对种子（跨毫秒存量按 #814b 保留、无多余回吞）',
+    Array.isArray(aObj.badDup) && aObj.badDup.length === 4
+    && bd.indexOf('晚上吃什么@120') >= 0 && bd.indexOf('拍了拍你@50') >= 0
+    && bd.indexOf('@20@ask-card') >= 0 && bd.indexOf('img1@50') >= 0, bd);
+  check('AC4 跨毫秒存量文本对保留 2 条（#814：不追溯删）', aObj.cntNight === 2, 'cnt=' + aObj.cntNight);
+  check('AC6 跨毫秒同内容系统提示(poke)保留 2 条（#814：不追溯删）', aObj.cntPoke === 2, 'cnt=' + aObj.cntPoke);
+  check('AC7 完全相同互动卡片保留 2 / 不同问题卡片保留（#814：不追溯删）', aObj.cntAskSame === 2 && aObj.cntAskDiff === 1, 'same=' + aObj.cntAskSame + ' diff=' + aObj.cntAskDiff);
+  check('AC8 跨毫秒同图片消息保留 2 条（#814：不追溯删）', aObj.cntImg === 2, 'cnt=' + aObj.cntImg);
+  check('AC9 同毫秒同文副本已收敛为 1 条（#814b 保留的同毫秒回并路径）', aObj.cntSameMs === 1, 'cnt=' + aObj.cntSameMs);
   check('AC3 超窗(>2.5s)/异侧/非相邻的合法重复原样保留',
     aObj.cntBye === 2 && aObj.cntZaima === 2 && aObj.cntOther === 1,
     'bye=' + aObj.cntBye + ' zaima=' + aObj.cntZaima + ' other=' + aObj.cntOther);

@@ -1591,6 +1591,22 @@
         + (dc.eg && dc.eg.length ? ' · 现场：' + dc.eg.join(' ∥ ') : ''));
       else L.push('重复体检(聊天)：无身份级重复（共 ' + dc.total + ' 条，带出生号 ' + dc.uid + '）');
     } catch (e) { try { L.push('重复体检(聊天)：读取失败'); } catch (e2) {} }
+    // FIX 2026-09-19 #814 消息被吞体检（跨域改动登记 WORKLOG；探针在 chat.js #814d）：
+    // 「消息莫名被吞」报障的反向取证——本会话每一条被防重层切掉的消息都留了笔（g814out＝发件侧
+    // 800ms 短闩、g814ts＝刷新归一化同 ts 收敛，另含 #744/#776/#796 在 __mochiDupAdd 的旧账）。
+    // 正常形态＝零星几笔（真双击/真副本）；某 tag 几十上百＝对应闸门在误杀合法消息或某通道狂重投，
+    // 凭 tag 与最近样本直接定位到闸，不再隔空猜。
+    try {
+      const cut = [];
+      (window.__mochiMsgCut || []).forEach(s => { s = String(s); const m = /^[0-9]+:([a-zA-Z0-9_]+):/.exec(s); cut.push({ tag: m ? m[1] : 'other', s }); });
+      (window.__mochiDupAdd || []).forEach(s => { s = String(s); const m = /^(lk|id):/.exec(s); cut.push({ tag: m ? m[1] : 'obj', s }); });
+      cut.sort((a, b) => a.s < b.s ? -1 : 1);
+      const tally = {};
+      cut.forEach(c => { tally[c.tag] = (tally[c.tag] || 0) + 1; });
+      const tk = Object.keys(tally).sort((a, b) => tally[b] - tally[a]);
+      L.push('消息被吞体检：本会话防重层共切 ' + cut.length + ' 笔'
+        + (tk.length ? '（' + tk.map(k => k + '×' + tally[k]).join('／') + '，最近：' + cut[cut.length - 1].s.slice(-42) + '）' : '（无）'));
+    } catch (e) { try { L.push('消息被吞体检：读取失败'); } catch (e2) {} }
     // v3.26.x #264：跨桌面来消息体检——「查岗/来电开了好几天一次都没触发」的第一手现场：
     // 定时器活着吗、被什么闸门挡住、各联系人还要等多久、有没有从未应答的 pending 卡住队列。
     // 探针缺失＝incoming-requests.js 整体没跑起来（另一种根因），所以这一行本身就有诊断价值。

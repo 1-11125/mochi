@@ -35,11 +35,17 @@ let persistTimer = null;        // 排队中标记（rIdle/timeout）
 let persistRun = null;          // 待执行落盘闭包（tail 只保留最新一次）
 function runPersist() {
   persistTimer = null;
-  const run = persistRun;
-  persistRun = null;
-  if (!run) return;
+  // FIX 2026-09-19 #814 消息被吞·持久化半边（收口会话在 verify-decision-dedup-exempt G1 稳定红下定位）：
+  // 节流等待分支不得提前清空待写槽——原实现先取走 persistRun 再判 PERSIST_MIN_GAP，命中等待分支时
+  // 挂出的 setTimeout(runPersist) 重跑读到的是【已被清空的槽】＝这次整包写被静默丢弃且永不重试：
+  // chat-msgs 基准包停在上一条、外部只读 chat-msgs 的备份导出/媒体池 GC 全看不到它、flushSave
+  // 也救不回（槽已空）＝「刚发的消息莫名消失」。改为：槽里有人才继续，等待分支整体推迟重跑，
+  // 推迟期间若被更新的写手顶替则按最新的写（写手串化整个 msgs 数组，晚跑不丢内容）。
+  if (!persistRun) return;
   const wait = PERSIST_MIN_GAP - (performance.now() - lastPersistAt);
   if (wait > 0) { persistTimer = setTimeout(runPersist, wait); return; }
+  const run = persistRun;
+  persistRun = null;
   try { run(); lastPersistAt = performance.now(); } catch (e) {}
 }
 function schedulePersist(writer) {
@@ -1286,6 +1292,19 @@ function dupGapMs(m) {
   if ((m.side || '') === 'out' && (m.type === 'text' || !m.type) && !m.img && !m.voice && !m.special) return 800;
   return DUP_GAP_TEXT;
 }
+// FIX 2026-09-19 #814d 「消息被切」探针：一切丢弃/收敛路径各留一笔（环形 40 条，只读、
+// 绝不抛），device.js 诊断报告「消息被吞体检」行暴露计数与最近样本。#814 起合法消息理论上
+// 只会被【身份级】判据切掉（同 ts 副本 / 同对象 / 出生号 / 发件侧 800ms 机械双派发）——
+// 报告里 g814ts/g814out 偶发属正常防重生效，量级异常（几十上百）＝有通道在重投或误判，
+// 凭 tag+时间戳直接定位，不再靠猜。
+window.__mochiMsgCut = window.__mochiMsgCut || [];
+function chatMsgCutMark(tag, m) {
+try {
+const a = window.__mochiMsgCut;
+a.push(Date.now() + ':' + tag + ':' + ((m && m.side) || '') + ':' + String((m && m.text) != null ? m.text : ((m && m.special) || '')).slice(0, 20));
+if (a.length > 40) a.shift();
+} catch (e) {}
+}
 function normCollapseRange(from, to) {
   let removed = 0;
   try {
@@ -1298,7 +1317,13 @@ function normCollapseRange(from, to) {
       const hasContent = (a.text && a.text.length) || a.img || a.voice || !!a.special || (a.parts && a.parts.length);
       if (!hasContent) continue;
       const dts = (a.ts || 0) - (b.ts || 0);
-      if (dts < 0 || dts > dupGapMs(a)) continue;
+      // FIX 2026-09-19 #814b：刷新归一化只回并**同 ts** 的重投副本（尾巴日志/LS 快照/chat-arch/
+      // 热片补投一律保留原 ts）——旧的「跨毫秒内容相邻合并」窗（in 侧 60000ms/2500ms、special 卡
+      // 实时层整条跳过却在这里挨收）把 TA/系统真发的合法第二条当脏数据从库里删掉，且落盘固化＝
+      // 「之前发出来的消息被吞」的直接机制（实时层放行的，刷新一次再收一次）。dupSig 内容判据保留
+      // （旧存量数据无出生号 uid 时的兜底，配合同 ts 才准删）。零机型分支。
+      if (dts !== 0) continue;
+      chatMsgCutMark('g814ts', a); // #814d
       try { if (normRemovedRecs) normRemovedRecs.push(a); } catch (e) {} // FIX #675：被删记录对象留给原位收敛
       msgs.splice(i, 1); removed++;
     }
@@ -5218,7 +5243,17 @@ return null;
 // 窗被静默吞（in 侧无 toast 反馈＝用户视角「联系人消息被吞了几条」），且扫描只看最近 5 条的
 // 时间差，第 1 条被吞后窗口不闭合会连锁吞掉后续同文答案。豁免只对带标记的决定答案生效，
 // TA 批次/用户消息的 #256/#437 去重契约零改动（normCollapseRange 刷新侧同口径豁免）。
-for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt; i--) {
+// FIX 2026-09-19 #814（荣耀畅玩40 Plus + 夸克等多机型报「我发的/联系人发的消息莫名被吞」）：
+// 本正文窗**收件侧不再去重**。这扇窗当年为拦 TA 批次/回复链的重投副本而设（#256「同款表情包
+// 一批两张」），而副本通道此后已全部收口到身份级——尾巴日志/LS 快照/chat-arch/热片/psync
+// 重投一律保留原 ts，由 #744（同对象）/#776（出生号）/#796（卡片短闩）实时拦下、刷新侧由
+// collapseIdentityRange＋normCollapseRange（#814b 同 ts 判据）收回。于是本窗现在命中不再是
+// 「副本」，而是「真的又发了同样内容的合法第二条」——in 侧文本 2500ms/媒体 60000ms 窗且
+// 静默无 toast，正是 #544「联系人消息被吞了几条」里 dedupExempt 救不全的另一半（TA 连抽两张
+// 同卡、提醒功能同句再提醒、同款表情真想发两次…全被吞）。观感「同款两张」改在取卡源头重掷
+//（#814c genOneReply），绝不再吃掉已生成消息。发件侧 800ms 机械双派发守卫（#401/#437/#359
+// 实测 150~606ms 双派发）原样保留（含 toast）。零机型分支。
+for (let i = len - 1; i >= Math.max(0, len - 5) && !rec.dedupExempt && (rec.side || '') === 'out'; i--) {
 const p = msgs[i];
 if (!p || p.special || rec.special) continue;
 if ((p.side || '') !== (rec.side || '')) continue;
@@ -5226,6 +5261,7 @@ if (!!p.img !== !!rec.img) continue;
 if (!mediaTxtEq(p.text, rec.text)) continue;
 const dts = (rec.ts || 0) - (p.ts || 0);
 if (dts >= 0 && dts <= dupGapMs(rec)) {
+chatMsgCutMark('g814out', rec); // #814d：发件侧 800ms 短闩命中留痕（正常只应见机械双击；频出＝发守卫层有回归）
 saveMsgs();
 // FIX 2026-09-14 #437：发件侧命中去重给反馈不再静默——#401 家族教训「守卫放行、去重吞掉、
 // 音效照放、气泡 0 条＝用户以为发送坏了」。收件侧（TA 自动回复批）与静默补投递照旧无声。
@@ -6487,7 +6523,34 @@ return true;
 // v3.43.x #677 「多字卡回复」来源 tag 判定：genOneReply 内 多字卡回复(py-en) 抽卡分支命中且掷到
 // ≥2 张时置位（每次生成先重置），replyOnce 据此给本条（批）气泡挂 tag；与词典/词典拼字 tag 共存
 let pyMultiDrawn = false;
+// FIX 2026-09-19 #814c 「同款两张」改在取卡源头重掷（配套 #814 收件侧内容窗停吞）：回复链每条
+// 气泡各调一次 genOneReply，连续两次抽中完全同一张卡（贴纸池小、文字池撞车）过去靠 #256 内容窗
+// 事后折回一张——代价是把合法第二条一起吞掉（本批报障主因）。现改为源头防：本次抽卡与本桌面
+// 上一条回复「同正文＋同类型＋同图段指纹」时重掷一次；重掷仍同（池子就一张）接受两张同款展示，
+// 绝不删。零存储、零机型分支。
+let __genLastCid = null, __genLastSig = '';
+function chatGenRepSig(r) {
+if (!r) return '';
+let s = (r.type || '') + '|' + (typeof r.text === 'string' ? r.text : '');
+try {
+const ps = r.parts;
+if (Array.isArray(ps)) for (let i = 0; i < ps.length; i++) { const p = ps[i]; if (p && p.k === 'img') s += '|i:' + (p.sub || '') + ':' + (typeof p.v === 'string' ? p.v.slice(0, 96) : ''); }
+} catch (e) {}
+return s;
+}
 function genOneReply(c) {
+let rep = genOneReplyDraw(c), sig = chatGenRepSig(rep);
+try {
+const cid = window.__activeCid || 'default';
+if (sig && cid === __genLastCid && sig === __genLastSig) {
+const rep2 = genOneReplyDraw(c), sig2 = chatGenRepSig(rep2);
+if (sig2 && sig2 !== sig) { rep = rep2; sig = sig2; } // 池子太小仍掷不出第二张＝接受同款，不删已生成消息
+}
+__genLastCid = cid; __genLastSig = sig;
+} catch (e) {}
+return rep;
+}
+function genOneReplyDraw(c) {
 const pool = getPool();
 let t, type = 'text';
 pyMultiDrawn = false;

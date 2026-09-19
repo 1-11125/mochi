@@ -9,8 +9,12 @@
 // 修复：chatAddIn 新 opts.dedupExempt（决定答案专用标记）——addRec 实时去重扫描跳过带标记
 //   消息；normCollapseRange 刷新归一化同口径豁免（#256 屏上所见即刷新后所见）。TA 批次去重
 //   （#256 防同款两张/表情包 60s 窗）与 out 侧 #437 反馈零改动。
+// FIX 2026-09-19 #814 契约改版（G1 场景反转）：收件侧内容窗已被证明是「消息被吞」本体的另一半
+//   ——副本通道全收口到身份级（重投副本必同 ts）后，跨毫秒内容窗能命中的只剩「真发的合法第二
+//   条」。addRec 正文窗现只拦 out 侧 800ms，in 侧同文两条照常全落（G1 断言 1→2）；out 侧 #437
+//   反馈与身份级闸门（#744/#776/#796/#814b 同 ts 收敛）零改动。A1~A3（exempt 豁免）语义不变。
 // 场景（修前产物 A1/A2/A3 红＝症状复现；G1 绿＝#256 契约守卫不回退）：
-//   G1 无标记同文两条 1.2s 内 → 仍被去重（1 条）＝TA 批次防同款行为不变
+//   G1 无标记同文两条 1.2s 内 → 两条都落聊天（#814 后收件侧不按内容吞；修前 1 条＝被吞）
 //   A1 带标记同文答案两条 1.2s 内 → 两条都落聊天（修前 1 条＝被吞）
 //   A2 带标记同文答案三条连锁（1.2s/2.4s 间隔）→ 三条全落（修前连锁吞＝「吞了几条」）
 //   A3 刷新重进 → 答案全部仍在（normCollapseRange 不回吞；修前本就只剩 1 条）
@@ -127,7 +131,7 @@ async function sendAnswer(text, exempt) {
 }
 async function settlePersist() { await sleep(3000); await evalJs("window.chatFlushSave && window.chatFlushSave(); true"); await sleep(400); } // 越过低频落盘最小间隔后强制 flush（idle 回调上限 4s，纯等待会抖）
 
-console.log('--- G1 无标记同文两条（TA 批次口径）仍被去重＝#256 契约守卫 ---');
+console.log('--- G1 无标记同文两条（收件侧内容窗 #814 已停用）→ 两条都落聊天 ---');
 await openPage();
 await gotoChat();
 {
@@ -136,7 +140,8 @@ await gotoChat();
   await sendAnswer('G1普通来消息测试重复', false);
   await settlePersist();
   const st = await storeTexts();
-  check('G1 无标记同文 1.2s 两条仍去重为 1 条（#256 行为不变）', countIn(st, 'G1普通来消息测试重复') === 1, 'storeN=' + countIn(st, 'G1普通来消息测试重复'));
+  // #814：两条合法同文消息（不同 ts）不再被内容窗静默吞——修前此场景只剩 1 条＝用户报的「被吞」
+  check('G1 无标记同文 1.2s 两条全落（#814 收件侧不按内容吞；修前 1 条＝吞）', countIn(st, 'G1普通来消息测试重复') === 2, 'storeN=' + countIn(st, 'G1普通来消息测试重复'));
 }
 
 console.log('--- A1 带标记同文答案两条 1.2s 内 → 两条都落聊天 ---');

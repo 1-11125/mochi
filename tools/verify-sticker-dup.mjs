@@ -39,7 +39,9 @@ const window = {
 };
 const pool = __POOL__;
 let msgs = [];
+function chatMsgCutMark() {} // #814d 探针桩（normCollapseRange 收敛留痕用，行为断言不依赖）
 ${constLine}
+${extractFn('mediaFormText')}
 ${extractFn('mediaTxtEq')}
 ${extractFn('dupGapMs')}
 ${extractFn('dupSig')}
@@ -59,7 +61,7 @@ const rec = (side, text, ts, extra) => Object.assign({ side, text, ts, type: 'st
 // ===== A. dupGapMs 窗口口径 =====
 ok('A1 收件侧 sticker 型 → 60000ms', api.dupGapMs(rec('in', imgA, 0)) === 60000);
 ok('A2 收件侧 image 型 → 60000ms', api.dupGapMs({ side: 'in', type: 'image', text: imgA, ts: 0 }) === 60000);
-ok('A3 发件侧 sticker 型（人为重发）→ 2500ms', api.dupGapMs(rec('out', imgA, 0)) === 2500);
+ok('A3 发件侧 sticker 型（人为重发）→ 800ms（#437 口径）', api.dupGapMs(rec('out', imgA, 0)) === 800);
 ok('A4 img 字段型 → 60000ms（既有语义）', api.dupGapMs({ side: 'out', img: imgA, text: '', ts: 0 }) === 60000);
 ok('A5 voice 字段型 → 60000ms（既有语义）', api.dupGapMs({ side: 'in', voice: 'x', text: '', ts: 0 }) === 60000);
 ok('A6 普通文本 → 2500ms', api.dupGapMs({ side: 'in', text: '嗯', ts: 0 }) === 2500);
@@ -102,35 +104,50 @@ ok('D10 空消息（无内容）→ 不删（既有 hasContent 守卫）',
 {
   const t0 = 1780000000000;
   pool.set && null; // noop
-  const m1 = rec('in', imgA, t0), m2 = rec('in', TOK('a'.repeat(32)), t0 + 1300);
-  const probe = new Function('__POOL__', '__M1__', '__M2__', `
-    const window = {
-      mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s),
-      mochiMediaExpand: (s) => { const m = /^@@m:([0-9a-f]{32})$/.exec(s || ''); return m ? (pool.get(m[1]) || null) : null; }
-    };
-    const pool = __POOL__;
-    let msgs = [ __M1__, __M2__ ];
-    ${constLine}
-    ${extractFn('mediaTxtEq')}
-    ${extractFn('dupGapMs')}
-    ${extractFn('dupSig')}
-    ${extractFn('collapseRapidDups')}
-    ${extractFn('normCollapseRange')}
-    const removed = normCollapseRange(0, 2);
-    return { removed, len: msgs.length };
-  `);
-  const r = probe(pool, m1, m2);
-  ok('E1 normCollapseRange 跨形式同款表情包 1.3s → 删 1', r.removed === 1 && r.len === 1);
+  const mk = (dts) => {
+    const m1 = rec('in', imgA, t0), m2 = rec('in', TOK('a'.repeat(32)), t0 + dts);
+    const probe = new Function('__POOL__', '__M1__', '__M2__', `
+      const window = {
+        mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s),
+        mochiMediaExpand: (s) => { const m = /^@@m:([0-9a-f]{32})$/.exec(s || ''); return m ? (pool.get(m[1]) || null) : null; }
+      };
+      const pool = __POOL__;
+      let msgs = [ __M1__, __M2__ ];
+      function chatMsgCutMark() {} // #814d 探针桩
+      ${constLine}
+      ${extractFn('mediaFormText')}
+${extractFn('mediaTxtEq')}
+      ${extractFn('dupGapMs')}
+      ${extractFn('dupSig')}
+      ${extractFn('collapseRapidDups')}
+      ${extractFn('normCollapseRange')}
+      const removed = normCollapseRange(0, 2);
+      return { removed, len: msgs.length };
+    `);
+    return probe(pool, m1, m2);
+  };
+  // FIX 2026-09-19 #814b 契约改版：刷新归一化只回并【同 ts】重投副本（跨毫秒内容窗把 TA/系统
+  // 真发的合法第二条从库里删掉并固化＝「之前发出来的消息被吞」本体，已停用）。
+  {
+    const r = mk(0);
+    ok('E1 同 ts 跨形式副本（尾巴/快照重投形态）→ 删 1', r.removed === 1 && r.len === 1);
+  }
+  {
+    const r = mk(1300);
+    ok('E2 跨 ts（1.3s）同款两张 → 不再回吞（#814b，修前删 1＝吞合法消息）', r.removed === 0 && r.len === 2);
+  }
 }
 
 // ===== F. addRec 接线静态锚（源码级）=====
 ok('F1 addRec 实时去重走 mediaTxtEq', /if \(!mediaTxtEq\(p\.text, rec\.text\)\) continue;/.test(src));
 ok('F2 addRec 窗口走 dupGapMs(rec)', /dts <= dupGapMs\(rec\)/.test(src));
 ok('F3 旧 1200ms 硬编码已清除', !/dts <= 1200/.test(src));
-ok('F4 normCollapseRange 走 dupGapMs', extractFn('normCollapseRange').includes('dupGapMs(a)'));
+ok('F4 刷新归一化只并同 ts 副本（#814b 契约：跨毫秒内容窗停用）', /if \(dts !== 0\) continue;/.test(extractFn('normCollapseRange')));
 ok('F5 collapseRapidDups 走 dupGapMs', extractFn('collapseRapidDups').includes('dupGapMs(a)'));
 ok('F6 窗口常量唯一（无残留局部 GAP 声明）', !/const GAP_TEXT = 2500, GAP_MEDIA = 60000/.test(src));
-ok('F7 dupSig 令牌展开接线', extractFn('dupSig').includes('mochiMediaExpand'));
+ok('F7 dupSig 令牌展开接线（#594 收口：经 mediaFormText 同源入口）', extractFn('dupSig').includes('mediaFormText') && extractFn('mediaFormText').includes('mochiMediaExpand'));
+ok('F8 addRec 实时正文窗只拦发件侧（#814：收件侧不再按内容吞）', /&& !rec\.dedupExempt && \(rec\.side \|\| ''\) === 'out'; i--/.test(src));
+ok('F9 genOneReply 源头重掷闸在位（#814c：同款两张源头防，不靠事后吞）', /let rep = genOneReplyDraw\(c\), sig = chatGenRepSig\(rep\);/.test(src));
 
 console.log(`verify-sticker-dup: ${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);

@@ -295,6 +295,12 @@ const FIX_SENTINELS = [
   { name: '#818b 响应延迟结算（删＝只剩帧间隔无交互维度；needle=结算行整体）', file: 'js/perf-check.js', needle: 'var lat = now - lastDown; lastDown = -1;' },
   { name: '#818c 最慢帧现场 top3 截断（删＝卡在哪个页/什么动作后无法定位）', file: 'js/perf-check.js', needle: 'scene.length = 3;' },
   { name: '#818d iOS 低电量 30fps 档识别（删＝低电量减半帧率被误判成应用卡顿）', file: 'js/perf-check.js', needle: 'rep.lp = minD >= 28;' },
+  // ==== 2026-09-19 #814「我发的/联系人发的消息莫名被吞、之前发出来的也会消失」（荣耀畅玩40 Plus＋夸克实报，用户明说其他机型也有）收口登记：内容窗两层去重停吞＋落盘节流丢写手。登记名用 #828 系——#814a/b 名已被「导入刷新窗口」批在途占用，防撞号 ====
+  { name: '#828a(#814吞消息) addRec 实时正文窗只拦发件侧（删＝收件侧内容窗复活、合法第二条再被静默吞）', file: 'js/chat.js', needle: "&& !rec.dedupExempt && (rec.side || '') === 'out'; i--" },
+  { name: '#828b(#814吞消息) 刷新归一化只并同 ts 副本（改回时间窗＝从库里回吞跨毫秒同文、「之前发的被吞」复发）', file: 'js/chat.js', needle: 'if (dts !== 0) continue;' },
+  { name: '#828c(#814吞消息) 同款两张改源头重掷外壳（删＝退回靠事后吞合法消息防「同款两张」）', file: 'js/chat.js', needle: 'let rep = genOneReplyDraw(c), sig = chatGenRepSig(rep);' },
+  { name: '#828d(#814吞消息) 诊断报告「消息被吞体检」行（删＝下次报障没有防重层现场可查）', file: 'js/device.js', needle: '消息被吞体检：本会话防重层共切' },
+  { name: '#828e(#814吞消息) 落盘节流等待期不得清空待写槽（删＝runPersist 先取走 persistRun 再判间隔，推迟重跑读到空槽＝整包写静默丢弃且永不重试，「刚发的消息」只在尾巴日志里、备份导出看不见）', file: 'js/chat.js', needle: 'if (!persistRun) return;' },
   // ==== 2026-09-18 #765 iOS 卡顿收口（壁纸层提合成层 + 贴底看门狗滚动期让路）====
   { name: '#765a 聊天壁纸层独立成合成层（删掉＝聊天页内容变化波及壁纸层，整张 cover 位图被重新缩放光栅，「设了壁纸后滚动/发消息发涩」复发；needle=该行整体，chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '#cs-bg-layer { transform:translateZ(0); }' },
   { name: '#765b 贴底看门狗滚动期让路（删掉＝iOS 抬手后惯性滑行期仍被写 scrollTop，#716「往上滑被拽回底部」的 iPhone 残根回流；needle=200ms 让路判定行，chat.js 内唯一）', file: 'js/chat.js', needle: 'if (Date.now() - _chatScrollActTs < 200) return;' },
