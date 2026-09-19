@@ -58,6 +58,10 @@ html,body { overflow-x:hidden;
   -webkit-text-size-adjust:100%; text-size-adjust:100%;
   overscroll-behavior:none;
 }
+/* #827 关壳内核「智能字体放大」（X5/XWeb 等老内核按文本块逐个算膨胀倍率，布局跳变后可能停在大档不回＝实报「全部字体变大且无法恢复」）：
+   实测新 Chromium 解析期直接丢弃 none 令牌、且 text-size-adjust 本身可继承（html,body 的 100% 已护住标准引擎全站），
+   老内核字体漫游认的却是带前缀的 none——双保险：前缀 none 给老壳、标准 100% 给新引擎，页面自身字号零影响 */
+* { -webkit-text-size-adjust:none; text-size-adjust:100%; }
 /* v3.5.139：body 固定视口高度、留白放自身（padding 内含）——
    原来 html/body 共享 padding:24px 且 body 高度由内容撑开，桌面矮视口下
    .phone 会超出视口，形成页面级灰色滚动条（html 溢出）。固定后

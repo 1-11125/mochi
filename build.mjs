@@ -272,6 +272,8 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-19 #827 用户实报「按住看默认后全部字体变大且无法恢复」：源头非面板 CSS 轴（其只作用气泡/输入框/设置行，管不到「全部字体」），系壳内核（X5/XWeb 等老 Blink 分支）「智能字体放大/字体漫游」被按住归零的布局跳变点亮膨胀倍率后不回档。base.css 通配双保险：-webkit-text-size-adjust:none 给认前缀 none 的老壳、标准 text-size-adjust:100% 给新引擎（实测新 Chromium 解析期丢弃 none 令牌且该属性可继承，html,body 的 100% 行未动＝v3.5.105 iOS 防线原样）。零机型分支 ====*/
+  { name: '#827 通配双保险规则在位（删＝壳内核智能字体放大复发，「全部字体变大无法恢复」回来；unique：html,body 那条无星号通配形态）', file: 'css/base.css', needle: '* { -webkit-text-size-adjust:none; text-size-adjust:100%; }' },
   // ==== 2026-09-19 #825 用户直派「词典里的爸爸删掉」：内置扩展词库（dict-ext-data.js 常用词·双字组）移除该称呼词条（词典池每次加载从内置快照重建，用户本地只存自建词条，删源码即全端生效、无需数据迁移）====
   { name: '#825 词典父亲称呼词条已删（回流＝旧缓冲把词条写回内置词库，用户点名要求删除）', file: 'index.html', needle: "\"爸爸\"", absent: true },
 
