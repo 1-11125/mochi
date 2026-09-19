@@ -603,6 +603,91 @@
     }
     customSave(customs);
   }
+  // #858 商品数据包（用户 2026-09-19 直派「心意集市：可以导入数据和导出数据」）——只装
+  // 「我自己上传的商品」这一样，不装默认商品、不装对默认商品的修改/删除记录（别人的删除标记
+  // 搬过来会删掉本机默认商品），也不装心意币/心愿单/心意柜。上传时的图片已经是内嵌 data:URL
+  // （compressGiftImg 压到 480px JPEG），所以一个文件即自带全部图片、换机可还原。
+  const GOODS_PACK_APP = 'mochi-market-goods';
+  const GOODS_IMG_MAX = 1200000;   // 单件图片上限（base64 字符数，约 900KB 原图）
+  const GOODS_PACK_MAX = 3145728;  // 商品库总量上限（含图片）；超出的条目本次不导入，而不是撑爆本地存储
+  function customMine() {
+    return customLoad().filter(function (c) { return c && c.id && !c.del && !c.base; });
+  }
+  // 判重特征：名字/价格/分类/emoji + 图片长度与头尾（整串比较＝把每张几十 KB 的 base64 全塞进 set 键）
+  function goodsSig(g) {
+    const img = String((g && g.img) || '');
+    return [g && g.name, g && g.price, g && g.cat, g && g.emoji, img.length, img.slice(0, 48), img.slice(-24)].join('\u0001');
+  }
+  function freshGid(used) {
+    let id;
+    do { id = 'g_custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); } while (used[id]);
+    return id;
+  }
+  // 单件归一：坏条目一律丢弃，绝不把非法值写进商品库（外来文件的 name/price/cat/emoji/img 都不可信）
+  function cleanGoods(x) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+    if (x.del || x.base) return null;
+    const name = String(x.name == null ? '' : x.name).replace(/\s+/g, ' ').trim().slice(0, 20);
+    if (!name) return null;
+    const price = Math.round(Math.max(0, Math.min(99999999, Number(x.price) || 0)) * 100) / 100;
+    const cat = CATS.indexOf(String(x.cat || '')) >= 0 ? String(x.cat) : '关怀';
+    const emoji = String(x.emoji == null ? '' : x.emoji).trim().slice(0, 8) || '🎁';
+    const wish = String(x.wish == null ? '' : x.wish).trim().slice(0, 60) || '送给你';
+    let img = String(x.img == null ? '' : x.img);
+    if (!/^data:image\//i.test(img) || img.length > GOODS_IMG_MAX) img = ''; // 只收本地上传的内嵌图，外链/超大图丢弃
+    const id = /^g_custom_[A-Za-z0-9_]+$/.test(String(x.id || '')) ? String(x.id) : '';
+    return { id: id, name: name, emoji: emoji, img: img, price: price, cat: cat, wish: wish };
+  }
+  // 兼容三种文件：本页导出的 {goods:[…]} / 裸数组 / 「功能数据」整包（商品在 keys['xy-home-v2:market-custom']）
+  function goodsFromPack(data) {
+    if (!data || typeof data !== 'object') return null;
+    let arr = null;
+    if (Array.isArray(data)) arr = data;
+    else if (Array.isArray(data.goods)) arr = data.goods;
+    else if (Array.isArray(data.items)) arr = data.items;
+    else if (data.keys && typeof data.keys === 'object' && !Array.isArray(data.keys)) {
+      const raw = data.keys['xy-home-v2:market-custom'];
+      if (Array.isArray(raw)) arr = raw;
+      else if (typeof raw === 'string') { try { const p = JSON.parse(raw); if (Array.isArray(p)) arr = p; } catch (e) {} }
+    }
+    return (arr && arr.length) ? arr : null;
+  }
+  // 合并进商品库：同 id 同内容＝已有（跳过）；同 id 不同内容＝同一个文件的更新版（就地更新）；
+  // 同内容不同 id＝同一件商品（跳过，导入两次不会翻倍）；其余新增（id 撞车就重新发号）。
+  function mergeGoods(existing, incoming) {
+    const list = existing.slice();
+    const byId = Object.create(null), bySig = Object.create(null);
+    list.forEach(function (c, i) {
+      if (!c || !c.id) return;
+      byId[c.id] = i;
+      if (!c.del && !c.base) bySig[goodsSig(c)] = i;
+    });
+    let added = 0, updated = 0, skipped = 0, bad = 0, over = 0, bytes = 0;
+    try { bytes = JSON.stringify(list).length; } catch (e) { bytes = 0; }
+    incoming.forEach(function (raw) {
+      const g = cleanGoods(raw);
+      if (!g) { bad++; return; }
+      const sig = goodsSig(g);
+      if (sig in bySig) { skipped++; return; }
+      const at = g.id ? byId[g.id] : undefined;
+      // 同 id 且同名字＝这一件商品的更新版（改价/换图后重新导出再导入）→ 就地更新；
+      // 同 id 却不是同一个名字（别人导出的包撞了号）→ 当新商品发新号，宁可贵一件也不覆盖已有数据
+      const hit = (at != null && list[at] && !list[at].del && !list[at].base && String(list[at].name) === g.name) ? at : -1;
+      let item = g;
+      if (hit < 0) {
+        item = Object.assign({}, g);
+        if (!item.id || byId[item.id] != null) item.id = freshGid(byId);
+      }
+      let size = 0;
+      try { size = JSON.stringify(item).length; } catch (e) { size = 0; }
+      if (bytes + size > GOODS_PACK_MAX) { over++; return; }
+      bytes += size;
+      if (hit < 0) { list.push(item); byId[item.id] = list.length - 1; bySig[sig] = list.length - 1; added++; }
+      else { list[hit] = item; bySig[sig] = hit; updated++; }
+    });
+    return { list: list, added: added, updated: updated, skipped: skipped, bad: bad, over: over };
+  }
+
   // 一次性迁移：把各桌面旧的 market-gifts（整库快照）里的自定义商品并入全局库，
   // 桌面上删过的默认商品记删除标记。幂等（market-migrated 标记 + id 去重），
   // 模块加载跑一次合并 LS；mochi-restore-done（IDB 回填完）后未打标记再跑一次
@@ -1244,12 +1329,122 @@
   function renderMarket() {
     syncGiftNames();
     const bal = document.getElementById('market-balance'); if (bal) bal.textContent = walletText();
-    const addBtn = document.getElementById('market-add'); if (addBtn) addBtn.textContent = marketManage ? '完成' : '+ 添加商品';
+    const addBtn = document.getElementById('market-add'); if (addBtn) addBtn.textContent = marketManage ? '完成' : '＋ 上传商品';
     const mgBtn = document.getElementById('market-manage'); if (mgBtn) mgBtn.textContent = marketManage ? '完成' : '管理';
     const resetBtn = document.getElementById('market-reset');
     if (resetBtn) resetBtn.hidden = !(marketManage && customLoad().some(function (c) { return c && (c.del || c.base); }));
     renderGiftCats('market-cats', 'icon', renderMarket);
     renderGiftGrid('market-grid', giftsLoad(), function (g) { openBuyDialog(g); }, marketManage);
+    renderMineCard();
+  }
+
+  // #858：市集页最上方的「我的心意商品」块——上传入口 + 商品数据导入导出。原入口只是底部
+  // 那排灰色胶囊里的「+ 添加商品」（5 颗挤在一起），用户实报「好多人不知道有这个功能」，
+  // 故把上传做成 hero 正下方的深色主按钮（进页即见），并把它的商品库单独备份/搬运用两个
+  // 小胶囊放在同一块里——「上传 → 导出/导入」在同一个视觉单元里，不用去设置里翻。
+  function renderMineCard() {
+    const el = document.getElementById('market-mine');
+    if (!el) return;
+    const n = customMine().length;
+    el.innerHTML =
+      '<button class="market-mine-add" id="market-mine-add" type="button">' +
+        '<span class="market-mine-ico">＋</span>' +
+        '<span class="market-mine-txt">上传我的商品<em>用自己的照片当礼物，放进市集就能送</em></span>' +
+      '</button>' +
+      '<div class="market-mine-foot">' +
+        '<span class="market-mine-cnt" id="market-mine-cnt">' + (n ? '已上传 ' + n + ' 件自定义商品' : '还没上传过商品（默认商品不用上传）') + '</span>' +
+        '<button class="market-mine-mini" id="market-mine-export" type="button">导出商品数据</button>' +
+        '<button class="market-mine-mini" id="market-mine-import" type="button">导入商品数据</button>' +
+      '</div>';
+  }
+  function packBytes(s) { try { return new Blob([s]).size; } catch (e) { return String(s || '').length; } }
+  function packSizeText(n) {
+    if (n > 1048576) return (n / 1048576).toFixed(1) + ' MB';
+    if (n > 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+  function packDay() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function marketGoodsJson(items) {
+    const parts = ['{"app":"' + GOODS_PACK_APP + '","version":"1.0","kind":"market-goods","exportTime":"' + new Date().toISOString() + '","goods":['];
+    items.forEach(function (g, i) {
+      if (i) parts.push(',');
+      parts.push(JSON.stringify({ id: g.id, name: g.name, emoji: g.emoji, img: g.img || '', price: g.price, cat: g.cat, wish: g.wish }));
+    });
+    parts.push(']}');
+    return parts.join('');
+  }
+  function exportMarketGoods() {
+    const items = customMine();
+    if (!items.length) { toast('还没有自定义商品，点上面「上传我的商品」先加一件'); return; }
+    const json = marketGoodsJson(items);
+    const bytes = packBytes(json);
+    if (!window.openModal) return;
+    window.openModal('导出商品数据？', '', function () {
+      const fname = 'mochi心意商品_' + packDay() + '.json';
+      if (window.mochiExportFile) window.mochiExportFile(json, fname, '导出商品数据');
+      else toast('导出功能暂不可用，请稍后再试');
+    }, { noInput: true, staticText: [
+      '将把这 ' + items.length + ' 件自定义商品（含图片）导出成一个文件，约 ' + packSizeText(bytes) + '。',
+      '文件里只有你上传的商品：默认商品、对默认商品的修改与删除、心意币、心愿单、心意柜记录都不包含。',
+      '在别的手机或桌面用「导入商品数据」选这个文件即可还原；同一件商品（名字/分类/价格/图片都一样）会自动跳过，不会翻倍。'
+    ].join('\n') });
+  }
+  // 选文件 → 读文本 → 校验 → 报「新增/更新/跳过几件」→ 按选择合并写入
+  function readPickText(file) {
+    return new Promise(function (resolve) {
+      if (!file) { resolve(''); return; }
+      if (typeof file.text === 'function') { file.text().then(resolve).catch(function () { viaReader(); }); return; }
+      viaReader();
+      function viaReader() {
+        try {
+          const r = new FileReader();
+          r.onload = function () { resolve(String(r.result || '')); };
+          r.onerror = function () { resolve(''); };
+          r.readAsText(file, 'utf-8');
+        } catch (e) { resolve(''); }
+      }
+    });
+  }
+  function importMarketGoods() {
+    if (!window.mochiFilePick) { toast('导入功能暂不可用，请稍后再试'); return; }
+    window.mochiFilePick({
+      id: 'market-goods-import-pick', accept: '.json,application/json',
+      onFiles: function (files) {
+        const f = files && files[0];
+        if (!f) { toast('没有取到文件，请再选一次'); return; }
+        readPickText(f).then(function (text) {
+          let data = null;
+          try { data = JSON.parse(text || 'null'); } catch (e) {}
+          const raw = goodsFromPack(data);
+          if (!raw) { toast('这个文件里没有商品数据'); return; }
+          const plan = mergeGoods(customLoad(), raw);
+          if (!plan.added && !plan.updated) {
+            toast(plan.skipped ? ('这 ' + plan.skipped + ' 件商品都已在你的商品库里，没有新增') : '文件里没有可导入的商品');
+            return;
+          }
+          const lines = ['从文件里读到 ' + raw.length + ' 件商品：新增 ' + plan.added + ' 件'
+            + (plan.updated ? '、更新 ' + plan.updated + ' 件' : '')
+            + (plan.skipped ? '、跳过已存在的 ' + plan.skipped + ' 件' : '') + '。'];
+          if (plan.bad) lines.push('另有 ' + plan.bad + ' 件格式不对（缺名字 / 不是商品数据），已忽略。');
+          if (plan.over) lines.push('还有 ' + plan.over + ' 件会让商品库体积过大，本次没有导入（可删掉一些旧商品再导一次）。');
+          lines.push('导入后你的默认商品、心意币、心愿单、心意柜记录都不受影响。');
+          if (!window.openModal) return;
+          window.openModal('导入商品数据？', '', function (v) {
+            const replace = (v === 'replace');
+            // 换库模式：只留下对默认商品的修改/删除记录，自定义商品清空后再装文件里的
+            const base = replace ? customLoad().filter(function (c) { return c && (c.del || c.base); }) : customLoad();
+            const done = mergeGoods(base, raw);
+            try { customSave(done.list); } catch (e) { toast('导入失败：本地存储写入出错，先清理一些旧商品再试'); return; }
+            closeTc();
+            renderMarket();
+            toast(replace ? ('已替换为文件里的 ' + (done.added + done.updated) + ' 件商品') : ('已导入 ' + done.added + ' 件商品'));
+          }, { noInput: true, staticText: lines.join('\n'), pill: 'merge', pills: [
+            { label: '合并（已有的保留，缺的补上）', value: 'merge' },
+            { label: '先清空我的商品再导入', value: 'replace' }
+          ] });
+        });
+      }
+    });
   }
 
   // ---- 商品图片上传（自定义商品可传实拍图，未传回退 emoji）----
@@ -1512,13 +1707,14 @@
           '<div class="market-hero-sub">挑一份心意，跨越两个世界送给你</div>' +
           '<div class="market-balance" id="market-balance"></div>' +
         '</div>' +
+        '<div class="market-mine" id="market-mine"></div>' +
         '<div class="market-cats" id="market-cats"></div>' +
         searchRowHtml('market-search') +
         '<div class="market-grid" id="market-grid"></div>' +
         '<div class="market-foot">' +
           '<button class="market-tool" id="market-wish" type="button">☆ 心愿单</button>' +
           '<button class="market-tool" id="market-manage" type="button">管理</button>' +
-          '<button class="market-tool" id="market-add" type="button">+ 添加商品</button>' +
+          '<button class="market-tool" id="market-add" type="button">＋ 上传商品</button>' +
           '<button class="market-tool" id="market-settings" type="button">设置</button>' +
           '<button class="market-tool" id="market-reset" type="button" hidden>恢复默认商品</button>' +
         '</div>' +
@@ -1526,6 +1722,15 @@
     host.appendChild(marketPage);
     document.getElementById('market-back').addEventListener('click', backHome);
     bindSearchRow('market-search', renderMarket);
+    // #858 我的心意商品：按钮走委托（renderMineCard 每次重画换节点，委托才不用重绑）
+    const mineBox = document.getElementById('market-mine');
+    if (mineBox) mineBox.addEventListener('click', function (e) {
+      const b = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!b || !b.id) return;
+      if (b.id === 'market-mine-add') openAddGiftForm(null);
+      else if (b.id === 'market-mine-export') exportMarketGoods();
+      else if (b.id === 'market-mine-import') importMarketGoods();
+    });
     document.getElementById('market-wish').addEventListener('click', function () { wishTab = 'my'; renderWishPanel(); });
     document.getElementById('market-settings').addEventListener('click', openGiftSettings);
     document.getElementById('market-add').addEventListener('click', function () { if (marketManage) { marketManage = false; renderMarket(); return; } openAddGiftForm(null); });

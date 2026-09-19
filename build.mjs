@@ -3656,6 +3656,14 @@ const FIX_SENTINELS = [
   { name: '#857c 占卜记录写闸两层就绪（同 #857a，删＝抽牌记录与主页占卜记录全被缓冲吞掉）', file: 'js/divination.js', needle: 'if (window.__mochiDataReady) onDivRestore();' },
   { name: '#857d 帮我决定切桌面时缓冲落盘（改回置空＝恢复窗口内攒下的记录白丢）', file: 'js/decision.js', needle: 'try { histReady = true; flushPendingHist(); } catch (e) {}' },
   { name: '#857e 多人决定切桌面时缓冲落盘（改回置空＝同上白丢；本文件写成裸语句，与 #857d 的 try 包裹形态各在其位，勿「统一」两条 needle）', file: 'js/group-decision.js', needle: 'histReady = true; flushPendingHist();' },
+  // ==== 2026-09-19 #858 心意市集「自定义上传商品」入口不显眼 + 商品数据导入导出（用户直派「心意集市，新增可以用户自定义上传商品，然后可以导入数据和导出数据。这个按钮要显眼一点，好多人不知道有这个功能」）。原状：上传入口只是市集页底部那排灰色胶囊里的「+ 添加商品」（与心愿单/管理/设置并列的 5 颗之一），用户普遍不知道有这功能；商品数据只能靠 设置→功能数据 整包搬。修法＝hero 正下方新增「我的心意商品」块：深色主按钮「＋上传我的商品」（进页即见、全页唯一主行动）＋同一块里「导出商品数据 / 导入商品数据」两颗小胶囊；导出只装 market-custom 里的自定义商品（图片已是内嵌 data:URL，单文件自带图）；导入按 名字/分类/价格/图片 判重、同 id 就地更新、id 撞车重新发号、只收 data: 内嵌图、超量不导入。零机型分支 ====
+  { name: '#858a 上传入口常驻市集页（hero 下方独立块；删＝只剩底部胶囊里那颗「＋上传商品」，「好多人不知道」复发）', file: 'js/gift-shop.js', needle: "'<div class=\"market-mine\" id=\"market-mine\"></div>' +" },
+  { name: '#858b 主按钮接线到上传表单（删/改指＝按钮点了没反应）', file: 'js/gift-shop.js', needle: "if (b.id === 'market-mine-add') openAddGiftForm(null);" },
+  { name: '#858c 导出只装我自己上传的商品（含 !c.del && !c.base：改宽＝别人的删除标记被打包，导入方默认商品被误删）', file: 'js/gift-shop.js', needle: 'return customLoad().filter(function (c) { return c && c.id && !c.del && !c.base; });' },
+  { name: '#858d 导入判重跳过已存在（删＝同一个文件导入两次商品翻倍）', file: 'js/gift-shop.js', needle: 'if (sig in bySig) { skipped++; return; }' },
+  { name: '#858e 外来图片只收内嵌 data: 图（删＝文件里的外链/超大图原样入库，离线看不到图又撑爆本地存储）', file: 'js/gift-shop.js', needle: "if (!/^data:image\\//i.test(img) || img.length > GOODS_IMG_MAX) img = '';" },
+  { name: '#858f 上传主按钮深色渐变（改浅＝与满页白卡同色，「显眼」失效；css/market.css 内唯一）', file: 'css/market.css', needle: '.market-mine-add { display: flex; align-items: center; gap: 13px; width: 100%;' },
+  { name: '#858g 开屏公告第十节在位（notice.json 是联网权威源；删＝不上集市的人也看不到「能自己上传商品」这条，入口再显眼也只覆盖进过市集的人）', file: 'pwa/notice.json', needle: '十、心意市集：自己上传商品 + 商品数据导入导出' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

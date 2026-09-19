@@ -130,6 +130,21 @@
 .market-tool { padding: 10px 24px; border-radius: 99px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.1); color: #111; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s; /* #722 all→具体 */ font-weight: 500; }
 .market-tool:active { background: #f2f2f5; transform: scale(0.97); }
 
+/* ===== #858 我的心意商品（hero 正下方：醒目上传入口 + 商品数据导入导出） =====
+   用户实报「好多人不知道有这个功能」——原入口只是底部那排灰色胶囊里的「+ 添加商品」，
+   现做成进页即见的深色主按钮（同 hero 渐变，与满页白卡形成对比＝页面唯一的主行动），
+   并把「导出/导入商品数据」两颗小胶囊收在同一块里，形成「上传 → 备份/搬运」一个视觉单元。 */
+.market-mine { display: flex; flex-direction: column; gap: 9px; margin: 12px 14px 0; }
+.market-mine-add { display: flex; align-items: center; gap: 13px; width: 100%; padding: 15px 18px; border: none; border-radius: 20px; background: linear-gradient(135deg, #1f1f1f 0%, #3a3a3a 100%); color: #fff; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16); transition: transform 0.15s, box-shadow 0.15s; -webkit-tap-highlight-color: transparent; }
+.market-mine-add:active { transform: scale(0.98); }
+.market-mine-ico { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.22); font-size: 21px; line-height: 36px; text-align: center; }
+.market-mine-txt { display: flex; flex-direction: column; gap: 4px; font-size: 15.5px; font-weight: 600; letter-spacing: 0.5px; }
+.market-mine-txt em { font-style: normal; font-size: 11.5px; font-weight: 400; opacity: 0.72; letter-spacing: 0.2px; }
+.market-mine-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 2px; }
+.market-mine-cnt { flex: 1 1 auto; min-width: 118px; font-size: 11.5px; color: #8a8a8a; }
+.market-mine-mini { padding: 7px 14px; border-radius: 99px; border: 1px solid rgba(0, 0, 0, 0.12); background: #fff; color: #111; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.market-mine-mini:active { background: #f2f2f5; transform: scale(0.97); }
+
 /* ===== 心意柜 hero + tab（黑白简约，融入整体） ===== */
 .giftbox-hero { margin: 14px; padding: 22px 20px; border-radius: 18px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.06); color: #111; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04); }
 .giftbox-hero-title { font-size: 22px; font-weight: 700; letter-spacing: 1.5px; color: #111; }
@@ -216,6 +231,11 @@ textarea.gm-input { min-height: 52px; resize: none; }
 [data-theme="dark"] .giftbox-emoji { background: rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .gm-input, [data-theme="dark"] .gb-wish { background: #2a2a2c; border-color: rgba(255, 255, 255, 0.12); color: #e8e8ea; }
 [data-theme="dark"] .market-tool { background: #1c1c1e; border-color: rgba(255, 255, 255, 0.12); color: #f2f2f2; }
+/* #858 深色下上传入口反白（同 .gb-tab.sel 口径：深色页面上实心浅色块比深色块更跳） */
+[data-theme="dark"] .market-mine-add { background: linear-gradient(135deg, #f4f4f6 0%, #d9d9dd 100%); color: #111; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); }
+[data-theme="dark"] .market-mine-ico { background: rgba(0, 0, 0, 0.07); border-color: rgba(0, 0, 0, 0.12); }
+[data-theme="dark"] .market-mine-cnt { color: #98989e; }
+[data-theme="dark"] .market-mine-mini { background: #1c1c1e; border-color: rgba(255, 255, 255, 0.14); color: #f2f2f2; }
 [data-theme="dark"] .gm-img-prev { background: #2a2a2c; border-color: rgba(255, 255, 255, 0.12); }
 [data-theme="dark"] .gm-img-btn { background: #2a2a2c; border-color: rgba(255, 255, 255, 0.2); }
 [data-theme="dark"] .gift-empty { color: #6b6b70; }
