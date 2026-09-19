@@ -10222,9 +10222,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789833041562">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789834715873">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 23:50<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 00:18<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12976,7 +12976,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断——下方「词典拼字」组的「逐卡连发不受条数限制」默认开；手动关闭后按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
+            <div class="gs-sub"><b>这两项＝你每发 1 条消息，TA 就跟着回你几条（在最少~最多之间随机）。</b>默认 1~2 ＝ 你发一句、TA 回一两句。<b>注意：这是「每条消息」的条数，不是 TA 一天最多发几条，所以不建议调大</b>——调到 5 ＝ TA 每次都一口气连发 5 条、直接刷屏；你连着发的每句话还会各自触发一批（调到 5、你连发 3 句 ＝ 最多收到 15 条）。嫌 TA 话多就把这两项都调成 1；想彻底只回一条，去下方「字卡与概率」组关掉「多字卡回复」（关闭后这里设几条都只回 1 条）。</div>
+            <div class="gs-sub"><b>为什么有时收到的比上面设的还多</b>：这几类消息不占「回复条数」的名额、会额外多发——词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断，「词典拼字」组的「逐卡连发不受条数限制」默认开，手动关闭后才按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由下方「主动发送」组的「发送条数」单独控制）。所以把上面调到 N 只是限定「每发一条消息的基础回复」，不代表 TA 一天最多发 N 条。</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -13159,7 +13160,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="gc-rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="gc-reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="gc-reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub">回复条数只限每位联系人「每发一条消息触发的基础回复」，撤回补发不计入上限，实际消息可能比设置的条数多</div>
+            <div class="gs-sub"><b>这两项＝你每发 1 条消息，群里每个回你的成员就各回你几条（在最少~最多之间随机）。</b>默认 1~2 条。<b>注意：这是「每条消息、每个成员」的条数，不是 TA 一天最多发几条，不建议调大</b>——成员是各算各的（调到 5、3 个人同时回你 ＝ 一屏 15 条），你连着发的每句话还各触发一批。嫌刷屏就把这两项都调成 1；关掉下面的「多字卡回复」总开关也能锁死一条（关闭后这里设几条都只回 1 条）。</div>
+            <div class="gs-sub">本上限只管「每发一条消息触发的这批基础回复」，撤回后的补发不占名额、会额外多发，所以实际收到的可能比这里设的条数多。</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="gc-touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-touch-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>表情包概率</span><div class="stepper" data-k="gc-sticker-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-sticker-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>emoji 概率</span><div class="stepper" data-k="gc-emoji-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-emoji-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -79409,4 +79411,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8kdpju -->
+<!-- __MOCHI_EOF__ mu8ldlgh -->

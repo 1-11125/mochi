@@ -3682,6 +3682,12 @@ const FIX_SENTINELS = [
   { name: '#870c 美妆个护成套（删＝美妆回到 0 件，口红/面膜无处可送）', file: 'js/gift-shop.js', needle: "id: 'g_beautylip', name: '口红'" },
   { name: '#870d 经期关怀在位（删＝疼的那几天没有任何东西可送）', file: 'js/gift-shop.js', needle: "id: 'g_periodpad', name: '痛经贴'" },
   { name: '#870e 花束补齐（删＝花束退回全库最少分类）', file: 'js/gift-shop.js', needle: "id: 'g_lily', name: '百合'" },
+  // ==== 2026-09-20 #869 「回复条数最少/最多」说明重写（用户直派「这个没写清楚…很多用户根本看不懂…调很多，导致联系人一直发很多消息」；零机型分支，纯文案）——
+  //   单聊/群聊两处说明从行上方挪到「回复条数最少/最多」两行正下方、开头点破语义「这两项＝你每发 1 条消息，TA 就跟着回你几条」，
+  //   加粗强调「这是每条消息的条数、不是 TA 一天最多发几条，不建议调大」＋调大后果实例（连发各触发一批／群聊成员各算各的）。
+  //   群聊设置抽屉镜像（group-chat.js cntNote）同文案随 #794 在途批收口、本批不携带。====
+  { name: '#869a 单聊条数说明点破「每条消息」语义（删回笼统说明＝再被读成总上限、调大后联系人刷屏复发）', file: 'template.html', needle: '注意：这是「每条消息」的条数，不是 TA 一天最多发几条' },
+  { name: '#869b 群聊条数说明点破「每条消息每个成员」语义（删＝群聊各算各的刷屏提醒缺失）', file: 'template.html', needle: '注意：这是「每条消息、每个成员」的条数' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
