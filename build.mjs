@@ -2929,7 +2929,7 @@ const FIX_SENTINELS = [
   { name: '#642b 操作条定位误差自校正（删掉＝内核 fixed 包含块语义差异时一次定位即偏）', file: 'js/chat.js', needle: 'const _maDx = x - m.left, _maDy = y - m.top;' },
   { name: '#642c 群聊操作条接入同一跟随助手（删掉＝群聊操作条乱跑复发）', file: 'js/group-chat.js', needle: 'window.mochiFollowActionBar(gcMsgActions, bk, closeGcMsgActions)' },
   { name: '#643a chat-body 盒尺寸 ResizeObserver 接线（删掉＝键盘收起恢复高度后最新消息悬半屏无人回钉）', file: 'js/chat.js', needle: "if (!cb643 || typeof ResizeObserver === 'undefined') return;" },
-  { name: '#643b 盒子真变高后按钉住闸回钉贴底（删掉＝#643 只观察不动作，半屏残留照旧）', file: 'js/chat.js', needle: 'if (chatPinnedBottom && chatVisible()) scrollChatBottom();' },
+  { name: '#643b 盒子真变高后按钉住闸回钉贴底（删掉＝#643 只观察不动作，半屏残留照旧；#868 起该动作在 chatRepinStep 里）', file: 'js/chat.js', needle: 'if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom();' },
   // v3.26.x #645：通知栏媒体卡此前只有播放/暂停/上下首（用户反馈「没有下一首等功能按钮」）。
   // 任务号原认领 #644，与并行会话（摸鱼天数批 / 逐卡连发翻案批的 #644a/b）撞号，改 #645
   { name: '#645a 音乐通知栏 seekto 拖动定位接线（删掉＝媒体卡没有进度基准拖不动，快进快退/划掉停止的收尾也一并丢失）', file: 'js/music-player.js', needle: "setActionHandler('seekto', function (d)" },
@@ -3666,6 +3666,11 @@ const FIX_SENTINELS = [
   { name: '#858d 导入判重跳过已存在（删＝同一个文件导入两次商品翻倍）', file: 'js/gift-shop.js', needle: 'if (sig in bySig) { skipped++; return; }' },
   { name: '#858e 外来图片只收内嵌 data: 图（删＝文件里的外链/超大图原样入库，离线看不到图又撑爆本地存储）', file: 'js/gift-shop.js', needle: "if (!/^data:image\\//i.test(img) || img.length > GOODS_IMG_MAX) img = '';" },
   { name: '#858f 上传主按钮深色渐变（改浅＝与满页白卡同色，「显眼」失效；css/market.css 内唯一）', file: 'css/market.css', needle: '.market-mine-add { display: flex; align-items: center; gap: 13px; width: 100%;' },
+  // ==== 2026-09-19 #868 键盘收起/全屏切换后「闪一下回弹再恢复」根治：#466/#643 两个快速回钉改走与 #706 同闸的落定锁（一次变形只写一枪）====
+  { name: '#868a 回钉落定闸（改回 60ms 单发＝收键盘/开全屏时先按中间态写一枪、看门狗再校正＝回弹复发）', file: 'js/chat.js', needle: 'return now - _vvGeomChangeTs >= 180 && now - _cbBoxChangeTs >= 180 && now - _chatScrollActTs >= 200' },
+  { name: '#868b RO 记聊天盒变化时刻（删掉＝盒子仍在分步恢复时也敢写 scrollTop）', file: 'js/chat.js', needle: '_cbBoxChangeTs = Date.now();' },
+  { name: '#868c 落定锁有界重试（改成无限重试＝与用户滑动对打；删掉等待＝中间态写入回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }' },
+  { name: '#868d 看门狗补「盒子还在变」闸（删掉＝mobile-adapt 恢复 .phone 途中补钉一次＝弹跳）', file: 'js/chat.js', needle: 'if (Date.now() - _cbBoxChangeTs < 180) return;' },
   { name: '#858g 开屏公告第十节在位（notice.json 是联网权威源；删＝不上集市的人也看不到「能自己上传商品」这条，入口再显眼也只覆盖进过市集的人）', file: 'pwa/notice.json', needle: '十、心意市集：自己上传商品 + 商品数据导入导出' },
 ];
 try {

@@ -10222,9 +10222,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789831497055">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789832685874">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 23:24<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 23:44<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -36035,27 +36035,20 @@ if (dy < 10 && chatAtBottom()) scrollChatBottom();
 }, { passive: true });
 body.addEventListener('touchcancel', function () { chatTouchActive = false; }, { passive: true }); // #716
 body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
-let _kbRepinT = null;
 function refreshKbRepin() {
-if (!chatVisible() || !chatPinnedBottom) return;
-if (_kbRepinT) clearTimeout(_kbRepinT);
-_kbRepinT = setTimeout(function () { _kbRepinT = null; if (chatPinnedBottom) scrollChatBottom(); }, 60);
+chatRepinAfterSettle();
 }
 (function () {
 const vv466 = window.visualViewport;
 if (vv466) vv466.addEventListener('resize', refreshKbRepin);
 })();
+let _cbBoxChangeTs = 0; // 聊天盒自身最近一次变尺寸时刻（下面 #643 的 RO 里记；无 RO 的老内核恒 0＝不成为闸）
 (function () {
 const cb643 = document.getElementById('chat-body');
 if (!cb643 || typeof ResizeObserver === 'undefined') return;
-let t643 = null;
 new ResizeObserver(function () {
-if (!chatVisible() || !chatPinnedBottom) return;
-if (t643) clearTimeout(t643);
-t643 = setTimeout(function () {
-t643 = null;
-if (chatPinnedBottom && chatVisible()) scrollChatBottom();
-}, 60);
+_cbBoxChangeTs = Date.now();
+chatRepinAfterSettle();
 }).observe(cb643);
 })();
 let _vvGeomChangeTs = 0;
@@ -36065,10 +36058,29 @@ const mark706 = function () { _vvGeomChangeTs = Date.now(); };
 if (vv706) { vv706.addEventListener('resize', mark706); vv706.addEventListener('scroll', mark706); }
 window.addEventListener('resize', mark706);
 })();
+let _kbSettleT = null;
+let _kbSettleDeadline = 0;
+function chatRepinQuietEnough(now) {
+return now - _vvGeomChangeTs >= 180 && now - _cbBoxChangeTs >= 180 && now - _chatScrollActTs >= 200 && !batchRendering && !_ccSmoothT && !chatTouchActive;
+}
+function chatRepinAfterSettle() {
+if (!chatVisible() || !chatPinnedBottom || _kbSettleT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_kbSettleDeadline = Date.now() + 1200;
+_kbSettleT = setTimeout(chatRepinStep, 120);
+}
+function chatRepinStep() {
+_kbSettleT = null;
+const now = Date.now();
+if (!chatVisible() || !chatPinnedBottom) return; // #162：用户已解钉（翻历史/触摸）＝绝不拽底
+if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }
+const cb868 = document.getElementById('chat-body');
+if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
+}
 setInterval(function () {
 if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
+if (Date.now() - _cbBoxChangeTs < 180) return; // #868：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
@@ -79397,4 +79409,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8jglsv -->
+<!-- __MOCHI_EOF__ mu8k633m -->

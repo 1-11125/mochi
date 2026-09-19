@@ -4028,12 +4028,11 @@ body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
 // 安卓键盘弹出/收起会让 mobile-adapt 按 visualViewport 高度改 .phone 高度，聊天 scrollTop
 // 却不会随之更新＝消息列表长期被键盘顶到上半区、最新消息被盖住，到发送/收键盘那刻才被
 // scrollChatBottom 拽回＝观感「闪一下再恢复」。补钉住守卫的回钉：视口高度变化（键盘/地址栏
-// 显隐）且仍贴底钉住时，防抖后回到底部；用户手动滚动解钉即停，与 #162 闸同名语义，零机型分支。
-let _kbRepinT = null;
+// 显隐）且仍贴底钉住时回到底部；用户手动滚动解钉即停，与 #162 闸同名语义，零机型分支。
+// #868：这里的「60ms 单次防抖」改走 chatRepinAfterSettle()（见下方同闸助手）——不再自己定时刻，
+// 而是等几何真正落定后只写一次；函数名与 vv resize 接线保持原样（哨兵 #466 锚点）。
 function refreshKbRepin() {
-if (!chatVisible() || !chatPinnedBottom) return;
-if (_kbRepinT) clearTimeout(_kbRepinT);
-_kbRepinT = setTimeout(function () { _kbRepinT = null; if (chatPinnedBottom) scrollChatBottom(); }, 60);
+chatRepinAfterSettle();
 }
 (function () {
 const vv466 = window.visualViewport;
@@ -4049,17 +4048,15 @@ if (vv466) vv466.addEventListener('resize', refreshKbRepin);
 // 还是 .phone 内联高度恢复，「盒子真变了」这一事实发生时才回钉，天然躲开事件时序竞态；仍受
 // chatPinnedBottom 闸约束（用户翻历史＝解钉，绝不拽底，#162 契约不变）。无 ResizeObserver 的
 // 老内核保留 #466 原路，零回退。scrollChatBottom 只写 scrollTop、不改 chat-body 盒子，不会自激励成环。
+let _cbBoxChangeTs = 0; // 聊天盒自身最近一次变尺寸时刻（下面 #643 的 RO 里记；无 RO 的老内核恒 0＝不成为闸）
 (function () {
 const cb643 = document.getElementById('chat-body');
 if (!cb643 || typeof ResizeObserver === 'undefined') return;
-let t643 = null;
 new ResizeObserver(function () {
-if (!chatVisible() || !chatPinnedBottom) return;
-if (t643) clearTimeout(t643);
-t643 = setTimeout(function () {
-t643 = null;
-if (chatPinnedBottom && chatVisible()) scrollChatBottom();
-}, 60);
+// #868：盒子变化本身＝「还在变形」的最新证据，先记时刻再交给同闸助手（旧写法 60ms 后照写，
+// 而 mobile-adapt 恢复 .phone 内联高是分步到位的，那一枪常打在中间态高度上＝回弹）。
+_cbBoxChangeTs = Date.now();
+chatRepinAfterSettle();
 }).observe(cb643);
 })();
 // FIX 2026-09-17 #706（iPhone 17 Safari 26.6 iOS 独立应用实报「聊天里所有消息不贴底、
@@ -4083,10 +4080,37 @@ const mark706 = function () { _vvGeomChangeTs = Date.now(); };
 if (vv706) { vv706.addEventListener('resize', mark706); vv706.addEventListener('scroll', mark706); }
 window.addEventListener('resize', mark706);
 })();
+// FIX 2026-09-19 #868（红米 K80 实报「发送消息后收起输入法弹窗，聊天消息还是会闪屏回弹一下、
+// 然后恢复正常」，用户点名其他型号同现，并说明「主动开/关全屏模式」也闪）：#466/#643 两个
+// 快速回钉各自 60ms 单发，而一次键盘收起/全屏切换的几何变化是**分多帧、多步**落地的（vv resize
+// 先响、mobile-adapt 随后分步恢复 .phone 内联高、聊天盒跟着再变）。60ms 那一枪常打在中间态
+// 高度上＝按「假底部」写 scrollTop，等真布局落地后 #706 看门狗再校正一次＝肉眼所见「弹一下
+// 再恢复」。修法＝两个回钉不再自己定时刻，统一走下面这把与 #706 **同闸**的落定锁：几何
+// （视口/盒子）与列表滚动都静默够久才写，且一次变形只写一枪；静默不了 1200ms 就彻底放弃，
+// 交回看门狗周期复核——绝不与用户滑动/触摸对打（#716/#765 契约不变），零机型分支。
+let _kbSettleT = null;
+let _kbSettleDeadline = 0;
+function chatRepinQuietEnough(now) {
+return now - _vvGeomChangeTs >= 180 && now - _cbBoxChangeTs >= 180 && now - _chatScrollActTs >= 200 && !batchRendering && !_ccSmoothT && !chatTouchActive;
+}
+function chatRepinAfterSettle() {
+if (!chatVisible() || !chatPinnedBottom || _kbSettleT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_kbSettleDeadline = Date.now() + 1200;
+_kbSettleT = setTimeout(chatRepinStep, 120);
+}
+function chatRepinStep() {
+_kbSettleT = null;
+const now = Date.now();
+if (!chatVisible() || !chatPinnedBottom) return; // #162：用户已解钉（翻历史/触摸）＝绝不拽底
+if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }
+const cb868 = document.getElementById('chat-body');
+if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
+}
 setInterval(function () {
 if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
+if (Date.now() - _cbBoxChangeTs < 180) return; // #868：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
