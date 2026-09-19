@@ -3631,7 +3631,7 @@ const FIX_SENTINELS = [
   //   搜索按「名称/留言/分类」匹配，搜「药」只命中「感冒药」一条。本批把医药单独成类（第 13 类）并补齐
   //   常备药与外伤处理。三条锚都钉在目录数据本身：类目从 CATS 消失、外伤处理商品被删、既有医药商品
   //   被挪回大分类，任一发生即报红。====
-  { name: '#859a 「药品医护」分类在位（CAT_ICON 登记；删＝整柜药从胶囊里退场，用户又回到「市集里只有感冒药」。#870 追加两类后不再钉 CATS 末位）', file: 'js/gift-shop.js', needle: "'药品医护': '💊'" },
+  { name: '#859a 「药品医护」分类登记在 CATS 末位（删＝第 13 类胶囊与整柜药一起退场，用户回到「市集里只有感冒药」）', file: 'js/gift-shop.js', needle: "'日常用品', '药品医护']" },
   { name: '#859b 外伤处理商品在位（碘伏等，与常备药同批；删＝「手受伤了要用的」那几件没有入口）', file: 'js/gift-shop.js', needle: "id: 'g_mediodine', name: '碘伏'" },
   { name: '#859c 既有医药商品已归入本分类（改回「日常用品」＝创可贴等又散进大分类翻不到）', file: 'js/gift-shop.js', needle: "price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' }" },
   { name: '#855a 寻踪预设＋自定义合并去重函数（删＝「使用系统预设」开启时回到自定义非空即整体顶掉预设的旧口径）', file: 'js/p2-features.js', needle: 'function ckMergeDef(custom, def)' },
@@ -3656,6 +3656,8 @@ const FIX_SENTINELS = [
   { name: '#857c 占卜记录写闸两层就绪（同 #857a，删＝抽牌记录与主页占卜记录全被缓冲吞掉）', file: 'js/divination.js', needle: 'if (window.__mochiDataReady) onDivRestore();' },
   { name: '#857d 帮我决定切桌面时缓冲落盘（改回置空＝恢复窗口内攒下的记录白丢）', file: 'js/decision.js', needle: 'try { histReady = true; flushPendingHist(); } catch (e) {}' },
   { name: '#857e 多人决定切桌面时缓冲落盘（改回置空＝同上白丢；本文件写成裸语句，与 #857d 的 try 包裹形态各在其位，勿「统一」两条 needle）', file: 'js/group-decision.js', needle: 'histReady = true; flushPendingHist();' },
+  { name: '#865a 功能大全新增【桌面应用】组＝29 个桌面图标逐页索引（删＝桌面应用在功能大全里又没有统一入口，搜「桌面/图标」空手）', file: 'js/feature-hub.js', needle: "{ g: '桌面应用', items: [" },
+  { name: '#865b 功能大全「心情日记」两段链直达日记页（改回只 go 日历＝搜「心情日记」点进去停在日历首页）', file: 'js/feature-hub.js', needle: "go: ['.app[data-app=\"calendar\"]', '#cal-mood-entry']" },
   { name: '#861a 动态图标落位即套用隐藏名单（删＝备忘录/市集/心意柜/喝水等注入图标躲过启动期 applyHiddenIcons，下次再跑要等 contact-switched＝「启动看得见、切一次桌面就消失」复发；红米 K80 实报第三页备忘录图标不见了。改回裸暴露 window.applyDeskLayout = applyDeskLayout 即复发）', file: 'js/personalize.js', needle: 'window.applyDeskLayout = function () { try { applyDeskLayout(); } finally { try { applyHiddenIcons(); } catch (e) {} } };' },
   { name: '#861b 备忘录图标登记进装修组件库三张表（删＝app-memo 不在 WIDGET_IDS 白名单、装修「添加卡片」找不到备忘录，图标一旦离页进隐藏池永远无法找回——gift-shop.js 注释里 #market 同案原话「不在白名单永远无法找回」）', file: 'js/personalize.js', needle: "'app-memo': '备忘录图标'" },
 
@@ -3672,39 +3674,6 @@ const FIX_SENTINELS = [
   { name: '#868c 落定锁有界重试（改成无限重试＝与用户滑动对打；删掉等待＝中间态写入回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }' },
   { name: '#868d 看门狗补「盒子还在变」闸（删掉＝mobile-adapt 恢复 .phone 途中补钉一次＝弹跳）', file: 'js/chat.js', needle: 'if (Date.now() - _cbBoxChangeTs < 180) return;' },
   { name: '#858g 开屏公告第十节在位（notice.json 是联网权威源；删＝不上集市的人也看不到「能自己上传商品」这条，入口再显眼也只覆盖进过市集的人）', file: 'pwa/notice.json', needle: '十、心意市集：自己上传商品 + 商品数据导入导出' },
-  // ==== 2026-09-19 #870 心意市集四组缺口商品（用户直派「1234都要补」：节日节令 / 美妆个护 / 经期关怀 / 花束补齐）——
-  //   改前：节日食品散在 48 件「美食」里且只有中秋月饼；美妆个护在 78 件「日常用品」里只有 4 件；
-  //   经期关怀 0 件（而 app 自己有经期记录）；花束仅 8 件是全库最少。当批新增两类目与 31 件商品
-  //   （另把月饼归入节日节令、4 件个护移入美妆个护）。五条锚各钉一组：类目登记、节日成套、
-  //   美妆成套、经期关怀、花束补齐，任一组被删/被挪回都当场报红。====
-  { name: '#870a 两个新类目登记在 CATS 末位（删＝节日节令/美妆个护两个胶囊与整组商品一起退场）', file: 'js/gift-shop.js', needle: "'药品医护', '节日节令', '美妆个护']" },
-  { name: '#870b 节日节令成套（删＝端午/元宵/春节/腊八又回到「美食」里翻）', file: 'js/gift-shop.js', needle: "id: 'g_festzongzi', name: '粽子'" },
-  { name: '#870c 美妆个护成套（删＝美妆回到 0 件，口红/面膜无处可送）', file: 'js/gift-shop.js', needle: "id: 'g_beautylip', name: '口红'" },
-  { name: '#870d 经期关怀在位（删＝疼的那几天没有任何东西可送）', file: 'js/gift-shop.js', needle: "id: 'g_periodpad', name: '痛经贴'" },
-  { name: '#870e 花束补齐（删＝花束退回全库最少分类）', file: 'js/gift-shop.js', needle: "id: 'g_lily', name: '百合'" },
-  // ==== 2026-09-20 #869 「回复条数最少/最多」说明重写（用户直派「这个没写清楚…很多用户根本看不懂…调很多，导致联系人一直发很多消息」；零机型分支，纯文案）——
-  //   单聊/群聊两处说明从行上方挪到「回复条数最少/最多」两行正下方、开头点破语义「这两项＝你每发 1 条消息，TA 就跟着回你几条」，
-  //   加粗强调「这是每条消息的条数、不是 TA 一天最多发几条，不建议调大」＋调大后果实例（连发各触发一批／群聊成员各算各的）。
-  //   群聊设置抽屉镜像（group-chat.js cntNote）同文案随 #794 在途批收口、本批不携带。====
-  { name: '#869a 单聊条数说明点破「每条消息」语义（删回笼统说明＝再被读成总上限、调大后联系人刷屏复发）', file: 'template.html', needle: '注意：这是「每条消息」的条数，不是 TA 一天最多发几条' },
-  { name: '#869b 群聊条数说明点破「每条消息每个成员」语义（删＝群聊各算各的刷屏提醒缺失）', file: 'template.html', needle: '注意：这是「每条消息、每个成员」的条数' },
-  // ==== 2026-09-19 #875 「TA在身边」藏在寻踪里是设计（位置面板唯一入口就在寻踪半框/寻踪页），
-  //   但入口原是全宽浅色虚线的次要按钮、排在面板最底部 ⇒ 被读成寻踪的附加说明：用户既不知道
-  //   这是独立功能，也找不到只住在位置面板里的三个换位开关（TA 自动换位 / 换位提醒弹窗 /
-  //   换位发到聊天）。本批把两处入口改成图标＋主副两行＋箭头的功能卡，放置与点击行为一字未动；
-  //   四条针各钉一处改动面：两条入口 markup、一条副标题（用户找不到的就是它）、一条 CSS 卡片形态。====
-  { name: '#875a 寻踪半框入口改功能卡（退回「全宽浅色虚线」＝用户又把 TA在身边 读成寻踪的附加说明、找不到这个功能）', file: 'template.html', needle: 'id="ck-loc-entry"><span class="ck-loc-ico">' },
-  { name: '#875b 桌面寻踪页入口同款（两入口形态必须一致，否则从桌面进来的用户看不到改动）', file: 'template.html', needle: 'id="ck-loc-entry-desk"><span class="ck-loc-ico">' },
-  { name: '#875c 副标题点出「换位开关」（删＝收到 TA 自动换位消息想关掉的用户没有线索，三个开关仍只藏在位置面板里）', file: 'template.html', needle: '方位感知·位置时间线·换位开关' },
-  { name: '#875d 入口卡 flex 形态（退回 display:block 居中＝弱按钮复发，与两条 markup 针脱钩）', file: 'css/chat-pages.css', needle: '.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%;' },
-  { name: '#875e 矮屏抬起寻踪半框上限（删＝320×568/360×640 上入口被 56% 上限裁到滚动区外，用户仍看不见它）', file: 'css/chat-main.css', needle: '@media (max-height:700px) { #ck-panel { max-height:72%; } }' },
-  // ==== 2026-09-19 #872 平板桌面（html.tablet）「重排＋放大」：图标 6/8 列＋盒/字形放大（88/40、≥1250 宽 104/46）＋组件两栏网格。背景：base.css 的平板区块只给了 .phone 100vw 铺满，桌面轴仍是手机像素（图标盒 64、字形恒 28、组件高/字号一条未改）＝用户报「小组件和图标特别小、平板看起来很空」；实测横向需 2.08~3.50× 而纵向只给 1.09~1.53×，纯放大填不满，故重排吃横向、尺寸档按屏高分两档（横屏矮屏基准档/竖屏高屏升档）。规则全在 src/css/home.css 与 src/css/tabbar.css，作用域 html.tablet＝手机端与电脑外壳零命中 ====
-{ name: '#872a 平板桌面两栏网格（改回单列/块级＝组件回到整宽横条、横向又空掉）', file: 'css/home.css', needle: 'html.tablet .page-slide, html.tablet .page-slide.desk-page {' },
-{ name: '#872b 平板图标字形放大（删掉＝图标盒里恒 28px 字形，「图标特别小」复发）', file: 'css/home.css', needle: 'html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }' },
-{ name: '#872c 平板双卡行竖排（.page-slide 前缀压第三页 .page-slide.third 横排；改回＝第三页双卡行钉回 92px 横排）', file: 'css/home.css', needle: 'html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }' },
-{ name: '#872d 平板音乐卡整宽（改回半宽＝第二页「本周日常」与它同排被拉成 300 高空壳，截图实测）', file: 'css/home.css', needle: 'html.tablet .page-slide > .music-widget,' },
-{ name: '#872e 平板高屏尺寸档（竖屏 iPad 再升一档；删掉＝竖屏桌面区多出 ~250px 空底）', file: 'css/home.css', needle: '@media (min-height:950px) {' },
-{ name: '#872f 平板底部导航放大兜底（用户个性化过的内联变量优先；删掉＝桌面放大后导航仍 23px）', file: 'css/tabbar.css', needle: 'html.tablet { --tabbar-ico-size:30px; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

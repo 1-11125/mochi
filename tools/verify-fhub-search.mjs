@@ -78,10 +78,14 @@ const setRow = rows.some(t => t === '群聊设置');
 const pureGone = !rows.includes('群聊');
 A('F3 多词「群聊 概率」AND（群聊设置在列、纯群聊行被排除）', rows.length > 0 && setRow && pureGone, 'n=' + rows.length + ' [' + rows.slice(0, 5).join(',') + ']');
 
-// F4 排序：搜「群聊」→ 整名等于「群聊」的条目（精确）排第一
+// F4 排序：搜「群聊」→ 匹配质量分级只作用在**组内**（各组 card 各自重排，组间顺序恒定）。
+// #865 后首组是【桌面应用】，其「群聊（桌面图标）」（rank1 开头）按组序先出现；
+// 本断言钉的是「聊天传讯」组内精确整名「群聊」（rank0）排在该组其它命中之前。
 await search('群聊');
 rows = await visRows();
-A('F4 搜「群聊」精确条目置顶', rows.length > 0 && rows[0] === '群聊', 'first=' + (rows[0] || ''));
+const gcIdx = rows.indexOf('群聊');
+const gcSettingsIdx = rows.indexOf('群聊设置');
+A('F4 组内精确条目置顶（「群聊」先于「群聊设置」等同组命中）', gcIdx >= 0 && gcSettingsIdx > gcIdx, '群聊@' + gcIdx + ' 群聊设置@' + gcSettingsIdx + ' first=' + (rows[0] || ''));
 
 // F5 清空还原：显隐复位（无行残留 display:none）+ 原始行序还原；视图按 update() 语义回首页/单组
 await search('');
@@ -89,7 +93,8 @@ const reset = await ev(`(()=>{ const rs=[...document.querySelectorAll('#fhub-bod
   const g=document.querySelector('#fhub-body .set-group'); const r=g?g.querySelector('.set-row'):null;
   return JSON.stringify({ hidden: rs.filter(x=>x.style.display==='none').length, total: rs.length,
     first: r ? r.querySelector('.txt').firstChild.textContent.trim() : '' }); })()`);
-A('F5 清空恢复显隐与原始行序', (() => { try { const o = JSON.parse(reset); return o.hidden === 0 && o.total > 0 && o.first === '聊天'; } catch (e) { return false; } })(), reset);
+// 原始行序首行＝HUB 首组首行（#865 后首组是【桌面应用】→「聊天（桌面图标）」）
+A('F5 清空恢复显隐与原始行序', (() => { try { const o = JSON.parse(reset); return o.hidden === 0 && o.total > 0 && o.first === '聊天（桌面图标）'; } catch (e) { return false; } })(), reset);
 
 // F6 零 JS 错误
 const e = await ev('window.__jsErrors ? window.__jsErrors.length : -1');

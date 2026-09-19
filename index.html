@@ -1346,12 +1346,6 @@ display:flex; align-items:center; justify-content:space-between; margin-bottom:9
 0%, 100% { transform:scaleY(.5); }
 50% { transform:scaleY(1); }
 }
-.mw-bars.playing.buffering { opacity:.7; }
-.mw-bars.playing.buffering rect { animation-name:bar-breathe; animation-duration:1.9s; }
-@keyframes bar-breathe {
-0%, 100% { transform:scaleY(.3); opacity:.4; }
-50% { transform:scaleY(.72); opacity:1; }
-}
 .mw-main { display:flex; align-items:center; gap:12px; }
 .mw-cover { flex-shrink:0; }
 .mw-vinyl {
@@ -1489,101 +1483,6 @@ pointer-events: none; opacity: 0; transition: opacity .2s;
 .desk-edge-hint.show { opacity: 1; }
 .desk-edge-hint.left { left: 0; background: linear-gradient(90deg, rgba(43,127,255,.28), transparent); }
 .desk-edge-hint.right { right: 0; background: linear-gradient(270deg, rgba(43,127,255,.28), transparent); }
-html.tablet {
---tb-ico:88px; --tb-glyph:40px; --tb-name:14px;
---tb-cols:6; --tb-rowgap:22px; --tb-colgap:16px; --tb-approw:150px;
---tb-hero:250px; --tb-band:118px; --tb-bar:88px; --tb-period:210px;
---tb-pagegap:18px;
-}
-@media (min-width:1000px) { html.tablet { --tb-cols:8; --tb-colgap:18px; } }
-@media (min-width:1250px) { html.tablet { --tb-ico:104px; --tb-glyph:46px; --tb-name:15px; } }
-@media (min-height:950px) {
-html.tablet {
---tb-rowgap:24px; --tb-approw:172px;
---tb-hero:260px; --tb-band:140px; --tb-bar:104px; --tb-period:240px;
-}
-}
-@media (min-width:1000px) and (min-height:950px) { html.tablet { --tb-approw:200px; } }
-html.tablet .app-grid {
-grid-template-columns:repeat(var(--tb-cols), 1fr);
-grid-gap:var(--tb-rowgap) var(--tb-colgap);
-gap:var(--tb-rowgap) var(--tb-colgap);
-grid-auto-rows:var(--tb-approw);
-align-items:center;
-padding:2px 4px 6px;
-}
-html.tablet .app { gap:10px; }
-html.tablet .app .app-ico { width:var(--tb-ico); height:var(--tb-ico); }
-html.tablet .app .app-ico svg { width:var(--tb-glyph); height:var(--tb-glyph); }
-html.tablet .app .app-name { font-size:var(--tb-name); height:20px; line-height:20px; }
-html.tablet .app-badge { min-width:24px; height:24px; line-height:22px; font-size:13px; top:-6px; right:-8px; }
-html.tablet .page-slide, html.tablet .page-slide.desk-page {
-display:grid; grid-template-columns:1fr 1fr;
-grid-gap:var(--tb-pagegap); gap:var(--tb-pagegap);
-align-content:start;
-padding-top:14px;
-}
-html.tablet .page-slide > [data-desk-widget] { margin-top:0; margin-bottom:0; min-width:0; }
-html.tablet .page-slide > .app-grid,
-html.tablet .page-slide > .checkin,
-html.tablet .page-slide > .music-widget,
-html.tablet .page-slide > .desk-page-hint,
-html.tablet .page-slide > .desk-page-add { grid-column:1 / -1; }
-html.tablet .deco-widget, html.tablet .music-widget { height:var(--tb-hero); }
-html.tablet .deco-avatars { gap:32px; }
-html.tablet .deco-avatar .ring { width:118px; height:118px; }
-html.tablet .deco-avatar .ring svg { width:48px; height:48px; }
-html.tablet .deco-avatar .lbl { font-size:14px; padding:5px 18px; }
-html.tablet .deco-heart svg { width:28px; height:28px; }
-html.tablet .deco-love #love-days { font-size:30px; }
-html.tablet .deco-love #love-date { font-size:14px; }
-html.tablet #mw-cover { width:96px; height:96px; }
-html.tablet #mw-cover .mw-cover-ico { width:34px; height:34px; }
-html.tablet .mw-tag { font-size:13px; }
-html.tablet .mw-song { font-size:20px; }
-html.tablet .mw-artist { font-size:14px; }
-html.tablet .mw-bars { width:20px; height:20px; }
-html.tablet .mw-btn { width:34px; height:34px; }
-html.tablet .mw-btn svg, html.tablet .mw-heart svg { width:34px; height:34px; }
-html.tablet .mw-play svg { width:32px; height:32px; }
-html.tablet .page-slide .mini-row { flex-direction:column; gap:16px; }
-html.tablet .page-slide .mini-row .mini-card { height:auto; min-height:var(--tb-band); flex:1; }
-html.tablet .page-slide .mini-row .mc-top { font-size:14px; }
-html.tablet .page-slide .mini-row .mc-b { font-size:16px; height:auto; line-height:1.45; }
-html.tablet .page-slide .mini-row .mc-b b { font-size:20px; }
-html.tablet .page-slide .mini-row .mini-card[data-card-bg="fish"] .mc-b { height:auto; line-height:1.45; }
-html.tablet .page-slide .mini-row #love-quote { font-size:15px; height:auto; line-height:1.5; -webkit-line-clamp:4; }
-html.tablet .week-card { height:auto; min-height:var(--tb-band); justify-content:space-between; }
-html.tablet .we-days { font-size:17px; }
-html.tablet .we-sub { font-size:12px; }
-html.tablet .we-ta { font-size:13px; }
-html.tablet .we-ta .pair b { font-size:16px; }
-html.tablet .we-btn { font-size:15px; padding:9px 16px; }
-html.tablet .we-btn b { font-size:17px; }
-html.tablet .we-combo { font-size:13px; padding:3px 11px; }
-html.tablet .checkin { height:var(--tb-bar); padding:0 22px; gap:16px; }
-html.tablet .checkin .ck-heart { width:46px; height:46px; font-size:19px; }
-html.tablet .checkin .ck-txt { font-size:15px; }
-html.tablet .checkin .ck-btn { font-size:16px; padding:12px 22px; min-height:46px; }
-html.tablet .weekend-box { height:var(--tb-bar); padding:0 20px; }
-html.tablet .desk-period { height:var(--tb-period); padding:24px; }
-html.tablet .desk-period .dpd-label { font-size:17px; }
-html.tablet .desk-period .dpd-days { font-size:64px; }
-html.tablet .desk-period .dpd-sub { font-size:17px; }
-html.tablet .desk-period .dpd-bar-cap { font-size:14px; }
-html.tablet .desk-clock .dc-time { font-size:46px; }
-html.tablet .desk-clock .dc-date { font-size:16px; }
-html.tablet .desk-cal .dcal-title { font-size:17px; }
-html.tablet .desk-cal .dcal-cell { font-size:15px; height:34px; line-height:34px; }
-html.tablet .desk-timer .dt-disp { font-size:40px; }
-html.tablet .desk-timer .dt-mode-label { font-size:15px; }
-html.tablet .desk-timer .dt-btn { font-size:15px; }
-html.tablet .desk-anniv .da-label { font-size:15px; }
-html.tablet .desk-anniv .da-days { font-size:34px; }
-html.tablet .desk-countdown-widget .dcd-label { font-size:15px; }
-html.tablet .desk-countdown-widget .dcd-days { font-size:34px; }
-html.tablet .desk-countdown-widget .dcd-date { font-size:15px; }
-html.tablet .desk-text-widget p { font-size:17px; }
 .chat-head {
 display:flex; align-items:center; gap:10px;
 padding:8px 2px 12px; flex-shrink:0;
@@ -2180,7 +2079,6 @@ display:flex; align-items:center; justify-content:center;
 .poke-card-scroll::-webkit-scrollbar { display:none; }
 #ck-panel { height:auto; max-height:56%; }
 #ck-panel .poke-card-scroll { min-height:0; max-height:none; }
-@media (max-height:700px) { #ck-panel { max-height:72%; } }
 #chat-decision-panel { height:auto; max-height:68%; }
 #chat-decision-panel .poke-card-scroll { min-height:0; max-height:none; }
 #chat-decision-body .dec-inp-wrap .ce-box[data-for="dec-opts"] { max-height:176px; overflow-y:auto; overscroll-behavior:auto; }
@@ -4360,15 +4258,13 @@ cursor:pointer; font-family:inherit;
 .ck-location:last-of-type { border-bottom:none; }
 .ck-label { font-size:11px; color:var(--muted); letter-spacing:1px; }
 .ck-value { font-size:16px; font-weight:700; color:var(--ink); margin-top:5px; line-height:1.6; }
-.ck-loc-entry { display:flex; align-items:center; gap:9px; width:100%; margin-top:14px; padding:10px 13px; border:1px solid rgba(255,160,90,.5); border-radius:14px; background:linear-gradient(135deg, rgba(255,196,140,.22), rgba(255,160,90,.10)); color:var(--ink); cursor:pointer; font-family:inherit; text-align:left; }
+.ck-loc-entry {
+display:block; width:100%; margin-top:14px; padding:11px 14px;
+border:1px dashed rgba(0,0,0,.18); border-radius:12px;
+background:rgba(255,255,255,.6); color:var(--ink);
+font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; text-align:center;
+}
 .ck-loc-entry:active { background:rgba(0,0,0,.06); }
-.ck-loc-ico { flex-shrink:0; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #ffc48c, #ff8f4d); color:#fff; }
-.ck-loc-ico svg { width:17px; height:17px; }
-.ck-loc-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
-.ck-loc-t { font-size:14px; font-weight:800; line-height:1.3; }
-.ck-loc-s { font-size:11px; font-weight:500; color:var(--muted); line-height:1.35; }
-.ck-loc-arrow { flex-shrink:0; display:flex; color:var(--muted); }
-.ck-loc-arrow svg { width:15px; height:15px; }
 .loc-panel {
 position:fixed; left:0; right:0; bottom:0; z-index:78;
 max-height:90vh; display:flex; flex-direction:column;
@@ -7944,9 +7840,6 @@ opacity:var(--tabbar-ico-a, 1);
 #page-chatcard .chat-item:last-child,
 #page-setting .set-group:last-of-type,
 #page-setting .ver { margin-bottom:20px; }
-html.tablet { --tabbar-ico-size:30px; }
-html.tablet .tabbar { padding:10px 8px; }
-html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }
 [data-theme="dark"] .phone-bg-mask { background:rgba(0,0,0,var(--desk-bg-mask-op,0)); }
 [data-theme="dark"] .deco-avatar .ring { background:#2a2a2a; border-color:var(--dark-border); }
 [data-theme="dark"] .deco-avatar .lbl { color:#aaa; background:var(--dark-card); border-color:var(--dark-border-12); }
@@ -10329,9 +10222,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789855540629">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789834590321">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 06:05<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 00:16<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12406,7 +12299,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">TA 平时也会主动发红包（每天最多 5 次），七夕更爱发大额</div>
           <div class="lic-li">余额不足也能照发照买：直接透支成负数不拦截，后续收红包 / 申请回正</div>
           <div class="lic-li">「向 Mochi 申请心意币」：点击任意余额行弹出，可给我和 TA 双向充值入账；TA 也会随机向 Mochi 申请并在聊天留下申请记录——申请概率与每日上限在聊天页红包的「设置」里按每个联系人单独调整（默认 4%、不限次数）</div>
-          <div class="lic-li">心意市集：340+ 件默认商品分 15 类（含药品医护：常备药 / 外伤处理 / 经期关怀，以及节日节令、美妆个护；节日有粽子汤圆月饼，家里有口红面膜暖宝宝），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
+          <div class="lic-li">心意市集：300+ 件默认商品分 13 类（含药品医护：常备药与外伤处理，如感冒药 / 退烧药 / 胃药 / 创可贴 / 碘伏 / 纱布），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
           <div class="lic-li">送礼给 TA：挑商品写心意留言送出，礼物卡片飞进聊天并同步存进心意柜；TA 每天 5% 概率主动从市集挑礼物回礼（最多 3 次）</div>
           <div class="lic-li">心意柜：收到 / 送出礼物册，「TA 送我的 / 我送 TA 的」分类翻看与统计</div>
           <div class="lic-li">小游戏与种花奖励对齐红包金额体系（¥5.2 / 13.14 / 52 / 1314…），各自每日封顶防刷</div>
@@ -13083,8 +12976,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub"><b>这两项＝你每发 1 条消息，TA 就跟着回你几条（在最少~最多之间随机）。</b>默认 1~2 ＝ 你发一句、TA 回一两句。<b>注意：这是「每条消息」的条数，不是 TA 一天最多发几条，所以不建议调大</b>——调到 5 ＝ TA 每次都一口气连发 5 条、直接刷屏；你连着发的每句话还会各自触发一批（调到 5、你连发 3 句 ＝ 最多收到 15 条）。嫌 TA 话多就把这两项都调成 1；想彻底只回一条，去下方「字卡与概率」组关掉「多字卡回复」（关闭后这里设几条都只回 1 条）。</div>
-            <div class="gs-sub"><b>为什么有时收到的比上面设的还多</b>：这几类消息不占「回复条数」的名额、会额外多发——词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断，「词典拼字」组的「逐卡连发不受条数限制」默认开，手动关闭后才按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由下方「主动发送」组的「发送条数」单独控制）。所以把上面调到 N 只是限定「每发一条消息的基础回复」，不代表 TA 一天最多发 N 条。</div>
+            <div class="gs-sub">回复条数只限制「每发一条消息触发的这批基础回复」，且每发一条各算一批（发 2 条最多可回 2 倍）；词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断——下方「词典拼字」组的「逐卡连发不受条数限制」默认开；手动关闭后按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由「主动发送」组的「发送条数」单独控制）都不计入上限，实际收到的消息可能比设置的条数多</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -13267,8 +13159,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>回复速度最长（秒）</span><div class="stepper" data-k="gc-rs-max" data-min="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-rs-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="gc-reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="gc-reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-reply-max-val" readonly><button class="stp-max">+</button></div></div>
-            <div class="gs-sub"><b>这两项＝你每发 1 条消息，群里每个回你的成员就各回你几条（在最少~最多之间随机）。</b>默认 1~2 条。<b>注意：这是「每条消息、每个成员」的条数，不是 TA 一天最多发几条，不建议调大</b>——成员是各算各的（调到 5、3 个人同时回你 ＝ 一屏 15 条），你连着发的每句话还各触发一批。嫌刷屏就把这两项都调成 1；关掉下面的「多字卡回复」总开关也能锁死一条（关闭后这里设几条都只回 1 条）。</div>
-            <div class="gs-sub">本上限只管「每发一条消息触发的这批基础回复」，撤回后的补发不占名额、会额外多发，所以实际收到的可能比这里设的条数多。</div>
+            <div class="gs-sub">回复条数只限每位联系人「每发一条消息触发的基础回复」，撤回补发不计入上限，实际消息可能比设置的条数多</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="gc-touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-touch-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>表情包概率</span><div class="stepper" data-k="gc-sticker-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-sticker-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>emoji 概率</span><div class="stepper" data-k="gc-emoji-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-emoji-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -14860,11 +14751,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="ck-label">TA 想对你说</span>
             <div class="ck-value" id="ck-msg">—</div>
           </div>
-          <!-- v3.26.x #875：「TA在身边」藏在寻踪里是设计（位置面板的唯一入口就是这两处），但它原本是
-               全宽浅色虚线的次要按钮、排在本页卡片最底部，被读成寻踪的附加说明——用户既不知道这是
-               一个独立功能，也找不到只住在位置面板里的三个换位开关。改成图标＋主副两行＋箭头的
-               功能卡，放置与点击行为一字未动（仍由 p2-features.js 打开同一个位置面板）。 -->
-          <button class="ck-loc-entry" id="ck-loc-entry-desk"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
+          <button class="ck-loc-entry" id="ck-loc-entry-desk">TA在身边 · 看看 TA 在哪</button>
         </div>
         <div class="cal-card glass">
           <div class="cal-card-title">寻踪记录</div>
@@ -15774,9 +15661,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ck-location"><span class="ck-label">TA 在做什么</span><div class="ck-value" id="ck-p-action">—</div></div>
           <div class="ck-location"><span class="ck-label">TA 想对你说</span><div class="ck-value" id="ck-p-msg">—</div></div>
           <div class="ck-updated" id="ck-p-updated"></div>
-          <!-- v3.26.x #875：与桌面寻踪页那颗同款（两入口形态必须一致）——图标＋主副两行＋箭头，
-               副标题点出位置面板里到底有什么，用户才知道这是一处独立功能、以及三个换位开关在哪。 -->
-          <button class="ck-loc-entry" id="ck-loc-entry"><span class="ck-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 10-13 0C5.5 15.6 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span><span class="ck-loc-main"><span class="ck-loc-t">TA在身边 · 位置感知</span><span class="ck-loc-s">方位感知·位置时间线·换位开关</span></span><span class="ck-loc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>
+          <button class="ck-loc-entry" id="ck-loc-entry">TA在身边 · 看看 TA 在哪</button>
         </div>
       </div>
       <!-- 拍一拍浮层卡片（聊天页内） -->
@@ -76827,6 +76712,38 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("ver-check.js");
 (function () { try {
 (function () {
 const HUB = [
+{ g: '桌面应用', items: [
+{ n: '聊天（桌面图标）', d: '桌面第 1 页 · 和 TA 的主聊天：字卡回复、图文、引用、撤回补发', k: '桌面 图标 第1页 第一页 聊天 消息 字卡 找不到 在哪 没了', go: ['.app[data-app="chat"]'] },
+{ n: '群聊（桌面图标）', d: '桌面第 1 页 · 所有桌面成员聚在一个窗口聊天（需先在设置开启群聊模式，未开启时图标是收起的）', k: '桌面 图标 第1页 第一页 群聊 多人 找不到 在哪 没了', go: ['.app[data-app="group-chat"]'] },
+{ n: '主页（桌面图标）', d: '桌面第 1 页 · 多 tab 统计：换头像/通话/摸鱼/TA 的关心/心意币', k: '桌面 图标 第1页 第一页 主页 统计 情侣空间 找不到 在哪', go: ['.app[data-app="home"]'] },
+{ n: '信箱（桌面图标）', d: '桌面第 1 页 · 和 TA 写信/回信，支持图文信件', k: '桌面 图标 第1页 第一页 信箱 写信 信件 邮件 找不到 在哪', go: ['.app[data-app="mail"]'] },
+{ n: '朋友圈（桌面图标）', d: '桌面第 1 页 · 发动态/点赞评论/TA 也会发', k: '桌面 图标 第1页 第一页 朋友圈 动态 点评 找不到 在哪', go: ['.app[data-app="feed"]'] },
+{ n: '日历（桌面图标）', d: '桌面第 1 页 · TA 的每日留言、情话、我的备忘与心情', k: '桌面 图标 第1页 第一页 日历 留言 签到 找不到 在哪', go: ['.app[data-app="calendar"]'] },
+{ n: '纪念（桌面图标）', d: '桌面第 1 页 · 纪念日/倒数日与相伴天数', k: '桌面 图标 第1页 第一页 纪念 倒计时 周年 找不到 在哪', go: ['.app[data-app="memory"]'] },
+{ n: '占卜（桌面图标）', d: '桌面第 1 页 · 塔罗 78 张 / 雷诺曼 40 张，三种牌阵（开启群聊模式期间桌面占卜图标会收起，用下面那条「占卜（设置 → 工具 入口）」照样进）', k: '桌面 图标 第1页 第一页 占卜 塔罗 雷诺曼 找不到 在哪 没了 收起', go: ['.app[data-app="divination"]'] },
+{ n: '收藏（桌面图标）', d: '桌面第 1 页 · 我的收藏 / TA 的收藏 分页浏览与批量管理', k: '桌面 图标 第1页 第一页 收藏 星标 找不到 在哪', go: ['.app[data-app="note"]'] },
+{ n: '音乐（桌面图标）', d: '桌面第 2 页 · 本地/链接上传、歌单、一起听歌、播放队列', k: '桌面 图标 第2页 第二页 音乐 歌曲 播放 歌单 找不到 在哪', go: ['.app[data-app="music"]'] },
+{ n: '聊天统计（桌面图标）', d: '桌面第 2 页 · 相处记录/聊天记录/情绪表达多维统计', k: '桌面 图标 第2页 第二页 聊天统计 统计 数据 找不到 在哪', go: ['.app[data-app="stats"]'] },
+{ n: '提问记录（桌面图标）', d: '桌面第 2 页 · TA 的询问/小问题/好奇/吐槽/我的邀请历史', k: '桌面 图标 第2页 第二页 提问记录 历史 记录 找不到 在哪', go: ['.app[data-app="interact"]'] },
+{ n: '寻踪（桌面图标）', d: '桌面第 2 页 · TA 在哪里/在做什么/想对你说 + 位置感知（就是「查岗打卡」那个应用）', k: '桌面 图标 第2页 第二页 寻踪 查岗 打卡 定位 在哪 找不到', go: ['.app[data-app="checkin"]'] },
+{ n: '花园（桌面图标）', d: '桌面第 2 页 · 种花杂交/花束工坊/成就年报，TA 代管', k: '桌面 图标 第2页 第二页 花园 种花 花 找不到 在哪', go: ['.app[data-app="garden"]'] },
+{ n: '此间（桌面图标）', d: '桌面第 2 页 · 每位梦角的世界时间与在场/空闲状态，「去找TA」直达聊天', k: '桌面 图标 第2页 第二页 此间 梦角 时辰 在场 找不到 在哪', go: ['.app[data-app="cjian"]'] },
+{ n: '同频（桌面图标）', d: '桌面第 2 页 · TA 此刻状态字卡 + 敲三下暗号', k: '桌面 图标 第2页 第二页 同频 暗号 此刻 状态 找不到 在哪', go: ['.app[data-app="tongpin"]'] },
+{ n: '伸手（桌面图标）', d: '桌面第 2 页 · 摸摸身边，三种触感 + 悄悄话', k: '桌面 图标 第2页 第二页 伸手 摸摸 触感 找不到 在哪', go: ['.app[data-app="shenshou"]'] },
+{ n: '经期记录（桌面图标）', d: '桌面第 3 页 · 经期/排卵期预测、症状体温情绪记录、TA 的关心', k: '桌面 图标 第3页 第三页 经期 生理期 排卵 月经 找不到 在哪', go: ['.app[data-app="period"]'] },
+{ n: '记账（桌面图标）', d: '桌面第 3 页 · 收支分类/预算/图表/流水搜索', k: '桌面 图标 第3页 第三页 记账 收支 预算 账本 找不到 在哪', go: ['.app[data-app="accounting"]'] },
+{ n: '梦角档案（桌面图标）', d: '桌面第 3 页 · 认识 TA：九个分区 + 发现卡片 + 共同记录', k: '桌面 图标 第3页 第三页 梦角档案 档案 认识 找不到 在哪', go: ['.app[data-app="memo-arc"]'] },
+{ n: '我的档案（桌面图标）', d: '桌面第 3 页 · 写给 TA 的自我说明与 IF 世界设定', k: '桌面 图标 第3页 第三页 我的档案 自我 if 世界 找不到 在哪', go: ['.app[data-app="my-arc"]'] },
+{ n: '房间（桌面图标）', d: '桌面第 3 页 · 双人小屋：家具互动、舒适度升级、按 TA 分屋', k: '桌面 图标 第3页 第三页 房间 小屋 家具 找不到 在哪', go: ['.app[data-app="room"]'] },
+{ n: '喝水（桌面图标）', d: '桌面第 3 页 · 今日杯数进度环，TA 定时催喝水', k: '桌面 图标 第3页 第三页 喝水 杯数 找不到 在哪', go: ['.app[data-app="water"]'] },
+{ n: '吃什么（桌面图标）', d: '桌面第 3 页 · 随机抽菜/转盘，问 TA 征求意见', k: '桌面 图标 第3页 第三页 吃什么 吃饭 菜 转盘 找不到 在哪', go: ['.app[data-app="eat"]'] },
+{ n: '存钱罐（桌面图标）', d: '桌面第 3 页 · 存取+小心愿目标，TA 当监督人', k: '桌面 图标 第3页 第三页 存钱罐 攒钱 心愿 找不到 在哪', go: ['.app[data-app="piggy"]'] },
+{ n: '番茄钟（桌面图标）', d: '桌面第 3 页 · 专注/小憩/长休计时，陪伴模式', k: '桌面 图标 第3页 第三页 番茄钟 专注 计时 找不到 在哪', go: ['.app[data-app="pomo"]'] },
+{ n: '心意市集（桌面图标）', d: '桌面第 3 页 · 按分类挑商品送礼给 TA；许愿、心愿单、拍卖都在里面', k: '桌面 图标 第3页 第三页 心意市集 市集 商店 礼物 心意币 找不到 在哪', go: ['.app[data-app="market"]'] },
+{ n: '心意柜（桌面图标）', d: '桌面第 3 页 · 收到/送出的礼物册与统计', k: '桌面 图标 第3页 第三页 心意柜 礼物柜 礼物 找不到 在哪', go: ['.app[data-app="giftbox"]'] },
+{ n: '备忘录（桌面图标）', d: '桌面第 3 页 · 待办置顶/截止日期，TA 会追问和催办', k: '桌面 图标 第3页 第三页 备忘录 待办 todo 找不到 在哪', go: ['.app[data-app="memo"]'] },
+{ n: '桌面图标不见了 / 怎么找回', d: '图标被装修挪走或收进隐藏池时：设置 → 外观与主题 → 桌面装修模式，在「组件」库里把图标拖回任意一页；上表每条都写了图标原本在第几页', k: '桌面 图标 不见 没了 消失 找回 隐藏池 装修 组件 拖回 恢复', where: '设置 → 外观与主题 → 桌面装修模式（组件库拖回）' }
+] },
 { g: '聊天传讯', items: [
 { n: '聊天', d: '和 TA 的主聊天：字卡回复、图文、引用、撤回补发', k: '聊天 消息 字卡', go: ['.app[data-app="chat"]'] },
 { n: '群聊', d: '所有桌面成员聚在一个窗口聊天（需先在设置开启群聊模式）', k: '群聊 多人', go: ['.app[data-app="group-chat"]'] },
@@ -76841,8 +76758,8 @@ const HUB = [
 { n: '搜索聊天记录', d: '按关键词/日期搜聊天记录并跳转', k: '搜索 查找 记录', go: ['.app[data-app="chat"]', '#more-search'] },
 { n: '批量发送', d: '一次编排多条消息（表情/图片/文字）按顺序发送', k: '批量 连发', go: ['.app[data-app="chat"]', '#chat-batch-btn'] },
 { n: '语音消息', d: '录音最长 60 秒，试听后发语音', k: '语音 录音 麦克风', go: ['.app[data-app="chat"]', '#chat-mic-btn'] },
-{ n: '继续说', d: '让 TA 接着当前话题再说一段：聊天里是输入栏的「继续说」按钮（或点顶部昵称），群聊里是群聊页顶部三点菜单左侧那枚按钮（输入框 @ 了谁就由谁接着说）', k: '继续说 接着 续聊 续写 群聊', where: '聊天输入栏上的「继续说」按钮；群聊页右上角三点菜单左侧同样的图标' },
-{ n: '输入栏按钮位置', d: '自定义底部输入栏这一排按钮的左右顺序：录音、继续说、批量发送等开关按钮与输入框本身都能移动，「发送」固定在最右端。只管位置，不改变各按钮的开关与显隐', k: '输入栏 按钮 位置 顺序 排列 排序 自定义 图标 底部', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-input-order'] },
+{ n: '继续说', d: '让 TA 接着当前话题再说一段：聊天里是输入栏的「继续说」按钮（或点顶部昵称），群聊里同一枚按钮就在群聊页底部输入栏那一排（位置与显隐口径都跟单聊一致，输入框 @ 了谁就由谁接着说）', k: '继续说 接着 续聊 续写 群聊', where: '聊天输入栏上的「继续说」按钮；群聊页底部输入栏同一排（开关：回复设置 / 群聊设置→回复→让对方继续说）' },
+{ n: '输入栏按钮位置', d: '自定义底部输入栏这一排按钮的左右顺序：录音、继续说、更多、表情、输入框、图片、批量发送都能移动，「发送」固定在最右端。只管位置，不改变各按钮的开关与显隐；单聊与群聊两排输入栏共用同一份顺序，改一处两页同时生效', k: '输入栏 按钮 位置 顺序 排列 排序 自定义 图标 底部 群聊', go: ['.app[data-app="chat"]', '#chat-settings-btn', '#cs-input-order'] },
 { n: '表情包管理', d: '我的表情包分组/上传/批量删除（聊天表情面板；面板顶部有「⏱ 最近使用」分组，表情包/颜文字/emoji 三个分类各记各的最近点用）；图片/表情可一条消息发多张', k: '表情包 表情 管理 上传 分组 斗图 最近使用 常用 多图 多张 两个图片 一条消息 多个图片 颜文字 分类', go: ['.app[data-app="chat"]', '#chat-emoji-btn'] },
 { n: '批量提问问卷', d: '你批量出题，TA 限时作答交卷', k: '问卷 提问 批量 出题 考试 答题', go: ['.tab[data-page="page-chatcard"]', '#li-ta-ask', '#ta-ask-survey-open'] },
 { n: '拍一拍', d: '拍 TA 一下，TA 也会拍回来', k: '拍一拍 互动', go: ['.app[data-app="chat"]', '#more-poke'] },
@@ -76936,6 +76853,8 @@ const HUB = [
 { n: '红包', d: '双向红包：预设档/随机/自定义金额、留言与封面', k: '红包 转账 钱', go: ['.app[data-app="chat"]', '#more-rp'] },
 { n: '心意币 · 心意市集', d: '340+ 件商品分 15 类（含药品医护：常备药与外伤处理与经期关怀、节日节令、美妆个护），送礼给 TA；也能许愿让 TA 挑一件送你；TA 自己许的愿有概率发到聊天，点【送 TA】一键买下送 TA（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币 心愿单 许愿 TA送我 联系人送我礼物 TA心愿 心愿发到聊天 送TA 概率 药品 医护 感冒药 创可贴 碘伏 纱布 退烧药 胃药 受伤', go: ['.app[data-app="market"]'] },
 { n: '心意柜', d: '收到/送出的礼物册与统计（桌面有独立图标）', k: '礼物柜 收藏 礼物', go: ['.app[data-app="giftbox"]'] },
+{ n: '我送礼后 TA 回一句', d: '我送出的每一份礼物（市集、心意柜、TA 心愿卡上点【送 TA】）都有概率换 TA 回一句；开关、概率、TA 回什么都在这（默认开启）', k: '礼物 送礼 送礼物 TA 回一句 回复 概率 集市设置 心意集市 心意柜 默认开启', go: ['.app[data-app="market"]', '#market-settings'], where: '心意集市 → 右上「设置」' },
+{ n: '红包领后捎一句话', d: '红包被领取后（我领 TA 的 / TA 领我的）TA 有概率主动捎一句，固定一条、不受「回复条数」限制；开关、概率、捎什么内容都在红包页的设置里', k: '红包 领红包 领取 捎话 回一句 回复 概率 模式 设置 每个联系人', go: ['.app[data-app="chat"]', '#more-rp', '#rp-settings-btn'], where: '聊天 → 更多 → 红包 → 设置' },
 { n: '头像和昵称互动', d: '换聊天头像和聊天昵称：头像可上传多张头像库点图即换；昵称可存多个文字昵称点名字即换；两边都能开随机自动更换（与桌面头像/昵称独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像 昵称 换昵称 昵称库 随机换昵称 自动换昵称 主动给我换昵称 改名字 聊天昵称', go: ['.app[data-app="chat"]', '#more-avatar'] },
 { n: '漂流瓶', d: '两个世界之间的海：捡瓶子/放瓶子', k: '漂流瓶 海 瓶子', go: ['.app[data-app="chat"]', '#more-drift'] },
 { n: '帮我决定', d: '是/否或自定义选项随机决定，结果可发聊天', k: '决定 选择 纠结', go: ['.app[data-app="chat"]', '#more-decide'] },
@@ -76944,7 +76863,7 @@ const HUB = [
 { n: '占卜（设置 → 工具 入口）', d: '塔罗 / 雷诺曼占卜的固定入口：开启群聊模式期间桌面占卜图标会收起，用这一行照样进占卜（与点桌面图标等效）', k: '占卜 塔罗 雷诺曼 入口 图标 不见了 没了 消失 收起来 群聊模式 打不开 进不去 设置 工具', go: ['#row-open-divination'] },
 { n: '寻踪 · TA 的日常', d: 'TA 在哪里/在做什么/想对你说 + 位置感知', k: '寻踪 日常 定位 在哪', go: ['.app[data-app="chat"]', '#chat-partner-av'] },
 { n: 'TA在身边 · 换位提醒设置', d: 'TA 自动换位置时的顶部黑色轻提示弹窗可开关；换位消息是否发进聊天可开关；TA 自动换位总开关。就在 TA在身边 面板里的「换位提醒设置」组', k: 'TA在身边 换位 位置 提醒 弹窗 黑色提示 关闭 发到聊天 聊天 自动换位 位置卡 不弹', go: ['.app[data-app="chat"]', '#chat-partner-av', '#ck-loc-entry'] },
-{ n: '摸鱼抓包', d: 'TA 摸鱼值上涨时桌面飘「摸鱼浮字」，6 秒内点「点我抓包」双方摸鱼值翻倍＋TA 害羞回应；抓包记录在主页「摸鱼抓包」', k: '摸鱼 抓包 浮字 小字 点我抓包 抓包成功 摸鱼值 翻倍 记录', where: 'TA 摸鱼时桌面自动飘字；记录看主页「摸鱼抓包」' },
+{ n: '摸鱼抓包', d: 'TA 摸鱼值上涨时桌面飘「摸鱼浮字」，6 秒内点「点我抓包」会结算 TA 自上次被抓以来涨的全部摸鱼值（TA 补一份总账、你得同额）＋TA 害羞回应；抓包记录在主页「摸鱼抓包」', k: '摸鱼 抓包 浮字 小字 点我抓包 抓包成功 摸鱼值 翻倍 记录', where: 'TA 摸鱼时桌面自动飘字；记录看主页「摸鱼抓包」' },
 { n: '摸鱼抓包浮字开关', d: '关掉后 TA 摸鱼时桌面不再飘「点我抓包」浮字，也没有抓包（摸鱼值照常累计）；在 回复设置 →「摸鱼值 / 工作值」组', k: '摸鱼 抓包 浮字 关闭 弹窗 开关 不弹 烦 挡住', go: ['#row-general'] },
 { n: '同频', d: 'TA 此刻状态字卡 + 敲三下暗号', k: '同频 暗号 此刻 状态', go: ['.app[data-app="tongpin"]'] },
 { n: '伸手', d: '摸摸身边，三种触感 + 悄悄话', k: '伸手 摸摸 触感', go: ['.app[data-app="shenshou"]'] },
@@ -76952,7 +76871,32 @@ const HUB = [
 { n: '房间（双人小屋）', d: '21 种家具互动、舒适度升级、按 TA 分屋', k: '房间 小屋 家具', go: ['.app[data-app="room"]'] },
 { n: '音乐', d: '本地/链接上传、歌单、一起听歌、播放队列', k: '音乐 歌曲 播放 歌单', go: ['.app[data-app="music"]'] },
 { n: '信箱', d: '和 TA 写信/回信，支持图文信件', k: '信箱 写信 信件 邮件', go: ['.app[data-app="mail"]'] },
-{ n: '朋友圈', d: '发动态/点赞评论/TA 也会发', k: '朋友圈 动态 点评 转发', go: ['.app[data-app="feed"]'] }
+{ n: '朋友圈', d: '发动态/点赞评论/TA 也会发', k: '朋友圈 动态 点评 转发', go: ['.app[data-app="feed"]'] },
+{ n: '朋友圈 · 发动态', d: '朋友圈右上发布入口：选图/写文字/加贴纸后发一条自己的动态', k: '朋友圈 发动态 发布 打卡 发一条 贴纸', go: ['.app[data-app="feed"]', '#feed-publish-btn'] },
+{ n: '朋友圈 · 互动通知', d: '谁点赞/评论了你的动态，都在这个通知面板里', k: '朋友圈 通知 提醒 点赞 评论 消息', go: ['.app[data-app="feed"]', '#feed-notice-btn'] },
+{ n: '朋友圈 · 好友动态列表', d: '切到「好友」页看 TA 们发的动态（首页只显示自己的）', k: '朋友圈 好友 列表 全部动态 别人 动态', go: ['.app[data-app="feed"]', '#feed-friends-btn'] },
+{ n: '信箱 · 写信', d: '写一封新信给 TA：图文信件，可存草稿后寄出', k: '信箱 写信 写一封信 寄信 新信 图文', go: ['.app[data-app="mail"]', '#mail-open-write'] },
+{ n: '心意市集 · 心愿单', d: '许愿清单：写上想要的东西，TA 有概率挑一件送你；也能看 TA 的心愿单', k: '市集 心愿单 许愿 愿望 想要 TA送我 送TA', go: ['.app[data-app="market"]', '#market-wish'] },
+{ n: '心意市集 · 商品管理', d: '进管理模式：批量下架/上架市集里的商品（自建与内置都在这里管）', k: '市集 管理 下架 上架 商品 批量 删除', go: ['.app[data-app="market"]', '#market-manage'] },
+{ n: '心意市集 · 上传商品', d: '自己加一件商品进市集：名称、价格、分类、留言、配图', k: '市集 上传商品 添加商品 自建 自定义 新商品', go: ['.app[data-app="market"]', '#market-add'] },
+{ n: '心意市集 · 我的商品', d: '用自己相册的照片当礼物：上传后进「我的商品」，能单独导出/导入这份商品数据', k: '市集 我的商品 上传 照片 自建 导出 导入', go: ['.app[data-app="market"]', '#market-mine-add'] },
+{ n: '心意柜 · 看 TA 的心愿单', d: '在心意柜里直接翻 TA 的心愿单，挑一件买下送 TA', k: '心意柜 心愿单 许愿 看看 送TA 礼物', go: ['.app[data-app="giftbox"]', '#giftbox-tawish'] },
+{ n: '心意柜 · 设置', d: '心意市集与心意柜共用的设置面板（送礼后 TA 回一句等开关、概率都在里面）', k: '心意柜 设置 市集 送礼 回一句 概率 开关', go: ['.app[data-app="giftbox"]', '#giftbox-settings'] },
+{ n: '同频 · 换一个状态', d: '重抽一条 TA 此刻的状态字卡', k: '同频 换一个 刷新 状态 此刻 重抽', go: ['.app[data-app="tongpin"]', '#tp-refresh'] },
+{ n: '同频 · 添加状态字卡', d: '往 TA 的「此刻状态」库里加一句你自己的（同频页「+ 添加状态字卡」）', k: '同频 添加字卡 状态字卡 自定义 词库', go: ['.app[data-app="tongpin"]', '#tp-add'] },
+{ n: '伸手 · 添加悄悄话字卡', d: '往伸手的悄悄话库里加一句你自己的（伸手页「+ 添加悄悄话字卡」）', k: '伸手 添加 悄悄话 字卡 自定义 词库', go: ['.app[data-app="shenshou"]', '#ss-add'] },
+{ n: '此间 · 梦角管理', d: '增删梦角、改名字与形象：此间里每位梦角的世界时间都从这里管', k: '此间 梦角 管理 添加 删除 改名 形象 多位', go: ['.app[data-app="cjian"]', '#cj-manage-btn'] },
+{ n: '此间 · 感知此间', d: '让 TA 感知一下此刻：对方此刻在做什么、世界时间走到哪', k: '此间 感知 感应 此刻 在做什么 世界时间', go: ['.app[data-app="cjian"]', '#cj-perceive'] },
+{ n: '房间 · 家具仓', d: '已拥有家具的仓库：点摆件布置到房间，能看已摆几件 / 共几件', k: '房间 家具 仓 仓库 摆件 布置 家具仓', go: ['.app[data-app="room"]', '#room-btn-inv'] },
+{ n: '房间 · 感应', d: '让 TA 感应一下房间：说说此刻房间里的气氛与心情', k: '房间 感应 感觉 气氛 心情', go: ['.app[data-app="room"]', '#room-btn-sense'] },
+{ n: '房间 · 装扮', d: '房间装扮面板：墙纸/窗户/天空/地板等逐项换风格', k: '房间 装扮 装修 墙纸 窗户 地板 天空 换风格', go: ['.app[data-app="room"]', '#room-btn-deco'] },
+{ n: '音乐 · 上传音乐', d: '从本机选音频文件加进音乐库', k: '音乐 上传 本地 文件 添加歌曲 mp3', go: ['.app[data-app="music"]', '#music-upload'] },
+{ n: '音乐 · 链接添加', d: '粘贴直链添加一首歌（只收直链，不支持平台歌单页）', k: '音乐 链接 添加 直链 url 在线', go: ['.app[data-app="music"]', '#music-add-url'] },
+{ n: '音乐 · 批量导入', d: '一次导入多首：选多个文件或粘贴多行链接', k: '音乐 批量 导入 多个 一次 多首', go: ['.app[data-app="music"]', '#music-batch'] },
+{ n: '音乐 · 批量管理', d: '进批量管理模式：勾选后一次删多首 / 移进歌单', k: '音乐 批量 管理 删除 多选 整理', go: ['.app[data-app="music"]', '#music-batch-manage'] },
+{ n: '音乐设置', d: '音乐页右上设置：悬浮小窗、一起听歌、自动播放等开关都在这里', k: '音乐 设置 悬浮 小窗 一起听 开关', go: ['.app[data-app="music"]', '#music-set'] },
+{ n: '占卜 · 牌面与牌阵', d: '切换塔罗/雷诺曼牌面风格与牌阵，再抽牌', k: '占卜 牌面 牌背 牌阵 塔罗 雷诺曼 切换', go: ['.app[data-app="divination"]', '#div-faces-btn'] },
+{ n: '收藏 · 管理', d: '进收藏管理模式：勾选后批量取消收藏', k: '收藏 管理 批量 删除 取消收藏 多选', go: ['.app[data-app="note"]', '#fav-manage-btn'] }
 ] },
 { g: '小游戏', items: [
 { n: '猜拳', d: '和 TA 猜拳，累计战绩', k: '猜拳 石头剪刀布 游戏', go: ['.app[data-app="chat"]', '#more-rps'] },
@@ -76977,7 +76921,22 @@ const HUB = [
 { n: '吃什么', d: '随机抽菜/转盘，问 TA 征求意见', k: '吃什么 吃饭 菜 转盘', go: ['.app[data-app="eat"]'] },
 { n: '存钱罐', d: '存取+小心愿目标，TA 当监督人', k: '存钱罐 攒钱 心愿', go: ['.app[data-app="piggy"]'] },
 { n: '番茄钟', d: '专注/小憩/长休计时，陪伴模式', k: '番茄钟 专注 计时', go: ['.app[data-app="pomo"]'] },
-{ n: '花园', d: '种花杂交/花束工坊/成就年报，TA 代管', k: '花园 种花 花', go: ['.app[data-app="garden"]'] }
+{ n: '花园', d: '种花杂交/花束工坊/成就年报，TA 代管', k: '花园 种花 花', go: ['.app[data-app="garden"]'] },
+{ n: '喝水 · 设每日目标', d: '改每天要喝几杯（进度环的目标值）', k: '喝水 目标 杯数 每天 几杯 设定', go: ['.app[data-app="water"]', '#water-set-goal'] },
+{ n: '喝水 · 单次容量', d: '一杯按多少毫升算（影响今日已喝毫升数）', k: '喝水 单次 容量 毫升 ml 一杯', go: ['.app[data-app="water"]', '#water-set-size'] },
+{ n: '喝水 · TA 的提醒字卡', d: '加/改 TA 催你喝水时说的话', k: '喝水 提醒 字卡 催 自定义 话术', go: ['.app[data-app="water"]', '#water-add-msg'] },
+{ n: '吃什么 · 转盘抽取', d: '用转盘随机抽一个菜名（比直接「换一个」更有仪式感）', k: '吃什么 转盘 抽取 随机 轮盘 抽签', go: ['.app[data-app="eat"]', '#eat-spin'] },
+{ n: '吃什么 · 编辑菜单', d: '打开菜单面板：增删菜名、分成几套菜单', k: '吃什么 编辑菜单 菜名 菜单 增删 添加', go: ['.app[data-app="eat"]', '#eat-menu-btn'] },
+{ n: '吃什么 · 添加菜名', d: '往当前菜单里加一个菜名', k: '吃什么 添加 菜名 新增 自定义', go: ['.app[data-app="eat"]', '#eat-add'] },
+{ n: '吃什么 · 触发概率', d: 'TA 饭点主动问「吃什么」的概率（0 则不主动提）', k: '吃什么 概率 触发 饭点 主动 提醒', go: ['.app[data-app="eat"]', '#eat-remind-prob'] },
+{ n: '存钱罐 · 存一笔', d: '往罐子里存一笔钱（副业/省下的都算）', k: '存钱罐 存钱 存入 攒钱 存一笔', go: ['.app[data-app="piggy"]', '#piggy-in'] },
+{ n: '存钱罐 · 取一笔', d: '从罐子里取一笔（比如真的买下了想要的东西）', k: '存钱罐 取钱 取出 花掉 取一笔', go: ['.app[data-app="piggy"]', '#piggy-out'] },
+{ n: '存钱罐 · 新建小心愿', d: '加一个心愿目标与金额，TA 会当监督人盯着你攒', k: '存钱罐 心愿 目标 监督 攒够 想要', go: ['.app[data-app="piggy"]', '#piggy-set-goal'] },
+{ n: '存钱罐 · TA 的碎碎念', d: '加/改你存钱时 TA 说的那句话', k: '存钱罐 碎碎念 字卡 说话 自定义 监督', go: ['.app[data-app="piggy"]', '#piggy-add-msg'] },
+{ n: '番茄钟 · 设时长', d: '改专注/小憩/长休各多少分钟', k: '番茄钟 时长 分钟 专注 小憩 长休 设定', go: ['.app[data-app="pomo"]', '#pomo-set-dur'] },
+{ n: '番茄钟 · 陪伴模式', d: '进入陪读页：TA 在旁边的陪伴界面（有自己的聊天式互动）', k: '番茄钟 陪伴 陪读 一起 学习 专注 界面', go: ['.app[data-app="pomo"]', '#pomo-companion'] },
+{ n: '番茄钟 · 夸夸字卡', d: '加/改专注结束时 TA 夸你的话', k: '番茄钟 夸夸 字卡 结束 自定义 奖励', go: ['.app[data-app="pomo"]', '#pomo-add-msg'] },
+{ n: '备忘录 · 提醒概率', d: 'TA 主动催办备忘的概率（0 则不主动催）', k: '备忘录 提醒 概率 催办 触发 备忘提醒', go: ['.app[data-app="memo"]', '#memo-remind-prob'] }
 ] },
 { g: '桌面美化与外观', items: [
 { n: '外观与主题（总入口）', d: '桌面美化设置子页：主题/壁纸/字号/圆角/组件', k: '美化 外观 主题 壁纸 颜色', go: ['#row-appearance'] },
@@ -77019,14 +76978,23 @@ const HUB = [
 { n: '主页', d: '多 tab 统计：换头像/通话/摸鱼/TA 的关心/心意币', k: '主页 情侣空间 统计', go: ['.app[data-app="home"]'] },
 { n: '聊天统计', d: '相处记录/聊天记录/情绪表达多维统计', k: '统计 聊天统计 数据', go: ['.app[data-app="stats"]'] },
 { n: '提问记录', d: 'TA 的询问/小问题/好奇/吐槽/我的邀请历史', k: '提问记录 历史 记录', go: ['.app[data-app="interact"]'] },
-{ n: '查岗打卡', d: 'TA 的查岗打卡与位置记录', k: '查岗 打卡 定位', go: ['.app[data-app="checkin"]'] },
+{ n: '查岗打卡', d: 'TA 的查岗打卡与位置记录（桌面图标叫「寻踪」）', k: '查岗 打卡 定位 寻踪 日常 在哪', go: ['.app[data-app="checkin"]'] },
 { n: '日历', d: 'TA 的每日留言、情话、我的备忘与心情', k: '日历 留言 签到', go: ['.app[data-app="calendar"]'] },
 { n: '纪念', d: '纪念日/倒数日与相伴天数', k: '纪念 倒计时 周年', go: ['.app[data-app="memory"]'] },
 { n: '经期记录', d: '经期/排卵期预测、症状体温情绪记录、TA 的关心', k: '经期 生理期 排卵 月经', go: ['.app[data-app="period"]'] },
 { n: '记账', d: '收支分类/预算/图表/流水搜索', k: '记账 收支 预算 账本', go: ['.app[data-app="accounting"]'] },
 { n: '梦角档案', d: '认识 TA：九个分区 + 发现卡片 + 共同记录', k: '梦角档案 档案 认识', go: ['.app[data-app="memo-arc"]'] },
 { n: '我的档案', d: '写给 TA 的自我说明与 IF 世界设定', k: '我的档案 自我 if 世界', go: ['.app[data-app="my-arc"]'] },
-{ n: '心情日记', d: '每天记心情，月度曲线对照、TA 的关心', k: '心情日记 心情 情绪 日记', go: ['.app[data-app="calendar"]'] }
+{ n: '心情日记', d: '每天记心情，月度曲线对照、TA 的关心', k: '心情日记 心情 情绪 日记', go: ['.app[data-app="calendar"]', '#cal-mood-entry'] },
+{ n: '日历 · 编辑我的留言', d: '给今天写一句留言（写在日历里，TA 会看到）', k: '日历 留言 编辑 今天 写一句', go: ['.app[data-app="calendar"]', '#cal-edit-btn'] },
+{ n: '纪念 · 添加纪念日', d: '加一个纪念日/倒数日：选类型、写是谁的、挑日期', k: '纪念 添加 纪念日 倒数日 新加 日期', go: ['.app[data-app="memory"]', '#mem-add'] },
+{ n: '纪念 · 恋爱纪念日', d: '设置在一起的日期，主页按它算相伴天数', k: '纪念 恋爱纪念日 在一起 日期 相伴天数 关系', go: ['.app[data-app="memory"]', '#love-date-btn'] },
+{ n: '经期记录 · 设置', d: '经期设置：周期长度、提醒、隐私等开关都在这个齿轮里', k: '经期 设置 齿轮 周期 提醒 隐私 配置', go: ['.app[data-app="period"]', '#period-cog'] },
+{ n: '经期记录 · 提醒', d: '经期提醒设置：哪天提醒、提前几天提醒', k: '经期 提醒 通知 提前 到日子', go: ['.app[data-app="period"]', '#period-notify-btn'] },
+{ n: '记账 · 设置', d: '记账设置：分类管理（增删收支分类）等都在这个齿轮里', k: '记账 设置 分类 管理 齿轮 增删 类目', go: ['.app[data-app="accounting"]', '#acc-cog'] },
+{ n: '梦角档案 · 管理', d: '梦角管理：增删梦角、切换当前档案（与档案里的九个分区对应）', k: '梦角档案 管理 增删 切换 多位 档案', go: ['.app[data-app="memo-arc"]', '#narc-manage'] },
+{ n: '寻踪 · 刷新 TA 的日常', d: '让 TA 重新说一次此刻在哪里/在做什么/想对你说', k: '寻踪 刷新 换一个 日常 在哪里 在做什么', go: ['.app[data-app="checkin"]', '#ck-refresh'] },
+{ n: '寻踪 · TA在身边 / 位置感知', d: '位置感知面板：方位感知、位置时间线、换位提醒设置都在里面', k: '寻踪 位置 感知 TA在身边 方位 时间线 换位 提醒', go: ['.app[data-app="checkin"]', '#ck-loc-entry-desk'] }
 ] },
 { g: '系统与设置', items: [
 { n: '打开时先进入此间', d: '每次打开应用先进入此间，返回后再选本次进入哪个联系人桌面（默认关闭）', k: '此间 进入 桌面 选择 启动 打开 先进入 入口', go: ['#row-entry-cjian-first'] },
@@ -77078,6 +77046,7 @@ const HUB = [
 ] }
 ];
 const CAT_ICO = [
+'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/><circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/></svg>',
 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 100 20c1.2 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0022 11.5C22 6.3 17.5 2 12 2z"/><circle cx="7.5" cy="11" r=".9"/><circle cx="12" cy="7.5" r=".9"/><circle cx="16.5" cy="10.5" r=".9"/></svg>',
 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>',
@@ -79524,4 +79493,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8xrxxx -->
+<!-- __MOCHI_EOF__ mu8lawkx -->

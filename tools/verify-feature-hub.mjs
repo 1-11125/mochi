@@ -71,28 +71,34 @@ console.log('diag readyState=', await ev('document.readyState'),
   '| errs=', JSON.stringify(await ev('window.__jsErrors ? window.__jsErrors.slice(0,3).map(e=>e.msg||e) : null')));
 const A = (name, ok, extra) => { console.log((ok ? 'PASS' : 'FAIL') + ' ' + name + (extra !== undefined ? ' | ' + extra : '')); if (!ok) fail++; };
 
-// A1 渲染：9 组 / 总条目数（v3.27.x 全量收口 194 条：聊天美化与设置+桌面美化与外观两新组+群聊子功能+通话背景）
+// A1 渲染：10 组 / 总条目数（v3.27.x 全量收口 194 条：聊天美化与设置+桌面美化与外观两新组+群聊子功能+通话背景；
+// #865 桌面补全批新增【桌面应用】组 → 10 组）
 const r1 = await ev(`(()=>{ const gs=document.querySelectorAll('#fhub-body .gs-title').length; const rows=document.querySelectorAll('#fhub-body .set-row').length; return gs+'|'+rows; })()`);
 const [gCount, rowCount] = String(r1).split('|').map(Number);
-A('A1 分组数=9', gCount === 9, '实际 ' + gCount);
-A('A1 条目数=213（#561 基础；2026-09-16 #581 补「调整图标图片位置」、#606 关于批 +4 入口、#602 分享链接关键词、音乐导入来源等并行批累计）', rowCount === 213, '实际 ' + rowCount);
+A('A1 分组数=10（#865 新增【桌面应用】组）', gCount === 10, '实际 ' + gCount);
+// 条目数只作**下限**判定（防整块丢失）：本仓多会话并行往目录里加条目，写死等值＝别人加一条
+// 本脚本就假红（2026-09-19 #848 实测：213 基线在 HEAD 副本里已是 231）。收口批若删了条目，
+// 这里照样红。
+A('A1 条目数≥213（下限＝v3.27.x 全量收口后累计基线；并行批只增不减）', rowCount >= 213, '实际 ' + rowCount);
 
 // A2 设置行进入功能大全页
 await ev(`document.getElementById('row-featurehub').click()`);
 await sleep(120);
 A('A2 入口行打开功能大全', await ev(`!document.getElementById('page-featurehub').hidden`));
 
-// A3 搜索「红包」只留命中（v3.27.x 起 3 条：红包本体 + TA 自动发红包概率 + TA 每日发红包上限）
+// A3 搜索「红包」只留命中（断言＝全部可见行都含「红包」＋不少于 3 条；写死条数会随并行批
+// 新增红包相关条目假红，故只留下限与「无串项」两条真判据）
 await ev(`(()=>{const i=document.getElementById('fhub-search'); i.value='红包'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(80);
-const vis = await ev(`[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none').length`);
-A('A3 搜索红包→3 条', vis === 3, '实际 ' + vis);
+const hit = await ev(`(()=>{const v=[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none'); return v.length+'|'+v.filter(r=>!r.textContent.includes('红包')).length; })()`);
+const [vis, offTopic] = String(hit).split('|').map(Number);
+A('A3 搜索红包→≥3 条且无串项', vis >= 3 && offTopic === 0, '命中 ' + vis + ' 条、非红包条目 ' + offTopic + ' 条');
 
 // A4 清空搜索恢复
 await ev(`(()=>{const i=document.getElementById('fhub-search'); i.value=''; i.dispatchEvent(new Event('input')); })()`);
 await sleep(80);
 const vis2 = await ev(`[...document.querySelectorAll('#fhub-body .set-row')].filter(r=>r.style.display!=='none').length`);
-A('A4 清空恢复 213 条', vis2 === 213, '实际 ' + vis2);
+A('A4 清空搜索恢复到 A1 全量（往返等式，不写死条数）', vis2 === rowCount, '恢复 ' + vis2 + ' 条 / A1 ' + rowCount + ' 条');
 
 // A5 链式跳转·桌面图标类（花园）——按首行名称精确匹配（描述里含「花园」的字卡行不应误命中）
 await ev(`[...document.querySelectorAll('#fhub-body .set-row')].find(r=>{const t=r.querySelector('.txt'); return t&&t.firstChild&&t.firstChild.textContent.trim()==='花园';}).click()`);
