@@ -3472,7 +3472,13 @@ cb.scrollTop = Math.min(cb.scrollTop, realMax); // 超界显式钳回；未超�
 let batchRendering = false;
 let pendingOutScroll = false;
 let appendTarget = null;
-function appendMsg(m) { (appendTarget || body).appendChild(m); }
+// FIX 2026-09-20 #878（用户报障「聊天里发送的礼物卡片没有任何动画缓冲突然出现很突兀，
+// 互动卡片都有这个问题」）：入场动画类原先在 renderMsg 建节点时加（原 4405 行位置），
+// 但礼物/互动卡/文本等**所有**分支随后都以 m.className = 'msg-gift'/'msg-ask'/'msg …'
+// 整体覆盖 className，msg-enter 在挂载前就被抹掉＝动画实际从未触发。类补加挪到
+// appendMsg 挂载前（此处恒在各分支覆盖之后）；batchRendering 闸口径不变：
+// 批量渲染/原位重画不入场动画。
+function appendMsg(m) { if (!batchRendering) m.classList.add('msg-enter'); (appendTarget || body).appendChild(m); }
 function appendAvatarBatch(on) {
 if (on) { if (!avatarBatchCache) avatarBatchCache = {}; }
 else avatarBatchCache = null;
@@ -4369,7 +4375,8 @@ m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，
 // 批量/整窗渲染侧本就按真实下标覆盖（见 renderWindow 与 loadOlder/loadNewerIncremental 的
 // `m.dataset.idx = i`），此处预写 msgs.length-1 与旧兜底句口径一致、零新语义。
 m.dataset.idx = msgs.length - 1;
-if (!batchRendering) m.classList.add('msg-enter');
+// #878：msg-enter 不在此处加——下面各分支的 m.className=… 整体覆盖会把它抹掉，
+// 统一由 appendMsg 挂载前补加（见其定义处注释）。
 const __fit = rec.side !== 'out' && !!window.taFit;
 const __taNm = chatPartnerName();
 const __meNm = chatUserName();
