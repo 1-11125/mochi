@@ -282,6 +282,11 @@ const FIX_SENTINELS = [
   { name: '#770c 掉帧阈值随实测刷新周期自适应（改回固定 32ms＝高刷屏漏计、持续掉帧窗口周期被抬高一劲也漏判；needle=自适应取阈值函数整体）', file: 'js/perf-check.js', needle: 'function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); }' },
   { name: '#770d 「流畅」结论对零星掉帧说真话（改回无条件「未捕获掉帧」＝与下方「掉帧 N 帧」自相矛盾）', file: 'js/perf-check.js', needle: "r.jankPct + '%，可忽略）'" },
   { name: '#770e 「掉帧集中」≥3 帧才输出（删＝单帧噪声也引导用户排查该页大图/长内容）', file: 'js/perf-check.js', needle: 'function concOk(r) { return r.janky >= 3 && !!r.topPage; }' },
+  // ==== 2026-09-19 #818 iOS 卡顿定位诊断增强（perf-check 三样，全部仍只活在检测窗口内、结束即拆＝零常驻开销）：①点按响应延迟（iOS 无 longtask 时比掉帧率贴近「点了隔一下才动」体感）②最慢帧现场 top3（第几秒·哪个页·键盘期·切页后 0.5s 内）③低电量档识别（周期 ≥28ms ≈30fps＝iOS 低电量模式减半帧率，系统行为防误判）。登记补录：代码与产物已随 c05fc22 入库（共享 index 撞车被 #811 批卷入），登记行当时未随库，本提交补齐 ====
+  { name: '#818a 点按响应延迟采样（窗口内 passive 按下戳记、下一帧结算；删＝「点了没反应」类 iOS 报障无数据可定位）', file: 'js/perf-check.js', needle: "var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';" },
+  { name: '#818b 响应延迟结算（删＝只剩帧间隔无交互维度；needle=结算行整体）', file: 'js/perf-check.js', needle: 'var lat = now - lastDown; lastDown = -1;' },
+  { name: '#818c 最慢帧现场 top3 截断（删＝卡在哪个页/什么动作后无法定位）', file: 'js/perf-check.js', needle: 'scene.length = 3;' },
+  { name: '#818d iOS 低电量 30fps 档识别（删＝低电量减半帧率被误判成应用卡顿）', file: 'js/perf-check.js', needle: 'rep.lp = minD >= 28;' },
   // ==== 2026-09-18 #765 iOS 卡顿收口（壁纸层提合成层 + 贴底看门狗滚动期让路）====
   { name: '#765a 聊天壁纸层独立成合成层（删掉＝聊天页内容变化波及壁纸层，整张 cover 位图被重新缩放光栅，「设了壁纸后滚动/发消息发涩」复发；needle=该行整体，chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '#cs-bg-layer { transform:translateZ(0); }' },
   { name: '#765b 贴底看门狗滚动期让路（删掉＝iOS 抬手后惯性滑行期仍被写 scrollTop，#716「往上滑被拽回底部」的 iPhone 残根回流；needle=200ms 让路判定行，chat.js 内唯一）', file: 'js/chat.js', needle: 'if (Date.now() - _chatScrollActTs < 200) return;' },
