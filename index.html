@@ -10164,9 +10164,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789810053030">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789819498354">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 17:27<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 20:04<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -56895,6 +56895,25 @@ window.defaultCardCfg = function () { return api.cfg(); };
 window.defaultCardApiFor = apiFor;
 const DATA = (window.DEFAULT_CARD_DATA) || { main: [], kaomoji: [], emoji: [] };
 const LOCKED = () => !(window.cardLockOpen && window.cardLockOpen());
+function dedupeCardGroups(groups, cross) {
+const across = cross ? new Set() : null;
+(groups || []).forEach(function (g) {
+if (!g || !Array.isArray(g[1])) return;
+const seen = across || new Set();
+const out = [];
+g[1].forEach(function (c) {
+if (typeof c !== 'string') { out.push(c); return; }
+if (seen.has(c)) return;
+seen.add(c);
+out.push(c);
+});
+g[1] = out;
+});
+return groups;
+}
+Object.keys(DATA).forEach(function (k) {
+if (k !== 'dict' && Array.isArray(DATA[k])) dedupeCardGroups(DATA[k], k === 'main');
+});
 const DICT_CUST_QKEY = 'dict-custom-quotes';
 const DICT_CUST_WKEY = 'dict-custom-words';
 const PRESET_DICT = (DATA.dict || []).concat(DATA.dict_ext || []).map(g => [g[0], (g[1] || []).slice()]);
@@ -56919,7 +56938,7 @@ else if (qs.length) base.push(['语录·自建', qs.slice()]);
 const gw = base.find(g => g[0].indexOf('词库') === 0);
 if (gw) gw[1] = gw[1].concat(ws);
 else if (ws.length) base.push(['词库·自建', ws.slice()]);
-DATA.dict = base;
+DATA.dict = dedupeCardGroups(base, true);
 window.__dictCustomSet = new Set(qs.concat(ws));
 } catch (e) {}
 }
@@ -79300,4 +79319,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu86ozhi -->
+<!-- __MOCHI_EOF__ mu8cbfjm -->

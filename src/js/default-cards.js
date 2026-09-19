@@ -99,6 +99,30 @@
   // #319 防未成年人二级验证锁：锁定时系统预设字卡整体视为不存在（字卡库/回复池/词典拼字/
   //   各功能同源池全部取空），用户自建字卡不受影响——card-lock.js 先于本文件加载。
   const LOCKED = () => !(window.cardLockOpen && window.cardLockOpen());
+  // #849 系统预设字卡去重（用户实报「词典里有重复内容，比如基础汉字的【嗯】与词库重复」「默认
+  // 聊天字卡里有重复内容」）：批量化补卡时同一句话被反复写进多个分组，字卡库列表出现重复行、
+  // 拼字抽卡池里同一张卡被抽中的概率翻倍。规则＝组内同文一律只留第一张；cross＝整个分类跨分组
+  // 判重（词典、默认聊天字卡两分类按用户报障口径去重），分组顺序即优先级，先出现的分组保留。
+  function dedupeCardGroups(groups, cross) {
+    const across = cross ? new Set() : null;
+    (groups || []).forEach(function (g) {
+      if (!g || !Array.isArray(g[1])) return;
+      const seen = across || new Set();
+      const out = [];
+      g[1].forEach(function (c) {
+        if (typeof c !== 'string') { out.push(c); return; }
+        if (seen.has(c)) return;
+        seen.add(c);
+        out.push(c);
+      });
+      g[1] = out;
+    });
+    return groups;
+  }
+  // dict 由 mergeDictCustom 每次重建（含自建词条），去重在那里做
+  Object.keys(DATA).forEach(function (k) {
+    if (k !== 'dict' && Array.isArray(DATA[k])) dedupeCardGroups(DATA[k], k === 'main');
+  });
 
   // ================= v3.28.x #301：词典自建词条（词典 tab 内自由新增/删除） =================
   // 存储：全局命名空间 xy-home-v2:dict-custom-quotes / dict-custom-words（JSON 数组）——
@@ -136,7 +160,7 @@
       const gw = base.find(g => g[0].indexOf('词库') === 0);
       if (gw) gw[1] = gw[1].concat(ws);
       else if (ws.length) base.push(['词库·自建', ws.slice()]);
-      DATA.dict = base;
+      DATA.dict = dedupeCardGroups(base, true);
       window.__dictCustomSet = new Set(qs.concat(ws));
     } catch (e) {}
   }

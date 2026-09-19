@@ -3590,6 +3590,8 @@ const FIX_SENTINELS = [
   { name: '#842d 文字分类停在最近分组不被自动回落改选（删＝下次渲染被改选到第一个非空分组，最近区一点就丢）', file: 'js/chat.js', needle: "if (cur !== '__recent__' && (!cur || !list.some(g => g[0] === cur)))" },
   { name: '#842e 文字最近分组走文字网格渲染（删＝点 chip 出空态或错走图片路径）', file: 'js/chat.js', needle: "renderEmojiTextGroup('__recent__', srcs);" },
   { name: '#842f 两新键全局根键免迁（删＝每次刷新被 migrateLegacy 迁进 default 并删根键，非 default 桌面这两类最近区清空）', file: 'js/contacts.js', needle: "'emoji-recent-kaomoji', 'emoji-recent-emoji'," },
+  { name: '#849a 加载期全分类组内去重＋main 跨分组去重（删则默认聊天字卡/互动回应等同文重复行复发）', file: 'js/default-cards.js', needle: "if (k !== 'dict' && Array.isArray(DATA[k])) dedupeCardGroups(DATA[k], k === 'main');" },
+  { name: '#849b 词典重建链跨分组去重（词库与基础汉字等扩展分组同文只留一处；删则用户报的【嗯】重复复发）', file: 'js/default-cards.js', needle: 'DATA.dict = dedupeCardGroups(base, true);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
