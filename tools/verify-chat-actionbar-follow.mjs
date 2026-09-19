@@ -42,8 +42,9 @@ check('A4 群聊接入同一跟随助手',
   gcSrc.includes('window.mochiFollowActionBar(gcMsgActions, bk, closeGcMsgActions)'));
 check('A5 chat-body 盒尺寸 ResizeObserver 回钉在位（#643）',
   chatSrc.includes("if (!cb643 || typeof ResizeObserver === 'undefined') return;"));
-check('A6 回钉受 chatPinnedBottom 闸约束（#162 解钉不拽底契约不变）',
-  chatSrc.includes('if (chatPinnedBottom && chatVisible()) scrollChatBottom();'));
+check('A6 回钉受 chatPinnedBottom 闸约束（#162 解钉不拽底契约不变；#868 起该校正在 chatRepinStep 里）',
+  chatSrc.includes('if (!chatVisible() || !chatPinnedBottom) return;')
+  && chatSrc.includes('if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom();'));
 check('A7 旧「一次性定位」块已移除（absent：单聊直接写 style.top）',
   !chatSrc.includes("msgActions.style.top = y + 'px';"));
 check('A8 旧「一次性定位」块已移除（absent：群聊直接写 style.top）',
