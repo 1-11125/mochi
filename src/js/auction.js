@@ -578,7 +578,7 @@
       if (st.myWins) txt += '拍下 ' + st.myWins + ' 件 ' + yuan(st.spent);
       else txt += '空手而归';
       if (st.taWins) txt += ' · ' + T('TA') + ' 拍走 ' + st.taWins + ' 件';
-      if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction' });
+      if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction', nightAllow: true });
     } catch (e) {}
   }
   // #346 结算汇总单独成函数：背包「返回」也要能回到这一屏（原先被背包覆盖后回不去）

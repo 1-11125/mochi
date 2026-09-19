@@ -382,7 +382,7 @@ if (overlayBtn2El) { overlayBtn2El.textContent = '返回小游戏'; overlayBtn2E
 if (overlayEl) overlayEl.hidden = false;
 try {
 if (window.chatAddSystem) {
-window.chatAddSystem('记忆翻牌 · 你 ' + g.myPairs + ' 对 · ' + T('TA') + ' ' + g.taPairs + ' 对 · 默契 ' + g.chemistry, { special: 'memory' });
+window.chatAddSystem('记忆翻牌 · 你 ' + g.myPairs + ' 对 · ' + T('TA') + ' ' + g.taPairs + ' 对 · 默契 ' + g.chemistry, { special: 'memory', nightAllow: true });
 }
 const pool = window.getInteractPool
 ? window.getInteractPool('游戏平局·回应', ['一起找完了。', '好默契呀。', '差不多嘛。', '再来一局？'])

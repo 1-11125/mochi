@@ -674,7 +674,7 @@
     if (startBtn) startBtn.textContent = '再来一次';
     if (endBtn) endBtn.hidden = false;
     try {
-      if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms' });
+      if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', nightAllow: true });
       // 合作模式：完成/差一点点都不是「平局」也不是「我赢/你赢」——直接走合作文案，
       // 不再接对抗/平局的互动回应池（避免 TA 说出「平局！」「赢你了」这类不符合合作语境的话）
       const fb = win

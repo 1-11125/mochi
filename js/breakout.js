@@ -508,7 +508,7 @@ showOverlay(T('游戏结束'), body, '再来一局');
 if (overlayCloseBtn) { overlayCloseBtn.hidden = false; overlayCloseBtn.textContent = '返回小游戏'; }
 try {
 if (window.chatAddSystem) {
-window.chatAddSystem(T('双人打砖块 · ') + s.score + ' 分 · 最高连击 ×' + s.maxCombo + ' · 完成第 ' + (s.level - 1) + ' 层', { special: 'brick' });
+window.chatAddSystem(T('双人打砖块 · ') + s.score + ' 分 · 最高连击 ×' + s.maxCombo + ' · 完成第 ' + (s.level - 1) + ' 层', { special: 'brick', nightAllow: true });
 }
 if (!s.endReplied) {
 s.endReplied = true;

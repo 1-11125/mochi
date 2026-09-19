@@ -299,7 +299,7 @@ const replyText = type === 'typeb' && options
 ? '【帮我决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n→ ' + result
 : '【帮我决定】' + question + ' → ' + result;
 if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
+else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
 }
 toast('帮我决定已完成');
 };

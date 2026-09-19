@@ -1498,10 +1498,10 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #492 帮我决定/多人决定结果发到聊天后不滑到最新消息（多机型同报）：决策结果是用户主动触发，与 out 侧（自己发消息必跟底）和群聊 followGcBottom(true) 同权；chatAddIn({follow:true}) 一次性标记 + maybeScrollChatBottom 消费，TA 自发消息 #162/#378/#416 不打扰契约零改动 ====
   { name: '#492 follow 一次性消费+跟底闸放行（删则决策结果在解钉态永不跟底＝症状复发）', file: 'js/chat.js', needle: 'const userFollow = !out && chatUserFollowScroll;' },
   { name: '#492 chatAddIn 用户主动通道入口（删则 decision/group-decision 的 follow 传参失效）', file: 'js/chat.js', needle: 'if (opts && opts.follow) chatUserFollowScroll = true;' },
-  { name: '#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果' },
+  { name: '#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果' },
   // ==== 2026-09-17 拍一拍发出后不自动滑到最新消息（用户报）：sendPoke 是用户主动触发的 in 侧消息，置 #492 同款 chatUserFollowScroll 一次性跟底标记；TA 自发消息与 TA 回拍不受影响 ====
-  { name: '拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发）', file: 'js/chat.js', needle: "chatUserFollowScroll = true;\naddRec({ side: 'in', text: text, special: 'poke' });" },
-  { name: '#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/group-decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果' },
+  { name: '拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发；#876 该行追加 nightAllow 夜间放行标记，needle 随之换锚）', file: 'js/chat.js', needle: "chatUserFollowScroll = true;\naddRec({ side: 'in', text: text, special: 'poke', nightAllow: true });" },
+  { name: '#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/group-decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果' },
   { name: '#378/#416 单聊手动滚回贴底回钉（解钉后自动跟底可恢复；#416 起只认真的贴到底 ≤8px，防上翻读最新时误回钉拽底；2026-09-18 随 #716d 手势闸演进，锚收到未变的 ≤8px 判定本体，回钉调用点锚归 #716d）', file: 'js/chat.js', needle: 'cb.clientHeight <= 8;' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
@@ -2335,8 +2335,8 @@ const FIX_SENTINELS = [
   // TA 批次防同款去重与 out 侧 #437 反馈零改动。行为断言 tools/verify-decision-dedup-exempt.mjs（修前产物 RED 1/5＝症状复现） ====
   { name: '#544 addRec 实时去重豁免闸（删则决定答案快速重跑同文撞 2500ms 窗被静默吞＝「联系人消息被吞了几条」复发）', file: 'js/chat.js', needle: 'i >= Math.max(0, len - 5) && !rec.dedupExempt' },
   { name: '#544 刷新归一化豁免（normCollapseRange，删则刷新后带标记答案仍会被相邻合并回吞＝屏上所见≠刷新后所见）', file: 'js/chat.js', needle: 'if (a.dedupExempt || b.dedupExempt) continue; // FIX 2026-09-15 #544' },
-  { name: '#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果' },
-  { name: '#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/group-decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果' },
+  { name: '#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果' },
+  { name: '#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/group-decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果' },
   // ==== 2026-09-16 #547 表情包面板「每次打开都重新加载」复发 + 拍卖会页面显示不全（小米15Pro Chrome 等多机型同发，用户明说其他设备型号也有）：
   // ①表情面板：#457 内容指纹短路被「令牌化翻转」废掉——池视图卡被 ccTokenizeGiantMedia 异步令牌化
   //  （dataURL→@@m:token）后原文变了、显示没变，按原文签名误判内容变化→整面板 innerHTML 重建+全部图
@@ -2409,7 +2409,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-16 #559 经期预警按「语境 × 经期规律」分级：经前/推迟不再发经期中口吻；不规律者不说「推迟」改间隔口吻 ====
   { name: '#559a 经前预警 {d} 替换为距预测经期天数（删则经前预警不带日期参数）', file: 'js/period.js', needle: "String(line).replace(/\\{d\\}/g, String(diffDays(today, st.nextStart)));" },
   { name: '#559b 推迟预警 {d} 替换为已推迟天数（删则推迟预警不带日期参数）', file: 'js/period.js', needle: "String(line).replace(/\\{d\\}/g, String(delayDays));" },
-  { name: '#559c 标签按语境区分（删则经前预警日又以「经期关心」标签发经期中口吻语料＝症状回流）', file: 'js/period.js', needle: "{ tag: kind === 'in' ? '经期关心' : '经期预警' }" },
+  { name: '#559c 标签按语境区分（删则经前预警日又以「经期关心」标签发经期中口吻语料＝症状回流）', file: 'js/period.js', needle: "{ tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }" },
   { name: '#559d 经前预警语料分组（删则经前预警日无专属预警语、字卡库缺该组）', file: 'js/default-cards-data.js', needle: '["经前预警", [' },
   { name: '#559e 规律分级判据（删则不规律用户也被当「预测可信」按推迟口径轰炸＝「太扯淡」回流）', file: 'js/period.js', needle: "if (s.n >= 3 && s.cv < 0.2) return 'rule';" },
   { name: '#559f 规律型推迟门 ≥5 天（删则规律用户推迟无预警）', file: 'js/period.js', needle: "if (tier === 'rule' && delayDays >= 5)" },
@@ -2769,7 +2769,7 @@ const FIX_SENTINELS = [
   { name: '#673 过渡期运营判定探针 transitionBlocks（删掉＝回归脚本测不到「过渡期内全新消息放行/重放拦截」，跨机型回归失守）', file: 'js/bg-keep.js', needle: 'transitionBlocks: transitionBlocks,' },
   // ==== 2026-09-17 音乐互动台词静默通道（用户报障 vivo iQOO Z9x Edge 等多机型「播放导入的本地歌时出现消息
   //     提示音、音乐没法正常听」；与后台弹窗 #673 撞编号，本批即该音乐 #673 的哨兵，接在后台 #673 块之后）====
-  { name: '音乐互动台词静默通道·chatAddSystem 带 silent（删掉＝音乐互动系统消息重回响铃通道，听歌时每掷中一次概率就响一次提示音盖在音乐上复发；needle 唯一于 music-player.js 的 taMusicSys）', file: 'js/music-player.js', needle: 'window.chatAddSystem(text, { silent: true })' },
+  { name: '音乐互动台词静默通道·chatAddSystem 带 silent（删掉＝音乐互动系统消息重回响铃通道，听歌时每掷中一次概率就响一次提示音盖在音乐上复发；needle 唯一于 music-player.js 的 taMusicSys）', file: 'js/music-player.js', needle: 'window.chatAddSystem(text, { silent: true, nightAllow: true })' },
   { name: '音乐互动台词静默通道·chatAddIn 带 silent（删掉＝「TA 暂停播放/恢复播放」字卡重回响铃通道，听歌时被消息提示音盖住复发；needle 唯一于 music-player.js 的 taMusicSay）', file: 'js/music-player.js', needle: 'window.chatAddIn(text, { silent: true })' },
   { name: '音乐互动台词静默·chatAddSystem 透传 silent：true（删掉＝调用方传的 silent 被就地吞掉，上面两条静默通道全部失效＝听歌提示音复发；needle 唯一于 chat.js 的 chatAddSystem）', file: 'js/chat.js', needle: "special: opts.special || 'poke', silent: opts.silent," },
   { name: '音乐互动静默·TA 暂停交互被用户介入打断也要记账（删掉＝用户点播放打断 TA 暂停后同歌/下一首还能再掷中＝「不管点哪首歌一播放就被打断、还响一声提示音」复发；needle 唯一于 music-player.js 的 cancelTaPause）', file: 'js/music-player.js', needle: 'if (taPauseActive && taPauseFiredId) bookTaPauseFired(taPauseFiredId);' },
@@ -3722,6 +3722,23 @@ const FIX_SENTINELS = [
   { name: '#871e 就地展开/收起接钩（删＝该入口回到无收尾）', file: 'js/chat.js', needle: "chatRetractToggleAfter('toggle');" },
   { name: '#871f 字卡明细开合接钩（删＝该入口回到无收尾）', file: 'js/chat.js', needle: "chatRetractToggleAfter('rc');" },
   { name: '#871g 情绪字卡明细开合接钩（删＝该入口回到无收尾）', file: 'js/chat.js', needle: "chatRetractToggleAfter('rcm');" },
+  // ==== 2026-09-20 #876 夜间静默总闸收口（用户直派「夜间模式就是什么也不能发」：开了夜间模式挂后台睡觉，换头像换昵称/互动卡/回复还在夜里发）====
+  //   根因＝旧夜间模式只装在 tryAutoSend/来电/跨桌面三条链上，换头像换昵称（avatar-lib 四个 60s 轮询）、
+  //   互动卡（ta-ask 五类 maybeTrigger）、被动回复、红包礼物换位朋友圈等各自独立链全部无夜间检查。
+  //   本批＝addRec/addIn 收件总闸（nightAllow 例外通道放行用户当刻回执与到点提醒）+ 各自发链源头闸 +
+  //   被动回复顺延到 7:00 后（单聊 scheduleReply / 群聊 memberReply）。行为锚逐条登记如下：
+  { name: '#876a addRec 收件总闸（删＝换头像/红包/战绩等直调通道夜里照发，回归「开了夜间模式还发」主诉）', file: 'js/chat.js', needle: "!rec.nightAllow && !(window.__nightReplyOpen" },
+  { name: '#876b addIn 音效前守卫（删＝夜里响一声没消息；音效在 addRec 之前播，必须前置换闸）', file: 'js/chat.js', needle: "!opts.nightAllow && !(window.__nightReplyOpen" },
+  { name: '#876c 被动回复夜间顺延到 7:00 后（删＝夜里发消息 TA 照回，总闸拦掉会丢回复，必须保留顺延链）', file: 'js/chat.js', needle: "const __nmHold = window.nightModeActive" },
+  { name: '#876d 继续说/点名字放行窗口置位（删＝用户当刻点「继续说」TA 回复被总闸吞＝「点了没反应」回归）', file: 'js/chat.js', needle: "window.__nightReplyOpen = Date.now();" },
+  { name: '#876e 换头像换昵称夜间静默助手（删＝四个 60s 轮询回到无夜间检查，主诉最大来源复发）', file: 'js/avatar-lib.js', needle: "function avNightQuiet() {" },
+  { name: '#876f 互动卡频率闸内夜间拦截（删＝询问/小问题/好奇/吐槽/查岗卡夜间照发）', file: 'js/ta-ask.js', needle: "nightModeActive && window.nightModeActive()) return false;" },
+  { name: '#876g 群聊成员回复夜间顺延（删＝夜间群聊照常七嘴八舌）', file: 'js/group-chat.js', needle: "if (!__force && window.nightModeActive" },
+  { name: '#876h TA 自动换位夜间不触发（删＝「隔着世界在你身边」等换位消息夜间照发）', file: 'js/p2-features.js', needle: "nightModeActive && window.nightModeActive()) return;\nconst companion" },
+  { name: '#876i TA 自动送礼源头闸（删＝扣款已发生而礼物消息被总闸拦＝扣了钱没礼物）', file: 'js/gift-shop.js', needle: "nightModeActive && window.nightModeActive()) return;\nconst st = wlSettings();" },
+  { name: '#876j 朋友圈自动动态夜间不生成（删＝夜里照发动态+聊天提示）', file: 'js/feed.js', needle: "nightModeActive && window.nightModeActive()) return;\nconst cs = window.storeFor(cid);" },
+  { name: '#876k 跨桌面消息队列回放夜间暂停（删＝夜里回放其他桌面队列照常进聊天）', file: 'js/bg-keep.js', needle: "if (!force && window.nightModeActive && window.nightModeActive()) return 0;" },
+  { name: '#876l 夜间模式说明改「完全静默」口径（退回旧「只拦主动」文案＝用户再被误导「为什么回复还在发」）', file: 'js/settings-help.js', needle: "这段时间内 TA 完全静默" },
   // ==== 2026-09-20 #876 吃什么转盘「转盘抽取」中奖片不在指针下：旧公式把指针当在右侧 0 角（2π-normalized），CSS 指针实际钉在正上方（.eat-pointer top:-12px 尖朝下＝画布角 3π/2）＝高亮片/「今天吃」菜名恒与指针错开约 1/4 圈（2~30 格×500 随机角仿真 100% 错位）。修法＝抽 eatIdxUnderPtr（顶部指针几何），主转盘＋切菜单转盘两处接线 ====
   { name: '#876a 转盘中奖片按顶部指针几何计算（指针 .eat-pointer 在 12 点＝画布角 3π/2；改回 2π-零角旧形态＝高亮/菜名恒不在指针下）', file: 'js/p2-features.js', needle: 'function eatIdxUnderPtr(normalized, n, slice) { return Math.floor((((3 * Math.PI / 2 - normalized)' },
   { name: '#876b 主转盘接线（删＝吃什么页「转盘抽取」中奖片与指针错位复发）', file: 'js/p2-features.js', needle: 'eatIdxUnderPtr(normalized, dishes.length, slice)' },

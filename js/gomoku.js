@@ -466,7 +466,7 @@ else showResult();
 setStatus(winner === 1 ? '🎉 你赢了！' : winner === 2 ? T('TA') + '赢了这一局' : '棋盘下满了，平局');
 try {
 const resTxt = winner === 1 ? '你赢' : winner === 2 ? T('TA') + '赢' : '平局';
-if (window.chatAddSystem) window.chatAddSystem(T('五子棋') + ' · ' + resTxt, { special: 'gomoku' });
+if (window.chatAddSystem) window.chatAddSystem(T('五子棋') + ' · ' + resTxt, { special: 'gomoku', nightAllow: true });
 const grp = winner === 1 ? '游戏失败·回应' : winner === 2 ? '游戏胜利·回应' : '游戏平局·回应';
 const fb = winner === 1 ? ['让你赢啦，再来？'] : winner === 2 ? ['五连！我赢啦'] : ['平局，再来一局？'];
 const pool = window.getInteractPool ? window.getInteractPool(grp, fb) : fb;

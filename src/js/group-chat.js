@@ -1500,8 +1500,18 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   // v3.9.x：成员回复——按群聊回复设置：回复速度/条数/拍一拍/表情包/emoji/图片/语音/
   // 颜文字/引用/撤回（含撤回补发），与聊天页被动回复语义一致
-  function memberReply(cid, quoteText, gid, continuation) {
+  function memberReply(cid, quoteText, gid, continuation, __force) {
     if (gid === undefined) gid = curGid; // FIX 串群 #242：未传时兜底当前群
+    // #876 夜间静默：群成员回复（发消息回应/拍一拍回应/追问接话）夜间整体顺延到次日
+    // 7:00 后随机 1–10 分钟一次性补发（与单聊 scheduleReply 顺延同口径）；期间打字/切群
+    // 语义由重入后的正常链自理。gcContinueSay（用户点「继续说」）传 __force 放行——用户
+    // 当刻要求的回应不受夜间限制（与单聊 continueChat 放行窗口同口径）。
+    if (!__force && window.nightModeActive && window.nightModeActive()) {
+      const __t7 = new Date(); __t7.setHours(7, 0, 0, 0);
+      const __wait = Math.max(60000, __t7.getTime() - Date.now()) + (60 + Math.random() * 540) * 1000;
+      setTimeout(() => { try { memberReply(cid, quoteText, gid, continuation, __force); } catch (e) {} }, __wait);
+      return;
+    }
     const c = gcCfg();
     const immediate = continuation && c['gc-cs-normal'] !== 1;
     const name = memberName(cid);
@@ -3622,7 +3632,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       : members.slice(0, Math.max(1, Math.min(2, members.length))).map(m => m.id);
     chosen.forEach((cid, i) => {
       const gap = c['gc-cs-normal'] === 1 ? i * (1200 + Math.random() * 1600) : i * 400;
-      setTimeout(() => memberReply(cid, '', gid, true), gap);
+      setTimeout(() => memberReply(cid, '', gid, true, true), gap); // #876 末参 __force：用户点「继续说」，夜间放行
     });
     if (window.playSfxGc) window.playSfxGc('in'); // #698d：走群聊专属音效（未设置回退单聊）
   }

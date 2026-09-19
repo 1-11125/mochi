@@ -1313,7 +1313,7 @@
     else if (kind === 'delayIrr') line = String(line).replace(/\{d\}/g, String(st.dayOfCycle || 0));
     // 带标签 chip 发进聊天（addIn opts.tag → rec.mood），用户能看出消息来源与语境：
     // 「经期关心」= 经期中，「经期预警」= 经前预警/推迟（#559 起区分）
-    try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
+    try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }); } catch (e) {}
     notifyCfg.fired[careKey] = 1;
     var cut = addDays(today, -30);
     Object.keys(notifyCfg.fired).forEach(function (k) { if (k < cut) delete notifyCfg.fired[k]; });

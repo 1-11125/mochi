@@ -2983,7 +2983,7 @@ function syncFloatToggle() {
 const cb = document.getElementById('music-float-en');
 if (cb) cb.checked = settings.floatEn;
 }
-function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true }); } catch (e) {} }
+function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true, nightAllow: true }); } catch (e) {} }
 function taMusicSay(text) { try { if (window.chatAddIn) window.chatAddIn(text, { silent: true }); } catch (e) {} }
 function taFavList() {
 try {

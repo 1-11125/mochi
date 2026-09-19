@@ -814,7 +814,7 @@
     setStatus('🎉 达成目标！默契 ' + chem);
     // 写聊天系统消息 + TA 随机回应
     try {
-      if (window.chatAddSystem) window.chatAddSystem(T('消消乐') + ' · 达成 ' + st.score + ' 分 · 默契 ' + chem, { special: 'match3' });
+      if (window.chatAddSystem) window.chatAddSystem(T('消消乐') + ' · 达成 ' + st.score + ' 分 · 默契 ' + chem, { special: 'match3', nightAllow: true });
       const fb = ['通关啦，配合不错。', '我们好默契呀。', '再来一局？'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];

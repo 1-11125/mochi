@@ -324,7 +324,7 @@
         if (editingNow()) return;
         if (!window.chatAddIn) { toast('聊天未就绪'); return; }
         const dueTxt = it.due ? '（' + it.due + ' 截止）' : '';
-        try { window.chatAddIn('备忘 · ' + (it.t || '') + dueTxt); toast('已发送'); } catch (e) {}
+        try { window.chatAddIn('备忘 · ' + (it.t || '') + dueTxt, { nightAllow: true }); toast('已发送'); } catch (e) {}
       });
       const pin = document.createElement('button');
       pin.className = 'mm-act mm-pin' + (it.pin ? ' on' : ''); pin.textContent = '📌'; pin.title = it.pin ? '取消置顶' : '置顶';

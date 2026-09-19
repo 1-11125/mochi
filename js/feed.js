@@ -1901,6 +1901,7 @@ if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, taName + ' 发
 }
 function maybeAutoPostFor(cid) {
 try {
+if (window.nightModeActive && window.nightModeActive()) return;
 const cs = window.storeFor(cid);
 const now = Date.now();
 const cfg = feedCfgFor(cid);

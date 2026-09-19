@@ -379,7 +379,7 @@ if (endBtn) endBtn.hidden = false;
 setStatus(winner === 1 ? '🎉 你赢了！' : winner === 2 ? escName() + '赢了这一局' : '这局没有分出胜负');
 try {
 const resTxt = winner === 1 ? '你赢' : winner === 2 ? T('TA') + '赢' : '平局';
-if (window.chatAddSystem) window.chatAddSystem(T('四子棋') + ' · ' + resTxt, { special: 'c4' });
+if (window.chatAddSystem) window.chatAddSystem(T('四子棋') + ' · ' + resTxt, { special: 'c4', nightAllow: true });
 const grp = winner === 1 ? '游戏失败·回应' : winner === 2 ? '游戏胜利·回应' : '游戏平局·回应';
 const fb = winner === 1 ? ['让你赢啦，再来？'] : winner === 2 ? ['我赢啦，再来一局吗'] : ['平局，再来一局？'];
 const pool = window.getInteractPool ? window.getInteractPool(grp, fb) : fb;

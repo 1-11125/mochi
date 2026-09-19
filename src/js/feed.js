@@ -2403,6 +2403,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   // 单个联系人的 TA 自动发动态（用该联系人自己的字卡 + TA 身份）
   function maybeAutoPostFor(cid) {
     try {
+      // #876 夜间静默：TA 自动发动态夜间不生成——不写 feed-last/计数（周期保持到期），
+      // 7:00 后下一个 60 秒轮询照常补发；聊天提示另由 addRec 总闸兜底
+      if (window.nightModeActive && window.nightModeActive()) return;
       const cs = window.storeFor(cid);
       const now = Date.now();
       // v3.7.x：各桌面的 TA 用各自桌面的朋友圈设置（原实现用当前桌面 cfg，串设置）

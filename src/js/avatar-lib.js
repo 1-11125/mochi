@@ -36,6 +36,17 @@
   function getLib() { try { return JSON.parse(store.get('avatar-lib') || '[]'); } catch (e) { return []; } }
   function saveLib(list) { store.set('avatar-lib', JSON.stringify(list)); }
   function getEnabled() { const v = store.get('avatar-lib-enabled'); return v === null ? true : v === '1'; }
+  // #876 夜间静默：换头像/换昵称定时器夜间不触发（此前这四个 60s 轮询完全不受夜间模式约束，
+  // 是用户报「开了夜间模式挂后台睡觉还在发」的最大来源）。守卫放在周期推进（写 last/next）
+  // 之前：被拦的当次不推进周期，7:00 后下一个 60 秒轮询照常补发，不丢不堆积。
+  // 主路径读 window.nightModeActive（incoming-requests.js 定义，单一事实源）；兜底直读全局
+  // 根键——启动「立即检查」时该文件尚未加载（jsFiles 里排在本文件之后），且本文件 store 是
+  // per-cid 命名空间，夜间开关是全局根键，不能用 store 读。
+  function avNightQuiet() {
+    if (window.nightModeActive) return !!window.nightModeActive();
+    try { if (window.xyStore('xy-home-v2').get('night-mode-en') !== '1') return false; } catch (e) { return false; }
+    try { const h = new Date().getHours(); return h >= 22 || h < 7; } catch (e) { return false; }
+  }
   // 我的头像池
   function getMeLib() { try { return JSON.parse(store.get('avatar-me-lib') || '[]'); } catch (e) { return []; } }
   function saveMeLib(list) { store.set('avatar-me-lib', JSON.stringify(list)); }
@@ -959,6 +970,8 @@
       // v3.6.x：去掉 document.hidden return——后台时也检查换头像周期，
       // 到时间就换 + 写聊天消息 + 发后台通知（用户在后台也能收到系统通知）
       if (!getMeEnabled()) return;
+      // #876 夜间静默：夜间到点不换、不推进周期，早上补发（见 avNightQuiet 注释）
+      if (avNightQuiet()) return;
       const now = Date.now();
       let last = getMeAvatarLast();
       let next = getMeAvatarNext();
@@ -1022,6 +1035,8 @@
       // v3.6.x：去掉 document.hidden return——后台时也检查换头像周期，
       // 到时间就换 + 写聊天消息 + 发后台通知（时间未到时在 getLib 前 return，不解析头像池）
       if (!getEnabled()) return;
+      // #876 夜间静默：夜间到点不换、不推进周期，早上补发（见 avNightQuiet 注释）
+      if (avNightQuiet()) return;
       const now = Date.now();
       let last = getAvatarLast();
       let next = getAvatarNext();
@@ -1217,6 +1232,8 @@
       // 与头像池一致：不判断 document.hidden——后台也照常检查，到点就换 + 写聊天消息 +
       // 发后台通知（前台时 bgNotifyCheck 自己会跳过发送）
       if (!getMeNickEnabled()) return;
+      // #876 夜间静默：夜间到点不换、不推进周期，早上补发（见 avNightQuiet 注释）
+      if (avNightQuiet()) return;
       const now = Date.now();
       let last = getMeNickLast();
       let next = getMeNickNext();
@@ -1265,6 +1282,8 @@
   function checkNickLibRefresh() {
     try {
       if (!getNickEnabled()) return;
+      // #876 夜间静默：夜间到点不换、不推进周期，早上补发（见 avNightQuiet 注释）
+      if (avNightQuiet()) return;
       const now = Date.now();
       let last = getNickLast();
       let next = getNickNext();

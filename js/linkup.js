@@ -526,7 +526,7 @@ if (startBtn) startBtn.textContent = '再来一局';
 if (endBtn) endBtn.hidden = false;
 setStatus('🎉 一起清完了！默契 ' + chem);
 try {
-if (window.chatAddSystem) window.chatAddSystem(T('连连看') + ' · 一起清完 · 默契 ' + chem, { special: 'linkup' });
+if (window.chatAddSystem) window.chatAddSystem(T('连连看') + ' · 一起清完 · 默契 ' + chem, { special: 'linkup', nightAllow: true });
 const fb = ['一起连完啦。', '好默契呀。', '最后几张好难找。', '再来一局？'];
 const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
 const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];

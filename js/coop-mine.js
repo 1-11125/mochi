@@ -607,7 +607,7 @@ else showResult();
 if (startBtn) startBtn.textContent = '再来一次';
 if (endBtn) endBtn.hidden = false;
 try {
-if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms' });
+if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', nightAllow: true });
 const fb = win
 ? ['一起找完了。', '我们配合得不错嘛。', '全部清完啦，开心。', '这一片雷区都清理干净了。']
 : ['差一点点而已，再来！', '下次小心一点就好。', '没事，再来一次？'];

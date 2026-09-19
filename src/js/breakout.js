@@ -619,7 +619,7 @@
     // 写聊天记录（居中小卡片）+ TA 回应（固定发送，语气随机二选一）
     try {
       if (window.chatAddSystem) {
-        window.chatAddSystem(T('双人打砖块 · ') + s.score + ' 分 · 最高连击 ×' + s.maxCombo + ' · 完成第 ' + (s.level - 1) + ' 层', { special: 'brick' });
+        window.chatAddSystem(T('双人打砖块 · ') + s.score + ' 分 · 最高连击 ×' + s.maxCombo + ' · 完成第 ' + (s.level - 1) + ' 层', { special: 'brick', nightAllow: true });
       }
       if (!s.endReplied) {
         s.endReplied = true;

@@ -10329,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789860372882">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.791</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 07:26<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789861143175">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
+        <span class="sv-deploy">部署于 2026-09-20 07:39<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11806,7 +11806,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.791</div>
+          <div class="val" id="about-ver-val">v3.26.0</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11875,7 +11875,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.791</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.0</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12269,7 +12269,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.791</span>
+              <span class="lic-ver">v3.26.0</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -12784,7 +12784,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">底部 tab：桌面 / 字卡库 / 设置，独立全屏页导航与状态栏隐藏</div>
           <div class="lic-li">安卓返回键：弹层优先关闭 → 回上一页 → 最后退出应用</div>
           <div class="lic-li">IndexedDB 存储：大键值存 IDB，localStorage 缓存，启动时回填；请求持久化存储防清理</div>
-          <div class="lic-li">夜间模式：开启后 22:00–7:00 联系人不再主动发消息 / 打电话，其他桌面也不再跨桌面查岗 / 来电（时段外不受影响）</div>
+          <div class="lic-li">夜间模式：开启后 22:00–7:00 TA 完全静默——不发任何消息（含回复 / 互动卡 / 换头像换昵称 / 红包礼物 / 换位 / 朋友圈 / 群聊回复）、不打电话，其他桌面也不再跨桌面查岗 / 来电；夜里发的消息顺延到 7 点后回复（时段外不受影响）</div>
             </div>
           </details>
         </div>
@@ -35577,7 +35577,7 @@ rpWalletSet(w);
 saveMsgsNow();
 if (!rpPatchStatusInPlace(msgs.indexOf(rpRec))) renderWindow(true, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
 const amtTxt = '（心意币 ¥' + Number(rpRec.rpAmount || 0).toFixed(2) + '）';
-setTimeout(() => addIn('你退回了红包' + amtTxt, { special: 'poke' }), randInt(300, 800));
+setTimeout(() => addIn('你退回了红包' + amtTxt, { special: 'poke', nightAllow: true }), randInt(300, 800));
 }, { okText: '退回', cancelText: '取消' });
 }
 }, 500);
@@ -35629,7 +35629,7 @@ rpWalletSet(wallet);
 saveMsgsNow();
 const amtTxt = '（心意币 ¥' + Number(rpRec.rpAmount || 0).toFixed(2) + '）';
 if (!rpPatchStatusInPlace(rpIdx)) renderWindow(true, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
-setTimeout(() => addIn('你领取了红包' + amtTxt, { special: 'poke' }), randInt(400, 1000));
+setTimeout(() => addIn('你领取了红包' + amtTxt, { special: 'poke', nightAllow: true }), randInt(400, 1000));
 return;
 }
 if (e.target.closest('.msg-inplace')) return;
@@ -36994,7 +36994,7 @@ text = '{ta} ' + action.slice(1);
 } else {
 text = '{ta} ' + action;
 }
-addIn(text, { special: 'poke' });
+addIn(text, { special: 'poke', nightAllow: true });
 }
 function chatUnread() { try { return parseInt(store.get('chat-unread'), 10) || 0; } catch (e) { return 0; } }
 function incChatUnread() {
@@ -37273,6 +37273,7 @@ try { store.set('desk-msg-en', deskMsgToggle.checked ? '1' : '0'); } catch (e) {
 });
 }
 function addRec(rec) {
+if (rec.side === 'in' && !rec.nightAllow && !(window.__nightReplyOpen && Date.now() - window.__nightReplyOpen < 180000) && window.nightModeActive && window.nightModeActive()) return null;
 if (!rec.ts) rec.ts = Date.now();
 chatRecStampUid(rec); // FIX #776：出生号——同一条消息被哪条通道克隆回去，认号不认正文
 const len = msgs.length;
@@ -37371,13 +37372,14 @@ return el;
 }
 function addIn(text, opts) {
 opts = opts || {};
+if (!opts.nightAllow && !(window.__nightReplyOpen && Date.now() - window.__nightReplyOpen < 180000) && window.nightModeActive && window.nightModeActive()) return null;
 if (window.playSfx && !opts.silent && opts.special !== 'read') {
 try { window.playSfx('in'); } catch (e) {}
 }
 const _tagMood = opts.tag ? [{ tag: String(opts.tag), label: opts.tagNoDup ? '' : String(text) }] : null;
 const _tagExtra = Array.isArray(opts.tagExtra) ? opts.tagExtra.filter(md => md && String(md.tag || '').trim()).map(md => ({ tag: String(md.tag), label: md.label == null ? '' : String(md.label) })) : null;
 const _tagMerged = (_tagExtra && _tagExtra.length) ? (_tagMood ? _tagMood.concat(_tagExtra) : _tagExtra) : _tagMood;
-return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, dedupExempt: opts.dedupExempt, nickKeep: opts.nickKeep, mood: opts.mood || _tagMerged || undefined });
+return addRec({ side: 'in', text: text, initiative: opts.initiative, special: opts.special, quote: opts.quote, qidx: opts.qidx, type: opts.type, img: opts.img, parts: opts.parts, mailNotice: opts.mailNotice, gInv: opts.gInv, silent: opts.silent, nightAllow: opts.nightAllow, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers, dedupExempt: opts.dedupExempt, nickKeep: opts.nickKeep, mood: opts.mood || _tagMerged || undefined });
 }
 function addInTyped(items, opts, firstDelay) {
 try {
@@ -37435,7 +37437,8 @@ if (S.legacy && oldName !== S.legacy && hist.indexOf(S.legacy) < 0) window.chatS
 };
 window.chatAddSystem = function (text, opts) {
 opts = opts || {};
-return addIn(text, { special: opts.special || 'poke', silent: opts.silent, img: opts.img, mailNotice: opts.mailNotice, nickKeep: opts.nickKeep, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers });
+opts.nightAllow = opts.nightAllow === true;
+return addIn(text, { special: opts.special || 'poke', silent: opts.silent, img: opts.img, mailNotice: opts.mailNotice, nickKeep: opts.nickKeep, nightAllow: opts.nightAllow, askQuestion: opts.askQuestion, askStatus: opts.askStatus, askOptions: opts.askOptions, askType: opts.askType, askTs: opts.askTs, choiceQuestion: opts.choiceQuestion, choiceOptions: opts.choiceOptions, choicePref: opts.choicePref, choiceCat: opts.choiceCat, choiceStatus: opts.choiceStatus, choiceAnswer: opts.choiceAnswer, choiceReply: opts.choiceReply, choiceMatch: opts.choiceMatch, curiousQuestion: opts.curiousQuestion, curiousQuick: opts.curiousQuick, curiousReplies: opts.curiousReplies, curiousFollowup: opts.curiousFollowup, curiousQid: opts.curiousQid, curiousCat: opts.curiousCat, curiousStatus: opts.curiousStatus, curiousAnswer: opts.curiousAnswer, curiousReply: opts.curiousReply, roastText: opts.roastText, roastCat: opts.roastCat, roastStatus: opts.roastStatus, roastAnswer: opts.roastAnswer, roastReply: opts.roastReply, rpAmount: opts.rpAmount, rpWish: opts.rpWish, rpStatus: opts.rpStatus, rpTs: opts.rpTs, rpCover: opts.rpCover, askFen: opts.askFen, askTs: opts.askTs, deskCk: opts.deskCk, deskCkDir: opts.deskCkDir, surveyTs: opts.surveyTs, surveyQs: opts.surveyQs, surveyStatus: opts.surveyStatus, surveyAnswers: opts.surveyAnswers });
 };
 window.chatAddIn = function (text, opts) {
 if (opts && opts.follow) chatUserFollowScroll = true;
@@ -37937,9 +37940,14 @@ if (hit(c['rn-prob'])) {
 setTimeout(() => { if (!sameCid()) return; addIn('', { special: 'read' }); }, randInt(1000, 4000));
 return;
 }
-const delay = (c['rs-min'] + Math.random() * Math.max(1, c['rs-max'] - c['rs-min'])) * 1000;
+let delay = (c['rs-min'] + Math.random() * Math.max(1, c['rs-max'] - c['rs-min'])) * 1000;
+const __nmHold = window.nightModeActive && window.nightModeActive();
+if (__nmHold) {
+const __t7 = new Date(); __t7.setHours(7, 0, 0, 0);
+delay = Math.max(60000, __t7.getTime() - Date.now()) + randInt(60, 600) * 1000;
+}
 try { window.__rsDrawS = Math.round(delay / 100) / 10; } catch (eRD) {} // #571 本次掷到的设定延迟（秒）
-showTyping();
+if (!__nmHold) showTyping();
 setTimeout(() => {
 if (!sameCid()) { hideTyping(); return; }
 hideTyping();
@@ -38130,6 +38138,7 @@ setTimeout(() => { if (!sameCid()) return; if (window.callMaybeTrigger) window.c
 setTimeout(() => { if (!sameCid()) return; trySystemAutoSend(); trySystemAskMochi(); tryCollectPending(); if (window.maybeAutoGift) window.maybeAutoGift(); }, 2500);
 }
 window.continueChat = function () {
+if (window.nightModeActive && window.nightModeActive()) { window.__nightReplyOpen = Date.now(); }
 const myCid = window.__activeCid || 'default';
 const sameCid = () => (window.__activeCid || 'default') === myCid;
 const c = cfg();
@@ -38925,7 +38934,7 @@ text = '{me} ' + action.replace(/我(?![们])/g, '{ta}');
 text = '{me} ' + action;
 }
 chatUserFollowScroll = true;
-addRec({ side: 'in', text: text, special: 'poke' });
+addRec({ side: 'in', text: text, special: 'poke', nightAllow: true });
 if (window.logFish) window.logFish();
 setTimeout(() => {
 const c2 = cfg();
@@ -38940,7 +38949,7 @@ if (hit(c2['touch-prob'])) { performPoke(); return; }
 const r = genOneReply(c2);
 const rMulti = pyMultiDrawn;
 const willRetractP = hit(c2['rc-prob']);
-const m2 = addIn(r.text, { type: r.type, silent: willRetractP, tag: rMulti ? '多字卡回复' : undefined, tagNoDup: true });
+const m2 = addIn(r.text, { type: r.type, silent: willRetractP, nightAllow: true, tag: rMulti ? '多字卡回复' : undefined, tagNoDup: true });
 if (willRetractP && m2) {
 setTimeout(() => { retractMsg(m2, 'in'); }, 900);
 }
@@ -39213,7 +39222,7 @@ return -1;
 function sendRps(mine) {
 closeRpsPanel();
 const mineName = { rock: '石头', scissors: '剪刀', paper: '布' }[mine] || '';
-addRec({ side: 'in', special: 'poke', text: '我出了 ' + mineName + '，等 TA 出拳…' });
+addRec({ side: 'in', special: 'poke', text: '我出了 ' + mineName + '，等 TA 出拳…', nightAllow: true });
 showTyping();
 setTimeout(() => {
 hideTyping();
@@ -39222,7 +39231,7 @@ const judge = rpsJudge(mine, ta);
 const s = rpsReadScore();
 if (judge > 0) s.w++; else if (judge < 0) s.l++; else s.d++;
 rpsWriteScore(s);
-addRec({ side: 'in', special: 'rps', rpsMine: mine, rpsTa: ta, rpsResult: judge });
+addRec({ side: 'in', special: 'rps', rpsMine: mine, rpsTa: ta, rpsResult: judge, nightAllow: true });
 try {
 const rpsWinFen = Math.random() < 0.3 ? 1314 : 520;
 const real = rpGameCoinGrant('rps', judge > 0 ? rpsWinFen : judge < 0 ? 520 : 130, 2600);
@@ -39231,7 +39240,7 @@ const w = rpWalletGet();
 w.myBalance += real; w.systemBalance += real;
 rpWalletSet(w);
 try { if (window.giftCoinLedgerAdd) window.giftCoinLedgerAdd('earn', real, real, '石头剪刀布'); } catch (e2) {}
-setTimeout(() => addIn('🪙 双方心意币各 +¥' + (real / 100).toFixed(2), { special: 'poke' }), randInt(800, 1600));
+setTimeout(() => addIn('🪙 双方心意币各 +¥' + (real / 100).toFixed(2), { special: 'poke', nightAllow: true }), randInt(800, 1600));
 }
 } catch (e) {}
 if (window.logFish) window.logFish();
@@ -39457,6 +39466,7 @@ try { const v = parseInt(store.get('cs-rp-daily-max'), 10); if (isFinite(v) && v
 return 5;
 }
 function trySystemAutoSend() {
+if (window.nightModeActive && window.nightModeActive()) return;
 if (rpDailyCount() >= rpDailyMax()) return;
 let baseRate = 0.04;
 try { const ap = window.activeStore ? window.activeStore().get('cs-rp-auto-prob') : null; const pv = parseFloat(ap); if (pv !== null && isFinite(pv)) baseRate = Math.max(0, Math.min(100, pv)) / 100; } catch (e) {}
@@ -39516,6 +39526,7 @@ return 0;
 window.rpAskProbRate = rpAskProbRate;
 window.rpAskDailyMax = rpAskDailyMax;
 function trySystemAskMochi() {
+if (window.nightModeActive && window.nightModeActive()) return;
 const askMax = rpAskDailyMax();
 if (askMax > 0 && askDailyCount() >= askMax) return;
 if (Math.random() >= rpAskProbRate()) return;
@@ -39543,7 +39554,7 @@ function rpCollectFeedback() {
 const myCid = window.__activeCid || 'default';
 const r = Math.random();
 if (r < 0.5) {
-setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn(rpThanksMsg(), { silent: true }); }, randInt(600, 1800));
+setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn(rpThanksMsg(), { silent: true, nightAllow: true }); }, randInt(600, 1800));
 } else if (r < 0.8) {
 setTimeout(() => {
 if ((window.__activeCid || 'default') !== myCid) return;
@@ -39570,7 +39581,7 @@ wallet.myBalance += amtFen;
 rpWalletSet(wallet);
 saveMsgsNow();
 if (!rpPatchStatusInPlace(idx)) renderWindow(false, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
-setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 退回了你的红包（心意币 ¥' + Number(rec.rpAmount || 0).toFixed(2) + '）', { special: 'poke' }); }, randInt(500, 1200));
+setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 退回了你的红包（心意币 ¥' + Number(rec.rpAmount || 0).toFixed(2) + '）', { special: 'poke', nightAllow: true }); }, randInt(500, 1200));
 } else if (r < 0.9) {
 rec.rpStatus = 'received';
 rec.rpOpenedAt = Date.now();
@@ -39579,7 +39590,7 @@ rpWalletSet(wallet);
 saveMsgsNow();
 if (!rpPatchStatusInPlace(idx)) renderWindow(false, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
 const amtTxt = '（心意币 ¥' + Number(rec.rpAmount || 0).toFixed(2) + '）';
-setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 领取了你的红包' + amtTxt, { special: 'poke' }); }, randInt(400, 1000));
+setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 领取了你的红包' + amtTxt, { special: 'poke', nightAllow: true }); }, randInt(400, 1000));
 rpCollectFeedback();
 }
 }
@@ -39597,7 +39608,7 @@ saveMsgsNow();
 if (!rpPatchStatusInPlace(idx)) renderWindow(false, true); // FIX 2026-09-07 #230 红包状态流转不整窗重建（闪屏）
 const amtTxt = '（心意币 ¥' + Number(rec.rpAmount || 0).toFixed(2) + '）';
 const myCid = window.__activeCid || 'default';
-setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 领取了你的红包' + amtTxt, { special: 'poke' }); }, randInt(400, 1000));
+setTimeout(() => { if ((window.__activeCid || 'default') !== myCid) return; addIn('TA 领取了你的红包' + amtTxt, { special: 'poke', nightAllow: true }); }, randInt(400, 1000));
 rpCollectFeedback();
 }
 function rpExpireCheck() {
@@ -41077,7 +41088,7 @@ if (window.openBrickPanel) window.openBrickPanel();
 }
 window.sendSnakeResult = function (d) {
 if (!d) return;
-addRec({ side: 'in', special: 'snake', snkResult: d.result, snkPLen: d.pLen, snkOLen: d.oLen, snkPFood: d.pFood, snkOFood: d.oFood, snkPScore: d.pScore, snkOScore: d.oScore, snkTime: d.time });
+addRec({ side: 'in', special: 'snake', snkResult: d.result, snkPLen: d.pLen, snkOLen: d.oLen, snkPFood: d.pFood, snkOFood: d.oFood, snkPScore: d.pScore, snkOScore: d.oScore, snkTime: d.time, nightAllow: true });
 try {
 const snkWinFen = Math.random() < 0.2 ? 5200 : 1314;
 const snkMult = (window.arcadeMult && window.arcadeMult('snake')) || 1;
@@ -41087,7 +41098,7 @@ const w = rpWalletGet();
 w.myBalance += real; w.systemBalance += real;
 rpWalletSet(w);
 try { if (window.giftCoinLedgerAdd) window.giftCoinLedgerAdd('earn', real, real, '贪吃蛇'); } catch (e2) {}
-setTimeout(() => addIn('🪙 双方心意币各 +¥' + (real / 100).toFixed(2), { special: 'poke' }), randInt(800, 1600));
+setTimeout(() => addIn('🪙 双方心意币各 +¥' + (real / 100).toFixed(2), { special: 'poke', nightAllow: true }), randInt(800, 1600));
 }
 } catch (e) {}
 if (window.logFish) window.logFish();
@@ -41097,7 +41108,7 @@ hideTyping();
 const grp = d.result === 'win' ? '游戏失败·回应' : d.result === 'lose' ? '游戏胜利·回应' : '游戏平局·回应';
 const pool = window.getInteractPool ? window.getInteractPool(grp, ['再来一局？']) : ['再来一局？'];
 const say = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '再来一局？';
-addRec({ side: 'in', text: say });
+addRec({ side: 'in', text: say, nightAllow: true });
 }, randInt(900, 1600));
 };
 if (chatCallClose) chatCallClose.addEventListener('click', (e) => { e.stopPropagation(); closeChatCall(); });
@@ -45661,8 +45672,14 @@ const m = renderMsg(rec, idx);
 target.parentNode.replaceChild(m, target);
 }
 }
-function memberReply(cid, quoteText, gid, continuation) {
+function memberReply(cid, quoteText, gid, continuation, __force) {
 if (gid === undefined) gid = curGid; // FIX 串群 #242：未传时兜底当前群
+if (!__force && window.nightModeActive && window.nightModeActive()) {
+const __t7 = new Date(); __t7.setHours(7, 0, 0, 0);
+const __wait = Math.max(60000, __t7.getTime() - Date.now()) + (60 + Math.random() * 540) * 1000;
+setTimeout(() => { try { memberReply(cid, quoteText, gid, continuation, __force); } catch (e) {} }, __wait);
+return;
+}
 const c = gcCfg();
 const immediate = continuation && c['gc-cs-normal'] !== 1;
 const name = memberName(cid);
@@ -47587,7 +47604,7 @@ const chosen = mentioned.length
 : members.slice(0, Math.max(1, Math.min(2, members.length))).map(m => m.id);
 chosen.forEach((cid, i) => {
 const gap = c['gc-cs-normal'] === 1 ? i * (1200 + Math.random() * 1600) : i * 400;
-setTimeout(() => memberReply(cid, '', gid, true), gap);
+setTimeout(() => memberReply(cid, '', gid, true, true), gap); // #876 末参 __force：用户点「继续说」，夜间放行
 });
 if (window.playSfxGc) window.playSfxGc('in'); // #698d：走群聊专属音效（未设置回退单聊）
 }
@@ -59353,6 +59370,11 @@ const AGREE_PROB = 70;  // 触发回应时同意的概率 %（拒绝 = 100 - AGR
 function getLib() { try { return JSON.parse(store.get('avatar-lib') || '[]'); } catch (e) { return []; } }
 function saveLib(list) { store.set('avatar-lib', JSON.stringify(list)); }
 function getEnabled() { const v = store.get('avatar-lib-enabled'); return v === null ? true : v === '1'; }
+function avNightQuiet() {
+if (window.nightModeActive) return !!window.nightModeActive();
+try { if (window.xyStore('xy-home-v2').get('night-mode-en') !== '1') return false; } catch (e) { return false; }
+try { const h = new Date().getHours(); return h >= 22 || h < 7; } catch (e) { return false; }
+}
 function getMeLib() { try { return JSON.parse(store.get('avatar-me-lib') || '[]'); } catch (e) { return []; } }
 function saveMeLib(list) { store.set('avatar-me-lib', JSON.stringify(list)); }
 function getMeEnabled() { const v = store.get('avatar-me-lib-enabled'); return v === null ? true : v === '1'; }
@@ -60063,6 +60085,7 @@ function getMeAvatarNext() { const v = parseFloat(store.get('avatar-me-lib-next'
 function checkMeAvatarRefresh() {
 try {
 if (!getMeEnabled()) return;
+if (avNightQuiet()) return;
 const now = Date.now();
 let last = getMeAvatarLast();
 let next = getMeAvatarNext();
@@ -60108,6 +60131,7 @@ function getAvatarNext() { const v = parseFloat(store.get('avatar-lib-next')); r
 function checkAvatarLibRefresh() {
 try {
 if (!getEnabled()) return;
+if (avNightQuiet()) return;
 const now = Date.now();
 let last = getAvatarLast();
 let next = getAvatarNext();
@@ -60244,6 +60268,7 @@ function getMeNickNext() { const v = parseFloat(store.get('nick-me-lib-next')); 
 function checkMeNickRefresh() {
 try {
 if (!getMeNickEnabled()) return;
+if (avNightQuiet()) return;
 const now = Date.now();
 let last = getMeNickLast();
 let next = getMeNickNext();
@@ -60284,6 +60309,7 @@ function getNickNext() { const v = parseFloat(store.get('nick-lib-next')); retur
 function checkNickLibRefresh() {
 try {
 if (!getNickEnabled()) return;
+if (avNightQuiet()) return;
 const now = Date.now();
 let last = getNickLast();
 let next = getNickNext();
@@ -60751,6 +60777,7 @@ window.interactPopupStale = autoPopupStale;
 const INTERACT_GATE_KEY = 'interact-card-last';
 const INTERACT_GATE_MS = 60 * 60000;
 function interactGateOk() {
+if (window.nightModeActive && window.nightModeActive()) return false;
 try {
 const last = Number(store.get(INTERACT_GATE_KEY)) || 0;
 return Date.now() - last >= INTERACT_GATE_MS;
@@ -66193,6 +66220,7 @@ psyncSyncStatus();
 async function drainPsyncQueue(force) {
 if (!window.idbGet || !window.idbSet || !window.chatAddIn) return 0;
 try { if (!force && performance.now() < 10000) return 0; } catch (e) {} // 开屏 10s 内不动，等聊天权威数据就绪
+if (!force && window.nightModeActive && window.nightModeActive()) return 0;
 let arr = null;
 try { arr = await window.idbGet(PSYNC_QUEUE_KEY); } catch (e) { return 0; }
 if (!Array.isArray(arr) || !arr.length) return 0;
@@ -68317,6 +68345,7 @@ return 'custom';
 function doLocAuto() {
 if (document.hidden || Date.now() < locWakeAt || !window.__mochiDataReady) return;
 if (store.get('loc-auto') === '0') return; // 设置「TA 自动换位」关：到点也不发（拦设置后仍残留的当次定时器）
+if (window.nightModeActive && window.nightModeActive()) return;
 const companion = ['在你身边', '一直没走远', '隔着世界在你身边', '隐约在你身旁', '在你看不到的地方'];
 let text;
 if (Math.random() < 0.7) {
@@ -70247,7 +70276,7 @@ const fen = Math.round(amt * 100);
 try { if (window.giftWalletChange) window.giftWalletChange(-fen, 0); } catch (e) {}
 const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'in', amt: amt, note: note || '' });
 piggySaveCoinLog(log); piggyCoinRender();
-if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
+if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
 const st = piggyCoinGoalState(); const bal = piggyCoinBal(log);
 if (st.act.g && !st.act.g.done) {
 if (bal >= st.act.g.a) {
@@ -70266,7 +70295,7 @@ const fen = Math.round(amt * 100);
 try { if (window.giftWalletChange) window.giftWalletChange(fen, 0); } catch (e) {}
 const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'out', amt: amt, note: note || '' });
 piggySaveCoinLog(log); piggyCoinRender();
-if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
+if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
 piggyCoinShowMsg(piggyPick(COIN_OUT_MSG));
 }
 function piggyCoinProbGet() {
@@ -70296,7 +70325,7 @@ piggySaveCoinLog(log); piggyCoinRender();
 vibrate([20, 40, 20]);
 try {
 const who = (window.chatPartnerName ? window.chatPartnerName() : '') || 'TA';
-if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), {});
+if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true });
 } catch (e) {}
 setTimeout(function () { piggyCoinShowMsg((window.taFit ? window.taFit(note) : note) + ' ¥' + piggyFmt(amt)); }, 300);
 }
@@ -71929,7 +71958,7 @@ if (!line) return;
 if (kind === 'adv') line = String(line).replace(/\{d\}/g, String(diffDays(today, st.nextStart)));
 else if (kind === 'delay') line = String(line).replace(/\{d\}/g, String(delayDays));
 else if (kind === 'delayIrr') line = String(line).replace(/\{d\}/g, String(st.dayOfCycle || 0));
-try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
+try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }); } catch (e) {}
 notifyCfg.fired[careKey] = 1;
 var cut = addDays(today, -30);
 Object.keys(notifyCfg.fired).forEach(function (k) { if (k < cut) delete notifyCfg.fired[k]; });
@@ -72867,7 +72896,7 @@ let txt = T('心意币拍卖会') + ' · ';
 if (st.myWins) txt += '拍下 ' + st.myWins + ' 件 ' + yuan(st.spent);
 else txt += '空手而归';
 if (st.taWins) txt += ' · ' + T('TA') + ' 拍走 ' + st.taWins + ' 件';
-if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction' });
+if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction', nightAllow: true });
 } catch (e) {}
 }
 function showSummary() {
@@ -77195,7 +77224,7 @@ const HUB = [
 { n: '通话背景图片', d: '通话页面背景图自定义上传', k: '通话 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-bg-row'] },
 { n: '移除通话背景', d: '清除通话背景图恢复默认', k: '通话 背景 移除 删除 清除', go: ['#row-call-settings', '#call-bg-remove'] },
 { n: '打开通话半框', d: '聊天页「更多功能→通话」的底部半屏面板；从通话设置页一键跳到聊天页展开它', k: '通话 半框 打开 面板', go: ['#row-call-settings', '#call-half-open'] },
-{ n: '夜间模式', d: '开启后 22:00–7:00：联系人不再主动发消息/打电话，其他桌面也不再跨桌面查岗/来电（时段外不受影响）', k: '夜间 睡眠 勿扰 安静 静默 主动消息 来电 跨桌面 查岗 22 7 晚上', go: ['#sf-night-mode-row'] },
+{ n: '夜间模式', d: '开启后 22:00–7:00：TA 完全静默——不发任何消息（含回复/互动卡/换头像换昵称/红包礼物/换位/朋友圈/群聊回复），不打电话，其他桌面也不再跨桌面查岗/来电；你夜里发的消息顺延到 7 点后回复（时段外不受影响）', k: '夜间 睡眠 勿扰 安静 静默 主动消息 来电 跨桌面 查岗 22 7 晚上 换头像 换昵称 互动卡', go: ['#sf-night-mode-row'] },
 { n: '通话半框背景图片', d: '给联系人来电/通话小框单独上传背景图（与通话背景互不影响，按联系人各自保存）', k: '通话 半框 背景 图片 上传 壁纸', go: ['#row-call-settings', '#call-half-bg-row'] },
 { n: '移除通话半框背景', d: '清除联系人来电/通话小框背景图恢复默认', k: '通话 半框 背景 移除 删除 清除', go: ['#row-call-settings', '#call-half-bg-remove'] },
 { n: '打开来电弹窗预览', d: '在通话半框里直接打开「联系人来电」时的大弹窗看看效果（非迷你小框）；点任意处退出，不产生真实通话', k: '通话 来电 弹窗 半框 预览 查看 打开', go: ['.app[data-app="chat"]', '#more-call', '#call-view-row'] },
@@ -79681,4 +79710,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu90nij6 -->
+<!-- __MOCHI_EOF__ mu9140w7 -->

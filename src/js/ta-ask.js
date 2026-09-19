@@ -494,6 +494,11 @@
   const INTERACT_GATE_KEY = 'interact-card-last';
   const INTERACT_GATE_MS = 60 * 60000;
   function interactGateOk() {
+    // #876 夜间静默：夜间任意互动卡（询问/小问题/好奇/吐槽/查岗卡）一律不自动触发——
+    // 五类触发器与 ck-question 自动查岗都经过本闸门，此处一处收口；被拦的当次不写冷却
+    // 时间戳（调用方在 interactGateOk 之后才 interactGateMark/推进 lastAskAt），7:00 后
+    // 下一个轮询周期照常触发。手动「现在问一次/让TA现在查岗一次」不经过本闸门，不受限。
+    if (window.nightModeActive && window.nightModeActive()) return false;
     try {
       const last = Number(store.get(INTERACT_GATE_KEY)) || 0;
       return Date.now() - last >= INTERACT_GATE_MS;

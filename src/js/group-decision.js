@@ -431,7 +431,7 @@
             ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
             : '【多人决定】' + question + '\n' + lines.join('\n');
           if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
+          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
         }
         toast('多人决定已完成');
       };
