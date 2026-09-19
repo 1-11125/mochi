@@ -53,7 +53,7 @@ const NEW_IDS = ['g_card', 'g_blindbox', 'g_stickers', 'g_wordsbag', 'g_nearby',
   'g_waffle', 'g_eggtart',
   'g_mangosago', 'g_matchalatte', 'g_lemontea', 'g_grapetea', 'g_peachtea',
   'g_malatang', 'g_spicywok', 'g_ricechicken', 'g_legquarter', 'g_taco', 'g_baguette', 'g_bagel'];
-const CATS_EXPECT = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品'];
+const CATS_EXPECT = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护'];
 
 // ---- A 组：源码静态断言 ----
 let staticTotal = 0;
@@ -62,7 +62,7 @@ let staticTotal = 0;
 
   const catsM = s.match(/const CATS = \[([^\]]+)\]/);
   const cats = catsM ? [...catsM[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
-  check('A1 CATS 含「两个世界」「饮品」且顺序正确、共12类',
+  check('A1 CATS 含「两个世界」「饮品」且顺序正确、共13类（#859 追加「药品医护」）',
     JSON.stringify(cats) === JSON.stringify(CATS_EXPECT), cats.join('|'));
 
   check('A2 CAT_ICON/CAT_COLOR 已登记新分类（两个世界🌗/#e0f7fa、饮品🧋/#ffe0b2）',
@@ -82,9 +82,12 @@ let staticTotal = 0;
   const seenCatEmoji = {};
   const dupEmojis = [];
   items.forEach((i) => { const k = i.cat + '|' + i.emoji; if (seenCatEmoji[k]) { if (!dupEmojis.includes(k)) dupEmojis.push(k); } seenCatEmoji[k] = 1; });
-  check('A3 DEF_GIFTS 解析到 301 条且 id 唯一、分类内 emoji 唯一',
-    items.length === 301 && dupIds.length === 0 && dupEmojis.length === 0,
-    { total: items.length, dupIds, dupEmojis });
+  // #859：条目总数不再写死（每扩库一次就过期一次）——改成「解析数 == 源码里的条目数」，
+  // 仍然能拦住漏解析/正则不匹配，扩库不必再来改这里。
+  const srcItemCount = (arrM[1].match(/\{ id:\s*'/g) || []).length;
+  check('A3 DEF_GIFTS 全条目解析成功（' + items.length + '/' + srcItemCount + '）且 id 唯一、分类内 emoji 唯一',
+    items.length === srcItemCount && items.length > 0 && dupIds.length === 0 && dupEmojis.length === 0,
+    { total: items.length, inSource: srcItemCount, dupIds, dupEmojis });
 
   const missing = NEW_IDS.filter((id) => !items.some((i) => i.id === id));
   const badField = items.filter((i) => !i.name || !i.emoji || !(i.price >= 0) || !CATS_EXPECT.includes(i.cat) || !i.wish || i.wish.length > 40);
@@ -238,8 +241,8 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, devic
 // ---- B 组 1：全新档案 → 市集渲染 ----
 await gotoApp();
 let s = await marketProbe();
-check('B1 市集页打开：12+1 分类胶囊齐全，网格总数=' + staticTotal + '，无 JS 异常',
-  s && s.open && s.pillCount === 13 && s.grid === staticTotal && s.jsErr === 0,
+check('B1 市集页打开：' + CATS_EXPECT.length + '+1 分类胶囊齐全，网格总数=' + staticTotal + '，无 JS 异常',
+  s && s.open && s.pillCount === CATS_EXPECT.length + 1 && s.grid === staticTotal && s.jsErr === 0,
   { pillCount: s && s.pillCount, grid: s && s.grid, pills: s && s.pills, jsErr: s && s.jsErr });
 
 check('B2 「两个世界」胶囊在分类栏中（饮品插入后第7个）', s && s.pills && s.pills.indexOf('两个世界') === 7, s && s.pills);

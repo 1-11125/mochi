@@ -3619,6 +3619,14 @@ const FIX_SENTINELS = [
   //   修法＝钳位改 trimWindowTopQuiet(RENDER_MAX) 静默裁顶（只删视口以上的节点＋按删掉高度补偿 scrollTop），
   //   新消息照常走 renderMsg 增量追加；DOM 上限与 #211 口径不变。#720d 哨兵随本批换锚到新调用式。====
   { name: '#846a 裁顶后按删掉高度补偿 scrollTop（删＝视口瞬间位移，「近底部发一条消息画面跳一下」；#846 静默钳位的前半）', file: 'js/chat.js', needle: 'if (cut > 0) body.scrollTop = Math.max(0, body.scrollTop - cut);' },
+  // ==== 2026-09-19 #859 心意市集「药品医护」分类（用户反馈「心意市里只有感冒药，缺日常用的药和手受伤要用的」）——
+  //   改前全库 301 件里医药类只有 4 件（感冒药/创可贴/体温计/口罩），且散在 82 件的「日常用品」里；
+  //   搜索按「名称/留言/分类」匹配，搜「药」只命中「感冒药」一条。本批把医药单独成类（第 13 类）并补齐
+  //   常备药与外伤处理。三条锚都钉在目录数据本身：类目从 CATS 消失、外伤处理商品被删、既有医药商品
+  //   被挪回大分类，任一发生即报红。====
+  { name: '#859a 「药品医护」分类登记在 CATS 末位（删＝第 13 类胶囊与整柜药一起退场，用户回到「市集里只有感冒药」）', file: 'js/gift-shop.js', needle: "'日常用品', '药品医护']" },
+  { name: '#859b 外伤处理商品在位（碘伏等，与常备药同批；删＝「手受伤了要用的」那几件没有入口）', file: 'js/gift-shop.js', needle: "id: 'g_mediodine', name: '碘伏'" },
+  { name: '#859c 既有医药商品已归入本分类（改回「日常用品」＝创可贴等又散进大分类翻不到）', file: 'js/gift-shop.js', needle: "price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -208,10 +208,14 @@
   }
 
   // v3 扩库新增「两个世界」分类（世界观商品：字卡沟通 / 隔空陪伴 / 体感 / 梦境）；
-  // v3 十批新增「饮品」分类（把散在各地的喝的归拢 + 新增特调）
-  const CATS = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品'];
-  const CAT_ICON = { '花束': '🌸', '甜品': '🍰', '饮品': '🧋', '美食': '🍜', '饰品': '💍', '星空': '⭐', '两个世界': '🌗', '出行': '✈️', '娱乐': '🎟️', '关怀': '🤗', '情侣用品': '💑', '日常用品': '🧴' };
-  const CAT_COLOR = { '花束': '#fce4ec', '甜品': '#fff3e0', '饮品': '#ffe0b2', '美食': '#fff9c4', '饰品': '#f3e5f5', '星空': '#e8eaf6', '两个世界': '#e0f7fa', '出行': '#e1f5fe', '娱乐': '#e1bee7', '关怀': '#e0f2f1', '情侣用品': '#fce4ec', '日常用品': '#f1f8e9' };
+  // v3 十批新增「饮品」分类（把散在各地的喝的归拢 + 新增特调）；
+  // #859 新增「药品医护」分类（用户反馈「心意市里只有感冒药，缺日常用的药和手受伤要用的」）——
+  // 医药类原先散在 82 件的大「日常用品」里、总共只有 4 件，既翻不到也搜不全（搜「药」只命中感冒药）。
+  // 现单独成类：常备药按病症命名（退烧药/消炎药/止痛药/胃药/止咳糖浆…），外伤处理补齐
+  // （碘伏/医用棉签/纱布绷带/跌打药酒/冰袋…），类目名带「药」，搜索直接能筛出整柜。
+  const CATS = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护'];
+  const CAT_ICON = { '花束': '🌸', '甜品': '🍰', '饮品': '🧋', '美食': '🍜', '饰品': '💍', '星空': '⭐', '两个世界': '🌗', '出行': '✈️', '娱乐': '🎟️', '关怀': '🤗', '情侣用品': '💑', '日常用品': '🧴', '药品医护': '💊' };
+  const CAT_COLOR = { '花束': '#fce4ec', '甜品': '#fff3e0', '饮品': '#ffe0b2', '美食': '#fff9c4', '饰品': '#f3e5f5', '星空': '#e8eaf6', '两个世界': '#e0f7fa', '出行': '#e1f5fe', '娱乐': '#e1bee7', '关怀': '#e0f2f1', '情侣用品': '#fce4ec', '日常用品': '#f1f8e9', '药品医护': '#ffebee' };
   window.GIFT_CAT_COLOR = CAT_COLOR;
   // v3.15.x 二调：价格带对齐红包金额体系（¥5.2/13.14/52/77.77/131.4/334.4/520/888.88/999.99/1314/5200）——
   // 零花档（≤¥15）= 一局小游戏的量级；日常档 ¥16~99 = 一两天游戏+花园收入；
@@ -328,12 +332,12 @@
     { id: 'g_lipbalm', name: '润唇膏', emoji: '💄', price: 25.00, cat: '日常用品', wish: '嘴唇干干的，怎么亲嘛' },
     { id: 'g_thermos', name: '保温杯', emoji: '🍵', price: 39.00, cat: '日常用品', wish: '装上热水，胃暖了心就稳' },
     { id: 'g_plant', name: '小绿植', emoji: '🪴', price: 32.00, cat: '日常用品', wish: '养着它，像我们养这段日子' },
-    // v3 扩库二批：正常世界一般日用刚需品（全部归「日常用品」）
+    // v3 扩库二批：正常世界一般日用刚需品（全部归「日常用品」；创可贴/口罩/感冒药 #859 起移入「药品医护」）
     { id: 'g_handcream', name: '护手霜', emoji: '🧴', price: 29.90, cat: '日常用品', wish: '手好好养着，牵起来才舒服' },
     { id: 'g_soap', name: '香皂', emoji: '🧼', price: 12.00, cat: '日常用品', wish: '洗手的时候，顺便想想我' },
     { id: 'g_wipes', name: '柔软纸巾', emoji: '🧻', price: 8.80, cat: '日常用品', wish: '鼻子娇气的人，正好用得上' },
-    { id: 'g_bandaid', name: '创可贴', emoji: '🩹', price: 5.00, cat: '日常用品', wish: '磕磕碰碰的，有我呢' },
-    { id: 'g_mask', name: '口罩', emoji: '😷', price: 9.90, cat: '日常用品', wish: '人多的地方，戴好再出门' },
+    { id: 'g_bandaid', name: '创可贴', emoji: '🩹', price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' },
+    { id: 'g_mask', name: '口罩', emoji: '😷', price: 9.90, cat: '药品医护', wish: '人多的地方，戴好再出门' },
     { id: 'g_powerbank', name: '充电宝', emoji: '🔋', price: 59.00, cat: '日常用品', wish: '随时满格，不怕联系不上我' },
     { id: 'g_cable', name: '数据线', emoji: '⚡', price: 19.90, cat: '日常用品', wish: '新的给你，别再将就用旧的' },
     { id: 'g_canvasbag', name: '帆布包', emoji: '👜', price: 49.00, cat: '日常用品', wish: '能装下零食，也装下好心情' },
@@ -343,10 +347,10 @@
     { id: 'g_bear', name: '玩偶熊', emoji: '🧸', price: 69.00, cat: '日常用品', wish: '我不在的时候，它替我值班' },
     { id: 'g_humid', name: '加湿器', emoji: '💧', price: 99.00, cat: '日常用品', wish: '屋里润一点，嗓子舒服一点' },
     { id: 'g_lunchbox', name: '保温饭盒', emoji: '🍱', price: 79.00, cat: '日常用品', wish: '中午也要吃口热乎的' },
-    { id: 'g_pill', name: '感冒药', emoji: '💊', price: 22.00, cat: '日常用品', wish: '抽屉里备着，用不上最好' },
+    { id: 'g_pill', name: '感冒药', emoji: '💊', price: 22.00, cat: '药品医护', wish: '抽屉里备着，用不上最好' },
     { id: 'g_phonestand', name: '手机支架', emoji: '📱', price: 25.00, cat: '日常用品', wish: '追剧空出来的手，用来牵我' },
-    // v3 扩库三批：正常日用生活刚需品（全部归「日常用品」）
-    { id: 'g_thermo', name: '体温计', emoji: '🌡️', price: 12.00, cat: '日常用品', wish: '不舒服先量一量，别硬扛' },
+    // v3 扩库三批：正常日用生活刚需品（全部归「日常用品」；体温计 #859 起移入「药品医护」）
+    { id: 'g_thermo', name: '体温计', emoji: '🌡️', price: 12.00, cat: '药品医护', wish: '不舒服先量一量，别硬扛' },
     { id: 'g_clipper', name: '指甲刀', emoji: '✂️', price: 9.90, cat: '日常用品', wish: '指甲勤剪，细节要干净' },
     { id: 'g_storage', name: '收纳箱', emoji: '📦', price: 35.00, cat: '日常用品', wish: '杂物收整齐，房间清爽' },
     { id: 'g_luggage', name: '行李箱', emoji: '🧳', price: 199.00, cat: '日常用品', wish: '想去哪，拉上就走' },
@@ -531,7 +535,25 @@
     { id: 'g_legquarter', name: '大鸡腿饭', emoji: '🍖', price: 22.00, cat: '美食', wish: '整只鸡腿，就盖在你饭上' },
     { id: 'g_taco', name: '塔可', emoji: '🌮', price: 16.00, cat: '美食', wish: '馅料满满，一口一个' },
     { id: 'g_baguette', name: '法棍', emoji: '🥖', price: 10.00, cat: '美食', wish: '外皮脆脆的，敲着响' },
-    { id: 'g_bagel', name: '贝果', emoji: '🥯', price: 12.00, cat: '美食', wish: '嚼劲十足，配奶油更好' }
+    { id: 'g_bagel', name: '贝果', emoji: '🥯', price: 12.00, cat: '美食', wish: '嚼劲十足，配奶油更好' },
+    // #859「药品医护」分类（用户反馈「心意市里只有感冒药，缺日常用的药和手受伤要用的」）：
+    // 常备药按「哪儿不舒服」命名，外伤处理按「受伤那一步」配齐——消毒（碘伏）→ 上药（跌打药酒）
+    // → 包扎（棉签/纱布/创可贴）→ 消肿（冰袋），配一句当日留言；价格走日常档，随手就能买。
+    { id: 'g_medfever', name: '退烧药', emoji: '💉', price: 18.00, cat: '药品医护', wish: '烧到难受才吃，吃完好好睡' },
+    { id: 'g_medanti', name: '消炎药', emoji: '🧪', price: 26.00, cat: '药品医护', wish: '伤口红肿别硬扛，按时吃' },
+    { id: 'g_medpain', name: '止痛药', emoji: '🩺', price: 20.00, cat: '药品医护', wish: '疼得睡不着就吃一片，别忍着' },
+    { id: 'g_medstomach', name: '胃药', emoji: '🫙', price: 24.00, cat: '药品医护', wish: '胃不舒服冲一包，别空着肚子' },
+    { id: 'g_medcough', name: '止咳糖浆', emoji: '🍯', price: 19.00, cat: '药品医护', wish: '咳得厉害喝一口，甜的润嗓子' },
+    { id: 'g_medthroat', name: '润喉糖', emoji: '🍬', price: 9.90, cat: '药品医护', wish: '嗓子哑了含一颗，今天少说话' },
+    { id: 'g_medeye', name: '眼药水', emoji: '💧', price: 16.00, cat: '药品医护', wish: '看久了滴一滴，眼睛也要歇' },
+    { id: 'g_medfloral', name: '花露水', emoji: '🌿', price: 14.00, cat: '药品医护', wish: '夏天蚊子多，出门前喷一点' },
+    { id: 'g_medvc', name: '维生素C', emoji: '🍊', price: 46.00, cat: '药品医护', wish: '一天一片，少感冒一次是一次' },
+    { id: 'g_medhuoxiang', name: '藿香正气水', emoji: '🥃', price: 12.00, cat: '药品医护', wish: '中暑头晕喝一支，苦但管用' },
+    { id: 'g_mediodine', name: '碘伏', emoji: '🧴', price: 12.00, cat: '药品医护', wish: '破皮先消毒，这两天别沾水' },
+    { id: 'g_medswab', name: '医用棉签', emoji: '🧷', price: 6.00, cat: '药品医护', wish: '换药的时候用得着，我来' },
+    { id: 'g_medgauze', name: '纱布绷带', emoji: '🩼', price: 15.00, cat: '药品医护', wish: '包好了别乱动，明天我换药' },
+    { id: 'g_medliniment', name: '跌打药酒', emoji: '🍶', price: 32.00, cat: '药品医护', wish: '磕青了要揉开，手给我，我来揉' },
+    { id: 'g_medice', name: '冰袋', emoji: '🧊', price: 8.00, cat: '药品医护', wish: '肿起来先冰一会儿，别急着揉' }
   ];
   const DEF_IDS = {};
   DEF_GIFTS.forEach(function (g) { DEF_IDS[g.id] = 1; });
