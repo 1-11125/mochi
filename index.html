@@ -10187,9 +10187,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789826085937">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789826662092">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 21:54<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 22:04<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -16919,7 +16919,8 @@ if (!_envUa) return true;
 return /wv\b|MicroMessenger|MicroApp|VivoBrowser|OPBrowser|MQQBrowser|QQBrowser|baiduboxapp|UCBrowser|XiaoMi|MiuiBrowser|HuaweiBrowser|Quark|SogouMobileBrowser|SamsungBrowser|MetaSr|OBABROWSER|dingtalk/i.test(_envUa);
 } catch (e) { return true; }
 })(),
-brokenFileShare: /huaweibrowser|quark/i.test(_envUa),
+brokenFileShare: /huaweibrowser|quark|heytapbrowser/i.test(_envUa),
+shareSheetCrash: /heytapbrowser/i.test(_envUa),
 apiBlockedHint: /QQBrowser|Quark/i.test(_envUa),
 notifyQuirk: /miui|xiaomi|redmi|hyperos/i.test(_envUa) || /android/i.test(_envUa)
 };
@@ -74643,9 +74644,10 @@ toast(ok ? '已用另一种方式触发下载「' + fname + '」，请到下载�
 : tipFail);
 });
 };
+const shareCrash = !!((window.mochiDevice || {}).env || {}).shareSheetCrash;
 try {
 const file = new File([blob], fname, { type: blob.type || 'application/octet-stream' });
-if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+if (!shareCrash && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
 navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' }).then(
 function () { toast('已通过系统分享保存「' + fname + '」'); },
 function () { tryDataUrl(); } // 面板没弹/被系统拒绝 → 换 data: 直下
@@ -79355,4 +79357,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8g8mk1 -->
+<!-- __MOCHI_EOF__ mu8gkz4c -->

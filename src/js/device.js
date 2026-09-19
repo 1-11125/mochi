@@ -301,7 +301,17 @@
     })(),
     // navigator.share({files}) 会假成功（canShare true 但调用即抛）的壳——备份导出
     // 跳过分享面板直接走「确定后下载」（华为 Mate20 默认浏览器/夸克，v3.9.x）
-    brokenFileShare: /huaweibrowser|quark/i.test(_envUa),
+    // FIX 2026-09-19 #854：OPPO/一加/真我 ColorOS 自带浏览器（HeyTapBrowser 内核）的
+    // 分享面板会直接把浏览器整个搞崩——OPPO A96 实报「任何需要导出数据的地方都无法导出，
+    // 还会闪退」，而主链路第一步必经 navigator.share({files}) 弹系统分享面板＝每次导出都崩。
+    // 与 v3.31 记录的「OPPO Find X9 分享 50MB+ 把标签页搞崩」同族（那个已用 shareMax 限流），
+    // 本条是面板级故障、与体积无关，有实报证据才进名单。
+    brokenFileShare: /huaweibrowser|quark|heytapbrowser/i.test(_envUa),
+    // #854：分享面板是「进程闪退」级故障（弹一次崩一次、真用户手势也一样崩）的内核——
+    // 除主链路跳分享面板（brokenFileShare）外，导出后的「换一种方式」换路按钮
+    // （data-backup.js altSaveFile）也不许再碰 navigator.share，否则用户点一下崩一次。
+    // 与 brokenFileShare 分开登记：夸克/华为在真手势下分享面板可用（#758 唯一可靠通道），不回退。
+    shareSheetCrash: /heytapbrowser/i.test(_envUa),
     // 音乐 API 被壳拦截、可提示用户换 Safari 的环境（QQ 浏览器/夸克，文案提示共用）
     apiBlockedHint: /QQBrowser|Quark/i.test(_envUa),
     // 系统级通知可能拦截（API 不报错但通知不显示）的安卓环境（红米/小米等 MIUI 系）

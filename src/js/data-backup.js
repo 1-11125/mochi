@@ -1009,9 +1009,13 @@
           : tipFail);
       });
     };
+    // FIX 2026-09-19 #854：分享面板会整个搞崩浏览器的内核（OPPO/HeyTap，device.js
+    // env.shareSheetCrash）跳过分享换路——弹一次崩一次，直接 data: 直下 / 文字指引；
+    // 夸克/华为不受影响（shareSheetCrash false，#758 的真手势分享通道原样保留）。
+    const shareCrash = !!((window.mochiDevice || {}).env || {}).shareSheetCrash;
     try {
       const file = new File([blob], fname, { type: blob.type || 'application/octet-stream' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (!shareCrash && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' }).then(
           function () { toast('已通过系统分享保存「' + fname + '」'); },
           function () { tryDataUrl(); } // 面板没弹/被系统拒绝 → 换 data: 直下
