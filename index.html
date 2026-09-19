@@ -10164,9 +10164,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789808991386">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789810053030">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 17:09<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 17:27<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12320,10 +12320,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           </details>
 
           <details class="lic-grp">
-            <summary><span class="lg-num">09</span><span class="lg-name">寻踪</span><span class="lg-count">4</span></summary>
+            <summary><span class="lg-num">09</span><span class="lg-name">寻踪</span><span class="lg-count">5</span></summary>
             <div class="lg-body">
           <div class="lic-li">桌面【寻踪】包含：TA 的日常、TA 在哪里、TA 在做什么、TA 想对你说——为【TA 的日常】字卡库内容随机刷新，可自由添加字卡</div>
           <div class="lic-li">联系人更新日常时，聊天消息里会发送一条【联系人昵称 更新了一条日常】，且有概率触发联系人提醒你寻踪的消息</div>
+          <div class="lic-li">不想用寻踪可以整体关闭：<b>设置 → 工具 → 寻踪（TA 的日常）</b>，或字卡库【TA 的日常】页顶部的同名开关。关闭后桌面【寻踪】图标、聊天「更多功能」里的寻踪、点 TA 头像弹出的寻踪半框全部收起，日常不再自动更新、不再推消息、也不写新记录；已有的日常与寻踪记录原样保留，重新开启即恢复（按联系人桌面分别保存）</div>
           <div class="lic-li">「TA 在身边」位置感知：模糊感知 TA 的方位与距离，文案来自字卡库「TA在身边位置卡」——含系统预设（方位 / 距离 / 状态 / 感知 / 彩蛋分类，总开关 + 单卡开关）与自定义位置卡（可分组 / 批量添加），组合发送与彩蛋冷却（彩蛋「在你心里」每位联系人一周只能用一次）</div>
           <div class="lic-li">位置卡发出后屏幕上有一个光点，<b>光点落在哪儿＝TA 在哪儿</b>：方位卡（在你左边 / 右边 / 身后 / 前面）落在画面对应方向；距离卡、状态卡跟着<b>最近一张方位卡</b>的方位走——「再近一点」朝屏幕中心靠近、「再远一点」朝屏幕边缘退开（上一张是「在你右边」时挨着屏幕右侧属正常）；组合发送按其中的方位卡落点。方位感知的方向也会与最近的位置卡对齐</div>
             </div>
@@ -25943,9 +25944,10 @@ store.set('hidden-icons', JSON.stringify(arr));
 };
 const applyHiddenIcons = () => {
 const hidden = getHiddenIcons();
+const ckOff = typeof window.checkinDeskOff === 'function' && window.checkinDeskOff();
 document.querySelectorAll('.app').forEach(app => {
 const key = app.dataset.app;
-if (hidden.indexOf(key) >= 0) app.style.display = 'none';
+if (hidden.indexOf(key) >= 0 || (ckOff && key === 'checkin')) app.style.display = 'none';
 else app.style.display = '';
 });
 };
@@ -38414,7 +38416,7 @@ if (moreGridFun) {
 moreGridFun.hidden = cat === 'ask';
 moreGridFun.querySelectorAll('.more-item').forEach(it => {
 if (moreGroupMode) it.hidden = !GROUP_MORE_ITEM_IDS.has(it.id); // 群聊模式只显允许的 4 项
-else it.hidden = it.dataset.mcat !== cat;
+else it.hidden = it.dataset.mcat !== cat || (it.id === 'more-ck' && window.checkinEnabled && !window.checkinEnabled()); // #823 寻踪关闭时收起「更多」面板里的寻踪
 });
 }
 if (!moreGroupMode) store.set('more-cat', cat);
@@ -57190,7 +57192,7 @@ piggy: '【存钱罐】切到心意币「存钱」页时，TA 可能往存钱罐
 drift: '【漂流瓶】捞出漂流瓶时，瓶内话术（海风/TA的话/TA的回应）从「漂流瓶」字卡池抽取。\n触发时机：打开漂流瓶页、捡瓶前、从后台切回时结算；捡瓶有 20 秒冷却，TA 瓶每天最多 3 个；TA 回应在发布后 6–40 小时结算（45% 概率会回应，同时最多 2 个）。\n概率 = 抽到字卡话术的概率（默认 100%），0% = 不出字卡（普通瓶仍有内置兜底、不会空白；TA 回应瓶则不再生成）。',
 interact: '【互动回应】你主动做的各种小互动（戳一戳 / 拍一拍 / 拉拉手等）时，联系人回应的字卡。\n⚠ 当前版本本项概率尚未接线到回应抽取，调整暂不生效（回应的实际概率由回复设置里的相关项控制）。\n触发时机：你主动互动时。\n概率 = 预留的回应字卡概率（默认 100%），设计意图为 0% = 互动不回应字卡，修复接线后生效。',
 music: '【音乐】播放歌曲时，TA 偶尔会「暂停一下再恢复」来逗你。\n触发时机：每开始一首歌判定一次（自带 3% 概率、同一首只触发一次、距上次 ≥10 分钟）；命中后 10–25 秒随机暂停，3.5 秒后恢复。\n概率 = 暂停/恢复时是否附上字卡气泡（默认 100%），0% = 仍有暂停动作和系统消息，但不出字卡。',
-checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在哪里 / 在做什么 / 想对你说），并推送到聊天。\n触发机制与时间：首次打开（数据就绪后）立即生成一条；此后每隔 1–8 小时随机更新一次，页面在前台时每 60 秒检查一次；后台不更新，从后台切回后 90 秒冷静期内不更新。\n推送内容：每次更新向聊天发三条——「更新了一条日常」提示 + 日常内容 + 30% 概率的「提醒你来寻踪」。\n概率 = 本次更新是否推送这三条到聊天的概率（默认 100%），0% = 完全不发（寻踪页与历史记录照常生成）。',
+checkin: '【寻踪日常】联系人定期更新「TA 的日常」（在哪里 / 在做什么 / 想对你说），并推送到聊天。\n触发机制与时间：首次打开（数据就绪后）立即生成一条；此后每隔 1–8 小时随机更新一次，页面在前台时每 60 秒检查一次；后台不更新，从后台切回后 90 秒冷静期内不更新。\n推送内容：每次更新向聊天发三条——「更新了一条日常」提示 + 日常内容 + 30% 概率的「提醒你来寻踪」。\n概率 = 本次更新是否推送这三条到聊天的概率（默认 100%），0% = 完全不发（寻踪页与历史记录照常生成）。\n想整体停用：设置 → 工具 → 寻踪（TA 的日常）总开关——关闭后连日常生成、记录与桌面/聊天入口一起停用，与本概率是两层东西。',
 pomo: '【番茄钟】你用番茄钟完成一段专注时，联系人在聊天里发「去休息一会儿」（如有奖励还会附上摸鱼补偿）的消息。\n触发时机：每完成一段「专注」结算一次（休息段不发），需番茄钟页的「发到聊天」开关也打开。\n概率 = 完成后发这条消息的概率（默认 100%），0% = 不发。',
 care: '【TA的关心（经期）】经期中、经前预警日（提前天数见经期页「提醒设置」）、或经期推迟时，联系人主动发消息。v3.42.x #559 起按「语境 × 经期规律」分级：经期中发「经期关心」（附「经期关心」标签，语料=字卡库「经期」tab「经期关心」分组+经期页自管理关心语）；经前预警日/推迟发「经期预警」（附「经期预警」标签）。分级判据=近 3 次周期变异系数 CV<0.2（很规律/较规律）视为预测可信，否则预测仅参考——①经前预警：预测可信按配置预警日发确定口吻（「经前预警」组）；预测仅参考只在最接近的一次预警日发「按记录推算、仅供参考」版（「经前预警·不规律」组）。②推迟：预测可信晚 ≥5 天发「比平时晚了 N 天，你一向很准」（「经期推迟」组），晚 ≥10 天升关注档、措辞带就医建议（「经期推迟·关注」组）；预测仅参考不说「推迟」（预测误差可能比推迟天数还大），晚 ≥10 天才以「距上次经期已经 N 天」间隔口吻轻提（「经期推迟·不规律」组）。各语料 {d} 自动替换为具体天数。\n触发时机：TA 每条文字/表情/图片回复后、打开经期页、保存提醒设置时各判定一次；每个语境每天最多一条；23:00–06:00 深夜静默（不发、也不占当天名额，白天再触发照常）。\n本概率 = 在原有闸门之上统一放行（默认 100%）：经期中第 1–2 天另有 90%、第 3–4 天 70%、第 5+ 天 55%，经前预警/推迟预警 75% 的基数；本项 100% = 保持原节奏，0% = 完全不发。\n更彻底：到「经期记录」页把「梦角关心」按钮也关掉（两者都关才真的完全关）。',
 memo: '【备忘提醒】你有未完成的备忘时，联系人在聊天里催一件，带「备忘提醒」标签。\n触发时机：启动 60 秒后首次、之后每 4 分钟判定一次、回前台补触发；至少隔 2 天、23:00–06:00 静默。\n本概率 = 在备忘页自带的「备忘提醒」开关/概率（默认 2%）之上是否放行（默认 100%）：100% = 保持原节奏，0% = 完全不催备忘。\n备忘页里自己的开关仍独立有效。',
@@ -66882,6 +66884,15 @@ return [];
 function ckSaveGroups(k, groups) { store.set('checkin-cards-groups-' + k, JSON.stringify(groups)); }
 function isCkCardOff(k, x) { return store.get('ck-off-' + k + ':' + x) === '1'; }
 function setCkCardOff(k, x, off) { store.set('ck-off-' + k + ':' + x, off ? '1' : '0'); }
+const CK_EN_KEY = 'checkin-en';
+function ckEn() {
+try {
+const v = store.get(CK_EN_KEY);
+return v === null ? true : v === '1';
+} catch (e) { return true; }
+}
+window.checkinEnabled = ckEn;
+window.checkinDeskOff = function () { return !ckEn(); };
 function genCheckin() {
 const useDefault = getCkDefault();
 let places = ckItems('place');
@@ -66934,6 +66945,72 @@ store.set('checkin-history', JSON.stringify(data));
 })();
 const checkinApp = document.querySelector('.app[data-app="checkin"]');
 const checkinPage = document.getElementById('page-checkin');
+function applyCkDeskIcon() {
+try {
+if (!checkinApp) return;
+let man = false;
+try { man = (JSON.parse(store.get('hidden-icons') || '[]')).indexOf('checkin') >= 0; } catch (e) {}
+checkinApp.style.display = (ckEn() && !man) ? '' : 'none';
+} catch (e) {}
+}
+function syncCkSwitchUI() {
+const on = ckEn();
+const a = document.getElementById('sf-checkin-en');
+if (a && a.checked !== on) a.checked = on;
+const b = document.getElementById('ck-fe-en');
+if (b && b.checked !== on) b.checked = on;
+const sub = document.getElementById('sf-checkin-sub');
+if (sub) sub.textContent = on ? 'TA 的日常随机刷新，桌面/聊天里都能寻踪' : '已关闭：入口已收起、不再自动更新（已有记录保留，重新开启即恢复）';
+}
+function ckToast(on) {
+if (typeof window.toast !== 'function') return;
+window.toast(on ? '寻踪已开启：桌面与聊天入口恢复、日常继续更新' : '寻踪已关闭：入口全部收起、不再自动更新，已有记录保留');
+}
+window.setCheckinEnabled = function (on) {
+try { store.set(CK_EN_KEY, on ? '1' : '0'); } catch (e) {}
+syncCkSwitchUI();
+applyCkDeskIcon();
+};
+function bindCkSwitch(input) {
+input.checked = ckEn();
+input.addEventListener('change', function () {
+window.setCheckinEnabled(input.checked);
+ckToast(input.checked);
+});
+}
+(function () {
+if (document.getElementById('sf-checkin-row')) return;
+const anchor = document.getElementById('row-open-divination');
+if (!anchor || !anchor.parentNode) return;
+const row = document.createElement('div');
+row.className = 'set-row';
+row.id = 'sf-checkin-row';
+row.innerHTML =
+'<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v3.4l2.4 1.4"/></svg></div>' +
+'<div class="txt">寻踪（TA 的日常）<span class="sub" id="sf-checkin-sub"></span></div>' +
+'<label class="toggle"><input type="checkbox" id="sf-checkin-en"><span class="tk"></span></label>';
+anchor.parentNode.insertBefore(row, anchor);
+bindCkSwitch(row.querySelector('#sf-checkin-en'));
+})();
+(function () {
+if (document.getElementById('ck-fe-en')) return;
+const box = document.getElementById('ck-prob-box');
+if (!box || !box.parentNode) return;
+const grp = document.createElement('div');
+grp.className = 'set-group glass';
+grp.setAttribute('style', 'margin:10px 12px 0');
+grp.innerHTML =
+'<div class="gs-row"><span>启用寻踪（TA 的日常）</span><label class="toggle"><input type="checkbox" id="ck-fe-en"><span class="tk"></span></label></div>' +
+'<div class="gs-sub">关闭后桌面【寻踪】图标、聊天「更多功能」里的寻踪、点 TA 头像的寻踪半框一并收起，日常也不再自动更新与推送（下面那个「发送到聊天」概率与已有寻踪记录都不受影响，重新开启即恢复）。设置 → 工具 里有同一个开关。</div>';
+box.parentNode.insertBefore(grp, box);
+bindCkSwitch(document.getElementById('ck-fe-en'));
+})();
+applyCkDeskIcon();
+syncCkSwitchUI();
+document.addEventListener('contact-switched', function () { applyCkDeskIcon(); syncCkSwitchUI(); });
+if (window.__mochiDataReady) { applyCkDeskIcon(); syncCkSwitchUI(); }
+else document.addEventListener('mochi-restore-done', function () { applyCkDeskIcon(); syncCkSwitchUI(); });
+document.addEventListener('decor-exited', applyCkDeskIcon);
 function ckLast() { const v = parseInt(store.get('checkin-last'), 10); return isNaN(v) ? 0 : v; }
 function ckNext() { const v = parseFloat(store.get('checkin-next')); return isNaN(v) ? 0 : v; }
 function renderCheckinUI(ck) {
@@ -66958,6 +67035,7 @@ if (window.idbSet) window.idbSet(window.activePrefix() + ':checkin-history', JSO
 renderCheckinHistory();
 }
 function doCheckin() {
+if (!ckEn()) return; // #823a 关闭即全静默：生成/推送/记录/重置计时一并停
 const ck = genCheckin();
 store.set('checkin-current', JSON.stringify(ck));
 renderCheckinUI(ck);
@@ -66987,6 +67065,7 @@ if (a) a.textContent = ck.action || '';
 if (m) m.textContent = ck.msg || '';
 }
 window.openCkPanel = function () {
+if (!ckEn()) return; // #823b 关闭后点顶部 TA 头像不再弹寻踪半框（toggleCkPanel 同源）
 const pc = document.getElementById('poke-card');
 if (pc) pc.hidden = true;
 const ep = document.getElementById('emoji-panel');
@@ -67063,6 +67142,10 @@ document.addEventListener('mochi-restore-done', bootCheckin);
 setTimeout(bootCheckin, 3000);
 window.openCheckinPage = function () {
 if (!checkinPage) return;
+if (!ckEn()) { // #823c 关闭后寻踪页不再打开（桌面图标/更多功能入口已收起，剩功能大全这类程序化跳转）
+if (typeof window.toast === 'function') window.toast('寻踪已关闭：设置 → 工具 → 寻踪 可重新开启');
+return;
+}
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 checkinPage.hidden = false;
 let cur = null;
@@ -79217,4 +79300,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8628be -->
+<!-- __MOCHI_EOF__ mu86ozhi -->

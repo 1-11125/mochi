@@ -520,6 +520,22 @@ function ckList(k, def) {
 // v3.6.x：寻踪系统预设字卡单卡开关——逐张开启/关闭（关闭后寻踪不再抽取该条）
 function isCkCardOff(k, x) { return store.get('ck-off-' + k + ':' + x) === '1'; }
 function setCkCardOff(k, x, off) { store.set('ck-off-' + k + ':' + x, off ? '1' : '0'); }
+// v3.27.x #823：寻踪总开关（per-cid 键 checkin-en，从未写过＝默认开启）。关闭＝全静：
+// 不自动生成日常、不往聊天推任何寻踪消息、不落新记录，桌面【寻踪】图标／聊天「更多功能」
+// 寻踪／点 TA 头像的寻踪半框三个入口一并收起；已有日常与寻踪记录原样保留，重新开启即恢复。
+// 与「寻踪日常发送到聊天」概率（dcf-checkin）是两层东西：概率调 0% 只停聊天推送，
+// 寻踪页与记录照旧生成；本开关是连生成带入口一起停用。
+const CK_EN_KEY = 'checkin-en';
+function ckEn() {
+  try {
+    const v = store.get(CK_EN_KEY);
+    return v === null ? true : v === '1';
+  } catch (e) { return true; }
+}
+window.checkinEnabled = ckEn;
+// personalize.js 的 applyHiddenIcons 会把「不在隐藏名单里的图标」display 复位成 ''，
+// 它按这个口径判定寻踪图标是否该收起（否则用户从装修里恢复图标/切桌面就把入口放回来了）。
+window.checkinDeskOff = function () { return !ckEn(); };
 function genCheckin() {
   const useDefault = getCkDefault();
   // v3.7.x：字卡可为 {t, grp} 对象——统一用 ckItems 取 .t
@@ -581,6 +597,84 @@ function renderCheckinHistory() {
   })();
   const checkinApp = document.querySelector('.app[data-app="checkin"]');
   const checkinPage = document.getElementById('page-checkin');
+  // ---- #823 总开关：入口显隐收口 + 两处开关 UI（设置→工具 / 字卡库→寻踪日常字卡页）----
+  // 桌面图标走 display 收起（与 personalize.js applyHiddenIcons 同一条轴：那个函数会把
+  // 「不在隐藏名单里」的图标 display 复位成 ''，故它内部按 window.checkinDeskOff() 一并判定；
+  // 否则用户切桌面／装修里恢复图标／恢复隐藏图标弹窗一跑，入口就自己回来了）。
+  function applyCkDeskIcon() {
+    try {
+      if (!checkinApp) return;
+      // 与装修里「隐藏图标」名单取并集：只认总开关会在关闭再开启后，把用户原本手动隐藏的
+      // 寻踪图标顺手放回桌面（hidden-icons 存的是 dataset.app 值 'checkin'）
+      let man = false;
+      try { man = (JSON.parse(store.get('hidden-icons') || '[]')).indexOf('checkin') >= 0; } catch (e) {}
+      checkinApp.style.display = (ckEn() && !man) ? '' : 'none';
+    } catch (e) {}
+  }
+  function syncCkSwitchUI() {
+    const on = ckEn();
+    const a = document.getElementById('sf-checkin-en');
+    if (a && a.checked !== on) a.checked = on;
+    const b = document.getElementById('ck-fe-en');
+    if (b && b.checked !== on) b.checked = on;
+    const sub = document.getElementById('sf-checkin-sub');
+    if (sub) sub.textContent = on ? 'TA 的日常随机刷新，桌面/聊天里都能寻踪' : '已关闭：入口已收起、不再自动更新（已有记录保留，重新开启即恢复）';
+  }
+  function ckToast(on) {
+    if (typeof window.toast !== 'function') return;
+    window.toast(on ? '寻踪已开启：桌面与聊天入口恢复、日常继续更新' : '寻踪已关闭：入口全部收起、不再自动更新，已有记录保留');
+  }
+  window.setCheckinEnabled = function (on) {
+    try { store.set(CK_EN_KEY, on ? '1' : '0'); } catch (e) {}
+    syncCkSwitchUI();
+    applyCkDeskIcon();
+  };
+  function bindCkSwitch(input) {
+    input.checked = ckEn();
+    input.addEventListener('change', function () {
+      window.setCheckinEnabled(input.checked);
+      ckToast(input.checked);
+    });
+  }
+  // 设置 → 工具：开关行插在「占卜」入口行之前（样式复用 .set-row/.toggle，不改动 template.html；
+  // 行名的「功能说明」胶囊与设置页搜索素材由 settings-help.js 按 #sf-checkin-row 登记注入）
+  (function () {
+    if (document.getElementById('sf-checkin-row')) return;
+    const anchor = document.getElementById('row-open-divination');
+    if (!anchor || !anchor.parentNode) return;
+    const row = document.createElement('div');
+    row.className = 'set-row';
+    row.id = 'sf-checkin-row';
+    row.innerHTML =
+      '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v3.4l2.4 1.4"/></svg></div>' +
+      '<div class="txt">寻踪（TA 的日常）<span class="sub" id="sf-checkin-sub"></span></div>' +
+      '<label class="toggle"><input type="checkbox" id="sf-checkin-en"><span class="tk"></span></label>';
+    anchor.parentNode.insertBefore(row, anchor);
+    bindCkSwitch(row.querySelector('#sf-checkin-en'));
+  })();
+  // 字卡库 → 寻踪日常字卡页：概率框上方同一开关（同一个键 checkin-en，两处实时同步）——
+  // 用户改寻踪内容时就想顺手关掉它，不必绕去设置页
+  (function () {
+    if (document.getElementById('ck-fe-en')) return;
+    const box = document.getElementById('ck-prob-box');
+    if (!box || !box.parentNode) return;
+    const grp = document.createElement('div');
+    grp.className = 'set-group glass';
+    grp.setAttribute('style', 'margin:10px 12px 0');
+    grp.innerHTML =
+      '<div class="gs-row"><span>启用寻踪（TA 的日常）</span><label class="toggle"><input type="checkbox" id="ck-fe-en"><span class="tk"></span></label></div>' +
+      '<div class="gs-sub">关闭后桌面【寻踪】图标、聊天「更多功能」里的寻踪、点 TA 头像的寻踪半框一并收起，日常也不再自动更新与推送（下面那个「发送到聊天」概率与已有寻踪记录都不受影响，重新开启即恢复）。设置 → 工具 里有同一个开关。</div>';
+    box.parentNode.insertBefore(grp, box);
+    bindCkSwitch(document.getElementById('ck-fe-en'));
+  })();
+  applyCkDeskIcon();
+  syncCkSwitchUI();
+  document.addEventListener('contact-switched', function () { applyCkDeskIcon(); syncCkSwitchUI(); });
+  // checkin-en 是小键、正常同步写 localStorage；但存储被系统清理后该键可能只在 IndexedDB，
+  // 回填完成前读到空＝按默认开启算，故回填后再重算一次（与 applyGroupChatMode 同口径）
+  if (window.__mochiDataReady) { applyCkDeskIcon(); syncCkSwitchUI(); }
+  else document.addEventListener('mochi-restore-done', function () { applyCkDeskIcon(); syncCkSwitchUI(); });
+  document.addEventListener('decor-exited', applyCkDeskIcon);
   // ---- 星言顶部栏字卡/随机换头像同款刷新机制 ----
   // 上次/下次更新时间戳持久化：首次启动立即生成一条，之后每 1-8 小时更新一次；
   // 每 60 秒轮询检查，刷新页面周期不重置
@@ -611,6 +705,9 @@ function renderCheckinHistory() {
   }
   // 生成新日常：渲染 + 推聊天消息（更新提示 + 概率提醒）+ 记录 + 重置计时
   function doCheckin() {
+    // #823 总开关关闭＝整条链一步都不做：不生成、不推聊天、不落记录、不重置计时
+    //（唯一收口点——手动刷新 / 半框 / 寻踪页 / 自动轮询全部经由本函数）
+    if (!ckEn()) return; // #823a 关闭即全静默：生成/推送/记录/重置计时一并停
     const ck = genCheckin();
     store.set('checkin-current', JSON.stringify(ck));
     renderCheckinUI(ck);
@@ -651,6 +748,7 @@ function renderCheckinHistory() {
   }
   // 供聊天页「点联系人头像打开寻踪半框」使用
   window.openCkPanel = function () {
+    if (!ckEn()) return; // #823b 关闭后点顶部 TA 头像不再弹寻踪半框（toggleCkPanel 同源）
     // 关闭其他底部半框（拍一拍/表情包/头像互动）
     const pc = document.getElementById('poke-card');
     if (pc) pc.hidden = true;
@@ -751,6 +849,10 @@ function renderCheckinHistory() {
   // 全屏打开寻踪页：渲染当前日常（或生成一条）+ 记录；供桌面/聊天「更多功能」共用
   window.openCheckinPage = function () {
     if (!checkinPage) return;
+    if (!ckEn()) { // #823c 关闭后寻踪页不再打开（桌面图标/更多功能入口已收起，剩功能大全这类程序化跳转）
+      if (typeof window.toast === 'function') window.toast('寻踪已关闭：设置 → 工具 → 寻踪 可重新开启');
+      return;
+    }
     document.querySelectorAll('.page').forEach(p => p.hidden = true);
     checkinPage.hidden = false;
     // 显示当前日常；从未生成过则立即生成一条

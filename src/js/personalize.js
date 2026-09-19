@@ -1711,9 +1711,12 @@ try {
   };
   const applyHiddenIcons = () => {
     const hidden = getHiddenIcons();
+    // #823：寻踪总开关关闭时桌面【寻踪】图标与手动隐藏图标同轴收起——本函数会把「名单外」
+    // 图标的 display 复位成 ''（切桌面、恢复隐藏图标弹窗都会跑它），不认这个口径入口会自己回来。
+    const ckOff = typeof window.checkinDeskOff === 'function' && window.checkinDeskOff();
     document.querySelectorAll('.app').forEach(app => {
       const key = app.dataset.app;
-      if (hidden.indexOf(key) >= 0) app.style.display = 'none';
+      if (hidden.indexOf(key) >= 0 || (ckOff && key === 'checkin')) app.style.display = 'none';
       else app.style.display = '';
     });
   };

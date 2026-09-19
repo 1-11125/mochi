@@ -6995,7 +6995,7 @@ if (moreGridFun) {
 moreGridFun.hidden = cat === 'ask';
 moreGridFun.querySelectorAll('.more-item').forEach(it => {
 if (moreGroupMode) it.hidden = !GROUP_MORE_ITEM_IDS.has(it.id); // 群聊模式只显允许的 4 项
-else it.hidden = it.dataset.mcat !== cat;
+else it.hidden = it.dataset.mcat !== cat || (it.id === 'more-ck' && window.checkinEnabled && !window.checkinEnabled()); // #823 寻踪关闭时收起「更多」面板里的寻踪
 });
 }
 if (!moreGroupMode) store.set('more-cat', cat);

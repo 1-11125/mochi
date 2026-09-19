@@ -3575,6 +3575,14 @@ const FIX_SENTINELS = [
   { name: '#815c 静态快照扫空时实时复查（删＝运行中新建的 .page 不在快照里，chrome 判定与自愈双失）', file: 'js/tabs.js', needle: 'if (!visible) visible = liveVisiblePage();' },
   { name: '#815d .phone 整屏空白地板（删＝内核瞬时上报 0 高时整壳塌成一条，「输入文字时白闪」复发；min-height 压内联 height，单点收口不随十余处写入点漂移）', file: 'css/base.css', needle: 'min-height:min(120px, 18dvh);' },
   { name: '#821a 桌面昵称抬到头像 label 激活层之上（删掉 z-index＝点昵称又被覆盖层吞去弹相册，「点击无法修改」复发）', file: 'css/home.css', needle: 'cursor:pointer; position:relative; z-index:1; }' },
+  // ==== 2026-09-19 #823 用户直派「寻踪功能缺少禁用，关闭这个功能」：原先只有「寻踪日常发送到聊天」概率（dcf-checkin 调 0% 只停推送、寻踪页与记录照旧生成），没有总闸。新增 per-cid 键 checkin-en（从未写过＝默认开启，老用户零迁移），关闭＝全静：日常不生成、不推聊天、不落记录、不重置计时，桌面【寻踪】图标／聊天「更多」面板寻踪／点 TA 头像的寻踪半框三入口一并收起，已有记录保留、重开即恢复（不补发）。行为断言 tools/verify-checkin-disable.mjs（本批绿 11/11、纯 HEAD 红 1/11）====
+  { name: '#823a doCheckin 总闸（唯一收口点：自动轮询/手动刷新/半框/寻踪页全经它；删＝关闭后日常照旧生成并推聊天，「缺少禁用」复发）', file: 'js/p2-features.js', needle: 'if (!ckEn()) return; // #823a' },
+  { name: '#823b 点 TA 头像不再弹寻踪半框（toggleCkPanel 同源经 openCkPanel；删＝入口收起后半框仍能从聊天顶部点开）', file: 'js/p2-features.js', needle: 'if (!ckEn()) return; // #823b' },
+  { name: '#823c 寻踪页不再打开＋可恢复指引 toast（功能大全等程序化跳转兜底；删＝隐藏图标被程序点击直开空页且用户不知为何）', file: 'js/p2-features.js', needle: 'if (!ckEn()) { // #823c' },
+  { name: '#823d 开关核心键名（改键＝所有已关闭桌面静默回到默认开启；per-cid 命名空间由 activeStore 提供）', file: 'js/p2-features.js', needle: "const CK_EN_KEY = 'checkin-en';" },
+  { name: '#823e 桌面图标收起口径对外暴露（personalize 的 applyHiddenIcons 复位逻辑靠它认总开关；删＝切桌面/恢复隐藏图标后入口自己回来）', file: 'js/p2-features.js', needle: 'window.checkinDeskOff = function () { return !ckEn(); };' },
+  { name: '#823f 更多面板每次重算 hidden 时收起寻踪（收口必须在此行；写到别处会被 applyMoreCat 覆盖）', file: 'js/chat.js', needle: "it.id === 'more-ck' && window.checkinEnabled" },
+  { name: '#823g 桌面图标与装修手动隐藏名单取并集（只认总开关会把用户在装修里手动隐藏的寻踪在关闭再开启后顺手放回桌面）', file: 'js/personalize.js', needle: "if (hidden.indexOf(key) >= 0 || (ckOff && key === 'checkin')) app.style.display = 'none';" },
   // ==== 2026-09-19 #842 表情面板【颜文字】【emoji】补「⏱最近使用」（用户直派：表情包有、这两类没有）。#636 的两类文字分类此前被 recChipShow 里的 emojiCat 判定硬挡成 sticker 专属，点击也不记录。本批＝点击记录＋按分类各存一份全局根键（emoji-recent-kaomoji / emoji-recent-emoji，身份＝文字原文、解析回查 TA 专属/公用/我的三池）＋chip 三分类通用＋停在最近分组时不被自动回落改选。行为断言 tools/verify-emoji-recent.mjs T 组 ====
   { name: '#842a 颜文字/emoji 点击即记录（删＝这两类永不进最近区）', file: 'js/chat.js', needle: 'try { emojiRecordRecentText(t); } catch (e0) {}' },
   { name: '#842b 最近结果按分类各解析一份（改回恒 emojiRecentResolved＝文字分类永远空、且文字条目混进图片身份池）', file: 'js/chat.js', needle: "emojiCat === 'sticker' ? emojiRecentResolved() : textRecentResolved()" },
