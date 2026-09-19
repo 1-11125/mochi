@@ -2029,8 +2029,12 @@ return String(s == null ? '' : s)
 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+// FIX 2026-09-19 #817 连续空格在内容层保护（多空格→等量 &nbsp;）：替代已撤销的气泡正文
+// span 全局保留空白 CSS 规则——部分内核（一加自带浏览器实报，多机型同现）对 shrink-to-fit
+// 气泡里的预格式化文本把自适应宽误算成最小内容宽，发出消息被压成一字一行竖排。&nbsp; 不折叠、
+// 不断行是全内核通用行为；单个空格不动（保留正常断行机会），\n→<br> 语义不变。
 function escTxtBr(s) {
-return escTxt(s).replace(/\n/g, '<br>');
+return escTxt(s).replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length)).replace(/\n/g, '<br>');
 }
 // FIX 2026-09-13 #385 媒体池令牌夹在文字中间被当文字直出（乱码："不错 多笑笑吧 @@m:5839…cb87 我不是很适应这个"）
 // ——#383 只治「整条 text 就是裸令牌」（normCell 升 type=image）；多字卡回复 pickN.join(' ') 拼出的

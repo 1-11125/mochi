@@ -1545,7 +1545,6 @@ user-select:none; -webkit-user-select:none;
 }
 .msg-in .msg-bubble { background: var(--msg-in-bg, #ffffff); color: var(--msg-in-ink, #111111); }
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
-.msg-bubble > span { white-space:pre-wrap; }
 .msg-enter {
 animation: msgPopIn .4s cubic-bezier(.22,1,.36,1) both;
 }
@@ -10168,9 +10167,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789795944374">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789796493782">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 13:32<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 13:41<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -34398,7 +34397,7 @@ return String(s == null ? '' : s)
 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escTxtBr(s) {
-return escTxt(s).replace(/\n/g, '<br>');
+return escTxt(s).replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length)).replace(/\n/g, '<br>');
 }
 window.mochiInlineTextHtml = function (s) {
 s = String(s == null ? '' : s);
@@ -79135,4 +79134,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu7yal6e -->
+<!-- __MOCHI_EOF__ mu7ymd3q -->

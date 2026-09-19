@@ -103,13 +103,14 @@
 }
 .msg-in .msg-bubble { background: var(--msg-in-bg, #ffffff); color: var(--msg-in-ink, #111111); }
 .msg-out .msg-bubble { background: var(--msg-out-bg, #111111); color: var(--msg-out-ink, #ffffff); }
-/* FIX 2026-09-18 颜文字发到聊天「变奇怪」：气泡正文 span 用默认 white-space:normal，把
-   颜文字里有意义的连续空格折叠掉（如「(◕ ‿ ◕)」「( ˘  ̫ ˘ )」被压成单空格），而输入框
-   .chat-input 是 white-space:pre-wrap，于是发出后与「正常显示」不一致。HTML 空白折叠是
-   全浏览器通用行为＝各机型都复现，故这一条通用规则一次覆盖单聊+群聊所有气泡正文，无机型分支。
-   \n 已由 escTxtBr 转成 <br>，pre-wrap 只影响空格/制表符，不会双换行；引用块在 .msg-quote
-   div 内（非气泡直接子 span）不受影响。 */
-.msg-bubble > span { white-space:pre-wrap; }
+/* FIX 2026-09-19 #817 一加8T 自带浏览器（HeyTapBrowser，Chrome/115 系）实报「打字的
+   消息发出去后变竖排（一字一行）」，多机型同现——撤掉上一批（2026-09-18 颜文字批）给
+   气泡正文 span 加的全局保留空白模式：消息列表是「列容器 align-self 收缩 + 行内 flex」
+   的内容自适应宽度链，部分内核遇到保留换行的预格式化文本时会把自适应宽误算成最小内容
+   宽（一个字符），气泡被压成竖排。空格保护下移到内容层：chat.js 的 escTxtBr 把连续
+   多个空格转成等量 &nbsp;（所有内核都不折叠、不切断，与机型无关），单个空格保持正常
+   断行机会＝健康引擎零视觉变化。输入框 .chat-input 是块级满宽布局、不吃内容自适应宽，
+   其自身保留空白模式保留不动。引用块 .msg-quote-text 的既有同款规则同理不受此链影响。 */
 
 /* 消息入场动画：仅新增消息（非批量渲染）时触发。
    柔和上浮淡入——用「指数减速」曲线（ease-out-quint，起步快、末端自然落定）取代

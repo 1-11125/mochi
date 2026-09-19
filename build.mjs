@@ -275,6 +275,9 @@ const FIX_SENTINELS = [
   // ==== 2026-09-19 #825 用户直派「词典里的爸爸删掉」：内置扩展词库（dict-ext-data.js 常用词·双字组）移除该称呼词条（词典池每次加载从内置快照重建，用户本地只存自建词条，删源码即全端生效、无需数据迁移）====
   { name: '#825 词典父亲称呼词条已删（回流＝旧缓冲把词条写回内置词库，用户点名要求删除）', file: 'index.html', needle: "\"爸爸\"", absent: true },
 
+  // ==== 2026-09-19 #817 一加8T 自带浏览器实报「发出消息变竖排（一字一行）」多机型同现：气泡正文 span 的全局保留空白规则（09-18 颜文字批）在部分内核把 shrink-to-fit 气泡的自适应宽误算成最小内容宽，空格保护下移到内容层（escTxtBr 连续空格→等量 &nbsp;）。====
+  { name: '#817a 气泡正文空格保护在内容层（escTxtBr 多空格→等量 &nbsp;；删＝退回靠全局预换行规则防折叠，竖排病回流）', file: 'js/chat.js', needle: ".replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length))" },
+  { name: '#817b 删除型：气泡正文 span 不得再有全局保留空白模式（回流＝quirky 内核下 shrink-to-fit 气泡自适应宽误算成一字符宽，发出消息竖排）', file: 'index.html', needle: '.msg-bubble > span { white-space:pre-wrap; }', absent: true },
   // ==== 2026-09-19 #797 全页面右侧白色乱码条（用户直派紧急）：template 外置锚说明文字写在注释结尾之外＝构建替换后成正文裸文本（body 级全页面可见），其中样本 <script defer src="js/*.js"> 被当真开标签吞掉其后全部尾部 DOM。修法＝说明收回独立注释＋构建期结构闸（html 组装段末）。====
   { name: '#797a 外置锚说明整体在注释内（<!-- 前缀是承重逻辑：说明移出注释＝此针消失且说明变正文裸文本）', file: 'template.html', needle: '<!-- PERF-PLAN 阶段 1' },
   { name: '#797b 删除型：外置锚注释结尾后不得直接跟说明文字（回流＝乱码白条＋尾部 DOM 被吞复发）', file: 'template.html', needle: '-->（PERF-PLAN', absent: true },
@@ -3466,7 +3469,8 @@ const FIX_SENTINELS = [
   { name: '#760g 抽屉补发送按钮显示/隐藏（删＝该设置项回到只能盲调、必须回设置页才能看效果）', file: 'js/chat-settings.js', needle: "() => store.get('cs-send-show') || 'show'" },
   { name: '#760h 抽屉补时间轴文字色（删同上：时间轴配色回到设置页专属）', file: 'js/chat-settings.js', needle: "mkColorItem('时间轴文字色', 'cs-time-ink', DEF.timeInk, BUBBLE_INK_COLORS)" },
   { name: '#760i 滑杆双击复位通道（删＝#760 批 def 参数全成死参，就地恢复默认失效）', file: 'js/chat-settings.js', needle: "inp.addEventListener('dblclick'" },
-  { name: '颜文字发进聊天气泡保真空格（气泡正文 span white-space:pre-wrap，删掉/改回＝连续空格被 HTML 折叠，颜文字「(◕ ‿ ◕)」类变被压扁、与输入框显示不一致复发；全机型通用行为，一条规则覆盖单聊+群聊）', file: 'css/chat-main.css', needle: '.msg-bubble > span { white-space:pre-wrap; }' },
+  // 旧针「颜文字保真空格＝气泡 span 全局 pre-wrap 规则在位」随 #817 换锚：该规则已撤（quirky 内核竖排病灶），
+  // 契约改由 #817a（内容层多空格→&nbsp; 在位）＋#817b（该规则不得回流，absent 型）两针共同把守，见数组头部。
   { name: '引用块内颜文字保真空格（.msg-quote-text white-space:pre-wrap，删掉＝引用一条含颜文字的消息时预览里空格被折叠、与气泡不一致复发；needle 取单行——build 会剥掉 CSS 行首缩进，多行含缩进的 needle 在产物里永远匹不上）', file: 'css/chat-main.css', needle: 'color:inherit; opacity:.8; word-break:break-word; white-space:pre-wrap;' },
   // ==== 2026-09-18 #763 钓鱼三小优化（读盘记忆化 / 静音偏好持久化 / 日封顶前置可见）====
   // 心跳每 1.2s renderPage 重复 JSON.parse 同键（厨房页 loadToday+loadCook+loadBox 双读）→ 原始串不变复用解析结果；
