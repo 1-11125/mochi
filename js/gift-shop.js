@@ -179,9 +179,9 @@ inputmode: 'decimal'
 });
 if (ctl) ctl.okText('申请');
 }
-const CATS = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护'];
-const CAT_ICON = { '花束': '🌸', '甜品': '🍰', '饮品': '🧋', '美食': '🍜', '饰品': '💍', '星空': '⭐', '两个世界': '🌗', '出行': '✈️', '娱乐': '🎟️', '关怀': '🤗', '情侣用品': '💑', '日常用品': '🧴', '药品医护': '💊' };
-const CAT_COLOR = { '花束': '#fce4ec', '甜品': '#fff3e0', '饮品': '#ffe0b2', '美食': '#fff9c4', '饰品': '#f3e5f5', '星空': '#e8eaf6', '两个世界': '#e0f7fa', '出行': '#e1f5fe', '娱乐': '#e1bee7', '关怀': '#e0f2f1', '情侣用品': '#fce4ec', '日常用品': '#f1f8e9', '药品医护': '#ffebee' };
+const CATS = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护', '节日节令', '美妆个护'];
+const CAT_ICON = { '花束': '🌸', '甜品': '🍰', '饮品': '🧋', '美食': '🍜', '饰品': '💍', '星空': '⭐', '两个世界': '🌗', '出行': '✈️', '娱乐': '🎟️', '关怀': '🤗', '情侣用品': '💑', '日常用品': '🧴', '药品医护': '💊', '节日节令': '🧧', '美妆个护': '💄' };
+const CAT_COLOR = { '花束': '#fce4ec', '甜品': '#fff3e0', '饮品': '#ffe0b2', '美食': '#fff9c4', '饰品': '#f3e5f5', '星空': '#e8eaf6', '两个世界': '#e0f7fa', '出行': '#e1f5fe', '娱乐': '#e1bee7', '关怀': '#e0f2f1', '情侣用品': '#fce4ec', '日常用品': '#f1f8e9', '药品医护': '#ffebee', '节日节令': '#fff8e1', '美妆个护': '#fce4ec' };
 window.GIFT_CAT_COLOR = CAT_COLOR;
 const DEF_GIFTS = [
 { id: 'g_rose', name: '玫瑰', emoji: '🌹', price: 52.00, cat: '花束', wish: '送你一束玫瑰，像见你那天的风' },
@@ -289,11 +289,11 @@ const DEF_GIFTS = [
 { id: 'g_walk', name: '陪你散步', emoji: '🚶', price: 0.00, cat: '关怀', wish: '饭后走一走，牵手那种' },
 { id: 'g_lullaby', name: '哄睡电台', emoji: '🎶', price: 0.00, cat: '关怀', wish: '念到你睡着为止' },
 { id: 'g_eyemask', name: '蒸汽眼罩', emoji: '😌', price: 12.90, cat: '日常用品', wish: '戴上睡个好觉，梦里我来找你' },
-{ id: 'g_lipbalm', name: '润唇膏', emoji: '💄', price: 25.00, cat: '日常用品', wish: '嘴唇干干的，怎么亲嘛' },
+{ id: 'g_lipbalm', name: '润唇膏', emoji: '💄', price: 25.00, cat: '美妆个护', wish: '嘴唇干干的，怎么亲嘛' },
 { id: 'g_thermos', name: '保温杯', emoji: '🍵', price: 39.00, cat: '日常用品', wish: '装上热水，胃暖了心就稳' },
 { id: 'g_plant', name: '小绿植', emoji: '🪴', price: 32.00, cat: '日常用品', wish: '养着它，像我们养这段日子' },
-{ id: 'g_handcream', name: '护手霜', emoji: '🧴', price: 29.90, cat: '日常用品', wish: '手好好养着，牵起来才舒服' },
-{ id: 'g_soap', name: '香皂', emoji: '🧼', price: 12.00, cat: '日常用品', wish: '洗手的时候，顺便想想我' },
+{ id: 'g_handcream', name: '护手霜', emoji: '🧴', price: 29.90, cat: '美妆个护', wish: '手好好养着，牵起来才舒服' },
+{ id: 'g_soap', name: '香皂', emoji: '🧼', price: 12.00, cat: '美妆个护', wish: '洗手的时候，顺便想想我' },
 { id: 'g_wipes', name: '柔软纸巾', emoji: '🧻', price: 8.80, cat: '日常用品', wish: '鼻子娇气的人，正好用得上' },
 { id: 'g_bandaid', name: '创可贴', emoji: '🩹', price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' },
 { id: 'g_mask', name: '口罩', emoji: '😷', price: 9.90, cat: '药品医护', wish: '人多的地方，戴好再出门' },
@@ -376,7 +376,7 @@ const DEF_GIFTS = [
 { id: 'g_wrap', name: '卷饼', emoji: '🌯', price: 13.00, cat: '美食', wish: '料塞得满满的，管饱' },
 { id: 'g_salad', name: '沙拉', emoji: '🥗', price: 28.00, cat: '美食', wish: '吃草也要开开心心的' },
 { id: 'g_pretzel', name: '碱水结', emoji: '🥨', price: 10.00, cat: '美食', wish: '拧成结的小想念' },
-{ id: 'g_mooncake', name: '月饼', emoji: '🥮', price: 12.00, cat: '甜品', wish: '中秋那一口，提前补给你' },
+{ id: 'g_mooncake', name: '月饼', emoji: '🥮', price: 12.00, cat: '节日节令', wish: '中秋那一口，提前补给你' },
 { id: 'g_beads', name: '手串', emoji: '📿', price: 39.00, cat: '饰品', wish: '一颗一颗，都数成平安' },
 { id: 'g_sunglasses', name: '太阳镜', emoji: '🕶️', price: 79.00, cat: '饰品', wish: '防晒防眩光，酷是附赠的' },
 { id: 'g_crystal', name: '水晶手链', emoji: '🔮', price: 55.00, cat: '饰品', wish: '粉水晶，招桃花的那种' },
@@ -421,7 +421,7 @@ const DEF_GIFTS = [
 { id: 'g_radio', name: '收音机', emoji: '📻', price: 99.00, cat: '日常用品', wish: '老歌电台，配晚饭刚刚好' },
 { id: 'g_mirror', name: '梳妆镜', emoji: '🪞', price: 45.00, cat: '日常用品', wish: '出门前看一眼，今天也很美' },
 { id: 'g_sweater', name: '毛衣', emoji: '🧶', price: 129.00, cat: '日常用品', wish: '织得慢，但暖得很久' },
-{ id: 'g_bathset', name: '洗浴套装', emoji: '🛀', price: 49.00, cat: '日常用品', wish: '从头发到脚趾，都香香的' },
+{ id: 'g_bathset', name: '洗浴套装', emoji: '🛀', price: 49.00, cat: '美妆个护', wish: '从头发到脚趾，都香香的' },
 { id: 'g_mosquito', name: '驱蚊套装', emoji: '🦟', price: 19.00, cat: '日常用品', wish: '夏天睡整觉，不被嗡嗡吵' },
 { id: 'g_keyboard', name: '机械键盘', emoji: '⌨️', price: 129.00, cat: '日常用品', wish: '打字再忙，也要记得回我' },
 { id: 'g_books', name: '一套好书', emoji: '📚', price: 89.00, cat: '日常用品', wish: '睡前读几页，我藏在故事里' },
@@ -486,7 +486,7 @@ const DEF_GIFTS = [
 { id: 'g_baguette', name: '法棍', emoji: '🥖', price: 10.00, cat: '美食', wish: '外皮脆脆的，敲着响' },
 { id: 'g_bagel', name: '贝果', emoji: '🥯', price: 12.00, cat: '美食', wish: '嚼劲十足，配奶油更好' },
 { id: 'g_medfever', name: '退烧药', emoji: '💉', price: 18.00, cat: '药品医护', wish: '烧到难受才吃，吃完好好睡' },
-{ id: 'g_medanti', name: '消炎药', emoji: '🧪', price: 26.00, cat: '药品医护', wish: '伤口红肿别硬扛，按时吃' },
+{ id: 'g_medanti', name: '消炎药', emoji: '🧪', price: 26.00, cat: '药品医护', wish: '伤口发炎别硬扛，按时吃' },
 { id: 'g_medpain', name: '止痛药', emoji: '🩺', price: 20.00, cat: '药品医护', wish: '疼得睡不着就吃一片，别忍着' },
 { id: 'g_medstomach', name: '胃药', emoji: '🫙', price: 24.00, cat: '药品医护', wish: '胃不舒服冲一包，别空着肚子' },
 { id: 'g_medcough', name: '止咳糖浆', emoji: '🍯', price: 19.00, cat: '药品医护', wish: '咳得厉害喝一口，甜的润嗓子' },
@@ -499,7 +499,38 @@ const DEF_GIFTS = [
 { id: 'g_medswab', name: '医用棉签', emoji: '🧷', price: 6.00, cat: '药品医护', wish: '换药的时候用得着，我来' },
 { id: 'g_medgauze', name: '纱布绷带', emoji: '🩼', price: 15.00, cat: '药品医护', wish: '包好了别乱动，明天我换药' },
 { id: 'g_medliniment', name: '跌打药酒', emoji: '🍶', price: 32.00, cat: '药品医护', wish: '磕青了要揉开，手给我，我来揉' },
-{ id: 'g_medice', name: '冰袋', emoji: '🧊', price: 8.00, cat: '药品医护', wish: '肿起来先冰一会儿，别急着揉' }
+{ id: 'g_medice', name: '冰袋', emoji: '🧊', price: 8.00, cat: '药品医护', wish: '肿起来先冰一会儿，别急着揉' },
+{ id: 'g_periodtea', name: '红糖姜茶', emoji: '🫖', price: 15.00, cat: '药品医护', wish: '疼的时候喝一口，热的' },
+{ id: 'g_periodwarm', name: '暖宝宝贴', emoji: '🔥', price: 9.90, cat: '药品医护', wish: '贴在小肚子上，别硬扛' },
+{ id: 'g_periodbag', name: '热水袋', emoji: '♨️', price: 26.00, cat: '药品医护', wish: '灌满热水，抱着它躺下' },
+{ id: 'g_periodpad', name: '痛经贴', emoji: '💗', price: 12.90, cat: '药品医护', wish: '贴一片，疼会轻一点' },
+{ id: 'g_festzongzi', name: '粽子', emoji: '🫔', price: 12.00, cat: '节日节令', wish: '端午的咸蛋黄，挑最大的给你' },
+{ id: 'g_festtangyuan', name: '汤圆', emoji: '🍡', price: 13.14, cat: '节日节令', wish: '一人一半，团团圆圆' },
+{ id: 'g_festniangao', name: '年糕', emoji: '🍥', price: 16.00, cat: '节日节令', wish: '年年高一点点，我们一起' },
+{ id: 'g_festlaba', name: '腊八粥', emoji: '🥣', price: 10.00, cat: '节日节令', wish: '腊八这天，先把胃暖上' },
+{ id: 'g_festjiaozi', name: '手工饺子', emoji: '🥟', price: 22.00, cat: '节日节令', wish: '一起包的，歪的也算数' },
+{ id: 'g_festqingtuan', name: '青团', emoji: '🍃', price: 9.00, cat: '节日节令', wish: '把春天包进去，甜的那种' },
+{ id: 'g_festgingerbread', name: '圣诞姜饼', emoji: '🍪', price: 18.00, cat: '节日节令', wish: '咬一口，冬天就甜了' },
+{ id: 'g_beautylip', name: '口红', emoji: '💋', price: 128.00, cat: '美妆个护', wish: '涂上它，我多说两句好听的' },
+{ id: 'g_beautyperfume', name: '香水', emoji: '🫧', price: 268.00, cat: '美妆个护', wish: '喷一点，走近了才闻得到' },
+{ id: 'g_beautyfacial', name: '面膜', emoji: '🧖', price: 89.00, cat: '美妆个护', wish: '敷着别动，这十五分钟归我' },
+{ id: 'g_beautysun', name: '防晒霜', emoji: '☀️', price: 78.00, cat: '美妆个护', wish: '太阳再大，也先护着你' },
+{ id: 'g_beautybody', name: '身体乳', emoji: '💧', price: 68.00, cat: '美妆个护', wish: '洗完澡记得涂，滑滑的好抱' },
+{ id: 'g_beautyhair', name: '护发精油', emoji: '🌿', price: 96.00, cat: '美妆个护', wish: '头发顺了，扎起来也好看' },
+{ id: 'g_beautynail', name: '美甲套装', emoji: '💅', price: 68.00, cat: '美妆个护', wish: '指甲换个新颜色，给我看看' },
+{ id: 'g_beautybrush', name: '化妆刷', emoji: '🖌️', price: 45.00, cat: '美妆个护', wish: '刷子在手里，你最好看' },
+{ id: 'g_beautyshadow', name: '眼影盘', emoji: '🎨', price: 99.00, cat: '美妆个护', wish: '画个亮一点的，今天要出门' },
+{ id: 'g_beautycotton', name: '化妆棉', emoji: '🧽', price: 12.00, cat: '美妆个护', wish: '卸干净再睡，别懒' },
+{ id: 'g_bellyrub', name: '帮你揉肚子', emoji: '🫳', price: 0.00, cat: '关怀', wish: '手搓热了，揉到你不疼' },
+{ id: 'g_liedown', name: '陪你躺一天', emoji: '🛋️', price: 0.00, cat: '关怀', wish: '什么都不干，就躺着陪你' },
+{ id: 'g_lily', name: '百合', emoji: '🌺', price: 25.00, cat: '花束', wish: '百年好合，说的就是我们' },
+{ id: 'g_carnation', name: '康乃馨', emoji: '🏵️', price: 15.00, cat: '花束', wish: '温柔的话，都包在这朵里' },
+{ id: 'g_hydrangea', name: '绣球', emoji: '💮', price: 68.00, cat: '花束', wish: '一整球，圆圆满满给你' },
+{ id: 'g_lotus', name: '荷花', emoji: '🪷', price: 26.00, cat: '花束', wish: '清清淡淡，也很好看' },
+{ id: 'g_champagne', name: '香槟玫瑰', emoji: '🥂', price: 66.00, cat: '花束', wish: '颜色像香槟，看一眼就想庆祝' },
+{ id: 'g_driedflower', name: '干花束', emoji: '🥀', price: 12.00, cat: '花束', wish: '干了也不扔，和心意一样耐放' },
+{ id: 'g_ginkgo', name: '银杏叶', emoji: '🍁', price: 8.80, cat: '花束', wish: '秋天第一片，夹进你的书里' },
+{ id: 'g_dandelion', name: '蒲公英', emoji: '🍃', price: 6.60, cat: '花束', wish: '吹散之前，愿望都归你' }
 ];
 const DEF_IDS = {};
 DEF_GIFTS.forEach(function (g) { DEF_IDS[g.id] = 1; });

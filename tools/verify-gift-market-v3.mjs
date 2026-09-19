@@ -53,7 +53,7 @@ const NEW_IDS = ['g_card', 'g_blindbox', 'g_stickers', 'g_wordsbag', 'g_nearby',
   'g_waffle', 'g_eggtart',
   'g_mangosago', 'g_matchalatte', 'g_lemontea', 'g_grapetea', 'g_peachtea',
   'g_malatang', 'g_spicywok', 'g_ricechicken', 'g_legquarter', 'g_taco', 'g_baguette', 'g_bagel'];
-const CATS_EXPECT = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护'];
+const CATS_EXPECT = ['花束', '甜品', '饮品', '美食', '饰品', '星空', '两个世界', '出行', '娱乐', '关怀', '情侣用品', '日常用品', '药品医护', '节日节令', '美妆个护'];
 
 // ---- A 组：源码静态断言 ----
 let staticTotal = 0;

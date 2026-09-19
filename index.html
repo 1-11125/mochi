@@ -10222,9 +10222,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789832685874">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789833041562">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 23:44<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 23:50<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12299,7 +12299,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">TA 平时也会主动发红包（每天最多 5 次），七夕更爱发大额</div>
           <div class="lic-li">余额不足也能照发照买：直接透支成负数不拦截，后续收红包 / 申请回正</div>
           <div class="lic-li">「向 Mochi 申请心意币」：点击任意余额行弹出，可给我和 TA 双向充值入账；TA 也会随机向 Mochi 申请并在聊天留下申请记录——申请概率与每日上限在聊天页红包的「设置」里按每个联系人单独调整（默认 4%、不限次数）</div>
-          <div class="lic-li">心意市集：300+ 件默认商品分 13 类（含药品医护：常备药与外伤处理，如感冒药 / 退烧药 / 胃药 / 创可贴 / 碘伏 / 纱布），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
+          <div class="lic-li">心意市集：340+ 件默认商品分 15 类（含药品医护：常备药 / 外伤处理 / 经期关怀，以及节日节令、美妆个护；节日有粽子汤圆月饼，家里有口红面膜暖宝宝），支持搜索、自建商品（名字 / 图片 / 价格 / 默认留言）、编辑与恢复默认商品；TA 逛市集时会把想要的加进自己的心愿单，并按概率把这份心愿发一张卡片到聊天——点卡片上的【送 TA】即可一键买下送出（默认开启、默认 60%，概率与开关在「心意集市和心意柜设置」里）</div>
           <div class="lic-li">送礼给 TA：挑商品写心意留言送出，礼物卡片飞进聊天并同步存进心意柜；TA 每天 5% 概率主动从市集挑礼物回礼（最多 3 次）</div>
           <div class="lic-li">心意柜：收到 / 送出礼物册，「TA 送我的 / 我送 TA 的」分类翻看与统计</div>
           <div class="lic-li">小游戏与种花奖励对齐红包金额体系（¥5.2 / 13.14 / 52 / 1314…），各自每日封顶防刷</div>
@@ -76819,7 +76819,7 @@ const HUB = [
 ] },
 { g: '互动与心意', items: [
 { n: '红包', d: '双向红包：预设档/随机/自定义金额、留言与封面', k: '红包 转账 钱', go: ['.app[data-app="chat"]', '#more-rp'] },
-{ n: '心意币 · 心意市集', d: '300+ 件商品分 13 类（含药品医护：常备药与外伤处理），送礼给 TA；也能许愿让 TA 挑一件送你；TA 自己许的愿有概率发到聊天，点【送 TA】一键买下送 TA（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币 心愿单 许愿 TA送我 联系人送我礼物 TA心愿 心愿发到聊天 送TA 概率 药品 医护 感冒药 创可贴 碘伏 纱布 退烧药 胃药 受伤', go: ['.app[data-app="market"]'] },
+{ n: '心意币 · 心意市集', d: '340+ 件商品分 15 类（含药品医护：常备药与外伤处理与经期关怀、节日节令、美妆个护），送礼给 TA；也能许愿让 TA 挑一件送你；TA 自己许的愿有概率发到聊天，点【送 TA】一键买下送 TA（桌面有独立图标）', k: '市集 商店 礼物 购买 心意币 心愿单 许愿 TA送我 联系人送我礼物 TA心愿 心愿发到聊天 送TA 概率 药品 医护 感冒药 创可贴 碘伏 纱布 退烧药 胃药 受伤', go: ['.app[data-app="market"]'] },
 { n: '心意柜', d: '收到/送出的礼物册与统计（桌面有独立图标）', k: '礼物柜 收藏 礼物', go: ['.app[data-app="giftbox"]'] },
 { n: '头像和昵称互动', d: '换聊天头像和聊天昵称：头像可上传多张头像库点图即换；昵称可存多个文字昵称点名字即换；两边都能开随机自动更换（与桌面头像/昵称独立）', k: '头像 换头像 头像库 上传头像 随机换头像 自动换头像 主动给我换头像 桌面头像 昵称 换昵称 昵称库 随机换昵称 自动换昵称 主动给我换昵称 改名字 聊天昵称', go: ['.app[data-app="chat"]', '#more-avatar'] },
 { n: '漂流瓶', d: '两个世界之间的海：捡瓶子/放瓶子', k: '漂流瓶 海 瓶子', go: ['.app[data-app="chat"]', '#more-drift'] },
@@ -79409,4 +79409,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8k633m -->
+<!-- __MOCHI_EOF__ mu8kdpju -->

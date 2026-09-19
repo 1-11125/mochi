@@ -3631,7 +3631,7 @@ const FIX_SENTINELS = [
   //   搜索按「名称/留言/分类」匹配，搜「药」只命中「感冒药」一条。本批把医药单独成类（第 13 类）并补齐
   //   常备药与外伤处理。三条锚都钉在目录数据本身：类目从 CATS 消失、外伤处理商品被删、既有医药商品
   //   被挪回大分类，任一发生即报红。====
-  { name: '#859a 「药品医护」分类登记在 CATS 末位（删＝第 13 类胶囊与整柜药一起退场，用户回到「市集里只有感冒药」）', file: 'js/gift-shop.js', needle: "'日常用品', '药品医护']" },
+  { name: '#859a 「药品医护」分类在位（CAT_ICON 登记；删＝整柜药从胶囊里退场，用户又回到「市集里只有感冒药」。#870 追加两类后不再钉 CATS 末位）', file: 'js/gift-shop.js', needle: "'药品医护': '💊'" },
   { name: '#859b 外伤处理商品在位（碘伏等，与常备药同批；删＝「手受伤了要用的」那几件没有入口）', file: 'js/gift-shop.js', needle: "id: 'g_mediodine', name: '碘伏'" },
   { name: '#859c 既有医药商品已归入本分类（改回「日常用品」＝创可贴等又散进大分类翻不到）', file: 'js/gift-shop.js', needle: "price: 5.00, cat: '药品医护', wish: '磕磕碰碰的，有我呢' }" },
   { name: '#855a 寻踪预设＋自定义合并去重函数（删＝「使用系统预设」开启时回到自定义非空即整体顶掉预设的旧口径）', file: 'js/p2-features.js', needle: 'function ckMergeDef(custom, def)' },
@@ -3672,6 +3672,16 @@ const FIX_SENTINELS = [
   { name: '#868c 落定锁有界重试（改成无限重试＝与用户滑动对打；删掉等待＝中间态写入回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }' },
   { name: '#868d 看门狗补「盒子还在变」闸（删掉＝mobile-adapt 恢复 .phone 途中补钉一次＝弹跳）', file: 'js/chat.js', needle: 'if (Date.now() - _cbBoxChangeTs < 180) return;' },
   { name: '#858g 开屏公告第十节在位（notice.json 是联网权威源；删＝不上集市的人也看不到「能自己上传商品」这条，入口再显眼也只覆盖进过市集的人）', file: 'pwa/notice.json', needle: '十、心意市集：自己上传商品 + 商品数据导入导出' },
+  // ==== 2026-09-19 #870 心意市集四组缺口商品（用户直派「1234都要补」：节日节令 / 美妆个护 / 经期关怀 / 花束补齐）——
+  //   改前：节日食品散在 48 件「美食」里且只有中秋月饼；美妆个护在 78 件「日常用品」里只有 4 件；
+  //   经期关怀 0 件（而 app 自己有经期记录）；花束仅 8 件是全库最少。当批新增两类目与 31 件商品
+  //   （另把月饼归入节日节令、4 件个护移入美妆个护）。五条锚各钉一组：类目登记、节日成套、
+  //   美妆成套、经期关怀、花束补齐，任一组被删/被挪回都当场报红。====
+  { name: '#870a 两个新类目登记在 CATS 末位（删＝节日节令/美妆个护两个胶囊与整组商品一起退场）', file: 'js/gift-shop.js', needle: "'药品医护', '节日节令', '美妆个护']" },
+  { name: '#870b 节日节令成套（删＝端午/元宵/春节/腊八又回到「美食」里翻）', file: 'js/gift-shop.js', needle: "id: 'g_festzongzi', name: '粽子'" },
+  { name: '#870c 美妆个护成套（删＝美妆回到 0 件，口红/面膜无处可送）', file: 'js/gift-shop.js', needle: "id: 'g_beautylip', name: '口红'" },
+  { name: '#870d 经期关怀在位（删＝疼的那几天没有任何东西可送）', file: 'js/gift-shop.js', needle: "id: 'g_periodpad', name: '痛经贴'" },
+  { name: '#870e 花束补齐（删＝花束退回全库最少分类）', file: 'js/gift-shop.js', needle: "id: 'g_lily', name: '百合'" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
