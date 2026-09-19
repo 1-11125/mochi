@@ -671,7 +671,7 @@ function postCardHtml(p, name) {
 const isMine = (p.role || p.by) === 'me';
 const author = p.authorName || (isMine ? feedUserNameFor(p.owner || 'default') : taFeedNameFor(p.owner || 'default'));
 const av = p.authorAv || (isMine ? feedUserAvFor(p.owner || 'default') : taAvFor(p.owner || 'default'));
-const avWrap = '<div class="feed-head-av" data-owner="' + esc(p.owner || '') + '" title="查看' + esc(author) + '的全部朋友圈">' + avHtml(av) + '</div>';
+const avWrap = '<div class="feed-head-av" data-owner="' + esc(p.owner || '') + '" data-role="' + (isMine ? 'me' : 'ta') + '" title="查看' + esc(author) + '的全部朋友圈">' + avHtml(av) + '</div>';
 const likes = p.likes && p.likes.length
 ? '<div class="feed-likes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:-2px;margin-right:5px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>' + esc(p.likes.join('、')) + ' 觉得很赞</div>'
 : '';
@@ -772,7 +772,7 @@ window.openModal('删除这条动态？', '', () => {
 save(load().filter(x => x.id !== pid));
 if (comPid === pid) hideCommentBar();
 const fa = document.getElementById('page-feed-all');
-if (fa && !fa.hidden) openFeedAll(feedAllCid); else render();
+if (fa && !fa.hidden) openFeedAll(feedAllCid, feedAllWho); else render();
 }, { noInput: true });
 }
 function renderVisible() {
@@ -1034,7 +1034,7 @@ function bindEvents(listEl) {
 feedBindMoreBtn(listEl);
 listEl.querySelectorAll('.feed-head-av').forEach(av => av.addEventListener('click', (e) => {
 e.stopPropagation();
-openFeedAll(av.dataset.owner);
+openFeedAll(av.dataset.owner, av.dataset.role === 'me' ? 'me' : 'ta');
 }));
 bindFeedImageClicks(listEl);
 listEl.querySelectorAll('.feed-del').forEach(b => b.addEventListener('click', (e) => {
@@ -1900,24 +1900,34 @@ setInterval(maybeAutoPost, 60000);
 maybeAutoPost();
 }, (120 + Math.random() * 180) * 1000);
 let feedAllCid = 'default';
+let feedAllWho = 'ta';
 function feedAllStore() { return window.storeFor(feedAllCid); }
 function feedAllBg() {
 const s = feedAllStore();
+if (feedAllWho === 'me') {
 const me = s.get('feed-cover-bg');
 if (me) return safeBg(me, 'feed-cover-bg', s);
+return safeBg(store.get('feed-cover-bg'), 'feed-cover-bg', store);
+}
 const ta = s.get('feed-ta-cover');
 if (ta) return safeBg(ta, 'feed-ta-cover', s);
-return safeBg(store.get('feed-cover-bg'), 'feed-cover-bg', store);
+if (feedAllCid === 'default') return safeBg(store.get('feed-ta-cover'), 'feed-ta-cover', store);
+return '';
 }
 function renderFeedAllCover() {
 const cover = document.getElementById('feed-all-cover');
 const avEl = document.getElementById('feed-all-av');
 const nameEl = document.getElementById('feed-all-name');
 if (!cover) return;
-const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
 const bg = feedAllBg();
 if (bg) { cover.style.backgroundImage = 'url("' + bg + '")'; cover.classList.add('has-bg'); }
 else { cover.style.backgroundImage = ''; cover.classList.remove('has-bg'); }
+if (feedAllWho === 'me') {
+if (avEl) { const mav = feedUserAv(); avEl.innerHTML = mav ? '<img src="' + attrEsc(mav) + '" alt="">' : ''; }
+if (nameEl) nameEl.textContent = feedUserName();
+return;
+}
+const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
 if (avEl) {
 const s = feedAllStore();
 let av = s.get('feed-ta-avatar');
@@ -1930,8 +1940,8 @@ if (nameEl) nameEl.textContent = c.name || feedAllCid;
 }
 function postCardHtmlAll(p) {
 const isMine = (p.role || p.by) === 'me';
-const author = p.authorName || (isMine ? feedUserNameFor(feedAllCid) : taFeedNameFor(feedAllCid));
-const av = p.authorAv || (isMine ? feedUserAvFor(feedAllCid) : taAvFor(feedAllCid));
+const author = p.authorName || (isMine ? feedUserNameFor(p.owner || feedAllCid) : taFeedNameFor(p.owner || feedAllCid));
+const av = p.authorAv || (isMine ? feedUserAvFor(p.owner || feedAllCid) : taAvFor(p.owner || feedAllCid));
 const likes = p.likes && p.likes.length
 ? '<div class="feed-likes" style="font-size:11px;color:var(--muted);padding:6px 2px">' + esc(p.likes.join('、')) + ' 觉得很赞</div>'
 : '';
@@ -1952,23 +1962,33 @@ commentsHtmlFor(p, author) + '</div>';
 function renderFeedAll() {
 const listEl = document.getElementById('feed-all-list');
 if (!listEl) return;
-const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
+const isMePage = feedAllWho === 'me';
+const inPage = isMePage
+? (p) => (p.role || p.by) === 'me'
+: (p) => (p.owner || 'default') === feedAllCid && (p.role || p.by) !== 'me';
 const title = document.getElementById('feed-all-title');
-if (title) title.textContent = (c.name || feedAllCid) + ' 的全部朋友圈';
-const posts = load().filter(p => (p.owner || 'default') === feedAllCid).sort((a, b) => b.ts - a.ts);
+if (title) {
+if (isMePage) title.textContent = '我的朋友圈';
+else {
+const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
+title.textContent = (c.name || feedAllCid) + ' 的全部朋友圈';
+}
+}
+const posts = load().filter(inPage).sort((a, b) => b.ts - a.ts);
 feedShownAll = Math.min(posts.length, FEED_RENDER_MAX);
 listEl.innerHTML = posts.length
 ? posts.slice(0, feedShownAll).map(p => postCardHtmlAll(p)).join('') +
 (posts.length > feedShownAll ? feedMoreBtnHtml(posts.length - feedShownAll) : '')
 : ((window.mochiDataPending && window.mochiDataPending())
-? window.mochiLoadingHtml('该联系人的动态')
+? window.mochiLoadingHtml(isMePage ? '我的动态' : '该联系人的动态')
 : '<div class="ta-empty">还没有动态</div>');
 bindEvents(listEl);
 renderFeedAllCover();
 }
-function openFeedAll(cid) {
+function openFeedAll(cid, who) {
 hideCommentBar();
-feedAllCid = cid || window.__activeCid || 'default';
+feedAllWho = who === 'me' ? 'me' : 'ta';
+feedAllCid = feedAllWho === 'me' ? (window.__activeCid || 'default') : (cid || window.__activeCid || 'default');
 renderFeedAll();
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 const ap = document.getElementById('page-feed-all');
@@ -1989,7 +2009,7 @@ if (feedAllCover) {
 feedAllCover.addEventListener('click', (e) => {
 if (feedAllAv && (e.target === feedAllAv || feedAllAv.contains(e.target))) return;
 if (feedAllName && (e.target === feedAllName || feedAllName.contains(e.target))) return;
-const key = 'feed-ta-cover';
+const key = feedAllWho === 'me' ? 'feed-cover-bg' : 'feed-ta-cover';
 if (feedAllStore().get(key) || store.get(key)) {
 if (window.openModal) {
 window.openModal('已设置朋友圈背景', '', (v) => {
@@ -2019,7 +2039,7 @@ toast('朋友圈背景已更新');
 if (feedAllAv) {
 feedAllAv.addEventListener('click', (e) => {
 e.stopPropagation();
-const key = 'feed-ta-avatar';
+const key = feedAllWho === 'me' ? 'feed-user-avatar' : 'feed-ta-avatar';
 window.mochiFilePick({
 id: 'mochi-feed-allav-pick', accept: 'image/*',
 onFiles: (files) => {
@@ -2052,8 +2072,10 @@ reader.readAsDataURL(f);
 if (feedAllName) {
 feedAllName.addEventListener('click', (e) => {
 e.stopPropagation();
-const key = 'feed-ta-name';
-const cur = feedAllStore().get(key) || store.get(key) || (feedAllStore().get('lbl-partner') || 'TA');
+const key = feedAllWho === 'me' ? 'feed-user-name' : 'feed-ta-name';
+const cur = feedAllStore().get(key) || store.get(key) || (feedAllWho === 'me'
+? (feedAllStore().get('lbl-user') || '我')
+: (feedAllStore().get('lbl-partner') || 'TA'));
 if (window.openModal) {
 window.openModal('修改昵称', cur, (v) => {
 const val = (v || '').trim();

@@ -930,7 +930,8 @@
     // v3.7.x：跨桌面——TA 动态头像按动态所属桌面取，不再显示当前桌面的 TA 头像
     const av = p.authorAv || (isMine ? feedUserAvFor(p.owner || 'default') : taAvFor(p.owner || 'default'));
     // 头像可点击 → 打开该联系人的全部朋友圈
-    const avWrap = '<div class="feed-head-av" data-owner="' + esc(p.owner || '') + '" title="查看' + esc(author) + '的全部朋友圈">' + avHtml(av) + '</div>';
+    // #811：头像带作者角色——我的动态进「我的朋友圈」，TA 动态进 TA 的个人页（原都按 owner 桌面进同一页＝点我的头像显示成联系人的朋友圈）
+    const avWrap = '<div class="feed-head-av" data-owner="' + esc(p.owner || '') + '" data-role="' + (isMine ? 'me' : 'ta') + '" title="查看' + esc(author) + '的全部朋友圈">' + avHtml(av) + '</div>';
     // 点赞列表：显示"XX、XX 觉得很赞"
     const likes = p.likes && p.likes.length
       ? '<div class="feed-likes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:-2px;margin-right:5px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>' + esc(p.likes.join('、')) + ' 觉得很赞</div>'
@@ -1060,7 +1061,7 @@
       // v3.5.130：删除的是评论条正在编辑的动态 → 同步关闭评论条（防悬空状态）
       if (comPid === pid) hideCommentBar();
       const fa = document.getElementById('page-feed-all');
-      if (fa && !fa.hidden) openFeedAll(feedAllCid); else render();
+      if (fa && !fa.hidden) openFeedAll(feedAllCid, feedAllWho); else render();
     }, { noInput: true });
   }
   // v3.7.x：按当前可见页面渲染——主列表（#feed-list）或「全部朋友圈」页（#feed-all-list）
@@ -1361,7 +1362,8 @@
     // v3.5.63：动态头像点击 → 打开该人的全部朋友圈
     listEl.querySelectorAll('.feed-head-av').forEach(av => av.addEventListener('click', (e) => {
       e.stopPropagation();
-      openFeedAll(av.dataset.owner);
+      // #811：按作者角色进页（me=我的朋友圈 / ta=该联系人的个人页）
+      openFeedAll(av.dataset.owner, av.dataset.role === 'me' ? 'me' : 'ta');
     }));
     bindFeedImageClicks(listEl);
     listEl.querySelectorAll('.feed-del').forEach(b => b.addEventListener('click', (e) => {
@@ -2385,28 +2387,50 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
 
   // ================= 全部朋友圈（v3.5.63：点头像进入，封面背景/头像/昵称可直接修改） =================
   let feedAllCid = 'default';
+  // FIX 2026-09-19 #811 用户实报（vivo S9 Chrome 等，多机型同现）：多联系人下「个人朋友圈」串身份。
+  //   本页原按「桌面」过滤（owner===cid，我的动态同桌也并进来）且背景优先读「我」的封面，于是：
+  //   ①进 B 的个人页，B 桌面上我的动态全被并进来；②B 没设 TA 封面而设过我的朋友圈背景时，
+  //   B 的个人页整页背景显示成我的背景；③点我自己动态的头像（owner=发布时所在桌面）进的还是
+  //   同一个桌面页＝「进我的朋友圈显示成了 B 的」。改为按「人」两形态：who='ta' 只看该桌面 TA
+  //   的动态（背景=该桌面 feed-ta-cover）；who='me' 只看我的全部动态（跨桌面，身份/背景=当前
+  //   桌面 feed-user-*／feed-cover-bg，与主朋友圈封面同口径）。
+  let feedAllWho = 'ta';
   // v3.6.x：多桌面——全部朋友圈页读写「该联系人桌面」的数据（storeFor(cid)），
   // 背景/头像/昵称按 cid 独立；me 身份用 avatar-user/lbl-user/feed-cover-bg，
   // ta 身份用 feed-ta-avatar/feed-ta-name/feed-ta-cover（与主朋友圈一致）。
   function feedAllStore() { return window.storeFor(feedAllCid); }
   function feedAllBg() {
+    // #811 背景跟人走：TA 页只读该桌面 feed-ta-cover（根键仅旧数据回退），不再被「我的封面」
+    // 顶掉（原「我的封面优先」＝B 没设 TA 封面时个人页背景显示成我的朋友圈背景）；我的页面读
+    // 当前桌面 feed-cover-bg（与主朋友圈封面同口径）
     const s = feedAllStore();
-    // 该桌面「我」的封面背景优先；TA 动态桌面则用 TA 背景
-    const me = s.get('feed-cover-bg');
-    if (me) return safeBg(me, 'feed-cover-bg', s);
+    if (feedAllWho === 'me') {
+      const me = s.get('feed-cover-bg');
+      if (me) return safeBg(me, 'feed-cover-bg', s);
+      return safeBg(store.get('feed-cover-bg'), 'feed-cover-bg', store);
+    }
     const ta = s.get('feed-ta-cover');
     if (ta) return safeBg(ta, 'feed-ta-cover', s);
-    return safeBg(store.get('feed-cover-bg'), 'feed-cover-bg', store);
+    // 根键旧数据回退仅限 default 桌面（对齐 taAvFor/taFeedNameFor 口径）——
+    // 老全局封面是 default 桌面的历史数据，回退给非 default 联系人＝另一种跨桌串背景
+    if (feedAllCid === 'default') return safeBg(store.get('feed-ta-cover'), 'feed-ta-cover', store);
+    return '';
   }
   function renderFeedAllCover() {
     const cover = document.getElementById('feed-all-cover');
     const avEl = document.getElementById('feed-all-av');
     const nameEl = document.getElementById('feed-all-name');
     if (!cover) return;
-    const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
     const bg = feedAllBg();
     if (bg) { cover.style.backgroundImage = 'url("' + bg + '")'; cover.classList.add('has-bg'); }
     else { cover.style.backgroundImage = ''; cover.classList.remove('has-bg'); }
+    // #811 我的个人页：封面即主朋友圈「我」的身份（当前桌面 feed-user-*，回退聊天身份）
+    if (feedAllWho === 'me') {
+      if (avEl) { const mav = feedUserAv(); avEl.innerHTML = mav ? '<img src="' + attrEsc(mav) + '" alt="">' : ''; }
+      if (nameEl) nameEl.textContent = feedUserName();
+      return;
+    }
+    const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
     // 该联系人桌面的 TA 头像（feed-ta-avatar），回退该桌面 TA 聊天头像
     if (avEl) {
       const s = feedAllStore();
@@ -2425,9 +2449,10 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   function postCardHtmlAll(p) {
     const isMine = (p.role || p.by) === 'me';
     // v3.8.x：'me' 动态作者/头像也读朋友圈独立身份
-    const author = p.authorName || (isMine ? feedUserNameFor(feedAllCid) : taFeedNameFor(feedAllCid));
+    // #811：身份回退按动态所属桌面取（我的页跨桌面展示时，不再全按当前页桌面取我的名字/头像）
+    const author = p.authorName || (isMine ? feedUserNameFor(p.owner || feedAllCid) : taFeedNameFor(p.owner || feedAllCid));
     // v3.7.x：头像按动态所属桌面取（该页动态 owner===feedAllCid，直接取该桌面）
-    const av = p.authorAv || (isMine ? feedUserAvFor(feedAllCid) : taAvFor(feedAllCid));
+    const av = p.authorAv || (isMine ? feedUserAvFor(p.owner || feedAllCid) : taAvFor(p.owner || feedAllCid));
     const likes = p.likes && p.likes.length
       ? '<div class="feed-likes" style="font-size:11px;color:var(--muted);padding:6px 2px">' + esc(p.likes.join('、')) + ' 觉得很赞</div>'
       : '';
@@ -2450,27 +2475,39 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   function renderFeedAll() {
     const listEl = document.getElementById('feed-all-list');
     if (!listEl) return;
-    const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
+    // #811 按人过滤：我的页＝我跨桌面的全部动态；TA 页＝该桌面 TA 的动态（我的动态不再并入）
+    const isMePage = feedAllWho === 'me';
+    const inPage = isMePage
+      ? (p) => (p.role || p.by) === 'me'
+      : (p) => (p.owner || 'default') === feedAllCid && (p.role || p.by) !== 'me';
     const title = document.getElementById('feed-all-title');
-    if (title) title.textContent = (c.name || feedAllCid) + ' 的全部朋友圈';
-    const posts = load().filter(p => (p.owner || 'default') === feedAllCid).sort((a, b) => b.ts - a.ts);
+    if (title) {
+      if (isMePage) title.textContent = '我的朋友圈';
+      else {
+        const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
+        title.textContent = (c.name || feedAllCid) + ' 的全部朋友圈';
+      }
+    }
+    const posts = load().filter(inPage).sort((a, b) => b.ts - a.ts);
     // v3.12.x：与主列表同口径窗口化（FEED_RENDER_MAX + 查看更早），防整页全量位图解码
     feedShownAll = Math.min(posts.length, FEED_RENDER_MAX);
     listEl.innerHTML = posts.length
       ? posts.slice(0, feedShownAll).map(p => postCardHtmlAll(p)).join('') +
         (posts.length > feedShownAll ? feedMoreBtnHtml(posts.length - feedShownAll) : '')
       : ((window.mochiDataPending && window.mochiDataPending())
-        ? window.mochiLoadingHtml('该联系人的动态')
+        ? window.mochiLoadingHtml(isMePage ? '我的动态' : '该联系人的动态')
         : '<div class="ta-empty">还没有动态</div>');
     // v3.7.x：全部朋友圈页与主列表共用事件绑定——点赞/评论/回复/删除/图片放大全可用
     //（bindEvents 里的 .feed-head-av 该页无此元素，自动跳过）
     bindEvents(listEl);
     renderFeedAllCover();
   }
-  function openFeedAll(cid) {
+  function openFeedAll(cid, who) {
     // v3.5.130：进全部朋友圈前重置评论条（否则返回后旧回复目标/草稿残留，发错位置）
     hideCommentBar();
-    feedAllCid = cid || window.__activeCid || 'default';
+    // #811：who='me'＝我的个人页（feedAllCid 归当前桌面，封面/编辑写「我」的键）；缺省 'ta' 保持原桌面页
+    feedAllWho = who === 'me' ? 'me' : 'ta';
+    feedAllCid = feedAllWho === 'me' ? (window.__activeCid || 'default') : (cid || window.__activeCid || 'default');
     renderFeedAll();
     document.querySelectorAll('.page').forEach(p => p.hidden = true);
     const ap = document.getElementById('page-feed-all');
@@ -2494,8 +2531,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     feedAllCover.addEventListener('click', (e) => {
       if (feedAllAv && (e.target === feedAllAv || feedAllAv.contains(e.target))) return;
       if (feedAllName && (e.target === feedAllName || feedAllName.contains(e.target))) return;
-      // 换背景（该联系人桌面的 TA 封面背景）
-      const key = 'feed-ta-cover';
+      // 换背景（#811：TA 页=该桌面 TA 封面背景；我的页=当前桌面我的朋友圈背景）
+      const key = feedAllWho === 'me' ? 'feed-cover-bg' : 'feed-ta-cover';
       if (feedAllStore().get(key) || store.get(key)) {
         if (window.openModal) {
           window.openModal('已设置朋友圈背景', '', (v) => {
@@ -2526,7 +2563,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   if (feedAllAv) {
     feedAllAv.addEventListener('click', (e) => {
       e.stopPropagation();
-      const key = 'feed-ta-avatar';
+      // #811：我的页写「我」的朋友圈头像，TA 页写该桌面 TA 的
+      const key = feedAllWho === 'me' ? 'feed-user-avatar' : 'feed-ta-avatar';
       // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）
       window.mochiFilePick({
         id: 'mochi-feed-allav-pick', accept: 'image/*',
@@ -2560,8 +2598,11 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   if (feedAllName) {
     feedAllName.addEventListener('click', (e) => {
       e.stopPropagation();
-      const key = 'feed-ta-name';
-      const cur = feedAllStore().get(key) || store.get(key) || (feedAllStore().get('lbl-partner') || 'TA');
+      // #811：我的页改「我」的朋友圈昵称，TA 页改该桌面 TA 的
+      const key = feedAllWho === 'me' ? 'feed-user-name' : 'feed-ta-name';
+      const cur = feedAllStore().get(key) || store.get(key) || (feedAllWho === 'me'
+        ? (feedAllStore().get('lbl-user') || '我')
+        : (feedAllStore().get('lbl-partner') || 'TA'));
       if (window.openModal) {
         window.openModal('修改昵称', cur, (v) => {
           const val = (v || '').trim();

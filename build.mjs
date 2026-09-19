@@ -3545,6 +3545,10 @@ const FIX_SENTINELS = [
   { name: '#809c ask 回答延迟读设置（改回固定随机＝用户设置不生效，思考时间恒 1.5~4 秒）', file: 'js/chat.js', needle: '}, askThinkSecsLoad() * 1000);' },
   { name: '#813a 聊天设置头像：武装与激活拆两步（armHead 只武装、headActivate 只激活；删＝回到「arm+click 融合且挂在 onMiss 兜底上」，label 转发成功的内核上选完图静默丢弃）', file: 'js/chat-settings.js', needle: 'function armHead(cb) { headCb = cb; }' },
   { name: '#813b 删除型：旧融合式激活函数不得回流（复活＝label 转发成功的内核永远拿不到回调）', file: 'js/chat-settings.js', needle: 'function pickHead(', absent: true },
+  { name: '#811a 头像入口按作者角色进页（删/改回只传 owner＝点我的头像又进联系人个人页，主诉③复发）', file: 'js/feed.js', needle: "openFeedAll(av.dataset.owner, av.dataset.role === 'me' ? 'me' : 'ta');" },
+  { name: '#811b TA 个人页按人过滤（删掉按角色排除那半＝该桌面我的动态又并进联系人个人页，主诉①复发）', file: 'js/feed.js', needle: "(p.owner || 'default') === feedAllCid && (p.role || p.by) !== 'me'" },
+  { name: '#811c 背景跟人走·TA 页只读 feed-ta-cover（改回「我的封面优先」＝B 未设 TA 封面时个人页背景显示成我的朋友圈背景，主诉②复发）', file: 'js/feed.js', needle: "feedAllWho === 'me' ? 'feed-cover-bg' : 'feed-ta-cover'" },
+  { name: '#811d 我的页头像编辑写 feed-user-avatar（删分流＝在「我的朋友圈」页点头像改的是 TA 的头像）', file: 'js/feed.js', needle: "feedAllWho === 'me' ? 'feed-user-avatar' : 'feed-ta-avatar'" },
   // ==== 2026-09-19 #815 整屏空白＋打字白闪根治（华为 Nova 12 Pro + QQ 浏览器实报「经常会屏幕空白，还会闪，尤其是要输入文字的时候」，用户明说其他设备型号也有；零机型分支）：自带屏幕诊断历史快照连捕 4 条 `[switch] ✗底部导航栏悬空 phone=647(底647) tab=106`＝flex 列只剩状态栏＋导航栏、一个 .page 都没显示。三条结构性根因＝①非原子切页（先关全部再取目标，目标落空即永久零可见）②load 期静态页快照关不到运行中新建的 .page（两页同显各占半屏）③JS 按 visualViewport.height 逐帧写 .phone 内联高且无下限（内核键盘动画期瞬时上报 0＝整壳塌没）。修法＝tabs.js 立「任何时刻恰有一个可见 .page」不变量（零可见下一帧自愈＋先取目标再关其它页＋关页走实时清单）＋base.css .phone min-height 地板。行为断言 tools/verify-blank-screen-heal.mjs（纯 HEAD 红 1/8、本批绿 8/8）====
   { name: '#815a 零可见页自愈入口（删＝整屏空白永久卡死复发，用户实报「屏幕空白」本体）', file: 'js/tabs.js', needle: 'function healBlank() {' },
   { name: '#815b 切页先取目标页再关其它页（改回先关后取＝目标 id 落空时全部页被关光，整屏空白）', file: 'js/tabs.js', needle: "const target = document.getElementById(tab.dataset.page || '');" },
