@@ -3733,6 +3733,9 @@ const FIX_SENTINELS = [
   // ==== 2026-09-20 #879 苹果11 Safari 实报「美化文件导入用不了」（用户注明多机型同现、勿做机型分支；诊断实证收到 9916 字符、开头 <!DOCTYPE html>＝分享/售卖链路把方案打包成网页文件，打开全选复制或选文件选中 .html 后 #408 自救解析①~③全失效、抛天书 JSON Parse error）。修法＝mochiParsePastedJSON 追加第④步（纯数据链路、零机型分支，桌面/聊天美化两个导入入口共用）：<textarea>/<pre>/application.json 容器内文实体还原优先＋全文字符串感知花括号配平扫描取 {...} 候选按长度降序，逐候选走完整清洗梯子、仅真解析成顶层对象才采用（提错由导入方用途校验兜底）；提取失败换可行动报错 ====
   { name: '#879a 网页包裹方案提取入口（删＝分享/售卖网页文件里的方案解析失败复发「美化文件导入用不了」）', file: 'js/personalize.js', needle: "const htmlLike = /<!doctype\\s*html|<html[\\s>]|<body[\\s>]|<textarea[\\s>]/i.test(t1);" },
   { name: '#879b 提取失败可行动报错（删＝用户再拿到天书 JSON error 无从下手）', file: 'js/personalize.js', needle: "lastErr = new Error('粘贴的是网页不是方案文本" },
+  // ==== 2026-09-20 #881 聊天设置两行头像补「头像和昵称互动也能换＋会覆盖」静态提示（用户直派：互动触发联系人换头像会覆盖聊天设置的头像，用户不知情以为设置失效）====
+  { name: '#881a 联系人头像行覆盖提醒（删＝开随机更换的用户不知道 TA 换头像会顶掉这里设置的头像）', file: 'template.html', needle: '开了随机更换后，TA 换头像会覆盖这里设置的' },
+  { name: '#881b 我的头像行覆盖提醒（删＝开 TA 主动给我换头像的用户不知道会顶掉这里设置的头像）', file: 'template.html', needle: '「TA 主动给我换头像」触发时会覆盖这里设置的' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
