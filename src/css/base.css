@@ -160,6 +160,19 @@ html { margin:0; padding:0; }
 [data-theme="dark"] .splash-stopupdate .splash-stopupdate-t { color:#ff8080; }
 [data-theme="dark"] .splash-stopupdate p { color:#f0c6c6; }
 [data-theme="dark"] .splash-stopupdate strong { color:#ff8080; }
+/* v3.26.x #864：开屏顶部「公告已精简 · 使用说明请看设置→关于」指引条（品牌卡内·署名行下方＝开屏第一屏第一眼）——
+   橙色提示形态（与 #793 停更公告的红色警示形态区分开：这条是入口说明不是警告）；品牌卡整体居中，本条自身左对齐保可读性 */
+.splash-abouttip {
+  margin:12px 0 0; width:100%; box-sizing:border-box;
+  padding:11px 14px 12px 15px;
+  background:#fff3e6; border-left:3px solid #e8590c; border-radius:12px;
+  text-align:left;
+}
+.splash-abouttip p { font-size:12.5px; line-height:1.8; color:#8a3d05; font-weight:700; }
+.splash-abouttip strong { color:#c2410c; font-weight:800; }
+[data-theme="dark"] .splash-abouttip { background:rgba(232,89,12,.16); border-color:#ff8a3d; }
+[data-theme="dark"] .splash-abouttip p { color:#f3cfa8; }
+[data-theme="dark"] .splash-abouttip strong { color:#ffa76a; }
 /* v3.8.y：底部统一卡片框——版本/加载/提示/按钮装进一个白卡片，与顶部品牌卡片呼应 */
 .splash-footcard {
   width:min(324px, 100%); box-sizing:border-box;

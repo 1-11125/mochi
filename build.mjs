@@ -3557,6 +3557,10 @@ const FIX_SENTINELS = [
   // ===== #793 开屏「停更公告」横幅（2026-09-19 补登）=====
   { name: '#793a 开屏停更公告标题（删/改＝2026年9月底停更口径不再首屏可见）', file: 'template.html', needle: '停更公告 · 2026年9月底后永久停更' },
   { name: '#793b 停更横幅正文样式（删＝横幅退回无样式裸文本；minifyCss 只剥注释/行首缩进，行内空格保留＝此 needle 产物侧同样命中）', file: 'css/base.css', needle: '.splash-stopupdate p { font-size:12.5px' },
+// ===== #864 开屏顶部「公告已精简 · 使用说明请看设置→关于」指引条（2026-09-19 用户直派「开屏显眼的地方，顶部需要说明」）=====
+// 静态 DOM 在品牌卡内（notice.json 在线覆盖只改公告列表、碰不到它），产物锚因此读 index.html；两条都取单行代码特征。
+{ name: '#864a 开屏顶部公告精简指引条在位（删＝「公告内容已缩减、原公告里的使用说明已移到设置→关于」在开屏顶部再无任何说明）', file: 'template.html', needle: '公告已精简：原公告里的大量使用说明已移到' },
+{ name: '#864b 指引条样式在位（删＝指引条退化成品牌卡里的一行裸文字、顶部不再显眼；此行单行形态 minifyCss 后逐字节不变，产物侧同样命中）', file: 'css/base.css', needle: '.splash-abouttip p { font-size:12.5px; line-height:1.8; color:#8a3d05;' },
   // ===== #794 屏幕适配「诊断→修正」闭环 + 第七轴 + 适配码（2026-09-19）=====
   { name: '#794a 左右安全边轴落层（删＝曲面屏安全边滑杆拖了无效）', file: 'js/mobile-adapt.js', needle: "origSet('--mochi-side-adj', adj.side + 'px')" },
   { name: '#794b .phone 各形态 padding 消费左右安全边（删＝轴值落了层也没人用）', file: 'css/base.css', needle: 'var(--mochi-side-adj,0px)' },

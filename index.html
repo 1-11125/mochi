@@ -124,6 +124,17 @@ text-align:left;
 [data-theme="dark"] .splash-stopupdate .splash-stopupdate-t { color:#ff8080; }
 [data-theme="dark"] .splash-stopupdate p { color:#f0c6c6; }
 [data-theme="dark"] .splash-stopupdate strong { color:#ff8080; }
+.splash-abouttip {
+margin:12px 0 0; width:100%; box-sizing:border-box;
+padding:11px 14px 12px 15px;
+background:#fff3e6; border-left:3px solid #e8590c; border-radius:12px;
+text-align:left;
+}
+.splash-abouttip p { font-size:12.5px; line-height:1.8; color:#8a3d05; font-weight:700; }
+.splash-abouttip strong { color:#c2410c; font-weight:800; }
+[data-theme="dark"] .splash-abouttip { background:rgba(232,89,12,.16); border-color:#ff8a3d; }
+[data-theme="dark"] .splash-abouttip p { color:#f3cfa8; }
+[data-theme="dark"] .splash-abouttip strong { color:#ffa76a; }
 .splash-footcard {
 width:min(324px, 100%); box-sizing:border-box;
 padding:16px 20px calc(16px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));
@@ -9969,8 +9980,18 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="splash-title">mochi 摸鱼字卡</div>
         <!-- v3.8.y：署名（小红书）移到顶部，紧跟标题下方 -->
         <div class="splash-brand">小红书@言序（1842523578） · 抖音@言序（58334080131）</div>
+        <!-- v3.26.x #864（用户 2026-09-19 直派「开屏显眼的地方，顶部需要说明：公告内容已缩减，原公告内容的
+             很多使用说明已移动至【设置】的【关于】里」）——夹在品牌卡署名行与停更公告之间＝开屏第一屏第一眼
+             可见（同 #793 的放置口径）；静态 DOM（data-about-tip 标记，不占 data-anti-scam / data-browser-warn /
+             data-stop-update 命名空间，与 clock.js / pwa.js 看门狗的认领与重建互不干扰）。指向的内容
+             （#792 写进「设置 → 关于」的「数据与存储（重要）」「常见问题」「使用说明」）已在位，本批只补开屏侧
+             的入口说明，不改公告正文与公告卡（在线 notice.json 覆盖只改公告列表，覆盖不到此处） -->
+        <div class="splash-abouttip" data-about-tip="1">
+          <p><strong>公告已精简：原公告里的大量使用说明已移到【设置 → 关于】</strong>（数据与存储 / 常见问题 / 使用说明）。有问题先去那里找答案，再去报修。</p>
+        </div>
         <!-- v3.26.x #793：停更公告横幅——2026年9月底后永久停更＋停更后设备兼容 bug 不再代调（用户 2026-09-18 直派
-             「开屏第一页显眼的地方新增」）。放品牌卡署名行正下方＝开屏第一屏第一眼必见；红色警示形态（同 #315b 免责卡红）；
+             「开屏第一页显眼的地方新增」）。放品牌卡署名行下方＝开屏第一屏必见（#864 的公告指引条插在其上，
+             两条同在第一屏）；红色警示形态（同 #315b 免责卡红）；
              静态 DOM（data-stop-update 标记，不占 data-anti-scam / data-browser-warn 命名空间，与 clock.js / pwa.js
              看门狗的认领与重建互不干扰）。#792 批已把「2026.9.30 完结永久停更」写进设置→关于，此处为开屏侧同步口径 -->
         <div class="splash-stopupdate" data-stop-update="1">
@@ -10187,9 +10208,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789827210959">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789827930489">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 22:13<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 22:25<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -79369,4 +79390,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8gwqmn -->
+<!-- __MOCHI_EOF__ mu8hc5tl -->
