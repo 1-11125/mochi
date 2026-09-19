@@ -10329,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789859538261">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.789</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 07:12<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789859836639">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
+        <span class="sv-deploy">部署于 2026-09-20 07:17<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11806,7 +11806,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.789</div>
+          <div class="val" id="about-ver-val">v3.26.0</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11875,7 +11875,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.789</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.0</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12269,7 +12269,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.789</span>
+              <span class="lic-ver">v3.26.0</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -24989,6 +24989,48 @@ for (let k = 0; k < variants.length; k++) {
 d = ok(scanNorm(variants[k])); if (d) return d;
 const a2 = variants[k].indexOf('{'), b2 = variants[k].lastIndexOf('}');
 if (a2 >= 0 && b2 > a2) { d = ok(scanNorm(variants[k].slice(a2, b2 + 1))); if (d) return d; }
+}
+const htmlLike = /<!doctype\s*html|<html[\s>]|<body[\s>]|<textarea[\s>]/i.test(t1);
+if (htmlLike) {
+const ent = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
+const ladder = (s) => {
+if (!s || s.indexOf('{') < 0) return null;
+let x = ok(s); if (x) return x;
+const c1 = ent(s.replace(/[\uFEFF\u200B-\u200F\u2060\u202A-\u202E]/g, '').replace(/\u00A0/g, ' ').trim());
+x = ok(c1); if (x) return x;
+const a3 = c1.indexOf('{'), b3 = c1.lastIndexOf('}');
+if (a3 >= 0 && b3 > a3) { x = ok(c1.slice(a3, b3 + 1)); if (x) return x; }
+const v2 = c1.indexOf('"') >= 0 ? [c1] : [c1.replace(/[“”＂‟〝〞]/g, '"'), c1];
+for (let k2 = 0; k2 < v2.length; k2++) {
+x = ok(scanNorm(v2[k2])); if (x) return x;
+const a4 = v2[k2].indexOf('{'), b4 = v2[k2].lastIndexOf('}');
+if (a4 >= 0 && b4 > a4) { x = ok(scanNorm(v2[k2].slice(a4, b4 + 1))); if (x) return x; }
+}
+return null;
+};
+try {
+const re = /<(textarea|pre|script)([^>]*)>([\s\S]*?)<\/\1>/gi;
+let mm, bags = [];
+while ((mm = re.exec(t1)) !== null) {
+if (/^(textarea|pre)$/.test(mm[1].toLowerCase()) || /application\/json/i.test(mm[2])) bags.push(ent(mm[3]));
+}
+for (let bi = 0; bi < bags.length; bi++) { d = ladder(bags[bi]); if (d) return d; }
+} catch (e) {}
+try {
+const spans = [];
+let inStr = false, esc = false, depth = 0, st = -1;
+for (let i = 0; i < t1.length; i++) {
+const c = t1[i];
+if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+if (c === '"') { inStr = true; continue; }
+if (c === '{') { if (depth === 0) st = i; depth++; }
+else if (c === '}') { if (depth > 0) { depth--; if (depth === 0 && st >= 0) { if (i - st >= 40) spans.push(t1.slice(st, i + 1)); st = -1; } } }
+}
+if (spans.length > 1) spans.sort((p, q) => q.length - p.length);
+const cap = Math.min(spans.length, 60);
+for (let pi = 0; pi < cap; pi++) { d = ladder(spans[pi]); if (d) return d; }
+} catch (e) {}
+lastErr = new Error('粘贴的是网页不是方案文本：没能从中提取出方案代码。请打开原文件，只复制 { 开头、} 结尾的方案代码（或让对方重新导出 .json 文件）再粘贴');
 }
 throw (lastErr || new Error('不是有效的方案 JSON'));
 };
@@ -79639,4 +79681,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu905mj9 -->
+<!-- __MOCHI_EOF__ mu90c0rj -->

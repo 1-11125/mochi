@@ -1,6 +1,8 @@
 // #408 粘贴导入 JSON 自救解析——纯 Node 抽源码真函数行为断言（防回归，零浏览器依赖）
 // 抽取 personalize.js 的 window.mochiParsePastedJSON，覆盖：原文/BOM零宽/nbsp/包裹文字/
-// 中文引号/字符串外全角标点/尾逗号/字符串内中文标点保护/空文本与垃圾抛错。
+// 中文引号/字符串外全角标点/尾逗号/字符串内中文标点保护/空文本与垃圾抛错；
+// #879 追加：整份网页包裹（.html 分享链路）方案提取——容器内文/裸嵌配平扫描/
+// 值含花括号 CSS/长候选优先/无方案可行动报错。
 import { readFileSync } from 'node:fs';
 
 const SRC = new URL('../src/js/personalize.js', import.meta.url);
@@ -16,14 +18,27 @@ const fnSrc = src.slice(si, ei + 2);
 const mochiParsePastedJSON = new Function('window', fnSrc + '\nreturn window.mochiParsePastedJSON;')({});
 
 let pass = 0, fail = 0;
-const eq = (name, got, want) => {
-  const g = JSON.stringify(got), w = JSON.stringify(want);
+// eq 第二参可为值或取值函数（函数抛错＝该断言 FAIL 而非脚本崩溃——红基线上 HEAD 恰在此抛错）
+const eq = (name, fnOrVal, want) => {
+  let g;
+  try {
+    const got = typeof fnOrVal === 'function' ? fnOrVal() : fnOrVal;
+    g = JSON.stringify(got);
+  } catch (e) { fail++; console.error('FAIL ' + name + '（抛错: ' + ((e && e.message) || e) + '）'); return; }
+  const w = JSON.stringify(want);
   if (g === w) { pass++; console.log('ok   ' + name); }
   else { fail++; console.error('FAIL ' + name + '\n  got:  ' + g + '\n  want: ' + w); }
 };
 const throws = (name, fn) => {
   try { fn(); fail++; console.error('FAIL ' + name + '（未抛错）'); }
   catch (e) { pass++; console.log('ok   ' + name + ' → ' + (e.message || e)); }
+};
+const throwsMsg = (name, fn, re) => {
+  try { fn(); fail++; console.error('FAIL ' + name + '（未抛错）'); }
+  catch (e) {
+    if (re && !re.test(e.message || '')) { fail++; console.error('FAIL ' + name + '（报错文案不匹配: ' + (e.message || e) + '）'); }
+    else { pass++; console.log('ok   ' + name + ' → ' + (e.message || e)); }
+  }
 };
 
 // 1 原文直过
@@ -54,6 +69,32 @@ throws('顶层数组抛错', () => mochiParsePastedJSON('[1,2]'));
 throws('顶层标量抛错', () => mochiParsePastedJSON('"abc"'));
 // 12 脏 JSON 抛错时错误信息非空（供 toast/诊断带出）
 throws('损坏 JSON 带真实报错', () => mochiParsePastedJSON('{"a":1,,}'));
+
+// ===== 13~19 #879 整份网页包裹（分享/售卖链路把方案打包成 .html：全选复制/选文件选中 .html）=====
+const SCHEME = '{"__kind__":"chat-beauty","cs-in-bg":"#ffe4ec","cs-out-bg":"#111111","cs-bubble-radius":"18px","cs-font-size":"15px"}';
+// page() 按真实报障形态做：页内带 <style> 与页尾脚本的花括号干扰（HEAD 朴素「首{到末}」裁剪
+// 恰被这些括号带歪＝报障机理「JSON Parse error: Expected '}'」；第④步容器/字符串感知扫描不受影响）
+const page = (inner) => '<!DOCTYPE html>\n<html lang="zh">\n<head>\n <meta charset="UTF-8">\n <meta name="viewport" content="width=device-width, initial-scale=1.0">\n <title>美化方案</title>\n <style>body { color:#333; background:#fff; } .tip { padding:10px; }</style>\n</head>\n<body>\n' + inner + '\n<script>var pageCfg={"pv":1};</script>\n</body>\n</html>';
+// 13 整份网页 + <pre> 内嵌 HTML 实体转义方案（源码形态复制）
+eq('网页<pre>实体转义方案提取', () => mochiParsePastedJSON(page('<h1>我的美化方案</h1>\n<pre>' + SCHEME.replace(/"/g, '&quot;') + '</pre>\n<p>长按全选复制</p>')), JSON.parse(SCHEME));
+// 14 整份网页 + <textarea> 包裹
+eq('网页<textarea>包裹方案提取', () => mochiParsePastedJSON(page('<textarea readonly>' + SCHEME + '</textarea>')), JSON.parse(SCHEME));
+// 15 整份网页 + script 变量赋值（容器不带 application/json → 走配平扫描）
+eq('网页script内方案提取', () => mochiParsePastedJSON(page('<script>var scheme = ' + SCHEME + ';\nconsole.log(scheme);</script>')), JSON.parse(SCHEME));
+// 16 方案裸嵌正文（无容器）+ 页内更小干扰 JSON（配平扫描长候选优先）
+eq('网页裸嵌方案提取且长候选优先', () => mochiParsePastedJSON(page('<p>方案如下：</p>\n' + SCHEME + '\n<p>复制以上内容导入</p>\n<script>var cfg={"a":1};</script>')), JSON.parse(SCHEME));
+// 17 方案值含花括号（自定义气泡 CSS）——字符串感知扫描不把值内 {} 当对象边界
+const SCHEME_CSS = SCHEME.slice(0, -1) + ',"cs-bubble-css":".msg-bubble span { color:#ff4d94; }"}';
+eq('裸嵌方案值含花括号CSS提取', () => mochiParsePastedJSON(page('<p>方案：</p>\n' + SCHEME_CSS)), JSON.parse(SCHEME_CSS));
+// 18 网页里没有方案 → 可行动报错（不再抛天书 JSON error）
+throwsMsg('网页无方案给可行动报错', () => mochiParsePastedJSON(page('<p>这里什么都没有</p>')), /网页/);
+// 19 非网页垃圾文本保持原生解析报错（第④步不误伤既有抛错语义、不给网页引导文案；引擎文案不同故不写死）
+try { mochiParsePastedJSON('这不是方案'); fail++; console.error('FAIL 非网页垃圾原文案（未抛错）'); }
+catch (e) {
+  const m = String((e && e.message) || e);
+  if (/网页/.test(m)) { fail++; console.error('FAIL 非网页垃圾原文案（误给网页引导: ' + m + '）'); }
+  else { pass++; console.log('ok   非网页垃圾保持原生解析报错 → ' + m); }
+}
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

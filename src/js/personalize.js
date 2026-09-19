@@ -305,6 +305,57 @@ try {
       const a2 = variants[k].indexOf('{'), b2 = variants[k].lastIndexOf('}');
       if (a2 >= 0 && b2 > a2) { d = ok(scanNorm(variants[k].slice(a2, b2 + 1))); if (d) return d; }
     }
+    // ④ #879 整份网页自救：美化方案经分享/售卖链路常被打包成网页文件（收到 .html → 打开全选复制，
+    //    或选文件时直接选了 .html），方案 JSON 被标签/属性打断，①~③ 全失效 → 天书 JSON error
+    //    （苹果11 Safari 实报「美化文件导入用不了」，收 9916 字符开头 <!DOCTYPE html>，多机型同现、
+    //    纯数据链路与机型无关）。分两层：先取 <textarea>/<pre>/<script type="application/json">
+    //    容器内文（HTML 实体还原）；再对全文做字符串感知的花括号配平扫描取 {...} 候选、按长度降序
+    //    （方案对象几乎总是页面里最大的 JSON）。每个候选走与顶层相同的清洗梯子（隐形字符/裁剪/
+    //    全角归一/实体还原），只在真正解析成顶层对象时才采用——提不出/提错都照旧抛错，由导入方的
+    //    用途校验兜底（识别不到美化项会如实提示，不会误导入）。
+    const htmlLike = /<!doctype\s*html|<html[\s>]|<body[\s>]|<textarea[\s>]/i.test(t1);
+    if (htmlLike) {
+      const ent = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&amp;/g, '&');
+      const ladder = (s) => {
+        if (!s || s.indexOf('{') < 0) return null;
+        let x = ok(s); if (x) return x;
+        const c1 = ent(s.replace(/[\uFEFF\u200B-\u200F\u2060\u202A-\u202E]/g, '').replace(/\u00A0/g, ' ').trim());
+        x = ok(c1); if (x) return x;
+        const a3 = c1.indexOf('{'), b3 = c1.lastIndexOf('}');
+        if (a3 >= 0 && b3 > a3) { x = ok(c1.slice(a3, b3 + 1)); if (x) return x; }
+        const v2 = c1.indexOf('"') >= 0 ? [c1] : [c1.replace(/[“”＂‟〝〞]/g, '"'), c1];
+        for (let k2 = 0; k2 < v2.length; k2++) {
+          x = ok(scanNorm(v2[k2])); if (x) return x;
+          const a4 = v2[k2].indexOf('{'), b4 = v2[k2].lastIndexOf('}');
+          if (a4 >= 0 && b4 > a4) { x = ok(scanNorm(v2[k2].slice(a4, b4 + 1))); if (x) return x; }
+        }
+        return null;
+      };
+      try {
+        const re = /<(textarea|pre|script)([^>]*)>([\s\S]*?)<\/\1>/gi;
+        let mm, bags = [];
+        while ((mm = re.exec(t1)) !== null) {
+          if (/^(textarea|pre)$/.test(mm[1].toLowerCase()) || /application\/json/i.test(mm[2])) bags.push(ent(mm[3]));
+        }
+        for (let bi = 0; bi < bags.length; bi++) { d = ladder(bags[bi]); if (d) return d; }
+      } catch (e) {}
+      try {
+        const spans = [];
+        let inStr = false, esc = false, depth = 0, st = -1;
+        for (let i = 0; i < t1.length; i++) {
+          const c = t1[i];
+          if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+          if (c === '"') { inStr = true; continue; }
+          if (c === '{') { if (depth === 0) st = i; depth++; }
+          else if (c === '}') { if (depth > 0) { depth--; if (depth === 0 && st >= 0) { if (i - st >= 40) spans.push(t1.slice(st, i + 1)); st = -1; } } }
+        }
+        if (spans.length > 1) spans.sort((p, q) => q.length - p.length);
+        const cap = Math.min(spans.length, 60);
+        for (let pi = 0; pi < cap; pi++) { d = ladder(spans[pi]); if (d) return d; }
+      } catch (e) {}
+      // 提取失败给可行动报错（替代天书；失败现场仍由调用方写诊断）
+      lastErr = new Error('粘贴的是网页不是方案文本：没能从中提取出方案代码。请打开原文件，只复制 { 开头、} 结尾的方案代码（或让对方重新导出 .json 文件）再粘贴');
+    }
     throw (lastErr || new Error('不是有效的方案 JSON'));
   };
 

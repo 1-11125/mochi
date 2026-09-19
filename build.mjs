@@ -3730,6 +3730,9 @@ const FIX_SENTINELS = [
   // ==== 2026-09-20 #877 聊天设置两行头像「点击无反应」第七波根治（小米14 Edge 实报、多机型同现；零机型分支）：激活链原来只有「label 转发＋JS 合成 click」两条腿，#738 已实锤小米系对 JS click 静默不弹——两条腿同时失效的内核上彻底无声（probe-877-thirdleg 在 HEAD 复现 chooser=0 零提示）。兜底腿升级「showPicker→click→可诊断 toast」三级，guard 信号窗保证不双开 ====
   { name: '#877a 头像兜底第三条腿 showPicker（删＝label 不转发＋click 被无视的内核回到点击无声）', file: 'js/chat-settings.js', needle: 'try { headInput.showPicker(); opened = true; } catch (e) {}' },
   { name: '#877b 三条腿全失效时不再无声（删＝用户点击无反应且拿不到任何可反馈现场）', file: 'js/chat-settings.js', needle: "toast('相册没能打开：请换系统浏览器或 Chrome 打开再试，仍不行请截图本提示反馈（头像#877）');" },
+  // ==== 2026-09-20 #879 苹果11 Safari 实报「美化文件导入用不了」（用户注明多机型同现、勿做机型分支；诊断实证收到 9916 字符、开头 <!DOCTYPE html>＝分享/售卖链路把方案打包成网页文件，打开全选复制或选文件选中 .html 后 #408 自救解析①~③全失效、抛天书 JSON Parse error）。修法＝mochiParsePastedJSON 追加第④步（纯数据链路、零机型分支，桌面/聊天美化两个导入入口共用）：<textarea>/<pre>/application.json 容器内文实体还原优先＋全文字符串感知花括号配平扫描取 {...} 候选按长度降序，逐候选走完整清洗梯子、仅真解析成顶层对象才采用（提错由导入方用途校验兜底）；提取失败换可行动报错 ====
+  { name: '#879a 网页包裹方案提取入口（删＝分享/售卖网页文件里的方案解析失败复发「美化文件导入用不了」）', file: 'js/personalize.js', needle: "const htmlLike = /<!doctype\\s*html|<html[\\s>]|<body[\\s>]|<textarea[\\s>]/i.test(t1);" },
+  { name: '#879b 提取失败可行动报错（删＝用户再拿到天书 JSON error 无从下手）', file: 'js/personalize.js', needle: "lastErr = new Error('粘贴的是网页不是方案文本" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
