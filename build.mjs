@@ -3656,6 +3656,9 @@ const FIX_SENTINELS = [
   { name: '#857c 占卜记录写闸两层就绪（同 #857a，删＝抽牌记录与主页占卜记录全被缓冲吞掉）', file: 'js/divination.js', needle: 'if (window.__mochiDataReady) onDivRestore();' },
   { name: '#857d 帮我决定切桌面时缓冲落盘（改回置空＝恢复窗口内攒下的记录白丢）', file: 'js/decision.js', needle: 'try { histReady = true; flushPendingHist(); } catch (e) {}' },
   { name: '#857e 多人决定切桌面时缓冲落盘（改回置空＝同上白丢；本文件写成裸语句，与 #857d 的 try 包裹形态各在其位，勿「统一」两条 needle）', file: 'js/group-decision.js', needle: 'histReady = true; flushPendingHist();' },
+  { name: '#861a 动态图标落位即套用隐藏名单（删＝备忘录/市集/心意柜/喝水等注入图标躲过启动期 applyHiddenIcons，下次再跑要等 contact-switched＝「启动看得见、切一次桌面就消失」复发；红米 K80 实报第三页备忘录图标不见了。改回裸暴露 window.applyDeskLayout = applyDeskLayout 即复发）', file: 'js/personalize.js', needle: 'window.applyDeskLayout = function () { try { applyDeskLayout(); } finally { try { applyHiddenIcons(); } catch (e) {} } };' },
+  { name: '#861b 备忘录图标登记进装修组件库三张表（删＝app-memo 不在 WIDGET_IDS 白名单、装修「添加卡片」找不到备忘录，图标一旦离页进隐藏池永远无法找回——gift-shop.js 注释里 #market 同案原话「不在白名单永远无法找回」）', file: 'js/personalize.js', needle: "'app-memo': '备忘录图标'" },
+
   // ==== 2026-09-19 #858 心意市集「自定义上传商品」入口不显眼 + 商品数据导入导出（用户直派「心意集市，新增可以用户自定义上传商品，然后可以导入数据和导出数据。这个按钮要显眼一点，好多人不知道有这个功能」）。原状：上传入口只是市集页底部那排灰色胶囊里的「+ 添加商品」（与心愿单/管理/设置并列的 5 颗之一），用户普遍不知道有这功能；商品数据只能靠 设置→功能数据 整包搬。修法＝hero 正下方新增「我的心意商品」块：深色主按钮「＋上传我的商品」（进页即见、全页唯一主行动）＋同一块里「导出商品数据 / 导入商品数据」两颗小胶囊；导出只装 market-custom 里的自定义商品（图片已是内嵌 data:URL，单文件自带图）；导入按 名字/分类/价格/图片 判重、同 id 就地更新、id 撞车重新发号、只收 data: 内嵌图、超量不导入。零机型分支 ====
   { name: '#858a 上传入口常驻市集页（hero 下方独立块；删＝只剩底部胶囊里那颗「＋上传商品」，「好多人不知道」复发）', file: 'js/gift-shop.js', needle: "'<div class=\"market-mine\" id=\"market-mine\"></div>' +" },
   { name: '#858b 主按钮接线到上传表单（删/改指＝按钮点了没反应）', file: 'js/gift-shop.js', needle: "if (b.id === 'market-mine-add') openAddGiftForm(null);" },
