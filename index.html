@@ -10208,9 +10208,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789829345531">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789829503054">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 22:49<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 22:51<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -41938,16 +41938,11 @@ try { if (window.xyStore) return window.xyStore(MYE_G_PREFIX).get(TEXTCARD_DIREC
 try { return store.get(TEXTCARD_DIRECT_KEY) === '1'; } catch (e) { return false; }
 }
 try { window.textCardDirectMode = textCardDirectMode; } catch (e) {}
-let textInsertHinted = false; // 每次打开面板只提示一次「已填入输入栏」，连点不刷屏
 function insertTextToChatInput(t) {
 const el = document.getElementById('chat-input');
 if (!el || typeof t !== 'string' || !t) return;
 el.textContent = (el.textContent || '') + t;
 try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-if (!textInsertHinted) {
-textInsertHinted = true;
-toast('已填入输入栏，点「发送」发出');
-}
 }
 function myTextOf() { if (!Array.isArray(myTextGroups[emojiCat])) myTextGroups[emojiCat] = []; return myTextGroups[emojiCat]; }
 function myTextLoad() {
@@ -42813,7 +42808,6 @@ myBatchMode = false;
 mySel.clear();
 myTextBatch = false; // #636
 myTextSel.clear();
-textInsertHinted = false; // #691：每次打开面板允许一次「已填入输入栏」提示
 closeIme(); // v3.5.116：收起输入法，面板完整不被键盘遮挡
 renderEmojiPanel();
 const myToken = ++emojiShowToken;
@@ -45196,7 +45190,6 @@ function gcInsertTextToInput(t) {
 if (!input || typeof t !== 'string' || !t) return;
 input.textContent = (input.textContent || '') + t;
 try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-try { toast('已填入输入栏，点「发送」发出'); } catch (e) {}
 }
 function gcCfg() {
 const d = {
@@ -79390,4 +79383,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8i6hob -->
+<!-- __MOCHI_EOF__ mu8i9v7y -->

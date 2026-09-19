@@ -1175,7 +1175,6 @@
     input.textContent = (input.textContent || '') + t;
     // 程序化写入不派发 input 事件，补一条带 bubbles 的让「最近输入快照」与所见内容同步（#401 同口径）
     try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-    try { toast('已填入输入栏，点「发送」发出'); } catch (e) {}
   }
 
   // ---- 回复内容生成（从该成员字卡池随机选，兜底数组） ----

@@ -10798,7 +10798,6 @@ try { if (window.xyStore) return window.xyStore(MYE_G_PREFIX).get(TEXTCARD_DIREC
 try { return store.get(TEXTCARD_DIRECT_KEY) === '1'; } catch (e) { return false; }
 }
 try { window.textCardDirectMode = textCardDirectMode; } catch (e) {}
-let textInsertHinted = false; // 每次打开面板只提示一次「已填入输入栏」，连点不刷屏
 // 填入聊天输入栏：尾部追加，不清空用户已经打好的字；面板保持打开＝可连点多张，发不发由用户决定。
 // 程序化写入不派发 input 事件，这里补一条（带 bubbles）让「最近输入快照」与所见内容同步——
 // #215 发送瞬间内核撕文本时，readSendText 的快照兜底才认得出这段内容。
@@ -10807,10 +10806,6 @@ const el = document.getElementById('chat-input');
 if (!el || typeof t !== 'string' || !t) return;
 el.textContent = (el.textContent || '') + t;
 try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
-if (!textInsertHinted) {
-textInsertHinted = true;
-toast('已填入输入栏，点「发送」发出');
-}
 }
 function myTextOf() { if (!Array.isArray(myTextGroups[emojiCat])) myTextGroups[emojiCat] = []; return myTextGroups[emojiCat]; }
 function myTextLoad() {
@@ -11806,7 +11801,6 @@ myBatchMode = false;
 mySel.clear();
 myTextBatch = false; // #636
 myTextSel.clear();
-textInsertHinted = false; // #691：每次打开面板允许一次「已填入输入栏」提示
 closeIme(); // v3.5.116：收起输入法，面板完整不被键盘遮挡
 renderEmojiPanel();
 // FIX 2026-09-17 #662：半框平时是 display:none 挂着的——图在隐藏期间浏览器可以回收已解码位图
