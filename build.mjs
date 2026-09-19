@@ -975,6 +975,14 @@ const FIX_SENTINELS = [
   { name: '#669d emoji 一路带到贴纸记录（feedPickStickerPos 第三参 → addFeedSticker 的 emoji 字段；删＝emoji 点照片后不落位/落成空 src）', file: 'js/feed.js', needle: 'addFeedSticker(pid, { src: src, emoji: emoji, x: x, y: y });' },
   { name: '#669e 渲染签名命中即跳过整包重建（删＝桌面图标每次点击都重建数 MB 列表＝「点进朋友圈有点卡顿」复发；本批核心逻辑）', file: 'js/feed.js', needle: 'if (sig === feedRenderSig && listEl.firstChild) return;' },
   { name: '#669f 签名必须覆盖窗口内每条动态的身份/正文/赞/评论/贴纸/配图（删成常量＝数据变了也不重建＝显示旧数据，比卡顿更糟）', file: 'js/feed.js', needle: "parts.push(p.id, p.ts, (p.content || '').length, (p.likes || []).join('/')," },
+  // ==== 2026-09-19 #845 朋友圈动态操作栏缺「贴纸」按钮（用户直派「有的手机朋友圈那一行没有贴纸，不知道有这功能」）====
+  // 旧实现把那颗按钮挂在「这条动态有配图」的条件里，纯文字动态整颗消失＝功能对用户不存在（零机型分支，改常驻＋底纸承接）。
+  { name: '#845a 删除型：操作栏按钮不得再退回按配图条件渲染（回流＝纯文字动态没有贴纸入口，「不知道有这功能」复发）', file: 'js/feed.js', needle: "|| p.img) ? '<button class=\"feed-act\" data-sticker=\"'", absent: true },
+  { name: '#845b 有贴纸即画承载层（删/改回只看配图＝贴纸存进数据却不显示）', file: 'js/feed.js', needle: 'if (imgs.length || hasStickers) {' },
+  { name: '#845c 选位上下文带临时底纸标记（删＝纯文字动态取消选位后空卡纸留在屏上，或选位整条退回随机落位）', file: 'js/feed.js', needle: 'feedPickCtx = { box, onPick, hint, timer, blank: made.blank };' },
+  { name: '#845d 空白底纸样式在位（删＝纯文字动态的贴纸承载层零高度、贴纸看不见）', file: 'css/chat-pages.css', needle: '.feed-imgs.feed-imgs-blank { min-height:132px;' },
+  { name: '#845e 朋友圈落盘节流等待分支不清待写槽（needle 两行连读＝「清槽只发生在真正落盘那一轮」；改回开头即置空＝命中等待时整包写静默丢弃，「刚贴的贴纸/刚点的赞刷新就没了」复发；与 chat.js #828e 同形状）', file: 'js/feed.js', needle: 'if (wait > 0) { feedWriteTimer = setTimeout(runFeedWrite, wait); return; }\nfeedWritePending = null;' },
+
   // ==== 2026-09-15 #501 信箱回信页「下滑被拉回、无法正常滑动」（vivo S20 Edge 等多机型，#399 同页二次复发族）——nudgeInputVisible 被键盘看门狗聚焦期每 250ms 调用，输入框在滚动容器内时（回信/写信页 .cal-scroll、日历留言等）用户下滑即被拽回「输入框可见」位；修=几何记忆（容器几何与输入框高度不变=现状出自用户滚动，不补位）====
   // #501 几何记忆闸的哨兵由 #535h 承接（#538 换键后仍是同一行早退判定，避免共用锚点被判哑哨兵）
   // v3.26.x #189：全屏滑动闪烁 + iPad 全屏开关无效果（三根因五处修复，见 FIX-REGRESSION #189）

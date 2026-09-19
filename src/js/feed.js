@@ -498,10 +498,14 @@
   function runFeedWrite() {
     feedWriteTimer = null;
     const arr = feedWritePending;
-    feedWritePending = null;
     if (!arr) return;
     const wait = FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt);
+    // FIX 2026-09-19 #845e 节流等待分支不得提前清槽：旧写法开头就把 feedWritePending 置空，
+    //   命中等待时只重排了定时器——手里这一整包没人写、重排到点的那一轮读到空槽直接 return，
+    //   这次落盘静默丢失（pagehide 兜底读的也是这个空槽，救不回）。表现为「刚贴的贴纸/刚点的
+    //   赞刷新就没了」（与 chat.js #828e 同形状）。等待期间槽位保持原值，由重排那一轮写掉。
     if (wait > 0) { feedWriteTimer = setTimeout(runFeedWrite, wait); return; }
+    feedWritePending = null;
     try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {}
   }
   function scheduleFeedWrite(arr) {
@@ -776,9 +780,12 @@
     // v3.26.x：对齐 inlineBody——base64、svg 类非 base64 dataURL 与带前缀外链图都并入图片网格
     content = content.replace(/((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|@@m:[0-9a-f]{32}|data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+)/g, (m, pre, u) => { if (u.indexOf('http') === 0 && pre !== 'sticker:' && pre !== 'image:') return m; imgs.push(u); return ' '; });
     let html = inlineBody(content, (p.role || p.by) === 'me' ? '' : p.owner);
-    if (imgs.length) {
+    // #845：配图区不再只跟配图走——纯文字动态贴过贴纸时也要画一张空白底纸（.feed-imgs-blank），
+    // 否则贴纸存进了数据却没有任何承载层可显示（「那一行没有贴纸按钮」的连带缺陷）。
+    const hasStickers = Array.isArray(p.stickers) && p.stickers.length > 0;
+    if (imgs.length || hasStickers) {
       // #302：贴纸回复——贴纸绝对定位叠在配图区上（x/y 为区块百分比），随卡片一起局部刷新
-      html += '<div class="feed-imgs">' + imgs.map(u => '<img src="' + attrEsc(u) + '" alt="图片" loading="lazy">').join('') + feedStickersHtml(p) + '</div>';
+      html += '<div class="feed-imgs' + (imgs.length ? '' : ' feed-imgs-blank') + '">' + imgs.map(u => '<img src="' + attrEsc(u) + '" alt="图片" loading="lazy">').join('') + feedStickersHtml(p) + '</div>';
     }
     return html;
   }
@@ -945,8 +952,8 @@
       '<div class="feed-actions">' +
       '<button class="feed-act' + (liked ? ' liked' : '') + '" data-like="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>赞</button>' +
       '<button class="feed-act" data-comment="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/></svg>评论</button>' +
-      // #302：贴纸回复——仅配图动态出现，把表情贴纸贴到照片上
-      (((p.imgs && p.imgs.length) || p.img) ? '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' : '') +
+      // #302 贴纸回复 / #845：按钮常驻——纯文字动态也画（点开由空白底纸承接落位），不再「有配图才有这个功能」
+      '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' +
       '<button class="feed-act feed-fav' + (faved ? ' faved' : '') + '" data-fav="' + p.id + '"><svg viewBox="0 0 24 24" fill="' + (faved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2l2.4 5 5.6.8-4 4 .9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-4 5.6-.8z"/></svg>收藏</button>' +
       '</div>' + likes + commentsHtmlFor(p, name) + '</div>';
   }
@@ -1176,7 +1183,7 @@
       feedStickerCard.hidden = true;
       feedStickerCard.innerHTML =
         '<div class="emoji-head">' +
-          '<div class="emoji-tabs"><span class="emoji-tab sel">\u9009\u4e2a\u8d34\u7eb8\u8d34\u5230\u7167\u7247\u4e0a</span></div>' +
+          '<div class="emoji-tabs"><span class="emoji-tab sel">选个贴纸贴上去</span></div>' +
           '<button class="poke-card-close" data-fsc="1">\u2715</button>' +
         '</div>' +
         '<div class="emoji-groups" id="feed-sticker-groups"></div>' +
@@ -1208,13 +1215,28 @@
     if (ctx.timer) clearInterval(ctx.timer);
     ctx.box.removeEventListener('click', ctx.onPick, true);
     ctx.box.classList.remove('feed-sticker-picking');
+    // #845：纯文字动态的那张底纸是本次选位临时铺的，取消即收回（真配图区不动）
+    if (ctx.blank && ctx.box.parentNode) ctx.box.parentNode.removeChild(ctx.box);
     if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);
+  }
+  // #845：给没有配图的动态就地铺一张空白底纸（与 contentHtmlFor 的 hasStickers 分支同款类名），
+  //   让纯文字动态也能走「点哪里贴哪里」，而不是退回随机落位
+  function feedEnsureStickerBox(post) {
+    const got = post.querySelector('.feed-imgs');
+    if (got) return { box: got, blank: false };
+    const box = document.createElement('div');
+    box.className = 'feed-imgs feed-imgs-blank';
+    const content = post.querySelector('.feed-content');
+    if (content && content.parentNode) content.parentNode.insertBefore(box, content.nextSibling);
+    else post.appendChild(box);
+    return { box: box, blank: true };
   }
   // FIX 2026-09-17 #669 emoji 参数：贴纸面板的「emoji 贴纸」分组（图片贴纸走 src，emoji 走 emoji）
   function feedPickStickerPos(pid, src, emoji) {
     feedCancelPickSticker();
     const post = document.getElementById('feed-post-' + pid);
-    const box = post ? post.querySelector('.feed-imgs') : null;
+    const made = post ? feedEnsureStickerBox(post) : null;
+    const box = made ? made.box : null;
     if (!box) { addFeedSticker(pid, { src: src, emoji: emoji }); return; }
     feedStickerCard.hidden = true;
     box.classList.add('feed-sticker-picking');
@@ -1238,7 +1260,7 @@
     //   原实现只在「用户再点一下」时才发现，提示条会一直挂在页面上；4 次/秒的轻量看门狗主动收尾，
     //   任何机型都不会卡在选位态（改成不用看门狗时，verify-feed-sticker-pos 的 E4 会红）
     const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);
-    feedPickCtx = { box, onPick, hint, timer };
+    feedPickCtx = { box, onPick, hint, timer, blank: made.blank };
   }
   // 我贴一张：每条动态上限 5 张；贴完 TA 有概率（评论回应概率同源）回贴一张并进通知
   function addFeedSticker(pid, st) {
@@ -1246,7 +1268,7 @@
     const p = list.find(x => x.id === pid);
     if (!p) { toast('这条动态不存在了'); return; }
     p.stickers = Array.isArray(p.stickers) ? p.stickers : [];
-    if (p.stickers.length >= 5) { toast('这张照片上贴纸够多啦（最多 5 张）'); return; }
+    if (p.stickers.length >= 5) { toast('这条动态上贴纸够多啦（最多 5 张）'); return; }
     // v3.36.x：位置自定义——st 带 x/y（点照片选位置的落点）就用它，否则随机
     const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
       ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
@@ -2466,8 +2488,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       '<div class="feed-actions">' +
       '<button class="feed-act' + (liked ? ' liked' : '') + '" data-like="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>赞</button>' +
       '<button class="feed-act" data-comment="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/></svg>评论</button>' +
-      // #302：贴纸回复——仅配图动态出现，把表情贴纸贴到照片上
-      (((p.imgs && p.imgs.length) || p.img) ? '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' : '') +
+      // #302 贴纸回复 / #845：按钮常驻——纯文字动态也画（点开由空白底纸承接落位），不再「有配图才有这个功能」
+      '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' +
       '<button class="feed-act feed-fav' + (faved ? ' faved' : '') + '" data-fav="' + p.id + '"><svg viewBox="0 0 24 24" fill="' + (faved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2l2.4 5 5.6.8-4 4 .9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-4 5.6-.8z"/></svg>收藏</button>' +
       '</div>' + likes +
       commentsHtmlFor(p, author) + '</div>';

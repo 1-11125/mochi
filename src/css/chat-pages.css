@@ -4624,6 +4624,13 @@ select.mochi-custom-select-native { display:none; }
 [data-theme="dark"] .au-r2 { background:rgba(240,173,40,.28); color:#ffd479; }
 /* ===== #302 朋友圈贴纸回复 + 回忆闪回 ===== */
 .feed-imgs { position: relative; }
+/* #845：纯文字动态的空白底纸——贴纸没有照片可贴时铺一张卡纸承接（feed.js contentHtmlFor 的
+   hasStickers 分支 / feedEnsureStickerBox 共用此类名），否则「贴纸」按钮贴上去看不见 */
+.feed-imgs.feed-imgs-blank { min-height:132px; border-radius:10px; background:linear-gradient(135deg,#fff2f6,#f1f6ff); box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+.feed-imgs.feed-imgs-blank::before { content:'贴纸卡片'; position:absolute; left:10px; top:8px; font-size:11px; color:rgba(0,0,0,.28); }
+[data-theme="dark"] .feed-imgs.feed-imgs-blank { background:linear-gradient(135deg,#2b2b33,#232833); }
+[data-theme="dark"] .feed-imgs.feed-imgs-blank::before { color:rgba(255,255,255,.3); }
+
 .feed-sticker { position: absolute; width: 44px; height: 44px; transform: translate(-50%, -50%); cursor: pointer; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
 .feed-sticker img { width: 100%; height: 100%; object-fit: contain; }
 .feed-sticker-emoji { font-size: 30px; line-height: 44px; }

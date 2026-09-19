@@ -345,10 +345,10 @@ let lastFeedWriteAt = 0;           // 上次实际落盘时间（performance.now
 function runFeedWrite() {
 feedWriteTimer = null;
 const arr = feedWritePending;
-feedWritePending = null;
 if (!arr) return;
 const wait = FEED_WRITE_MIN_GAP - (performance.now() - lastFeedWriteAt);
 if (wait > 0) { feedWriteTimer = setTimeout(runFeedWrite, wait); return; }
+feedWritePending = null;
 try { feedGuardWrite(JSON.stringify(arr)); scheduleSnap(arr); lastFeedWriteAt = performance.now(); } catch (e) {}
 }
 function scheduleFeedWrite(arr) {
@@ -548,8 +548,9 @@ let content = String(p.content || '');
 const imgs = (p.imgs && p.imgs.length) ? p.imgs.slice() : (p.img ? [p.img] : []);
 content = content.replace(/((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|@@m:[0-9a-f]{32}|data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+)/g, (m, pre, u) => { if (u.indexOf('http') === 0 && pre !== 'sticker:' && pre !== 'image:') return m; imgs.push(u); return ' '; });
 let html = inlineBody(content, (p.role || p.by) === 'me' ? '' : p.owner);
-if (imgs.length) {
-html += '<div class="feed-imgs">' + imgs.map(u => '<img src="' + attrEsc(u) + '" alt="图片" loading="lazy">').join('') + feedStickersHtml(p) + '</div>';
+const hasStickers = Array.isArray(p.stickers) && p.stickers.length > 0;
+if (imgs.length || hasStickers) {
+html += '<div class="feed-imgs' + (imgs.length ? '' : ' feed-imgs-blank') + '">' + imgs.map(u => '<img src="' + attrEsc(u) + '" alt="图片" loading="lazy">').join('') + feedStickersHtml(p) + '</div>';
 }
 return html;
 }
@@ -684,7 +685,7 @@ return '<div class="feed-post" id="feed-post-' + p.id + '"><div class="feed-head
 '<div class="feed-actions">' +
 '<button class="feed-act' + (liked ? ' liked' : '') + '" data-like="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>赞</button>' +
 '<button class="feed-act" data-comment="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/></svg>评论</button>' +
-(((p.imgs && p.imgs.length) || p.img) ? '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' : '') +
+'<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' +
 '<button class="feed-act feed-fav' + (faved ? ' faved' : '') + '" data-fav="' + p.id + '"><svg viewBox="0 0 24 24" fill="' + (faved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2l2.4 5 5.6.8-4 4 .9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-4 5.6-.8z"/></svg>收藏</button>' +
 '</div>' + likes + commentsHtmlFor(p, name) + '</div>';
 }
@@ -874,7 +875,7 @@ feedStickerCard.style.zIndex = '3000';
 feedStickerCard.hidden = true;
 feedStickerCard.innerHTML =
 '<div class="emoji-head">' +
-'<div class="emoji-tabs"><span class="emoji-tab sel">\u9009\u4e2a\u8d34\u7eb8\u8d34\u5230\u7167\u7247\u4e0a</span></div>' +
+'<div class="emoji-tabs"><span class="emoji-tab sel">选个贴纸贴上去</span></div>' +
 '<button class="poke-card-close" data-fsc="1">\u2715</button>' +
 '</div>' +
 '<div class="emoji-groups" id="feed-sticker-groups"></div>' +
@@ -900,12 +901,24 @@ feedPickCtx = null;
 if (ctx.timer) clearInterval(ctx.timer);
 ctx.box.removeEventListener('click', ctx.onPick, true);
 ctx.box.classList.remove('feed-sticker-picking');
+if (ctx.blank && ctx.box.parentNode) ctx.box.parentNode.removeChild(ctx.box);
 if (ctx.hint && ctx.hint.parentNode) ctx.hint.parentNode.removeChild(ctx.hint);
+}
+function feedEnsureStickerBox(post) {
+const got = post.querySelector('.feed-imgs');
+if (got) return { box: got, blank: false };
+const box = document.createElement('div');
+box.className = 'feed-imgs feed-imgs-blank';
+const content = post.querySelector('.feed-content');
+if (content && content.parentNode) content.parentNode.insertBefore(box, content.nextSibling);
+else post.appendChild(box);
+return { box: box, blank: true };
 }
 function feedPickStickerPos(pid, src, emoji) {
 feedCancelPickSticker();
 const post = document.getElementById('feed-post-' + pid);
-const box = post ? post.querySelector('.feed-imgs') : null;
+const made = post ? feedEnsureStickerBox(post) : null;
+const box = made ? made.box : null;
 if (!box) { addFeedSticker(pid, { src: src, emoji: emoji }); return; }
 feedStickerCard.hidden = true;
 box.classList.add('feed-sticker-picking');
@@ -925,14 +938,14 @@ addFeedSticker(pid, { src: src, emoji: emoji, x: x, y: y });
 };
 box.addEventListener('click', onPick, true);
 const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);
-feedPickCtx = { box, onPick, hint, timer };
+feedPickCtx = { box, onPick, hint, timer, blank: made.blank };
 }
 function addFeedSticker(pid, st) {
 const list = load();
 const p = list.find(x => x.id === pid);
 if (!p) { toast('这条动态不存在了'); return; }
 p.stickers = Array.isArray(p.stickers) ? p.stickers : [];
-if (p.stickers.length >= 5) { toast('这张照片上贴纸够多啦（最多 5 张）'); return; }
+if (p.stickers.length >= 5) { toast('这条动态上贴纸够多啦（最多 5 张）'); return; }
 const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
 ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
 : feedRandStickerPos();
@@ -1954,7 +1967,7 @@ return '<div class="feed-post" id="feed-post-' + p.id + '"><div class="feed-head
 '<div class="feed-actions">' +
 '<button class="feed-act' + (liked ? ' liked' : '') + '" data-like="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>赞</button>' +
 '<button class="feed-act" data-comment="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/></svg>评论</button>' +
-(((p.imgs && p.imgs.length) || p.img) ? '<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' : '') +
+'<button class="feed-act" data-sticker="' + p.id + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></svg>贴纸</button>' +
 '<button class="feed-act feed-fav' + (faved ? ' faved' : '') + '" data-fav="' + p.id + '"><svg viewBox="0 0 24 24" fill="' + (faved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2l2.4 5 5.6.8-4 4 .9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-4 5.6-.8z"/></svg>收藏</button>' +
 '</div>' + likes +
 commentsHtmlFor(p, author) + '</div>';

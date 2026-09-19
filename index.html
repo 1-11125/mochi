@@ -6879,6 +6879,10 @@ padding:max(env(safe-area-inset-top, 0px), 22px) 18px max(env(safe-area-inset-bo
 [data-theme="dark"] .au-r1 { background:rgba(88,150,230,.25); color:#9ec4f5; }
 [data-theme="dark"] .au-r2 { background:rgba(240,173,40,.28); color:#ffd479; }
 .feed-imgs { position: relative; }
+.feed-imgs.feed-imgs-blank { min-height:132px; border-radius:10px; background:linear-gradient(135deg,#fff2f6,#f1f6ff); box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+.feed-imgs.feed-imgs-blank::before { content:'贴纸卡片'; position:absolute; left:10px; top:8px; font-size:11px; color:rgba(0,0,0,.28); }
+[data-theme="dark"] .feed-imgs.feed-imgs-blank { background:linear-gradient(135deg,#2b2b33,#232833); }
+[data-theme="dark"] .feed-imgs.feed-imgs-blank::before { color:rgba(255,255,255,.3); }
 .feed-sticker { position: absolute; width: 44px; height: 44px; transform: translate(-50%, -50%); cursor: pointer; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
 .feed-sticker img { width: 100%; height: 100%; object-fit: contain; }
 .feed-sticker-emoji { font-size: 30px; line-height: 44px; }
@@ -10164,9 +10168,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789819498354">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789821197748">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-19 20:04<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-19 20:33<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -79319,4 +79323,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu8cbfjm -->
+<!-- __MOCHI_EOF__ mu8dbut0 -->
