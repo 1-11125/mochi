@@ -3727,6 +3727,9 @@ const FIX_SENTINELS = [
   { name: '#876b 主转盘接线（删＝吃什么页「转盘抽取」中奖片与指针错位复发）', file: 'js/p2-features.js', needle: 'eatIdxUnderPtr(normalized, dishes.length, slice)' },
   { name: '#876c 切菜单转盘接线（删＝切换菜单转盘中奖菜单与指针错位复发）', file: 'js/p2-features.js', needle: 'eatIdxUnderPtr(normalized, names.length, slice)' },
   { name: '#878a 卡片入场动画类在挂载前补加（#878 报障：礼物/互动卡无动画突兀出现。根因=renderMsg 建节点时加 msg-enter、随后所有分支 m.className=… 整体覆盖抹掉；needle=补类与挂载同行的接线锚——类加回建节点处即失效消失）', file: 'js/chat.js', needle: "if (!batchRendering) m.classList.add('msg-enter'); (appendTarget || body).appendChild(m);" },
+  // ==== 2026-09-20 #877 聊天设置两行头像「点击无反应」第七波根治（小米14 Edge 实报、多机型同现；零机型分支）：激活链原来只有「label 转发＋JS 合成 click」两条腿，#738 已实锤小米系对 JS click 静默不弹——两条腿同时失效的内核上彻底无声（probe-877-thirdleg 在 HEAD 复现 chooser=0 零提示）。兜底腿升级「showPicker→click→可诊断 toast」三级，guard 信号窗保证不双开 ====
+  { name: '#877a 头像兜底第三条腿 showPicker（删＝label 不转发＋click 被无视的内核回到点击无声）', file: 'js/chat-settings.js', needle: 'try { headInput.showPicker(); opened = true; } catch (e) {}' },
+  { name: '#877b 三条腿全失效时不再无声（删＝用户点击无反应且拿不到任何可反馈现场）', file: 'js/chat-settings.js', needle: "toast('相册没能打开：请换系统浏览器或 Chrome 打开再试，仍不行请截图本提示反馈（头像#877）');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

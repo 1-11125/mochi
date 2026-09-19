@@ -1016,7 +1016,26 @@
   };
   function armHead(cb) { headCb = cb; }
   function headActivate() {
-    var _fb = () => { try { headInput.click(); } catch (e) { headCb = null; toast('无法打开相册，请重试'); } };
+    // FIX 2026-09-20 #877（小米14 Edge 实报「更换联系人头像/我的头像点击无反应」，用户明说其他
+    // 设备型号也有；#677/#717/#738/#753/#755/#756/#813 同族第七波）：兜底腿从「裸 click()」
+    // 升级为「showPicker() → click() → 可诊断 toast」三级。根因：激活链一直只有两条腿——
+    // ①原生 label 转发（多数内核走这条）；②JS 合成 click() 兜底。#738 已实锤小米系对 JS 合成
+    // click 静默不弹（不报错、不弹窗）；一旦某内核两条腿同时失效（label 不转发＋click 被无视），
+    // 就彻底无声——tools/probe-877-thirdleg.mjs 在 HEAD 上已复现：chooser=0、零异常、零提示，
+    // 兜底确实执行（jsClickNoop 计数）但被内核吞掉＝用户看到的「点击无反应」。
+    // showPicker() 是标准 API（Chromium 99+/Edge 99+/Safari 16.3+），在用户手势窗口内直接弹
+    // 系统选择器，既不依赖 label 转发、也不走 legacy click 的合成事件路径——第三条腿补上后，
+    // 无声只剩「连 showPicker 都拒」一种内核形态，此时 toast 给出可反馈的现场（不再无声）。
+    // 零机型分支：三条腿对所有内核统一按序尝试；guard 信号窗（focus/click/change 任一即落定）
+    // 保证 label 转发正常的内核绝不会走到兜底＝不双开；showPicker 与 click **顺序都走**——规范里
+    // 两条路汇入同一「show the picker」算法（选择器已开即空操作）＝不双开，且避开「showPicker
+    // 调用成功但内核不给可观测 chooser/信号」的形态把 legacy click 短路掉（Playwright WebKit 实测）。
+    var _fb = function () {
+      var opened = false;
+      try { headInput.showPicker(); opened = true; } catch (e) {}
+      try { headInput.click(); opened = true; } catch (e) {}
+      if (!opened) { headCb = null; toast('相册没能打开：请换系统浏览器或 Chrome 打开再试，仍不行请截图本提示反馈（头像#877）'); }
+    };
     if (window.mochiFilePickGuard) window.mochiFilePickGuard(headInput, _fb);
     else _fb();
   }
