@@ -16,6 +16,16 @@
   }
   // 壁纸铺满整个聊天页（含顶部栏/输入栏）
   const chatPage = document.getElementById('page-chat');
+  // FIX 2026-09-20 #938（红米 K80 Chrome 用户直派「边看边调切换气泡框大小的模式会闪屏」，用户明说多机型同现、
+  // 勿机型分支）：实测＝抽屉里一切控件（框大小/字号/透明度/圆角/颜色/发送按钮/壁纸档位）都汇进 applySettings，
+  // 而它每次都把 :root 的 16 条内联变量与 #page-chat 的 9 条**原样重写一遍**（CSSOM 钩子逐次比对旧值＝同值白写），
+  // 外加对没挂上的类跑 remove。同值写入照样脏化内联 style/class 属性：:root 自定义属性被全站继承＝整篇文档样式
+  // 作用域重新解析，#page-chat 又是壁纸层 + 数百条气泡的共同祖先＝一起重算重绘，手机 GPU 重合成期多出一帧空白
+  // ＝用户所见的「闪一下」（无头同档重复点击量到 RecalcStyle 3.9ms/次、加样式表拆建后 20ms/次；真机放大数倍）。
+  // 修法＝写入前先比对现值，值真变了才写——与本仓库 v3.6.x/#762 壁纸「图没变不重写 backgroundImage」、
+  // #923 家族同一口径；值确实变了的路径一字不动，不碰任何机型/内核判断。
+  const setVar = (el, name, value) => { if (!el) return; const v = String(value); if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v); };
+  const delVar = (el, name) => { if (el && el.style.getPropertyValue(name) !== '') el.style.removeProperty(name); };
   // FIX 2026-09-18 #762：聊天壁纸「铺满方式」四档全废、连默认档都不再铺满（用户实报），
   // 根治＝把壁纸从「画在 #page-chat 自己身上」改成「画在它的一个常驻子层上」。
   //
@@ -196,7 +206,9 @@
     if (_csContrast(ii, ib) < 1.5) rules.push('#page-chat .msg-in .msg-bubble.msg-bubble,#page-fav .msg-in .msg-bubble.msg-bubble{color:' + _csHiInk(ib) + '!important}');
     if (rules.length) {
       if (!fix) { fix = document.createElement('style'); fix.id = 'cs-contrast-fix'; document.head.appendChild(fix); }
-      fix.textContent = rules.join('\n');
+      // #938 同族第三处：这是 head 里的真样式表，同值重写＝全文档样式失效，先比对再写
+      const css = rules.join('\n');
+      if (fix.textContent !== css) fix.textContent = css;
     } else if (fix) fix.remove();
   }
   const CHAT_SURFACE_SETTINGS = [
@@ -303,8 +315,9 @@
     const on = store.get('cs-bg-fullbars') === '1';
     const bars = [['--cs-head-opacity', '--cs-head-opacity-ink'], ['--cs-input-opacity', '--cs-input-opacity-ink']];
     bars.forEach(function (pair) {
-      if (on) chatPage.style.setProperty(pair[1], '0');
-      else chatPage.style.removeProperty(pair[1]);
+      // #938：改走「值变才写」——原来每次 applySettings 都无脑 set/remove 这两条，同值也脏化 #page-chat 的 style
+      if (on) setVar(chatPage, pair[1], '0');
+      else delVar(chatPage, pair[1]);
     });
   }
   const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
@@ -337,12 +350,12 @@
       // 逐项变量照旧写出（设置页滑杆与回显共用），只把栏位两项的写入值换成生效值。
       const v = item.key === 'cs-head-opacity' ? barOpacityInk(0)
         : item.key === 'cs-input-opacity' ? barOpacityInk(1) : values[i];
-      chatPage.style.setProperty('--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
+      setVar(chatPage, '--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
     });
     // Keep opaque colors intact for the existing contrast guard; alpha affects only bubble paint.
     [['in', inBg], ['out', outBg]].forEach(([side, color]) => {
       const rgb = _csHexRgb(color);
-      chatPage.style.setProperty('--cs-' + side + '-surface', rgb ? 'rgba(' + rgb.join(',') + ',' + values[2] / 100 + ')' : color);
+      setVar(chatPage, '--cs-' + side + '-surface', rgb ? 'rgba(' + rgb.join(',') + ',' + values[2] / 100 + ')' : color);
     });
     const labels = {
       'cs-bar-op-val': '顶 ' + values[0] + '% / 底 ' + values[1] + '%',
@@ -350,11 +363,13 @@
       'cs-bar-pos-val': '顶 ' + surfaceArrow(values[3], '↓', '↑') + ' / 底 ' + surfaceArrow(values[4], '↑', '↓') + 'px',
       'cs-typing-ink-val': store.get('cs-typing-ink') || '#8a8a8a'
     };
-    Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el) el.textContent = labels[id]; });
+    Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el && el.textContent !== labels[id]) el.textContent = labels[id]; });
   }
   function applySettings() {
     // 设置页值写入（定义在最前，避免暂时性死区）
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    // #938：同值也走一遍「先比对」——textContent 赋值会换掉文本节点，抽屉里点一下要为十来个回显标签
+    // 各拆建一次子树；值没变就一个字节都不碰。
+    const set = (id, v) => { const el = document.getElementById(id); const s = String(v); if (el && el.textContent !== s) el.textContent = s; };
     const DEF = themeDefaults();
     const inBg = store.get('cs-in-bg') || DEF.inBg;
     const inInk = store.get('cs-in-ink') || DEF.inInk;
@@ -362,41 +377,41 @@
     const outInk = store.get('cs-out-ink') || DEF.outInk;
     const fs = clampFontSize(store.get('cs-font-size')) + 'px';
     const pad = normBubblePad(store.get('cs-bubble-size'));
-    root.style.setProperty('--msg-in-bg', inBg);
-    root.style.setProperty('--msg-in-ink', inInk);
-    root.style.setProperty('--msg-out-bg', outBg);
-    root.style.setProperty('--msg-out-ink', outInk);
-    root.style.setProperty('--chat-font-size', fs);
-    root.style.setProperty('--chat-bubble-pad', pad);
+    setVar(root, '--msg-in-bg', inBg);
+    setVar(root, '--msg-in-ink', inInk);
+    setVar(root, '--msg-out-bg', outBg);
+    setVar(root, '--msg-out-ink', outInk);
+    setVar(root, '--chat-font-size', fs);
+    setVar(root, '--chat-bubble-pad', pad);
     // 聊天气泡边缘（四角圆角大小）
     const rad = store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT;
-    root.style.setProperty('--chat-bubble-radius', rad);
+    setVar(root, '--chat-bubble-radius', rad);
     // 时间轴颜色（默认黑/深色模式灰）
     const timeInk = store.get('cs-time-ink') || DEF.timeInk;
-    root.style.setProperty('--msg-time-ink', timeInk);
+    setVar(root, '--msg-time-ink', timeInk);
     // #728：标识 / 时间轴位置微调（自定义气泡 CSS 改了 padding 后硬编码偏移会失真）。
     // 存 raw 数字串，未设置＝写 0px（与「未设置」视觉同值，且 calc 里能直接相加）。
     const markDX = clampOffset(store.get('cs-mark-x'));
     const markDY = clampOffset(store.get('cs-mark-y'));
-    root.style.setProperty('--msg-mark-x', markDX + 'px');
-    root.style.setProperty('--msg-mark-y', markDY + 'px');
+    setVar(root, '--msg-mark-x', markDX + 'px');
+    setVar(root, '--msg-mark-y', markDY + 'px');
     const timeDX = clampOffset(store.get('cs-time-x'));
     const timeDY = clampOffset(store.get('cs-time-y'));
-    root.style.setProperty('--msg-time-dx', timeDX + 'px');
-    root.style.setProperty('--msg-time-dy', timeDY + 'px');
+    setVar(root, '--msg-time-dx', timeDX + 'px');
+    setVar(root, '--msg-time-dy', timeDY + 'px');
     // 正在输入中颜色（默认灰）
     const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
-    root.style.setProperty('--typing-ink', typingInk);
+    setVar(root, '--typing-ink', typingInk);
     // 发送按钮颜色（默认黑/深色模式白）
     const sendBg = store.get('cs-send-bg') || DEF.sendBg;
-    root.style.setProperty('--send-bg', sendBg);
+    setVar(root, '--send-bg', sendBg);
     // 发送按钮文字颜色（默认白/深色模式黑）
     const sendInk = store.get('cs-send-ink') || DEF.sendInk;
-    root.style.setProperty('--send-ink', sendInk);
+    setVar(root, '--send-ink', sendInk);
     // 发送按钮显示/隐藏（默认显示；隐藏后仍可按 Enter 发送）
     const sendShow = store.get('cs-send-show') || 'show';
     const sendBtn = document.getElementById('chat-send');
-    if (sendBtn) sendBtn.style.display = sendShow === 'hide' ? 'none' : '';
+    if (sendBtn) { const wantDisp = sendShow === 'hide' ? 'none' : ''; if (sendBtn.style.display !== wantDisp) sendBtn.style.display = wantDisp; }
     set('cs-send-bg-val', sendBg === DEF.sendBg ? '默认 ' + DEF.sendBg : sendBg);
     set('cs-send-ink-val', sendInk === DEF.sendInk ? '默认 ' + DEF.sendInk : sendInk);
     // 双方气泡颜色/文字颜色当前值回显（默认值显示「默认 #色值」，让用户知道默认颜色）
@@ -406,14 +421,29 @@
     set('cs-in-ink-val', inInk === DEF.inInk ? '默认 ' + DEF.inInk : inInk);
     // 聊天头像形状（circle 圆形 / square 方形）
     const avShape = store.get('cs-av-shape') || 'circle';
-    root.style.setProperty('--msg-av-radius', avShape === 'square' ? '10px' : '50%');
+    setVar(root, '--msg-av-radius', avShape === 'square' ? '10px' : '50%');
     set('cs-av-shape-val', avShape === 'square' ? '方形' : '圆形');
     // 时间轴样式：body 上挂 cs-time-* 类（CSS 控制布局，消息结构不变），
     // 移除旧类后挂新类——覆盖收藏页（#page-fav 是 body 后代），收藏项无需改动
     const ts = store.get('cs-time-style') || 'under-av';
     const tsLabel = (TIME_STYLES.find(s => s.value === ts) || {}).label || '头像下方';
-    TIME_STYLES.forEach(s => document.body.classList.remove('cs-time-' + s.value));
-    if (ts !== 'under-av') document.body.classList.add('cs-time-' + ts);
+    // FIX 2026-09-20 #938（红米 K80 Chrome 用户直派「边看边调切换气泡框大小的模式会闪屏，其他设备型号也有出现」；零机型分支）：
+    // 原实现每次 applySettings 都无条件对 body 跑 7 次 classList.remove + 1 次 add；无头实测（MutationObserver）
+    // 证实哪怕目标类本来就没挂（默认档），点击瞬间 body 的 class 属性仍会落下真实变更记录＝全文档样式失效——
+    // 壁纸大层 + 数百条气泡一起重算重绘，手机 GPU 重合成期间多出一帧空白＝用户所见的「闪一下」。
+    // 抽屉里气泡框大小/字号/透明度/圆角/颜色/发送按钮/壁纸档位等一切控件都汇进 applySettings，这一记
+    // 全局翻动就是整个「边看边调」共同的闪屏根因。修法＝先比对现状与目标（纯 contains 读操作，不弄脏属性），
+    // 相等就整段跳过；真换时间轴样式时行为与原实现逐字节相同。
+    const wantTimeCls = ts === 'under-av' ? '' : 'cs-time-' + ts;
+    let curTimeCls = '';
+    for (let ti = 0; ti < TIME_STYLES.length; ti++) {
+      const tc = 'cs-time-' + TIME_STYLES[ti].value;
+      if (document.body.classList.contains(tc)) { curTimeCls = tc; break; }
+    }
+    if (curTimeCls !== wantTimeCls) {
+      TIME_STYLES.forEach(s => document.body.classList.remove('cs-time-' + s.value));
+      if (wantTimeCls) document.body.classList.add(wantTimeCls);
+    }
     set('cs-time-style-val', tsLabel);
     // #728：标识 / 时间轴位置微调回显（全 0 显示「默认」）
     const fmtOff = (x, y) => (x === 0 && y === 0) ? '默认' : '左右 ' + x + ' / 上下 ' + y + 'px';
@@ -449,9 +479,10 @@
       const szWanted = adj.s === 100 ? csBgFitCss(fit) : adj.s + '%';
       const psWanted = adj.x + '% ' + adj.y + '%';
       if (bgLayer.style.backgroundSize !== szWanted) bgLayer.style.backgroundSize = szWanted;
-      bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
+      const rpWanted = fit === 'tile' ? 'repeat' : 'no-repeat';
+      if (bgLayer.style.backgroundRepeat !== rpWanted) bgLayer.style.backgroundRepeat = rpWanted;
       if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosition = psWanted;
-      bgLayer.style.display = 'block';
+      if (bgLayer.style.display !== 'block') bgLayer.style.display = 'block';
       // #781：四档共用的下限靠这个类挂（.cs-bg-fill 那条是 #762 的，特异性相同、写在后面才赢）
       chatPage.classList.toggle('cs-bg-on', true);
       // 两条下限分工：下面这条 .cs-bg-fill 是 #762 的（纯视口单位，只有铺满档享受）；
@@ -459,10 +490,16 @@
       chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
       csBgStableLater();
     } else {
-      if (bgLayer) { bgLayer.style.display = 'none'; bgLayer.style.backgroundImage = ''; }
+      // #938：本分支每次 applySettings 都跑（＝无壁纸设备点一下抽屉控件也会跑到），原实现的
+      // display/backgroundImage 同值重写 + 两记空 remove 每次共脏化 #page-chat 4 个属性＝壁纸层与
+      // 数百条气泡的共同祖先整棵重算。全部改成「先比对、真变了才动」。
+      if (bgLayer) {
+        if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
+        if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
+      }
       if (chatPage) {
-        chatPage.classList.remove('cs-bg-fill');
-        chatPage.classList.remove('cs-bg-on');
+        if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
+        if (chatPage.classList.contains('cs-bg-on')) chatPage.classList.remove('cs-bg-on');
         // 清壁纸时把铺满方式残影一并抹掉（含 #750~#756 期间直接写在页面身上的内联样式）
         if (chatPage.style.backgroundImage) {
           chatPage.style.backgroundImage = '';
@@ -1692,7 +1729,6 @@
   // 不泄漏群聊（与 #536 同口径）。
   function applyCssEnforce() {
     const old = document.getElementById('cs-bubble-enforce');
-    if (old) old.remove();
     const rules = [];
     try {
       const opItem = CHAT_SURFACE_SETTINGS.filter(s => s.key === 'cs-bubble-opacity')[0];
@@ -1706,10 +1742,16 @@
         rules.push('#page-chat .msg-bubble.msg-bubble{border-radius:var(--chat-bubble-radius,18px)!important}');
       }
     } catch (e) {}
-    if (!rules.length) return;
+    // #938：原实现先 old.remove() 再重建——凡设过非默认气泡透明度/圆角的设备，抽屉里每一次控件点击
+    // （任何键都汇进 applySettings）都要拆建一次 head 里的 STYLE 元素；与 body class 那记同族，
+    // 属「值没变也全局翻动」。改法＝按生成的规则文本比对：没变一个 DOM 字节都不碰，变了就地写
+    // textContent（同元素原地换文本，不经历「样式表短暂缺席」的下一帧）。
+    const text = rules.join('');
+    if (!text) { if (old) old.remove(); return; }
+    if (old) { if (old.textContent !== text) old.textContent = text; return; }
     const st = document.createElement('style');
     st.id = 'cs-bubble-enforce';
-    st.textContent = rules.join('');
+    st.textContent = text;
     document.head.appendChild(st);
   }
   function applyCss() {

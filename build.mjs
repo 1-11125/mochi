@@ -3357,7 +3357,7 @@ const FIX_SENTINELS = [
   // 注：#761 状态机依赖 testOk（.then(ok) 回调转存）——回退成引用回调形参 ok 会在 showResult 处 ReferenceError
   // ==== 2026-09-18 #731 全屏模式聊天壁纸没铺满底部栏（用户直派「聊天里的背景图片没有铺满底部栏，这个在聊天美化里需要可以自己调整全部铺满还是什么」）——壁纸本来就画在 #page-chat 的边框盒上（含顶栏/输入栏的 padding 区），看不见是因为两个栏位自己画了半透明底色（--cs-*-opacity，默认 92%）。两件事：①铺满方式从写死的 cover 变成四档可选（cs-bg-fit：铺满裁剪/完整显示/平铺/拉伸填满，默认档与旧写死值逐字一致＝未写盘设备零视觉变化）；②新增「壁纸延伸到顶栏/输入栏」开关（cs-bg-fullbars，默认关、0 是用户裁决的默认值）——打开＝生效值变量 --cs-*-opacity-ink 写 0 让开底色，存量自定义不透明度原样保留（关掉即恢复、零数据改动）。设置页壁纸分组两行 + 边看边调「栏位」区两个控件 + CHAT_BEAUTY_KEYS 收录 ====
   { name: '#731a 铺满方式档位表（删＝档位失效、退回写死 cover，用户又只剩一种铺法）', file: 'js/chat-settings.js', needle: "const CS_BG_FITS = [" },
-  { name: '#731b 铺满方式落样式（#762 起宿主换成常驻图层 #cs-bg-layer；改回写死 cover＝「完整显示/平铺/拉伸」三档点了没反应）', file: 'js/chat-settings.js', needle: "bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';" },
+  { name: '#731b 铺满方式落样式（#762 起宿主换成常驻图层 #cs-bg-layer；改回写死 cover＝「完整显示/平铺/拉伸」三档点了没反应。#938 起该行换成「值变才写」形态，锚点随之换到新写入行，非误删）', file: 'js/chat-settings.js', needle: "if (bgLayer.style.backgroundRepeat !== rpWanted) bgLayer.style.backgroundRepeat = rpWanted;" },
   { name: '#731c 栏位让开生效值（删＝开关点了壁纸透不上来，栏位照旧盖住）', file: 'js/chat-settings.js', needle: "function barOpacityInk(index) {" },
   { name: '#731d 栏位底色读生效值变量（改回直读 --cs-*-opacity＝让开开关整条链路断开）', file: 'css/chat-main.css', needle: 'var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))' },
   { name: '#731e 设置页两行锚点（删＝聊天美化里没有壁纸铺满方式/延伸栏位入口，用户无处可调）', file: 'template.html', needle: 'id="cs-bg-fullbars"' },
@@ -3945,6 +3945,18 @@ const FIX_SENTINELS = [
 { name: '#931c 内容签名短路（删＝同样的内容每次重建上百格子＋重挂观察器，重开 65.9ms→16.9ms 的收益回流）', file: 'js/feed.js', needle: 'sig === feedStickerRenderSig' },
 { name: '#931d 聊天侧懒挂三件套导出给外部容器借用（删＝贴纸面板拿不到泵/回收池/批量预热，只能退回即时 src）', file: 'js/chat.js', needle: 'window.mochiEmojiLazyEnqueue = emojiLazyEnqueue;' },
 { name: '#931e 泵按 JS 引用取源且用完即清（删＝节点被回收池复活时带着上一轮的源，或大 dataURL 又被复制进 DOM 属性）', file: 'js/chat.js', needle: 'img.__emojiLazySrc = null;' },
+  // #938 边看边调「切换气泡框大小会闪屏」根治＝applySettings 全局 DOM 翻动归零（红米 K80 Chrome 用户直派、多机型同现；零机型分支）
+  { name: '#938a body cs-time-* 类仅在现状≠目标时才翻转（删＝每次 applySettings 无条件 7 remove＋1 add，body class 属性真实变更＝全文档样式失效，点抽屉任意控件闪屏回流）', file: 'js/chat-settings.js', needle: 'if (curTimeCls !== wantTimeCls) {' },
+  { name: '#938b 气泡强制生效层按文本比对就地重建（删＝#cs-bubble-enforce STYLE 每次点击拆建，非默认透明度/圆角的设备闪屏面仍在）', file: 'js/chat-settings.js', needle: 'if (old.textContent !== text) old.textContent = text; return;' },
+  // #938c~h 同族其余写入点：闪屏不是「某一次真改」贵，而是「值没变也全部白写一遍」贵——:root 十六条内联
+  // 自定义属性全站继承＝整篇文档样式作用域重解析，#page-chat 是壁纸层与数百条气泡的共同祖先。删掉任一条
+  // 比对守卫＝该面回到每次抽屉点击无条件重写（红米/多机型 Chrome 重合成期间多出一帧空白），故逐条钉住。
+  { name: '#938c 内联变量值变才写（删＝applySettings 每次点抽屉控件重写 :root 十六条＋#page-chat 若干条同值属性，全站样式重解析＝闪屏根因）', file: 'js/chat-settings.js', needle: "if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v);" },
+  { name: '#938d 变量删除前先确认挂着（删＝applyChatBarInk 每次点控件对 #page-chat 空 removeProperty 两条，同值白写族）', file: 'js/chat-settings.js', needle: "if (el && el.style.getPropertyValue(name) !== '') el.style.removeProperty(name);" },
+  { name: '#938e 壁纸类摘除前先确认挂着（删＝无壁纸设备每次点击两记空 classList.remove 脏化 #page-chat 整棵）', file: 'js/chat-settings.js', needle: "if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');" },
+  { name: '#938f 发送按钮 display 值变才写（删＝每次点击重写 #chat-send 内联 display，栏位分区控件闪屏面）', file: 'js/chat-settings.js', needle: "if (sendBtn.style.display !== wantDisp) sendBtn.style.display = wantDisp;" },
+  { name: '#938g 对比度修正层文本真变了才写（删＝每次点击重写 head 里 #cs-contrast-fix 整张样式表）', file: 'js/chat-settings.js', needle: "if (fix.textContent !== css) fix.textContent = css;" },
+  { name: '#938h 设置项回显文本真变了才写（删＝每次点击为十几个回显标签各拆建一次文本子树）', file: 'js/chat-settings.js', needle: "if (el && el.textContent !== s) el.textContent = s;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

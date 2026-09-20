@@ -7,16 +7,26 @@ const css = fs.readFileSync(new URL('../src/css/chat-main.css', import.meta.url)
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log('PASS ' + name); }
 const values = new Map(), props = new Map();
+// #938 起 applyChatSurfaces 经 setVar「值变才写」——桩件按真实 CSSStyleDeclaration 语义补读/删，
+// 并直接执行 src 里那条 setVar 定义（不在测试里另写一份，否则守卫被改坏也测不出来）。
+const fakeStyle = {
+  setProperty: (k, v) => props.set(k, String(v)),
+  getPropertyValue: k => (props.has(k) ? props.get(k) : ''),
+  removeProperty: k => { const had = props.has(k) ? props.get(k) : ''; props.delete(k); return had; }
+};
 const context = vm.createContext({
   store: { get: k => values.get(k), set: (k, v) => values.set(k, v) },
-  chatPage: { style: { setProperty: (k, v) => props.set(k, String(v)) } },
+  chatPage: { style: fakeStyle },
   document: { getElementById: () => null },
   _csHexRgb: h => /^#[0-9a-f]{6}$/i.test(h) ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : null
 });
+const setVarStart = source.indexOf('const setVar =');
+const setVarLine = source.slice(setVarStart, source.indexOf('\n', setVarStart));
+assert(setVarStart >= 0 && setVarLine.includes('getPropertyValue'), '取不到 src 里的 setVar 定义（该测试的桩件前提已变）');
 const start = source.indexOf('  const CHAT_SURFACE_SETTINGS = [');
 const end = source.indexOf('  function applySettings()', start);
 assert(start >= 0 && end > start);
-vm.runInContext(source.slice(start, end), context);
+vm.runInContext(setVarLine + '\n' + source.slice(start, end), context);
 const apply = () => vm.runInContext("applyChatSurfaces('#ffffff', '#111111')", context);
 test('defaults preserve original appearance', () => {
   apply(); assert.equal(props.get('--cs-head-opacity'), '0.92');
@@ -98,7 +108,8 @@ test('wallpaper fit default matches legacy hardcoded value', () => {
   assert(bg.includes("const psWanted = adj.x + '% ' + adj.y + '%';"));
   assert(bg.includes("if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosition = psWanted;"));
   assert(source.includes('const CS_BG_ADJ = { x: 50, y: 50, s: 100 };'));
-  assert(bg.includes("bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';"));
+  assert(bg.includes("const rpWanted = fit === 'tile' ? 'repeat' : 'no-repeat';"));
+  assert(bg.includes("if (bgLayer.style.backgroundRepeat !== rpWanted) bgLayer.style.backgroundRepeat = rpWanted;"));
   // #762：默认档（fill）经 csBgFitCss 映射回 cover＝与历史写死值逐字一致；壁纸不得再写回页面自身
   const fitFn = source.slice(source.indexOf('function csBgFitCss(fit) {'));
   assert(fitFn.slice(0, fitFn.indexOf('\n  }')).includes("return 'cover';"));
@@ -109,8 +120,8 @@ test('bar ink variables let wallpaper through and preserve stored values', () =>
   assert(source.includes('function barOpacityInk(index) {'));
   assert(source.includes("if (store.get('cs-bg-fullbars') === '1') return 0;"));
   assert(source.includes('return surfaceValue(CHAT_SURFACE_SETTINGS[index]);'));
-  assert(source.includes("chatPage.style.setProperty(pair[1], '0');"));
-  assert(source.includes('chatPage.style.removeProperty(pair[1]);'));
+  assert(source.includes("if (on) setVar(chatPage, pair[1], '0');"));
+  assert(source.includes('else delVar(chatPage, pair[1]);'));
   assert(css.includes('var(--cs-head-opacity-ink, var(--cs-head-opacity, .92))'));
   assert(css.includes('var(--cs-input-opacity-ink, var(--cs-input-opacity, .92))'));
 });

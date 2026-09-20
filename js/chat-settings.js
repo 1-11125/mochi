@@ -14,6 +14,8 @@ clearTimeout(t._timer);
 t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 }
 const chatPage = document.getElementById('page-chat');
+const setVar = (el, name, value) => { if (!el) return; const v = String(value); if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v); };
+const delVar = (el, name) => { if (el && el.style.getPropertyValue(name) !== '') el.style.removeProperty(name); };
 function csBgLayer() {
 if (!chatPage) return null;
 let l = document.getElementById('cs-bg-layer');
@@ -133,7 +135,8 @@ var ii = root.style.getPropertyValue('--msg-in-ink') || '#111111';
 if (_csContrast(ii, ib) < 1.5) rules.push('#page-chat .msg-in .msg-bubble.msg-bubble,#page-fav .msg-in .msg-bubble.msg-bubble{color:' + _csHiInk(ib) + '!important}');
 if (rules.length) {
 if (!fix) { fix = document.createElement('style'); fix.id = 'cs-contrast-fix'; document.head.appendChild(fix); }
-fix.textContent = rules.join('\n');
+const css = rules.join('\n');
+if (fix.textContent !== css) fix.textContent = css;
 } else if (fix) fix.remove();
 }
 const CHAT_SURFACE_SETTINGS = [
@@ -205,8 +208,8 @@ if (!chatPage) return;
 const on = store.get('cs-bg-fullbars') === '1';
 const bars = [['--cs-head-opacity', '--cs-head-opacity-ink'], ['--cs-input-opacity', '--cs-input-opacity-ink']];
 bars.forEach(function (pair) {
-if (on) chatPage.style.setProperty(pair[1], '0');
-else chatPage.style.removeProperty(pair[1]);
+if (on) setVar(chatPage, pair[1], '0');
+else delVar(chatPage, pair[1]);
 });
 }
 const surfaceClamp = (item, n) => Math.max(item.min != null ? item.min : 0, Math.min(item.max, Math.round(n)));
@@ -234,11 +237,11 @@ const values = CHAT_SURFACE_SETTINGS.map(surfaceValue);
 CHAT_SURFACE_SETTINGS.forEach((item, i) => {
 const v = item.key === 'cs-head-opacity' ? barOpacityInk(0)
 : item.key === 'cs-input-opacity' ? barOpacityInk(1) : values[i];
-chatPage.style.setProperty('--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
+setVar(chatPage, '--' + item.key, item.unit === '%' ? v / 100 : v + 'px');
 });
 [['in', inBg], ['out', outBg]].forEach(([side, color]) => {
 const rgb = _csHexRgb(color);
-chatPage.style.setProperty('--cs-' + side + '-surface', rgb ? 'rgba(' + rgb.join(',') + ',' + values[2] / 100 + ')' : color);
+setVar(chatPage, '--cs-' + side + '-surface', rgb ? 'rgba(' + rgb.join(',') + ',' + values[2] / 100 + ')' : color);
 });
 const labels = {
 'cs-bar-op-val': '顶 ' + values[0] + '% / 底 ' + values[1] + '%',
@@ -246,10 +249,10 @@ const labels = {
 'cs-bar-pos-val': '顶 ' + surfaceArrow(values[3], '↓', '↑') + ' / 底 ' + surfaceArrow(values[4], '↑', '↓') + 'px',
 'cs-typing-ink-val': store.get('cs-typing-ink') || '#8a8a8a'
 };
-Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el) el.textContent = labels[id]; });
+Object.keys(labels).forEach(id => { const el = document.getElementById(id); if (el && el.textContent !== labels[id]) el.textContent = labels[id]; });
 }
 function applySettings() {
-const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+const set = (id, v) => { const el = document.getElementById(id); const s = String(v); if (el && el.textContent !== s) el.textContent = s; };
 const DEF = themeDefaults();
 const inBg = store.get('cs-in-bg') || DEF.inBg;
 const inInk = store.get('cs-in-ink') || DEF.inInk;
@@ -257,33 +260,33 @@ const outBg = store.get('cs-out-bg') || DEF.outBg;
 const outInk = store.get('cs-out-ink') || DEF.outInk;
 const fs = clampFontSize(store.get('cs-font-size')) + 'px';
 const pad = normBubblePad(store.get('cs-bubble-size'));
-root.style.setProperty('--msg-in-bg', inBg);
-root.style.setProperty('--msg-in-ink', inInk);
-root.style.setProperty('--msg-out-bg', outBg);
-root.style.setProperty('--msg-out-ink', outInk);
-root.style.setProperty('--chat-font-size', fs);
-root.style.setProperty('--chat-bubble-pad', pad);
+setVar(root, '--msg-in-bg', inBg);
+setVar(root, '--msg-in-ink', inInk);
+setVar(root, '--msg-out-bg', outBg);
+setVar(root, '--msg-out-ink', outInk);
+setVar(root, '--chat-font-size', fs);
+setVar(root, '--chat-bubble-pad', pad);
 const rad = store.get('cs-bubble-radius') || BUBBLE_RADIUS_DEFAULT;
-root.style.setProperty('--chat-bubble-radius', rad);
+setVar(root, '--chat-bubble-radius', rad);
 const timeInk = store.get('cs-time-ink') || DEF.timeInk;
-root.style.setProperty('--msg-time-ink', timeInk);
+setVar(root, '--msg-time-ink', timeInk);
 const markDX = clampOffset(store.get('cs-mark-x'));
 const markDY = clampOffset(store.get('cs-mark-y'));
-root.style.setProperty('--msg-mark-x', markDX + 'px');
-root.style.setProperty('--msg-mark-y', markDY + 'px');
+setVar(root, '--msg-mark-x', markDX + 'px');
+setVar(root, '--msg-mark-y', markDY + 'px');
 const timeDX = clampOffset(store.get('cs-time-x'));
 const timeDY = clampOffset(store.get('cs-time-y'));
-root.style.setProperty('--msg-time-dx', timeDX + 'px');
-root.style.setProperty('--msg-time-dy', timeDY + 'px');
+setVar(root, '--msg-time-dx', timeDX + 'px');
+setVar(root, '--msg-time-dy', timeDY + 'px');
 const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
-root.style.setProperty('--typing-ink', typingInk);
+setVar(root, '--typing-ink', typingInk);
 const sendBg = store.get('cs-send-bg') || DEF.sendBg;
-root.style.setProperty('--send-bg', sendBg);
+setVar(root, '--send-bg', sendBg);
 const sendInk = store.get('cs-send-ink') || DEF.sendInk;
-root.style.setProperty('--send-ink', sendInk);
+setVar(root, '--send-ink', sendInk);
 const sendShow = store.get('cs-send-show') || 'show';
 const sendBtn = document.getElementById('chat-send');
-if (sendBtn) sendBtn.style.display = sendShow === 'hide' ? 'none' : '';
+if (sendBtn) { const wantDisp = sendShow === 'hide' ? 'none' : ''; if (sendBtn.style.display !== wantDisp) sendBtn.style.display = wantDisp; }
 set('cs-send-bg-val', sendBg === DEF.sendBg ? '默认 ' + DEF.sendBg : sendBg);
 set('cs-send-ink-val', sendInk === DEF.sendInk ? '默认 ' + DEF.sendInk : sendInk);
 set('cs-out-bg-val', outBg === DEF.outBg ? '默认 ' + DEF.outBg : outBg);
@@ -291,12 +294,20 @@ set('cs-out-ink-val', outInk === DEF.outInk ? '默认 ' + DEF.outInk : outInk);
 set('cs-in-bg-val', inBg === DEF.inBg ? '默认 ' + DEF.inBg : inBg);
 set('cs-in-ink-val', inInk === DEF.inInk ? '默认 ' + DEF.inInk : inInk);
 const avShape = store.get('cs-av-shape') || 'circle';
-root.style.setProperty('--msg-av-radius', avShape === 'square' ? '10px' : '50%');
+setVar(root, '--msg-av-radius', avShape === 'square' ? '10px' : '50%');
 set('cs-av-shape-val', avShape === 'square' ? '方形' : '圆形');
 const ts = store.get('cs-time-style') || 'under-av';
 const tsLabel = (TIME_STYLES.find(s => s.value === ts) || {}).label || '头像下方';
+const wantTimeCls = ts === 'under-av' ? '' : 'cs-time-' + ts;
+let curTimeCls = '';
+for (let ti = 0; ti < TIME_STYLES.length; ti++) {
+const tc = 'cs-time-' + TIME_STYLES[ti].value;
+if (document.body.classList.contains(tc)) { curTimeCls = tc; break; }
+}
+if (curTimeCls !== wantTimeCls) {
 TIME_STYLES.forEach(s => document.body.classList.remove('cs-time-' + s.value));
-if (ts !== 'under-av') document.body.classList.add('cs-time-' + ts);
+if (wantTimeCls) document.body.classList.add(wantTimeCls);
+}
 set('cs-time-style-val', tsLabel);
 const fmtOff = (x, y) => (x === 0 && y === 0) ? '默认' : '左右 ' + x + ' / 上下 ' + y + 'px';
 set('cs-mark-pos-val', fmtOff(markDX, markDY));
@@ -315,17 +326,21 @@ if (bgLayer.style.backgroundImage !== url) bgLayer.style.backgroundImage = url;
 const szWanted = adj.s === 100 ? csBgFitCss(fit) : adj.s + '%';
 const psWanted = adj.x + '% ' + adj.y + '%';
 if (bgLayer.style.backgroundSize !== szWanted) bgLayer.style.backgroundSize = szWanted;
-bgLayer.style.backgroundRepeat = fit === 'tile' ? 'repeat' : 'no-repeat';
+const rpWanted = fit === 'tile' ? 'repeat' : 'no-repeat';
+if (bgLayer.style.backgroundRepeat !== rpWanted) bgLayer.style.backgroundRepeat = rpWanted;
 if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosition = psWanted;
-bgLayer.style.display = 'block';
+if (bgLayer.style.display !== 'block') bgLayer.style.display = 'block';
 chatPage.classList.toggle('cs-bg-on', true);
 chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
 csBgStableLater();
 } else {
-if (bgLayer) { bgLayer.style.display = 'none'; bgLayer.style.backgroundImage = ''; }
+if (bgLayer) {
+if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
+if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
+}
 if (chatPage) {
-chatPage.classList.remove('cs-bg-fill');
-chatPage.classList.remove('cs-bg-on');
+if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
+if (chatPage.classList.contains('cs-bg-on')) chatPage.classList.remove('cs-bg-on');
 if (chatPage.style.backgroundImage) {
 chatPage.style.backgroundImage = '';
 chatPage.style.backgroundSize = '';
@@ -1355,7 +1370,6 @@ return v;
 }
 function applyCssEnforce() {
 const old = document.getElementById('cs-bubble-enforce');
-if (old) old.remove();
 const rules = [];
 try {
 const opItem = CHAT_SURFACE_SETTINGS.filter(s => s.key === 'cs-bubble-opacity')[0];
@@ -1369,10 +1383,12 @@ if (rad != null && String(rad).trim() !== '' && String(rad) !== BUBBLE_RADIUS_DE
 rules.push('#page-chat .msg-bubble.msg-bubble{border-radius:var(--chat-bubble-radius,18px)!important}');
 }
 } catch (e) {}
-if (!rules.length) return;
+const text = rules.join('');
+if (!text) { if (old) old.remove(); return; }
+if (old) { if (old.textContent !== text) old.textContent = text; return; }
 const st = document.createElement('style');
 st.id = 'cs-bubble-enforce';
-st.textContent = rules.join('');
+st.textContent = text;
 document.head.appendChild(st);
 }
 function applyCss() {

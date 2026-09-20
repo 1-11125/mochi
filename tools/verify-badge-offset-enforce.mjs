@@ -173,7 +173,7 @@ test('#728 clampOffset 边界：±40 钳制、非法值回 0', () => {
 
 test('#728 applySettings 写 4 个偏移变量（标识 x/y + 时间轴 x/y）', () => {
   ['--msg-mark-x', '--msg-mark-y', '--msg-time-dx', '--msg-time-dy'].forEach(v => {
-    assert(SRC.includes("root.style.setProperty('" + v + "'"),
+    assert(SRC.includes("setVar(root, '" + v + "'"),
       '没写 ' + v + '——对应滑块会失效');
   });
 });
