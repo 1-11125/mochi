@@ -497,7 +497,9 @@
         }, 300);
       }
     });
-    try { relabelIosToggle(); } catch (e) {}
+    // FIX 2026-09-20：relabelIosToggle 只应在 iOS 上改文案——之前无条件调用，安卓也被
+    // 换成「全屏模式（iOS 浏览器全屏…）」，安卓用户误以为全屏用不了；安卓保持模板默认文案
+    if (isIOS) { try { relabelIosToggle(); } catch (e) {} }
   }
   // v3.26.x：设置页「功能说明」标签——点击弹 iOS 全屏限制说明（复用 showIosGuide 的三态文案）
   const fsHelp = document.getElementById('sf-fullscreen-help');

@@ -10329,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789861143175">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789884109294">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 07:39<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 14:01<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -73990,7 +73990,7 @@ if (t && !t.checked && stillSysFs) showSystemFsNote();
 }, 300);
 }
 });
-try { relabelIosToggle(); } catch (e) {}
+if (isIOS) { try { relabelIosToggle(); } catch (e) {} }
 }
 const fsHelp = document.getElementById('sf-fullscreen-help');
 if (fsHelp) {
@@ -79710,4 +79710,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9140w7 -->
+<!-- __MOCHI_EOF__ mu9es9ny -->
