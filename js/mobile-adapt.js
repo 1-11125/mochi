@@ -946,6 +946,8 @@ var _aScrKey = (screen.width || 0) + 'x' + (screen.height || 0);
 var _aVpPin = false;
 var _aShrinkHadFoc = false;
 var _aVpPinAt = 0;
+var _aFitPend = null;
+var _aFitPin = false;
 setInterval(function () {
 try {
 if (document.visibilityState !== 'visible') return;
@@ -1036,14 +1038,44 @@ _aPhone.style.height = '';
 _aPhone.style.alignSelf = '';
 return;
 }
-if (!_aPhone.style.height && !_aPhone.style.alignSelf) return;
+var _aInlineHad = !!(_aPhone.style.height || _aPhone.style.alignSelf);
+if (_aInlineHad) {
 var _hNow = Math.round(_aVV.height || 0);
-if (_hNow <= 0 || _hNow < _aH - 12) return;
-if ((window.innerHeight || 0) < _aIH - 12) return;
+if (_hNow > 0 && _hNow >= _aH - 12 && (window.innerHeight || 0) >= _aIH - 12) {
 _aPhone.style.height = '';
 _aPhone.style.alignSelf = '';
 _aPanComp();
 kbUndockPanels();
+}
+}
+try {
+var _aExpB = window.innerHeight || 0;
+var _aVvQ = Math.round(_aVV.height || 0);
+var _aFitGo = _aExpB > 0 && _aVvQ > 0 && _coarse && !_aVpPin && !_aKb && !_aProv
+&& Math.abs(_ihNow - _aVvQ) <= 12
+&& !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
+&& Date.now() - _aVvChgAt > 1200
+&& !(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+if (_aFitGo) {
+var _aPbNow = Math.round(_aPhone.getBoundingClientRect().bottom);
+var _aDev = (_aPbNow > 0) ? (_aPbNow - _aExpB) : 0;
+if (_aDev > 8 || _aDev < -8) {
+if (_aFitPend === _aExpB) {
+if (_aPhone.style.height !== _aExpB + 'px') _aPhone.style.height = _aExpB + 'px';
+_aFitPin = true;
+_aPanComp();
+} else {
+_aFitPend = _aExpB; // 首见只记账，下一拍（≥1s 后）同值才动手
+}
+} else {
+_aFitPend = null;
+if (_aFitPin) { _aPhone.style.height = ''; _aFitPin = false; _aPanComp(); }
+}
+} else {
+_aFitPend = null;
+if (_aFitPin) { _aPhone.style.height = ''; _aFitPin = false; }
+}
+} catch (eFit) {}
 } catch (e) {}
 }, 1000);
 window.__mochiAndroidKb = function () {

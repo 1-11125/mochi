@@ -1708,7 +1708,7 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 .rp-head-set:active { background:rgba(0,0,0,.05); }
 .rp-settings { padding:2px 0 0; }
 .rp-settings[hidden], .rp-balance[hidden] { display:none; }
-/* FIX 2026-09-20 #916 红包「设置」整区画到面板外、手机上直接超出屏幕（用户直派「设置里有字超出
+/* FIX 2026-09-20 #923 红包「设置」整区画到面板外、手机上直接超出屏幕（用户直派「设置里有字超出
    这个页面了」，明确说明不是某一款机型的特例）。根因＝该区不在 .poke-card-scroll 里（打开设置时
    那个滚动容器反而被隐藏），自己又不是滚动容器：实测内容高 810~860px，而面板受 .poke-card
    max-height:48% 只有 273~439px（320×568 ~ 412×915 四档视口都量过），overflow 默认 visible ⇒

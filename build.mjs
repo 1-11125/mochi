@@ -3871,6 +3871,8 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-20 #916 顶部白条/显示不全+聊天闪动（Edge 工具条显隐 dvh 滞留族）根治 + 屏幕适配错误环红点只增不减收口 ==== */
   { name: '#916a 安卓稳态高度对账两拍确认钉高（改回一拍即钉＝工具条显隐动画中途误钉来回抽，本批报障复发）', file: 'js/mobile-adapt.js', needle: 'if (_aFitPend === _aExpB) {' },
   { name: '#916b 屏幕适配错误环同签名 24h 去重（删＝红点数随每次刷新只增不减，本批报障复发）', file: 'js/device.js', needle: "_sdSig = '[屏幕适配] ' + String(names).split('｜')[0];" },
+  { name: '#923a 红包「设置」区弹性滚动子项规则在位（删掉＝实测 810~860px 的设置内容画到 max-height:48% 的面板外，手机上「有字超出这个页面」＋「完成」按钮离屏 278~544px 点不到复发；needle=该选择器行，css/chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '.rp-settings:not([hidden]) {' },
+  { name: '#923b 设置区作为可收缩 flex 子项（删 min-height:0＝flex 项按内容撑开、容器不收缩，溢出面板底边照旧复发）', file: 'css/chat-main.css', needle: 'flex:1 1 auto; min-height:0;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
