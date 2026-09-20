@@ -191,6 +191,9 @@ jsWrapped.push(
   '  if (off) return;' +
   '  var b = document.createElement("div");' +
   '  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";' +
+  // #939f：两个按钮＋12 字文案在 320px 级窄屏（可用约 292px）放不下一行＝按钮被截出屏
+  // 外「知道了点不到」——只在本条内联换行，.ver-update-bar 共用样式与其他顶条零影响。
+  '  b.style.flexWrap = "wrap"; b.style.rowGap = "6px";' +
   '  b.innerHTML = "<span class=\\"vub-txt\\">网络不佳·部分功能没加载完</span><b class=\\"vub-act\\">点此重试</b><b class=\\"vub-act\\" id=\\"boot-retry-off\\">知道了</b>";' +
   '  b.addEventListener("click", function () { window.__mochiBootRetry(); });' +
   '  var x = b.querySelector("#boot-retry-off");' +
@@ -3935,6 +3938,7 @@ const FIX_SENTINELS = [
 { name: '#939b 初始化行含错误清单（删＝catch 登记静默失效，#939a 形同虚设）', file: 'index.html', needle: 'window.__mochiErrLoaded = window.__mochiErrLoaded || [];' },
 { name: '#939d 健康即撤条+事件复查（删＝条挂上永不摘除，慢机回填>3s 永误报网络不佳；判据自包含不依赖 #921h missing()）', file: 'index.html', needle: 'function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0;' },
 { name: '#939e 「知道了」关闭钮+会话禁弹（删＝提醒条无法关闭、反复纠缠用户；只关提示不拦真网络问题重测）', file: 'index.html', needle: 'sessionStorage.getItem("mochi-boot-bar-off") === "1"' },
+{ name: '#939f 窄屏换行（删＝320px 级屏两个按钮放不下一行被截出屏外，「知道了」点不到）', file: 'index.html', needle: 'b.style.flexWrap = "wrap"; b.style.rowGap = "6px";' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

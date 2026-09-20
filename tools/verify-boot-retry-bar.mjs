@@ -18,6 +18,7 @@ t('S3 健康判据扣除错误清单（sweep 自包含口径）', srcCode.includ
 t('S4 sweep 健康撤条', srcCode.includes('function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex'));
 t('S5 mochi-restore-done 事件复查', srcCode.includes('document.addEventListener("mochi-restore-done"'));
 t('S6 「知道了」关闭钮+会话禁弹标志', srcCode.includes('mochi-boot-bar-off'));
+t('S7 窄屏换行（flexWrap 内联）', srcCode.includes('b.style.flexWrap = "wrap"'));
 
 // ---- 提取看门狗代码串（纯 HEAD 红基线上 sweep 不存在 → 提取仍成功，B 组逐条报红）----
 function extractWatchdog() {
@@ -118,6 +119,7 @@ function runDeferred(e) {
   t('B7a 慢数据挂条（前置）', e.doc.rawBar !== null);
   const offFn = e.doc.rawBar && e.doc.rawBar._off && e.doc.rawBar._off._fn;
   t('B7b 关闭钮已接线', typeof offFn === 'function');
+  t('B7g 窄屏换行已内联挂上（320px 级屏按钮不被截出屏外）', e.doc.rawBar && e.doc.rawBar.style && e.doc.rawBar.style.flexWrap === 'wrap' && e.doc.rawBar.style.rowGap === '6px');
   if (typeof offFn === 'function') offFn({ stopPropagation() {} });
   t('B7c 点「知道了」后条消失', e.doc.rawBar === null);
   t('B7d 会话标志已写', e.sessionStorage.getItem('mochi-boot-bar-off') === '1');

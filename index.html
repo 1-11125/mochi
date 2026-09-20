@@ -10376,9 +10376,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789909422153">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789910229194">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 21:03<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 21:17<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20397,7 +20397,7 @@ try { el.hidden = true; } catch (e2) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("ver-check.js");
 } catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("ver-check.js"); try { console.error("[JS] ver-check.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ver-check.js] " + String(__e && __e.message || __e)); } })();
-window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };(function () { function bar() {  if (document.getElementById("boot-retry-bar")) return;  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}  if (off) return;  var b = document.createElement("div");  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";  b.innerHTML = "<span class=\"vub-txt\">网络不佳·部分功能没加载完</span><b class=\"vub-act\">点此重试</b><b class=\"vub-act\" id=\"boot-retry-off\">知道了</b>";  b.addEventListener("click", function () { window.__mochiBootRetry(); });  var x = b.querySelector("#boot-retry-off");  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });  (document.body || document.documentElement).appendChild(b); } function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; } function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); } try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {} if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); } else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });})();</script>
+window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };(function () { function bar() {  if (document.getElementById("boot-retry-bar")) return;  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}  if (off) return;  var b = document.createElement("div");  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";  b.style.flexWrap = "wrap"; b.style.rowGap = "6px";  b.innerHTML = "<span class=\"vub-txt\">网络不佳·部分功能没加载完</span><b class=\"vub-act\">点此重试</b><b class=\"vub-act\" id=\"boot-retry-off\">知道了</b>";  b.addEventListener("click", function () { window.__mochiBootRetry(); });  var x = b.querySelector("#boot-retry-off");  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });  (document.body || document.documentElement).appendChild(b); } function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; } function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); } try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {} if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); } else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });})();</script>
 <script defer src="js/idb.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('idb.js')"></script>
 <script defer src="js/contacts.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('contacts.js')"></script>
 <script defer src="js/applock.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('applock.js')"></script>
@@ -20500,4 +20500,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9tut6x -->
+<!-- __MOCHI_EOF__ mu9uc3wq -->
