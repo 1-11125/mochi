@@ -725,7 +725,7 @@ function altSaveFile(blob, fname, shareTitle, saveTypes) {
 const tryDataUrl = function () {
 anchorDownloadDataUrl(blob, fname, function (ok) {
 if (ok) { toast('已用另一种方式触发下载「' + fname + '」，请到下载列表确认'); return; }
-try { if (anchorDownload(blob, fname)) { toast('已再触发一次下载「' + fname + '」，请到下载列表确认；若仍没有文件，看接下来的弹窗'); return; } } catch (e) {}
+try { if (anchorDownload(blob, fname)) { toast('已再触发一次下载「' + fname + '」，请到下载列表确认；若仍没有文件，把本页网址复制到系统浏览器或 Chrome 的地址栏重新打开再导出'); return; } } catch (e) {}
 saveAskHelp(blob, fname);
 });
 };
