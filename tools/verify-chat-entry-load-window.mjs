@@ -81,7 +81,11 @@ async function cdpConnect() {
         ws.onmessage = (ev) => {
           const m = JSON.parse(ev.data);
           if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result); pend.delete(m.id); return; }
-          if (m.method === 'Runtime.exceptionThrown') jsExcepts.push((m.params && m.params.exceptionDetails && (m.params.exceptionDetails.exceptionDetails || {}).description || 'err').slice(0, 120));
+          if (m.method === 'Runtime.exceptionThrown') {
+            const d = m.params && m.params.exceptionDetails;
+            const desc = (d && ((d.exception && d.exception.description) || d.text)) || 'err';
+            jsExcepts.push(String(desc).split('\n').slice(0, 3).join(' | ').slice(0, 200));
+          }
         };
         return;
       }

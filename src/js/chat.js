@@ -7177,6 +7177,38 @@ if (Date.now() - alive < 3000 && Date.now() - t0 < 8000) requestAnimationFrame(t
 };
 requestAnimationFrame(tick);
 }
+// FIX 2026-09-20 #930（Vivo Y35/摩托罗拉 G100 等 Android Edge 独立应用实报「打开聊天/回到应用，
+// 停在几分钟前的消息，看不到现在的消息」，多机型同现）：回前台贴底复核闸。保活应用常驻数天，
+// 两个失底通道都不经过 enterChat（#742 复位只在点图标进聊天时触发）：①后台期间消息照常投递、
+// rAF/定时器被内核冻结节流，贴底写入丢失或被 hidden 期布局钳位；②用户离场前在历史位（解钉态），
+// 重开应用回到聊天页＝永远停在旧位置。修法＝visibilitychange/pageshow 回前台时按「离场时长」
+// 分档：超过 60s 的重回场视同一次「进聊天」（与 #742 同语义＝复位钉住回底）；60s 内的短离场
+// 只在「仍处于钉住态且几何落定后离底 >8px」时补一枪（后台冻结丢写的兜底），#162「用户在翻
+// 历史就不打扰」契约零改动（短离场解钉态不拽）。长离场也复用 #868 落定闸思路：350ms 后几何
+// 静默才写，随后 chatEntrySettle 接管迟到长高。纯时序判据、零机型分支。
+let chatHiddenAt = 0;
+let chatResumeRepinT = null;
+const CHAT_RESUME_FRESH_MS = 60000; // 离场超过此值＝长离场，回场视同重新进聊天
+function chatResumeRepin() {
+if (document.visibilityState !== 'visible' || !chatVisible()) return;
+const gone = (typeof window.__chatHiddenAgeMs === 'number') ? window.__chatHiddenAgeMs : (chatHiddenAt ? Date.now() - chatHiddenAt : 0); // override 仅供 verify 脚本注入
+if (gone > CHAT_RESUME_FRESH_MS) {
+chatPinnedBottom = true;
+body.classList.remove('scroll-anchor-auto');
+}
+if (!chatPinnedBottom) return;
+if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
+chatResumeRepinT = setTimeout(function () {
+chatResumeRepinT = null;
+if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
+if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); } // #416 同口径 ≤8px 不折腾
+}, 350);
+}
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chatResumeRepinT) { clearTimeout(chatResumeRepinT); chatResumeRepinT = null; } }
+else chatResumeRepin();
+});
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRepin(); }); // bfcache 恢复同闸（pageshow 时 visibilityState 已是 visible）
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');

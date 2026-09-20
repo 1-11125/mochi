@@ -3957,6 +3957,10 @@ const FIX_SENTINELS = [
   { name: '#938f 发送按钮 display 值变才写（删＝每次点击重写 #chat-send 内联 display，栏位分区控件闪屏面）', file: 'js/chat-settings.js', needle: "if (sendBtn.style.display !== wantDisp) sendBtn.style.display = wantDisp;" },
   { name: '#938g 对比度修正层文本真变了才写（删＝每次点击重写 head 里 #cs-contrast-fix 整张样式表）', file: 'js/chat-settings.js', needle: "if (fix.textContent !== css) fix.textContent = css;" },
   { name: '#938h 设置项回显文本真变了才写（删＝每次点击为十几个回显标签各拆建一次文本子树）', file: 'js/chat-settings.js', needle: "if (el && el.textContent !== s) el.textContent = s;" },
+  /* ==== 2026-09-20 #930 回前台贴底复核闸（Vivo Y35/摩托罗拉 G100 等 Android Edge 独立应用实报「打开聊天/回到应用，停在几分钟前的消息，看不到现在的消息」；与 #912/#874/#918/#919 同症状家族独立通道；纯时序判据零机型分支） ==== */
+  { name: '#930a 回场贴底复核闸声明（删＝回前台/bfcache 恢复永不复核贴底，停在几分钟前的消息复发）', file: 'js/chat.js', needle: 'function chatResumeRepin() {' },
+  { name: '#930b 长离场视同重新进聊天的复位（删＝离场前解钉的用户重开应用永远停在旧位置）', file: 'js/chat.js', needle: 'if (gone > CHAT_RESUME_FRESH_MS) {' },
+  { name: '#930c 回场分派（删＝闸永不触发）', file: 'js/chat.js', needle: 'else chatResumeRepin();' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

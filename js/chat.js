@@ -5585,6 +5585,29 @@ if (Date.now() - alive < 3000 && Date.now() - t0 < 8000) requestAnimationFrame(t
 };
 requestAnimationFrame(tick);
 }
+let chatHiddenAt = 0;
+let chatResumeRepinT = null;
+const CHAT_RESUME_FRESH_MS = 60000; // 离场超过此值＝长离场，回场视同重新进聊天
+function chatResumeRepin() {
+if (document.visibilityState !== 'visible' || !chatVisible()) return;
+const gone = (typeof window.__chatHiddenAgeMs === 'number') ? window.__chatHiddenAgeMs : (chatHiddenAt ? Date.now() - chatHiddenAt : 0); // override 仅供 verify 脚本注入
+if (gone > CHAT_RESUME_FRESH_MS) {
+chatPinnedBottom = true;
+body.classList.remove('scroll-anchor-auto');
+}
+if (!chatPinnedBottom) return;
+if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
+chatResumeRepinT = setTimeout(function () {
+chatResumeRepinT = null;
+if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
+if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); } // #416 同口径 ≤8px 不折腾
+}, 350);
+}
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chatResumeRepinT) { clearTimeout(chatResumeRepinT); chatResumeRepinT = null; } }
+else chatResumeRepin();
+});
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRepin(); }); // bfcache 恢复同闸（pageshow 时 visibilityState 已是 visible）
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
