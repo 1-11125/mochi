@@ -1804,7 +1804,7 @@ return Math.max(0, cb.scrollHeight - (cb.clientHeight + typingH));
 }
 function scrollChatBottom() {
 const cb = document.getElementById('chat-body');
-if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
+if (cb) { if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
 }
 let _ccSmoothT = null;
 function scrollChatBottomSmooth() {
@@ -1829,7 +1829,7 @@ _ccSmoothT = requestAnimationFrame(step);
 }
 function unpinChatAndAnchor() {
 chatPinnedBottom = false;
-body.classList.add('scroll-anchor-auto');
+if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } body.classList.add('scroll-anchor-auto');
 }
 function chatNearBottom() {
 const cb = document.getElementById('chat-body');

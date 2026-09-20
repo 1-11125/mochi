@@ -1909,5 +1909,17 @@ return true;
 }
 };
 })();
+/* FIX 2026-09-20 #913 手机发烫收口①：页面切后台（document.hidden）全局暂停 CSS 动画——「后台保活」
+用户把页面挂在后台/锁屏过夜时，进行中的无限动画（花园摇曳、房间流星/雨、漂流瓶波浪、音频可视化
+条等）仍按合成器节奏推进＝后台发热/耗电的纯浪费源；音频播放、定时器、保活锚点都不是 CSS 动画，
+不受影响；回前台移除类名即刻恢复，前台观感零变化。CSS 落点在 base.css（body.mochi-bg-pause）。 */
+(function () {
+var apply = function () {
+if (!document.body) return;
+document.body.classList.toggle('mochi-bg-pause', !!document.hidden); // #911
+};
+document.addEventListener("visibilitychange", apply);
+if (document.body) apply(); else document.addEventListener("DOMContentLoaded", apply);
+})();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 } catch (__e) { try { console.error("[JS] mobile-adapt.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mobile-adapt.js] " + String(__e && __e.message || __e)); } })();
