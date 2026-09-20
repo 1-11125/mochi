@@ -10,7 +10,7 @@
 //   A8 上次结果持久化 LAST_KEY：perf-check 写 + personalize 回显（删＝行副标题永远无上次结论）
 //   A9 长任务观察器窗口内自建且 disconnect 收尾（漏 disconnect＝观察器泄漏常驻）
 //   A10 报告走只读大弹窗（noInput+textarea+big，删＝报告进了可编辑输入框/窄窗难读）
-//   A11 开屏公告双份镜像：template.html 第八章 与 notice.json 第八章同在（漏一份＝公告口径分裂）
+//   A11 卡顿自检说明在 设置→关于→使用说明 11（原开屏公告第八章已按用户要求删除，template+notice.json 双份不留）
 //   A12 build.mjs 登记 #726a~d 四条哨兵（删哨兵＝修复被覆盖时构建照绿）
 //   A13 node --check perf-check.js 语法过
 // —— #770 追加（2026-09-18 红米 K80 Chrome 实报：停在设置页自检，报告称「掉帧集中:占卜(100%)」，
@@ -86,10 +86,10 @@ check('A9 长任务观察器 disconnect 收尾', pc.includes('po.disconnect()'))
 // A10 报告只读大弹窗
 check('A10 报告走 noInput+textarea+big 弹窗', pz.includes('noInput: true, textarea: true, textareaRows: 16, big: true'));
 
-// A11 公告双份镜像
+// A11 公告八章已删、说明移入 设置→关于→使用说明 11（新落点在位＋旧章双份不留）
 const notice = read('pwa/notice.json');
-const sec = '八、卡顿自检（卡不卡，10 秒实测）';
-check('A11 开屏公告双份（template+notice.json）', tpl.includes(sec) && notice.includes(sec));
+const oldSec = '八、卡顿自检（卡不卡，10 秒实测）';
+check('A11 卡顿自检说明在关于·使用说明11，公告双份已删', tpl.includes("<b>先实测：卡不卡不用靠感觉——「卡顿自检」</b>") && !tpl.includes(oldSec) && !notice.includes(oldSec));
 
 // A12 哨兵登记
 const sent = (build.match(/#726[a-d] /g) || []).length;
