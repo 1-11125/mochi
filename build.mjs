@@ -3676,7 +3676,7 @@ const FIX_SENTINELS = [
   { name: '#868b RO 记聊天盒变化时刻（删掉＝盒子仍在分步恢复时也敢写 scrollTop）', file: 'js/chat.js', needle: '_cbBoxChangeTs = Date.now();' },
   { name: '#868c 落定锁有界重试（改成无限重试＝与用户滑动对打；删掉等待＝中间态写入回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _kbSettleDeadline) _kbSettleT = setTimeout(chatRepinStep, 120); return; }' },
   { name: '#868d 看门狗补「盒子还在变」闸（删掉＝mobile-adapt 恢复 .phone 途中补钉一次＝弹跳）', file: 'js/chat.js', needle: 'if (Date.now() - _cbBoxChangeTs < 180) return;' },
-  { name: '#858g 开屏公告第十节在位（notice.json 是联网权威源；删＝不上集市的人也看不到「能自己上传商品」这条，入口再显眼也只覆盖进过市集的人）', file: 'pwa/notice.json', needle: '十、心意市集：自己上传商品 + 商品数据导入导出' },
+  { name: '#858g 上传商品+导入导出说明常驻 设置→关于→功能介绍 04（原开屏公告第十章已删、移入此处；删＝用户看不到「能自己上传商品、数据能搬家」这条）', file: 'template.html', needle: '<b>心意市集·上传我的商品</b>' },
   // ==== 2026-09-19 #870 心意市集四组缺口商品（用户直派「1234都要补」：节日节令 / 美妆个护 / 经期关怀 / 花束补齐）——
   //   改前：节日食品散在 48 件「美食」里且只有中秋月饼；美妆个护在 78 件「日常用品」里只有 4 件；
   //   经期关怀 0 件（而 app 自己有经期记录）；花束仅 8 件是全库最少。当批新增两类目与 31 件商品
