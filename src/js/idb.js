@@ -185,17 +185,23 @@
           let est = 0;
           if (typeof value === 'string') est = value.length;
           else if (Array.isArray(value)) {
-            for (let i = 0; i < value.length; i++) {
-              const m = value[i];
-              if (typeof m === 'string') { est += m.length; continue; }
-              if (!m || typeof m !== 'object') { est += 32; continue; }
-              const t = m.text; if (typeof t === 'string') est += t.length;
-              const im = m.img; if (typeof im === 'string') est += im.length;
-              const vc = m.voice; if (typeof vc === 'string') est += vc.length;
-              const ps = m.parts;
-              if (Array.isArray(ps)) { for (let j = 0; j < ps.length; j++) { const p = ps[j]; if (p && typeof p.v === 'string') est += p.v.length; } }
-              est += 64;
-            }
+            // FIX 2026-09-21 #950：估算器支持嵌套数组（表情包 my-emoji-groups 直存数组＝
+            // [[分组名,[dataURL...]],...]，原循环对内层元素只计 64 字节/个，30MB 级包被
+            // 估成几百字节＝超时不放大，慢设备上 structured clone 未完成就被判挂起、
+            // 误触发 #434 退避重发循环）。通用递归：字符串计长、嵌套数组/对象下钻，深度封顶。
+            const est950 = (v, d) => {
+              if (typeof v === 'string') return v.length;
+              if (!v || typeof v !== 'object') return 32;
+              if (d > 4) return 64;
+              let n = 0;
+              if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) n += est950(v[i], d + 1); return n + 16; }
+              if (typeof v.text === 'string') n += v.text.length;
+              if (typeof v.img === 'string') n += v.img.length;
+              if (typeof v.voice === 'string') n += v.voice.length;
+              if (Array.isArray(v.parts)) { for (let j = 0; j < v.parts.length; j++) { const p = v.parts[j]; if (p && typeof p.v === 'string') n += p.v.length; } }
+              return n + 64;
+            };
+            for (let i = 0; i < value.length; i++) est += est950(value[i], 0);
           }
           if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
         } catch (e) {}
@@ -562,6 +568,36 @@
     }
   }
 
+  // ===== FIX 2026-09-21 #950 表情包大包数组直存的内存驻留口 =====
+  // xyStore.set 按字符串设计（非字符串会被 localStorage.setItem 强转成垃圾串、bigIdx 误判），
+  // 大包数组直存后不能走它。idbMemoSet 只做两件事：把值（可为数组对象）驻进 memoryCache
+  // （同会话 store.get 立即可见，跨桌面合并等读端拿到最新），并按估算体积维护 big-idx
+  // （大键流式恢复/驻留预算仍认得它）。不写 LS、不写 IDB、不进写日志——持久化由调用方的
+  // idbSet 负责。值体积估算与 idbSet 同一套递归（字符串计长、嵌套数组/对象下钻、深度封顶）。
+  window.idbMemoSet = function (key, value) {
+    if (!key) return;
+    if (!memoryCache) memoryCache = {};
+    memoryCache[key] = value;
+    try {
+      let n;
+      if (typeof value === 'string') n = value.length;
+      else {
+        const est = (v, d) => {
+          if (typeof v === 'string') return v.length;
+          if (!v || typeof v !== 'object') return 32;
+          if (d > 4) return 64;
+          let s = 0;
+          if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) s += est(v[i], d + 1); return s + 16; }
+          for (const kk in v) { try { s += est(v[kk], d + 1); } catch (e2) {} }
+          return s + 64;
+        };
+        n = est(value, 0);
+      }
+      if (n > LS_BIG_LIMIT) { if (_bigIdx[key] !== n) { _bigIdx[key] = n; bigIdxSave(); } }
+      else if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
+    } catch (e) {}
+  };
+
   // v3.16.x：localStorage「写失败脏键」集合——set 时 localStorage.setItem 抛异常
   // （配额满/隐私模式）说明 LS 快照残留旧值，回填时这些键必须信 IndexedDB 而不是 LS。
   // 持久化双份：sessionStorage（同标签页刷新有效）+ IndexedDB 的 __ls-dirty 键
@@ -832,6 +868,35 @@
         // 回填未完成时收到的新数据（大键只进 IDB+内存）若被 IDB 旧快照覆盖，
         // 会出现来信弹窗已提示、信箱列表却是旧数据的错位——memoryCache 有值即最新。
         if (memoryCache && (k in memoryCache)) return false;
+        // FIX 2026-09-21 #950：大包数组直存（表情包 my-emoji-groups 等）后 IDB 里的值可能是
+        // 数组对象——原实现 JSON.stringify 整包＝把主线程串化从保存点挪到了启动回填点（30MB 级
+        // ＝百 ms 级启动长任务）。大对象改为「按估算体积走同一条大键管线、值本身直驻
+        // memoryCache」＝零串化零 parse；小对象（<200KB，老版字符串形态的键不受影响）仍串化。
+        if (typeof v !== 'string') {
+          const estObj = (x, d) => {
+            if (typeof x === 'string') return x.length;
+            if (!x || typeof x !== 'object') return 32;
+            if (d > 4) return 64;
+            let s = 0;
+            if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) s += estObj(x[i], d + 1); return s + 16; }
+            for (const kk in x) { try { s += estObj(x[kk], d + 1); } catch (e2) {} }
+            return s + 64;
+          };
+          const nObj = estObj(v, 0);
+          if (nObj > LS_BIG_LIMIT) {
+            // LS 侧不存在有效副本（大键从不落 LS），无「LS 更新」遮蔽问题，直接驻对象
+            try { if (_bigIdx[k] !== nObj) { _bigIdx[k] = nObj; bigIdxSave(); } } catch (e0) {}
+            if (nObj > BIG_BUDGET || bigBudgetUsed + nObj > BIG_BUDGET) {
+              window.__xyIdbDeferredKeys.push(k);
+              if (!budgetWarned) { budgetWarned = true; try { console.info('[mochi] 启动回填：大键驻留超预算(' + Math.round(BIG_BUDGET / 1048576) + 'MB)，超出部分本会话挂起，可随时 idbHydrateKey(键名) 按需取回'); } catch (e0) {} }
+              return false;
+            }
+            bigBudgetUsed += nObj;
+            if (!memoryCache) memoryCache = {};
+            memoryCache[k] = v;
+            return true;
+          }
+        }
         let str = typeof v === 'string' ? v : JSON.stringify(v);
         // v3.16.x 修复（摸鱼天数回退等）：idbSet 是异步 fire-and-forget，页面被杀/
         // 快速退出时 IDB 事务可能未完成 → IDB 值落后于 localStorage。若回填直接用
@@ -956,6 +1021,28 @@
       if (v === null) return null;
       if (v === undefined) return false;
       if (!(memoryCache && (key in memoryCache))) {
+        // FIX 2026-09-21 #950：数组直存的大对象不再整包 stringify 驻留——直驻对象（零串化），
+        // 与 retainValue 同口径；小对象仍串化成字符串（老键形态零变化）
+        if (typeof v !== 'string') {
+          const estObj = (x, d) => {
+            if (typeof x === 'string') return x.length;
+            if (!x || typeof x !== 'object') return 32;
+            if (d > 4) return 64;
+            let s = 0;
+            if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) s += estObj(x[i], d + 1); return s + 16; }
+            for (const kk in x) { try { s += estObj(x[kk], d + 1); } catch (e2) {} }
+            return s + 64;
+          };
+          const nObj = estObj(v, 0);
+          if (nObj > LS_BIG_LIMIT) {
+            if (!memoryCache) memoryCache = {};
+            memoryCache[key] = v;
+            try { if (_bigIdx[key] !== nObj) { _bigIdx[key] = nObj; bigIdxSave(); } } catch (e0) {}
+            const di0 = window.__xyIdbDeferredKeys;
+            if (Array.isArray(di0)) { const i0 = di0.indexOf(key); if (i0 >= 0) di0.splice(i0, 1); }
+            return true;
+          }
+        }
         let str = typeof v === 'string' ? v : JSON.stringify(v);
         // 与 retainValue 同规则（v3.16.x 摸鱼天数回退修复）：LS 有值且未写失败 →
         // 以 LS 为准（IDB 异步写可能未落地）；LS 缺失/写失败 → 用 IDB 值；不回写 IDB

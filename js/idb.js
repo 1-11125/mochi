@@ -113,17 +113,19 @@ try {
 let est = 0;
 if (typeof value === 'string') est = value.length;
 else if (Array.isArray(value)) {
-for (let i = 0; i < value.length; i++) {
-const m = value[i];
-if (typeof m === 'string') { est += m.length; continue; }
-if (!m || typeof m !== 'object') { est += 32; continue; }
-const t = m.text; if (typeof t === 'string') est += t.length;
-const im = m.img; if (typeof im === 'string') est += im.length;
-const vc = m.voice; if (typeof vc === 'string') est += vc.length;
-const ps = m.parts;
-if (Array.isArray(ps)) { for (let j = 0; j < ps.length; j++) { const p = ps[j]; if (p && typeof p.v === 'string') est += p.v.length; } }
-est += 64;
-}
+const est950 = (v, d) => {
+if (typeof v === 'string') return v.length;
+if (!v || typeof v !== 'object') return 32;
+if (d > 4) return 64;
+let n = 0;
+if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) n += est950(v[i], d + 1); return n + 16; }
+if (typeof v.text === 'string') n += v.text.length;
+if (typeof v.img === 'string') n += v.img.length;
+if (typeof v.voice === 'string') n += v.voice.length;
+if (Array.isArray(v.parts)) { for (let j = 0; j < v.parts.length; j++) { const p = v.parts[j]; if (p && typeof p.v === 'string') n += p.v.length; } }
+return n + 64;
+};
+for (let i = 0; i < value.length; i++) est += est950(value[i], 0);
 }
 if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
 } catch (e) {}
@@ -394,6 +396,29 @@ if (_bigIdx[key] !== v.length) { _bigIdx[key] = v.length; bigIdxSave(); }
 delete _bigIdx[key]; bigIdxSave();
 }
 }
+window.idbMemoSet = function (key, value) {
+if (!key) return;
+if (!memoryCache) memoryCache = {};
+memoryCache[key] = value;
+try {
+let n;
+if (typeof value === 'string') n = value.length;
+else {
+const est = (v, d) => {
+if (typeof v === 'string') return v.length;
+if (!v || typeof v !== 'object') return 32;
+if (d > 4) return 64;
+let s = 0;
+if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) s += est(v[i], d + 1); return s + 16; }
+for (const kk in v) { try { s += est(v[kk], d + 1); } catch (e2) {} }
+return s + 64;
+};
+n = est(value, 0);
+}
+if (n > LS_BIG_LIMIT) { if (_bigIdx[key] !== n) { _bigIdx[key] = n; bigIdxSave(); } }
+else if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
+} catch (e) {}
+};
 const LS_DIRTY_KEY = 'xy-home-v2:__ls-dirty';
 let _lsDirtyKeys = null;
 try {
@@ -554,6 +579,30 @@ try { console.info('[mochi] 启动回填：' + neverRead.length + ' 个超大键
 function retainValue(k, v) {
 if (v === undefined || v === null) return false;
 if (memoryCache && (k in memoryCache)) return false;
+if (typeof v !== 'string') {
+const estObj = (x, d) => {
+if (typeof x === 'string') return x.length;
+if (!x || typeof x !== 'object') return 32;
+if (d > 4) return 64;
+let s = 0;
+if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) s += estObj(x[i], d + 1); return s + 16; }
+for (const kk in x) { try { s += estObj(x[kk], d + 1); } catch (e2) {} }
+return s + 64;
+};
+const nObj = estObj(v, 0);
+if (nObj > LS_BIG_LIMIT) {
+try { if (_bigIdx[k] !== nObj) { _bigIdx[k] = nObj; bigIdxSave(); } } catch (e0) {}
+if (nObj > BIG_BUDGET || bigBudgetUsed + nObj > BIG_BUDGET) {
+window.__xyIdbDeferredKeys.push(k);
+if (!budgetWarned) { budgetWarned = true; try { console.info('[mochi] 启动回填：大键驻留超预算(' + Math.round(BIG_BUDGET / 1048576) + 'MB)，超出部分本会话挂起，可随时 idbHydrateKey(键名) 按需取回'); } catch (e0) {} }
+return false;
+}
+bigBudgetUsed += nObj;
+if (!memoryCache) memoryCache = {};
+memoryCache[k] = v;
+return true;
+}
+}
 let str = typeof v === 'string' ? v : JSON.stringify(v);
 let lsVal = null;
 try { lsVal = localStorage.getItem(k); } catch (e) {}
@@ -641,6 +690,26 @@ run();
 if (v === null) return null;
 if (v === undefined) return false;
 if (!(memoryCache && (key in memoryCache))) {
+if (typeof v !== 'string') {
+const estObj = (x, d) => {
+if (typeof x === 'string') return x.length;
+if (!x || typeof x !== 'object') return 32;
+if (d > 4) return 64;
+let s = 0;
+if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) s += estObj(x[i], d + 1); return s + 16; }
+for (const kk in x) { try { s += estObj(x[kk], d + 1); } catch (e2) {} }
+return s + 64;
+};
+const nObj = estObj(v, 0);
+if (nObj > LS_BIG_LIMIT) {
+if (!memoryCache) memoryCache = {};
+memoryCache[key] = v;
+try { if (_bigIdx[key] !== nObj) { _bigIdx[key] = nObj; bigIdxSave(); } } catch (e0) {}
+const di0 = window.__xyIdbDeferredKeys;
+if (Array.isArray(di0)) { const i0 = di0.indexOf(key); if (i0 >= 0) di0.splice(i0, 1); }
+return true;
+}
+}
 let str = typeof v === 'string' ? v : JSON.stringify(v);
 let lsVal = null;
 try { lsVal = localStorage.getItem(key); } catch (e) {}

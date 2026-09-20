@@ -3993,6 +3993,13 @@ const FIX_SENTINELS = [
   { name: '#949a 输入框保底 4em 可用宽（退回 min-width:0＝窄屏开语音+批量后输入框被按钮压成 0 宽无法输入）', file: 'css/chat-main.css', needle: 'min-width:4em' },
   { name: '#949b 输入栏图标按钮放开收缩并保 30px 下限（退回 flex-shrink:0＝按钮一像素不让，挤压全部由输入框吸收）', file: 'css/chat-main.css', needle: 'min-width:30px' },
   { name: '#949c 窄屏档输入栏间距收紧（删＝360px 级机型按钮收缩到下限后仍差一口气，发送键被顶出/输入框贴 0）', file: 'css/chat-main.css', needle: 'padding:12px 8px 12px 10px' },
+  /* ==== 2026-09-21 #950 表情包大包 IDB 数组直存（用户实指「表情包库能超几十 MB」，既有 34.93MB/#172 实例；原保存链整包 JSON.stringify 压主线程＝包越大点按帧冻结越久，#943b 防抖只减次数不减单次重量）==== */
+  { name: '#950a 大包按体积分流直存 IDB 数组（删＝几十 MB 包每次保存仍整包主线程序列化+读回再 parse）', file: 'js/chat.js', needle: "if (myeBytesEst() > MYE_DIRECT_LIMIT && window.idbSet) {" },
+  { name: '#950b 防覆盖闸门读回类型感知（删＝数组形态的 hydrate 值被 JSON.parse 吞掉＝合并静默失败，盲写顶掉 IDB 全量）', file: 'js/chat.js', needle: "const full = typeof rawGate === 'string' ? JSON.parse(rawGate || 'null') : (rawGate || null);" },
+  { name: '#950c 落盘确认重发与主写同形态（删＝退避重试链每轮都整包 stringify 一次，大包重试雪上加霜）', file: 'js/chat.js', needle: "const val = myeBytesEst() > MYE_DIRECT_LIMIT ? (myGroups || []) : myeSaveJson();" },
+  { name: '#950d 大包数组内存驻留口（删＝memoryCache 拿不到最新数组＝跨桌面合并读到旧快照、删过的表情复活）', file: 'js/idb.js', needle: "window.idbMemoSet = function (key, value) {" },
+  { name: '#950e IDB 写超时估算器支持嵌套数组（删＝30MB 表情包被估成几百字节＝超时不放大，慢设备误判挂起＋误触发退避重发）', file: 'js/idb.js', needle: "for (let i = 0; i < value.length; i++) est += est950(value[i], 0);" },
+  { name: '#950f 启动回填大对象直驻（删＝30MB 数组在启动回填点整包 JSON.stringify＝主线程长任务从保存点挪到开屏）', file: 'js/idb.js', needle: 'bigBudgetUsed += nObj;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

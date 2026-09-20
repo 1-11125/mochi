@@ -11353,7 +11353,12 @@ if (emojiCat !== 'sticker' && textCatHidden(emojiCat)) emojiCat = 'sticker'; // 
 }
 loadEmojiPref();
 function myEmojiLoad() {
-try { const v = JSON.parse(myEmojiStore().get('my-emoji-groups') || 'null'); if (Array.isArray(v)) return v; } catch (e) {}
+// FIX 2026-09-21 #950：大包直存后 memoryCache 可能直驻数组，读回类型感知（不再假设字符串）
+try {
+const raw = myEmojiStore().get('my-emoji-groups');
+const v = typeof raw === 'string' ? JSON.parse(raw || 'null') : raw;
+if (Array.isArray(v)) return v;
+} catch (e) {}
 return [];
 }
 // FIX 2026-09-05 #172 我的表情包刷新必丢：超启动回填预算的大键（实例 34.93MB）每次刷新都被
@@ -11398,6 +11403,39 @@ try { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); } catch (e) {}
 });
 }
 function myeSaveJson() { try { return JSON.stringify(myGroups || []); } catch (e) { return '[]'; } }
+// ===== FIX 2026-09-21 #950 表情包大包 IDB 数组直存（用户实指「表情包库能超几十 MB」；
+// 既有实例 34.93MB/#172、18MB 级/#547。原保存链 myeSaveJson 整包 JSON.stringify 压主线程，
+// 包越大点按帧冻结越久，防抖 #943b 只减次数不减单次重量）=====根因＝值以字符串形态走
+// xyStore.set：串化是主线程同步的。IndexedDB 本身支持 structured clone 直存对象（在浏览器
+// 内部线程完成，免主线程串化；聊天记录已同款直存数组）。修法＝保存按包体积分流：
+// ≤2MB 维持原 store.set 字符串路径（串化便宜、全部既有读写/备份/合并链零变化）；
+// >2MB 改 window.idbSet(MYE_KEY(), myGroups) 数组直存 + idbMemoSet 把同一数组驻进
+// memoryCache（读端三处已兼容对象：myeApplyIdb/跨桌面 mergeInto 的 parseArr 本就双态，
+// myEmojiLoad/闸门 merge 两处本次改类型感知）。读回 IDB 得到的是数组，JSON.parse 免了。
+// 存储格式向后/向前兼容：老版本读到数组值时 JSON.parse(数组) 失败走 catch＝空态，由
+// 防覆盖闸门 hydrate 兜回；新版读到老字符串照常 parse（myeApplyIdb 双态）。
+const MYE_DIRECT_LIMIT = 2 * 1024 * 1024;
+function myeBytesEst() {
+try {
+let n = 0;
+(myGroups || []).forEach(g => {
+if (!g || typeof g !== 'object') { n += 32; return; }
+n += String(g[0] || '').length + 64;
+const a = g[1];
+if (Array.isArray(a)) a.forEach(s => { n += (typeof s === 'string' ? s.length : 64) + 8; });
+else n += 64;
+});
+return n;
+} catch (e) { return 0; }
+}
+function myePersist() {
+if (myeBytesEst() > MYE_DIRECT_LIMIT && window.idbSet) {
+try { window.idbSet(MYE_KEY(), myGroups || []); } catch (e) {}
+try { if (window.idbMemoSet) window.idbMemoSet(MYE_KEY(), myGroups || []); } catch (e2) {}
+return;
+}
+myEmojiStore().set('my-emoji-groups', myeSaveJson());
+}
 // FIX 2026-09-14 #434 我的表情包「添加后退出浏览器重进全丢」（荣耀10/Edge 多机型同发，
 // 用户已关自动清数据）：Edge 杀进程会把最近一批未落盘提交整体回滚（idb.js #82/#88/#226/#229
 // 家族，WRJ 写日志只护 ≤64KB 小键，表情包媒体键不在保护范围），叠加这些内核 IDB 事务偶发
@@ -11413,8 +11451,10 @@ let myeGateRetry = 0;
 function myeEnsureDurable(tries) {
 if (!window.idbSet) return;
 clearTimeout(myeDurableTimer);
-const json = myeSaveJson();
-window.idbSet(MYE_KEY(), json).then(ok => {
+// FIX 2026-09-21 #950：与 myePersist 主写同形态——大包直存数组（重发退避链每轮都取当前
+// myGroups 快照，原来每轮都整包 JSON.stringify 一次＝退避重试雪上加霜），小包维持字符串
+const val = myeBytesEst() > MYE_DIRECT_LIMIT ? (myGroups || []) : myeSaveJson();
+window.idbSet(MYE_KEY(), val).then(ok => {
 if (ok) { myeDurablePending = false; myeDurableWarned = false; return; }
 myeDurablePending = true;
 if (tries < 5) { myeDurableTimer = setTimeout(function () { myeEnsureDurable(tries + 1); }, 1500 * (tries + 1)); return; }
@@ -11467,7 +11507,9 @@ return;
 }
 if (ok === true) {
 try {
-const full = JSON.parse(myEmojiStore().get('my-emoji-groups') || 'null');
+// FIX 2026-09-21 #950：大包直存后该键可能是数组（memoryCache 直驻对象），读回不再假设字符串
+const rawGate = myEmojiStore().get('my-emoji-groups');
+const full = typeof rawGate === 'string' ? JSON.parse(rawGate || 'null') : (rawGate || null);
 if (Array.isArray(full)) {
 full.forEach(g => {
 if (!g || typeof g[0] !== 'string' || !Array.isArray(g[1])) return;
@@ -11482,12 +11524,12 @@ g[1].forEach(item => { if (t[1].indexOf(item) < 0) t[1].push(item); });
 // 两者之后内存值都可安全落笔，本会话不再走盲写闸门
 window.__myeIdbApplied = true;
 myeGateRetry = 0;
-myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myePersist();
 myeEnsureDurable(0);
 });
 return true;
 }
-myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myePersist();
 myeEnsureDurable(0);
 return true;
 }

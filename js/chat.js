@@ -9371,7 +9371,11 @@ if (emojiCat !== 'sticker' && textCatHidden(emojiCat)) emojiCat = 'sticker'; // 
 }
 loadEmojiPref();
 function myEmojiLoad() {
-try { const v = JSON.parse(myEmojiStore().get('my-emoji-groups') || 'null'); if (Array.isArray(v)) return v; } catch (e) {}
+try {
+const raw = myEmojiStore().get('my-emoji-groups');
+const v = typeof raw === 'string' ? JSON.parse(raw || 'null') : raw;
+if (Array.isArray(v)) return v;
+} catch (e) {}
 return [];
 }
 function myeApplyIdb(v) {
@@ -9399,6 +9403,28 @@ try { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); } catch (e) {}
 });
 }
 function myeSaveJson() { try { return JSON.stringify(myGroups || []); } catch (e) { return '[]'; } }
+const MYE_DIRECT_LIMIT = 2 * 1024 * 1024;
+function myeBytesEst() {
+try {
+let n = 0;
+(myGroups || []).forEach(g => {
+if (!g || typeof g !== 'object') { n += 32; return; }
+n += String(g[0] || '').length + 64;
+const a = g[1];
+if (Array.isArray(a)) a.forEach(s => { n += (typeof s === 'string' ? s.length : 64) + 8; });
+else n += 64;
+});
+return n;
+} catch (e) { return 0; }
+}
+function myePersist() {
+if (myeBytesEst() > MYE_DIRECT_LIMIT && window.idbSet) {
+try { window.idbSet(MYE_KEY(), myGroups || []); } catch (e) {}
+try { if (window.idbMemoSet) window.idbMemoSet(MYE_KEY(), myGroups || []); } catch (e2) {}
+return;
+}
+myEmojiStore().set('my-emoji-groups', myeSaveJson());
+}
 let myeDurableTimer = null;
 let myeDurablePending = false;
 let myeDurableWarned = false;
@@ -9406,8 +9432,8 @@ let myeGateRetry = 0;
 function myeEnsureDurable(tries) {
 if (!window.idbSet) return;
 clearTimeout(myeDurableTimer);
-const json = myeSaveJson();
-window.idbSet(MYE_KEY(), json).then(ok => {
+const val = myeBytesEst() > MYE_DIRECT_LIMIT ? (myGroups || []) : myeSaveJson();
+window.idbSet(MYE_KEY(), val).then(ok => {
 if (ok) { myeDurablePending = false; myeDurableWarned = false; return; }
 myeDurablePending = true;
 if (tries < 5) { myeDurableTimer = setTimeout(function () { myeEnsureDurable(tries + 1); }, 1500 * (tries + 1)); return; }
@@ -9449,7 +9475,8 @@ return;
 }
 if (ok === true) {
 try {
-const full = JSON.parse(myEmojiStore().get('my-emoji-groups') || 'null');
+const rawGate = myEmojiStore().get('my-emoji-groups');
+const full = typeof rawGate === 'string' ? JSON.parse(rawGate || 'null') : (rawGate || null);
 if (Array.isArray(full)) {
 full.forEach(g => {
 if (!g || typeof g[0] !== 'string' || !Array.isArray(g[1])) return;
@@ -9462,12 +9489,12 @@ g[1].forEach(item => { if (t[1].indexOf(item) < 0) t[1].push(item); });
 }
 window.__myeIdbApplied = true;
 myeGateRetry = 0;
-myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myePersist();
 myeEnsureDurable(0);
 });
 return true;
 }
-myEmojiStore().set('my-emoji-groups', myeSaveJson());
+myePersist();
 myeEnsureDurable(0);
 return true;
 }
