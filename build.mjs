@@ -3868,6 +3868,12 @@ const FIX_SENTINELS = [
   { name: '#913c 工具段发烫排查条（删＝用户只有卡顿说明、没有发烫的对症清单）', file: 'template.html', needle: 'id="heat-help-sub"' },
   { name: '#912a 瞬时贴底写入取消在飞平滑动画（删＝连发期间旧动画帧用旧 start/target 把刚写到位的 scrollTop 拉回去＝「联系人发消息总不在最底部」复发）', file: 'js/chat.js', needle: 'if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } chatPinnedBottom = true;' },
   { name: '#912b 解钉当场取消在飞平滑动画（删＝动画跟用户手指对打＝#716 同族回流）', file: 'js/chat.js', needle: "if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } body.classList.add('scroll-anchor-auto');" },
+  /* ==== 2026-09-20 #907 表情包面板/头像互动「每次打开图片闪＋重新加载」残留根因收口＋可选提前加载（红米 K80 Chrome 实报、多机型同发；#457/#508/#509/#662/#692/#704/#716 七轮之后的收尾拼图） ==== */
+  { name: '#907a 面板 hidden 态 keep-alive（改回 display:none＝隐藏期位图被整批回收，重开全部重新解码＝每次打开都闪一下重新加载复发）', file: 'css/chat-main.css', needle: '#emoji-panel[hidden], #avlib-card[hidden]' },
+  { name: '#907b 表情面板空闲预热调度（删＝进桌面后不再提前加载，首开仍要现场解码＋等解码才显示）', file: 'js/chat.js', needle: 'if (!chatPanelPrewarmOn()) return;' },
+  { name: '#907c 头像互动空闲预热入口（删＝头像库首开前位图从未就绪，点开半框闪一下重载复发）', file: 'js/avatar-lib.js', needle: 'window.mochiPrewarmAvlib = function ()' },
+  { name: '#907d 「打开面板前提前加载图片」设置行（删＝用户失去提前加载开关，无法选择省电模式）', file: 'js/chat-settings.js', needle: 'cs-chat-panel-prewarm-row' },
+  { name: '#907e chat-panel-prewarm 全局根键 EXCLUDE 登记（删＝被 migrateLegacy 迁进 default 桌面并删根键＝开关刷新后丢）', file: 'js/contacts.js', needle: `'chat-panel-prewarm',` },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

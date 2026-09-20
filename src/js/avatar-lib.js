@@ -586,6 +586,35 @@
     if (avPage) avPage.hidden = true;
   }
   window.openAvlib = openAvlib;
+  // FIX #907「进桌面前提前加载」（用户直派：与表情包面板同一开关 chat-panel-prewarm，chat.js
+  //   统一调度）：半框还没打开时就把四个池渲染出来＋首屏图补 src/预解码——配合 chat-main.css
+  //   的 keep-alive（#avlib-card[hidden] 不再 display:none），位图落地后一直驻留，用户点开
+  //   头像互动时 updateXxxNow 指纹短路命中＋decode() 立即兑现＝零闪。面板开着/聊天页不在时
+  //   不做任何事（开着有 #662 解码后显示管，聊天页不在则半框无几何，图反正进不了视口）。
+  window.mochiPrewarmAvlib = function () {
+    if (!avPage || !avPage.hidden) return;
+    if (typeof document !== 'undefined') {
+      const cp = document.getElementById('page-chat');
+      if (cp && cp.hidden) return;
+    }
+    try { renderGridSmart(); renderMeGridSmart(); renderNickGridSmart(); renderMeNickGridSmart(); } catch (e) {}
+    const grids = [avGrid, avMeGrid];
+    for (let g = 0; g < grids.length; g++) {
+      const grid = grids[g];
+      if (!grid) continue;
+      const imgs = grid.querySelectorAll('img');
+      let n = 0;
+      for (let i = 0; i < imgs.length && n < 24; i++) {
+        const im = imgs[i];
+        if (im.dataset && im.dataset.src && !im.getAttribute('src')) {
+          im.setAttribute('src', im.dataset.src);
+          im.removeAttribute('data-src');
+          n++;
+        }
+        try { if (im.decode) im.decode().catch(function () {}); } catch (e) {}
+      }
+    }
+  };
   // v3.6.x：closeAvlib 也导出到 window——chat.js 等模块用 window.closeAvlib()
   // 关闭头像互动半框（打开拍一拍/表情包/查岗时互斥），此前漏导出导致调用无效、
   // 面板关不掉（有 if 守卫所以不报错，但功能失效）

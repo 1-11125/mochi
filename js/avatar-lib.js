@@ -446,6 +446,30 @@ avShowToken++; // #692：作废未兑现的「解码后显示」
 if (avPage) avPage.hidden = true;
 }
 window.openAvlib = openAvlib;
+window.mochiPrewarmAvlib = function () {
+if (!avPage || !avPage.hidden) return;
+if (typeof document !== 'undefined') {
+const cp = document.getElementById('page-chat');
+if (cp && cp.hidden) return;
+}
+try { renderGridSmart(); renderMeGridSmart(); renderNickGridSmart(); renderMeNickGridSmart(); } catch (e) {}
+const grids = [avGrid, avMeGrid];
+for (let g = 0; g < grids.length; g++) {
+const grid = grids[g];
+if (!grid) continue;
+const imgs = grid.querySelectorAll('img');
+let n = 0;
+for (let i = 0; i < imgs.length && n < 24; i++) {
+const im = imgs[i];
+if (im.dataset && im.dataset.src && !im.getAttribute('src')) {
+im.setAttribute('src', im.dataset.src);
+im.removeAttribute('data-src');
+n++;
+}
+try { if (im.decode) im.decode().catch(function () {}); } catch (e) {}
+}
+}
+};
 window.closeAvlib = closeAvlib;
 const avClose = document.getElementById('avlib-close');
 if (avClose) avClose.addEventListener('click', closeAvlib);

@@ -38,6 +38,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker',
 'hide-tab-kaomoji', 'hide-tab-emoji',
 'chat-textcard-direct',
+'chat-panel-prewarm',
 'full-beauty-schemes', 'beauty-undo-stack', 'ver-update-ack-ts', 'ver-update-notify',
 'call-active',
 'applock-en', 'applock-pin', 'applock-qa',

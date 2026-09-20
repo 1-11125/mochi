@@ -767,6 +767,16 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
   z-index:70; padding:14px 16px 14px;
 }
 .poke-card[hidden] { display:none; }
+/* FIX 2026-09-20 #907 表情包面板(#emoji-panel)/头像互动半框(#avlib-card)「每次打开图片闪一下
+   重新加载」残留根因（红米 K80 Chrome 实报、用户明说其他设备型号也有；#457/#508/#509/#662/#692/
+   #704/#716 七轮只收口了「重建节点」与「解码没完就显示」，这条一直没人管）：面板平时挂
+   display:none——浏览器对 display:none 子树里的已解码位图**主动回收**，重开时全部 img 要从零
+   重新解码（节点一个没换照样闪，#662 已实证「节点身份测不出」）。收口＝这两枚 hidden 态改
+   keep-alive：保持渲染树在场（visibility:hidden＋pointer-events:none＝不可见不可点，行为与
+   display:none 等价），已解码位图不再因 display:none 被整批回收，重开 decode() 立即兑现＝零闪。
+   只限这两枚用户报障面，其余 .poke-card 家族（拍一拍/红包/游戏对局等）维持 display:none 不动
+   （防对局/通话面板 hidden 期间产生无谓的图加载与解码开销）。 */
+#emoji-panel[hidden], #avlib-card[hidden] { display:flex; visibility:hidden; pointer-events:none; }
 /* v3.25.x：横屏/矮视口（小米15 Pro 横屏全屏等，CSS 高约 384px）下 48% 放不下
    我的拍一拍 tab 的固定行（tabs+分组栏+输入 footer），内容溢出面板底边=UI 错乱 */
 @media (max-height:560px) {
@@ -1698,6 +1708,22 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 .rp-head-set:active { background:rgba(0,0,0,.05); }
 .rp-settings { padding:2px 0 0; }
 .rp-settings[hidden], .rp-balance[hidden] { display:none; }
+/* FIX 2026-09-20 #916 红包「设置」整区画到面板外、手机上直接超出屏幕（用户直派「设置里有字超出
+   这个页面了」，明确说明不是某一款机型的特例）。根因＝该区不在 .poke-card-scroll 里（打开设置时
+   那个滚动容器反而被隐藏），自己又不是滚动容器：实测内容高 810~860px，而面板受 .poke-card
+   max-height:48% 只有 273~439px（320×568 ~ 412×915 四档视口都量过），overflow 默认 visible ⇒
+   从第三组标题起的行整块溢出面板底边，「完成」按钮落在屏幕外 278~544px＝看不见也点不到。
+   修法＝让它成为面板这根 flex 列的弹性滚动子项（min-height:0 才能真正收缩），面板封顶不变、
+   内容在里面滚；overscroll-behavior:contain 与 base.css 那批弹层滚动容器同口径，防滚到边界
+   穿透底层聊天页。零机型分支、不动面板结构与 JS。 */
+.rp-settings:not([hidden]) {
+  flex:1 1 auto; min-height:0;
+  overflow-y:auto; overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; -ms-overflow-style:none;
+  padding-bottom:6px; /* 滚到底时「完成」与面板内底边留余量（实测贴边差 0.26px 会被裁） */
+}
+.rp-settings::-webkit-scrollbar { display:none; }
 .rp-settings-title {
   font-size:13px; font-weight:700; color:var(--ink);
   padding:6px 2px 10px; letter-spacing:.3px;

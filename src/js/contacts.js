@@ -148,6 +148,9 @@
     // v3.26.x #691：表情包面板「颜文字/emoji 点击直接发送」模式开关（chat-settings.js 注入行，
     // 聊天/群聊共用同一面板）同为全局根键——出生即进 EXCLUDE，不被 migrateLegacy 迁进 default 桌面。
     'chat-textcard-direct',
+    // v3.26.x #907：表情包面板/头像互动「打开面板前提前加载图片」开关（chat-settings.js 注入行，
+    // chat.js 空闲预热调度读）同为全局根键——出生即进 EXCLUDE，不被 migrateLegacy 迁进 default 桌面。
+    'chat-panel-prewarm',
     // #231：完整外观方案（personalize.js full-beauty-schemes，v3.27.x 桌面+聊天合并方案的
     // 方案列表）、美化撤销栈（personalize.js beauty-undo-stack）、更新条一版一弹记忆
     // （pwa.js ver-update-ack-ts / ver-update-notify，#225v2）都是全局根键——此前漏排除，

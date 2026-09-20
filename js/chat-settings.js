@@ -2556,6 +2556,28 @@ toast(tcBox.checked
 csAddSync(tcSync);
 document.addEventListener('contact-switched', tcSync);
 prevRow.parentNode.insertBefore(tcRow, prevRow.nextSibling);
+const pwRow = document.createElement('div');
+pwRow.className = 'set-row';
+pwRow.id = 'cs-chat-panel-prewarm-row';
+pwRow.innerHTML =
+'<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z"/></svg></div>' +
+'<div class="txt">打开面板前提前加载图片<span class="sub">开（默认）：进桌面后在空闲时提前加载表情包面板和头像互动的首屏图片，点开不再闪一下重新加载（省流的懒加载不受影响）。关：退回「点开才加载」，点开瞬间可能闪一下。建议保持开启。</span></div>' +
+'<label class="toggle"><input type="checkbox"><span class="tk"></span></label>';
+const pwBox = pwRow.querySelector('input');
+const pwGet = () => { try { return window.xyStore(GNS2).get('chat-panel-prewarm') !== '0'; } catch (e) { return true; } };
+const pwSet = (en) => { try { window.xyStore(GNS2).set('chat-panel-prewarm', en ? '1' : '0'); } catch (e) {} };
+const pwSync = () => { const v = pwGet(); if (v !== pwBox.checked) pwBox.checked = v; };
+pwSync();
+pwBox.addEventListener('change', () => {
+if (pwBox.checked === pwGet()) return;
+pwSet(pwBox.checked);
+toast(pwBox.checked
+? '已开启：进桌面后会提前加载表情包/头像图片'
+: '已关闭：表情包/头像图片改为点开面板时才加载');
+});
+csAddSync(pwSync);
+document.addEventListener('contact-switched', pwSync);
+tcRow.parentNode.insertBefore(pwRow, tcRow.nextSibling);
 }
 function csDrawerEl() {
 let d = document.getElementById('chat-beauty-drawer');

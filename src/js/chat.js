@@ -7172,6 +7172,9 @@ chatEntrySettle();
 if (typingOn && chatVisible()) {
 typingEl.hidden = false; // FIX 2026-09-15 #514 进页同款：只切可见性、不写 scrollTop（上面三连已在行隐藏态贴到底）
 }
+// FIX #907：进聊天页也是一次预热时机——多数用户是「打开应用→进聊天→才点开面板」，
+// 只靠 load+4s 那一班会在面板无几何时白跑（mochiPrewarmEmojiPanel 有 page-chat hidden 守卫）。
+schedulePanelPrewarm(2500);
 }
 if (chatApp && chatPage) {
 chatApp.addEventListener('click', () => {
@@ -12135,6 +12138,56 @@ if (emojiPanel) emojiPanel.hidden = true;
 emojiInsertCb = null;
 emojiInsertAllowUrl = false;
 }
+// ===== FIX 2026-09-20 #907「进桌面前可选提前加载表情包/头像图片」（用户直派：「怎么样可以在
+//   进入桌面前可选择进入一个提前加载」；红米 K80 Chrome 实报「每次打开图片都闪＋重新加载，
+//   其他设备型号也有」，同族 #457/#508/#509/#662/#692/#704/#716 七轮已收口节点重建与解码时序，
+//   残留根因＝hidden 期间位图回收（chat-main.css #907 keep-alive 已收）＋首开前位图从未就绪）。
+//   本块＝数据就绪/切桌面后的**空闲预热**：面板没开时把当前分组内容先渲染进面板（#457 指纹
+//   随之登记，打开时短路命中零重建）＋首屏 24 张补 src/预解码（位图在缓存里，openEmojiPanel 的
+//   解码后显示立即兑现）。开关 chat-panel-prewarm 全局根键（chat-settings 注入行，默认开），
+//   关掉＝零预热零开销。调度三点防 startup 抢主线程（#860 刚做完 core 外置，DCL 是红线）：
+//   load 后 4s / contact-switched 后 3s / mochi-restore-done 后 6s，且 requestIdleCallback
+//   让位（无该接口的内核退 setTimeout 800ms）。幂等：重复调度只保留最后一笔。
+let mochiPrewarmT = null;
+function chatPanelPrewarmOn() {
+try { if (window.xyStore) return window.xyStore('xy-home-v2').get('chat-panel-prewarm') !== '0'; } catch (e) {}
+return true; // 键缺失/读异常＝默认开（与设置行缺省一致）
+}
+function mochiPrewarmEmojiPanel() {
+if (!emojiPanel || !emojiPanel.hidden) return; // 开着＝#662 解码后显示自己管
+const pg = document.getElementById('page-chat');
+if (!pg || pg.hidden) return; // 不在聊天页＝面板无几何，图解码了也进不了视口预热位
+try { renderEmojiPanel(); } catch (e) {}
+if (!emojiList) return;
+const imgs = emojiList.querySelectorAll('img');
+let n = 0;
+for (let i = 0; i < imgs.length && n < 24; i++) {
+const im = imgs[i];
+if (im.dataset && im.dataset.src && !im.getAttribute('src')) {
+im.setAttribute('src', im.dataset.src);
+im.removeAttribute('data-src');
+n++;
+try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
+}
+try { if (im.decode) im.decode().catch(function () {}); } catch (e) {}
+}
+}
+function schedulePanelPrewarm(delay) {
+if (!chatPanelPrewarmOn()) return;
+if (mochiPrewarmT) clearTimeout(mochiPrewarmT);
+mochiPrewarmT = setTimeout(function () {
+mochiPrewarmT = null;
+const run = function () {
+mochiPrewarmEmojiPanel();
+try { if (window.mochiPrewarmAvlib) window.mochiPrewarmAvlib(); } catch (e) {}
+};
+try { if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 4000 }); else setTimeout(run, 800); } catch (e) { setTimeout(run, 800); }
+}, delay || 4000);
+}
+window.addEventListener('load', function () { schedulePanelPrewarm(4000); });
+document.addEventListener('contact-switched', function () { schedulePanelPrewarm(3000); });
+document.addEventListener('mochi-restore-done', function () { schedulePanelPrewarm(6000); });
+window.schedulePanelPrewarm = schedulePanelPrewarm; // #907 导出：外置 js 经构建包装，顶层函数不上 window（verify 脚本/后续批也要能排班）
 function reloadMyEmojiFromIdb() {
 if (!window.idbGet) return;
 // FIX 2026-09-16 #547 开门闸：本会话已应用过 IDB 权威值且内存非空就不再整包重读——
