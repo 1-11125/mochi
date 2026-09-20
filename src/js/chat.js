@@ -11559,7 +11559,11 @@ closeEmojiPanel();
 //   全量补照旧，零机型分支）。
 const emojiLazyQueue = [];   // 已进入触发区待补 src 的 img（FIFO）
 let emojiLazyT = null;       // 泵定时器（null=未在泵）
-function emojiLazyEnqueue(img) {
+function emojiLazyEnqueue(img, src) {
+  // FIX 2026-09-20 #931 可选 src：借用本队列的外部容器（朋友圈贴纸面板）图源是几十 KB 的
+  // dataURL，复制进 DOM 的 data-src 属性＝上百 KB×N 的字符串常驻标记里；这里只随队列入一个
+  // JS 引用，泵取到该 img 时优先用它。缺省（本面板路径）仍走 data-src，行为一字不变。
+  if (src) { try { img.__emojiLazySrc = src; } catch (e) {} }
   if (emojiLazyQueue.indexOf(img) >= 0) return;
   emojiLazyQueue.push(img);
   if (!emojiLazyT) emojiLazyT = setTimeout(emojiLazyPump, 50);
@@ -11569,9 +11573,10 @@ function emojiLazyPump() {
   for (let n = 0; n < 4 && emojiLazyQueue.length; n++) {
     const img = emojiLazyQueue.shift();
     if (!img || !img.isConnected) continue; // 重渲染已丢弃的节点不再补
-    if (img.dataset && img.dataset.src && !img.getAttribute('src')) {
-      img.setAttribute('src', img.dataset.src);
-      img.removeAttribute('data-src');
+    if ((img.__emojiLazySrc || (img.dataset && img.dataset.src)) && !img.getAttribute('src')) {
+      img.setAttribute('src', img.__emojiLazySrc || img.dataset.src);
+      if (img.dataset) img.removeAttribute('data-src');
+      img.__emojiLazySrc = null; // #931：节点被回收池复活时不得带着上一轮的源
     }
     try { emojiImgObserver.unobserve(img); } catch (e) {}
   }
@@ -12235,6 +12240,9 @@ window.addEventListener('load', function () { schedulePanelPrewarm(4000); });
 document.addEventListener('contact-switched', function () { schedulePanelPrewarm(3000); });
 document.addEventListener('mochi-restore-done', function () { schedulePanelPrewarm(6000); });
 window.schedulePanelPrewarm = schedulePanelPrewarm; // #907 导出：外置 js 经构建包装，顶层函数不上 window（verify 脚本/后续批也要能排班）
+window.mochiEmojiLazyAdopt = emojiAdoptImg;        // 同身份取回旧节点（已解码的零重解码）
+window.mochiEmojiLazyEnqueue = emojiLazyEnqueue;   // 进视口的图交给同一条分批泵（全局每 50ms 补 4 张）
+window.mochiEmojiWarmGroupTokens = emojiWarmGroupTokens; // 组内令牌交给媒体池批量预热
 function reloadMyEmojiFromIdb() {
 if (!window.idbGet) return;
 // FIX 2026-09-16 #547 开门闸：本会话已应用过 IDB 权威值且内存非空就不再整包重读——

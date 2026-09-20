@@ -9535,7 +9535,8 @@ closeEmojiPanel();
 }
 const emojiLazyQueue = [];   // 已进入触发区待补 src 的 img（FIFO）
 let emojiLazyT = null;       // 泵定时器（null=未在泵）
-function emojiLazyEnqueue(img) {
+function emojiLazyEnqueue(img, src) {
+if (src) { try { img.__emojiLazySrc = src; } catch (e) {} }
 if (emojiLazyQueue.indexOf(img) >= 0) return;
 emojiLazyQueue.push(img);
 if (!emojiLazyT) emojiLazyT = setTimeout(emojiLazyPump, 50);
@@ -9545,9 +9546,10 @@ emojiLazyT = null;
 for (let n = 0; n < 4 && emojiLazyQueue.length; n++) {
 const img = emojiLazyQueue.shift();
 if (!img || !img.isConnected) continue; // 重渲染已丢弃的节点不再补
-if (img.dataset && img.dataset.src && !img.getAttribute('src')) {
-img.setAttribute('src', img.dataset.src);
-img.removeAttribute('data-src');
+if ((img.__emojiLazySrc || (img.dataset && img.dataset.src)) && !img.getAttribute('src')) {
+img.setAttribute('src', img.__emojiLazySrc || img.dataset.src);
+if (img.dataset) img.removeAttribute('data-src');
+img.__emojiLazySrc = null; // #931：节点被回收池复活时不得带着上一轮的源
 }
 try { emojiImgObserver.unobserve(img); } catch (e) {}
 }
@@ -10128,6 +10130,9 @@ window.addEventListener('load', function () { schedulePanelPrewarm(4000); });
 document.addEventListener('contact-switched', function () { schedulePanelPrewarm(3000); });
 document.addEventListener('mochi-restore-done', function () { schedulePanelPrewarm(6000); });
 window.schedulePanelPrewarm = schedulePanelPrewarm; // #907 导出：外置 js 经构建包装，顶层函数不上 window（verify 脚本/后续批也要能排班）
+window.mochiEmojiLazyAdopt = emojiAdoptImg;        // 同身份取回旧节点（已解码的零重解码）
+window.mochiEmojiLazyEnqueue = emojiLazyEnqueue;   // 进视口的图交给同一条分批泵（全局每 50ms 补 4 张）
+window.mochiEmojiWarmGroupTokens = emojiWarmGroupTokens; // 组内令牌交给媒体池批量预热
 function reloadMyEmojiFromIdb() {
 if (!window.idbGet) return;
 if (window.__myeIdbApplied === true && Array.isArray(myGroups) && myGroups.length) return;

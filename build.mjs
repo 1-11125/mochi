@@ -1043,7 +1043,7 @@ const FIX_SENTINELS = [
   // ==== 2026-09-17 #669 朋友圈贴纸面板「不能像表情包面板那样打开分类」＋「没有联系人用的 emoji 贴纸」＋「点桌面朋友圈图标进页有点卡顿」（用户直派·红米K80 Chrome，明说多机型同现），见 FIX-REGRESSION #669 ====
   { name: '#669a TA 回贴的 emoji 与贴纸面板共用同一常量（删/改回内联数组＝面板里「emoji 贴纸」组与 TA 实际会贴的又不是同一批，「没有联系人用的 emoji 贴纸」复发）', file: 'js/feed.js', needle: 'return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };' },
   { name: '#669b 贴纸面板分组清单含「emoji 贴纸」组（删＝面板只剩图片贴纸、TA 会后贴的 emoji 选不到）', file: 'js/feed.js', needle: "out.push({ key: 'em', label: 'emoji \\u8d34\\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });" },
-  { name: '#669c emoji 贴纸按 emoji 落位（删/改成传 src＝点 emoji 会贴成空图或坏图）', file: 'js/feed.js', needle: "if (it.kind === 'emoji') feedPickStickerPos(feedStickerCard.dataset.pid, '', it.v);" },
+  { name: '#669c emoji 贴纸按 emoji 落位（删/改成传 src＝点 emoji 会贴成空图或坏图）', file: 'js/feed.js', needle: "if (it.kind === 'emoji') feedPickStickerPos(pid, '', it.v);" },
   { name: '#669d emoji 一路带到贴纸记录（feedPickStickerPos 第三参 → addFeedSticker 的 emoji 字段；删＝emoji 点照片后不落位/落成空 src）', file: 'js/feed.js', needle: 'addFeedSticker(pid, { src: src, emoji: emoji, x: x, y: y });' },
   { name: '#669e 渲染签名命中即跳过整包重建（删＝桌面图标每次点击都重建数 MB 列表＝「点进朋友圈有点卡顿」复发；本批核心逻辑）', file: 'js/feed.js', needle: 'if (sig === feedRenderSig && listEl.firstChild) return;' },
   { name: '#669f 签名必须覆盖窗口内每条动态的身份/正文/赞/评论/贴纸/配图（删成常量＝数据变了也不重建＝显示旧数据，比卡顿更糟）', file: 'js/feed.js', needle: "parts.push(p.id, p.ts, (p.content || '').length, (p.likes || []).join('/')," },
@@ -3938,7 +3938,13 @@ const FIX_SENTINELS = [
 { name: '#939b 初始化行含错误清单（删＝catch 登记静默失效，#939a 形同虚设）', file: 'index.html', needle: 'window.__mochiErrLoaded = window.__mochiErrLoaded || [];' },
 { name: '#939d 健康即撤条+事件复查（删＝条挂上永不摘除，慢机回填>3s 永误报网络不佳；判据自包含不依赖 #921h missing()）', file: 'index.html', needle: 'function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0;' },
 { name: '#939e 「知道了」关闭钮+会话禁弹（删＝提醒条无法关闭、反复纠缠用户；只关提示不拦真网络问题重测）', file: 'index.html', needle: 'sessionStorage.getItem("mochi-boot-bar-off") === "1"' },
-{ name: '#939f 窄屏换行（删＝320px 级屏两个按钮放不下一行被截出屏外，「知道了」点不到）', file: 'index.html', needle: 'b.style.flexWrap = "wrap"; b.style.rowGap = "6px";' },
+{ name: '#939f 窄屏换行（删＝320px 级屏两个按钮放不下一行被截出屏外，「知道了」点不到）', file: 'index.html', needle: 'b.style.flexWrap = "wrap"; b.style.rowGap = "6px";' },,
+/* ==== 2026-09-20 #931 朋友圈【贴纸】面板「点开非常卡顿」根治（用户直派，明说多机型同现、勿机型分支）：原实现把当前视图全部贴纸一次性 img.src=<20~68KB dataURL> 同步挂进 DOM（150 张库实测冷开同步 175ms、点「全部」365ms、面板标记 3.03MB、关掉再开 0/150 节点被复用＝每次从零重解码，重开 292ms），而聊天表情面板同一环境同一库走 #435 进视口补 src+分批泵 / #662 同身份节点回收 / #457 内容签名短路只要 60ms/8ms。修法＝把聊天侧那套已实证机制接到本面板（feed.js 自持 IntersectionObserver、图源只挂 JS 引用不进 DOM 属性、一条委托代替上百监听、内容未变整格不重建），零 UA/机型/内核判断。验证 tools/verify-feed-sticker-perf.mjs 绿 16/16、纯 HEAD 红 10 条全落缺陷面；相邻回归 verify-feed-sticker-panel 21/21、verify-feed-sticker-always 20/20、verify-sticker-dup 35/35、verify-feed-comment-media 18/18、verify-feed-personal-page 14/14、verify-hide-ta-sticker/verify-sticker-retract/verify-feed-sticker-pos/verify-sticker-double-send 与 HEAD 逐项同值。 ==== */
+{ name: '#931a 贴纸图交给聊天侧同一条分批泵（删＝回到一次性全量挂 src，「点开卡顿」当场复发）', file: 'js/feed.js', needle: 'window.mochiEmojiLazyEnqueue(img, src)' },
+{ name: '#931b 整格重写前先回收旧 img 进池（删＝关掉再开 0 复用、每次从零重解码）', file: 'js/feed.js', needle: 'feedStickerHarvest(list);' },
+{ name: '#931c 内容签名短路（删＝同样的内容每次重建上百格子＋重挂观察器，重开 65.9ms→16.9ms 的收益回流）', file: 'js/feed.js', needle: 'sig === feedStickerRenderSig' },
+{ name: '#931d 聊天侧懒挂三件套导出给外部容器借用（删＝贴纸面板拿不到泵/回收池/批量预热，只能退回即时 src）', file: 'js/chat.js', needle: 'window.mochiEmojiLazyEnqueue = emojiLazyEnqueue;' },
+{ name: '#931e 泵按 JS 引用取源且用完即清（删＝节点被回收池复活时带着上一轮的源，或大 dataURL 又被复制进 DOM 属性）', file: 'js/chat.js', needle: 'img.__emojiLazySrc = null;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

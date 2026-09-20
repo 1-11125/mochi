@@ -781,7 +781,26 @@ const fa = document.getElementById('page-feed-all');
 if (fa && !fa.hidden) { try { renderFeedAll(); } catch (e) {} } else { render(); }
 }
 const FEED_STICKER_EMOJI = ['\u2764\ufe0f', '\ud83d\ude18', '\ud83e\udd70', '\ud83d\udc4d', '\ud83d\ude02', '\ud83c\udf08', '\u2728', '\ud83c\udf80', '\ud83d\ude3b', '\ud83e\udd17'];
-function feedStickerEmojiPool() {
+const stkPoolCache = new Map();
+function cachedStkPool(key, compute) {
+const rev = feedStickerLibRev();
+let cid = 'x';
+try { cid = (window.__activeCid || 'default') + ''; } catch (e) {}
+const k = key + '@' + cid + '@' + rev;
+if (stkPoolCache.has(k)) return stkPoolCache.get(k);
+const v = compute();
+if (!stkPoolCache.size) {
+Promise.resolve().then(function () { stkPoolCache.clear(); stkItemsCache.clear(); });
+}
+stkPoolCache.set(k, v);
+return v;
+}
+const stkItemsCache = new Map();
+function feedStickerLibRev() {
+try { if (window.feedStickerLibRev) return window.feedStickerLibRev(); } catch (e) {}
+return 0;
+}
+function feedStickerEmojiPoolBuild() {
 const out = [], seen = new Set();
 const add = (v) => { if (typeof v === 'string' && v && !seen.has(v)) { seen.add(v); out.push(v); } };
 try {
@@ -805,7 +824,13 @@ if (catOn('emoji')) (window.getDefaultCardGroups('emoji') || []).forEach(g => (g
 if (!out.length) FEED_STICKER_EMOJI.forEach(add);
 return out;
 }
+function feedStickerEmojiPool() {
+return cachedStkPool('emojiPool', feedStickerEmojiPoolBuild);
+}
 function feedStickerGroups() {
+return cachedStkPool('groups', feedStickerGroupsBuild);
+}
+function feedStickerGroupsBuild() {
 const savedTab = comStickerTab;
 let ta = [], mine = [];
 try { comStickerTab = 'ta'; ta = comStickerGroups(); } catch (e) { ta = []; }
@@ -820,14 +845,21 @@ return out;
 let feedStickerCard = null;
 let feedStickerCur = '';
 function feedStickerItems() {
+let cid = 'x';
+try { cid = (window.__activeCid || 'default') + ''; } catch (e) {}
+const ck = (feedStickerCur || '') + '@' + cid + '@' + feedStickerLibRev();
+if (stkItemsCache.has(ck)) return stkItemsCache.get(ck);
 const groups = feedStickerGroups();
+let out;
 if (!feedStickerCur) {
-const all = [];
-groups.forEach(g => g.items.forEach(v => all.push({ kind: g.kind, v: v })));
-return all;
-}
+out = [];
+groups.forEach(g => g.items.forEach(v => out.push({ kind: g.kind, v: v })));
+} else {
 const g = groups.find(x => x.key === feedStickerCur);
-return g ? g.items.map(v => ({ kind: g.kind, v: v })) : [];
+out = g ? g.items.map(v => ({ kind: g.kind, v: v })) : [];
+}
+stkItemsCache.set(ck, out);
+return out;
 }
 function feedRenderStickerBar() {
 const bar = document.getElementById('feed-sticker-groups');
@@ -851,39 +883,175 @@ bar.appendChild(c);
 });
 bar.hidden = groups.length <= 1;   // 只有 emoji 一组时不显示胶囊栏
 }
+const feedStickerImgPool = new Map();   // 稳定身份 -> [img 节点]（重写前收、重建时取，跨渲染存活）
+const FS_IMG_POOL_MAX = 160, FS_IMG_POOL_PER_KEY = 8;
+function feedStickerPoolKey(src) {
+try { if (window.ccMediaCardIdent) return window.ccMediaCardIdent(src); } catch (e) {}
+return typeof src === 'string' ? src : String(src);
+}
+function feedStickerTrim() {
+let total = 0;
+feedStickerImgPool.forEach(list => { total += list.length; });
+if (total <= FS_IMG_POOL_MAX) return;
+feedStickerImgPool.forEach((list, k) => { if (total > FS_IMG_POOL_MAX) { total -= list.length; feedStickerImgPool.delete(k); } });
+}
+function feedStickerHarvest(list) {
+if (!list) return;
+try {
+const imgs = list.querySelectorAll('img');
+for (let i = 0; i < imgs.length; i++) {
+const im = imgs[i];
+const k = (im.dataset && im.dataset.emojiKey) || '';
+if (!k || im.__pooled) continue;
+im.__pooled = true;
+let arr = feedStickerImgPool.get(k);
+if (!arr) { arr = []; feedStickerImgPool.set(k, arr); }
+if (arr.length < FS_IMG_POOL_PER_KEY) arr.push(im);
+}
+feedStickerTrim();
+} catch (e) {}
+}
+function feedStickerNewImg() {
+const img = document.createElement('img');
+img.alt = '\u8d34\u7eb8';
+img.decoding = 'async';   // #435 口径：大 dataURL 解码不占主线程渲染帧
+return img;
+}
+function feedStickerImg(src) {
+const k = feedStickerPoolKey(src);
+let img = null;
+const arr = feedStickerImgPool.get(k);
+if (arr && arr.length) {
+img = arr.pop();
+if (!arr.length) feedStickerImgPool.delete(k);
+img.__pooled = false;
+}
+if (!img && window.mochiEmojiLazyAdopt) {
+try {
+const got = window.mochiEmojiLazyAdopt(src);
+if (got && got.dataset && got.dataset.emojiKey === k) img = got; // 身份不符＝聊天侧新建的，不要
+} catch (e) {}
+}
+if (!img) img = feedStickerNewImg();
+try {
+img.dataset.emojiKey = k;
+if (img.dataset && img.dataset.src) {
+img.__emojiLazySrc = img.dataset.src;
+img.removeAttribute('data-src');
+}
+} catch (e) {}
+return img;
+}
+let feedStickerObserver = null;
+let feedStickerObserverOk = false;
+function feedStickerEnsureObserver(root) {
+if (feedStickerObserverOk) return feedStickerObserver;
+feedStickerObserverOk = true;
+if (!root || !('IntersectionObserver' in window)) { feedStickerObserver = null; return null; }
+try {
+feedStickerObserver = new IntersectionObserver((entries) => {
+for (let i = 0; i < entries.length; i++) {
+const en = entries[i];
+if (!en.isIntersecting) continue;
+feedStickerLoad(en.target);
+}
+}, { root, rootMargin: '120px 0px' });
+} catch (e) { feedStickerObserver = null; }
+return feedStickerObserver;
+}
+function feedStickerLoad(img) {
+if (!img) return;
+const src = img.__fsSrc;
+if (!src || img.getAttribute('src')) return;
+if (window.mochiEmojiLazyEnqueue) {
+try { window.mochiEmojiLazyEnqueue(img, src); return; } catch (e) {}
+}
+try { img.src = src; } catch (e) {}   // 无聊天侧机制：即时补 src 兜底（行为不减）
+}
+function feedStickerAttach(img, root, src) {
+if (!img || img.getAttribute('src')) return;
+img.__fsSrc = src;
+const ob = feedStickerEnsureObserver(root);
+if (ob) { try { ob.observe(img); return; } catch (e) {} }
+feedStickerLoad(img);   // 无 IO 的浏览器：即时补 src 兜底（与聊天面板同口径）
+}
+function feedStickerWarmTokens(items) {
+if (!window.mochiEmojiWarmGroupTokens) return;
+const arr = [];
+for (let i = 0; i < items.length; i++) { if (items[i].kind !== 'emoji') arr.push(items[i].v); }
+try { window.mochiEmojiWarmGroupTokens(arr); } catch (e) {}
+}
+function feedStickerSigTarget(items) {
+let cid = 'x';
+try { cid = (window.__activeCid || 'default') + ''; } catch (e) {}
+let sig = cid + '|' + (feedStickerCur || '') + '|' + items.length;
+const ident = (typeof window.ccMediaCardIdent === 'function') ? window.ccMediaCardIdent : null;
+let tot = 0, mix = 0;
+for (let i = 0; i < items.length; i++) {
+const v = items[i].v;
+const k = ident ? ident(typeof v === 'string' ? v : String(v)) : String(v);
+tot += k.length;
+mix = (mix * 31 + k.charCodeAt(0) + k.charCodeAt(k.length - 1)) | 0;   // 逐身份 O(1) 混合：中间某张被换成等长身份也撞不开签名
+}
+sig += '|' + tot + '|' + mix;
+if (items.length) {
+const f = items[0].v, l = items[items.length - 1].v;
+sig += '|' + (ident ? ident(String(f)) : String(f)) + '|' + (ident ? ident(String(l)) : String(l));
+}
+return sig;
+}
+let feedStickerRenderSig = '';
 function feedRenderStickerList() {
 const list = document.getElementById('feed-sticker-list');
 if (!list) return;
-list.innerHTML = '';
 const items = feedStickerItems();
+const sig = feedStickerSigTarget(items);
+const grid0 = list.firstElementChild;
+let imgN = 0;
+for (let i = 0; i < items.length; i++) { if (items[i].kind !== 'emoji') imgN++; }
+if (sig && sig === feedStickerRenderSig && grid0 && grid0.classList.contains('emoji-grid') &&
+grid0.childElementCount === items.length && grid0.querySelectorAll('img').length === imgN) {
+return;
+}
+feedStickerHarvest(list);   // #931 整格重写前先把旧 img 收进回收池（同身份节点下一轮直接取回）
+list.innerHTML = '';
 if (!items.length) {
+feedStickerRenderSig = '';
 list.innerHTML = '<div class="ta-empty">\u6682\u65e0\u8d34\u7eb8\uff0c\u8bf7\u5230\u81ea\u5b9a\u4e49\u5b57\u5361 \u2192 \u8868\u60c5\u5305 \u4e0a\u4f20</div>';
 return;
 }
 const grid = document.createElement('div');
 grid.className = 'emoji-grid';
-items.forEach(it => {
+items.forEach((it, idx) => {
 const d = document.createElement('div');
 d.className = 'emoji-item';
-d.addEventListener('click', (e) => {
-e.stopPropagation();
-if (it.kind === 'emoji') feedPickStickerPos(feedStickerCard.dataset.pid, '', it.v);
-else feedPickStickerPos(feedStickerCard.dataset.pid, it.v);
-});
+d.dataset.stkKind = it.kind;
+d.dataset.stkIdx = String(idx);
+grid.appendChild(d);
 if (it.kind === 'emoji') {
 const sp = document.createElement('span');
 sp.className = 'feed-sticker-emoji';
 sp.textContent = it.v;
 d.appendChild(sp);
 } else {
-const img = document.createElement('img');
-img.src = it.v;
-img.alt = '\u8d34\u7eb8';
+const img = feedStickerImg(it.v);
 d.appendChild(img);
+feedStickerAttach(img, list, it.v);
 }
-grid.appendChild(d);
+});
+grid.addEventListener('click', (e) => {
+const d = e.target && e.target.closest ? e.target.closest('.emoji-item') : null;
+if (!d || !grid.contains(d)) return;
+e.stopPropagation();
+const pid = feedStickerCard ? feedStickerCard.dataset.pid : '';
+const it = items[Number(d.dataset.stkIdx)];
+if (!it) return;
+if (it.kind === 'emoji') feedPickStickerPos(pid, '', it.v);
+else feedPickStickerPos(pid, it.v);
 });
 list.appendChild(grid);
+feedStickerRenderSig = sig;   // #931 只记「确实按本轮 items 建完」的那一次
+feedStickerWarmTokens(items);   // #931 令牌交给媒体池批量预热（不等逐图排队单读）
 }
 function openFeedStickerPanel(pid) {
 if (!feedStickerCard) {
