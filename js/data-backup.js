@@ -704,7 +704,7 @@ return !!((window.mochiDevice || {}).env || {}).downloadAsk;
 }
 function anchorDownloadDataUrl(blob, fname, cb) {
 try {
-if (!blob || blob.size > 2 * 1024 * 1024) { cb(false); return; }
+if (!blob || blob.size > 30 * 1024 * 1024) { cb(false); return; }
 const fr = new FileReader();
 fr.onload = function () {
 try {
@@ -722,11 +722,11 @@ fr.readAsDataURL(blob);
 } catch (e) { cb(false); }
 }
 function altSaveFile(blob, fname, shareTitle, saveTypes) {
-const tipFail = '这台浏览器拦住了网页下载：请用 Chrome / Edge / Safari 打开本页再导出，或点【复制】把文字发给开发者';
 const tryDataUrl = function () {
 anchorDownloadDataUrl(blob, fname, function (ok) {
-toast(ok ? '已用另一种方式触发下载「' + fname + '」，请到下载列表确认'
-: tipFail);
+if (ok) { toast('已用另一种方式触发下载「' + fname + '」，请到下载列表确认'); return; }
+try { if (anchorDownload(blob, fname)) { toast('已再触发一次下载「' + fname + '」，请到下载列表确认；若仍没有文件，看接下来的弹窗'); return; } } catch (e) {}
+saveAskHelp(blob, fname);
 });
 };
 const shareCrash = !!((window.mochiDevice || {}).env || {}).shareSheetCrash;
@@ -741,6 +741,33 @@ return;
 }
 } catch (e) {}
 tryDataUrl();
+}
+function saveAskHelp(blob, fname) {
+const envLine = 'mochi 导出求救：文件 ' + fname + '（' + fmtSize(blob.size) + '）分享/直下/补发三条保存通道都被拦下'
++ '；UA=' + (function () { try { return navigator.userAgent; } catch (e) { return '?'; } })()
++ '；页面=' + (function () { try { return location.href; } catch (e2) { return '?'; } })();
+if (!window.openModal) { toast('这台浏览器拦住了网页下载：请把本页网址复制进系统自带浏览器或 Chrome 的地址栏打开再导出'); return; }
+window.openModal('三种保存方式都被拦下了', '', null, {
+noInput: true,
+staticText: '先确认一件事：你是从桌面图标或浏览器地址栏直接打开本页的吗？\n'
++ '从微信 / QQ / 应用商店等 App 里点进来的页面是「内置小窗」，不是 Chrome 本体，会拦下载。\n\n'
++ '做法：点下面按钮复制网址，粘贴进系统浏览器或 Chrome 的地址栏打开，再导出一次。',
+exportBtn: { label: '复制网址和设备信息', fn: function () {
+try {
+const ta = document.createElement('textarea');
+ta.value = envLine;
+ta.setAttribute('readonly', '');
+ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+document.body.appendChild(ta);
+try { ta.select(); } catch (e) {}
+let ok = false;
+try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+try { if (ta.parentNode) ta.parentNode.removeChild(ta); } catch (e3) {}
+toast(ok ? '已复制网址和设备信息：粘贴到浏览器地址栏打开，或发给开发者'
+: '复制失败，请手动复制上方网址到浏览器打开');
+} catch (e4) {}
+} }
+});
 }
 function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText) {
 let ok = false;

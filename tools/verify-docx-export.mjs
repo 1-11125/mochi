@@ -109,7 +109,7 @@ ok(bakSrc.includes('window.mochiExportBlob = function (blob, fname, shareTitle, 
 // #815：追问名单从「点名 brokenFileShare（夸克/华为）」改为结构性判定 downloadAsk（壳家族∪能力缺口∪iOS 独立容器）
 ok(bakSrc.includes('function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText)')
   && bakSrc.includes('if (!downloadAskEnv()) return;'), 'E12 下载触发后按追问名单给换路追问（#815 结构性名单；名单外内核不加多余步骤）');
-ok(bakSrc.includes('function anchorDownloadDataUrl(blob, fname, cb)') && bakSrc.includes('blob.size > 2 * 1024 * 1024'), 'E13 data: URL 直下通道在位（≤2MB，与 blob: 不同的取数路径）');
+ok(bakSrc.includes('function anchorDownloadDataUrl(blob, fname, cb)') && bakSrc.includes('blob.size > 30 * 1024 * 1024'), 'E13 data: URL 直下通道在位（≤30MB，#945 上限放宽；与 blob: 不同的取数路径）');
 ok(bakSrc.includes("navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' })"), 'E14 换路首选手势触发的系统分享面板（该类内核唯一可靠保存通道）');
 ok((bakSrc.match(/afterDownloadAttempt\(blob, fname/g) || []).length === 4, 'E15 三条导出路径（整包备份/小文件导出/Blob 导出）= 1 处定义 + 3 处调用，全部接上换路收口');
 ok(bakSrc.includes("}).catch(() => 'fail')"), 'E16 三级链 Promise 补 catch 兜底（意外 reject 时不再静默死掉）');

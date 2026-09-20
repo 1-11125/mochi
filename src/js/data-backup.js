@@ -987,7 +987,11 @@
   // 不依赖下载管理器去解 blob: 句柄，故对「能下 data: 但下不了 blob:」的内核有效。
   function anchorDownloadDataUrl(blob, fname, cb) {
     try {
-      if (!blob || blob.size > 2 * 1024 * 1024) { cb(false); return; }
+      // FIX 2026-09-20 #945：上限 2MB→30MB——真实备份几乎都 >2MB，旧上限让「换一种方式」
+      // 的 data: 直下在绝大多数备份上直接放弃（红米 K70 实报：换 Chrome 也「无法导出、显示
+      // 被浏览器拦截」＝走到这里的死 toast）。data: 自带载荷不靠下载管理器解 blob: 句柄，
+      // 30MB 内多数 Chromium 系内核（含壳）可落盘；超大包仍交 blob: 流式路径。
+      if (!blob || blob.size > 30 * 1024 * 1024) { cb(false); return; }
       const fr = new FileReader();
       fr.onload = function () {
         try {
@@ -1004,13 +1008,21 @@
       fr.readAsDataURL(blob);
     } catch (e) { cb(false); }
   }
-  // 用户点「没开始下载？换一种方式」后的换路：系统分享面板 → data: 直下 → 文字指引
+  // 用户点「没开始下载？换一种方式」后的换路：系统分享面板 → data: 直下 → blob: 补一发 → 求救弹窗
   function altSaveFile(blob, fname, shareTitle, saveTypes) {
-    const tipFail = '这台浏览器拦住了网页下载：请用 Chrome / Edge / Safari 打开本页再导出，或点【复制】把文字发给开发者';
+    // FIX 2026-09-20 #945（红米 K70 报「自带浏览器换了 Chrome 还是不行、无法下载 docx、
+    // 显示被浏览器拦截」；同族 #758/#815/#854）：旧换路在分享面板不可用的壳里只剩 data: 直下，
+    // 而它写死 >2MB 直接放弃＝真实备份（几乎都 >2MB）必落「这台浏览器拦住了网页下载」死 toast；
+    // toast 文案里说的「点【复制】」又根本没有按钮＝用户彻底没辙。收口三步（零机型分支）：
+    // ① data: 上限提到 30MB（见 anchorDownloadDataUrl）；②data: 也不行时趁本次点击补一发
+    // blob: a[download]（与 data: 是两条取数路径，能下 blob: 下不了 data: 的内核沾光）；
+    // ③全灭改弹求救弹窗（saveAskHelp）：教用户确认是从「系统浏览器/Chrome 真身」打开
+    // （从微信/QQ/商店点进来的是内置小窗＝非 Chrome 本体，会拦下载）＋真有【复制】钮。
     const tryDataUrl = function () {
       anchorDownloadDataUrl(blob, fname, function (ok) {
-        toast(ok ? '已用另一种方式触发下载「' + fname + '」，请到下载列表确认'
-          : tipFail);
+        if (ok) { toast('已用另一种方式触发下载「' + fname + '」，请到下载列表确认'); return; }
+        try { if (anchorDownload(blob, fname)) { toast('已再触发一次下载「' + fname + '」，请到下载列表确认；若仍没有文件，看接下来的弹窗'); return; } } catch (e) {}
+        saveAskHelp(blob, fname);
       });
     };
     // FIX 2026-09-19 #854：分享面板会整个搞崩浏览器的内核（OPPO/HeyTap，device.js
@@ -1028,6 +1040,35 @@
       }
     } catch (e) {}
     tryDataUrl();
+  }
+  // #945：换路全灭后的求救弹窗——教用户分辨「内置小窗 vs 系统浏览器真身」＋复制网址与
+  // 设备信息（旧死 toast 文案承诺的「点【复制】」按钮从不存在，一并纠正）。
+  function saveAskHelp(blob, fname) {
+    const envLine = 'mochi 导出求救：文件 ' + fname + '（' + fmtSize(blob.size) + '）分享/直下/补发三条保存通道都被拦下'
+      + '；UA=' + (function () { try { return navigator.userAgent; } catch (e) { return '?'; } })()
+      + '；页面=' + (function () { try { return location.href; } catch (e2) { return '?'; } })();
+    if (!window.openModal) { toast('这台浏览器拦住了网页下载：请把本页网址复制进系统自带浏览器或 Chrome 的地址栏打开再导出'); return; }
+    window.openModal('三种保存方式都被拦下了', '', null, {
+      noInput: true,
+      staticText: '先确认一件事：你是从桌面图标或浏览器地址栏直接打开本页的吗？\n'
+        + '从微信 / QQ / 应用商店等 App 里点进来的页面是「内置小窗」，不是 Chrome 本体，会拦下载。\n\n'
+        + '做法：点下面按钮复制网址，粘贴进系统浏览器或 Chrome 的地址栏打开，再导出一次。',
+      exportBtn: { label: '复制网址和设备信息', fn: function () {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = envLine;
+          ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;';
+          document.body.appendChild(ta);
+          try { ta.select(); } catch (e) {}
+          let ok = false;
+          try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+          try { if (ta.parentNode) ta.parentNode.removeChild(ta); } catch (e3) {}
+          toast(ok ? '已复制网址和设备信息：粘贴到浏览器地址栏打开，或发给开发者'
+            : '复制失败，请手动复制上方网址到浏览器打开');
+        } catch (e4) {}
+      } }
+    });
   }
   // 统一的「触发下载 + 判断权交给用户」收口（#757 备份导出 / mochiExportFile / mochiExportBlob 三处共用）
   function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText) {
