@@ -340,7 +340,7 @@ const FIX_SENTINELS = [
   { name: '#770b 旧图标归因读取已删（回流＝「掉帧集中」恒报桌面图标名而非实际所在页）', file: 'js/perf-check.js', needle: "querySelectorAll('.app:not([hidden])')", absent: true },
   { name: '#770c 掉帧阈值随实测刷新周期自适应（改回固定 32ms＝高刷屏漏计、持续掉帧窗口周期被抬高一劲也漏判；needle=自适应取阈值函数整体）', file: 'js/perf-check.js', needle: 'function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); }' },
   { name: '#770d 「流畅」结论对零星掉帧说真话（改回无条件「未捕获掉帧」＝与下方「掉帧 N 帧」自相矛盾）', file: 'js/perf-check.js', needle: "r.jankPct + '%，可忽略）'" },
-  { name: '#770e 「掉帧集中」≥3 帧才输出（删＝单帧噪声也引导用户排查该页大图/长内容）', file: 'js/perf-check.js', needle: 'function concOk(r) { return r.janky >= 3 && !!r.topPage; }' },
+  { name: '#770e 「掉帧集中」≥3 帧才输出（删＝单帧噪声也引导用户排查该页大图/长内容）', file: 'js/perf-check.js', needle: 'if (r.janky < 3 || !r.topPage) return false;' },
   // ==== 2026-09-19 #818 iOS 卡顿定位诊断增强（perf-check 三样，全部仍只活在检测窗口内、结束即拆＝零常驻开销）：①点按响应延迟（iOS 无 longtask 时比掉帧率贴近「点了隔一下才动」体感）②最慢帧现场 top3（第几秒·哪个页·键盘期·切页后 0.5s 内）③低电量档识别（周期 ≥28ms ≈30fps＝iOS 低电量模式减半帧率，系统行为防误判）。登记补录：代码与产物已随 c05fc22 入库（共享 index 撞车被 #811 批卷入），登记行当时未随库，本提交补齐 ====
   { name: '#818a 点按响应延迟采样（窗口内 passive 按下戳记、下一帧结算；删＝「点了没反应」类 iOS 报障无数据可定位）', file: 'js/perf-check.js', needle: "var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';" },
   { name: '#818b 响应延迟结算（删＝只剩帧间隔无交互维度；needle=结算行整体）', file: 'js/perf-check.js', needle: 'var lat = now - lastDown; lastDown = -1;' },
@@ -3897,7 +3897,15 @@ const FIX_SENTINELS = [
 { name: '#933a 回钉分支当场置钉＋几何交落定锁（删＝又回到惯性/橡皮筋回弹中途写 scrollTop，WebKit 滚动树停旧偏移＝错位半屏复发）', file: 'js/chat.js', needle: "chatPinnedBottom = true; body.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();" },
 { name: '#933b 落定重对齐入口（删＝回钉置钉后无人落定补写，撕裂滞留态只能靠轻点救）', file: 'js/chat.js', needle: 'function chatScrollRealignStep() {' },
 { name: '#933c 落定锁未静默时续等（删＝中途抢写，与 #861 落定闸契约破裂）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _rsAlignDeadline) _rsAlignT = setTimeout(chatScrollRealignStep, 120); return; }' },
-{ name: '#933d 落定判据贴底/钉住写底、否则转解钉钳回（删＝解钉态被拽底或撕裂态无人写，#162/#416 契约回退）', file: 'js/chat.js', needle: 'if (chatPinnedBottom || chatAtBottom()) { scrollChatBottom(); return; }' }
+{ name: '#933d 落定判据贴底/钉住写底、否则转解钉钳回（删＝解钉态被拽底或撕裂态无人写，#162/#416 契约回退）', file: 'js/chat.js', needle: 'if (chatPinnedBottom || chatAtBottom()) { scrollChatBottom(); return; }' },
+  // ==== 2026-09-20 #934 卡顿自检报告口径纠偏（红米 K80 Chrome 实报 docx：fps 分母含后台＝「24.2fps」与「16.4ms」自相矛盾；「掉帧集中：朋友圈（该页 0.5% vs 全窗 1%）」按掉帧计数选中停留最久、掉帧率更低的页；后台占比提示拿段数与帧数比大小＝恒不触发；>250ms 的亮屏阻塞被当后台冻结剔除＝最长 1630ms 在报告里隐身且无归因）====
+  { name: '#934a 后台/锁屏时长实测（删＝fps 分母回整窗虚低、后台占比提示再失效、间隙判定失可见性依据）', file: 'js/perf-check.js', needle: 'var bgMs = 0, hiddenAt = -1, hidPending = 0;' },
+  { name: '#934b 前台冻结识别（删/改回「>250ms 一律当后台」＝亮屏下卡住 1.6 秒在帧统计里再次隐身）', file: 'js/perf-check.js', needle: 'var fz = d > BG_GAP ? 1 : 0;' },
+  { name: '#934c fps 按前台有效时长算（删/改回 frames/ms＝60fps 窗口被写成 24.2fps、与「正常帧间隔」自相矛盾）', file: 'js/perf-check.js', needle: 'rep.fps = rep.effMs >= 1000 ? Math.round(rep.frames * 10000 / rep.effMs) / 10 : 0;' },
+  { name: '#934d 集中页按掉帧率选且需 ≥2 倍其余页（删/改回按计数＝选中停留最久、掉帧率更低的页＝冤枉用户查错页）', file: 'js/perf-check.js', needle: 'return (pj / pf) >= 2 * (oj / of);' },
+  { name: '#934e 长任务归因 top3（删＝「最长 1630ms」查无现场：来自哪页/是否后台期/是否切页后全无）', file: 'js/perf-check.js', needle: 'lt.top.push({ at: Math.round((es[i].startTime - t0) / 100) / 10,' },
+  { name: '#934f 「掉帧分散」如实结论（删＝无集中页时结论缺位/仍可能点名某页）', file: 'js/perf-check.js', needle: '· 掉帧分散：最多的' },
+  { name: '#934g 零星掉帧但窗内有冻结/长任务时不武断「无需处理」（删＝又回到「属正常波动，无需处理」与「最长 1630ms」并存）', file: 'js/perf-check.js', needle: 'if (_fzN > 0 || _ltN > 0) {' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

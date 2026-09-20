@@ -29,6 +29,16 @@
 //   A23 最慢帧现场 top3 截断（卡在哪个页/什么动作后可定位）
 //   A24 iOS 低电量 30fps 档识别 minD≥28（低电量减半帧率被误判成应用卡顿）
 //   A25 build.mjs 登记 #818a~d 四条哨兵
+// —— #934 追加（红米 K80 Chrome 自检 docx 三处口径缺陷 + 两处归因补齐，详见 perf-check.js 头部）——
+//   A26 后台/锁屏时长实测 bgMs（fps 分母/占比提示/间隙判定都靠它；删＝回「整窗当分母」虚低 fps）
+//   A27 fps 按前台有效时长算 effMs（旧＝frames/整窗，300 秒窗口 60fps 被写成 24.2fps）
+//   A28 后台占比按实测时长点名（旧＝冻结段数与有效帧数比大小＝量纲不同恒不触发）
+//   A29 前台冻结识别（>250ms 且无隐藏期照常计入，60s 硬兜底保 #707 防线）
+//   A30 长任务归因 top3（第几秒·哪页·切页后/键盘期/后台期；删＝1.6s 级阻塞查无现场）
+//   A31 集中页按「掉帧率」选 + ≥2 倍其余页判据 + 「分散」结论（旧按计数＝选中停留最久的页）
+//   A32 build.mjs 登记 #934a~g 七条哨兵
+//   A33 结论「流畅」但窗内有冻结/长任务时不再武断「无需处理」（旧文案与「最长 1630ms」并存）
+//   A34 长任务 top3 每次入列都按 ms 降序（旧写法恰好 3 条时按时间序＝「最长的 3 次」最长的不在最前）
 // 用法：node tools/verify-perf-check.mjs [rootDir]
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -112,10 +122,22 @@ check('A20 build.mjs 登记 #770a~e 哨兵', sent770 === 5, '实际 ' + sent770)
 // —— #818 追加 ——
 check('A21 点按响应采样：窗口内 passive down 戳记＋下一帧结算', pc.includes("var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';") && pc.includes('var lat = now - lastDown; lastDown = -1;'));
 check('A22 响应监听随窗口拆除（removeEventListener 收尾）', pc.includes('removeEventListener(downEv, onDown)'));
-check('A23 最慢帧现场 top3 截断', pc.includes('scene.length = 3;'));
+check('A23 最慢帧现场 top3 截断', pc.includes('scene.length = 3;') && pc.includes('scene.sort(function (a, b) { return b.ms - a.ms; });'));
 check('A24 iOS 低电量 30fps 档识别（minD≥28ms）', pc.includes('rep.lp = minD >= 28;'));
 const sent818 = (build.match(/#818[a-d] /g) || []).length;
 check('A25 build.mjs 登记 #818a~d 哨兵', sent818 === 4, '实际 ' + sent818);
+
+// —— #934 追加（报告口径纠偏 + 归因补齐）——
+check('A26 后台/锁屏时长实测 bgMs（可见性跟踪 + 随窗拆除）', pc.includes('var bgMs = 0, hiddenAt = -1, hidPending = 0;') && pc.includes("document.addEventListener('visibilitychange', onVis") && pc.includes("document.removeEventListener('visibilitychange', onVis)"));
+check('A27 fps 按前台有效时长算（frames/effMs，不再拿整窗当分母）', pc.includes('rep.effMs = Math.max(0, rep.ms - rep.bgMs);') && pc.includes('rep.frames * 10000 / rep.effMs'));
+check('A28 后台占比按实测时长点名（r.bgMs > r.ms * 0.5）', pc.includes('r.bgMs > r.ms * 0.5') && pc.includes('已剔除、不影响判定'));
+check('A29 前台冻结识别（>250ms 且无隐藏期照常计入 + 60s 硬兜底）', pc.includes('var BG_HARD = 60000;') && pc.includes('d > BG_GAP && (wasBg || d > BG_HARD)') && pc.includes('var fz = d > BG_GAP ? 1 : 0;'));
+check('A30 长任务归因 top3（第几秒·哪页·切页后/键盘期/后台期）', pc.includes('lt.top.push({ at:') && pc.includes('bgN') && pc.includes("'；最长的 ' + t3.length + ' 次：'"));
+check('A31 集中页按掉帧率选 + ≥2 倍其余页 + 「分散」结论', pc.includes('pkF >= 30') && pc.includes('return (pj / pf) >= 2 * (oj / of);') && pc.includes('· 掉帧分散：最多的'));
+const sent934 = (build.match(/#934[a-g] /g) || []).length;
+check('A32 build.mjs 登记 #934a~g 哨兵', sent934 === 7, '实际 ' + sent934);
+check('A33 流畅+冻结/长任务 → 不武断「无需处理」', pc.includes('if (_fzN > 0 || _ltN > 0) {') && pc.includes('偶发卡顿更可能来自它们'));
+check('A34 长任务 top3 每次入列都按 ms 降序（恰好 3 条时「最长的」不在最前＝实测踩过）', pc.includes('lt.top.sort(function (a, b) { return b.ms - a.ms; });'));
 
 console.log('----');
 console.log('verify-perf-check: ' + pass + ' 通过 / ' + fail + ' 失败');

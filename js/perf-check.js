@@ -3,7 +3,8 @@
 'use strict';
 if (window.mochiPerfCheck) return;
 var LAST_KEY = 'xy-home-v2:perf-check-last';
-var BG_GAP = 250;    // 帧间隔 >250ms ＝ 切后台/锁屏冻结帧，剔除不计（#707 同款教训：后台 144s 间隙会被误判成超级卡顿）
+var BG_GAP = 250;    // >250ms 间隙＋确有隐藏期＝切后台/锁屏冻结帧，剔除不计（#707 同款教训：后台 144s 间隙会被误判成超级卡顿）；#934 起「无隐藏期的 >250ms」＝亮屏下主线程被卡住＝前台冻结，照常计入
+var BG_HARD = 60000; // 无隐藏期的超长间隙兜底：>60s 不可能是前台阻塞（老内核不派发 visibilitychange 时仍按后台剔除，保 #707 防线）
 var MIN_JANK = 24;   // 自适应掉帧阈值下限 ms（60Hz 算出 ≈33ms≈旧 32ms；高刷屏收紧；自适应刷新率降档时靠下限不误报）
 var MAX_JANK = 34;   // 自适应掉帧阈值上限 ms（持续掉帧会把实测周期抬高，上限兜住不漏判幻灯片式卡顿）
 var SEVERE_MS = 100; // >100ms ＝ 严重卡顿
@@ -41,7 +42,14 @@ if (jankPct >= 8) return '中度';
 if (jankPct >= 2) return '轻度';
 return '流畅';
 }
-function concOk(r) { return r.janky >= 3 && !!r.topPage; } // #770：掉帧 ≥3 帧才做页面归因输出
+function concOk(r) {
+if (r.janky < 3 || !r.topPage) return false;
+var pf = r.pageFrames[r.topPage] || 0, pj = r.pages[r.topPage] || 0;
+if (pf < 30 || pj < 3) return false;
+var of = r.frames - pf, oj = r.janky - pj;
+if (of < 30) return true;
+return (pj / pf) >= 2 * (oj / of);
+}
 function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); } // #770：阈值随实测刷新周期自适应
 function storageAgg() {
 try {
@@ -58,20 +66,36 @@ ms = Math.max(3000, Math.min(300000, Number(ms) || 30000));
 onTick = typeof onTick === 'function' ? onTick : function () {};
 var rep = { t: Date.now(), ms: ms, frames: 0, janky: 0, severe: 0, worst: 0, hid: 0,
 kbFrames: 0, kbJanky: 0, pages: {}, pageFrames: {}, jankMs: 0, period: 0, fps: 0, lt: null,
-int: null, scene: [], lp: false };
-var lt = { ok: false, n: 0, worst: 0 }, po = null;
+int: null, scene: [], lp: false, bgMs: 0, effMs: 0, fz: 0, fzWorst: 0, topCnt: '' };
+var last = performance.now(), t0 = last, raf = 0, done = false;
+var bgMs = 0, hiddenAt = -1, hidPending = 0;
+function onVis() {
+var now = performance.now();
+if (document.hidden) { hiddenAt = now; hidPending = 1; }
+else if (hiddenAt >= 0) { bgMs += now - hiddenAt; hiddenAt = -1; }
+}
+try { document.addEventListener('visibilitychange', onVis, { passive: true }); } catch (e) {}
+var lt = { ok: false, n: 0, worst: 0, bgN: 0, top: [] }, po = null;
 try {
 po = new PerformanceObserver(function (list) {
 try {
 var es = list.getEntries() || [];
 for (var i = 0; i < es.length; i++) {
-if (es[i] && es[i].duration >= 50) { lt.n++; lt.worst = Math.max(lt.worst, Math.round(es[i].duration)); }
+if (es[i] && es[i].duration >= 50) {
+lt.n++;
+var dms = Math.round(es[i].duration);
+if (dms > lt.worst) lt.worst = dms;
+var ltBg = document.hidden ? 1 : 0;
+if (ltBg) lt.bgN++;
+lt.top.push({ at: Math.round((es[i].startTime - t0) / 100) / 10, ms: dms, pg: curPage(), bg: ltBg, kb: kbOn() ? 1 : 0, sw: (performance.now() - swAt) <= 500 ? 1 : 0 });
+lt.top.sort(function (a, b) { return b.ms - a.ms; });
+if (lt.top.length > 3) lt.top.length = 3;
+}
 }
 } catch (e2) {}
 });
 po.observe({ type: 'longtask' }); lt.ok = true;
 } catch (e) {}
-var last = performance.now(), t0 = last, raf = 0, done = false;
 var lastDown = -1, intArr = [], intWorst = -1, intWorstPg = '';
 var swAt = -1e9, lastPgSeen = '', scene = [];
 var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';
@@ -84,10 +108,14 @@ if (done) return;
 done = true;
 try { if (po) po.disconnect(); } catch (e) {}
 try { document.removeEventListener(downEv, onDown); } catch (e) {} // #818 响应监听随窗拆除
+try { document.removeEventListener('visibilitychange', onVis); } catch (e) {} // #934 可见性监听随窗拆除
+if (hiddenAt >= 0) { bgMs += performance.now() - hiddenAt; hiddenAt = -1; } // 窗口在后台里结束的尾段
+rep.bgMs = Math.round(bgMs);
+rep.effMs = Math.max(0, rep.ms - rep.bgMs); // 前台有效时长（fps 的分母与报告展示都按它）
 rep.lt = lt.ok ? lt : null;
 rep.jankMs = Math.round(jankThr());
 rep.period = Math.round(minD * 10) / 10;
-rep.fps = Math.round(rep.frames * 10000 / Math.max(1, rep.ms)) / 10;
+rep.fps = rep.effMs >= 1000 ? Math.round(rep.frames * 10000 / rep.effMs) / 10 : 0;
 if (intArr.length) {
 var sorted = intArr.slice().sort(function (a, b) { return a - b; });
 var slowN = 0;
@@ -99,9 +127,18 @@ rep.lp = minD >= 28;
 rep.jankPct = pct(rep.janky, rep.frames);
 rep.kbPct = pct(rep.kbJanky, rep.janky);     // 掉帧里键盘期占比
 rep.kbShare = pct(rep.kbFrames, rep.frames); // 全部帧里键盘期占比
-var top = null, topN = 0, tot = 0;
-for (var k in rep.pages) { tot += rep.pages[k]; if (rep.pages[k] > topN) { top = k; topN = rep.pages[k]; } }
-rep.topPage = tot > 0 ? top : '';
+var top = '', topRate = -1, cnt = '', cntN = 0, tot = 0;
+for (var k in rep.pages) {
+tot += rep.pages[k];
+if (rep.pages[k] > cntN) { cnt = k; cntN = rep.pages[k]; }
+var pkF = rep.pageFrames[k] || 0;
+if (pkF >= 30) {
+var pkR = rep.pages[k] / pkF;
+if (pkR > topRate) { topRate = pkR; top = k; }
+}
+}
+rep.topPage = tot > 0 ? (top || cnt) : '';
+rep.topCnt = cnt;
 rep.verdict = verdictOf(rep.jankPct, rep.severe);
 setTimeout(function () {
 var agg = storageAgg();
@@ -115,8 +152,11 @@ resolve(rep);
 function frame(now) {
 if (done) return;
 var d = now - last; last = now;
-if (document.hidden || d > BG_GAP) {
-rep.hid++; // 后台/锁屏冻结帧剔除，不计入样本
+var wasBg = hidPending; hidPending = 0; // #934：自上一帧以来是否真发生过隐藏（visibilitychange 实报）
+if (document.hidden) {
+rep.hid++; // 帧回调落到隐藏期（兜底），不计入样本
+} else if (d > BG_GAP && (wasBg || d > BG_HARD)) {
+rep.hid++; // 后台/锁屏冻结段剔除：隐藏时长已由 visibilitychange 计入 bgMs，不重复累计
 } else {
 rep.frames++;
 var pg = curPage();
@@ -135,13 +175,16 @@ if (d >= 4 && (!minD || d < minD)) minD = d; // <4ms＝同 vsync 补帧伪象，
 var kb = kbOn();
 if (kb) rep.kbFrames++;
 if (d > jankThr()) {
+var fz = d > BG_GAP ? 1 : 0;
+if (fz) { rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d); }
 rep.janky++;
 if (kb) rep.kbJanky++;
 if (d > SEVERE_MS) rep.severe++;
 if (d > rep.worst) rep.worst = Math.round(d);
 rep.pages[pg] = (rep.pages[pg] || 0) + 1;
-scene.push({ at: Math.round((now - t0) / 100) / 10, ms: Math.round(d), pg: pg, kb: kb ? 1 : 0, sw: (now - swAt) <= 500 ? 1 : 0 });
-if (scene.length > 3) { scene.sort(function (a, b) { return b.ms - a.ms; }); scene.length = 3; }
+scene.push({ at: Math.round((now - t0) / 100) / 10, ms: Math.round(d), pg: pg, kb: kb ? 1 : 0, sw: (now - swAt) <= 500 ? 1 : 0, fz: fz });
+scene.sort(function (a, b) { return b.ms - a.ms; });
+if (scene.length > 3) scene.length = 3;
 }
 }
 }
@@ -162,7 +205,9 @@ if (r.verdict === '流畅') concl = r.janky > 0 ? '（掉帧率 ' + r.jankPct + 
 else concl = '（掉帧率 ' + r.jankPct + '%）';
 L.push('结论：' + r.verdict + concl);
 var per = r.period > 0 ? '，正常帧间隔约 ' + r.period + 'ms' : '';
-L.push('采样 ' + Math.round(r.ms / 1000) + ' 秒 / 有效帧 ' + r.frames + '（平均 ' + r.fps + 'fps' + per + '；已剔除后台/锁屏冻结 ' + r.hid + ' 帧）');
+var eff = r.effMs == null ? r.ms : r.effMs;
+var core = eff >= 1000 ? '平均 ' + r.fps + 'fps' + per : '前台时间不足 1 秒，未计 fps';
+L.push('采样 ' + Math.round(r.ms / 1000) + ' 秒 / 有效帧 ' + r.frames + '（' + core + '；前台约 ' + Math.round(eff / 1000) + ' 秒，后台/锁屏 ' + Math.round((r.bgMs || 0) / 1000) + ' 秒已剔除）');
 if (r.lp) L.push('· 实测刷新周期约 ' + r.period + 'ms（≈30fps 档）：iOS 低电量模式会把帧率减半，属系统行为——开了低电量请关闭后复测对照');
 var majors = [];
 for (var pk in r.pageFrames) { if (pk !== '?' && r.pageFrames[pk] > 0) majors.push([pk, r.pageFrames[pk]]); }
@@ -170,23 +215,41 @@ majors.sort(function (a, b) { return b[1] - a[1]; });
 var mtxt = majors.slice(0, 2).map(function (m) { return pageName(m[0]) + ' ' + pct(m[1], r.frames) + '%'; }).join('、');
 if (mtxt) L.push('· 采样期间主要在：' + mtxt);
 if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
+if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
 if (r.janky > 0) {
 L.push('· 掉帧 ' + r.janky + ' 帧（间隔>' + r.jankMs + 'ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
+if (r.fz > 0) L.push('· 前台冻结 ' + r.fz + ' 次（亮屏下主线程被卡住 >' + BG_GAP + 'ms，最长 ' + r.fzWorst + 'ms）——现场见下方「最慢帧现场」的前台冻结标记');
 if (concOk(r)) {
-L.push('· 掉帧集中：' + pageName(r.topPage) + '（掉帧 ' + r.pages[r.topPage] + '/' + (r.pageFrames[r.topPage] || 0) + ' 帧，该页 ' + pct(r.pages[r.topPage], r.pageFrames[r.topPage]) + '% vs 全窗 ' + r.jankPct + '%）');
+var _of = r.frames - (r.pageFrames[r.topPage] || 0), _oj = r.janky - (r.pages[r.topPage] || 0);
+L.push('· 掉帧集中：' + pageName(r.topPage) + '（掉帧 ' + r.pages[r.topPage] + '/' + (r.pageFrames[r.topPage] || 0) + ' 帧，该页 ' + pct(r.pages[r.topPage], r.pageFrames[r.topPage]) + '% ' + (_of >= 30 ? 'vs 其余页 ' + pct(_oj, _of) + '%' : '，本窗口其余页样本不足）'));
+} else if (r.topCnt) {
+L.push('· 掉帧分散：最多的 ' + pageName(r.topCnt) + ' 也才 ' + r.pages[r.topCnt] + '/' + (r.pageFrames[r.topCnt] || 0) + ' 帧（' + pct(r.pages[r.topCnt], r.pageFrames[r.topCnt]) + '%），没有哪一页明显高于其余页——不是某一页特有的问题，重点看长任务与下方建议');
 }
 if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
 if (r.scene && r.scene.length) {
 var ss = [];
 for (var i2 = 0; i2 < r.scene.length; i2++) {
 var sc = r.scene[i2];
-ss.push('第' + sc.at + '秒 ' + pageName(sc.pg) + ' ' + sc.ms + 'ms' + (sc.kb ? '·键盘期' : '') + (sc.sw ? '·切页后' : ''));
+ss.push('第' + sc.at + '秒 ' + pageName(sc.pg) + ' ' + sc.ms + 'ms' + (sc.fz ? '·前台冻结' : '') + (sc.kb ? '·键盘期' : '') + (sc.sw ? '·切页后' : ''));
 }
-L.push('· 最慢帧现场：' + ss.join('；') + '（「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本）');
+L.push('· 最慢帧现场：' + ss.join('；') + '（「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本；「前台冻结」＝亮屏下主线程真被卡住 >' + BG_GAP + 'ms）');
 }
 }
 if (r.lt) {
-L.push(r.lt.n > 0 ? '· 长任务（>50ms 主线程阻塞）窗口内 ' + r.lt.n + ' 次，最长 ' + r.lt.worst + 'ms' : '· 长任务（>50ms）：窗口内无');
+if (r.lt.n > 0) {
+var ltTxt = '· 长任务（>50ms 主线程阻塞）窗口内 ' + r.lt.n + ' 次' + (r.lt.bgN ? '（其中 ' + r.lt.bgN + ' 次在后台/锁屏期）' : '') + '，最长 ' + r.lt.worst + 'ms';
+if (r.lt.top && r.lt.top.length) {
+var t3 = [];
+for (var i3 = 0; i3 < r.lt.top.length; i3++) {
+var e3 = r.lt.top[i3];
+t3.push('第' + e3.at + '秒 ' + pageName(e3.pg) + ' ' + e3.ms + 'ms' + (e3.bg ? '·后台期' : '') + (e3.sw ? '·切页后' : '') + (e3.kb ? '·键盘期' : ''));
+}
+ltTxt += '；最长的 ' + t3.length + ' 次：' + t3.join('；');
+}
+L.push(ltTxt);
+} else {
+L.push('· 长任务（>50ms）：窗口内无');
+}
 } else {
 L.push('· 长任务：此内核不支持观测（iOS WebKit），已用帧间隔等效判定');
 }
@@ -201,7 +264,15 @@ L.push('建议：');
 var adv = [];
 if (r.storage && r.storage.level === '重') adv.push('本地数据过大（字卡库等）是本应用最常见的间歇卡顿主因——先做旁边「卡顿自检 · 一键优化」（不删数据）');
 if (r.janky === 0) adv.push('本窗口未捕获掉帧；若体感仍卡，在卡顿出现的当下立即复测，更容易抓到现场');
-else if (r.verdict === '流畅') adv.push('仅零星掉帧（' + r.janky + ' 帧、最慢 ' + r.worst + 'ms），属正常波动，无需处理');
+else if (r.verdict === '流畅') {
+var _fzN = r.fz || 0, _ltN = (r.lt && r.lt.n) || 0;
+if (_fzN > 0 || _ltN > 0) {
+var _w = [];
+if (_fzN > 0) _w.push('前台冻结 ' + _fzN + ' 次（最长 ' + r.fzWorst + 'ms）');
+if (_ltN > 0) _w.push('长任务 ' + _ltN + ' 次（最长 ' + r.lt.worst + 'ms）');
+adv.push('掉帧本身零星（' + r.janky + ' 帧、最慢 ' + r.worst + 'ms），但窗口内有' + _w.join('、') + '——偶发卡顿更可能来自它们，按上面的现场与归因复测一轮');
+} else adv.push('仅零星掉帧（' + r.janky + ' 帧、最慢 ' + r.worst + 'ms），属正常波动，无需处理');
+}
 if (concOk(r)) adv.push('掉帧集中在「' + pageName(r.topPage) + '」——该页操作时最明显，可对照排查最近往该页存过的大图/长内容');
 if (r.int && r.int.slow > 0) adv.push('点按响应最慢 ' + r.int.worst + 'ms（在「' + pageName(r.int.worstPg) + '」）：掉帧集中在操作瞬间，优先排查该页的大图/长列表/数据落盘时机');
 if (r.lp && r.verdict === '流畅') adv.push('本机在约 30fps 档运行＝iOS 低电量模式减半帧率（系统行为），关闭低电量模式即可恢复，无需其他处理');
