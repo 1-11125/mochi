@@ -431,7 +431,7 @@
             ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
             : '【多人决定】' + question + '\n' + lines.join('\n');
           if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
+          else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
         }
         toast('多人决定已完成');
       };
@@ -463,8 +463,10 @@
             '<div class="dc-h-result gd-pre">' + esc(resultsStr) + '</div>' +
             '<div class="dc-h-time">' + fmtDT(r.ts) + '</div></div>';
         }).join('')
-      : '<div class="ta-empty">暂无多人决定记录</div>';
+      : ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('多人决定记录') : '<div class="ta-empty">暂无多人决定记录</div>');
   }
+  // #797：回填完成补渲一次（renderHistory 现读现画幂等；只写文本，页面关着也无害）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderHistory(); } catch (e) {} });
 
   // 入口函数导出（桌面快捷方式等外部也可调用）
   // v3.27.x #421b：不再整体覆盖 window.openGroupDecision（顶部已挂分派器），回填真实实现引用
@@ -477,6 +479,10 @@
     e.stopPropagation();
     if (panel) panel.hidden = true;
   });
+  // FIX 2026-09-20 #906：点面板外关闭（与帮我决定同批，用户报「点屏幕其他地方无法关闭功能页面」）。
+  // 判据统一在 chat.js 的 mochiSheetOutsideClose：其中「落在 .modal-mask 上不算点外」对本面板是硬需求
+  // ——添加/删除成员走 openModal，点弹窗遮罩只该关弹窗，不该把底下的半框一起收了。
+  if (window.mochiSheetOutsideClose && panel) window.mochiSheetOutsideClose(panel, () => { panel.hidden = true; });
 
 // 入口：聊天更多功能 → 多人决定。本文件自绑定 more-gdecide（chat.js 侧无需改动），
 // 级联收起其他浮层的动作与 chat.js 里 moreDecide 处理器保持一致；

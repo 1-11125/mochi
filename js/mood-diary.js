@@ -84,6 +84,7 @@ _interactCache.built = false; // 每次打开重建「有交互日期」集合�
 renderToday();
 renderMonth();
 }
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderToday(); } catch (e) {} });
 function renderToday() {
 const now = new Date();
 const k = dkey(now);
@@ -113,7 +114,8 @@ if (ta) {
 const tm = taMoodFor(k);
 const nm = store().get('lbl-partner') || 'TA';
 ta.textContent = tm ? (nm + ' 今天的心情：' + tm.e + ' ' + tm.n)
-: (nm + ' 今天还没有互动，还没有心情哦');
+: ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingText()
+: (nm + ' 今天还没有互动，还没有心情哦'));
 }
 const btn = document.getElementById('mood-save');
 if (btn && !btn.dataset.bound) {

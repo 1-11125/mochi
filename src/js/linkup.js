@@ -297,12 +297,27 @@
     updateInfo();
   }
   function updateInfo() {
+    if (!st) return;
+    // #799 道具提醒：原来只有「💡 3」「🔀 2」两个裸数字，没人知道那是能用三次的道具
     if (infoEl) infoEl.innerHTML =
       '<span>剩余 ' + st.remaining + ' 张</span>' +
-      '<span>💡 ' + st.hints + '</span>' +
-      '<span>🔀 ' + st.shuffles + '</span>' +
+      '<span>💡 提示×' + st.hints + '</span>' +
+      '<span>🔀 洗牌×' + st.shuffles + '</span>' +
       (st.combo >= 2 ? '<span>🔥 连击 ×' + st.combo + '</span>' : '') +
       '<span>💕 ' + chemNow() + '</span>';
+    syncPropBtns();
+  }
+  // 手机端没有 title 悬浮提示，余量只能落在信息条与按钮状态上
+  function syncPropBtns() {
+    if (!st) return;
+    if (hintBtn) {
+      hintBtn.title = '道具·提示：点亮一对能连的牌（本局剩 ' + st.hints + '/3 次）';
+      hintBtn.classList.toggle('game-prop-off', !(st.hints > 0));
+    }
+    if (shufBtn) {
+      shufBtn.title = '道具·洗牌：把剩下的牌重排（本局剩 ' + st.shuffles + '/2 次）';
+      shufBtn.classList.toggle('game-prop-off', !(st.shuffles > 0));
+    }
   }
   // ---- #341 表现层动画：连线走线 / 消除爆开 / 开局发牌 ----
   const POP_MS = 260;
@@ -376,7 +391,13 @@
   function dot(side) { return '<i class="c4-dot ' + (side === 1 ? 'c4-dot-you' : 'c4-dot-ta') + '"></i>'; }
   function showTurnStatus() {
     if (!statusEl || !st || st.over) return;
-    setStatus(st.turn === 1 ? dot(1) + '你的回合：点两张相同的牌' : T(THINK_LINES[0]));
+    if (st.turn !== 1) { setStatus(T(THINK_LINES[0])); return; }
+    // #799 道具提醒：轮到玩家时把「卡住可以按什么」直接写在状态行
+    const avail = [];
+    if (st.hints > 0) avail.push('💡提示×' + st.hints);
+    if (st.shuffles > 0) avail.push('🔀洗牌×' + st.shuffles);
+    setStatus(dot(1) + '你的回合：点两张相同的牌' +
+      (avail.length ? ' · 找不到就点上方 ' + avail.join(' / ') : ' · 道具用完啦，这局靠自己'));
   }
 
   // ---- 对局流程 ----
@@ -396,7 +417,7 @@
     renderBoard();
     dealInAnim();
     st.turn = 1;
-    setStatus(dot(1) + '你的回合：点两张相同的牌');
+    showTurnStatus();
   }
   function remember(r, c) {
     st.seen.push([r, c]);
@@ -449,6 +470,11 @@
       st.misPicks++;
       st.combo = 0;
       sfxBad();
+      // #799 连错 3 次＝八成是找不到能连的一对，提醒一句还有道具可用
+      if (st.misPicks % 3 === 0) {
+        if (st.hints > 0) taSay('找不到？上方 💡 提示能点亮一对');
+        else if (st.shuffles > 0) taSay('剩的牌连不上就按上方 🔀 洗牌');
+      }
       const ea = tileAt(a[0], a[1]);
       if (ea) { ea.classList.remove('lk-shake'); void ea.offsetWidth; ea.classList.add('lk-shake'); }
       if (el) { el.classList.remove('lk-shake'); void el.offsetWidth; el.classList.add('lk-shake'); }
@@ -599,7 +625,15 @@
     setStatus('🎉 一起清完了！默契 ' + chem);
     // 写聊天系统消息 + TA 随机回应
     try {
-      if (window.chatAddSystem) window.chatAddSystem(T('连连看') + ' · 一起清完 · 默契 ' + chem, { special: 'linkup', nightAllow: true });
+      // #891：带结构化结算负载（chat.js 小游戏卡片渲染；{ta} 由渲染侧按当前昵称展开）
+      const lkStats = ['💕 默契 ' + chem, '你 ' + st.myPairs + ' 对 · {ta} ' + st.taPairs + ' 对 · 点错 ' + st.misPicks + ' 次 · 最高连击 ×' + (st.maxCombo || 0),
+        '累计完成 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem].concat(coinLine ? [coinLine] : []).concat(dr ? ['🌠 掉落限定摆件「' + dr.ico + ' ' + dr.name + '」'] : []);
+      if (window.chatAddSystem) window.chatAddSystem(T('连连看') + ' · 一起清完 · 默契 ' + chem, { special: 'linkup', game: {
+        name: '连连看',
+        outcome: 'clear',
+        result: '一起清完啦！',
+        stats: lkStats
+      } });
       const fb = ['一起连完啦。', '好默契呀。', '最后几张好难找。', '再来一局？'];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
@@ -624,7 +658,7 @@
     const s = loadStats();
     showOverlay('连连看',
       '<div class="c4-start-tip">和 ' + T('TA') + ' 轮流点击两张相同的牌<br>连线不超过两个弯就消除，一起清完整张棋盘</div>' +
-      '<div class="c4-start-note">🎲 ' + T('TA') + '每回合状态随机——快速找 / 凭记忆 / 随缘点</div>' +
+      '<div class="c4-start-note">🧰 道具：💡 提示 ×3（点亮一对能连的牌）· 🔀 洗牌 ×2（重排剩下的牌），点右上角那两个图标使用<br>🎲 ' + T('TA') + '每回合状态随机——快速找 / 凭记忆 / 随缘点</div>' +
       (s.clears > 0 ? '<div class="pong-end-stat">累计完成 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem + '</div>' : ''),
       s.clears > 0 ? '再来一局' : '开始对局');
     if (endBtn) endBtn.hidden = true;
@@ -647,9 +681,11 @@
   });
   if (hintBtn) hintBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!st || !st.started || st.over || st.lock || st.turn !== 1 || st.hints <= 0) return;
+    if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
+    // #799 用完必须出声：原先静默 return，看起来像按钮坏了
+    if (st.hints <= 0) { taSay('💡 提示用完啦，重开一局才恢复'); sfxBad(); return; }
     const pairs = allPairs(st);
-    if (!pairs.length) return;
+    if (!pairs.length) { taSay('眼下没有能连的一对，试试 🔀 洗牌'); return; }
     st.hints--;
     st.combo = 0;   // #301 提示断连击
     const pr = pick(pairs);
@@ -667,7 +703,9 @@
   });
   if (shufBtn) shufBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!st || !st.started || st.over || st.lock || st.shuffles <= 0 || st.turn !== 1) return;
+    if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
+    // #799 用完必须出声：原先静默 return，看起来像按钮坏了
+    if (st.shuffles <= 0) { taSay('🔀 洗牌用完啦，重开一局才恢复（死局时我会自动洗）'); sfxBad(); return; }
     st.shuffles--;
     st.sel = null;
     reshuffle();
@@ -775,6 +813,7 @@
     connected: connected,
     findPath: findPath,
     allPairs: allPairs,
+    showTurnStatus: showTurnStatus,
     fast: false
   };
 })();

@@ -59,7 +59,7 @@ check('A2 row-perf-check 在位且在 row-perf-optimize 之前', rcIdx > 0 && ro
 
 // A3 接线
 const pz = read('js/personalize.js');
-check('A3 personalize 接线 start(10000)', pz.includes('window.mochiPerfCheck.start(10000'));
+check('A3 personalize 接线 start(durMs)（#889 时长可选换锚）', pz.includes('window.mochiPerfCheck.start(durMs'));
 
 // A4 零常驻：rAF 首现必须在 start 之后
 const pc = read('js/perf-check.js');

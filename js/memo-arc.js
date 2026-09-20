@@ -255,6 +255,10 @@ setCur(cur);
 }
 function render() {
 if (!root) return;
+if (window.mochiDataPending && window.mochiDataPending()) {
+root.innerHTML = window.mochiLoadingHtml('梦角档案');
+return;
+}
 syncCur();
 const r = roster();
 let h = '';
@@ -275,6 +279,7 @@ const arc = ensureArc(cur); // created 初始化在这：打开即开始计相�
 h += (view === 'home') ? overviewHTML(arc, r) : sectionHTML(arc, r);
 root.innerHTML = h;
 }
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { render(); } catch (e) {} });
 function activeLovesOf(arc) { return arc.loves.filter(x => x.status !== 'retired'); }
 function filledN(m, keys) { return keys.filter(k => String(m[k] || '').trim()).length; }
 function overviewHTML(arc, r) {

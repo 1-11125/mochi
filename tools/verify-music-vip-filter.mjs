@@ -133,7 +133,8 @@ window.Audio = function () {
     buffered: { length: 0, end: function () { return 0; } },
     style: {}, parentNode: { removeChild: function () {} },
     onplay: null, onpause: null, onended: null, onerror: null, onloadedmetadata: null,
-    removeAttribute: function () {}, load: function () {}
+    removeAttribute: function () {}, load: function () {},
+    addEventListener: function () {}
   };
   el.play = function () {
     if (window.__au.rejectMode) {

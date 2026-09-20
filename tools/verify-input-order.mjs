@@ -40,6 +40,7 @@ function check(desc, ok, detail) {
 // （build.mjs 的哨兵侧是逐行 trim 后再比，天然不受影响；这里补上同一层健壮性）。
 const rd = (p) => { try { return readFileSync(join(root, p), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { return ''; } };
 const tpl = rd('src/template.html'), chat = rd('src/js/chat.js'), cs = rd('src/js/chat-settings.js'),
+      gc = rd('src/js/group-chat.js'),
       hub = rd('src/js/feature-hub.js'), ma = rd('src/js/mobile-adapt.js');
 
 const ioCount = (src, tok) => (src.match(new RegExp('data-io="' + tok + '"', 'g')) || []).length;
@@ -64,6 +65,14 @@ check('A10 面板登记进移动端浮层清单（否则面板期底层设置页
 check('A11 功能介绍页有条目', hub.includes("'#cs-input-order'"));
 check('A12 #660附 数据就绪后补算三个开关按钮显隐（删掉＝「继续说」开着却在冷启动后不显示）',
   chat.includes("try { syncMicBtn(); } catch (e) {}\ntry { syncBatchBtn(); } catch (e) {}\ntry { if (window.applyContinueSayUI) window.applyContinueSayUI(); } catch (e) {}"));
+// v3.27.x：群聊设置侧入口（用户「群聊设置里可以和聊天设置里一样移动这个按钮的位置」）——
+// 面板只有一份（chat-settings.js 暴露、group-chat.js 调用），顺序本就是两页共用的 cs-input-order
+check('A13 面板对外暴露成共享入口（群聊设置复用同一份，不做第二套排序 UI）',
+  cs.includes('window.mochiInputOrderPanel = {') && cs.includes('open: openInputOrderPanel') && cs.includes('valueText:'));
+check('A14 群聊设置「通用」里有「输入栏按钮位置」一行并打开同一个面板',
+  gc.includes("id = 'gc-input-order-row'") && gc.includes('window.mochiInputOrderPanel.open()'));
+check('A15 群聊顶部那枚恒显继续说入口已撤走（template 与 js 里都不残留）',
+  !tpl.includes('gc-head-continue') && !gc.includes('gc-head-continue') && !gc.includes('gcHeadContinueBtn'));
 if (results.some(r => !r.ok)) {
   console.log('----');
   console.log('A 轴有 FAIL：源码锚缺失（功能被覆盖或未接入），B 轴跳过');
@@ -386,6 +395,53 @@ try {
   o = null; try { o = JSON.parse(afterSwitch); } catch (e) {}
   check('B17 切联系人后面板自动收掉（不留僵尸浮层）+ 背景解锁',
     openedForSwitch === true && !!o && o.hidden === true && o.display === 'none' && o.lock === false, afterSwitch);
+
+  // B18 群聊设置侧入口（v3.27.x 用户直派「群聊设置里可以和聊天设置里一样移动这个按钮的位置」）：
+  //     群聊页 → 三点菜单 → 群聊设置 → 「通用」tag → 「输入栏按钮位置」，点开必须就是同一个
+  //     面板（不是第二套 UI），且在这里移一次群聊输入栏立刻跟着换位（两页共用一份 cs-input-order）。
+  //     每步都带空值判断：旧产物里没有这一行时只让 B18/B18b 报红，不抛异常（否则污染 B16 零异常判定）。
+  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ m.hidden=true; m.style.display='none'; } document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-group-chat');}); return 1;})()");
+  await sleep(250);
+  await evalJs("(function(){var mo=document.getElementById('gc-more-btn'); if(mo) mo.click(); return 1;})()");
+  await sleep(200);
+  await evalJs("(function(){var s=document.getElementById('gc-more-settings'); if(s) s.click(); return 1;})()");
+  await sleep(400);
+  await evalJs("(function(){var t=document.querySelector('#gc-set-body .gc-set-tabs .them-tab[data-gt=\"general\"]'); if(t) t.click(); return 1;})()");
+  await sleep(250);
+  const b18a = await evalJs(`(function(){
+    var r=document.getElementById('gc-input-order-row');
+    var p=document.getElementById('gc-settings-panel');
+    if (!r) return JSON.stringify({ row: false, settingsOpen: !!p && p.hidden === false });
+    r.click();
+    var m=document.getElementById('cs-input-order-panel');
+    return JSON.stringify({
+      row: true,
+      settingsOpen: !!p && p.hidden === false,
+      open: !!(m && m.style.display === 'flex' && !m.hidden),
+      n: m ? m.querySelectorAll('[data-io-row]').length : 0,
+      seq: m ? Array.prototype.map.call(m.querySelectorAll('[data-io-row]'), function(x){ return x.getAttribute('data-io-row'); }).join(',') : '',
+      val: ((r.querySelector('.gc-set-desk')||{}).textContent) || ''
+    });
+  })()`);
+  o = null; try { o = JSON.parse(b18a); } catch (e) {}
+  check('B18 群聊设置「通用」里的入口点开同一个排序面板（列全 7 项 + 回显当前排列）',
+    !!o && o.row === true && o.settingsOpen === true && o.open === true && o.n === 7 && o.seq === DEF.join(',') && o.val === '默认排列', b18a);
+  const b18b = await evalJs(`(function(){
+    var m=document.getElementById('cs-input-order-panel');
+    var r=m && m.querySelector('[data-io-row="img"]');
+    var mv=r && r.querySelector('[data-io-move="-1"]');
+    if (mv) mv.click();
+    var row=document.querySelector('#page-group-chat .chat-input-row');
+    var g=function(t){ var e=row && row.querySelector('[data-io="'+t+'"]'); return e?e.style.order:null; };
+    var rr=document.getElementById('gc-input-order-row');
+    return JSON.stringify({ img: g('img'), more: g('more'), val: rr ? (((rr.querySelector('.gc-set-desk')||{}).textContent) || '') : '' });
+  })()`);
+  await sleep(300);
+  o = null; try { o = JSON.parse(b18b); } catch (e) {}
+  check('B18b 在群聊侧面板里移一次：群聊输入栏立刻换位 + 行内回显转「已自定义」',
+    !!o && o.img === '20' && o.more === '30' && o.val === '已自定义', b18b);
+  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ var bs=m.querySelectorAll('button'); for(var i=0;i<bs.length;i++){ if(bs[i].textContent==='恢复默认排列'){ bs[i].click(); break; } } m.hidden=true; m.style.display='none'; } return 1;})()");
+  await sleep(250);
 } catch (e) {
   check('B 轴执行异常：' + (e && e.message), false);
 } finally {

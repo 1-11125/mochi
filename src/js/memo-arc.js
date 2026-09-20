@@ -302,6 +302,12 @@
   // ---- 渲染主入口 ----
   function render() {
     if (!root) return;
+    // #797：回填未完成时整体出加载占位（名册/发现卡片/理解变化/共同记录都在恢复数据里，
+    // 占位期也不该触发 ensureArc 之类的建档写入）；done 后由下方 mochiOnDataReady 补渲收敛
+    if (window.mochiDataPending && window.mochiDataPending()) {
+      root.innerHTML = window.mochiLoadingHtml('梦角档案');
+      return;
+    }
     syncCur();
     const r = roster();
     let h = '';
@@ -324,6 +330,8 @@
     h += (view === 'home') ? overviewHTML(arc, r) : sectionHTML(arc, r);
     root.innerHTML = h;
   }
+  // #797：回填完成补渲一次（render 纯重画幂等；pending 占位由这次收敛成真数据/真空态）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { render(); } catch (e) {} });
   function activeLovesOf(arc) { return arc.loves.filter(x => x.status !== 'retired'); }
   function filledN(m, keys) { return keys.filter(k => String(m[k] || '').trim()).length; }
 

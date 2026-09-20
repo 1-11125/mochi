@@ -101,6 +101,8 @@
     renderMonth();
   }
 
+  // #797：回填完成补渲一次（renderToday 经 loadAll 现读现画幂等）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderToday(); } catch (e) {} });
   function renderToday() {
     const now = new Date();
     const k = dkey(now);
@@ -129,8 +131,11 @@
     if (ta) {
       const tm = taMoodFor(k);
       const nm = store().get('lbl-partner') || 'TA';
+      // #797：回填未完成时不说「还没有互动」（读起来像 TA 没理人），出读取占位，
+      // done 后由本页重渲收敛
       ta.textContent = tm ? (nm + ' 今天的心情：' + tm.e + ' ' + tm.n)
-                         : (nm + ' 今天还没有互动，还没有心情哦');
+        : ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingText()
+        : (nm + ' 今天还没有互动，还没有心情哦'));
     }
     const btn = document.getElementById('mood-save');
     if (btn && !btn.dataset.bound) {

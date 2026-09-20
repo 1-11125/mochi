@@ -105,9 +105,10 @@ ok(devFlat.includes("(window.mochiDiagExportDocx || function () {})(c ? c.text()
 ok(devFlat.includes("typeof window.mochiExportBlob !== 'function'") && devFlat.includes("window.mochiExportBlob(blob, fname, shareTitle || 'mochi 诊断报告'"), 'E7 主链路=mochiExportBlob，缺失时回退 legacy');
 ok(devFlat.includes('function diagExportDocx(text, basePrefix, failMsg, toastFn, shareTitle)') && devSrc.includes('buildDocxBlob(text)'), 'E8 diagExportDocx 定义齐全（仍用 buildDocxBlob 产物）');
 ok(bakSrc.includes('window.mochiExportBlob = function (blob, fname, shareTitle, saveTypes)'), 'E9 data-backup 暴露 Blob 版三级降级导出');
-// E12~E15（#758 新增）：壳浏览器「下载静默被丢弃」时的第二条活路（用户直派：夸克「导出docx也无法下载」）
+// E12~E15（#758 新增，#815 换锚）：壳浏览器「下载静默被丢弃」时的第二条活路（用户直派：夸克「导出docx也无法下载」）
+// #815：追问名单从「点名 brokenFileShare（夸克/华为）」改为结构性判定 downloadAsk（壳家族∪能力缺口∪iOS 独立容器）
 ok(bakSrc.includes('function afterDownloadAttempt(blob, fname, shareTitle, saveTypes, doneText, failText)')
-  && bakSrc.includes('if (!brokenFileShareEnv()) return;'), 'E12 下载触发后按内核给换路追问（非 brokenFileShare 内核不加多余步骤）');
+  && bakSrc.includes('if (!downloadAskEnv()) return;'), 'E12 下载触发后按追问名单给换路追问（#815 结构性名单；名单外内核不加多余步骤）');
 ok(bakSrc.includes('function anchorDownloadDataUrl(blob, fname, cb)') && bakSrc.includes('blob.size > 2 * 1024 * 1024'), 'E13 data: URL 直下通道在位（≤2MB，与 blob: 不同的取数路径）');
 ok(bakSrc.includes("navigator.share({ files: [file], title: shareTitle || 'mochi 导出文件' })"), 'E14 换路首选手势触发的系统分享面板（该类内核唯一可靠保存通道）');
 ok((bakSrc.match(/afterDownloadAttempt\(blob, fname/g) || []).length === 4, 'E15 三条导出路径（整包备份/小文件导出/Blob 导出）= 1 处定义 + 3 处调用，全部接上换路收口');

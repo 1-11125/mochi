@@ -1,0 +1,1552 @@
+(function () { try {
+(function () {
+const uid = window.activePrefix();
+const store = window.activeStore();
+const GNS = 'xy-home-v2';
+function gGet(k) {
+try { const v = window.xyStore ? window.xyStore(GNS).get(k) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
+try { return store.get(k); } catch (e) { return null; }
+}
+function gSet(k, v) {
+try { if (window.xyStore) window.xyStore(GNS).set(k, v); } catch (e) {}
+}
+function toast(msg, dur) {
+let t = document.getElementById('cc-toast');
+if (!t) {
+t = document.createElement('div');
+t.id = 'cc-toast';
+document.body.appendChild(t);
+}
+t.textContent = msg;
+t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._timer);
+t.style.animationDuration = (dur || 2600) + 'ms';
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
+}
+let kaCustomAudio = null;
+let kaCustomAudioName = '';
+function kaCustomOn() { try { return gGet('__ka-audio-on') === '1'; } catch (e) { return false; } }
+function kaAudioLabel() { return (kaCustomAudio || kaCustomOn()) ? '自定义音频' : '默认静音音频'; }
+function kaApplyCustomAudio() {
+if (!kaCustomAudio || !keepAudio || !keepAudio.el) return;
+try {
+if (keepAudio.el.src !== kaCustomAudio) {
+keepAudio.el.src = kaCustomAudio;
+if (!musicNowPlaying()) {
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+}
+}
+} catch (e) {}
+}
+function kaLoadCustomAudio() {
+if (!kaCustomOn() || kaCustomAudio) return;
+try {
+if (!window.idbGet) return;
+window.idbGet(GNS + ':__ka-audio').then(function (v) {
+if (v && typeof v === 'string' && v.length > 10) {
+kaCustomAudio = v;
+try { kaCustomAudioName = gGet('__ka-audio-name') || ''; } catch (e) {}
+kaApplyCustomAudio();
+syncKaAudioUI();
+}
+}).catch(function () {});
+} catch (e) {}
+}
+function kaSetDefaultAudio() {
+kaCustomAudio = null;
+kaCustomAudioName = '';
+try {
+window.xyStore(GNS).remove('__ka-audio');
+window.xyStore(GNS).remove('__ka-audio-on');
+window.xyStore(GNS).remove('__ka-audio-name');
+} catch (e) {}
+if (keepEnabled && keepAudio && keepAudio.el) {
+try {
+keepAudio.el.src = ensureKeepAudioDataUrl();
+keepAudio.el.volume = KA_VOL_BASE; // #724：与启动档同源（原硬编码 0.05）
+if (!musicNowPlaying()) { const p = keepAudio.el.play(); if (p && p.catch) p.catch(function () {}); }
+} catch (e) {}
+}
+syncKaAudioUI();
+toast('已恢复默认静音音频');
+}
+function kaPickCustomAudio() {
+window.mochiFilePick({
+id: 'mochi-ka-audio-pick', accept: 'audio/*',
+onFiles: function (files) {
+const f = files && files[0];
+if (!f) { toast('没有取到音频，请再选一次'); return; }
+if (f.size > 3 * 1024 * 1024) toast('音频较大（>3MB），可能占用较多存储空间');
+toast('正在读取音频…');
+const r = new FileReader();
+r.onload = function () {
+kaCustomAudio = String(r.result || '');
+kaCustomAudioName = f.name || '自定义音频';
+try {
+window.xyStore(GNS).set('__ka-audio', kaCustomAudio);
+window.xyStore(GNS).set('__ka-audio-on', '1');
+window.xyStore(GNS).set('__ka-audio-name', kaCustomAudioName);
+} catch (e) {}
+if (keepEnabled && keepAudio && keepAudio.el) {
+try { keepAudio.el.volume = 1; } catch (e) {}
+kaApplyCustomAudio();
+}
+syncKaAudioUI();
+toast('已设为自定义保活音频（按原音量循环播放）');
+};
+r.onerror = function () { toast('音频读取失败'); };
+r.readAsDataURL(f);
+}
+});
+}
+function openKaAudioPicker() {
+if (!window.openModal) return;
+const pills = [
+{ label: '默认静音音频', value: 'default' },
+{ label: '上传自定义音频', value: 'upload' }
+];
+if (kaCustomAudio || kaCustomOn()) pills.push({ label: '清除自定义', value: 'clear' });
+const hasCustom = !!(kaCustomAudio || kaCustomOn());
+const cur = kaAudioLabel() + (hasCustom && kaCustomAudioName ? '（' + kaCustomAudioName + '）' : '');
+const txt = '后台保活需要在后台持续播放一段音频来让页面保持运行。\n\n· 默认静音音频：内置生成、近乎无声，推荐。\n· 自定义音频：上传自己的音频（白噪音 / 助眠声，或更彻底的静音文件），按原音量循环播放。\n\n注意：任何持续播放的音频都会占用手机音频通道，可能影响其他 App 的声音（详见「后台保活」功能说明）。\n当前：' + cur;
+window.openModal('【保活音频】', '', function (v) {
+if (v === 'default' || v === 'clear') kaSetDefaultAudio();
+else if (v === 'upload') kaPickCustomAudio();
+}, { noInput: true, pillSubmit: true, staticText: txt, pills: pills });
+}
+let keepAudio = null;
+let keepInterval = null;
+let keepEnabled = false;
+let keepUserTouched = false; // v3.26.x #88：本会话用户手动动过保活开关 → 回填后不重读覆盖
+let wakeSentinel = null; // v3.5.131：模块级，供 stopKeepAlive 释放
+let kaTimer = null;     // 排中的退避补播定时器
+let kaDelay = 0;        // 下一次补播间隔 ms；0=不在退避轨道
+let kaPauseStreak = 0;  // 连续被打断次数（稳定播放一段时间后清零）
+let kaLastPlayAt = 0;   // 最近一次 play() 被接受的时间（音频跑起来后刷新）
+let kaPlayFailStreak = 0; // 连续 play() 被拒次数（补播一直失败时翻倍退避，不无限撞墙）
+function kaCfg() {
+let base = 5000, max = 60000;
+try { if (typeof window.__kaRetryBaseMs === 'number') base = Math.max(1, window.__kaRetryBaseMs); } catch (e) {}
+try { if (typeof window.__kaRetryMaxMs === 'number') max = Math.max(1, window.__kaRetryMaxMs); } catch (e) {}
+return { base: base, max: Math.max(base, max) };
+}
+function kaStableMs() {
+try { if (typeof window.__kaStableMs === 'number') return Math.max(1, window.__kaStableMs); } catch (e) {}
+return 90000;
+}
+function kaSchedule(delayMs) {
+if (!keepEnabled || kaTimer) return;
+const cfg = kaCfg();
+if (!delayMs) {
+kaPauseStreak++;
+delayMs = Math.min(cfg.base * Math.pow(2, Math.min(kaPauseStreak - 1, 10)), cfg.max);
+}
+if (document.visibilityState === 'hidden' && delayMs > 20000) delayMs = 20000;
+kaDelay = delayMs;
+window.__kaNextDelayMs = delayMs; // 回归探针
+kaTimer = setTimeout(function () {
+kaTimer = null;
+if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) { kaDelay = 0; return; }
+if (!keepAudio.el.paused) { kaDelay = 0; return; }
+const p = keepAudio.el.play();
+const after = function () {
+if (keepEnabled && keepAudio && keepAudio.el && keepAudio.el.paused && !musicNowPlaying()) {
+const c2 = kaCfg();
+kaSchedule(Math.min((kaDelay || c2.base) * 2, c2.max));
+}
+};
+if (p && p.then) p.then(after, after); else after();
+}, kaDelay);
+}
+function kaStopTimer() { if (kaTimer) { clearTimeout(kaTimer); kaTimer = null; } kaDelay = 0; }
+function kaResetBackoff() { kaStopTimer(); kaPauseStreak = 0; kaPlayFailStreak = 0; }
+function kaMarkPlayed() { kaLastPlayAt = Date.now(); }
+function musicNowPlaying() {
+try { if (!window.__musicPlaying) return false; } catch (e) { return false; }
+try {
+const m = window.__mochiMusic;
+if (m && m.el && m.el.paused === false) return true;
+if (m && m.el && m.el.paused === true) return false;
+} catch (e) {}
+return true;
+}
+function syncKeepForMusic() {
+if (!keepAudio || !keepAudio.el) return;
+try {
+if (musicNowPlaying()) {
+if (!keepAudio.el.paused) keepAudio.el.pause(); // 让位：音乐在播，保活音频暂停
+} else if (keepEnabled && keepAudio.el.paused) {
+if (kaTimer || kaDelay) return;
+try {
+const m = window.__mochiMusic;
+if (window.__musicPlaying && m && m.el && m.el.paused && m.want && m.want()) m.el.unpause();
+} catch (e) {}
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+setKeepMediaSession();
+}
+} catch (e) {}
+}
+(function installMusicPlayingWatcher() {
+try {
+let v = !!window.__musicPlaying;
+Object.defineProperty(window, '__musicPlaying', {
+configurable: true,
+get: function () { return v; },
+set: function (nv) {
+nv = !!nv;
+if (nv === v) return;
+v = nv;
+setTimeout(syncKeepForMusic, 0);
+}
+});
+} catch (e) {}
+})();
+const KA_VOL_BASE = 0.2, KA_VOL_MAX = 0.35;
+let KEEP_AUDIO_DATAURL = '';
+function kaIsIOS() {
+try { return !!(window.mochiDevice || {}).isIOS; } catch (e) {}
+return false;
+}
+function ensureKeepAudioDataUrl() {
+if (KEEP_AUDIO_DATAURL) return KEEP_AUDIO_DATAURL;
+try {
+const sr = 44100, sec = 1, n = sr * sec;
+const amp = kaIsIOS() ? 0.002 : 0.02;
+const freq = 18000;
+const buf = new ArrayBuffer(44 + n * 2);
+const dv = new DataView(buf);
+const ws = function (o, s) { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+ws(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); ws(8, 'WAVE');
+ws(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+ws(36, 'data'); dv.setUint32(40, n * 2, true);
+for (let i = 0; i < n; i++) {
+const v = Math.sin(2 * Math.PI * freq * (i / sr)) * amp;
+dv.setInt16(44 + i * 2, Math.round(v * 32767), true);
+}
+const bytes = new Uint8Array(buf);
+let bin = '';
+for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+KEEP_AUDIO_DATAURL = 'data:audio/wav;base64,' + btoa(bin);
+} catch (e) { KEEP_AUDIO_DATAURL = ''; }
+return KEEP_AUDIO_DATAURL;
+}
+function musicIntentPlaying() { try { return !!window.__musicWantPlay; } catch (e) { return false; } }
+function setKeepMediaSession() {
+try {
+if (!('mediaSession' in navigator) || !navigator.mediaSession || !window.MediaMetadata) return;
+if (window.__musicPlaying) return; // 音乐在播，保留音乐的媒体条
+if (musicIntentPlaying()) return; // 音乐还想播（瞬断暂停中），不覆盖歌曲媒体条
+navigator.mediaSession.metadata = new window.MediaMetadata({
+title: 'Mochi 后台保活',
+artist: 'mochi',
+album: '后台消息提醒运行中'
+});
+try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+try {
+navigator.mediaSession.setActionHandler('play', function () {});
+navigator.mediaSession.setActionHandler('pause', function () {});
+} catch (e) {}
+} catch (e) {}
+}
+let kaPc1 = null, kaPc2 = null, kaWebrtcTimer = null;
+let kaCand1 = [], kaCand2 = [];
+let kaWebrtcBootTimer = null;   // 启动延迟建锚定时器
+let kaWebrtcDiscTimer = null;   // disconnected 自愈观察窗定时器
+let kaWebrtcRebuildDelay = 0;   // 下次重建间隔 ms（指数退避轨道）；0=不在轨道
+let kaWebrtcOkAt = 0;           // 最近一次进入 connected 的时刻（稳定判定用）
+function kaWebrtcDeferredStart(delayMs) {
+if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+kaWebrtcBootTimer = setTimeout(function () {
+kaWebrtcBootTimer = null;
+if (!keepEnabled || kaPc1 || kaPc2) return;
+if (document.hidden) return;
+kaWebrtcStart();
+}, delayMs);
+}
+function kaWebrtcScheduleRebuild() {
+if (kaWebrtcOkAt && Date.now() - kaWebrtcOkAt > 300000) kaWebrtcRebuildDelay = 0;
+kaWebrtcRebuildDelay = kaWebrtcRebuildDelay ? Math.min(kaWebrtcRebuildDelay * 2, 900000) : 30000;
+if (keepEnabled && !kaWebrtcTimer) kaWebrtcTimer = setTimeout(function () {
+kaWebrtcTimer = null;
+if (!keepEnabled || document.hidden) return;
+kaWebrtcStart();
+}, kaWebrtcRebuildDelay);
+}
+function kaWebrtcStart() {
+if (kaPc1 || kaPc2) return;
+if (kaWebrtcTimer) { clearTimeout(kaWebrtcTimer); kaWebrtcTimer = null; }
+if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
+if (typeof RTCPeerConnection === 'undefined') return;
+try {
+const p1 = new RTCPeerConnection(), p2 = new RTCPeerConnection();
+p1.onicecandidate = function (e) { if (e.candidate) kaCand1.push(e.candidate); };
+p2.onicecandidate = function (e) { if (e.candidate) kaCand2.push(e.candidate); };
+p1.createDataChannel('mochi-ka');
+const wire = function (a, b) {
+return a.createOffer()
+.then(function (o) { return a.setLocalDescription(o); })
+.then(function () { return b.setRemoteDescription(a.localDescription); })
+.then(function () { return b.createAnswer(); })
+.then(function (ans) { return b.setLocalDescription(ans); })
+.then(function () { return a.setRemoteDescription(b.localDescription); });
+};
+const gathered = function (pc) {
+return new Promise(function (res) {
+let done = false;
+const fin = function () { if (!done) { done = true; res(); } };
+try { if (pc.iceGatheringState === 'complete') { fin(); return; } } catch (e) { fin(); return; }
+try {
+pc.addEventListener('icegatheringstatechange', function () {
+try { if (pc.iceGatheringState === 'complete') fin(); } catch (e) { fin(); }
+});
+} catch (e) { fin(); }
+setTimeout(fin, 3000);
+});
+};
+const flush = function () {
+try { for (let i = 0; i < kaCand2.length; i++) p1.addIceCandidate(kaCand2[i]); } catch (e) {}
+try { for (let i = 0; i < kaCand1.length; i++) p2.addIceCandidate(kaCand1[i]); } catch (e) {}
+};
+wire(p1, p2)
+.then(function () { return Promise.all([gathered(p1), gathered(p2)]); })
+.then(flush)
+.catch(function () { kaWebrtcStop(); kaWebrtcScheduleRebuild(); });
+p1.onconnectionstatechange = function () {
+const st = p1.connectionState;
+if (st === 'connected') {
+kaWebrtcOkAt = Date.now();
+if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
+return;
+}
+if (st === 'disconnected') {
+if (kaWebrtcDiscTimer) return;
+kaWebrtcDiscTimer = setTimeout(function () {
+kaWebrtcDiscTimer = null;
+if (!kaPc1) return;
+const s2 = kaPc1.connectionState;
+if (s2 === 'connected') { kaWebrtcOkAt = Date.now(); return; }
+kaWebrtcStop();
+kaWebrtcScheduleRebuild();
+}, 8000);
+return;
+}
+if (st === 'failed' || st === 'closed') {
+kaWebrtcStop();
+kaWebrtcScheduleRebuild();
+}
+};
+kaPc1 = p1; kaPc2 = p2;
+} catch (e) {}
+}
+function kaWebrtcStop() {
+if (kaWebrtcTimer) { clearTimeout(kaWebrtcTimer); kaWebrtcTimer = null; }
+if (kaWebrtcBootTimer) { clearTimeout(kaWebrtcBootTimer); kaWebrtcBootTimer = null; }
+if (kaWebrtcDiscTimer) { clearTimeout(kaWebrtcDiscTimer); kaWebrtcDiscTimer = null; }
+try { if (kaPc1) kaPc1.close(); } catch (e) {}
+try { if (kaPc2) kaPc2.close(); } catch (e) {}
+kaPc1 = kaPc2 = null;
+kaCand1 = []; kaCand2 = [];
+}
+const KA_HB_KEY = 'xy-home-v2:__ka-hb';
+let kaHbTimer = null;
+let kaHb = null;
+function kaHbTick() {
+if (!kaHb) return;
+kaHb.n++;
+kaHb.ts = Date.now();
+try { kaHb.trail.push(kaHb.ts); if (kaHb.trail.length > 8) kaHb.trail.shift(); } catch (e) {}
+try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
+}
+function kaHbStart() {
+if (kaHbTimer) return;
+kaHb = { n: 0, hid: Date.now(), ts: Date.now(), resumed: 0, trail: [] };
+kaHbTick();
+kaHbTimer = setInterval(kaHbTick, 30000);
+}
+function kaHbStop() {
+if (kaHbTimer) { clearInterval(kaHbTimer); kaHbTimer = null; }
+}
+let kaEv = { stall: 0, died: 0 };
+try {
+const _evSaved = gGet('__ka-ev');
+if (_evSaved && String(_evSaved).charAt(0) === '{') {
+const _ev = JSON.parse(_evSaved);
+if (_ev && typeof _ev === 'object') kaEv = Object.assign(kaEv, _ev);
+}
+} catch (e) {}
+function kaEvSave() { try { gSet('__ka-ev', JSON.stringify(kaEv)); } catch (e) {} }
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'hidden') {
+if (!keepEnabled) return;
+kaHbStart();
+} else {
+if (kaHb) {
+kaHb.resumed = Date.now();
+if (kaHb.ts && kaHb.resumed - kaHb.ts > 90000) {
+kaEv.stall++; kaEvSave();
+try { if (keepAudio && keepAudio.el && !kaCustomAudio) keepAudio.el.volume = KA_VOL_MAX; } catch (e) {}
+}
+try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
+}
+kaHbStop();
+}
+});
+try {
+if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
+if (old && old.n > 0 && !old.resumed && !old.bye) { kaEv.died++; kaEvSave(); }
+}).catch(function () {});
+} catch (e) {}
+window.addEventListener('pagehide', function () {
+if (!kaHb) return;
+kaHb.bye = 1;
+try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
+});
+window.__kaProbe = function () {
+let audio = null, ms = null;
+try { audio = keepAudio && keepAudio.el ? { paused: !!keepAudio.el.paused, volume: keepAudio.el.volume, loop: !!keepAudio.el.loop } : null; } catch (e) {}
+try { ms = ('mediaSession' in navigator && navigator.mediaSession) ? { metadata: !!navigator.mediaSession.metadata, state: navigator.mediaSession.playbackState } : null; } catch (e) {}
+let music = null;
+try {
+const m = window.__mochiMusic;
+music = {
+flag: !!window.__musicPlaying,
+paused: m && m.el ? !!m.el.paused : null,
+want: m && m.want ? !!m.want() : null,
+strict: musicNowPlaying()
+};
+} catch (e) {}
+return {
+keep: keepEnabled,
+notify: notifyEnabled,
+perm: ('Notification' in window) ? Notification.permission : 'unsupported',
+audio: audio,
+ms: ms,
+music: music,
+pc: kaPc1 ? (kaPc1.connectionState || 'new') : 'off',
+pcGathering: kaPc1 ? (function () { try { return kaPc1.iceGatheringState || '?'; } catch (e) { return '?'; } })() : 'off',
+pcCand: (kaCand1.length + kaCand2.length) | 0,
+pcNext: kaWebrtcTimer ? kaWebrtcRebuildDelay : 0,
+hb: kaHb ? { n: kaHb.n, hid: kaHb.hid, ts: kaHb.ts, resumed: kaHb.resumed, trail: (kaHb.trail || []).slice() } : null,
+ev: { stall: kaEv.stall, died: kaEv.died }
+};
+};
+function startKeepAlive(showToast) {
+if (keepAudio) return;
+try {
+const src = kaCustomAudio || ensureKeepAudioDataUrl();
+if (!src) { if (showToast) toast('后台保活启动失败（无法生成保活音频）'); return; }
+const keepEl = document.createElement('audio');
+keepEl.loop = true;
+keepEl.volume = kaCustomAudio ? 1 : KA_VOL_BASE;
+keepEl.src = src;
+keepEl.setAttribute('playsinline', '');
+keepEl.addEventListener('play', function () { kaMarkPlayed(); });
+keepEl.addEventListener('pause', function () {
+if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
+if (kaTimer) return; // 已在退避轨道
+kaSchedule(); // 连击计数由 kaSchedule 内部递增
+});
+const playIt = function () {
+if (musicNowPlaying()) return; // v3.10.x：音乐在播，让位不抢音频（由 syncKeepForMusic 收回）
+const p = keepEl.play();
+if (p && p.catch) p.catch(function () {});
+};
+playIt();
+keepAudio = { el: keepEl };
+setKeepMediaSession();
+kaWebrtcDeferredStart(10000);
+const resumeOnInteraction = function () {
+if (musicNowPlaying()) return; // v3.10.x：音乐在播，让位
+if (keepAudio && keepAudio.el && keepAudio.el.paused) {
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+}
+};
+document.addEventListener('click', resumeOnInteraction, { once: true });
+document.addEventListener('touchstart', resumeOnInteraction, { once: true });
+document.addEventListener('keydown', resumeOnInteraction, { once: true });
+keepInterval = setInterval(function () {
+if (keepAudio && keepAudio.el) {
+try {
+if (musicNowPlaying()) {
+if (!keepAudio.el.paused) keepAudio.el.pause();
+return;
+}
+if (!keepAudio.el.paused) {
+let hold = true;
+try {
+if (document.visibilityState === 'hidden') {
+const md = navigator.mediaSession && navigator.mediaSession.metadata;
+hold = !!(md && String(md.title) === 'Mochi 后台保活');
+}
+} catch (e) { hold = true; }
+if (hold) {
+try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+}
+if (kaPauseStreak && Date.now() - kaLastPlayAt > kaStableMs()) kaPauseStreak = 0;
+return;
+}
+if (!kaTimer) kaSchedule();
+} catch (e) {}
+}
+}, 5000);
+const requestWakeLock = function () {
+if (navigator.wakeLock && document.visibilityState === 'visible') {
+navigator.wakeLock.request('screen').then(function (sentinel) {
+wakeSentinel = sentinel;
+if (wakeSentinel) {
+wakeSentinel.addEventListener('release', function () {
+setTimeout(function () { if (keepEnabled) requestWakeLock(); }, 1000);
+});
+}
+}).catch(function () {});
+}
+};
+requestWakeLock();
+if (showToast) {
+if (!('Notification' in window)) {
+toast('后台保活已启动（注意：本环境不支持系统通知，需 HTTPS 访问）');
+} else if (Notification.permission !== 'granted') {
+toast('后台保活已启动（通知未授权：去设置→后台通知→开启并允许权限）');
+} else {
+showSysNotification('后台保活已启动', { body: '正在播放静音音频以保持后台活跃，请勿关闭此页面' }).then(function (ok) {
+toast(ok
+? '后台保活已启动 · 通知栏应弹出提示条，若没有请到系统设置→通知→Chrome→允许通知'
+: '后台保活已启动（通知发送未受理，请检查系统通知权限）');
+});
+}
+}
+} catch (e) {}
+}
+function stopKeepAlive(showToast) {
+try { if (keepAudio && keepAudio.el) { keepAudio.el.pause(); keepAudio.el.src = ''; } } catch (e) {}
+if (!window.__musicPlaying) {
+try {
+if ('mediaSession' in navigator && navigator.mediaSession) {
+navigator.mediaSession.metadata = null;
+try { navigator.mediaSession.setActionHandler('play', null); } catch (e) {}
+try { navigator.mediaSession.setActionHandler('pause', null); } catch (e) {}
+}
+} catch (e) {}
+}
+try { if (wakeSentinel) { wakeSentinel.release(); } } catch (e) {}
+wakeSentinel = null;
+kaStopTimer();
+kaPauseStreak = 0;
+kaPlayFailStreak = 0;
+kaWebrtcStop();
+clearInterval(keepInterval);
+keepAudio = null;
+keepInterval = null;
+if (showToast) toast('后台保活已关闭');
+}
+function healKeepAlive() {
+if (!keepEnabled) return;
+kaResetBackoff();
+if (!kaPc1 && !kaWebrtcTimer && !kaWebrtcBootTimer) kaWebrtcDeferredStart(3000);
+if (!musicNowPlaying() && keepAudio && keepAudio.el && keepAudio.el.paused) {
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+}
+[0, 600, 1800].forEach(function (d) {
+setTimeout(function () {
+if (!keepEnabled || musicNowPlaying()) return; // v3.10.x：音乐在播，让位
+if (keepAudio && keepAudio.el && keepAudio.el.paused) {
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+}
+}, d);
+});
+setKeepMediaSession();
+try {
+if (navigator.wakeLock && document.visibilityState === 'visible') {
+navigator.wakeLock.request('screen').then(function (sentinel) {
+wakeSentinel = sentinel;
+if (wakeSentinel) {
+wakeSentinel.addEventListener('release', function () {
+setTimeout(function () { if (keepEnabled) requestWakeLockTop(); }, 1000);
+});
+}
+}).catch(function () {});
+}
+} catch (e) {}
+}
+let _fgResumeAt = 0;
+function _onFgVisible() {
+const now = Date.now();
+if (now - _fgResumeAt < 1000) return;
+_fgResumeAt = now;
+healKeepAlive();
+try { document.dispatchEvent(new Event('mochi-fg-resume')); } catch (e) {}
+}
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'visible') _onFgVisible();
+});
+document.addEventListener('focus', function () {
+if (document.visibilityState === 'visible') _onFgVisible();
+});
+window.addEventListener('pageshow', function (e) {
+if (e.persisted || document.visibilityState === 'visible') _onFgVisible();
+});
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState !== 'hidden') return;
+if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
+if (!keepAudio.el.paused) return;
+kaResetBackoff();
+const p = keepAudio.el.play();
+if (p && p.catch) p.catch(function () {});
+kaSchedule();
+});
+function requestWakeLockTop() {
+try {
+if (navigator.wakeLock && document.visibilityState === 'visible' && keepEnabled) {
+navigator.wakeLock.request('screen').then(function (sentinel) {
+wakeSentinel = sentinel;
+}).catch(function () {});
+}
+} catch (e) {}
+}
+document.addEventListener('music-media-release', function () {
+if (keepEnabled) { setKeepMediaSession(); syncKeepForMusic(); }
+});
+const kaBtn = document.getElementById('bg-keepalive');
+function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
+if (kaBtn) {
+kaBtn.addEventListener('change', function () {
+keepUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
+keepEnabled = kaBtn.checked;
+gSet('bg-keepalive', keepEnabled ? '1' : '0');
+gSet('__ka-user-off', keepEnabled ? '0' : '1');
+if (keepEnabled) startKeepAlive(true);
+else stopKeepAlive(true);
+});
+}
+(function () {
+let saved = gGet('bg-keepalive');
+if (saved === null) {
+const old = store.get('bg-keepalive');
+if (old !== null) { gSet('bg-keepalive', old); saved = old; }
+}
+keepEnabled = saved === null ? false : saved === '1';
+if (gGet('__ka-user-off') === '1') {
+keepEnabled = false;
+if (saved === '1') gSet('bg-keepalive', '0');
+}
+syncKeepUI();
+if (keepEnabled) startKeepAlive(false);
+})();
+const kaAudioBtn = document.getElementById('bg-keep-audio-btn');
+function syncKaAudioUI() { if (kaAudioBtn) kaAudioBtn.textContent = kaAudioLabel(); }
+if (kaAudioBtn) kaAudioBtn.addEventListener('click', function (e) {
+e.preventDefault();
+e.stopPropagation();
+openKaAudioPicker();
+});
+kaLoadCustomAudio();
+syncKaAudioUI();
+try { document.addEventListener('mochi-restore-done', function () { kaLoadCustomAudio(); syncKaAudioUI(); }); } catch (e) {}
+let notifyEnabled = false;
+let notifyUserTouched = false; // v3.26.x #88：本会话用户手动动过通知开关 → 回填后不重读覆盖
+const NOTIFY_ICON = (function () {
+try { return new URL('./icon-512.png', location.href).href; } catch (e) { return ''; }
+})();
+let BADGE_DATAURL = '';
+let badgeReady = false;
+let badgeQueue = null;
+function getBadgeUrl(cb) {
+cb = cb || function () {};
+if (badgeReady) { cb(BADGE_DATAURL); return; }
+if (badgeQueue) { badgeQueue.push(cb); return; }
+badgeQueue = [cb];
+if (!NOTIFY_ICON) { badgeReady = true; BADGE_DATAURL = ''; const q = badgeQueue; badgeQueue = null; for (let i = 0; i < q.length; i++) q[i](''); return; }
+const img = new Image();
+img.onload = function () {
+try {
+const s = 96;
+const c = document.createElement('canvas');
+c.width = s; c.height = s;
+const ctx = c.getContext('2d');
+ctx.drawImage(img, 0, 0, s, s);
+const d = ctx.getImageData(0, 0, s, s);
+const px = d.data;
+for (let i = 0; i < px.length; i += 4) {
+const r = px[i], g = px[i + 1], b = px[i + 2];
+if (r > 248 && g > 248 && b > 248) px[i + 3] = 0;   // 白底 → 透明
+else { px[i] = 255; px[i + 1] = 255; px[i + 2] = 255; px[i + 3] = 255; } // 内容 → 白色不透明
+}
+ctx.putImageData(d, 0, 0);
+BADGE_DATAURL = c.toDataURL('image/png');
+} catch (e) { BADGE_DATAURL = ''; }
+badgeReady = true;
+const q = badgeQueue; badgeQueue = null;
+for (let i = 0; i < q.length; i++) { try { q[i](BADGE_DATAURL); } catch (e2) {} }
+};
+img.onerror = function () { badgeReady = true; BADGE_DATAURL = ''; const q = badgeQueue; badgeQueue = null; for (let i = 0; i < q.length; i++) { try { q[i](''); } catch (e) {} } };
+img.src = NOTIFY_ICON;
+}
+function dataUrlToBlob(dataUrl, cb) {
+try {
+fetch(dataUrl).then(function (r) { return r.blob(); }).then(function (b) {
+cb(b && b.size ? b : null);
+}, function () { cb(null); });
+} catch (e) { cb(null); }
+}
+function prepMediaBlobs(target, done) {
+const keys = ['icon', 'badge', 'image'];
+let pending = 0;
+const finish = function () { if (!pending && done) { const d = done; done = null; d(); } };
+keys.forEach(function (k) {
+const v = target[k];
+if (typeof v === 'string' && v.indexOf('data:') === 0) {
+pending++;
+dataUrlToBlob(v, function (b) {
+if (b) {
+try { target[k] = URL.createObjectURL(b); } catch (e) { delete target[k]; }
+} else {
+delete target[k];
+}
+if (--pending === 0) finish();
+});
+}
+});
+finish();
+}
+function kaWithTimeout(p, ms) {
+return new Promise(function (resolve, reject) {
+let done = false;
+const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
+try {
+const pr = (typeof p === 'function') ? p() : p;
+Promise.resolve(pr).then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+} catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
+});
+}
+function kaSWReady() {
+if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return Promise.resolve(null);
+const start = function () {
+return navigator.serviceWorker.getRegistration().then(function (reg) {
+return (reg && reg.active) ? reg : null;
+}).catch(function () { return null; }).then(function (reg) {
+if (reg) return reg;
+try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {}
+return kaWithTimeout(navigator.serviceWorker.ready, 4000).then(function (r2) {
+return r2 || null;
+}).catch(function () { return null; });
+});
+};
+return kaWithTimeout(start(), 5000).catch(function () { return null; });
+}
+let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
+window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
+let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
+function swNotifyLater(title, opts, chanOut) {
+const note = function (ch) { lastNotifyChannel = ch; if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} } };
+if (swLaterTimer) return;
+if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
+let done = false;
+const finish = function () { done = true; if (swLaterTimer) { clearTimeout(swLaterTimer); swLaterTimer = null; } };
+swLaterTimer = setTimeout(finish, 60000);
+kaWithTimeout(navigator.serviceWorker.ready, 60000).then(function (reg) {
+if (done || !reg) return;
+finish();
+const o = Object.assign({}, opts);
+delete o.image; delete o.icon; delete o.badge;
+if (!o.urgency) o.urgency = 'high';
+try { reg.showNotification(title, o); note('sw'); } catch (e) {}
+}).catch(function () { finish(); });
+}
+function showSysNotification(title, opts, chanOut) {
+opts = opts || {};
+const note = function (ch) {
+lastNotifyChannel = ch;
+if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
+};
+return new Promise(function (resolve) {
+try {
+if (!('Notification' in window) || Notification.permission !== 'granted') { note('none'); resolve(false); return; }
+const hidden = document.visibilityState === 'hidden';
+const pageFallback = function () {
+const noMedia = Object.assign({}, opts);
+delete noMedia.image;
+delete noMedia.icon;
+delete noMedia.badge;
+note('page');
+try {
+new Notification(title, noMedia);
+resolve(!hidden);
+} catch (e) { note('none'); resolve(false); }
+};
+if ('serviceWorker' in navigator && navigator.serviceWorker) {
+const swOpts = Object.assign({}, opts);
+if (!swOpts.urgency) swOpts.urgency = 'high';
+if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
+kaSWReady().then(function (reg) {
+if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }
+const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
+let ladderIdx = 0;
+const tryNext = function () {
+if (ladderIdx >= STRIP_LADDER.length) { note('none'); resolve(false); return; }
+const attempt = Object.assign({}, swOpts);
+STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
+prepMediaBlobs(attempt, function () {
+kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
+.then(function () { note('sw'); resolve(true); }, tryNext);
+});
+};
+tryNext();
+}).catch(pageFallback);
+} else {
+pageFallback();
+}
+} catch (e) { note('none'); resolve(false); }
+});
+}
+function requestNotifyPermission(cb, failCb) {
+if (!('Notification' in window)) {
+const _isIOS = !!(window.mochiDevice || {}).isIOS;
+toast(_isIOS
+? 'iPhone 网页版不支持系统通知\n请安装到主屏幕后由系统接管'
+: '当前浏览器不支持系统通知\n请改用 Chrome/Edge，或添加到主屏幕后由系统接管');
+if (failCb) failCb();
+return;
+}
+if (Notification.permission === 'granted') { if (cb) cb(); return; }
+if (Notification.permission === 'default') {
+Notification.requestPermission().then(function (p) {
+if (p === 'granted') { if (cb) cb(); }
+else {
+toast('未获得通知权限，后台消息无法弹窗');
+if (failCb) failCb();
+}
+}).catch(function () { if (failCb) failCb(); });
+} else {
+toast('通知权限被拒绝，请在浏览器设置中允许通知');
+if (failCb) failCb();
+}
+}
+const nbBtn = document.getElementById('bg-notify');
+function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
+if (nbBtn) {
+nbBtn.addEventListener('change', function () {
+notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
+if (nbBtn.checked) {
+requestNotifyPermission(function () {
+notifyEnabled = true;
+gSet('bg-notify', '1');
+syncNotifyUI();
+showSysNotification('通知已开启', { body: '后台消息提醒将正常弹窗' });
+setTimeout(function () {
+const keep = document.getElementById('bg-keepalive');
+const keepOn = keepEnabled;
+const userWantsKeepOff = gGet('bg-keepalive') === '0' || gGet('__ka-user-off') === '1';
+if (!keepOn && userWantsKeepOff) {
+toast('你已手动关闭「后台保活」，保持你的设置；但后台消息可能收不到通知，需要时请手动开启');
+} else if (!keepOn) {
+if (keep) keep.checked = true;
+keepEnabled = true;
+gSet('bg-keepalive', '1');
+gSet('__ka-user-off', '0');
+startKeepAlive(false);
+syncKeepUI();
+toast('已自动开启后台保活（后台消息必需）');
+}
+if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+toast('提醒：需 HTTPS 访问，浏览器才允许通知');
+}
+}, 400);
+}, function () {
+notifyEnabled = false;
+gSet('bg-notify', '0');
+syncNotifyUI();
+});
+} else {
+notifyEnabled = false;
+gSet('bg-notify', '0');
+syncNotifyUI();
+}
+});
+}
+(function () {
+let saved = gGet('bg-notify');
+if (saved === null) {
+const old = store.get('bg-notify');
+if (old !== null) { gSet('bg-notify', old); saved = old; }
+}
+notifyEnabled = saved === '1' && 'Notification' in window && Notification.permission === 'granted';
+if ('Notification' in window && Notification.permission === 'granted') { getBadgeUrl(function () {}); }
+if (saved === '1' && !notifyEnabled) {
+try { gSet('bg-notify', '0'); } catch (e) {}
+toast('通知权限已被回收，已自动关闭通知');
+}
+syncNotifyUI();
+})();
+function reheatBgSwitches() {
+if (!keepUserTouched) {
+const wantKeep = gGet('bg-keepalive') === '1' && gGet('__ka-user-off') !== '1';
+if (wantKeep !== keepEnabled) {
+keepEnabled = wantKeep;
+syncKeepUI();
+if (wantKeep) startKeepAlive(false);
+else stopKeepAlive(false);
+try { console.info('[mochi] #88 回填后重读后台保活：' + (wantKeep ? '开' : '关')); } catch (e) {}
+}
+}
+if (!notifyUserTouched) {
+const savedNotify = gGet('bg-notify');
+const wantNotify = savedNotify === '1' &&
+'Notification' in window && Notification.permission === 'granted';
+if (wantNotify !== notifyEnabled) {
+notifyEnabled = wantNotify;
+syncNotifyUI();
+if (wantNotify) getBadgeUrl(function () {}); // 预热 badge 单色图（同初始化）
+try { console.info('[mochi] #88 回填后重读后台通知：' + (wantNotify ? '开' : '关')); } catch (e) {}
+}
+if (savedNotify === '1' && !wantNotify) {
+try { gSet('bg-notify', '0'); } catch (e) {}
+}
+}
+}
+try {
+if (window.__mochiDataReady) setTimeout(reheatBgSwitches, 0);
+else document.addEventListener('mochi-restore-done', function () { reheatBgSwitches(); });
+document.addEventListener('mochi-wrj-heal', function () { reheatBgSwitches(); });
+setTimeout(reheatBgSwitches, 16000); // 回填整体挂起设备的兜底
+} catch (e) {}
+const testBtn = document.getElementById('bg-notify-test');
+if (testBtn) {
+testBtn.addEventListener('click', function () {
+toast('正在检查通知环境…');
+const env = [];
+if (!('Notification' in window)) {
+env.push('✗ 当前浏览器不支持 Notification API');
+env.push('原因：安卓 Chrome 必须 HTTPS 访问才有通知');
+env.push('当前：' + location.protocol + '//' + location.host);
+env.push('解决：用 https:// 部署访问（GitHub Pages 即是 HTTPS）');
+toast('环境检查：\n' + env.join('\n'));
+return;
+}
+if (Notification.permission === 'default') {
+Notification.requestPermission().then(function (p) {
+if (p === 'granted') runTest(env);
+else {
+env.push('✗ 通知权限：拒绝了授权请求');
+env.push('解决：地址栏左侧图标 → 网站设置 → 通知 → 允许');
+toast('环境检查：\n' + env.join('\n'));
+}
+}).catch(function () {
+toast('环境检查：\n✗ 请求通知权限失败');
+});
+return;
+}
+runTest(env);
+});
+function runTest(env) {
+try {
+const kp = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+if (!kp || !kp.keep) env.push('✗ 后台保活：未开启（后台不产生消息，通知无从弹起）');
+else env.push(kp.audio && !kp.audio.paused ? '✓ 后台保活：音频播放中' : '! 后台保活：音频已暂停（回本页自动恢复；后台消息可能到不了）');
+} catch (e) {}
+let verStale = false;
+const verP = new Promise(function (resolve) {
+const fin = function () { resolve(); };
+try {
+const sv = document.getElementById('splash-ver');
+const localTs = Number(sv && sv.getAttribute('data-build-ts')) || 0;
+kaWithTimeout(function () { return fetch('./version.json?v=' + Date.now()); }, 4000)
+.then(function (r) { return r && r.json ? r.json() : null; })
+.then(function (d) {
+const ts = Number(d && d.ts) || 0;
+if (!localTs || !ts) env.push('! 版本：没问到线上版本（网络受限，不影响本测试）');
+else if (ts > localTs) {
+verStale = true;
+env.push('✗ 旧包正在运行：本页 ' + new Date(localTs).toLocaleString() + ' · 线上最新 ' + new Date(ts).toLocaleString() + '——「什么都没改弹窗突然全没」的常见原因，彻底关闭浏览器重开（升级新版本）后再测');
+} else env.push('✓ 版本已最新：' + new Date(ts).toLocaleString());
+fin();
+}, function () { env.push('! 版本：没拉到 version.json（网络受限，不影响本测试）'); fin(); });
+} catch (e) { fin(); }
+});
+try {
+const name = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+let testChan = '';
+let testSettled = false;
+let testOk = false;
+let resultShown = false;
+const askSeen = function () {
+if (typeof window.openModal !== 'function') return;
+window.openModal('自检确认', '', function (choice) {
+if (choice === 'seen') { toast('✓ 弹窗链路全通：以后后台消息没弹时，先回来点这个测试', 4000); return; }
+if (choice !== 'miss') return;
+const MARKS = ['①', '②', '③', '④'];
+const steps = [];
+const push = function (s) { steps.push(MARKS[steps.length] + ' ' + s); };
+if (verStale) push('先升级：本页是旧版本包——彻底关闭浏览器再重开（或点顶部「刷新使用新版」），旧包＝「没改任何东西弹窗突然全没」的头号原因');
+push('重置浏览器通知权限：浏览器设置 → 网站设置 → 通知 → 把本站「关闭」再「允许」，然后强杀浏览器重开（「权限明明开着、通知却消失好几天」多数被这一步救活——JS 读到的一直是 granted，坏的是浏览器内部那条通道）');
+push('系统通知设置：系统设置 → 通知管理 → 本浏览器 → 总开关打开、「允许横幅通知/在屏幕上方显示」打开、通知重要性选「提醒」；国产 ROM（vivo/OPPO/小米/华为）每项可能各自独立');
+push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）');
+steps.push('每做完一步就按 Home 键把页面切到后台、让 TA 发一条消息验证；全部走完仍不弹 → 用「信息诊断」里的反馈入口一键上报');
+window.openModal('没弹出 → 按顺序排查（实效从高到低）', '', function () {}, {
+noInput: true, big: true,
+staticText: steps.join('\n')
+});
+}, {
+noInput: true, lock: true,
+staticText: '刚才屏幕上方弹出「后台通知测试」横幅了吗？\n（通知栏里有小图标 ≠ 屏幕上方弹出；前台发送通常只进通知栏，要验横幅请按 Home 切后台后再测一次）',
+pills: [{ label: '看到了，顶部弹出', value: 'seen' }, { label: '没看到', value: 'miss' }],
+pillSubmit: true
+});
+};
+const showResult = function () {
+if (resultShown) return;
+resultShown = true;
+toast('测试结果：\n' + env.join('\n'), 6000);
+if (testChan === 'sw' && testOk) askSeen();
+};
+const testWasHidden = document.hidden;
+showSysNotification('后台通知测试', { body: '来自 ' + name + ' · 如果能看到这条，后台通知就通了' }, function (ch) { testChan = ch; }).then(function (ok) {
+testSettled = true;
+testOk = !!ok;
+if (testChan === 'sw' && ok) {
+env.push('✓ 测试通知已发送并真正提交系统显示（Service Worker 通道：后台关屏也能弹）');
+const queueCheck = kaSWReady().then(function (reg) {
+if (!reg || !reg.getNotifications) return null;
+return new Promise(function (res) {
+setTimeout(function () {
+try { reg.getNotifications().then(res, function () { res(null); }); } catch (e) { res(null); }
+}, 500);
+});
+}).then(function (list) {
+const found = !!(list && list.some && list.some(function (n) { return n && n.title === '后台通知测试'; }));
+env.push(found
+? '✓ 已确认进入系统通知队列——手机上没看到＝系统层拦截（通知总开关/悬浮横幅/省电限制），见本行「功能说明」排查'
+: '! 已提交但未进系统通知队列＝多半被系统拦截，见本行「功能说明」排查');
+if (found && testWasHidden) {
+env.push('✓ 发送时页面在后台——屏幕上方应有横幅；没看见＝系统层拦截（通知总开关/悬浮横幅/省电限制）见本行「功能说明」');
+} else if (found) {
+env.push('! 前台发送不弹顶层横幅——要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出');
+}
+}).catch(function () {});
+Promise.all([queueCheck, verP]).then(showResult);
+setTimeout(showResult, 4500); // 队列回读/版本比对卡住也出结果
+} else if (testChan === 'page') {
+env.push(ok
+? '✓ 测试通知已发送（页面通道：仅本页前台可见）'
+: '! 未真正送达：后台服务未就绪，页面通道在后台会被系统抑制（已挂自动补发，或刷新页面重试）');
+verP.then(showResult);
+} else {
+env.push('✗ 测试通知提交失败：被浏览器/系统拒绝——见本行「功能说明」排查（权限已允许仍被拒＝查系统设置里本浏览器的通知总开关）');
+verP.then(showResult);
+}
+});
+setTimeout(function () {
+if (testSettled) return;
+env.push('✗ 测试超时：通知发送链 8 秒未落定（应用内故障，非权限/系统问题）——请用「诊断信息」一键反馈');
+showResult();
+}, 8000);
+} catch (e) {
+env.push('✗ 测试执行异常：' + (e && e.message ? e.message : e));
+toast('测试结果：\n' + env.join('\n'), 6000);
+}
+}
+}
+let hiddenSentCount = 0;
+let hiddenSentName = '';
+document.addEventListener('visibilitychange', function () {
+const vis = document.visibilityState;
+if (vis === 'hidden') {
+hiddenSentCount = 0;
+hiddenSentName = '';
+return;
+}
+if (vis !== 'visible') return;
+const saved = gGet('bg-notify');
+if (saved === '1') {
+const keepOn = keepEnabled;
+if (!keepOn) {
+toast('提醒：后台保活已关闭，后台消息到不了，通知不会弹（设置里开启）');
+}
+}
+try {
+const chatPage = document.getElementById('page-chat');
+const inChat = chatPage && !chatPage.hidden;
+const n = hiddenSentCount;
+const who = hiddenSentName || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+hiddenSentCount = 0;
+hiddenSentName = '';
+if (!inChat && n > 0 && window.showDeskPopup) {
+window.showDeskPopup({ name: who, text: '你不在的时候收到 ' + n + ' 条新消息', isHidden: false });
+const now = Date.now();
+if (saved === '1' && 'Notification' in window && Notification.permission === 'granted' &&
+(!lastResumeNotifyAt || now - lastResumeNotifyAt > 30000)) {
+lastResumeNotifyAt = now;
+const notiIcon = (store.get('cs-avatar-partner') || store.get('avatar-partner') || '');
+const sendNoti = function (iconVal) {
+const o = { body: '你不在的时候收到 ' + n + ' 条新消息' };
+if (iconVal) o.icon = iconVal;
+showSysNotification(who, o);
+};
+if (notiIcon && (notiIcon.indexOf('data:') === 0 || /^https?:\/\//i.test(notiIcon))) {
+makeAvatarThumb(notiIcon, function (u) { sendNoti(u || notiIcon); });
+} else {
+sendNoti('');
+}
+}
+}
+} catch (e) {}
+});
+let lastResumeNotifyAt = 0; // v3.5.154：回前台汇总通知去重
+let lastVisibleAt = Date.now();
+let lastHiddenAt = 0; // v3.16.x：最近一次切后台时刻（修复过渡期闸门失效）
+(function () {
+const markVisible = function () {
+if (document.visibilityState === 'visible') {
+lastVisibleAt = Date.now();
+lastHiddenAt = 0;
+} else if (document.visibilityState === 'hidden') {
+lastHiddenAt = Date.now();
+}
+};
+document.addEventListener('visibilitychange', markVisible);
+window.addEventListener('pageshow', markVisible);
+window.addEventListener('focus', markVisible);
+})();
+const NOTIFY_HIDDEN_MIN_MS = 15000;
+const NOTIFY_CHAT_DUP_MS = 5 * 60000;  // v3.20.x：历史聊天查重 15→5 分钟
+const NOTIFY_SENT_DUP_MS = 2 * 60000;  // v3.20.x：已发通知查重 6→2 分钟
+const NOTIFY_SEEN_DUP_MS = 3 * 60000;  // v3.20.x：前台看过记忆 15→3 分钟
+const NOTIFY_FRESH_CHAT_DUP_MS = 30 * 60000;
+function normNotifyKey(raw) {
+let s = String(raw || '');
+if (s.length > 1024) s = s.slice(0, 1024); // 先截断再正则，避免超长 base64 全文替换开销
+s = s.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+.replace(/@@m:[0-9a-f]{32}/g, '[附件]') // FIX 2026-09-13 #401 令牌串入指纹同口径
+.replace(/\|\|\|.*$/, '')
+.replace(/<[^>]*>/g, '');
+return s.replace(/\s+/g, '').slice(0, 100);
+}
+function sampleDataUrl(dataUrl) {
+try {
+if (!dataUrl || typeof dataUrl !== 'string') return '';
+const m = /^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,/.exec(dataUrl);
+const b64 = m ? dataUrl.slice(m[0].length) : dataUrl;
+const h = function (shift) {
+let x = 0;
+for (let i = shift; i < b64.length; i += 7) x = (x * 31 + b64.charCodeAt(i)) & 0x7fffffff;
+return x.toString(36);
+};
+return '|' + (m ? m[1] : '?') + ':' + b64.length + ':' + h(0) + ':' + h(1) + ':' + h(2);
+} catch (e) { return ''; }
+}
+function msgFingerprint(text, img) {
+let t = String(text || '');
+const isPh = /^\[(图片|表情包|语音|附件)\]$/.test(t.trim());
+const imgOnly = isPh || !t.trim() || t.indexOf('data:') === 0;
+let k = normNotifyKey(imgOnly && img ? '[附件]' : t);
+const a = sampleDataUrl(img);
+if (a) k += a;
+return k;
+}
+function recentChatDup(key, refTs, windowMs) {
+if (!key) return false;
+try {
+const arr = window.getChatMsgs ? window.getChatMsgs() : null;
+if (!arr || !arr.length) return false;
+const cutoff = Date.now() - (windowMs || NOTIFY_CHAT_DUP_MS);
+for (let i = arr.length - 1, n = 0; i >= 0 && n < 150; i--, n++) {
+const m = arr[i];
+if (!m) continue;
+const mts = m.ts || 0;
+if (mts && mts < cutoff) break; // 追加有序，更早的不可能落在窗口内
+if (refTs && (mts >= refTs - 2500 || (!mts && i === arr.length - 1) || Date.now() - mts < 2500)) continue;
+if (m.side !== 'in') continue;
+let t = m.text || '';
+let img = '';
+if ((!t || t.indexOf('data:') === 0) && m.parts && m.parts.length) {
+const texts = [], images = [];
+for (let p = 0; p < m.parts.length; p++) {
+const part = m.parts[p];
+if (!part || !part.k) continue;
+if (part.k === 'text') texts.push(part.v);
+else if (part.k === 'image' || part.k === 'sticker' || part.k === 'voice') images.push(part.v);
+}
+t = texts.join(' ');
+img = images[0] || '';
+} else if (t.indexOf('data:') === 0) {
+img = t; // 无 parts 的旧式纯图消息：dataURL 即正文
+t = '';
+} else if (t.indexOf('|||') >= 0) {
+t = t.split('|||')[0];
+}
+const mf = msgFingerprint(t, img);
+if (mf === key) return true;
+if (mf.length >= 6 && key.length > mf.length && key.length >= mf.length * 1.6 && key.indexOf(mf) >= 0) return true;
+if (key.length >= 6 && mf.length > key.length && mf.length >= key.length * 1.6 && mf.indexOf(key) >= 0) return true;
+}
+} catch (e) {}
+return false;
+}
+const notifiedRecently = new Map();
+function notifiedDup(key) {
+if (!key) return false;
+const last = notifiedRecently.get(key);
+return !!(last && Date.now() - last < NOTIFY_SENT_DUP_MS);
+}
+function markNotified(key) {
+if (!key) return;
+notifiedRecently.set(key, Date.now());
+if (notifiedRecently.size > 60) { // 上限防膨胀：删最早的（Map 保持插入序）
+notifiedRecently.delete(notifiedRecently.keys().next().value);
+}
+}
+const seenRecently = new Map();
+function markSeen(key) {
+if (!key) return;
+seenRecently.set(key, Date.now());
+if (seenRecently.size > 80) { // 上限防膨胀：删最早的（Map 保持插入序）
+seenRecently.delete(seenRecently.keys().next().value);
+}
+}
+function seenDup(key) {
+if (!key) return false;
+const last = seenRecently.get(key);
+return !!(last && Date.now() - last < NOTIFY_SEEN_DUP_MS);
+}
+let gateStats = { total: 0, tooFresh: 0, dup: 0, replay: 0, sent: 0 };
+window.bgNotifyGateStats = function () { return Object.assign({}, gateStats); };
+window.bgNotifyGateInfo = function (text, img, refTs) {
+const nkey = msgFingerprint(text, img);
+const transitionBlocks = lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+recentChatDup(nkey, refTs, NOTIFY_FRESH_CHAT_DUP_MS);
+return {
+hiddenForMs: Date.now() - lastVisibleAt,
+tooFreshHidden: lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS,
+transitionBlocks: transitionBlocks,
+dupNotified: notifiedDup(nkey),
+dupSeen: seenDup(nkey),
+dupInChat: recentChatDup(nkey, refTs),
+identityBlocked: (function () {
+try {
+const d = window.__mochiMsgDelivered ? window.__mochiMsgDelivered(refTs, 'in') : null;
+return !!(d && (d.vis || d.nAt));
+} catch (e) { return false; }
+})(),
+nkey: nkey
+};
+};
+window.bgNotifyCheck = function (text, ts, extra) {
+if (!notifyEnabled) return;
+extra = extra || {};
+const nkey = msgFingerprint(text, extra.img);
+if (document.visibilityState === 'visible') { markSeen(nkey); return; }
+if (!('Notification' in window) || Notification.permission !== 'granted') return;
+if (!extra.force && extra.msgTs) {
+try {
+const d = window.__mochiMsgDelivered ? window.__mochiMsgDelivered(extra.msgTs, 'in') : null;
+if (d && (d.vis || d.nAt)) { gateStats.replay++; return; }
+} catch (e) {}
+}
+gateStats.total++;
+const force = !!extra.force;
+if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }
+if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
+if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
+gateStats.sent++; markNotified(nkey);
+hiddenSentCount++;
+hiddenSentName = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+const name = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
+let t = '';
+if (ts) {
+const d = new Date(ts);
+t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+}
+const body = String(text || '收到一条新消息')
+.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]')
+.replace(/@@m:[0-9a-f]{32}/g, '[图片]')
+.replace(/\|\|\|.*$/, '');
+const bodyFitted = window.taFit ? window.taFit(body) : body;
+const opts = { body: (t ? t + '  ' : '') + (bodyFitted && bodyFitted.length > 40 ? bodyFitted.slice(0, 40) + '…' : bodyFitted) };
+let bigIcon = '';   // 右侧大图标：联系人头像；无头像时兜底 mochi 字母图标（见下）
+let previewImg = ''; // 展开大图：消息图片
+const avatar = extra.avFixed
+? (extra.av || '')
+: (extra.av || store.get('cs-avatar-partner') || store.get('avatar-partner') || '');
+if (avatar && (avatar.indexOf('data:') === 0 || /^https?:\/\//i.test(avatar))) bigIcon = avatar;
+if (!bigIcon) bigIcon = NOTIFY_ICON;
+if (extra.img && (extra.img.indexOf('data:') === 0 || /^https?:\/\//i.test(extra.img))) previewImg = extra.img;
+const cropAvatarToSquare = makeAvatarThumb;
+const sendFinal = function (iconVal) {
+if (iconVal) opts.icon = iconVal;
+if (previewImg) opts.image = previewImg;
+showSysNotification(name, opts).then(function (ok) {
+if (ok) {
+try { if (extra.msgTs && window.__mochiMsgNotified) window.__mochiMsgNotified(extra.msgTs, 'in'); } catch (e) {}
+} else {
+notifiedRecently.delete(nkey); // #800：发送失败回滚决定点早记账，保留「失败可重试」
+}
+});
+};
+if (bigIcon) {
+const cropFired = { v: false };
+const cropTimer = setTimeout(function () { if (!cropFired.v) { cropFired.v = true; sendFinal(''); } }, 1200);
+cropAvatarToSquare(bigIcon, function (u) {
+clearTimeout(cropTimer);
+if (cropFired.v) return;
+cropFired.v = true;
+sendFinal(u || bigIcon);
+});
+} else {
+sendFinal(bigIcon);
+}
+};
+function makeAvatarThumb(dataUrl, cb) {
+try {
+const img = new Image();
+if (/^https?:\/\//i.test(dataUrl)) { img.crossOrigin = 'anonymous'; }
+img.onload = function () {
+try {
+if (!img.width || !img.height) { cb(''); return; }
+const maxSide = 96;
+const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+const w = Math.max(1, Math.round(img.width * scale));
+const h = Math.max(1, Math.round(img.height * scale));
+const c = document.createElement('canvas');
+c.width = w; c.height = h;
+const ctx = c.getContext('2d');
+ctx.fillStyle = '#ffffff';
+ctx.fillRect(0, 0, w, h);
+ctx.drawImage(img, 0, 0, w, h);
+cb(c.toDataURL('image/jpeg', 0.85));
+} catch (e) { cb(''); }
+};
+img.onerror = function () { cb(''); };
+img.src = dataUrl;
+} catch (e) { cb(''); }
+}
+function compressNotifyImg(dataUrl, cb) {
+try {
+const img = new Image();
+img.onload = function () {
+try {
+const maxSide = 96;
+const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+const w = Math.max(1, Math.round(img.width * scale));
+const h = Math.max(1, Math.round(img.height * scale));
+const c = document.createElement('canvas');
+c.width = w; c.height = h;
+c.getContext('2d').drawImage(img, sx || 0, sy || 0, w, h);
+cb(c.toDataURL('image/jpeg', 0.72));
+} catch (e) { cb(''); }
+};
+img.onerror = function () { cb(''); };
+img.src = dataUrl;
+} catch (e) { cb(''); }
+}
+const PSYNC_TAG = 'mochi-ta-msg';
+const PSYNC_SNAP_KEY = 'xy-home-v2:psync-snap';
+const PSYNC_QUEUE_KEY = 'xy-home-v2:psync-queue';
+const PSYNC_SNAP_TTL = 7 * 24 * 60 * 60 * 1000;
+const PSYNC_BUILTIN = [
+'刚看到一句话，想起你了。',
+'你在忙吗？我这边刚刚想到你。',
+'没什么事，就是想跟你说句话。',
+'今天也要好好吃饭呀。',
+'突然很想你，就说一声。',
+'记得喝水，别总忘了。',
+'晚安前跟你说一声，我在。',
+'有空的时候理理我呀。'
+];
+function psyncSupported() {
+try { return 'serviceWorker' in navigator && 'PeriodicSyncManager' in window; } catch (e) { return false; }
+}
+function psyncStandalone() {
+try { return !!(window.matchMedia && window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches); } catch (e) { return false; }
+}
+function psyncEnabled() { return gGet('psync-en') === '1'; }
+function psyncPlainCard(s) {
+if (typeof s !== 'string') return false;
+const t = s.trim();
+if (!t || t.length > 60) return false;
+if (t.indexOf('|||') >= 0) return false;               // 语音卡
+if (t.indexOf('data:') === 0) return false;            // 图片/表情包
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(t)) return false;
+if (t.indexOf('http:') === 0 || t.indexOf('https:') === 0) return false;
+return true;
+}
+function psyncShuffle(a) {
+const r = a.slice();
+for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = r[i]; r[i] = r[j]; r[j] = t; }
+return r;
+}
+function psyncBuildSnapshot() {
+let cc = [];
+try { cc = ((window.getCustomCards ? window.getCustomCards() : []) || []).filter(psyncPlainCard).slice(0, 40); } catch (e) { cc = []; }
+const picks = [];
+psyncShuffle(cc).forEach(function (t) { picks.push({ t: t.trim(), k: 'cc' }); });
+psyncShuffle(PSYNC_BUILTIN).slice(0, 4).forEach(function (t) { picks.push({ t: t, k: 'bl' }); });
+const snap = {
+v: 1,
+ts: Date.now(),
+cid: window.__activeCid || 'default',
+name: (function () { try { return store.get('lbl-partner') || 'TA'; } catch (e) { return 'TA'; } })(),
+texts: psyncShuffle(picks).slice(0, 12)
+};
+window.__psyncSnapCount = snap.texts.length;
+try { if (window.idbSet) window.idbSet(PSYNC_SNAP_KEY, snap); } catch (e) {}
+return Promise.resolve(snap);
+}
+window.__psyncBuildSnapshot = function () { return psyncBuildSnapshot(); };
+async function psyncApply() {
+if (!psyncSupported() || !psyncEnabled()) { psyncSyncStatus(); return; }
+try {
+await navigator.serviceWorker.ready;
+const st = await navigator.permissions.query({ name: 'periodic-background-sync' });
+if (st && st.state === 'denied') { psyncSyncStatus('denied'); return; }
+await navigator.periodicSync.register(PSYNC_TAG, { minInterval: 6 * 60 * 60 * 1000 });
+await psyncBuildSnapshot();
+} catch (e) {}
+psyncSyncStatus();
+}
+async function psyncTeardown() {
+try { if (psyncSupported() && navigator.periodicSync.getTags) {
+const tags = await navigator.periodicSync.getTags();
+if (tags.indexOf(PSYNC_TAG) >= 0) await navigator.periodicSync.unregister(PSYNC_TAG);
+} } catch (e) {}
+psyncSyncStatus();
+}
+async function drainPsyncQueue(force) {
+if (!window.idbGet || !window.idbSet || !window.chatAddIn) return 0;
+try { if (!force && performance.now() < 10000) return 0; } catch (e) {} // 开屏 10s 内不动，等聊天权威数据就绪
+let arr = null;
+try { arr = await window.idbGet(PSYNC_QUEUE_KEY); } catch (e) { return 0; }
+if (!Array.isArray(arr) || !arr.length) return 0;
+const cur = window.__activeCid || 'default';
+const remain = [];
+let delivered = 0;
+for (let i = 0; i < arr.length; i++) {
+const it = arr[i];
+if (!it || typeof it.t !== 'string' || !it.t.trim()) continue;
+if (!it.ts || Date.now() - it.ts > PSYNC_SNAP_TTL) continue;   // 过期丢弃
+if ((it.cid || 'default') !== cur) { remain.push(it); continue; } // 别的桌面的留着
+let dup = false;                                               // 防重复：最近 10 条同文本 30 分钟内视为已投递
+try {
+const msgs = window.getChatMsgs ? window.getChatMsgs() : null;
+if (Array.isArray(msgs)) {
+for (let j = Math.max(0, msgs.length - 10); j < msgs.length; j++) {
+const m = msgs[j];
+if (m && m.side === 'in' && m.text === it.t && Math.abs((m.ts || 0) - it.ts) < 30 * 60000) { dup = true; break; }
+}
+}
+} catch (e) {}
+if (!dup) { try { window.chatAddIn(it.t, { initiative: 1, silent: true }); delivered++; } catch (e) {} }
+}
+try { await window.idbSet(PSYNC_QUEUE_KEY, remain); } catch (e) {}
+return delivered;
+}
+window.__psyncDrain = function (force) { return drainPsyncQueue(force === true); };
+function psyncSyncStatus(state) {
+const el = document.getElementById('psync-status');
+if (!el) return;
+const isIOS = !!(window.mochiDevice || {}).isIOS;
+if (!psyncSupported()) {
+el.textContent = isIOS
+? '此浏览器不支持离线提醒（iPhone 只能靠系统通知/保活；安卓请用 Chrome/Edge，并把应用添加到主屏幕）'
+: '此浏览器不支持离线提醒（请用安卓 Chrome/Edge，并把应用添加到主屏幕后重开此开关）';
+return;
+}
+if (!psyncEnabled()) { el.textContent = '已关闭 · 页面全关后不再收到 TA 的消息提醒'; return; }
+if (!psyncStandalone()) { el.textContent = '需先添加到主屏生效：浏览器菜单「添加到主屏幕」，再从桌面图标打开本应用，然后重新打开此开关'; return; }
+if (state === 'denied') { el.textContent = '已开启 · 但后台调度被系统/浏览器拒绝：多半是通知权限被关了。请 ①在本应用网址栏左侧打开「网站设置」→通知→允许；②手机 系统设置→应用→Edge/Chrome→通知→允许；③该应用开启「不受限制/省电」；再回来关闭并重新打开此开关'; return; }
+if ('Notification' in window && Notification.permission !== 'granted') {
+el.textContent = '已开启 · 还需允许系统通知（会弹授权，点「允许」才能收到提醒弹窗）';
+return;
+}
+let n = (typeof window.__psyncSnapCount === 'number') ? window.__psyncSnapCount : 0;
+el.textContent = '已开启 · 待发文案 ' + n + ' 条 · 后台频率由系统定（约数小时一次）；收不到请检查：系统设置允许本浏览器通知，且不限制其后台运行/省电';
+}
+const psHelp = document.getElementById('psync-help');
+if (psHelp) {
+const openPsyncHelp = function (e) {
+if (e) { try { e.stopPropagation(); e.preventDefault(); } catch (er) {} }
+const txt = [
+'离线消息提醒（零后端）\n',
+'🌟 有什么用',
+'页面全部关闭后，TA 也会在后台「留话」提醒你，营造陪伴感。系统每隔几小时唤醒一次，随机抽一条你准备（或内置）的想念字卡，以 TA 的名义弹出系统通知；回来后这条消息也会补进聊天记录。\n',
+'🔗 它和「后台弹窗」无关',
+'两者是完全独立的功能，互不影响。后台弹窗要的是「页面还在后台时」TA 发消息、靠后台保活+通知权限弹横幅。不开离线消息提醒，后台弹窗照常工作；反之亦然。想收到后台弹窗时，只需：后台保活+桌面消息弹窗开关开着+系统通知允许。\n',
+'🔓 怎么开（安卓）',
+'1. 用 Chrome 或 Edge（安卓）打开本应用；',
+'2. 浏览器菜单 →「添加到主屏幕」，再从桌面图标打开；',
+'3. 打开本开关，系统弹通知授权时点「允许」；',
+'4. 到手机 系统设置→应用→浏览器，确认「通知」允许、且未限制后台/省电。\n',
+'⚠️ 为什么有人开不了',
+'· iPhone：iOS 不支持此技术，只能靠系统通知/保活；',
+'· 非 Chrome/Edge 的安卓浏览器：不支持，请换用；',
+'· 没添加到主屏：需先从桌面图标打开才能调度；',
+'· 开了却收不到：多半是系统关了通知，或浏览器被省电/后台清理。\n',
+'📌 注意',
+'它不是真推送，频率由系统决定（约数小时一次）、只随机抽一条；也不代表对方真实在线。'
+].join('\n');
+const ctl = window.openModal('离线消息提醒 · 功能说明', '', function () {}, {
+noInput: true,
+staticText: txt
+});
+if (ctl && ctl.okText) ctl.okText('知道了');
+};
+psHelp.addEventListener('click', openPsyncHelp);
+psHelp.addEventListener('keydown', function (e) {
+if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPsyncHelp(); }
+});
+}
+const psBtn = document.getElementById('psync-en');
+function syncPsyncUI() { if (psBtn) psBtn.checked = psyncEnabled(); }
+if (psBtn) {
+psBtn.addEventListener('change', function () {
+const on = psBtn.checked;
+gSet('psync-en', on ? '1' : '0');
+psyncSyncStatus();
+if (on) {
+const go = function () { psyncApply(); };
+if ('Notification' in window && Notification.permission === 'default' && typeof requestNotifyPermission === 'function') requestNotifyPermission(go);
+else go();
+toast(on ? '离线消息提醒已开启' : '离线消息提醒已关闭');
+} else psyncTeardown();
+});
+}
+setTimeout(function () { psyncApply(); }, 8000);
+[12000, 27000, 47000].forEach(function (ms) { setTimeout(function () { try { drainPsyncQueue(false); } catch (e) {} }, ms); });
+try {
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState !== 'visible') return;
+try { drainPsyncQueue(false); } catch (e) {}
+try {
+if (psyncEnabled() && psyncSupported()) {
+const last = window.__psyncLastSnapAt || 0;
+if (Date.now() - last > 300000) { window.__psyncLastSnapAt = Date.now(); psyncApply(); }
+}
+} catch (e) {}
+});
+} catch (e) {}
+try {
+document.addEventListener('contact-switched', function () {
+setTimeout(function () {
+try { drainPsyncQueue(false); } catch (e) {}
+if (psyncEnabled() && psyncSupported()) psyncBuildSnapshot();
+}, 3000);
+});
+} catch (e) {}
+try {
+if ('serviceWorker' in navigator && navigator.serviceWorker) {
+navigator.serviceWorker.addEventListener('message', function (e) {
+if (!e || !e.data || e.data.type !== 'MOCHI_NOTIFY_CLICK') return;
+try { if (typeof window.enterChat === 'function') window.enterChat(); } catch (x) {}
+});
+}
+} catch (e) {}
+})();
+if (window.__mochiLoaded) window.__mochiLoaded.push("bg-keep.js");
+} catch (__e) { try { console.error("[JS] bg-keep.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[bg-keep.js] " + String(__e && __e.message || __e)); } })();

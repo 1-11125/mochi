@@ -12,9 +12,11 @@ var WATER_SEC = 172800;
 function pn() { return s.get("lbl-partner") || "TA"; }
 function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get(G) || "{}"); if (!d.p) d.p = []; while (d.p.length < PLOTS) d.p.push(null); if (!d.plotN) { /* FIX 2026-09-16 #601e：旧默认按等级自动扩地（满级 12→22）违反 #446「等级只解锁开垦资格、实操点开垦才扩地」，导致用户看到「远超 12 块」；改为默认 12——若存档 12 块之后已有花，保留到最远那株，绝不裁花 */ var _maxP = -1; for (var _pi = PLOTS; _pi < d.p.length; _pi++) { if (d.p[_pi]) _maxP = _pi; } d.plotN = _maxP >= PLOTS ? (_maxP + 1) : PLOTS; } if (!d.pnUser && d.plotN > PLOTS) { /* FIX 2026-09-16 #601e：存量被旧默认放大到 >12 块的存档，若 12 块之后全是空地则安全收回 12 块（有花之地绝不裁；用户手动开垦过的存档带 pnUser 标记、不再缩回） */ var _onlyEmptyTail = true; for (var _pj = PLOTS; _pj < d.plotN; _pj++) { if (d.p[_pj]) { _onlyEmptyTail = false; break; } } if (_onlyEmptyTail) d.plotN = PLOTS; } if (!d.l) d.l = []; if (!d.lpc) d.lpc = 0; if (!d.dex) d.dex = {}; if (!d.exp) d.exp = 0; if (!d.inv) d.inv = {}; if (!d.st) d.st = { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }; if (!d.decor) d.decor = {}; if (!d.visitor) d.visitor = null; return d; } catch (e) { return { p: new Array(PLOTS).fill(null), plotN: PLOTS, l: [], lpc: 0, dex: {}, exp: 0, inv: {}, st: { p: 0, w: 0, h: 0, f: 0, mp: 0, mw: 0, mh: 0, mf: 0 }, decor: {}, visitor: null }; } }
 var saveLock = true, dataPf = null;
+var gardenWaitChain = false, gardenSaveHold = false;
 function save(d) {
 try {
 if (saveLock) return;
+if (gardenSaveHold) return;
 var pfNow = window.activePrefix();
 if (dataPf && pfNow !== dataPf) { try { data = load(); } catch (e0) {} return; }
 if (batchSave) { saveDirty = true; return; }
@@ -1620,6 +1622,37 @@ if (editing) return;
 document.querySelectorAll(".page").forEach(function (pg) { pg.hidden = true; });
 page.hidden = false;
 if (junkEmpty()) {
+if (window.mochiDataPending && window.mochiDataPending()) {
+if (gardenWaitChain) return; // 等待链已在跑（离开又回来）：复用，不叠第二条
+gardenWaitChain = true; gardenSaveHold = true;
+var gPh = document.getElementById("garden-dataloading");
+if (!gPh) {
+var gScroll = page.querySelector(".garden-scroll");
+if (gScroll) { gPh = document.createElement("div"); gPh.id = "garden-dataloading"; gScroll.appendChild(gPh); }
+}
+if (gPh) gPh.innerHTML = window.mochiLoadingHtml("花园");
+var gEnd = function (hit) {
+if (!gardenWaitChain) return;
+gardenWaitChain = false; gardenSaveHold = false;
+var p = document.getElementById("garden-dataloading");
+if (p && p.parentNode) p.parentNode.removeChild(p);
+if (!page.hidden) openGardenBody(!!hit);
+};
+var gDeadline = Date.now() + 35000;
+var gTick = function () {
+if (!gardenWaitChain) return;
+probeIdb(function (v) {
+if (!gardenWaitChain) return;
+if (v) { gEnd(true); return; }
+if (window.mochiDataPending && window.mochiDataPending() && Date.now() < gDeadline) setTimeout(gTick, 1000);
+else gEnd(false);
+});
+};
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () { if (gardenWaitChain) gTick(); });
+setTimeout(function () { if (gardenWaitChain) gEnd(false); }, 36000);
+gTick();
+return;
+}
 try { renderAll(); } catch (e) {}
 toast("正在读取本地花园数据…");
 probeIdb(function (v) {

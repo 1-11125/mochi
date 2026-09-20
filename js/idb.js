@@ -1,0 +1,924 @@
+(function () { try {
+(function () {
+const DB_NAME = 'mochi-db';
+const DB_VERSION = 1;
+const STORE = 'kv';
+let dbPromise = null;
+function open() {
+if (dbPromise) return dbPromise;
+dbPromise = new Promise((resolve, reject) => {
+try {
+if (!window.indexedDB) { reject(new Error('no idb')); return; }
+const req = indexedDB.open(DB_NAME, DB_VERSION);
+req.onupgradeneeded = () => {
+const db = req.result;
+if (!db.objectStoreNames.contains(STORE)) {
+db.createObjectStore(STORE);
+}
+};
+req.onblocked = () => {
+try { dbPromise = null; } catch (e1) {}
+reject(new Error('idb open blocked'));
+};
+req.onsuccess = () => resolve(req.result);
+req.onerror = () => reject(req.error);
+} catch (e) { reject(e); }
+setTimeout(function () {
+try { dbPromise = null; } catch (e2) {}
+reject(new Error('idb open hang'));
+}, 8000);
+});
+dbPromise.catch(() => { dbPromise = null; });
+return dbPromise;
+}
+function connLost(e) {
+try {
+if (!e) return false;
+const n = e.name;
+if (n === 'InvalidStateError' || n === 'UnknownError' || n === 'InternalError' || n === 'TransactionInactiveError') return true;
+const m = String((e && e.message) || e);
+return /connection\s+(is\s+)?(closed|lost|closing)|server\s+lost|database\s+connection|indexed\s+database/i.test(m);
+} catch (err) { return false; }
+}
+function armFgIdbReset() {
+try {
+if (typeof document === 'undefined' || !document.addEventListener) return;
+if (!((window.mochiDevice || {}).isIOS)) return;
+const resetNow = function () {
+try {
+if (!dbPromise) return;
+dbPromise = null;
+open().catch(function () {});
+} catch (e) {}
+};
+document.addEventListener('visibilitychange', function () {
+try { if (document.visibilityState === 'visible') resetNow(); } catch (e) {}
+});
+if (window.addEventListener) window.addEventListener('focus', resetNow);
+} catch (e) {}
+}
+armFgIdbReset();
+let _idbFailCnt = 0;
+let _idbFailAlerted = false;
+let _idbFailLastErr = '';
+function _idbFailNotify() {
+_idbFailCnt++;
+if (_idbFailCnt < 5 || _idbFailAlerted) return;
+_idbFailAlerted = true;
+try { console.warn('[mochi] IDB 写入连续失败 ' + _idbFailCnt + ' 次（最后错误: ' + (_idbFailLastErr || '超时/挂起') + '），建议立即导出备份'); } catch (e) {}
+try {
+if (window.openModal) {
+const md = window.mochiDevice || {};
+const platTip = md.isIOS
+? 'iOS 存储紧张时系统可能清空网站数据，且无痕模式下数据不落盘——定期导出是唯一防线。'
+: (md.isAndroid ? '安卓的写入配额与手机系统存储挂钩，请确保系统存储有足够剩余空间。' : '');
+const ctl = window.openModal('存储异常', '', null, {
+noInput: true,
+staticText: '近期数据多次写入失败，数据可能没有存上。建议按顺序处理：\n\n'
++ '① 先导出一份备份（下方「去导出备份」直达；数据量大可改选「只备份文字」，文件更小）\n'
++ '② 查看存储占用并瘦身（下方「查看存储」直达：字卡图去重 / 图片压缩 / 清理本地音乐）\n'
++ (platTip ? '③ ' + platTip + '\n' : '')
++ (platTip ? '④' : '③') + ' 若每次打开都弹：设置 → 设备兼容诊断，一键复制报告反馈',
+copyBtn: { label: '去导出备份', fn: function (c) { idbFailAct('#row-export', c, '设置 → 导出数据'); } },
+exportBtn: { label: '查看存储', fn: function (c) { idbFailAct('#row-storage-view', c, '设置 → 查看存储'); } }
+});
+try { if (ctl && ctl.okText) ctl.okText('知道了'); } catch (e0) {}
+}
+} catch (e) {}
+}
+function idbFailAct(rowSel, ctl, fallbackTip) {
+try {
+document.querySelectorAll('.page').forEach(function (p) { p.hidden = true; });
+const sp = document.getElementById('page-setting');
+if (sp) sp.hidden = false;
+const el = document.querySelector(rowSel);
+if (!el) throw new Error('row missing');
+const sec = el.closest ? el.closest('.them-sec') : null;
+if (sec && sec.dataset && sec.dataset.sec) {
+const tab = document.querySelector('#set-tabs .them-tab[data-tab="' + sec.dataset.sec + '"]');
+if (tab) tab.click();
+}
+try { el.scrollIntoView({ block: 'center' }); } catch (e1) {}
+if (ctl && ctl.close) ctl.close();
+} catch (e) {
+try { if (ctl && ctl.hint) ctl.hint('入口暂不可达，请手动前往：' + fallbackTip); } catch (e2) {}
+}
+}
+window.idbSet = function (key, value) {
+function tryOnce() {
+return open().then(db => new Promise((resolve) => {
+let done = false;
+let lim = 4000;
+try {
+let est = 0;
+if (typeof value === 'string') est = value.length;
+else if (Array.isArray(value)) {
+for (let i = 0; i < value.length; i++) {
+const m = value[i];
+if (typeof m === 'string') { est += m.length; continue; }
+if (!m || typeof m !== 'object') { est += 32; continue; }
+const t = m.text; if (typeof t === 'string') est += t.length;
+const im = m.img; if (typeof im === 'string') est += im.length;
+const vc = m.voice; if (typeof vc === 'string') est += vc.length;
+const ps = m.parts;
+if (Array.isArray(ps)) { for (let j = 0; j < ps.length; j++) { const p = ps[j]; if (p && typeof p.v === 'string') est += p.v.length; } }
+est += 64;
+}
+}
+if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
+} catch (e) {}
+const t = setTimeout(function () {
+if (done) return; done = true;
+dbPromise = null; // 连接疑似挂起，下次 open 重建
+resolve(false);
+}, lim);
+try {
+const tx = db.transaction(STORE, 'readwrite');
+tx.objectStore(STORE).put(value, key);
+tx.oncomplete = () => { if (done) return; done = true; clearTimeout(t); resolve(true); };
+tx.onerror = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.onabort = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
+} catch (e) { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (e && e.name) || 'error'; if (connLost(e)) dbPromise = null; resolve(false); }
+})).catch(() => false);
+}
+return (async () => {
+let ok = await tryOnce();
+if (!ok) { await new Promise(r => setTimeout(r, 100)); ok = await tryOnce(); }
+if (!ok) { await new Promise(r => setTimeout(r, 100)); ok = await tryOnce(); }
+if (ok) { _idbFailCnt = 0; return true; } // v3.26.x：成功即清零——只对连续失败告警
+_idbFailNotify();
+return false;
+})();
+};
+window.idbSetAll = function (pairs) {
+if (!pairs || !pairs.length) return Promise.resolve(true);
+return open().then(db => new Promise((resolve) => {
+let done = false;
+let est = 0;
+try { pairs.forEach(p => { const v = p && p.v; est += (typeof v === 'string' ? v.length : 64); }); } catch (e0) {}
+const lim = 4000 + (est > 262144 ? Math.min(26000, Math.ceil(est / 262144) * 2000) : 0);
+const t = setTimeout(function () {
+if (done) return; done = true;
+dbPromise = null; // 事务疑似挂起，连接重建交给下一次调用
+resolve(false);
+}, lim);
+try {
+const tx = db.transaction(STORE, 'readwrite');
+const os = tx.objectStore(STORE);
+pairs.forEach(p => { os.put(p.v, p.k); });
+tx.oncomplete = () => { if (done) return; done = true; clearTimeout(t); resolve(true); };
+tx.onerror = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.onabort = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
+} catch (e) { if (done) return; done = true; clearTimeout(t); resolve(false); }
+})).catch(() => false);
+};
+window.idbGet = function (key, info) {
+const ambiable = (info && typeof info === 'object') ? info : null;
+const amb = () => { if (ambiable) ambiable.ambiguous = true; };
+const minWait = (ambiable && typeof ambiable.minWaitMs === 'number' && ambiable.minWaitMs > 4000) ? Math.min(60000, ambiable.minWaitMs) : 4000;
+return open().then(db => new Promise((resolve) => {
+let done = false;
+let timer = null;
+function finish(val) { if (done) return; done = true; if (timer) clearTimeout(timer); resolve(val); }
+function run() {
+try {
+const tx = db.transaction(STORE, 'readonly');
+const req = tx.objectStore(STORE).get(key);
+req.onsuccess = () => finish(req.result);
+req.onerror = () => { if (connLost(req.error)) dbPromise = null; amb(); finish(undefined); };
+} catch (e) { if (connLost(e)) dbPromise = null; amb(); finish(undefined); }
+}
+let retried = false;
+timer = setTimeout(function () {
+if (done) return;
+if (!retried) {
+retried = true;
+dbPromise = null;
+open().then(function (db2) {
+db = db2;
+run();
+timer = setTimeout(function () { dbPromise = null; amb(); finish(undefined); }, minWait);
+}).catch(function () { amb(); finish(undefined); });
+return;
+}
+dbPromise = null;
+amb();
+finish(undefined);
+}, minWait);
+run();
+})).catch(() => { amb(); return undefined; });
+};
+window.idbGetMany = function (keys) {
+const list = (keys || []).filter(Boolean);
+if (!list.length) return Promise.resolve({});
+return open().then(db => new Promise((resolve) => {
+const out = {};
+let done = false;
+let timer = null;
+let retried = false;
+const finish = () => { if (!done) { done = true; if (timer) clearTimeout(timer); resolve(out); } };
+function run(ks) {
+try {
+const tx = db.transaction(STORE, 'readonly');
+const os = tx.objectStore(STORE);
+let pending = ks.length;
+ks.forEach(k => {
+const req = os.get(k);
+req.onsuccess = () => { out[k] = req.result; if (--pending <= 0) finish(); };
+req.onerror = () => { if (connLost(req.error)) dbPromise = null; if (--pending <= 0) finish(); };
+});
+tx.onerror = () => { if (connLost(tx.error)) dbPromise = null; finish(); };
+tx.onabort = () => { if (connLost(tx.error)) dbPromise = null; finish(); };
+} catch (e) { if (connLost(e)) dbPromise = null; finish(); }
+}
+timer = setTimeout(function () {
+if (done) return;
+if (!retried) {
+retried = true;
+const miss = list.filter(k => !(k in out));
+if (!miss.length) { finish(); return; }
+run(miss);
+timer = setTimeout(function () { dbPromise = null; finish(); }, 4000);
+return;
+}
+dbPromise = null;
+finish();
+}, 4000);
+run(list);
+})).catch(() => ({}));
+};
+const IDB_LIST_FAILED = null;
+function idbProbe(run) {
+return open().then(db => new Promise((resolve) => {
+let done = false;
+let timer = null;
+let retried = false;
+function finish(val) { if (done) return; done = true; if (timer) clearTimeout(timer); resolve(val); }
+function attempt(conn) {
+try { run(conn, finish); } catch (e) { if (connLost(e)) dbPromise = null; finish(IDB_LIST_FAILED); }
+}
+timer = setTimeout(function () {
+if (done) return;
+if (!retried) {
+retried = true;
+dbPromise = null;
+open().then(function (db2) {
+timer = setTimeout(function () { dbPromise = null; finish(IDB_LIST_FAILED); }, 8000);
+attempt(db2);
+}).catch(function () { finish(IDB_LIST_FAILED); });
+return;
+}
+dbPromise = null;
+finish(IDB_LIST_FAILED);
+}, 4000);
+attempt(db);
+})).catch(() => IDB_LIST_FAILED);
+}
+window.idbListKeys = function () {
+return idbProbe(function (db, finish) {
+const tx = db.transaction(STORE, 'readonly');
+const req = tx.objectStore(STORE).getAllKeys();
+req.onsuccess = () => finish(req.result || []);
+req.onerror = () => { if (connLost(req.error)) dbPromise = null; finish(IDB_LIST_FAILED); };
+tx.onabort = () => { if (connLost(tx.error)) dbPromise = null; finish(IDB_LIST_FAILED); };
+});
+};
+window.idbHasKey = function (key) {
+if (!key) return Promise.resolve(IDB_LIST_FAILED);
+return idbProbe(function (db, finish) {
+const tx = db.transaction(STORE, 'readonly');
+const req = tx.objectStore(STORE).count(key);
+req.onsuccess = () => finish((req.result || 0) > 0);
+req.onerror = () => { if (connLost(req.error)) dbPromise = null; finish(IDB_LIST_FAILED); };
+tx.onabort = () => { if (connLost(tx.error)) dbPromise = null; finish(IDB_LIST_FAILED); };
+});
+};
+window.idbGetAllKeys = function () {
+return window.idbListKeys().then(function (keys) { return keys || []; });
+};
+window.idbDelete = function (key) {
+function tryOnce() {
+return open().then(db => new Promise((resolve) => {
+let done = false;
+const t = setTimeout(function () {
+if (done) return; done = true;
+dbPromise = null;
+resolve(false);
+}, 4000);
+try {
+const tx = db.transaction(STORE, 'readwrite');
+tx.objectStore(STORE).delete(key);
+tx.oncomplete = () => { if (done) return; done = true; clearTimeout(t); resolve(true); };
+tx.onerror = () => { if (done) return; done = true; clearTimeout(t); if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.onabort = () => { if (done) return; done = true; clearTimeout(t); if (connLost(tx.error)) dbPromise = null; resolve(false); };
+} catch (e) { if (done) return; done = true; clearTimeout(t); if (connLost(e)) dbPromise = null; resolve(false); }
+})).catch(() => false);
+}
+return (async () => {
+let ok = await tryOnce();
+if (!ok) { await new Promise(r => setTimeout(r, 100)); ok = await tryOnce(); }
+if (!ok) { await new Promise(r => setTimeout(r, 100)); ok = await tryOnce(); }
+return ok;
+})();
+};
+window.idbClearAll = function () {
+return open().then(db => new Promise((resolve) => {
+try {
+const tx = db.transaction(STORE, 'readwrite');
+tx.objectStore(STORE).clear();
+tx.oncomplete = () => resolve(true);
+tx.onerror = () => { if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.onabort = () => { if (connLost(tx.error)) dbPromise = null; resolve(false); };
+} catch (e) { resolve(false); }
+})).catch(() => false);
+};
+window.idbDestroy = function () {
+return new Promise((resolve) => {
+let settled = false;
+const fin = (ok) => { if (settled) return; settled = true; resolve(ok); };
+try {
+if (dbPromise) {
+dbPromise.then(d => { try { d.close(); } catch (e1) {} }).catch(() => {});
+dbPromise = null;
+}
+if (!window.indexedDB) { fin(false); return; }
+const req = indexedDB.deleteDatabase(DB_NAME);
+req.onsuccess = () => fin(true);
+req.onerror = () => fin(false);
+req.onblocked = () => {};
+setTimeout(() => fin(false), 6000);
+} catch (e) { fin(false); }
+});
+};
+window.idbReplaceAll = function (entries) {
+const list = (entries || []).filter(e => e && e.k !== undefined && e.k !== null);
+if (!list.length) return window.idbClearAll();
+return open().then(db => new Promise((resolve) => {
+try {
+const tx = db.transaction(STORE, 'readwrite');
+const os = tx.objectStore(STORE);
+let bad = false;
+os.clear();
+try {
+list.forEach(e => { os.put(e.v, e.k); });
+} catch (e) {
+bad = true;
+try { tx.abort(); } catch (e2) {}
+}
+tx.oncomplete = () => resolve(!bad);
+tx.onerror = () => { if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.onabort = () => { if (connLost(tx.error)) dbPromise = null; resolve(false); };
+} catch (e) { resolve(false); }
+})).catch(() => false);
+};
+const LS_BIG_LIMIT = 200 * 1024;
+let memoryCache = null;
+const BIG_IDX_KEY = 'xy-home-v2:__big-idx';
+function bigIdxLoad() {
+try { return JSON.parse(localStorage.getItem(BIG_IDX_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+let _bigIdx = bigIdxLoad();
+let _bigIdxSaveTimer = null;
+function bigIdxSave() {
+if (_bigIdxSaveTimer) return;
+_bigIdxSaveTimer = setTimeout(function () {
+_bigIdxSaveTimer = null;
+try { localStorage.setItem(BIG_IDX_KEY, JSON.stringify(_bigIdx)); } catch (e) {}
+}, 300);
+}
+function bigIdxTrack(key, v) {
+const big = typeof v === 'string' && v.length > LS_BIG_LIMIT;
+if (big) {
+if (_bigIdx[key] !== v.length) { _bigIdx[key] = v.length; bigIdxSave(); }
+} else if (_bigIdx[key] !== undefined) {
+delete _bigIdx[key]; bigIdxSave();
+}
+}
+const LS_DIRTY_KEY = 'xy-home-v2:__ls-dirty';
+let _lsDirtyKeys = null;
+try {
+const s = sessionStorage.getItem(LS_DIRTY_KEY);
+if (s) { const arr = JSON.parse(s); if (Array.isArray(arr)) _lsDirtyKeys = new Set(arr); }
+} catch (e) {}
+function lsDirtySave() {
+const arr = _lsDirtyKeys ? Array.from(_lsDirtyKeys) : [];
+try { sessionStorage.setItem(LS_DIRTY_KEY, JSON.stringify(arr)); } catch (e) {}
+try { if (window.idbSet) window.idbSet(LS_DIRTY_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+function lsDirtyAdd(k) {
+if (!_lsDirtyKeys) _lsDirtyKeys = new Set();
+_lsDirtyKeys.add(k);
+lsDirtySave();
+}
+function lsDirtyDel(k) {
+if (_lsDirtyKeys && _lsDirtyKeys.delete(k)) lsDirtySave();
+}
+window.xyStore = function (prefix) {
+return {
+get(k) {
+const key = prefix + ':' + k;
+if (memoryCache && key in memoryCache) return memoryCache[key];
+try { const v = localStorage.getItem(key); if (v !== null) return v; } catch (e) {}
+return null;
+},
+set(k, v) {
+const key = prefix + ':' + k;
+if (!memoryCache) memoryCache = {};
+memoryCache[key] = v;
+try { bigIdxTrack(key, v); } catch (e) {}
+try { wrjRecord(key, v); } catch (e) {}
+const big = typeof v === 'string' && v.length > LS_BIG_LIMIT;
+if (!big) {
+try {
+localStorage.setItem(key, v);
+lsDirtyDel(key); // 写成功 → 清除脏标记
+} catch (e) {
+lsDirtyAdd(key); // 写失败 → 标记：回填时该键以 IDB 为准
+}
+} else {
+try { localStorage.removeItem(key); } catch (e) {}
+}
+try { if (window.idbSet) window.idbSet(key, v); } catch (e) {}
+},
+remove(k) {
+const key = prefix + ':' + k;
+if (memoryCache) delete memoryCache[key];
+try { localStorage.removeItem(key); } catch (e) {}
+try { wrjForget(key); } catch (e) {}
+if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
+try { if (window.idbDelete) window.idbDelete(key); } catch (e) {}
+}
+};
+};
+window.idbGetCached = function (key) {
+if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
+return undefined;
+};
+function isChatMsgsKey(k) {
+if (!k || typeof k !== 'string') return false;
+if (k.indexOf('xy-home-v2:') !== 0) return false;
+const tail = k.slice('xy-home-v2:'.length);
+if (tail === 'chat-arch' || /^[^:]+:chat-arch$/.test(tail)) return true;
+return tail === 'chat-msgs' || /^[^:]+:chat-msgs$/.test(tail);
+}
+function isGroupMsgsKey(k) {
+if (!k || typeof k !== 'string') return false;
+return k === 'xy-home-v2:group-chat-msgs' || /^xy-home-v2:gc-msgs-.+$/.test(k);
+}
+const DATA_PENDING_CEILING_MS = 120000;
+window.mochiDataState = function () {
+if (window.__mochiDataReady) return 'ready';
+try {
+if (window.__mochiLoadT && Date.now() - window.__mochiLoadT > DATA_PENDING_CEILING_MS) return 'timeout';
+} catch (e) {}
+try { if (window.__mochiDataSlow) return 'slow'; } catch (e) {}
+return 'loading';
+};
+window.mochiDataPending = function () {
+const s = window.mochiDataState();
+return s === 'loading' || s === 'slow';
+};
+window.mochiLoadingText = function () { return '正在读取…'; };
+window.mochiLoadingHtml = function (what) {
+return '<div class="mochi-data-loading">' + (what || '内容') + '还在读取，稍候会自动刷新</div>';
+};
+window.mochiOnDataReady = function (fn) {
+if (window.mochiDataState() === 'ready') {
+try { setTimeout(function () { try { fn(); } catch (e) {} }, 0); } catch (e) {}
+}
+try {
+document.addEventListener('mochi-restore-done', function () { try { fn(); } catch (e) {} });
+} catch (e) {}
+};
+window.idbRestore = function (uidPrefix) {
+let readySent = false;
+const sendReady = function () {
+if (readySent) return;
+readySent = true;
+try { window.__mochiDataReady = true; } catch (e) {}
+try { document.dispatchEvent(new Event('mochi-restore-done')); } catch (e) {}
+};
+let finished = false;
+const finish = function () {
+if (finished) return;
+finished = true;
+clearTimeout(safety);
+sendReady();
+};
+const safety = setTimeout(function () {
+if (finished) return;
+try { window.__mochiDataSlow = true; } catch (e) {}
+try { document.dispatchEvent(new Event('mochi-restore-slow')); } catch (e) {}
+}, 12000);
+Promise.all([window.idbGetAllKeys(), window.idbGet(LS_DIRTY_KEY)]).then(res => {
+const keys = res[0];
+try {
+const arr = JSON.parse(res[1] || '[]');
+if (Array.isArray(arr) && arr.length) {
+if (!_lsDirtyKeys) _lsDirtyKeys = new Set();
+arr.forEach(k => { if (k) _lsDirtyKeys.add(k); });
+try { sessionStorage.setItem(LS_DIRTY_KEY, JSON.stringify(Array.from(_lsDirtyKeys))); } catch (e) {}
+}
+} catch (e) {}
+if (!keys || !keys.length) { finish(); return; }
+const need = (keys || []).filter(k =>
+k.indexOf(uidPrefix) === 0 &&
+k !== LS_DIRTY_KEY && // 脏键索引自身不回填
+k.indexOf(uidPrefix + 'music-file:') !== 0 &&
+k.indexOf(uidPrefix + 'media:') !== 0 &&
+!isChatMsgsKey(k) &&
+!isGroupMsgsKey(k) &&
+k !== 'xy-home-v2:__auto-backup-snapshot' &&
+k.indexOf('__wr-j:') < 0 &&
+k !== 'xy-home-v2:call-active' &&
+k !== BIG_IDX_KEY);
+if (!need.length) { finish(); return; }
+const deviceGB = (function () { try { return navigator.deviceMemory || 8; } catch (e) { return 8; } })();
+const BIG_BUDGET = (deviceGB <= 4 ? 12 : 24) * 1024 * 1024;
+let bigBudgetUsed = 0;
+let budgetWarned = false;
+window.__xyIdbDeferredKeys = [];
+const neverRead = [], knownBig = [], rest = [];
+need.forEach(function (k) {
+const sz = _bigIdx[k];
+if (typeof sz === 'number' && sz > LS_BIG_LIMIT) {
+if (sz > BIG_BUDGET) neverRead.push(k);
+else knownBig.push(k);
+} else rest.push(k);
+});
+if (neverRead.length) {
+budgetWarned = true;
+neverRead.forEach(function (k) { window.__xyIdbDeferredKeys.push(k); });
+try { console.info('[mochi] 启动回填：' + neverRead.length + ' 个超大键跳过加载（单键超 ' + Math.round(BIG_BUDGET / 1048576) + 'MB 预算），需要时可用 idbHydrateKey(键名) 按需取回'); } catch (e) {}
+}
+function retainValue(k, v) {
+if (v === undefined || v === null) return false;
+if (memoryCache && (k in memoryCache)) return false;
+let str = typeof v === 'string' ? v : JSON.stringify(v);
+let lsVal = null;
+try { lsVal = localStorage.getItem(k); } catch (e) {}
+if (lsVal !== null && !(_lsDirtyKeys && _lsDirtyKeys.has(k))) {
+str = lsVal;
+}
+try { if (str.length > LS_BIG_LIMIT) { if (_bigIdx[k] !== str.length) { _bigIdx[k] = str.length; bigIdxSave(); } } else if (_bigIdx[k] !== undefined) { delete _bigIdx[k]; bigIdxSave(); } } catch (e) {}
+if (str.length > LS_BIG_LIMIT) {
+if (str.length > BIG_BUDGET || bigBudgetUsed + str.length > BIG_BUDGET) {
+window.__xyIdbDeferredKeys.push(k);
+if (!budgetWarned) {
+budgetWarned = true;
+try { console.info('[mochi] 启动回填：大键驻留超预算(' + Math.round(BIG_BUDGET / 1048576) + 'MB)，超出部分本会话挂起，可随时 idbHydrateKey(键名) 按需取回'); } catch (e) {}
+}
+return false;
+}
+bigBudgetUsed += str.length;
+}
+if (!memoryCache) memoryCache = {};
+memoryCache[k] = str;
+if (str.length > LS_BIG_LIMIT) return true;
+try {
+if (!localStorage.getItem(k)) localStorage.setItem(k, str);
+} catch (e) {}
+return true;
+}
+const soloQueue = knownBig.map(function (k) { return [k]; });
+let restIdx = 0;
+let curBatch = 1;
+let smallStreak = 0;
+function takeUnit() {
+if (soloQueue.length) return soloQueue.shift();
+if (restIdx >= rest.length) return null;
+const u = rest.slice(restIdx, restIdx + curBatch);
+restIdx += u.length;
+return u;
+}
+function processBatch() {
+if (finished) return;
+const unit = takeUnit();
+if (!unit) { finish(); return; }
+window.idbGetMany(unit).then(map => {
+let bytes = 0, allSmall = true;
+unit.forEach(k => { const v = map[k]; if (typeof v === 'string') { bytes += v.length; if (v.length > 65536) allSmall = false; } });
+try { unit.forEach(function (k) { if (!(k in map) && window.__xyIdbDeferredKeys.indexOf(k) < 0) window.__xyIdbDeferredKeys.push(k); }); } catch (e0) {}
+unit.forEach(k => { retainValue(k, map[k]); map[k] = null; });
+if (bytes > 2 * 1048576) { curBatch = 1; smallStreak = 0; }
+else if (allSmall && ++smallStreak >= 10 && curBatch === 1) { curBatch = 4; smallStreak = 0; }
+setTimeout(processBatch, 0); // 让出主线程，下一批
+}).catch(() => {
+try { unit.forEach(function (k) { if (window.__xyIdbDeferredKeys.indexOf(k) < 0) window.__xyIdbDeferredKeys.push(k); }); } catch (e0) {}
+setTimeout(processBatch, 0);
+});
+}
+setTimeout(processBatch, 0);
+}).catch(() => { finish(); });
+};
+window.idbHydrateKey = function (key) {
+return open().then(db => new Promise((resolve) => {
+let done = false;
+let timer = null;
+function finish(val) { if (done) return; done = true; if (timer) clearTimeout(timer); resolve(val); }
+function run() {
+try {
+const tx = db.transaction(STORE, 'readonly');
+const req = tx.objectStore(STORE).get(key);
+req.onsuccess = () => finish(req.result === undefined ? null : req.result);
+req.onerror = () => { if (connLost(req.error)) dbPromise = null; finish(undefined); };
+} catch (e) { if (connLost(e)) dbPromise = null; finish(undefined); }
+}
+let retried = false;
+timer = setTimeout(function () {
+if (done) return;
+if (!retried) {
+retried = true;
+dbPromise = null;
+open().then(function (db2) { db = db2; run(); timer = setTimeout(function () { dbPromise = null; finish(undefined); }, 8000); }).catch(function () { finish(undefined); });
+return;
+}
+dbPromise = null;
+finish(undefined);
+}, 6000);
+run();
+})).then(v => {
+if (v === null) return null;
+if (v === undefined) return false;
+if (!(memoryCache && (key in memoryCache))) {
+let str = typeof v === 'string' ? v : JSON.stringify(v);
+let lsVal = null;
+try { lsVal = localStorage.getItem(key); } catch (e) {}
+if (lsVal !== null && !(_lsDirtyKeys && _lsDirtyKeys.has(key))) {
+str = lsVal;
+}
+if (!memoryCache) memoryCache = {};
+memoryCache[key] = str;
+try { if (str.length > LS_BIG_LIMIT) { if (_bigIdx[key] !== str.length) { _bigIdx[key] = str.length; bigIdxSave(); } } } catch (e) {}
+if (str.length <= LS_BIG_LIMIT) { try { if (!localStorage.getItem(key)) localStorage.setItem(key, str); } catch (e) {} }
+}
+const di = window.__xyIdbDeferredKeys;
+if (Array.isArray(di)) { const i = di.indexOf(key); if (i >= 0) di.splice(i, 1); }
+return true;
+}).catch(() => false);
+};
+const WRJ_KEY = 'xy-home-v2:__wr-journal';
+const WRJ_MARK = 'xy-home-v2:__wr-j:';
+const WRJ_MAX = 40;              // 条数上限
+const WRJ_BUDGET = 128 * 1024;   // 值字符总量上限（防日志本身膨胀拖慢每次 set）
+const WRJ_VAL_LIMIT = 64 * 1024; // 单值超过不记录（大键有自己的恢复路径）
+let _wrj = null;                 // [{k, v, t}]，按 key 去重、最新在前
+let _wrjTimes = {};              // key -> 最近一次已知写入时间（回放/合并/本会话写入共用）
+let _wrjMerged = false;
+function wrjLoad(raw) {
+try {
+const a = JSON.parse(raw || '[]');
+return Array.isArray(a) ? a.filter(function (e) { return e && typeof e.k === 'string' && typeof e.v === 'string' && typeof e.t === 'number'; }) : [];
+} catch (e) { return []; }
+}
+function wrjLsRaw() { try { return localStorage.getItem(WRJ_KEY); } catch (e) { return null; } }
+function wrjPersist() {
+try { localStorage.setItem(WRJ_KEY, JSON.stringify(_wrj || [])); } catch (e) {}
+}
+const WRJ_MARK_FLUSH_MS = 150;
+let _wrjMarkBuf = new Map(); // 完整标记键 -> t
+let _wrjMarkT = null;
+function wrjMarkFlush() {
+if (_wrjMarkT) { clearTimeout(_wrjMarkT); _wrjMarkT = null; }
+if (!_wrjMarkBuf.size) return;
+const pairs = [];
+_wrjMarkBuf.forEach(function (t, k) { pairs.push({ k: k, v: t }); });
+_wrjMarkBuf.clear();
+try {
+if (window.idbSetAll) {
+window.idbSetAll(pairs).then(function (ok) {
+if (ok) return;
+pairs.forEach(function (p) { try { if (window.idbSet) window.idbSet(p.k, p.v); } catch (e2) {} });
+}).catch(function () {});
+return;
+}
+} catch (e) {}
+pairs.forEach(function (p) { try { if (window.idbSet) window.idbSet(p.k, p.v); } catch (e2) {} });
+}
+function wrjMark(key, t) {
+_wrjMarkBuf.set(WRJ_MARK + key, t);
+if (!_wrjMarkT) _wrjMarkT = setTimeout(wrjMarkFlush, WRJ_MARK_FLUSH_MS);
+}
+function wrjUnmark(key) {
+_wrjMarkBuf.delete(WRJ_MARK + key); // 还没落库的标记直接撤销，省一个删除事务
+try { if (window.idbDelete) window.idbDelete(WRJ_MARK + key); } catch (e) {}
+}
+function wrjRecord(key, v) {
+if (!key || key === WRJ_KEY || key.indexOf('__') >= 0) return;
+if (isChatMsgsKey(key) || /:chat-meta$/.test(key) || key.indexOf('music-file:') >= 0) return;
+if (typeof v === 'string' && v.length > WRJ_VAL_LIMIT) { wrjForget(key); return; }
+if (typeof v !== 'string') return;
+if (!_wrj) _wrj = wrjLoad(wrjLsRaw());
+const t = Date.now();
+_wrj = _wrj.filter(function (e) { return e.k !== key; });
+_wrj.unshift({ k: key, v: v, t: t });
+let chars = 0, cut = _wrj.length;
+for (let i = 0; i < _wrj.length; i++) {
+chars += _wrj[i].v.length;
+if (i >= WRJ_MAX || chars > WRJ_BUDGET) { cut = i; break; }
+}
+if (cut < _wrj.length) _wrj.length = cut;
+_wrjTimes[key] = t;
+wrjPersist();
+wrjMark(key, t);
+}
+function wrjForget(key) {
+if (!_wrj) _wrj = wrjLoad(wrjLsRaw());
+const before = _wrj.length;
+_wrj = _wrj.filter(function (e) { return e.k !== key; });
+_wrjTimes[key] = Date.now();
+if (_wrj.length !== before) wrjPersist();
+wrjUnmark(key);
+}
+try {
+document.addEventListener('visibilitychange', function () {
+try { if (document.visibilityState === 'hidden') wrjMarkFlush(); } catch (e) {}
+});
+} catch (e) {}
+try { if (window.addEventListener) window.addEventListener('pagehide', wrjMarkFlush); } catch (e) {}
+function wrjReplay(entries) {
+if (!entries || !entries.length) return 0;
+if (!memoryCache) memoryCache = {};
+let n = 0;
+entries.forEach(function (e) {
+if ((_wrjTimes[e.k] || 0) >= e.t) return;
+_wrjTimes[e.k] = e.t;
+if (memoryCache[e.k] === e.v) return;
+memoryCache[e.k] = e.v;
+try { if (e.v.length <= LS_BIG_LIMIT) localStorage.setItem(e.k, e.v); } catch (e2) {}
+if (!WRJ_REPLAY_NO_IDB) { try { if (window.idbSet) window.idbSet(e.k, e.v); } catch (e2) {} }
+n++;
+});
+return n;
+}
+var WRJ_REPLAY_NO_IDB = true;
+try { wrjReplay(wrjLoad(wrjLsRaw())); } catch (e) {}
+let _wrjMergeTries = 0;
+let _wrjMergeBusy = false;
+function wrjMergeRetry() {
+_wrjMergeBusy = false; // 各失败路径统一在此解锁，重试才能重新进入
+if (_wrjMerged || _wrjMergeTries >= 5) return;
+_wrjMergeTries++;
+setTimeout(function () { try { wrjMergeFromIdb(); } catch (e) {} }, 10000);
+}
+function wrjMergeFromIdb() {
+if (_wrjMerged || _wrjMergeBusy) return;
+if (!window.idbListKeys || !window.idbGetMany) return;
+_wrjMergeBusy = true;
+window.idbListKeys().then(function (keys) {
+if (!keys) { wrjMergeRetry(); return; }
+const marked = keys.filter(function (k) { return String(k).indexOf(WRJ_MARK) === 0; });
+if (!marked.length) { _wrjMergeBusy = false; _wrjMerged = true; return; }
+window.idbGetMany(marked).then(function (marks) {
+const cand = marked.filter(function (mk) {
+const t = marks[mk];
+const full = String(mk).slice(WRJ_MARK.length);
+return typeof t === 'number' && t > (_wrjTimes[full] || 0);
+});
+if (!cand.length) {
+const anyTs = marked.some(function (mk) { return typeof marks[mk] === 'number'; });
+if (!anyTs) { wrjMergeRetry(); return; } // 有标记却全读不到数值＝这轮没读到，不是真没有
+_wrjMergeBusy = false; _wrjMerged = true; // 标记都在但都不比已知写入新＝确实无可修
+return;
+}
+_wrjMergeBusy = false; _wrjMerged = true;
+window.idbGetMany(cand.map(function (mk) { return String(mk).slice(WRJ_MARK.length); })).then(function (vals) {
+if (!memoryCache) memoryCache = {};
+let healed = 0;
+cand.forEach(function (mk) {
+const full = String(mk).slice(WRJ_MARK.length);
+const v = vals[full];
+if (typeof v !== 'string' || v.length > WRJ_VAL_LIMIT) return;
+_wrjTimes[full] = marks[mk];
+if (memoryCache[full] === v) return;
+memoryCache[full] = v;
+try { if (v.length <= LS_BIG_LIMIT) localStorage.setItem(full, v); } catch (e2) {}
+healed++;
+});
+if (healed > 0) {
+try { document.dispatchEvent(new Event('mochi-wrj-heal')); } catch (e2) {}
+}
+});
+});
+}).catch(function () { wrjMergeRetry(); });
+}
+document.addEventListener('mochi-restore-done', wrjMergeFromIdb);
+setTimeout(wrjMergeFromIdb, 15000); // restore 整体挂起时的兜底（正常走 mochi-restore-done，_wrjMerged 防重入）
+window.__mochiLoadT = Date.now();
+try { window.idbRestore('xy-home-v2:'); } catch (e) {}
+try {
+if (!sessionStorage.getItem('xy-ls-big-migrated')) {
+let moved = 0;
+const bigKeys = [];
+for (let i = 0; i < localStorage.length; i++) {
+const k = localStorage.key(i);
+if (!k || k.indexOf('xy-home-v2:') !== 0) continue;
+if (isChatMsgsKey(k)) continue;
+if (isGroupMsgsKey(k)) continue;
+if (k === 'xy-home-v2:__auto-backup-snapshot') continue;
+const v = localStorage.getItem(k);
+if (v && v.length > LS_BIG_LIMIT) bigKeys.push(k);
+}
+(async () => {
+let moved = 0;
+for (const k of bigKeys) {
+const v = localStorage.getItem(k);
+if (!v) continue;
+try {
+const ok = await window.idbSet(k, v);
+if (ok) {
+if (!memoryCache) memoryCache = {};
+memoryCache[k] = v;
+try { localStorage.removeItem(k); } catch (e) {}
+moved++;
+} else {
+setTimeout(async function () {
+try {
+const v2 = localStorage.getItem(k);
+if (!v2) return;
+const ok2 = await window.idbSet(k, v2);
+if (ok2) {
+if (!memoryCache) memoryCache = {};
+memoryCache[k] = v2;
+try { localStorage.removeItem(k); } catch (e) {}
+}
+} catch (e) {}
+}, 5000);
+}
+} catch (e) {}
+}
+if (moved > 0) { try { sessionStorage.setItem('xy-ls-big-migrated', '1'); } catch (e) {} }
+})();
+}
+} catch (e) {}
+window.idbBigSize = function (key) {
+try { const s = _bigIdx[key]; return typeof s === 'number' ? s : null; } catch (e) { return null; }
+};
+let _lsSweepDone = false;
+let _lsSweepFail = false;
+let _lsSweepTries = 0;
+function lsResidueSweep() {
+if (_lsSweepDone) return;
+_lsSweepDone = true;
+_lsSweepFail = false;
+if (!window.idbGet || !window.idbSet) return;
+const markFail = function () { _lsSweepFail = true; };
+let names = [];
+try { names = Object.keys(localStorage); } catch (e) { return; }
+const cands = names.filter(function (k) {
+if (typeof k !== 'string' || k.indexOf('xy-home-v2:') !== 0) return false;
+if (isChatMsgsKey(k)) return false;                  // 聊天 LS 快照是唯一备份，绝不动
+if (k.indexOf('music-file:') >= 0) return false;     // 音频有专属迁移路径
+if (k === BIG_IDX_KEY || k === LS_DIRTY_KEY || k === WRJ_KEY || k.indexOf('__wr-j:') === 0) return false;
+if (k === 'xy-home-v2:__auto-backup-snapshot') return false;
+let v = null;
+try { v = localStorage.getItem(k); } catch (e) { return false; }
+return typeof v === 'string' && v.length > LS_BIG_LIMIT;
+});
+let i = 0;
+(function step() {
+if (i >= cands.length) {
+if (_lsSweepFail && _lsSweepTries < 2) {
+_lsSweepTries++;
+_lsSweepDone = false;
+setTimeout(lsResidueSweep, 60000);
+}
+return;
+}
+const k = cands[i++];
+let lsVal = null;
+try { lsVal = localStorage.getItem(k); } catch (e) {}
+if (typeof lsVal !== 'string' || lsVal.length <= LS_BIG_LIMIT) { setTimeout(step, 0); return; }
+window.idbGet(k).then(function (idbVal) {
+const next = function () { setTimeout(step, 0); };
+if (idbVal && typeof idbVal !== 'string') { next(); return; }
+if (typeof idbVal === 'string' && idbVal === lsVal) {
+try { if (localStorage.getItem(k) === lsVal) localStorage.removeItem(k); } catch (e) {}
+next(); return;
+}
+window.idbSet(k, lsVal).then(function (ok) {
+if (ok) {
+let cur = null;
+try { cur = localStorage.getItem(k); } catch (e) {}
+if (cur === lsVal) {
+if (!memoryCache) memoryCache = {};
+if (!(k in memoryCache)) memoryCache[k] = lsVal;
+try { localStorage.removeItem(k); } catch (e) {}
+}
+} else { markFail(); } // #721 追平写失败（配额满/事务挂了）：这轮没清掉，稍后重试
+next();
+}).catch(function () { markFail(); next(); });
+}).catch(function () { markFail(); setTimeout(step, 0); });
+})();
+}
+document.addEventListener('mochi-restore-done', function () { setTimeout(lsResidueSweep, 20000); });
+setTimeout(lsResidueSweep, 45000); // restore 挂起/事件丢失兜底（_lsSweepDone 防重入）
+window.idbLsResidueSweep = lsResidueSweep;
+window.addEventListener('storage', function (e) {
+try {
+if (e && e.key && memoryCache && e.key in memoryCache) delete memoryCache[e.key];
+} catch (err) {}
+});
+})();
+if (window.__mochiLoaded) window.__mochiLoaded.push("idb.js");
+} catch (__e) { try { console.error("[JS] idb.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[idb.js] " + String(__e && __e.message || __e)); } })();

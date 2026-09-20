@@ -160,6 +160,8 @@
   // 两处重复）。okState 可选：解锁成功时写入「验证通过」提示文本的元素（开屏锁卡用，页面随后
   // 自动刷新）。开屏仍在（splash 未隐藏）时为避免 z-index 盖住 modal，给 splash 挂 .under-modal，
   // mask [hidden] 恢复时移除；进入后开屏已隐藏则整段跳过。
+  // #812：staticText 末尾补「与开屏问答页暗号同码」互指说明——两入口同码（card-lock 校验
+  // mochi#990815 散列、applock QA_SKIP_CODE='990815'），此前两边只讲公式互不通气＝用户各自猜码。
   function promptCardUnlock(okState) {
     if (!window.openModal || !window.cardLockTryUnlock) return;
     const splash = document.getElementById('splash');
@@ -183,7 +185,7 @@
       const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
       if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
       else setTimeout(function () { location.reload(); }, 900);
-    }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。' });
+    }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。这个密码与开屏问答页的「暗号」是同一个（同一串 6 位数字）：在开屏问答页点「输暗号跳过问答」用的也是它。' });
   }
   // #XXX 强制弹窗提醒：进入应用后系统内置字卡仍锁定（未输二级密码）时，每次打开应用弹一次
   // （本加载仅一次）。可点「知道了」关闭继续用（不输密码也能正常使用全部功能），也可就地
@@ -378,6 +380,34 @@
     updateMandState();
     checkMandScrolled();
   }
+  // #797a（2026-09-19）：强制进入（保险丝放行）后的常驻「数据仍在加载」顶条——
+  //   原先只有一次性弹窗，点掉之后应用里再无任何「还在加载」指示，用户在空列表上
+  //   继续点＝把「还没回填」当 bug 报。横幅复用 .ver-update-bar 固定顶条形态
+  //   （零 CSS 改动、不碰 base.css）；mochi-restore-done 自动撤；120s 超限自撤
+  //   （与 idb.js DATA_PENDING_CEILING_MS 同源——超限即按权威空态陈述，横幅不再挂）。
+  function showDataPendingBanner() {
+    if (document.getElementById('mochi-data-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'mochi-data-banner';
+    bar.className = 'ver-update-bar';
+    bar.innerHTML =
+      '<span class="vub-txt">数据仍在后台加载，部分内容暂时看不到…</span>' +
+      '<span class="vub-act vub-close" id="mochi-data-banner-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">隐藏</span>';
+    document.body.appendChild(bar);
+    let gone = false;
+    let fuse = 0;
+    const off = function () {
+      if (gone) return;
+      gone = true;
+      document.removeEventListener('mochi-restore-done', off);
+      clearTimeout(fuse);
+      if (bar.parentNode) bar.parentNode.removeChild(bar);
+    };
+    fuse = setTimeout(off, 120000);
+    document.addEventListener('mochi-restore-done', off);
+    const closeBtn = document.getElementById('mochi-data-banner-close');
+    if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); off(); });
+  }
   // 真正进入：隐藏开屏 + （数据未真就绪时）数据不全提示 / 字卡预加载——原 enter/forceEnter 的收尾逻辑收拢于此
   function finishEnter() {
     if (splash.classList.contains('hide')) return;
@@ -388,6 +418,8 @@
     if (!ready()) {
       // v3.26.x #135：未真就绪但已硬放行（20s 保险丝）→ 弹「数据仍在加载」提示
       // （不静默进入，用户知情数据可能不全）
+      // #797a：弹窗只说一次，顶条常驻到真就绪（细节见 showDataPendingBanner 注释）
+      try { showDataPendingBanner(); } catch (e) {}
       try {
         if (window.openModal) {
           window.openModal('数据仍在加载', '数据较多仍在后台加载，部分内容（字卡 / 图片 / 聊天记录等）可能暂时看不见，建议稍后刷新页面。', null);

@@ -96,6 +96,10 @@
     //   · 池全关时兜底回爱心（渲染侧兜底，不靠设置页拦截——标识与符号不同，
     //     「不显示任何标识」由上方 as-badge 总开关表达，池全关没有独立语义）。
     'as-badge-heart': 1,
+    // #856 根因修（#727 遗留）：总开关 as-badge 必须进 DEFAULTS。getCfg 只遍历 DEFAULTS 的键，
+    // 缺席时 replyCfg()['as-badge'] 恒 undefined → 设置页开关初值恒显「关」、#asb-rand-row 永不出现、
+    // chips 恒带 .dis，而渲染侧 chat.js 的 cfgn(c,'as-badge',1) 恒为 1（＝关不掉）。默认 1＝与改造前观感一致。
+    'as-badge': 1,
     // v3.55.x #727：内置星星/月亮/闪光/小爪（默认关，点亮才参与随机抽取）
     'as-badge-star': 0, 'as-badge-moon': 0, 'as-badge-spark': 0, 'as-badge-paw': 0,
     // v3.55.x #727：多枚点亮时的抽取方式——1＝每次从池里随机抽一枚（默认），
@@ -113,6 +117,13 @@
     // 悄悄话发出来；默认开 4%（低于其他邀请门，避免频繁占用「主动消息」观感），
     // 池过滤与冷却见 ta-ask.js maybeTriggerTACC
     'ai-cc-en': 1, 'ai-cc-prob': 4,
+    // v3.29.x #807：红包领后捎一句话——红包被领取后（我领 TA 的红包 / TA 领我的红包）
+    // TA 按概率主动捎一条消息：rp-thx-en 总开关（默认开）、rp-thx-prob 概率 %（默认 60）。
+    // 固定只发一条、不经回复管线＝不受「回复条数最多」限制；消费在 chat.js rpCollectFeedback，
+    // 设置行由本文件动态注入回复设置「其他」面板「红包互动」组（模板在途，同 #791 注入口径）。
+    // rp-thx-mode＝捎话内容来源：0=只用系统预设话术池、1=和正常聊天一样回复（单卡生成）、
+    // 2=混合（默认 2＝保持 #807 上线以来的行为：六成预设 + 四成聊天式）
+    'rp-thx-en': 1, 'rp-thx-prob': 60, 'rp-thx-mode': 2,
     // v3.9.x：TA 主动查岗——主动发送轮里 TA 按概率来查你的岗（查岗问题卡进聊天，
     // 概率自动弹回答弹窗，作答后 TA 回应）；冷却默认 30 分钟防高概率连查
     // v3.12.x：默认概率 15% → 8%——用户反馈互动卡片整体太频繁（询问/小问题/好奇/吐槽同步降半）
@@ -300,7 +311,57 @@
     if (fishGroup) {
       fishGroup.insertAdjacentHTML('beforeend',
         '<div class="gs-row"><span>摸鱼抓包浮字</span><label class="toggle"><input type="checkbox" id="fish-grab-en"><span class="tk"></span></label></div>' +
-        '<div class="gs-sub">开启后 TA 摸鱼值上涨时桌面会飘「摸鱼浮字」，6 秒内点「点我抓包」双方摸鱼值翻倍＋TA 害羞回应；关闭后不再飘字、也没有抓包（摸鱼值本身照常累计），冷却与每日次数照旧不消耗</div>');
+        '<div class="gs-sub">开启后 TA 摸鱼值上涨时桌面会飘「摸鱼浮字」，6 秒内点「点我抓包」会结算 TA 自上次被抓以来涨的全部摸鱼值（TA 补一份总账、你得同额）＋TA 害羞回应；关闭后不再飘字、也没有抓包（摸鱼值本身照常累计），冷却与每日次数照旧不消耗</div>');
+    }
+  }
+
+  // v3.29.x #807：「红包互动」设置组（红包领后捎一句话）——模板在途，同上 JS 注入：
+  // 挂进「其他」面板尾部；注入必须在本文件下方开关同步/绑定与 stepper 通用绑定之前，
+  // id=rp-thx-en 走通用开关绑定、data-k=rp-thx-prob 走通用 stepper 绑定，无需单独特写；
+  // rp-thx-mode 三档非布尔开关，本块自带 pills 弹窗绑定（与红包半框设置同一套键、同源同步）
+  const RP_THX_MODES = [{ label: '系统预设话术', value: 0 }, { label: '像正常聊天一样回复', value: 1 }, { label: '混合', value: 2 }];
+  window.rpThxModeList = RP_THX_MODES;
+  window.rpThxModeLabel = function (v) {
+    const n = Number(v);
+    for (let i = 0; i < RP_THX_MODES.length; i++) { if (RP_THX_MODES[i].value === n) return RP_THX_MODES[i].label; }
+    return '混合';
+  };
+  window.rpThxModeSync = function () {
+    const el = document.getElementById('rp-thx-mode-btn');
+    if (!el) return;
+    let v = 2;
+    try { v = Number((window.replyCfg && window.replyCfg())['rp-thx-mode']); } catch (e) {}
+    if (v !== 0 && v !== 1) v = 2;
+    el.textContent = window.rpThxModeLabel(v);
+    el.dataset.v = String(v);
+  };
+  if (!document.getElementById('rp-thx-en')) {
+    const rpThxPanel = document.querySelector('#page-reply-settings [data-rpanel="other"]');
+    if (rpThxPanel) {
+      const rpThxSec = document.createElement('div');
+      rpThxSec.id = 'rp-thx-settings';
+      rpThxSec.innerHTML = '<div class="gs-title" style="margin-top:10px">红包互动</div>' +
+        '<div class="set-group glass">' +
+        '<div class="gs-row"><span>红包领后捎一句话</span><label class="toggle"><input type="checkbox" id="rp-thx-en"><span class="tk"></span></label></div>' +
+        '<div class="gs-row"><span>捎话概率</span><div class="stepper" data-k="rp-thx-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rp-thx-prob-val" readonly><button class="stp-max">+</button></div></div>' +
+        '<div class="gs-row"><span>捎话内容</span><div class="gs-pick" id="rp-thx-mode-btn" data-v="2">混合</div></div>' +
+        '</div>' +
+        '<div class="gs-sub" style="padding:0 14px 14px">我领取 TA 发的红包、或 TA 领取我发的红包后，TA 有概率主动捎来一句话（默认开，概率 60%）。这句话固定只发一条、不受「回复条数最多」限制，也不占正常回复的名额；「捎话内容」三档＝只用系统预设话术 / 和正常聊天一样回复（走字卡与词典管线）/ 混合（约六成预设、四成聊天式）；各联系人独立保存，总开关关闭后两个方向都不再触发</div>';
+      rpThxPanel.appendChild(rpThxSec);
+      const rpThxModeBtn = document.getElementById('rp-thx-mode-btn');
+      if (rpThxModeBtn && window.openModal) {
+        rpThxModeBtn.addEventListener('click', () => {
+          window.openModal('红包领后捎话的内容', '', (v) => {
+            const n = Number(v);
+            if (n !== 0 && n !== 1 && n !== 2) return;
+            window.saveReplyCfg('rp-thx-mode', n);
+            window.rpThxModeSync();
+            try { toastReply('已设置：捎话内容＝' + window.rpThxModeLabel(n)); } catch (e) {}
+          }, { noInput: true, pill: rpThxModeBtn.dataset.v || '2', pills: RP_THX_MODES.map(m => ({ label: m.label, value: String(m.value) })) });
+        });
+      }
+      document.addEventListener('contact-switched', window.rpThxModeSync);
+      window.rpThxModeSync();
     }
   }
 
@@ -328,10 +389,12 @@
       }
     });
     // 开关
-    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
+    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
+    // #807 捎话模式行（rp-thx-mode）非开关/stepper，走本文件注入块自带的同步助手
+    try { if (window.rpThxModeSync) window.rpThxModeSync(); } catch (e) {}
   }
 
   // v3.33.x：来电概率（call-incoming）支持 0.01 粒度（可输入 0.05 等 0.0X 小数），
@@ -448,7 +511,8 @@
     'mjf-src-cc': '造句语料·自定义字卡', 'mjf-src-def': '造句语料·默认聊天字卡', 'mjf-src-dict': '造句语料·词典',
     'mjf-mix': '造句混合模式',
     'rc-en': '撤回后补发消息',
-    'fish-en': '摸鱼值累计', 'work-en': '工作值累计', 'fish-grab-en': '摸鱼抓包浮字'
+    'fish-en': '摸鱼值累计', 'work-en': '工作值累计', 'fish-grab-en': '摸鱼抓包浮字',
+    'rp-thx-en': '红包领后捎一句话'
   };
   // #388：cc-toast 元素全站懒创建（template.html 无静态元素，chat.js/device.js 等 20+ 文件
   //   都是「查不到就 createElement 补挂 body」）——本文件此前只查不建，用户直达回复设置页时
@@ -471,7 +535,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
+  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -688,22 +752,29 @@
       if (randEl) { randEl.checked = cfg['as-badge-rand'] === 1; randEl.disabled = !en; }
       renderCust();
     }
+    // #856 自定义标识的校验/写入抽成一份（设置页 openModal 与「边看边调→微调」抽屉共用同一口径：
+    // 最长 4 字、上限 8 个、与内置/已有去重）。返回 {ok,msg}：ok=false 时 msg 是提示文案，ok=true 时 msg 是新增标识串。
+    function asbAddRaw(raw) {
+      const s = String(raw == null ? '' : raw).trim();
+      if (!s) return { ok: false, msg: '没有输入标识' };
+      if (s.length > 4) return { ok: false, msg: '标识最长 4 个字符' };
+      const list = asbCustGet();
+      if (list.length >= 8) return { ok: false, msg: '自定义标识最多添加 8 个（可删掉不要的再加）' };
+      if (BUILTIN_VALS.indexOf(s) > -1) return { ok: false, msg: '这是系统自带标识，点亮对应 chip 即可' };
+      if (list.some(it => it.s === s)) return { ok: false, msg: '该自定义标识已存在' };
+      list.push({ s: s, on: 1 });
+      asbCustSet(list);
+      asbSync();
+      return { ok: true, msg: s };
+    }
     // #727 添加自定义标识（openModal 确定后必关弹窗；校验不过 toast 提示、用户重开再输）
     function asbAddFlow() {
       if (asbCustGet().length >= 8) { asbToast('自定义标识最多添加 8 个（可删掉不要的再加）', 2400); return; }
       if (!window.openModal) return;
       window.openModal('添加主动发送标识', '', function (v) {
-        const s = String(v == null ? '' : v).trim();
-        if (!s) { asbToast('没有输入标识', 2000); return; }
-        if (s.length > 4) { asbToast('标识最长 4 个字符', 2000); return; }
-        const list = asbCustGet();
-        if (list.length >= 8) { asbToast('自定义标识最多添加 8 个（可删掉不要的再加）', 2400); return; }
-        if (BUILTIN_VALS.indexOf(s) > -1) { asbToast('这是系统自带标识，点亮对应 chip 即可', 2400); return; }
-        if (list.some(it => it.s === s)) { asbToast('该自定义标识已存在', 2000); return; }
-        list.push({ s: s, on: 1 });
-        asbCustSet(list);
-        asbSync();
-        toastSaved('标识 ' + s, true);
+        const r = asbAddRaw(v);
+        if (!r.ok) { asbToast(r.msg, 2400); return; }
+        toastSaved('标识 ' + r.msg, true);
       }, { maxlength: 4, placeholder: '输入标识，如 🌙 / ❀ / 喵' });
     }
     if (box) {
@@ -762,6 +833,88 @@
         if (Array.isArray(arr)) arr.forEach(it => { if (it && it.on === 1 && typeof it.s === 'string' && it.s) out.push({ s: it.s, builtin: 0 }); });
         return out;
       } catch (e) { return []; }
+    };
+    // ===== #856（2026-09-19）：标识池的「视图读写口」=====
+    // 用户直派「聊天设置→美化→边看边调→微调 里缺少更换联系人主动发消息的标识图案」。
+    // 池的数据、默认值、自定义校验仍然只在本段（#727）有一份；这里把「列表 / 点亮切换 / 新增 /
+    // 写开关 / 造节点」导出，让抽屉只画视图——否则两处各写一套池逻辑，内置码值、上限、去重
+    // 这类口径迟早漂移（#712 拼接符号与 #727 标识就已经是两套几乎一样的校验了）。
+    window.asBadgeItems = function () {
+      const cfg = getCfg();
+      const out = POOL.map(p => ({ k: p[0], s: p[1], label: p[2], on: cfg[p[0]] === 1, builtin: 1 }));
+      try { asbCustGet().forEach((it, i) => out.push({ i: i, s: it.s, on: it.on === 1, builtin: 0 })); } catch (e) {}
+      return out;
+    };
+    // 点一枚 chip＝翻转它的点亮态（内置写 reply-as-badge-*、自定义写 as-badge-custom 的 on）；
+    // 返回给调用方做提示用的名字（自定义没有中文名，用标识串本身）
+    window.asBadgeToggle = function (it) {
+      if (!it) return '';
+      if (it.builtin) {
+        window.saveReplyCfg(it.k, it.on ? 0 : 1);
+        asbSync();
+        return '标识 ' + (it.label || it.s);
+      }
+      const list = asbCustGet();
+      const cur = list[it.i];
+      if (!cur) return '';
+      cur.on = cur.on === 1 ? 0 : 1;
+      asbCustSet(list);
+      asbSync();
+      return '标识 ' + cur.s;
+    };
+    window.asBadgeAdd = asbAddRaw;
+    // 总开关 as-badge / 抽取方式 as-badge-rand 也走这里：写完顺手 asbSync，设置页那侧的勾选态同步刷新
+    window.asBadgeWrite = function (k, v) { window.saveReplyCfg(k, v); try { asbSync(); } catch (e) {} };
+    // 标识节点：爱心＝SVG、其余（内置四枚 + 自定义）＝文本 span，与 chat.js 渲染侧同样两种形态、
+    // 同一批类名（样式见 chat-main.css .msg-hi-heart / .msg-hi-mark）。给「微调」抽屉就地换标识用。
+    window.asBadgeNode = function (pick) {
+      const s = String((pick && pick.s) || '');
+      if (pick && pick.builtin === 1 && s === '♥') {
+        const w = document.createElement('span');
+        w.innerHTML = '<svg class="msg-hi-heart" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+        return w.firstChild;
+      }
+      if (!s) return null;
+      const mk = document.createElement('span');
+      mk.className = 'msg-hi-mark';
+      mk.setAttribute('aria-hidden', 'true');
+      mk.textContent = s;
+      return mk;
+    };
+    // #856 供「微调」分区就地刷新屏上标识：只动气泡上那枚标识节点（带标识＝那条是主动发送的消息，
+    // 语义由 chat.js 渲染时决定），不整窗重建＝不闪屏（#846 同族口径）。
+    // 遍历的是气泡而不是标识节点：总开关关掉时标识节点被移除，若只扫节点，再打开就没有任何凭据能把
+    // 它们恢复回来（屏上从此没有标识）。所以移除时把这枚原本的标识串记在 data-as-mark 上，
+    // 打开时按它放回原位。旧标识仍在新池里的保持不动（prefer），故点亮/取消一枚只改动用到它的那些气泡。
+    window.asBadgeRefreshMarks = function (host) {
+      try {
+        const root = host || document.getElementById('chat-body');
+        if (!root) return 0;
+        const cfg = getCfg();
+        const on = cfg['as-badge'] === 1;
+        let pool = [];
+        try { pool = window.asBadgePool(cfg) || []; } catch (e) { pool = []; }
+        if (!pool.length) pool = [{ s: '♥', builtin: 1 }];
+        const bubbles = root.querySelectorAll('.msg-bubble');
+        let n = 0;
+        for (let i = 0; i < bubbles.length; i++) {
+          const b = bubbles[i];
+          const old = b.querySelector('.msg-hi-heart, .msg-hi-mark');
+          const cur = old ? (old.classList.contains('msg-hi-heart') ? '♥' : String(old.textContent || '')) : String(b.dataset.asMark || '');
+          if (!cur) continue;
+          if (old) old.remove();
+          n++;
+          if (!on) { b.dataset.asMark = cur; continue; }
+          delete b.dataset.asMark;
+          let pick = pool[0];
+          const keep = pool.filter(p => p.s === cur)[0];
+          if (keep) pick = keep;
+          else if (pool.length > 1 && cfg['as-badge-rand'] !== 1) pick = pool[i % pool.length];
+          const node = window.asBadgeNode(pick);
+          if (node) b.insertBefore(node, b.firstChild);
+        }
+        return n;
+      } catch (e) { return 0; }
     };
     // #727 多枚点亮时的抽取方式行——点「随机/轮换」两个 chip 写 as-badge-rand
     const randRow = document.getElementById('asb-rand-row');
@@ -1038,7 +1191,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en'].forEach(k => {
+      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'rc-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

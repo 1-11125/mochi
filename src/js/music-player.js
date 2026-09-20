@@ -2315,6 +2315,7 @@
     revokeObjectUrl();
     playRejected = false;
     endedHandled = false;
+    bufferLatchEl = null; // #795：缓冲锁是「这个元素」的属性，换曲不得继承
     disarmAutoResume();
     clearBgResume();
     clearStallGuard();
@@ -2356,13 +2357,14 @@
   // 播放启动（audio 已设 src 后调用）
   function startPlayback(m) {
     if (!audio) return;
-    audio.preload = 'auto';
+    const el = audio; // #795：本条链路的所有异步回调只认这个元素（切歌后旧元素的拒绝回调不得动新歌）
+    el.preload = 'auto';
     setupHandlers(m);
     // v3.x：来电 hold 期间音频异步加载完成 → 不播放（避免通话中音乐响起），
     // 通话结束由 musicHoldForCall(false) 统一恢复播放与悬浮窗
     if (callHoldPending) { try { syncPlayIcons(false); } catch (e) {} return; }
     wantPlay = true; // v3.10.x：用户点播/切歌＝意图播放（外部打断时自动续播的依据）
-    const p = audio.play();
+    const p = el.play();
     if (p && p.catch) {
       p.catch((err) => {
         // v3.28.x：防 null.play() 崩溃——play() 的 rejection 是异步回调，其间 audio
@@ -2370,7 +2372,11 @@
         // retryWithHttpsUrl 先 teardown 再异步拉直链；或用户切歌/停止）。不判空直接
         // audio.play() 会抛「Cannot read properties of null (reading 'play')」
         //（红米K80 断网实测）。换源回调/后台补播/手势兜底自会接管，这里静默返回。
-        if (!audio) return;
+        // #795：判据从「audio 是否为空」收紧成「还是不是我起播的那个元素」——弱网挂死的
+        // play() 在用户切歌后被 teardown 打断成 AbortError，旧判据看不见元素已换人，
+        // 一路走到 offerRemoveDamagedSong 的 audio.pause()，把刚点的**新歌**停掉，
+        // 还给它记一次「播放失败」（连续 2 次弹「移出音乐库」）＝正常歌被判成坏链。
+        if (!audio || el !== audio) return;
         // v3.27.x：区分 play() reject 的错误类型——只有 NotAllowedError 才是真正的
         // 自动播放策略拦截（走 muted 静音解锁）；其他错误（NotSupportedError/AbortError
         // 等）是源加载失败/跨域/混合内容/meting 服务不可达，走外链失败兜底（拉完整版
@@ -2408,11 +2414,11 @@
         // muted 静音解锁（Chromium/国产 WebView 的 autoplay 策略对静音媒体放行）：
         // 静音 play() → 成功后再恢复音量。这比「提示用户再点一下屏幕」在
         // Via/OPPO 自带等国产浏览器上更可靠（实测其手势续播仍被拒）。
-        try { audio.muted = true; } catch (e) {}
-        const p2 = audio.play();
+        try { el.muted = true; } catch (e) {}
+        const p2 = el.play();
         if (p2 && p2.then) {
           p2.then(() => {
-            if (audio) audio.muted = false; // 静音解锁成功 → 恢复出声
+            if (el === audio) el.muted = false; // 静音解锁成功 → 恢复出声（过期元素不动）
             playRejected = false;
             clearStallGuard();
             disarmAutoResume();
@@ -2420,7 +2426,7 @@
           }).catch((e2) => {
             // v3.10.x：muted 也被拒——手势内才弹提示，自动切歌/断链重试等
             // 非手势场景静默走补播反击（聊天中听歌突然中断弹"被拦截"即此）
-            if (audio) { try { audio.muted = false; } catch (e) {} }
+            if (el === audio) { try { el.muted = false; } catch (e) {} }
             handlePlayReject(e2);
           });
         } else {
@@ -2557,14 +2563,15 @@
       return;
     }
     if (!audio.paused) return;
-    const p = audio.play();
+    const el = audio; // #795：补播链路同样只认发起时的元素
+    const p = el.play();
     if (p && p.then) {
       p.then(function () { bgResumeFails = 0; }).catch(function () {
-        if (!audio) return; // v3.28.x：回调异步期间可能已 teardown（换源/切歌/停止），判空防 null.play()
-        try { audio.muted = true; } catch (e) {}
-        const p2 = audio.play();
+        if (!audio || el !== audio) return; // v3.28.x：回调异步期间可能已 teardown（换源/切歌/停止）；#795 收紧成元素身份
+        try { el.muted = true; } catch (e) {}
+        const p2 = el.play();
         if (p2 && p2.then) {
-          p2.then(function () { try { if (audio) audio.muted = false; } catch (e) {} bgResumeFails = 0; })
+          p2.then(function () { try { if (el === audio) el.muted = false; } catch (e) {} bgResumeFails = 0; })
             .catch(function () { bgResumeFails++; bgResumeFailAt = Date.now(); rebuildAndPlay(m); });
         } else { bgResumeFails++; bgResumeFailAt = Date.now(); rebuildAndPlay(m); }
       });
@@ -2660,25 +2667,50 @@
   // 不在这里误判成「外链失败」切兜底。
   let stallTimer = null;
   let playRejected = false;
+  // ===== #795「缓冲中」态：界面与停滞守卫共用同一条内核事实 =====
+  // 需求（用户原话）：「还缺少音乐加载时的加载动画，有时候会卡住，其实是网络在加载。」
+  // 旧实现里「在不在播」只看 `!audio.paused`，而 play() 一调用 paused 立刻变假、readyState 仍是 0
+  // ⇒ 网络取流期界面只剩两种谎：要么静止像死了，要么波形条在跳、00:00 不走、没声。
+  // 下面两个判据都只读 HTMLMediaElement 的标准标志（readyState/buffered/networkState），零机型分支。
+  // 「还在加载」＝有元数据 / 有已缓冲区间 / 内核正在取流（停滞守卫与 UI 同口径，不再各说一套）
+  function mediaStillLoading(a) {
+    if (!a) return false;
+    try {
+      return a.readyState > 0 || (a.buffered && a.buffered.length > 0) || a.networkState === 2;
+    } catch (e) { return false; }
+  }
+  // 「缓冲中」＝已按下播放、但内核还没有能开播的数据（readyState<3 且一段都没缓冲下来）。
+  // bufferLatchEl 兜住播放中途断流：那时 readyState 仍 ≥3、buffered 也有旧区间，只能靠 waiting/stalled 事件。
+  let bufferLatchEl = null;
+  function musicBuffering() {
+    if (!audio || audio.paused) return false;
+    if (bufferLatchEl === audio) return true;
+    try {
+      return !(audio.readyState >= 3 || (audio.buffered && audio.buffered.length > 0));
+    } catch (e) { return false; }
+  }
   function clearStallGuard() {
     if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
   }
   function armStallGuard(m) {
     clearStallGuard();
     if (!m || (m.source !== 'url' && !m.url)) return;
+    const armedEl = audio; // #795：守卫认元素身份——同一首歌换源重建后，旧定时器不得再动新元素
     stallTimer = setTimeout(function () {
       stallTimer = null;
       try {
-        if (!audio || currentId !== m.id) return;
+        if (!audio || armedEl !== audio) return;
+        if (currentId !== m.id) return;
         if (audio.currentTime > 0) return;
         if (playRejected) return; // 等手势恢复播放，不误判外链失败
         if (audio.paused) return; // 用户主动暂停，不兜底
         // v3.6.x：关键修复——「还在加载」不算停滞。Edge 移动端加载网易云外链
         // （outer/url 302 → CDN）可能需 10~30 秒缓冲，原 12 秒定时器到点时
         // currentTime 仍为 0，会把「正在缓冲的完整歌曲」误判为失败切到内置旋律。
-        // readyState>0（有元数据）/ buffered 有数据 / networkState=LOADING → 重新计时再等。
+        // 此刻 UI 已由 musicBuffering() 同步显示「缓冲中」，两边说的是同一件事。
         try {
-          if (audio.readyState > 0 || (audio.buffered && audio.buffered.length > 0) || audio.networkState === 2) {
+          if (mediaStillLoading(audio)) {
+            syncPlayIcons(true); // 补一次刷新：让守卫与界面每次都回到同一口径
             armStallGuard(m);
             return;
           }
@@ -2921,8 +2953,14 @@
     renderLibrary();
   }
   function setupHandlers(m) {
-    audio.onended = function () { handleEnded(); };
-    audio.onerror = function () {
+    // #795：回调一律认「装它时的那个元素」。旧实现读的是模块级 audio 变量——切歌后旧元素
+    // 的 play() 被 teardown 打断成 reject（AbortError），回调里的 audio.pause() 停的却是刚点的
+    // 新歌，新歌还顺带挨一句「播放失败（可能为会员/失效歌曲）」＋进 failMap 计数（两次就弹
+    // 「移出音乐库」）＝用户说的「点了没反应/卡住」。元素身份一判定，过期回调全部哑火。
+    const el = audio;
+    el.onended = function () { if (el !== audio) return; handleEnded(); };
+    el.onerror = function () {
+      if (el !== audio) return;
       // v3.29.x：后台冻结/断流触发的 onerror 标记——切回前台由 visibilitychange 重建播放，
       // 避免用坏掉的旧元素 play() 失败被误判成"会员/付费歌曲"弹窗
       if (document.hidden) bgBrokeAudio = true;
@@ -2936,19 +2974,20 @@
       if (httpsRetrying) return; // 正在拉直链，等结果
       demoFallbackOrError(m);
     };
-    audio.onloadedmetadata = function () {
-      const dur = audio.duration || 0;
-      const el = document.getElementById('sm-pb-dur');
-      if (el) el.textContent = fmtDur(dur);
+    el.onloadedmetadata = function () {
+      if (el !== audio) return;
+      const dur = el.duration || 0;
+      const el2 = document.getElementById('sm-pb-dur');
+      if (el2) el2.textContent = fmtDur(dur);
       if (m && dur) { m.duration = dur; saveLibrary(); updateDurUI(m.id, dur); }
       // v3.6.x：play() 曾被拒绝（自动播放策略/音频未就绪）→ 元数据就绪后补播一次，
       // 同样走 muted 静音解锁（直接 play 非手势仍会被拒）
       if (playRejected && currentId === m.id) {
         playRejected = false;
-        try { audio.muted = true; } catch (e) {}
-        const p2 = audio.play();
+        try { el.muted = true; } catch (e) {}
+        const p2 = el.play();
         if (p2 && p2.then) {
-          p2.then(() => { if (audio) audio.muted = false; }).catch(() => {
+          p2.then(() => { if (el === audio) el.muted = false; }).catch(() => {
             playRejected = true;
             try { syncPlayIcons(false); } catch (e) {}
             armAutoResume();
@@ -2957,11 +2996,16 @@
       }
     };
     // v3.26.x #645：播放中持续上报进度（timeupdate 约 4Hz），通知栏进度条随播放走
-    audio.ontimeupdate = function () { try { syncMediaPosition(); } catch (e) {} };
-    audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // #700：真播出来＝导入时的「放不了」探测是误报，自愈清除
+    el.ontimeupdate = function () { if (el !== audio) return; try { syncMediaPosition(); } catch (e) {} };
+    // #795：内核自己会播报「取流停滞 / 恢复」——接上它们，缓冲期才有独立的一态可显示
+    el.addEventListener('waiting', function () { if (el !== audio) return; bufferLatchEl = el; syncPlayIcons(!el.paused); });
+    el.addEventListener('stalled', function () { if (el !== audio) return; bufferLatchEl = el; syncPlayIcons(!el.paused); });
+    el.addEventListener('playing', function () { if (el !== audio) return; bufferLatchEl = null; syncPlayIcons(true); });
+    el.addEventListener('canplay', function () { if (el !== audio) return; bufferLatchEl = null; syncPlayIcons(!el.paused); });
+    el.onplay = function () { if (el !== audio) return; playRejected = false; bgResumeFails = 0; bufferLatchEl = null; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // #700：真播出来＝导入时的「放不了」探测是误报，自愈清除
       if (m && m.probeFail) { try { delete m.probeFail; saveLibrary(); renderLibrary(); } catch (e) {} }; // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
       try { updateMediaSession(true); } catch (e) {} };
-    audio.onpause = function () { syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
+    el.onpause = function () { if (el !== audio) return; syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
       // v3.27.x：TA 暂停再播放互动进行中不补播（TA 稍后会自己点播放恢复）
       if (wantPlay && !callHoldPending && !taPauseActive) scheduleBgResume(); };
   }
@@ -3113,6 +3157,7 @@
     progressTimer = setInterval(() => {
       if (!audio) return;
       checkAutoEnd();
+      if (musicBuffering()) { syncPlayIcons(true); return; } // #795：缓冲期时间本该冻住，别用它盖掉「缓冲中」
       if (!audio.duration) return;
       if (audio.currentTime > 0) clearStallGuard();
       const cur = document.getElementById('sm-pb-cur');
@@ -3134,12 +3179,13 @@
       return;
     }
     if (audio.paused) {
+      const el = audio; // #795：手势链异步回调期间可能已切歌，只认点击时那个元素
       // v3.27.x：用户手动点播放——TA 的暂停互动作废（避免 TA 恢复计划重复播放/重复字卡）
       cancelTaPause();
       // v3.6.x：按钮点击本身是用户手势，正常可播；个别浏览器仍拒 → muted 静音解锁
-      const p = audio.play();
+      const p = el.play();
       if (p && p.catch) p.catch((err) => {
-        if (!audio) return; // v3.28.x：判空防 null.play()（回调异步，audio 可能已被 teardown）
+        if (!audio || el !== audio) return; // v3.28.x：判空防 null.play()；#795 收紧成「还是不是我这个元素」
         // v3.27.x：非 NotAllowedError 的 reject 是源失效/跨域加载失败（非自动播放策略），
         // 走外链失败兜底而非弹"被浏览器拦截"误导用户。toggle 是暂停后再播，源已加载过，
         // 真自动播放拦截走 muted 解锁；源失效（后台断流等）走拉直链/兜底重建。
@@ -3153,11 +3199,12 @@
           if (tm) { demoFallbackOrError(tm); return; }
         }
         playRejected = true;
-        try { audio.muted = true; } catch (e) {}
-        const p2 = audio.play();
+        try { el.muted = true; } catch (e) {}
+        const p2 = el.play();
         if (p2 && p2.then) {
-          p2.then(() => { if (audio) audio.muted = false; playRejected = false; try { syncPlayIcons(true); } catch (e) {} })
+          p2.then(() => { if (el === audio) el.muted = false; playRejected = false; try { syncPlayIcons(true); } catch (e) {} })
             .catch(() => {
+              if (el === audio) { try { el.muted = false; } catch (e) {} }
               try { syncPlayIcons(false); } catch (e) {}
               toast('点击播放被浏览器拦截，请再点一下屏幕继续播放');
               armAutoResume();
@@ -3476,6 +3523,9 @@
     document.querySelectorAll('#sm-mode-ico, #sm-f-mode-ico, #mw-mode-ico').forEach(el => { el.innerHTML = paths[mode] || paths.list; });
   }
   function syncPlayIcons(playing) {
+    // #795：「按了播放、数据还没到」既不是播放中也不是暂停。按钮仍显示暂停态（点它就是停止，
+    // 符合用户意图），但波形条换独立动画、时间位显示「缓冲中」，不再拿冻住的 00:00 装作在播。
+    const buffering = playing && musicBuffering();
     const playPath = playing
       ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
       : '<path d="M8 5.5v13l11-6.5z"/>';
@@ -3489,7 +3539,17 @@
       ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
       : '<path d="M8 5.5v13l11-6.5z"/>';
     const bars = document.getElementById('mw-bars');
-    if (bars) bars.classList.toggle('playing', playing);
+    if (bars) {
+      bars.classList.toggle('playing', playing);
+      bars.classList.toggle('buffering', buffering);
+    }
+    if (playing) {
+      const t = buffering ? '缓冲中' : (audio && audio.currentTime ? fmtDur(audio.currentTime) : '00:00');
+      ['sm-pb-cur', 'sm-f-cur', 'mw-cur'].forEach(id => {
+        const e = document.getElementById(id);
+        if (e) e.textContent = t;
+      });
+    }
   }
   function updatePlayerBar() {
     const bar = document.getElementById('sm-player-bar');
@@ -3699,7 +3759,7 @@
   //   「播放导入的本地歌时出现消息提示音，音乐没法正常听」），其中「TA 暂停再播放」还会把
   //   音乐真的停 3.5 秒。silent 只影响音效与桌面横幅：字卡照常进聊天、未读角标照常 +1
   //   （与小游戏口径完全一致），也不影响 TA 找你说话的正常消息。
-  function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true, nightAllow: true }); } catch (e) {} }
+  function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true }); } catch (e) {} }
   function taMusicSay(text) { try { if (window.chatAddIn) window.chatAddIn(text, { silent: true }); } catch (e) {} }
 
   // ================= 联系人的收藏 =================
@@ -4054,6 +4114,37 @@
     });
   }
 
+  // ================= #904 听歌邀请同意后的起播校验兜底 =================
+  // 现场机型（红米 K80 Chrome PWA 实报）：邀请弹窗点「一起听」后小框消失、音乐没播、
+  // 无任何提示。代码审读坐实整条链存在多个「静默死亡」出口：残留来电 hold 让
+  // startPlayback 在 callHoldPending 门上无声返回；后台/省电打停后补播反击只挂在
+  // document.hidden 分支，前台被停的歌永远没人拉起来。修法＝同意后 4 秒校验一次：
+  // 还在正常播放/正常缓冲（mediaStillLoading 口径，弱网网易云 10~30s 缓冲不误伤）就不动；
+  // 被外部打停（paused）就 muted 解锁补播，仍被拒挂 armAutoResume 手势恢复并如实提示。
+  let invitePlayCheckTimer = null;
+  function armInvitePlayCheck() {
+    try {
+      if (invitePlayCheckTimer) clearTimeout(invitePlayCheckTimer);
+      invitePlayCheckTimer = setTimeout(function () {
+        invitePlayCheckTimer = null;
+        try {
+          if (!currentId || !audio) return; // 曲目加载失败等路径已有各自的 toast，不重复打扰
+          if (!audio.paused) return;        // 在播或在缓冲＝健康，交给停滞守卫盯
+          // 走到这里＝同意后 4 秒音频停在暂停态且没人管：主动拉起
+          const p = audio.play();
+          if (p && p.catch) p.catch(function () {
+            if (!audio) return;
+            try { audio.muted = true; } catch (e) {}
+            const p2 = audio.play();
+            if (p2 && p2.then) p2.then(
+              function () { try { if (audio) audio.muted = false; } catch (e) {} },
+              function () { try { if (audio) audio.muted = false; } catch (e) {} armAutoResume(); try { toast('音乐没能自动播出来，点一下屏幕任意位置即可开始'); } catch (e) {} }
+            );
+          });
+        } catch (e) {}
+      }, 4000);
+    } catch (e) {}
+  }
   // ================= TA 互动：请求一起听歌 =================
   // 聊天回复完成后由 chat.js 调用（延后 2 秒，仿星言）
   window.maybeMusicRequest = function () {
@@ -4111,7 +4202,14 @@
           document.getElementById('tc-mask').hidden = true;
           if ((window.__activeCid || 'default') !== myCid) { reqData = null; return; }
           if (!reqData) return;
+          document.getElementById('tc-mask').hidden = true;
+          if ((window.__activeCid || 'default') !== myCid) { reqData = null; return; }
+          if (!reqData) return;
           const switchNow = !!reqData.switching;
+          // #904：来电/去电 hold 的残留状态会让 startPlayback 在 callHoldPending 门上静默 return
+          //（没声、没提示、被 hold 藏起的悬浮小框也不回来＝用户「点了同意，小框消失也没播放」）。
+          // 这是用户亲手点下的新播放意图，任何 stale hold 都不得吞掉——先清场再起播。
+          callHoldPlaying = false; callHoldPending = false; // #904a
           playTrack(reqData.trackId);
           addRecord(reqData.trackId, '接受了 TA 的听歌邀请');
           const accMsg = switchNow
@@ -4120,6 +4218,8 @@
           taMusicSys(accMsg);
           reqData = null;
           toast('开始播放');
+          armInvitePlayCheck(); // #904b：同意后 4 秒还没声＝被外部打停，自动补播并兜手势恢复
+          renderFloat(); // #904a：hold 藏起的小框随新播放意图立刻恢复（本地歌异步起播由 onplay 再刷新）
         });
       }
         return; // 「一起去听」已触发，本次调用不再判断「预订下一首」
@@ -4537,6 +4637,7 @@
     if (fill && curEl && durEl && knob) {
       const iv = setInterval(() => {
         if (!audio || !audio.duration) return;
+        if (musicBuffering()) return; // #795：缓冲期保留「缓冲中」文案，别拿冻住的时间盖回去
         const pct = audio.currentTime / audio.duration * 100;
         fill.style.width = pct + '%';
         knob.style.left = pct + '%';

@@ -115,16 +115,35 @@
     try { window.__auDebug.lastBuzz = p; } catch (e) {}
   }
   // ---- #348 落盘双写：localStorage（同步读）+ IndexedDB（防容量/换机），idbSet 可用即写 ----
-  // FIX 2026-09-16：返回 localStorage 侧是否写成功（原静默吞 QuotaExceeded——hammer 用它做原子性判断）
+  // FIX 2026-09-20「拍卖会显示本地存储不可用玩不了」：裸 localStorage.setItem 在配额满/隐私模式
+  // 下一抛异常 hammer 就退款，而钱包（xyStore）同环境照常——落盘/读取统一走 xyStore
+  // （写失败自动落 IDB + 内存缓存并记脏键，读取内存缓存优先），与全站数据层同一条容忍通道；
+  // xyStore 不可用时退回原裸读写。persist 返回 xyStore 在位即成功（写已进内存 + IDB 权威）。
+  function splitKey(key) {
+    const i = key.lastIndexOf(':');
+    return i > 0 ? [key.slice(0, i), key.slice(i + 1)] : ['xy-home-v2', key];
+  }
+  function lsGet(key) {
+    const [p, k] = splitKey(key);
+    if (typeof window.xyStore === 'function') {
+      try { return window.xyStore(p).get(k); } catch (e) {}
+    }
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
   function persist(key, val) {
+    const s = typeof val === 'string' ? val : JSON.stringify(val);
+    const [p, k] = splitKey(key);
+    if (typeof window.xyStore === 'function') {
+      try { window.xyStore(p).set(k, s); return true; } catch (e) {}
+    }
     let ok = false;
-    try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); ok = true; } catch (e) {}
+    try { localStorage.setItem(key, s); ok = true; } catch (e) {}
     try { if (typeof window.idbSet === 'function') window.idbSet(key, val); } catch (e) {}
     return ok;
   }
   // #348 拍卖记录：每件拍品的成交/流拍明细（最近 60 条）
   function historyKey() { return prefix() + ':auction-history'; }
-  function loadHistory() { try { const a = JSON.parse(localStorage.getItem(historyKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function loadHistory() { try { const a = JSON.parse(lsGet(historyKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function recordHistory(item, price, who) {
     const h = loadHistory();
     h.unshift({ t: Date.now(), ico: item.ico, name: item.name, price: price, who: who, rarity: rarityOf(item).label });
@@ -133,7 +152,7 @@
   }
   // #348 自制拍品（每联系人独立，上限 20；添加弹窗里输入已有名称＝删除）
   function customKey() { return prefix() + ':auction-custom'; }
-  function loadCustom() { try { const a = JSON.parse(localStorage.getItem(customKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function loadCustom() { try { const a = JSON.parse(lsGet(customKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function saveCustom(a) { try { if (a.length > 20) a.length = 20; persist(customKey(), a); } catch (e) {} }
   // #348 自制拍品并入奖池（随机 20% 蒙面登场）
   function activePool() {
@@ -186,7 +205,7 @@
   function loadStats() {
     const d = { sessions: 0, myWins: 0, taWins: 0, spentFen: 0 };
     try {
-      const raw = localStorage.getItem(statsKey());
+      const raw = lsGet(statsKey());
       if (raw) { const v = JSON.parse(raw); if (v && typeof v === 'object') return Object.assign(d, v); }
     } catch (e) {}
     return d;
@@ -194,14 +213,14 @@
   function saveStats(s) { persist(statsKey(), s); }
   function bagKey() { return prefix() + ':auction-items'; }
   function loadBag() {
-    try { const a = JSON.parse(localStorage.getItem(bagKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    try { const a = JSON.parse(lsGet(bagKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
   }
   function saveBag(a) { persist(bagKey(), a); }
   // #301 TA 回寄：TA 拍走的拍品 2~4 天后寄回给你（进你的 🎒，附一句留言）
   function giftsKey() { return prefix() + ':au-gifts-pending'; }
   // FIX 2026-09-16：回寄排队原只写 localStorage（不走 persist 双写、不在 idb 回填清单）——
   // 清缓存/换机后「2~4 天寄回」的排队直接丢
-  function loadPending() { try { const a = JSON.parse(localStorage.getItem(giftsKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function loadPending() { try { const a = JSON.parse(lsGet(giftsKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function savePending(a) { persist(giftsKey(), a); }
   let giftTimer = null;
   function checkGifts() {
@@ -578,7 +597,14 @@
       if (st.myWins) txt += '拍下 ' + st.myWins + ' 件 ' + yuan(st.spent);
       else txt += '空手而归';
       if (st.taWins) txt += ' · ' + T('TA') + ' 拍走 ' + st.taWins + ' 件';
-      if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction', nightAllow: true });
+      // #891：带结构化结算负载（chat.js 小游戏卡片渲染；{ta} 由渲染侧按当前昵称展开）
+      const auRes = st.myWins >= st.taWins ? (st.myWins ? '拍下 ' + st.myWins + ' 件！' : '谁也没拍到') : '{ta} 拍走 ' + st.taWins + ' 件';
+      if (window.chatAddSystem) window.chatAddSystem(txt, { special: 'auction', game: {
+        name: '心意币拍卖会',
+        outcome: st.myWins > st.taWins ? 'win' : st.taWins > st.myWins ? 'lose' : 'draw',
+        result: auRes,
+        stats: ['我拍下 ' + st.myWins + ' 件 · 花了 ' + yuan(st.spent), '{ta} 拍走 ' + st.taWins + ' 件', '本场 ' + st.lots.length + ' 件拍品 · 累计 ' + s.sessions + ' 场']
+      } });
     } catch (e) {}
   }
   // #346 结算汇总单独成函数：背包「返回」也要能回到这一屏（原先被背包覆盖后回不去）
@@ -840,7 +866,7 @@
     ['auction-items', 'auction-history', 'au-gifts-pending'].forEach((k) => {
       try {
         const key = prefix() + ':' + k;
-        if (localStorage.getItem(key)) return;
+        if (lsGet(key)) return;
         if (typeof window.idbGet !== 'function') return;
         Promise.resolve(window.idbGet(key)).then((v) => {
           try {
@@ -848,7 +874,7 @@
             const s = typeof v === 'string' ? v : JSON.stringify(v);
             if (!s) return;
             const p = JSON.parse(s);
-            if (Array.isArray(p) && p.length) localStorage.setItem(key, s);
+            if (Array.isArray(p) && p.length) persist(key, s);
           } catch (e) {}
         }).catch(() => {});
       } catch (e) {}

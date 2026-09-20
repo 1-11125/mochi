@@ -2008,10 +2008,37 @@
             else d.style.removeProperty('--mochi-safe-bottom');
           } catch (e) {}
         }
+        // FIX 2026-09-19 #810：键盘弹出「整个页面被缩小、两边和底部大面积露底色」自愈的状态。
+        // 华为 nova 10 SE 华为系统自带浏览器实报「点输入框弹键盘：页面被顶上去+画面缩小+
+        // 两侧和底部大面积留白+严重卡顿」，用户明说其他机型也有、要求勿致跨机型回归。
+        // 这类内核键盘弹出时不只缩 vv.height，还会把可视视口【缩放】拉到 <1（zoom-out 让出
+        // 键盘+焦点）：页面整体变小、文档外区域露 body 底色＝两侧/底部留白；叠加键盘期的
+        // 逐帧 .phone 高度跟随＝resize 风暴级卡顿。A/B 两串等价仅 scale 写法（1.0↔1）不同＝
+        // 交替写保证 setAttribute 每次都是真实变更、强制内核重新解析。
+        var _aZoomFixCnt = 0, _aZoomFixAt = 0;
+        var _aZoomMetaA = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual';
+        var _aZoomMetaB = _aZoomMetaA.replace('initial-scale=1.0', 'initial-scale=1').replace('minimum-scale=1.0', 'minimum-scale=1').replace('maximum-scale=1.0', 'maximum-scale=1');
         function syncAndroidKb() {
           if (!_aVV || !_aPhone) return;
           try { syncSafeBottomA(); } catch (eSB) {}
           var h = _aVV.height;
+          // #810 主判据：键盘/聚焦会话内 vv.scale<0.95＝内核把页面整体缩小了。判据全是内核
+          // 可观测信号（正常内核键盘只缩 height、scale 恒 1，永不触发；缩放只在文本聚焦期
+          // 出现，用户闲时手动捏合缩放不在聚焦态＝不误伤）。处置＝#174 iOS 同款「重写
+          // viewport meta 按 initial-scale=1 吸附回原大」，每会话 ≤3 次、间隔 4s 防循环；
+          // 重写串严格保持 resizes-visual（绝不在键盘会话中途换键盘模型）。
+          if (_aVV.scale && _aVV.scale < 0.95 && (_aKb || _aProv || _aIsText(_aTextFocused) || _aIsText(document.activeElement))) {
+            var _zn = Date.now();
+            if (_aZoomFixCnt < 3 && _zn - _aZoomFixAt > 4000) {
+              _aZoomFixCnt++; _aZoomFixAt = _zn;
+              try {
+                document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
+                  m.setAttribute('content', (_aZoomFixCnt % 2) ? _aZoomMetaB : _aZoomMetaA);
+                });
+              } catch (eZM) {}
+              window.__mochiKbZoomFix = { n: _aZoomFixCnt, at: _zn, scale: +_aVV.scale.toFixed(2) };
+            }
+          }
           // FIX 2026-09-07 #236：vv 回基准=读数健康，解除残留闩；高度变化刷新稳定
           // 时刻（收起动画每帧都变，1s 看门狗凭「vv 已稳 1.2s」避开动画中途误清）
           if (h >= _aH - 60) _aVvStale = false; // #236：vv 回基准=读数诚实，解除残留闩

@@ -409,11 +409,49 @@ spawnTile(v, r, c, r - gapN, true, gapN);
 return maxDist;
 }
 function updateInfo() {
+if (!st) return;
 if (infoEl) infoEl.innerHTML =
 '<span>🎯 ' + st.score + ' / ' + st.target + '</span>' +
 '<span>你 ' + st.myScore + '</span>' +
 '<span>' + T('TA') + ' ' + st.taScore + '</span>' +
-'<span>💕 ' + chemNow() + '</span>';
+'<span>' + modeLabel(st.mode) + '</span>' +
+'<span>💡 提示×' + st.hints + '</span>' +
+'<span>💕 ' + chemNow() + '</span>' +
+(st.started && !st.over && firstProp()
+? '<span class="m3-prop-live">⚡ ' + PROP_TIP[firstProp()].ico + ' 在场上·' + PROP_TIP[firstProp()].use + '即引爆</span>' : '') +
+(st.started && !st.over && st.mode !== nextMode()
+? '<span class="m3-mode-pending">⚠ 已选' + modeLabel(nextMode()) + '，重开一局才换</span>' : '');
+syncPropBtns();
+}
+function nextMode() { return modeSel && modeSel.value === 'item' ? 'item' : 'simple'; }
+function modeLabel(m) { return m === 'item' ? '💣 道具模式' : '🌿 简单模式'; }
+function syncPropBtns() {
+if (hintBtn) {
+hintBtn.title = '道具·提示：点亮当前最赚的一步（本局剩 ' + st.hints + '/3 次）';
+hintBtn.classList.toggle('game-prop-off', !(st.hints > 0));
+}
+}
+function firstProp() {
+if (!st || st.mode !== 'item' || !st.grid) return null;
+for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+const v = st.grid[r][c];
+if (v < 0) continue;
+if (v >= LINE_V) return 'line-v';
+if (v >= LINE_H) return 'line-h';
+if (isRainbow(v)) return 'rainbow';
+if (v >= BOMB_BASE) return 'bomb';
+}
+return null;
+}
+const PROP_TIP = {
+'line-v': { ico: '↕️', use: '交换进三连', line: '↕️ 纵向道具在场上：把它交换进三连，整列都消掉' },
+'line-h': { ico: '↔️', use: '交换进三连', line: '↔️ 横向道具在场上：把它交换进三连，整行都消掉' },
+'rainbow': { ico: '🌈', use: '跟任意一格交换', line: '🌈 彩虹在场上：跟任意一格交换，就清光那种颜色' },
+'bomb': { ico: '💥', use: '交换进三连', line: '💥 炸弹在场上：把它交换进三连，周围 3×3 一起炸开' }
+};
+function propOnBoardTip() {
+const k = firstProp();
+return k ? PROP_TIP[k].line : null;
 }
 function chemNow() {
 const total = st.myScore + st.taScore;
@@ -437,7 +475,9 @@ bubbleT = setTimeout(() => { try { b.classList.remove('show'); } catch (e) {} },
 function dot(side) { return '<i class="c4-dot ' + (side === 1 ? 'c4-dot-you' : 'c4-dot-ta') + '"></i>'; }
 function showTurnStatus() {
 if (!statusEl || !st || st.over) return;
-setStatus(st.turn === 1 ? dot(1) + '你的回合：点一格再点相邻一格交换' : T(THINK_LINES[0]));
+if (st.turn !== 1) { setStatus(T(THINK_LINES[0])); return; }
+const tip = propOnBoardTip();
+setStatus(tip ? tip : dot(1) + '你的回合：点两格或滑动交换 · 💡 提示剩 ' + st.hints + ' 次');
 }
 let dealT = null;   // FIX 2026-09-16：开局发牌解锁定时器收进句柄（原不跟踪，极端连点/换局重开时旧定时器会把新一局提前解锁）
 function newGame() {
@@ -467,7 +507,7 @@ if (gl) { gl.classList.remove('m3-deal'); gl.style.animationDelay = ''; }
 st.lock = false;
 }, animMs(35 * (2 * N - 2) + 260));
 st.turn = 1;
-setStatus(dot(1) + '你的回合：点一格或滑动相邻格交换');
+showTurnStatus();
 }
 function doSwap(a, b, byMe, cb) {
 const s = st;
@@ -733,7 +773,14 @@ if (startBtn) startBtn.textContent = '再来一局';
 if (endBtn) endBtn.hidden = false;
 setStatus('🎉 达成目标！默契 ' + chem);
 try {
-if (window.chatAddSystem) window.chatAddSystem(T('消消乐') + ' · 达成 ' + st.score + ' 分 · 默契 ' + chem, { special: 'match3', nightAllow: true });
+const m3Stats = ['🎯 达成 ' + st.score + ' / ' + st.target + ' 分', '💕 默契 ' + chem + ' · 你 ' + st.myScore + ' · {ta} ' + st.taScore,
+'累计通关 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem].concat(coinLine ? [coinLine] : []).concat(dr ? ['🌠 掉落限定摆件「' + dr.ico + ' ' + dr.name + '」'] : []);
+if (window.chatAddSystem) window.chatAddSystem(T('消消乐') + ' · 达成 ' + st.score + ' 分 · 默契 ' + chem, { special: 'match3', game: {
+name: '消消乐',
+outcome: 'clear',
+result: '目标达成，通关啦！',
+stats: m3Stats
+} });
 const fb = ['通关啦，配合不错。', '我们好默契呀。', '再来一局？'];
 const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
 const say = pool[Math.floor(Math.random() * pool.length)] || fb[0];
@@ -757,8 +804,9 @@ const itemMode = !!(modeSel && modeSel.value === 'item');
 showOverlay('消消乐',
 '<div class="c4-start-tip">和 ' + T('TA') + ' 轮流交换相邻两格<br>凑成同款三连就消除，一起冲到目标分</div>' +
 '<div class="c4-start-note">' + (itemMode
-? '💣 道具模式：↔️↕️ 四连直线→清整行/整列 · L/T 交叉→💥炸弹 · 五连→🌈彩虹'
-: '🌿 简单模式：经典三消、无道具（想出道具就在上方切「💣 道具」）') +
+? '💣 道具模式：凑四连→↔️/↕️ · L/T 交叉→💥 · 五连→🌈；道具是消出来的，不是点一下就用——再把它交换进三连才自动引爆'
+: '🌿 简单模式：经典三消、无道具（想玩道具：上方下拉切「💣 道具」，再开一局才生效）') +
+'<br>🧰 道具 💡 提示：每局 3 次，点亮当前最赚的一步（点右上角 💡）' +
 '<br>🎲 ' + T('TA') + '每回合状态随机——最优步 / 前五挑一 / 放水 / 手滑</div>' +
 (s.clears > 0 ? '<div class="pong-end-stat">累计通关 ' + s.clears + ' 局 · 历史最佳默契 ' + s.bestChem + '</div>' : ''),
 s.clears > 0 ? '再来一局' : '开始对局');
@@ -826,14 +874,23 @@ if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); c
 if (diffSel) diffSel.addEventListener('change', () => {
 const s = loadStats(); s.lastDiff = diffSel.value; saveStats(s);
 });
-if (modeSel) modeSel.addEventListener('change', () => {
+if (modeSel) {
+modeSel.title = '模式开关（不是道具按钮）：切成「💣 道具」后，新开的这局才会消出道具；道具要靠交换引爆';
+modeSel.addEventListener('change', () => {
 const s = loadStats(); s.lastMode = modeSel.value === 'item' ? 'item' : 'simple'; saveStats(s);
+setStatus(s.lastMode === 'item'
+? '💣 道具模式已选：凑四连/L·T 交叉/五连时自动掉 ↔️↕️ 💥 🌈，再把它交换进三连就引爆（不是手动点用）'
+: '🌿 简单模式已选：纯经典三消，不生成任何道具');
+if (st && st.started && !st.over) { taSay('本局是' + modeLabel(st.mode) + '，重开才换'); updateInfo(); }
+else if (overlayEl && !overlayEl.hidden) showStartOverlay();   // 覆盖层开着：说明文字跟着模式换
 });
+}
 if (hintBtn) hintBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 if (!st || !st.started || st.over || st.lock || st.turn !== 1) return;
-if (!(st.hints > 0)) { taSay('提示次数用完啦'); sfxBad(); return; }
+if (!(st.hints > 0)) { taSay('💡 提示用完啦，重开一局才恢复'); sfxBad(); return; }
 st.hints--;
+updateInfo();
 const moves = allMoves(st.grid);
 if (!moves.length) return;
 moves.sort((x, y) => y.gain - x.gain);
@@ -934,6 +991,8 @@ clearWithSpecials: clearWithSpecials,
 reshuffle: reshuffle,
 colorOf: colorOf,
 isRainbow: isRainbow,
+showTurnStatus: showTurnStatus,
+updateInfo: updateInfo,
 BOMB_BASE: BOMB_BASE,
 RAINBOW: RAINBOW,
 LINE_H: LINE_H,

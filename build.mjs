@@ -96,11 +96,23 @@ const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.
 //（PERF-PLAN §0 实测：首次使用、零数据也卡）。外置 = <script defer src="js/<file>">：
 // 浏览器流式编译 + 并行下载（defer 不阻塞解析、DOMContentLoaded 前按文档序执行），
 // SW 逐文件缓存 + GH Pages ETag 304（不带构建戳、未改文件字节不变 → 只下变更文件）。
-// 范围＝PERF-PLAN §2「ext 首批」26 文件 + 「二批」9 文件（divination/loc-lib 等；ta-ask 经 404 桩裁决门实测回退 core——并行批 #77x 新增的 p2-features 字卡导出在加载期直调 window.cardGroups.grpOnlyOptsHtml（ta-ask.js 定义），defer 下必炸，入边 120 名不虚传
-// 入边 15~120；首批上线验证后按 §2 裁决门 + 功能 verify 运行时验证通过后外置，21:1x 批）；
-// snapshot 后新增的 perf-check/feature-data/page-coach 保守留 core。
+//
+// ===== PERF-PLAN 阶段 1b：core 全外置（2026-09-19，iOS 全机型「打开就卡」根治）=====
+// 六份 iOS 诊断（15PM×2 / 14×2 / 12 / 16PM）共同形态：与数据量无关、与使用无关，
+// DCL 1.8~8.3s（iPhone 12 达 8.3s）、首开零数据也卡——机制＝2.9MB 内联 JS 塞在 HTML 里，
+// iOS WebKit 解析期整段同步编译（阶段 1.5 消融：内联搬出即 DCL −513ms、数据就绪 −367ms、
+// index 4534→1223KB，无头是下界、iOS 只会更痛）。清单改为「除 3 件系统件外全外置」：
+// · 粒度＝一功能文件一个 js/<file> 资源（消融实证：合成大块把单次冻结峰值 308→481ms）；
+// · 顺序＝extFiles 即 jsFiles.filter 产物，天然保持 jsFiles 原序（D2），执行时序回到
+//   外置化之前的单包语义，「core 不依赖 ext 加载期全局」这条隐性约束作废；
+// · 留内联仅 3 件系统件（D4-B 口径，~176KB minify 后）：device.js（系统基座/诊断分母）、
+//   pwa.js（#802 自愈引擎必须在火场里——pwa.js 自己 404 时没人重注入）、ver-check.js
+//   （依赖 pwa 的 mochiRefreshNow，与 pwa 同段保序）；
+// · ta-ask/records/p2-features 等当年「保守留 core」的顾虑随 D2 消失：全 defer 下执行
+//   顺序=jsFiles 原序，与单包一致，不存在「core 先行、ext 整体后移」的次序漂移。
 // 改这份清单必须同步看 PERF-PLAN §2 的分级规则与 tools/verify-ext-boot.mjs 裁决门。
-const extFiles = ['calendar.js', 'mail.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'mood-diary.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'arcade.js', 'settings-help.js', 'onboarding.js', 'card-audit.js', 'divination.js', 'loc-lib.js', 'ck-question.js', 'ta-invite.js', 'gift-shop.js', 'feed.js', 'cjian.js', 'call.js', 'music-player.js'];
+const CORE_KEEP_INLINE = { 'device.js': 1, 'pwa.js': 1, 'ver-check.js': 1 };
+const extFiles = jsFiles.filter(f => !CORE_KEEP_INLINE[f]);
 const extSet = new Set(extFiles);
 const coreFiles = jsFiles.filter(f => !extSet.has(f));
 
@@ -162,15 +174,44 @@ const jsWrapped = coreFiles.map(f => {
   return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
 });
 // 首块前置初始化：错误环 + 已加载清单 + 期望清单（jsFiles 即期望，运行期差集定位死块）
-jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + '; window.__mochiExtFiles = ' + JSON.stringify(extFiles) + ';');
+jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + '; window.__mochiExtFiles = ' + JSON.stringify(extFiles) + ';');
 // 按 UTF-8 字节上限拆 script 块（iOS 15 单块解析崩溃防护，见上方注释）
+// #860 开屏看门狗（PERF-PLAN 阶段 1b D4.2）：core 归零后「进桌面」改由网络上的 defer 文件
+// 完成，弱网/被墙窗口下开屏会永久定格——本段是唯一不依赖网络就能跑的结构件。
+// load 后 3s/8s 两查 __mochiDataReady，仍未就绪就挂「网络不佳·点此重试」条（复用
+// ver-update-bar 样式），点击走 __mochiBootRetry()=整页重载。数据已就绪则静默零开销。
+jsWrapped.push(
+  'window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };' +
+  '(function () {' +
+  ' function bar() {' +
+  '  if (document.getElementById("boot-retry-bar")) return;' +
+  '  var b = document.createElement("div");' +
+  '  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";' +
+  '  b.innerHTML = "<span class=\\"vub-txt\\">网络不佳·部分功能没加载完</span><b>点此重试</b>";' +
+  '  b.addEventListener("click", function () { window.__mochiBootRetry(); });' +
+  '  (document.body || document.documentElement).appendChild(b);' +
+  ' }' +
+  ' function check() { if (!window.__mochiDataReady) bar(); }' +
+  ' if (document.readyState === "complete") { setTimeout(check, 3000); setTimeout(check, 8000); }' +
+  ' else window.addEventListener("load", function () { setTimeout(check, 3000); setTimeout(check, 8000); });' +
+  '})();'
+);
 const scriptChunks = chunkScripts(jsWrapped);
+// 按 UTF-8 字节上限拆 script 块（iOS 15 单块解析崩溃防护，见上方注释）
 
 // PERF-PLAN 阶段 1：外置文件用与内联完全相同的包装（minify + IIFE try/catch +
 // __mochiLoaded 登记 + catch 写 __jsErrors）——诊断归因不分家、行为语义一致。
 const extWrapped = extFiles.map(f => {
   const code = minifyJs(read(join('js', f)));
   return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
+});
+
+// #860 D3 体积红线：外置单文件 >500KB 报警——外置文件是独立资源、流式编译，不受 iOS 15
+// 「单块内联 script 解析崩溃」红线约束（自动留内联反而违反「inline 恒先于全部 defer」的
+// 顺序语义），故只报警交给构建者裁断，不静默。
+extWrapped.forEach((code, i) => {
+  const n = Buffer.byteLength(code, 'utf8');
+  if (n > SCRIPT_CHUNK_LIMIT) console.error('⚠ #860 体积红线：js/' + extFiles[i] + ' 外置后 ' + Math.round(n / 1024) + 'KB > 500KB（外置资源不受 iOS15 单块内联红线约束，但请人工确认可接受）');
 });
 
 // v3.15.x：改用函数返回值注入——字符串替换会把包内 $&/$'/$` 当特殊模式处理，
@@ -181,12 +222,16 @@ html = html.replace('/*__STYLES__*/', () => styles);
 html = html.replace('/*__SCRIPTS__*/', () =>
   scriptChunks.map((c, i) => (i === 0 ? c.join('\n') : '</script>\n<script>' + c.join('\n'))).join('\n')
 );
-// PERF-PLAN 阶段 1：外置脚本注入（defer）——锚在主内联 script 元素闭合之后；
-// defer 保证 DOM 解析完、DOMContentLoaded 前按文档序（=extFiles 顺序，段内保持
-// jsFiles 原相对顺序）执行，全部 core 内联先行。core 加载期引用 ext 全局的风险
-// 由 tools/verify-ext-boot.mjs（404 桩裁决门）实证兜住。
+// PERF-PLAN 阶段 1/1b：外置脚本注入（defer）——锚在主内联 script 元素闭合之后；
+// defer 保证 DOM 解析完、DOMContentLoaded 前按文档序执行。1b 后 extFiles 即 jsFiles
+// 原序（仅 3 件系统件留内联），执行时序=外置化之前的单包语义；3 件内联系统件先行、
+// 其余 79 件按 jsFiles 原序 defer 接续。加载失败面由 tools/verify-ext-boot.mjs（404 桩
+// 裁决门）+ pwa.js #802 自愈引擎 + #860 开屏看门狗三层兜住。
+// #802a：每条外置标签挂 onerror，拉取失败的文件记入 __mochiExtFail（error 是终态，
+// 原标签绝不会再执行 ⇒ pwa.js 自愈引擎按这份清单重注入不会双执行；只信 onerror、
+// 不信「没在 __mochiLoaded」——后者还可能是仍在慢下载中的文件，拿去重注入＝双执行）。
 html = html.replace('<!-- __SCRIPTS_EXT__ -->', () =>
-  extFiles.map(f => '<script defer src="js/' + f + '"></script>').join('\n')
+  extFiles.map(f => '<script defer src="js/' + f + '" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat(\'' + f + '\')"></script>').join('\n')
 );
 // 注入部署时间（开屏显示）
 html = html.replace('__BUILD_INFO__', buildInfo);
@@ -272,6 +317,12 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-19 #860 iOS 全机型「打开就卡、零数据也卡」根治＝PERF-PLAN 阶段 1b core 全外置：index 只留 静态HTML+CSS+3 件系统件（device/pwa/ver-check，~176KB）+≤4KB boot 段，其余 79 件走 <script defer src="js/…">（一文件一资源，消融实证合成大块把单次冻结峰值 308→481ms）；顺序=jsFiles 原序（D2，执行时序回单包语义）；sw install 分波预缓存；device.js 模块体检瞬态豁免只认启动后 15s；boot 看门狗 3s/8s 查 __mochiDataReady 挂重试条（弱网首访开屏不再永久定格）。六份 iOS 诊断共同形态：DCL 1.8~8.3s、与数据量无关；消融实测内联搬出即 DCL −513ms / index 4534→1223KB ====*/
+  { name: '#860a 开屏看门狗在位（删＝全外置后弱网首访开屏永久定格、无「点此重试」逃生口）', file: 'index.html', needle: 'window.__mochiBootRetry' },
+  { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: '<script defer src="js/chat.js"' },
+  { name: '#860c boot 时刻戳（删＝device.js 模块体检的「弱网瞬态 vs 真没加载」时间闸失效，79 件 defer 全被当硬故障或反之）', file: 'index.html', needle: '__mochiBootAt = Date.now();' },
+  { name: '#860d sw install 分波预缓存（每波 12；删＝85 项一波全并发把弱网首装连接池打满、新缓存打空）', file: 'pwa/sw.js', needle: 'i += 12' },
+  { name: '#860e 模块体检瞬态窗（device.js；删＝弱网 15s 后仍缺的文件不再按硬故障报，诊断把死模块说成弱网）', file: 'js/device.js', needle: 'const transient = (Date.now() - (window.__mochiBootAt || 0)) < 15000;' },
   /* ==== 2026-09-19 #827 用户实报「按住看默认后全部字体变大且无法恢复」：源头非面板 CSS 轴（其只作用气泡/输入框/设置行，管不到「全部字体」），系壳内核（X5/XWeb 等老 Blink 分支）「智能字体放大/字体漫游」被按住归零的布局跳变点亮膨胀倍率后不回档。base.css 通配双保险：-webkit-text-size-adjust:none 给认前缀 none 的老壳、标准 text-size-adjust:100% 给新引擎（实测新 Chromium 解析期丢弃 none 令牌且该属性可继承，html,body 的 100% 行未动＝v3.5.105 iOS 防线原样）。零机型分支 ====*/
   { name: '#827 通配双保险规则在位（删＝壳内核智能字体放大复发，「全部字体变大无法恢复」回来；unique：html,body 那条无星号通配形态）', file: 'css/base.css', needle: '* { -webkit-text-size-adjust:none; text-size-adjust:100%; }' },
   // ==== 2026-09-19 #825 用户直派「词典里的爸爸删掉」：内置扩展词库（dict-ext-data.js 常用词·双字组）移除该称呼词条（词典池每次加载从内置快照重建，用户本地只存自建词条，删源码即全端生效、无需数据迁移）====
@@ -408,7 +459,7 @@ const FIX_SENTINELS = [
   { name: '#542 UA 桌面伪装兜底形态同款 body 底色（force-mobile）', file: 'css/base.css', needle: 'html.force-mobile, html.force-mobile body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; background:var(--bg-b, #fff); }' },
   { name: '定期备份提醒条存在（backup-remind-bar，受保护产品功能，见 AGENTS.md 数据与存储约定）', file: 'js/pwa.js', needle: "getElementById('backup-remind-bar')" },
   { name: '定期备份提醒条锚点存在（template.html）', file: 'template.html', needle: 'backup-remind-bar' },
-  { name: '备份提醒冷却不超过 1 天（每天最多一次；#900 换锚——原 needle 随 24h 计时改自然日删除，此行为刚备份过当天不再打扰的另一半冷却，改回多日冷却即消失）', file: 'js/pwa.js', needle: 'if (lastBackup && Date.now() - lastBackup < DAY) return false;' },
+  { name: '备份提醒冷却收短到 1 天（每天弹一次；改动 INTERVAL 即消失，防被长冷却静默压制）', file: 'js/pwa.js', needle: 'function dayKey(t) {' },
   { name: '开屏备份弹窗避让已有弹窗（openModal 全站唯一，删掉则顶掉首启引导/字卡锁提醒等开屏弹窗且当天不再补弹）', file: 'js/pwa.js', needle: "if (mask && !mask.hidden) return 'busy';" },
   { name: '#355b 备份提醒条「单独备份聊天」按钮存在（template.html）', file: 'template.html', needle: 'id="backup-remind-chat"' },
   { name: '#355b 仅聊天记录导出不更新全量备份时间（data-backup.js cfg.mode!==chat 守卫，逻辑锚）', file: 'js/data-backup.js', needle: "if (cfg.mode !== 'chat')" },
@@ -479,7 +530,7 @@ const FIX_SENTINELS = [
   { name: '诊断超长文本引导导出 docx（>8KB 提示剪贴板可能截断，优先导出；#227 txt→docx 同步改锚）', file: 'js/device.js', needle: '建议优先【导出docx】' },
   { name: '诊断 toast 统一 ccToast（diagToast 与 LS 失效 notice 共用元素防互相顶掉）', file: 'js/device.js', needle: 'function ccToast(msg) {' },
   { name: '诊断错误去重按 msg+页面 30s 窗口（防同类错误刷满环形缓冲）', file: 'js/device.js', needle: 'const dupIdx = arr.findIndex(function (it) {' },
-  { name: 'iOS 15 拆 script 块（产物多块，防单块超 600KB 触发 WebKit 解析崩溃/白屏）', file: 'index.html', needle: '</script>\n<script>' },
+  { name: '#860 外置化后内联段仅剩 3 系统件+boot（原「iOS 15 拆块」哨兵换锚：旧 needle 随 core 归零消失；新锚=defer 链末位 mobile-adapt 标签在位——它在位即 79 件外置链完整、内联段不可能再长回 >600KB 单块）', file: 'index.html', needle: '<script defer src="js/mobile-adapt.js"' },
   { name: '颜文字缺字形字符已替换（ᴥ absent，fix-kaomoji-chars 第二批）', file: 'index.html', needle: 'ᴥ', absent: true },
   { name: 'iOS 键盘输入栏停靠（_ensureInputDocked）', file: 'js/mobile-adapt.js', needle: '_ensureInputDocked' },
   { name: 'iOS 保活音频静音（kaIsIOS/0.002）', file: 'js/bg-keep.js', needle: 'kaIsIOS' },
@@ -586,7 +637,7 @@ const FIX_SENTINELS = [
   { name: 'idbHydrateKey 慢读取回 6s+8s（慢但可用 IDB 低端机自定义字卡取不回落兜底）', file: 'js/idb.js', needle: 'window.idbHydrateKey = function' },
   { name: '小键写日志 __wr-journal（杀进程回滚 LS 后设置开关回退的恢复链）', file: 'js/idb.js', needle: '__wr-journal' },
   { name: '语音开关去掉静默早退守卫 + mochi-wrj-heal 重同步（首点无反应）', file: 'js/chat-settings.js', needle: "document.addEventListener('mochi-wrj-heal', syncVs);" },
-  { name: 'dc-* 开关监听 mochi-wrj-heal 重同步（退出重进设置回退自愈）', file: 'js/default-cards.js', needle: "document.addEventListener('mochi-wrj-heal', function () {\ntry {" },
+  { name: 'dc-* 开关监听 mochi-wrj-heal 重同步（退出重进设置回退自愈）', file: 'js/default-cards.js', needle: "document.addEventListener('mochi-wrj-heal', function () { try { syncDcSwitchUI(); } catch (e) {} });" },
   { name: '诊断「开关持久化体检」（LS/读取/IDB 三层值 + LS 写探针）', file: 'js/device.js', needle: '开关持久化体检' },
   { name: '自动备份副本已下线：启动时自动清理遗留副本释放空间（purgeLegacySnapshot）', file: 'js/data-backup.js', needle: 'purgeLegacySnapshot' },
   { name: '后台听歌不误报「会员/移出」弹窗（offerRemoveDamagedSong 后台直返不计数 + 回前台 bgResumeFails 清零）', file: 'js/music-player.js', needle: '后台冻结/断流误触发 onerror，不弹「移出」窗不计数' },
@@ -3269,7 +3320,7 @@ const FIX_SENTINELS = [
   { name: '#726a 后台冻结帧剔除（删/调大＝切后台 144s 冻结被当成一帧超级卡顿，#707 同族误报回归）', file: 'js/perf-check.js', needle: 'var BG_GAP = 250;' },
   { name: '#726b 键盘弹出期标记（删＝键盘变形期掉帧与普通掉帧混计，iOS 键盘期结论缺失）', file: 'js/perf-check.js', needle: 'window.innerHeight * KB_RATIO' },
   { name: '#726c 设置行入口（删则设置页无「卡顿自检」行）', file: 'template.html', needle: 'id="row-perf-check"' },
-  { name: '#726d 设置行接线（删则点行无反应）', file: 'js/personalize.js', needle: 'window.mochiPerfCheck.start(10000' },
+  { name: '#726d 设置行接线（删则点行无反应）', file: 'js/personalize.js', needle: 'window.mochiPerfCheck.start(durMs' },
   // ==== 2026-09-18 #727 主动发送「标识」可换/可自定义（用户直派「联系人主动发送的消息，现在是小爱心的标识，帮我新增，可以用别的标识和自定义标识」）——原固定爱心（chat.js 硬编码 SVG path + .msg-hi-heart）改为「标识池」：内置五枚（♥/★/☾/✦/🐾）多选 chips + 自定义标识（reply-as-badge-custom＝JSON [{s,on}]，不进 DEFAULTS、随 getCfg/replyCfgFor 外挂附带，同 #712 口径）；总开关 as-badge 语义保留为「显示/不显示任何标识」；池内全关由渲染侧兜底回爱心（设置页不拦，与 #712「至少保留一个」不同——不显示标识由总开关表达）；点亮≥2 枚时出「抽取方式」行 as-badge-rand（1 随机/0 按序轮换，轮换以消息时间戳做稳定种子）；爱心仍走原 SVG 零视觉回归，其余内置与自定义走文本节点 .msg-hi-mark。设置 UI 在 reply-settings.js #727 段（asb-chips），渲染消费在 chat.js（window.asBadgePool）+ chat-main.css 文本形态样式 + 开屏公告九章（template/notice.json 双份）====
   { name: '#727a 标识池读取（删＝chat.js 拿不到标识池，主动消息退回兜底爱心，用户设置的星星/自定义全失效）', file: 'js/reply-settings.js', needle: 'window.asBadgePool = function (c) {' },
   { name: '#727b 自定义标识外挂存储（删＝自定义标识刷新后消失，或写坏数组）', file: 'js/reply-settings.js', needle: "'reply-as-badge-custom'" },
@@ -3771,7 +3822,25 @@ const FIX_SENTINELS = [
   { name: '#874d 空窗期 touchstart 不解钉（删＝进度条期一次上滑令 finishSwap 跳过落底、看门狗/稳定窗全被 pinned=false 关在门外＝停在列表顶部旧记录）', file: 'js/chat.js', needle: 'if (!batchRendering) unpinChatAndAnchor(); // #874d' },
   { name: '#874e wheel 与 #874d 同闸（删＝桌面端滚轮路径空窗期照解钉，同一缺陷留后门）', file: 'js/chat.js', needle: "'wheel', function () { if (!batchRendering) unpinChatAndAnchor(); }" },
 
-  // ==== 2026-09-20 #900 每日备份提醒「从来没弹过」根治 + 人话警示 + 醒目配色（用户直派两件事：①每天的备份提醒没有触发 ②没写人话提醒「不管什么浏览器、什么手机都会自动清除数据＝设备限制，要备份使用」且颜色要显眼；零机型分支）：旧版只在数据就绪那一刻试一次，而那一刻开屏（#splash z-999）必然还在——弹窗在 .phone 内（开屏期间整棵 visibility:hidden）、顶条 z-998 也压在开屏之下＝弹在看不见的地方，却照样写 __last-backup-remind 冷却 ⇒ 当天再无第二次；冷却还按「距今满 24 小时」算（每天比前一天早一秒打开就永远凑不满）；且一次装载只判一次（PWA + 后台保活常驻数天不刷新＝根本没有第二次判定）。修法＝splashGone 闸 + 自然日冷却 + 前 10 分钟每 2s/之后每 60s 复查 + 只有真渲染出来才写冷却（被别的弹窗占用时让路不写）+ 文案改大白话 + 顶条红橙渐变与弹窗 .modal--warn 警示形态 ====
+
+/* ==== 2026-09-20 #891 用户直派「五子棋游戏结束没有卡片显示输赢，只有发送聊天消息；其他小游戏（四子棋等）一并检查」＝chat.js renderMsg 对 gomoku/c4/ms/linkup/match3/auction 六个 special 一个卡片分支都没有（pong/brick/memory/snake/rps 有），结算消息全部掉进通用气泡 ==== */
+  { name: '#891a 小游戏结算卡片渲染分支（删＝六个游戏的结算回流成普通气泡，「没有卡片显示输赢」复发）', file: 'js/chat.js', needle: 'if (GAME_CHAT_CARDS[rec.special]) {' },
+  { name: '#891b game 结算负载进 chatAddSystem 转发白名单（删＝字段被白名单就地吞掉，卡片永远只能按正文降级、拿不到输赢结论与本局数据）', file: 'js/chat.js', needle: 'game: opts.game, askQuestion:' },
+  { name: '#891j game 结算负载进 addIn→addRec 持久化白名单（删＝负载在落库前被吞，卡片永远只剩正文降级、拿不到本局数据）', file: 'js/chat.js', needle: 'game: opts.game, quote:' },
+  { name: '#891c 五子棋结算带结构化负载（删＝卡片只剩正文一行、无胜负色与手数/战绩/先手）', file: 'js/gomoku.js', needle: 'game: gPayload }' },
+  { name: '#891d 四子棋结算带结构化负载（用户点名游戏，删＝输赢卡片复发缺失）', file: 'js/connect-four.js', needle: 'stats: c4Stats' },
+  { name: '#891e 合作扫雷结算带结构化负载（合作局结论=完成/差一点）', file: 'js/coop-mine.js', needle: 'stats: msStats' },
+  { name: '#891f 连连看结算带结构化负载', file: 'js/linkup.js', needle: 'stats: lkStats' },
+  { name: '#891g 消消乐结算带结构化负载', file: 'js/match3.js', needle: 'stats: m3Stats' },
+  { name: '#891h 拍卖会场次结算带结构化负载', file: 'js/auction.js', needle: 'result: auRes' },
+  { name: '#891i 结算卡片结论行输赢上色样式（删＝卡片样式塌陷、你赢/TA 赢同色看不出结果）', file: 'css/chat-pages.css', needle: '.msg-game-result.game-win,.msg-game-result.game-clear { color:#1f9d55; }' },
+
+// ==== 2026-09-20 #892 此间梦角「删除后不再自动添加＋时辰浮层取消丢掉整个添加」 ====
+  { name: '#892a 删空名单清播种标记＝恢复自动播种（删＝该桌面永远空态再也不自动建梦角）', file: 'js/cjian.js', needle: 'if (!list.length) { const rs = storeOf(mCid); if (rs) rs.remove(SEED_KEY); }' },
+  { name: '#892b 时辰浮层取消照常按已选偏移建档（改回取消＝不创建＝「设置不了随机时间流」复发）', file: 'js/cjian.js', needle: 'function () { createPlain(); }, // 取消：时辰不限定，照常建档' },
+{ name: '#903a 时段变动失效已抽当前时刻（不失效＝改完时辰区间仍显示老时辰旧时刻到冷却结束，「设置的时间与显示的时辰对不上」复发）', file: 'js/cjian.js', needle: 'function invalidateTaTime(cid) { try { const s = storeOf(cid); if (s) s.remove(\'cjian-ta-time\'); } catch (e) {} }' },
+  { name: '#903b 改时辰区间后立即重抽世界时间（不重抽＝梦角世界时间驻留旧时辰 1-8 小时）', file: 'js/cjian.js', needle: 'clearOttTag(c.id); invalidateTaTime(mCid); // #903：改回时间偏移流动同样重抽' },
+  /* ==== 2026-09-20 #900 每日备份提醒「从来没弹过」根治＋人话警示＋醒目配色（2026-09-20 16:1x build.mjs 工作树覆盖事故后按会话存档重建；#900f/g 两条 name 系重写、needle 原样） ==== */
   { name: '#900a 开屏没关就不试也不写冷却（删＝备份提醒弹在 splash 之下看不见却烧掉当天冷却，「从来没弹过」复发）', file: 'js/pwa.js', needle: 'if (!splashGone()) return;' },
   { name: '#900b 冷却改按自然日比较（改回「距今满 24 小时」＝每天早一秒打开永远凑不满 24h，提醒无限往后漂）', file: 'js/pwa.js', needle: 'if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;' },
   { name: '#900c 常驻复查时间线在位（删＝PWA/后台保活数天不刷新时再没有第二次判定机会，「每天提醒」名存实亡）', file: 'js/pwa.js', needle: 'setInterval(function () { try { tryShow(); } catch (e) {} }, 60000);' },
@@ -3779,9 +3848,20 @@ const FIX_SENTINELS = [
   { name: '#900e 人话警示文案在位（删＝用户又只看到「建议导出备份」，不知道任何手机/浏览器都会自动清数据＝设备限制）', file: 'js/pwa.js', needle: '这是设备本身的限制，网站没有办法替你保住数据' },
   { name: '#900f 备份顶条醒目配色（删＝红橙渐变退回与版本条同款深灰，用户要求「颜色要显眼」落空；needle=该行整体，base.css 内唯一）', file: 'css/base.css', needle: '#backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b)' },
   { name: '#900g 弹窗警示形态样式在位（删＝opts.warn 变哑参数，备份提醒又回到普通白底弹窗）', file: 'css/base.css', needle: '.modal.modal--warn { border-color:#e8382c;' },
-  { name: '#900h openModal 按 opts.warn 挂警示类（每次开弹窗重设＝天然复位；删＝全站警示形态失效）', file: 'js/personalize.js', needle: "classList.toggle('modal--warn', !!opts.warn)" },
+  { name: '#900h openModal 按 opts.warn 挂警示类（每次开弹窗重挂＝天然复位；删＝全站警示形态失效）', file: 'js/personalize.js', needle: "classList.toggle('modal--warn', !!opts.warn)" },
   { name: '#900i 顶条静态占位文案同口径（删＝模板占位与 showBar 写入文案两套口径）', file: 'template.html', needle: '手机和浏览器都会自动清空数据，一清就全没' },
-
+  /* ==== 2026-09-20 #884 用户直派「低电量模式也提醒 iOS 不要用低电量模式会变卡，说明放在卡顿说明显眼地方」＋iPhone 15 Pro/16 Pro 实报「聊天返回主页面和主页面切换卡」两份诊断（静态帧率 64fps＝非低电量、切页现场无尺子）；后追加：关于段必读条 #884c、卡顿自检报告复制/导出 #884d ==== */    { name: '#884a 卡顿说明低电量首条提醒（删＝「iOS 怎么用都卡」查不到低电量锁 30fps 这一最常见成因）', file: 'template.html', needle: 'iPhone 第一条：别开「低电量模式」' },    { name: '#884b 切回桌面帧耗时采样接线（desktop-slider 在 page-phone 取消隐藏时采 30 帧写 __diag-swperf；删＝切页类卡顿报障回到没有现场数据的猜测）', file: 'js/desktop-slider.js', needle: "swSample(); // #884：从聊天/其他页切回桌面那一刻现场采一段帧耗时" },    { name: '#884c 关于段「省电模式发卡」必读警示条（删＝只看关于页的用户查不到「卡＝系统省电模式锁半速」这一最常见成因）', file: 'template.html', needle: 'id="about-perf-note"' },    { name: '#884d 卡顿自检报告复制/导出接线（删＝报告只剩可手选文本，手机上没法整段发给开发者）', file: 'js/personalize.js', needle: "mochiDiagExportDocx(txt, 'mochi-perfcheck-'" },    /* ==== 2026-09-20 #887 用户实报「有的 iOS 型号导出不了 docx、导出的文件是空白」（明说其他机型也有、勿做机型分支）＝①exportDocx 裸下载 800ms revokeObjectURL 作废慢速 iOS 未写完的文件（data-backup.js anchorDownload 同族 v3.28.x 已修、docx 侧漏网）②空内容守卫 ③导出存根 __diag-export 证据定责 ==== */    { name: '#887a docx 裸下载 blob URL 长命化（删＝800ms revoke 回流，慢速 iOS 导出空白文件复发；pagehide+300s 同 anchorDownload 口径）', file: 'js/device.js', needle: "'pagehide', function h()" },    { name: '#887b 导出空白内容守卫（删＝报告没生成完点导出又产空白页 docx）', file: 'js/device.js', needle: '报告还没生成好' },    { name: '#887c 导出存根 __diag-export（删＝空白文件类报障没有通道/大小/UA 证据，只能继续猜内核名单）', file: 'js/device.js', needle: 'blob-broken' },    /* ==== 2026-09-20 #905 用户实报①「卡顿自检黑色弹窗位置太靠下不居中，把正常使用按钮挡住了」②「为什么只能测十秒，不合理」＝浮条改顶部居中小胶囊（避开 tabbar/输入栏）+ 时长可选 10/30/60 秒/2 分钟/5 分钟默认 30（perf-check.js 写死 30s 钳制一并放开到 300s）；设置行接线哨兵已随本批同步换锚 start(durMs) ==== */    { name: '#905a 实测浮条顶部居中胶囊（删＝底部横条回流，视觉挡住 tabbar/输入栏，实测期间没法点底部按钮）', file: 'js/personalize.js', needle: 'position:fixed;top:max(14px,env(safe-area-inset-top,0px));left:50%' },    { name: '#905b 实测时长可选 10/30/60/120/300（删＝写死 10 秒回流，偶发巨帧整窗漏采、样本不足）', file: 'js/personalize.js', needle: '30: 30000, 60: 60000' },    /* ==== 2026-09-20 #889 边看边调「栏位」位置滑杆补小字提示（2026-09-20 16:1x 覆盖事故后按台账恢复；见 FIX-REGRESSION #889 第二条） ==== */
+  { name: '#889a 单聊抽屉栏位位置滑杆提示（删＝用户又不知道顶栏/输入栏可以拖着挪位，知情提示回流）', file: 'js/chat-settings.js', needle: "mkNote('这两条位置滑杆拖着就能" },
+  { name: '#889b 群聊抽屉栏位位置滑杆提示（删＝群聊版同款知情提示回流）', file: 'js/group-chat.js', needle: '拖着就能把栏位上下挪位' },
+  /* ==== 2026-09-20 #902 TA在身边/此间概率与触发节奏写进界面（用户直派「概率和触发时间要写清楚」；纯文案，恢复自本批） ==== */
+  { name: '#902a 此间页概率/节奏说明锚（删＝感知概率、状态流动间隔、突然靠近概率重新变成黑盒）', file: 'template.html', needle: 'cj-rate-note' },
+  { name: '#902b 位置面板换位间隔与概率说明锚（删＝TA 自动换位 2~6 小时/70% 陪伴卡的说明回流黑盒）', file: 'js/p2-features.js', needle: '70% 是陪伴卡' },
+  /* ==== 2026-09-20 #904 听歌邀请「同意后小框消失也没播放」（红米 K80 Chrome PWA 实报；接受链路静默死亡出口封堵） ==== */
+  { name: '#904a 接受邀请前清残留来电 hold（删＝stale callHoldPending 让 startPlayback 静默 return＝点了同意没声没提示，小框被 hold 藏起不回来）', file: 'js/music-player.js', needle: 'callHoldPlaying = false; callHoldPending = false; // #904a' },
+  { name: '#904b 同意后起播校验兜底（删＝被外部打停的歌在前台永远没人拉起＝接受后永不响也不提示）', file: 'js/music-player.js', needle: 'armInvitePlayCheck(); // #904b' },
+  // #910 房间 TA 头像放大＋自成一层（CSS 哨兵按 minify 后单行产物形态取锚）
+  { name: '#910a 房间 TA 头像放大到 44px 并自成一层（改回 34px 或去掉 translateZ＝真人照片认不出是谁、「头像很模糊看不清」复发）', file: 'css/room.css', needle: 'width: 44px; height: 44px; transform: translateX(-50%) translateZ(0)' },
+  { name: '#910b 走路颠步关键帧保留自成一层（掉 translateZ＝走动时头像并回祖先合成层按 1x 重采样，走动段又发糊）', file: 'css/room.css', needle: '@keyframes rBob { 0%,100% { transform: translateX(-50%) translateZ(0); }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

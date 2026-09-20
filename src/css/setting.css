@@ -164,6 +164,15 @@
 .gs-row .tag:hover, .gs-row .tag:focus-visible { background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.12); outline:none; }
 [data-theme="dark"] .gs-row .tag { color:#aaa; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.06); }
 [data-theme="dark"] .gs-row .tag:hover, [data-theme="dark"] .gs-row .tag:focus-visible { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+/* #848 设置行右侧「档位胶囊」——非布尔的多档选择（如红包捎话内容三档），点一下弹 pills */
+.gs-pick {
+  flex-shrink:0; font-size:12px; font-weight:600; color:var(--ink); line-height:1.4; white-space:nowrap;
+  border:1px solid rgba(0,0,0,.1); background:rgba(0,0,0,.04); border-radius:99px; padding:6px 12px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.gs-pick:active { background:rgba(0,0,0,.09); }
+[data-theme="dark"] .gs-pick { color:#ddd; border-color:rgba(255,255,255,.16); background:rgba(255,255,255,.07); }
+[data-theme="dark"] .gs-pick:active { background:rgba(255,255,255,.13); }
 /* #650 多字卡「拼接符号」多选 chips——药丸复用 .gs-row .tag，选中态对齐 .rps-tab.sel；
    .dis＝「拼接随机标点」总开关关闭时置灰（仍可点，方便提前配好符号池） */
 .ppy-chips { display:flex; flex-wrap:wrap; gap:6px 6px; justify-content:flex-end; max-width:62%; }

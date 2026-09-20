@@ -29,8 +29,8 @@ check('S3 #374 导入整份备份兜底优先当前群消息键',
   src.includes('const ck = groupMsgKey(curGid);') && src.includes('const raw = (data.idb && data.idb[ck]) || data.ls[ck] || (data.idb && data.idb[MSG_KEY]) || data.ls[MSG_KEY];'));
 check('S4 #375 导出展开媒体令牌 + 文件名清洗 + 本地日期',
   src.includes('window.mochiMediaExpandAsync(k,') && src.includes("replace(/[\\\\/:*?\"<>|]/g, '_')") && !src.includes("toISOString().slice(0, 10)"));
-check('S5 #376 关闭设置面板复位美化子视图（#697 起同时复位 gcSetTab，防关在美化 tag 上重开仍落美化）',
-  src.includes("gcBeautyView = false; gcSetTab = 'profile'; if (settingsPanel) settingsPanel.hidden = true;") && src.includes("if (e.target === settingsPanel) { gcBeautyView = false; gcSetTab = 'profile'; settingsPanel.hidden = true; }"));
+check('S5 #376 关闭设置面板复位顶部 tag（#816 起 gcBeautyView 子视图退役，复位只剩 gcSetTab 一件事）',
+  src.includes("gcSetTab = 'profile'; if (settingsPanel) settingsPanel.hidden = true;") && src.includes("if (e.target === settingsPanel) { gcSetTab = 'profile'; settingsPanel.hidden = true; }"));
 
 // ---- U* 纯逻辑单测（#374 键优先级 / #375 令牌展开+清洗） ----
 (function () {

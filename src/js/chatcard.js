@@ -4833,6 +4833,9 @@
         const el = ccSectBodies[key];
         if (el) el.hidden = (key !== k);
       });
+      // FIX 2026-09-19 #822：切分区即按当前 DOM 重算徽标——原口径只靠 MutationObserver 防抖
+      //   与 mochi-restore-done，计数写入早于观察器挂载时就永久停在旧值（用户读成「没解锁全」）
+      try { if (window.__ccRenderTabTotals) window.__ccRenderTabTotals(); } catch (e) {}
     });
   });
 
@@ -4875,10 +4878,14 @@
         let em = btn.querySelector('.cc-tab-n');
         if (!em) { em = document.createElement('em'); em.className = 'cc-tab-n'; btn.appendChild(em); }
         const n = sectSum(ccSectBodies[k]);
-        em.textContent = n;
-        em.classList.toggle('zero', n <= 0);
+        // FIX 2026-09-19 #822：系统预设分区在「内置字卡数据包未加载」时不再显示残留小数字
+        //（那串是尾部模块角标之和，会被读成「只解锁了几百张」），改写成 '—' 指名缺加载本身
+        const miss = k === 'preset' && window.defaultCardDataMissing && window.defaultCardDataMissing();
+        em.textContent = miss ? '—' : n;
+        em.classList.toggle('zero', !miss && n <= 0);
       });
     }
+    window.__ccRenderTabTotals = renderTotals;
     let totalsTm = null;
     if (typeof MutationObserver !== 'undefined') {
       const mo = new MutationObserver(() => {

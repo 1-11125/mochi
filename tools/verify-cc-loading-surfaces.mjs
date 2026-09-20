@@ -18,7 +18,7 @@
 //   SERVE_ROOT=<dir> 指向隔离构建目录（如 /tmp/mochi575）即可先于根产物验证
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,7 +55,7 @@ function check(desc, ok, detail) {
 }
 {
   let html = '';
-  try { html = readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) {}
+  try { html = readFileSync(join(root, 'index.html'), 'utf8'); const jd=join(root,'js'); for (const f of readdirSync(jd)) if (f.endsWith('.js')) html += `\n${readFileSync(join(jd,f),'utf8')}`; } catch (e) {}
   check('S1 产物含共用加载行样式与占位文案',
     html.indexOf('.mochi-load-row') >= 0 && html.indexOf('正在加载表情包…') >= 0 && html.indexOf('cc-cnt-loading') >= 0,
     'len=' + html.length);

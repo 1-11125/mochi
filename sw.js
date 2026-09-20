@@ -6,9 +6,9 @@
 // 会一直显示「正在安装」永不完成（WebAPK 安装要经 SW 拉 start_url/图标）。
 // 现在每个请求最多等 NETWORK_TIMEOUT 毫秒，超时立即回退缓存（没缓存则快速
 // 失败），SW 最迟约 10 秒内必然激活，安装/加载都不再无限挂起。
-const CACHE = 'mochi-mu9jyr67';
-const BUILD_INFO = '部署于 2026-09-20 16:26';
-const PRECACHE = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png","./icon-180.png","./js/calendar.js","./js/mail.js","./js/memo-app.js","./js/memo-arc.js","./js/my-arc.js","./js/accounting.js","./js/garden.js","./js/room.js","./js/drift-bottle.js","./js/decision.js","./js/group-decision.js","./js/mood-diary.js","./js/pong.js","./js/snake-game.js","./js/breakout.js","./js/connect-four.js","./js/coop-mine.js","./js/fishing.js","./js/memory-game.js","./js/gomoku.js","./js/linkup.js","./js/match3.js","./js/arcade.js","./js/settings-help.js","./js/onboarding.js","./js/card-audit.js","./js/divination.js","./js/loc-lib.js","./js/ck-question.js","./js/ta-invite.js","./js/gift-shop.js","./js/feed.js","./js/cjian.js","./js/call.js","./js/music-player.js"];
+const CACHE = 'mochi-mu9ljhoi';
+const BUILD_INFO = '部署于 2026-09-20 17:10';
+const PRECACHE = ["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png","./icon-180.png","./js/idb.js","./js/contacts.js","./js/applock.js","./js/card-lock.js","./js/dcp-master.js","./js/media-pool.js","./js/storage-slim.js","./js/perf-check.js","./js/img-compress.js","./js/clock.js","./js/tabs.js","./js/desktop-slider.js","./js/quote-cards.js","./js/personalize.js","./js/chat.js","./js/group-chat.js","./js/chatcard.js","./js/chat-settings.js","./js/reply-settings.js","./js/fav-settings.js","./js/default-cards-data.js","./js/dict-ext-data.js","./js/default-cards.js","./js/quote-spell.js","./js/dream-free.js","./js/mood-followup-data.js","./js/mood-reply-cards.js","./js/ta-mood-data.js","./js/ta-mood.js","./js/music-player.js","./js/calendar.js","./js/divination.js","./js/avatar-lib.js","./js/ta-ask.js","./js/ck-question.js","./js/incoming-requests.js","./js/ta-invite.js","./js/bg-keep.js","./js/records.js","./js/call.js","./js/mail.js","./js/feed.js","./js/loc-lib.js","./js/p2-features.js","./js/gift-shop.js","./js/memo-app.js","./js/memo-arc.js","./js/my-arc.js","./js/period.js","./js/accounting.js","./js/garden.js","./js/room.js","./js/drift-bottle.js","./js/decision.js","./js/group-decision.js","./js/pong.js","./js/snake-game.js","./js/breakout.js","./js/connect-four.js","./js/coop-mine.js","./js/fishing.js","./js/memory-game.js","./js/gomoku.js","./js/linkup.js","./js/match3.js","./js/auction.js","./js/arcade.js","./js/mood-diary.js","./js/sfx.js","./js/fullscreen.js","./js/data-backup.js","./js/feature-data.js","./js/cjian.js","./js/feature-hub.js","./js/settings-help.js","./js/onboarding.js","./js/page-coach.js","./js/card-audit.js","./js/mobile-adapt.js"];
 // v3.10.x：网络优先超时从 8000 → 3500ms。GitHub Pages 国内访问经常 >8s，
 // 原 8s 超时导致手机端 fetch 频繁超时 → 回退 SW 缓存旧 index.html → 用户永远
 // 看不到新版。缩短到 3.5s：慢网络下页面秒开（回退缓存），配合页面版本检测 +
@@ -71,25 +71,31 @@ self.addEventListener('install', (e) => {
   // 跳过等待：新 sw 安装后立即接管（配合每次构建新缓存名 → 强制更新）
   self.skipWaiting();
   // 预缓存逐文件超时 + 单文件失败不影响整体：网络再差也保证 SW 能激活，
-  // 不阻塞浏览器安装流程
+  // 不阻塞浏览器安装流程。
+  // #860（PERF-PLAN 阶段 1b）：PRECACHE 从 41 项涨到 85 项（6 静态 + 79 外置 js），
+  // 一波全并发会把弱网首装的连接池打满、install 期整体超时 → 新缓存打空。改分波
+  // （每波 12 个并发、波间串行）：单文件失败仍不连坐整体，弱网下稳步推进。
   e.waitUntil(
-    caches.open(CACHE).then((c) =>
-      Promise.allSettled(PRECACHE.map((url) =>
-        // v3.26.x #157：index.html 用长超时（4MB 在慢网络 3.5s 必然失败 → 新缓存常年缺 index）
-        fetchWithTimeout(url, isIndexUrl(url) ? INDEX_NETWORK_TIMEOUT : NETWORK_TIMEOUT).then((res) => {
-          if (res && res.ok) {
-            // v3.26.x #134：index.html 完整性校验——截断体不进缓存（下同）
-            if (isIndexUrl(url)) {
-              return res.clone().text().then((t) => {
-                if (!isCompleteHtml(t)) return undefined;
-                return c.put(url, res);
-              });
+    (async () => {
+      const c = await caches.open(CACHE);
+      for (let i = 0; i < PRECACHE.length; i += 12) {
+        await Promise.allSettled(PRECACHE.slice(i, i + 12).map((url) =>
+          // v3.26.x #157：index.html 用长超时（4MB 在慢网络 3.5s 必然失败 → 新缓存常年缺 index）
+          fetchWithTimeout(url, isIndexUrl(url) ? INDEX_NETWORK_TIMEOUT : NETWORK_TIMEOUT).then((res) => {
+            if (res && res.ok) {
+              // v3.26.x #134：index.html 完整性校验——截断体不进缓存（下同）
+              if (isIndexUrl(url)) {
+                return res.clone().text().then((t) => {
+                  if (!isCompleteHtml(t)) return undefined;
+                  return c.put(url, res);
+                });
+              }
+              return c.put(url, res);
             }
-            return c.put(url, res);
-          }
-        })
-      ))
-    ).catch(() => {})
+          })
+        ));
+      }
+    })().catch(() => {})
   );
 });
 
@@ -234,6 +240,33 @@ self.addEventListener('fetch', (e) => {
   // 被取消的这条 404 无任何副作用。
   if (u.pathname.indexOf('@@m:') >= 0) {
     e.respondWith(Promise.resolve(new Response('', { status: 404, statusText: 'media token (not a network resource)' })));
+    return;
+  }
+  // #802 外置功能包（js/*.js）：缓存优先 + 后台静默刷新——与 #157 导航同构。外置化后 35 个
+  // 功能文件每次加载都走「网络优先 3.5s」，弱网（GitHub Pages 国内常态）下每个文件都要白等
+  // 3.5s 超时才轮到缓存/重试＝功能面板成片「加载失败」、半死几十秒。改缓存命中立即返回
+  // （秒开、离线也在），后台用 3.5s 拉最新写缓存保新鲜（文件名不带 hash：换血靠每次构建新
+  // CACHE 名 + 新 SW 预缓存，代内后台刷新与 #157 的 index 同一代价）；未命中（首装预缓存
+  // 缺文件）保持原网络优先 3.5s → 自身/全局缓存 → 无超时重试链不变。
+  if (/\/js\/[a-zA-Z0-9._-]+\.js$/.test(u.pathname)) {
+    e.respondWith(
+      caches.open(CACHE).then((c) => c.match(req)).then((m) => {
+        if (m) {
+          e.waitUntil(fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
+            if (res && res.ok) return caches.open(CACHE).then((c2) => c2.put(req, res.clone()));
+            return undefined;
+          }).catch(() => {}));
+          return m;
+        }
+        return fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c2) => c2.put(req, copy));
+          }
+          return res;
+        }).catch(() => caches.match(req).then((m2) => m2 || fetch(req)));
+      })
+    );
     return;
   }
   // v3.26.x #157：导航请求改「缓存优先 + 后台静默刷新」——standalone 桌面快捷方式每次

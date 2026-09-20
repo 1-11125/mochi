@@ -680,7 +680,7 @@
     var el = document.getElementById('period-history');
     if (!el) return;
     recs = normalize(recs);
-    if (!recs.length) { el.innerHTML = '<div class="period-empty">还没有记录，标记本次经期开始后会显示在这里</div>'; return; }
+    if (!recs.length) { el.innerHTML = ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('经期记录') : '<div class="period-empty">还没有记录，标记本次经期开始后会显示在这里</div>'); return; }
     var arr = recs.slice().reverse();
     var html = '';
     arr.forEach(function (r, i) {
@@ -1313,7 +1313,7 @@
     else if (kind === 'delayIrr') line = String(line).replace(/\{d\}/g, String(st.dayOfCycle || 0));
     // 带标签 chip 发进聊天（addIn opts.tag → rec.mood），用户能看出消息来源与语境：
     // 「经期关心」= 经期中，「经期预警」= 经前预警/推迟（#559 起区分）
-    try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }); } catch (e) {}
+    try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
     notifyCfg.fired[careKey] = 1;
     var cut = addDays(today, -30);
     Object.keys(notifyCfg.fired).forEach(function (k) { if (k < cut) delete notifyCfg.fired[k]; });

@@ -9,7 +9,7 @@
 // 说明：开屏问答门为固定 2 道题，无「编辑问答题」入口（v3.3x 起移除编辑）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -289,7 +289,16 @@ await sleep(200);
 await seedAndReload({}); // 重置为无锁态，抹掉刚才的数据
 
 // ---- H. 静态防线 ----
-const artifact = readFileSync(join(root, 'index.html'), 'utf8');
+// #860（PERF-PLAN 阶段 1b）：core 全外置后 applock.js 等代码在 js/<file> 产物里——
+// 「产物含 xxx」判据一律走全产物池（index.html + js/*.js），否则整组假红。
+const artifact = (function () {
+  let pool = readFileSync(join(root, 'index.html'), 'utf8');
+  try {
+    const jsDir = join(root, 'js');
+    for (const f of readdirSync(jsDir)) if (f.endsWith('.js')) pool += '\n' + readFileSync(join(jsDir, f), 'utf8');
+  } catch (e) { /* 未构建时池里只有 index.html */ }
+  return pool;
+})();
 const tpl = readFileSync(join(root, 'src', 'template.html'), 'utf8');
 const contacts = readFileSync(join(root, 'src', 'js', 'contacts.js'), 'utf8');
 check('H1 模板含设置入口开关 #applock-en', tpl.indexOf('id="applock-en"') >= 0);

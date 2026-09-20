@@ -21,7 +21,7 @@
 // 需要：Node 21+ + 本机 Chrome/Edge（CHROME_PATH 可指定）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -212,7 +212,8 @@ await boot();
 
 // ---- S1~S3 产物锚点（逻辑锚：修复被覆盖即消失） ----
 {
-  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const html = (function(){ let pool=''; try { pool = readFileSync(join(root,'index.html'),'utf8');
+    const jd=join(root,'js'); for (const f of readdirSync(jd)) if (f.endsWith('.js')) pool += '\n' + readFileSync(join(jd,f),'utf8'); } catch(e){} return pool; })();
   check('S1 产物含零可见页自愈调用（syncChrome 扫到零可见必走 healBlank）',
     html.indexOf('else healBlank();') >= 0 && html.indexOf('function healBlank()') >= 0);
   check('S2 产物含切页实时关页＋目标页前置（hideAllPages 与 target 判定）',

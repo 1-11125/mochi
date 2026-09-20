@@ -691,12 +691,19 @@
   window.mochiLoadingHtml = function (what) {
     return '<div class="mochi-data-loading">' + (what || '内容') + '还在读取，稍候会自动刷新</div>';
   };
-  // 真就绪后补渲一次：已就绪＝调用方读到的就是权威值，直接返回什么都不做。
-  // 刻意不判页面可见性（区别于既有多处 if (!page.hidden) 闸门）——回填完成时用户不在这页，
-  // 那种闸门会让该模块永久停留在加载态；隐藏页写几行文本零成本，可见页面的重渲自有各自的
-  // 现读入口兜底（如 mail 的 render 开头按 hidden 早退）。
+  // 真就绪后补渲一次。刻意不判页面可见性（区别于既有多处 if (!page.hidden) 闸门）——回填完成时
+  // 用户不在这页，那种闸门会让该模块永久停留在加载态；隐藏页写几行文本零成本，可见页面的重渲
+  // 自有各自的现读入口兜底（如 mail 的 render 开头按 hidden 早退）。
+  // #785b（2026-09-19）：「已就绪直接 return」在 JS 外置化后站不住——calendar/mail/feed 及
+  //   #797 接入页全是 defer 外置脚本，空库/快恢复时 mochi-restore-done 在这些脚本执行前就已
+  //   派发，只挂监听会永远等不到（verify-data-loading-buffer B3/C2/D2 恒红即此根因）。现两层：
+  //   ① 已就绪时 setTimeout(0) 调度一次 fn（等调用方模块求值完再跑，避开 TDZ/半初始化）；
+  //   ② 监听改为常挂不再 early-return——done 之后仍会在备份导入（data-backup 触发 idbRestore）
+  //   等场景再次派发，届时补渲同样是各页想要的；调用方回调皆纯重画幂等，重复派发零风险。
   window.mochiOnDataReady = function (fn) {
-    if (window.mochiDataState() === 'ready') return;
+    if (window.mochiDataState() === 'ready') {
+      try { setTimeout(function () { try { fn(); } catch (e) {} }, 0); } catch (e) {}
+    }
     try {
       document.addEventListener('mochi-restore-done', function () { try { fn(); } catch (e) {} });
     } catch (e) {}

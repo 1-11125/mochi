@@ -94,10 +94,46 @@ function check(desc, ok, detail) {
 const PENDING = "window.__mochiDataReady=false;window.__mochiDataSlow=false;";
 const READY_FIRE = "window.__mochiDataReady=true;window.__mochiDataSlow=false;document.dispatchEvent(new Event('mochi-restore-done'));";
 
+// #804 夹具修正（B3/C2/D2 存量红根因）：外置化后 js/*.js 为 defer 脚本，快机器/空库上 restore 在
+// 模块顶层注册前就完成——mochiOnDataReady 按「已就绪＝注册即早退」设计直接返回，之后测试手工派发
+// done 无人响应＝确定性红。#785 自测 15/15 时还是单体内联包（模块都在解析期注册），外置化收口后才现红。
+// 修法＝新文档期扣住 __mochiDataReady 首次置位与 mochi-restore-done 派发（确定性模拟慢机器：模块全部
+// 以 loading 态完成注册），__mo785Release() 在进入应用前统一放行。
+await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `
+(function(){
+  window.__mo785Held = false; window.__mo785HeldEvents = [];
+  var cur, held = false;
+  Object.defineProperty(window, '__mochiDataReady', {
+    configurable: true,
+    get: function(){ return held ? false : cur; },
+    set: function(v){
+      if (v && !window.__mo785Released && !held) { held = true; cur = true; window.__mo785Held = true; return; }
+      cur = v;
+    }
+  });
+  var disp = document.dispatchEvent.bind(document);
+  document.dispatchEvent = function (ev) {
+    if (ev && ev.type === 'mochi-restore-done' && !window.__mo785Released) { window.__mo785HeldEvents.push(ev); return true; }
+    return disp(ev);
+  };
+  window.__mo785Release = function () {
+    window.__mo785Released = true;
+    if (held) {
+      held = false;
+      Object.defineProperty(window, '__mochiDataReady', { value: true, writable: true, configurable: true });
+    }
+    window.__mo785HeldEvents.forEach(function (ev) { try { disp(ev); } catch (e) {} });
+    window.__mo785HeldEvents.length = 0;
+    return true;
+  };
+})()` });
+
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 await cdp('Page.navigate', { url: baseUrl + '/index.html?d785=' + Date.now() });
-for (let i = 0; i < 80; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(200); }
+for (let i = 0; i < 80; i++) { if (await evalJs('!!window.__mo785Held || !!window.__mochiDataReady')) break; await sleep(200); }
 await sleep(1200);
+// 放行扣住的就绪信号（readyState complete＝defer 模块全部注册完毕，放行不早于注册）
+await evalJs("(function(){ if (document.readyState !== 'complete') return 'not-complete'; return window.__mo785Release ? window.__mo785Release() : 'no-stub'; })()");
 // 进应用：滑到底 + 点「点击进入」，再清掉开屏与任何浮层遮罩（ta-ask 会随机弹 #qa-mask 抢点击）
 await evalJs("(function(){var b=document.getElementById('splash-box');if(b)b.scrollTop=b.scrollHeight;var e=document.getElementById('splash-enter');if(e)e.click();return 1;})()");
 await sleep(700);

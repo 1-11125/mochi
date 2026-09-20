@@ -976,8 +976,12 @@
   //     直下（不经 blob:，绕开「下载管理器取不到 blob 数据」的机型差异，仅 ≤2MB 小文件用）；
   //   ②只对 brokenFileShare 内核（夸克/华为）多这一步——其他内核下载本就正常，不加多余步骤；
   //   ③三级链的 Promise 补 catch 兜底：任何一环意外 reject 时退回裸 a[download]，不再静默死掉。
-  function brokenFileShareEnv() {
-    return !!((window.mochiDevice || {}).env || {}).brokenFileShare;
+  // FIX 2026-09-19 #815（复发熔断）：#758 的追问名单（brokenFileShare＝夸克/华为）太窄——
+  //   #603 同期已实证小米 MIUI 静默丢 blob: 下载，用户再报「其他设备型号也导出不了」＝
+  //   按内核点名追问永远追不完。改读 device.js env.downloadAsk（结构性判定：壳家族 UA ∪
+  //   安卓能力缺口 ∪ iOS 主屏独立容器，单点维护）；夸克/华为仍在名单内，#758 行为不回退。
+  function downloadAskEnv() {
+    return !!((window.mochiDevice || {}).env || {}).downloadAsk;
   }
   // data: URL 直下（≤2MB）——与 anchorDownload 是两条不同的取数路径：data: 自带数据，
   // 不依赖下载管理器去解 blob: 句柄，故对「能下 data: 但下不了 blob:」的内核有效。
@@ -1030,7 +1034,7 @@
     let ok = false;
     try { ok = anchorDownload(blob, fname); } catch (e) { ok = false; }
     toast(ok ? (doneText || '已开始下载') : (failText || '下载未能触发'));
-    if (!brokenFileShareEnv()) return; // 其他内核一步到位，不加多余步骤
+    if (!downloadAskEnv()) return; // #815：追问名单外的内核一步到位（桌面 Chrome/Edge/三星等下载可靠零噪音）
     // 壳浏览器：给用户一个自己能按的换路按钮（见上方 #758 注释）。延迟一拍再弹，
     // 让用户先看到下载是否真的开始（浏览器下载列表/系统通知栏），而不是被第二个弹窗盖住判断。
     setTimeout(function () {
@@ -1349,6 +1353,13 @@
   }
 
   function doImportGo(data) {
+    // #814：导入＝整库替换（IDB 原子替换 + LS clear 重写）＋完成后整页刷新——与「清除本地数据」
+    //（personalize.js __resetting 同款屏障）一样必须先落屏障：否则刷新触发的 beforeunload
+    // flushSave（chat.js :954 既有闸）会把本会话内存里的**旧**聊天记录（含 chatConsolidate 收口）
+    // 写回存储、盖掉刚导入的数据；导入窗口期锁屏/切后台的群聊 gFlushPersistNow 同理
+    //（group-chat.js 函数头补闸）。纯标志位：无监听无定时器无轮询，唯一作用是让窗口期内的
+    // 卸载收口写直接短路＝卸载期少做 IDB 写（低端机刷新更轻，正优化）。中止路径必须撤屏障。
+    try { window.__resetting = true; } catch (e) {}
     // v3.5.113：导入进度遮罩（读取已完成，这里开始逐条写入）
     impShow('正在导入…', '准备中', 2);
 
@@ -1483,6 +1494,8 @@
       // v3.6.x：IDB 原子替换失败 → 数据已由事务回滚保持原样，这里中止后续——
       // 不再继续写 localStorage，否则会出现「localStorage 新数据 + IndexedDB 旧数据」混合态
       if (!idbOk) {
+        // #814：导入中止＝留在本会话继续用，撤屏障恢复卸载收口写（否则之后新消息在离页时不落盘）
+        try { window.__resetting = false; } catch (e2) {}
         impHide();
         toast('导入失败：大文件写入未成功，原有数据已保留，请重试');
         return;

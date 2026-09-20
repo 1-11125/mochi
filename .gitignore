@@ -58,3 +58,6 @@ diag-*.html
 
 # 无头诊断的一次性 Chrome profile（临时，不入库）
 /tools/.diag-*/
+tools/tmp-triage-cache/
+tools/tmp-triage-report.txt
+REAL-DEVICE-CHECK.md

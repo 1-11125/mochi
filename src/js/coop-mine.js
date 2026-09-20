@@ -674,7 +674,16 @@
     if (startBtn) startBtn.textContent = '再来一次';
     if (endBtn) endBtn.hidden = false;
     try {
-      if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', nightAllow: true });
+      // #891：带结构化结算负载（chat.js 小游戏卡片渲染；合作局无对抗输赢，结论用完成/差一点）
+      const msStats = ['你探索 ' + s.digs.you + ' 格 · {ta}探索 ' + s.digs.ta + ' 格',
+        '💣 找到地雷 ' + s.minesFound + '/' + s.mineTotal + ' · 🎁 宝物 ' + (gifts + flowers),
+        '难度 ' + DIFFS[s.diffKey].name].concat(s.coinEarned > 0 ? ['🪙 我的心意币 +¥' + (s.coinEarned / 100).toFixed(2)] : []).concat(msDrop ? ['🎁 掉落限定摆件「' + msDrop.name + '」'] : []);
+      if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', game: {
+        name: '合作扫雷',
+        outcome: win ? 'clear' : 'fail',
+        result: win ? '雷区清理完成！' : '差一点，雷太多了',
+        stats: msStats
+      } });
       // 合作模式：完成/差一点点都不是「平局」也不是「我赢/你赢」——直接走合作文案，
       // 不再接对抗/平局的互动回应池（避免 TA 说出「平局！」「赢你了」这类不符合合作语境的话）
       const fb = win

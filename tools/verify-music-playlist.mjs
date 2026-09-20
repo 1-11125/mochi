@@ -168,7 +168,7 @@ const STUB_JS = `
   };
   // Audio mock：时长探测立即 onerror（探测不参与本脚本断言，也别打真网络）
   window.Audio = function () {
-    var el = { paused: true, ended: false, duration: 0, currentTime: 0, readyState: 0, volume: 1, muted: false, preload: '', src: '', referrerPolicy: '', buffered: { length: 0, end: function () { return 0; } }, style: {}, onplay: null, onpause: null, onended: null, onerror: null, onloadedmetadata: null, play: function () { return Promise.resolve(); }, pause: function () {}, load: function () {}, removeAttribute: function () {}, parentNode: { removeChild: function () {} } };
+    var el = { paused: true, ended: false, duration: 0, currentTime: 0, readyState: 0, volume: 1, muted: false, preload: '', src: '', referrerPolicy: '', buffered: { length: 0, end: function () { return 0; } }, style: {}, onplay: null, onpause: null, onended: null, onerror: null, onloadedmetadata: null, addEventListener: function () {}, play: function () { return Promise.resolve(); }, pause: function () {}, load: function () {}, removeAttribute: function () {}, parentNode: { removeChild: function () {} } };
     Object.defineProperty(el, 'src', { set: function (v) { el.__src = v; setTimeout(function () { if (el.onerror) el.onerror(); }, 0); }, get: function () { return el.__src || ''; } });
     return el;
   };

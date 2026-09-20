@@ -96,8 +96,9 @@ if (!normObj(o.relate)) { o.relate = { f: {}, notes: [] }; dirty = true; }
 else { if (!normObj(o.relate.f)) { o.relate.f = {}; dirty = true; } if (!Array.isArray(o.relate.notes)) { o.relate.notes = []; dirty = true; } }
 if (!normObj(o.ifw)) { o.ifw = {}; dirty = true; }
 IFW_FIELDS.forEach(f => { if (!isFv(o.ifw[f[0]])) { o.ifw[f[0]] = ''; dirty = true; } });
-if (dirty) saveFor(o, cid);
-arcCache[cid] = o;
+const _arcPending = window.mochiDataPending && window.mochiDataPending();
+if (dirty && !_arcPending) saveFor(o, cid);
+if (!_arcPending) arcCache[cid] = o;
 return o;
 }
 function ensureArc() { return ensureArcFor(viewCid); }
@@ -144,6 +145,7 @@ return [{ label: '全部联系人可见', value: 'shared' }, { label: '仅' + pa
 function shFlag(it) { return (it && it.shared) ? '<span class="narc-flag">全部可见</span>' : ''; }
 function absorbSharedOnce() {
 const s = gStore(); if (!s) return;
+if (window.mochiDataPending && window.mochiDataPending()) return; // #850c 回填未决，删根键的动作整体让位
 let sh = null;
 try { sh = JSON.parse(s.get(SHARED_KEY) || 'null'); } catch (e) {}
 if (!sh || typeof sh !== 'object') return;
@@ -211,6 +213,10 @@ if (home) home.hidden = false;
 };
 function render() {
 if (!root) return;
+if (window.mochiDataPending && window.mochiDataPending()) {
+root.innerHTML = window.mochiLoadingHtml('我的档案');
+return;
+}
 const arc = mergedArc();
 let h = '';
 h += chipsHTML();
@@ -795,7 +801,10 @@ dispatch(b.getAttribute('data-op'), b);
 });
 }
 }
-function boot() { absorbSharedOnce(); bind(); }
+function boot() {
+absorbSharedOnce(); bind();
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { absorbSharedOnce(); render(); } catch (e) {} });
+}
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
 })();

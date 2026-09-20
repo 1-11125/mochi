@@ -1907,6 +1907,7 @@ liveAudioEls = [];
 revokeObjectUrl();
 playRejected = false;
 endedHandled = false;
+bufferLatchEl = null; // #795：缓冲锁是「这个元素」的属性，换曲不得继承
 disarmAutoResume();
 clearBgResume();
 clearStallGuard();
@@ -1941,14 +1942,15 @@ playLocal(m, d);
 }
 function startPlayback(m) {
 if (!audio) return;
-audio.preload = 'auto';
+const el = audio; // #795：本条链路的所有异步回调只认这个元素（切歌后旧元素的拒绝回调不得动新歌）
+el.preload = 'auto';
 setupHandlers(m);
 if (callHoldPending) { try { syncPlayIcons(false); } catch (e) {} return; }
 wantPlay = true; // v3.10.x：用户点播/切歌＝意图播放（外部打断时自动续播的依据）
-const p = audio.play();
+const p = el.play();
 if (p && p.catch) {
 p.catch((err) => {
-if (!audio) return;
+if (!audio || el !== audio) return;
 if (err && err.name !== 'NotAllowedError') {
 if (httpsRetrying || demoFallbackBusy) return;
 if (document.hidden) {
@@ -1963,17 +1965,17 @@ if (retryWithHttpsUrl(m)) return;
 demoFallbackOrError(m);
 return;
 }
-try { audio.muted = true; } catch (e) {}
-const p2 = audio.play();
+try { el.muted = true; } catch (e) {}
+const p2 = el.play();
 if (p2 && p2.then) {
 p2.then(() => {
-if (audio) audio.muted = false; // 静音解锁成功 → 恢复出声
+if (el === audio) el.muted = false; // 静音解锁成功 → 恢复出声（过期元素不动）
 playRejected = false;
 clearStallGuard();
 disarmAutoResume();
 try { syncPlayIcons(true); } catch (e) {}
 }).catch((e2) => {
-if (audio) { try { audio.muted = false; } catch (e) {} }
+if (el === audio) { try { el.muted = false; } catch (e) {} }
 handlePlayReject(e2);
 });
 } else {
@@ -2068,14 +2070,15 @@ rebuildAndPlay(m);
 return;
 }
 if (!audio.paused) return;
-const p = audio.play();
+const el = audio; // #795：补播链路同样只认发起时的元素
+const p = el.play();
 if (p && p.then) {
 p.then(function () { bgResumeFails = 0; }).catch(function () {
-if (!audio) return; // v3.28.x：回调异步期间可能已 teardown（换源/切歌/停止），判空防 null.play()
-try { audio.muted = true; } catch (e) {}
-const p2 = audio.play();
+if (!audio || el !== audio) return; // v3.28.x：回调异步期间可能已 teardown（换源/切歌/停止）；#795 收紧成元素身份
+try { el.muted = true; } catch (e) {}
+const p2 = el.play();
 if (p2 && p2.then) {
-p2.then(function () { try { if (audio) audio.muted = false; } catch (e) {} bgResumeFails = 0; })
+p2.then(function () { try { if (el === audio) el.muted = false; } catch (e) {} bgResumeFails = 0; })
 .catch(function () { bgResumeFails++; bgResumeFailAt = Date.now(); rebuildAndPlay(m); });
 } else { bgResumeFails++; bgResumeFailAt = Date.now(); rebuildAndPlay(m); }
 });
@@ -2144,21 +2147,38 @@ scheduleBgResume();     // 定时补播先试，多数自动切歌场景直接�
 }
 let stallTimer = null;
 let playRejected = false;
+function mediaStillLoading(a) {
+if (!a) return false;
+try {
+return a.readyState > 0 || (a.buffered && a.buffered.length > 0) || a.networkState === 2;
+} catch (e) { return false; }
+}
+let bufferLatchEl = null;
+function musicBuffering() {
+if (!audio || audio.paused) return false;
+if (bufferLatchEl === audio) return true;
+try {
+return !(audio.readyState >= 3 || (audio.buffered && audio.buffered.length > 0));
+} catch (e) { return false; }
+}
 function clearStallGuard() {
 if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
 }
 function armStallGuard(m) {
 clearStallGuard();
 if (!m || (m.source !== 'url' && !m.url)) return;
+const armedEl = audio; // #795：守卫认元素身份——同一首歌换源重建后，旧定时器不得再动新元素
 stallTimer = setTimeout(function () {
 stallTimer = null;
 try {
-if (!audio || currentId !== m.id) return;
+if (!audio || armedEl !== audio) return;
+if (currentId !== m.id) return;
 if (audio.currentTime > 0) return;
 if (playRejected) return; // 等手势恢复播放，不误判外链失败
 if (audio.paused) return; // 用户主动暂停，不兜底
 try {
-if (audio.readyState > 0 || (audio.buffered && audio.buffered.length > 0) || audio.networkState === 2) {
+if (mediaStillLoading(audio)) {
+syncPlayIcons(true); // 补一次刷新：让守卫与界面每次都回到同一口径
 armStallGuard(m);
 return;
 }
@@ -2339,8 +2359,10 @@ updatePlayerBar();
 renderLibrary();
 }
 function setupHandlers(m) {
-audio.onended = function () { handleEnded(); };
-audio.onerror = function () {
+const el = audio;
+el.onended = function () { if (el !== audio) return; handleEnded(); };
+el.onerror = function () {
+if (el !== audio) return;
 if (document.hidden) bgBrokeAudio = true;
 if (m && m.neteaseId && !httpsRetrying) {
 if (retryWithHttpsUrl(m)) return;
@@ -2348,17 +2370,18 @@ if (retryWithHttpsUrl(m)) return;
 if (httpsRetrying) return; // 正在拉直链，等结果
 demoFallbackOrError(m);
 };
-audio.onloadedmetadata = function () {
-const dur = audio.duration || 0;
-const el = document.getElementById('sm-pb-dur');
-if (el) el.textContent = fmtDur(dur);
+el.onloadedmetadata = function () {
+if (el !== audio) return;
+const dur = el.duration || 0;
+const el2 = document.getElementById('sm-pb-dur');
+if (el2) el2.textContent = fmtDur(dur);
 if (m && dur) { m.duration = dur; saveLibrary(); updateDurUI(m.id, dur); }
 if (playRejected && currentId === m.id) {
 playRejected = false;
-try { audio.muted = true; } catch (e) {}
-const p2 = audio.play();
+try { el.muted = true; } catch (e) {}
+const p2 = el.play();
 if (p2 && p2.then) {
-p2.then(() => { if (audio) audio.muted = false; }).catch(() => {
+p2.then(() => { if (el === audio) el.muted = false; }).catch(() => {
 playRejected = true;
 try { syncPlayIcons(false); } catch (e) {}
 armAutoResume();
@@ -2366,11 +2389,15 @@ armAutoResume();
 } else { armAutoResume(); }
 }
 };
-audio.ontimeupdate = function () { try { syncMediaPosition(); } catch (e) {} };
-audio.onplay = function () { playRejected = false; bgResumeFails = 0; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // #700：真播出来＝导入时的「放不了」探测是误报，自愈清除
+el.ontimeupdate = function () { if (el !== audio) return; try { syncMediaPosition(); } catch (e) {} };
+el.addEventListener('waiting', function () { if (el !== audio) return; bufferLatchEl = el; syncPlayIcons(!el.paused); });
+el.addEventListener('stalled', function () { if (el !== audio) return; bufferLatchEl = el; syncPlayIcons(!el.paused); });
+el.addEventListener('playing', function () { if (el !== audio) return; bufferLatchEl = null; syncPlayIcons(true); });
+el.addEventListener('canplay', function () { if (el !== audio) return; bufferLatchEl = null; syncPlayIcons(!el.paused); });
+el.onplay = function () { if (el !== audio) return; playRejected = false; bgResumeFails = 0; bufferLatchEl = null; clearStallGuard(); disarmAutoResume(); clearBgResume(); bgBrokeAudio = false; wantPlay = true; syncPlayIcons(true); if (m) failMap[m.id] = 0; try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {} try { window.__musicPlaying = true; } catch (e) {} // #700：真播出来＝导入时的「放不了」探测是误报，自愈清除
 if (m && m.probeFail) { try { delete m.probeFail; saveLibrary(); renderLibrary(); } catch (e) {} }; // v3.28.x：每次真正出声都重新绑定歌曲媒体条——后台短暂打断被 bg-keep 接管媒体会话（元数据换成「Mochi 后台保活」）后，恢复播放时若不重设歌曲元数据，通知栏媒体条会停在保活条或直接消失
 try { updateMediaSession(true); } catch (e) {} };
-audio.onpause = function () { syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
+el.onpause = function () { if (el !== audio) return; syncPlayIcons(false); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = (wantPlay && !callHoldPending) ? 'playing' : 'paused'; } catch (e) {} try { window.__musicPlaying = false; } catch (e) {} // v3.28.x：外部打断（还想播）保持 playbackState='playing'，避免 Chrome 把页面当闲置标签冻结、通知栏媒体条消失；仅用户主动暂停才标 'paused'。v3.10.x：非用户暂停（后台省电/音频焦点抢占/系统打断）→ 定时补播反击
 if (wantPlay && !callHoldPending && !taPauseActive) scheduleBgResume(); };
 }
 function playTrack(id, fromWidget) {
@@ -2478,6 +2505,7 @@ if (progressTimer) clearInterval(progressTimer);
 progressTimer = setInterval(() => {
 if (!audio) return;
 checkAutoEnd();
+if (musicBuffering()) { syncPlayIcons(true); return; } // #795：缓冲期时间本该冻住，别用它盖掉「缓冲中」
 if (!audio.duration) return;
 if (audio.currentTime > 0) clearStallGuard();
 const cur = document.getElementById('sm-pb-cur');
@@ -2499,10 +2527,11 @@ toast('音乐库还没有歌曲');
 return;
 }
 if (audio.paused) {
+const el = audio; // #795：手势链异步回调期间可能已切歌，只认点击时那个元素
 cancelTaPause();
-const p = audio.play();
+const p = el.play();
 if (p && p.catch) p.catch((err) => {
-if (!audio) return; // v3.28.x：判空防 null.play()（回调异步，audio 可能已被 teardown）
+if (!audio || el !== audio) return; // v3.28.x：判空防 null.play()；#795 收紧成「还是不是我这个元素」
 if (err && err.name !== 'NotAllowedError') {
 if (httpsRetrying || demoFallbackBusy) return;
 const tm = currentId ? findTrack(currentId) : null;
@@ -2512,11 +2541,12 @@ if (retryWithHttpsUrl(tm)) return;
 if (tm) { demoFallbackOrError(tm); return; }
 }
 playRejected = true;
-try { audio.muted = true; } catch (e) {}
-const p2 = audio.play();
+try { el.muted = true; } catch (e) {}
+const p2 = el.play();
 if (p2 && p2.then) {
-p2.then(() => { if (audio) audio.muted = false; playRejected = false; try { syncPlayIcons(true); } catch (e) {} })
+p2.then(() => { if (el === audio) el.muted = false; playRejected = false; try { syncPlayIcons(true); } catch (e) {} })
 .catch(() => {
+if (el === audio) { try { el.muted = false; } catch (e) {} }
 try { syncPlayIcons(false); } catch (e) {}
 toast('点击播放被浏览器拦截，请再点一下屏幕继续播放');
 armAutoResume();
@@ -2806,6 +2836,7 @@ single: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M9.5 8.5h5"/>'
 document.querySelectorAll('#sm-mode-ico, #sm-f-mode-ico, #mw-mode-ico').forEach(el => { el.innerHTML = paths[mode] || paths.list; });
 }
 function syncPlayIcons(playing) {
+const buffering = playing && musicBuffering();
 const playPath = playing
 ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
 : '<path d="M8 5.5v13l11-6.5z"/>';
@@ -2818,7 +2849,17 @@ if (wi) wi.innerHTML = playing
 ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
 : '<path d="M8 5.5v13l11-6.5z"/>';
 const bars = document.getElementById('mw-bars');
-if (bars) bars.classList.toggle('playing', playing);
+if (bars) {
+bars.classList.toggle('playing', playing);
+bars.classList.toggle('buffering', buffering);
+}
+if (playing) {
+const t = buffering ? '缓冲中' : (audio && audio.currentTime ? fmtDur(audio.currentTime) : '00:00');
+['sm-pb-cur', 'sm-f-cur', 'mw-cur'].forEach(id => {
+const e = document.getElementById(id);
+if (e) e.textContent = t;
+});
+}
 }
 function updatePlayerBar() {
 const bar = document.getElementById('sm-player-bar');
@@ -2983,7 +3024,7 @@ function syncFloatToggle() {
 const cb = document.getElementById('music-float-en');
 if (cb) cb.checked = settings.floatEn;
 }
-function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true, nightAllow: true }); } catch (e) {} }
+function taMusicSys(text) { try { if (window.chatAddSystem) window.chatAddSystem(text, { silent: true }); } catch (e) {} }
 function taMusicSay(text) { try { if (window.chatAddIn) window.chatAddIn(text, { silent: true }); } catch (e) {} }
 function taFavList() {
 try {
@@ -3301,6 +3342,29 @@ toast('已删除');
 }
 });
 }
+let invitePlayCheckTimer = null;
+function armInvitePlayCheck() {
+try {
+if (invitePlayCheckTimer) clearTimeout(invitePlayCheckTimer);
+invitePlayCheckTimer = setTimeout(function () {
+invitePlayCheckTimer = null;
+try {
+if (!currentId || !audio) return; // 曲目加载失败等路径已有各自的 toast，不重复打扰
+if (!audio.paused) return;        // 在播或在缓冲＝健康，交给停滞守卫盯
+const p = audio.play();
+if (p && p.catch) p.catch(function () {
+if (!audio) return;
+try { audio.muted = true; } catch (e) {}
+const p2 = audio.play();
+if (p2 && p2.then) p2.then(
+function () { try { if (audio) audio.muted = false; } catch (e) {} },
+function () { try { if (audio) audio.muted = false; } catch (e) {} armAutoResume(); try { toast('音乐没能自动播出来，点一下屏幕任意位置即可开始'); } catch (e) {} }
+);
+});
+} catch (e) {}
+}, 4000);
+} catch (e) {}
+}
 window.maybeMusicRequest = function () {
 try {
 if (document.hidden) { console.log('[music-req] return: page hidden'); return; }
@@ -3349,7 +3413,11 @@ document.getElementById('sm-req-yes').addEventListener('click', () => {
 document.getElementById('tc-mask').hidden = true;
 if ((window.__activeCid || 'default') !== myCid) { reqData = null; return; }
 if (!reqData) return;
+document.getElementById('tc-mask').hidden = true;
+if ((window.__activeCid || 'default') !== myCid) { reqData = null; return; }
+if (!reqData) return;
 const switchNow = !!reqData.switching;
+callHoldPlaying = false; callHoldPending = false; // #904a
 playTrack(reqData.trackId);
 addRecord(reqData.trackId, '接受了 TA 的听歌邀请');
 const accMsg = switchNow
@@ -3358,6 +3426,8 @@ const accMsg = switchNow
 taMusicSys(accMsg);
 reqData = null;
 toast('开始播放');
+armInvitePlayCheck(); // #904b：同意后 4 秒还没声＝被外部打停，自动补播并兜手势恢复
+renderFloat(); // #904a：hold 藏起的小框随新播放意图立刻恢复（本地歌异步起播由 onplay 再刷新）
 });
 }
 return; // 「一起去听」已触发，本次调用不再判断「预订下一首」
@@ -3720,6 +3790,7 @@ audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
 if (fill && curEl && durEl && knob) {
 const iv = setInterval(() => {
 if (!audio || !audio.duration) return;
+if (musicBuffering()) return; // #795：缓冲期保留「缓冲中」文案，别拿冻住的时间盖回去
 const pct = audio.currentTime / audio.duration * 100;
 fill.style.width = pct + '%';
 knob.style.left = pct + '%';

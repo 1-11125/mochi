@@ -1796,7 +1796,8 @@ if (ckRefresh) {
       + '<div class="gs-row"><span>换位提醒弹窗</span><label class="toggle"><input type="checkbox" id="loc-bubble-tg"' + (store.get('loc-bubble') === '0' ? '' : ' checked') + '><span class="tk"></span></label></div>'
       + '<div class="gs-row"><span>换位发到聊天</span><label class="toggle"><input type="checkbox" id="loc-chat-tg"' + (store.get('loc-chat') === '0' ? '' : ' checked') + '><span class="tk"></span></label></div>'
       + '</div>'
-      + '<div class="gs-sub" style="padding:0 2px 10px">换位提醒弹窗：TA 自动换位置时顶部弹的黑色轻提示。<br>换位发到聊天：关掉后 TA 自动换位只记进「位置时间线」，不再发进聊天记录。<br>TA 自动换位：关掉后不再每隔几小时自动换位置（「问 TA 一声」不受影响）。</div>';
+      // #902：换位机制的触发间隔与概率写进设置说明（用户反馈「概率和触发时间要写清楚」）
+      + '<div class="gs-sub" style="padding:0 2px 10px">TA 自动换位：开启后每 2～6 小时随机换一次位置（关掉后到点也不换；「问 TA 一声」不受影响）。换位内容 70% 是陪伴卡（在你身边／一直没走远等），30% 从字卡库启用的位置卡里随机；每次换位都会记进「位置时间线」，换位内容与上一次不同时才算「换了位置」才弹提醒。<br>换位提醒弹窗：TA 自动换位置时顶部弹的黑色轻提示。<br>换位发到聊天：关掉后 TA 自动换位只记进「位置时间线」，不再发进聊天记录。</div>';
     // 问 TA 一声
     html += '<button class="loc-ask-btn" id="loc-ask-btn">问 TA 一声「你在哪？」</button>';
 
@@ -1874,9 +1875,6 @@ if (ckRefresh) {
   function doLocAuto() {
     if (document.hidden || Date.now() < locWakeAt || !window.__mochiDataReady) return;
     if (store.get('loc-auto') === '0') return; // 设置「TA 自动换位」关：到点也不发（拦设置后仍残留的当次定时器）
-    // #876 夜间静默：TA 自动换位（含「隔着世界在你身边」等换位消息）夜间不触发；
-    // scheduleLocAuto 循环独立，跳过本次后照常排下一轮，位置时间线零写入
-    if (window.nightModeActive && window.nightModeActive()) return;
     const companion = ['在你身边', '一直没走远', '隔着世界在你身边', '隐约在你身旁', '在你看不到的地方'];
     let text;
     if (Math.random() < 0.7) {
@@ -2980,7 +2978,7 @@ if (ckRefresh) {
     }
     eatSwTimer = requestAnimationFrame(tick);
   }
-  // #886 指针永远指着显示的菜：把显示菜扇区的中线转到顶部指针下（打开/「换一个」/改菜单重抽都走 eatPick
+  // #877 指针永远指着显示的菜：把显示菜扇区的中线转到顶部指针下（打开/「换一个」/改菜单重抽都走 eatPick
   // → 自动对齐；「转盘抽取」本身停在扇区内不需再对齐）。居中放置＝指针两侧各留半格余量，视觉最稳。
   function eatAlignWheelToDish(dish) {
     const dishes = eatDishes(); const i = dishes.indexOf(dish);
@@ -3107,7 +3105,7 @@ if (ckRefresh) {
   document.getElementById('eat-switch-menu').addEventListener('click', () => { if (editingNow() || eatSpinning) return; eatSwitchOpen(); });
   document.getElementById('eat-switch-cancel').addEventListener('click', () => { eatSwitchClose(); });
   document.getElementById('eat-switch-go').addEventListener('click', () => { eatSwitchSpin(); });
-  // #886 切桌面复位：编辑菜单面板/切换菜单浮层是页内常驻节点（.page 整页隐藏时看不见，但重进会带着上一
+  // #877 切桌面复位：编辑菜单面板/切换菜单浮层是页内常驻节点（.page 整页隐藏时看不见，但重进会带着上一
   // 桌面的面板状态——编辑面板开着、第一次点「编辑菜单」变关闭）。切桌面时停转＋关浮层＋收面板。
   document.addEventListener('contact-switched', function () { eatClearSpin(); eatSwitchClose(); const mp = document.getElementById('eat-menu-panel'); if (mp) mp.hidden = true; });
 
@@ -4042,7 +4040,7 @@ if (ckRefresh) {
     try { if (window.giftWalletChange) window.giftWalletChange(-fen, 0); } catch (e) {}
     const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'in', amt: amt, note: note || '' });
     piggySaveCoinLog(log); piggyCoinRender();
-    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
+    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
     const st = piggyCoinGoalState(); const bal = piggyCoinBal(log);
     if (st.act.g && !st.act.g.done) {
       if (bal >= st.act.g.a) {
@@ -4062,7 +4060,7 @@ if (ckRefresh) {
     try { if (window.giftWalletChange) window.giftWalletChange(fen, 0); } catch (e) {}
     const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'out', amt: amt, note: note || '' });
     piggySaveCoinLog(log); piggyCoinRender();
-    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
+    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
     piggyCoinShowMsg(piggyPick(COIN_OUT_MSG));
   }
   // 心意币概率配置（root 命名空间，供 chat.js 读取申请概率）：{ deposit(塞币/存钱), withdraw(取钱), ask(申请) }，均存 0-1 小数
@@ -4098,7 +4096,7 @@ if (ckRefresh) {
     vibrate([20, 40, 20]);
     try {
       const who = (window.chatPartnerName ? window.chatPartnerName() : '') || 'TA';
-      if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true });
+      if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), {});
     } catch (e) {}
     setTimeout(function () { piggyCoinShowMsg((window.taFit ? window.taFit(note) : note) + ' ¥' + piggyFmt(amt)); }, 300);
   }
@@ -4664,5 +4662,5 @@ if (ckRefresh) {
   }
   setInterval(chk, 60 * 1000);
   setTimeout(chk, 5000);
-  document.addEventListener('contact-switched', () => { lastTa = null; });
+  document.addEventListener('contact-switched', () => { lastTa = null; settledTa = null; });
 })();

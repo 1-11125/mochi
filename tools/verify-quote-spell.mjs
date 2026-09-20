@@ -117,7 +117,18 @@ ok(rs.includes("'qs-en': 1, 'qs-prob': 25, 'qs-cc': 1, 'qs-one': 1,"), 'D2 reply
 ok((rs.match(/'qs-en', 'qs-cc', 'qs-one'/g) || []).length === 3, 'D3 三处开关清单都含 qs-en/qs-cc/qs-one');
 ok(rs.includes('migrateQsCcOld()') && rs.includes("s.set('reply-qs-cc', '1')") && rs.includes("'reply-qs-cc-migrated'"), 'D3b qs-cc 反向迁移（#388 写回 1）在位');
 ok(tpl.includes('id="qs-en"') && tpl.includes('data-k="qs-prob"') && tpl.includes('id="qs-cc"') && tpl.includes('id="qs-one"'), 'D4 template.html 回复设置「词典拼字」组四控件');
-ok(chat.includes('dictTag') && chat.includes("? '词典' : '词典拼字'") && chat.includes("tag: '词典逐卡连发'") && chat.includes('rep.spell.join(\' \')'), 'D5 chat.js tag：单气泡按字卡长度（词典/词典拼字）+逐卡连发固定「词典逐卡连发」（#350）');
+// #843 tag 三档口径：单卡＝词典 / 多张全整句＝词典拼句 / 含 ≤4 字短卡＝词典拼词。
+// D5b~D5e 把源码那一行原样 eval 跑真实抽卡组合——防「tag 名还叫这个、分档逻辑被改坏」
+ok(chat.includes('dictTag') && chat.includes('rep.spell.join(\' \')'), 'D5 chat.js 单气泡按字卡长度算 dictTag（#350/#843）');
+const _dtLine = (chat.match(/^const dictTag = .*$/m) || [''])[0];
+const _dt = new Function('rep', _dtLine + '\nreturn dictTag;');
+ok(_dt({ spell: ['今晚的月色真美', '我有点想你了'] }) === '词典拼句', 'D5b 全部 >4 字整句 → 词典拼句', _dtLine);
+ok(_dt({ spell: ['想你', '今晚的月色真美'] }) === '词典拼词', 'D5c 多张里含短卡 → 词典拼词');
+ok(_dt({ spell: ['想你', '抱抱'] }) === '词典拼词', 'D5d 全部短卡 → 词典拼词');
+ok(_dt({ spell: ['一二三四五'] }) === '词典拼句', 'D5e 恰好 5 字归长档（>4 门槛没挪）');
+ok(chat.includes("tag: '词典',") && chat.includes("tagExtra: [{ tag: '词典逐卡连发', label: '' }]"), 'D5f 逐卡连发每条气泡（一卡一消息）＝「词典」＋玩法标记并列（#843/#350）');
+ok(chat.includes("md.tag === '词典拼句' || md.tag === '词典拼词'") && chat.includes("md.tag === '词典拼字'"), 'D5g 存量治愈白名单认新 tag 且保留旧名（#451/#843）');
+ok(tpl.includes('每张都超过 4 字（整句）＝「词典拼句」') && tpl.includes('含 4 字以内短词＝「词典拼词」'), 'D5h 词典页顶部小字说明 tag 口径');
 ok(tpl.includes('id="page-dict-cards"') && tpl.includes('id="d2-dict-list"'), 'D6 词典独立页在位（page-dict-cards，并行 #316 批重构）');
 ok(bm.includes("'default-cards.js', 'quote-spell.js'"), 'D7 build.mjs jsFiles 已登记 quote-spell.js');
 

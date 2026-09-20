@@ -189,6 +189,10 @@
   function worldMinuteOf(c) { return ottFor(c).worldMin; }
   // 删除梦角时清掉其持久化世界时间，避免留孤儿数据
   function clearOttTag(id) { if (ottCache && ottCache[id]) { delete ottCache[id]; saveOtt(ottCache); } }
+  // #903：时段设定变动后失效「对方当前时间」的已抽结果（<cid>:cjian-ta-time）——已抽时刻
+  // 按 1–8 小时冷却驻留，用户改完时辰区间/增删梦角后卡片仍显示老时辰的旧时刻＝
+  // 「设置的时间与显示的时辰区间对不上」。删键＝下次渲染立即按新设定重抽。
+  function invalidateTaTime(cid) { try { const s = storeOf(cid); if (s) s.remove('cjian-ta-time'); } catch (e) {} }
   function timeInfo(ts) {
     const d = new Date(ts);
     const hour = d.getHours();
@@ -521,6 +525,10 @@
   // 造出以联系人命名的梦角，看起来像别人的数据串了进来）
   function seedIfEmpty(cid) {
     try {
+      // #850：回填未完成不播种——「cjian-seeded 读空」可能只是键还没回来，此时播种会
+      // saveRoster 整包覆盖＝真实梦角名单被新种的本尊顶掉（LS 失效/回填迟到设备必现）。
+      // 让位给 boot 的 mochi-restore-done 补跑（见下方迁移监听器）
+      if (window.mochiDataPending && window.mochiDataPending()) return; // #850e 回填未决＝不算没播种
       const s = storeOf(cid);
       if (!s || s.get(SEED_KEY)) return;
       const list = loadRoster(cid);
@@ -1188,6 +1196,13 @@
     if (!listEl) return;
     listEl.innerHTML = '';
     const empty = document.getElementById('cj-empty');
+    // #850：回填期 roster 键可能还没回来——不出「这个桌面还没有梦角/各个桌面还没有梦角」
+    // 的假空断言，占位等 done 后补渲收敛
+    if (window.mochiDataPending && window.mochiDataPending()) {
+      if (empty) empty.hidden = true;
+      listEl.innerHTML = window.mochiLoadingHtml('梦角名单');
+      return;
+    }
     const now = Date.now();
     if (viewCid === ALL) {
       // 总览模式：按桌面分组，一次看完全部梦角状态
@@ -1474,6 +1489,7 @@
           const l = loadRoster(mCid);
           l.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
           saveRoster(l, mCid);
+          invalidateTaTime(mCid); // #903
           toast('已添加梦角：「' + pendingName + '」');
           pendingName = ''; pendingOffset = 0;
           todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
@@ -1481,27 +1497,33 @@
           return;
         }
         setTimeout(function () {
+          // #892：名字与时间偏移在前两步已定档，时辰浮层只是可选附加项——「取消」不再等于
+          // 整个放弃添加（旧版会丢弃名字与偏移＝梦角根本没建出来，用户以为时间流设置不了），
+          // 改为与「不限定 · 用时间偏移」同路：按已选偏移照常建档
+          function createPlain() {
+            const list = loadRoster(mCid);
+            list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
+            saveRoster(list, mCid);
+            invalidateTaTime(mCid); // #903
+            toast('已加入此间：「' + pendingName + '」');
+            pendingName = ''; pendingOffset = 0;
+            todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
+            window.renderCjian(true);
+          }
           showSlotPicker(
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             function (idxs) {
               const list = loadRoster(mCid);
               list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid, manual: 1 });
               saveRoster(list, mCid);
+              invalidateTaTime(mCid); // #903
               toast('已加入此间：「' + pendingName + '」');
               pendingName = ''; pendingOffset = 0;
               todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
               window.renderCjian(true);
             },
-            function () { pendingName = ''; pendingOffset = 0; }, // 取消：不创建
-            function () {
-              const list = loadRoster(mCid);
-              list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
-              saveRoster(list, mCid);
-              toast('已加入此间：「' + pendingName + '」');
-              pendingName = ''; pendingOffset = 0;
-              todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
-              window.renderCjian(true);
-            }
+            function () { createPlain(); }, // 取消：时辰不限定，照常建档
+            createPlain
           );
         }, 0);
         return;
@@ -1519,6 +1541,7 @@
               if (!cc) return;
               cc.slots = idxs.map(i => SHICHEN_START[i]);
               saveRoster(l2, mCid);
+              clearOttTag(c.id); invalidateTaTime(mCid); // #903：改时段后立即按新时辰区间重抽，不驻留旧时刻
               toast('已设时辰区间：' + slotLabel(cc.slots));
               todayCacheMap = {};
               window.renderCjian(true);
@@ -1530,6 +1553,7 @@
               if (!cc) return;
               delete cc.slots;
               saveRoster(l2, mCid);
+              clearOttTag(c.id); invalidateTaTime(mCid); // #903：改回时间偏移流动同样重抽
               toast('已改回：按时间偏移流动');
               todayCacheMap = {};
               window.renderCjian(true);
@@ -1580,6 +1604,11 @@
         delete st[v];
         saveState(st, mCid);
         clearOttTag(v);
+        invalidateTaTime(mCid); // #903：名单头变了，「对方当前时间」重抽
+        // #892：删空名单＝恢复「第一次打开自动种下默认梦角」——播种标记不清的话，该桌面
+        // 永远停在「此间还没有梦角」空态、再也不自动播种，用户删掉想重设时间流只能手动
+        // 一步步添加（与 healBelonging「搬空后清播种标记」同语义）
+        if (!list.length) { const rs = storeOf(mCid); if (rs) rs.remove(SEED_KEY); }
         // v3.14.x：同步清掉 TA 的梦角档案（narc-<id>，memo-arc.js 存根命名空间）
         // 与指向 TA 的 narc-cur（档案页打开时会自愈，这里顺手清干净不留孤儿数据）
         try {
@@ -1617,11 +1646,17 @@
     // 存量纠偏同样补跑一次（注册表刚就绪时才能可靠认亲，未就绪轮次不会误置标记）。
     let reMigrated = false;
     document.addEventListener('mochi-restore-done', function () {
-      if (reMigrated) return;
-      reMigrated = true;
       try { migrateSplit(); } catch (e) {}
       try { rehomeMisfiled(); } catch (e) {}
       try { fixBelonging(); } catch (e) {}
+      // #850：首次就绪补播种（打开/切视图时的 seedIfEmpty 都被回填闸挡过）＋补渲染
+      // 收起「梦角名单还在读取」占位；后续再派发（备份导入）时迁移幂等照跑，补渲走
+      // 各现读入口，不在此重复整页重画
+      if (!reMigrated) {
+        reMigrated = true;
+        try { seedIfEmpty(curCid()); if (viewCid !== ALL && viewCid !== curCid()) seedIfEmpty(viewCid); } catch (e) {}
+        try { window.renderCjian(false); } catch (e) {}
+      }
     });
     // v3.33.x #409：联系人改名跟随——联系人管理改名（contacts.js renameContact 派发的
     // contact-renamed，此时该桌面 lbl-partner 已同步为新名）后，把该桌面名单里与旧名同名

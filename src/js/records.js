@@ -57,6 +57,11 @@
     catchesSave(list);
     if (!document.getElementById('page-home').hidden) render();
   };
+  // #804 数据就绪缓冲：回填未完成时空态不得把「还没读到」说成「没有」——慢机器上用户会当成
+  // 「记录全丢了」报障（同 #785 日历/信箱/朋友圈口径；判据取时序状态，零机型分支）
+  function recEmpty(finalHtml) {
+    return (window.mochiDataPending && window.mochiDataPending()) ? '<div class="ta-empty">' + window.mochiLoadingText() + '</div>' : finalHtml;
+  }
   // 摸鱼抓包记录渲染（最新在前，全部保留；文案按当前联系人昵称动态适配）
   function renderCatch() {
     const el = document.getElementById('home-catch');
@@ -74,7 +79,7 @@
           (x.text ? '<div class="tc-li-line">' + (window.taFit ? window.taFit(esc(x.text)) : esc(x.text)) + '</div>' : '') +
           '</div>'
         ).join('')
-      : '<div class="ta-empty">暂无摸鱼抓包记录（桌面浮字可点击抓包 TA；点太快会被 TA 反向抓包）</div>';
+      : recEmpty('<div class="ta-empty">暂无摸鱼抓包记录（桌面浮字可点击抓包 TA；点太快会被 TA 反向抓包）</div>');
   }
   // ---- 心意币流水（v3.16.x：赚钱 / 申请记录，分列我和当前联系人） ----
   // 数据由 gift-shop.js 的 giftCoinLedgerLoad 提供（按联系人桌面前缀隔离）；记录结构 { ts, myFen, taFen, src }
@@ -86,7 +91,7 @@
     const myName = store.get('lbl-user') || '我';
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     if (!list.length) {
-      el.innerHTML = '<div class="ta-empty">' + (kind === 'ask' ? '暂无申请记录（可点心意币余额行向 Mochi 申请）' : '暂无赚钱记录（玩游戏、种花、钓鱼都能赚心意币）') + '</div>';
+      el.innerHTML = recEmpty('<div class="ta-empty">' + (kind === 'ask' ? '暂无申请记录（可点心意币余额行向 Mochi 申请）' : '暂无赚钱记录（玩游戏、种花、钓鱼都能赚心意币）') + '</div>');
       return;
     }
     const yuan = (fen) => (fen / 100).toFixed(2);
@@ -201,7 +206,7 @@
         });
       });
     }
-    if (!rows.length) { el.innerHTML = '<div class="ta-empty">暂无联系人的关心记录（TA 会主动查岗、提醒你喝水吃饭、关心经期、陪你专注）</div>'; return; }
+    if (!rows.length) { el.innerHTML = recEmpty('<div class="ta-empty">暂无联系人的关心记录（TA 会主动查岗、提醒你喝水吃饭、关心经期、陪你专注）</div>'); return; }
     rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     el.innerHTML = rows.map(r => '<div class="tc-listitem"><div class="tc-li-top"><span class="tc-li-q">' + r.icon + ' ' + r.main + '</span><span class="tc-li-time">' + r.sub + '</span></div></div>').join('');
   }
@@ -215,7 +220,7 @@
     let msgs = [];
     try { msgs = (window.getChatMsgs ? window.getChatMsgs() : JSON.parse(store.get('chat-msgs') || '[]')); } catch (e) {}
     const list = (msgs || []).filter(m => m && m.special === 'redpacket');
-    if (!list.length) { el.innerHTML = '<div class="ta-empty">暂无红包记录（红包也是心意币，快去发一个试试）</div>'; return; }
+    if (!list.length) { el.innerHTML = recEmpty('<div class="ta-empty">暂无红包记录（红包也是心意币，快去发一个试试）</div>'); return; }
     const stMap = { pending: '待领取', received: '已领取', expired: '已过期·退回', returned: '已退回' };
     el.innerHTML = list.slice().reverse().map(m => {
       const out = m.side === 'out';
@@ -235,7 +240,7 @@
     const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const list = histList('records-divine');
     if (!list.length) {
-      el.innerHTML = '<div class="ta-empty">暂无占卜记录（在「占卜」页选择对象抽牌后，牌面与解读自动存入这里）</div>';
+      el.innerHTML = recEmpty('<div class="ta-empty">暂无占卜记录（在「占卜」页选择对象抽牌后，牌面与解读自动存入这里）</div>');
       return;
     }
     el.innerHTML = list.map((h, i) => {
@@ -285,7 +290,7 @@
       ? h.map(x => '<div class="tc-listitem"><div class="tc-li-top"><span class="tc-li-q">' + x.date + '</span></div>' +
           '<div class="tc-li-line">' + myName + ' 当天摸鱼：+' + (x.mine || 0) + '</div>' +
           '<div class="tc-li-line">' + name + ' 当天摸鱼：+' + (x.ta || 0) + '</div></div>').join('')
-      : '<div class="ta-empty">暂无摸鱼值记录</div>');
+      : recEmpty('<div class="ta-empty">暂无摸鱼值记录</div>'));
   };
   // 每日打工值记录（v3.5.65：与每日摸鱼值同款——顶部累计 + 每日新增）
   window.renderWorkHistory = function () {
@@ -304,7 +309,7 @@
       ? h.map(x => '<div class="tc-listitem"><div class="tc-li-top"><span class="tc-li-q">' + x.date + '</span></div>' +
           '<div class="tc-li-line">' + myName + ' 当天打工：+' + (x.mine || 0) + '</div>' +
           '<div class="tc-li-line">' + name + ' 当天打工：+' + (x.ta || 0) + '</div></div>').join('')
-      : '<div class="ta-empty">暂无打工值记录</div>');
+      : recEmpty('<div class="ta-empty">暂无打工值记录</div>'));
   };
   function render() {
     // 只渲染当前 tab 面板（避免隐藏面板无谓渲染）
@@ -353,7 +358,7 @@
               (x.img ? '<img class="rec-av-img" src="' + x.img + '" alt="头像">' : '') +
               '</div>'
             ).join('')
-          : '<div class="ta-empty">暂无换头像记录</div>';
+          : recEmpty('<div class="ta-empty">暂无换头像记录</div>');
       }
     }
     // 通话记录
@@ -373,7 +378,7 @@
                 (x.text ? '<div class="tc-li-line">' + (window.taFit ? window.taFit(x.text) : x.text) + '</div>' : '') +
                 '</div>';
             }).join('')
-          : '<div class="ta-empty">暂无通话记录</div>';
+          : recEmpty('<div class="ta-empty">暂无通话记录</div>');
       }
     }
   }
@@ -387,13 +392,9 @@
     });
   });
   // v3.5.113：IndexedDB 回填完成后重绘主页当前面板（导入/配额异常恢复后的数据）
-  try {
-    document.addEventListener('mochi-restore-done', function () {
-      try {
-        if (!document.getElementById('page-home').hidden) render();
-      } catch (e) {}
-    });
-  } catch (e) {}
+  // #804：改走 mochiOnDataReady——原 if(!page-home.hidden) 闸门在回填完成时用户不在主页＝永久不刷；
+  // 空态分流见 recEmpty（「正在读取…」与「暂无…」不再混说）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(render);
   // 入口：桌面「主页」按钮
   const homeApp = document.querySelector('.app[data-app="home"]');
   const homePage = document.getElementById('page-home');

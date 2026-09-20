@@ -312,6 +312,25 @@
     // （data-backup.js altSaveFile）也不许再碰 navigator.share，否则用户点一下崩一次。
     // 与 brokenFileShare 分开登记：夸克/华为在真手势下分享面板可用（#758 唯一可靠通道），不回退。
     shareSheetCrash: /heytapbrowser/i.test(_envUa),
+    // FIX 2026-09-19 #815：blob: 下载可能被静默丢弃、需要在「确定后下载」之后追问
+    // 「文件保存成功了吗」的环境（追问弹窗/换路按钮在 data-backup.js afterDownloadAttempt）。
+    // #758 只点名夸克/华为，#603 同期已实证小米 MIUI 同样静默丢——按内核点名追问永远
+    // 追不完（用户原话「其他设备型号也有」），改三类并集的结构性判定：
+    // ①壳家族 UA（自带下载管理器会丢 blob: 的壳；三星 Chrome 系下载可靠不在列＝免添噪音）；
+    // ②安卓能力缺口兜底（不能 navigator.share 文件、也没有系统保存框＝裸 blob: 下载是
+    //   唯一路＝壳浏览器长尾，未来新壳不改本名单自动覆盖；Firefox 下载可靠显式排除）；
+    // ③iOS 主屏独立容器（无下载管理器，a[download] 静默无反应——#172 结论）。
+    // 只影响下载后的追问一步，不改三级降级链任何顺序；桌面端恒 false（下载可靠零噪音）。
+    downloadAsk: (function () {
+      try {
+        if (/huaweibrowser|quark|miuibrowser|vivobrowser|heytapbrowser|opbrowser|mqqbrowser|qqbrowser|ucbrowser|baiduboxapp|baidubrowser|sogoumobilebrowser|micromessenger|microapp|obabrowser|dingtalk/i.test(_envUa)) return true;
+        if (isIOS) return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+        if (!isAndroid) return false;
+        if (/firefox/i.test(_envUa)) return false;
+        if (window.showSaveFilePicker) return false;
+        return !(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.txt', { type: 'text/plain' })] }));
+      } catch (e) { return false; }
+    })(),
     // 音乐 API 被壳拦截、可提示用户换 Safari 的环境（QQ 浏览器/夸克，文案提示共用）
     apiBlockedHint: /QQBrowser|Quark/i.test(_envUa),
     // 系统级通知可能拦截（API 不报错但通知不显示）的安卓环境（红米/小米等 MIUI 系）
@@ -1236,7 +1255,10 @@
     try { L.push('实测帧率：采样中…'); fpsIdx = L.length - 1; } catch (e) {}
     jobs.push(fpsProbe().then(function (fps) {
       if (fpsIdx < 0) return;
-      L[fpsIdx] = fps > 0 ? '实测帧率≈' + fps + ' fps（500ms 现场采样，高刷屏>60 正常）' : '实测帧率：rAF 未触发（页面在后台被节流）';
+      // #884：实测落在 ≈30fps 档（15~40 且 >0）＝八成是 iOS 低电量 / 安卓省电模式把整机
+      // 帧率锁半（系统行为，非应用卡），点名提示关闭复测——多台 iPhone「怎么用都卡」实报都查到是它。
+      const lpHint = (fps > 0 && fps >= 15 && fps <= 40) ? '；≈30fps 档＝八成开了低电量/省电模式（系统锁半帧率），关掉再测' : '';
+      L[fpsIdx] = fps > 0 ? '实测帧率≈' + fps + ' fps（500ms 现场采样，高刷屏>60 正常' + lpHint + '）' : '实测帧率：rAF 未触发（页面在后台被节流）';
     }));
     // #690：桌面翻页帧耗时（用户上一次翻页时由 desktop-slider.js 现场采样）。
     // 上面那行「实测帧率」是打开诊断这一刻**静态页**的读数，翻页卡顿在它上面看不出来
@@ -1253,6 +1275,21 @@
           + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
       } else {
         L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');
+      }
+    } catch (e) {}
+    // #884：切回桌面帧耗时（从聊天/其他页返回手机桌面那一刻，由 desktop-slider.js 在
+    // page-phone 取消隐藏时现场采 30 帧）——用户主诉「聊天返回主页面卡、主页面切换卡」，
+    // 静态帧率看不出切页现场；这行与上面的翻页采样合起来才能把「切页类卡顿」定责。
+    try {
+      const sp = JSON.parse(localStorage.getItem('xy-home-v2:__diag-swperf') || 'null');
+      if (sp && sp.n) {
+        const when = sp.t ? new Date(sp.t).toLocaleString() : '?';
+        L.push('切回桌面帧耗时（' + sp.n + ' 帧现场采样 · ' + when + '）：'
+          + '平均 ' + sp.mean + 'ms / p90 ' + sp.p90 + 'ms / 最慢 ' + sp.worst + 'ms'
+          + (sp.hid ? '（已剔除后台帧 ' + sp.hid + '）' : '')
+          + (sp.mean > 100 ? '（严重卡顿）' : sp.mean > 33 ? '（掉帧）' : '（流畅）'));
+      } else {
+        L.push('切回桌面帧耗时：尚无记录（从聊天页点返回到桌面一次即可采到）');
       }
     } catch (e) {}
     let memTxt = '不支持（仅 Chrome 系）';
@@ -1713,11 +1750,15 @@
       const mc = window.mochiModuleCheck ? window.mochiModuleCheck() : null;
       if (!mc) L.push('模块加载体检：采集未启用（旧产物或初始化未接入）');
       else if (mc.missing.length) {
-        // PERF-PLAN 阶段 1：全部缺的都在 ext 排队里＝弱网首访瞬态（defer 数秒内自愈），措辞降级不吓人
+        // PERF-PLAN 阶段 1：全部缺的都在 ext 排队里＝弱网首访瞬态（defer 数秒内自愈），措辞降级不吓人。
+        // #860（阶段 1b）：全部功能件都走 defer 外置后，「ext 排队」覆盖面扩大到 79 件——
+        // 瞬态豁免只认启动后 15s 内（__mochiBootAt 由 boot 内联段注入）；过窗仍缺＝真没加载
+        // （语法错/404/整段未执行），照旧按硬故障报，防诊断把死模块说成弱网。
         const pend = mc.extPending || [];
-        const hard = mc.missing.filter(function (n) { return pend.indexOf(n) < 0; });
+        const transient = (Date.now() - (window.__mochiBootAt || 0)) < 15000;
+        const hard = transient ? mc.missing.filter(function (n) { return pend.indexOf(n) < 0; }) : mc.missing.slice();
         if (!hard.length) L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：外置模块加载中 ' + pend.join(', ') + '（弱网首访瞬态，外置 js/ 数秒内自动就绪，非故障）');
-        else L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：未加载 ' + mc.missing.join(', ') + '（该文件整段未执行＝语法错/启动抛错/漏接 jsFiles，对应功能可能整块失效）');
+        else L.push('模块加载体检 ' + mc.loaded.length + '/' + mc.expected.length + '：未加载 ' + mc.missing.join(', ') + '（' + (transient ? '非外置文件整段未执行' : '已过启动瞬态窗仍缺') + '＝语法错/启动抛错/404/漏接 jsFiles，对应功能可能整块失效）');
       }
       else L.push('模块加载体检：' + mc.expected.length + '/' + mc.expected.length + ' 全部加载完成');
     } catch (e) {}
@@ -2072,11 +2113,25 @@
       a.download = (basePrefix || 'mochi-diag-') + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.docx';
       document.body.appendChild(a);
       a.click();
+      // #887：blob URL 长命化（照搬 data-backup.js anchorDownload v3.28.x 的同族修法）——
+      // 原实现 800ms 就 revokeObjectURL：慢速 iOS / 旧版下载管理器还没把文件写完，
+      // 落盘的就是 0 字节空白 docx（「导出的文件是空白」实报）。改为 pagehide 释放 +
+      // 300s 兜底，anchor 5s 再移除；与备份导出同一口径，零机型分支。
       try {
         setTimeout(function () {
-          try { document.body.removeChild(a); } catch (e2) {}
+          try { if (a.parentNode) a.removeChild(a); } catch (e2) {}
+        }, 5000);
+      } catch (e2) {}
+      try {
+        window.addEventListener('pagehide', function h() {
+          window.removeEventListener('pagehide', h);
           try { URL.revokeObjectURL(url); } catch (e2) {}
-        }, 800);
+        });
+      } catch (e2) {}
+      try {
+        setTimeout(function () {
+          try { URL.revokeObjectURL(url); } catch (e2) {}
+        }, 300000);
       } catch (e2) {}
       return true;
     } catch (e) { return false; }
@@ -2093,6 +2148,13 @@
   function diagExportDocx(text, basePrefix, failMsg, toastFn, shareTitle) {
     const fname = (basePrefix || 'mochi-diag-') + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.docx';
     const tf = (typeof toastFn === 'function') ? toastFn : diagToast;
+    // #887：空白内容守卫——报告还没生成完（采样中/异步采集未落）时 text 为空，
+    // 照旧导出会产出一个「打开全空白」的 docx＝用户看到的「导出的文件是空白」另一半成因。
+    // 拦下来给可行动提示，而不是让用户拿到空文件。
+    if (!text || !String(text).replace(/\s/g, '')) {
+      tf('报告还没生成好（内容是空的），等几秒或重新打开一次再导');
+      return;
+    }
     const legacy = function () {
       const okDl = exportDocx(text, basePrefix);
       tf(okDl
@@ -2102,13 +2164,27 @@
     if (typeof window.mochiExportBlob !== 'function') { legacy(); return; }
     let blob = null;
     try { blob = buildDocxBlob(text); } catch (e) { blob = null; }
-    if (!blob) { legacy(); return; }
+    // #887：zip 结构自检——正常单页报告 docx 至少数 KB；小于 64B 说明打包已坏，
+    // 走 legacy 前把异常记进导出存根（__diag-export），报障时能对号是哪条路、什么内核。
+    if (!blob || blob.size < 64) {
+      try { localStorage.setItem('xy-home-v2:__diag-export', JSON.stringify({ t: Date.now(), path: 'blob-broken', size: blob ? blob.size : -1, ua: String(navigator.userAgent).slice(0, 60) })); } catch (e) {}
+      legacy();
+      return;
+    }
+    // #887：导出存根——记录本次走的通道与文件大小（成功也记）。空白文件类报障凭这一条
+    // 就能定责：path=share 却 size 正常＝分享面板落盘问题；path=download＝下载管理器问题，
+    // 避免再靠猜内核名单（#854/#758 同族教训：证据进名单，不预判）。
+    try { localStorage.setItem('xy-home-v2:__diag-export', JSON.stringify({ t: Date.now(), path: 'chain', size: blob.size, ua: String(navigator.userAgent).slice(0, 60) })); } catch (e) {}
     // #746（2026-09-18）：第 5 参 shareTitle 把分享面板/保存框标题参数化——
     // 「字卡使用状态自检」导出复用本入口，标题显示「字卡使用状态自检报告」；
     // 不传保持旧值「mochi 诊断报告」，既有诊断调用方零感知。
     window.mochiExportBlob(blob, fname, shareTitle || 'mochi 诊断报告', [
       { description: 'Word 文档', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] } }
-    ]).then(function (res) { if (res === 'fail') legacy(); });
+    ]).then(function (res) {
+      // #887：结果也记进存根（ok/cancel/fail），legacy 兜底时补一条
+      try { localStorage.setItem('xy-home-v2:__diag-export', JSON.stringify({ t: Date.now(), path: 'chain:' + res, size: blob.size, ua: String(navigator.userAgent).slice(0, 60) })); } catch (e) {}
+      if (res === 'fail') legacy();
+    });
   }
   // #382：跨闭包导出——本 IIFE 与「屏幕适配诊断」IIFE（#209/#176 域）是两个独立闭包，
   // 那边直接写 diagExportDocx 会 ReferenceError（点【导出docx】被 openModal 按钮的

@@ -98,7 +98,7 @@ const m3 = join('js', 'match3.js');
 check('T1 封顶键本地日期', noUtcDay(m3) && hasLocalDay(m3));
 check('T2 换联系人清 st', has('closePanel(); st = null;', m3));
 check('T3 doSwap/doRainbowSwap 快照守卫', (src(m3).match(/if \(st !== s\) return;/g) || []).length >= 4, 'guards=' + (src(m3).match(/if \(st !== s\) return;/g) || []).length);
-check('T4 提示每局 3 次', has('hints: 3,', m3) && has("taSay('提示次数用完啦')", m3));
+check('T4 提示每局 3 次', has('hints: 3,', m3) && has("taSay('💡 提示用完啦，重开一局才恢复')", m3));
 check('T5 洗牌期间上锁', has('st.lock = true;   // FIX 2026-09-16：洗牌滑行期间原先可点选', m3));
 check('T6 发牌定时器收句柄', has('let dealT = null;', m3) && has('if (dealT) { clearTimeout(dealT); dealT = null; if (st && st.lock) st.lock = false; }', m3));
 check('T7 滑动交换', has('let swipeBase = null, swipeFired = false;', m3) && has('playerSwap(from, [r2, c2]);', m3));

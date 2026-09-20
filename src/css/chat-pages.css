@@ -1038,6 +1038,13 @@
 .acc-ov-val { font-size:16px; font-weight:800; color:var(--ink); }
 .acc-ov-val.expense { color:#e85a5a; }
 .acc-ov-val.income { color:#3aa86c; }
+.acc-remind { display:flex; align-items:center; gap:10px; border-radius:16px; padding:12px 16px; margin:-2px 0 14px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.acc-remind:active { opacity:.7; }
+.acc-remind-main { flex:1; min-width:0; }
+.acc-remind-title { font-size:14px; font-weight:700; color:var(--ink); }
+.acc-remind-sub { font-size:11px; color:var(--muted); margin-top:3px; line-height:1.4; }
+.acc-remind-badge { flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted); border:1px solid var(--card-border); border-radius:12px; padding:4px 10px; white-space:nowrap; }
+.acc-remind-badge.on { color:#fff; background:#3aa86c; border-color:#3aa86c; }
 .acc-form-card { border-radius:20px; padding:16px 18px; margin-bottom:14px; }
 .acc-type-tabs { display:flex; gap:8px; margin-bottom:12px; }
 .acc-type-tab { flex:1; padding:8px 0; border-radius:10px; border:1px solid var(--card-border); background:transparent; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; -webkit-tap-highlight-color:transparent; }
@@ -1078,6 +1085,7 @@
 .acc-row-del svg { width:15px; height:15px; }
 .acc-row-del:active { color:#e85a5a; }
 .acc-empty { font-size:13px; color:var(--muted); text-align:center; padding:24px 0; }
+.acc-search-tip { font-size:11px; color:var(--muted); padding:0 2px 8px; }
 .acc-view-tabs { display:flex; gap:6px; margin-bottom:12px; }
 .acc-view-tab { flex:1; padding:6px 0; border-radius:8px; border:1px solid var(--card-border); background:transparent; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; -webkit-tap-highlight-color:transparent; }
 .acc-view-tab.sel { background:var(--ink); color:var(--btn-ink); border-color:var(--ink); }
@@ -3214,6 +3222,18 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .msg-pong-result { font-size:15px; font-weight:600; color:var(--ink); }
 .msg-memory .msg-pong-result { font-size:13px; }
 
+/* #891 小游戏结算卡片（五子棋/四子棋/合作扫雷/连连看/消消乐/拍卖会）：结论行按输赢上色，下接本局数据行 */
+.msg-game-card { padding:10px 16px; }
+.msg-game-result { font-size:15px; font-weight:600; color:var(--ink); }
+.msg-game-result.game-win,.msg-game-result.game-clear { color:#1f9d55; }
+.msg-game-result.game-lose,.msg-game-result.game-fail { color:#d94848; }
+.msg-game-result.game-draw { color:var(--muted); }
+.msg-game-stats { margin-top:7px; padding-top:6px; border-top:1px dashed rgba(0,0,0,.1); display:flex; flex-direction:column; gap:2px; }
+.msg-game-stat { font-size:11px; color:var(--muted); line-height:1.5; }
+[data-theme="dark"] .msg-game-result.game-win,[data-theme="dark"] .msg-game-result.game-clear { color:#4ade80; }
+[data-theme="dark"] .msg-game-result.game-lose,[data-theme="dark"] .msg-game-result.game-fail { color:#ff8787; }
+[data-theme="dark"] .msg-game-stats { border-top-color:rgba(255,255,255,.14); }
+
 /* Pong 顶栏按钮组 / 暂停 / 全屏 */
 .pong-bar-right { display:flex; align-items:center; gap:6px; }
 .pong-icon-btn { width:32px; height:32px; border-radius:50%; border:none; background:rgba(0,0,0,.06); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; line-height:1; }
@@ -3310,6 +3330,12 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .snake-diff { font-size:13px; padding:4px 8px; border-radius:8px; border:1px solid rgba(0,0,0,.12); background:rgba(255,255,255,.6); color:var(--ink); outline:none; font-family:inherit; }
 .snake-icon-btn { width:32px; height:32px; border-radius:50%; border:none; background:rgba(0,0,0,.06); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; line-height:1; color:var(--ink); }
 .snake-icon-btn:active { transform:scale(.92); }
+/* #799 道具用完：灰而不消失——仍可点，点了由 TA 说一句「重开一局才恢复」 */
+.snake-icon-btn.game-prop-off { opacity:.38; }
+/* #799 消消乐：对局中切了模式下拉，信息条常驻「重开才生效」警示 */
+.m3-mode-pending { color:#e8533d; font-weight:700; }
+/* #799 消消乐：场上留有未引爆道具时的常驻胶囊（状态行在棋盘下方容易被挤出可视区） */
+.m3-prop-live { background:rgba(232,83,61,.12); color:#e8533d; border-radius:10px; padding:1px 8px; font-weight:700; }
 .snake-score { text-align:center; font-size:13px; font-weight:700; color:var(--ink); padding:4px 0 2px; letter-spacing:.5px; }
 .snake-best { text-align:center; font-size:11px; color:var(--muted); padding:0 0 6px; }
 .snake-canvas { display:block; width:min(360px,90vw); height:min(360px,90vw); margin:0 auto; background:#f6f6f8; border-radius:12px; touch-action:none; }
@@ -3477,8 +3503,11 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 /* ---- 吃什么 · 历史 ---- */
 .eat-history { text-align:center; font-size:12px; color:var(--ink-soft,#aaa); min-height:18px; margin-bottom:4px; line-height:1.8; }
 .eh-tag { display:inline-block; margin:0 4px; padding:2px 10px; border-radius:12px; background:rgba(0,0,0,.05); font-size:12px; color:var(--ink-soft,#999); }
+/* ---- TA 提醒记录页（喝水/吃什么共用子页；列表项复用 .tc-listitem，暗色主题已适配） ---- */
+.remind-log { flex:1; overflow-y:auto; box-sizing:border-box; padding:14px 14px 40px; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.remind-log-sum { font-size:12px; color:var(--ink-soft,#999); margin-bottom:10px; }
 /* ---- 吃什么 · 菜单编辑 ---- */
-.eat-mgr { display:flex; gap:10px; justify-content:center; margin-top:6px; }
+.eat-mgr { display:flex; gap:10px; justify-content:center; margin-top:6px; flex-wrap:wrap; }
 .eat-menu-btn { font-size:13px; color:var(--ink-soft,#888); background:none; border:1px dashed rgba(0,0,0,.15); border-radius:10px; padding:8px 14px; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
 .eat-add { font-size:13px; color:var(--ink-soft,#888); background:none; border:1px dashed rgba(0,0,0,.15); border-radius:10px; padding:8px 14px; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
 .eat-menu-panel { margin-top:12px; padding:10px; background:rgba(255,255,255,.4); border-radius:12px; }
@@ -4646,7 +4675,6 @@ select.mochi-custom-select-native { display:none; }
 .feed-imgs.feed-imgs-blank::before { content:'贴纸卡片'; position:absolute; left:10px; top:8px; font-size:11px; color:rgba(0,0,0,.28); }
 [data-theme="dark"] .feed-imgs.feed-imgs-blank { background:linear-gradient(135deg,#2b2b33,#232833); }
 [data-theme="dark"] .feed-imgs.feed-imgs-blank::before { color:rgba(255,255,255,.3); }
-
 .feed-sticker { position: absolute; width: 44px; height: 44px; transform: translate(-50%, -50%); cursor: pointer; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
 .feed-sticker img { width: 100%; height: 100%; object-fit: contain; }
 .feed-sticker-emoji { font-size: 30px; line-height: 44px; }

@@ -384,7 +384,7 @@ const replyText = type === 'typeb' && options
 ? '【多人决定】' + question + '\n选项：\n' + options.map((o, i) => (i + 1) + '. ' + o).join('\n') + '\n' + lines.join('\n')
 : '【多人决定】' + question + '\n' + lines.join('\n');
 if (gdPanelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText);
-else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
+else if (window.chatAddIn) window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 多人决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（同 decision.js #544 口径）
 }
 toast('多人决定已完成');
 };
@@ -413,14 +413,16 @@ return '<div class="tc-listitem">' +
 '<div class="dc-h-result gd-pre">' + esc(resultsStr) + '</div>' +
 '<div class="dc-h-time">' + fmtDT(r.ts) + '</div></div>';
 }).join('')
-: '<div class="ta-empty">暂无多人决定记录</div>';
+: ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('多人决定记录') : '<div class="ta-empty">暂无多人决定记录</div>');
 }
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderHistory(); } catch (e) {} });
 groupDecisionPanelRef = openPanel;
 const closeBtn = document.getElementById('chat-gdecision-close');
 if (closeBtn) closeBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 if (panel) panel.hidden = true;
 });
+if (window.mochiSheetOutsideClose && panel) window.mochiSheetOutsideClose(panel, () => { panel.hidden = true; });
 (function bindEntry() {
 const btn = document.getElementById('more-gdecide');
 if (!btn) return;

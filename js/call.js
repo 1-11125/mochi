@@ -471,7 +471,7 @@ endCall('对方挂断了电话');
 function notifyCallEnd(cid, sysHtml, recType, recText) {
 const cur = window.__activeCid || 'default';
 if (cid === cur) {
-if (window.chatAddSystem) window.chatAddSystem(sysHtml, { nightAllow: true });
+if (window.chatAddSystem) window.chatAddSystem(sysHtml);
 if (window.addCallRecord) window.addCallRecord(recType, recText);
 return;
 }
@@ -656,7 +656,7 @@ if (cdEl) cdEl.hidden = true;
 if (nameEl) nameEl.textContent = partnerName();
 if (statusEl) statusEl.textContent = '正在通话...';
 setMaskBtns('active');
-if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg> 通话已接通', { nightAllow: true });
+if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg> 通话已接通');
 startCallDuration();
 saveCallActive(); // v3.26.x：接通后更新持久化（记下 connectedTime 供中断恢复算时长）
 setTimeout(() => {
@@ -702,7 +702,7 @@ if (statusEl) statusEl.textContent = '正在呼叫...';
 if (durEl) durEl.textContent = '00:00';
 if (mask) mask.hidden = false;
 setMaskBtns('calling');
-if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 语音通话', { nightAllow: true });
+if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 语音通话');
 const r = Math.random() * 100;
 const cc = callCfg();
 setTimeout(() => {
@@ -736,12 +736,26 @@ if (rejectBtn) rejectBtn.addEventListener('click', rejectCall);
 if (hangBtn) hangBtn.addEventListener('click', userHangup);
 if (miniBtn) miniBtn.addEventListener('click', minimizeCall);
 if (document.getElementById('call-mini-hang')) document.getElementById('call-mini-hang').addEventListener('click', userHangup);
+function openCallHalfFromMini() {
+if (!currentCall) return;
+const ownerCid = currentCall.cid || window.__activeCid || 'default';
+if (ownerCid !== (window.__activeCid || 'default')) {
+try { if (window.setActiveContact) window.setActiveContact(ownerCid); } catch (e) {}
+}
+if (!window.enterChat || !window.openChatCallPanel) {
+if (mask) mask.hidden = false; // 半框入口缺失时退回展开通话大面板，不让点击变成没反应
+return;
+}
+window.enterChat();
+window.openChatCallPanel();
+}
 if (mini) {
-let dragging = false, moved = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
+let dragging = false, moved = false, pressOnHang = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
 function vpX(e) { const vv = window.visualViewport; return e.clientX + ((vv && vv.offsetLeft) || 0); }
 function vpY(e) { const vv = window.visualViewport; return e.clientY + ((vv && vv.offsetTop) || 0); }
 mini.addEventListener('pointerdown', (e) => {
-if (e.target.closest('#call-mini-hang')) return; // 挂断按钮不触发拖动
+if (e.target.closest('#call-mini-hang')) { pressOnHang = true; return; } // 挂断按钮不触发拖动
+pressOnHang = false;
 dragging = true;
 moved = false;
 const r = mini.getBoundingClientRect();
@@ -772,13 +786,16 @@ mini.style.top = ((mini.offsetTop || 0) + (ty - c.top)) + 'px';
 });
 const endDrag = () => { dragging = false; };
 mini.addEventListener('pointerup', endDrag);
-mini.addEventListener('pointercancel', endDrag);
+mini.addEventListener('pointercancel', () => { dragging = false; pressOnHang = false; });
 mini.addEventListener('pointerup', () => {
 if (moved && mini.style.left && mini.style.top) {
 if (miniPos) { miniPos.left = mini.style.left; miniPos.top = mini.style.top; }
 else miniPos = { left: mini.style.left, top: mini.style.top };
 store.set('call-mini-pos', JSON.stringify(miniPos));
 }
+const tap = !moved && !pressOnHang;
+pressOnHang = false;
+if (tap) openCallHalfFromMini();
 });
 }
 function toast(msg) {
@@ -902,7 +919,7 @@ if (window.idbSet) { try { window.idbSet('xy-home-v2:' + cid + ':records-call', 
 } catch (e) {}
 try {
 const cur = window.__activeCid || 'default';
-if (cid === cur) { if (window.chatAddSystem) window.chatAddSystem(sysHtml, { nightAllow: true }); }
+if (cid === cur) { if (window.chatAddSystem) window.chatAddSystem(sysHtml); }
 else if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, sysHtml); }
 } catch (e) {}
 try { if (!document.getElementById('page-home').hidden && window.__renderHomeCall) window.__renderHomeCall(); } catch (e) {}

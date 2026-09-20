@@ -296,6 +296,12 @@ textarea.gm-input { min-height: 52px; resize: none; }
 .wish-act { padding: 7px 14px; border-radius: 99px; border: none; background: #111; color: #fff; font-size: 12.5px; cursor: pointer; flex-shrink: 0; transition: transform 0.15s; }
 .wish-act:active { transform: scale(0.94); }
 .wish-act.del { background: #f2f2f5; color: #8a8a8a; }
+/* #826 未读角标：市集「☆ 心愿单」入口 + 面板「TA 的心愿单」标签共用（红点数字＝TA 新许了几条愿） */
+.wish-badge { font-style: normal; display: inline-block; min-width: 15px; height: 15px; margin-left: 4px; padding: 0 4px; border-radius: 99px; background: #ff3b30; color: #fff; font-size: 10px; font-weight: 600; line-height: 15px; text-align: center; vertical-align: 1px; }
+.wish-tab .wish-badge { vertical-align: 0; }
+.market-tool .wish-badge { vertical-align: 2px; }
+/* #826 提示语分两行（第一行指向 TA 那一栏）；#cc-toast 同款 pre-line 口径 */
+.wish-hint { white-space: pre-line; }
 /* 设置面板：行 + 开关 + 概率输入 + 使用说明小字 */
 .gs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); }
 .gs-lab { font-size: 14px; color: #111; line-height: 1.5; }

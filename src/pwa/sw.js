@@ -71,25 +71,31 @@ self.addEventListener('install', (e) => {
   // 跳过等待：新 sw 安装后立即接管（配合每次构建新缓存名 → 强制更新）
   self.skipWaiting();
   // 预缓存逐文件超时 + 单文件失败不影响整体：网络再差也保证 SW 能激活，
-  // 不阻塞浏览器安装流程
+  // 不阻塞浏览器安装流程。
+  // #860（PERF-PLAN 阶段 1b）：PRECACHE 从 41 项涨到 85 项（6 静态 + 79 外置 js），
+  // 一波全并发会把弱网首装的连接池打满、install 期整体超时 → 新缓存打空。改分波
+  // （每波 12 个并发、波间串行）：单文件失败仍不连坐整体，弱网下稳步推进。
   e.waitUntil(
-    caches.open(CACHE).then((c) =>
-      Promise.allSettled(PRECACHE.map((url) =>
-        // v3.26.x #157：index.html 用长超时（4MB 在慢网络 3.5s 必然失败 → 新缓存常年缺 index）
-        fetchWithTimeout(url, isIndexUrl(url) ? INDEX_NETWORK_TIMEOUT : NETWORK_TIMEOUT).then((res) => {
-          if (res && res.ok) {
-            // v3.26.x #134：index.html 完整性校验——截断体不进缓存（下同）
-            if (isIndexUrl(url)) {
-              return res.clone().text().then((t) => {
-                if (!isCompleteHtml(t)) return undefined;
-                return c.put(url, res);
-              });
+    (async () => {
+      const c = await caches.open(CACHE);
+      for (let i = 0; i < PRECACHE.length; i += 12) {
+        await Promise.allSettled(PRECACHE.slice(i, i + 12).map((url) =>
+          // v3.26.x #157：index.html 用长超时（4MB 在慢网络 3.5s 必然失败 → 新缓存常年缺 index）
+          fetchWithTimeout(url, isIndexUrl(url) ? INDEX_NETWORK_TIMEOUT : NETWORK_TIMEOUT).then((res) => {
+            if (res && res.ok) {
+              // v3.26.x #134：index.html 完整性校验——截断体不进缓存（下同）
+              if (isIndexUrl(url)) {
+                return res.clone().text().then((t) => {
+                  if (!isCompleteHtml(t)) return undefined;
+                  return c.put(url, res);
+                });
+              }
+              return c.put(url, res);
             }
-            return c.put(url, res);
-          }
-        })
-      ))
-    ).catch(() => {})
+          })
+        ));
+      }
+    })().catch(() => {})
   );
 });
 
@@ -234,6 +240,33 @@ self.addEventListener('fetch', (e) => {
   // 被取消的这条 404 无任何副作用。
   if (u.pathname.indexOf('@@m:') >= 0) {
     e.respondWith(Promise.resolve(new Response('', { status: 404, statusText: 'media token (not a network resource)' })));
+    return;
+  }
+  // #802 外置功能包（js/*.js）：缓存优先 + 后台静默刷新——与 #157 导航同构。外置化后 35 个
+  // 功能文件每次加载都走「网络优先 3.5s」，弱网（GitHub Pages 国内常态）下每个文件都要白等
+  // 3.5s 超时才轮到缓存/重试＝功能面板成片「加载失败」、半死几十秒。改缓存命中立即返回
+  // （秒开、离线也在），后台用 3.5s 拉最新写缓存保新鲜（文件名不带 hash：换血靠每次构建新
+  // CACHE 名 + 新 SW 预缓存，代内后台刷新与 #157 的 index 同一代价）；未命中（首装预缓存
+  // 缺文件）保持原网络优先 3.5s → 自身/全局缓存 → 无超时重试链不变。
+  if (/\/js\/[a-zA-Z0-9._-]+\.js$/.test(u.pathname)) {
+    e.respondWith(
+      caches.open(CACHE).then((c) => c.match(req)).then((m) => {
+        if (m) {
+          e.waitUntil(fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
+            if (res && res.ok) return caches.open(CACHE).then((c2) => c2.put(req, res.clone()));
+            return undefined;
+          }).catch(() => {}));
+          return m;
+        }
+        return fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c2) => c2.put(req, copy));
+          }
+          return res;
+        }).catch(() => caches.match(req).then((m2) => m2 || fetch(req)));
+      })
+    );
     return;
   }
   // v3.26.x #157：导航请求改「缓存优先 + 后台静默刷新」——standalone 桌面快捷方式每次

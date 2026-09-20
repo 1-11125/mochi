@@ -19,7 +19,7 @@
 //   SERVE_ROOT=<dir> 可指向隔离构建目录（避免与并行构建者抢根产物）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,7 +56,7 @@ function check(desc, ok, detail) {
 }
 {
   let html = '';
-  try { html = readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) {}
+  try { html = readFileSync(join(root, 'index.html'), 'utf8'); const jd=join(root,'js'); for (const f of readdirSync(jd)) if (f.endsWith('.js')) html += `\n${readFileSync(join(jd,f),'utf8')}`; } catch (e) {}
   check('S1 产物含字卡库加载行标记与文案', html.indexOf('cc-lib-loading') >= 0 && html.indexOf('正在加载字卡') >= 0, 'len=' + html.length);
 }
 

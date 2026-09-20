@@ -592,6 +592,8 @@
   window.closeAvlib = closeAvlib;
   const avClose = document.getElementById('avlib-close');
   if (avClose) avClose.addEventListener('click', closeAvlib);
+  // FIX 2026-09-20 #906：点面板外关闭（同族底半框缺口核查所得，与帮我决定/多人决定同批）；判据见 chat.js mochiSheetOutsideClose
+  if (window.mochiSheetOutsideClose) window.mochiSheetOutsideClose(document.getElementById('avlib-card'), closeAvlib);
   // 顶部页签点击切换（换谁的：TA / 我的）
   if (avTabA) avTabA.addEventListener('click', () => switchAvTab(false));
   if (avTabB) avTabB.addEventListener('click', () => switchAvTab(true));
@@ -958,6 +960,25 @@
     }
   }
 
+  // ===== 周期认领复核（防「同一次到点被投递两遍」）=====
+  // 四个 60 秒轮询的计时器键存在 localStorage，但每个上下文还各有一份 memoryCache（xyStore.get
+  // 优先读它）＋各自独立的 setInterval。同一浏览器双开（PWA + 浏览器标签，本文件 convergeAvatars
+  // 注释里点名的场景）时两侧在同一分钟都判「到点了」，各自往自己的 msgs 里加一条一模一样的系统
+  // 消息再合并落盘＝用户实报的「联系人给我换头像，同时间触发了两次一模一样、两条挨在一起」。
+  // chat.js #796 的 800ms 短闩只扫本侧 msgs，跨上下文拦不住；#776 的身份闸门按 ts 认亲，两侧
+  // ts 不同＝判不出。
+  // 认领判据＝推进周期之后裸读一次 localStorage（绕开本会话 memoryCache）复核：盘上不是自己刚
+  // 写的那个值＝本周期已被另一个上下文先认领，调用方静默退出（不发消息、不换头像）。
+  // 单上下文里 setItem 同步可读到自己的写入，故除双开竞态外零行为变化；LS 整体不可用
+  // （隐私模式/配额满，值只进 memoryCache）时读回 null＝无从判定，按认领成功放行，不比改前更差。
+  function avClaimCycle(key, now) {
+    try {
+      const p = window.activePrefix ? window.activePrefix() : uid;
+      const raw = localStorage.getItem(p + ':' + key);
+      return raw === null || raw === String(now);
+    } catch (e) { return true; }
+  }
+
   // 我的头像池定时换头像（触发概率/刷新机制与联系人主动换头像一致，计时独立）：
   // 每 60 秒轮询检查一次 + 启动时立即检查；
   // 上次/下次更换时间戳持久化（avatar-me-lib-last=0 / avatar-me-lib-next=0 初始值 → 首次加载立即触发），
@@ -998,6 +1019,7 @@
       // 推进周期：下次 1-8 小时
       store.set('avatar-me-lib-last', String(now));
       store.set('avatar-me-lib-next', String(1 + Math.random() * 7));
+      if (!avClaimCycle('avatar-me-lib-last', now)) return;
       if (invite) {
         showMeAvatarInvite(data);
         // v3.6.x：后台时弹窗不可见，发系统通知让用户知道有换头像邀请
@@ -1008,6 +1030,13 @@
       } else {
         // 直接换：换上 + 聊天显示"昵称 更换了你的头像" + 新头像图片
         // v3.9.x：TA 给我换头像只换聊天专用头像 cs-avatar-user，桌面 deco-widget 头像不变
+        // FIX #882：随机直换也要在**推进周期的同一同步点**记下「本次换入的是哪张池图」。旧实现
+        // 只有「手动点图」（switchMyAvatarFromLib）与「邀请同意」两处写 cur-hash，最常走的直换路径
+        // 漏写；而上方「随机到当前头像就跳过」的判据比的是**池内原图字节**，头像经 normalizeAvSize
+        // 压缩落盘后再也不等于池内那条＝判据永久失效。于是同一张池图在后续周期被重新抽中时会被当
+        // 新头像再换一次、再发一条一模一样的「更换了你的头像」。
+        const trigHash = strHash(data);
+        store.set('avatar-me-lib-cur-hash', trigHash);
         // v3.14.x：写入前压缩（见 normalizeAvSize 注释），保证 cs 键同步落 localStorage
         normalizeAvSize(data, function (fit) {
           store.set('cs-avatar-user', fit);
@@ -1060,6 +1089,13 @@
       // 60 秒轮询可能在窗口期重复触发换头像
       store.set('avatar-lib-last', String(now));
       store.set('avatar-lib-next', String(1 + Math.random() * 7));
+      // FIX #882：认领复核（双开上下文各发一条一模一样的消息）＋触发点记 cur-hash。
+      // 旧实现 cur-hash 只在「手动点图/邀请回滚」两处写，随机直换漏写，而上方「随机到当前
+      // 头像就跳过」比的是池内原图字节，压缩落盘后再也不等＝同一张池图后续周期被重抽中时
+      // 原样再换一次、再发一条一模一样的「更换了头像」。
+      if (!avClaimCycle('avatar-lib-last', now)) return;
+      const trigHash = strHash(data);
+      store.set('avatar-lib-cur-hash', trigHash);
       // v3.12.x：随机换头像只写聊天专用键 cs-avatar-partner，桌面 deco-widget 头像独立不变
       // v3.14.x：写入前压缩（见 normalizeAvSize 注释），保证 cs 键同步落 localStorage
       normalizeAvSize(data, function (fit) {
@@ -1257,6 +1293,7 @@
       // 推进周期：下次 1-8 小时
       store.set('nick-me-lib-last', String(now));
       store.set('nick-me-lib-next', String(1 + Math.random() * 7));
+      if (!avClaimCycle('nick-me-lib-last', now)) return; // FIX #882：同头像池口径，双开上下文只留先认领的一方
       if (invite) {
         showMeNickInvite(name);
         // 后台时弹窗不可见，发系统通知让用户知道有换昵称邀请
@@ -1301,6 +1338,7 @@
       if (curHash && strHash(name) === curHash) return;
       store.set('nick-lib-last', String(now));
       store.set('nick-lib-next', String(1 + Math.random() * 7));
+      if (!avClaimCycle('nick-lib-last', now)) return; // FIX #882：同头像池口径，双开上下文只留先认领的一方
       applyPartnerNick(name);
       store.set('nick-lib-cur-hash', strHash(name));
       updateNickGridNow();

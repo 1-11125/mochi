@@ -8,7 +8,7 @@
 //      ⑥构建产物静态断言 + 全程无 JS 异常
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -218,13 +218,20 @@ check('O2 TA 发 ¥520 红包同样不受限：systemBalance 直接扣至负数'
 
 // ---- X 组：其余游戏结算发币（产物静态断言） ----
 {
+  // #860（PERF-PLAN 阶段 1b）：core 全外置后，游戏/聊天代码在 js/<file> 产物里——
+  // 判据改为全产物池（index.html + js/*.js），否则 X1/X2/X4 假红（代码没丢，只是搬了家）。
   const html = readFileSync(join(root, 'index.html'), 'utf8');
-  check('X1 Pong 结算发币已打包（ml2_coin_pong_ + 封顶 10400）', html.indexOf('ml2_coin_pong_') >= 0 && /COIN_CAP = 10400/.test(html), '');
-  check('X2 打砖块合作双得已打包（ml2_coin_brick_ + 双方各加 + 档位数组）', html.indexOf('ml2_coin_brick_') >= 0 && html.indexOf('双方心意币各 +¥') >= 0 && html.indexOf('[520, 1314, 5200]') >= 0, '');
-  check('X3 四子棋结算发币已打包（ml2_coin_c4_）', html.indexOf('ml2_coin_c4_') >= 0, '');
-  check('X4 贪吃蛇/猜拳发币在 chat.js 已打包（rpGameCoinGrant 两个调用点）', html.indexOf("rpGameCoinGrant('rps'") >= 0 && html.indexOf("rpGameCoinGrant('snake'") >= 0, '');
-  check('X5 花园收花奖励已打包（ml2_coin_garden_ + grantHarvestCoin）', html.indexOf('ml2_coin_garden_') >= 0 && html.indexOf('grantHarvestCoin') >= 0, '');
-  check('X6 产物已无「心意币不足」拦截文案（透支机制生效）', html.indexOf('我的心意币不足') < 0 && html.indexOf('的心意币不足') < 0, '');
+  let pool = html;
+  try {
+    const jsDir = join(root, 'js');
+    for (const f of readdirSync(jsDir)) if (f.endsWith('.js')) pool += '\n' + readFileSync(join(jsDir, f), 'utf8');
+  } catch (e) { /* 未构建时池里只有 index.html */ }
+  check('X1 Pong 结算发币已打包（ml2_coin_pong_ + 封顶 10400）', pool.indexOf('ml2_coin_pong_') >= 0 && /COIN_CAP = 10400/.test(pool), '');
+  check('X2 打砖块合作双得已打包（ml2_coin_brick_ + 双方各加 + 档位数组）', pool.indexOf('ml2_coin_brick_') >= 0 && pool.indexOf('双方心意币各 +¥') >= 0 && pool.indexOf('[520, 1314, 5200]') >= 0, '');
+  check('X3 四子棋结算发币已打包（ml2_coin_c4_）', pool.indexOf('ml2_coin_c4_') >= 0, '');
+  check('X4 贪吃蛇/猜拳发币在 chat.js 已打包（rpGameCoinGrant 两个调用点）', pool.indexOf("rpGameCoinGrant('rps'") >= 0 && pool.indexOf("rpGameCoinGrant('snake'") >= 0, '');
+  check('X5 花园收花奖励已打包（ml2_coin_garden_ + grantHarvestCoin）', pool.indexOf('ml2_coin_garden_') >= 0 && pool.indexOf('grantHarvestCoin') >= 0, '');
+  check('X6 产物已无「心意币不足」拦截文案（透支机制生效）', pool.indexOf('我的心意币不足') < 0 && pool.indexOf('的心意币不足') < 0, '');
 }
 
 const errs = await evalJs('JSON.stringify(window.__errs || [])');

@@ -627,7 +627,7 @@
   function notifyCallEnd(cid, sysHtml, recType, recText) {
     const cur = window.__activeCid || 'default';
     if (cid === cur) {
-      if (window.chatAddSystem) window.chatAddSystem(sysHtml, { nightAllow: true });
+      if (window.chatAddSystem) window.chatAddSystem(sysHtml);
       if (window.addCallRecord) window.addCallRecord(recType, recText);
       return;
     }
@@ -916,7 +916,7 @@
     if (nameEl) nameEl.textContent = partnerName();
     if (statusEl) statusEl.textContent = '正在通话...';
     setMaskBtns('active');
-    if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg> 通话已接通', { nightAllow: true });
+    if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg> 通话已接通');
     startCallDuration();
     saveCallActive(); // v3.26.x：接通后更新持久化（记下 connectedTime 供中断恢复算时长）
     // 2 秒后最小化小框（星言一致）；v3.7.x：小框开关隐藏时保持大面板常驻
@@ -972,7 +972,7 @@
     if (durEl) durEl.textContent = '00:00';
     if (mask) mask.hidden = false;
     setMaskBtns('calling');
-    if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 语音通话', { nightAllow: true });
+    if (window.chatAddSystem) window.chatAddSystem('<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>' +  name + ' 语音通话');
     const r = Math.random() * 100;
     const cc = callCfg();
     setTimeout(() => {
@@ -1030,14 +1030,34 @@
   //   （fixed / absolute / 带 transform 祖先）都成立；目标位统一钳制在可视视口内，
   //   iOS standalone 上边界仍抬到系统状态栏下方（miniSafeTop，v3.28.x #114 保留）。
   //   无 transform 的常规路径换算结果与原逻辑逐像素一致（不回归）。
+  // #830：轻点小框 → 打开通话半框（聊天页「更多功能→通话」的半屏面板）。
+  //   小框此前只有「拖动」和右侧挂断键两条出路，点中间没反应；拖拽与点击在同一组
+  //   pointer 事件里按 moved 分流（真实拖动过只存位置，不弹面板），按在挂断键上的
+  //   那次抬起整个交回按钮自身，不重复触发。
+  //   半框属聊天页 DOM，故先 enterChat 再 openChatCallPanel；通话归属桌面与当前桌面
+  //   不同时先切桌面——半框标题/背景都按当前桌面读，不切就会把 A 的通话显示成 B（同 #811 串身份口径）。
+  function openCallHalfFromMini() {
+    if (!currentCall) return;
+    const ownerCid = currentCall.cid || window.__activeCid || 'default';
+    if (ownerCid !== (window.__activeCid || 'default')) {
+      try { if (window.setActiveContact) window.setActiveContact(ownerCid); } catch (e) {}
+    }
+    if (!window.enterChat || !window.openChatCallPanel) {
+      if (mask) mask.hidden = false; // 半框入口缺失时退回展开通话大面板，不让点击变成没反应
+      return;
+    }
+    window.enterChat();
+    window.openChatCallPanel();
+  }
   if (mini) {
-    let dragging = false, moved = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
+    let dragging = false, moved = false, pressOnHang = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
     // e.clientX/Y 属「可视视口」坐标系，getBoundingClientRect 属「布局视口」；
     // 转布局视口统一相减，避免 visualViewport 被浏览器条偏移时拖拽错位（同样兼容多机型）
     function vpX(e) { const vv = window.visualViewport; return e.clientX + ((vv && vv.offsetLeft) || 0); }
     function vpY(e) { const vv = window.visualViewport; return e.clientY + ((vv && vv.offsetTop) || 0); }
     mini.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#call-mini-hang')) return; // 挂断按钮不触发拖动
+      if (e.target.closest('#call-mini-hang')) { pressOnHang = true; return; } // 挂断按钮不触发拖动
+      pressOnHang = false;
       dragging = true;
       moved = false;
       const r = mini.getBoundingClientRect();
@@ -1074,7 +1094,7 @@
     });
     const endDrag = () => { dragging = false; };
     mini.addEventListener('pointerup', endDrag);
-    mini.addEventListener('pointercancel', endDrag);
+    mini.addEventListener('pointercancel', () => { dragging = false; pressOnHang = false; });
     mini.addEventListener('pointerup', () => {
       // 只有真实拖动过才保存（位置有效；left/top 已按元素自身坐标空间写出，
       // 重新加载 restore 路径照常读回，不会被误当作屏幕坐标）
@@ -1083,6 +1103,10 @@
         else miniPos = { left: mini.style.left, top: mini.style.top };
         store.set('call-mini-pos', JSON.stringify(miniPos));
       }
+      // #830：没拖动过＝轻点（挂断键那一下由按钮自己的 click 处理）
+      const tap = !moved && !pressOnHang;
+      pressOnHang = false;
+      if (tap) openCallHalfFromMini();
     });
   }
 
@@ -1252,7 +1276,7 @@
     } catch (e) {}
     try {
       const cur = window.__activeCid || 'default';
-      if (cid === cur) { if (window.chatAddSystem) window.chatAddSystem(sysHtml, { nightAllow: true }); }
+      if (cid === cur) { if (window.chatAddSystem) window.chatAddSystem(sysHtml); }
       else if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, sysHtml); }
     } catch (e) {}
     try { if (!document.getElementById('page-home').hidden && window.__renderHomeCall) window.__renderHomeCall(); } catch (e) {}

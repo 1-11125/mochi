@@ -1221,8 +1221,10 @@
         '<div class="divf-cell-name">' + escHtml(x.n) + '<span class="divf-cell-mode">' + (x.m === 'tarot' ? '塔罗' : '雷诺曼') + '</span></div>' +
         '<div class="divf-cell-acts"><button class="divf-mini divf-cell-up">更换</button><button class="divf-mini divf-cell-del">删除</button></div>' +
         '</div>';
-    }).join('') : '<div class="divf-empty">还没有上传牌面。到「牌面管理」给喜欢的牌换张图吧。</div>';
+    }).join('') : ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('牌面图') : '<div class="divf-empty">还没有上传牌面。到「牌面管理」给喜欢的牌换张图吧。</div>');
   }
+  // #797：回填完成补渲一次（牌面索引/缩略图在大键里，renderFaceGallery 现读现画幂等）
+  if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderFaceGallery(); } catch (e) {} });
 
   function pickFaceFile(m, n) {
     pendingUpload = { m: m, n: n };

@@ -421,6 +421,7 @@ if (winner === 1) taSay(pick(['让你赢啦…', '下次没这么容易！']));
 else if (winner === 2) taSay(pick(['五连，赢啦！', '承让承让～']));
 var coinLine = '';
 var dropLine = '';
+var dropStat = '';   // #891：dropLine 是浮层用的 HTML，聊天卡片要纯文本版
 try {
 var COIN_CAP = 10400;
 var dg = new Date();
@@ -443,7 +444,7 @@ coinLine = '🪙 双方心意币各 +¥' + (real / 100).toFixed(2) + (mult > 1 ?
 if (winner === 1 && typeof window.arcadeTryDrop === 'function') {
 try {
 var dr = window.arcadeTryDrop('gomoku');
-if (dr) { dropLine = '<div class="pong-end-stat">🌠 掉落限定摆件「' + dr.ico + ' ' + dr.name + '」！游乐室图鉴 +1</div>'; taSay('哇，掉了「' + dr.name + '」！'); }
+if (dr) { dropLine = '<div class="pong-end-stat">🌠 掉落限定摆件「' + dr.ico + ' ' + dr.name + '」！游乐室图鉴 +1</div>'; dropStat = '🌠 掉落限定摆件「' + dr.ico + ' ' + dr.name + '」'; taSay('哇，掉了「' + dr.name + '」！'); }
 } catch (e) {}
 }
 const title = winner === 1 ? '🏆 你赢了！' : winner === 2 ? T('TA') + '赢了' : '平局';
@@ -466,7 +467,15 @@ else showResult();
 setStatus(winner === 1 ? '🎉 你赢了！' : winner === 2 ? T('TA') + '赢了这一局' : '棋盘下满了，平局');
 try {
 const resTxt = winner === 1 ? '你赢' : winner === 2 ? T('TA') + '赢' : '平局';
-if (window.chatAddSystem) window.chatAddSystem(T('五子棋') + ' · ' + resTxt, { special: 'gomoku', nightAllow: true });
+const gStats = ['本局共 ' + st.moves + ' 手', '累计战绩 你 ' + s.w + '胜 · {ta} ' + s.l + '胜 · ' + s.d + '平',
+'下一局 ' + (s.nextFirst === 'you' ? '你' : '{ta}') + '先手'].concat(coinLine ? [coinLine] : []).concat(dropStat ? [dropStat] : []);
+const gPayload = {
+name: '五子棋',
+outcome: winner === 1 ? 'win' : winner === 2 ? 'lose' : 'draw',
+result: winner === 1 ? '你赢了！' : winner === 2 ? '{ta}赢了' : '平局',
+stats: gStats
+};
+if (window.chatAddSystem) window.chatAddSystem(T('五子棋') + ' · ' + resTxt, { special: 'gomoku', game: gPayload });
 const grp = winner === 1 ? '游戏失败·回应' : winner === 2 ? '游戏胜利·回应' : '游戏平局·回应';
 const fb = winner === 1 ? ['让你赢啦，再来？'] : winner === 2 ? ['五连！我赢啦'] : ['平局，再来一局？'];
 const pool = window.getInteractPool ? window.getInteractPool(grp, fb) : fb;

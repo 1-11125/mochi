@@ -32,7 +32,7 @@
 //                                             #   #783 让位 / #783 重渲染），证明判别力（必须红）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -134,7 +134,14 @@ console.log('== S 组 静态实现 ==');
 const readSrc = (f) => { try { return readFileSync(join(SRC, f), 'utf8'); } catch (e) { return ''; } };
 const cj = readSrc('js/chat-settings.js');
 const cm = readSrc('css/chat-main.css');
-const prod = (() => { try { return readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) { return ''; } })();
+// #860（PERF-PLAN 阶段 1b）：core 全外置后聊天美化 JS 在 js/personalize.js / js/chat.js——
+// 产物判据改走全产物池（index.html + js/*.js），否则 S7/S10 假红。
+const prod = (() => { try {
+  let pool = readFileSync(join(root, 'index.html'), 'utf8');
+  const jd = join(root, 'js');
+  for (const f of readdirSync(jd)) if (f.endsWith('.js')) pool += `\n${readFileSync(join(jd,f),'utf8')}`;
+  return pool;
+} catch (e) { return ''; } })();
 ok('S1 #781 CSS 三条声明分写且在 .cs-bg-on 上（删＝键盘期换比例回流）',
   (cm.match(/#page-chat\.cs-bg-on > #cs-bg-layer \{ min-height:100vh; min-height:max\(100vh, var\(--cs-bg-h, 0px\)\); min-height:max\(100lvh, var\(--cs-bg-h, 0px\)\); \}/g) || []).length === 2, String((cm.match(/cs-bg-on > #cs-bg-layer \{/g) || []).length));
 ok('S2 #762 原下限规则原样在位（本批写在后面，不改动它＝哨兵 #762c/#762e 仍绿）',

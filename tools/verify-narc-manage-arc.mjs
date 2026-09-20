@@ -165,11 +165,11 @@ try {
   await sleep(300);
   const s5 = await evalJs("(function () { const m = document.getElementById('cj-slot-mask'); return { mask: !!m, head: m ? (m.querySelector('div') || {}).textContent : '' }; })()");
   ok('此间添加仍弹时辰浮层（#cj-slot-mask 保留）', s5 && s5.mask, s5);
-  // 收尾：取消掉浮层，不留残留（也不创建梦角）
+  // 收尾：取消掉浮层，不留残留；#892 起取消＝时辰不限定、按已选偏移照常建档（不再整个放弃添加）
   await evalJs("(function () { const m = document.getElementById('cj-slot-mask'); if (m) { const b = Array.prototype.find.call(m.querySelectorAll('button'), function (x) { return x.textContent === '取消'; }); if (b) b.click(); } return true; })()");
   await sleep(150);
-  const s5b = await evalJs("(function () { const cid = window.__activeCid || 'default'; const r = JSON.parse(localStorage.getItem('xy-home-v2:' + cid + ':cjian-roster') || '[]'); return { mask: !!document.getElementById('cj-slot-mask'), has: r.some(function (x) { return x.name === '此间新增'; }) }; })()");
-  ok('取消时辰浮层后不留残留、不建梦角', s5b && !s5b.mask && !s5b.has, s5b);
+  const s5b = await evalJs("(function () { const cid = window.__activeCid || 'default'; const r = JSON.parse(localStorage.getItem('xy-home-v2:' + cid + ':cjian-roster') || '[]'); const c = r.find(function (x) { return x.name === '此间新增'; }); return { mask: !!document.getElementById('cj-slot-mask'), has: !!c, slots: c ? c.slots : 'no-entry', off: c ? c.offsetMin : null }; })()");
+  ok('取消时辰浮层后不留残留、仍按已选偏移建档（#892：无 slots）', s5b && !s5b.mask && s5b.has === true && !s5b.slots && s5b.off === 0, s5b);
 
   console.log('\n== S6 无 JS 异常 ==');
   ok('加载与操作全程无未捕获异常', jsErrors.length === 0, jsErrors.slice(0, 3));

@@ -12,28 +12,38 @@
 //   ② sw.js 导航回退缓存为空时改发不带超时的 fetch(req)，不再直接 Response.error()。
 // 验证：产物 script 块数 ≥3 且每块 <700KB；sw.js 兜底 fetch 在位；拆块产物 WebKit 可加载。
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf-8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf-8');
+// #860（PERF-PLAN 阶段 1b）：core 全外置后，功能代码多数在 js/<file> 产物里——
+// 「关键功能仍在产物中」的判据改为全产物池（index.html + js/*.js），否则全部假红。
+let pool = html;
+try {
+  const jsDir = join(root, 'js');
+  readdirSync(jsDir).filter(f => f.endsWith('.js')).forEach(f => { pool += '\n' + readFileSync(join(jsDir, f), 'utf-8'); });
+} catch (e) { /* 未构建时池里只有 index.html */ }
 let pass = 0, fail = 0;
 function check(name, ok, extra) {
   if (ok) { pass++; console.log('  [PASS] ' + name + (extra ? '  ' + extra : '')); }
   else { fail++; console.log('  [FAIL] ' + name + (extra ? '  ' + extra : '')); }
 }
 
-// 1) 产物拆块：≥3 块（大 bundle 拆开）+ 每块 <700KB（iOS 15 单块安全阈值）
+// 1) 内联段不再可能有超大单块：每块 <700KB（iOS 15 单块安全阈值，原「≥3 块」口径已被
+//    #860 外置化取代——内联只剩 3 件系统件，块数下降是预期，红线是「单块体积」不是「块数」）
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(s => s.length > 100);
-const maxChunk = Math.max(...scripts.map(s => s.length));
-check('产物 script 块数 ≥3（拆块防单块过大）', scripts.length >= 3, scripts.length + ' 块');
-check('最大 script 块 <700KB', maxChunk < 700 * 1024, Math.round(maxChunk / 1024) + 'KB');
+const maxChunk = scripts.length ? Math.max(...scripts.map(s => s.length)) : 0;
+check('最大内联 script 块 <700KB', maxChunk < 700 * 1024, Math.round(maxChunk / 1024) + 'KB（' + scripts.length + ' 块）');
+// #860 新红线：外置 defer 链必须在位（≥30 条；少于此数＝外置化被回退，2.9MB 内联塞回 HTML）
+const deferTags = (html.match(/<script defer src="js\//g) || []).length;
+check('#860 外置 defer 链在位（≥30 条；回退＝内联塞回、iOS 解析期整段同步编译）', deferTags >= 30, deferTags + ' 条');
 
-// 2) 关键功能仍在产物中（拆块不能丢代码）
+// 2) 关键功能仍在产物中（拆块/外置都不能丢代码）——全产物池判据
 const keys = ['idbRestore', 'function renderMsg', 'chatAddIn', 'mobile-adapt', 'pwa-install'];
-keys.forEach(k => check('产物含 ' + k, html.includes(k)));
+keys.forEach(k => check('产物含 ' + k, pool.includes(k)));
 
 // 3) sw.js 导航兜底：缓存空时 fetch(req) 而不是 Response.error()
 check('sw.js 含缓存空兜底 fetch(req)', sw.includes('return fetch(req)'));

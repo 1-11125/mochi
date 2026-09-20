@@ -607,7 +607,15 @@ else showResult();
 if (startBtn) startBtn.textContent = '再来一次';
 if (endBtn) endBtn.hidden = false;
 try {
-if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', nightAllow: true });
+const msStats = ['你探索 ' + s.digs.you + ' 格 · {ta}探索 ' + s.digs.ta + ' 格',
+'💣 找到地雷 ' + s.minesFound + '/' + s.mineTotal + ' · 🎁 宝物 ' + (gifts + flowers),
+'难度 ' + DIFFS[s.diffKey].name].concat(s.coinEarned > 0 ? ['🪙 我的心意币 +¥' + (s.coinEarned / 100).toFixed(2)] : []).concat(msDrop ? ['🎁 掉落限定摆件「' + msDrop.name + '」'] : []);
+if (window.chatAddSystem) window.chatAddSystem(T('合作扫雷') + ' · ' + (win ? '完成 ' + DIFFS[s.diffKey].name : '差一点（' + DIFFS[s.diffKey].name + '）'), { special: 'ms', game: {
+name: '合作扫雷',
+outcome: win ? 'clear' : 'fail',
+result: win ? '雷区清理完成！' : '差一点，雷太多了',
+stats: msStats
+} });
 const fb = win
 ? ['一起找完了。', '我们配合得不错嘛。', '全部清完啦，开心。', '这一片雷区都清理干净了。']
 : ['差一点点而已，再来！', '下次小心一点就好。', '没事，再来一次？'];

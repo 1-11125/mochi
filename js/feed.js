@@ -781,6 +781,30 @@ const fa = document.getElementById('page-feed-all');
 if (fa && !fa.hidden) { try { renderFeedAll(); } catch (e) {} } else { render(); }
 }
 const FEED_STICKER_EMOJI = ['\u2764\ufe0f', '\ud83d\ude18', '\ud83e\udd70', '\ud83d\udc4d', '\ud83d\ude02', '\ud83c\udf08', '\u2728', '\ud83c\udf80', '\ud83d\ude3b', '\ud83e\udd17'];
+function feedStickerEmojiPool() {
+const out = [], seen = new Set();
+const add = (v) => { if (typeof v === 'string' && v && !seen.has(v)) { seen.add(v); out.push(v); } };
+try {
+['public', 'own'].forEach(sc => {
+((window.getScopedGroups && window.getScopedGroups('emoji', sc)) || []).forEach(g => (g[1] || []).forEach(add));
+});
+} catch (e) {}
+if (!out.length) {
+try {
+const st = window.storeFor ? window.storeFor(window.__activeCid || 'default') : null;
+const a = (window.defaultCardApiFor && st) ? window.defaultCardApiFor(st) : null;
+const useFeed = a ? a.use('feed') : (window.defaultCardUse ? window.defaultCardUse('feed') : true);
+const en = a ? a.enabled() : ((window.defaultCardCfg && window.defaultCardCfg().enabled) !== false);
+if (en && useFeed && window.getDefaultCardGroups) {
+const catOn = a ? a.cat : (window.defaultCardCat || (() => true));
+const isOff = a ? a.isOff : (window.isDefaultCardOff || null);
+if (catOn('emoji')) (window.getDefaultCardGroups('emoji') || []).forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('emoji', c)) return; add(c); }));
+}
+} catch (e) {}
+}
+if (!out.length) FEED_STICKER_EMOJI.forEach(add);
+return out;
+}
 function feedStickerGroups() {
 const savedTab = comStickerTab;
 let ta = [], mine = [];
@@ -790,7 +814,7 @@ comStickerTab = savedTab;
 const out = [];
 (ta || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'ta' + i, label: String(g[0]), kind: 'img', items: g[1] }); });
 (mine || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'mn' + i, label: '\u6211\u7684\u00b7' + String(g[0]), kind: 'img', items: g[1] }); });
-out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });
+out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: feedStickerEmojiPool() });
 return out;
 }
 let feedStickerCard = null;
@@ -979,7 +1003,8 @@ comStickerTab = saved;
 const srcs = [];
 g.forEach(x => (x[1] || []).forEach(s => srcs.push(s)));
 if (srcs.length && Math.random() < 0.7) return { src: srcs[Math.floor(Math.random() * srcs.length)] };
-return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };
+const em = feedStickerEmojiPool();
+return { emoji: em[Math.floor(Math.random() * em.length)] };
 }
 function removeFeedSticker(pid, i) {
 if (!window.openModal) return;
@@ -1901,7 +1926,6 @@ if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, taName + ' 发
 }
 function maybeAutoPostFor(cid) {
 try {
-if (window.nightModeActive && window.nightModeActive()) return;
 const cs = window.storeFor(cid);
 const now = Date.now();
 const cfg = feedCfgFor(cid);

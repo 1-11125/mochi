@@ -101,6 +101,30 @@
     { label: '标准', value: '11px 14px' },
     { label: '宽松', value: '14px 18px' }
   ];
+  // #835：字号与气泡框大小改「滑块＋预设」并禁掉自由输入（openModal 默认带文本框，
+  //   这两处历史上没传 noInput＝任意文字直落 cs-font-size / cs-bubble-size，浏览器按
+  //   非法 CSS 静默忽略，用户看到「改了没反应」且设置行右侧挂着那串乱码，还会被美化方案带走）。
+  //   读数一律走下面两个钳制：脏值（老数据/导入方案里的非法串）回落默认，不再原样写进 CSS 变量。
+  const FONT_SIZE_MIN = 11, FONT_SIZE_MAX = 30, FONT_SIZE_DEFAULT = 14;
+  function clampFontSize(raw) {
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, n)) : FONT_SIZE_DEFAULT;
+  }
+  // 滑块档位＝左右内边距，上下按 0.78 配比跟随（14→11 / 10→8 / 18→14 恰为三档预设值）
+  const BUBBLE_LR_MIN = 6, BUBBLE_LR_MAX = 24, BUBBLE_LR_DEFAULT = 14, BUBBLE_PAD_RATIO = 0.78;
+  const BUBBLE_PAD_DEFAULT = '11px 14px';
+  function normBubblePad(raw) {
+    const nums = String(raw === null || raw === undefined ? '' : raw).match(/\d+(?:\.\d+)?/g);
+    if (!nums || nums.length < 2) return BUBBLE_PAD_DEFAULT;
+    const px = (v) => Math.max(0, Math.min(30, Math.round(Number(v)))) + 'px';
+    return px(nums[0]) + ' ' + px(nums[1]);
+  }
+  function clampBubbleLr(raw) {
+    const nums = String(raw === null || raw === undefined ? '' : raw).match(/\d+(?:\.\d+)?/g);
+    const n = parseInt(nums && nums.length >= 2 ? nums[1] : raw, 10);
+    return Number.isFinite(n) ? Math.max(BUBBLE_LR_MIN, Math.min(BUBBLE_LR_MAX, n)) : BUBBLE_LR_DEFAULT;
+  }
+  function bubblePadFromLr(lr) { return Math.round(clampBubbleLr(lr) * BUBBLE_PAD_RATIO) + 'px ' + clampBubbleLr(lr) + 'px'; }
   // v3.25.x：聊天气泡边缘（四角圆角大小）
   const BUBBLE_RADII = [
     { label: '小圆角', value: '6px' },
@@ -336,8 +360,8 @@
     const inInk = store.get('cs-in-ink') || DEF.inInk;
     const outBg = store.get('cs-out-bg') || DEF.outBg;
     const outInk = store.get('cs-out-ink') || DEF.outInk;
-    const fs = store.get('cs-font-size') || '14px';
-    const pad = store.get('cs-bubble-size') || '11px 14px';
+    const fs = clampFontSize(store.get('cs-font-size')) + 'px';
+    const pad = normBubblePad(store.get('cs-bubble-size'));
     root.style.setProperty('--msg-in-bg', inBg);
     root.style.setProperty('--msg-in-ink', inInk);
     root.style.setProperty('--msg-out-bg', outBg);
@@ -450,7 +474,7 @@
     }
     set('cs-font-size-val', fs);
     const pn = BUBBLE_SIZES.find(p => p.value === pad);
-    set('cs-bubble-size-val', pn ? pn.label : '自定义');
+    set('cs-bubble-size-val', pn ? pn.label : pad);
     const rn = BUBBLE_RADII.find(p => p.value === rad);
     set('cs-bubble-radius-val', rn ? rn.label : (rad === '0px' ? '方形' : rad));
     set('cs-bg-val', bg ? '已设置' : '');
@@ -1014,6 +1038,15 @@
     };
     reader.readAsDataURL(f);
   };
+  // FIX 2026-09-19 #813（iPhone 16 Pro + Safari 实报「头像上传无反应，一直是默认头像」，用户明说
+  // 其他设备型号也有）：**武装回调与激活选择器必须拆成两步，且武装在前**。原实现把
+  // `pickHead(cb)`（＝arm + click）整个塞进 mochiFilePickGuard 的 onMiss 兜底里，而 onMiss 只在
+  // 「窗口期内没观察到选择器弹出」时才执行——label 原生转发成功的内核（WebKit/Blink＝iOS Safari、
+  // Chrome、Edge、安卓 Chrome 系，即绝大多数设备）会派发 input click ⇒ guard 判定「已弹出」
+  // ⇒ onMiss 不跑 ⇒ headCb 恒为 null ⇒ 相册开了、图也选了，change 里 `if (cb) cb(data)`
+  // 静默什么都不做＝用户看到的「上传无反应」。只有在国产内核（label 不转发）上兜底才跑、才「恰好能用」，
+  // 这正是本族「按机型时好时坏、反复回归」的形状（#756 在 personalize.js 桌面头像同一处已治过，
+  // 这两个入口当时漏了）。零机型分支：两条激活路径都保留，只是「状态武装」不再挂在其中任何一条上。
   function armHead(cb) { headCb = cb; }
   function headActivate() {
     // FIX 2026-09-20 #877（小米14 Edge 实报「更换联系人头像/我的头像点击无反应」，用户明说其他
@@ -1274,46 +1307,34 @@
   if (csFont) {
     csFont.addEventListener('click', () => {
       if (!window.openModal) return;
-      window.openModal('聊天气泡字体大小', '', (v) => { store.set('cs-font-size', v); applySettings(); }, {
+      const curFs = clampFontSize(store.get('cs-font-size'));
+      window.openModal('聊天气泡字体大小', '', (v) => {
+        store.set('cs-font-size', clampFontSize(v) + 'px');
+        applySettings();
+      }, {
+        noInput: true,
+        slider: { min: FONT_SIZE_MIN, max: FONT_SIZE_MAX, step: 1, value: curFs, label: '拖动调整气泡字号', unit: 'px',
+          onChange: (val) => { root.style.setProperty('--chat-font-size', clampFontSize(val) + 'px'); } },
         pills: FONT_SIZES,
-        pill: store.get('cs-font-size') || '14px'
+        pill: curFs + 'px'
       });
     });
   }
   const csPad = row('cs-bubble-size');
   if (csPad) {
     csPad.addEventListener('click', () => {
-      if (!window.openTCPanel) return;
-      const cur = store.get('cs-bubble-size') || '11px 14px';
-      const curLabel = (BUBBLE_SIZES.find(p => p.value === cur) || {}).label || '自定义';
-      window.openTCPanel('聊天气泡框大小', '' +
-        '<div class="sm-fld"><label>预设大小</label><select class="tc-input" id="cs-pad-preset">' +
-        '<option value="">自定义</option>' +
-        BUBBLE_SIZES.map(p => '<option value="' + p.value + '"' + (p.value === cur ? ' selected' : '') + '>' + p.label + '</option>').join('') +
-        '</select></div>' +
-        '<div class="sm-fld"><label>自定义（格式：上下 左右，如 <code>8px 10px</code>）</label>' +
-        // v3.6.x：回填值做 HTML 转义——用户可写的值含 " 会破坏 value 属性（与 cs-font-name 一致）
-        '<input class="tc-input" id="cs-pad-input" value="' + String(cur).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></div>' +
-        '<div class="sm-set-hint">示例：紧凑 8px 10px · 标准 11px 14px · 宽松 14px 18px</div>' +
-        '<div class="mail-actions"><button class="cc-tool" id="cs-pad-cancel">取消</button><button class="cc-tool" id="cs-pad-ok">应用</button></div>');
-      document.getElementById('cs-pad-cancel').addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; });
-      document.getElementById('cs-pad-preset').addEventListener('change', () => {
-        const v = document.getElementById('cs-pad-preset').value;
-        if (v) document.getElementById('cs-pad-input').value = v;
-      });
-      document.getElementById('cs-pad-ok').addEventListener('click', () => {
-        let v = (document.getElementById('cs-pad-input').value || '').trim();
-        if (!v) { toast('请输入气泡框大小'); return; }
-        // 规范化：数字+px 或 纯数字（默认px）
-        // v3.6.x：原正则会把 "1.5px" 改坏成 "1px.5px"（回溯拆开小数）——改为分词处理，
-        // 已带 px 的 token 不动，纯数字补 px，避免无效 CSS 静默回退默认
-        v = String(v).split(/[,\s]+/).filter(Boolean).map(function (tok) {
-          return /^-?\d+(?:\.\d+)?px$/.test(tok) ? tok : tok.replace(/^(-?\d+(?:\.\d+)?)$/, '$1px');
-        }).join(' ');
-        store.set('cs-bubble-size', v);
-        document.getElementById('tc-mask').hidden = true;
+      if (!window.openModal) return;
+      const curPad = normBubblePad(store.get('cs-bubble-size'));
+      const curLr = clampBubbleLr(curPad);
+      window.openModal('聊天气泡框大小', '', (v) => {
+        store.set('cs-bubble-size', typeof v === 'number' ? bubblePadFromLr(v) : normBubblePad(v));
         applySettings();
-        toast('气泡框大小已应用');
+      }, {
+        noInput: true,
+        slider: { min: BUBBLE_LR_MIN, max: BUBBLE_LR_MAX, step: 1, value: curLr, label: '拖动调整气泡胖瘦（上下内边距按比例跟随）', unit: 'px',
+          onChange: (val) => { root.style.setProperty('--chat-bubble-pad', bubblePadFromLr(val)); } },
+        pills: BUBBLE_SIZES,
+        pill: curPad
       });
     });
   }
@@ -2780,6 +2801,14 @@
     document.addEventListener('batch-send-changed', () => { if (inputOrderPanelOpen()) renderInputOrderPanel(); });
     document.addEventListener('voice-send-changed', () => { if (inputOrderPanelOpen()) renderInputOrderPanel(); });
   }
+  // 群聊设置里那行（group-chat.js「通用」段）打开的是同一个面板：顺序本就两页共用
+  // （chat.js applyInputBtnOrder 给两处 .chat-input-row 的同名 data-io 设 flex order），
+  // 面板只有一份、浮在 body 上，所以对外只暴露开合与文案，不复制第二套排序 UI。
+  window.mochiInputOrderPanel = {
+    open: openInputOrderPanel,
+    close: closeInputOrderPanel,
+    valueText: () => (window.mochiInputOrder && !window.mochiInputOrder.isDefault() ? '已自定义' : '默认排列')
+  };
 
   // 红包：TA 自动主动发红包概率（每联系人独立，默认 4%，0-100%）。点击弹输入框设百分比；
   // 存 cs-rp-auto-prob，chat.js trySystemAutoSend 读同一键控制 TA 主动发红包的概率门。
@@ -2885,13 +2914,95 @@
     if (typeof window !== 'undefined') window.csRpSyncAskMax = rpAskMaxSync;
   }
 
-  // 红包半框打开时一次刷新四行显示值（chat.js openRpSettings 调用 window.csRpSettingsSync）
+  // v3.29.x #807/#848：红包领后捎一句话——红包半框「设置」里直接可调（原来本区只有一行只读
+  // 说明、真控件藏在 设置→回复设置→红包互动，用户实报「红包设置里找不到这个功能」）。
+  // 三行读写 rp-thx-en / rp-thx-prob / rp-thx-mode（reply-settings 的每联系人键，经
+  // window.replyCfg / window.saveReplyCfg），与回复设置那份同源，任一处改动即时同步。
+  // 模板在途（并行会话占用 template.html），照 #791 的 JS 注入口态插进 #rp-settings「完成」按钮前。
+  if (!document.getElementById('cs-rp-thx-box')) {
+    const rpSetBox = document.getElementById('rp-settings');
+    const rpDoneBtn = rpSetBox ? rpSetBox.querySelector('.rp-settings-done') : null;
+    if (rpSetBox && rpDoneBtn) {
+      const rpThxBox = document.createElement('div');
+      rpThxBox.id = 'cs-rp-thx-box';
+      rpThxBox.innerHTML = '<div class="rp-settings-title">红包领后捎一句话</div>' +
+        '<div class="set-row" id="cs-rp-thx-en"><div class="txt">领后捎一句话<span class="sub">红包被领取后（我领 TA 的 / TA 领我的）TA 有概率主动捎一句，固定一条、不受「回复条数」限制；每个联系人单独设置</span></div><div class="val" id="cs-rp-thx-en-val">开</div></div>' +
+        '<div class="set-row" id="cs-rp-thx-prob"><div class="txt">捎话概率<span class="sub">开关命中后再按这个概率决定这次说不说</span></div><div class="val" id="cs-rp-thx-prob-val">60%</div></div>' +
+        '<div class="set-row" id="cs-rp-thx-mode"><div class="txt">捎话内容<span class="sub">系统预设话术随机一句 / 和正常聊天一样回复 / 混合</span></div><div class="val" id="cs-rp-thx-mode-val">混合</div></div>';
+      rpSetBox.insertBefore(rpThxBox, rpDoneBtn);
+    }
+  }
+  if (document.getElementById('cs-rp-thx-box')) {
+    const rpThxGet = () => {
+      const out = { en: 1, prob: 60, mode: 2 };
+      try {
+        const c = (window.replyCfg && window.replyCfg()) || {};
+        out.en = Number(c['rp-thx-en']) === 0 ? 0 : 1;
+        const p = Number(c['rp-thx-prob']);
+        out.prob = isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : 60;
+        const m = Number(c['rp-thx-mode']);
+        out.mode = (m === 0 || m === 1 || m === 2) ? m : 2;
+      } catch (e) {}
+      return out;
+    };
+    const rpThxLabel = (v) => {
+      const list = window.rpThxModeList || [{ label: '系统预设话术', value: 0 }, { label: '像正常聊天一样回复', value: 1 }, { label: '混合', value: 2 }];
+      for (let i = 0; i < list.length; i++) { if (Number(list[i].value) === Number(v)) return list[i].label; }
+      return '混合';
+    };
+    const rpThxSync = () => {
+      const cur = rpThxGet();
+      const setVal = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setVal('cs-rp-thx-en-val', cur.en ? '开' : '已关闭');
+      setVal('cs-rp-thx-prob-val', cur.prob + '%');
+      setVal('cs-rp-thx-mode-val', rpThxLabel(cur.mode));
+      // 回复设置页那份控件的刷新：模式胶囊走 rpThxModeSync，开关/stepper 由回复设置页
+      // 自身 syncUI（进页即同步）负责，两处不会串值
+      try { if (window.rpThxModeSync) window.rpThxModeSync(); } catch (e) {}
+    };
+    rpThxSync();
+    const rpThxAsk = (id, title, value, cb, opts) => {
+      const el = document.getElementById(id);
+      if (!el || !window.openModal) return;
+      const evalv = (x) => (typeof x === 'function' ? x() : x);
+      el.addEventListener('click', () => {
+        const v = evalv(value);
+        window.openModal(evalv(title), v == null ? '' : String(v), cb, evalv(opts));
+      });
+    };
+    rpThxAsk('cs-rp-thx-en', '红包领后捎一句话', null, (v) => {
+      const on = v === 'on' ? 1 : 0;
+      window.saveReplyCfg('rp-thx-en', on);
+      rpThxSync();
+      toast(on === 1 ? '已开启：红包被领取后 TA 有概率捎一句话' : '已关闭：领红包后不再捎话');
+    }, () => ({ noInput: true, pill: rpThxGet().en ? 'on' : 'off', pills: [{ label: '开', value: 'on' }, { label: '关', value: 'off' }] }));
+    rpThxAsk('cs-rp-thx-prob', '捎话概率（0-100%·每联系人独立）', () => rpThxGet().prob, (v) => {
+      let n = parseFloat(String(v || '').trim());
+      if (!isFinite(n)) { toast('请填 0~100 的数字'); return; }
+      n = Math.max(0, Math.min(100, Math.round(n)));
+      window.saveReplyCfg('rp-thx-prob', n);
+      rpThxSync();
+      toast('已设置：捎话概率 ' + n + '%');
+    }, { maxlength: 3 });
+    rpThxAsk('cs-rp-thx-mode', '捎话内容', null, (v) => {
+      const n = Number(v);
+      if (n !== 0 && n !== 1 && n !== 2) return;
+      window.saveReplyCfg('rp-thx-mode', n);
+      rpThxSync();
+      toast('已设置：捎话内容＝' + rpThxLabel(n));
+    }, () => ({ noInput: true, pill: String(rpThxGet().mode), pills: [{ label: '系统预设话术', value: '0' }, { label: '像正常聊天一样回复', value: '1' }, { label: '混合', value: '2' }] }));
+    document.addEventListener('contact-switched', rpThxSync);
+    if (typeof window !== 'undefined') window.csRpSyncThx = rpThxSync;
+  }
+
+  // 红包半框打开时一次刷新五行显示值（chat.js openRpSettings 调用 window.csRpSettingsSync）
   if (typeof window !== 'undefined') {
     window.csRpSettingsSync = function () {
       try { if (window.csRpSyncProb) window.csRpSyncProb(); } catch (e) {}
       try { if (window.csRpSyncMax) window.csRpSyncMax(); } catch (e) {}
       try { if (window.csRpSyncAskProb) window.csRpSyncAskProb(); } catch (e) {}
       try { if (window.csRpSyncAskMax) window.csRpSyncAskMax(); } catch (e) {}
+      try { if (window.csRpSyncThx) window.csRpSyncThx(); } catch (e) {}
     };
   }
 
@@ -3261,9 +3372,11 @@
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = it.label;
         b.style.cssText = 'font-size:11.5px;padding:5px 9px;border-radius:8px;cursor:pointer;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
-        if (it.value === cur) paint(b);
         b.addEventListener('click', () => { set(it.value); paint(b); });
         row.appendChild(b);
+        // paint 遍历的是 row.children，必须在 append 之后调用，否则初态描色落空＝
+        // 抽屉每行胶囊打开时看不出当前选的是哪个（#856 顺带根治）
+        if (it.value === cur) paint(b);
       });
       wrap.appendChild(lb); wrap.appendChild(row);
       return wrap;
@@ -3402,6 +3515,9 @@
         wrap.appendChild(mkSlider('底栏不透明度', () => surfaceValue(CHAT_SURFACE_SETTINGS[1]), v => setSurface(1, v), 0, 100, 1, '%', CHAT_SURFACE_SETTINGS[1].def));
         wrap.appendChild(mkSlider('顶栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[3]), v => setSurface(3, v), CHAT_SURFACE_SETTINGS[3].min, CHAT_SURFACE_SETTINGS[3].max, 1, 'px', CHAT_SURFACE_SETTINGS[3].def));
         wrap.appendChild(mkSlider('底栏位置', () => surfaceValue(CHAT_SURFACE_SETTINGS[4]), v => setSurface(4, v), CHAT_SURFACE_SETTINGS[4].min, CHAT_SURFACE_SETTINGS[4].max, 1, 'px', CHAT_SURFACE_SETTINGS[4].def));
+        // #889（用户 2026-09-20：「边看边调没有小字提示其实可以滑动栏位的位置，按需调整」）：
+        // 这两条滑杆此前零说明，用户不知道顶栏/输入栏能整体上下挪。
+        wrap.appendChild(mkNote('这两条位置滑杆拖着就能把顶栏/输入栏上下挪位，按需微调（顶栏正值下移、负值上移；底栏正值上移、负值下移）；双击滑杆回默认位置。'));
         // #760：补「发送按钮显示/隐藏」——设置页有这行（cs-send-show），抽屉此前漏了，
         // 而它恰好要在聊天页面上看效果，是最该进抽屉的一项。
         wrap.appendChild(mkPills('发送按钮', [{ label: '显示', value: 'show' }, { label: '隐藏（回车发送）', value: 'hide' }],
@@ -3537,6 +3653,69 @@
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
         const setOff = (key, v) => { try { store.set(key, String(clampOffset(v))); } catch (e) {} applySettings(); };
+        // #856（用户直派「微调功能里缺少更换联系人主动发消息的标识图案」）：标识图案就地换。
+        // 池的数据、默认值与自定义校验只有一份，在 reply-settings.js #727 段（window.asBadgeItems /
+        // asBadgeToggle / asBadgeAdd / asBadgeWrite）——这里只画视图，不另写一套池逻辑。
+        // 生效链路：写盘 → asBadgeRefreshMarks 只替换屏上已有的那枚标识节点（不整窗重建＝不闪屏，
+        // #846 同族口径）→ renderSec('tune') 重画本区（点亮态、「抽取方式」行的出现条件都跟着变）。
+        const bdTouch = () => { try { if (window.asBadgeRefreshMarks) window.asBadgeRefreshMarks(); } catch (e) {} try { renderSec('tune'); } catch (e) {} };
+        const bdWrap = document.createElement('div');
+        bdWrap.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+        const bdLb = document.createElement('span');
+        bdLb.textContent = '标识图案（点亮即入池）';
+        bdLb.style.cssText = 'font-size:11.5px;color:var(--muted,#888)';
+        const bdRow = document.createElement('div');
+        bdRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+        const bdItems = (window.asBadgeItems ? window.asBadgeItems() : []) || [];
+        bdItems.forEach(it => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = it.s;
+          b.title = it.builtin ? (it.label + '（再点一次取消点亮）') : '自定义标识（再点一次取消点亮）';
+          b.style.cssText = 'min-width:34px;font-size:13px;line-height:1.4;padding:5px 9px;border-radius:8px;cursor:pointer;border:1px solid ' + (it.on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)') + ';background:' + (it.on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)') + ';color:' + (it.on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)');
+          b.addEventListener('click', () => {
+            const nm = window.asBadgeToggle ? window.asBadgeToggle(it) : '';
+            if (!nm) { toast('这枚标识已不在列表里，重开抽屉看看'); return; }
+            toast((it.on ? '已取消' : '已点亮') + ' ' + nm);
+            bdTouch();
+          });
+          bdRow.appendChild(b);
+        });
+        const bdAdd = document.createElement('button');
+        bdAdd.type = 'button';
+        bdAdd.textContent = '＋';
+        bdAdd.title = '添加自定义标识（最长 4 个字符）';
+        bdAdd.style.cssText = 'font-size:13px;line-height:1.4;padding:5px 10px;border-radius:8px;cursor:pointer;border:1px dashed var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
+        bdAdd.addEventListener('click', () => {
+          if (!window.openModal || !window.asBadgeAdd) { toast('这版暂不支持在这里添加'); return; }
+          window.openModal('添加主动发送标识', '', (v) => {
+            const r = window.asBadgeAdd(v) || { ok: 0, msg: '添加失败' };
+            if (!r.ok) { toast(r.msg); return; }
+            toast('已添加标识 ' + r.msg);
+            bdTouch();
+          }, { maxlength: 4, placeholder: '输入标识，如 🌙 / ❀ / 喵' });
+        });
+        bdRow.appendChild(bdAdd);
+        bdWrap.appendChild(bdLb); bdWrap.appendChild(bdRow);
+        wrap.appendChild(bdWrap);
+        wrap.appendChild(mkPills('显示标识', [{ label: '显示', value: 1 }, { label: '不显示', value: 0 }], () => {
+          try { return (window.replyCfg ? window.replyCfg() : {})['as-badge'] === 0 ? 0 : 1; } catch (e) { return 1; }
+        }, (v) => {
+          if (!window.asBadgeWrite) { toast('这版暂不支持在这里开关'); return; }
+          window.asBadgeWrite('as-badge', v);
+          toast(v ? '已显示主动发送标识' : '已隐藏主动发送标识');
+          bdTouch();
+        }));
+        if (bdItems.filter(it => it.on).length >= 2) {
+          wrap.appendChild(mkPills('多枚标识怎么抽取', [{ label: '每次随机', value: 1 }, { label: '按顺序轮换', value: 0 }], () => {
+            try { return (window.replyCfg ? window.replyCfg() : {})['as-badge-rand'] === 0 ? 0 : 1; } catch (e) { return 1; }
+          }, (v) => {
+            window.asBadgeWrite('as-badge-rand', v);
+            toast(v ? '多枚标识：每次随机' : '多枚标识：按顺序轮换');
+            bdTouch();
+          }));
+        }
+        wrap.appendChild(mkNote('自定义标识在这里点亮/取消，要删除回 设置→回复设置→聊天→主动发送→标识。'));
         wrap.appendChild(mkNote('气泡 CSS 改了气泡大小/内边距后，标识和时间轴的位置可能跟着偏——这里手动校准。0 = 默认位置'));
         wrap.appendChild(mkSlider('标识 左右', () => clampOffset(store.get('cs-mark-x')), v => setOff('cs-mark-x', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
         wrap.appendChild(mkSlider('标识 上下', () => clampOffset(store.get('cs-mark-y')), v => setOff('cs-mark-y', v), OFFSET_MIN, OFFSET_MAX, 1, 'px', 0));
@@ -3595,6 +3774,9 @@
       const cb = document.getElementById('chat-body');
       if (cb) {
         if (!cb.querySelector('.msg')) csDemoBubbles(true);
+        // #856：示例气泡的标识是占位串（*~*），打开抽屉先按当前标识池换成真图案，
+        // 免得在「微调」里换标识前看到的是一枚不存在的花符号
+        try { if (window.asBadgeRefreshMarks) window.asBadgeRefreshMarks(cb); } catch (e) {}
         cb.scrollTop = cb.scrollHeight;
       }
     } catch (e) {}

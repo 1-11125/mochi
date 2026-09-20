@@ -18,7 +18,7 @@
 // 需要：Node 21+ + 本机 Chrome/Edge（CHROME_PATH 可指定）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, extname, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -111,7 +111,8 @@ function check(desc, ok, detail) {
 }
 
 // B1 静态：产物中看门狗两要素在位
-const built = readFileSync(join(root, 'index.html'), 'utf8');
+const built = (function(){ let pool=''; try { pool = readFileSync(join(root,'index.html'),'utf8');
+    const jd=join(root,'js'); for (const f of readdirSync(jd)) if (f.endsWith('.js')) pool += `\n${readFileSync(join(jd,f),'utf8')}`; } catch(e){} return pool; })();
 check('B1a 产物含看门狗补钉判定（cb706.scrollTop < chatScrollMax() - 8）', built.includes('if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();'));
 check('B1b 产物含视口变形落定闸（_vvGeomChangeTs < 180）', built.includes('if (Date.now() - _vvGeomChangeTs < 180) return;'));
 // B1c 静态（#765）：聊天壁纸常驻层必须独立成合成层，否则聊天页每次内容变化的失效区都波及它、

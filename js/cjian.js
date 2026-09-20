@@ -150,6 +150,7 @@ return ottCache[c.id];
 }
 function worldMinuteOf(c) { return ottFor(c).worldMin; }
 function clearOttTag(id) { if (ottCache && ottCache[id]) { delete ottCache[id]; saveOtt(ottCache); } }
+function invalidateTaTime(cid) { try { const s = storeOf(cid); if (s) s.remove('cjian-ta-time'); } catch (e) {} }
 function timeInfo(ts) {
 const d = new Date(ts);
 const hour = d.getHours();
@@ -426,6 +427,7 @@ try { const pg = document.getElementById('page-cjian'); if (pg && !pg.hidden && 
 }
 function seedIfEmpty(cid) {
 try {
+if (window.mochiDataPending && window.mochiDataPending()) return; // #850e 回填未决＝不算没播种
 const s = storeOf(cid);
 if (!s || s.get(SEED_KEY)) return;
 const list = loadRoster(cid);
@@ -1008,6 +1010,11 @@ const listEl = document.getElementById('cj-list');
 if (!listEl) return;
 listEl.innerHTML = '';
 const empty = document.getElementById('cj-empty');
+if (window.mochiDataPending && window.mochiDataPending()) {
+if (empty) empty.hidden = true;
+listEl.innerHTML = window.mochiLoadingHtml('梦角名单');
+return;
+}
 const now = Date.now();
 if (viewCid === ALL) {
 if (empty) empty.hidden = true;
@@ -1261,6 +1268,7 @@ if (arcMode) {
 const l = loadRoster(mCid);
 l.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
 saveRoster(l, mCid);
+invalidateTaTime(mCid); // #903
 toast('已添加梦角：「' + pendingName + '」');
 pendingName = ''; pendingOffset = 0;
 todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
@@ -1268,27 +1276,30 @@ window.renderCjian(true);
 return;
 }
 setTimeout(function () {
+function createPlain() {
+const list = loadRoster(mCid);
+list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
+saveRoster(list, mCid);
+invalidateTaTime(mCid); // #903
+toast('已加入此间：「' + pendingName + '」');
+pendingName = ''; pendingOffset = 0;
+todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
+window.renderCjian(true);
+}
 showSlotPicker(
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 function (idxs) {
 const list = loadRoster(mCid);
 list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, slots: idxs.map(i => SHICHEN_START[i]), cid: mCid, manual: 1 });
 saveRoster(list, mCid);
+invalidateTaTime(mCid); // #903
 toast('已加入此间：「' + pendingName + '」');
 pendingName = ''; pendingOffset = 0;
 todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
 window.renderCjian(true);
 },
-function () { pendingName = ''; pendingOffset = 0; }, // 取消：不创建
-function () {
-const list = loadRoster(mCid);
-list.push({ id: makeId(), name: pendingName, offsetMin: pendingOffset, cid: mCid, manual: 1 });
-saveRoster(list, mCid);
-toast('已加入此间：「' + pendingName + '」');
-pendingName = ''; pendingOffset = 0;
-todayCacheMap = {}; // 名单变了，各视图的今日预测全部作废
-window.renderCjian(true);
-}
+function () { createPlain(); }, // 取消：时辰不限定，照常建档
+createPlain
 );
 }, 0);
 return;
@@ -1306,6 +1317,7 @@ const cc = l2.find(x => x.id === c.id);
 if (!cc) return;
 cc.slots = idxs.map(i => SHICHEN_START[i]);
 saveRoster(l2, mCid);
+clearOttTag(c.id); invalidateTaTime(mCid); // #903：改时段后立即按新时辰区间重抽，不驻留旧时刻
 toast('已设时辰区间：' + slotLabel(cc.slots));
 todayCacheMap = {};
 window.renderCjian(true);
@@ -1317,6 +1329,7 @@ const cc = l2.find(x => x.id === c.id);
 if (!cc) return;
 delete cc.slots;
 saveRoster(l2, mCid);
+clearOttTag(c.id); invalidateTaTime(mCid); // #903：改回时间偏移流动同样重抽
 toast('已改回：按时间偏移流动');
 todayCacheMap = {};
 window.renderCjian(true);
@@ -1367,6 +1380,8 @@ const st = loadState(mCid);
 delete st[v];
 saveState(st, mCid);
 clearOttTag(v);
+invalidateTaTime(mCid); // #903：名单头变了，「对方当前时间」重抽
+if (!list.length) { const rs = storeOf(mCid); if (rs) rs.remove(SEED_KEY); }
 try {
 const r0 = rootStore();
 if (r0) {
@@ -1394,11 +1409,14 @@ rehomeMisfiled();
 fixBelonging();
 let reMigrated = false;
 document.addEventListener('mochi-restore-done', function () {
-if (reMigrated) return;
-reMigrated = true;
 try { migrateSplit(); } catch (e) {}
 try { rehomeMisfiled(); } catch (e) {}
 try { fixBelonging(); } catch (e) {}
+if (!reMigrated) {
+reMigrated = true;
+try { seedIfEmpty(curCid()); if (viewCid !== ALL && viewCid !== curCid()) seedIfEmpty(viewCid); } catch (e) {}
+try { window.renderCjian(false); } catch (e) {}
+}
 });
 document.addEventListener('contact-renamed', function (e) {
 try {

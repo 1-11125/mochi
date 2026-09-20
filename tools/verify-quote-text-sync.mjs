@@ -65,10 +65,22 @@ const IMGV = '@@m:' + 'ab'.repeat(16);
 {
   const ICON_DUMMY = '___NEVER_MATCH___'; // 空串会让 indexOf('')>=0 恒真＝桩假阳性
   const windowMock = { mochiMediaIsToken: () => false };
+  // #843 修 harness 自身缺陷：normCell 体内还调 hasMultiImgParts / chatIsImageUrlCard /
+  //   pyChipDropIfSingle 三个模块级函数，此前一律没桩＝ ReferenceError 被 normCell 自己的
+  //   try/catch 静默吞掉，整组 N 断言在纯 HEAD 上也全红（假红掩盖真回归）。
+  const hasMultiImgParts = (r) => Array.isArray(r && r.parts) && r.parts.filter(p => p && p.k === 'img').length > 1;
+  const chatIsImageUrlCard = () => false;
+  let pyChipDropIfSingle;
+  try {
+    pyChipDropIfSingle = new Function('window', extractFn(chat, 'pyChipDropIfSingle') + '\nreturn pyChipDropIfSingle;')(windowMock);
+  } catch (e0) {
+    console.error('  ! pyChipDropIfSingle 提取失败，退回保守桩（N 组仍可信，#773c 组不覆盖）：' + e0.message);
+    pyChipDropIfSingle = () => false;
+  }
   const normCell = new Function(
-    'ICON_BELL', 'ICON_TEL', 'ICON_ENV', 'ICON_CQ_FIX', 'window',
+    'ICON_BELL', 'ICON_TEL', 'ICON_ENV', 'ICON_CQ_FIX', 'window', 'hasMultiImgParts', 'chatIsImageUrlCard', 'pyChipDropIfSingle',
     extractFn(chat, 'normCell') + '\nreturn normCell;'
-  )(ICON_DUMMY, ICON_DUMMY, ICON_DUMMY, {}, windowMock);
+  )(ICON_DUMMY, ICON_DUMMY, ICON_DUMMY, {}, windowMock, hasMultiImgParts, chatIsImageUrlCard, pyChipDropIfSingle);
 
   const mk = () => ({
     side: 'in', type: 'text', text: '拼字结果', ts: 123,
@@ -102,6 +114,15 @@ const IMGV = '@@m:' + 'ab'.repeat(16);
   const r7 = mk();
   r7.parts = [{ k: 'text', v: '旧正文' }]; // 无图片段 → 重建为 null
   ok('N7 无图片段旧消息重建为 null（回落 text 分支与引用同源）', normCell(r7) === true && r7.parts === null);
+
+  // #843：词典 tag 改名后新增的两枚也要被白名单认到（漏则该消息引用预览继续与气泡不一致）
+  ['词典拼句', '词典拼词'].forEach(tg => {
+    const r8 = mk();
+    r8.parts = [{ k: 'text', v: '旧正文' }, { k: 'img', v: IMGV }];
+    r8.mood = [{ tag: tg, label: '' }];
+    r8.text = '拼出的新正文';
+    ok('N8 ' + tg + ' 同族识别（#843 新 tag 进白名单）', normCell(r8) === true && r8.parts[0].v === '拼出的新正文');
+  });
 }
 
 // --- S 哨兵在位 ---

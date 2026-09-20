@@ -13,7 +13,7 @@
 // 用法（RED 基线/隔离根）：SERVE_ROOT=<目录> node tools/verify-avatar-pick-attached.mjs
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -161,7 +161,14 @@ ok(a3.idx != null && a3.idx >= 0 && a3.idx < base.n && a3.isFile === true && off
   'A3 朋友圈头像点击走「常驻+挂文档+移出屏幕」选择器（旧实现 detached）', JSON.stringify({ click: a3, base: base.n }));
 
 // A4 群聊头像 pickAvatarFile 是动态面板按钮（GUI 路径太深）→ 产物源断言：常驻挂文档初始化在位
-const srcOk = (function(){ try { return readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) { return ''; } })();
+// #860（PERF-PLAN 阶段 1b）：core 全外置后群聊头像初始化在 js/group-chat.js——
+// 「产物含」判据改走全产物池（index.html + js/*.js），否则假红。
+const srcOk = (function(){ try {
+  let pool = readFileSync(join(root, 'index.html'), 'utf8');
+  const jsDir = join(root, 'js');
+  for (const f of readdirSync(jsDir)) if (f.endsWith('.js')) pool += '\n' + readFileSync(join(jsDir, f), 'utf8');
+  return pool;
+} catch (e) { return ''; } })();
 ok(srcOk.includes('document.body.appendChild(gcAvatarPickInput);') && srcOk.includes("input.id = (btn.id || 'avlib') + '-file-pick';"),
   'A4 产物含群聊头像常驻选择器初始化 + 池选择器身份（#717b/#717d 锚点）', '');
 

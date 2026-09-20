@@ -699,13 +699,20 @@ const WL_TA_KEY = 'gift-wishlist-ta';
 const WL_SETTINGS_KEY = 'market-wl-settings';
 const WL_MAX = 30;
 function clampPct(v, def) { const n = Math.round(Number(v)); return (n >= 0 && n <= 100) ? n : def; }
+function clampMode(v, def) { const n = Math.round(Number(v)); return (n === 0 || n === 1 || n === 2) ? n : def; }
+const GIFT_REPLY_MODES = [{ label: '系统预设话术', value: 0 }, { label: '像正常聊天一样回复', value: 1 }, { label: '混合', value: 2 }];
+function giftReplyModeLabel(v) {
+const n = clampMode(v, 1);
+for (let i = 0; i < GIFT_REPLY_MODES.length; i++) { if (GIFT_REPLY_MODES[i].value === n) return GIFT_REPLY_MODES[i].label; }
+return '像正常聊天一样回复';
+}
 const WL_VER = 2;
 function wlSettingsRaw() {
 try { return JSON.parse((GSTORE && GSTORE.get(WL_SETTINGS_KEY)) || '') || null; } catch (e) { return null; }
 }
 function wlSettings() {
 const s = wlSettingsRaw() || {};
-return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), wishChatOn: s.wishChatOn === 0 ? 0 : 1, wishChatPct: clampPct(s.wishChatPct, 60), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10) };
+return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), wishChatOn: s.wishChatOn === 0 ? 0 : 1, wishChatPct: clampPct(s.wishChatPct, 60), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10), giftReplyOn: s.giftReplyOn === 0 ? 0 : 1, giftReplyPct: clampPct(s.giftReplyPct, 60), giftReplyMode: clampMode(s.giftReplyMode, 1) };
 }
 function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
 function wlSettingsUpgrade() {
@@ -753,6 +760,19 @@ wishSave(WL_MY_KEY, a.slice(0, WL_MAX));
 return true;
 }
 function wishTaRemove(id) { wishSave(WL_TA_KEY, wishLoad(WL_TA_KEY).filter(function (x) { return x.giftId !== id; })); }
+const WL_TA_SEEN_KEY = 'gift-wishlist-ta-seen';
+function taWishUnread() {
+const list = wishLoad(WL_TA_KEY);
+const newest = list.reduce(function (m, x) { return Math.max(m, Number(x && x.tm) || 0); }, 0);
+try {
+const s = store(); if (!s) return 0;
+const raw = s.get(WL_TA_SEEN_KEY);
+if (raw === null) { s.set(WL_TA_SEEN_KEY, String(newest)); return 0; }
+const seen = Number(raw) || 0;
+return list.filter(function (x) { return (Number(x && x.tm) || 0) > seen; }).length;
+} catch (e) { return 0; }
+}
+function taWishMarkSeen() { try { const s = store(); if (s) s.set(WL_TA_SEEN_KEY, String(Date.now())); } catch (e) {} }
 function wishChatPush(gift) {
 try {
 if (!gift || !gift.id || !window.chatAddGift) return false;
@@ -823,6 +843,33 @@ if (!Array.isArray(box)) box = [];
 box.unshift(boxEntry(gift, side, wish));
 s.set(BOX_KEY, JSON.stringify(box));
 }
+const GIFT_REPLY_GENERIC = ['哇，谢谢亲爱的～', '你怎么知道我想要这个！', '收到啦，超喜欢❤', '破费啦，我好好收着', '嘿嘿，被你宠到了', '这份我喜欢，收下啦', '已经摆进心意柜最上层了'];
+const GIFT_REPLY_WISH = ['我的心愿被你实现啦！', '真的买下啦…说好不让你乱花钱的', '许愿时没想过真能收到，谢谢～', '心愿单少了一件，开心值满格', '你记得我的心愿，这个最戳我'];
+function giftReplyFeedback(gift) {
+const st = wlSettings();
+if (!st.giftReplyOn) return;
+if (Math.random() * 100 >= clampPct(st.giftReplyPct, 60)) return;
+let satisfied = false;
+try { satisfied = taWishIds().has(gift.id); } catch (e) {}
+const preset = function () { return pick(satisfied ? GIFT_REPLY_WISH : GIFT_REPLY_GENERIC); };
+const mode = clampMode(st.giftReplyMode, 1);
+const useChatStyle = mode === 1 || (mode === 2 && Math.random() < 0.4);
+const cid = window.__activeCid || 'default';
+setTimeout(function () {
+try {
+let txt = '';
+if (useChatStyle && window.genChatStyleReply) txt = String(window.genChatStyleReply() || '').trim();
+if (!txt) txt = preset();
+if (!txt) return;
+if ((window.__activeCid || 'default') === cid) {
+if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
+else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
+} else if (window.chatAppendDeskRec) {
+window.chatAppendDeskRec(cid, { side: 'in', text: txt });
+}
+} catch (e) {}
+}, randInt(900, 2400));
+}
 function buyAndSend(gift, side, wish) {
 const priceFen = Math.round((gift.price || 0) * 100);
 const w = walletGet();
@@ -833,6 +880,7 @@ const rec = { side: side, special: 'gift', giftId: gift.id, giftName: gift.name,
 if (window.chatAddGift) window.chatAddGift(rec); else if (window.chatAddIn) window.chatAddIn('', { special: 'gift' });
 recordBox(gift, side, wish);
 if (window.logFish) window.logFish();
+if (side === 'out') giftReplyFeedback(gift);
 return true;
 }
 const AUTO_DAILY_PREFIX = 'ml2_gift_daily_';
@@ -855,7 +903,6 @@ if (window.logFish) window.logFish();
 }, delayMs);
 }
 window.maybeAutoGift = function () {
-if (window.nightModeActive && window.nightModeActive()) return;
 const st = wlSettings();
 const myCid = window.__activeCid || 'default';
 const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;
@@ -900,7 +947,8 @@ const giftW = pick(poolW);
 taWl.unshift(wishSnap(giftW));
 wishSave(WL_TA_KEY, taWl.slice(0, WL_MAX));
 const pushed = !!(st.wishChatOn && Math.random() * 100 < st.wishChatPct && wishChatPush(giftW));
-if (!pushed) toast(partnerName() + ' 把「' + giftW.name + '」加进了 TA 的心愿单');
+if (!pushed) toast(partnerName() + ' 把「' + giftW.name + '」加进了 TA 的心愿单\n市集下方「☆ 心愿单」可查看');
+try { syncWishBadge(); } catch (e) {}
 return;
 }
 }
@@ -982,10 +1030,12 @@ function renderWishPanel() {
 if (!window.openTCPanel) { toast('稍后再试'); return; }
 const my = wishLoad(WL_MY_KEY);
 const ta = wishLoad(WL_TA_KEY);
+const taNew = taWishUnread();
 const list = wishTab === 'my' ? my : ta;
 const stG = wlSettings();
 const hint = wishTab === 'my'
-? (stG.giftInOn
+? (taNew ? '有 ' + taNew + ' 条是 ' + esc(partnerName()) + ' 新许的愿——点上方「' + esc(partnerName()) + ' 的心愿单」这一栏看。\n' : '')
++ (stG.giftInOn
 ? '在市集点开商品选「加入心愿单」即可许愿（不花钱）。' + esc(partnerName()) + ' 会按概率买下送你，礼物进「心意柜-收到的」并从心愿单移除；概率在「心意集市和心意柜设置」里可调。'
 : '在市集点开商品选「加入心愿单」即可许愿（不花钱）。「TA 送我礼物」总开关当前关闭，TA 不会买下心愿；想恢复去「心意集市和心意柜设置」打开。')
 : '这里是 ' + esc(partnerName()) + ' 许的愿望（TA 逛市集时也会按概率把想要的加进来，并有概率把这份心愿发一张卡片到聊天提醒你）。点「送 TA」买下送出：礼物进聊天和 TA 的心意柜-收到的，并自动从心愿单移除；市集里 TA 正许愿的商品也会标出来。';
@@ -995,12 +1045,13 @@ const emptyTxt = wishTab === 'my'
 const html =
 '<div class="wish-tabs">' +
 '<button class="wish-tab' + (wishTab === 'my' ? ' sel' : '') + '" data-wtab="my" type="button">我的心愿单 (' + my.length + ')</button>' +
-'<button class="wish-tab' + (wishTab === 'ta' ? ' sel' : '') + '" data-wtab="ta" type="button">' + esc(partnerName()) + ' 的心愿单 (' + ta.length + ')</button>' +
+'<button class="wish-tab' + (wishTab === 'ta' ? ' sel' : '') + '" data-wtab="ta" type="button">' + esc(partnerName()) + ' 的心愿单 (' + ta.length + ')' + (taNew ? '<i class="wish-badge">' + taNew + '</i>' : '') + '</button>' +
 '</div>' +
 '<div class="wish-hint">' + hint + '</div>' +
 (list.map(function (it) { return wishRowHtml(it, wishTab); }).join('') || '<div class="gift-empty">' + emptyTxt + '</div>') +
 '<div class="gs-help">【使用说明】<br>· 心愿单只是许愿，不花钱；TA 按概率买下送你后自动移除。<br>· 「TA 的心愿单」里的礼物可点「送 TA」买下送出（正常聊天送礼 + 心意柜记录）。<br>· TA 的相关行为可在「心意集市和心意柜设置」里开关与自定义概率。</div>';
 window.openTCPanel('心愿单', html);
+if (wishTab === 'ta') { taWishMarkSeen(); try { syncWishBadge(); } catch (e) {} }
 document.querySelectorAll('#tc-body [data-wtab]').forEach(function (b) {
 b.addEventListener('click', function () { wishTab = b.dataset.wtab; renderWishPanel(); });
 });
@@ -1030,9 +1081,12 @@ const html =
 '<div class="gs-row"><div class="gs-lab">TA 加进自己心愿单概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wlAddPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wlAddPct + '"><span class="gs-pct">%</span></div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 的心愿发到聊天<span class="gs-sub">TA 把商品加进自己心愿单时，按概率把这份心愿发一张卡片到聊天，你点【送 TA】即可买下送出；默认开启</span></div><div class="gs-switch' + (st.wishChatOn ? ' on' : '') + '" data-gsw="wishChatOn"></div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 心愿发到聊天概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="wishChatPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.wishChatPct + '"><span class="gs-pct">%</span></div></div>' +
+'<div class="gs-row"><div class="gs-lab">我送礼后 TA 回一句<span class="gs-sub">总开关：我送出的每一份礼物（市集、心意柜、TA 心愿卡上点【送 TA】都算）都有概率换 TA 回一句；默认开启</span></div><div class="gs-switch' + (st.giftReplyOn ? ' on' : '') + '" data-gsw="giftReplyOn"></div></div>' +
+'<div class="gs-row"><div class="gs-lab">TA 回一句概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="giftReplyPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.giftReplyPct + '"><span class="gs-pct">%</span></div></div>' +
+'<div class="gs-row"><div class="gs-lab">TA 回什么<span class="gs-sub">点一下切换</span></div><div class="gs-pick" id="gs-gift-reply-mode" data-v="' + st.giftReplyMode + '">' + giftReplyModeLabel(st.giftReplyMode) + '</div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
 '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
-'<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 的心愿发到聊天：TA 把商品加进自己心愿单的那一刻，按概率把这份心愿发一张卡片到聊天（默认开启、默认 60%），卡片上点【送 TA】就能买下送出，送完卡片自动变「已送出」；关掉开关或概率调 0，TA 就只默默加进心愿单、不再发卡片（聊天仍可在心意柜「看看 TA 的心愿单」里看到）。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
+'<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 的心愿发到聊天：TA 把商品加进自己心愿单的那一刻，按概率把这份心愿发一张卡片到聊天（默认开启、默认 60%），卡片上点【送 TA】就能买下送出，送完卡片自动变「已送出」；关掉开关或概率调 0，TA 就只默默加进心愿单、不再发卡片（聊天仍可在心意柜「看看 TA 的心愿单」里看到）。<br>· 我送礼后 TA 回一句：我送出的每一份礼物都有概率让 TA 回一句（默认开启、默认 60%），市集、心意柜、TA 心愿卡上点【送 TA】都算；这份礼物正好是 TA 心愿单里许着的，话术走「心愿兑现」那一套。「TA 回什么」三档＝只用系统预设话术 / 和正常聊天一样回复（走字卡与词典管线，带「正在输入…」）/ 混合（约六成预设、四成聊天式）；关掉开关或概率调 0，TA 就只默默收下礼物、不再回话（礼物照常进 TA 的心意柜）。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
 window.openTCPanel('心意集市和心意柜设置', html);
 document.querySelectorAll('#tc-body [data-gsw]').forEach(function (sw) {
 sw.addEventListener('click', function () {
@@ -1058,6 +1112,22 @@ wlSettingsSave(cur);
 toast('已保存');
 });
 });
+const modeEl = document.getElementById('gs-gift-reply-mode');
+if (modeEl && window.openModal) {
+modeEl.addEventListener('click', function () {
+const cur = wlSettings();
+window.openModal('我送礼后 TA 回什么', '', function (v) {
+const n = Math.round(Number(v));
+if (n !== 0 && n !== 1 && n !== 2) return;
+const next = wlSettings();
+next.giftReplyMode = n;
+wlSettingsSave(next);
+modeEl.textContent = giftReplyModeLabel(n);
+modeEl.dataset.v = String(n);
+toast('已保存');
+}, { noInput: true, pill: String(clampMode(cur.giftReplyMode, 1)), pills: GIFT_REPLY_MODES.map(function (m) { return { label: m.label, value: String(m.value) }; }) });
+});
+}
 }
 let giftPanel = null;
 let panelCat = '全部';
@@ -1135,6 +1205,10 @@ function renderGiftGrid(containerId, gifts, onPick, manage) {
 const el = document.getElementById(containerId); if (!el) return;
 const list = filterGifts(gifts);
 const q = normTxt(searchText).trim();
+if (!list.length && !q && window.mochiDataPending && window.mochiDataPending()) {
+el.innerHTML = window.mochiLoadingHtml('礼物商品');
+return;
+}
 const emptyTxt = q ? ('没找到「' + q + '」相关商品') : '还没有商品，点下方添加';
 el.innerHTML = list.map(function (g) { return giftItemHtml(g, manage); }).join('') || '<div class="gift-empty">' + esc(emptyTxt) + '</div>';
 el.querySelectorAll('.gift-item').forEach(function (b) {
@@ -1184,6 +1258,7 @@ giftPanel.hidden = false;
 }
 function closeGiftPanel() { if (giftPanel) giftPanel.hidden = true; }
 window.openGiftPanel = openGiftPanel;
+if (window.mochiSheetOutsideClose) window.mochiSheetOutsideClose(document.getElementById('chat-gift-panel'), closeGiftPanel);
 let marketPage = null, marketManage = false;
 function renderMarket() {
 syncGiftNames();
@@ -1195,7 +1270,18 @@ if (resetBtn) resetBtn.hidden = !(marketManage && customLoad().some(function (c)
 renderGiftCats('market-cats', 'icon', renderMarket);
 renderGiftGrid('market-grid', giftsLoad(), function (g) { openBuyDialog(g); }, marketManage);
 renderMineCard();
+syncWishBadge();
 }
+function syncWishBadge() {
+const btn = document.getElementById('market-wish');
+if (!btn) return;
+const n = taWishUnread();
+btn.innerHTML = '☆ 心愿单' + (n ? '<i class="wish-badge">' + n + '</i>' : '');
+}
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () {
+try { const gp = document.getElementById('chat-gift-panel'); if (gp && !gp.hidden) giftPanelRerender(); } catch (e) {}
+try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}
+});
 function renderMineCard() {
 const el = document.getElementById('market-mine');
 if (!el) return;
@@ -1557,7 +1643,7 @@ if (b.id === 'market-mine-add') openAddGiftForm(null);
 else if (b.id === 'market-mine-export') exportMarketGoods();
 else if (b.id === 'market-mine-import') importMarketGoods();
 });
-document.getElementById('market-wish').addEventListener('click', function () { wishTab = 'my'; renderWishPanel(); });
+document.getElementById('market-wish').addEventListener('click', function () { wishTab = taWishUnread() ? 'ta' : 'my'; renderWishPanel(); });
 document.getElementById('market-settings').addEventListener('click', openGiftSettings);
 document.getElementById('market-add').addEventListener('click', function () { if (marketManage) { marketManage = false; renderMarket(); return; } openAddGiftForm(null); });
 document.getElementById('market-manage').addEventListener('click', function () { marketManage = !marketManage; renderMarket(); });

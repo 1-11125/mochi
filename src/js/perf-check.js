@@ -92,7 +92,9 @@
     return new Promise(function (resolve) {
       if (_running) return resolve(null);
       _running = true;
-      ms = Math.max(3000, Math.min(30000, Number(ms) || 10000));
+      // #905：上限 30s→300s——时长档位放开到 5 分钟（偶发巨帧/切页类卡顿靠长窗口抓捕，
+      // 10 秒档实测约 600 帧太容易整窗漏采）；下限 3s 防误触秒断，内存不随时长增长（只累加计数器）。
+      ms = Math.max(3000, Math.min(300000, Number(ms) || 30000));
       onTick = typeof onTick === 'function' ? onTick : function () {};
       var rep = { t: Date.now(), ms: ms, frames: 0, janky: 0, severe: 0, worst: 0, hid: 0,
                   kbFrames: 0, kbJanky: 0, pages: {}, pageFrames: {}, jankMs: 0, period: 0, fps: 0, lt: null,

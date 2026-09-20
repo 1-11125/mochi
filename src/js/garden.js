@@ -23,9 +23,14 @@ function load() { try { dataPf = window.activePrefix(); var d = JSON.parse(s.get
 // b) 桌面护栏：data 归属桌面（dataPf）与当前激活桌面不一致时（切桌面后残留旧对象），
 //    绝不把旧桌面花园写进新桌面的键——放弃本次保存并按新桌面重新加载。
 var saveLock = true, dataPf = null;
+// #804 数据就绪缓冲：openGarden 在「本地垃圾空档×回填未就绪」时挂起初始化（见 openGarden 内注释），
+// 等待期 gardenSaveHold 把 save 一并扣下——probeIdb 首轮未命中就会 done() 解开 saveLock，
+// 而回填是「只补缺失键」，这期间任何默认档落盘都会把真花园永久遮蔽（#588 同域数据隐患）。
+var gardenWaitChain = false, gardenSaveHold = false;
 function save(d) {
   try {
     if (saveLock) return;
+    if (gardenSaveHold) return;
     var pfNow = window.activePrefix();
     if (dataPf && pfNow !== dataPf) { try { data = load(); } catch (e0) {} return; }
     if (batchSave) { saveDirty = true; return; }
@@ -1704,6 +1709,43 @@ function openGarden() {
   // 直接往下走会 load() 出全新空档并触发一连串自动保存（下雨浇水/访客/伙伴），
   // 把 IDB 里还没读完的老花园覆盖掉。先渲染当前内存态（可能为空），判定命中后重载。
   if (junkEmpty()) {
+    // #804：回填未就绪（mochiDataPending）时不再渲染内存默认档＋跑默认档初始化——空花园画面会被
+    // 读成「花园全丢了」，且 probeIdb 首轮 600ms 未命中就解锁放行，慢机器（41MB 桌面回填 12s+）
+    // 上 openGardenBody 的下雨浇水等无条件 save 会把全新档写进存储，回填「只补缺失键」＝真数据
+    // 永久遮蔽。改为：出「读取中」占位＋gardenSaveHold 扣住一切落盘＋1s 重探 IDB（复用 probeIdb
+    // 回填链，命中即按真数据进园）；mochi-restore-done 到来立即加速重探；35s 墙钟兜底超时按
+    // 今天的行为回退（openGardenBody 默认档——极慢/挂起存储场景与现状不差）。
+    if (window.mochiDataPending && window.mochiDataPending()) {
+      if (gardenWaitChain) return; // 等待链已在跑（离开又回来）：复用，不叠第二条
+      gardenWaitChain = true; gardenSaveHold = true;
+      var gPh = document.getElementById("garden-dataloading");
+      if (!gPh) {
+        var gScroll = page.querySelector(".garden-scroll");
+        if (gScroll) { gPh = document.createElement("div"); gPh.id = "garden-dataloading"; gScroll.appendChild(gPh); }
+      }
+      if (gPh) gPh.innerHTML = window.mochiLoadingHtml("花园");
+      var gEnd = function (hit) {
+        if (!gardenWaitChain) return;
+        gardenWaitChain = false; gardenSaveHold = false;
+        var p = document.getElementById("garden-dataloading");
+        if (p && p.parentNode) p.parentNode.removeChild(p);
+        if (!page.hidden) openGardenBody(!!hit);
+      };
+      var gDeadline = Date.now() + 35000;
+      var gTick = function () {
+        if (!gardenWaitChain) return;
+        probeIdb(function (v) {
+          if (!gardenWaitChain) return;
+          if (v) { gEnd(true); return; }
+          if (window.mochiDataPending && window.mochiDataPending() && Date.now() < gDeadline) setTimeout(gTick, 1000);
+          else gEnd(false);
+        });
+      };
+      if (window.mochiOnDataReady) window.mochiOnDataReady(function () { if (gardenWaitChain) gTick(); });
+      setTimeout(function () { if (gardenWaitChain) gEnd(false); }, 36000);
+      gTick();
+      return;
+    }
     try { renderAll(); } catch (e) {}
     // FIX 2026-09-16 #588：LS 还没回填时这里先渲染的是「内存态」＝用户看到一个**空花园**，
     //   读回前没有任何提示，最容易被当成「我的花园数据全丢了」（比卡顿更吓人）。

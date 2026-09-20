@@ -260,11 +260,11 @@
 @keyframes rGlow { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
 .r-ta-av {
   position: absolute; left: 50%; top: 0;
-  width: 34px; height: 34px; transform: translateX(-50%);
+  /* #910：34px＋opacity .92 时真人照片认不出是谁（暖光晕从底下透上来把脸洗淡）＝放大并去淡 */
+  width: 44px; height: 44px; transform: translateX(-50%) translateZ(0);
   border-radius: 50%;
   background-color: #efe6d6; background-size: cover; background-position: center;
   box-shadow: 0 0 0 2px rgba(255,255,255,.75), 0 2px 6px rgba(0,0,0,.18);
-  opacity: .92;
   pointer-events: none;
 }
 .r-ta-av.r-ta-sil {
@@ -277,9 +277,9 @@
    关键帧自带 translateX(-50%) 与基础定位完全一致，仍不与定位 transform 冲突 */
 #room-ta.walking .r-ta-av { animation: rBob .46s ease-in-out infinite; }
 #room-ta.walking .r-ta-glow { animation-duration: 1.6s; }
-@keyframes rBob { 0%,100% { transform: translateX(-50%); } 50% { transform: translateX(-50%) translateY(-4px); } }
+@keyframes rBob { 0%,100% { transform: translateX(-50%) translateZ(0); } 50% { transform: translateX(-50%) translateY(-4px) translateZ(0); } }
 /* 坐/躺等安顿姿态：略缩小下沉，显得"坐进去了" */
-#room-ta.seated .r-ta-av { width: 29px; height: 29px; margin-top: 7px; opacity: .95; }
+#room-ta.seated .r-ta-av { width: 37px; height: 37px; margin-top: 7px; }
 #room-ta.seated .r-ta-glow { width: 40px; height: 40px; top: 62%; }
 
 /* ---- 入场：灯光从暗到亮渐显 ---- */

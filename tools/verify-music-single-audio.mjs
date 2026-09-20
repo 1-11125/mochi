@@ -142,7 +142,8 @@ window.Audio = function () {
     preload: '', src: '', referrerPolicy: '',
     buffered: { length: 0, end: function () { return 0; } },
     style: {}, parentNode: { removeChild: function () {} },
-    onplay: null, onpause: null, onended: null, onerror: null, onloadedmetadata: null
+    onplay: null, onpause: null, onended: null, onerror: null, onloadedmetadata: null,
+    addEventListener: function () {}
   };
   function bump() {
     var alive = 0;

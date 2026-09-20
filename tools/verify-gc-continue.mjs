@@ -1,8 +1,10 @@
 // ===== 验证脚本：群聊「继续说」按钮（构建后无头 Chrome） =====
 // 用法：node build.mjs && node tools/verify-gc-continue.mjs
-// 检查项：①#674 顶部三点菜单左侧「让对方继续说」按钮：默认可见（不依赖 cs-trigger-bar 开关）、
-//           位置在三点菜单左边、点它收起已打开的三点菜单、点它 → 群聊成员回复（新 in 消息落库）
-//         ②开启「底部聊天栏按钮触发」后输入栏继续说按钮显示，点它 → 群聊成员回复
+// 检查项：①顶部那枚恒显的 #gc-head-continue（#674）已撤销，群聊唯一入口＝底部输入栏
+//           #gc-continue-btn，且它在 .chat-input-row 里带 data-io=continue（参与两页共用排序）
+//         ②显隐口径与单聊一致：桌面 cs-trigger-bar 与回复设置→群聊 gc-cs-trigger-bar 两半
+//           全关＝隐藏，任一开＝显示，点它 → 群聊成员回复（新 in 消息落库）
+//         ③全程零 JS 异常
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -98,11 +100,13 @@ await sleep(2500);
 for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
 await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide'))s.click();return true;})()");
 await sleep(900);
-// 开局：进群聊页，并刻意把「底部聊天栏按钮触发」关掉——顶部那枚按钮不归这个开关管。
+// 开局：进群聊页，并刻意把「继续说」按钮的两半开关都关掉（本联系人桌面 cs-trigger-bar ＋
+// 回复设置→群聊 gc-cs-trigger-bar）——顶部那枚恒显按钮已撤销，输入栏这一枚的显隐口径要
+// 与单聊输入栏完全一致：关着就该藏起来，开着才出现。
 // 回复速度钉到 1 秒：群聊默认 1~40 秒随机，不钉死的话「点完等回复」的断言会随机超时。
 // 注意群聊设置的真实存储键是 xy-home-v2:reply-gc-gc-*（reply-settings 的 gcRead/gcWrite 对
 // gc- 前缀的键会再拼一次 'reply-gc-'）——只写 reply-gc-* 读不到，等于没设。
-await evalJs("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-group-chat');});try{var st=window.activeStore();st.set('cs-trigger-bar','0');}catch(e){}try{var g=window.xyStore('xy-home-v2');g.set('reply-gc-gc-rs-min','1');g.set('reply-gc-gc-rs-max','1');g.set('reply-gc-rs-min','1');g.set('reply-gc-rs-max','1');}catch(e){}document.dispatchEvent(new Event('continue-say-changed'));return true;})()");
+await evalJs("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-group-chat');});try{var st=window.activeStore();st.set('cs-trigger-bar','0');}catch(e){}try{var g=window.xyStore('xy-home-v2');g.set('reply-gc-gc-cs-trigger-bar','0');g.set('reply-gc-gc-rs-min','1');g.set('reply-gc-gc-rs-max','1');}catch(e){}document.dispatchEvent(new Event('continue-say-changed'));document.dispatchEvent(new Event('gc-continue-say-changed'));return true;})()");
 await sleep(400);
 const speed = await evalJs("(function(){try{var c=window.groupChatCfg?window.groupChatCfg():{};return JSON.stringify({min:c['gc-rs-min'],max:c['gc-rs-max']});}catch(e){return ''+e;}})()");
 let sp = null; try { sp = JSON.parse(speed); } catch (e) {}
@@ -118,42 +122,45 @@ const diag = await evalJs("(function(){" +
   "return JSON.stringify({contacts:members.length,pageVisible:page?!page.hidden:false,typingHidden:typing?typing.hidden:'na',msgs:JSON.parse(localStorage.getItem('xy-home-v2:group-chat-msgs')||'[]').length});" +
   "})()");
 
-// ---- A 轴（#674）：顶部三点菜单左侧「让对方继续说」按钮 ----
-// 先点开三点菜单，再点顶部继续说按钮：既验证按钮位置/可见性，也验证点它会把已打开的菜单收起来
+// ---- A 轴（#674 撤销）：入口只剩输入栏那一枚，且不再走「顶部恒显」 ----
 const headState = await evalJs("(function(){" +
-  "var h=document.getElementById('gc-head-continue');if(!h)return 'missing';" +
-  "var more=document.getElementById('gc-more-btn');var menu=document.getElementById('gc-more-menu');" +
-  "if(more)more.click();var opened=menu?menu.hidden===false:null;" +
-  "h.click();var closed=menu?menu.hidden===true:null;" +
-  "var left=null;try{left=h.getBoundingClientRect().left<more.getBoundingClientRect().left;}catch(e){left='na';}" +
-  "return JSON.stringify({display:getComputedStyle(h).display,title:h.title,opened:opened,closed:closed,leftOfMore:left});" +
-  "})()");
-await sleep(20000);
-const afterA = await evalJs("(function(){" + countMsgs + "var n=msgs.slice(" + before + ");return JSON.stringify({count:n.length,inCount:n.filter(function(m){return m.side==='in';}).length});})()");
-
+  "var h=document.getElementById('gc-head-continue');" +
+  "var b=document.getElementById('gc-continue-btn');" +
+  "var row=b?b.closest('.chat-input-row'):null;" +
+  "var chatBtn=document.querySelector('#page-chat .chat-input-row [data-io=\"continue\"]');" +
+  "return JSON.stringify({" +
+  "topGone:!h," +
+  "btnExists:!!b," +
+  "inInputRow:!!row && row.classList.contains('gc-input-row')," +
+  "hasIoToken:!!b && b.getAttribute('data-io')==='continue'," +
+  "hiddenWhenOff:b?getComputedStyle(b).display==='none':null," +
+  "sameRowAsSingleChat:!!(row&&chatBtn&&row!==chatBtn.closest('.chat-input-row'))" +
+  "});})()");
 let hs = null;
 try { hs = JSON.parse(headState); } catch (e) {}
-check('A1 #674 顶部「让对方继续说」按钮存在且默认可见（cs-trigger-bar 关着也在）',
-  hs && hs.display !== 'none' && hs.display !== 'missing' && hs.title === '让对方继续说',
-  headState);
-check('A2 #674 按钮在三点菜单左侧（用户要求的落位）', hs && hs.leftOfMore === true, hs ? 'leftOfMore=' + hs.leftOfMore : '');
-check('A3 点顶部继续说按钮会收起已打开的三点菜单（stopPropagation 后不靠外点关闭）',
-  hs && hs.opened === true && hs.closed === true, hs ? 'open=' + hs.opened + ' closed=' + hs.closed : '');
-let aA = null; try { aA = JSON.parse(afterA); } catch (e) {}
-check('A4 点顶部按钮 → 群聊成员回复（新增 in 消息落库）',
-  aA && aA.count > 0 && aA.inCount > 0, afterA);
+check('A1 顶部那枚「让对方继续说」已从 DOM 移除（入口统一到输入栏）',
+  hs && hs.topGone === true, headState);
+check('A2 输入栏「继续说」按钮在位、带 data-io=continue 令牌（参与两页共用的排序）',
+  hs && hs.btnExists === true && hs.hasIoToken === true && hs.inInputRow === true, headState);
+check('A3 与单聊同口径：两半开关都关时输入栏按钮隐藏（单聊那排此时也在隐藏，位置由同一份顺序决定）',
+  hs && hs.hiddenWhenOff === true, headState);
 
-// ---- B 轴：输入栏「继续说」按钮（原有行为，开关控制显隐） ----
-await evalJs("(function(){try{window.activeStore().set('cs-trigger-bar','1');}catch(e){}document.dispatchEvent(new Event('continue-say-changed'));return true;})()");
-await sleep(400);
+// ---- B 轴：任一开关打开 → 输入栏按钮出现并可触发成员回复 ----
 const beforeB = await evalJs("(function(){" + countMsgs + "return msgs.length;})()");
-const btn = await evalJs("(function(){var b=document.getElementById('gc-continue-btn');if(!b)return 'missing';var d=getComputedStyle(b).display;b.click();return d;})()");
+const btn = await evalJs("(function(){try{window.activeStore().set('cs-trigger-bar','1');}catch(e){}document.dispatchEvent(new Event('continue-say-changed'));var b=document.getElementById('gc-continue-btn');if(!b)return 'missing';var d=getComputedStyle(b).display;b.click();return d;})()");
 await sleep(20000);
 const afterB = await evalJs("(function(){" + countMsgs + "var n=msgs.slice(" + beforeB + ");return JSON.stringify({count:n.length,inCount:n.filter(function(m){return m.side==='in';}).length});})()");
-const errs = await evalJs("JSON.stringify(window.__gcErrs||[])");
-check('B1 开启开关后输入栏继续说按钮显示且可点击', btn !== 'missing' && btn !== 'none', 'display=' + btn);
 let bB = null; try { bB = JSON.parse(afterB); } catch (e) {}
+check('B1 打开桌面开关后输入栏继续说按钮显示且可点击', btn !== 'missing' && btn !== 'none', 'display=' + btn);
 check('B2 点输入栏继续说按钮 → 群聊成员回复（新增 in 消息落库）', bB && bB.inCount > 0, afterB);
+// 群聊全局开关那一半单独验一次（关掉桌面开关、只开 gc-cs-trigger-bar）
+const btnG = await evalJs("(function(){try{window.activeStore().set('cs-trigger-bar','0');}catch(e){}" +
+  "try{window.xyStore('xy-home-v2').set('reply-gc-gc-cs-trigger-bar','1');}catch(e){}" +
+  "document.dispatchEvent(new Event('continue-say-changed'));document.dispatchEvent(new Event('gc-continue-say-changed'));" +
+  "var b=document.getElementById('gc-continue-btn');return b?getComputedStyle(b).display:'missing';})()");
+check('B3 只开「回复设置→群聊·底部聊天栏按钮触发」也能让按钮出现（群聊侧开关独立生效）',
+  btnG !== 'missing' && btnG !== 'none', 'display=' + btnG);
+const errs = await evalJs("JSON.stringify(window.__gcErrs||[])");
 check('C 全程零 JS 异常', errs === '[]', errs);
 try { if (ws) ws.close(); } catch (e) {}
 try { chrome.kill(); } catch (e) {}

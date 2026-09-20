@@ -173,9 +173,10 @@ let oo = null; try { oo = JSON.parse(b5b); } catch (e) {}
 check('B5b 普通浏览器（非 brokenFileShare）不多这一步：下载后不弹追问弹窗',
   oo && oo.title !== '文件已保存了吗？', b5b);
 
-// 打开 brokenFileShare 环境（夸克/华为同款）后重走一遍：确认弹窗 → 确定 → 追问弹窗 + 换路按钮
+// 打开追问名单环境（#815：闸门改读 env.downloadAsk＝壳家族∪能力缺口∪iOS 独立容器；夸克/华为仍在名单内）
+// 后重走一遍：确认弹窗 → 确定 → 追问弹窗 + 换路按钮
 await evalJs(`(function(){
-  try { window.mochiDevice.env.brokenFileShare = true; } catch(e){}
+  try { window.mochiDevice.env.downloadAsk = true; } catch(e){}
   return true;
 })()`);
 await evalJs(`(function(){ (window.mochiDiagExportDocx || function(){})( '壳浏览器换路测试正文', 'mochi-docx-alt-', '失败文案', function(){}); return true; })()`);
@@ -190,7 +191,7 @@ const b5c = await evalJs(`(function(){
     expVisible: !!exp && !exp.hidden, expLabel: exp ? exp.textContent : '' });
 })()`);
 oo = null; try { oo = JSON.parse(b5c); } catch (e) {}
-check('B5c brokenFileShare 内核：下载后弹「文件已保存了吗？」并给出换路按钮',
+check('B5c 追问名单内核（#815 downloadAsk）：下载后弹「文件已保存了吗？」并给出换路按钮',
   oo && oo.title === '文件已保存了吗？' && oo.expVisible && (oo.expLabel || '').indexOf('换一种方式') >= 0, b5c);
 
 // 点换路按钮：分享面板可用 → 必须把 docx 作为 File 交给 navigator.share（#333 该类内核唯一可靠通道）

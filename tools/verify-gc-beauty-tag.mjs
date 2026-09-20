@@ -5,7 +5,7 @@
 //   A 源码锚：美化 tag 进 GTABS、renderBeautyView(host)、切 tag 记忆、边看边调入口/抽屉、
 //             新增三组键（气泡透明度/栏位不透明度/位置微调）、CSS 作用域规则
 //   B 运行时（无头 Chrome 走自组装 src 页）：
-//     B1 顶部五个 tag；B2 点「美化」tag 出美化段 + 边看边调入口；B3 新增行都在；
+//     B1 顶部七个 tag（#794 起含成员/群聊）；B2 点「美化」tag 出美化段 + 边看边调入口；B3 新增行都在；
 //     B4 改值后面板重建仍停在「美化」（不弹回形象）；
 //     B5 点边看边调 → 设置面板收起 + 底部抽屉出现；B6 三胶囊；
 //     B7 气泡透明度滑杆 → 气泡底色变 rgba + 落库；
@@ -44,8 +44,8 @@ let cssFiles = [], jsFiles = [];
 const overrides = {};
 if (RED) {
   const gcs = readFileSync(join(root, 'src/js/group-chat.js'), 'utf8');
-  const tabsNew = "[['profile', '形象'], ['reply', '回复'], ['beauty', '美化'], ['general', '通用'], ['data', '数据']]";
-  const tabsOld = "[['profile', '形象'], ['reply', '回复'], ['general', '通用'], ['data', '数据']]";
+  const tabsNew = "[['profile', '形象'], ['members', '成员'], ['group', '群聊'], ['reply', '回复'], ['beauty', '美化'], ['general', '通用'], ['data', '数据']]";
+  const tabsOld = "[['profile', '形象'], ['members', '成员'], ['group', '群聊'], ['reply', '回复'], ['general', '通用'], ['data', '数据']]";
   if (gcs.indexOf(tabsNew) < 0) { console.error('RED 模式：group-chat.js 里找不到 #697 的 GTABS'); process.exit(1); }
   let red = gcs.replace(tabsNew, tabsOld);
   red = red.replace('rootEl.insertBefore(liveBtn, rootEl.firstChild);', '/* red: 入口摘掉 */');
@@ -133,7 +133,9 @@ ok('A7 气泡透明度→rgba 写回底色变量', gsSrc.indexOf('function gcApp
 ok('A8 CSS 作用域规则（留白 + 顶/底栏底色）', gcssSrc.indexOf('#page-group-chat::before { height:var(--cs-head-inset, 0px); }') >= 0
   && gcssSrc.indexOf('#page-group-chat > .chat-head { background:rgba(var(--cs-bar-rgb), var(--cs-head-opacity, .92)); }') >= 0
   && gcssSrc.indexOf('#page-group-chat > .chat-input-row { background:rgba(var(--cs-bar-rgb), var(--cs-input-opacity, .92)); }') >= 0);
-ok('A9 「通用」里旧入口保留为兼容（不破坏既有子视图）', gsSrc.indexOf("bRow.addEventListener('click', () => { gcBeautyView = true; renderSettingsPanel(); });") >= 0);
+ok('A9 「通用」里「美化聊天」入口切到「美化」tag（#816：旧 gcBeautyView 子视图已退役，全站只剩美化 tag 一套）',
+  gsSrc.indexOf("bRow.addEventListener('click', () => { gcSetTab = 'beauty'; renderSettingsPanel(); });") >= 0
+  && gsSrc.indexOf('gcBeautyView = true') < 0 && gsSrc.indexOf("let gcBeautyView") < 0);
 
 await cdpConnect();
 await cdp('Runtime.enable');
@@ -160,7 +162,8 @@ await sleep(500);
 
 console.log('== B 顶部 tag 与美化段 ==');
 const b1 = await evalJs("(function(){var b=document.getElementById('gc-set-body');if(!b)return null;return {open:!document.getElementById('gc-settings-panel').hidden,tabs:Array.from(b.querySelectorAll('.gc-set-tabs .them-tab')).map(function(t){return t.textContent;}),vis:Array.from(b.querySelectorAll('.gc-set-sec')).filter(function(s){return !s.hidden;}).map(function(s){return s.dataset.gt;})};})()");
-ok('B1 面板打开 + 顶部五个 tag（形象/回复/美化/通用/数据）', !!(b1 && b1.open && b1.tabs.join('/') === '形象/回复/美化/通用/数据'), b1);
+ok('B1 面板打开 + 顶部七个 tag（#794 起：形象/成员/群聊/回复/美化/通用/数据），「美化」仍在顶部',
+  !!(b1 && b1.open && b1.tabs.join('/') === '形象/成员/群聊/回复/美化/通用/数据' && b1.tabs.indexOf('美化') >= 0), b1);
 ok('B1b 默认仍显示「形象」段（不改变进面板落点）', !!(b1 && b1.vis.join() === 'profile'), b1);
 
 const b2 = await evalJs("(function(){var t=document.querySelector('#gc-set-body .gc-set-tabs .them-tab[data-gt=\"beauty\"]');if(!t)return null;t.click();return 1;})()");

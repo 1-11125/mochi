@@ -1087,6 +1087,36 @@
   //     那组硬编码 emoji），而面板只列图片贴纸，用户选不到 TA 会贴的那类。这里把 emoji 抽成
   //     常量 FEED_STICKER_EMOJI，TA 回贴与面板共用，并作为「emoji 贴纸」分组列出。
   const FEED_STICKER_EMOJI = ['\u2764\ufe0f', '\ud83d\ude18', '\ud83e\udd70', '\ud83d\udc4d', '\ud83d\ude02', '\ud83c\udf08', '\u2728', '\ud83c\udf80', '\ud83d\ude3b', '\ud83e\udd17'];
+  // FIX 2026-09-19 #798 用户报「【emoji贴纸】里贴纸不全，没有联系人默认可以使用的全部 emoji 贴纸」：
+  //   #669 把这组兜底常量当成了面板与 TA 回贴的唯一 emoji 来源（10 个），而联系人在聊天/朋友圈里贴的
+  //   emoji 出自「emoji 字卡」池——有自建就用自建，没有则用系统预设 emoji 分类（7 组）。改为与回复池
+  //   同源，常量只在两池皆空时兜底（预设字卡被总闸/分类闸关掉、二级锁、库缺失）；TA 回贴走同一函数，
+  //   维持 #669 的不变式「面板里能选到的＝TA 真的会贴的」。闸门口径照抄本文件朋友圈补池那一段
+  //  （按当前联系人桌面读开关＋单卡停用过滤），关掉「朋友圈使用」时面板不再越权列出预设 emoji。
+  function feedStickerEmojiPool() {
+    const out = [], seen = new Set();
+    const add = (v) => { if (typeof v === 'string' && v && !seen.has(v)) { seen.add(v); out.push(v); } };
+    try {
+      ['public', 'own'].forEach(sc => {
+        ((window.getScopedGroups && window.getScopedGroups('emoji', sc)) || []).forEach(g => (g[1] || []).forEach(add));
+      });
+    } catch (e) {}
+    if (!out.length) {
+      try {
+        const st = window.storeFor ? window.storeFor(window.__activeCid || 'default') : null;
+        const a = (window.defaultCardApiFor && st) ? window.defaultCardApiFor(st) : null;
+        const useFeed = a ? a.use('feed') : (window.defaultCardUse ? window.defaultCardUse('feed') : true);
+        const en = a ? a.enabled() : ((window.defaultCardCfg && window.defaultCardCfg().enabled) !== false);
+        if (en && useFeed && window.getDefaultCardGroups) {
+          const catOn = a ? a.cat : (window.defaultCardCat || (() => true));
+          const isOff = a ? a.isOff : (window.isDefaultCardOff || null);
+          if (catOn('emoji')) (window.getDefaultCardGroups('emoji') || []).forEach(g => (g[1] || []).forEach(c => { if (isOff && isOff('emoji', c)) return; add(c); }));
+        }
+      } catch (e) {}
+    }
+    if (!out.length) FEED_STICKER_EMOJI.forEach(add);
+    return out;
+  }
   function feedStickerGroups() {
     const savedTab = comStickerTab;
     let ta = [], mine = [];
@@ -1096,7 +1126,7 @@
     const out = [];
     (ta || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'ta' + i, label: String(g[0]), kind: 'img', items: g[1] }); });
     (mine || []).forEach((g, i) => { if (g && g[1] && g[1].length) out.push({ key: 'mn' + i, label: '\u6211\u7684\u00b7' + String(g[0]), kind: 'img', items: g[1] }); });
-    out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });
+    out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: feedStickerEmojiPool() });
     return out;
   }
   let feedStickerCard = null;
@@ -1303,8 +1333,9 @@
     const srcs = [];
     g.forEach(x => (x[1] || []).forEach(s => srcs.push(s)));
     if (srcs.length && Math.random() < 0.7) return { src: srcs[Math.floor(Math.random() * srcs.length)] };
-    // FIX 2026-09-17 #669 与贴纸面板「emoji 贴纸」分组共用同一常量（面板要能选到 TA 会贴的那种）
-    return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };
+    // FIX 2026-09-19 #798 改走与面板同源的 emoji 池（池空时该函数自己回落到 FEED_STICKER_EMOJI）
+    const em = feedStickerEmojiPool();
+    return { emoji: em[Math.floor(Math.random() * em.length)] };
   }
   function removeFeedSticker(pid, i) {
     if (!window.openModal) return;
@@ -2403,9 +2434,6 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   // 单个联系人的 TA 自动发动态（用该联系人自己的字卡 + TA 身份）
   function maybeAutoPostFor(cid) {
     try {
-      // #876 夜间静默：TA 自动发动态夜间不生成——不写 feed-last/计数（周期保持到期），
-      // 7:00 后下一个 60 秒轮询照常补发；聊天提示另由 addRec 总闸兜底
-      if (window.nightModeActive && window.nightModeActive()) return;
       const cs = window.storeFor(cid);
       const now = Date.now();
       // v3.7.x：各桌面的 TA 用各自桌面的朋友圈设置（原实现用当前桌面 cfg，串设置）

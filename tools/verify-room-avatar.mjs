@@ -124,9 +124,14 @@ async function openRoomOn(cid) {
 async function roomProbe() {
   return evalJs(`(function(){
     var av=document.querySelector('#room-ta .r-ta-av');
+    var cs=av?getComputedStyle(av):null, r=av?av.getBoundingClientRect():null;
     return JSON.stringify({
       bg: av ? (av.style.backgroundImage||'').slice(-30) : null,
       sil: av ? av.classList.contains('r-ta-sil') : null,
+      avW: r ? +r.width.toFixed(1) : null,
+      avOpacity: cs ? cs.opacity : null,
+      avFilter: cs ? String(cs.filter) : null,
+      avFaint: document.getElementById('room-ta').classList.contains('r-faint'),
       furnN: document.querySelectorAll('#room-floor .r-furn').length,
       pts: (document.getElementById('room-chip-pt').textContent||''),
       wall: document.getElementById('room-wall').className
@@ -172,6 +177,21 @@ await evalJs("(function(){window.openRoom();return true;})()");
 await sleep(500);
 let pE = {}; try { pE = JSON.parse(await roomProbe()); } catch (e) {}
 check('E1 切换广播后重进房：头像=B蓝', (pE.bg.indexOf(reB) >= 0 && pE.bg.indexOf(setup.avA) < 0) && pE.sil === false, JSON.stringify(pE));
+
+// ---- G 组：观感面（用户直派「房间功能里联系人的头像很模糊看不清」）----
+// 房间有 14% 概率把 TA 掷成「隐约」态（自带 opacity .16＋blur），先摘回常态再探针，重试到确认非隐约
+let pG = {};
+for (let g = 0; g < 10; g++) {
+  await evalJs("(function(){var t=document.getElementById('room-ta');if(t)t.classList.remove('r-faint');return true;})()");
+  await sleep(120);
+  try { pG = JSON.parse(await roomProbe()); } catch (e) {}
+  if (pG.avFaint === false && pG.sil === false) break;
+  await sleep(300);
+}
+check('G0 探针落在常态（非隐约态、且头像是真图片非剪影）', pG.avFaint === false && pG.sil === false, JSON.stringify(pG));
+check('G1 头像实际渲染尺寸 >=44 CSS px（34px 时真人照片认不出是谁）', pG.avW !== null && pG.avW >= 44, 'avW=' + pG.avW);
+check('G2 头像不透明度为 1（.92 时暖光晕从底下透上来把脸洗淡）', pG.avOpacity === '1', 'opacity=' + pG.avOpacity);
+check('G3 常态下头像不带任何模糊滤镜（计算 filter 为 none）', pG.avFilter === 'none', 'filter=' + pG.avFilter);
 
 // ---- F 组：无 JS 异常 ----
 const jsErr = await evalJs('(window.__jsErrors||[]).filter(function(e){return String(e).indexOf("room")>=0 || String(e).indexOf("activeStore")>=0;}).length');

@@ -486,6 +486,7 @@ ts: t.ts, ico: '💌', text: t.text, sub: pn() + '捡到的', key: 'tf:' + t.id,
 ts: m.ts, ico: '🌊', text: m.text, sub: '我放入的', key: 'mf:' + m.id, rec: m, mine: true
 }))).sort((a, b) => b.ts - a.ts);
 if (!rows.length) {
+if (window.mochiDataPending && window.mochiDataPending()) { el.innerHTML = window.mochiLoadingHtml('漂流瓶'); return; }
 el.innerHTML = '<div class="dl-empty">' + (tab === 'mine' ? '还没有放过的瓶子。写一句话放进海里吧。<br><button class="memo-send-btn" id="dl-empty-put" style="margin-top:8px">写一句话放瓶子</button>' : tab === 'got' ? '还没有捡到的瓶子。去海边捡一个试试。' : tab === 'theirs' ? '还没有捡到过你说的话。多去捡几次，说不定就被 TA 捞起来了。' : '还没有收藏的瓶子。') + '</div>';
 return;
 }
@@ -518,6 +519,13 @@ if (cap) cap.textContent = night ? '夜里的海，把声音都藏起来了' : '
 }
 function isNight() { const h = new Date().getHours(); return h >= 19 || h < 6; }
 function renderAll() { renderSea(); renderStats(); renderList(); tickCd(); updateTheirsTab(); }
+if (window.mochiOnDataReady) window.mochiOnDataReady(function () {
+try {
+if (page.hidden) return;
+d = load();
+renderStats(); renderList();
+} catch (e) {}
+});
 function updateTheirsTab() {
 const t = $('d-tab-theirs');
 if (t) t.textContent = pn() + '捡到的漂流瓶';

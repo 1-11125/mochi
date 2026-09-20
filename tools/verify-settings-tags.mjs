@@ -1,11 +1,12 @@
-// #525 设置页 tag 分类行为验证（无头 Chrome，测构建产物 index.html）
-// 立项：用户反馈「清除本地数据的功能应该也放在设置的【工具】tag 里啊，设置的 tag 分类有问题，不正常」。
-// 根因（src/template.html）：#520 设置页分区改版时，「清除本地数据」(#row-reset) 与「功能介绍」
-//   一同放进 data-sec="about"，而导出/导入/查看存储/诊断等数据工具都在 data-sec="tools"——
-//   同类功能被拆到两个 tag，用户按常识去「工具」找清理入口找不到。
-// 修复（最小改动）：把 #row-reset 的整行搬进 tools 段（独立成组、置于该段末项），about 段只留功能介绍。
-// 判别器：①src 静态——row-reset 在 tools 段内、不在 about 段；②产物行为——点「工具」tag 后该行可见且
-//   可点开确认弹窗；点「关于」tag 后该行隐藏；③五个 tag 互斥切换且任一时刻只有一个 them-sec 可见；
+// #525→#805 设置页 tag 分类行为验证（无头 Chrome，测构建产物 index.html）
+// 立项：用户反馈「清除本地数据的功能应该也放在设置的【工具】tag 里啊，设置的 tag 分类有问题，不正常」
+//   → #525 把 #row-reset 自「关于」段移入「工具」段末项。
+// #805（2026-09-19 用户直派）：「导入全量数据和导出全量数据、清除本地数据应该放在通用的分类里，
+//   其他分类太靠后，不方便用户知道还有这个功能」→ 三件套（row-export / row-import / row-reset）
+//   自「工具」段移入「通用」段：导出/导入成组置联系人组之后，清除本地数据独立成组置段末。
+// 判别器：①src 静态——row-reset / row-export / row-import 都在 basic 段内、不在 tools/about 段；
+//   ②产物行为——点「通用」tag 后三行可见、清除可点开确认弹窗；点「关于」tag 后该行隐藏；
+//   ③五个 tag 互斥切换且任一时刻只有一个 them-sec 可见；
 //   ④结构回归兜底——#page-setting 仍正确闭合（tabbar 未被吞）。
 // 用法：node build.mjs && node tools/verify-settings-tags.mjs
 // 用法（RED 基线/隔离根）：SERVE_ROOT=<目录> node tools/verify-settings-tags.mjs
@@ -27,14 +28,20 @@ const ok = (cond, name, extra) => {
 
 // ===== 静态：src/template.html 的 tag 归属 =====
 const tpl = readFileSync(join(root, 'src', 'template.html'), 'utf8');
+const iBasic = tpl.indexOf('data-sec="basic"');
+const iChat = tpl.indexOf('data-sec="chat"');
 const iTools = tpl.indexOf('data-sec="tools"');
 const iAbout = tpl.indexOf('data-sec="about"');
 const iVer = tpl.indexOf('<div class="ver">');
+const basicSrc = tpl.slice(iBasic, iChat);
 const toolsSrc = tpl.slice(iTools, iAbout);
 const aboutSrc = tpl.slice(iAbout, iVer);
-ok(iTools > 0 && iAbout > iTools, 'S1 tools/about 两段存在且顺序正确（tools 在前）');
-ok(toolsSrc.includes('id="row-reset"'), 'S2 清除本地数据(#row-reset) 落在 tools 段内');
+ok(iBasic > 0 && iChat > iBasic && iTools > iChat && iAbout > iTools, 'S1 basic/chat/tools/about 四段存在且顺序正确');
+ok(basicSrc.includes('id="row-reset"'), 'S2 清除本地数据(#row-reset) 落在 basic（通用）段内');
 ok(!aboutSrc.includes('id="row-reset"'), 'S3 清除本地数据不在 about 段内');
+ok(!toolsSrc.includes('id="row-reset"'), 'S3b 清除本地数据不在 tools 段内（#805 已移通用）');
+ok(basicSrc.includes('id="row-export"') && basicSrc.includes('id="row-import"'), 'S5 导出数据/导入数据两行也落在 basic（通用）段内（#805）');
+ok(!toolsSrc.includes('id="row-export"') && !toolsSrc.includes('id="row-import"'), 'S6 导出/导入不在 tools 段内（#805 已移通用）');
 
 const setTabsSrc = (function () {
   const i = tpl.indexOf('id="set-tabs"');
@@ -139,16 +146,19 @@ for (const name of ['basic', 'chat', 'system', 'tools', 'about']) {
 }
 ok(mutexOk, 'B2 五个 tag 互斥切换（任一时刻仅对应段可见且高亮）', mutexDetail);
 
-// B3 row-reset 的 tag 归属（DOM 祖先）
-const anc = J(await evalJs(`(function(){var r=document.getElementById('row-reset');if(!r)return JSON.stringify({found:false});var sec=r.closest('.them-sec');return JSON.stringify({found:true,sec:sec?sec.dataset.sec:null,inAbout:!!r.closest('.them-sec[data-sec="about"]')});})()`));
-ok(anc.found === true && anc.sec === 'tools', 'B3 【工具】tag 下能找到清除本地数据（祖先 data-sec=tools）', JSON.stringify(anc));
-ok(anc.inAbout === false, 'B4 清除本地数据不再是【关于】tag 的成员', JSON.stringify(anc));
+// B3 数据备份三行的 tag 归属（DOM 祖先）：#805 后都应属 basic（通用）
+const anc = J(await evalJs(`(function(){function w(id){var r=document.getElementById(id);if(!r)return null;var s=r.closest('.them-sec');return s?s.dataset.sec:null;}return JSON.stringify({reset:w('row-reset'),exp:w('row-export'),imp:w('row-import')});})()`));
+ok(anc.reset === 'basic', 'B3 清除本地数据祖先 data-sec=basic（#805 移通用）', JSON.stringify(anc));
+ok(anc.exp === 'basic' && anc.imp === 'basic', 'B3b 导出数据/导入数据祖先 data-sec=basic（#805 移通用）', JSON.stringify(anc));
+ok(anc.reset !== 'about' && anc.reset !== 'tools', 'B4 清除本地数据不再属于【关于】/【工具】段', JSON.stringify(anc));
 
-// B5 切到「工具」：该行可见、几何非零
-await evalJs(`(function(){var t=document.querySelector('#set-tabs .them-tab[data-tab="tools"]');if(t)t.click();return true;})()`);
+// B5 切到「通用」：该行可见、几何非零
+await evalJs(`(function(){var t=document.querySelector('#set-tabs .them-tab[data-tab="basic"]');if(t)t.click();return true;})()`);
 await sleep(220);
 const geo = J(await evalJs(`(function(){var r=document.getElementById('row-reset');if(!r)return JSON.stringify({found:false});var b=r.getBoundingClientRect();return JSON.stringify({found:true,vis:(r.offsetParent!==null),h:Math.round(b.height),w:Math.round(b.width),txt:r.querySelector('.txt')?r.querySelector('.txt').textContent.trim():''});})()`));
-ok(geo.found === true && geo.vis === true && geo.h > 0 && geo.w > 0, 'B5 「工具」tag 下该行可见且几何非零', JSON.stringify(geo));
+ok(geo.found === true && geo.vis === true && geo.h > 0 && geo.w > 0, 'B5 「通用」tag 下该行可见且几何非零', JSON.stringify(geo));
+const geo3 = J(await evalJs(`(function(){function v(id){var r=document.getElementById(id);return r?(r.offsetParent!==null):false;}return JSON.stringify({exp:v('row-export'),imp:v('row-import')});})()`));
+ok(geo3.exp === true && geo3.imp === true, 'B5b 「通用」tag 下导出/导入两行可见', JSON.stringify(geo3));
 ok((geo.txt || '').indexOf('清除本地数据') >= 0, 'B6 该行文案＝清除本地数据', geo.txt);
 
 // B7 点击该行弹出确认弹窗（清除入口真的通了，不只是搬了个位置）

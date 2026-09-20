@@ -480,7 +480,8 @@ try {
       if (modalBox) modalBox.classList.toggle('modal--big', !!opts.big);
       // v3.3x.x：opts.warn——警示形态（红描边/红标题/红底说明，样式见 base.css .modal--warn）。
       // 备份提醒用它：「数据会被设备自动清空」这条必须一眼被看见。同 big 一样每次开弹窗重设类。
-      if (modalBox) modalBox.classList.toggle('modal--warn', !!opts.warn);      // v3.20.x：每次打开弹窗重置底部确认按钮文案为默认「确定」——此前只在调用方显式
+      if (modalBox) modalBox.classList.toggle('modal--warn', !!opts.warn);
+      // v3.20.x：每次打开弹窗重置底部确认按钮文案为默认「确定」——此前只在调用方显式
       // ctl.okText() 时才会写，若某次弹窗（如心意币「申请」）设过、下一个弹窗
       // （如跨桌面通话/查岗的 pill 弹窗）没设，按钮就残留显示上一个弹窗文案。
       // 需要定制文案的调用方在 openModal 返回后调 ctl.okText() 覆盖即可。
@@ -8739,7 +8740,7 @@ try {
     });
     bind('row-faq-app2', () => {
       open('关于“自己转 App 使用”',
-        '类似“一个木函”那种链接转应用的方式，没有我的原代码，本质是浏览器套壳，不是真正的 App，反而可能出现非常多的适配问题。所以不如直接浏览器使用，体验更稳定。');
+        '类似“一个木函”那种链接转应用的方式，没有我的原代码，本质是浏览器套壳，不是真正的 App，反而可能出现非常多的适配问题。所以不如直接浏览器使用，体验更稳定。\n\n替代方案：「浏览器 → 安装快捷方式到手机桌面」是可以正常使用的（PWA 方式，还能开全屏，效果最接近真正的 App）。');
     });
     bind('row-faq-addcard', () => {
       open('怎么添加字卡',
@@ -9565,7 +9566,11 @@ try {
         if (!bar) {
           bar = document.createElement('div');
           bar.id = 'perf-check-bar';
-          bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.5;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);';
+          // #905：进度浮条从「底部横条」改「顶部居中小胶囊」——底部条把 tabbar/聊天输入栏/
+          // 返回按钮这些用户实测时要点的按钮盖住了（用户实报「位置太靠下不居中，挡住按钮」；
+          // pointer-events:none 本就点了穿透，问题在视觉遮挡）。顶部胶囊避开全部底部操作区，
+          // 只占页面标题上方窄条；宽度按内容自适应（max-width 防长文案溢出）。
+          bar.style.cssText = 'position:fixed;top:max(14px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:88%;z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:8px 14px;border-radius:999px;font-size:12px;line-height:1.45;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           document.body.appendChild(bar);
         }
         bar.textContent = txt;
@@ -9574,17 +9579,54 @@ try {
     function hideBar() { try { if (bar && bar.parentNode) bar.parentNode.removeChild(bar); } catch (e) {} bar = null; }
     row.addEventListener('click', function () {
       if (!window.openModal || window.mochiPerfCheck.running()) return;
-      window.openModal('卡顿自检（渲染层实测）', '', function () {
-        // 点确定＝开始：弹窗即关，用户去任意页面正常操作 10 秒，底部浮条实时倒数，结束自动弹报告
-        window.mochiPerfCheck.start(10000, function (p) {
-          showBar('卡顿实测中…剩 ' + p.left + ' 秒｜已采 ' + p.frames + ' 帧，掉帧 ' + p.janky + '（可正常使用手机，去卡的地方操作）');
+      // #905：时长可选（用户实报「为什么只能测十秒，不合理」）——纯 pills 弹窗确定时 cb(pillVal)，
+      // 默认 30 秒（原 10 秒样本太少：60fps 下才 ~600 帧，偶发巨帧很容易整窗漏采），10/60 可换。
+      window.openModal('卡顿自检（渲染层实测）', '', function (v) {
+        var durMs = { 10: 10000, 30: 30000, 60: 60000, 120: 120000, 300: 300000 }[String(v)] || 30000;
+        // 点确定＝开始：弹窗即关，用户去任意页面正常操作所选时长，顶部浮条实时倒数，结束自动弹报告
+        window.mochiPerfCheck.start(durMs, function (p) {
+          showBar('卡顿实测中…剩 ' + p.left + ' 秒｜已采 ' + p.frames + ' 帧 · 掉帧 ' + p.janky);
         }).then(function (r) {
           hideBar();
           if (!r) return;
           echoLast();
-          window.openModal('卡顿自检报告', r.text, null, { noInput: true, textarea: true, textareaRows: 16, big: true });
+          // #884：报告弹窗补【复制】+【导出docx】（同 device.js 诊断弹窗的 copyBtn/exportBtn 机制）——
+          // 之前只有可手选的 textarea，手机上长篇手选复制极易漏段；导出走 device.js 暴露的
+          // window.mochiDiagExportDocx（三级降级：分享面板→保存框→确认下载，Word/WPS 直开不乱码），
+          // shareTitle 用「mochi 卡顿自检报告」；无该全局（旧产物）时提示改用复制。
+          window.openModal('卡顿自检报告', r.text, null, {
+            noInput: true, textarea: true, textareaRows: 16, big: true,
+            copyBtn: {
+              label: '复制',
+              fn: function (c) {
+                var txt = c ? c.text() : r.text;
+                var hint = function (s) { if (c && c.hint) c.hint(s); };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(txt).then(function () { hint('已复制到剪贴板，直接粘贴发给开发者即可'); }, function () { hint('复制失败，请长按选字手动复制'); });
+                } else {
+                  hint('当前内核不支持一键复制，请长按文本手动复制（或用【导出docx】）');
+                }
+              }
+            },
+            exportBtn: {
+              label: '导出docx',
+              fn: function (c) {
+                var txt = c ? c.text() : r.text;
+                if (typeof window.mochiDiagExportDocx === 'function') {
+                  window.mochiDiagExportDocx(txt, 'mochi-perfcheck-', null, null, 'mochi 卡顿自检报告');
+                } else {
+                  if (c && c.hint) c.hint('导出组件未就绪，请用【复制】或长按手选复制');
+                }
+              }
+            }
+          });
         });
-      }, { staticText: '点「确定」开始 10 秒实测：期间正常使用手机（去感觉卡的地方滚动/操作），结束后自动弹出报告。采样只在本机进行、不上传数据。', noInput: true });
+      }, {
+        staticText: '先选时长（点胶囊切换，默认 30 秒）：10 秒＝快速复核「刚那一下卡不卡」；30 秒＝日常自检，看整体掉帧率；1~5 分钟＝抓「偶发卡」专用——切页面卡、用一会儿才卡、玩一阵才掉帧这类，时间越长越撞得上（推荐 2 分钟起）。点「确定」开始后正常用手机（去感觉卡的地方滚动/操作），顶部浮条倒数，结束自动弹报告，可【复制】或【导出docx】发给开发者。采样只在本机、不上传；锁屏/切后台的时间自动剔除，中途锁屏不白测。',
+        noInput: true,
+        pills: [{ label: '10 秒', value: '10' }, { label: '30 秒', value: '30' }, { label: '60 秒', value: '60' }, { label: '2 分钟', value: '120' }, { label: '5 分钟', value: '300' }],
+        pill: '30'
+      });
     });
   })();
 

@@ -46,9 +46,8 @@
   // （显隐跟随当前桌面的聊天设置，与聊天页 cs-voice-send/cs-trigger-bar/cs-batch-send 一致）
   const gcMicBtn = document.getElementById('gc-mic-btn');
   const gcContinueBtn = document.getElementById('gc-continue-btn');
-  // #674：顶部三点菜单左侧的「让对方继续说」快捷按钮（不走设置开关，恒显；
-  // 输入栏那枚仍按 cs-trigger-bar 显隐，两者是同一动作的两个入口）
-  const gcHeadContinueBtn = document.getElementById('gc-head-continue');
+  // v3.27.x：#674 顶部那枚「让对方继续说」已撤销，继续说在群聊里只剩输入栏这一个入口
+  //（与单聊聊天页同位置、同显隐口径），见下方 syncGcInputBtns / gcCsFireContinue。
   const gcBatchBtn = document.getElementById('gc-batch-btn');
   const gcDraftBar = document.getElementById('gc-draft');
   const gcDraftItems = document.getElementById('gc-draft-items');
@@ -444,6 +443,11 @@
     else gPersistTimer = setTimeout(gRunPersist, 2500);
   }
   function gFlushPersistNow() {
+    // #814：导入/清空重置（__resetting，data-backup.js doImportGo / personalize.js 清除置位）窗口内
+    // 禁止收口写——整包导入/清空都是整库替换后刷新，窗口期卸载/锁屏（beforeunload/visibilitychange）
+    // 把内存里的旧群聊记录写回＝盖掉刚换入的数据。函数头闸一并覆盖下方全部收口调用点；
+    // 导入窗口期进度浮层挡交互、无正常落盘需求，导入中止路径会撤屏障恢复原状。纯标志位零开销。
+    if (window.__resetting) return;
     const run = gPersistRun;
     gPersistRun = null;
     gPersistTimer = null;
@@ -1528,18 +1532,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   // v3.9.x：成员回复——按群聊回复设置：回复速度/条数/拍一拍/表情包/emoji/图片/语音/
   // 颜文字/引用/撤回（含撤回补发），与聊天页被动回复语义一致
-  function memberReply(cid, quoteText, gid, continuation, __force) {
+  function memberReply(cid, quoteText, gid, continuation) {
     if (gid === undefined) gid = curGid; // FIX 串群 #242：未传时兜底当前群
-    // #876 夜间静默：群成员回复（发消息回应/拍一拍回应/追问接话）夜间整体顺延到次日
-    // 7:00 后随机 1–10 分钟一次性补发（与单聊 scheduleReply 顺延同口径）；期间打字/切群
-    // 语义由重入后的正常链自理。gcContinueSay（用户点「继续说」）传 __force 放行——用户
-    // 当刻要求的回应不受夜间限制（与单聊 continueChat 放行窗口同口径）。
-    if (!__force && window.nightModeActive && window.nightModeActive()) {
-      const __t7 = new Date(); __t7.setHours(7, 0, 0, 0);
-      const __wait = Math.max(60000, __t7.getTime() - Date.now()) + (60 + Math.random() * 540) * 1000;
-      setTimeout(() => { try { memberReply(cid, quoteText, gid, continuation, __force); } catch (e) {} }, __wait);
-      return;
-    }
     const c = gcCfg();
     const immediate = continuation && c['gc-cs-normal'] !== 1;
     const name = memberName(cid);
@@ -1612,7 +1606,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
                   })();
                 }, 700);
               }
-            }, 900);
+            }, randInt(1000, 3000)); // #890：撤回延迟 1~3 秒随机（与单聊 retractDelayMs 同口径），不再固定 900ms 秒撤
           }
           })();
         }, i * randInt(1200, 2800));
@@ -1724,9 +1718,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   });
 
   // ---- 成员列表面板 ----
-  function renderMembersPanel() {
-    if (!membersBody) return;
-    membersBody.innerHTML = '';
+  // #794 群聊设置 UI 重设计（用户「有的功能没有放在顶部的tag」）：成员列表 DOM 生成拆成
+  // fillMembersList(el)，三点菜单「群成员」面板与设置面板「成员」tag 内嵌段共用同一份生成
+  //（同源双渲染），动作路径（移除/添加成员→renderMembersPanel 或 refreshGroupViews）两边自动同步。
+  function fillMembersList(el) {
     // v3.26.x：自定义群可移除成员 / 添加成员；default 群成员动态跟随全部联系人，不提供
     const isCustom = curGid !== 'default';
     const meRow = document.createElement('div');
@@ -1736,7 +1731,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     meRow.innerHTML = '<div class="gc-mp-av"></div><span class="gc-mp-name">' + escapeHtml(myName()) +
       '<span class="gc-mp-sub">' + (meDesk ? '桌面昵称：' + escapeHtml(meDesk) : '') + '</span></span><span class="gc-mp-tag">我</span>';
     fillAv(meRow.querySelector('.gc-mp-av'), myAvatar());
-    membersBody.appendChild(meRow);
+    el.appendChild(meRow);
     getMembers().forEach(m => {
       const row = document.createElement('div');
       row.className = 'gc-mp-item';
@@ -1750,15 +1745,21 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         e.stopPropagation();
         removeMemberFromGroup(m.id);
       });
-      membersBody.appendChild(row);
+      el.appendChild(row);
     });
     if (isCustom) {
       const addRow = document.createElement('div');
       addRow.className = 'gc-mp-add';
       addRow.innerHTML = '<button class="gc-set-btn">＋ 添加成员</button>';
       addRow.querySelector('button').addEventListener('click', () => { openMemberPicker('add'); });
-      membersBody.appendChild(addRow);
+      el.appendChild(addRow);
     }
+  }
+  function renderMembersPanel() {
+    if (membersBody) { membersBody.innerHTML = ''; fillMembersList(membersBody); }
+    // #794：设置面板「成员」tag 内嵌段同步（面板开着才有该节点；关着时下次打开整段重建）
+    const emb = document.querySelector('#gc-set-body .gc-set-members-list');
+    if (emb) { emb.innerHTML = ''; fillMembersList(emb); }
   }
   // 移除成员（自定义群）：确认后从该群 members 剔除，成员不再参与本群回复/@
   function removeMemberFromGroup(cid) {
@@ -1956,9 +1957,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   if (membersClose) membersClose.addEventListener('click', () => { if (membersPanel) membersPanel.hidden = true; });
 
   // ---- 群聊列表面板（v3.26.x：切换 / 新建 / 删除群聊） ----
-  function renderGroupsPanel() {
-    if (!gpBody) return;
-    gpBody.innerHTML = '';
+  // #794 群聊设置 UI 重设计：列表 DOM 生成拆成 fillGroupsList(el)，三点菜单「切换群聊」面板
+  // 与设置面板「群聊」tag 内嵌段共用同一份生成；切群/删群路径经 refreshGroupViews→
+  // renderSettingsPanel（面板开着时）与本函数尾部同步，内嵌段自动跟随。
+  function fillGroupsList(el) {
     groups.forEach(g => {
       const row = document.createElement('div');
       row.className = 'gc-mp-item gc-gp-item' + (g.id === curGid ? ' cur' : '');
@@ -1980,9 +1982,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       });
       row.addEventListener('click', () => {
         switchGroup(g.id);
+        // 仅收三点菜单的列表面板；设置面板「群聊」tag 内嵌段保持打开（switchGroup 内部
+        // 经 refreshGroupViews 重建设置面板，「当前」标记随新群移动）
         if (groupsPanel) groupsPanel.hidden = true;
       });
-      gpBody.appendChild(row);
+      el.appendChild(row);
     });
     // 新建群聊
     const newRow = document.createElement('div');
@@ -1991,7 +1995,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
       '</div><span class="gc-mp-name">新建群聊</span>';
     newRow.addEventListener('click', startCreateGroup);
-    gpBody.appendChild(newRow);
+    el.appendChild(newRow);
+  }
+  function renderGroupsPanel() {
+    if (gpBody) { gpBody.innerHTML = ''; fillGroupsList(gpBody); }
+    // #794：设置面板「群聊」tag 内嵌段同步（面板开着才有该节点）
+    const emb = document.querySelector('#gc-set-body .gc-set-groups-list');
+    if (emb) { emb.innerHTML = ''; fillGroupsList(emb); }
   }
   // 切换群聊：落盘当前群 → 换群 id → 载入该群消息并重渲染
   function switchGroup(gid) {
@@ -2132,25 +2142,19 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     showMoreMenu(moreMenu.hidden);
   });
   document.addEventListener('click', () => showMoreMenu(false));
-  const moreMembers = document.getElementById('gc-more-members');
-  if (moreMembers) moreMembers.addEventListener('click', () => {
-    showMoreMenu(false);
-    renderMembersPanel();
-    if (membersPanel) membersPanel.hidden = false;
-  });
   const moreSettings = document.getElementById('gc-more-settings');
   if (moreSettings) moreSettings.addEventListener('click', () => {
     showMoreMenu(false);
     renderSettingsPanel();
     if (settingsPanel) settingsPanel.hidden = false;
   });
-  // v3.26.x：三点菜单「切换群聊」→ 打开群聊列表面板（新建 / 切换 / 删除）
+  // #816 三点菜单精简：「群成员」「切换群聊」与设置面板「成员」「群聊」tag 功能完全重复，
+  // 只留「群聊设置」一项。JS 侧摘除菜单节点（template.html 他域在途不碰，面板节点保留
+  // 不动）；若后续恢复入口，把这两行 remove() 删掉即可，面板渲染函数都还在。
+  const moreMembers = document.getElementById('gc-more-members');
   const moreGroups = document.getElementById('gc-more-groups');
-  if (moreGroups) moreGroups.addEventListener('click', () => {
-    showMoreMenu(false);
-    renderGroupsPanel();
-    if (groupsPanel) groupsPanel.hidden = false;
-  });
+  if (moreMembers) moreMembers.remove();
+  if (moreGroups) moreGroups.remove();
 
   // ---- 群聊设置面板（v3.9.x：我的群聊形象 + 成员群聊形象） ----
   const settingsPanel = document.getElementById('gc-settings-panel');
@@ -2221,8 +2225,9 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     gcAvatarPickCb = cb;
     try { gcAvatarPickInput.click(); } catch (e) { gcAvatarPickCb = null; toast('无法打开相册，请重试'); }
   }
-  // 渲染设置面板：主视图（顶部 tag：形象/回复/美化/通用/数据） / 美化子视图（#376 旧入口，保留）
-  let gcBeautyView = false;
+  // 渲染设置面板：主视图（顶部 tag：形象/成员/群聊/回复/美化/通用/数据）
+  // #816 退役旧「美化聊天」子视图（gcBeautyView 整页替换那套）：「通用」里的入口现在直接
+  // 切到「美化」tag，美化全站只剩这一套 UI，不会再出现「同一个功能两个门、进去不一样」。
   // FIX 2026-09-17 #697：记住当前顶部 tag——美化段的控件改一下就走 gcBeautySet → renderSettingsPanel
   // 整段重建，不复位就会把用户弹回「形象」（单聊设置页同款处理：只重画不换 tab）
   let gcSetTab = 'profile';
@@ -2236,20 +2241,25 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     if (!settingsBody) return;
 
     settingsBody.innerHTML = '';
-    if (gcBeautyView) { setPanelTitle('美化聊天'); renderBeautyView(); return; }
-    setPanelTitle('群聊设置');
+    // #816 标题带群名：自定义群显示「群聊设置 · 群名」，多群切换时知道在设置谁；默认群不叠字
+    const gName = String((currentGroup() && currentGroup().name) || '').trim();
+    setPanelTitle(curGid !== 'default' && gName ? '群聊设置 · ' + gName : '群聊设置');
     renderMainSettingsView();
   }
   function renderMainSettingsView() {
     const esc = escapeHtml;
-    // v3.29.x：顶部 tag 分类（形象/回复/通用/数据）——复用全站 .them-tabs/.them-tab 观感
-    //（暗色随变量适配），点击互斥显隐对应 .gc-set-sec 段；默认「形象」。
+    // v3.29.x：顶部 tag 分类——复用全站 .them-tabs/.them-tab 观感（暗色随变量适配），
+    // 点击互斥显隐对应 .gc-set-sec 段；默认「形象」。
     // FIX 2026-09-17 #697：「美化聊天」由「通用」下的子视图升成独立顶部 tag（用户：「美化聊天功能
     // 没有在顶部变成单独tag」）——美化段内容复用 renderBeautyView(host)，控件改一下整段重建时按
     // gcSetTab 复位，不弹回「形象」；「通用」里那一行保留为快捷入口（点它切到美化 tag，不再进子视图）
+    // #794 群聊设置 UI 重设计（用户「有的功能没有放在顶部的tag啊」）：tag 5→7——新增
+    // 「成员」（与三点菜单「群成员」面板同源的成员管理）与「群聊」（与「切换群聊」面板
+    // 同源的切换/新建/删除）；「回复」段镜像全站「设置→回复设置→群聊被动回复」的全部参数
+    //（见下方回复段，读写同一批 reply-gc-* 全局键，两处即时同步）。
     const tabsRow = document.createElement('div');
     tabsRow.className = 'them-tabs gc-set-tabs';
-    const GTABS = [['profile', '形象'], ['reply', '回复'], ['beauty', '美化'], ['general', '通用'], ['data', '数据']];
+    const GTABS = [['profile', '形象'], ['members', '成员'], ['group', '群聊'], ['reply', '回复'], ['beauty', '美化'], ['general', '通用'], ['data', '数据']];
     if (!GTABS.some(t => t[0] === gcSetTab)) gcSetTab = 'profile';
     tabsRow.innerHTML = GTABS.map(t =>
       '<div class="them-tab' + (t[0] === gcSetTab ? ' active' : '') + '" data-gt="' + t[0] + '">' + t[1] + '</div>').join('');
@@ -2380,6 +2390,32 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       ], 'off');
     });
     (curSec||settingsBody).appendChild(nmRow);
+    // —— #794「成员」tag：群成员管理（与三点菜单「群成员」面板同源渲染） ——
+    sec('members');
+    const tM = document.createElement('div');
+    tM.className = 'gc-set-title';
+    tM.textContent = '群成员';
+    (curSec||settingsBody).appendChild(tM);
+    const memList = document.createElement('div');
+    memList.className = 'gc-set-members-list';
+    (curSec||settingsBody).appendChild(memList);
+    fillMembersList(memList);
+    if (curGid === 'default') {
+      const mNote = document.createElement('div');
+      mNote.className = 'gc-set-note';
+      mNote.textContent = '默认群聊的成员跟随全部联系人，不能单独增删；要自选成员请用「群聊」tag 新建群聊。';
+      (curSec||settingsBody).appendChild(mNote);
+    }
+    // —— #794「群聊」tag：切换 / 新建 / 删除群聊（与三点菜单「切换群聊」面板同源渲染） ——
+    sec('group');
+    const tG = document.createElement('div');
+    tG.className = 'gc-set-title';
+    tG.textContent = '切换 / 新建群聊';
+    (curSec||settingsBody).appendChild(tG);
+    const gpList = document.createElement('div');
+    gpList.className = 'gc-set-groups-list';
+    (curSec||settingsBody).appendChild(gpList);
+    fillGroupsList(gpList);
     // —— 群聊回复（v3.28.x：全局生效于全部联系人，与回复设置页） ——
     sec('reply');
     const tR = document.createElement('div');
@@ -2391,8 +2427,73 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     (curSec||settingsBody).appendChild(gcStepperRow('回复速度最长（秒）', 'gc-rs-max', 2, Infinity, 1));
     const rNote = document.createElement('div');
     rNote.className = 'gc-set-note';
-    rNote.textContent = '这里的回复概率与速度对所有群聊成员统一生效（全局）；完整的每项概率/条数/开关在「设置 → 回复设置 → 群聊被动回复」里调整。';
+    rNote.textContent = '这里与「设置 → 回复设置 → 群聊被动回复」是同一份设置：对所有群聊成员统一生效（全局、不随桌面隔离），两边修改即时同步。';
     (curSec||settingsBody).appendChild(rNote);
+    // #794「有的功能没有放在顶部的tag」：群聊设置「回复」tag 镜像全站「回复设置 → 群聊被动回复」
+    // 的全部参数（标签/边界/步长与 template.html 同段一字不差），读写同一批 reply-gc-* 全局键。
+    const rTitle = (t) => {
+      const el = document.createElement('div');
+      el.className = 'gc-set-title';
+      el.textContent = t;
+      (curSec||settingsBody).appendChild(el);
+    };
+    const rStep = (label, k, min, max, step) => { (curSec||settingsBody).appendChild(gcStepperRow(label, k, min, max, step)); };
+    // —— 回复条数 ——
+    rTitle('回复条数');
+    rStep('回复条数最少', 'gc-reply-min', 1, 10, 1);
+    rStep('回复条数最多', 'gc-reply-max', 1, 20, 1);
+    const cntNote = document.createElement('div');
+    cntNote.className = 'gc-set-note';
+    cntNote.textContent = '这两项＝你每发 1 条消息，群里每个回你的成员就各回你几条（在最少~最多之间随机，默认 1~2 条）。注意：这是「每条消息、每个成员」的条数，不是 TA 一天最多发几条，不建议调大——成员是各算各的（调到 5、3 个人同时回你＝一屏 15 条），你连着发的每句话还各触发一批。嫌刷屏就把这两项都调成 1；关掉下方「多字卡回复」总开关也能锁死一条（关闭后设几条都只回 1 条）。撤回后的补发不占本上限，所以实际收到的可能比这里设的条数多。';
+    (curSec||settingsBody).appendChild(cntNote);
+    // —— 内容概率 ——
+    rTitle('内容概率');
+    rStep('拍一拍概率', 'gc-touch-prob', 0, 100, 5);
+    rStep('表情包概率', 'gc-sticker-prob', 0, 100, 5);
+    rStep('emoji 概率', 'gc-emoji-prob', 0, 100, 5);
+    rStep('图片概率', 'gc-image-prob', 0, 100, 5);
+    rStep('语音概率', 'gc-voice-prob', 0, 100, 5);
+    rStep('颜文字附加概率', 'gc-kaomoji-prob', 0, 100, 5);
+    rStep('引用概率', 'gc-quote-prob', 0, 100, 5);
+    rStep('撤回概率', 'gc-rc-prob', 0, 100, 5);
+    rStep('撤回补发概率', 'gc-rc-refix', 0, 100, 5);
+    // —— 多字卡回复 ——
+    // 镜像开关（gc-py-en / gc-cs-*）读写走 window.replyCfg / window.saveReplyCfg：gc-* 自动路由
+    // 到全局 reply-gc-* 存储；gc-cs-* 保存时 saveReplyCfg 派发 'gc-continue-say-changed'，
+    // 群聊输入栏「继续说」按钮显隐随之联动（group-chat.js syncGcInputBtns 监听该事件）。
+    const gcReplyToggleRow = (label, sub, key) => {
+      const row = document.createElement('div');
+      row.className = 'gc-set-item gc-set-toggle';
+      row.innerHTML =
+        '<div class="gc-set-info"><div class="gc-set-name">' + esc(label) +
+        (sub ? '<span class="gc-set-sub">' + esc(sub) + '</span>' : '') + '</div></div>' +
+        '<label class="toggle"><input type="checkbox"><span class="tk"></span></label>';
+      const cb = row.querySelector('input');
+      let on = false;
+      try { const c = (window.replyCfg ? window.replyCfg() : gcCfg()) || {}; on = Number(c[key]) === 1; } catch (e) {}
+      cb.checked = on;
+      cb.addEventListener('change', () => { try { if (window.saveReplyCfg) window.saveReplyCfg(key, cb.checked ? 1 : 0); } catch (e) {} });
+      return row;
+    };
+    rTitle('多字卡回复');
+    (curSec||settingsBody).appendChild(gcReplyToggleRow('多字卡回复', '总开关：关闭后每个成员每条消息只回一条、只用一张字卡', 'gc-py-en'));
+    rStep('触发概率', 'gc-py-prob', 0, 100, 5);
+    rStep('最少条数', 'gc-py-min', 1, 10, 1);
+    rStep('最多条数', 'gc-py-max', 2, 10, 1);
+    // —— 让对方继续说 ——
+    rTitle('让对方继续说');
+    (curSec||settingsBody).appendChild(gcReplyToggleRow('按正常回复时间', '未开启时，点击后联系人立即回复', 'gc-cs-normal'));
+    (curSec||settingsBody).appendChild(gcReplyToggleRow('点顶部昵称触发', '', 'gc-cs-trigger-name'));
+    (curSec||settingsBody).appendChild(gcReplyToggleRow('底部聊天栏按钮触发', '', 'gc-cs-trigger-bar'));
+    const csNote = document.createElement('div');
+    csNote.className = 'gc-set-note';
+    csNote.textContent = '点顶部昵称（群名）/底部按钮会触发新一轮回复，条数仍按上面设置抽取，会叠在正常回复之外；顶部那枚常驻继续说按钮已收进底部输入栏这一排（与单聊同位置）。这枚开关同时决定单聊与群聊输入栏上「继续说」按钮的显隐，两页各开各的也行（单聊那份开关在本联系人桌面的回复设置里）。开启昵称触发后，切换群聊请用本面板「群聊」tag。';
+    (curSec||settingsBody).appendChild(csNote);
+    // —— #816 底部说明（原挂在「通用」tag 尾部：讲回复来源的说明归「回复」tag） ——
+    const note = document.createElement('div');
+    note.className = 'gc-set-note';
+    note.textContent = '成员回复内容来自：公用字卡 + 该成员桌面专属字卡 + 系统默认字卡；某成员桌面关闭【聊天使用】，聊天和群聊里这个成员都不再使用系统默认字卡。';
+    (curSec||settingsBody).appendChild(note);
     // —— 输入与消息（对齐聊天设置「功能」页镜像开关：群聊页内可直接改这些状态） ——
     sec('general');
     const tIn = document.createElement('div');
@@ -2426,6 +2527,35 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     // 允许删除成员消息（气泡操作菜单出现「删除」，真删除不可恢复）
     (curSec||settingsBody).appendChild(gcToggleRow('允许删除成员消息', '点击成员消息气泡可在操作菜单里删除该条消息', 'cs-del-ta-msg',
       (en) => toast(en ? '已开启：点击成员消息可在操作菜单里删除该条消息' : '已关闭删除成员消息功能')));
+    // 输入栏按钮位置（v3.27.x 用户直派「群聊设置里可以和聊天设置里一样移动这个按钮的位置」）：
+    // 点行开聊天设置那一份排序面板（window.mochiInputOrderPanel）——顺序存每联系人键
+    // cs-input-order，chat.js applyInputBtnOrder 按 data-io 令牌给单聊与群聊两排输入栏设同一个
+    // flex order，所以这里改完两页一起变，不存在「群聊单独一套顺序」。面板只有一份、浮在 body 上。
+    const ioRow = document.createElement('div');
+    ioRow.className = 'gc-set-item gc-set-link';
+    ioRow.id = 'gc-input-order-row';
+    ioRow.innerHTML =
+      '<div class="gc-set-av">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h11M4 16h11"/><path d="M18 6l3 2-3 2M18 14l3 2-3 2"/></svg>' +
+      '</div>' +
+      '<div class="gc-set-info"><div class="gc-set-name">输入栏按钮位置<span class="gc-set-sub">自定义底部输入栏这一排图标的左右顺序（录音 / 继续说 / 更多 / 表情 / 输入框 / 图片 / 批量发送），「发送」固定在最右端；与单聊共用同一份顺序，只管位置、不改各按钮的开关</span></div></div>' +
+      '<span class="gc-set-chev">›</span>';
+    ioRow.addEventListener('click', () => {
+      if (!window.mochiInputOrderPanel) { toast('排序面板还没就绪，请稍后再试'); return; }
+      window.mochiInputOrderPanel.open();
+    });
+    (curSec||settingsBody).appendChild(ioRow);
+    // 排列变化即时回显（面板里点 ←→ / 恢复默认都会派发同一事件）
+    const ioSync = () => {
+      const v = ioRow.querySelector('.gc-set-desk');
+      const txt = window.mochiInputOrderPanel ? window.mochiInputOrderPanel.valueText() : '';
+      if (v) v.textContent = txt;
+    };
+    const ioVal = document.createElement('div');
+    ioVal.className = 'gc-set-desk';
+    ioRow.querySelector('.gc-set-info').appendChild(ioVal);
+    document.addEventListener('chat-input-order-changed', ioSync);
+    ioSync();
     // —— 群聊数据（对齐聊天设置「数据」页：导出/导入/清空当前群记录） ——
     sec('data');
     const tD = document.createElement('div');
@@ -2600,13 +2730,10 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
         '<div class="gc-set-desk">气泡颜色、壁纸、字体、时间轴样式等</div>' +
       '</div>' +
       '<span class="gc-set-chev">›</span>';
-    bRow.addEventListener('click', () => { gcBeautyView = true; renderSettingsPanel(); });
+    // #816 「美化聊天」入口：切到顶部「美化」tag（旧实现开整页替换的子视图，与美化 tag
+    // 两套并存、长相行为都不一致——现在全站只剩美化 tag 这一套）
+    bRow.addEventListener('click', () => { gcSetTab = 'beauty'; renderSettingsPanel(); });
     (curSec||settingsBody).appendChild(bRow);
-    // —— 底部说明 ——
-    const note = document.createElement('div');
-    note.className = 'gc-set-note';
-    note.textContent = '成员回复内容来自：公用字卡 + 该成员桌面专属字卡 + 系统默认字卡；某成员桌面关闭【聊天使用】，聊天和群聊里这个成员都不再使用系统默认字卡。';
-    (curSec||settingsBody).appendChild(note);
     // FIX 2026-09-17 #697：美化 tag 段——选中时才渲染（面板每次重建都重画一次，取值始终最新）
     if (gcSetTab === 'beauty') renderBeautyView(secs.beauty);
   }
@@ -2622,18 +2749,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   // ================= 美化视图（#288 重设计：对齐聊天设置页观感——gs-title 分组标题 +
   // set-group.glass 玻璃卡片 + set-row 图标行，样式类全站通用/暗色随变量适配；
   // 行类保留 gc-set-row、.txt 仅放行名，供 verify-gc-color / verify-gc-settings 按文本点行） =================
-  // FIX 2026-09-17 #697：host 参数——传「美化」tag 段时渲染进段里（带返回条的子视图模式仍可传空）
+  // FIX 2026-09-17 #697：host 参数——传「美化」tag 段时渲染进段里
+  //（#816：旧「无 host＝子视图模式」已随 gcBeautyView 一并退役，现在只会以 tag 段形式渲染）
   function renderBeautyView(host) {
     const g = gcBeautyGet;
     const rootEl = host || settingsBody;
-    if (!host) {
-      // 返回主设置（仅子视图模式；tag 模式靠顶部标签切回）
-      const back = document.createElement('div');
-      back.className = 'gc-set-back';
-      back.innerHTML = '<span class="arr">‹</span> 返回群聊设置';
-      back.addEventListener('click', () => { gcBeautyView = false; renderSettingsPanel(); });
-      settingsBody.appendChild(back);
-    }
     const svgIco = (p) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
     const ICO = {
       bg: svgIco('<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/>'),
@@ -3167,7 +3287,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
           mkColorItem('时间轴颜色', 'time-ink', '#111111', GC_INK_COLORS)
         ]));
         paletteHost = null;
-        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；位置微调只作用于群聊页。'));
+        wrap.appendChild(mkNote('不透明度 0% 全透明、100% 不透明，文字按钮不变淡；「顶栏下移/底栏上移」拖着就能把栏位上下挪位，按需微调（双击滑杆回默认），只作用于群聊页。'));
         return wrap;
       } },
       { key: 'type', label: '字体 · 其他', build: () => {
@@ -3272,6 +3392,16 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     try { const s = gcSchemesStore(); const a = JSON.parse((s && s.get(GC_SCHEMES_KEY)) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
   };
   const saveGcSchemesList = (arr) => { try { const s = gcSchemesStore(); if (s) s.set(GC_SCHEMES_KEY, JSON.stringify(arr)); } catch (e) {} };
+  // #808 方案防炸提醒：方案会把当前壁纸整张打包进方案（bg 是高分辨率 JPEG 的 base64，
+  // 一张几百 KB～1MB+），带壁纸的方案存多了会把本地存储与备份导出文件撑爆——本批只做
+  // 「提醒 + 拒绝重复入库」，不改 #373「应用=真覆盖」的任何数据语义。
+  const GC_SCHEME_WARN_LEN = 2 * 1024 * 1024; // 方案总占用 ≥2MB 提醒清理
+  const GC_SCHEME_WARN_CNT = 10;              // 方案个数 ≥10 提醒清理
+  // base64 串长 → 约实际字节（4 字符 3 字节），取整显示
+  const gcPrettyKb = (len) => {
+    const kb = (len || 0) * 3 / 4 / 1024;
+    return kb >= 1024 ? (Math.round(kb / 102.4) / 10) + ' MB' : Math.max(1, Math.round(kb)) + ' KB';
+  };
   const collectGcBeauty = () => {
     const data = {};
     GC_BEAUTY_KEYS.forEach(k => { const v = gcBeautyGet(k); if (v !== '' && v !== null && v !== undefined) data[k] = v; });
@@ -3303,6 +3433,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       // 与弹窗「将覆盖全部联系人桌面的群聊美化设置」的承诺不符
       GC_BEAUTY_KEYS.forEach(k => { if (!(s.data && s.data[k] !== undefined)) { try { gcBeautySet(k, ''); } catch (e) {} } });
       applyGcBeautyData(s.data || {});
+      // #816 应用时收掉可能挂着的「预览」条并清暂存：预览 A 未点使用/还原又来应用 B，
+      // 旧预览条还写着「正在预览 A」，此时点还原会把刚应用的 B 整个撤掉——状态错位
+      try {
+        gcPreviewBackup = null;
+        const pb = document.getElementById('gc-beauty-preview-bar');
+        if (pb) pb.style.display = 'none';
+      } catch (e) {}
       hideGcSchemeModal(m);
       toast('已应用「' + s.name + '」，群聊立即生效');
     }, { noInput: true, staticText: '将覆盖全部联系人桌面的群聊美化设置，立即生效', pills: [{ label: '应用', value: 'ok' }] });
@@ -3399,6 +3536,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const chips = gcBeautySummary(data);
     if (!chips.length) { const e = document.createElement('span'); e.textContent = '以上传壁纸/气泡等设置为主'; e.style.cssText = 'font-size:10.5px;color:var(--muted,#999)'; sum.appendChild(e); }
     else chips.forEach(c => { const el = document.createElement('span'); el.textContent = c; el.style.cssText = 'font-size:10.5px;color:var(--muted,#666);background:var(--card-soft,#f2f3f5);border:1px solid var(--card-border,#eee);padding:2px 8px;border-radius:999px'; sum.appendChild(el); });
+    // #808 含壁纸方案保存前明示体积：壁纸是最重的一份拷贝，别让用户无感囤积
+    const warn = data.bg ? document.createElement('div') : null;
+    if (warn) {
+      warn.style.cssText = 'font-size:10.5px;line-height:1.55;color:var(--danger-ink,#a32d2d);background:var(--danger-soft,#fff5f5);border:1px solid rgba(163,45,45,.25);border-radius:8px;padding:7px 9px;margin:-6px 0 10px';
+      warn.textContent = '⚠ 此方案将包含当前壁纸（约 ' + gcPrettyKb(String(data.bg).length) + '）。壁纸最占存储，带壁纸的方案别存太多，否则本地存储和备份文件会被撑爆，建议只留常用的 1～2 个。';
+    }
     const inp = document.createElement('input');
     inp.placeholder = '例如：简约白、情侣粉气泡…'; inp.maxLength = 20;
     inp.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;font-size:13px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--bg-b,#fff);color:var(--ink,#111)';
@@ -3409,6 +3552,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       const name = (inp.value || '').trim();
       if (!name) { inp.style.borderColor = '#e05a5a'; return; }
       const list = getGcSchemes();
+      // #808 防囤积：内容完全相同（含壁纸）的方案不再重复入库，报出已有方案名——
+      // 同一套美化想换个名字记，先删旧的或改名，别一份一份复制着存
+      const snap = JSON.stringify(data);
+      const dup = list.find(it => JSON.stringify(it.data || {}) === snap);
+      if (dup) { toast('已有内容完全相同的方案「' + dup.name + '」，不用重复保存'); return; }
       list.push({ name, time: Date.now(), data });
       saveGcSchemesList(list);
       x.style.display = 'none'; x.hidden = true;
@@ -3417,7 +3565,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       if (m && !m.hidden) window.openGcBeautySchemes();
     });
     act.appendChild(cancel); act.appendChild(ok);
-    wrap.appendChild(hd); wrap.appendChild(pv); wrap.appendChild(sub); wrap.appendChild(sum); wrap.appendChild(inp); wrap.appendChild(act);
+    wrap.appendChild(hd); wrap.appendChild(pv); wrap.appendChild(sub); wrap.appendChild(sum); if (warn) wrap.appendChild(warn); wrap.appendChild(inp); wrap.appendChild(act);
     x.appendChild(wrap);
     x.style.display = 'flex'; x.hidden = false;
     setTimeout(() => { try { inp.focus(); } catch (e) {} }, 60);
@@ -3536,11 +3684,24 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     const box = document.createElement('div');
     box.style.cssText = 'width:min(92vw,420px);max-height:80vh;display:flex;flex-direction:column;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
     const head = document.createElement('div');
-    head.innerHTML = '<div style="font-size:16px;font-weight:600;margin-bottom:4px">群聊美化方案</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">方案在所有联系人桌面通用（含气泡颜色/CSS、背景图、字体、圆角、时间轴等），点「应用」一键切换群聊外观</div>';
+    head.innerHTML = '<div style="font-size:16px;font-weight:600;margin-bottom:4px">群聊美化方案</div><div style="font-size:12px;color:var(--muted,#888);margin-bottom:12px">方案在所有联系人桌面通用（含气泡颜色/CSS、背景图、字体、圆角、时间轴等），点「应用」一键切换群聊外观；壁纸最占存储，带壁纸的方案别存太多</div>';
     box.appendChild(head);
     const list = document.createElement('div');
     list.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0';
     const schemes = getGcSchemes();
+    // #808 存储用量恒显一行 + 超限清理提醒：方案总占用 ≥2MB 或个数 ≥10 时点名「撑爆存储/备份」
+    let totalLen = 0, wallCnt = 0;
+    schemes.forEach(s => { totalLen += JSON.stringify(s.data || {}).length; if (s.data && s.data.bg) wallCnt++; });
+    const stat = document.createElement('div');
+    stat.style.cssText = 'font-size:11px;color:var(--muted,#999);margin:-6px 0 10px';
+    stat.textContent = '已存 ' + schemes.length + ' 个方案 · 约占 ' + gcPrettyKb(totalLen) + (wallCnt ? ' · 其中 ' + wallCnt + ' 个含壁纸' : '');
+    box.appendChild(stat);
+    if (totalLen >= GC_SCHEME_WARN_LEN || schemes.length >= GC_SCHEME_WARN_CNT) {
+      const big = document.createElement('div');
+      big.style.cssText = 'font-size:11.5px;line-height:1.55;color:var(--danger-ink,#a32d2d);background:var(--danger-soft,#fff5f5);border:1px solid rgba(163,45,45,.25);border-radius:8px;padding:7px 10px;margin:-4px 0 10px';
+      big.textContent = '⚠ 方案偏多或偏大（已约 ' + gcPrettyKb(totalLen) + '），会把本地存储和备份导出文件撑爆。建议删掉不用的方案，或只保留不带壁纸的方案。';
+      box.appendChild(big);
+    }
     if (!schemes.length) {
       const empty = document.createElement('div');
       empty.innerHTML = '<div style="font-size:13px;color:var(--muted,#999);text-align:center;padding:20px 0">还没有保存的群聊美化方案<br>先点下方「保存当前为方案」</div>';
@@ -3586,11 +3747,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     m.appendChild(box);
     m.style.display = 'flex'; m.hidden = false;
   }
-  // FIX 2026-09-12 #376 关闭面板时复位美化子视图：在「美化聊天」子视图里关掉面板后
-  // 重开，原实现直接落在美化视图而非群聊设置主页（gcBeautyView 残留未复位）
+  // FIX 2026-09-12 #376 关闭面板时复位顶部 tag：重开落在「形象」而非离开时的位置
   // FIX 2026-09-17 #697 同口径：独立「美化」tag 也要复位（否则关在美化 tag 上、重开仍落在美化）
-  if (settingsClose) settingsClose.addEventListener('click', () => { gcBeautyView = false; gcSetTab = 'profile'; if (settingsPanel) settingsPanel.hidden = true; });
-  if (settingsPanel) settingsPanel.addEventListener('click', (e) => { if (e.target === settingsPanel) { gcBeautyView = false; gcSetTab = 'profile'; settingsPanel.hidden = true; } });
+  // #816 旧 gcBeautyView 子视图已退役，复位只剩 gcSetTab 一件事
+  if (settingsClose) settingsClose.addEventListener('click', () => { gcSetTab = 'profile'; if (settingsPanel) settingsPanel.hidden = true; });
+  if (settingsPanel) settingsPanel.addEventListener('click', (e) => { if (e.target === settingsPanel) { gcSetTab = 'profile'; settingsPanel.hidden = true; } });
 
   // ---- @提及面板 ----
   function renderAtPanel() {
@@ -3643,7 +3804,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   function syncGcInputBtns() {
     if (gcMicBtn) gcMicBtn.style.display = gcSettingOn('cs-voice-send') ? '' : 'none';
-    // #676：输入栏继续说按钮显隐＝桌面开关 cs-trigger-bar 或 回复设置→群聊「底部聊天栏按钮触发」（gc-cs-trigger-bar）
+    // 继续说＝群聊唯一入口（顶部那枚已撤销）：显隐与单聊输入栏同源——本联系人桌面开关
+    // cs-trigger-bar 或 回复设置→群聊「底部聊天栏按钮触发」（gc-cs-trigger-bar）任一为开即显示
     if (gcContinueBtn) gcContinueBtn.style.display = (gcSettingOn('cs-trigger-bar') || gcCfg()['gc-cs-trigger-bar'] === 1) ? '' : 'none';
     if (gcBatchBtn) gcBatchBtn.style.display = gcSettingOn('cs-batch-send') ? '' : 'none';
   }
@@ -3666,7 +3828,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       : members.slice(0, Math.max(1, Math.min(2, members.length))).map(m => m.id);
     chosen.forEach((cid, i) => {
       const gap = c['gc-cs-normal'] === 1 ? i * (1200 + Math.random() * 1600) : i * 400;
-      setTimeout(() => memberReply(cid, '', gid, true, true), gap); // #876 末参 __force：用户点「继续说」，夜间放行
+      setTimeout(() => memberReply(cid, '', gid, true), gap);
     });
     if (window.playSfxGc) window.playSfxGc('in'); // #698d：走群聊专属音效（未设置回退单聊）
   }
@@ -3722,12 +3884,6 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   if (gcContinueBtn) {
     gcContinueBtn.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; gcCsFireContinue(); });
     gcContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); gcCsFireContinue(); });
-  }
-  // #674：顶部「让对方继续说」按钮——与输入栏那枚共用 gcCsFireContinue（同防重入、同 stopPropagation：
-  // 顶部点击不冒泡到 document，三点菜单的外点关闭逻辑不被这一下牵着走）
-  if (gcHeadContinueBtn) {
-    gcHeadContinueBtn.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; gcCsFireContinue(); });
-    gcHeadContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); showMoreMenu(false); gcCsFireContinue(); });
   }
   if (gcMicBtn) gcMicBtn.addEventListener('click', (e) => {
     e.stopPropagation();

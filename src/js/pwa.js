@@ -637,3 +637,79 @@
     } catch (e) { /* 静默：看门狗绝不能成为错误源 */ }
   }, 5000);
 })();
+
+// ================= #802 外置功能包加载失败自愈（「更多功能」成片「加载失败」根治） =================
+// 用户实报（2026-09-19）：「更多功能里的小功能全部，打开显示加载失败」。外置化（PERF-PLAN 阶段 1）
+// 后 35 个功能文件走 <script defer src="js/*">，任一拉取失败（GitHub Pages 弱网/被墙窗口、旧 SW
+// 代际过渡期：缓存被 #157 后台刷新换成新 HTML 而 js 不在旧 PRECACHE 里）该功能即死：带守卫的入口
+// toast「xx加载失败」，没守卫的（Pong/钓鱼/四子棋…）点了没反应——页面零重试，只能整页刷新赌网络。
+// 本引擎在页面侧闭环（不等 SW 代际更新到位）：① build.mjs #802a 给外置标签挂 onerror，失败文件
+// 进 __mochiExtFail（error 是终态、原标签绝不会再执行 ⇒ 按这份清单重注入不会双执行；「没在
+// __mochiLoaded」的还可能只是仍在慢下载中，不重注入）；② load 后 1.5s/6s/15s 三波自动重注入
+// （s.src 保持裸路径，同 URL 才能命中 SW 预缓存/HTTP 缓存；同一文件两次尝试间隔 ≥4s，防对仍在
+// 途的上一发重复补枪）；③ 三波后仍有缺口 → 顶部恢复条（复用 ver-update-bar 样式），点＝立即再试，
+// 全部到位自动撤条，诊断环补一条（设备兼容诊断可见）便于远程排查。执行期异常（script onload 而
+// IIFE 抛错）不归这里管：那类在 __jsErrors 有记录，重注入同一份代码只会再抛一次，双绑定风险大于收益。
+(function () {
+  if (!window.__mochiExtFiles || !window.__mochiExtFiles.length) return;
+  let waves = 0, bar = null, barTxt = null, reported = false;
+  const lastTry = {};
+  function failList() {
+    const fail = window.__mochiExtFail || [], loaded = window.__mochiLoaded || [], out = [];
+    for (let i = 0; i < fail.length; i++) if (loaded.indexOf(fail[i]) < 0 && out.indexOf(fail[i]) < 0) out.push(fail[i]);
+    return out;
+  }
+  function reinject(list) {
+    const now = Date.now();
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      if (lastTry[f] && now - lastTry[f] < 4000) continue;
+      lastTry[f] = now;
+      const s = document.createElement('script');
+      s.src = 'js/' + f;
+      s.async = true;
+      s.onerror = function () { try { window.__mochiExtFail = (window.__mochiExtFail || []).concat(f); } catch (x) {} };
+      document.head.appendChild(s);
+    }
+  }
+  function syncBar(miss) {
+    if (!miss.length) { if (bar) bar.hidden = true; return; }
+    if (waves < 3) return; // 前三波静默自动重试，不打扰
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'ver-update-bar';
+      bar.id = 'ext-recovery-bar';
+      bar.style.cursor = 'pointer';
+      bar.innerHTML = '<span class="vub-txt"></span><b>点此重试</b>';
+      bar.addEventListener('click', function () {
+        const miss2 = failList();
+        if (miss2.length) reinject(miss2);
+        setTimeout(function () { syncBar(failList()); }, 4000);
+      });
+      document.body.appendChild(bar);
+      barTxt = bar.querySelector('.vub-txt');
+    }
+    barTxt.textContent = miss.length + ' 个功能包没加载成功（网络波动），功能可能不全——';
+    bar.hidden = false;
+  }
+  function pass() {
+    waves++;
+    const miss = failList();
+    if (miss.length) reinject(miss);
+    setTimeout(function () {
+      const left = failList();
+      if (left.length && waves >= 3 && !reported) {
+        reported = true;
+        try { window.__jsErrors = window.__jsErrors || []; window.__jsErrors.push('[ext-recovery] ' + left.length + ' 个外置功能包加载失败: ' + left.slice(0, 5).join(',')); } catch (x) {}
+      }
+      syncBar(left);
+    }, 4000);
+  }
+  function boot() {
+    setTimeout(pass, 1500);
+    setTimeout(pass, 6000);
+    setTimeout(pass, 15000);
+  }
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
+})();
