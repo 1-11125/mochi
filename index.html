@@ -872,6 +872,12 @@ background:var(--card-bg); color:var(--ink); font-weight:700; cursor:pointer;
 -webkit-tap-highlight-color:transparent;
 }
 .ver-update-bar .vub-act:active { opacity:.8; }
+#backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b); box-shadow:0 4px 18px rgba(232,56,44,.45); }
+#backup-remind-bar .vub-txt { color:#fff; font-weight:800; }
+#backup-remind-bar .vub-act { background:#fff; color:#c92a1f; }
+.modal.modal--warn { border-color:#e8382c; box-shadow:0 20px 50px rgba(232,56,44,.3); }
+.modal.modal--warn .modal-title { color:#e8382c; }
+.modal.modal--warn .modal-static { background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); }
 .poke-card-scroll, .tc-body, .mg-list, .emoji-groups,
 .card-list, .mem-scroll, .cal-scroll, .div-scroll, .gs-scroll,
 .chat-search, .fav-list, .feed-list, .mail-list, .qa-body,
@@ -10317,9 +10323,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789889623007">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789892809999">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 15:33<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 16:26<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -16874,7 +16880,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <span class="vub-act vub-close" id="ver-update-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">稍后</span>
   </div>
   <div class="ver-update-bar" id="backup-remind-bar" hidden>
-    <span class="vub-txt" id="backup-remind-txt">建议导出数据备份</span>
+    <span class="vub-txt" id="backup-remind-txt">⚠ 手机和浏览器都会自动清空数据，一清就全没 · 请定期导出备份</span>
     <span class="vub-act" id="backup-remind-go">去备份</span>
     <span class="vub-act" id="backup-remind-chat">备份聊天</span>
     <span class="vub-act vub-close" id="backup-remind-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">稍后</span>
@@ -25109,6 +25115,7 @@ _modalOpts = opts;
 _openSeq++;
 _openedAt = Date.now();
 if (modalBox) modalBox.classList.toggle('modal--big', !!opts.big);
+if (modalBox) modalBox.classList.toggle('modal--warn', !!opts.warn);      // v3.20.x：每次打开弹窗重置底部确认按钮文案为默认「确定」——此前只在调用方显式
 if (okBtn) okBtn.textContent = '确定';
 stayOnce = false;
 pillsOnOk = opts.pillsOnOk || null;
@@ -76581,68 +76588,82 @@ const bar = document.getElementById('backup-remind-bar');
 if (!bar) return;
 const G = 'xy-home-v2:';
 const DAY = 86400000;
-const INTERVAL = DAY;
+const startedAt = Date.now();
 function ts(key) { try { return Number(localStorage.getItem(G + key)) || 0; } catch (e) { return 0; } }
+function dayKey(t) { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
+function splashGone() {
+const s = document.getElementById('splash');
+return !s || !s.isConnected || s.classList.contains('hide');
+}
 function openBackupModal(days, everBacked) {
 if (typeof window.openModal !== 'function') return 'nofn';
 const mask = document.getElementById('modal-mask');
 if (mask && !mask.hidden) return 'busy';
 const intro = everBacked
-? '距上次完整备份已 ' + days + ' 天。'
-: '你还没做过完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
+? '距上次完整备份已经 ' + days + ' 天了。'
+: '你到现在还没做过一次完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
 const TEXT =
-intro + '聊天记录、字卡、照片、设置等全部数据只保存在本机浏览器里，不在云端。\n\n' +
-'① 浏览器可能自动清空本地数据\n' +
-'存储空间不足、无痕/隐私模式、系统清理后台等都可能触发。不管什么手机、什么浏览器，' +
-'连网页套壳转 App 使用也一样，都无法规避——这是设备/平台的限制。\n' +
-'对策：善用「导出备份」把数据存成文件，定期导出，别只依赖本地存储。\n\n' +
-'② 若数据总也存不住，多半是本机存储异常\n' +
-'如果每次打开都像没保存、一刷新就丢，大概率不是正常的定期清空，' +
-'而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
+intro + '\n\n' +
+'先说清楚一件事：你的聊天记录、字卡、照片、音乐、设置，全部只存在这台手机的这个浏览器里，云端一份都没有。\n\n' +
+'① 数据会被自动清掉，躲不过\n' +
+'不管用什么手机、什么浏览器（网页套壳转成 App 也一样），系统和浏览器都会在它认为需要的时候自动清除网页存的数据——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。这是设备本身的限制，网站没有办法替你保住数据。\n' +
+'一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。所以必须定期导出备份，没有别的办法。\n\n' +
+'② 怎么办\n' +
+'点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 工具 →「导入数据」选这个文件即可。\n\n' +
+'③ 如果数据总也存不住\n' +
+'每次打开都像没保存、一刷新就丢，多半不是正常的定期清空，而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
 const pills = [
 { label: '去备份', value: 'go' },
 { label: '备份聊天', value: 'chat' },
 { label: '稍后', value: 'later' }
 ];
-window.openModal('数据备份提醒', '', function (v) {
+window.openModal('数据会被自动清空 · 备份提醒', '', function (v) {
 if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
 else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
-}, { noInput: true, big: true, pillSubmit: true, staticText: TEXT, pills: pills });
+}, { noInput: true, big: true, warn: true, pillSubmit: true, staticText: TEXT, pills: pills });
 return 'ok';
 }
-function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
-function show(days, everBacked, tries) {
-tries = tries || 0;
-const upd = document.getElementById('ver-update-bar');
-if (upd && !upd.hidden) return;
-const r = openBackupModal(days, everBacked);
-if (r === 'ok') { markReminded(); return; }
-if (r === 'busy' && tries < 6) { setTimeout(function () { show(days, everBacked, tries + 1); }, 1500); return; }
+function showBar(days, everBacked) {
 const txt = document.getElementById('backup-remind-txt');
 if (txt) {
 txt.textContent = everBacked
-? '距上次导出备份已 ' + days + ' 天，数据只存本机浏览器，建议导出备份'
-: '数据只存在本机浏览器里，建议定期导出备份（防浏览器意外清除）';
+? '⚠ 手机和浏览器都会自动清空数据（设备限制，躲不掉）· 距上次备份已 ' + days + ' 天，快导出备份'
+: '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份';
 }
 bar.hidden = false;
-markReminded();
+return bar.getClientRects().length > 0;
+}
+function due() {
+try { if (!localStorage.getItem(G + 'contacts')) return false; } catch (e) { return false; }
+const lastRemind = ts('__last-backup-remind');
+if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;
+const lastBackup = ts('__last-backup');
+if (lastBackup && Date.now() - lastBackup < DAY) return false;
+return true;
 }
 function tryShow() {
-if (window.__resetting) return;
+if (window.__resetting || document.hidden) return;
+if (!window.__mochiDataReady && Date.now() - startedAt < 60000) return;
+if (!splashGone()) return;
+if (!due()) return;
+const upd = document.getElementById('ver-update-bar');
+if (upd && !upd.hidden) return;
 const lastBackup = ts('__last-backup');
-const lastRemind = ts('__last-backup-remind');
-if (lastRemind && Date.now() - lastRemind < INTERVAL) return; // 近期已提醒过
-if (lastBackup && Date.now() - lastBackup < INTERVAL) return; // 刚备份过
-show(lastBackup ? Math.max(Math.floor((Date.now() - lastBackup) / DAY), INTERVAL / DAY) : 0, !!lastBackup);
+const days = lastBackup ? Math.max(Math.floor((Date.now() - lastBackup) / DAY), 1) : 0;
+const r = openBackupModal(days, !!lastBackup);
+if (r === 'ok') { markReminded(); return; }
+if (r === 'busy') return;
+if (showBar(days, !!lastBackup)) markReminded();
 }
-function gated() {
-try { if (!localStorage.getItem(G + 'contacts')) return; } catch (e) {}
-tryShow();
-}
-document.addEventListener('mochi-restore-done', gated);
-const poll = setInterval(function () {
-if (window.__mochiDataReady) { clearInterval(poll); gated(); }
-}, 300);
+const fast = setInterval(function () {
+try { tryShow(); } catch (e) {}
+if (Date.now() - startedAt > 600000) clearInterval(fast);
+}, 2000);
+setInterval(function () { try { tryShow(); } catch (e) {} }, 60000);
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'visible') setTimeout(tryShow, 800);
+});
 const go = document.getElementById('backup-remind-go');
 if (go) go.addEventListener('click', function () {
 bar.hidden = true;
@@ -79757,4 +79778,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9i2g2n -->
+<!-- __MOCHI_EOF__ mu9jyr67 -->

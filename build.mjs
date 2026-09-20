@@ -408,7 +408,7 @@ const FIX_SENTINELS = [
   { name: '#542 UA 桌面伪装兜底形态同款 body 底色（force-mobile）', file: 'css/base.css', needle: 'html.force-mobile, html.force-mobile body { padding:0; min-height:100vh; min-height:100svh; min-height:100dvh; background:var(--bg-b, #fff); }' },
   { name: '定期备份提醒条存在（backup-remind-bar，受保护产品功能，见 AGENTS.md 数据与存储约定）', file: 'js/pwa.js', needle: "getElementById('backup-remind-bar')" },
   { name: '定期备份提醒条锚点存在（template.html）', file: 'template.html', needle: 'backup-remind-bar' },
-  { name: '备份提醒冷却收短到 1 天（每天弹一次；改动 INTERVAL 即消失，防被长冷却静默压制）', file: 'js/pwa.js', needle: 'const INTERVAL = DAY;' },
+  { name: '备份提醒冷却不超过 1 天（每天最多一次；#900 换锚——原 needle 随 24h 计时改自然日删除，此行为刚备份过当天不再打扰的另一半冷却，改回多日冷却即消失）', file: 'js/pwa.js', needle: 'if (lastBackup && Date.now() - lastBackup < DAY) return false;' },
   { name: '开屏备份弹窗避让已有弹窗（openModal 全站唯一，删掉则顶掉首启引导/字卡锁提醒等开屏弹窗且当天不再补弹）', file: 'js/pwa.js', needle: "if (mask && !mask.hidden) return 'busy';" },
   { name: '#355b 备份提醒条「单独备份聊天」按钮存在（template.html）', file: 'template.html', needle: 'id="backup-remind-chat"' },
   { name: '#355b 仅聊天记录导出不更新全量备份时间（data-backup.js cfg.mode!==chat 守卫，逻辑锚）', file: 'js/data-backup.js', needle: "if (cfg.mode !== 'chat')" },
@@ -3770,6 +3770,17 @@ const FIX_SENTINELS = [
   { name: '#874c loadNewerIncremental 同闸（删＝构建期增量下插/追加改道 appendTarget 踩乱换装顺序）', file: 'js/chat.js', needle: 'if (batchRendering) return; // #874c' },
   { name: '#874d 空窗期 touchstart 不解钉（删＝进度条期一次上滑令 finishSwap 跳过落底、看门狗/稳定窗全被 pinned=false 关在门外＝停在列表顶部旧记录）', file: 'js/chat.js', needle: 'if (!batchRendering) unpinChatAndAnchor(); // #874d' },
   { name: '#874e wheel 与 #874d 同闸（删＝桌面端滚轮路径空窗期照解钉，同一缺陷留后门）', file: 'js/chat.js', needle: "'wheel', function () { if (!batchRendering) unpinChatAndAnchor(); }" },
+
+  // ==== 2026-09-20 #900 每日备份提醒「从来没弹过」根治 + 人话警示 + 醒目配色（用户直派两件事：①每天的备份提醒没有触发 ②没写人话提醒「不管什么浏览器、什么手机都会自动清除数据＝设备限制，要备份使用」且颜色要显眼；零机型分支）：旧版只在数据就绪那一刻试一次，而那一刻开屏（#splash z-999）必然还在——弹窗在 .phone 内（开屏期间整棵 visibility:hidden）、顶条 z-998 也压在开屏之下＝弹在看不见的地方，却照样写 __last-backup-remind 冷却 ⇒ 当天再无第二次；冷却还按「距今满 24 小时」算（每天比前一天早一秒打开就永远凑不满）；且一次装载只判一次（PWA + 后台保活常驻数天不刷新＝根本没有第二次判定）。修法＝splashGone 闸 + 自然日冷却 + 前 10 分钟每 2s/之后每 60s 复查 + 只有真渲染出来才写冷却（被别的弹窗占用时让路不写）+ 文案改大白话 + 顶条红橙渐变与弹窗 .modal--warn 警示形态 ====
+  { name: '#900a 开屏没关就不试也不写冷却（删＝备份提醒弹在 splash 之下看不见却烧掉当天冷却，「从来没弹过」复发）', file: 'js/pwa.js', needle: 'if (!splashGone()) return;' },
+  { name: '#900b 冷却改按自然日比较（改回「距今满 24 小时」＝每天早一秒打开永远凑不满 24h，提醒无限往后漂）', file: 'js/pwa.js', needle: 'if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;' },
+  { name: '#900c 常驻复查时间线在位（删＝PWA/后台保活数天不刷新时再没有第二次判定机会，「每天提醒」名存实亡）', file: 'js/pwa.js', needle: 'setInterval(function () { try { tryShow(); } catch (e) {} }, 60000);' },
+  { name: '#900d 唯一 #modal-mask 被占用时让路且不写冷却（改回硬顶或超时兜底＝顶掉别人的弹窗/当天被烧掉）', file: 'js/pwa.js', needle: "if (r === 'busy') return;" },
+  { name: '#900e 人话警示文案在位（删＝用户又只看到「建议导出备份」，不知道任何手机/浏览器都会自动清数据＝设备限制）', file: 'js/pwa.js', needle: '这是设备本身的限制，网站没有办法替你保住数据' },
+  { name: '#900f 备份顶条醒目配色（删＝红橙渐变退回与版本条同款深灰，用户要求「颜色要显眼」落空；needle=该行整体，base.css 内唯一）', file: 'css/base.css', needle: '#backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b)' },
+  { name: '#900g 弹窗警示形态样式在位（删＝opts.warn 变哑参数，备份提醒又回到普通白底弹窗）', file: 'css/base.css', needle: '.modal.modal--warn { border-color:#e8382c;' },
+  { name: '#900h openModal 按 opts.warn 挂警示类（每次开弹窗重设＝天然复位；删＝全站警示形态失效）', file: 'js/personalize.js', needle: "classList.toggle('modal--warn', !!opts.warn)" },
+  { name: '#900i 顶条静态占位文案同口径（删＝模板占位与 showBar 写入文案两套口径）', file: 'template.html', needle: '手机和浏览器都会自动清空数据，一清就全没' },
 
 ];
 try {

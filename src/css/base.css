@@ -1395,6 +1395,19 @@ html.ios-cover-top .phone .statusbar {
 }
 .ver-update-bar .vub-act:active { opacity:.8; }
 
+/* v3.3x.x：备份提醒顶条醒目配色——「数据被设备自动清空」是唯一没法用代码挽回的风险，
+   这条必须比版本更新条更抢眼（用户直派：人话提醒颜色要显眼）。红橙渐变底＋白字加粗＋
+   白底红字按钮；只钉 #backup-remind-bar 这一个 id，版本更新条/数据加载条等复用
+   .ver-update-bar 的顶条形态完全不变。明暗主题都用实色，不依赖主题变量。 */
+#backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b); box-shadow:0 4px 18px rgba(232,56,44,.45); }
+#backup-remind-bar .vub-txt { color:#fff; font-weight:800; }
+#backup-remind-bar .vub-act { background:#fff; color:#c92a1f; }
+/* 通用弹窗的警示形态（openModal opts.warn）：红描边＋红标题＋红底说明块。
+   备份提醒用它把「任何手机/浏览器都会自动清数据＝设备限制」这条讲到脸上。 */
+.modal.modal--warn { border-color:#e8382c; box-shadow:0 20px 50px rgba(232,56,44,.3); }
+.modal.modal--warn .modal-title { color:#e8382c; }
+.modal.modal--warn .modal-static { background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); }
+
 /* ===== 手机端：弹层/半框内部滚动到边界不再穿透滚动下层页面（安卓/iOS 常见问题） ===== */
 .poke-card-scroll, .tc-body, .mg-list, .emoji-groups,
 .card-list, .mem-scroll, .cal-scroll, .div-scroll, .gs-scroll,

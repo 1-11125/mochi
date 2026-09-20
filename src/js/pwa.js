@@ -259,88 +259,111 @@
   // ================= v3.6.x：定期备份提醒（本地数据只存在浏览器，Safari 可能意外清空） =================
   // iOS Safari 会因存储压力/系统 bug（WebKit#266559）清掉整个源的 localStorage+IDB，
   // 用户表现为「每次重开数据全丢」。代码无法阻止系统级清空，唯一防线是定期导出备份文件
-  //（存到 iOS「文件」App，清空后能一键恢复）。距上次成功导出超 INTERVAL 且近 INTERVAL 未提醒过时，
+  //（存到 iOS「文件」App，清空后能一键恢复）。距上次成功导出超 1 天且今日未提醒过时，
   // 在顶部显示提醒条（复用 ver-update-bar 样式，更新提示优先显示时让位）。
   // v3.3x.x：应需求把冷却从 7 天 → 2 天 → 现为 1 天——用户反馈「现在什么时间都不会出现提醒」，
   // 期望每天在进桌面时弹一次（不是每次启动都弹的天天打扰、也不是 7 天才一次那么久）。
+  // v3.3x.x：开屏直接弹说明弹窗（用户需求）——把「为什么必须备份」讲清楚：
+  // ① 浏览器/设备可能自动清空本地数据，任何手机/浏览器（含网页套壳转 App）都无法规避；
+  // ② 若数据总也存不住（每次打开像没保存、一刷新就丢），多半是本机存储没能写进去（设备/浏览器异常）。
+  // 顶部提醒条保留作兜底：弹窗组件未就绪时退回原提醒条，保证提醒不丢。
   (function () {
     const bar = document.getElementById('backup-remind-bar');
     if (!bar) return;
     const G = 'xy-home-v2:';
     const DAY = 86400000;
-    const INTERVAL = DAY;
+    const startedAt = Date.now();
     function ts(key) { try { return Number(localStorage.getItem(G + key)) || 0; } catch (e) { return 0; } }
-    // v3.3x.x：开屏直接弹说明弹窗（用户需求）——把「为什么必须备份」讲清楚：
-    // ① 浏览器/设备可能自动清空本地数据，任何手机/浏览器（含网页套壳转 App）都无法规避；
-    // ② 若数据总也存不住（每次打开像没保存、一刷新就丢），多半是本机存储没能写进去（设备/浏览器异常）。
-    // 顶部提醒条保留作兜底：弹窗组件未就绪时退回原提醒条，保证提醒不丢。
-    // 返回值：'ok' 已弹；'busy' 已有其他弹窗占用（勿顶掉，稍后重试，且不写冷却）；'nofn' 弹窗组件不可用。
+    // 冷却按「自然日」判定而非「距今满 24 小时」：按 24h 计时时，每天比前一天早一秒打开
+    // 就永远凑不满 24 小时（提醒会无限往后漂＝用户所见「从来没弹过」）。
+    function dayKey(t) { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+    function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
+    // 开屏是否已关闭（clock.js：点击进入 → 加 .hide → 400ms 后移除节点）。
+    // modal-mask 在 .phone 内（开屏期间 .phone 整棵 visibility:hidden）、提醒条 z-998 也低于
+    // splash z-999 ⇒ 开屏期间弹＝弹在看不见的地方，旧版却照样写冷却，于是当天再也不会第二次弹。
+    function splashGone() {
+      const s = document.getElementById('splash');
+      return !s || !s.isConnected || s.classList.contains('hide');
+    }
+    // 弹窗三态：'ok' 已弹 / 'busy' 别的弹窗占用（勿顶掉、也不写冷却，下轮再试）/ 'nofn' 组件不可用
     function openBackupModal(days, everBacked) {
       if (typeof window.openModal !== 'function') return 'nofn';
-      // 避让已有弹窗：openModal 全站唯一，若此刻首启引导/字卡锁提醒等弹窗已开，
-      // 直接再弹会把它顶掉（pwa.js 的 mochi-restore-done 监听注册在最后，最易覆盖别人）。
       const mask = document.getElementById('modal-mask');
       if (mask && !mask.hidden) return 'busy';
       const intro = everBacked
-        ? '距上次完整备份已 ' + days + ' 天。'
-        : '你还没做过完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
+        ? '距上次完整备份已经 ' + days + ' 天了。'
+        : '你到现在还没做过一次完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
       const TEXT =
-        intro + '聊天记录、字卡、照片、设置等全部数据只保存在本机浏览器里，不在云端。\n\n' +
-        '① 浏览器可能自动清空本地数据\n' +
-        '存储空间不足、无痕/隐私模式、系统清理后台等都可能触发。不管什么手机、什么浏览器，' +
-        '连网页套壳转 App 使用也一样，都无法规避——这是设备/平台的限制。\n' +
-        '对策：善用「导出备份」把数据存成文件，定期导出，别只依赖本地存储。\n\n' +
-        '② 若数据总也存不住，多半是本机存储异常\n' +
-        '如果每次打开都像没保存、一刷新就丢，大概率不是正常的定期清空，' +
-        '而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
+        intro + '\n\n' +
+        '先说清楚一件事：你的聊天记录、字卡、照片、音乐、设置，全部只存在这台手机的这个浏览器里，云端一份都没有。\n\n' +
+        '① 数据会被自动清掉，躲不过\n' +
+        '不管用什么手机、什么浏览器（网页套壳转成 App 也一样），系统和浏览器都会在它认为需要的时候自动清除网页存的数据——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。这是设备本身的限制，网站没有办法替你保住数据。\n' +
+        '一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。所以必须定期导出备份，没有别的办法。\n\n' +
+        '② 怎么办\n' +
+        '点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 工具 →「导入数据」选这个文件即可。\n\n' +
+        '③ 如果数据总也存不住\n' +
+        '每次打开都像没保存、一刷新就丢，多半不是正常的定期清空，而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
       const pills = [
         { label: '去备份', value: 'go' },
         { label: '备份聊天', value: 'chat' },
         { label: '稍后', value: 'later' }
       ];
-      window.openModal('数据备份提醒', '', function (v) {
+      window.openModal('数据会被自动清空 · 备份提醒', '', function (v) {
         if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
         else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
-      }, { noInput: true, big: true, pillSubmit: true, staticText: TEXT, pills: pills });
+      }, { noInput: true, big: true, warn: true, pillSubmit: true, staticText: TEXT, pills: pills });
       return 'ok';
     }
-    function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
-    function show(days, everBacked, tries) {
-      tries = tries || 0;
-      // 版本更新提示优先（避免同屏叠两个提醒）
-      const upd = document.getElementById('ver-update-bar');
-      if (upd && !upd.hidden) return;
-      const r = openBackupModal(days, everBacked);
-      if (r === 'ok') { markReminded(); return; }
-      // 已有弹窗占用：不顶掉对方、也不写冷却，1.5s 后重试（最多 6 次≈9s），期间对方关掉即可弹
-      if (r === 'busy' && tries < 6) { setTimeout(function () { show(days, everBacked, tries + 1); }, 1500); return; }
-      // 兜底（弹窗组件不可用或长时间被占用）：退回顶部提醒条，保证提醒不丢
+    // 兜底顶部提醒条（弹窗组件不可用、或被别的弹窗长期占用时）：渲染成功返回 true 才允许写冷却
+    function showBar(days, everBacked) {
       const txt = document.getElementById('backup-remind-txt');
       if (txt) {
         txt.textContent = everBacked
-          ? '距上次导出备份已 ' + days + ' 天，数据只存本机浏览器，建议导出备份'
-          : '数据只存在本机浏览器里，建议定期导出备份（防浏览器意外清除）';
+          ? '⚠ 手机和浏览器都会自动清空数据（设备限制，躲不掉）· 距上次备份已 ' + days + ' 天，快导出备份'
+          : '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份';
       }
       bar.hidden = false;
-      markReminded();
+      return bar.getClientRects().length > 0;
+    }
+    // 是否到了该提醒的时候（今日未提醒 + 不是刚备份过 + 本地确有数据可备）
+    function due() {
+      try { if (!localStorage.getItem(G + 'contacts')) return false; } catch (e) { return false; }
+      const lastRemind = ts('__last-backup-remind');
+      if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;
+      const lastBackup = ts('__last-backup');
+      if (lastBackup && Date.now() - lastBackup < DAY) return false;
+      return true;
     }
     function tryShow() {
-      if (window.__resetting) return;
+      if (window.__resetting || document.hidden) return;
+      // 数据就绪才判；IDB 整轮挂起的设备上 __mochiDataReady 永不置位，60s 后按已就绪处理
+      //（这里只读 localStorage 的小键，回填没完成也不会读到脏值）
+      if (!window.__mochiDataReady && Date.now() - startedAt < 60000) return;
+      if (!splashGone()) return;
+      if (!due()) return;
+      // 版本更新提示优先（避免同屏叠两个提醒）：本轮让路，下轮复查再弹
+      const upd = document.getElementById('ver-update-bar');
+      if (upd && !upd.hidden) return;
       const lastBackup = ts('__last-backup');
-      const lastRemind = ts('__last-backup-remind');
-      if (lastRemind && Date.now() - lastRemind < INTERVAL) return; // 近期已提醒过
-      if (lastBackup && Date.now() - lastBackup < INTERVAL) return; // 刚备份过
-      show(lastBackup ? Math.max(Math.floor((Date.now() - lastBackup) / DAY), INTERVAL / DAY) : 0, !!lastBackup);
+      const days = lastBackup ? Math.max(Math.floor((Date.now() - lastBackup) / DAY), 1) : 0;
+      const r = openBackupModal(days, !!lastBackup);
+      if (r === 'ok') { markReminded(); return; }
+      // 别的弹窗正占用全站唯一 #modal-mask：本轮让路（不顶掉对方、也不写冷却），复查时间线下轮再补
+      if (r === 'busy') return;
+      // 兜底（弹窗组件不可用）：退回顶部提醒条，保证提醒不丢
+      if (showBar(days, !!lastBackup)) markReminded();
     }
-    function gated() {
-      // 全新安装/数据被清空的空状态不提醒（没有可备份的数据，避免噪音）
-      try { if (!localStorage.getItem(G + 'contacts')) return; } catch (e) {}
-      tryShow();
-    }
-    document.addEventListener('mochi-restore-done', gated);
-    const poll = setInterval(function () {
-      if (window.__mochiDataReady) { clearInterval(poll); gated(); }
-    }, 300);
+    // 每日复查：开屏期间/别的弹窗占用时都不写冷却，靠这条时间线在用户真正进入后补上。
+    // 前 10 分钟每 2s 一次（覆盖「点进桌面」那一刻，尽快弹出）后自动收掉；
+    // 慢轮询每 60s 一次——应用常驻不刷新（PWA + 后台保活）跨天时，第二天照样提醒得到。
+    const fast = setInterval(function () {
+      try { tryShow(); } catch (e) {}
+      if (Date.now() - startedAt > 600000) clearInterval(fast);
+    }, 2000);
+    setInterval(function () { try { tryShow(); } catch (e) {} }, 60000);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') setTimeout(tryShow, 800);
+    });
     const go = document.getElementById('backup-remind-go');
     if (go) go.addEventListener('click', function () {
       bar.hidden = true;

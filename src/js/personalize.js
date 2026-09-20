@@ -478,7 +478,9 @@ try {
       // v3.25.x：opts.big——宽版弹窗（诊断信息等长文只读展示），配合 CSS
       // .modal.modal--big 加宽 + 放大输入框；每次开弹窗按 opts.big 重设类，天然复位。
       if (modalBox) modalBox.classList.toggle('modal--big', !!opts.big);
-      // v3.20.x：每次打开弹窗重置底部确认按钮文案为默认「确定」——此前只在调用方显式
+      // v3.3x.x：opts.warn——警示形态（红描边/红标题/红底说明，样式见 base.css .modal--warn）。
+      // 备份提醒用它：「数据会被设备自动清空」这条必须一眼被看见。同 big 一样每次开弹窗重设类。
+      if (modalBox) modalBox.classList.toggle('modal--warn', !!opts.warn);      // v3.20.x：每次打开弹窗重置底部确认按钮文案为默认「确定」——此前只在调用方显式
       // ctl.okText() 时才会写，若某次弹窗（如心意币「申请」）设过、下一个弹窗
       // （如跨桌面通话/查岗的 pill 弹窗）没设，按钮就残留显示上一个弹窗文案。
       // 需要定制文案的调用方在 openModal 返回后调 ctl.okText() 覆盖即可。
