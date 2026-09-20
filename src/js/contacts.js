@@ -203,6 +203,9 @@
     // 「上次结果」回显与跑完时的挂起报告。都是全局根键、不随联系人隔离，漏排除会被
     // migrateLegacy 每次刷新迁进 default 并删根键（长窗口自测跑到一半记录就没了）。
     'battery-check-run', 'battery-check-last', 'heat-check-last',
+    // #946：闪屏自测（flash-check.js）只存「最后一次报告」一份，同是全局根键、不随联系人隔离；
+    // 漏排除＝每次刷新被 migrateLegacy 迁进 default 并删根键（报障时回看的那份报告没了）。
+    'flash-check-last',
     'ver-retry'];
   function isExcluded(k) {
     const r = k.slice(G.length + 1);
