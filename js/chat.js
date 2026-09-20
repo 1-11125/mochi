@@ -3030,12 +3030,15 @@ let anchor = null;
 const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
-for (let i = renderEnd; i < newEnd; i++) {
-if (body.querySelector('[data-idx="' + i + '"]')) continue;
-if (!anchor) {
-for (let j = i + 1; j < len && !anchor; j++) {
-anchor = body.querySelector('[data-idx="' + j + '"]');
+const onScreen = new Map(); // #918a：屏上 data-idx 索引（一轮 O(DOM) 建表，替代循环内全表 querySelector）
+for (const el of body.querySelectorAll('[data-idx]')) {
+const k = parseInt(el.dataset.idx, 10);
+if (Number.isFinite(k) && !onScreen.has(k)) onScreen.set(k, el);
 }
+for (let i = renderEnd; i < newEnd; i++) {
+if (onScreen.has(i)) continue; // #766a：守卫口径不变（#918 把「查 DOM」换成「查上面那张表」）
+if (!anchor) {
+for (let j = i + 1; j < len && !anchor; j++) anchor = onScreen.get(j) || null; // #918b：锚点同批改查表（旧写法每个未命中下标都全表扫一次）
 }
 maybeInsertDivider(i);
 const m = renderMsg(msgs[i]);

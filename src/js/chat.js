@@ -3996,17 +3996,27 @@ let anchor = null;
 const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
+// FIX 2026-09-20 #918（红米 K80 Chrome 实报「进聊天弹闪一下才恢复、没有加载动画」，多机型同现）：
+// 屏上下标一次成表、循环内改查表。旧写法每补一条都 body.querySelector('[data-idx=i]') 全表扫描，
+// 屏上没有更新的下标时还要把 i+1..len 再逐个扫一遍找锚点——「LS 尾部快照 → 权威全量」的进页补尾
+// 按 LOAD_STEP 分批 × 每批 100 条 × 数百次全表扫，600 条历史无头实测单轮 querySelector 自耗 3.2s
+// 纯主线程冻结（画面停在 40 条旧快照、进度条也画不动，解冻瞬间一次性落成全量画面＝肉眼「闪一下才恢复」；
+// 无头取证：两侧都没有 renderWindow 的清空重画，闪的成因是这段冻结本身，不是重建）。
+// 命中判定与锚点选取口径与 #766 的纯属性选择器一字不差（同一份 body 子树快照），只换查找方式。
+const onScreen = new Map(); // #918a：屏上 data-idx 索引（一轮 O(DOM) 建表，替代循环内全表 querySelector）
+for (const el of body.querySelectorAll('[data-idx]')) {
+const k = parseInt(el.dataset.idx, 10);
+if (Number.isFinite(k) && !onScreen.has(k)) onScreen.set(k, el);
+}
 for (let i = renderEnd; i < newEnd; i++) {
 // FIX 2026-09-18 #766：幂等守卫改**纯属性选择器**。旧写法 `.msg[data-idx="i"]` 只认 .msg 类，而
 // 拍一拍/系统提示/游戏结算等节点类名各异（msg-poke / msg-rps / msg-pong / msg-center…）不带 .msg
 // ⇒ 这类消息「已经画过」查不出来 ⇒ 缺口补画时原样再画一遍＝用户看到的「一条消息变多条」。
 // data-idx 是渲染路径统一写入的定位属性（见 renderMsg 头部与 pruneWindow/querySelectorAll('[data-idx]')
 // 既有口径），按属性查与类名彻底解耦，今后新增消息类型也自动受保护。anchor 定位同理。
-if (body.querySelector('[data-idx="' + i + '"]')) continue;
+if (onScreen.has(i)) continue; // #766a：守卫口径不变（#918 把「查 DOM」换成「查上面那张表」）
 if (!anchor) {
-for (let j = i + 1; j < len && !anchor; j++) {
-anchor = body.querySelector('[data-idx="' + j + '"]');
-}
+for (let j = i + 1; j < len && !anchor; j++) anchor = onScreen.get(j) || null; // #918b：锚点同批改查表（旧写法每个未命中下标都全表扫一次）
 }
 maybeInsertDivider(i);
 const m = renderMsg(msgs[i]);

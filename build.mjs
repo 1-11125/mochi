@@ -3588,7 +3588,9 @@ const FIX_SENTINELS = [
   // ==== 2026-09-18 #766 聊天「莫名其妙一条变多条」（用户实报：点发送那一刻就两条、刷新还在、全部类型、有的机型有有的没有）——两条独立根因：
   // ①渲染层：renderMsg 的 data-idx 只在部分分支手写，poke/ask-msg/call/rps/pong/brick/memory/snake 等提前 return 的分支从不写，而补画缺口的幂等守卫用类名限定的 `.msg[data-idx]` 查这些节点＝查不到 ⇒ 裁尾窗口回底时原样重画一遍（是否触发取决于屏高/历史长度是否曾裁窗＝机型差异来路）。
   // ②数据层：chat-tail（#180）条目落盘后永不退休，任何让内存 msgs 短于日志的事件（#722 热片装载、某块读失败留空洞、慢内核回退有损 LS 快照、异步链里切联系人致日志与 msgs 不同命名空间、导入整包替换）都被误判「这条没落盘」再回放一份，并被随后的 saveMsgs 固化进库 ⇒ 刷新还在、越用越多。====
-  { name: '#766a 补画缺口幂等守卫改纯属性选择器（改回 .msg[data-idx] ＝不带 .msg 类的拍一拍/系统提示/游戏结算节点查不到，裁尾窗口回底原样重画＝同一条显示两个）', file: 'js/chat.js', needle: `if (body.querySelector('[data-idx="' + i + '"]')) continue;` },
+  { name: '#766a 补画缺口幂等守卫改纯属性选择器（#918 起查「屏上下标索引表」，口径一字不变＝命中即跳过补画）（改回 .msg[data-idx] ＝不带 .msg 类的拍一拍/系统提示/游戏结算节点查不到，裁尾窗口回底原样重画＝同一条显示两个）', file: 'js/chat.js', needle: `if (onScreen.has(i)) continue; // #766a` },
+  { name: '#918a 进页补尾屏上下标一次成表（删回循环内 body.querySelector 全表扫＝「LS 尾部快照→权威全量」补尾时 600 条实测 157,084 次全表扫、单任务 3.2~4.4s 纯冻结，画面停在 40 条旧快照、进度条画不动，解冻一次性换成全量画面＝用户实报「进聊天弹闪一下才恢复、没有加载动画」，红米 K80/多机型同现，行为断言 tools/verify-chat-newer-index.mjs）', file: 'js/chat.js', needle: 'const onScreen = new Map(); // #918a' },
+  { name: '#918b 补尾锚点选取同批改查表（删＝锚点未命中时 i+1..len 逐个全表扫，与 #918a 同一条 O(step×len×DOM) 冻结路径的另一半）', file: 'js/chat.js', needle: 'anchor = onScreen.get(j) || null; // #918b' },
   { name: '#766b 尾巴日志退休接口（删掉＝日志条目落盘后永不清零，任何一次 msgs 短于日志的读库都把它当未落盘再回放一份并固化进库＝刷新仍在的重复）', file: 'js/chat.js', needle: 'function chatTailRetire(keep) {' },
   { name: '#766c 退休走 store 层写盘（改回只动 localStorage＝IDB 镜像仍在，idbRestore 回填原样复活，重复清不掉）', file: 'js/chat.js', needle: "try { store.set('chat-tail', JSON.stringify(k)); } catch (e) {}" },
   { name: '#766d 早于本次装载窗口的日志条目一律不回放（删＝热片装载/块读空洞时把库里已有的更早消息再补一份进内存＝凭空重复）', file: 'js/chat.js', needle: 'if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }' },
