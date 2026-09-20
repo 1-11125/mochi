@@ -4080,8 +4080,18 @@ loadNewerIncremental();
 // 一条消息才会重新钉住，期间联系人来消息全部不跟底（表现「不自动滚到最新」）
 // FIX #416：回钉只认「真的滚到底」（≤8px）——旧阈值 120px 把「上翻读最新一条就停下」
 // 也当回钉，每次点滑动都被拽回最底下（见 chatAtBottom 注释）
+// FIX 2026-09-20 #933（iPhone 12 Pro Max Safari 实报「聊天记录上划太用力还是会错位，跑到屏幕
+// 上半位置，下半是空的，但点击屏幕即可恢复」，用户点名多机型同现、勿致其他机型回归）：
+// 回钉不再当场写。上划用力＝抬手后惯性还在走/底部橡皮筋回弹中，而本回调是 100ms 防抖
+//（#716 只挡「手指在屏」的手势期，抬手后的惯性滑行照样算解钉态），撞进这段时间窗就把
+// scrollTop 写在动画中途；#871 真机结论＝中途写会让 WebKit 滚动树停在旧偏移（内容整块上移、
+// 下方留白），且此刻 pinned 已置、#706 看门狗只认「离底 >8px 没到底」这一种失底（scrollTop
+// 超界/撕裂时 scrollTop ≥ max 恒不成立）永不复查 ⇒ 只有轻点 touchend 的
+// chatAtBottom()→scrollChatBottom() 写得回来＝「点屏幕即可恢复」。
+// 修法＝钉住标记当场置（自动跟底语义零回退），几何写入交下方 chatScrollRealignQuiet 落定锁：
+// 滚动/惯性/几何全静默后只写一枪。零机型分支：写发生在静默期，健康引擎只是重写同一个值。
 else if (!chatPinnedBottom && !chatTouchActive && chatAtBottom()) { // #716：手势进行中不回钉（防刚离底 ≤8px 被误判「滚回贴底」拽回）
-scrollChatBottom();
+chatPinnedBottom = true; body.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
 }
 }, 100);
 }, { passive: true });
@@ -4199,6 +4209,31 @@ const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
+// FIX 2026-09-20 #933：滚动会话落定重对齐（缺陷面见上方 scroll 回调回钉分支的注释）——
+// 与 #871 chatResyncScrollQuiet 同形同闸（复用 #861 那把落定锁 chatRepinQuietEnough：滚动/触摸/
+// 几何都静默才写、一次会话只写一枪、1200ms 静默不了就放弃交回看门狗周期复核），判据换成
+// 「贴底/钉住」：①仍在贴底（含橡皮筋超界——chatAtBottom 对超界同样判真）或本次会话已回钉
+// ⇒ scrollChatBottom() 同值重落一枪＝强制内核滚动树对新几何重对齐（#871 真机实证：WebKit 表现
+// 层旧偏移正是靠这一枪拉回，同时把超界的 scrollTop 显式钳回；Blink/Gecko 同值写零副作用）；
+// ②用户已翻历史（解钉态）⇒ 转 #871 解钉态钳回/同值重落，绝不拽底（#162/#416 契约不变）。
+// 零机型分支：写只发生在滚动全静默之后，健康引擎只是重写同一个值。
+let _rsAlignT = null;
+let _rsAlignDeadline = 0;
+function chatScrollRealignQuiet() {
+if (_rsAlignT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_rsAlignDeadline = Date.now() + 1200;
+_rsAlignT = setTimeout(chatScrollRealignStep, 120);
+}
+function chatScrollRealignStep() {
+_rsAlignT = null;
+const now = Date.now();
+if (!chatVisible()) return;
+if (!chatRepinQuietEnough(now)) { if (now < _rsAlignDeadline) _rsAlignT = setTimeout(chatScrollRealignStep, 120); return; }
+const cb = document.getElementById('chat-body');
+if (!cb) return;
+if (chatPinnedBottom || chatAtBottom()) { scrollChatBottom(); return; }
+chatResyncScrollQuiet('scroll');
+}
 // FIX #162：消息图片是 loading=lazy，加载完成晚于滚底，加载后内容长高会把视图从底部顶开
 //（iPadOS 26 Safari 尤其明显＝「回一条滑一次」）——钉住期间任何消息图片 onload 后回到底部
 body.addEventListener('load', (e) => {

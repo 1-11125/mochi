@@ -3103,7 +3103,7 @@ loadOlderIncremental();
 loadNewerIncremental();
 }
 else if (!chatPinnedBottom && !chatTouchActive && chatAtBottom()) { // #716：手势进行中不回钉（防刚离底 ≤8px 被误判「滚回贴底」拽回）
-scrollChatBottom();
+chatPinnedBottom = true; body.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
 }
 }, 100);
 }, { passive: true });
@@ -3173,6 +3173,23 @@ const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
+let _rsAlignT = null;
+let _rsAlignDeadline = 0;
+function chatScrollRealignQuiet() {
+if (_rsAlignT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_rsAlignDeadline = Date.now() + 1200;
+_rsAlignT = setTimeout(chatScrollRealignStep, 120);
+}
+function chatScrollRealignStep() {
+_rsAlignT = null;
+const now = Date.now();
+if (!chatVisible()) return;
+if (!chatRepinQuietEnough(now)) { if (now < _rsAlignDeadline) _rsAlignT = setTimeout(chatScrollRealignStep, 120); return; }
+const cb = document.getElementById('chat-body');
+if (!cb) return;
+if (chatPinnedBottom || chatAtBottom()) { scrollChatBottom(); return; }
+chatResyncScrollQuiet('scroll');
+}
 body.addEventListener('load', (e) => {
 const t = e.target;
 if (!t || t.tagName !== 'IMG') return;

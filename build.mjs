@@ -3892,7 +3892,12 @@ const FIX_SENTINELS = [
   { name: '#932d 一键修复接管整组停用（缺这条＝批量修复只清单卡，被分组闸卡住的分类修不好）', file: 'js/card-audit.js', needle: "else if (f.kind === 'goff') fixPresetGroups(f.id, f.cat);" },
   { name: '#932e 启用分组只删本分类名单不动单卡值（整体清或连带 dc-off-* 一起改＝越权改用户设置）', file: 'js/card-audit.js', needle: "return storeSet('dc-groups-off', JSON.stringify(o)) ? true : 'fail';" },
   { name: '#932f 入口角标计数认整组停用（删＝不打开页面看不到有问题，角标仍是零告警面）', file: 'js/card-audit.js', needle: 'var gso = goffRecord();' },
-  { name: '#932g 词典漏斗补内容闸（dictPoolN 已按 effOff 统计，删该闸＝池被清空仍显示可用）', file: 'js/card-audit.js', needle: "{ t: '内容', ok: dictPoolN > 0 }" }
+  { name: '#932g 词典漏斗补内容闸（dictPoolN 已按 effOff 统计，删该闸＝池被清空仍显示可用）', file: 'js/card-audit.js', needle: "{ t: '内容', ok: dictPoolN > 0 }" },
+/* ==== 2026-09-20 #933 聊天记录上划用力错位（内容上移半屏、下方留白、轻点恢复）根治＝回钉不再当场写、几何写入交落定锁静默后一枪（iPhone 12 Pro Max Safari 实报，用户点名多机型同现；零机型分支：写只发生在滚动全静默后） ==== */
+{ name: '#933a 回钉分支当场置钉＋几何交落定锁（删＝又回到惯性/橡皮筋回弹中途写 scrollTop，WebKit 滚动树停旧偏移＝错位半屏复发）', file: 'js/chat.js', needle: "chatPinnedBottom = true; body.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();" },
+{ name: '#933b 落定重对齐入口（删＝回钉置钉后无人落定补写，撕裂滞留态只能靠轻点救）', file: 'js/chat.js', needle: 'function chatScrollRealignStep() {' },
+{ name: '#933c 落定锁未静默时续等（删＝中途抢写，与 #861 落定闸契约破裂）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _rsAlignDeadline) _rsAlignT = setTimeout(chatScrollRealignStep, 120); return; }' },
+{ name: '#933d 落定判据贴底/钉住写底、否则转解钉钳回（删＝解钉态被拽底或撕裂态无人写，#162/#416 契约回退）', file: 'js/chat.js', needle: 'if (chatPinnedBottom || chatAtBottom()) { scrollChatBottom(); return; }' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
