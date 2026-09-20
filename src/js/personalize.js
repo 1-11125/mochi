@@ -4650,10 +4650,15 @@ try {
     if (v.indexOf('@@font:') !== 0) return v;
     try { return window.xyStore('xy-home-v2').get('font-blob-' + v.slice(7)) || ''; } catch (e) { return ''; }
   }
-  function applyDeskCsFont() {
+  // #894：keepPending=true（启动/contact-switched 路径）时，引用形态但 blob 未就绪（同步读空）
+  //   【不清除】已注入字体——弱内核补读挂起期间切桌面，旧逻辑按空值拆 @font-face＝字体应用消失；
+  //   补读落地会广播 cs-font-changed 再校正。false（广播路径）读空＝补读已终局且确认读不到
+  //   （成功落地必已回填 memoryCache 可同步读到），照常清除。
+  function applyDeskCsFont(keepPending) {
     const v = deskCsFontResolved();
     const raw = deskCsFontValOf();
     if (deskCsFontVal) deskCsFontVal.textContent = raw ? ((raw.indexOf('data:') === 0 || raw.indexOf('@@font:') === 0) ? '已上传' : raw) : '默认';
+    if (!v && raw.indexOf('@@font:') === 0 && keepPending) return;
     // 同一个值已在位就不再重注入（dataURL 字体可达 MB 级，切桌面/回填兜底都会调到这里）
     const old = document.getElementById('cs-font-style');
     if (old && old.__fontVal === v) return;
@@ -4680,8 +4685,8 @@ try {
     document.documentElement.style.fontFamily = '"' + v + '",sans-serif';
   }
   // 与聊天设置那侧互相回显（cs-font-changed 广播；本函数不广播，避免两边成环）
-  document.addEventListener('cs-font-changed', applyDeskCsFont);
-  applyDeskCsFont();
+  document.addEventListener('cs-font-changed', () => applyDeskCsFont(false));
+  applyDeskCsFont(true);
   if (deskCsFontRow) {
     deskCsFontRow.addEventListener('click', () => {
       if (!window.openTCPanel) return;
@@ -4771,7 +4776,7 @@ try {
       });
     });
   }
-  document.addEventListener('contact-switched', applyDeskCsFont);
+  document.addEventListener('contact-switched', () => applyDeskCsFont(true));
 
   // ===== v3.6.x：桌面字号（滑块 85~120%，默认 100%） =====
   // FIX 2026-09-17 #707：桌面缩放类门控（单点实现，所有写值路径都要调它）——只有

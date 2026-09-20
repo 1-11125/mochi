@@ -1428,6 +1428,7 @@
         } else {
           _fontBlobGone[hash] = true; // IDB 里真没有＝blob 丢失（多半是当年写入静默失败）
           applyFont(); // 只为把设置行文案刷成「丢失」；fontResolved 见 gone 不再发读
+          csFontChanged(); // #894：丢失是终局，广播让美化页入口同步清除（读取中不广播，防误清）
         }
       }).catch(() => {
         delete _fontHydrating[hash];
@@ -1511,6 +1512,12 @@
       else if (rawVal.indexOf('@@font:') === 0) setVal.textContent = _fontBlobGone[rawVal.slice(7)] ? '字体文件丢失，请重新上传' : '已上传（读取中…）';
       else setVal.textContent = '默认';
     }
+    // #894：引用未展开（blob 只在 IDB/补读在飞，且未判丢失）时【保留已注入的字体不清除】——
+    //   弱内核 IDB 挂起期间切桌面/回填兜底走到这里，旧逻辑按空值把 @font-face 拆掉、内联
+    //   font-family 清空＝用户报「切换桌面联系人后已上传的字体应用消失」；挂起拖过 5 发补读
+    //   预算后整场会话不再补读＝永不恢复。补读落地后 applyFont 按真实值校正；新桌面真没设
+    //   字体时 rawVal 不是引用形态，照常清除（#628 按桌面独立语义不变）。
+    if (!v && rawVal.indexOf('@@font:') === 0 && !_fontBlobGone[rawVal.slice(7)]) return;
     // 同一个值已在位就不再重注入——dataURL 字体可达 MB 级，而切桌面/回填兜底都会调到这里
     const old = document.getElementById('cs-font-style');
     if (old && old.__fontVal === v) return;

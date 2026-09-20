@@ -3759,6 +3759,10 @@ const FIX_SENTINELS = [
   { name: '#886a 指针永远指着显示的菜（显示菜扇区中线转到 3π/2；删＝打开/换一个后指针与显示菜无关）', file: 'js/p2-features.js', needle: 'eatSpinAngle = ((3 * Math.PI / 2 - (i + 0.5) * slice) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);' },
   { name: '#886b 切桌面复位（删＝跨桌面重进带着上一桌面的编辑面板/切换浮层状态）', file: 'js/p2-features.js', needle: "document.addEventListener('contact-switched', function () { eatClearSpin(); eatSwitchClose(); const mp = document.getElementById('eat-menu-panel'); if (mp) mp.hidden = true; });" },
   { name: '#886c 提醒键清扫只留当天（删＝eat-remind-done 键每天至多 4 个无限累积）', file: 'js/p2-features.js', needle: "const scan = pfx + ':eat-remind-done:';" },
+  { name: '#894a 读取中不清注入（删＝弱内核切桌面字体应用消失复发）', file: 'js/chat-settings.js', needle: "if (!v && rawVal.indexOf('@@font:') === 0 && !_fontBlobGone[rawVal.slice(7)]) return;" },
+  { name: '#894b 丢失终局广播（删＝美化页入口不跟随清除丢失字体）', file: 'js/chat-settings.js', needle: 'csFontChanged(); // #894：丢失是终局' },
+  { name: '#894c 美化页读取中保留（删＝切桌面美化入口误清字体）', file: 'js/personalize.js', needle: "if (!v && raw.indexOf('@@font:') === 0 && keepPending) return;" },
+
 
 ];
 try {
