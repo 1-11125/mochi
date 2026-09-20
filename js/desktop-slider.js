@@ -73,6 +73,9 @@ const SW_KEY = 'xy-home-v2:__diag-swperf';
 const SW_FRAMES = 30;
 function swSample() {
 if (swOn) return;
+const now943 = Date.now();
+if (now943 - (swSample.last || 0) < 300000) return;
+swSample.last = now943;
 swOn = true;
 const gaps = [];
 let last = 0, hid = 0;

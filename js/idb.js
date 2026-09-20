@@ -672,8 +672,14 @@ return Array.isArray(a) ? a.filter(function (e) { return e && typeof e.k === 'st
 } catch (e) { return []; }
 }
 function wrjLsRaw() { try { return localStorage.getItem(WRJ_KEY); } catch (e) { return null; } }
-function wrjPersist() {
+let _wrjPersistT = null;
+function wrjPersistFlush() {
+if (_wrjPersistT) { clearTimeout(_wrjPersistT); _wrjPersistT = null; }
 try { localStorage.setItem(WRJ_KEY, JSON.stringify(_wrj || [])); } catch (e) {}
+}
+function wrjPersist() {
+if (_wrjPersistT) return;
+_wrjPersistT = setTimeout(wrjPersistFlush, 200);
 }
 const WRJ_MARK_FLUSH_MS = 150;
 let _wrjMarkBuf = new Map(); // 完整标记键 -> t
@@ -732,10 +738,10 @@ wrjUnmark(key);
 }
 try {
 document.addEventListener('visibilitychange', function () {
-try { if (document.visibilityState === 'hidden') wrjMarkFlush(); } catch (e) {}
+try { if (document.visibilityState === 'hidden') { wrjMarkFlush(); wrjPersistFlush(); } } catch (e) {}
 });
 } catch (e) {}
-try { if (window.addEventListener) window.addEventListener('pagehide', wrjMarkFlush); } catch (e) {}
+try { if (window.addEventListener) window.addEventListener('pagehide', function () { try { wrjMarkFlush(); wrjPersistFlush(); } catch (e) {} }); } catch (e) {}
 function wrjReplay(entries) {
 if (!entries || !entries.length) return 0;
 if (!memoryCache) memoryCache = {};

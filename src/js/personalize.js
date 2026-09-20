@@ -5106,11 +5106,23 @@ try {
   function refreshDeskVisuals() {
     try { window.applyAvatars(); } catch (e) {}
     try { applyAllCardBgs(); } catch (e) {}
-    try { applyAllWidgetTexts(); } catch (e) {}
-    try { applyAllWidgetOpacities(); } catch (e) {}
     try { applyPageBgs(); } catch (e) {}
-    try { renderDeskImages(); } catch (e) {}
-    try { syncBgUI(); } catch (e) {}
+    // FIX 2026-09-20 #943d：整块七项同步跑（无头实测 ≈150ms，真机 iOS 大 dataURL 解码更高）
+    // 恰压在「回到桌面/切桌面」的交互帧上＝桌面翻页/回桌面冻结（实测最慢 954ms）的来源。
+    // 拆帧：头像/卡片背景/页面背景三样最显眼的大图仍在本帧落位（不闪旧桌面，#695 语义不变），
+    // 其余四项（文本组件/透明度/图片组件/设置页背景 UI）逐帧让出，每帧之间主线程可响应触摸；
+    // 隐藏态无渲染竞争，一次跑完。
+    const rest = [applyAllWidgetTexts, applyAllWidgetOpacities, renderDeskImages, syncBgUI];
+    let rest943 = 0;
+    const step943 = function () {
+      while (rest943 < rest.length) {
+        try { rest[rest943](); } catch (e) {}
+        rest943++;
+        if (!document.hidden && rest943 < rest.length) { requestAnimationFrame(step943); return; }
+      }
+    };
+    if (document.hidden) step943();
+    else requestAnimationFrame(step943);
   }
   // ===== FIX 2026-09-17 #695 切桌面「直达聊天」时桌面视觉延后到主页真正显示前 =====
   // 症状（用户直派）：此间里点某位跨桌面梦角的【去找TA】直达聊天，点击后要卡一下。

@@ -1004,8 +1004,18 @@
     } catch (e) { return []; }
   }
   function wrjLsRaw() { try { return localStorage.getItem(WRJ_KEY); } catch (e) { return null; } }
-  function wrjPersist() {
+  // FIX 2026-09-20 #943c：日志落盘防抖——原实现 xyStore.set 每写一个小键就把整本日志
+  // JSON.stringify（预算 128KB/40 条）同步 setItem 一次＝每次键写入都给主线程加一次
+  // 全包串化税（456 键的域里发消息/开关切换连写时叠加成可感长任务）。改 200ms trailing
+  // 合并；离页（visibilitychange hidden / pagehide）当场冲刷，写入仍必达，防丢语义不变。
+  let _wrjPersistT = null;
+  function wrjPersistFlush() {
+    if (_wrjPersistT) { clearTimeout(_wrjPersistT); _wrjPersistT = null; }
     try { localStorage.setItem(WRJ_KEY, JSON.stringify(_wrj || [])); } catch (e) {}
+  }
+  function wrjPersist() {
+    if (_wrjPersistT) return;
+    _wrjPersistT = setTimeout(wrjPersistFlush, 200);
   }
   // v3.26.x 存储优化：标记合并落库——原实现每个小键 set 各发一个 IDB 事务写时间戳标记，
   // 值事务之外白翻倍事务数；现积攒 150ms 用 idbSetAll 单事务批量写。语义不变：值事务在
@@ -1073,13 +1083,13 @@
     if (_wrj.length !== before) wrjPersist();
     wrjUnmark(key);
   }
-  // 离页即时冲刷待写标记，压缩「写完立刻退出」丢标记的窗口
+  // 离页即时冲刷待写标记＋防抖中的日志落盘（#943c），压缩「写完立刻退出」丢标记/丢日志的窗口
   try {
     document.addEventListener('visibilitychange', function () {
-      try { if (document.visibilityState === 'hidden') wrjMarkFlush(); } catch (e) {}
+      try { if (document.visibilityState === 'hidden') { wrjMarkFlush(); wrjPersistFlush(); } } catch (e) {}
     });
   } catch (e) {}
-  try { if (window.addEventListener) window.addEventListener('pagehide', wrjMarkFlush); } catch (e) {}
+  try { if (window.addEventListener) window.addEventListener('pagehide', function () { try { wrjMarkFlush(); wrjPersistFlush(); } catch (e) {} }); } catch (e) {}
   // 回放：把日志里的「最近一次写入」补进 内存+LS。时间戳守卫保证只应用比
   // 已知写入更新的条目（不会覆盖本会话新写入的值）。
   function wrjReplay(entries) {

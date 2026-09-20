@@ -674,8 +674,16 @@ localStorage.setItem((prefix || window.activePrefix()) + ':chat-msgs', snap);
 // ts|side|前64字符签名在「LS 存原文 base64 / 内存已令牌化」时判不出同一条，LS 快照里会长期存两份。
 function mergeLsSnapshotWith(msgsNow, prefix) {
 try {
+let raw = '';
+try { raw = store.get('chat-msgs') || ''; } catch (e) { raw = ''; }
+// FIX 2026-09-20 #943a：超限遗留快照不再整包 parse+merge——快照写入器自己的上限就是
+// LS_SNAP_LIMIT（超限只可能来自旧版本残留，实例 2.7MB），每次发消息/退后台把 2.7MB
+// JSON.parse＋全量去重合并再重串化压在主线程热路径上（iOS 实测为百 ms 级冻结，
+// perfcheck 前台冻结 45 次的主要来源）。直接用 msgsNow 的新 lite 快照覆盖该键：
+// 权威数据在 IndexedDB，LS 只是兜底副本，无语义损失。
+if (raw.length > LS_SNAP_LIMIT) { performLsSnapWrite(msgsNow, prefix); return; }
 let old = [];
-try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
+try { old = JSON.parse(raw || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
 const seen = new Set(msgsNow.map(lsMergeSig));
 // FIX 2026-09-16 #594：再补一层「媒体两种存法」互补判定（媒体池冷载时 lsMergeSig 展开不出
@@ -11417,14 +11425,28 @@ try { toast('表情包暂时没能写入本机存储，稍后回到本页会自�
 });
 }
 // 离页/回前台补写闸（#434）：有未确认落盘的变更就在离页事件里再发一次写
-function myeDurableFlush() { if (myeDurablePending) myeEnsureDurable(0); }
+function myeDurableFlush() {
+// FIX 2026-09-20 #943b：离页先把防抖中的表情包整包写当场落盘（否则 600ms 窗口内退出会丢这次保存）
+try { if (myeSaveTimer) { clearTimeout(myeSaveTimer); myeSaveTimer = null; myEmojiSaveNow(); } } catch (e0) {}
+if (myeDurablePending) myeEnsureDurable(0);
+}
 (function () {
 try {
 document.addEventListener('visibilitychange', myeDurableFlush);
 window.addEventListener('pagehide', myeDurableFlush);
 } catch (e) {}
 })();
+// FIX 2026-09-20 #943b：大包（实例 1.14MB）的 myeSaveJson 整包串化＋IDB put 不再压在面板
+// 每次点按的当前帧——拖动排序/连点导入会连续触发 N 次整包写（perfcheck「点按响应最慢 466ms」
+// 来源之一）。防抖 600ms trailing 合并成最后一次；离页/回前台由 myeDurableFlush 当场补发，
+// 落盘语义不变（进库仍必达）。防盲写闸门逻辑原样保留在 myEmojiSaveNow 内。
+var myeSaveTimer = null;
 function myEmojiSave() {
+if (myeSaveTimer) clearTimeout(myeSaveTimer);
+myeSaveTimer = setTimeout(function () { myeSaveTimer = null; myEmojiSaveNow(); }, 600);
+return true;
+}
+function myEmojiSaveNow() {
 // #172 防覆盖闸门：挂起名单仍含本键 = 本会话没恢复过全量，盲写会顶掉 IDB 全量
 // FIX 2026-09-10 #281：启动取回延迟后（见下方 bootRestore 调度），「尚未成功应用过 IDB
 // 权威值」的窗口同样不得盲写——闸门从「在挂起名单」扩为「未应用过权威值 或 仍在挂起名单」

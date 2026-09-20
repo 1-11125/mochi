@@ -531,8 +531,11 @@ localStorage.setItem((prefix || window.activePrefix()) + ':chat-msgs', snap);
 }
 function mergeLsSnapshotWith(msgsNow, prefix) {
 try {
+let raw = '';
+try { raw = store.get('chat-msgs') || ''; } catch (e) { raw = ''; }
+if (raw.length > LS_SNAP_LIMIT) { performLsSnapWrite(msgsNow, prefix); return; }
 let old = [];
-try { old = JSON.parse(store.get('chat-msgs') || '[]'); } catch (e) { old = []; }
+try { old = JSON.parse(raw || '[]'); } catch (e) { old = []; }
 if (!Array.isArray(old)) old = [];
 const seen = new Set(msgsNow.map(lsMergeSig));
 const kinds = recKindIndex(msgsNow);
@@ -9414,14 +9417,23 @@ try { toast('表情包暂时没能写入本机存储，稍后回到本页会自�
 }
 });
 }
-function myeDurableFlush() { if (myeDurablePending) myeEnsureDurable(0); }
+function myeDurableFlush() {
+try { if (myeSaveTimer) { clearTimeout(myeSaveTimer); myeSaveTimer = null; myEmojiSaveNow(); } } catch (e0) {}
+if (myeDurablePending) myeEnsureDurable(0);
+}
 (function () {
 try {
 document.addEventListener('visibilitychange', myeDurableFlush);
 window.addEventListener('pagehide', myeDurableFlush);
 } catch (e) {}
 })();
+var myeSaveTimer = null;
 function myEmojiSave() {
+if (myeSaveTimer) clearTimeout(myeSaveTimer);
+myeSaveTimer = setTimeout(function () { myeSaveTimer = null; myEmojiSaveNow(); }, 600);
+return true;
+}
+function myEmojiSaveNow() {
 if (window.idbHydrateKey &&
 (window.__myeIdbApplied !== true ||
 (window.__xyIdbDeferredKeys && window.__xyIdbDeferredKeys.indexOf(MYE_KEY()) >= 0))) {

@@ -4271,11 +4271,18 @@ if (--left <= 0) done();
 function refreshDeskVisuals() {
 try { window.applyAvatars(); } catch (e) {}
 try { applyAllCardBgs(); } catch (e) {}
-try { applyAllWidgetTexts(); } catch (e) {}
-try { applyAllWidgetOpacities(); } catch (e) {}
 try { applyPageBgs(); } catch (e) {}
-try { renderDeskImages(); } catch (e) {}
-try { syncBgUI(); } catch (e) {}
+const rest = [applyAllWidgetTexts, applyAllWidgetOpacities, renderDeskImages, syncBgUI];
+let rest943 = 0;
+const step943 = function () {
+while (rest943 < rest.length) {
+try { rest[rest943](); } catch (e) {}
+rest943++;
+if (!document.hidden && rest943 < rest.length) { requestAnimationFrame(step943); return; }
+}
+};
+if (document.hidden) step943();
+else requestAnimationFrame(step943);
 }
 const deskVisualJobs = new Set();   // 待补跑的桌面视觉重应用（去重＝同一个重应用函数只排一次）
 let deskVisualWatch = null;         // 主页显示触发器（只建一次）

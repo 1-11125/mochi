@@ -130,6 +130,12 @@
   const SW_FRAMES = 30;
   function swSample() {
     if (swOn) return;
+    // FIX 2026-09-20 #943e：自动采样限频——原实现每次从聊天/设置切回桌面都开一轮 30 帧
+    // rAF 循环，恰在回桌面/翻页的卡顿敏感窗口自我加压（采的正是自己扰动的帧）。限到
+    // 5 分钟一次；设置→性能检测的手动 perfcheck 走 perf-check.js 独立通道，不受影响。
+    const now943 = Date.now();
+    if (now943 - (swSample.last || 0) < 300000) return;
+    swSample.last = now943;
     swOn = true;
     const gaps = [];
     let last = 0, hid = 0;
