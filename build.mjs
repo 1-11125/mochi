@@ -185,10 +185,16 @@ jsWrapped.push(
   '(function () {' +
   ' function bar() {' +
   '  if (document.getElementById("boot-retry-bar")) return;' +
+  // #939e：用户点过「知道了」＝本次会话（标签页/重载后）不再弹——提醒条不得纠缠用户；
+  // 新开标签页/隔天回来标志自然失效，真网络问题仍可从头看到提示。
+  '  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}' +
+  '  if (off) return;' +
   '  var b = document.createElement("div");' +
   '  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";' +
-  '  b.innerHTML = "<span class=\\"vub-txt\\">网络不佳·部分功能没加载完</span><b>点此重试</b>";' +
+  '  b.innerHTML = "<span class=\\"vub-txt\\">网络不佳·部分功能没加载完</span><b class=\\"vub-act\\">点此重试</b><b class=\\"vub-act\\" id=\\"boot-retry-off\\">知道了</b>";' +
   '  b.addEventListener("click", function () { window.__mochiBootRetry(); });' +
+  '  var x = b.querySelector("#boot-retry-off");' +
+  '  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });' +
   '  (document.body || document.documentElement).appendChild(b);' +
   ' }' +
     // #939d：健康即撤条 + 事件复查——条只查 load+3s/8s 两次、挂上后永不摘除＝慢机/大数据量
@@ -3926,6 +3932,7 @@ const FIX_SENTINELS = [
 ,{ name: '#939a 包装 catch 登记错误清单（删＝运行期抛错文件被算成网络缺失，重试条永挂+每2h白重载；锚内联件 device.js 那份）', file: 'index.html', needle: 'if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("device.js")' },
 { name: '#939b 初始化行含错误清单（删＝catch 登记静默失效，#939a 形同虚设）', file: 'index.html', needle: 'window.__mochiErrLoaded = window.__mochiErrLoaded || [];' },
 { name: '#939d 健康即撤条+事件复查（删＝条挂上永不摘除，慢机回填>3s 永误报网络不佳；判据自包含不依赖 #921h missing()）', file: 'index.html', needle: 'function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0;' },
+{ name: '#939e 「知道了」关闭钮+会话禁弹（删＝提醒条无法关闭、反复纠缠用户；只关提示不拦真网络问题重测）', file: 'index.html', needle: 'sessionStorage.getItem("mochi-boot-bar-off") === "1"' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

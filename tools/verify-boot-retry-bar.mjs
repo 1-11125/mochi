@@ -17,6 +17,7 @@ t('S2 初始化行含错误清单', srcCode.includes('window.__mochiErrLoaded = 
 t('S3 健康判据扣除错误清单（sweep 自包含口径）', srcCode.includes('ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0'));
 t('S4 sweep 健康撤条', srcCode.includes('function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex'));
 t('S5 mochi-restore-done 事件复查', srcCode.includes('document.addEventListener("mochi-restore-done"'));
+t('S6 「知道了」关闭钮+会话禁弹标志', srcCode.includes('mochi-boot-bar-off'));
 
 // ---- 提取看门狗代码串（纯 HEAD 红基线上 sweep 不存在 → 提取仍成功，B 组逐条报红）----
 function extractWatchdog() {
@@ -45,7 +46,15 @@ function makeEnv({ dataReady, errFiles = [], loadedFiles = [], expectedN = 3 }) 
     getElementById(id) { return this.rawBar && this.rawBar.id === id ? this.rawBar : null; },
     createElement() {
       const self = this;
-      return { id: '', addEventListener() {}, style: {}, parentNode: { removeChild() { self.rawBar = null; } } };
+      const el = {
+        id: '', className: '', innerHTML: '', style: {},
+        addEventListener(ev, fn) { (el._ls = el._ls || {})[ev] = fn; },
+        parentNode: { removeChild() { self.rawBar = null; } },
+        // #939e：bar() 会 querySelector('#boot-retry-off') 找关闭钮并挂 click
+        _off: { _fn: null, addEventListener(ev, fn) { this._fn = fn; } },
+        querySelector(sel) { return sel === '#boot-retry-off' ? el._off : null; },
+      };
+      return el;
     },
     dispatch(ev) { (this.listeners[ev] = this.listeners[ev] || []).forEach(f => f({})); },
   };
@@ -101,6 +110,27 @@ function runDeferred(e) {
   const e2 = makeEnv({ dataReady: true, loadedFiles: ['f0.js'], errFiles: ['f1.js', 'f2.js'] });
   runWatchdog(e2); runChecks(e2);
   t('B3b 抛错全部豁免后健康不挂条', e2.doc.rawBar === null);
+}
+// B7 关闭钮：挂条后点「知道了」→ 条当场消失 + 写会话标志；后续 check 不再弹（用户反馈：不能关闭、影响使用）
+{
+  const e = makeEnv({ dataReady: false, loadedFiles: ['f0.js', 'f1.js', 'f2.js'] });
+  runWatchdog(e); runChecks(e);
+  t('B7a 慢数据挂条（前置）', e.doc.rawBar !== null);
+  const offFn = e.doc.rawBar && e.doc.rawBar._off && e.doc.rawBar._off._fn;
+  t('B7b 关闭钮已接线', typeof offFn === 'function');
+  if (typeof offFn === 'function') offFn({ stopPropagation() {} });
+  t('B7c 点「知道了」后条消失', e.doc.rawBar === null);
+  t('B7d 会话标志已写', e.sessionStorage.getItem('mochi-boot-bar-off') === '1');
+  // 排队中的另一次 check（3s/8s 各自跑）不再重建条
+  runChecks(e); runDeferred(e);
+  t('B7e 关闭后 check 不再弹条', e.doc.rawBar === null);
+  t('B7f 关闭钮不触发整页重载', e.state.reloaded === 0);
+}
+// B8 未点关闭的真缺失场景：条仍在（关闭钮不吞掉重试能力）
+{
+  const e = makeEnv({ dataReady: false, loadedFiles: ['f0.js'] });
+  runWatchdog(e); runChecks(e);
+  t('B8 真缺失未关闭时条仍在', e.doc.rawBar !== null);
 }
 // B4/B5/B6 依赖 #921h 的 heal（在途批）；本批提交形态（HEAD＋仅本批）无 heal，条件跳过
 const hasHeal = watchdog.includes('function heal');
