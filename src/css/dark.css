@@ -1098,3 +1098,10 @@
 [data-theme="dark"] #page-market .gift-item-top { background:transparent !important; }
 /* 心意柜 hero：深色底已覆盖但 color:#111 只在浅色规则里 → 图标/文字继承深色看不见 */
 [data-theme="dark"] .giftbox-hero { color:#f2f2f2; }
+
+/* ⑦ 备份提醒警示形态（base.css `.modal--warn`，#900）深色适配：浅色那套 #c92a1f 红字在深底卡面上对比不足
+      （又回到「看不出这段是被特别标注的警告」），改亮红；描边、说明块底色与左侧竖条色一并提亮。
+      扁平选择器（本文件禁原生嵌套，见文件头 #258 铁律）。 */
+[data-theme="dark"] .modal.modal--warn { border-color:#e8564a; box-shadow:0 20px 50px rgba(232,56,44,.42); }
+[data-theme="dark"] .modal.modal--warn .modal-title { color:#ff7a6b; }
+[data-theme="dark"] .modal.modal--warn .modal-static { color:#ff8a7a; background:rgba(232,56,44,.16); border-color:rgba(255,122,107,.5); }

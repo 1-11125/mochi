@@ -1402,11 +1402,12 @@ html.ios-cover-top .phone .statusbar {
 #backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b); box-shadow:0 4px 18px rgba(232,56,44,.45); }
 #backup-remind-bar .vub-txt { color:#fff; font-weight:800; }
 #backup-remind-bar .vub-act { background:#fff; color:#c92a1f; }
-/* 通用弹窗的警示形态（openModal opts.warn）：红描边＋红标题＋红底说明块。
-   备份提醒用它把「任何手机/浏览器都会自动清数据＝设备限制」这条讲到脸上。 */
+/* 通用弹窗的警示形态（openModal opts.warn）：红描边＋红标题＋红底红字说明块＋左侧红竖条。
+   备份提醒用它把「任何手机/浏览器都会自动清数据＝设备限制」这条讲到脸上。
+   正文本身也必须染红（用户反馈：只有底色时那段人话看着和普通说明没差别，看不懂在提醒什么）。 */
 .modal.modal--warn { border-color:#e8382c; box-shadow:0 20px 50px rgba(232,56,44,.3); }
 .modal.modal--warn .modal-title { color:#e8382c; }
-.modal.modal--warn .modal-static { background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); }
+.modal.modal--warn .modal-static { color:#c92a1f; background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); border-left:4px solid #e8382c; }
 
 /* ===== 手机端：弹层/半框内部滚动到边界不再穿透滚动下层页面（安卓/iOS 常见问题） ===== */
 .poke-card-scroll, .tc-body, .mg-list, .emoji-groups,

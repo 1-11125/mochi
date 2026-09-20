@@ -35,6 +35,7 @@ function ok(name, cond, extra) {
 const pwaSrc = readFileSync(join(srcDir, 'js', 'pwa.js'), 'utf8');
 const cssSrc = readFileSync(join(srcDir, 'css', 'base.css'), 'utf8');
 const persSrc = readFileSync(join(srcDir, 'js', 'personalize.js'), 'utf8');
+const darkSrc = readFileSync(join(srcDir, 'css', 'dark.css'), 'utf8');
 console.log('S 源码锚');
 ok('S1 开屏未关时不弹（splashGone 闸门参与判定）', /if \(!splashGone\(\)\) return;/.test(pwaSrc));
 ok('S2 冷却按自然日比较（不是「距今满 24 小时」）', /dayKey\(lastRemind\) === dayKey\(Date\.now\(\)\)/.test(pwaSrc) && !/Date\.now\(\) - lastRemind < INTERVAL/.test(pwaSrc));
@@ -46,6 +47,10 @@ ok('S7 顶条醒目配色（红橙渐变钉在 #backup-remind-bar，不污染其
 ok('S8 弹窗警示形态 CSS 在位（.modal--warn 红描边/红标题/红底说明）', /\.modal\.modal--warn \{/.test(cssSrc) && /\.modal\.modal--warn \.modal-title/.test(cssSrc) && /\.modal\.modal--warn \.modal-static/.test(cssSrc));
 ok('S9 openModal 支持 opts.warn（每次开弹窗重设类＝天然复位）', /classList\.toggle\('modal--warn', !!opts\.warn\)/.test(persSrc));
 ok('S10 备份弹窗按 warn 形态调用', /big: true, warn: true, pillSubmit: true/.test(pwaSrc));
+// 用户跟进报障：「确定说的人话提醒标的不同颜色吧，不然用户总是看不懂」——只有底色时正文看着
+// 和普通说明没差别，故正文本身必须换色（浅色红字＋红竖条，深色亮红），下面 S11/S12 钉这个逻辑锚。
+ok('S11 警示说明块正文本身染红（不是只换个底色）+ 左侧红竖条', /\.modal\.modal--warn \.modal-static \{[^}]*color:#c92a1f/.test(cssSrc) && /border-left:4px solid #e8382c/.test(cssSrc));
+ok('S12 深色主题同样把正文标成亮红（扁平选择器，禁原生嵌套）', /\[data-theme="dark"\] \.modal\.modal--warn \.modal-static \{[^}]*color:#ff8a7a/.test(darkSrc));
 
 // ---- 测试专用组装：按 build.mjs 同顺序拼临时 index.html（不碰仓库产物） ----
 const buildSrc = readFileSync(join(process.env.SRCDIR ? normalize(process.env.SRCDIR + '/..') : root, 'build.mjs'), 'utf8');
@@ -111,10 +116,16 @@ async function boot(opts = {}) {
     }
     if (o.stealModal) {
       // 现场复刻「别的弹窗先占住全站唯一 #modal-mask」（打卡/引导/字卡锁同形态）
-      setTimeout(function () {
+      const steal = function () {
         const m = document.getElementById('modal-mask');
-        if (m) { m.hidden = false; m.dataset.steal = '1'; }
-      }, 300);
+        if (!m) return false;
+        m.hidden = false; m.dataset.steal = '1';
+        return true;
+      };
+      if (!steal()) {
+        const iv = setInterval(function () { if (steal()) clearInterval(iv); }, 16);
+        setTimeout(function () { clearInterval(iv); }, 8000);
+      }
     }
   }, [opts]);
   const page = await ctx.newPage();
@@ -125,12 +136,39 @@ async function boot(opts = {}) {
     async close() { pageErrors.push(...errsLocal); try { await ctx.close(); } catch (e) {} },
     snap: () => page.evaluate(() => {
       const vis = (el) => !!(el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && el.getBoundingClientRect().height > 8);
+      // 颜色取证（与机型/内核无关，只读计算样式）：归一化 → 沿父链合成实际底色 → WCAG 对比度
+      const toRgb = (v) => {
+        const s = String(v || '').trim();
+        const h = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+        if (h) { const x = h[1].length === 3 ? h[1].split('').map((c) => c + c).join('') : h[1]; return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16), 1]; }
+        const m = /rgba?\(([^)]+)\)/i.exec(s);
+        if (!m) return null;
+        const p = m[1].split(/[,\s/]+/).filter((x) => x !== '').map(parseFloat);
+        return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+      };
+      const effBg = (el) => {
+        const ov = []; let n = el;
+        while (n && n.nodeType === 1) {
+          const c = toRgb(getComputedStyle(n).backgroundColor);
+          if (c && c[3] >= 0.999) { let base = c.slice(0, 3); for (let i = ov.length - 1; i >= 0; i--) { const o = ov[i]; base = [0, 1, 2].map((k) => base[k] * (1 - o[3]) + o[k] * o[3]); } return base; }
+          if (c && c[3] > 0.001) ov.push(c);
+          n = n.parentElement;
+        }
+        let base = [255, 255, 255];
+        for (let i = ov.length - 1; i >= 0; i--) { const o = ov[i]; base = [0, 1, 2].map((k) => base[k] * (1 - o[3]) + o[k] * o[3]); }
+        return base;
+      };
+      const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+      const ratio = (a, b) => { if (!a || !b) return -1; const l1 = lum(a), l2 = lum(b); return +(((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)).toFixed(2)); };
+      const dist = (a, b) => (!a || !b ? -1 : Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])));
       const s = document.getElementById('splash');
       const mask = document.getElementById('modal-mask');
       const box = mask ? mask.querySelector('.modal') : null;
       const stat = document.getElementById('modal-static');
       const bar = document.getElementById('backup-remind-bar');
       const title = document.getElementById('modal-title');
+      const ink = toRgb(getComputedStyle(document.documentElement).getPropertyValue('--ink'));
+      const statRgb = stat ? toRgb(getComputedStyle(stat).color) : null;
       return {
         dataReady: !!window.__mochiDataReady,
         splashUp: !!s && s.isConnected && !s.classList.contains('hide'),
@@ -140,6 +178,14 @@ async function boot(opts = {}) {
         staticText: stat && !stat.hidden ? String(stat.textContent || '') : '',
         warnClass: !!(box && box.classList.contains('modal--warn')),
         titleColor: box ? getComputedStyle(box.querySelector('.modal-title')).color : '',
+        staticColor: stat ? getComputedStyle(stat).color : '',
+        // 正文与「普通说明文字（--ink）」的最大通道差：>0 才叫「标了不同颜色」
+        staticVsInk: dist(statRgb, ink),
+        // 正文文字 vs 它实际的合成底色（含半透明红底叠在卡面上）的对比度
+        staticContrast: stat ? ratio(statRgb, effBg(stat)) : -1,
+        inkContrast: stat ? ratio(ink, effBg(stat)) : -1,
+        staticAccent: stat ? (getComputedStyle(stat).borderLeftWidth + ' ' + getComputedStyle(stat).borderLeftStyle + ' ' + getComputedStyle(stat).borderLeftColor) : '',
+        theme: document.documentElement.getAttribute('data-theme') || 'light',
         barVisible: vis(bar),
         barText: bar ? String((document.getElementById('backup-remind-txt') || {}).textContent || '') : '',
         barBg: bar ? String(getComputedStyle(bar).backgroundImage || '') + '|' + String(getComputedStyle(bar).backgroundColor) : '',
@@ -177,6 +223,13 @@ async function boot(opts = {}) {
 }
 
 const DAY = 86400000;
+// Node 侧解析页内返回的 getComputedStyle 颜色串（'rgb(r, g, b)' / 'rgba(r, g, b, a)'）
+function toRgbArr(v) {
+  const m = /rgba?\(([^)]+)\)/i.exec(String(v || ''));
+  if (!m) return null;
+  const p = m[1].split(/[,\s/]+/).filter((x) => x !== '').map(parseFloat);
+  return p.length >= 3 ? [p[0], p[1], p[2]] : null;
+}
 
 console.log('\nB1 开屏期间不弹、不烧冷却（旧版＝弹在看不见的地方还写冷却）');
 {
@@ -203,6 +256,13 @@ console.log('\nB2 进入桌面后自动弹出（醒目警示形态 + 人话文�
   ok('B2e 说明里写清对策：必须定期导出备份', /必须定期导出备份/.test(st.staticText));
   ok('B2f 距上次备份天数有落进文案（5 天）', /距上次完整备份已经 5 天/.test(st.staticText), st.staticText.slice(0, 40));
   ok('B2g 弹出后写冷却（今天不再第二次打断）', !!st.remind);
+  // 用户跟进：「确定说的人话提醒标的不同颜色吧，不然用户总是看不懂」＝正文本身必须与
+  // 站内普通说明文字不同色（旧版只有浅红底、文字仍是 --ink，看着跟普通说明没差别）
+  const sr = toRgbArr(st.staticColor);
+  ok('B2h 人话正文本身标了红字（红通道压过绿蓝，且与 --ink 普通文字色明显不同）',
+    !!sr && sr[0] > sr[1] + 60 && sr[0] > sr[2] + 60 && st.staticVsInk >= 60, { c: st.staticColor, vsInk: st.staticVsInk });
+  ok('B2i 染了色的正文仍看得清（对比度 ≥4.5:1，未染色口径一并打印）', st.staticContrast >= 4.5, { contrast: st.staticContrast, inkContrast: st.inkContrast });
+  ok('B2j 不只靠颜色传达：左侧 4px 红竖条在位', /^4px solid/.test(st.staticAccent) && /232, *56, *44/.test(st.staticAccent), st.staticAccent);
   await b.close();
 }
 
@@ -293,6 +353,24 @@ console.log('\nB7 点「去备份」仍走原导出链路（提醒本身不改�
   await b.wait(4000);
   const st = await b.snap();
   ok('B7c 选稍后后当天不再重复弹', !st.ourModal && !st.barVisible, st);
+  await b.close();
+}
+
+console.log('\nB8 深色主题下人话正文同样是「被标了不同颜色」（浅色那套深红在深底上看不清）');
+{
+  const b = await boot();
+  await b.wait(1200); await b.enter();
+  const r0 = await b.waitForSnap(async () => { const st = await b.snap(); return { hit: st.ourModal, st }; }, 15000);
+  ok('B8a 浅色下先弹出（前提成立）', r0.st.ourModal, r0.st);
+  await b.page.evaluate(() => { document.documentElement.setAttribute('data-theme', 'dark'); });
+  await b.wait(600);
+  const st = await b.snap();
+  ok('B8b 主题确实切到深色（没被静默复位＝否则下面全是假绿）', st.theme === 'dark' && st.ourModal, { theme: st.theme, up: st.ourModal });
+  const dr = toRgbArr(st.staticColor);
+  ok('B8c 深色下正文标成亮红（与深色卡面的普通近白文字明显不同色）',
+    !!dr && dr[0] > dr[1] + 60 && dr[0] > dr[2] + 60 && st.staticVsInk >= 60, { c: st.staticColor, vsInk: st.staticVsInk });
+  ok('B8d 深色下正文对比度 ≥4.5:1（浅色那套 #c92a1f 在深底上约 2.7:1＝看不见）', st.staticContrast >= 4.5, { contrast: st.staticContrast });
+  ok('B8e 深色下标题也提亮成红系（不是浅色的 #e8382c 暗红）', /255, *122, *107/.test(st.titleColor), st.titleColor);
   await b.close();
 }
 
