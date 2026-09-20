@@ -10317,9 +10317,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789885297193">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789886027076">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 14:21<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 14:33<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -45165,12 +45165,33 @@ return m;
 }
 let gcRenderStart = 0;
 const GC_EARLIER_CHUNK = 150;
+let gcRenderedFp = '__none__';
+function gcMembersFp() {
+try {
+const ms = getMembers();
+let s = '';
+for (let i = 0; i < ms.length; i++) {
+const av = String(memberAvatar(ms[i].id) || '');
+s += ms[i].id + ':' + memberName(ms[i].id) + ':' + av.length + ':' + av.slice(-24) + ';';
+}
+const mav = String(myAvatar() || '');
+return s + '|me:' + myName() + ':' + mav.length + ':' + mav.slice(-24) + '|sn:' + (gcBeautyGet('show-name') || '');
+} catch (e) { return 'fp_err:' + Date.now(); } // 读不到指纹＝签名必不匹配＝保守重建
+}
+function gcEntrySig() {
+const n = msgs.length;
+const last = n ? msgs[n - 1] : null;
+return curGid + '|' + n + '|' + (n ? msgs[0].ts : '') + '|' +
+(last ? [last.ts, last.side || '', String(last.text || '').length, last.img !== undefined ? 'i' : '', last.voice !== undefined ? 'v' : ''].join(':') : '') +
+'|' + gcMembersFp();
+}
 function renderAll() {
 body.innerHTML = '';
 const n = msgs.length;
 gcRenderStart = Math.max(0, n - RENDER_MAX);
 if (gcRenderStart > 0) body.appendChild(gcEarlierBtn());
 for (let i = gcRenderStart; i < n; i++) renderMsg(msgs[i], i);
+gcRenderedFp = gcEntrySig(); // #893：登记「屏上窗口指纹」，进群同窗跳过的比较基准
 followGcBottom(true); // #371：进页滚底同走三连写（内核可能丢弃单次 scrollTop 写入）
 }
 function gcEarlierBtn() {
@@ -45777,7 +45798,11 @@ document.querySelectorAll('.page').forEach(p => { if (!p.hidden) p.hidden = true
 if (page) page.hidden = false;
 updateGroupName();
 loadMsgs();
+if (!gcSwitchDirty && body.children.length && gcEntrySig() === gcRenderedFp) {
+followGcBottom(true); // #371 同窗跳过：回底同走三连写
+} else {
 renderAll();
+}
 gcSwitchDirty = false; // FIX #249：进群即全量重建（loadMsgs+renderAll），切桌挂起的脏标记就地清账
 hideTyping(); // FIX 串群 #242 家族：打字指示器全局共享，进群清掉其他群残留
 syncGcInputBtns(); // 进入群聊时按当前桌面设置刷新语音/继续说/批量按钮显隐
@@ -79729,4 +79754,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9fhq95 -->
+<!-- __MOCHI_EOF__ mu9fxdfo -->

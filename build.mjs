@@ -3762,6 +3762,9 @@ const FIX_SENTINELS = [
   { name: '#894a 读取中不清注入（删＝弱内核切桌面字体应用消失复发）', file: 'js/chat-settings.js', needle: "if (!v && rawVal.indexOf('@@font:') === 0 && !_fontBlobGone[rawVal.slice(7)]) return;" },
   { name: '#894b 丢失终局广播（删＝美化页入口不跟随清除丢失字体）', file: 'js/chat-settings.js', needle: 'csFontChanged(); // #894：丢失是终局' },
   { name: '#894c 美化页读取中保留（删＝切桌面美化入口误清字体）', file: 'js/personalize.js', needle: "if (!v && raw.indexOf('@@font:') === 0 && keepPending) return;" },
+  // ==== 2026-09-20 #893 进群「聊天记录滚动闪一下才恢复」根治（PWA 装桌面用户实报每次进出群聊都闪、无加载缓冲；零机型分支）——enterGroupChat 无条件 body.innerHTML='' 整窗重渲 200 条＝图片头像全部重新解码＝每次进都闪；修法＝群聊同窗跳过指纹（单聊 #220 同款思路）：同群同条数＋首尾消息指纹＋成员名/头像/昵称开关指纹一致且无 gcSwitchDirty 时只回底不重建，任何变化照旧全量重建、展示结果一字不差 ====
+  { name: '#893a 群聊进群同窗跳过判定（删＝退回每次进群都整窗重建、历史滚动闪一下复发；gcRenderedFp 只在这处比较点有意义，勿「统一」成其他写法）', file: 'js/group-chat.js', needle: 'if (!gcSwitchDirty && body.children.length && gcEntrySig() === gcRenderedFp) {' },
+  { name: '#893b renderAll 结尾登记屏上窗口指纹（删＝指纹永不更新，跳过判定失效退化成每次重建或永不重建，两头都是回归）', file: 'js/group-chat.js', needle: 'gcRenderedFp = gcEntrySig(); //' }
 
 
 ];

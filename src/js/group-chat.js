@@ -881,12 +881,40 @@
   // 贴底跟随与 DOM 窗口裁剪逻辑不变（裁剪跳过分页按钮）
   let gcRenderStart = 0;
   const GC_EARLIER_CHUNK = 150;
+  // FIX 2026-09-20 #893：进群同窗跳过的指纹——「屏上这窗消息」（同群、同条数、首条 ts、
+  // 末条 ts/方向/正文长度/图语音标记）＋「渲染会读到的成员名/头像、我的名像、昵称显示开关」
+  // 的廉价签名。renderAll 结束时登记 gcRenderedFp；enterGroupChat 重算对比，一致＝屏上已经
+  // 是要显示的内容，整窗 innerHTML 重清重渲 200 条、图片头像全部重新解码＝「每次进群聊天
+  // 记录滚动闪一下才恢复」（PWA 装桌面后每次进出都走这条路）。任何一项变了签名必变＝照旧
+  // 重建，展示结果与旧逻辑一字不差；gcSwitchDirty（contact-switched 挂起，#249）独立于指纹
+  // 直接强制重建。
+  let gcRenderedFp = '__none__';
+  function gcMembersFp() {
+    try {
+      const ms = getMembers();
+      let s = '';
+      for (let i = 0; i < ms.length; i++) {
+        const av = String(memberAvatar(ms[i].id) || '');
+        s += ms[i].id + ':' + memberName(ms[i].id) + ':' + av.length + ':' + av.slice(-24) + ';';
+      }
+      const mav = String(myAvatar() || '');
+      return s + '|me:' + myName() + ':' + mav.length + ':' + mav.slice(-24) + '|sn:' + (gcBeautyGet('show-name') || '');
+    } catch (e) { return 'fp_err:' + Date.now(); } // 读不到指纹＝签名必不匹配＝保守重建
+  }
+  function gcEntrySig() {
+    const n = msgs.length;
+    const last = n ? msgs[n - 1] : null;
+    return curGid + '|' + n + '|' + (n ? msgs[0].ts : '') + '|' +
+      (last ? [last.ts, last.side || '', String(last.text || '').length, last.img !== undefined ? 'i' : '', last.voice !== undefined ? 'v' : ''].join(':') : '') +
+      '|' + gcMembersFp();
+  }
   function renderAll() {
     body.innerHTML = '';
     const n = msgs.length;
     gcRenderStart = Math.max(0, n - RENDER_MAX);
     if (gcRenderStart > 0) body.appendChild(gcEarlierBtn());
     for (let i = gcRenderStart; i < n; i++) renderMsg(msgs[i], i);
+    gcRenderedFp = gcEntrySig(); // #893：登记「屏上窗口指纹」，进群同窗跳过的比较基准
     followGcBottom(true); // #371：进页滚底同走三连写（内核可能丢弃单次 scrollTop 写入）
   }
   function gcEarlierBtn() {
@@ -1633,7 +1661,13 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     if (page) page.hidden = false;
     updateGroupName();
     loadMsgs();
-    renderAll();
+    // FIX 2026-09-20 #893：进群同窗跳过——屏上窗口与当前数据同窗同貌（无挂起脏标记、有内容、
+    // 指纹一致）时只回底，不整窗重建；变化时照旧 renderAll（#772 权威复核在其后照常兜底）。
+    if (!gcSwitchDirty && body.children.length && gcEntrySig() === gcRenderedFp) {
+      followGcBottom(true); // #371 同窗跳过：回底同走三连写
+    } else {
+      renderAll();
+    }
     gcSwitchDirty = false; // FIX #249：进群即全量重建（loadMsgs+renderAll），切桌挂起的脏标记就地清账
     hideTyping(); // FIX 串群 #242 家族：打字指示器全局共享，进群清掉其他群残留
     syncGcInputBtns(); // 进入群聊时按当前桌面设置刷新语音/继续说/批量按钮显隐
