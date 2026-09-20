@@ -2928,8 +2928,8 @@ if (ckRefresh) {
     if (i === eatCurMenuIdx()) { eatSwitchClose(); return; }
     const name = menus[i].name;
     eatSwitchClose();
-    eatSaveCurMenuIdx(i); eatClearSpin(); eatSpinAngle = 0;
-    eatRenderCurName(); eatDrawWheel(eatDishes()); eatLastPick = eatPick(); eatRenderHistory();
+    eatSaveCurMenuIdx(i); eatClearSpin();
+    eatRenderCurName(); eatLastPick = eatPick(); eatRenderHistory();
     toast('已切换到「' + name + '」');
   }
   document.getElementById('eat-switch-chips').addEventListener('click', (e) => {
@@ -2973,12 +2973,21 @@ if (ckRefresh) {
       if (nameEl) { nameEl.classList.add('fade'); setTimeout(() => { nameEl.textContent = names[idx]; nameEl.classList.remove('fade'); }, 200); }
       eatSwHlTimer = setTimeout(() => {
         eatSwHlIdx = -1; eatSwSpinning = false; eatSwHlTimer = null;
-        eatSaveCurMenuIdx(idx); eatClearSpin(); eatSpinAngle = 0;
-        eatRenderCurName(); eatDrawWheel(eatDishes()); eatLastPick = eatPick(); eatRenderHistory();
+        eatSaveCurMenuIdx(idx); eatClearSpin();
+        eatRenderCurName(); eatLastPick = eatPick(); eatRenderHistory();
         eatSwitchClose(); toast('已切换到「' + names[idx] + '」');
       }, 1200);
     }
     eatSwTimer = requestAnimationFrame(tick);
+  }
+  // #886 指针永远指着显示的菜：把显示菜扇区的中线转到顶部指针下（打开/「换一个」/改菜单重抽都走 eatPick
+  // → 自动对齐；「转盘抽取」本身停在扇区内不需再对齐）。居中放置＝指针两侧各留半格余量，视觉最稳。
+  function eatAlignWheelToDish(dish) {
+    const dishes = eatDishes(); const i = dishes.indexOf(dish);
+    if (i < 0) return;
+    const slice = 2 * Math.PI / dishes.length;
+    eatSpinAngle = ((3 * Math.PI / 2 - (i + 0.5) * slice) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    eatDrawWheel(dishes);
   }
   function eatPick() {
     const dishes = eatDishes();
@@ -2993,10 +3002,11 @@ if (ckRefresh) {
     const de = document.getElementById('eat-dish'); const ce = document.getElementById('eat-comment');
     if (de) { de.classList.add('fade'); setTimeout(() => { de.textContent = dish; de.classList.remove('fade'); }, 200); }
     if (ce) { ce.classList.add('fade'); setTimeout(() => { ce.textContent = '\u201c' + comment + '\u201d'; ce.classList.remove('fade'); }, 200); }
+    eatAlignWheelToDish(dish);
     return dish + ' · ' + comment;
   }
   let eatLastPick = '';
-  if (eatApp) eatApp.addEventListener('click', () => { if (editingNow()) return; eatClearSpin(); eatInitCanvas(); openPage(eatPage); eatRenderCurName(); eatLastPick = eatPick(); eatRenderHistory(); eatDrawWheel(eatDishes()); eatRenderRemind(); });
+  if (eatApp) eatApp.addEventListener('click', () => { if (editingNow()) return; eatClearSpin(); eatInitCanvas(); openPage(eatPage); eatRenderCurName(); eatLastPick = eatPick(); eatRenderHistory(); eatRenderRemind(); eatRemindSweep(); });
   document.getElementById('eat-back').addEventListener('click', () => { eatClearSpin(); backHome(eatPage); });
   (function () {
     var de = document.getElementById('eat-dish'); if (!de) return;
@@ -3097,6 +3107,9 @@ if (ckRefresh) {
   document.getElementById('eat-switch-menu').addEventListener('click', () => { if (editingNow() || eatSpinning) return; eatSwitchOpen(); });
   document.getElementById('eat-switch-cancel').addEventListener('click', () => { eatSwitchClose(); });
   document.getElementById('eat-switch-go').addEventListener('click', () => { eatSwitchSpin(); });
+  // #886 切桌面复位：编辑菜单面板/切换菜单浮层是页内常驻节点（.page 整页隐藏时看不见，但重进会带着上一
+  // 桌面的面板状态——编辑面板开着、第一次点「编辑菜单」变关闭）。切桌面时停转＋关浮层＋收面板。
+  document.addEventListener('contact-switched', function () { eatClearSpin(); eatSwitchClose(); const mp = document.getElementById('eat-menu-panel'); if (mp) mp.hidden = true; });
 
   // ---- TA 饭点提醒（v3.14.x）：概率触发梦角发字卡到聊天提醒吃饭 ----
   // 世界观同喝水「他视角温柔提醒」：梦角是灵体，饭点偶尔冒出来催你吃饭。
@@ -3148,8 +3161,23 @@ if (ckRefresh) {
       }, 1400);
     }
   }
+  // #886 清扫历史「今日已提醒」标记键：每天至多 4 键、只留当天（开吃什么页＋eatRemindMaybe 每 4 分钟各扫一次；
+  // 走 xyStore.remove＝内存/LS/IDB 三处同清，删除联系人同款管线）
+  function eatRemindSweep() {
+    try {
+      const pfx = (window.activePrefix ? window.activePrefix() : 'xy-home-v2:default'); // 无尾冒号：xyStore 合键时自己补 ':'
+      const scan = pfx + ':eat-remind-done:';
+      const today = eatDayKey(); const dead = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(scan) === 0 && k.slice(-10) !== today) dead.push(k);
+      }
+      dead.forEach(function (k) { try { window.xyStore(pfx).remove(k.slice(pfx.length + 1)); } catch (e) {} });
+    } catch (e) {}
+  }
   function eatRemindMaybe() {
     try {
+      eatRemindSweep();
       if (!window.chatAddIn) return;
       const h = new Date().getHours(); if (h >= 23 || h < 6) return; // v3.26.x：23:00-06:00 静默期，不提醒吃饭（深更半夜吃饭提醒离谱）
       if (!eatRemindEn()) return;
