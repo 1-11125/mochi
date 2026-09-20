@@ -3126,6 +3126,12 @@ border:1px solid rgba(0,0,0,.08); background:rgba(0,0,0,.03); color:var(--muted)
 #cc-list .ccg-toggle.off { background:#111; color:#fff; border-color:#111; }
 #cc-list .cc-group-header.off .ccg-name { color:var(--muted); }
 #cc-list .cc-group-header.off .ccg-count { opacity:.6; }
+.preset-list .cc-group-header .ccg-name { display:inline-flex; align-items:center; gap:6px; flex:1; min-width:0; }
+.preset-list .cc-group-header .ccard-toggle { width:36px; height:21px; flex-shrink:0; }
+.preset-list .cc-group-header .ccard-toggle .tk::before { width:15px; height:15px; top:3px; left:3px; }
+.preset-list .cc-group-header .ccard-toggle input:checked + .tk::before { transform:translateX(15px); }
+.preset-list .cc-group-header.off .ccg-name { color:var(--muted); }
+.preset-list .cc-group-header.off .ccg-count { opacity:.6; }
 .card-search {
 display:flex; align-items:center; gap:8px;
 border-radius:16px; padding:11px 14px; margin-bottom:12px;
@@ -8165,6 +8171,7 @@ html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }
 [data-theme="dark"] #cc-list .ccg-toggle { background:var(--dark-hover); border-color:var(--dark-border-12); color:var(--dark-soft); }
 [data-theme="dark"] #cc-list .ccg-toggle.off { background:var(--btn-bg); border-color:var(--btn-bg); color:var(--btn-ink); }
 [data-theme="dark"] #cc-list .cc-group-header.off .ccg-name { color:#777; }
+[data-theme="dark"] .preset-list .cc-group-header.off .ccg-name { color:#777; }
 [data-theme="dark"] .cc-check { background:var(--dark-card); border-color:#555; }
 [data-theme="dark"] .cc-check.on { background:var(--btn-bg); border-color:var(--btn-bg); }
 [data-theme="dark"] .cc-check.on::after { color:var(--btn-ink); }
@@ -10366,9 +10373,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789901281657">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789901778019">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 18:48<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 18:56<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20475,4 +20482,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9p0by1 -->
+<!-- __MOCHI_EOF__ mu9payxv -->

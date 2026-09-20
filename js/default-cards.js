@@ -35,6 +35,35 @@ function toastCard(txt, off) {
 const s = String(txt == null ? '' : txt);
 toast((off ? '已关闭：' : '已开启：') + (s.length > 18 ? s.slice(0, 18) + '…' : s));
 }
+const GOFF_KEY = 'dc-groups-off';
+let goffRaw = null;   // 单格缓存：读到的原始值没变才复用解析结果（切桌面读到另一桌面的值＝自动重解析）
+let goffObj = null;
+const goffExp = {};   // 分类 -> { src, names, set }：停用组内文案展开；没有分组停用时不建、不占内存
+function groupOffRecord(st) {
+let raw = null;
+try { raw = st.get(GOFF_KEY); } catch (e) { return null; }
+if (raw === goffRaw) return goffObj;
+let o = null;
+try {
+if (raw) { const p = JSON.parse(raw); if (p && typeof p === 'object' && !Array.isArray(p)) o = p; }
+} catch (e) {}
+goffRaw = raw; goffObj = o;
+return o;
+}
+function groupOffTexts(cat, names) {
+const src = DATA[cat] || [];
+const e = goffExp[cat];
+if (e && e.src === src && e.names === names) return e.set;
+const kill = new Set(names), set = new Set();
+src.forEach(g => { if (kill.has(g[0])) (g[1] || []).forEach(c => set.add(c)); });
+goffExp[cat] = { src, names, set };
+return set;
+}
+function groupOffFor(cat, c, st) {
+const o = groupOffRecord(st);
+const names = o && o[cat];
+return !!(names && names.length) && groupOffTexts(cat, names).has(c);
+}
 function apiFor(st) {
 const gE = function () { const v = st.get('dc-enabled'); return v === null ? true : v === '1'; };
 const gO = function () { const v = st.get('dc-overall'); return v === null ? 30 : Number(v); };
@@ -42,7 +71,10 @@ const gOS = function (k) { const v = st.get('dc-overall-' + k); return v === nul
 const gP = function (k) { const v = st.get('dc-prob-' + k); return v === null ? 25 : Number(v); };
 const gU = function (k) { const v = st.get('dc-use-' + k); return v === null ? true : v === '1'; };
 const gC = function (k) { const v = st.get('dc-cat-' + k); return v === null ? true : v === '1'; };
-const gOff = function (cat, c) { return st.get('dc-off-' + cat + ':' + c) === '1'; };
+const gOff = function (cat, c) {
+if (st.get('dc-off-' + cat + ':' + c) === '1') return true;
+return groupOffFor(cat, c, st);
+};
 return {
 enabled: gE,
 overall: gO,
@@ -181,6 +213,22 @@ refreshLibCount();
 function isCardOff(cat, c) { return api.isOff(cat, c); }
 function setCardOff(cat, c, off) { ls.set('dc-off-' + cat + ':' + c, off ? '1' : '0'); }
 window.isDefaultCardOff = function (cat, c) { return isCardOff(cat, c); };
+function isGroupOff(cat, gname) {
+const o = groupOffRecord(ls);
+const names = o && o[cat];
+return !!(names && names.indexOf(gname) >= 0);
+}
+function setGroupOff(cat, gname, off) {
+const cur = groupOffRecord(ls) || {};
+const arr = (cur[cat] || []).slice();
+const i = arr.indexOf(gname);
+if (off && i < 0) arr.push(gname);
+if (!off && i >= 0) arr.splice(i, 1);
+const next = {};
+Object.keys(cur).forEach(k => { if (k !== cat && Array.isArray(cur[k]) && cur[k].length) next[k] = cur[k].slice(); });
+if (arr.length) next[cat] = arr;
+ls.set(GOFF_KEY, JSON.stringify(next));
+}
 let cur = 'main';
 let q = '';
 enabledEl.checked = getEnabled();
@@ -205,7 +253,8 @@ if (!grp || document.getElementById('dc-scope-note')) return;
 const note = document.createElement('div');
 note.id = 'dc-scope-note';
 note.style.cssText = 'margin:8px 12px 10px;font-size:11px;line-height:1.6;color:#999;';
-note.textContent = '以上开关按当前桌面对应的联系人独立保存：当当前桌面联系人关闭【聊天使用】，聊天和群聊里这个联系人也无法使用默认字卡（其他联系人不受影响）。';
+note.textContent = '以上开关按当前桌面对应的联系人独立保存：当当前桌面联系人关闭【聊天使用】，聊天和群聊里这个联系人也无法使用默认字卡（其他联系人不受影响）。\n下方字卡列表里，每个分组标题右侧的开关是「整组停用/启用」——停用后本组字卡全部不再使用，组内每张卡自己的开关一字不改，重新启用分组即恢复原样。';
+note.style.whiteSpace = 'pre-line';
 grp.parentNode.insertBefore(note, grp.nextSibling);
 })();
 [['main', '主字卡'], ['kaomoji', '颜文字'], ['emoji', 'emoji'], ['touch', '拍一拍']].forEach(([k, label]) => {
@@ -469,6 +518,7 @@ const viewBar = document.getElementById(ids.groupsBar);
 const viewSearch = document.getElementById(ids.search);
 const pageEl = document.getElementById(ids.page);
 if (!viewList || !viewTabs || !viewBar || !viewSearch || !pageEl) return null;
+viewList.classList.add('preset-list');
 const view = {
 keys: allowedKeys.slice(),
 searchKeys: (searchKeys || []).slice(),
@@ -538,11 +588,17 @@ let a = 0, b = n;
 while (a < b) { const m = (a + b) >> 1; if (offs[m] <= y) a = m + 1; else b = m; }
 return Math.max(0, Math.min(n - 1, a - 1));
 }
+function groupHeaderHTML(label, count, off) {
+return '<span class="ccg-name">' + label + (off ? '<em class="ccg-off-tag">已停用</em>' : '') + '</span>' +
+'<span class="ccg-count">' + count + '</span>' +
+'<label class="toggle ccard-toggle" title="' + (off ? '启用该分组' : '停用该分组') + '"><input type="checkbox"' + (off ? '' : ' checked') + '><span class="tk"></span></label>';
+}
 function makeNode(it, i) {
 const d = document.createElement('div');
 if (it.header) {
-d.className = 'cc-group-header';
-d.innerHTML = '<span class="ccg-name">' + it.gname + '</span><span class="ccg-count">' + it.count + '</span>';
+const goff = isGroupOff(it.cat, it.gname);
+d.className = 'cc-group-header' + (goff ? ' off' : '');
+d.innerHTML = groupHeaderHTML(it.glabel, it.count, goff);
 } else {
 const off = isCardOff(it.cat, it.c);
 d.className = 'cc-item glass' + (off ? ' off' : '');
@@ -655,7 +711,7 @@ shown = shown.filter(g => g.gname === view.curGroup);
 }
 const list = [];
 shown.forEach(it => {
-list.push({ header: true, gname: (it.key !== view.cur ? '[' + tabLabel(it.key) + '] ' : '') + it.gname, count: it.arr.length });
+list.push({ header: true, cat: it.key, gname: it.gname, glabel: (it.key !== view.cur ? '[' + tabLabel(it.key) + '] ' : '') + it.gname, count: it.arr.length });
 it.arr.forEach(c => list.push({ header: false, c, cat: it.key }));
 });
 flat = list; n = list.length;
@@ -671,6 +727,16 @@ layout(true);
 viewList.addEventListener('change', (e) => {
 const input = e.target;
 if (!input || input.type !== 'checkbox') return;
+const head = input.closest('.cc-group-header');
+if (head) {
+const hrec = flat[Number(head.dataset.idx)];
+if (!hrec || !hrec.header) return;
+const nowOff = !input.checked;
+setGroupOff(hrec.cat, hrec.gname, nowOff);
+requestLayout(true);
+toast(nowOff ? '已停用分组：' + hrec.gname + '（本组 ' + hrec.count + ' 张字卡不再使用）' : '已启用分组：' + hrec.gname);
+return;
+}
 const item = input.closest('.cc-item');
 if (!item) return;
 const rec = flat[Number(item.dataset.idx)];

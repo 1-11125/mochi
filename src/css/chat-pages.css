@@ -103,6 +103,15 @@
 #cc-list .ccg-toggle.off { background:#111; color:#fff; border-color:#111; }
 #cc-list .cc-group-header.off .ccg-name { color:var(--muted); }
 #cc-list .cc-group-header.off .ccg-count { opacity:.6; }
+/* v3.36.x #926：系统预设字卡的分组开关（默认聊天字卡/功能字卡/词典/查岗四页共用 mountCardView，
+   容器由它打 .preset-list）——分组头形态对齐上面自定义字卡管理页，开关尺寸与列表里的单卡开关一致；
+   只作用于这四个列表，不碰 #emoji-list / #poke-list 那类没有开关的分组头 */
+.preset-list .cc-group-header .ccg-name { display:inline-flex; align-items:center; gap:6px; flex:1; min-width:0; }
+.preset-list .cc-group-header .ccard-toggle { width:36px; height:21px; flex-shrink:0; }
+.preset-list .cc-group-header .ccard-toggle .tk::before { width:15px; height:15px; top:3px; left:3px; }
+.preset-list .cc-group-header .ccard-toggle input:checked + .tk::before { transform:translateX(15px); }
+.preset-list .cc-group-header.off .ccg-name { color:var(--muted); }
+.preset-list .cc-group-header.off .ccg-count { opacity:.6; }
 
 .card-search {
   display:flex; align-items:center; gap:8px;

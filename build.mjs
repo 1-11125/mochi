@@ -3873,6 +3873,11 @@ const FIX_SENTINELS = [
   { name: '#916b 屏幕适配错误环同签名 24h 去重（删＝红点数随每次刷新只增不减，本批报障复发）', file: 'js/device.js', needle: "_sdSig = '[屏幕适配] ' + String(names).split('｜')[0];" },
   { name: '#923a 红包「设置」区弹性滚动子项规则在位（删掉＝实测 810~860px 的设置内容画到 max-height:48% 的面板外，手机上「有字超出这个页面」＋「完成」按钮离屏 278~544px 点不到复发；needle=该选择器行，css/chat-main.css 内唯一）', file: 'css/chat-main.css', needle: '.rp-settings:not([hidden]) {' },
   { name: '#923b 设置区作为可收缩 flex 子项（删 min-height:0＝flex 项按内容撑开、容器不收缩，溢出面板底边照旧复发）', file: 'css/chat-main.css', needle: 'flex:1 1 auto; min-height:0;' },
+  /* ==== 2026-09-20 #926 系统预设字卡「整组停用/启用」（用户直派：默认聊天字卡与词典只有关闭单独字卡、缺少关闭某个分组；零机型分支）——存 <桌面>:dc-groups-off = { 分类: [分组名] }，生效收在 apiFor(st).isOff 这一个消费端总闸（单卡闸 OR 分组闸），聊天/群聊/写信/朋友圈/日历/词典拼字/梦角造句/各功能同源池全部自动跟上；分组开关只叠一层，组内 dc-off-* 单卡存值一字不改。UI 在共用工厂 mountCardView（四页：默认聊天字卡/功能字卡/词典/查岗），容器打 .preset-list 限定样式。验证 tools/verify-dc-group-off.mjs 绿 23/23、纯 HEAD 红 13 条全落缺陷面。 ==== */
+  { name: '#926a 预设字卡分组停用收在 isOff 总闸（单卡闸 OR 分组闸双判定；删＝整组开关只剩 UI、抽取照旧命中，本批报障复发）', file: 'js/default-cards.js', needle: 'return groupOffFor(cat, c, st);' },
+  { name: '#926b 分组停用写当前桌面聚合键（整份重写 {分类:[组名]}，不逐张写 dc-off-*；改回逐张＝点一次大组写上千键，iOS 主线程冻结族复发）', file: 'js/default-cards.js', needle: 'ls.set(GOFF_KEY, JSON.stringify(next));' },
+  { name: '#926c 分组头渲染整组开关与停用态类（删＝四个预设列表页没有整组入口，本批报障复发）', file: 'js/default-cards.js', needle: "d.className = 'cc-group-header' + (goff ? ' off' : '');" },
+  { name: '#926d 分组开关样式限定 .preset-list（删＝四页开关变形且 emoji/拍一拍列表分组头被误套，本批范围失控）', file: 'css/chat-pages.css', needle: '.preset-list .cc-group-header .ccard-toggle { width:36px; height:21px; flex-shrink:0; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

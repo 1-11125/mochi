@@ -194,6 +194,8 @@
 [data-theme="dark"] #cc-list .ccg-toggle { background:var(--dark-hover); border-color:var(--dark-border-12); color:var(--dark-soft); }
 [data-theme="dark"] #cc-list .ccg-toggle.off { background:var(--btn-bg); border-color:var(--btn-bg); color:var(--btn-ink); }
 [data-theme="dark"] #cc-list .cc-group-header.off .ccg-name { color:#777; }
+/* #926：系统预设字卡分组开关暗色适配（开关本体走全局 .toggle / .tk 暗色规则） */
+[data-theme="dark"] .preset-list .cc-group-header.off .ccg-name { color:#777; }
 [data-theme="dark"] .cc-check { background:var(--dark-card); border-color:#555; }
 [data-theme="dark"] .cc-check.on { background:var(--btn-bg); border-color:var(--btn-bg); }
 [data-theme="dark"] .cc-check.on::after { color:var(--btn-ink); }
