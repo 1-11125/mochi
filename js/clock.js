@@ -578,4 +578,4 @@ buildSplashToc(nl);
 document.dispatchEvent(new Event('mochi-notice-rendered'));
 });
 if (window.__mochiLoaded) window.__mochiLoaded.push("clock.js");
-} catch (__e) { try { console.error("[JS] clock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[clock.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("clock.js"); try { console.error("[JS] clock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[clock.js] " + String(__e && __e.message || __e)); } })();

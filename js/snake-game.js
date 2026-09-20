@@ -1241,4 +1241,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else initEls();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("snake-game.js");
-} catch (__e) { try { console.error("[JS] snake-game.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[snake-game.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("snake-game.js"); try { console.error("[JS] snake-game.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[snake-game.js] " + String(__e && __e.message || __e)); } })();

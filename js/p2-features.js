@@ -4124,4 +4124,4 @@ setTimeout(chk, 5000);
 document.addEventListener('contact-switched', () => { lastTa = null; settledTa = null; });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("p2-features.js");
-} catch (__e) { try { console.error("[JS] p2-features.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[p2-features.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("p2-features.js"); try { console.error("[JS] p2-features.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[p2-features.js] " + String(__e && __e.message || __e)); } })();

@@ -254,4 +254,4 @@ return { mine: mine, ta: tm ? { e: tm.e, n: tm.n } : null };
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mood-diary.js");
-} catch (__e) { try { console.error("[JS] mood-diary.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mood-diary.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("mood-diary.js"); try { console.error("[JS] mood-diary.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mood-diary.js] " + String(__e && __e.message || __e)); } })();

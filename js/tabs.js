@@ -147,4 +147,4 @@ history.pushState({ page: target }, '');
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("tabs.js");
-} catch (__e) { try { console.error("[JS] tabs.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[tabs.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("tabs.js"); try { console.error("[JS] tabs.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[tabs.js] " + String(__e && __e.message || __e)); } })();

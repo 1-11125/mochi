@@ -2487,4 +2487,4 @@ return out;
 } });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("feed.js");
-} catch (__e) { try { console.error("[JS] feed.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feed.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("feed.js"); try { console.error("[JS] feed.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feed.js] " + String(__e && __e.message || __e)); } })();

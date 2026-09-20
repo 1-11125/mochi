@@ -3749,4 +3749,4 @@ return out;
 } });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("group-chat.js");
-} catch (__e) { try { console.error("[JS] group-chat.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[group-chat.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("group-chat.js"); try { console.error("[JS] group-chat.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[group-chat.js] " + String(__e && __e.message || __e)); } })();

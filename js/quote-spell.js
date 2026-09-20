@@ -71,4 +71,4 @@ return { segs: cards, one: one };
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("quote-spell.js");
-} catch (__e) { try { console.error("[JS] quote-spell.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[quote-spell.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("quote-spell.js"); try { console.error("[JS] quote-spell.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[quote-spell.js] " + String(__e && __e.message || __e)); } })();

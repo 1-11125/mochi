@@ -637,4 +637,4 @@ go();
 })();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("media-pool.js");
-} catch (__e) { try { console.error("[JS] media-pool.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[media-pool.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("media-pool.js"); try { console.error("[JS] media-pool.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[media-pool.js] " + String(__e && __e.message || __e)); } })();

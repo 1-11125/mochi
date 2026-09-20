@@ -814,4 +814,4 @@ addTaGift: function (id) { const g = loadGifts(); g.unshift({ id: id || 'gift_sh
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("fishing.js");
-} catch (__e) { try { console.error("[JS] fishing.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fishing.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("fishing.js"); try { console.error("[JS] fishing.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fishing.js] " + String(__e && __e.message || __e)); } })();

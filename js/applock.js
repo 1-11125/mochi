@@ -688,4 +688,4 @@ getList: function () { return qaList(); }
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("applock.js");
-} catch (__e) { try { console.error("[JS] applock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[applock.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("applock.js"); try { console.error("[JS] applock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[applock.js] " + String(__e && __e.message || __e)); } })();

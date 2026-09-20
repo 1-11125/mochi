@@ -4152,4 +4152,4 @@ res('字卡/回复/收藏明细：LS ' + lsCc.length + '键 ' + fmt(lsCcSum) + '
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("chatcard.js");
-} catch (__e) { try { console.error("[JS] chatcard.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[chatcard.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("chatcard.js"); try { console.error("[JS] chatcard.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[chatcard.js] " + String(__e && __e.message || __e)); } })();

@@ -340,4 +340,4 @@ return out;
 } });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("quote-cards.js");
-} catch (__e) { try { console.error("[JS] quote-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[quote-cards.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("quote-cards.js"); try { console.error("[JS] quote-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[quote-cards.js] " + String(__e && __e.message || __e)); } })();

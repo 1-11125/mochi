@@ -22,4 +22,4 @@ window.dcpAll = dcpAll;
 window.dcpEff = dcpEff;
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("dcp-master.js");
-} catch (__e) { try { console.error("[JS] dcp-master.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[dcp-master.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("dcp-master.js"); try { console.error("[JS] dcp-master.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[dcp-master.js] " + String(__e && __e.message || __e)); } })();

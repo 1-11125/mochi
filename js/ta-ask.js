@@ -3817,4 +3817,4 @@ _trSessionTriggered = false;
 try { if (window.cardGroups) window.cardGroups.ensureCustomSelects(); } catch (e) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("ta-ask.js");
-} catch (__e) { try { console.error("[JS] ta-ask.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-ask.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("ta-ask.js"); try { console.error("[JS] ta-ask.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-ask.js] " + String(__e && __e.message || __e)); } })();

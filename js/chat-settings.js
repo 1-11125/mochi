@@ -3177,4 +3177,4 @@ if (first) sec.insertBefore(b, first); else sec.appendChild(b);
 })();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("chat-settings.js");
-} catch (__e) { try { console.error("[JS] chat-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[chat-settings.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("chat-settings.js"); try { console.error("[JS] chat-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[chat-settings.js] " + String(__e && __e.message || __e)); } })();

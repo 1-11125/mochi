@@ -886,4 +886,4 @@ ensureP3();
 }
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("accounting.js");
-} catch (__e) { try { console.error("[JS] accounting.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[accounting.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("accounting.js"); try { console.error("[JS] accounting.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[accounting.js] " + String(__e && __e.message || __e)); } })();

@@ -921,4 +921,4 @@ if (e && e.key && memoryCache && e.key in memoryCache) delete memoryCache[e.key]
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("idb.js");
-} catch (__e) { try { console.error("[JS] idb.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[idb.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("idb.js"); try { console.error("[JS] idb.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[idb.js] " + String(__e && __e.message || __e)); } })();

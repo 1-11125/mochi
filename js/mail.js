@@ -1168,4 +1168,4 @@ updateBadge();
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mail.js");
-} catch (__e) { try { console.error("[JS] mail.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mail.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("mail.js"); try { console.error("[JS] mail.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mail.js] " + String(__e && __e.message || __e)); } })();

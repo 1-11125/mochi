@@ -118,4 +118,4 @@ window.toast((name ? name + ' ' : '') + (on ? '已开启' : '已关闭'));
 }, true);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("settings-help.js");
-} catch (__e) { try { console.error("[JS] settings-help.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[settings-help.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("settings-help.js"); try { console.error("[JS] settings-help.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[settings-help.js] " + String(__e && __e.message || __e)); } })();

@@ -8367,4 +8367,4 @@ if (lp) { const v = store.get('lbl-partner'); lp.textContent = v || 'TA'; }
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("personalize.js");
-} catch (__e) { try { console.error("[JS] personalize.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[personalize.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("personalize.js"); try { console.error("[JS] personalize.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[personalize.js] " + String(__e && __e.message || __e)); } })();

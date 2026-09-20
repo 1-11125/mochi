@@ -432,4 +432,4 @@ const btn = document.getElementById('st-img-compress-btn');
 if (btn) btn.addEventListener('click', scanThenModal);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("img-compress.js");
-} catch (__e) { try { console.error("[JS] img-compress.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[img-compress.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("img-compress.js"); try { console.error("[JS] img-compress.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[img-compress.js] " + String(__e && __e.message || __e)); } })();

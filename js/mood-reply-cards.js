@@ -473,4 +473,4 @@ document.addEventListener(ev, function () { try { syncCardProbUI(); } catch (e) 
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mood-reply-cards.js");
-} catch (__e) { try { console.error("[JS] mood-reply-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mood-reply-cards.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("mood-reply-cards.js"); try { console.error("[JS] mood-reply-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mood-reply-cards.js] " + String(__e && __e.message || __e)); } })();

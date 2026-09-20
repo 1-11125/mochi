@@ -255,4 +255,4 @@ if (row) row.click();
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("page-coach.js");
-} catch (__e) { try { console.error("[JS] page-coach.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[page-coach.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("page-coach.js"); try { console.error("[JS] page-coach.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[page-coach.js] " + String(__e && __e.message || __e)); } })();

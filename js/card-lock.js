@@ -85,4 +85,4 @@ setTimeout(poll, 200);
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("card-lock.js");
-} catch (__e) { try { console.error("[JS] card-lock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[card-lock.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("card-lock.js"); try { console.error("[JS] card-lock.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[card-lock.js] " + String(__e && __e.message || __e)); } })();

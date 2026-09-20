@@ -476,4 +476,4 @@ document.addEventListener('mochi-fg-resume', function () { setTimeout(memoRemind
 document.addEventListener('contact-switched', () => { if (!memoPage.hidden) memoRender(); });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("memo-app.js");
-} catch (__e) { try { console.error("[JS] memo-app.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memo-app.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("memo-app.js"); try { console.error("[JS] memo-app.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memo-app.js] " + String(__e && __e.message || __e)); } })();

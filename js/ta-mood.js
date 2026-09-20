@@ -201,4 +201,4 @@ return out;
 } });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("ta-mood.js");
-} catch (__e) { try { console.error("[JS] ta-mood.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-mood.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("ta-mood.js"); try { console.error("[JS] ta-mood.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-mood.js] " + String(__e && __e.message || __e)); } })();

@@ -1134,4 +1134,4 @@ refitSettle = setTimeout(function () { if (panel && !panel.hidden) fitCanvas(); 
 window.addEventListener('resize', onViewportChange);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("breakout.js");
-} catch (__e) { try { console.error("[JS] breakout.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[breakout.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("breakout.js"); try { console.error("[JS] breakout.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[breakout.js] " + String(__e && __e.message || __e)); } })();

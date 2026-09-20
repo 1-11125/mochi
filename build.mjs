@@ -171,10 +171,10 @@ function chunkScripts(items) {
 // try/catch 兜不住，且每个 500KB script 块内任一文件语法错会整块不执行（十几个功能一起死）。
 const jsWrapped = coreFiles.map(f => {
   const code = minifyJs(read(join('js', f)));
-  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
+  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("' + f + '"); try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
 });
 // 首块前置初始化：错误环 + 已加载清单 + 期望清单（jsFiles 即期望，运行期差集定位死块）
-jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + '; window.__mochiExtFiles = ' + JSON.stringify(extFiles) + ';');
+jsWrapped.unshift('window.__jsErrors = window.__jsErrors || []; window.__mochiLoaded = window.__mochiLoaded || []; window.__mochiErrLoaded = window.__mochiErrLoaded || []; window.__mochiBootAt = Date.now(); window.__mochiJsFiles = ' + JSON.stringify(jsFiles) + '; window.__mochiExtFiles = ' + JSON.stringify(extFiles) + ';');
 // 按 UTF-8 字节上限拆 script 块（iOS 15 单块解析崩溃防护，见上方注释）
 // #860 开屏看门狗（PERF-PLAN 阶段 1b D4.2）：core 归零后「进桌面」改由网络上的 defer 文件
 // 完成，弱网/被墙窗口下开屏会永久定格——本段是唯一不依赖网络就能跑的结构件。
@@ -191,9 +191,16 @@ jsWrapped.push(
   '  b.addEventListener("click", function () { window.__mochiBootRetry(); });' +
   '  (document.body || document.documentElement).appendChild(b);' +
   ' }' +
-  ' function check() { if (!window.__mochiDataReady) bar(); }' +
-  ' if (document.readyState === "complete") { setTimeout(check, 3000); setTimeout(check, 8000); }' +
-  ' else window.addEventListener("load", function () { setTimeout(check, 3000); setTimeout(check, 8000); });' +
+    // #939d：健康即撤条 + 事件复查——条只查 load+3s/8s 两次、挂上后永不摘除＝慢机/大数据量
+  // 回填超过 3s 就被误标「网络不佳」，之后数据就绪了条也不消失，点重试整页重载再走一遍
+  // 同样时序又挂上＝用户所见「一直显示、刷新也没用」。现在条件转健康（数据就绪且无缺模块）
+  // 时当场摘条；并挂 mochi-restore-done（idb.js sendReady 派发）复查一次。判据取运行期状态，
+  // 无任何机型分支。（健康判据自包含：按期望清单与两份登记清单求差，不依赖在途 #921h。）
+  ' function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; }' +
+  ' function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); }' +
+  ' try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {}' +
+  ' if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); }' +
+  ' else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });' +
   '})();'
 );
 const scriptChunks = chunkScripts(jsWrapped);
@@ -203,7 +210,7 @@ const scriptChunks = chunkScripts(jsWrapped);
 // __mochiLoaded 登记 + catch 写 __jsErrors）——诊断归因不分家、行为语义一致。
 const extWrapped = extFiles.map(f => {
   const code = minifyJs(read(join('js', f)));
-  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
+  return '(function () { try {\n' + code + '\nif (window.__mochiLoaded) window.__mochiLoaded.push("' + f + '");\n} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("' + f + '"); try { console.error("[JS] ' + f + '", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[' + f + '] " + String(__e && __e.message || __e)); } })();';
 });
 
 // #860 D3 体积红线：外置单文件 >500KB 报警——外置文件是独立资源、流式编译，不受 iOS 15
@@ -3915,6 +3922,10 @@ const FIX_SENTINELS = [
   { name: '#935c 充电段整段剔除（充电中电量不降反升；删＝充电时段混进耗电统计，速率被摊薄甚至算成 0）', file: 'js/energy-check.js', needle: "run.lastSt = ch ? 'chg' : (document.hidden ? 'bg' : 'fg');" },
   { name: '#935d 发烫判级阈值（末段比开头慢 ≥25%＝明显降频；删＝发烫降频迹象不再报，本批报障面回流）', file: 'js/energy-check.js', needle: "if (slow >= SLOW_BAD) return '明显降频';" },
   { name: '#935e 到点续测交付等弹窗组件就绪（本文件排在 personalize.js 之前，boot 即弹＝reportModal 的就绪闸把报告静默丢掉，开页瞬间的报告再也看不见）', file: 'js/energy-check.js', needle: 'whenModalReady(restoreRun);' }
+// #939 「网络不佳·点此重试」条永挂（部分手机刷新无效）——三条锚点（#939c 口径扣除随 #921h 在途批收口，不在本批提交面）：
+,{ name: '#939a 包装 catch 登记错误清单（删＝运行期抛错文件被算成网络缺失，重试条永挂+每2h白重载；锚内联件 device.js 那份）', file: 'index.html', needle: 'if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("device.js")' },
+{ name: '#939b 初始化行含错误清单（删＝catch 登记静默失效，#939a 形同虚设）', file: 'index.html', needle: 'window.__mochiErrLoaded = window.__mochiErrLoaded || [];' },
+{ name: '#939d 健康即撤条+事件复查（删＝条挂上永不摘除，慢机回填>3s 永误报网络不佳；判据自包含不依赖 #921h missing()）', file: 'index.html', needle: 'function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

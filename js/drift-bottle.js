@@ -626,4 +626,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("drift-bottle.js");
-} catch (__e) { try { console.error("[JS] drift-bottle.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[drift-bottle.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("drift-bottle.js"); try { console.error("[JS] drift-bottle.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[drift-bottle.js] " + String(__e && __e.message || __e)); } })();

@@ -666,4 +666,4 @@ maybeGreet();
 })();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("calendar.js");
-} catch (__e) { try { console.error("[JS] calendar.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[calendar.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("calendar.js"); try { console.error("[JS] calendar.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[calendar.js] " + String(__e && __e.message || __e)); } })();

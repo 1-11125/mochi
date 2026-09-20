@@ -1549,4 +1549,4 @@ try { if (typeof window.enterChat === 'function') window.enterChat(); } catch (x
 } catch (e) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("bg-keep.js");
-} catch (__e) { try { console.error("[JS] bg-keep.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[bg-keep.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("bg-keep.js"); try { console.error("[JS] bg-keep.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[bg-keep.js] " + String(__e && __e.message || __e)); } })();

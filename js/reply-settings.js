@@ -1160,4 +1160,4 @@ const rgGenRow = document.getElementById('row-general');
 if (rgGenRow) rgGenRow.addEventListener('click', () => { try { ls.set('reply-guide-done', '1'); } catch (e) {} });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("reply-settings.js");
-} catch (__e) { try { console.error("[JS] reply-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[reply-settings.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("reply-settings.js"); try { console.error("[JS] reply-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[reply-settings.js] " + String(__e && __e.message || __e)); } })();

@@ -1760,4 +1760,4 @@ return list;
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("garden.js");
-} catch (__e) { try { console.error("[JS] garden.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[garden.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("garden.js"); try { console.error("[JS] garden.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[garden.js] " + String(__e && __e.message || __e)); } })();

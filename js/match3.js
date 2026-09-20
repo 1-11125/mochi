@@ -1001,4 +1001,4 @@ fast: false
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("match3.js");
-} catch (__e) { try { console.error("[JS] match3.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[match3.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("match3.js"); try { console.error("[JS] match3.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[match3.js] " + String(__e && __e.message || __e)); } })();

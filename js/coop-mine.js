@@ -833,4 +833,4 @@ fast: false
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("coop-mine.js");
-} catch (__e) { try { console.error("[JS] coop-mine.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[coop-mine.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("coop-mine.js"); try { console.error("[JS] coop-mine.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[coop-mine.js] " + String(__e && __e.message || __e)); } })();

@@ -434,4 +434,4 @@ window.DEFAULT_CARD_DATA.main.push(["加班晚归",["加班辛苦了，记得起
 window.DEFAULT_CARD_DATA.main.push(["出太阳了",["出太阳了，把被子拿去晒晒","阳光落在桌上，一格一格的","这样的天不出去走走，可惜了","晒过的被子，是太阳的味道","今天的光线很好，适合多看两眼窗外","太阳很好，心情也跟着亮","坐到有阳光的地方去，暖和","晒晒太阳，烦恼会蒸发一些","光从窗边斜进来，正好落在你常坐的位置","难得的好天气，别浪费在屋里"]]);
 window.DEFAULT_CARD_DATA.main.push(["闻到想到你",["路过面包店，想起你说过喜欢这个味道","风里有栀子的味道，你那边有吗","这个洗衣液的味道，让我停了一下","闻到雨后的土腥味，想到那场一起躲过的雨","谁家在做饭，香味飘得很远","某种味道一出现，就想到某个时刻的你","晒过的被子是什么味道，我很想知道","你的味道我说不上来，但一定认得出","桂花开了，是秋天的信号","味道比记忆诚实，一闻到就想你"]]);
 if (window.__mochiLoaded) window.__mochiLoaded.push("default-cards-data.js");
-} catch (__e) { try { console.error("[JS] default-cards-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[default-cards-data.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("default-cards-data.js"); try { console.error("[JS] default-cards-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[default-cards-data.js] " + String(__e && __e.message || __e)); } })();

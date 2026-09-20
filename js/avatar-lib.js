@@ -1061,4 +1061,4 @@ try { restoreLib('nick-lib'); } catch (e) {}
 try { restoreLib('nick-me-lib'); } catch (e) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("avatar-lib.js");
-} catch (__e) { try { console.error("[JS] avatar-lib.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[avatar-lib.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("avatar-lib.js"); try { console.error("[JS] avatar-lib.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[avatar-lib.js] " + String(__e && __e.message || __e)); } })();

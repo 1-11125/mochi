@@ -1386,4 +1386,4 @@ matchName: matchFaceFile
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("divination.js");
-} catch (__e) { try { console.error("[JS] divination.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[divination.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("divination.js"); try { console.error("[JS] divination.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[divination.js] " + String(__e && __e.message || __e)); } })();

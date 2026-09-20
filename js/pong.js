@@ -826,4 +826,4 @@ refitSettle = setTimeout(function () { if (panel && !panel.hidden) fitCanvas(); 
 window.addEventListener('resize', onViewportChange);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("pong.js");
-} catch (__e) { try { console.error("[JS] pong.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[pong.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("pong.js"); try { console.error("[JS] pong.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[pong.js] " + String(__e && __e.message || __e)); } })();

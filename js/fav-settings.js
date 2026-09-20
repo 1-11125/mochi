@@ -148,4 +148,4 @@ if (page && !page.hidden) { syncUI(); renderStats(); }
 syncUI();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("fav-settings.js");
-} catch (__e) { try { console.error("[JS] fav-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fav-settings.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("fav-settings.js"); try { console.error("[JS] fav-settings.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fav-settings.js] " + String(__e && __e.message || __e)); } })();

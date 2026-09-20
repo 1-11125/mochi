@@ -940,4 +940,4 @@ scheduleCallCheck();
 }, (45 + Math.random() * 75) * 1000);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("call.js");
-} catch (__e) { try { console.error("[JS] call.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[call.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("call.js"); try { console.error("[JS] call.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[call.js] " + String(__e && __e.message || __e)); } })();

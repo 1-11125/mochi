@@ -525,4 +525,4 @@ fast: false
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("memory-game.js");
-} catch (__e) { try { console.error("[JS] memory-game.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memory-game.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("memory-game.js"); try { console.error("[JS] memory-game.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memory-game.js] " + String(__e && __e.message || __e)); } })();

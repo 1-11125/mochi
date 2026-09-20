@@ -334,4 +334,4 @@ if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderH
 decisionPanelRef = openPanel;
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("decision.js");
-} catch (__e) { try { console.error("[JS] decision.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[decision.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("decision.js"); try { console.error("[JS] decision.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[decision.js] " + String(__e && __e.message || __e)); } })();

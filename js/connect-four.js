@@ -528,4 +528,4 @@ fast: false
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("connect-four.js");
-} catch (__e) { try { console.error("[JS] connect-four.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[connect-four.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("connect-four.js"); try { console.error("[JS] connect-four.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[connect-four.js] " + String(__e && __e.message || __e)); } })();

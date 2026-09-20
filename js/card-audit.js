@@ -1196,4 +1196,4 @@ function refreshAll() { try { updateBadge(quickIssueCount()); } catch (e) {} try
 setTimeout(refreshAll, 1200);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("card-audit.js");
-} catch (__e) { try { console.error("[JS] card-audit.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[card-audit.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("card-audit.js"); try { console.error("[JS] card-audit.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[card-audit.js] " + String(__e && __e.message || __e)); } })();

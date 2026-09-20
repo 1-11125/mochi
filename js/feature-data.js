@@ -689,4 +689,4 @@ overlaps: function () { return allKeys().then(function (keys) { var m = {}; keys
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("feature-data.js");
-} catch (__e) { try { console.error("[JS] feature-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feature-data.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("feature-data.js"); try { console.error("[JS] feature-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feature-data.js] " + String(__e && __e.message || __e)); } })();

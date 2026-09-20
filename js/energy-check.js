@@ -494,4 +494,4 @@ BAT_RUN_KEY: BAT_RUN_KEY
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("energy-check.js");
-} catch (__e) { try { console.error("[JS] energy-check.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[energy-check.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("energy-check.js"); try { console.error("[JS] energy-check.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[energy-check.js] " + String(__e && __e.message || __e)); } })();

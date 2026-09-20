@@ -568,4 +568,4 @@ return out;
 update();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("feature-hub.js");
-} catch (__e) { try { console.error("[JS] feature-hub.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feature-hub.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("feature-hub.js"); try { console.error("[JS] feature-hub.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[feature-hub.js] " + String(__e && __e.message || __e)); } })();

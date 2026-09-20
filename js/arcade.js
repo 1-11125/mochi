@@ -196,4 +196,4 @@ window.closeArcadePage = closeArcadePage;
 window.__arcDebug = { forceDrop: false, luckyKey: luckyKey, loadDrops: loadDrops };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("arcade.js");
-} catch (__e) { try { console.error("[JS] arcade.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[arcade.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("arcade.js"); try { console.error("[JS] arcade.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[arcade.js] " + String(__e && __e.message || __e)); } })();

@@ -1342,4 +1342,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("memo-arc.js");
-} catch (__e) { try { console.error("[JS] memo-arc.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memo-arc.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("memo-arc.js"); try { console.error("[JS] memo-arc.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[memo-arc.js] " + String(__e && __e.message || __e)); } })();

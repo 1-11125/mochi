@@ -465,4 +465,4 @@ SIBLING_IDS.forEach(id => { const el = document.getElementById(id); if (el) mo.o
 })();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("group-decision.js");
-} catch (__e) { try { console.error("[JS] group-decision.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[group-decision.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("group-decision.js"); try { console.error("[JS] group-decision.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[group-decision.js] " + String(__e && __e.message || __e)); } })();

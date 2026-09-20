@@ -368,4 +368,4 @@ try { if (!document.getElementById('page-home').hidden && htab === 'call') rende
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("records.js");
-} catch (__e) { try { console.error("[JS] records.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[records.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("records.js"); try { console.error("[JS] records.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[records.js] " + String(__e && __e.message || __e)); } })();

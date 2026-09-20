@@ -236,4 +236,4 @@ window.DEFAULT_CARD_DATA.dict_ext = [
 ["日常聊天",["今天累不累","吃了吗","吃的什么","好吃吗","下班了吗","到哪了","路上堵不堵","慢点开","到家说一声","我刚到家","点了外卖","还没送到","今天好冷","你那边呢","多穿点","别感冒了","睡了吗","还没呢","在干嘛","刚洗完澡","在追剧","看到第几集了","周末想吃什么","水喝了没","刚喝完","别老喝奶茶","知道啦","工作顺利吗","还不错","慢慢来","不着急","晚安好梦","明天见","今天也辛苦了","好的呀","那就这样说定了","想你了早点回"]]
 ];
 if (window.__mochiLoaded) window.__mochiLoaded.push("dict-ext-data.js");
-} catch (__e) { try { console.error("[JS] dict-ext-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[dict-ext-data.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("dict-ext-data.js"); try { console.error("[JS] dict-ext-data.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[dict-ext-data.js] " + String(__e && __e.message || __e)); } })();

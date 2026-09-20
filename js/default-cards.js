@@ -1058,4 +1058,4 @@ return arr.filter(c => !(window.isDefaultCardOff && window.isDefaultCardOff('des
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("default-cards.js");
-} catch (__e) { try { console.error("[JS] default-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[default-cards.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("default-cards.js"); try { console.error("[JS] default-cards.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[default-cards.js] " + String(__e && __e.message || __e)); } })();

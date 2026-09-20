@@ -3944,4 +3944,4 @@ try { syncTaFavTab(); renderTaFavList(); } catch (e) {}
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("music-player.js");
-} catch (__e) { try { console.error("[JS] music-player.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[music-player.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("music-player.js"); try { console.error("[JS] music-player.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[music-player.js] " + String(__e && __e.message || __e)); } })();

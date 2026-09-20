@@ -1518,4 +1518,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("cjian.js");
-} catch (__e) { try { console.error("[JS] cjian.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[cjian.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("cjian.js"); try { console.error("[JS] cjian.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[cjian.js] " + String(__e && __e.message || __e)); } })();

@@ -837,4 +837,4 @@ document.addEventListener('contact-switched', refreshContactsVal);
 }
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("contacts.js");
-} catch (__e) { try { console.error("[JS] contacts.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[contacts.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("contacts.js"); try { console.error("[JS] contacts.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[contacts.js] " + String(__e && __e.message || __e)); } })();

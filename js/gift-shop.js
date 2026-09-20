@@ -1758,4 +1758,4 @@ document.addEventListener('DOMContentLoaded', init);
 } else { init(); }
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("gift-shop.js");
-} catch (__e) { try { console.error("[JS] gift-shop.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[gift-shop.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("gift-shop.js"); try { console.error("[JS] gift-shop.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[gift-shop.js] " + String(__e && __e.message || __e)); } })();

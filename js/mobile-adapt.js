@@ -1954,4 +1954,4 @@ document.addEventListener("visibilitychange", apply);
 if (document.body) apply(); else document.addEventListener("DOMContentLoaded", apply);
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
-} catch (__e) { try { console.error("[JS] mobile-adapt.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mobile-adapt.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("mobile-adapt.js"); try { console.error("[JS] mobile-adapt.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[mobile-adapt.js] " + String(__e && __e.message || __e)); } })();

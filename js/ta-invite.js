@@ -632,4 +632,4 @@ try { window.refreshTiCardCounts(); } catch (e) {}
 })();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("ta-invite.js");
-} catch (__e) { try { console.error("[JS] ta-invite.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-invite.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("ta-invite.js"); try { console.error("[JS] ta-invite.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ta-invite.js] " + String(__e && __e.message || __e)); } })();

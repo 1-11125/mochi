@@ -820,4 +820,4 @@ fast: false
 };
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("auction.js");
-} catch (__e) { try { console.error("[JS] auction.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[auction.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("auction.js"); try { console.error("[JS] auction.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[auction.js] " + String(__e && __e.message || __e)); } })();

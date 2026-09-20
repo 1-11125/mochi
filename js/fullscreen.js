@@ -539,4 +539,4 @@ _gfsObs.observe(document.body, { subtree: true, attributes: true, attributeFilte
 applyGameFsElevate();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("fullscreen.js");
-} catch (__e) { try { console.error("[JS] fullscreen.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fullscreen.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("fullscreen.js"); try { console.error("[JS] fullscreen.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[fullscreen.js] " + String(__e && __e.message || __e)); } })();

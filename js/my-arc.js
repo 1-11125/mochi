@@ -809,4 +809,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("my-arc.js");
-} catch (__e) { try { console.error("[JS] my-arc.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[my-arc.js] " + String(__e && __e.message || __e)); } })();
+} catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("my-arc.js"); try { console.error("[JS] my-arc.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[my-arc.js] " + String(__e && __e.message || __e)); } })();
