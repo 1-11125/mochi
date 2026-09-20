@@ -475,7 +475,10 @@ body.cs-time-divider .msg-time-divider { display:flex; }
   position:relative;
 }
 .chat-input {
-  flex:1; min-width:0; border:none; outline:none; background:transparent;
+  /* #949：输入框保底 4em 可用宽——开着「我可发送语音」＋「批量发送」后输入栏两侧按钮变多，
+     窄屏（360px 级）上按钮一像素不让会把 min-width:0 的输入框压成 0 宽＝无法输入；
+     有了保底后挤压由 .ch-input-btn 的 30px 收缩下限与窄屏档间距收紧消化。 */
+  flex:1; min-width:4em; border:none; outline:none; background:transparent;
   font-size:15px; font-family:inherit; color:var(--ink);
   /* v3.5.127锛歝ontenteditable div 鐗堣緭鍏ユ鈥斺€擟hrome 涓嶅 contenteditable
      寮广€岃嚜鍔ㄥ～鍏呫€嶆潯锛坕nput 鏃犺濡備綍閮戒細琚瘑鍒垚琛ㄥ崟瀛楁锛夈€傝ˉ榻?div 鐗?     闇€瑕佺殑鎺掔増锛氳楂樺榻愩€侀暱鏂囨湰鎹㈣銆佽秴楂樻粴鍔ㄣ€?     v3.6.x锛氫笉鍐嶅姞 -webkit-user-modify:read-write-plaintext-only鈥斺€?     iOS Safari 瀵瑰畠鏀寔鏈?bug锛堥儴鍒嗙増鏈細闃绘 contenteditable 杈撳叆/閿洏锛夛紝
@@ -594,7 +597,9 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 
 /* 杈撳叆鏍忓浘鏍囨寜閽紙鏇村鍔熻兘 / 琛ㄦ儏鍖咃級 */
 .ch-input-btn {
-  width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:0;
+  /* #949：flex-shrink 放开（收缩下限 30px 保持可点）——输入栏按钮偏多＋窄屏时按钮先于输入框收缩，
+     不再把 flex:1 的输入框挤成 0 宽；宽屏空间富余时永不触发，外观零变化。 */
+  width:38px; height:38px; border-radius:50%; cursor:pointer; flex-shrink:1; min-width:30px;
   background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
   color:#555; box-shadow:0 1px 4px rgba(0,0,0,.04);
   display:flex; align-items:center; justify-content:center;
@@ -602,6 +607,12 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 }
 .ch-input-btn:active { background:rgba(0,0,0,.08); }
 .ch-input-btn svg { width:20px; height:20px; }
+/* #949：窄屏档——间距与发送键内边距收紧，配合按钮收缩下限，
+   360px 屏开满「语音＋批量」后输入框仍保有 4em 以上可用宽（单聊/群聊两排同吃）。 */
+@media (max-width: 480px) {
+  .chat-input-row { gap:5px; padding:12px 8px 12px 10px; }
+  .chat-send { padding:12px 16px; }
+}
 
 /* 鎷嶄竴鎷?/ 鎹㈠ご鍍忥細灞呬腑鐏板瓧灏忓崱鐗囷紙鍙€夐檮甯︿竴寮犲ご鍍忓浘锛?*/
 .msg-poke {

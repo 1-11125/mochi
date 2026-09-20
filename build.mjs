@@ -45,14 +45,18 @@ const buildInfo = '部署于 ' + buildTime.getFullYear() + '-' + pad(buildTime.g
   ' ' + pad(buildTime.getHours()) + ':' + pad(buildTime.getMinutes());
 const buildStamp = buildTime.getTime().toString(36); // sw 缓存名版本号（每次构建必变）
 // 应用版本号（设置页底部与开屏共用）
-// v8 系列起：版本号 v8.<提交数÷10 取整>，总共三位数字（提交数 258 → v8.25），
-// 每提交 10 次 +0.1（258 → v8.25，260 → v8.26，300 → v8.30）。
-// SW 缓存刷新依赖的是上面的 buildStamp（每次构建必变），与 APP_VERSION 无关。
-// 非 git 环境（脚本被拷贝/CI 无 git）回退 v8.0 兜底。
-let APP_VERSION = 'v8.0';
+// v3.26.x：自动从 git 提交数生成（v3.26.<提交数>）——此前手动维护 APP_VERSION，
+// 与提交 message 里的版本号经常不同步（混用 v3.5.x/v3.6.x）。现在每次提交后构建，
+// 版本号自动 +1、永不需要人工对齐；提交 message 前缀保持 v3.26.x 系列即可。
+// ⚠️ 版本系列升级时（如 v3.26 → v3.27）把下面的前缀一起改掉，与提交 message 对齐。
+// 2026-09-11：仓库历史重置为单提交（AI 协作台账移出公开库），提交数从 560 骤降，
+// 加 VERSION_BASE 基数保持版本号连续不倒退（SW 缓存刷新依赖版本单调递增）。
+// 非 git 环境（脚本被拷贝/CI 无 git）回退 v3.26.0 兜底。
+const VERSION_BASE = 559;
+let APP_VERSION = 'v3.26.0';
 try {
   const cnt = execSync('git rev-list --count HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v8.' + Math.floor(parseInt(cnt, 10) / 10);
+  if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v3.26.' + (VERSION_BASE + parseInt(cnt, 10));
 } catch (e) { /* 无 git：保持兜底 */ }
 
 // ===== 零依赖保守压缩 =====
@@ -3989,6 +3993,10 @@ const FIX_SENTINELS = [
 { name: '#946d cs-* 样式表拆建观察（删＝enforce/contrast 整层重解析不计入报告）', file: 'js/flash-check.js', needle: "if (nd.nodeName === 'STYLE' && String(nd.id || '').indexOf('cs-') === 0) mark('ss');" },
 { name: '#946e 设置页「闪屏自测」入口行在产物（删＝工具里找不到这一行，真机自测不可用）', file: 'index.html', needle: 'id="row-flash-check"' },
 { name: '#946f 以「用户的点击」分段（删＝修好后值没变那一下彻底零写入、不留记录，报告假称没采到＝探针不可用）', file: 'js/flash-check.js', needle: '_clicks.push({ t: t, in: inDrawer(e.target) });' },
+  // ===== #949 聊天输入栏窄屏挤压（开「我可发送语音」＋「批量发送」后按钮偏多，min-width:0 的输入框被压成 0 宽＝无法输入）=====
+  { name: '#949a 输入框保底 4em 可用宽（退回 min-width:0＝窄屏开语音+批量后输入框被按钮压成 0 宽无法输入）', file: 'css/chat-main.css', needle: 'min-width:4em' },
+  { name: '#949b 输入栏图标按钮放开收缩并保 30px 下限（退回 flex-shrink:0＝按钮一像素不让，挤压全部由输入框吸收）', file: 'css/chat-main.css', needle: 'min-width:30px' },
+  { name: '#949c 窄屏档输入栏间距收紧（删＝360px 级机型按钮收缩到下限后仍差一口气，发送键被顶出/输入框贴 0）', file: 'css/chat-main.css', needle: 'padding:12px 8px 12px 10px' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
