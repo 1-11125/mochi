@@ -2167,7 +2167,6 @@ box-shadow:0 12px 32px rgba(0,0,0,.14);
 z-index:70; padding:14px 16px 14px;
 }
 .poke-card[hidden] { display:none; }
-#emoji-panel[hidden], #avlib-card[hidden] { display:flex; visibility:hidden; pointer-events:none; }
 @media (max-height:560px) {
 .poke-card { max-height:76%; }
 }
@@ -2948,13 +2947,6 @@ background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
 .rp-head-set:active { background:rgba(0,0,0,.05); }
 .rp-settings { padding:2px 0 0; }
 .rp-settings[hidden], .rp-balance[hidden] { display:none; }
-.rp-settings:not([hidden]) {
-flex:1 1 auto; min-height:0;
-overflow-y:auto; overscroll-behavior:contain;
--webkit-overflow-scrolling:touch;
-scrollbar-width:none; -ms-overflow-style:none;
-padding-bottom:6px; }
-.rp-settings::-webkit-scrollbar { display:none; }
 .rp-settings-title {
 font-size:13px; font-weight:700; color:var(--ink);
 padding:6px 2px 10px; letter-spacing:.3px;
@@ -10366,9 +10358,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789899991458">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789900946367">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 18:26<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 18:42<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -19358,6 +19350,17 @@ function sdRingPush(names, snap) {
 try {
 var arr = [];
 try { var old = localStorage.getItem(SD_ERR_KEY); if (old) { var o = JSON.parse(old); if (Array.isArray(o)) arr = o; } } catch (e0) {}
+var _sdSig = '[屏幕适配] ' + String(names).split('｜')[0];
+var _sdDup = -1;
+for (var iSd2 = arr.length - 1; iSd2 >= 0; iSd2--) {
+if (arr[iSd2] && typeof arr[iSd2].msg === 'string'
+&& String(arr[iSd2].msg).split('｜')[0] === _sdSig
+&& Date.now() - (arr[iSd2].t || 0) < 86400000) { _sdDup = iSd2; break; }
+}
+if (_sdDup >= 0) {
+arr[_sdDup].t = Date.now();
+arr[_sdDup].c = (arr[_sdDup].c || 1) + 1;
+} else {
 arr.push({ t: Date.now(), msg: '[屏幕适配] ' + String(names).slice(0, 120)
 + '｜env=' + (snap ? snap.envTop : '?') + ' var=' + (snap ? snap.varTop : '?')
 + ' diff=' + (snap ? snap.diff : '?') + ' inner=' + (snap ? snap.innerH : '?')
@@ -19367,6 +19370,7 @@ arr.push({ t: Date.now(), msg: '[屏幕适配] ' + String(names).slice(0, 120)
 ua: (navigator.userAgent || '').slice(0, 160),
 dev: (function () { var dd = window.mochiDevice || {}; return 'M' + (dd.isMobile?1:0) + ' T' + (dd.isTablet?1:0) + ' I' + (dd.isIOS?1:0) + ' A' + (dd.isAndroid?1:0) + ' V' + (dd.isVia?1:0); })(),
 page: 'page-phone' });
+} // #916b else（同签名 24h 内已入环：c+1 复用原条目，不新增）
 while (arr.length > 30) {
 var iSD = -1;
 for (var i3 = 0; i3 < arr.length; i3++) { if (arr[i3] && /^\[屏幕适配\]/.test(arr[i3].msg || '')) { iSD = i3; break; } }
@@ -20463,4 +20467,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9o8of6 -->
+<!-- __MOCHI_EOF__ mu9ot58f -->

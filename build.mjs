@@ -1097,7 +1097,7 @@ const FIX_SENTINELS = [
   { name: '#208 聊天输入栏上移白边·键盘收起视口未还原自愈（iOS standalone 键盘收起 WebKit 偶发不还原视口，restoreKb 的 60px 还原门槛永不满足=kbActive 卡真 .phone 卡收缩高；失焦>4s 且视口仍<基线−60 强制复原）', file: 'js/mobile-adapt.js', needle: 'Date.now() - _focLostAt > 4000 && _vv && _vv.height < _fullVv - 60' },
   { name: '#208 聊天输入栏上移白边·tabbar 隐藏跳过采集（全屏页 tabs.js 给 tabbar 挂 hidden，矩形全 0 被判悬空 860px 每 5s 刷假错误环）', file: 'js/device.js', needle: 'if (!tb || tb.hidden) return null;' },
   { name: '#208 聊天输入栏上移白边·判定器布局视口未贴底（保留形态 diff 应≈envTop；键盘收起未还原时按 inner 判贴合全绿漏报，单列 ✗ 让白带状态可诊断）', file: 'js/device.js', needle: 'diff > envTop + 24 && !(inp.kb && inp.kb.kbActive)' },
-  { name: '#209 输入栏下方灰底断截面·焦点保留硬证据自愈（安卓返回键收键盘不派 blur/#197 族 focusout 丢失时 !foc 复原分支永不执行=停靠残留卡死；可视区双信号回满 ≤12px 即复原，焦点在不在都算键盘已收；推定停靠 _aProv/_iProv 与全屏态不碰）', file: 'js/mobile-adapt.js', needle: 'if (_hNow <= 0 || _hNow < _aH - 12) return;' },
+  { name: '#209 输入栏下方灰底断截面·焦点保留硬证据自愈（安卓返回键收键盘不派 blur/#197 族 focusout 丢失时 !foc 复原分支永不执行=停靠残留卡死；可视区双信号回满 ≤12px 即复原，焦点在不在都算键盘已收；推定停靠 _aProv/_iProv 与全屏态不碰；#916 换锚：原 needle 随稳态高度对账重构改为同语义守卫正形态，逻辑只强不弱）', file: 'js/mobile-adapt.js', needle: 'if (_hNow > 0 && _hNow >= _aH - 12 && (window.innerHeight || 0) >= _aIH - 12) {' },
   { name: '#210 视口形态判定器同源（window.mochiViewportForm 单一事实源：执行器 syncVvFit 与诊断 screenDiagJudge 共用，新形态只改一处；删定义即回归两处手抄判式漂移——#186 期间 force 分支已实际漂移两处）', file: 'js/device.js', needle: 'window.mochiViewportForm = function (sig) {' },
   { name: '#210 判定器·force 声明期望底边=屏高（#186 缺陷修正：原误写 innerH 与「期望=屏高」注释矛盾，forced 设备自检必误报底部超出；env=0 的 18.3 白边期望按 safeTop+inner 补满。#276 起该分支同步加坏 screenH 门，needle 随代码演进）', file: 'js/device.js', needle: 'forceCover ? ((screenH >= innerH ? screenH : 0) || (safeTop + innerH))' },
   { name: '#210 采集器 force 传入判定器（#186 缺陷修正：漏传致「用户已声明覆盖形态」分支在真实采集路径永不命中=死分支）', file: 'js/device.js', needle: "inp.force = (function () { try { return localStorage.getItem('xy-home-v2:__safe-top-force') === '1'; } catch (e) { return false; } })();" },
@@ -3868,12 +3868,9 @@ const FIX_SENTINELS = [
   { name: '#913c 工具段发烫排查条（删＝用户只有卡顿说明、没有发烫的对症清单）', file: 'template.html', needle: 'id="heat-help-sub"' },
   { name: '#912a 瞬时贴底写入取消在飞平滑动画（删＝连发期间旧动画帧用旧 start/target 把刚写到位的 scrollTop 拉回去＝「联系人发消息总不在最底部」复发）', file: 'js/chat.js', needle: 'if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } chatPinnedBottom = true;' },
   { name: '#912b 解钉当场取消在飞平滑动画（删＝动画跟用户手指对打＝#716 同族回流）', file: 'js/chat.js', needle: "if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } body.classList.add('scroll-anchor-auto');" },
-  /* ==== 2026-09-20 #907 表情包面板/头像互动「每次打开图片闪＋重新加载」残留根因收口＋可选提前加载（红米 K80 Chrome 实报、多机型同发；#457/#508/#509/#662/#692/#704/#716 七轮之后的收尾拼图） ==== */
-  { name: '#907a 面板 hidden 态 keep-alive（改回 display:none＝隐藏期位图被整批回收，重开全部重新解码＝每次打开都闪一下重新加载复发）', file: 'css/chat-main.css', needle: '#emoji-panel[hidden], #avlib-card[hidden]' },
-  { name: '#907b 表情面板空闲预热调度（删＝进桌面后不再提前加载，首开仍要现场解码＋等解码才显示）', file: 'js/chat.js', needle: 'if (!chatPanelPrewarmOn()) return;' },
-  { name: '#907c 头像互动空闲预热入口（删＝头像库首开前位图从未就绪，点开半框闪一下重载复发）', file: 'js/avatar-lib.js', needle: 'window.mochiPrewarmAvlib = function ()' },
-  { name: '#907d 「打开面板前提前加载图片」设置行（删＝用户失去提前加载开关，无法选择省电模式）', file: 'js/chat-settings.js', needle: 'cs-chat-panel-prewarm-row' },
-  { name: '#907e chat-panel-prewarm 全局根键 EXCLUDE 登记（删＝被 migrateLegacy 迁进 default 桌面并删根键＝开关刷新后丢）', file: 'js/contacts.js', needle: `'chat-panel-prewarm',` },
+  /* ==== 2026-09-20 #916 顶部白条/显示不全+聊天闪动（Edge 工具条显隐 dvh 滞留族）根治 + 屏幕适配错误环红点只增不减收口 ==== */
+  { name: '#916a 安卓稳态高度对账两拍确认钉高（改回一拍即钉＝工具条显隐动画中途误钉来回抽，本批报障复发）', file: 'js/mobile-adapt.js', needle: 'if (_aFitPend === _aExpB) {' },
+  { name: '#916b 屏幕适配错误环同签名 24h 去重（删＝红点数随每次刷新只增不减，本批报障复发）', file: 'js/device.js', needle: "_sdSig = '[屏幕适配] ' + String(names).split('｜')[0];" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -1653,6 +1653,10 @@
         // #479：#369 钉高时刻——「钉高前提失败阀」用（钉后 10s 内核仍不回全屏高且
         // 用户在深缩态有新交互＝在用这个窗口尺寸，放弃钉高、基线重锚到现实）。
         var _aVpPinAt = 0;
+        // FIX 2026-09-20 #916：稳态高度对账状态——_aFitPend=上一拍实测的期望底边（两拍
+        // 同值才动手＝避开工具条显隐动画中途）；_aFitPin=对账内联钉高在位。
+        var _aFitPend = null;
+        var _aFitPin = false;
         // FIX 2026-09-05 #209：稳态停靠残留清扫（安卓侧唯一视口看门狗——iOS 侧
         // healViewport 在 isIOS 分支，安卓不经过；device.js 监视只读不修）。
         // 场景：安卓返回键/手势收键盘不派 blur（activeElement 保留），#197 族
@@ -1820,14 +1824,63 @@
               _aPhone.style.alignSelf = '';
               return;
             }
-            if (!_aPhone.style.height && !_aPhone.style.alignSelf) return;
-            var _hNow = Math.round(_aVV.height || 0);
-            if (_hNow <= 0 || _hNow < _aH - 12) return;
-            if ((window.innerHeight || 0) < _aIH - 12) return;
-            _aPhone.style.height = '';
-            _aPhone.style.alignSelf = '';
-            _aPanComp();
-            kbUndockPanels();
+            // #916：原「无内联高即早退」改为包一层——稳态高度对账（下方 #916 块）必须
+            // 每拍都能跑到（发病态恰恰是【没有】内联高而 dvh 滞留）；键盘残留清扫语义
+            // 原样保留（有内联高且视口回基线才清）。
+            var _aInlineHad = !!(_aPhone.style.height || _aPhone.style.alignSelf);
+            if (_aInlineHad) {
+              var _hNow = Math.round(_aVV.height || 0);
+              if (_hNow > 0 && _hNow >= _aH - 12 && (window.innerHeight || 0) >= _aIH - 12) {
+                _aPhone.style.height = '';
+                _aPhone.style.alignSelf = '';
+                _aPanComp();
+                kbUndockPanels();
+              }
+            }
+            // FIX 2026-09-20 #916：安卓浏览器稳态高度对账（「顶部白条/显示不全、聊天页
+            // 闪动、刷新才恢复」根治——OPPO Find X8s + Edge 实报，用户明说多机型同现）。
+            // 现场签名（错误环多日反复）：inner=725 不动而 .phone 底边=699（少填 26px 白带）
+            // 或 =751（超出 26px、tabbar 被裁）——26px=Edge 底部工具条高。根因：工具条
+            // 显隐切换布局视口高度时，该内核的 100dvh 读数滞后/滞留旧值（CSS 唯一高度
+            // 来源），而本模块的实测写高链路（syncVvFit/--mochi-ios-h）在 isIOS 分支，
+            // 安卓稳态无人重写 → 白带/跳动持续到用户手动刷新。修法（零机型分支、纯结果
+            // 量）：本 1s 看门狗稳态期（无键盘会话/无推定停靠/无 #369 钉高、无文本聚焦、
+            // vv≈inner±12 排除键盘与动画中途、vv 读数已稳 1.2s、非 standalone PWA——
+            // standalone 的 dvh 语义不同走既有形态链）实测 .phone 底边 vs innerHeight，
+            // 偏差 >8px 连续两拍同值才把 .phone 内联钉高到实测期望值（内联赢选择器，
+            // dvh 滞留不再生效）；偏差回 ≤8px（dvh 自行恢复/旋转/窗口变化后）摘除钉高
+            // 回落 CSS。清扫块每拍先清内联再落到这里＝钉高态每拍「清→实测→复钉」
+            // 单拍内完成，渲染帧始终是钉正后的形态，无来回抖动。健康设备偏差恒 ≤8px、
+            // 零写入零重排，行为零变化。
+            try {
+              var _aExpB = window.innerHeight || 0;
+              var _aVvQ = Math.round(_aVV.height || 0);
+              var _aFitGo = _aExpB > 0 && _aVvQ > 0 && _coarse && !_aVpPin && !_aKb && !_aProv
+                && Math.abs(_ihNow - _aVvQ) <= 12
+                && !_aIsText(document.activeElement) && !_aIsText(_aTextFocused)
+                && Date.now() - _aVvChgAt > 1200
+                && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+              if (_aFitGo) {
+                var _aPbNow = Math.round(_aPhone.getBoundingClientRect().bottom);
+                var _aDev = (_aPbNow > 0) ? (_aPbNow - _aExpB) : 0;
+                if (_aDev > 8 || _aDev < -8) {
+                  if (_aFitPend === _aExpB) {
+                    if (_aPhone.style.height !== _aExpB + 'px') _aPhone.style.height = _aExpB + 'px';
+                    _aFitPin = true;
+                    _aPanComp();
+                  } else {
+                    _aFitPend = _aExpB; // 首见只记账，下一拍（≥1s 后）同值才动手
+                  }
+                } else {
+                  _aFitPend = null;
+                  if (_aFitPin) { _aPhone.style.height = ''; _aFitPin = false; _aPanComp(); }
+                }
+              } else {
+                // 守卫不满足（键盘/聚焦/动画期/standalone）→ 摘对账钉高让既有链接管
+                _aFitPend = null;
+                if (_aFitPin) { _aPhone.style.height = ''; _aFitPin = false; }
+              }
+            } catch (eFit) {}
           } catch (e) {}
         }, 1000);
         // v3.26.x：安卓键盘内部状态只读探针（与 iOS __mochiIosKb 同字段名，供

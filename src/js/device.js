@@ -3217,6 +3217,24 @@ window.mochiViewportForm = function (sig) {
       try { var old = localStorage.getItem(SD_ERR_KEY); if (old) { var o = JSON.parse(old); if (Array.isArray(o)) arr = o; } } catch (e0) {}
       // #209：错误环条目带事发现场数值——「最近错误」里直接能看出是哪种形态，
       // 不用再翻 screen-diag-hist 对照
+      // FIX 2026-09-20 #916b：同签名 24h 去重——[屏幕适配] 条目按会话自动采集，同一台
+      // 设备同一形态（如 Edge 工具条显隐族「底部少填 26px」）几乎每个会话都重现一次，
+      // 原实现每次 push 新条目：环形缓冲被同文填满、信息诊断红点数随每次刷新只增不减
+      // （用户报障「设备兼容诊断处每次刷新红点数量会增加」，多机型同现）。改为倒查 24h
+      // 内有无同「[屏幕适配] <形态名>」前缀条目，有则 c+1 并更新时间戳（出现次数与最新
+      // 时间仍保留＝线索不丢），不再新增条目——红点数稳定为「出现过几种形态」而非
+      // 「重现场几次」。签名取 '｜' 之前段（几何数值段每会话可能不同，不参与比较）。
+      var _sdSig = '[屏幕适配] ' + String(names).split('｜')[0];
+      var _sdDup = -1;
+      for (var iSd2 = arr.length - 1; iSd2 >= 0; iSd2--) {
+        if (arr[iSd2] && typeof arr[iSd2].msg === 'string'
+            && String(arr[iSd2].msg).split('｜')[0] === _sdSig
+            && Date.now() - (arr[iSd2].t || 0) < 86400000) { _sdDup = iSd2; break; }
+      }
+      if (_sdDup >= 0) {
+        arr[_sdDup].t = Date.now();
+        arr[_sdDup].c = (arr[_sdDup].c || 1) + 1;
+      } else {
       arr.push({ t: Date.now(), msg: '[屏幕适配] ' + String(names).slice(0, 120)
         + '｜env=' + (snap ? snap.envTop : '?') + ' var=' + (snap ? snap.varTop : '?')
         + ' diff=' + (snap ? snap.diff : '?') + ' inner=' + (snap ? snap.innerH : '?')
@@ -3226,6 +3244,7 @@ window.mochiViewportForm = function (sig) {
         ua: (navigator.userAgent || '').slice(0, 160),
         dev: (function () { var dd = window.mochiDevice || {}; return 'M' + (dd.isMobile?1:0) + ' T' + (dd.isTablet?1:0) + ' I' + (dd.isIOS?1:0) + ' A' + (dd.isAndroid?1:0) + ' V' + (dd.isVia?1:0); })(),
         page: 'page-phone' });
+      } // #916b else（同签名 24h 内已入环：c+1 复用原条目，不新增）
       // v3.27.x：上限 20→30，满时先逐出最旧的 [屏幕适配] 条目——本类条目与 JS
       // onerror 同队列，此前纯 FIFO 会让屏幕适配爆发把真 JS 错误顶出环外。信息诊断
       // pushErr 侧仍 slice(-20)：JS 错误到达时环自然收到 20，属正常 FIFO 不受影响。
