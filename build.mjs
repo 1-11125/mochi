@@ -3862,6 +3862,10 @@ const FIX_SENTINELS = [
   // #910 房间 TA 头像放大＋自成一层（CSS 哨兵按 minify 后单行产物形态取锚）
   { name: '#910a 房间 TA 头像放大到 44px 并自成一层（改回 34px 或去掉 translateZ＝真人照片认不出是谁、「头像很模糊看不清」复发）', file: 'css/room.css', needle: 'width: 44px; height: 44px; transform: translateX(-50%) translateZ(0)' },
   { name: '#910b 走路颠步关键帧保留自成一层（掉 translateZ＝走动时头像并回祖先合成层按 1x 重采样，走动段又发糊）', file: 'css/room.css', needle: '@keyframes rBob { 0%,100% { transform: translateX(-50%) translateZ(0); }' },
+  /* ==== 2026-09-20 #913 手机发烫收口（用户直派「发烫问题要优化+提示怎么改善」）：①切后台全局暂停 CSS 动画总闸（后台保活用户挂后台/锁屏过夜＝无限动画合成照跑的纯浪费热源，与 #436 后台减负同哲学）②工具段补「发烫」人话排查条（保活/边充边用/省电模式/多标签/数据堆积） ==== */
+  { name: '#913a 切后台动画暂停闸接线（删＝挂后台的无限动画照常合成，后台保活用户过夜发热回流）', file: 'js/mobile-adapt.js', needle: "classList.toggle('mochi-bg-pause', !!document.hidden)" },
+  { name: '#913b 切后台暂停动画的 CSS 落点（删＝闸挂了类也没有效果）', file: 'css/base.css', needle: 'body.mochi-bg-pause *::before' },
+  { name: '#913c 工具段发烫排查条（删＝用户只有卡顿说明、没有发烫的对症清单）', file: 'template.html', needle: 'id="heat-help-sub"' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

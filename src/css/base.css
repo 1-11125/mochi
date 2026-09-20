@@ -1477,3 +1477,6 @@ img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height
 .splash-alert.splash-browser p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
 .splash-alert.splash-browser strong { color:#c22b27; font-weight:800; }
 [data-theme="dark"] .splash-alert.splash-browser { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }
+
+/* FIX 2026-09-20 #913 手机发烫收口②：切后台全局暂停动画的落点（mobile-adapt.js 在 document.hidden 时挂类；回前台移除即刻恢复） */
+body.mochi-bg-pause *, body.mochi-bg-pause *::before, body.mochi-bg-pause *::after { animation-play-state: paused !important; }

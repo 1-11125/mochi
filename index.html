@@ -924,6 +924,7 @@ background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
 .splash-alert.splash-browser p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
 .splash-alert.splash-browser strong { color:#c22b27; font-weight:800; }
 [data-theme="dark"] .splash-alert.splash-browser { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }
+body.mochi-bg-pause *, body.mochi-bg-pause *::before, body.mochi-bg-pause *::after { animation-play-state: paused !important; }
 :root {
 --widget-bg:#ffffff;
 --widget-border:rgba(0,0,0,.1);
@@ -10357,9 +10358,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789895457090">
-        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.803</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 17:10<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789897971522">
+        <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
+        <span class="sv-deploy">部署于 2026-09-20 17:52<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11771,6 +11772,10 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              口径（2026-09-17 用户反馈「写的不是全部情况、而是我之前的案例」后改）：不写死「某一块最大」，
              一律「成因有哪几类 + 先到『查看存储』看你自己的哪一块最大、再对症」-->
         <div class="gs-sub" id="perf-help-sub"><b>iPhone 第一条：别开「低电量模式」！</b>低电量（省电）模式会把整机帧率锁到一半（约 30fps），滑动、切页、打字全都会变卡——<b>这是系统行为，关掉立刻恢复</b>（设置 → 电池 → 关掉「低电量模式」）。很多「iOS 怎么用都卡」到最后都查到是它。手机卡顿分两种：<b>刚打开慢几秒</b>是正常的（整个网站要一次读完，约 5.5MB）；<b>用着一直卡</b>，多半是手机里存的东西太多——但<b>哪一样最多，每台手机都不一样</b>（聊天记录、字卡库、音乐、图片都可能），先到「查看存储」看你自己哪一项最大，再清哪一项，<b>别照着别人的删</b>。另外<b>「后台保活」常年开着</b>、<b>标签页开一堆</b>、<b>用「桌面版网站」模式</b>，也都会更卡。<b>iPhone</b>：用 Safari 把本站加到桌面、从桌面图标打开，并且别让数据堆太多（图片最占地方）；<b>安卓</b>：好很多，但用久了也要清（省电模式同理别开）。<b>按这个顺序做</b>：① 先「查看存储」看清哪一项最大；② 本行「一键优化」＋「字卡库瘦身」（不删数据）；③「压缩图片」把老图压小（会跳过动图）；④ 字卡库里删掉不用的大图卡 / 语音卡；⑤ 清掉不听的本地音乐；⑥ 删旧的聊天记录（<b>先导出备份</b>）；⑦ 不用时关掉「后台保活」；⑧ 别开一堆标签页；⑨ 保持最新版。<b>不要</b>用「清除本地数据」治卡顿（会把东西全删了）。</div>
+        <!-- #913（2026-09-20 用户直派「手机发烫的问题要优化+提示怎么可以改善」）：工具段卡顿说明旁补「发烫」专条——
+             发热与卡顿成因不同（发热多为后台持续干活：保活/边充边用/高负载，卡顿多为数据堆积+省电模式），
+             单独成条不塞进卡顿清单；口径与 #436 后台减负、#906 报告点名保活一致 -->
+        <div class="gs-sub" id="heat-help-sub"><b>手机发烫怎么改善：</b>发烫多数不是网站坏了，是<b>有东西在后台一直干活</b>。按这个顺序查：① <b>「后台保活」</b>——开着＝页面在后台持续运行，是最常见的发热源；不用后台通知时到 设置 → 系统 关掉，温度会明显下降。② <b>边充电边用</b>——充电本身就发热，叠加使用更烫；烫得厉害先拔掉充电器对照。③ <b>省电（低电量）模式别开</b>——又卡又发热（见上方卡顿说明第一条）。④ <b>别开一堆标签页、别用「桌面版网站」模式</b>。⑤ 数据堆得太多（图片最占）会让手机持续高负载，按上方卡顿清单「查看存储 → 对症清」。另外：不用本站时把它<b>从后台彻底划掉</b>（或关掉后台保活），几分钟温度就会降下来。</div>
         <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
       </div>
       <!-- v3.33.x #525：清除本地数据归入「工具」tag（与导出/导入同属数据管理）——
@@ -11838,7 +11843,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v3.26.803</div>
+          <div class="val" id="about-ver-val">v3.26.0</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11907,7 +11912,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v3.26.803</div>
+      <div class="ver">Mochi 字卡传讯 v3.26.0</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12301,7 +12306,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v3.26.803</span>
+              <span class="lic-ver">v3.26.0</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -16926,6 +16931,13 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <span class="vub-act" id="backup-remind-chat">备份聊天</span>
     <span class="vub-act vub-close" id="backup-remind-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">稍后</span>
   </div>
+  <!-- #911：后台通知通道异常恢复条（bg-keep.js 在「就绪补发 60s 仍拿不到 SW」时点亮）。
+       同样必须放在脚本标签之前，bg-keep.js 加载即 getElementById。 -->
+  <div class="ver-update-bar" id="notify-heal-bar" hidden>
+    <span class="vub-txt" id="notify-heal-txt">⚠ 后台通知通道未就绪</span>
+    <span class="vub-act" id="notify-heal-refresh">立即刷新</span>
+    <span class="vub-act vub-close" id="notify-heal-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">知道了</span>
+  </div>
 
   <script>
   // v3.5.123：readonly 起手（防 Chrome 密码弹条破坏表单签名）——这里立即解除，
@@ -20443,4 +20455,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9ljhoi -->
+<!-- __MOCHI_EOF__ mu9n1dtu -->
