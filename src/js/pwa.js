@@ -297,8 +297,8 @@
         intro + '\n\n' +
         '先说清楚一件事：你的聊天记录、字卡、照片、音乐、设置，全部只存在这台手机的这个浏览器里，云端一份都没有。\n\n' +
         '① 数据会被自动清掉，躲不过\n' +
-        '不管用什么手机、什么浏览器（网页套壳转成 App 也一样），系统和浏览器都会在它认为需要的时候自动清除网页存的数据——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。这是设备本身的限制，网站没有办法替你保住数据。\n' +
-        '一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。所以必须定期导出备份，没有别的办法。\n\n' +
+        '不管用什么手机、什么浏览器（网页套壳转成 App 也一样），**系统和浏览器都会在它认为需要的时候自动清除网页存的数据**——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。**这是设备本身的限制，网站没有办法替你保住数据。**\n' +
+        '一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。**所以必须定期导出备份，没有别的办法。**\n\n' +
         '② 怎么办\n' +
         '点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 工具 →「导入数据」选这个文件即可。\n\n' +
         '③ 如果数据总也存不住\n' +
@@ -311,7 +311,7 @@
       window.openModal('数据会被自动清空 · 备份提醒', '', function (v) {
         if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
         else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
-      }, { noInput: true, big: true, warn: true, pillSubmit: true, staticText: TEXT, pills: pills });
+      }, { noInput: true, big: true, warn: true, staticEmph: true, pillSubmit: true, staticText: TEXT, pills: pills });
       return 'ok';
     }
     // 兜底顶部提醒条（弹窗组件不可用、或被别的弹窗长期占用时）：渲染成功返回 true 才允许写冷却

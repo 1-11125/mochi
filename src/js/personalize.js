@@ -498,7 +498,21 @@ try {
       title.textContent = t;
       if (staticEl) {
         staticEl.hidden = !opts.staticText;
-        staticEl.textContent = opts.staticText || '';
+        // opts.staticEmph：文案里 **…** 圈出的重点单独上色（.modal-static-key），其余仍是普通说明色。
+        // 只走 createTextNode/createElement + textContent，调用方传的文本永不被当 HTML 解析。
+        if (opts.staticEmph) {
+          const segs = String(opts.staticText || '').split('**');
+          staticEl.textContent = '';
+          for (let i = 0; i < segs.length; i++) {
+            if (!segs[i]) continue;
+            if (i % 2) {
+              const key = document.createElement('b');
+              key.className = 'modal-static-key';
+              key.textContent = segs[i];
+              staticEl.appendChild(key);
+            } else staticEl.appendChild(document.createTextNode(segs[i]));
+          }
+        } else staticEl.textContent = opts.staticText || '';
       }
       input.hidden = noInput || !!opts.textarea;
       input.value = v || '';

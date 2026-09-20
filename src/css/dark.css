@@ -1100,8 +1100,10 @@
 [data-theme="dark"] .giftbox-hero { color:#f2f2f2; }
 
 /* ⑦ 备份提醒警示形态（base.css `.modal--warn`，#900）深色适配：浅色那套 #c92a1f 红字在深底卡面上对比不足
-      （又回到「看不出这段是被特别标注的警告」），改亮红；描边、说明块底色与左侧竖条色一并提亮。
+      （等于没标），故重点字样用亮红；描边与说明块底色一并提亮。正文本体沿用深色普通文字色
+      （整段都染红＝满屏皆重点，用户反馈「文字全都变成红色了」）。
       扁平选择器（本文件禁原生嵌套，见文件头 #258 铁律）。 */
 [data-theme="dark"] .modal.modal--warn { border-color:#e8564a; box-shadow:0 20px 50px rgba(232,56,44,.42); }
 [data-theme="dark"] .modal.modal--warn .modal-title { color:#ff7a6b; }
-[data-theme="dark"] .modal.modal--warn .modal-static { color:#ff8a7a; background:rgba(232,56,44,.16); border-color:rgba(255,122,107,.5); }
+[data-theme="dark"] .modal.modal--warn .modal-static { background:rgba(232,56,44,.16); border-color:rgba(255,122,107,.5); }
+[data-theme="dark"] .modal.modal--warn .modal-static .modal-static-key { color:#ff8a7a; }

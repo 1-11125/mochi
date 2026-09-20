@@ -877,7 +877,8 @@ background:var(--card-bg); color:var(--ink); font-weight:700; cursor:pointer;
 #backup-remind-bar .vub-act { background:#fff; color:#c92a1f; }
 .modal.modal--warn { border-color:#e8382c; box-shadow:0 20px 50px rgba(232,56,44,.3); }
 .modal.modal--warn .modal-title { color:#e8382c; }
-.modal.modal--warn .modal-static { color:#c92a1f; background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); border-left:4px solid #e8382c; }
+.modal.modal--warn .modal-static { background:rgba(232,56,44,.1); border:1px solid rgba(232,56,44,.35); border-left:4px solid #e8382c; }
+.modal.modal--warn .modal-static .modal-static-key { color:#c92a1f; font-weight:700; }
 .poke-card-scroll, .tc-body, .mg-list, .emoji-groups,
 .card-list, .mem-scroll, .cal-scroll, .div-scroll, .gs-scroll,
 .chat-search, .fav-list, .feed-list, .mail-list, .qa-body,
@@ -8965,7 +8966,8 @@ color: var(--card-bg, #1e1e1e);
 [data-theme="dark"] .giftbox-hero { color:#f2f2f2; }
 [data-theme="dark"] .modal.modal--warn { border-color:#e8564a; box-shadow:0 20px 50px rgba(232,56,44,.42); }
 [data-theme="dark"] .modal.modal--warn .modal-title { color:#ff7a6b; }
-[data-theme="dark"] .modal.modal--warn .modal-static { color:#ff8a7a; background:rgba(232,56,44,.16); border-color:rgba(255,122,107,.5); }
+[data-theme="dark"] .modal.modal--warn .modal-static { background:rgba(232,56,44,.16); border-color:rgba(255,122,107,.5); }
+[data-theme="dark"] .modal.modal--warn .modal-static .modal-static-key { color:#ff8a7a; }
 .garden-weather-bar {
 display:flex; align-items:center; gap:8px;
 padding:10px 18px; font-size:13px; color:var(--muted);
@@ -10380,9 +10382,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789944119366">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789945077546">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 06:41<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 06:57<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -19959,8 +19961,8 @@ const TEXT =
 intro + '\n\n' +
 '先说清楚一件事：你的聊天记录、字卡、照片、音乐、设置，全部只存在这台手机的这个浏览器里，云端一份都没有。\n\n' +
 '① 数据会被自动清掉，躲不过\n' +
-'不管用什么手机、什么浏览器（网页套壳转成 App 也一样），系统和浏览器都会在它认为需要的时候自动清除网页存的数据——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。这是设备本身的限制，网站没有办法替你保住数据。\n' +
-'一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。所以必须定期导出备份，没有别的办法。\n\n' +
+'不管用什么手机、什么浏览器（网页套壳转成 App 也一样），**系统和浏览器都会在它认为需要的时候自动清除网页存的数据**——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。**这是设备本身的限制，网站没有办法替你保住数据。**\n' +
+'一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。**所以必须定期导出备份，没有别的办法。**\n\n' +
 '② 怎么办\n' +
 '点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 工具 →「导入数据」选这个文件即可。\n\n' +
 '③ 如果数据总也存不住\n' +
@@ -19973,7 +19975,7 @@ const pills = [
 window.openModal('数据会被自动清空 · 备份提醒', '', function (v) {
 if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
 else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
-}, { noInput: true, big: true, warn: true, pillSubmit: true, staticText: TEXT, pills: pills });
+}, { noInput: true, big: true, warn: true, staticEmph: true, pillSubmit: true, staticText: TEXT, pills: pills });
 return 'ok';
 }
 function showBar(days, everBacked) {
@@ -20513,4 +20515,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ muaeihqe -->
+<!-- __MOCHI_EOF__ muaf312i -->

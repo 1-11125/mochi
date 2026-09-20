@@ -46,11 +46,21 @@ ok('S6 顶条文案也讲人话（旧「建议导出数据备份」口径已换�
 ok('S7 顶条醒目配色（红橙渐变钉在 #backup-remind-bar，不污染其它顶条）', /#backup-remind-bar \{[^}]*linear-gradient\(90deg,#e8382c/.test(cssSrc));
 ok('S8 弹窗警示形态 CSS 在位（.modal--warn 红描边/红标题/红底说明）', /\.modal\.modal--warn \{/.test(cssSrc) && /\.modal\.modal--warn \.modal-title/.test(cssSrc) && /\.modal\.modal--warn \.modal-static/.test(cssSrc));
 ok('S9 openModal 支持 opts.warn（每次开弹窗重设类＝天然复位）', /classList\.toggle\('modal--warn', !!opts\.warn\)/.test(persSrc));
-ok('S10 备份弹窗按 warn 形态调用', /big: true, warn: true, pillSubmit: true/.test(pwaSrc));
-// 用户跟进报障：「确定说的人话提醒标的不同颜色吧，不然用户总是看不懂」——只有底色时正文看着
-// 和普通说明没差别，故正文本身必须换色（浅色红字＋红竖条，深色亮红），下面 S11/S12 钉这个逻辑锚。
-ok('S11 警示说明块正文本身染红（不是只换个底色）+ 左侧红竖条', /\.modal\.modal--warn \.modal-static \{[^}]*color:#c92a1f/.test(cssSrc) && /border-left:4px solid #e8382c/.test(cssSrc));
-ok('S12 深色主题同样把正文标成亮红（扁平选择器，禁原生嵌套）', /\[data-theme="dark"\] \.modal\.modal--warn \.modal-static \{[^}]*color:#ff8a7a/.test(darkSrc));
+ok('S10 备份弹窗按 warn 形态调用（并开 staticEmph＝重点单独上色）', /big: true, warn: true, staticEmph: true, pillSubmit: true/.test(pwaSrc));
+// 用户跟进①「标的不同颜色吧」→ 只给底色不够；用户跟进②「文字全都变成红色了」→ 整块染红＝满屏皆重点。
+// 口径＝正文普通色，只有 **…** 圈出的 .modal-static-key 红；S11~S15 钉这一对边界。
+ok('S11 重点片段染红（.modal-static-key）+ 左侧红竖条标注在位', /\.modal\.modal--warn \.modal-static \.modal-static-key \{ color:#c92a1f/.test(cssSrc) && /border-left:4px solid #e8382c/.test(cssSrc));
+ok('S12 深色主题把重点片段提亮成亮红（扁平选择器，禁原生嵌套）', /\[data-theme="dark"\] \.modal\.modal--warn \.modal-static \.modal-static-key \{ color:#ff8a7a;/.test(darkSrc));
+{
+  const warnBlock = /\.modal\.modal--warn \.modal-static \{([^}]*)\}/.exec(cssSrc);
+  ok('S13 说明块本体不再带 color（正文整块染红＝用户报的「全都变红」，不得回流）', !!warnBlock && !/[^-]color:/.test(warnBlock[1] + ';'), warnBlock ? warnBlock[1].trim() : '规则不见');
+}
+ok('S14 重点只走 textContent 挂载（** 拆分 → <b class=modal-static-key>，调用方文本永不被当 HTML）',
+  /const segs = String\(opts\.staticText \|\| ''\)\.split\('\*\*'\);/.test(persSrc) && /key\.className = 'modal-static-key';\s*\n\s*key\.textContent = segs\[i\];/.test(persSrc));
+{
+  const marks = (pwaSrc.match(/\*\*[^*]+\*\*/g) || []);
+  ok('S15 文案里恰好三处重点被圈（少＝重点没标，多＝又回到满屏皆红）', marks.length === 3 && /自动清除网页存的数据/.test(marks.join('|')) && /必须定期导出备份/.test(marks.join('|')), marks.map((m) => m.slice(2, -2)).join(' / '));
+}
 
 // ---- 测试专用组装：按 build.mjs 同顺序拼临时 index.html（不碰仓库产物） ----
 const buildSrc = readFileSync(join(process.env.SRCDIR ? normalize(process.env.SRCDIR + '/..') : root, 'build.mjs'), 'utf8');
@@ -169,6 +179,10 @@ async function boot(opts = {}) {
       const title = document.getElementById('modal-title');
       const ink = toRgb(getComputedStyle(document.documentElement).getPropertyValue('--ink'));
       const statRgb = stat ? toRgb(getComputedStyle(stat).color) : null;
+      const keys = stat ? Array.prototype.slice.call(stat.querySelectorAll('.modal-static-key')) : [];
+      const keyRgb = keys.length ? toRgb(getComputedStyle(keys[0]).color) : null;
+      const keyLen = keys.reduce((n, k) => n + String(k.textContent || '').length, 0);
+      const statLen = stat ? String(stat.textContent || '').length : 0;
       return {
         dataReady: !!window.__mochiDataReady,
         splashUp: !!s && s.isConnected && !s.classList.contains('hide'),
@@ -179,11 +193,16 @@ async function boot(opts = {}) {
         warnClass: !!(box && box.classList.contains('modal--warn')),
         titleColor: box ? getComputedStyle(box.querySelector('.modal-title')).color : '',
         staticColor: stat ? getComputedStyle(stat).color : '',
-        // 正文与「普通说明文字（--ink）」的最大通道差：>0 才叫「标了不同颜色」
+        // 正文本体＝普通说明色（用户反馈「整块都红了」＝这一项一旦偏离 --ink 就是过度染色）
         staticVsInk: dist(statRgb, ink),
-        // 正文文字 vs 它实际的合成底色（含半透明红底叠在卡面上）的对比度
         staticContrast: stat ? ratio(statRgb, effBg(stat)) : -1,
         inkContrast: stat ? ratio(ink, effBg(stat)) : -1,
+        // 重点片段（**…**）才是被标红的部分
+        keyCount: keys.length,
+        keyColor: keys.length ? getComputedStyle(keys[0]).color : '',
+        keyVsInk: dist(keyRgb, ink),
+        keyContrast: keys.length ? ratio(keyRgb, effBg(keys[0])) : -1,
+        redShare: statLen ? +(keyLen / statLen).toFixed(3) : 0,
         staticAccent: stat ? (getComputedStyle(stat).borderLeftWidth + ' ' + getComputedStyle(stat).borderLeftStyle + ' ' + getComputedStyle(stat).borderLeftColor) : '',
         theme: document.documentElement.getAttribute('data-theme') || 'light',
         barVisible: vis(bar),
@@ -256,13 +275,15 @@ console.log('\nB2 进入桌面后自动弹出（醒目警示形态 + 人话文�
   ok('B2e 说明里写清对策：必须定期导出备份', /必须定期导出备份/.test(st.staticText));
   ok('B2f 距上次备份天数有落进文案（5 天）', /距上次完整备份已经 5 天/.test(st.staticText), st.staticText.slice(0, 40));
   ok('B2g 弹出后写冷却（今天不再第二次打断）', !!st.remind);
-  // 用户跟进：「确定说的人话提醒标的不同颜色吧，不然用户总是看不懂」＝正文本身必须与
-  // 站内普通说明文字不同色（旧版只有浅红底、文字仍是 --ink，看着跟普通说明没差别）
-  const sr = toRgbArr(st.staticColor);
-  ok('B2h 人话正文本身标了红字（红通道压过绿蓝，且与 --ink 普通文字色明显不同）',
-    !!sr && sr[0] > sr[1] + 60 && sr[0] > sr[2] + 60 && st.staticVsInk >= 60, { c: st.staticColor, vsInk: st.staticVsInk });
-  ok('B2i 染了色的正文仍看得清（对比度 ≥4.5:1，未染色口径一并打印）', st.staticContrast >= 4.5, { contrast: st.staticContrast, inkContrast: st.inkContrast });
+  // 用户跟进①「标的不同颜色」＋跟进②「文字全都变成红色了」＝只标重点：正文普通色、**…** 圈出的才红
+  const kr = toRgbArr(st.keyColor);
+  ok('B2h 重点片段标了红字（红通道压过绿蓝，且与正文 --ink 明显不同色）',
+    !!kr && kr[0] > kr[1] + 60 && kr[0] > kr[2] + 60 && st.keyVsInk >= 60, { c: st.keyColor, vsInk: st.keyVsInk });
+  ok('B2i 染了色的重点仍看得清（对比度 ≥4.5:1）', st.keyContrast >= 4.5, { keyContrast: st.keyContrast, inkContrast: st.inkContrast });
   ok('B2j 不只靠颜色传达：左侧 4px 红竖条在位', /^4px solid/.test(st.staticAccent) && /232, *56, *44/.test(st.staticAccent), st.staticAccent);
+  ok('B2k 正文本体回到普通说明色（整块染红＝用户报的「全都变红」，不得回流）', st.staticVsInk <= 8, { c: st.staticColor, vsInk: st.staticVsInk });
+  ok('B2l 星号不泄漏成文本、且恰好三处重点被解析成节点', !/\*\*/.test(st.staticText) && st.keyCount === 3, { keys: st.keyCount, head: st.staticText.slice(0, 60) });
+  ok('B2m 红字只占正文一小部分（≤1/3＝重点真的只是重点）', st.redShare > 0 && st.redShare <= 0.34, { redShare: st.redShare });
   await b.close();
 }
 
@@ -366,11 +387,12 @@ console.log('\nB8 深色主题下人话正文同样是「被标了不同颜色�
   await b.wait(600);
   const st = await b.snap();
   ok('B8b 主题确实切到深色（没被静默复位＝否则下面全是假绿）', st.theme === 'dark' && st.ourModal, { theme: st.theme, up: st.ourModal });
-  const dr = toRgbArr(st.staticColor);
-  ok('B8c 深色下正文标成亮红（与深色卡面的普通近白文字明显不同色）',
-    !!dr && dr[0] > dr[1] + 60 && dr[0] > dr[2] + 60 && st.staticVsInk >= 60, { c: st.staticColor, vsInk: st.staticVsInk });
-  ok('B8d 深色下正文对比度 ≥4.5:1（浅色那套 #c92a1f 在深底上约 2.7:1＝看不见）', st.staticContrast >= 4.5, { contrast: st.staticContrast });
+  const dr = toRgbArr(st.keyColor);
+  ok('B8c 深色下重点片段提亮成亮红（与深色卡面的普通近白文字明显不同色）',
+    !!dr && dr[0] > dr[1] + 60 && dr[0] > dr[2] + 60 && st.keyVsInk >= 60, { c: st.keyColor, vsInk: st.keyVsInk });
+  ok('B8d 深色下重点对比度 ≥4.5:1（浅色那套 #c92a1f 在深底上约 2.7:1＝看不见）', st.keyContrast >= 4.5, { contrast: st.keyContrast });
   ok('B8e 深色下标题也提亮成红系（不是浅色的 #e8382c 暗红）', /255, *122, *107/.test(st.titleColor), st.titleColor);
+  ok('B8f 深色下正文本体仍是深色普通文字色（没被整块染色）', st.staticVsInk <= 8, { c: st.staticColor, vsInk: st.staticVsInk });
   await b.close();
 }
 

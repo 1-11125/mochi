@@ -345,7 +345,19 @@ if (cancelBtn) cancelBtn.hidden = lock;
 title.textContent = t;
 if (staticEl) {
 staticEl.hidden = !opts.staticText;
-staticEl.textContent = opts.staticText || '';
+if (opts.staticEmph) {
+const segs = String(opts.staticText || '').split('**');
+staticEl.textContent = '';
+for (let i = 0; i < segs.length; i++) {
+if (!segs[i]) continue;
+if (i % 2) {
+const key = document.createElement('b');
+key.className = 'modal-static-key';
+key.textContent = segs[i];
+staticEl.appendChild(key);
+} else staticEl.appendChild(document.createTextNode(segs[i]));
+}
+} else staticEl.textContent = opts.staticText || '';
 }
 input.hidden = noInput || !!opts.textarea;
 input.value = v || '';
