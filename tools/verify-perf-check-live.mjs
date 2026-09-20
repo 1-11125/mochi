@@ -12,6 +12,13 @@
 //   C3 集中页按「掉帧率」选（旧码按计数＝选中停留最久、掉帧率更低的页）
 //   C5 fps/后台占比按「实测时长」（窗口 C 伪造 2.5s 后台：fps 分母＝前台，占比提示按秒触发）
 //   C6 各页掉帧率相当 → 如实报「分散」而不是点名某页
+// —— #941 追加（报告可读性三处：①现场图例按需＋补「键盘期」解释；②「与上次对比」行；
+//    ③长任务按页面归总）——
+//   D1 图例与现场标记一一对应（旧码恒附「切页后/前台冻结」解释、且「键盘期」标记无解释）
+//   D2 长任务按页面归总行（窗口 B 两页各灌阻塞：归总数＝前台任务数、两页均点名）
+//   E1 旧格式上次记录（无掉帧数）不出对比行＋跑完 LAST_KEY 升级为新格式；
+//      无标记现场 → 图例整段不出现（旧码恒附解释＝有牙）
+//   E2 新格式上次记录 → 对比行含掉帧/帧率/最慢/前台冻结/长任务 + 相对时间 + 时长档备注
 // 用法：node build.mjs && node tools/verify-perf-check-live.mjs（隔离验证：MOCHI_ROOT=<副本目录>）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -81,7 +88,7 @@ async function evalJs(expr) {
     return r && r.result ? r.result.value : null;
   } catch (e) { return 'ERR:' + e.message; }
 }
-const READ_REP = `JSON.stringify((function(){var r=window.__perfRep||{};return{frames:r.frames,janky:r.janky,severe:r.severe,worst:r.worst,hid:r.hid,fz:r.fz,fzWorst:r.fzWorst,jankMs:r.jankMs,bgMs:r.bgMs,effMs:r.effMs,ms:r.ms,period:r.period,fps:r.fps,verdict:r.verdict,jankPct:r.jankPct,topPage:r.topPage,topCnt:r.topCnt,pages:r.pages,pageFrames:r.pageFrames,scene:r.scene,lt:r.lt?{ok:r.lt.ok,n:r.lt.n,worst:r.lt.worst,bgN:r.lt.bgN,top:r.lt.top}:null,text:r.text||''};})())`;
+const READ_REP = `JSON.stringify((function(){var r=window.__perfRep||{};return{frames:r.frames,janky:r.janky,severe:r.severe,worst:r.worst,hid:r.hid,fz:r.fz,fzWorst:r.fzWorst,jankMs:r.jankMs,bgMs:r.bgMs,effMs:r.effMs,ms:r.ms,period:r.period,fps:r.fps,verdict:r.verdict,jankPct:r.jankPct,topPage:r.topPage,topCnt:r.topCnt,pages:r.pages,pageFrames:r.pageFrames,scene:r.scene,lt:r.lt?{ok:r.lt.ok,n:r.lt.n,worst:r.lt.worst,bgN:r.lt.bgN,agg:r.lt.agg||null,top:r.lt.top}:null,prev:r.prev||null,text:r.text||''};})())`;
 async function waitRep(maxMs) {
   for (let i = 0; i < Math.ceil(maxMs / 300); i++) { await sleep(300); if (await evalJs('!!window.__perfRep') === true) return true; }
   return false;
@@ -153,6 +160,15 @@ const lt0 = rep.lt && rep.lt.top && rep.lt.top[0];
 ok(!!(lt0 && lt0.ms >= 400 && lt0.pg === 'main'), 'C2b #934 最长长任务带「第几秒/哪页」归因（' + JSON.stringify(lt0) + '）');
 ok(/最长的 \d+ 次：第[\d.]+秒 手机桌面 \d+ms/.test(rep.text), 'C2c #934 报告正文含「第X秒 手机桌面」归因', rep.text);
 
+// —— D1：图例按需（#941）——旧码无条件恒附「切页后/前台冻结」两段解释、且「键盘期」标记没有
+//      对应解释；断言图例集合与现场真出现过的标记集合一一对应（窗口 A：有前台冻结，无切页后/键盘期）——
+const scA = rep.scene || [];
+const mkFz = scA.some((s) => s && s.fz === 1), mkKb = scA.some((s) => s && s.kb === 1), mkSw = scA.some((s) => s && s.sw === 1);
+const lgFz = rep.text.includes('「前台冻结」＝'), lgKb = rep.text.includes('「键盘期」＝'), lgSw = rep.text.includes('「切页后」＝');
+ok(mkFz === lgFz && mkKb === lgKb && mkSw === lgSw, 'D1 #941 图例与现场标记一一对应（标记 fz/kb/sw=' + [mkFz, mkKb, mkSw] + '；图例=' + [lgFz, lgKb, lgSw] + '）', rep.text);
+ok(mkFz && lgFz, 'D1b 有前台冻结标记 → 对应解释在（防修过头：按需过滤不得连真标记的解释一起删）');
+ok(!lgSw, 'D1c 本窗口无「切页后」标记 → 该解释不出现（旧码无条件恒附＝本条有牙）', (rep.text.split('\n').find((l) => l.includes('最慢帧现场')) || '（未捕获现场行）'));
+
 // ===== 窗口 B（6s）：朋友圈期灌 4 次阻塞、手机桌面期灌 5 次 → 按计数选页会错选手机桌面（旧码），
 //       按掉帧率选页正确落在朋友圈（C3）=====
 await evalJs(`(function(){
@@ -187,6 +203,17 @@ const pfFeed = (repB.pageFrames && repB.pageFrames[FEED_KEY]) || 0, pfMain = (re
 ok(pjMain > pjFeed && pfFeed > 30, 'C3pre 场景成立：桌面掉帧计数更多、朋友圈样本足够（main ' + pjMain + '/' + pfMain + '，朋友圈 ' + pjFeed + '/' + pfFeed + '）');
 ok(repB.topPage === FEED_KEY, 'C3a #934 集中页按掉帧率选（topPage=' + repB.topPage + '；旧码按计数会选 main）', JSON.stringify({ pages: repB.pages, pageFrames: repB.pageFrames }));
 ok(repB.text.includes('掉帧集中：朋友圈') && !repB.text.includes('掉帧集中：手机桌面'), 'C3b #934 不再把停留最久（计数最多）的页当集中页', repB.text);
+
+// —— D2：长任务按页面归总（#941）——窗口 B 两页各灌阻塞：归总数＝前台任务数、两页均点名、
+//      计数与灌入对应（旧码只有「N 次/最长 Xms」两个孤数，29 次那种窗口看不出集中在哪页）——
+const agB = (repB.lt && repB.lt.agg) || null;
+const agPages = agB ? Object.keys(agB).filter((k) => agB[k] && agB[k].n > 0) : [];
+const agN = agB ? agPages.reduce((s, k) => s + agB[k].n, 0) : 0;
+ok(!!agB && agPages.includes('main') && agPages.includes(FEED_KEY) && agN >= 5, 'D2pre 场景成立：前台长任务按页归总、两页均有（' + JSON.stringify(agB) + '）');
+ok(!!repB.lt && (repB.lt.n - (repB.lt.bgN || 0)) === agN, 'D2a #941 归总数＝前台长任务数、后台期不计入（lt.n=' + (repB.lt && repB.lt.n) + ' bgN=' + (repB.lt && repB.lt.bgN) + ' agg=' + agN + '）');
+ok(!!agB && (agB[FEED_KEY] || {}).n >= 3 && (agB.main || {}).n >= 4, 'D2b #941 归总计数与灌入对应（朋友圈期灌 4 次、桌面期灌 5 次）', JSON.stringify(agB));
+const agLine = repB.text.split('\n').find((l) => l.includes('· 长任务按页面：'));
+ok(!!agLine && agLine.includes('手机桌面 ') && agLine.includes('朋友圈 '), 'D2c #941 报告出现按页面归总行且两页均点名', agLine || repB.text);
 
 // ===== 窗口 C（4.5s）：伪造 0.9s~3.4s 为后台（document.hidden 假 getter + visibilitychange）
 //       → fps 分母＝前台 2 秒、后台占比按秒触发（旧码 fps 分母＝整窗、占比提示恒不触发）=====
@@ -247,6 +274,55 @@ const rjFeed = (repD.pages && repD.pages[FEED_KEY]) || 0, rjMain = (repD.pages &
 const rfFeed = (repD.pageFrames && repD.pageFrames[FEED_KEY]) || 0, rfMain = (repD.pageFrames && repD.pageFrames.main) || 0;
 ok(rjMain >= 3 && rjFeed >= 3 && rfFeed >= 30 && rfMain >= 30, 'C6pre 场景成立：两页各 ≥3 帧掉帧、样本足够（main ' + rjMain + '/' + rfMain + '，朋友圈 ' + rjFeed + '/' + rfFeed + '）');
 ok(repD.text.includes('掉帧分散') && !repD.text.includes('掉帧集中：'), 'C6 #934 各页掉帧率相当 → 如实报「分散」而不是点名某页（旧码会点名计数最多的桌面）', repD.text);
+
+const readLast = async () => { try { return JSON.parse(await evalJs("(function(){try{return localStorage.getItem('xy-home-v2:perf-check-last')||'null';}catch(e){return 'null';}})()")); } catch (e) { return null; } };
+
+// ===== 窗口 E1（4s）：上次记录为旧格式（升级前的 {t,verdict,jankPct}，无掉帧数）→ 不出「与上次对比」
+//       行；跑完后 LAST_KEY 升级为新格式（下轮起可对比）；本窗口通常无阻塞 → 现场无标记时图例整段不出现 =====
+await evalJs(`(function(){
+  try { localStorage.setItem('xy-home-v2:perf-check-last', JSON.stringify({ t: Date.now() - 300000, verdict: '流畅', jankPct: 0.5 })); } catch (e) {}
+  window.__perfRep=null;
+  window.mochiPerfCheck.start(4000).then(function(r){window.__perfRep=r;});
+  return true;
+})()`);
+await waitRep(7000);
+const repE1 = JSON.parse(await evalJs(READ_REP));
+ok(!repE1.text.includes('与上次对比'), 'E1a #941 旧格式上次记录（无掉帧数）不输出对比行', repE1.text);
+ok(!!repE1.prev && repE1.prev.janky === undefined && typeof repE1.prev.verdict === 'string', 'E1b 旧格式记录被读入 rep.prev、如实判为不可对比', JSON.stringify(repE1.prev));
+const last1 = await readLast();
+ok(!!last1 && typeof last1.janky === 'number' && typeof last1.ms === 'number', 'E1c 旧格式记录跑完后 LAST_KEY 升级为新格式（下轮起可对比）', JSON.stringify(last1));
+const scE1 = repE1.scene || [];
+const mkE1 = scE1.some((s) => s && (s.fz === 1 || s.kb === 1 || s.sw === 1));
+if (scE1.length > 0) {
+  ok(!mkE1 && !repE1.text.includes('「切页后」＝') && !repE1.text.includes('「前台冻结」＝') && !repE1.text.includes('「键盘期」＝'), 'E1d #941 现场无任何标记 → 图例整段不出现（旧码恒附「切页后/前台冻结」两段解释＝本条有牙）', repE1.text);
+} else {
+  ok(true, 'E1d 本窗口未捕获掉帧现场（场景不成立，跳过）');
+}
+
+// ===== 窗口 E2（5s）：上次记录为新格式 → 对比行含箭头各项＋相对时间＋时长档备注；
+//       跑完摘要续写全字段（连续两轮对比可用）=====
+await evalJs(`(function(){
+  try { localStorage.setItem('xy-home-v2:perf-check-last', JSON.stringify({ t: Date.now() - 17*60000, verdict: '轻度', jankPct: 5, ms: 30000, frames: 1800, janky: 42, worst: 210, fz: 2, fzWorst: 430, fps: 57.3, ltN: 7, ltWorst: 320 })); } catch (e) {}
+  window.__perfRep=null;
+  window.mochiPerfCheck.start(5000).then(function(r){window.__perfRep=r;});
+  setTimeout(function(){var t=Date.now();while(Date.now()-t<80){}},800);
+  setTimeout(function(){var t=Date.now();while(Date.now()-t<80){}},1600);
+  return true;
+})()`);
+await waitRep(8000);
+const repE2 = JSON.parse(await evalJs(READ_REP));
+ok(repE2.janky >= 1 && repE2.worst >= 60 && !!(repE2.lt && repE2.lt.n >= 1), 'E2pre 场景成立：本轮有掉帧与长任务（janky=' + repE2.janky + ' worst=' + repE2.worst + ' ltN=' + (repE2.lt && repE2.lt.n) + '）');
+const e2line = repE2.text.split('\n').find((l) => l.includes('· 与上次对比'));
+ok(!!e2line, 'E2a #941 新格式上次记录 → 出现「与上次对比」行', repE2.text);
+ok(/约 17 分钟前/.test(repE2.text), 'E2b 对比行带相对时间（约 17 分钟前）', e2line || repE2.text);
+ok(repE2.text.includes('掉帧 42→' + repE2.janky + ' 帧'), 'E2c 掉帧 X→Y 帧');
+ok(repE2.text.includes('平均帧率 57.3→' + repE2.fps + 'fps'), 'E2d 平均帧率 A→Bfps');
+ok(repE2.text.includes('最慢 210→' + repE2.worst + 'ms'), 'E2e 最慢 C→Dms');
+ok(repE2.text.includes('前台冻结 2→' + repE2.fz + ' 次'), 'E2f 前台冻结 N→M 次（摘要新字段）');
+ok(repE2.text.includes('长任务 7→' + repE2.lt.n + ' 次'), 'E2g 长任务 P→Q 次（摘要新字段）');
+ok(repE2.text.includes('上次为 30 秒档，时长不同仅供粗略对照'), 'E2h 时长档不同 → 附「仅供粗略对照」备注');
+const last2 = await readLast();
+ok(!!last2 && typeof last2.janky === 'number' && typeof last2.fps === 'number' && typeof last2.ltN === 'number', 'E2i 本轮跑完 LAST_KEY 已是新格式全字段摘要（连续对比可用）', JSON.stringify(last2));
 
 console.log(fail ? ('FAIL ' + pass + '/' + (pass + fail)) : ('ALL PASS ' + pass + '/' + (pass + fail)));
 chrome.kill();

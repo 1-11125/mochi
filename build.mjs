@@ -3945,6 +3945,12 @@ const FIX_SENTINELS = [
 { name: '#939d 健康即撤条+事件复查（删＝条挂上永不摘除，慢机回填>3s 永误报网络不佳；判据自包含不依赖 #921h missing()）', file: 'index.html', needle: 'function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0;' },
 { name: '#939e 「知道了」关闭钮+会话禁弹（删＝提醒条无法关闭、反复纠缠用户；只关提示不拦真网络问题重测）', file: 'index.html', needle: 'sessionStorage.getItem("mochi-boot-bar-off") === "1"' },
 { name: '#939f 窄屏换行（删＝320px 级屏两个按钮放不下一行被截出屏外，「知道了」点不到）', file: 'index.html', needle: 'b.style.flexWrap = "wrap"; b.style.rowGap = "6px";' },,
+  // ==== 2026-09-20 #941 卡顿自检报告可读性三处（用户「还有什么可以优化的」点名 1/3/4）：①最慢帧现场图例按需出现＋补「键盘期」解释；②新增「与上次对比」行（LAST_KEY 摘要扩字段，旧格式记录不参与对比）；③长任务按页面归总（仅前台任务） ====
+  { name: '#941a 现场图例按需出现（回流＝无对应标记也固定附解释、且「键盘期」标记无解释）', file: 'js/perf-check.js', needle: "if (_mk.sw) _lg.push('「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本');" },
+  { name: '#941b 「与上次对比」行（删＝报告丢失前后对照；摘要在覆盖写 LAST_KEY 之前读取）', file: 'js/perf-check.js', needle: "if (r.prev && typeof r.prev.janky === 'number') {" },
+  { name: '#941c LAST_KEY 摘要扩字段（对比数据源；原三字段保留供设置行回显）', file: 'js/perf-check.js', needle: 'ltN: rep.lt ? rep.lt.n : undefined' },
+  { name: '#941d 长任务按页面归总采样（仅前台任务计入 agg）', file: 'js/perf-check.js', needle: '_ag.n++; _ag.ms += dms;' },
+  { name: '#941e 长任务按页面归总输出（≥2 次前台任务才出现、后台期点名）', file: 'js/perf-check.js', needle: 'var _ag = r.lt.agg || {}, _agList = [], _agN = 0;' },
 /* ==== 2026-09-20 #931 朋友圈【贴纸】面板「点开非常卡顿」根治（用户直派，明说多机型同现、勿机型分支）：原实现把当前视图全部贴纸一次性 img.src=<20~68KB dataURL> 同步挂进 DOM（150 张库实测冷开同步 175ms、点「全部」365ms、面板标记 3.03MB、关掉再开 0/150 节点被复用＝每次从零重解码，重开 292ms），而聊天表情面板同一环境同一库走 #435 进视口补 src+分批泵 / #662 同身份节点回收 / #457 内容签名短路只要 60ms/8ms。修法＝把聊天侧那套已实证机制接到本面板（feed.js 自持 IntersectionObserver、图源只挂 JS 引用不进 DOM 属性、一条委托代替上百监听、内容未变整格不重建），零 UA/机型/内核判断。验证 tools/verify-feed-sticker-perf.mjs 绿 16/16、纯 HEAD 红 10 条全落缺陷面；相邻回归 verify-feed-sticker-panel 21/21、verify-feed-sticker-always 20/20、verify-sticker-dup 35/35、verify-feed-comment-media 18/18、verify-feed-personal-page 14/14、verify-hide-ta-sticker/verify-sticker-retract/verify-feed-sticker-pos/verify-sticker-double-send 与 HEAD 逐项同值。 ==== */
 { name: '#931a 贴纸图交给聊天侧同一条分批泵（删＝回到一次性全量挂 src，「点开卡顿」当场复发）', file: 'js/feed.js', needle: 'window.mochiEmojiLazyEnqueue(img, src)' },
 { name: '#931b 整格重写前先回收旧 img 进池（删＝关掉再开 0 复用、每次从零重解码）', file: 'js/feed.js', needle: 'feedStickerHarvest(list);' },

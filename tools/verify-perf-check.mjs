@@ -39,6 +39,14 @@
 //   A32 build.mjs 登记 #934a~g 七条哨兵
 //   A33 结论「流畅」但窗内有冻结/长任务时不再武断「无需处理」（旧文案与「最长 1630ms」并存）
 //   A34 长任务 top3 每次入列都按 ms 降序（旧写法恰好 3 条时按时间序＝「最长的 3 次」最长的不在最前）
+// —— #941 追加（报告可读性三处，用户「还有什么可以优化的」点名 1/3/4）——
+//   A35 最慢帧现场图例按需出现（只解释现场真出现过的标记；旧版无条件附「切页后/前台冻结」，
+//       且现场会出现「键盘期」标记却没有对应解释）
+//   A36 「与上次对比」行：读上一轮摘要（必须在覆盖写 LAST_KEY 之前）＋旧格式记录不参与对比
+//   A37 LAST_KEY 摘要扩字段（对比数据源；原 t/verdict/jankPct 保留供设置行回显）
+//   A38 长任务按页面归总采样（仅前台任务计入 lt.agg）
+//   A39 长任务按页面归总输出行（≥2 次前台任务才出现；后台期次数单独点名）
+//   A40 build.mjs 登记 #941a~e 五条哨兵
 // 用法：node tools/verify-perf-check.mjs [rootDir]
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -138,6 +146,19 @@ const sent934 = (build.match(/#934[a-g] /g) || []).length;
 check('A32 build.mjs 登记 #934a~g 哨兵', sent934 === 7, '实际 ' + sent934);
 check('A33 流畅+冻结/长任务 → 不武断「无需处理」', pc.includes('if (_fzN > 0 || _ltN > 0) {') && pc.includes('偶发卡顿更可能来自它们'));
 check('A34 长任务 top3 每次入列都按 ms 降序（恰好 3 条时「最长的」不在最前＝实测踩过）', pc.includes('lt.top.sort(function (a, b) { return b.ms - a.ms; });'));
+
+// —— #941 追加（报告可读性三处：现场图例按需 / 与上次对比 / 长任务按页面归总）——
+check('A35a 现场图例按需：先收集现场标记（fz/kb/sw）再逐段附解释', ['if (sc.fz) _mk.fz = 1;', 'if (sc.kb) _mk.kb = 1;', 'if (sc.sw) _mk.sw = 1;', "if (_mk.sw) _lg.push('「切页后」", "if (_mk.kb) _lg.push('「键盘期」", "if (_mk.fz) _lg.push('「前台冻结」"].every((s) => pc.includes(s)));
+check('A35b 图例整段按需拼接（无标记时不留空括号）', pc.includes("(_lg.length ? '（' + _lg.join('；') + '）' : '')"));
+check('A35c 旧无条件图例已删（回流＝现场无标记也附「切页后/前台冻结」；「键盘期」标记永远无解释）', !pc.includes("ss.join('；') + '（「切页后」") && !pc.includes('一次性渲染成本；「前台冻结」'));
+check('A36a 「与上次对比」行：读上一轮摘要＋箭头对比三项格式', ['var prev = null;', "rep.prev = (prev && typeof prev === 'object') ? prev : null;", "L.push('· 与上次对比'", "'掉帧 ' + pv.janky + '→' + r.janky + ' 帧'", "'平均帧率 ' + pv.fps + '→' + r.fps + 'fps'", "'最慢 ' + (pv.worst || 0) + '→' + r.worst + 'ms'"].every((s) => pc.includes(s)));
+check('A36b 读 prev 在覆盖写 LAST_KEY 之前（颠倒＝拿本轮结果跟自己对比、行恒显示零变化）', pc.indexOf('var prev = null;') > 0 && pc.indexOf('var prev = null;') < pc.indexOf('localStorage.setItem(LAST_KEY, JSON.stringify({ t: rep.t'));
+check('A36c 旧格式记录不参与对比（r.prev.janky 必须是数字）', pc.includes("typeof r.prev.janky === 'number'"));
+check('A37 LAST_KEY 摘要扩字段（对比数据源；老 t/verdict/jankPct 保留供设置行回显）', pc.includes('verdict: rep.verdict, jankPct: rep.jankPct') && pc.includes('ms: rep.ms, frames: rep.frames, janky: rep.janky, worst: rep.worst') && pc.includes('fz: rep.fz, fzWorst: rep.fzWorst') && pc.includes('fps: rep.fps, ltN: rep.lt ? rep.lt.n : undefined'));
+check('A38 长任务按页面归总采样（仅前台任务计入 agg）', pc.includes('top: [], agg: {} }') && pc.includes('if (!ltBg) { var _ltP = curPage(), _ag = lt.agg[_ltP] || (lt.agg[_ltP] = { n: 0, ms: 0 }); _ag.n++; _ag.ms += dms; }'));
+check('A39 长任务按页面归总输出行（≥2 次才出现；后台期次数单独点名）', pc.includes('var _ag = r.lt.agg || {}, _agList = [], _agN = 0;') && pc.includes('if (_agN >= 2) {') && pc.includes("'· 长任务按页面：' + _agTxt") && pc.includes("' 次发生在后台/锁屏期，未计入）'") && pc.includes('_agList.slice(0, 3)'));
+const sent941 = (build.match(/#941[a-e] /g) || []).length;
+check('A40 build.mjs 登记 #941a~e 哨兵', sent941 === 5, '实际 ' + sent941);
 
 console.log('----');
 console.log('verify-perf-check: ' + pass + ' 通过 / ' + fail + ' 失败');

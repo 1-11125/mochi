@@ -142,7 +142,7 @@
       // 长任务：窗口内自建观察器（iOS WebKit observe('longtask') 抛错 → ok=false 降级为纯帧间隔判定）
       // #934：除计数外记「第几秒·哪页·切页后/键盘期/后台期」top3——1.6s 级阻塞可定位来自哪一页、
       // 是不是发生在后台期内（长任务低频，push+排序开销可忽略）
-      var lt = { ok: false, n: 0, worst: 0, bgN: 0, top: [] }, po = null;
+      var lt = { ok: false, n: 0, worst: 0, bgN: 0, top: [], agg: {} }, po = null;
       try {
         po = new PerformanceObserver(function (list) {
           try {
@@ -154,6 +154,8 @@
                 if (dms > lt.worst) lt.worst = dms;
                 var ltBg = document.hidden ? 1 : 0;
                 if (ltBg) lt.bgN++;
+                // #941：前台长任务按页面归总（29 次那种窗口一眼看出哪页贡献最大；后台期任务不计入，报告里注明）
+                if (!ltBg) { var _ltP = curPage(), _ag = lt.agg[_ltP] || (lt.agg[_ltP] = { n: 0, ms: 0 }); _ag.n++; _ag.ms += dms; }
                 lt.top.push({ at: Math.round((es[i].startTime - t0) / 100) / 10, ms: dms, pg: curPage(), bg: ltBg, kb: kbOn() ? 1 : 0, sw: (performance.now() - swAt) <= 500 ? 1 : 0 });
                 // 每次入列都按 ms 降序（旧写法只在「超过 3 条」时才排序：恰好 3 条时列表按时间序，
                 // 标着「最长的 3 次」最长的却不在最前——红米窗口 29 次时看不出来，3 次就露馅）
@@ -219,8 +221,12 @@
         setTimeout(function () {
           var agg = storageAgg();
           rep.storage = agg ? { level: window.mochiPerfLevel(agg.totalBytes, agg.bigGroups), libs: agg.libs, mb: Math.round((agg.totalBytes || 0) / 104857) / 10 } : null;
+          // #941：先读上一轮摘要供报告「与上次对比」——必须在覆盖写 LAST_KEY 之前读；旧格式记录（无 janky 数）不参与对比
+          var prev = null;
+          try { prev = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch (e3) {}
+          rep.prev = (prev && typeof prev === 'object') ? prev : null;
           rep.text = buildText(rep);
-          try { localStorage.setItem(LAST_KEY, JSON.stringify({ t: rep.t, verdict: rep.verdict, jankPct: rep.jankPct })); } catch (e2) {}
+          try { localStorage.setItem(LAST_KEY, JSON.stringify({ t: rep.t, verdict: rep.verdict, jankPct: rep.jankPct, ms: rep.ms, frames: rep.frames, janky: rep.janky, worst: rep.worst, fz: rep.fz, fzWorst: rep.fzWorst, fps: rep.fps, ltN: rep.lt ? rep.lt.n : undefined, ltWorst: rep.lt ? rep.lt.worst : undefined })); } catch (e2) {}
           _running = false;
           resolve(rep);
         }, 50);
@@ -292,6 +298,20 @@
     var core = eff >= 1000 ? '平均 ' + r.fps + 'fps' + per : '前台时间不足 1 秒，未计 fps';
     L.push('采样 ' + Math.round(r.ms / 1000) + ' 秒 / 有效帧 ' + r.frames + '（' + core + '；前台约 ' + Math.round(eff / 1000) + ' 秒，后台/锁屏 ' + Math.round((r.bgMs || 0) / 1000) + ' 秒已剔除）');
     if (r.lp) L.push('· 实测刷新周期约 ' + r.period + 'ms（≈30fps 档）：iOS 低电量模式会把帧率减半，属系统行为——开了低电量请关闭后复测对照');
+    // #941：与上次对比——配合报告弹窗「再测一次」看前后变化（关保活/清缓存前后各一轮）；旧格式记录不显示
+    if (r.prev && typeof r.prev.janky === 'number') {
+      var pv = r.prev, _meta = [], _cp = ['掉帧 ' + pv.janky + '→' + r.janky + ' 帧'];
+      if (typeof pv.t === 'number' && pv.t > 0) {
+        var _dg = Date.now() - pv.t;
+        _meta.push(_dg < 60000 ? '刚刚' : _dg < 3600000 ? '约 ' + Math.round(_dg / 60000) + ' 分钟前' : _dg < 172800000 ? '约 ' + Math.round(_dg / 3600000) + ' 小时前' : Math.round(_dg / 86400000) + ' 天前');
+      }
+      if (typeof pv.ms === 'number' && pv.ms !== r.ms) _meta.push('上次为 ' + Math.round(pv.ms / 1000) + ' 秒档，时长不同仅供粗略对照');
+      if (typeof pv.fps === 'number' && pv.fps > 0 && r.fps > 0) _cp.push('平均帧率 ' + pv.fps + '→' + r.fps + 'fps');
+      if (pv.worst > 0 || r.worst > 0) _cp.push('最慢 ' + (pv.worst || 0) + '→' + r.worst + 'ms');
+      if ((pv.fz || 0) > 0 || r.fz > 0) _cp.push('前台冻结 ' + (pv.fz || 0) + '→' + r.fz + ' 次');
+      if (typeof pv.ltN === 'number' && r.lt) _cp.push('长任务 ' + pv.ltN + '→' + r.lt.n + ' 次');
+      L.push('· 与上次对比' + (_meta.length ? '（' + _meta.join('；') + '）' : '') + '：' + _cp.join('、'));
+    }
     // #770：采样期间页面分布——帮读「掉帧集中」（该页采了多少帧才有可比性）
     var majors = [];
     for (var pk in r.pageFrames) { if (pk !== '?' && r.pageFrames[pk] > 0) majors.push([pk, r.pageFrames[pk]]); }
@@ -315,12 +335,21 @@
       }
       if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
       if (r.scene && r.scene.length) {
-        var ss = [];
+        var ss = [], _mk = {};
         for (var i2 = 0; i2 < r.scene.length; i2++) {
           var sc = r.scene[i2];
+          if (sc.fz) _mk.fz = 1;
+          if (sc.kb) _mk.kb = 1;
+          if (sc.sw) _mk.sw = 1;
           ss.push('第' + sc.at + '秒 ' + pageName(sc.pg) + ' ' + sc.ms + 'ms' + (sc.fz ? '·前台冻结' : '') + (sc.kb ? '·键盘期' : '') + (sc.sw ? '·切页后' : ''));
         }
-        L.push('· 最慢帧现场：' + ss.join('；') + '（「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本；「前台冻结」＝亮屏下主线程真被卡住 >' + BG_GAP + 'ms）');
+        // #941：图例只解释本报告现场里真出现过的标记——旧版无条件附「切页后/前台冻结」两段解释，
+        // 现场没这些标记时纯占地方；且现场会出现「键盘期」标记却没有对应解释（本批一并补上）
+        var _lg = [];
+        if (_mk.sw) _lg.push('「切页后」＝紧跟页面切换 0.5s 内，多为打开该页的一次性渲染成本');
+        if (_mk.kb) _lg.push('「键盘期」＝键盘弹出期（视口被压缩的变形帧，iOS 上常见）');
+        if (_mk.fz) _lg.push('「前台冻结」＝亮屏下主线程真被卡住 >' + BG_GAP + 'ms');
+        L.push('· 最慢帧现场：' + ss.join('；') + (_lg.length ? '（' + _lg.join('；') + '）' : ''));
       }
     }
     if (r.lt) {
@@ -337,6 +366,15 @@
           ltTxt += '；最长的 ' + t3.length + ' 次：' + t3.join('；');
         }
         L.push(ltTxt);
+        // #941：前台长任务按页面归总——原来 top3 只有 3 条现场，「29 次」这种窗口看不出集中在哪页
+        var _ag = r.lt.agg || {}, _agList = [], _agN = 0;
+        for (var _ap in _ag) { if (_ag[_ap].n > 0) { _agList.push([pageName(_ap), _ag[_ap].n, _ag[_ap].ms]); _agN += _ag[_ap].n; } }
+        if (_agN >= 2) {
+          _agList.sort(function (a, b) { return b[2] - a[2]; });
+          var _agTxt = _agList.slice(0, 3).map(function (x) { return x[0] + ' ' + x[1] + ' 次共 ' + x[2] + 'ms'; }).join('、');
+          if (_agList.length > 3) _agTxt += ' 等 ' + _agList.length + ' 页';
+          L.push('· 长任务按页面：' + _agTxt + (r.lt.bgN ? '（前台任务归总；另有 ' + r.lt.bgN + ' 次发生在后台/锁屏期，未计入）' : ''));
+        }
       } else {
         L.push('· 长任务（>50ms）：窗口内无');
       }
