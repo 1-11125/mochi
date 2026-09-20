@@ -3929,10 +3929,16 @@ const FIX_SENTINELS = [
   { name: '#934g 零星掉帧但窗内有冻结/长任务时不武断「无需处理」（删＝又回到「属正常波动，无需处理」与「最长 1630ms」并存）', file: 'js/perf-check.js', needle: 'if (_fzN > 0 || _ltN > 0) {' },
   /* ==== 2026-09-20 #935 电量消耗自测 + 发烫自测（用户直派「工具里新增一个电量消耗自测和发烫自测…用来检查异常」；零机型分支）：电量＝Battery 接口分段实测掉电速率（前台/后台/页面未运行分开算、充电段整段剔除、run 持久化可续测、跑完页面不可见则挂起回前台补弹）；发烫＝读不到温度（系统无接口）改测「降频后果」（静置基准 + 固定负载分轮比对首末耗时）。验证 tools/verify-energy-check.mjs。 ==== */
   { name: '#935a 电量自测续测守卫（有 run 记录且时段未到＝恢复采样；删＝刷新/被系统杀进程重开后续测丢失，长窗口自测不可用）', file: 'js/energy-check.js', needle: 'if (!run || !(run.t0 > 0) || !(run.ms > 0) || !(run.iv > 0)) return;' },
-  { name: '#935b 未运行段识别（采样没接上＝页面没在跑，单独归档不进前台/后台速率；删＝冻结/关掉的时段被算进后台耗电）', file: 'js/energy-check.js', needle: "var st = (dt > run.iv * 2.5) ? 'gap' : run.lastSt;" },
+  { name: '#935b 采样停摆改按证据归段（stalledSeg；删＝停摆一律当「与本站无关」，#947 缺陷 2 复发）——本批换锚：原 needle 为「一律归 gap」的旧形态，逻辑只强不弱', file: 'js/energy-check.js', needle: "var st = (dt > run.iv * 2.5) ? stalledSeg(run) : run.lastSt;" },
   { name: '#935c 充电段整段剔除（充电中电量不降反升；删＝充电时段混进耗电统计，速率被摊薄甚至算成 0）', file: 'js/energy-check.js', needle: "run.lastSt = ch ? 'chg' : (document.hidden ? 'bg' : 'fg');" },
   { name: '#935d 发烫判级阈值（末段比开头慢 ≥25%＝明显降频；删＝发烫降频迹象不再报，本批报障面回流）', file: 'js/energy-check.js', needle: "if (slow >= SLOW_BAD) return '明显降频';" },
-  { name: '#935e 到点续测交付等弹窗组件就绪（本文件排在 personalize.js 之前，boot 即弹＝reportModal 的就绪闸把报告静默丢掉，开页瞬间的报告再也看不见）', file: 'js/energy-check.js', needle: 'whenModalReady(restoreRun);' }
+  { name: '#935e 到点续测交付等弹窗组件就绪（本文件排在 personalize.js 之前，boot 即弹＝reportModal 的就绪闸把报告静默丢掉，开页瞬间的报告再也看不见）——本批换锚：同一语句现在顺带排 boot 补弹', file: 'js/energy-check.js', needle: 'whenModalReady(function () { restoreRun(); popPendingAtBoot(); });' },
+  /* ==== 2026-09-20 #947 电量/发烫自测三处缺陷收口（用户直派「按优先级修复第 1、2、4 条缺陷」；零机型分支）：①电量计只有 1% 颗粒度且会抖，各段「只记下降」能把 95%→95% 报成几十 %/小时＝补记有符号净掉电 net、以它为上限等比折算；②心跳停摆旧实现一律归「页面未运行、与本站无关」，安卓后台常见的分钟级节流被整段划进对照组＝只认「重开过/被内核回收过/上次还在前台」三种证据，其余进独立「不确定」段（不计结论也不并入对照组）；③挂起报告只挂在 visibilitychange 上，跑完直接关页＝下次开页永不弹＝全文永久丢失＝boot 侧补弹（开屏在场时先等它离场，别把报告压在公告上）。验证 tools/verify-energy-check.mjs。 ==== */
+  { name: '#947a 有符号净掉电在记账（抖动封顶的原料；删＝只剩单边毛和，#947 缺陷 1 复发）', file: 'js/energy-check.js', needle: 'run.net += dLv;' },
+  { name: '#947b 抖动封顶总闸（各段掉电等比缩到净掉电＝上限；删＝净掉 0 格也报几十 %/小时的虚高耗电）', file: 'js/energy-check.js', needle: 'if (hasNet && gross > net + 0.001) {' },
+  { name: '#947c 不确定段独立归档（删＝心跳停摆那段又并进「与本站无关」对照组，#947 缺陷 2 复发）', file: 'js/energy-check.js', needle: "if (st === 'unk') { run.unkMs += dt;" },
+  { name: '#947d 停摆归段只认三种证据（重开过/被内核回收过/上次还在前台；删＝不查证据一律开脱，特性检测退化成猜）', file: 'js/energy-check.js', needle: "if (_freshReload || wasDiscarded() || run.lastSt === 'fg') return 'gap';" },
+  { name: '#947e 关页重开补弹闸（开屏离场后补弹一次；删＝挂起的报告永久烂在 pending 里，#947 缺陷 4 复发）', file: 'js/energy-check.js', needle: 'if (splashGone()) { popPending(); return; }' }
 // #939 「网络不佳·点此重试」条永挂（部分手机刷新无效）——三条锚点（#939c 口径扣除随 #921h 在途批收口，不在本批提交面）：
 ,{ name: '#939a 包装 catch 登记错误清单（删＝运行期抛错文件被算成网络缺失，重试条永挂+每2h白重载；锚内联件 device.js 那份）', file: 'index.html', needle: 'if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("device.js")' },
 { name: '#939b 初始化行含错误清单（删＝catch 登记静默失效，#939a 形同虚设）', file: 'index.html', needle: 'window.__mochiErrLoaded = window.__mochiErrLoaded || [];' },

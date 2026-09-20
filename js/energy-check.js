@@ -76,6 +76,12 @@ navigator.getBattery().then(function (bm) { resolve(bm || null); }, function () 
 } catch (e) { resolve(null); }
 });
 }
+function wasDiscarded() { try { return !!document.wasDiscarded; } catch (e) { return false; } }
+function stalledSeg(run) {
+if (run.lastSt === 'chg') return 'chg'; // 充电段本整段剔除，不必猜原因
+if (_freshReload || wasDiscarded() || run.lastSt === 'fg') return 'gap';
+return 'unk';
+}
 function reportModal(title, rep, expPrefix, shareTitle, okLabel, onOk) {
 if (!window.openModal) return;
 var ctl = window.openModal(title, rep.text, function () { if (typeof onOk === 'function') onOk(); }, {
@@ -121,9 +127,22 @@ else reportModal('发烫自测报告', rep, 'mochi-heatcheck-', 'mochi 发烫自
 function popPending() {
 if (document.hidden) return;
 var lb = lsGet(BAT_LAST_KEY, null);
-if (lb && lb.pending && lb.text) { lb.pending = 0; lsSet(BAT_LAST_KEY, lb); popReport('battery', { text: lb.text, verdict: lb.verdict, t: lb.t }); return; }
+if (lb && lb.pending && lb.text) { lb.pending = 0; lsSet(BAT_LAST_KEY, lb); updateBatSub(); popReport('battery', { text: lb.text, verdict: lb.verdict, t: lb.t }); return; }
 var lh = lsGet(HEAT_LAST_KEY, null);
-if (lh && lh.pending && lh.text) { lh.pending = 0; lsSet(HEAT_LAST_KEY, lh); popReport('heat', { text: lh.text, verdict: lh.verdict, t: lh.t }); }
+if (lh && lh.pending && lh.text) { lh.pending = 0; lsSet(HEAT_LAST_KEY, lh); updateHeatSub(); popReport('heat', { text: lh.text, verdict: lh.verdict, t: lh.t }); }
+}
+function splashGone() {
+var el = null;
+try { el = document.querySelector('.splash'); } catch (e) {}
+return !el || el.classList.contains('hide');
+}
+function popPendingAtBoot() {
+var tries = 0;
+(function poll() {
+if (splashGone()) { popPending(); return; }
+if (++tries > 600) return; // 用户一直停在开屏＝不打扰，pending 留着下次再补
+setTimeout(poll, 500);
+})();
 }
 var barEl = null, barTimer = null;
 function bar(txt, autoHideMs) {
@@ -140,7 +159,7 @@ if (autoHideMs) barTimer = setTimeout(hideBar, autoHideMs);
 } catch (e) {}
 }
 function hideBar() { try { if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl); } catch (e) {} barEl = null; if (barTimer) { clearTimeout(barTimer); barTimer = null; } }
-var _batRun = null, _batTimer = null, _batBm = null, _batResolve = null, _batTick = null, _batStarting = false;
+var _batRun = null, _batTimer = null, _batBm = null, _batResolve = null, _batTick = null, _batStarting = false, _freshReload = false;
 function writeRun(run) { lsSet(BAT_RUN_KEY, run); }
 function stopBatTimer() { if (_batTimer) { clearInterval(_batTimer); _batTimer = null; } }
 function createRun(bm, ms) {
@@ -150,7 +169,7 @@ try { lv = Number(bm.level) || 0; } catch (e) {}
 return {
 t0: now, ms: ms, iv: clamp(Math.round(ms / 40), SAMPLE_MIN, SAMPLE_MAX),
 last: now, lastLv: lv, lastSt: (bm.charging ? 'chg' : (document.hidden ? 'bg' : 'fg')),
-fgMs: 0, bgMs: 0, gapMs: 0, chgMs: 0, fgDrop: 0, bgDrop: 0, gapDrop: 0,
+fgMs: 0, bgMs: 0, gapMs: 0, unkMs: 0, chgMs: 0, fgDrop: 0, bgDrop: 0, gapDrop: 0, unkDrop: 0, net: 0,
 lv0: lv, lvEnd: lv, n: 0
 };
 }
@@ -163,14 +182,19 @@ try { ch = !!bm.charging; } catch (e) {}
 var now = Date.now();
 var dt = now - run.last;
 if (dt < 500) return; // 定时器与 visibilitychange 撞上时的重复采样，跳过
-var dLv = (run.lastLv - lv) * 100; // 电量百分点（下降为正；充电回升为负＝不记）
-var st = (dt > run.iv * 2.5) ? 'gap' : run.lastSt; // 采样没接上＝页面没在跑（被冻结/关掉）
+var dLv = (run.lastLv - lv) * 100; // 电量百分点（下降为正；回升为负，只进 net 不进各段掉电）
+var st = (dt > run.iv * 2.5) ? stalledSeg(run) : run.lastSt;
 if (st === 'chg') { run.chgMs += dt; }
+else {
+run.net += dLv;
+if (st === 'unk') { run.unkMs += dt; if (dLv > 0) run.unkDrop += dLv; }
 else if (st === 'gap') { run.gapMs += dt; if (dLv > 0) run.gapDrop += dLv; }
 else if (st === 'bg') { run.bgMs += dt; if (dLv > 0) run.bgDrop += dLv; }
 else { run.fgMs += dt; if (dLv > 0) run.fgDrop += dLv; }
+}
 run.last = now; run.lastLv = lv; run.lvEnd = lv; run.n++;
 run.lastSt = ch ? 'chg' : (document.hidden ? 'bg' : 'fg');
+_freshReload = false; // 停摆证据只在重开后的第一个采样有用
 }
 function batTick() {
 var r = _batRun;
@@ -241,24 +265,43 @@ return rep;
 }
 function buildBat(run) {
 var L = [];
-var totalMs = run.fgMs + run.bgMs + run.gapMs;
+var unkMs = run.unkMs || 0;
+var totalMs = run.fgMs + run.bgMs + run.gapMs + unkMs;
+var wallMs = totalMs + run.chgMs;
+var avgIv = run.n > 0 ? wallMs / run.n : 0;
+var fgD = run.fgDrop, bgD = run.bgDrop, gapD = run.gapDrop, unkD = run.unkDrop || 0;
+var gross = fgD + bgD + gapD + unkD;
+var hasNet = typeof run.net === 'number';
+var net = hasNet ? run.net : 0;
+var jitter = 0;
+if (hasNet && gross > net + 0.001) {
+var allow = Math.max(0, net);
+var k = allow / gross;
+jitter = gross - allow;
+fgD *= k; bgD *= k; gapD *= k; unkD *= k;
+}
+var rFg = rate(fgD, run.fgMs), rBg = rate(bgD, run.bgMs);
 var cands = [];
-if (run.fgMs >= SEG_MIN_MS) cands.push({ n: '前台使用', r: rate(run.fgDrop, run.fgMs), b: bandOf(rate(run.fgDrop, run.fgMs), FG_WARN, FG_BAD) });
-if (run.bgMs >= SEG_MIN_MS) cands.push({ n: '后台页面自身', r: rate(run.bgDrop, run.bgMs), b: bandOf(rate(run.bgDrop, run.bgMs), BG_WARN, BG_BAD) });
+if (run.fgMs >= SEG_MIN_MS) cands.push({ n: '前台使用', r: rFg, b: bandOf(rFg, FG_WARN, FG_BAD) });
+if (run.bgMs >= SEG_MIN_MS) cands.push({ n: '后台页面自身', r: rBg, b: bandOf(rBg, BG_WARN, BG_BAD) });
 var order = { '正常': 0, '偏高': 1, '异常': 2 };
 var worst = null;
 cands.forEach(function (c) { if (!worst || order[c.b] > order[worst.b]) worst = c; });
 var verdict = worst ? worst.b : '数据不足';
 var rateTxt = worst ? (worst.n + ' ' + worst.r + '%/小时') : '';
 L.push('结论：' + verdict + (worst ? '（' + worst.n + '约 ' + worst.r + '%/小时）' : totalMs < SEG_MIN_MS ? '（窗口太短/掉电小于 1%，看下方粗测值）' : '（各段样本都不足 5 分钟，看下方粗测值）'));
-L.push('窗口 ' + mins(totalMs) + '：前台 ' + mins(run.fgMs) + ' / 后台（页面仍在跑）' + mins(run.bgMs) + ' / 页面未运行 ' + mins(run.gapMs) + (run.chgMs > 0 ? ' / 充电中 ' + mins(run.chgMs) : ''));
-L.push('电量 ' + Math.round(run.lv0 * 100) + '% → ' + Math.round(run.lvEnd * 100) + '%（采样 ' + run.n + ' 次，间隔 ' + Math.round(run.iv / 1000) + ' 秒）');
-var s1 = segTxt('前台使用（屏幕亮着用本站）', run.fgMs, run.fgDrop, FG_WARN, FG_BAD);
+L.push('窗口 ' + mins(totalMs) + '：前台 ' + mins(run.fgMs) + ' / 后台（页面仍在跑）' + mins(run.bgMs) + ' / 页面未运行 ' + mins(run.gapMs) + (unkMs > 0 ? ' / 不确定 ' + mins(unkMs) : '') + (run.chgMs > 0 ? ' / 充电中 ' + mins(run.chgMs) : ''));
+L.push('电量 ' + Math.round(run.lv0 * 100) + '% → ' + Math.round(run.lvEnd * 100) + '%（采样 ' + run.n + ' 次，设计每 ' + Math.round(run.iv / 1000) + ' 秒、实测平均每 ' + Math.round(avgIv / 1000) + ' 秒）');
+if (jitter > 0) L.push('· 电量计抖动 ' + (Math.round(jitter * 10) / 10) + ' 个百分点（掉了又回升），下方各段速率已按实测净掉电 ' + (Math.round(Math.max(0, net) * 10) / 10) + '% 等比折算');
+var s1 = segTxt('前台使用（屏幕亮着用本站）', run.fgMs, fgD, FG_WARN, FG_BAD);
 if (s1) L.push(s1);
-var s2 = segTxt('后台页面自身（切出去了、页面还在跑，多与「后台保活」相关）', run.bgMs, run.bgDrop, BG_WARN, BG_BAD);
+var s2 = segTxt('后台页面自身（切出去了、页面还在跑，多与「后台保活」相关）', run.bgMs, bgD, BG_WARN, BG_BAD);
 if (s2) L.push(s2);
-var s3 = segTxt('页面未运行（被系统冻结/关掉，本站没在跑）', run.gapMs, run.gapDrop, GAP_WARN, GAP_BAD);
+var s3 = segTxt('页面未运行（有重开/被回收的证据，本站当时没在跑）', run.gapMs, gapD, GAP_WARN, GAP_BAD);
 if (s3) L.push(s3 + '——这段掉电与本站无关，只作对照');
+var s4 = segTxt('不确定（心跳停了，分不清是被系统冻结还是被内核节流）', unkMs, unkD, GAP_WARN, GAP_BAD);
+if (s4) L.push(s4 + '——两种归因方向相反，本工具不替系统猜：这段不计入结论，也不并进上面「与本站无关」的对照段');
+if (avgIv > run.iv * 2) L.push('· 心跳被限制：设计每 ' + Math.round(run.iv / 1000) + ' 秒一次、实测平均每 ' + Math.round(avgIv / 1000) + ' 秒一次——内核把本页面的定时器节流了（切后台/省电模式下常见），采样越稀分段越不可信');
 if (run.chgMs > 0) L.push('· 充电中 ' + mins(run.chgMs) + '：整段剔除不计（充电时电量不降反升，混进来会把耗电算成 0）');
 L.push('· 电量颗粒度是 1%：窗口越短数字越粗，15 分钟档只能看趋势，1 小时以上才有参考价值，夜里放着跑（过夜档）最准');
 L.push('· 发热/耗电相关因素：' + factorLines().join('；'));
@@ -267,15 +310,16 @@ L.push('建议：');
 var adv = [];
 if (verdict === '异常') adv.push('耗电明显偏高：先到 设置→系统 关掉「后台保活」再跑一轮对照（后台段速率应明显下降）；若前台段也异常，把本报告 + 设置→工具→「设备兼容诊断」的环境信息一起发给开发者');
 else if (verdict === '偏高') adv.push('偏高：对照系统设置里的电池统计（过去 24 小时本站占比）一起看；不用后台通知时把「后台保活」关掉再复测一轮，对比后台段速率');
-if (run.bgMs >= SEG_MIN_MS && run.bgDrop > 0) adv.push('后台段有 ' + rate(run.bgDrop, run.bgMs) + '%/小时：这段就是「页面留在后台继续跑」的代价（保活音频 + 定时器），不用后台消息时关掉「后台保活」最省电');
-if (run.gapMs > 0) adv.push('窗口内有 ' + mins(run.gapMs) + ' 页面未运行（被系统冻结或关掉）：想让后台也一直跑，靠「后台保活」；不想耗电就别开，两者取一');
-if (run.fgDrop <= 0 && run.gapDrop <= 0) adv.push('窗口内电量没有下降：要么耗电极低、要么时间还太短（电量 1% 一跳）——想抓异常请跑 1 小时以上或过夜档');
+if (run.bgMs >= SEG_MIN_MS && bgD > 0) adv.push('后台段有 ' + rBg + '%/小时：这段就是「页面留在后台继续跑」的代价（保活音频 + 定时器），不用后台消息时关掉「后台保活」最省电');
+if (run.gapMs > 0) adv.push('窗口内有 ' + mins(run.gapMs) + ' 页面未运行（重开过/被系统回收过）：想让后台也一直跑，靠「后台保活」；不想耗电就别开，两者取一');
+if (unkMs >= SEG_MIN_MS) adv.push('有 ' + mins(unkMs) + ' 落在「不确定」段（心跳停了但说不清原因）：开着「后台保活」再跑一轮对照——保活开着时页面不被冻结，这段应明显缩短；缩不了就是内核在节流，那部分耗电本来就归本站');
+if (fgD <= 0 && bgD <= 0 && gapD <= 0 && run.chgMs === 0) adv.push('窗口内电量没有下降：要么耗电极低、要么时间还太短（电量 1% 一跳）——想抓异常请跑 1 小时以上或过夜档');
 if (run.chgMs > 0) adv.push('测的时候有 ' + mins(run.chgMs) + ' 在充电：充电本身发热/进电，想测准请拔掉充电器重跑一轮');
 if (!adv.length) adv.push('本窗口未见异常。要复现「耗电快」的现场，就在你觉得掉电快的时段随时点本行再测一轮，报告对比着看');
 adv.forEach(function (a, i) { L.push((i + 1) + '. ' + a); });
 L.push('');
-L.push('（电量数据由浏览器接口读取，只在本机统计、不上传；前台/后台/未运行三段分开算，充电段剔除）');
-var rep = { t: Date.now(), verdict: verdict, rateTxt: rateTxt, run: { fgMs: run.fgMs, bgMs: run.bgMs, gapMs: run.gapMs, chgMs: run.chgMs, n: run.n }, text: L.join('\n') };
+L.push('（电量数据由浏览器接口读取，只在本机统计、不上传；前台/后台/未运行/不确定四段分开算，充电段剔除）');
+var rep = { t: Date.now(), verdict: verdict, rateTxt: rateTxt, run: { fgMs: run.fgMs, bgMs: run.bgMs, gapMs: run.gapMs, unkMs: unkMs, chgMs: run.chgMs, n: run.n, net: net, jitter: jitter }, text: L.join('\n') };
 return rep;
 }
 var _heatRunning = false, _heatSink = 1;
@@ -389,14 +433,14 @@ var t = '';
 if (_batRun) t = '自测进行中：剩 ' + leftTxt(_batRun) + '（切去忙别的也算，时间到自动出报告）';
 else {
 var last = lsGet(BAT_LAST_KEY, null);
-if (last && last.t) t = '上次：' + last.verdict + (last.rateTxt ? '（' + last.rateTxt + '）' : '') + ' · ' + dtTxt(last.t);
+if (last && last.t) t = '上次：' + last.verdict + (last.rateTxt ? '（' + last.rateTxt + '）' : '') + ' · ' + dtTxt(last.t) + (last.pending ? ' · 有未读报告' : '');
 }
 batSubEl.textContent = t || batSubDefault;
 }
 function updateHeatSub() {
 if (!heatSubEl) return;
 var last = lsGet(HEAT_LAST_KEY, null);
-heatSubEl.textContent = (last && last.t) ? ('上次：' + last.verdict + ' · ' + dtTxt(last.t)) : heatSubDefault;
+heatSubEl.textContent = (last && last.t) ? ('上次：' + last.verdict + ' · ' + dtTxt(last.t) + (last.pending ? ' · 有未读报告' : '')) : heatSubDefault;
 }
 function askBattery() {
 if (!window.openModal || _batStarting) return;
@@ -438,7 +482,7 @@ if (Date.now() >= run.t0 + run.ms) {
 var rep = buildBat(run);
 lsDel(BAT_RUN_KEY);
 var last = lsGet(BAT_LAST_KEY, null) || {};
-last.t = rep.t; last.verdict = rep.verdict; last.rateTxt = rep.rateTxt; last.text = rep.text;
+last.t = rep.t; last.verdict = rep.verdict; last.rateTxt = rep.rateTxt; last.text = rep.text; last.pending = 0;
 lsSet(BAT_LAST_KEY, last);
 updateBatSub();
 deliver('battery', rep);
@@ -447,6 +491,7 @@ return;
 getBm().then(function (bm) {
 if (!bm) { lsDel(BAT_RUN_KEY); updateBatSub(); return; }
 _batBm = bm;
+_freshReload = true; // 带着旧记录重开＝上一个采样到这次之间页面确实没在跑（有证据，归未运行段）
 _batRun = run;
 startBatLoop(run);
 updateBatSub();
@@ -474,7 +519,7 @@ if (_batRun && _batBm) { try { sampleOnce(_batRun, _batBm); writeRun(_batRun); }
 popPending();
 });
 } catch (e) {}
-whenModalReady(restoreRun);
+whenModalReady(function () { restoreRun(); popPendingAtBoot(); });
 }
 function whenModalReady(fn) {
 if (typeof window.openModal === 'function') return fn();

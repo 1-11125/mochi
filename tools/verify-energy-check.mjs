@@ -1,8 +1,11 @@
-// ===== 专项验证：#935 电量消耗自测 + 发烫自测（设置→工具 两行入口）=====
-// 用户直派：「帮我在工具里新增一个电量消耗自测和发烫自测…用来检查异常」。
-// 覆盖：S 组产物静态锚（模块进产物 / 两行入口 / 三段归档＋充电剔除 / 断档归未运行 /
-// 降频判级 / 续测守卫 / 隐藏期挂起 / EXCLUDE 登记 / 指引文案 / 复制导出闭环）；
-// B 组无头行为八场景（桩 BatteryManager，零机型分支只在夹具侧）：
+// ===== 专项验证：#935 电量消耗自测 + 发烫自测（设置→工具 两行入口）+ #947 三处缺陷收口 =====
+// 用户直派：「帮我在工具里新增一个电量消耗自测和发烫自测…用来检查异常」；
+//         #947：「按优先级修复第 1、2、4 条缺陷」＝①电量计抖动被单边累加成虚高耗电
+//         ②后台定时器被节流却归成「页面未运行、与本站无关」③挂起的报告关页重开后永不弹出。
+// 覆盖：S 组产物静态锚（模块进产物 / 两行入口 / 分段归档＋充电剔除 / 断档按证据归段 /
+// 净掉电封顶 / 不确定段 / boot 补弹闸 / 降频判级 / 续测守卫 / 隐藏期挂起 / EXCLUDE 登记 /
+// 指引文案 / 复制导出闭环）；
+// B 组无头行为十二场景（桩 BatteryManager，零机型分支只在夹具侧）：
 //   ① noBattery：无电量接口＝如实告知能力边界（不弹假数据）
 //   ② drain：正常掉电＝前台段计时/掉电归档 + 粗测速率行 + 跑完清 run 写 last
 //   ③ chg：全程充电＝整段剔除（充电中电量不降反升，混进来会把耗电算成 0）
@@ -11,6 +14,10 @@
 //   ⑥ resume：中途刷新＝run 键续命、到点自动出报告
 //   ⑦ heat：发烫自测跑满 10 轮 + 判级文本 + 结果落 last 键 + 确认弹窗
 //   ⑧ ui：点行起测 → 再点行＝进行中弹窗「结束并出报告」→ 报告弹窗接上
+//   ⑨ badrun：坏 run 记录＝早退不出假报告
+//   ⑩ jitter：电量计抖（掉一格回一格、净掉电 0）＝各段速率封顶到净值、报出抖动量（#947 缺陷 1）
+//   ⑪ throttle：后台心跳被内核节流＝归「不确定」段而非「与本站无关」的未运行段（#947 缺陷 2）
+//   ⑫ pendlast：挂着未读报告关页重开＝开屏离场后补弹一次并清 pending（#947 缺陷 4）
 // 用法：node tools/verify-energy-check.mjs（需先 node build.mjs；MOCHI_ROOT 可指仓外副本）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -33,14 +40,19 @@ try { jsContacts = readFileSync(join(target, 'js', 'contacts.js'), 'utf8'); } ca
 if (!jsEc) jsEc = idx; // 兼容将来内联落点
 ok('S1 电量/发烫自测模块进产物（删＝设置页两行点了没反应）', jsEc.includes('window.mochiEnergyCheck = {'));
 ok('S2 设置页两行入口在产物（删＝工具里找不到自测入口）', idx.includes('id="row-battery-check"') && idx.includes('id="row-heat-check"'));
-ok('S3 三段归档＋充电段整段剔除（改＝充电期把耗电算成 0，本批报障面复发）', jsEc.includes("if (st === 'chg') { run.chgMs += dt; }"));
-ok('S4 采样断档归「页面未运行」（删＝系统冻结/关掉页面那段被当成前台耗电，冤枉本站）', jsEc.includes("var st = (dt > run.iv * 2.5) ? 'gap' : run.lastSt;"));
+ok('S3 分段归档＋充电段整段剔除（改＝充电期把耗电算成 0，本批报障面复发）', jsEc.includes("if (st === 'chg') { run.chgMs += dt; }"));
+ok('S4 采样断档改按证据归段（删＝停摆一律当「与本站无关」，#947 缺陷 2 复发）', jsEc.includes("var st = (dt > run.iv * 2.5) ? stalledSeg(run) : run.lastSt;"));
 ok('S5 降频判级总闸（删＝发烫自测没有结论）', jsEc.includes("if (slow >= SLOW_BAD) return '明显降频';"));
 ok('S6 续测恢复守卫（删＝坏 run 记录起测崩，刷新后续测失效）', jsEc.includes('if (!run || !(run.t0 > 0) || !(run.ms > 0) || !(run.iv > 0)) return;'));
 ok('S7 跑完不可见＝报告挂起待补弹（删＝切去忙别的回来报告丢了，长窗口自测白跑）', jsEc.includes('last.pending = 1; last.text = rep.text;'));
 ok('S8 三个新全局键已登记 EXCLUDE（漏＝刷新时被迁进 default 桌面，跨桌面污染）', jsContacts.includes("'battery-check-run', 'battery-check-last', 'heat-check-last',"));
 ok('S9 发烫说明接「想量化取证」指引（删＝用户不知道有这两个自测可跑）', idx.includes('想量化取证'));
 ok('S10 报告走复制/导出闭环（删＝拿到报告传不出去）', jsEc.includes('mochi-batterycheck-') && jsEc.includes('mochi-heatcheck-'));
+ok('S11 有符号净掉电在记账（删＝封顶没有原料，抖动单边加成虚高耗电）', jsEc.includes('run.net += dLv;'));
+ok('S12 抖动封顶总闸（删＝净掉 0 格也能报出几十 %/小时，#947 缺陷 1 复发）', jsEc.includes('if (hasNet && gross > net + 0.001) {'));
+ok('S13 不确定段独立归档（删＝节流那段又并进「与本站无关」对照组）', jsEc.includes("if (st === 'unk') { run.unkMs += dt;"));
+ok('S14 停摆归段只认三种证据（删＝不查证据，#947 缺陷 2 复发）', jsEc.includes("if (_freshReload || wasDiscarded() || run.lastSt === 'fg') return 'gap';"));
+ok('S15 关页重开补弹闸（删＝挂起的报告永久烂在 pending，#947 缺陷 4 复发）', jsEc.includes('if (splashGone()) { popPending(); return; }') && jsEc.includes('whenModalReady(function () { restoreRun(); popPendingAtBoot(); });'));
 
 // ---- B 组：无头行为 ----
 const candidates = [
@@ -119,6 +131,28 @@ const stub = `(function(){
     }
     if (scn === 'badrun') { localStorage.setItem('xy-home-v2:battery-check-run', '{"t0":1,"ms":0}'); localStorage.removeItem('xy-home-v2:battery-check-last'); }
     if (scn === 'seed2') Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    // #947 缺陷 1：抖动的电量计——每被读一次就在 0.79/0.80 之间翻转（产品侧每次采样正好读一遍 level）。
+    // 毛和（只记下降）稳定增长、有符号净掉电恒 ≤0＝真实世界「掉一格又回一格」的形状。
+    if (scn === 'jitter') {
+      var jr = 0;
+      window.__fakeBm = { charging: false };
+      Object.defineProperty(window.__fakeBm, 'level', { get: function () { jr++; return (jr % 2) ? 0.79 : 0.80; }, configurable: true });
+      Object.defineProperty(Navigator.prototype, 'getBattery', { value: function () { return Promise.resolve(window.__fakeBm); }, configurable: true, writable: true });
+    }
+    // #947 缺陷 2：只掐电量采样那一个间隔（产品侧 12 秒档 iv 恰为 2000ms）×4＝模拟内核把后台标签
+    // 定时器节流到分钟级；同时置为不可见＝页面其实还在跑，只是心跳被限制。
+    if (scn === 'throttle') {
+      var origSI = window.setInterval;
+      window.setInterval = function (fn, ms) { return origSI(fn, ms === 2000 ? 8000 : ms); };
+      window.__fakeBm = { level: 0.8, charging: false };
+      Object.defineProperty(Navigator.prototype, 'getBattery', { value: function () { return Promise.resolve(window.__fakeBm); }, configurable: true, writable: true });
+      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    }
+    // #947 缺陷 4：上次跑完时页面不可见＝报告挂起（关页重开没有 visibilitychange，只能 boot 补弹）
+    if (scn === 'pendlast') {
+      localStorage.removeItem('xy-home-v2:battery-check-run');
+      localStorage.setItem('xy-home-v2:battery-check-last', JSON.stringify({ t: Date.now() - 60000, verdict: '异常', rateTxt: '后台页面自身 40%/小时', text: '结论：异常（后台页面自身约 40%/小时）\\n（夹具植入的挂起报告）', pending: 1 }));
+    }
   } catch (e) {}
 })();`;
 
@@ -317,7 +351,54 @@ try {
     await collectErrs();
   } catch (e) { fail++; console.error('❌ 场景⑨ badrun 执行失败: ' + e.message); }
 
-  ok('Z 零 JS 异常（九场景全程）', jsErrors.length === 0);
+  // ⑩ jitter：电量计抖动（掉一格回一格、净掉电 0）＝各段速率封顶到实测净值（#947 缺陷 1）
+  try {
+    if (!(await nav('jitter'))) throw new Error('页面 boot 超时');
+    const rep = await evalJs('window.mochiEnergyCheck.startBattery(12000)');
+    ok('B43 夹具前提：抖动电量计被真读到多次采样（桩失败则本场景无意义）', !!(rep && rep.run && rep.run.n >= 3));
+    ok('B44 夹具形状正确：有符号净掉电恒 ≤0（毛和只记下降才会涨，净值不涨＝抖动不是耗电）', !!(rep && rep.run && rep.run.net <= 0));
+    ok('B45 抖动被抓出来并写进报告（删封顶＝单边毛和直接当掉电，#947 缺陷 1 复发）', !!(rep && rep.run && rep.run.jitter >= 1 && rep.text.indexOf('电量计抖动') >= 0));
+    ok('B46 各段速率被折算到 0%/小时（虚高的几十 %/小时不再出现在报告里）', !!(rep && rep.text.indexOf('前台使用（屏幕亮着用本站）：约 0%/小时') >= 0 && !/：约 [1-9][0-9.]*%\/小时/.test(rep.text)));
+    ok('B47 封顶不顺手改口径：短窗口照旧标「粗测」', !!(rep && rep.text.indexOf('粗测') >= 0));
+    ok('B48 抖动窗不判异常（净掉电为 0 时给「数据不足」，不给用户看虚高结论）', !!(rep && rep.verdict === '数据不足'));
+    await collectErrs();
+  } catch (e) { fail++; console.error('❌ 场景⑩ jitter 执行失败: ' + e.message); }
+
+  // ⑪ throttle：后台心跳被内核节流＝那段归「不确定」，不再塞进「与本站无关」的未运行段（#947 缺陷 2）
+  try {
+    if (!(await nav('throttle'))) throw new Error('页面 boot 超时');
+    const rep = await evalJs('window.mochiEnergyCheck.startBattery(12000)');
+    ok('B49 节流那段进了不确定段（旧实现一律归未运行＝#947 缺陷 2 复发）', !!(rep && rep.run && rep.run.unkMs >= 6000));
+    ok('B50 那段没被算进「与本站无关」的对照组（删＝给本站开脱、报告成了一张假清白）', !!(rep && rep.run && rep.run.gapMs === 0));
+    ok('B51 报告点名不确定段并写明不计入结论（两种归因方向相反，不替系统猜）', !!(rep && rep.text.indexOf('不确定（心跳停了') >= 0 && rep.text.indexOf('不计入结论') >= 0));
+    ok('B52 报告给出心跳被限制的实测证据（设计间隔 vs 实测平均）', !!(rep && rep.text.indexOf('心跳被限制') >= 0 && rep.text.indexOf('实测平均每') >= 0));
+    ok('B53 防修过头：不确定段不参与判级（节流窗不给异常结论，也不给正常背书）', !!(rep && rep.verdict === '数据不足'));
+    await collectErrs();
+  } catch (e) { fail++; console.error('❌ 场景⑪ throttle 执行失败: ' + e.message); }
+
+  // ⑫ pendlast：挂着未读报告关页重开＝开屏离场后补弹一次（#947 缺陷 4）
+  try {
+    if (!(await nav('pendlast'))) throw new Error('页面 boot 超时');
+    await sleep(900);
+    const splashUp = await evalJs("(function(){ var s = document.getElementById('splash'); return !!(s && !s.classList.contains('hide')); })()");
+    const m0 = await modalState();
+    const l0 = await evalJs("(function(){ var o = null; try { o = JSON.parse(localStorage.getItem('xy-home-v2:battery-check-last')); } catch (e) {} return { p: o && typeof o.pending === 'number' ? o.pending : -1 }; })()");
+    ok('B54 夹具前提：开屏强读页仍在场（不在场则测不到补弹闸）', splashUp === true);
+    ok('B55 开屏没离场＝报告不抢着弹（删闸＝报告压在公告上，用户只能关掉＝等于又丢一次）', !!(m0 && !(m0.vis && m0.title === '电量消耗自测报告')) && l0.p === 1);
+    const subP0 = await evalJs("(function(){ var e = document.querySelector('#row-battery-check .sub'); return e ? e.textContent : ''; })()");
+    ok('B56 行小字标出「有未读报告」（删＝用户不知道有一条全文没看过）', subP0.indexOf('未读') >= 0);
+    await evalJs("(function(){ var s = document.getElementById('splash'); if (s) s.classList.add('hide'); return 1; })()");
+    let m1 = null;
+    for (let i = 0; i < 24; i++) { m1 = await modalState(); if (m1 && m1.vis && m1.title === '电量消耗自测报告') break; await sleep(400); }
+    ok('B57 开屏离场＝补弹一次（重开页面这条路径以前永不弹）', !!(m1 && m1.vis && m1.title === '电量消耗自测报告' && m1.text.indexOf('夹具植入的挂起报告') >= 0));
+    const l1 = await evalJs("(function(){ var o = null; try { o = JSON.parse(localStorage.getItem('xy-home-v2:battery-check-last')); } catch (e) {} return { p: o && typeof o.pending === 'number' ? o.pending : -1 }; })()");
+    ok('B58 补弹后 pending 已清（不清＝每次重开都重弹一遍）', l1.p === 0);
+    const subP1 = await evalJs("(function(){ var e = document.querySelector('#row-battery-check .sub'); return e ? e.textContent : ''; })()");
+    ok('B59 已读后行小字撤掉未读标记', subP1.indexOf('未读') < 0);
+    await collectErrs();
+  } catch (e) { fail++; console.error('❌ 场景⑫ pendlast 执行失败: ' + e.message); }
+
+  ok('Z 零 JS 异常（十二场景全程）', jsErrors.length === 0);
   if (jsErrors.length) console.log('   异常抽样: ' + jsErrors.slice(0, 3).join(' | '));
 } catch (e) {
   fail++; ctxOk = false; console.error('❌ B 组执行失败: ' + e.message);
