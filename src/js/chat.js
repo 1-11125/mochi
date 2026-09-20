@@ -888,7 +888,7 @@ if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) return;
 idbRetryCount++;
 idbRetryTimer = setTimeout(function () {
 idbRetryTimer = null;
-try { loadMsgs(); } catch (e) {}
+try { loadMsgs(true); } catch (e) {} // #952：重试必须真读＝forceIdb 绕过读库链在飞去重闸
 }, 5000);
 }
 let readyFuse = null;
@@ -1739,6 +1739,17 @@ if (r.special === 'ask-card' && r.askStatus === 'answered') return true;
 if (r.special === 'invite' && r.inviteStatus === 'answered') return true;
 return false;
 }
+// FIX 2026-09-21 #952：同桌面的权威读库链在飞去重——「此间【去找TA】切桌面进聊天」这类
+//   一次点击内先 setActiveContact（contact-switched 预读）再 enterChat（进页 loadMsgs）的路径，
+//   会对刚激活的同一命名空间并发跑两条完整读库链：分块热片（2MB×N）读+解析+合并+整窗重建全部
+//   ×2，各自失败还各挂一套 5s 重试与 LS 快照重写。低端机/大历史上主线程被打满后 IDB 回调与
+//   定时器被饿死→读取超时 undefined→再触发重试＝恶性循环，「正在加载聊天记录」反复出现、
+//   消息区反复清空重建、长时间卡顿（无头 20× 节流 + 8.5MB 分块历史实证：读库链×2、整窗重建
+//   400→0→200→400 反复多轮、chatScrollMax 强制回流占 CPU 采样 ~10s/20s）。普通进聊天只有
+//   一条链不受影响。去重窗口有墙（12s），链收尾（成功/空库/非数组）会提前清；scheduleIdbRetry
+//   改走 loadMsgs(true)（forceIdb 天然绕过去重）＝读库真失败的重试永不被本闸吞掉。
+let _lmChainBusy = null;
+let _lmChainBusyUntil = 0;
 function loadMsgs(forceIdb) {
 armReadyFuse();
 // FIX 2026-09-07 #245：权威未就绪期间照常解析 LS 兜底快照（旧门 !persistTimer&&!msgs.length
@@ -1775,6 +1786,11 @@ if (!skipRead) {
 try {
 if (window.idbGet) {
 const myPrefix = window.activePrefix();
+// FIX 2026-09-21 #952：同桌面读库链在飞去重（见 _lmChainBusy 声明处注释）——
+//   forceIdb（重试/显式强读）不受本闸限制；墙=12s，读库链若真死也有重试与保险丝兜底。
+if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;
+_lmChainBusy = myPrefix;
+_lmChainBusyUntil = Date.now() + 12000;
 // v3.26.x #90：先补读条数账本（小键，几乎不会超时）。大键读取失败时它是唯一
 // 能回答「库里到底有多少条」的依据，落盘守卫全靠它。
 try { chatLedgerLoad(myPrefix); } catch (e) {}
@@ -1865,6 +1881,7 @@ function enterConfirmedEmpty() {
 chatDbReady = true;
 chatKnownEmpty = true; // FIX 2026-09-15 #526：确认空库＝无历史可读
 idbRetryCount = 0;
+_lmChainBusy = null; // #952：空库确认收尾，放行后续 loadMsgs
 authLoadedPrefix = myPrefix;
 chatArchClearBaseline(); // FIX 2026-09-17 #127：空库无基准段
 try { syncLastMineText(); } catch (e) {}
@@ -1894,7 +1911,7 @@ try {
 __prof('ch0_enter');
 let idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
-if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return; }
+if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; return; } // #952 收尾清在飞标记
 // FIX 2026-09-16 #594（用户报障：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复；
 // 无头实测精确复现——种 12 条表情包字卡的桌面，切过去开聊天 msgs/DOM 双双变 24，每条
 // 一份 @@m: 令牌 + 一份原文 base64 相邻成对）：
@@ -1990,6 +2007,7 @@ chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数�
 // v3.14.x：本命名空间已读到权威（此后空数组落盘才被允许——内存已含全部历史）
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
+_lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs
 try { if (chatTailMerge(myPrefix) > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条；FIX #766 传入 myPrefix＝日志必须与这份 msgs 同命名空间才回放
 // v3.26.x #90：账本基线＝刚读到的库内条数（同值不重复落盘，见 chatLedgerSave 节流）
 try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）

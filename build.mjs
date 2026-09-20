@@ -4002,6 +4002,10 @@ const FIX_SENTINELS = [
   { name: '#950d 大包数组内存驻留口（删＝memoryCache 拿不到最新数组＝跨桌面合并读到旧快照、删过的表情复活）', file: 'js/idb.js', needle: "window.idbMemoSet = function (key, value) {" },
   { name: '#950e IDB 写超时估算器支持嵌套数组（删＝30MB 表情包被估成几百字节＝超时不放大，慢设备误判挂起＋误触发退避重发）', file: 'js/idb.js', needle: "for (let i = 0; i < value.length; i++) est += est950(value[i], 0);" },
   { name: '#950f 启动回填大对象直驻（删＝30MB 数组在启动回填点整包 JSON.stringify＝主线程长任务从保存点挪到开屏）', file: 'js/idb.js', needle: 'bigBudgetUsed += nObj;' },
+  // ===== #952 此间【去找TA】切桌面进聊天「正在加载聊天记录」反复出现/整窗清空重建/长时间卡顿根治（＝读库链×2 并发恶性循环；#695/#841 同症状家族收尾通道）=====
+  { name: '#952a 同桌面读库链在飞去重闸（删＝contact-switched 预读与 enterChat 并发跑两条完整权威链：热片读+解析+合并+整窗重建全 ×2，主线程打满后 IDB 回调饿死→超时→重试恶性循环＝进度条反复挂起）', file: 'js/chat.js', needle: 'if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;' },
+  { name: '#952b 读库链成功收尾清在飞标记（删＝首个桌面加载后 12s 墙内其它 loadMsgs 全被吞）', file: 'js/chat.js', needle: '_lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs' },
+  { name: '#952c 重试走 forceIdb 绕过去重（删＝读库真失败的 5s 重试被在飞闸吞掉＝真挂死）', file: 'js/chat.js', needle: 'try { loadMsgs(true); } catch (e) {} // #952：重试必须真读＝forceIdb 绕过读库链在飞去重闸' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

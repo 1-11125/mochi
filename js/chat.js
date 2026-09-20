@@ -671,7 +671,7 @@ if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) return;
 idbRetryCount++;
 idbRetryTimer = setTimeout(function () {
 idbRetryTimer = null;
-try { loadMsgs(); } catch (e) {}
+try { loadMsgs(true); } catch (e) {} // #952：重试必须真读＝forceIdb 绕过读库链在飞去重闸
 }, 5000);
 }
 let readyFuse = null;
@@ -1291,6 +1291,8 @@ if (r.special === 'ask-card' && r.askStatus === 'answered') return true;
 if (r.special === 'invite' && r.inviteStatus === 'answered') return true;
 return false;
 }
+let _lmChainBusy = null;
+let _lmChainBusyUntil = 0;
 function loadMsgs(forceIdb) {
 armReadyFuse();
 if (!chatDbReady) {
@@ -1316,6 +1318,9 @@ if (!skipRead) {
 try {
 if (window.idbGet) {
 const myPrefix = window.activePrefix();
+if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;
+_lmChainBusy = myPrefix;
+_lmChainBusyUntil = Date.now() + 12000;
 try { chatLedgerLoad(myPrefix); } catch (e) {}
 let bigReadMs = 0;
 try {
@@ -1373,6 +1378,7 @@ function enterConfirmedEmpty() {
 chatDbReady = true;
 chatKnownEmpty = true; // FIX 2026-09-15 #526：确认空库＝无历史可读
 idbRetryCount = 0;
+_lmChainBusy = null; // #952：空库确认收尾，放行后续 loadMsgs
 authLoadedPrefix = myPrefix;
 chatArchClearBaseline(); // FIX 2026-09-17 #127：空库无基准段
 try { syncLastMineText(); } catch (e) {}
@@ -1401,7 +1407,7 @@ try {
 __prof('ch0_enter');
 let idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
-if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; return; }
+if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; return; } // #952 收尾清在飞标记
 const sigOf = (m) => { try { return JSON.stringify({ t: mediaSigPart(m && m.text), s: m && m.side, ts: m && m.ts, i: (m && m.img) ? mediaSigPart(m.img) : 0 }); } catch (e) { return ''; } };
 const ckptArr = idbArr;
 window.idbGet(myPrefix + ':chat-arch').then(function (av) {
@@ -1469,6 +1475,7 @@ chatDbReady = true;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数组）＝不再是「已知空库」，进度条交回常规判定
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
+_lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs
 try { if (chatTailMerge(myPrefix) > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条；FIX #766 传入 myPrefix＝日志必须与这份 msgs 同命名空间才回放
 try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
 if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {
