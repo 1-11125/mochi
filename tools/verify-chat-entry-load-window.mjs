@@ -21,6 +21,13 @@
 //  B1/B2 干扰=空窗期派发 touchstart：末帧仍贴底(gap≤8) 且窗口尾贴最新
 //  C1 无干扰：正常进页落底落最新（守卫修复没改坏主链路）
 //  C2 无干扰：落底后用户手动上翻（解钉）不被拽回底部（#162 契约不回归）
+// ---- 以下 D/E 组为 #919 追加（HUAWEI Mate 40 Pro + Edge 实报同症状家族的第二条独立通道）----
+//  #919 根因：msgs 数组出现空洞记录（undefined/null：分块历史拼接/并发数组替换的 JSON 等价形态）
+//  时，renderWindow 两条循环直接 renderMsg(msgs[i]) 未设防 → TypeError 打断整轮构建（分帧链断
+//  或同步收尾被跳过）→ frag 永不换装＝body 恒空/停旧记录、进度条卡死＝「看不到最新消息、退出重进才恢复」。
+//  D 组＝分帧路径（种 120 条 ≥80）：D1 前提（数组内确有 null 位）／D2 照常换装 body 非空／
+//    D3 落底且窗口尾贴最新／D4 空洞位不画（节点数恰比 maxIdx+1 少一、下标升序无重复）／D5 零异常。
+//  E 组＝同步整窗路径（种 60 条 <80）：同 D 的五条（E1~E5），覆盖另一半守卫。
 //  Z1 全程零未捕获 JS 异常
 // 用法：node tools/verify-chat-entry-load-window.mjs
 //       MOCHI_SERVE_ROOT=<产物目录> 做红绿对照（缺省回退仓库根产物——对照时务必显式传）。
@@ -115,14 +122,17 @@ async function openPage() {
 // 种 300 条纯文本历史（序号内嵌文本＝底部是哪一条可直接断言）。IDB 权威不手播——首进时
 // 应用自己落盘；重进距首读的 IDB_RELOAD_MIN_GAP(8s) 时间闸内，loadMsgs 跳过全量重读。
 // 顺手关掉联系人主动发消息概率（cs-rp-auto-prob=0），消掉场景里随机长出来的新消息。
-async function resetAndSeed() {
+async function resetAndSeed(holeIdx, n) {
+  const total = Number.isFinite(n) ? n : N_MSGS;
+  const holeLine = Number.isFinite(holeIdx) ? `arr[${holeIdx}] = null; // #919 D/E 组：空洞位（真机 renderMsg(undefined) TypeError 的 JSON 等价形态）` : '';
   await cdp('Page.navigate', { url: 'about:blank' });
   await sleep(300);
   await cdp('Storage.clearDataForOrigin', { origin: baseUrl, storageTypes: 'local_storage,indexeddb' });
   await openPage();
   await evalJs(`(function(){
     const now = Date.now(); const arr = [];
-    for (let i = 0; i < ${N_MSGS}; i++) arr.push({ side: i % 2 ? 'in' : 'out', text: '记录' + String(i).padStart(3, '0'), ts: now - (${N_MSGS} - i) * 60000 });
+    for (let i = 0; i < ${total}; i++) arr.push({ side: i % 2 ? 'in' : 'out', text: '记录' + String(i).padStart(3, '0'), ts: now - (${total} - i) * 60000 });
+    ${holeLine}
     window.activeStore().set('cs-rp-auto-prob', '0');
     window.activeStore().set('chat-msgs', JSON.stringify(arr));
     return true;
@@ -158,7 +168,7 @@ async function readList() {
     const maxIdx = idxs.length ? Math.max.apply(null, idxs) : -1;
     return JSON.stringify({
       lastIdx: idxs.length ? idxs[idxs.length - 1] : -1,
-      firstIdx: idxs.length ? idxs[0] : -1, count: idxs.length, asc, maxIdx,
+      firstIdx: idxs.length ? idxs[0] : -1, count: idxs.length, asc, maxIdx, idxs,
       gap: Math.round(b.scrollHeight - b.scrollTop - b.clientHeight),
       top: Math.round(b.scrollTop), sh: b.scrollHeight, ch: b.clientHeight
     });
@@ -187,6 +197,27 @@ async function scenario(mode) {
   }
   return { pw: JSON.parse(pw || 'null'), r1, r2, c2 };
 }
+// #919 场景：种子含空洞记录（数组 null 位＝真机 renderMsg(undefined) TypeError 的 JSON 等价形态）。
+// 首进直测（真机就是首进/触碰那一刻崩的）：红（修前）构建在空洞下标抛未捕获 TypeError →
+// 分帧链断（batch 路径）或整段收尾被跳过（sync 路径）→ frag 永不换装＝body 恒空 +
+// batchRendering 永久 true（进度条卡死、上翻/回钉看门狗全被闸死）＝「看不到最新消息、退出重进才恢复」。
+// 种子条数刻意取 ≤ RENDER_MAX(200)：渲染窗＝整段历史，空洞无论落在哪种位置（原下标 /
+// 被权威合并按 ts 排序后挪到队首）都必在窗内，红侧崩溃不依赖附加消息们造成的窗口滑动。
+async function scenarioHole(holeIdx, n) {
+  await resetAndSeed(holeIdx, n);
+  const holeOk = !!(await evalJs(`(function(){try{var a=JSON.parse(window.activeStore().get('chat-msgs'));return Array.isArray(a)&&a.length===${n}&&a[${holeIdx}]===null;}catch(e){return false;}})()`));
+  await clickChat();
+  await sleep(9000); // 15× 节流下构建＋权威回读全部落定
+  const r = await readList();
+  const loadingVisible = !!(await evalJs("(function(){var p=document.getElementById('chat-loading');return !!(p&&!p.hidden);})()"));
+  return { holeOk, r, loadingVisible };
+}
+// D/E 两组共用的「空洞被跳过」判据：渲染窗＝整段历史（0..maxIdx）时，屏上节点数必然
+// 恰比 maxIdx+1 少 1（空洞那一条不画）且 data-idx 严格升序无重复。红（修前）body 恒空 ⇒ count=0 直接红。
+function holeSkippedClean(r) {
+  const dup = new Set(r.idxs).size !== r.idxs.length;
+  return r.count > 0 && r.asc === true && !dup && (r.maxIdx + 1 - r.count) === 1;
+}
 
 // ---- A：空窗期 scroll 干扰（根因①：上翻误触发打断分帧重建）----
 {
@@ -210,6 +241,36 @@ async function scenario(mode) {
   check('P1c 前提：重进发生过分帧重建（body 清空）', !!s.pw && s.pw.clears >= 1, JSON.stringify(s.pw));
   check('C1 无干扰重进正常落底且窗口尾贴最新（首进也落底）', s.r2.lastIdx === s.r2.maxIdx && s.r2.gap <= 8 && s.r1.lastIdx === s.r1.maxIdx, JSON.stringify({ r1: s.r1, r2: s.r2 }));
   check('C2 落底后用户手动上翻不被拽回（#162 解钉契约）', !!s.c2 && Math.abs(s.c2.top - 3000) <= 120 && s.c2.gap > 100, JSON.stringify(s.c2));
+}
+// ---- D：#919 空洞记录不得打断「分帧整窗重建」（真机 buildChunk→renderMsg TypeError 实锤的等价形态）----
+// 红（修前）：构建在空洞下标抛 TypeError → setTimeout 链断 → frag 永不换装＝body 恒空、进度条卡死、
+//   batchRendering 永久 true（上翻/回钉/看门狗全被闸死）＝用户「看不到最新消息、退出重进才恢复」；
+// 绿（修后）：空洞跳过不画，整轮构建照常走完 finishSwap 落底，其余消息都在。
+// 种 120 条（≥ RENDER_CHUNK_MIN 80 ⇒ 走 setTimeout 分帧路径；≤ RENDER_MAX 200 ⇒ 整窗即全量）。
+{
+  const HOLE_N = 120;
+  const HOLE_IDX = HOLE_N - 4;
+  const ex0 = jsExcepts.length;
+  const s = await scenarioHole(HOLE_IDX, HOLE_N);
+  const exD = jsExcepts.length - ex0;
+  check('D1 前提：种子数组确有空洞记录（null 位）', s.holeOk === true, JSON.stringify({ holeIdx: HOLE_IDX, n: HOLE_N, holeOk: s.holeOk }));
+  check('D2 空洞不阻断换装：body 非空且节点数达标（修前 frag 永不换装＝恒空）', s.r.count >= 100, JSON.stringify({ count: s.r.count, loading: s.loadingVisible }));
+  check('D3 末帧仍贴底且窗口尾贴最新', s.r.lastIdx === s.r.maxIdx && s.r.maxIdx >= 100 && s.r.gap <= 8, JSON.stringify({ lastIdx: s.r.lastIdx, maxIdx: s.r.maxIdx, gap: s.r.gap, top: s.r.top }));
+  check('D4 空洞位不画：节点数恰比 maxIdx+1 少一、下标升序无重复', holeSkippedClean(s.r), JSON.stringify({ count: s.r.count, maxIdx: s.r.maxIdx, asc: s.r.asc, hasHoleIdx: s.r.idxs.includes(HOLE_IDX) }));
+  check('D5 本场景零未捕获 JS 异常（修前此处必红）', exD === 0, 'exceptions=' + exD + (exD ? ' | ' + jsExcepts.slice(-2).join(' | ') : ''));
+}
+// ---- E：#919 同缺陷的同步整窗路径（条数 < RENDER_CHUNK_MIN ⇒ 不走分帧，异常一路上抛）----
+{
+  const HOLE_N = 60;
+  const HOLE_IDX = HOLE_N - 4;
+  const ex0 = jsExcepts.length;
+  const s = await scenarioHole(HOLE_IDX, HOLE_N);
+  const exE = jsExcepts.length - ex0;
+  check('E1 前提：种子数组确有空洞记录（null 位）', s.holeOk === true, JSON.stringify({ holeIdx: HOLE_IDX, n: HOLE_N, holeOk: s.holeOk }));
+  check('E2 同步路径空洞不阻断换装：body 非空（修前 renderMsg 抛错＝整窗丢弃）', s.r.count >= 50, JSON.stringify({ count: s.r.count, loading: s.loadingVisible }));
+  check('E3 末帧仍贴底且窗口尾贴最新', s.r.lastIdx === s.r.maxIdx && s.r.maxIdx >= 50 && s.r.gap <= 8, JSON.stringify({ lastIdx: s.r.lastIdx, maxIdx: s.r.maxIdx, gap: s.r.gap }));
+  check('E4 空洞位不画：节点数恰比 maxIdx+1 少一、下标升序无重复', holeSkippedClean(s.r), JSON.stringify({ count: s.r.count, maxIdx: s.r.maxIdx, asc: s.r.asc, hasHoleIdx: s.r.idxs.includes(HOLE_IDX) }));
+  check('E5 本场景零未捕获 JS 异常（修前此处必红）', exE === 0, 'exceptions=' + exE + (exE ? ' | ' + jsExcepts.slice(-2).join(' | ') : ''));
 }
 check('Z1 全程零未捕获 JS 异常', jsExcepts.length === 0, jsExcepts.slice(0, 3).join(' | '));
 

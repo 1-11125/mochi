@@ -3878,6 +3878,13 @@ const FIX_SENTINELS = [
   { name: '#926b 分组停用写当前桌面聚合键（整份重写 {分类:[组名]}，不逐张写 dc-off-*；改回逐张＝点一次大组写上千键，iOS 主线程冻结族复发）', file: 'js/default-cards.js', needle: 'ls.set(GOFF_KEY, JSON.stringify(next));' },
   { name: '#926c 分组头渲染整组开关与停用态类（删＝四个预设列表页没有整组入口，本批报障复发）', file: 'js/default-cards.js', needle: "d.className = 'cc-group-header' + (goff ? ' off' : '');" },
   { name: '#926d 分组开关样式限定 .preset-list（删＝四页开关变形且 emoji/拍一拍列表分组头被误套，本批范围失控）', file: 'css/chat-pages.css', needle: '.preset-list .cc-group-header .ccard-toggle { width:36px; height:21px; flex-shrink:0; }' },
+  /* ==== 2026-09-20 #919 进聊天「跳到历史记录、看不到最新消息、退出重进才恢复」第二条独立通道根治
+     （HUAWEI Mate 40 Pro + Edge 实报，多机型同现；零机型分支）：msgs 出现空洞记录（undefined/null）时
+     renderWindow 两条循环直接 renderMsg(msgs[i]) 未设防 → TypeError 打断整轮构建 → frag 永不换装＝
+     body 恒空/停旧记录、进度条卡死（上翻/回钉/看门狗全被闸死）；真机错误栈 buildChunk→renderMsg
+     「reading 'side'」实锤。修法＝两条循环先判记录有效性、坏记录跳过不画，其余照常走完换装落底。 ==== */
+  { name: '#919a 分帧整窗路径空洞守卫（删＝构建途中 renderMsg 抛错断链、frag 永不换装＝看不到最新消息复发）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') continue; // #919a 记录位空洞/坏记录跳过不画" },
+  { name: '#919b 同步整窗路径空洞守卫（删＝异常一路上抛、调用方贴底收尾整段跳过）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') continue; // #919b 同 #919a：同步整窗路径也不得被单条空记录打断" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

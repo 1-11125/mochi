@@ -3633,13 +3633,14 @@ const buildChunk = function () {
 if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿
 const end = Math.min(i + RENDER_CHUNK, len);
 for (; i < end; i++) {
-maybeInsertDivider(i);
 const _rm = msgs[i];
+if (!_rm || typeof _rm !== 'object') continue; // #919a 记录位空洞/坏记录跳过不画：renderMsg(undefined) 抛 TypeError 打断整轮分帧构建（setTimeout 链断＝不换装不贴底、batchRendering 卡死，屏上停在窗口最旧的几十条、退出重进才恢复；用户设备 buildChunk→renderMsg「reading 'side'」实锤）
+maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
 _liteIdx.push(i);
 }
-const m = renderMsg(msgs[i]);
+const m = renderMsg(_rm);
 m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必须为真实下标）
 }
 if (i < len) { setTimeout(buildChunk, 0); return; }
@@ -3652,13 +3653,14 @@ setTimeout(buildChunk, 0); // #718 分帧构建
 return;
 }
 for (; i < len; i++) {
-maybeInsertDivider(i);
 const _rm = msgs[i];
+if (!_rm || typeof _rm !== 'object') continue; // #919b 同 #919a：同步整窗路径也不得被单条空记录打断（异常一路上抛，调用方紧随的贴底/收尾整段跳过）
+maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
 _liteIdx.push(i);
 }
-const m = renderMsg(msgs[i]);
+const m = renderMsg(_rm);
 m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必须为真实下标）
 }
 finishSwap();
