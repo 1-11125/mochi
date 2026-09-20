@@ -115,6 +115,53 @@ presetGroups(cat).forEach(function (g) { if (Array.isArray(g) && Array.isArray(g
 presetCntCache[cat] = n;
 return n;
 }
+function goffRecord() {
+var raw; try { raw = store('dc-groups-off'); } catch (e) { return {}; }
+try { var o = raw ? JSON.parse(raw) : null; return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; } catch (e) { return {}; }
+}
+var goffRec = {};         // 每次 build 复位（读的是当前桌面键）
+var goffCardsCache = {};  // cat -> 停用组内张数（同一条案出现在多个停用组只计一次）
+var effOffCache = {};     // cat -> 实际取不到的张数
+function goffNames(cat) { var a = goffRec[cat]; return Array.isArray(a) ? a : []; }
+function goffNamesShown(cat, max) {
+var a = goffNames(cat); max = max || 6;
+return a.slice(0, max).join('、') + (a.length > max ? '…等' : '');
+}
+function goffSuffix(cat) {
+var n = goffNames(cat).length;
+return n ? '（整组停用 ' + n + ' 组·' + goffCards(cat) + ' 张）' : '';
+}
+function goffCards(cat) {
+if (goffCardsCache[cat] !== undefined) return goffCardsCache[cat];
+var kill = {}; goffNames(cat).forEach(function (g) { kill[g] = 1; });
+var s = new Set();
+presetGroups(cat).forEach(function (grp) { if (kill[grp[0]] && Array.isArray(grp[1])) grp[1].forEach(function (c) { s.add(c); }); });
+goffCardsCache[cat] = s.size;
+return goffCardsCache[cat];
+}
+function effOff(cat) {
+if (effOffCache[cat] !== undefined) return effOffCache[cat];
+var total = presetCount(cat);
+if (!total || !goffNames(cat).length) { effOffCache[cat] = offCount(cat); return effOffCache[cat]; }
+var n = offCount(cat);
+try {
+var api = window.defaultCardApiFor && window.activeStore ? window.defaultCardApiFor(window.activeStore()) : null;
+if (api && api.isOff) {
+n = 0;
+presetGroups(cat).forEach(function (grp) { (grp[1] || []).forEach(function (c) { if (api.isOff(cat, c)) n++; }); });
+} else {
+n = Math.max(n, goffCards(cat));
+}
+} catch (e) { n = Math.max(offCount(cat), goffCards(cat)); }
+effOffCache[cat] = n;
+return n;
+}
+function goffLabel(cat) {
+if (cat === 'dict') return '系统预设「词典」';
+for (var i = 0; i < DCF.length; i++) if (DCF[i][0] === cat) return '功能字卡「' + DCF[i][1] + '」';
+if (cat === 'main' || cat === 'kaomoji' || cat === 'emoji' || cat === 'touch') return '默认聊天字卡「' + (CC_LABEL[cat] || cat) + '」';
+return '系统预设「' + (CC_LABEL[cat] || cat) + '」';
+}
 function dataCount(node) {
 var n = 0;
 try {
@@ -254,6 +301,17 @@ var o = offRecord(scope); var n = (o[type] || []).length;
 return ['启用' + (scope === 'public' ? '公用' : '本桌面') + '「' + (CC_LABEL[type] || type) + '」被停用的 ' + n + ' 个分组'];
 });
 }
+function fixPresetGroups(id, cat) {
+addFix(id, function () {
+var o = goffRecord();
+if (!Array.isArray(o[cat]) || !o[cat].length) return false;
+recordUndo('own', 'dc-groups-off');
+delete o[cat];
+return storeSet('dc-groups-off', JSON.stringify(o)) ? true : 'fail';   // 全清空时写 '{}'，与 default-cards.js 的写入口径一致
+}, function () {
+return ['启用' + goffLabel(cat) + '被整组停用的 ' + goffNames(cat).length + ' 个分组（' + goffCards(cat) + ' 张字卡恢复使用，组内单卡开关不动）'];
+});
+}
 function fixCardOffs(id, cat) {
 addFix(id, function () {
 var ks = offKeysOf(cat);
@@ -267,6 +325,7 @@ function registerBulk(id) { bulkFixes.push(id); }
 function build() {
 offCache = buildOffIndex();
 presetCntCache = {}; poolCache = {};
+goffRec = goffRecord(); goffCardsCache = {}; effOffCache = {};
 sections = []; lines = []; fixMap = {}; fixDesc = {}; bulkFixes = []; issueCount = 0; issues = [];
 var lock = locked();
 var dcEn = boolOf(store('dc-enabled'), true);
@@ -298,7 +357,7 @@ var dictUseChat = boolOf(store('dict-use-chat'), true);
 try { if (window.dictUse) dictUseChat = window.dictUse('chat') !== false; } catch (e) {}
 var dictOvChat = clampPct(num(store('dict-overall-chat'), 75));
 try { if (window.dictOverall) dictOvChat = clampPct(num(window.dictOverall('chat'), 75)); } catch (e) {}
-var dictPoolN = Math.max(0, presetCount('dict') - offCount('dict'));
+var dictPoolN = Math.max(0, presetCount('dict') - effOff('dict'));
 var mjfEn = boolOf(store('mjf-en'), true);
 var mjfProb = clampPct(num(store('mjf-prob'), 20));       // 不过总档
 var MJF_SRC = [['mjf-src-cc', 'mjf-w-cc', '自定义字卡', 50], ['mjf-src-def', 'mjf-w-def', '默认聊天字卡', 25], ['mjf-src-dict', 'mjf-w-dict', '词典', 25]];
@@ -324,8 +383,8 @@ if (all === 0) addIssue('warn', '系统预设字卡「聊天触发概率总档�
 if (ownUsable + pubUsable === 0 && !lock) addIssue('warn', '当前桌面没有任何「可用的自定义字卡」。');
 if (!pubGroups) addIssue('warn', '公用字卡库为空（所有桌面共享的库）。');
 ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
-var total = presetCount(k), off = offCount(k);
-if (total > 0 && off >= total) addIssue('warn', '默认聊天字卡「' + CC_LABEL[k] + '」分类内 ' + total + ' 张已全部单卡关闭，实际无可用内容。');
+var total = presetCount(k), off = effOff(k), gn = goffNames(k).length;
+if (total > 0 && off >= total) addIssue('warn', '默认聊天字卡「' + CC_LABEL[k] + '」分类内 ' + total + ' 张已' + (gn ? '全部关闭（单卡关闭 ' + offCount(k) + ' 张、整组停用 ' + gn + ' 个分组）' : '全部单卡关闭') + '，实际无可用内容。');
 if (!boolOf(store('dc-cat-' + k), true)) addIssue('warn', '默认聊天字卡「' + CC_LABEL[k] + '」分类开关被关闭。');
 if (num(store('dc-prob-' + k), 25) === 0) addIssue('warn', '默认聊天字卡「' + CC_LABEL[k] + '」分类占比为 0%，该分类不会被抽中。');
 });
@@ -333,7 +392,12 @@ DCF.forEach(function (d) {
 var key = d[0], name = d[1], def = d[2], hasPool = d[3];
 if (key === 'deskcheck') return;
 if (num(store('dcf-' + key), def) === 0 && dcfEn) addIssue('warn', '功能字卡「' + name + '」概率为 0%，该功能不再出字卡。');
-if (hasPool && presetCount(key) > 0 && offCount(key) >= presetCount(key)) addIssue('warn', '功能字卡「' + name + '」预设内容已全部单卡关闭。');
+if (hasPool && presetCount(key) > 0 && effOff(key) >= presetCount(key)) addIssue('warn', '功能字卡「' + name + '」预设内容已' + (goffNames(key).length ? '全部关闭（单卡 ' + offCount(key) + ' 张、整组停用 ' + goffNames(key).length + ' 组）' : '全部单卡关闭') + '。');
+});
+Object.keys(goffRec).forEach(function (cat) {
+var gn = goffNames(cat).length;
+if (!gn) return;
+addIssue('warn', goffLabel(cat) + '有 ' + gn + ' 个分组被整组停用（组内 ' + goffCards(cat) + ' 张不参与抽取）：' + goffNamesShown(cat) + '。分组开关在该分类页的分组标题右侧。');
 });
 Object.keys(ownOff).forEach(function (t) { if ((ownOff[t] || []).length) addIssue('warn', '本桌面专属字卡「' + (CC_LABEL[t] || t) + '」有 ' + ownOff[t].length + ' 个分组被停用。'); });
 Object.keys(pubOff).forEach(function (t) { if ((pubOff[t] || []).length) addIssue('warn', '公用字卡「' + (CC_LABEL[t] || t) + '」有 ' + pubOff[t].length + ' 个分组被停用。'); });
@@ -348,7 +412,7 @@ if (qsEn && qsProbEff === 0 && qsProbRaw > 0) addIssue('warn', '「词典拼字�
 if (!qsEn) addIssue('warn', '「词典拼字」总开关关闭：词典语录字卡不会参与拼字出镜。');
 else if (qsProbRaw === 0) addIssue('warn', '「词典拼字」概率为 0%：词典语录字卡不会参与拼字出镜。');
 else {
-var dictBlock = !dictUseChat ? '词典的「聊天使用」被关闭' : (dictOvChat === 0 ? '词典的「聊天概率」为 0%' : ((dictPoolN <= 0) ? '词典抽卡池为空（语录被逐张关闭）' : ''));
+var dictBlock = !dictUseChat ? '词典的「聊天使用」被关闭' : (dictOvChat === 0 ? '词典的「聊天概率」为 0%' : ((dictPoolN <= 0) ? '词典抽卡池为空（语录被逐张关闭' + (goffNames('dict').length ? '或整组停用 ' + goffNames('dict').length + ' 组' : '') + '）' : ''));
 if (dictBlock) addIssue('warn', '「词典拼字」开着且概率生效，但' + dictBlock + '——拼字抽不到卡，去「字卡库→默认字卡·词典」页调整。');
 }
 if (!mjfEn) addIssue('warn', '「梦角自由造句」总开关关闭。');
@@ -381,18 +445,22 @@ if (all === 0) fixable.push({ id: 'fx-dcp-all', key: 'reply-dcp-all', kind: 'num
 ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
 if (!boolOf(store('dc-cat-' + k), true)) fixable.push({ id: 'fx-dc-cat-' + k, key: 'dc-cat-' + k, kind: 'en' });
 if (num(store('dc-prob-' + k), 25) === 0) fixable.push({ id: 'fx-dc-prob-' + k, key: 'dc-prob-' + k, kind: 'num', v: 25 });
-if (presetCount(k) > 0 && offCount(k) >= presetCount(k)) fixable.push({ id: 'fx-dc-off-' + k, kind: 'cardoff', cat: k });
+if (presetCount(k) > 0 && effOff(k) >= presetCount(k)) fixable.push({ id: 'fx-dc-off-' + k, kind: 'cardoff', cat: k });
 });
 DCF.forEach(function (d) {
 if (d[0] === 'deskcheck') return;
 if (num(store('dcf-' + d[0]), d[2]) === 0) fixable.push({ id: 'fx-dcf-' + d[0], key: 'dcf-' + d[0], kind: 'num', v: d[2] });
-if (d[3] && presetCount(d[0]) > 0 && offCount(d[0]) >= presetCount(d[0])) fixable.push({ id: 'fx-dcf-off-' + d[0], kind: 'cardoff', cat: d[0] });
+if (d[3] && presetCount(d[0]) > 0 && effOff(d[0]) >= presetCount(d[0])) fixable.push({ id: 'fx-dcf-off-' + d[0], kind: 'cardoff', cat: d[0] });
+});
+Object.keys(goffRec).forEach(function (cat) {
+if (goffNames(cat).length) fixable.push({ id: 'fx-goff-dc-' + cat, kind: 'goff', cat: cat });
 });
 }
 fixable.forEach(function (f) {
 if (f.kind === 'en') fixEnable(f.id, f.key);
 else if (f.kind === 'num') fixProb(f.id, f.key, f.v, f.key.indexOf('dcf-') === 0 ? function () { try { window.dcfRefreshUI(f.key.slice(4)); } catch (e) {} } : null);
 else if (f.kind === 'cardoff') fixCardOffs(f.id, f.cat);
+else if (f.kind === 'goff') fixPresetGroups(f.id, f.cat);
 registerBulk(f.id);
 });
 Object.keys(ownOff).forEach(function (t) { if ((ownOff[t] || []).length) { var id = 'fx-goff-own-' + t; fixGroupOff(id, 'own', t); registerBulk(id); } });
@@ -544,27 +612,30 @@ dcInner += rowHtml(nm + '概率（dc-overall-' + k + '）', v + '% · ' + humanP
 ['main', 'kaomoji', 'emoji', 'touch'].forEach(function (k) {
 var cat = boolOf(store('dc-cat-' + k), true);
 var prob = num(store('dc-prob-' + k), 25);
-var total = presetCount(k), off = offCount(k);
+var total = presetCount(k), off = offCount(k), gn = goffNames(k).length;
+var avail = total - effOff(k);   // #932：单卡闸与分组闸合并后的真实可用张数
 var funnel = funnelHtml([
 { t: '锁', ok: !lock }, { t: '总开关', ok: dcEn }, { t: '聊天场景', ok: dcUseChat }, { t: '总档', ok: all > 0 },
-{ t: '分类', ok: cat }, { t: '占比', ok: prob > 0 }, { t: '内容', ok: (total - off) > 0 }
+{ t: '分类', ok: cat }, { t: '占比', ok: prob > 0 }, { t: '内容', ok: avail > 0 }
 ]);
-var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && (total - off > 0);
-var idCat = 'inl-dc-cat-' + k, idProb = 'inl-dc-prob-' + k, idOff = 'inl-dc-off-' + k;
+var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && avail > 0;
+var idCat = 'inl-dc-cat-' + k, idProb = 'inl-dc-prob-' + k, idOff = 'inl-dc-off-' + k, idGoff = 'inl-dc-goff-' + k;
 if (!lock) {
 if (!cat) fixEnable(idCat, 'dc-cat-' + k);
 if (prob === 0) fixProb(idProb, 'dc-prob-' + k, 25);
-if (total > 0 && off >= total) fixCardOffs(idOff, k);
+if (total > 0 && avail <= 0) fixCardOffs(idOff, k);
+if (gn) fixPresetGroups(idGoff, k);
 }
 dcInner += '<div class="storage-row"><span>' + esc(CC_LABEL[k]) + '（dc-cat-' + k + ' · dc-prob-' + k + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">' +
-(cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天生效 ' + dcOvEff + '%×' + prob + '% ≈ ' + humanProb(dcOvEff * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') +
+(cat ? '开' : '关') + ' · 占比 ' + prob + '%（聊天生效 ' + dcOvEff + '%×' + prob + '% ≈ ' + humanProb(dcOvEff * prob / 100, 'reply') + '） · ' + total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') + goffSuffix(k) +
 (!cat && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idCat + '">启用</button>' : '') +
 (prob === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idProb + '">恢复占比</button>' : '') +
-(total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
+(total > 0 && avail <= 0 && off > 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
+(gn && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idGoff + '">启用分组</button>' : '') +
 ' <span class="ca-jump ca-edit" data-jump="defaultCards">调整</span></b></div>' + funnel;
 });
 push('二、系统预设 · 聊天默认字卡', dcInner,
-'漏斗＝「锁 → 总开关 → 聊天场景 → 总档 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。聊天生效概率＝dc-overall-chat 经总档缩放后的值（分类占比是命中后的相对权重，不再乘总档）。<br><b>注意</b>：分类占比高不等于「回复里就有这张卡」——预设抽中后还要过「自定义字卡占比 csp-cust」这一签才会覆盖自定义文本，实际覆盖率见上方「回复链路」节。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比，或点「修复」恢复默认。');
+'漏斗＝「锁 → 总开关 → 聊天场景 → 总档 → 分类开关 → 分类占比>0 → 有未关闭的内容」，任一 ✕ 该分类就抽不到。聊天生效概率＝dc-overall-chat 经总档缩放后的值（分类占比是命中后的相对权重，不再乘总档）。<br><b>内容闸口径</b>：单卡关闭与「整组停用」(#926，分组标题右侧开关，存 dc-groups-off) 合并统计——整组停用的组内字卡同样不参与抽取，所以一行可能显示「0 张可用」而单卡开关全是开的。<br><b>注意</b>：分类占比高不等于「回复里就有这张卡」——预设抽中后还要过「自定义字卡占比 csp-cust」这一签才会覆盖自定义文本，实际覆盖率见上方「回复链路」节。<br><b>怎么调</b>：点每行「调整」进「聊天默认字卡」页改开关/占比/分组开关，或点「修复」恢复默认（「启用分组」只放开分组、不动组内单卡开关）。');
 var dictInner = '';
 var dictAnyUse = false, dictAnyProb = false;
 ['chat', 'mail', 'feed'].forEach(function (k, i) {
@@ -583,16 +654,20 @@ var id = 'inl-dict-ov-' + k;
 if (v === 0 && !lock) fixProb(id, 'dict-overall-' + k, def);
 dictInner += rowHtml(nm + '概率（dict-overall-' + k + '）', v + '% · ' + humanProb(v, 'reply'), v === 0 ? 'warn' : 'ok', { fix: (v === 0 && !lock) ? id : '', edit: 'dictCards' });
 });
-dictInner += rowHtml('词典内置词条', presetGroups('dict').length + ' 组 · ' + presetCount('dict') + ' 条' + (offCount('dict') ? '（单卡关 ' + offCount('dict') + '）' : ''), 'mute');
+var idDictGoff = 'inl-dict-goff';
+if (goffNames('dict').length && !lock) fixPresetGroups(idDictGoff, 'dict');
+dictInner += rowHtml('词典内置词条', presetGroups('dict').length + ' 组 · ' + presetCount('dict') + ' 条' +
+(offCount('dict') ? '（单卡关 ' + offCount('dict') + '）' : '') + goffSuffix('dict') + ' · 可用 ' + dictPoolN + ' 条',
+dictPoolN > 0 ? 'mute' : 'warn', { fix: (goffNames('dict').length && !lock) ? idDictGoff : '', fixLabel: '启用分组', edit: 'dictCards' });
 var dq = 0, dw = 0;
 try { dq = (JSON.parse(glob('dict-custom-quotes') || '[]') || []).length; } catch (e) {}
 try { dw = (JSON.parse(glob('dict-custom-words') || '[]') || []).length; } catch (e) {}
 dictInner += rowHtml('自建词条（全局）', '语录 ' + dq + ' 条 · 词 ' + dw + ' 条', 'mute');
-var dictUsable = !lock && dictAnyUse && dictAnyProb;
-dictInner += rowHtml('实际可用', dictUsable ? '可用' : (lock ? '被二级锁整体停用' : '不可用'), dictUsable ? 'ok' : 'warn');
-dictInner += funnelHtml([{ t: '锁', ok: !lock }, { t: '场景', ok: dictAnyUse }, { t: '概率', ok: dictAnyProb }]);
+var dictUsable = !lock && dictAnyUse && dictAnyProb && dictPoolN > 0;
+dictInner += rowHtml('实际可用', dictUsable ? '可用' : (lock ? '被二级锁整体停用' : (dictPoolN <= 0 ? '抽卡池为空' : '不可用')), dictUsable ? 'ok' : 'warn');
+dictInner += funnelHtml([{ t: '锁', ok: !lock }, { t: '场景', ok: dictAnyUse }, { t: '概率', ok: dictAnyProb }, { t: '内容', ok: dictPoolN > 0 }]);
 push('三、系统预设 · 词典（拼字抽句/切词）', dictInner,
-'词典属系统内置字卡，二级锁锁定时整池停用（下方开关全开也无效）；自建词条为全局键，不随桌面隔离。聊天词典内容走「词典拼字」，写信/朋友圈开启后按概率混入文案。<br><b>怎么调</b>：点每行「调整」进「默认字卡·词典」页。');
+'词典属系统内置字卡，二级锁锁定时整池停用（下方开关全开也无效）；自建词条为全局键，不随桌面隔离。聊天词典内容走「词典拼字」，写信/朋友圈开启后按概率混入文案。词条可逐张关闭、也可整组停用（分组标题右侧开关），任一方式覆盖到全部词条时抽卡池即为空。<br><b>怎么调</b>：点每行「调整」进「默认字卡·词典」页。');
 var fInner = '';
 var idDcfEn = 'inl-dcf-en';
 if (!dcfEn && !lock) fixEnable(idDcfEn, 'dcf-enabled');
@@ -606,23 +681,27 @@ var raw = num(store('dcf-' + key), def);
 var eff = dcfEff(raw, key);
 var total = hasPool ? presetCount(key) : -1;
 var off = hasPool ? offCount(key) : 0;
+var gn = hasPool ? goffNames(key).length : 0;
+var avail = hasPool ? total - effOff(key) : 1;   // #932：单卡闸∪分组闸后的真实可用张数
 var gate = key === 'deskcheck' ? true : dcfEn;
-var usable = !lock && gate && eff > 0 && (!hasPool || (total - off > 0));
+var usable = !lock && gate && eff > 0 && avail > 0;
 var funnel = funnelHtml([
 { t: '锁', ok: !(lock && hasPool) }, { t: '总开关', ok: gate }, { t: '概率', ok: eff > 0 },
-{ t: '内容', ok: !hasPool || (total - off > 0) }
+{ t: '内容', ok: avail > 0 }
 ]);
-var id = 'inl-dcf-' + key, idOff = 'inl-dcf-off-' + key;
+var id = 'inl-dcf-' + key, idOff = 'inl-dcf-off-' + key, idGoff = 'inl-dcf-goff-' + key;
 if (raw === 0 && !lock) fixProb(id, 'dcf-' + key, def, function () { try { window.dcfRefreshUI(key); } catch (e) {} });
-if (hasPool && total > 0 && off >= total && !lock) fixCardOffs(idOff, key);
-var cnt = hasPool ? (total + ' 张' + (off ? '（单卡关 ' + off + '）' : '')) : '—（发到聊天型，无独立字卡池）';
+if (hasPool && total > 0 && avail <= 0 && off > 0 && !lock) fixCardOffs(idOff, key);
+if (hasPool && gn && !lock) fixPresetGroups(idGoff, key);
+var cnt = hasPool ? (total + ' 张' + (off ? '（单卡关 ' + off + '）' : '') + goffSuffix(key)) : '—（发到聊天型，无独立字卡池）';
 fInner += '<div class="storage-row"><span>' + esc(name) + '（dcf-' + key + '）</span><b class="' + (usable ? 'ca-ok' : 'ca-warn') + '">存盘 ' + raw + '% · 生效 ' + eff + '%（' + humanProb(eff, 'trig') + '） · ' + cnt +
 (raw === 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + id + '">恢复概率</button>' : '') +
-(hasPool && total > 0 && off >= total && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
+(hasPool && total > 0 && avail <= 0 && off > 0 && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idOff + '">恢复单卡</button>' : '') +
+(hasPool && gn && !lock ? ' <button class="ca-fix" type="button" data-fix="' + idGoff + '">启用分组</button>' : '') +
 ' <span class="ca-jump ca-edit" data-jump="funCards">调整</span></b></div>' + funnel;
 });
 push('四、系统预设 · 其他互动功能字卡（19 类）', fInner,
-'生效概率 = 分类存盘值 × 聊天概率总档 ÷ 100；总开关关闭时除「跨桌面查岗」外全部归 0。二级锁锁定时系统预设内容不可用，但你自建的同类功能字卡仍可用（本页只统计系统预设张数）。<br><b>怎么调</b>：点每行「调整」进「其他互动功能字卡」页（聊天概率总档在「回复设置 → 聊天」里调）。');
+'生效概率 = 分类存盘值 × 聊天概率总档 ÷ 100；总开关关闭时除「跨桌面查岗」外全部归 0。二级锁锁定时系统预设内容不可用，但你自建的同类功能字卡仍可用（本页只统计系统预设张数）。<br><b>内容闸口径</b>：单卡关闭与「整组停用」（分组标题右侧开关，存 dc-groups-off）合并统计，整组停用的组内字卡不参与抽取。<br><b>怎么调</b>：点每行「调整」进「其他互动功能字卡」页（聊天概率总档在「回复设置 → 聊天」里调）。');
 var oInner = '';
 var MC = window.MOOD_FOLLOWUP_DATA || {};
 var idMc = 'inl-mc-en';
@@ -793,6 +872,8 @@ DCF.forEach(function (d) { if (d[0] !== 'deskcheck' && num(store('dcf-' + d[0]),
 var oo = offRecord('own'), po = offRecord('public');
 if (offCountIn(oo)) n++;
 if (offCountIn(po)) n++;
+var gso = goffRecord();
+Object.keys(gso).forEach(function (c) { if (Array.isArray(gso[c]) && gso[c].length) n++; });
 if (num(store('rn-prob'), 20) > 60) n++;   // >=100 是 bad、>60 是 warn，两者都计（同 build 的问题清单）
 if (!boolOf(store('qs-en'), true)) n++;
 else if (num(store('qs-prob'), 25) === 0) n++;

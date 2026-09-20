@@ -2643,7 +2643,7 @@ const FIX_SENTINELS = [
   { name: '#583a 预设覆盖率按「总档缩放 × (1−csp-cust)」算（改回 dc-overall-chat 原值或去掉 csp-cust 项＝又高报一倍，用户按它调参会调反）', file: 'js/card-audit.js', needle: 'var presetFinal = (lock || !dcEn || !dcUseChat) ? 0 : Math.round(dcOvEff * (100 - cspCust) / 100);' },
   { name: '#583b 自检页「调整」直达 回复设置→聊天 tab（删＝回复设置侧每行都跳不出去，用户看完「卡在哪」却到不了改的地方）', file: 'js/card-audit.js', needle: "if (key.indexOf('@reply:') === 0) return openReplyPage(key.slice(7));" },
   { name: '#583c 附加件全 0 的「全部恢复默认」真的逐键回默认（删＝按钮点了不动，表情包/图片/颜文字三类字卡继续永不出镜）', file: 'js/card-audit.js', needle: 'ATTACH.forEach(function (a) { if (storeSet(a[0], a[2])) okAny = true; });' },
-  { name: '#583d 默认聊天字卡漏斗补 dc-use-chat 场景闸与总档（删任一项＝场景关闭或总档=0 时该行仍显示 ✓，用户以为「占比 25% 就该出卡」）', file: 'js/card-audit.js', needle: 'var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && (total - off > 0);' },
+  { name: '#583d 默认聊天字卡漏斗补 dc-use-chat 场景闸与总档（删任一项＝场景关闭或总档=0 时该行仍显示 ✓，用户以为「占比 25% 就该出卡」）', file: 'js/card-audit.js', needle: 'var usable = !lock && dcEn && dcUseChat && all > 0 && cat && prob > 0 && avail > 0;' },
   { name: '#587e 今日留言横幅「仅桌面可见」从显示前门控延续到显示期（删掉＝横幅在音乐页继续悬着，压住三颗 tab 与返回/设置五处点不动）', file: 'js/calendar.js', needle: 'new MutationObserver(function () { if (phonePageEl.hidden) hideGreetBanner(); })' },
   { name: '#587f 横幅切页收起判据引用的桌面节点（删掉＝观察器报错/横幅永远不因切页收起）', file: 'js/calendar.js', needle: "const phonePageEl = document.getElementById('page-phone');" },
   // ==== 2026-09-16 #592（用户实报）设置 → 工具 →「使用提示」点击没有任何反应：原实现只调
@@ -3885,6 +3885,14 @@ const FIX_SENTINELS = [
      「reading 'side'」实锤。修法＝两条循环先判记录有效性、坏记录跳过不画，其余照常走完换装落底。 ==== */
   { name: '#919a 分帧整窗路径空洞守卫（删＝构建途中 renderMsg 抛错断链、frag 永不换装＝看不到最新消息复发）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') continue; // #919a 记录位空洞/坏记录跳过不画" },
   { name: '#919b 同步整窗路径空洞守卫（删＝异常一路上抛、调用方贴底收尾整段跳过）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') continue; // #919b 同 #919a：同步整窗路径也不得被单条空记录打断" },
+  /* ==== 2026-09-20 #932 字卡状态自检纳入「整组停用」（#926 的 dc-groups-off）：此前本页只按 dc-off-* 逐张统计＝整组停用清空分类时自检报「未发现明显问题」、一键修复也不接管 ==== */
+  { name: '#932a 分类内容闸按单卡∪分组合并口径（退回 total-off 单卡计数＝分组停用清空分类时该行仍显示 ✓，本批报障复发）', file: 'js/card-audit.js', needle: 'var avail = total - effOff(k);' },
+  { name: '#932b 取不到张数改问消费端总闸 isOff（换成自数 dc-off-*＝以后再加一道闸门自检又会落后于功能）', file: 'js/card-audit.js', needle: 'if (api.isOff(cat, c)) n++;' },
+  { name: '#932c 整组停用逐分类报警走名单通配遍历（删＝停一组时清单静默，用户看不到这类卡为什么不出）', file: 'js/card-audit.js', needle: '个分组被整组停用（组内 ' },
+  { name: '#932d 一键修复接管整组停用（缺这条＝批量修复只清单卡，被分组闸卡住的分类修不好）', file: 'js/card-audit.js', needle: "else if (f.kind === 'goff') fixPresetGroups(f.id, f.cat);" },
+  { name: '#932e 启用分组只删本分类名单不动单卡值（整体清或连带 dc-off-* 一起改＝越权改用户设置）', file: 'js/card-audit.js', needle: "return storeSet('dc-groups-off', JSON.stringify(o)) ? true : 'fail';" },
+  { name: '#932f 入口角标计数认整组停用（删＝不打开页面看不到有问题，角标仍是零告警面）', file: 'js/card-audit.js', needle: 'var gso = goffRecord();' },
+  { name: '#932g 词典漏斗补内容闸（dictPoolN 已按 effOff 统计，删该闸＝池被清空仍显示可用）', file: 'js/card-audit.js', needle: "{ t: '内容', ok: dictPoolN > 0 }" }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

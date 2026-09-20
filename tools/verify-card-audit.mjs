@@ -4,6 +4,10 @@
 //   ③设置入口角标 data-ca-issues；④「一键修复」真的写回默认值（reply-dcp-all 0→100）；
 //   ⑤问题行可点击跳转（data-jump 落到目标页）；⑥#page-card-audit 正确闭合不吞 tabbar；
 //   ⑦#583 回复链路节（系统预设 ↔ 自定义「互补占比」口径已被改写，见 B3h/B3h2/B3j）。
+//   ⑧#932 B13：整组停用（#926 的 dc-groups-off）纳入自检——角标 +1、逐分类报警点名组名、
+//     内容闸按「单卡∪分组」合并、停到清空时给「启用分组」、点它确认后名单该分类清空且组内单卡值不动。
+//   ⑨B10/B12e 存量误红收口：#746 起最终文件名由 device.js 的 diagExportDocx 拼装（basePrefix＋
+//     ISO 时间＋.docx），旧断言拿 mock 收到的前缀查「.docx」永远红；现 B10 查前缀契约、B12e 打真链。
 //   ⚠️ 本脚本跑的是构建产物；#583 的覆盖率/总档/一键恢复等行为细节在
 //   tools/verify-card-audit-reply-chain.mjs（内存拼装 src，构建前后都能跑）。
 // 用法：node build.mjs && node tools/verify-card-audit.mjs
@@ -209,7 +213,7 @@ ok(pickCountBefore !== pickCountAfter, 'B9c 取消勾选后「应用所选」计
 await evalJs("(function(){window.__exported=null;window.mochiDiagExportDocx=function(t,f,fm,tf,st){window.__exported={len:(t||'').length,f:f,st:st};return true;};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
 await sleep(300);
 const exp = J(await evalJs("(function(){return JSON.stringify(window.__exported||{});})()"));
-ok(exp && exp.len > 0 && (exp.f || '').indexOf('card-audit') >= 0 && (exp.f || '').indexOf('.docx') > 0, 'B10 「导出文件」走 docx 主链（mochiDiagExportDocx，文件名 .docx）', JSON.stringify(exp));
+ok(exp && exp.len > 0 && exp.f === 'mochi-card-audit-', 'B10 「导出文件」走 docx 主链（把 basePrefix 交给 mochiDiagExportDocx，最终文件名见 B12e 真链）', JSON.stringify(exp));
 
 // B11 #677 单卡关闭计数必须按【值】而不是「键在不在」
 //   根因：default-cards.js 的 setCardOff 写 off ? '1' : '0'，重新打开也不删键；
@@ -235,6 +239,87 @@ ok(afterFix.warn === false && afterFix.btn === 0, 'B11c 修复后告警与按钮
 const reqZero = J(await evalJs(`(function(){var b=document.getElementById('card-audit-body');return JSON.stringify({warn:(b?b.textContent:'').indexOf('已全部单卡关闭')>=0});})()`));
 ok(reqZero.warn === false, 'B11d 值=0 的历史键不被计入「单卡关闭」（键在不在 ≠ 关没关）', JSON.stringify(reqZero));
 
+// ===== B13 #932：整组停用（#926 的 dc-groups-off）纳入自检 =====
+//   此前本页只按 dc-off-* 逐张统计：用户把整个分组停用时该分类明明抽不到卡，自检却报
+//   「未发现明显问题」、一键修复也不接管＝自检比功能少一道闸。B13 覆盖三态：
+//   停一组（也要报警）→ 停到清空（内容闸 ✕ + 可修）→ 点「启用分组」（报警消失、抽取回来、单卡值不动）。
+const gMain = J(await evalJs(`(function(){
+  var d=(window.DEFAULT_CARD_DATA&&window.DEFAULT_CARD_DATA.main)||[];
+  var names=[],cards=[];
+  d.forEach(function(g){ if(!Array.isArray(g))return; names.push(g[0]); if(Array.isArray(g[1])) g[1].forEach(function(c){cards.push(c);}); });
+  return JSON.stringify({names:names, cards:cards.length, c0:cards[0]||'', c1:cards[1]||''});
+})()`));
+const setGroups = (obj) => evalJs('(function(){window.activeStore().set("dc-groups-off", ' + JSON.stringify(JSON.stringify(obj)) + ');return true;})()');
+const clearGroups = () => evalJs('(function(){window.activeStore().remove("dc-groups-off");return true;})()');
+const clickFix = (sel) => evalJs('(function(){var b=document.querySelector(\'#card-audit-body [data-fix="' + sel + '"]\');if(!b)return "nobtn";b.click();return "clicked";})()');
+const okModal = () => evalJs('(function(){var o=document.getElementById("modal-ok");if(o)o.click();return true;})()');
+const refreshAudit = () => evalJs("(function(){var r=document.getElementById('card-audit-refresh');if(r)r.click();return true;})()");
+const bodyTxt = async () => (await evalJs("(function(){var b=document.getElementById('card-audit-body');return b?b.textContent:'';})()")) || '';
+const mainRow = async () => J(await evalJs(`(function(){
+  var rows=[].slice.call(document.querySelectorAll('#card-audit-body .storage-row'));var r=null;
+  rows.forEach(function(x){ if(r)return; var s=x.querySelector('span'); if(s&&s.textContent.indexOf('dc-cat-main')>=0) r=x; });
+  if(!r) return JSON.stringify({found:false});
+  var f=r.nextElementSibling;
+  var b=document.getElementById('card-audit-body');var t=b?b.textContent:'';
+  var q=function(s){return document.querySelectorAll('#card-audit-body [data-fix="'+s+'"]').length;};
+  return JSON.stringify({found:true, row:r.textContent, funnel:(f&&f.classList.contains('ca-funnel'))?f.textContent:'',
+    body:t.indexOf('个分组被整组停用')>=0, gbtn:q('inl-dc-goff-main'), offbtn:q('inl-dc-off-main'), allfix:q('__allfix'),
+    goff:window.activeStore().get('dc-groups-off')});
+})()`));
+
+// 采样前先让角标落回当前真实状态：前面 B1~B11 各段改过一堆闸门键，而角标只在那四个事件
+// 里重算，直接取到的 badge0 是积压的旧值（实测 5→2 把本批的 +1 淹没）——先刷一次，
+// 之后 dc-groups-off 就是两次采样之间唯一的起变量。
+const readBadge = () => evalJs("(function(){var r=document.getElementById('row-card-audit');return r?Number(r.getAttribute('data-ca-issues')||0):-1;})()");
+await evalJs("(function(){document.dispatchEvent(new Event('mochi-cardlock-open'));return true;})()");
+await sleep(800);
+const badge0 = Number(await readBadge());
+await setGroups({ main: [gMain.names[0]] });
+await evalJs("(function(){document.dispatchEvent(new Event('mochi-cardlock-open'));return true;})()");   // refreshAll → updateBadge
+await sleep(600);
+const badge1 = Number(await readBadge());
+ok(badge0 >= 0 && badge1 > badge0, 'B13a 只停一个分组也让入口角标 +1（quickIssueCount 认 dc-groups-off）', badge0 + ' -> ' + badge1);
+await refreshAudit();
+await sleep(1400);
+const r13b = await mainRow();
+ok(r13b.found === true && r13b.body === true && r13b.gbtn >= 1, 'B13b 整组停用出报警（点名组名）＋该行带「启用分组」按钮', JSON.stringify({ body: r13b.body, gbtn: r13b.gbtn, row: (r13b.row || '').slice(0, 70) }));
+ok(r13b.row.indexOf('整组停用 1 组') >= 0 && r13b.funnel.indexOf('✕内容') < 0, 'B13b2 未清空分类时仍显示「整组停用 1 组·M 张」且内容闸保持 ✓', JSON.stringify({ row: (r13b.row || '').slice(0, 90), funnel: (r13b.funnel || '').slice(0, 90) }));
+
+await setGroups({ main: gMain.names });
+await evalJs('(function(){window.activeStore().set(' + JSON.stringify('dc-off-main:' + gMain.c0) + ',"1");return true;})()');
+await refreshAudit();
+await sleep(1500);
+const r13c = await mainRow();
+const t13c = await bodyTxt();
+ok(r13c.funnel.indexOf('✕内容') >= 0 && t13c.indexOf('全部关闭（单卡关闭 1 张、整组停用 ' + gMain.names.length + ' 个分组）') >= 0,
+  'B13c 停到清空＝内容闸 ✕，报警按「单卡 1 张 + 整组 N 组」合并口径点名', JSON.stringify({ funnel: (r13c.funnel || '').slice(0, 90), hit: t13c.indexOf('全部关闭（单卡关闭 1 张') }));
+ok(r13c.gbtn >= 1 && r13c.offbtn >= 1 && r13c.allfix >= 1, 'B13c2 清空态同时给「启用分组」「恢复单卡」并纳入一键修复', JSON.stringify({ gbtn: r13c.gbtn, offbtn: r13c.offbtn, allfix: r13c.allfix }));
+
+const c13d = await clickFix('inl-dc-goff-main');
+await sleep(400);
+await okModal();
+await sleep(1400);
+const r13d = J(await evalJs(`(function(){
+  var b=document.getElementById('card-audit-body');var t=b?b.textContent:'';
+  var api=window.defaultCardApiFor(window.activeStore());
+  var raw=window.activeStore().get('dc-groups-off');
+  var left=null; try{ var o=JSON.parse(raw||'{}'); left=Array.isArray(o.main)?o.main.length:0; }catch(e){ left='parse'; }
+  return JSON.stringify({left:left, alarm:t.indexOf('个分组被整组停用')>=0,
+    gbtn:document.querySelectorAll('#card-audit-body [data-fix="inl-dc-goff-main"]').length,
+    stillOff:api.isOff('main', ${JSON.stringify(gMain.c0)}), backOn:api.isOff('main', ${JSON.stringify(gMain.c1)})});
+})()`));
+ok(c13d === 'clicked' && r13d.left === 0 && r13d.alarm === false && r13d.gbtn === 0,
+  'B13d 点「启用分组」确认后：该分类名单清空、报警与按钮一起消失（不是「点了没反应」）', JSON.stringify({ c: c13d, left: r13d.left, alarm: r13d.alarm, gbtn: r13d.gbtn }));
+ok(r13d.stillOff === true && r13d.backOn === false, 'B13d2 只放开分组：组内那张单卡关闭的卡仍是关闭，其余恢复可用', JSON.stringify({ stillOff: r13d.stillOff, backOn: r13d.backOn }));
+const r13e = await mainRow();
+ok(r13e.funnel.indexOf('✕内容') < 0, 'B13e 恢复后内容闸回到 ✓（该分类重新有可用内容）', (r13e.funnel || '').slice(0, 90));
+await clearGroups();
+await evalJs("(function(){var p='dc-off-main:'+" + JSON.stringify(JSON.stringify(gMain.c0)) + ";window.activeStore().set(p,'0');return true;})()");
+await refreshAudit();
+await sleep(1200);
+const r13f = await mainRow();
+ok(r13f.body === false && r13f.gbtn === 0 && r13f.row.indexOf('整组停用') < 0, 'B13f 名单清空后页面回到无分组停用形态（无残留报警/按钮）', JSON.stringify({ body: r13f.body, gbtn: r13f.gbtn, row: (r13f.row || '').slice(0, 70) }));
+
 // B12 #677 导出报告绝不能为空 ＋ #746 docx 口径
 //   根因：lastText 只在 build() 末行赋值，而 build() 没有兜底；未打开过自检页（或 build
 //   中途抛错被 openAudit/refreshAll 吞掉）时 lastText 恒为空串 ⇒ 导出文件里 report 为空
@@ -250,7 +335,21 @@ ok(exp2 && exp2.len > 200 && exp2.all.indexOf('自检结论') >= 0, 'B12a 未打
 ok(exp2 && exp2.all.indexOf('二级密码锁') >= 0 && exp2.all.indexOf('卡数据健康') >= 0, 'B12b docx 导出报告含完整分节正文', (exp2 && exp2.all || '').slice(0, 30));
 ok(exp2 && exp2.head.indexOf('版本：') >= 0 && exp2.head.indexOf('时间：') >= 0 && exp2.head.indexOf('设备：') >= 0 && exp2.head.indexOf('当前桌面：') >= 0, 'B12c docx 头部承接原 JSON payload 字段（版本/时间/设备/桌面）', (exp2 && exp2.head || '').slice(0, 120));
 ok(exp2 && exp2.all.indexOf('自检中途出错') < 0, 'B12d 正常路径无内部错误行（buildError 空时不写「自检中途出错：」）', (exp2 && exp2.head || '').slice(0, 120));
-ok(exp2 && (exp2.f || '').indexOf('.docx') > 0, 'B12e 导出文件名后缀 .docx', exp2 && exp2.f);
+// B12e 最终文件名：#746 起由 device.js 的 diagExportDocx 统一拼装（basePrefix＋ISO 时间＋.docx），
+//   所以 .docx 只能在真链上断言（查 mock 收到的前缀＝永远红＝存量误红，本批收掉）。
+await cdp('Page.navigate', { url: baseUrl + '/index.html' });
+await sleep(2600);
+const expName = J(await evalJs(`(function(){
+  var real = window.mochiDiagExportDocx;
+  if (typeof real !== 'function') return JSON.stringify({ err: 'no-real-fn' });
+  var got = null;
+  window.mochiExportBlob = function (blob, fname) { got = { size: blob && blob.size, name: fname }; return Promise.resolve('ok'); };
+  try { real('mochi 自检真链正文 · verify-card-audit', 'mochi-card-audit-', null, function () {}, 'verify'); } catch (e) { got = { err: String(e) }; }
+  window.mochiExportBlob = undefined;
+  return JSON.stringify(got || { err: 'not-called' });
+})()`));
+ok(!expName.err && /\.docx$/.test(expName.name || '') && (expName.name || '').indexOf('mochi-card-audit-') === 0 && expName.size > 64,
+  'B12e 真链（device.js）拼出的导出名以 .docx 结尾、前缀正确、blob 非空壳', JSON.stringify(expName));
 // B12f 兜底链：mochiDiagExportDocx 不在（旧产物/极端内核）→ 退回原 JSON 链，绝不空手
 await evalJs("(function(){window.__exported2=null;window.mochiDiagExportDocx=undefined;window.mochiExportFile=function(j,f){window.__exported2={len:(j||'').length,f:f};return Promise.resolve('ok');};var b=document.getElementById('card-audit-export');if(b)b.click();return true;})()");
 await sleep(400);
