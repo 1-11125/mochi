@@ -198,6 +198,11 @@
     // #231）。漏排除＝migrateLegacy 每次刷新把它当旧顶层业务键迁进 default 并删根键，标记写一次
     // 就没了 → 开屏永远只出「点此更新」、等 3~5 分钟/换流量的指引不再出现（实测：写入后 navigate
     // 2.2s 读回即 null）。
+    // #935（2026-09-20）：电量/发烫自测的记录（energy-check.js）——battery-check-run 为
+    // 进行中的分段计时（刷新/杀进程重开要续测），battery-check-last / heat-check-last 为
+    // 「上次结果」回显与跑完时的挂起报告。都是全局根键、不随联系人隔离，漏排除会被
+    // migrateLegacy 每次刷新迁进 default 并删根键（长窗口自测跑到一半记录就没了）。
+    'battery-check-run', 'battery-check-last', 'heat-check-last',
     'ver-retry'];
   function isExcluded(k) {
     const r = k.slice(G.length + 1);

@@ -1,0 +1,535 @@
+// ===== v3.26.x #935：电量消耗自测 + 发烫自测（设置→工具 两行自接线；用户直派
+//   「帮我在工具里新增一个电量消耗自测和发烫自测…用来检查异常」）=====
+// 两个自测都不改任何业务数据、不写业务键，只产出可复制/导出的报告（同「卡顿自检」
+// 「设备兼容诊断」口径）；长窗口自测的记录只存聚合量，不随时长膨胀。
+//
+// ① 电量消耗自测（#row-battery-check）：Battery Status API 分段实测掉电速率——前台使用段 /
+//    后台段（页面仍在跑）/ 未运行段（页面被系统冻结或关掉）分开算 %/小时；充电段整体剔除
+//    （充电中电量不降反升，混进来＝把耗电算成 0）。15 分钟~过夜长窗口，中途刷新/被系统杀
+//    进程重开都续测（run 记录持久化在 xy-home-v2:battery-check-run），跑完页面不可见则
+//    回前台补弹一次报告（能开着去忙别的，是这个自测可用的前提）。
+//    iPhone/Safari 全系没有这个接口——特性检测如实告知能力边界并给替代路径，不写机型分支。
+// ② 发烫自测（#row-heat-check）：浏览器读不到手机温度（全平台没有温度接口）——只能测
+//    「发烫的后果」：先静置 3 秒量基准帧率，再跑 10 轮固定工作量（首轮现场校准到 ~700ms/轮，
+//    各机型/各内核同一口径、零机型分支），比对「开头三轮 vs 最后三轮」的耗时：系统因发热
+//    限频时，同样的活会越干越慢。≥25% 判「明显降频」、10~25%「轻度」、<10%「未见降频」；
+//    附帧率、电池状态与发热因素清单。（低电量/省电模式同样会降频，报告里点名对照。）
+(function () {
+  'use strict';
+  if (window.mochiEnergyCheck) return;
+
+  var BAT_LAST_KEY = 'xy-home-v2:battery-check-last';
+  var HEAT_LAST_KEY = 'xy-home-v2:heat-check-last';
+  var BAT_RUN_KEY = 'xy-home-v2:battery-check-run';
+  var CALL_KEY = 'xy-home-v2:call-active';
+  var BAT_MIN_MS = 10000;           // 下限 10 秒（无头验证/快速复核；UI 档位最小 15 分钟）
+  var BAT_MAX_MS = 8 * 3600 * 1000; // 上限 8 小时（过夜档）
+  var SAMPLE_MIN = 2000, SAMPLE_MAX = 30000;
+  var SEG_MIN_MS = 5 * 60 * 1000;   // 单段 ≥5 分钟才进结论；不足 5 分钟只给「粗测」值
+  var SEG_SHOW_MS = 10000;          // 单段 <10 秒不给数字（样本太少，纯噪声）
+  var FG_WARN = 18, FG_BAD = 35;    // 前台使用 %/小时 参考带
+  var BG_WARN = 3, BG_BAD = 8;      // 后台段（页面仍在跑）%/小时 参考带
+  var GAP_WARN = 2, GAP_BAD = 6;    // 未运行段（页面没在跑）参考带——只作对照，不进结论
+  var HEAT_IDLE_MS = 3000, HEAT_ROUNDS = 10, HEAT_ROUND_MS = 700, HEAT_GAP_MS = 20;
+  var SLOW_BAD = 0.25, SLOW_MILD = 0.10; // 末段比开头慢的判定阈值（发热降频的共用阈值）
+  var BAT_DURS = { '15': 900000, '30': 1800000, '60': 3600000, '180': 10800000, '480': 28800000 };
+
+  // ---------- 小工具 ----------
+  function lsGet(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function lsSet(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); return true; } catch (e) { return false; } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+  function mins(ms) {
+    var m = Math.round(Math.max(0, ms) / 60000);
+    if (m < 60) return m + ' 分钟';
+    var h = Math.round(m / 6) / 10;
+    return (h % 1 === 0 ? h : h.toFixed(1)) + ' 小时';
+  }
+  function leftTxt(run) { return mins(run.t0 + run.ms - Date.now()); }
+  function rate(drop, ms) { return ms > 0 ? Math.round(drop / (ms / 3600000) * 10) / 10 : 0; }
+  function bandOf(r, warn, bad) { return r >= bad ? '异常' : (r >= warn ? '偏高' : '正常'); }
+  function med(a) {
+    if (!a.length) return 0;
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function dtTxt(ts) {
+    try { var d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+    catch (e) { return ''; }
+  }
+  function callActive() {
+    try {
+      var raw = sessionStorage.getItem(CALL_KEY) || localStorage.getItem(CALL_KEY);
+      var info = raw ? JSON.parse(raw) : null;
+      return !!(info && info.status && info.status !== 'ended' && info.ts && (Date.now() - info.ts) < 90000);
+    } catch (e) { return false; }
+  }
+  // 发热/耗电相关因素清单（保活探针由 bg-keep.js 暴露；旧产物无探针时如实说读取不到）
+  function factorLines() {
+    var out = [];
+    var ka = null;
+    try { ka = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null; } catch (e) { ka = null; }
+    if (ka) {
+      out.push('后台保活=' + (ka.keep ? '开（页面在后台持续运行，最常见的耗电/发热源）' : '关'));
+      out.push('后台通知=' + (ka.notify ? '开' : '关'));
+      var mu = ka.music || null;
+      var playing = !!(mu && (mu.strict || (mu.flag && mu.paused === false)));
+      out.push('音乐=' + (playing ? '播放中（持续放音＝正常发热源）' : '未播放'));
+    } else {
+      out.push('保活/通知状态：未能读取（页面较早版本或被裁剪）');
+    }
+    out.push('通话=' + (callActive() ? '通话中（持续放音＝正常发热源）' : '不在通话'));
+    return out;
+  }
+  function battLine(bm) {
+    if (!bm) return null;
+    try { return Math.round(Number(bm.level) * 100) + '% · ' + (bm.charging ? '充电中' : '未充电'); } catch (e) { return null; }
+  }
+  function getBm() {
+    // 特性检测（零机型分支）：有接口就返回，没有/被拒就 null
+    return new Promise(function (resolve) {
+      try {
+        if (typeof navigator.getBattery !== 'function') return resolve(null);
+        navigator.getBattery().then(function (bm) { resolve(bm || null); }, function () { resolve(null); });
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  // ---------- 报告弹窗（复制/导出，同卡顿自检 #884 口径） ----------
+  function reportModal(title, rep, expPrefix, shareTitle, okLabel, onOk) {
+    if (!window.openModal) return;
+    var ctl = window.openModal(title, rep.text, function () { if (typeof onOk === 'function') onOk(); }, {
+      noInput: true, textarea: true, textareaRows: 16, big: true,
+      staticText: '报告只在本机采样、不上传；可【复制】或【导出docx】发给开发者。',
+      copyBtn: {
+        label: '复制',
+        fn: function (c) {
+          var txt = c ? c.text() : rep.text;
+          var hint = function (s) { if (c && c.hint) c.hint(s); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () { hint('已复制到剪贴板，直接粘贴发给开发者即可'); }, function () { hint('复制失败，请长按选字手动复制'); });
+          } else {
+            hint('当前内核不支持一键复制，请长按文本手动复制（或用【导出docx】）');
+          }
+        }
+      },
+      exportBtn: {
+        label: '导出docx',
+        fn: function (c) {
+          var txt = c ? c.text() : rep.text;
+          if (typeof window.mochiDiagExportDocx === 'function') window.mochiDiagExportDocx(txt, expPrefix, null, null, shareTitle);
+          else if (c && c.hint) c.hint('导出组件未就绪，请用【复制】或长按手选复制');
+        }
+      }
+    });
+    try { if (ctl && ctl.okText) ctl.okText(okLabel || '再测一次'); } catch (e) {}
+  }
+  // 跑完时页面不可见＝报告挂起（写 pending，回前台补弹一次）；可见＝直接弹
+  function deliver(kind, rep) {
+    var key = kind === 'battery' ? BAT_LAST_KEY : HEAT_LAST_KEY;
+    if (document.hidden) {
+      var last = lsGet(key, null) || {};
+      last.pending = 1; last.text = rep.text; last.t = rep.t; last.verdict = rep.verdict;
+      lsSet(key, last);
+      return;
+    }
+    popReport(kind, rep);
+  }
+  function popReport(kind, rep) {
+    if (kind === 'battery') reportModal('电量消耗自测报告', rep, 'mochi-batterycheck-', 'mochi 电量消耗自测报告', '再测一次', askBattery);
+    else reportModal('发烫自测报告', rep, 'mochi-heatcheck-', 'mochi 发烫自测报告', '再测一次', runHeatUI);
+  }
+  function popPending() {
+    if (document.hidden) return;
+    var lb = lsGet(BAT_LAST_KEY, null);
+    if (lb && lb.pending && lb.text) { lb.pending = 0; lsSet(BAT_LAST_KEY, lb); popReport('battery', { text: lb.text, verdict: lb.verdict, t: lb.t }); return; }
+    var lh = lsGet(HEAT_LAST_KEY, null);
+    if (lh && lh.pending && lh.text) { lh.pending = 0; lsSet(HEAT_LAST_KEY, lh); popReport('heat', { text: lh.text, verdict: lh.verdict, t: lh.t }); }
+  }
+
+  // ---------- 进度浮条（同 #905/#906 卡顿自测顶部胶囊） ----------
+  var barEl = null, barTimer = null;
+  function bar(txt, autoHideMs) {
+    try {
+      if (!barEl) {
+        barEl = document.createElement('div');
+        barEl.id = 'energy-check-bar';
+        barEl.style.cssText = 'position:fixed;top:max(14px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);max-width:88%;z-index:99999;background:rgba(18,18,28,.94);color:#fff;padding:8px 14px;border-radius:999px;font-size:12px;line-height:1.45;text-align:center;pointer-events:none;box-shadow:0 2px 12px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        document.body.appendChild(barEl);
+      }
+      barEl.textContent = txt;
+      if (barTimer) { clearTimeout(barTimer); barTimer = null; }
+      if (autoHideMs) barTimer = setTimeout(hideBar, autoHideMs);
+    } catch (e) {}
+  }
+  function hideBar() { try { if (barEl && barEl.parentNode) barEl.parentNode.removeChild(barEl); } catch (e) {} barEl = null; if (barTimer) { clearTimeout(barTimer); barTimer = null; } }
+
+  // ========== ① 电量消耗自测 ==========
+  var _batRun = null, _batTimer = null, _batBm = null, _batResolve = null, _batTick = null, _batStarting = false;
+
+  function writeRun(run) { lsSet(BAT_RUN_KEY, run); }
+  function stopBatTimer() { if (_batTimer) { clearInterval(_batTimer); _batTimer = null; } }
+
+  function createRun(bm, ms) {
+    var now = Date.now();
+    var lv = 0;
+    try { lv = Number(bm.level) || 0; } catch (e) {}
+    return {
+      t0: now, ms: ms, iv: clamp(Math.round(ms / 40), SAMPLE_MIN, SAMPLE_MAX),
+      last: now, lastLv: lv, lastSt: (bm.charging ? 'chg' : (document.hidden ? 'bg' : 'fg')),
+      fgMs: 0, bgMs: 0, gapMs: 0, chgMs: 0, fgDrop: 0, bgDrop: 0, gapDrop: 0,
+      lv0: lv, lvEnd: lv, n: 0
+    };
+  }
+  // 单次采样：把「上一段」的时长与掉电量按采样时刻的实际状态归档（充电段整段剔除）
+  function sampleOnce(run, bm) {
+    var lv;
+    try { lv = Number(bm.level); } catch (e) { return; }
+    if (!isFinite(lv)) return;
+    var ch = false;
+    try { ch = !!bm.charging; } catch (e) {}
+    var now = Date.now();
+    var dt = now - run.last;
+    if (dt < 500) return; // 定时器与 visibilitychange 撞上时的重复采样，跳过
+    var dLv = (run.lastLv - lv) * 100; // 电量百分点（下降为正；充电回升为负＝不记）
+    var st = (dt > run.iv * 2.5) ? 'gap' : run.lastSt; // 采样没接上＝页面没在跑（被冻结/关掉）
+    if (st === 'chg') { run.chgMs += dt; }
+    else if (st === 'gap') { run.gapMs += dt; if (dLv > 0) run.gapDrop += dLv; }
+    else if (st === 'bg') { run.bgMs += dt; if (dLv > 0) run.bgDrop += dLv; }
+    else { run.fgMs += dt; if (dLv > 0) run.fgDrop += dLv; }
+    run.last = now; run.lastLv = lv; run.lvEnd = lv; run.n++;
+    run.lastSt = ch ? 'chg' : (document.hidden ? 'bg' : 'fg');
+  }
+  function batTick() {
+    var r = _batRun;
+    if (!r) return;
+    if (_batBm) { try { sampleOnce(r, _batBm); } catch (e) {} }
+    writeRun(r);
+    if (Date.now() >= r.t0 + r.ms) { endBatRun(); return; }
+    if (typeof _batTick === 'function') _batTick({ left: Math.max(0, Math.ceil((r.t0 + r.ms - Date.now()) / 1000)), fgMin: Math.round(r.fgMs / 60000), bgMin: Math.round(r.bgMs / 60000) });
+    updateBatSub();
+  }
+  function startBatLoop(run) {
+    stopBatTimer();
+    _batTimer = setInterval(batTick, run.iv);
+  }
+  function endBatRun() {
+    var run = _batRun;
+    if (!run) return null;
+    _batRun = null; stopBatTimer(); _batBm = null; _batTick = null;
+    lsDel(BAT_RUN_KEY);
+    var rep = buildBat(run);
+    var last = lsGet(BAT_LAST_KEY, null) || {};
+    last.t = rep.t; last.verdict = rep.verdict; last.rateTxt = rep.rateTxt; last.text = rep.text; last.pending = 0;
+    lsSet(BAT_LAST_KEY, last);
+    updateBatSub();
+    if (typeof _batResolve === 'function') { var f = _batResolve; _batResolve = null; f(rep); }
+    else deliver('battery', rep); // 续测路径没有 promise 挂靠，由模块自己交付（可见即弹、不可见挂起）
+    return rep;
+  }
+  function startBattery(ms, onTick) {
+    return new Promise(function (resolve) {
+      if (_batRun || _batStarting) return resolve(null);
+      ms = clamp(Number(ms) || BAT_DURS['30'], BAT_MIN_MS, BAT_MAX_MS);
+      _batStarting = true;
+      getBm().then(function (bm) {
+        _batStarting = false;
+        if (!bm) return resolve(batUnsupported());
+        _batBm = bm;
+        _batTick = typeof onTick === 'function' ? onTick : null;
+        _batRun = createRun(bm, ms);
+        _batResolve = resolve;
+        writeRun(_batRun);
+        startBatLoop(_batRun);
+        updateBatSub();
+      });
+    });
+  }
+  function segTxt(name, ms, drop, warn, bad) {
+    if (ms < SEG_SHOW_MS) return null;
+    var rt = rate(drop, ms);
+    var coarse = ms < SEG_MIN_MS;
+    return '· ' + name + '：约 ' + rt + '%/小时' + (coarse
+      ? '（不足 5 分钟，粗测、仅供参考）'
+      : '（参考：≤' + warn + ' 正常 / ' + warn + '~' + bad + ' 偏高 / >' + bad + ' 异常）');
+  }
+  function batUnsupported() {
+    var rep = { t: Date.now(), verdict: '测不了', text: '' };
+    rep.text = [
+      '结论：本机浏览器不提供电量接口，测不了（不是应用坏了）',
+      '说明：电量自测依赖浏览器提供的 Battery 状态接口（navigator.getBattery）。iPhone / iPad 的 Safari 全系没有这个接口（系统限制），部分国产浏览器也没有——换安卓 Chrome / Edge 系打开本站即可测。',
+      '替代路径：iPhone 可到 系统设置 → 电池 看「过去 24 小时」各应用耗电与屏幕时间，对照本站在其中的占比；安卓多数浏览器（Chrome / Edge 系）支持本自测。',
+      '· 旁边「发烫自测」不依赖电量接口，任何设备都能跑，可以先测那个。',
+      '',
+      '（本报告只在本机生成、不上传任何数据）'
+    ].join('\n');
+    lsSet(BAT_LAST_KEY, { t: rep.t, verdict: rep.verdict, rateTxt: '', text: rep.text, pending: 0 });
+    updateBatSub();
+    return rep;
+  }
+  function buildBat(run) {
+    var L = [];
+    var totalMs = run.fgMs + run.bgMs + run.gapMs;
+    var cands = [];
+    if (run.fgMs >= SEG_MIN_MS) cands.push({ n: '前台使用', r: rate(run.fgDrop, run.fgMs), b: bandOf(rate(run.fgDrop, run.fgMs), FG_WARN, FG_BAD) });
+    if (run.bgMs >= SEG_MIN_MS) cands.push({ n: '后台页面自身', r: rate(run.bgDrop, run.bgMs), b: bandOf(rate(run.bgDrop, run.bgMs), BG_WARN, BG_BAD) });
+    var order = { '正常': 0, '偏高': 1, '异常': 2 };
+    var worst = null;
+    cands.forEach(function (c) { if (!worst || order[c.b] > order[worst.b]) worst = c; });
+    var verdict = worst ? worst.b : '数据不足';
+    var rateTxt = worst ? (worst.n + ' ' + worst.r + '%/小时') : '';
+    L.push('结论：' + verdict + (worst ? '（' + worst.n + '约 ' + worst.r + '%/小时）' : totalMs < SEG_MIN_MS ? '（窗口太短/掉电小于 1%，看下方粗测值）' : '（各段样本都不足 5 分钟，看下方粗测值）'));
+    L.push('窗口 ' + mins(totalMs) + '：前台 ' + mins(run.fgMs) + ' / 后台（页面仍在跑）' + mins(run.bgMs) + ' / 页面未运行 ' + mins(run.gapMs) + (run.chgMs > 0 ? ' / 充电中 ' + mins(run.chgMs) : ''));
+    L.push('电量 ' + Math.round(run.lv0 * 100) + '% → ' + Math.round(run.lvEnd * 100) + '%（采样 ' + run.n + ' 次，间隔 ' + Math.round(run.iv / 1000) + ' 秒）');
+    var s1 = segTxt('前台使用（屏幕亮着用本站）', run.fgMs, run.fgDrop, FG_WARN, FG_BAD);
+    if (s1) L.push(s1);
+    var s2 = segTxt('后台页面自身（切出去了、页面还在跑，多与「后台保活」相关）', run.bgMs, run.bgDrop, BG_WARN, BG_BAD);
+    if (s2) L.push(s2);
+    var s3 = segTxt('页面未运行（被系统冻结/关掉，本站没在跑）', run.gapMs, run.gapDrop, GAP_WARN, GAP_BAD);
+    if (s3) L.push(s3 + '——这段掉电与本站无关，只作对照');
+    if (run.chgMs > 0) L.push('· 充电中 ' + mins(run.chgMs) + '：整段剔除不计（充电时电量不降反升，混进来会把耗电算成 0）');
+    L.push('· 电量颗粒度是 1%：窗口越短数字越粗，15 分钟档只能看趋势，1 小时以上才有参考价值，夜里放着跑（过夜档）最准');
+    L.push('· 发热/耗电相关因素：' + factorLines().join('；'));
+    L.push('');
+    L.push('建议：');
+    var adv = [];
+    if (verdict === '异常') adv.push('耗电明显偏高：先到 设置→系统 关掉「后台保活」再跑一轮对照（后台段速率应明显下降）；若前台段也异常，把本报告 + 设置→工具→「设备兼容诊断」的环境信息一起发给开发者');
+    else if (verdict === '偏高') adv.push('偏高：对照系统设置里的电池统计（过去 24 小时本站占比）一起看；不用后台通知时把「后台保活」关掉再复测一轮，对比后台段速率');
+    if (run.bgMs >= SEG_MIN_MS && run.bgDrop > 0) adv.push('后台段有 ' + rate(run.bgDrop, run.bgMs) + '%/小时：这段就是「页面留在后台继续跑」的代价（保活音频 + 定时器），不用后台消息时关掉「后台保活」最省电');
+    if (run.gapMs > 0) adv.push('窗口内有 ' + mins(run.gapMs) + ' 页面未运行（被系统冻结或关掉）：想让后台也一直跑，靠「后台保活」；不想耗电就别开，两者取一');
+    if (run.fgDrop <= 0 && run.gapDrop <= 0) adv.push('窗口内电量没有下降：要么耗电极低、要么时间还太短（电量 1% 一跳）——想抓异常请跑 1 小时以上或过夜档');
+    if (run.chgMs > 0) adv.push('测的时候有 ' + mins(run.chgMs) + ' 在充电：充电本身发热/进电，想测准请拔掉充电器重跑一轮');
+    if (!adv.length) adv.push('本窗口未见异常。要复现「耗电快」的现场，就在你觉得掉电快的时段随时点本行再测一轮，报告对比着看');
+    adv.forEach(function (a, i) { L.push((i + 1) + '. ' + a); });
+    L.push('');
+    L.push('（电量数据由浏览器接口读取，只在本机统计、不上传；前台/后台/未运行三段分开算，充电段剔除）');
+    var rep = { t: Date.now(), verdict: verdict, rateTxt: rateTxt, run: { fgMs: run.fgMs, bgMs: run.bgMs, gapMs: run.gapMs, chgMs: run.chgMs, n: run.n }, text: L.join('\n') };
+    return rep;
+  }
+
+  // ========== ② 发烫自测 ==========
+  var _heatRunning = false, _heatSink = 1;
+  // 固定工作量单元（xorshift 混合运算）：结果写回模块级变量，防 JIT 当作死代码消除
+  function heatWork(n) {
+    var x = _heatSink | 1;
+    for (var i = 0; i < n; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x = (x + i) | 0; }
+    _heatSink = x;
+    return x;
+  }
+  function timeWork(n) { var t = performance.now(); heatWork(n); return performance.now() - t; }
+  function heatVerdict(slow) {
+    if (slow >= SLOW_BAD) return '明显降频';
+    if (slow >= SLOW_MILD) return '轻度降频';
+    return '未见降频';
+  }
+  function heatText(rep) {
+    var L = [];
+    var r = rep.rounds || [];
+    var early = med(r.slice(1, 4)), late = med(r.slice(-3));
+    var slow = early > 0 ? (late - early) / early : 0;
+    var verdict = r.length >= 6 ? heatVerdict(slow) : '数据不足';
+    rep.verdict = verdict; rep.early = Math.round(early); rep.late = Math.round(late); rep.slow = slow;
+    var dir = slow >= 0 ? '慢 ' : '快 ';
+    L.push('结论：' + verdict + (r.length >= 6 ? '（末段比开头' + dir + Math.abs(Math.round(slow * 1000) / 10) + '%）' : '（轮次样本不足）'));
+    L.push('采样 ' + Math.round((rep.totalMs || 0) / 1000) + ' 秒：静置 ' + Math.round(HEAT_IDLE_MS / 1000) + ' 秒量基准 + 固定负载 ' + r.length + ' 轮（每轮约 ' + Math.round(HEAT_ROUND_MS / 10) * 10 + 'ms，' + Math.round((rep.workN || 0) / 10000) + ' 万次运算/轮）');
+    if (r.length >= 6) L.push('· 负载耗时：开头 3 轮中位 ' + Math.round(early) + 'ms → 最后 3 轮中位 ' + Math.round(late) + 'ms（' + (slow >= 0 ? '+' : '') + Math.round(slow * 1000) / 10 + '%；判级：<10% 未见降频 / 10~25% 轻度 / ≥25% 明显降频）');
+    var idleFps = rep.idleMs > 0 ? Math.round(rep.idleFrames * 1000 / rep.idleMs) : 0;
+    var wkFps = rep.workMs > 0 ? Math.round(rep.workFrames * 1000 / rep.workMs) : 0;
+    L.push('· 帧率：静置期约 ' + idleFps + 'fps；负载期约 ' + wkFps + 'fps' + (rep.workJank > 0 ? '（掉帧 ' + rep.workJank + ' 帧、最长帧间隔 ' + rep.workWorst + 'ms）' : '') + (rep.idleWorst > 0 && rep.idleWorst > 50 ? '；静置期最长帧间隔 ' + rep.idleWorst + 'ms' : ''));
+    if (rep.batt) L.push('· 电池：' + rep.batt);
+    L.push('· 发热相关因素：' + factorLines().join('；'));
+    L.push('· 说明：浏览器读不到手机温度（系统不提供这个接口），本自测测的是「发烫的后果」——主频被系统压低后，同样的活越干越慢。测出「明显降频」＝手机很可能正在烫并限速（或开着省电/低电量模式，两者表现一样）；没测出也不代表不烫（可能还没到限频阈值）。');
+    L.push('');
+    L.push('建议：');
+    var adv = [];
+    if (verdict === '明显降频') adv.push('先把手机放凉几分钟再测一轮对照：凉机也「明显降频」＝多半是开了省电/低电量模式或系统长期限制性能，不是发烫；热机才降频＝就是发烫引起的');
+    if (verdict === '轻度降频') adv.push('轻度降频：对照手摸温度，若确实烫＝按下方因素逐条排除；不烫则可能是系统温控偏保守，属正常波动');
+    var keepOn = false;
+    try { var ka = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null; keepOn = !!(ka && ka.keep); } catch (e) {}
+    if (keepOn) adv.push('「后台保活」开着：页面在后台持续运行＝最常见的发热源，不用后台通知时到 设置→系统 关掉，几分钟后再测一轮对照');
+    if (rep.batt && rep.batt.indexOf('充电中') >= 0) adv.push('测试时正在充电：充电本身发热，建议拔掉充电器、等几分钟再测一轮对照');
+    if (verdict === '未见降频' && !adv.length) adv.push('本窗口未见降频迹象。若手机确实烫，按 设置→工具 下方「手机发烫怎么改善」逐条排查（保活/边充边用/长时间放声音），并可在发烫的当下立刻再测一轮');
+    adv.forEach(function (a, i) { L.push((i + 1) + '. ' + a); });
+    L.push('');
+    L.push('（测试负载固定、只在本机进行、不上传任何数据；「固定负载」按本机速度现场校准，各机型同一口径）');
+    rep.text = L.join('\n');
+    return rep;
+  }
+  function runHeat(onTick) {
+    return new Promise(function (resolve) {
+      if (_heatRunning) return resolve(null);
+      _heatRunning = true;
+      onTick = typeof onTick === 'function' ? onTick : function () {};
+      var rep = { t: Date.now(), rounds: [], idleFrames: 0, idleMs: 0, idleWorst: 0, workFrames: 0, workMs: 0, workWorst: 0, workJank: 0, workN: 0, batt: null, totalMs: 0 };
+      var t0 = performance.now(), last = t0, phase = 'idle', raf = 0, done = false;
+      function frame(now) {
+        if (done) return;
+        var d = now - last; last = now;
+        if (phase === 'idle') {
+          if (d < 250) { rep.idleFrames++; if (d > rep.idleWorst) rep.idleWorst = Math.round(d); }
+        } else if (phase === 'work') {
+          if (d < 250) { rep.workFrames++; if (d > rep.workWorst) rep.workWorst = Math.round(d); }
+          if (d > 34) rep.workJank++;
+        }
+        raf = requestAnimationFrame(frame);
+      }
+      raf = requestAnimationFrame(frame);
+      getBm().then(function (bm) { rep.batt = battLine(bm); });
+      function idleDone() {
+        phase = 'work';
+        rep.idleMs = performance.now() - t0;
+        var calN = 200000; // 校准样本大些：performance.now 分辨率下量得准，且各机型同口径
+        var unit = timeWork(calN);
+        var n = clamp(Math.round(calN * HEAT_ROUND_MS / Math.max(unit, 0.1)), 2000, 400000000);
+        rep.workN = n;
+        rep._sk = performance.now();
+        var rs = [];
+        function round(i) {
+          if (done) return;
+          if (i >= HEAT_ROUNDS) return finish();
+          var t = performance.now();
+          heatWork(n);
+          rs.push(performance.now() - t);
+          rep.rounds = rs;
+          onTick({ phase: 'work', i: i + 1, total: HEAT_ROUNDS, left: Math.max(0, Math.ceil((HEAT_IDLE_MS + (HEAT_ROUNDS - i - 1) * (HEAT_ROUND_MS + HEAT_GAP_MS) - (performance.now() - t0)) / 1000)) });
+          setTimeout(function () { round(i + 1); }, HEAT_GAP_MS);
+        }
+        round(0);
+      }
+      setTimeout(idleDone, HEAT_IDLE_MS);
+      function finish() {
+        if (done) return;
+        done = true;
+        try { cancelAnimationFrame(raf); } catch (e) {}
+        rep.workMs = performance.now() - (rep._sk || t0);
+        rep.totalMs = performance.now() - t0;
+        _heatRunning = false;
+        var out = heatText(rep);
+        var lastRec = lsGet(HEAT_LAST_KEY, null) || {};
+        lastRec.t = out.t; lastRec.verdict = out.verdict; lastRec.pending = 0; lastRec.text = out.text;
+        lsSet(HEAT_LAST_KEY, lastRec);
+        updateHeatSub();
+        resolve(out);
+      }
+    });
+  }
+
+  // ---------- 设置行接线 ----------
+  var batSubEl = null, batSubDefault = '', heatSubEl = null, heatSubDefault = '';
+  function updateBatSub() {
+    if (!batSubEl) return;
+    var t = '';
+    if (_batRun) t = '自测进行中：剩 ' + leftTxt(_batRun) + '（切去忙别的也算，时间到自动出报告）';
+    else {
+      var last = lsGet(BAT_LAST_KEY, null);
+      if (last && last.t) t = '上次：' + last.verdict + (last.rateTxt ? '（' + last.rateTxt + '）' : '') + ' · ' + dtTxt(last.t);
+    }
+    batSubEl.textContent = t || batSubDefault;
+  }
+  function updateHeatSub() {
+    if (!heatSubEl) return;
+    var last = lsGet(HEAT_LAST_KEY, null);
+    heatSubEl.textContent = (last && last.t) ? ('上次：' + last.verdict + ' · ' + dtTxt(last.t)) : heatSubDefault;
+  }
+  function askBattery() {
+    if (!window.openModal || _batStarting) return;
+    if (_batRun) {
+      var ctlR = window.openModal('电量消耗自测进行中', '', function () { endBatRun(); }, {
+        noInput: true,
+        staticText: '正在测（剩 ' + leftTxt(_batRun) + '）：前台/后台/页面未运行分开计时，充电段自动剔除。\n点「结束并出报告」＝立即结算已测到的部分（剩余时长放弃）；点「取消」＝继续测，什么都不发生。'
+      });
+      try { if (ctlR && ctlR.okText) ctlR.okText('结束并出报告'); } catch (e) {}
+      return;
+    }
+    var ctl = window.openModal('电量消耗自测', '', function (v) {
+      var ms = BAT_DURS[String(v)] || BAT_DURS['30'];
+      startBattery(ms, function (p) { bar('电量自测中…剩 ' + mins(p.left * 1000) + '（前台 ' + p.fgMin + ' 分 / 后台 ' + p.bgMin + ' 分）', 0); updateBatSub(); })
+        .then(function (rep) { hideBar(); if (rep) deliver('battery', rep); });
+    }, {
+      noInput: true,
+      pills: [{ label: '15 分钟', value: '15' }, { label: '30 分钟', value: '30' }, { label: '1 小时', value: '60' }, { label: '3 小时', value: '180' }, { label: '过夜 8 小时', value: '480' }],
+      pill: '30',
+      staticText: '测耗电快不快：确认后开始分段计时——前台用 / 切出去放着 / 页面被系统关掉，分开算 %/小时，充电段自动剔除；期间可以正常用手机，也可以去忙别的，时间到自动出报告（中途刷新、被系统杀进程重开都会续测）。\n建议拔掉充电器：充电中电量不降反升，测不出耗电。\n电量接口只有部分浏览器提供（安卓 Chrome/Edge 系有；iPhone 上任何浏览器都没有，属系统限制——那时本行会如实告知并给替代路径）。'
+    });
+    try { if (ctl && ctl.okText) ctl.okText('开始测'); } catch (e) {}
+  }
+  function runHeatUI() {
+    if (!window.openModal || _heatRunning) return;
+    var ctl = window.openModal('发烫自测', '', function () {
+      runHeat(function (p) { bar('发烫自测中…剩 ' + p.left + ' 秒（请别操作屏幕）', 0); })
+        .then(function (rep) { hideBar(); if (rep) deliver('heat', rep); });
+    }, {
+      noInput: true,
+      staticText: '约 ' + Math.round((HEAT_IDLE_MS + HEAT_ROUNDS * (HEAT_ROUND_MS + HEAT_GAP_MS)) / 1000) + ' 秒：先静置 3 秒量基准帧率，再跑 10 轮固定工作量，比对开头与末尾的耗时——手机因发热被系统压慢时，同样的活会越干越慢（这就是「降频」）。\n说明：浏览器读不到手机温度（系统没有这个接口），所以本测的是「发烫的后果」而不是温度本身；测出「明显降频」＝手机很可能已经在烫，没测出也不代表不烫。\n开始后把手机放手边、不要操作屏幕（点按与切页会干扰测量），顶部浮条倒数，结束自动出报告。'
+    });
+    try { if (ctl && ctl.okText) ctl.okText('开始（约 ' + Math.round((HEAT_IDLE_MS + HEAT_ROUNDS * (HEAT_ROUND_MS + HEAT_GAP_MS)) / 1000) + ' 秒）'); } catch (e) {}
+  }
+  // 续测：run 记录还在且未到点＝继续采；已过点＝补出报告（页面停在后台/被关过也认账）
+  function restoreRun() {
+    var run = lsGet(BAT_RUN_KEY, null);
+    if (!run || !(run.t0 > 0) || !(run.ms > 0) || !(run.iv > 0)) return;
+    if (Date.now() >= run.t0 + run.ms) {
+      var rep = buildBat(run);
+      lsDel(BAT_RUN_KEY);
+      var last = lsGet(BAT_LAST_KEY, null) || {};
+      last.t = rep.t; last.verdict = rep.verdict; last.rateTxt = rep.rateTxt; last.text = rep.text;
+      lsSet(BAT_LAST_KEY, last);
+      updateBatSub();
+      deliver('battery', rep);
+      return;
+    }
+    getBm().then(function (bm) {
+      if (!bm) { lsDel(BAT_RUN_KEY); updateBatSub(); return; }
+      _batBm = bm;
+      _batRun = run;
+      startBatLoop(run);
+      updateBatSub();
+      bar('电量自测续测中…剩 ' + leftTxt(run) + '（时间到自动出报告）', 8000);
+    });
+  }
+  function boot() {
+    var rowB = document.getElementById('row-battery-check');
+    if (rowB) {
+      batSubEl = rowB.querySelector('.sub');
+      if (batSubEl) batSubDefault = batSubEl.textContent;
+      rowB.addEventListener('click', askBattery);
+      updateBatSub();
+    }
+    var rowH = document.getElementById('row-heat-check');
+    if (rowH) {
+      heatSubEl = rowH.querySelector('.sub');
+      if (heatSubEl) heatSubDefault = heatSubEl.textContent;
+      rowH.addEventListener('click', runHeatUI);
+      updateHeatSub();
+    }
+    try {
+      document.addEventListener('visibilitychange', function () {
+        if (_batRun && _batBm) { try { sampleOnce(_batRun, _batBm); writeRun(_batRun); } catch (e) {} updateBatSub(); }
+        popPending();
+      });
+    } catch (e) {}
+    // 本文件在 jsFiles 里排在弹窗组件（personalize.js）之前：boot 若在组件就绪前跑，到点续测
+    // 的报告会被 reportModal 的就绪闸（!window.openModal 直接 return）静默丢掉——等 defer 脚本
+    // 全部执行完的 DOMContentLoaded 再续测/交付（只影响这一小段时机，行接线已在上面做完）。
+    whenModalReady(restoreRun);
+  }
+  function whenModalReady(fn) {
+    if (typeof window.openModal === 'function') return fn();
+    if (document.readyState === 'loading' || document.readyState === 'interactive') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+
+  window.mochiEnergyCheck = {
+    startBattery: startBattery,
+    startHeat: runHeat,
+    batteryRunning: function () { return !!_batRun; },
+    heatRunning: function () { return _heatRunning; },
+    restoreRun: restoreRun,
+    BAT_LAST_KEY: BAT_LAST_KEY,
+    HEAT_LAST_KEY: HEAT_LAST_KEY,
+    BAT_RUN_KEY: BAT_RUN_KEY
+  };
+})();

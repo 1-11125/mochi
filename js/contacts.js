@@ -47,6 +47,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'cs-font',
 'sfx-unified',
 'entry-cjian-first', 'entry-default-contact', 'entry-show-list',
+'battery-check-run', 'battery-check-last', 'heat-check-last',
 'ver-retry'];
 function isExcluded(k) {
 const r = k.slice(G.length + 1);
