@@ -4534,10 +4534,12 @@ if (ckRefresh) {
 // TA 摸鱼值由 personalize.js 每 60s 60% 概率自动涨（"他在那边也偷了个懒"的来源）。
 // 这里只做监听：值变化且通过频率控制（冷却 45 分钟 + 每日最多 12 次 + 35% 随机，
 // 让"他一整天都可能摸鱼被看见"，又不至于刷屏）时，桌面浮一行小字。
-// v3.13.x：浮字 6 秒内可点——「抓包成功」：这次涨值翻倍（TA 补一份 + 我得同额），
-//   并触发一条害羞回应进聊天；不点就只是看着 TA 涨（原行为不变）。
+// v3.13.x：浮字 6 秒内可点——「抓包成功」：并触发一条害羞回应进聊天；不点就只是看着 TA 涨（原行为不变）。
+// #844：抓包结算改为「距上次抓包以来 TA 涨的全部」——旧实现只翻倍触发浮字那一个 60 秒窗口的涨幅
+//（平均 +5），浮字有 45 分钟冷却＋35% 概率，冷却期里涨的几十点全被跳过，奖励远小于实际懒账。
 (function () {
   let lastTa = null;
+  let settledTa = null; // 上次抓包结算基线（fish-total-ta）；只随抓包推进，浮字未点不结算
   // v3.13.x：浮字/抓包回应改走系统预设字卡池（DEFAULT_CARD_DATA.fish，字卡库「摸鱼浮字」
   // tab 同源可查看/逐张开关）；过滤用户已关闭的卡片，池缺失时回退内置兜底
   const FISH_NOTE_FALLBACK = ['ta在那边也偷了个懒'];
@@ -4591,7 +4593,7 @@ if (ckRefresh) {
     } catch (e) {}
     const s = window.activeStore && window.activeStore(); if (!s) return;
     let cur = 0; try { cur = parseInt(s.get('fish-total-ta') || '0', 10) || 0; } catch (e) {}
-    if (lastTa === null) { lastTa = cur; return; }
+    if (lastTa === null) { lastTa = cur; settledTa = cur; return; }
     const delta = cur - lastTa;
     // v3.32.x #132：摸鱼字卡概率接 dcf-fish（默认 35%=原值，单值替换非叠加）
     if (delta > 0 && Math.random() * 100 < dcfPFish(35) && window.taChimeAllow && window.taChimeAllow('fish-ta-note', { cooldown: 45 * 60 * 1000, dailyMax: 12 })) {
@@ -4602,8 +4604,12 @@ if (ckRefresh) {
           dur: 6000,
           onClick: function () {
             try {
-              // 抓包奖励：本次涨值翻倍——TA 再补一份，我得同额
-              const bonus = Math.max(1, delta);
+              // #844 抓包结算＝距上次抓包以来 TA 涨的全部（触发浮字前的展示时刻值，浮字 6 秒展示期新涨的归入下次结算）：
+              // TA 补一份总账，我得同额。旧实现只补 delta（单个 60s 窗口涨幅），冷却期涨值全被吞
+              const base = settledTa === null ? cur - Math.max(0, delta) : settledTa;
+              const bonus = Math.max(1, cur - base);
+              // 基线含 TA 收到的这份补账：抓包奖励不是 TA 摸出来的，不进下次懒账（防连抓利滚利）
+              settledTa = cur + bonus;
               if (window.addFishPts) window.addFishPts(bonus, bonus);
               let rec = null;
               try { rec = JSON.parse(s.get('fish-catch-day') || 'null'); } catch (e) {}

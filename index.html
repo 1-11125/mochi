@@ -10329,9 +10329,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789884109294">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789883894590">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 14:01<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 13:58<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -70752,6 +70752,7 @@ if (!piggyPage.hidden) piggyRender();
 })();
 (function () {
 let lastTa = null;
+let settledTa = null; // 上次抓包结算基线（fish-total-ta）；只随抓包推进，浮字未点不结算
 const FISH_NOTE_FALLBACK = ['ta在那边也偷了个懒'];
 const CATCH_REPLIES = [
 '呀…被你看到了',
@@ -70789,7 +70790,7 @@ if (gv !== undefined && gv !== 1) return;
 } catch (e) {}
 const s = window.activeStore && window.activeStore(); if (!s) return;
 let cur = 0; try { cur = parseInt(s.get('fish-total-ta') || '0', 10) || 0; } catch (e) {}
-if (lastTa === null) { lastTa = cur; return; }
+if (lastTa === null) { lastTa = cur; settledTa = cur; return; }
 const delta = cur - lastTa;
 if (delta > 0 && Math.random() * 100 < dcfPFish(35) && window.taChimeAllow && window.taChimeAllow('fish-ta-note', { cooldown: 45 * 60 * 1000, dailyMax: 12 })) {
 window.taChimeUse('fish-ta-note');
@@ -70799,7 +70800,9 @@ window.taChimeShow(note, {
 dur: 6000,
 onClick: function () {
 try {
-const bonus = Math.max(1, delta);
+const base = settledTa === null ? cur - Math.max(0, delta) : settledTa;
+const bonus = Math.max(1, cur - base);
+settledTa = cur + bonus;
 if (window.addFishPts) window.addFishPts(bonus, bonus);
 let rec = null;
 try { rec = JSON.parse(s.get('fish-catch-day') || 'null'); } catch (e) {}
@@ -73990,7 +73993,7 @@ if (t && !t.checked && stillSysFs) showSystemFsNote();
 }, 300);
 }
 });
-if (isIOS) { try { relabelIosToggle(); } catch (e) {} }
+try { relabelIosToggle(); } catch (e) {}
 }
 const fsHelp = document.getElementById('sf-fullscreen-help');
 if (fsHelp) {
@@ -79710,4 +79713,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9es9ny -->
+<!-- __MOCHI_EOF__ mu9ennzy -->
