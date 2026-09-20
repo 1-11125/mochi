@@ -3764,8 +3764,12 @@ const FIX_SENTINELS = [
   { name: '#894c 美化页读取中保留（删＝切桌面美化入口误清字体）', file: 'js/personalize.js', needle: "if (!v && raw.indexOf('@@font:') === 0 && keepPending) return;" },
   // ==== 2026-09-20 #893 进群「聊天记录滚动闪一下才恢复」根治（PWA 装桌面用户实报每次进出群聊都闪、无加载缓冲；零机型分支）——enterGroupChat 无条件 body.innerHTML='' 整窗重渲 200 条＝图片头像全部重新解码＝每次进都闪；修法＝群聊同窗跳过指纹（单聊 #220 同款思路）：同群同条数＋首尾消息指纹＋成员名/头像/昵称开关指纹一致且无 gcSwitchDirty 时只回底不重建，任何变化照旧全量重建、展示结果一字不差 ====
   { name: '#893a 群聊进群同窗跳过判定（删＝退回每次进群都整窗重建、历史滚动闪一下复发；gcRenderedFp 只在这处比较点有意义，勿「统一」成其他写法）', file: 'js/group-chat.js', needle: 'if (!gcSwitchDirty && body.children.length && gcEntrySig() === gcRenderedFp) {' },
-  { name: '#893b renderAll 结尾登记屏上窗口指纹（删＝指纹永不更新，跳过判定失效退化成每次重建或永不重建，两头都是回归）', file: 'js/group-chat.js', needle: 'gcRenderedFp = gcEntrySig(); //' }
-
+  { name: '#893b renderAll 结尾登记屏上窗口指纹（删＝指纹永不更新，跳过判定失效退化成每次重建或永不重建，两头都是回归）', file: 'js/group-chat.js', needle: 'gcRenderedFp = gcEntrySig(); //' },
+  { name: '#874a 进聊天分帧空窗期 scroll 不作数（删＝空窗期旧滚动位被钳回 0 的必发事件误触发上翻加载、appendTarget 被改道、finishSwap 首批甩到列表尾＝「进聊天跳到历史记录、底部永远看不到最新」）', file: 'js/chat.js', needle: 'if (batchRendering) return; // #874a' },
+  { name: '#874b loadOlderIncremental 空窗入口守卫（删＝#874a 同根因换路径：renderStart 白前移＋自身 frag 在空 body 下整批丢弃）', file: 'js/chat.js', needle: 'if (batchRendering) return; // #874b' },
+  { name: '#874c loadNewerIncremental 同闸（删＝构建期增量下插/追加改道 appendTarget 踩乱换装顺序）', file: 'js/chat.js', needle: 'if (batchRendering) return; // #874c' },
+  { name: '#874d 空窗期 touchstart 不解钉（删＝进度条期一次上滑令 finishSwap 跳过落底、看门狗/稳定窗全被 pinned=false 关在门外＝停在列表顶部旧记录）', file: 'js/chat.js', needle: 'if (!batchRendering) unpinChatAndAnchor(); // #874d' },
+  { name: '#874e wheel 与 #874d 同闸（删＝桌面端滚轮路径空窗期照解钉，同一缺陷留后门）', file: 'js/chat.js', needle: "'wheel', function () { if (!batchRendering) unpinChatAndAnchor(); }" },
 
 ];
 try {

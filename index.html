@@ -10317,9 +10317,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789886027076">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789889623007">
         <span class="sv-app">Mochi 字卡传讯 <b>v3.26.0</b></span>
-        <span class="sv-deploy">部署于 2026-09-20 14:33<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-20 15:33<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -36068,6 +36068,7 @@ suppressScrollUntil = Date.now() + 200;
 return true;
 }
 function loadOlderIncremental() {
+if (batchRendering) return; // #874b：构建中途重入会把 appendTarget 改道（自身 frag 在空 body 下整批丢弃）并把 renderStart 白前移＝finishSwap 首批被甩到列表尾＝底部永远是旧记录
 const len = msgs.length;
 if (renderStart <= 0 || renderStart >= len) {
 if (renderStart <= 0 && !chatRebased) {
@@ -36105,6 +36106,7 @@ if (renderEnd - renderStart > WINDOW_MAX) pruneWindowBottom();
 suppressScrollUntil = Date.now() + 200;
 }
 function loadNewerIncremental(targetLen) {
+if (batchRendering) return; // #874c：同 #874b——增量下插/追加在构建期改道 appendTarget 会踩乱换装顺序
 const len = msgs.length;
 const want = (typeof targetLen === 'number' && targetLen > 0) ? Math.min(targetLen, len) : len;
 if (renderEnd >= want) return;
@@ -36181,6 +36183,7 @@ if (bodyScrollTimer) return;
 bodyScrollTimer = setTimeout(function () {
 bodyScrollTimer = null;
 if (!chatVisible()) return;
+if (batchRendering) return; // #874a：分帧整窗重建的空窗期（body 已清空、新窗未换装）里到达的 scroll 不作数——清空旧滚动位被钳回 0 必发事件，防抖 100ms 撞上慢设备构建时长就误触发上翻加载
 if (body.scrollTop < TOP_THRESHOLD) {
 loadOlderIncremental();
 } else if (renderEnd < msgs.length && body.scrollHeight - body.scrollTop - body.clientHeight < TOP_THRESHOLD) {
@@ -36196,7 +36199,7 @@ let chatTouchActive = false; // #716：触摸手势进行中——手势刚开�
 body.addEventListener('touchstart', function (e) {
 try { chatUnpinTsY = e.touches[0].clientY; } catch (err) { chatUnpinTsY = 0; }
 chatTouchActive = true;
-unpinChatAndAnchor();
+if (!batchRendering) unpinChatAndAnchor(); // #874d：空窗期屏上没有列表可翻，进度条期的一次上滑不该把贴底永久解掉（finishSwap 落底全看 pinned）
 }, { passive: true, capture: true });
 body.addEventListener('touchend', function (e) {
 chatTouchActive = false; // #716：手势结束才恢复自动回钉资格
@@ -36206,7 +36209,7 @@ if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('touchcancel', function () { chatTouchActive = false; }, { passive: true }); // #716
-body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
+body.addEventListener('wheel', function () { if (!batchRendering) unpinChatAndAnchor(); }, { passive: true }); // #874e：与 #874d 同闸
 function refreshKbRepin() {
 chatRepinAfterSettle();
 }
@@ -79754,4 +79757,4 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("mobile-adapt.js");
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mu9fxdfo -->
+<!-- __MOCHI_EOF__ mu9i2g2n -->

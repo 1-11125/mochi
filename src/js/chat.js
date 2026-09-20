@@ -3900,6 +3900,7 @@ suppressScrollUntil = Date.now() + 200;
 return true;
 }
 function loadOlderIncremental() {
+if (batchRendering) return; // #874b：构建中途重入会把 appendTarget 改道（自身 frag 在空 body 下整批丢弃）并把 renderStart 白前移＝finishSwap 首批被甩到列表尾＝底部永远是旧记录
 const len = msgs.length;
 if (renderStart <= 0 || renderStart >= len) {
 // #722：已到已加载历史的顶部——头部冷块还有货就先 rebase（并入+位移下标），并入后
@@ -3944,6 +3945,7 @@ if (renderEnd - renderStart > WINDOW_MAX) pruneWindowBottom();
 suppressScrollUntil = Date.now() + 200;
 }
 function loadNewerIncremental(targetLen) {
+if (batchRendering) return; // #874c：同 #874b——增量下插/追加在构建期改道 appendTarget 会踩乱换装顺序
 const len = msgs.length;
 // FIX 2026-09-07 #241：可选 targetLen——原地补丁的尾部增量一次补到权威长度（不传=
 // 滚动加载语义不变，每批 LOAD_STEP）
@@ -4030,6 +4032,7 @@ if (bodyScrollTimer) return;
 bodyScrollTimer = setTimeout(function () {
 bodyScrollTimer = null;
 if (!chatVisible()) return;
+if (batchRendering) return; // #874a：分帧整窗重建的空窗期（body 已清空、新窗未换装）里到达的 scroll 不作数——清空旧滚动位被钳回 0 必发事件，防抖 100ms 撞上慢设备构建时长就误触发上翻加载
 if (body.scrollTop < TOP_THRESHOLD) {
 loadOlderIncremental();
 } else if (renderEnd < msgs.length && body.scrollHeight - body.scrollTop - body.clientHeight < TOP_THRESHOLD) {
@@ -4056,7 +4059,7 @@ let chatTouchActive = false; // #716：触摸手势进行中——手势刚开�
 body.addEventListener('touchstart', function (e) {
 try { chatUnpinTsY = e.touches[0].clientY; } catch (err) { chatUnpinTsY = 0; }
 chatTouchActive = true;
-unpinChatAndAnchor();
+if (!batchRendering) unpinChatAndAnchor(); // #874d：空窗期屏上没有列表可翻，进度条期的一次上滑不该把贴底永久解掉（finishSwap 落底全看 pinned）
 }, { passive: true, capture: true });
 body.addEventListener('touchend', function (e) {
 chatTouchActive = false; // #716：手势结束才恢复自动回钉资格
@@ -4066,7 +4069,7 @@ if (dy < 10 && chatAtBottom()) scrollChatBottom();
 } catch (err) {}
 }, { passive: true });
 body.addEventListener('touchcancel', function () { chatTouchActive = false; }, { passive: true }); // #716
-body.addEventListener('wheel', unpinChatAndAnchor, { passive: true });
+body.addEventListener('wheel', function () { if (!batchRendering) unpinChatAndAnchor(); }, { passive: true }); // #874e：与 #874d 同闸
 // FIX #466（红米/小米 Chrome 等多机型报「发送消息时界面闪到最顶上半部分再恢复」）：
 // 安卓键盘弹出/收起会让 mobile-adapt 按 visualViewport 高度改 .phone 高度，聊天 scrollTop
 // 却不会随之更新＝消息列表长期被键盘顶到上半区、最新消息被盖住，到发送/收键盘那刻才被
