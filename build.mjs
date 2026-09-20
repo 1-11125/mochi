@@ -3866,6 +3866,8 @@ const FIX_SENTINELS = [
   { name: '#913a 切后台动画暂停闸接线（删＝挂后台的无限动画照常合成，后台保活用户过夜发热回流）', file: 'js/mobile-adapt.js', needle: "classList.toggle('mochi-bg-pause', !!document.hidden)" },
   { name: '#913b 切后台暂停动画的 CSS 落点（删＝闸挂了类也没有效果）', file: 'css/base.css', needle: 'body.mochi-bg-pause *::before' },
   { name: '#913c 工具段发烫排查条（删＝用户只有卡顿说明、没有发烫的对症清单）', file: 'template.html', needle: 'id="heat-help-sub"' },
+  { name: '#912a 瞬时贴底写入取消在飞平滑动画（删＝连发期间旧动画帧用旧 start/target 把刚写到位的 scrollTop 拉回去＝「联系人发消息总不在最底部」复发）', file: 'js/chat.js', needle: 'if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } chatPinnedBottom = true;' },
+  { name: '#912b 解钉当场取消在飞平滑动画（删＝动画跟用户手指对打＝#716 同族回流）', file: 'js/chat.js', needle: "if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } body.classList.add('scroll-anchor-auto');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

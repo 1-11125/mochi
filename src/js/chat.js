@@ -2446,8 +2446,12 @@ return Math.max(0, cb.scrollHeight - (cb.clientHeight + typingH));
 }
 function scrollChatBottom() {
 const cb = document.getElementById('chat-body');
+// FIX 2026-09-20 #912（红米 K80 Chrome 等多机型报「联系人发消息总不在最底部」）：瞬时贴底写入
+// 必须先取消在飞的平滑动画——旧动画帧持有的是上一条消息时的 start/target，连发期间它会把本条
+// 刚写到位的 scrollTop 按旧曲线拉回去（无头实证：写入后下一帧 top 倒退、gap 反复张开到 564px）。
+// #912 语义＝同步写是最高优先级，动画只服务「写完之后没人再写」的收尾窗口
 // FIX #316：回钉贴底时同步关回浏览器滚动锚定（与 #199 overflow-anchor:none 同口径）
-if (cb) { chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
+if (cb) { if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } chatPinnedBottom = true; cb.classList.remove('scroll-anchor-auto'); cb.scrollTop = chatScrollMax(); }
 }
 // v3.3x.x：TA 自发消息跟底的平滑滚动——replace 瞬时 scrollTop=scrollHeight 的"咻地一跳"。
 // rAF 驱动 + ease-out 三次加速曲线（起步快、末端自然落定），只改 scrollTop（无布局属性动画）；
@@ -2482,7 +2486,9 @@ _ccSmoothT = requestAnimationFrame(step);
 // 防对打语义不变——对打只发生在钉住态，解钉期 #162 不写 scrollTop，无架可打）。
 function unpinChatAndAnchor() {
 chatPinnedBottom = false;
-body.classList.add('scroll-anchor-auto');
+// FIX 2026-09-20 #912：解钉＝用户接管滚动权，在飞的跟底平滑动画必须当场取消——
+// 否则动画帧继续按旧 target 写 scrollTop＝动画跟用户手指对打（#716 同族）。
+if (_ccSmoothT) { cancelAnimationFrame(_ccSmoothT); _ccSmoothT = null; } body.classList.add('scroll-anchor-auto');
 }
 function chatNearBottom() {
 const cb = document.getElementById('chat-body');
