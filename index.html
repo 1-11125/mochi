@@ -10499,9 +10499,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790004317181">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790004863479">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 23:25<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 23:34<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12627,7 +12627,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">朋友圈贴纸回复：配图动态下点「贴纸」，选表情包贴到照片上（每张照片最多 5 张，自己贴的可点撤回），TA 会按评论概率回贴一张并进朋友圈通知</div>
           <div class="lic-li">回忆闪回：打开朋友圈时，「那年今天」的旧动态会以记忆卡置顶，点击定位到原动态并高亮，✕ 当天不再显示</div>
           <div class="lic-li">心情日记：桌面「日历」→ 顶部心情日记卡，每天选一个心情表情+一句话，TA 的心情按天生成；月视图两人心情曲线对照、心情日历格与连续记录统计（#303）</div>
-          <div class="lic-li">「TA 的提问」面板：让 TA 现在问一次（询问 / 小问题 / 好奇 / 吐槽 / 邀请）</div>
+          <div class="lic-li">「TA 的提问」面板：让 TA 现在问一次（询问 / 小问题 / 好奇 / 吐槽 / 邀请 / 贴贴 / 查岗 / 跨桌面查岗）——前五项问的是 TA 自己（提问、出选择题、好奇、吐槽、约你玩），后三项＝让 TA 当场做一件平常只按概率发生的事（发一次贴贴邀请、来查一次岗、让其他桌面的联系人来查一次岗）</div>
           <div class="lic-li">贴贴邀请：TA 会主动发来贴贴 / 抱抱 / 牵手 / 靠着的邀请，同意有轻震回应，婉拒也有专属台阶文案</div>
           <div class="lic-li">TA 的查岗：温柔关心式查岗问题卡（单选 / 文字作答 / 互动动作），作答后 TA 会回应</div>
           <div class="lic-li">批量发送消息：聊天输入栏「批量发送」按钮，可插入表情包 / 图片 / 文字，每条单独一条，多条按顺序一次性发送</div>
@@ -13704,7 +13704,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>自动弹窗概率</span><div class="stepper" data-k="ckq-popup-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="ckq-popup-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>查岗冷却（分钟）</span><div class="stepper" data-k="ckq-cool" data-min="0" data-max="240" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="ckq-cool-val" readonly><button class="stp-max">+</button></div></div>
           </div>
-          <div class="gs-sub" style="padding:0 14px 14px">TA 主动找你时按概率来查你的岗：聊天里出现查岗问题卡（单选点击作答、文字题输入作答），作答后 TA 会回应；概率命中时直接弹出回答弹窗。冷却内不重复查岗，需开启「主动发送」，各联系人独立保存。查岗题库可在 字卡库 →「TA的查岗」里逐条开关或自定义添加</div>
+          <div class="gs-sub" style="padding:0 14px 14px">TA 主动找你时按概率来查你的岗：聊天里出现查岗问题卡（单选点击作答、文字题输入作答），作答后 TA 会回应；概率命中时直接弹出回答弹窗。冷却内不重复查岗，需开启「主动发送」，各联系人独立保存。查岗题库可在 字卡库 →「TA的查岗」里逐条开关或自定义添加。想立刻来一次（不看概率与冷却）：聊天 →「更多功能 → TA的提问 → 查岗」</div>
         </div>
         <!-- v3.9.x：其他——联系人主动邀请（猜拳/玩游戏），随 TA 主动找你的消息按概率触发 -->
         <div class="gs-panel" data-rpanel="other" hidden>
@@ -13720,14 +13720,14 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>主动分享你的字卡</span><label class="toggle"><input type="checkbox" id="ai-cc-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>分享字卡概率</span><div class="stepper" data-k="ai-cc-prob" data-min="0" data-max="100" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="ai-cc-prob-val" readonly><button class="stp-max">+</button></div></div>
           </div>
-          <div class="gs-sub" style="padding:0 14px 14px">TA 主动找你的消息会按概率变成猜拳/游戏/贴贴邀请（游戏在 Pong、贪吃蛇中随机；贴贴同意后 TA 会回应一句），自动打开对应半框或回应，不想玩直接关掉即可；仅在你在聊天页时触发，需开启「主动发送」。邀请话术可在 字卡库 →「TA的邀请」里逐句开关或自定义添加；「分享你的字卡」从你在 字卡库 自建的纯文本卡（含公用）里随机抽一张当 TA 的悄悄话，冷却 90 分钟</div>
+          <div class="gs-sub" style="padding:0 14px 14px">TA 主动找你的消息会按概率变成猜拳/游戏/贴贴邀请（游戏在 Pong、贪吃蛇中随机；贴贴同意后 TA 会回应一句），自动打开对应半框或回应，不想玩直接关掉即可；仅在你在聊天页时触发，需开启「主动发送」。邀请话术可在 字卡库 →「TA的邀请」里逐句开关或自定义添加；「分享你的字卡」从你在 字卡库 自建的纯文本卡（含公用）里随机抽一张当 TA 的悄悄话，冷却 90 分钟。想立刻要一次：聊天 →「更多功能 → TA的提问 → 邀请（猜拳等随机一种）/ 贴贴（一定是贴贴）」</div>
           <!-- v3.20.x：联系人跨桌面查岗 / 跨桌面来电——其他桌面的联系人按各自概率/冷却主动来查岗、来电 -->
           <div class="gs-title" style="margin-top:6px">联系人跨桌面查岗</div>
           <div class="set-group glass">
             <div class="gs-row"><span>跨桌面查岗概率</span><div class="stepper" data-k="ckq-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="ckq-prob-val2" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>查岗冷却（分钟）</span><div class="stepper" data-k="ckq-cool" data-min="0" data-max="240" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="ckq-cool-val2" readonly><button class="stp-max">+</button></div></div>
           </div>
-          <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动来查你的岗，每个触发后 30 分钟内不重复。全局开关在 设置 →「开启 联系人跨桌面查岗」，回应字卡可在 字卡库 →「联系人跨桌面查岗」里逐张开关</div>
+          <div class="gs-sub" style="padding:0 14px 2px">其他桌面的联系人会按各自概率（默认 2%，可在此逐联系人调整）主动来查你的岗，每个触发后 30 分钟内不重复。全局开关在 设置 →「开启 联系人跨桌面查岗」，回应字卡可在 字卡库 →「联系人跨桌面查岗」里逐张开关。想立刻来一次（不看概率与冷却）：聊天 →「更多功能 → TA的提问 → 跨桌面查岗」</div>
           <div class="gs-title" style="margin-top:10px">联系人跨桌面打电话</div>
           <div class="set-group glass">
             <div class="gs-row"><span>跨桌面来电概率</span><div class="stepper" data-k="desk-call-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="desk-call-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -16730,6 +16730,21 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <button class="more-item" id="more-invite-now" title="让TA现在邀请一次（猜拳/Pong/贪吃蛇/贴贴，话术来自字卡库「TA的邀请」）">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 10.5v3M5.5 12h3"/><path d="M15.5 11h.01M18.5 13h.01"/></svg></span>
             <span>邀请</span>
+          </button>
+          <!-- v8.29 #1003：以下三枚是「回复设置里只按概率发生」的主动行为的手动触发口（用户直派
+               「点击之后让联系人立即触发」）——贴贴邀请＝回复设置→其他「主动邀请贴贴」、
+               查岗＝回复设置→查岗「TA 主动查岗」、跨桌面查岗＝回复设置→其他「联系人跨桌面查岗」 -->
+          <button class="more-item" id="more-cuddle-now" title="让TA现在发来一次贴贴邀请（贴贴/抱抱/牵手/靠着，话术来自字卡库「TA的邀请」的贴贴分类）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2s-7.4-4.8-7.4-9.9A4.6 4.6 0 0112 7.2a4.6 4.6 0 017.4 3.1c0 5.1-7.4 9.9-7.4 9.9z"/><path d="M8.4 11.6c0-1.6 1.3-2.4 2.6-2.4"/></svg></span>
+            <span>贴贴</span>
+          </button>
+          <button class="more-item" id="more-ck-now" title="让TA现在来查一次岗（TA的查岗问题卡，题库在 字卡库 →「TA的查岗」）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 000 18"/></svg></span>
+            <span>查岗</span>
+          </button>
+          <button class="more-item" id="more-xck-now" title="让其他桌面的联系人现在来查一次岗（跨桌面查岗，会弹出「XX 来查岗了」）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="12" height="9" rx="1.6"/><rect x="9.5" y="10.5" width="12" height="9" rx="1.6"/></svg></span>
+            <span>跨桌面查岗</span>
           </button>
         </div>
       </div>
@@ -21065,4 +21080,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubecqnx -->
+<!-- __MOCHI_EOF__ mubeog6v -->

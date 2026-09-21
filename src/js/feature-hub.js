@@ -99,7 +99,11 @@
       { n: '现在让 TA 问一次', d: '不开面板，直接让 TA 立刻发来一个开放式提问', k: '现在 问 提问 询问 立刻', go: ['.app[data-app="chat"]', '#more-ask-now'] },
       { n: '现在让 TA 出选择题', d: '直接让 TA 立刻发来一道小问题（选择题）', k: '现在 选择题 小问题 出题 立刻', go: ['.app[data-app="chat"]', '#more-choose-now'] },
       { n: '现在让 TA 好奇一次', d: '直接让 TA 立刻发来一条好奇提问', k: '现在 好奇 提问 立刻', go: ['.app[data-app="chat"]', '#more-curious-now'] },
-      { n: '现在让 TA 邀请一次', d: '直接让 TA 立刻发来猜拳/Pong/贪吃蛇/贴贴邀请', k: '现在 邀请 猜拳 对战 贴贴 立刻', go: ['.app[data-app="chat"]', '#more-invite-now'] },
+      { n: '现在让 TA 邀请一次', d: '直接让 TA 立刻发来猜拳/Pong/贪吃蛇/贴贴邀请（四类里随机一种；只想贴贴见下面那条）', k: '现在 邀请 猜拳 对战 贴贴 立刻', go: ['.app[data-app="chat"]', '#more-invite-now'] },
+      // v8.29 #1003：三枚手动触发新增（聊天「更多功能 → TA的提问 → 贴贴 / 查岗 / 跨桌面查岗」）
+      { n: '现在让 TA 发一次贴贴邀请', d: '直接让 TA 立刻发来一次贴贴邀请（贴贴/抱抱/牵手/靠着，一定是贴贴、不会随机成别的邀请）', k: '现在 贴贴 抱抱 牵手 邀请 立刻', go: ['.app[data-app="chat"]', '#more-cuddle-now'] },
+      { n: '现在让 TA 来查一次岗', d: '直接让 TA 立刻发来一张查岗问题卡（平常只按概率出现，这里点一次就来一次）', k: '现在 查岗 主动查岗 立刻', go: ['.app[data-app="chat"]', '#more-ck-now'] },
+      { n: '现在让其他桌面来查一次岗', d: '立刻让另一个桌面的联系人来查你的岗（弹出「XX 来查岗了」，点「现在回TA」切到 TA 的桌面）', k: '现在 跨桌面 查岗 其他桌面 立刻', go: ['.app[data-app="chat"]', '#more-xck-now'] },
       { n: '现在让 TA 吐槽一次', d: '直接让 TA 立刻发来一条吐槽/调侃', k: '现在 吐槽 调侃 立刻', go: ['.app[data-app="chat"]', '#more-roast-now'] },
       { n: '收藏', d: '我的收藏 / TA 的收藏 分页浏览与批量管理', k: '收藏 星标', go: ['.app[data-app="note"]'] },
       { n: '收藏设置', d: 'TA 自动收藏消息/字卡/信件/动态的概率与统计', k: '收藏 设置 概率 自动收藏', go: ['.app[data-app="note"]', '#fav-settings-btn'] },

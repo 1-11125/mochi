@@ -4509,7 +4509,27 @@ const FIX_SENTINELS = [
   { name: '#1002n owner 可写 id 字符串（统一入口的 input 点按时才建）——删＝那些入口选完文件无回调', file: 'js/device.js', needle: "if (typeof owner === 'string') { try { owner = document.getElementById(owner); } catch (e2) { owner = null; } }" },
   { name: '#1002o 入口定位兜底：非绝对/固定/相对/粘性就补 relative（游离态创建的入口曾被判成空串＝层变成整屏透明 input 吃掉全页点击）', file: 'js/device.js', needle: "if (_pos !== 'absolute' && _pos !== 'fixed' && _pos !== 'relative' && _pos !== 'sticky') btn.style.position = 'relative';" },
   { name: '#1002p label 层插在 surface 之前（同序画层，后插的 label 会盖住 surface＝国产内核里点了没反应复发）', file: 'js/device.js', needle: 'if (surf) btn.insertBefore(label, surf); else btn.appendChild(label);' },
-  { name: '#1002q mochiFilePick 识别「本次手势就是 surface 点按」后不再补腿（删＝与 surface 各弹一次＝双开）', file: 'js/device.js', needle: 'if (!o.noClick && window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) {' }
+  { name: '#1002q mochiFilePick 识别「本次手势就是 surface 点按」后不再补腿（删＝与 surface 各弹一次＝双开）', file: 'js/device.js', needle: 'if (!o.noClick && window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) {' },
+  /* ==== 2026-09-21 #1003 聊天「更多功能 → TA的提问」补三枚手动触发口（用户直派「还缺少回复设置里的
+      【贴贴邀请】【邀请TA主动查岗】【邀请跨桌面查岗】。也是点击之后让联系人立即触发的功能」）。
+      三枚各自接既有触发链路，不新开链路：贴贴＝ta-invite 按 kind 抽贴贴话术 → chat.js sendTaInvite；
+      查岗＝字卡库「让TA现在查岗一次」同一个 triggerCkQuestion；跨桌面查岗＝incoming-requests 新增的
+      triggerIncomingCheckinNow（挑一个开着查岗的其他桌面，走既有 deliver 弹窗）。 ==== */
+  { name: '#1003a 聊天「更多功能→TA的提问」贴贴按钮锚点（删＝面板少一枚，用户点不到「立即让TA发贴贴」）', file: 'template.html', needle: 'id="more-cuddle-now"' },
+  { name: '#1003b 同批「查岗」按钮锚点（删＝TA主动查岗只能等概率）', file: 'template.html', needle: 'id="more-ck-now"' },
+  { name: '#1003c 同批「跨桌面查岗」按钮锚点（删＝跨桌面查岗只能等概率）', file: 'template.html', needle: 'id="more-xck-now"' },
+  { name: '#1003d ta-invite 按类型抽卡出口（删＝贴贴按钮只能退回全类型随机，「点贴贴收到猜拳」复发）', file: 'js/ta-invite.js', needle: 'window.taInvitePickKind = function (kind) {' },
+  { name: '#1003e 按类型抽＝只在传入那类启用池里抽（改成全类型池＝同上复发形态）', file: 'js/ta-invite.js', needle: 'return drawFrom(enabledPool(d, [kind]));' },
+  { name: '#1003f chat.js 贴贴手动触发口（删＝面板那枚点了没反应）', file: 'js/chat.js', needle: 'window.triggerTaCuddleNow = function () {' },
+  { name: '#1003g 贴贴口径：只认 cuddle 池（改成 taInvitePickAny＝用户点贴贴却来猜拳/贪吃蛇）', file: 'js/chat.js', needle: "const inv = window.taInvitePickKind ? window.taInvitePickKind('cuddle') : null;" },
+  { name: '#1003h 贴贴按钮接线（删＝面板有按钮但无处理器）', file: 'js/chat.js', needle: "bindTaNow('more-cuddle-now', () => { if (window.triggerTaCuddleNow)" },
+  { name: '#1003i 查岗按钮接既有 triggerCkQuestion（同字卡库那枚，题库/冷却/闸门口径一致）', file: 'js/chat.js', needle: "bindTaNow('more-ck-now', () => { if (window.triggerCkQuestion)" },
+  { name: '#1003j 跨桌面查岗按钮接线（删＝面板有按钮但无处理器）', file: 'js/chat.js', needle: "bindTaNow('more-xck-now', () => { if (window.triggerIncomingCheckinNow)" },
+  { name: '#1003k 跨桌面查岗手动触发口（删＝跨桌面查岗只能等概率/冷却）', file: 'js/incoming-requests.js', needle: 'window.triggerIncomingCheckinNow = function () {' },
+  { name: '#1003l 只挑开着查岗且没有未处理申请的其他桌面（删＝已有 pending 的桌面被选中，deliver 静默返回＝点了没反应）', file: 'js/incoming-requests.js', needle: "num(cfgFor(c.id), 'ckq-en', 1) === 1 && !hasPending(c.id)" },
+  { name: '#1003m 手动触发仍守全局开关（删＝设置里关着跨桌面查岗也被偷偷触发，违背用户显式设定）', file: 'js/incoming-requests.js', needle: "_toast('联系人跨桌面查岗已关闭，可在 设置 里开启')" },
+  { name: '#1003n 删除型：贴贴按钮不得退回全类型随机邀请（用户点贴贴收到猜拳＝本批要根治的形态）', file: 'js/chat.js', absent: true, needle: "bindTaNow('more-cuddle-now', () => { if (window.triggerTaInviteNow)" },
+  { name: '#1003o 功能大全里能搜到新的手动触发（删＝用户在搜索里找不到这三枚）', file: 'js/feature-hub.js', needle: "'#more-xck-now'" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -1943,7 +1943,7 @@ return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 function chatAtBottom() {
 const cb = document.getElementById('chat-body');
 if (!cb) return true;
-return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
+return chatScrollMax() - cb.scrollTop <= 8;
 }
 let chatUserFollowScroll = false;
 function maybeScrollChatBottom(side) {
@@ -1955,7 +1955,7 @@ if (!chatVisible()) return;
 const out = side === 'out';
 const userFollow = !out && chatUserFollowScroll; // FIX #492 一次性消费
 if (userFollow) chatUserFollowScroll = false;
-if (!out && !userFollow && !chatPinnedBottom) return;
+if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;
 if (out || userFollow) {
 scrollChatBottom();
 requestAnimationFrame(scrollChatBottom);
@@ -3402,12 +3402,17 @@ const cb868 = document.getElementById('chat-body');
 if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
 }
 setInterval(function () {
-if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (!chatVisible() || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 if (Date.now() - _cbBoxChangeTs < 180) return; // #871：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
+if (!chatPinnedBottom) {
+if (!chatAtBottom()) return;
+chatPinnedBottom = true; cb706.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
+return;
+}
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
 let _rsAlignT = null;
@@ -5898,6 +5903,16 @@ if (window.replyGuideHint) window.replyGuideHint('inv'); // v3.27.x #218 互动�
 return true;
 } catch (e) { return false; }
 };
+window.triggerTaCuddleNow = function () {
+try {
+const name = chatPartnerName();
+const inv = window.taInvitePickKind ? window.taInvitePickKind('cuddle') : null;
+if (!inv || !inv.text) { toast('TA的邀请题库里没有可用的贴贴话术'); return false; }
+sendTaInvite(inv, name);
+if (window.replyGuideHint) window.replyGuideHint('inv');
+return true;
+} catch (e) { return false; }
+};
 window.tryActiveInvite = tryActiveInvite;
 function tryAutoSend() {
 try {
@@ -7497,6 +7512,9 @@ bindTaNow('more-choose-now', () => { if (window.triggerTaChooseNow) window.trigg
 bindTaNow('more-curious-now', () => { if (window.triggerTaCuriousNow) window.triggerTaCuriousNow(); });
 bindTaNow('more-roast-now', () => { if (window.triggerTaRoastNow) window.triggerTaRoastNow(); });
 bindTaNow('more-invite-now', () => { if (window.triggerTaInviteNow) window.triggerTaInviteNow(); });
+bindTaNow('more-cuddle-now', () => { if (window.triggerTaCuddleNow) window.triggerTaCuddleNow(); });
+bindTaNow('more-ck-now', () => { if (window.triggerCkQuestion) window.triggerCkQuestion(); });
+bindTaNow('more-xck-now', () => { if (window.triggerIncomingCheckinNow) window.triggerIncomingCheckinNow(); });
 const moreDecide = document.getElementById('more-decide');
 if (moreDecide) {
 moreDecide.addEventListener('click', (e) => {

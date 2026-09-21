@@ -1340,6 +1340,12 @@ try {
       });
     });
     wrap.appendChild(upBtn);
+    // #997：多选能力由浏览器选择器决定（本站只是网页，没有相册权限），只能选一张 / 点了没反应时给就地指引
+    const bgHint = document.createElement('div');
+    bgHint.id = 'phonebg-upload-hint';
+    bgHint.style.cssText = 'font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 8px';
+    bgHint.textContent = '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）';
+    wrap.appendChild(bgHint);
     if (cur) {
       const rmBtn = document.createElement('button');
       rmBtn.textContent = '清除当前壁纸（图库保留）';
