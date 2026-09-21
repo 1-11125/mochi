@@ -6,13 +6,17 @@
 // 说话的唯一入口（输入栏）被整条盖死，用户在设置里开了面板就再也走不到桌面/聊天页，只能盲调。
 // 断言：
 //  S 组＝产物源锚（红侧必红）：底部导航/输入栏留白、默认落位、收起成胶囊、看桌面/看聊天直达、
-//      页面名、聊天/桌面两处入口与接线、哨兵登记
+//      页面名、聊天设置/桌面两处入口与接线、哨兵登记
 //  B 组＝行为面（真浏览器，红侧必红）：B1 开面板不压底部导航／B2 收起＝小胶囊且不压导航／
 //      B3 胶囊点开复活／B4 聊天页不压输入栏／B5「看聊天」落到聊天页／B6「看桌面」落回桌面页／
-//      B7 面板开着仍能点到底部导航（命中测试）／B8 聊天「更多→屏幕适配」开面板并收掉更多面板／
-//      B9 装修栏入口接线可用／B10 页面名随页切换（区分桌面/聊天）
+//      B7 面板开着仍能点到底部导航（命中测试）／B12 聊天「更多」面板已无屏幕适配入口／
+//      B12b/B12c 聊天设置页可开 + 点「屏幕适配微调」行开面板／B13 装修栏入口接线可用／
+//      B9/B10 页面名随页切换（区分桌面/聊天）
+//  #982（用户 2026-09-21 直派「屏幕适配不该放在聊天的更多功能的工具里，要放在聊天的聊天设置里」）：
+//      聊天侧入口由「更多 → 工具 → 屏幕适配」改为「聊天设置 → 美化 → 屏幕适配微调」，
+//      S8/S10/S13/S17/S18 与 B12 系列即该批的判别面。
 //  C 组＝防修过头（两侧同过）：C1 滑杆仍落 LS（本地永久保存语义不变）／C2 全部恢复默认仍归零／
-//      C3 面板仍在返回键清单内（tabs.js）／C4 十一个哨兵 needle 各自在登记 file 内唯一
+//      C3 面板仍在返回键清单内（tabs.js）／C4 十六条哨兵 needle 各自在登记 file 内唯一
 //  Z1 全程零未捕获 JS 异常
 // 用法：node tools/verify-962-screen-adj-entry.mjs
 //       MOCHI_SERVE_ROOT=<产物目录> 做红绿对照（缺省回退仓库根产物——对照时务必显式传）。
@@ -104,18 +108,20 @@ const sNeed = [
   ['S5 胶囊点一下展开（删＝收起后回不到滑杆）', srcPers.includes('if (tapToOpen && !moved) { setMini(false); return; }')],
   ['S6 「看桌面 / 看聊天」直达（删＝现场调回流）', srcPers.includes('goPage(pair[0])') && srcPers.includes("['page-phone', '看桌面'], ['chat', '看聊天']")],
   ['S7 页面名「正在调：X」（删＝分不清在调哪一页）', srcPers.includes("'正在调：' + nm")],
-  ['S8 聊天页入口接线（删＝按钮点了没反应）', srcPers.includes("getElementById('more-screen-adj')")],
+  ['S8 聊天设置入口接线（删＝点行没反应）', srcPers.includes("getElementById('cs-screen-adj')")],
   ['S9 桌面页入口接线（删＝装修栏按钮点了没反应）', srcPers.includes("getElementById('decor-fit')")],
-  ['S10 聊天更多面板入口按钮（删＝聊天里没入口）', srcTpl.includes('id="more-screen-adj"')],
+  ['S10 聊天设置→美化 入口行（删＝聊天里没入口）', srcTpl.includes('id="cs-screen-adj"')],
   ['S11 装修栏入口按钮（删＝桌面上没入口）', srcTpl.includes('id="decor-fit"')],
   ['S12 入口行小字随新交互更新（删＝说明与实际不符）', srcTpl.includes('收起」变一枚小胶囊')],
-  ['S13 settings-help 写明三处入口（删＝使用提示缺入口）', srcHelp.includes('桌面长按空白进装修模式') && srcHelp.includes('更多 → 工具 → 屏幕适配')]
+  ['S13 settings-help 写明三处入口（删＝使用提示缺入口）', srcHelp.includes('桌面长按空白进装修模式') && srcHelp.includes('聊天设置」→ 美化 → 屏幕适配微调')],
+  ['S17 聊天「更多 → 工具」入口已撤（回流＝用户「为什么放在更多功能的工具里」原话复发）', !srcTpl.includes('more-screen-adj') && !srcPers.includes('more-screen-adj')],
+  ['S18 聊天设置入口行也登记了功能说明（删＝那行只剩标题，说不清面板是什么）', srcHelp.includes("sel: '#cs-screen-adj'")]
 ];
 sNeed.forEach(([n, ok]) => check(n, ok));
 check('S14 返回键清单仍含面板（#764h 契约不回退）', srcTabs.includes("'screen-adj-panel'];"));
-const sentIds = ['#940a', '#940b', '#940c', '#940d', '#962a', '#962b', '#962c', '#962d', '#962e', '#962f', '#962g', '#962h', '#962i', '#962j', '#962k'];
+const sentIds = ['#940a', '#940b', '#940c', '#940d', '#962a', '#962b', '#962c', '#962d', '#962e', '#962f', '#962g', '#962i', '#962k', '#982a', '#982b', '#982c'];
 const missingS = sentIds.filter((id) => srcBuild.indexOf("name: '" + id + ' ') < 0);
-check('S15 十五条哨兵（#940a~d 换锚 + #962a~k）全部登记', missingS.length === 0, missingS.join(','));
+check('S15 十六条哨兵（#940a~d + #962 家族 + #982a~c 入口改挂）全部登记', missingS.length === 0, missingS.join(','));
 // S16 needle 在各自登记 file 内唯一（哑哨兵体检，防「删掉修复仍报绿」）
 const needles = [
   ['js/personalize.js', 'z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);'],
@@ -127,9 +133,9 @@ const needles = [
   ['js/personalize.js', 'function setMini(on) {'],
   ['js/personalize.js', 'if (tapToOpen && !moved) { setMini(false); return; }'],
   ['js/personalize.js', "ctx.textContent = '正在调：' + nm;"],
-  ['js/personalize.js', "const chatEntry = document.getElementById('more-screen-adj');"],
+  ['js/personalize.js', "const chatSetEntry = document.getElementById('cs-screen-adj');"],
   ['js/personalize.js', "const decorEntry = document.getElementById('decor-fit');"],
-  ['template.html', 'id="more-screen-adj"'],
+  ['template.html', 'id="cs-screen-adj"'],
   ['template.html', 'id="decor-fit"']
 ];
 const readSrc = (f) => { try { return readFileSync(join(root, 'src', f), 'utf8'); } catch (e) { return ''; } };
@@ -198,15 +204,20 @@ await sleep(300);
 await evalJs("(function(){var b=[].slice.call(document.querySelectorAll('#screen-adj-panel button')).filter(function(x){return x.textContent==='看桌面';});if(!b.length)return 'no-btn';b[0].click();return true;})()");
 await sleep(700);
 check('B10 「看桌面」切回桌面页', (await evalJs("!document.getElementById('page-phone').hidden")) === true);
-// 聊天「更多 → 屏幕适配」（面板节点先外部摘掉：顺带验「节点没了入口仍能重建」＝防 zombie 面板）
+// 聊天侧入口（#982 起从「更多 → 工具」搬到「聊天设置 → 美化」；面板节点先外部摘掉：
+// 顺带验「节点没了入口仍能重建」＝防 zombie 面板）
 await evalJs("(function(){var p=document.getElementById('screen-adj-panel');if(p)p.remove();return true;})()");
 await sleep(200);
 await evalJs("window.enterChat && window.enterChat(); true");
 await sleep(1200);
 const moreOpened = await evalJs("(function(){var b=document.getElementById('chat-more-btn');if(!b)return 'no-more-btn';b.click();return !document.getElementById('chat-more-panel').hidden;})()");
 check('B11 聊天「更多」可打开', moreOpened === true, String(moreOpened));
-const entryInTool = await evalJs("(function(){var e=document.getElementById('more-screen-adj');if(!e)return 'no-entry';e.click();return {panel:!!document.getElementById('screen-adj-panel'),more:document.getElementById('chat-more-panel').hidden};})()");
-check('B12 聊天「更多→屏幕适配」开面板并收掉更多面板（节点被摘掉也能重建）', !!(entryInTool && entryInTool.panel && entryInTool.more), JSON.stringify(entryInTool));
+check('B12 聊天「更多」面板里已无屏幕适配入口（回流＝用户「为什么放在更多功能的工具里」原话复发）', (await evalJs("document.getElementById('more-screen-adj')===null")) === true);
+await evalJs("(function(){var p=document.getElementById('chat-more-panel');if(p)p.hidden=true;var b=document.getElementById('chat-settings-btn');if(b)b.click();return true;})()");
+await sleep(700);
+check('B12b 聊天设置页可打开（入口挂在它里面）', (await evalJs("(function(){var pg=document.getElementById('page-chat-settings');return !!pg && !pg.hidden;})()")) === true);
+const entryInChatSet = await evalJs("(function(){var e=document.getElementById('cs-screen-adj');if(!e)return 'no-entry';var vis=e.offsetParent!==null;e.click();return {panel:!!document.getElementById('screen-adj-panel'),vis:vis};})()");
+check('B12c 聊天设置→美化→屏幕适配 点行开面板（行可见 + 节点被摘掉也能重建）', !!(entryInChatSet && entryInChatSet.panel && entryInChatSet.vis), JSON.stringify(entryInChatSet));
 await sleep(300);
 // 装修栏入口接线（按钮在装修栏里，此处直接验接线可用）
 await evalJs("(function(){var p=document.getElementById('screen-adj-panel');if(p)p.remove();var bar=document.getElementById('decor-bar');if(bar)bar.hidden=false;return true;})()");

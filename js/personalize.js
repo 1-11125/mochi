@@ -6753,12 +6753,8 @@ syncMiniLabel();
 window.mochiOpenScreenAdj = openAdjPanel;
 const entry = document.getElementById('row-screen-adj');
 if (entry) entry.addEventListener('click', openAdjPanel);
-const chatEntry = document.getElementById('more-screen-adj');
-if (chatEntry) chatEntry.addEventListener('click', () => {
-const mp = document.getElementById('chat-more-panel');
-if (mp) mp.hidden = true; // 与其它 more-item 同口径：点了先把更多面板收掉
-openAdjPanel();
-});
+const chatSetEntry = document.getElementById('cs-screen-adj');
+if (chatSetEntry) chatSetEntry.addEventListener('click', openAdjPanel);
 const decorEntry = document.getElementById('decor-fit');
 if (decorEntry) decorEntry.addEventListener('click', () => {
 try { if (window.exitDecor) window.exitDecor(); } catch (e) {} // 先退出装修模式再开面板，避免两层叠着看不清

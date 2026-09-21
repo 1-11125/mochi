@@ -8159,17 +8159,14 @@ try {
       refreshVals();
       syncMiniLabel();
     }
-    // #962：三处入口收敛到同一个开面板动作——设置页（原有）＋聊天页「更多 → 工具」＋桌面页「装修模式栏」，
-    // 用户不用先钻进设置：在桌面/聊天现场就能开面板调，调的位置看得见＝不再盲调。
+    // #962/#982：三处入口收敛到同一个开面板动作——设置页「工具」首位（原有）＋聊天页「聊天设置 → 美化」
+    // ＋桌面页「装修模式栏」，用户不用先钻进设置：在桌面/聊天现场就能开面板调，调的位置看得见＝不再盲调。
+    // #982：聊天侧入口由「更多 → 工具」改为「聊天设置 → 美化」（用户直派），按钮 id 随行 id 一并换掉。
     window.mochiOpenScreenAdj = openAdjPanel;
     const entry = document.getElementById('row-screen-adj');
     if (entry) entry.addEventListener('click', openAdjPanel);
-    const chatEntry = document.getElementById('more-screen-adj');
-    if (chatEntry) chatEntry.addEventListener('click', () => {
-      const mp = document.getElementById('chat-more-panel');
-      if (mp) mp.hidden = true; // 与其它 more-item 同口径：点了先把更多面板收掉
-      openAdjPanel();
-    });
+    const chatSetEntry = document.getElementById('cs-screen-adj');
+    if (chatSetEntry) chatSetEntry.addEventListener('click', openAdjPanel);
     const decorEntry = document.getElementById('decor-fit');
     if (decorEntry) decorEntry.addEventListener('click', () => {
       try { if (window.exitDecor) window.exitDecor(); } catch (e) {} // 先退出装修模式再开面板，避免两层叠着看不清
