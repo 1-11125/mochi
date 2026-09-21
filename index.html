@@ -7814,8 +7814,8 @@ background:rgba(0,0,0,.06); border-radius:8px; padding:2px 8px;
 [data-theme="dark"] #qs-diag .qsdiag-bad { color:#f87171; background:rgba(239,68,68,.16); }
 [data-theme="dark"] #qs-diag .qsdiag-okline { color:#4ade80; }
 [data-theme="dark"] #qs-diag .qsdiag-blocked { color:#f87171; background:rgba(239,68,68,.14); }
-.dict-lock-hint { margin:8px 12px 0; font-size:11px; font-weight:600; color:#b3261e; background:rgba(220,38,38,.1); border-radius:8px; padding:6px 9px; line-height:1.6; }
-[data-theme="dark"] .dict-lock-hint { color:#f87171; background:rgba(239,68,68,.14); }
+.dict-lock-hint, .dc-size-hint { margin:8px 12px 0; font-size:11px; font-weight:600; color:#b3261e; background:rgba(220,38,38,.1); border-radius:8px; padding:6px 9px; line-height:1.6; }
+[data-theme="dark"] .dict-lock-hint, [data-theme="dark"] .dc-size-hint { color:#f87171; background:rgba(239,68,68,.14); }
 .gs-row {
 display:flex; align-items:center; justify-content:space-between; gap:10px;
 padding:12px 14px; border-bottom:1px solid rgba(0,0,0,.05);
@@ -10265,6 +10265,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p class="splash-hl">关于二级验证密码（暗号）：6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（生日写在开屏目录里，不是最底下的部署时间）。解开后请勿二传。</p>
             <p class="splash-hl">数据丢失属浏览器正常概率，请定期备份：本机不保留任何自动副本，你导出的文件就是唯一备份。TA 的主动消息、字卡等均按概率随机触发，嫌频繁可在 设置 → 回复设置 或 字卡库 → 其他互动功能字卡 调低（0 = 不触发）。</p>
+            <p class="splash-hl" id="splash-ios-pwa-tip">#916 建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮 → 添加到主屏幕，之后从桌面图标打开）：浏览器里直接打开的网页是手机清数据时的头号受害者，数据说没就没；从桌面图标用耐用得多。再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。详见 设置 → 关于 →「减少数据被手机清掉的几率」。</p>
             <!-- #661：开屏慢≠bug——用户直派「不用写在 bug 公告里，单独写、放显眼的地方」，
                  故独立成章并置于目录第一位（renderSplashSections expandFirst，默认展开＝最显眼），
                  另在必读摘要补一条高亮。离线兜底一份；在线权威源在 src/pwa/notice.json，两份同步 -->
@@ -10382,9 +10383,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789983708842">
-        <span class="sv-app">Mochi 字卡传讯 <b>v8.28</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 17:41<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789984201914">
+        <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
+        <span class="sv-deploy">部署于 2026-09-21 17:50<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10490,6 +10491,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <button class="decor-add" id="decor-edit-layout">编辑布局</button>
         <button class="decor-add" id="decor-add-widget">+ 添加卡片</button>
         <button class="decor-add" id="decor-restore-icon">恢复图标</button>
+        <!-- #962：桌面页自己的「屏幕适配微调」入口——长按桌面空白进装修模式后即可就地开面板边看边调
+             （此前只有 设置→工具 一个入口，在设置列表后面根本看不见桌面/聊天现场＝盲调） -->
+        <button class="decor-add" id="decor-fit" title="屏幕适配微调（顶部遮挡/底部裁切/留白/字太小）">屏幕适配</button>
         <button class="decor-done" id="decor-done">完成</button>
       </div>
       <div class="desktop-pages" id="desktop-pages">
@@ -11535,11 +11539,34 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="them-tab" data-tab="chat">聊天</div>
         <div class="them-tab" data-tab="system">系统</div>
         <div class="them-tab" data-tab="tools">工具</div>
-        <div class="them-tab" data-tab="diag">信息诊断</div>
         <div class="them-tab" data-tab="about">关于</div>
       </div>
-      <!-- 通用：联系人 / 桌面 + 开启群聊 + 深色模式 / 手机桌面美化 -->
+      <!-- 通用：全屏模式（置顶独立组） + 数据备份（导出/导入） + 联系人 / 桌面 + 入口行为 + 深色模式 / 手机桌面美化 -->
       <div class="them-sec" data-sec="basic">
+      <!-- FIX 2026-09-20 #927：全屏模式自「系统」段提到通用首位、独立成组（用户：设置里的全屏模式要放在最前面一个显眼独立的地方）；
+           行下小字首条写明「切后台会自动退出全屏＝设备限制、不是 bug」（原只在常见问题里，用户当 bug 报） -->
+      <div class="set-group glass">
+        <div class="set-row" id="sf-fullscreen-row">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></div>
+          <div class="txt"><span id="sf-fullscreen-label">全屏模式（隐藏手机状态栏）</span><span class="tag" id="sf-fullscreen-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></div>
+          <label class="toggle"><input type="checkbox" id="sf-fullscreen"><span class="tk"></span></label>
+        </div>
+        <div class="gs-sub" id="sf-fullscreen-sub"><b>手机端切到后台（锁屏 / 切去别的应用）会自动退出全屏，这是设备限制、不是 bug</b>，切回来手动再开一次即可。<br>开启后尽量隐藏手机顶部状态栏/浏览器栏，让内容占满全屏。<br>iOS 限制：iPhone 顶部系统状态栏（时间/电量）由系统控制，任何网页都无法隐藏；从主屏幕打开时本开关会让内容顶满屏幕，应用内模拟状态栏（Mochi/时间/电量）下移到系统状态栏正下方、两栏不重叠。</div>
+      </div>
+      <!-- FIX 2026-09-19 #805（工作树被并行旧缓冲打回，2026-09-20 随 #927 重放）：导出数据/导入数据自「工具」段移入通用段——
+           备份是防丢的唯一防线，放太靠后的 tag 用户不知道有这个功能；row id 不变，直达跳转按 closest('.them-sec') 动态取 tag -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-export">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
+          <div class="txt">导出数据<span class="sub">点开可选「仅聊天记录」：各桌面联系人 + 群聊，换机只搬聊天</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-import">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
+          <div class="txt">导入数据<span class="sub">点开可选「仅聊天记录」：只恢复各桌面联系人与群聊，其他数据不动</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+      </div>
       <div class="set-group glass">
         <div class="set-row" id="row-contacts">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
@@ -11584,7 +11611,15 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
-      </div><!-- /them-sec basic -->
+      <!-- FIX 2026-09-19 #805（2026-09-20 随 #927 重放）：清除本地数据＝通用段末项（与导出/导入同一 tag，用户要求首屏可见；
+           危险操作置段尾，与上方只读项拉开距离） -->
+      <div class="set-group glass">
+        <div class="set-row" id="row-reset">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
+          <div class="txt">清除本地数据<span class="sub">不可恢复：清空本机全部数据（先「导出数据」备份再清）</span></div>
+        </div>
+      </div>
+      </div><!-- /them-sec basic · row-reset -->
       <!-- 聊天：回复 / 通话 / 音效 + 功能大全 + 功能介绍 -->
       <div class="them-sec" data-sec="chat">
       <div class="set-group glass">
@@ -11610,7 +11645,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec chat -->
-      <!-- 系统：应用锁 + 开屏问答门（隐私防护）+ 后台保活/通知 + 全屏/离线通知等系统开关 -->
+      <!-- 系统：应用锁 + 开屏问答门（隐私防护）+ 后台保活/通知 + 全屏边缘防误触 / 离线通知等系统开关
+           （「全屏模式」主开关在通用段首位，#927） -->
       <div class="them-sec" data-sec="system">
       <!-- 应用锁（隐私防护：防别人拿手机打开本站直接偷看聊天记录；逻辑在 applock.js） -->
       <div class="set-group glass">
@@ -11638,10 +11674,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <!-- v3.26.x：后台弹窗使用说明——要点直接铺在行下（用户直派「后台弹窗要有使用说明、详细说清楚」），
              完整步骤见本行「功能说明」胶囊（settings-help.js #bg-notify）与 使用说明 → 第 10 节 -->
         <div class="gs-sub" id="bg-notify-sub"><b>后台弹窗＝页面切到后台（锁屏 / 切到别的应用）时，TA 发消息用系统通知弹横幅。</b>必备：① 安卓 Chrome / Edge 且 https 打开；② 允许通知权限（地址栏左侧图标 → 网站设置 → 通知）；③ 本开关（会自动开启「后台保活」——后台不产生消息就无从弹起）；④ 系统设置里给浏览器允许通知、且不限制其后台运行/省电（小米 / 红米还要开「在屏幕上方显示 / 悬浮通知」）。<b>iPhone 的网页拿不到系统通知，本开关在 iPhone 上无效</b>，请用「桌面消息弹窗」的应用内横幅。点本行「功能说明」看完整步骤与「收不到」的排查，点右侧「测试」可一键体检。</div>
-        <div class="gs-row"><span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;"><span>全屏模式（隐藏手机状态栏）</span><span class="tag" id="sf-fullscreen-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span><label class="toggle"><input type="checkbox" id="sf-fullscreen"><span class="tk"></span></label></div>
-        <!-- v3.26.x：全屏模式功能说明——iOS 系统状态栏（时间/电量）由系统控制、任何网页都无法隐藏，
-             点「功能说明」标签弹详细说明（fullscreen.js sf-fullscreen-help 绑定 showIosGuide） -->
-        <div class="gs-sub" id="sf-fullscreen-sub">开启后尽量隐藏手机顶部状态栏/浏览器栏，让内容占满全屏。<br>iOS 限制：iPhone 顶部系统状态栏（时间/电量）由系统控制，任何网页都无法隐藏；从主屏幕打开时本开关会让内容顶满屏幕，应用内模拟状态栏（Mochi/时间/电量）下移到系统状态栏正下方、两栏不重叠。</div>
+        <!-- FIX 2026-09-20 #927：本段的「全屏模式（隐藏手机状态栏）」行（#sf-fullscreen 及其说明小字）已整体搬到
+             「通用」段首位独立成组（用户点名要放最前面显眼处）；本段只留下方「全屏边缘防误触」等配套开关。 -->
         <!-- v3.26.x：布局手动兜底——浏览器「桌面版网站」模式会把 UA / screen / 触摸能力 /
              视口整套伪装成桌面，指纹识别必有漏网（vivo Y35 + Edge 连栽三轮）。识别失手时
              用户自己掰回来：本开关（或地址栏 ?mobile=1 / ?pc=1），持久存 localStorage，
@@ -11667,7 +11701,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="gs-row" style="display:block"><span id="psync-status" style="font-size:11px;color:var(--muted,#999);line-height:1.5;white-space:normal">…</span></div>
       </div>
       </div><!-- /them-sec system -->
-      <!-- 工具：导出 / 导入 / 信息诊断 / 存储 / 卡顿优化等数据与诊断工具 -->
+      <!-- 工具：屏幕适配 / 字卡自检 / 各功能数据 / 信息诊断 / 存储 / 卡顿优化等数据与诊断工具
+           （FIX 2026-09-20 #927：整机的「导出数据 / 导入数据」与段末「清除本地数据」在通用段，勿在此重建＝重复 id） -->
       <!-- v3.26.x 关于分类：使用说明（#row-guide / #guide-sub）已上移到「关于 → 帮助与支持」，
            与新手引导、功能介绍同属「了解应用」类；工具 tag 只留会改数据的操作 -->
       <div class="them-sec" data-sec="tools">
@@ -11679,7 +11714,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <div class="set-group glass">
         <div class="set-row" id="row-screen-adj">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
-          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？六轴滑杆边拖边看、当场见效，双击滑杆复位，一键恢复默认；本机永久保存（换设备各自调）</span></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「更多→工具」也各有一个入口；本机永久保存（换设备各自调）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
@@ -11706,16 +11741,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       <div class="set-group glass">
-        <div class="set-row" id="row-export">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导出数据<span class="sub">点开可选「仅聊天记录」：各桌面联系人 + 群聊，换机只搬聊天</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <div class="set-row" id="row-import">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
-          <div class="txt">导入数据<span class="sub">点开可选「仅聊天记录」：只恢复各桌面联系人与群聊，其他数据不动</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
+        <!-- FIX 2026-09-20 #927（含 #805 重放）：本组原有的「导出数据 / 导入数据」两行（#row-export / #row-import）
+             已搬到「通用」段顶部独立成组（用户点名：备份入口放太靠后找不到）；本组只留单功能级数据工具。 -->
         <!-- v3.27.x #645：修改摸鱼天数——fish-log（全局键）丢数据后天数从 0 重来，
              这里手动改回原天数；与导出/导入同属数据管理组（personalize.js 接线） -->
         <div class="set-row" id="row-fish-days">
@@ -11731,40 +11758,10 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">各功能数据管理<span class="sub">花园/房间/记账/经期/占卜/音乐…每个功能单独导出、导入、清空，互不影响</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
-        <!-- v3.26.x：查看存储——用户反馈「存储已用 1.x GB」时，能一眼看出各功能占多少空间，
-             并提供「清理错误诊断记录」手动清掉诊断缓存（__diag-*，不影响任何业务数据） -->
-        <div class="set-row" id="row-storage-view">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
-          <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
-        </div>
-        <!-- #497 压缩图片入口：img-compress.js 接线 #row-img-compress（该功能上线时漏加本行＝设置页一直无入口）；
-             「查看存储」页内另有同款入口 #st-img-compress-btn -->
-        <div class="set-row" id="row-img-compress">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
-          <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
-        </div>
-        <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
-      </div>
-      <!-- v3.33.x #525：清除本地数据归入「工具」tag（与导出/导入同属数据管理）——
-           原在「关于」段＝用户报「设置 tag 分类不正常」；独立成组与上方诊断工具视觉分隔，且仍是本 tag 最后一项 -->
-      <div class="set-group glass">
-        <div class="set-row" id="row-reset">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg></div>
-          <div class="txt">清除本地数据</div>
-        </div>
-      </div>
-      </div><!-- /them-sec tools · row-reset -->
-      <!-- v3.26.x #957：设置页新增「信息诊断」独立 tag（用户直派「把信息诊断相关在设置的 tag 里新开一个分类」）——
-           原先与数据工具混排在「工具」大组里的诊断行、以及用户主动跑的自测行，集中到本 tag：
-           设备兼容诊断 / 顶部避让修正 / 屏幕适配诊断 / 功能诊断 ＋ 卡顿自检 / 一键优化 / 电量自测 / 发烫自测 / 闪屏自测
-           （含卡顿、发烫两条排查说明 gs-sub）。「查看存储」「压缩图片」仍留「工具」（数据管理面）；
-           行 id 一律不变＝settings-help「功能说明」胶囊、直达跳转 closest('.them-sec')、build.mjs 哨兵接线不断。 -->
-      <div class="them-sec" data-sec="diag">
-      <div class="set-group glass">
         <!-- v3.16.x：复制诊断信息——遇设备/浏览器兼容问题时，用户一键复制本机环境信息发给开发者，
              避免靠描述反推（此前每台新设备报障都要来回猜） -->
+        <!-- v3.26.x #176：信息诊断分组说明（设备兼容诊断 + 屏幕适配诊断两行归属） -->
+        <div class="gs-title">信息诊断</div>
         <div class="set-row" id="row-diagnostics">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
           <div class="txt">设备兼容诊断<span class="sub">遇到兼容问题发给开发者（原复制诊断信息）</span></div>
@@ -11791,6 +11788,20 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
           <div class="txt">功能诊断<span class="sub">逐个测试全部功能是否正常（约 15 秒）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <!-- v3.26.x：查看存储——用户反馈「存储已用 1.x GB」时，能一眼看出各功能占多少空间，
+             并提供「清理错误诊断记录」手动清掉诊断缓存（__diag-*，不影响任何业务数据） -->
+        <div class="set-row" id="row-storage-view">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
+          <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
+        </div>
+        <!-- #497 压缩图片入口：img-compress.js 接线 #row-img-compress（该功能上线时漏加本行＝设置页一直无入口）；
+             「查看存储」页内另有同款入口 #st-img-compress-btn -->
+        <div class="set-row" id="row-img-compress">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
         </div>
         <!-- #726：卡顿自检（渲染层实测）——与下方 #411「一键优化」（数据层）互补：
              10 秒 rAF 帧间隔现场实测（可去任意页面复现），掉帧率/集中页/键盘期占比 + 对症建议；
@@ -11839,8 +11850,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              发热与卡顿成因不同（发热多为后台持续干活：保活/边充边用/高负载，卡顿多为数据堆积+省电模式），
              单独成条不塞进卡顿清单；口径与 #436 后台减负、#906 报告点名保活一致 -->
         <div class="gs-sub" id="heat-help-sub"><b>手机发烫怎么改善：</b>发烫多数不是网站坏了，是<b>有东西在后台一直干活</b>。按这个顺序查：① <b>「后台保活」</b>——开着＝页面在后台持续运行，是最常见的发热源；不用后台通知时到 设置 → 系统 关掉，温度会明显下降。② <b>边充电边用</b>——充电本身就发热，叠加使用更烫；烫得厉害先拔掉充电器对照。③ <b>通话 / 长时间放声音</b>——在本站打通话（响铃＋通话中持续放音）、长时间放歌或连着玩小游戏，跟真的打电话、视频通话一样，都会持续占用扬声器/听筒和网络＝发热明显，<b>属正常现象</b>，挂断/停播几分钟温度就降下来；系统级打电话、微信视频同理。④ <b>省电（低电量）模式别开</b>——又卡又发热（见上方卡顿说明第一条）。⑤ <b>别开一堆标签页、别用「桌面版网站」模式</b>。⑥ 数据堆得太多（图片最占）会让手机持续高负载，按上方卡顿清单「查看存储 → 对症清」。另外：不用本站时把它<b>从后台彻底划掉</b>（或关掉后台保活），几分钟温度就会降下来。<b>想量化取证</b>：上方「发烫自测」（约 10 秒，测有没有被系统降频拖慢）与「电量消耗自测」（分段测掉电速率，开了就能去忙别的，回来自动出报告）随时可跑，报告可复制/导出，发热或耗电异常时把它发给开发者。</div>
+        <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
       </div>
-      </div><!-- /them-sec diag -->
+      <!-- FIX 2026-09-19 #805（2026-09-20 随 #927 重放）：「清除本地数据」(#row-reset) 已移入「通用」段末项——
+           与导出/导入同属数据管理，用户要求三件套都在首屏 tag 里看得见；危险操作仍置段尾与只读工具分开。 -->
+      </div><!-- /them-sec tools -->
       <!-- 关于：按「应用信息 / 帮助与支持 / 隐私与法律 / 联系与反馈」四类整理（#606，2026-09-16）。
            只放「了解应用本身」的只读信息；会改数据/开关的仍留工具 tag。
            版本号 / 署名 / 防骗声明在分区外常驻底部，不随标签切换 -->
@@ -11852,10 +11866,15 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <!-- #792（2026-09-18 用户直派）：数据与存储必读——小白用户对「数据为什么会没」有大量重复疑问
            （浏览器自动清数据 / 存储权限 / 无痕模式 / 备份 / 是不是 bug），逐条写成只读说明放关于段最顶。
            三处同步：详版弹窗文案在 personalize.js initAboutInfo，短版功能说明在 settings-help.js，警示条+行在此 -->
-      <div class="set-alert" id="about-storage-note"><b>数据无价，先懂三条设备限制：</b>① 本站数据只存在你这台手机的这个浏览器里，没有云端、不会自动同步；② 浏览器 / 手机系统在「清理垃圾、释放空间、存储不足、长时间不打开」时会自动清掉网站数据；③ 无痕（隐私）模式一关就全部清空。这些都不是 bug、删了也找不回——唯一防线是定期导出备份（设置 → 工具 → 导出数据）。逐条详解见下方「数据与存储（重要）」。</div>
+      <div class="set-alert" id="about-storage-note"><b>数据无价，先懂三条设备限制：</b>① 本站数据只存在你这台手机的这个浏览器里，没有云端、不会自动同步；② 浏览器 / 手机系统在「清理垃圾、释放空间、存储不足、长时间不打开」时会自动清掉网站数据；③ 无痕（隐私）模式一关就全部清空。这些都不是 bug、删了也找不回——唯一防线是定期导出备份（设置 → 通用 → 导出数据）。逐条详解见下方「数据与存储（重要）」。</div>
       <!-- #884（2026-09-20 用户直派「低电量模式会卡也要在关于里写清楚」）：关于段第三条必读警示条，
            与 工具段「手机卡顿说明」、使用说明第 11 节、settings-help 功能说明、诊断【性能】帧率行五处同口径。
            非 set-row＝设置搜索不受影响（同 #722/#792 口径）；verify-about-cat B1/B2/B5 只数分组与入口行，不拦 -->
+      <div class="set-alert" id="about-storage-reduce"><b>减少数据被手机清掉的几率（照做能大幅降低丢数据概率）：</b>① <b>把本站「添加到主屏幕」用</b>——iPhone：Safari 底部中间的分享按钮（方框加箭头）→「添加到主屏幕」，之后从桌面图标打开；浏览器里直接打开的网页，是手机清数据时最先被清的，桌面图标的存储耐用得多。② <b>给手机留几个 GB 空闲存储</b>（设置 → 通用 → iPhone 储存空间）：手机越满，系统越会回收网页数据。③ <b>别点 Safari 的「清除历史记录与网站数据」</b>——那会连本站数据一起清掉。④ <b>导出的备份文件存多处</b>（发微信给自己 / 云盘 / 文件 App 各留一份），别只留一个地方。</div>
+      <!-- #959（2026-09-21 用户直派「这个要写在关于里提醒 iOS 用户」）：iPhone/iPad Safari 7 天清空规则单列一条。
+           仅 iOS 显示——pwa.js 载入时对非 iOS 置 hidden（JS 未跑＝保留，宁可多提醒一句，不误藏）。
+           非 set-row＝设置搜索不受影响（同 #722/#792 口径）。 -->
+      <div class="set-alert" id="about-ios-pwa-note"><b>iPhone / iPad（Safari）用户必看：不装到桌面，数据会被「7 天规则」清空。</b>没把本站「添加到主屏幕」时，Apple 会在<b>连续 7 天没打开本站</b>后自动清空它的全部本地数据——这是 Safari 的隐私策略（ITP），任何网站都躲不过，网站也没法用代码阻止；<b>添加到主屏幕后从桌面图标打开就不受这条限制</b>（主屏应用不计入这 7 天）。<b>注意：主屏幕应用和 Safari 是两套独立存储</b>，所以请按顺序做：① 先导出一份完整备份（设置 → 通用 → 导出数据），存到「文件」App 或微信收藏；② 点 Safari 底部的分享按钮（方框加箭头）→「添加到主屏幕」→ 添加；③ 回手机桌面，点新出现的 Mochi 图标打开；④ 在打开的桌面应用里 设置 → 通用 → 导入数据，选第①步的备份文件恢复。之后平时都从桌面图标用，Safari 清不清都不影响你的数据。（安卓没有这条 7 天规则，但存储紧张时系统也会清网页数据，仍要定期导出备份。）</div>
       <div class="set-alert" id="about-perf-note"><b>手机发卡？先查「省电模式」：</b>iPhone 的「低电量模式」、安卓各家的「省电模式 / 低电量模式 / 超级省电」都会把手机调成半速——帧率锁半、处理器降速，表现为滑动、切页、打字全都变卡。<b>这是系统行为，不是网站坏了，关掉立刻恢复</b>（iPhone：设置 → 电池 → 关掉「低电量模式」；安卓：设置 → 电池，各厂商叫法不同）。安卓用户若只卡这一个应用，再检查「电池优化 / 后台运行限制」有没有把浏览器限死。确认没开省电还卡，再到 设置 → 工具 →「手机卡顿说明」按清单对症处理。</div>
       <div class="set-group glass">
         <div class="gs-title">数据与存储（重要）</div>
@@ -11897,7 +11916,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v8.28</div>
+          <div class="val" id="about-ver-val">v8.29</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11966,7 +11985,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v8.28</div>
+      <div class="ver">Mochi 字卡传讯 v8.29</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12037,7 +12056,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="cal-card-title">持久存储</div>
           <div class="storage-row"><span>当前状态</span><b id="st-persist">读取中…</b></div>
           <button class="storage-clear" id="st-persist-btn" type="button" hidden>申请持久存储</button>
-          <div class="storage-hint">申请成功后浏览器承诺不自动清理本应用数据（同域其他站点占满配额时更不容易被挤掉）。注意：持久化不是备份，定期导出备份仍是唯一可靠防线。</div>
+          <div class="storage-hint">申请成功后浏览器承诺不自动清理本应用数据（同域其他站点占满配额时更不容易被挤掉）。注意：持久化不是备份，定期导出备份仍是唯一可靠防线。iPhone 的 Safari 标签页里该申请通常不会通过（Safari 只在极少情况下授予），想彻底避免数据被系统自动清空，请点 Safari「分享」→「添加到主屏幕」，并从桌面图标打开使用（安装前先导出备份，切过去后在桌面应用里导入）。</div>
         </div>
         <!-- #168 字卡库瘦身：分组体积扫描与整组删除（后端 storage-slim.js，接线 personalize.js） -->
         <div class="cal-card glass">
@@ -12360,7 +12379,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v8.28</span>
+              <span class="lic-ver">v8.29</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -12795,7 +12814,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">25</span><span class="lg-name">数据</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
-          <div class="lic-li"><b>清除本地数据 / 清空重置</b>（设置 → 工具）：清掉本机<b>全部</b> xy-home-v2 数据——所有联系人的桌面与聊天、字卡库、收藏、美化、桌面布局等，并删除 IndexedDB 整库，随后自动重载回到全新状态（重新弹新手引导）。<b>不可撤销、无法找回</b>，做之前请先「导出数据」备份；只想清掉某一位联系人的数据，去 设置 → 通用 → 联系人 / 桌面 里删除该联系人（同样不可恢复）。</div>
+          <div class="lic-li"><b>清除本地数据 / 清空重置</b>（设置 → 通用）：清掉本机<b>全部</b> xy-home-v2 数据——所有联系人的桌面与聊天、字卡库、收藏、美化、桌面布局等，并删除 IndexedDB 整库，随后自动重载回到全新状态（重新弹新手引导）。<b>不可撤销、无法找回</b>，做之前请先「导出数据」备份；只想清掉某一位联系人的数据，去 设置 → 通用 → 联系人 / 桌面 里删除该联系人（同样不可恢复）。</div>
           <div class="lic-li">数据存储设备本地，可导入导出</div>
           <div class="lic-li">支持导入星言简约版聊天字卡库导出的 json（字卡内容与分组完整导入）</div>
           <div class="lic-li">导入预览：显示导出时间 / 键数 / 聊天条数 / 头像 / 摸鱼累计</div>
@@ -12860,7 +12879,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lg-body">
           <div class="lic-li"><b>屏幕位置设置</b>（设置 → 屏幕位置设置）：五轴手动微调，屏幕错位自己调——顶部（内容被状态栏遮挡/离太远）、底部（导航栏悬空/被手机手势条裁掉）、页面高度（底部留白/内容超出）、桌面图标区（全屏时图标/按钮整体偏上）、整体位移（整页偏上/偏下导致顶部或底部被遮挡）；面板里步进 ±2px 或点数值精确输入，改完立即生效、本机永久保存（跨桌面共用、换设备各自调），「全部恢复默认」一键归零；建议先用「屏幕适配诊断」看差多少像素再来填</div>
           <div class="lic-li">屏幕适配诊断：顶部空白 / 底部裁切 / 缩放异常一键定位（含 60 秒视口时间线回放键盘开合），报障时整段复制发给开发者</div>
-          <div class="lic-li">全屏模式：设置页开关，安卓 Chrome PWA 隐藏系统状态栏，iOS 隐藏应用内模拟状态栏</div>
+          <div class="lic-li">全屏模式：设置 → 通用 首位开关，安卓 Chrome PWA 隐藏系统状态栏，iOS 隐藏应用内模拟状态栏</div>
           <div class="lic-li">iOS 手势 / 双击缩放兜底，Via 浏览器 CSS 兜底保持竖屏</div>
           <div class="lic-li">文本输入框 contenteditable 代理（防 Chrome 自动填充条，原 input 变 1px 幽灵锚点）</div>
           <div class="lic-li">弹层滚动穿透锁（body.scroll-lock），输入法适配</div>
@@ -12944,8 +12963,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <summary><span class="lg-num">4</span><span class="lg-name">数据与备份</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li">所有数据<b>只存在你自己的浏览器里，没有云端</b>：清除浏览器数据、卸载、换机、系统回收存储都会导致数据丢失，本机不保留任何自动副本。</div>
-              <div class="lic-li">导出备份：<b>设置 → 工具 → 导出数据</b>；可只导出文字（体积小）或整包。请把文件保存到不会被浏览器清理的地方。</div>
-              <div class="lic-li">恢复 / 换机：新设备用 <b>设置 → 工具 → 导入数据</b> 选择之前导出的备份文件即可恢复（导入会覆盖当前数据）。</div>
+              <div class="lic-li">导出备份：<b>设置 → 通用 → 导出数据</b>；可只导出文字（体积小）或整包。请把文件保存到不会被浏览器清理的地方。</div>
+              <div class="lic-li">恢复 / 换机：新设备用 <b>设置 → 通用 → 导入数据</b> 选择之前导出的备份文件即可恢复（导入会覆盖当前数据）。</div>
               <div class="lic-li">顶部会有<b>备份提醒</b>（距上次成功导出超过 1 天提醒一次）；别只把备份留在下载列表里。</div>
               <div class="lic-li"><b>每个功能都能单独搬家</b>：<b>设置 → 工具 → 各功能数据管理</b> 里按功能列出<b>花园 / 房间 / 记账 / 经期 / 占卜 / 音乐 / 小游戏…</b>，每项都能单独<b>导出</b>成一个文件、单独<b>导入</b>回来（可选「合并」或「清空本功能后导入」）、单独<b>清空</b>——只动这一个功能的数据，别的功能和其他桌面都不受影响。</div>
               <div class="lic-li">聊天记录可在 <b>聊天设置 → 数据</b> 里单独导出 / 导入 / 删除；字卡可在字卡库用「自定义字卡·全量导出 / 导入」单独迁移。</div>
@@ -12976,7 +12995,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">7</span><span class="lg-name">常见问题</span><span class="lg-count">16</span></summary>
             <div class="lg-body">
-              <div class="lic-li"><b>数据突然没了 / 回到初始？</b>多半是浏览器清理了本机存储。到 设置 → 工具 → 导入数据 恢复之前导出的备份。</div>
+              <div class="lic-li"><b>数据突然没了 / 回到初始？</b>多半是浏览器清理了本机存储。到 设置 → 通用 → 导入数据 恢复之前导出的备份。</div>
               <div class="lic-li"><b>更新版本会丢数据吗？</b>不会。数据保存在本机，刷新 / 更新 / 关掉重开都不影响；只有清除浏览器数据、卸载、换机或系统回收存储才会丢（记得定期备份）。</div>
               <div class="lic-li"><b>没有声音 / 铃声不响？</b>iOS 需先点一下页面才能出声（自动播放限制）；再确认 设置 → 聊天 → 音效设置 里已上传并开启。</div>
               <div class="lic-li"><b>上传的音乐播不了？</b>通过网易云链接上传的 VIP / 付费歌曲无法播放（仅免费歌曲可播），歌单导入会自动移除这类歌曲；外链失效或有防盗链也会播放失败；网易云「分享短链」解析受解析服务影响，失败时先用浏览器打开那条链接、把地址栏里 music.163.com/song?id=数字 的完整链接或数字粘贴导入。<b>本机上传的文件放不了</b>则多半是加密格式或无损 m4a（ALAC 编码）——音乐 App 里下载 / 缓存的歌曲文件大多带加密，即使扩展名是 .mp3 / .flac / .m4a 也解不开，转成 mp3 再上传即可。</div>
@@ -13301,7 +13320,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="py-punct-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
             <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
-            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池</div>
+            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池。关闭上方「多字卡回复」后本组一并失效：拼接随机标点不再生效、符号池回退空格</div>
           </div>
           </div>
           <!-- 拼字造句组：词典拼字 / 梦角自由造句 -->
@@ -13672,6 +13691,10 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </span>
         <span class="ch-name">聊天默认字卡</span>
       </div>
+      <!-- #961 字卡库顶部标红提醒（与词典页同款）：默认聊天字卡与词典两池体量很大，不常用词典
+           时建议关掉；文案与二级密码解锁成功弹窗共用 card-lock.js 的 window.mochiPresetSizeTip，
+           由 default-cards.js 填充。静态空 div 留在模板里，改动只发生在文案侧。 -->
+      <div class="dc-size-hint" id="dc-size-hint"></div>
       <div class="sm-set-hint" style="padding:8px 16px 0">说明：以下系统预设字卡为本站自搓字卡（AI 辅助设计），可逐张开启或关闭。</div>
       <div class="dc-toggle glass">
         <div class="dc-toggle-txt">
@@ -13750,6 +13773,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </span>
         <span class="ch-name">聊天默认字卡·词典</span>
       </div>
+      <!-- #961 词典页顶部标红提醒：词典是系统字卡里最大的一池，不常用词典拼字/拼句时建议关掉；
+           与默认聊天字卡页同款（同一份文案，见 card-lock.js window.mochiPresetSizeTip）。 -->
+      <div class="dc-size-hint" id="dict-size-hint"></div>
       <div class="sm-set-hint" style="padding:8px 16px 0">说明：系统词典供「词典拼字」抽卡，按分组展示，可逐张开启或关闭；语录与词库里的字卡都会进抽卡池。<br>联系人气泡左下角 tag 口径：一条消息里只装一张字卡＝「词典」；一条消息里拼进多张字卡、每张都超过 4 字（整句）＝「词典拼句」；多张里含 4 字以内短词＝「词典拼词」；一张卡一条气泡逐条连发时，除「词典」外另带「词典逐卡连发」标记玩法。</div>
       <!-- #390：二级锁与词典的关系提示——锁定=系统内置字卡整体停用（含词典），下方场景开关开着也无效；
            用户实报「词典开关都开了却没效果、不懂和开屏二级密码的关系」。默认隐藏，default-cards.js 按锁态渲染 -->
@@ -16425,6 +16451,12 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 8.5l1.15 2.4 2.4 1.15-2.4 1.15L12 15.6l-1.15-2.4-2.4-1.15 2.4-1.15z"/></svg></span>
             <span>占卜</span>
           </button>
+          <!-- #962：聊天页自己的「屏幕适配微调」入口——在聊天现场就地开面板，正文/输入栏边看边调
+               （此前只有 设置→工具 一个入口，在设置列表后面看不见聊天现场＝盲调） -->
+          <button class="more-item" id="more-screen-adj" data-mcat="tool" title="屏幕适配微调（正文太小/顶栏底栏错位）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></span>
+            <span>屏幕适配</span>
+          </button>
           <button class="more-item" id="more-pong" data-mcat="game" title="双人Pong">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="18" y="8" width="2" height="8" rx="1" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
             <span>Pong</span>
@@ -16688,6 +16720,17 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       </div>
       </div>
       <div class="them-sec" data-sec="function" hidden>
+      <!-- FIX 2026-09-20 #927：「全屏模式」开关提到功能页顶部常显（原埋在二级标签「显示」里，切进去才看得见）——
+           本组不带 data-tag，故不参与 #cs-func-tags 分类过滤（chat-settings.js 只过滤 [data-tag] 成对元素），五个入口一律可见。
+           与设置页通用段 #sf-fullscreen 同一状态双向同步（接线在 chat-settings.js）。 -->
+      <div class="gs-title">全屏</div>
+      <div class="set-group glass" id="cs-fs-group">
+        <div class="set-row" id="cs-fullscreen-row">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></div>
+          <div class="txt">全屏模式（隐藏手机状态栏）<span class="sub">手机端切到后台（锁屏 / 切去别的应用）会自动退出全屏，这是设备限制、不是 bug，切回来再开一次即可</span></div>
+          <label class="toggle"><input type="checkbox" id="cs-fullscreen"><span class="tk"></span></label>
+        </div>
+      </div>
       <!-- v3.29.x：功能页二级 tag 分类（形象/消息/显示），点击只显示对应分组；
            交互在 chat-settings.js（#cs-func-tags），分组按 gs-title/set-group 成对 data-tag 过滤。
            v3.34.x 分类改名（用户反馈「分类名字还是有问题，不太合适」）：
@@ -16810,14 +16853,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <label class="toggle"><input type="checkbox" id="cs-hide-ta-sticker"><span class="tk"></span></label>
         </div>
       </div>
-      <!-- v3.7.x：全屏模式（镜像设置页 #sf-fullscreen，同一状态双向同步） -->
-      <div class="gs-title" data-tag="ui">全屏</div>
+      <!-- v3.29.x：全屏模式行已提到功能页顶部常显（#927），本组留「显示」类显隐开关 -->
+      <div class="gs-title" data-tag="ui">边缘防误触 / 悬浮窗</div>
       <div class="set-group glass" data-tag="ui">
-        <div class="set-row" id="cs-fullscreen-row">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></div>
-          <div class="txt">全屏模式（隐藏手机状态栏）</div>
-          <label class="toggle"><input type="checkbox" id="cs-fullscreen"><span class="tk"></span></label>
-        </div>
         <!-- v3.9.x：全屏边缘防误触（镜像设置页 #sf-edge-guard，同一状态双向同步） -->
         <div class="set-row" id="cs-edge-guard-row">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/></svg></div>
@@ -16989,7 +17027,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <span class="vub-act" id="backup-remind-chat">备份聊天</span>
     <span class="vub-act vub-close" id="backup-remind-close" style="background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.3)">稍后</span>
   </div>
-  <!-- #911：后台通知通道异常恢复条（bg-keep.js 在「就绪补发 60s 仍拿不到 SW」时点亮）。
+  <!-- #921：后台通知通道异常恢复条（bg-keep.js 在「就绪补发 60s 仍拿不到 SW」时点亮）。
        同样必须放在脚本标签之前，bg-keep.js 加载即 getElementById。 -->
   <div class="ver-update-bar" id="notify-heal-bar" hidden>
     <span class="vub-txt" id="notify-heal-txt">⚠ 后台通知通道未就绪</span>
@@ -17192,6 +17230,18 @@ return !(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.t
 apiBlockedHint: /QQBrowser|Quark/i.test(_envUa),
 notifyQuirk: /miui|xiaomi|redmi|hyperos/i.test(_envUa) || /android/i.test(_envUa)
 };
+try {
+if (!window.__mochiPhase) {
+window.__mochiPhaseLog = window.__mochiPhaseLog || [];
+window.__mochiPhase = function (tag) {
+try {
+var l = window.__mochiPhaseLog;
+if (l.length >= 30) l.shift();
+l.push({ t: Date.now(), tag: String(tag) });
+} catch (e) {}
+};
+}
+} catch (e) {}
 window.mochiDevice = {
 isMobile: !!isMobile,
 isTablet: !!isTablet,
@@ -17385,6 +17435,34 @@ o = o.filter(function (it) { return !isOpaqueScriptErr(it); });
 try { cb(o); } catch (e) {}
 }).catch(function () { try { cb([]); } catch (e) {} });
 }
+function extFailNote(name) {
+try {
+var a = window.__mochiExtFailAgg;
+if (!a) a = window.__mochiExtFailAgg = { names: [], timer: 0, seen: {} };
+if (a.names.indexOf(name) < 0) a.names.push(name);
+if (!a.timer) a.timer = setTimeout(extFailFlush, 20000);
+} catch (e) {}
+}
+function extFailFlush() {
+try {
+var a = window.__mochiExtFailAgg;
+if (!a) return;
+a.timer = 0;
+var names = a.names.slice(0);
+a.names.length = 0;
+if (!names.length) return;
+var fail = window.__mochiExtFail || [], loaded = window.__mochiLoaded || [];
+var still = names.filter(function (f) { return fail.indexOf(f) >= 0 && loaded.indexOf(f) < 0; });
+var fresh = still.filter(function (f) { return !a.seen[f]; });
+if (still.length && !fresh.length) return;
+if (still.length) {
+still.forEach(function (f) { a.seen[f] = 1; });
+pushErr('[外置包·真失败] ' + still.length + ' 个功能包未加载成功: ' + still.slice(0, 6).join('、') + (still.length > 6 ? ' 等' : '') + '（网络持续异常，#802 自愈重试三波仍未到位；可刷新页面或稍后重进）');
+} else {
+pushErr('[外置包·已自愈] ' + names.length + ' 个功能包首拉失败（网络波动），自愈重试后已全部到位，功能不受影响');
+}
+} catch (e) {}
+}
 try {
 window.addEventListener('error', function (e) {
 var m = '', st = '';
@@ -17399,6 +17477,10 @@ if ((tag === 'audio' || tag === 'source') && /api\.injahow\.cn|music\.163\.com|m
 var imTok = '';
 try { imTok = String((e.target.getAttribute && e.target.getAttribute('src')) || ''); } catch (e4) {}
 if (tag === 'img' && window.mochiMediaIsToken && window.mochiMediaIsToken(imTok)) return;
+if (tag === 'script') {
+var mJs = /\/js\/([^\/?#]+\.js)(?:[?#]|$)/.exec(url);
+if (mJs && window.__mochiExtFiles && window.__mochiExtFiles.indexOf(mJs[1]) >= 0) { extFailNote(mJs[1]); return; }
+}
 m = '资源加载失败 <' + tag + '> ' + url.slice(0, 120);
 }
 } catch (e2) {}
@@ -17444,6 +17526,7 @@ return origCE.apply(console, arguments);
 } catch (e) {}
 function fetchFail(url, status) {
 try {
+if (!status && navigator.onLine === false) return;
 var ent = { t: Date.now(), u: String(url || '').slice(0, 90), s: status || 0 };
 var last = null;
 try {
@@ -17888,6 +17971,9 @@ kpParts.push('在场信号矛盾：音乐标志说在播·元素实为暂停（�
 }
 if (kp.ev && (kp.ev.stall > 0 || kp.ev.died > 0)) {
 kpParts.push('历史取证：断流' + kp.ev.stall + '次/后台终止' + kp.ev.died + '次（>0＝保活曾被冻结或页面曾被系统回收）');
+if (kp.ev.died >= 5) {
+kpParts.push('⚠ 本页被系统回收过 ' + kp.ev.died + ' 次（内存压力）：建议①不用时关掉后台保活（更省内存）②按 设置→查看存储 清掉最占地方的一项 ③别同开太多标签页/网页应用');
+}
 }
 if (kp.hb) {
 const tr = kp.hb.trail || [];
@@ -19009,6 +19095,10 @@ const envTop = inp.envTop || 0;
 const varTop = inp.varTop || 0;
 const diff = inp.diff || 0;
 const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: envTop, innerH: inp.innerH || 0, screenH: inp.screenH || 0, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force });
+const adj = inp.adj || {};
+const adjShift = +adj.shift || 0;
+const adjH = +adj.h || 0;
+const adjTop = +adj.top || 0;
 let mode;
 if (Fm.forceCover) mode = '覆盖形态（用户已在设置声明：顶部避让修正开启，#186）';
 else if (Fm.resStand) mode = '系统保留形态（iOS 18.x standalone：系统已把网页起点放在状态栏下方，env 仍报真实高度；页面不再避让、高度贴 inner，#200）';
@@ -19023,7 +19113,8 @@ if (inp.sbTop == null) add(true, '状态栏隐藏（聊天等全屏页），跳�
 if (inp.sbTop != null) {
 const expect = Fm.expTop;
 const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
-if (sbEffTop > expect + 60) add(false, '顶部双倍避让', '✗ 状态栏实测顶位 ' + sbEffTop + 'px，明显超过安全区顶部 ' + expect + 'px（#148 修复的双倍白带形态复发，连本条反馈）');
+if (adjTop && sbEffTop > expect + 60) add(true, '顶部避让·已手动微调 top=' + adjTop + 'px', '跳过「顶部双倍避让」判定（该轴即用于手动加顶部留白；实测有效顶位 ' + sbEffTop + 'px / 自动期望 ' + expect + 'px，如需恢复自动判定请在 屏幕位置设置 里把「顶部避让」归零）');
+else if (sbEffTop > expect + 60) add(false, '顶部双倍避让', '✗ 状态栏实测顶位 ' + sbEffTop + 'px，明显超过安全区顶部 ' + expect + 'px（#148 修复的双倍白带形态复发，连本条反馈）');
 else if (!Fm.resStand && envTop >= 20 && diff >= envTop - 8 && sbEffTop < envTop - 5) add(false, '顶部重叠', '✗ 状态栏顶位 ' + sbEffTop + 'px 钻进系统状态栏区（应 ≥ ' + envTop + 'px，#114 形态）');
 else add(true, '状态栏顶位 ' + sbEffTop + 'px（安全区 ' + expect + 'px）');
 }
@@ -19032,23 +19123,28 @@ const _kbShrink = inp.vvH > 0 ? inp.innerH - inp.vvH : 0;
 const _kbDocking = _kbShrink >= Math.round(inp.innerH * 0.22);
 if (_kbDocking) add(true, '键盘停靠期，跳过底部判定（vv 缩 ' + _kbShrink + 'px，#282）');
 else if (inp.isMobileDev === false) add(true, '桌面模拟器外壳：.phone 居中手机壳（body 上下留白 24px 属设计），跳过底部贴合判定');
+else if (adjH) add(true, '底部·已手动微调 h=' + adjH + 'px，跳过贴合判定', '手调页面高度轴改变了 .phone 高（实测底 ' + inp.phoneBottom + 'px / 自动期望 ' + Math.round(expBase + adjShift) + 'px，差 ' + Math.round((inp.phoneBottom || 0) - expBase - adjShift) + 'px）；如需恢复自动判定请在 屏幕位置设置 里把「页面高度」归零');
 else if (inp.phoneBottom != null && inp.innerH) {
-const expB = expBase;
+const expB = expBase + adjShift;
 const under = Math.round(expB - inp.phoneBottom);
 const over = Math.round(inp.phoneBottom - expB);
-if (over > 2) add(false, '底部超出 ' + over + 'px', '✗ .phone 底边超出期望屏底（高度公式异常）');
-else if (under > 2) add(false, '底部少填 ' + under + 'px 白带', '✗ ' + (Fm.coverBrowser ? '浏览器覆盖形态（#199/#236：避让由状态栏抬升与内容收缩承担，.phone 应铺到可视区底 ' + expB + 'px' : '覆盖形态（env-top=' + inp.envTop + '）下 .phone 应铺到 ' + expB + 'px（#179：高度须含顶部安全区 envTop+inner）') + '，实测只到 ' + inp.phoneBottom + 'px');
-else add(true, '底部贴合（.phone 底=' + Math.round(inp.phoneBottom) + ' / 期望 ' + expB + '）');
+if (over > 2) add(false, '底部超出 ' + over + 'px', '✗ .phone 底边超出期望屏底（高度公式异常）' + (adjShift ? '（期望已按手动整体位移 shift=' + adjShift + 'px 折算）' : ''));
+else if (under > 2) add(false, '底部少填 ' + under + 'px 白带', '✗ ' + (Fm.coverBrowser ? '浏览器覆盖形态（#199/#236：避让由状态栏抬升与内容收缩承担，.phone 应铺到可视区底 ' + expB + 'px' : '覆盖形态（env-top=' + inp.envTop + '）下 .phone 应铺到 ' + expB + 'px（#179：高度须含顶部安全区 envTop+inner）') + '，实测只到 ' + inp.phoneBottom + 'px' + (adjShift ? '（期望已按手动整体位移 shift=' + adjShift + 'px 折算）' : ''));
+else add(true, '底部贴合（.phone 底=' + Math.round(inp.phoneBottom) + ' / 期望 ' + expB + (adjShift ? '，含手动 shift=' + adjShift + 'px' : '') + '）');
 }
-if (inp.fsActive) {
+if (inp.fsActive && adjH) {
+add(true, '--mochi-ios-h·已手动微调 h=' + adjH + 'px，跳过一致性判定', '手调页面高度轴会改变全屏页高度（实测 ios-h=' + (inp.iosH || '(未设)') + 'px / 自动期望 ' + Fm.expBase + 'px）；如需恢复自动判定请在 屏幕位置设置 里把「页面高度」归零');
+} else if (inp.fsActive) {
 const expH = Fm.expBase;
 if (inp.iosH && Math.abs(inp.iosH - expH) > 2) add(false, '--mochi-ios-h 与期望屏高不符', '⚠ ios-h=' + inp.iosH + 'px ≠ envTop+inner=' + expH + 'px（#179 公式：覆盖形态=整屏/已避让=inner）');
 else add(true, '--mochi-ios-h=' + (inp.iosH || '(未设→回落)') + ' 与期望屏高一致');
 }
-if (!_kbDocking && inp.isMobileDev !== false && inp.tabBottom != null && inp.innerH) {
-const expTB = expBase - (inp.envBottom || 0); // 期望底边=屏底−Home横条避让（#199：浏览器覆盖形态=可视区底）
+if (!_kbDocking && inp.isMobileDev !== false && adjH) {
+add(true, '底部导航栏·已手动微调 h=' + adjH + 'px，跳过判定', '手调页面高度轴会整体抬升/压低 tabbar（实测底边 ' + inp.tabBottom + 'px / 自动期望 ' + Math.round(expBase - (inp.envBottom || 0) + adjShift) + 'px）');
+} else if (!_kbDocking && inp.isMobileDev !== false && inp.tabBottom != null && inp.innerH) {
+const expTB = expBase - (inp.envBottom || 0) + adjShift; // 期望底边=屏底−Home横条避让（#199：浏览器覆盖形态=可视区底）；#917：手调整体位移轴为纯平移，同口径折算
 const overB = Math.round(inp.tabBottom - expTB);
-if (overB > 2) add(false, '底部导航栏被裁 ' + overB + 'px', '✗ tabbar 底边 ' + inp.tabBottom + 'px 超出期望 ' + expTB + 'px（#148 同族）');
+if (overB > 2) add(false, '底部导航栏被裁 ' + overB + 'px', '✗ tabbar 底边 ' + inp.tabBottom + 'px 超出期望 ' + expTB + 'px（#148 同族）' + (adjShift ? '（期望已按手动整体位移 shift=' + adjShift + 'px 折算）' : ''));
 else if (overB < -60) add(false, '底部导航栏悬空 ' + (-overB) + 'px', '⚠ tabbar 底边比期望高 ' + (-overB) + 'px（底部空白过大）');
 else add(true, '底部导航栏完整（底边 ' + inp.tabBottom + ' / 期望 ' + expTB + '）');
 }
@@ -19184,6 +19280,14 @@ inp.iosMajor = (function () { try { var a = /OS (\d+)_/.exec(navigator.userAgent
 inp.safMajor = (function () { try { var m = /Version\/(\d+)\./.exec(navigator.userAgent || ''); return m ? +m[1] : 0; } catch (e) { return 0; } })();
 inp.osLine = (function () { try { var m1 = /iPhone OS (\d+_\d+(?:_\d+)?) like/.exec(navigator.userAgent || ''); var m2 = /Version\/(\d+\.\d+)/.exec(navigator.userAgent || ''); return 'iOS ' + (m1 ? m1[1].replace(/_/g, '.') : '?') + ' / Safari ' + (m2 ? m2[1] : '?'); } catch (e) { return '未知'; } })();
 inp.force = (function () { try { return localStorage.getItem('xy-home-v2:__safe-top-force') === '1'; } catch (e) { return false; } })();
+inp.adj = (function () {
+try {
+const a = window.mochiScreenAdj && window.mochiScreenAdj.all();
+if (!a) return null;
+return { top: +a.top || 0, bottom: +a.bottom || 0, h: +a.h || 0, desk: +a.desk || 0,
+shift: +a.shift || 0, text: +a.text || 0, side: +a.side || 0 };
+} catch (e) { return null; }
+})();
 inp.ori = inp.orientation;
 inp.fs = inp.fsActive;
 return inp;
@@ -19209,6 +19313,7 @@ L.push('standalone=' + !!inp.standalone + '  全屏模式=' + (inp.fsActive ? '�
 L.push('html类：' + inp.htmlClass);
 L.push('系统=' + (inp.osLine || '未知') + '（形态判定依赖系统版本，#184/#200）');
 L.push('env(safe-area-inset-bottom)=' + inp.envBottom + 'px  视口平移=offTop:' + (inp.vvOffTop || 0) + '/offLeft:' + (inp.vvOffLeft || 0));
+L.push('本机手调（屏幕位置设置）：' + (sdAdjStr(inp.adj) || '无（七轴全 0，判定器全自动口径）'));
 L.push('键盘残留=' + (inp.kb ? ('kbActive=' + !!inp.kb.kbActive + ' 锁=' + !!inp.kb.docLocked + ' 基线 inner/vv=' + inp.kb.fullInner + '/' + inp.kb.fullVv) : 'n/a')
 + '  --mochi-safe-bottom=' + (function () { try { var _v = getComputedStyle(document.documentElement).getPropertyValue('--mochi-safe-bottom').trim(); return _v ? _v + 'px' : '(未设/回落 ' + inp.envBottom + 'px)'; } catch (e) { return '?'; } })());
 L.push('');
@@ -19377,10 +19482,17 @@ const goods = list.filter(function (s) { return !(s.bad && s.bad.length); }).sli
 localStorage.setItem(SD_HIST_KEY, JSON.stringify(bads.concat(goods).sort(function (a, b) { return a.t - b.t; })));
 } catch (e) {}
 }
+function sdAdjStr(a) {
+if (!a) return '';
+const ks = ['top', 'bottom', 'h', 'desk', 'shift', 'text', 'side'], out = [];
+for (let i = 0; i < ks.length; i++) { const v = +a[ks[i]] || 0; if (v) out.push(ks[i] + (v > 0 ? '+' : '') + v); }
+return out.join(' ');
+}
 function sdSnapOf(r, trig) {
 const i = r.inp;
 return { t: Date.now(), trig: trig,
 bad: r.findings.filter(function (f) { return !f.ok; }).map(function (f) { return f.name.split(' ')[0]; }),
+adj: sdAdjStr(i.adj),
 scale: i.scale, envTop: i.envTop, varTop: i.varTop, diff: i.diff,
 screenH: i.screenH, vvH: i.vvH, standalone: !!i.standalone, force: !!i.force,
 innerW: i.innerW, innerH: i.innerH, phoneH: i.phoneH, phonePadTop: i.phonePadTop,
@@ -19401,6 +19513,7 @@ PAIRS.forEach(function (p) {
 const a = prev[p[0]], b = cur[p[1]];
 if (String(a) !== String(b)) ch.push(p[0] + ': ' + a + ' → ' + b);
 });
+if (sdAdjStr(cur.adj) !== String(prev.adj || '')) ch.push('手调轴: ' + (prev.adj || '无') + ' → ' + (sdAdjStr(cur.adj) || '无'));
 const when = new Date(prev.t).toLocaleString();
 return ch.length ? ('与上次（' + when + ' ' + prev.trig + '）对比，变化项：' + ch.join('；')) : ('与上次（' + when + ' ' + prev.trig + '）各项一致');
 }
@@ -19423,7 +19536,7 @@ arr.push({ t: Date.now(), msg: '[屏幕适配] ' + String(names).slice(0, 120)
 + '｜env=' + (snap ? snap.envTop : '?') + ' var=' + (snap ? snap.varTop : '?')
 + ' diff=' + (snap ? snap.diff : '?') + ' inner=' + (snap ? snap.innerH : '?')
 + ' phone底=' + (snap ? snap.phoneBottom : '?') + ' sb=' + (snap ? snap.sbTop : '?')
-+ ' scale=' + (snap ? snap.scale : '?') + (snap && snap.fs ? ' 全屏' : '')
++ ' scale=' + (snap ? snap.scale : '?') + (snap && snap.adj ? ' 手调' + snap.adj : '') + (snap && snap.fs ? ' 全屏' : '')
 + '（' + (snap && snap.trig === 'manual' ? '手动' : '自动') + '采集）',
 ua: (navigator.userAgent || '').slice(0, 160),
 dev: (function () { var dd = window.mochiDevice || {}; return 'M' + (dd.isMobile?1:0) + ' T' + (dd.isTablet?1:0) + ' I' + (dd.isIOS?1:0) + ' A' + (dd.isAndroid?1:0) + ' V' + (dd.isVia?1:0); })(),
@@ -19468,7 +19581,12 @@ function sdEdge() { clearTimeout(_sdEdgeT); _sdEdgeT = setTimeout(sdTick, 1200);
 try { window.addEventListener('resize', sdEdge); } catch (e3) {}
 try { if (window.visualViewport) window.visualViewport.addEventListener('resize', sdEdge); } catch (e4) {}
 try { window.addEventListener('orientationchange', sdEdge); } catch (e5) {}
-try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') sdEdge(); else window.__mochiLeaveSnap('hide'); }); } catch (e6) {}
+function sdPendBreak() { _sdLastBad = ''; _sdPend = null; }
+try { document.addEventListener('visibilitychange', function () {
+if (document.visibilityState === 'visible') { sdEdge(); return; }
+sdPendBreak();
+window.__mochiLeaveSnap('hide');
+}); } catch (e6) {}
 try { window.addEventListener('pagehide', function () { window.__mochiLeaveSnap('hide'); }); } catch (e7) {}
 let _sdLeaveT = 0;
 window.__mochiLeaveSnap = function (trig) {
@@ -19504,7 +19622,7 @@ T.push('· ' + new Date(h.t).toLocaleString() + ' [' + (h.trig || '?') + ']'
 + '  env=' + h.envTop + ' var=' + h.varTop + ' diff=' + h.diff + ' inner=' + h.innerH
 + ' phone=' + h.phoneH + '(底' + h.phoneBottom + ' 宽' + (h.phoneW == null ? '?' : h.phoneW) + ')'
 + ((h.inlineH || h.aself) ? ' ⚠内联残留' : '') + ' sb=' + h.sbTop + ' tab=' + h.tabBottom
-+ ' scale=' + h.scale + (h.fs ? ' 全屏' : ''));
++ ' scale=' + h.scale + (h.adj ? ' 手调' + h.adj : '') + (h.fs ? ' 全屏' : ''));
 }
 return T.join('\n');
 }
@@ -19753,6 +19871,16 @@ btn.appendChild(label);
 label.htmlFor = input.id;
 } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
+window.mochiFilePickFire = function (input, opts) {
+var o = opts || {};
+var fired = false;
+if (input && typeof input.showPicker === 'function') {
+try { input.showPicker(); fired = true; } catch (e) {}
+}
+try { input.click(); fired = true; } catch (e) {}
+if (!fired) { if (typeof o.onFail === 'function') { try { o.onFail(); } catch (e) {} } }
+return fired;
+};
 window.mochiFilePick = function (opts) {
 var o = opts || {};
 var id = o.id || 'mochi-file-pick';
@@ -19773,7 +19901,9 @@ try { input.value = ''; } catch (e) {} // 允许重选同一文件
 if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
 };
 if (o.btn && window.mochiFilePickLabel) window.mochiFilePickLabel(o.btn, input);
-var activate = function () { try { input.click(); } catch (e) { if (o.onError) { try { o.onError(e); } catch (x) {} } } };
+var activate = function () {
+window.mochiFilePickFire(input, { onFail: function () { if (o.onError) { try { o.onError(); } catch (x) {} } } });
+};
 if (!o.noClick) {
 if (o.btn && window.mochiFilePickGuard) window.mochiFilePickGuard(input, activate);
 else activate();
@@ -19786,8 +19916,40 @@ if (window.__mochiLoaded) window.__mochiLoaded.push("device.js");
 (function () {
 try {
 if (navigator.storage && navigator.storage.persist) {
+const tryPersist = function () {
+try {
+if (navigator.storage.persisted) {
+navigator.storage.persisted().then(function (p) {
+if (!p) { try { navigator.storage.persist().catch(function () {}); } catch (e) {} }
+}).catch(function () { try { navigator.storage.persist().catch(function () {}); } catch (e) {} });
+} else {
 navigator.storage.persist().catch(function () {});
 }
+} catch (e) { try { navigator.storage.persist().catch(function () {}); } catch (e2) {} }
+};
+tryPersist();
+let _persistGestureDone = false;
+const onFirstGesture = function () {
+if (_persistGestureDone) return;
+_persistGestureDone = true;
+tryPersist();
+};
+['touchend', 'pointerup', 'click', 'keydown'].forEach(function (t) {
+try { document.addEventListener(t, onFirstGesture, { capture: true, passive: true }); } catch (e) {}
+});
+}
+} catch (e) {}
+window.mochiIosTabRisk = function () {
+try {
+if (!(window.mochiDevice || {}).isIOS) return false;
+if (navigator.standalone === true) return false;
+if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return false;
+return true;
+} catch (e) { return false; }
+};
+try {
+const _aboutIos = document.getElementById('about-ios-pwa-note');
+if (_aboutIos && !(window.mochiDevice || {}).isIOS) _aboutIos.hidden = true;
 } catch (e) {}
 function toast(msg) {
 let t = document.getElementById('cc-toast');
@@ -19806,23 +19968,75 @@ function autoReloadAllowed() {
 try { if (document.visibilityState === 'hidden') return true; } catch (e) {}
 return !_userActTs;
 }
-window.__pwaAutoUpgradeTest = { allowed: function () { return autoReloadAllowed(); } };
-let _prMsg = null;
-function refreshNow(auto, autoTs) {
-const doReload = function () {
-if (auto && !autoReloadAllowed()) { showVerBar(autoTs); return; }
+let _pendingAutoReload = false;
+function armAutoReloadWhenHidden() {
+if (_pendingAutoReload) return;
+_pendingAutoReload = true;
+const onHide = function () {
+try { if (document.visibilityState !== 'hidden') return; } catch (e) { return; }
 try { location.reload(); } catch (e) {}
+};
+try { document.addEventListener('visibilitychange', onHide); } catch (e) {}
+try { if (document.visibilityState === 'hidden') onHide(); } catch (e) {}
+}
+window.__pwaAutoUpgradeTest = {
+allowed: function () { return autoReloadAllowed(); },
+pending: function () { return _pendingAutoReload; },
+arm: function () { armAutoReloadWhenHidden(); }
+};
+let _prMsg = null;
+let _prBusy = false; // 手动下载进行中（防重复点击叠监听/叠计时器）
+const VER_DL_WAIT = 180000; // 手动通道等 PRECACHE_DONE 的上限（弱网慢路径实测 50~130s，取宽裕值）
+function refreshNow(auto, autoTs, ackTs) {
+const doReload = function () {
+if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
+try { location.reload(); } catch (e) {}
+};
+const barEl = document.getElementById('ver-update-bar');
+const txtEl = barEl ? barEl.querySelector('.vub-txt') : null;
+const actEl = document.getElementById('ver-update-refresh');
+const setUi = function (txt, btn) {
+if (auto) return;
+if (txtEl && txt) txtEl.textContent = txt;
+if (actEl && btn) actEl.textContent = btn;
 };
 try {
 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
 let done = false;
 if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
 _prMsg = function (e) {
-if (e.data && e.data.type === 'PRECACHE_DONE') { done = true; doReload(); }
+if (e.data && e.data.type === 'PRECACHE_DONE') {
+done = true; _prBusy = false;
+try { window.__mochiVerDlBusy = false; } catch (x) {}
+if (!auto && ackTs > 0) verMarkAck(ackTs);
+doReload();
+}
 };
 navigator.serviceWorker.addEventListener('message', _prMsg);
+if (!auto) {
+if (_prBusy) return; // 下载已在进行：忽略重复点击（监听器/计时器都只有一份）
+_prBusy = true;
+try { window.__mochiVerDlBusy = true; } catch (x) {}
+setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');
+}
 navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: ['./index.html', './version.json'].concat(window.__mochiExtFiles || []) });
-setTimeout(function () { if (!done) doReload(); }, 2500); // 兜底：SW 预取异常也刷新
+if (auto) {
+setTimeout(function () { if (!done) doReload(); }, 2500); // 自动通道保持 2.5s 兜底（#273 时代行为）
+} else {
+setTimeout(function () {
+if (done) return;
+_prBusy = false;
+try { window.__mochiVerDlBusy = false; } catch (x) {}
+if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
+try {
+const last = localStorage.getItem('xy-home-v2:ver-update-notify');
+const n = Number(String(last || '').split('|')[0]);
+if (ackTs > 0 && n === ackTs) localStorage.removeItem('xy-home-v2:ver-update-notify');
+} catch (x) {}
+setUi('新版没下载完（网络太慢）。已取消本次刷新，网络好转后会再次提醒；也可点「重试刷新」再试', '重试刷新');
+if (actEl) actEl.onclick = function () { refreshNow(false, 0, ackTs); };
+}, VER_DL_WAIT);
+}
 } else {
 doReload();
 }
@@ -19876,7 +20090,7 @@ const barEl = document.getElementById('ver-update-bar');
 if (!barEl) { toast('已检测到新版本，刷新页面即可更新'); return; }
 barEl.hidden = false;
 const actEl = document.getElementById('ver-update-refresh');
-if (actEl) actEl.onclick = function () { verMarkAck(onlineTs); refreshNow(); };
+if (actEl) actEl.onclick = function () { refreshNow(false, 0, onlineTs); }; // #944：ack 挪到下载确认成功后写（refreshNow 内）
 const closeBtn = document.getElementById('ver-update-close');
 if (closeBtn) closeBtn.onclick = function () { verMarkAck(onlineTs); barEl.hidden = true; };
 }
@@ -19907,12 +20121,13 @@ const ts = Number(d && d.ts);
 if (!ts || isNaN(ts)) { healNetHint(); return; }
 if (!baseGot) { baseTs = ts; baseGot = true; healNetHint(); return; }
 healNetHint();
-if (ts > baseTs) showVerBar(ts);
+if (ts > baseTs) { if (!tryAutoUpgrade(ts)) showVerBar(ts); }
 })
 .catch(function () { failCount++; maybeNetHint(); });
 }
 let netHealed = false;
 function healNetHint() {
+if (window.__mochiVerDlBusy) return; // #944：手动下载进行中，勿把「正在下载…」进度文案复位
 if (!netHealed) return;
 netHealed = false;
 failCount = 0;
@@ -19962,6 +20177,21 @@ function splashGone() {
 const s = document.getElementById('splash');
 return !s || !s.isConnected || s.classList.contains('hide');
 }
+function openIosInstallGuide() {
+if (typeof window.openModal !== 'function') return;
+window.openModal('装到桌面 · 让数据不被自动清空', '', function () {}, {
+noInput: true, big: true,
+staticText: '原因：在 Safari 标签页里，Apple 会在连续 7 天没打开本应用后自动清空本地数据（隐私策略，任何网站都躲不过）；添加到主屏幕后从桌面图标打开，就不受这条限制。\n\n'
++ '步骤（顺序很重要）：\n'
++ '① 先导出一份完整备份（点下方「先导出备份」，存到「文件」App 或微信收藏都行）——主屏幕应用和 Safari 是两套独立存储，不先导出，切过去会看到空数据。\n'
++ '② 点 Safari 底部的「分享」按钮（方框加向上箭头）。\n'
++ '③ 在弹出的菜单里选「添加到主屏幕」→ 右上角「添加」。\n'
++ '④ 回到手机桌面，点新出现的 Mochi 图标打开。\n'
++ '⑤ 在打开的桌面应用里：设置 → 导入数据，选第①步的备份文件恢复。\n\n'
++ '此后平时都从桌面图标打开，Safari 清不清都不影响你的数据。',
+copyBtn: { label: '先导出备份', fn: function (c) { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} try { if (c && c.close) c.close(); } catch (e2) {} } }
+});
+}
 function openBackupModal(days, everBacked) {
 if (typeof window.openModal !== 'function') return 'nofn';
 const mask = document.getElementById('modal-mask');
@@ -19969,24 +20199,31 @@ if (mask && !mask.hidden) return 'busy';
 const intro = everBacked
 ? '距上次完整备份已经 ' + days + ' 天了。'
 : '你到现在还没做过一次完整的数据备份（「备份聊天」只含聊天记录，不算完整备份）。';
-const TEXT =
+const iosTab = !!(window.mochiIosTabRisk && window.mochiIosTabRisk());
+let TEXT =
 intro + '\n\n' +
 '先说清楚一件事：你的聊天记录、字卡、照片、音乐、设置，全部只存在这台手机的这个浏览器里，云端一份都没有。\n\n' +
 '① 数据会被自动清掉，躲不过\n' +
 '不管用什么手机、什么浏览器（网页套壳转成 App 也一样），**系统和浏览器都会在它认为需要的时候自动清除网页存的数据**——存储空间不够、清理软件一键优化、无痕模式、很久没打开、系统升级，都可能触发。**这是设备本身的限制，网站没有办法替你保住数据。**\n' +
 '一旦被清，所有东西全没，只能拿以前导出的备份文件恢复。**所以必须定期导出备份，没有别的办法。**\n\n' +
 '② 怎么办\n' +
-'点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 工具 →「导入数据」选这个文件即可。\n\n' +
+'点下面的「去备份」，把全部数据导出成一个文件，再存到浏览器以外的地方：微信收藏、文件夹、云盘、电脑都行，至少留一份。恢复时在 设置 → 通用 →「导入数据」选这个文件即可。\n\n' +
 '③ 如果数据总也存不住\n' +
 '每次打开都像没保存、一刷新就丢，多半不是正常的定期清空，而是本机存储没能写进去（设备/浏览器异常），建议换个正常浏览器/设备使用。';
+if (iosTab) {
+TEXT += '\n\n④ 你现在是用 Safari 打开的（没添加到主屏幕）\n'
++ 'Safari 会在「连续 7 天没打开本应用」后自动清空本地数据——这是 Apple 的隐私策略，网站躲不过；添加到主屏幕后再从桌面图标打开，就不会被这样清。注意：主屏幕应用和 Safari 是两套独立存储，切过去之前必须先导出备份、再在桌面应用里导入。点下方「怎么装到桌面」看分步说明。';
+}
 const pills = [
 { label: '去备份', value: 'go' },
-{ label: '备份聊天', value: 'chat' },
-{ label: '稍后', value: 'later' }
+{ label: '备份聊天', value: 'chat' }
 ];
+if (iosTab) pills.push({ label: '怎么装到桌面', value: 'install' });
+pills.push({ label: '稍后', value: 'later' });
 window.openModal('数据会被自动清空 · 备份提醒', '', function (v) {
 if (v === 'go') { try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {} }
 else if (v === 'chat') { try { if (window.runChatExport) window.runChatExport(); } catch (e) {} }
+else if (v === 'install') { try { openIosInstallGuide(); } catch (e) {} }
 }, { noInput: true, big: true, warn: true, staticEmph: true, pillSubmit: true, staticText: TEXT, pills: pills });
 return 'ok';
 }
@@ -20069,12 +20306,13 @@ if (!ts || isNaN(ts) || ts > localTs) showVerBar(ts);
 }
 const AUTO_UPGRADE_KEY = 'xy-home-v2:auto-upgrade-session';
 function tryAutoUpgrade(autoTs) {
+const _ts = Number(autoTs) || 0;
 try {
-if (sessionStorage.getItem(AUTO_UPGRADE_KEY)) return false;
-sessionStorage.setItem(AUTO_UPGRADE_KEY, String(Date.now()));
+const last = Number(sessionStorage.getItem(AUTO_UPGRADE_KEY)) || 0;
+if (_ts > 0 && last >= _ts) return false;
+sessionStorage.setItem(AUTO_UPGRADE_KEY, String(_ts || Date.now()));
 } catch (e) { return false; }
 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-if (!autoReloadAllowed()) return false;
 refreshNow(true, autoTs);
 return true;
 }
@@ -20210,9 +20448,12 @@ if (row) row.click();
 } catch (e) {}
 }, 120);
 };
+const iosTab = !!(window.mochiIosTabRisk && window.mochiIosTabRisk());
 window.openModal('欢迎使用 Mochi', '', go, {
 noInput: true,
-staticText: '检测到当前是全新环境，还没有任何数据。\n\n· 如果之前在浏览器标签页里设置过昵称/打卡：点「确定」会打开设置页的数据导入，选择之前导出的备份文件即可全部恢复。\n\n· 如果是第一次使用：点「取消」直接开始设置即可。'
+staticText: '检测到当前是全新环境，还没有任何数据。\n\n· 如果之前在浏览器标签页里设置过昵称/打卡：点「确定」会打开设置页的数据导入，选择之前导出的备份文件即可全部恢复。'
++ (iosTab ? '\n\n· 如果你之前明明在用、数据却突然不见了：多半是 Safari 清空了本地数据——没添加到主屏幕时，Safari 会在连续 7 天没打开后自动清空。以后请点「分享」→「添加到主屏幕」安装，并从桌面图标打开（安装前先导出备份；主屏幕应用与 Safari 是两套独立存储，需在桌面应用里导入）。' : '')
++ '\n\n· 如果是第一次使用：点「取消」直接开始设置即可。'
 });
 });
 }
@@ -20423,7 +20664,7 @@ try { el.hidden = true; } catch (e2) {}
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("ver-check.js");
 } catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("ver-check.js"); try { console.error("[JS] ver-check.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[ver-check.js] " + String(__e && __e.message || __e)); } })();
-window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };(function () { function bar() {  if (document.getElementById("boot-retry-bar")) return;  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}  if (off) return;  var b = document.createElement("div");  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";  b.style.flexWrap = "wrap"; b.style.rowGap = "6px";  b.innerHTML = "<span class=\"vub-txt\">网络不佳·部分功能没加载完</span><b class=\"vub-act\">点此重试</b><b class=\"vub-act\" id=\"boot-retry-off\">知道了</b>";  b.addEventListener("click", function () { window.__mochiBootRetry(); });  var x = b.querySelector("#boot-retry-off");  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });  (document.body || document.documentElement).appendChild(b); } function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; } function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); } try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {} if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); } else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });})();</script>
+window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} };(function () { function selfContained() { try { return location.protocol === "file:" || !document.querySelector("script[src]"); } catch (e0) { return false; } } function bar() {  if (selfContained()) return;  if (document.getElementById("boot-retry-bar")) return;  var off = 0; try { off = sessionStorage.getItem("mochi-boot-bar-off") === "1" ? 1 : 0; } catch (e6) {}  if (off) return;  var b = document.createElement("div");  b.className = "ver-update-bar"; b.id = "boot-retry-bar"; b.style.cursor = "pointer";  b.style.flexWrap = "wrap"; b.style.rowGap = "6px";  b.innerHTML = "<span class=\"vub-txt\">网络不佳·部分功能没加载完</span><b class=\"vub-act\">点此重试</b><b class=\"vub-act\" id=\"boot-retry-off\">知道了</b>";  b.addEventListener("click", function () { window.__mochiBootRetry(); });  var x = b.querySelector("#boot-retry-off");  if (x) x.addEventListener("click", function (ev) { ev.stopPropagation(); try { sessionStorage.setItem("mochi-boot-bar-off", "1"); } catch (e7) {} if (b.parentNode) b.parentNode.removeChild(b); });  (document.body || document.documentElement).appendChild(b); } function missing() { var e = window.__mochiJsFiles || [], g = window.__mochiLoaded || []; return Math.max(0, e.length - g.length - (window.__mochiErrLoaded || []).length); } function heal() {  try {   if (window.__mochiDataReady && missing() === 0) return;   if (selfContained()) return;   if (!navigator.onLine || missing() === 0) return;   var now = Date.now(), last = 0;   try { last = Number(sessionStorage.getItem("mochi-boot-heal")) || 0; } catch (e2) {}   if (now - last < 7200000) return;   try { sessionStorage.setItem("mochi-boot-heal", String(now)); } catch (e3) {}   setTimeout(function () { try { location.replace(location.href); } catch (e4) {} }, 400);  } catch (e) {} } function sweep() { var ex = (window.__mochiJsFiles || []).length, ok = !!window.__mochiDataReady && ex - (window.__mochiLoaded || []).length - (window.__mochiErrLoaded || []).length <= 0; var b = ok && document.getElementById("boot-retry-bar"); if (b && b.parentNode) b.parentNode.removeChild(b); return ok; } function check(auto) { var ok = sweep(); if (!ok) bar(); if (auto && typeof heal === "function") heal(); } try { document.addEventListener("mochi-restore-done", function () { setTimeout(sweep, 50); }); } catch (e5) {} if (document.readyState === "complete") { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); } else window.addEventListener("load", function () { setTimeout(function(){check(false);}, 3000); setTimeout(function(){check(true);}, 8000); });})();</script>
 <script defer src="js/idb.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('idb.js')"></script>
 <script defer src="js/contacts.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('contacts.js')"></script>
 <script defer src="js/applock.js" onerror="window.__mochiExtFail=(window.__mochiExtFail||[]).concat('applock.js')"></script>
@@ -20512,9 +20753,9 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
     <span>安装到桌面</span>
   </button>
-  <!-- iOS Safari 添加到主屏幕提示 -->
+  <!-- iOS Safari 添加到主屏幕提示（v8.x #956：点明 Safari 标签页 7 天清空风险） -->
   <div class="pwa-ios-hint" id="pwa-ios-hint" hidden>
-    <span>在 Safari 中点击「分享」→「添加到主屏幕」使用</span>
+    <span>⚠ Safari 标签页 7 天不用会被系统清空数据 · 点「分享」→「添加到主屏幕」（装前先导出备份）</span>
   </div>
   <!-- v3.26.x #134：文档完整性双锚点（防「桌面图标/功能整块缺失」反复复发）。
        产物 index.html 约 3.6MB 且尾部两块脚本（决策/全屏/移动适配/pwa 更新器）最易
@@ -20527,4 +20768,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub23162 -->
+<!-- __MOCHI_EOF__ mub2dlmi -->

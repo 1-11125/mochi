@@ -17,6 +17,14 @@ if (/^xy-home-v2:(?:[^:]+:)?dc-cat-dict$/.test(k)) { try { window.idbDelete(k); 
 } catch (e) {}
 })();
 (function () {
+(function presetSizeHints() {
+const tip = window.mochiPresetSizeTip;
+if (!tip) return;
+['dc-size-hint', 'dict-size-hint'].forEach(function (id) {
+const el = document.getElementById(id);
+if (el) el.textContent = tip;
+});
+})();
 const list = document.getElementById('dc-list');
 const tabsWrap = document.getElementById('dc-tabs');
 const enabledEl = document.getElementById('dc-enabled');

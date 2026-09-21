@@ -23,8 +23,15 @@
 // 提醒类开关点了当场翻转、音乐「清理会员歌曲」点了当场删歌）——功能大全的一行本就该是
 // 「去到那里」，不该在搜索列表里被误点就改了数据；②行名带「（桌面图标）」后缀，与主题组里
 // 同名条目区分（同站既有做法，如「外观与主题（总入口）」），描述里写明图标原本在第几页。
-// 纯本地、无网络请求；唯一写入键 xy-home-v2:fhub-freq（常用功能点击计数，LS+IDB 双写，
-// 全局键不区分联系人——目录索引与跳转目标都是全局的）。
+// 纯本地、无网络请求；写入键 xy-home-v2:fhub-freq（常用功能点击计数）与 xy-home-v2:fhub-seen
+//（#937 条目到达标记），均 LS+IDB 双写、全局键不区分联系人——目录索引与跳转目标都是全局的。
+// #937 探索提醒批（用户 2026-09-20「功能太多，有很多设计用户不知道有、没发现也没使用」）：
+// 目录只解决「主动找」，本批补「主动提醒」——埋点收在**真实入口被点到**而非「从功能大全点过谁」：
+// document 捕获阶段一个监听器对照入口登记表（.app[data-app] 桌面图标 / #row-* 设置行 / 各面板
+// 动作按钮 id），用户经任何路径打开该入口都算到达；功能大全 jump 链的 el.click() 走同一事件、
+// 天然复用，无特例。展示面两处：功能大全首页「还没试过：N 个功能」横幅（点开＝未试条目过滤
+// 视图，行沿用 entryRow 即点即直达并出名单）＋ 设置 → 功能大全行「N 个没试过」角标。
+// 纯只加不改：目录数据、go 链、常用行逻辑一字未动。
 (function () {
   // ---- 目录数据：g 组名 / n 名称 / d 一句话 / k 搜索关键词（含别名） / go 入口选择器链 / where 位置提示 ----
   const HUB = [
@@ -415,7 +422,16 @@
     '[data-theme="dark"] .fhub-tag{background:rgba(255,255,255,.09)}' +
     '[data-theme="dark"] .fhub-tag.on{background:var(--ink,#eee);color:var(--card-bg,#1e1e1e)}' +
     '[data-theme="dark"] .fhub-cat-ico{background:rgba(255,255,255,.09)}' +
-    '[data-theme="dark"] .fhub-cat-n{background:rgba(255,255,255,.09)}';
+    '[data-theme="dark"] .fhub-cat-n{background:rgba(255,255,255,.09)}' +
+    // #937 「还没试过」横幅（首页 hot 与宫格之间）＋过滤视图行＋设置行角标；配色同族走全局变量
+    '.fhub-seen-bar{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:12px 14px;border-radius:16px;background:rgba(47,111,208,.1);cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+    '.fhub-seen-bar:active{transform:scale(.98)}' +
+    '.fhub-seen-t{flex:1;min-width:0;font-size:13px;font-weight:700;color:#2f6fd0;line-height:1.4}' +
+    '.fhub-seen-go{flex:0 0 auto;font-size:12px;font-weight:700;color:#2f6fd0}' +
+    '[data-theme="dark"] .fhub-seen-bar{background:rgba(47,111,208,.16)}' +
+    '[data-theme="dark"] .fhub-seen-t,[data-theme="dark"] .fhub-seen-go{color:#8fb4ef}' +
+    '.fhub-badge{display:inline-block;margin-top:4px;margin-right:6px;font-size:11px;font-weight:700;color:#2f6fd0}' +
+    '[data-theme="dark"] .fhub-badge{color:#8fb4ef}';
   document.head.appendChild(hubStyle);
 
   // ---- 渲染 ----
@@ -496,19 +512,115 @@
     tile.innerHTML = '<div class="fhub-cat-n">' + grp.items.length + '</div>' +
       '<div class="fhub-cat-ico">' + (CAT_ICO[gi] || '') + '</div>' +
       '<div class="fhub-cat-name">' + grp.g + '</div>';
-    tile.addEventListener('click', () => { if (input) input.value = ''; view = gi; update(); });
+    tile.addEventListener('click', () => { if (input) input.value = ''; setHubView(gi); });
     grid.appendChild(tile);
   });
   home.appendChild(grid);
   body.appendChild(home);
+
+  // ---- #937 使用埋点 + 「还没试过」提醒（口径：真实入口被点到＝到达，与是否从功能大全进入无关）----
+  // 登记表一次成型：单段链条目按首选择器登记；多段链取**末段**（子功能以真正打开它的那枚按钮为准，
+  // 只开父应用不标记整串——防「点进聊天=试过群里全部按钮」的虚高）；无 go 只有 where 的条目
+  // （动作类/位置提示类）DOM 侧无从判定，仅在功能大全里被点到时记（jump → bumpSeen）。
+  // jump 链的 el.click() 不脱离事件管线、同样冒泡到 document 捕获监听，两条路天然复用无特例。
+  // ---- 视图状态：'home'=分类宫格首页；数字=某分类列表；'unseen'=未试过滤视图；搜索时全局跨组忽略视图 ----
+  //（声明在此处而非下方分组段：renderSeen 在本段初始化时就要读 view）
+  let view = 'home';
+  const SEEN_KEY = 'xy-home-v2:fhub-seen';
+  let seen = {};
+  let seenReady = false; // IDB 为准（同 fhub-freq 口径）：回填完成前名单可能偏多，不闪存量假数字
+  const MARK_BY_APP = {}, MARK_BY_ID = {};
+  let inUnseen = false; // #937 unseen 视闩：横幅点开置位；视图被复位（切页/退出）而闩仍在时跟随重建
+  // 显式切视图的统一出口：宫格/tag/重开都是「用户主动离开未试列表」→ 解除视闩
+  function setHubView(v) { inUnseen = false; view = v; update(); }
+  HUB.forEach(grp => grp.items.forEach(it => {
+    const go = it.go || [];
+    const sel = (go.length > 1 ? go[go.length - 1] : go[0]) || '';
+    if (!sel || it.__seenIds) return;
+    it.__seenIds = true; // 闩在同一条目上：防自身重复登记；多条目共用一个选择器时各进名单（点了同一入口都算到达）
+    if (sel.indexOf('[data-app=') >= 0) {
+      // 值取第一个引号对（形如 .app[data-app="garden"]）；切勿用属性名参与匹配——
+      // data-app 本身不是带引号的值，早前一版正则把属性名首字母当应用名，登记全废。
+      const q = /"([^"]+)"|'([^']+)'/;
+      const v = q.exec(sel.slice(sel.indexOf('[data-app=')));
+      const app = v ? (v[1] || v[2]) : '';
+      if (app) (MARK_BY_APP[app] = MARK_BY_APP[app] || []).push({ g: grp.g, n: it.n });
+    } else if (/^#[A-Za-z][\w-]*$/.test(sel)) {
+      (MARK_BY_ID[sel.slice(1)] = MARK_BY_ID[sel.slice(1)] || []).push({ g: grp.g, n: it.n });
+    }
+  }));
+  function bumpSeen(names) {
+    if (!seenReady) return; // 等 IDB 合并后再写，防 LS 残值覆盖更全的 IDB 快照
+    let touched = 0;
+    names.forEach(o => { if (!seen[o.n]) { seen[o.n] = Date.now(); touched++; } });
+    if (!touched) return;
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (e) { /* 存储满不影响提醒 */ }
+    if (typeof window.idbSet === 'function') { try { window.idbSet(SEEN_KEY, seen).catch(() => {}); } catch (e) {} }
+    renderSeen();
+  }
+  function loadSeen() {
+    try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || {}; } catch (e) { seen = {}; }
+    const ready = () => { seenReady = true; renderSeen(); };
+    if (typeof window.idbGet === 'function') {
+      try {
+        window.idbGet(SEEN_KEY).then(v => {
+          if (v && typeof v === 'object') { Object.keys(v).forEach(k => { if (!seen[k]) seen[k] = v[k]; }); }
+          ready();
+        }).catch(ready);
+      } catch (e) { ready(); }
+    }
+    setTimeout(ready, 1500); // idbGet 挂起时静默（fhub-freq 同款口径）：兜底用 LS 初值解锁，幂等
+  }
+  function unseenList() {
+    if (!seenReady) return [];
+    const out = [];
+    HUB.forEach(grp => { const items = grp.items.filter(it => !seen[it.n]); if (items.length) out.push({ g: grp.g, items }); });
+    return out;
+  }
+  // 捕获阶段统一埋点：桌面图标按 data-app 匹配，其余按元素 id 查登记表（O(1)，无选择器扫描）
+  document.addEventListener('click', e => {
+    try {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      const app = t.closest('[data-app]');
+      if (app) { const l = MARK_BY_APP[app.dataset.app]; if (l) bumpSeen(l); return; }
+      const byId = t.closest('[id]');
+      if (byId) { const l = MARK_BY_ID[byId.id]; if (l) bumpSeen(l); }
+    } catch (err) {}
+  }, true);
+
+  // 横幅（首页 hot 与宫格之间）＋设置 → 功能大全行角标：同一 renderSeen 出口
+  const seenBar = document.createElement('div');
+  seenBar.className = 'fhub-seen-bar';
+  seenBar.id = 'fhub-seen-bar';
+  seenBar.innerHTML = '<div class="fhub-seen-t"></div><div class="fhub-seen-go">去看看 →</div>';
+  seenBar.style.display = 'none';
+  seenBar.addEventListener('click', () => { if (input) input.value = ''; inUnseen = true; view = 'unseen'; update(); });
+  home.insertBefore(seenBar, grid);
+  const hubRow = document.getElementById('row-featurehub');
+  function renderSeen() {
+    const un = unseenList();
+    const n = un.reduce((s, g) => s + g.items.length, 0);
+    if (inUnseen && !n) inUnseen = false; // 名单清零＝自动退出未试视图
+    seenBar.style.display = (n && view !== 'unseen' && !inUnseen) ? '' : 'none';
+    seenBar.querySelector('.fhub-seen-t').textContent = '还没试过：' + n + ' 个功能';
+    if (hubRow) {
+      let b = hubRow.querySelector('.fhub-badge');
+      if (n) {
+        if (!b) { b = document.createElement('span'); b.className = 'fhub-badge'; const txt = hubRow.querySelector('.txt'); if (txt) txt.insertBefore(b, txt.querySelector('.sub') || null); }
+        b.textContent = n + ' 个没试过';
+      } else if (b) b.remove();
+    }
+    if (view === 'unseen' && inUnseen) update(); // 名单在视闩期间变化（点掉一条）→ 就地重建过滤列表
+    else if (view === 'unseen') setHubView('home'); // 名单清零 → 退出过滤视图（否则系统返回手势会退回这张过期空列表）
+  }
 
   // 分组列表：默认全部隐藏，由 update() 按当前视图显隐
   const groups = [];
   HUB.forEach(grp => groups.push(groupBlock(grp)));
   groups.forEach(el => body.appendChild(el));
 
-  // ---- 视图状态：'home'=分类宫格首页；数字=某分类列表；搜索时全局跨组忽略视图 ----
-  let view = 'home';
+  // （视图状态 view 的声明已上移至 #937 埋点段首）
 
   // ---- 顶部 tag：首页 + 各分类（列表态显示，用于快速切换/回首页） ----
   if (tags) {
@@ -516,7 +628,7 @@
       const d = document.createElement('div');
       d.className = 'fhub-tag';
       d.textContent = pair[0];
-      d.addEventListener('click', () => { if (input) input.value = ''; view = pair[1]; update(); });
+      d.addEventListener('click', () => { if (input) input.value = ''; setHubView(pair[1]); });
       tags.appendChild(d);
     });
   }
@@ -528,8 +640,11 @@
   }
 
   // ---- 唯一显隐出口：搜索态全局跨组只显命中行；非搜索态按视图显首页或单组 ----
+  let seenWraps = []; // #937 unseen 视图的动态容器：每次 update 先整体移除再按视图重建/复位
   function update() {
     if (empty) empty.hidden = true;
+    seenWraps.forEach(el => el.remove());
+    seenWraps = [];
     const q = input ? norm(input.value) : '';
     if (q) {
       if (home) home.style.display = 'none';
@@ -567,6 +682,30 @@
       if (empty) empty.hidden = hits > 0;
       return;
     }
+    // #937 「还没试过」过滤视图：横幅点开后进这里，只列未到达条目（组标题沿用 gs-title 形态）
+    if (view === 'unseen') {
+      if (home) home.style.display = 'none';
+      if (tags) tags.style.display = 'none';
+      groups.forEach(el => { el.style.display = 'none'; });
+      const un = unseenList();
+      let lastCard = null;
+      un.forEach(gr => {
+        const wrap = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'gs-title';
+        title.textContent = gr.g + '（' + gr.items.length + ' 个没试过）';
+        const card = document.createElement('div');
+        card.className = 'set-group glass';
+        gr.items.forEach(it => card.appendChild(entryRow(it)));
+        wrap.appendChild(title);
+        wrap.appendChild(card);
+        body.appendChild(wrap);
+        seenWraps.push(wrap);
+        lastCard = card;
+      });
+      if (empty) empty.hidden = !!lastCard;
+      return;
+    }
     // 清空搜索 → 复位所有行显隐与原始行序，再按当前视图显首页或单组
     Array.prototype.forEach.call(body.querySelectorAll('.set-row'), r => { r.style.display = ''; });
     groups.forEach((el) => {
@@ -579,6 +718,7 @@
       Array.prototype.forEach.call(tags.children, (t, i) => t.classList.toggle('on', i - 1 === view));
     }
     groups.forEach((el, i) => { el.style.display = i === view ? '' : 'none'; });
+    renderSeen(); // #937：回首页/切组时横幅按当前 view 复位显隐
   }
 
   // ---- 搜索 ----
@@ -599,12 +739,14 @@
           const el = document.querySelector(sel);
           if (el && typeof el.click === 'function') { el.click(); clicked++; }
         });
-        if (clicked) { bumpFreq(it); return; }
+        if (clicked) { bumpFreq(it); bumpSeen([{ g: it.g, n: it.n }]); return; }
       } catch (e) { /* 落到位置提示 */ }
       toast('「' + it.n + '」的位置：' + (it.where || it.g) + '（入口暂不可达，如有需要请在对应页面寻找）');
       return;
     }
     toast('「' + it.n + '」的位置：' + (it.where || it.g));
+    // #937：无直达入口的条目（动作类/位置提示类）DOM 侧无从判定到达，看到位置提示即算看过
+    bumpSeen([{ g: it.g, n: it.n }]);
   }
 
   // ---- 打开：两处入口共用（设置行 / 桌面图标），每次进入复位到宫格首页并清空搜索 ----
@@ -615,8 +757,7 @@
     page.hidden = false;
     hubFrom = from;
     if (input) input.value = kw ? String(kw) : '';
-    view = 'home';
-    update();
+    setHubView('home');
     // 带关键词进入＝直接搜索态：聚焦搜索框方便改词（无键盘环境静默）
     if (kw && input) { try { input.focus(); } catch (e) {} }
   }
@@ -663,5 +804,8 @@
     } catch (e) { return []; }
   };
 
+  // #937：埋点/横幅初始化收在文件尾——renderSeen→update 会触到 groups/seenWraps 等后置声明，
+  // 早期调用撞 TDZ（loadSeen 的 IDB 回填与横幅重绘都在其后的异步回调里，不受影响）。
+  loadSeen();
   update();
 })();

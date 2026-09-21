@@ -385,12 +385,14 @@
   // v3.6.x：iOS 上改开关文案，明示平台限制，避免「点了没反应 / 不是真全屏」的困惑
   // v3.26.x：开关行加了「功能说明」标签，外层多包了一层 flex span——改选内层文本
   // span（row.querySelector('span span')），避免 textContent 覆盖把标签一起清掉
+  // v3.27.x #927：该行搬到通用段首位改成 .set-row 形态，标题文字挂专用 #sf-fullscreen-label
+  // （.txt 里紧跟「功能说明」标签，按 span 取会连标签一起改写）；旧 .gs-row 形态一并兼容
   function relabelIosToggle() {
     const el = document.getElementById('sf-fullscreen');
     if (!el) return;
-    const row = el.closest('.gs-row');
+    const row = el.closest('.set-row') || el.closest('.gs-row');
     if (!row) return;
-    const span = row.querySelector('span span') || row.querySelector('span');
+    const span = row.querySelector('#sf-fullscreen-label') || row.querySelector('span span') || row.querySelector('span');
     if (!span) return;
     span.textContent = inIosStandalone
       ? '全屏模式（内容顶满，系统状态栏不可隐藏）'

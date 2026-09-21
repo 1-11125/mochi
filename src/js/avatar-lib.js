@@ -728,7 +728,8 @@
     btn.addEventListener('click', (e) => {
       // FIX 2026-09-18 #756：原 `if (fromLabel(e)) return;` 在「label 存在但国产内核不转发」
       // 时连 JS 兜底一并跳过＝用户报的「点了一点反应都没有」；改由 guard 事后确认真没弹出再补
-      var _fb = () => { try { input.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+      // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+      var _fb = () => { window.mochiFilePickFire(input, { onFail: () => toast('无法打开相册，请重试') }); };
       if (window.mochiFilePickGuard) window.mochiFilePickGuard(input, _fb);
       else _fb();
     });

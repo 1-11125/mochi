@@ -45,6 +45,14 @@
 //     下次一跑就能看出发生在哪个页、是不是在后台期内（窗口内自带观察器，零常驻不变）；
 //   ⑥结论「流畅」但窗内有前台冻结/长任务时，建议不再武断「无需处理」，改为点名冻结/长任务
 //     次数与最长时长并引导按现场复测（红米报告里「属正常波动，无需处理」与「最长 1630ms」并存）。
+// #958 iPhone 12 Pro / iOS Safari 自检报告「正常帧间隔约 4ms」纠偏（用户直派报告；零机型分支，
+//   判据取帧间隔分布）：「正常帧间隔约 4ms」在 60Hz 屏上不可能，而它正是 jankThr 的输入——
+//   jankThr = min(max(周期×2, 24), 34)ms，周期被记成 4ms 时阈值落到 24ms 下限，25~33ms 的
+//   正常 60Hz 帧被算成掉帧，2.5% 的「轻度」由此偏高（同一报告又写「平均 59.2fps」，自相矛盾）。
+//   根因＝周期取窗口内「单次最小帧间隔」：iOS Safari 偶发一次 4ms 的 rAF 调度抖动（同一 vsync
+//   内补帧）就把周期钉死在 4ms。修法＝周期改从帧间隔直方图取「至少重复 3 次的最小取整间隔」，
+//   单次/双次抖动不入账；样本太少（无间隔重复到 3 次）退回旧最小值口径。真高刷与低电量整档
+//   30fps 是整窗反复出现的间隔，估计不变，不改变这两类判定。报告「正常帧间隔」随之显示真周期。
 (function () {
   'use strict';
   if (window.mochiPerfCheck) return;
@@ -61,7 +69,13 @@
   // PAGE_CN 里旧的桌面图标名映射保留兜底旧报告/旧调用方）
   var PAGE_ID_CN = { phone: '手机桌面', chat: '聊天', 'group-chat': '群聊', home: '桌面二页', mail: '信箱', 'mail-write': '写信箱', 'mail-reply': '回信箱', feed: '朋友圈', calendar: '日历', memory: '纪念', divine: '占卜', music: '音乐', stats: '统计', interact: '互动', checkin: '打卡', 'checkin-cards': '打卡字卡', garden: '花园', room: '房间', drift: '漂流瓶', period: '经期', accounting: '记账', theme: '主题', setting: '设置', storage: '查看存储', 'card-audit': '字卡自检', chatcard: '字卡库', featurehub: '功能中心', 'feature-data': '功能数据', deskcheck: '屏幕适配诊断', guide: '功能介绍', about: '关于', 'chat-settings': '聊天设置', 'reply-settings': '回复设置', 'call-settings': '通话设置', 'sfx-settings': '音效设置', 'custom-cards': '自定义字卡', 'default-cards': '默认字卡', 'dict-cards': '词典字卡', 'fun-cards': '趣味字卡', 'quote-cards': '语录字卡', 'loc-cards': '定位字卡', 'mood-cards': '心情字卡', 'reply-cards': '回复字卡', fav: '收藏', 'fav-settings': '收藏设置' };
   var _running = false;
-  var minD = 0; // 窗口内实测最小帧间隔 ≈ 刷新周期（模块级：jankThr 要读；_running 保证同一时间只有一个窗口在写）
+  // #958：minD 语义改「反复出现的最小帧间隔」而非单次最小值——旧实现取窗口内单次最小间隔，
+  // iOS Safari 偶发一次 4ms 的 rAF 调度抖动（同一 vsync 内补帧）就把周期记成 4ms、jankThr 落到
+  // 24ms 下限，60Hz 屏上正常的 25~33ms 帧被误计成掉帧（报告还写「正常帧间隔约 4ms」，与同一份
+  // 报告「平均 59.2fps / 60Hz 屏」自相矛盾）。gapHist 记取整间隔出现次数，只有反复出现的间隔才当周期。
+  var minD = 0; // 窗口内实测刷新周期 ≈ 反复出现的最小帧间隔（模块级：jankThr 要读；_running 保证同一时间只有一个窗口在写）
+  var gapHist = {}; // 帧间隔直方图（取整 ms → 出现次数）
+  var gapFrames = 0; // 进直方图的样本数（周期估计的分母）
 
   function pageName(key) { return PAGE_ID_CN[key] || PAGE_CN[key] || key; }
   function curPage() {
@@ -107,6 +121,19 @@
     return (pj / pf) >= 2 * (oj / of);
   }
   function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); } // #770：阈值随实测刷新周期自适应
+  // #958 刷新周期稳健估计：优先取「至少重复 3 次的最小取整间隔」＝显示屏 vsync 周期；单次/双次的
+  // 调度抖动（iOS 的 4ms 补帧）不入账。真高刷（整窗 8ms）与 iOS 低电量整档 30fps（整窗 33ms）都是
+  // 反复出现的间隔，估计值与旧版一致，不改变这两类判定；样本太少的窗口（没有间隔重复到 3 次）
+  // 退回旧「单次最小值」口径，窗口起始几帧行为不变。
+  function periodEst() {
+    var anyMin = 0, repMin = 0;
+    for (var k in gapHist) {
+      var v = +k;
+      if (!anyMin || v < anyMin) anyMin = v;
+      if (gapHist[k] >= 3 && (!repMin || v < repMin)) repMin = v;
+    }
+    minD = repMin || anyMin;
+  }
   function storageAgg() {
     // 复用 #411 的扫描/分级；调用方保证在检测窗结束后才跑（大库扫描本身是已知耗时点）
     try {
@@ -173,7 +200,7 @@
       var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';
       function onDown() { lastDown = performance.now(); }
       try { document.addEventListener(downEv, onDown, { passive: true }); } catch (e) {}
-      minD = 0;
+      minD = 0; gapHist = {}; gapFrames = 0;
       var first = true;
       function finish() {
         if (done) return;
@@ -233,7 +260,7 @@
       }
       function frame(now) {
         if (done) return;
-        var d = now - last; last = now;
+        var d = now - last, prevLast = last; last = now;
         var wasBg = hidPending; hidPending = 0; // #934：自上一帧以来是否真发生过隐藏（visibilitychange 实报）
         if (document.hidden) {
           rep.hid++; // 帧回调落到隐藏期（兜底），不计入样本
@@ -242,6 +269,7 @@
         } else {
           rep.frames++;
           var pg = curPage();
+          rep.curPg = pg; // #906：当前所在页（进度浮条实时显示，让用户知道采样在跟着走）
           rep.pageFrames[pg] = (rep.pageFrames[pg] || 0) + 1;
           if (pg !== lastPgSeen) { lastPgSeen = pg; swAt = now; } // #818 切页时刻（最慢帧现场归因用）
           if (lastDown >= 0) { // #818 点按→下一帧结算响应延迟（含主线程拥堵；≥2s 视为切后台噪声丢弃）
@@ -253,14 +281,27 @@
           }
           if (first) { first = false; } // 首帧间隔是启动延迟，只计样本、不进周期/掉帧判定
           else {
-            if (d >= 4 && (!minD || d < minD)) minD = d; // <4ms＝同 vsync 补帧伪象，不当刷新周期
+            // #958：只把「≥4ms 且非冻结」的间隔计入周期直方图（<4ms＝同 vsync 补帧伪象仍不入账），
+            // 周期估计由 periodEst 取「反复出现的间隔」＝单次 4ms 抖动不再把阈值压到 24ms 下限
+            if (d >= 4 && d <= BG_GAP) { var _g = Math.round(d); gapHist[_g] = (gapHist[_g] || 0) + 1; gapFrames++; periodEst(); }
             var kb = kbOn();
             if (kb) rep.kbFrames++;
             if (d > jankThr()) {
               // #934：>250ms 且无隐藏期＝亮屏下主线程被卡住＝前台冻结，照常计入掉帧/严重并单独点名
               // （旧实现把这类整段当「后台冻结」剔除＝1.6s 级阻塞在报告里完全隐身）
               var fz = d > BG_GAP ? 1 : 0;
-              if (fz) { rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d); }
+              if (fz) {
+                rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d);
+                // #907 冻结归因：回查冻结起点（wall 时钟≈现在−d）之前最近一条相位标记——
+                // 「冻结前最后在做什么」直接点名（大键写 IDB／小键写日志／聊天落盘／表情包落盘…）
+                try {
+                  var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)';
+                  var _startWall = Date.now() - Math.round(d);
+                  for (var _pi = _pl.length - 1; _pi >= 0; _pi--) { if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; break; } }
+                  if (!rep.fzBy) rep.fzBy = {};
+                  rep.fzBy[_hit] = (rep.fzBy[_hit] || 0) + 1;
+                } catch (e7) {}
+              }
               rep.janky++;
               if (kb) rep.kbJanky++;
               if (d > SEVERE_MS) rep.severe++;
@@ -280,7 +321,8 @@
       raf = requestAnimationFrame(frame);
       var tick = setInterval(function () {
         if (done) { clearInterval(tick); return; }
-        onTick({ left: Math.max(0, Math.ceil((ms - (performance.now() - t0)) / 1000)), frames: rep.frames, janky: rep.janky, hid: rep.hid });
+        // #906：pg＝当前所在页（浮条实时显示）；hidRatio 由调用方算（后台占比过高时提示「不算数」）
+        onTick({ left: Math.max(0, Math.ceil((ms - (performance.now() - t0)) / 1000)), frames: rep.frames, janky: rep.janky, hid: rep.hid, pg: pageName(rep.curPg || '?') });
       }, 500);
     });
   }
@@ -319,12 +361,20 @@
     var mtxt = majors.slice(0, 2).map(function (m) { return pageName(m[0]) + ' ' + pct(m[1], r.frames) + '%'; }).join('、');
     if (mtxt) L.push('· 采样期间主要在：' + mtxt);
     if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
+    // #906：后台/锁屏占比过高时点名——剔除机制保证判定不受污染，但占比太高＝测的不是刚才的卡
     // #934：占比改按「实测时长」算（原＝冻结段数与有效帧数比大小，量纲不同＝恒不触发）
     if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
     if (r.janky > 0) {
       L.push('· 掉帧 ' + r.janky + ' 帧（间隔>' + r.jankMs + 'ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
       // #934：亮屏下的超长阻塞单独点名（旧版把这它当后台冻结剔除，报告里连数字都看不到）
       if (r.fz > 0) L.push('· 前台冻结 ' + r.fz + ' 次（亮屏下主线程被卡住 >' + BG_GAP + 'ms，最长 ' + r.fzWorst + 'ms）——现场见下方「最慢帧现场」的前台冻结标记');
+      // #907 冻结归因汇总：冻结前序操作分布（iOS 无 longtask 观测，这行是唯一能指出「谁在堵主线程」的取证）
+      if (r.fzBy) {
+        var _fk = Object.keys(r.fzBy).sort(function (a, b) { return r.fzBy[b] - r.fzBy[a]; }).slice(0, 4);
+        if (_fk.length && r.fzBy[_fk[0]] > 0) {
+          L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) { return k + ' ×' + r.fzBy[k]; }).join('、'));
+        }
+      }
       if (concOk(r)) {
         var _of = r.frames - (r.pageFrames[r.topPage] || 0), _oj = r.janky - (r.pages[r.topPage] || 0);
         L.push('· 掉帧集中：' + pageName(r.topPage) + '（掉帧 ' + r.pages[r.topPage] + '/' + (r.pageFrames[r.topPage] || 0) + ' 帧，该页 ' + pct(r.pages[r.topPage], r.pageFrames[r.topPage]) + '% ' + (_of >= 30 ? 'vs 其余页 ' + pct(_oj, _of) + '%' : '，本窗口其余页样本不足）'));
@@ -333,6 +383,11 @@
         // （红米报告原文：「掉帧集中：朋友圈（该页 0.5% vs 全窗 1%）」＋建议去查朋友圈的大图）
         L.push('· 掉帧分散：最多的 ' + pageName(r.topCnt) + ' 也才 ' + r.pages[r.topCnt] + '/' + (r.pageFrames[r.topCnt] || 0) + ' 帧（' + pct(r.pages[r.topCnt], r.pageFrames[r.topCnt]) + '%），没有哪一页明显高于其余页——不是某一页特有的问题，重点看长任务与下方建议');
       }
+      // #906：保活开着时点名——页面常驻后台跑＝更耗电发热、掉帧更明显，是「越用越卡」惯犯之一
+      try {
+        var ka = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+        if (ka && ka.keep) L.push('· 「后台保活」开着：页面会在后台一直跑，更耗电、发热、掉帧更明显——不用时到 设置→系统 关掉再对照测一轮');
+      } catch (e4) {}
       if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
       if (r.scene && r.scene.length) {
         var ss = [], _mk = {};

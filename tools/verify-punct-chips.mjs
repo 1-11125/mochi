@@ -208,7 +208,9 @@ chk('J4 与内置同值（，）被拒、提示走开关、列表不变', J4.n =
 // ---- K. #712 join 行为：——入池、自定义 on=1 入池 / on=0 不入、池空回退空格 ----
 const K = JSON.parse(String(await ev(`(function(){
   function trial(cfg){ var out=[]; for(var i=0;i<40;i++) out.push(window.pyJoinCards(['甲','乙'],cfg)); return out; }
-  var base={'py-punct-en':1,'py-punct-space':0,'py-punct-dou':0,'py-punct-per':0,'py-punct-ex':0,'py-punct-q':0,'py-punct-el':0};
+  // #956 起「多字卡回复」（py-en）也是拼卡上游闸门：本段构造的 cfg 必须显式带 py-en:1，
+  // 否则等于总开关关闭（关＝只回退空格），K 段「只开——」「自定义入池」等判据会全部失配
+  var base={'py-en':1,'py-punct-en':1,'py-punct-space':0,'py-punct-dou':0,'py-punct-per':0,'py-punct-ex':0,'py-punct-q':0,'py-punct-el':0};
   var d=Object.assign({},base,{'py-punct-dash':1,'py-punct-custom':'[]'});
   var onlyDash=d?trial(d):[];
   var badDash=onlyDash.filter(function(r){return r!=='甲——乙';}).length;

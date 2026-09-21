@@ -815,7 +815,7 @@
     // #848 giftReplyOn「我送礼后 TA 回一句」总开关：默认 1=开（用户 2026-09-19 要求默认开启，
     // 同 wishChatOn 口径——只有显式存 0 才关）；giftReplyPct=送出一份礼物后 TA 回话的概率（默认 60）；
     // giftReplyMode=回什么（0=系统预设话术 / 1=和正常聊天一样回复 / 2=混合），默认 1。
-    return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), wishChatOn: s.wishChatOn === 0 ? 0 : 1, wishChatPct: clampPct(s.wishChatPct, 60), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10), giftReplyOn: s.giftReplyOn === 0 ? 0 : 1, giftReplyPct: clampPct(s.giftReplyPct, 60), giftReplyMode: clampMode(s.giftReplyMode, 1) };
+    return { wlVer: WL_VER, giftInOn: s.giftInOn === 0 ? 0 : 1, giftInPct: clampPct(s.giftInPct, 5), wlOn: s.wlOn === 0 ? 0 : 1, wlBuyPct: clampPct(s.wlBuyPct, 20), wlAddPct: clampPct(s.wlAddPct, 15), wishChatOn: s.wishChatOn === 0 ? 0 : 1, wishChatPct: clampPct(s.wishChatPct, 60), selfOn: s.selfOn === 0 ? 0 : 1, selfPct: clampPct(s.selfPct, 10), selfChatOn: s.selfChatOn === 0 ? 0 : 1, giftReplyOn: s.giftReplyOn === 0 ? 0 : 1, giftReplyPct: clampPct(s.giftReplyPct, 60), giftReplyMode: clampMode(s.giftReplyMode, 1) };
   }
   function wlSettingsSave(st) { if (GSTORE) GSTORE.set(WL_SETTINGS_KEY, JSON.stringify(st)); }
   // #585 设置口径一次性升级（用户 2026-09-16 报「联系人从来不会买礼物送到聊天」，根因之一）：
@@ -906,13 +906,24 @@
   function wishChatPush(gift) {
     try {
       if (!gift || !gift.id || !window.chatAddGift) return false;
+      const wishText = '想要「' + (gift.name || '这个') + '」';
       window.chatAddGift({
         side: 'in', special: 'wish',
-        text: '想要「' + (gift.name || '这个') + '」',
+        text: wishText,
         wishGiftId: gift.id, wishGiftName: gift.name, wishGiftEmoji: gift.emoji,
         wishGiftImg: gift.img || '', wishGiftPrice: gift.price, wishGiftCat: gift.cat,
         wishGiftWish: gift.wish || '送给你', wishTs: Date.now()
       });
+      // #915：心愿卡后台漏弹补通知——addRec notable 路只在页面隐藏时弹系统通知；
+      // 后台冻结的触发链回前台补跑才生成卡片（此刻已可见），若不补发，用户永远等不到
+      // 这类「切出去期间该弹的」弹窗。仅「刚从 ≥1 分钟真后台回来」且不停在聊天页时补发，
+      // 走 bg-keep 同一套去重闸门（同内容刚见过/刚弹过照样吞）。
+      try {
+        if (window.bgLateCatchup && window.bgLateCatchup() && window.bgNotifyCheck) {
+          const cp = document.getElementById('page-chat');
+          if (!(cp && !cp.hidden)) window.bgNotifyCheck(wishText, Date.now(), { name: partnerName() + '的心愿', late: true });
+        }
+      } catch (e) {}
       return true;
     } catch (e) { return false; }
   }
@@ -1104,12 +1115,17 @@
       w0.systemBalance -= Math.round((gift0.price || 0) * 100); walletSet(w0);
       dayIncr(SELF_DAILY_PREFIX);
       setTimeout(function () {
+        // selfChatOn（用户 2026-09-21 要求，默认开）：TA 给自己买的礼物也发一张礼物卡到聊天，
+        // 带 giftSelf 标记让 chat.js 渲染成「XX 自己买的」；心意柜记录不变（仍进 TA 自己买的）。
+        const chatRec = { side: 'in', special: 'gift', giftId: gift0.id, giftName: gift0.name, giftEmoji: gift0.emoji, giftImg: gift0.img || '', giftPrice: gift0.price, giftWish: wish0, giftCat: gift0.cat, giftSelf: 1, ts: Date.now() };
         if ((window.__activeCid || 'default') === myCid) {
           recordBox(gift0, 'self', wish0);
-          toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
+          if (st.selfChatOn && window.chatAddGift) window.chatAddGift(chatRec);
+          else toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
         } else {
-          // 已切桌面：记录仍回原桌面（不弹 toast，避免串到别的联系人脸上）
+          // 已切桌面：记录与聊天卡仍回原桌面（不弹 toast，避免串到别的联系人脸上）
           recordBoxAt(myCid, gift0, 'self', wish0);
+          if (st.selfChatOn && window.chatAppendDeskRec) window.chatAppendDeskRec(myCid, chatRec);
         }
       }, randInt(1500, 4000));
       return;
@@ -1276,6 +1292,7 @@
       '<div class="gs-row"><div class="gs-lab">TA 回一句概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="giftReplyPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.giftReplyPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 回什么<span class="gs-sub">点一下切换</span></div><div class="gs-pick" id="gs-gift-reply-mode" data-v="' + st.giftReplyMode + '">' + giftReplyModeLabel(st.giftReplyMode) + '</div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买礼物<span class="gs-sub">买给自己的礼物收进「心意柜-TA 自己买的」</span></div><div class="gs-switch' + (st.selfOn ? ' on' : '') + '" data-gsw="selfOn"></div></div>' +
+      '<div class="gs-row"><div class="gs-lab">TA 自买礼物发到聊天<span class="gs-sub">TA 给自己买的礼物同时发一张礼物卡到聊天，方便你查看；默认开启</span></div><div class="gs-switch' + (st.selfChatOn ? ' on' : '') + '" data-gsw="selfChatOn"></div></div>' +
       '<div class="gs-row"><div class="gs-lab">TA 自己买概率</div><div class="gs-numwrap"><input class="gs-num" data-gsn="selfPct" type="number" min="0" max="100" inputmode="numeric" value="' + st.selfPct + '"><span class="gs-pct">%</span></div></div>' +
       '<div class="gs-help">【使用说明】<br>· TA 送我礼物：总开关，默认开启；关闭后 TA 不会买礼物送你（心愿单兑现与随机送礼都不触发）；TA 给自己买礼物、加自己的心愿单不受影响，我送礼给 TA 也不受影响。<br>· TA 送我礼物概率：TA 每次心动时主动从市集挑一份送你的概率（进聊天 +「心意柜-收到的」），0~100 自定义。<br>· 我的心愿单：市集点开商品选「加入心愿单」许愿（不花钱）；TA 按概率直接买下送你，礼物进「心意柜-收到的」，心愿单自动移除。<br>· TA 的心愿单：TA 会把想要的加进来；点「送 TA」买下送出，礼物进 TA 的心意柜-收到的并自动移除该心愿。市集里 TA 正许愿的商品会标出「☆ TA许愿的」，从这里进也行。<br>· TA 的心愿发到聊天：TA 把商品加进自己心愿单的那一刻，按概率把这份心愿发一张卡片到聊天（默认开启、默认 60%），卡片上点【送 TA】就能买下送出，送完卡片自动变「已送出」；关掉开关或概率调 0，TA 就只默默加进心愿单、不再发卡片（聊天仍可在心意柜「看看 TA 的心愿单」里看到）。<br>· 我送礼后 TA 回一句：我送出的每一份礼物都有概率让 TA 回一句（默认开启、默认 60%），市集、心意柜、TA 心愿卡上点【送 TA】都算；这份礼物正好是 TA 心愿单里许着的，话术走「心愿兑现」那一套。「TA 回什么」三档＝只用系统预设话术 / 和正常聊天一样回复（走字卡与词典管线，带「正在输入…」）/ 混合（约六成预设、四成聊天式）；关掉开关或概率调 0，TA 就只默默收下礼物、不再回话（礼物照常进 TA 的心意柜）。<br>· TA 自己买：TA 按概率给自己买礼物，收进「心意柜-TA 自己买的」，不发聊天消息。<br>· 概率=每次触发（我发消息后）TA 采取该行动的概率，0~100 自定义；「TA 送我礼物」（心愿单兑现＋随机送礼）每天最多 3 次，「TA 自己买礼物」另有独立额度、两者互不挤占；关掉开关即完全关闭对应行为。</div>';
     window.openTCPanel('心意集市和心意柜设置', html);
@@ -1666,7 +1683,8 @@
   }
   function bindGmImgRow() {
     const pick = document.getElementById('gm-img-pick');
-    if (pick) pick.addEventListener('click', function () { try { gmImgInput.click(); } catch (e) { toast('无法打开相册，请重试'); } });
+    // FIX 2026-09-20 #920：激活腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+    if (pick) pick.addEventListener('click', function () { window.mochiFilePickFire(gmImgInput, { onFail: function () { toast('无法打开相册，请重试'); } }); });
     const clr = document.getElementById('gm-img-clear');
     if (clr) clr.addEventListener('click', function () { gmImg = ''; renderGmImgRow(); });
   }

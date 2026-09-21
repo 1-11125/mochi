@@ -660,6 +660,8 @@
   // 调度：遍历所有联系人，非激活桌面按各自配置掷概率（查岗/聊天/来电各自受开关控制）
   function maybeIncoming() {
     try {
+      // #960：跨桌面来消息轮询相位（本仓诊断里轮询次数可达数百次/会话，是周期重活嫌疑之一）
+      try { if (window.__mochiPhase) window.__mochiPhase('xd-poll'); } catch (e0) {}
       ticks++;
       reconcileLiveModals();
       // 夜间模式：整个时段内暂停一切跨桌面打扰（查岗/求聊天/来电），时段外行为不变

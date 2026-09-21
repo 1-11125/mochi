@@ -726,12 +726,14 @@
     if (it && it.img) {
       window.openModal('这条已配图', '', function (v) {
         if (v === 'del') { delete it.img; saveArc(cur, arc); toast('已移除配图'); render(); }
-        else if (v === 'new') { imgTarget = { kind: kind, id: id }; ensureImgInput().click(); }
+        // FIX 2026-09-20 #920：激活腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+        else if (v === 'new') { imgTarget = { kind: kind, id: id }; window.mochiFilePickFire(ensureImgInput()); }
       }, { noInput: true, pill: 'new', pills: [{ label: '换一张', value: 'new' }, { label: '移除配图', value: 'del' }] });
       return;
     }
     imgTarget = { kind: kind, id: id };
-    ensureImgInput().click();
+    // FIX 2026-09-20 #920：激活腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+    window.mochiFilePickFire(ensureImgInput());
   }
   // FIX 2026-09-18 #755：原实现用 display:none（#717/#738 点名要消灭的写法，部分内核对不可见
   // input 拒绝激活）——改走统一入口的 sr-only clip 常驻 input（挂 body + accept 前置 + label 兜底）

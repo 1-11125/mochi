@@ -656,17 +656,24 @@ toast('已放进仓库：' + c.e + ' ' + c.n);
 setTimeout(shopMenu, 0); // 同上：等本层 close 完成再重开列表
 }, { noInput: true, pills: pills, staticText: '互动和每日进屋都会攒点数' });
 }
+function decoLockTxt(o) { return '🔒 ' + o.n + '：小屋 Lv.' + o.lv + ' 解锁（现在 Lv.' + d.lv + '）'; }
 function decoFlow() {
-const wp = WALLS.map(w => ({ label: (d.wall === w.id ? '✅ ' : '') + w.n + (w.lv > d.lv ? ' 🔒Lv' + w.lv : ''), value: w.lv <= d.lv ? 'w:' + w.id : '' }));
+const wp = WALLS.map(w => ({ label: (d.wall === w.id ? '✅ ' : '') + w.n + (w.lv > d.lv ? ' 🔒Lv' + w.lv : ''), value: w.lv <= d.lv ? 'w:' + w.id : 'lockw:' + w.id }));
 window.openModal('装扮 · 墙纸', '', function (v) {
-if (v && v.indexOf('w:') === 0) { d.wall = v.slice(2); save(); renderScene(); }
+if (v && v.indexOf('lockw:') === 0) {
+const lw = WALLS.filter(function (x) { return x.id === v.slice(6); })[0];
+if (lw) toast(decoLockTxt(lw));
+} else if (v && v.indexOf('w:') === 0) { d.wall = v.slice(2); save(); renderScene(); }
 setTimeout(floorPick, 0); // 嵌套 openModal 延后到外层 close 之后
 }, { noInput: true, pills: wp });
 }
 function floorPick() {
-const fp = FLOORS.map(f => ({ label: (d.floor === f.id ? '✅ ' : '') + f.n + (f.lv > d.lv ? ' 🔒Lv' + f.lv : ''), value: f.lv <= d.lv ? 'f:' + f.id : '' }));
+const fp = FLOORS.map(f => ({ label: (d.floor === f.id ? '✅ ' : '') + f.n + (f.lv > d.lv ? ' 🔒Lv' + f.lv : ''), value: f.lv <= d.lv ? 'f:' + f.id : 'lockf:' + f.id }));
 window.openModal('装扮 · 地板', '', function (v) {
-if (v && v.indexOf('f:') === 0) { d.floor = v.slice(2); save(); renderScene(); }
+if (v && v.indexOf('lockf:') === 0) {
+const lf = FLOORS.filter(function (x) { return x.id === v.slice(6); })[0];
+if (lf) toast(decoLockTxt(lf));
+} else if (v && v.indexOf('f:') === 0) { d.floor = v.slice(2); save(); renderScene(); }
 }, { noInput: true, pills: fp });
 }
 function infoModal() {

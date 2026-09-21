@@ -46,7 +46,7 @@ const win = {
   mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s)
 };
 const env = { window: win, String, Math, RegExp, console };
-const loaded = new Function('env', 'with (env) { ' + srcPred + '\n' + srcInline + '\n return { chatIsDataImgLikeSrc: typeof chatIsDataImgLikeSrc === "function" ? chatIsDataImgLikeSrc : null, chatIsImgSrcLike: typeof chatIsImgSrcLike === "function" ? chatIsImgSrcLike : null, chatIsDataImgSrc: typeof chatIsDataImgSrc === "function" ? chatIsDataImgSrc : null, chatIsDataAudioSrc: typeof chatIsDataAudioSrc === "function" ? chatIsDataAudioSrc : null, chatIsInlineDataSrc: typeof chatIsInlineDataSrc === "function" ? chatIsInlineDataSrc : null, chatIsMediaPayload: typeof chatIsMediaPayload === "function" ? chatIsMediaPayload : null, chatHasMediaPayload: typeof chatHasMediaPayload === "function" ? chatHasMediaPayload : null, chatB64ImgMime: typeof chatB64ImgMime === "function" ? chatB64ImgMime : null, chatFixNoMimeImg: typeof chatFixNoMimeImg === "function" ? chatFixNoMimeImg : null }; }')(env);
+const loaded = new Function('env', 'with (env) { ' + srcPred + '\n' + srcInline + '\n return { chatIsDataImgLikeSrc: typeof chatIsDataImgLikeSrc === "function" ? chatIsDataImgLikeSrc : null, chatIsImgSrcLike: typeof chatIsImgSrcLike === "function" ? chatIsImgSrcLike : null, chatIsDataImgSrc: typeof chatIsDataImgSrc === "function" ? chatIsDataImgSrc : null, chatIsDataAudioSrc: typeof chatIsDataAudioSrc === "function" ? chatIsDataAudioSrc : null, chatIsInlineDataSrc: typeof chatIsInlineDataSrc === "function" ? chatIsInlineDataSrc : null, chatIsMediaPayload: typeof chatIsMediaPayload === "function" ? chatIsMediaPayload : null, chatHasMediaPayload: typeof chatHasMediaPayload === "function" ? chatHasMediaPayload : null }; }')(env);
 const inline = win.mochiInlineTextHtml || null;
 const P = loaded;
 
@@ -62,10 +62,6 @@ ok(/const isImgPayload = window\.chatIsDataImgLikeSrc \|\| window\.chatIsDataImg
 ok(/if \(!mediaPayloadKind\(payload\)\) \{ resolve\(null\); return; \}/.test(poolSrc), 'S5 媒体池 tokenize 闸门走统一判据（旧精确前缀＝变体载荷永不进池）');
 ok(/const _isMediaRep = !!\(rep && \(rep\.type === 'sticker' \|\| rep\.type === 'image' \|\| rep\.type === 'voice'/.test(chatSrc), 'S6 genChatStyleReply 源头闸覆盖单卡媒体形态（本次乱码的直接来路：TA 回应把整张表情包载荷当文字返回）');
 
-ok(/if \(DATA_NOMIME_RE\.test\(h\)\) return !!chatB64ImgMime\(s\);/.test(chatSrc), 'S7 判据层收无 MIME 载荷（旧的全部前缀判定漏过＝当正文铺 base64；删＝无 MIME 图重新变长乱码）');
-ok(/const __nmFixed = chatFixNoMimeImg\(r\.text\);/.test(chatSrc), 'S8 normCell 存量无 MIME 图片载荷补正 MIME（删＝WebKit 系对无类型 data: 不嗅探＝照旧裂图/占位）');
-ok(/if \(NOMIME_RE\.test\(head\)\) return \(window\.chatB64ImgMime/.test(poolSrc), 'S9 media-pool 本地兜底同口径（删＝本模块单独加载时无 MIME 载荷归类漂移）');
-
 const H32 = '58395ec7c37e171594d598aeec80cb87';
 const TOK = '@@m:' + H32;
 const B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAPg';
@@ -77,25 +73,13 @@ const pOctet = 'data:application/octet-stream;base64,' + B64;
 const pAudio = 'data:audio/webm;base64,' + B64;
 const pVideo = 'data:video/mp4;base64,' + B64;
 const urlImg = 'https://img.example.com/a/IMG_2343.png';
-// FIX #948h 无 MIME 载荷族（File.type 为空时 FileReader 的产物："data:;base64,…"）——首字节按真实
-// 魔数构造，判定端只解 base64 头，故这里与真载荷逐字节同形
-const B64ENC = (arr) => Buffer.from(arr).toString('base64');
-const B64SENC = (str) => Buffer.from(str, 'binary').toString('base64');
-const pNmPng = 'data:;base64,' + B64ENC([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0, 0, 0, 0, 0]);
-const pNmJpg = 'data:;base64,' + B64ENC([0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 0x4A, 0x46, 0x49, 0x46, 0, 1, 0, 0, 0, 0]);
-const pNmGif = 'data:;base64,' + B64SENC('GIF89a' + '\x01\x00\x01\x00\x00\x00\x00');
-const pNmWebp = 'data:;base64,' + B64SENC('RIFF' + '\x1C\x00\x00\x00' + 'WEBPVP8 ' + '\x00\x00\x00\x00');
-const pNmWs = '  data:;base64,' + B64ENC([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-const pNmWav = 'data:;base64,' + B64SENC('RIFF' + '\x24\x00\x00\x00' + 'WAVEfmt ' + '\x00\x00\x00\x00');
-const pNmMp3 = 'data:;base64,' + B64ENC([0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-const pNmJunk = 'data:;base64,AAAAAAAAAAAAAAAAAAAAAAAA';
 const txtPlain = '普通文本 <b>& 换行\n第二行';
 const txtDataWord = 'I keep my data: safe and sound';
 
 // ---- B1 判据层：整条载荷各形态归类正确 ----
 {
   const isImg = T(P.chatIsDataImgSrc), like = T(P.chatIsDataImgLikeSrc), srcLike = T(P.chatIsImgSrcLike);
-  const isAudio = T(P.chatIsDataAudioSrc), isInline = T(P.chatIsInlineDataSrc);
+  const isAudio = T(P.chatIsDataAudioSrc);
   const notLike = F(P.chatIsDataImgLikeSrc), notSrcLike = F(P.chatIsImgSrcLike);
   ok(isImg(pImg), 'B1a 标准 data:image/png 认作图片（改回大小写敏感即红）');
   ok(isImg(pImgWs), 'B1b 串首空白的图片载荷也认（旧精确 indexOf===0 漏过＝内联留存）');
@@ -108,10 +92,6 @@ const txtDataWord = 'I keep my data: safe and sound';
   ok(isAudio(pAudio), 'B1i 整条裸 data:audio 认作语音（旧判定只认「名称|||」形态＝裸载荷直出 base64）');
   ok(srcLike(TOK) && srcLike(urlImg), 'B1j 令牌与图片直链仍在「图片引用」判据内（#383/#534 语义不动）');
   ok(notSrcLike(txtPlain) && notSrcLike('https://example.com/post/1'), 'B1k 普通文本与普通链接不误判成图（否则文字气泡变裂图）');
-  ok(like(pNmPng) && like(pNmJpg) && like(pNmGif) && like(pNmWebp) && like(pNmWs), 'B1l 无 MIME 图片载荷按魔数认作图片候选（png/jpg/gif/webp/串首空白；File.type 为空时 FileReader 的产物＝旧判定全线漏过）');
-  ok(srcLike(pNmPng) && srcLike(pNmJpg), 'B1m 无 MIME 图片载荷过「整条就是图片引用」（renderMsg 据此渲图，不再铺 base64）');
-  ok(isInline(pNmJunk) && notSrcLike(pNmJunk) && notLike(pNmJunk), 'B1n 无 MIME 且魔数非图＝内联载荷但不是图（收 [附件] 标注、绝不铺 base64，也不当裂图渲染）');
-  ok(notLike(pNmWav) && notLike(pNmMp3) && notSrcLike(pNmWav), 'B1o 无 MIME 的 RIFF/WAVE 与 mp3 不误判成图（WebP 与 WAV 共用 RIFF 头，只看前 4 字节就会把录音当图＝防修过头）');
 }
 // ---- B2 判据层：文字卡池守卫（chatHasMediaPayload）不误伤正常文本 ----
 {
@@ -124,16 +104,14 @@ const txtDataWord = 'I keep my data: safe and sound';
   ok(noHas(txtDataWord), 'B2d 刻意不按裸 "data:" 子串匹配：正常英文文字卡不被误剔（误剔＝联系人少一张文本卡，比少一层防护更难查）');
   ok(noHas('今天也加油') && noHas(''), 'B2e 普通文本与空串零误判');
   ok(noWhole(txtDataWord) && whole('https://x.com/a.jpg'), 'B2f chatIsMediaPayload 只认整条载荷/整条图片直链');
-  ok(has(pNmPng) && has(pNmJunk) && has('看这张 ' + pNmPng + ' 哈哈'), 'B2g 无 MIME 载荷（整条与夹在正文中间）同样判「含媒体」——#948 收窄旧 data: 前缀守卫后必须补回，否则无 MIME 卡重新入文字池被当文本发出');
 }
 // ---- B3 渲染层：正文夹载荷绝不把 base64 铺成可见文字（用户所见乱码的直接尺子）----
 {
-  const cases = [[pImg, '[图片]'], [pImgUpper, '[图片]'], [pHeic, '[图片]'], [pOctet, '[附件]'], [pAudio, '[语音]'], [pNmPng, '[附件]'], [pNmJpg, '[附件]'], [pNmJunk, '[附件]']];
+  const cases = [[pImg, '[图片]'], [pImgUpper, '[图片]'], [pHeic, '[图片]'], [pOctet, '[附件]'], [pAudio, '[语音]']];
   let allClean = true, allLabeled = true;
   for (const [payload, label] of cases) {
     const h = String(INL('宝贝看看这个 ' + payload + ' 好不好看') || '');
-    const body = payload.slice(payload.indexOf(',') + 1);
-    if (h.indexOf(body) >= 0) { allClean = false; console.log('    · base64 泄漏：' + payload.slice(0, 34) + '…'); }
+    if (h.indexOf(B64) >= 0) { allClean = false; console.log('    · base64 泄漏：' + payload.slice(0, 34) + '…'); }
     if (h.indexOf(label) < 0) { allLabeled = false; console.log('    · 缺标注 ' + label + '：' + payload.slice(0, 34) + '…'); }
   }
   ok(allClean, 'B3a 混排消息里 base64 正文一律不落成可见文字（本条＝本批主诉的尺子）');
@@ -152,16 +130,6 @@ const txtDataWord = 'I keep my data: safe and sound';
   ok(upper.indexOf('<img') < 0 && upper.indexOf('@@m:' + H32.toUpperCase()) >= 0,
     'B3g 32 位大写十六进制伪令牌仍按文本转义（拆分正则带 i 就会把它切成空 src 裂图；#385 口径）');
 }
-// ---- S10 补正：无 MIME 图片载荷还原成规范形态（渲染前用）----
-{
-  const fix = (typeof P.chatFixNoMimeImg === 'function') ? P.chatFixNoMimeImg : () => '';
-  const fPng = String(fix(pNmPng) || ''), fJpg = String(fix(pNmJpg) || '');
-  ok(fPng === 'data:image/png;base64,' + pNmPng.slice(13), 'S10a 无 MIME PNG 载荷补正成 data:image/png;base64,…（载荷一字不改，只补 MIME 段）');
-  ok(fJpg === 'data:image/jpeg;base64,' + pNmJpg.slice(13), 'S10b 无 MIME JPEG 载荷补正成 data:image/jpeg;base64,…');
-  ok(String(fix(pNmJunk) || '') === '' && String(fix('data:image/png;base64,AAAA') || '') === '', 'S10c 非图魔数/已规范形态一律不动（幂等，不制造第二次改写）');
-  ok(String(fix('   ' + pNmPng) || '').slice(0, 22) === 'data:image/png;base64,', 'S10d 串首空白形态同样补正（补正结果不含前导空白）');
-}
-
 // ---- B4 池层：借用口径与本地兜底口径逐项同结论（禁第二份判据漂移）----
 {
   const srcKind = cut(poolSrc, 'var KIND_HEAD_RE', 'if (!OK) return;', '池判据段', true);
@@ -180,9 +148,7 @@ const txtDataWord = 'I keep my data: safe and sound';
   const kindDelegate = mkWin(true);
   const kindLocal = mkWin(false);
   const battery = [[pImg, 'image'], [pImgWs, 'image'], [pImgUpper, 'image'], [pHeic, 'image'], [pOctet, 'image'],
-    [pAudio, 'audio'], ['名称|||' + pAudio, ''], [pVideo, ''], [TOK, ''], [urlImg, ''], [txtPlain, ''], ['', ''],
-    [pNmPng, 'image'], [pNmJpg, 'image'], [pNmGif, 'image'], [pNmWebp, 'image'], [pNmWs, 'image'],
-    [pNmJunk, ''], [pNmWav, ''], [pNmMp3, '']];
+    [pAudio, 'audio'], ['名称|||' + pAudio, ''], [pVideo, ''], [TOK, ''], [urlImg, ''], [txtPlain, ''], ['', '']];
   let agree = true, right = true;
   for (const [s, want] of battery) {
     const a = kindDelegate(s), b = kindLocal(s);

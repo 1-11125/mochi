@@ -199,8 +199,8 @@ if (o >= 100) return color;
 const rgb = gcHexRgb(color);
 return rgb ? 'rgba(' + rgb.join(',') + ',' + (o / 100) + ')' : color;
 };
-page.style.setProperty('--msg-in-bg', surf(gcBeautyGet('in-bg')));
-page.style.setProperty('--msg-out-bg', surf(gcBeautyGet('out-bg')));
+gcSetVar(page, '--msg-in-bg', surf(gcBeautyGet('in-bg')));
+gcSetVar(page, '--msg-out-bg', surf(gcBeautyGet('out-bg')));
 }
 function gcApplyBubbleSurface() {
 gcApplyBubbleSurfaceWith(gcBeautyGet('bubble-op'));
@@ -254,29 +254,33 @@ st.textContent = out;
 document.head.appendChild(st);
 if (hint) setTimeout(() => { try { toast(hint); } catch (e) {} }, 50);
 }
+const gcSetVar = (el, name, value) => { if (!el) return; const v = String(value); if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v); };
+const gcDelVar = (el, name) => { if (el && el.style.getPropertyValue(name) !== '') el.style.removeProperty(name); };
+const gcSetCls = (el, cls, on) => { if (!el) return; if (on) { if (!el.classList.contains(cls)) el.classList.add(cls); } else if (el.classList.contains(cls)) el.classList.remove(cls); };
 function applyGcBeauty() {
 const page = document.getElementById('page-group-chat');
 if (!page) return;
 const g = gcBeautyGet;
-page.style.setProperty('--msg-in-ink', g('in-ink'));
-page.style.setProperty('--msg-out-ink', g('out-ink'));
+gcSetVar(page, '--msg-in-ink', g('in-ink'));
+gcSetVar(page, '--msg-out-ink', g('out-ink'));
 gcApplyBubbleSurface();
-page.style.setProperty('--chat-font-size', g('font-size'));
-page.style.setProperty('--chat-bubble-pad', g('bubble-size'));
-page.style.setProperty('--chat-bubble-radius', g('bubble-radius'));
-page.style.setProperty('--msg-time-ink', g('time-ink'));
-page.style.setProperty('--typing-ink', g('typing-ink'));
-page.style.setProperty('--send-bg', g('send-bg'));
-page.style.setProperty('--send-ink', g('send-ink'));
-page.style.setProperty('--msg-av-radius', g('av-shape') === 'square' ? '10px' : '50%');
-page.style.setProperty('--cs-head-opacity', String(gcClampNum(g('head-op'), 0, 100, 92) / 100));
-page.style.setProperty('--cs-input-opacity', String(gcClampNum(g('input-op'), 0, 100, 92) / 100));
-page.style.setProperty('--cs-head-inset', gcClampNum(g('head-inset'), 0, 80, 0) + 'px');
-page.style.setProperty('--cs-input-inset', gcClampNum(g('input-inset'), 0, 80, 0) + 'px');
+gcSetVar(page, '--chat-font-size', g('font-size'));
+gcSetVar(page, '--chat-bubble-pad', g('bubble-size'));
+gcSetVar(page, '--chat-bubble-radius', g('bubble-radius'));
+gcSetVar(page, '--msg-time-ink', g('time-ink'));
+gcSetVar(page, '--typing-ink', g('typing-ink'));
+gcSetVar(page, '--send-bg', g('send-bg'));
+gcSetVar(page, '--send-ink', g('send-ink'));
+gcSetVar(page, '--msg-av-radius', g('av-shape') === 'square' ? '10px' : '50%');
+gcSetVar(page, '--cs-head-opacity', String(gcClampNum(g('head-op'), 0, 100, 92) / 100));
+gcSetVar(page, '--cs-input-opacity', String(gcClampNum(g('input-op'), 0, 100, 92) / 100));
+gcSetVar(page, '--cs-head-inset', gcClampNum(g('head-inset'), 0, 80, 0) + 'px');
+gcSetVar(page, '--cs-input-inset', gcClampNum(g('input-inset'), 0, 80, 0) + 'px');
 const sendBtn = document.getElementById('gc-send');
-if (sendBtn) sendBtn.style.display = g('send-show') === 'hide' ? 'none' : '';
-GC_BEAUTY_STYLES.forEach(s => page.classList.remove('cs-time-' + s.value));
-page.classList.add('cs-time-' + g('time-style'));
+if (sendBtn) { if (g('send-show') === 'hide') gcSetVar(sendBtn, 'display', 'none'); else gcDelVar(sendBtn, 'display'); }
+const wantTime = 'cs-time-' + g('time-style');
+GC_BEAUTY_STYLES.forEach(s => { const c = 'cs-time-' + s.value; if (c !== wantTime) gcSetCls(page, c, false); });
+gcSetCls(page, wantTime, true);
 let bg = g('bg');
 if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
 try { gcBeautySet('bg', ''); } catch (e) {}
@@ -1550,7 +1554,7 @@ addBtn.textContent = interMode === 'av' ? '上传头像' : '添加昵称';
 if (interMode === 'av' && window.mochiFilePickLabel) window.mochiFilePickLabel(addBtn, gcAvatarPickInput);
 addBtn.addEventListener('click', (e) => {
 if (interMode === 'av') {
-var _fb = () => { try { gcAvatarPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+var _fb = () => { window.mochiFilePickFire(gcAvatarPickInput, { onFail: () => toast('无法打开相册，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(gcAvatarPickInput, _fb);
 else _fb();
 pickAvatarFile((data) => {
@@ -1837,7 +1841,7 @@ reader.readAsDataURL(f);
 };
 function pickAvatarFile(cb) {
 gcAvatarPickCb = cb;
-try { gcAvatarPickInput.click(); } catch (e) { gcAvatarPickCb = null; toast('无法打开相册，请重试'); }
+window.mochiFilePickFire(gcAvatarPickInput, { onFail: () => { gcAvatarPickCb = null; toast('无法打开相册，请重试'); } });
 }
 let gcSetTab = 'profile';
 function setPanelTitle(t) {
@@ -3455,7 +3459,7 @@ if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 const fi = gcImgPicker();
 try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
-var _fb = () => { try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+var _fb = () => { window.mochiFilePickFire(fi, { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(fi, _fb);
 else _fb();
 });

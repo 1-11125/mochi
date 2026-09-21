@@ -562,7 +562,10 @@
   // 与上方通用开关不同：符号不是 checkbox，而是「拼接符号」行里的药丸 chips
   //（template.html #ppy-chips，选中态样式 .ppy-chip.sel 在 setting.css）——点击即存即显
   //（toast 同款）；至少保留一个：把最后一个点掉的尝试拦下、不落盘（#712 起按「内置＋自定义」
-  // 合计口径判）。总开关 py-punct-en 关闭时 chips 置灰（仍可点，方便提前配好符号池）。
+  // 合计口径判）。总开关 py-punct-en 关闭时 chips 置灰（仍可点，方便提前配好符号池）；
+  // #956 起上游「多字卡回复」（py-en）也是本组闸门：它关闭时本行与本组 chips 一并置灰
+  //（chat.js pyJoinCards 只回退空格＝置灰即真实生效状态，用户实报「多字卡回复开了/关了
+  // 与拼接随机标点对不上」）。
   // #712 用户直派「系统自带的不变，只能开关，但是用户可以自己添加」：内置七枚（含新增的
   // 「——」，默认开）只能点亮/取消、不能删；点「＋」弹 openModal 添加自定义符号（最长
   // 6 字符、最多 8 个、与内置/已有去重），自定义 chip 点本体开关、点「×」删除（删除也受
@@ -598,7 +601,9 @@
       if (!box) return;
       box.querySelectorAll('.ppy-chip[data-c]').forEach(el => el.remove());
       const add = document.getElementById('ppy-add');
-      const dis = getCfg()['py-punct-en'] !== 1;
+      // #956 置灰上游＝「多字卡回复」总开关（py-en）也关时才算停用（见 ppySync 处说明）
+      const dcfg = getCfg();
+      const dis = !(dcfg['py-en'] === 1 && dcfg['py-punct-en'] === 1); // #956c
       pyCustGet().forEach((it, i) => {
         const el = document.createElement('span');
         el.className = 'tag ppy-chip ppy-chip-c' + (it.on === 1 ? ' sel' : '') + (dis ? ' dis' : '');
@@ -614,7 +619,12 @@
     function ppySync() {
       if (!box) return;
       const cfg = getCfg();
-      const en = cfg['py-punct-en'] === 1;
+      // #956：多字卡回复（py-en）是本组上游闸门——总开关关闭时「拼接随机标点」不再生效
+      //（chat.js pyJoinCards 只回退空格），故本行与本组 chips 一并置灰（仍可点，方便提前配好，
+      // 口径同 #650/#712 的「总开关关闭时 chips 置灰」）。用户实报「多字卡回复关闭了，但是
+      // 拼接随机标点没有关闭，还是能触发多字卡回复」＝就是要这层从属关系可见。
+      const pyMasterOn = cfg['py-en'] === 1; // #956b
+      const en = pyMasterOn && cfg['py-punct-en'] === 1;
       box.querySelectorAll('.ppy-chip[data-k]').forEach(ch => {
         const k = ch.dataset.k;
         if (!k) return;
@@ -623,6 +633,12 @@
       });
       const add = document.getElementById('ppy-add');
       if (add) add.classList.toggle('dis', !en);
+      // 总开关/本行开关任一关闭＝整行置灰（口径同 #953 的 mjf-punct-pool 行：仍可操作）
+      const swEl = document.getElementById('py-punct-en');
+      const rowPunct = swEl ? swEl.closest('.gs-row') : null;
+      if (rowPunct) rowPunct.style.opacity = (pyMasterOn && cfg['py-punct-en'] === 1) ? '' : '.45'; // #956d
+      const rowChips = box.closest ? box.closest('.gs-row') : null;
+      if (rowChips) rowChips.style.opacity = pyMasterOn ? '' : '.45'; // #956g
       renderCust();
     }
     // #712 添加自定义符号（openModal 确定后必关弹窗；校验不过 toast 提示、用户重开再输）
@@ -690,6 +706,9 @@
     ppySync();
     const ppyEnEl = document.getElementById('py-punct-en');
     if (ppyEnEl) ppyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
+    // #956 上游总开关（多字卡回复）也参与置灰/选中态同步——关掉它本组整行置灰
+    const pyEnEl = document.getElementById('py-en'); // #956e
+    if (pyEnEl) pyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
     // 切桌面 / 备份回填 / 写日志修正后重读显示（与 #515 三页概率行同口径）
     ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(evN => {
       document.addEventListener(evN, () => { try { ppySync(); } catch (e) {} });

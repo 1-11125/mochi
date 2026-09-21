@@ -22,6 +22,10 @@ function cut(start, end) {
 }
 // 三者在源码里连续紧挨：escTxt → escTxtBr → （#385 注释）→ window.mochiInlineTextHtml
 const srcInline = cut('function escTxt(', 'function pokeIconHtml');
+// #948：mochiInlineTextHtml 现在要调同处第一个 IIFE 里的媒体判据（chatHasMediaPayload /
+// chatIsDataImgSrc / chatIsDataAudioSrc / chatIsInlineDataSrc）。沙箱单独 eval 时它们不在作用域链上
+// （真机里靠 IIFE 同域＋window 导出解析），所以判据段一并抽进来——断言跑的是真实口径，不桩。
+const srcPred = cut('function chatIsImageUrlCard(', 'function getPool() {');
 
 let pass = 0, fail = 0;
 const ok = (cond, name, extra) => {
@@ -29,10 +33,10 @@ const ok = (cond, name, extra) => {
   else { fail++; console.log('  ✗ ' + name + (extra ? ' | ' + extra : '')); }
 };
 
-const win = {};
-const env = { window: win, String, Math, console };
+const win = { mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s) };
+const env = { window: win, String, Math, RegExp, console };
 const names = ['escTxt', 'escTxtBr'];
-const fns = new Function('env', 'with (env) { ' + srcInline + ' return { ' + names.join(', ') + ' }; }')(env);
+const fns = new Function('env', 'with (env) { ' + srcPred + '\n' + srcInline + ' return { ' + names.join(', ') + ' }; }')(env);
 const inline = win.mochiInlineTextHtml || null;
 
 const assertPresent = typeof inline === 'function';

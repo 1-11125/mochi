@@ -62,8 +62,6 @@ try { const snap = JSON.stringify(list.map(stripLetterImg)); if (snap.length <= 
 function load(cid) {
 const cs = csFor(cid);
 let list = [];
-const _pend = _mailBigPend.get(mailPendKey(cid)); // #953：挂起中的最新列表优先
-if (_pend) { try { return _pend.list.map(x => (x && typeof x === 'object') ? Object.assign({}, x) : x); } catch (e) {} }
 const raw = cs.get(KEY);
 if (raw !== null) list = cachedParse(prefixFor(cid) + ':' + KEY, raw);
 if (!list.length) { try { const v = loadSnap(cid); if (v.length) list = v; } catch (e) {} }
@@ -117,45 +115,9 @@ return Object.keys(map).map(k => map[k]).sort((x, y) => (y.tm || 0) - (x.tm || 0
 }
 let mailDbReady = false;
 let mailPending = null;
-const MAIL_BIG_DEFER_BYTES = 64 * 1024;
-const MAIL_BIG_FLUSH_MS = 800;
-let _mailBigPend = new Map(); // 'xy-home-v2:<cid>:mail-letters' -> { list, cid }
-let _mailBigT = null;
-function mailPendKey(cid) { return 'xy-home-v2:' + (cid || window.__activeCid || 'default') + ':' + KEY; }
-function mailListBytes(list) {
-let n = 0;
-(list || []).forEach(function (l) {
-if (!l || typeof l !== 'object') { n += 64; return; }
-n += (typeof l.content === 'string' ? l.content.length : 0)
-+ (l.myReply && typeof l.myReply.content === 'string' ? l.myReply.content.length : 0)
-+ (l.partnerReply && typeof l.partnerReply.content === 'string' ? l.partnerReply.content.length : 0)
-+ 256;
-});
-return n;
-}
-function mailBigFlush() {
-if (_mailBigT) { clearTimeout(_mailBigT); _mailBigT = null; }
-_mailBigPend.forEach(function (p) {
-try { csFor(p.cid).set(KEY, JSON.stringify(p.list)); } catch (e) {}
-});
-_mailBigPend.clear();
-}
-function mailStoreWrite(list, cid) {
-try {
-if (mailListBytes(list) <= MAIL_BIG_DEFER_BYTES) { csFor(cid).set(KEY, JSON.stringify(list)); return; }
-_mailBigPend.set(mailPendKey(cid), { list: list, cid: cid });
-if (!_mailBigT) _mailBigT = setTimeout(mailBigFlush, MAIL_BIG_FLUSH_MS);
-} catch (e) { try { csFor(cid).set(KEY, JSON.stringify(list)); } catch (e2) {} }
-}
-try {
-document.addEventListener('visibilitychange', function () {
-try { if (document.visibilityState === 'hidden') mailBigFlush(); } catch (e) {}
-});
-} catch (e) {}
-try { if (window.addEventListener) window.addEventListener('pagehide', function () { try { mailBigFlush(); } catch (e) {} }); } catch (e) {}
 function save(list, cid) {
 if (!cid && !mailDbReady) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
-mailStoreWrite(list, cid);
+csFor(cid).set(KEY, JSON.stringify(list));
 writeSnap(list, cid);
 }
 function updateBadge() {
@@ -1129,12 +1091,10 @@ const idbArr = JSON.parse(v);
 if (Array.isArray(idbArr)) base = idbArr;
 }
 let cur = [];
-const _pend = _mailBigPend.get(mailPendKey(cid));
-if (_pend) cur = _pend.list.slice(); // #953：挂起中的最新列表优先，不读旧持久值
-else { try { cur = JSON.parse(csFor(cid).get(KEY) || '[]'); } catch (e) { cur = []; } }
+try { cur = JSON.parse(csFor(cid).get(KEY) || '[]'); } catch (e) { cur = []; }
 if (!cur.length) { try { cur = loadSnap(cid); } catch (e) {} }
 const merged = mergeLists(base, mergeLists(cur, pending));
-if (merged.length) { mailStoreWrite(merged, cid); writeSnap(merged, cid); }
+if (merged.length) { csFor(cid).set(KEY, JSON.stringify(merged)); writeSnap(merged, cid); }
 } catch (e) { /* 解析失败：仍置就绪，避免下次启动重复合并 */ }
 }
 try {

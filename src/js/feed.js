@@ -2431,7 +2431,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       e.stopPropagation();
       // FIX 2026-09-18 #756：原 fromLabel 早退在「label 存在但国产内核不转发」时连 JS 兜底
       // 一起跳过＝完全没反应；改为 guard 事后确认未弹出再补 click
-      var _fb = () => { try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+      // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+      var _fb = () => { window.mochiFilePickFire(feedAvPickInput, { onFail: () => toast('无法打开相册，请重试') }); };
       if (window.mochiFilePickGuard) window.mochiFilePickGuard(feedAvPickInput, _fb);
       else _fb();
     });

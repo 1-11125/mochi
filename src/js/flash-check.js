@@ -2,15 +2,19 @@
 // 需求（用户直派「在红米 K80 真机验证闪屏修复」）：#938 修的是「值没变也把全站内联样式重写一遍」型闪屏。
 // 无头环境只能拿参数代理（同屏幕参数＋CPU 节流）做 A/B，测不到用户手上那一台；而「有没有闪」全靠主观
 // 感觉，用户报回来也只有一句「还在闪」。本自测让真机自己出数字：点【开始】后去
-// 聊天设置 → 美化 → 边看边调 按浮条提示点 4 下（第 2 下故意重复点同一个档＝「值没变」的那一下），
+// 聊天设置/群聊设置 → 美化 → 边看边调 按浮条提示点 4 下（第 2 下故意重复点同一个档＝「值没变」的那一下），
 // 每一次点击单独量三件事：
-//   ①全站样式翻动＝:root / #page-chat 的 style 属性真被改了几次（MutationObserver，整篇文档样式作用域
+//   ①全站样式翻动＝:root / #page-chat / #page-group-chat 的 style 属性真被改了几次（MutationObserver，整篇文档样式作用域
 //     重解析＝闪屏的直接来源；不认写入方是谁，别的模块在写也算得出来）
 //   ②同值白写＝值一个字没变仍写进 DOM 的条数（内联变量同值 setProperty／空 removeProperty／空摘 cs-*
 //     类／cs-* 样式表拆建，按 --msg-/--chat-/--typing-/--send-/--cs- 名族判定）——#938 的根因面
 //   ③帧＝rAF 真实帧间隔（最慢帧与 >50ms 掉帧数）＝那一下到底卡没卡
 // 分段以「用户的点击」为锚，不以「写入事件」为锚：修好之后值没变那一下是彻底零写入的，若靠写入事件开段
 // 就永远不会留下记录，报告会假称「没采到」——这是探针可用性的前提（点击之外的事件一律不单独成段）。
+// 抽屉与宿主都是一族（#966，红米 K80 实报「没有采到抽屉里的点击」）：单聊 #chat-beauty-drawer 把变量
+// 写在 :root/#page-chat，群聊 #gc-beauty-drawer 写在 #page-group-chat——只认单聊那一套时，用户在群聊
+// 「边看边调」里点档位判成「不在抽屉里」且写入没人看，报告静默变「没采到」。现在两族都认，
+// 且「没采到」会拆开讲是「压根没点」还是「点了但不在抽屉里」。
 // 判据：只有「值没变的那一下」翻动/白写为 0 才算修好；值真变了要重写样式＝功能必要开销，不算缺陷。
 // 口径：全程只读——不写任何业务键、不改任何设置值（档位本来就是用户自己点的），【结束】即摘干净全部探针、
 // 浮条与监听零残留；只有最后一次报告存 xy-home-v2:flash-check-last（同 #935 两个自测的 *_last 口径）。
@@ -29,6 +33,7 @@
   var _on = false;
   var _clicks = [], _ev = [], _flips = [], _frames = [];
   var _styleHooks = [], _obs = [], _origRemove = null, _chip = null, _onClick = null;
+  var _seen = 0, _seenIn = 0;   // #966：屏幕点击总数 / 其中落在抽屉内的次数（报障时区分「没点」与「点错地方」）
 
   function now() { try { return performance.now(); } catch (e) { return Date.now(); } }
   // 版本号：#about-ver-val 是构建时替换的真值（window.APP_VERSION 未必赋值，见 card-audit.js 同款注释）
@@ -71,19 +76,25 @@
 
   function arm() {
     var root = document.documentElement;
-    var chat = document.getElementById('page-chat');
     hookStyle(root, 'root');
-    hookStyle(chat, 'chat');
+    // #966：宿主是一族。单聊把美化变量写在 :root 与 #page-chat 上；群聊写在 #page-group-chat 上
+    // （group-chat.js applyGcBeauty 的 page.style.setProperty，变量名族与单聊同款）。只挂单聊两个宿主＝
+    // 用户在群聊「边看边调」里点档位时写到的地方没人看，报告静默变成「没采到」（红米 K80 实报面）。
+    var hosts = [];
+    for (var h = 0; h < HOSTS.length; h++) {
+      var el = document.getElementById(HOSTS[h]);
+      if (el) { hookStyle(el, HOSTS[h]); hosts.push(el); }
+    }
     // 真属性变更＝整篇文档样式作用域重解析的直接证据（与写入方是谁无关）
     var mo = new MutationObserver(function (ms) {
       for (var i = 0; i < ms.length; i++) {
         var m = ms[i];
         if (m.type !== 'attributes' || m.attributeName !== 'style') continue;
-        flip(m.target === root ? 'root' : 'chat');
+        flip(m.target === root ? 'root' : String(m.target.id || 'chat'));
       }
     });
     mo.observe(root, { attributes: true, attributeFilter: ['style'] });
-    if (chat) mo.observe(chat, { attributes: true, attributeFilter: ['style'] });
+    for (var j = 0; j < hosts.length; j++) mo.observe(hosts[j], { attributes: true, attributeFilter: ['style'] });
     _obs.push(mo);
     // cs-* 样式表拆建（enforce / contrast 两层）：重建＝整层样式重新解析
     var mo2 = new MutationObserver(function (ms) {
@@ -114,8 +125,11 @@
     _onClick = function (e) {
       if (!_on) return;
       var t = now();
+      var hit = drawerHit(e.target);
+      _seen++;
+      if (hit) _seenIn++;
       if (_clicks.length >= MAX_OPS * 6) _clicks.shift();
-      _clicks.push({ t: t, in: inDrawer(e.target) });
+      _clicks.push({ t: t, in: hit });
     };
     document.addEventListener('click', _onClick, true);
     (function frames() {
@@ -130,16 +144,25 @@
       });
     })();
   }
-  function inDrawer(el) {
-    var d = document.getElementById('chat-beauty-drawer');
-    if (!d || !el) return false;
-    try { return d.contains(el); } catch (e) { return false; }
+  // #966：抽屉是一族（单聊 #chat-beauty-drawer／群聊 #gc-beauty-drawer，两个「边看边调」同源同貌）。
+  // 只看单聊那一个＝用户在群聊抽屉里点档位被判成「不在抽屉里」，报告静默变「没采到」（红米 K80 实报）。
+  var DRAWERS = ['chat-beauty-drawer', 'gc-beauty-drawer'];
+  var HOSTS = ['page-chat', 'page-group-chat'];
+  var DRAWER_NAME = { 'chat-beauty-drawer': '单聊', 'gc-beauty-drawer': '群聊' };
+  function drawerHit(el) {
+    if (!el) return '';
+    for (var i = 0; i < DRAWERS.length; i++) {
+      var d = document.getElementById(DRAWERS[i]);
+      if (!d) continue;
+      try { if (d.contains(el)) return DRAWERS[i]; } catch (e) {}
+    }
+    return '';
   }
 
   // —— 分桶：把写入事件/属性变更/帧按「抽屉里的点击」归段 ——
   function collect() {
     var list = [];
-    for (var i = 0; i < _clicks.length && list.length < MAX_OPS; i++) { if (_clicks[i].in) list.push({ t: _clicks[i].t, o: newOp(_clicks[i].t) }); }
+    for (var i = 0; i < _clicks.length && list.length < MAX_OPS; i++) { if (_clicks[i].in) list.push({ t: _clicks[i].t, d: _clicks[i].in, o: newOp(_clicks[i].t) }); }
     var owner = function (t) {
       var best = -1;
       for (var i = 0; i < list.length; i++) { if (t >= list[i].t - 2 && t - list[i].t <= GAP_MS) best = i; }
@@ -157,7 +180,10 @@
     }
     for (var f = 0; f < _flips.length; f++) {
       var kk = owner(_flips[f].t); if (kk < 0) { other++; continue; }
-      if (_flips[f].w === 'root') list[kk].o.flipRoot++; else list[kk].o.flipChat++;
+      var w = _flips[f].w;
+      if (w === 'root') list[kk].o.flipRoot++;
+      else if (w === 'page-group-chat') list[kk].o.flipGc++;
+      else list[kk].o.flipChat++;
     }
     _other = other;
     for (var j = 0; j < list.length; j++) {
@@ -172,11 +198,11 @@
       o.jank = jank;
     }
     var ops = [];
-    for (var q = 0; q < list.length; q++) { ops.push(done(list[q].o)); }
+    for (var q = 0; q < list.length; q++) { var od = done(list[q].o); od.drawer = DRAWER_NAME[list[q].d] || ''; ops.push(od); }
     return ops;
   }
   function newOp(t) {
-    return { t0: t, writes: 0, noop: 0, delNoop: 0, clsNoop: 0, swap: 0, flipRoot: 0, flipChat: 0, frames: 0, maxGap: 0, jank: 0, names: {} };
+    return { t0: t, writes: 0, noop: 0, delNoop: 0, clsNoop: 0, swap: 0, flipRoot: 0, flipChat: 0, flipGc: 0, frames: 0, maxGap: 0, jank: 0, names: {} };
   }
   function done(o) { o.changed = Object.keys(o.names).join(' '); delete o.names; return o; }
 
@@ -185,8 +211,10 @@
     if (_chip) return _chip;
     var d = document.createElement('div');
     d.id = 'fc-chip';
-    // z 82：抽屉 .poke-card(70)/.msg-actions(80) 之上（在边看边调里始终看得见），弹窗 .modal-mask(90) 之下（结果框能盖住它）
-    d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:82;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:20px;background:rgba(17,17,17,.86);color:#fff;font-size:12px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+    // #966：贴屏幕顶部，不再贴底。原先 bottom:78px 正好落在「边看边调」抽屉（z 95、最高 40vh）的
+    // 覆盖区里——z 82 < 95，用户在抽屉里点档位时这条指引是看不见也点不到的（要看结果得先关抽屉，
+    // 等于把人支开）。顶部与底部抽屉物理不相交，z 88 仍在报告框 .modal-mask(90) 之下。
+    d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(6px + env(safe-area-inset-top,0px));z-index:88;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:20px;background:rgba(17,17,17,.86);color:#fff;font-size:12px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.28)';
     var txt = document.createElement('span');
     txt.id = 'fc-chip-txt';
     txt.textContent = '去点 4 下：宽松 → 再点宽松 → 紧凑 → 标准';
@@ -216,20 +244,26 @@
   // —— 报告 ——
   function wasteOf(o) { return o.noop + o.delNoop + o.clsNoop + (o.writes ? 0 : o.swap); }
   function opLine(o, i) {
-    return '操作 ' + (i + 1) + '｜' + (o.writes ? '值真变了（必要写 ' + o.writes + ' 条' + (o.changed ? '：' + o.changed : '') + '）' : '值没变（重复点同一档／切回刚点过的档）')
-      + '\n  全站样式翻动 ' + (o.flipRoot + o.flipChat) + ' 次（:root ' + o.flipRoot + '／#page-chat ' + o.flipChat + '）｜白写 ' + wasteOf(o) + ' 条（同值重写 ' + o.noop + '／空删变量 ' + o.delNoop + '／空摘 cs-* 类 ' + o.clsNoop + '／样式表拆建 ' + o.swap + '）'
+    return '操作 ' + (i + 1) + (o.drawer ? '（' + o.drawer + '抽屉）' : '') + '｜' + (o.writes ? '值真变了（必要写 ' + o.writes + ' 条' + (o.changed ? '：' + o.changed : '') + '）' : '值没变（重复点同一档／切回刚点过的档）')
+      + '\n  全站样式翻动 ' + (o.flipRoot + o.flipChat + o.flipGc) + ' 次（:root ' + o.flipRoot + '／聊天页 ' + o.flipChat + '／群聊页 ' + o.flipGc + '）｜白写 ' + wasteOf(o) + ' 条（同值重写 ' + o.noop + '／空删变量 ' + o.delNoop + '／空摘 cs-* 类 ' + o.clsNoop + '／样式表拆建 ' + o.swap + '）'
       + '\n  帧 ' + o.frames + ' 个｜最慢帧 ' + o.maxGap + 'ms｜>' + JANK_MS + 'ms 掉帧 ' + o.jank + ' 帧';
   }
   function buildReport() {
     var ops = collect();
     var lines = ['闪屏自测（聊天美化·边看边调）· ' + appVer(), '设备：' + String(navigator.userAgent || '').slice(0, 100), ''];
-    if (!ops.length) lines.push('没有采到抽屉里的点击：请点【开始】后到 聊天设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+    if (!ops.length) {
+      // #966：把「没采到」拆开讲——是压根没点，还是点了但不在抽屉里（点错地方）。
+      // 红米 K80 实报那句「没有采到抽屉里的点击」原本两种情形同一句话，用户与开发者都无从下手。
+      if (!_seen) lines.push('没有采到任何屏幕点击：请点【开始】后回到 聊天设置/群聊设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+      else if (!_seenIn) lines.push('没有采到「抽屉里」的点击：这段时间共采到 ' + _seen + ' 次屏幕点击，但都不在 边看边调 的底部抽屉里。请确认点的是「聊天设置/群聊设置 → 美化 → 边看边调」打开的那条底部抽屉里的档位按钮（抽屉里可点的档位＝宽松/标准/紧凑这类胶囊）。');
+      else lines.push('没有采到抽屉里的点击：请点【开始】后到 聊天设置/群聊设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+    }
     for (var i = 0; i < ops.length; i++) lines.push(opLine(ops[i], i));
     var noopOps = ops.filter(function (o) { return !o.writes; });
     var wasteAll = 0, jankAll = 0, worst = 0, flipAll = 0;
     for (var k = 0; k < noopOps.length; k++) {
       wasteAll += wasteOf(noopOps[k]);
-      flipAll += noopOps[k].flipRoot + noopOps[k].flipChat;
+      flipAll += noopOps[k].flipRoot + noopOps[k].flipChat + noopOps[k].flipGc;
       jankAll += noopOps[k].jank;
       if (noopOps[k].maxGap > worst) worst = noopOps[k].maxGap;
     }
@@ -284,7 +318,7 @@
 
   function start() {
     if (_on || !window.openModal) return false;
-    _on = true; _other = 0;
+    _on = true; _other = 0; _seen = 0; _seenIn = 0;
     _clicks = []; _ev = []; _flips = []; _frames = [];
     arm();
     chip();
@@ -295,7 +329,7 @@
     if (_on) { showReport(); return; }
     var ctl = window.openModal('闪屏自测（聊天美化）', '', function () { start(); }, {
       noInput: true,
-      staticText: '点【开始】后去 聊天设置 → 美化 → 边看边调，按屏幕下方提示点 4 下：\n①「气泡框大小」选 宽松　②再点一次 宽松（值没变＝日常最闪的那一下）　③紧凑　④标准\n点完回来点浮条【看结果】，当场出数字。\n\n机制：只读采样——数一数每次点击让整篇文档的样式重解析了几次、其中几次是「值没变的白写」，并用 rAF 量真实帧间隔。不改你的任何设置、不写业务数据，点【结束】即摘掉全部探针。'
+      staticText: '点【开始】后去 聊天设置（或 群聊设置）→ 美化 → 边看边调，按屏幕顶部提示点 4 下：\n①「气泡框大小」选 宽松　②再点一次 宽松（值没变＝日常最闪的那一下）　③紧凑　④标准\n点完回来点浮条【看结果】，当场出数字。\n\n机制：只读采样——数一数每次点击让整篇文档的样式重解析了几次、其中几次是「值没变的白写」，并用 rAF 量真实帧间隔。不改你的任何设置、不写业务数据，点【结束】即摘掉全部探针。'
     });
     if (ctl && ctl.okText) ctl.okText('开始');
   }

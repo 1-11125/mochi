@@ -2506,7 +2506,7 @@ progressTimer = setInterval(() => {
 if (!audio) return;
 checkAutoEnd();
 if (musicBuffering()) { syncPlayIcons(true); return; } // #795：缓冲期时间本该冻住，别用它盖掉「缓冲中」
-if (!audio.duration) return;
+if (!audio || !audio.duration) return;
 if (audio.currentTime > 0) clearStallGuard();
 const cur = document.getElementById('sm-pb-cur');
 if (cur) cur.textContent = fmtDur(audio.currentTime);

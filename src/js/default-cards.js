@@ -26,6 +26,18 @@
     } catch (e) {}
   })();
   (function () {
+  // #961 字卡库顶部标红提醒（聊天默认字卡页 #dc-size-hint、词典页 #dict-size-hint）：两池体量很大，
+  //   不常用词典时建议关掉。文案唯一来源＝card-lock.js 的 window.mochiPresetSizeTip（二级密码解锁
+  //   成功弹窗用同一份），本处只负责填字；放在页面锚点守卫之前——它的两个容器与字卡列表无关，
+  //   列表锚点以后若改名也不该让提醒条变成空白。
+  (function presetSizeHints() {
+    const tip = window.mochiPresetSizeTip;
+    if (!tip) return;
+    ['dc-size-hint', 'dict-size-hint'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = tip;
+    });
+  })();
   const list = document.getElementById('dc-list');
   const tabsWrap = document.getElementById('dc-tabs');
   const enabledEl = document.getElementById('dc-enabled');

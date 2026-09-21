@@ -502,6 +502,7 @@ if (window.showTyping) { try { window.showTyping(); } catch (e) {} }
 }
 function maybeIncoming() {
 try {
+try { if (window.__mochiPhase) window.__mochiPhase('xd-poll'); } catch (e0) {}
 ticks++;
 reconcileLiveModals();
 if (window.nightModeActive && window.nightModeActive()) return;

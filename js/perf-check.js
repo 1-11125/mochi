@@ -12,7 +12,9 @@ var KB_RATIO = 0.85; // 可视高度 < 视口高度 85% ＝ 键盘弹出期（iO
 var PAGE_CN = { main: '手机桌面', chat: '聊天', 'group-chat': '群聊', home: '桌面二页', mail: '信箱', feed: '朋友圈', calendar: '日历', memory: '纪念', divination: '占卜', note: '备忘录', p2: '功能页', music: '音乐', records: '记录', garden: '花园', room: '房间', 'drift-bottle': '漂流瓶' };
 var PAGE_ID_CN = { phone: '手机桌面', chat: '聊天', 'group-chat': '群聊', home: '桌面二页', mail: '信箱', 'mail-write': '写信箱', 'mail-reply': '回信箱', feed: '朋友圈', calendar: '日历', memory: '纪念', divine: '占卜', music: '音乐', stats: '统计', interact: '互动', checkin: '打卡', 'checkin-cards': '打卡字卡', garden: '花园', room: '房间', drift: '漂流瓶', period: '经期', accounting: '记账', theme: '主题', setting: '设置', storage: '查看存储', 'card-audit': '字卡自检', chatcard: '字卡库', featurehub: '功能中心', 'feature-data': '功能数据', deskcheck: '屏幕适配诊断', guide: '功能介绍', about: '关于', 'chat-settings': '聊天设置', 'reply-settings': '回复设置', 'call-settings': '通话设置', 'sfx-settings': '音效设置', 'custom-cards': '自定义字卡', 'default-cards': '默认字卡', 'dict-cards': '词典字卡', 'fun-cards': '趣味字卡', 'quote-cards': '语录字卡', 'loc-cards': '定位字卡', 'mood-cards': '心情字卡', 'reply-cards': '回复字卡', fav: '收藏', 'fav-settings': '收藏设置' };
 var _running = false;
-var minD = 0; // 窗口内实测最小帧间隔 ≈ 刷新周期（模块级：jankThr 要读；_running 保证同一时间只有一个窗口在写）
+var minD = 0; // 窗口内实测刷新周期 ≈ 反复出现的最小帧间隔（模块级：jankThr 要读；_running 保证同一时间只有一个窗口在写）
+var gapHist = {}; // 帧间隔直方图（取整 ms → 出现次数）
+var gapFrames = 0; // 进直方图的样本数（周期估计的分母）
 function pageName(key) { return PAGE_ID_CN[key] || PAGE_CN[key] || key; }
 function curPage() {
 try {
@@ -51,6 +53,15 @@ if (of < 30) return true;
 return (pj / pf) >= 2 * (oj / of);
 }
 function jankThr() { return Math.min(Math.max(minD * 2, MIN_JANK), MAX_JANK); } // #770：阈值随实测刷新周期自适应
+function periodEst() {
+var anyMin = 0, repMin = 0;
+for (var k in gapHist) {
+var v = +k;
+if (!anyMin || v < anyMin) anyMin = v;
+if (gapHist[k] >= 3 && (!repMin || v < repMin)) repMin = v;
+}
+minD = repMin || anyMin;
+}
 function storageAgg() {
 try {
 if (!window.mochiCcSlimScan || !window.mochiPerfAgg || !window.mochiPerfLevel) return null;
@@ -102,7 +113,7 @@ var swAt = -1e9, lastPgSeen = '', scene = [];
 var downEv = window.PointerEvent ? 'pointerdown' : 'mousedown';
 function onDown() { lastDown = performance.now(); }
 try { document.addEventListener(downEv, onDown, { passive: true }); } catch (e) {}
-minD = 0;
+minD = 0; gapHist = {}; gapFrames = 0;
 var first = true;
 function finish() {
 if (done) return;
@@ -155,7 +166,7 @@ resolve(rep);
 }
 function frame(now) {
 if (done) return;
-var d = now - last; last = now;
+var d = now - last, prevLast = last; last = now;
 var wasBg = hidPending; hidPending = 0; // #934：自上一帧以来是否真发生过隐藏（visibilitychange 实报）
 if (document.hidden) {
 rep.hid++; // 帧回调落到隐藏期（兜底），不计入样本
@@ -164,6 +175,7 @@ rep.hid++; // 后台/锁屏冻结段剔除：隐藏时长已由 visibilitychange
 } else {
 rep.frames++;
 var pg = curPage();
+rep.curPg = pg; // #906：当前所在页（进度浮条实时显示，让用户知道采样在跟着走）
 rep.pageFrames[pg] = (rep.pageFrames[pg] || 0) + 1;
 if (pg !== lastPgSeen) { lastPgSeen = pg; swAt = now; } // #818 切页时刻（最慢帧现场归因用）
 if (lastDown >= 0) { // #818 点按→下一帧结算响应延迟（含主线程拥堵；≥2s 视为切后台噪声丢弃）
@@ -175,12 +187,21 @@ if (lat > intWorst) { intWorst = lat; intWorstPg = pg; }
 }
 if (first) { first = false; } // 首帧间隔是启动延迟，只计样本、不进周期/掉帧判定
 else {
-if (d >= 4 && (!minD || d < minD)) minD = d; // <4ms＝同 vsync 补帧伪象，不当刷新周期
+if (d >= 4 && d <= BG_GAP) { var _g = Math.round(d); gapHist[_g] = (gapHist[_g] || 0) + 1; gapFrames++; periodEst(); }
 var kb = kbOn();
 if (kb) rep.kbFrames++;
 if (d > jankThr()) {
 var fz = d > BG_GAP ? 1 : 0;
-if (fz) { rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d); }
+if (fz) {
+rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d);
+try {
+var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)';
+var _startWall = Date.now() - Math.round(d);
+for (var _pi = _pl.length - 1; _pi >= 0; _pi--) { if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; break; } }
+if (!rep.fzBy) rep.fzBy = {};
+rep.fzBy[_hit] = (rep.fzBy[_hit] || 0) + 1;
+} catch (e7) {}
+}
 rep.janky++;
 if (kb) rep.kbJanky++;
 if (d > SEVERE_MS) rep.severe++;
@@ -198,7 +219,7 @@ raf = requestAnimationFrame(frame);
 raf = requestAnimationFrame(frame);
 var tick = setInterval(function () {
 if (done) { clearInterval(tick); return; }
-onTick({ left: Math.max(0, Math.ceil((ms - (performance.now() - t0)) / 1000)), frames: rep.frames, janky: rep.janky, hid: rep.hid });
+onTick({ left: Math.max(0, Math.ceil((ms - (performance.now() - t0)) / 1000)), frames: rep.frames, janky: rep.janky, hid: rep.hid, pg: pageName(rep.curPg || '?') });
 }, 500);
 });
 }
@@ -236,12 +257,22 @@ if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bg
 if (r.janky > 0) {
 L.push('· 掉帧 ' + r.janky + ' 帧（间隔>' + r.jankMs + 'ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
 if (r.fz > 0) L.push('· 前台冻结 ' + r.fz + ' 次（亮屏下主线程被卡住 >' + BG_GAP + 'ms，最长 ' + r.fzWorst + 'ms）——现场见下方「最慢帧现场」的前台冻结标记');
+if (r.fzBy) {
+var _fk = Object.keys(r.fzBy).sort(function (a, b) { return r.fzBy[b] - r.fzBy[a]; }).slice(0, 4);
+if (_fk.length && r.fzBy[_fk[0]] > 0) {
+L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) { return k + ' ×' + r.fzBy[k]; }).join('、'));
+}
+}
 if (concOk(r)) {
 var _of = r.frames - (r.pageFrames[r.topPage] || 0), _oj = r.janky - (r.pages[r.topPage] || 0);
 L.push('· 掉帧集中：' + pageName(r.topPage) + '（掉帧 ' + r.pages[r.topPage] + '/' + (r.pageFrames[r.topPage] || 0) + ' 帧，该页 ' + pct(r.pages[r.topPage], r.pageFrames[r.topPage]) + '% ' + (_of >= 30 ? 'vs 其余页 ' + pct(_oj, _of) + '%' : '，本窗口其余页样本不足）'));
 } else if (r.topCnt) {
 L.push('· 掉帧分散：最多的 ' + pageName(r.topCnt) + ' 也才 ' + r.pages[r.topCnt] + '/' + (r.pageFrames[r.topCnt] || 0) + ' 帧（' + pct(r.pages[r.topCnt], r.pageFrames[r.topCnt]) + '%），没有哪一页明显高于其余页——不是某一页特有的问题，重点看长任务与下方建议');
 }
+try {
+var ka = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+if (ka && ka.keep) L.push('· 「后台保活」开着：页面会在后台一直跑，更耗电、发热、掉帧更明显——不用时到 设置→系统 关掉再对照测一轮');
+} catch (e4) {}
 if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
 if (r.scene && r.scene.length) {
 var ss = [], _mk = {};

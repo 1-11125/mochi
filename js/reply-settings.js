@@ -372,7 +372,8 @@ function renderCust() {
 if (!box) return;
 box.querySelectorAll('.ppy-chip[data-c]').forEach(el => el.remove());
 const add = document.getElementById('ppy-add');
-const dis = getCfg()['py-punct-en'] !== 1;
+const dcfg = getCfg();
+const dis = !(dcfg['py-en'] === 1 && dcfg['py-punct-en'] === 1); // #956c
 pyCustGet().forEach((it, i) => {
 const el = document.createElement('span');
 el.className = 'tag ppy-chip ppy-chip-c' + (it.on === 1 ? ' sel' : '') + (dis ? ' dis' : '');
@@ -388,7 +389,8 @@ if (add && add.parentNode === box) box.insertBefore(el, add); else box.appendChi
 function ppySync() {
 if (!box) return;
 const cfg = getCfg();
-const en = cfg['py-punct-en'] === 1;
+const pyMasterOn = cfg['py-en'] === 1; // #956b
+const en = pyMasterOn && cfg['py-punct-en'] === 1;
 box.querySelectorAll('.ppy-chip[data-k]').forEach(ch => {
 const k = ch.dataset.k;
 if (!k) return;
@@ -397,6 +399,11 @@ ch.classList.toggle('dis', !en);
 });
 const add = document.getElementById('ppy-add');
 if (add) add.classList.toggle('dis', !en);
+const swEl = document.getElementById('py-punct-en');
+const rowPunct = swEl ? swEl.closest('.gs-row') : null;
+if (rowPunct) rowPunct.style.opacity = (pyMasterOn && cfg['py-punct-en'] === 1) ? '' : '.45'; // #956d
+const rowChips = box.closest ? box.closest('.gs-row') : null;
+if (rowChips) rowChips.style.opacity = pyMasterOn ? '' : '.45'; // #956g
 renderCust();
 }
 function ppyAddFlow() {
@@ -461,6 +468,8 @@ toastSaved('拼接符号 ' + nm, !on);
 ppySync();
 const ppyEnEl = document.getElementById('py-punct-en');
 if (ppyEnEl) ppyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
+const pyEnEl = document.getElementById('py-en'); // #956e
+if (pyEnEl) pyEnEl.addEventListener('change', () => setTimeout(ppySync, 30));
 ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(evN => {
 document.addEventListener(evN, () => { try { ppySync(); } catch (e) {} });
 });

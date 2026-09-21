@@ -275,7 +275,7 @@ askType = isSingle ? 'single' : 'text';
 window.chatAddSystem(actionHint, { special: 'ask-msg' });
 const el = window.chatAddSystem(actionText, { special: 'ask-card', askQuestion: actionText, askOptions: actionOpts ? actionOpts : askOpts, askType: askType, deskCk: isDeskCk, deskCkDir: deskCkDir });
 const msgIdx = el ? Number(el.dataset.idx) : -1;
-if (window.bgNotifyCheck) window.bgNotifyCheck(actionHint + actionText, Date.now(), { name: 'TA查岗' });
+if (window.bgNotifyCheck) window.bgNotifyCheck(actionHint + actionText, Date.now(), { name: 'TA查岗', late: !!(window.interactLateNotify && window.interactLateNotify()) });
 let popupProb = 70;
 if (cfg && typeof cfg['ckq-popup-prob'] === 'number' && cfg['ckq-popup-prob'] >= 0) popupProb = cfg['ckq-popup-prob'];
 if (Math.random() * 100 < popupProb) {

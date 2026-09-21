@@ -179,12 +179,47 @@
       if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
       if (okState) okState.textContent = '验证通过，页面即将刷新…';
       if (mo) { try { mo.disconnect(); } catch (e) {} }
+      // #961 解锁成功后先弹「字卡体量提醒」，用户点掉再刷新——提醒若排在 reload 之后会被刷新吞掉，
+      //   用户在字卡库看不到。刷新条件是「解锁值确认落库」与「提醒被关掉」两件都完成（谁后到谁触发）：
+      //   persisted 由 cardLockConfirmPersisted 给（内部 3s 兜底必回调），noticeClosed 由弹窗确定回调给；
+      //   opts.lock=true 使弹窗只能点「知道了」关闭（取消按钮隐藏、点遮罩不关），保证回调必被触发＝
+      //   刷新必达，不会停在「提示验证通过却永远不刷新」的半状态。
+      let persisted = false, noticeClosed = false, reloaded = false, moNotice = null;
+      const tryReload = function () {
+        if (reloaded || !persisted || !noticeClosed) return;
+        reloaded = true;
+        if (moNotice) { try { moNotice.disconnect(); } catch (e) {} }
+        setTimeout(function () { location.reload(); }, 300);
+      };
       // FIX 2026-09-13 #404：等解锁值确认落进 IDB 再刷新（见 card-lock.js
       // cardLockConfirmPersisted）——夸克等内核 reload 杀进程会中止在途 IDB 事务，
       // 盲等 900ms 可能值未提交＝刷新即回锁；3s 兜底超时也照常刷新不卡 UI。
-      const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+      // #961：回调体加一层「提醒也要关掉」的合流（tryReload 两条件齐备才刷新），
+      //   函数名与调用形态保持 #404 哨兵锚点不变。
+      const goReloadAfterPersist = function () { persisted = true; tryReload(); };
       if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
-      else setTimeout(function () { location.reload(); }, 900);
+      else persisted = true;
+      // 提醒可能被别的弹层顶掉（openModal 全站共用一个弹层：开屏后的备份提醒等会直接换内容），
+      // 那时「知道了」的回调永远等不到＝刷新被卡住、用户看着还锁着。故再挂两条兜底：
+      //   ①弹层遮罩重新隐藏＝统一的「提醒已消失」信号（点知道了/点取消/被顶掉后关闭都覆盖）；
+      //   ②15s 上限：无论弹层被谁占着，解锁值已落库就一定会刷新，不留半状态。
+      if (mask && 'MutationObserver' in window) {
+        moNotice = new MutationObserver(function () { if (mask.hidden) { noticeClosed = true; tryReload(); } });
+        moNotice.observe(mask, { attributes: true, attributeFilter: ['hidden'] });
+      }
+      setTimeout(function () { noticeClosed = true; tryReload(); }, 15000);
+      const sizeTip = window.mochiPresetSizeTip;
+      if (sizeTip && window.openModal) {
+        const ctl2 = window.openModal('解锁成功 · 字卡使用提醒', '', function () {
+          noticeClosed = true; tryReload();
+        }, { noInput: true, big: true, warn: true, lock: true, staticText: '系统内置字卡已解锁，聊天与各功能可以正常取用。\n\n' + sizeTip });
+        if (ctl2 && ctl2.okText) ctl2.okText('知道了');
+      } else {
+        // 文案常量或弹窗组件缺失（理论不会）：退回原行为，不把用户卡在解锁页
+        noticeClosed = true;
+        tryReload();
+        if (!window.cardLockConfirmPersisted) setTimeout(function () { location.reload(); }, 900);
+      }
     }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。这个密码与开屏问答页的「暗号」是同一个（同一串 6 位数字）：在开屏问答页点「输暗号跳过问答」用的也是它。' });
   }
   // #XXX 强制弹窗提醒：进入应用后系统内置字卡仍锁定（未输二级密码）时，每次打开应用弹一次

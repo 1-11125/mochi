@@ -18,10 +18,10 @@ t.id = 'cc-toast';
 document.body.appendChild(t);
 }
 t.textContent = msg;
+t.style.animationDuration = (dur || 2600) + 'ms';
 t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
 clearTimeout(t._timer);
-t.style.animationDuration = (dur || 2600) + 'ms';
-t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, (dur || 2600) + 250);
 }
 let kaCustomAudio = null;
 let kaCustomAudioName = '';
@@ -208,6 +208,9 @@ let KEEP_AUDIO_DATAURL = '';
 function kaIsIOS() {
 try { return !!(window.mochiDevice || {}).isIOS; } catch (e) {}
 return false;
+}
+function kaYieldStealFocus() {
+return kaIsIOS() && document.visibilityState === 'hidden';
 }
 function ensureKeepAudioDataUrl() {
 if (KEEP_AUDIO_DATAURL) return KEEP_AUDIO_DATAURL;
@@ -448,6 +451,7 @@ keepEl.addEventListener('play', function () { kaMarkPlayed(); });
 keepEl.addEventListener('pause', function () {
 if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
 if (kaTimer) return; // 已在退避轨道
+if (kaYieldStealFocus()) return;
 kaSchedule(); // 连击计数由 kaSchedule 内部递增
 });
 const playIt = function () {
@@ -470,6 +474,7 @@ document.addEventListener('click', resumeOnInteraction, { once: true });
 document.addEventListener('touchstart', resumeOnInteraction, { once: true });
 document.addEventListener('keydown', resumeOnInteraction, { once: true });
 keepInterval = setInterval(function () {
+try { if (window.__mochiPhase) window.__mochiPhase('ka-tick'); } catch (e0) {}
 if (keepAudio && keepAudio.el) {
 try {
 if (musicNowPlaying()) {
@@ -490,7 +495,7 @@ try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playin
 if (kaPauseStreak && Date.now() - kaLastPlayAt > kaStableMs()) kaPauseStreak = 0;
 return;
 }
-if (!kaTimer) kaSchedule();
+if (!kaTimer && !kaYieldStealFocus()) kaSchedule();
 } catch (e) {}
 }
 }, 5000);
@@ -523,10 +528,11 @@ toast(ok
 } catch (e) {}
 }
 function stopKeepAlive(showToast) {
-try { if (keepAudio && keepAudio.el) { keepAudio.el.pause(); keepAudio.el.src = ''; } } catch (e) {}
+try { if (keepAudio && keepAudio.el) { keepAudio.el.pause(); keepAudio.el.removeAttribute('src'); try { keepAudio.el.load(); } catch (e2) {} } } catch (e) {}
 if (!window.__musicPlaying) {
 try {
 if ('mediaSession' in navigator && navigator.mediaSession) {
+try { navigator.mediaSession.playbackState = 'paused'; } catch (e2) {}
 navigator.mediaSession.metadata = null;
 try { navigator.mediaSession.setActionHandler('play', null); } catch (e) {}
 try { navigator.mediaSession.setActionHandler('pause', null); } catch (e) {}
@@ -576,10 +582,12 @@ setTimeout(function () { if (keepEnabled) requestWakeLockTop(); }, 1000);
 } catch (e) {}
 }
 let _fgResumeAt = 0;
+let _fgFromHiddenFor = 0;
 function _onFgVisible() {
 const now = Date.now();
 if (now - _fgResumeAt < 1000) return;
 _fgResumeAt = now;
+try { _fgFromHiddenFor = lastHiddenAt > 0 ? now - lastHiddenAt : 0; } catch (e) { _fgFromHiddenFor = 0; }
 healKeepAlive();
 try { document.dispatchEvent(new Event('mochi-fg-resume')); } catch (e) {}
 }
@@ -596,6 +604,7 @@ document.addEventListener('visibilitychange', function () {
 if (document.visibilityState !== 'hidden') return;
 if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
 if (!keepAudio.el.paused) return;
+if (kaYieldStealFocus()) return;
 kaResetBackoff();
 const p = keepAudio.el.play();
 if (p && p.catch) p.catch(function () {});
@@ -615,8 +624,16 @@ if (keepEnabled) { setKeepMediaSession(); syncKeepForMusic(); }
 });
 const kaBtn = document.getElementById('bg-keepalive');
 function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
+function kaUserGesture(e) {
+try {
+if (e && e.isTrusted === false) return false;
+if (navigator.userActivation && navigator.userActivation.hasBeenActive === false) return false;
+} catch (er) {}
+return true;
+}
 if (kaBtn) {
-kaBtn.addEventListener('change', function () {
+kaBtn.addEventListener('change', function (e) {
+if (!kaUserGesture(e)) { syncKeepUI(); try { kaBtn.checked = keepEnabled; } catch (er) {} return; }
 keepUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
 keepEnabled = kaBtn.checked;
 gSet('bg-keepalive', keepEnabled ? '1' : '0');
@@ -743,23 +760,65 @@ return kaWithTimeout(start(), 5000).catch(function () { return null; });
 }
 let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
 window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
-let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
-function swNotifyLater(title, opts, chanOut) {
-const note = function (ch) { lastNotifyChannel = ch; if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} } };
-if (swLaterTimer) return;
-if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
-let done = false;
-const finish = function () { done = true; if (swLaterTimer) { clearTimeout(swLaterTimer); swLaterTimer = null; } };
-swLaterTimer = setTimeout(finish, 60000);
-kaWithTimeout(navigator.serviceWorker.ready, 60000).then(function (reg) {
-if (done || !reg) return;
-finish();
-const o = Object.assign({}, opts);
+let swLaterQueue = [];        // FIX 2026-09-20 #921：待补发队列——原单发闸在等待窗内只收第一条，
+let swLaterTimer = null;      // 「就绪即补发」等待窗（同时只挂一个定时器，到点统一 flush）
+function swNotifyNote(ch, chanOut) {
+lastNotifyChannel = ch;
+if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
+}
+function swLaterFlush(reg) {
+if (!swLaterTimer) return; // 已 flush 过（ready 与 60s 到点谁先到都只跑一次）
+clearTimeout(swLaterTimer); swLaterTimer = null;
+const q = swLaterQueue; swLaterQueue = [];
+if (!reg) {
+for (let i = 0; i < q.length; i++) swNotifyNote('none', q[i].chanOut);
+chanDownPending += q.length;
+tryShowNotifyHealBar();
+return;
+}
+chanDownPending = 0;
+try { const hb = document.getElementById('notify-heal-bar'); if (hb) hb.hidden = true; } catch (e) {}
+for (let i = 0; i < q.length; i++) {
+const o = Object.assign({}, q[i].opts);
 delete o.image; delete o.icon; delete o.badge;
 if (!o.urgency) o.urgency = 'high';
-try { reg.showNotification(title, o); note('sw'); } catch (e) {}
-}).catch(function () { finish(); });
+try { reg.showNotification(q[i].title, o); swNotifyNote('sw', q[i].chanOut); } catch (e) { swNotifyNote('none', q[i].chanOut); }
 }
+}
+function swNotifyLater(title, opts, chanOut) {
+if (!('serviceWorker' in navigator) || !navigator.serviceWorker) { swNotifyNote('none', chanOut); return; }
+swLaterQueue.push({ title: title, opts: opts, chanOut: chanOut });
+if (swLaterTimer) return;
+swLaterTimer = setTimeout(function () { swLaterFlush(null); }, 60000);
+kaWithTimeout(navigator.serviceWorker.ready, 60000).then(swLaterFlush, function () { swLaterFlush(null); });
+}
+let chanDownPending = 0;
+let chanDownShown = 0;
+let chanDownDismissAt = 0;
+function chanSplashGone() {
+const s = document.getElementById('splash');
+return !s || !s.isConnected || s.classList.contains('hide');
+}
+function tryShowNotifyHealBar() {
+if (!chanDownPending) return;
+if (document.visibilityState !== 'visible' || !chanSplashGone()) return;
+const n = chanDownPending; chanDownPending = 0;
+if (chanDownShown >= 2 || Date.now() - chanDownDismissAt < 12 * 3600 * 1000) return;
+chanDownShown++;
+const bar = document.getElementById('notify-heal-bar');
+if (!bar) return;
+const txt = document.getElementById('notify-heal-txt');
+if (txt) txt.textContent = '⚠ 后台通知通道未就绪：刚才有 ' + n + ' 条消息没能弹出。点「立即刷新」恢复；无效请彻底关闭浏览器后重开';
+bar.hidden = false;
+const act = document.getElementById('notify-heal-refresh');
+if (act) act.onclick = function () { try { location.reload(); } catch (e) {} };
+const close = document.getElementById('notify-heal-close');
+if (close) close.onclick = function () { chanDownDismissAt = Date.now(); bar.hidden = true; };
+}
+document.addEventListener('visibilitychange', function () {
+if (document.visibilityState !== 'visible') return;
+setTimeout(tryShowNotifyHealBar, 800); // 回前台补出条（隐藏期间发生的丢失也提示）；错开回前台渲染高峰
+});
 function showSysNotification(title, opts, chanOut) {
 opts = opts || {};
 const note = function (ch) {
@@ -832,7 +891,8 @@ if (failCb) failCb();
 const nbBtn = document.getElementById('bg-notify');
 function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
 if (nbBtn) {
-nbBtn.addEventListener('change', function () {
+nbBtn.addEventListener('change', function (e) {
+if (!kaUserGesture(e)) { syncNotifyUI(); try { nbBtn.checked = notifyEnabled; } catch (er) {} return; }
 notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
 if (nbBtn.checked) {
 requestNotifyPermission(function () {
@@ -840,6 +900,7 @@ notifyEnabled = true;
 gSet('bg-notify', '1');
 syncNotifyUI();
 showSysNotification('通知已开启', { body: '后台消息提醒将正常弹窗' });
+if (kaIsIOS()) setTimeout(function () { toast('iPhone 提示：受系统限制，后台弹窗不保证弹出；消息不会丢，回来自动补看'); }, 1600);
 setTimeout(function () {
 const keep = document.getElementById('bg-keepalive');
 const keepOn = keepEnabled;
@@ -877,7 +938,7 @@ if (saved === null) {
 const old = store.get('bg-notify');
 if (old !== null) { gSet('bg-notify', old); saved = old; }
 }
-notifyEnabled = saved === '1' && 'Notification' in window && Notification.permission === 'granted';
+notifyEnabled = saved === '1' && 'Notification' in window && Notification.permission !== 'denied';
 if ('Notification' in window && Notification.permission === 'granted') { getBadgeUrl(function () {}); }
 if (saved === '1' && !notifyEnabled) {
 try { gSet('bg-notify', '0'); } catch (e) {}
@@ -898,15 +959,15 @@ try { console.info('[mochi] #88 回填后重读后台保活：' + (wantKeep ? '�
 }
 if (!notifyUserTouched) {
 const savedNotify = gGet('bg-notify');
-const wantNotify = savedNotify === '1' &&
-'Notification' in window && Notification.permission === 'granted';
+const permState = ('Notification' in window) ? Notification.permission : 'unsupported';
+const wantNotify = savedNotify === '1' && (permState === 'granted' || permState === 'default');
 if (wantNotify !== notifyEnabled) {
 notifyEnabled = wantNotify;
 syncNotifyUI();
 if (wantNotify) getBadgeUrl(function () {}); // 预热 badge 单色图（同初始化）
 try { console.info('[mochi] #88 回填后重读后台通知：' + (wantNotify ? '开' : '关')); } catch (e) {}
 }
-if (savedNotify === '1' && !wantNotify) {
+if (savedNotify === '1' && permState === 'denied') {
 try { gSet('bg-notify', '0'); } catch (e) {}
 }
 }
@@ -987,7 +1048,7 @@ const push = function (s) { steps.push(MARKS[steps.length] + ' ' + s); };
 if (verStale) push('先升级：本页是旧版本包——彻底关闭浏览器再重开（或点顶部「刷新使用新版」），旧包＝「没改任何东西弹窗突然全没」的头号原因');
 push('重置浏览器通知权限：浏览器设置 → 网站设置 → 通知 → 把本站「关闭」再「允许」，然后强杀浏览器重开（「权限明明开着、通知却消失好几天」多数被这一步救活——JS 读到的一直是 granted，坏的是浏览器内部那条通道）');
 push('系统通知设置：系统设置 → 通知管理 → 本浏览器 → 总开关打开、「允许横幅通知/在屏幕上方显示」打开、通知重要性选「提醒」；国产 ROM（vivo/OPPO/小米/华为）每项可能各自独立');
-push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）');
+push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）；Edge 的「睡眠标签页」/Chrome 的「内存节省程序」默认把挂后台约 30 分钟的页面丢弃重载（表现＝回来时页面自动刷新、保活/通知可能被重置）——浏览器设置里把本站加入「永不睡眠/始终保持活动」名单');
 steps.push('每做完一步就按 Home 键把页面切到后台、让 TA 发一条消息验证；全部走完仍不弹 → 用「信息诊断」里的反馈入口一键上报');
 window.openModal('没弹出 → 按顺序排查（实效从高到低）', '', function () {}, {
 noInput: true, big: true,
@@ -1237,11 +1298,14 @@ return !!(d && (d.vis || d.nAt));
 nkey: nkey
 };
 };
+window.bgLateCatchup = function (minHiddenMs, winMs) {
+return Date.now() - _fgResumeAt < (winMs || 8000) && _fgFromHiddenFor >= (minHiddenMs || 60000);
+};
 window.bgNotifyCheck = function (text, ts, extra) {
 if (!notifyEnabled) return;
 extra = extra || {};
 const nkey = msgFingerprint(text, extra.img);
-if (document.visibilityState === 'visible') { markSeen(nkey); return; }
+if (document.visibilityState === 'visible') { if (!extra.late) { markSeen(nkey); return; } }
 if (!('Notification' in window) || Notification.permission !== 'granted') return;
 if (!extra.force && extra.msgTs) {
 try {

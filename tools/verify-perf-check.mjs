@@ -47,6 +47,11 @@
 //   A38 长任务按页面归总采样（仅前台任务计入 lt.agg）
 //   A39 长任务按页面归总输出行（≥2 次前台任务才出现；后台期次数单独点名）
 //   A40 build.mjs 登记 #941a~e 五条哨兵
+// —— #958 追加（iPhone 12 Pro / iOS Safari 自检报告「正常帧间隔约 4ms」＝周期取单次最小帧间隔，
+//   被一次 4ms 的 rAF 调度抖动污染 → jankThr 落 24ms 下限，60Hz 正常的 25~33ms 帧被误计成掉帧）——
+//   A41 帧间隔直方图计票（≥4ms 且非冻结的间隔入账；单次抖动不入账）
+//   A42 周期取「至少重复 3 次的最小取整间隔」，样本不足回退旧最小值口径
+//   A43 build.mjs 登记 #958a~b 哨兵
 // 用法：node tools/verify-perf-check.mjs [rootDir]
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
@@ -159,6 +164,12 @@ check('A38 长任务按页面归总采样（仅前台任务计入 agg）', pc.in
 check('A39 长任务按页面归总输出行（≥2 次才出现；后台期次数单独点名）', pc.includes('var _ag = r.lt.agg || {}, _agList = [], _agN = 0;') && pc.includes('if (_agN >= 2) {') && pc.includes("'· 长任务按页面：' + _agTxt") && pc.includes("' 次发生在后台/锁屏期，未计入）'") && pc.includes('_agList.slice(0, 3)'));
 const sent941 = (build.match(/#941[a-e] /g) || []).length;
 check('A40 build.mjs 登记 #941a~e 哨兵', sent941 === 5, '实际 ' + sent941);
+
+// —— #958 追加（刷新周期稳健估计：单次 4ms 抖动不再把 jankThr 压到 24ms 下限）——
+check('A41 帧间隔直方图计票（≥4ms 且非冻结入账；随窗口重置）', pc.includes('var gapHist = {};') && pc.includes('if (d >= 4 && d <= BG_GAP) { var _g = Math.round(d); gapHist[_g] = (gapHist[_g] || 0) + 1; gapFrames++; periodEst(); }') && pc.includes('gapHist = {}; gapFrames = 0;'));
+check('A42 周期取「至少重复 3 次的取整间隔」，样本不足回退最小值（periodEst）', pc.includes('function periodEst() {') && pc.includes('if (gapHist[k] >= 3 && (!repMin || v < repMin)) repMin = v;') && pc.includes('minD = repMin || anyMin;'));
+const sent958 = (build.match(/#958[a-b] /g) || []).length;
+check('A43 build.mjs 登记 #958a~b 哨兵', sent958 === 2, '实际 ' + sent958);
 
 console.log('----');
 console.log('verify-perf-check: ' + pass + ' 通过 / ' + fail + ' 失败');

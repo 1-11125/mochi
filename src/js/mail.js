@@ -88,8 +88,6 @@
   function load(cid) {
     const cs = csFor(cid);
     let list = [];
-    const _pend = _mailBigPend.get(mailPendKey(cid)); // #953：挂起中的最新列表优先
-    if (_pend) { try { return _pend.list.map(x => (x && typeof x === 'object') ? Object.assign({}, x) : x); } catch (e) {} }
     const raw = cs.get(KEY);
     if (raw !== null) list = cachedParse(prefixFor(cid) + ':' + KEY, raw);
     // v3.7.x：主键缺失兜底——大列表只进 IDB（Edge 丢 IDB / LS 被清）时读剥图快照，
@@ -162,47 +160,6 @@
   // 权威未从 IDB 读回前，save 只暂存内存、绝不落盘。
   let mailDbReady = false;
   let mailPending = null;
-  // FIX 2026-09-21 #953 信箱大负载延迟落盘——原实现 save()/权威合并每次都整包 JSON.stringify：
-  // 信件正文可含图片 dataURL（MB 级），收信/回信/TA 回信落地的瞬间就是一次主线程长任务。
-  // 改为浅估分流（feed.js #496 同思路）：≤64KB 照旧同步写（绝大多数纯文本信）；超过则挂
-  // per-桌面 待写（绑定 save 时的 cid，防去抖期间切桌面串库），800ms 合并去抖后落盘，
-  // 期间 load()/权威合并读到的都是挂起的最新列表（不读旧值），writeSnap 剥图快照仍同步写。
-  const MAIL_BIG_DEFER_BYTES = 64 * 1024;
-  const MAIL_BIG_FLUSH_MS = 800;
-  let _mailBigPend = new Map(); // 'xy-home-v2:<cid>:mail-letters' -> { list, cid }
-  let _mailBigT = null;
-  function mailPendKey(cid) { return 'xy-home-v2:' + (cid || window.__activeCid || 'default') + ':' + KEY; }
-  function mailListBytes(list) {
-    let n = 0;
-    (list || []).forEach(function (l) {
-      if (!l || typeof l !== 'object') { n += 64; return; }
-      n += (typeof l.content === 'string' ? l.content.length : 0)
-        + (l.myReply && typeof l.myReply.content === 'string' ? l.myReply.content.length : 0)
-        + (l.partnerReply && typeof l.partnerReply.content === 'string' ? l.partnerReply.content.length : 0)
-        + 256;
-    });
-    return n;
-  }
-  function mailBigFlush() {
-    if (_mailBigT) { clearTimeout(_mailBigT); _mailBigT = null; }
-    _mailBigPend.forEach(function (p) {
-      try { csFor(p.cid).set(KEY, JSON.stringify(p.list)); } catch (e) {}
-    });
-    _mailBigPend.clear();
-  }
-  function mailStoreWrite(list, cid) {
-    try {
-      if (mailListBytes(list) <= MAIL_BIG_DEFER_BYTES) { csFor(cid).set(KEY, JSON.stringify(list)); return; }
-      _mailBigPend.set(mailPendKey(cid), { list: list, cid: cid });
-      if (!_mailBigT) _mailBigT = setTimeout(mailBigFlush, MAIL_BIG_FLUSH_MS);
-    } catch (e) { try { csFor(cid).set(KEY, JSON.stringify(list)); } catch (e2) {} }
-  }
-  try {
-    document.addEventListener('visibilitychange', function () {
-      try { if (document.visibilityState === 'hidden') mailBigFlush(); } catch (e) {}
-    });
-  } catch (e) {}
-  try { if (window.addEventListener) window.addEventListener('pagehide', function () { try { mailBigFlush(); } catch (e) {} }); } catch (e) {}
   function save(list, cid) {
     // v3.7.x：cid undefined = 当前桌面，走 mailDbReady 门槛（防启动早期 save([]) 覆盖 IDB）；
     //   cid 指定 = 后台遍历该联系人来信，直接写（maybeIncomingLetterFor 已确认该桌面
@@ -213,7 +170,7 @@
     //   QQ浏览器 X5 IDB 挂起实测）。快照仅文本兜底，IDB 权威读回后 mailMergeFromIdb
     //   按 id 合并恢复完整数据（含图片），不破坏权威防护（主键 store.set 仍等就绪）。
     if (!cid && !mailDbReady) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
-    mailStoreWrite(list, cid);
+    csFor(cid).set(KEY, JSON.stringify(list));
     writeSnap(list, cid);
   }
 
@@ -1493,12 +1450,10 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       // 与 feed.js feedMergeFromIdb 同口径：基准 = IDB，并集保留本地独有数据（按 id 覆盖，
       // 本地优先），不重演旧的「save([]) 覆盖 IDB」问题。
       let cur = [];
-      const _pend = _mailBigPend.get(mailPendKey(cid));
-      if (_pend) cur = _pend.list.slice(); // #953：挂起中的最新列表优先，不读旧持久值
-      else { try { cur = JSON.parse(csFor(cid).get(KEY) || '[]'); } catch (e) { cur = []; } }
+      try { cur = JSON.parse(csFor(cid).get(KEY) || '[]'); } catch (e) { cur = []; }
       if (!cur.length) { try { cur = loadSnap(cid); } catch (e) {} }
       const merged = mergeLists(base, mergeLists(cur, pending));
-      if (merged.length) { mailStoreWrite(merged, cid); writeSnap(merged, cid); }
+      if (merged.length) { csFor(cid).set(KEY, JSON.stringify(merged)); writeSnap(merged, cid); }
     } catch (e) { /* 解析失败：仍置就绪，避免下次启动重复合并 */ }
   }
   try {

@@ -307,12 +307,46 @@
     faceThb.set(m + '|' + n, thb);
     applyFace(m, n);
   }
-  // 按文件名匹配牌（批量上传）：支持「牌名」「塔罗-牌名」「雷诺曼-牌名」「编号」
+  // 按文件名匹配牌（批量上传）：支持「牌名」「牌名+阿拉伯数字（宝剑1）」「塔罗-牌名」「雷诺曼-牌名」「编号」
   //  · 编号：塔罗按 00-77（0 起，与牌库顺序一致），雷诺曼按 1-36/40（1 起）
   //  · 同名跨体系（太阳/月亮/星星/塔/书/心…）无前缀时用当前管理页签的体系
+  // 牌库里的数字牌名是中文（宝剑王牌·宝剑二…宝剑十），素材文件名常写成阿拉伯数字（宝剑1…宝剑10、
+  // 圣杯A/宝剑0）＝只有全等/子串一条路数时这些写法必然落不进候选。这里把牌名再展开一份数字别名
+  // 去匹配（王牌→A/1/0，结尾中文数字→1..10），命中后返回的仍是库里真名，匹配口径不动。
+  const CN_DIGIT = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  function varifyName(nm) {
+    let out = [nm];
+    if (/王牌$/.test(nm)) {
+      // 王牌（Ace）的三种常见数字写法：A / 1 / 0
+      const stem = nm.slice(0, -2);
+      out = out.concat([stem + 'A', stem + '1', stem + '0']);
+    }
+    const cm = nm.match(/([一二三四五六七八九十]+)$/);
+    if (cm) {
+      const d = CN_DIGIT[cm[1]];
+      if (d) out.push(nm.slice(0, nm.length - cm[1].length) + d);
+    }
+    return out;
+  }
+  // 数字结尾的牌名做子串匹配时，命中处后面不能再紧跟数字：否则不存在的「宝剑11」会被读成「宝剑1」+1，
+  // 把用户的一张废图认成宝剑王牌（牌名本身写全时＝全等分支，不走这里）。
+  function aliasHit(s, v) {
+    if (s === v) return true;
+    if (!v) return false;
+    // 数字字符类必须写成两段独立范围：[0-９] 会被解析成 U+0030–U+FF19 的跨文种大区间，汉字也算数字
+    const DIGIT = /[0-9０-９]/;
+    if (!/[0-9０-９]$/.test(v)) return s.indexOf(v) >= 0;
+    // 逐个落点看：只要有一处后面不紧跟数字，就算这张牌的数字写法被完整写出
+    for (let i = s.indexOf(v); i >= 0; i = s.indexOf(v, i + 1)) {
+      if (!DIGIT.test(s.charAt(i + v.length))) return true;
+    }
+    return false;
+  }
   function matchFaceFile(rawName, defaultMode, oneBased = faceOneBased) {
     let s = String(rawName || '').replace(/\.[A-Za-z0-9]+$/, '').trim();
     if (!s) return null;
+    // 全角数字折算半角（输入法打出的「宝剑１」「１２」＝同一张牌）；\d 不认全角，不折算则纯编号也漏
+    s = s.replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFF10 + 48));
     let mode = '';
     const mp = s.match(/^(塔罗牌?|雷诺曼|雷诺|lenormand|lennormand|leno|len|tarot|taro)[\s._\-:：]*/i);
     if (mp) {
@@ -331,12 +365,17 @@
     let lead = null;
     const lm = s.match(/^(\d+)[\s._\-、:：#]*/);
     if (lm) { lead = parseInt(lm[1], 10); s = s.slice(lm[0].length).trim(); }
+    // 补零写法折算（宝剑01 → 宝剑1）：纯编号路径靠 parseInt 已吃前导零，这里让数字牌名同口径。
+    // 只砍「紧跟非零数字的那串零」，所以宝剑100／权杖00 这类不存在的牌号不会被折成有效牌。
+    s = s.replace(/(\D)0+([1-9])/, '$1$2');
     if (s) {
       const cands = [];
       [['tarot', TAROT], ['lenormand', LENO]].forEach(([m, arr]) => {
         arr.forEach(c => {
-          if (s === c.name) cands.push({ m: m, n: c.name, exact: true, len: c.name.length });
-          else if (s.indexOf(c.name) >= 0) cands.push({ m: m, n: c.name, exact: false, len: c.name.length });
+          varifyName(c.name).forEach(v => {
+            if (!aliasHit(s, v)) return;
+            cands.push({ m: m, n: c.name, exact: s === v, len: v.length });
+          });
         });
       });
       if (cands.length) {
@@ -1053,6 +1092,7 @@
         '<button class="divf-batch-btn" id="divf-onebased" style="margin-top:6px">编号从 1 起（塔罗 1–78）：关</button>' +
         '<div class="divf-hint">按文件名自动对应牌：<br>' +
           '· 牌名：<b>愚人.png</b>、<b>权杖王牌.jpg</b>（含子串也行，如 塔罗牌-愚人.png）<br>' +
+          '· 数字牌名：<b>宝剑1.png</b>、<b>圣杯10.jpg</b>、<b>权杖A.png</b>（＝宝剑王牌／宝剑一…宝剑十、王牌，1–10 与 A 都认）<br>' +
           '· 体系前缀：<b>塔罗-愚人.png</b>、<b>雷诺曼-骑士.jpg</b>、<b>tarot-00-魔术师.png</b><br>' +
           '· 前缀序号：<b>07-战车.png</b><br>' +
           '· 纯编号：塔罗 <b>00–77</b>、雷诺曼 <b>1–36/40</b>（同名跨体系按当前页签；塔罗编号从 0 起，如你的素材从 1 开始请开下方「编号从 1 起」）<br>' +

@@ -1,0 +1,28 @@
+PASS  锁定态 cardLockOpen=false
+FAIL  开屏锁卡在位且顺序 d→l→1
+PASS  锁卡上有解锁按钮
+PASS  锁定 getDefaultCardGroups(main)=0
+PASS  锁定 getLibPool(fish) 空
+PASS  锁定 getPool 无预设兜底（text 空或全自建）
+PASS  锁定 quoteSpellPick 存在（quote-spell 未坏）
+PASS  弹窗已打开（modal-mask 显示）
+PASS  splash 已压层 under-modal
+PASS  错密码：弹窗未关（stay）
+PASS  错密码：提示文案在
+PASS  对密码：localStorage 写 open
+PASS  解锁后 getDefaultCardGroups(main)>0
+PASS  解锁后 getLibPool(fish) 非空
+PASS  重锁后分组回空
+PASS  锁定+0卡：强制弹窗打开（modal-mask 显示）
+PASS  锁定+0卡：弹窗标题为「系统字卡未解锁」
+PASS  锁定+0卡：弹窗含锁定影响面长文案
+PASS  锁定+0卡：弹窗确定按钮文案为「知道了」
+PASS  锁定+0卡：弹窗含「输入密码解锁」pill
+PASS  pill 就地带出二级验证弹窗
+PASS  锁定+500卡：不弹强制弹窗
+PASS  解锁后 getDefaultCardGroups(main)>0
+FAIL  已解锁：不弹强制弹窗
+PASS  src 守卫调用在位（finishEnter 改过 window 挂载调用）
+PASS  src 挂载行在位（window.maybeCardLockReminder 导出）
+PASS  运行时 window.maybeCardLockReminder 已挂载可调
+== 结果: 25/27 ==

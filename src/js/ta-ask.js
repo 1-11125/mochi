@@ -538,6 +538,15 @@
       return cp ? !cp.hidden : false;
     } catch (e) { return false; }
   }
+  // #915：后台漏弹的互动卡迟到补通知——后台期触发器被冻结/深度节流，回前台 mochi-fg-resume
+  // 补触发才生成卡片，此刻页面已可见、通知按「前台看见即已读」被吞＝这类卡的后台弹窗
+  // 从没弹过。若本次是「刚从真后台（≥1 分钟）回来」且用户不在聊天页（卡片不在眼前），
+  // 给本轮通知打 late 标补弹（bg-keep 同一套去重闸门照过，同内容绝不双弹；
+  // 常规触发时 late=false，行为一字不变）。
+  function _lateNotify() {
+    try { return !!(window.bgLateCatchup && window.bgLateCatchup()) && !_chatPageOpen(); } catch (e) { return false; }
+  }
+  window.interactLateNotify = _lateNotify; // 查岗卡（ck-question.js）共用（同 interactPopupStale 惯例）
   function _flushPendingPops() {
     if (!_pendingPops.length) return;
     if (cardPopupBusy() || chatInputFocused()) return;
@@ -845,7 +854,7 @@
     const idx = el ? Number(el.dataset.idx) : -1;
     // v3.5.141：后台收到互动卡片 → 系统通知提示
     // v3.5.146：通知文本合并提示语 + 具体问题（一条通知显示完整内容，不再两条）
-    if (window.bgNotifyCheck) window.bgNotifyCheck('TA想问你一个问题：' + q.text, Date.now(), { name: 'TA的询问' });
+    if (window.bgNotifyCheck) window.bgNotifyCheck('TA想问你一个问题：' + q.text, Date.now(), { name: 'TA的询问', late: _lateNotify() });
     // v3.5.141：页面弹窗在后台不弹（不可见弹了也没用），只发系统通知
     // v3.6.x：用户正在聊天输入栏打字时不弹（弹窗会抢焦点打断输入法，见 chatInputFocused）
     // v3.12.x：冻结定时器回前台补跑（autoPopupStale 迟到）时同样不弹旧卡
@@ -1799,7 +1808,7 @@ const TC_DEFAULT = [
     const idx = el ? Number(el.dataset.idx) : -1;
     // v3.5.141：后台收到互动卡片 → 系统通知提示
     // v3.5.146：通知文本合并提示语 + 具体问题
-    if (window.bgNotifyCheck) window.bgNotifyCheck('TA想让你选一个答案：' + q.text, Date.now(), { name: 'TA的小问题' });
+    if (window.bgNotifyCheck) window.bgNotifyCheck('TA想让你选一个答案：' + q.text, Date.now(), { name: 'TA的小问题', late: _lateNotify() });
     // v3.12.x：迟到弹窗守卫（冻结定时器回前台补跑不再弹旧卡，见 autoPopupStale）
     if (popup) {
       if (document.hidden) { _enqueuePop(idx, 'openTC'); }
@@ -2604,7 +2613,7 @@ window.openTCPanel = openTCPanel;
     const idx = el ? Number(el.dataset.idx) : -1;
     // v3.5.141：后台收到互动卡片 → 系统通知提示
     // v3.5.146：通知文本合并提示语 + 具体问题
-    if (window.bgNotifyCheck) window.bgNotifyCheck('TA对你有点好奇：' + q.text, Date.now(), { name: 'TA的好奇' });
+    if (window.bgNotifyCheck) window.bgNotifyCheck('TA对你有点好奇：' + q.text, Date.now(), { name: 'TA的好奇', late: _lateNotify() });
     // v3.6.x：用户正在聊天输入栏打字时不弹（弹窗会抢焦点打断输入法，见 chatInputFocused）
     // v3.12.x：迟到弹窗守卫（冻结定时器回前台补跑不再弹旧卡，见 autoPopupStale）
     if (popup) {
@@ -3191,7 +3200,7 @@ window.openTCPanel = openTCPanel;
     const idx = el ? Number(el.dataset.idx) : -1;
     // v3.5.141：后台收到互动卡片 → 系统通知提示
     // v3.5.146：通知文本合并提示语 + 具体内容
-    if (window.bgNotifyCheck) window.bgNotifyCheck('TA吐槽了你一句：' + q.text, Date.now(), { name: 'TA的吐槽' });
+    if (window.bgNotifyCheck) window.bgNotifyCheck('TA吐槽了你一句：' + q.text, Date.now(), { name: 'TA的吐槽', late: _lateNotify() });
     // v3.6.x：用户正在聊天输入栏打字时不弹（弹窗会抢焦点打断输入法，见 chatInputFocused）
     // v3.12.x：迟到弹窗守卫（冻结定时器回前台补跑不再弹旧卡，见 autoPopupStale）
     if (popup) {

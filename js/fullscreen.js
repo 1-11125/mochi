@@ -280,9 +280,9 @@ if (el) el.checked = on;
 function relabelIosToggle() {
 const el = document.getElementById('sf-fullscreen');
 if (!el) return;
-const row = el.closest('.gs-row');
+const row = el.closest('.set-row') || el.closest('.gs-row');
 if (!row) return;
-const span = row.querySelector('span span') || row.querySelector('span');
+const span = row.querySelector('#sf-fullscreen-label') || row.querySelector('span span') || row.querySelector('span');
 if (!span) return;
 span.textContent = inIosStandalone
 ? '全屏模式（内容顶满，系统状态栏不可隐藏）'

@@ -30,6 +30,7 @@ const wait = PERSIST_MIN_GAP - (performance.now() - lastPersistAt);
 if (wait > 0) { persistTimer = setTimeout(runPersist, wait); return; }
 const run = persistRun;
 persistRun = null;
+try { if (window.__mochiPhase) window.__mochiPhase('persist(chat)'); } catch (e0) {}
 try { run(); lastPersistAt = performance.now(); } catch (e) {}
 }
 function schedulePersist(writer) {
@@ -1098,6 +1099,7 @@ scrollChatBottom();
 }
 } else if (changed && changedHi >= renderStart) {
 windowStale = true;
+try { if (!chatVisible()) scheduleChatPrewarm(myPre); } catch (e) {} // #951f 凭据既已作废，页面还藏着时当场把预渲重做一遍——否则这份作废只会在用户点开聊天那一瞬兑现成整窗重建（clear→逐块重建＝闪屏），预渲白做一次
 }
 } catch (e) {}
 };
@@ -1459,6 +1461,7 @@ writeLsSnapshot(msgs, myPrefix, true);
 try { chatLedgerSave(myPrefix, (msgs && msgs.length) || 0, msgsBytes(msgs)); } catch (e) {}
 try { chatTailMerge(myPrefix); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）；#766 同命名空间才回放
 try { updateChatLoading(); } catch (e) {} // FIX 2026-09-15 #526：确认空库后收起进度条
+try { scheduleChatPrewarm(myPrefix); } catch (e) {} // #951g 空桌面确认权威落定（无内容可画时函数内自带 msgs 守卫直接不动作）
 }
 return;
 }
@@ -1574,6 +1577,7 @@ try { if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, tr
 }, 0);
 }
 try { updateChatLoading(); } catch (e) {} // #703：权威就绪即收起进度条（覆盖 changed=false 且屏上已有快照内容、不走 renderWindow 的路径）
+try { scheduleChatPrewarm(myPrefix); } catch (e) {} // #951e 权威落定：页面还藏着就当场把整窗重建提前做掉，点开聊天不再闪屏
 if (typeof v === 'string' && v.length > CHAT_STR_THRESHOLD && idbArr && idbArr.length) {
 setTimeout(function () {
 try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistory(myPrefix, msgs, true); } catch (e) {}
@@ -2857,7 +2861,7 @@ const RENDER_CHUNK = 50;
 const RENDER_CHUNK_MIN = 80;
 let _rwToken = 0;
 function renderWindow(keepScroll, clampTop, forceSync) {
-const len = msgs.length;
+try { if (!keepScroll && window.__mochiPhase) window.__mochiPhase('chat-renderWindow'); } catch (e0) {}const len = msgs.length;
 chatRebuilding = false; // #841e：新一轮渲染先复位空窗标志（被作废的旧分帧轮不得把进度条留在屏上）
 const prevTop = keepScroll ? body.scrollTop : 0;
 const prevHeight = keepScroll ? body.scrollHeight : 0;
@@ -2936,6 +2940,22 @@ m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必
 }
 finishSwap();
 }
+let chatPrewarmTimer = null;
+function scheduleChatPrewarm(prefix) {
+if (chatPrewarmTimer) { clearTimeout(chatPrewarmTimer); chatPrewarmTimer = null; }
+if (!prefix) return;
+chatPrewarmTimer = setTimeout(function () {
+chatPrewarmTimer = null;
+try {
+if (document.hidden || chatVisible()) return;
+if (window.activePrefix() !== prefix) return;
+if (!(chatDbReady && authLoadedPrefix === prefix)) return; // #951b 就绪闸只认本命名空间权威（chatDbReady 会被 15 秒保险丝假置位）
+if (batchRendering || (windowRenderedPrefix === prefix && !windowStale)) return; // #951c 屏上已是本桌面且未作废＝不重复动手
+if (!msgs || !msgs.length) return;
+renderWindow(false, true); // #951d 隐藏态整窗预渲落地（enterChat 的同窗补丁据此命中）
+} catch (e) {}
+}, 600);
+}
 window.chatReRenderTime = function () {
 if (chatPage.hidden || !body.children.length) return;
 renderWindow(true, false);
@@ -2943,6 +2963,7 @@ renderWindow(true, false);
 function inplacePatchIfSameWindow() {
 const len = msgs.length;
 if (!len) return false;
+if (batchRendering) return false; // #951h 分帧构建在飞＝屏上是空/半截列表，「同窗同貌」不成立（#951 隐藏态预渲让这条通道变成常遇：点的那一刻构建还没跑完，若判成已画好会就地收掉进度条并把在飞的换装链晾在半路＝闪白无提示；返回 false 让调用方走 renderWindow，旧链由 _rwToken 作废）
 if (windowStale) return false;
 try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
 if (windowRenderedNicks !== chatNickSig()) return false;
@@ -3790,7 +3811,7 @@ return m;
 if (rec.special === 'gift') {
 m.className = 'msg-gift';
 m.dataset.idx = msgs.length - 1;
-const sideTxt = rec.side === 'out' ? '我 送出' : (chatPartnerName() + ' 送来');
+const sideTxt = rec.side === 'out' ? '我 送出' : (rec.giftSelf ? (chatPartnerName() + ' 自己买的') : (chatPartnerName() + ' 送来'));
 const gc = ((window.GIFT_CAT_COLOR || {})[rec.giftCat]) || '#f2f2f5';
 m.innerHTML = '<div class="msg-gift-card">' +
 '<div class="msg-gift-emoji" style="background:' + escTxt(gc) + '">' + (rec.giftImg ? '<img class="msg-gift-img" src="' + escTxt(rec.giftImg) + '" alt="">' : escTxt(rec.giftEmoji || '\uD83C\uDF81')) + '</div>' +
@@ -4660,15 +4681,6 @@ if (ledN > 0) { if (tries < 5) setTimeout(onRetry, 2000); return; }
 writeOne();
 }).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); });
 }
-function deskWriteMsgsArr(key, cid, arr) {
-try { persistMsgsToIdb(key, arr); } catch (e) {}
-try {
-let snapSrc = arr;
-const est = msgsBytes(arr);
-if (est > LS_SNAP_LIMIT) snapSrc = arr.slice(arr.length - Math.max(200, Math.floor(arr.length * LS_SNAP_LIMIT / est)));
-performLsSnapWrite(snapSrc, 'xy-home-v2:' + cid);
-} catch (e) {}
-}
 window.chatAppendToDeskMsg = function (cid, text, opts) {
 opts = opts || {};
 const cur = window.__activeCid || 'default';
@@ -4680,7 +4692,8 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-deskWriteMsgsArr(key, cid, arr);
+try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
 const attempt = function () {
@@ -4722,7 +4735,8 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-deskWriteMsgsArr(key, cid, arr);
+try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
 const attempt = function () {
@@ -4760,7 +4774,8 @@ const key = 'xy-home-v2:' + cid + ':chat-msgs';
 const archKey = 'xy-home-v2:' + cid + ':chat-arch';
 let tries = 0;
 const writeArr = function (arr) {
-deskWriteMsgsArr(key, cid, arr);
+try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
 try { if (window.idbDelete) window.idbDelete(archKey); } catch (e) {}
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
@@ -5458,7 +5473,8 @@ function pyJoinCards(segs, c) {
 if (!Array.isArray(segs) || !segs.length) return '';
 if (segs.length === 1) return String(segs[0] == null ? '' : segs[0]);
 let pool = null;
-if (c && c['py-punct-en'] === 1) {
+const pyJoinOn = !!(c && c['py-en'] === 1 && c['py-punct-en'] === 1); // #956a
+if (pyJoinOn) {
 pool = [];
 if (c['py-punct-space'] === 1) pool.push(' ');
 if (c['py-punct-dou'] === 1) pool.push('，');
@@ -9718,11 +9734,13 @@ g[1].forEach(item => { if (t[1].indexOf(item) < 0) t[1].push(item); });
 }
 window.__myeIdbApplied = true;
 myeGateRetry = 0;
+try { if (window.__mochiPhase) window.__mochiPhase('emoji-groups'); } catch (e0) {}
 myePersist();
 myeEnsureDurable(0);
 });
 return true;
 }
+try { if (window.__mochiPhase) window.__mochiPhase('emoji-groups'); } catch (e0) {}
 myePersist();
 myeEnsureDurable(0);
 return true;
@@ -9956,7 +9974,7 @@ return sig + arr.length + '|' + sumLen + '|' + _f + '|' + _l;
 } catch (e) { return ''; }
 }
 const EMOJI_RECENT_KEY = 'emoji-recent';
-const EMOJI_RECENT_MAX = 8;
+const EMOJI_RECENT_MAX = 24;
 function recentIdentsAt(key) {
 try {
 const v = JSON.parse(myEmojiStore().get(key) || '[]');
@@ -11554,7 +11572,7 @@ try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片�
 }
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
-var _fb = () => { try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+var _fb = () => { window.mochiFilePickFire(chatImgPickBridge(), { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(chatImgPickBridge(), _fb);
 else _fb();
 });

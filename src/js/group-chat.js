@@ -248,8 +248,8 @@
       const rgb = gcHexRgb(color);
       return rgb ? 'rgba(' + rgb.join(',') + ',' + (o / 100) + ')' : color;
     };
-    page.style.setProperty('--msg-in-bg', surf(gcBeautyGet('in-bg')));
-    page.style.setProperty('--msg-out-bg', surf(gcBeautyGet('out-bg')));
+    gcSetVar(page, '--msg-in-bg', surf(gcBeautyGet('in-bg')));
+    gcSetVar(page, '--msg-out-bg', surf(gcBeautyGet('out-bg')));
   }
   function gcApplyBubbleSurface() {
     gcApplyBubbleSurfaceWith(gcBeautyGet('bubble-op'));
@@ -311,35 +311,44 @@
     document.head.appendChild(st);
     if (hint) setTimeout(() => { try { toast(hint); } catch (e) {} }, 50);
   }
+  // FIX 2026-09-21 #966（同 #938 口径）：applyGcBeauty 原先每点一次档位（哪怕值一个字没变、
+  // 群聊「边看边调」里重复点同一档）都把 ~16 个内联变量重写一遍 + 白摘 5 个不存在的 cs-time-* 类，
+  // 每次都是整页样式重解析＝#938 那型闪屏（用户在真机闪屏自测里点同一个档量出来的就是这一下）。
+  // 修法与单聊 chat-settings.js 的 setVar/delVar 逐字同源：值没变一个字节都不碰。
+  const gcSetVar = (el, name, value) => { if (!el) return; const v = String(value); if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v); };
+  const gcDelVar = (el, name) => { if (el && el.style.getPropertyValue(name) !== '') el.style.removeProperty(name); };
+  const gcSetCls = (el, cls, on) => { if (!el) return; if (on) { if (!el.classList.contains(cls)) el.classList.add(cls); } else if (el.classList.contains(cls)) el.classList.remove(cls); };
   // 应用群聊美化（CSS 变量在 #page-group-chat 上局部覆盖；默认值与聊天页默认一致）
   function applyGcBeauty() {
     const page = document.getElementById('page-group-chat');
     if (!page) return;
     const g = gcBeautyGet;
-    page.style.setProperty('--msg-in-ink', g('in-ink'));
-    page.style.setProperty('--msg-out-ink', g('out-ink'));
+    gcSetVar(page, '--msg-in-ink', g('in-ink'));
+    gcSetVar(page, '--msg-out-ink', g('out-ink'));
     // FIX 2026-09-17 #697：气泡底色经「气泡透明度」处理后写入（默认 100% ＝纯色，行为不变）
     gcApplyBubbleSurface();
-    page.style.setProperty('--chat-font-size', g('font-size'));
-    page.style.setProperty('--chat-bubble-pad', g('bubble-size'));
+    gcSetVar(page, '--chat-font-size', g('font-size'));
+    gcSetVar(page, '--chat-bubble-pad', g('bubble-size'));
     // v3.28.x：对齐聊天美化——气泡边缘圆角 / 时间轴颜色 / 正在输入颜色
-    page.style.setProperty('--chat-bubble-radius', g('bubble-radius'));
-    page.style.setProperty('--msg-time-ink', g('time-ink'));
-    page.style.setProperty('--typing-ink', g('typing-ink'));
-    page.style.setProperty('--send-bg', g('send-bg'));
-    page.style.setProperty('--send-ink', g('send-ink'));
-    page.style.setProperty('--msg-av-radius', g('av-shape') === 'square' ? '10px' : '50%');
+    gcSetVar(page, '--chat-bubble-radius', g('bubble-radius'));
+    gcSetVar(page, '--msg-time-ink', g('time-ink'));
+    gcSetVar(page, '--typing-ink', g('typing-ink'));
+    gcSetVar(page, '--send-bg', g('send-bg'));
+    gcSetVar(page, '--send-ink', g('send-ink'));
+    gcSetVar(page, '--msg-av-radius', g('av-shape') === 'square' ? '10px' : '50%');
     // FIX 2026-09-17 #697：栏位不透明度 / 位置微调（与单聊 #655 同款 --cs-* 局部变量，
     // CSS 规则在 group-chat.css 按 #page-group-chat 作用域接管，不动 chat-main.css 共享规则）
-    page.style.setProperty('--cs-head-opacity', String(gcClampNum(g('head-op'), 0, 100, 92) / 100));
-    page.style.setProperty('--cs-input-opacity', String(gcClampNum(g('input-op'), 0, 100, 92) / 100));
-    page.style.setProperty('--cs-head-inset', gcClampNum(g('head-inset'), 0, 80, 0) + 'px');
-    page.style.setProperty('--cs-input-inset', gcClampNum(g('input-inset'), 0, 80, 0) + 'px');
+    gcSetVar(page, '--cs-head-opacity', String(gcClampNum(g('head-op'), 0, 100, 92) / 100));
+    gcSetVar(page, '--cs-input-opacity', String(gcClampNum(g('input-op'), 0, 100, 92) / 100));
+    gcSetVar(page, '--cs-head-inset', gcClampNum(g('head-inset'), 0, 80, 0) + 'px');
+    gcSetVar(page, '--cs-input-inset', gcClampNum(g('input-inset'), 0, 80, 0) + 'px');
     const sendBtn = document.getElementById('gc-send');
-    if (sendBtn) sendBtn.style.display = g('send-show') === 'hide' ? 'none' : '';
+    if (sendBtn) { if (g('send-show') === 'hide') gcSetVar(sendBtn, 'display', 'none'); else gcDelVar(sendBtn, 'display'); }
     // 时间轴样式：page 级类（始终挂类，含默认 under-av 的还原规则，隔离聊天页 body 级类）
-    GC_BEAUTY_STYLES.forEach(s => page.classList.remove('cs-time-' + s.value));
-    page.classList.add('cs-time-' + g('time-style'));
+    // #966：只摘「挂着的那一个」、只挂「还没挂的那一个」——原写法每调用白摘 5 个不存在的类。
+    const wantTime = 'cs-time-' + g('time-style');
+    GC_BEAUTY_STYLES.forEach(s => { const c = 'cs-time-' + s.value; if (c !== wantTime) gcSetCls(page, c, false); });
+    gcSetCls(page, wantTime, true);
     // 壁纸（>6MB 异常存量清掉回默认，同聊天页防护）
     let bg = g('bg');
     if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
@@ -1908,7 +1917,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 不转发）时把 JS 兜底也跳过＝
       // 「上传头像点了没反应」。改为 guard 事后确认未弹出再补 click（仅头像模式需要）。
       if (interMode === 'av') {
-        var _fb = () => { try { gcAvatarPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+        // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+        var _fb = () => { window.mochiFilePickFire(gcAvatarPickInput, { onFail: () => toast('无法打开相册，请重试') }); };
         if (window.mochiFilePickGuard) window.mochiFilePickGuard(gcAvatarPickInput, _fb);
         else _fb();
         pickAvatarFile((data) => {
@@ -2225,7 +2235,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   };
   function pickAvatarFile(cb) {
     gcAvatarPickCb = cb;
-    try { gcAvatarPickInput.click(); } catch (e) { gcAvatarPickCb = null; toast('无法打开相册，请重试'); }
+    // FIX 2026-09-20 #920：激活腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+    window.mochiFilePickFire(gcAvatarPickInput, { onFail: () => { gcAvatarPickCb = null; toast('无法打开相册，请重试'); } });
   }
   // 渲染设置面板：主视图（顶部 tag：形象/成员/群聊/回复/美化/通用/数据）
   // #816 退役旧「美化聊天」子视图（gcBeautyView 整页替换那套）：「通用」里的入口现在直接
@@ -4051,7 +4062,8 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
     // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 存在但不转发）时连 JS 兜底
     // 一起跳过＝「插图片点了完全没反应」；改由 guard 事后确认真未弹出再补 click
-    var _fb = () => { try { fi.click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+    // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+    var _fb = () => { window.mochiFilePickFire(fi, { onFail: () => toast('无法打开图片选择器，请重试') }); };
     if (window.mochiFilePickGuard) window.mochiFilePickGuard(fi, _fb);
     else _fb();
   });

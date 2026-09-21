@@ -735,10 +735,17 @@
   }
 
   // ---- 装扮（墙纸 → 地板 两段弹窗） ----
+  // FIX 2026-09-21 #966：锁定项原以 value:'' 入列＝标签上有 🔒Lv、点确定后回调早退零反馈
+  //（#766 给家具同款缺陷补了 toast，墙纸/地板两类当时漏网）。现锁定项带 lockw:/lockf: 前缀，
+  // 回调按前缀分派说明解锁条件；其余流程不动（墙纸步仍照常衔接地板步）。
+  function decoLockTxt(o) { return '🔒 ' + o.n + '：小屋 Lv.' + o.lv + ' 解锁（现在 Lv.' + d.lv + '）'; }
   function decoFlow() {
-    const wp = WALLS.map(w => ({ label: (d.wall === w.id ? '✅ ' : '') + w.n + (w.lv > d.lv ? ' 🔒Lv' + w.lv : ''), value: w.lv <= d.lv ? 'w:' + w.id : '' }));
+    const wp = WALLS.map(w => ({ label: (d.wall === w.id ? '✅ ' : '') + w.n + (w.lv > d.lv ? ' 🔒Lv' + w.lv : ''), value: w.lv <= d.lv ? 'w:' + w.id : 'lockw:' + w.id }));
     window.openModal('装扮 · 墙纸', '', function (v) {
-      if (v && v.indexOf('w:') === 0) { d.wall = v.slice(2); save(); renderScene(); }
+      if (v && v.indexOf('lockw:') === 0) {
+        const lw = WALLS.filter(function (x) { return x.id === v.slice(6); })[0];
+        if (lw) toast(decoLockTxt(lw));
+      } else if (v && v.indexOf('w:') === 0) { d.wall = v.slice(2); save(); renderScene(); }
       setTimeout(floorPick, 0); // 嵌套 openModal 延后到外层 close 之后
     }, { noInput: true, pills: wp });
   }
@@ -747,9 +754,12 @@
   // 装扮第二步选地板从未实现。补齐：与墙纸同款 pills 弹窗，选中写 d.floor
   //（renderScene 以 floor-<id> 类消费）。
   function floorPick() {
-    const fp = FLOORS.map(f => ({ label: (d.floor === f.id ? '✅ ' : '') + f.n + (f.lv > d.lv ? ' 🔒Lv' + f.lv : ''), value: f.lv <= d.lv ? 'f:' + f.id : '' }));
+    const fp = FLOORS.map(f => ({ label: (d.floor === f.id ? '✅ ' : '') + f.n + (f.lv > d.lv ? ' 🔒Lv' + f.lv : ''), value: f.lv <= d.lv ? 'f:' + f.id : 'lockf:' + f.id }));
     window.openModal('装扮 · 地板', '', function (v) {
-      if (v && v.indexOf('f:') === 0) { d.floor = v.slice(2); save(); renderScene(); }
+      if (v && v.indexOf('lockf:') === 0) {
+        const lf = FLOORS.filter(function (x) { return x.id === v.slice(6); })[0];
+        if (lf) toast(decoLockTxt(lf));
+      } else if (v && v.indexOf('f:') === 0) { d.floor = v.slice(2); save(); renderScene(); }
     }, { noInput: true, pills: fp });
   }
 

@@ -148,9 +148,32 @@ const r = window.cardLockTryUnlock(String(v == null ? '' : v).trim());
 if (!r.ok) { ctl.hint(r.msg || '密码不对'); ctl.stay(); return; }
 if (okState) okState.textContent = '验证通过，页面即将刷新…';
 if (mo) { try { mo.disconnect(); } catch (e) {} }
-const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
+let persisted = false, noticeClosed = false, reloaded = false, moNotice = null;
+const tryReload = function () {
+if (reloaded || !persisted || !noticeClosed) return;
+reloaded = true;
+if (moNotice) { try { moNotice.disconnect(); } catch (e) {} }
+setTimeout(function () { location.reload(); }, 300);
+};
+const goReloadAfterPersist = function () { persisted = true; tryReload(); };
 if (window.cardLockConfirmPersisted) window.cardLockConfirmPersisted('open', goReloadAfterPersist);
-else setTimeout(function () { location.reload(); }, 900);
+else persisted = true;
+if (mask && 'MutationObserver' in window) {
+moNotice = new MutationObserver(function () { if (mask.hidden) { noticeClosed = true; tryReload(); } });
+moNotice.observe(mask, { attributes: true, attributeFilter: ['hidden'] });
+}
+setTimeout(function () { noticeClosed = true; tryReload(); }, 15000);
+const sizeTip = window.mochiPresetSizeTip;
+if (sizeTip && window.openModal) {
+const ctl2 = window.openModal('解锁成功 · 字卡使用提醒', '', function () {
+noticeClosed = true; tryReload();
+}, { noInput: true, big: true, warn: true, lock: true, staticText: '系统内置字卡已解锁，聊天与各功能可以正常取用。\n\n' + sizeTip });
+if (ctl2 && ctl2.okText) ctl2.okText('知道了');
+} else {
+noticeClosed = true;
+tryReload();
+if (!window.cardLockConfirmPersisted) setTimeout(function () { location.reload(); }, 900);
+}
 }, { inputmode: 'numeric', placeholder: '输入二级验证密码', staticText: '密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。这个密码与开屏问答页的「暗号」是同一个（同一串 6 位数字）：在开屏问答页点「输暗号跳过问答」用的也是它。' });
 }
 const CARD_LOCK_REMIND = '系统字卡未解锁，请自行添加字卡使用。联系人无法使用字卡，不是bug，是系统字卡锁了。\n其实从内测开始就说明过需要自行添加字卡使用，系统内置字卡只是附带功能。\n\n系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。豁免说明（#499）：聊天情绪字卡、TA 的心情、聊天回应字卡这三大互动链不受锁定影响，未解锁也照常触发与抽取。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会更单薄（情绪/回应字卡仍在，但少了系统预设内容），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏公告的目录里——注意不是开屏最底下的部署时间，部署时间只是用来判断是否更新到了新版本。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';

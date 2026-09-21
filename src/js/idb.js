@@ -551,6 +551,15 @@
     try { return JSON.parse(localStorage.getItem(BIG_IDX_KEY) || '{}') || {}; } catch (e) { return {}; }
   }
   let _bigIdx = bigIdxLoad();
+  // #907：LS 大键残留清扫——_bigIdx 记的键（写入时 >200KB）在 xyStore.set 里已 removeItem，
+  // 但历史遗留（小于阈值时写进 LS、后来涨过阈值且此后没再写过的键）会永久残留：既双倍计算
+  // 又长期占着 5MB LS 配额（设备诊断「LS 残留大键」告警源，实测某机 fav-msgs 306KB 残留）。
+  // 大键新值只进 IDB，LS 副本必为旧值 → 启动时按索引清扫一次是安全的。
+  try {
+    Object.keys(_bigIdx).forEach(function (k) {
+      try { if (localStorage.getItem(k) !== null) localStorage.removeItem(k); } catch (e) {}
+    });
+  } catch (e) {}
   let _bigIdxSaveTimer = null;
   function bigIdxSave() {
     if (_bigIdxSaveTimer) return;
@@ -655,6 +664,9 @@
             lsDirtyAdd(key); // 写失败 → 标记：回填时该键以 IDB 为准
           }
         } else {
+          // #907：大键写入＝多 MB 级 stringify/结构化克隆，是 iOS 上「主线程被堵住几秒」的头号嫌疑——
+          // 打相位标记，供卡顿自检在 >250ms 前台冻结时点名（__mochiPhaseLog）
+          try { if (window.__mochiPhase) window.__mochiPhase('idb-big:' + String(k).slice(0, 18)); } catch (e0) {}
           try { localStorage.removeItem(key); } catch (e) {}
         }
         try { if (window.idbSet) window.idbSet(key, v); } catch (e) {}
@@ -1078,8 +1090,8 @@
   //   聊天记录/大键/元键不进日志；时间戳守卫保证回放/合并永不覆盖本会话新写入。
   const WRJ_KEY = 'xy-home-v2:__wr-journal';
   const WRJ_MARK = 'xy-home-v2:__wr-j:';
-  const WRJ_MAX = 40;              // 条数上限
-  const WRJ_BUDGET = 128 * 1024;   // 值字符总量上限（防日志本身膨胀拖慢每次 set）
+  const WRJ_MAX = 24;              // 条数上限（#960：40→24，覆盖窗口仍远大于 IDB 标记 150ms 冲刷节奏）
+  const WRJ_BUDGET = 64 * 1024;    // 值+键字符总量上限（#960：128→64KB 且预算计入键名/结构开销——原口径漏算键名，实测「128KB 预算」产出 183.7KB 包；每次小键写入都整包 stringify+同步写 LS，包越大人越容易掉帧）
   const WRJ_VAL_LIMIT = 64 * 1024; // 单值超过不记录（大键有自己的恢复路径）
   let _wrj = null;                 // [{k, v, t}]，按 key 去重、最新在前
   let _wrjTimes = {};              // key -> 最近一次已知写入时间（回放/合并/本会话写入共用）
@@ -1098,6 +1110,7 @@
   let _wrjPersistT = null;
   function wrjPersistFlush() {
     if (_wrjPersistT) { clearTimeout(_wrjPersistT); _wrjPersistT = null; }
+    try { if (window.__mochiPhase) window.__mochiPhase('wrj-journal'); } catch (e0) {}
     try { localStorage.setItem(WRJ_KEY, JSON.stringify(_wrj || [])); } catch (e) {}
   }
   function wrjPersist() {
@@ -1154,7 +1167,7 @@
     _wrj.unshift({ k: key, v: v, t: t });
     let chars = 0, cut = _wrj.length;
     for (let i = 0; i < _wrj.length; i++) {
-      chars += _wrj[i].v.length;
+      chars += _wrj[i].v.length + _wrj[i].k.length + 24; // #960：键名+结构开销一并计入，预算才真实约束产物大小
       if (i >= WRJ_MAX || chars > WRJ_BUDGET) { cut = i; break; }
     }
     if (cut < _wrj.length) _wrj.length = cut;

@@ -1925,7 +1925,7 @@ if (coverAvEl) {
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
 coverAvEl.addEventListener('click', (e) => {
 e.stopPropagation();
-var _fb = () => { try { feedAvPickInput.click(); } catch (err) { toast('无法打开相册，请重试'); } };
+var _fb = () => { window.mochiFilePickFire(feedAvPickInput, { onFail: () => toast('无法打开相册，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(feedAvPickInput, _fb);
 else _fb();
 });

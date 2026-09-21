@@ -360,7 +360,15 @@ hubStyle.textContent =
 '[data-theme="dark"] .fhub-tag{background:rgba(255,255,255,.09)}' +
 '[data-theme="dark"] .fhub-tag.on{background:var(--ink,#eee);color:var(--card-bg,#1e1e1e)}' +
 '[data-theme="dark"] .fhub-cat-ico{background:rgba(255,255,255,.09)}' +
-'[data-theme="dark"] .fhub-cat-n{background:rgba(255,255,255,.09)}';
+'[data-theme="dark"] .fhub-cat-n{background:rgba(255,255,255,.09)}' +
+'.fhub-seen-bar{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:12px 14px;border-radius:16px;background:rgba(47,111,208,.1);cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+'.fhub-seen-bar:active{transform:scale(.98)}' +
+'.fhub-seen-t{flex:1;min-width:0;font-size:13px;font-weight:700;color:#2f6fd0;line-height:1.4}' +
+'.fhub-seen-go{flex:0 0 auto;font-size:12px;font-weight:700;color:#2f6fd0}' +
+'[data-theme="dark"] .fhub-seen-bar{background:rgba(47,111,208,.16)}' +
+'[data-theme="dark"] .fhub-seen-t,[data-theme="dark"] .fhub-seen-go{color:#8fb4ef}' +
+'.fhub-badge{display:inline-block;margin-top:4px;margin-right:6px;font-size:11px;font-weight:700;color:#2f6fd0}' +
+'[data-theme="dark"] .fhub-badge{color:#8fb4ef}';
 document.head.appendChild(hubStyle);
 const body = document.getElementById('fhub-body');
 const page = document.getElementById('page-featurehub');
@@ -435,21 +443,103 @@ tile.className = 'fhub-cat glass';
 tile.innerHTML = '<div class="fhub-cat-n">' + grp.items.length + '</div>' +
 '<div class="fhub-cat-ico">' + (CAT_ICO[gi] || '') + '</div>' +
 '<div class="fhub-cat-name">' + grp.g + '</div>';
-tile.addEventListener('click', () => { if (input) input.value = ''; view = gi; update(); });
+tile.addEventListener('click', () => { if (input) input.value = ''; setHubView(gi); });
 grid.appendChild(tile);
 });
 home.appendChild(grid);
 body.appendChild(home);
+let view = 'home';
+const SEEN_KEY = 'xy-home-v2:fhub-seen';
+let seen = {};
+let seenReady = false; // IDB 为准（同 fhub-freq 口径）：回填完成前名单可能偏多，不闪存量假数字
+const MARK_BY_APP = {}, MARK_BY_ID = {};
+let inUnseen = false; // #937 unseen 视闩：横幅点开置位；视图被复位（切页/退出）而闩仍在时跟随重建
+function setHubView(v) { inUnseen = false; view = v; update(); }
+HUB.forEach(grp => grp.items.forEach(it => {
+const go = it.go || [];
+const sel = (go.length > 1 ? go[go.length - 1] : go[0]) || '';
+if (!sel || it.__seenIds) return;
+it.__seenIds = true; // 闩在同一条目上：防自身重复登记；多条目共用一个选择器时各进名单（点了同一入口都算到达）
+if (sel.indexOf('[data-app=') >= 0) {
+const q = /"([^"]+)"|'([^']+)'/;
+const v = q.exec(sel.slice(sel.indexOf('[data-app=')));
+const app = v ? (v[1] || v[2]) : '';
+if (app) (MARK_BY_APP[app] = MARK_BY_APP[app] || []).push({ g: grp.g, n: it.n });
+} else if (/^#[A-Za-z][\w-]*$/.test(sel)) {
+(MARK_BY_ID[sel.slice(1)] = MARK_BY_ID[sel.slice(1)] || []).push({ g: grp.g, n: it.n });
+}
+}));
+function bumpSeen(names) {
+if (!seenReady) return; // 等 IDB 合并后再写，防 LS 残值覆盖更全的 IDB 快照
+let touched = 0;
+names.forEach(o => { if (!seen[o.n]) { seen[o.n] = Date.now(); touched++; } });
+if (!touched) return;
+try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (e) { /* 存储满不影响提醒 */ }
+if (typeof window.idbSet === 'function') { try { window.idbSet(SEEN_KEY, seen).catch(() => {}); } catch (e) {} }
+renderSeen();
+}
+function loadSeen() {
+try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || {}; } catch (e) { seen = {}; }
+const ready = () => { seenReady = true; renderSeen(); };
+if (typeof window.idbGet === 'function') {
+try {
+window.idbGet(SEEN_KEY).then(v => {
+if (v && typeof v === 'object') { Object.keys(v).forEach(k => { if (!seen[k]) seen[k] = v[k]; }); }
+ready();
+}).catch(ready);
+} catch (e) { ready(); }
+}
+setTimeout(ready, 1500); // idbGet 挂起时静默（fhub-freq 同款口径）：兜底用 LS 初值解锁，幂等
+}
+function unseenList() {
+if (!seenReady) return [];
+const out = [];
+HUB.forEach(grp => { const items = grp.items.filter(it => !seen[it.n]); if (items.length) out.push({ g: grp.g, items }); });
+return out;
+}
+document.addEventListener('click', e => {
+try {
+const t = e.target;
+if (!t || !t.closest) return;
+const app = t.closest('[data-app]');
+if (app) { const l = MARK_BY_APP[app.dataset.app]; if (l) bumpSeen(l); return; }
+const byId = t.closest('[id]');
+if (byId) { const l = MARK_BY_ID[byId.id]; if (l) bumpSeen(l); }
+} catch (err) {}
+}, true);
+const seenBar = document.createElement('div');
+seenBar.className = 'fhub-seen-bar';
+seenBar.id = 'fhub-seen-bar';
+seenBar.innerHTML = '<div class="fhub-seen-t"></div><div class="fhub-seen-go">去看看 →</div>';
+seenBar.style.display = 'none';
+seenBar.addEventListener('click', () => { if (input) input.value = ''; inUnseen = true; view = 'unseen'; update(); });
+home.insertBefore(seenBar, grid);
+const hubRow = document.getElementById('row-featurehub');
+function renderSeen() {
+const un = unseenList();
+const n = un.reduce((s, g) => s + g.items.length, 0);
+if (inUnseen && !n) inUnseen = false; // 名单清零＝自动退出未试视图
+seenBar.style.display = (n && view !== 'unseen' && !inUnseen) ? '' : 'none';
+seenBar.querySelector('.fhub-seen-t').textContent = '还没试过：' + n + ' 个功能';
+if (hubRow) {
+let b = hubRow.querySelector('.fhub-badge');
+if (n) {
+if (!b) { b = document.createElement('span'); b.className = 'fhub-badge'; const txt = hubRow.querySelector('.txt'); if (txt) txt.insertBefore(b, txt.querySelector('.sub') || null); }
+b.textContent = n + ' 个没试过';
+} else if (b) b.remove();
+}
+if (view === 'unseen' && inUnseen) update(); // 名单在视闩期间变化（点掉一条）→ 就地重建过滤列表
+else if (view === 'unseen') setHubView('home'); // 名单清零 → 退出过滤视图（否则系统返回手势会退回这张过期空列表）
+}
 const groups = [];
 HUB.forEach(grp => groups.push(groupBlock(grp)));
 groups.forEach(el => body.appendChild(el));
-let view = 'home';
 if (tags) {
 [['首页', 'home']].concat(HUB.map((g, i) => [g.g, i])).forEach((pair) => {
 const d = document.createElement('div');
 d.className = 'fhub-tag';
 d.textContent = pair[0];
-d.addEventListener('click', () => { if (input) input.value = ''; view = pair[1]; update(); });
+d.addEventListener('click', () => { if (input) input.value = ''; setHubView(pair[1]); });
 tags.appendChild(d);
 });
 }
@@ -458,8 +548,11 @@ function cardRows(gi) {
 const card = groups[gi] ? groups[gi].querySelector('.set-group') : null;
 return card ? Array.prototype.slice.call(card.children) : [];
 }
+let seenWraps = []; // #937 unseen 视图的动态容器：每次 update 先整体移除再按视图重建/复位
 function update() {
 if (empty) empty.hidden = true;
+seenWraps.forEach(el => el.remove());
+seenWraps = [];
 const q = input ? norm(input.value) : '';
 if (q) {
 if (home) home.style.display = 'none';
@@ -492,6 +585,29 @@ if (groups[gi]) groups[gi].style.display = gHit ? '' : 'none';
 if (empty) empty.hidden = hits > 0;
 return;
 }
+if (view === 'unseen') {
+if (home) home.style.display = 'none';
+if (tags) tags.style.display = 'none';
+groups.forEach(el => { el.style.display = 'none'; });
+const un = unseenList();
+let lastCard = null;
+un.forEach(gr => {
+const wrap = document.createElement('div');
+const title = document.createElement('div');
+title.className = 'gs-title';
+title.textContent = gr.g + '（' + gr.items.length + ' 个没试过）';
+const card = document.createElement('div');
+card.className = 'set-group glass';
+gr.items.forEach(it => card.appendChild(entryRow(it)));
+wrap.appendChild(title);
+wrap.appendChild(card);
+body.appendChild(wrap);
+seenWraps.push(wrap);
+lastCard = card;
+});
+if (empty) empty.hidden = !!lastCard;
+return;
+}
 Array.prototype.forEach.call(body.querySelectorAll('.set-row'), r => { r.style.display = ''; });
 groups.forEach((el) => {
 const card = el ? el.querySelector('.set-group') : null;
@@ -503,6 +619,7 @@ tags.style.display = view === 'home' ? 'none' : '';
 Array.prototype.forEach.call(tags.children, (t, i) => t.classList.toggle('on', i - 1 === view));
 }
 groups.forEach((el, i) => { el.style.display = i === view ? '' : 'none'; });
+renderSeen(); // #937：回首页/切组时横幅按当前 view 复位显隐
 }
 if (input) input.addEventListener('input', update);
 function toast(msg) {
@@ -519,12 +636,13 @@ it.go.forEach(sel => {
 const el = document.querySelector(sel);
 if (el && typeof el.click === 'function') { el.click(); clicked++; }
 });
-if (clicked) { bumpFreq(it); return; }
+if (clicked) { bumpFreq(it); bumpSeen([{ g: it.g, n: it.n }]); return; }
 } catch (e) { /* 落到位置提示 */ }
 toast('「' + it.n + '」的位置：' + (it.where || it.g) + '（入口暂不可达，如有需要请在对应页面寻找）');
 return;
 }
 toast('「' + it.n + '」的位置：' + (it.where || it.g));
+bumpSeen([{ g: it.g, n: it.n }]);
 }
 let hubFrom = 'setting';
 function openHub(from, kw) {
@@ -532,8 +650,7 @@ document.querySelectorAll('.page').forEach(p => { p.hidden = true; });
 page.hidden = false;
 hubFrom = from;
 if (input) input.value = kw ? String(kw) : '';
-view = 'home';
-update();
+setHubView('home');
 if (kw && input) { try { input.focus(); } catch (e) {} }
 }
 const back = document.getElementById('fhub-back');
@@ -565,6 +682,7 @@ return;
 return out;
 } catch (e) { return []; }
 };
+loadSeen();
 update();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("feature-hub.js");

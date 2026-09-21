@@ -121,7 +121,7 @@ ring.appendChild(img);
 }
 store.set(key, data);
 };
-var _fallback = () => { try { avatarPickInput.click(); } catch (err) { avatarPickCb = null; toast('无法打开相册，请重试'); } };
+var _fallback = () => { window.mochiFilePickFire(avatarPickInput, { onFail: () => { avatarPickCb = null; toast('无法打开相册，请重试'); } }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(avatarPickInput, _fallback);
 else _fallback();
 });
@@ -2204,7 +2204,7 @@ const kw = inp.value.trim();
 if (!kw) return;
 if (typeof window.mochiFeatureHubOpen === 'function') window.mochiFeatureHubOpen(kw);
 });
-const SEC_NAME = { basic: '通用', chat: '聊天', system: '系统', tools: '工具', diag: '信息诊断', about: '关于' };
+const SEC_NAME = { basic: '通用', chat: '聊天', system: '系统', tools: '工具', about: '关于' };
 const KW = {
 '联系人 / 桌面': '切换桌面 多桌面 独立 称呼',
 '开启群聊': '多人聊天 群',
@@ -7457,7 +7457,7 @@ open('为什么不能用无痕模式',
 });
 bind('row-faq-st-backup', () => {
 open('怎么备份与恢复（唯一防线）',
-'备份＝把全部数据导出成一个文件，存到浏览器清不到的地方。这是防丢的唯一可靠防线，其它都没用（本机不保留任何自动备份副本）。\n\n【怎么做】设置 → 工具 →「导出数据」→ 选「完整备份」→ 把文件保存好。\n\n【存到哪】不要只留在浏览器的下载记录里——发送到微信收藏 / 文件夹 / 云盘 / 电脑，至少一份存在浏览器外面；文件不要改名弄丢后缀。\n\n【多久一次】建议每周一次；大量聊天 / 加了很多字卡之后；以及每次看到「有新版本」要刷新之前，都先导一次。\n\n【怎么恢复】换机或数据丢失后：装好本站 → 设置 → 工具 →「导入数据」→ 选备份文件 → 按完整备份覆盖恢复，等恢复完成提示后再操作。\n\n【换设备 / 换浏览器】数据不会自动跟过去（本站无云端不同步），全靠备份文件搬家：新设备导入一次即可。\n\n【两个入口不互通】浏览器直接打开 和 桌面快捷方式，是两份独立存储——固定用一个入口；非要换，先在旧入口导出、再到新入口导入。');
+'备份＝把全部数据导出成一个文件，存到浏览器清不到的地方。这是防丢的唯一可靠防线，其它都没用（本机不保留任何自动备份副本）。\n\n【怎么做】设置 → 通用 →「导出数据」→ 选「完整备份」→ 把文件保存好。\n\n【存到哪】不要只留在浏览器的下载记录里——发送到微信收藏 / 文件夹 / 云盘 / 电脑，至少一份存在浏览器外面；文件不要改名弄丢后缀。\n\n【多久一次】建议每周一次；大量聊天 / 加了很多字卡之后；以及每次看到「有新版本」要刷新之前，都先导一次。\n\n【怎么恢复】换机或数据丢失后：装好本站 → 设置 → 通用 →「导入数据」→ 选备份文件 → 按完整备份覆盖恢复，等恢复完成提示后再操作。\n\n【换设备 / 换浏览器】数据不会自动跟过去（本站无云端不同步），全靠备份文件搬家：新设备导入一次即可。\n\n【两个入口不互通】浏览器直接打开 和 桌面快捷方式，是两份独立存储——固定用一个入口；非要换，先在旧入口导出、再到新入口导入。');
 });
 bind('row-faq-st-bug', () => {
 open('丢数据了，怎么判断是不是 bug',
@@ -8168,16 +8168,17 @@ bar.textContent = txt;
 function hideBar() { try { if (bar && bar.parentNode) bar.parentNode.removeChild(bar); } catch (e) {} bar = null; }
 row.addEventListener('click', function () {
 if (!window.openModal || window.mochiPerfCheck.running()) return;
-window.openModal('卡顿自检（渲染层实测）', '', function (v) {
-var durMs = { 10: 10000, 30: 30000, 60: 60000, 120: 120000, 300: 300000 }[String(v)] || 30000;
+function runTest(durMs) {
 window.mochiPerfCheck.start(durMs, function (p) {
-showBar('卡顿实测中…剩 ' + p.left + ' 秒｜已采 ' + p.frames + ' 帧 · 掉帧 ' + p.janky);
+var hidRatio = (p.frames + p.hid) > 0 ? p.hid / (p.frames + p.hid) : 0;
+showBar('卡顿实测中…剩 ' + p.left + ' 秒｜' + (p.pg && p.pg !== '?' ? p.pg + '｜' : '') + '已采 ' + p.frames + ' 帧 · 掉帧 ' + p.janky + (hidRatio > 0.3 ? '（锁屏/切后台的时间不算数）' : ''));
 }).then(function (r) {
 hideBar();
 if (!r) return;
 echoLast();
-window.openModal('卡顿自检报告', r.text, null, {
+var ctlR = window.openModal('卡顿自检报告', r.text, function () { runTest(durMs); }, {
 noInput: true, textarea: true, textareaRows: 16, big: true,
+staticText: '点「再测一次」＝用同样时长马上再来一轮（对照测）；「取消」仅关闭本报告。',
 copyBtn: {
 label: '复制',
 fn: function (c) {
@@ -8202,12 +8203,19 @@ if (c && c.hint) c.hint('导出组件未就绪，请用【复制】或长按手�
 }
 }
 });
+try { if (ctlR && ctlR.okText) ctlR.okText('再测一次'); } catch (e5) {}
 });
+}
+window.openModal('卡顿自检（渲染层实测）', '', function (v) {
+var durMs = { 10: 10000, 30: 30000, 60: 60000, 120: 120000, 300: 300000 }[String(v)] || 30000;
+runTest(durMs);
 }, {
-staticText: '先选时长（点胶囊切换，默认 30 秒）：10 秒＝快速复核「刚那一下卡不卡」；30 秒＝日常自检，看整体掉帧率；1~5 分钟＝抓「偶发卡」专用——切页面卡、用一会儿才卡、玩一阵才掉帧这类，时间越长越撞得上（推荐 2 分钟起）。点「确定」开始后正常用手机（去感觉卡的地方滚动/操作），顶部浮条倒数，结束自动弹报告，可【复制】或【导出docx】发给开发者。采样只在本机、不上传；锁屏/切后台的时间自动剔除，中途锁屏不白测。',
+staticText: '**⚠ 时长太短没用！**10 秒 / 30 秒只能看「此刻顺不顺」，抓卡顿请用 **2 分钟档（已设为默认）**，卡得少就用 **5 分钟**——切页面卡、用一会儿才卡、玩一阵才掉帧这类，时间越长越撞得上。\n\n点「确定」开始后（弹窗会关）正常用手机：去感觉卡的地方打字、滑动、切页、从后台切回来；顶部浮条实时倒数和显示当前页，结束自动弹报告，可【复制】或【导出docx】发给开发者。采样只在本机、不上传；锁屏/切后台的时间自动剔除不算数。',
 noInput: true,
+warn: true,
+staticEmph: true,
 pills: [{ label: '10 秒', value: '10' }, { label: '30 秒', value: '30' }, { label: '60 秒', value: '60' }, { label: '2 分钟', value: '120' }, { label: '5 分钟', value: '300' }],
-pill: '30'
+pill: '120'
 });
 });
 })();

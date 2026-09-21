@@ -432,6 +432,10 @@ const cp = document.getElementById('page-chat');
 return cp ? !cp.hidden : false;
 } catch (e) { return false; }
 }
+function _lateNotify() {
+try { return !!(window.bgLateCatchup && window.bgLateCatchup()) && !_chatPageOpen(); } catch (e) { return false; }
+}
+window.interactLateNotify = _lateNotify; // 查岗卡（ck-question.js）共用（同 interactPopupStale 惯例）
 function _flushPendingPops() {
 if (!_pendingPops.length) return;
 if (cardPopupBusy() || chatInputFocused()) return;
@@ -660,7 +664,7 @@ taAskSave(d);
 refreshAskRecordsIfOpen(); // #625：提问记录页开着时后台来的询问即时上屏
 } catch (e) {}
 const idx = el ? Number(el.dataset.idx) : -1;
-if (window.bgNotifyCheck) window.bgNotifyCheck('TA想问你一个问题：' + q.text, Date.now(), { name: 'TA的询问' });
+if (window.bgNotifyCheck) window.bgNotifyCheck('TA想问你一个问题：' + q.text, Date.now(), { name: 'TA的询问', late: _lateNotify() });
 if (popup) {
 if (document.hidden) { _enqueuePop(idx, 'openAskReply'); }
 else {
@@ -1528,7 +1532,7 @@ const el = window.chatAddSystem(q.text, {
 special: 'ask-choose', choiceQuestion: q.text, choiceOptions: q.options, choicePref: q.pref, choiceCat: q.cat || ''
 });
 const idx = el ? Number(el.dataset.idx) : -1;
-if (window.bgNotifyCheck) window.bgNotifyCheck('TA想让你选一个答案：' + q.text, Date.now(), { name: 'TA的小问题' });
+if (window.bgNotifyCheck) window.bgNotifyCheck('TA想让你选一个答案：' + q.text, Date.now(), { name: 'TA的小问题', late: _lateNotify() });
 if (popup) {
 if (document.hidden) { _enqueuePop(idx, 'openTC'); }
 else {
@@ -2276,7 +2280,7 @@ special: 'ask-curious', curiousQuestion: q.text, curiousQuick: q.quick || [], cu
 curiousFollowup: q.followup || '', curiousQid: q.id || '', curiousCat: q.cat || ''
 });
 const idx = el ? Number(el.dataset.idx) : -1;
-if (window.bgNotifyCheck) window.bgNotifyCheck('TA对你有点好奇：' + q.text, Date.now(), { name: 'TA的好奇' });
+if (window.bgNotifyCheck) window.bgNotifyCheck('TA对你有点好奇：' + q.text, Date.now(), { name: 'TA的好奇', late: _lateNotify() });
 if (popup) {
 if (document.hidden) { _enqueuePop(idx, 'openCurious'); }
 else {
@@ -2816,7 +2820,7 @@ else if (opts && opts.popup === false) popup = false;
 window.chatAddSystem('TA吐槽了你一句。', { special: 'ask-msg' });
 const el = window.chatAddSystem(q.text, { special: 'ask-roast', roastText: q.text, roastCat: q.cat || 'light' });
 const idx = el ? Number(el.dataset.idx) : -1;
-if (window.bgNotifyCheck) window.bgNotifyCheck('TA吐槽了你一句：' + q.text, Date.now(), { name: 'TA的吐槽' });
+if (window.bgNotifyCheck) window.bgNotifyCheck('TA吐槽了你一句：' + q.text, Date.now(), { name: 'TA的吐槽', late: _lateNotify() });
 if (popup) {
 if (document.hidden) { _enqueuePop(idx, 'openRoast'); }
 else {

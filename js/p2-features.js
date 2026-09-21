@@ -729,7 +729,7 @@ if ((now - last) / 36e5 < next) return;
 doCheckin();
 } catch (e) {}
 }
-setInterval(checkAutoCheckin, 60000);
+setInterval(function () { try { if (window.__mochiPhase) window.__mochiPhase('fish-tick'); } catch (e0) {} checkAutoCheckin(); }, 60000);
 function bootCheckin() {
 if (!window.__mochiDataReady) { setTimeout(bootCheckin, 500); return; }
 ckBootDone = true;

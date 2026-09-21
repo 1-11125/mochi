@@ -27,15 +27,19 @@
       document.body.appendChild(t);
     }
     t.textContent = msg;
+    // #921e：动画时长先落、再加 .show——原顺序先加类后改 animationDuration，个别内核会在
+    // 动画已启动后重映射时长＝起帧抖动；先定时长再起动画，起帧稳定。
+    t.style.animationDuration = (dur || 2600) + 'ms';
     t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
     clearTimeout(t._timer);
-    // #708 自检结果多行可读：支持自定义驻留（默认仍 2s）
-    // #724 驻留真生效：#cc-toast.show 的 CSS 动画固定 2.6s forwards 到点必淡出——#708 给的
-    // 9 秒驻留实际 2.6 秒就被动画吞掉（红米 K80 实报「测试结果一闪就没＝测试失效」实锤之一）。
-    // 内联 animationDuration 随 dur 覆盖 CSS 固定值，88% 处才开始淡出的时间轴随驻留等比拉长；
-    // JS 隐藏定时器照旧兜底。元素级内联样式只影响本模块调用，不碰全局 toast CSS。
-    t.style.animationDuration = (dur || 2600) + 'ms';
-    t._timer = setTimeout(() => { t.className = 'cc-toast'; }, dur || 2000);
+    // #724 驻留真生效：#cc-toast.show 的 CSS 动画固定 2.6s forwards，88% 处才开始淡出，
+    // 内联 animationDuration 随 dur 覆盖 CSS 固定值（#708 多行驻留语义不变）。
+    // FIX 2026-09-20 #921e 隐藏只走一条时间轴——原 JS 定时器默认 2000ms 早于动画 88% 驻留点
+    // （2288ms）先掐 .show＝动画中途被取消，取消瞬跳与 .25s 过渡叠加，安卓多机型实报
+    // 黑胶囊「一直闪屏、内容没看清」（主线程一卡定时器成批延迟触发更明显）。现在正常隐藏
+    // 由 CSS 动画 100% 淡出完成（forwards 钉住透明度），JS 定时器只在动画结束后 +250ms
+    // 兜底摘类，正常路径不再中途取消动画。元素级内联样式只影响本模块调用，不碰全局 toast CSS。
+    t._timer = setTimeout(() => { t.className = 'cc-toast'; }, (dur || 2600) + 250);
   }
 
   // ===== v3.44.x：保活音频可换（默认静音音频 / 用户上传自定义音频）=====
@@ -291,6 +295,17 @@
   function kaIsIOS() {
     try { return !!(window.mochiDevice || {}).isIOS; } catch (e) {}
     return false;
+  }
+  // FIX 2026-09-20 #924：隐藏期被外部 App 抢走音频焦点时不再回抢（WebKit 能力分支，
+  // 同文件保活音频频率的 iOS 分支同款先例；零机型分支）。iPhone 上切去刷视频/听歌，
+  // 系统把音频焦点交给对方并暂停保活音频；原实现随后（pause 事件退避补播 / 5s 心跳
+  // 排补播 / 切后台瞬间立即补播）仍回抢 play()＝每次都把对方 App 的声音截停（iPhone
+  // 16 Plus 实报「开着保活刷视频总被截停」，#901 退避只减轻未根治的残余）。iOS 无
+  // Chromium「音频暂停约 1 分钟冻结页面」机制，回抢没有任何保活收益、只有打扰：
+  // 隐藏期被外部打断就让位；回前台 healKeepAlive 既有路径照常拉回。安卓 Chromium 的
+  // 冻结线依赖音频持续在播，三个补播口子全部保持原行为零改动。
+  function kaYieldStealFocus() {
+    return kaIsIOS() && document.visibilityState === 'hidden';
   }
   function ensureKeepAudioDataUrl() {
     if (KEEP_AUDIO_DATAURL) return KEEP_AUDIO_DATAURL;
@@ -627,6 +642,8 @@
       keepEl.addEventListener('pause', function () {
         if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
         if (kaTimer) return; // 已在退避轨道
+        // #924：隐藏期被其他 App 抢走焦点＝用户正在看视频/听歌，不排回抢（见 kaYieldStealFocus）
+        if (kaYieldStealFocus()) return;
         kaSchedule(); // 连击计数由 kaSchedule 内部递增
       });
       const playIt = function () {
@@ -666,6 +683,7 @@
       //   ③ 音频被外部打断暂停→排一次退避补播（间隔由 kaSchedule 按连击指数化）。
       // 补播节奏明显放缓后，与其他 App 抢音频焦点的拉锯大幅减轻。
       keepInterval = setInterval(function () {
+        try { if (window.__mochiPhase) window.__mochiPhase('ka-tick'); } catch (e0) {}
         if (keepAudio && keepAudio.el) {
           try {
             if (musicNowPlaying()) {
@@ -696,7 +714,8 @@
               return;
             }
             // 音频暂停且不在退避轨道（启动被拒/媒体条丢失等漏网场景）→ 排退避补播
-            if (!kaTimer) kaSchedule();
+            // #924：隐藏期被外部抢焦点时同样不排（回抢＝截停对方 App 的声音）
+            if (!kaTimer && !kaYieldStealFocus()) kaSchedule();
           } catch (e) {}
         }
       }, 5000);
@@ -740,12 +759,20 @@
   }
   function stopKeepAlive(showToast) {
     // v3.5.160：停掉 <audio> 保活音频（原来 stop osc/close ctx）
-    try { if (keepAudio && keepAudio.el) { keepAudio.el.pause(); keepAudio.el.src = ''; } } catch (e) {}
+    // FIX 2026-09-20 #924b：改 removeAttribute+load——原 `el.src = ''` 会把 src 置成
+    //   当前文档 URL（空字符串按相对路径解析），iOS WebKit 等内核随即发起「把整个页面
+    //   当媒体加载」的 load/error 循环，error 事件再触发既有补播口子的边缘路径＝关了
+    //   以后音频/媒体条阴魂不散（用户实报「后台保活关不掉」的组成部分）。
+    try { if (keepAudio && keepAudio.el) { keepAudio.el.pause(); keepAudio.el.removeAttribute('src'); try { keepAudio.el.load(); } catch (e2) {} } } catch (e) {}
     // v3.5.155：清除媒体会话标记（通知栏媒体条消失）
     // v3.9.x：音乐播放时不清除——music-player 正在用 MediaSession 控制音乐
     if (!window.__musicPlaying) {
       try {
         if ('mediaSession' in navigator && navigator.mediaSession) {
+          // #924b：先把播放态落回 paused——iOS WebKit 清 metadata 后媒体条/控制中心
+          //   「正在播放」项有残留（已知怪癖），只清 metadata 不改播放态时条目滞留
+          //   ＝用户看到保活条还在、以为「关不掉」。声明暂停后由系统收走该条目。
+          try { navigator.mediaSession.playbackState = 'paused'; } catch (e2) {}
           navigator.mediaSession.metadata = null;
           try { navigator.mediaSession.setActionHandler('play', null); } catch (e) {}
           try { navigator.mediaSession.setActionHandler('pause', null); } catch (e) {}
@@ -817,6 +844,10 @@
   // ta-ask 等模块监听后补触发主动消息 + 补弹后台新卡片（安卓后台 setInterval 被节流，
   // 回前台不等下一个 tick 立即检查；小米MIX4 Edge 收不到后台消息修复）
   let _fgResumeAt = 0;
+  // #915：本次真回前台前「在后台待了多久」——互动卡/心愿等低频触发器在后台期被冻结/深度节流，
+  // 回前台补触发时页面已可见、通知按「前台不弹」被吞＝用户从没收到过它们的后台弹窗。
+  // 补触发侧据此判「这是刚从真后台回来的迟到消息」，给通知打 late 标补弹（见 window.bgLateCatchup）。
+  let _fgFromHiddenFor = 0;
   function _onFgVisible() {
     // v3.18.x：一次切后台再切回会连续触发 visibilitychange(visible)+focus+pageshow，
     // 每次都派发 mochi-fg-resume 会让 ta-ask 补触发/补弹连跑多遍 → 弹出一大堆已看过的旧卡片重叠。
@@ -824,6 +855,8 @@
     const now = Date.now();
     if (now - _fgResumeAt < 1000) return;
     _fgResumeAt = now;
+    // lastHiddenAt 的置零监听器注册在本监听之后，此刻仍是本次后台的起点（未刷新）
+    try { _fgFromHiddenFor = lastHiddenAt > 0 ? now - lastHiddenAt : 0; } catch (e) { _fgFromHiddenFor = 0; }
     healKeepAlive();
     try { document.dispatchEvent(new Event('mochi-fg-resume')); } catch (e) {}
   }
@@ -849,6 +882,9 @@
     if (document.visibilityState !== 'hidden') return;
     if (!keepEnabled || !keepAudio || !keepAudio.el || musicNowPlaying()) return;
     if (!keepAudio.el.paused) return;
+    // #924：切后台瞬间正是用户切去刷视频/听歌的时刻，此时立即补播＝当场把对方截停；
+    // iOS 无 Chromium 冻结线，让位（回前台 healKeepAlive 照常拉回）。安卓保持原行为。
+    if (kaYieldStealFocus()) return;
     kaResetBackoff();
     const p = keepAudio.el.play();
     if (p && p.catch) p.catch(function () {});
@@ -872,8 +908,23 @@
   });
   const kaBtn = document.getElementById('bg-keepalive');
   function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
+  // #921f：change 事件的用户手势闸（保活/通知开关共用）——环境不支持 userActivation 时放行
+  //（老内核无此 API，也不会有丢弃唤醒重载那类伪 change）；拿不到读数按真手势处理，不误伤。
+  function kaUserGesture(e) {
+    try {
+      if (e && e.isTrusted === false) return false;
+      if (navigator.userActivation && navigator.userActivation.hasBeenActive === false) return false;
+    } catch (er) {}
+    return true;
+  }
   if (kaBtn) {
-    kaBtn.addEventListener('change', function () {
+    kaBtn.addEventListener('change', function (e) {
+      // FIX 2026-09-20 #921f：非用户手势来源的 change 一律忽略——Edge「睡眠标签页」/Chrome
+      // 「内存节省程序」把挂后台约 30 分钟的页面丢弃后自动重载（用户实报 OPPO Reno14 Edge
+      // 「挂后台半小时自动刷新、重进后保活/通知自动关闭」），这类唤醒重载路径可能产生
+      // 无手势的 change 翻转；照单全收＝开关被写 '0'＋__ka-user-off 锁死＝「重进自动关闭」。
+      // 真用户点按必有手势（hasBeenActive=true），正常操作不受影响。
+      if (!kaUserGesture(e)) { syncKeepUI(); try { kaBtn.checked = keepEnabled; } catch (er) {} return; }
       keepUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
       keepEnabled = kaBtn.checked;
       gSet('bg-keepalive', keepEnabled ? '1' : '0');
@@ -1066,25 +1117,77 @@
   //   ④ lastNotifyChannel 如实记录本次实际走的通道——测试按钮据此说真话，诊断不再指错层。
   let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
   window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
-  let swLaterTimer = null;      // 「就绪即补发」单发闸（同时只挂一条，防重复补发）
-  function swNotifyLater(title, opts, chanOut) {
-    // #708：补发通道同样按调用独立回报（与 showSysNotification 的 note 同口径）
-    const note = function (ch) { lastNotifyChannel = ch; if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} } };
-    if (swLaterTimer) return;
-    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) return;
-    let done = false;
-    const finish = function () { done = true; if (swLaterTimer) { clearTimeout(swLaterTimer); swLaterTimer = null; } };
-    swLaterTimer = setTimeout(finish, 60000);
-    kaWithTimeout(navigator.serviceWorker.ready, 60000).then(function (reg) {
-      if (done || !reg) return;
-      finish();
-      const o = Object.assign({}, opts);
+  let swLaterQueue = [];        // FIX 2026-09-20 #921：待补发队列——原单发闸在等待窗内只收第一条，
+                                //   后续到达的通知整条静默吞掉（弱网/SW 被回收/刚更新完的窗口里
+                                //   连着来几条消息＝只弹第一条），表现为「时不时收不到后台弹窗」。
+  let swLaterTimer = null;      // 「就绪即补发」等待窗（同时只挂一个定时器，到点统一 flush）
+  function swNotifyNote(ch, chanOut) {
+    lastNotifyChannel = ch;
+    if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
+  }
+  function swLaterFlush(reg) {
+    if (!swLaterTimer) return; // 已 flush 过（ready 与 60s 到点谁先到都只跑一次）
+    clearTimeout(swLaterTimer); swLaterTimer = null;
+    const q = swLaterQueue; swLaterQueue = [];
+    if (!reg) {
+      for (let i = 0; i < q.length; i++) swNotifyNote('none', q[i].chanOut);
+      // FIX 2026-09-20 #921：等到点仍拿不到 SW＝本页会话通知通道异常，这批消息已丢。
+      // 回前台可见时顶部出恢复条引导「立即刷新 / 彻底关闭浏览器重开」（#761 同口径），
+      // 不能再让用户毫无感知地丢通知。
+      chanDownPending += q.length;
+      tryShowNotifyHealBar();
+      return;
+    }
+    // 自愈：通道恢复正常 → 收掉恢复条、清掉待提示计数
+    chanDownPending = 0;
+    try { const hb = document.getElementById('notify-heal-bar'); if (hb) hb.hidden = true; } catch (e) {}
+    for (let i = 0; i < q.length; i++) {
+      const o = Object.assign({}, q[i].opts);
       // 补发求稳：媒体字段全不带——纯文字通知最不容易被内核/系统挑掉（错过一次就不再错过）
       delete o.image; delete o.icon; delete o.badge;
       if (!o.urgency) o.urgency = 'high';
-      try { reg.showNotification(title, o); note('sw'); } catch (e) {}
-    }).catch(function () { finish(); });
+      try { reg.showNotification(q[i].title, o); swNotifyNote('sw', q[i].chanOut); } catch (e) { swNotifyNote('none', q[i].chanOut); }
+    }
   }
+  function swNotifyLater(title, opts, chanOut) {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) { swNotifyNote('none', chanOut); return; }
+    swLaterQueue.push({ title: title, opts: opts, chanOut: chanOut });
+    if (swLaterTimer) return;
+    swLaterTimer = setTimeout(function () { swLaterFlush(null); }, 60000);
+    kaWithTimeout(navigator.serviceWorker.ready, 60000).then(swLaterFlush, function () { swLaterFlush(null); });
+  }
+  // ===== #921：通知通道异常恢复条（复用 .ver-update-bar 顶条形态，模板锚 notify-heal-bar） =====
+  // 出条条件：就绪补发到点仍拿不到 SW（通道异常且回天乏术）× 页面在前台 × 开屏已关
+  // （#900 教训：z-998 顶条在开屏 z-999 之下，开屏期间弹＝弹在看不见的地方）。
+  // 收条条件：用户点「知道了」（12h 内不再自动弹）或后续 flush 成功（自愈）。
+  // 每个页面会话最多自动弹 2 次，不与版本更新条/备份提醒条抢位（本条只在通道异常时出现）。
+  let chanDownPending = 0;
+  let chanDownShown = 0;
+  let chanDownDismissAt = 0;
+  function chanSplashGone() {
+    const s = document.getElementById('splash');
+    return !s || !s.isConnected || s.classList.contains('hide');
+  }
+  function tryShowNotifyHealBar() {
+    if (!chanDownPending) return;
+    if (document.visibilityState !== 'visible' || !chanSplashGone()) return;
+    const n = chanDownPending; chanDownPending = 0;
+    if (chanDownShown >= 2 || Date.now() - chanDownDismissAt < 12 * 3600 * 1000) return;
+    chanDownShown++;
+    const bar = document.getElementById('notify-heal-bar');
+    if (!bar) return;
+    const txt = document.getElementById('notify-heal-txt');
+    if (txt) txt.textContent = '⚠ 后台通知通道未就绪：刚才有 ' + n + ' 条消息没能弹出。点「立即刷新」恢复；无效请彻底关闭浏览器后重开';
+    bar.hidden = false;
+    const act = document.getElementById('notify-heal-refresh');
+    if (act) act.onclick = function () { try { location.reload(); } catch (e) {} };
+    const close = document.getElementById('notify-heal-close');
+    if (close) close.onclick = function () { chanDownDismissAt = Date.now(); bar.hidden = true; };
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    setTimeout(tryShowNotifyHealBar, 800); // 回前台补出条（隐藏期间发生的丢失也提示）；错开回前台渲染高峰
+  });
   function showSysNotification(title, opts, chanOut) {
     opts = opts || {};
     // #708 自检优化：通道回报支持「每次调用独立收集」——lastNotifyChannel 是全局共享，
@@ -1184,7 +1287,9 @@
   const nbBtn = document.getElementById('bg-notify');
   function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
   if (nbBtn) {
-    nbBtn.addEventListener('change', function () {
+    nbBtn.addEventListener('change', function (e) {
+      // #921f：无手势 change 忽略并回弹（同保活闸——丢弃唤醒重载的伪翻转不得写 '0'）
+      if (!kaUserGesture(e)) { syncNotifyUI(); try { nbBtn.checked = notifyEnabled; } catch (er) {} return; }
       notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
       if (nbBtn.checked) {
         requestNotifyPermission(function () {
@@ -1192,6 +1297,11 @@
           gSet('bg-notify', '1');
           syncNotifyUI();
           showSysNotification('通知已开启', { body: '后台消息提醒将正常弹窗' });
+          // FIX 2026-09-20 #924c：iPhone 如实告知能力边界——iOS WebKit 的系统通知只认
+          //   「推送服务」通道（App Store 级推送服务端），纯本地应用没有推送服务，
+          //   保活期间的后台弹窗不保证弹出＝平台限制、代码无法绕过；消息本身不丢，
+          //   回前台有迟到补弹（#915 bgLateCatchup）与聊天记录兜底。
+          if (kaIsIOS()) setTimeout(function () { toast('iPhone 提示：受系统限制，后台弹窗不保证弹出；消息不会丢，回来自动补看'); }, 1600);
           // v3.5.132：开启通知时自动联动开启后台保活——后台消息要"到达"必须
           //   页面定时器在后台仍运行（静音音频保活）；否则开关开了但页面休眠，
           //   消息根本不产生，通知永远不会弹（旧版只 toast 提醒，用户容易漏开）
@@ -1237,7 +1347,11 @@
       if (old !== null) { gSet('bg-notify', old); saved = old; }
     }
     // v3.5.131：恢复时校验权限——浏览器/系统回收权限后开关仍显示"开"但通知静默失效
-    notifyEnabled = saved === '1' && 'Notification' in window && Notification.permission === 'granted';
+    // FIX 2026-09-20 #921g：自动关闭只认「明确被拒（denied）」——Edge/Chrome 睡眠标签页丢弃
+    //   唤醒重载等场景下 permission 会瞬态读到 'default'（诊断实锤：实际 granted、开关却被
+    //   落 '0'＝「重进后通知自动关闭」），'default' 一律视为瞬态误读：开关照常恢复为开、
+    //   不落 0，回前台 reheat 再复查（真被拒时浏览器设置里必是 denied，仍会被关）。
+    notifyEnabled = saved === '1' && 'Notification' in window && Notification.permission !== 'denied';
     // v3.13.x：预热 badge 单色图——页面启动即后台生成，首条通知前通常已就绪
     if ('Notification' in window && Notification.permission === 'granted') { getBadgeUrl(function () {}); }
     if (saved === '1' && !notifyEnabled) {
@@ -1268,19 +1382,19 @@
       }
     }
     if (!notifyUserTouched) {
-      // 与初始化同款权限校验：系统/浏览器回收权限后不得把开关显示成「开」
+      // 与初始化同口径（#921g）：只有 denied 才算真被拒；'default'＝瞬态误读不落 0 不关开关
       const savedNotify = gGet('bg-notify');
-      const wantNotify = savedNotify === '1' &&
-        'Notification' in window && Notification.permission === 'granted';
+      const permState = ('Notification' in window) ? Notification.permission : 'unsupported';
+      const wantNotify = savedNotify === '1' && (permState === 'granted' || permState === 'default');
       if (wantNotify !== notifyEnabled) {
         notifyEnabled = wantNotify;
         syncNotifyUI();
         if (wantNotify) getBadgeUrl(function () {}); // 预热 badge 单色图（同初始化）
         try { console.info('[mochi] #88 回填后重读后台通知：' + (wantNotify ? '开' : '关')); } catch (e) {}
       }
-      // 权限已被回收：静默把 IDB/LS 的「开」改回「关」保持存储与 UI 一致，
+      // 权限已被回收（仅 denied）：静默把 IDB/LS 的「开」改回「关」保持存储与 UI 一致，
       // 但不再重复 toast（初始化那次已经提示过）
-      if (savedNotify === '1' && !wantNotify) {
+      if (savedNotify === '1' && permState === 'denied') {
         try { gSet('bg-notify', '0'); } catch (e) {}
       }
     }
@@ -1383,7 +1497,7 @@
             if (verStale) push('先升级：本页是旧版本包——彻底关闭浏览器再重开（或点顶部「刷新使用新版」），旧包＝「没改任何东西弹窗突然全没」的头号原因');
             push('重置浏览器通知权限：浏览器设置 → 网站设置 → 通知 → 把本站「关闭」再「允许」，然后强杀浏览器重开（「权限明明开着、通知却消失好几天」多数被这一步救活——JS 读到的一直是 granted，坏的是浏览器内部那条通道）');
             push('系统通知设置：系统设置 → 通知管理 → 本浏览器 → 总开关打开、「允许横幅通知/在屏幕上方显示」打开、通知重要性选「提醒」；国产 ROM（vivo/OPPO/小米/华为）每项可能各自独立');
-            push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）');
+            push('省电限制：允许本浏览器后台运行/关闭对它的省电优化（否则挂后台时整页被冻结，消息与通知都无从产生）；Edge 的「睡眠标签页」/Chrome 的「内存节省程序」默认把挂后台约 30 分钟的页面丢弃重载（表现＝回来时页面自动刷新、保活/通知可能被重置）——浏览器设置里把本站加入「永不睡眠/始终保持活动」名单');
             steps.push('每做完一步就按 Home 键把页面切到后台、让 TA 发一条消息验证；全部走完仍不弹 → 用「信息诊断」里的反馈入口一键上报');
             window.openModal('没弹出 → 按顺序排查（实效从高到低）', '', function () {}, {
               noInput: true, big: true,
@@ -1739,6 +1853,12 @@
     };
   };
 
+  // #915：「刚从真后台回前台」探针——默认判据：本次回前台前在后台 ≥60s，且回前台未超 8s
+  // （补触发链都在此刻同步/毫秒级跑完）。互动卡/心愿等低频触发器后台期被冻结、回前台补触发
+  // 才生成卡片，产生方据此给 bgNotifyCheck 打 late 标补弹系统通知（走同一套去重闸门）。
+  window.bgLateCatchup = function (minHiddenMs, winMs) {
+    return Date.now() - _fgResumeAt < (winMs || 8000) && _fgFromHiddenFor >= (minHiddenMs || 60000);
+  };
   // 供 chat.js（showDeskPopup 联动）/ 信箱 / 朋友圈调用：TA 相关新事件且页面不在
   // 前台时弹系统通知。第三参 extra：name 通知标题（信箱/朋友圈/机制名，默认 TA 昵称）、
   // img 图片 dataURL（通知 image 字段显示缩略图）；头像 + 昵称 + 时间（精确到秒）+ 内容
@@ -1750,7 +1870,11 @@
     // v3.14.x：前台收到改为「记 seen 指纹后返回」而非裸返回——用户已在应用内看到的
     // 内容，之后任何机制再次触发同文案都不再重复弹系统通知
     const nkey = msgFingerprint(text, extra.img);
-    if (document.visibilityState === 'visible') { markSeen(nkey); return; }
+    // #915：late＝「刚从真后台回来的迟到补弹」（产生方经 window.bgLateCatchup 判定后打标）。
+    // 前台默认不弹系统通知（用户在场，看见即已读语义）；迟到补弹例外继续走后面的
+    // 去重闸门——不在这里 markSeen（否则下面的 seenDup 会被自己刚记的账吞掉），
+    // 同一内容前台真看过（seenDup/已发窗）照样吞，绝不双弹。
+    if (document.visibilityState === 'visible') { if (!extra.late) { markSeen(nkey); return; } }
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     // FIX 2026-09-18 #780：消息身份闸门（治「切后台突然弹前几分钟看过的消息」）——
     // 整页冻结解冻时积压的回复链一口气重投，下面三道内容去重窗口起点全是 Date.now()

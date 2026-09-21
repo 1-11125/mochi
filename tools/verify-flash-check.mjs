@@ -53,6 +53,7 @@ let cssFiles = [], jsFiles = [];
 const readOr = (p) => { try { return readFileSync(p, 'utf8'); } catch (e) { return ''; } };
 const srcFc = readOr(join(root, 'src/js/flash-check.js'));
 const srcCs = readFileSync(join(root, 'src/js/chat-settings.js'), 'utf8');
+const srcGc = readOr(join(root, 'src/js/group-chat.js'));
 const srcTpl = readFileSync(join(root, 'src/template.html'), 'utf8');
 const srcContacts = readFileSync(join(root, 'src/js/contacts.js'), 'utf8');
 let csText = srcCs;
@@ -64,7 +65,25 @@ if (RED) {
   csText = csText.replace(GREEN_SET, 'const setVar = (el, name, value) => { if (el) el.style.setProperty(name, String(value)); };')
     .replace(GREEN_DEL, 'const delVar = (el, name) => { if (el) el.style.removeProperty(name); };');
 }
-const overrides = { 'chat-settings.js': csText };
+// #966：--red-gc 把 group-chat.js 的 gcSetVar 还原成「值变不变都照写一遍」（群聊侧 #938 根因形态），
+// 用来证明 G2 有判别力——群聊抽屉里重复点同一档必然翻动+白写，G2 必红。
+const REDGC = process.argv.includes('--red-gc');
+let gcText = srcGc;
+if (REDGC) {
+  const GREEN_GCSET = "const gcSetVar = (el, name, value) => { if (!el) return; const v = String(value); if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v); };";
+  if (gcText.split(GREEN_GCSET).length - 1 !== 1) { console.error('RED-GC：找不到 gcSetVar 守卫行'); process.exit(1); }
+  gcText = gcText.replace(GREEN_GCSET, "const gcSetVar = (el, name, value) => { if (el) el.style.setProperty(name, String(value)); };");
+}
+// #966：--red-probe 把探针的抽屉/宿主收回到「只认单聊那一套」（红米实报的形态），
+// 用来证明 G 组有判别力——群聊抽屉里的点按与写入必然全漏，G1/G2/G4/G5 必红。
+const REDPROBE = process.argv.includes('--red-probe');
+let fcText = srcFc;
+if (REDPROBE) {
+  fcText = fcText.replace("var DRAWERS = ['chat-beauty-drawer', 'gc-beauty-drawer'];", "var DRAWERS = ['chat-beauty-drawer'];")
+    .replace("var HOSTS = ['page-chat', 'page-group-chat'];", "var HOSTS = ['page-chat'];");
+  if (fcText === srcFc) { console.error('RED-PROBE：找不到抽屉/宿主族行'); process.exit(1); }
+}
+const overrides = { 'chat-settings.js': csText, 'group-chat.js': gcText, 'flash-check.js': fcText };
 let testHtml = readFileSync(join(root, 'src/template.html'), 'utf8');
 testHtml = testHtml.replace('/*__STYLES__*/', cssFiles.map((f) => readFileSync(join(root, 'src/css', f), 'utf8')).join('\n'));
 testHtml = testHtml.replace('/*__SCRIPTS__*/', jsFiles.map((f) => {
@@ -131,12 +150,23 @@ const ANCHORS = [
   ['S4 空删变量判定', "if (VAR_NS.test(String(n)) && getVal(s, String(n)) === '') mark('dn');"],
   ['S5 空摘 cs-* 类判定', "if (c.indexOf('cs-') === 0 && !this.contains(c)) mark('cn');"],
   ['S6 cs-* 样式表拆建观察', "if (nd.nodeName === 'STYLE' && String(nd.id || '').indexOf('cs-') === 0) mark('ss');"],
-  ['S7 以「用户的点击」分段（探针第②要害：删＝值没变那一下不留记录，报告假称没采到）', '_clicks.push({ t: t, in: inDrawer(e.target) });'],
+  ['S7 以「用户的点击」分段（探针第②要害：删＝值没变那一下不留记录，报告假称没采到）', '_clicks.push({ t: t, in: hit });'],
 ];
 ANCHORS.forEach(([label, needle]) => ok(label + '：在 flash-check.js 内唯一', cnt(srcFc, needle) === 1, { n: cnt(srcFc, needle) }));
 ok('S8 报告键已登记 EXCLUDE（漏＝每次刷新被迁进 default 桌面并删根键，报障时那份报告没了）', srcContacts.includes("'flash-check-last'"));
 ok('S9 只读性：全模块只写 LAST_KEY 一个键、不删不清存储', srcFc.split('localStorage.setItem(').length - 1 === 1 && srcFc.includes('localStorage.setItem(LAST_KEY,') && !/localStorage\.(removeItem|clear)/.test(srcFc));
-ok('S10 抽屉容器 id 两侧同名（漂移＝点击永远判成「不在抽屉里」，探针静默失效）', cnt(srcFc, "'chat-beauty-drawer'") === 1 && cnt(srcCs, 'chat-beauty-drawer') >= 1, { fc: cnt(srcFc, "'chat-beauty-drawer'"), cs: cnt(srcCs, 'chat-beauty-drawer') });
+// #966：抽屉与宿主都是一族。原 S10 只证「单聊抽屉 id 两侧同名」——群聊那一族漏在哪，探针就静默失效在哪。
+ok('S10 抽屉按族识别：单聊/群聊两个「边看边调」都认，且两处 id 与各自源码一致（漂移＝点击永远判成「不在抽屉里」，探针静默失效）',
+  cnt(srcFc, "var DRAWERS = ['chat-beauty-drawer', 'gc-beauty-drawer'];") === 1 && srcFc.includes("'chat-beauty-drawer'") && srcFc.includes("'gc-beauty-drawer'")
+  && cnt(srcCs, "'chat-beauty-drawer'") >= 1 && cnt(srcGc, "'gc-beauty-drawer'") >= 1,
+  { cs: cnt(srcCs, "'chat-beauty-drawer'"), gc: cnt(srcGc, "'gc-beauty-drawer'") });
+ok('S11 宿主按族挂钩：:root + 聊天页 + 群聊页（群聊把美化变量写在 #page-group-chat 上，漏＝群聊侧写入没人看）',
+  cnt(srcFc, "var HOSTS = ['page-chat', 'page-group-chat'];") === 1 && cnt(srcGc, "getElementById('page-group-chat')") >= 1);
+ok('S12 群聊页 style 变更计入翻动（删＝群聊抽屉的整页样式重解析不进报告）',
+  cnt(srcFc, "else if (w === 'page-group-chat') list[kk].o.flipGc++;") === 1 && cnt(srcFc, 'o.flipRoot + o.flipChat + o.flipGc') >= 1);
+ok('S13 群聊美化同值不重写守卫（删＝点同一个档仍重写 ~16 个变量＝#938 那型闪屏在群聊侧回流）',
+  cnt(srcGc, 'const gcSetVar = (el, name, value) =>') === 1 && cnt(srcGc, 'gcSetCls(page, wantTime, true);') === 1
+  && cnt(srcGc, "gcSetVar(page, '--msg-in-ink', g('in-ink'));") === 1);
 
 await cdpConnect();
 await cdp('Runtime.enable');
@@ -148,6 +178,7 @@ await evalJs(`(function(){ localStorage.clear();
   localStorage.setItem('xy-home-v2:active-contact', 'cta');
   var msgs=[]; for (var i=0;i<120;i++){ msgs.push({ side: i%2? 'out':'in', text: '消息 '+i+' '+'哈'.repeat(4+i%30), ts: 1700000000000+i*60000 }); }
   localStorage.setItem('xy-home-v2:cta:chat-msgs', JSON.stringify(msgs));
+  localStorage.setItem('xy-home-v2:group-chat-msgs', JSON.stringify(msgs));
   return true; })()`);
 await navigate(baseUrl + '/index.html');
 await evalJs(`(function(){ var app=document.querySelector('.app[data-app="chat"]'); if(app) app.click(); return 1; })()`);
@@ -302,6 +333,64 @@ const bizSame = ['xy-home-v2:cta:chat-msgs', 'xy-home-v2:contacts', 'xy-home-v2:
   .filter((k) => m0.get(k) !== m1.get(k));
 ok('B8b 没有任何存储键被删或清空（只读自测最硬的一条边界）', removed.length === 0, { removed });
 ok('B8c 业务数据逐字未动：聊天记录 / 联系人表 / 当前桌面 三个键全程零变化', bizSame.length === 0, { bizSame });
+console.log('== G 群聊「边看边调」抽屉（#966 红米 K80 实报「没有采到抽屉里的点击」）==');
+// 探针原先只认单聊抽屉 #chat-beauty-drawer，且只挂 :root/#page-chat——群聊那一族（#gc-beauty-drawer，
+// 变量写在 #page-group-chat 上）的点按与写入全漏，报告静默变成「没采到」。G 组就是把这条腿走一遍。
+const G_PILL = (rowLabel, pillLabel) => `(function(){ var d=document.getElementById('gc-beauty-drawer');
+  var wraps=[].slice.call(d.querySelectorAll('div')), pick=null;
+  for (var i=0;i<wraps.length;i++){ var w=wraps[i], lb=w.firstElementChild, row=w.lastElementChild;
+    if (!lb || lb.tagName !== 'SPAN' || String(lb.textContent).trim() !== ${JSON.stringify(rowLabel)} || !row) continue;
+    var bs=[].slice.call(row.querySelectorAll('button'));
+    for (var j=0;j<bs.length;j++){ if (String(bs[j].textContent).trim() === ${JSON.stringify(pillLabel)}) pick = bs[j]; }
+  }
+  if (!pick) return false; pick.click(); return true; })()`;
+await evalJs(`(function(){ var a=document.querySelector('.app[data-app="group-chat"]'); if(a) a.click(); return 1; })()`);
+await sleep(1800);
+await evalJs(`(function(){ var b=document.getElementById('gc-more-btn'); if(b) b.click(); return 1; })()`);
+await sleep(300);
+await evalJs(`(function(){ var b=document.getElementById('gc-more-settings'); if(b) b.click(); return 1; })()`);
+await sleep(500);
+await evalJs(`(function(){ var t=document.querySelector('#gc-settings-panel [data-gt="beauty"]'); if(t) t.click(); return 1; })()`);
+await sleep(500);
+await evalJs(`(function(){ var b=document.getElementById('gc-live-adjust'); if(b) b.click(); return 1; })()`);
+await sleep(700);
+const gOpen = await evalJs(`(function(){ var d=document.getElementById('gc-beauty-drawer');
+  return { drawer: !!(d && getComputedStyle(d).display !== 'none'), pills: d ? d.querySelectorAll('button').length : 0 }; })()`);
+ok('G0 前置：群聊美化抽屉真的打开（群聊设置 → 美化 → 边看边调）', !!(gOpen && gOpen.drawer && gOpen.pills > 5), gOpen);
+await evalJs(`(function(){ var r=document.getElementById('row-flash-check'); if(r) r.click(); return 1; })()`);
+await sleep(300);
+await evalJs(`(function(){ var b=document.getElementById('modal-ok'); if(b) b.click(); return 1; })()`);
+await sleep(400);
+// 固定到「气泡」分区（切分区那一下也算抽屉点击），再重开一轮＝窗口里只有那四下档位点击
+await evalJs(`(function(){ var d=document.getElementById('gc-beauty-drawer'); var c=d.querySelector('button[data-sec="bubble"]'); if(c) c.click(); return 1; })()`);
+await sleep(400);
+await evalJs(`(function(){ window.mochiFlashCheck.stop(); window.mochiFlashCheck.start(); return 1; })()`);
+await sleep(300);
+const gSeq = [];
+for (const lb of ['宽松', '宽松', '紧凑', '标准']) {
+  gSeq.push({ lb: lb, clicked: await evalJs(G_PILL('气泡框大小', lb)) });
+  await sleep(650);
+}
+const padGc = await evalJs(`(function(){ var p=document.getElementById('page-group-chat'); return p ? p.style.getPropertyValue('--chat-bubble-pad') : null; })()`);
+const grep2 = await evalJs(`(function(){ var r=window.mochiFlashCheck.report(); return { text:r.text, n:r.ops.length, ops:r.ops, flip:r.flipAll, waste:r.wasteAll }; })()`);
+const go = grep2 && grep2.ops ? grep2.ops : [];
+ok('G1 群聊抽屉里的四下全部采到、报告恰四段且逐段标「群聊」（删＝群聊点按全漏，报告假称「没采到」＝红米实报症状）',
+  gSeq.every(function (x) { return x.clicked === true; }) && !!grep2 && grep2.n === 4 && go.every(function (o) { return o.drawer === '群聊'; }),
+  { seq: gSeq, n: grep2 && grep2.n, drawers: go.map(function (o) { return o.drawer; }) });
+ok('G2 群聊里「值没变」那一下同样是零翻动零白写（群聊 applyGcBeauty 原无条件重写 ~16 个变量＋白摘 5 个类＝#938 那型闪屏；本批补守卫）',
+  go.length === 4 && !go[1].writes && go[1].flipRoot === 0 && go[1].flipChat === 0 && go[1].flipGc === 0 && go[1].noop === 0 && go[1].delNoop === 0 && go[1].clsNoop === 0 && go[1].swap === 0 && go[0].writes > 0,
+  go[1]);
+ok('G3 群聊里真换档照常生效（末档「标准」＝--chat-bubble-pad 11px 14px 落位，守卫没把群聊功能闸死）', padGc === '11px 14px', { padGc });
+ok('G4 群聊这一轮结论行如实（不再落进「没采到」）', !!grep2 && /未见闪屏来源/.test(grep2.text), { tail: grep2 ? grep2.text.slice(-140) : null });
+// G5：「点了但不在抽屉里」要能和「压根没点」区分开（#966 拆句）——点群聊消息区（抽屉外）验证
+await evalJs(`(function(){ window.mochiFlashCheck.stop(); window.mochiFlashCheck.start(); return 1; })()`);
+await sleep(300);
+await evalJs(`(function(){ var b=document.getElementById('gc-body'); if(b) b.click(); return 1; })()`);
+await sleep(400);
+const gDiag = await evalJs(`(function(){ return window.mochiFlashCheck.report().text; })()`);
+ok('G5 点错地方时如实说是「点了但不在抽屉里」（删＝两种情形同一句话，用户与开发者都无从下手）',
+  /没有采到「抽屉里」的点击：这段时间共采到 \d+ 次屏幕点击/.test(gDiag || ''), { head: (gDiag || '').slice(0, 200) });
+await evalJs(`(function(){ window.mochiFlashCheck.stop(); return 1; })()`);
 const zAll = await evalJs(`(function(){ return (window.__jsErrors||[]).slice(); })()`) || [];
 const z1 = zAll.slice(jsBase.length);
 ok('Z 自测全程零 JS 异常', Array.isArray(z1) && z1.length === 0, z1);

@@ -642,12 +642,12 @@ const it = imgListOf(kind, arc).find(x => x.id === id);
 if (it && it.img) {
 window.openModal('这条已配图', '', function (v) {
 if (v === 'del') { delete it.img; saveArc(cur, arc); toast('已移除配图'); render(); }
-else if (v === 'new') { imgTarget = { kind: kind, id: id }; ensureImgInput().click(); }
+else if (v === 'new') { imgTarget = { kind: kind, id: id }; window.mochiFilePickFire(ensureImgInput()); }
 }, { noInput: true, pill: 'new', pills: [{ label: '换一张', value: 'new' }, { label: '移除配图', value: 'del' }] });
 return;
 }
 imgTarget = { kind: kind, id: id };
-ensureImgInput().click();
+window.mochiFilePickFire(ensureImgInput());
 }
 function ensureImgInput() {
 let inp = document.getElementById('narc-img-input');

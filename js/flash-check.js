@@ -11,6 +11,7 @@ var JANK_MS = 50;      // 手机 60fps 下 >50ms 视为肉眼可见的跳帧
 var _on = false;
 var _clicks = [], _ev = [], _flips = [], _frames = [];
 var _styleHooks = [], _obs = [], _origRemove = null, _chip = null, _onClick = null;
+var _seen = 0, _seenIn = 0;   // #963：屏幕点击总数 / 其中落在抽屉内的次数（报障时区分「没点」与「点错地方」）
 function now() { try { return performance.now(); } catch (e) { return Date.now(); } }
 function appVer() {
 try { var el = document.getElementById('about-ver-val'); var t = el && String(el.textContent || '').trim(); if (t && t.indexOf('__') < 0) return t; } catch (e) {}
@@ -45,18 +46,21 @@ _styleHooks.push({ s: s, set: _set, del: _del });
 }
 function arm() {
 var root = document.documentElement;
-var chat = document.getElementById('page-chat');
 hookStyle(root, 'root');
-hookStyle(chat, 'chat');
+var hosts = [];
+for (var h = 0; h < HOSTS.length; h++) {
+var el = document.getElementById(HOSTS[h]);
+if (el) { hookStyle(el, HOSTS[h]); hosts.push(el); }
+}
 var mo = new MutationObserver(function (ms) {
 for (var i = 0; i < ms.length; i++) {
 var m = ms[i];
 if (m.type !== 'attributes' || m.attributeName !== 'style') continue;
-flip(m.target === root ? 'root' : 'chat');
+flip(m.target === root ? 'root' : String(m.target.id || 'chat'));
 }
 });
 mo.observe(root, { attributes: true, attributeFilter: ['style'] });
-if (chat) mo.observe(chat, { attributes: true, attributeFilter: ['style'] });
+for (var j = 0; j < hosts.length; j++) mo.observe(hosts[j], { attributes: true, attributeFilter: ['style'] });
 _obs.push(mo);
 var mo2 = new MutationObserver(function (ms) {
 for (var i = 0; i < ms.length; i++) {
@@ -84,8 +88,11 @@ return _origRemove.apply(this, arguments);
 _onClick = function (e) {
 if (!_on) return;
 var t = now();
+var hit = drawerHit(e.target);
+_seen++;
+if (hit) _seenIn++;
 if (_clicks.length >= MAX_OPS * 6) _clicks.shift();
-_clicks.push({ t: t, in: inDrawer(e.target) });
+_clicks.push({ t: t, in: hit });
 };
 document.addEventListener('click', _onClick, true);
 (function frames() {
@@ -100,14 +107,21 @@ requestAnimationFrame(tick);
 });
 })();
 }
-function inDrawer(el) {
-var d = document.getElementById('chat-beauty-drawer');
-if (!d || !el) return false;
-try { return d.contains(el); } catch (e) { return false; }
+var DRAWERS = ['chat-beauty-drawer', 'gc-beauty-drawer'];
+var HOSTS = ['page-chat', 'page-group-chat'];
+var DRAWER_NAME = { 'chat-beauty-drawer': '单聊', 'gc-beauty-drawer': '群聊' };
+function drawerHit(el) {
+if (!el) return '';
+for (var i = 0; i < DRAWERS.length; i++) {
+var d = document.getElementById(DRAWERS[i]);
+if (!d) continue;
+try { if (d.contains(el)) return DRAWERS[i]; } catch (e) {}
+}
+return '';
 }
 function collect() {
 var list = [];
-for (var i = 0; i < _clicks.length && list.length < MAX_OPS; i++) { if (_clicks[i].in) list.push({ t: _clicks[i].t, o: newOp(_clicks[i].t) }); }
+for (var i = 0; i < _clicks.length && list.length < MAX_OPS; i++) { if (_clicks[i].in) list.push({ t: _clicks[i].t, d: _clicks[i].in, o: newOp(_clicks[i].t) }); }
 var owner = function (t) {
 var best = -1;
 for (var i = 0; i < list.length; i++) { if (t >= list[i].t - 2 && t - list[i].t <= GAP_MS) best = i; }
@@ -125,7 +139,10 @@ else if (kind === 'ss') o.swap++;
 }
 for (var f = 0; f < _flips.length; f++) {
 var kk = owner(_flips[f].t); if (kk < 0) { other++; continue; }
-if (_flips[f].w === 'root') list[kk].o.flipRoot++; else list[kk].o.flipChat++;
+var w = _flips[f].w;
+if (w === 'root') list[kk].o.flipRoot++;
+else if (w === 'page-group-chat') list[kk].o.flipGc++;
+else list[kk].o.flipChat++;
 }
 _other = other;
 for (var j = 0; j < list.length; j++) {
@@ -140,18 +157,18 @@ for (var g = 0; g < gaps.length; g++) { if (gaps[g] > JANK_MS) jank++; }
 o.jank = jank;
 }
 var ops = [];
-for (var q = 0; q < list.length; q++) { ops.push(done(list[q].o)); }
+for (var q = 0; q < list.length; q++) { var od = done(list[q].o); od.drawer = DRAWER_NAME[list[q].d] || ''; ops.push(od); }
 return ops;
 }
 function newOp(t) {
-return { t0: t, writes: 0, noop: 0, delNoop: 0, clsNoop: 0, swap: 0, flipRoot: 0, flipChat: 0, frames: 0, maxGap: 0, jank: 0, names: {} };
+return { t0: t, writes: 0, noop: 0, delNoop: 0, clsNoop: 0, swap: 0, flipRoot: 0, flipChat: 0, flipGc: 0, frames: 0, maxGap: 0, jank: 0, names: {} };
 }
 function done(o) { o.changed = Object.keys(o.names).join(' '); delete o.names; return o; }
 function chip() {
 if (_chip) return _chip;
 var d = document.createElement('div');
 d.id = 'fc-chip';
-d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:82;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:20px;background:rgba(17,17,17,.86);color:#fff;font-size:12px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+d.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(6px + env(safe-area-inset-top,0px));z-index:88;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:20px;background:rgba(17,17,17,.86);color:#fff;font-size:12px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.28)';
 var txt = document.createElement('span');
 txt.id = 'fc-chip-txt';
 txt.textContent = '去点 4 下：宽松 → 再点宽松 → 紧凑 → 标准';
@@ -179,20 +196,24 @@ if (t) t.textContent = s;
 }
 function wasteOf(o) { return o.noop + o.delNoop + o.clsNoop + (o.writes ? 0 : o.swap); }
 function opLine(o, i) {
-return '操作 ' + (i + 1) + '｜' + (o.writes ? '值真变了（必要写 ' + o.writes + ' 条' + (o.changed ? '：' + o.changed : '') + '）' : '值没变（重复点同一档／切回刚点过的档）')
-+ '\n  全站样式翻动 ' + (o.flipRoot + o.flipChat) + ' 次（:root ' + o.flipRoot + '／#page-chat ' + o.flipChat + '）｜白写 ' + wasteOf(o) + ' 条（同值重写 ' + o.noop + '／空删变量 ' + o.delNoop + '／空摘 cs-* 类 ' + o.clsNoop + '／样式表拆建 ' + o.swap + '）'
+return '操作 ' + (i + 1) + (o.drawer ? '（' + o.drawer + '抽屉）' : '') + '｜' + (o.writes ? '值真变了（必要写 ' + o.writes + ' 条' + (o.changed ? '：' + o.changed : '') + '）' : '值没变（重复点同一档／切回刚点过的档）')
++ '\n  全站样式翻动 ' + (o.flipRoot + o.flipChat + o.flipGc) + ' 次（:root ' + o.flipRoot + '／聊天页 ' + o.flipChat + '／群聊页 ' + o.flipGc + '）｜白写 ' + wasteOf(o) + ' 条（同值重写 ' + o.noop + '／空删变量 ' + o.delNoop + '／空摘 cs-* 类 ' + o.clsNoop + '／样式表拆建 ' + o.swap + '）'
 + '\n  帧 ' + o.frames + ' 个｜最慢帧 ' + o.maxGap + 'ms｜>' + JANK_MS + 'ms 掉帧 ' + o.jank + ' 帧';
 }
 function buildReport() {
 var ops = collect();
 var lines = ['闪屏自测（聊天美化·边看边调）· ' + appVer(), '设备：' + String(navigator.userAgent || '').slice(0, 100), ''];
-if (!ops.length) lines.push('没有采到抽屉里的点击：请点【开始】后到 聊天设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+if (!ops.length) {
+if (!_seen) lines.push('没有采到任何屏幕点击：请点【开始】后回到 聊天设置/群聊设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+else if (!_seenIn) lines.push('没有采到「抽屉里」的点击：这段时间共采到 ' + _seen + ' 次屏幕点击，但都不在 边看边调 的底部抽屉里。请确认点的是「聊天设置/群聊设置 → 美化 → 边看边调」打开的那条底部抽屉里的档位按钮（抽屉里可点的档位＝宽松/标准/紧凑这类胶囊）。');
+else lines.push('没有采到抽屉里的点击：请点【开始】后到 聊天设置/群聊设置 → 美化 → 边看边调 点档位（第 2 下重复点同一个档）。');
+}
 for (var i = 0; i < ops.length; i++) lines.push(opLine(ops[i], i));
 var noopOps = ops.filter(function (o) { return !o.writes; });
 var wasteAll = 0, jankAll = 0, worst = 0, flipAll = 0;
 for (var k = 0; k < noopOps.length; k++) {
 wasteAll += wasteOf(noopOps[k]);
-flipAll += noopOps[k].flipRoot + noopOps[k].flipChat;
+flipAll += noopOps[k].flipRoot + noopOps[k].flipChat + noopOps[k].flipGc;
 jankAll += noopOps[k].jank;
 if (noopOps[k].maxGap > worst) worst = noopOps[k].maxGap;
 }
@@ -245,7 +266,7 @@ return true;
 }
 function start() {
 if (_on || !window.openModal) return false;
-_on = true; _other = 0;
+_on = true; _other = 0; _seen = 0; _seenIn = 0;
 _clicks = []; _ev = []; _flips = []; _frames = [];
 arm();
 chip();
@@ -255,7 +276,7 @@ function ask() {
 if (_on) { showReport(); return; }
 var ctl = window.openModal('闪屏自测（聊天美化）', '', function () { start(); }, {
 noInput: true,
-staticText: '点【开始】后去 聊天设置 → 美化 → 边看边调，按屏幕下方提示点 4 下：\n①「气泡框大小」选 宽松　②再点一次 宽松（值没变＝日常最闪的那一下）　③紧凑　④标准\n点完回来点浮条【看结果】，当场出数字。\n\n机制：只读采样——数一数每次点击让整篇文档的样式重解析了几次、其中几次是「值没变的白写」，并用 rAF 量真实帧间隔。不改你的任何设置、不写业务数据，点【结束】即摘掉全部探针。'
+staticText: '点【开始】后去 聊天设置（或 群聊设置）→ 美化 → 边看边调，按屏幕顶部提示点 4 下：\n①「气泡框大小」选 宽松　②再点一次 宽松（值没变＝日常最闪的那一下）　③紧凑　④标准\n点完回来点浮条【看结果】，当场出数字。\n\n机制：只读采样——数一数每次点击让整篇文档的样式重解析了几次、其中几次是「值没变的白写」，并用 rAF 量真实帧间隔。不改你的任何设置、不写业务数据，点【结束】即摘掉全部探针。'
 });
 if (ctl && ctl.okText) ctl.okText('开始');
 }

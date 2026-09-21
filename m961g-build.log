@@ -1,0 +1,247 @@
+⚠️  检测到未跟踪调试脚本（.mjs，可能是临时工具）：
+  ?? tools/verify-943-hotpath.mjs
+  ?? tools/verify-950-emoji-idb-direct.mjs
+  ?? tools/verify-953-mjf-punct.mjs
+  ?? tools/verify-954-hotblock-cache.mjs
+  ?? tools/verify-955-storage-write-paths.mjs
+  ?? tools/verify-961-preset-size-hint.mjs
+  ?? tools/verify-boot-retry-bar.mjs
+  ?? tools/verify-chat-in-follow-race.mjs
+  ?? tools/verify-chat-newer-index.mjs
+  ?? tools/verify-chat-resume-repin.mjs
+  ?? tools/verify-chat-scroll-realign.mjs
+  ?? tools/verify-cs-body-churn.mjs
+  ?? tools/verify-dc-group-off.mjs
+  ?? tools/verify-energy-check.mjs
+  ?? tools/verify-feed-sticker-perf.mjs
+  ?? tools/verify-flash-check.mjs
+  ?? tools/verify-heat-guard.mjs
+  ?? tools/verify-inline-media-garble.mjs
+  ?? tools/verify-panel-prewarm.mjs
+  ?? tools/verify-rp-settings-scroll.mjs
+  ?? tools/verify-screen-fit-916.mjs
+  请确认这些不要随产物提交（建议加进 .gitignore 或删除）。
+⚠️  工作区有未提交改动 153 个文件：
+    MM build.mjs
+  MM index.html
+  MM js/accounting.js
+  MM js/applock.js
+  MM js/arcade.js
+  MM js/auction.js
+  MM js/avatar-lib.js
+  MM js/bg-keep.js
+  MM js/breakout.js
+  MM js/calendar.js
+  MM js/call.js
+  MM js/card-audit.js
+  MM js/card-lock.js
+  MM js/chat-settings.js
+  MM js/chat.js
+  MM js/chatcard.js
+  MM js/cjian.js
+  MM js/ck-question.js
+  MM js/clock.js
+  MM js/connect-four.js
+  MM js/contacts.js
+  MM js/coop-mine.js
+  MM js/data-backup.js
+  MM js/dcp-master.js
+  MM js/decision.js
+  MM js/default-cards-data.js
+  MM js/default-cards.js
+  MM js/desktop-slider.js
+  MM js/dict-ext-data.js
+  MM js/divination.js
+  MM js/dream-free.js
+  MM js/drift-bottle.js
+  D  js/energy-check.js
+  MM js/fav-settings.js
+  MM js/feature-data.js
+  MM js/feature-hub.js
+  MM js/feed.js
+  MM js/fishing.js
+  D  js/flash-check.js
+  MM js/fullscreen.js
+  MM js/garden.js
+  MM js/gift-shop.js
+  MM js/gomoku.js
+  MM js/group-chat.js
+  MM js/group-decision.js
+  MM js/idb.js
+  MM js/img-compress.js
+  MM js/incoming-requests.js
+  MM js/linkup.js
+  MM js/loc-lib.js
+  MM js/mail.js
+  MM js/match3.js
+  MM js/media-pool.js
+  MM js/memo-app.js
+  MM js/memo-arc.js
+  MM js/memory-game.js
+  MM js/mobile-adapt.js
+  MM js/mood-diary.js
+  MM js/mood-followup-data.js
+  MM js/mood-reply-cards.js
+  MM js/music-player.js
+  MM js/my-arc.js
+  MM js/onboarding.js
+  MM js/p2-features.js
+  MM js/page-coach.js
+  MM js/perf-check.js
+  MM js/period.js
+  MM js/personalize.js
+  MM js/pong.js
+  MM js/quote-cards.js
+  MM js/quote-spell.js
+  MM js/records.js
+  MM js/reply-settings.js
+  MM js/room.js
+  MM js/settings-help.js
+  MM js/sfx.js
+  MM js/snake-game.js
+  MM js/storage-slim.js
+  MM js/ta-ask.js
+  MM js/ta-invite.js
+  MM js/ta-mood-data.js
+  MM js/ta-mood.js
+  MM js/tabs.js
+  MM notice.json
+  MM src/css/base.css
+  MM src/css/chat-main.css
+  MM src/css/chat-pages.css
+  MM src/css/dark.css
+   M src/css/setting.css
+  MM src/js/avatar-lib.js
+  MM src/js/card-audit.js
+   M src/js/card-lock.js
+  MM src/js/chat-settings.js
+  MM src/js/chat.js
+   M src/js/clock.js
+  MM src/js/contacts.js
+  MM src/js/data-backup.js
+  MM src/js/default-cards-data.js
+  MM src/js/default-cards.js
+  MM src/js/desktop-slider.js
+  MM src/js/device.js
+  MM src/js/dict-ext-data.js
+  MM src/js/dream-free.js
+  D  src/js/energy-check.js
+  MM src/js/feed.js
+  D  src/js/flash-check.js
+  MM src/js/group-chat.js
+  MM src/js/idb.js
+  MM src/js/mail.js
+  MM src/js/media-pool.js
+  MM src/js/mobile-adapt.js
+  MM src/js/perf-check.js
+  MM src/js/personalize.js
+  MM src/js/pwa.js
+  MM src/js/reply-settings.js
+  MM src/js/settings-help.js
+  MM src/pwa/notice.json
+  MM src/template.html
+  MM sw.js
+  D  tools/verify-943-hotpath.mjs
+  D  tools/verify-950-emoji-idb-direct.mjs
+  D  tools/verify-953-mjf-punct.mjs
+  D  tools/verify-954-hotblock-cache.mjs
+  D  tools/verify-955-storage-write-paths.mjs
+   D tools/verify-962-screen-adj-entry.mjs
+  MM tools/verify-backup-remind-daily.mjs
+  MM tools/verify-badge-offset-enforce.mjs
+  D  tools/verify-boot-retry-bar.mjs
+  MM tools/verify-card-audit.mjs
+  MM tools/verify-chat-entry-load-window.mjs
+  D  tools/verify-chat-in-follow-race.mjs
+  D  tools/verify-chat-newer-index.mjs
+  D  tools/verify-chat-resume-repin.mjs
+  D  tools/verify-chat-scroll-realign.mjs
+  MM tools/verify-chat-surfaces.mjs
+  D  tools/verify-cs-body-churn.mjs
+  D  tools/verify-dc-group-off.mjs
+   M tools/verify-display-tune.mjs
+  MM tools/verify-docx-export.mjs
+  D  tools/verify-energy-check.mjs
+  D  tools/verify-feed-sticker-perf.mjs
+  D  tools/verify-flash-check.mjs
+  D  tools/verify-heat-guard.mjs
+  D  tools/verify-img-blob-retry.mjs
+  D  tools/verify-inline-media-garble.mjs
+  D  tools/verify-panel-prewarm.mjs
+  MM tools/verify-perf-check-live.mjs
+  MM tools/verify-perf-check.mjs
+  D  tools/verify-rp-settings-scroll.mjs
+   D tools/verify-screen-adj-drawer.mjs
+  D  tools/verify-screen-fit-916.mjs
+  MM tools/verify-settings-tags.mjs
+  MM version.json
+  构建产物会包含这些改动——请确认对方已保存完整（AGENTS.md：不夹带未完成的一半改动）。
+⚠ #860 体积红线：js/chat.js 外置后 501KB > 500KB（外置资源不受 iOS15 单块内联红线约束，但请人工确认可接受）
+已外置 81 个 JS → js/（5017037 字节）；core 内联 3 个文件
+已生成 index.html（1297098 字节，20538 行）
+已生成 version.json（{"ts":1789984034340,"info":"部署于 2026-09-21 17:47"}）
+已复制 PWA 文件 → manifest.json, sw.js, icon-192.png, icon-512.png, icon-180.png, icon-maskable-512.png, notice.json（sw 缓存版本: mochi-mub2a0bo）
+⚠️  哑哨兵 26 条（拦不住回归，请把 needle 收到「该源文件里唯一」）：
+   · 锚点指错：[#669a TA 回贴的 emoji 与贴纸面板共用同一常量（删/改回内联数组＝面板里「emoji 贴纸」组与 TA 实际会贴的又不是同一批，「没有联系人用的 emoji 贴纸」复发）] 登记的 js/feed.js 里找不到 needle "return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#669b 贴纸面板分组清单含「emoji 贴纸」组（删＝面板只剩图片贴纸、TA 会后贴的 emoji 选不到）] 登记的 js/feed.js 里找不到 needle "out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#220 重开聊天不闪·同窗判定（enterChat 重开跳过整窗重建——删此判定=重复进入聊天页必闪一下）] 登记的 js/chat.js 里找不到 needle "if (!inplacePatchIfSameWindow()) renderWindow(false, true);"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）] 登记的 js/decision.js 里找不到 needle "window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发；#876 该行追加 nightAllow 夜间放行标记，needle 随之换锚）] 登记的 js/chat.js 里找不到 needle "chatUserFollowScroll = true;
+addRec({ side: 'in', text: text, special: 'poke', nightAllow: true });"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）] 登记的 js/group-decision.js 里找不到 needle "window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#434 我的表情包落盘确认重发（idbSet 结果作持久性信号+退避重试；删则 Edge 杀进程回滚+IDB 挂起时添加的表情无任何持久副本，「加完退出重进全丢」复发）] 登记的 js/chat.js 里找不到 needle "window.idbSet(MYE_KEY(), json).then(ok =>"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#504c 稳定窗变高当帧同步回钉（删则内容长高后到下一帧才修正＝回弹帧可见）] 登记的 js/chat.js 里找不到 needle "if (h !== lastH) { lastH = h; scrollChatBottom(); }"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#526 已知空库（新联系人/空桌面）不显示聊天记录加载进度条（删 chatKnownEmpty 判定＝新建联系人首次进聊天又白等 2.5s 空库复核才收起进度条；needle 随 #703 去 msgs 前置演进，2026-09-17）] 登记的 js/chat.js 里找不到 needle "chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty);"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）] 登记的 js/decision.js 里找不到 needle "{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）] 登记的 js/group-decision.js 里找不到 needle "{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#559c 标签按语境区分（删则经前预警日又以「经期关心」标签发经期中口吻语料＝症状回流）] 登记的 js/period.js 里找不到 needle "{ tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[音乐互动台词静默通道·chatAddSystem 带 silent（删掉＝音乐互动系统消息重回响铃通道，听歌时每掷中一次概率就响一次提示音盖在音乐上复发；needle 唯一于 music-player.js 的 taMusicSys）] 登记的 js/music-player.js 里找不到 needle "window.chatAddSystem(text, { silent: true, nightAllow: true })"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#674b 顶部继续说按钮接线走 gcCsFireContinue（换成别的调用＝丢掉 pointerdown 按下即触发 / 防键盘吞 click）] 登记的 js/group-chat.js 里找不到 needle "gcHeadContinueBtn.addEventListener('pointerdown'"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#758b 只对 brokenFileShare 内核加这一步（删掉＝所有浏览器都多一步；改成恒真＝给正常内核添噪音）] 登记的 js/data-backup.js 里找不到 needle "if (!brokenFileShareEnv()) return;"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876a addRec 收件总闸（删＝换头像/红包/战绩等直调通道夜里照发，回归「开了夜间模式还发」主诉）] 登记的 js/chat.js 里找不到 needle "!rec.nightAllow && !(window.__nightReplyOpen"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876b addIn 音效前守卫（删＝夜里响一声没消息；音效在 addRec 之前播，必须前置换闸）] 登记的 js/chat.js 里找不到 needle "!opts.nightAllow && !(window.__nightReplyOpen"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876c 被动回复夜间顺延到 7:00 后（删＝夜里发消息 TA 照回，总闸拦掉会丢回复，必须保留顺延链）] 登记的 js/chat.js 里找不到 needle "const __nmHold = window.nightModeActive"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876d 继续说/点名字放行窗口置位（删＝用户当刻点「继续说」TA 回复被总闸吞＝「点了没反应」回归）] 登记的 js/chat.js 里找不到 needle "window.__nightReplyOpen = Date.now();"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876f 互动卡频率闸内夜间拦截（删＝询问/小问题/好奇/吐槽/查岗卡夜间照发）] 登记的 js/ta-ask.js 里找不到 needle "nightModeActive && window.nightModeActive()) return false;"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876g 群聊成员回复夜间顺延（删＝夜间群聊照常七嘴八舌）] 登记的 js/group-chat.js 里找不到 needle "if (!__force && window.nightModeActive"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876h TA 自动换位夜间不触发（删＝「隔着世界在你身边」等换位消息夜间照发）] 登记的 js/p2-features.js 里找不到 needle "nightModeActive && window.nightModeActive()) return;
+const companion"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876i TA 自动送礼源头闸（删＝扣款已发生而礼物消息被总闸拦＝扣了钱没礼物）] 登记的 js/gift-shop.js 里找不到 needle "nightModeActive && window.nightModeActive()) return;
+const st = wlSettings();"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876j 朋友圈自动动态夜间不生成（删＝夜里照发动态+聊天提示）] 登记的 js/feed.js 里找不到 needle "nightModeActive && window.nightModeActive()) return;
+const cs = window.storeFor(cid);"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876k 跨桌面消息队列回放夜间暂停（删＝夜里回放其他桌面队列照常进聊天）] 登记的 js/bg-keep.js 里找不到 needle "if (!force && window.nightModeActive && window.nightModeActive()) return 0;"（产物里是靠别处同名文本过的检）
+   · 锚点指错：[#876l 夜间模式说明改「完全静默」口径（退回旧「只拦主动」文案＝用户再被误导「为什么回复还在发」）] 登记的 js/settings-help.js 里找不到 needle "这段时间内 TA 完全静默"（产物里是靠别处同名文本过的检）
+❌ 关键修复哨兵检查：以下 26 项特征在产物中缺失（修复被覆盖/未接入）：
+   · [#669a TA 回贴的 emoji 与贴纸面板共用同一常量（删/改回内联数组＝面板里「emoji 贴纸」组与 TA 实际会贴的又不是同一批，「没有联系人用的 emoji 贴纸」复发）] 应含 "return { emoji: FEED_STICKER_EMOJI[Math.floor(Math.random() * FEED_STICKER_EMOJI.length)] };"（js/feed.js） ← src 里也没有＝修复真丢了，去 src/js/feed.js 补回
+   · [#669b 贴纸面板分组清单含「emoji 贴纸」组（删＝面板只剩图片贴纸、TA 会后贴的 emoji 选不到）] 应含 "out.push({ key: 'em', label: 'emoji \u8d34\u7eb8', kind: 'emoji', items: FEED_STICKER_EMOJI });"（js/feed.js） ← src 里也没有＝修复真丢了，去 src/js/feed.js 补回
+   · [#220 重开聊天不闪·同窗判定（enterChat 重开跳过整窗重建——删此判定=重复进入聊天页必闪一下）] 应含 "if (!inplacePatchIfSameWindow()) renderWindow(false, true);"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）] 应含 "window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果"（js/decision.js） ← src 里也没有＝修复真丢了，去 src/js/decision.js 补回
+   · [拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发；#876 该行追加 nightAllow 夜间放行标记，needle 随之换锚）] 应含 "chatUserFollowScroll = true;
+addRec({ side: 'in', text: text, special: 'poke', nightAllow: true });"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）] 应含 "window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果"（js/group-decision.js） ← src 里也没有＝修复真丢了，去 src/js/group-decision.js 补回
+   · [#434 我的表情包落盘确认重发（idbSet 结果作持久性信号+退避重试；删则 Edge 杀进程回滚+IDB 挂起时添加的表情无任何持久副本，「加完退出重进全丢」复发）] 应含 "window.idbSet(MYE_KEY(), json).then(ok =>"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#504c 稳定窗变高当帧同步回钉（删则内容长高后到下一帧才修正＝回弹帧可见）] 应含 "if (h !== lastH) { lastH = h; scrollChatBottom(); }"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#526 已知空库（新联系人/空桌面）不显示聊天记录加载进度条（删 chatKnownEmpty 判定＝新建联系人首次进聊天又白等 2.5s 空库复核才收起进度条；needle 随 #703 去 msgs 前置演进，2026-09-17）] 应含 "chatLoadingEl.hidden = !(chatVisible() && !chatDbReady && !chatKnownEmpty);"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）] 应含 "{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果"（js/decision.js） ← src 里也没有＝修复真丢了，去 src/js/decision.js 补回
+   · [#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）] 应含 "{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果"（js/group-decision.js） ← src 里也没有＝修复真丢了，去 src/js/group-decision.js 补回
+   · [#559c 标签按语境区分（删则经前预警日又以「经期关心」标签发经期中口吻语料＝症状回流）] 应含 "{ tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }"（js/period.js） ← src 里也没有＝修复真丢了，去 src/js/period.js 补回
+   · [音乐互动台词静默通道·chatAddSystem 带 silent（删掉＝音乐互动系统消息重回响铃通道，听歌时每掷中一次概率就响一次提示音盖在音乐上复发；needle 唯一于 music-player.js 的 taMusicSys）] 应含 "window.chatAddSystem(text, { silent: true, nightAllow: true })"（js/music-player.js） ← src 里也没有＝修复真丢了，去 src/js/music-player.js 补回
+   · [#674b 顶部继续说按钮接线走 gcCsFireContinue（换成别的调用＝丢掉 pointerdown 按下即触发 / 防键盘吞 click）] 应含 "gcHeadContinueBtn.addEventListener('pointerdown'"（js/group-chat.js） ← src 里也没有＝修复真丢了，去 src/js/group-chat.js 补回
+   · [#758b 只对 brokenFileShare 内核加这一步（删掉＝所有浏览器都多一步；改成恒真＝给正常内核添噪音）] 应含 "if (!brokenFileShareEnv()) return;"（js/data-backup.js） ← src 里也没有＝修复真丢了，去 src/js/data-backup.js 补回
+   · [#876a addRec 收件总闸（删＝换头像/红包/战绩等直调通道夜里照发，回归「开了夜间模式还发」主诉）] 应含 "!rec.nightAllow && !(window.__nightReplyOpen"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#876b addIn 音效前守卫（删＝夜里响一声没消息；音效在 addRec 之前播，必须前置换闸）] 应含 "!opts.nightAllow && !(window.__nightReplyOpen"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#876c 被动回复夜间顺延到 7:00 后（删＝夜里发消息 TA 照回，总闸拦掉会丢回复，必须保留顺延链）] 应含 "const __nmHold = window.nightModeActive"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#876d 继续说/点名字放行窗口置位（删＝用户当刻点「继续说」TA 回复被总闸吞＝「点了没反应」回归）] 应含 "window.__nightReplyOpen = Date.now();"（js/chat.js） ← src 里也没有＝修复真丢了，去 src/js/chat.js 补回
+   · [#876f 互动卡频率闸内夜间拦截（删＝询问/小问题/好奇/吐槽/查岗卡夜间照发）] 应含 "nightModeActive && window.nightModeActive()) return false;"（js/ta-ask.js） ← src 里也没有＝修复真丢了，去 src/js/ta-ask.js 补回
+   · [#876g 群聊成员回复夜间顺延（删＝夜间群聊照常七嘴八舌）] 应含 "if (!__force && window.nightModeActive"（js/group-chat.js） ← src 里也没有＝修复真丢了，去 src/js/group-chat.js 补回
+   · [#876h TA 自动换位夜间不触发（删＝「隔着世界在你身边」等换位消息夜间照发）] 应含 "nightModeActive && window.nightModeActive()) return;
+const companion"（js/p2-features.js） ← src 里也没有＝修复真丢了，去 src/js/p2-features.js 补回
+   · [#876i TA 自动送礼源头闸（删＝扣款已发生而礼物消息被总闸拦＝扣了钱没礼物）] 应含 "nightModeActive && window.nightModeActive()) return;
+const st = wlSettings();"（js/gift-shop.js） ← src 里也没有＝修复真丢了，去 src/js/gift-shop.js 补回
+   · [#876j 朋友圈自动动态夜间不生成（删＝夜里照发动态+聊天提示）] 应含 "nightModeActive && window.nightModeActive()) return;
+const cs = window.storeFor(cid);"（js/feed.js） ← src 里也没有＝修复真丢了，去 src/js/feed.js 补回
+   · [#876k 跨桌面消息队列回放夜间暂停（删＝夜里回放其他桌面队列照常进聊天）] 应含 "if (!force && window.nightModeActive && window.nightModeActive()) return 0;"（js/bg-keep.js） ← src 里也没有＝修复真丢了，去 src/js/bg-keep.js 补回
+   · [#876l 夜间模式说明改「完全静默」口径（退回旧「只拦主动」文案＝用户再被误导「为什么回复还在发」）] 应含 "这段时间内 TA 完全静默"（js/settings-help.js） ← src 里也没有＝修复真丢了，去 src/js/settings-help.js 补回
+   哨兵是回归防线的最后一道——请逐条确认后再提交（对应 verify-xxx.mjs 可补跑复核）。
+✅ sw.js 哨兵 15/15 在位

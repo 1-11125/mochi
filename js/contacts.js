@@ -49,7 +49,8 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'entry-cjian-first', 'entry-default-contact', 'entry-show-list',
 'battery-check-run', 'battery-check-last', 'heat-check-last',
 'flash-check-last',
-'ver-retry'];
+'ver-retry',
+'fhub-freq', 'fhub-seen'];
 function isExcluded(k) {
 const r = k.slice(G.length + 1);
 if (r.indexOf('__') === 0) return true;
@@ -314,7 +315,7 @@ try { def.remove(k); } catch (e) {}
 ['pomo-cfg', 'pomo-today', 'pomo-total', 'pomo-msgs', 'pomo-send-chat', 'pomo-bell',
 'pomo-companion', 'pomo-companion-log', 'pomo-cmp-usecards',
 'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker', 'desk-freq-mode',
-'full-beauty-schemes'].forEach(function (k) {
+'full-beauty-schemes', 'fhub-freq', 'fhub-seen'].forEach(function (k) {
 const v = def.get(k);
 if (v !== null && v !== undefined && v !== '') {
 try { if (root.get(k) === null || root.get(k) === undefined) root.set(k, v); } catch (e) {}

@@ -3158,7 +3158,9 @@
       if (!audio) return;
       checkAutoEnd();
       if (musicBuffering()) { syncPlayIcons(true); return; } // #795：缓冲期时间本该冻住，别用它盖掉「缓冲中」
-      if (!audio.duration) return;
+      // #928：checkAutoEnd 抓到曲尾会同步走 handleEnded→next→teardownAudio 把 audio 置空（本地歌
+      // 下一首走 IDB 异步读，回到这里仍是 null）——必须重判，否则每轮曲尾抛 reading 'duration'
+      if (!audio || !audio.duration) return;
       if (audio.currentTime > 0) clearStallGuard();
       const cur = document.getElementById('sm-pb-cur');
       if (cur) cur.textContent = fmtDur(audio.currentTime);

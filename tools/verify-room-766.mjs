@@ -188,6 +188,39 @@ const ptsNormal = await evalJs("(function(){return window.__roomState().pts;})()
 const earnNormal = await evalJs("(function(){return JSON.stringify(window.__roomState().earn);})()");
 check('T9 未撞限时正常 +1🏠 且计数累加', String(ptsNormal) === '101' && /"ta":1/.test(earnNormal), 'pts=' + ptsNormal + ' earn=' + earnNormal);
 
+// ---- T10/T11/T12 #966 装扮（墙纸/地板）锁定项点确定要有反馈，且不误写 ----
+const wallBefore = await evalJs("(function(){return String(window.__roomState().wall);})()");
+await evalJs("(function(){document.getElementById('room-btn-deco').click();return true;})()");
+await sleep(400);
+const decoPills = await evalJs("(function(){return Array.prototype.map.call(document.querySelectorAll('#modal-pills .pill'),function(b){return b.textContent;}).join(' | ');})()");
+check('T10a 装扮墙纸列表打开且含锁定项（前提成立）', decoPills.indexOf('🔒') >= 0, decoPills.slice(0, 90));
+await evalJs("(function(){var ps=Array.prototype.slice.call(document.querySelectorAll('#modal-pills .pill'));var t=ps.find(function(b){return b.textContent.indexOf('🔒')>=0;});if(!t)return 'nopill';t.click();document.getElementById('modal-ok').click();return 'ok';})()");
+await sleep(400);
+const wallLockToast = await toastTxt();
+check('T10b 点锁定墙纸 + 确定 ⇒ toast 说明要 Lv.几（原为静默）', /🔒/.test(wallLockToast) && /Lv\./.test(wallLockToast) && wallLockToast.indexOf('解锁') >= 0, wallLockToast);
+const wallAfterLock = await evalJs("(function(){return String(window.__roomState().wall);})()");
+check('T10c 点锁定墙纸不改写当前墙纸', wallAfterLock === wallBefore, wallBefore + ' → ' + wallAfterLock);
+
+// 墙纸步锁定后仍照常衔接地板步（既有流程零变化）；在地板步里选未锁定项 ⇒ 真的写入 d.floor
+await sleep(400);
+const floorPills = await evalJs("(function(){return Array.prototype.map.call(document.querySelectorAll('#modal-pills .pill'),function(b){return b.textContent;}).join(' | ');})()");
+check('T11a 锁定墙纸后仍进到地板步且含锁定项', floorPills.indexOf('🔒') >= 0 && floorPills.length > 4, floorPills.slice(0, 90));
+const floorLockToastProbe = await evalJs("(function(){var ps=Array.prototype.slice.call(document.querySelectorAll('#modal-pills .pill'));var t=ps.find(function(b){return b.textContent.indexOf('🔒')>=0;});if(!t)return 'nopill';t.click();document.getElementById('modal-ok').click();return 'ok';})()");
+await sleep(400);
+const floorLockToast = await toastTxt();
+check('T11b 点锁定地板 + 确定 ⇒ toast 说明要 Lv.几（原为静默）', /🔒/.test(floorLockToast) && /Lv\./.test(floorLockToast) && floorLockToast.indexOf('解锁') >= 0, floorLockToastProbe + ' / ' + floorLockToast);
+
+// ---- T12 正常路径不被新 value 形态挡掉：未锁定墙纸真的切换 ----
+await seed({ pts: 20 });
+await sleep(300);
+await evalJs("(function(){document.getElementById('room-btn-deco').click();return true;})()");
+await sleep(400);
+await evalJs("(function(){var ps=Array.prototype.slice.call(document.querySelectorAll('#modal-pills .pill'));var t=ps.find(function(b){return b.textContent.indexOf('云朵')>=0;});if(!t)return 'nopill';t.click();document.getElementById('modal-ok').click();return 'ok';})()");
+await sleep(500);
+const wallAfterPick = await evalJs("(function(){return String(window.__roomState().wall);})()");
+check('T12 选未锁定墙纸 ⇒ d.wall 真的写成 cloud', wallAfterPick === 'cloud', 'wall=' + wallAfterPick);
+await evalJs("(function(){var b=document.getElementById('modal-cancel');if(b)b.click();return true;})()");
+
 const pass = results.filter((r) => r.ok).length;
 const fail = results.length - pass;
 console.log('\n===== verify-room-766: ' + pass + '/' + results.length + ' passed =====' + (fail ? ' ' + fail + ' FAILED' : ' ALL GREEN'));

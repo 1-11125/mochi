@@ -89,15 +89,17 @@ function chk(name, ok, detail) {
   else { fail++; console.log('  FAIL', name, detail || ''); }
 }
 
-// —— S 组：产物锚点（分派器在 index.html 内联 core，接线在外置 js/<file>）——
+// —— S 组：产物锚点（PERF 阶段 1b 起 core 全外置：chat.js/avatar-lib.js 落点是 js/<file>，
+//    而旧产物曾把它们内联进 index.html——两侧并集查找，锚点语义不变，只兼容落点迁移）——
 const artifact = readFileSync(join(root, 'index.html'), 'utf8');
 const rd = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return ''; } };
-chk('S1 产物含点外关闭分派器', artifact.includes('window.mochiSheetOutsideClose = function (panel, close)'), '');
-chk('S2 产物含聊天五枚半框接入表', artifact.includes("[['chat-divine-panel', () => { if (chatDivinePanel)"), '');
+const chatText = rd('js/chat.js') + artifact;
+chk('S1 产物含点外关闭分派器', chatText.includes('window.mochiSheetOutsideClose = function (panel, close)'), '');
+chk('S2 产物含聊天五枚半框接入表', chatText.includes("[['chat-divine-panel', () => { if (chatDivinePanel)"), '');
 chk('S3 帮我决定接线在产物中', rd('js/decision.js').includes('window.mochiSheetOutsideClose(panel, closePanel)'), '');
 chk('S4 多人决定接线在产物中', rd('js/group-decision.js').includes('window.mochiSheetOutsideClose(panel'), '');
 chk('S5 送礼半框接线在产物中', rd('js/gift-shop.js').includes("mochiSheetOutsideClose(document.getElementById('chat-gift-panel')"), '');
-// avatar-lib 属内联 core（随 index.html 打包），故产物锚点两处任一命中即可
+// 同上：外置/内联两种落点任一命中即可
 chk('S6 头像互动半框接线在产物中', (rd('js/avatar-lib.js') + artifact).includes("mochiSheetOutsideClose(document.getElementById('avlib-card')"), '');
 
 // —— 关开屏 + 压制干扰层（备份提醒条 / qa-mask / 首启模态）——

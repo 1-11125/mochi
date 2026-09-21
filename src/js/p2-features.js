@@ -851,7 +851,7 @@ function renderCheckinHistory() {
       doCheckin();
     } catch (e) {}
   }
-  setInterval(checkAutoCheckin, 60000);
+  setInterval(function () { try { if (window.__mochiPhase) window.__mochiPhase('fish-tick'); } catch (e0) {} checkAutoCheckin(); }, 60000);
   function bootCheckin() {
     // v3.5.129：数据未就绪不启动——3s 兜底在慢设备（分批恢复 >3s）上会
     // 绕过门控提前生成日常，导致导入后首启多出一条"日常更新"且寻踪节奏被重置

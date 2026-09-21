@@ -151,7 +151,10 @@ console.log('V0 静态锚点');
   // #527 契约更新：美化撤销栈改 per-cid 写入后，若仍留在本条回收清单，启动时会把
   // 「default 副本写回根键并删副本」，新的按桌面隔离存储每次开机被搬空（跨桌面串美化回归）。
   // 断言拆成两条：回收清单仍须含 full-beauty-schemes，且【不得】含 beauty-undo-stack。
-  ok(ct.includes("'full-beauty-schemes'].forEach(function (k) {"), '#231 存量滞留副本回收清单已并入（#527 后止于 full-beauty-schemes）');
+  // 清单尾部不钉死（#937 起又并入 fhub-freq / fhub-seen）：只按数组字面量本身判定成员，
+  // 身份锚＝以 pomo-cfg 开头的那条 .forEach 回收数组。
+  const reclaimArr = (ct.match(/\[[^\[\]]*'pomo-cfg'[^\[\]]*\]\.forEach/) || [''])[0];
+  ok(reclaimArr.includes("'full-beauty-schemes'"), '#231 存量滞留副本回收清单已并入（#527 后仍含 full-beauty-schemes，尾部随新全局键增长）');
   ok(!ct.includes("'full-beauty-schemes', 'beauty-undo-stack']"), '#527 撤销栈已自回收清单移除（留在清单会搬空 per-cid 撤销栈）');
   ok(ct.includes("k.indexOf(G + ':default:__') === 0"), '#233 default:__ 滞留副本清扫在位');
   const fd = read('src/js/feed.js');

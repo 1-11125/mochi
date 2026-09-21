@@ -46,6 +46,9 @@ function runPersist() {
   if (wait > 0) { persistTimer = setTimeout(runPersist, wait); return; }
   const run = persistRun;
   persistRun = null;
+  // #907：聊天落盘相位标记（1628 条/2.9MB 历史时整包 stringify+IDB 写是「卡死几秒」头号嫌疑，
+  // 卡顿自检在 >250ms 前台冻结时点名）
+  try { if (window.__mochiPhase) window.__mochiPhase('persist(chat)'); } catch (e0) {}
   try { run(); lastPersistAt = performance.now(); } catch (e) {}
 }
 function schedulePersist(writer) {
@@ -1492,6 +1495,7 @@ function runDeferredNormalization() {
     }
     } else if (changed && changedHi >= renderStart) {
     windowStale = true;
+    try { if (!chatVisible()) scheduleChatPrewarm(myPre); } catch (e) {} // #951f 凭据既已作废，页面还藏着时当场把预渲重做一遍——否则这份作废只会在用户点开聊天那一瞬兑现成整窗重建（clear→逐块重建＝闪屏），预渲白做一次
     }
     } catch (e) {}
   };
@@ -1985,6 +1989,7 @@ writeLsSnapshot(msgs, myPrefix, true);
 try { chatLedgerSave(myPrefix, (msgs && msgs.length) || 0, msgsBytes(msgs)); } catch (e) {}
 try { chatTailMerge(myPrefix); } catch (e) {} // #180：确认空库也回放尾巴日志（本会话/上次会话未落盘部分）；#766 同命名空间才回放
 try { updateChatLoading(); } catch (e) {} // FIX 2026-09-15 #526：确认空库后收起进度条
+try { scheduleChatPrewarm(myPrefix); } catch (e) {} // #951g 空桌面确认权威落定（无内容可画时函数内自带 msgs 守卫直接不动作）
 }
 return;
 }
@@ -2147,6 +2152,7 @@ try { if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, tr
 }, 0);
 }
 try { updateChatLoading(); } catch (e) {} // #703：权威就绪即收起进度条（覆盖 changed=false 且屏上已有快照内容、不走 renderWindow 的路径）
+try { scheduleChatPrewarm(myPrefix); } catch (e) {} // #951e 权威落定：页面还藏着就当场把整窗重建提前做掉，点开聊天不再闪屏
 // v3.26.x OOM：旧大数据字符串存量（升级前写入的 chat-msgs 单键字符串）后台一次性
 // 转数组直存——此后每次读库免整包 JSON.parse（消除数百 MB 解析尖峰与秒级主线程阻塞）。
 // 放在 if(changed) 之外：无本地改动（changed=false）的常见大数据场景也要迁移。
@@ -3824,7 +3830,8 @@ const RENDER_CHUNK = 50;
 const RENDER_CHUNK_MIN = 80;
 let _rwToken = 0;
 function renderWindow(keepScroll, clampTop, forceSync) {
-const len = msgs.length;
+
+  try { if (!keepScroll && window.__mochiPhase) window.__mochiPhase('chat-renderWindow'); } catch (e0) {}const len = msgs.length;
 chatRebuilding = false; // #841e：新一轮渲染先复位空窗标志（被作废的旧分帧轮不得把进度条留在屏上）
 const prevTop = keepScroll ? body.scrollTop : 0;
 const prevHeight = keepScroll ? body.scrollHeight : 0;
@@ -3905,6 +3912,37 @@ m.dataset.idx = i; // 覆盖 renderMsg 内的 msgs.length-1（批量渲染时必
 }
 finishSwap();
 }
+// FIX 2026-09-21 #951（用户报障：切换桌面联系人之后打开聊天页面「还是会闪屏一下然后恢复正常，
+// 聊天里没有数据加载缓冲的动画」＝#893 症状家族的新通道）：
+// 根因（纯 HEAD 无头实测取证，零机型分支）：contact-switched 清空 msgs 并按 #489 强制
+// windowStale=true，却从不碰 chat-body 的 DOM；而新桌面的权威数据在切换当口已被
+// chatPrefetchIfLight→loadMsgs 预读进内存。于是「点聊天图标」那一刻必然整窗重建
+// （inplacePatchIfSameWindow 因 stale＋windowRenderedPrefix 仍属旧桌面＝双重不可能命中）：
+// body 先 innerHTML='' 再逐块建 → 可见空窗（实测 120 条：不节流 19ms、15× 节流 1148ms，
+// 快机上进度条只活 19ms＝用户说的「没有缓冲动画」）；<80 条走同步路径无空窗，却是一记
+// 585ms 长任务把旧桌面画面定格后整窗砸掉＝「闪一下才恢复正常」。
+// 修法＝把整窗重建搬到页面还藏着的时候做掉：本命名空间权威落定（authLoadedPrefix，刻意不
+// 信 chatDbReady——15 秒就绪保险丝会假置位）且聊天页仍隐藏时，延后 600ms（让桌面翻页动画
+// 走完，不与 #943 的 iOS 热路径根治对打）预渲一次，enterChat 的同窗补丁从此命中。
+// 边界：#489 语义不削（预渲发生在切换之后、按新桌面权威整窗重画，旧桌面 DOM 反而更早离场）；
+// >8MB 大历史未预读→authLoadedPrefix 不匹配→本闸不动作，进聊天仍是「真在读数据」的空窗＋
+// 进度条（那是诚实反馈，不该拿假内容糊过去）。
+let chatPrewarmTimer = null;
+function scheduleChatPrewarm(prefix) {
+if (chatPrewarmTimer) { clearTimeout(chatPrewarmTimer); chatPrewarmTimer = null; }
+if (!prefix) return;
+chatPrewarmTimer = setTimeout(function () {
+chatPrewarmTimer = null;
+try {
+if (document.hidden || chatVisible()) return;
+if (window.activePrefix() !== prefix) return;
+if (!(chatDbReady && authLoadedPrefix === prefix)) return; // #951b 就绪闸只认本命名空间权威（chatDbReady 会被 15 秒保险丝假置位）
+if (batchRendering || (windowRenderedPrefix === prefix && !windowStale)) return; // #951c 屏上已是本桌面且未作废＝不重复动手
+if (!msgs || !msgs.length) return;
+renderWindow(false, true); // #951d 隐藏态整窗预渲落地（enterChat 的同窗补丁据此命中）
+} catch (e) {}
+}, 600);
+}
 window.chatReRenderTime = function () {
 if (chatPage.hidden || !body.children.length) return;
 renderWindow(true, false);
@@ -3925,6 +3963,7 @@ renderWindow(true, false);
 function inplacePatchIfSameWindow() {
 const len = msgs.length;
 if (!len) return false;
+if (batchRendering) return false; // #951h 分帧构建在飞＝屏上是空/半截列表，「同窗同貌」不成立（#951 隐藏态预渲让这条通道变成常遇：点的那一刻构建还没跑完，若判成已画好会就地收掉进度条并把在飞的换装链晾在半路＝闪白无提示；返回 false 让调用方走 renderWindow，旧链由 _rwToken 作废）
 if (windowStale) return false;
 try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
 // #775b：昵称（拍一拍/系统消息里的 {ta}/{me} 回填来源）在屏上渲染之后被改过 → 屏上昵称已过期，
@@ -5002,7 +5041,7 @@ return m;
 if (rec.special === 'gift') {
 m.className = 'msg-gift';
 m.dataset.idx = msgs.length - 1;
-const sideTxt = rec.side === 'out' ? '我 送出' : (chatPartnerName() + ' 送来');
+const sideTxt = rec.side === 'out' ? '我 送出' : (rec.giftSelf ? (chatPartnerName() + ' 自己买的') : (chatPartnerName() + ' 送来'));
 const gc = ((window.GIFT_CAT_COLOR || {})[rec.giftCat]) || '#f2f2f5';
 m.innerHTML = '<div class="msg-gift-card">' +
 '<div class="msg-gift-emoji" style="background:' + escTxt(gc) + '">' + (rec.giftImg ? '<img class="msg-gift-img" src="' + escTxt(rec.giftImg) + '" alt="">' : escTxt(rec.giftEmoji || '\uD83C\uDF81')) + '</div>' +
@@ -6094,22 +6133,6 @@ function deskAppendMissGuard(cid, tries, onRetry, writeOne) {
     writeOne();
   }).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); });
 }
-// FIX 2026-09-21 #953 跨桌面写回免整包串化——原三处 writeArr 都是「整包 JSON.stringify 两次」
-//（idbSet 一次、localStorage 一次），对方桌面聊天库几十 MB 时一次拍一拍/回卡落地＝几十 MB
-// 主线程同步长任务（大库机型跨桌面操作卡顿的遗留热点；当前桌面的 saveMsgs 早已有 #127 分片
-// + #722 分块，这条路径一直没跟上）。修法＝IDB 侧复用 persistMsgsToIdb（≤3MB 存字符串、
-// >3MB 数组直存 structured clone、直存失败回退字符串，读侧 attempt 双形态兼容）；LS 侧改走
-// performLsSnapWrite 的 lite 剥负载+折半 ≤2MB 快照口径（跨桌面快照只是 IDB 读失败时的兜底，
-// 大历史保最近尾巴即可），浅估超限先预裁最近段再进折半，避免 30MB 级 stringify 在这里重演。
-function deskWriteMsgsArr(key, cid, arr) {
-try { persistMsgsToIdb(key, arr); } catch (e) {}
-try {
-let snapSrc = arr;
-const est = msgsBytes(arr);
-if (est > LS_SNAP_LIMIT) snapSrc = arr.slice(arr.length - Math.max(200, Math.floor(arr.length * LS_SNAP_LIMIT / est)));
-performLsSnapWrite(snapSrc, 'xy-home-v2:' + cid);
-} catch (e) {}
-}
 window.chatAppendToDeskMsg = function (cid, text, opts) {
 opts = opts || {};
 const cur = window.__activeCid || 'default';
@@ -6121,7 +6144,8 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-deskWriteMsgsArr(key, cid, arr);
+try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
 // v3.26.x #90：跨桌面追加后同步条数账本（下次冷启动大键读失败时它就是守卫依据）
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
@@ -6172,7 +6196,8 @@ window.chatAppendDeskRec = function (cid, rec) {
   const key = 'xy-home-v2:' + cid + ':chat-msgs';
   let tries = 0;
   const writeArr = function (arr) {
-    deskWriteMsgsArr(key, cid, arr);
+    try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
     // v3.26.x #90：跨桌面追加后同步条数账本（下次冷启动大键读失败时它就是守卫依据）
     try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
   };
@@ -6223,7 +6248,8 @@ window.chatDeskCardReply = function (cid, cardSpecial, cardTs, statusKey, patch,
   const archKey = 'xy-home-v2:' + cid + ':chat-arch';
   let tries = 0;
   const writeArr = function (arr) {
-    deskWriteMsgsArr(key, cid, arr);
+    try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
     try { if (window.idbDelete) window.idbDelete(archKey); } catch (e) {}
     // v3.26.x #90：跨桌面写回后同步条数账本（同 chatAppendDeskRec）
     try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
@@ -6768,6 +6794,8 @@ const dictTag = (rep.spell && rep.spell.every(t => (t || '').length > 4)) ? '词
 // 渲染侧 msg-mood 逐条渲染 rec.mood，chip 并列不丢；tag 随消息持久化，重进聊天仍在。
 // FIX 2026-09-19 #851 词典拼字单气泡无条件并列挂此 chip（spellSegs>1 才会进 rep.spell 形态＝气泡里
 // 必然 ≥2 张卡）：此前只在底层那次 genOneReply 恰好也命中多字卡抽卡时才挂，多数情况漏标。
+// #956 口径不动这一层：来源 chip 判据＝「气泡里实际有几张卡」（#851/#693/#726 用户口径），
+// 与「多字卡回复」总开关无关；本批只把「拼接随机标点」收进总开关（见 pyJoinCards #956a）。
 const pyMultiExtra = (pyMultiHit || (rep.spell && rep.spellOne)) ? [{ tag: '多字卡回复', label: '' }] : null;
 // FIX 2026-09-16 #553 撤回先掷签后投递（#345 同族收口②：回复链）——rc-prob 原在 addIn 之后
 // 才掷：桌面横幅/系统通知已把内容承诺给用户（如「早安」），900ms 后 partialRetractMsg 撤回＝
@@ -7062,7 +7090,11 @@ function pyJoinCards(segs, c) {
 if (!Array.isArray(segs) || !segs.length) return '';
 if (segs.length === 1) return String(segs[0] == null ? '' : segs[0]);
 let pool = null;
-if (c && c['py-punct-en'] === 1) {
+// #956 多字卡回复（py-en）是拼卡总开关：「拼接随机标点」是它的子项，总开关关闭时一并失效
+//（退回单个空格）。旧口径只看 py-punct-en＝关掉「多字卡回复」后，词典拼字单气泡等形态仍按
+// 标点池拼卡＝用户实报「多字卡回复关闭了、拼接随机标点没关，还是能触发多字卡回复」。
+const pyJoinOn = !!(c && c['py-en'] === 1 && c['py-punct-en'] === 1); // #956a
+if (pyJoinOn) {
 pool = [];
 if (c['py-punct-space'] === 1) pool.push(' ');
 if (c['py-punct-dou'] === 1) pool.push('，');
@@ -11850,11 +11882,13 @@ g[1].forEach(item => { if (t[1].indexOf(item) < 0) t[1].push(item); });
 // 两者之后内存值都可安全落笔，本会话不再走盲写闸门
 window.__myeIdbApplied = true;
 myeGateRetry = 0;
+try { if (window.__mochiPhase) window.__mochiPhase('emoji-groups'); } catch (e0) {}
 myePersist();
 myeEnsureDurable(0);
 });
 return true;
 }
+try { if (window.__mochiPhase) window.__mochiPhase('emoji-groups'); } catch (e0) {}
 myePersist();
 myeEnsureDurable(0);
 return true;
@@ -12151,7 +12185,7 @@ function emojiRenderSigTarget(hts, pn) {
 // 渲染时按身份回查三池（TA 专属/公用/我的）还原真实 src——令牌化翻转/换桌面后身份不变，
 // 当前面板解析不到的表情自动跳过（不显示死项）。
 const EMOJI_RECENT_KEY = 'emoji-recent';
-const EMOJI_RECENT_MAX = 8;
+const EMOJI_RECENT_MAX = 24;
 function recentIdentsAt(key) {
 try {
 const v = JSON.parse(myEmojiStore().get(key) || '[]');
@@ -12662,6 +12696,9 @@ window.addEventListener('load', function () { schedulePanelPrewarm(4000); });
 document.addEventListener('contact-switched', function () { schedulePanelPrewarm(3000); });
 document.addEventListener('mochi-restore-done', function () { schedulePanelPrewarm(6000); });
 window.schedulePanelPrewarm = schedulePanelPrewarm; // #907 导出：外置 js 经构建包装，顶层函数不上 window（verify 脚本/后续批也要能排班）
+// FIX 2026-09-20 #931 把本面板这套图片机制导出给朋友圈贴纸面板复用（feed.js 单一实现、
+// 不另起炉灶）：节点回收池（#662）、异步解码建图（#435）、分批补 src 的队列、令牌批量预热
+//   （#435/#457）在聊天面板上已实证多轮，本面板复用后不再各写一套。
 window.mochiEmojiLazyAdopt = emojiAdoptImg;        // 同身份取回旧节点（已解码的零重解码）
 window.mochiEmojiLazyEnqueue = emojiLazyEnqueue;   // 进视口的图交给同一条分批泵（全局每 50ms 补 4 张）
 window.mochiEmojiWarmGroupTokens = emojiWarmGroupTokens; // 组内令牌交给媒体池批量预热
@@ -13909,7 +13946,8 @@ e.stopPropagation();
 // FIX 2026-09-18 #756：原「点源自 label 就直接 return」会在国产内核（label 存在但不转发）
 // 时把 JS 兜底也一并跳过＝用户报的「点了相册点了图片完全没反应」。改为先给原生转发一个
 // 窗口期，确认确实没弹出再补 JS click（与全站入口同一口径）。
-var _fb = () => { try { chatImgPickBridge().click(); } catch (err2) { toast('无法打开图片选择器，请重试'); } };
+// FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+var _fb = () => { window.mochiFilePickFire(chatImgPickBridge(), { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(chatImgPickBridge(), _fb);
 else _fb();
 });

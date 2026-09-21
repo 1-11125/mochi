@@ -282,9 +282,34 @@ saveFaceIdx(idx);
 faceThb.set(m + '|' + n, thb);
 applyFace(m, n);
 }
+const CN_DIGIT = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+function varifyName(nm) {
+let out = [nm];
+if (/王牌$/.test(nm)) {
+const stem = nm.slice(0, -2);
+out = out.concat([stem + 'A', stem + '1', stem + '0']);
+}
+const cm = nm.match(/([一二三四五六七八九十]+)$/);
+if (cm) {
+const d = CN_DIGIT[cm[1]];
+if (d) out.push(nm.slice(0, nm.length - cm[1].length) + d);
+}
+return out;
+}
+function aliasHit(s, v) {
+if (s === v) return true;
+if (!v) return false;
+const DIGIT = /[0-9０-９]/;
+if (!/[0-9０-９]$/.test(v)) return s.indexOf(v) >= 0;
+for (let i = s.indexOf(v); i >= 0; i = s.indexOf(v, i + 1)) {
+if (!DIGIT.test(s.charAt(i + v.length))) return true;
+}
+return false;
+}
 function matchFaceFile(rawName, defaultMode, oneBased = faceOneBased) {
 let s = String(rawName || '').replace(/\.[A-Za-z0-9]+$/, '').trim();
 if (!s) return null;
+s = s.replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFF10 + 48));
 let mode = '';
 const mp = s.match(/^(塔罗牌?|雷诺曼|雷诺|lenormand|lennormand|leno|len|tarot|taro)[\s._\-:：]*/i);
 if (mp) {
@@ -303,12 +328,15 @@ if (/^\d+$/.test(s)) return numOf(parseInt(s, 10));
 let lead = null;
 const lm = s.match(/^(\d+)[\s._\-、:：#]*/);
 if (lm) { lead = parseInt(lm[1], 10); s = s.slice(lm[0].length).trim(); }
+s = s.replace(/(\D)0+([1-9])/, '$1$2');
 if (s) {
 const cands = [];
 [['tarot', TAROT], ['lenormand', LENO]].forEach(([m, arr]) => {
 arr.forEach(c => {
-if (s === c.name) cands.push({ m: m, n: c.name, exact: true, len: c.name.length });
-else if (s.indexOf(c.name) >= 0) cands.push({ m: m, n: c.name, exact: false, len: c.name.length });
+varifyName(c.name).forEach(v => {
+if (!aliasHit(s, v)) return;
+cands.push({ m: m, n: c.name, exact: s === v, len: v.length });
+});
 });
 });
 if (cands.length) {
@@ -944,6 +972,7 @@ return '' +
 '<button class="divf-batch-btn" id="divf-onebased" style="margin-top:6px">编号从 1 起（塔罗 1–78）：关</button>' +
 '<div class="divf-hint">按文件名自动对应牌：<br>' +
 '· 牌名：<b>愚人.png</b>、<b>权杖王牌.jpg</b>（含子串也行，如 塔罗牌-愚人.png）<br>' +
+'· 数字牌名：<b>宝剑1.png</b>、<b>圣杯10.jpg</b>、<b>权杖A.png</b>（＝宝剑王牌／宝剑一…宝剑十、王牌，1–10 与 A 都认）<br>' +
 '· 体系前缀：<b>塔罗-愚人.png</b>、<b>雷诺曼-骑士.jpg</b>、<b>tarot-00-魔术师.png</b><br>' +
 '· 前缀序号：<b>07-战车.png</b><br>' +
 '· 纯编号：塔罗 <b>00–77</b>、雷诺曼 <b>1–36/40</b>（同名跨体系按当前页签；塔罗编号从 0 起，如你的素材从 1 开始请开下方「编号从 1 起」）<br>' +
