@@ -4558,6 +4558,70 @@ return false;
 }
 return false; // JPEG 无透明通道（永远采不出全 0）；webp/svg/未知格式不冒险
 }
+// FIX 2026-09-21 #963 内联图片（data: URI）解码失败的一次性换路重试——真机诊断实证（iPhone 14
+// Plus Safari）：错误环 20 条全是 <img> data:image/…;base64,… 加载失败，其中同一张 jpeg 失败 56 次
+// ＝同一条消息里的图每渲染一次报一次，用户侧就是「图片位置一直空着/报加载失败」。同一份字节换
+// blob: 交付（WebKit 对 blob 图走另一条解码与内存路径；且同一张图全站共享一个 objectURL＝56 个
+// <img> 只驻留一份字节，这正是 data: 逐份内联最贵的地方）。零机型分支：只按「加载失败且载荷是
+// data: URI」这一事实分路——成功即留图，仍失败才回 #202 占位，并在 __jsErrors 留一条能点名真因的
+// 诊断（MIME/字节数/base64 头），下次报障不必再猜是 HEIC 未解码、截断还是超大图。
+const _chatBlobCache = new Map(); // payload 头 -> objectURL（LRU，超出即 revoke）
+const _chatImgFailSeen = Object.create(null); // 诊断去重：同一份载荷只写一条
+const CHAT_BLOB_CACHE_MAX = 24;
+// data URL 头解析（纯函数，便于行为校验）：{ mime, b64 } / null
+function chatDataUrlParts(s) {
+if (typeof s !== 'string' || s.slice(0, 5).toLowerCase() !== 'data:') return null;
+const comma = s.indexOf(',');
+if (comma < 0) return null;
+const head = s.slice(5, comma);
+return { mime: (head.split(';')[0] || '').trim(), b64: /;base64(;|$)/i.test(head) };
+}
+function chatBlobRetry(im, s) {
+const p = chatDataUrlParts(s);
+if (!p) return '';
+if (typeof URL === 'undefined' || !URL.createObjectURL || typeof Blob === 'undefined') return '';
+const comma = s.indexOf(',');
+const key = s.slice(0, 96);
+try {
+let u = _chatBlobCache.get(key);
+if (!u) {
+let bytes;
+if (p.b64) {
+const bin = atob(s.slice(comma + 1));
+const arr = new Uint8Array(bin.length);
+for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+bytes = arr;
+} else {
+bytes = decodeURIComponent(s.slice(comma + 1));
+}
+u = URL.createObjectURL(new Blob([bytes], { type: p.mime || 'application/octet-stream' }));
+_chatBlobCache.set(key, u);
+if (_chatBlobCache.size > CHAT_BLOB_CACHE_MAX) {
+const k0 = _chatBlobCache.keys().next().value;
+try { URL.revokeObjectURL(_chatBlobCache.get(k0)); } catch (e0) {}
+_chatBlobCache.delete(k0);
+}
+}
+im.dataset.blobTried = '1'; // 只换一次路（失败由下一轮 error 兜底，绝不成环）
+im.src = u;
+return u;
+} catch (e) {
+return '';
+}
+}
+function chatImgFailNote(s, im) {
+const p = chatDataUrlParts(s) || { mime: '?' };
+const comma = s.indexOf(',');
+const body = comma >= 0 ? s.slice(comma + 1) : '';
+return '[图片加载失败] mime=' + p.mime + ' 字节≈' + Math.round(body.length * 3 / 4) + ' base64头=' + body.slice(0, 12) +
+(im && im.naturalWidth ? ' 尺寸=' + im.naturalWidth + 'x' + im.naturalHeight : ' 未能解码');
+}
+function chatImgFailNoteOnce(s, im) {
+const key = s.slice(0, 96);
+if (_chatImgFailSeen[key]) return;
+_chatImgFailSeen[key] = 1;
+try { if (window.__jsErrors) window.__jsErrors.push(chatImgFailNote(s, im)); } catch (e) {}
+}
 function bindMediaFailPlaceholder(b) {
 b.querySelectorAll('.msg-img').forEach(im => {
 if (im.dataset.errBound) return;
@@ -4593,6 +4657,10 @@ if (++n >= 8) clearInterval(iv);
 }, 500);
 return;
 }
+// FIX 2026-09-21 #963 内联载荷解码失败：先用同一份字节换 blob: 通路重试一次（成功即留图），
+// 仍失败才回占位；并把这张图的形态写进诊断（同一份载荷只写一条，不刷屏）。
+if (!im.dataset.blobTried && chatBlobRetry(im, s)) return;
+chatImgFailNoteOnce(s, im);
 const ph = document.createElement('span');
 ph.style.cssText = 'opacity:.5;font-size:12px';
 ph.textContent = '（表情/图片加载失败：网络不通或原图已失效）';

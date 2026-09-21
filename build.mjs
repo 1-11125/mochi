@@ -4001,6 +4001,11 @@ const FIX_SENTINELS = [
   { name: '#948j 行内文字助手拆分认无 MIME 载荷（删＝"data:;base64,…" 整串走 else 分支原样铺出＝乱码的无 MIME 来路）', file: 'js/chat.js', needle: "[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:" },
   { name: '#948k normCell 存量无 MIME 图片载荷就地补正 MIME（删＝WebKit 系对无类型 data: 不做图片嗅探＝无 MIME 历史图片照旧裂图/占位）', file: 'js/chat.js', needle: "const __nmFixed = chatFixNoMimeImg(r.text);" },
   { name: '#948l media-pool 本地兜底同口径收无 MIME（删＝本模块先于 chat.js 加载时无 MIME 载荷归类漂移，与判据层两份口径）', file: 'js/media-pool.js', needle: "if (NOMIME_RE.test(head)) return (window.chatB64ImgMime" },
+  // ==== 2026-09-21 #963 iPhone 14 Plus Safari 实报「图片位置一直空着/报加载失败」（诊断实证：错误环 20 条全是 <img> data:image/… 加载失败，同一张 jpeg 失败 56 次＝同一条消息里的图每渲染一次报一次）：内联载荷解码失败时，先用同一份字节换 blob: 通路重试一次（同一张图全站共享一个 objectURL＝56 个 <img> 只驻留一份字节），仍失败才回 #202 占位，并把 MIME/字节数/base64 头写进 __jsErrors 供下次诊断点名真因。验证 tools/verify-img-blob-retry.mjs。 ====
+  { name: '#963a 失败改走 blob: 换路重试（删＝内联图解码失败直接判死、回占位＝用户侧「图片位置一直空着」原样复发）', file: 'js/chat.js', needle: "if (!im.dataset.blobTried && chatBlobRetry(im, s)) return;" },
+  { name: '#963b 同一份载荷全站共享一个 objectURL（删＝每个 <img> 各建一份 blob＝56 份字节常驻，比 data: 更贵）', file: 'js/chat.js', needle: "const _chatBlobCache = new Map(); // payload 头 -> objectURL" },
+  { name: '#963c 只换一次路（删＝失败后无限重试成环，图页面上反复闪）', file: 'js/chat.js', needle: "im.dataset.blobTried = '1'; // 只换一次路" },
+  { name: '#963d 失败现场写可点名真因的诊断（删＝下次报障仍只知道「图片加载失败」，分不清 HEIC/截断/超大图）', file: 'js/chat.js', needle: "if (window.__jsErrors) window.__jsErrors.push(chatImgFailNote(s, im));" },
   { name: '#943a 超限遗留 LS 聊天快照跳过整包 parse 合并（删＝每次发消息/退后台 2.7MB JSON.parse+全量合并重串化压回主线程）', file: 'js/chat.js', needle: "if (raw.length > LS_SNAP_LIMIT) { performLsSnapWrite(msgsNow, prefix); return; }" },
   { name: '#943b 表情包整包写防抖 600ms（删＝面板每次点按都同步串化 1.14MB+大 IDB put）', file: 'js/chat.js', needle: "myeSaveTimer = setTimeout(function () { myeSaveTimer = null; myEmojiSaveNow(); }, 600);" },
   { name: '#943b 离页当场补发防抖中的表情包写（删＝600ms 窗口内退出丢保存）', file: 'js/chat.js', needle: "if (myeSaveTimer) { clearTimeout(myeSaveTimer); myeSaveTimer = null; myEmojiSaveNow(); }" },
@@ -4053,22 +4058,6 @@ const FIX_SENTINELS = [
   { name: '#955d 信箱大负载延迟落盘分流闸（删＝含图信件每次收信/回信整包 stringify 压主线程）', file: 'js/mail.js', needle: 'if (mailListBytes(list) <= MAIL_BIG_DEFER_BYTES) { csFor(cid).set(KEY, JSON.stringify(list)); return; }' },
   { name: '#955e 信箱挂起待写优先于旧持久值（删＝去抖窗口内 load/权威合并读旧值＝刚写的信看不到/被合并掉）', file: 'js/mail.js', needle: 'if (_pend) cur = _pend.list.slice();' },
   { name: '#957 设置页「信息诊断」独立 tag（删＝诊断/自测行退回「工具」大组，用户又找不到诊断入口）', file: 'template.html', needle: 'data-sec="diag"' },
-  // ==== 2026-09-21 #962 屏幕适配微调「只能在设置里盲调」根治（用户直派「现在只能在这个设置里面调、不能在桌面的页面调，需要区分在桌面页面调和在聊天页面里调，现在是盲调什么也看不见」；#940 从未入库，本批一并收口）====
-{ name: '#940a 面板半透明底＋40vh（删回不透明 62vh＝用户报「挡住看不见」复发；z-index:96 使本 needle 与桌面抽屉那行区分、personalize.js 内唯一）', file: 'js/personalize.js', needle: 'z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);' },
-{ name: '#940b 拖标题行/grip 纵向拖动（删回 grip 纯装饰＝不能拖动复发；#760 pointer capture 口径；#962 起拖动上限 60%→70% 视口高）', file: 'js/personalize.js', needle: "adjBottom = Math.max(0, Math.min(Math.round(window.innerHeight * 0.7), Math.round(sb + sy - e.clientY)));" },
-{ name: '#940c 拖回自动位吸附复位（删＝拖动后停半空不回位，且自动让位判定丢失）', file: 'js/personalize.js', needle: 'if (adjBottom != null && adjBottom <= bottomReserve() + 6) adjBottom = null;' },
-{ name: '#940d 收起折叠正文区（删＝无法收起切页看现场，「不能预览其他页面」复发；#962 起收起＝整块变胶囊）', file: 'js/personalize.js', needle: "if (elBody) elBody.style.display = adjMini ? 'none' : 'flex';" },
-{ name: '#962a 底部导航留白（删＝面板/胶囊又贴底盖住切页入口＝用户报「盲调什么也看不见」复发）', file: 'js/personalize.js', needle: "if (t && t.height && t.top > 0) gap = Math.max(gap, Math.round(window.innerHeight - t.top + 8));" },
-{ name: '#962b 聊天输入栏留白（删＝聊天页开面板就把输入栏整条盖住，说不了话）', file: 'js/personalize.js', needle: "if (r && r.height) return Math.max(gap, Math.round(window.innerHeight - r.top + 8));" },
-{ name: '#962c 面板默认落在留白之上（删＝落位回贴底，底部操作区又被盖）', file: 'js/personalize.js', needle: 'function applyAdjPos() { if (panel) panel.style.bottom = (adjBottom == null ? bottomReserve() : adjBottom) + \'px\'; }' },
-{ name: '#962d 收起＝小胶囊（删＝收起态仍横贯底边 70px 高、照样挡住底部导航）', file: 'js/personalize.js', needle: 'function setMini(on) {' },
-{ name: '#962e 胶囊点一下展开（删＝收起后再也回不到滑杆）', file: 'js/personalize.js', needle: 'if (tapToOpen && !moved) { setMini(false); return; }' },
-{ name: '#962f 「看桌面 / 看聊天」直达（删＝只能靠自己找路切页，现场调回流）', file: 'js/personalize.js', needle: 'pb.addEventListener(\'click\', function () { goPage(pair[0]); });' },
-{ name: '#962g 「正在调：桌面/聊天」页面名（删＝又分不清在给哪一页调）', file: 'js/personalize.js', needle: "ctx.textContent = '正在调：' + nm;" },
-{ name: '#962h 聊天页入口按钮（删＝聊天里没入口，只剩设置一条路）', file: 'template.html', needle: 'id="more-screen-adj"' },
-{ name: '#962i 桌面页入口按钮（删＝桌面上没入口，只剩设置一条路）', file: 'template.html', needle: 'id="decor-fit"' },
-{ name: '#962j 聊天入口接线（删＝按钮点了没反应）', file: 'js/personalize.js', needle: "const chatEntry = document.getElementById('more-screen-adj');" },
-{ name: '#962k 桌面入口接线（删＝装修栏按钮点了没反应）', file: 'js/personalize.js', needle: "const decorEntry = document.getElementById('decor-fit');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -3409,6 +3409,62 @@ return false;
 }
 return false; // JPEG 无透明通道（永远采不出全 0）；webp/svg/未知格式不冒险
 }
+const _chatBlobCache = new Map(); // payload 头 -> objectURL（LRU，超出即 revoke）
+const _chatImgFailSeen = Object.create(null); // 诊断去重：同一份载荷只写一条
+const CHAT_BLOB_CACHE_MAX = 24;
+function chatDataUrlParts(s) {
+if (typeof s !== 'string' || s.slice(0, 5).toLowerCase() !== 'data:') return null;
+const comma = s.indexOf(',');
+if (comma < 0) return null;
+const head = s.slice(5, comma);
+return { mime: (head.split(';')[0] || '').trim(), b64: /;base64(;|$)/i.test(head) };
+}
+function chatBlobRetry(im, s) {
+const p = chatDataUrlParts(s);
+if (!p) return '';
+if (typeof URL === 'undefined' || !URL.createObjectURL || typeof Blob === 'undefined') return '';
+const comma = s.indexOf(',');
+const key = s.slice(0, 96);
+try {
+let u = _chatBlobCache.get(key);
+if (!u) {
+let bytes;
+if (p.b64) {
+const bin = atob(s.slice(comma + 1));
+const arr = new Uint8Array(bin.length);
+for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+bytes = arr;
+} else {
+bytes = decodeURIComponent(s.slice(comma + 1));
+}
+u = URL.createObjectURL(new Blob([bytes], { type: p.mime || 'application/octet-stream' }));
+_chatBlobCache.set(key, u);
+if (_chatBlobCache.size > CHAT_BLOB_CACHE_MAX) {
+const k0 = _chatBlobCache.keys().next().value;
+try { URL.revokeObjectURL(_chatBlobCache.get(k0)); } catch (e0) {}
+_chatBlobCache.delete(k0);
+}
+}
+im.dataset.blobTried = '1'; // 只换一次路（失败由下一轮 error 兜底，绝不成环）
+im.src = u;
+return u;
+} catch (e) {
+return '';
+}
+}
+function chatImgFailNote(s, im) {
+const p = chatDataUrlParts(s) || { mime: '?' };
+const comma = s.indexOf(',');
+const body = comma >= 0 ? s.slice(comma + 1) : '';
+return '[图片加载失败] mime=' + p.mime + ' 字节≈' + Math.round(body.length * 3 / 4) + ' base64头=' + body.slice(0, 12) +
+(im && im.naturalWidth ? ' 尺寸=' + im.naturalWidth + 'x' + im.naturalHeight : ' 未能解码');
+}
+function chatImgFailNoteOnce(s, im) {
+const key = s.slice(0, 96);
+if (_chatImgFailSeen[key]) return;
+_chatImgFailSeen[key] = 1;
+try { if (window.__jsErrors) window.__jsErrors.push(chatImgFailNote(s, im)); } catch (e) {}
+}
 function bindMediaFailPlaceholder(b) {
 b.querySelectorAll('.msg-img').forEach(im => {
 if (im.dataset.errBound) return;
@@ -3438,6 +3494,8 @@ if (++n >= 8) clearInterval(iv);
 }, 500);
 return;
 }
+if (!im.dataset.blobTried && chatBlobRetry(im, s)) return;
+chatImgFailNoteOnce(s, im);
 const ph = document.createElement('span');
 ph.style.cssText = 'opacity:.5;font-size:12px';
 ph.textContent = '（表情/图片加载失败：网络不通或原图已失效）';

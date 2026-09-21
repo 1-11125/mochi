@@ -10382,9 +10382,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789983518880">
-        <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 17:38<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789983708842">
+        <span class="sv-app">Mochi 字卡传讯 <b>v8.28</b></span>
+        <span class="sv-deploy">部署于 2026-09-21 17:41<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10490,9 +10490,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <button class="decor-add" id="decor-edit-layout">编辑布局</button>
         <button class="decor-add" id="decor-add-widget">+ 添加卡片</button>
         <button class="decor-add" id="decor-restore-icon">恢复图标</button>
-        <!-- #962：桌面页自己的「屏幕适配微调」入口——长按桌面空白进装修模式后即可就地开面板边看边调
-             （此前只有 设置→工具 一个入口，在设置列表后面根本看不见桌面/聊天现场＝盲调） -->
-        <button class="decor-add" id="decor-fit" title="屏幕适配微调（顶部遮挡/底部裁切/留白/字太小）">屏幕适配</button>
         <button class="decor-done" id="decor-done">完成</button>
       </div>
       <div class="desktop-pages" id="desktop-pages">
@@ -11682,7 +11679,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <div class="set-group glass">
         <div class="set-row" id="row-screen-adj">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
-          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「更多→工具」也各有一个入口；本机永久保存（换设备各自调）</span></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？六轴滑杆边拖边看、当场见效，双击滑杆复位，一键恢复默认；本机永久保存（换设备各自调）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
@@ -11900,7 +11897,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v8.29</div>
+          <div class="val" id="about-ver-val">v8.28</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11969,7 +11966,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v8.29</div>
+      <div class="ver">Mochi 字卡传讯 v8.28</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12363,7 +12360,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v8.29</span>
+              <span class="lic-ver">v8.28</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -16427,12 +16424,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <button class="more-item" id="more-divine" data-mcat="tool" title="占卜">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 8.5l1.15 2.4 2.4 1.15-2.4 1.15L12 15.6l-1.15-2.4-2.4-1.15 2.4-1.15z"/></svg></span>
             <span>占卜</span>
-          </button>
-          <!-- #962：聊天页自己的「屏幕适配微调」入口——在聊天现场就地开面板，正文/输入栏边看边调
-               （此前只有 设置→工具 一个入口，在设置列表后面看不见聊天现场＝盲调） -->
-          <button class="more-item" id="more-screen-adj" data-mcat="tool" title="屏幕适配微调（正文太小/顶栏底栏错位）">
-            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></span>
-            <span>屏幕适配</span>
           </button>
           <button class="more-item" id="more-pong" data-mcat="game" title="双人Pong">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="18" y="8" width="2" height="8" rx="1" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
@@ -20536,4 +20527,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub1yylc -->
+<!-- __MOCHI_EOF__ mub23162 -->
