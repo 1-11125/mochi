@@ -4369,6 +4369,82 @@ try {
     show(tabs[0] ? tabs[0].dataset.tab : 'basic');
   })();
 
+  // ===== 设置页平台标记（v8.29）：iOS / 安卓专属项一眼看清 + 非本机平台给替代入口 =====
+  // 用户问「设置里好多 iOS / 安卓专属功能，要不要单独分一类」——结论是不分类：按平台切
+  // 会把两个系统都要用的行（全屏模式 / 后台保活 / 手机布局强制 / 屏幕适配）藏起来，而且
+  // 平台判定本身有 UA 伪装失手面（OPPO/Via 伪装 iPhone、iPad 伪装、桌面版网站模式整套
+  // 伪装成桌面）。改为行级标记：静态胶囊在 template（.plat-tag[data-plat]），这里只做
+  // 「明确判定为另一平台」时弱化 + 给替代入口。判定不明（桌面 / 伪装 / 失手）一律原样，
+  // 且只弱化标签、绝不 disabled 开关——否则识别失手的用户会被挡在唯一能修好自己问题的
+  // 开关外面（「手机布局（强制）」本身就是为这种失手准备的）。
+  (function initPlatTags() {
+    const page = document.getElementById('page-setting');
+    if (!page) return;
+    const tags = page.querySelectorAll('.plat-tag[data-plat]');
+    if (!tags.length) return;
+    const d = window.mochiDevice || {};
+    // 非本机平台的替代指引：key = 该行开关 input 的 id（无开关的行只弱化不给指引）
+    const ALT = {
+      'bg-notify': { text: '本机是 iPhone：网页拿不到系统通知，请改用应用内横幅「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
+      'psync-en': { text: '本机是 iPhone：离线消息提醒只有安卓 Chrome / Edge 可用，请改用「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
+      'safe-top-force': { text: '本机是安卓：本项只修 iPhone 顶部状态栏重叠；安卓要调顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' }
+    };
+    // 只有明确判定为「另一平台」才弱化：desktop / 伪装 / 判定失手一律不动
+    function offPlatform(plat) {
+      if (plat === 'android') return d.isIOS === true;
+      if (plat === 'ios') return d.isAndroid === true;
+      return false;
+    }
+    function jumpTo(sel) {
+      const target = document.querySelector(sel);
+      if (!target) return;
+      const row = (target.closest && target.closest('.set-row, .gs-row')) || target;
+      // 搜索态下目标行可能正被过滤隐藏：先清空搜索框（回到原分区），再切 tag + 滚到现场
+      const si = document.getElementById('set-search-input');
+      if (si && si.value) {
+        si.value = '';
+        try { si.dispatchEvent(new Event('input')); } catch (e) {}
+      }
+      const sec = row.closest ? row.closest('.them-sec') : null;
+      if (sec && sec.hidden) {
+        const tab = document.querySelector('#set-tabs .them-tab[data-tab="' + (sec.dataset.sec || '') + '"]');
+        if (tab) tab.click();
+      }
+      try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
+      row.classList.add('plat-flash');
+      setTimeout(function () { row.classList.remove('plat-flash'); }, 1500);
+    }
+    Array.prototype.forEach.call(tags, function (tag) {
+      if (!offPlatform(tag.getAttribute('data-plat'))) return;
+      const row = tag.closest('.set-row, .gs-row');
+      if (!row) return;
+      row.classList.add('plat-off');
+      const inp = row.querySelector('input[type="checkbox"]');
+      const alt = ALT[(inp && inp.id) || ''];
+      if (!alt) return;
+      const hint = document.createElement('div');
+      hint.className = 'gs-sub plat-hint';
+      hint.textContent = alt.text;
+      if (alt.go) {
+        const go = document.createElement('span');
+        go.className = 'plat-go';
+        go.setAttribute('role', 'button');
+        go.setAttribute('tabindex', '0');
+        go.textContent = alt.goText || '去设置';
+        const fire = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } jumpTo(alt.go); };
+        go.addEventListener('click', fire);
+        go.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') fire(e); });
+        hint.appendChild(go);
+      }
+      // 插在该行自己的说明小字之后（先看说明、再看「你这台该怎么用」）；后面紧跟的是别的行
+      // （如「离线消息提醒」下面那条状态行）就贴在行下
+      let anchor = row;
+      while (anchor.nextElementSibling && anchor.nextElementSibling.classList &&
+             anchor.nextElementSibling.classList.contains('gs-sub')) anchor = anchor.nextElementSibling;
+      if (anchor.parentNode) anchor.parentNode.insertBefore(hint, anchor.nextSibling);
+    });
+  })();
+
   // ===== 设置 → 关于 → 帮助与支持：使用说明页导航 + 页内搜索（#row-guide → #page-guide；说明内容静态在 template.html） =====
   (function initGuideNav() {
     const page = document.getElementById('page-guide');

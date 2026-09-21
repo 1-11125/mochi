@@ -1545,7 +1545,7 @@
         <div class="gs-row"><span>后台保活</span><label class="toggle"><input type="checkbox" id="bg-keepalive"><span class="tk"></span></label></div>
         <!-- v3.44.x：保活音频可选——默认内置静音音频 / 用户上传自定义音频（逻辑在 bg-keep.js） -->
         <div class="gs-row"><span>保活音频</span><button class="bg-notify-test" id="bg-keep-audio-btn" type="button">默认静音音频</button></div>
-        <div class="gs-row"><span>后台通知</span><label class="toggle"><input type="checkbox" id="bg-notify"><span class="tk"></span></label><button class="bg-notify-test" id="bg-notify-test">测试</button></div>
+        <div class="gs-row"><span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;"><span>后台通知</span><span class="plat-tag" data-plat="android">仅安卓</span></span><label class="toggle"><input type="checkbox" id="bg-notify"><span class="tk"></span></label><button class="bg-notify-test" id="bg-notify-test">测试</button></div>
         <!-- v3.26.x：后台弹窗使用说明——要点直接铺在行下（用户直派「后台弹窗要有使用说明、详细说清楚」），
              完整步骤见本行「功能说明」胶囊（settings-help.js #bg-notify）与 使用说明 → 第 10 节 -->
         <div class="gs-sub" id="bg-notify-sub"><b>后台弹窗＝页面切到后台（锁屏 / 切到别的应用）时，TA 发消息用系统通知弹横幅。</b>必备：① 安卓 Chrome / Edge 且 https 打开；② 允许通知权限（地址栏左侧图标 → 网站设置 → 通知）；③ 本开关（会自动开启「后台保活」——后台不产生消息就无从弹起）；④ 系统设置里给浏览器允许通知、且不限制其后台运行/省电（小米 / 红米还要开「在屏幕上方显示 / 悬浮通知」）。<b>iPhone 的网页拿不到系统通知，本开关在 iPhone 上无效</b>，请用「桌面消息弹窗」的应用内横幅。点本行「功能说明」看完整步骤与「收不到」的排查，点右侧「测试」可一键体检。</div>
@@ -1570,7 +1570,7 @@
              Service Worker，用本地快照弹一条 TA 的消息（零后端）；仅安卓 Chromium 且
              添加到桌面后生效，调度频率由系统决定；状态见下方说明行 -->
         <div class="set-row">
-          <div class="txt">离线消息提醒<span class="tag" id="psync-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></div>
+          <div class="txt">离线消息提醒<span class="tag" id="psync-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span><span class="plat-tag" data-plat="android">仅安卓</span></div>
           <label class="toggle"><input type="checkbox" id="psync-en"><span class="tk"></span></label>
         </div>
         <div class="gs-row" style="display:block"><span id="psync-status" style="font-size:11px;color:var(--muted,#999);line-height:1.5;white-space:normal">…</span></div>
@@ -1670,7 +1670,7 @@
              不同机型各属其一：开启=声明本机为覆盖形态（恢复 env 顶部避让+全屏高度含 env），
              修「Mochi 行与系统时间重叠」；默认关=系统保留形态（修「底部白带」）。 -->
         <div class="set-row">
-          <div class="txt">顶部避让修正<span class="sub">iOS 专用：顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
+          <div class="txt">顶部避让修正<span class="plat-tag" data-plat="ios">仅 iPhone</span><span class="sub">顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
         <!-- v3.27.x #764：原「屏幕位置设置」行（#707）已合并升级为工具区首位的「屏幕适配微调」独立组，本组只留诊断两行 -->

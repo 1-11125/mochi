@@ -49,7 +49,7 @@ const buildStamp = buildTime.getTime().toString(36); // sw 缓存名版本号（
 // 每提交 10 次 +0.1（258 → v8.25，260 → v8.26，300 → v8.30）。
 // SW 缓存刷新依赖的是上面的 buildStamp（每次构建必变），与 APP_VERSION 无关。
 // 非 git 环境（脚本被拷贝/CI 无 git）回退 v8.0 兜底。
-let APP_VERSION = 'v8.28'; // 仓外隔离副本兜底直置（主树 execSync 自动取）
+let APP_VERSION = 'v8.29'; // 仓外隔离副本兜底直置（主树 execSync 自动取）
 try {
   const cnt = execSync('git rev-list --count HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v8.' + Math.floor(parseInt(cnt, 10) / 10);
@@ -4258,6 +4258,12 @@ const FIX_SENTINELS = [
   { name: '#961e 关于常见问题「浏览器和桌面图标是两份数据」行（删＝装到桌面看到空数据误判丢数据）', file: 'template.html', needle: 'id="row-faq-twostore"' },
   { name: '#961f 关于常见问题「收不到消息、通知不弹」行（删＝通知收不到又被当 bug）', file: 'template.html', needle: 'id="row-faq-notify"' },
   { name: '#961g 三条常见问题弹窗接线（删＝点行无反应、弹不出说明）', file: 'js/personalize.js', needle: "bind('row-faq-noacct'" },
+  // ---- 设置页平台标记（v8.29）：iOS / 安卓专属项一眼看清 + 非本机平台给替代入口 ----
+  // 用户问「设置里好多 iOS / 安卓专属功能，要不要单独分一类」——定为「不分类、只做行级标记」。
+  { name: '#plat1 安卓专属行的平台胶囊（删＝用户又分不清哪项是给哪个系统的，也没了非本机平台的替代指引）', file: 'template.html', needle: '<span class="plat-tag" data-plat="android">仅安卓</span>' },
+  { name: '#plat2 iOS 专属行的平台胶囊（删＝同上；「顶部避让修正」在安卓上被当成本机功能反复试）', file: 'template.html', needle: '<span class="plat-tag" data-plat="ios">仅 iPhone</span>' },
+  { name: '#plat3 平台胶囊样式（复用 .tag 样式类＝settings-help.js 注入器跳过该行＝那几行的「功能说明」胶囊整条消失）', file: 'css/setting.css', needle: '.gs-row .plat-tag {\ndisplay:inline-block; flex:none;' },
+  { name: '#plat4 只在明确判定为另一平台时弱化（改成「不是本平台就弱化」＝UA 伪装 / 桌面版网站失手时把用户挡在唯一修复开关外）', file: 'js/personalize.js', needle: "if (plat === 'android') return d.isIOS === true;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
