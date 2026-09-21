@@ -4282,6 +4282,14 @@ const FIX_SENTINELS = [
   { name: '#973b 红卡红色警示形态（删/改回灰底灰条＝最顶端这张卡退回普通卡，不再显眼）', file: 'css/base.css', needle: 'background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left;' },
   { name: '#973c 红卡暗色主题（删＝暗色下红卡按亮底深红字渲染，字看不清）', file: 'css/base.css', needle: '[data-theme="dark"] .splash-bigwarn {' },
   { name: '#973d 必读摘要同口径一条（在线 notice.json 会用 summary 整段替换静态列表，静态兜底丢了＝离线看到的是旧口径摘要）', file: 'template.html', needle: '【本站内容非常多，不适用建议不使用】' },
+  /* ==== 2026-09-21 #975 开屏两页「问 AI」建议补免责口径（用户直派：「可以问AI只是使用建议，但实际问题问AI也不无法保证100%正确，AI也会出错和骗人，请自行甄别」）====
+     落点三处：第一页开屏公告两处「建议直接问 AI」下方各补一条（在线权威源 notice.json ＋ 离线兜底 template.html 两份同步）；
+     第二页强制公告（进入前 · 作者必读公告）底部 note 补同口径（「让 AI 修 / 问 AI」都只是使用建议，答案自行甄别）。==== */
+  { name: '#975a 互助群公告章「问 AI」免责·在线权威源（删＝用户直派的「AI 会出错会骗人请自行甄别」口径从联网用户开屏消失）', file: 'pwa/notice.json', needle: '「可以问 AI」只是使用建议：实际问题时去问 AI' },
+  { name: '#975b 报修章「问 AI」免责·在线权威源（删＝报修章只剩「比作者回复快」却看不到甄别提醒，同口径仅剩互助群章一处）', file: 'pwa/notice.json', needle: '注意：AI 的回答无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。' },
+  { name: '#975c 互助群公告章「问 AI」免责·离线兜底（删＝断网/弱网用户看到的开屏没有该免责条）', file: 'template.html', needle: '也无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。</p>' },
+  { name: '#975d 报修章「问 AI」免责·离线兜底（删＝断网/弱网用户在报修章看不到甄别提醒）', file: 'template.html', needle: '注意：AI 的回答无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。</p>' },
+  { name: '#975e 第二页强制公告底部 note 补「让 AI 修 / 问 AI」免责（删＝进入前最后一屏只有 AI 建议、没有甄别提醒）', file: 'template.html', needle: 'AI 给的答案请自行甄别。</div>' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
