@@ -826,9 +826,7 @@ headInput.type = 'file'; headInput.accept = 'image/*';
 headInput.id = 'cs-head-pick';
 headInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(headInput);
-headInput.onchange = () => {
-const f = headInput.files && headInput.files[0];
-headInput.value = ''; // 允许重选同一文件
+function headPickFile(f) {
 if (!f) return;
 const cb = headCb; headCb = null;
 const reader = new FileReader();
@@ -839,6 +837,11 @@ if (cb) cb(data);
 });
 };
 reader.readAsDataURL(f);
+}
+headInput.onchange = () => {
+const f = headInput.files && headInput.files[0];
+headInput.value = ''; // 允许重选同一文件
+headPickFile(f);
 };
 function armHead(cb) { headCb = cb; }
 function headActivate() {
@@ -903,6 +906,12 @@ applyProfile();
 const csAp = row('cs-avatar-partner');
 if (csAp) {
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
+if (window.mochiFilePickSurface) {
+window.mochiFilePickSurface(csAp, {
+id: 'cs-avatar-partner-tap', accept: 'image/*',
+onFiles: (files) => { headPickFile(files && files[0]); }
+});
+}
 csAp.addEventListener('click', () => {
 armHead((data) => {
 store.set('cs-avatar-partner', data);
@@ -923,6 +932,12 @@ try { if (window.refreshChatAvatars) window.refreshChatAvatars(); } catch (e) {}
 const csAu = row('cs-avatar-user');
 if (csAu) {
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
+if (window.mochiFilePickSurface) {
+window.mochiFilePickSurface(csAu, {
+id: 'cs-avatar-user-tap', accept: 'image/*',
+onFiles: (files) => { headPickFile(files && files[0]); }
+});
+}
 csAu.addEventListener('click', () => {
 armHead((data) => {
 store.set('cs-avatar-user', data);

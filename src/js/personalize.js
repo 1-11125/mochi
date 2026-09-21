@@ -154,11 +154,10 @@
   // input 的激活更苛刻；clip 后命中区为零、不挡任何点击。原生 label 兜底见 device.js mochiFilePickLabel。
   avatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(avatarPickInput);
-  avatarPickInput.onchange = () => {
-    const f = avatarPickInput.files && avatarPickInput.files[0];
-    avatarPickInput.value = ''; // 允许重选同一文件
+  // v8.29 #991（第九波）：选图后的处理抽成公共函数——sr-only input（老路径）与
+  // 铺在头像盒上的真 input（surface，新路径）两条来源共用同一条压缩/落库管线，防止两处走偏。
+  function avatarPickFile(f, cb) {
     if (!f) return;
-    const cb = avatarPickCb; avatarPickCb = null;
     const reader = new FileReader();
     reader.onload = () => {
       compressImage(reader.result, 256).then(data => {
@@ -168,6 +167,13 @@
       });
     };
     reader.readAsDataURL(f);
+  }
+  avatarPickInput.onchange = () => {
+    const f = avatarPickInput.files && avatarPickInput.files[0];
+    avatarPickInput.value = ''; // 允许重选同一文件
+    if (!f) return;
+    const cb = avatarPickCb; avatarPickCb = null;
+    avatarPickFile(f, cb);
   };
   function bindAvatar(id, key) {
     const box = document.getElementById(id);
@@ -175,22 +181,35 @@
     applyAvatar(id, key);
     // FIX 2026-09-18 #738：原生 label 激活兜底（小米浏览器对 JS 合成 click 静默不弹选择器）
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(box, avatarPickInput);
+    // 把图落到界面 + 存储（两条来源共用：点击兜底腿、以及手指点 surface input）
+    const applyData = (data) => {
+      const ring = box.querySelector('.ring');
+      // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
+      if (ring) {
+        ring.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = data;
+        img.alt = '';
+        ring.appendChild(img);
+      }
+      store.set(key, data);
+    };
+    // FIX 2026-09-21 #991（第九波）：在头像盒内铺一层真·可点 file input——手指物理落在 input 上，
+    // 浏览器按原生默认动作弹相册，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿
+    //（用户 2026-09-21 红米 Note 9 Pro + 自带浏览器报的正是「三条腿都在、点了仍没反应」那一类内核）。
+    // 昵称 .lbl 的 z-index:1（#821）仍在它之上：点昵称＝改昵称、点圆圈/其余区域＝换头像。
+    if (window.mochiFilePickSurface) {
+      window.mochiFilePickSurface(box, {
+        id: 'mochi-avatar-tap-' + id,
+        accept: 'image/*',
+        onFiles: (files) => { avatarPickFile(files && files[0], applyData); }
+      });
+    }
     box.addEventListener('click', (e) => {
       e.stopPropagation();
       // ★ 先把回调武装好，再激活选择器（#756：兜底 click 会延后 60ms 触发，
       //   若回调在激活之后才赋值，用户秒选文件时会拿到 null 回调＝存不上）
-      avatarPickCb = (data) => {
-        const ring = box.querySelector('.ring');
-        // v3.6.x：img 用属性赋值（dataURL 含引号时拼 innerHTML 会逃逸注入 HTML）
-        if (ring) {
-          ring.innerHTML = '';
-          const img = document.createElement('img');
-          img.src = data;
-          img.alt = '';
-          ring.appendChild(img);
-        }
-        store.set(key, data);
-      };
+      avatarPickCb = applyData;
       // FIX 2026-09-18 #756：原 `if (fromLabel(e)) return;` 会在「label 存在但内核不转发」时
       // 连 JS 兜底一起跳过＝彻底没反应（国产内核实况）。改为：label 只作加速路径，
       // 由 mochiFilePickGuard 确认「确实没弹出」后补 JS click。
@@ -5508,6 +5527,12 @@ try {
       if (!phonePageEl.classList.contains('decor-on')) return;
       // 组件库面板 / 装饰完成条 / 新增页「+ 添加卡片」点击不拦截
       if (e.target.closest('.desk-lib') || e.target.closest('.decor-bar') || e.target.closest('.desk-page-add')) return;
+      // FIX 2026-09-21 #991：头像区不参与「点卡片设背景」——头像盒（.deco-avatar）长在
+      // [data-card-bg="deco"] 卡片内部，装修模式下点它会走到下面 preventDefault+stopPropagation，
+      // 把 label 转发（默认动作）和头像自己的 JS 兜底腿一起掐掉＝装修模式下换不了头像、点昵称也改不了名
+      //（无头实测：装修模式点桌面头像 = 弹出「纪念日卡设置」、选择器 0 次）。头像/昵称是卡片内的
+      // **可点元素**而非卡片背景区，按 #821 同口径各归各：点头像＝换头像，点卡片其余区域＝设背景。
+      if (e.target.closest('.deco-avatar')) return;
       const card = e.target.closest('[data-card-bg]');
       if (!card) return;
       e.preventDefault();

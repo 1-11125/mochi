@@ -3771,6 +3771,10 @@ window.mochiFilePickGuard = function (input, onMiss) {
   setTimeout(function () {
     if (settled) return;
     if (window.__mochiPickArmed.opened !== openedAt) { cleanup(); settled = true; return; } // label 路径已生效
+    // FIX 2026-09-21 #991（第九波）：本次手势若是「手指物理点按铺在入口上的真 input」（surface 层，
+    // 见 mochiFilePickSurface），浏览器已按原生默认动作弹了选择器——此时再补 JS 腿会在另一个
+    // input 上二次激活（双开），故判定「已弹出」直接让路。判据＝同一手势的时间戳，零机型分支。
+    if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) { cleanup(); settled = true; return; }
     cleanup();
     finish(false); // 没等到任何信号 → 判定「这次没弹出」，走兜底
   }, 60);
@@ -3793,6 +3797,67 @@ window.mochiFilePickLabel = function (btn, input) {
   } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
 
+// ===== 第九波 #991：把「真·可点 file input」铺在入口上（物理点按＝浏览器原生行为，零转发、零合成事件）=====
+// 立项（用户 2026-09-21 红米 Note 9 Pro + 手机自带浏览器 MiuiBrowser 20.23 / Android12 / Chrome135 内核
+// 实报「导入图片点不了、一直换不了头像」，并明说其他设备型号也有出现、要求不要覆盖式修补）：
+// 前八波（#677 input 要挂文档 → #717 去掉 display:none → #738 加原生 label → #753 accept 前置 →
+// #755 统一入口 → #756 label 早退把两条路一起掐掉 → #813 回调武装时机 → #877 showPicker 第三腿 →
+// #920 三腿单点）修的一直是「怎么把那个 1px、看不见的 sr-only input 激活起来」，三条腿都得指望内核
+// 配合执行我们的代码：①label 转发（#756 实测 vivo SP-engine 既不转发也不报错）；②JS 合成 click()
+// （#738 实测小米系静默无视）；③showPicker()（小米系仍可能不弹）。三条腿全被无视时＝点了彻底没反应
+// （不报错、不弹窗、不提示），这正是用户反复看到的形状。
+// 本波换掉问题本身：**不再让代码去「激活」一个看不见的 input**，而是在入口节点内铺一层有真实尺寸、
+// 手指能直接落在上面的 file input（透明但占位，不是 sr-only clip）——手指物理点按 input 本身，选择器
+// 由浏览器的**原生默认动作**弹出，不经过 label 转发、也不经过任何 JS 合成事件。这是本族唯一不依赖
+// 「内核乐意执行我们的 JS」的路径（中文移动端「透明 input 覆盖按钮」的通吃写法）。
+// 零机型分支：所有内核都是同一个元素、同一条原生路径，无任何 UA/机型判断。
+// 与既有三腿并存互不干扰：三腿在 mochiFilePickGuard / mochiFilePickFire 里会探测「本次手势正是
+// surface 点按」并主动让路（见上方 #991 判定），因此绝不会两个 input 各弹一次＝不双开。
+// 调用口径：只在**常驻入口**（节点稳定、回调用途固定）上铺一次，长期有效；不要在点击时临时创建。
+//   opts.id      该 input 的稳定 id（同一 id 复用，绝不随点按堆积节点）
+//   opts.accept  默认 'image/*'（必须在任何激活之前生效，#753 判据；此处是常驻设置，天然先于点按）
+//   opts.onFiles (files: File[]) => void，选完文件后的处理（各入口自己的压缩/落库管线，原样复用）
+window.mochiFilePickSurface = function (btn, opts) {
+  try {
+    var o = opts || {};
+    if (!btn || !btn.appendChild || typeof o.onFiles !== 'function') return null;
+    var id = o.id || ('mochi-pick-surface-' + Date.now().toString(36));
+    var input = document.getElementById(id);
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = id;
+      input.className = 'mochi-pick-surface';
+      input.setAttribute('data-file-pick-surface', '1');
+      // 元素本身**可见**（opacity:1、有真实尺寸、可命中），只是没有可见外观：原生 file input 的
+      // 大小/内边距/边框/前景色全清掉、字号 0、外观交给 CSS 里的 ::file-selector-button 规则藏按钮。
+      // 这样既不落进「不可见 input 被内核拒绝激活」那族启发式（#717/#738 的 display:none/opacity:0），
+      // 又能让手指物理落在 input 上——本路径要的正是「浏览器原生默认动作」，不靠任何 JS 激活。
+      // z-index:0 ＝ 入口内自己的可点元素（如桌面昵称 .lbl 的 z-index:1，见 #821）仍在其上，
+      // 点昵称＝改昵称、点圆圈/其余区域＝换头像，两条路径各归各。
+      input.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:0;';
+      if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+      btn.appendChild(input);
+      // 记「本次手势点到了 surface」——供 guard/Fire 让路（同一手势内的时间戳判定，非机型分支）
+      input.addEventListener('click', function () { window.__mochiSurfaceTapAt = Date.now(); }, true);
+    }
+    try { input.accept = o.accept || 'image/*'; } catch (e) {}
+    input.onchange = function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      try { input.value = ''; } catch (e) {} // 允许重选同一文件
+      try { o.onFiles(files); } catch (e) {}
+    };
+    return input;
+  } catch (e) { return null; }
+};
+// 供 guard/Fire 判定「本次手势是一次 surface 点按」：一次性消费（读到即清），窗口 400ms＝同一手势，
+// 避免上一次点按的残留把下一次点按的补腿误吞。
+window.mochiFilePickSurfaceTap = function () {
+  var at = window.__mochiSurfaceTapAt || 0;
+  window.__mochiSurfaceTapAt = 0;
+  return (Date.now() - at) < 400;
+};
+
 // ===== 激活腿统一实现（FIX 2026-09-20 #920 第八波）——showPicker → click → 可反馈提示 =====
 // 用户（小米14 自带浏览器 MiuiBrowser 20.27 / Android16 / Chrome135 内核实报「照片、壁纸上传不了，
 // 所有上传图片的地方上传无反应」，明说其他机型也有；#677→#717→#738→#753→#755→#756→#813→#877 同族
@@ -3809,6 +3874,9 @@ window.mochiFilePickLabel = function (btn, input) {
 // 零机型分支：所有内核同一顺序尝试三条腿，判据全是可观测事实（无机型/UA 判断）。
 window.mochiFilePickFire = function (input, opts) {
   var o = opts || {};
+  // FIX 2026-09-21 #991（第九波）：本次手势若是「手指物理点按入口上铺的真 input」（surface 层），
+  // 那台选择器已由浏览器原生默认动作弹出——这里只登记、不再补腿（补＝另一个 input 再弹一次＝双开）。
+  if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) return true;
   var fired = false;
   if (input && typeof input.showPicker === 'function') {
     try { input.showPicker(); fired = true; } catch (e) {}

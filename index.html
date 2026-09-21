@@ -225,6 +225,19 @@ font-size:12.5px; font-weight:800; padding:7px 14px; border-radius:8px; letter-s
 .cardlock-state { font-size:12px; font-weight:700; color:#9a6410; margin-top:8px; min-height:1em; }
 [data-theme="dark"] .splash-alert.splash-cardlock { background:rgba(192,127,31,.15); border-color:#d99a3a; }
 [data-theme="dark"] .splash-alert.splash-cardlock .splash-alert-t { color:#eebb60; }
+.splash-alert.splash-ioshome { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }
+.splash-alert.splash-ioshome .splash-alert-t { color:#9a6410; font-size:13px; letter-spacing:1px; }
+.splash-alert.splash-ioshome .splash-alert-t::before { background:#9a6410; }
+.splash-alert.splash-ioshome p { color:#6b4a0e; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-ioshome p + p { margin-top:6px; }
+.splash-alert.splash-ioshome strong, .splash-alert.splash-ioshome b { color:#9a6410; font-weight:800; }
+[data-theme="dark"] .splash-alert.splash-ioshome { background:rgba(192,127,31,.15); border-color:#d99a3a; }
+[data-theme="dark"] .splash-alert.splash-ioshome .splash-alert-t { color:#eebb60; }
+[data-theme="dark"] .splash-alert.splash-ioshome .splash-alert-t::before { background:#eebb60; color:#3a2504; }
+[data-theme="dark"] .splash-alert.splash-ioshome p { color:#ecd9b0; }
+[data-theme="dark"] .splash-alert.splash-ioshome strong, [data-theme="dark"] .splash-alert.splash-ioshome b { color:#eebb60; }
+input.mochi-pick-surface::file-selector-button { display:none; }
+input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 [data-theme="dark"] .splash-alert.splash-cardlock .splash-alert-t::before { background:#eebb60; color:#3a2504; }
 [data-theme="dark"] .splash-alert.splash-cardlock p { color:#ecd9b0; }
 [data-theme="dark"] .cardlock-btn { background:#d99a3a; border-color:#d99a3a; color:#3a2504; }
@@ -10267,6 +10280,23 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <p><strong>安卓手机不建议使用自带浏览器打开本站（小米 / 华为 / OPPO / vivo / 荣耀 / 夸克等），自带浏览器兼容问题多。</strong>已实测出现：点导入 / 添加按钮没反应（系统相册弹不出来）、显示错位、卡顿等。</p>
           <p>建议改用 <strong>Chrome 或 Edge 浏览器</strong>打开本站；或在浏览器菜单里「添加到主屏幕 / 安装应用」，之后从桌面图标进入。</p>
         </div>
+        <!-- v8.29 #991（用户 2026-09-21 直派「关于安卓不要使用手机自带的默认浏览器……和 ios 要添加快捷方式到主屏幕打开，
+             iOS 因为设备会一直清除数据，添加到主屏幕还可以改善一点。这个也要写在开屏显眼的地方，一直有用户搞不清楚」）——
+             位置：紧跟上一条「安卓浏览器」卡、同组相邻＝开屏第一屏必见（必读卡组整组在品牌卡之前，见 #976）；
+             形态：琥珀＝#976 定的「需要你操作」族（同「系统内置字卡锁」），不占橙（须知/提醒）与红（使用红线）名额；
+             静态 DOM（data-ios-home 标记，不占 data-anti-scam / data-browser-warn / data-stop-update / data-about-tip
+             命名空间，与 clock.js 置顶卡回填、pwa.js 5s 看门狗互不干扰）；在线 notice.json 覆盖只改公告列表/章节，
+             覆盖不到此处，故 notice.json 的摘要与「浏览器兼容提醒」章同步补同口径一条（两份同步：静态兜底 + 在线权威源）。
+             口径与已入库的 设置 → 关于「减少数据被手机清掉的几率」/「iPhone / iPad（Safari）用户必看」、使用说明 iOS 章、
+             导出数据胶囊、备份提醒顶条（#980）一致，不新增任何行为——iOS 的 7 天规则（ITP 对可脚本写入存储的上限）
+             与「主屏幕应用不计入、且与 Safari 是两套独立存储」是 Apple 的既有策略，属设备限制，只能靠
+             「添加到主屏幕 + 定期导出备份」降低概率（不是「装了就绝对不丢」）。 -->
+        <div class="splash-alert splash-ioshome" data-ios-home="1">
+          <div class="splash-alert-t">iPhone / iPad 用户 · 请把本站「添加到主屏幕」再用</div>
+          <p><strong>iPhone 上数据总是丢，多半就是没装到主屏幕：</strong>Safari 会在<b>连续 7 天没打开本站</b>后自动清空它的全部本地数据（Apple 的隐私策略，网站躲不过）；手机存储紧张时，系统也会回收网页数据。</p>
+          <p><strong>把本站「添加到主屏幕」、之后从桌面图标打开，能明显改善这一点</strong>（主屏幕应用不计入那 7 天）。做法：用 <b>Safari</b> 打开本站 → 点底部中间的「分享」按钮（方框加箭头）→「添加到主屏幕」→ 再从手机桌面点新图标进入。</p>
+          <p><b>注意：主屏幕应用与 Safari 是两套独立存储</b>，切换前先在 设置 → 通用 →「导出数据」导一份完整备份，切过去后再「导入数据」恢复；平时都从桌面图标打开用。（安卓没有这条 7 天规则，但存储紧张时系统同样会清网页数据，所以两种手机都要定期导出备份。）</p>
+        </div>
         <!-- v3.26.x：使用前提卡——先认清「字卡传讯」再用（纯代码运行/没有 AI/不是小手机）；
              #611 后合并原「不是小手机 · 禁止扩圈」卡（去重，两卡同一主题）；静态 DOM（tag 'w' 非数字，
              与 clock.js 的 1/2/3('s') 认领不冲突），在线 notice.json 覆盖只改公告列表，不影响此处 -->
@@ -10455,9 +10485,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789999795206">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790000091298">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 22:09<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:14<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -19978,6 +20008,7 @@ try { input.addEventListener('change', onChange); } catch (e) {}
 setTimeout(function () {
 if (settled) return;
 if (window.__mochiPickArmed.opened !== openedAt) { cleanup(); settled = true; return; } // label 路径已生效
+if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) { cleanup(); settled = true; return; }
 cleanup();
 finish(false); // 没等到任何信号 → 判定「这次没弹出」，走兜底
 }, 60);
@@ -19999,8 +20030,40 @@ btn.appendChild(label);
 label.htmlFor = input.id;
 } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
+window.mochiFilePickSurface = function (btn, opts) {
+try {
+var o = opts || {};
+if (!btn || !btn.appendChild || typeof o.onFiles !== 'function') return null;
+var id = o.id || ('mochi-pick-surface-' + Date.now().toString(36));
+var input = document.getElementById(id);
+if (!input) {
+input = document.createElement('input');
+input.type = 'file';
+input.id = id;
+input.className = 'mochi-pick-surface';
+input.setAttribute('data-file-pick-surface', '1');
+input.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:0;';
+if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+btn.appendChild(input);
+input.addEventListener('click', function () { window.__mochiSurfaceTapAt = Date.now(); }, true);
+}
+try { input.accept = o.accept || 'image/*'; } catch (e) {}
+input.onchange = function () {
+var files = Array.prototype.slice.call(input.files || []);
+try { input.value = ''; } catch (e) {} // 允许重选同一文件
+try { o.onFiles(files); } catch (e) {}
+};
+return input;
+} catch (e) { return null; }
+};
+window.mochiFilePickSurfaceTap = function () {
+var at = window.__mochiSurfaceTapAt || 0;
+window.__mochiSurfaceTapAt = 0;
+return (Date.now() - at) < 400;
+};
 window.mochiFilePickFire = function (input, opts) {
 var o = opts || {};
+if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) return true;
 var fired = false;
 if (input && typeof input.showPicker === 'function') {
 try { input.showPicker(); fired = true; } catch (e) {}
@@ -20900,4 +20963,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubbnthi -->
+<!-- __MOCHI_EOF__ mubbu5ya -->

@@ -4388,6 +4388,27 @@ const FIX_SENTINELS = [
   { name: '#985g 回复输入框预填礼物原本文案并切出新增段（删/改回整段当回复＝聊天里把礼物原文也当我的消息发出去，用户口径「聊天只显示追加回复」被破坏）', file: 'js/chat.js', needle: "const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;" },
   { name: '#985h 聊天里只发新增的那句（删＝原文与回复两条都进聊天）', file: 'js/chat.js', needle: "addOut(added);" },
   { name: '#985i 卡片动作区只对真·联系人送我的礼物且必须有心意柜指针（删/放宽＝TA 自己买的礼物卡与存量卡也长出【领取】【回复】，而后者的状态无处可写）', file: 'js/chat.js', needle: "function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }" },
+  /* ==== 2026-09-21 #991 第九波「导入图片点不了 / 一直换不了头像」＝真·可点 input 层（surface）
+     （用户直派，红米 Note 9 Pro + 手机自带浏览器 MiuiBrowser 20.23 / Android12 / Chrome135 内核实报，
+     明说其他设备型号也有出现、要求不要覆盖式修补；#677→#717→#738→#753→#755→#756→#813→#877→#920 同族）。
+     根因：前八波都在修「怎么把那个 1px、看不见的 sr-only input 激活起来」，三条腿（label 转发 /
+     JS 合成 click / showPicker）全都指望内核乐意执行我们的 JS——三条同时被无视时点了彻底没反应。
+     本波换掉问题本身：入口节点内铺一层有真实尺寸、手指能直接落在上面的真 file input，选择器由浏览器
+     原生默认动作弹出；三腿在 guard/Fire 里探测到 surface 点按主动让路（不双开）。
+     另修「装修模式下点桌面头像被卡片背景菜单吞掉」。 ==== */
+  { name: '#991a 单点实现 mochiFilePickSurface（删＝四个头像入口退回「全靠内核配合」的三腿＝用户报障的「点了没反应」复发）', file: 'js/device.js', needle: 'window.mochiFilePickSurface = function (btn, opts) {' },
+  { name: '#991b surface 层可命中、opacity 仍为 1、有真实尺寸（退回 opacity:0 / 1px / clip / display:none＝#717/#738 那族「不可见 input 拒绝激活」写法）', file: 'js/device.js', needle: "input.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:0;';" },
+  { name: '#991c guard 探测 surface 点按后让路（删＝surface 与三腿各弹一次＝双开）', file: 'js/device.js', needle: 'if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) { cleanup(); settled = true; return; }' },
+  { name: '#991d Fire 探测 surface 点按后让路（45 处统一入口与手写兜底同吃，删＝双开面扩大）', file: 'js/device.js', needle: 'if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) return true;' },
+  { name: '#991e 桌面两个头像盒铺 surface（删＝用户报障入口回到「点了没反应」）', file: 'js/personalize.js', needle: "id: 'mochi-avatar-tap-' + id," },
+  { name: '#991f 装修模式不再把头像区的点击吞成「卡片背景」菜单（删＝装修模式下点桌面头像换不了头像、点昵称改不了名）', file: 'js/personalize.js', needle: "if (e.target.closest('.deco-avatar')) return;" },
+  { name: '#991g 聊天设置两行头像各铺一层 surface（#738 起的历史报障入口；删＝那两行只剩三腿）', file: 'js/chat-settings.js', needle: "id: 'cs-avatar-user-tap', accept: 'image/*'," },
+  { name: '#991h 头像选图管线抽成公共函数、surface 与老路径共用（删＝两条来源各写一份压缩/落库，最易出「弹了但图丢了」#813 式回归）', file: 'js/chat-settings.js', needle: 'function headPickFile(f) {' },
+  { name: '#991i 开屏新增 iPhone「添加到主屏幕」提示卡（删＝iPhone 用户继续不知道数据被清的根因与装法；与 notice.json 摘要/章节两份同步）', file: 'template.html', needle: '<div class="splash-alert splash-ioshome" data-ios-home="1">' },
+  { name: '#991j 该卡琥珀形态（#976 定的「需要你操作」族；改色＝占用橙/红名额、打乱四色语义）', file: 'css/base.css', needle: '.splash-alert.splash-ioshome { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }' },
+  { name: '#991k surface 层原生「选择文件」按钮藏掉（删＝入口上浮出一个原生按钮破相）', file: 'css/base.css', needle: 'input.mochi-pick-surface::-webkit-file-upload-button { display:none; }' },
+  { name: '#991l 在线公告摘要补 iPhone 主屏幕一条（删＝只读在线公告的用户看不到这条；与开屏静态卡两份同步）', file: 'pwa/notice.json', needle: '【iPhone 用户必读】请把本站「添加到主屏幕」后再用' }
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

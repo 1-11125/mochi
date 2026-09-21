@@ -1061,9 +1061,9 @@
   // 见 device.js mochiFilePickLabel（小米浏览器对 JS 合成 click 静默不弹选择器，#717 后小米17 Pro 实报）。
   headInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
   document.body.appendChild(headInput);
-  headInput.onchange = () => {
-    const f = headInput.files && headInput.files[0];
-    headInput.value = ''; // 允许重选同一文件
+  // v8.29 #991（第九波）：选图后的处理抽成公共函数——sr-only input（老路径）与铺在两行头像上的
+  // 真 input（surface，新路径）共用同一条压缩/武装回调管线，两条来源不会各自走偏。
+  function headPickFile(f) {
     if (!f) return;
     const cb = headCb; headCb = null;
     const reader = new FileReader();
@@ -1074,6 +1074,11 @@
       });
     };
     reader.readAsDataURL(f);
+  }
+  headInput.onchange = () => {
+    const f = headInput.files && headInput.files[0];
+    headInput.value = ''; // 允许重选同一文件
+    headPickFile(f);
   };
   // FIX 2026-09-19 #813（iPhone 16 Pro + Safari 实报「头像上传无反应，一直是默认头像」，用户明说
   // 其他设备型号也有）：**武装回调与激活选择器必须拆成两步，且武装在前**。原实现把
@@ -1173,6 +1178,16 @@
   const csAp = row('cs-avatar-partner');
   if (csAp) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAp, headInput);
+    // FIX 2026-09-21 #991（第九波）：在这一行上铺一层真·可点 file input——手指物理落在 input 上，
+    // 浏览器按原生默认动作弹相册，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿。
+    // 点击仍会冒泡到本行的 click 处理器（先 armHead 武装回调，再由 guard 探测到 surface 点按而让路，
+    // 不会在两个 input 上各弹一次）。压缩/回显管线（headPickFile → store.set → applyProfile）原样复用。
+    if (window.mochiFilePickSurface) {
+      window.mochiFilePickSurface(csAp, {
+        id: 'cs-avatar-partner-tap', accept: 'image/*',
+        onFiles: (files) => { headPickFile(files && files[0]); }
+      });
+    }
     csAp.addEventListener('click', () => {
       // FIX 2026-09-19 #813：先武装回调、再激活（原 _fb 内才 arm＝label 转发成功的内核永远拿不到回调）
       armHead((data) => {
@@ -1194,6 +1209,13 @@
   const csAu = row('cs-avatar-user');
   if (csAu) {
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(csAu, headInput);
+    // FIX 2026-09-21 #991（第九波）：同 csAp——本行铺「真·可点 input」surface 层
+    if (window.mochiFilePickSurface) {
+      window.mochiFilePickSurface(csAu, {
+        id: 'cs-avatar-user-tap', accept: 'image/*',
+        onFiles: (files) => { headPickFile(files && files[0]); }
+      });
+    }
     csAu.addEventListener('click', () => {
       // FIX 2026-09-19 #813：同 csAp——先武装再激活
       armHead((data) => {

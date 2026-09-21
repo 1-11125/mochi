@@ -288,6 +288,26 @@ html { margin:0; padding:0; }
 .cardlock-state { font-size:12px; font-weight:700; color:#9a6410; margin-top:8px; min-height:1em; }
 [data-theme="dark"] .splash-alert.splash-cardlock { background:rgba(192,127,31,.15); border-color:#d99a3a; }
 [data-theme="dark"] .splash-alert.splash-cardlock .splash-alert-t { color:#eebb60; }
+/* v8.29 #991：iPhone「添加到主屏幕」提示卡——#976 定的琥珀＝「需要你操作」族（与系统内置字卡锁同色），
+   规则与形状参数照抄该族（字形/内边距/圆角一致），只换文案宿主。哨兵 needle 取 minify 后的单行形态 */
+.splash-alert.splash-ioshome { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }
+.splash-alert.splash-ioshome .splash-alert-t { color:#9a6410; font-size:13px; letter-spacing:1px; }
+.splash-alert.splash-ioshome .splash-alert-t::before { background:#9a6410; }
+.splash-alert.splash-ioshome p { color:#6b4a0e; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-ioshome p + p { margin-top:6px; }
+.splash-alert.splash-ioshome strong, .splash-alert.splash-ioshome b { color:#9a6410; font-weight:800; }
+[data-theme="dark"] .splash-alert.splash-ioshome { background:rgba(192,127,31,.15); border-color:#d99a3a; }
+[data-theme="dark"] .splash-alert.splash-ioshome .splash-alert-t { color:#eebb60; }
+[data-theme="dark"] .splash-alert.splash-ioshome .splash-alert-t::before { background:#eebb60; color:#3a2504; }
+[data-theme="dark"] .splash-alert.splash-ioshome p { color:#ecd9b0; }
+[data-theme="dark"] .splash-alert.splash-ioshome strong, [data-theme="dark"] .splash-alert.splash-ioshome b { color:#eebb60; }
+/* v8.29 #991：真·可点 file input（surface 层，device.js mochiFilePickSurface）的原生小按钮要藏掉——
+   元素本身保持可见（opacity:1 + 真实尺寸，见 device.js 里的内联样式），只藏它的可见外观：
+   不支持该伪元素的旧内核回退为 font-size:0 + 透明前景/背景，同样看不见。
+   注意：不要试图改成 display:none / opacity:0 / 1px clip —— 那正是 #717/#738 那族
+   「不可见 input 被内核拒绝激活」的写法，本层存在的意义就是「手指能物理点到真 input」。 */
+input.mochi-pick-surface::file-selector-button { display:none; }
+input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 [data-theme="dark"] .splash-alert.splash-cardlock .splash-alert-t::before { background:#eebb60; color:#3a2504; }
 [data-theme="dark"] .splash-alert.splash-cardlock p { color:#ecd9b0; }
 [data-theme="dark"] .cardlock-btn { background:#d99a3a; border-color:#d99a3a; color:#3a2504; }

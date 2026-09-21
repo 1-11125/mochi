@@ -89,11 +89,8 @@ avatarPickInput.type = 'file'; avatarPickInput.accept = 'image/*';
 avatarPickInput.id = 'mochi-avatar-pick';
 avatarPickInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(avatarPickInput);
-avatarPickInput.onchange = () => {
-const f = avatarPickInput.files && avatarPickInput.files[0];
-avatarPickInput.value = ''; // 允许重选同一文件
+function avatarPickFile(f, cb) {
 if (!f) return;
-const cb = avatarPickCb; avatarPickCb = null;
 const reader = new FileReader();
 reader.onload = () => {
 compressImage(reader.result, 256).then(data => {
@@ -102,15 +99,20 @@ if (cb) cb(data);
 });
 };
 reader.readAsDataURL(f);
+}
+avatarPickInput.onchange = () => {
+const f = avatarPickInput.files && avatarPickInput.files[0];
+avatarPickInput.value = ''; // 允许重选同一文件
+if (!f) return;
+const cb = avatarPickCb; avatarPickCb = null;
+avatarPickFile(f, cb);
 };
 function bindAvatar(id, key) {
 const box = document.getElementById(id);
 if (!box) return;
 applyAvatar(id, key);
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(box, avatarPickInput);
-box.addEventListener('click', (e) => {
-e.stopPropagation();
-avatarPickCb = (data) => {
+const applyData = (data) => {
 const ring = box.querySelector('.ring');
 if (ring) {
 ring.innerHTML = '';
@@ -121,6 +123,16 @@ ring.appendChild(img);
 }
 store.set(key, data);
 };
+if (window.mochiFilePickSurface) {
+window.mochiFilePickSurface(box, {
+id: 'mochi-avatar-tap-' + id,
+accept: 'image/*',
+onFiles: (files) => { avatarPickFile(files && files[0], applyData); }
+});
+}
+box.addEventListener('click', (e) => {
+e.stopPropagation();
+avatarPickCb = applyData;
 var _fallback = () => { window.mochiFilePickFire(avatarPickInput, { onFail: () => { avatarPickCb = null; toast('无法打开相册，请重试'); } }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(avatarPickInput, _fallback);
 else _fallback();
@@ -4593,6 +4605,7 @@ if (phonePageEl) {
 phonePageEl.addEventListener('click', (e) => {
 if (!phonePageEl.classList.contains('decor-on')) return;
 if (e.target.closest('.desk-lib') || e.target.closest('.decor-bar') || e.target.closest('.desk-page-add')) return;
+if (e.target.closest('.deco-avatar')) return;
 const card = e.target.closest('[data-card-bg]');
 if (!card) return;
 e.preventDefault();
