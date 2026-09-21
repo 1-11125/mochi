@@ -26,6 +26,12 @@
 //     A4 失底不粘住（A3 之后连来两条都跟底）；
 //     A5/A6/A7 防修过头（上翻阅读中轻点 / 上翻中来消息 / 手势进行中来消息 一律不得被拽回底）；
 //     A8 回钉写走落定锁（回钉后滚动树对新几何重对齐：连续采样无 >25px 倒退、末态贴底）。
+//   C 真实链路·卡片（用户 2026-09-21 追加报障「联系人发送卡片还是会这样——是送的礼物卡」；卡片与文本
+//     共用同一条跟底闸，C 轴把这条面钉住：卡片 class 不含 'msg' token，量测必须按子元素口径）：
+//     C1 礼物卡落地（产品链路 maybeAutoGift，含【领取】动作区）即贴底；C2 打字行期轻点→礼物卡仍贴底；
+//     C3 上滑回底抬手→礼物卡仍贴底；C4 带图礼物卡（dataURL）即贴底；C5 卡片落地后长高（TA 收礼回话
+//     贴卡 / 点【领取】）仍被补平到贴底；C6 卡片泄漏探测（8 个卡片场景 × 60ms 采样，零「在底部却
+//     来件不跟底」的泄漏帧）。
 //   Z1 全程零 JS 异常。
 // 需要：Node 21+ + 本机 Chrome/Edge（CHROME_PATH 可指定）
 import { spawn } from 'node:child_process';
@@ -158,8 +164,9 @@ const STATE = `(function(){
   var b=document.getElementById('chat-body'), t=document.getElementById('chat-typing');
   var rowH=(t&&!t.hidden)?t.offsetHeight:0;
   var max=b.scrollHeight-(b.clientHeight+rowH);
-  var lm=null;
-  for(var i=b.children.length-1;i>=0;i--){var c=b.children[i];if(c.classList&&c.classList.contains('msg')){lm=c;break;}}
+  // FIX 2026-09-21 #998 C 轴：卡片节点（msg-gift/msg-ask/msg-flower…）的 class **不含** 'msg' token，
+  // 旧「找最后一个 .msg」选择器会跳过卡片、量到更早的那条文本气泡上（实测漏判整条卡片面）
+  var lm=b.children.length?b.children[b.children.length-1]:null;
   var br=b.getBoundingClientRect();
   return JSON.stringify({
     anchor:b.classList.contains('scroll-anchor-auto'),
@@ -169,7 +176,7 @@ const STATE = `(function(){
     rawGap:Math.round((b.scrollHeight-b.scrollTop-b.clientHeight)*10)/10,
     typing:!!(t&&!t.hidden),
     over:lm?Math.round((lm.getBoundingClientRect().bottom-br.bottom)*10)/10:null,
-    n:b.querySelectorAll('.msg').length
+    n:b.children.length, cls:lm?(lm.className||''):''
   });
 })()`;
 const state = async () => JSON.parse((await ev(STATE)) || '{}');
@@ -340,6 +347,110 @@ const a8 = await state();
 check('A8 回钉后滚动位无 >25px 倒退帧且末态贴底（#871/#933「中途裸写停旧偏移」不回流）',
   trace.length > 5 && maxBack <= 25 && Math.abs(a8.gap) <= 2,
   '帧数=' + trace.length + ' 最大倒退=' + Math.round(maxBack * 10) / 10 + 'px gap=' + a8.gap + ' over=' + a8.over);
+
+// ---------- C 轴：卡片来件（礼物卡＝用户追加报障的面） ----------
+const DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAAB4CAYAAABw4pVUAAAAWklEQVR42u3XwQ3AIAwEwbT/0tMCSrxSRHZm/5a8zt7dAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAZ1wzM1VVVf3HvwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4sQviQAG3t1WxAAAAAElFTkSuQmCC';
+const giftRec = (id, extra) => {
+  const rec = { side: 'in', special: 'gift', giftId: id, giftName: '小夜灯', giftEmoji: '🌼', giftImg: '', giftPrice: 1200, giftWish: '晚安', giftCat: 'life', ts: Date.now() };
+  return Object.assign(rec, extra || {});
+};
+const addGift = (id, extra) => ev('window.chatAddGift(' + JSON.stringify(giftRec(id, extra)) + ')');
+// 卡片跟底判据：给 400ms 收口窗（钉住态看门狗 250ms 一枪；卡片长高也靠它补平）
+const cardOk = async () => { await sleep(400); const s = await state(); return s; };
+
+// C1 礼物卡落地即贴底（含动作区则更接近真机：走产品链路 maybeAutoGift）
+await reset();
+await ev("(function(){ var g=window.xyStore('xy-home-v2'); g.set('market-wl-settings', JSON.stringify({ giftInOn:1, giftInPct:100, wlOn:0, wlBuyPct:0, selfOn:0, selfPct:0, selfChatOn:1, wishChatOn:0, wishChatPct:0, giftReplyOn:0, giftReplyPct:0, giftReplyMode:1 })); return true; })()");
+await ev('window.maybeAutoGift && window.maybeAutoGift()');
+let giftSeen = null;
+for (let i = 0; i < 24; i++) { const s = await state(); if ((s.cls || '').indexOf('msg-gift') >= 0) { giftSeen = s; break; } await sleep(300); }
+const c1 = await cardOk();
+check('C1 礼物卡（产品链路 maybeAutoGift，真机形态）落地即贴底',
+  c1.gap <= 8 && c1.over !== null && c1.over <= 1 && (c1.cls || '').indexOf('msg-gift') >= 0 && giftSeen !== null,
+  'gap=' + c1.gap + ' over=' + c1.over + ' cls=' + c1.cls);
+
+// C2 打字行显示期轻点 → 礼物卡（红基线：卡片整条落在视口下方）
+await reset();
+await inMsg('C2 先说一句', 1500);
+await sleep(250); await tap(); await sleep(500);
+const nB2 = (await state()).n;
+await addGift('c2');
+const c2 = await cardOk();
+check('C2 打字行显示期轻点后到达的礼物卡仍跟底（红基线此处 gap≈200、卡片整条在视口下方）',
+  c2.gap <= 8 && c2.over !== null && c2.over <= 1 && c2.n >= nB2,
+  'gap=' + c2.gap + ' over=' + c2.over + ' cls=' + c2.cls);
+
+// C3 上滑回底、按住抬手 → 礼物卡
+await reset();
+await dragBackToBottom(120, 300);
+await sleep(700);
+await addGift('c3');
+const c3 = await cardOk();
+check('C3 上滑回底抬手后到达的礼物卡仍跟底（红基线此处 gap≈134）',
+  c3.gap <= 8 && c3.over !== null && c3.over <= 1, 'gap=' + c3.gap + ' over=' + c3.over + ' cls=' + c3.cls);
+
+// C4 带图礼物卡（dataURL 图，图片解码后卡片才定高）
+await reset();
+await addGift('c4', { giftImg: DATAURL, giftName: '星空灯' });
+const c4 = await cardOk();
+check('C4 带图礼物卡落地即贴底（图片解码撑高后仍在底部）',
+  c4.gap <= 8 && c4.over !== null && c4.over <= 1, 'gap=' + c4.gap + ' over=' + c4.over);
+
+// C5 卡片落地后长高：点【领取】（动作区就地换状态，卡片变高）
+await reset();
+await addGift('c5', { giftName: '领卡测试' });
+await sleep(600);
+const h5a = (await state());
+await ev("(function(){var b=document.querySelector('.msg-gift-claim');if(b)b.click();return true;})()");
+const c5 = await cardOk();
+check('C5 卡片落地后长高（点【领取】/TA 收礼回话贴卡）仍被补平到贴底',
+  c5.gap <= 8 && c5.over !== null && c5.over <= 1, 'gap=' + c5.gap + ' over=' + c5.over + '（长高前 sh=' + h5a.max + '）');
+
+// C6 泄漏探测：8 个卡片场景 × 60ms 采样，任一新节点到来时「前在底部 + 后不在底部 + 无手势」即泄漏
+await reset();
+const scenarios = [
+  ['礼物卡·基线', async () => { await addGift('k1'); }],
+  ['礼物卡·打字行期轻点', async () => { await inMsg('先说', 1500); await sleep(250); await tap(); await sleep(400); await addGift('k2'); }],
+  ['礼物卡·上滑回底抬手', async () => { await dragBackToBottom(120, 300); await sleep(600); await addGift('k3'); }],
+  ['问卷卡', async () => { await ev("window.chatAddSystem('问卷（1 题）', { special:'ask-survey', surveyTs:Date.now(), surveyQs:[{text:'Q1',options:['a','b'],type:'single'}], surveyStatus:'sent', surveyAnswers:[] })"); }],
+  ['选择卡', async () => { await ev("window.chatAddSystem('选一个？', { special:'ask-choose', choiceQuestion:'选一个？', choiceOptions:['甲','乙'], choicePref:0 })"); }],
+  ['文本＋礼物卡同任务连发', async () => { await ev("window.chatAddIn('TA 先回你一句', {})"); await addGift('k4'); }],
+  ['带图礼物卡', async () => { await addGift('k5', { giftImg: DATAURL }); }],
+  ['礼物卡·长句回话贴卡后', async () => { await addGift('k6'); await sleep(600); }]
+];
+await ev(`(function(){
+  var b=document.getElementById('chat-body');
+  window.__lk=[]; window.__lkOn=true; window.__lkG=0;
+  (function tick(){
+    if(!window.__lkOn) return;
+    var t=document.getElementById('chat-typing');
+    var rowH=(t&&!t.hidden)?t.offsetHeight:0;
+    var max=b.scrollHeight-(b.clientHeight+rowH);
+    var lm=b.children.length?b.children[b.children.length-1]:null;
+    window.__lk.push({n:b.children.length, gap:Math.round((max-b.scrollTop)*10)/10,
+      anchor:b.classList.contains('scroll-anchor-auto')?1:0, g:window.__lkG, cls:lm?(lm.className||'').slice(0,26):'-'});
+    setTimeout(tick, 60);
+  })();
+  return true;
+})()`);
+for (const [label, fn] of scenarios) {
+  await reset();
+  await ev('window.__lkG++; true');
+  await fn();
+  await sleep(1600);
+}
+await ev('window.__lkOn=false;');
+const lk = JSON.parse((await ev('JSON.stringify(window.__lk)')) || '[]');
+let leak = 0, leakInfo = '';
+for (let i = 1; i < lk.length; i++) {
+  const a = lk[i - 1], b = lk[i];
+  if (b.n <= a.n) continue;
+  const win = lk.slice(i).filter((x) => x.g === b.g).slice(0, 26);
+  const after = win.length ? win[win.length - 1] : b;
+  if (a.gap <= 8 && after.anchor === 1 && after.gap > 8) { leak++; if (!leakInfo) leakInfo = b.cls + ' gap ' + a.gap + '→' + after.gap; }
+}
+check('C6 卡片泄漏探测：' + scenarios.length + ' 个卡片场景零「在底部却来件不跟底」帧（采样 ' + lk.length + ' 帧）',
+  leak === 0, leak ? leak + ' 处泄漏（' + leakInfo + '）' : '零泄漏');
 
 check('Z1 全程零 JS 异常', jsErrors.length === 0, jsErrors.slice(0, 2).join(' | '));
 
