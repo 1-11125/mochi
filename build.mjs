@@ -1740,7 +1740,7 @@ const FIX_SENTINELS = [
   { name: '#703c 权威读库收尾收起进度条（删则 changed=false 且屏上已有快照时进度条挂死不收）', file: 'js/chat.js', needle: '// #703：权威就绪即收起进度条' },
   // ==== 2026-09-17 #704 表情包面板「每次打开所有图片重新加载」大库残留（用户直派：#662/#692 后真机仍现）——emojiShowWhenDecoded 对面板里全部 img[src] await decode，大库几十上百张在低内存机型隐藏期被回收位图，总解码时长远超 1s 兜底＝兜底放行后剩余图逐张冒出（1s 兜底在大库机型是常规路径而非保险）。修复=首屏优先：前 16 张 data-src 图同步补 src、按 DOM 序前 24 张 await decode 后即显示、其余 fire-and-forget 预热不挡显示 ====
   { name: '#704a 面板显示只等首屏解码（删回 await 全部则大库机型超 1s 兜底放行＝逐张冒出回归）', file: 'js/chat.js', needle: 'const EMOJI_DECODE_AWAIT_MAX = 24;' },
-  { name: '#704b 首屏 data-src 图同步补 src 不等懒加载泵（删回则首屏图干等 50ms/4 张泵＝打开变慢）', file: 'js/chat.js', needle: "im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码" },
+  { name: '#704b 首屏图同步补 src 不等懒加载泵（删回则首屏图干等 50ms/4 张泵＝打开变慢；#1011 起改成载荷感知：令牌当场交池、载荷当场补 src）', file: 'js/chat.js', needle: "im.setAttribute('src', ds);" },
   // ==== 2026-09-17 #701 自定义字卡「全量导出点击没反应」（红米 Note 11 5G 夸克实报、多机型同现，用户直派）——点击后整条前置 Promise 链（hydrateLibScopes IDB 大键取回 / ccExportExpandTokens 媒体池还原）任一环在部分安卓壳上挂起不落定＝.then 干等，无 toast 无弹窗零反馈；且全量导出/导入缺范围说明（专属部分=当前桌面联系人，用户直派补说明）。修复=①导出先弹范围说明弹窗（开始导出才跑链）＋点后立刻「正在准备导出…」toast；②取回/还原两环 ccFullWithTimeout 超时兜底（4s/8s）按已就绪数据继续，catch 不再吞；③导入链同款超时兜底＋导入弹窗补「专属导入到当前桌面」说明；④模板两入口副标题补专属归属说明 ====
   { name: '#701a 全量导出前置链超时兜底（删回 .then 干等则安卓壳 IDB 取回挂起＝点导出零反应回归）', file: 'js/chatcard.js', needle: 'ccFullWithTimeout(Promise.resolve(hydrateLibScopes([\'public\', \'own\'])).catch(() => {}), 4000, null).then(build)' },
   { name: '#701b 媒体池令牌还原超时兜底＋catch（删则 @@m 令牌还原挂起同样静默卡死；2026-09-18 收口换锚＝导出链改四库并发 expJobs 后现形态，单行）', file: 'js/chatcard.js', needle: 'Promise.all(expJobs).catch(() => expJobs.map(zero))' },
@@ -4621,6 +4621,14 @@ const FIX_SENTINELS = [
   { name: '#1006m 吃什么「问 TA」走用户发送侧（改回 chatAddIn＝变成 TA 问用户）', file: 'js/p2-features.js', needle: 'if (window.chatSendMsg) { try { window.chatSendMsg(msg); }' },
   { name: '#1006n 摸鱼小结信 TA 口吻（改回「你俩…（我 +x · 名字 +y）」＝TA 把自己算在外、把用户标成「我」）', file: 'js/mail.js', needle: "'你和我一共摸鱼 ' + totalFish + ' 点（你 +' + fm + ' · 我 +' + ft + '）。'" },
   { name: '#1006o 市集标语送给 TA（改回「送给你」＝收礼人写成用户）', file: 'js/gift-shop.js', needle: '挑一份心意，跨越两个世界送给 TA' },
+/* ==== 2026-09-22 #1011 表情包面板/头像互动「每次打开图片都会闪烁和重新加载」残留根因（红米 K80 Chrome 实报、用户明说其他设备型号也有；用户原话「这个问题一直没有解决」）——#457/#508/#509/#662/#692/#704/#716/#907 八轮的判据是「img 节点有没有被重建」「已解码位图有没有被回收」，而真机上那一拍其实是 **面板在图片还没就绪时就显示了**：旧等待只对「此刻已经有 src 的图」逐个 await decode()，首开/整页重载后这一拍一张 src 都没有（懒加载补 src 要等 IO 回调、池令牌解析要读 IDB）⇒ jobs 为空、等待当场放行；面板随后才逐张走「令牌当相对 URL 请求→404→池读 IDB→重写 src→解码」（无头 390×844 实测：可见当帧 24 张首屏里 8 张 src 还是 @@m: 令牌、仅 16 张就绪，可见之后仍有 21 次 load＋7 次 404 error）。修法＝等待判据换成「首屏每张图都拿到真载荷且解码完成」（首屏令牌当场交池批量解析＋非令牌当场补 src＋未就绪等自己的 load），另加 CSS：令牌态那一格先不画（避免 404 裂图/alt 文案的第二次视觉变化）。零机型分支、零新状态 ==== */
+  { name: '#1011a 表情面板首屏判定（改回「有 src 就 await decode」＝首拍等待为空、面板未就绪就显示，闪一下再逐张加载复发）', file: 'js/chat.js', needle: 'function emojiPanelFirstScreen() {' },
+  { name: '#1011b 首屏令牌当场交池解析（删＝等 250ms 整组班次，首屏先裂图后上图）', file: 'js/chat.js', needle: 'if (toks.length && window.mochiMediaWarmTokens)' },
+  { name: '#1011c 单图就绪判据＝真载荷＋已解码（改回只 await decode＝令牌 src 的 decode 必失败、等待形同虚设）', file: 'js/chat.js', needle: "if (srcNow().indexOf('@@m:') !== 0) { done = true; off(); res(false); return; }" },
+  { name: '#1011d 等待期不显示到首屏就绪（删＝面板先弹出来、图后到）', file: 'js/chat.js', needle: 'emojiKickFirstScreen(first);' },
+  { name: '#1011e 头像半框首屏补载荷（删＝首开这一拍图只有 data-src、等待为空＝闪一下再逐格冒出复发）', file: 'js/avatar-lib.js', needle: 'const first = avKickFirstScreen(grid);' },
+  { name: '#1011f 头像半框就绪判据（同表情侧，avatar 独立一支）', file: 'js/avatar-lib.js', needle: 'function avImgReady(im) {' },
+  { name: '#1011g 令牌态格子不画（删＝404 裂图/alt 文案闪一下再换真图，慢机兜底放行时同样可见）', file: 'css/chat-main.css', needle: '#emoji-list img[src^="@@m:"]' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

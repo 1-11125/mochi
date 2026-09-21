@@ -10719,6 +10719,58 @@ emojiShowWhenDecoded(showEmoji, myToken);
 hydrateCcForChatPanels(() => { if (emojiPanel && !emojiPanel.hidden) renderEmojiPanel(); });
 }
 const EMOJI_DECODE_AWAIT_MAX = 24;
+function emojiPanelFirstScreen() {
+const out = [];
+if (!emojiList) return out;
+let imgs; try { imgs = emojiList.querySelectorAll('img'); } catch (e) { return out; }
+if (!imgs || !imgs.length) return out;
+let cr = null; try { cr = emojiList.getBoundingClientRect(); } catch (e) {}
+const byRect = !!(cr && cr.height > 4); // 隐藏期 keep-alive 下几何仍成立，首屏按可视区量（量不到退回前 N 张）
+for (let i = 0; i < imgs.length; i++) {
+if (out.length >= 48) break;
+const im = imgs[i];
+if (byRect) {
+let r = null; try { r = im.getBoundingClientRect(); } catch (e) {}
+if (r && r.top > cr.bottom + 80) break; // 视口下沿外的留给懒加载
+if (!r || r.bottom < cr.top - 80) continue; // 已滚上去的（本来就已解码）不占等待名额
+out.push(im);
+} else if (i < EMOJI_DECODE_AWAIT_MAX) out.push(im);
+}
+return out;
+}
+function emojiKickFirstScreen(imgs) {
+const toks = [];
+for (let i = 0; i < imgs.length; i++) {
+const im = imgs[i];
+let ds = ''; try { ds = (im.dataset && im.dataset.src) || ''; } catch (e) {}
+const pay = ds || im.getAttribute('src') || '';
+if (!pay) continue;
+const isTok = pay.indexOf('@@m:') === 0;
+if (ds && !im.getAttribute('src')) {
+im.setAttribute('src', ds);
+try { im.removeAttribute('data-src'); } catch (e) {}
+try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
+}
+if (isTok && pay.length > 4) toks.push(pay.slice(4));
+}
+if (toks.length && window.mochiMediaWarmTokens) { try { window.mochiMediaWarmTokens(toks); } catch (e) {} }
+}
+function emojiImgReady(im) {
+return new Promise(function (res) {
+let done = false;
+const okNow = function () { try { return !!(im.complete && im.naturalWidth > 0); } catch (e) { return false; } };
+const srcNow = function () { try { return im.getAttribute('src') || ''; } catch (e) { return ''; } };
+const off = function () { try { im.removeEventListener('load', settle); im.removeEventListener('error', settle); } catch (e) {} };
+const settle = function () {
+if (done) return;
+if (okNow()) { done = true; off(); res(true); return; }
+if (srcNow().indexOf('@@m:') !== 0) { done = true; off(); res(false); return; } // 真失败/无源：不挡显示
+};
+try { im.addEventListener('load', settle); im.addEventListener('error', settle); } catch (e) {}
+settle();
+setTimeout(function () { if (!done) { done = true; off(); res(okNow()); } }, 2400); // 单图上限，防个别令牌吊死
+}).then(function () { try { return im.decode ? im.decode().catch(function () {}) : null; } catch (e) { return null; } });
+}
 function emojiShowWhenDecoded(show, token) {
 let shown = false;
 const fin = function () {
@@ -10727,28 +10779,22 @@ if (token !== undefined && token !== emojiShowToken) return; // #692 已关闭/�
 try { show(); } catch (e) {}
 };
 if (!emojiList || !window.Promise) { fin(); return; }
-const imgs = emojiList.querySelectorAll('img');
-if (!imgs.length) { fin(); return; }
+const first = emojiPanelFirstScreen();
+if (!first.length) { fin(); return; }
+emojiKickFirstScreen(first);
 const jobs = [];
-let awaited = 0;
-for (let i = 0; i < imgs.length; i++) {
-const im = imgs[i];
-if (im.dataset && im.dataset.src && !im.getAttribute('src') && i < 16) {
-im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码
-im.removeAttribute('data-src');
-try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
+for (let i = 0; i < first.length; i++) jobs.push(emojiImgReady(first[i]));
+try {
+const all = emojiList.querySelectorAll('img');
+for (let i = 0; i < all.length; i++) {
+const im = all[i];
+if (first.indexOf(im) >= 0) continue;
+if (im.dataset && im.dataset.src && !im.getAttribute('src')) continue; // 交给懒加载泵
+try { if (im.decode) im.decode().catch(function () {}); } catch (e) {}
 }
-if (!im.getAttribute('src')) continue;
-if (awaited < EMOJI_DECODE_AWAIT_MAX) {
-awaited++;
-try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
-} else {
-try { if (im.decode) im.decode().catch(function () {}); } catch (e) {} // #704：首屏外只预热不等待
-}
-}
-if (!jobs.length) { fin(); return; }
+} catch (e) {}
 Promise.all(jobs).then(fin, fin);
-setTimeout(fin, 2500); // #692 兜底：decode 迟迟不结算也不把面板挂死；#716：1s→2.5s——大库机型首屏 24 张解码超 1s 时半途放行＝用户看到的「每次打开图片闪烁重载」（红米 K80 实报），上限仍在防挂死
+setTimeout(fin, 2500); // #692 兜底：decode 迟迟不结算也不把面板挂死；#716：1s→2.5s，上限仍在防挂死
 }
 function closeEmojiPanel() {
 emojiShowToken++; // #692：作废未兑现的「解码后显示」——等图期间关掉面板不再被自动弹出

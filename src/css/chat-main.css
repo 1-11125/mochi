@@ -788,6 +788,11 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
    只限这两枚用户报障面，其余 .poke-card 家族（拍一拍/红包/游戏对局等）维持 display:none 不动
    （防对局/通话面板 hidden 期间产生无谓的图加载与解码开销）。 */
 #emoji-panel[hidden], #avlib-card[hidden] { display:flex; visibility:hidden; pointer-events:none; }
+/* FIX 2026-09-22 #1011 同族第二个可见来源：池令牌（@@m:<hash>）被写进 src 到池把真载荷写回之间，
+   浏览器把它当相对 URL 发请求→404→该格画裂图/alt 文案，随后真图落地又是第二次视觉变化（面板滚动
+   到未解析的格子时同样可见）。令牌态这一格先不画（占位盒保留，布局不跳），真载荷写回后选择器自然
+   不再命中、图原样出现；池确缺数据时 #397 会把 src 换成「图片缺失」占位 SVG（不命中本规则）照旧可见。 */
+#emoji-list img[src^="@@m:"] { opacity: 0; }
 /* v3.25.x：横屏/矮视口（小米15 Pro 横屏全屏等，CSS 高约 384px）下 48% 放不下
    我的拍一拍 tab 的固定行（tabs+分组栏+输入 footer），内容溢出面板底边=UI 错乱 */
 @media (max-height:560px) {
