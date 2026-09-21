@@ -593,6 +593,21 @@
         if (!g) { g = [name, []]; auth[t].push(g); }
         const have = new Set(g[1]);
         cards.forEach(c => { if (!have.has(c)) { g[1].push(c); have.add(c); } });
+        // FIX 2026-09-22 #1012：并集之后把「内存侧的相对顺序」回填到两边都有的那些位置上——
+        // 原实现顺序一律取权威库，于是「长按拖动排序」在权威库还没进内存（写守卫走营救路径
+        // 本函数）时被整段还原＝用户所见「长按拖动字卡无法调整顺序」；大库被启动回填挂起
+        // （__xyIdbDeferredKeys）时 ccAuthSeen 整会话不解除，守卫每次拖动都还原，就成了
+        // 「拖了没反应」。权威侧独有的卡一律原地不动（防覆盖语义零改动）；同一分组出现
+        // 重复卡时退回旧口径（绝不动顺序）。
+        const uniq = (a) => a.filter((x, i) => a.indexOf(x) === i);
+        const memU = uniq(cards);
+        if (memU.length === cards.length && uniq(g[1]).length === g[1].length) {
+          const shared = memU.filter(c => g[1].indexOf(c) >= 0);
+          if (shared.length > 1) {
+            let k = 0;
+            for (let i = 0; i < g[1].length; i++) if (shared.indexOf(g[1][i]) >= 0) g[1][i] = shared[k++];
+          }
+        }
       });
     });
     return auth;
@@ -1366,6 +1381,13 @@
   const DRAG_CATS = ['text', 'kaomoji', 'emoji', 'sticker'];
   function attachCardDrag(el, gname, i) {
     if (DRAG_CATS.indexOf(cur) < 0) return;
+    // FIX 2026-09-22 #1012：可拖分类的卡片行不长按选字——用户要的手势就是「长按」，
+    // 而手机端长按期间系统的选字手势会在约 500ms 处接管这次触摸（touchcancel/
+    // pointercancel），把刚抓起的拖拽当场打断＝「长按拖动字卡无法调整顺序」。
+    // 做法与 .sm-song.draggable（播放队列拖动）一致；编辑弹窗里照旧能选中/复制文字。
+    el.style.setProperty('-webkit-user-select', 'none');
+    el.style.setProperty('user-select', 'none');
+    el.style.setProperty('-webkit-touch-callout', 'none');
     let pressTimer = null;
     let startX = 0, startY = 0;
     el.addEventListener('pointerdown', (e) => {
@@ -1402,6 +1424,12 @@
     el.classList.add('cc-dragging');
     if (navigator.vibrate) try { navigator.vibrate(15); } catch (err) {}
     let dropTarget = null;
+    // FIX 2026-09-22 #1012：拖拽存续期按住 touchmove 的默认行为。手机端 .card-list 可
+    // 纵向滚动，手指一移动浏览器就把这次触摸判成「滚动列表」并当场派发 pointercancel，
+    // 拖拽被取消（无头实测：长按 350ms 已抓起成功，首次 touchmove 后 2ms 收到
+    // pointercancel，松手时落点为空＝顺序一张不变；桌面鼠标没有这个手势，故一直正常）。
+    // 只在拖拽存续期挂载、松手立刻摘掉：350ms 内移动手指＝取消拖拽，列表照常滚动。
+    const stopPan = (ev) => { if (ev.cancelable) ev.preventDefault(); };
     const onMove = (ev) => {
       ev.preventDefault();
       clone.style.top = (ev.clientY - offsetY) + 'px';
@@ -1409,6 +1437,7 @@
       updateCardDropIndicator(dropTarget);
     };
     const onUp = () => {
+      document.removeEventListener('touchmove', stopPan);
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
@@ -1417,6 +1446,7 @@
       clearCardDropIndicator();
       if (dropTarget) moveCardTo(gname, i, dropTarget);
     };
+    document.addEventListener('touchmove', stopPan, { passive: false });
     document.addEventListener('pointermove', onMove, { passive: false });
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);

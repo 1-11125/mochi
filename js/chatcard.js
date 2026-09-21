@@ -417,6 +417,15 @@ let g = auth[t].find(p => p[0] === name);
 if (!g) { g = [name, []]; auth[t].push(g); }
 const have = new Set(g[1]);
 cards.forEach(c => { if (!have.has(c)) { g[1].push(c); have.add(c); } });
+const uniq = (a) => a.filter((x, i) => a.indexOf(x) === i);
+const memU = uniq(cards);
+if (memU.length === cards.length && uniq(g[1]).length === g[1].length) {
+const shared = memU.filter(c => g[1].indexOf(c) >= 0);
+if (shared.length > 1) {
+let k = 0;
+for (let i = 0; i < g[1].length; i++) if (shared.indexOf(g[1][i]) >= 0) g[1][i] = shared[k++];
+}
+}
 });
 });
 return auth;
@@ -1002,6 +1011,9 @@ let rendering = false; // 分块渲染进行中（局部删除前判断：渲染
 const DRAG_CATS = ['text', 'kaomoji', 'emoji', 'sticker'];
 function attachCardDrag(el, gname, i) {
 if (DRAG_CATS.indexOf(cur) < 0) return;
+el.style.setProperty('-webkit-user-select', 'none');
+el.style.setProperty('user-select', 'none');
+el.style.setProperty('-webkit-touch-callout', 'none');
 let pressTimer = null;
 let startX = 0, startY = 0;
 el.addEventListener('pointerdown', (e) => {
@@ -1038,6 +1050,7 @@ document.body.appendChild(clone);
 el.classList.add('cc-dragging');
 if (navigator.vibrate) try { navigator.vibrate(15); } catch (err) {}
 let dropTarget = null;
+const stopPan = (ev) => { if (ev.cancelable) ev.preventDefault(); };
 const onMove = (ev) => {
 ev.preventDefault();
 clone.style.top = (ev.clientY - offsetY) + 'px';
@@ -1045,6 +1058,7 @@ dropTarget = computeCardDrop(ev.clientY);
 updateCardDropIndicator(dropTarget);
 };
 const onUp = () => {
+document.removeEventListener('touchmove', stopPan);
 document.removeEventListener('pointermove', onMove);
 document.removeEventListener('pointerup', onUp);
 document.removeEventListener('pointercancel', onUp);
@@ -1053,6 +1067,7 @@ el.classList.remove('cc-dragging');
 clearCardDropIndicator();
 if (dropTarget) moveCardTo(gname, i, dropTarget);
 };
+document.addEventListener('touchmove', stopPan, { passive: false });
 document.addEventListener('pointermove', onMove, { passive: false });
 document.addEventListener('pointerup', onUp);
 document.addEventListener('pointercancel', onUp);

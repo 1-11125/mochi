@@ -4323,6 +4323,22 @@ const FIX_SENTINELS = [
   { name: '#1011e 头像半框首屏补载荷（删＝首开这一拍图只有 data-src、等待为空＝闪一下再逐格冒出复发）', file: 'js/avatar-lib.js', needle: 'const first = avKickFirstScreen(grid);' },
   { name: '#1011f 头像半框就绪判据（同表情侧，avatar 独立一支）', file: 'js/avatar-lib.js', needle: 'function avImgReady(im) {' },
   { name: '#1011g 令牌态格子不画（删＝404 裂图/alt 文案闪一下再换真图，慢机兜底放行时同样可见）', file: 'css/chat-main.css', needle: '#emoji-list img[src^="@@m:"]' },
+/* ==== 2026-09-22 #1012 字卡库「长按拖动字卡无法调整顺序」根治（用户实报；公用字卡/专属字卡
+   两库同一条代码路径，零机型分支）——根因两条：①【拖不动】长按 350ms 本来就抓起成功，但
+   .card-list 可纵向滚动，手指一移动浏览器就把这次触摸判成「滚动列表」并当场派发 pointercancel，
+   文档级 onUp 立刻摘掉克隆、落点为空＝顺序一张不变（桌面鼠标没有这个手势，故一直正常）；
+   ②【拖了不留】写守卫的营救合并只并集卡片、顺序一律取权威库，权威库尚未进内存时
+   （大库被启动回填挂起 ⇒ ccAuthSeen 整会话不解除）每次拖动都被整段还原。
+   修法＝①拖拽存续期按住 touchmove＋可拖分类卡片行不长按选字（长按期间系统选字手势会接管
+   这次触摸，同一条 pointercancel 路径）；②并集之后把内存侧相对顺序回填到「两边都有的位置」
+   上，权威独有卡原地不动（#193 防覆盖语义不变）。 ==== */
+  { name: '#1012a 拖拽期 touchmove 守卫挂载（删＝手机端首次移动即被判成滚动、pointercancel 打断拖拽，顺序调不动复发）', file: 'js/chatcard.js', needle: "document.addEventListener('touchmove', stopPan, { passive: false });" },
+  { name: '#1012b 松手/取消时摘掉守卫（删＝拖过一次之后列表再也滚不动）', file: 'js/chatcard.js', needle: "document.removeEventListener('touchmove', stopPan);" },
+  { name: '#1012c 守卫行为本体（改成空函数＝监听还在但拦不住滚动，拖拽照样被打断）', file: 'js/chatcard.js', needle: "stopPan = (ev) => { if (ev.cancelable) ev.preventDefault(); };" },
+  { name: '#1012d 可拖分类卡片行不长按选字·标准形态（删＝长按期间系统选字手势接管触摸，拖拽刚抓起就被取消）', file: 'js/chatcard.js', needle: "el.style.setProperty('user-select', 'none');" },
+  { name: '#1012e 同上的 WebKit 形态（删＝iOS Safari 长按弹「拷贝」浮标并抢走这次触摸）', file: 'js/chatcard.js', needle: "el.style.setProperty('-webkit-user-select', 'none');" },
+  { name: '#1012f 营救合并保住内存侧相对顺序（删＝权威库尚未进内存时（大库被启动回填挂起＝整会话不解除写守卫）拖完的顺序被并集整段还原，用户所报「长按拖动无法调整顺序」复发）', file: 'js/chatcard.js', needle: "const shared = memU.filter(c => g[1].indexOf(c) >= 0);" },
+  { name: '#1012g 顺序回填只落在「两边都有的位置」上（改成整组覆盖＝权威侧独有的卡被抹掉，#193 防覆盖语义破功）', file: 'js/chatcard.js', needle: "for (let i = 0; i < g[1].length; i++) if (shared.indexOf(g[1][i]) >= 0) g[1][i] = shared[k++];" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
