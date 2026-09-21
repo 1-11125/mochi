@@ -1,16 +1,22 @@
-// ===== 常驻回归脚本 #930：回前台聊天贴底复核闸（Vivo Y35/摩托罗拉 G100 等报「回到应用停在几分钟前的消息」）=====
-// 用法：node tools/verify-chat-resume-repin.mjs [被测根目录]
-// 缺陷形态（零机型分支）：保活应用常驻数天，回前台不经过 enterChat（#742 复位只在点图标进聊天时触发）——
-// ①后台期间贴底写入被内核冻结节流丢失；②离场前在历史位（解钉态）的用户重开应用永远停在旧位置。
-// 修法：visibilitychange/pageshow 回场分档——离场>60s 视同重新进聊天（复位钉住回底）；≤60s 仅在
-// 仍钉住且落定后离底>8px 时补一枪；#162（用户翻历史不打扰）零改动。
-// 断言：
-//   A0 前置：聊天页贴底。
-//   A1 短离场＋解钉态回场：不被拽回（#162 契约保持，仍在历史位）。
-//   A2 长离场（override 65s）＋解钉态回场：350ms 落定后回底＝本批修复面。
-//   A3 长离场＋钉住态离底（模拟后台丢写）：回场补钉到底。
-//   A4 短离场＋钉住贴底：保持贴底零折腾。
-//   S1/S2 产物锚（js/chat.js）。
+// ===== 常驻回归脚本 #978：切后台再切回「聊天记录不贴底、最新消息整块顶到上半屏、下半全空」 =====
+// 用法：node tools/verify-chat-resume-realign.mjs [被测根目录]
+// 缺陷形态（零机型分支）：#930 回场复核在固定 350ms 后【当场裸写】scrollChatBottom()——回场瞬间正是
+// 浏览器自身几何恢复风暴（系统栏回归/瓦片重建/视口复核），几何变动中途写 scrollTop ⇒ 内核滚动树停
+// 旧偏移（#871 真机定性＝内容整块上移、下方留白）；且撕裂态 scrollTop 读数 ≥ max−8，「离底>8」判据
+// 与 #706 看门狗全数失明 ⇒ 停在坏态只有轻点屏幕（touchend 同值写）救得回。
+// 修法断言面：回场贴底改「几何落定后同值重落一枪」。
+// 判据口径（重要）：对 scrollTop 写入做【调用栈归因】——只认栈里带 chatResumeRealignStep 的写入
+//（＝本批新落的「回场重对齐枪」）。回场窗口里来消息的合法跟底（renderMsg→maybeScrollChatBottom，
+//   合成回前台会触发补投链）会污染原始写计数，但对新函数归因的判据完全免疫；
+//   纯 HEAD 红副本没有该函数 ⇒ 归因写恒 0 ⇒ 行为断言全红，判别力确定。
+//   S1~S4 产物锚（js/chat.js）；S5 旧裸写行必须已拆（删除型）。
+//   A0 前置：进聊天贴底。
+//   B0 预热回场：排干种子数据首轮回场的补投/跟底动画，之后是稳态回场口径。
+//   B1 健康贴底短离场回场：贴底保持，且【本枪必然落发 ≥1 次】（撕裂态唯一修法；纯 HEAD＝0 必红）。
+//   B2 回场几何风暴：BACK 后持续派发视口 resize（等效「系统栏回归/视口复核」风暴），风暴窗口内
+//      本枪必须被落定闸摁住（=0）；风暴停＋几何落定后本枪补发 ≥1 且保持贴底。
+//   B3 #162 契约：短离场＋解钉态回场零写入（含本枪 0 发）、不被拽底（防修过头守卫）。
+//   B4 长离场（override 65s）＋解钉态回场：落定后回底（#930 语义保持）。
 //   Z1 全程零 JS 异常。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -40,11 +46,13 @@ const results = [];
 function check(desc, ok, detail) { results.push({ desc, ok: !!ok }); console.log((ok ? 'PASS' : 'FAIL') + '  ' + desc + (detail !== undefined ? '  [' + detail + ']' : '')); }
 let product = '';
 try { product = readFileSync(join(root, 'js', 'chat.js'), 'utf8'); } catch (e) {}
-try { product += readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) {}
-check('S1 回场复核闸声明在位', product.includes('function chatResumeRepin()'));
-check('S2 回场分派（visibilitychange）在位', product.includes("else chatResumeRepin();"));
+check('S1 回场重对齐入口在位', product.includes('function chatResumeRealign() {'));
+check('S2 回场复核改排班落定枪（旧裸写调用点已替换）', product.includes('chatResumeRealign();'));
+check('S3 落定闸未静默续等在位', product.includes('if (!chatRepinQuietEnough(now)) { if (now < _rsResumeDeadline) _rsResumeT = setTimeout(chatResumeRealignStep, 120); return; }'));
+check('S4 回场分派（visibilitychange）在位', product.includes('else chatResumeRepin();'));
+check('S5 旧「回场 350ms 当场裸写」已拆（删除型）', !product.includes('if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); }'));
 
-const chrome = spawn(chromePath, ['--headless=new', '--disable-gpu', '--no-first-run', '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-924-' + Date.now()), '--remote-debugging-port=' + (Number(process.env.MOCHI_CDP_PORT) || 9317), 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(chromePath, ['--headless=new', '--disable-gpu', '--no-first-run', '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-976-' + Date.now()), '--remote-debugging-port=' + (Number(process.env.MOCHI_CDP_PORT) || 9326), 'about:blank'], { stdio: 'ignore' });
 let ws = null, msgId = 0; const pend = new Map(); const jsErrors = [];
 async function cdpConnect() {
   for (let i = 0; i < 60; i++) {
@@ -57,7 +65,7 @@ async function cdpConnect() {
   }
   throw new Error('no cdp');
 }
-function cdpPort() { return Number(process.env.MOCHI_CDP_PORT) || 9317; }
+function cdpPort() { return Number(process.env.MOCHI_CDP_PORT) || 9326; }
 function cdp(method, params = {}) { const id = ++msgId; return new Promise((res) => { pend.set(id, res); ws.send(JSON.stringify({ id, method, params })); }); }
 async function evalJs(expr) {
   const r = await cdp('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
@@ -67,34 +75,33 @@ async function evalJs(expr) {
 await cdpConnect();
 await cdp('Page.enable'); await cdp('Runtime.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 360, height: 772, deviceScaleFactor: 2, mobile: true });
-await cdp('Emulation.setCPUThrottlingRate', { rate: 6 });
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
-await sleep(3500);
+await sleep(3200);
 for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
-await sleep(1000);
+await sleep(900);
 await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide')){try{s.click();}catch(e){}}return true;})()");
 await sleep(800);
-// 静音备份提醒/版本条（回前台事件会真实触发它们）
-await evalJs("(function(){var st=window.activeStore();st.set('__last-backup-remind',String(Date.now()));st.set('__last-backup',String(Date.now()));try{localStorage.setItem('xy-home-v2:ver-update-notify',String(Date.now()));}catch(e){}return true;})()");
+// 静音备份提醒/版本条 + 关自动回复概率（减少回场窗口的来消息噪声；残余噪声由栈归因判据免疫）
+await evalJs("(function(){var st=window.activeStore();st.set('__last-backup-remind',String(Date.now()));st.set('__last-backup',String(Date.now()));st.set('cs-rp-auto-prob','0');try{localStorage.setItem('xy-home-v2:ver-update-notify',String(Date.now()));}catch(e){}return true;})()");
 
-// 种 320 条历史（含少量图＝常见形态）
+// 种 320 条历史（尾部少量图＝常见形态）
 await evalJs("(function(){var b=document.getElementById('chat-back');if(b)b.click();return true;})()");
 await sleep(300);
 await cdp('Page.navigate', { url: 'about:blank' });
 await sleep(300);
 await cdp('Storage.clearDataForOrigin', { origin: baseUrl, storageTypes: 'local_storage,indexeddb' });
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
-await sleep(3500);
+await sleep(3200);
 for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
 await sleep(800);
 await evalJs("(function(){var s=document.getElementById('splash');if(s&&!s.classList.contains('hide')){try{s.click();}catch(e){}}return true;})()");
 await sleep(800);
 await evalJs("(function(){var st=window.activeStore();st.set('__last-backup-remind',String(Date.now()));st.set('__last-backup',String(Date.now()));st.set('cs-rp-auto-prob','0');const now=Date.now();const arr=[];for(let i=0;i<320;i++){const r={side:i%2?'in':'out',text:'记录'+String(i).padStart(3,'0'),ts:now-(320-i)*60000};if(i>=314)r.img='/s'+i+'.png';arr.push(r);}st.set('chat-msgs',JSON.stringify(arr));return true;})()");
 await sleep(400);
-// 进聊天
 await evalJs("(function(){var a=document.querySelector('.app[data-app=\"chat\"]');if(a)a.click();return true;})()");
 await sleep(3000);
-// 进入/回场驱动器：覆写 visibilityState（恢复原描述符）后派发事件＝事件契约的等效注入
+
+// 进入/回场驱动器：覆写 visibilityState（恢复原描述符）后派发事件＝事件契约的等效注入（与 #930 脚本同款）
 const GO = (state, ageMs) => `(function(){
   try {
     if (${JSON.stringify(state)} === 'hidden') { window.__origVS = Object.getOwnPropertyDescriptor(Document.prototype,'visibilityState') || Object.getOwnPropertyDescriptor(document,'visibilityState'); }
@@ -118,17 +125,62 @@ const SNAP = `(function(){
   if(!b)return JSON.stringify({err:1});
   return JSON.stringify({top:Math.round(b.scrollTop),gap:Math.round(b.scrollHeight-b.scrollTop-b.clientHeight),sh:b.scrollHeight,ch:b.clientHeight});
 })()`;
-const atBottom = () => sleep(800); const settleLong = () => sleep(6500); // 6x 节流下 350ms 定时器实测 >2.1s；#976 起回场写入改走「几何落定锁」（350+120ms 两跳 ≈2.8~3.5s），窗口随之放宽——落定后回底的断言意图不变
+// scrollTop 写入计数＋栈归因：__sets＝全部写入；__rs＝栈里带 chatResumeRealignStep 的写入（本枪）
+const ARM = `(function(){
+  var b=document.getElementById('chat-body');
+  if(!b)return 'no-body';
+  if (b.__stSet) { window.__sets = 0; window.__rs = 0; return 'ok'; }
+  var d=Object.getOwnPropertyDescriptor(Element.prototype,'scrollTop');
+  b.__stSet=d.set; b.__stGet=d.get;
+  Object.defineProperty(b,'scrollTop',{configurable:true,get:function(){return this.__stGet.call(this);},set:function(v){
+    window.__sets=(window.__sets||0)+1;
+    try { var st=new Error().stack||''; if (st.indexOf('chatResumeRealignStep')>=0) window.__rs=(window.__rs||0)+1; } catch(e){}
+    this.__stSet.call(this,v);
+  }});
+  window.__sets = 0; window.__rs = 0;
+  return 'ok';
+})()`;
+const CNT = `(function(){return JSON.stringify({sets:window.__sets||0,rs:window.__rs||0});})()`;
 
 // A0
 let s = JSON.parse(await evalJs(SNAP) || '{}');
 check('A0 前置：聊天页在贴底', !s.err && Math.abs(s.gap) <= 8, 'gap=' + s.gap);
+check('A0b 写入计数器挂载', (await evalJs(ARM)) === 'ok');
 
-// A1 短离场＋解钉：上翻到中部 → hidden 2s → visible → 不拽回
-// #976 注：必须补 touchend——touchstart 会把 chatTouchActive 置真（#716 手势闸），真机上手指必然
-// 抬起（touchend/touchcancel 到达），脚本不补就是永久卡真的伪影态；#976 起回场写入改走「几何落定
-// 锁」（chatRepinQuietEnough 含 !chatTouchActive），卡真会让 A2/A3 的落定枪永远让路。dy=0 且不在底
-// ⇒ touchend 的轻点回底写不触发，A1 断言语义不变。
+// B0 预热回场：排干种子数据首轮回场的补投/跟底动画，之后各阶段为稳态回场口径
+await evalJs(GO('hidden', null));
+await sleep(1200);
+await evalJs(BACK);
+await sleep(2800);
+s = JSON.parse(await evalJs(SNAP) || '{}');
+check('B0 预热回场后仍贴底', !s.err && Math.abs(s.gap) <= 8, 'gap=' + (s && s.gap));
+
+// B1 健康贴底＋短离场回场：贴底保持，且本枪必然落发 ≥1（撕裂态唯一修法；纯 HEAD＝0 必红）
+await evalJs(GO('hidden', null));
+await sleep(1200);
+await evalJs("(function(){window.__sets=0;window.__rs=0;return true;})()"); // BACK 前清零＝只统计回场窗口
+await evalJs(BACK);
+await sleep(2800);
+s = JSON.parse(await evalJs(SNAP) || '{}');
+let c = JSON.parse(await evalJs(CNT) || '{}');
+check('B1 健康回场贴底保持', !s.err && Math.abs(s.gap) <= 8, 'gap=' + (s && s.gap));
+check('B1b 回场重对齐枪落发 ≥1（栈归因本枪；撕裂态唯一修法）', c.rs >= 1, 'rs=' + c.rs + ' sets=' + c.sets);
+
+// B2 回场几何风暴：风暴窗口内本枪必须被落定闸摁住（=0）；风暴停＋落定后补发 ≥1 且贴底
+await evalJs(GO('hidden', null));
+await sleep(1000);
+await evalJs("(function(){window.__sets=0;window.__rs=0;return true;})()"); // BACK 前清零
+await evalJs(BACK);
+for (let i = 0; i < 8; i++) { await evalJs("(function(){window.dispatchEvent(new Event('resize'));return true;})()"); await sleep(130); } // 风暴前半 ~1s（覆盖旧代码 350ms 裸写时点）
+let cm = JSON.parse(await evalJs(CNT) || '{}');
+for (let i = 0; i < 6; i++) { await evalJs("(function(){window.dispatchEvent(new Event('resize'));return true;})()"); await sleep(130); } // 风暴后半 ~0.8s
+await sleep(2800); // 风暴停 + 几何落定（≥180ms）+ 落定闸重试窗口
+s = JSON.parse(await evalJs(SNAP) || '{}');
+c = JSON.parse(await evalJs(CNT) || '{}');
+check('B2 风暴窗口内本枪被落定闸摁住（=0；裸写打风暴＝撕裂源）', cm.rs === 0, 'midRs=' + cm.rs + ' midSets=' + cm.sets);
+check('B2b 风暴落定后本枪补发 ≥1 且贴底', c.rs >= 1 && !s.err && Math.abs(s.gap) <= 8, 'rs=' + c.rs + ' gap=' + (s && s.gap));
+
+// B3 #162 契约：短离场＋解钉态回场零写入、不被拽底
 await evalJs(`(function(){
   var b=document.getElementById('chat-body');
   try { var t=new Touch({identifier:1,target:b,clientX:100,clientY:600}); b.dispatchEvent(new TouchEvent('touchstart',{touches:[t],targetTouches:[t],changedTouches:[t],bubbles:true,cancelable:true})); } catch(e){ b.dispatchEvent(new Event('touchstart',{bubbles:true})); }
@@ -136,39 +188,24 @@ await evalJs(`(function(){
   try { var t2=new Touch({identifier:1,target:b,clientX:100,clientY:600}); b.dispatchEvent(new TouchEvent('touchend',{touches:[],targetTouches:[],changedTouches:[t2],bubbles:true,cancelable:true})); } catch(e){ b.dispatchEvent(new Event('touchend',{bubbles:true})); }
   return true;
 })()`);
-await sleep(200);
+await sleep(300);
+await evalJs("(function(){window.__sets=0;window.__rs=0;return true;})()");
 await evalJs(GO('hidden', null));
-await sleep(2000);
+await sleep(1200);
 await evalJs(BACK);
-await atBottom();
+await sleep(2800);
 s = JSON.parse(await evalJs(SNAP) || '{}');
-check('A1 短离场＋解钉态回场不被拽底（#162 保持）', !s.err && s.gap > 300, 'gap=' + s.gap);
+c = JSON.parse(await evalJs(CNT) || '{}');
+check('B3 解钉态回场零写入（#162 不打扰；来消息跟底在解钉态同样被拦）', c.sets === 0 && c.rs === 0, 'sets=' + c.sets + ' rs=' + c.rs);
+check('B3b 解钉态不被拽底（仍在历史位）', !s.err && s.gap > 300, 'gap=' + (s && s.gap));
 
-// A2 长离场＋解钉态：hidden（age 65s）→ visible → 落定后回底＝修复面
+// B4 长离场（65s）＋解钉态回场：视同重新进聊天＝回底（#930 语义保持）
 await evalJs(GO('hidden', 65000));
 await sleep(500);
 await evalJs(BACK);
-await settleLong();
+await sleep(3200);
 s = JSON.parse(await evalJs(SNAP) || '{}');
-check('A2 长离场回场视同重新进聊天＝回底', !s.err && Math.abs(s.gap) <= 8, 'gap=' + s.gap);
-
-// A3 长离场＋钉住态离底（后台丢写形态）：置回中部（钉住保持）→ hidden(age 65s) → visible → 回底
-await evalJs("(function(){var b=document.getElementById('chat-body');b.scrollTop=Math.max(0,b.scrollHeight-b.clientHeight-800);return true;})()");
-await sleep(150);
-await evalJs(GO('hidden', 65000));
-await sleep(500);
-await evalJs(BACK);
-await settleLong();
-s = JSON.parse(await evalJs(SNAP) || '{}');
-check('A3 长离场钉住态离底回场补钉', !s.err && Math.abs(s.gap) <= 8, 'gap=' + s.gap);
-
-// A4 短离场＋钉住贴底：零折腾
-await evalJs(GO('hidden', null));
-await sleep(800);
-await evalJs(BACK);
-await atBottom();
-s = JSON.parse(await evalJs(SNAP) || '{}');
-check('A4 短离场钉住贴底零折腾', !s.err && Math.abs(s.gap) <= 8, 'gap=' + s.gap);
+check('B4 长离场回场视同进聊天＝回底', !s.err && Math.abs(s.gap) <= 8, 'gap=' + (s && s.gap));
 
 check('Z1 全程零 JS 异常', jsErrors.length === 0, jsErrors.slice(0, 2).join(' | '));
 

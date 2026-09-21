@@ -5876,8 +5876,24 @@ if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
-if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); } // #416 同口径 ≤8px 不折腾
+chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
+chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);
+}
+let _rsResumeT = null;
+let _rsResumeDeadline = 0;
+function chatResumeRealign() {
+if (_rsResumeT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_rsResumeDeadline = Date.now() + 3000;
+_rsResumeT = setTimeout(chatResumeRealignStep, 120);
+}
+function chatResumeRealignStep() {
+_rsResumeT = null;
+const now = Date.now();
+if (!chatVisible()) return;
+if (!chatPinnedBottom) return; // #162：回场期用户已翻历史＝绝不拽底
+if (!chatRepinQuietEnough(now)) { if (now < _rsResumeDeadline) _rsResumeT = setTimeout(chatResumeRealignStep, 120); return; }
+if (chatPinnedBottom) scrollChatBottom(); // 同值重落：健康态重写同一个值；撕裂态＝强制内核滚动树重对齐
 }
 document.addEventListener('visibilitychange', function () {
 if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chatResumeRepinT) { clearTimeout(chatResumeRepinT); chatResumeRepinT = null; } }

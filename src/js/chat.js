@@ -7610,8 +7610,34 @@ if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
-if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); } // #416 同口径 ≤8px 不折腾
+chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
+chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);
+}
+// FIX 2026-09-21 #978（用户实报附截图「切后台然后再切回浏览器页面，聊天记录不贴底部输入栏上面了、
+// 最新消息整块顶到上半屏、下半全空」；同族第三发：#871 几何变动中途写⇒内核滚动树停旧偏移、#933
+// 回钉当场写，本次触发面＝回前台）：#930 的回场复核在固定 350ms 后**当场裸写** scrollChatBottom()——
+// 回场瞬间正是浏览器自身几何恢复风暴（系统栏回归/瓦片重建/视口复核），中途写 scrollTop ⇒ 滚动树停
+// 在旧偏移＝「内容整块上移、下方留白」。且撕裂态 scrollTop 读数 ≥ max−8（写其实落了，只有滚动树/
+// 绘制错位）：本函数旧「离底>8 才补」判据、#706 看门狗「scrollTop<max−8 才写」全数失明 ⇒ 用户停在
+// 坏态，只有轻点屏幕（touchend 同值写）才救得回。修法＝回场这一枪改「落定后写、写必同值重落」：
+// 几何/滚动全静默后才 scrollChatBottom()——健康态＝重写同一个值零副作用；撕裂态＝#871 真机实证的
+// 同值重落强制内核滚动树对新几何重对齐；3000ms 静默不了就放弃（交回 #706 看门狗/触摸恢复），一次
+// 回场只写一枪。#162（解钉态不拽底）、#416（≤8px 语义）零改动。纯时序判据、零机型分支。
+let _rsResumeT = null;
+let _rsResumeDeadline = 0;
+function chatResumeRealign() {
+if (_rsResumeT) return; // 已有一枪在膛：由它负责复查，不重复排队
+_rsResumeDeadline = Date.now() + 3000;
+_rsResumeT = setTimeout(chatResumeRealignStep, 120);
+}
+function chatResumeRealignStep() {
+_rsResumeT = null;
+const now = Date.now();
+if (!chatVisible()) return;
+if (!chatPinnedBottom) return; // #162：回场期用户已翻历史＝绝不拽底
+if (!chatRepinQuietEnough(now)) { if (now < _rsResumeDeadline) _rsResumeT = setTimeout(chatResumeRealignStep, 120); return; }
+if (chatPinnedBottom) scrollChatBottom(); // 同值重落：健康态重写同一个值；撕裂态＝强制内核滚动树重对齐
 }
 document.addEventListener('visibilitychange', function () {
 if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chatResumeRepinT) { clearTimeout(chatResumeRepinT); chatResumeRepinT = null; } }

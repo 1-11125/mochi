@@ -4287,6 +4287,12 @@ const FIX_SENTINELS = [
   { name: '#973b 红卡红色警示形态（删/改回灰底灰条＝最顶端这张卡退回普通卡，不再显眼）', file: 'css/base.css', needle: 'background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left;' },
   { name: '#973c 红卡暗色主题（删＝暗色下红卡按亮底深红字渲染，字看不清）', file: 'css/base.css', needle: '[data-theme="dark"] .splash-bigwarn {' },
   { name: '#973d 必读摘要同口径一条（在线 notice.json 会用 summary 整段替换静态列表，静态兜底丢了＝离线看到的是旧口径摘要）', file: 'template.html', needle: '【本站内容非常多，不适用建议不使用】' },
+
+  // ==== 2026-09-21 #978 切后台再切回「聊天记录不贴底、最新消息整块顶到上半屏、下半全空」（用户实报附截图；#871/#933「几何变动中途写 scrollTop ⇒ 滚动树停旧偏移＝内容整块上移、下方留白」同族第三发，触发面＝回前台）——回场复核固定 350ms 当场裸写 scrollChatBottom()，正打在回场几何恢复风暴（系统栏回归/瓦片重建/视口复核）中段；且撕裂态 scrollTop 读数 ≥ max−8，「离底>8」判据与 #706 看门狗双双失明 ⇒ 停在坏态只有轻点屏幕救得回。修复＝回场这一枪改「几何落定后同值重落一枪」，无条件写的行为面由 tools/verify-chat-resume-realign.mjs 兜住 ====
+  { name: '#978a 回场贴底重对齐入口（删＝回前台撕裂修复整枪消失，坏态只能轻点屏幕救）', file: 'js/chat.js', needle: 'function chatResumeRealign() {' },
+  { name: '#978b 回场复核改排班落定枪（删＝退回 350ms 当场裸写＝撕裂源回归）', file: 'js/chat.js', needle: 'chatResumeRealign();' },
+  { name: '#978c 落定闸未静默续等（删＝不等几何/滚动静默就写，回场风暴期裸写回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _rsResumeDeadline) _rsResumeT = setTimeout(chatResumeRealignStep, 120); return; }' },
+  { name: '#978d 删除型：旧「回场 350ms 当场裸写」已拆除（回流＝撕裂源原样回归）', file: 'js/chat.js', needle: 'if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); }', absent: true },
   /* ==== 2026-09-21 #975 开屏两页「问 AI」建议补免责口径（用户直派：「可以问AI只是使用建议，但实际问题问AI也不无法保证100%正确，AI也会出错和骗人，请自行甄别」）====
      落点三处：第一页开屏公告两处「建议直接问 AI」下方各补一条（在线权威源 notice.json ＋ 离线兜底 template.html 两份同步）；
      第二页强制公告（进入前 · 作者必读公告）底部 note 补同口径（「让 AI 修 / 问 AI」都只是使用建议，答案自行甄别）。==== */
