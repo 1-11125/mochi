@@ -4015,8 +4015,13 @@ const FIX_SENTINELS = [
   { name: "#954f 备份恢复全表作废（删＝恢复整库重写后缓存遮蔽新库＝导入的数据不显示）", file: "js/chat.js", needle: "chatHotCacheDropAll(); // #954：备份恢复整库重写＝热片缓存全作废（随后 forceIdb 直读重建）" },
   { name: "#954g 死块缓存随写清除逻辑（删＝重分块死块挤爆 LRU 把活热块逐出＝切回来又真读＝缓存白做）", file: "js/chat.js", needle: "if (!live[k.slice(prefix.length + 1)]) delete chatHotCache[k]; // #954：死块缓存随写清除" },
   { name: "#954h 全量重分块收尾清死块（删＝同上，chatBlkWriteFull 路径）", file: "js/chat.js", needle: "chatHotCacheSyncLive(prefix, blocks); // #954w 死块缓存随写清除" },
-  { name: "#954i 尾部重写收尾清死块（删＝同上，chatBlkRewriteTail 路径）", file: "js/chat.js", needle: "chatHotCacheSyncLive(prefix, blocks); // #954t 死块缓存随写清除" },  // ===== #953 梦角自由造句句尾标点收口（用户实报「梦角自由造句没有使用标点符号」）：各手法要么剥掉尾标点、要么只在词间插逗号/空格，出句清一色无句尾标点；在 dreamFreePick 收口统一补 END_PUNCT_POOL（句尾已有标点原样保留）=====
-  { name: '#953 造句句尾标点池在位（删＝出句无句尾标点复发，用户点名）', file: 'js/dream-free.js', needle: "const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];" },
+  // ===== #953 梦角自由造句句尾标点（用户实报「梦角自由造句没有使用标点符号」→ 直派「也可以修改或关闭」）：出句收口补句尾标点＋回复设置里开关/标点池 =====
+  { name: '#953a 造句句尾标点收口（删＝出句无句尾标点复发，用户点名）', file: 'js/dream-free.js', needle: "const END_PUNCT_DEFAULT = ['。', '。', '。', '~', '！', '……'];" },
+  { name: '#953b 句尾标点开关关闭即不补（删＝「关掉标点」失效，出句照补）', file: 'js/dream-free.js', needle: "if (c && Number(c['mjf-punct']) === 0) return null; // 关＝不补标点" },
+  { name: '#953c 标点池原串随回复设置读出（删＝用户在设置里改的标点池不生效，只用内置池）', file: 'js/reply-settings.js', needle: "String(ls.get('reply-mjf-punct-pool') || '')" },
+  { name: '#953d 标点池按目标桌面读出（删＝跨桌面回复用错桌面的池/回默认）', file: 'js/reply-settings.js', needle: "String((s || ls).get('reply-mjf-punct-pool') || '')" },
+  { name: '#953e 标点开关与池输入框锚点（删＝设置里改不了标点／关不掉）', file: 'index.html', needle: 'id="mjf-punct-pool"' },
+  { name: '#953f 标点开关进 DEFAULTS（删＝开关初值恒显关、存盘不落该键）', file: 'js/reply-settings.js', needle: "'mjf-punct': 1," },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

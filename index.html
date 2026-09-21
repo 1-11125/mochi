@@ -10382,9 +10382,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789974759731">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789981252918">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.28</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 15:12<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 17:00<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -13327,6 +13327,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="gs-row"><span>造句手法（0语气词/1撤回/2换字卡）</span><div class="stepper" data-k="mjf-style" data-min="0" data-max="2" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="mjf-style-val" readonly><button class="stp-max">+</button></div></div>
             <!-- #414 混合模式：开启后每次造句三种手法随机掷一个，mjf-style 固定选择失效 -->
             <div class="gs-row"><span>混合模式（三手法随机）</span><label class="toggle"><input type="checkbox" id="mjf-mix"><span class="tk"></span></label></div>
+            <!-- FIX 2026-09-21 #953：造句句尾标点开关＋可改标点池（用户直派「使用标点符号也可以修改或关闭」） -->
+            <div class="gs-row"><span>句尾标点</span><label class="toggle"><input type="checkbox" id="mjf-punct"><span class="tk"></span></label></div>
+            <div class="gs-row" id="mjf-punct-pool-row"><span>可用标点（空格分隔）</span><input type="text" class="tc-input" id="mjf-punct-pool" style="width:132px;text-align:right" placeholder="。 ~ ！ ……"></div>
             <!-- #364 存库概率 / #622 单联系人也生效：0=全专属、100=全公用、其余按概率分流 -->
             <div class="gs-row"><span>存公用库概率（0=全专属/100=全公用）</span><div class="stepper" data-k="mjf-pub" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="mjf-pub-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub"><b>是什么</b>：梦角（联系人）说话时按「触发概率」随机掷一次，命中就把一句语料<b>截字重造句</b>后当作 TA 的回复发出来（气泡下带「梦角自由造句」小标签）；命中时若同一条回复也掷中了词典拼字，拼字优先、本次造句让位（同一回复不叠加两种玩法）。概率 0＝不触发。<br>
@@ -13341,6 +13344,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
 · 1 撤回式：像撤回消息一样把后半句撤回，留下的前缀就是新句子 →「今天也要好好爱自己」；<br>
 · 2 换字卡内容式：截掉一个词、从上面的语料里挑一个词补上 →「今天也要好好看日落」。<br>
 「混合模式」（#414，#513 起默认开）：开启后每次造句先在 0/1/2 三种手法里随机掷一个再出招，三种模式交替出现，上方「造句手法」的固定选择暂不生效；关闭即恢复单一手法（默认撤回式）。<br>
+<b>句尾标点</b>（#953）：造出的句子默认按「可用标点」里的候选随机补一个句尾标点（默认 。 / ~ / ！ / ……，句号权重最高）；某个句子本身结尾已经有标点就不重复补。「可用标点」框里用空格分隔多个候选（也可写 | 分隔），单个候选可以多字（如 <code>……</code>）；留空＝用默认池。把「句尾标点」开关关掉＝不补任何标点，出句保持原样（如撤回式截断后的裸句）。<br>
 <b>造出来的句子去哪了</b>：自动存进 字卡库→可自定义字卡→梦角自由造句（可查看/删除）。存哪个库由上方「存公用库概率」决定：0＝全进专属字卡、100＝全进公用字卡、其余按概率分流（默认 80＝80% 公用 / 20% 专属）；单联系人也照此生效（想全留本桌面就把概率设 0）。这些句子只作为 TA 的回复展示，不会再被拿去当语料（避免自我循环）。</div>
           </div>
           </div>
@@ -20515,4 +20519,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ muawr7zn -->
+<!-- __MOCHI_EOF__ mub0me5y -->

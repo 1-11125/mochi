@@ -181,11 +181,21 @@ const out = toks.slice(0, gi).join('') + sep + toks.slice(gi).join('');
 return out !== str ? out : null;
 }
 const END_PUNCT_OK = /[。．！？!?~～…，、,.;；:：）)”’"]/;
-const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];
-function withEndPunct(txt) {
-if (!txt || typeof txt !== 'string') return txt;
+const END_PUNCT_DEFAULT = ['。', '。', '。', '~', '！', '……'];
+function endPunctPool(c) {
+if (c && Number(c['mjf-punct']) === 0) return null; // 关＝不补标点
+const raw = c && c['mjf-punct-pool'] != null ? String(c['mjf-punct-pool']).trim() : '';
+if (!raw) return END_PUNCT_DEFAULT;
+let arr = raw.split(/[\s|]+/).filter(Boolean);
+if (arr.length < 2) arr = Array.from(raw.replace(/[\s|]+/g, ''));
+arr = arr.filter(x => x.length <= 6).slice(0, 20);
+return arr.length ? arr : END_PUNCT_DEFAULT;
+}
+function withEndPunct(txt, c) {
+const pool = endPunctPool(c);
+if (!pool || !txt || typeof txt !== 'string') return txt;
 if (END_PUNCT_OK.test(txt.charAt(txt.length - 1))) return txt;
-return txt + END_PUNCT_POOL[Math.floor(Math.random() * END_PUNCT_POOL.length)];
+return txt + pool[Math.floor(Math.random() * pool.length)];
 }
 window.dreamFreePick = function (c) {
 try {
@@ -210,7 +220,7 @@ mode = pickOf(['cutfill', 'comma', 'space', 'addtail', 'tailcut']);
 } else {
 mode = pickOf(['cutfill', 'comma', 'space', 'suffix', 'tailcut']);
 }
-const txt = withEndPunct(rebuild(s, mode, material));
+const txt = withEndPunct(rebuild(s, mode, material), c);
 if (txt && txt !== s) { lastSrc = s; return { text: txt, src: s }; }
 }
 return null;
