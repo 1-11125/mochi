@@ -10436,9 +10436,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789994108974">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789994495259">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 20:35<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 20:41<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -13044,7 +13044,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">3</span><span class="lg-name">iPhone / iOS 使用与限制</span><span class="lg-count">10</span></summary>
             <div class="lg-body">
-              <div class="lic-li"><b>推荐用法</b>：用 Safari 打开本站 → 底部「分享」→「添加到主屏幕」，之后从桌面图标打开使用。好处是：没有浏览器工具栏、能真全屏、也不跟一堆标签页抢内存。（注意这<b>不是</b>「装了就能多用内存」——存的东西多了，装在桌面上一样会被系统关掉重开。）</div>
+              <div class="lic-li"><b>推荐用法</b>：用 Safari 打开本站 → 底部「分享」→「添加到主屏幕」，之后从桌面图标打开使用。好处是：没有浏览器工具栏、能真全屏、也不跟一堆标签页抢内存。（注意这<b>不是</b>「装了就能多用内存」——存的东西多了，装在桌面上一样会被系统关掉重开。）<b>更重要的是数据：不装到主屏幕，数据会被系统清掉。</b>在 Safari 标签页里，Apple 会在<b>连续 7 天没打开本站</b>后自动清空它的全部本地数据（Safari 的隐私策略，网站躲不过）；<b>添加到主屏幕后从桌面图标打开，就不受这条限制</b>。注意主屏幕应用与 Safari 是<b>两套独立存储</b>：切过去之前先「导出数据」导一份完整备份，切过去后在桌面应用里「导入数据」恢复。</div>
               <div class="lic-li">在 iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与全屏。</div>
               <div class="lic-li"><b>全屏</b>：顶部系统状态栏（时间、电量、灵动岛）由系统控制，任何网页都无法隐藏；全屏开关只能隐藏应用内的模拟状态栏。真正无浏览器栏的独立应用，只有 Safari「添加到主屏幕」这一条路。部分旧版 iOS 浏览器（iOS 16.4 之前的 Safari）不支持网页全屏，点开会弹说明并回滚开关。</div>
               <div class="lic-li"><b>全屏会掉</b>：切到后台再切回、或在浏览器里切换页面，全屏会失效，需手动重新打开。</div>
@@ -13057,12 +13057,13 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             </div>
           </details>
           <details class="lic-grp">
-            <summary><span class="lg-num">4</span><span class="lg-name">数据与备份</span><span class="lg-count">7</span></summary>
+            <summary><span class="lg-num">4</span><span class="lg-name">数据与备份</span><span class="lg-count">8</span></summary>
             <div class="lg-body">
               <div class="lic-li">所有数据<b>只存在你自己的浏览器里，没有云端</b>：清除浏览器数据、卸载、换机、系统回收存储都会导致数据丢失，本机不保留任何自动副本。</div>
               <div class="lic-li">导出备份：<b>设置 → 通用 → 导出数据</b>；可只导出文字（体积小）或整包。请把文件保存到不会被浏览器清理的地方。</div>
               <div class="lic-li">恢复 / 换机：新设备用 <b>设置 → 通用 → 导入数据</b> 选择之前导出的备份文件即可恢复（导入会覆盖当前数据）。</div>
               <div class="lic-li">顶部会有<b>备份提醒</b>（距上次成功导出超过 1 天提醒一次）；别只把备份留在下载列表里。</div>
+              <div class="lic-li"><b>iPhone / iPad 必做</b>：把本站<b>「添加到主屏幕」</b>后从桌面图标长期使用——在 Safari 标签页里，Apple 会在<b>连续 7 天没打开本站</b>后自动清空它的全部本地数据（这是 Safari 的隐私策略，网站躲不过），这也是 iPhone 上「数据总是丢」最常见的原因。注意主屏幕应用与 Safari 是<b>两套独立存储</b>：切过去之前先在 设置 → 通用 →「导出数据」导一份，切过去后在桌面应用里走「导入数据」恢复；平时都从桌面图标打开，Safari 清不清都不影响你的数据。</div>
               <div class="lic-li"><b>每个功能都能单独搬家</b>：<b>设置 → 工具 → 各功能数据管理</b> 里按功能列出<b>花园 / 房间 / 记账 / 经期 / 占卜 / 音乐 / 小游戏…</b>，每项都能单独<b>导出</b>成一个文件、单独<b>导入</b>回来（可选「合并」或「清空本功能后导入」）、单独<b>清空</b>——只动这一个功能的数据，别的功能和其他桌面都不受影响。</div>
               <div class="lic-li">聊天记录可在 <b>聊天设置 → 数据</b> 里单独导出 / 导入 / 删除；字卡可在字卡库用「自定义字卡·全量导出 / 导入」单独迁移。</div>
               <div class="lic-li">各联系人是独立命名空间，专属字卡属于当前桌面联系人，换设备后请在对应联系人桌面导入。</div>
@@ -20327,11 +20328,14 @@ return 'ok';
 }
 function showBar(days, everBacked) {
 const txt = document.getElementById('backup-remind-txt');
+const iosTab = !!(window.mochiIosTabRisk && window.mochiIosTabRisk());
 if (txt) {
-txt.textContent = everBacked
+txt.textContent = (everBacked
 ? '⚠ 手机和浏览器都会自动清空数据（设备限制，躲不掉）· 距上次备份已 ' + days + ' 天，快导出备份'
-: '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份';
+: '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份')
++ (iosTab ? '｜iPhone：导出后请「添加到主屏幕」，改用桌面图标打开' : '');
 }
+if (iosTab) { bar.style.flexWrap = 'wrap'; bar.style.rowGap = '6px'; }
 bar.hidden = false;
 return bar.getClientRects().length > 0;
 }
@@ -20867,4 +20871,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub89xym -->
+<!-- __MOCHI_EOF__ mub8i80r -->

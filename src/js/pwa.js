@@ -463,11 +463,17 @@
     // 兜底顶部提醒条（弹窗组件不可用、或被别的弹窗长期占用时）：渲染成功返回 true 才允许写冷却
     function showBar(days, everBacked) {
       const txt = document.getElementById('backup-remind-txt');
+      // #980：iOS 标签页（没装到主屏幕）是本提醒的高危场景——条上也点明「装到主屏幕再打开」，
+      // 不指望用户点进弹窗才看到第 ④ 条；非 iOS 一字不变（零回归面）。
+      const iosTab = !!(window.mochiIosTabRisk && window.mochiIosTabRisk());
       if (txt) {
-        txt.textContent = everBacked
+        txt.textContent = (everBacked
           ? '⚠ 手机和浏览器都会自动清空数据（设备限制，躲不掉）· 距上次备份已 ' + days + ' 天，快导出备份'
-          : '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份';
+          : '⚠ 手机和浏览器都会自动清空数据，一清就全没 · 你还没导出过完整备份')
+          + (iosTab ? '｜iPhone：导出后请「添加到主屏幕」，改用桌面图标打开' : '');
       }
+      // #980：iOS 时文案变长，窄屏（320px 级）允许按钮换行，防「去备份」被挤出屏外（#939 续二同款处理）
+      if (iosTab) { bar.style.flexWrap = 'wrap'; bar.style.rowGap = '6px'; }
       bar.hidden = false;
       return bar.getClientRects().length > 0;
     }
