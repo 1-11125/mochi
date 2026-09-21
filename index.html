@@ -2673,7 +2673,9 @@ background:#fff; color:var(--ink); font-size:12px;
 }
 .msg-survey-opt.sel { border-color:var(--ink); font-weight:700; }
 .msg-survey-a { font-size:12px; font-weight:600; color:#3b7a4e; margin-top:4px; word-break:break-word; }
-.msg-survey-tip { font-size:11px; color:var(--muted); margin-top:8px; }
+.msg-survey-tip { font-size:11px; color:var(--muted); margin-top:8px; display:flex; align-items:center; justify-content:center; gap:3px; }
+.msg-survey-chev { font-size:13px; line-height:1; opacity:.75; transform:translateY(-.5px); }
+.msg-survey-card:active { transform:translateY(1px); box-shadow:0 1px 3px rgba(0,0,0,.05); }
 .msg-choose-card {
 max-width:78%; min-width:220px; text-align:center;
 background:#fff; border:1px solid rgba(0,0,0,.1);
@@ -2692,7 +2694,8 @@ font-size:11px; font-weight:600;
 -webkit-tap-highlight-color:transparent;
 }
 .msg-ask-card.show-fav .msg-fav-heart,
-.msg-choose-card.show-fav .msg-fav-heart {
+.msg-choose-card.show-fav .msg-fav-heart,
+.msg-survey-card.show-fav .msg-fav-heart {
 display:inline-flex; animation:favFadeIn .18s ease;
 }
 @keyframes favFadeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
@@ -2703,7 +2706,8 @@ margin-top:4px; font-size:11px; color:#999; line-height:1.4;
 display:none; -webkit-tap-highlight-color:transparent;
 }
 .msg-ask-card.show-fav .msg-fav-time,
-.msg-choose-card.show-fav .msg-fav-time {
+.msg-choose-card.show-fav .msg-fav-time,
+.msg-survey-card.show-fav .msg-fav-time {
 display:block; animation:favFadeIn .18s ease;
 }
 .msg-voice {
@@ -10499,9 +10503,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790006276415">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790006505279">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 23:57<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 00:01<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21083,4 +21087,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mubfiqf3 -->
+<!-- __MOCHI_EOF__ mubfnn0f -->

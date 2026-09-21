@@ -2679,8 +2679,8 @@ body.addEventListener('pointerup', rpClearPress);
 body.addEventListener('pointerleave', rpClearPress);
 body.addEventListener('pointercancel', rpClearPress);
 body.addEventListener('click', (e) => {
-if (!e.target.closest('.msg-ask-card, .msg-choose-card, .msg-fav-heart, .msg-inplace')) {
-body.querySelectorAll('.msg-ask-card.show-fav, .msg-choose-card.show-fav').forEach(c => c.classList.remove('show-fav'));
+if (!e.target.closest('.msg-ask-card, .msg-choose-card, .msg-survey-card, .msg-fav-heart, .msg-inplace')) {
+body.querySelectorAll('.msg-ask-card.show-fav, .msg-choose-card.show-fav, .msg-survey-card.show-fav').forEach(c => c.classList.remove('show-fav'));
 }
 const favBtn = e.target.closest('.msg-fav-heart');
 if (favBtn) {
@@ -2749,6 +2749,9 @@ if (e.target.closest('.msg-inplace')) return;
 const surveyCard = e.target.closest('.msg-survey-card');
 if (surveyCard) {
 e.stopPropagation(); // 不冒泡触发气泡操作菜单
+const sHadFav = surveyCard.classList.contains('show-fav');
+body.querySelectorAll('.msg-ask-card.show-fav, .msg-choose-card.show-fav, .msg-survey-card.show-fav').forEach(c => c.classList.remove('show-fav'));
+if (!sHadFav) surveyCard.classList.add('show-fav');
 const sItem = surveyCard.closest('.msg-survey');
 const sIdx = sItem && sItem.dataset.idx !== undefined ? Number(sItem.dataset.idx) : -1;
 const sRec = sIdx >= 0 ? msgs[sIdx] : null;
@@ -3664,8 +3667,8 @@ rows += '<div class="msg-survey-item' + (a ? ' answered' : '') + '">' +
 return '<div class="msg-survey-card' + (done ? ' done' : '') + '">' +
 '<div class="msg-survey-head">你发出的问卷 · ' + qs.length + ' 题</div>' +
 '<div class="msg-survey-list">' + (rows || '<div class="msg-survey-item">（问卷内容缺失）</div>') + '</div>' +
-'<div class="msg-survey-tip">' + (done ? '已交卷 · 点击查看问卷详情' : 'TA 正在作答 · 已答 ' + nDone + '/' + qs.length + '，点击查看进度') + '</div>' +
-favHeartHtml(rec, true) +
+'<div class="msg-survey-tip">' + (done ? '已交卷 · 点击查看问卷详情' : 'TA 正在作答 · 已答 ' + nDone + '/' + qs.length + '，点击查看进度') + '<span class="msg-survey-chev">\u203A</span></div>' +
+favHeartHtml(rec) +
 '</div>';
 }
 window.chatSyncSurveyCard = function (surveyTs, status, answers) {
@@ -8903,10 +8906,10 @@ if (!f) return;
 if (window.addMyFavItem(f)) toast('已收藏互动卡片');
 else toast('已收藏过这张卡片');
 };
-function favHeartHtml(rec, always) {
-const heart = '<button class="msg-fav-heart"' + (always ? ' style="display:inline-flex"' : '') + ' title="收藏整张互动卡片"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>收藏</button>';
+function favHeartHtml(rec) {
+const heart = '<button class="msg-fav-heart" title="收藏整张互动卡片"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>收藏</button>';
 let time = '';
-if (!always && rec && rec.ts) {
+if (rec && rec.ts) {
 const who = rec.side === 'out' ? chatUserName() : chatPartnerName();
 time = '<div class="msg-fav-time">' + escTxt(who) + ' ' + fmtTime(rec.ts) + ' 发送</div>';
 }

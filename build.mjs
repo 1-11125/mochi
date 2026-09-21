@@ -1837,8 +1837,9 @@ const FIX_SENTINELS = [
   { name: '#712c cfg 附带自定义原串（DEFAULTS 外挂直读；删则 pyJoinCards 永远读不到自定义符号）', file: 'js/reply-settings.js', needle: "out['py-punct-custom'] = String(ls.get('reply-py-punct-custom')" },
   { name: '#712d 自定义符号落盘（删则添加/删除/开关都不持久化、刷新即丢）', file: 'js/reply-settings.js', needle: 'ls.set(CUST_KEY, JSON.stringify(list))' },
   { name: '#712e 模板「——」chip 与「＋」添加钮（删则设置页看不到新符号、没法加自定义）', file: 'template.html', needle: 'data-k="py-punct-dash"' },
-  // ==== 2026-09-18 #713 批量问卷收藏两缺（用户直派：「问问ta批量问卷，点击查看详情，没有整体的卡片的收藏功能，没有单个问题的批量收藏功能」）——①问卷卡（special:'ask-survey'）渲染没挂 favHeartHtml、cardSnapshot 也不认识它＝整卡无法收藏进聊天收藏夹：卡片加常显心形（问卷卡整卡点击=看详情，没有单题卡的 show-fav 浮现机制）＋快照存题目列表 qarr/TA 作答 aarr，收藏页按问卷卡重放；②问卷详情原是 openModal 纯文本＝没法挂任何按钮：改 openTCPanel 面板，「♡ 收藏整份问卷」复用 favCardFromMsg，「☆ 收藏所选/★ 全部收藏」把题目按文本查重后存入 问问TA 题库（我的添加·日常，单选题带 options ≥2 成单选与批量导入同口径）====
-  { name: '#713a 问卷卡常显收藏心形（删则整卡收藏入口消失＝「没有整体的卡片的收藏功能」回归）', file: 'js/chat.js', needle: 'favHeartHtml(rec, true)' },
+  // ==== 2026-09-18 #713 批量问卷收藏两缺（用户直派：「问问ta批量问卷，点击查看详情，没有整体的卡片的收藏功能，没有单个问题的批量收藏功能」）——①问卷卡（special:'ask-survey'）渲染没挂 favHeartHtml、cardSnapshot 也不认识它＝整卡无法收藏进聊天收藏夹：卡片加常显心形（#1005 起收回为「点卡片浮现」，见本数组末尾 #1005 块；快照与收藏落库链路一字未动）＋快照存题目列表 qarr/TA 作答 aarr，收藏页按问卷卡重放；②问卷详情原是 openModal 纯文本＝没法挂任何按钮：改 openTCPanel 面板，「♡ 收藏整份问卷」复用 favCardFromMsg，「☆ 收藏所选/★ 全部收藏」把题目按文本查重后存入 问问TA 题库（我的添加·日常，单选题带 options ≥2 成单选与批量导入同口径）====
+  // #713a（问卷卡常显心形）由 #1005a 承接退役：用户 2026-09-21 直派「卡片直接显示了收藏的按钮」，
+  // 常显改为「点卡片浮现」，锚点随之换到 #1005 块（本数组末尾）。
   { name: '#713b cardSnapshot 问卷分支存 qarr/aarr（删则点心形静默无效＝#660 同族回归）', file: 'js/chat.js', needle: "else if (special === 'ask-survey') {" },
   { name: '#713c 收藏页问卷重放（删则收藏夹里问卷只剩一行摘要、题目与 TA 作答丢失）', file: 'js/chat.js', needle: "f.special === 'ask-survey' && Array.isArray(f.qarr)" },
   { name: '#713d 问卷详情收藏操作条（删则详情里没有整卡收藏与单题批量收藏入口＝主诉回归）', file: 'js/ta-ask.js', needle: 'id="sv-fav-allbtn"' },
@@ -4570,6 +4571,18 @@ const FIX_SENTINELS = [
   { name: '#1008o 群聊美化入口副标题写明标题行可拖（同族一致，删＝群聊侧入口又不说）', file: 'js/group-chat.js', needle: '群聊在上、控件在下，改哪看哪、即时生效；标题行可按住往上拖让位' },
   { name: '#1008p 使用提示「手机桌面美化」写明抽屉与拖动（删＝设置页功能说明里查不到这个能力）', file: 'js/settings-help.js', needle: '抽屉的标题行可以按住往上拖' },
   { name: '#1008q 群聊抽屉点亮态只在真变化时写（同族一致）', file: 'js/group-chat.js', needle: 'const paintGcChips = (key) => {' },
+  /* ==== 2026-09-21 #1005 批量问卷卡「收藏按钮直接显示」根治（用户直派：「关于批量设置问卷后发送到
+     聊天里的卡片是直接显示了【收藏的按钮】不行，这个要隐藏起来，需要点击卡片之后才显示，并且需要
+     暗示这个卡片可以点击」）——#713 当年给问卷卡挂的是 always=true 常显心形（当时理由：问卷卡整卡
+     点击＝看详情，没有单题卡那套点卡片浮现机制，心形藏起来没人看得到）；现改回与单题卡同一套：
+     心形默认隐藏、点卡片加 .show-fav 浮现（再点卡片外收起），底部提示行尾补一枚右向箭头＋整卡
+     按压反馈＝「这张卡能点」的视觉暗示。收藏落库链路（cardSnapshot 的 qarr/aarr 快照、详情面板
+     收藏操作条）一字未动 ==== */
+  { name: '#1005a 问卷卡点一下浮现收藏心形（删＝心形永远看不到＝整卡收藏入口消失，用户主诉回归）', file: 'js/chat.js', needle: "if (!sHadFav) surveyCard.classList.add('show-fav');" },
+  { name: '#1005b 点卡片外的收起守卫认得问卷卡（删＝点心形以外任何地方都不收心形，.show-fav 只增不减）', file: 'js/chat.js', needle: "'.msg-ask-card, .msg-choose-card, .msg-survey-card, .msg-fav-heart, .msg-inplace'" },
+  { name: '#1005c 问卷卡提示行尾的可点暗示箭头（删＝卡片看不出能点，用户直派的「需要暗示这个卡片可以点击」回归）', file: 'js/chat.js', needle: '<span class="msg-survey-chev">' },
+  { name: '#1005d 问卷卡心形浮现样式（删＝加了 .show-fav 也浮不出来，心形仍是 display:none）', file: 'css/chat-main.css', needle: '.msg-survey-card.show-fav .msg-fav-heart' },
+  { name: '#1005e 问卷卡按压反馈（删＝点下去没有任何视觉回馈）', file: 'css/chat-main.css', needle: '.msg-survey-card:active' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
