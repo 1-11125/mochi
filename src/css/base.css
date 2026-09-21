@@ -114,6 +114,18 @@ html { margin:0; padding:0; }
   scrollbar-width:none; -ms-overflow-style:none;
 }
 .splash-box::-webkit-scrollbar { display:none; }
+/* v8.29 #973：开屏最顶端「使用前必看」红卡——.splash-box 首个子节点（在品牌卡之上，开屏第一眼），
+   红左竖条 + 淡红底，与 #315b 免责卡 / #793 停更公告同一红色警示族但更靠前、左竖条更粗（4px）；
+   宽度与品牌卡一致 min(324px,100%) 保持整页左右对齐 */
+.splash-bigwarn { width:min(324px, 100%); box-sizing:border-box; margin:0 0 14px; padding:13px 15px 14px 16px; background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left; animation:splash-fade-up .6s ease 0s backwards; }
+.splash-bigwarn .splash-bigwarn-t { font-size:13.5px; font-weight:800; color:#c22b27; letter-spacing:.6px; margin-bottom:7px; line-height:1.6; }
+.splash-bigwarn p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
+.splash-bigwarn p + p { margin-top:7px; }
+.splash-bigwarn strong { color:#c22b27; font-weight:800; }
+[data-theme="dark"] .splash-bigwarn { background:rgba(210,52,48,.20); border-color:#ff6b6b; }
+[data-theme="dark"] .splash-bigwarn .splash-bigwarn-t { color:#ff8f8f; }
+[data-theme="dark"] .splash-bigwarn p { color:#f0c6c6; }
+[data-theme="dark"] .splash-bigwarn strong { color:#ff8f8f; }
 /* v3.8.y：顶部品牌区卡片框——logo/标题/署名/原作信息统一装进一个精致白卡片 */
 .splash-brandcard {
   width:min(324px, 100%); box-sizing:border-box;
