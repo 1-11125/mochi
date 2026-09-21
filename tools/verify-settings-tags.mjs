@@ -31,10 +31,14 @@ const tpl = readFileSync(join(root, 'src', 'template.html'), 'utf8');
 const iBasic = tpl.indexOf('data-sec="basic"');
 const iChat = tpl.indexOf('data-sec="chat"');
 const iTools = tpl.indexOf('data-sec="tools"');
+const iDiagRaw = tpl.indexOf('data-sec="diag"');
 const iAbout = tpl.indexOf('data-sec="about"');
+// #957 新增 diag 段后，tools 段边界收到 diag 之前；纯 HEAD 无 diag 时回退到 about（红基线仍可跑）
+const iDiag = iDiagRaw > 0 ? iDiagRaw : iAbout;
 const iVer = tpl.indexOf('<div class="ver">');
 const basicSrc = tpl.slice(iBasic, iChat);
-const toolsSrc = tpl.slice(iTools, iAbout);
+const toolsSrc = tpl.slice(iTools, iDiag);
+const diagSrc = tpl.slice(iDiag, iAbout);
 const aboutSrc = tpl.slice(iAbout, iVer);
 ok(iBasic > 0 && iChat > iBasic && iTools > iChat && iAbout > iTools, 'S1 basic/chat/tools/about 四段存在且顺序正确');
 ok(basicSrc.includes('id="row-reset"'), 'S2 清除本地数据(#row-reset) 落在 basic（通用）段内');
@@ -43,6 +47,16 @@ ok(!toolsSrc.includes('id="row-reset"'), 'S3b 清除本地数据不在 tools 段
 ok(basicSrc.includes('id="row-export"') && basicSrc.includes('id="row-import"'), 'S5 导出数据/导入数据两行也落在 basic（通用）段内（#805）');
 ok(!toolsSrc.includes('id="row-export"') && !toolsSrc.includes('id="row-import"'), 'S6 导出/导入不在 tools 段内（#805 已移通用）');
 
+// ---- #957 「信息诊断」独立 tag：诊断/自测行归位、数据管理行留在「工具」 ----
+const MOVED_IDS = ['row-diagnostics','row-screen-diag','row-func-diag','row-perf-check','row-perf-optimize','row-battery-check','row-heat-check','row-flash-check'];
+ok(iDiagRaw > 0 && iDiag > iTools && iDiag < iAbout, 'S7 「信息诊断」段(data-sec=diag) 存在且排在 工具 与 关于 之间', 'iDiag=' + iDiagRaw);
+ok(MOVED_IDS.every(function (id) { return diagSrc.includes('id="' + id + '"'); }), 'S8 诊断/自测行全部落在「信息诊断」段内', MOVED_IDS.filter(function (id) { return !diagSrc.includes('id="' + id + '"'); }).join(','));
+ok(MOVED_IDS.every(function (id) { return !toolsSrc.includes('id="' + id + '"'); }), 'S9 这些行不再留在「工具」段（搬走＝不重复 id）', MOVED_IDS.filter(function (id) { return toolsSrc.includes('id="' + id + '"'); }).join(','));
+ok(diagSrc.includes('id="safe-top-force"'), 'S10 顶部避让修正开关随诊断组搬入「信息诊断」段');
+ok(toolsSrc.includes('id="row-storage-view"') && toolsSrc.includes('id="row-img-compress"'), 'S11 查看存储/压缩图片仍留「工具」段（数据管理面，用户口径）');
+ok(toolsSrc.includes('id="row-card-audit"') && toolsSrc.includes('id="row-screen-adj"'), 'S12 字卡自检/屏幕适配微调仍留「工具」段（#532/#764 口径不动）');
+ok(diagSrc.includes('id="perf-help-sub"') && diagSrc.includes('id="heat-help-sub"'), 'S13 卡顿/发烫两条排查说明随自测行搬入「信息诊断」段');
+
 const setTabsSrc = (function () {
   const i = tpl.indexOf('id="set-tabs"');
   if (i < 0) return '';
@@ -50,7 +64,7 @@ const setTabsSrc = (function () {
   return tpl.slice(i, tpl.indexOf('<!-- 通用：', i));
 })();
 const tabsSrc = setTabsSrc.match(/<div class="them-tab[^>]*data-tab="[^"]+"[^>]*>/g) || [];
-ok(tabsSrc.length === 5, 'S4 设置页 #set-tabs 内 5 个 tag 存在', 'found=' + tabsSrc.length);
+ok(tabsSrc.length === 6, 'S4 设置页 #set-tabs 内 6 个 tag 存在', 'found=' + tabsSrc.length);
 
 // ===== 行为：构建产物 index.html =====
 const candidates = [
@@ -134,17 +148,17 @@ await sleep(400);
 // B1 五个 tag 文案（渲染后）
 const tabs = J(await evalJs(`(function(){var out=[];document.querySelectorAll('#set-tabs .them-tab').forEach(function(t){out.push(t.dataset.tab+'='+t.textContent.trim());});return JSON.stringify(out);})()`));
 const tabStr = (Array.isArray(tabs) ? tabs : []).join(',');
-ok(tabStr === 'basic=通用,chat=聊天,system=系统,tools=工具,about=关于', 'B1 五个 tag＝通用/聊天/系统/工具/关于', tabStr);
+ok(tabStr === 'basic=通用,chat=聊天,system=系统,tools=工具,diag=信息诊断,about=关于', 'B1 六个 tag＝通用/聊天/系统/工具/信息诊断/关于', tabStr);
 
 // B2 逐一点击 tag：恰好一个 them-sec 可见，且为该 tag 对应段
 let mutexOk = true, mutexDetail = '';
-for (const name of ['basic', 'chat', 'system', 'tools', 'about']) {
+for (const name of ['basic', 'chat', 'system', 'tools', 'diag', 'about']) {
   await evalJs(`(function(){var t=document.querySelector('#set-tabs .them-tab[data-tab="${name}"]');if(t)t.click();return true;})()`);
   await sleep(160);
   const r = J(await evalJs(`(function(){var vis=[];document.querySelectorAll('#page-setting .them-sec').forEach(function(s){if(!s.hidden)vis.push(s.dataset.sec);});var act=document.querySelector('#set-tabs .them-tab.active');return JSON.stringify({vis:vis,act:act?act.dataset.tab:null});})()`));
   if (!(r.vis && r.vis.length === 1 && r.vis[0] === name && r.act === name)) { mutexOk = false; mutexDetail += name + '→' + JSON.stringify(r) + ' '; }
 }
-ok(mutexOk, 'B2 五个 tag 互斥切换（任一时刻仅对应段可见且高亮）', mutexDetail);
+ok(mutexOk, 'B2 六个 tag 互斥切换（任一时刻仅对应段可见且高亮）', mutexDetail);
 
 // B3 数据备份三行的 tag 归属（DOM 祖先）：#805 后都应属 basic（通用）
 const anc = J(await evalJs(`(function(){function w(id){var r=document.getElementById(id);if(!r)return null;var s=r.closest('.them-sec');return s?s.dataset.sec:null;}return JSON.stringify({reset:w('row-reset'),exp:w('row-export'),imp:w('row-import')});})()`));
@@ -179,6 +193,20 @@ ok(aboutState.aboutVisible === true && aboutState.resetVisible === false, 'B8 �
 // B9 结构兜底：#page-setting 正确闭合，tabbar 未被吞进设置页（#519/#520 同族回归）
 const nest = J(await evalJs(`(function(){var tb=document.querySelector('.tabbar');var st=document.getElementById('page-setting');return JSON.stringify({tabbarInSetting:!!(tb&&st&&st.contains(tb)),tabbarParent:tb&&tb.parentElement?(tb.parentElement.className||tb.parentElement.id):null});})()`));
 ok(nest.tabbarInSetting === false, 'B9 #page-setting 已正确闭合（tabbar 未被吞进设置页）', JSON.stringify(nest));
+
+// B10 #957 「信息诊断」tag：诊断行可见、工具段数据行隐藏（不只是搬了个位置，入口真的归到新 tag）
+await evalJs(`(function(){var t=document.querySelector('#set-tabs .them-tab[data-tab="diag"]');if(t)t.click();return true;})()`);
+await sleep(220);
+const dState = J(await evalJs(`(function(){function v(id){var r=document.getElementById(id);return r?(r.offsetParent!==null):null;}function s(id){var r=document.getElementById(id);return r&&r.closest('.them-sec')?r.closest('.them-sec').dataset.sec:null;}return JSON.stringify({diagRow:v('row-diagnostics'),perfRow:v('row-perf-check'),flashRow:v('row-flash-check'),storageRow:v('row-storage-view'),imgRow:v('row-img-compress'),diagSec:s('row-diagnostics'),perfSec:s('row-perf-check')});})()`));
+ok(dState.diagRow === true && dState.perfRow === true && dState.flashRow === true && dState.diagSec === 'diag' && dState.perfSec === 'diag', 'B10 点「信息诊断」tag＝诊断/自测行可见且祖先段＝diag', JSON.stringify(dState));
+ok(dState.storageRow === false && dState.imgRow === false, 'B10b 同 tag 下「查看存储/压缩图片」隐藏（仍在「工具」段，不在本 tag 再现）', JSON.stringify(dState));
+
+// B11 切回「工具」tag：数据行可见、诊断行隐藏（两 tag 互斥、无重复入口）
+await evalJs(`(function(){var t=document.querySelector('#set-tabs .them-tab[data-tab="tools"]');if(t)t.click();return true;})()`);
+await sleep(220);
+const tState = J(await evalJs(`(function(){function v(id){var r=document.getElementById(id);return r?(r.offsetParent!==null):null;}function s(id){var r=document.getElementById(id);return r&&r.closest('.them-sec')?r.closest('.them-sec').dataset.sec:null;}return JSON.stringify({storageRow:v('row-storage-view'),imgRow:v('row-img-compress'),cardRow:v('row-card-audit'),diagRow:v('row-diagnostics'),storageSec:s('row-storage-view')});})()`));
+ok(tState.storageRow === true && tState.imgRow === true && tState.cardRow === true && tState.storageSec === 'tools', 'B11 「工具」tag 仍留数据管理与自检行（查看存储/压缩图片/字卡自检）', JSON.stringify(tState));
+ok(tState.diagRow === false, 'B11b 「工具」tag 下诊断行已隐藏（无重复入口）', JSON.stringify(tState));
 
 try { chrome.kill(); } catch (e) {}
 server.close();

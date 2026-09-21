@@ -4052,6 +4052,7 @@ const FIX_SENTINELS = [
   { name: '#955c 跨桌面 IDB 写复用 persistMsgsToIdb 直存原语（删＝退回 window.idbSet(key, JSON.stringify(arr)) 无 >3MB 数组直存/无失败回退）', file: 'js/chat.js', needle: 'try { persistMsgsToIdb(key, arr); } catch (e) {}' },
   { name: '#955d 信箱大负载延迟落盘分流闸（删＝含图信件每次收信/回信整包 stringify 压主线程）', file: 'js/mail.js', needle: 'if (mailListBytes(list) <= MAIL_BIG_DEFER_BYTES) { csFor(cid).set(KEY, JSON.stringify(list)); return; }' },
   { name: '#955e 信箱挂起待写优先于旧持久值（删＝去抖窗口内 load/权威合并读旧值＝刚写的信看不到/被合并掉）', file: 'js/mail.js', needle: 'if (_pend) cur = _pend.list.slice();' },
+  { name: '#957 设置页「信息诊断」独立 tag（删＝诊断/自测行退回「工具」大组，用户又找不到诊断入口）', file: 'template.html', needle: 'data-sec="diag"' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

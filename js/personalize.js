@@ -2204,7 +2204,7 @@ const kw = inp.value.trim();
 if (!kw) return;
 if (typeof window.mochiFeatureHubOpen === 'function') window.mochiFeatureHubOpen(kw);
 });
-const SEC_NAME = { basic: '通用', chat: '聊天', system: '系统', tools: '工具', about: '关于' };
+const SEC_NAME = { basic: '通用', chat: '聊天', system: '系统', tools: '工具', diag: '信息诊断', about: '关于' };
 const KW = {
 '联系人 / 桌面': '切换桌面 多桌面 独立 称呼',
 '开启群聊': '多人聊天 群',
