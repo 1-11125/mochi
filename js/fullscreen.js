@@ -532,9 +532,17 @@ return false;
 }
 var _gfsPhone = document.querySelector('.phone') || (document.body || document.documentElement);
 function applyGameFsElevate() {
+try {
+if (!_gfsPhone.classList.contains('game-fs-active') && !document.getElementsByClassName('poke-card').length) return;
 _gfsPhone.classList.toggle('game-fs-active', gameFsHasActive());
+} catch (e) {}
 }
-var _gfsObs = new MutationObserver(applyGameFsElevate);
+var _gfsRaf = 0;
+function _gfsSchedule() {
+if (_gfsRaf) return;
+_gfsRaf = requestAnimationFrame(function () { _gfsRaf = 0; applyGameFsElevate(); });
+}
+var _gfsObs = new MutationObserver(_gfsSchedule);
 _gfsObs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
 applyGameFsElevate();
 })();

@@ -788,9 +788,23 @@
   }
   var _gfsPhone = document.querySelector('.phone') || (document.body || document.documentElement);
   function applyGameFsElevate() {
-    _gfsPhone.classList.toggle('game-fs-active', gameFsHasActive());
+    try {
+      // #970：无游戏面板且壳上也没挂类 ⇒ 直接返回，省掉一次全文档类名查询。
+      // 本观察器挂在整棵 body 子树（class/hidden/childList），而本应用 class 切换极其频繁
+      // （气泡插入、面板开合、圆点高亮、scroll-lock…），原实现每个变更批次都做一次
+      // document.getElementsByClassName('poke-card game-fs') 全文档匹配。
+      if (!_gfsPhone.classList.contains('game-fs-active') && !document.getElementsByClassName('poke-card').length) return;
+      _gfsPhone.classList.toggle('game-fs-active', gameFsHasActive());
+    } catch (e) {}
   }
-  var _gfsObs = new MutationObserver(applyGameFsElevate);
+  // #970：rAF 合并——同一帧内的成批变更只评估一次（原来每个 mutation 批次跑一次），
+  // 且把评估挪出 mutation 微任务路径；语义不变（一帧内照样完成提层/撤层）。
+  var _gfsRaf = 0;
+  function _gfsSchedule() {
+    if (_gfsRaf) return;
+    _gfsRaf = requestAnimationFrame(function () { _gfsRaf = 0; applyGameFsElevate(); });
+  }
+  var _gfsObs = new MutationObserver(_gfsSchedule);
   _gfsObs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
   applyGameFsElevate();
 })();
