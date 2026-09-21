@@ -1597,7 +1597,8 @@ const FIX_SENTINELS = [
   { name: '#381 背包/记录浮层转全屏开关（删则浮层又缩回 30px 高的 stage 里显示不全）', file: 'js/auction.js', needle: "overlayEl.classList.toggle('au-ov-fs', !!fs)" },
   { name: '#381 全屏浮层 hidden 救援（.pong-overlay 的 display:flex 压掉 UA [hidden]，#331 同因；删则关不掉全屏背包/记录）', file: 'css/chat-pages.css', needle: '#au-overlay.au-ov-fs[hidden] { display:none; }' },
   // ==== 2026-09-12 #378 聊天+群聊跟底闸改钉住标记 + 轻点不杀跟底（红米 K80 Chrome 单聊/群聊同报「联系人发消息不自动滚到最新，要手动滑」；①旧 nearGcBottom/chatNearBottom 距离闸在内核丢弃首写/图片迟到解码顶开后把后续每条来消息都误判成在看历史永不跟底；②轻点消息区（点气泡）即解钉且无法回钉，自动跟底被一次轻点永久杀死）====
-  { name: '#378 单聊来消息跟底闸改按钉住标记（距离闸在首写被丢弃后永不跟底；#492 起 userFollow 显式通道不吃此闸，闸语义不变）', file: 'js/chat.js', needle: 'if (!out && !userFollow && !chatPinnedBottom) return;' },
+  // ==== 2026-09-21 #998 联系人发消息不跟到最底（红米 K80 Chrome 实报「最新消息总是不会跟随自动滑动到最底部，需要我自己滑动到最底下」，用户点名多机型同现）：三个根因＝①「贴底」判定与写方不同尺（打字行显示期把真贴底读成离底一行高，两条回钉路一起失效）；②钉住态恢复路是一次性判据（滚动落定那条 100ms 防抖在手指未抬时撞上 chatTouchActive 即放弃且不续期）＝丢一次就永久不回来；③来消息跟底只认可过期的钉住标记。详见 FIX-REGRESSION #998 ====
+  { name: '#378/#998 单聊来消息跟底闸＝钉住标记 OR「视口此刻就在真底部」（#378 的标记语义零改动；#998 补几何事实：标记被一次触摸解钉后，恢复路一旦被时序错过就永久失真、此后每条来消息都不跟底，而「用户此刻停在最新一条上」是几何事实；scrollChatBottom 顺带把标记复位＝自愈。删掉 chatAtBottom 那半段＝标记失真时来消息重新不跟底）', file: 'js/chat.js', needle: 'if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;' },
   // ==== 2026-09-15 #492 帮我决定/多人决定结果发到聊天后不滑到最新消息（多机型同报）：决策结果是用户主动触发，与 out 侧（自己发消息必跟底）和群聊 followGcBottom(true) 同权；chatAddIn({follow:true}) 一次性标记 + maybeScrollChatBottom 消费，TA 自发消息 #162/#378/#416 不打扰契约零改动 ====
   { name: '#492 follow 一次性消费+跟底闸放行（删则决策结果在解钉态永不跟底＝症状复发）', file: 'js/chat.js', needle: 'const userFollow = !out && chatUserFollowScroll;' },
   { name: '#492 chatAddIn 用户主动通道入口（删则 decision/group-decision 的 follow 传参失效）', file: 'js/chat.js', needle: 'if (opts && opts.follow) chatUserFollowScroll = true;' },
@@ -1605,7 +1606,8 @@ const FIX_SENTINELS = [
   // ==== 2026-09-17 拍一拍发出后不自动滑到最新消息（用户报）：sendPoke 是用户主动触发的 in 侧消息，置 #492 同款 chatUserFollowScroll 一次性跟底标记；TA 自发消息与 TA 回拍不受影响 ====
   { name: '拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发；#876 该行追加 nightAllow 夜间放行标记，needle 随之换锚）', file: 'js/chat.js', needle: "chatUserFollowScroll = true;\naddRec({ side: 'in', text: text, special: 'poke', nightAllow: true });" },
   { name: '#492 多人决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/group-decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果' },
-  { name: '#378/#416 单聊手动滚回贴底回钉（解钉后自动跟底可恢复；#416 起只认真的贴到底 ≤8px，防上翻读最新时误回钉拽底；2026-09-18 随 #716d 手势闸演进，锚收到未变的 ≤8px 判定本体，回钉调用点锚归 #716d）', file: 'js/chat.js', needle: 'cb.clientHeight <= 8;' },
+  { name: '#378/#416/#998 解钉态周期复核＝用户自己滚回真底部即恢复自动跟底（#378 的「滚回贴底可回钉」原本只是「滚动事件 + 100ms 防抖」的一次性判据：判完即止、手势期一撞 chatTouchActive 就放弃且不续期＝钉住态永久丢失（无头实证：抬手停在最底 gap=0，来消息却不再跟底、连发累积 133.7px）；#998 搬进看门狗周期复核、与「钉住态离底即补钉」同形对称；不由 touchend 就地回钉（抬手瞬间惯性还没开始走，那时置钉会被看门狗把惯性滑行整段拽回底部＝#416/#716 复发）。只认 ≤8px＝绝不拽正在上翻的用户，写入交落定锁。删掉这行＝失底重新粘住）', file: 'js/chat.js', needle: "chatPinnedBottom = true; cb706.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();" },
+  { name: '#998c 解钉态复核的贴底前置（防修过头：删掉＝解钉态一律回钉，正在上翻阅读的用户被周期拽回最底＝#416/#162 主诉回流）', file: 'js/chat.js', needle: 'if (!chatAtBottom()) return;' },
   { name: '#378 单聊轻点不杀跟底（位移<10px 且贴底=回钉，点气泡不再永久解钉）', file: 'js/chat.js', needle: 'const dy = Math.abs(e.changedTouches[0].clientY - chatUnpinTsY);' },
   { name: '#378 群聊跟底闸改按接管标记（同单聊距离闸问题）', file: 'js/group-chat.js', needle: 'if (!force && gcUserGcScrollTouched) return;' },
   { name: '#378/#416 群聊轻点不杀跟底 + 滚回贴底解除接管（#396 随行补锚定摘除；#416 起轻点回跟只认真的贴到底 ≤8px，防上翻读最新时一点气泡就恢复跟底被拽回）', file: 'js/group-chat.js', needle: 'if (dy < 10 && gcAtBottom()) { gcUserGcScrollTouched = false;' },
@@ -1991,7 +1993,7 @@ const FIX_SENTINELS = [
   //      #355 收短后极常见）正好压住头部返回按钮＝面板关不掉+body 滚动锁＝整页像卡死；z 抬 9999，
   //      仍低于 modal-mask 99999 / 应用锁 999999）====
   { name: '#428 全屏位置面板盖过提醒条（.loc-panel.loc-full z-9999；删则备份提醒条压住返回按钮，「看看TA在哪」全屏面板关不掉像卡死，多机型复发）', file: 'css/chat-pages.css', needle: 'background:#fff; z-index:9999;' },
-  { name: '#416 单聊回钉只认真的贴到底（chatAtBottom 距最大 scrollTop ≤8px；删则旧 120px 容差又把「上翻读最新一条停下/轻点」当回钉、每次点滑动被拽回最底复发）', file: 'js/chat.js', needle: 'return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;' },
+  { name: '#416/#998 单聊「贴底」判定与写方同尺（chatAtBottom ＝ chatScrollMax() − scrollTop ≤8px；#416 的 8px 口径与「上翻读最新一条必然 >24px」结论零变化。旧口径用裸 scrollHeight−clientHeight，而打字行在每条来消息落地前显示 0.4~1.4s（正是用户会去点/滑的窗口），行显示期真贴底被读成「离底一行高 ≈22px」＝假解钉态，轻点回钉与滚动落定回钉两条恢复路一起失效）', file: 'js/chat.js', needle: 'return chatScrollMax() - cb.scrollTop <= 8;' },
   { name: '#416 群聊解除接管只认真的贴到底（gcAtBottom 同 ≤8px 口径；删则旧 150px 容差让滚动手势第一个 scroll 事件就清掉接管、下一条成员回复把历史阅读拽回最底复发）', file: 'js/group-chat.js', needle: 'return body.scrollHeight - body.scrollTop - body.clientHeight <= 8;' },
   { name: '#416 群聊滚回贴底检测必须停稳（gcScrollTimer 120ms 防手势中第一个 scroll 事件误清接管；删则「每次点滑动被拽回最底」随下一条回复复发）', file: 'js/group-chat.js', needle: 'gcScrollTimer = setTimeout(() => {' },
   { name: '#418 屏幕适配自动监视·开屏未进入/数据未就绪跳过采集（sdTick 守卫；删则开屏加载期 inner 短报瞬态刷「底部少填/顶部重叠」假阳性污染错误环+反复强制重排，iPhone13 Safari「总卡卡/开屏划不动」复发）', file: 'js/device.js', needle: "_splash && !_splash.classList.contains('hide')" },

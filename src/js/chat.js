@@ -2666,10 +2666,19 @@ return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 // 恰好落在离底 24~120px 区间，用户一上翻阅读、一轻点就误判回钉被拽回最底。贴底=距最大
 // scrollTop 只剩 ≤8px（.chat-body 底部还有 padding-bottom:24px 的呼吸区，用户读最新消息时
 // 离底必然 >24px，互不混淆）。
+// FIX 2026-09-21 #998（红米 K80 Chrome 实报「联系人发消息，最新消息总是不会跟随自动滑动到最
+// 底部，需要我自己滑动到最底下」，用户点名其他机型同现、要求勿致跨机型回归）：本判定必须与写方
+// scrollChatBottom() 用**同一把尺子**。写方落点是 chatScrollMax()（已扣掉「对方正在输入」行高 T），
+// 读方却用裸 scrollHeight − clientHeight——而打字行恰好在每条来消息落地前显示 0.4~1.4s（正是用户
+// 会去点/滑的那段窗口），行显示期真贴底时裸口径读出「离底 T≈22px > 8」＝假解钉态：轻点回钉
+// （touchend）与滚动落定回钉两条恢复路一起失效，钉住态再也回不来，此后每条来消息都不跟底
+// （无头实证：一次轻点即失底，之后连发 gap 累积到 133.7px、最新一条整条落在消息区下方 +38.7px）。
+// 改用 chatScrollMax()：贴底＝距真最大值 ≤8px，与行是否显示无关（#416 的 8px 口径、以及「用户读
+// 最新一条时离底必然 >24px 的呼吸区」结论零变化，橡皮筋超界仍判真）。纯几何、零机型/内核分支。
 function chatAtBottom() {
 const cb = document.getElementById('chat-body');
 if (!cb) return true;
-return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
+return chatScrollMax() - cb.scrollTop <= 8;
 }
 // FIX 2026-09-15 #492（帮我决定/多人决定结果发到聊天后聊天记录不自动滑到最新消息，多机型同报）：
 // 用户主动触发的「来向」消息一次性跟底标记——chatAddIn({follow:true}) 置位、此处消费。决策结果
@@ -2690,7 +2699,13 @@ if (userFollow) chatUserFollowScroll = false;
 // 改按钉住标记——内核丢弃首写/图片迟到解码顶开后，视口离底会超 120px，旧 nearGcBottom
 // 闸把后续每条来消息都误判成「在看历史」永不跟底；用户手动接管（触摸/滚轮解钉）与
 // 搜索/引用跳转定位（#334）本就解除钉住，chatPinnedBottom 已完整表达「别打扰」
-if (!out && !userFollow && !chatPinnedBottom) return;
+// FIX 2026-09-21 #998：跟底判据补一条「视口此刻就在真底部」——chatPinnedBottom 是**可过期的标记**
+// （一次触摸即解钉，恢复路一旦被时序错过就永久失真），而「用户此刻停在最新一条上」是几何事实。
+// 两者取或：标记说钉住 ⇒ 照旧跟底（#378/#162 契约零改动）；标记失真的解钉态、但视口就在真最大值
+// ≤8px ⇒ 这条来消息照样跟底（用户本来就在看最新消息，落一条新消息没有任何理由不给他看，且
+// scrollChatBottom 当场把标记复位＝自愈）。用户真在上翻阅读（离底 >8px）时两条都不成立，仍是
+// 「绝不打扰」——#416 口径零改动。判据与写方同尺（chatAtBottom ⇒ chatScrollMax）＝不受打字行影响。
+if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;
 	if (out || userFollow) {
 	// 自己发(out) / 用户主动触发的 follow（决策结果等）：保持瞬时落底——本人的消息即刻到底才自然
 	scrollChatBottom();
@@ -4555,12 +4570,27 @@ const cb868 = document.getElementById('chat-body');
 if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
 }
 setInterval(function () {
-if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (!chatVisible() || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 if (Date.now() - _cbBoxChangeTs < 180) return; // #871：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
+// FIX 2026-09-21 #998：解钉态周期复核——「用户自己滚回真底部（≤8px）」＝「他在看历史」这个前提已消失，
+// 恢复自动跟底。这条语义 #378 早就写进了滚动监听，但那条是「滚动事件 + 100ms 防抖」的一次性判据：
+// 判完即止、副作用一过再没人复核，手势期一撞 chatTouchActive 就放弃且不续期＝钉住态永久丢失的根
+// （无头实证：上滑翻两下→滑回最底→按住停一下才抬手，抬手后停在最底 gap=0，来消息却不再跟底、
+// 连发 gap 累积到 133.7px）。这里补成周期复核，与下面「钉住态离底即补钉」同形对称。
+// 不在 touchend 就地回钉：抬手那一瞬惯性还没开始走（从底部往上甩时读数仍贴底），那时置钉会被本
+// 看门狗把用户的惯性滑行整段拽回底部＝#416/#716「往上滑被拽回最底」复发；本复核要等滚动/触摸/
+// 几何全静默（惯性走完）才判，天然不误判甩动。判据与写方同尺（chatAtBottom ⇒ 距真最大值 ≤8px）：
+// 只有贴底才回钉，绝不拽正在上翻的用户（#162/#416 零改动），写入交落定锁。零机型分支：写只发生在
+// 健康态重写同一个值。
+if (!chatPinnedBottom) {
+if (!chatAtBottom()) return;
+chatPinnedBottom = true; cb706.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
+return;
+}
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
 // FIX 2026-09-20 #933：滚动会话落定重对齐（缺陷面见上方 scroll 回调回钉分支的注释）——
