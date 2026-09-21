@@ -7,6 +7,44 @@ const OK = typeof crypto !== 'undefined' && crypto.subtle && window.idbGet && wi
 window.mochiMediaExpand = function (s) { return null; };
 window.mochiMediaExpandAsync = function (s, cb) { try { cb(null); } catch (e) {} };
 window.mochiMediaIsToken = function (s) { return typeof s === 'string' && TOKEN_RE.test(s); };
+var KIND_HEAD_RE = /^data:([a-z0-9.+-]+)\/([a-z0-9.+-]+)[;,]/i;
+var NOMIME_RE = /^data:;base64,/i;
+var B64A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function noMimeImgMime(t) {
+const comma = t.indexOf(',');
+const b64 = comma >= 0 ? t.slice(comma + 1, comma + 1 + 48) : '';
+const out = [];
+for (let i = 0; i + 3 < b64.length && out.length < 12; i += 4) {
+const a = B64A.indexOf(b64.charAt(i)), b2 = B64A.indexOf(b64.charAt(i + 1));
+const c = B64A.indexOf(b64.charAt(i + 2)), d = B64A.indexOf(b64.charAt(i + 3));
+if (a < 0 || b2 < 0 || c < 0 || d < 0) break;
+out.push((a << 2) | (b2 >> 4), ((b2 & 15) << 4) | (c >> 2), ((c & 3) << 6) | d);
+}
+if (out.length >= 3 && out[0] === 0xFF && out[1] === 0xD8) return 'image/jpeg';
+if (out.length >= 4 && out[0] === 0x89 && out[1] === 0x50 && out[2] === 0x4E && out[3] === 0x47) return 'image/png';
+if (out.length >= 3 && out[0] === 0x47 && out[1] === 0x49 && out[2] === 0x46) return 'image/gif';
+if (out.length >= 12 && out[0] === 0x52 && out[1] === 0x49 && out[2] === 0x46 && out[3] === 0x46 && out[8] === 0x57 && out[9] === 0x45 && out[10] === 0x42 && out[11] === 0x50) return 'image/webp';
+if (out.length >= 2 && out[0] === 0x42 && out[1] === 0x4D) return 'image/bmp';
+return '';
+}
+function mediaPayloadKind(s) {
+if (typeof s !== 'string' || !s) return '';
+if (window.chatIsDataImgLikeSrc) {
+if (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(s)) return 'audio';
+return window.chatIsDataImgLikeSrc(s) ? 'image' : '';
+}
+let t = s;
+for (let i = 0; i < t.length; i++) {
+const ch = t.charAt(i);
+if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r' && ch !== '\f') { t = t.slice(i); break; }
+}
+const head = t.length > 64 ? t.slice(0, 64) : t;
+if (NOMIME_RE.test(head)) return (window.chatB64ImgMime ? window.chatB64ImgMime(s) : noMimeImgMime(head)) ? 'image' : '';
+const m = KIND_HEAD_RE.exec(head);
+if (!m) return '';
+const k = m[1].toLowerCase();
+return k === 'audio' ? 'audio' : (k === 'video' ? '' : 'image');
+}
 if (!OK) return;
 const map = new Map();            // hash -> dataURL（已解析/已落池内容，渲染热缓存）
 const missing = new Set();        // hash -> true（idbGet 确认池缺失）
@@ -52,7 +90,7 @@ if (list.indexOf(ph) < 0) { ph.__mochiImg = img || null; list.push(ph); }
 };
 window.mochiMediaPhRestore = function (h, v) {
 const list = phReg.get(h);
-if (!list || typeof v !== 'string' || v.indexOf('data:image/') !== 0) return;
+if (!list || typeof v !== 'string' || mediaPayloadKind(v) !== 'image') return; // FIX #948 判据大小写/空白不敏感
 phReg.delete(h);
 list.forEach(function (ph) {
 try {
@@ -94,7 +132,7 @@ let p;
 try { p = window.idbGet(FULL + h, info); } catch (e) { p = null; }
 if (!p || !p.then) return;
 p.then(function (v) {
-if (typeof v === 'string' && v.indexOf('data:image/') === 0) {
+if (typeof v === 'string' && mediaPayloadKind(v) === 'image') { // FIX #948
 softTry.delete(h);
 missing.delete(h);
 if (!map.has(h)) map.set(h, v);
@@ -174,12 +212,14 @@ const lookupQueue = new Map();    // hash -> { data, cbs:[] }
 let lookupT = null;
 window.mochiMediaTokenize = function (dataUrl, opts) {
 return new Promise(function (resolve) {
-if (typeof dataUrl !== 'string' || dataUrl.length < 1024 ||
-(dataUrl.indexOf('data:image/') !== 0 && dataUrl.indexOf('data:audio/') !== 0)) { resolve(null); return; }
-sha256Hex(dataUrl).then(function (h) {
+if (typeof dataUrl !== 'string') { resolve(null); return; }
+var payload = dataUrl.trim();
+if (payload.length < 1024) { resolve(null); return; }
+if (!mediaPayloadKind(payload)) { resolve(null); return; }
+sha256Hex(payload).then(function (h) {
 if (map.has(h)) { resolve(TOK + h); return; }
 let q = lookupQueue.get(h);
-if (!q) { q = { data: dataUrl, cbs: [], nc: !!(opts && opts.noCache) }; lookupQueue.set(h, q); }
+if (!q) { q = { data: payload, cbs: [], nc: !!(opts && opts.noCache) }; lookupQueue.set(h, q); }
 q.cbs.push(resolve);
 if (!lookupT) lookupT = setTimeout(runLookups, 60);
 }).catch(function () { resolve(null); });
@@ -197,7 +237,7 @@ let vals = {};
 try { vals = (await window.idbGetMany(slice.map(function (e) { return FULL + e[0]; }))) || {}; } catch (e) { vals = {}; }
 slice.forEach(function (e) {
 const v = vals[FULL + e[0]];
-const isImg = e[1].data.indexOf('data:image/') === 0;
+const isImg = mediaPayloadKind(e[1].data) === 'image';
 const nc = !!e[1].nc;
 if (typeof v === 'string') { if (isImg && !nc) map.set(e[0], v); }          // 池里已有（跨会话/桌面重复）→ 不重写
 else { if (isImg && !nc) map.set(e[0], e[1].data); writeBuf.push({ k: FULL + e[0], v: e[1].data }); dirty = true; }
@@ -232,7 +272,7 @@ const __tokWatch = setTimeout(function () { __tokSettle(); }, TOK_WATCH_MS);
 const info = {};                 // #665d：idbGet 读失败（超时/连接丢失）→ info.ambiguous
 window.idbGet(FULL + h, info).then(function (v2) {
 __tokSettle();
-if (typeof v2 !== 'string' || v2.indexOf('data:image/') !== 0) {
+if (typeof v2 !== 'string' || mediaPayloadKind(v2) !== 'image') {
 let pending = false;
 for (let wi = 0; wi < writeBuf.length; wi++) { if (writeBuf[wi] && writeBuf[wi].k === FULL + h) { pending = true; break; } }
 if (pending) {
@@ -290,7 +330,7 @@ vals = vals || {};
 batch.forEach(function (h) {
 delete inflight[h];
 const v = vals[FULL + h];
-if (typeof v !== 'string' || v.indexOf('data:image/') !== 0) return; // 脏值/缺失：不进 map 不占位
+if (typeof v !== 'string' || mediaPayloadKind(v) !== 'image') return; // 脏值/缺失：不进 map 不占位（FIX #948 判据大小写/空白不敏感）
 missing.delete(h);
 if (!map.has(h)) map.set(h, v);
 let nodes;
@@ -465,7 +505,7 @@ let vals = {};
 try { vals = (await window.idbGetMany(batch)) || {}; } catch (e) { vals = {}; }
 batch.forEach(function (k) {
 const v = vals[k];
-if (typeof v === 'string' && (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0)) valid.add(String(k).slice(FULL.length));
+if (typeof v === 'string' && mediaPayloadKind(v)) valid.add(String(k).slice(FULL.length)); // FIX #948 同口径
 });
 try { if (prog) prog(Math.min(poolKeys.length, i + 40), poolKeys.length, '核对池内条目'); } catch (eP3) {}
 await yieldUI(); // #441 批间让出主线程（池 741+ 条×大值，连读会冻结 UI）
@@ -549,7 +589,7 @@ batch.forEach(function (p) { heal(p); });
 function heal(p) {
 const h = String(p.k).slice(FULL.length);
 valid.add(h);
-if (p.v.indexOf('data:image/') === 0) { map.set(h, p.v); try { window.mochiMediaPhRestore(h, p.v); } catch (ePH2) {} } // 音频不进热缓存（#283 内存纪律）；#439 占位原位换回
+if (mediaPayloadKind(p.v) === 'image') { map.set(h, p.v); try { window.mochiMediaPhRestore(h, p.v); } catch (ePH2) {} } // 音频不进热缓存（#283 内存纪律）；#439 占位原位换回
 missing.delete(h);
 out.written++;
 }

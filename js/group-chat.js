@@ -372,7 +372,8 @@ if (run) { try { Promise.resolve(run()).catch(function () {}); gLastPersistAt = 
 async function gcNormalizeMedia() {
 if (!window.mochiMediaTokenize) return;
 const seen = new Map();
-const collect = (v) => { if (typeof v === 'string' && v.indexOf('data:image/') === 0 && v.length >= 1024 && !seen.has(v)) seen.set(v, null); };
+const isImgPayload = window.chatIsDataImgLikeSrc || window.chatIsDataImgSrc; // FIX #948 与单聊/池闸门同口径（octet-stream 图候选也进池，不再整段内联）
+const collect = (v) => { if (typeof v === 'string' && isImgPayload && isImgPayload(v) && v.length >= 1024 && !seen.has(v)) seen.set(v, null); };
 for (let i = 0; i < msgs.length; i++) {
 const r = msgs[i];
 if (!r) continue;
@@ -631,7 +632,7 @@ b.innerHTML = b.dataset.orig;
 b.dataset.showing = '1';
 }
 };
-} else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text))) {
+} else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.chatIsImgSrcLike && window.chatIsImgSrcLike(rec.text))) {
 if (rec.type !== 'sticker' && rec.type !== 'image') rec.type = 'image';
 b.style.padding = '6px';
 b.style.background = '';
@@ -640,7 +641,7 @@ b.style.boxShadow = '';
 b.innerHTML = quoteStr + (rec.type === 'image'
 ? '<img class="msg-img msg-img-big" src="' + attrEsc(rec.text) + '" alt="图片" loading="lazy" decoding="async">'
 : '<img class="msg-img msg-img-sm" src="' + attrEsc(rec.text) + '" alt="表情" loading="lazy" decoding="async">');
-} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || '')))) {
+} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || ''))) || (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(rec.text))) {
 b.style.padding = '8px 10px';
 b.style.background = '';
 b.style.border = '';
@@ -844,7 +845,7 @@ bar.appendChild(img);
 const t = document.createElement('span');
 t.className = 'chat-draft-quote-text';
 const raw = String(gcLastQuote.text || '');
-t.textContent = (thumb && raw.indexOf('data:') === 0) ? '' : (raw || '图片');
+t.textContent = (thumb && (window.chatIsInlineDataSrc ? window.chatIsInlineDataSrc(raw) : raw.indexOf('data:') === 0)) ? '' : (raw || '图片'); // FIX #948 内联载荷判据统一口径（变体形态不再把 base64 写进预览条）
 bar.appendChild(t);
 const xBtn = document.createElement('button');
 xBtn.className = 'chat-draft-x chat-draft-quote-x';
@@ -1021,9 +1022,8 @@ const cards = (window.getCustomCardsFor && window.getCustomCardsFor(cid)) || [];
 cards.forEach(c => {
 if (typeof c !== 'string' || !c) return;
 if (pokeSet && pokeSet.has(c)) return; // 拍一拍字卡只走拍一拍模式，不进普通回复池
-if (c.indexOf('data:') === 0) return; // 图片已按媒体分类取
-if (c.indexOf('|||') >= 0) return; // 语音已按媒体分类取
-if (c && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
+if (window.chatHasMediaPayload ? window.chatHasMediaPayload(c)
+: (c.indexOf('data:') === 0 || c.indexOf('|||') >= 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(c)))) return;
 if (/^https?:\/\//i.test(c)) return; // 图链卡不进群聊文字池
 if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
 else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);

@@ -461,7 +461,8 @@
   async function gcNormalizeMedia() {
     if (!window.mochiMediaTokenize) return;
     const seen = new Map();
-    const collect = (v) => { if (typeof v === 'string' && v.indexOf('data:image/') === 0 && v.length >= 1024 && !seen.has(v)) seen.set(v, null); };
+    const isImgPayload = window.chatIsDataImgLikeSrc || window.chatIsDataImgSrc; // FIX #948 与单聊/池闸门同口径（octet-stream 图候选也进池，不再整段内联）
+    const collect = (v) => { if (typeof v === 'string' && isImgPayload && isImgPayload(v) && v.length >= 1024 && !seen.has(v)) seen.set(v, null); };
     for (let i = 0; i < msgs.length; i++) {
       const r = msgs[i];
       if (!r) continue;
@@ -785,7 +786,7 @@
           b.dataset.showing = '1';
         }
       };
-    } else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text))) {
+    } else if (rec.type === 'sticker' || rec.type === 'image' || (rec.type !== 'voice' && window.chatIsImgSrcLike && window.chatIsImgSrcLike(rec.text))) {
       // FIX 2026-09-12 #383 存量乱码自愈：修复前令牌卡曾以 type:text 入群聊库（气泡直出
       // @@m:hash 串），渲染补认裸令牌走图片分支（<img src> 令牌照常被 media-pool 观察器解图）
       if (rec.type !== 'sticker' && rec.type !== 'image') rec.type = 'image';
@@ -796,7 +797,7 @@
       b.innerHTML = quoteStr + (rec.type === 'image'
         ? '<img class="msg-img msg-img-big" src="' + attrEsc(rec.text) + '" alt="图片" loading="lazy" decoding="async">'
         : '<img class="msg-img msg-img-sm" src="' + attrEsc(rec.text) + '" alt="表情" loading="lazy" decoding="async">');
-    } else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || '')))) {
+    } else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || ''))) || (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(rec.text))) {
       // FIX 2026-09-13 #395 群聊补认「名称|||@@m:hash」令牌语音（与单聊同口径，存量消息不再直出令牌串）
       b.style.padding = '8px 10px';
       b.style.background = '';
@@ -1061,7 +1062,7 @@
     const t = document.createElement('span');
     t.className = 'chat-draft-quote-text';
     const raw = String(gcLastQuote.text || '');
-    t.textContent = (thumb && raw.indexOf('data:') === 0) ? '' : (raw || '图片');
+    t.textContent = (thumb && (window.chatIsInlineDataSrc ? window.chatIsInlineDataSrc(raw) : raw.indexOf('data:') === 0)) ? '' : (raw || '图片'); // FIX #948 内联载荷判据统一口径（变体形态不再把 base64 写进预览条）
     bar.appendChild(t);
     const xBtn = document.createElement('button');
     xBtn.className = 'chat-draft-x chat-draft-quote-x';
@@ -1271,11 +1272,12 @@
       cards.forEach(c => {
         if (typeof c !== 'string' || !c) return;
         if (pokeSet && pokeSet.has(c)) return; // 拍一拍字卡只走拍一拍模式，不进普通回复池
-        if (c.indexOf('data:') === 0) return; // 图片已按媒体分类取
-        if (c.indexOf('|||') >= 0) return; // 语音已按媒体分类取
-        // FIX 2026-09-12 #383 群聊同款：#377 令牌化后裸 @@m:hash 卡体无 |||、非 data:，
-        // 旧两道守卫漏过＝令牌卡入群聊文字池被当文字直出（与 chat.js getPool 同批修复）
-        if (c && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
+        // FIX 2026-09-12 #383 群聊同款：#377 令牌化后裸 @@m:hash 卡体无 |||、非 data:，旧两道守卫
+        // 漏过＝令牌卡入群聊文字池被当文字直出（与 chat.js getPool 同批修复）。
+        // FIX 2026-09-20 #948 三道守卫（data:/|||/裸令牌）收成 chat.js 导出的同一条统一判据：
+        // 大小写＋前导空白不敏感、且认「正文中间夹着真令牌」——变体形态漏过即被成员抽中当文字发出。
+        if (window.chatHasMediaPayload ? window.chatHasMediaPayload(c)
+          : (c.indexOf('data:') === 0 || c.indexOf('|||') >= 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(c)))) return;
         // FIX 2026-09-15 #533 群聊同款：链接导入的媒体字卡（裸 http(s) 图链，存于字卡库
         // 【表情包/图片】分类）不进文字池——否则群成员抽中即把链接当文字发进群（与
         // chat.js getPool / mail.js mailCardPool 同批修复）

@@ -912,7 +912,7 @@ if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }
 // 前缀误迁移成 image → 截断 base64 解码失败 = 坏图空白方框」，且与原消息并存成重复。跳过，
 // 该条随日志 60 条滚动自然淘汰，不再新增（chatTailAppend 已拒收媒体型消息）。
 const jt = typeof j.text === 'string' ? j.text : '';
-if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) { keep.push(j); continue; }
+if (jt.indexOf('@@m:') === 0 || chatIsInlineDataSrc(jt)) { keep.push(j); continue; } // FIX #948 判据大小写/前导空白不敏感（变体存根回放＝乱码气泡）
 keep.push(j);
 // #337：互动卡条目还原问题/选项字段（旧版日志条目无 x＝照旧只回放四字段）
 const r = { ts: j.ts, side: j.side, special: j.special, text: jt };
@@ -1060,12 +1060,12 @@ for (let i = 0; i < msgs.length; i++) {
 const m = msgs[i];
 if (!m || _mediaTokSeen.has(m)) continue;
 let did = false;
-if (typeof m.text === 'string' && m.text.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(m.text);
+if (typeof m.text === 'string' && chatIsDataImgSrc(m.text)) {
+const t = await window.mochiMediaTokenize(m.text.trim());
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = t; changed++; did = true; }
 }
-if (typeof m.img === 'string' && m.img.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(m.img);
+if (typeof m.img === 'string' && chatIsDataImgSrc(m.img)) {
+const t = await window.mochiMediaTokenize(m.img.trim());
 if (t) { _rollback.push({ o: m, p: 'img', v: m.img, msg: m }); m.img = t; changed++; did = true; }
 }
 // FIX 2026-09-10 #283 语音令牌化——历史语音/语音字卡整份 data:audio 内联在 text
@@ -1074,23 +1074,27 @@ if (t) { _rollback.push({ o: m, p: 'img', v: m.img, msg: m }); m.img = t; change
 // 替换为「名称|||@@m:hash」/「|||@@m:hash」，音频本体进池只存一份；名称段原样保留。
 if (typeof m.text === 'string' && m.text.length > 1024) {
 const _bar = m.text.indexOf('|||');
-if (_bar > 0 && m.text.indexOf('data:audio/', _bar + 3) === _bar + 3) {
-const t = await window.mochiMediaTokenize(m.text.slice(_bar + 3));
+const _tail = _bar > 0 ? m.text.slice(_bar + 3) : '';
+// FIX 2026-09-20 #948 「名称|||data:…」与裸 data:audio 两形态都改大小写/空白不敏感判定，
+// 并把载荷整串 trim 后再哈希入池（旧写法整串带首尾空白入池＝池值不标准、解图端体检判失败）
+const _tailData = _bar > 0 && chatIsInlineDataSrc(_tail.trim()) ? _tail.trim() : '';
+if (_tailData) {
+const t = await window.mochiMediaTokenize(_tailData);
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = m.text.slice(0, _bar + 3) + t; changed++; did = true; }
-} else if (m.text.indexOf('data:audio/') === 0) {
-const t = await window.mochiMediaTokenize(m.text);
+} else if (chatIsDataAudioSrc(m.text)) {
+const t = await window.mochiMediaTokenize(m.text.trim());
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = '|||' + t; changed++; did = true; }
 }
 }
-if (typeof m.voice === 'string' && m.voice.length > 1024 && m.voice.indexOf('data:audio/') === 0) {
-const t = await window.mochiMediaTokenize(m.voice);
+if (typeof m.voice === 'string' && m.voice.length > 1024 && chatIsDataAudioSrc(m.voice)) {
+const t = await window.mochiMediaTokenize(m.voice.trim());
 if (t) { _rollback.push({ o: m, p: 'voice', v: m.voice, msg: m }); m.voice = t; changed++; did = true; }
 }
 if (Array.isArray(m.parts) && m.parts.length) {
 for (let j = 0; j < m.parts.length; j++) {
 const p = m.parts[j];
-if (p && typeof p.v === 'string' && p.v.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(p.v);
+if (p && typeof p.v === 'string' && chatIsDataImgSrc(p.v)) {
+const t = await window.mochiMediaTokenize(p.v.trim());
 if (t) { _rollback.push({ o: p, p: 'v', v: p.v, msg: m }); p.v = t; changed++; did = true; }
 }
 }
@@ -1179,19 +1183,35 @@ function normCell(r) {
       const t = r.text.replace(/✉️\s*/g, '').replace(/✉\s*/g, '');
       if (t !== r.text) { r.text = ICON_ENV + t; c = true; }
     }
-    if ((r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
+    // FIX 2026-09-20 #948h 存量无 MIME 图片载荷就地补正 MIME（File.type 为空时 FileReader 产出
+    // "data:;base64,…"）：WebKit 系对无类型 data: 不做图片嗅探＝不补正则照旧裂图/占位，补正后
+    // 才真出图（Chrome 系本就嗅探，补正只是把形态规范化）。魔数判定零机型分支、幂等（补正后即
+    // 不再是本形态），且只碰无 MIME 形态，其余载荷一字不动。
+    if (typeof r.text === 'string' && r.text.indexOf('data:;base64,') >= 0) {
+      const __nmFixed = chatFixNoMimeImg(r.text);
+      if (__nmFixed) { r.text = __nmFixed; c = true; }
+    }
+    // FIX 2026-09-20 #948 判据换成大小写/前导空白不敏感的统一口径（chat.js 新增 chatIsImgSrcLike
+    // /chatIsDataAudioSrc）：旧写法 `r.text.indexOf('data:image/') === 0` 让内核给的变体形态
+    // （大写 MIME、串首空白、data:image/HEIC、data:application/…）永远升不了级＝整段 base64
+    // 当文字直出＝用户所见「图片变长乱码」，且这类载荷也进不了媒体池（见 media-pool #948）。
+    if ((r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && chatIsImgSrcLike(r.text)) { r.type = 'image'; c = true; }
 // FIX 2026-09-12 #383 存量乱码自愈：#383 前令牌卡曾以 type:text 入库（气泡直出 @@m:hash 串），
 // 归一化补认裸令牌→type='image'（与上行 data:image 升级同口径），刷新后历史乱码消息变回图片
 // FIX 2026-09-10 #283 语音型归一：裸 data:audio 文本与「|||@@m:令牌」（pass 令牌化后的无主
 // 名称形态）补 type='voice'，走语音气泡渲染（名称缺省「语音消息」），不再当纯文本直出
 if ((r.type === 'text' || !r.type) && typeof r.text === 'string' &&
-(r.text.indexOf('data:audio/') === 0 || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
+(chatIsDataAudioSrc(r.text) || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
 // #451 存量治愈：词典拼字/梦角自由造句旧消息「正文换血后 parts 残留原回复」——气泡渲染
 // parts 优先于 text（#202 混合消息链路），引用快照/收藏/回复引用读 text＝「消息显示 A、
 // 引用预览显示 B」（iOS Chrome 等多机型同报）。addIn 白名单不存 spell/mjFree 字段，
 // 来源 chip（mood tag）是唯一持久化标识；文本段≠正文时以正文重建 parts（保留图片段）。
 // 幂等：重建后文本段===text 不再触发。
+// FIX 2026-09-20 #948 正文本身就是媒体载荷时不得重建：把 dataURL/令牌塞进 k:'text' 段
+// ＝把「乱码」从 text 通道挪进 parts 文本通道（渲染端照样整串直出），且原写法还会在
+// 无图片段时把 parts 清成 null。此类记录由上方 type 升级走图片/语音气泡，本段整块跳过。
 if (Array.isArray(r.parts) && r.parts.length && typeof r.text === 'string' && r.text &&
+!chatIsMediaPayload(r.text) &&
 Array.isArray(r.mood) && r.mood.some(md => md && (md.tag === '词典' || md.tag === '词典拼字' || md.tag === '词典拼句' || md.tag === '词典拼词' || md.tag === '词典逐卡连发' || md.tag === '梦角自由造句'))) {
 const __hpImgs = r.parts.filter(p => p && p.k === 'img');
 const __hpTxt = r.parts.filter(p => p && p.k === 'text').map(p => p.v).join(' ');
@@ -1292,11 +1312,11 @@ function mediaKindOf(v) {
     const bar = v.indexOf('|||');
     if (bar >= 0) {
       const tail = v.slice(bar + 3);
-      if (tail.indexOf('data:') === 0) return 'raw';
+      if (chatIsInlineDataSrc(tail)) return 'raw'; // FIX #948
       if (window.mochiMediaIsToken && window.mochiMediaIsToken(tail)) return 'tok';
       return '';
     }
-    if (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0) return 'raw';
+    if (chatIsInlineDataSrc(v)) return 'raw'; // FIX #948 整串任意 data: 载荷都是媒体，不是文字
   } catch (e) {}
   return '';
 }
@@ -1496,7 +1516,7 @@ msgs.forEach(r => {
 // FIX 2026-09-15 #534 存量图片直链消息补 type='image'——#533 前链接导入的字卡
 // （裸 http(s) 图链）曾被当文字卡抽出、以 type:'text' 落库，气泡直出整段链接；
 // 与 normCell / 渲染端自愈同口径（只认带图片扩展名的单条直链，普通链接不受影响）。
-if (r && (r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text))) {
+if (r && (r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && chatIsImgSrcLike(r.text)) { // FIX 2026-09-20 #948 与 normCell 同款大小写/空白不敏感判据
 r.type = 'image';
 migrated = true;
 }
@@ -2176,13 +2196,23 @@ return escTxt(s).replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length)).replace(/\n/g
 // 群聊渲染复用（group-chat.js 调 window.mochiInlineTextHtml）；纯令牌整条也走 <img> 是渲染端兜底。
 window.mochiInlineTextHtml = function (s) {
 s = String(s == null ? '' : s);
-if (s.indexOf('@@m:') < 0) return escTxtBr(s);
-const _t = s.split(/(@@m:[0-9a-f]{32})/g), _tt = [];
+// FIX 2026-09-20 #948 内联 dataURL 载荷夹在正文里不再整串直出（同 #385 令路口径）：漏进文字
+// 通道的图片/语音载荷在这里统一收成「[图片]/[语音]」标注；整串就是图片引用的形态由调用方
+// （renderMsg 文本分支/群聊）按聊天图片渲染，本函数只负责「正文中间夹着载荷」这类混排。
+if (s.indexOf('@@m:') < 0 && !chatHasMediaPayload(s)) return escTxtBr(s);
+// 不带 i 标志＝令牌分支保持小写严格（大写伪令牌按文本转义，见下方形态判定）；data: 分支用显式
+// 大小写字符类，与判据一样对 MIME 大小写不敏感——载荷形态由内核给出，不能赌它小写。
+// FIX 2026-09-20 #948h MIME 段改为可选（"data:;base64,…" 无 MIME 载荷同样要在这里被切开收标注，
+// 否则整串 base64 走 else 分支原样铺出＝本批主诉乱码的无 MIME 来路）。
+const _t = s.split(/(@@m:[0-9a-f]{32}|[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[A-Za-z0-9+/=]*)/g), _tt = [];
 for (let _i = 0; _i < _t.length; _i++) {
 const _p = _t[_i];
-if (_p.indexOf('@@m:') === 0 && _p.length === 36) {
+if (/^@@m:[0-9a-f]{32}$/.test(_p)) {
 _tt.push('<img class="msg-inline-tok" src="' + _p + '" alt="" loading="lazy" decoding="async">');
-} else { _tt.push(escTxtBr(_p)); }
+} else if (chatIsDataImgSrc(_p)) { _tt.push(escTxtBr('[图片]')); }
+else if (chatIsDataAudioSrc(_p)) { _tt.push(escTxtBr('[语音]')); }
+else if (chatIsInlineDataSrc(_p)) { _tt.push(escTxtBr('[附件]')); } // 内核给的非图非音载荷（octet-stream 等）
+else { _tt.push(escTxtBr(_p)); }
 }
 return _tt.join('');
 };
@@ -2714,6 +2744,131 @@ function chatIsImageUrlCard(s) {
 if (typeof s !== 'string') return false;
 return /^https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#][^\s"'<>]*)?$/i.test(s.trim());
 }
+// FIX 2026-09-20 #948 媒体载荷识别的唯一口径（大小写/空白不敏感）——聊天气泡把图片渲染成一整
+// 串「乱码」的来路只有一条：内联 dataURL 载荷漏进了「文字」通道（字卡被当文本卡抽中、TA 回应
+// 直传、parts 被丢、存量自愈没跑完），而旧判定全是 `x.indexOf('data:image/') === 0` 这种
+// 大小写敏感＋不允许前导空白的写法。用户直派 OPPO K13x 自带浏览器（实报 HeyTapBrowser）＋
+// 「其他设备型号也有」⇒ 一律不做机型分支，只把判据收口成零分支的健壮形态：
+//   · 载荷在别处（字卡库/历史消息）以什么形态写入我们无法约束（解码失败/压缩失败时按原图
+//     入库、相册/文件管理器给的内联类型五花八门），但「它是不是媒体」这件事只有这一份判据；
+//   · 前缀类判定只扫串头 64 字符（base64 串可达数百 KB，禁止对整串跑回溯型正则）；
+//   · 令牌判定仍归 media-pool 官方口径（mochiMediaIsToken），此处只补它不认的内联形态。
+const DATA_HEAD_RE = /^data:([a-z0-9.+-]+)\/([a-z0-9.+-]+)[;,]/i;
+function chatMediaHead(s) {
+if (typeof s !== 'string' || !s) return '';
+let t = s;
+for (let i = 0; i < t.length; i++) {
+const ch = t.charAt(i);
+if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r' && ch !== '\f') { t = t.slice(i); break; }
+}
+return t.length > 64 ? t.slice(0, 64) : t;
+}
+// FIX 2026-09-20 #948h 无 MIME 载荷（File.type 为空时 FileReader 产出 "data:;base64,…"——安卓
+// 文件管理器/部分内核的相册与录音口实测走这条腿，iOS「文件」App 选图亦可能给出空类型）：
+// 形态上没有 image/audio 段，上面那条 MIME 正则与旧的全部精确前缀判定一并漏过，于是它被当正文
+// 铺出＝与本次乱码同症状（只是来路不同）。它与其它内联载荷一样是媒体而非文字；「是图还是未知」
+// 不猜内核、只按 base64 头解出的魔数定夺（jpeg/png/gif/webp/bmp），认不出就只当「内联载荷」。
+// 自解 base64 头（不用 atob）：判定层要在零浏览器依赖的行为校验脚本里同结论跑，且只解前十几个
+// 字节，成本可忽略。禁第二份口径——media-pool 本地兜底与此严格同义。
+const DATA_NOMIME_RE = /^data:;base64,/i;
+const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function b64HeadBytes(b64, n) {
+const out = [];
+for (let i = 0; i + 3 < b64.length && out.length < n; i += 4) {
+const a = B64_ALPHABET.indexOf(b64.charAt(i)), b = B64_ALPHABET.indexOf(b64.charAt(i + 1));
+const c = B64_ALPHABET.indexOf(b64.charAt(i + 2)), d = B64_ALPHABET.indexOf(b64.charAt(i + 3));
+if (a < 0 || b < 0 || c < 0 || d < 0) break;
+out.push((a << 2) | (b >> 4), ((b & 15) << 4) | (c >> 2), ((c & 3) << 6) | d);
+}
+return out;
+}
+// 无 MIME 载荷的图片魔数判定 → 规范化 MIME；不是无 MIME 形态或魔数非图片一律返回 ''
+function chatB64ImgMime(s) {
+const h = chatMediaHead(s);
+if (!DATA_NOMIME_RE.test(h)) return '';
+const comma = h.indexOf(',');
+const b = b64HeadBytes(comma >= 0 ? h.slice(comma + 1) : '', 12);
+if (b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8) return 'image/jpeg';
+if (b.length >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'image/png';
+if (b.length >= 3 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+if (b.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+if (b.length >= 2 && b[0] === 0x42 && b[1] === 0x4D) return 'image/bmp';
+return '';
+}
+// 把 "data:;base64,<图片>" 还原成规范形态（幂等：补正后不再是无 MIME 形态）；非图片返回 ''
+function chatFixNoMimeImg(s) {
+if (typeof s !== 'string') return '';
+const mime = chatB64ImgMime(s);
+if (!mime) return '';
+const i = s.indexOf(',');
+return i >= 0 ? ('data:' + mime + ';base64,' + s.slice(i + 1)) : '';
+}
+function chatIsDataImgSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false; // 'd'/'D'
+const m = DATA_HEAD_RE.exec(h);
+return !!(m && m[1].toLowerCase() === 'image');
+}
+function chatIsDataAudioSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false;
+const m = DATA_HEAD_RE.exec(h);
+return !!(m && m[1].toLowerCase() === 'audio');
+}
+// 内联媒体载荷（图/音）——任何以 data:... 开头的载荷都不是可当文字铺出的正文
+function chatIsInlineDataSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false;
+if (DATA_NOMIME_RE.test(h)) return true; // FIX #948h 无 MIME 载荷（旧的全部前缀判定漏过＝当正文铺 base64）
+return /^data:[a-z0-9.+-]+\/[a-z0-9.+-]+[;,]/i.test(h);
+}
+function chatIsMediaPayload(s) {
+return chatIsDataImgSrc(s) || chatIsDataAudioSrc(s) || chatIsInlineDataSrc(s) || chatIsImageUrlCard(s);
+}
+// 图片候选：显式 image/* ＋「内核会嗅探成图片」的无类型载荷（Chromium 家族实测
+// data:application/octet-stream;base64,… 能正常解码出图，而文件读取器给不出类型时恒发这一份
+// 形态）——只排除 audio/*（录音恒带显式 audio MIME）与 video/*（按图渲染必坏）。
+// 判错的最坏后果是走 #202 加载失败占位，远比把几百 KB base64 当正文铺出好。
+function chatIsDataImgLikeSrc(s) {
+const h = chatMediaHead(s);
+if (!h) return false;
+const c0 = h.charCodeAt(0);
+if (c0 !== 100 && c0 !== 68) return false;
+if (DATA_NOMIME_RE.test(h)) return !!chatB64ImgMime(s); // FIX #948h 无 MIME：魔数说了算（认不出＝非图，仍按内联载荷收标注）
+const m = DATA_HEAD_RE.exec(h);
+if (!m) return false;
+const t = m[1].toLowerCase();
+return t !== 'audio' && t !== 'video';
+}
+// 整串就是「可直接喂给 <img src> 的图片引用」：媒体池令牌 / 内联图片 dataURL / 图片直链
+function chatIsImgSrcLike(s) {
+if (typeof s !== 'string' || !s) return false;
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return true;
+return chatIsDataImgLikeSrc(s) || chatIsImageUrlCard(s);
+}
+// 字卡/回应串里是否含媒体（整串载荷，或正文中间夹着的真令牌/「名称|||」语音形态）
+// ——含则不得进「文字」池。刻意不按裸 'data:' 子串匹配：正常英文句子里出现 "data:" 的
+// 文字卡不能被误剔（误剔＝联系人少一张文本卡，比少一层防护更难查）。
+function chatHasMediaPayload(s) {
+if (typeof s !== 'string' || !s) return false;
+if (chatIsMediaPayload(s)) return true;
+if (s.indexOf('@@m:') >= 0 && /@@m:[0-9a-f]{32}/.test(s)) return true;
+if (s.indexOf('|||') >= 0) return true;
+// FIX #948h 无 MIME 载荷（"data:;base64,…"）夹在正文中间同样不得进文字池（#948 的 MIME 形态
+// 正则漏过它＝旧的 `indexOf('data:') === 0` 守卫被收窄，无 MIME 卡会重新被当文本发出）
+if (/\sdata:;base64,/i.test(s.slice(0, 4096))) return true;
+return /\sdata:[a-z0-9.+-]+\/[a-z0-9.+-]+[;,]/i.test(s.slice(0, 4096));
+}
+window.chatIsDataImgSrc = chatIsDataImgSrc; // 群聊等处显式 image/* 判定借用同一口径
+// #948 群聊/其他展示面统一借用（各自再写一份精确前缀判定＝本次乱码的复发土壤）
+window.chatIsImgSrcLike = chatIsImgSrcLike;
+window.chatIsDataImgLikeSrc = chatIsDataImgLikeSrc; // media-pool 令牌化闸门同口径
+window.chatB64ImgMime = chatB64ImgMime; // FIX #948h media-pool 本地兜底/自愈共用同一魔数判定
+window.chatFixNoMimeImg = chatFixNoMimeImg; // FIX #948h 存量无 MIME 图片载荷补正 MIME（渲染前）
+window.chatIsDataAudioSrc = chatIsDataAudioSrc;
+window.chatIsInlineDataSrc = chatIsInlineDataSrc;
+window.chatIsMediaPayload = chatIsMediaPayload;
+window.chatHasMediaPayload = chatHasMediaPayload;
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -2729,18 +2884,12 @@ image.push.apply(image, mediaImage);
 voice.push.apply(voice, mediaVoice);
 cards.forEach(c => {
 if (pokeSet && pokeSet.has(c)) return; // 拍一拍字卡不进普通回复池
-if (typeof c === 'string' && c.indexOf('data:') === 0) return; // dataURL 已按媒体分类
-if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
-// FIX 2026-09-12 #383 媒体池令牌卡不进文字池——#377 巨型库令牌化后 >64KB 贴纸/图片卡在
-// 回复池里是裸 @@m:hash（无 |||、非 data:），旧两道守卫全漏过＝令牌卡被当文字卡入池，
-// 抽中即把令牌串当文字直出（「联系人消息乱码 @@m:…」，公用库共享故多机型全现）
-if (typeof c === 'string' && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
-// FIX 2026-09-15 #533 链接导入的媒体卡（图床不允许跨域时按链接保存的裸 http(s) URL）
-// 同样不是文字载荷——旧三道守卫只挡 data:/|||/@@m: 令牌，URL 形态漏进文字池：TA 抽中
-// 即以 type:'text' 发出、气泡直出「http://…png」链接（用户报「一个对话框里发两个表情，
-// 另一个会变成文字 URL，信箱里也是这样」——该卡就存在字卡库【表情包/图片】分类里）。
-// 媒体池（getMediaCards）此前已按 isMediaImg 收 URL 当图片载荷，这里只是不再当文本抽。
-if (typeof c === 'string' && /^https?:\/\//i.test(c)) return;
+// FIX 2026-09-20 #948 四道媒体守卫（#142 data:/|||、#383 裸 @@m: 令牌、#533 裸 http(s) 图片
+// 链接）收成一条大小写＋空白不敏感、且认「正文中间夹着真令牌」的统一判据：旧四道全是精确
+// 前缀/整串判定，内核或导入给出的变体形态（大写 MIME、串首空白、data:image/HEIC、
+// data:application/…、句子＋令牌混排）漏进文字池＝TA 抽中即以 type:'text' 发出、气泡整屏铺
+// base64（用户所见「图片变长乱码」；#383/#533 当年各治一种形态，本条把口径统一防再漏）。
+if (typeof c === 'string' && chatHasMediaPayload(c)) return;
 if (chatIsEmojiCard(c)) emoji.push(c);
 else if (chatIsKaomojiCard(c)) kaomoji.push(c);
 else text.push(c);
@@ -2988,6 +3137,9 @@ function voicePartsOf(text) {
 // FIX 2026-09-13 #395 防御：裸令牌（无主形态漏切）/ 令牌被当名字时不得把令牌串显成名称
 const raw = String(text || '');
 if (window.mochiMediaIsToken && window.mochiMediaIsToken(raw)) return { name: '语音消息', src: raw };
+// FIX 2026-09-20 #948 整条就是内联 data:audio 载荷（无「名称|||」分隔形态，语音令牌化未跑完/
+// 旧判定大小写敏感漏过）：载荷即播放源，不得被 split 拆掉后只剩空 src＋名称显示成 mime 头
+if (chatIsDataAudioSrc(raw)) return { name: '语音消息', src: raw };
 const p = raw.split('|||');
 let name = (p[0] || '语音消息').replace(/\.[^.]+$/, '');
 if (window.mochiMediaIsToken && window.mochiMediaIsToken(name)) name = '语音消息';
@@ -3504,7 +3656,7 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 function retractSafeHtml(rec) {
 const raw = String(rec && rec.text != null ? rec.text : '');
 const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
-const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+const isImgSrc = (s) => typeof s === 'string' && !!s && chatIsImgSrcLike(s); // FIX 2026-09-20 #948 同口径收口（旧判据漏大写 MIME/前导空白/裸令牌）
 let text = raw;
 const imgs = [];
 if (parts && parts.length) {
@@ -4951,8 +5103,9 @@ if (window.viewChatImage) window.viewChatImage(rec.text);
 // 令牌缺失（池数据被误删/备份未带池键）、远程图断网/失效/混合内容拦截、dataURL 解码失败
 // 都不再是无声空白气泡；竞态防线（#186 E3 实证 404 抢跑观察器改写）由 1.5s 延时复核承担
 bindMediaFailPlaceholder(b);
-} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || '')))) {
+} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || ''))) || chatIsDataAudioSrc(rec.text)) {
 // FIX 2026-09-13 #395 渲染侧补认「名称|||@@m:hash」令牌语音（存量消息归一化未跑完时首屏也不直出令牌串）
+// FIX 2026-09-20 #948 同口径补认整条内联 data:audio 载荷（旧判定大小写敏感＋语音令牌化未跑完时直出 base64）
 b.style.padding = '8px 10px';
 b.style.background = '';
 b.style.border = '';
@@ -5020,18 +5173,23 @@ const __blankMsg = !__rawText.trim();
 // FIX 2026-09-15 #534 存量图片直链自愈：一条只有图片 URL 的历史消息（#533 前被当文字卡
 // 抽中、以 type:'text' 落库）不再把整段链接糊在气泡里，就地按图片渲染；渲染端不等归一化
 // 跑完（首屏原始数据也能正确显示），点击看大图与 type:'image' 消息同款。零机型分支。
-const __urlImg = !__blankMsg && chatIsImageUrlCard(__rawText);
+// FIX 2026-09-20 #948 同一自愈口扩到「整条 text 就是内联 dataURL 图片载荷」：漏进文字通道
+// 的图片（TA 回应直传/parts 丢失/存量自愈未跑完/大小写与前导空白让旧判定全漏过）在消费者
+// 边界就地按图片渲染，不再整屏铺 base64＝用户所见「图片变成长乱码」。判据与 #534 同源、
+// 仍零机型分支（不猜内核，只把「这是不是一张图」判稳）。
+const __imgSrc = !__blankMsg && chatIsImgSrcLike(__rawText) ? __rawText.trim() : '';
 const __bodyHtml = __blankMsg
 ? '<span style="opacity:.5;font-size:12px">（空白消息）</span>'
-: (__urlImg
-? '<img class="msg-img msg-img-big" src="' + attrEsc(__rawText.trim()) + '" alt="图片" loading="lazy" decoding="async">'
+: (__imgSrc
+? '<img class="msg-img msg-img-big" src="' + attrEsc(__imgSrc) + '" alt="图片" loading="lazy" decoding="async">'
 : '<span style="opacity:.85;word-break:break-word">' + window.mochiInlineTextHtml(T(__rawText)) + '</span>');
 b.innerHTML = rec.quote
 ? quoteHtml(rec.quote, rec.qside) + __bodyHtml
 : __bodyHtml;
-if (__urlImg) {
+if (__imgSrc) {
 const __uImg = b.querySelector('.msg-img-big');
 if (__uImg) __uImg.addEventListener('click', (e) => { e.stopPropagation(); if (window.viewChatImage) window.viewChatImage(__uImg.src); });
+bindMediaFailPlaceholder(b); // FIX #948 内联载荷解不出图时不再空白（#202 同款占位）
 }
 }
 if (rec.mood && rec.mood.length && !rec.retracted) {
@@ -5311,8 +5469,10 @@ return '[图片]';
 };
 if (!t && opts.img) t = phOf();
 if (!t) return;
-if (t.indexOf('data:') === 0) t = phOf();
-else if (t.indexOf('data:') > 0) t = t.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+// FIX 2026-09-20 #948 判据大小写/前导空白不敏感（旧写法精确匹配 'data:' 开头，变体形态整串
+// 载荷会带着 base64 进桌面弹窗/通知预览）
+if (chatIsInlineDataSrc(t)) t = phOf();
+else if (/data:[a-z0-9.+-]+\/[a-z0-9.+-]+;base64,/i.test(t)) t = t.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, '[附件]');
 else if (t.indexOf('|||') >= 0) t = t.split('|||')[0].replace(/\.[^.]+$/, '').trim() || '[语音]';
 else if (t.indexOf('<svg') >= 0) t = t.replace(/<[^>]*>/g, '').trim();
 // FIX 2026-09-13 #403 桌面弹窗清洗链补媒体池令牌（含令牌消息预览不再直出 @@m:hash 乱码）
@@ -5385,7 +5545,7 @@ imgSub = ims[0].sub || '';
 }
 const tp = rec.parts.filter(p => p.k === 'text').map(p => p.v).join(' ');
 if (tp) text = tp;
-} else if (text.indexOf('data:image/') === 0 ||
+} else if (chatIsDataImgSrc(text) ||
 ((rec.type === 'sticker' || rec.type === 'image') && /^https?:\/\//i.test(text))) {
 img = text;
 text = '';
@@ -6596,7 +6756,7 @@ const fav = getFav();
 if (!fav.some(f => f.by === 'ta' && f.side === 'out' && f.text === lastMineText)) {
 // FIX 2026-09-12 #356 媒体池令牌也是图片载荷：TA 自动收藏落库时 text 已可能被令牌化为
 // @@m:hash，旧判定只认 data: 开头→存成 type:text，收藏页把令牌串当文字直出
-let favType = (lastMineText.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(lastMineText))) ? 'image' : 'text';
+let favType = chatIsImgSrcLike(lastMineText) ? 'image' : 'text'; // FIX #948 统一判据（裸令牌/大写 MIME/前导空白不再当文字收藏）
 let favParts = undefined;
 for (let i = msgs.length - 1; i >= 0; i--) {
 const mm = msgs[i];
@@ -6992,8 +7152,14 @@ if (segs && segs.length) return pyJoinCards(segs, cfg()); // #650 连接符同�
 } catch (e) {}
 // FIX 2026-09-16 #624 多图消息（text 是图片载荷 + parts）没有可当文字用的正文——
 // 不把 data: 串当「聊天字卡文本」返回（否则 ta-ask 会把它当文本发出）。
+// FIX 2026-09-20 #948 补齐 #624f 漏掉的「单张」形态：genOneReply 抽中一张表情包/图片/语音
+// 卡时返回 {text: 整个媒体载荷, type:'sticker'|'image'|'voice'}（没有 parts），旧守卫的条件
+// 带 rep.parts 判定，单卡形态整串 base64 就这样被当「文字回应」raw 直传进 addInTyped＝用户
+// 所见「聊天里的图片变成长乱码」。本函数契约是「返回一条纯文字回应」，任何媒体形态一律不返回。
 const t = rep && typeof rep.text === 'string' ? rep.text.trim() : '';
-return (t && !(rep && rep.parts && rep.parts.length && t.indexOf('data:') === 0)) ? t : null;
+const _isMediaRep = !!(rep && (rep.type === 'sticker' || rep.type === 'image' || rep.type === 'voice' ||
+(rep.parts && rep.parts.length && chatIsMediaPayload(rep.text)) || chatIsMediaPayload(rep.text)));
+return (t && !_isMediaRep) ? t : null;
 };
 let autoTimer = null;
 function scheduleAutoSend() {
@@ -9827,7 +9993,7 @@ let head = '共 ' + results.length + ' 条 · 点击结果跳转到对应消息'
 if (dateLabel) head = dateLabel + ' · 共 ' + results.length + ' 条 · 点击结果跳转';
 let html = '<div style="font-size:11px;color:var(--muted);margin:6px 2px 10px">' + esc(head) + '</div>';
 results.slice(0, 80).forEach(r => {
-const isImg = r.txt.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.txt)); // #148 令牌化图片消息搜索结果不直出令牌串
+const isImg = chatIsInlineDataSrc(r.txt) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.txt)); // #148 令牌化图片消息搜索结果不直出令牌串；#948 内联载荷判定收口统一口径
 // FIX 2026-09-10 #283 语音消息（名称|||data:audio/名称|||@@m:令牌）搜索结果显示「[语音] 名称」，
 // 不直出整串音频数据/令牌
 const isVc = typeof r.txt === 'string' && /\|\|\|(?:data:audio\/|@@m:[0-9a-f]{32})/.test(r.txt);
@@ -10367,7 +10533,7 @@ activeMsgSnap = null; // FIX 2026-09-13 #407 随菜单关闭清身份快照
 function quoteTextOf(m) {
 // #148：图片载荷判定加媒体池令牌（@@m:hash）——令牌化后的图片消息引用不出缩略图、
 // 令牌串被当引用文本存进 quote，渲染端 data: 过滤再把缩略图整段丢掉
-const isMedia = (s) => typeof s === 'string' && (s.indexOf('data:') === 0 || /^https?:\/\//i.test(s) || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+const isMedia = (s) => typeof s === 'string' && (chatIsInlineDataSrc(s) || /^https?:\/\//i.test(s) || (window.mochiMediaIsToken && window.mochiMediaIsToken(s))); // FIX #948 内联载荷判定收口到统一口径（大小写/前导空白不敏感）
 const qi = (m.parts || []).filter(p => p.k === 'img').map(p => p.v).slice(0, 3);
 if (!qi.length && (m.type === 'sticker' || m.type === 'image')
 && isMedia(m.text)) {
@@ -10997,10 +11163,9 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 // 写坏的数据一律纠正）：只有内容真长得像语音（data:audio 或 名称|||令牌）才渲染语音条，
 // 其余一律按图片/文本渲染
 const looksVoice = typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)));
+(f.text.indexOf('|||') >= 0 && (chatIsDataAudioSrc(f.text.split('|||')[1] || '') || /@@m:[0-9a-f]{32}$/.test(f.text))) || chatIsDataAudioSrc(f.text); // FIX #948 判据大小写/空白不敏感
 const isVoice = looksVoice;
-const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
-(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text)))));
+const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || chatIsImgSrcLike(f.text)); // FIX #948 同口径
 if (isVoice) {
 b.style.padding = '8px 10px';
 fillVoiceBubble(b, f.text);

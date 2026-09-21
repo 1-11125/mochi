@@ -692,7 +692,7 @@ if (!j) continue;
 if (have.has(chatTailSig(j)) || haveId.has(chatTailId(j))) continue; // 已在这份权威历史里＝职责完成，摘除
 if (winFrom !== Infinity && (j.ts || 0) < winFrom) { keep.push(j); continue; }
 const jt = typeof j.text === 'string' ? j.text : '';
-if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) { keep.push(j); continue; }
+if (jt.indexOf('@@m:') === 0 || chatIsInlineDataSrc(jt)) { keep.push(j); continue; } // FIX #948 判据大小写/前导空白不敏感（变体存根回放＝乱码气泡）
 keep.push(j);
 const r = { ts: j.ts, side: j.side, special: j.special, text: jt };
 if (j.x && typeof j.x === 'object') {
@@ -797,33 +797,35 @@ for (let i = 0; i < msgs.length; i++) {
 const m = msgs[i];
 if (!m || _mediaTokSeen.has(m)) continue;
 let did = false;
-if (typeof m.text === 'string' && m.text.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(m.text);
+if (typeof m.text === 'string' && chatIsDataImgSrc(m.text)) {
+const t = await window.mochiMediaTokenize(m.text.trim());
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = t; changed++; did = true; }
 }
-if (typeof m.img === 'string' && m.img.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(m.img);
+if (typeof m.img === 'string' && chatIsDataImgSrc(m.img)) {
+const t = await window.mochiMediaTokenize(m.img.trim());
 if (t) { _rollback.push({ o: m, p: 'img', v: m.img, msg: m }); m.img = t; changed++; did = true; }
 }
 if (typeof m.text === 'string' && m.text.length > 1024) {
 const _bar = m.text.indexOf('|||');
-if (_bar > 0 && m.text.indexOf('data:audio/', _bar + 3) === _bar + 3) {
-const t = await window.mochiMediaTokenize(m.text.slice(_bar + 3));
+const _tail = _bar > 0 ? m.text.slice(_bar + 3) : '';
+const _tailData = _bar > 0 && chatIsInlineDataSrc(_tail.trim()) ? _tail.trim() : '';
+if (_tailData) {
+const t = await window.mochiMediaTokenize(_tailData);
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = m.text.slice(0, _bar + 3) + t; changed++; did = true; }
-} else if (m.text.indexOf('data:audio/') === 0) {
-const t = await window.mochiMediaTokenize(m.text);
+} else if (chatIsDataAudioSrc(m.text)) {
+const t = await window.mochiMediaTokenize(m.text.trim());
 if (t) { _rollback.push({ o: m, p: 'text', v: m.text, msg: m }); m.text = '|||' + t; changed++; did = true; }
 }
 }
-if (typeof m.voice === 'string' && m.voice.length > 1024 && m.voice.indexOf('data:audio/') === 0) {
-const t = await window.mochiMediaTokenize(m.voice);
+if (typeof m.voice === 'string' && m.voice.length > 1024 && chatIsDataAudioSrc(m.voice)) {
+const t = await window.mochiMediaTokenize(m.voice.trim());
 if (t) { _rollback.push({ o: m, p: 'voice', v: m.voice, msg: m }); m.voice = t; changed++; did = true; }
 }
 if (Array.isArray(m.parts) && m.parts.length) {
 for (let j = 0; j < m.parts.length; j++) {
 const p = m.parts[j];
-if (p && typeof p.v === 'string' && p.v.indexOf('data:image/') === 0) {
-const t = await window.mochiMediaTokenize(p.v);
+if (p && typeof p.v === 'string' && chatIsDataImgSrc(p.v)) {
+const t = await window.mochiMediaTokenize(p.v.trim());
 if (t) { _rollback.push({ o: p, p: 'v', v: p.v, msg: m }); p.v = t; changed++; did = true; }
 }
 }
@@ -896,10 +898,15 @@ if (r.special === 'poke' && typeof r.text === 'string') {
 const t = r.text.replace(/✉️\s*/g, '').replace(/✉\s*/g, '');
 if (t !== r.text) { r.text = ICON_ENV + t; c = true; }
 }
-if ((r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = 'image'; c = true; }
+if (typeof r.text === 'string' && r.text.indexOf('data:;base64,') >= 0) {
+const __nmFixed = chatFixNoMimeImg(r.text);
+if (__nmFixed) { r.text = __nmFixed; c = true; }
+}
+if ((r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && chatIsImgSrcLike(r.text)) { r.type = 'image'; c = true; }
 if ((r.type === 'text' || !r.type) && typeof r.text === 'string' &&
-(r.text.indexOf('data:audio/') === 0 || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
+(chatIsDataAudioSrc(r.text) || (r.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(r.text)))) { r.type = 'voice'; c = true; }
 if (Array.isArray(r.parts) && r.parts.length && typeof r.text === 'string' && r.text &&
+!chatIsMediaPayload(r.text) &&
 Array.isArray(r.mood) && r.mood.some(md => md && (md.tag === '词典' || md.tag === '词典拼字' || md.tag === '词典拼句' || md.tag === '词典拼词' || md.tag === '词典逐卡连发' || md.tag === '梦角自由造句'))) {
 const __hpImgs = r.parts.filter(p => p && p.k === 'img');
 const __hpTxt = r.parts.filter(p => p && p.k === 'text').map(p => p.v).join(' ');
@@ -963,11 +970,11 @@ if (window.mochiMediaIsToken && window.mochiMediaIsToken(v)) return 'tok';
 const bar = v.indexOf('|||');
 if (bar >= 0) {
 const tail = v.slice(bar + 3);
-if (tail.indexOf('data:') === 0) return 'raw';
+if (chatIsInlineDataSrc(tail)) return 'raw'; // FIX #948
 if (window.mochiMediaIsToken && window.mochiMediaIsToken(tail)) return 'tok';
 return '';
 }
-if (v.indexOf('data:image/') === 0 || v.indexOf('data:audio/') === 0) return 'raw';
+if (chatIsInlineDataSrc(v)) return 'raw'; // FIX #948 整串任意 data: 载荷都是媒体，不是文字
 } catch (e) {}
 return '';
 }
@@ -1112,7 +1119,7 @@ setTimeout(tick, 0);
 function migrateLegacyMediaMsgs() {
 let migrated = false;
 msgs.forEach(r => {
-if (r && (r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text))) {
+if (r && (r.type === 'text' || !r.type) && !hasMultiImgParts(r) && typeof r.text === 'string' && chatIsImgSrcLike(r.text)) { // FIX 2026-09-20 #948 与 normCell 同款大小写/空白不敏感判据
 r.type = 'image';
 migrated = true;
 }
@@ -1593,13 +1600,16 @@ return escTxt(s).replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length)).replace(/\n/g
 }
 window.mochiInlineTextHtml = function (s) {
 s = String(s == null ? '' : s);
-if (s.indexOf('@@m:') < 0) return escTxtBr(s);
-const _t = s.split(/(@@m:[0-9a-f]{32})/g), _tt = [];
+if (s.indexOf('@@m:') < 0 && !chatHasMediaPayload(s)) return escTxtBr(s);
+const _t = s.split(/(@@m:[0-9a-f]{32}|[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[A-Za-z0-9+/=]*)/g), _tt = [];
 for (let _i = 0; _i < _t.length; _i++) {
 const _p = _t[_i];
-if (_p.indexOf('@@m:') === 0 && _p.length === 36) {
+if (/^@@m:[0-9a-f]{32}$/.test(_p)) {
 _tt.push('<img class="msg-inline-tok" src="' + _p + '" alt="" loading="lazy" decoding="async">');
-} else { _tt.push(escTxtBr(_p)); }
+} else if (chatIsDataImgSrc(_p)) { _tt.push(escTxtBr('[图片]')); }
+else if (chatIsDataAudioSrc(_p)) { _tt.push(escTxtBr('[语音]')); }
+else if (chatIsInlineDataSrc(_p)) { _tt.push(escTxtBr('[附件]')); } // 内核给的非图非音载荷（octet-stream 等）
+else { _tt.push(escTxtBr(_p)); }
 }
 return _tt.join('');
 };
@@ -1978,6 +1988,101 @@ function chatIsImageUrlCard(s) {
 if (typeof s !== 'string') return false;
 return /^https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#][^\s"'<>]*)?$/i.test(s.trim());
 }
+const DATA_HEAD_RE = /^data:([a-z0-9.+-]+)\/([a-z0-9.+-]+)[;,]/i;
+function chatMediaHead(s) {
+if (typeof s !== 'string' || !s) return '';
+let t = s;
+for (let i = 0; i < t.length; i++) {
+const ch = t.charAt(i);
+if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r' && ch !== '\f') { t = t.slice(i); break; }
+}
+return t.length > 64 ? t.slice(0, 64) : t;
+}
+const DATA_NOMIME_RE = /^data:;base64,/i;
+const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function b64HeadBytes(b64, n) {
+const out = [];
+for (let i = 0; i + 3 < b64.length && out.length < n; i += 4) {
+const a = B64_ALPHABET.indexOf(b64.charAt(i)), b = B64_ALPHABET.indexOf(b64.charAt(i + 1));
+const c = B64_ALPHABET.indexOf(b64.charAt(i + 2)), d = B64_ALPHABET.indexOf(b64.charAt(i + 3));
+if (a < 0 || b < 0 || c < 0 || d < 0) break;
+out.push((a << 2) | (b >> 4), ((b & 15) << 4) | (c >> 2), ((c & 3) << 6) | d);
+}
+return out;
+}
+function chatB64ImgMime(s) {
+const h = chatMediaHead(s);
+if (!DATA_NOMIME_RE.test(h)) return '';
+const comma = h.indexOf(',');
+const b = b64HeadBytes(comma >= 0 ? h.slice(comma + 1) : '', 12);
+if (b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8) return 'image/jpeg';
+if (b.length >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'image/png';
+if (b.length >= 3 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+if (b.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+if (b.length >= 2 && b[0] === 0x42 && b[1] === 0x4D) return 'image/bmp';
+return '';
+}
+function chatFixNoMimeImg(s) {
+if (typeof s !== 'string') return '';
+const mime = chatB64ImgMime(s);
+if (!mime) return '';
+const i = s.indexOf(',');
+return i >= 0 ? ('data:' + mime + ';base64,' + s.slice(i + 1)) : '';
+}
+function chatIsDataImgSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false; // 'd'/'D'
+const m = DATA_HEAD_RE.exec(h);
+return !!(m && m[1].toLowerCase() === 'image');
+}
+function chatIsDataAudioSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false;
+const m = DATA_HEAD_RE.exec(h);
+return !!(m && m[1].toLowerCase() === 'audio');
+}
+function chatIsInlineDataSrc(s) {
+const h = chatMediaHead(s);
+if (h.charCodeAt(0) !== 100 && h.charCodeAt(0) !== 68) return false;
+if (DATA_NOMIME_RE.test(h)) return true; // FIX #948h 无 MIME 载荷（旧的全部前缀判定漏过＝当正文铺 base64）
+return /^data:[a-z0-9.+-]+\/[a-z0-9.+-]+[;,]/i.test(h);
+}
+function chatIsMediaPayload(s) {
+return chatIsDataImgSrc(s) || chatIsDataAudioSrc(s) || chatIsInlineDataSrc(s) || chatIsImageUrlCard(s);
+}
+function chatIsDataImgLikeSrc(s) {
+const h = chatMediaHead(s);
+if (!h) return false;
+const c0 = h.charCodeAt(0);
+if (c0 !== 100 && c0 !== 68) return false;
+if (DATA_NOMIME_RE.test(h)) return !!chatB64ImgMime(s); // FIX #948h 无 MIME：魔数说了算（认不出＝非图，仍按内联载荷收标注）
+const m = DATA_HEAD_RE.exec(h);
+if (!m) return false;
+const t = m[1].toLowerCase();
+return t !== 'audio' && t !== 'video';
+}
+function chatIsImgSrcLike(s) {
+if (typeof s !== 'string' || !s) return false;
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return true;
+return chatIsDataImgLikeSrc(s) || chatIsImageUrlCard(s);
+}
+function chatHasMediaPayload(s) {
+if (typeof s !== 'string' || !s) return false;
+if (chatIsMediaPayload(s)) return true;
+if (s.indexOf('@@m:') >= 0 && /@@m:[0-9a-f]{32}/.test(s)) return true;
+if (s.indexOf('|||') >= 0) return true;
+if (/\sdata:;base64,/i.test(s.slice(0, 4096))) return true;
+return /\sdata:[a-z0-9.+-]+\/[a-z0-9.+-]+[;,]/i.test(s.slice(0, 4096));
+}
+window.chatIsDataImgSrc = chatIsDataImgSrc; // 群聊等处显式 image/* 判定借用同一口径
+window.chatIsImgSrcLike = chatIsImgSrcLike;
+window.chatIsDataImgLikeSrc = chatIsDataImgLikeSrc; // media-pool 令牌化闸门同口径
+window.chatB64ImgMime = chatB64ImgMime; // FIX #948h media-pool 本地兜底/自愈共用同一魔数判定
+window.chatFixNoMimeImg = chatFixNoMimeImg; // FIX #948h 存量无 MIME 图片载荷补正 MIME（渲染前）
+window.chatIsDataAudioSrc = chatIsDataAudioSrc;
+window.chatIsInlineDataSrc = chatIsInlineDataSrc;
+window.chatIsMediaPayload = chatIsMediaPayload;
+window.chatHasMediaPayload = chatHasMediaPayload;
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -1993,10 +2098,7 @@ image.push.apply(image, mediaImage);
 voice.push.apply(voice, mediaVoice);
 cards.forEach(c => {
 if (pokeSet && pokeSet.has(c)) return; // 拍一拍字卡不进普通回复池
-if (typeof c === 'string' && c.indexOf('data:') === 0) return; // dataURL 已按媒体分类
-if (typeof c === 'string' && c.indexOf('|||') >= 0) return;
-if (typeof c === 'string' && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;
-if (typeof c === 'string' && /^https?:\/\//i.test(c)) return;
+if (typeof c === 'string' && chatHasMediaPayload(c)) return;
 if (chatIsEmojiCard(c)) emoji.push(c);
 else if (chatIsKaomojiCard(c)) kaomoji.push(c);
 else text.push(c);
@@ -2188,6 +2290,7 @@ a.play().then(() => {}).catch(() => { detachA(); stopChatVoice(); toast('语音�
 function voicePartsOf(text) {
 const raw = String(text || '');
 if (window.mochiMediaIsToken && window.mochiMediaIsToken(raw)) return { name: '语音消息', src: raw };
+if (chatIsDataAudioSrc(raw)) return { name: '语音消息', src: raw };
 const p = raw.split('|||');
 let name = (p[0] || '语音消息').replace(/\.[^.]+$/, '');
 if (window.mochiMediaIsToken && window.mochiMediaIsToken(name)) name = '语音消息';
@@ -2642,7 +2745,7 @@ else if (type === 'ask' && window.openAskReply) window.openAskReply(idx);
 function retractSafeHtml(rec) {
 const raw = String(rec && rec.text != null ? rec.text : '');
 const parts = (rec && Array.isArray(rec.parts)) ? rec.parts : null;
-const isImgSrc = (s) => typeof s === 'string' && s && (s.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+const isImgSrc = (s) => typeof s === 'string' && !!s && chatIsImgSrcLike(s); // FIX 2026-09-20 #948 同口径收口（旧判据漏大写 MIME/前导空白/裸令牌）
 let text = raw;
 const imgs = [];
 if (parts && parts.length) {
@@ -3783,7 +3886,7 @@ if (window.viewChatImage) window.viewChatImage(rec.text);
 });
 }
 bindMediaFailPlaceholder(b);
-} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || '')))) {
+} else if (rec.type === 'voice' || (String(rec.text || '').indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(String(rec.text || ''))) || chatIsDataAudioSrc(rec.text)) {
 b.style.padding = '8px 10px';
 b.style.background = '';
 b.style.border = '';
@@ -3844,18 +3947,19 @@ chatRetractToggleAfter('rc'); // #871：字卡明细开合同样是滚动区高�
 } else {
 const __rawText = typeof rec.text === 'string' ? rec.text : '';
 const __blankMsg = !__rawText.trim();
-const __urlImg = !__blankMsg && chatIsImageUrlCard(__rawText);
+const __imgSrc = !__blankMsg && chatIsImgSrcLike(__rawText) ? __rawText.trim() : '';
 const __bodyHtml = __blankMsg
 ? '<span style="opacity:.5;font-size:12px">（空白消息）</span>'
-: (__urlImg
-? '<img class="msg-img msg-img-big" src="' + attrEsc(__rawText.trim()) + '" alt="图片" loading="lazy" decoding="async">'
+: (__imgSrc
+? '<img class="msg-img msg-img-big" src="' + attrEsc(__imgSrc) + '" alt="图片" loading="lazy" decoding="async">'
 : '<span style="opacity:.85;word-break:break-word">' + window.mochiInlineTextHtml(T(__rawText)) + '</span>');
 b.innerHTML = rec.quote
 ? quoteHtml(rec.quote, rec.qside) + __bodyHtml
 : __bodyHtml;
-if (__urlImg) {
+if (__imgSrc) {
 const __uImg = b.querySelector('.msg-img-big');
 if (__uImg) __uImg.addEventListener('click', (e) => { e.stopPropagation(); if (window.viewChatImage) window.viewChatImage(__uImg.src); });
+bindMediaFailPlaceholder(b); // FIX #948 内联载荷解不出图时不再空白（#202 同款占位）
 }
 }
 if (rec.mood && rec.mood.length && !rec.retracted) {
@@ -4104,8 +4208,8 @@ return '[图片]';
 };
 if (!t && opts.img) t = phOf();
 if (!t) return;
-if (t.indexOf('data:') === 0) t = phOf();
-else if (t.indexOf('data:') > 0) t = t.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+if (chatIsInlineDataSrc(t)) t = phOf();
+else if (/data:[a-z0-9.+-]+\/[a-z0-9.+-]+;base64,/i.test(t)) t = t.replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/gi, '[附件]');
 else if (t.indexOf('|||') >= 0) t = t.split('|||')[0].replace(/\.[^.]+$/, '').trim() || '[语音]';
 else if (t.indexOf('<svg') >= 0) t = t.replace(/<[^>]*>/g, '').trim();
 if (t.indexOf('@@m:') >= 0) t = t.replace(/@@m:[0-9a-f]{32}/g, '[图片]');
@@ -4168,7 +4272,7 @@ imgSub = ims[0].sub || '';
 }
 const tp = rec.parts.filter(p => p.k === 'text').map(p => p.v).join(' ');
 if (tp) text = tp;
-} else if (text.indexOf('data:image/') === 0 ||
+} else if (chatIsDataImgSrc(text) ||
 ((rec.type === 'sticker' || rec.type === 'image') && /^https?:\/\//i.test(text))) {
 img = text;
 text = '';
@@ -5103,7 +5207,7 @@ const _favProbMsg = (window.favCfg ? window.favCfg().taMsg : 30);
 if (lastMineText && Math.random() * 100 < _favProbMsg) {
 const fav = getFav();
 if (!fav.some(f => f.by === 'ta' && f.side === 'out' && f.text === lastMineText)) {
-let favType = (lastMineText.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(lastMineText))) ? 'image' : 'text';
+let favType = chatIsImgSrcLike(lastMineText) ? 'image' : 'text'; // FIX #948 统一判据（裸令牌/大写 MIME/前导空白不再当文字收藏）
 let favParts = undefined;
 for (let i = msgs.length - 1; i >= 0; i--) {
 const mm = msgs[i];
@@ -5421,7 +5525,9 @@ const segs = _sp && Array.isArray(_sp.segs) ? _sp.segs : (Array.isArray(_sp) ? _
 if (segs && segs.length) return pyJoinCards(segs, cfg()); // #650 连接符同走符号池
 } catch (e) {}
 const t = rep && typeof rep.text === 'string' ? rep.text.trim() : '';
-return (t && !(rep && rep.parts && rep.parts.length && t.indexOf('data:') === 0)) ? t : null;
+const _isMediaRep = !!(rep && (rep.type === 'sticker' || rep.type === 'image' || rep.type === 'voice' ||
+(rep.parts && rep.parts.length && chatIsMediaPayload(rep.text)) || chatIsMediaPayload(rep.text)));
+return (t && !_isMediaRep) ? t : null;
 };
 let autoTimer = null;
 function scheduleAutoSend() {
@@ -8013,7 +8119,7 @@ let head = '共 ' + results.length + ' 条 · 点击结果跳转到对应消息'
 if (dateLabel) head = dateLabel + ' · 共 ' + results.length + ' 条 · 点击结果跳转';
 let html = '<div style="font-size:11px;color:var(--muted);margin:6px 2px 10px">' + esc(head) + '</div>';
 results.slice(0, 80).forEach(r => {
-const isImg = r.txt.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.txt)); // #148 令牌化图片消息搜索结果不直出令牌串
+const isImg = chatIsInlineDataSrc(r.txt) || (window.mochiMediaIsToken && window.mochiMediaIsToken(r.txt)); // #148 令牌化图片消息搜索结果不直出令牌串；#948 内联载荷判定收口统一口径
 const isVc = typeof r.txt === 'string' && /\|\|\|(?:data:audio\/|@@m:[0-9a-f]{32})/.test(r.txt);
 const label = isVc ? ('[语音] ' + r.txt.split('|||')[0]) : (isImg ? '[图片]' : (r.txt.length > 60 ? r.txt.slice(0, 60) + '…' : r.txt));
 const who = r.m.side === 'out' ? myName : partnerName;
@@ -8502,7 +8608,7 @@ activeMsgEl = null;
 activeMsgSnap = null; // FIX 2026-09-13 #407 随菜单关闭清身份快照
 }
 function quoteTextOf(m) {
-const isMedia = (s) => typeof s === 'string' && (s.indexOf('data:') === 0 || /^https?:\/\//i.test(s) || (window.mochiMediaIsToken && window.mochiMediaIsToken(s)));
+const isMedia = (s) => typeof s === 'string' && (chatIsInlineDataSrc(s) || /^https?:\/\//i.test(s) || (window.mochiMediaIsToken && window.mochiMediaIsToken(s))); // FIX #948 内联载荷判定收口到统一口径（大小写/前导空白不敏感）
 const qi = (m.parts || []).filter(p => p.k === 'img').map(p => p.v).slice(0, 3);
 if (!qi.length && (m.type === 'sticker' || m.type === 'image')
 && isMedia(m.text)) {
@@ -9032,10 +9138,9 @@ if (window.viewChatImage) window.viewChatImage(img.src);
 });
 } else {
 const looksVoice = typeof f.text === 'string' &&
-(f.text.indexOf('|||data:audio/') > 0 || /^data:audio\//.test(f.text) || (f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)));
+(f.text.indexOf('|||') >= 0 && (chatIsDataAudioSrc(f.text.split('|||')[1] || '') || /@@m:[0-9a-f]{32}$/.test(f.text))) || chatIsDataAudioSrc(f.text); // FIX #948 判据大小写/空白不敏感
 const isVoice = looksVoice;
-const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || (typeof f.text === 'string' &&
-(f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text)))));
+const isImg = !isVoice && (f.type === 'sticker' || f.type === 'image' || chatIsImgSrcLike(f.text)); // FIX #948 同口径
 if (isVoice) {
 b.style.padding = '8px 10px';
 fillVoiceBubble(b, f.text);

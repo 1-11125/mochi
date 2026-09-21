@@ -475,7 +475,7 @@ const FIX_SENTINELS = [
   { name: '开屏备份弹窗避让已有弹窗（openModal 全站唯一，删掉则顶掉首启引导/字卡锁提醒等开屏弹窗且当天不再补弹）', file: 'js/pwa.js', needle: "if (mask && !mask.hidden) return 'busy';" },
   { name: '#355b 备份提醒条「单独备份聊天」按钮存在（template.html）', file: 'template.html', needle: 'id="backup-remind-chat"' },
   { name: '#355b 仅聊天记录导出不更新全量备份时间（data-backup.js cfg.mode!==chat 守卫，逻辑锚）', file: 'js/data-backup.js', needle: "if (cfg.mode !== 'chat')" },
-  { name: '#356 收藏页媒体池令牌渲染（收藏令牌化后 @@m:hash 按图片出，不再把令牌串当文字直出＝不明代码；判定表达式改掉即消失）', file: 'js/chat.js', needle: "f.text.indexOf('data:image/') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(f.text))" },
+  { name: '#356 收藏页媒体池令牌渲染（收藏令牌化后 @@m:hash 按图片出，不再把令牌串当文字直出＝不明代码；判定表达式改掉即消失。#943 起该判定收口到统一口径 chatIsImgSrcLike，锚点随新写法同步、逻辑未变）', file: 'js/chat.js', needle: 'chatIsImgSrcLike(f.text)' },
   { name: '#357 语音播放挂载 DOM（playVoiceInChat 挂到 body 再 play、停播即卸；删则安卓 WebView 未挂载 Audio 静默空放/播放失败，收藏与聊天语音同链路复发）', file: 'js/chat.js', needle: "if (!a.parentNode) { a.style.display = 'none'; document.body.appendChild(a); }" },
   { name: '#358 跨桌面投递空库账本矛盾守卫（探测说谎时 writeArr([一条]) 会把该联系人全部历史覆盖成一条＝旧记录只剩互动卡片；守卫函数删掉即消失）', file: 'js/chat.js', needle: 'function deskAppendMissGuard(cid, tries, onRetry, writeOne)' },
   { name: '#358 loadMsgs 空库二次复核（账本缺失时单次探测说谎会把 LS 有损快照晋升为权威顶掉老历史；2.5s 双复核删掉即消失）', file: 'js/chat.js', needle: 'function enterConfirmedEmpty() {' },
@@ -1104,7 +1104,7 @@ const FIX_SENTINELS = [
   { name: '#205 表情空白·全透明空图检测（加载成功但内容无画面=最后一类真空白；采样 alpha 全 0 才占位，多设备共用坏字卡库现场）', file: 'js/chat.js', needle: 'if (im.dataset.alphaChecked) return;' },
   { name: '#206 表情重复+乱码+空白·尾巴日志拒收媒体型消息（sticker/image 的 text=媒体本体，回放丢 type + 令牌化后签名漂移被当新消息回放=同一表情旁多出乱码/坏图复制）', file: 'js/chat.js', needle: "if (rec.type === 'sticker' || rec.type === 'image' || rec.type === 'voice') return;" },
   { name: '#206 表情重复+乱码+空白·超长文本/parts 不进尾巴日志（截断存储与丢图回放同样失真）', file: 'js/chat.js', needle: "if (typeof rec.text !== 'string' || rec.text.length > CHAT_TAIL_TEXT_MAX) return;" },
-  { name: '#206 表情重复+乱码+空白·回放端拦截旧版存量媒体存根（data:/@@m: 开头无 type 的条目跳过，防 normCell 误迁移成坏图 image）', file: 'js/chat.js', needle: "if (jt.indexOf('data:') === 0 || jt.indexOf('@@m:') === 0) { keep.push(j); continue; }" },
+  { name: '#206 表情重复+乱码+空白·回放端拦截旧版存量媒体存根（data:/@@m: 开头无 type 的条目跳过，防 normCell 误迁移成坏图 image。#943 起内联载荷判定收口到 chatIsInlineDataSrc，锚点随新写法、逻辑未变）', file: 'js/chat.js', needle: "if (jt.indexOf('@@m:') === 0 || chatIsInlineDataSrc(jt)) { keep.push(j); continue; }" },
   { name: '#207+#340 保活音频电流声/嗡鸣·频率统一换 18kHz（220Hz 在人耳最敏感频段：#190 降幅度后安卓多机型仍实听嗡声→#207 换 18kHz；#340 iPhone 16 Pro Safari 同根因复发——iOS 忽略 audio.volume，220Hz@0.002 实听比安卓被投诉电平还大 4 倍=「打开一直震动响声重启无用」；iOS 无 Chromium audible 判定，amp 分支不动=电平语义零回归）', file: 'js/bg-keep.js', needle: 'const freq = 18000;' },
   { name: '#208 聊天输入栏上移白边·键盘收起视口未还原自愈（iOS standalone 键盘收起 WebKit 偶发不还原视口，restoreKb 的 60px 还原门槛永不满足=kbActive 卡真 .phone 卡收缩高；失焦>4s 且视口仍<基线−60 强制复原）', file: 'js/mobile-adapt.js', needle: 'Date.now() - _focLostAt > 4000 && _vv && _vv.height < _fullVv - 60' },
   { name: '#208 聊天输入栏上移白边·tabbar 隐藏跳过采集（全屏页 tabs.js 给 tabbar 挂 hidden，矩形全 0 被判悬空 860px 每 5s 刷假错误环）', file: 'js/device.js', needle: 'if (!tb || tb.hidden) return null;' },
@@ -1326,7 +1326,7 @@ const FIX_SENTINELS = [
   { name: '#275 文字模式媒体池整键跳过（skip 在读值前生效，strip 绝不剥值留键=空池坏图传播）', file: 'js/data-backup.js', needle: 'MUSIC_KEY_RE.test(k) || MEDIA_POOL_KEY_RE.test(k)' },
   { name: '#275 导出小键段同样认范围外键（≤20KB 池条目不进 ls 段防被 strip 成空串入库）', file: 'js/data-backup.js', needle: 'if (cfg.skip(k)) continue;' },
   { name: '#275 导入端旧备份池腐蚀自愈（空串/非 data: 池条目直接丢弃=键保持缺席走准确占位，完整备份再导入即自愈）', file: 'js/data-backup.js', needle: 'function scrubMediaPool(obj) {' },
-  { name: '#275 渲染端池值体检（空串/脏值绝不入 map 缓存也不改写 img.src——原 typeof 放行空串=map 缓存\'\'+src=\'\'永久坏图；不入负缓存，缺数据可重试）', file: 'js/media-pool.js', needle: "v2.indexOf('data:image/') !== 0" },
+  { name: '#275 渲染端池值体检（空串/脏值绝不入 map 缓存也不改写 img.src——原 typeof 放行空串=map 缓存\'\'+src=\'\'永久坏图；不入负缓存，缺数据可重试。#943 起形态判定统一走 mediaPayloadKind，锚点随新写法、逻辑未变）', file: 'js/media-pool.js', needle: "mediaPayloadKind(v2) !== 'image'" },
   { name: '#275 未解析媒体池令牌 404 不进错误日志（getAttribute 原始值判令牌；池缺失+渲染占位已是预期失败路径，逐次渲染刷屏掩盖真错误）', file: 'js/device.js', needle: 'window.mochiMediaIsToken(imTok)' },
   // ==== 2026-09-10 #283 聊天语音令牌化（vivo S60/Chrome 25fps「经常卡、按不动」等多机型收口）====
   // 根因：#142 池 v1 只收 data:image/——历史语音/语音字卡以「名称|||data:audio;base64…」整份
@@ -1334,8 +1334,8 @@ const FIX_SENTINELS = [
   // 本机诊断：IDB chat-msgs=79.2MB/2277 条、JS 堆 307MB、长任务 50~405ms（隐藏冲刷+空闲落盘
   // 每次都 structured clone 整包）＝发消息/收键盘/离页回前台全在卡。音频纪律：不进 map 热缓存、
   // 播放走 ExpandAsync 按需 idbGet、迁移期每 32 条分批冲池（writeBuf/单事务封顶+回滚账除名）。
-  { name: '#283 池收音频（tokenize 放行 data:audio/；回退只收图片=语音继续整份内联、低端机落盘长任务复发）', file: 'js/media-pool.js', needle: "dataUrl.indexOf('data:image/') !== 0 && dataUrl.indexOf('data:audio/') !== 0" },
-  { name: '#283 语音令牌化（normalize pass 处理「名称|||data:audio/」内联语音；删则 chat-msgs 几十 MB 每次落盘 clone 整包回归）', file: 'js/chat.js', needle: "m.text.indexOf('data:audio/', _bar + 3) === _bar + 3" },
+  { name: '#283 池收音频（tokenize 放行 data:audio/；回退只收图片=语音继续整份内联、低端机落盘长任务复发。#943 起闸门统一走 mediaPayloadKind，锚点随新写法、逻辑只强不弱）', file: 'js/media-pool.js', needle: 'if (!mediaPayloadKind(payload)) { resolve(null); return; }' },
+  { name: '#283 语音令牌化（normalize pass 处理「名称|||data:audio/」内联语音；删则 chat-msgs 几十 MB 每次落盘 clone 整包回归。#943 起判定收口 chatIsInlineDataSrc＋载荷 trim 规范入池，锚点随新写法、逻辑未变）', file: 'js/chat.js', needle: "const _tailData = _bar > 0 && chatIsInlineDataSrc(_tail.trim()) ? _tail.trim() : '';" },
   { name: '#283 语音播放异步取回（令牌先 ExpandAsync 取池数据再播；删则令牌语音点按「播放失败」）', file: 'js/chat.js', needle: 'window.mochiMediaExpandAsync(v.src, function (data) {' },
   { name: '#283 迁移期分批冲池（每 32 条 flush 封顶 writeBuf/单事务并清回滚账；删则几十 MB 单事务+回滚账常驻=迁移会话堆尖峰）', file: 'js/chat.js', needle: 'const _okMid = await window.mochiMediaFlush();' },
   { name: '#283 冷启动收敛触发（读库成功后 12s 跑 pass；删则只依赖 restore 事件/切桌面——不切桌面的设备历史语音永不被收口）', file: 'js/chat.js', needle: 'scheduleMediaPass(12000)' },
@@ -1594,18 +1594,18 @@ const FIX_SENTINELS = [
   { name: '#382 诊断导出跨闭包挂载 window.mochiDiagExportDocx（删则屏幕适配诊断导出恒 ReferenceError 静默失败）', file: 'js/device.js', needle: 'window.mochiDiagExportDocx = diagExportDocx;' },
   { name: '#382 屏幕适配诊断导出改走 window 挂载 + 形参收窄（failMsg,toastFn）', file: 'js/device.js', needle: "(window.mochiDiagExportDocx || function () {})(c ? c.text() : r.text, 'mochi-screen-diag-'" },
   // ==== 2026-09-12 #383 联系人消息乱码直出 @@m:hash（华为畅享70Pro Chrome 报障，多机型全现）——#377 巨型库令牌化后裸 @@m:hash 卡体无 |||、非 data:，getPool 旧两道守卫全漏过＝令牌卡入文字池被当文字直出；normCell 补认裸令牌让存量乱码刷新自愈回图片 ====
-  { name: '#383 getPool 媒体令牌卡不进文字池（删则令牌卡再入池被当文字发出）', file: 'js/chat.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;' },
-  { name: '#383 归一化裸令牌 text 补 type=image（删则存量乱码消息永停留文字气泡）', file: 'js/chat.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(r.text)))) { r.type = '+"'image'"+'; c = true; }' },
+  { name: '#383 getPool 媒体令牌卡不进文字池（删则令牌卡再入池被当文字发出。#943 起四道守卫收成 chatHasMediaPayload 一条统一判据，锚点随新写法、语义只强不弱）', file: 'js/chat.js', needle: 'if (typeof c === \'string\' && chatHasMediaPayload(c)) return;' },
+  { name: '#383 归一化裸令牌 text 补 type=image（删则存量乱码消息永停留文字气泡。#943 起该判据收口到 chatIsImgSrcLike，锚点收到「令牌＝图片引用」这一条必然存在的分支）', file: 'js/chat.js', needle: 'if (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) return true;' },
   // ==== 2026-09-13 #384 开屏点击进入后强制观看公告（作者道别公告：二传二改/月底停更/二级密码）——每次进入先弹 #splash-mandatory，必须滑到底、点【我已阅读并确认进入】才真正进入；门控=未到底时确认按钮 is-disabled 不可点（clock.js mandBottom/finishEnter） ====
   { name: '#384 强制公告滑到底才可确认进入（删则强制公告可跳过，进入不再必读）', file: 'js/clock.js', needle: 'if (mandBottom) finishEnter();' },
   // ==== 2026-09-13 #385 联系人消息乱码·令牌夹在文字中间直出（续 #383）——#383 只治「整条 text 是裸令牌」（normCell 升 type=image）；多字卡回复 pickN.join(' ') 拼出的混合文本消息里 @@m:hash 嵌在正文中间，type 仍 text，渲染端 escTxtBr 原样铺出令牌串＝乱码（聊天/群聊公用库共享多机型全现）。消费者边界（气泡渲染）统一把内嵌 @@m:<hash32> 行内转 <img>，交 media-pool 观察器解图，存量/新收/任一浏览器不再直出令牌串 ====
-  { name: '#385 内嵌令牌转行内图·chat 助手核心逻辑（split 令牌正则——删则令牌串不再转 <img>/<img class=msg-inline-tok> 直出乱码）', file: 'js/chat.js', needle: 's.split(/(@@m:[0-9a-f]{32})/g)' },
+  { name: '#385 内嵌令牌转行内图·chat 助手核心逻辑（split 令牌正则——删则令牌串不再转 <img>/<img class=msg-inline-tok> 直出乱码。#948 起同一条 split 并切内联 dataURL 载荷，锚点取两者共同前缀（data: 分支改大小写显式字符类，故不锚其后缀））', file: 'js/chat.js', needle: 's.split(/(@@m:[0-9a-f]{32}|' },
   { name: '#385 chat 文本气泡渲染调用内嵌令牌助手（删调用则助手在但不用，混合乱码消息仍直出令牌串）', file: 'js/chat.js', needle: 'window.mochiInlineTextHtml(T(__rawText))' },
   { name: '#385 单聊撤回段文本也走内嵌令牌助手（撤回复核样直出令牌串复现）', file: 'js/chat.js', needle: 'segHtml += window.mochiInlineTextHtml(' },
   { name: '#385 group-chat 文本气泡/预览走内嵌令牌助手（群聊纯文本气泡改回 escTxtBr 则群聊乱码复现）', file: 'js/group-chat.js', needle: 'window.mochiInlineTextHtml(rec.text' },
   // ==== 2026-09-13 #383b 源头补口三件（本会话，未构建随下次收口）——#385 治渲染端消费者边界，这里治源头：群聊回复池同款两道守卫漏裸令牌（新乱码仍会从群聊发出）、群聊渲染裸令牌 text 走图片分支、bg-keep 保活通知选卡漏判＝通知栏文字出乱码 ====
-  { name: '#383b 群聊回复池令牌卡不进文字池（删则群聊继续从源头发出令牌卡）', file: 'js/group-chat.js', needle: 'c && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) return;' },
-  { name: '#383b 群聊渲染裸令牌 text 走图片分支（删则群聊存量整条令牌消息停留文字气泡）', file: 'js/group-chat.js', needle: "rec.type !== 'voice' && window.mochiMediaIsToken && window.mochiMediaIsToken(rec.text)" },
+  { name: '#383b 群聊回复池令牌卡不进文字池（删则群聊继续从源头发出令牌卡。#943 起三道守卫收成 chat.js 的 chatHasMediaPayload 统一判据，锚点随新写法、语义只强不弱）', file: 'js/group-chat.js', needle: 'if (window.chatHasMediaPayload ? window.chatHasMediaPayload(c)' },
+  { name: '#383b 群聊渲染裸令牌 text 走图片分支（删则群聊存量整条令牌消息停留文字气泡。#943 起判定借用 chat.js 的 chatIsImgSrcLike，令牌仍在其判据内、锚点随新写法）', file: 'js/group-chat.js', needle: "rec.type !== 'voice' && window.chatIsImgSrcLike && window.chatIsImgSrcLike(rec.text)" },
   { name: '#383b 保活通知选卡剔除媒体令牌卡（删则通知栏文字出乱码）', file: 'js/bg-keep.js', needle: 'window.mochiMediaIsToken && window.mochiMediaIsToken(t)) return false;' },
   // ==== 2026-09-13 #386 信箱/朋友圈令牌乱码（用户复报：聊天已好、信里/朋友圈仍乱码，多机型）——同 #385 消费者边界思路：mail renderBody/feed inlineBody+图片网格 RE 补认 @@m:hash 渲内联图；来源侧 feed cardPool 补第三道令牌守卫+媒体池放行令牌卡；摘要/快照/通知剥离处补令牌→[图片]/[表情包] ====
   { name: '#386 信件正文渲染认媒体令牌（删则信箱信纸直出 @@m:hash 串）', file: 'js/mail.js', needle: '|@@m:[0-9a-f]{32})/g' },
@@ -1649,7 +1649,7 @@ const FIX_SENTINELS = [
   { name: '#395 voicePartsOf 裸令牌防御（删则令牌串被显成语音名称）', file: 'js/chat.js', needle: 'mochiMediaIsToken(raw)) return { name:' },
   { name: '#395 群聊语音分支令牌防御（删则群聊语音条显令牌串）', file: 'js/group-chat.js', needle: 'mochiMediaIsToken(_vraw));' },
   // ==== 2026-09-13 #397 收藏页图片被渲染成语音条 + iOS 卡顿点不动（iPhone 16 Safari 报障，多机型）——①#356 的语音判定正则含 ^ 分支＝裸令牌（图片载荷）被当语音；②缺失令牌每次渲染都重打 idbGet＋每个缺失 hash 各做一次全文档查询＝坏图成片设备主线程打满 ====
-  { name: '#397 收藏语音判定必须带 |||（改回含 ^ 分支则图片收藏又变语音条）', file: 'js/chat.js', needle: "f.text.indexOf('|||') >= 0 && /@@m:[0-9a-f]{32}$/.test(f.text)" },
+  { name: '#397 收藏语音判定必须带 |||（改回含 ^ 分支则图片收藏又变语音条。#943 起载荷判定收口 chatIsDataAudioSrc，锚点随新写法、「必带 |||」语义不变）', file: 'js/chat.js', needle: "f.text.indexOf('|||') >= 0 && (chatIsDataAudioSrc(" },
   { name: '#397 同元素同令牌只打一次 IDB（删则观察器重扫重复读＝坏图设备主线程打满卡住；新元素不受限故补池自愈保留）', file: 'js/media-pool.js', needle: "if (img.dataset && img.dataset.tokTried === h) return;" },
   { name: '#397 缺失读并发上限（删则坏图成片时一次打出几十个 IDB 读）', file: 'js/media-pool.js', needle: 'let missReads = 0;' },
   { name: '#397 缺失占位批量打标（改回逐 hash 全文档查询则坏图成片时尖峰）', file: 'js/media-pool.js', needle: 'const markQueue = new Set();' },
@@ -2317,7 +2317,7 @@ const FIX_SENTINELS = [
   // 守卫只挡 data:/|||/@@m: 令牌，URL 形态被当文字卡抽中 → 气泡/信纸直出「http://…png」。
   // 各池（聊天 getPool / 信件 mailCardPool / 群聊 gcPool / 朋友圈 cardPool / 每日留言 /
   // 互动回应）统一补「URL 不进文字池」守卫；媒体池仍照常按 URL 渲 <img>（需联网）。
-  { name: '#533a 聊天文字池排除 URL 媒体卡（删/改＝联系人重新把图链当文字发进聊天气泡）', file: 'js/chat.js', needle: 'if (typeof c === \'string\' && /^https?:\\/\\//i.test(c)) return;\nif (chatIsEmojiCard(c)) emoji.push(c);' },
+  { name: '#533a 聊天文字池排除 URL 媒体卡（删/改＝联系人重新把图链当文字发进聊天气泡。#943 起 getPool 四道守卫收成 chatHasMediaPayload 统一判据，锚点收到判据内部的「内联载荷或图片直链」这条必然存在表达式）', file: 'js/chat.js', needle: 'chatIsInlineDataSrc(s) || chatIsImageUrlCard(s);' },
   { name: '#533b 信件文字池排除 URL 媒体卡（删/改＝写信抽中图链、信纸正文直出 http 链接）', file: 'js/mail.js', needle: 'function mailTextOnly(c) {\nif (typeof c !== \'string\' || !c) return false;\nif (c.indexOf(\'data:\') === 0) return false;\nif (c.indexOf(\'|||\') >= 0) return false;\nif (c.indexOf(\'@@m:\') >= 0) return false;\nif (/^https?:\\/\\//i.test(c)) return false;' },
   { name: '#533c 群聊文字池排除 URL 媒体卡（删/改＝群成员把图链当文字发进群）', file: 'js/group-chat.js', needle: 'if (/^https?:\\/\\//i.test(c)) return; // 图链卡不进群聊文字池' },
   { name: '#533d 朋友圈文字池排除 URL 媒体卡（删/改＝TA 把图链拼进动态/评论正文）', file: 'js/feed.js', needle: 'if (/^https?:\\/\\//i.test(c)) return; // 图链卡不进朋友圈文字池' },
@@ -2334,11 +2334,11 @@ const FIX_SENTINELS = [
   // 根因二（图链当文字）：链接导入的字卡（裸 http(s) 图链）曾被当文字卡抽出并
   //   以 type:'text' 落库，气泡直出 URL。#533 堵住入库口，这里补渲染/归一化自愈。
   { name: '#534a 聊天图片直链识别只认「带图片扩展名的单条直链」（改成宽松判定＝普通网址被误当图片裂图）', file: 'js/chat.js', needle: 'return /^https?:\\/\\/[^\\s"\'<>]+\\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#][^\\s"\'<>]*)?$/i.test(s.trim());' },
-  { name: '#534b 存量图片直链消息渲染自愈（删/改＝历史乱码消息又整段 URL 糊在气泡里）', file: 'js/chat.js', needle: 'const __urlImg = !__blankMsg && chatIsImageUrlCard(__rawText);' },
+  { name: '#534b 存量图片直链消息渲染自愈（删/改＝历史乱码消息又整段 URL 糊在气泡里。#943 起同一自愈口扩到整条内联图片载荷，判据收口 chatIsImgSrcLike、锚点随新写法）', file: 'js/chat.js', needle: 'const __imgSrc = !__blankMsg && chatIsImgSrcLike(__rawText)' },
   // 2026-09-16 跨会话同步：本锚点条件因 #624（多图消息不误判为单图直链）加了一道
   // `!hasMultiImgParts(r)` 守卫，修复逻辑仍在、只是表达式变长 ⇒ 同步 needle 到现实现。
   // 若 #624 侧另有改法，请以彼时实现为准再同步一次（勿直接删本条）。
-  { name: '#534c 存量图片直链消息入库自愈补 type=image（删/改＝刷新后仍当文字消息，只靠渲染兜底）', file: 'js/chat.js', needle: 'if (r && (r.type === \'text\' || !r.type) && !hasMultiImgParts(r) && typeof r.text === \'string\' && (r.text.indexOf(\'data:image/\') === 0 || chatIsImageUrlCard(r.text))) {' },
+  { name: '#534c 存量图片直链消息入库自愈补 type=image（删/改＝刷新后仍当文字消息，只靠渲染兜底。#943 起判定收口 chatIsImgSrcLike、锚点随新写法）', file: 'js/chat.js', needle: 'if (r && (r.type === \'text\' || !r.type) && !hasMultiImgParts(r)' },
   { name: '#534d 朋友圈内容类型开关下沉到池层（删/改＝关了颜文字，TA 评论/回复照样按写死 15% 发颜文字）', file: 'js/feed.js', needle: 'if (!feedTypeOn(cid, \'kaomoji\')) kaomoji.length = 0;' },
   { name: '#534e 信箱内容类型开关下沉到池层（删/改＝关了颜文字，系统预设补池仍按分类占比注入正文）', file: 'js/mail.js', needle: 'if (!tcfg.kaomojiEn) { kaomoji.length = 0; defKaomoji.length = 0; }' },
   { name: '#534f 信箱默认字卡注入权重同步受内容类型开关约束（删/改＝关掉的分类仍占抽签权重）', file: 'js/mail.js', needle: 'if (k === \'kaomoji\' && !mcfg.kaomojiEn) return 0;' },
@@ -2935,11 +2935,11 @@ const FIX_SENTINELS = [
   //   渲染走单图分支只剩一张）；④periodWarmText / genChatStyleReply 不把图片载荷当文本改写/返回。
   //   needle 均为逻辑表达式，各自在所属 src 文件内唯一（minifyJs 去行首缩进，行内空格保留）。
   { name: '#624a 多图消息守卫函数（删掉＝parts≥2 张图的 text 载荷被升级成 type:image，刷新后第二张起丢失）', file: 'js/chat.js', needle: 'function hasMultiImgParts(r) {' },
-  { name: '#624b normCell 升级单图前先排除多图消息（删掉 !hasMultiImgParts(r)＝同 #624a 复发）', file: 'js/chat.js', needle: "!hasMultiImgParts(r) && typeof r.text === 'string' && (r.text.indexOf('data:image/') === 0 || chatIsImageUrlCard(r.text) || (window.mochiMediaIsToken" },
+  { name: '#624b normCell 升级单图前先排除多图消息（删掉 !hasMultiImgParts(r)＝同 #624a 复发。#943 起媒体判定收口 chatIsImgSrcLike、锚点随新写法）', file: 'js/chat.js', needle: 'if ((r.type === \'text\' || !r.type) && !hasMultiImgParts(r) && typeof r.text === \'string\' && chatIsImgSrcLike(r.text))' },
   { name: '#624c 表情包/图片概率独立判定·两者同命中同条消息两张图（改回 else if 互斥＝用户「无法触发两个图片」复发）', file: 'js/chat.js', needle: 'if (stHit && imHit) {' },
   { name: '#624d genOneReply 直传多图 parts（删掉＝被默认字卡覆盖换文本、或在下方单图追加处再叠一张）', file: 'js/chat.js', needle: "if (r.parts && r.parts.length) return { text: t, type: 'text', parts: r.parts };" },
   { name: '#624e 多图消息不经经期温柔语态改写（删掉＝给图片载荷 text 加前后缀，横幅/引用文本变乱）', file: 'js/chat.js', needle: "rep.text.indexOf('data:') !== 0 && window.periodWarmText" },
-  { name: '#624f 多图消息不把图片载荷当聊天字卡文本返回 ta-ask（删掉＝ta-ask 把 data: 串当文本发出）', file: 'js/chat.js', needle: "!(rep && rep.parts && rep.parts.length && t.indexOf('data:') === 0)" },
+  { name: '#624f genChatStyleReply 不把媒体载荷当聊天字卡文本返回 ta-ask（删掉＝ta-ask 把 data: 串当文本发出。#943 起守卫从「仅多图形态」扩为 _isMediaRep 全形态判定，锚点随新写法、语义只强不弱）', file: 'js/chat.js', needle: 'return (t && !_isMediaRep) ? t : null;' },
   { name: '#624g 功能介绍补「一条消息多张图，我和 TA 都可以」（删掉＝使用说明缺这条能力，用户报「说明里也缺少」）', file: 'template.html', needle: '一条消息还能放多张图' },
   { name: '#624h 使用说明补「可一次选多张，同一条消息一起发出」+ TA 两图触发说明（删掉＝使用说明缺多图）', file: 'template.html', needle: '可一次选多张，同一条消息里一起发出' },
   { name: '#624i 功能大全「表情包管理」补多图关键词（删掉＝搜「多图 / 多个图片」搜不到）', file: 'js/feature-hub.js', needle: '图片/表情可一条消息发多张' },
@@ -3977,6 +3977,30 @@ const FIX_SENTINELS = [
 { name: '#945c 真【复制】钮（删＝toast 承诺的复制通道再次落空）', file: 'js/data-backup.js', needle: "exportBtn: { label: '复制网址和设备信息'" },
 { name: '#945d data: 失败后 blob: 补发（删＝能下 blob: 下不了 data: 的内核断路）', file: 'js/data-backup.js', needle: '已再触发一次下载' },
   /* ==== 2026-09-20 #943 iOS 热路径卡顿根治（iPhone 17 Pro Max/iOS 26.7 PWA 实报「桌面滑动/底部组件卡顿、设置页定格几秒」，perfcheck 前台冻结 45 次最慢 1381ms、桌面翻页平均 168ms/帧最慢 1145ms；判据全取实测帧耗时与数据量，零机型分支） ==== */
+  // ==== 2026-09-20 #948 聊天里的图片变成长乱码（用户直派 OPPO K13x 自带浏览器实报＝HeyTapBrowser/Chrome115 内核，并明说「这个问题其他设备型号也有出现」⇒ 零机型分支，判据全取运行期字符串形态；诊断附件实证：929 条消息 chat-msgs 单键 4.1MB 而媒体池仅 64 条＝载荷大量以整段 base64 内联在 text 里）====
+  //   根因不是内核解码，而是「内联 dataURL 载荷在文字通道里没有任何一处认识它」：判定全写成
+  //   x.indexOf('data:image/') === 0 这类大小写敏感＋不容前导空白＋只认 image 的精确前缀，而载荷的
+  //   实际形态由解码失败回退那条腿/相册与文件管理器给出的类型决定（data:application/octet-stream、
+  //   大写 MIME、串首空白…）——判定漏过＝既不进媒体池也不升级成图片消息，一旦经 genChatStyleReply
+  //   单卡形态 / parts 丢失 / normCell 重建 / 存量自愈未跑完 漏进 text，气泡就整屏铺 base64。
+  //   修＝三层收口且全站只留一份判据：①chat.js 导出唯一口径（chatHasMediaPayload /
+  //   chatIsImgSrcLike / chatIsDataAudioSrc / chatIsInlineDataSrc / chatIsDataImgLikeSrc）；
+  //   ②消费者边界（单聊气泡、群聊气泡、收藏、桌面弹窗、引用、搜索、回放存根）一律按媒体渲染，
+  //   或收成 [图片]/[语音]/[附件] 标注；③源头与存储（getPool 四守卫合一、genChatStyleReply 全形态
+  //   拦截、normCell 不把载荷塞进文本段、池令牌化闸门同口径）＝新数据不再产生内联载荷，存量经
+  //   mediaNormalizePass 换令牌后离开 4.1MB 大键。验证 tools/verify-inline-media-garble.mjs（#948 组，33 断言）。
+  { name: '#948a 唯一判据认「内核会嗅探成图片」的无类型载荷（改回只认 image/* ＝octet-stream 载荷继续被当文字直出＝本次乱码主形态复发）', file: 'js/chat.js', needle: "return t !== 'audio' && t !== 'video';" },
+  { name: '#948b genChatStyleReply 媒体全形态闸（单卡 sticker/image/voice 与整串载荷一律不返文字；删＝ta-ask 把整段 base64 当文字回应 raw 直传＝用户所见乱码的直接来路）', file: 'js/chat.js', needle: "const _isMediaRep = !!(rep && (rep.type === 'sticker'" },
+  { name: '#948c 文字气泡遇内联载荷只出标注不铺正文（删掉该早退守卫＝无媒体消息也跑拆分、载荷整串直出）', file: 'js/chat.js', needle: "if (s.indexOf('@@m:') < 0 && !chatHasMediaPayload(s)) return escTxtBr(s);" },
+  { name: '#948d normCell 不把媒体载荷重建进 k:text 段（删＝把乱码从 text 通道挪进 parts 文本通道，渲染照样整串直出）', file: 'js/chat.js', needle: '!chatIsMediaPayload(r.text) &&' },
+  { name: '#948e 整条内联音频载荷走语音条（旧判定只认「名称|||」形态，裸 data:audio 直出 base64；改回精确前缀即失配）', file: 'js/chat.js', needle: 'chatIsDataAudioSrc(rec.text)' },
+  { name: '#948f 媒体池闸门借用同一判据（禁第二份口径；退成只认 image/* 则无类型载荷继续整段内联在 4.1MB 大键里）', file: 'js/media-pool.js', needle: "return window.chatIsDataImgLikeSrc(s) ? 'image' : '';" },
+  { name: '#948g 群聊落盘令牌化与单聊/池同口径（退成精确 image/* 判定＝群聊无类型图片载荷继续整段 base64 内联并当文字铺出）', file: 'js/group-chat.js', needle: 'const isImgPayload = window.chatIsDataImgLikeSrc || window.chatIsDataImgSrc;' },
+  { name: '#948h 无 MIME 载荷（File.type 为空时 FileReader 的 "data:;base64,…"）按 base64 头魔数认图（删/改回只认显式 image/* ＝无 MIME 图重新被判成正文铺 base64＝本条乱码来路回流）', file: 'js/chat.js', needle: "if (DATA_NOMIME_RE.test(h)) return !!chatB64ImgMime(s);" },
+  { name: '#948i 内联载荷判定收无 MIME 形态（删＝无 MIME 载荷被当正文；#948 把旧的 data: 前缀守卫收窄后它重新进文字池、被 TA 当文本发出）', file: 'js/chat.js', needle: "if (DATA_NOMIME_RE.test(h)) return true;" },
+  { name: '#948j 行内文字助手拆分认无 MIME 载荷（删＝"data:;base64,…" 整串走 else 分支原样铺出＝乱码的无 MIME 来路）', file: 'js/chat.js', needle: "[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:" },
+  { name: '#948k normCell 存量无 MIME 图片载荷就地补正 MIME（删＝WebKit 系对无类型 data: 不做图片嗅探＝无 MIME 历史图片照旧裂图/占位）', file: 'js/chat.js', needle: "const __nmFixed = chatFixNoMimeImg(r.text);" },
+  { name: '#948l media-pool 本地兜底同口径收无 MIME（删＝本模块先于 chat.js 加载时无 MIME 载荷归类漂移，与判据层两份口径）', file: 'js/media-pool.js', needle: "if (NOMIME_RE.test(head)) return (window.chatB64ImgMime" },
   { name: '#943a 超限遗留 LS 聊天快照跳过整包 parse 合并（删＝每次发消息/退后台 2.7MB JSON.parse+全量合并重串化压回主线程）', file: 'js/chat.js', needle: "if (raw.length > LS_SNAP_LIMIT) { performLsSnapWrite(msgsNow, prefix); return; }" },
   { name: '#943b 表情包整包写防抖 600ms（删＝面板每次点按都同步串化 1.14MB+大 IDB put）', file: 'js/chat.js', needle: "myeSaveTimer = setTimeout(function () { myeSaveTimer = null; myEmojiSaveNow(); }, 600);" },
   { name: '#943b 离页当场补发防抖中的表情包写（删＝600ms 窗口内退出丢保存）', file: 'js/chat.js', needle: "if (myeSaveTimer) { clearTimeout(myeSaveTimer); myeSaveTimer = null; myEmojiSaveNow(); }" },
