@@ -1,4 +1,4 @@
-// ===== 常驻回归：#998 二级验证密码 / 暗号 提示口径＝指路「开屏第一页的章节目录」（不是第二页「进入前 · 作者必读公告」上的日期）=====
+// ===== 常驻回归：#1000 二级验证密码 / 暗号 提示口径＝指路「开屏第一页的章节目录」（不是第二页「进入前 · 作者必读公告」上的日期）=====
 // 用户 2026-09-21 直派（原话）：「关于2级密码和暗号需要提醒。时间就在开屏第一页的某个目录，不要看第二页。」
 // 背景（零机型分支，纯文案层）：旧的密码/暗号提示只写「生日写在开屏（公告）的目录里，不是最底下的部署时间」——
 //   而点「我已阅读并知晓」之后那一屏的标题正是「进入前 · 作者必读公告」，页面上还并排显示两个大日期
@@ -13,8 +13,8 @@
 //  B 组＝行为面（真浏览器 390×844）：锁卡 tip 与摘要条渲染出来就带指路／点「输入密码解锁」弹窗带指路且错码仍只提示不关窗／
 //       第一页确实能找到那个日期（8.15 在开屏第一页的章节里＝提示不说谎）／第二页确实是那两个日期（提示排除的正是它）
 //  Z 组＝全程零未捕获 JS 异常
-// 用法：node tools/verify-998-pw-hint.mjs
-//       MOCHI_ROOT=<已构建目录> node tools/verify-998-pw-hint.mjs   （红绿对照务必显式传）
+// 用法：node tools/verify-1000-pw-hint.mjs
+//       MOCHI_ROOT=<已构建目录> node tools/verify-1000-pw-hint.mjs   （红绿对照务必显式传）
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
@@ -78,9 +78,9 @@ check('S8 密码与暗号互指仍在（同一串 6 位数字，两个入口都�
 check('S9 使用说明两处「忘记密码」也补了同一指路',
   count(tpl, '暗号／二级验证密码的答案在开屏<b>第一页</b>的章节里') === 2);
 
-const sentIds = ['#998a', '#998b', '#998c', '#998d', '#998e', '#998f', '#998g', '#998h'];
+const sentIds = ['#1000a', '#1000b', '#1000c', '#1000d', '#1000e', '#1000f', '#1000g', '#1000h'];
 const missSent = sentIds.filter((id) => buildSrc.indexOf("name: '" + id + ' ') < 0);
-check('S10 八条哨兵 #998a~h 全部登记', missSent.length === 0, missSent.join(','));
+check('S10 八条哨兵 #1000a~h 全部登记', missSent.length === 0, missSent.join(','));
 // 哑哨兵体检：needle 必须在各自登记 file 内唯一（多条共用同一 needle 会被构建体检点名）
 const uniq = [
   ['index.html', '答案就在开屏第一页的章节目录里'],
@@ -92,8 +92,15 @@ const uniq = [
 const uniqBad = uniq.filter(([f, n]) => count(read(f), n) !== 1).map(([f, n]) => f + ' :: ' + n.slice(0, 20));
 check('S11 正向哨兵 needle 各自在登记 file 内唯一（哑哨兵体检）', uniqBad.length === 0, uniqBad.join(' | '));
 const absentNeedles = ["needle: '生日写在开屏公告的目录里，不是开屏最底下的部署时间', absent: true", "needle: '生日写在开屏公告的目录里——注意不是', absent: true"];
-check('S12 删除型哨兵（#998g/#998h）登记形态正确且旧口径在产物里确实不存在',
+check('S12 删除型哨兵（#1000g/#1000h）登记形态正确且旧口径在产物里确实不存在',
   absentNeedles.every((n) => buildSrc.includes(n)) && count(read('js/clock.js'), OLD_JS_HINT) === 0 && count(read('js/applock.js'), OLD_JS_HINT) === 0);
+
+// #1000 第二段：公告章节日期改 4 位写法（用户直派）——两份源＋产物同口径，点号写法不得回流
+check('S13 两源＋产物均为 4 位日期写法（0812／0815~0829／0829）',
+  noticeSrc.includes('0812 开搓，0815~0829 内测') && tpl.includes('0812 开搓，0815~0829 内测') &&
+  notice.includes('0812 开搓，0815~0829 内测') && read('index.html').includes('0812 开搓，0815~0829 内测'));
+check('S14 点号写法已从两源与产物消失（删除型）',
+  !noticeSrc.includes('8.12 开搓') && !tpl.includes('8.12 开搓') && !read('index.html').includes('8.12 开搓'));
 
 // ---------- B 组：真浏览器 ----------
 console.log('[B] 真浏览器 390×844');
@@ -137,8 +144,9 @@ check('B2 必读摘要密码条渲染出来带指路（在线源生效的那份�
   summary.slice(summary.indexOf('关于二级验证密码'), summary.indexOf('关于二级验证密码') + 60));
 
 // 提示不说谎①：那个日期（8.15）确实在开屏第一页的章节里
-const page1HasDate = await page.evaluate(() => document.getElementById('splash').textContent.replace(/\s+/g, '').includes('8.15'));
-check('B3 第一页正文里确实写着那个日期（8.15 内测起）＝「在第一页的章节里找」没说谎', page1HasDate);
+const page1Text = await page.evaluate(() => document.getElementById('splash').textContent.replace(/\s+/g, ''));
+check('B3 第一页正文里确实写着那个日期、且是 4 位写法（0815 内测起）＝「在第一页的章节里找」与「原样写成 4 位数」都说谎不得',
+  page1Text.includes('0815') && page1Text.includes('0812') && !/8\.15/.test(page1Text));
 // 提示不说谎②：第二页确实是那两个日期（提示排除的正是它）
 const page2 = await page.evaluate(() => {
   const m = document.getElementById('splash-mandatory');
@@ -177,5 +185,5 @@ check('Z 全程零未捕获 JS 异常', jsErrors.length === 0, jsErrors.slice(0,
 
 await browser.close();
 srv.close();
-console.log('\n' + (fail ? '❌' : '✅') + ' verify-998-pw-hint: ' + pass + ' 通过 / ' + fail + ' 失败');
+console.log('\n' + (fail ? '❌' : '✅') + ' verify-1000-pw-hint: ' + pass + ' 通过 / ' + fail + ' 失败');
 process.exit(fail ? 1 : 0);
