@@ -4583,6 +4583,26 @@ const FIX_SENTINELS = [
   { name: '#1005c 问卷卡提示行尾的可点暗示箭头（删＝卡片看不出能点，用户直派的「需要暗示这个卡片可以点击」回归）', file: 'js/chat.js', needle: '<span class="msg-survey-chev">' },
   { name: '#1005d 问卷卡心形浮现样式（删＝加了 .show-fav 也浮不出来，心形仍是 display:none）', file: 'css/chat-main.css', needle: '.msg-survey-card.show-fav .msg-fav-heart' },
   { name: '#1005e 问卷卡按压反馈（删＝点下去没有任何视觉回馈）', file: 'css/chat-main.css', needle: '.msg-survey-card:active' },
+  /* ==== 2026-09-21 #1006 全站互动文案人称排查（用户直派「你全部帮我检查」，承接 #999）：
+     六路并行审校（ta-ask 四库+回应池 / 查岗与动作卡 / 邀请情绪来电 / 字卡回应池 / 朋友圈日历信箱礼物桌面 / 聊天与抉择），
+     本批落地的都是「说话人指错人」且无需重写大段文案的：小问题与好奇库选项/回应 6 处、查岗回应字卡按方向归位、
+     心意币碎碎念、摸鱼小结信、市集标语、喝水播报口吻、存钱罐回话与「问 TA」的发送侧。
+     未并入本批（需新写文案＋按联系人迁移）：互动动作卡 accept/reject 池。 ==== */
+  { name: '#1006a 小问题 cs5 选项「猜你下一张字卡」（字卡是 TA 挑的；改回「猜我」＝选项又站到 TA 视角）', file: 'js/ta-ask.js', needle: '{ t: "悬疑——猜你下一张字卡", reply: ["你猜中的次数，其实不多"' },
+  { name: '#1006b 小问题 cd17「我」主句回到用户先醒的角色（删/改回「那我看着你睡」＝TA 抢了看的人）', file: 'js/ta-ask.js', needle: '{ t: "我", reply: ["那你看着我睡","你先醒？那看我睡"' },
+  { name: '#1006c 小问题 cd6 选项「你」＝TA 先说晚安（改回「好，我等你先说」＝角色互换复发）', file: 'js/ta-ask.js', needle: '{ t: "你", reply: ["好，那我先说","我先说？那我定个闹钟"' },
+  { name: '#1006d 小问题 cd14「你做饭我看着」的 TA 回应（改回「那我看你」＝看与被看互换复发）', file: 'js/ta-ask.js', needle: '"看着也行，那你看着我"' },
+  { name: '#1006e 小问题 cw6 转述用「笑我？」（改回「笑你？」＝被笑的人写成用户）', file: 'js/ta-ask.js', needle: '"笑我？那我不客气了"' },
+  { name: '#1006f 好奇库 cw6 快答「跟着我走」（改回「跟着你走」＝用户自答又站到 TA 视角）', file: 'js/ta-ask.js', needle: "quick: ['床头', '书桌边', '窗边', '跟着我走']" },
+  { name: '#1006g 好奇库快答迁移表带上这条（删＝已装用户的固化快答拿不到修正）', file: 'js/ta-ask.js', needle: "cw6: { '跟着你走': '跟着我走' }," },
+  { name: '#1006h 查岗方口吻新卡（删＝「联系人对我查岗」组只剩 4 张，回应重复感明显）', file: 'js/default-cards-data.js', needle: '"原来你在这儿，那我不找了"' },
+  { name: '#1006i 查岗方口吻新卡（删＝「联系人对我查岗」组只剩 4 张，回应重复感明显）', file: 'js/default-cards-data.js', needle: '"问这一句，其实只是想你了"' },
+  { name: '#1006j 心意币碎碎念回到 TA 第一人称（改回「TA 的心意币变多了」＝同池口吻自相矛盾）', file: 'js/p2-features.js', needle: "'你的心意币变多了'" },
+  { name: '#1006k 喝水播报用「你今天喝了」（改回「我今天喝了」＝TA 说成自己喝的水）', file: 'js/p2-features.js', needle: "'你今天喝了 ' + t.count + ' / ' + g + ' 杯" },
+  { name: '#1006l 存钱罐「回一句给TA」走用户发送侧（改回 chatAddIn＝用户的话又落在 TA 气泡）', file: 'js/p2-features.js', needle: "if (t && window.chatSendMsg) { try { window.chatSendMsg(t); } catch (e) {} toast('已回复'); }" },
+  { name: '#1006m 吃什么「问 TA」走用户发送侧（改回 chatAddIn＝变成 TA 问用户）', file: 'js/p2-features.js', needle: 'if (window.chatSendMsg) { try { window.chatSendMsg(msg); }' },
+  { name: '#1006n 摸鱼小结信 TA 口吻（改回「你俩…（我 +x · 名字 +y）」＝TA 把自己算在外、把用户标成「我」）', file: 'js/mail.js', needle: "'你和我一共摸鱼 ' + totalFish + ' 点（你 +' + fm + ' · 我 +' + ft + '）。'" },
+  { name: '#1006o 市集标语送给 TA（改回「送给你」＝收礼人写成用户）', file: 'js/gift-shop.js', needle: '挑一份心意，跨越两个世界送给 TA' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
