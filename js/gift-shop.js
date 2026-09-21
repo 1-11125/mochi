@@ -16,9 +16,6 @@ t.textContent = msg; t.className = 'cc-toast'; void t.offsetWidth; t.className =
 clearTimeout(t._timer); t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2000);
 }
 function closeTc() { const m = document.getElementById('tc-mask'); if (m) m.hidden = true; }
-function chatOnScreen() {
-try { const p = document.getElementById('page-chat'); return !!(p && !p.hidden); } catch (e) { return false; }
-}
 function fmtTime(tm) { const d = new Date(tm); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function fenToYuan(fen) { const y = fen / 100; if (y >= 100000) return (y / 10000).toFixed(1) + '万'; if (y >= 1000) return y.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); return y.toFixed(2); }
 const WALLET_KEY = 'gift-wallet';
@@ -1018,7 +1015,7 @@ if (okBtn) okBtn.addEventListener('click', function () {
 const wish = (wishEl && wishEl.value || '').trim() || (gift.wish || '心意');
 if (buyAndSend(gift, 'out', wish)) {
 wishTaRemove(gift.id);
-closeTc(); if (!chatOnScreen()) toast('已送出');
+closeTc(); toast('已送出');
 if (opts.onDone) { try { opts.onDone(); } catch (e) {} }
 }
 });

@@ -49,9 +49,10 @@
            隐藏池、聊天字卡分组标题右侧「整组停用」开关与逐张开关、设置页顶部搜索框。 -->
       <div class="splash-bigwarn" data-content-warn="1">
         <div class="splash-bigwarn-t">使用前必看 · 本站内容非常多，不适用建议不使用本站</div>
-        <p><strong>网站本质只是工具，使用取决于个人</strong>，各种原因都需要适应和调整。</p>
-        <p><strong>本站内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。</strong>回复设置里的概率、很多功能的时间与概率，<strong>全部都是公开的、可以自己调</strong>；一些功能也可以自己设置关闭；<strong>聊天字卡也可以单独关闭某个分组，或关闭某一张字卡</strong>。</p>
-        <p>各项在哪里调：见下方「必读摘要」。</p>
+        <p><strong>网站本质只是工具，使用效果取决于个人使用和个人理解</strong>，各种原因都需要适应和调整。</p>
+        <p><strong>网站内置内容非常非常多，需给一定时间适应和根据个人使用习惯调整</strong>，或不适用建议不使用这个网站。</p>
+        <p><strong>回复设置概率，非常多功能的时间和概率，全部都是公开的可以自己调</strong>，功能也可以自己设置关闭。</p>
+        <p><strong>聊天字卡也可以单独关闭某个分组或关闭某个单独的字卡。</strong>默认聊天字卡的词典字卡太多，不适用建议关闭。</p>
       </div>
       <!-- v8.29 #976（用户 2026-09-21 直派「开屏里的颜色太乱，内容也很乱，怎么优化一下？」＋两条约束：
            「不要删除我的内容」「必读卡挪到品牌卡前」）——
@@ -176,7 +177,7 @@
                  在线权威源在 src/pwa/notice.json 的 summary，两份同步（renderNotice 会用在线列表整段替换本段）。
                  明细放这里、顶卡只留三句：顶卡加长会把 #864 的「公告已精简」指引条挤出首屏（实测 984>844），
                  故顶卡压到三句（≈270px），四条可调入口的细节落到本条。 -->
-            <p class="splash-hl">【本站内容非常多，不适用建议不使用】网站本质只是工具、使用取决于个人，各种原因都需要适应和调整；内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。觉得不好用的地方基本都能自己调、自己关，所有设置一直都是全部公开的：各类概率与很多功能的时间/间隔（设置 → 回复设置，调 0 = 不触发）、系统预设字卡可逐张或按分类开关（回复设置 →「系统预设字卡 · 聊天触发概率」把整体概率总档调到 0，聊天里所有系统预设字卡都不再触发）、一些功能可以自己设置关闭（设置里的各项开关，或收进桌面隐藏池）、聊天字卡可以单独关闭某个分组（分组标题右侧的「整组停用」开关）或关闭某一张字卡（逐张开关）；找不到就用设置页顶部的搜索框搜关键词。</p>
+            <p class="splash-hl">【本站内容非常多，不适用建议不使用】网站本质只是工具、使用取决于个人，各种原因都需要适应和调整；内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。觉得不好用的地方基本都能自己调、自己关，所有设置一直都是全部公开的：各类概率与很多功能的时间/间隔（设置 → 回复设置，调 0 = 不触发）、系统预设字卡可逐张或按分类开关（回复设置 →「系统预设字卡 · 聊天触发概率」把整体概率总档调到 0，聊天里所有系统预设字卡都不再触发）、一些功能可以自己设置关闭（设置里的各项开关，或收进桌面隐藏池）、聊天字卡可以单独关闭某个分组（分组标题右侧的「整组停用」开关）或关闭某一张字卡（逐张开关）；默认聊天字卡的词典字卡太多：字卡库 → 词典（与默认聊天字卡同属系统预设）可把不用的分组整组停用、或逐张关闭（该页顶部也有同款标红提醒）。找不到就用设置页顶部的搜索框搜关键词。</p>
             <p class="splash-hl">本站完全免费，个人出资搭建、代码开源，开放二传二改但禁止以盈利为目的；二传、分享必须标注署名：小红书 @言序（1842523578），严禁收费倒卖。作者已决定月底停更、互助群月底解散（详见「互助群公告」章）。</p>
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p class="splash-hl">关于二级验证密码（暗号）：6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（生日写在开屏目录里，不是最底下的部署时间）。解开后请勿二传。</p>
@@ -1624,7 +1625,7 @@
       <div class="set-group glass">
         <div class="set-row" id="row-screen-adj">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
-          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「聊天设置→美化」也各有一个入口；本机永久保存（换设备各自调）</span></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「更多→工具」也各有一个入口；本机永久保存（换设备各自调）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
@@ -6402,8 +6403,12 @@
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 8.5l1.15 2.4 2.4 1.15-2.4 1.15L12 15.6l-1.15-2.4-2.4-1.15 2.4-1.15z"/></svg></span>
             <span>占卜</span>
           </button>
-          <!-- #982：聊天侧入口从「更多 → 工具」移到「聊天设置 → 美化」（用户直派「屏幕适配不该放在
-               聊天的更多功能的工具里，要放在聊天的聊天设置里」）——入口行见 #cs-screen-adj，勿在此重建 -->
+          <!-- #962：聊天页自己的「屏幕适配微调」入口——在聊天现场就地开面板，正文/输入栏边看边调
+               （此前只有 设置→工具 一个入口，在设置列表后面看不见聊天现场＝盲调） -->
+          <button class="more-item" id="more-screen-adj" data-mcat="tool" title="屏幕适配微调（正文太小/顶栏底栏错位）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></span>
+            <span>屏幕适配</span>
+          </button>
           <button class="more-item" id="more-pong" data-mcat="game" title="双人Pong">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="18" y="8" width="2" height="8" rx="1" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
             <span>Pong</span>
@@ -6585,14 +6590,6 @@
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
           <div class="txt">顶栏 / 底栏位置微调<span class="sub">上下各 ±80px（顶栏正=下移、底栏正=上移，负值反向）；设为 0 恢复默认</span></div>
           <div class="val" id="cs-bar-pos-val">默认</div>
-        </div>
-        <!-- v8.29 #982：聊天侧「屏幕适配微调」入口（用户直派「这个要放在聊天的聊天设置里」）——
-             #962 的「更多 → 工具 → 屏幕适配」按钮已撤除，聊天侧只留本行；点开即开同一面板
-             （接线在 personalize.js），展开态默认停在输入栏之上，点面板里的「看聊天」就地回现场调。 -->
-        <div class="set-row" id="cs-screen-adj">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
-          <div class="txt">屏幕适配微调<span class="sub">正文太小 / 顶栏底栏错位 / 底部裁切 / 页面留白？面板边拖边看、当场见效；展开态会停在输入栏与底部导航之上，点「看聊天」回现场接着调；桌面长按空白→装修模式、设置→工具 也各有一个入口；本机永久保存（换设备各自调）</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
       <div class="gs-title">气泡样式</div>
