@@ -95,7 +95,7 @@ for (let i = 0; i < slides.length; i++) {
 const sl = slides[i];
 if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }
 const over = sl.scrollHeight - sl.clientHeight;
-const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top) <= sl.clientHeight + 1;
+const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
 if (blind) {
 if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';
 if (sl.scrollTop) sl.scrollTop = 0;
@@ -110,6 +110,7 @@ return { run: run, later: later };
 })();
 pageScrollGuard.run();
 pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);
+pages.addEventListener('load', () => pageScrollGuard.later(400), true);
 window.addEventListener('resize', () => pageScrollGuard.later(120));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pageScrollGuard.later(80); });
 try {

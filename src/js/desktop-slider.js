@@ -168,7 +168,11 @@
         // 看不到」而错误裁掉真溢出——两种都跳过（读数何时可得见下方的有界重试）。
         if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }
         const over = sl.scrollHeight - sl.clientHeight;
-        const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top) <= sl.clientHeight + 1;
+        // FIX 2026-09-22 #1013（回拉）：基准必须是**未滚动**的内容坐标——pageTop 减掉 scrollTop，
+        // 否则页滚到越靠下、量到的「最深实心盒下沿」越浅（每个盒子都被整体上移了 scrollTop），
+        // 真溢出页滚到底时必然落进 ch+1 以内＝误判成「翻下去什么也看不到」→ 归零滚动量。
+        // 用户所见＝「在桌面滑动屏幕会回拉，无法滑到下面」（vivo S30/Edge 实报，同族多机型）。
+        const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
         if (blind) {
           if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';
           if (sl.scrollTop) sl.scrollTop = 0;
@@ -187,6 +191,12 @@
   pageScrollGuard.run();
   // 页自身的竖向滚动事件不冒泡，捕获相才能收到（外层 #desktop-pages 的横向翻页不受影响）
   pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);
+  // FIX 2026-09-22 #1013（锁死）：护栏按「当下量到的几何」裁决，而桌面图片组件
+  // （.desk-image-widget img 是 width:100% / height:auto）在解码完成前高 0px——那一拍整页
+  // 「翻下去什么也看不到」成立 ⇒ 被设成 overflow-y:hidden；图片随后撑开真溢出，可 load 既不改
+  // #desktop-pages 的子节点（上面那个 MutationObserver 只收 childList）也不派 scroll ⇒ 没人复核，
+  // 该页就永久停在「有内容在下方却滚不动」＝用户说的「无法滑到下面」。资源 load 同样不冒泡，走捕获相。
+  pages.addEventListener('load', () => pageScrollGuard.later(400), true);
   window.addEventListener('resize', () => pageScrollGuard.later(120));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pageScrollGuard.later(80); });
   // 组件增删/图标注入/切桌面重建都会动 DOM，统一在这里复核（拖动组件期间每帧多次也只在停手后跑一次）

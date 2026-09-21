@@ -4299,12 +4299,14 @@ const FIX_SENTINELS = [
   { name: '#985h 聊天里只发新增的那句（删＝原文与回复两条都进聊天）', file: 'js/chat.js', needle: "addOut(added);" },
   { name: '#985i 卡片动作区只对真·联系人送我的礼物且必须有心意柜指针（删/放宽＝TA 自己买的礼物卡与存量卡也长出【领取】【回复】，而后者的状态无处可写）', file: 'js/chat.js', needle: "function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }" },
   /* ==== 2026-09-21 #989 桌面页竖向滚动护栏（红米 K80 Chrome 浏览器模式实报「桌面的第一页和第二页的图标按钮和文字没有完全对齐，第二页和第三页完全对齐」，追报「第三页也没有对齐了」＝错位换页出现）＝桌面页内容 636px 在浏览器模式桌面区（~610px）下溢出 26px，而溢出全是不可见尾垫（最深实心盒下沿 604）⇒ 每页都成了可竖滚容器：斜滑翻页被内核轴锁判成竖向，滚动量落在起手那一页且无人复位 ⇒ 该页图标+文字整块上移几像素与另两页错开；旧验证全跑 390×844（桌面区 714>636，根本不可滚）⇒ 结构性看不见。护栏＝溢出全在不可见区就裁掉并归零滚动量，真溢出保持可滚 ==== */
-  { name: '#989a 判据：最深实心盒下沿仍在可视区内才算「翻下去什么也看不到」（删＝护栏不再裁不可见溢出，残留滚动量又留在页上）', file: 'js/desktop-slider.js', needle: 'inkBottom(sl, sl.getBoundingClientRect().top) <= sl.clientHeight + 1' },
+  { name: '#989a 判据：最深实心盒下沿仍在可视区内才算「翻下去什么也看不到」（删＝护栏不再裁不可见溢出，残留滚动量又留在页上；#1013 起该判据以未滚动内容坐标为基准）', file: 'js/desktop-slider.js', needle: 'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
   { name: '#989b 落刀：该页设 overflow-y:hidden 并归零滚动量（删＝页面仍是可竖滚容器，斜滑又能顶出滚动量）', file: 'js/desktop-slider.js', needle: "if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';" },
   { name: '#989c 防修过头：真溢出回落 auto（删＝用户往页里加满组件的页再也滚不到底部内容）', file: 'js/desktop-slider.js', needle: "if (sl.style.overflowY) sl.style.overflowY = '';" },
   { name: '#989d 滚动落定后复核（删＝斜滑留下的滚动量没人复位，错位永久留在那一页）', file: 'js/desktop-slider.js', needle: "pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);" },
   { name: '#989e 整页不可见时不得下判断（删＝开屏期 inkBottom 恒 0 被误判成「什么也看不到」，真溢出被裁掉）', file: 'js/desktop-slider.js', needle: "if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }" },
   { name: '#989f 回桌面当帧复核（删＝进桌面时残留错位仍在，用户一眼就看到没对齐）', file: 'js/desktop-slider.js', needle: 'pageScrollGuard.later(60);' },
+  { name: '#1013a 判据基准＝未滚动内容坐标（删 − scrollTop＝真溢出页滚到底被误判成「看不到东西」而弹回顶部＝用户报「桌面滑动会回拉，无法滑到下面」）', file: 'js/desktop-slider.js', needle: 'getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
+  { name: '#1013b 异步载荷到位后复核一次（删＝桌面图片组件解码前那一拍被误裁，之后没人再复核＝有内容在下方却永远滚不动）', file: 'js/desktop-slider.js', needle: "pages.addEventListener('load', () => pageScrollGuard.later(400), true);" },
   /* ==== 2026-09-21 #994 听歌邀请「同意后没小框也没播放」第二次实报（红米 K80 Chrome PWA；接受链路静默死亡出口再收口） ==== */
   { name: '#994a 邀请面板唯一实现（渲染+接线成对；删＝又出现「只渲染没接线」的死面板＝点了同意零反应）', file: 'js/music-player.js', needle: 'function openMusicInvitePanel(trackId, switching) {' },
   { name: '#994b 诊断邀请入口改走同一面板实现（删＝「诊断邀请→强制触发一次」又是死按钮）', file: 'js/music-player.js', needle: 'openMusicInvitePanel(track.id, false)' },

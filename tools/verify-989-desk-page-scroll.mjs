@@ -16,8 +16,14 @@
 //   C 组＝防修过头（两侧同过）：
 //     C1 高视口（无溢出）不得加任何内联 overflow（零视觉/零行为变化）
 //     C2 真溢出（页里加 200px 组件、图标被顶到折下）仍可竖滚（不得吞掉用户要看的内容）
+//        —— #1013 教训：本条只「写完立刻读再归零」＝恰好绕开「停不住」那一半，
+//           「滚到底被弹回顶部」就是在这里全绿上线的，落定后还在不在底部交给 D1 判
 //     C3 矮视口默认态三页图标行本来就对齐（护栏不得把好状态弄坏）
 //     C4 横向翻页仍可用（护栏不得破坏桌面分页：deskGo 翻页 + 圆点跟随）
+//   D 组＝#1013 真机症状面（vivo S30 / Edge 实报「在桌面滑动屏幕会回拉，无法滑到下面」）：
+//     D1 真溢出页滚到底后，连续再滚第二次仍不回弹（用户反复下滑＝反复被拉回顶部）
+//     D2 异步内容晚到（桌面图片组件解码前高 0px、那一拍被误判裁掉）在图片到位后必须自动解锁
+//     D3 上述自动解锁不得顺手把另两页的 #989 裁决改回去（另两页仍 hidden）
 //   Z1 全程零未捕获 JS 异常
 // 用法：node tools/verify-989-desk-page-scroll.mjs
 //       MOCHI_SERVE_ROOT=<产物目录> 做红绿对照（缺省回退仓库根产物——对照时务必显式传）。
@@ -43,8 +49,14 @@ if (!chromePath) { console.error('SKIP: 找不到 Chrome/Edge'); process.exit(2)
 if (typeof WebSocket !== 'function') { console.error('SKIP: 需要 Node 21+'); process.exit(2); }
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+// #1013 D3 夹具：延迟 1.4s 才回包的 1×1 PNG（＝桌面图片组件「解码前高 0px」那一拍）
+const SLOW_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const server = createServer((req, res) => {
   try {
+    if (req.url.indexOf('/__slow.png') === 0) {
+      setTimeout(() => { res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }); res.end(SLOW_PNG); }, 1400);
+      return;
+    }
     let p = normalize(join(root, decodeURIComponent(req.url.split('?')[0])));
     if (!p.startsWith(root)) { res.writeHead(403); res.end(); return; }
     if (statSync(p).isDirectory()) p = join(p, 'index.html');
@@ -115,7 +127,11 @@ const prodSlider = readProd('js/desktop-slider.js');
 // 逻辑锚（不是名字）：判据整行 + 归零整行 + 事件接线整行
 const NEEDLES = [
   ['S1 判据：溢出为 0 或「翻下去什么也看不到」才裁（删＝护栏失效，残留滚动量又留在页上）',
-    "const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top) <= sl.clientHeight + 1;"],
+    "const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;"],
+  ['S7 #1013 判据基准＝未滚动内容坐标（缺 − scrollTop＝页越滚到底越像「看不到东西」，滚到底被弹回顶部）',
+    'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop)'],
+  ['S8 #1013 异步载荷到位后复核（缺＝图片组件解码前那一拍被误裁，之后没人再复核＝有内容却滚不动）',
+    "pages.addEventListener('load', () => pageScrollGuard.later(400), true);"],
   ['S2 落刀：该页设 overflow-y:hidden 并归零滚动量（删＝页面仍是可竖滚容器）',
     "if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';"],
   ['S3 防修过头：真溢出回落 auto（删＝用户加满组件的页再也滚不到底部内容）',
@@ -235,6 +251,45 @@ const goObj = (() => { try { return JSON.parse(goRes); } catch (e) { return {}; 
 check('C3 横向翻页仍可用（deskGo 翻到第三页、圆点跟随）',
   goObj.idx === 2 && goObj.after > goObj.before && goObj.after >= goObj.w * 2 - 4, goRes);
 check('C4 翻页后三页图标行仍对齐', crossDelta(JSON.parse(await evalJs(rowsProbe) || '[]')).worst <= 0.6);
+
+// ---------- D 组：#1013 真机症状面（vivo S30 / Edge 实报「在桌面滑动屏幕会回拉，无法滑到下面」）----------
+console.log('[D] #1013 滚到底不回弹 / 异步图片晚到自动解锁');
+const injectTall1013 = (i, h) => evalJs("(function(){var sl=document.querySelectorAll('#desktop-pages .page-slide')[" + i + "];var g=sl.querySelector('.app-grid');var d=document.createElement('div');d.className='desk-clock glass';d.setAttribute('data-desk-widget','desk-clock');d.style.height='" + h + "px';d.style.margin='0 0 14px';sl.insertBefore(d,g||sl.firstChild);return true;})()");
+// 量「写完滚动量、等护栏复核落定之后」的态：top 仍停在底部且没被重新裁成 hidden
+const stayProbe = (i) => evalJs("(function(){var s=document.querySelectorAll('#desktop-pages .page-slide')[" + i + "];return JSON.stringify({max:s.scrollHeight-s.clientHeight,top:Math.round(s.scrollTop),oy:s.style.overflowY||'-'});})()");
+const scrollToBottom = (i) => evalJs("(function(){var s=document.querySelectorAll('#desktop-pages .page-slide')[" + i + "];s.scrollTop=s.scrollHeight-s.clientHeight;return s.scrollTop;})()");
+const stays = (o) => { try { const j = JSON.parse(o); return j.max > 100 && j.top >= j.max - 2 && j.oy !== 'hidden'; } catch (e) { return false; } };
+await setVp(393, 740);
+await boot();
+await injectTall1013(0, 260);
+await waitFor("(function(){return document.querySelectorAll('#desktop-pages .page-slide')[0].style.overflowY!=='hidden';})()", 4000);
+const q0 = JSON.parse(await stayProbe(0) || '{}');
+check('D0 前置：真溢出成立（该页可滚量 > 100px，否则本组无判别力）', q0.max > 100, await stayProbe(0));
+await scrollToBottom(0);
+await sleep(1600); // 护栏＝滚动后 300ms 防抖复核 + 80ms 吸附兜底，这里等过两轮
+const q1 = await stayProbe(0);
+check('D1 真溢出页滚到底、落定后仍停在底部（红侧＝弹回 top=0＝用户所见「回拉」）', stays(q1), q1);
+await scrollToBottom(0); // 用户不信邪再来一次
+await sleep(1600);
+const q2 = await stayProbe(0);
+check('D2 第二次滚到底同样不回弹', stays(q2), q2);
+// D3 异步载荷：桌面图片组件解码前高 0px（那一拍被 #989 裁成 hidden），到位后必须自动解锁
+await setVp(393, 740);
+await boot();
+await waitFor("(function(){return [].every.call(document.querySelectorAll('#desktop-pages .page-slide'),function(s){return s.style.overflowY==='hidden';});})()", 4000);
+await evalJs("(function(){var sl=document.querySelectorAll('#desktop-pages .page-slide')[1];var d=document.createElement('div');d.className='desk-image-widget';d.setAttribute('data-desk-widget','desk-image');var im=document.createElement('img');im.src='/__slow.png';d.appendChild(im);sl.appendChild(d);return true;})()");
+await sleep(3200); // 延迟回包 1.4s + 解码 + 护栏 400ms 复核
+const q3info = await evalJs("(function(){var P=[].slice.call(document.querySelectorAll('#desktop-pages .page-slide'));return JSON.stringify({overs:P.map(function(s){return s.scrollHeight-s.clientHeight;}),oy:P.map(function(s){return s.style.overflowY||'-';})});})()");
+const q3 = (() => { try { return JSON.parse(q3info); } catch (e) { return {}; } })();
+check('D3a 前置：图片到位后该页确实真溢出（>150px）', (q3.overs || [])[1] > 150, q3info);
+check('D3b 图片到位后该页自动解锁（红侧＝停在 hidden，有内容在下方却再也滚不动）',
+  (q3.oy || [])[1] !== 'hidden', q3info);
+await scrollToBottom(1);
+await sleep(1600);
+const q3d = await stayProbe(1);
+check('D3c 解锁后确实能滚到图片底部并停住', stays(q3d), q3d);
+const q3e = await evalJs("(function(){var P=[].slice.call(document.querySelectorAll('#desktop-pages .page-slide'));return P[0].style.overflowY+'|'+P[2].style.overflowY;})()");
+check('D3d #989 裁决未被顺手改坏（另两页不可见尾垫仍裁掉）', q3e === 'hidden|hidden', q3e);
 check('Z1 全程零未捕获 JS 异常', jsExcepts.length === 0, jsExcepts.join(' | '));
 
 try { if (ws) ws.close(); } catch (e) {}
