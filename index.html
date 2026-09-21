@@ -10494,9 +10494,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790000837961">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790001080314">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 22:27<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:31<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20183,12 +20183,20 @@ function autoReloadAllowed() {
 try { if (document.visibilityState === 'hidden') return true; } catch (e) {}
 return !_userActTs;
 }
+function bgLivenessOn() {
+try {
+if (!window.xyStore) return false;
+const st = window.xyStore('xy-home-v2');
+return st.get('bg-keepalive') === '1' || st.get('bg-notify') === '1';
+} catch (e) { return false; }
+}
 let _pendingAutoReload = false;
 function armAutoReloadWhenHidden() {
 if (_pendingAutoReload) return;
 _pendingAutoReload = true;
 const onHide = function () {
 try { if (document.visibilityState !== 'hidden') return; } catch (e) { return; }
+if (bgLivenessOn()) return; // #992：后台保活/后台通知开着＝后台要活着，不在后台换版
 try { location.reload(); } catch (e) {}
 };
 try { document.addEventListener('visibilitychange', onHide); } catch (e) {}
@@ -20205,6 +20213,7 @@ const VER_DL_WAIT = 180000; // 手动通道等 PRECACHE_DONE 的上限（弱网�
 function refreshNow(auto, autoTs, ackTs) {
 const doReload = function () {
 if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
+if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
 try { location.reload(); } catch (e) {}
 };
 const barEl = document.getElementById('ver-update-bar');
@@ -20987,4 +20996,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubca62x -->
+<!-- __MOCHI_EOF__ mubcfd2y -->

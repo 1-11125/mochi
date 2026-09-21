@@ -69,6 +69,55 @@ pages: dotsCache.length // 圆点数＝桌面页数（随手可得，不额外�
 };
 requestAnimationFrame(tick);
 }
+const pageScrollGuard = (function () {
+function inkBottom(sl, pageTop) {
+let maxB = 0;
+const all = sl.querySelectorAll('*');
+for (let i = 0; i < all.length; i++) {
+const el = all[i];
+if (el.children.length) continue;
+const c = getComputedStyle(el);
+if (c.display === 'none' || c.visibility === 'hidden') continue;
+if (c.position === 'absolute' || c.position === 'fixed') continue;
+const r = el.getBoundingClientRect();
+if (r.height <= 0) continue;
+const b = r.bottom - pageTop;
+if (b > maxB) maxB = b;
+}
+return maxB;
+}
+let timer = null, retries = 0;
+function later(ms) { clearTimeout(timer); timer = setTimeout(run, ms); }
+function run() {
+const slides = getSlides();
+let skipped = false;
+for (let i = 0; i < slides.length; i++) {
+const sl = slides[i];
+if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }
+const over = sl.scrollHeight - sl.clientHeight;
+const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top) <= sl.clientHeight + 1;
+if (blind) {
+if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';
+if (sl.scrollTop) sl.scrollTop = 0;
+} else {
+if (sl.style.overflowY) sl.style.overflowY = '';   // 回落到 CSS 的 auto
+if (over <= 0 && sl.scrollTop) sl.scrollTop = 0;
+}
+}
+if (skipped && retries < 8) { retries++; later(800); } else if (!skipped) retries = 0;
+}
+return { run: run, later: later };
+})();
+pageScrollGuard.run();
+pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);
+window.addEventListener('resize', () => pageScrollGuard.later(120));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pageScrollGuard.later(80); });
+try {
+new MutationObserver(() => pageScrollGuard.later(400)).observe(pages, { childList: true, subtree: true });
+} catch (e) {}
+try { document.addEventListener('mochi-restore-done', () => pageScrollGuard.later(400)); } catch (e) {}
+pageScrollGuard.later(900);
+setTimeout(() => pageScrollGuard.run(), 2600);
 const SW_KEY = 'xy-home-v2:__diag-swperf';
 const SW_FRAMES = 30;
 function swSample() {
@@ -126,6 +175,7 @@ if (!phonePage.hidden && pages.clientWidth) {
 refreshCache();
 pages.scrollLeft = idx * pageStep();
 sync();
+pageScrollGuard.later(60); // #989：回桌面复核一次（残留滚动量在进桌面当帧就修掉）
 swSample(); // #884：从聊天/其他页切回桌面那一刻现场采一段帧耗时
 }
 });
