@@ -230,11 +230,19 @@ let cf = {};
 try { cf = JSON.parse(confirm) || {}; } catch (e) { cf = {}; }
 ok(cf.open === true && String(cf.title).indexOf('贴贴邀请') >= 0, 'A6 贴贴邀请弹的是同意/拒绝确认框（标题「<昵称> 的贴贴邀请」）', confirm);
 await evalJs("(function(){var b=document.getElementById('modal-ok');if(b)b.click();return true;})()");
-await sleep(1100);
-let after = await evalJs("(function(){try{var m=window.getChatMsgs?window.getChatMsgs():[];var sys=[],tail=[];for(var i=Math.max(0,m.length-6);i<m.length;i++){var x=m[i]||{};var t=String(x.text||'');if(t.indexOf('你接受了')>=0)sys.push(t);tail.push(t);}return JSON.stringify({sys:sys,tail:tail});}catch(e){return 'ERR:'+e.message;}})()");
-let af = {};
-try { af = JSON.parse(after) || {}; } catch (e) { af = {}; }
+// 系统消息同步落、TA 的贴贴回应是异步打字链（addInTyped，随回复速度设置）：轮询等两条都出现，
+// 别用固定 sleep 判（实测固定 1.1s 有约 1/3 概率读早了＝假红）
 const CUDDLE_REPLIES = ['嗯……蹭到了。暖暖的，很喜欢。', '那我要贴很久哦，不许偷偷跑掉。', '手被握住了，就这样待一会儿。', '感觉到了，你在旁边。很安心。', '贴贴充电中……好，满格了。'];
+const READ_AFTER = "(function(){try{var m=window.getChatMsgs?window.getChatMsgs():[];var sys=[],tail=[];for(var i=Math.max(0,m.length-6);i<m.length;i++){var x=m[i]||{};var t=String(x.text||'');if(t.indexOf('你接受了')>=0)sys.push(t);tail.push(t);}return JSON.stringify({sys:sys,tail:tail});}catch(e){return 'ERR:'+e.message;}})()";
+let after = '', af = {};
+for (let i = 0; i < 16; i++) {
+  after = await evalJs(READ_AFTER);
+  try { af = JSON.parse(after) || {}; } catch (e) { af = {}; }
+  const hasSys = (af.sys || []).length > 0;
+  const hasReply = (af.tail || []).some((t) => CUDDLE_REPLIES.some((r) => t.indexOf(r) >= 0));
+  if (hasSys && hasReply) break;
+  await sleep(300);
+}
 ok((af.sys || []).some((t) => t.indexOf('你接受了') >= 0), 'A7 同意后落了「你接受了 … 的贴贴邀请」系统消息（#510 留痕口径没被这枚新入口绕开）', after);
 ok((af.tail || []).some((t) => CUDDLE_REPLIES.some((r) => t.indexOf(r) >= 0)), 'A8 同意后 TA 回了贴贴专属回应（走的是 sendTaInvite 的既有链路）', after);
 await evalJs(clearLayers);
