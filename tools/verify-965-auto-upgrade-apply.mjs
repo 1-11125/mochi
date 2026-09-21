@@ -48,8 +48,13 @@ const s965 = (build.match(/#965[a-d] /g) || []).length;
 check('S5 build.mjs 登记 #965a~d 四哨兵', s965 === 4, '实际 ' + s965);
 
 // —— 行为：把 armAutoReloadWhenHidden 段摘出来在独立 vm 沙箱里真跑 ——
-function loadArm() {
-  const start = pwa.indexOf('let _pendingAutoReload = false;');
+// #992 同步：本段现在依赖 bgLivenessOn()（读全局键 bg-keepalive / bg-notify 决定要不要在后台
+//   换版）——摘取范围要从 bgLivenessOn 定义起（否则沙箱里它是未定义标识符，onHide 直接抛错、
+//   B2/B3 假红），并给沙箱一个可控的 window.xyStore 桩：store 里没有的键一律返回 null＝两个开关
+//   都没开，B1~B4 的 #965 原语义不变；B5~B7 用桩注入「开着」的键验证 #992 闸门。
+function loadArm(store) {
+  const iGate = pwa.indexOf('function bgLivenessOn()');
+  const start = iGate >= 0 ? iGate : pwa.indexOf('let _pendingAutoReload = false;');
   const end = pwa.indexOf('// 无头验证专用探针');
   if (start < 0 || end < 0 || end <= start) return { err: '定位 arm 段失败' };
   const snippet = pwa.slice(start, end);
@@ -59,13 +64,17 @@ function loadArm() {
     get visibilityState() { return sandbox.visibility; }
   };
   const loc = { reload: function () { sandbox.reloads++; } };
+  const st = store || {};
+  const win = {
+    xyStore: function () { return { get: function (k) { return Object.prototype.hasOwnProperty.call(st, k) ? st[k] : null; } }; }
+  };
   let api = null;
   try {
-    const factory = new Function('document', 'location',
+    const factory = new Function('document', 'location', 'window',
       snippet + '\nreturn { arm: armAutoReloadWhenHidden, pending: function () { return _pendingAutoReload; } };');
-    api = factory(doc, loc);
+    api = factory(doc, loc, win);
   } catch (e) { sandbox.err = String((e && e.message) || e); }
-  return { api: api, sandbox: sandbox, err: sandbox.err };
+  return { api: api, sandbox: sandbox, err: sandbox.err, hasGate: iGate >= 0 };
 }
 function fire(sandbox) { sandbox.handlers.slice().forEach(function (h) { try { h(); } catch (e) {} }); }
 
@@ -96,6 +105,32 @@ function fire(sandbox) { sandbox.handlers.slice().forEach(function (h) { try { h
   else {
     h.api.arm(); h.api.arm(); h.api.arm();
     check('B4 重复登记只挂一个监听（got ' + h.sandbox.handlers.length + '）', h.sandbox.handlers.length === 1);
+  }
+}
+// ===== #992 追加：后台换版不得打断「后台保活 / 后台通知」=====
+{
+  const st = { 'bg-keepalive': '1' };
+  const h = loadArm(st);
+  if (!h.api) check('B5 保活开着时转 hidden 不 reload', false, h.err || '');
+  else {
+    h.api.arm();
+    h.sandbox.visibility = 'hidden';
+    fire(h.sandbox);
+    check('B5 保活开着时转 hidden 不 reload（#992，got reload=' + h.sandbox.reloads + '）', h.sandbox.reloads === 0);
+    // 关掉保活后再转一次 hidden → 待换版仍会落地（不长期卡旧版）
+    delete st['bg-keepalive'];
+    fire(h.sandbox);
+    check('B6 关掉保活后那次转 hidden 换版照常落地（got reload=' + h.sandbox.reloads + '）', h.sandbox.reloads === 1);
+  }
+}
+{
+  const h = loadArm({ 'bg-notify': '1' });
+  if (!h.api) check('B7 后台通知开着时转 hidden 不 reload', false, h.err || '');
+  else {
+    h.api.arm();
+    h.sandbox.visibility = 'hidden';
+    fire(h.sandbox);
+    check('B7 后台通知开着时转 hidden 不 reload（#992，got reload=' + h.sandbox.reloads + '）', h.sandbox.reloads === 0);
   }
 }
 check('Z 提取/运行全程零异常', true);
