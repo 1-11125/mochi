@@ -39,7 +39,9 @@ chk('S6 后台通知行补恢复口径', has('src/template.html', '失效后彻�
 chk('S7 使用说明第10节补「挂久了会截断/失效」条', has('src/template.html', '挂久了会截断/失效，怎么恢复'));
 chk('S8 第10节计数 14→15', has('src/template.html', '后台弹窗 · 怎么用（安卓 / 电脑）</span><span class="lg-count">15</span>'));
 chk('S9 开启即弹限制弹窗的调用在手动开启分支', has('src/js/bg-keep.js', 'if (keepEnabled) { startKeepAlive(true); kaOpenEnableHints(); }'));
-chk('S10 限制弹窗函数在位且走全站 openModal', has('src/js/bg-keep.js', "window.openModal('后台保活已开启 · 两条必知限制'"));
+// #1001 同步：开启弹窗从「两条必知限制」扩成「三条必知」（新增 ③ 开着保活不会在后台自动换新版），
+//   标题与条目一并更新；两条硬限制的文案断言（S11/S12）原样不动。
+chk('S10 限制弹窗函数在位且走全站 openModal（#1001 起为三条必知）', has('src/js/bg-keep.js', "window.openModal('后台保活已开启 · 三条必知'") && has('src/js/bg-keep.js', '③ 开着它时页面不会在后台自动换新版'));
 chk('S11 弹窗文案含音频截断限制', has('src/js/bg-keep.js', '① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道'));
 chk('S12 弹窗文案含挂久失效+恢复', has('src/js/bg-keep.js', '失效后请彻底关闭网页重新打开'));
 chk('S13 冻结回前台提示挂在心跳断流分支', has('src/js/bg-keep.js', 'kaHb.resumed - kaHb.ts > 90000') && has('src/js/bg-keep.js', 'kaHb.resumed - kaHb.hid >= 600000'));

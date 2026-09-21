@@ -4530,6 +4530,12 @@ const FIX_SENTINELS = [
   { name: '#1003m 手动触发仍守全局开关（删＝设置里关着跨桌面查岗也被偷偷触发，违背用户显式设定）', file: 'js/incoming-requests.js', needle: "_toast('联系人跨桌面查岗已关闭，可在 设置 里开启')" },
   { name: '#1003n 删除型：贴贴按钮不得退回全类型随机邀请（用户点贴贴收到猜拳＝本批要根治的形态）', file: 'js/chat.js', absent: true, needle: "bindTaNow('more-cuddle-now', () => { if (window.triggerTaInviteNow)" },
   { name: '#1003o 功能大全里能搜到新的手动触发（删＝用户在搜索里找不到这三枚）', file: 'js/feature-hub.js', needle: "'#more-xck-now'" },
+  // ===== #1001 把两条「设备/权限限制」当面讲清（用户直派「用户总是以为是bug，其实是设备限制」）=====
+  { name: '#1001a 上个后台会话被系统丢弃/关闭时当面提示（删＝这条实锤只剩诊断里，用户又把「回来自动刷新」当 bug）', file: 'js/bg-keep.js', needle: '上次挂着后台的那段会话被系统丢弃/关闭了' },
+  { name: '#1001b 通知开关开着但权限待决时当面提示（删＝开关亮着却不弹窗，用户报「开关坏了」）', file: 'js/bg-keep.js', needle: '但浏览器还没给通知权限' },
+  { name: '#1001c 设置行红条写明「开着保活/通知不会在后台自动换新版」（删＝用户把「不自动更新」当更新坏了）', file: 'template.html', needle: '开着「后台保活」或「后台通知」时，页面不会在后台自动换新版' },
+  { name: '#1001d 功能说明保活胶囊补同章（删＝只在一处口径，用户翻功能说明看不到）', file: 'js/settings-help.js', needle: '【开着保活时不会在后台自动换新版】' },
+  { name: '#1001e 使用说明「前提 2 · 通知权限」补权限待决口径（删＝与 #988 起「开关保持开启」的实际行为不符）', file: 'template.html', needle: '如果你还没在弹窗里做出选择（弹窗挂着没点、或直接切走了），开关会保持开启并提示你去允许' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

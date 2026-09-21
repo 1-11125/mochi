@@ -403,7 +403,11 @@ kaHbStop();
 });
 try {
 if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
-if (old && old.n > 0 && !old.resumed && !old.bye) { kaEv.died++; kaEvSave(); }
+if (old && old.n > 0 && !old.resumed && !old.bye) {
+kaEv.died++; kaEvSave();
+kaDiedNotice = true;
+tryShowKaDiedNotice();
+}
 }).catch(function () {});
 } catch (e) {}
 window.addEventListener('pagehide', function () {
@@ -411,6 +415,59 @@ if (!kaHb) return;
 kaHb.bye = 1;
 try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
 });
+let kaDiedNotice = false;
+let kaPermNoticeArmed = false;
+function kaLivenessOn() {
+try { return !!keepEnabled || !!notifyEnabled; } catch (e) { return false; }
+}
+function kaNoticeCool(key, ms) {
+try { const t = Number(gGet(key)) || 0; return t > 0 && (Date.now() - t) < ms; } catch (e) { return false; }
+}
+function kaNoticeStamp(key) { try { gSet(key, String(Date.now())); } catch (e) {} }
+function kaNoticeAfterSplash(fn) {
+try {
+if (chanSplashGone()) { fn(); return; }
+const s = document.getElementById('splash');
+if (!s) { fn(); return; }
+let done = false;
+let mo = null, moBody = null, tmr = null;
+const cleanup = function () {
+done = true;
+try { if (mo) mo.disconnect(); } catch (e) {}
+try { if (moBody) moBody.disconnect(); } catch (e) {}
+try { if (tmr) clearTimeout(tmr); } catch (e) {}
+};
+const fire = function () { if (done) return; cleanup(); try { fn(); } catch (e) {} };
+if (typeof MutationObserver === 'function') {
+mo = new MutationObserver(function () { if (chanSplashGone()) fire(); });
+try { mo.observe(s, { attributes: true, attributeFilter: ['class', 'hidden'] }); } catch (e) {}
+moBody = new MutationObserver(function () { if (!s.isConnected) fire(); });
+try { moBody.observe(document.body, { childList: true }); } catch (e) {}
+}
+tmr = setTimeout(cleanup, 90000);
+} catch (e) { try { fn(); } catch (e2) {} }
+}
+function tryShowKaDiedNotice() {
+if (!kaDiedNotice) return;
+if (!kaLivenessOn()) { kaDiedNotice = false; return; }        // 没开保活/通知＝用户不指望后台收消息
+if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
+try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+kaDiedNotice = false;
+kaNoticeStamp('__ka-died-note-at');
+toast('⚠ 上次挂着后台的那段会话被系统丢弃/关闭了（不是正常关页）\n这期间的后台消息与后台弹窗可能没收到；本页已重新加载，两个开关照旧开着\n经常出现：把本站加入浏览器「不睡眠 / 始终保持活动」名单，或彻底关闭网页重开后重新打开两个开关', 7000);
+}
+function nbPermPendingNotice() {
+try { if (!notifyEnabled) return; } catch (e) { return; }
+try { if (nbPermState() !== 'default') return; } catch (e) { return; }  // 已授权/已拒绝都不提示
+if (kaNoticeCool('__nb-perm-note-at', 12 * 3600 * 1000)) return;
+try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+kaNoticeStamp('__nb-perm-note-at');
+toast('⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
+}
+try {
+if (kaDiedNotice) kaNoticeAfterSplash(tryShowKaDiedNotice);
+setTimeout(function () { kaPermNoticeArmed = true; kaNoticeAfterSplash(nbPermPendingNotice); }, 20000);
+} catch (e) {}
 window.__kaProbe = function () {
 let audio = null, ms = null;
 try { audio = keepAudio && keepAudio.el ? { paused: !!keepAudio.el.paused, volume: keepAudio.el.volume, loop: !!keepAudio.el.loop } : null; } catch (e) {}
@@ -628,10 +685,10 @@ if (keepEnabled) { setKeepMediaSession(); syncKeepForMusic(); }
 function kaOpenEnableHints() {
 try {
 if (typeof window.openModal !== 'function') return;
-window.openModal('后台保活已开启 · 两条必知限制', '', function () {}, {
+window.openModal('后台保活已开启 · 三条必知', '', function () {}, {
 noInput: true, pillSubmit: true,
 pills: [{ label: '知道了', value: 'ok' }],
-staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。'
+staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。\n\n③ 开着它时页面不会在后台自动换新版（换版要重载页面、会把后台运行打断）：顶部出现「检测到新版本」条时，你自己挑时间点「刷新使用新版」即可；不点也不影响使用，下次彻底关闭网页重开会自然换到新版。'
 });
 } catch (e) {}
 }
@@ -1239,6 +1296,8 @@ return;
 }
 if (vis !== 'visible') return;
 nbPermRecheck();
+try { kaNoticeAfterSplash(tryShowKaDiedNotice); } catch (e) {}
+try { if (kaPermNoticeArmed) kaNoticeAfterSplash(nbPermPendingNotice); } catch (e) {}
 const saved = gGet('bg-notify');
 if (saved === '1') {
 const keepOn = keepEnabled;

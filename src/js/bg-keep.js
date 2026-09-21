@@ -585,9 +585,17 @@
   // （pagehide 告别标记）＝上个后台会话没能活着回来。pagehide 在关标签/导航时会触发、
   // 进程被杀/标签被丢弃时不会触发，恰好构成「有序结束 vs 暴毙」的判别（bye 标记只在
   // kaHb 存在的本会话写，避免把用户开着没用保活的会话误记成保活失效）。
+  // FIX 2026-09-21 #1001：这条实锤以前只有诊断里有数（测试按钮 / 信息诊断），用户侧零解释——
+  //   而「挂后台被系统丢弃重载」正是最容易被当成 bug 的设备限制（回来自动重载＝「页面自己刷新了」，
+  //   这段时间后台消息/弹窗本来就不存在）。本批把「上个后台会话暴毙」当面讲清：只在两个开关
+  //   开着（＝用户确实指望后台收消息）且页面在前台、开屏已关时提示一次，12h 冷却防唠叨。
   try {
     if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
-      if (old && old.n > 0 && !old.resumed && !old.bye) { kaEv.died++; kaEvSave(); }
+      if (old && old.n > 0 && !old.resumed && !old.bye) {
+        kaEv.died++; kaEvSave();
+        kaDiedNotice = true;
+        tryShowKaDiedNotice();
+      }
     }).catch(function () {});
   } catch (e) {}
   window.addEventListener('pagehide', function () {
@@ -595,6 +603,71 @@
     kaHb.bye = 1;
     try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
   });
+
+  // ===== FIX 2026-09-21 #1001：把两条「设备/权限限制」当面讲清（用户总当成 bug 的两类）=====
+  //   A. 上个后台会话被系统丢弃/关闭（页面被重载）——见上面 kaDiedNotice；
+  //   B. 「后台通知」开关开着但权限还没给（#988 起这种状态开关会保持开启、不再弹回）——
+  //      开关亮着却不弹窗，用户最容易报「功能坏了」，其实只是还没允许通知。
+  //   两条都只在「用户确实开着保活/通知」且页面在前台、开屏已关（#900 教训：开屏 z-999 之下
+  //   弹＝弹在看不见的地方）时提示；各自 12h 冷却，避免唠叨。
+  let kaDiedNotice = false;
+  let kaPermNoticeArmed = false;
+  function kaLivenessOn() {
+    // try 包住：notifyEnabled 在文件更后面才声明（同一 IIFE 内同步执行完毕后才会有异步回调），
+    // 万一某条路径提前跑到这里，读未初始化变量会抛 TDZ——按「没开」处理即可，不必崩
+    try { return !!keepEnabled || !!notifyEnabled; } catch (e) { return false; }
+  }
+  function kaNoticeCool(key, ms) {
+    try { const t = Number(gGet(key)) || 0; return t > 0 && (Date.now() - t) < ms; } catch (e) { return false; }
+  }
+  function kaNoticeStamp(key) { try { gSet(key, String(Date.now())); } catch (e) {} }
+  // 开屏关掉（或用户已在应用内）时执行一次——冷启动时开屏正盖着，直接弹等于没弹
+  function kaNoticeAfterSplash(fn) {
+    try {
+      if (chanSplashGone()) { fn(); return; }
+      const s = document.getElementById('splash');
+      if (!s) { fn(); return; }
+      let done = false;
+      let mo = null, moBody = null, tmr = null;
+      const cleanup = function () {
+        done = true;
+        try { if (mo) mo.disconnect(); } catch (e) {}
+        try { if (moBody) moBody.disconnect(); } catch (e) {}
+        try { if (tmr) clearTimeout(tmr); } catch (e) {}
+      };
+      const fire = function () { if (done) return; cleanup(); try { fn(); } catch (e) {} };
+      if (typeof MutationObserver === 'function') {
+        mo = new MutationObserver(function () { if (chanSplashGone()) fire(); });
+        try { mo.observe(s, { attributes: true, attributeFilter: ['class', 'hidden'] }); } catch (e) {}
+        moBody = new MutationObserver(function () { if (!s.isConnected) fire(); });
+        try { moBody.observe(document.body, { childList: true }); } catch (e) {}
+      }
+      // 兜底：90s 还没进页就作废（不当着开屏弹、也不留到很晚才突然弹）
+      tmr = setTimeout(cleanup, 90000);
+    } catch (e) { try { fn(); } catch (e2) {} }
+  }
+  function tryShowKaDiedNotice() {
+    if (!kaDiedNotice) return;
+    if (!kaLivenessOn()) { kaDiedNotice = false; return; }        // 没开保活/通知＝用户不指望后台收消息
+    if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
+    try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+    kaDiedNotice = false;
+    kaNoticeStamp('__ka-died-note-at');
+    toast('⚠ 上次挂着后台的那段会话被系统丢弃/关闭了（不是正常关页）\n这期间的后台消息与后台弹窗可能没收到；本页已重新加载，两个开关照旧开着\n经常出现：把本站加入浏览器「不睡眠 / 始终保持活动」名单，或彻底关闭网页重开后重新打开两个开关', 7000);
+  }
+  function nbPermPendingNotice() {
+    try { if (!notifyEnabled) return; } catch (e) { return; }
+    try { if (nbPermState() !== 'default') return; } catch (e) { return; }  // 已授权/已拒绝都不提示
+    if (kaNoticeCool('__nb-perm-note-at', 12 * 3600 * 1000)) return;
+    try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+    kaNoticeStamp('__nb-perm-note-at');
+    toast('⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
+  }
+  try {
+    if (kaDiedNotice) kaNoticeAfterSplash(tryShowKaDiedNotice);
+    // 权限待决：给 #921g 说的「瞬态误读」留出恢复时间，20s 后复查仍是 default 才提示
+    setTimeout(function () { kaPermNoticeArmed = true; kaNoticeAfterSplash(nbPermPendingNotice); }, 20000);
+  } catch (e) {}
 
   // #260：诊断出口——device.js「保活现场」行消费（诊断在用户操作时生成，与加载顺序无关）
   window.__kaProbe = function () {
@@ -919,10 +992,10 @@
   function kaOpenEnableHints() {
     try {
       if (typeof window.openModal !== 'function') return;
-      window.openModal('后台保活已开启 · 两条必知限制', '', function () {}, {
+      window.openModal('后台保活已开启 · 三条必知', '', function () {}, {
         noInput: true, pillSubmit: true,
         pills: [{ label: '知道了', value: 'ok' }],
-        staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。'
+        staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。\n\n③ 开着它时页面不会在后台自动换新版（换版要重载页面、会把后台运行打断）：顶部出现「检测到新版本」条时，你自己挑时间点「刷新使用新版」即可；不点也不影响使用，下次彻底关闭网页重开会自然换到新版。'
       });
     } catch (e) {}
   }
@@ -1766,6 +1839,10 @@
     // FIX 2026-09-21 #988：通知授权弹窗挂着时用户常切出去看/点「允许」——回前台立刻重查一次
     // 权限状态，待决的那一轮当场收口（不必等轮询到点，更不必让用户再点一次开关）
     nbPermRecheck();
+    // FIX 2026-09-21 #1001：两条「设备/权限限制」提示的回前台补出口——启动时页面若在后台
+    //（被系统丢弃重载后的常见形态），开屏/前台条件当场不满足，回前台这里补上
+    try { kaNoticeAfterSplash(tryShowKaDiedNotice); } catch (e) {}
+    try { if (kaPermNoticeArmed) kaNoticeAfterSplash(nbPermPendingNotice); } catch (e) {}
     const saved = gGet('bg-notify');
     if (saved === '1') {
       const keepOn = keepEnabled;
