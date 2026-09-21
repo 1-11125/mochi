@@ -29,8 +29,8 @@ console.log('[A] 数据层（mobile-adapt.js 劫持层：六轴 + 文字轴落�
 ok(adapt.includes("text: 'screen-adj-text'"), 'A1 KEYS 登记文字轴 LS 键（全局根命名空间，跨桌面共用）');
 ok(/RANGE = \{[^}]*text: \[0, 12\]/.test(adapt), 'A2 RANGE 逐轴取值范围：text=0~12（偏移轴仍是 ±80/±60）');
 ok(adapt.includes("if (adj.text) origSet('--mochi-text-adj', adj.text + 'px');"), 'A3 applyText 写 --mochi-text-adj（origSet 绕开自身包装层，幂等直写）');
-ok(/applyCached\(\) \{[\s\S]*?applyText\(\);\s*\}/.test(adapt), 'A4 applyCached 重放链挂上 applyText（缺环＝改了值要刷新才见效）');
-ok(adapt.includes("all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text }; },"), 'A5 all() 回满六轴（#707 旧版只回三轴＝面板桌面/整体位移显示 undefinedpx）');
+ok(/applyCached\(\) \{[\s\S]*?applyText\(\);/.test(adapt), 'A4 applyCached 重放链挂上 applyText（缺环＝改了值要刷新才见效；#794 起 applyText 后还有 applySide，故不锁收尾括号）');
+ok(adapt.includes("all: function () { return { top: adj.top, bottom: adj.bottom, h: adj.h, desk: adj.desk, shift: adj.shift, text: adj.text, side: adj.side }; },"), 'A5 all() 回满七轴（#707 旧版只回三轴＝面板桌面/整体位移显示 undefinedpx；#794 加 side 轴）');
 ok(!adapt.includes("return { top: adj.top, bottom: adj.bottom, h: adj.h };"), 'A6 负向：三轴旧 all() 已消灭（回潮即 A5 失效）');
 ok(adapt.includes("var rg = RANGE[k] || [-80, 80];\n      if (isNaN(v) || v < rg[0] || v > rg[1]) return false;"), 'A7 set() 按 RANGE 逐轴校验（文字轴塞不进负数/超限值）');
 
@@ -40,7 +40,7 @@ const s1 = pers.indexOf("getElementById('row-screen-adj')", s0);
 ok(s0 > 0 && s1 > s0, 'B0 面板 IIFE 可定位（#707\u2192#764 注释头 \u2192 入口接线）');
 const body = pers.slice(s0, s1 + 400);
 ok(body.includes("{ k: 'text', name: '\u6587\u5b57\u5927\u5c0f', min: 0, max: 12"), 'B1 AXES 第六轴「文字大小」注册');
-ok((body.match(/\{ k: '/g) || []).length === 6, 'B2 六轴齐全（=6，缺轴即面板回流五轴）');
+ok((body.match(/\{ k: '/g) || []).length === 7, 'B2 七轴齐全（=7，缺轴即面板回流；#794 加了 side 轴）');
 ok(body.includes("rng.type = 'range'") && body.includes("rng.setAttribute('data-adj-slider', ax.k);"), 'B3 range \u6ed1\u6746\u63a5\u7ebf\uff08\u6bcf\u8f74\u4e00\u6839 + data-adj-slider \u8eab\u4efd\uff09');
 ok(body.includes("rng.addEventListener('input', () => {\n          applyAxis(ax, parseInt(rng.value, 10) || 0, true);"), 'B4 input \u4e8b\u4ef6\u5373\u65f6\u843d\u5c42\uff08\u8fb9\u62d6\u8fb9\u770b\uff1b\u6539\u56de change \u624d\u843d\u5c42\uff1d\u62d6\u52a8\u65e0\u9884\u89c8\uff09');
 ok(body.includes("rng.addEventListener('dblclick', () => { applyAxis(ax, 0); })"), 'B5 \u53cc\u51fb\u6ed1\u6746\u590d\u4f4d 0');

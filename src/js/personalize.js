@@ -7697,7 +7697,133 @@ try {
       { k: 'side', name: '左右安全边', min: 0, max: 12, hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' }
     ];
     let panel = null;
+    let elGrip = null, elHead = null, elBody = null, elMini = null; // 面板四块（收起态只留胶囊）
+    // #940（用户 2026-09-20：「不是和边看边调一样半透明的，而且不能拖动滑动，不能预览其他页面」）
+    // 对齐美化抽屉三件套：72% 半透明底（#562 口径）、竖向拖动（#760 bindDockDrag 口径）。
+    // 拖动落位只记会话内、不落盘（纯 UI 位置，不碰数据层）。
+    // #962（用户 2026-09-21：「现在只能在这个设置里面调、不能在桌面的页面调，需要区分在桌面页面
+    // 调和在聊天页面里调，现在是盲调什么也看不见」）——无头实测（390×844）根因：面板贴底
+    // bottom:0 时占距底 0~338px，而底部导航占距底 18~82px、聊天输入栏占距底 0~43px，
+    // 连「收起」态也还占 0~70px ⇒ 切页的唯一入口（底部导航）与说话的唯一入口（输入栏）
+    // 被整条盖死，用户在设置里开了面板就再也走不到桌面/聊天页，只能对着设置列表盲调。
+    // 修法三条，零机型分支：①面板与胶囊自动停在底部操作区之上（量出来再让开）；
+    // ②收起＝一枚小胶囊（不再横贯底边，点一下展开、拖走可让位），带着它就能切页看现场；
+    // ③面板顶部显示「正在调：桌面/聊天」并给「看桌面 / 看聊天」直达按钮，桌面与聊天各自有入口。
+    let adjMini = false;   // true＝收起态小胶囊
+    let adjBottom = null;  // null＝自动让开底部操作区；否则＝距视口底 px（用户拖过的位置）
     const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
+
+    // 当前页面短名：胶囊与面板顶部都显示它＝用户一眼知道正在给哪一页调
+    function adjPageName() {
+      const vis = (id) => { const e = document.getElementById(id); return !!e && !e.hidden; };
+      if (vis('page-chat')) return '聊天';
+      if (vis('page-group-chat')) return '群聊';
+      if (vis('page-phone')) return '桌面';
+      if (vis('page-setting')) return '设置';
+      return '本页';
+    }
+    // 底部操作区留白：tab 页＝底部导航栏高度；聊天/群聊页＝输入栏高度。量不到退回 14px。
+    function bottomReserve() {
+      let gap = 14;
+      try {
+        const chat = document.getElementById('page-chat');
+        const gc = document.getElementById('page-group-chat');
+        const host = (chat && !chat.hidden) ? chat : ((gc && !gc.hidden) ? gc : null);
+        if (host) {
+          const row = host.querySelector('.chat-input-row, .gc-input-row');
+          const r = row && row.getBoundingClientRect();
+          if (r && r.height) return Math.max(gap, Math.round(window.innerHeight - r.top + 8));
+          return gap;
+        }
+        const tb = document.querySelector('.tabbar');
+        const t = tb && tb.getBoundingClientRect();
+        if (t && t.height && t.top > 0) gap = Math.max(gap, Math.round(window.innerHeight - t.top + 8));
+      } catch (e) {}
+      return gap;
+    }
+    function applyAdjPos() { if (panel) panel.style.bottom = (adjBottom == null ? bottomReserve() : adjBottom) + 'px'; }
+    function syncMiniLabel() {
+      if (!panel) return;
+      const nm = adjPageName();
+      const pg = panel.querySelector('[data-adj-page]');
+      if (pg) pg.textContent = nm;
+      const ctx = panel.querySelector('[data-adj-ctx]');
+      if (ctx) ctx.textContent = '正在调：' + nm;
+    }
+    // 收起/展开：只切四块的显隐与外壳形态（全内联，不依赖新增 CSS 文件）
+    function setMini(on) {
+      if (!panel) return;
+      adjMini = !!on;
+      panel.style.left = '0'; panel.style.right = '0';
+      if (adjMini) {
+        panel.style.width = 'max-content'; panel.style.maxWidth = '80vw'; panel.style.margin = '0 auto';
+        panel.style.borderRadius = '99px';
+        panel.style.padding = '8px 14px';
+        panel.style.overflow = 'visible';
+        panel.style.boxShadow = '0 6px 20px rgba(0,0,0,.22)';
+        panel.style.border = '1px solid var(--card-border,#ddd)';
+        // 胶囊就这么点大：半透明会让底层文字透上来糊成一片，这一态用实色（展开态回半透明）
+        panel.style.background = 'var(--card-bg,#fff)';
+        panel.style.display = 'block';
+      } else {
+        panel.style.width = ''; panel.style.maxWidth = ''; panel.style.margin = '';
+        panel.style.borderRadius = '16px 16px 0 0';
+        panel.style.padding = '0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)))';
+        panel.style.overflow = 'hidden auto';
+        panel.style.boxShadow = '0 -6px 24px rgba(0,0,0,.18)';
+        panel.style.border = 'none';
+        panel.style.background = 'var(--card-bg,#fff)';
+        panel.style.background = 'color-mix(in srgb, var(--card-bg,#fff) 72%, transparent)';
+        panel.style.display = 'flex';
+      }
+      if (elGrip) elGrip.style.display = adjMini ? 'none' : 'block';
+      if (elHead) elHead.style.display = adjMini ? 'none' : 'flex';
+      if (elBody) elBody.style.display = adjMini ? 'none' : 'flex';
+      if (elMini) elMini.style.display = adjMini ? 'flex' : 'none';
+      syncMiniLabel();
+      applyAdjPos();
+    }
+    // 切页后重算落位与页面名（只读观察 hidden 变化，不写页面状态＝不惊动 #336 的页面观察器）
+    let adjObs = null;
+    function watchAdjPages() {
+      if (adjObs || !('MutationObserver' in window)) return;
+      try {
+        adjObs = new MutationObserver(function () { applyAdjPos(); syncMiniLabel(); });
+        document.querySelectorAll('.page').forEach(function (p) { adjObs.observe(p, { attributes: true, attributeFilter: ['hidden'] }); });
+      } catch (e) { adjObs = null; }
+    }
+    function unwindAdjPages() { try { if (adjObs) adjObs.disconnect(); } catch (e) {} adjObs = null; }
+    // 拖动（面板把手与胶囊共用）：纵向改距底位置；胶囊态位移不足 6px 视为 tap＝展开
+    function bindAdjDrag(el, tapToOpen) {
+      el.style.touchAction = 'none';
+      let sy = 0, sb = 0, drag = false, moved = false;
+      el.addEventListener('pointerdown', (e) => {
+        if (!tapToOpen && adjMini) return; // 展开态把手：胶囊态下不参与
+        if (!tapToOpen && e.target.closest('button')) return; // header 里的按钮不参与拖动
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        drag = true; moved = false; sy = e.clientY;
+        sb = parseFloat(panel.style.bottom) || bottomReserve();
+        try { el.setPointerCapture(e.pointerId); } catch (er) {}
+        e.preventDefault();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        if (Math.abs(e.clientY - sy) > 6) moved = true;
+        if (!moved) return;
+        adjBottom = Math.max(0, Math.min(Math.round(window.innerHeight * 0.7), Math.round(sb + sy - e.clientY)));
+        applyAdjPos();
+      });
+      const up = () => {
+        if (!drag) return;
+        drag = false;
+        if (tapToOpen && !moved) { setMini(false); return; } // 胶囊：点一下＝展开
+        if (adjBottom != null && adjBottom <= bottomReserve() + 6) adjBottom = null; // 拖回自动位＝吸附复位
+        applyAdjPos();
+      };
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', () => { drag = false; });
+      el.style.cursor = 'grab';
+    }
     function valElOf(k) { return panel ? panel.querySelector('[data-adj-val="' + k + '"]') : null; }
     function sliderOf(k) { return panel ? panel.querySelector('[data-adj-slider="' + k + '"]') : null; }
     function refreshVals() {
@@ -7718,13 +7844,17 @@ try {
     function buildPanel() {
       panel = document.createElement('div');
       panel.id = 'screen-adj-panel';
-      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:62vh;background:var(--card-bg,#fff);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+      // #940：底色 72% 半透明（color-mix 不支持的老内核自动回落上一句纯色）＋高度 62vh→40vh，
+      // 与边看边调抽屉同口径；刻意不加 backdrop-filter——AGENTS 的 iOS 卡顿红线。
+      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
       panel.appendChild(grip);
+      bindAdjDrag(grip, false);
+      elGrip = grip;
       const head = document.createElement('div');
       head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
-      head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1">拖一下立即可见 · 本机永久保存（各设备各自调）</span>';
+      head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">拖标题行可上移 · 本机永久保存</span>';
       const done = document.createElement('button');
       done.textContent = '完成';
       done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
@@ -7752,11 +7882,49 @@ try {
       holdBtn.addEventListener('pointerdown', holdOn);
       ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { holdBtn.addEventListener(ev, holdOff); });
       head.insertBefore(holdBtn, done);
+      // #940：收起＝只剩 grip＋标题行，露出 tabbar 可切到桌面/聊天等页面看六轴现场（同抽屉口径）
+      const foldBtn = document.createElement('button');
+      foldBtn.textContent = '收起';
+      foldBtn.title = '收成一枚小胶囊（不挡底部导航/输入栏），切到桌面或聊天继续调';
+      foldBtn.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:99px;padding:6px 12px;cursor:pointer';
+      const adjBody = document.createElement('div');
+      adjBody.style.cssText = 'display:flex;flex-direction:column;gap:6px;flex:none';
+      elBody = adjBody;
+      // #962：收起＝整块收成小胶囊（原实现只折正文区，外壳仍横贯底边 70px 高、照样盖住底部导航）
+      foldBtn.addEventListener('click', () => { setMini(true); });
+      head.insertBefore(foldBtn, holdBtn);
       panel.appendChild(head);
+      elHead = head;
+      bindAdjDrag(head, false); // grip 只有 4px 高，标题行才是主拖拽把手
+      // #962：收起态胶囊——一枚小 chip（点一下展开、可拖走让位），头上带当前页面名
+      // ⇒ 用户带着它就能切到桌面/聊天看现场，一眼知道在给哪一页调
+      const mini = document.createElement('div');
+      mini.setAttribute('data-adj-mini', '');
+      mini.style.cssText = 'display:none;align-items:center;gap:8px;font-size:13px;font-weight:700;white-space:nowrap';
+      mini.innerHTML = '<span style="font-size:13px;font-weight:800">适配</span><span data-adj-page style="font-weight:600;color:#888">桌面</span><span style="font-weight:500;font-size:11px;color:#999">点开调 ›</span>';
+      bindAdjDrag(mini, true);
+      panel.appendChild(mini);
+      elMini = mini;
       const tip = document.createElement('div');
       tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
-      tip.textContent = '拖动滑杆边看边调（面板上方就是效果现场），双击滑杆回默认 0；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
-      panel.appendChild(tip);
+      tip.textContent = '拖动滑杆边看边调，双击滑杆回默认 0；「收起」变成小胶囊、不挡底部导航与输入栏，点「看桌面 / 看聊天」切到现场接着调；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
+      adjBody.appendChild(tip);
+      // #962：现场行——显示当前在给哪一页调，并可一键切到桌面/聊天（切完自动收成胶囊）
+      const ctx = document.createElement('div');
+      ctx.style.cssText = 'flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--card-border,#eee);border-radius:10px;padding:7px 10px;font-size:12px';
+      const ctxTxt = document.createElement('span');
+      ctxTxt.setAttribute('data-adj-ctx', '');
+      ctxTxt.style.cssText = 'flex:1;min-width:0;font-weight:600';
+      ctxTxt.textContent = '正在调：' + adjPageName();
+      ctx.appendChild(ctxTxt);
+      [['page-phone', '看桌面'], ['chat', '看聊天']].forEach(function (pair) {
+        const pb = document.createElement('button');
+        pb.textContent = pair[1];
+        pb.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:5px 12px;cursor:pointer';
+        pb.addEventListener('click', function () { goPage(pair[0]); });
+        ctx.appendChild(pb);
+      });
+      adjBody.appendChild(ctx);
       // #794：诊断建议行——打开面板即现场探测一次（device.js 只读采集+判定同源），
       // 有可修项才显示；点「一键修正」直接写入对应轴，不用再跑诊断报告
       try {
@@ -7779,7 +7947,7 @@ try {
             if (srow.parentNode) srow.remove();
           });
           srow.appendChild(sbtn);
-          panel.appendChild(srow);
+          adjBody.appendChild(srow);
         }
       } catch (eSug) {}
       const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
@@ -7812,7 +7980,7 @@ try {
         });
         rng.addEventListener('dblclick', () => { applyAxis(ax, 0); });
         row.appendChild(rng);
-        panel.appendChild(row);
+        adjBody.appendChild(row);
       });
       const reset = document.createElement('button');
       reset.textContent = '全部恢复默认（各轴归零）';
@@ -7821,7 +7989,7 @@ try {
         AXES.forEach(ax => applyAxis(ax, 0, true));
         toast('屏幕适配微调已全部恢复默认');
       });
-      panel.appendChild(reset);
+      adjBody.appendChild(reset);
       // #794：适配码（换机/情侣互帮）——把当前各轴值打成一串 MCADJ1 码，对方在
       // 「屏幕适配微调→导入适配码」粘贴即套用（值域校验走 mochiScreenAdj.set，
       // 越界/残缺项自动忽略，不会把对方面板写坏）
@@ -7888,16 +8056,52 @@ try {
         });
       });
       codeRow.appendChild(impBtn);
-      panel.appendChild(codeRow);
+      adjBody.appendChild(codeRow);
+      panel.appendChild(adjBody);
       document.body.appendChild(panel);
+      setMini(false); // 每次新建都从展开态起步（落位自动摆到底部操作区之上）
+      watchAdjPages();
     }
-    function closePanel() { if (panel) { panel.remove(); panel = null; } }
-    const entry = document.getElementById('row-screen-adj');
-    if (entry) entry.addEventListener('click', () => {
-      if (!panel) buildPanel();
+    function closePanel() { if (panel) { panel.remove(); panel = null; unwindAdjPages(); } }
+    // #962：切到桌面/聊天现场（面板里的「看桌面 / 看聊天」用）——切完自动收成胶囊，一眼看到那一页
+    function goPage(which) {
+      try {
+        if (which === 'chat') { if (typeof window.enterChat === 'function') window.enterChat(); }
+        else { const t = document.querySelector('.tab[data-page="page-phone"]'); if (t) t.click(); }
+      } catch (e) {}
+      setMini(true);
+      applyAdjPos();
+      syncMiniLabel();
+    }
+    function openAdjPanel() {
+      // #962：节点若被外部摘掉（页面重建/测试脚本 remove）就重建——否则 openAdjPanel 会对着
+      // 游离节点置 hidden=false：命令都执行了、屏上什么都没有（实测踩过）
+      if (!panel || !panel.isConnected) { panel = null; buildPanel(); }
       else panel.hidden = false; // 安卓返回键走 tabs.js 只置 hidden，重开要显回来（防 zombie 面板）
+      applyAdjPos();
       refreshVals();
+      syncMiniLabel();
+    }
+    // #962：三处入口收敛到同一个开面板动作——设置页（原有）＋聊天页「更多 → 工具」＋桌面页「装修模式栏」，
+    // 用户不用先钻进设置：在桌面/聊天现场就能开面板调，调的位置看得见＝不再盲调。
+    window.mochiOpenScreenAdj = openAdjPanel;
+    const entry = document.getElementById('row-screen-adj');
+    if (entry) entry.addEventListener('click', openAdjPanel);
+    const chatEntry = document.getElementById('more-screen-adj');
+    if (chatEntry) chatEntry.addEventListener('click', () => {
+      const mp = document.getElementById('chat-more-panel');
+      if (mp) mp.hidden = true; // 与其它 more-item 同口径：点了先把更多面板收掉
+      openAdjPanel();
     });
+    const decorEntry = document.getElementById('decor-fit');
+    if (decorEntry) decorEntry.addEventListener('click', () => {
+      try { if (window.exitDecor) window.exitDecor(); } catch (e) {} // 先退出装修模式再开面板，避免两层叠着看不清
+      openAdjPanel();
+    });
+    try {
+      window.addEventListener('resize', () => { applyAdjPos(); });
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (panel) applyAdjPos(); });
+    } catch (e) {}
   })();
 
   // 今日情话：每天固定随机一条（按日期种子，当天不变，隔天换新）
