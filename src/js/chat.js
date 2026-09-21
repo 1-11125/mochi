@@ -3597,6 +3597,29 @@ const fItem = favBtn.closest('[data-idx]');
 if (fItem && fItem.dataset.idx !== undefined) window.favCardFromMsg(Number(fItem.dataset.idx));
 return;
 }
+// #985：礼物卡的【领取】与【回复】——两条都只对「联系人送我的礼物」出现（giftSelf 的 TA 自买卡
+// 与历史卡不响应）。按钮点击必须 stopPropagation：礼物卡在 msg 容器内，冒泡上去会顶掉卡片自身的
+// 手势层（同下面心愿卡【送 TA】的口径）。
+const giftClaimBtn = e.target.closest('.msg-gift-claim');
+if (giftClaimBtn) {
+e.stopPropagation();
+const gItem = giftClaimBtn.closest('[data-idx]');
+const gIdx = gItem && gItem.dataset.idx !== undefined ? Number(gItem.dataset.idx) : -1;
+const gRec = gIdx >= 0 ? msgs[gIdx] : null;
+if (!gRec || gRec.special !== 'gift' || !giftIsIncoming(gRec)) return;
+giftClaimNow(gIdx);
+return;
+}
+const giftReplyBtn = e.target.closest('.msg-gift-reply');
+if (giftReplyBtn) {
+e.stopPropagation();
+const grItem = giftReplyBtn.closest('[data-idx]');
+const grIdx = grItem && grItem.dataset.idx !== undefined ? Number(grItem.dataset.idx) : -1;
+const grRec = grIdx >= 0 ? msgs[grIdx] : null;
+if (!grRec || grRec.special !== 'gift' || !giftIsIncoming(grRec)) return;
+giftReplyNow(grIdx);
+return;
+}
 // v3.26.x #660：聊天里「TA 的心愿」卡片点【送 TA】——复用市集购买弹窗（gift-shop 侧同一扣款 /
 // 心意柜 / 聊天送礼链路），成交回调把这张卡就地转「已送出」（不整窗重建，同红包 #230 口径）
 const wishBuyBtn = e.target.closest('.msg-wish-buy');
@@ -5092,6 +5115,8 @@ m.innerHTML = '<div class="msg-gift-card">' +
 '<div class="msg-gift-wish">\u201C' + escTxt(rec.giftWish || '心意') + '\u201D</div>' +
 '<div class="msg-gift-foot"><span class="mg-side">' + escTxt(sideTxt) + '</span>' +
 '<span class="msg-gift-price">\u00A5' + escTxt(Number(rec.giftPrice || 0).toFixed(2)) + '</span></div>' +
+giftCardReplHtml(rec) +
+giftCardActsHtml(rec) +
 favHeartHtml(rec) +
 '</div>';
 appendMsg(m);
@@ -6148,6 +6173,138 @@ if (opts && opts.enter && !chatVisible()) enterChat();
 return r;
 };
 window.chatAddGift = function (rec) { if (!rec.ts) rec.ts = Date.now(); return addRec(rec); };
+// ===== #985 礼物卡的【领取】与【追加回复】（用户 2026-09-21 直派）=====
+// 三条口径：
+// ①「联系人送我礼物」的卡片可点击领取——未点＝待领取（卡片与心意柜都标出来）；礼物本身早已
+//   进心意柜，没点也不会丢（用户选定「数据不丢＋状态仪式」，与红包那种硬闸门不同）。
+// ②卡片上可追加回复：这条回复同时 ①发进聊天消息 ②贴在这张礼物卡上 ③写进心意柜那件礼物。
+// ③联系人收礼后的自动回话（gift-shop #848）同样贴到「我送出」那张卡与心意柜上。
+// 领取态与追加回复的唯一来源＝心意柜那件记录（卡片只带 giftBoxId 指针，见 gift-shop.js 的
+// giftGiftMeta 注释：聊天大包对「改已有记录的字段」表达不出增量，写回聊天记录会被基线合并盖回去
+// ——实测连回两条后只剩后一条）。存量记录没有 giftBoxId（旧版自动收下的礼物）＝不出动作区。
+function giftMetaOf(rec) {
+  if (!rec || !rec.giftBoxId || !window.giftGiftMeta) return null;
+  try { return window.giftGiftMeta(rec.giftBoxId); } catch (e) { return null; }
+}
+function giftReplList(rec) {
+  const m = giftMetaOf(rec);
+  if (!m || !Array.isArray(m.replies)) return [];
+  return m.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+}
+function giftWhoLabel(who) { return who === 'me' ? '我' : chatPartnerName(); }
+function giftReplRows(rec) {
+  return giftReplList(rec).map(function (r) {
+    return '<div class="mg-repl-row"><span class="mg-repl-who">' + escTxt(giftWhoLabel(r.who)) + '</span><span class="mg-repl-tx">' + escTxt(r.text) + '</span></div>';
+  }).join('');
+}
+// 只有「真·联系人送我的礼物」有动作区：TA 自己买的礼物（giftSelf）不是送我，不收也不回；
+// 没有心意柜指针（存量卡）也没有可写的地方，同样不给动作区
+function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }
+function giftCardActsInner(rec) {
+  if (!giftIsIncoming(rec)) return '';
+  const meta = giftMetaOf(rec) || {};
+  const claim = meta.claimed === 0
+    ? '<button class="msg-gift-claim" type="button">领取</button>'
+    : (meta.claimed === 1 ? '<span class="msg-gift-got">\u2713 已领取</span>' : '');
+  return claim + '<button class="msg-gift-reply" type="button">回复</button>';
+}
+function giftCardActsHtml(rec) { return giftIsIncoming(rec) ? '<div class="msg-gift-acts">' + giftCardActsInner(rec) + '</div>' : ''; }
+function giftCardReplHtml(rec) {
+  return '<div class="msg-gift-repl"' + (giftReplList(rec).length ? '' : ' hidden') + '>' + giftReplRows(rec) + '</div>';
+}
+// 卡片就地打补丁（不整窗重建，同红包 #230/#517 口径）：只换动作区与回复区两个子块，其余节点零触碰
+function giftPatchCard(idx) {
+  const rec = msgs[idx];
+  if (!rec || rec.special !== 'gift' || !body) return false;
+  const el = body.querySelector('.msg-gift[data-idx="' + idx + '"]');
+  if (!el) return false;
+  const card = el.querySelector('.msg-gift-card');
+  if (!card) return false;
+  const anchorOf = function () { return card.querySelector('.msg-fav-heart'); };
+  const acts = card.querySelector('.msg-gift-acts');
+  const wantsActs = giftCardActsHtml(rec);
+  if (acts) {
+    if (wantsActs) acts.innerHTML = giftCardActsInner(rec);
+    else acts.remove();
+  } else if (wantsActs) {
+    const an = anchorOf();
+    if (an) an.insertAdjacentHTML('beforebegin', wantsActs); else card.insertAdjacentHTML('beforeend', wantsActs);
+  }
+  const repl = card.querySelector('.msg-gift-repl');
+  if (repl) { repl.innerHTML = giftReplRows(rec); repl.hidden = !giftReplList(rec).length; }
+  else if (giftReplList(rec).length) {
+    const an2 = anchorOf();
+    if (an2) an2.insertAdjacentHTML('beforebegin', giftCardReplHtml(rec)); else card.insertAdjacentHTML('beforeend', giftCardReplHtml(rec));
+  }
+  return true;
+}
+function giftClaimNow(idx) {
+  const rec = msgs[idx];
+  if (!giftIsIncoming(rec)) return false;
+  const meta = giftMetaOf(rec) || {};
+  if (meta.claimed === 1) return true;
+  // 领取态只写心意柜那件（同步落盘，可靠）；卡片按同一份数据重画
+  if (!window.giftBoxMarkClaimed) return false;
+  try { window.giftBoxMarkClaimed(rec.giftBoxId); } catch (e) { return false; }
+  try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
+  giftPatchCard(idx);
+  // 聊天留痕（与 #517 同一口径：反馈落在卡片状态与留痕上，不弹黑色浮层）
+  try { addIn('你收下了 ' + (rec.giftName || '礼物'), { special: 'poke' }); } catch (e2) {}
+  return true;
+}
+function giftReplyNow(idx) {
+  const rec = msgs[idx];
+  if (!giftIsIncoming(rec)) return false;
+  if (!window.openModal) return false;
+  // #985（用户追加口径 2026-09-21）：「原本礼物的文案要显示，我可以自己选择删除或者保留，直接
+  // 追加回复。聊天里只显示追加回复，卡片里显示礼物原本文案和追加回复」——输入框**预填这件礼物
+  // 原本的文案**（送礼人写的那句留言）：留着它就是「引用原文回一句」，删掉就直接写自己的。
+  // 成交时按「原文是否仍留在开头」切出真正新增的那段：added＝聊天里发出去的那句，卡片上则是
+  // 「原本文案（卡片正文本来就一直在）＋ 追加回复」两处都在；原文被删/被改写则整段都算我的回复。
+  const orig = String(rec.giftWish || '').trim();
+  window.openModal('回复 ' + chatPartnerName(), orig, function (v) {
+    const full = String(v == null ? '' : v).trim();
+    if (!full) return;
+    const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;
+    if (!added) return;   // 原文一字未动＝这次没追加任何内容，不产生空回复
+    addOut(added);                                 // ① 只把新增的这句发进聊天消息
+    // ② 写进心意柜那件礼物（唯一存处，同步可靠）→ 卡片按同一份数据重画，原文与回复并排显示
+    try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', added); } catch (e) {}
+    giftPatchCard(idx);
+    try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
+  }, { placeholder: '接着写你的回复', staticText: '上面是这件礼物原本的文案：删掉它～就直接回一句自己的；留着它～接在后面就是「引用着原文回」。聊天里只发你新加的那句，卡片上原文与回复都在。' });
+  return true;
+}
+// #985：给 gift-shop 的 TA 回话贴卡用（回话只写那件礼物的心意柜记录＝卡片渲染的数据源）。
+// 延迟窗（0.9~2.4s）里用户可能已切桌面——跨桌面先在那张卡上认出心意柜指针（chatDeskCardReply
+// 的读改写含 #127 增量日志合并与 #90 空库守卫），再按 cid 写那个桌面的心意柜。
+window.chatGiftAttachReplyTo = function (cid, giftTs, who, text, recRef) {
+  try {
+    if (!giftTs || !text) return false;
+    const whoNorm = who === 'me' ? 'me' : 'ta';
+    if ((window.__activeCid || 'default') === cid) {
+      let rec = null, idx = -1;
+      if (recRef && msgs.indexOf(recRef) >= 0) { rec = recRef; idx = msgs.indexOf(recRef); }
+      if (!rec) {
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const r = msgs[i];
+          if (r && r.special === 'gift' && r.ts === giftTs) { rec = r; idx = i; break; }
+        }
+      }
+      if (!rec) return false;
+      if (!rec.giftBoxId) return false;   // 存量卡没有心意柜指针＝没有可写的地方（不出动作区，同渲染口径）
+      if (window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, whoNorm, text, cid);
+      giftPatchCard(idx);
+      return true;
+    }
+    if (!window.chatDeskCardReply) return false;
+    // 跨桌面：先在那张卡上认出它的心意柜指针，再写那个桌面的心意柜（giftBoxAttachReply 按 cid 写回）
+    window.chatDeskCardReply(cid, 'gift', giftTs, '', function (hit) {
+      if (hit && hit.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(hit.giftBoxId, whoNorm, text, cid);
+    }, null, null);
+    return true;
+  } catch (e) { return false; }
+};
 // v3.14.x：跨桌面安全追加一条系统消息到指定联系人的聊天记录——
 // call.js notifyCallEnd / feed.js notifyFeedPostToChat / mail.js notifyMailToChat 共用。
 // 旧实现各自「idbGet → push → idbSet 整包写回」，idbGet 超时兜底返回 undefined 时

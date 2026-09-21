@@ -46,9 +46,11 @@ const POOL_WISH = poolOf('GIFT_REPLY_WISH');
 {
   ok(/giftReplyOn: s\.giftReplyOn === 0 \? 0 : 1, giftReplyPct: clampPct\(s\.giftReplyPct, 60\), giftReplyMode: clampMode\(s\.giftReplyMode, 1\)/.test(gsSrc),
     'S1 三键默认值＝开 / 60% / 聊天档（未设置过的用户直接生效，用户点名「要默认开启」）');
-  ok(/if \(side === 'out'\) giftReplyFeedback\(gift\);/.test(gsSrc),
+  // #985 同批换锚（2026-09-21）：giftReplyFeedback 多了 chatRec 入参（要把这句回话同时贴到那张
+  // 礼物卡与心意柜那件上），语义一字未变——仍是「out 侧送出即挂门控」「总开关关＝完全不回话」
+  ok(/if \(side === 'out'\) giftReplyFeedback\(gift, rec\);/.test(gsSrc),
     'S2 送出即挂回应门控（任一送礼途径都经 buyAndSend）');
-  ok(/function giftReplyFeedback\(gift\) \{[\s\S]{0,400}if \(!st\.giftReplyOn\) return;/.test(gsSrc),
+  ok(/function giftReplyFeedback\(gift, chatRec\) \{[\s\S]{0,400}if \(!st\.giftReplyOn\) return;/.test(gsSrc),
     'S3 总开关硬闸（关＝完全不回话）');
   ok(/Math\.random\(\) \* 100 >= clampPct\(st\.giftReplyPct, 60\)/.test(gsSrc), 'S4 概率读设置并钳制');
   ok(/const useChatStyle = mode === 1 \|\| \(mode === 2 && Math\.random\(\) < 0\.4\);/.test(gsSrc),

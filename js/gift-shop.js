@@ -697,6 +697,25 @@ rescueBatch(DEF_V3_IDS, 'market-migrated-v3');
 const BOX_KEY = 'giftbox-items';
 function boxLoad() { try { const s = store(); if (!s) return []; return JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { return []; } }
 function boxSave(a) { const s = store(); if (s) s.set(BOX_KEY, JSON.stringify(a)); }
+let _boxMeta = null;
+function boxMetaInvalidate() { _boxMeta = null; }
+function boxMetaMap() {
+if (_boxMeta) return _boxMeta;
+const m = {};
+try {
+const list = boxLoad();
+if (Array.isArray(list)) list.forEach(function (it) {
+if (!it || !it.id) return;
+m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: Array.isArray(it.replies) ? it.replies : [] };
+});
+} catch (e) {}
+_boxMeta = m;
+return m;
+}
+window.giftGiftMeta = function (boxId) {
+if (!boxId) return null;
+try { return boxMetaMap()[boxId] || null; } catch (e) { return null; }
+};
 const WL_MY_KEY = 'gift-wishlist';
 const WL_TA_KEY = 'gift-wishlist-ta';
 const WL_SETTINGS_KEY = 'market-wl-settings';
@@ -820,12 +839,17 @@ if (extras.length) wish += ' ' + extras.join(' ');
 return wish;
 }
 function boxEntry(gift, side, wish) {
-return { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() };
+const e = { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now(), replies: [] };
+if (side === 'in') e.claimed = 0;
+return e;
 }
 function recordBox(gift, side, wish) {
 const box = boxLoad();
-box.unshift(boxEntry(gift, side, wish));
+const entry = boxEntry(gift, side, wish);
+box.unshift(entry);
 boxSave(box);
+boxMetaInvalidate();
+return entry;
 }
 window.recordGiftBox = recordBox;
 function boxStoreFor(cid) {
@@ -850,12 +874,59 @@ const s = boxStoreFor(cid);
 let box = [];
 try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
 if (!Array.isArray(box)) box = [];
-box.unshift(boxEntry(gift, side, wish));
+const entry = boxEntry(gift, side, wish);
+box.unshift(entry);
 s.set(BOX_KEY, JSON.stringify(box));
+boxMetaInvalidate();
+return entry;
 }
+function boxAttachReply(cid, boxId, who, text) {
+if (!boxId || !text) return false;
+const s = boxStoreFor(cid);
+let box = [];
+try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+if (!Array.isArray(box)) return false;
+for (let i = 0; i < box.length; i++) {
+const it = box[i];
+if (it && it.id === boxId) {
+if (!Array.isArray(it.replies)) it.replies = [];
+it.replies.push({ who: who === 'me' ? 'me' : 'ta', text: String(text), ts: Date.now() });
+try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
+boxMetaInvalidate();
+return true;
+}
+}
+return false;
+}
+window.giftBoxAttachReply = function (boxId, who, text, cid) {
+try { return boxAttachReply(cid || (window.__activeCid || 'default'), boxId, who, text); } catch (e) { return false; }
+};
+function boxMarkClaimed(cid, boxId) {
+if (!boxId) return false;
+const s = boxStoreFor(cid);
+let box = [];
+try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+if (!Array.isArray(box)) return false;
+for (let i = 0; i < box.length; i++) {
+const it = box[i];
+if (it && it.id === boxId) {
+it.claimed = 1;
+try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
+boxMetaInvalidate();
+return true;
+}
+}
+return false;
+}
+window.giftBoxMarkClaimed = function (boxId, cid) {
+try { return boxMarkClaimed(cid || (window.__activeCid || 'default'), boxId); } catch (e) { return false; }
+};
+window.giftBoxLiveRefresh = function () {
+try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
+};
 const GIFT_REPLY_GENERIC = ['哇，谢谢亲爱的～', '你怎么知道我想要这个！', '收到啦，超喜欢❤', '破费啦，我好好收着', '嘿嘿，被你宠到了', '这份我喜欢，收下啦', '已经摆进心意柜最上层了'];
 const GIFT_REPLY_WISH = ['我的心愿被你实现啦！', '真的买下啦…说好不让你乱花钱的', '许愿时没想过真能收到，谢谢～', '心愿单少了一件，开心值满格', '你记得我的心愿，这个最戳我'];
-function giftReplyFeedback(gift) {
+function giftReplyFeedback(gift, chatRec) {
 const st = wlSettings();
 if (!st.giftReplyOn) return;
 if (Math.random() * 100 >= clampPct(st.giftReplyPct, 60)) return;
@@ -871,6 +942,10 @@ let txt = '';
 if (useChatStyle && window.genChatStyleReply) txt = String(window.genChatStyleReply() || '').trim();
 if (!txt) txt = preset();
 if (!txt) return;
+var boxId = chatRec && chatRec.giftBoxId;
+try { if (window.chatGiftAttachReplyTo && chatRec) window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRA) {}
+try { if (boxId) boxAttachReply(cid, boxId, 'ta', txt); } catch (eRB) {}
+try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
 if ((window.__activeCid || 'default') === cid) {
 if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
 else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
@@ -887,10 +962,11 @@ if (side === 'out') { w.myBalance -= priceFen; }
 else { w.systemBalance -= priceFen; }
 walletSet(w);
 const rec = { side: side, special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
+const entry = recordBox(gift, side, wish);
+if (entry && entry.id) rec.giftBoxId = entry.id;
 if (window.chatAddGift) window.chatAddGift(rec); else if (window.chatAddIn) window.chatAddIn('', { special: 'gift' });
-recordBox(gift, side, wish);
 if (window.logFish) window.logFish();
-if (side === 'out') giftReplyFeedback(gift);
+if (side === 'out') giftReplyFeedback(gift, rec);
 return true;
 }
 const AUTO_DAILY_PREFIX = 'ml2_gift_daily_';
@@ -902,11 +978,13 @@ setTimeout(function () {
 try {
 const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
 if ((window.__activeCid || 'default') === cid) {
+const entry = recordBox(gift, 'in', wish);
+if (entry && entry.id) rec.giftBoxId = entry.id;
 if (window.chatAddGift) window.chatAddGift(rec);
-recordBox(gift, 'in', wish);
 } else {
+const entryAt = recordBoxAt(cid, gift, 'in', wish);
+if (entryAt && entryAt.id) rec.giftBoxId = entryAt.id;
 if (window.chatAppendDeskRec) window.chatAppendDeskRec(cid, rec);
-recordBoxAt(cid, gift, 'in', wish);
 }
 if (window.logFish) window.logFish();
 } catch (e) {}
@@ -940,11 +1018,13 @@ dayIncr(SELF_DAILY_PREFIX);
 setTimeout(function () {
 const chatRec = { side: 'in', special: 'gift', giftId: gift0.id, giftName: gift0.name, giftEmoji: gift0.emoji, giftImg: gift0.img || '', giftPrice: gift0.price, giftWish: wish0, giftCat: gift0.cat, giftSelf: 1, ts: Date.now() };
 if ((window.__activeCid || 'default') === myCid) {
-recordBox(gift0, 'self', wish0);
+const entrySelf = recordBox(gift0, 'self', wish0);
+if (entrySelf && entrySelf.id) chatRec.giftBoxId = entrySelf.id; // #985：卡片与心意柜互指（同 buyAndSend）
 if (st.selfChatOn && window.chatAddGift) window.chatAddGift(chatRec);
 else toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
 } else {
-recordBoxAt(myCid, gift0, 'self', wish0);
+const entrySelfAt = recordBoxAt(myCid, gift0, 'self', wish0);
+if (entrySelfAt && entrySelfAt.id) chatRec.giftBoxId = entrySelfAt.id;
 if (st.selfChatOn && window.chatAppendDeskRec) window.chatAppendDeskRec(myCid, chatRec);
 }
 }, randInt(1500, 4000));
@@ -1513,6 +1593,17 @@ if (boxTawish) boxTawish.textContent = '☆ 看看 ' + pn + ' 的心愿单';
 const gwBtn = document.getElementById('gift-wish-ta');
 if (gwBtn) gwBtn.textContent = '看看 ' + pn + ' 的心愿单';
 }
+function boxReplies(it) {
+if (!it || !Array.isArray(it.replies)) return [];
+return it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+}
+function boxWhoLabel(who) { return who === 'me' ? '我' : partnerName(); }
+function boxReplyRows(it) {
+return boxReplies(it).map(function (r) {
+return '<div class="giftbox-repl-row"><span class="giftbox-repl-who">' + esc(boxWhoLabel(r.who)) + '</span><span class="giftbox-repl-tx">' + esc(r.text) + '</span></div>';
+}).join('');
+}
+function boxPending(it) { return !!(it && it.side === 'in' && it.claimed === 0); }
 function renderBox() {
 syncGiftNames();
 const list = boxLoad();
@@ -1543,6 +1634,8 @@ return '<div class="giftbox-card" data-id="' + esc(it.id) + '">' +
 '<div class="giftbox-name">' + esc(it.name) + '</div>' +
 '<div class="giftbox-price">¥' + Number(it.price || 0).toFixed(2) + '</div>' +
 '<div class="giftbox-wish">"' + esc(it.wish || '心意') + '"</div>' +
+(boxPending(it) ? '<div class="giftbox-pending">待领取</div>' : '') +
+(boxReplies(it).length ? '<div class="giftbox-repls">' + boxReplyRows(it) + '</div>' : '') +
 '<div class="giftbox-meta">' + esc(from) + ' · ' + esc(fmtTime(it.tm)) + '</div>' +
 '</div>' +
 '</div>';
@@ -1559,6 +1652,10 @@ const html =
 '<div class="gb-detail-price">¥' + Number(it.price || 0).toFixed(2) + '</div>' +
 '<div class="gb-detail-wish">"' + esc(it.wish || '心意') + '"</div>' +
 '<div class="gb-detail-meta">' + esc(from) + ' · ' + esc(fmtTime(it.tm)) + '</div>' +
+(boxPending(it) ? '<div class="giftbox-pending gb-detail-pending">待领取</div>' : '') +
+(boxReplies(it).length
+? '<div class="gb-detail-repl-title">这件礼物上的回复</div><div class="gb-detail-repls">' + boxReplyRows(it) + '</div>'
+: '') +
 '</div>';
 window.openTCPanel('心意柜', html);
 });

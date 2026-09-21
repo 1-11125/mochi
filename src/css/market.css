@@ -16,6 +16,21 @@
 .msg-gift-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 .mg-side { font-size: 11px; color: #b5b5b5; letter-spacing: 0.5px; }
 .msg-gift-price { font-size: 11px; color: #c8c8c8; letter-spacing: 0.3px; }
+/* ===== #985 礼物卡的【领取】/【回复】与卡片上的回复行（用户 2026-09-21 直派）=====
+   动作区沿用 #660 心愿卡的主按钮尺度（同圆角/同高度）：领取是实心主按钮、回复是描边次按钮；
+   回复行是卡片内的小字（左对齐，因为它是「对话」而不是卡片信息）。 */
+.msg-gift-acts { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.msg-gift-claim { flex: 1; padding: 10px 0; border-radius: 13px; border: none; background: #111; color: #fff; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: transform 0.15s; -webkit-tap-highlight-color: transparent; }
+.msg-gift-claim:active { transform: scale(0.97); }
+.msg-gift-got { flex: 1; font-size: 12.5px; color: #b5b5b5; letter-spacing: 0.5px; }
+.msg-gift-reply { flex: 1; padding: 10px 0; border-radius: 13px; border: 1px solid #e2e2e2; background: transparent; color: #333; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: transform 0.15s; -webkit-tap-highlight-color: transparent; }
+.msg-gift-reply:active { transform: scale(0.97); }
+.msg-gift-repl { margin-top: 12px; padding-top: 11px; border-top: 1px solid #f0f0f0; text-align: left; }
+.msg-gift-repl[hidden] { display: none; }
+.mg-repl-row { display: flex; gap: 6px; font-size: 12.5px; line-height: 1.65; margin-top: 6px; }
+.mg-repl-row:first-child { margin-top: 0; }
+.mg-repl-who { flex: none; color: #b5b5b5; }
+.mg-repl-tx { flex: 1; color: #333; word-break: break-word; }
 /* ===== #660 「TA 的心愿」卡（TA 把商品加进自己心愿单时按概率发来，可一键买下送 TA） =====
    复用 .msg-gift-card 骨架（同宽/同圆角/同 emoji 圆底），只加一行心愿标签 + 底部主按钮。 */
 .msg-wish-card { padding-top: 14px; }
@@ -169,6 +184,16 @@
 .giftbox-price { font-size: 12px; color: #b5b5b5; margin-top: 3px; }
 .giftbox-wish { font-size: 12px; color: #8a8a8a; margin-top: 6px; line-height: 1.5; word-break: break-word; padding: 0 2px; }
 .giftbox-meta { font-size: 10.5px; color: #c8c8c8; margin-top: 6px; }
+/* #985：心意柜卡片/详情里的「待领取」与这件礼物上的回复（与聊天卡片同一份数据、同一套口径） */
+.giftbox-pending { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 99px; background: #fdecec; color: #c22b27; font-size: 10.5px; letter-spacing: 0.5px; }
+.giftbox-repls { margin-top: 6px; text-align: left; padding: 0 2px; }
+.giftbox-repl-row { display: flex; gap: 6px; font-size: 11.5px; line-height: 1.6; margin-top: 4px; }
+.giftbox-repl-row:first-child { margin-top: 0; }
+.giftbox-repl-who { flex: none; color: #c8c8c8; }
+.giftbox-repl-tx { flex: 1; color: #6a6a6a; word-break: break-word; }
+.gb-detail-pending { margin-top: 12px; font-size: 12px; }
+.gb-detail-repl-title { margin-top: 18px; font-size: 11.5px; color: #b5b5b5; letter-spacing: 0.5px; }
+.gb-detail-repls { margin: 10px 20px 0; }
 
 /* ===== 购买弹窗 ===== */
 .gb-preview { text-align: center; padding: 18px 0 18px; border-radius: 16px; margin-bottom: 16px; }
@@ -219,6 +244,17 @@ textarea.gm-input { min-height: 52px; resize: none; }
 [data-theme="dark"] .giftbox-card { background: #1c1c1e; border-color: rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .gift-item-name, [data-theme="dark"] .gb-desc, [data-theme="dark"] .gb-wish-label, [data-theme="dark"] .gm-row label { color: #c9c9cf; }
 [data-theme="dark"] .giftbox-wish { color: #98989e; }
+/* #985 深色：回复行提亮到可读、待领取按暗底浅红；回复按钮描边改浅色边（深底上与 .msg-gift-claim
+   的实心白按钮一起看，两者层级仍分明） */
+[data-theme="dark"] .msg-gift-reply { border-color: rgba(255, 255, 255, 0.16); color: #e8e8ea; }
+[data-theme="dark"] .msg-gift-got { color: #6f6f75; }
+[data-theme="dark"] .msg-gift-repl { border-top-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .mg-repl-tx { color: #dcdce0; }
+[data-theme="dark"] .mg-repl-who { color: #6f6f75; }
+[data-theme="dark"] .giftbox-pending { background: rgba(194, 43, 39, 0.18); color: #f09a97; }
+[data-theme="dark"] .giftbox-repl-who { color: #6b6b70; }
+[data-theme="dark"] .giftbox-repl-tx { color: #c9c9cf; }
+[data-theme="dark"] .gb-detail-repl-title { color: #8a8a8e; }
 [data-theme="dark"] .gift-cat, [data-theme="dark"] .gb-cancel { background: rgba(255, 255, 255, 0.08); color: #c9c9cf; }
 [data-theme="dark"] .gb-tab { background: rgba(255, 255, 255, 0.08); color: #c9c9cf; }
 [data-theme="dark"] .gb-tab.sel { background: #f5f5f5; color: #111; }

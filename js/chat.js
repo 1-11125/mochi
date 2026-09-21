@@ -2689,6 +2689,26 @@ const fItem = favBtn.closest('[data-idx]');
 if (fItem && fItem.dataset.idx !== undefined) window.favCardFromMsg(Number(fItem.dataset.idx));
 return;
 }
+const giftClaimBtn = e.target.closest('.msg-gift-claim');
+if (giftClaimBtn) {
+e.stopPropagation();
+const gItem = giftClaimBtn.closest('[data-idx]');
+const gIdx = gItem && gItem.dataset.idx !== undefined ? Number(gItem.dataset.idx) : -1;
+const gRec = gIdx >= 0 ? msgs[gIdx] : null;
+if (!gRec || gRec.special !== 'gift' || !giftIsIncoming(gRec)) return;
+giftClaimNow(gIdx);
+return;
+}
+const giftReplyBtn = e.target.closest('.msg-gift-reply');
+if (giftReplyBtn) {
+e.stopPropagation();
+const grItem = giftReplyBtn.closest('[data-idx]');
+const grIdx = grItem && grItem.dataset.idx !== undefined ? Number(grItem.dataset.idx) : -1;
+const grRec = grIdx >= 0 ? msgs[grIdx] : null;
+if (!grRec || grRec.special !== 'gift' || !giftIsIncoming(grRec)) return;
+giftReplyNow(grIdx);
+return;
+}
 const wishBuyBtn = e.target.closest('.msg-wish-buy');
 if (wishBuyBtn) {
 e.stopPropagation();
@@ -3847,6 +3867,8 @@ m.innerHTML = '<div class="msg-gift-card">' +
 '<div class="msg-gift-wish">\u201C' + escTxt(rec.giftWish || '心意') + '\u201D</div>' +
 '<div class="msg-gift-foot"><span class="mg-side">' + escTxt(sideTxt) + '</span>' +
 '<span class="msg-gift-price">\u00A5' + escTxt(Number(rec.giftPrice || 0).toFixed(2)) + '</span></div>' +
+giftCardReplHtml(rec) +
+giftCardActsHtml(rec) +
 favHeartHtml(rec) +
 '</div>';
 appendMsg(m);
@@ -4695,6 +4717,114 @@ if (opts && opts.enter && !chatVisible()) enterChat();
 return r;
 };
 window.chatAddGift = function (rec) { if (!rec.ts) rec.ts = Date.now(); return addRec(rec); };
+function giftMetaOf(rec) {
+if (!rec || !rec.giftBoxId || !window.giftGiftMeta) return null;
+try { return window.giftGiftMeta(rec.giftBoxId); } catch (e) { return null; }
+}
+function giftReplList(rec) {
+const m = giftMetaOf(rec);
+if (!m || !Array.isArray(m.replies)) return [];
+return m.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+}
+function giftWhoLabel(who) { return who === 'me' ? '我' : chatPartnerName(); }
+function giftReplRows(rec) {
+return giftReplList(rec).map(function (r) {
+return '<div class="mg-repl-row"><span class="mg-repl-who">' + escTxt(giftWhoLabel(r.who)) + '</span><span class="mg-repl-tx">' + escTxt(r.text) + '</span></div>';
+}).join('');
+}
+function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }
+function giftCardActsInner(rec) {
+if (!giftIsIncoming(rec)) return '';
+const meta = giftMetaOf(rec) || {};
+const claim = meta.claimed === 0
+? '<button class="msg-gift-claim" type="button">领取</button>'
+: (meta.claimed === 1 ? '<span class="msg-gift-got">\u2713 已领取</span>' : '');
+return claim + '<button class="msg-gift-reply" type="button">回复</button>';
+}
+function giftCardActsHtml(rec) { return giftIsIncoming(rec) ? '<div class="msg-gift-acts">' + giftCardActsInner(rec) + '</div>' : ''; }
+function giftCardReplHtml(rec) {
+return '<div class="msg-gift-repl"' + (giftReplList(rec).length ? '' : ' hidden') + '>' + giftReplRows(rec) + '</div>';
+}
+function giftPatchCard(idx) {
+const rec = msgs[idx];
+if (!rec || rec.special !== 'gift' || !body) return false;
+const el = body.querySelector('.msg-gift[data-idx="' + idx + '"]');
+if (!el) return false;
+const card = el.querySelector('.msg-gift-card');
+if (!card) return false;
+const anchorOf = function () { return card.querySelector('.msg-fav-heart'); };
+const acts = card.querySelector('.msg-gift-acts');
+const wantsActs = giftCardActsHtml(rec);
+if (acts) {
+if (wantsActs) acts.innerHTML = giftCardActsInner(rec);
+else acts.remove();
+} else if (wantsActs) {
+const an = anchorOf();
+if (an) an.insertAdjacentHTML('beforebegin', wantsActs); else card.insertAdjacentHTML('beforeend', wantsActs);
+}
+const repl = card.querySelector('.msg-gift-repl');
+if (repl) { repl.innerHTML = giftReplRows(rec); repl.hidden = !giftReplList(rec).length; }
+else if (giftReplList(rec).length) {
+const an2 = anchorOf();
+if (an2) an2.insertAdjacentHTML('beforebegin', giftCardReplHtml(rec)); else card.insertAdjacentHTML('beforeend', giftCardReplHtml(rec));
+}
+return true;
+}
+function giftClaimNow(idx) {
+const rec = msgs[idx];
+if (!giftIsIncoming(rec)) return false;
+const meta = giftMetaOf(rec) || {};
+if (meta.claimed === 1) return true;
+if (!window.giftBoxMarkClaimed) return false;
+try { window.giftBoxMarkClaimed(rec.giftBoxId); } catch (e) { return false; }
+try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
+giftPatchCard(idx);
+try { addIn('你收下了 ' + (rec.giftName || '礼物'), { special: 'poke' }); } catch (e2) {}
+return true;
+}
+function giftReplyNow(idx) {
+const rec = msgs[idx];
+if (!giftIsIncoming(rec)) return false;
+if (!window.openModal) return false;
+const orig = String(rec.giftWish || '').trim();
+window.openModal('回复 ' + chatPartnerName(), orig, function (v) {
+const full = String(v == null ? '' : v).trim();
+if (!full) return;
+const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;
+if (!added) return;   // 原文一字未动＝这次没追加任何内容，不产生空回复
+addOut(added);                                 // ① 只把新增的这句发进聊天消息
+try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', added); } catch (e) {}
+giftPatchCard(idx);
+try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
+}, { placeholder: '接着写你的回复', staticText: '上面是这件礼物原本的文案：删掉它～就直接回一句自己的；留着它～接在后面就是「引用着原文回」。聊天里只发你新加的那句，卡片上原文与回复都在。' });
+return true;
+}
+window.chatGiftAttachReplyTo = function (cid, giftTs, who, text, recRef) {
+try {
+if (!giftTs || !text) return false;
+const whoNorm = who === 'me' ? 'me' : 'ta';
+if ((window.__activeCid || 'default') === cid) {
+let rec = null, idx = -1;
+if (recRef && msgs.indexOf(recRef) >= 0) { rec = recRef; idx = msgs.indexOf(recRef); }
+if (!rec) {
+for (let i = msgs.length - 1; i >= 0; i--) {
+const r = msgs[i];
+if (r && r.special === 'gift' && r.ts === giftTs) { rec = r; idx = i; break; }
+}
+}
+if (!rec) return false;
+if (!rec.giftBoxId) return false;   // 存量卡没有心意柜指针＝没有可写的地方（不出动作区，同渲染口径）
+if (window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, whoNorm, text, cid);
+giftPatchCard(idx);
+return true;
+}
+if (!window.chatDeskCardReply) return false;
+window.chatDeskCardReply(cid, 'gift', giftTs, '', function (hit) {
+if (hit && hit.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(hit.giftBoxId, whoNorm, text, cid);
+}, null, null);
+return true;
+} catch (e) { return false; }
+};
 function deskAppendMissGuard(cid, tries, onRetry, writeOne) {
 const ledKey = 'xy-home-v2:' + cid + ':chat-meta';
 window.idbGet(ledKey).then(function (lv) {

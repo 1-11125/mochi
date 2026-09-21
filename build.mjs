@@ -4379,6 +4379,15 @@ const FIX_SENTINELS = [
 { name: '#990g 设置页下说明行直说点哪一枚（删＝两枚都不高亮时用户又不知道点哪个）', file: 'js/personalize.js', needle: "else ch.textContent = '当前不在桌面/聊天页（' + nm + '）：点「桌面」或「聊天」切过去看现场" },
 { name: '#990h 设置行小字写明「反色高亮那枚＝正在调的页面」（删＝设置页小字与面板新交互对不上）', file: 'template.html', needle: '反色高亮的那一枚＝你正在调的页面' },
 { name: '#990i 使用说明与功能介绍口径同步（删＝开屏「使用前必看」与功能介绍又写回六轴滑杆 / ±2px 步进旧 UI，用户对着面板看会以为功能变了）', file: 'template.html', needle: '滑杆按「哪一页生效」分三组' },
+  { name: '#985a 心意柜真礼物（side:in）带 claimed:0＝待领取（删＝收下的礼物不再有待领取状态，用户选定的「数据不丢＋状态仪式」塌一半）', file: 'js/gift-shop.js', needle: "if (side === 'in') e.claimed = 0;" },
+  { name: '#985b 送出的礼物卡先落心意柜记录并互指（删＝卡片与心意柜脱钩，卡片上的领取态/回复无处存）', file: 'js/gift-shop.js', needle: "const entry = recordBox(gift, side, wish);" },
+  { name: '#985c 卡片状态从心意柜记录读（删＝卡片回头去聊天记录里找领取态/回复，而聊天大包表达不了「老记录字段变了」，回复会自己消失）', file: 'js/gift-shop.js', needle: 'window.giftGiftMeta = function (boxId) {' },
+  { name: '#985d 记忆化映射的 0/1/null 迁移口径（删/改回 falsy 判定＝存量礼物全被翻成待领取）', file: 'js/gift-shop.js', needle: 'claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null)' },
+  { name: '#985e TA 收礼后的回话同时贴到卡片与心意柜（删＝用户报障原样回流：这个回复没有加到联系人领取礼物的卡片里/心意柜的卡片里）', file: 'js/gift-shop.js', needle: "window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec)" },
+  { name: '#985f 心意柜待领取口径＝只认显式 claimed===0（删/放宽＝心意柜把存量礼物也标成待领取）', file: 'js/gift-shop.js', needle: "function boxPending(it) { return !!(it && it.side === 'in' && it.claimed === 0); }" },
+  { name: '#985g 回复输入框预填礼物原本文案并切出新增段（删/改回整段当回复＝聊天里把礼物原文也当我的消息发出去，用户口径「聊天只显示追加回复」被破坏）', file: 'js/chat.js', needle: "const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;" },
+  { name: '#985h 聊天里只发新增的那句（删＝原文与回复两条都进聊天）', file: 'js/chat.js', needle: "addOut(added);" },
+  { name: '#985i 卡片动作区只对真·联系人送我的礼物且必须有心意柜指针（删/放宽＝TA 自己买的礼物卡与存量卡也长出【领取】【回复】，而后者的状态无处可写）', file: 'js/chat.js', needle: "function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

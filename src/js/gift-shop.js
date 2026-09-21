@@ -792,6 +792,31 @@
   function boxLoad() { try { const s = store(); if (!s) return []; return JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { return []; } }
   function boxSave(a) { const s = store(); if (s) s.set(BOX_KEY, JSON.stringify(a)); }
 
+  // #985：聊天礼物卡上的「领取态 / 追加回复」以**心意柜记录为单一事实源**，卡片只存 giftBoxId 指针。
+  // 为什么不写回聊天记录本身：心意柜是同步小键写入（可靠），而聊天大包对「改已有记录的字段」表达
+  // 不出增量——实测无头连回两条后记录里只剩后一条、甚至第一条当场从卡片上消失（基线合并把修改盖
+  // 回去），用户视角就是「我的回复自己消失了」。渲染侧按 id 查这张记忆化表（同 #588 taWishIds 口径，
+  // 每件礼物一次 JSON.parse 变成每轮一次），所有写入路径都 invalidate。
+  let _boxMeta = null;
+  function boxMetaInvalidate() { _boxMeta = null; }
+  function boxMetaMap() {
+    if (_boxMeta) return _boxMeta;
+    const m = {};
+    try {
+      const list = boxLoad();
+      if (Array.isArray(list)) list.forEach(function (it) {
+        if (!it || !it.id) return;
+        m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: Array.isArray(it.replies) ? it.replies : [] };
+      });
+    } catch (e) {}
+    _boxMeta = m;
+    return m;
+  }
+  window.giftGiftMeta = function (boxId) {
+    if (!boxId) return null;
+    try { return boxMetaMap()[boxId] || null; } catch (e) { return null; }
+  };
+
   // v3.26.x 心愿单：市集「许愿—实现」闭环——我加心愿，TA 按概率买下送我；TA 也会把想要的
   // 加进自己的心愿单（我可买下送 TA），还能自己买礼物收进自己的心意柜（giftbox side 'self'）。
   // 心愿数据 per-cid（与心意柜同 namespace）；设置全局（GSTORE，与 market-custom 同 namespace）
@@ -965,13 +990,25 @@
     return wish;
   }
 
+  // #985（用户 2026-09-21 直派「这个回复没有加到联系人领取礼物的卡片里，也没有加到心意柜的
+  // 卡片里」＋「新增联系人送我礼物时的礼物卡片，我可以点击领取…同样可以点击这个卡片追加回复，
+  // 这条回复可以在我领取卡片里和发送到聊天消息里，同样可以添加到心意柜的卡片里」）：
+  // 心意柜记录新增 replies（这件礼物上的回复，双方都能追加）与 claimed（仅 side:'in' 的真礼物：
+  // 0=待领取、1=已领取）。**存量记录没有 claimed 字段＝旧版自动收下的，一律当已领取**（渲染侧
+  // 只认 `claimed === 0` 才显示待领取），绝不把历史礼物翻成待领取。
   function boxEntry(gift, side, wish) {
-    return { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now() };
+    const e = { id: 'gb_' + Date.now() + '_' + Math.floor(Math.random() * 1000), giftId: gift.id, name: gift.name, emoji: gift.emoji, img: gift.img || '', price: gift.price, cat: gift.cat, wish: wish, side: side, tm: Date.now(), replies: [] };
+    if (side === 'in') e.claimed = 0;
+    return e;
   }
   function recordBox(gift, side, wish) {
     const box = boxLoad();
-    box.unshift(boxEntry(gift, side, wish));
+    const entry = boxEntry(gift, side, wish);
+    box.unshift(entry);
     boxSave(box);
+    boxMetaInvalidate();
+    // #985：把记录本身回给调用方——聊天里那张礼物卡要靠它的 id 与心意柜互指（回复/领取两处同步）
+    return entry;
   }
   window.recordGiftBox = recordBox;
   // #585：向【指定联系人】的心意柜写记录。用途在「TA 送我」礼物的投递延迟窗（1.5~4s）里
@@ -1001,9 +1038,61 @@
     let box = [];
     try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
     if (!Array.isArray(box)) box = [];
-    box.unshift(boxEntry(gift, side, wish));
+    const entry = boxEntry(gift, side, wish);
+    box.unshift(entry);
     s.set(BOX_KEY, JSON.stringify(box));
+    boxMetaInvalidate();
+    return entry;
   }
+  // #985：往「某件心意柜礼物」上追加一条回复。cid 允许跨桌面——TA 收礼回话有 0.9~2.4s 延迟窗，
+  // 用户可能已切桌面，而礼物与心意柜都绑在原桌面（同 #585 投递延迟窗的跨桌面口径）。
+  // who='ta'（TA 收礼后的回话）/ 'me'（我在卡片上回的一句）。找不到那件礼物就静默返回 false。
+  function boxAttachReply(cid, boxId, who, text) {
+    if (!boxId || !text) return false;
+    const s = boxStoreFor(cid);
+    let box = [];
+    try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+    if (!Array.isArray(box)) return false;
+    for (let i = 0; i < box.length; i++) {
+      const it = box[i];
+      if (it && it.id === boxId) {
+        if (!Array.isArray(it.replies)) it.replies = [];
+        it.replies.push({ who: who === 'me' ? 'me' : 'ta', text: String(text), ts: Date.now() });
+        try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
+        boxMetaInvalidate();
+        return true;
+      }
+    }
+    return false;
+  }
+  window.giftBoxAttachReply = function (boxId, who, text, cid) {
+    try { return boxAttachReply(cid || (window.__activeCid || 'default'), boxId, who, text); } catch (e) { return false; }
+  };
+  // #985：聊天卡片上点了【领取】→ 心意柜那件同步记「已领取」（跨桌面按 cid 写回）
+  function boxMarkClaimed(cid, boxId) {
+    if (!boxId) return false;
+    const s = boxStoreFor(cid);
+    let box = [];
+    try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { box = []; }
+    if (!Array.isArray(box)) return false;
+    for (let i = 0; i < box.length; i++) {
+      const it = box[i];
+      if (it && it.id === boxId) {
+        it.claimed = 1;
+        try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
+        boxMetaInvalidate();
+        return true;
+      }
+    }
+    return false;
+  }
+  window.giftBoxMarkClaimed = function (boxId, cid) {
+    try { return boxMarkClaimed(cid || (window.__activeCid || 'default'), boxId); } catch (e) { return false; }
+  };
+  // #985：卡片上的领取/回复落库后，心意柜页开着就地重画（现读现画、幂等；没开着什么都不做）
+  window.giftBoxLiveRefresh = function () {
+    try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
+  };
 
   // #848：我送礼后 TA 的回应话术池（0 档/混合档用）。心愿兑现那套单独拎出来——
   // 「你把我许的愿买了」比普通「谢谢」更贴场景，命中时优先走这一套。
@@ -1014,7 +1103,7 @@
   // + giftReplyMode 内容来源（0=系统预设话术 / 1=和正常聊天一样回复 / 2=混合，默认 1）。
   // 聊天式那一档走 window.genChatStyleReply（与互动卡「接聊天字卡」同一管线：字卡→兜底→词典拼字），
   // 生成失败回落到预设池，绝不发空气泡。
-  function giftReplyFeedback(gift) {
+  function giftReplyFeedback(gift, chatRec) {
     const st = wlSettings();
     if (!st.giftReplyOn) return;
     if (Math.random() * 100 >= clampPct(st.giftReplyPct, 60)) return;
@@ -1031,6 +1120,14 @@
         if (useChatStyle && window.genChatStyleReply) txt = String(window.genChatStyleReply() || '').trim();
         if (!txt) txt = preset();
         if (!txt) return;
+        // #985：这句回话不只是聊天里的一条消息——同时贴到「我送出」那张礼物卡与心意柜那件礼物上
+        // （用户直派「这个回复没有加到联系人领取礼物的卡片里，也没有加到心意柜的卡片里」）。
+        // 跨桌面时 chatGiftAttachReplyTo 走 chatDeskCardReply 的读改写（含 #127 增量日志合并），
+        // 心意柜侧按 cid 写回原桌面——两处都不因为切了桌面而丢这条回复。
+        var boxId = chatRec && chatRec.giftBoxId;
+        try { if (window.chatGiftAttachReplyTo && chatRec) window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRA) {}
+        try { if (boxId) boxAttachReply(cid, boxId, 'ta', txt); } catch (eRB) {}
+        try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
         if ((window.__activeCid || 'default') === cid) {
           // 聊天式那档带「正在输入…」过渡，观感与普通回复一致（同红包领后捎话）
           if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
@@ -1051,11 +1148,15 @@
     else { w.systemBalance -= priceFen; }
     walletSet(w);
     const rec = { side: side, special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
+    // #985：先落心意柜记录再发卡片，并把记录 id 写进卡片——两处靠 giftBoxId 互指（卡片上追加的
+    // 回复要同步到心意柜那件礼物，反之亦然）
+    const entry = recordBox(gift, side, wish);
+    if (entry && entry.id) rec.giftBoxId = entry.id;
     if (window.chatAddGift) window.chatAddGift(rec); else if (window.chatAddIn) window.chatAddIn('', { special: 'gift' });
-    recordBox(gift, side, wish);
     if (window.logFish) window.logFish();
     // #848：我送出给 TA 的这一刻起，TA 有概率回一句（走当前桌面的聊天，延迟里切桌面则补投）
-    if (side === 'out') giftReplyFeedback(gift);
+    // #985：这句回话拿到之后同时贴到「我送出」那张礼物卡与心意柜那件礼物上（传 rec 给它认领）
+    if (side === 'out') giftReplyFeedback(gift, rec);
     return true;
   }
 
@@ -1078,13 +1179,19 @@
   function deliverInGift(cid, gift, wish, delayMs) {
     setTimeout(function () {
       try {
+        // #985：联系人送我的礼物卡只带 giftBoxId（与心意柜那件互指）——**领取态与追加回复都存在
+        // 心意柜记录里**（单一事实源，见 giftGiftMeta 的注释），卡片渲染时按这个 id 查。礼物本身
+        // 照旧立刻进心意柜：用户选定「数据不丢＋状态仪式」，没点领取只是卡片/柜子上标「待领取」，
+        // 绝不因为没点而丢礼物。
         const rec = { side: 'in', special: 'gift', giftId: gift.id, giftName: gift.name, giftEmoji: gift.emoji, giftImg: gift.img || '', giftPrice: gift.price, giftWish: wish, giftCat: gift.cat, ts: Date.now() };
         if ((window.__activeCid || 'default') === cid) {
+          const entry = recordBox(gift, 'in', wish);
+          if (entry && entry.id) rec.giftBoxId = entry.id;
           if (window.chatAddGift) window.chatAddGift(rec);
-          recordBox(gift, 'in', wish);
         } else {
+          const entryAt = recordBoxAt(cid, gift, 'in', wish);
+          if (entryAt && entryAt.id) rec.giftBoxId = entryAt.id;
           if (window.chatAppendDeskRec) window.chatAppendDeskRec(cid, rec);
-          recordBoxAt(cid, gift, 'in', wish);
         }
         if (window.logFish) window.logFish();
       } catch (e) {}
@@ -1128,12 +1235,14 @@
         // 带 giftSelf 标记让 chat.js 渲染成「XX 自己买的」；心意柜记录不变（仍进 TA 自己买的）。
         const chatRec = { side: 'in', special: 'gift', giftId: gift0.id, giftName: gift0.name, giftEmoji: gift0.emoji, giftImg: gift0.img || '', giftPrice: gift0.price, giftWish: wish0, giftCat: gift0.cat, giftSelf: 1, ts: Date.now() };
         if ((window.__activeCid || 'default') === myCid) {
-          recordBox(gift0, 'self', wish0);
+          const entrySelf = recordBox(gift0, 'self', wish0);
+          if (entrySelf && entrySelf.id) chatRec.giftBoxId = entrySelf.id; // #985：卡片与心意柜互指（同 buyAndSend）
           if (st.selfChatOn && window.chatAddGift) window.chatAddGift(chatRec);
           else toast(partnerName() + ' 给自己买了「' + gift0.name + '」，收进了 TA 的心意柜');
         } else {
           // 已切桌面：记录与聊天卡仍回原桌面（不弹 toast，避免串到别的联系人脸上）
-          recordBoxAt(myCid, gift0, 'self', wish0);
+          const entrySelfAt = recordBoxAt(myCid, gift0, 'self', wish0);
+          if (entrySelfAt && entrySelfAt.id) chatRec.giftBoxId = entrySelfAt.id;
           if (st.selfChatOn && window.chatAppendDeskRec) window.chatAppendDeskRec(myCid, chatRec);
         }
       }, randInt(1500, 4000));
@@ -1756,6 +1865,21 @@
     const gwBtn = document.getElementById('gift-wish-ta');
     if (gwBtn) gwBtn.textContent = '看看 ' + pn + ' 的心愿单';
   }
+  // #985：心意柜侧的回复与领取状态（卡片与心意柜共用同一批渲染口径，见下方 giftReplRows/boxReplies）
+  // who='ta' 显示联系人名、who='me' 显示「我」；只认有正文字段的项，脏数据不渲染。
+  function boxReplies(it) {
+    if (!it || !Array.isArray(it.replies)) return [];
+    return it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+  }
+  function boxWhoLabel(who) { return who === 'me' ? '我' : partnerName(); }
+  function boxReplyRows(it) {
+    return boxReplies(it).map(function (r) {
+      return '<div class="giftbox-repl-row"><span class="giftbox-repl-who">' + esc(boxWhoLabel(r.who)) + '</span><span class="giftbox-repl-tx">' + esc(r.text) + '</span></div>';
+    }).join('');
+  }
+  // 待领取只认显式 claimed===0（存量记录没有该字段＝旧版自动收下，不显示待领取）
+  function boxPending(it) { return !!(it && it.side === 'in' && it.claimed === 0); }
+
   function renderBox() {
     syncGiftNames();
     const list = boxLoad();
@@ -1786,6 +1910,10 @@
           '<div class="giftbox-name">' + esc(it.name) + '</div>' +
           '<div class="giftbox-price">¥' + Number(it.price || 0).toFixed(2) + '</div>' +
           '<div class="giftbox-wish">"' + esc(it.wish || '心意') + '"</div>' +
+          // #985：心意柜卡片上也能看到「这件礼物上的回复」与领取状态（用户要求回复同样要加到心意柜
+          // 的卡片里；卡片与柜子共用同一份 replies 数据，聊天里追加的回复立刻反映到这里）
+          (boxPending(it) ? '<div class="giftbox-pending">待领取</div>' : '') +
+          (boxReplies(it).length ? '<div class="giftbox-repls">' + boxReplyRows(it) + '</div>' : '') +
           '<div class="giftbox-meta">' + esc(from) + ' · ' + esc(fmtTime(it.tm)) + '</div>' +
         '</div>' +
       '</div>';
@@ -1802,6 +1930,11 @@
             '<div class="gb-detail-price">¥' + Number(it.price || 0).toFixed(2) + '</div>' +
             '<div class="gb-detail-wish">"' + esc(it.wish || '心意') + '"</div>' +
             '<div class="gb-detail-meta">' + esc(from) + ' · ' + esc(fmtTime(it.tm)) + '</div>' +
+            // #985：详情里给回复一个完整段落（不截断），并标出待领取状态
+            (boxPending(it) ? '<div class="giftbox-pending gb-detail-pending">待领取</div>' : '') +
+            (boxReplies(it).length
+              ? '<div class="gb-detail-repl-title">这件礼物上的回复</div><div class="gb-detail-repls">' + boxReplyRows(it) + '</div>'
+              : '') +
           '</div>';
         window.openTCPanel('心意柜', html);
       });

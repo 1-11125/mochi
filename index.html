@@ -7154,6 +7154,18 @@ background: #f2f2f5; font-size: 42px;
 .msg-gift-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 .mg-side { font-size: 11px; color: #b5b5b5; letter-spacing: 0.5px; }
 .msg-gift-price { font-size: 11px; color: #c8c8c8; letter-spacing: 0.3px; }
+.msg-gift-acts { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.msg-gift-claim { flex: 1; padding: 10px 0; border-radius: 13px; border: none; background: #111; color: #fff; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: transform 0.15s; -webkit-tap-highlight-color: transparent; }
+.msg-gift-claim:active { transform: scale(0.97); }
+.msg-gift-got { flex: 1; font-size: 12.5px; color: #b5b5b5; letter-spacing: 0.5px; }
+.msg-gift-reply { flex: 1; padding: 10px 0; border-radius: 13px; border: 1px solid #e2e2e2; background: transparent; color: #333; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: transform 0.15s; -webkit-tap-highlight-color: transparent; }
+.msg-gift-reply:active { transform: scale(0.97); }
+.msg-gift-repl { margin-top: 12px; padding-top: 11px; border-top: 1px solid #f0f0f0; text-align: left; }
+.msg-gift-repl[hidden] { display: none; }
+.mg-repl-row { display: flex; gap: 6px; font-size: 12.5px; line-height: 1.65; margin-top: 6px; }
+.mg-repl-row:first-child { margin-top: 0; }
+.mg-repl-who { flex: none; color: #b5b5b5; }
+.mg-repl-tx { flex: 1; color: #333; word-break: break-word; }
 .msg-wish-card { padding-top: 14px; }
 .msg-wish-tag { display: inline-block; padding: 3px 10px; border-radius: 99px; background: #f2f2f5; color: #555; font-size: 10.5px; letter-spacing: 0.5px; white-space: nowrap; }
 .msg-wish-acts { margin-top: 14px; }
@@ -7276,6 +7288,15 @@ background-size: 22px 22px; opacity: 0.5; pointer-events: none;
 .giftbox-price { font-size: 12px; color: #b5b5b5; margin-top: 3px; }
 .giftbox-wish { font-size: 12px; color: #8a8a8a; margin-top: 6px; line-height: 1.5; word-break: break-word; padding: 0 2px; }
 .giftbox-meta { font-size: 10.5px; color: #c8c8c8; margin-top: 6px; }
+.giftbox-pending { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 99px; background: #fdecec; color: #c22b27; font-size: 10.5px; letter-spacing: 0.5px; }
+.giftbox-repls { margin-top: 6px; text-align: left; padding: 0 2px; }
+.giftbox-repl-row { display: flex; gap: 6px; font-size: 11.5px; line-height: 1.6; margin-top: 4px; }
+.giftbox-repl-row:first-child { margin-top: 0; }
+.giftbox-repl-who { flex: none; color: #c8c8c8; }
+.giftbox-repl-tx { flex: 1; color: #6a6a6a; word-break: break-word; }
+.gb-detail-pending { margin-top: 12px; font-size: 12px; }
+.gb-detail-repl-title { margin-top: 18px; font-size: 11.5px; color: #b5b5b5; letter-spacing: 0.5px; }
+.gb-detail-repls { margin: 10px 20px 0; }
 .gb-preview { text-align: center; padding: 18px 0 18px; border-radius: 16px; margin-bottom: 16px; }
 .gb-emoji { font-size: 56px; line-height: 1; }
 .gb-name { font-size: 19px; font-weight: 700; color: #111; margin-top: 10px; letter-spacing: 0.5px; }
@@ -7316,6 +7337,15 @@ textarea.gm-input { min-height: 52px; resize: none; }
 [data-theme="dark"] .giftbox-card { background: #1c1c1e; border-color: rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .gift-item-name, [data-theme="dark"] .gb-desc, [data-theme="dark"] .gb-wish-label, [data-theme="dark"] .gm-row label { color: #c9c9cf; }
 [data-theme="dark"] .giftbox-wish { color: #98989e; }
+[data-theme="dark"] .msg-gift-reply { border-color: rgba(255, 255, 255, 0.16); color: #e8e8ea; }
+[data-theme="dark"] .msg-gift-got { color: #6f6f75; }
+[data-theme="dark"] .msg-gift-repl { border-top-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .mg-repl-tx { color: #dcdce0; }
+[data-theme="dark"] .mg-repl-who { color: #6f6f75; }
+[data-theme="dark"] .giftbox-pending { background: rgba(194, 43, 39, 0.18); color: #f09a97; }
+[data-theme="dark"] .giftbox-repl-who { color: #6b6b70; }
+[data-theme="dark"] .giftbox-repl-tx { color: #c9c9cf; }
+[data-theme="dark"] .gb-detail-repl-title { color: #8a8a8e; }
 [data-theme="dark"] .gift-cat, [data-theme="dark"] .gb-cancel { background: rgba(255, 255, 255, 0.08); color: #c9c9cf; }
 [data-theme="dark"] .gb-tab { background: rgba(255, 255, 255, 0.08); color: #c9c9cf; }
 [data-theme="dark"] .gb-tab.sel { background: #f5f5f5; color: #111; }
@@ -10425,9 +10455,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789998964465">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789999795206">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 21:56<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:09<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20870,4 +20900,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubb60hd -->
+<!-- __MOCHI_EOF__ mubbnthi -->
