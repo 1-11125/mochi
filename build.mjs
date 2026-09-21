@@ -4325,6 +4325,8 @@ const FIX_SENTINELS = [
   { name: '#980d 设置「导出数据」胶囊补 iOS 主屏幕口径（删＝备份行不再提「装到主屏幕＋两套独立存储」，iPhone 用户备份完仍不知要装到桌面）', file: 'js/settings-help.js', needle: 'Safari 标签页连续 7 天没打开会被系统自动清空全部数据' },
   { name: '#980e 备份提醒条 iOS 标签页追加主屏幕指路（删＝iOS 提示只留在弹窗第④条，只看顶条的用户不知道要装到主屏幕）', file: 'js/pwa.js', needle: 'iPhone：导出后请「添加到主屏幕」，改用桌面图标打开' },
   { name: '#980f 提醒条窄屏按钮换行（删＝iOS 文案加长后 320px 级屏「去备份」被挤出屏外，与 #939 续二同源）', file: 'js/pwa.js', needle: "bar.style.flexWrap = 'wrap';" },
+  { name: '#983a 聊天眼前送礼不再弹黑色浮层（删/改回无条件＝在聊天里送礼物、点心愿卡【送 TA】后又叠一层与卡片重复的黑条，用户 2026-09-21 直派删除）', file: 'js/gift-shop.js', needle: "if (!chatOnScreen()) toast('已送出');" },
+  { name: '#983b 「已送出」浮层不得退回无条件弹（市集/心意柜页面上聊天页被 openPage 隐藏、看不到礼物卡，那里必须保留回执）', file: 'js/gift-shop.js', absent: true, needle: "closeTc(); toast('已送出');" }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

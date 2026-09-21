@@ -18,6 +18,15 @@
     clearTimeout(t._timer); t._timer = setTimeout(function () { t.className = 'cc-toast'; }, 2000);
   }
   function closeTc() { const m = document.getElementById('tc-mask'); if (m) m.hidden = true; }
+  // FIX 2026-09-21 #983 用户要求：在聊天里送礼物（聊天页「心意集市」面板挑一件）时，成交不再弹
+  // 黑色提示浮层（#cc-toast 黑底白字，见 chat-pages.css 的 #cc-toast / 本文件 toast()）；从聊天
+  // 「TA 的心愿」卡片点【送 TA】同理。口径与 #517「领取联系人红包不再弹黑色浮层」一致——礼物卡
+  // 就是回执：卡片就地转「已送出」、礼物气泡同时飞进聊天，黑色浮层只是重复打扰。
+  // 判据取「聊天页此刻是否在眼前」（市集/心意柜/桌面点进来时 openPage 隐藏全部 .page，看不到
+  // 那张卡，那里照旧保留「已送出」提示）。勿改成无条件删 toast：市集页面上没有任何回执。
+  function chatOnScreen() {
+    try { const p = document.getElementById('page-chat'); return !!(p && !p.hidden); } catch (e) { return false; }
+  }
   function fmtTime(tm) { const d = new Date(tm); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
   function fenToYuan(fen) { const y = fen / 100; if (y >= 100000) return (y / 10000).toFixed(1) + '万'; if (y >= 1000) return y.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); return y.toFixed(2); }
 
@@ -1204,7 +1213,7 @@
       if (buyAndSend(gift, 'out', wish)) {
         // 任何途径买下 TA 正许愿的礼物都算心愿兑现：送出即从 TA 心愿单移除（礼物进 TA 的心意柜「收到的」）
         wishTaRemove(gift.id);
-        closeTc(); toast('已送出');
+        closeTc(); if (!chatOnScreen()) toast('已送出');
         // #660：从聊天「TA 的心愿」卡片点进来的，成交后让聊天把那张卡就地转「已送出」
         if (opts.onDone) { try { opts.onDone(); } catch (e) {} }
       }
