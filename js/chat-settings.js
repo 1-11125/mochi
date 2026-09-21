@@ -555,6 +555,7 @@ const upBtn = document.createElement('button');
 upBtn.textContent = '＋ 上传新图（可多选）';
 upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
 upBtn.addEventListener('click', () => { try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); } });
+if (window.mochiFilePickSurface) window.mochiFilePickSurface(upBtn, { id: 'cs-bg-up-tap', accept: 'image/*', multiple: true, owner: 'dev-cs-bg-pick' });
 box.appendChild(upBtn);
 if (cur) {
 const rmBtn = document.createElement('button');
@@ -2922,6 +2923,11 @@ b.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-r
 b.addEventListener('click', fn);
 return b;
 };
+const mkActSurface = (label, fn, surfOpts) => {
+const b = mkAct(label, fn);
+try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(b, surfOpts || {}); } catch (e) {}
+return b;
+};
 const DEF = themeDefaults();
 const setSurface = (i, v) => { try { store.set(CHAT_SURFACE_SETTINGS[i].key, String(v)); } catch (e) {} applySettings(); };
 const SECS = [
@@ -2970,9 +2976,9 @@ applySettings();
 {
 const glN = (function () { try { return csBgList().length; } catch (e) { return 0; } })();
 wrap.appendChild(mkGrid([
-mkAct(store.get('cs-bg') ? '上传壁纸（可多选）' : '① 上传壁纸（可多选）', () => {
+mkActSurface('上传壁纸（可多选）', () => {
 try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); }
-}),
+}, { id: 'cs-bg-drawer-tap', accept: 'image/*', multiple: true, owner: 'dev-cs-bg-pick' }),
 mkAct('图库 · 换一张' + (glN ? '（' + glN + '）' : ''), () => {
 try { csBgOpenGallery(); } catch (e) { toast('图库打不开，请重试'); }
 })

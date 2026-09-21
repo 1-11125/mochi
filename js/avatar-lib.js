@@ -563,6 +563,9 @@ toast('添加失败，请选择有效的图片文件');
 }
 };
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, input);
+if (window.mochiFilePickSurface) {
+window.mochiFilePickSurface(btn, { id: input.id + '-tap', accept: 'image/*', multiple: true, owner: input });
+}
 btn.addEventListener('click', (e) => {
 var _fb = () => { window.mochiFilePickFire(input, { onFail: () => toast('无法打开相册，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(input, _fb);

@@ -725,6 +725,13 @@
     // FIX 2026-09-18 #738：原生 label 激活兜底——小米 MiuiBrowser 等对 JS 合成 click() 仍静默
     // 不弹选择器（#717 修复后小米17 Pro 实报）；透明 label 铺满按钮、内核原生转发激活 input
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(btn, input);
+    // FIX 2026-09-21 #1002（第九波续）：本按钮同时铺「真·可点 input」层——手指物理落在 input 上，
+    // 选择器由浏览器原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿。
+    // owner 指向本按钮自己的池选择器：surface 选完文件后转交它并派发 change，上面的压缩/落库管线
+    // （listFn/saveFn/rerender/多张计数提示）一字未改照常跑。
+    if (window.mochiFilePickSurface) {
+      window.mochiFilePickSurface(btn, { id: input.id + '-tap', accept: 'image/*', multiple: true, owner: input });
+    }
     btn.addEventListener('click', (e) => {
       // FIX 2026-09-18 #756：原 `if (fromLabel(e)) return;` 在「label 存在但国产内核不转发」
       // 时连 JS 兜底一并跳过＝用户报的「点了一点反应都没有」；改由 guard 事后确认真没弹出再补

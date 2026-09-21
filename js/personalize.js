@@ -999,6 +999,7 @@ wrap.appendChild(strip);
 const upBtn = document.createElement('button');
 upBtn.textContent = '＋ 上传新图（可多选）';
 upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
+if (window.mochiFilePickSurface) window.mochiFilePickSurface(upBtn, { id: 'phone-bg-up-tap', accept: 'image/*', multiple: true, owner: 'mochi-phonebg-gallery-pick' });
 upBtn.addEventListener('click', () => {
 window.mochiFilePick({
 id: 'mochi-phonebg-gallery-pick', accept: 'image/*', multiple: true, btn: upBtn,
@@ -1023,11 +1024,6 @@ if (document.getElementById('phone-bg-gallery-panel') && document.getElementById
 });
 });
 wrap.appendChild(upBtn);
-const bgHint = document.createElement('div');
-bgHint.id = 'phonebg-upload-hint';
-bgHint.style.cssText = 'font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 8px';
-bgHint.textContent = '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）';
-wrap.appendChild(bgHint);
 if (cur) {
 const rmBtn = document.createElement('button');
 rmBtn.textContent = '清除当前壁纸（图库保留）';
@@ -4817,6 +4813,7 @@ val.textContent = bg ? '已设置' : '';
 };
 syncRowUI();
 row.appendChild(ico); row.appendChild(txt); row.appendChild(val);
+if (window.mochiFilePickSurface) window.mochiFilePickSurface(row, { id: 'page-bg-tap-' + i, accept: 'image/*', owner: 'mochi-page-bg-pick' });
 row.addEventListener('click', () => {
 const bg = store.get('page-bg-' + i);
 const pickPageBg = () => {

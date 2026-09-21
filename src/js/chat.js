@@ -2666,19 +2666,10 @@ return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 // 恰好落在离底 24~120px 区间，用户一上翻阅读、一轻点就误判回钉被拽回最底。贴底=距最大
 // scrollTop 只剩 ≤8px（.chat-body 底部还有 padding-bottom:24px 的呼吸区，用户读最新消息时
 // 离底必然 >24px，互不混淆）。
-// FIX 2026-09-21 #998（红米 K80 Chrome 实报「联系人发消息，最新消息总是不会跟随自动滑动到最
-// 底部，需要我自己滑动到最底下」，用户点名其他机型同现、要求勿致跨机型回归）：本判定必须与写方
-// scrollChatBottom() 用**同一把尺子**。写方落点是 chatScrollMax()（已扣掉「对方正在输入」行高 T），
-// 读方却用裸 scrollHeight − clientHeight——而打字行恰好在每条来消息落地前显示 0.4~1.4s（正是用户
-// 会去点/滑的那段窗口），行显示期真贴底时裸口径读出「离底 T≈22px > 8」＝假解钉态：轻点回钉
-// （touchend）与滚动落定回钉两条恢复路一起失效，钉住态再也回不来，此后每条来消息都不跟底
-// （无头实证：一次轻点即失底，之后连发 gap 累积到 133.7px、最新一条整条落在消息区下方 +38.7px）。
-// 改用 chatScrollMax()：贴底＝距真最大值 ≤8px，与行是否显示无关（#416 的 8px 口径、以及「用户读
-// 最新一条时离底必然 >24px 的呼吸区」结论零变化，橡皮筋超界仍判真）。纯几何、零机型/内核分支。
 function chatAtBottom() {
 const cb = document.getElementById('chat-body');
 if (!cb) return true;
-return chatScrollMax() - cb.scrollTop <= 8;
+return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
 }
 // FIX 2026-09-15 #492（帮我决定/多人决定结果发到聊天后聊天记录不自动滑到最新消息，多机型同报）：
 // 用户主动触发的「来向」消息一次性跟底标记——chatAddIn({follow:true}) 置位、此处消费。决策结果
@@ -2699,13 +2690,7 @@ if (userFollow) chatUserFollowScroll = false;
 // 改按钉住标记——内核丢弃首写/图片迟到解码顶开后，视口离底会超 120px，旧 nearGcBottom
 // 闸把后续每条来消息都误判成「在看历史」永不跟底；用户手动接管（触摸/滚轮解钉）与
 // 搜索/引用跳转定位（#334）本就解除钉住，chatPinnedBottom 已完整表达「别打扰」
-// FIX 2026-09-21 #998：跟底判据补一条「视口此刻就在真底部」——chatPinnedBottom 是**可过期的标记**
-// （一次触摸即解钉，恢复路一旦被时序错过就永久失真），而「用户此刻停在最新一条上」是几何事实。
-// 两者取或：标记说钉住 ⇒ 照旧跟底（#378/#162 契约零改动）；标记失真的解钉态、但视口就在真最大值
-// ≤8px ⇒ 这条来消息照样跟底（用户本来就在看最新消息，落一条新消息没有任何理由不给他看，且
-// scrollChatBottom 当场把标记复位＝自愈）。用户真在上翻阅读（离底 >8px）时两条都不成立，仍是
-// 「绝不打扰」——#416 口径零改动。判据与写方同尺（chatAtBottom ⇒ chatScrollMax）＝不受打字行影响。
-if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;
+if (!out && !userFollow && !chatPinnedBottom) return;
 	if (out || userFollow) {
 	// 自己发(out) / 用户主动触发的 follow（决策结果等）：保持瞬时落底——本人的消息即刻到底才自然
 	scrollChatBottom();
@@ -4570,27 +4555,12 @@ const cb868 = document.getElementById('chat-body');
 if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
 }
 setInterval(function () {
-if (!chatVisible() || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 if (Date.now() - _cbBoxChangeTs < 180) return; // #871：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
-// FIX 2026-09-21 #998：解钉态周期复核——「用户自己滚回真底部（≤8px）」＝「他在看历史」这个前提已消失，
-// 恢复自动跟底。这条语义 #378 早就写进了滚动监听，但那条是「滚动事件 + 100ms 防抖」的一次性判据：
-// 判完即止、副作用一过再没人复核，手势期一撞 chatTouchActive 就放弃且不续期＝钉住态永久丢失的根
-// （无头实证：上滑翻两下→滑回最底→按住停一下才抬手，抬手后停在最底 gap=0，来消息却不再跟底、
-// 连发 gap 累积到 133.7px）。这里补成周期复核，与下面「钉住态离底即补钉」同形对称。
-// 不在 touchend 就地回钉：抬手那一瞬惯性还没开始走（从底部往上甩时读数仍贴底），那时置钉会被本
-// 看门狗把用户的惯性滑行整段拽回底部＝#416/#716「往上滑被拽回最底」复发；本复核要等滚动/触摸/
-// 几何全静默（惯性走完）才判，天然不误判甩动。判据与写方同尺（chatAtBottom ⇒ 距真最大值 ≤8px）：
-// 只有贴底才回钉，绝不拽正在上翻的用户（#162/#416 零改动），写入交落定锁。零机型分支：写只发生在
-// 健康态重写同一个值。
-if (!chatPinnedBottom) {
-if (!chatAtBottom()) return;
-chatPinnedBottom = true; cb706.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
-return;
-}
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
 // FIX 2026-09-20 #933：滚动会话落定重对齐（缺陷面见上方 scroll 回调回钉分支的注释）——
@@ -13203,6 +13173,8 @@ toast('表情包面板暂不可用');
 });
 }
 const batchImg = document.getElementById('batch-img');
+// FIX 2026-09-21 #1002：批量发送面板「插入图片」铺真·可点 input 层（owner＝统一入口的 input id）
+if (batchImg && window.mochiFilePickSurface) window.mochiFilePickSurface(batchImg, { id: 'batch-img-tap', accept: 'image/*', multiple: true, owner: 'mochi-batch-img-pick' });
 if (batchImg) {
 batchImg.addEventListener('click', (e) => {
 e.stopPropagation();
@@ -13718,6 +13690,8 @@ renderEmojiPanel();
 });
 }
 const myeAdd = document.getElementById('mye-add');
+// FIX 2026-09-21 #1002：表情面板「添加」铺真·可点 input 层（owner＝统一入口的 input id）
+if (myeAdd && window.mochiFilePickSurface) window.mochiFilePickSurface(myeAdd, { id: 'mye-add-tap', accept: 'image/*', multiple: true, owner: 'mochi-myemoji-pick' });
 if (myeAdd) {
 myeAdd.addEventListener('click', (e) => {
 e.stopPropagation();
@@ -14164,7 +14138,19 @@ document.body.appendChild(fi);
 chatImgInput = fi;
 // FIX 2026-09-18 #753：把输入框接上原生 label 激活层（必须等 input 挂进文档、id/accept 就位后）
 if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi);
+// FIX 2026-09-21 #1002（第九波续）：铺「真·可点 input」层——手指物理落在真 input 上，选择器由浏览器
+// 原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿。owner＝上面这个
+// 常驻 input（它的 onchange 管线一字未改：多选、压缩、空 FileList 提示、发进聊天）。幂等：重复调用只补挂。
+if (window.mochiFilePickSurface && imgBtn) window.mochiFilePickSurface(imgBtn, { id: 'chat-img-tap', accept: 'image/*', multiple: true, owner: fi });
 return fi;
+}
+// #1002：输入栏若被别处整段重建，按钮是新节点、上面那层随旧节点消失 ⇒ 每次点按前经本桥幂等补挂一次
+function chatImgSurfaceEnsure() {
+try {
+var fi2 = chatImgPicker();
+var btn = document.getElementById('chat-img-btn');
+if (window.mochiFilePickSurface && btn) window.mochiFilePickSurface(btn, { id: 'chat-img-tap', accept: 'image/*', multiple: true, owner: fi2 });
+} catch (e) {}
 }
 // FIX 2026-09-18 #753：单聊输入栏可能被 #708「顶栏/底栏位置」等流程整段重建（innerHTML），
 // 重建后按钮上是新节点、label 激活层随之丢失 ⇒ 每次点按先幂等补挂一次（不再重复 insert，
@@ -14214,12 +14200,15 @@ img.src = raw;
 };
 try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片读取失败，请换一张再试'); }
 }
+// FIX 2026-09-21 #1002：**绑定时**就铺一次（放在点按处理器里＝第一次点按永远赶不上，用户第一下仍然没反应）
+chatImgSurfaceEnsure();
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 // FIX 2026-09-18 #756：原「点源自 label 就直接 return」会在国产内核（label 存在但不转发）
 // 时把 JS 兜底也一并跳过＝用户报的「点了相册点了图片完全没反应」。改为先给原生转发一个
 // 窗口期，确认确实没弹出再补 JS click（与全站入口同一口径）。
 // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）
+chatImgSurfaceEnsure(); // #1002：点按前幂等补挂真·可点 input 层（按钮被重建过也补回来）
 var _fb = () => { window.mochiFilePickFire(chatImgPickBridge(), { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(chatImgPickBridge(), _fb);
 else _fb();

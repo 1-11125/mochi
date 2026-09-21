@@ -4489,6 +4489,27 @@ const FIX_SENTINELS = [
   { name: '#994g 跨桌面失效如实提示（删＝点了同意零反馈复发）', file: 'js/music-player.js', needle: 'function inviteStaleToast(name) {' },
   { name: '#994h 邀请到同意之间歌曲被删如实告知（删＝playTrack findTrack 静默 return，用户对着空气等）', file: 'js/music-player.js', needle: '已不在音乐库里，无法播放' },
   { name: '#994i 起播校验不得退回「拿不到 currentId/audio 即静默返回」（absent 型；回流＝点了同意又变零反馈）', file: 'js/music-player.js', needle: 'if (!currentId || !audio) return; // 曲目加载失败等路径已有各自的 toast', absent: true },
+  /* ==== 2026-09-21 #1002 第九波续：把「真·可点 input 层」（#991）补到其余上传图片入口
+     （用户 2026-09-21 直派「你帮我补。」；同批背景＝红米 Note 9 Pro 自带浏览器报「导入图片点不了」）。
+     口径：铺层点只放在**单一用途的常驻入口**（容器里还有别的按钮的入口一律不铺，防吞掉兄弟控件）；
+     选完文件按 owner（宿主 input，可写 id 字符串）转交并派发 change ⇒ 各入口原有压缩/落库管线一字未改。 ==== */
+  { name: '#1002a 聊天壁纸面板「＋ 上传新图」铺真·可点 input 层（删＝国产内核上「点了没反应」复发，用户报障入口之一）', file: 'js/chat-settings.js', needle: "id: 'cs-bg-up-tap', accept: 'image/*', multiple: true, owner: 'dev-cs-bg-pick'" },
+  { name: '#1002b 抽屉「上传壁纸（可多选）」同款铺层（mkActSurface＝本文件新增上传按钮的统一入口）', file: 'js/chat-settings.js', needle: 'const mkActSurface = (label, fn, surfOpts) => {' },
+  { name: '#1002c 桌面「首页/第 N 页背景图」行铺层（动态渲染，渲染即铺；删＝该入口回三条腿）', file: 'js/personalize.js', needle: "id: 'page-bg-tap-' + i, accept: 'image/*', owner: 'mochi-page-bg-pick'" },
+  { name: '#1002d 手机壁纸面板「＋ 上传新图（可多选）」铺层（必须在 cssText 之后铺，否则内联样式被覆盖＝层退回整屏）', file: 'js/personalize.js', needle: "id: 'phone-bg-up-tap', accept: 'image/*', multiple: true, owner: 'mochi-phonebg-gallery-pick'" },
+  { name: '#1002e 头像池两个「添加头像」按钮铺层（owner＝各自池选择器，多选管线原样复用）', file: 'js/avatar-lib.js', needle: "id: input.id + '-tap', accept: 'image/*', multiple: true, owner: input" },
+  { name: '#1002f 朋友圈评论「图片」铺层', file: 'js/feed.js', needle: "id: 'feed-com-tap', accept: 'image/*', owner: 'mochi-com-img-pick'" },
+  { name: '#1002g 朋友圈发布框「添加图片」铺层', file: 'js/feed.js', needle: "id: 'feed-pick-tap', accept: 'image/*', multiple: true, owner: 'dev-feed-pick-img'" },
+  { name: '#1002h 朋友圈封面头像铺层＋重渲染后幂等补挂（删＝innerHTML 重建把那层冲掉＝点了没反应复发）', file: 'js/feed.js', needle: "id: 'feed-myav-tap', accept: 'image/*', owner: feedAvPickInput" },
+  { name: '#1002i 评论图片入口不再 preventDefault 落在真·可点层上的那次点击（preventDefault 会取消「弹选择器」这个默认动作＝点了没反应）', file: 'js/feed.js', needle: "if (!(e.target && e.target.closest && e.target.closest('input[data-file-pick-surface]'))) e.preventDefault();" },
+  { name: '#1002j 聊天输入栏「插入图片」铺层＋绑定时就铺一次（放在点按处理器里＝第一下永远赶不上）', file: 'js/chat.js', needle: 'chatImgSurfaceEnsure();' },
+  { name: '#1002k 批量发送面板「插入图片」铺层', file: 'js/chat.js', needle: "id: 'batch-img-tap', accept: 'image/*', multiple: true, owner: 'mochi-batch-img-pick'" },
+  { name: '#1002l 群聊输入栏「插入图片」铺层（含绑定时一次）', file: 'js/group-chat.js', needle: "id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: gcImgPicker()" },
+  { name: '#1002m 一个宿主 input 可对应多个触发按钮（聊天壁纸＝设置页面板＋抽屉两处）——删＝后点的那处拿不到回调（图被静默丢弃）', file: 'js/device.js', needle: 'window.mochiFilePickSurfaceAll = function (input) {' },
+  { name: '#1002n owner 可写 id 字符串（统一入口的 input 点按时才建）——删＝那些入口选完文件无回调', file: 'js/device.js', needle: "if (typeof owner === 'string') { try { owner = document.getElementById(owner); } catch (e2) { owner = null; } }" },
+  { name: '#1002o 入口定位兜底：非绝对/固定/相对/粘性就补 relative（游离态创建的入口曾被判成空串＝层变成整屏透明 input 吃掉全页点击）', file: 'js/device.js', needle: "if (_pos !== 'absolute' && _pos !== 'fixed' && _pos !== 'relative' && _pos !== 'sticky') btn.style.position = 'relative';" },
+  { name: '#1002p label 层插在 surface 之前（同序画层，后插的 label 会盖住 surface＝国产内核里点了没反应复发）', file: 'js/device.js', needle: 'if (surf) btn.insertBefore(label, surf); else btn.appendChild(label);' },
+  { name: '#1002q mochiFilePick 识别「本次手势就是 surface 点按」后不再补腿（删＝与 surface 各弹一次＝双开）', file: 'js/device.js', needle: 'if (!o.noClick && window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) {' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

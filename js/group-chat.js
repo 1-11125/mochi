@@ -3453,12 +3453,15 @@ reader.readAsDataURL(f);
 document.body.appendChild(fi);
 gcImgInput = fi;
 if (window.mochiFilePickLabel && gcImgBtn) window.mochiFilePickLabel(gcImgBtn, fi);
+if (window.mochiFilePickSurface && gcImgBtn) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: fi });
 return fi;
 }
+try { if (window.mochiFilePickSurface && gcImgBtn) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: gcImgPicker() }); } catch (err) {}
 if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 const fi = gcImgPicker();
 try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
+try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: fi }); } catch (err) {}
 var _fb = () => { window.mochiFilePickFire(fi, { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(fi, _fb);
 else _fb();

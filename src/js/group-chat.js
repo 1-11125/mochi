@@ -4053,13 +4053,20 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     gcImgInput = fi;
     // 原生 label 激活层（等 input 挂进文档、id/accept 就位后才接）
     if (window.mochiFilePickLabel && gcImgBtn) window.mochiFilePickLabel(gcImgBtn, fi);
+    // FIX 2026-09-21 #1002（第九波续）：群聊输入栏「插入图片」同样铺「真·可点 input」层——手指物理落在
+    // 真 input 上，选择器由浏览器原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker。
+    if (window.mochiFilePickSurface && gcImgBtn) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: fi });
     return fi;
   }
+  // FIX 2026-09-21 #1002：**绑定时**就铺一次真·可点 input 层（放在点按处理器里＝第一次点按赶不上）
+  try { if (window.mochiFilePickSurface && gcImgBtn) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: gcImgPicker() }); } catch (err) {}
   if (gcImgBtn) gcImgBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const fi = gcImgPicker();
     // 输入栏整段重建后按钮是新节点、label 层会丢 ⇒ 每次点按幂等补挂（只在缺失时补）
     try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(gcImgBtn, fi); } catch (err) {}
+    // #1002：按钮被整段重建过也把 surface 层幂等补回来
+    try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(gcImgBtn, { id: 'gc-img-tap', accept: 'image/*', multiple: true, owner: fi }); } catch (err) {}
     // FIX 2026-09-18 #756：原 fromLabel 早退在国产内核（label 存在但不转发）时连 JS 兜底
     // 一起跳过＝「插图片点了完全没反应」；改由 guard 事后确认真未弹出再补 click
     // FIX 2026-09-20 #920：兜底腿改走全站统一三腿（showPicker→click；小米系对合成 click 静默不弹）

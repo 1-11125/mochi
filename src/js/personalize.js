@@ -1311,6 +1311,9 @@ try {
     const upBtn = document.createElement('button');
     upBtn.textContent = '＋ 上传新图（可多选）';
     upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
+    // FIX 2026-09-21 #1002：手机壁纸「＋ 上传新图（可多选）」铺真·可点 input 层（owner＝统一入口那个
+    // 多选 input 的 id；面板每次打开都是新按钮，故渲染即铺，幂等）
+    if (window.mochiFilePickSurface) window.mochiFilePickSurface(upBtn, { id: 'phone-bg-up-tap', accept: 'image/*', multiple: true, owner: 'mochi-phonebg-gallery-pick' });
     upBtn.addEventListener('click', () => {
       // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现虽挂 body，但 accept 迟到、无 label
       // 原生激活兜底、每次点按 new 一个再 remove；vivo X200s/百度浏览器报「上传无反应」的同族面）
@@ -1337,12 +1340,6 @@ try {
       });
     });
     wrap.appendChild(upBtn);
-    // #997：多选能力由浏览器选择器决定（本站只是网页，没有相册权限），只能选一张 / 点了没反应时给就地指引
-    const bgHint = document.createElement('div');
-    bgHint.id = 'phonebg-upload-hint';
-    bgHint.style.cssText = 'font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 8px';
-    bgHint.textContent = '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）';
-    wrap.appendChild(bgHint);
     if (cur) {
       const rmBtn = document.createElement('button');
       rmBtn.textContent = '清除当前壁纸（图库保留）';
@@ -5819,6 +5816,10 @@ try {
       };
       syncRowUI();
       row.appendChild(ico); row.appendChild(txt); row.appendChild(val);
+      // FIX 2026-09-21 #1002（第九波续）：本行「首页/第 N 页背景图」铺「真·可点 input」层——手指物理落在
+      // 真 input 上，选择器由浏览器原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker。
+      // owner 写统一入口那个 input 的 id（点按时才建），选完文件转交它并派发 change ⇒ 压缩/落库管线一字未改。
+      if (window.mochiFilePickSurface) window.mochiFilePickSurface(row, { id: 'page-bg-tap-' + i, accept: 'image/*', owner: 'mochi-page-bg-pick' });
       row.addEventListener('click', () => {
         const bg = store.get('page-bg-' + i);
         // FIX 2026-09-18 #755：统一走 window.mochiFilePick（原实现 detached＋无 label＋accept 迟到）

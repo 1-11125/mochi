@@ -95,6 +95,9 @@ await cdpConnect();
 await cdp('Page.enable');
 await cdp('Runtime.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 428, height: 926, deviceScaleFactor: 2, mobile: true });
+// FIX 2026-09-21 #992：createElement 捕获钩子必须在**文档创建时**就装好——#992 起「插入图片」的
+// 常驻 input 在绑定时机（脚本加载期）就建好，页面加载完才装的钩子抓不到它，B1~B5 会误报 no-input。
+await cdp('Page.addScriptToEvaluateOnNewDocument', { source: "window.__capIn=[];var _oce=document.createElement.bind(document);document.createElement=function(t){var el=_oce(t);if(String(t).toLowerCase()==='input')window.__capIn.push(el);return el;};" });
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 await sleep(2600);
 for (let i = 0; i < 40; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(300); }
@@ -103,20 +106,18 @@ await sleep(700);
 await evalJs("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-chat');});return true;})()");
 await sleep(400);
 
-// 捕获 app 内部创建的 file input（并记录它是否被挂进文档）
+// 捕获 app 内部创建的 file input（钩子已在文档创建时装好，见上）
 const baseInputs = J(await evalJs(`(function(){return JSON.stringify({n:document.querySelectorAll('body > input[type=file]').length});})()`));
-await evalJs(`(function(){window.__capIn=[];var orig=document.createElement.bind(document);window.__origCE=orig;
-document.createElement=function(t){var el=orig(t);if(String(t).toLowerCase()==='input')window.__capIn.push(el);return el;};return true;})()`);
 
 // B1 点「插入图片」→ input 必须挂进文档（旧实现 detached）
 await evalJs("(function(){document.getElementById('chat-img-btn').click();return true;})()");
 await sleep(500);
-const cap = J(await evalJs(`(function(){var a=window.__capIn||[];var inp=a[a.length-1];return JSON.stringify({n:a.length,attached:!!(inp&&inp.parentNode),inBody:!!(inp&&inp.parentNode===document.body)});})()`));
-ok(cap.n >= 1 && cap.inBody === true, 'B1 插入图片的 file input 已挂进文档（旧实现 detached ⇒ iOS 选完图不派发 change）', JSON.stringify(cap));
+const cap = J(await evalJs(`(function(){var inp=document.getElementById('chat-img-pick');var a=window.__capIn||[];return JSON.stringify({created:a.length,n:a.length,attached:!!(inp&&inp.parentNode),inBody:!!(inp&&inp.parentNode===document.body)});})()`));
+ok(cap.created >= 1 && cap.inBody === true, 'B1 插入图片的常驻 file input 已在页面加载期/首次点按时建好并挂进文档（旧实现 detached ⇒ iOS 选完图不派发 change）', JSON.stringify(cap));
 
 // B2 真图（1600×1200 JPEG）→ 压缩后进草稿条
 const b2 = J(await evalJs(`(async function(){
-  var a=window.__capIn||[];var inp=a[a.length-1];if(!inp)return JSON.stringify({err:'no-input'});
+  var inp=document.getElementById('chat-img-pick');if(!inp)return JSON.stringify({err:'no-input'});
   var c=document.createElement('canvas');c.width=1600;c.height=1200;
   var g=c.getContext('2d');var gr=g.createLinearGradient(0,0,1600,1200);gr.addColorStop(0,'#f00');gr.addColorStop(1,'#00f');
   g.fillStyle=gr;g.fillRect(0,0,1600,1200);
@@ -145,7 +146,7 @@ ok(b3.imgParts >= 1 && b3.draftItems === 0, 'B3 发送后消息带图片部件�
 
 // B4 空 FileList（iOS 选完没带上文件）→ 必须可见提示（旧实现静默 return）
 const b4 = J(await evalJs(`(async function(){
-  var a=window.__capIn||[];var inp=a[a.length-1];if(!inp)return JSON.stringify({err:'no-input'});
+  var inp=document.getElementById('chat-img-pick');if(!inp)return JSON.stringify({err:'no-input'});
   var t=document.getElementById('cc-toast');if(t)t.textContent='';
   inp.dispatchEvent(new Event('change',{bubbles:true}));
   await new Promise(function(r){setTimeout(r,300);});
@@ -156,7 +157,7 @@ ok((b4.toast || '').indexOf('没有取到图片') >= 0, 'B4 没取到文件时�
 
 // B5 选到坏图（声明 image/png 但内容非法）→ 解码失败也必须落一张进草稿 + 有提示
 const b5 = J(await evalJs(`(async function(){
-  var a=window.__capIn||[];var inp=a[a.length-1];if(!inp)return JSON.stringify({err:'no-input'});
+  var inp=document.getElementById('chat-img-pick');if(!inp)return JSON.stringify({err:'no-input'});
   var t=document.getElementById('cc-toast');if(t)t.textContent='';
   var f=new File([new Uint8Array([1,2,3,4,5,6,7,8,9,10])],'bad.png',{type:'image/png'});
   var dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;

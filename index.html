@@ -10499,9 +10499,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790003423820">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790004317181">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 23:10<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 23:25<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20071,7 +20071,8 @@ if (!label) {
 label = document.createElement('label');
 label.setAttribute(mark, input.id);
 label.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;';
-btn.appendChild(label);
+var surf = btn.querySelector('input[data-file-pick-surface]');
+if (surf) btn.insertBefore(label, surf); else btn.appendChild(label);
 }
 label.htmlFor = input.id;
 } catch (e) { /* 兼容助手绝不能成为错误源 */ }
@@ -20079,7 +20080,7 @@ label.htmlFor = input.id;
 window.mochiFilePickSurface = function (btn, opts) {
 try {
 var o = opts || {};
-if (!btn || !btn.appendChild || typeof o.onFiles !== 'function') return null;
+if (!btn || !btn.appendChild) return null;
 var id = o.id || ('mochi-pick-surface-' + Date.now().toString(36));
 var input = document.getElementById(id);
 if (!input) {
@@ -20089,15 +20090,40 @@ input.id = id;
 input.className = 'mochi-pick-surface';
 input.setAttribute('data-file-pick-surface', '1');
 input.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:0;';
-if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+var _pos = '';
+try { _pos = getComputedStyle(btn).position || ''; } catch (e3) {}
+if (_pos !== 'absolute' && _pos !== 'fixed' && _pos !== 'relative' && _pos !== 'sticky') btn.style.position = 'relative';
 btn.appendChild(input);
-input.addEventListener('click', function () { window.__mochiSurfaceTapAt = Date.now(); }, true);
+input.addEventListener('click', function () {
+window.__mochiSurfaceTapAt = Date.now();
+try {
+var bp = getComputedStyle(btn).position;
+if (bp === 'static' || bp === '') btn.style.position = 'relative';
+} catch (e4) {}
+}, true);
+input.__mochiSurface = { owner: null, onFiles: null };
 }
 try { input.accept = o.accept || 'image/*'; } catch (e) {}
+input.multiple = !!o.multiple;
+var rec = input.__mochiSurface = input.__mochiSurface || { owner: null, onFiles: null };
+if (o.owner) rec.owner = o.owner;
+if (typeof o.onFiles === 'function') rec.onFiles = o.onFiles;
 input.onchange = function () {
 var files = Array.prototype.slice.call(input.files || []);
 try { input.value = ''; } catch (e) {} // 允许重选同一文件
-try { o.onFiles(files); } catch (e) {}
+if (!files.length) return;
+if (typeof rec.onFiles === 'function') { try { rec.onFiles(files); } catch (e) {} return; }
+var owner = rec.owner;
+if (typeof owner === 'string') { try { owner = document.getElementById(owner); } catch (e2) { owner = null; } }
+if (!owner) return;
+try {
+var dt = new DataTransfer();
+for (var i = 0; i < files.length; i++) dt.items.add(files[i]);
+owner.files = dt.files;
+owner.dispatchEvent(new Event('change'));
+} catch (e) {
+if (window.toast) { try { toast('浏览器不支持这种方式选择图片，请改用 Chrome 或 Edge 打开'); } catch (x) {} }
+}
 };
 return input;
 } catch (e) { return null; }
@@ -20106,6 +20132,17 @@ window.mochiFilePickSurfaceTap = function () {
 var at = window.__mochiSurfaceTapAt || 0;
 window.__mochiSurfaceTapAt = 0;
 return (Date.now() - at) < 400;
+};
+window.mochiFilePickSurfaceAll = function (input) {
+var out = [];
+try {
+var all = document.querySelectorAll('input[data-file-pick-surface]');
+for (var i = 0; i < all.length; i++) {
+var rec = all[i].__mochiSurface;
+if (rec && (rec.owner === input || (typeof rec.owner === 'string' && rec.owner === input.id))) out.push(all[i]);
+}
+} catch (e) {}
+return out;
 };
 window.mochiFilePickFire = function (input, opts) {
 var o = opts || {};
@@ -20138,9 +20175,19 @@ try { input.value = ''; } catch (e) {} // 允许重选同一文件
 if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
 };
 if (o.btn && window.mochiFilePickLabel) window.mochiFilePickLabel(o.btn, input);
+if (o.btn && window.mochiFilePickSurfaceAll && typeof o.onFiles === 'function') {
+try {
+var surfs = window.mochiFilePickSurfaceAll(input);
+for (var si = 0; si < surfs.length; si++) { surfs[si].__mochiSurface.onFiles = o.onFiles; }
+} catch (e) {}
+}
 var activate = function () {
 window.mochiFilePickFire(input, { onFail: function () { if (o.onError) { try { o.onError(); } catch (x) {} } } });
 };
+if (!o.noClick && window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) {
+if (window.mochiFilePickGuard) window.mochiFilePickGuard(input, function () {}); // 仍登记一次武装（诊断口径 seq 不变）
+return input;
+}
 if (!o.noClick) {
 if (o.btn && window.mochiFilePickGuard) window.mochiFilePickGuard(input, activate);
 else activate();
@@ -21018,4 +21065,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubdtlcc -->
+<!-- __MOCHI_EOF__ mubecqnx -->

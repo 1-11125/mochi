@@ -750,6 +750,11 @@
     upBtn.textContent = '＋ 上传新图（可多选）';
     upBtn.style.cssText = 'width:100%;padding:11px;border:none;border-radius:10px;background:var(--ink,#111);color:var(--bg-b,#fff);font-size:14px;font-weight:600;margin-bottom:8px';
     upBtn.addEventListener('click', () => { try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); } });
+    // FIX 2026-09-21 #1002（第九波续）：聊天壁纸「上传新图」铺「真·可点 input」层——手指物理落在真 input 上，
+    // 选择器由浏览器原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿。
+    // owner 写统一入口那个 input 的 id（点按时才建），选完文件转交它并派发 change ⇒ 逐张入库/面板刷新管线一字未改。
+    // 面板每次打开都是新节点，故本处按渲染即铺（幂等，重复调用只补挂）。
+    if (window.mochiFilePickSurface) window.mochiFilePickSurface(upBtn, { id: 'cs-bg-up-tap', accept: 'image/*', multiple: true, owner: 'dev-cs-bg-pick' });
     box.appendChild(upBtn);
     if (cur) {
       const rmBtn = document.createElement('button');
@@ -3564,6 +3569,13 @@
       b.addEventListener('click', fn);
       return b;
     };
+    // FIX 2026-09-21 #1002：抽屉里的「上传」按钮＝mkAct + 铺一层真·可点 file input（本文件新增上传入口
+    // 一律走它：按钮是单用途的、点击处理留在原处，surface 只负责「让手指点到真 input」）。
+    const mkActSurface = (label, fn, surfOpts) => {
+      const b = mkAct(label, fn);
+      try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(b, surfOpts || {}); } catch (e) {}
+      return b;
+    };
     const DEF = themeDefaults();
     const setSurface = (i, v) => { try { store.set(CHAT_SURFACE_SETTINGS[i].key, String(v)); } catch (e) {} applySettings(); };
     const SECS = [
@@ -3625,9 +3637,9 @@
           const glN = (function () { try { return csBgList().length; } catch (e) { return 0; } })();
           // 两枚按钮走抽屉现成的两列网格（mkAct 不认 flex，裸 flex 行会按内容宽＝一长一短）
           wrap.appendChild(mkGrid([
-            mkAct(store.get('cs-bg') ? '上传壁纸（可多选）' : '① 上传壁纸（可多选）', () => {
+            mkActSurface('上传壁纸（可多选）', () => {
               try { csBgPickFiles(); } catch (e) { toast('无法打开相册，请重试'); }
-            }),
+            }, { id: 'cs-bg-drawer-tap', accept: 'image/*', multiple: true, owner: 'dev-cs-bg-pick' }),
             mkAct('图库 · 换一张' + (glN ? '（' + glN + '）' : ''), () => {
               try { csBgOpenGallery(); } catch (e) { toast('图库打不开，请重试'); }
             })

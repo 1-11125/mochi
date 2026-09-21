@@ -1943,7 +1943,7 @@ return cb.scrollHeight - cb.scrollTop - cb.clientHeight < 120;
 function chatAtBottom() {
 const cb = document.getElementById('chat-body');
 if (!cb) return true;
-return chatScrollMax() - cb.scrollTop <= 8;
+return cb.scrollHeight - cb.scrollTop - cb.clientHeight <= 8;
 }
 let chatUserFollowScroll = false;
 function maybeScrollChatBottom(side) {
@@ -1955,7 +1955,7 @@ if (!chatVisible()) return;
 const out = side === 'out';
 const userFollow = !out && chatUserFollowScroll; // FIX #492 一次性消费
 if (userFollow) chatUserFollowScroll = false;
-if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;
+if (!out && !userFollow && !chatPinnedBottom) return;
 if (out || userFollow) {
 scrollChatBottom();
 requestAnimationFrame(scrollChatBottom);
@@ -3402,17 +3402,12 @@ const cb868 = document.getElementById('chat-body');
 if (cb868 && chatScrollMax() - cb868.scrollTop > 8) scrollChatBottom(); // #416：≤8px 不折腾
 }
 setInterval(function () {
-if (!chatVisible() || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
+if (!chatVisible() || !chatPinnedBottom || batchRendering || _ccSmoothT || chatTouchActive) return; // #716：触摸手势进行中不让路=看门狗与用户上滑对打
 if (Date.now() - _chatScrollActTs < 200) return; // #765：列表滚动中（含抬手后的惯性滑行）不让路，落定后再复核
 if (Date.now() - _vvGeomChangeTs < 180) return; // 视口变形进行中不写，等落定
 if (Date.now() - _cbBoxChangeTs < 180) return; // #871：聊天盒还在变尺寸（mobile-adapt 分步恢复中）同样不写
 const cb706 = document.getElementById('chat-body');
 if (!cb706) return;
-if (!chatPinnedBottom) {
-if (!chatAtBottom()) return;
-chatPinnedBottom = true; cb706.classList.remove('scroll-anchor-auto'); chatScrollRealignQuiet();
-return;
-}
 if (cb706.scrollTop < chatScrollMax() - 8) scrollChatBottom();
 }, 250);
 let _rsAlignT = null;
@@ -10844,6 +10839,7 @@ toast('表情包面板暂不可用');
 });
 }
 const batchImg = document.getElementById('batch-img');
+if (batchImg && window.mochiFilePickSurface) window.mochiFilePickSurface(batchImg, { id: 'batch-img-tap', accept: 'image/*', multiple: true, owner: 'mochi-batch-img-pick' });
 if (batchImg) {
 batchImg.addEventListener('click', (e) => {
 e.stopPropagation();
@@ -11297,6 +11293,7 @@ renderEmojiPanel();
 });
 }
 const myeAdd = document.getElementById('mye-add');
+if (myeAdd && window.mochiFilePickSurface) window.mochiFilePickSurface(myeAdd, { id: 'mye-add-tap', accept: 'image/*', multiple: true, owner: 'mochi-myemoji-pick' });
 if (myeAdd) {
 myeAdd.addEventListener('click', (e) => {
 e.stopPropagation();
@@ -11716,7 +11713,15 @@ files.forEach(addDraftImg);
 document.body.appendChild(fi);
 chatImgInput = fi;
 if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi);
+if (window.mochiFilePickSurface && imgBtn) window.mochiFilePickSurface(imgBtn, { id: 'chat-img-tap', accept: 'image/*', multiple: true, owner: fi });
 return fi;
+}
+function chatImgSurfaceEnsure() {
+try {
+var fi2 = chatImgPicker();
+var btn = document.getElementById('chat-img-btn');
+if (window.mochiFilePickSurface && btn) window.mochiFilePickSurface(btn, { id: 'chat-img-tap', accept: 'image/*', multiple: true, owner: fi2 });
+} catch (e) {}
 }
 function chatImgPickBridge() {
 const fi = chatImgPicker();
@@ -11759,8 +11764,10 @@ img.src = raw;
 };
 try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片读取失败，请换一张再试'); }
 }
+chatImgSurfaceEnsure();
 imgBtn.addEventListener('click', (e) => {
 e.stopPropagation();
+chatImgSurfaceEnsure(); // #1002：点按前幂等补挂真·可点 input 层（按钮被重建过也补回来）
 var _fb = () => { window.mochiFilePickFire(chatImgPickBridge(), { onFail: () => toast('无法打开图片选择器，请重试') }); };
 if (window.mochiFilePickGuard) window.mochiFilePickGuard(chatImgPickBridge(), _fb);
 else _fb();
