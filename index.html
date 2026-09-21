@@ -10278,7 +10278,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-bullet">慢的原因基本是两个：① 打开时要把整站代码一次性读完（所有功能都打包在同一个网页里，约 5.5MB）；② 要把你本机的数据读回来（聊天记录、字卡、图片都只存在你自己手机上，没有服务器账号，数据越多读得越久）。这两件事跟网速基本无关——手机旧、数据多就会慢几秒，属正常。</p>
             <p class="splash-bullet">数据多时底部会显示「数据较多，仍在加载…」，并在下面补一行说明，等它读完就行；不要反复关掉重开，重开等于从头再读一遍，只会更慢。</p>
             <p class="splash-bullet">需要联网的只有「开屏公告文案」和「版本检测」两小块：信号差时会慢几秒、或短暂显示上一次的公告文案，都属正常；断网也能进（公告有本地兜底文案）。想尽快看到最新公告，可在信号好的时候用流量多刷新几次。</p>
-            <p class="splash-bullet">进去之后如果还一直卡（打字、滑动、点按钮都卡），那多半是数据体积的问题、不是开屏的问题：设置 → 工具 →「卡顿自检 · 一键优化」，详见使用说明里的「手机卡顿」。</p>
+            <p class="splash-bullet">进去之后如果还一直卡（打字、滑动、点按钮都卡），那多半是数据体积的问题、不是开屏的问题：设置 → 信息诊断 →「卡顿自检 · 一键优化」，详见使用说明里的「手机卡顿」。</p>
             <p class="splash-bullet"><b>按手机分</b>：<b>iPhone</b>——建议用 Safari「添加到主屏幕」，从桌面图标打开使用；另外别存太多数据，<b>图片最占地方</b>。<b>安卓</b>——同样的情况好很多，但长期使用也需要清理数据。</p>
           </div>
           <div class="splash-sec-wrap">
@@ -10314,7 +10314,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-sub">报修格式（月底停更前仍会按精力处理）：</p>
             <p class="splash-item splash-hl">请按【手机型号 + 浏览器 + 具体现象】提交，缺一不回。</p>
             <p class="splash-bullet">例：小米14 / 自带浏览器 / 点击字卡没反应</p>
-            <p class="splash-bullet">补充方式：设置 → 设备兼容诊断，把自动生成的本机诊断文本（含版本号）一并贴上，能更快定位。</p>
+            <p class="splash-bullet">补充方式：设置 → 信息诊断 →「设备兼容诊断」，把自动生成的本机诊断文本（含版本号）一并贴上，能更快定位。</p>
             <p class="splash-item">问「为什么会出现这个问题」这类基础疑问，建议直接问 AI，比作者回复快。</p>
             <p class="splash-item">关于数据丢失：有可能有 bug，也有可能是浏览器触发丢失。不是高频率丢失就是正常情况（浏览器自身有正常概率丢数据），需要定期备份；提示有新版本需要刷新时，先备份数据。注意：本机不保留任何自动备份副本（v3.29 起该机制已下线，历史遗留副本会在启动时自动清理），你下载并保存好的导出文件就是唯一备份——请存到不会被浏览器清理的地方。</p>
           </div>
@@ -10363,11 +10363,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-item">注意：专属部分=当前桌面联系人的字卡，换设备后请在对应联系人桌面导入；全量导出不代替定期备份，设置→数据备份 的整包导出请照常做。</p>
           </div>
           <div class="splash-sec-wrap">
-            <p class="splash-sec">七、屏幕位置设置（屏幕错位自己调）</p>
-            <p class="splash-item">新增「屏幕位置设置」：不同设备屏幕错位不用再等修，自己在面板里调——设置页 → 屏幕位置设置（信息诊断组上方）。</p>
+            <p class="splash-sec">七、屏幕适配微调（屏幕错位自己调）</p>
+            <p class="splash-item">新增「屏幕适配微调」：不同设备屏幕错位不用再等修，自己在面板里调——设置页 → 工具 →「屏幕适配微调」（六轴滑杆：顶部 / 底部 / 页面高度 / 桌面 / 整体位移 / 文字大小）。</p>
             <p class="splash-item">五根轴各管一种错位：顶部内容被状态栏遮挡/离太远→「顶部」；底部导航栏被手势条裁掉/悬空→「底部」；页面底部留白/内容超出→「页面高度」；全屏时桌面图标按钮整体偏上→「桌面图标区」；整页偏上/偏下导致顶部或底部被遮挡→「整体位移」。</p>
             <p class="splash-item">用法：面板里 − / + 步进（一次 ±2px）或点数值精确输入，改完立即生效、本机永久保存；「全部恢复默认」一键归零；每台设备各自调、互不影响、不随联系人走。</p>
-            <p class="splash-item">建议先跑 设置 → 屏幕适配诊断 看差多少像素，再来填对应偏移；聊天页内还可配合聊天设置→美化 的「顶栏/底栏位置」滑杆单独微调。</p>
+            <p class="splash-item">建议先跑 设置 → 信息诊断 →「屏幕适配诊断」 看差多少像素，再来填对应偏移；聊天页内还可配合聊天设置→美化 的「顶栏/底栏位置」滑杆单独微调。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">关于使用过程中的更新提醒</p>
@@ -10383,9 +10383,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789984201914">
-        <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 17:50<span id="splash-ver-live"></span></span>
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789984720284">
+        <span class="sv-app">Mochi 字卡传讯 <b>v8.28</b></span>
+        <span class="sv-deploy">部署于 2026-09-21 17:58<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11539,6 +11539,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="them-tab" data-tab="chat">聊天</div>
         <div class="them-tab" data-tab="system">系统</div>
         <div class="them-tab" data-tab="tools">工具</div>
+        <div class="them-tab" data-tab="diag">信息诊断</div>
         <div class="them-tab" data-tab="about">关于</div>
       </div>
       <!-- 通用：全屏模式（置顶独立组） + 数据备份（导出/导入） + 联系人 / 桌面 + 入口行为 + 深色模式 / 手机桌面美化 -->
@@ -11758,10 +11759,32 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">各功能数据管理<span class="sub">花园/房间/记账/经期/占卜/音乐…每个功能单独导出、导入、清空，互不影响</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
+        <!-- v3.26.x：查看存储——用户反馈「存储已用 1.x GB」时，能一眼看出各功能占多少空间，
+             并提供「清理错误诊断记录」手动清掉诊断缓存（__diag-*，不影响任何业务数据） -->
+        <div class="set-row" id="row-storage-view">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
+          <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
+        </div>
+        <!-- #497 压缩图片入口：img-compress.js 接线 #row-img-compress（该功能上线时漏加本行＝设置页一直无入口）；
+             「查看存储」页内另有同款入口 #st-img-compress-btn -->
+        <div class="set-row" id="row-img-compress">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
+        </div>
+        <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
+      </div>
+      <!-- FIX 2026-09-19 #805（2026-09-20 随 #927 重放）：「清除本地数据」(#row-reset) 已移入「通用」段末项——
+           与导出/导入同属数据管理，用户要求三件套都在首屏 tag 里看得见；危险操作仍置段尾与只读工具分开。 -->
+      </div><!-- /them-sec tools -->
+      <!-- v3.26.x #961（重放 #957，2026-09-21 用户直派「把信息诊断相关在设置的 tag 里新开一个分类」）——
+           诊断行与用户主动跑的自测行集中到「信息诊断」独立 tag：「查看存储 / 压缩图片 / 字卡使用状态自检 / 屏幕适配微调」仍留「工具」。
+           行 id 一律不变＝settings-help 功能说明胶囊、直达跳转 closest('.them-sec')、build.mjs 哨兵接线不断。 -->
+      <div class="them-sec" data-sec="diag">
+      <div class="set-group glass">
         <!-- v3.16.x：复制诊断信息——遇设备/浏览器兼容问题时，用户一键复制本机环境信息发给开发者，
              避免靠描述反推（此前每台新设备报障都要来回猜） -->
-        <!-- v3.26.x #176：信息诊断分组说明（设备兼容诊断 + 屏幕适配诊断两行归属） -->
-        <div class="gs-title">信息诊断</div>
         <div class="set-row" id="row-diagnostics">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
           <div class="txt">设备兼容诊断<span class="sub">遇到兼容问题发给开发者（原复制诊断信息）</span></div>
@@ -11788,20 +11811,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
           <div class="txt">功能诊断<span class="sub">逐个测试全部功能是否正常（约 15 秒）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-        </div>
-        <!-- v3.26.x：查看存储——用户反馈「存储已用 1.x GB」时，能一眼看出各功能占多少空间，
-             并提供「清理错误诊断记录」手动清掉诊断缓存（__diag-*，不影响任何业务数据） -->
-        <div class="set-row" id="row-storage-view">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg></div>
-          <div class="txt">查看存储<span class="sub">查看各功能占用空间，可手动清理错误诊断记录</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
-        </div>
-        <!-- #497 压缩图片入口：img-compress.js 接线 #row-img-compress（该功能上线时漏加本行＝设置页一直无入口）；
-             「查看存储」页内另有同款入口 #st-img-compress-btn -->
-        <div class="set-row" id="row-img-compress">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
-          <div class="txt">压缩图片<span class="sub">上传时已自动压缩；这里把历史遗留的偏大存量图再压一遍</span></div>
-          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6 6-6"/></svg></div>
         </div>
         <!-- #726：卡顿自检（渲染层实测）——与下方 #411「一键优化」（数据层）互补：
              10 秒 rAF 帧间隔现场实测（可去任意页面复现），掉帧率/集中页/键盘期占比 + 对症建议；
@@ -11850,11 +11859,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              发热与卡顿成因不同（发热多为后台持续干活：保活/边充边用/高负载，卡顿多为数据堆积+省电模式），
              单独成条不塞进卡顿清单；口径与 #436 后台减负、#906 报告点名保活一致 -->
         <div class="gs-sub" id="heat-help-sub"><b>手机发烫怎么改善：</b>发烫多数不是网站坏了，是<b>有东西在后台一直干活</b>。按这个顺序查：① <b>「后台保活」</b>——开着＝页面在后台持续运行，是最常见的发热源；不用后台通知时到 设置 → 系统 关掉，温度会明显下降。② <b>边充电边用</b>——充电本身就发热，叠加使用更烫；烫得厉害先拔掉充电器对照。③ <b>通话 / 长时间放声音</b>——在本站打通话（响铃＋通话中持续放音）、长时间放歌或连着玩小游戏，跟真的打电话、视频通话一样，都会持续占用扬声器/听筒和网络＝发热明显，<b>属正常现象</b>，挂断/停播几分钟温度就降下来；系统级打电话、微信视频同理。④ <b>省电（低电量）模式别开</b>——又卡又发热（见上方卡顿说明第一条）。⑤ <b>别开一堆标签页、别用「桌面版网站」模式</b>。⑥ 数据堆得太多（图片最占）会让手机持续高负载，按上方卡顿清单「查看存储 → 对症清」。另外：不用本站时把它<b>从后台彻底划掉</b>（或关掉后台保活），几分钟温度就会降下来。<b>想量化取证</b>：上方「发烫自测」（约 10 秒，测有没有被系统降频拖慢）与「电量消耗自测」（分段测掉电速率，开了就能去忙别的，回来自动出报告）随时可跑，报告可复制/导出，发热或耗电异常时把它发给开发者。</div>
-        <!-- 字卡使用状态自检入口已上移至【工具】段最前（#532，2026-09-15 用户点名靠前） -->
       </div>
-      <!-- FIX 2026-09-19 #805（2026-09-20 随 #927 重放）：「清除本地数据」(#row-reset) 已移入「通用」段末项——
-           与导出/导入同属数据管理，用户要求三件套都在首屏 tag 里看得见；危险操作仍置段尾与只读工具分开。 -->
-      </div><!-- /them-sec tools -->
+      </div><!-- /them-sec diag -->
       <!-- 关于：按「应用信息 / 帮助与支持 / 隐私与法律 / 联系与反馈」四类整理（#606，2026-09-16）。
            只放「了解应用本身」的只读信息；会改数据/开关的仍留工具 tag。
            版本号 / 署名 / 防骗声明在分区外常驻底部，不随标签切换 -->
@@ -11875,7 +11881,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
            仅 iOS 显示——pwa.js 载入时对非 iOS 置 hidden（JS 未跑＝保留，宁可多提醒一句，不误藏）。
            非 set-row＝设置搜索不受影响（同 #722/#792 口径）。 -->
       <div class="set-alert" id="about-ios-pwa-note"><b>iPhone / iPad（Safari）用户必看：不装到桌面，数据会被「7 天规则」清空。</b>没把本站「添加到主屏幕」时，Apple 会在<b>连续 7 天没打开本站</b>后自动清空它的全部本地数据——这是 Safari 的隐私策略（ITP），任何网站都躲不过，网站也没法用代码阻止；<b>添加到主屏幕后从桌面图标打开就不受这条限制</b>（主屏应用不计入这 7 天）。<b>注意：主屏幕应用和 Safari 是两套独立存储</b>，所以请按顺序做：① 先导出一份完整备份（设置 → 通用 → 导出数据），存到「文件」App 或微信收藏；② 点 Safari 底部的分享按钮（方框加箭头）→「添加到主屏幕」→ 添加；③ 回手机桌面，点新出现的 Mochi 图标打开；④ 在打开的桌面应用里 设置 → 通用 → 导入数据，选第①步的备份文件恢复。之后平时都从桌面图标用，Safari 清不清都不影响你的数据。（安卓没有这条 7 天规则，但存储紧张时系统也会清网页数据，仍要定期导出备份。）</div>
-      <div class="set-alert" id="about-perf-note"><b>手机发卡？先查「省电模式」：</b>iPhone 的「低电量模式」、安卓各家的「省电模式 / 低电量模式 / 超级省电」都会把手机调成半速——帧率锁半、处理器降速，表现为滑动、切页、打字全都变卡。<b>这是系统行为，不是网站坏了，关掉立刻恢复</b>（iPhone：设置 → 电池 → 关掉「低电量模式」；安卓：设置 → 电池，各厂商叫法不同）。安卓用户若只卡这一个应用，再检查「电池优化 / 后台运行限制」有没有把浏览器限死。确认没开省电还卡，再到 设置 → 工具 →「手机卡顿说明」按清单对症处理。</div>
+      <div class="set-alert" id="about-perf-note"><b>手机发卡？先查「省电模式」：</b>iPhone 的「低电量模式」、安卓各家的「省电模式 / 低电量模式 / 超级省电」都会把手机调成半速——帧率锁半、处理器降速，表现为滑动、切页、打字全都变卡。<b>这是系统行为，不是网站坏了，关掉立刻恢复</b>（iPhone：设置 → 电池 → 关掉「低电量模式」；安卓：设置 → 电池，各厂商叫法不同）。安卓用户若只卡这一个应用，再检查「电池优化 / 后台运行限制」有没有把浏览器限死。确认没开省电还卡，再到 设置 → 信息诊断 →「手机卡顿说明」按清单对症处理。</div>
       <div class="set-group glass">
         <div class="gs-title">数据与存储（重要）</div>
         <div class="set-row" id="row-faq-st-lose">
@@ -11916,7 +11922,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="set-row" id="row-changelog">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-5.5 3.5-10 10-10 3.7 0 7 2 8.8 5M22 12c0 5.5-3.5 10-10 10-3.7 0-7-2-8.8-5"/></svg></div>
           <div class="txt">版本与更新<span class="sub">当前版本 · 一键更新到最新（更新摘要见开屏公告）</span></div>
-          <div class="val" id="about-ver-val">v8.29</div>
+          <div class="val" id="about-ver-val">v8.28</div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <!-- #606 开源与致谢：开源/私有部署说明 + 灵感来源与致谢（内容与功能介绍页同源，做成独立入口） -->
@@ -11965,6 +11971,22 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">系统预设字卡与功能设置<span class="sub">建议打开使用 · 原因说明</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
+        <!-- #961（2026-09-21 用户直派）：新增三条高频误解 FAQ——没有账号/不会自动同步、浏览器与桌面图标两套存储、收不到消息与通知 -->
+        <div class="set-row" id="row-faq-noacct">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
+          <div class="txt">没有账号、不会自动同步<span class="sub">数据不会跟着换机 · 只能靠导出/导入搬</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-twostore">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18M8 21h8"/></svg></div>
+          <div class="txt">浏览器和桌面图标是两份数据<span class="sub">装到桌面后是空的 · 不是数据丢了</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+        <div class="set-row" id="row-faq-notify">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></div>
+          <div class="txt">收不到消息、通知不弹<span class="sub">网页不是 App · 受浏览器/系统限制</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
       </div>
       <!-- 隐私与法律：隐私与数据安全声明（只读说明，导航见 personalize.js） -->
       <div class="set-group glass">
@@ -11985,7 +12007,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
       </div>
       </div><!-- /them-sec about -->
-      <div class="ver">Mochi 字卡传讯 v8.29</div>
+      <div class="ver">Mochi 字卡传讯 v8.28</div>
       <div class="ver-credit">原版小红书@言序（1842523578）</div>
       <!-- v3.27.x：设置页底部防骗声明 -->
       <div class="set-alert">
@@ -12379,7 +12401,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lic-hero-top">
               <div class="lic-title">Mochi 字卡传讯</div>
               <span class="lic-badge">原版</span>
-              <span class="lic-ver">v8.29</span>
+              <span class="lic-ver">v8.28</span>
             </div>
             <div class="lic-p">原创极简风情侣字卡传讯，不是小手机：黑白灰简约设计，数据全部保存在本地、无需联网；所有内容均为代码触发、按概率运行，联系方可主动发送聊天消息。代码从零编写并完全开源——本作即原版。</div>
             <!-- v3.26.x #648：原版口径澄清——唯一原版使用网站＋其他版本均为开放二传二改产生的二传/二改版 -->
@@ -12877,7 +12899,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">30</span><span class="lg-name">全屏 / 移动端适配</span><span class="lg-count">6</span></summary>
             <div class="lg-body">
-          <div class="lic-li"><b>屏幕位置设置</b>（设置 → 屏幕位置设置）：五轴手动微调，屏幕错位自己调——顶部（内容被状态栏遮挡/离太远）、底部（导航栏悬空/被手机手势条裁掉）、页面高度（底部留白/内容超出）、桌面图标区（全屏时图标/按钮整体偏上）、整体位移（整页偏上/偏下导致顶部或底部被遮挡）；面板里步进 ±2px 或点数值精确输入，改完立即生效、本机永久保存（跨桌面共用、换设备各自调），「全部恢复默认」一键归零；建议先用「屏幕适配诊断」看差多少像素再来填</div>
+          <div class="lic-li"><b>屏幕适配微调</b>（设置 → 工具 →「屏幕适配微调」）：六轴滑杆手动微调，屏幕错位自己调——顶部（内容被状态栏遮挡/离太远）、底部（导航栏悬空/被手机手势条裁掉）、页面高度（底部留白/内容超出）、桌面（全屏时图标/按钮整体偏上）、整体位移（整页偏上/偏下导致顶部或底部被遮挡）、文字大小；边拖边看、双击滑杆复位，改完立即生效、本机永久保存（跨桌面共用、换设备各自调），「全部恢复默认」一键归零；建议先用 设置 → 信息诊断 →「屏幕适配诊断」看差多少像素再来填</div>
           <div class="lic-li">屏幕适配诊断：顶部空白 / 底部裁切 / 缩放异常一键定位（含 60 秒视口时间线回放键盘开合），报障时整段复制发给开发者</div>
           <div class="lic-li">全屏模式：设置 → 通用 首位开关，安卓 Chrome PWA 隐藏系统状态栏，iOS 隐藏应用内模拟状态栏</div>
           <div class="lic-li">iOS 手势 / 双击缩放兜底，Via 浏览器 CSS 兜底保持竖屏</div>
@@ -12897,6 +12919,24 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">安卓返回键：弹层优先关闭 → 回上一页 → 最后退出应用</div>
           <div class="lic-li">IndexedDB 存储：大键值存 IDB，localStorage 缓存，启动时回填；请求持久化存储防清理</div>
           <div class="lic-li">夜间模式：开启后 22:00–7:00 联系人不再主动发消息 / 打电话，其他桌面也不再跨桌面查岗 / 来电（时段外不受影响）</div>
+            </div>
+          </details>
+
+          <details class="lic-grp">
+            <summary><span class="lg-num">32</span><span class="lg-name">诊断与自检</span><span class="lg-count">12</span></summary>
+            <div class="lg-body">
+          <div class="lic-li"><b>设备兼容诊断</b>（设置 → 信息诊断）：一键采集本机环境（型号 / 浏览器 / 存储 / 性能 / 最近错误），遇兼容问题整段复制发给开发者</div>
+          <div class="lic-li"><b>功能诊断</b>（设置 → 信息诊断）：逐个测试全部功能是否正常（入口 / 页面 / 图标 / 打开 / 关闭，约 15 秒）</div>
+          <div class="lic-li"><b>屏幕适配诊断</b>（设置 → 信息诊断）：顶部空白 / 底部裁切 / 缩放异常一键定位（含 60 秒视口时间线回放键盘开合），报障时整段复制</div>
+          <div class="lic-li"><b>卡顿自检</b>（设置 → 信息诊断）：可选 10 秒~5 分钟现场实测帧率，给出掉帧率 / 集中页 / 键盘期占比与对症建议</div>
+          <div class="lic-li"><b>卡顿自检 · 一键优化</b>（设置 → 信息诊断）：字卡库等数据过大导致卡顿时，扫描分级并非破坏预热（不删任何数据）</div>
+          <div class="lic-li"><b>电量消耗自测</b>（设置 → 信息诊断）：分段实测掉电速率（前台 / 后台 / 未运行分开算、充电段剔除），15 分钟~过夜档，可去忙别的回来出报告</div>
+          <div class="lic-li"><b>发烫自测</b>（设置 → 信息诊断）：约 10 秒测有没有被系统降频拖慢（网页读不到温度，测的是降频后果）</div>
+          <div class="lic-li"><b>闪屏自测</b>（设置 → 信息诊断）：只读数「值没变仍重写全站样式几次 / 掉帧几帧」，验证闪屏问题；不改任何设置</div>
+          <div class="lic-li"><b>查看存储</b>（设置 → 工具）：查看各功能占用空间，可手动清理错误诊断记录</div>
+          <div class="lic-li"><b>压缩图片</b>（设置 → 工具）：把历史遗留的偏大存量图再压一遍（上传时已自动压缩；跳过动图）</div>
+          <div class="lic-li"><b>字卡使用状态自检</b>（设置 → 工具）：字卡能不能被用到、用不到卡在哪一步，一次看清并给修复入口</div>
+          <div class="lic-li"><b>屏幕适配微调</b>（设置 → 工具）：六轴滑杆手动对齐屏幕（顶部 / 底部 / 页面高度 / 桌面 / 整体位移 / 文字大小），边拖边看、双击复位</div>
             </div>
           </details>
         </div>
@@ -12956,7 +12996,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>系统通知</b>：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓 Chrome / Edge 且添加到桌面后可用，iPhone 不支持。</div>
               <div class="lic-li"><b>导出 / 导入</b>：从主屏幕打开时 iPhone 没有下载管理器，导出会走系统「分享」面板，请保存到「文件」App；导入时也会打开系统「文件」App 选备份文件。</div>
               <div class="lic-li"><b>语音</b>：录音格式由系统决定，安卓录制的语音在 iPhone 上可能无法播放；iOS 的「文件」选择器会按类型过滤，导入字卡 / 语音等时个别文件可能灰显、选不中（系统限制）。</div>
-              <div class="lic-li"><b>其他</b>：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（用 设置 → 工具 →「卡顿自检 · 一键优化」缓解）。</div>
+              <div class="lic-li"><b>其他</b>：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（用 设置 → 信息诊断 →「卡顿自检 · 一键优化」缓解）。</div>
             </div>
           </details>
           <details class="lic-grp">
@@ -13033,7 +13073,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>耗电</b>：开启「后台保活」会让页面在后台持续运行，比较耗电；不需要时到 设置 → 系统 关闭。</div>
               <div class="lic-li"><b>隐私</b>：本站无后端、数据全部保存在本机、不上传服务器；但系统通知/锁屏上可能显示消息内容，介意可在系统里关闭本应用通知。</div>
               <div class="lic-li"><b>数据安全</b>：浏览器随时可能清理本机存储，请按「数据与备份」定期导出。</div>
-              <div class="lic-li"><b>报修格式</b>：【手机型号 + 浏览器 + 具体现象】，缺一不回；附上 设置 → 工具 →「设备兼容诊断」复制的信息能更快定位。</div>
+              <div class="lic-li"><b>报修格式</b>：【手机型号 + 浏览器 + 具体现象】，缺一不回；附上 设置 → 信息诊断 →「设备兼容诊断」复制的信息能更快定位。</div>
               <div class="lic-li"><b>反馈渠道</b>：互助群（见开屏公告）；基础疑问可先问 AI，比等待回复更快。</div>
             </div>
           </details>
@@ -13062,7 +13102,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             </div>
           </details>
           <!-- v3.26.x：手机卡顿说明与用户可做的优化（用户直派「安卓和 iOS 卡顿也要给说明和优化建议」）。
-               设置 → 工具 →「卡顿自检 · 一键优化」行的「功能说明」胶囊（settings-help.js
+               设置 → 信息诊断 →「卡顿自检 · 一键优化」行的「功能说明」胶囊（settings-help.js
                #row-perf-optimize）是同一口径的要点版；本节是长文版，改一处记得同步另一处。 -->
           <details class="lic-grp">
             <summary><span class="lg-num">11</span><span class="lg-name">手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">19</span></summary>
@@ -13075,8 +13115,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>「后台保活」开着也会更卡</b>：页面在后台一直跑，费电、发热、掉帧都更明显。不用的时候到 设置 → 系统 关掉。</div>
               <div class="lic-li"><b>iPhone 第一条：别开「低电量模式」（安卓同理别开省电模式）</b>：低电量模式会把整机帧率锁到一半（约 30fps），滑动、切页、打字全都会变卡——<b>这是系统行为、不是网站坏了，关掉立刻恢复</b>。路径：设置 → 电池 → 关掉「低电量模式」。如果「卡顿自检」报告里写着 ≈30fps 档，基本就是它。</div>
               <div class="lic-li"><b>还有几件事会加重卡顿</b>：浏览器开了一大堆标签页、用了浏览器的「桌面版网站」模式、很久没彻底关掉重开过本站。</div>
-              <div class="lic-li"><b>先实测：卡不卡不用靠感觉——「卡顿自检」</b>：设置 → 工具 →「<b>卡顿自检</b>」，点确定后正常去用 10 秒（去卡的地方滚动、操作都行），结束自动弹出实测报告：掉帧率与分级（流畅/轻度/中度/重度）、最慢一帧、掉帧集中在哪个页面、键盘弹出期占比、本地数据量画像，并给出对症建议；若查明是字卡库等数据过大，会指向旁边的「卡顿自检 · 一键优化」（不删数据）。说明：不支持长任务观测的内核（如 iOS WebKit）用帧间隔等效判定；切后台/锁屏的时间自动剔除、不会误报成卡顿；采样只在本机进行，不上传任何数据。</div>
-              <div class="lic-li"><b>优化 ① 一键优化</b>：设置 → 工具 →「<b>卡顿自检 · 一键优化</b>」。它会把最占地方的东西提前读好，之后打开就不用等；<b>不删任何数据</b>。</div>
+              <div class="lic-li"><b>先实测：卡不卡不用靠感觉——「卡顿自检」</b>：设置 → 信息诊断 →「<b>卡顿自检</b>」，点确定后正常去用 10 秒（去卡的地方滚动、操作都行），结束自动弹出实测报告：掉帧率与分级（流畅/轻度/中度/重度）、最慢一帧、掉帧集中在哪个页面、键盘弹出期占比、本地数据量画像，并给出对症建议；若查明是字卡库等数据过大，会指向旁边的「卡顿自检 · 一键优化」（不删数据）。说明：不支持长任务观测的内核（如 iOS WebKit）用帧间隔等效判定；切后台/锁屏的时间自动剔除、不会误报成卡顿；采样只在本机进行，不上传任何数据。</div>
+              <div class="lic-li"><b>优化 ① 一键优化</b>：设置 → 信息诊断 →「<b>卡顿自检 · 一键优化</b>」。它会把最占地方的东西提前读好，之后打开就不用等；<b>不删任何数据</b>。</div>
               <div class="lic-li"><b>优化 ② 看清谁占地方</b>：设置 → 工具 →「<b>查看存储</b>」。「<b>字卡库瘦身</b>」把重复的图只留一份，能明显腾地方；顺手清一下诊断记录（清它不影响聊天 / 字卡 / 头像 / 音乐）。<b>别搞混</b>：「媒体池重建」不是用来腾地方的——那是聊天里图片显示不出来时用来找图的。本地音乐要到 桌面「音乐」→ ⚙ 设置 里清。</div>
               <div class="lic-li"><b>优化 ③ 把老图压小</b>：设置 → 工具 →「<b>压缩图片</b>」。上传时本来就压过了，这里只处理以前存的老大图（会覆盖原图、不能撤）。它不压动图（GIF）和本来就小的图，所以表情包动图特别多的话，这一步省不出多少，得靠下一步手动删。</div>
               <div class="lic-li"><b>优化 ④ 删掉不用的字卡</b>：字卡库 → 公用字卡 / 专属字卡，把不用的大图卡、语音卡删掉。「字卡使用状态自检」会把<b>特别大的图片卡（单张超过 512KB）</b>标出来。</div>
@@ -13096,7 +13136,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">12</span><span class="lg-name">设备与浏览器限制（看着像 bug，其实不是）</span><span class="lg-count">19</span></summary>
             <div class="lg-body">
-              <div class="lic-li"><b>先看这条</b>：下面这些现象都不是网站坏了，而是「浏览器 / 系统的限制」或「本应用为绕过限制做的兜底」。最快的判断方法——<b>换用 Chrome / Edge / Safari 再试一次</b>，多数「bug」当场消失。换浏览器仍然如此，再按【手机型号 + 浏览器 + 具体现象】报修（附 设置 → 工具 →「设备兼容诊断」复制的信息）。</div>
+              <div class="lic-li"><b>先看这条</b>：下面这些现象都不是网站坏了，而是「浏览器 / 系统的限制」或「本应用为绕过限制做的兜底」。最快的判断方法——<b>换用 Chrome / Edge / Safari 再试一次</b>，多数「bug」当场消失。换浏览器仍然如此，再按【手机型号 + 浏览器 + 具体现象】报修（附 设置 → 信息诊断 →「设备兼容诊断」复制的信息）。</div>
               <div class="lic-li"><b>在微信 / QQ / 钉钉等 App 里打开本站</b>：这是「内置浏览器」，能力被砍掉一大半（通知、安装到桌面、全屏、语音格式、文件下载都可能受限），看起来就像「功能坏了」。请点右上角菜单选「<b>在浏览器打开</b>」，用系统浏览器使用本站。</div>
               <div class="lic-li"><b>国产手机自带浏览器 / 各种「壳」</b>（vivo / OPPO / 小米 / 华为自带、UC、QQ、百度、夸克、三星、MetaSr 等）：多数<b>不提供网页通知能力</b>，所以「后台通知」「离线消息提醒」开不起来、或开了不弹。安卓请改用 <b>Chrome / Edge</b>。</div>
               <div class="lic-li"><b>夸克 / 华为浏览器导出备份</b>：这类浏览器的系统分享面板会「假成功」（接口说可以分享，调用却失败）。本应用已自动识别并<b>跳过分享面板、直接下载文件</b>——你看到的是直接开始下载，这是正常的兜底，不是没反应。</div>
@@ -20768,4 +20808,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub2dlmi -->
+<!-- __MOCHI_EOF__ mub2oplo -->

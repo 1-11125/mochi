@@ -4251,6 +4251,13 @@ const FIX_SENTINELS = [
   { name: '#956e 上游总开关变更即重同步本组置灰态（删＝点了多字卡回复开关后置灰态不跟手）', file: 'js/reply-settings.js', needle: "const pyEnEl = document.getElementById('py-en');" },
   { name: '#956f 设置页说明补「关闭多字卡回复后本组一并失效」（删＝用户仍按旧口径理解从属关系）', file: 'index.html', needle: '关闭上方「多字卡回复」后本组一并失效' },
   { name: '#956g 拼接符号池行随上游总开关置灰（删＝符号池行显亮，与 chips 灰态不一致）', file: 'js/reply-settings.js', needle: "rowChips.style.opacity = pyMasterOn ? '' : '.45';" },
+  { name: '#961a 设置页「信息诊断」独立 tag（重放 #957；删＝诊断/自测行退回「工具」大组，用户又找不到诊断入口）', file: 'template.html', needle: 'data-sec="diag"' },
+  { name: '#961b 设置搜索分区名表含 diag→信息诊断（删＝搜「诊断」不再跨 tag 命中新段）', file: 'js/personalize.js', needle: "diag: '信息诊断'" },
+  { name: '#961c 功能介绍「诊断与自检」功能组（删＝功能介绍里诊断/自测入口散落别处）', file: 'template.html', needle: 'lg-name">诊断与自检' },
+  { name: '#961d 关于常见问题「没有账号、不会自动同步」行（删＝用户又问数据为什么不跟着换机/同步）', file: 'template.html', needle: 'id="row-faq-noacct"' },
+  { name: '#961e 关于常见问题「浏览器和桌面图标是两份数据」行（删＝装到桌面看到空数据误判丢数据）', file: 'template.html', needle: 'id="row-faq-twostore"' },
+  { name: '#961f 关于常见问题「收不到消息、通知不弹」行（删＝通知收不到又被当 bug）', file: 'template.html', needle: 'id="row-faq-notify"' },
+  { name: '#961g 三条常见问题弹窗接线（删＝点行无反应、弹不出说明）', file: 'js/personalize.js', needle: "bind('row-faq-noacct'" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
