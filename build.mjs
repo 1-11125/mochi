@@ -4462,6 +4462,23 @@ const FIX_SENTINELS = [
   { name: '#997f 塔罗牌面批量上传小字（删＝牌面批量上传入口无浏览器限制说明）', file: 'js/divination.js', needle: 'id="divf-batch-hint"' },
   { name: '#997g 使用说明「功能说明」列全四节长文（删/改回三节＝新章节没进入口说明，用户看不到它）', file: 'js/settings-help.js', needle: '再到四节长文——' },
   { name: '#997h 说明页第 11 节计数与条目数对齐（漂移＝章标题上的条数与实际条数不符；HEAD 起 19≠20）', file: 'template.html', needle: '手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span>' },
+  /* ==== 2026-09-21 #999 「你希望我以后多做一些什么？」选项人称错位（用户直派「多关心你应该是多关心我，
+     人称错了」＋要求排查同类；同批排查了询问单选/查岗单选/好奇快答/互动动作四类）。
+     口径：选项＝用户自答，题干「你」＝用户 → 选项里的「我」才是用户自己、「你」＝TA。
+     已装用户的预设题库是整块固化的（tcMerge 只按 t 同步 reply），故本批补 tcOptLabelSync 把预设选项
+     文案按顺序同步回代码，否则只改源码到不了线上用户。 ==== */
+  { name: '#999a 选项回到用户自答口径（多关心我；改回 TA 口径＝用户实报的「人称错了」回流）', file: 'js/ta-ask.js', needle: '{ t: "多关心我", reply: ["关心你这件事，不会少"' },
+  { name: '#999b 同题第二处（多逗我笑）', file: 'js/ta-ask.js', needle: '{ t: "多逗我笑", reply: ["那我攒几个笑话"' },
+  { name: '#999c 「我难过的样子」（题干问「你希望我记住你的哪一个瞬间」，被记住的瞬间属于用户；TA 回应「记住了，以后多让你不难过」印证）', file: 'js/ta-ask.js', needle: '{ t: "我难过的样子", reply: ["记住了，以后多让你不难过"' },
+  { name: '#999d 「我认真做事的样子」（同上；TA 回应「认真的你，最好看」印证）', file: 'js/ta-ask.js', needle: '{ t: "我认真做事的样子", reply: ["认真的你，最好看"' },
+  { name: '#999e 「关于我的」（你画我猜怕 TA 画的是用户自己；TA 回应「画你？那我画得最像」印证）', file: 'js/ta-ask.js', needle: '{ t: "关于我的", reply: ["画你？那我画得最像"' },
+  { name: '#999f 「关于我自己的」（星星许愿方向；TA 回应「也该为自己许一次了」印证）', file: 'js/ta-ask.js', needle: '{ t: "关于我自己的", reply: ["也该为自己许一次了"' },
+  { name: '#999g 预设选项文案随代码同步（删＝已装用户的固化题库拿不到修正，改了源码也白改）', file: 'js/ta-ask.js', needle: 'let changed = tcOptLabelSync(d);' },
+  { name: '#999h 同步只认条数对得上的预设题（删＝选项错位覆盖风险）', file: 'js/ta-ask.js', needle: 'if (!local || !Array.isArray(local.options) || local.options.length !== def.options.length) return;' },
+  { name: '#999i 删除型：TA 口径的旧选项不得回流（回来＝用户实报形态原样复发）', file: 'js/ta-ask.js', absent: true, needle: '{ t: "多关心你", reply: ["关心你这件事' },
+  { name: '#999j 删除型：同上第二处', file: 'js/ta-ask.js', absent: true, needle: '{ t: "多逗你笑", reply: ["那我攒几个笑话' },
+  { name: '#999k 删除型：同上「你难过的样子」', file: 'js/ta-ask.js', absent: true, needle: '{ t: "你难过的样子", reply: ["记住了' },
+  { name: '#999l 删除型：同上「关于你的」', file: 'js/ta-ask.js', absent: true, needle: '{ t: "关于你的", reply: ["画你' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

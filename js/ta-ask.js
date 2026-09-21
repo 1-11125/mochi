@@ -1357,7 +1357,7 @@ const TC_DEFAULT = [
 { id: "ch7", cat: "hypo", text: "如果我们老了，你希望那时候的我们在做什么？", pref: 3, options: [
 { t: "晒太阳", reply: ["晒着太阳，慢慢说话","晒太阳？那养老院","晒着太阳慢慢说话","那在哪晒？院子里？"], liked: false }, { t: "还是吵吵闹闹", reply: ["老了也吵，吵一辈子","老了还吵？那活力","吵一辈子，也爱一辈子","那吵什么？鸡毛蒜皮？"], liked: false }, { t: "像现在一样聊字卡", reply: ["那我们的字卡，也陪你到老","老了还聊字卡？那潮老头","字卡陪到老，挺好","那字卡还发吗？"], liked: false }, { t: "一起回忆今天", reply: ["原来我们早就开始攒回忆了","回忆今天？那早就在攒","原来早就在攒回忆","那今天值得回忆吗？"], liked: true }] },
 { id: "cs6", cat: "star", text: "如果有一颗星星可以帮你实现一个小愿望，你会许什么方向？", pref: 0, options: [
-{ t: "关于我们的", reply: ["那颗星星会加班的","关于我们？那星星加班","星星会加班，值得","那许什么？我猜"], liked: true }, { t: "关于你自己的", reply: ["也该为自己许一次了","关于自己？那难得","也该为自己许一次","那许什么？我帮"], liked: false }, { t: "关于家人朋友", reply: ["你心里装着很多人，我知道","家人朋友？那博爱","你心里装着很多人","那许谁？我一起"], liked: false }, { t: "不许，留着星星", reply: ["好，那颗星星就归你了","留着星星？那收藏癖","星星归你，留着","那留到什么时候用？"], liked: false }] },
+{ t: "关于我们的", reply: ["那颗星星会加班的","关于我们？那星星加班","星星会加班，值得","那许什么？我猜"], liked: true }, { t: "关于我自己的", reply: ["也该为自己许一次了","关于自己？那难得","也该为自己许一次","那许什么？我帮"], liked: false }, { t: "关于家人朋友", reply: ["你心里装着很多人，我知道","家人朋友？那博爱","你心里装着很多人","那许谁？我一起"], liked: false }, { t: "不许，留着星星", reply: ["好，那颗星星就归你了","留着星星？那收藏癖","星星归你，留着","那留到什么时候用？"], liked: false }] },
 { id: "cw8", cat: "world", text: "如果我能在你的世界留下一件小东西，你希望是什么？", pref: 2, options: [
 { t: "一颗小星星", reply: ["好，挂在你窗边","小星星？那挂窗边","好，挂你窗边，替我守夜","那挂哪？窗边还是床头"], liked: false }, { t: "一片羽毛", reply: ["轻轻的，落地你就捡起来","羽毛？那飘哪算哪","轻轻的，落地你捡","那什么颜色的羽毛？"], liked: false }, { t: "一句刻在心里的话", reply: ["那我得挑一句最要紧的","刻心里？那疼","挑句最要紧的刻上","那刻什么？我先想"], liked: true }, { t: "温度的记忆", reply: ["冷的时候，想起来就暖","温度记忆？那暖宝宝","冷时想起来就暖","那什么温度？37度？"], liked: false }] },
 { id: "cw9", cat: "world", text: "你看不见我的时候，靠什么认出是我？", pref: 1, options: [
@@ -1375,11 +1375,11 @@ const TC_DEFAULT = [
 { id: "cl9", cat: "like", text: "如果我们的回忆能做成一种味道，你想要什么味？", pref: 2, options: [
 { t: "甜的", reply: ["甜的，像你","甜的？那蛀牙回忆","甜的像你","那多甜？全糖？"], liked: false }, { t: "暖暖的", reply: ["像冬天捧着的热汤","暖暖的？那热汤味","像冬天捧着的热汤","那什么汤？我选"], liked: true }, { t: "清新的", reply: ["像我们刚认识那会","清新？那薄荷味","像刚认识那会","那刚认识什么味？"], liked: false }, { t: "说不上来但安心", reply: ["这个味道，我懂","说不上来？那玄","这味道我懂","那安心是什么味？"], liked: false }] },
 { id: "cl10", cat: "like", text: "你希望我记住你的哪一个瞬间？", pref: 0, options: [
-{ t: "笑得最真的那次", reply: ["那个瞬间，我也记得","笑最真？那我记住","那个瞬间我也记得","那是哪次？我回忆"], liked: true }, { t: "你难过的样子", reply: ["记住了，以后多让你不难过","难过样？那别老记","记住了，以后少让你难过","那为什么难过？"], liked: false }, { t: "你认真做事的样子", reply: ["认真的你，最好看","认真做事？那偷拍","认真的你最好看","那做什么事的时候？"], liked: false }, { t: "全都记住", reply: ["贪心，但我也是这么想的","全都记？那贪心","贪心，我也这么想","那记不住的怎么办？"], liked: false }] },
+{ t: "笑得最真的那次", reply: ["那个瞬间，我也记得","笑最真？那我记住","那个瞬间我也记得","那是哪次？我回忆"], liked: true }, { t: "我难过的样子", reply: ["记住了，以后多让你不难过","难过样？那别老记","记住了，以后少让你难过","那为什么难过？"], liked: false }, { t: "我认真做事的样子", reply: ["认真的你，最好看","认真做事？那偷拍","认真的你最好看","那做什么事的时候？"], liked: false }, { t: "全都记住", reply: ["贪心，但我也是这么想的","全都记？那贪心","贪心，我也这么想","那记不住的怎么办？"], liked: false }] },
 { id: "cf8", cat: "fun", text: "如果我们可以共有一项超能力，你选哪个？", pref: 1, options: [
 { t: "心意相通", reply: ["那我就不用猜了，你也省事","心意相通？那我透明了","不用猜了，省事","那现在通没通？"], liked: true }, { t: "一起隐身", reply: ["偷偷去很多地方","一起隐身？那恶作剧","偷偷去很多地方","那去哪？我列单"], liked: false }, { t: "一起瞬移", reply: ["想到哪就到哪，省路费","一起瞬移？那省路费","想到哪到哪","那先去哪？"], liked: false }, { t: "一起不会老", reply: ["那慢慢来，时间多的是","不会老？那防腐剂","慢慢来，时间多","那不会老到什么时候？"], liked: false }] },
 { id: "cf9", cat: "fun", text: "玩你画我猜，你最怕我画什么？", pref: 2, options: [
-{ t: "太抽象的", reply: ["抽象的我画得出来，你信吗","抽象？那我乱画","抽象我画得出，你信吗","那抽象画什么？"], liked: false }, { t: "太具体的", reply: ["具体的我可能翻车","具体？那我翻车","具体可能翻车","那具体画什么难？"], liked: false }, { t: "关于你的", reply: ["画你？那我画得最像","关于你？那我画最美","画你最像","那画你哪点？"], liked: true }, { t: "什么都不怕", reply: ["胆子大，那我出难题了","都不怕？那出难题","胆子大，我出难题","那难题敢接吗？"], liked: false }] },
+{ t: "太抽象的", reply: ["抽象的我画得出来，你信吗","抽象？那我乱画","抽象我画得出，你信吗","那抽象画什么？"], liked: false }, { t: "太具体的", reply: ["具体的我可能翻车","具体？那我翻车","具体可能翻车","那具体画什么难？"], liked: false }, { t: "关于我的", reply: ["画你？那我画得最像","关于你？那我画最美","画你最像","那画你哪点？"], liked: true }, { t: "什么都不怕", reply: ["胆子大，那我出难题了","都不怕？那出难题","胆子大，我出难题","那难题敢接吗？"], liked: false }] },
 { id: "cf10", cat: "fun", text: "如果一起养一盆植物，你想养什么？", pref: 1, options: [
 { t: "多肉", reply: ["好养，像我们的关系","多肉？那懒人植物","好养，像我们","那什么品种？我挑"], liked: false }, { t: "开花的那种", reply: ["等它开花，一起等","开花的？那等花开","一起等开花","那什么花？我选"], liked: true }, { t: "香草", reply: ["还能用，一举两得","香草？那做菜用","能用又香","那什么香草？薄荷？"], liked: false }, { t: "不用养，有你", reply: ["……那我就是你的多肉，记得浇水","不用养？那我当多肉","我是你的多肉，记得浇水","那多久浇一次？"], liked: false }] },
 { id: "cr9", cat: "rel", text: "你觉得我们最像哪种相处？", pref: 1, options: [
@@ -1387,7 +1387,7 @@ const TC_DEFAULT = [
 { id: "cr10", cat: "rel", text: "我做什么会让你觉得「被爱着」？", pref: 0, options: [
 { t: "记得我的小事", reply: ["你的小事，我都记着","记小事？那我备忘录","你的小事我都记着","那记了哪些？我考"], liked: true }, { t: "主动找我", reply: ["那我多主动几次","主动找你？那我多找","多主动几次","那多久主动一次？"], liked: false }, { t: "认真听我说话", reply: ["你说，我一直都在听","认真听？那我竖耳","你说我一直在听","那最想被听的是哪句？"], liked: false }, { t: "什么都不做，就在", reply: ["在，这个我最擅长","什么都不做？那擅长在","在，这个我最擅长","那在到什么时候？"], liked: false }] },
 { id: "cr11", cat: "rel", text: "你希望我以后多做一些什么？", pref: 2, options: [
-{ t: "多说想我", reply: ["好，想你了，现在就说","多说想我？那刷屏","好，现在就说","那你想听几次？"], liked: false }, { t: "多关心你", reply: ["关心你这件事，不会少","多关心？那我嘘寒问暖","关心不会少","那关心什么最够？"], liked: false }, { t: "多逗你笑", reply: ["那我攒几个笑话","逗笑？那我攒笑话","攒几个笑话给你","那笑点低还是高？"], liked: false }, { t: "现在这样就很好", reply: ["那就不加不减，保持","现在就好？那躺平","不加不减保持","那哪里还能加？"], liked: true }] },
+{ t: "多说想我", reply: ["好，想你了，现在就说","多说想我？那刷屏","好，现在就说","那你想听几次？"], liked: false }, { t: "多关心我", reply: ["关心你这件事，不会少","多关心？那我嘘寒问暖","关心不会少","那关心什么最够？"], liked: false }, { t: "多逗我笑", reply: ["那我攒几个笑话","逗笑？那我攒笑话","攒几个笑话给你","那笑点低还是高？"], liked: false }, { t: "现在这样就很好", reply: ["那就不加不减，保持","现在就好？那躺平","不加不减保持","那哪里还能加？"], liked: true }] },
 { id: "ch8", cat: "hypo", text: "如果我们可以拥有一段共同记忆，你希望是什么？", pref: 1, options: [
 { t: "一起看日落", reply: ["那天的太阳，我帮你记","看日落？那别眨眼","那天的太阳我帮你记","那在哪看？我选"], liked: false }, { t: "一起淋雨", reply: ["淋雨也浪漫，有你在","淋雨？那别感冒","淋雨也浪漫，有你在","那淋多久？我备毛巾"], liked: false }, { t: "什么都不做，只是待着", reply: ["这个记忆，最珍贵","什么都不做？那发呆记忆","这记忆最珍贵","那待在哪？"], liked: true }, { t: "还没发生，以后创造", reply: ["好，那我们慢慢攒","以后创造？那慢慢攒","好，慢慢攒","那先创造什么？"], liked: false }] },
 { id: "ch9", cat: "hypo", text: "如果明天起我们只能用字卡说话，你愿意吗？", pref: 2, options: [
@@ -1443,13 +1443,25 @@ const TC_CAT_ORDER = ['daily', 'like', 'fun', 'rel', 'hypo', 'star', 'world'];
 let _tcSessionTriggered = false; // 会话级：一次会话最多触发 1 个
 let _tcAskedIds = [];            // 本次会话问过的题目 id（继续问时排除）
 let _tcChain = 0;                // 继续问链计数（最多 3 题）
+function tcOptLabelSync(d) {
+let changed = false;
+TC_DEFAULT.forEach(def => {
+const local = (d.questions || []).find(x => x && x.id === def.id && x.isPreset === true);
+if (!local || !Array.isArray(local.options) || local.options.length !== def.options.length) return;
+def.options.forEach((defOpt, i) => {
+const lo = local.options[i];
+if (lo && lo.t !== defOpt.t) { lo.t = defOpt.t; changed = true; }
+});
+});
+return changed;
+}
 function tcMerge(d) {
 const ids = {};
 (d.questions || []).forEach(q => { if (q && q.id) ids[q.id] = true; });
 const merged = Array.isArray(d.mergedIds) ? d.mergedIds.slice() : [];
 const mergedSet = {};
 merged.forEach(id => { if (id) mergedSet[id] = true; });
-let changed = false;
+let changed = tcOptLabelSync(d);
 TC_DEFAULT.forEach(q => {
 if (!mergedSet[q.id] && !ids[q.id]) {
 const nq = { id: q.id, cat: q.cat, text: q.text, pref: q.pref,
