@@ -4417,6 +4417,13 @@ const FIX_SENTINELS = [
   { name: '#993c 小游戏记录复用同一折叠渲染件（删/改回手抄列表＝两个流水区块各写一份，折叠只生效一半）', file: 'js/p2-features.js', needle: "return statsFoldSection('🎮', '小游戏记录', '条', uniq," },
   { name: '#993d 删除型：小游戏记录不得再手写自己的区块头（回流＝又一份独立实现，折叠逻辑漏掉它）', file: 'js/p2-features.js', absent: true, needle: "'<span class=\"stats-sec-count\">' + uniq.length + ' 条</span>" },
   { name: '#993e 删除型：旧的「全量直铺」流水渲染件不得回流（回来＝申请心意币记录又默认铺满整屏）', file: 'js/p2-features.js', absent: true, needle: 'function coinRecordSection(' }
+,  // ==== 2026-09-21 #995 开屏二页（进入前 · 作者必读公告）新增「让 AI 修」的三段实话（用户 2026-09-21 直派「开屏二页需要新增」，三段定稿文案：不要 100% 依赖信任 AI／停更后不解答、代码全开源可看可学可二改／上面推荐的两个可白嫖 AI 的额度仅供参考）——纯静态 DOM，门控与 notice.json 均未动 ====
+{ name: '#995a 开屏二页新增卡片锚点（删＝「AI 不要 100% 依赖」整卡从强制公告页消失）', file: 'template.html', needle: 'id="splash-mandatory-aicaveat"' },
+{ name: '#995b 新卡第一段（删＝「建议用 AI 但不要 100% 依赖和信任」口径丢，只剩页 1 的短句。needle 取核心从句：整段被改写但这句话还在＝口径未丢，不算回归；这句话被删/改写即报警）', file: 'template.html', needle: '但建议不要 100% 依赖和信任 AI' },
+{ name: '#995c 新卡第二段（删＝「停更后不解答任何问题、代码全开源可看可学可二改」口径丢）', file: 'template.html', needle: '可查看、可学习、可二改' },
+{ name: '#995d 新卡第三段（删＝「上面推荐的两个可白嫖 AI 的额度只是当下、仅供参考」口径丢）', file: 'template.html', needle: '以后不知道，仅供参考。' },
+{ name: '#995e 新卡仍排在「公告完」之前（挪出滚动正文尾＝读者滑到页尾才看的那段落点丢失，卡片被挤出强制页）', file: 'template.html', needle: '仅供参考。</p>\n          </div>\n        </div>\n        <div class="splash-mandatory-end">' },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

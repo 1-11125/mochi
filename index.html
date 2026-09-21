@@ -10494,9 +10494,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790000323469">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790000488736">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 22:18<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:21<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10562,6 +10562,21 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p>如果说让手机端的那个免费 AI 修，其实修不了——只用 index 的文件，完整代码太长了，已13w行所以这个我已经拆分了。要把全部代码文件和文件夹、有拆分的部位那种全部给AI，找位置修。</p>
             <p>关于设备 bug：内测开始开屏公告里就说明过了，很多问题开屏里都写了。有的问题有人能碰到，有人碰不到；还有的可能不是代码本身的问题，是不同设备才能碰到的，总是各种奇奇怪怪的设备兼容问题。可能也因为字卡功能太多，如果功能少一点，应该好一点。</p>
             <p>其实如果自己试的话，只修一个人的设备，我感觉应该没有特别困难。现在是因为人太多了，手机设备差异很多，要一直调，而且我手上只有自己的手机，没有其他机型真机验证，算是盲修；如果只按自己的设备来，还能拿自己的手机随时验证修没修好，应该好修。</p>
+          </div>
+        </div>
+        <!-- v8.29 #995（用户 2026-09-21 直派「开屏二页需要新增」，并给出三段定稿文案：①虽建议用 AI 但不要
+             100% 依赖和信任、作者也是 0 经验开搓的；②网站只做了一个半月，停更后不解答任何问题、代码一直全开源
+             可看可学可二改；③上面推荐的两个可白嫖 AI 的额度只是当下、以后不知道、仅供参考）——
+             与 #975（两页各处的「AI 也会出错和骗人」）同源，本卡是页 2 侧的展开说明。
+             纯静态 DOM：不改门控（clock.js 的 mandBottom / finishEnter 一字未动，仍须滑到底才能确认进入）、
+             不进 notice.json（强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-aicaveat">
+          <div class="splash-mandatory-date">2026.09.21</div>
+          <div class="splash-mandatory-h">关于让 AI 修，先说清楚几句</div>
+          <div class="splash-mandatory-body">
+            <p>虽然建议使用 AI，但建议不要 100% 依赖和信任 AI。AI 也会出错和骗人。作者也是 0 经验开搓的，目前是从 2026 年 6 月~9 月积累的制作经验，问就是已经体验过了：AI 需要一直自己调，每天和 AI 话几百条。</p>
+            <p>mochi 网站做了一个半月，永久停更后不解答任何问题，请自己解决；代码一直是全部开源的，可查看、可学习、可二改。</p>
+            <p>关于上面推荐的那两个可以白嫖一点点的 AI：是目前有一点点可以白嫖的额度，以后不知道，仅供参考。</p>
           </div>
         </div>
         <div class="splash-mandatory-end">—— 公告完 ——</div>
@@ -20972,4 +20987,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubbz53h -->
+<!-- __MOCHI_EOF__ mubc2om8 -->
