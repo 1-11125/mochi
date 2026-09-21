@@ -37,8 +37,9 @@ check('A2 预览核心在位（预览开/关函数＋拦截层退出绑定）',
   callSrc.includes("catcher.addEventListener('click', closeCallPreview);"));
 check('A3 预览让位真实来电（incomingCall 拆拦截层＋placeCall 先拆预览）',
   callSrc.includes('closeCallPreview();\n    closeImageOverlay();') && callSrc.includes('#651：预览中手动拨打'));
-check('A4 预览不碰真实通话（点击先查 currentCall，有通话只提示不预览）',
-  callSrc.includes('if (currentCall) { toast(\'当前正在通话中\'); return; }'));
+check('A4 预览不碰真实通话（#987 起：有真实通话时展开真实面板，不构造预览、不触发接听/拒绝）',
+  callSrc.includes('if (currentCall) {') && callSrc.includes("toast('通话中·已展开通话面板');") &&
+  !callSrc.includes("toast('当前正在通话中')"));
 check('A5 半框背景行绑定同键 call-half-bg＋applyCallHalfBg 同步功能页行回显',
   callSrc.includes("callHalfBgEditRow.addEventListener('click'") && callSrc.includes("document.getElementById('call-half-bg-edit-val')"));
 check('A6 功能大全文案接入两行（预览＋半框内入口）',
@@ -225,17 +226,19 @@ try {
   await sleep(300);
   const b5 = await evalJs(`(function(){
     var panel = document.getElementById('chat-call-panel');
+    var card = document.querySelector('.call-panel');
     return JSON.stringify({
       editVal: (document.getElementById('call-half-bg-edit-val') || {}).textContent,
       editRmShown: document.getElementById('call-half-bg-edit-remove') && !document.getElementById('call-half-bg-edit-remove').hidden,
       setVal: (document.getElementById('call-half-bg-val') || {}).textContent,
       setRmShown: document.getElementById('call-half-bg-remove') && !document.getElementById('call-half-bg-remove').hidden,
-      painted: panel && (panel.style.backgroundImage || '').indexOf('data:image') >= 0
+      cardPainted: !!(card && (card.style.backgroundImage || '').indexOf('data:image') >= 0),
+      panelPainted: !!(panel && panel.style.backgroundImage)
     });
   })()`);
   o = null; try { o = JSON.parse(b5); } catch (e) {}
-  check('B5 半框背景设置后重载：功能页/设置页两处行同步「已设置」＋半框涂上背景',
-    o && o.editVal === '已设置' && o.editRmShown === true && o.setVal === '已设置' && o.setRmShown === true && o.painted === true, b5);
+  check('B5 半框背景设置后重载：两处行同步「已设置」＋来电/去电弹窗卡片涂上背景（#987 起不再涂设置用的半屏面板）',
+    o && o.editVal === '已设置' && o.editRmShown === true && o.setVal === '已设置' && o.setRmShown === true && o.cardPainted === true && o.panelPainted === false, b5);
 
   // B6 功能页移除行点击：两处行回「默认」、背景清除、存储键删除
   await openCallPanel();
@@ -243,18 +246,20 @@ try {
   await sleep(200);
   const b6 = await evalJs(`(function(){
     var panel = document.getElementById('chat-call-panel');
+    var card = document.querySelector('.call-panel');
     var s = window.xyStore && window.xyStore('xy-home-v2:' + (window.__activeCid || 'default'));
     return JSON.stringify({
       editVal: (document.getElementById('call-half-bg-edit-val') || {}).textContent,
       editRmHidden: document.getElementById('call-half-bg-edit-remove') ? document.getElementById('call-half-bg-edit-remove').hidden : null,
       setVal: (document.getElementById('call-half-bg-val') || {}).textContent,
-      painted: panel && (panel.style.backgroundImage || ''),
+      cardPainted: card ? (card.style.backgroundImage || '') : null,
+      panelPainted: panel ? (panel.style.backgroundImage || '') : null,
       keyGone: s ? (s.get('call-half-bg') == null) : null
     });
   })()`);
   o = null; try { o = JSON.parse(b6); } catch (e) {}
-  check('B6 功能页移除半框背景：两处行回「默认」·背景清除·存储键删除',
-    o && o.editVal === '默认' && o.editRmHidden === true && o.setVal === '默认' && (o.painted || '') === '' && o.keyGone === true, b6);
+  check('B6 功能页移除半框背景：两处行回「默认」·弹窗卡片背景清除（没设通话背景时回空白）·存储键删除',
+    o && o.editVal === '默认' && o.editRmHidden === true && o.setVal === '默认' && (o.cardPainted || '') === '' && (o.panelPainted || '') === '' && o.keyGone === true, b6);
 
   check('全程零 JS 异常', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
 } finally {

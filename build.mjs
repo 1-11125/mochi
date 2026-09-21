@@ -4350,7 +4350,20 @@ const FIX_SENTINELS = [
   { name: '#981b 必读摘要补词典字卡入口（删＝顶卡说了建议关闭却没告诉在哪关；两份同步：静态 + notice.json）', file: 'template.html', needle: '字卡库 → 词典（与默认聊天字卡同属系统预设）可把不用的分组整组停用' },
 
   { name: '#983a 聊天眼前送礼不再弹黑色浮层（删/改回无条件＝在聊天里送礼物、点心愿卡【送 TA】后又叠一层与卡片重复的黑条，用户 2026-09-21 直派删除）', file: 'js/gift-shop.js', needle: "if (!chatOnScreen()) toast('已送出');" },
-  { name: '#983b 「已送出」浮层不得退回无条件弹（市集/心意柜页面上聊天页被 openPage 隐藏、看不到礼物卡，那里必须保留回执）', file: 'js/gift-shop.js', absent: true, needle: "closeTc(); toast('已送出');" }
+  { name: '#983b 「已送出」浮层不得退回无条件弹（市集/心意柜页面上聊天页被 openPage 隐藏、看不到礼物卡，那里必须保留回执）', file: 'js/gift-shop.js', absent: true, needle: "closeTc(); toast('已送出');" },
+
+  /* ==== 2026-09-21 #987 「通话半框背景图片」上传落点修正（用户直派「页面里点击上传通话半框背景图片。上传图片的位置上传错了。
+     这个应该是上传在联系人给我打电话或我给联系人打电话的那个方形的框框里。然后通话界面的这个打开来电弹窗应该打开是这个框框。
+     现在点击这个只会显示我已经打开了通话小框的提示」）——①半框背景（call-half-bg）不再涂设置用的半屏面板，改涂来电/去电的
+     方形通话弹窗 .call-panel（＝「打开来电弹窗」预览的那个框）；没设过则回落通话背景（call-bg），通话小框 #call-mini 仍只认
+     通话背景；②通话中点「打开来电弹窗」不再只弹「当前正在通话中」，改为展开真实通话面板。两处涂装收进 applyCallBgs
+     （applyCallBg / applyCallHalfBg 保留原名指向同一实现，#368 锚行与各处调用点不动）。 ==== */
+  { name: '#987a 半框背景涂来电/去电弹窗卡片（删/改回＝图又涂到设置用的半屏面板上，用户报的「上传错地方」复发）', file: 'js/call.js', needle: "paintCallBg(document.querySelector('.call-panel'), hbg || cbg);" },
+  { name: '#987b 弹窗背景回落通话背景＋通话小框只认通话背景（删＝只设过通话背景的老用户来电弹窗突然变空白，或半框图串到小框上）', file: 'js/call.js', needle: "paintCallBg(document.getElementById('call-mini'), cbg);" },
+  { name: '#987c 通话中点「打开来电弹窗」＝展开真实通话面板（删/改回只 toast＝用户点它看不到那个框，只剩一句「当前正在通话中」）', file: 'js/call.js', needle: "toast('通话中·已展开通话面板');" },
+  { name: '#987d 删除型：半框背景不得再涂设置用的半屏面板（回流＝#641 旧落点回来，用户点上传后自己的设置面板变成壁纸）', file: 'js/call.js', absent: true, needle: 'half.style.backgroundImage' },
+  { name: '#987e 设置页口径指向方形通话弹窗（删/改回「作用于通话小框」＝文案与落点不符，用户按文案又会找不到图去了哪）', file: 'template.html', needle: '作用于「联系人打给你 / 你打给联系人」时弹出的那个方形通话弹窗' },
+  { name: '#987f 功能页「打开来电弹窗」行说明含通话中行为（删＝用户不知道通话中点它是展开面板，又以为点了没反应）', file: 'template.html', needle: '通话中点击＝展开通话面板' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -27,32 +27,49 @@
 
   // 通话背景（v3.5.50）：设置页上传图片 → 应用到大面板 + 通话小框
   const CALL_BG_KEY = 'call-bg';
-  function applyCallBg() {
-    const bg = store.get(CALL_BG_KEY) || '';
-    const panel = document.querySelector('.call-panel');
-    const miniEl = document.getElementById('call-mini');
-    [panel, miniEl].forEach(el => {
-      if (!el) return;
-      if (bg) {
-        el.style.backgroundImage = 'url("' + bg + '")';
-        el.style.backgroundSize = 'cover';
-        el.style.backgroundPosition = 'center';
-        el.classList.add('has-bg');
-      } else {
-        el.style.backgroundImage = '';
-        el.classList.remove('has-bg');
-      }
-    });
+  function paintCallBg(el, bg) {
+    if (!el) return;
+    if (bg) {
+      el.style.backgroundImage = 'url("' + bg + '")';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.classList.add('has-bg');
+    } else {
+      el.style.backgroundImage = '';
+      el.classList.remove('has-bg');
+    }
+  }
+  // #987：两处涂装收进同一个函数——原来 applyCallBg / applyCallHalfBg 各涂各的落点，
+  //   谁后运行谁说了算，结果「半框背景」把图涂在了设置用的半屏面板上（用户报「上传错地方」）。
+  //   落点口径：来电/去电弹窗卡片（.call-panel）＝联系人来电 / 你拨打联系人时那个方形通话框，
+  //   优先用「半框背景」，没设过回落「通话背景」；通话小框（#call-mini）只认「通话背景」。
+  function applyCallBgs() {
+    const cbg = store.get(CALL_BG_KEY) || '';
+    const hbg = store.get(CALL_HALF_BG_KEY) || '';
+    paintCallBg(document.querySelector('.call-panel'), hbg || cbg);
+    paintCallBg(document.getElementById('call-mini'), cbg);
     const val = document.getElementById('call-bg-val');
-    if (val) val.textContent = bg ? '已设置' : '默认';
+    if (val) val.textContent = cbg ? '已设置' : '默认';
     const rm = document.getElementById('call-bg-remove');
-    if (rm) rm.hidden = !bg;
+    if (rm) rm.hidden = !cbg;
     // v3.12.x：聊天页「更多功能→通话」半框里的背景行同步回显（设置页与半框两处入口共用状态）
     const evalVal = document.getElementById('call-bg-edit-val');
-    if (evalVal) evalVal.textContent = bg ? '已设置' : '默认';
+    if (evalVal) evalVal.textContent = cbg ? '已设置' : '默认';
     const rmEdit = document.getElementById('call-bg-edit-remove');
-    if (rmEdit) rmEdit.hidden = !bg;
+    if (rmEdit) rmEdit.hidden = !cbg;
+    const hval = document.getElementById('call-half-bg-val');
+    if (hval) hval.textContent = hbg ? '已设置' : '默认';
+    const hrm = document.getElementById('call-half-bg-remove');
+    if (hrm) hrm.hidden = !hbg;
+    // #651：通话功能页同款入口行随存值同步回显（与设置页两处入口共用状态）
+    const hEditVal = document.getElementById('call-half-bg-edit-val');
+    if (hEditVal) hEditVal.textContent = hbg ? '已设置' : '默认';
+    const hEditRm = document.getElementById('call-half-bg-edit-remove');
+    if (hEditRm) hEditRm.hidden = !hbg;
   }
+  // 两个名字都保留（#368 锚行 contact-switched → applyCallBg、#641 起 applyCallHalfBg 被
+  //   上传/移除/切桌面各处调用）：现在指向同一份「两处涂装」，先跑后跑结果一致。
+  function applyCallBg() { applyCallBgs(); }
   // v3.12.x：上传逻辑抽成 pickCallBg()——设置页 #call-bg-row 与通话半框 #call-bg-edit-row 两个入口共用
   // #641：支持指定存储键（默认通话背景 call-bg；传 call-half-bg 即「通话半框背景」）
   function pickCallBg(key, msg) {
@@ -122,31 +139,11 @@
       toast('已恢复默认通话背景');
     });
   }
-  // #641：通话半框背景图片——只作用于聊天页「更多功能→通话」的半屏面板（#chat-call-panel），
-  //   与通话大面板/小框的通话背景（call-bg）互不影响；按联系人桌面独立保存。
+  // #641/#987：来电/去电弹窗背景（键 call-half-bg）——作用于联系人来电 / 你拨打联系人时
+  //   弹出的那个方形通话框（.call-panel），也就是聊天页「更多功能→通话」里「打开来电弹窗」
+  //   预览的那个框。与通话小框的通话背景（call-bg）互不影响；没设过它时弹窗回落显示通话背景。
   const CALL_HALF_BG_KEY = 'call-half-bg';
-  function applyCallHalfBg() {
-    const bg = store.get(CALL_HALF_BG_KEY) || '';
-    const half = document.getElementById('chat-call-panel');
-    if (half) {
-      if (bg) {
-        half.style.backgroundImage = 'url("' + bg + '")';
-        half.style.backgroundSize = 'cover';
-        half.style.backgroundPosition = 'center';
-      } else {
-        half.style.backgroundImage = '';
-      }
-    }
-    const val = document.getElementById('call-half-bg-val');
-    if (val) val.textContent = bg ? '已设置' : '默认';
-    const rm = document.getElementById('call-half-bg-remove');
-    if (rm) rm.hidden = !bg;
-    // #651：通话功能页同款入口行随存值同步回显（与设置页两处入口共用状态）
-    const evalVal = document.getElementById('call-half-bg-edit-val');
-    if (evalVal) evalVal.textContent = bg ? '已设置' : '默认';
-    const evalRm = document.getElementById('call-half-bg-edit-remove');
-    if (evalRm) evalRm.hidden = !bg;
-  }
+  function applyCallHalfBg() { applyCallBgs(); }
   const callHalfBgRow = document.getElementById('call-half-bg-row');
   if (callHalfBgRow) callHalfBgRow.addEventListener('click', () => pickCallBg(CALL_HALF_BG_KEY, '通话半框背景已设置'));
   const callHalfBgRm = document.getElementById('call-half-bg-remove');
@@ -197,7 +194,20 @@
   }
   function previewCallPopup() {
     if (callPreviewOn) { closeCallPreview(); return; }
-    if (currentCall) { toast('当前正在通话中'); return; }
+    // #987：通话进行中点这行不再只弹一句「当前正在通话中」——用户点它想看的就是那个方形
+    //   通话框，而真实通话面板本来就是那个框，直接把面板展开（并收起悬浮小框，免得面板与
+    //   小框两层叠着）；全程不构造预览画面、不碰通话状态、不触发接听/拒绝。面板已开着
+    //   （来电响铃中 / 关闭「隐藏通话小框」的常驻面板）时没有可展开的东西，只提示一句。
+    if (currentCall) {
+      if (mask && mask.hidden) {
+        mask.hidden = false;
+        if (mini) mini.hidden = true;
+        toast('通话中·已展开通话面板');
+      } else {
+        toast('通话中·通话面板已打开');
+      }
+      return;
+    }
     const m = document.getElementById('call-mask');
     if (!m) { toast('通话弹窗暂不可用'); return; }
     fillAv(document.getElementById('call-av'), partnerAv());

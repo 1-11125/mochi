@@ -2567,7 +2567,7 @@
           <div class="lic-li">TA 会来电，可接听 / 拒绝，接通后缩为可拖动的迷你通话小框（位置记忆）</div>
           <div class="lic-li">来电可播放自定义铃声（音效设置）</div>
           <div class="lic-li">通话设置页：可调来电 / 接听 / 忙线 / 拒接 / 通话中挂断概率</div>
-          <div class="lic-li">通话背景图片：可上传 / 移除</div>
+          <div class="lic-li">通话背景图片：可上传 / 移除（作用于通话小框）；「通话半框背景图片」单独给来电 / 去电的方形通话弹窗换背景</div>
           <div class="lic-li">跨桌面来电（默认关闭，需在 设置 →「开启 联系人跨桌面打电话」手动打开）：其他桌面的联系人也会打来；点接听会自动跳到 TA 的桌面再响铃（刻意设计），通话与通话记录都归属 TA 的桌面主页/聊天；点「稍后」或未接也会在 TA 的桌面留未接记录</div>
             </div>
           </details>
@@ -3552,7 +3552,8 @@
             <div class="txt">移除通话背景</div>
           </div>
         </div>
-        <!-- #641：通话半框（聊天页「更多功能→通话」的底部半屏面板）直达入口 + 半框专属背景图片 -->
+        <div class="sm-set-hint" style="padding:0 16px 8px">【通话背景图片】作用于接通后的「通话小框」（底部那条悬浮通话条）。来电 / 去电弹出的方形通话弹窗默认也用它；一旦在下面「通话半框背景图片」单独设过，弹窗就只显示那一张。两者互不影响，都按联系人各自保存。</div>
+        <!-- #641：通话半框（聊天页「更多功能→通话」的底部半屏面板）直达入口 + 来电/去电弹窗专属背景图片 -->
         <div class="gs-title">通话半框</div>
         <div class="set-group glass">
           <div class="set-row" id="call-half-open">
@@ -3570,7 +3571,7 @@
             <div class="txt">移除通话半框背景</div>
           </div>
         </div>
-        <div class="sm-set-hint" style="padding:0 16px 8px">【通话半框背景图片】作用于联系人来电/通话时的半弹框（通话小框 #call-mini），与通话大面板/小框的通话背景互不影响，按联系人各自保存。</div>
+        <div class="sm-set-hint" style="padding:0 16px 8px">【通话半框背景图片】作用于「联系人打给你 / 你打给联系人」时弹出的那个方形通话弹窗（就是聊天「更多功能→通话」里「打开来电弹窗」预览的那个框）。没设过它时弹窗沿用上面的通话背景；设过就只显示它。通话小框不受影响，按联系人各自保存。</div>
       </div>
     </div>
 
@@ -5197,15 +5198,15 @@
           <div class="call-panel-row call-panel-row-danger" id="call-bg-edit-remove" hidden title="移除通话背景图片">
             <span class="cpr-txt">移除通话背景</span><span class="cpr-val">恢复默认</span>
           </div>
-          <!-- #651：通话功能页内直接上传/移除「通话半框背景」（与设置页同键 call-half-bg，实时回显本半框；作用于来电/通话小框 #call-mini） -->
-          <div class="call-panel-row" id="call-half-bg-edit-row" title="设置通话半框背景图片（只作用于来电/通话小框 #call-mini，与通话背景互不影响）">
+          <!-- #651：通话功能页内直接上传/移除「通话半框背景」（与设置页同键 call-half-bg，实时回显本半框）；#987 起作用于来电/去电的方形通话弹窗 -->
+          <div class="call-panel-row" id="call-half-bg-edit-row" title="设置来电 / 去电那个方形通话弹窗的背景图片（没设过时弹窗显示通话背景；通话小框不受影响）">
             <span class="cpr-txt">通话半框背景图片</span><span class="cpr-val" id="call-half-bg-edit-val"></span>
           </div>
-          <div class="call-panel-row call-panel-row-danger" id="call-half-bg-edit-remove" hidden title="移除通话半框背景图片">
+          <div class="call-panel-row call-panel-row-danger" id="call-half-bg-edit-remove" hidden title="移除来电 / 去电弹窗背景图片">
             <span class="cpr-txt">移除通话半框背景</span><span class="cpr-val">恢复默认</span>
           </div>
-          <!-- #651：打开来电弹窗预览——联系人来电时的大弹窗（非迷你小框），纯查看不产生真实通话，点任意处退出 -->
-          <div class="call-panel-row" id="call-view-row" title="预览联系人来电时的大弹窗（非迷你小框），点击任意处退出">
+          <!-- #651：打开来电弹窗预览——联系人来电时的大弹窗（非迷你小框），纯查看不产生真实通话，点任意处退出；#987 起通话中点击＝展开真实通话面板 -->
+          <div class="call-panel-row" id="call-view-row" title="打开联系人打给你 / 你打给联系人时的方形通话弹窗（非通话小框）；空闲时是预览，点任意处退出，通话中点击＝展开通话面板">
             <span class="cpr-txt">打开来电弹窗</span><span class="cpr-val">预览</span>
           </div>
           <button class="call-panel-dial" id="call-panel-dial" type="button">
