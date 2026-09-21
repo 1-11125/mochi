@@ -4006,6 +4006,8 @@ const FIX_SENTINELS = [
   { name: '#952a 同桌面读库链在飞去重闸（删＝contact-switched 预读与 enterChat 并发跑两条完整权威链：热片读+解析+合并+整窗重建全 ×2，主线程打满后 IDB 回调饿死→超时→重试恶性循环＝进度条反复挂起）', file: 'js/chat.js', needle: 'if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;' },
   { name: '#952b 读库链成功收尾清在飞标记（删＝首个桌面加载后 12s 墙内其它 loadMsgs 全被吞）', file: 'js/chat.js', needle: '_lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs' },
   { name: '#952c 重试走 forceIdb 绕过去重（删＝读库真失败的 5s 重试被在飞闸吞掉＝真挂死）', file: 'js/chat.js', needle: 'try { loadMsgs(true); } catch (e) {} // #952：重试必须真读＝forceIdb 绕过读库链在飞去重闸' },
+  // ===== #953 梦角自由造句句尾标点收口（用户实报「梦角自由造句没有使用标点符号」）：各手法要么剥掉尾标点、要么只在词间插逗号/空格，出句清一色无句尾标点；在 dreamFreePick 收口统一补 END_PUNCT_POOL（句尾已有标点原样保留）=====
+  { name: '#953 造句句尾标点池在位（删＝出句无句尾标点复发，用户点名）', file: 'js/dream-free.js', needle: "const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

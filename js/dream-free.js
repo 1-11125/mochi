@@ -180,6 +180,13 @@ const sep = mode === 'comma' ? '，' : ' ';
 const out = toks.slice(0, gi).join('') + sep + toks.slice(gi).join('');
 return out !== str ? out : null;
 }
+const END_PUNCT_OK = /[。．！？!?~～…，、,.;；:：）)”’"]/;
+const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];
+function withEndPunct(txt) {
+if (!txt || typeof txt !== 'string') return txt;
+if (END_PUNCT_OK.test(txt.charAt(txt.length - 1))) return txt;
+return txt + END_PUNCT_POOL[Math.floor(Math.random() * END_PUNCT_POOL.length)];
+}
 window.dreamFreePick = function (c) {
 try {
 if (!c || c['mjf-en'] !== 1) return null;
@@ -203,7 +210,7 @@ mode = pickOf(['cutfill', 'comma', 'space', 'addtail', 'tailcut']);
 } else {
 mode = pickOf(['cutfill', 'comma', 'space', 'suffix', 'tailcut']);
 }
-const txt = rebuild(s, mode, material);
+const txt = withEndPunct(rebuild(s, mode, material));
 if (txt && txt !== s) { lastSrc = s; return { text: txt, src: s }; }
 }
 return null;

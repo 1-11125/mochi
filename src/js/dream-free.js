@@ -242,6 +242,18 @@
     const out = toks.slice(0, gi).join('') + sep + toks.slice(gi).join('');
     return out !== str ? out : null;
   }
+  // FIX 2026-09-21 #953 句尾标点收口：原各手法要么把句尾标点剥掉（recallCut/suffix/addtail/tailcut
+  // 都先 replace 掉尾标点，recall 截断后尾巴标点也没了），要么只在词间插逗号/空格（comma/space），
+  // 结果造出的句子清一色没有句尾标点（用户实报「梦角自由造句没有使用标点符号」）。在出句唯一
+  // 收口点统一补：句尾已有标点（中英文句读/波浪/省略/引号括号收尾）原样保留，否则按权重掷一个
+  // 句尾标点（句号为主，兼顾情侣聊天语气的 ~ / ！/ ……）。
+  const END_PUNCT_OK = /[。．！？!?~～…，、,.;；:：）)”’"]/;
+  const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];
+  function withEndPunct(txt) {
+    if (!txt || typeof txt !== 'string') return txt;
+    if (END_PUNCT_OK.test(txt.charAt(txt.length - 1))) return txt;
+    return txt + END_PUNCT_POOL[Math.floor(Math.random() * END_PUNCT_POOL.length)];
+  }
   // 抽句门：c = replyCfg()。命中返回 { text: 新句, src: 源卡 }；关闭/未命中/造不出返回 null。
   window.dreamFreePick = function (c) {
     try {
@@ -272,7 +284,7 @@
         } else {
           mode = pickOf(['cutfill', 'comma', 'space', 'suffix', 'tailcut']);
         }
-        const txt = rebuild(s, mode, material);
+        const txt = withEndPunct(rebuild(s, mode, material));
         if (txt && txt !== s) { lastSrc = s; return { text: txt, src: s }; }
       }
       return null;
