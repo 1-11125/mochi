@@ -2862,9 +2862,17 @@ cb.scrollTop = Math.min(cb.scrollTop, realMax); // 超界显式钳回；未超�
 let batchRendering = false;
 let pendingOutScroll = false;
 let appendTarget = null;
-function appendMsg(m) { if (!batchRendering) m.classList.add('msg-enter'); (appendTarget || body).appendChild(m); }
+let batchDefer = null;
+function appendMsg(m) {
+if (!batchRendering) m.classList.add('msg-enter');
+if (batchDefer) {
+const ix = Number(m.dataset.idx);
+if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
+}
+(appendTarget || body).appendChild(m);
+}
 function appendAvatarBatch(on) {
-if (on) { if (!avatarBatchCache) avatarBatchCache = {}; }
+if (on) avatarBatchCache = {};
 else avatarBatchCache = null;
 }
 const RENDER_MAX = 200;   // 渲染窗口条数上限
@@ -2901,7 +2909,8 @@ if (cur.ts - prev.ts < TIME_DIVIDER_GAP) return;
 const d = document.createElement('div');
 d.className = 'msg-time-divider';
 d.innerHTML = '<span>' + timeDividerText(cur.ts) + '</span>';
-body.appendChild(d);
+if (batchDefer && idx >= batchDefer.len) { batchDefer.q.push(d); return; }
+(appendTarget || body).appendChild(d);
 }
 let suppressScrollUntil = 0; // 程序化滚动后短暂忽略 scroll 事件（防渲染本身触发向上加载）
 const RENDER_CHUNK = 50;
@@ -2912,7 +2921,7 @@ try { if (!keepScroll && window.__mochiPhase) window.__mochiPhase('chat-renderWi
 chatRebuilding = false; // #841e：新一轮渲染先复位空窗标志（被作废的旧分帧轮不得把进度条留在屏上）
 const prevTop = keepScroll ? body.scrollTop : 0;
 const prevHeight = keepScroll ? body.scrollHeight : 0;
-if (clampTop) renderStart = Math.max(0, len - RENDER_MAX);
+if (clampTop || renderStart >= len) renderStart = Math.max(0, len - RENDER_MAX);
 const start = Math.min(renderStart, len);
 renderEnd = len; // 整窗重建渲染到最新，窗口终点复位（裁剪状态随之清空）
 windowRenderedN = len;
@@ -2927,15 +2936,25 @@ batchRendering = true;
 const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
+const myAvBatch = avatarBatchCache; // #972：本轮自己的缓存对象身份——作废时只释放「还属于本轮」那份，绝不误清新一轮的
+const myDefer = batchDefer = { len: len, q: [] }; // #1004：本轮开轮时的条数快照（迟到节点判据）＋暂存队列
+const skippedIdx = []; // #1004：本轮因「记录位不是对象」被 #919a 保护性跳过的下标（屏上少画一条，必须留痕）
 let i = start;
 const myToken = ++_rwToken;
 const finishSwap = function () {
-if (myToken !== _rwToken) return; // 已被新一轮 renderWindow 作废
+if (myToken !== _rwToken) { if (avatarBatchCache === myAvBatch) appendAvatarBatch(false); if (batchDefer === myDefer) batchDefer = null; return; }
 if (_liteIdx.length) windowRenderedLite = _liteIdx;
 appendAvatarBatch(false);
 appendTarget = null;
 batchRendering = false;
 body.appendChild(frag);
+if (myDefer.q.length) {
+for (let q = 0; q < myDefer.q.length; q++) body.appendChild(myDefer.q[q]);
+windowRenderedN = msgs.length;
+renderEnd = msgs.length;
+}
+batchDefer = null;
+if (skippedIdx.length) { windowStale = true; armWindowHoleHeal(skippedIdx); }
 if (keepScroll && prevHeight > 0) {
 body.scrollTop = prevTop + (body.scrollHeight - prevHeight);
 }
@@ -2952,11 +2971,11 @@ updateChatLoading(); // 渲染完成（有内容或就绪）→ 隐藏加载进�
 if (chatPinnedBottom) chatEntrySettle(); // #841b：重建换装＝一次「进页」，重开 1.2s 同帧贴底窗，视口内图片迟到解码当帧收口，不等 250ms 看门狗拽把
 };
 const buildChunk = function () {
-if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿
+if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} if (avatarBatchCache === myAvBatch) appendAvatarBatch(false); if (batchDefer === myDefer) batchDefer = null; return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿；#972/#1004：作废轮释放自己那轮的批量头像缓存与迟到队列
 const end = Math.min(i + RENDER_CHUNK, len);
 for (; i < end; i++) {
 const _rm = msgs[i];
-if (!_rm || typeof _rm !== 'object') continue; // #919a 记录位空洞/坏记录跳过不画：renderMsg(undefined) 抛 TypeError 打断整轮分帧构建（setTimeout 链断＝不换装不贴底、batchRendering 卡死，屏上停在窗口最旧的几十条、退出重进才恢复；用户设备 buildChunk→renderMsg「reading 'side'」实锤）
+if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919a 记录位空洞/坏记录跳过不画：renderMsg(undefined) 抛 TypeError 打断整轮分帧构建（setTimeout 链断＝不换装不贴底、batchRendering 卡死，屏上停在窗口最旧的几十条、退出重进才恢复；用户设备 buildChunk→renderMsg「reading 'side'」实锤）
 maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
@@ -2976,7 +2995,7 @@ return;
 }
 for (; i < len; i++) {
 const _rm = msgs[i];
-if (!_rm || typeof _rm !== 'object') continue; // #919b 同 #919a：同步整窗路径也不得被单条空记录打断（异常一路上抛，调用方紧随的贴底/收尾整段跳过）
+if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919b 同 #919a：同步整窗路径也不得被单条空记录打断（异常一路上抛，调用方紧随的贴底/收尾整段跳过）
 maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
@@ -3287,13 +3306,30 @@ else if (frag.childNodes.length) body.appendChild(frag);
 if (newEnd - renderStart > WINDOW_MAX) pruneWindowTop();
 suppressScrollUntil = Date.now() + 200;
 }
+function nodeKeepIdx(f) {
+if (!f) return undefined;
+if (f.dataset && f.dataset.idx !== undefined) return parseInt(f.dataset.idx, 10);
+const nx = f.nextElementSibling;
+if (nx && nx.dataset && nx.dataset.idx !== undefined) return parseInt(nx.dataset.idx, 10);
+return undefined;
+}
+let _holeHealT = null;
+function armWindowHoleHeal(idxs) {
+if (_holeHealT) return;
+_holeHealT = setTimeout(function () {
+_holeHealT = null;
+if (batchRendering || !chatVisible()) return;
+for (let k = 0; k < idxs.length; k++) { const m = msgs[idxs[k]]; if (!m || typeof m !== 'object') return; }
+renderWindow(true, false);
+}, 700);
+}
 function pruneWindowBottom() {
 const targetEnd = renderStart + WINDOW_MAX;
 if (renderEnd <= targetEnd) return;
 while (body.lastChild) {
 const last = body.lastChild;
-const idx = last.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) < targetEnd) break; // 已到应保留区
+const idx = nodeKeepIdx(last); // #972：分隔线按其后那条消息的归属下标判
+if (idx !== undefined && idx < targetEnd) break; // 已到应保留区
 body.removeChild(last);
 }
 renderEnd = targetEnd;
@@ -3303,8 +3339,8 @@ const targetStart = renderEnd - WINDOW_MAX;
 if (renderStart >= targetStart) return;
 while (body.firstChild) {
 const f = body.firstChild;
-const idx = f.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+const idx = nodeKeepIdx(f); // #972：同上
+if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;
@@ -3315,8 +3351,8 @@ if (renderStart >= targetStart) return;
 const h0 = body.scrollHeight;
 while (body.firstChild) {
 const f = body.firstChild;
-const idx = f.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+const idx = nodeKeepIdx(f); // #972：分隔线按其后那条消息的归属下标判（别削掉被保留消息头上的那枚）
+if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;

@@ -3833,9 +3833,32 @@ let appendTarget = null;
 // 整体覆盖 className，msg-enter 在挂载前就被抹掉＝动画实际从未触发。类补加挪到
 // appendMsg 挂载前（此处恒在各分支覆盖之后）；batchRendering 闸口径不变：
 // 批量渲染/原位重画不入场动画。
-function appendMsg(m) { if (!batchRendering) m.classList.add('msg-enter'); (appendTarget || body).appendChild(m); }
+// FIX 2026-09-21 #1004：整窗分帧构建在飞时落地的消息**绝不写进本轮 appendTarget**（DocumentFragment）
+// ——写进去只有两种下场，两种都是用户可感知的坏形态：①本轮稍后被新一轮 renderWindow 作废 ⇒ 节点随
+// fragment 一起丢弃，而这条已进 msgs、循环又已越过它的下标（len 是开轮时取的快照，不会再回头画）
+// ⇒ 屏上永久少一条（用户所报「显示不全」）；②本轮正常换装 ⇒ 节点被插在「构建进度」那个位置
+// （fragment 尾），后面几批消息整批 append 在它后面 ⇒ 新消息埋进列表中间（用户所报「发消息后位置
+// 错位」）。改法＝暂存进 batchDefer.q，换装完成（body.appendChild(frag) 之后）按到达顺序补挂到列表尾；
+// 本轮作废则整队丢弃（新一轮按 msgs 全量重画）。判据只有「下标 ≥ 开轮时的 msgs.length」这一个
+// 与设备/内核无关的量。
+let batchDefer = null;
+function appendMsg(m) {
+if (!batchRendering) m.classList.add('msg-enter');
+if (batchDefer) {
+const ix = Number(m.dataset.idx);
+if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
+}
+(appendTarget || body).appendChild(m);
+}
+// FIX 2026-09-21 #972（用户实报 OPPO Find X9 Edge「聊天发消息后气泡+头像一起消失、位置错位、重启才
+// 复原」）：批量头像缓存必须**永远新建**。旧写法 「if (on) { if (!avatarBatchCache) avatarBatchCache = {}; }」
+// 在批量轮被新一轮 renderWindow 顶掉时（两条早退路径都跳过末尾的 appendAvatarBatch(false)）会把缓存
+// 残留在全局变量上，此后每一轮都因「已存在」不再新建＝整场会话吃那份旧快照：之后每条新渲染的消息
+// （renderMsg → fillAvatar）读到的都是泄漏那一刻的头像值（换过桌面＝别的桌面的头像，读不到＝灰占位
+// ＝「头像消失」），fillAvatar 的命中缓存 __avApplied 又把错值钉在节点上，只有刷新才恢复＝「重启后复原」。
+// 新建后泄漏最多影响那一轮；作废路径另按对象身份释放（见 myAvBatch）。
 function appendAvatarBatch(on) {
-if (on) { if (!avatarBatchCache) avatarBatchCache = {}; }
+if (on) avatarBatchCache = {};
 else avatarBatchCache = null;
 }
 const RENDER_MAX = 200;   // 渲染窗口条数上限
@@ -3896,7 +3919,15 @@ if (cur.ts - prev.ts < TIME_DIVIDER_GAP) return;
 const d = document.createElement('div');
 d.className = 'msg-time-divider';
 d.innerHTML = '<span>' + timeDividerText(cur.ts) + '</span>';
-body.appendChild(d);
+// FIX 2026-09-21 #972：批量整窗渲染期本函数**必须与消息同行**——旧写法无条件 body.appendChild，
+// 而那一刻 body 刚被 innerHTML='' 清空、全部消息行都还在 appendTarget（DocumentFragment）里等换装，
+// 于是分隔线被 append 在空 body 上、消息随后整批 append 在它们**后面**：无头实测 199 条消息对应
+// 199 条分隔线全部连排堆在列表头部（时间轴顺序全错，滚动高度虚增数千 px，越限裁剪时 scrollTop 补偿
+// 被钳到 0＝视口弹走，越界裁剪还会把消息削掉＝「显示不全」）。判据只有「挂到哪个父节点」。
+// #1004：批量构建在飞时落地的分隔线同理不得插进本轮 fragment 中间（会插在窗口中部＝错位）——
+// 与 appendMsg 共用同一暂存队列，换装后按到达顺序补挂。
+if (batchDefer && idx >= batchDefer.len) { batchDefer.q.push(d); return; }
+(appendTarget || body).appendChild(d);
 }
 let suppressScrollUntil = 0; // 程序化滚动后短暂忽略 scroll 事件（防渲染本身触发向上加载）
 // #718：整窗渲染分帧——冷路径（keepScroll=false）窗口 ≥80 条时，renderMsg 循环一口气建
@@ -3915,7 +3946,16 @@ function renderWindow(keepScroll, clampTop, forceSync) {
 chatRebuilding = false; // #841e：新一轮渲染先复位空窗标志（被作废的旧分帧轮不得把进度条留在屏上）
 const prevTop = keepScroll ? body.scrollTop : 0;
 const prevHeight = keepScroll ? body.scrollHeight : 0;
-if (clampTop) renderStart = Math.max(0, len - RENDER_MAX);
+// FIX 2026-09-21 #1004（用户实报「退出聊天页面回到桌面，然后再打开聊天页面，一片空白，没有任何
+// 聊天记录加载」）：窗口起点必须落在**本轮数据长度之内**。旧写法 「const start = Math.min(renderStart, len)」
+// 只把 start 钳进 [0,len]：renderStart ≥ len 时 start === len ⇒ 循环一条都不画，而 body 已被上面那句
+// innerHTML='' 清空 ⇒ 空白页；finishSwap 又把 windowRenderedN 登记成 len（＝「屏上是这份 msgs 的前 len 条」），
+// 进度条按「有内容或就绪」收起 ⇒ 用户看到的就是「一片空白、没有任何加载提示」，重进只走同窗补丁判定，
+// 白屏就一直停在那儿。renderStart 什么时候会越界：换桌面路径把 msgs 清空重读（contact-switched 里
+// msgs=[] 但 renderStart 不跟着复位）、合并/归一化把 msgs 缩短、任何缩表路径都可能。短离场回场、
+// 换时间样式（chatReRenderTime）这类 keepScroll 轮不会重算 renderStart，正是最常撞上的一枪。
+// 修法：起点越界时按「最新 RENDER_MAX 条」重开窗口（与 clampTop 同语义），空窗不可能发生。
+if (clampTop || renderStart >= len) renderStart = Math.max(0, len - RENDER_MAX);
 const start = Math.min(renderStart, len);
 renderEnd = len; // 整窗重建渲染到最新，窗口终点复位（裁剪状态随之清空）
 // v3.26.x #220：登记「屏上由哪份 msgs 渲染」——非整窗路径（增量追加/裁剪）不更新
@@ -3932,15 +3972,32 @@ batchRendering = true;
 const frag = document.createDocumentFragment();
 appendTarget = frag;
 appendAvatarBatch(true);
+const myAvBatch = avatarBatchCache; // #972：本轮自己的缓存对象身份——作废时只释放「还属于本轮」那份，绝不误清新一轮的
+const myDefer = batchDefer = { len: len, q: [] }; // #1004：本轮开轮时的条数快照（迟到节点判据）＋暂存队列
+const skippedIdx = []; // #1004：本轮因「记录位不是对象」被 #919a 保护性跳过的下标（屏上少画一条，必须留痕）
 let i = start;
 const myToken = ++_rwToken;
 const finishSwap = function () {
-if (myToken !== _rwToken) return; // 已被新一轮 renderWindow 作废
+// #972/#1004：作废轮也要收自己的尾巴——批量头像缓存按对象身份释放（旧写法在这里直接 return＝缓存
+// 泄漏被后续所有轮次永久复用），迟到队列整队丢弃（新一轮按 msgs 全量重画，不会漏条）。
+if (myToken !== _rwToken) { if (avatarBatchCache === myAvBatch) appendAvatarBatch(false); if (batchDefer === myDefer) batchDefer = null; return; }
 if (_liteIdx.length) windowRenderedLite = _liteIdx;
 appendAvatarBatch(false);
 appendTarget = null;
 batchRendering = false;
 body.appendChild(frag);
+// #1004：换装后按到达顺序补挂构建期迟到的消息/分隔线（下标都 ≥ 开轮长度，接在窗口尾即正确顺序），
+// 并把窗上凭据对齐到真实长度——否则 windowRenderedN 停在开轮值会骗过同窗补丁判定。
+if (myDefer.q.length) {
+for (let q = 0; q < myDefer.q.length; q++) body.appendChild(myDefer.q[q]);
+windowRenderedN = msgs.length;
+renderEnd = msgs.length;
+}
+batchDefer = null;
+// #1004：本轮有记录位不是对象被跳过的，屏上就少一条，而且此后没有任何补画入口（窗口是 [start,len)
+// 的连续区间，增量路径只补两端）⇒ 永久空洞。这里标记屏上已落后（windowStale，同窗补丁判定据此
+// 放弃就地收尾）并排一次自愈重画（见 armWindowHoleHeal）。
+if (skippedIdx.length) { windowStale = true; armWindowHoleHeal(skippedIdx); }
 if (keepScroll && prevHeight > 0) {
 body.scrollTop = prevTop + (body.scrollHeight - prevHeight);
 }
@@ -3957,11 +4014,11 @@ updateChatLoading(); // 渲染完成（有内容或就绪）→ 隐藏加载进�
 if (chatPinnedBottom) chatEntrySettle(); // #841b：重建换装＝一次「进页」，重开 1.2s 同帧贴底窗，视口内图片迟到解码当帧收口，不等 250ms 看门狗拽把
 };
 const buildChunk = function () {
-if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿
+if (myToken !== _rwToken) { try { restoreInplaceDrafts(); } catch (e) {} if (avatarBatchCache === myAvBatch) appendAvatarBatch(false); if (batchDefer === myDefer) batchDefer = null; return; } // #718 作废：草稿回填旧 DOM（新轮 collect 会再收），不丢草稿；#972/#1004：作废轮释放自己那轮的批量头像缓存与迟到队列
 const end = Math.min(i + RENDER_CHUNK, len);
 for (; i < end; i++) {
 const _rm = msgs[i];
-if (!_rm || typeof _rm !== 'object') continue; // #919a 记录位空洞/坏记录跳过不画：renderMsg(undefined) 抛 TypeError 打断整轮分帧构建（setTimeout 链断＝不换装不贴底、batchRendering 卡死，屏上停在窗口最旧的几十条、退出重进才恢复；用户设备 buildChunk→renderMsg「reading 'side'」实锤）
+if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919a 记录位空洞/坏记录跳过不画：renderMsg(undefined) 抛 TypeError 打断整轮分帧构建（setTimeout 链断＝不换装不贴底、batchRendering 卡死，屏上停在窗口最旧的几十条、退出重进才恢复；用户设备 buildChunk→renderMsg「reading 'side'」实锤）
 maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
@@ -3981,7 +4038,7 @@ return;
 }
 for (; i < len; i++) {
 const _rm = msgs[i];
-if (!_rm || typeof _rm !== 'object') continue; // #919b 同 #919a：同步整窗路径也不得被单条空记录打断（异常一路上抛，调用方紧随的贴底/收尾整段跳过）
+if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919b 同 #919a：同步整窗路径也不得被单条空记录打断（异常一路上抛，调用方紧随的贴底/收尾整段跳过）
 maybeInsertDivider(i);
 if (_rm && (_rm._lsLite || _rm.img === '' || _rm.voice === '' ||
 (Array.isArray(_rm.parts) && _rm.parts.some(p => p && typeof p.v === 'string' && p.v === '')))) {
@@ -4390,13 +4447,38 @@ else if (frag.childNodes.length) body.appendChild(frag);
 if (newEnd - renderStart > WINDOW_MAX) pruneWindowTop();
 suppressScrollUntil = Date.now() + 200;
 }
+// FIX 2026-09-21 #972：裁剪/钳位循环要能「按消息归属」看待时间分隔线——分隔线自身没有 data-idx，
+// 它归属紧随其后的那条消息（插入时就是插在该条前面）。旧口径对无 data-idx 的节点一律当「可删」，
+// 在分隔线已正确穿插之后会把「第一条被保留消息」头上的那枚分隔线一起削掉（丢时间轴标记）。
+// 归属取不到（分隔线后面没有消息行，正常不该出现）＝undefined，沿用旧口径当可删。
+function nodeKeepIdx(f) {
+if (!f) return undefined;
+if (f.dataset && f.dataset.idx !== undefined) return parseInt(f.dataset.idx, 10);
+const nx = f.nextElementSibling;
+if (nx && nx.dataset && nx.dataset.idx !== undefined) return parseInt(nx.dataset.idx, 10);
+return undefined;
+}
+// FIX 2026-09-21 #1004：渲染窗「记录位空洞」自愈——#919a/#919b 的 continue 保护了分帧链不被单条坏记录
+// 打断，但被跳过的下标此后没有任何补画入口（窗口是连续区间，增量路径只补两端），屏上就永久少一条。
+// 这里在这些位**全部变成真记录**之后补一次整窗重画：仍是空洞（数据侧确实缺记录）就直接返回
+// ＝不排队＝自终止，绝不空转。一次只排一枪，构建在飞/离开聊天页不落发。
+let _holeHealT = null;
+function armWindowHoleHeal(idxs) {
+if (_holeHealT) return;
+_holeHealT = setTimeout(function () {
+_holeHealT = null;
+if (batchRendering || !chatVisible()) return;
+for (let k = 0; k < idxs.length; k++) { const m = msgs[idxs[k]]; if (!m || typeof m !== 'object') return; }
+renderWindow(true, false);
+}, 700);
+}
 function pruneWindowBottom() {
 const targetEnd = renderStart + WINDOW_MAX;
 if (renderEnd <= targetEnd) return;
 while (body.lastChild) {
 const last = body.lastChild;
-const idx = last.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) < targetEnd) break; // 已到应保留区
+const idx = nodeKeepIdx(last); // #972：分隔线按其后那条消息的归属下标判
+if (idx !== undefined && idx < targetEnd) break; // 已到应保留区
 body.removeChild(last);
 }
 renderEnd = targetEnd;
@@ -4406,8 +4488,8 @@ const targetStart = renderEnd - WINDOW_MAX;
 if (renderStart >= targetStart) return;
 while (body.firstChild) {
 const f = body.firstChild;
-const idx = f.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+const idx = nodeKeepIdx(f); // #972：同上
+if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;
@@ -4421,8 +4503,8 @@ if (renderStart >= targetStart) return;
 const h0 = body.scrollHeight;
 while (body.firstChild) {
 const f = body.firstChild;
-const idx = f.dataset.idx;
-if (idx !== undefined && parseInt(idx, 10) >= targetStart) break; // 已到应保留区
+const idx = nodeKeepIdx(f); // #972：分隔线按其后那条消息的归属下标判（别削掉被保留消息头上的那枚）
+if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;
