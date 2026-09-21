@@ -10424,9 +10424,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789996339162">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789997769095">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 21:12<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 21:36<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11762,7 +11762,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
       <div class="set-group glass">
         <div class="set-row" id="row-screen-adj">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
-          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「更多→工具」也各有一个入口；本机永久保存（换设备各自调）</span></div>
+          <div class="txt">屏幕适配微调<span class="sub">顶部遮挡 / 底部裁切 / 页面留白 / 字太小？滑杆边拖边看、当场见效，双击滑杆复位；面板里点「看桌面 / 看聊天」切到现场接着调，「收起」变一枚小胶囊（不挡底部导航与输入栏）；桌面长按空白→装修模式、聊天页「聊天设置→美化」也各有一个入口；本机永久保存（换设备各自调）</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
@@ -16542,12 +16542,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M12 8.5l1.15 2.4 2.4 1.15-2.4 1.15L12 15.6l-1.15-2.4-2.4-1.15 2.4-1.15z"/></svg></span>
             <span>占卜</span>
           </button>
-          <!-- #962：聊天页自己的「屏幕适配微调」入口——在聊天现场就地开面板，正文/输入栏边看边调
-               （此前只有 设置→工具 一个入口，在设置列表后面看不见聊天现场＝盲调） -->
-          <button class="more-item" id="more-screen-adj" data-mcat="tool" title="屏幕适配微调（正文太小/顶栏底栏错位）">
-            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></span>
-            <span>屏幕适配</span>
-          </button>
+          <!-- #982：聊天侧入口从「更多 → 工具」移到「聊天设置 → 美化」（用户直派「屏幕适配不该放在
+               聊天的更多功能的工具里，要放在聊天的聊天设置里」）——入口行见 #cs-screen-adj，勿在此重建 -->
           <button class="more-item" id="more-pong" data-mcat="game" title="双人Pong">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><rect x="4" y="8" width="2" height="8" rx="1" fill="currentColor"/><rect x="18" y="8" width="2" height="8" rx="1" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
             <span>Pong</span>
@@ -16729,6 +16725,14 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
           <div class="txt">顶栏 / 底栏位置微调<span class="sub">上下各 ±80px（顶栏正=下移、底栏正=上移，负值反向）；设为 0 恢复默认</span></div>
           <div class="val" id="cs-bar-pos-val">默认</div>
+        </div>
+        <!-- v8.29 #982：聊天侧「屏幕适配微调」入口（用户直派「这个要放在聊天的聊天设置里」）——
+             #962 的「更多 → 工具 → 屏幕适配」按钮已撤除，聊天侧只留本行；点开即开同一面板
+             （接线在 personalize.js），展开态默认停在输入栏之上，点面板里的「看聊天」就地回现场调。 -->
+        <div class="set-row" id="cs-screen-adj">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/><path d="M12 18h.01"/></svg></div>
+          <div class="txt">屏幕适配微调<span class="sub">正文太小 / 顶栏底栏错位 / 底部裁切 / 页面留白？面板边拖边看、当场见效；展开态会停在输入栏与底部导航之上，点「看聊天」回现场接着调；桌面长按空白→装修模式、设置→工具 也各有一个入口；本机永久保存（换设备各自调）</span></div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
       </div>
       <div class="gs-title">气泡样式</div>
@@ -20863,4 +20867,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub9lqsa -->
+<!-- __MOCHI_EOF__ mubage4n -->

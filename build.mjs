@@ -4230,10 +4230,11 @@ const FIX_SENTINELS = [
 { name: '#962e 胶囊点一下展开（删＝收起后再也回不到滑杆）', file: 'js/personalize.js', needle: 'if (tapToOpen && !moved) { setMini(false); return; }' },
 { name: '#962f 「看桌面 / 看聊天」直达（删＝只能靠自己找路切页，现场调回流）', file: 'js/personalize.js', needle: 'pb.addEventListener(\'click\', function () { goPage(pair[0]); });' },
 { name: '#962g 「正在调：桌面/聊天」页面名（删＝又分不清在给哪一页调）', file: 'js/personalize.js', needle: "ctx.textContent = '正在调：' + nm;" },
-{ name: '#962h 聊天页入口按钮（删＝聊天里没入口，只剩设置一条路）', file: 'template.html', needle: 'id="more-screen-adj"' },
+{ name: '#982a 聊天侧入口改挂「聊天设置 → 美化」（删＝聊天里没入口、只剩设置一条路；原 #962h 是「更多 → 工具」按钮，用户 2026-09-21 直派挪出更多面板）', file: 'template.html', needle: 'id="cs-screen-adj"' },
 { name: '#962i 桌面页入口按钮（删＝桌面上没入口，只剩设置一条路）', file: 'template.html', needle: 'id="decor-fit"' },
-{ name: '#962j 聊天入口接线（删＝按钮点了没反应）', file: 'js/personalize.js', needle: "const chatEntry = document.getElementById('more-screen-adj');" },
+{ name: '#982b 聊天设置入口接线（删＝点行没反应；原 #962j 接的是 more-screen-adj）', file: 'js/personalize.js', needle: "const chatSetEntry = document.getElementById('cs-screen-adj');" },
 { name: '#962k 桌面入口接线（删＝装修栏按钮点了没反应）', file: 'js/personalize.js', needle: "const decorEntry = document.getElementById('decor-fit');" },
+{ name: '#982c 聊天「更多 → 工具」里的屏幕适配入口不得回流（回流＝用户「为什么放在更多功能的工具里」原话复发；2026-09-21 曾被并行全量提交误覆盖一次，本哨兵即为此而设）', file: 'template.html', absent: true, needle: 'id="more-screen-adj"' },
 
   // ==== 2026-09-21 #961 用户直派「默认聊天字卡和默认聊天字卡·词典数量太多，帮忙标红提醒放在字卡库顶部；字卡数量太多，不适用时建议关闭词典；这个在解锁二级密码的时候也需要弹窗说明提醒用户」——①字卡库顶部标红提醒条（默认聊天字卡页 #dc-size-hint、词典页 #dict-size-hint，复用 #390 词典锁定条红色视觉）②二级验证解锁成功弹窗同一份文案 ====
   { name: '#961a 体量提醒文案唯一来源（card-lock.js window.mochiPresetSizeTip；字卡库红条与解锁弹窗共用，删则两处同时空白）', file: 'js/card-lock.js', needle: "window.mochiPresetSizeTip = '字卡太多不用全开" },
