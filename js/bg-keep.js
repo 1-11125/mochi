@@ -392,6 +392,9 @@ kaHb.resumed = Date.now();
 if (kaHb.ts && kaHb.resumed - kaHb.ts > 90000) {
 kaEv.stall++; kaEvSave();
 try { if (keepAudio && keepAudio.el && !kaCustomAudio) keepAudio.el.volume = KA_VOL_MAX; } catch (e) {}
+if (kaHb.hid && kaHb.resumed - kaHb.hid >= 600000) {
+toast('⚠ 挂后台太久，保活被系统冻结截断过\n这段时间的后台消息/后台弹窗可能失效（回本页已自动恢复）\n经常失效：彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开', 6000);
+}
 }
 try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
 }
@@ -622,6 +625,16 @@ wakeSentinel = sentinel;
 document.addEventListener('music-media-release', function () {
 if (keepEnabled) { setKeepMediaSession(); syncKeepForMusic(); }
 });
+function kaOpenEnableHints() {
+try {
+if (typeof window.openModal !== 'function') return;
+window.openModal('后台保活已开启 · 两条必知限制', '', function () {}, {
+noInput: true, pillSubmit: true,
+pills: [{ label: '知道了', value: 'ok' }],
+staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。'
+});
+} catch (e) {}
+}
 const kaBtn = document.getElementById('bg-keepalive');
 function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
 function kaUserGesture(e) {
@@ -638,7 +651,7 @@ keepUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
 keepEnabled = kaBtn.checked;
 gSet('bg-keepalive', keepEnabled ? '1' : '0');
 gSet('__ka-user-off', keepEnabled ? '0' : '1');
-if (keepEnabled) startKeepAlive(true);
+if (keepEnabled) { startKeepAlive(true); kaOpenEnableHints(); }
 else stopKeepAlive(true);
 });
 }
@@ -1385,25 +1398,6 @@ ctx.fillStyle = '#ffffff';
 ctx.fillRect(0, 0, w, h);
 ctx.drawImage(img, 0, 0, w, h);
 cb(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { cb(''); }
-};
-img.onerror = function () { cb(''); };
-img.src = dataUrl;
-} catch (e) { cb(''); }
-}
-function compressNotifyImg(dataUrl, cb) {
-try {
-const img = new Image();
-img.onload = function () {
-try {
-const maxSide = 96;
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, sx || 0, sy || 0, w, h);
-cb(c.toDataURL('image/jpeg', 0.72));
 } catch (e) { cb(''); }
 };
 img.onerror = function () { cb(''); };

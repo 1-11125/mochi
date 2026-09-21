@@ -568,6 +568,13 @@
         if (kaHb.ts && kaHb.resumed - kaHb.ts > 90000) {
           kaEv.stall++; kaEvSave();
           try { if (keepAudio && keepAudio.el && !kaCustomAudio) keepAudio.el.volume = KA_VOL_MAX; } catch (e) {}
+          // #977 长后台失效当面提示（用户直派「当后台长时间挂着，功能会失效，需要重新关掉网页
+          //   打开并重新打开功能」）：心跳断流＝这段后台里页面被系统冻结过，保活/后台弹窗在这段
+          //   时间实际停摆。只在「本次后台挂满 10 分钟且发生过冻结」的回前台提示一次（短冻结高频，
+          //   弹了反而吵）；恢复方法口径与 #bg-keep-sub 红条 / 功能说明胶囊一致。
+          if (kaHb.hid && kaHb.resumed - kaHb.hid >= 600000) {
+            toast('⚠ 挂后台太久，保活被系统冻结截断过\n这段时间的后台消息/后台弹窗可能失效（回本页已自动恢复）\n经常失效：彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开', 6000);
+          }
         }
         try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
       }
@@ -906,6 +913,19 @@
   document.addEventListener('music-media-release', function () {
     if (keepEnabled) { setKeepMediaSession(); syncKeepForMusic(); }
   });
+  // #977 开启即当面告知两条硬限制（用户直派「这两个功能需要提示用户」；惯例＝功能打开的一刻
+  //   把限制说清，不藏在说明里）。只挂在用户手动开启这一刻（boot 恢复 / 通知联动走
+  //   startKeepAlive(false) 不弹，避免重复打扰）；口径与 #bg-keep-sub 红条、功能说明胶囊一致。
+  function kaOpenEnableHints() {
+    try {
+      if (typeof window.openModal !== 'function') return;
+      window.openModal('后台保活已开启 · 两条必知限制', '', function () {}, {
+        noInput: true, pillSubmit: true,
+        pills: [{ label: '知道了', value: 'ok' }],
+        staticText: '保活＝页面在后台持续播放一段近无声音频，让系统不冻结本页。有两条硬限制（手机/浏览器限制，不是网站故障）：\n\n① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复；被截断期间后台消息收不到、后台弹窗不弹。\n\n② 后台挂久了会失效：系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟就会丢）。失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开。'
+      });
+    } catch (e) {}
+  }
   const kaBtn = document.getElementById('bg-keepalive');
   function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
   // #921f：change 事件的用户手势闸（保活/通知开关共用）——环境不支持 userActivation 时放行
@@ -931,7 +951,7 @@
       // FIX 2026-09-16 #601d：记住「用户手动关过保活」——开启「后台通知」时的自动联动
       // 与任何回填不得再把它强行打开（用户反馈：关掉后过一会/重开又变回开启）。
       gSet('__ka-user-off', keepEnabled ? '0' : '1');
-      if (keepEnabled) startKeepAlive(true);
+      if (keepEnabled) { startKeepAlive(true); kaOpenEnableHints(); }
       else stopKeepAlive(true);
     });
   }
@@ -2042,28 +2062,6 @@
       img.src = dataUrl;
     } catch (e) { cb(''); }
   }
-  // v3.5.147：通知缩略图压缩——canvas 把图片 dataURL 压到最长边 96px JPEG。
-  // 压缩失败返回空串（调用方不带图发送，保证文字通知不丢）
-  function compressNotifyImg(dataUrl, cb) {
-    try {
-      const img = new Image();
-      img.onload = function () {
-        try {
-          const maxSide = 96;
-      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, sx || 0, sy || 0, w, h);
-          cb(c.toDataURL('image/jpeg', 0.72));
-        } catch (e) { cb(''); }
-      };
-      img.onerror = function () { cb(''); };
-      img.src = dataUrl;
-    } catch (e) { cb(''); }
-  }
-
   // ================= v3.15.x：离线消息提醒（Periodic Background Sync，零后端） =================
   // 页面全关后浏览器定期唤醒 SW（见 src/pwa/sw.js 同名段）：SW 读本段写入的快照弹通知。
   // 本段职责：①设置开关+状态行；②注册/注销 periodicsync；③把「当前联系人可发文案」
