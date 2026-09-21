@@ -4602,6 +4602,15 @@ if (ledN > 0) { if (tries < 5) setTimeout(onRetry, 2000); return; }
 writeOne();
 }).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); });
 }
+function deskWriteMsgsArr(key, cid, arr) {
+try { persistMsgsToIdb(key, arr); } catch (e) {}
+try {
+let snapSrc = arr;
+const est = msgsBytes(arr);
+if (est > LS_SNAP_LIMIT) snapSrc = arr.slice(arr.length - Math.max(200, Math.floor(arr.length * LS_SNAP_LIMIT / est)));
+performLsSnapWrite(snapSrc, 'xy-home-v2:' + cid);
+} catch (e) {}
+}
 window.chatAppendToDeskMsg = function (cid, text, opts) {
 opts = opts || {};
 const cur = window.__activeCid || 'default';
@@ -4613,8 +4622,7 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+deskWriteMsgsArr(key, cid, arr);
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
 const attempt = function () {
@@ -4656,8 +4664,7 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+deskWriteMsgsArr(key, cid, arr);
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
 const attempt = function () {
@@ -4695,8 +4702,7 @@ const key = 'xy-home-v2:' + cid + ':chat-msgs';
 const archKey = 'xy-home-v2:' + cid + ':chat-arch';
 let tries = 0;
 const writeArr = function (arr) {
-try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+deskWriteMsgsArr(key, cid, arr);
 try { if (window.idbDelete) window.idbDelete(archKey); } catch (e) {}
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };

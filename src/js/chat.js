@@ -6026,6 +6026,22 @@ function deskAppendMissGuard(cid, tries, onRetry, writeOne) {
     writeOne();
   }).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); });
 }
+// FIX 2026-09-21 #953 跨桌面写回免整包串化——原三处 writeArr 都是「整包 JSON.stringify 两次」
+//（idbSet 一次、localStorage 一次），对方桌面聊天库几十 MB 时一次拍一拍/回卡落地＝几十 MB
+// 主线程同步长任务（大库机型跨桌面操作卡顿的遗留热点；当前桌面的 saveMsgs 早已有 #127 分片
+// + #722 分块，这条路径一直没跟上）。修法＝IDB 侧复用 persistMsgsToIdb（≤3MB 存字符串、
+// >3MB 数组直存 structured clone、直存失败回退字符串，读侧 attempt 双形态兼容）；LS 侧改走
+// performLsSnapWrite 的 lite 剥负载+折半 ≤2MB 快照口径（跨桌面快照只是 IDB 读失败时的兜底，
+// 大历史保最近尾巴即可），浅估超限先预裁最近段再进折半，避免 30MB 级 stringify 在这里重演。
+function deskWriteMsgsArr(key, cid, arr) {
+try { persistMsgsToIdb(key, arr); } catch (e) {}
+try {
+let snapSrc = arr;
+const est = msgsBytes(arr);
+if (est > LS_SNAP_LIMIT) snapSrc = arr.slice(arr.length - Math.max(200, Math.floor(arr.length * LS_SNAP_LIMIT / est)));
+performLsSnapWrite(snapSrc, 'xy-home-v2:' + cid);
+} catch (e) {}
+}
 window.chatAppendToDeskMsg = function (cid, text, opts) {
 opts = opts || {};
 const cur = window.__activeCid || 'default';
@@ -6037,8 +6053,7 @@ if (!window.idbGet || !window.idbSet) return;
 const key = 'xy-home-v2:' + cid + ':chat-msgs';
 let tries = 0;
 const writeArr = function (arr) {
-try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+deskWriteMsgsArr(key, cid, arr);
 // v3.26.x #90：跨桌面追加后同步条数账本（下次冷启动大键读失败时它就是守卫依据）
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
@@ -6089,8 +6104,7 @@ window.chatAppendDeskRec = function (cid, rec) {
   const key = 'xy-home-v2:' + cid + ':chat-msgs';
   let tries = 0;
   const writeArr = function (arr) {
-    try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+    deskWriteMsgsArr(key, cid, arr);
     // v3.26.x #90：跨桌面追加后同步条数账本（下次冷启动大键读失败时它就是守卫依据）
     try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
   };
@@ -6141,8 +6155,7 @@ window.chatDeskCardReply = function (cid, cardSpecial, cardTs, statusKey, patch,
   const archKey = 'xy-home-v2:' + cid + ':chat-arch';
   let tries = 0;
   const writeArr = function (arr) {
-    try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
-    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+    deskWriteMsgsArr(key, cid, arr);
     try { if (window.idbDelete) window.idbDelete(archKey); } catch (e) {}
     // v3.26.x #90：跨桌面写回后同步条数账本（同 chatAppendDeskRec）
     try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}

@@ -4046,6 +4046,12 @@ const FIX_SENTINELS = [
   { name: '#953d 标点池按目标桌面读出（删＝跨桌面回复用错桌面的池/回默认）', file: 'js/reply-settings.js', needle: "String((s || ls).get('reply-mjf-punct-pool') || '')" },
   { name: '#953e 标点开关与池输入框锚点（删＝设置里改不了标点／关不掉）', file: 'index.html', needle: 'id="mjf-punct-pool"' },
   { name: '#953f 标点开关进 DEFAULTS（删＝开关初值恒显关、存盘不落该键）', file: 'js/reply-settings.js', needle: "'mjf-punct': 1," },
+  // ===== #955 存储写路径再优化：跨桌面聊天写回免整包串化＋信箱大负载延迟落盘（用户直派「存储还有没有可优化的，且不要导致安卓/iOS 卡顿」；零机型分支）=====
+  { name: '#955a 跨桌面写回走 deskWriteMsgsArr（删＝回到三处 writeArr 各自整包 stringify 两次＝对方桌面几十 MB 库时一次拍一拍/回卡几十 MB 主线程长任务）', file: 'js/chat.js', needle: 'function deskWriteMsgsArr(key, cid, arr) {' },
+  { name: '#955b 跨桌面 LS 快照大历史先预裁最近段（删＝30MB 级历史仍整包进 performLsSnapWrite 折半链＝串化量重演）', file: 'js/chat.js', needle: 'if (est > LS_SNAP_LIMIT) snapSrc = arr.slice(' },
+  { name: '#955c 跨桌面 IDB 写复用 persistMsgsToIdb 直存原语（删＝退回 window.idbSet(key, JSON.stringify(arr)) 无 >3MB 数组直存/无失败回退）', file: 'js/chat.js', needle: 'try { persistMsgsToIdb(key, arr); } catch (e) {}' },
+  { name: '#955d 信箱大负载延迟落盘分流闸（删＝含图信件每次收信/回信整包 stringify 压主线程）', file: 'js/mail.js', needle: 'if (mailListBytes(list) <= MAIL_BIG_DEFER_BYTES) { csFor(cid).set(KEY, JSON.stringify(list)); return; }' },
+  { name: '#955e 信箱挂起待写优先于旧持久值（删＝去抖窗口内 load/权威合并读旧值＝刚写的信看不到/被合并掉）', file: 'js/mail.js', needle: 'if (_pend) cur = _pend.list.slice();' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
