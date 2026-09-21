@@ -18,6 +18,10 @@ let chatKnownEmpty = false;
 let lastIdbLoadPrefix = null;
 let lastIdbLoadAt = 0;
 const IDB_RELOAD_MIN_GAP = 8000;
+let chatAuthPending = false;
+const CHAT_AUTH_WATCH_MS = 15000;
+let authWatchT = null;
+function chatAuthSettled() { return chatKnownEmpty || (chatDbReady && !chatAuthPending); }
 let pendingLocal = null; // 权威就绪前暂存的内存消息（绝不落盘，防止污染读取/覆盖 IDB）
 const PERSIST_MIN_GAP = 2500;   // 两次实际落盘的最小间隔（ms）
 let lastPersistAt = 0;          // 上次实际落盘时间（performance.now()）
@@ -56,6 +60,8 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：换桌面重新判定
+chatAuthPending = false; // #967：新桌面重新判定权威未达状态
+stopChatAuthWatch(); // #967：看门狗按桌面重启（旧桌面的等待不得跨桌面续命）
 chatBlkResetState(); // #722：换桌面＝分块/热片/冷头状态全部复位（新桌面读自己的块或旧整包）
 sessionChangedIdx.clear();
 windowStale = true;
@@ -713,8 +719,21 @@ let authLoadedPrefix = null;
 let idbRetryTimer = null;
 let idbRetryCount = 0;
 const IDB_RETRY_MAX = 6;
+function armChatAuthWatch() {
+if (authWatchT) return;
+authWatchT = setTimeout(function () {
+authWatchT = null;
+try {
+if (chatAuthSettled()) return;
+if (!chatVisible()) return; // 离开聊天页＝不空转（重进聊天走 enterChat 那条链并重新武装看门狗）
+loadMsgs(true);
+armChatAuthWatch();
+} catch (e) {}
+}, CHAT_AUTH_WATCH_MS);
+}
+function stopChatAuthWatch() { if (authWatchT) { clearTimeout(authWatchT); authWatchT = null; } }
 function scheduleIdbRetry() {
-if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) return;
+if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) { armChatAuthWatch(); return; } // #967：快重试耗尽＝看门狗接手，绝不永久放弃读库
 idbRetryCount++;
 idbRetryTimer = setTimeout(function () {
 idbRetryTimer = null;
@@ -1376,6 +1395,8 @@ const myPrefix = window.activePrefix();
 if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;
 _lmChainBusy = myPrefix;
 _lmChainBusyUntil = Date.now() + 12000;
+chatAuthPending = true; // #967：本条链起读＝权威未达（进度条据此保持，"数据到没到"不再由保险丝冒充）
+armChatAuthWatch(); // #967：链一起就给看门狗兜底（快重试被打断/饿死时仍有慢重试）
 try { chatLedgerLoad(myPrefix); } catch (e) {}
 let bigReadMs = 0;
 try {
@@ -1438,6 +1459,8 @@ return;
 function enterConfirmedEmpty() {
 chatDbReady = true;
 chatKnownEmpty = true; // FIX 2026-09-15 #526：确认空库＝无历史可读
+chatAuthPending = false; // #967：确认空库＝有结论，进度条收起是正确语义
+stopChatAuthWatch(); // #967：空库＝读库有结论，看门狗下班
 idbRetryCount = 0;
 _lmChainBusy = null; // #952：空库确认收尾，放行后续 loadMsgs
 authLoadedPrefix = myPrefix;
@@ -1469,7 +1492,9 @@ try {
 __prof('ch0_enter');
 let idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
-if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; return; } // #952 收尾清在飞标记
+if (!Array.isArray(idbArr)) { // #967：读到不可用形态（脏值/异格式）＝按读失败处理——旧实现只置 ready 就 return，
+chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; // #952 收尾清在飞标记
+scheduleIdbRetry(); return; }
 const sigOf = (m) => { try { return JSON.stringify({ t: mediaSigPart(m && m.text), s: m && m.side, ts: m && m.ts, i: (m && m.img) ? mediaSigPart(m.img) : 0 }); } catch (e) { return ''; } };
 const ckptArr = idbArr;
 window.idbGet(myPrefix + ':chat-arch').then(function (av) {
@@ -1535,6 +1560,8 @@ __prof('ch5_passes');
 pendingLocal = null;
 chatDbReady = true;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数组）＝不再是「已知空库」，进度条交回常规判定
+chatAuthPending = false; // #967：权威到手，进度条交回常规判定
+stopChatAuthWatch(); // #967：权威到手＝看门狗下班
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
 _lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs
@@ -1869,7 +1896,7 @@ return !!(p && !p.hidden);
 let chatRebuilding = false; // #841：分帧整窗重建的「列表已清空、新内容未换装」空窗期——该窗口必须显示进度条，否则用户看到的是闪白/闪旧记录＝当成 bug
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示
+chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）
 }
 let chatPinnedBottom = true;
 function chatScrollMax() {
@@ -5857,6 +5884,16 @@ if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chat
 else chatResumeRepin();
 });
 window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRepin(); }); // bfcache 恢复同闸（pageshow 时 visibilityState 已是 visible）
+function chatResumeRearmRead() {
+try {
+if (!chatVisible() || chatAuthSettled()) return;
+stopChatAuthWatch();
+loadMsgs(true);
+} catch (e) {}
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeRearmRead(); });
+document.addEventListener('mochi-fg-resume', chatResumeRearmRead); // bg-keep 回前台统一信号（与 ta-ask/memo 同款通道）
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRearmRead(); });
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');

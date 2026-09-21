@@ -22,6 +22,22 @@ let chatKnownEmpty = false;
 let lastIdbLoadPrefix = null;
 let lastIdbLoadAt = 0;
 const IDB_RELOAD_MIN_GAP = 8000;
+// FIX 2026-09-21 #967 权威未达标记：本桌「已起读、权威还没到手」期间恒真。与 chatDbReady
+// 分工不同——chatDbReady 只管「读库链已收口、可以放开写盘」，armReadyFuse 的 15s 保险丝也会
+// 把它置真（那只是解写盘死锁，不代表数据到了）。进度条必须认「数据到没到」而不是「保险丝跳
+// 没跳」：旧实现两者混用一个标志，保险丝一跳进度条就收，屏上却一条消息都没有 ⇒「聊天里
+// 什么也看不到」且再没有任何读库入口（无头实证：读全失败进聊天，第 15s 进度条收起、第 35s
+// 6 次快重试耗尽、90s 仍空屏零提示；模拟回前台事件也不恢复，只有再点一次进聊天才回来）。
+let chatAuthPending = false;
+// #967 慢重试看门狗：IDB_RETRY_MAX 的 6 次快重试（5s 一档）耗尽后旧实现永久放弃，而「在飞链
+// 被冻结 / 大键读超时」这类失败往往几十秒后才恢复 ⇒ 屏上永久空白且无读库入口。看门狗在
+// 「聊天页可见 + 权威未达 + 非确认空库」期间每 15s 补一次真读（forceIdb 绕过去重闸），权威一到
+// 即自停；离开聊天页不空转（重进聊天走 enterChat 自身那条链）。
+const CHAT_AUTH_WATCH_MS = 15000;
+let authWatchT = null;
+// #967 权威到手判定：读到权威数据（含空数组）或确认空库都算「有结论」；只有保险丝置真的
+// ready 不算（那正是空屏的来源）。
+function chatAuthSettled() { return chatKnownEmpty || (chatDbReady && !chatAuthPending); }
 let pendingLocal = null; // 权威就绪前暂存的内存消息（绝不落盘，防止污染读取/覆盖 IDB）
 // ===== v3.26.x 止血：聊天大包（含图片 base64）避免「每个交互同步全量写」 =====
 // 根因：chat-msgs 单键可达数百 MB（图片 base64 内联），saveMsgs/saveMsgsNow 每次
@@ -76,6 +92,8 @@ msgs = [];
 pendingLocal = null;
 chatDbReady = false;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：换桌面重新判定
+chatAuthPending = false; // #967：新桌面重新判定权威未达状态
+stopChatAuthWatch(); // #967：看门狗按桌面重启（旧桌面的等待不得跨桌面续命）
 chatBlkResetState(); // #722：换桌面＝分块/热片/冷头状态全部复位（新桌面读自己的块或旧整包）
 sessionChangedIdx.clear();
 // FIX 2026-09-15 #489：切桌面即作废屏上渲染凭据——聊天 body 的旧 DOM 属于上个会话，
@@ -941,8 +959,23 @@ let authLoadedPrefix = null;
 let idbRetryTimer = null;
 let idbRetryCount = 0;
 const IDB_RETRY_MAX = 6;
+// FIX 2026-09-21 #967：慢重试看门狗（见 CHAT_AUTH_WATCH_MS 声明处注释）。
+// 只读、幂等、绝不抛；每次装载单飞（authWatchT 非空即返回）。
+function armChatAuthWatch() {
+if (authWatchT) return;
+authWatchT = setTimeout(function () {
+authWatchT = null;
+try {
+if (chatAuthSettled()) return;
+if (!chatVisible()) return; // 离开聊天页＝不空转（重进聊天走 enterChat 那条链并重新武装看门狗）
+loadMsgs(true);
+armChatAuthWatch();
+} catch (e) {}
+}, CHAT_AUTH_WATCH_MS);
+}
+function stopChatAuthWatch() { if (authWatchT) { clearTimeout(authWatchT); authWatchT = null; } }
 function scheduleIdbRetry() {
-if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) return;
+if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) { armChatAuthWatch(); return; } // #967：快重试耗尽＝看门狗接手，绝不永久放弃读库
 idbRetryCount++;
 idbRetryTimer = setTimeout(function () {
 idbRetryTimer = null;
@@ -1870,6 +1903,8 @@ const myPrefix = window.activePrefix();
 if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;
 _lmChainBusy = myPrefix;
 _lmChainBusyUntil = Date.now() + 12000;
+chatAuthPending = true; // #967：本条链起读＝权威未达（进度条据此保持，"数据到没到"不再由保险丝冒充）
+armChatAuthWatch(); // #967：链一起就给看门狗兜底（快重试被打断/饿死时仍有慢重试）
 // v3.26.x #90：先补读条数账本（小键，几乎不会超时）。大键读取失败时它是唯一
 // 能回答「库里到底有多少条」的依据，落盘守卫全靠它。
 try { chatLedgerLoad(myPrefix); } catch (e) {}
@@ -1965,6 +2000,8 @@ return;
 function enterConfirmedEmpty() {
 chatDbReady = true;
 chatKnownEmpty = true; // FIX 2026-09-15 #526：确认空库＝无历史可读
+chatAuthPending = false; // #967：确认空库＝有结论，进度条收起是正确语义
+stopChatAuthWatch(); // #967：空库＝读库有结论，看门狗下班
 idbRetryCount = 0;
 _lmChainBusy = null; // #952：空库确认收尾，放行后续 loadMsgs
 authLoadedPrefix = myPrefix;
@@ -1997,7 +2034,10 @@ try {
 __prof('ch0_enter');
 let idbArr = typeof v === 'string' ? JSON.parse(v) : v;
 __prof('ch1_parsed');
-if (!Array.isArray(idbArr)) { chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; return; } // #952 收尾清在飞标记
+if (!Array.isArray(idbArr)) { // #967：读到不可用形态（脏值/异格式）＝按读失败处理——旧实现只置 ready 就 return，
+// 屏上什么都没有却收掉进度条且再无重试（与「读超时」同样的永久空屏）；写盘闸门语义（ready 放开）保持原样。
+chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; // #952 收尾清在飞标记
+scheduleIdbRetry(); return; }
 // FIX 2026-09-16 #594（用户报障：切换桌面联系人→打开聊天，所有消息变 2 条再回弹恢复；
 // 无头实测精确复现——种 12 条表情包字卡的桌面，切过去开聊天 msgs/DOM 双双变 24，每条
 // 一份 @@m: 令牌 + 一份原文 base64 相邻成对）：
@@ -2090,6 +2130,8 @@ __prof('ch5_passes');
 pendingLocal = null;
 chatDbReady = true;
 chatKnownEmpty = false; // FIX 2026-09-15 #526：读到权威数据（含空数组）＝不再是「已知空库」，进度条交回常规判定
+chatAuthPending = false; // #967：权威到手，进度条交回常规判定
+stopChatAuthWatch(); // #967：权威到手＝看门狗下班
 // v3.14.x：本命名空间已读到权威（此后空数组落盘才被允许——内存已含全部历史）
 authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
@@ -2547,7 +2589,7 @@ return !!(p && !p.hidden);
 let chatRebuilding = false; // #841：分帧整窗重建的「列表已清空、新内容未换装」空窗期——该窗口必须显示进度条，否则用户看到的是闪白/闪旧记录＝当成 bug
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示
+chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）
 }
 // FIX #162（iPad Air 7 / iPadOS 26 Safari：对方回一条消息视图就向上漂一次，不贴最新消息）
 // 贴底钉住态：程序化滚到底时置真，用户手动触摸/滚轮滚动即解除；复写与图片补滚只在钉住时进行
@@ -7576,6 +7618,20 @@ if (document.visibilityState === 'hidden') { chatHiddenAt = Date.now(); if (chat
 else chatResumeRepin();
 });
 window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRepin(); }); // bfcache 恢复同闸（pageshow 时 visibilityState 已是 visible）
+// FIX 2026-09-21 #967：回前台补读。用户实报「挂后台切回来会卡、聊天里什么也看不到」——后台期
+// 那半条读库链的 IDB 回调/定时器被内核冻结节流，回前台旧实现只做贴底复核（chatResumeRepin），
+// 没有任何重新起读的入口；若重试已耗尽就永久停在空屏。这里在「聊天页可见 + 权威未达 + 非空库」
+// 时补一发真读（forceIdb 绕过去重闸），权威已在手时零动作（正常回前台行为一字不变）。
+function chatResumeRearmRead() {
+try {
+if (!chatVisible() || chatAuthSettled()) return;
+stopChatAuthWatch();
+loadMsgs(true);
+} catch (e) {}
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeRearmRead(); });
+document.addEventListener('mochi-fg-resume', chatResumeRearmRead); // bg-keep 回前台统一信号（与 ta-ask/memo 同款通道）
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRearmRead(); });
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');

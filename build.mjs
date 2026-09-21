@@ -4266,7 +4266,14 @@ const FIX_SENTINELS = [
   { name: '#plat2 iOS 专属行的平台胶囊（删＝同上；「顶部避让修正」在安卓上被当成本机功能反复试）', file: 'template.html', needle: '<span class="plat-tag" data-plat="ios">仅 iPhone</span>' },
   { name: '#plat3 平台胶囊样式（复用 .tag 样式类＝settings-help.js 注入器跳过该行＝那几行的「功能说明」胶囊整条消失）', file: 'css/setting.css', needle: '.gs-row .plat-tag {\ndisplay:inline-block; flex:none;' },
   { name: '#plat4 只在明确判定为另一平台时弱化（改成「不是本平台就弱化」＝UA 伪装 / 桌面版网站失手时把用户挡在唯一修复开关外）', file: 'js/personalize.js', needle: "if (plat === 'android') return d.isIOS === true;" },
-];
+  /* ==== 2026-09-21 #967 回前台/读库失败时聊天永久空屏无提示（用户实报「挂后台切回来会卡，聊天里什么也看不到」）：
+     进度条判定认「权威到没到」而不是「保险丝跳没跳」＋快重试耗尽转慢重试看门狗＋回前台补读 ==== */
+  { name: '#967a 进度条并入权威未达标记（删＝armReadyFuse 的 15s 保险丝一跳就收进度条，而屏上一条消息都没有＝空屏无提示）', file: 'js/chat.js', needle: '(!chatDbReady || chatRebuilding || chatAuthPending)' },
+  { name: '#967b 权威未达标记声明（删＝判定无据，进度条退回只认 chatDbReady）', file: 'js/chat.js', needle: 'let chatAuthPending = false;' },
+  { name: '#967c 快重试耗尽转看门狗（删＝IDB_RETRY_MAX 六次快重试用尽后永久放弃读库，屏上永久空白且无读库入口）', file: 'js/chat.js', needle: 'if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) { armChatAuthWatch(); return; }' },
+  { name: '#967d 慢重试看门狗（删＝大键读超时/在飞链被冻结这类几十秒后自愈的失败再无补读通道）', file: 'js/chat.js', needle: 'function armChatAuthWatch() {' },
+  { name: '#967e 回前台补读挂载（删＝挂后台切回来只做贴底复核，没有任何重新起读入口＝用户实报的「什么也看不到」）', file: 'js/chat.js', needle: "document.addEventListener('mochi-fg-resume', chatResumeRearmRead);" },
+  { name: '#967f 读到不可用形态按读失败重试（删＝异格式/脏值只置 ready 就 return，屏上空白却收掉进度条且再无重试）', file: 'js/chat.js', needle: 'if (!Array.isArray(idbArr)) { // #967' },];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
   // v3.27.x：--check-sentinels 下产物是旧的（还没构建），缺失判定全部跳过，

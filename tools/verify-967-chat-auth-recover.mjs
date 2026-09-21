@@ -49,7 +49,7 @@ A('S2 进度条判定并入权威未达', cj.includes('(!chatDbReady || chatRebu
 A('S3 快重试耗尽转看门狗', cj.includes('if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) { armChatAuthWatch(); return; }'));
 A('S4 慢重试看门狗（15s 档）', /CHAT_AUTH_WATCH_MS = 15000;/.test(cj) && cj.includes('function armChatAuthWatch() {'));
 A('S5 回前台补读入口', cj.includes("document.addEventListener('mochi-fg-resume', chatResumeRearmRead);"));
-A('S6 读到不可用形态按读失败重试', cj.includes('chatDbReady = true; chatKnownEmpty = false; _lmChainBusy = null; // #952 收尾清在飞标记') && /scheduleIdbRetry\(\); return; \}/.test(cj));
+A('S6 读到不可用形态按读失败重试', cj.includes('if (!Array.isArray(idbArr)) { // #967'));
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
 const server = createServer((req, res) => {
@@ -89,11 +89,12 @@ async function evalJs(expr) {
   if (r && r.exceptionDetails) console.log('  [eval 异常] ' + JSON.stringify(r.exceptionDetails).slice(0, 200));
   return r && r.result ? r.result.value : null;
 }
-async function gotoApp() { await cdp('Page.navigate', { url: baseUrl + '/index.html' }); for (let i = 0; i < 100; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(200); } }
+async function gotoApp() { 
+await cdp('Page.navigate', { url: baseUrl + '/index.html' }); for (let i = 0; i < 100; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(200); } }
 
 // 读失败注入器（聊天权威键）+ 读取计数：__failOn 为真时 chat-msgs/chat-blk* 一律 resolve undefined
 const PROBE = `(function () {
-  window.__fails = 0; window.__reads = 0; window.__failOn = false;
+  window.__fails = 0; window.__reads = 0; window.__failOn = false; window.__failBoot = false;
   const iv = setInterval(function () {
     if (typeof window.idbGet === 'function' && !window.idbGet.__logged) {
       clearInterval(iv);
@@ -102,7 +103,7 @@ const PROBE = `(function () {
         const ks = String(k);
         const isChat = ks.indexOf(':chat-msgs') >= 0 || ks.indexOf(':chat-blk') >= 0;
         if (isChat) window.__reads++;
-        if (window.__failOn && isChat) { window.__fails++; return Promise.resolve(undefined); }
+        if ((window.__failOn || window.__failBoot) && isChat) { window.__fails++; return Promise.resolve(undefined); }
         return orig.call(window, k, o);
       };
       w.__logged = true; window.idbGet = w;
@@ -149,21 +150,24 @@ console.log('行为断言:');
 A('B5 健康路径零回归：内容上屏', healthy && healthy.has === true, healthy);
 
 // ---- 读全失败：B1 进度条必须保持可见 / B2 慢重试不让读库永久停摆 ----
+// 注入必须在「启动前」就位（否则开屏回填把 LS 快照补齐，聊天根本不必读库＝注入测不到）
+const bootScript = await cdp('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__failBoot = true;' });
 await evalJs(`(function () {
   const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(':chat-') >= 0) ks.push(k); }
   ks.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
-  window.__failOn = true; window.__fails = 0; window.__reads = 0;
+  window.__failOn = true; window.__failBoot = true; window.__fails = 0; window.__reads = 0;
   return ks.length;
 })()`);
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 for (let i = 0; i < 100; i++) { if (await evalJs('!!window.__mochiDataReady')) break; await sleep(200); }
 await sleep(2000);
-await evalJs('window.__failOn = true; window.enterChat && window.enterChat()');
+await evalJs('window.__failBoot = true; window.enterChat && window.enterChat()');
 
 let barHiddenWhileBlankAt = -1, readsAtExhaust = 0, readsLater = 0;
 for (let i = 1; i <= 14; i++) {
   await sleep(5000);
   const s = await evalJs(STATE);
+  if (process.env.V967_TRACE === '1') console.log('  [trace +' + (i * 5) + 's] ' + JSON.stringify(s) + ' dbg=' + JSON.stringify(await evalJs('window.__chatDbg ? window.__chatDbg() : null')));
   if (i === 8) readsAtExhaust = s.reads; // 40s：快重试（6×5s）已耗尽
   if (i === 14) readsLater = s.reads;    // 70s：慢重试应已补过至少一次
   if (!s.has && !s.bar && barHiddenWhileBlankAt < 0) barHiddenWhileBlankAt = i * 5;
@@ -171,7 +175,7 @@ for (let i = 1; i <= 14; i++) {
 A('B1 读全失败时屏上无消息 ⇒ 进度条保持可见（修复前第 15s 起收起）', barHiddenWhileBlankAt < 0, { blankNoHintAtSec: barHiddenWhileBlankAt });
 
 // ---- B3 回前台补读：停注入 + 派发回前台信号，不再点进聊天也应上屏 ----
-await evalJs('window.__failOn = false; document.dispatchEvent(new Event("mochi-fg-resume"));');
+await evalJs('window.__failOn = false; window.__failBoot = false; window.__fails = 0; document.dispatchEvent(new Event("mochi-fg-resume"));');
 let recovered = null;
 for (let i = 0; i < 20; i++) {
   await sleep(1000);
@@ -180,6 +184,7 @@ for (let i = 0; i < 20; i++) {
 }
 A('B3 回前台补读：无需再点进聊天即上屏（修复前恒空屏）', recovered && recovered.has === true, recovered);
 A('B2 快重试耗尽后读库不停摆（慢重试续读，修复前停在 16 次不再增长）', readsLater > readsAtExhaust, { readsAt40s: readsAtExhaust, readsAt70s: readsLater });
+try { await cdp('Page.removeScriptToEvaluateOnNewDocument', { identifier: bootScript.identifier }); } catch (e) {}
 
 // ---- B4 权威到手后进度条收敛（防修过头：不能一直亮着） ----
 let settled = null;
