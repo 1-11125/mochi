@@ -1587,16 +1587,20 @@ try { if (window.idbSet) persistChatHistory(myPrefix, msgs); } catch (e) {}
 try { writeLsSnapshot(msgs, myPrefix, true); } catch (e) {}
 __prof('ch7_end');
 if (chatVisible() && chatNearBottom()) {
+chatSettleHoldArm(); // #1010：权威收尾在飞（换装 + 视口媒体解码）——进度条持有到本段结束
 if (!inplacePatchIfSameWindow()) {
 renderWindow(false, true);
 scrollChatBottom();
 }
+chatSettleHoldSettle();
 } else if (chatVisible()) {
 windowStale = true;
 }
 } else if (chatVisible() && msgs.length && !body.children.length) {
+chatSettleHoldArm(); // #1010：冷加载首渲同样走收尾媒体窗
 renderWindow(false, true);
 scrollChatBottom();
+chatSettleHoldSettle();
 }
 if (!changed) {
 setTimeout(function () {
@@ -1894,9 +1898,69 @@ const p = document.getElementById('page-chat');
 return !!(p && !p.hidden);
 }
 let chatRebuilding = false; // #841：分帧整窗重建的「列表已清空、新内容未换装」空窗期——该窗口必须显示进度条，否则用户看到的是闪白/闪旧记录＝当成 bug
+let chatSettleHoldUntil = 0;
+let chatSettleHoldT = null;
+let chatSettleHardUntil = 0;
+function chatMediaPendingCount() {
+try {
+const list = body.querySelectorAll('img.msg-img');
+if (!list.length) return 0;
+const br = body.getBoundingClientRect();
+const top = br.top - 40, bot = br.bottom + 40;
+let pending = 0;
+for (let i = 0; i < list.length; i++) {
+const im = list[i];
+if (im.complete && im.naturalWidth) continue;
+const r = im.getBoundingClientRect();
+if (r.bottom < top || r.top > bot) continue; // 视口外（懒加载未触发）不计
+pending++;
+}
+return pending;
+} catch (e) { return 0; }
+}
+function chatSettleHoldOn() { return chatSettleHoldUntil > 0; }
+function chatSettleHoldDefer() {
+chatSettleHoldUntil = Math.min(chatSettleHoldUntil + 400, chatSettleHardUntil);
+if (!chatSettleHoldT) chatSettleHoldT = setTimeout(chatSettleHoldPoll, 120);
+}
+function chatSettleHoldPoll() {
+chatSettleHoldT = null;
+if (!chatSettleHoldOn()) return;
+if (!chatVisible()) {
+chatSettleHoldUntil = 0;
+try { updateChatLoading(); } catch (e) {}
+return;
+}
+if (batchRendering) { chatSettleHoldDefer(); return; }
+if (chatMediaPendingCount() === 0 || performance.now() > chatSettleHoldUntil) {
+chatSettleHoldUntil = 0;
+try { updateChatLoading(); } catch (e) {}
+return;
+}
+chatSettleHoldT = setTimeout(chatSettleHoldPoll, 120);
+}
+function chatSettleHoldArm() {
+chatSettleHoldUntil = performance.now() + 1200;
+chatSettleHardUntil = chatSettleHoldUntil + 6000;
+}
+function chatSettleHoldSettle() {
+if (!chatSettleHoldOn()) return;
+if (!chatVisible()) {
+chatSettleHoldUntil = 0;
+try { updateChatLoading(); } catch (e) {}
+return;
+}
+if (batchRendering) { chatSettleHoldDefer(); return; } // 换装未落定：等 finishSwap 再判
+if (chatMediaPendingCount() === 0) {
+chatSettleHoldUntil = 0;
+try { updateChatLoading(); } catch (e) {}
+return;
+}
+if (!chatSettleHoldT) chatSettleHoldT = setTimeout(chatSettleHoldPoll, 120);
+}
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）
+chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending || chatSettleHoldOn()) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）· #1010：收尾媒体解码未落地同样显示（否则「弹窗先消失、记录再闪一下」）
 }
 let chatPinnedBottom = true;
 function chatScrollMax() {
@@ -2898,6 +2962,24 @@ let normRemovedRecs = [];
 let normOrigIdx = null;
 let normSnapTail = null;
 let windowRenderedLite = null;
+let windowKeyLo = -1;
+let windowKeyHi = -1;
+let windowKeyLoVal = '';
+let windowKeyHiVal = '';
+function chatWinKey(m) {
+if (!m || typeof m !== 'object') return '#';
+const t = (typeof m.text === 'string') ? m.text : '';
+const mediaish = !!(m.img || m.voice || m.type === 'image' || m.type === 'sticker' || m.type === 'voice' || m.special || m._lsLite || t === '' || t === '[内容已省略]');
+return (m.ts || 0) + '|' + (m.side || '') + '|' + (m.type || '') + '|' + (m.special || '') + '|' + (mediaish ? 'M' : t.length + ':' + t.slice(0, 24));
+}
+function chatWinKeysSync() {
+try {
+windowKeyLo = renderStart;
+windowKeyHi = renderEnd - 1;
+windowKeyLoVal = (renderStart >= 0 && renderStart < msgs.length) ? chatWinKey(msgs[renderStart]) : '';
+windowKeyHiVal = (windowKeyHi >= 0 && windowKeyHi < msgs.length) ? chatWinKey(msgs[windowKeyHi]) : '';
+} catch (e) { windowKeyLo = -1; windowKeyHi = -1; windowKeyLoVal = ''; windowKeyHiVal = ''; }
+}
 const TIME_DIVIDER_GAP = 5 * 60 * 1000;
 function maybeInsertDivider(idx) {
 if (store.get('cs-time-style') !== 'divider') return;
@@ -2931,6 +3013,7 @@ windowRenderedN = len;
 windowRenderedPrefix = window.activePrefix();
 windowRenderedNicks = chatNickSig(); // #775b：整窗渲染＝屏上昵称已刷新，登记当时的昵称签名
 windowStale = false;
+chatWinKeysSync(); // #1010：登记屏上窗口首/尾记录身份（收尾据此判前缀 / 尾部切片）
 collectInplaceDrafts();
 windowRenderedLite = null;
 const _liteIdx = [];
@@ -2971,6 +3054,7 @@ suppressScrollUntil = Date.now() + 200; // 本轮渲染/滚动结束后 200ms �
 restoreInplaceDrafts();
 chatRebuilding = false; // #841a：新内容已换装落定，交回常规判定
 updateChatLoading(); // 渲染完成（有内容或就绪）→ 隐藏加载进度条
+try { chatSettleHoldSettle(); } catch (e) {} // #1010：分帧换装落定后再判「视口媒体解码是否落地」——在飞期间上面那次 updateChatLoading 只靠 chatRebuilding 顶着，落定这一帧必须重判，否则进度条先撤、图再落地＝原症状
 if (chatPinnedBottom) chatEntrySettle(); // #841b：重建换装＝一次「进页」，重开 1.2s 同帧贴底窗，视口内图片迟到解码当帧收口，不等 250ms 看门狗拽把
 };
 const buildChunk = function () {
@@ -3039,8 +3123,6 @@ if (windowRenderedNicks !== chatNickSig()) return false;
 const grown = len - windowRenderedN;
 if (grown < 0) return false; // 屏上比权威多＝数据被裁/回滚，整窗重建兜底
 if (windowRenderedN === 0) return false; // 无屏上凭据（首渲场景）走原整窗渲染
-const liteUpgrade = (Array.isArray(windowRenderedLite) ? windowRenderedLite : [])
-.filter(i => i >= renderStart && i < windowRenderedN);
 let n = renderStart;
 const pending = [];
 for (let k = 0; k < body.children.length; k++) {
@@ -3051,6 +3133,34 @@ if (el.dataset.pendingRead === '1') pending.push(el);
 n++;
 }
 if (n !== windowRenderedN) return false;
+let winShift = 0;
+{
+const headIdx = renderStart;
+const cnt = windowRenderedN - renderStart;
+const tailIdx = len - cnt;
+const prefixShape = (windowKeyLoVal !== '' && headIdx >= 0 && headIdx < len && chatWinKey(msgs[headIdx]) === windowKeyLoVal);
+const tailShape = !prefixShape && cnt > 0 && tailIdx >= 0 && windowKeyHiVal !== '' &&
+chatWinKey(msgs[tailIdx]) === windowKeyLoVal && chatWinKey(msgs[len - 1]) === windowKeyHiVal;
+if (!prefixShape) {
+if (!tailShape) return false; // 说不清＝整窗重建兜底（保守）
+if (cnt < Math.min(len, RENDER_MAX)) return false;
+winShift = tailIdx - headIdx;
+if (winShift !== 0) {
+for (let k = 0; k < body.children.length; k++) {
+const el = body.children[k];
+if (el.dataset && el.dataset.idx !== undefined) el.dataset.idx = String(Number(el.dataset.idx) + winShift);
+}
+renderStart += winShift;
+windowRenderedN = len;
+renderEnd = len;
+if (Array.isArray(windowRenderedLite)) windowRenderedLite = windowRenderedLite.map(function (i2) { return i2 + winShift; });
+chatWinKeysSync();
+try { (window.__patch1010Log = window.__patch1010Log || []).push('tail-shift:' + winShift + '/n' + cnt); } catch (e0) {}
+}
+}
+}
+const liteUpgrade = (Array.isArray(windowRenderedLite) ? windowRenderedLite : [])
+.filter(i => i >= renderStart && i < windowRenderedN);
 if (liteUpgrade.length) {
 collectInplaceDrafts();
 const wasNearBottom = chatNearBottom();
@@ -3090,7 +3200,7 @@ b.textContent.indexOf('已读不回') >= 0) {
 b.innerHTML = '<span style="opacity:.5;font-size:12px">' + escTxt(rec.text || '已读不回') + '</span>';
 }
 }
-if (grown > 0) {
+if (grown > 0 && !winShift) {
 for (let r = 0; r < Math.ceil(grown / LOAD_STEP) + 1 && renderEnd < len; r++) loadNewerIncremental(len);
 if (renderEnd !== len) return false;
 windowRenderedN = len; // 凭据随增量补齐——loadNewerIncremental 只更 renderEnd，不补此处则下次收尾 grown 错位仍整窗（自纠）
@@ -3228,6 +3338,7 @@ windowRenderedLite = windowRenderedLite
 .filter(x => !rmSet.has(x))
 .map(x => x - shiftsBefore(x));
 }
+chatWinKeysSync(); // #1010：归一化结构删除后窗口下标平移，身份凭据同步
 const dH = body.scrollHeight - prevH;
 if (dH) {
 if (wasNearBottom) scrollChatBottom(); // 原贴底：删除后保持贴底
@@ -3264,6 +3375,7 @@ appendAvatarBatch(false);
 appendTarget = null;
 batchRendering = false;
 renderStart = newStart;
+chatWinKeysSync(); // #1010：上翻增量改了窗口头，身份凭据同步
 if (preNum > 0 && anchor) {
 const anchorTopBefore = anchor.offsetTop;
 body.insertBefore(frag, anchor);
@@ -3336,6 +3448,7 @@ if (idx !== undefined && idx < targetEnd) break; // 已到应保留区
 body.removeChild(last);
 }
 renderEnd = targetEnd;
+chatWinKeysSync(); // #1010：窗口尾变了，身份凭据同步
 }
 function pruneWindowTop() {
 const targetStart = renderEnd - WINDOW_MAX;
@@ -3347,6 +3460,7 @@ if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;
+chatWinKeysSync(); // #1010：窗口头变了，身份凭据同步
 }
 function trimWindowTopQuiet(maxN) {
 const targetStart = Math.max(0, renderEnd - maxN);
@@ -3359,6 +3473,7 @@ if (idx !== undefined && idx >= targetStart) break; // 已到应保留区
 body.removeChild(f);
 }
 renderStart = targetStart;
+chatWinKeysSync(); // #1010：窗口头变了，身份凭据同步
 const cut = h0 - body.scrollHeight;
 if (cut > 0) body.scrollTop = Math.max(0, body.scrollTop - cut);
 suppressScrollUntil = Date.now() + 200; // 本次程序化 scrollTop 写入不算用户滚动（否则补偿位会误触发上翻加载）
@@ -4682,6 +4797,7 @@ try {
 if (!batchRendering && el) {
 windowRenderedN = Number(el.dataset.idx) + 1;
 windowStale = false;
+chatWinKeysSync(); // #1010：增量追加到新尾，身份凭据同步（否则下次收尾判不出前缀）
 }
 } catch (e) {}
 return el;

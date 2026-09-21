@@ -4284,7 +4284,9 @@ const FIX_SENTINELS = [
   { name: '#986j 离线消息提醒口径＝Chromium 内核（安卓 / 电脑），不是「仅安卓」', file: 'template.html', needle: '仅安卓 / 电脑上的 Chrome、Edge 且添加到桌面后可用' },
   /* ==== 2026-09-21 #967 回前台/读库失败时聊天永久空屏无提示（用户实报「挂后台切回来会卡，聊天里什么也看不到」）：
      进度条判定认「权威到没到」而不是「保险丝跳没跳」＋快重试耗尽转慢重试看门狗＋回前台补读 ==== */
-  { name: '#967a 进度条并入权威未达标记（删＝armReadyFuse 的 15s 保险丝一跳就收进度条，而屏上一条消息都没有＝空屏无提示）', file: 'js/chat.js', needle: '(!chatDbReady || chatRebuilding || chatAuthPending)' },
+  /* #967a 锚点随 #1010 演进：进度条条件尾部新增「收尾媒体窗」chatSettleHoldOn()，原整表达式
+     不再命中（改锚为「两个标记同处一条条件式」的语义片段，新增标记不再牵动本锚）。 */
+  { name: '#967a 进度条并入权威未达标记（删＝armReadyFuse 的 15s 保险丝一跳就收进度条，而屏上一条消息都没有＝空屏无提示）', file: 'js/chat.js', needle: 'chatRebuilding || chatAuthPending' },
   { name: '#967b 权威未达标记声明（删＝判定无据，进度条退回只认 chatDbReady）', file: 'js/chat.js', needle: 'let chatAuthPending = false;' },
   { name: '#967c 快重试耗尽转看门狗（删＝IDB_RETRY_MAX 六次快重试用尽后永久放弃读库，屏上永久空白且无读库入口）', file: 'js/chat.js', needle: 'if (idbRetryTimer || idbRetryCount >= IDB_RETRY_MAX) { armChatAuthWatch(); return; }' },
   { name: '#967d 慢重试看门狗（删＝大键读超时/在飞链被冻结这类几十秒后自愈的失败再无补读通道）', file: 'js/chat.js', needle: 'function armChatAuthWatch() {' },
@@ -4345,6 +4347,22 @@ const FIX_SENTINELS = [
   { name: '#980d 设置「导出数据」胶囊补 iOS 主屏幕口径（删＝备份行不再提「装到主屏幕＋两套独立存储」，iPhone 用户备份完仍不知要装到桌面）', file: 'js/settings-help.js', needle: 'Safari 标签页连续 7 天没打开会被系统自动清空全部数据' },
   { name: '#980e 备份提醒条 iOS 标签页追加主屏幕指路（删＝iOS 提示只留在弹窗第④条，只看顶条的用户不知道要装到主屏幕）', file: 'js/pwa.js', needle: 'iPhone：导出后请「添加到主屏幕」，改用桌面图标打开' },
   { name: '#980f 提醒条窄屏按钮换行（删＝iOS 文案加长后 320px 级屏「去备份」被挤出屏外，与 #939 续二同源）', file: 'js/pwa.js', needle: "bar.style.flexWrap = 'wrap';" },
+  /* ==== 2026-09-21 #1010 打开聊天（含打开网站后第一次打开）「数据加载弹窗消失之后记录还会闪一下」（用户实报，红米 K80 Chrome 等多机型）：
+     LS 兜底快照是**尾部切片**（超 2MB 从最旧折半丢），它渲染出的 data-idx 是快照内局部下标；
+     权威回读后同窗补丁按「前缀」假设错位套用＝最旧几条的媒体塞进最新几个气泡＋同一批记录再画一遍
+     ＋随后 prune 削掉错位节点＝整批闪动重排。修法＝补窗口首/尾身份凭据，识别「尾部切片」后把
+     DOM 下标与窗口凭据整体平移（零重建零追加）；另把「收尾的视口媒体解码」并入进度条持有条件
+     （否则收尾落地即撤＝弹窗先消失、图再落地＝原症状）。 ==== */
+  { name: '#1010a 屏上窗口身份键（删＝判不出屏上是权威的哪一段，尾部切片错位补丁复发）', file: 'js/chat.js', needle: 'function chatWinKey(m) {' },
+  { name: '#1010b 尾部切片判定（删＝局部下标被当权威下标用，lite 升级取错记录＝内容串位）', file: 'js/chat.js', needle: 'chatWinKey(msgs[tailIdx]) === windowKeyLoVal && chatWinKey(msgs[len - 1]) === windowKeyHiVal' },
+  { name: '#1010c 尾部切片下标整体平移（删＝错位节点原地补丁＋重复追加＋prune 削节点＝记录整批闪动）', file: 'js/chat.js', needle: 'el.dataset.idx = String(Number(el.dataset.idx) + winShift);' },
+  { name: '#1010d 平移后不再走尾部增量追加（删＝按旧 grown 把同一批记录再画一遍＝屏上两份）', file: 'js/chat.js', needle: 'if (grown > 0 && !winShift) {' },
+  { name: '#1010e 整窗渲染登记窗口身份（删＝凭据缺失，收尾一律退回整窗重建＝闪动回流）', file: 'js/chat.js', needle: 'chatWinKeysSync(); // #1010：登记屏上窗口首/尾记录身份' },
+  { name: '#1010f 进度条并入收尾媒体窗（删＝权威一到就撤进度条，视口图再落地＝「弹窗先消失、记录再闪一下」）', file: 'js/chat.js', needle: '|| chatSettleHoldOn()) && !chatKnownEmpty' },
+  { name: '#1010g 分帧换装落定后重判媒体窗（删＝换装落定那一帧不再判，进度条先撤、图再落地）', file: 'js/chat.js', needle: 'try { chatSettleHoldSettle(); } catch (e) {} // #1010：分帧换装落定后再判' },
+  { name: '#1010h 收尾换装前先持有进度条（删＝收尾中途任一 updateChatLoading 就把进度条撤掉）', file: 'js/chat.js', needle: 'chatSettleHoldArm(); // #1010：权威收尾在飞（换装 + 视口媒体解码）——进度条持有到本段结束' },
+  { name: '#1010i 媒体窗只算视口内（删＝视口外 lazy 图永不 complete，进度条被白拖到 deadline）', file: 'js/chat.js', needle: 'if (r.bottom < top || r.top > bot) continue;' },
+  { name: '#1010j 分帧换装在飞时顺延判定（删＝换装途中被判成「收尾已落地」，进度条先撤、图再落地）', file: 'js/chat.js', needle: 'if (batchRendering) { chatSettleHoldDefer(); return; } // 换装未落定：等 finishSwap 再判' },
 
   /* ==== 2026-09-21 #981 开屏顶部红卡文案按用户新稿替换（用户直派「开屏顶部最显眼的地方内容修改为：…」，
      四段照抄：工具与个人理解 / 需给适应时间或不适用建议不用 / 概率与功能时间全部公开可调、功能可关 /
