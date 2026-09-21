@@ -1129,7 +1129,7 @@ if (!line) return;
 if (kind === 'adv') line = String(line).replace(/\{d\}/g, String(diffDays(today, st.nextStart)));
 else if (kind === 'delay') line = String(line).replace(/\{d\}/g, String(delayDays));
 else if (kind === 'delayIrr') line = String(line).replace(/\{d\}/g, String(st.dayOfCycle || 0));
-try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警' }); } catch (e) {}
+try { window.chatAddIn(line, { tag: kind === 'in' ? '经期关心' : '经期预警', nightAllow: true }); } catch (e) {}
 notifyCfg.fired[careKey] = 1;
 var cut = addDays(today, -30);
 Object.keys(notifyCfg.fired).forEach(function (k) { if (k < cut) delete notifyCfg.fired[k]; });

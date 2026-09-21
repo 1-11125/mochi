@@ -1203,6 +1203,9 @@
   // 设置有「心意集市和心意柜设置」里可开关/自定义概率
   // ⓪ 总开关「TA 送我礼物」（giftInOn）：关闭时 ①④ 都不触发（TA 给自己买 ②、加自己心愿单 ③ 不受限）
   window.maybeAutoGift = function () {
+    // #1015 夜间静默：TA 自动送礼（扣 TA 余额发生在投递前）必须在源头拦，总闸拦消息会造成
+    // 「扣了钱没礼物」；心愿单兑现/自买/加心愿同链一并停。周期计数不推进，7:00 后照常。
+    if (window.nightModeActive && window.nightModeActive()) return;
     const st = wlSettings();
     const myCid = window.__activeCid || 'default';
     const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;

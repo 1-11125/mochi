@@ -1896,6 +1896,9 @@ if (ckRefresh) {
     return 'custom';
   }
   function doLocAuto() {
+    // #1015 夜间静默：TA 自动换位（含「隔着世界在你身边」等换位消息）夜间不触发；
+    // scheduleLocAuto 循环独立，跳过本次后照常排下一轮，位置时间线零写入。
+    if (window.nightModeActive && window.nightModeActive()) return;
     if (document.hidden || Date.now() < locWakeAt || !window.__mochiDataReady) return;
     if (store.get('loc-auto') === '0') return; // 设置「TA 自动换位」关：到点也不发（拦设置后仍残留的当次定时器）
     const companion = ['在你身边', '一直没走远', '隔着世界在你身边', '隐约在你身旁', '在你看不到的地方'];
@@ -4063,7 +4066,7 @@ if (ckRefresh) {
     try { if (window.giftWalletChange) window.giftWalletChange(-fen, 0); } catch (e) {}
     const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'in', amt: amt, note: note || '' });
     piggySaveCoinLog(log); piggyCoinRender();
-    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
+    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
     const st = piggyCoinGoalState(); const bal = piggyCoinBal(log);
     if (st.act.g && !st.act.g.done) {
       if (bal >= st.act.g.a) {
@@ -4083,7 +4086,7 @@ if (ckRefresh) {
     try { if (window.giftWalletChange) window.giftWalletChange(fen, 0); } catch (e) {}
     const log = piggyCoinLog(); log.push({ t: Date.now(), type: 'out', amt: amt, note: note || '' });
     piggySaveCoinLog(log); piggyCoinRender();
-    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), {}); } catch (e) {} }
+    if (piggyCoinIsCurrent()) { try { if (window.chatAddSystem) window.chatAddSystem('我从存钱罐取了 ¥' + piggyFmt(amt), { nightAllow: true }); } catch (e) {} }
     piggyCoinShowMsg(piggyPick(COIN_OUT_MSG));
   }
   // 心意币概率配置（root 命名空间，供 chat.js 读取申请概率）：{ deposit(塞币/存钱), withdraw(取钱), ask(申请) }，均存 0-1 小数
@@ -4119,7 +4122,7 @@ if (ckRefresh) {
     vibrate([20, 40, 20]);
     try {
       const who = (window.chatPartnerName ? window.chatPartnerName() : '') || 'TA';
-      if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), {});
+      if (window.chatAddSystem) window.chatAddSystem(who + ' 往存钱罐存了 ¥' + piggyFmt(amt), { nightAllow: true });
     } catch (e) {}
     setTimeout(function () { piggyCoinShowMsg((window.taFit ? window.taFit(note) : note) + ' ¥' + piggyFmt(amt)); }, 300);
   }

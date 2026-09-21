@@ -2093,6 +2093,7 @@ return;
 if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, taName + ' 发布了一条朋友圈动态'); }
 }
 function maybeAutoPostFor(cid) {
+if (window.nightModeActive && window.nightModeActive()) return;
 try {
 const cs = window.storeFor(cid);
 const now = Date.now();

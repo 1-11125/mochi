@@ -404,6 +404,7 @@ window.interactPopupStale = autoPopupStale;
 const INTERACT_GATE_KEY = 'interact-card-last';
 const INTERACT_GATE_MS = 60 * 60000;
 function interactGateOk() {
+if (window.nightModeActive && window.nightModeActive()) return false;
 try {
 const last = Number(store.get(INTERACT_GATE_KEY)) || 0;
 return Date.now() - last >= INTERACT_GATE_MS;

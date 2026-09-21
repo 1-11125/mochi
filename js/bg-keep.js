@@ -1863,6 +1863,7 @@ if (tags.indexOf(PSYNC_TAG) >= 0) await navigator.periodicSync.unregister(PSYNC_
 psyncSyncStatus();
 }
 async function drainPsyncQueue(force) {
+if (!force && window.nightModeActive && window.nightModeActive()) return 0;
 if (!window.idbGet || !window.idbSet || !window.chatAddIn) return 0;
 try { if (!force && performance.now() < 10000) return 0; } catch (e) {} // 开屏 10s 内不动，等聊天权威数据就绪
 let arr = null;

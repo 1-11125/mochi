@@ -991,6 +991,7 @@ if (window.logFish) window.logFish();
 }, delayMs);
 }
 window.maybeAutoGift = function () {
+if (window.nightModeActive && window.nightModeActive()) return;
 const st = wlSettings();
 const myCid = window.__activeCid || 'default';
 const giftCapped = dayCount(AUTO_DAILY_PREFIX) >= 3;

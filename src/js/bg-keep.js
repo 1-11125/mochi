@@ -2642,6 +2642,9 @@
     psyncSyncStatus();
   }
   async function drainPsyncQueue(force) {
+    // #1015 夜间静默：跨桌面消息队列回放夜间暂停（队列原样保留在 IDB，7:00 后下次 drain 补放）；
+    // force（诊断/手动）不受限。
+    if (!force && window.nightModeActive && window.nightModeActive()) return 0;
     if (!window.idbGet || !window.idbSet || !window.chatAddIn) return 0;
     try { if (!force && performance.now() < 10000) return 0; } catch (e) {} // 开屏 10s 内不动，等聊天权威数据就绪
     let arr = null;

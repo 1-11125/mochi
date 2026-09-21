@@ -364,7 +364,7 @@
             : '【帮我决定】' + question + ' → ' + result;
           if (panelFromGroup && window.gcSendDecisionText) window.gcSendDecisionText(replyText); // 群聊那一路自己响 playSfxGc('in')，此处不补（补了就是两声）
           else if (window.chatAddIn) {
-            window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
+            window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果是用户主动触发，跟底不吃 in 侧钉住闸（chat.js follow 通道）；FIX 2026-09-15 #544 dedupExempt 决定答案豁免收件侧去重（快速重跑同问题同文答案被 2500ms 窗静默吞且连锁吞多条，用户视角「联系人消息被吞了几条」。#544 编号顺延：#542 已被并行会话（房间亮度）占用）
             // #968 单聊这一路要自己补响「联系人发送和回复消息」音效（用户直派「结果发送到聊天，需要触发
             // 联系人发消息的音效」）：silent:true 当初只用来压桌面横幅（结果不是 TA 真发来的消息），
             // 但 v3.26.x 给 addIn 加了收消息音效后，同一枚标记也被那道闸门认下（chat.js `!opts.silent`）

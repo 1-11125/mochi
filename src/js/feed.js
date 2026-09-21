@@ -2638,6 +2638,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   }
   // 单个联系人的 TA 自动发动态（用该联系人自己的字卡 + TA 身份）
   function maybeAutoPostFor(cid) {
+    // #1015 夜间静默：TA 自动发动态夜间不生成——不写 feed-last/计数（周期保持到期），
+    // 7:00 后下一个轮询照常补发；聊天提示另由 addRec 总闸兜底。
+    if (window.nightModeActive && window.nightModeActive()) return;
     try {
       const cs = window.storeFor(cid);
       const now = Date.now();
