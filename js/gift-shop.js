@@ -1373,6 +1373,7 @@ const n = taWishUnread();
 btn.innerHTML = '☆ 心愿单' + (n ? '<i class="wish-badge">' + n + '</i>' : '');
 }
 if (window.mochiOnDataReady) window.mochiOnDataReady(function () {
+try { boxMetaInvalidate(); } catch (e) {}   // #985：导入回填后卡片状态按新存储重读
 try { const gp = document.getElementById('chat-gift-panel'); if (gp && !gp.hidden) giftPanelRerender(); } catch (e) {}
 try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}
 });
@@ -1827,6 +1828,7 @@ injectDeskApps([{ el: marketApp, id: 'app-market' }, { el: giftboxApp, id: 'app-
 if (marketApp) marketApp.addEventListener('click', function () { if (editingNow()) return; marketManage = false; panelCat = '全部'; openPage(marketPage); renderMarket(); });
 if (giftboxApp) giftboxApp.addEventListener('click', function () { if (editingNow()) return; window.__giftboxFrom = ''; boxTab = 'in'; openPage(giftboxPage); renderBox(); });
 document.addEventListener('contact-switched', function () {
+try { boxMetaInvalidate(); } catch (e) {}   // #985：切桌面后卡片状态按新桌面重读
 try { syncGiftNames(); } catch (e) {}
 try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
 try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}

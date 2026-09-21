@@ -4735,7 +4735,8 @@ return '<div class="mg-repl-row"><span class="mg-repl-who">' + escTxt(giftWhoLab
 function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }
 function giftCardActsInner(rec) {
 if (!giftIsIncoming(rec)) return '';
-const meta = giftMetaOf(rec) || {};
+const meta = giftMetaOf(rec);
+if (!meta) return '';
 const claim = meta.claimed === 0
 ? '<button class="msg-gift-claim" type="button">领取</button>'
 : (meta.claimed === 1 ? '<span class="msg-gift-got">\u2713 已领取</span>' : '');
@@ -4765,7 +4766,7 @@ if (an) an.insertAdjacentHTML('beforebegin', wantsActs); else card.insertAdjacen
 const repl = card.querySelector('.msg-gift-repl');
 if (repl) { repl.innerHTML = giftReplRows(rec); repl.hidden = !giftReplList(rec).length; }
 else if (giftReplList(rec).length) {
-const an2 = anchorOf();
+const an2 = card.querySelector('.msg-gift-acts') || anchorOf();
 if (an2) an2.insertAdjacentHTML('beforebegin', giftCardReplHtml(rec)); else card.insertAdjacentHTML('beforeend', giftCardReplHtml(rec));
 }
 return true;

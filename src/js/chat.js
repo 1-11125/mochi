@@ -6202,7 +6202,10 @@ function giftReplRows(rec) {
 function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }
 function giftCardActsInner(rec) {
   if (!giftIsIncoming(rec)) return '';
-  const meta = giftMetaOf(rec) || {};
+  const meta = giftMetaOf(rec);
+  // #985 审查补：心意柜那件记录读不到（导入后的残卡、被清理、或别的桌面还没回填）＝没有可写的地方，
+  // 整块动作区都不给——否则会留下一个「点了回复、回复却无处存」的死按钮（用户视角＝回复发出去就没了）
+  if (!meta) return '';
   const claim = meta.claimed === 0
     ? '<button class="msg-gift-claim" type="button">领取</button>'
     : (meta.claimed === 1 ? '<span class="msg-gift-got">\u2713 已领取</span>' : '');
@@ -6233,7 +6236,8 @@ function giftPatchCard(idx) {
   const repl = card.querySelector('.msg-gift-repl');
   if (repl) { repl.innerHTML = giftReplRows(rec); repl.hidden = !giftReplList(rec).length; }
   else if (giftReplList(rec).length) {
-    const an2 = anchorOf();
+    // 插入位必须与渲染分支同序（回复区 → 动作区 → 心形）：锚定动作区，没有才回落到心形
+    const an2 = card.querySelector('.msg-gift-acts') || anchorOf();
     if (an2) an2.insertAdjacentHTML('beforebegin', giftCardReplHtml(rec)); else card.insertAdjacentHTML('beforeend', giftCardReplHtml(rec));
   }
   return true;

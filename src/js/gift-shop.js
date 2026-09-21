@@ -1623,6 +1623,7 @@
   }
   // #797：回填完成补渲——只重画当前开着的两个礼物面（giftPanelRerender/renderMarket 均现读现画幂等）
   if (window.mochiOnDataReady) window.mochiOnDataReady(function () {
+    try { boxMetaInvalidate(); } catch (e) {}   // #985：导入回填后卡片状态按新存储重读
     try { const gp = document.getElementById('chat-gift-panel'); if (gp && !gp.hidden) giftPanelRerender(); } catch (e) {}
     try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}
   });
@@ -2131,6 +2132,7 @@
     // FIX 2026-09-15 #540：切联系人后立即重写心意市集/心意柜里写死过名字的静态文案；
     // 页面若正开着顺带重渲（数据列表走动态 store 已隔离，重渲只为文案与列表同时落到新桌面）。
     document.addEventListener('contact-switched', function () {
+      try { boxMetaInvalidate(); } catch (e) {}   // #985：切桌面后卡片状态按新桌面重读
       try { syncGiftNames(); } catch (e) {}
       try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
       try { if (marketPage && !marketPage.hidden) renderMarket(); } catch (e) {}

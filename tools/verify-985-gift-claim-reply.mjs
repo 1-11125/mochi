@@ -70,8 +70,8 @@ console.log('S 层：源码口径');
   // 聊天侧
   ok(/function giftIsIncoming\(rec\) \{ return !!\(rec && rec\.side === 'in' && !rec\.giftSelf && rec\.giftBoxId\); \}/.test(cj),
     'S13 动作区只对「真·联系人送我的礼物」且必须有心意柜指针（TA 自买卡/存量卡不响应）');
-  ok(/const meta = giftMetaOf\(rec\) \|\| \{\};[\s\S]{0,120}meta\.claimed === 0[\s\S]{0,160}msg-gift-claim/.test(cj),
-    'S14 待领取（心意柜 claimed:0）才出【领取】按钮');
+  ok(/const meta = giftMetaOf\(rec\);[\s\S]{0,200}if \(!meta\) return '';[\s\S]{0,200}meta\.claimed === 0[\s\S]{0,160}msg-gift-claim/.test(cj),
+    'S14 待领取（心意柜 claimed:0）才出【领取】按钮，且柜子记录读不到时整块不给');
   ok(/function giftMetaOf\(rec\) \{[\s\S]{0,300}window\.giftGiftMeta\(rec\.giftBoxId\)/.test(cj),
     'S14b 卡片状态全部经 giftMetaOf 读心意柜（聊天记录里不再存领取态/回复副本）');
   ok(!/giftReplies/.test(cj), 'S14c 聊天记录不再写 giftReplies（改已有记录字段的表达不出增量，会被基线合并盖回去）');
@@ -91,6 +91,13 @@ console.log('S 层：源码口径');
   ok(/\.giftbox-repl-tx \{/.test(mc) && /\.giftbox-pending \{/.test(mc), 'S25 心意柜回复/待领取样式在位');
   ok(/\[data-theme="dark"\] \.msg-gift-reply \{/.test(mc) && /\[data-theme="dark"\] \.giftbox-repl-tx \{/.test(mc),
     'S26 深色适配在位（回复行提亮、待领取暗底浅红）');
+  // #985 审查补（2026-09-21 自查发现的两处真缺陷 + 一处死按钮守卫）
+  ok(/boxMetaInvalidate\(\); \} catch \(e\) \{\}   \/\/ #985：切桌面后卡片状态按新桌面重读/.test(gs),
+    'S27 切桌面即作废卡片状态记忆表（删＝换联系人后，切过去那个桌面的礼物卡丢领取态/回复）');
+  ok(/boxMetaInvalidate\(\); \} catch \(e\) \{\}   \/\/ #985：导入回填后卡片状态按新存储重读/.test(gs),
+    'S28 导入/回填完成即作废（删＝导入备份后卡片仍按导入前的心意柜渲染）');
+  ok(/if \(!meta\) return '';/.test(cj),
+    'S29 心意柜记录读不到＝整块动作区不给（删＝留下「点了回复却无处存」的死按钮）');
 }
 
 // ---------------- B 层：无头 Chrome 行为 ----------------
@@ -200,8 +207,8 @@ const waitOutText = (txt) => waitFor(async () => (J(await chatState()).outTexts 
 const openChat = () => evalJs("(function(){ document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-chat');}); var a=document.querySelector('.app[data-app=chat]'); if(a)a.click(); return 1; })()");
 const openBoxPage = () => evalJs("(function(){ var a=document.querySelector('.app[data-app=giftbox]'); if(!a) return 0; a.click(); return 1; })()");
 // 落库事实（不读 DOM）：聊天记录里的礼物卡与心意柜记录
-const chatState = () => evalJs(`(function(){
-  var s = window.storeFor('default');
+const chatState = (cid) => evalJs(`(function(){
+  var s = window.storeFor(${JSON.stringify(cid || 'default')});
   var msgs = []; try { msgs = JSON.parse(s.get('chat-msgs')||'[]'); } catch(e){}
   var gifts = msgs.filter(function(m){ return m && m.special === 'gift'; });
   var last = gifts.length ? gifts[gifts.length-1] : null;
@@ -216,8 +223,8 @@ const chatState = () => evalJs(`(function(){
     pokes: msgs.filter(function(m){ return m && m.special === 'poke'; }).map(function(m){ return String(m.text||''); })
   });
 })()`);
-const boxState = () => evalJs(`(function(){
-  var s = window.storeFor('default');
+const boxState = (cid) => evalJs(`(function(){
+  var s = window.storeFor(${JSON.stringify(cid || 'default')});
   var box = []; try { box = JSON.parse(s.get('giftbox-items')||'[]'); } catch(e){}
   return JSON.stringify(box.map(function(b){ return { id: b.id, side: b.side, name: b.name, wish: b.wish || '', claimed: (b.claimed === undefined ? null : b.claimed), replies: Array.isArray(b.replies) ? b.replies : [] }; }));
 })()`);
@@ -409,6 +416,46 @@ await sleep(300);
   ok(outBox.length === 1 && outBox[0].replies[0].who === 'ta', 'B5d 回复归属标为 TA', JSON.stringify(outBox[0] && outBox[0].replies));
 }
 
+// ---- C：换联系人（跨桌面）后，卡片状态必须按各自桌面的心意柜渲染 ----
+// 记忆化表是按「当时那个桌面」的心意柜建的，id 虽全局唯一但查询走的是当前桌面——切桌面必须作废，
+// 否则切过去那个桌面的礼物卡读不到状态（用户视角：换了联系人回来，新到的礼物没有领取按钮）。
+{
+  const tmpCid = await evalJs("(function(){ try { return window.createContact('礼物卡验证桌面'); } catch (e) { return ''; } })()");
+  ok(!!tmpCid && tmpCid !== 'default', 'C0 前置：另建一个联系人桌面', String(tmpCid));
+  await evalJs(`(function(){ window.setActiveContact(${JSON.stringify(String(tmpCid))}); return 1; })()`);
+  await sleep(1000);
+  await setSettings({});
+  await setMyWish([{ giftId: 'g_v985c', name: '验证台灯', emoji: '\uD83D\uDCA1', img: '', price: 66, cat: 'gcare', wish: '给你照个亮', tm: Date.now() }]);
+  await openChat();
+  await sleep(400);
+  await evalJs('window.maybeAutoGift()');
+  await waitFor(async () => ((J(await boxState(tmpCid)) || []).filter((x) => x.side === 'in').length >= 1), 9000);
+  await sleep(400);
+  const dNew = J(await cardDom()) || {};
+  ok(dNew.found && dNew.hasClaim === true, 'C1 新桌面上刚收到的礼物卡有【领取】（按该桌面自己的心意柜读取）', JSON.stringify(dNew));
+  // 切回 default：这一侧的「已领取」与回复仍要在（记忆表没作废就会整体读空）
+  await evalJs("(function(){ window.setActiveContact('default'); return 1; })()");
+  await sleep(1200);
+  await openChat();
+  await sleep(800);
+  const dBack = J(await cardDom('验证蜡烛')) || { found: false };
+  ok(dBack.found && String(dBack.got).indexOf('已领取') >= 0,
+    'C2 切回原桌面后「已领取」仍在（切桌面即作废记忆表，不拿另一个桌面的柜子渲染）', JSON.stringify(dBack));
+  ok(dBack.replHidden === false && String(dBack.replText).indexOf('谢谢你呀') >= 0,
+    'C3 切回原桌面后追加回复仍在', JSON.stringify({ hidden: dBack.replHidden, text: dBack.replText }));
+  // 再切到新桌面：那边未领取的那件必须仍给【领取】
+  await evalJs(`(function(){ window.setActiveContact(${JSON.stringify(String(tmpCid))}); return 1; })()`);
+  await sleep(1200);
+  await openChat();
+  await sleep(800);
+  const dNew2 = J(await cardDom()) || {};
+  ok(dNew2.found && dNew2.hasClaim === true, 'C4 再切到新桌面，未领取的礼物卡仍有【领取】', JSON.stringify(dNew2));
+  await evalJs("(function(){ window.setActiveContact('default'); return 1; })()");
+  await sleep(1200);
+  await openChat();
+  await sleep(600);
+}
+
 // ---- B6/B7：迁移口径 + 反向守卫 + 重载后仍在 ----
 // 存量形态用产品自己的整包导入通道（window.chatImportMsgs）造：直接往存储里塞记录会被离页 flush
 // 用内存态盖回去（本会话踩过），导入通道会连带把基准段/日志换成新数组＝跨重载也站得住。
@@ -421,6 +468,8 @@ await sleep(300);
     cur.push({ side:'in', special:'gift', giftId:'g_legacy1', giftName:'老礼物', giftEmoji:'\uD83C\uDF81', giftImg:'', giftPrice:20, giftWish:'旧文案', giftCat:'gcare', ts: legacyTs });
     // TA 自己买的礼物卡（giftSelf）
     cur.push({ side:'in', special:'gift', giftId:'g_legacy2', giftName:'TA自买', giftEmoji:'\uD83C\uDF81', giftImg:'', giftPrice:30, giftWish:'TA 文案', giftCat:'gcare', giftSelf:1, ts: selfTs });
+    // 孤儿卡：指针指向一件并不存在的心意柜记录（导入后的残卡 / 被清理）→ 没有可写的地方，不该给动作区
+    cur.push({ side:'in', special:'gift', giftId:'g_orphan', giftName:'孤儿礼物', giftEmoji:'\uD83C\uDF81', giftImg:'', giftPrice:11, giftWish:'无处可存', giftCat:'gcare', giftBoxId:'gb_missing_985', ts: Date.now() - 40000 });
     if (window.chatImportMsgs) window.chatImportMsgs(cur);
     var box = []; try { box = JSON.parse(s.get('giftbox-items')||'[]'); } catch(e){}
     box.unshift({ id:'gb_legacy1', giftId:'g_legacy1', name:'老礼物', emoji:'\uD83C\uDF81', img:'', price:20, cat:'gcare', wish:'旧文案', side:'in', tm: legacyTs });
@@ -433,10 +482,13 @@ await sleep(300);
   await sleep(700);
   const legacy = J(await cardDom('老礼物')) || { found: false };
   const selfCard = J(await cardDom('TA自买')) || { found: false };
+  const orphan = J(await cardDom('孤儿礼物')) || { found: false };
   ok(legacy.found && legacy.hasClaim === false && legacy.hasReplyBtn === false,
     'B6b 存量礼物卡没有动作区（旧版自动收下的：不翻成待领取、也没有心意柜指针可写回复）', JSON.stringify(legacy));
   ok(selfCard.found && selfCard.hasClaim === false && selfCard.hasReplyBtn === false,
     'B7 TA 自己买的礼物卡不出动作区（不是送我的礼物）', JSON.stringify(selfCard));
+  ok(orphan.found && orphan.hasClaim === false && orphan.hasReplyBtn === false,
+    'B7a 心意柜记录不在了的礼物卡也不给动作区（点了回复也没处存）', JSON.stringify(orphan));
   // 重载：状态全部按记录判定（心意柜＝单一事实源），不靠一次性 DOM 补丁
   if (!(await goto())) { console.error('二次冷启动未就绪'); finish(); process.exit(1); }
   await sleep(1200);
