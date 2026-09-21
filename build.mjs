@@ -4243,7 +4243,14 @@ const FIX_SENTINELS = [
   { name: '#959d 装到桌面分步引导写清「先导出再安装、主屏与 Safari 存储分开需导入」（删＝用户装到主屏看到空数据，误以为又丢一次数据）', file: 'js/pwa.js', needle: '主屏幕应用和 Safari 是两套独立存储，不先导出' },
   { name: '#959e iOS 安装提示点明 7 天清空风险（删＝退回只讲「怎么装」不讲「为什么必须装」）', file: 'template.html', needle: 'Safari 标签页 7 天不用会被系统清空数据' },
   { name: '#959f 关于段 iPhone/iPad 7 天规则提醒条（用户直派「写在关于里提醒 iOS 用户」；删＝关于页 iOS 提醒消失）', file: 'template.html', needle: 'id="about-ios-pwa-note"' },
-  { name: '#959g 关于段 iOS 提醒条只对 iOS 显示（删＝安卓用户也常驻读到 iPhone 专属提醒；非 iOS 隐藏、JS 未跑保留）', file: 'js/pwa.js', needle: "document.getElementById('about-ios-pwa-note')" },
+  { name: '#959g 关于段 iOS 提醒条只对 iOS 显示（删＝安卓用户也常驻读到 iPhone 专属提醒；非 iOS 隐藏、JS 未跑保留）', file: 'js/pwa.js', needle: "document.getElementById('about-ios-pwa-note')" },
+  { name: '#956a 拼卡取池闸门＝多字卡回复总开关 && 拼接随机标点（删/退回只看 py-punct-en＝关掉多字卡回复后词典拼字单气泡等形态仍按标点池拼卡，用户实报「还是能触发多字卡回复」）', file: 'js/chat.js', needle: "const pyJoinOn = !!(c && c['py-en'] === 1 && c['py-punct-en'] === 1);" },
+  { name: '#956b 设置页置灰上游闸门 pyMasterOn（删＝关掉多字卡回复后拼接随机标点行仍显亮，与真实生效状态不符）', file: 'js/reply-settings.js', needle: "const pyMasterOn = cfg['py-en'] === 1;" },
+  { name: '#956c 自定义符号 chip 同时按「总开关 && 本行开关」置灰（删＝自定义符号漏灰）', file: 'js/reply-settings.js', needle: "const dis = !(dcfg['py-en'] === 1 && dcfg['py-punct-en'] === 1);" },
+  { name: '#956d 拼接随机标点行关闭即置灰（删＝行显亮无提示）', file: 'js/reply-settings.js', needle: "rowPunct.style.opacity = (pyMasterOn && cfg['py-punct-en'] === 1) ? '' : '.45';" },
+  { name: '#956e 上游总开关变更即重同步本组置灰态（删＝点了多字卡回复开关后置灰态不跟手）', file: 'js/reply-settings.js', needle: "const pyEnEl = document.getElementById('py-en');" },
+  { name: '#956f 设置页说明补「关闭多字卡回复后本组一并失效」（删＝用户仍按旧口径理解从属关系）', file: 'index.html', needle: '关闭上方「多字卡回复」后本组一并失效' },
+  { name: '#956g 拼接符号池行随上游总开关置灰（删＝符号池行显亮，与 chips 灰态不一致）', file: 'js/reply-settings.js', needle: "rowChips.style.opacity = pyMasterOn ? '' : '.45';" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
