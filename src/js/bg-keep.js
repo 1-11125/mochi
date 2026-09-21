@@ -546,7 +546,9 @@
   // （隐藏期定时器停摆过＝冻结/丢弃实锤，页面即便活着回来也算）；died=后台会话暴毙次数
   // （上个会话没能活着回来＝标签被系统丢弃/杀掉，回来自动重载＝「点回来页面被刷新」）。
   // 历史累计、跨会话保留，零机型分支——「保活到底有没有生效」从口述猜变成有数可查。
-  let kaEv = { stall: 0, died: 0 };
+  // #961：kaEv 增 rolling 回收时间表（diedAt，最多 10 条）——「近两天回收几次」要靠它，
+  // 只在总数上判断会让老设备的累计值永远触发升级提醒。
+  let kaEv = { stall: 0, died: 0, diedAt: [] };
   try {
     const _evSaved = gGet('__ka-ev');
     if (_evSaved && String(_evSaved).charAt(0) === '{') {
@@ -555,6 +557,30 @@
     }
   } catch (e) {}
   function kaEvSave() { try { gSet('__ka-ev', JSON.stringify(kaEv)); } catch (e) {} }
+
+  // ===== #961 通用会话存活标记（不依赖保活/通知开关）=====
+  // 背景：iOS 内存紧张时会把整个 WebContent 回收，用户切回来看到的就是「白屏/重新加载」——
+  // 旧实现只在开着保活时靠后台心跳察觉（kaLivenessOn 门控），没开保活的用户永远得不到解释，
+  // 而 17PM 实报「严重时聊天完全白屏动不了」正是这一类（该机累计被回收 43 次）。
+  // 标记极小：切后台/离开时写 {t, closed}；下次启动若上次不是正常收尾且时间很近 ⇒ 记一次回收。
+  const SESS_KEY = '__sess-alive';
+  function sessMark(closed) { try { gSet(SESS_KEY, JSON.stringify({ t: Date.now(), closed: !!closed })); } catch (e) {} }
+  function sessBootCheck() {
+    try {
+      const prev = JSON.parse(gGet(SESS_KEY) || 'null');
+      if (prev && typeof prev.t === 'number' && !prev.closed && (Date.now() - prev.t) < 30 * 60 * 1000) {
+        kaEv.died++;
+        kaEv.diedAt = kaEv.diedAt || [];
+        kaEv.diedAt.push(Date.now());
+        if (kaEv.diedAt.length > 10) kaEv.diedAt.shift();
+        kaEvSave();
+        kaDiedNotice = true;
+      }
+    } catch (e) {}
+    sessMark(false);
+  }
+  try { window.addEventListener('pagehide', function () { sessMark(true); }); } catch (e) {}
+  try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') sessMark(false); }); } catch (e) {}
   // 独立监听器（#153 的 hidden 监听器在音频播放中会提前 return，语义不同不共用）
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') {
@@ -590,6 +616,7 @@
   //   这段时间后台消息/弹窗本来就不存在）。本批把「上个后台会话暴毙」当面讲清：只在两个开关
   //   开着（＝用户确实指望后台收消息）且页面在前台、开屏已关时提示一次，12h 冷却防唠叨。
   try {
+    sessBootCheck(); // #961：通用存活标记启动判定（含正常收尾标记，与保活开关无关）
     if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
       if (old && old.n > 0 && !old.resumed && !old.bye) {
         kaEv.died++; kaEvSave();
@@ -646,14 +673,54 @@
       tmr = setTimeout(cleanup, 90000);
     } catch (e) { try { fn(); } catch (e2) {} }
   }
+  // #961 升级：①不再要求「开着保活/通知」才提示——回收是系统行为、谁都可能遇到；
+  // ②文案讲人话（内存不够→系统关掉页面→白屏/重试，不是网站坏了、不丢数据）并给两条具体方法；
+  // ③回收频繁（近两天 ≥3 次或累计 ≥10 次）时升级为顶部警告条（可点，跳设置去清）＋ 24h 冷却，
+  // 平时仍是 12h 冷却的一次 toast，避免唠叨。
+  function showMemWarnBar(total, recent) {
+    try {
+      if (document.getElementById('mem-warn-bar')) return;
+      const b = document.createElement('div');
+      b.className = 'ver-update-bar';
+      b.id = 'mem-warn-bar';
+      b.style.cursor = 'pointer';
+      b.innerHTML = '<span class="vub-txt"></span><b>去看怎么清</b>';
+      b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了';
+      b.addEventListener('click', function () {
+        try {
+          const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
+          if (t) t.click();
+          setTimeout(function () {
+            try {
+              const tg = document.querySelector('#set-tabs .them-tab[data-sec="tools"]');
+              if (tg) tg.click();
+            } catch (e) {}
+            setTimeout(function () {
+              try { const r = document.getElementById('row-storage-view'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' }); } catch (e) {}
+            }, 300);
+          }, 350);
+        } catch (e) {}
+      });
+      (document.body || document.documentElement).appendChild(b);
+      setTimeout(function () { try { b.hidden = true; } catch (e) {} }, 60000); // 60s 自动收起，不常驻
+    } catch (e) {}
+  }
   function tryShowKaDiedNotice() {
     if (!kaDiedNotice) return;
-    if (!kaLivenessOn()) { kaDiedNotice = false; return; }        // 没开保活/通知＝用户不指望后台收消息
-    if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
     try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+    const total = kaEv.died || 0;
+    const recent = (kaEv.diedAt || []).filter(function (t) { return Date.now() - t < 48 * 3600 * 1000; }).length;
+    if (recent >= 3 || total >= 10) {
+      if (kaNoticeCool('__ka-mem-note-at', 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
+      kaDiedNotice = false;
+      kaNoticeStamp('__ka-mem-note-at');
+      kaNoticeAfterSplash(function () { showMemWarnBar(total, recent); });
+      return;
+    }
+    if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
     kaDiedNotice = false;
     kaNoticeStamp('__ka-died-note-at');
-    toast('⚠ 上次挂着后台的那段会话被系统丢弃/关闭了（不是正常关页）\n这期间的后台消息与后台弹窗可能没收到；本页已重新加载，两个开关照旧开着\n经常出现：把本站加入浏览器「不睡眠 / 始终保持活动」名单，或彻底关闭网页重开后重新打开两个开关', 7000);
+    toast('⚠ 系统刚把本站整个关掉过一次（手机内存不够时 iOS 会这样做）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项。');
   }
   function nbPermPendingNotice() {
     try { if (!notifyEnabled) return; } catch (e) { return; }

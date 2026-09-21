@@ -1414,6 +1414,34 @@
       }
     } catch (e) { try { L.push('电量：读取失败'); } catch (e2) {} }
     L.push('');
+    // #961 内存体检——iOS 不提供 JS 堆读数（本段上方「JS 内存：不支持」即此），
+    // 「本页被系统回收 N 次」只能靠「谁在内存里占位」推断。本段把可测的占位项列清：
+    // DOM 节点、img 元素（data:/blob:/坏图）、内存里的聊天条数、内存驻留键与近似体积。
+    try {
+      const nodes = document.getElementsByTagName('*').length;
+      let imgs = 0, dataImgs = 0, blobImgs = 0, brokenImgs = 0;
+      try {
+        const list = document.images || [];
+        imgs = list.length;
+        for (let i = 0; i < list.length; i++) {
+          const src = list[i].currentSrc || list[i].src || '';
+          if (src.indexOf('data:') === 0) dataImgs++;
+          else if (src.indexOf('blob:') === 0) blobImgs++;
+          if (list[i].complete && list[i].naturalWidth === 0) brokenImgs++;
+        }
+      } catch (e) {}
+      let chatN = 0;
+      try { if (typeof window.getChatMsgs === 'function') chatN = (window.getChatMsgs() || []).length; } catch (e) {}
+      L.push('【内存体检】DOM 节点=' + nodes + ' · img 元素=' + imgs + '（data: ' + dataImgs + ' / blob: ' + blobImgs + (brokenImgs ? ' / 坏图 ' + brokenImgs : '') + '）' + (chatN ? ' · 内存聊天条数=' + chatN : ''));
+      const memo = (typeof window.idbMemoStats === 'function') ? window.idbMemoStats(6) : null;
+      if (memo && memo.n) {
+        L.push('· 内存驻留键 ' + memo.n + ' 个 ≈' + Math.round(memo.bytes / 1024) + 'KB（字符串按长度、数组按写入时估算；iOS 无堆读数，这是近似账）');
+        if (memo.top && memo.top.length) L.push('· 驻留最大：' + memo.top.map(function (e) { return e.k.replace('xy-home-v2:', '') + ' ' + (e.len > 0 ? Math.round(e.len / 1024) + 'KB' : '体量未知'); }).join('、'));
+      } else {
+        L.push('· 内存驻留键：采样未启用（idbMemoStats 缺席）');
+      }
+      L.push('· 判读：内存三巨头＝img 位图解码（一张 720px 图解码约 1.5MB）、常驻结构（聊天数组/表情包数组/字卡池）、DOM 节点；回收次数见【保活现场】');
+    } catch (e) {}
     L.push('【数据】');
     const G = 'xy-home-v2:';
     const usageStr = function (u) {

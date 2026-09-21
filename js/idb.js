@@ -481,6 +481,20 @@ try { if (window.idbDelete) window.idbDelete(key); } catch (e) {}
 }
 };
 };
+window.idbMemoStats = function (topN) {
+try {
+if (!memoryCache) return { n: 0, bytes: 0, top: [] };
+const arr = Object.keys(memoryCache).map(function (k) {
+const v = memoryCache[k];
+const len = typeof v === 'string' ? v.length : (_bigIdx[k] || -1);
+return { k: k, len: len };
+});
+let total = 0;
+arr.forEach(function (e) { if (e.len > 0) total += e.len; });
+arr.sort(function (a, b) { return b.len - a.len; });
+return { n: arr.length, bytes: total, top: arr.slice(0, topN || 6) };
+} catch (e) { return { n: 0, bytes: 0, top: [] }; }
+};
 window.idbGetCached = function (key) {
 if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
 return undefined;

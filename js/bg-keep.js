@@ -373,7 +373,7 @@ kaHbTimer = setInterval(kaHbTick, 30000);
 function kaHbStop() {
 if (kaHbTimer) { clearInterval(kaHbTimer); kaHbTimer = null; }
 }
-let kaEv = { stall: 0, died: 0 };
+let kaEv = { stall: 0, died: 0, diedAt: [] };
 try {
 const _evSaved = gGet('__ka-ev');
 if (_evSaved && String(_evSaved).charAt(0) === '{') {
@@ -382,6 +382,24 @@ if (_ev && typeof _ev === 'object') kaEv = Object.assign(kaEv, _ev);
 }
 } catch (e) {}
 function kaEvSave() { try { gSet('__ka-ev', JSON.stringify(kaEv)); } catch (e) {} }
+const SESS_KEY = '__sess-alive';
+function sessMark(closed) { try { gSet(SESS_KEY, JSON.stringify({ t: Date.now(), closed: !!closed })); } catch (e) {} }
+function sessBootCheck() {
+try {
+const prev = JSON.parse(gGet(SESS_KEY) || 'null');
+if (prev && typeof prev.t === 'number' && !prev.closed && (Date.now() - prev.t) < 30 * 60 * 1000) {
+kaEv.died++;
+kaEv.diedAt = kaEv.diedAt || [];
+kaEv.diedAt.push(Date.now());
+if (kaEv.diedAt.length > 10) kaEv.diedAt.shift();
+kaEvSave();
+kaDiedNotice = true;
+}
+} catch (e) {}
+sessMark(false);
+}
+try { window.addEventListener('pagehide', function () { sessMark(true); }); } catch (e) {}
+try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') sessMark(false); }); } catch (e) {}
 document.addEventListener('visibilitychange', function () {
 if (document.visibilityState === 'hidden') {
 if (!keepEnabled) return;
@@ -402,6 +420,7 @@ kaHbStop();
 }
 });
 try {
+sessBootCheck(); // #961：通用存活标记启动判定（含正常收尾标记，与保活开关无关）
 if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
 if (old && old.n > 0 && !old.resumed && !old.bye) {
 kaEv.died++; kaEvSave();
@@ -447,14 +466,50 @@ try { moBody.observe(document.body, { childList: true }); } catch (e) {}
 tmr = setTimeout(cleanup, 90000);
 } catch (e) { try { fn(); } catch (e2) {} }
 }
+function showMemWarnBar(total, recent) {
+try {
+if (document.getElementById('mem-warn-bar')) return;
+const b = document.createElement('div');
+b.className = 'ver-update-bar';
+b.id = 'mem-warn-bar';
+b.style.cursor = 'pointer';
+b.innerHTML = '<span class="vub-txt"></span><b>去看怎么清</b>';
+b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了';
+b.addEventListener('click', function () {
+try {
+const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
+if (t) t.click();
+setTimeout(function () {
+try {
+const tg = document.querySelector('#set-tabs .them-tab[data-sec="tools"]');
+if (tg) tg.click();
+} catch (e) {}
+setTimeout(function () {
+try { const r = document.getElementById('row-storage-view'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' }); } catch (e) {}
+}, 300);
+}, 350);
+} catch (e) {}
+});
+(document.body || document.documentElement).appendChild(b);
+setTimeout(function () { try { b.hidden = true; } catch (e) {} }, 60000); // 60s 自动收起，不常驻
+} catch (e) {}
+}
 function tryShowKaDiedNotice() {
 if (!kaDiedNotice) return;
-if (!kaLivenessOn()) { kaDiedNotice = false; return; }        // 没开保活/通知＝用户不指望后台收消息
-if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
 try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
+const total = kaEv.died || 0;
+const recent = (kaEv.diedAt || []).filter(function (t) { return Date.now() - t < 48 * 3600 * 1000; }).length;
+if (recent >= 3 || total >= 10) {
+if (kaNoticeCool('__ka-mem-note-at', 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
+kaDiedNotice = false;
+kaNoticeStamp('__ka-mem-note-at');
+kaNoticeAfterSplash(function () { showMemWarnBar(total, recent); });
+return;
+}
+if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
 kaDiedNotice = false;
 kaNoticeStamp('__ka-died-note-at');
-toast('⚠ 上次挂着后台的那段会话被系统丢弃/关闭了（不是正常关页）\n这期间的后台消息与后台弹窗可能没收到；本页已重新加载，两个开关照旧开着\n经常出现：把本站加入浏览器「不睡眠 / 始终保持活动」名单，或彻底关闭网页重开后重新打开两个开关', 7000);
+toast('⚠ 系统刚把本站整个关掉过一次（手机内存不够时 iOS 会这样做）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项。');
 }
 function nbPermPendingNotice() {
 try { if (!notifyEnabled) return; } catch (e) { return; }

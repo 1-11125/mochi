@@ -257,6 +257,11 @@ var mtxt = majors.slice(0, 2).map(function (m) { return pageName(m[0]) + ' ' + p
 if (mtxt) L.push('· 采样期间主要在：' + mtxt);
 if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
 if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
+try {
+var _kp3 = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+var _diedN = (_kp3 && _kp3.ev) ? (_kp3.ev.died || 0) : 0;
+if (_diedN >= 3) L.push('· 本页已被系统回收过 ' + _diedN + ' 次（手机内存不够时 iOS 会直接关掉页面，切回来白屏/重载就是它、不是网站坏了、不丢数据）：先做两件事——①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项（表情包大图/旧聊天记录，删前先导出备份）');
+} catch (e6) {}
 if (r.janky > 0) {
 L.push('· 掉帧 ' + r.janky + ' 帧（间隔>' + r.jankMs + 'ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
 if (r.fz > 0) L.push('· 前台冻结 ' + r.fz + ' 次（亮屏下主线程被卡住 >' + BG_GAP + 'ms，最长 ' + r.fzWorst + 'ms）——现场见下方「最慢帧现场」的前台冻结标记');

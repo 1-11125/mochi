@@ -4122,6 +4122,11 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-21 #960 续（iPhone 17PM 首份带取证行的真机报告驱动）：冻结归因加「距冻结起点时间差」——首次报告 ka-tick ×47/53 但保活 5s 拍天然最频繁＝存在『最后一条标记』偏置，只有差值≤150ms 才算真凶；同批给 ka-tick 细分 ka-ms（媒体会话写）＋去掉每 5s 无条件重写同一 playbackState 的重复 IPC ==== */
    { name: '#960d 冻结归因带时间差与判读（删＝高频标记天然霸榜，归因失真回到猜）', file: 'js/perf-check.js', needle: '距冻结起点中位' },
    { name: '#960e 媒体会话去重复写（删＝每 5s 无条件重写同一 playbackState，iOS 上纯重复 IPC）', file: 'js/bg-keep.js', needle: "navigator.mediaSession.playbackState !== 'playing'" },
+  /* ==== 2026-09-21 #961 用户直派「iOS 要明确提醒用户发生了什么（被系统回收 43 次），直接检测并给解决方法」：①通用会话存活标记 __sess-alive（不依赖保活/通知开关；pagehide 记正常收尾、visibilitychange 记后台中，启动判定「上次非正常收尾且很近」＝回收一次，rolling diedAt 保留 10 条）——旧实现只在开着保活时靠心跳察觉，没开保活的用户永远得不到解释；②回收提醒升级：不再要求开关、讲人话（内存不够→iOS 关页面→白屏/重载、不是网站坏了不丢数据）＋两条具体方法；回收频繁（近两天≥3 或累计≥10）时升级为顶部警告条（可点，跳设置→工具→查看存储）24h 冷却，平时 12h 一次 toast；③卡顿报告独立成行点名回收次数与两条方法（与是否掉帧无关）==== */ 
+  { name: '#961a 通用存活标记与启动判定（删＝不开保活的机型回收后永远得不到解释）', file: 'js/bg-keep.js', needle: 'sessBootCheck(); // #961' }, 
+  { name: '#961b 回收提醒升级：不讲门控＋给方法（删＝回到只有开关开着才提示、且无操作方法）', file: 'js/bg-keep.js', needle: '手机内存不够时 iOS 会这样做' }, 
+  { name: '#961c 高频回收顶部警告条（删＝43 次级设备只留一条 12h 冷却 toast）', file: 'js/bg-keep.js', needle: 'mem-warn-bar' }, 
+  { name: '#961d 报告独立点名回收次数与方法（删＝白屏实锤在卡顿报告里隐身）', file: 'js/perf-check.js', needle: '本页已被系统回收过' }, 
  
   /* ==== #934/#941 哨兵回补（本会话恢复 build.mjs 时发现它们也随旧缓冲回写事故丢失；从各自提交 0c6d0c0 / 625cea2 原样取回）==== */
   { name: '#906a 半框点外关闭分派器声明（删＝九枚同族底半框回到只能点 ✕，用户「点屏幕其他地方无法关闭」回流）', file: 'js/chat.js', needle: 'window.mochiSheetOutsideClose = function (panel, close) {' },

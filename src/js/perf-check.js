@@ -369,6 +369,12 @@
     // #906：后台/锁屏占比过高时点名——剔除机制保证判定不受污染，但占比太高＝测的不是刚才的卡
     // #934：占比改按「实测时长」算（原＝冻结段数与有效帧数比大小，量纲不同＝恒不触发）
     if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
+    // #961：系统回收（内存压力＝白屏/重载实锤）——与是否掉帧无关，独立成行
+    try {
+      var _kp3 = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
+      var _diedN = (_kp3 && _kp3.ev) ? (_kp3.ev.died || 0) : 0;
+      if (_diedN >= 3) L.push('· 本页已被系统回收过 ' + _diedN + ' 次（手机内存不够时 iOS 会直接关掉页面，切回来白屏/重载就是它、不是网站坏了、不丢数据）：先做两件事——①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项（表情包大图/旧聊天记录，删前先导出备份）');
+    } catch (e6) {}
     if (r.janky > 0) {
       L.push('· 掉帧 ' + r.janky + ' 帧（间隔>' + r.jankMs + 'ms），其中严重 ' + r.severe + ' 帧（>100ms），最慢一帧 ' + r.worst + 'ms');
       // #934：亮屏下的超长阻塞单独点名（旧版把这它当后台冻结剔除，报告里连数字都看不到）
@@ -401,6 +407,7 @@
       try {
         var ka = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
         if (ka && ka.keep) L.push('· 「后台保活」开着：页面会在后台一直跑，更耗电、发热、掉帧更明显——不用时到 设置→系统 关掉再对照测一轮');
+
       } catch (e4) {}
       if (r.kbJanky > 0) L.push('· 其中键盘弹出期 ' + r.kbJanky + ' 帧（键盘期视口变形 iOS 上常见；收起键盘对照可分辨）');
       if (r.scene && r.scene.length) {

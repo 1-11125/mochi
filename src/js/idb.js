@@ -685,6 +685,23 @@
   // v3.26.x：导出兜底——IDB 读取失败/超时时，本会话 memoryCache 可能有最新值
   //（idbRestore 回填的大键、或本会话 xyStore.set 写入的值），供 data-backup.js 导出兜底，
   // 避免 IDB-only 大键（朋友圈/字卡等）在 IDB 事务挂起时彻底丢失。
+  // #961 内存驻留体检出口（只读）——iOS 不提供 JS 堆读数，设备诊断【内存体检】段要把
+  // 「谁在内存里占位」列清：memoryCache＝本会话所有读过的键（含大键数组直存的同一引用），
+  // 体积对字符串取长度、对数组/对象取 big-idx 的估算值。零副作用、不读 IDB、不写 LS。
+  window.idbMemoStats = function (topN) {
+    try {
+      if (!memoryCache) return { n: 0, bytes: 0, top: [] };
+      const arr = Object.keys(memoryCache).map(function (k) {
+        const v = memoryCache[k];
+        const len = typeof v === 'string' ? v.length : (_bigIdx[k] || -1);
+        return { k: k, len: len };
+      });
+      let total = 0;
+      arr.forEach(function (e) { if (e.len > 0) total += e.len; });
+      arr.sort(function (a, b) { return b.len - a.len; });
+      return { n: arr.length, bytes: total, top: arr.slice(0, topN || 6) };
+    } catch (e) { return { n: 0, bytes: 0, top: [] }; }
+  };
   window.idbGetCached = function (key) {
     if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
     return undefined;

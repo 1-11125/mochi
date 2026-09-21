@@ -12809,73 +12809,6 @@ hydrateCcForChatPanels(() => { if (emojiPanel && !emojiPanel.hidden) renderEmoji
 //   首屏别干等）；②按 DOM 序前 EMOJI_DECODE_AWAIT_MAX 张（≈首屏两三行）await decode 后即显示；
 //   ③其余已赋 src 的图 fire-and-forget 预热解码，不挡显示（滚动到时位图已就绪或按需即解）。
 const EMOJI_DECODE_AWAIT_MAX = 24;
-// FIX 2026-09-22 #1011 表情包面板「每次打开图片都会闪烁和重新加载」残留根因（红米 K80 Chrome
-//   实报、用户明说其他设备型号也有；#457/#508/#509/#662/#692/#704/#716/#907 八轮之后仍现）。
-//   上面那一串修复盯的是「节点有没有被重建」与「位图有没有被回收」，而真机上的那一拍其实是
-//   **面板在图片还没就绪时就显示了**：旧等待只对「此刻已经有 src 的图」逐个 await decode()，
-//   而首开/整页重载后这一拍一张 src 都没有——懒加载补 src 要等 IO 回调、池令牌解析要读 IDB，
-//   jobs 为空 ⇒ 等待当场放行。面板随后才逐张走「令牌当相对 URL 请求→404→池读 IDB→重写 src→
-//   解码」四段异步（无头 390×844 实测：面板可见当帧 24 张首屏里 8 张 src 还是 @@m: 令牌、仅 16
-//   张解码就绪，可见之后仍发生 21 次 load＋7 次 404 error）＝用户看到的「闪一下再一张张加载」。
-//   收口＝把等待判据从「有 src 就 await decode」换成「首屏每张图都拿到真载荷且解码完成」：
-//   首屏令牌当场交给媒体池批量解析（不等 250ms 的整组预热班次）、非令牌载荷当场补 src（不等
-//   懒加载泵），未就绪的图等自己的 load——池解析完重写 src 会触发 load，池确缺数据时 #397 的
-//   「图片缺失」占位图同样会 load ⇒ 等待不再是空的，也不会被挂着不放。兜底 2.5s 不变；等待期间
-//   面板不显示，故令牌解析中间态的裂图/alt 文案用户看不到。零机型分支、零新状态、零视觉改动。
-function emojiPanelFirstScreen() {
-  const out = [];
-  if (!emojiList) return out;
-  let imgs; try { imgs = emojiList.querySelectorAll('img'); } catch (e) { return out; }
-  if (!imgs || !imgs.length) return out;
-  let cr = null; try { cr = emojiList.getBoundingClientRect(); } catch (e) {}
-  const byRect = !!(cr && cr.height > 4); // 隐藏期 keep-alive 下几何仍成立，首屏按可视区量（量不到退回前 N 张）
-  for (let i = 0; i < imgs.length; i++) {
-    if (out.length >= 48) break;
-    const im = imgs[i];
-    if (byRect) {
-      let r = null; try { r = im.getBoundingClientRect(); } catch (e) {}
-      if (r && r.top > cr.bottom + 80) break; // 视口下沿外的留给懒加载
-      if (!r || r.bottom < cr.top - 80) continue; // 已滚上去的（本来就已解码）不占等待名额
-      out.push(im);
-    } else if (i < EMOJI_DECODE_AWAIT_MAX) out.push(im);
-  }
-  return out;
-}
-function emojiKickFirstScreen(imgs) {
-  const toks = [];
-  for (let i = 0; i < imgs.length; i++) {
-    const im = imgs[i];
-    let ds = ''; try { ds = (im.dataset && im.dataset.src) || ''; } catch (e) {}
-    const pay = ds || im.getAttribute('src') || '';
-    if (!pay) continue;
-    const isTok = pay.indexOf('@@m:') === 0;
-    if (ds && !im.getAttribute('src')) {
-      // 令牌也得落到 src 上池才认（池按 img[src^="@@m:"] 观察后重写真载荷）：当场补，不等 IO 回调
-      im.setAttribute('src', ds);
-      try { im.removeAttribute('data-src'); } catch (e) {}
-      try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
-    }
-    if (isTok && pay.length > 4) toks.push(pay.slice(4));
-  }
-  if (toks.length && window.mochiMediaWarmTokens) { try { window.mochiMediaWarmTokens(toks); } catch (e) {} }
-}
-function emojiImgReady(im) {
-  return new Promise(function (res) {
-    let done = false;
-    const okNow = function () { try { return !!(im.complete && im.naturalWidth > 0); } catch (e) { return false; } };
-    const srcNow = function () { try { return im.getAttribute('src') || ''; } catch (e) { return ''; } };
-    const off = function () { try { im.removeEventListener('load', settle); im.removeEventListener('error', settle); } catch (e) {} };
-    const settle = function () {
-      if (done) return;
-      if (okNow()) { done = true; off(); res(true); return; }
-      if (srcNow().indexOf('@@m:') !== 0) { done = true; off(); res(false); return; } // 真失败/无源：不挡显示
-      // src 还是令牌：池解析完会重写 src 并再触发一次 load，继续等（确缺数据时占位图也会 load）
-    };
-    try { im.addEventListener('load', settle); im.addEventListener('error', settle); } catch (e) {}
-    settle();
-    setTimeout(function () { if (!done) { done = true; off(); res(okNow()); } }, 2400); // 单图上限，防个别令牌吊死
-  }).then(function () { try { return im.decode ? im.decode().catch(function () {}) : null; } catch (e) { return null; } });
-}
 function emojiShowWhenDecoded(show, token) {
   let shown = false;
   const fin = function () {
@@ -12884,23 +12817,28 @@ function emojiShowWhenDecoded(show, token) {
     try { show(); } catch (e) {}
   };
   if (!emojiList || !window.Promise) { fin(); return; }
-  const first = emojiPanelFirstScreen();
-  if (!first.length) { fin(); return; }
-  emojiKickFirstScreen(first);
+  const imgs = emojiList.querySelectorAll('img');
+  if (!imgs.length) { fin(); return; }
   const jobs = [];
-  for (let i = 0; i < first.length; i++) jobs.push(emojiImgReady(first[i]));
-  // 首屏外的图照旧 fire-and-forget 预热解码，不挡显示（#704 纪律不变）
-  try {
-    const all = emojiList.querySelectorAll('img');
-    for (let i = 0; i < all.length; i++) {
-      const im = all[i];
-      if (first.indexOf(im) >= 0) continue;
-      if (im.dataset && im.dataset.src && !im.getAttribute('src')) continue; // 交给懒加载泵
-      try { if (im.decode) im.decode().catch(function () {}); } catch (e) {}
+  let awaited = 0;
+  for (let i = 0; i < imgs.length; i++) {
+    const im = imgs[i];
+    if (im.dataset && im.dataset.src && !im.getAttribute('src') && i < 16) {
+      im.setAttribute('src', im.dataset.src); // #704：首屏图不等懒加载泵，立即起解码
+      im.removeAttribute('data-src');
+      try { if (emojiImgObserver) emojiImgObserver.unobserve(im); } catch (e) {}
     }
-  } catch (e) {}
+    if (!im.getAttribute('src')) continue;
+    if (awaited < EMOJI_DECODE_AWAIT_MAX) {
+      awaited++;
+      try { if (im.decode) jobs.push(im.decode().catch(function () {})); } catch (e) {}
+    } else {
+      try { if (im.decode) im.decode().catch(function () {}); } catch (e) {} // #704：首屏外只预热不等待
+    }
+  }
+  if (!jobs.length) { fin(); return; }
   Promise.all(jobs).then(fin, fin);
-  setTimeout(fin, 2500); // #692 兜底：decode 迟迟不结算也不把面板挂死；#716：1s→2.5s，上限仍在防挂死
+  setTimeout(fin, 2500); // #692 兜底：decode 迟迟不结算也不把面板挂死；#716：1s→2.5s——大库机型首屏 24 张解码超 1s 时半途放行＝用户看到的「每次打开图片闪烁重载」（红米 K80 实报），上限仍在防挂死
 }
 function closeEmojiPanel() {
 emojiShowToken++; // #692：作废未兑现的「解码后显示」——等图期间关掉面板不再被自动弹出
