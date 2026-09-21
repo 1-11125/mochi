@@ -780,10 +780,13 @@
   }
   setInterval(function () {
     try {
-      const n = document.getElementById('splash-notice');
+      // v8.29 #976：必读卡组前移后，查找放宽到整个开屏滚动容器、补回锚点＝必读卡组最顶
+      // （#splash-mustread 缺失的旧副本回退 #splash-notice，二传副本照常兜住）
+      const n = document.getElementById('splash-mustread') || document.getElementById('splash-notice');
+      const scope = document.getElementById('splash-box') || document;
       if (!n) return;
-      // #613/#621：合并置顶声明卡（免费 · 署名 · 防倒卖，原防骗卡+署名卡并成一张）补回锚点 = 公告区最顶
-      if (!n.querySelector('.splash-alert[data-anti-scam="1"]')) {
+      // #613/#621：合并置顶声明卡（免费 · 署名 · 防倒卖，原防骗卡+署名卡并成一张）补回锚点 = 必读区最顶
+      if (!scope.querySelector('.splash-alert[data-anti-scam="1"]')) {
         n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild);
       }
     } catch (e) { /* 静默：看门狗绝不能成为错误源 */ }

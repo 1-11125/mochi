@@ -39,14 +39,25 @@
     const title = bar.title.replace(/\s+/g, '');
     return t.indexOf(title) > -1 && bar.marks.every(function (m) { return t.indexOf(m) > -1; });
   }
-  // 开屏置顶块（#613 起：防骗卡在 #splash-notice 第 1 张；署名禁倒卖卡仍在置顶声明区 = 防未成年锁卡之后）
+  // 开屏置顶块（#613 起：防骗卡在公告区第 1 张；署名禁倒卖卡仍在置顶声明区 = 防未成年锁卡之后）
+  // v8.29 #976：7 张必读卡整组前移到 #splash-mustread（品牌卡之前）后，本回填的
+  //   ①查找范围放宽到整个开屏滚动容器（卡片搬到哪个容器都能认领，不再写死 #splash-notice）；
+  //   ②重建插入点＝必读卡组最顶（保持「合并声明卡在必读区最顶」这条口径）；老副本没有
+  //   #splash-mustread 时回退 #splash-notice——二传副本（旧结构）照常被兜住。
+  function splashHost() {
+    return document.getElementById('splash-mustread') || document.getElementById('splash-notice');
+  }
+  function splashScope() {
+    return document.getElementById('splash-box') || document;
+  }
   function ensureBar(bar, refNode) {
-    const notice = document.getElementById('splash-notice');
-    if (!notice) return null;
-    let box = notice.querySelector('.splash-alert[data-anti-scam="' + bar.tag + '"]');
+    const host = splashHost();
+    if (!host) return null;
+    const scope = splashScope();
+    let box = scope.querySelector('.splash-alert[data-anti-scam="' + bar.tag + '"]');
     if (!box) {
       // 兼容旧副本/标记被删：按官方标题文本认领已有置顶块
-      const heads = notice.querySelectorAll('.splash-alert .splash-alert-t');
+      const heads = scope.querySelectorAll('.splash-alert .splash-alert-t');
       for (let i = 0; i < heads.length; i++) {
         if (heads[i].textContent.trim() === bar.title) { box = heads[i].parentNode; break; }
       }
@@ -54,7 +65,7 @@
     if (!box) {
       box = document.createElement('div');
       box.className = 'splash-alert';
-      notice.insertBefore(box, refNode || notice.firstChild);
+      host.insertBefore(box, refNode || host.firstChild);
     }
     box.setAttribute('data-anti-scam', bar.tag);
     if (!marked(box, bar)) { // 缺失或被改 → 重建/改写回官方文案
@@ -86,9 +97,10 @@
   // 用途：临时插播场景（如发现倒卖，对所有联网副本含二传远程挂横幅）；notice.json 不带 bulletin 字段 = 完全不显示，零开销。
   let bulletin = null;
   function ensureBulletin() {
-    const notice = document.getElementById('splash-notice');
-    if (!notice) return;
-    let box = notice.querySelector('.splash-alert[data-anti-scam="3"]');
+    const host = splashHost(); // #976：与置顶声明卡同一宿主（必读卡组，回退公告卡）
+    if (!host) return;
+    const scope = splashScope();
+    let box = scope.querySelector('.splash-alert[data-anti-scam="3"]');
     const active = !!(bulletin && typeof bulletin.text === 'string' && bulletin.text.trim()
       && (!bulletin.until || Date.now() < bulletin.until));
     if (!active) { if (box) box.remove(); return; }
@@ -96,8 +108,8 @@
     if (!box) {
       box = document.createElement('div');
       box.className = 'splash-alert';
-      const b1 = notice.querySelector('.splash-alert[data-anti-scam="1"]');
-      notice.insertBefore(box, b1 ? b1.nextSibling : notice.firstChild);
+      const b1 = scope.querySelector('.splash-alert[data-anti-scam="1"]');
+      host.insertBefore(box, b1 ? b1.nextSibling : host.firstChild);
     }
     box.setAttribute('data-anti-scam', '3');
     if (box.textContent !== '公告' + want) { // 内容变化 → 重写（标题固定「公告」）

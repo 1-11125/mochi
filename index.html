@@ -91,6 +91,9 @@ scrollbar-width:none; -ms-overflow-style:none;
 .splash-bigwarn p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
 .splash-bigwarn p + p { margin-top:7px; }
 .splash-bigwarn strong { color:#c22b27; font-weight:800; }
+.splash-mustread { width:min(324px, 100%); box-sizing:border-box; display:flex; flex-direction:column; align-items:stretch; margin:0 0 14px; }
+.splash-mustread > * { margin:0 0 14px !important; }
+.splash-mustread > *:last-child { margin-bottom:0 !important; }
 [data-theme="dark"] .splash-bigwarn { background:rgba(210,52,48,.20); border-color:#ff6b6b; }
 [data-theme="dark"] .splash-bigwarn .splash-bigwarn-t { color:#ff8f8f; }
 [data-theme="dark"] .splash-bigwarn p { color:#f0c6c6; }
@@ -120,19 +123,19 @@ animation:splash-pop .7s ease .1s backwards;
 .splash-source-line.splash-clarify { white-space:normal; padding:0 14px; line-height:1.95; }
 .splash-source-url { color:var(--ink); font-weight:600; }
 .splash-stopupdate {
-margin:14px 0 0; width:100%; box-sizing:border-box;
+width:100%; box-sizing:border-box;
 padding:12px 14px 13px 15px;
-background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
+background:#fff3e6; border-left:3px solid #e8590c; border-radius:12px;
 text-align:left;
 }
-.splash-stopupdate .splash-stopupdate-t { font-size:13px; font-weight:800; color:#c22b27; letter-spacing:1px; margin-bottom:6px; }
-.splash-stopupdate p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
+.splash-stopupdate .splash-stopupdate-t { font-size:13px; font-weight:800; color:#c2410c; letter-spacing:1px; margin-bottom:6px; }
+.splash-stopupdate p { font-size:12.5px; line-height:1.8; color:#8a3d05; font-weight:700; }
 .splash-stopupdate p + p { margin-top:6px; }
-.splash-stopupdate strong { color:#c22b27; font-weight:800; }
-[data-theme="dark"] .splash-stopupdate { background:rgba(210,52,48,.16); border-color:#e05555; }
-[data-theme="dark"] .splash-stopupdate .splash-stopupdate-t { color:#ff8080; }
-[data-theme="dark"] .splash-stopupdate p { color:#f0c6c6; }
-[data-theme="dark"] .splash-stopupdate strong { color:#ff8080; }
+.splash-stopupdate strong { color:#c2410c; font-weight:800; }
+[data-theme="dark"] .splash-stopupdate { background:rgba(232,89,12,.16); border-color:#ff8a3d; }
+[data-theme="dark"] .splash-stopupdate .splash-stopupdate-t { color:#ffa76a; }
+[data-theme="dark"] .splash-stopupdate p { color:#f3cfa8; }
+[data-theme="dark"] .splash-stopupdate strong { color:#ffa76a; }
 .splash-abouttip {
 margin:12px 0 0; width:100%; box-sizing:border-box;
 padding:11px 14px 12px 15px;
@@ -208,16 +211,7 @@ background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
 [data-theme="dark"] .splash-alert.splash-disclaimer .splash-alert-t::before { background:#ff8080; color:#3a0d0d; }
 [data-theme="dark"] .splash-alert.splash-disclaimer p { color:#f0c6c6; }
 [data-theme="dark"] .splash-alert.splash-disclaimer strong { color:#ff8080; }
-.splash-alert.splash-what { background:#e8f0fc; border-left:3px solid #3a6fc4; border-radius:12px; }
-.splash-alert.splash-what .splash-alert-t { color:#27538f; }
-.splash-alert.splash-what .splash-alert-t::before { background:#3a6fc4; }
-.splash-alert.splash-what p { color:#1e3a5f; font-size:12.5px; font-weight:700; line-height:1.8; }
-.splash-alert.splash-what strong { color:#27538f; font-weight:800; }
-[data-theme="dark"] .splash-alert.splash-what { background:rgba(58,111,196,.16); border-color:#6f9bde; }
-[data-theme="dark"] .splash-alert.splash-what .splash-alert-t { color:#a8c6f0; }
-[data-theme="dark"] .splash-alert.splash-what .splash-alert-t::before { background:#a8c6f0; color:#0e2240; }
-[data-theme="dark"] .splash-alert.splash-what p { color:#c8daf4; }
-[data-theme="dark"] .splash-alert.splash-what strong { color:#a8c6f0; }
+.splash-alert.splash-what p { font-size:12.5px; font-weight:700; line-height:1.8; }
 .splash-alert.splash-cardlock { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }
 .splash-alert.splash-cardlock .splash-alert-t::before { background:#9a6410; }
@@ -927,13 +921,13 @@ img.media-tok-missing { background: rgba(0,0,0,.06); min-width: 48px; min-height
 .phone { top: var(--mochi-shift-adj, 0px); }
 .splash-alert.splash-browser {
 padding:13px 15px 14px 16px;
-background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
+background:#fff3e6; border-left:3px solid #e8590c; border-radius:12px;
 }
-.splash-alert.splash-browser .splash-alert-t { color:#c22b27; font-size:13px; letter-spacing:1px; }
-.splash-alert.splash-browser .splash-alert-t::before { background:#c22b27; }
-.splash-alert.splash-browser p { color:#7a1d1a; font-size:12.5px; font-weight:700; line-height:1.8; }
-.splash-alert.splash-browser strong { color:#c22b27; font-weight:800; }
-[data-theme="dark"] .splash-alert.splash-browser { background:rgba(210,52,48,.16); border-color:#e05555; box-shadow:none; }
+.splash-alert.splash-browser .splash-alert-t { color:#c2410c; font-size:13px; letter-spacing:1px; }
+.splash-alert.splash-browser .splash-alert-t::before { background:#e8590c; }
+.splash-alert.splash-browser p { color:#8a3d05; font-size:12.5px; font-weight:700; line-height:1.8; }
+.splash-alert.splash-browser strong { color:#c2410c; font-weight:800; }
+[data-theme="dark"] .splash-alert.splash-browser { background:rgba(232,89,12,.16); border-color:#ff8a3d; box-shadow:none; }
 body.mochi-bg-pause *, body.mochi-bg-pause *::before, body.mochi-bg-pause *::after { animation-play-state: paused !important; }
 :root {
 --widget-bg:#ffffff;
@@ -10207,14 +10201,25 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <p><strong>本站内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。</strong>回复设置里的概率、很多功能的时间与概率，<strong>全部都是公开的、可以自己调</strong>；一些功能也可以自己设置关闭；<strong>聊天字卡也可以单独关闭某个分组，或关闭某一张字卡</strong>。</p>
         <p>各项在哪里调：见下方「必读摘要」。</p>
       </div>
-      <!-- v3.8.y：顶部品牌区统一装进一个卡片框（logo/标题/署名/原作信息成一个整体，更端庄精致） -->
-      <div class="splash-brandcard">
-        <div class="splash-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>
+      <!-- v8.29 #976（用户 2026-09-21 直派「开屏里的颜色太乱，内容也很乱，怎么优化一下？」＋两条约束：
+           「不要删除我的内容」「必读卡挪到品牌卡前」）——
+           必读卡整组前移到品牌卡之前：原先 7 张必读卡被切成两半（2 张在品牌卡内、5 张在公告卡内），中间隔着
+           logo / 标题 / 署名 / 原作信息，读者要在两个容器之间来回建立「这些都是必读卡」的语义。本批把 7 张卡
+           逐字节原样搬进本容器，只改位置与配色，不删任何卡片 / 句子 / 加粗（「一字未删」由 verify 的改前文本快照断言钉死）。
+           组内顺序：防倒卖 → 停更公告 → 公告已精简 → 安卓浏览器 → 使用前提 → 免责声明 → 系统内置字卡锁。
+           配色口径（用户 2026-09-21 选定「顶卡 + 免责声明保留红」）：红＝使用红线（本组内只有免责声明，另一处在
+           组外的 #973 顶卡）、橙＝须知/提醒（停更公告、公告已精简、安卓浏览器）、琥珀＝需要你操作（系统内置字卡锁，
+           带输入密码按钮）、灰＝陈述（防倒卖、使用前提）；原先的蓝色（使用前提）取消，全站强调色由 6 种收到 4 种。
+           静态 DOM：不占 data-anti-scam / data-browser-warn / data-stop-update / data-about-tip 命名空间；
+           防倒卖回填（clock.js ensureBar / ensureBulletin）与 5s 看门狗（pwa.js）的插入锚点同批改到本容器
+           （查找仍按整个开屏范围，老副本没有本容器时回退 #splash-notice，二传副本照常被兜住）。 -->
+      <div class="splash-mustread" id="splash-mustread">
+        <div class="splash-alert" data-anti-scam="1">
+          <div class="splash-alert-t">免费 · 署名 · 防倒卖</div>
+          <p><strong>本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong></p>
+          <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
+          <p><strong>二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。</strong>严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。</p>
         </div>
-        <div class="splash-title">mochi 摸鱼字卡</div>
-        <!-- v3.8.y：署名（小红书）移到顶部，紧跟标题下方 -->
-        <div class="splash-brand">小红书@言序（1842523578） · 抖音@言序（58334080131）</div>
         <!-- v3.26.x #864（用户 2026-09-19 直派「开屏显眼的地方，顶部需要说明：公告内容已缩减，原公告内容的
              很多使用说明已移动至【设置】的【关于】里」）——夹在品牌卡署名行与停更公告之间＝开屏第一屏第一眼
              可见（同 #793 的放置口径）；静态 DOM（data-about-tip 标记，不占 data-anti-scam / data-browser-warn /
@@ -10234,39 +10239,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <p><strong>mochi字卡 2026年9月底后永久停更。</strong>停更后不会再帮人调不同人的设备型号的兼容 bug。</p>
           <p>作者自己的手机使用无异常情况；其他人的设备上的问题，不报出来作者手机碰不到、也无法发现——不同手机型号的情况就是不同。</p>
           <p><strong>永久停更以后，建议自己拿代码给 AI 调</strong>（代码已在 GitHub 完全开源，可自行下载修改）。</p>
-        </div>
-        <!-- 设计作者说明：设计与开发均由作者一个人独立完成，紧跟署名下方 -->
-        <div class="splash-source">
-          <div class="splash-source-line">设计与开发均由作者@言序　一个人独立完成。</div>
-        </div>
-        <!-- v3.26.x：置顶澄清——很多人误会本站是 milk 二改/名字有关，特此置顶说明 -->
-        <div class="splash-source">
-          <div class="splash-source-line splash-clarify"><strong>「Mochi」这个名字与 milk 字卡没有关系，就是想取个简单的名字取的。</strong>本文因为有人公开二传本站链接，将其理解为新的 milk 二改字卡，故特此解释：本站不是 milk 字卡代码的二改版本，是从零开始独立编写的字卡传讯二创作品。</div>
-        </div>
-        <!-- v3.8.y：原作/部署信息——本人原作本人部署，使用网站 + GitHub 库（每条单行完整显示） -->
-        <div class="splash-source">
-          <div class="splash-source-line">本人原作，本人部署。</div>
-          <div class="splash-source-line">使用网站为：<span class="splash-source-url">https://ling233330-star.github.io/mochi/</span></div>
-          <div class="splash-source-line">github库为：<span class="splash-source-url">https://github.com/ling233330-star/mochi</span></div>
-        </div>
-        <!-- v3.26.x #648：原版口径澄清——只有上述使用网站是本人原作、本人部署的原版；其余非作者本人发布的版本＝开放二传二改权限后产生的二传/二改版 -->
-        <div class="splash-source">
-          <div class="splash-source-line splash-clarify">除上述使用网站（本人原作、本人部署）外，其他非作者本人发布的版本，均是因本作开放二传二改权限而产生的二传/二改版，并非本站原版，特此说明。</div>
-        </div>
-      </div>
-      <!-- v3.5.112：开屏公告（发布说明） -->
-      <!-- v3.6.x：公告内容可由 notice.json 远程覆盖（clock.js 拉取），此处写死内容为离线兜底 -->
-      <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
-           全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
-      <div class="splash-notice" id="splash-notice">
-        <!-- v3.26.x #613 / #621：免费 · 署名 · 防倒卖 合并置顶卡（原「防骗提醒」卡 + 「转载署名·严禁倒卖」卡
-             并成一张，用户要求「并成一张」）——静态 DOM（tag '1'），在线 notice.json 覆盖只改公告列表，不影响此处；
-             clock.js 运行时按官方源回填、pwa.js 5s 看门狗兜底（被删后重建插入锚点见 clock.js / pwa.js） -->
-        <div class="splash-alert" data-anti-scam="1">
-          <div class="splash-alert-t">免费 · 署名 · 防倒卖</div>
-          <p><strong>本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong></p>
-          <p><strong>Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。</strong>作者不玩抖音、不回消息，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。</p>
-          <p><strong>二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。</strong>严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。</p>
         </div>
         <!-- v3.26.x #738（用户 2026-09-18 小米17 Pro 自带浏览器直派「安卓不建议使用手机自带的浏览器，
              可能会有很多兼容问题，这个开屏要在显眼的地方，要标红」）——红色警示卡置顶第二位（防倒卖卡之后）；
@@ -10301,6 +10273,42 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <p id="splash-cardlock-tip">系统内置字卡已全部锁定，这是面向未成年人的保护措施。如你已年满 18 周岁，可输入二级验证密码解锁使用。锁定不影响：聊天情绪字卡、TA 的心情、聊天回应字卡、你自建的字卡均照常可用。密码非常简单，答案就在开屏里可以找到；解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。继续使用即视为你确认已年满 18 周岁。</p>
           <div class="cardlock-actions" id="splash-cardlock-actions"></div>
         </div>
+      </div>
+      <!-- v3.8.y：顶部品牌区统一装进一个卡片框（logo/标题/署名/原作信息成一个整体，更端庄精致） -->
+      <div class="splash-brandcard">
+        <div class="splash-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>
+        </div>
+        <div class="splash-title">mochi 摸鱼字卡</div>
+        <!-- v3.8.y：署名（小红书）移到顶部，紧跟标题下方 -->
+        <div class="splash-brand">小红书@言序（1842523578） · 抖音@言序（58334080131）</div>
+        <!-- 设计作者说明：设计与开发均由作者一个人独立完成，紧跟署名下方 -->
+        <div class="splash-source">
+          <div class="splash-source-line">设计与开发均由作者@言序　一个人独立完成。</div>
+        </div>
+        <!-- v3.26.x：置顶澄清——很多人误会本站是 milk 二改/名字有关，特此置顶说明 -->
+        <div class="splash-source">
+          <div class="splash-source-line splash-clarify"><strong>「Mochi」这个名字与 milk 字卡没有关系，就是想取个简单的名字取的。</strong>本文因为有人公开二传本站链接，将其理解为新的 milk 二改字卡，故特此解释：本站不是 milk 字卡代码的二改版本，是从零开始独立编写的字卡传讯二创作品。</div>
+        </div>
+        <!-- v3.8.y：原作/部署信息——本人原作本人部署，使用网站 + GitHub 库（每条单行完整显示） -->
+        <div class="splash-source">
+          <div class="splash-source-line">本人原作，本人部署。</div>
+          <div class="splash-source-line">使用网站为：<span class="splash-source-url">https://ling233330-star.github.io/mochi/</span></div>
+          <div class="splash-source-line">github库为：<span class="splash-source-url">https://github.com/ling233330-star/mochi</span></div>
+        </div>
+        <!-- v3.26.x #648：原版口径澄清——只有上述使用网站是本人原作、本人部署的原版；其余非作者本人发布的版本＝开放二传二改权限后产生的二传/二改版 -->
+        <div class="splash-source">
+          <div class="splash-source-line splash-clarify">除上述使用网站（本人原作、本人部署）外，其他非作者本人发布的版本，均是因本作开放二传二改权限而产生的二传/二改版，并非本站原版，特此说明。</div>
+        </div>
+      </div>
+      <!-- v3.5.112：开屏公告（发布说明） -->
+      <!-- v3.6.x：公告内容可由 notice.json 远程覆盖（clock.js 拉取），此处写死内容为离线兜底 -->
+      <!-- v3.8.x：开屏即公告1页——原「开屏公告 + 点进入后的报修确认层」两页合并为一页：
+           全部说明直接展示在开屏上，点底部【点击进入】即进入（点击即视为已阅读知晓），无二次确认层 -->
+      <div class="splash-notice" id="splash-notice">
+        <!-- v3.26.x #613 / #621：免费 · 署名 · 防倒卖 合并置顶卡（原「防骗提醒」卡 + 「转载署名·严禁倒卖」卡
+             并成一张，用户要求「并成一张」）——静态 DOM（tag '1'），在线 notice.json 覆盖只改公告列表，不影响此处；
+             clock.js 运行时按官方源回填、pwa.js 5s 看门狗兜底（被删后重建插入锚点见 clock.js / pwa.js） -->
         <div class="splash-notice-title">Mochi字卡 · 开屏说明</div>
         <div class="splash-notice-sub">（请认真阅读）</div>
         <!-- v3.26.x #575（用户 2026-09-16 反馈「删掉，这是错的」）：开屏这块静态「新手上路 · 3 步就能用」
@@ -10428,9 +10436,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789991564895">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789993068971">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 19:52<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 20:17<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20569,9 +20577,10 @@ return b;
 }
 setInterval(function () {
 try {
-const n = document.getElementById('splash-notice');
+const n = document.getElementById('splash-mustread') || document.getElementById('splash-notice');
+const scope = document.getElementById('splash-box') || document;
 if (!n) return;
-if (!n.querySelector('.splash-alert[data-anti-scam="1"]')) {
+if (!scope.querySelector('.splash-alert[data-anti-scam="1"]')) {
 n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild);
 }
 } catch (e) { /* 静默：看门狗绝不能成为错误源 */ }
@@ -20858,4 +20867,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub6rexr -->
+<!-- __MOCHI_EOF__ mub7nnhn -->

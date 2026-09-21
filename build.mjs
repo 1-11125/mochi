@@ -950,7 +950,10 @@ const FIX_SENTINELS = [
   { name: '#142 媒体池键排除启动回填（media: 只存 IDB，防几百键吃回内存/LS）', file: 'js/idb.js', needle: "k.indexOf(uidPrefix + 'media:') !== 0 &&" },
   { name: '#142 聊天令牌化池先落盘再落引用（崩溃窗口最多池多孤儿，绝不令牌失据）', file: 'js/chat.js', needle: 'await window.mochiMediaFlush(); // 池数据先落盘，再让引用落盘（顺序不可反）' },
   { name: '#142 编辑消息入口令牌展开（图片消息 text 已令牌化，防令牌字符串进输入框被当文字保存）', file: 'js/chat.js', needle: 'const _origMedia = (window.mochiMediaExpand && window.mochiMediaExpand(orig)) || null;' },
-  { name: '防骗+署名禁倒卖声明运行时回填·缺失重建置顶条（防倒卖：f7a8b5c首建/0965278移除后按用户需求恢复并扩展双条）', file: 'js/clock.js', needle: 'insertBefore(box, refNode || notice.firstChild)' },
+  // #976 换锚（2026-09-21）：必读卡组前移后回填宿主由写死的 #splash-notice 改为 splashHost()
+  //   （#splash-mustread 优先、回退 #splash-notice），原整行 needle 失配。
+  //   换锚取「插入到宿主最顶」这条语义（重建必须落在必读区第一位），逻辑只强不弱。
+  { name: '防骗+署名禁倒卖声明运行时回填·缺失重建置顶条（防倒卖：f7a8b5c首建/0965278移除后按用户需求恢复并扩展双条；#976 起宿主＝必读卡组最顶、旧副本回退公告卡）', file: 'js/clock.js', needle: 'host.insertBefore(box, refNode || host.firstChild);' },
   { name: '防骗+署名禁倒卖声明运行时回填·官方notice.json远程强刷（二传副本仍向官方域名拉权威文案）', file: 'js/clock.js', needle: "OFFICIAL_NOTICE, { cache: 'no-store' }" },
   { name: '防骗+署名禁倒卖声明运行时回填·置顶条在位判定（标题+全部特征词在位才跳过重建）', file: 'js/clock.js', needle: 'bar.marks.every' },
   { name: '#150 后台来电系统通知（bgNotifyCheck force 通道：一次性来电事件绕过 15s 过渡期/去重闸门）', file: 'js/bg-keep.js', needle: 'const force = !!extra.force;' },
@@ -3414,7 +3417,9 @@ const FIX_SENTINELS = [
   { name: '#739e 朋友圈头像 label 激活（删＝朋友圈换头像在小米系无反应）', file: 'js/feed.js', needle: 'window.mochiFilePickLabel(coverAvEl, feedAvPickInput);' },
   { name: '#739f 头像互动池 label 激活（删＝添加/添加我的头像在小米系无反应）', file: 'js/avatar-lib.js', needle: 'window.mochiFilePickLabel(btn, input);' },
   { name: '#739g 开屏红色警示卡（删＝「安卓别用自带浏览器」提示从开屏消失，用户直派要求常驻显眼标红）', file: 'template.html', needle: 'data-browser-warn="1"' },
-  { name: '#739h 警示卡红色样式（删＝开屏警示卡退化成普通灰卡不再标红）', file: 'css/base.css', needle: '.splash-alert.splash-browser .splash-alert-t { color:#c22b27;' },
+  // #976 换锚（2026-09-21）：用户定「红只留给使用红线（顶卡 + 免责声明）」，本卡改「须知」橙族，
+  //   原红 needle 失配。换锚取新色的样式行——本卡不得退回默认灰卡（否则又和陈述卡混在一起）。
+  { name: '#739h 警示卡专属色样式（删＝开屏警示卡退化成普通灰卡、与陈述卡混在一起；#976 起为须知橙）', file: 'css/base.css', needle: '.splash-alert.splash-browser .splash-alert-t { color:#c2410c;' },
   // ===== #753（2026-09-18 用户直派：iPhone 13 Pro Max Safari「聊天界面发不了图片，点插入图片打开的是
   //   文件管理页面而不是相册」，明说其他机型也有）——#677/#717/#738 同族的**第四波**，本次是「聊天图片
   //   入口从没接过原生 label 兜底」这一处漏网：三个叠加原因（display:none 写法 + 无 label + accept 未
@@ -4299,6 +4304,20 @@ const FIX_SENTINELS = [
   { name: '#977d 手动开启保活即弹两条限制弹窗（删＝开启时没有当面告知）', file: 'js/bg-keep.js', needle: 'startKeepAlive(true); kaOpenEnableHints();' },
   { name: '#977e 长后台冻结回前台当面提示（删＝被冻结过的回前台不再提示失效与恢复方法）', file: 'js/bg-keep.js', needle: '挂后台太久，保活被系统冻结截断过' },
   { name: '#977f 功能说明胶囊补截断/失效两章（删＝说明弹窗退回「会自动把播放权抢回来」旧口径）', file: 'js/settings-help.js', needle: '【别的 App 刷视频/听音乐会把保活截断】' },
+
+  /* ==== 2026-09-21 #976 开屏「颜色太乱、内容也很乱」优化（用户直派＋两条约束：「不要删除我的内容」「必读卡挪到品牌卡前」）：
+     ①7 张必读卡从「品牌卡内 2 张 + 公告卡内 5 张」整组前移到品牌卡之前的 #splash-mustread（逐字节原样搬运，一字未删）；
+     ②配色口径：红只留给使用红线（#973 顶卡 + 免责声明）、橙＝须知/提醒（停更公告/公告已精简/安卓浏览器）、
+     琥珀＝需要你操作（系统内置字卡锁）、灰＝陈述（防倒卖/使用前提），全站强调色 6→4；使用前提的蓝色专属色撤除。
+     防倒卖回填与 5s 看门狗的宿主同批改到必读卡组（旧副本回退公告卡）。 ==== */
+  { name: '#976a 必读卡组容器（删＝7 张必读卡退回「品牌卡内 2 张 + 公告卡内 5 张」两半，用户点名要的「挪到品牌卡前」丢失）', file: 'template.html', needle: '<div class="splash-mustread" id="splash-mustread">' },
+  { name: '#976b 必读卡组容器样式（删＝卡片按各自原宽度/间距散排，组内节奏与整页左右对齐丢失）', file: 'css/base.css', needle: '.splash-mustread { width:min(324px, 100%); box-sizing:border-box; display:flex; flex-direction:column;' },
+  { name: '#976c 停更公告须知橙（改回红＝红不再是「使用红线」专色，用户直派的「颜色太乱」回流）', file: 'css/base.css', needle: '.splash-stopupdate .splash-stopupdate-t { font-size:13px; font-weight:800; color:#c2410c;' },
+  { name: '#976d 使用前提不得再有专属蓝（回流＝强调色又变 5 种，蓝与红/橙/琥珀抢语义）', file: 'css/base.css', needle: 'background:#e8f0fc; border-left:3px solid #3a6fc4; border-radius:12px;', absent: true },
+  { name: '#976e 防倒卖回填宿主＝必读卡组、旧副本回退公告卡（删/改回只认 #splash-notice＝卡片搬走后回填找不到宿主，二传副本被删后不重建）', file: 'js/clock.js', needle: "return document.getElementById('splash-mustread') || document.getElementById('splash-notice');" },
+  { name: '#976f 5s 看门狗作用域同步必读卡组（删/改回只查 #splash-notice＝卡被删后看门狗认不出、补回锚点也错位）', file: 'js/pwa.js', needle: "const n = document.getElementById('splash-mustread') || document.getElementById('splash-notice');" },
+  { name: '#976g 免责声明保留红色（删/换色＝第二条使用红线丢失，用户选定的「顶卡 + 免责声明红」被改掉）', file: 'css/base.css', needle: '.splash-alert.splash-disclaimer .splash-alert-t { color:#c22b27;' },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -4,6 +4,8 @@
 //   ＋追补两条：「加上：系统预设字卡觉得不好用，也可以自己关闭，一直都是全部公开的，全部都可以自己调。」
 //               「加上：抱着必定好用的想法是不可能实现的，都需要适应和调整。」
 // 结构（本批定型）：顶卡只留三句（≈270px 高，压在首屏内、不挤掉 #864 指引条），四条可调入口的明细落在必读摘要第 2 条。
+// #976（2026-09-21）：7 张必读卡整组前移到品牌卡之前（#splash-mustread），本脚本 B1 的五张卡选择器随口径平移
+//   （只关心「一张不少」，组内次序与颜色语义由 tools/verify-976-splash-order-colors.mjs 专判）。
 // 无头实机断言：红卡在开屏顶部（.splash-box 首个子节点、排在品牌卡之前、首屏内完整可见）、红色形态（亮/暗主题）、
 //   文案含用户三条口径 + 关键词、摘要两条口径在线/离线一致、其余开屏卡与「滑到底才能进入」门控零回归，
 //   并守住跨批边界：顶卡不得把 #864「公告已精简」指引条挤出首屏。
@@ -67,10 +69,10 @@ const probe = () => page.evaluate(() => {
     noHOverflow: !!(box && box.scrollWidth <= box.clientWidth + 1),
     hls: hls,
     otherCards: {
-      antiScam: document.querySelectorAll('#splash-notice .splash-alert[data-anti-scam="1"]').length,
-      browser: document.querySelectorAll('#splash-notice [data-browser-warn]').length,
-      what: document.querySelectorAll('#splash-notice .splash-alert[data-anti-scam="w"]').length,
-      disclaimer: document.querySelectorAll('#splash-notice .splash-alert[data-anti-scam="d"]').length,
+      antiScam: document.querySelectorAll('#splash-mustread .splash-alert[data-anti-scam="1"]').length,
+      browser: document.querySelectorAll('#splash-mustread [data-browser-warn]').length,
+      what: document.querySelectorAll('#splash-mustread .splash-alert[data-anti-scam="w"]').length,
+      disclaimer: document.querySelectorAll('#splash-mustread .splash-alert[data-anti-scam="d"]').length,
       cardlock: document.querySelectorAll('#splash-cardlock').length,
       stopupdate: document.querySelectorAll('.splash-stopupdate').length,
       abouttip: document.querySelectorAll('[data-about-tip]').length
@@ -121,7 +123,7 @@ ok(dk.titleColor === 'rgb(255, 143, 143)' && dk.strongColor === 'rgb(255, 143, 1
 await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
 
 // ===== 其余开屏卡零回归 =====
-ok(s.otherCards.antiScam === 1 && s.otherCards.browser === 1 && s.otherCards.what === 1 && s.otherCards.disclaimer === 1 && s.otherCards.cardlock === 1, 'B1 公告区五张卡各仍在位（防倒卖/安卓浏览器/使用前提/免责/字卡锁）', JSON.stringify(s.otherCards));
+ok(s.otherCards.antiScam === 1 && s.otherCards.browser === 1 && s.otherCards.what === 1 && s.otherCards.disclaimer === 1 && s.otherCards.cardlock === 1, 'B1 必读卡组五张卡各仍在位（防倒卖/安卓浏览器/使用前提/免责/字卡锁；#976 起在 #splash-mustread）', JSON.stringify(s.otherCards));
 ok(s.otherCards.stopupdate === 1 && s.otherCards.abouttip === 1, 'B2 品牌卡内 #793 停更公告与 #864 公告精简条仍在位', JSON.stringify(s.otherCards));
 
 // ===== 时钟回填 + pwa 5s 看门狗跑过之后，红卡仍在首位（不被摘掉/挪位） =====

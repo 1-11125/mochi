@@ -26,12 +26,19 @@ const t = (box.textContent || '').replace(/\s+/g, '');
 const title = bar.title.replace(/\s+/g, '');
 return t.indexOf(title) > -1 && bar.marks.every(function (m) { return t.indexOf(m) > -1; });
 }
+function splashHost() {
+return document.getElementById('splash-mustread') || document.getElementById('splash-notice');
+}
+function splashScope() {
+return document.getElementById('splash-box') || document;
+}
 function ensureBar(bar, refNode) {
-const notice = document.getElementById('splash-notice');
-if (!notice) return null;
-let box = notice.querySelector('.splash-alert[data-anti-scam="' + bar.tag + '"]');
+const host = splashHost();
+if (!host) return null;
+const scope = splashScope();
+let box = scope.querySelector('.splash-alert[data-anti-scam="' + bar.tag + '"]');
 if (!box) {
-const heads = notice.querySelectorAll('.splash-alert .splash-alert-t');
+const heads = scope.querySelectorAll('.splash-alert .splash-alert-t');
 for (let i = 0; i < heads.length; i++) {
 if (heads[i].textContent.trim() === bar.title) { box = heads[i].parentNode; break; }
 }
@@ -39,7 +46,7 @@ if (heads[i].textContent.trim() === bar.title) { box = heads[i].parentNode; brea
 if (!box) {
 box = document.createElement('div');
 box.className = 'splash-alert';
-notice.insertBefore(box, refNode || notice.firstChild);
+host.insertBefore(box, refNode || host.firstChild);
 }
 box.setAttribute('data-anti-scam', bar.tag);
 if (!marked(box, bar)) { // 缺失或被改 → 重建/改写回官方文案
@@ -68,9 +75,10 @@ box.appendChild(document.createTextNode(' ' + texts['alert2']));
 }
 let bulletin = null;
 function ensureBulletin() {
-const notice = document.getElementById('splash-notice');
-if (!notice) return;
-let box = notice.querySelector('.splash-alert[data-anti-scam="3"]');
+const host = splashHost(); // #976：与置顶声明卡同一宿主（必读卡组，回退公告卡）
+if (!host) return;
+const scope = splashScope();
+let box = scope.querySelector('.splash-alert[data-anti-scam="3"]');
 const active = !!(bulletin && typeof bulletin.text === 'string' && bulletin.text.trim()
 && (!bulletin.until || Date.now() < bulletin.until));
 if (!active) { if (box) box.remove(); return; }
@@ -78,8 +86,8 @@ const want = bulletin.text.trim();
 if (!box) {
 box = document.createElement('div');
 box.className = 'splash-alert';
-const b1 = notice.querySelector('.splash-alert[data-anti-scam="1"]');
-notice.insertBefore(box, b1 ? b1.nextSibling : notice.firstChild);
+const b1 = scope.querySelector('.splash-alert[data-anti-scam="1"]');
+host.insertBefore(box, b1 ? b1.nextSibling : host.firstChild);
 }
 box.setAttribute('data-anti-scam', '3');
 if (box.textContent !== '公告' + want) { // 内容变化 → 重写（标题固定「公告」）

@@ -6,6 +6,8 @@
 //   本批在品牌卡内（署名行与 #793 停更公告横幅之间）补一条静态指引条，在线 notice.json 覆盖碰不到它。
 // 断言：①静态 src（指引条/样式/哨兵登记唯一/指向内容确实在位）；②行为（位置＝品牌卡内且在停更横幅之上、
 //   首屏可见、明暗两套配色真的落了层、文本指向设置→关于）。
+// #976（2026-09-21）：7 张必读卡整组前移到品牌卡之前（#splash-mustread），本指引条同批搬入该组，
+//   位置类断言（B2/B3）随口径更新为「在必读卡组内、排在品牌卡之前」；文案/配色/暗色断言不变。
 // 用法：node tools/verify-splash-about-tip.mjs
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -113,15 +115,15 @@ await sleep(1200);
 const light = J(await ev(`(function(){
   var tip=document.querySelector('.splash-abouttip');
   if(!tip) return JSON.stringify({present:false});
-  var card=tip.closest('.splash-brandcard');
+  var card=tip.closest('.splash-brandcard'); var must=tip.closest('#splash-mustread');
   var brand=document.querySelector('.splash-brand');
   var stop=document.querySelector('.splash-stopupdate');
   var noticed=document.getElementById('splash-notice');
   var cs=getComputedStyle(tip); var r=tip.getBoundingClientRect();
   var BEFORE=4, AFTER=2; // Node.compareDocumentPosition 位：AFTER=文档中位于其后
   return JSON.stringify({
-    present:true, inBrand:!!card,
-    afterBrand: brand ? !!(brand.compareDocumentPosition(tip) & BEFORE) : false,
+    present:true, inBrand:!!card, inMust:!!must,
+    beforeBrandCard: brand ? !!(tip.compareDocumentPosition(brand) & BEFORE) : false,
     beforeStop: stop ? !!(tip.compareDocumentPosition(stop) & BEFORE) : null,
     beforeNotice: noticed ? !!(tip.compareDocumentPosition(noticed) & BEFORE) : null,
     text: tip.textContent.replace(/\\s+/g,' ').trim(),
@@ -131,8 +133,11 @@ const light = J(await ev(`(function(){
   });
 })()`));
 ok(light.present === true, 'B1 指引条渲染在页面上（.splash-abouttip 存在）');
-ok(light.inBrand === true, 'B2 指引条在品牌卡（.splash-brandcard）内＝开屏顶部而非公告卡内部');
-ok(light.afterBrand === true, 'B3 指引条紧跟署名行之后（署名 → 指引条）');
+// #976（2026-09-21）口径变更：7 张必读卡整组前移到 #splash-mustread（品牌卡之前），
+//   指引条随之离开品牌卡内 —— B2/B3 由「在品牌卡内、紧跟署名」改为「在必读卡组内、排在品牌卡之前」，
+//   用户当时要的「开屏显眼的地方、顶部」只强不弱（组在品牌卡之上，更靠前）。
+ok(light.inMust === true && light.inBrand === false, 'B2 指引条在必读卡组（#splash-mustread）内、已离开品牌卡（#976 位置口径变更）');
+ok(light.beforeBrandCard === true, 'B3 指引条排在品牌卡之前（必读卡组在品牌卡之上）');
 ok(light.beforeStop === true, 'B4 指引条排在 #793 停更公告横幅之上（顶部第一眼位置）');
 ok(light.beforeNotice === true, 'B5 指引条排在公告卡之前（不靠公告卡滚动才看见）');
 ok(light.firstScreen === true, 'B6 390×844 下指引条落在首屏内（top=' + light.top + ' < vh=' + light.vh + '）');

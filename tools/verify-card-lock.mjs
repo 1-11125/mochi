@@ -42,9 +42,11 @@ await cdp('Page.navigate',{url:baseUrl+'/index.html'});
 await sleep(3500);
 const results=[];
 function check(d,ok,detail){ results.push(ok); console.log((ok?'PASS':'FAIL')+'  '+d+(detail?'  ['+detail+']':'')); }
-// 1) 锁定态：闸 API 在、卡在、顺序 d→l→1、按钮存在
-check('锁定态 cardLockOpen=false', await ev('window.cardLockOpen&&window.cardLockOpen()===false')===true);
-check('开屏锁卡在位且顺序 d→l→1', await ev("(function(){var n=document.getElementById('splash-notice');if(!n)return false;var tags=[].map.call(n.children,function(c){return c.getAttribute('data-anti-scam');}).filter(Boolean);var i1=tags.indexOf('d'),i2=tags.indexOf('l'),i3=tags.indexOf('1');return i1>-1&&i2>-1&&i3>-1&&i1<i2&&i2<i3;})()")===true);
+// 1) 锁定态：闸 API 在、卡在、必读卡组内顺序 1→d→l、按钮存在
+// #976（2026-09-21）：7 张必读卡整组前移到 #splash-mustread（品牌卡之前），组内次序为
+//   防倒卖(1) → 公告已精简 → 停更公告 → 安卓浏览器 → 使用前提 → 免责声明(d) → 字卡锁(l)，
+//   故断言由「#splash-notice 内 d→l→1」改为「#splash-mustread 内 1→d→l」。
+check('开屏锁卡在必读卡组内且顺序 1→d→l', await ev("(function(){var n=document.getElementById('splash-mustread');if(!n)return false;var tags=[].map.call(n.children,function(c){return c.getAttribute('data-anti-scam');}).filter(Boolean);var i1=tags.indexOf('1'),i2=tags.indexOf('d'),i3=tags.indexOf('l');return i1>-1&&i2>-1&&i3>-1&&i1<i2&&i2<i3;})()")===true);
 check('锁卡上有解锁按钮', await ev("(document.getElementById('splash-cardlock-actions')||{}).textContent")==='输入密码解锁');
 // 2) 锁定态闸生效：分组全空、回复池无预设、词典拼字语录池空
 check('锁定 getDefaultCardGroups(main)=0', await ev("(window.getDefaultCardGroups('main')||[]).length===0")===true);
