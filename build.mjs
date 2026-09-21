@@ -3378,12 +3378,12 @@ const FIX_SENTINELS = [
   // 注：#727g 是「.gs-row{display:flex} 压过 UA [hidden]」的老坑救援——抽取方式行靠 hidden 显隐，删＝该行永远显示
   { name: '#727g 设置行 hidden 救援（.gs-row 是 flex，删则 #asb-rand-row 的 hidden 失效、永远显示）', file: 'css/setting.css', needle: '.gs-row[hidden] { display:none; }' },
   // ==== 2026-09-18 #730 后台通知自检补「屏幕上方弹出」检查（用户直派「还缺少后台弹窗在手机屏幕上方弹出的检查，非常重要」）——原自检（#708/#724）只证明「进系统队列/SW 已提交」，证明不了「屏幕上方真弹横幅」：系统横幅渲染在系统层，页面 JS 读不到。改为发送时刻记录 document.hidden（前台/后台）如实归因：后台→「屏幕上方应有横幅，没见着＝系统层拦截」；前台→如实说明「前台不弹顶层横幅」并引导按 Home 切后台复核「从屏幕顶部弹出」。接 #724 队列回读之后、只对 found===true 生效，不覆盖既有结论 ====
-  { name: '#730a 屏幕上方弹出·前台/后台如实归因＋引导复核（删掉＝自检又只凭进队列就报成功，证明不了屏幕上方真弹横幅）', file: 'js/bg-keep.js', needle: '要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出' },
+  { name: '#730a 屏幕上方弹出·前台/后台如实归因＋引导复核（#1014 起由「第二段·后台阶段」代用户完成复核：删掉＝自检又只凭进队列就报成功，证明不了屏幕上方真弹横幅）', file: 'js/bg-keep.js', needle: '要验「屏幕上方弹出」请用下方第二段' },
   // ==== 2026-09-18 #761 后台通知自检升级「更清晰、实用」（用户直派：弹窗消失两天、权限没动过，把浏览器通知权限关掉再打开后恢复——多机型同族）。两层新自检：①旧包检测——比对 splash-ver data-build-ts 与线上 version.json，直接回答「什么都没改弹窗突然全没」的头号嫌疑（设备缓存 #673 故障包；#705 修复只证代码在位，缓存包不重载就永远在跑）；②结果问人本人——SW 发送成功≠用户真看到横幅（浏览器端通道被拧死时 API 照常 granted/受理），追问「弹了吗」，没弹给按实效排序的四步指引（第一步就是用户实测救活的「权限关闭再允许＋强杀浏览器」）。零机型分支。编号让位：#757~#760 已被通话续命/docx/房间/美化抽屉批次占用 ====
   { name: '#761a 旧包检测行（删＝「权限没动弹窗全没＝缓存故障包」这一层自检永远看不见，用户只能靠猜）', file: 'js/bg-keep.js', needle: '✗ 旧包正在运行：本页 ' },
-  { name: '#761b 版本行落定前不出结果（删掉 Promise.all＝版本比对没回来就弹结果，旧包告警迟到或被截断）', file: 'js/bg-keep.js', needle: 'Promise.all([queueCheck, verP]).then(showResult);' },
+  { name: '#761b 旧包检测仍落地（#1014 起版本比对改为不阻塞结果地补行——删掉＝旧包告警消失，「什么都没改弹窗突然全没」无解释；本行语义已由「版本没回来不出结果」改为「不拖时间也要报旧包」）', file: 'js/bg-keep.js', needle: 'verStale = true;' },
   { name: '#761c 发送成功追问「弹了吗」确认框（删＝自检又只报 JS 全绿就收工，浏览器端通道死锁时指错层）', file: 'js/bg-keep.js', needle: "window.openModal('自检确认'" },
-  { name: '#761d 确认只在 SW 通道真成功时触发（改成无条件弹＝页面通道/失败也追问，自欺负人；删掉＝结果与追问脱钩）', file: 'js/bg-keep.js', needle: "if (testChan === 'sw' && testOk) askSeen();" },
+  { name: '#761d 追问只在 SW 通道真成功时才提供（页面通道/失败不追问；#1014 起前台那句「看到了吗」并入第二段·后台阶段：删掉＝结果与追问脱钩）', file: 'js/bg-keep.js', needle: "if (testChan === 'sw') offerPhase2();" },
   { name: '#761e 实操指引首步=重开浏览器通知权限（用户实测恢复项；删＝指引退回泛泛而谈，「权限明明开着通知消失好几天」无解）', file: 'js/bg-keep.js', needle: "push('重置浏览器通知权限" },
   // 注：#761 状态机依赖 testOk（.then(ok) 回调转存）——回退成引用回调形参 ok 会在 showResult 处 ReferenceError
   // ==== 2026-09-18 #731 全屏模式聊天壁纸没铺满底部栏（用户直派「聊天里的背景图片没有铺满底部栏，这个在聊天美化里需要可以自己调整全部铺满还是什么」）——壁纸本来就画在 #page-chat 的边框盒上（含顶栏/输入栏的 padding 区），看不见是因为两个栏位自己画了半透明底色（--cs-*-opacity，默认 92%）。两件事：①铺满方式从写死的 cover 变成四档可选（cs-bg-fit：铺满裁剪/完整显示/平铺/拉伸填满，默认档与旧写死值逐字一致＝未写盘设备零视觉变化）；②新增「壁纸延伸到顶栏/输入栏」开关（cs-bg-fullbars，默认关、0 是用户裁决的默认值）——打开＝生效值变量 --cs-*-opacity-ink 写 0 让开底色，存量自定义不透明度原样保留（关掉即恢复、零数据改动）。设置页壁纸分组两行 + 边看边调「栏位」区两个控件 + CHAT_BEAUTY_KEYS 收录 ====
@@ -4138,7 +4138,7 @@ const FIX_SENTINELS = [
   { name: '#921e toast 隐藏单时间轴·JS 只兜底（改回 dur||2000 早掐＝动画 88% 驻留点前中途取消，安卓多机型黑胶囊闪屏复发）', file: 'js/bg-keep.js', needle: '(dur || 2600) + 250' },
   /* ==== 2026-09-20 #921f/g 丢弃唤醒重载「保活/通知自动关闭」收口（OPPO Reno14 Edge 诊断实纸：保活现场全绿但历史取证 died=13＝页面被反复丢弃重载；「挂后台半小时自动刷新」＝Edge 睡眠标签页默认 30 分钟丢弃，浏览器行为代码拦不住，要治的是重载后开关被误关） ==== */
   { name: '#921f 开关 change 用户手势闸（删＝睡眠标签页丢弃唤醒重载的伪 change 把开关写 0＋user-off 锁死＝「重进自动关闭」复发）', file: 'js/bg-keep.js', needle: 'function kaUserGesture(e) {' },
-  { name: '#921g 通知自动关闭只认 denied（改回 ===granted 即落 0＝瞬态 default 误读把授权用户的开关永久关掉复发）', file: 'js/bg-keep.js', needle: "Notification.permission !== 'denied'" },
+  { name: '#921g（#1014 收口）启动恢复不得再拿权限读数改写存储——旧写法回流即「一次失真读数又把授权用户的开关永久关掉」复发', file: 'js/bg-keep.js', needle: "notifyEnabled = saved === '1' && 'Notification' in window", absent: true },
   { name: '#907a 面板 hidden 态 keep-alive（改回 display:none＝隐藏期位图被整批回收，重开全部重新解码＝每次打开都闪一下重新加载复发）', file: 'css/chat-main.css', needle: '#emoji-panel[hidden], #avlib-card[hidden]' },
   { name: '#907b 表情面板空闲预热调度（删＝进桌面后不再提前加载，首开仍要现场解码＋等解码才显示）', file: 'js/chat.js', needle: 'if (!chatPanelPrewarmOn()) return;' },
   { name: '#907c 头像互动空闲预热入口（删＝头像库首开前位图从未就绪，点开半框闪一下重载复发）', file: 'js/avatar-lib.js', needle: 'window.mochiPrewarmAvlib = function ()' },
@@ -4339,6 +4339,15 @@ const FIX_SENTINELS = [
   { name: '#1012e 同上的 WebKit 形态（删＝iOS Safari 长按弹「拷贝」浮标并抢走这次触摸）', file: 'js/chatcard.js', needle: "el.style.setProperty('-webkit-user-select', 'none');" },
   { name: '#1012f 营救合并保住内存侧相对顺序（删＝权威库尚未进内存时（大库被启动回填挂起＝整会话不解除写守卫）拖完的顺序被并集整段还原，用户所报「长按拖动无法调整顺序」复发）', file: 'js/chatcard.js', needle: "const shared = memU.filter(c => g[1].indexOf(c) >= 0);" },
   { name: '#1012g 顺序回填只落在「两边都有的位置」上（改成整组覆盖＝权威侧独有的卡被抹掉，#193 防覆盖语义破功）', file: 'js/chatcard.js', needle: "for (let i = 0; i < g[1].length; i++) if (shared.indexOf(g[1][i]) >= 0) g[1][i] = shared[k++];" },
+  { name: "#1014a 存储 bg-notify 只表达用户意图、启动恢复不再看权限读数（删/退回带 permission 的判定＝一次失真读数又把开关自己关掉）", file: "js/bg-keep.js", needle: "notifyEnabled = saved === '1';" },
+  { name: "#1014b 打开开关但权限没到位时保住意图（开关不动、存储继续 1）", file: "js/bg-keep.js", needle: "function nbHoldOn(my, why) {" },
+  { name: "#1014c 权限不足的如实状态改由行下标红条呈现（删＝用户只看到一个自己关掉的开关）", file: "js/bg-keep.js", needle: "function nbSyncPermWarn() {" },
+  { name: "#1014d 权限到位自动生效（删＝又回到「要重新点一次开关才有反应」）", file: "js/bg-keep.js", needle: "if (nbWaitingGrant && notifyEnabled && nbPermState() === 'granted')" },
+  { name: "#1014e 自测结果只等发送链落定、后续证据原地补行（删＝点测试又被 version.json 网络往返卡住）", file: "js/bg-keep.js", needle: "if (resultShown) showResult();" },
+  { name: "#1014f 自测报出「后台通知开关」本身的状态（删＝开关关着也照样报链路全通＝误导）", file: "js/bg-keep.js", needle: "'✓ 后台通知开关：已开启'" },
+  { name: "#1014g 自测第二段＝后台阶段（隐藏态真发一条 + 回前台给结论）", file: "js/bg-keep.js", needle: "'后台通知测试（后台阶段）'" },
+  { name: "#1014h 第二段入口（删＝后台那一半又变成让用户自己判断）", file: "js/bg-keep.js", needle: "'现在测（切后台）'" },
+  { name: "#1014i 模板：权限状态标红行锚点", file: "template.html", needle: "id=\"bg-notify-perm-warn\"" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

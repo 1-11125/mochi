@@ -136,12 +136,16 @@ await mtap(r.x, r.y); await sleep(1200);
 s = await probe();
 A('B3 已授权时一次点按即开＋自动联动保活', s.notify === true && s.notifyStored === '1' && s.keep === true, JSON.stringify(s));
 
-// ---- B4 明确被拒：回弹关闭＋落 '0'（既有口径） ----
+// ---- B4 明确被拒：#1014 起口径翻转为「保住用户意图」（不再回弹关闭、不再写 '0'） ----
+//   用户实报「首次打开还是显示被浏览器拒绝，我第二次打开才有反应」「开启后切后台会自动关闭」：
+//   一次 denied 读数被当成用户的最终决定（写死存储 + 关开关），而浏览器在首次授权被安静提示 UI
+//   挡掉 / 授权框被切后台打断 / 丢弃重载后读到的也都是 denied，网页分不出「用户拒绝」与
+//   「浏览器没让用户看见这个问题」⇒ 改为保住意图＋行下标红如实说明＋权限到位自动生效。
 await setStub(STUB_DENIED);
 r = await openRow(false);
 await mtap(r.x, r.y); await sleep(1200);
 s = await probe();
-A('B4 权限被拒时回弹关闭＋落 0', s.notify === false && s.notifyStored === '0', JSON.stringify(s));
+A('B4 权限被拒时保住意图（开关仍开＋落 1，不再自动关闭）', s.notify === true && s.notifyStored === '1', JSON.stringify(s));
 
 // ---- B5 唤醒重载伪 change（无任何真实输入）：不得翻开关/写 1 ----
 await setStub(null);

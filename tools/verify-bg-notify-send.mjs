@@ -137,9 +137,22 @@ const hasVerLine = toastTxt.indexOf('版本已最新') >= 0 || toastTxt.indexOf(
 t('T8 自检含版本真伪行（#761 旧包检测）', hasVerLine, toastTxt.indexOf('版本') >= 0 ? toastTxt.split('\n').find((l) => l.indexOf('版本') >= 0) : '无版本行');
 
 // T9 #761 结果问人本人：SW 发送成功后必弹「弹了吗」确认框；选「没看到」→ 按实效排序的实操指引
-let askShown = false;
-for (let i = 0; i < 14; i++) { await sleep(500); askShown = await ev("(function(){var m=document.getElementById('modal-mask'); var tt=document.getElementById('modal-title'); return !!(m && !m.hidden && tt && (tt.textContent||'').indexOf('自检确认') >= 0);})()"); if (askShown) break; }
-t('T9a 发送成功后弹「弹了吗」确认框', askShown, 'modalShown=' + askShown);
+// #1014 起发送成功先给「第二段·后台阶段」入口（自测补上「切后台还弹不弹」那一半）；
+//   用户选「不用了」＝只测第一段，这时照旧弹「弹了吗」确认框（#761 口径不丢）
+let askShown = false, phase2Shown = false;
+for (let i = 0; i < 16; i++) {
+  await sleep(500);
+  const st = await ev("(function(){var m=document.getElementById('modal-mask'), tt=document.getElementById('modal-title'); if(!(m && !m.hidden && tt)) return 'none'; var tx=(tt.textContent||''); var ps=[].map.call(document.querySelectorAll('#modal-pills .pill, #modal-pills button'),function(b){return b.textContent;}); return JSON.stringify({title:tx,pills:ps});})()");
+  if (String(st).indexOf('自检确认') >= 0) { askShown = true; break; }
+  if (String(st).indexOf('第二段') >= 0) {
+    phase2Shown = true;
+    await ev("(function(){var ps=document.querySelectorAll('#modal-pills .pill, #modal-pills button'); for(var i=0;i<ps.length;i++){ if(/不用了/.test(ps[i].textContent)) { ps[i].click(); return 1; } } return 0; })()");
+    await sleep(600);
+  }
+}
+t('T9a 发送成功后先给「第二段（切后台）」入口', phase2Shown, 'phase2Shown=' + phase2Shown);
+for (let i = 0; i < 10 && !askShown; i++) { await sleep(500); askShown = await ev("(function(){var m=document.getElementById('modal-mask'); var tt=document.getElementById('modal-title'); return !!(m && !m.hidden && tt && (tt.textContent||'').indexOf('自检确认') >= 0);})()"); }
+t('T9a2 不测第二段时照旧弹「弹了吗」确认框（#761 口径）', askShown, 'modalShown=' + askShown);
 if (askShown) {
   const qStatic = String(await ev("(function(){var s=document.getElementById('modal-static'); return s?(s.textContent||''):'';})()"));
   t('T9b 确认框说明「通知栏≠屏幕上方横幅」', qStatic.indexOf('屏幕上方') >= 0, qStatic.slice(0, 40));
