@@ -2015,6 +2015,19 @@
         pickImportFile();
       }, {
         noInput: true, okText: '开始导入', pill: 'full', lock: true,
+        // FIX 2026-09-22 #1014：确定＝真·可点 input 层——点按由浏览器原生动作弹选择器，
+        // 不再靠 showPicker/click 那三条程序化腿（被内核静默无视时＝点了确定什么也没发生）。
+        // 文件到手后仍走原来那两条路（仅聊天记录 → runChatAllImport(f)，完整备份 → doImport(f)）。
+        pickOk: {
+          entry: 'row-import', accept: '',
+          skipWhen: (m) => m === 'cancel',
+          onFiles: (files, mode) => {
+            const f = files && files[0];
+            if (!f) { toast('没有取到文件，请再选一次'); return; }
+            if (mode === 'chat') { window.runChatAllImport(f); return; }
+            doImport(f);
+          }
+        },
         pills: [{ label: '完整备份（全部数据）', value: 'full' },
           { label: '仅聊天记录（全部桌面联系人）', value: 'chat' },
           { label: '取消', value: 'cancel' }],

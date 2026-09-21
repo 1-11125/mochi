@@ -453,6 +453,20 @@ if (sliderCfg.onChange) { try { sliderCfg.onChange(val); } catch (e) {} }
 }
 cb = fn;
 mask.hidden = false;
+if (window.mochiModalPickOkClear) { try { window.mochiModalPickOkClear(); } catch (eP) {} }
+if (opts.pickOk && okBtn && window.mochiModalPickOk) {
+try {
+window.mochiModalPickOk({
+okBtn: okBtn,
+accept: opts.pickOk.accept || '',
+multiple: !!opts.pickOk.multiple,
+entry: opts.pickOk.entry || '',
+mode: function () { return pillVal; },
+skipWhen: opts.pickOk.skipWhen,
+onFiles: opts.pickOk.onFiles
+});
+} catch (eP2) {}
+}
 setTimeout(() => {
 if (noInput) return;
 const target = (opts.textarea && textarea) ? textarea : input;
@@ -564,6 +578,7 @@ try { _ae.blur(); } catch (eB) {}
 if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (eD) {} }
 } catch (eC0) {}
 mask.hidden = true; cb = null;
+if (window.mochiModalPickOkClear) { try { window.mochiModalPickOkClear(); } catch (eP3) {} }
 }
 function fire() {
 if (!cb) return;

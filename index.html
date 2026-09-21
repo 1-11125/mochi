@@ -10475,9 +10475,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790033999520">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790034180302">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 07:39<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 07:43<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -18139,6 +18139,20 @@ L.push('老内核降级项：inset=' + (cssSupports('inset: 0') ? 'ok' : '不支
 } catch (e) {}
 L.push('安卓输入框已转 ce-box=' + !!document.querySelector('.ce-box'));
 try {
+var _pl = window.__mochiPickLog || [];
+if (_pl.length) {
+var _ps = [];
+for (var _pi = 0; _pi < _pl.length; _pi++) {
+var _pd = new Date(_pl[_pi].t || 0);
+_ps.push(('0' + _pd.getHours()).slice(-2) + ':' + ('0' + _pd.getMinutes()).slice(-2) + ':' + ('0' + _pd.getSeconds()).slice(-2)
++ ' ' + _pl[_pi].e + '/' + _pl[_pi].s);
+}
+L.push('文件选择取证（旧→新）：' + _ps.join(' · '));
+} else {
+L.push('文件选择取证（旧→新）：(无——本页还没点过「选择文件」类入口)');
+}
+} catch (e) {}
+try {
 if (typeof window.__kaProbe === 'function') {
 const kp = window.__kaProbe();
 const kpParts = ['保活=' + (kp.keep ? '开' : '关'),
@@ -20080,8 +20094,74 @@ btn.appendChild(label);
 label.htmlFor = input.id;
 } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
+window.__mochiPickLog = window.__mochiPickLog || [];
+window.mochiPickLog = function (entry, step) {
+try {
+var arr = window.__mochiPickLog;
+arr.push({ t: Date.now(), e: String(entry || '').slice(0, 22), s: String(step || '').slice(0, 22) });
+if (arr.length > 6) arr.splice(0, arr.length - 6);
+} catch (e) {}
+};
+window.mochiModalPickOk = function (cfg) {
+var o = cfg || {};
+var okBtn = o.okBtn;
+var host = okBtn && okBtn.parentNode;
+if (!okBtn || !host) return null;
+var input = document.getElementById('mochi-modal-pick');
+if (!input) {
+input = document.createElement('input');
+input.type = 'file';
+input.id = 'mochi-modal-pick';
+input.className = 'mochi-pick-surface';
+input.setAttribute('data-file-pick-surface', '1');
+input.setAttribute('data-modal-pick', '1');
+input.style.cssText = 'position:absolute;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:2;';
+}
+try {
+var hp = getComputedStyle(host).position || '';
+if (hp !== 'absolute' && hp !== 'fixed' && hp !== 'relative' && hp !== 'sticky') host.style.position = 'relative';
+} catch (e1) {}
+try { input.accept = o.accept || ''; } catch (e2) {}
+input.multiple = !!o.multiple;
+try { host.appendChild(input); } catch (e3) { return null; }
+try {
+var r = okBtn.getBoundingClientRect(), pr = host.getBoundingClientRect();
+input.style.left = Math.round(r.left - pr.left) + 'px';
+input.style.top = Math.round(r.top - pr.top) + 'px';
+input.style.width = Math.max(24, Math.round(r.width)) + 'px';
+input.style.height = Math.max(24, Math.round(r.height)) + 'px';
+} catch (e4) {}
+input.onclick = function (ev) {
+var mode = (typeof o.mode === 'function') ? o.mode() : null;
+if (typeof o.skipWhen === 'function' && o.skipWhen(mode)) {
+try { ev.preventDefault(); } catch (e5) {}
+try { ev.stopPropagation(); } catch (e6) {}
+window.mochiModalPickOkClear();
+try { okBtn.click(); } catch (e7) {}
+return;
+}
+if (window.mochiPickLog) window.mochiPickLog(o.entry || 'modal-ok', 'leg:modal-ok');
+};
+input.onchange = function () {
+var files = Array.prototype.slice.call(input.files || []);
+try { input.value = ''; } catch (e8) {} // 允许重选同一文件
+var mode = (typeof o.mode === 'function') ? o.mode() : null;
+if (window.mochiPickLog) window.mochiPickLog(o.entry || 'modal-ok', files.length ? ('files=' + files.length) : 'files=0');
+if (files.length && typeof o.onFiles === 'function') { try { o.onFiles(files, mode); } catch (e9) {} }
+var tok = input.__armTok = (input.__armTok || 0) + 1;
+setTimeout(function () { if (input.__armTok === tok) window.mochiModalPickOkClear(); }, 0);
+};
+return input;
+};
+window.mochiModalPickOkClear = function () {
+try {
+var input = document.getElementById('mochi-modal-pick');
+if (input && input.parentNode) input.parentNode.removeChild(input);
+} catch (e) {}
+};
 window.mochiFilePickFire = function (input, opts) {
 var o = opts || {};
+if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', 'leg:fire');
 var fired = false;
 if (input && typeof input.showPicker === 'function') {
 try { input.showPicker(); fired = true; } catch (e) {}
@@ -20107,6 +20187,7 @@ input.multiple = !!o.multiple;
 input.onchange = function () {
 var files = Array.prototype.slice.call(input.files || []);
 try { input.value = ''; } catch (e) {} // 允许重选同一文件
+if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', files.length ? ('files=' + files.length) : 'files=0');
 if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
 };
 if (o.btn && window.mochiFilePickLabel) window.mochiFilePickLabel(o.btn, input);
@@ -20990,4 +21071,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubw0xpc -->
+<!-- __MOCHI_EOF__ mubw4t72 -->

@@ -1273,6 +1273,22 @@
         + '  :has()=' + (cssSupports('selector(:has(a))') ? 'ok' : '不支持(未用)'));
     } catch (e) {}
     L.push('安卓输入框已转 ce-box=' + !!document.querySelector('.ce-box'));
+    // #1014：文件选择取证——「导入点了没反应」与「选完文件没导入进去」是两条完全不同的断点，
+    // 这里把最近 6 笔「入口 + 走的是哪条腿（原生层/程序化） + 有没有换回文件」直接带进报告。
+    try {
+      var _pl = window.__mochiPickLog || [];
+      if (_pl.length) {
+        var _ps = [];
+        for (var _pi = 0; _pi < _pl.length; _pi++) {
+          var _pd = new Date(_pl[_pi].t || 0);
+          _ps.push(('0' + _pd.getHours()).slice(-2) + ':' + ('0' + _pd.getMinutes()).slice(-2) + ':' + ('0' + _pd.getSeconds()).slice(-2)
+            + ' ' + _pl[_pi].e + '/' + _pl[_pi].s);
+        }
+        L.push('文件选择取证（旧→新）：' + _ps.join(' · '));
+      } else {
+        L.push('文件选择取证（旧→新）：(无——本页还没点过「选择文件」类入口)');
+      }
+    } catch (e) {}
     // #260：保活现场——「后台保活失败/收不到通知」类报障直接出证据，不再靠口述猜。
     // 心跳 = bg-keep.js 在页面隐藏期每 30s 写 IDB 的计数/时间戳轨迹：相邻拍间隔
     // >90s = 心跳断流 = 页面被冻结的实锤（保活豁免失效）；30s 连续节奏 = 后台未被冻结。
@@ -3821,6 +3837,106 @@ window.mochiFilePickLabel = function (btn, input) {
   } catch (e) { /* 兼容助手绝不能成为错误源 */ }
 };
 
+// ===== 文件选择取证（FIX 2026-09-22 #1014）=====
+// 本族（#603/#677/#717/#738/#753/#755/#756/#813/#877/#920/#991/#1002）九轮的共同难点：
+// 报障只有「点了没反应 / 选完文件也导入不进去」两句，而这两句对应完全不同的断点——
+// 是入口没收到点按、是激活腿没弹选择器、还是选完文件没回到回调。历史上只能靠猜。
+// 这里记最近 6 笔「入口 + 走了哪条腿 + 有没有换回文件」，随诊断报告输出（零机型分支、纯取证）。
+window.__mochiPickLog = window.__mochiPickLog || [];
+window.mochiPickLog = function (entry, step) {
+  try {
+    var arr = window.__mochiPickLog;
+    arr.push({ t: Date.now(), e: String(entry || '').slice(0, 22), s: String(step || '').slice(0, 22) });
+    if (arr.length > 6) arr.splice(0, arr.length - 6);
+  } catch (e) {}
+};
+
+// ===== 第十波 #1014：弹窗「确定」＝真·可点 input 层 =====
+// 用户（iOS Safari 实报「导入不了字卡文件和数据」，明说其他设备型号也有、要求不要覆盖式修补）。
+// 「数据导入 / 字卡库导入数据 / 字卡库完整导入」这类入口的第一下必须落在弹窗的「确定」上，
+// 而「确定」此前只是普通按钮，选文件全靠点按之后的程序化激活（showPicker / click）——
+// 第九波 #991 已实锤：三条程序化腿都得指望内核「乐意执行我们的 JS」，被静默无视时用户看到的
+// 就是「点了确定，什么都没发生」（不报错、不弹窗、不提示）；#1002 当时正因为这两个入口
+// 「要先弹确认、铺层会跳过确认步骤」而有意留白。
+// 本波把层铺在**确定按钮的兄弟位**（不是子节点：按钮内的 input 会被部分内核把点击重定向给按钮）：
+// 手指物理点按真 file input ⇒ 选择器由浏览器**原生默认动作**弹出，不走 label 转发、不走合成事件、
+// 不走 showPicker；模式胶囊仍在弹窗里先选（弹窗与确认步骤一字未改）。
+//   cfg.okBtn        确定按钮（层按它的盒对齐；弹窗固定居中、打开期间几何不变）
+//   cfg.accept / cfg.multiple
+//   cfg.mode()       取当前模式（弹窗内胶囊的当前值），在点按与选完文件两刻各读一次
+//   cfg.skipWhen(mode)  true＝该模式本来就不需要文件（取消 / 粘贴文本导入）→ 撤掉默认动作、
+//                       把这次点按交回确定按钮原有的处理器（普通按钮不需要任何手势授权）
+//   cfg.onFiles(files, mode)
+//   cfg.entry        取证用的入口名
+// 零机型分支：所有内核同一条原生路径，无 UA/机型判断。撤层＝弹窗关闭/换届时移除（绝不残留）。
+window.mochiModalPickOk = function (cfg) {
+  var o = cfg || {};
+  var okBtn = o.okBtn;
+  var host = okBtn && okBtn.parentNode;
+  if (!okBtn || !host) return null;
+  var input = document.getElementById('mochi-modal-pick');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'mochi-modal-pick';
+    input.className = 'mochi-pick-surface';
+    input.setAttribute('data-file-pick-surface', '1');
+    input.setAttribute('data-modal-pick', '1');
+    // 与 #991 的入口层同口径：元素本身可见（有真实尺寸、可命中），只是没有可见外观。
+    // 绝不写成 display:none / opacity:0 / 1px clip——那正是 #717/#738 那族「不可见 input
+    // 被内核拒绝激活」的写法，而本层存在的意义就是「手指能物理点到真 input」。
+    input.style.cssText = 'position:absolute;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;cursor:pointer;z-index:2;';
+  }
+  // 宿主（.modal-btns）必须是定位祖先，否则这层的坐标会以初始包含块为基准（＝整屏透明 input）
+  try {
+    var hp = getComputedStyle(host).position || '';
+    if (hp !== 'absolute' && hp !== 'fixed' && hp !== 'relative' && hp !== 'sticky') host.style.position = 'relative';
+  } catch (e1) {}
+  try { input.accept = o.accept || ''; } catch (e2) {}
+  input.multiple = !!o.multiple;
+  // 置为宿主最后一个子节点＝画在「确定」之上（画序由 DOM 顺序决定）
+  try { host.appendChild(input); } catch (e3) { return null; }
+  // 按确定按钮的盒对齐：宿主是定位祖先 → 两个 rect 之差就是按钮在宿主内的偏移（与弹窗内滚动无关）
+  try {
+    var r = okBtn.getBoundingClientRect(), pr = host.getBoundingClientRect();
+    input.style.left = Math.round(r.left - pr.left) + 'px';
+    input.style.top = Math.round(r.top - pr.top) + 'px';
+    input.style.width = Math.max(24, Math.round(r.width)) + 'px';
+    input.style.height = Math.max(24, Math.round(r.height)) + 'px';
+  } catch (e4) {}
+  input.onclick = function (ev) {
+    var mode = (typeof o.mode === 'function') ? o.mode() : null;
+    if (typeof o.skipWhen === 'function' && o.skipWhen(mode)) {
+      // preventDefault 取消「弹出选择器」这个默认动作（#1002 已实证该默认动作可被取消），
+      // 再把点按交回确定：与以前点确定完全同一条路径，不多一次选择器。
+      try { ev.preventDefault(); } catch (e5) {}
+      try { ev.stopPropagation(); } catch (e6) {}
+      window.mochiModalPickOkClear();
+      try { okBtn.click(); } catch (e7) {}
+      return;
+    }
+    if (window.mochiPickLog) window.mochiPickLog(o.entry || 'modal-ok', 'leg:modal-ok');
+  };
+  input.onchange = function () {
+    var files = Array.prototype.slice.call(input.files || []);
+    try { input.value = ''; } catch (e8) {} // 允许重选同一文件
+    var mode = (typeof o.mode === 'function') ? o.mode() : null;
+    if (window.mochiPickLog) window.mochiPickLog(o.entry || 'modal-ok', files.length ? ('files=' + files.length) : 'files=0');
+    if (files.length && typeof o.onFiles === 'function') { try { o.onFiles(files, mode); } catch (e9) {} }
+    // 延后一拍撤层：撤层发生在 change 派发过程中会连带撤掉刚武装好的下一次选择
+    var tok = input.__armTok = (input.__armTok || 0) + 1;
+    setTimeout(function () { if (input.__armTok === tok) window.mochiModalPickOkClear(); }, 0);
+  };
+  return input;
+};
+// 撤层：弹窗开/关都调用（openModal 侧），保证同一时刻只有本弹窗的那一层、绝不残留到下一个弹窗
+window.mochiModalPickOkClear = function () {
+  try {
+    var input = document.getElementById('mochi-modal-pick');
+    if (input && input.parentNode) input.parentNode.removeChild(input);
+  } catch (e) {}
+};
+
 // ===== 激活腿统一实现（FIX 2026-09-20 #920 第八波）——showPicker → click → 可反馈提示 =====
 // 用户（小米14 自带浏览器 MiuiBrowser 20.27 / Android16 / Chrome135 内核实报「照片、壁纸上传不了，
 // 所有上传图片的地方上传无反应」，明说其他机型也有；#677→#717→#738→#753→#755→#756→#813→#877 同族
@@ -3837,6 +3953,8 @@ window.mochiFilePickLabel = function (btn, input) {
 // 零机型分支：所有内核同一顺序尝试三条腿，判据全是可观测事实（无机型/UA 判断）。
 window.mochiFilePickFire = function (input, opts) {
   var o = opts || {};
+  // #1014 取证：走到这里＝本次手势走的是程序化两腿（showPicker → click）
+  if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', 'leg:fire');
   var fired = false;
   if (input && typeof input.showPicker === 'function') {
     try { input.showPicker(); fired = true; } catch (e) {}
@@ -3885,6 +4003,7 @@ window.mochiFilePick = function (opts) {
   input.onchange = function () {
     var files = Array.prototype.slice.call(input.files || []);
     try { input.value = ''; } catch (e) {} // 允许重选同一文件
+    if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', files.length ? ('files=' + files.length) : 'files=0');
     if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
   };
   // 原生 label 激活层（部分分叉内核忽略 JS 合成 click；注意 #756 实测：label 在国产内核上

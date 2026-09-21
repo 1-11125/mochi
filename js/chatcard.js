@@ -2101,6 +2101,15 @@ if (mode === 'paste') { pasteImportFile(); return; }
 pickImportFile(mode);
 }, {
 noInput: true,
+pickOk: {
+entry: 'cc-import-data', accept: '',
+skipWhen: (m) => m === 'paste',
+onFiles: (files, mode) => {
+const f = files && files[0];
+if (!f) { toast('没有取到文件，请再选一次'); return; }
+importFromFile(f, mode);
+}
+},
 staticText: '选择导入方式：\n· 追加字卡：保留现有字卡，按分组并入，重复内容自动去除\n· 导入到「' + curName + '」：文件里全部字卡都并入当前分类\n· 替换字卡：清空当前字卡库，完全使用文件内容\n· 粘贴文本导入：文件选不出来时用这个（按「追加字卡」并入）',
 pills: [
 { label: '追加字卡（自动去重）', value: 'merge' },
@@ -2649,6 +2658,14 @@ liCcFullImport.addEventListener('click', () => {
 if (!window.openModal) return;
 window.openModal('导入自定义字卡', '', (mode) => { ccFullPickFile(mode); }, {
 noInput: true,
+pickOk: {
+entry: 'li-cc-full-import', accept: '',
+onFiles: (files, mode) => {
+const f = files && files[0];
+if (!f) { toast('没有取到文件，请再选一次'); return; }
+ccFullImportFile(f, mode);
+}
+},
 staticText: '导入范围：文件里包含的各库（公用聊天字卡 / 专属聊天字卡 / 互动功能字卡 / 寻踪日常 / 今日情话 / TA 六类题库）——公用、专属、互动功能、全量四种导出文件都支持，文件里没有的部分不动。\n注意：「专属」部分会导入到当前桌面联系人——如文件来自别的桌面，请先切到对应联系人桌面再导入。\n选择导入方式：\n· 追加合并：保留现有字卡，按内容去重并入（推荐）\n· 整包替换：文件里包含的各库清空后完全使用文件内容，未包含在文件里的现有字卡会丢失',
 pills: [
 { label: '追加合并（自动去重）', value: 'merge' },
@@ -2658,8 +2675,9 @@ pill: 'merge'
 });
 });
 function ccFullPickFile(mode) {
-pickFiles('', false, (files) => {
-const f = files && files[0];
+pickFiles('', false, (files) => ccFullImportFile(files && files[0], mode));
+}
+function ccFullImportFile(f, mode) {
 if (!f) return;
 const fname = f.name || '未命名文件';
 const reader = new FileReader();
@@ -2700,7 +2718,6 @@ handleText(raw, '');
 };
 reader.onerror = () => toast('导入失败：文件读取失败，请重选文件再试');
 reader.readAsText(f);
-});
 }
 function ccFullApply(d, mode) {
 try {

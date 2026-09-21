@@ -632,6 +632,23 @@ try {
       }
       cb = fn;
       mask.hidden = false;
+      // #1014：上一个弹窗可能留下「确定＝真·可点 input 层」（见 device.js mochiModalPickOk）——
+      // 每次开弹窗先撤干净，绝不跨弹窗残留；下面按 opts.pickOk 重新铺本弹窗的那一层。
+      if (window.mochiModalPickOkClear) { try { window.mochiModalPickOkClear(); } catch (eP) {} }
+      if (opts.pickOk && okBtn && window.mochiModalPickOk) {
+        try {
+          window.mochiModalPickOk({
+            okBtn: okBtn,
+            accept: opts.pickOk.accept || '',
+            multiple: !!opts.pickOk.multiple,
+            entry: opts.pickOk.entry || '',
+            // 模式＝弹窗内胶囊当前值：点按那一刻与选完文件那一刻各读一次（用户可能先选胶囊再点确定）
+            mode: function () { return pillVal; },
+            skipWhen: opts.pickOk.skipWhen,
+            onFiles: opts.pickOk.onFiles
+          });
+        } catch (eP2) {}
+      }
       // v3.5.133：多行模式聚焦 textarea（原只 focus 单行 input——多行模式下 input 隐藏、
       // focus 打在 display:none 元素上，键盘不弹，批量导入用户首触必失败一次）
       setTimeout(() => {
@@ -778,6 +795,8 @@ try {
         if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (eD) {} }
       } catch (eC0) {}
       mask.hidden = true; cb = null;
+      // #1014：关窗即撤「确定＝真·可点 input 层」（与开窗那次重复调用是幂等空操作）
+      if (window.mochiModalPickOkClear) { try { window.mochiModalPickOkClear(); } catch (eP3) {} }
     }
     function fire() {
       if (!cb) return;

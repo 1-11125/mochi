@@ -4355,6 +4355,16 @@ const FIX_SENTINELS = [
   { name: "#1014g 自测第二段＝后台阶段（隐藏态真发一条 + 回前台给结论）", file: "js/bg-keep.js", needle: "'后台通知测试（后台阶段）'" },
   { name: "#1014h 第二段入口（删＝后台那一半又变成让用户自己判断）", file: "js/bg-keep.js", needle: "'现在测（切后台）'" },
   { name: "#1014i 模板：权限状态标红行锚点", file: "template.html", needle: "id=\"bg-notify-perm-warn\"" },
+  /* ==== 2026-09-22 #1014 三个「先弹确认再选文件」的导入入口不再依赖程序化激活（用户 iOS Safari 实报「导入不了字卡文件和数据」，明说其他设备型号也有、要求不要覆盖式修补）：#991/#1002 的「真·可点 input 层」当年正因「要先弹确认、铺层会跳过确认步骤」被有意留白，这批入口选文件仍靠 showPicker/click/label 三条程序化腿——被内核静默无视时＝点了确定什么都没发生（不报错、不弹窗、不提示）。修法＝把层铺在弹窗「确定」按钮的**兄弟位**（不塞进 button 里），模式胶囊仍在弹窗里先选、确认步骤一字未动；该模式本来不需要文件时（取消 / 粘贴文本导入）撤掉默认动作、把点按交回确定按钮原处理器。 ==== */
+  { name: '#1014a 弹窗确定层单点实现（删＝这批入口又只剩程序化激活三条腿）', file: 'js/device.js', needle: 'window.mochiModalPickOk = function (cfg) {' },
+  { name: '#1014b 层铺在确定按钮的兄弟位（改成塞进 button 里＝部分内核把点击重定向给按钮，等于白铺）', file: 'js/device.js', needle: 'var host = okBtn && okBtn.parentNode;' },
+  { name: '#1014c 不需要文件的模式撤掉默认动作（删＝选「取消 / 粘贴文本导入」也弹选择器，把那条活路变成两步）', file: 'js/device.js', needle: "if (typeof o.skipWhen === 'function' && o.skipWhen(mode)) {" },
+  { name: '#1014d 文件选择取证环（删＝下次报障仍分不清「入口没点中 / 腿没弹 / 文件没回来」）', file: 'js/device.js', needle: 'window.mochiPickLog = function (entry, step) {' },
+  { name: '#1014e 诊断报告取证行（删＝报告里没有这一步的现场）', file: 'js/device.js', needle: "L.push('文件选择取证（旧→新）：' + _ps.join(' · '));" },
+  { name: '#1014f openModal 按 opts.pickOk 铺层（删＝导入弹窗的确定退回普通按钮，程序化激活复发）', file: 'js/personalize.js', needle: 'opts.pickOk && okBtn && window.mochiModalPickOk' },
+  { name: '#1014g 数据导入接上确定层（删＝数据导入回到「点了确定什么都没发生」）', file: 'js/data-backup.js', needle: "entry: 'row-import'" },
+  { name: '#1014h 字卡库「导入数据」接上确定层', file: 'js/chatcard.js', needle: "entry: 'cc-import-data'" },
+  { name: '#1014i 字卡库「完整导入」接上确定层且两条路汇入同一份管线（删＝解析/自救管线分叉）', file: 'js/chatcard.js', needle: 'function ccFullImportFile(f, mode) {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
