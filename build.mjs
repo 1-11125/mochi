@@ -4408,7 +4408,15 @@ const FIX_SENTINELS = [
   { name: '#991j 该卡琥珀形态（#976 定的「需要你操作」族；改色＝占用橙/红名额、打乱四色语义）', file: 'css/base.css', needle: '.splash-alert.splash-ioshome { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }' },
   { name: '#991k surface 层原生「选择文件」按钮藏掉（删＝入口上浮出一个原生按钮破相）', file: 'css/base.css', needle: 'input.mochi-pick-surface::-webkit-file-upload-button { display:none; }' },
   { name: '#991l 在线公告摘要补 iPhone 主屏幕一条（删＝只读在线公告的用户看不到这条；与开屏静态卡两份同步）', file: 'pwa/notice.json', needle: '【iPhone 用户必读】请把本站「添加到主屏幕」后再用' }
-
+,
+  // ===== #993 聊天统计「申请心意币记录 / 小游戏记录」默认折叠（用户直派「没有折叠导致页面会变得很长很长，
+  //   而且没有默认折叠起来」）——两个区块是全量流水、行数随使用无上限累计，默认全展把 tab 拉得很长。
+  //   开关态收在模块级 map（进统计页重设 innerHTML，DOM 上的折叠态活不过一次渲染）；小游戏区块改走同一渲染件。 =====
+  { name: '#993a 流水区块默认折叠（改回展开/删＝进统计页又是几十上百行铺开，用户实报的「页面很长很长」回流）', file: 'js/p2-features.js', needle: 'const statsFoldOpen = { askcoin: false, games: false };' },
+  { name: '#993b 折叠态真的把流水藏起来（删/改选择器＝头还是开关但列表照常铺开，点了看起来没反应）', file: 'css/chat-pages.css', needle: '.stats-fold:not(.open) > .stats-fold-body { display:none; }' },
+  { name: '#993c 小游戏记录复用同一折叠渲染件（删/改回手抄列表＝两个流水区块各写一份，折叠只生效一半）', file: 'js/p2-features.js', needle: "return statsFoldSection('🎮', '小游戏记录', '条', uniq," },
+  { name: '#993d 删除型：小游戏记录不得再手写自己的区块头（回流＝又一份独立实现，折叠逻辑漏掉它）', file: 'js/p2-features.js', absent: true, needle: "'<span class=\"stats-sec-count\">' + uniq.length + ' 条</span>" },
+  { name: '#993e 删除型：旧的「全量直铺」流水渲染件不得回流（回来＝申请心意币记录又默认铺满整屏）', file: 'js/p2-features.js', absent: true, needle: 'function coinRecordSection(' }
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -95,16 +95,26 @@
       return max;
   }
   // v3.15.x：聊天记录 tab 新增「联系人发红包 / 申请心意币」流水区块（rows: {main, sub}）
-  // 全量展示不截断——流水本身低频（红包≤5/日、申请≤2/日），按时间倒序最新在上
-  function coinRecordSection(icon, title, unit, rows, emptyText) {
-    let html = '<div class="stats-sec">' +
-      '<div class="stats-sec-head"><span class="stats-sec-title">' + icon + title + '</span>' +
-      '<span class="stats-sec-count">' + rows.length + ' 笔</span></div>';
-    if (!rows.length) {
+  // #993：不再默认全量铺开——这一族是「流水」，行数随使用无上限累计（申请卡每触发一次一条、
+  //   小游戏每局一条），攒几个月就是几十上百行，默认全展把「聊天记录」tab 拉得很长（用户实报）。
+  //   开关态收在模块级 map：进统计页每次都重设 innerHTML，挂在 DOM 上的折叠态活不过一次渲染。
+  const statsFoldOpen = { askcoin: false, games: false };
+  function statsFoldSection(icon, title, unit, rows, emptyText, key) {
+    const n = rows.length;
+    const open = n > 0 && !!statsFoldOpen[key];
+    let html = '<div class="stats-sec stats-fold' + (open ? ' open' : '') + '"' +
+      (n ? ' data-stats-fold="' + key + '"' : '') + '>' +
+      '<div class="stats-sec-head stats-fold-head"' + (n ? ' role="button" tabindex="0"' : '') +
+      ' aria-expanded="' + (open ? 'true' : 'false') + '">' +
+      '<span class="stats-sec-title">' + icon + title + '</span>' +
+      '<span class="stats-fold-right"><span class="stats-sec-count">' + n + ' ' + unit + '</span>' +
+      (n ? '<span class="stats-fold-caret">▾</span>' : '') + '</span></div>' +
+      '<div class="stats-fold-body">';
+    if (!n) {
       html += '<div class="ta-empty">' + emptyText + '</div>';
     } else {
       html += '<div class="stats-list">';
-      for (let i = rows.length - 1; i >= 0; i--) {
+      for (let i = n - 1; i >= 0; i--) {
         const r = rows[i];
         html += '<div class="stats-item">' +
           '<span class="stats-item-name">' + r.main + '</span>' +
@@ -112,8 +122,33 @@
       }
       html += '</div>';
     }
-    return html + '</div>';
+    return html + '</div></div>';
   }
+  // #993：折叠开关——点区块头整行（caret 也在头内），键盘 Enter/Space 同效。事件委托只注册一次，
+  //   重渲染出来的新区块自动生效；只在头内命中才切换，展开后点列表行不会把它误收回去。
+  function statsFoldToggle(sec) {
+    if (!sec) return;
+    const key = sec.getAttribute('data-stats-fold');
+    const head = sec.querySelector('.stats-fold-head');
+    const open = !statsFoldOpen[key];
+    statsFoldOpen[key] = open;
+    sec.classList.toggle('open', open);
+    if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    const sec = e.target && e.target.closest ? e.target.closest('.stats-sec[data-stats-fold]') : null;
+    if (!sec) return;
+    const head = sec.querySelector('.stats-fold-head');
+    if (!head || !head.contains(e.target)) return;
+    statsFoldToggle(sec);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const head = e.target && e.target.closest ? e.target.closest('.stats-fold-head') : null;
+    if (!head) return;
+    e.preventDefault();
+    statsFoldToggle(head.parentNode);
+  });
   function fmtMDHM(ts) {
     if (!ts) return '';
     const t = new Date(ts);
@@ -345,13 +380,13 @@
             return rpSec(myName + ' 发红包', msgs.filter(m => m && m.special === 'redpacket' && m.side === 'out'), '我还没有发过红包（红包也是心意币，去发一个试试）') +
               rpSec(escH(name) + ' 发红包', msgs.filter(m => m && m.special === 'redpacket' && m.side === 'in'), '还没有 ' + escH(name) + ' 发的红包');
           })() +
-          // v3.15.x：联系人申请心意币记录（askcoin 卡片）
-          coinRecordSection('🪙', name + '申请心意币记录', '笔',
+          // v3.15.x：联系人申请心意币记录（askcoin 卡片）；#993 与下方小游戏记录共用折叠渲染件
+          statsFoldSection('🪙', name + '申请心意币记录', '笔',
             msgs.filter(m => m && m.special === 'askcoin').map(m => ({
               main: '+¥' + (Number(m.askFen || 0) / 100).toFixed(2),
               sub: fmtMDHM(m.askTs || m.ts)
             })),
-            escH(name) + ' 还没有向 Mochi 申请过') +
+            escH(name) + ' 还没有向 Mochi 申请过', 'askcoin') +
           // v3.16.x：小游戏记录（更多功能→小游戏 7 款对局 + 联系人主动邀请玩游戏，全部汇总）
           (function () {
             const GAME_SPECIAL = { brick: '双人打砖块', pong: '乒乓', snake: '贪吃蛇', memory: '记忆翻牌', rps: '猜拳', c4: '四子棋', ms: '合作扫雷' };
@@ -375,23 +410,11 @@
               if (m.gInv) return;
               push(m, m.text, '🎮');
             });
-            // 去重 + 时间倒序
+            // 去重 + 时间正序（statsFoldSection 从尾渲染＝最新在上），与申请心意币记录同一渲染件
             const seen = new Set();
             const uniq = rows.filter(r => { const k = r.main + '|' + r.sub; if (seen.has(k)) return false; seen.add(k); return true; });
-            uniq.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-            let html = '<div class="stats-sec"><div class="stats-sec-head"><span class="stats-sec-title">🎮 小游戏记录</span>' +
-              '<span class="stats-sec-count">' + uniq.length + ' 条</span></div>';
-            if (!uniq.length) {
-              html += '<div class="ta-empty">还没有小游戏记录（更多功能 → 小游戏，和 TA 玩一局试试）</div>';
-            } else {
-              html += '<div class="stats-list">';
-              uniq.forEach(r => {
-                html += '<div class="stats-item"><span class="stats-item-name">' + r.main + '</span>' +
-                  '<span class="stats-item-num dt">' + r.sub + '</span></div>';
-              });
-              html += '</div>';
-            }
-            return html + '</div>';
+            uniq.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+            return statsFoldSection('🎮', '小游戏记录', '条', uniq, '还没有小游戏记录（更多功能 → 小游戏，和 TA 玩一局试试）', 'games');
           })();
         }
     }

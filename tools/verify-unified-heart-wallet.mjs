@@ -307,7 +307,7 @@ check('K3 聊天记录页含「我/联系人 发红包」双向摘要 + 「联�
   const html = readFileSync(join(root, 'index.html'), 'utf8');
   check('F1 产物含「向 Mochi 申请心意币」「红包 · 心意币」「输入金额（心意币）」', html.indexOf('向 Mochi 申请心意币') >= 0 && html.indexOf('红包 · 心意币') >= 0 && html.indexOf('输入金额（心意币）') >= 0, '');
   check('F2 产物已无旧「直接修改数值」口径文案', html.indexOf('修改钱包金额（元）') < 0 && html.indexOf('我的钱包金额（元）') < 0 && html.indexOf('修改心意币（元）') < 0 && html.indexOf('的钱包金额已更新') < 0, '');
-  check('F3 TA自动申请已打包 + 聊天记录流水区块已打包（v3.16 摘要口径锚点）', html.indexOf('ml2_ask_daily_') >= 0 && html.indexOf('trySystemAskMochi') >= 0 && html.indexOf('coinRecordSection') >= 0 && html.indexOf('累计心意币') >= 0, '');
+  check('F3 TA自动申请已打包 + 聊天记录流水区块已打包（v3.16 摘要口径锚点）', html.indexOf('ml2_ask_daily_') >= 0 && html.indexOf('trySystemAskMochi') >= 0 && html.indexOf('statsFoldSection') >= 0 && html.indexOf('累计心意币') >= 0, '');
 }
 
 const errs = await evalJs('JSON.stringify(window.__errs || [])');

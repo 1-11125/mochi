@@ -2370,6 +2370,16 @@
 /* 文字字卡 tab 的「查看更多」入口 */
 .stats-more { text-align:center; font-size:12px; color:var(--ink); font-weight:600; padding:10px 0 2px; cursor:pointer; }
 .stats-more:active { opacity:.55; }
+/* #993 聊天统计流水区块（申请心意币 / 小游戏记录）默认折叠：整行头＝开关，右侧「N 笔 / N 条」+ ▾ */
+.stats-fold-head { margin-bottom:0; padding:11px 12px; background:var(--static-bg); border-radius:10px; }
+.stats-fold[data-stats-fold] > .stats-fold-head { cursor:pointer; }
+.stats-fold[data-stats-fold] > .stats-fold-head:active { opacity:.55; }
+.stats-fold-head .stats-sec-count { background:var(--card-bg); }
+.stats-fold-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.stats-fold-caret { font-size:11px; color:var(--muted); transition:transform .18s; }
+.stats-fold.open .stats-fold-caret { transform:rotate(180deg); }
+.stats-fold:not(.open) > .stats-fold-body { display:none; }
+.stats-fold-body { padding-top:10px; }
 
 /* ===== 信箱 ===== */
 .mail-item {

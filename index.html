@@ -5080,6 +5080,15 @@ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;
 .stats-item-num.dt { width:auto; margin-left:auto; font-size:10px; font-weight:400; color:var(--muted); white-space:nowrap; }
 .stats-more { text-align:center; font-size:12px; color:var(--ink); font-weight:600; padding:10px 0 2px; cursor:pointer; }
 .stats-more:active { opacity:.55; }
+.stats-fold-head { margin-bottom:0; padding:11px 12px; background:var(--static-bg); border-radius:10px; }
+.stats-fold[data-stats-fold] > .stats-fold-head { cursor:pointer; }
+.stats-fold[data-stats-fold] > .stats-fold-head:active { opacity:.55; }
+.stats-fold-head .stats-sec-count { background:var(--card-bg); }
+.stats-fold-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.stats-fold-caret { font-size:11px; color:var(--muted); transition:transform .18s; }
+.stats-fold.open .stats-fold-caret { transform:rotate(180deg); }
+.stats-fold:not(.open) > .stats-fold-body { display:none; }
+.stats-fold-body { padding-top:10px; }
 .mail-item {
 display:flex; align-items:center; gap:10px;
 background:rgba(255,255,255,.92); border:1px solid rgba(0,0,0,.1);
@@ -10485,9 +10494,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790000091298">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790000323469">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 22:14<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:18<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20963,4 +20972,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubbu5ya -->
+<!-- __MOCHI_EOF__ mubbz53h -->
