@@ -80,21 +80,37 @@
     try { if (document.visibilityState === 'hidden') return true; } catch (e) {}
     return !_userActTs;
   }
+  // FIX 2026-09-21 #992：后台换版不得打断「后台保活 / 后台通知」（用户实报「浏览器网页没多久就
+  //   自动刷新了，后台保活功能失效」）——这两个开关的存在意义就是页面在后台继续运行，而 #965 的
+  //   待换版落地时刻恰好选在「页面转入后台那一刻」⇒ 一开保活、切走就被重载。无头实证：重载把
+  //   运行中的保活音频拆掉（__kaProbe().ev.died +1）、页面重新回到开屏问答门，后台期间消息与
+  //   通知全停，用户回来只看到「页面自己刷新了」。修法：换版落地前先看这两个开关——开着就只弹
+  //   更新条、后台不落地，等用户哪次把开关关掉再切后台（或下次冷启动，开屏版本检查每次都会跑）
+  //   自然换版；手动点「刷新使用新版」不受此限（与 #279 同口径）。
+  function bgLivenessOn() {
+    try {
+      if (!window.xyStore) return false;
+      const st = window.xyStore('xy-home-v2');
+      return st.get('bg-keepalive') === '1' || st.get('bg-notify') === '1';
+    } catch (e) { return false; }
+  }
   // #965 自动升级「不放弃、也不打断」——待换版登记：页面前台且用户已交互时不再退回更新条
   // 收工（旧行为＝多数用户不会点更新条＝长期停在旧版、拿旧版 bug 反馈），改为先登记，等页面
   // 下一次转入后台（切走/回桌面/锁屏）时 reload 落地。iOS 上隐藏期的 reload 常被系统冻结到
   // 回前台才真正执行＝用户回到前台即新版、全程零打断。reload 会卸载页面，监听无需移除
   //（若极端内核忽略了隐藏期 reload，监听仍在，下次转后台会再试，不会卡死）。
+  // #992：转后台那一刻若保活/通知开着则跳过——监听常挂，等关掉开关后那次转后台再落地。
   let _pendingAutoReload = false;
   function armAutoReloadWhenHidden() {
     if (_pendingAutoReload) return;
     _pendingAutoReload = true;
     const onHide = function () {
       try { if (document.visibilityState !== 'hidden') return; } catch (e) { return; }
+      if (bgLivenessOn()) return; // #992：后台保活/后台通知开着＝后台要活着，不在后台换版
       try { location.reload(); } catch (e) {}
     };
     try { document.addEventListener('visibilitychange', onHide); } catch (e) {}
-    // 登记这一刻若已不在前台（刚被切走/冻结），直接落地
+    // 登记这一刻若已不在前台（刚被切走/冻结），直接落地（同上闸门）
     try { if (document.visibilityState === 'hidden') onHide(); } catch (e) {}
   }
   // 无头验证专用探针（tools/verify-auto-upgrade-guard.mjs 使用，只读；#965 追加 pending/arm）
@@ -126,6 +142,9 @@
       // 页面下一次转后台时自动落地（切走/回桌面/锁屏），用户回来即新版。更新条照弹，
       // 想立刻升级的用户仍可手动点。
       if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
+      // #992：自动通道 + 保活/通知开着 ⇒ 就算此刻已经在后台也不换版（页面一重载＝后台保活/通知
+      //   当场失效、还要回开屏重过问答门）。登记待换版并弹更新条，让用户自己挑时机手动刷。
+      if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
       try { location.reload(); } catch (e) {}
     };
     // #944：手动通道的过程反馈（自动通道静默，行为与 #273 时代一致）

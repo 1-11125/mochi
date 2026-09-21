@@ -4424,6 +4424,10 @@ const FIX_SENTINELS = [
 { name: '#995d 新卡第三段（删＝「上面推荐的两个可白嫖 AI 的额度只是当下、仅供参考」口径丢）', file: 'template.html', needle: '以后不知道，仅供参考。' },
 { name: '#995e 新卡仍排在「公告完」之前（挪出滚动正文尾＝读者滑到页尾才看的那段落点丢失，卡片被挤出强制页）', file: 'template.html', needle: '仅供参考。</p>\n          </div>\n        </div>\n        <div class="splash-mandatory-end">' },
 
+  // ===== #992 后台换版重载不得打断「后台保活 / 后台通知」（用户实报「网页没多久就自动刷新了，后台保活功能失效」）=====
+  { name: '#992a 转后台那一刻先看保活/通知开关（删＝一开保活切走就被换版重载，保活音频被拆、回开屏问答门，主诉复发）', file: 'js/pwa.js', needle: 'if (bgLivenessOn()) return;' },
+  { name: '#992b 自动通道已在后台也不换版（删＝后台预取完成时页面恰在后台就照样重载）', file: 'js/pwa.js', needle: 'if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }' },
+  { name: '#992c 闸门读的是全局键 bg-keepalive / bg-notify（改读别的键/内存变量＝开关开着也拦不住）', file: 'js/pwa.js', needle: "return st.get('bg-keepalive') === '1' || st.get('bg-notify') === '1';" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
