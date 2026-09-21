@@ -4479,6 +4479,16 @@ const FIX_SENTINELS = [
   { name: '#999j 删除型：同上第二处', file: 'js/ta-ask.js', absent: true, needle: '{ t: "多逗你笑", reply: ["那我攒几个笑话' },
   { name: '#999k 删除型：同上「你难过的样子」', file: 'js/ta-ask.js', absent: true, needle: '{ t: "你难过的样子", reply: ["记住了' },
   { name: '#999l 删除型：同上「关于你的」', file: 'js/ta-ask.js', absent: true, needle: '{ t: "关于你的", reply: ["画你' },
+  /* ==== 2026-09-21 #994 听歌邀请「同意后没小框也没播放」第二次实报（红米 K80 Chrome PWA；接受链路静默死亡出口再收口） ==== */
+  { name: '#994a 邀请面板唯一实现（渲染+接线成对；删＝又出现「只渲染没接线」的死面板＝点了同意零反应）', file: 'js/music-player.js', needle: 'function openMusicInvitePanel(trackId, switching) {' },
+  { name: '#994b 诊断邀请入口改走同一面板实现（删＝「诊断邀请→强制触发一次」又是死按钮）', file: 'js/music-player.js', needle: 'openMusicInvitePanel(track.id, false)' },
+  { name: '#994c 聊天邀请走同一面板实现（删＝回到手抄面板，接线必漏）', file: 'js/music-player.js', needle: 'openMusicInvitePanel(track.id, !!currentId)' },
+  { name: '#994d 起播校验「连 audio 都没建起来」不再静默（删＝本地歌异步读未回/读失败时无框无声无提示复发）', file: 'js/music-player.js', needle: 'inviteCheckStage === 0' },
+  { name: '#994e 本地歌邀请弹窗期预热音频（删＝冷启动接受邀请要等异步 IDB 读，慢/失败即无框无声）', file: 'js/music-player.js', needle: 'function prewarmLocalAudio(id) {' },
+  { name: '#994f 小框恢复位置按视口钳制（删＝保存位置在视口外时小框「没出现」复发）', file: 'js/music-player.js', needle: 'if (floatClampSig === sig) return;' },
+  { name: '#994g 跨桌面失效如实提示（删＝点了同意零反馈复发）', file: 'js/music-player.js', needle: 'function inviteStaleToast(name) {' },
+  { name: '#994h 邀请到同意之间歌曲被删如实告知（删＝playTrack findTrack 静默 return，用户对着空气等）', file: 'js/music-player.js', needle: '已不在音乐库里，无法播放' },
+  { name: '#994i 起播校验不得退回「拿不到 currentId/audio 即静默返回」（absent 型；回流＝点了同意又变零反馈）', file: 'js/music-player.js', needle: 'if (!currentId || !audio) return; // 曲目加载失败等路径已有各自的 toast', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
