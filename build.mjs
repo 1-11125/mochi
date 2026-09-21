@@ -4552,6 +4552,24 @@ const FIX_SENTINELS = [
   { name: '#1004e 记录位空洞自愈（删＝被跳过的下标不再重画，空洞永留）', file: 'js/chat.js', needle: 'function armWindowHoleHeal(idxs) {' },
   { name: '#1004f 裁剪/钳位按分隔线归属判（退回 dataset.idx 口径＝削掉被保留消息头上的分隔线）', file: 'js/chat.js', needle: 'function nodeKeepIdx(f) {' },
   { name: '#1004g 批量头像缓存永远新建（退回 if(!cache)＝泄漏快照被后续所有轮次永久复用）', file: 'js/chat.js', needle: 'if (on) avatarBatchCache = {};' },
+  /* ==== 2026-09-21 #1008 边看边调三处抽屉：桌面补拖动（用户直派「不能托标题行可上移」）＋标题行可拖动写清（用户「用户并不知道有这个功能」）＋切页落位不再瞬移、点亮态不再白写。 ==== */
+  { name: '#1008a 桌面边看边调抽屉标题行可拖动（删＝退回 #562 只留声明、grip 纯装饰的「拖不动」态，用户实报面）', file: 'js/personalize.js', needle: 'beautyDockBot = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), Math.round(sb + sy - e.clientY)));' },
+  { name: '#1008b 桌面抽屉默认位停在底部导航之上（删/改回 bottom:0＝z-index:95 的抽屉压住 z-index:2 的底部导航，开着它切不了页）', file: 'js/personalize.js', needle: "d.style.bottom = (beautyDockBot == null ? beautyDrawerReserve() : beautyDockBot) + 'px';" },
+  { name: '#1008c 桌面抽屉标题行接线（标题行才是主拖拽把手，删＝只剩 4px 的 grip 能拖）', file: 'js/personalize.js', needle: 'bindDrawerDrag(hd);' },
+  { name: '#1008d 屏幕适配面板落位带过渡（删＝切页时留白跳变 90px→14px 又变硬切瞬移，用户「切换设置和设置美化还是会闪屏」的实测面）', file: 'js/personalize.js', needle: 'gap:6px;transition:bottom .16s ease' },
+  { name: '#1008e 桌面抽屉点亮态只在真变化时写（删＝重复点同一分区又白写 3×N 个 style，口径同 #938）', file: 'js/personalize.js', needle: 'const paintChips = (key) => {' },
+  { name: '#1008f 桌面抽屉标题行写明可拖动（删＝用户「并不知道有这个功能」原话复发）', file: 'js/personalize.js', needle: "hdHint.textContent = '按住标题行上下拖 · 让开看桌面';" },
+  { name: '#1008g 聊天边看边调抽屉标题行写明可拖动（#760 早就实现了拖动但界面一字未提，用户直派写清）', file: 'js/chat-settings.js', needle: "hdHint.textContent = '按住标题行上下拖 · 让开看聊天';" },
+  { name: '#1008h 聊天抽屉落位带过渡（删＝拖动松手吸附 / 键盘抬升变硬切）', file: 'js/chat-settings.js', needle: "d.style.transition = 'bottom .16s ease';" },
+  { name: '#1008i 聊天抽屉点亮态只在真变化时写（删＝重复点同一分区又白写 3×N 个 style）', file: 'js/chat-settings.js', needle: 'const paintCsChips = (key) => {' },
+  { name: '#1008j 群聊边看边调抽屉补拖动（删＝同族只改一半：单聊能拖、群聊拖不动）', file: 'js/group-chat.js', needle: 'gcDockBot = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), Math.round(sb + sy - e.clientY)));' },
+  { name: '#1008k 群聊抽屉标题行接线（删＝群聊侧又只剩装饰 grip）', file: 'js/group-chat.js', needle: 'bindGcDockDrag(hd);' },
+  { name: '#1008l 群聊抽屉标题行写明可拖动（删＝群聊侧又变成「有这个功能但没人知道」）', file: 'js/group-chat.js', needle: "hdHint.textContent = '按住标题行上下拖 · 让开看群聊';" },
+  { name: '#1008m 桌面美化页入口副标题写明标题行可拖（删＝开面板前看不到这个能力，用户「需要新增并写清楚」的一半）', file: 'template.html', needle: '桌面在上、控件在下，改哪看哪、即时生效；标题行可按住往上拖让位' },
+  { name: '#1008n 聊天美化入口副标题写明标题行可拖（删＝聊天侧开面板前看不到这个能力）', file: 'js/chat-settings.js', needle: '聊天在上、控件在下，改哪看哪、即时生效；标题行可按住往上拖让位' },
+  { name: '#1008o 群聊美化入口副标题写明标题行可拖（同族一致，删＝群聊侧入口又不说）', file: 'js/group-chat.js', needle: '群聊在上、控件在下，改哪看哪、即时生效；标题行可按住往上拖让位' },
+  { name: '#1008p 使用提示「手机桌面美化」写明抽屉与拖动（删＝设置页功能说明里查不到这个能力）', file: 'js/settings-help.js', needle: '抽屉的标题行可以按住往上拖' },
+  { name: '#1008q 群聊抽屉点亮态只在真变化时写（同族一致）', file: 'js/group-chat.js', needle: 'const paintGcChips = (key) => {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

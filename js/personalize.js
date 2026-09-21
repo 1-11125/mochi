@@ -1818,7 +1818,28 @@ bind('dq-bg', 'row-bg-preset');
 bind('dq-radius', 'row-desk-card-radius');
 bind('dq-tabbar', 'row-tabbar-beauty'); // #769：底部栏直达
 })();
-let beautyDockTop = null;
+let beautyDockBot = null;
+function beautyDrawerReserve() {
+try {
+const tb = document.querySelector('.tabbar');
+const t = tb && tb.getBoundingClientRect();
+if (t && t.height && t.top > 0) return Math.max(14, Math.round(window.innerHeight - t.top + 8));
+} catch (e) {}
+return 14;
+}
+function beautyDrawerApplyBottom() {
+const d = document.getElementById('beauty-drawer');
+if (!d) return;
+d.style.bottom = (beautyDockBot == null ? beautyDrawerReserve() : beautyDockBot) + 'px';
+}
+let beautyDockObs = null;
+function watchBeautyDockPages() {
+if (beautyDockObs || !('MutationObserver' in window)) return;
+try {
+beautyDockObs = new MutationObserver(function () { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+document.querySelectorAll('.page').forEach(function (p) { beautyDockObs.observe(p, { attributes: true, attributeFilter: ['hidden'] }); });
+} catch (e) { beautyDockObs = null; }
+}
 const openBeautyDrawer = (secKey) => {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');
@@ -1832,7 +1853,7 @@ d = document.createElement('div');
 d.id = 'beauty-drawer';
 document.body.appendChild(d);
 }
-d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;transition:bottom .16s ease;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
 d.innerHTML = '';
 const grip = document.createElement('div');
 grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
@@ -1848,7 +1869,10 @@ const hd = document.createElement('div');
 hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
 const hdTxt = document.createElement('span');
 hdTxt.textContent = '边看边调（即时生效）';
-hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:none';
+const hdHint = document.createElement('span');
+hdHint.textContent = '按住标题行上下拖 · 让开看桌面';
+hdHint.style.cssText = 'font-size:11px;color:var(--muted,#888);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
 const panelBody = document.createElement('div');
 panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
 const body = document.createElement('div');
@@ -1859,8 +1883,39 @@ panelBody.style.display = willFold ? 'none' : 'flex';
 foldBtn.textContent = willFold ? '展开' : '收起';
 });
 const closeBtn = mkMini('\u2715', () => { d.style.display = 'none'; showThemePage(); }, ';padding:4px 8px');
-hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+hd.appendChild(hdTxt); hd.appendChild(hdHint); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
 d.appendChild(hd);
+const bindDrawerDrag = (el) => {
+el.style.touchAction = 'none';
+el.style.cursor = 'grab';
+let sy = 0, sb = 0, drag = false;
+el.addEventListener('pointerdown', (e) => {
+if (e.target.closest('button')) return;
+if (e.pointerType === 'mouse' && e.button !== 0) return;
+drag = true; sy = e.clientY;
+sb = beautyDockBot == null ? beautyDrawerReserve() : beautyDockBot;
+d.style.transition = 'none';
+try { el.setPointerCapture(e.pointerId); } catch (er) {}
+e.preventDefault();
+});
+el.addEventListener('pointermove', (e) => {
+if (!drag) return;
+beautyDockBot = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), Math.round(sb + sy - e.clientY)));
+beautyDrawerApplyBottom();
+e.preventDefault();
+});
+const up = () => {
+if (!drag) return;
+drag = false;
+d.style.transition = 'bottom .16s ease';
+if ((beautyDockBot || 0) <= beautyDrawerReserve() + 6) beautyDockBot = null; // 拖回自动位＝吸附复位
+beautyDrawerApplyBottom();
+};
+el.addEventListener('pointerup', up);
+el.addEventListener('pointercancel', up);
+};
+bindDrawerDrag(grip);
+bindDrawerDrag(hd); // grip 只有 4px 高，标题行才是主拖拽把手
 const chipsRow = document.createElement('div');
 chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
 panelBody.appendChild(chipsRow);
@@ -2127,14 +2182,20 @@ return wrap;
 } }
 ];
 let activeSec = 'color';
-const renderSec = (key) => {
-activeSec = key;
+const paintChips = (key) => {
 Array.prototype.forEach.call(chipsRow.children, c => {
 const on = c.dataset.sec === key;
-c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
-c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
-c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+const bg = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+if (c.style.background !== bg) c.style.background = bg;
+const fg = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+if (c.style.color !== fg) c.style.color = fg;
+const bd = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+if (c.style.borderColor !== bd) c.style.borderColor = bd;
 });
+};
+const renderSec = (key) => {
+activeSec = key;
+paintChips(key);
 body.innerHTML = '';
 paletteHost = null;
 colorItems = [];
@@ -2151,8 +2212,15 @@ chipsRow.appendChild(c);
 });
 renderSec(activeSec);
 if (secKey) renderSec(secKey);
+beautyDrawerApplyBottom();
 d.style.display = 'flex';
+watchBeautyDockPages();
+if (window.requestAnimationFrame) requestAnimationFrame(() => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
 };
+try {
+window.addEventListener('resize', () => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+} catch (e) {}
 const showThemePage = () => {
 try {
 document.querySelectorAll('.page').forEach(pg => pg.hidden = true);
@@ -6550,6 +6618,7 @@ if (!tapToOpen && e.target.closest('button')) return; // header 里的按钮不�
 if (e.pointerType === 'mouse' && e.button !== 0) return;
 drag = true; moved = false; sy = e.clientY;
 sb = parseFloat(panel.style.bottom) || bottomReserve();
+panel.style.transition = 'none'; // #1008：拖动期间关掉 bottom 过渡，保证跟手
 try { el.setPointerCapture(e.pointerId); } catch (er) {}
 e.preventDefault();
 });
@@ -6563,6 +6632,7 @@ applyAdjPos();
 const up = () => {
 if (!drag) return;
 drag = false;
+panel.style.transition = 'bottom .16s ease'; // #1008：松手恢复过渡（吸附/回自动位都是动画）
 if (tapToOpen && !moved) { setMini(false); return; } // 胶囊：点一下＝展开
 if (adjBottom != null && adjBottom <= bottomReserve() + 6) adjBottom = null; // 拖回自动位＝吸附复位
 applyAdjPos();
@@ -6591,7 +6661,7 @@ if (!silent) toast(ax.name + ' ' + (nv > 0 ? '+' : '') + nv + 'px');
 function buildPanel() {
 panel = document.createElement('div');
 panel.id = 'screen-adj-panel';
-panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px;transition:bottom .16s ease';
 const grip = document.createElement('div');
 grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
 panel.appendChild(grip);

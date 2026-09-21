@@ -2318,10 +2318,40 @@ try {
   // 所以这个坑只在真机暴露）。现改为底部抽屉：桌面完整留在上半屏，抽屉占下半屏、可折叠。
   // 同时按「颜色/尺寸/背景」分区补齐控件（原来只有 5 项：主题色/组件背景/边框/圆角/透明度，
   // 按钮色、按钮文字色、爱心色、图标圆角、字号、卡片大小、壁纸/模糊/遮罩全都没有）。
-  // FIX 2026-09-16 #562：边看边调面板可拖动/吸附（用户「还是会遮挡其他东西我看不见」）——
-  // 会话内记住拖到的纵向位置；null=贴底（默认）。放模块作用域不落盘：纯 UI 位置，避免与
-  // contacts.js 的根键迁移/EXCLUDE 清单打交道。
-  let beautyDockTop = null;
+  // FIX 2026-09-16 #562 / v8.29 #1008：边看边调面板可拖动/吸附（用户「还是会遮挡其他东西我看不见」）——
+  // 会话内记住拖到的纵向位置；null＝自动位（停在底部导航之上，同 #962 屏幕适配面板口径）。
+  // 放模块作用域不落盘：纯 UI 位置，避免与 contacts.js 的根键迁移/EXCLUDE 清单打交道。
+  // v8.29 #1008（用户直派「桌面美化的边看边调不能托标题行可上移」）：#562 当年只留下了
+  // beautyDockTop 这个声明、拖动实现从未落地（grip 一直是纯装饰的误导 affordance，聊天侧
+  // #760 的注释里已记过这笔）；本轮按聊天侧同一口径把三处抽屉补齐。同时默认位从贴底
+  // （bottom:0）改为「停在底部导航之上」——贴底时抽屉 z-index:95 压住 z-index:2 的底部导航，
+  // 开着它根本切不了页，而「边看边调」的全部意义就是带着去别的页面看现场。
+  let beautyDockBot = null;
+  function beautyDrawerReserve() {
+    try {
+      const tb = document.querySelector('.tabbar');
+      const t = tb && tb.getBoundingClientRect();
+      if (t && t.height && t.top > 0) return Math.max(14, Math.round(window.innerHeight - t.top + 8));
+    } catch (e) {}
+    return 14;
+  }
+  function beautyDrawerApplyBottom() {
+    const d = document.getElementById('beauty-drawer');
+    if (!d) return;
+    d.style.bottom = (beautyDockBot == null ? beautyDrawerReserve() : beautyDockBot) + 'px';
+  }
+  // v8.29 #1008：自动位要按「切页完成后的底部导航」量。openBeautyDrawer 会先切到桌面页，
+  // 而底部导航的显示是 tabs.js 的 syncChrome 在页面 hidden 观察器里补的——本函数在那一刻
+  // 量到的 tabbar 还是 hidden（0 高）⇒ 会把抽屉错放到贴底 14px（实测 verify-beauty-cta-first
+  // B2 当场红：clearsNav=false）。只读观察页面 hidden，切页落定后再量一次；rAF 兜首帧。
+  let beautyDockObs = null;
+  function watchBeautyDockPages() {
+    if (beautyDockObs || !('MutationObserver' in window)) return;
+    try {
+      beautyDockObs = new MutationObserver(function () { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+      document.querySelectorAll('.page').forEach(function (p) { beautyDockObs.observe(p, { attributes: true, attributeFilter: ['hidden'] }); });
+    } catch (e) { beautyDockObs = null; }
+  }
   // #769：可选 secKey＝直接打开指定分区（设置页「底部栏美化」行直达「底部栏」）；省略=停留上次分区
   const openBeautyDrawer = (secKey) => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -2347,7 +2377,10 @@ try {
       // FIX 2026-09-16 #562：面板改半透明（用户报「又不是半透明的页面，还是会遮挡其他东西我看不见」）——
       // 底色 72% 不透明 + 不透明度更高时保留原观感（color-mix 不支持的老内核回落上一句纯色，行为不变）；
       // 同时高度上限 44vh→40vh，给桌面留更多可视区。刻意不加 backdrop-filter：AGENTS 的 iOS 卡顿红线。
-      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+      // v8.29 #1008：加 transition:bottom——切页时自动位会在「底部导航留白」与「无导航 14px」
+      // 之间跳（实测设置页 90px → 聊天设置页 14px 一跳，旧实现 transition all 0s 硬切＝用户
+      // 看到的「瞬移/闪」）。拖动期间由 bindDrawerDrag 临时置 none，不影响跟手。
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;transition:bottom .16s ease;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
       d.innerHTML = '';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 0;flex:none';
@@ -2363,7 +2396,12 @@ try {
       hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
       const hdTxt = document.createElement('span');
       hdTxt.textContent = '边看边调（即时生效）';
-      hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:none';
+      // v8.29 #1008：标题行可拖动这件事此前三处抽屉都没有任何文字提示（用户原话「用户并不知道
+      // 有这个功能」）——提示固定挂在标题行里，点「收起」折叠正文区后仍然看得见。
+      const hdHint = document.createElement('span');
+      hdHint.textContent = '按住标题行上下拖 · 让开看桌面';
+      hdHint.style.cssText = 'font-size:11px;color:var(--muted,#888);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
       const panelBody = document.createElement('div');
       panelBody.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:none';
       const body = document.createElement('div');
@@ -2374,8 +2412,43 @@ try {
         foldBtn.textContent = willFold ? '展开' : '收起';
       });
       const closeBtn = mkMini('\u2715', () => { d.style.display = 'none'; showThemePage(); }, ';padding:4px 8px');
-      hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+      hd.appendChild(hdTxt); hd.appendChild(hdHint); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
       d.appendChild(hd);
+      // v8.29 #1008：grip 与标题行都可竖向拖动（用户「不能托标题行可上移」）。口径与聊天侧 #760
+      // 完全一致：pointer 事件 + setPointerCapture——不夺回控制权时触摸序列会被内核抢成滚动，
+      // 表现为「抖一下拖不动」；标题行里的按钮让行（否则点不动）；拖动期间关掉 bottom 过渡，
+      // 松手回自动位附近则吸附复位（null＝回「底部导航之上」）。
+      const bindDrawerDrag = (el) => {
+        el.style.touchAction = 'none';
+        el.style.cursor = 'grab';
+        let sy = 0, sb = 0, drag = false;
+        el.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('button')) return;
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          drag = true; sy = e.clientY;
+          sb = beautyDockBot == null ? beautyDrawerReserve() : beautyDockBot;
+          d.style.transition = 'none';
+          try { el.setPointerCapture(e.pointerId); } catch (er) {}
+          e.preventDefault();
+        });
+        el.addEventListener('pointermove', (e) => {
+          if (!drag) return;
+          beautyDockBot = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), Math.round(sb + sy - e.clientY)));
+          beautyDrawerApplyBottom();
+          e.preventDefault();
+        });
+        const up = () => {
+          if (!drag) return;
+          drag = false;
+          d.style.transition = 'bottom .16s ease';
+          if ((beautyDockBot || 0) <= beautyDrawerReserve() + 6) beautyDockBot = null; // 拖回自动位＝吸附复位
+          beautyDrawerApplyBottom();
+        };
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+      };
+      bindDrawerDrag(grip);
+      bindDrawerDrag(hd); // grip 只有 4px 高，标题行才是主拖拽把手
       const chipsRow = document.createElement('div');
       chipsRow.style.cssText = 'display:flex;gap:6px;flex:none';
       panelBody.appendChild(chipsRow);
@@ -2672,14 +2745,24 @@ try {
         } }
       ];
       let activeSec = 'color';
-      const renderSec = (key) => {
-        activeSec = key;
+      // v8.29 #1008：点亮态只在真变化时写（口径同 #938：先比对现状与目标，相等就别写）。
+      // 原实现每次 renderSec 都无条件写 3×N 个 style——实测重复点同一个分区会白写 24~30 次，
+      // 而「没变也在动」正是用户报的闪屏里可去掉的那一半。重建控件区的行为刻意保留：
+      // 点当前分区胶囊＝重画本区视图是既有刷新链路（verify-badge-tune D3 依赖它）。
+      const paintChips = (key) => {
         Array.prototype.forEach.call(chipsRow.children, c => {
           const on = c.dataset.sec === key;
-          c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
-          c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
-          c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+          const bg = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+          if (c.style.background !== bg) c.style.background = bg;
+          const fg = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+          if (c.style.color !== fg) c.style.color = fg;
+          const bd = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+          if (c.style.borderColor !== bd) c.style.borderColor = bd;
         });
+      };
+      const renderSec = (key) => {
+        activeSec = key;
+        paintChips(key);
         body.innerHTML = '';
         paletteHost = null;
         colorItems = [];
@@ -2696,8 +2779,21 @@ try {
       });
       renderSec(activeSec);
       if (secKey) renderSec(secKey);
+      // v8.29 #1008：先落位再显形——自动位＝停在底部导航之上（见 beautyDrawerReserve），
+      // 这样开着抽屉也能点到底部导航去别的页面看现场。
+      beautyDrawerApplyBottom();
       d.style.display = 'flex';
+      // 切页落定后（底部导航由 syncChrome 补显）再量一次自动位；rAF 兜首帧（观察器回调是
+      // 微任务、rAF 在绘制前跑，正常首次绘制就已是正确位置，不会看到一次跳动）。
+      watchBeautyDockPages();
+      if (window.requestAnimationFrame) requestAnimationFrame(() => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
   };
+  // v8.29 #1008：兜住「开着抽屉时转屏/改窗口尺寸」——自动位按当前底部导航高度重算；
+  // 用户拖过的位置（beautyDockBot != null）不动。
+  try {
+    window.addEventListener('resize', () => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (beautyDockBot == null) beautyDrawerApplyBottom(); });
+  } catch (e) {}
   // 回到「手机桌面美化」页（抽屉关闭/跳转用）。
   // 导航口径对齐 tabs.js 的 #row-appearance 处理：隐藏所有页 → 只显示 #page-theme，
   // 底部 tab 停在「设置」（page-theme 是 setting 的二级页，不单独占 tab）。
@@ -7895,6 +7991,10 @@ try {
       } catch (e) {}
       return gap;
     }
+    // v8.29 #1008：落位写入带短过渡（cssText 里的 transition:bottom .16s ease，拖动期间由
+    // bindAdjDrag 临时置 none）。切页时留白会在「底部导航留白」与「聊天输入栏留白 / 无导航
+    // 14px」之间跳——无头实测：设置页 bottom:90px 一跳 → 聊天设置页 bottom:14px（旧实现
+    // transition all 0s 硬切），76px 的瞬移就是用户报的「切换设置和设置美化还是会闪屏」。
     function applyAdjPos() { if (panel) panel.style.bottom = (adjBottom == null ? bottomReserve() : adjBottom) + 'px'; }
     function syncMiniLabel() {
       if (!panel) return;
@@ -7984,6 +8084,7 @@ try {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         drag = true; moved = false; sy = e.clientY;
         sb = parseFloat(panel.style.bottom) || bottomReserve();
+        panel.style.transition = 'none'; // #1008：拖动期间关掉 bottom 过渡，保证跟手
         try { el.setPointerCapture(e.pointerId); } catch (er) {}
         e.preventDefault();
       });
@@ -7997,6 +8098,7 @@ try {
       const up = () => {
         if (!drag) return;
         drag = false;
+        panel.style.transition = 'bottom .16s ease'; // #1008：松手恢复过渡（吸附/回自动位都是动画）
         if (tapToOpen && !moved) { setMini(false); return; } // 胶囊：点一下＝展开
         if (adjBottom != null && adjBottom <= bottomReserve() + 6) adjBottom = null; // 拖回自动位＝吸附复位
         applyAdjPos();
@@ -8027,7 +8129,7 @@ try {
       panel.id = 'screen-adj-panel';
       // #940：底色 72% 半透明（color-mix 不支持的老内核自动回落上一句纯色）＋高度 62vh→40vh，
       // 与边看边调抽屉同口径；刻意不加 backdrop-filter——AGENTS 的 iOS 卡顿红线。
-      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px';
+      panel.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 14px calc(14px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:6px;transition:bottom .16s ease';
       const grip = document.createElement('div');
       grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:7px auto 2px;flex:none';
       panel.appendChild(grip);

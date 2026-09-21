@@ -3349,7 +3349,7 @@
     // 观感与桌面抽屉逐字同款：贴底、40vh 上限、半透明底（不透明会把聊天页挡死，
     // #562 用户原话「又不是半透明的页面，还是会遮挡其他东西我看不见」）；刻意不加
     // backdrop-filter——AGENTS.md 的 iOS 卡顿红线。
-    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:95;max-height:40vh;transition:bottom .16s ease;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:16px 16px 0 0;overflow-y:auto;overflow-x:hidden;padding:0 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;display:flex;flex-direction:column;gap:8px';
     d.innerHTML = '';
     // #783：读回抽屉自身层级作为让位后的回正值（cssText 是唯一事实源，这里不复制数字）
     const csBaseZ = parseInt(getComputedStyle(d).zIndex, 10);
@@ -3369,7 +3369,13 @@
     hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none';
     const hdTxt = document.createElement('span');
     hdTxt.textContent = '边看边调（即时生效）';
-    hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:none';
+    // v8.29 #1008（用户直派「托标题行可上移移动功能位置，也需要写清楚，用户并不知道有这个功能」）：
+    // 拖动是 #760 就实现了的，但界面上一个字都没提——这里把提示固定挂在标题行里（点「收起」
+    // 折叠正文区后仍然看得见），并同步进设置页「功能说明」。
+    const hdHint = document.createElement('span');
+    hdHint.textContent = '按住标题行上下拖 · 让开看聊天';
+    hdHint.style.cssText = 'font-size:11px;color:var(--muted,#888);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     // #760：grip 小横条与标题行可竖向拖动（此前 grip 是纯装饰）。用 pointer 事件 +
     // setPointerCapture：桌面版 #660 的教训——不夺回控制权触摸序列会被内核抢成滚动，
     // 表现为「抖一下拖不动」。header 里的按钮不参与拖动（pointerdown 让行，否则点不动）。
@@ -3380,6 +3386,7 @@
         if (e.target.closest('button')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         drag = true; sy = e.clientY; sb = csBeautyDockBot || 0;
+        d.style.transition = 'none'; // #1008：拖动期间关掉 bottom 过渡，保证跟手
         try { el.setPointerCapture(e.pointerId); } catch (er) {}
         e.preventDefault();
       });
@@ -3392,6 +3399,7 @@
       const up = () => {
         if (!drag) return;
         drag = false;
+        d.style.transition = 'bottom .16s ease'; // #1008：松手恢复过渡（吸附回贴底也是动画）
         if ((csBeautyDockBot || 0) < 24) csBeautyDockBot = null; // 接近底部＝吸附回贴底
         csDrawerApplyBottom();
       };
@@ -3410,7 +3418,7 @@
       foldBtn.textContent = willFold ? '展开' : '收起';
     });
     const closeBtn = mkMini('\u2715', () => { csDrawerClose(); }, ';padding:6px 10px');
-    hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+    hd.appendChild(hdTxt); hd.appendChild(hdHint); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
     d.appendChild(hd);
     bindDockDrag(hd); // grip 只有 4px 高，标题行才是主拖拽把手
     const chipsRow = document.createElement('div');
@@ -3834,14 +3842,23 @@
         return wrap;
       } }
     ];
-    const renderSec = (key) => {
-      csDrawerSec = key;
+    const paintCsChips = (key) => {
       Array.prototype.forEach.call(chipsRow.children, c => {
         const on = c.dataset.sec === key;
-        c.style.background = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
-        c.style.color = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
-        c.style.borderColor = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+        const bg = on ? 'var(--ink,#111)' : 'var(--btn-cancel-bg,#fafafa)';
+        if (c.style.background !== bg) c.style.background = bg;
+        const fg = on ? 'var(--bg-b,#fff)' : 'var(--ink,#111)';
+        if (c.style.color !== fg) c.style.color = fg;
+        const bd = on ? 'var(--ink,#111)' : 'var(--card-border,#ddd)';
+        if (c.style.borderColor !== bd) c.style.borderColor = bd;
       });
+    };
+    const renderSec = (key) => {
+      // v8.29 #1008：点亮态只在真变化时写（口径同 #938：先比对，相等就别写）——原实现每次
+      // renderSec 都无条件写 3×N 个 style（实测重复点同一分区白写 24~30 次）。重建控件区的
+      // 行为刻意保留：点当前分区胶囊＝重画本区视图是既有刷新链路（verify-badge-tune D3 依赖）。
+      csDrawerSec = key;
+      paintCsChips(key);
       body.innerHTML = '';
       paletteHost = null;
       colorItems = [];
@@ -3894,7 +3911,7 @@
     b.style.cssText = 'display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:10px 12px 0;padding:11px 14px;border:1px solid var(--card-border,#ddd);border:1px solid color-mix(in srgb, var(--btn-bg,#111) 40%, var(--card-bg,#fff));border-radius:12px;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--btn-bg,#111) 10%, var(--card-bg,#fff));color:var(--btn-bg,#111);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0';
     b.innerHTML = '<span style="flex:1;min-width:0">' +
       '<span style="display:block;font-size:15px;font-weight:700;line-height:1.25">边看边调</span>' +
-      '<span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：聊天在上、控件在下，改哪看哪、即时生效</span>' +
+      '<span style="display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px">打开调色条：聊天在上、控件在下，改哪看哪、即时生效；标题行可按住往上拖让位</span>' +
       '</span><span style="flex:none;font-size:12px;font-weight:700;padding:7px 10px;border:1px solid var(--btn-bg,#111);border-radius:999px;background:var(--btn-bg,#111);color:var(--btn-ink,#fff);white-space:nowrap">点击开启 ›</span>';
     b.addEventListener('click', openChatBeautyDrawer);
     const first = sec.querySelector('.gs-title');
