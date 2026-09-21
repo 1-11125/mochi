@@ -209,6 +209,39 @@ let chatColdDone = true;         // 头块是否已全部取回
 let chatColdHydrating = false;
 let chatRebased = false;         // 冷头是否已并入 msgs（此后内存=全量）
 let chatHotBaseN = 0;            // 热片装载时的条数（#722 分块格式下账本守卫的比对基准）
+const chatHotCache = {};
+const CHAT_HOT_CACHE_TTL = 10 * 60 * 1000;
+const CHAT_HOT_CACHE_MAX = 12;
+function chatHotCacheGet(k) {
+const e = chatHotCache[k];
+if (!e || (Date.now() - e.at) > CHAT_HOT_CACHE_TTL) return undefined;
+return e.v;
+}
+function chatHotCacheSet(k, v) {
+try {
+chatHotCache[k] = { v: v, at: Date.now() };
+const ks = Object.keys(chatHotCache);
+if (ks.length > CHAT_HOT_CACHE_MAX) {
+ks.sort(function (a, b) { return chatHotCache[a].at - chatHotCache[b].at; });
+for (let i = 0; i < ks.length - CHAT_HOT_CACHE_MAX; i++) delete chatHotCache[ks[i]];
+}
+} catch (e) {}
+}
+function chatHotCacheDropPrefix(prefix) {
+try { Object.keys(chatHotCache).forEach(function (k) { if (k.indexOf(prefix + ':chat-blk-') === 0) delete chatHotCache[k]; }); } catch (e) {}
+}
+function chatHotCacheDropAll() {
+try { Object.keys(chatHotCache).forEach(function (k) { delete chatHotCache[k]; }); } catch (e) {}
+}
+function chatHotCacheSyncLive(prefix, blocks) {
+try {
+const live = {}; (blocks || []).forEach(function (b) { live[b.k] = 1; });
+Object.keys(chatHotCache).forEach(function (k) {
+if (k.indexOf(prefix + ':chat-blk-') !== 0 || k === prefix + ':chat-blk-idx') return;
+if (!live[k.slice(prefix.length + 1)]) delete chatHotCache[k]; // #954：死块缓存随写清除
+});
+} catch (e) {}
+}
 function chatBlkResetState() {
 chatBlkIdx = null; chatBlkTotal = 0; chatHotFrom = 0; chatHotBaseN = 0;
 chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatColdHydrating = false; chatRebased = false;
@@ -238,13 +271,17 @@ chunks.forEach(function (c) {
 const k = 'chat-blk-' + (s++);
 const a = c;
 p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+chatHotCacheSet(prefix + ':' + k, a); // #954w 块写成功即更新缓存＝下次读永远拿到刚写的
 blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
 });
 });
 p = p.then(function () {
 const idx = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
-return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx)).then(function (ok) {
+const idxStrW = JSON.stringify(idx); // #954
+return window.idbSet(prefix + ':chat-blk-idx', idxStrW).then(function (ok) {
 if (ok === false) throw new Error('idx-write-fail');
+chatHotCacheSet(prefix + ':chat-blk-idx', idxStrW); // #954w
+chatHotCacheSyncLive(prefix, blocks); // #954w 死块缓存随写清除
 chatBlkIdx = idx; chatBlkTotal = arr.length;
 chatHotFrom = Math.max(0, blocks.length - 1);
 chatColdHead = []; chatColdFrom = 0; chatColdDone = true; chatRebased = false;
@@ -279,13 +316,17 @@ const k = 'chat-blk-' + (s++);
 const a = c;
 newKeys.push(k);
 p = p.then(function () { return persistMsgsToIdb(prefix + ':' + k, a); }).then(function () {
+chatHotCacheSet(prefix + ':' + k, a); // #954t 尾块写成功即更新缓存
 blocks.push({ k: k, bytes: msgsBytes(a), n: a.length });
 });
 });
 p = p.then(function () {
 const idx2 = { v: 1, blocks: blocks, total: arr.length, nextSeq: s };
-return window.idbSet(prefix + ':chat-blk-idx', JSON.stringify(idx2)).then(function (ok) {
+const idxStrT = JSON.stringify(idx2); // #954
+return window.idbSet(prefix + ':chat-blk-idx', idxStrT).then(function (ok) {
 if (ok === false) throw new Error('idx-write-fail');
+chatHotCacheSet(prefix + ':chat-blk-idx', idxStrT); // #954t
+chatHotCacheSyncLive(prefix, blocks); // #954t 死块缓存随写清除
 chatBlkIdx = idx2; chatBlkTotal = arr.length;
 chatHotFrom = head.length;
 const live = {}; blocks.forEach(function (b) { live[b.k] = 1; });
@@ -300,6 +341,7 @@ if (chatBlkPending) { const a = chatBlkPending; chatBlkPending = null; chatBlkRe
 }
 function chatBlkPurgePrefix(prefix) {
 try {
+chatHotCacheDropPrefix(prefix); // #954：清空/导入＝热片缓存整前缀作废
 if (chatBlkIdx && Array.isArray(chatBlkIdx.blocks) && window.idbDelete) {
 chatBlkIdx.blocks.forEach(function (b) { try { window.idbDelete(prefix + ':' + b.k); } catch (e) {} });
 }
@@ -313,7 +355,7 @@ if (typeof k === 'string' && k.indexOf(prefix + ':chat-blk-') === 0) { try { win
 }
 } catch (e) {}
 }
-function chatBlkHotLoad(prefix, idxRaw) {
+function chatBlkHotLoad(prefix, idxRaw, noCache) {
 const idx = JSON.parse(idxRaw);
 if (!idx || !Array.isArray(idx.blocks) || !idx.blocks.length) return Promise.resolve(null);
 chatBlkIdx = idx; chatBlkTotal = idx.total || 0;
@@ -331,7 +373,11 @@ const parts = [];
 hotKeys.forEach(function (k, ki) {
 const bytes = (chatBlkIdx && chatBlkIdx.blocks[chatHotFrom + ki] && chatBlkIdx.blocks[chatHotFrom + ki].bytes) || 1048576;
 const hint = { minWaitMs: 4000 + Math.min(28000, Math.ceil((bytes || 1048576) / 1048576) * 2000) };
-p = p.then(function () { return window.idbGet(prefix + ':' + k, hint); }).then(function (v) { parts.push(v); });
+p = p.then(function () {
+const fk = prefix + ':' + k;
+if (!noCache) { const cv = chatHotCacheGet(fk); if (cv !== undefined) return cv; } // #954：热块缓存命中＝零 IDB 等待
+return window.idbGet(fk, hint).then(function (v) { if (v !== undefined && v !== null) chatHotCacheSet(fk, v); return v; }); // #954：真读成功回填缓存（块值数组/字符串双形态都驻留，读侧本就双形态兼容）
+}).then(function (v) { parts.push(v); });
 });
 return p.then(function () {
 if (window.activePrefix() !== prefix) return null;
@@ -1327,10 +1373,16 @@ try {
 const lb = chatLedgerBytes[myPrefix];
 if (typeof lb === 'number' && lb > 2 * 1024 * 1024) bigReadMs = 4000 + Math.min(28000, Math.ceil(lb / 1048576) * 2000);
 } catch (e0) {}
-window.idbGet(myPrefix + ':chat-blk-idx').then(function (bidxRaw) {
+let bidxP = null;
+if (!forceIdb) { const ci954 = chatHotCacheGet(myPrefix + ':chat-blk-idx'); if (typeof ci954 === 'string') bidxP = Promise.resolve(ci954); } // #954：索引缓存命中
+if (!bidxP) bidxP = window.idbGet(myPrefix + ':chat-blk-idx').then(function (raw954) {
+if (raw954 && typeof raw954 === 'string' && raw954.indexOf('"v"') >= 0) chatHotCacheSet(myPrefix + ':chat-blk-idx', raw954); // #954：索引真读成功回填缓存
+return raw954;
+});
+bidxP.then(function (bidxRaw) {
 if (window.activePrefix() !== myPrefix) return null;
 if (bidxRaw && typeof bidxRaw === 'string' && bidxRaw.indexOf('"v"') >= 0) {
-return chatBlkHotLoad(myPrefix, bidxRaw);
+return chatBlkHotLoad(myPrefix, bidxRaw, !!forceIdb);
 }
 return window.idbGet(myPrefix + ':chat-msgs', bigReadMs > 4000 ? { minWaitMs: bigReadMs } : undefined);
 }).then(v => {
@@ -1769,6 +1821,7 @@ fillAvatar('chat-partner-av', 'cs-avatar-partner');
 try {
 document.addEventListener('mochi-restore-done', function () {
 try {
+chatHotCacheDropAll(); // #954：备份恢复整库重写＝热片缓存全作废（随后 forceIdb 直读重建）
 chatPrefetchIfLight(function () { loadMsgs(true); });
 if (chatVisible() && chatNearBottom() && body && msgs.length) {
 if (!inplacePatchIfSameWindow()) {

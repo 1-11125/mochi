@@ -49,7 +49,7 @@ const buildStamp = buildTime.getTime().toString(36); // sw 缓存名版本号（
 // 每提交 10 次 +0.1（258 → v8.25，260 → v8.26，300 → v8.30）。
 // SW 缓存刷新依赖的是上面的 buildStamp（每次构建必变），与 APP_VERSION 无关。
 // 非 git 环境（脚本被拷贝/CI 无 git）回退 v8.0 兜底。
-let APP_VERSION = 'v8.0';
+let APP_VERSION = 'v8.28'; // 仓外隔离副本兜底直置（主树 execSync 自动取）
 try {
   const cnt = execSync('git rev-list --count HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v8.' + Math.floor(parseInt(cnt, 10) / 10);
@@ -1769,7 +1769,7 @@ const FIX_SENTINELS = [
   { name: '#720d addRec 超限钳位走静默裁顶（#846 起；改回整窗重建则「发完消息屏幕闪一下」复发）', file: 'js/chat.js', needle: 'trimWindowTopQuiet(RENDER_MAX);' },
   { name: '#721a LS 残留补扫失败重试闸（删回一次闩到底则存储繁忙那轮没清掉的残留整会话不再清＝用户诊断单里 207KB 跨会话存活形态）', file: 'js/idb.js', needle: 'if (_lsSweepFail && _lsSweepTries < 2) {' },
   { name: '#721b 追平写失败计数（删则写失败静默当成功、重试闸永不触发）', file: 'js/idb.js', needle: 'const markFail = function () { _lsSweepFail = true; };' },
-  { name: '#722a 分块格式门（blk-idx 在位只读热片，删回整读 41MB＝冷进聊天数秒卡顿回归）', file: 'js/chat.js', needle: "return chatBlkHotLoad(myPrefix, bidxRaw);" },
+  { name: '#722a 分块格式门（blk-idx 在位只读热片，删回整读 41MB＝冷进聊天数秒卡顿回归）', file: 'js/chat.js', needle: "return chatBlkHotLoad(myPrefix, bidxRaw, !!forceIdb);" },
   { name: '#722b 大历史读成功后台分块迁移（删则存量 41MB 桌面永远停在旧整包格式＝懒读不生效）', file: 'js/chat.js', needle: 'if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {' },
   { name: '#722c 分块写路径分流（删回 forceFull 整组重写＝每次落盘 41MB 写放大回归）', file: 'js/chat.js', needle: 'chatBlkRewriteTail(prefix, arr); // 热片对齐尾部块重写' },
   { name: '#722d 账本守卫分块感知（删回拿全量条数比热片内存＝每次保存被缩水守卫拦死＝消息永不落盘）', file: 'js/chat.js', needle: 'if (chatBlkIdx && typeof chatHotBaseN === ' },
@@ -4006,7 +4006,16 @@ const FIX_SENTINELS = [
   { name: '#952a 同桌面读库链在飞去重闸（删＝contact-switched 预读与 enterChat 并发跑两条完整权威链：热片读+解析+合并+整窗重建全 ×2，主线程打满后 IDB 回调饿死→超时→重试恶性循环＝进度条反复挂起）', file: 'js/chat.js', needle: 'if (!forceIdb && _lmChainBusy === myPrefix && Date.now() < _lmChainBusyUntil) return;' },
   { name: '#952b 读库链成功收尾清在飞标记（删＝首个桌面加载后 12s 墙内其它 loadMsgs 全被吞）', file: 'js/chat.js', needle: '_lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs' },
   { name: '#952c 重试走 forceIdb 绕过去重（删＝读库真失败的 5s 重试被在飞闸吞掉＝真挂死）', file: 'js/chat.js', needle: 'try { loadMsgs(true); } catch (e) {} // #952：重试必须真读＝forceIdb 绕过读库链在飞去重闸' },
-  // ===== #953 梦角自由造句句尾标点收口（用户实报「梦角自由造句没有使用标点符号」）：各手法要么剥掉尾标点、要么只在词间插逗号/空格，出句清一色无句尾标点；在 dreamFreePick 收口统一补 END_PUNCT_POOL（句尾已有标点原样保留）=====
+  // ===== #954 聊天热片会话缓存：第二次进同一桌面零 IDB 等待（切桌面回来/退出重进从真读 2MB×N 变内存直取；写侧同步回填＋死块随手清＋purge/restore 全作废＋forceIdb 绕过）=====
+  { name: "#954a 热块读缓存命中（删＝每次进聊天都真读热块＝切桌面回来白等 2MB×N 反序列化）", file: "js/chat.js", needle: "if (!noCache) { const cv = chatHotCacheGet(fk); if (cv !== undefined) return cv; } // #954：热块缓存命中＝零 IDB 等待" },
+  { name: "#954b blk-idx 读缓存命中（删＝索引每次真读，热块命中也被索引读串行拖住）", file: "js/chat.js", needle: "bidxP = Promise.resolve(ci954); } // #954：索引缓存命中" },
+  { name: "#954c 全量重分块块写回填（删＝写后缓存留旧值＝发消息后切回来看到旧历史）", file: "js/chat.js", needle: "chatHotCacheSet(prefix + ':' + k, a); // #954w 块写成功即更新缓存＝下次读永远拿到刚写的" },
+  { name: "#954d 尾部重写块写回填（删＝同上，聊天页编辑/归一化路径写后读旧）", file: "js/chat.js", needle: "chatHotCacheSet(prefix + ':' + k, a); // #954t 尾块写成功即更新缓存" },
+  { name: "#954e 清空/导入整前缀作废（删＝清空历史后 blk-idx 缓存复活旧索引＝已删记录复活）", file: "js/chat.js", needle: "chatHotCacheDropPrefix(prefix); // #954：清空/导入＝热片缓存整前缀作废" },
+  { name: "#954f 备份恢复全表作废（删＝恢复整库重写后缓存遮蔽新库＝导入的数据不显示）", file: "js/chat.js", needle: "chatHotCacheDropAll(); // #954：备份恢复整库重写＝热片缓存全作废（随后 forceIdb 直读重建）" },
+  { name: "#954g 死块缓存随写清除逻辑（删＝重分块死块挤爆 LRU 把活热块逐出＝切回来又真读＝缓存白做）", file: "js/chat.js", needle: "if (!live[k.slice(prefix.length + 1)]) delete chatHotCache[k]; // #954：死块缓存随写清除" },
+  { name: "#954h 全量重分块收尾清死块（删＝同上，chatBlkWriteFull 路径）", file: "js/chat.js", needle: "chatHotCacheSyncLive(prefix, blocks); // #954w 死块缓存随写清除" },
+  { name: "#954i 尾部重写收尾清死块（删＝同上，chatBlkRewriteTail 路径）", file: "js/chat.js", needle: "chatHotCacheSyncLive(prefix, blocks); // #954t 死块缓存随写清除" },  // ===== #953 梦角自由造句句尾标点收口（用户实报「梦角自由造句没有使用标点符号」）：各手法要么剥掉尾标点、要么只在词间插逗号/空格，出句清一色无句尾标点；在 dreamFreePick 收口统一补 END_PUNCT_POOL（句尾已有标点原样保留）=====
   { name: '#953 造句句尾标点池在位（删＝出句无句尾标点复发，用户点名）', file: 'js/dream-free.js', needle: "const END_PUNCT_POOL = ['。', '。', '。', '~', '！', '……'];" },
 ];
 try {
