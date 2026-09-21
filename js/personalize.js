@@ -2220,13 +2220,13 @@ const KW = {
 '应用锁': '密码 锁 隐私',
 '开屏问答门': '问答 暗号 验证 提问',
 '手机布局': '布局 适配 模式',
-'离线消息提醒': '通知 推送 通知提醒 新消息',
+'离线消息提醒': '通知 推送 通知提醒 新消息 安卓 电脑 主屏幕 iPhone Chrome Edge',
 '使用说明': '教程 帮助 常见问题 安装',
 '导出数据': '备份 保存 导出',
 '导入数据': '恢复 还原 迁移 换机',
 '修改摸鱼天数': '恢复 找回 补回 归零 重来 已摸鱼',
 '设备兼容诊断': '诊断 兼容 报错 环境',
-'顶部避让修正': '安全区 白带 重叠 刘海',
+'顶部避让修正': '安全区 白带 重叠 刘海 添加到主屏幕 独立应用 电脑',
 '屏幕适配诊断': '适配 屏幕 空白 裁切',
 '屏幕适配微调': '微调 字号 文字大小 放大 变小 偏移 遮挡 裁切 留白 白带 状态栏 手势条 屏幕错位 位置',
 '功能诊断': '检测 测试',
@@ -3631,22 +3631,32 @@ tabs.forEach(t => { t.classList.toggle('active', t.dataset.tab === name); });
 tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
 show(tabs[0] ? tabs[0].dataset.tab : 'basic');
 })();
-(function initPlatTags() {
+(function initUseMark() {
 const page = document.getElementById('page-setting');
 if (!page) return;
-const tags = page.querySelectorAll('.plat-tag[data-plat]');
-if (!tags.length) return;
 const d = window.mochiDevice || {};
-const ALT = {
-'bg-notify': { text: '本机是 iPhone：网页拿不到系统通知，请改用应用内横幅「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
-'psync-en': { text: '本机是 iPhone：离线消息提醒只有安卓 Chrome / Edge 可用，请改用「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
-'safe-top-force': { text: '本机是安卓：本项只修 iPhone 顶部状态栏重叠；安卓要调顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' }
+const isIOS = function () { return d.isIOS === true; };
+const hasNotify = function () { try { return 'Notification' in window; } catch (e) { return false; } };
+const isIosStandalone = function () {
+if (!isIOS()) return false;
+if (document.documentElement.classList.contains('ios-pwa-standalone')) return true;
+try {
+return navigator.standalone === true ||
+!!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+} catch (e) { return false; }
 };
-function offPlatform(plat) {
-if (plat === 'android') return d.isIOS === true;
-if (plat === 'ios') return d.isAndroid === true;
-return false;
-}
+const RULES = [
+{ input: 'bg-notify', off: function () {
+if (isIOS()) return { text: '本机是 iPhone / iPad：网页拿不到系统通知（添加到主屏幕也不保证），请改用应用内横幅「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' };
+if (!hasNotify()) return { text: '本机浏览器没有通知能力（小米 / vivo / OPPO 等自带浏览器、UC、夸克常见如此）：请改用 Chrome / Edge 打开本站，安卓或电脑都行。' };
+return null;
+} },
+{ input: 'safe-top-force', off: function () {
+if (isIosStandalone()) return null; // 本机就是它要修的形态
+if (isIOS()) return { text: '本项只在「添加到主屏幕」后打开（独立应用形态）才生效：浏览器里直接打开时开关无效果，顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' };
+return { text: '本项只修 iPhone / iPad 独立应用形态的顶部避让（安卓没有这个形态）：安卓要调顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' };
+} }
+];
 function jumpTo(sel) {
 const target = document.querySelector(sel);
 if (!target) return;
@@ -3665,14 +3675,15 @@ try { row.scrollIntoView({ block: 'center' }); } catch (e) {}
 row.classList.add('plat-flash');
 setTimeout(function () { row.classList.remove('plat-flash'); }, 1500);
 }
-Array.prototype.forEach.call(tags, function (tag) {
-if (!offPlatform(tag.getAttribute('data-plat'))) return;
-const row = tag.closest('.set-row, .gs-row');
+RULES.forEach(function (rule) {
+const inp = document.getElementById(rule.input);
+if (!inp) return;
+const row = inp.closest('.set-row, .gs-row');
 if (!row) return;
-row.classList.add('plat-off');
-const inp = row.querySelector('input[type="checkbox"]');
-const alt = ALT[(inp && inp.id) || ''];
+let alt = null;
+try { alt = rule.off(); } catch (e) { alt = null; }
 if (!alt) return;
+row.classList.add('plat-off');
 const hint = document.createElement('div');
 hint.className = 'gs-sub plat-hint';
 hint.textContent = alt.text;
@@ -3687,10 +3698,7 @@ go.addEventListener('click', fire);
 go.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') fire(e); });
 hint.appendChild(go);
 }
-let anchor = row;
-while (anchor.nextElementSibling && anchor.nextElementSibling.classList &&
-anchor.nextElementSibling.classList.contains('gs-sub')) anchor = anchor.nextElementSibling;
-if (anchor.parentNode) anchor.parentNode.insertBefore(hint, anchor.nextSibling);
+if (row.parentNode) row.parentNode.insertBefore(hint, row.nextSibling);
 });
 })();
 (function initGuideNav() {

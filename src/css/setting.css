@@ -165,22 +165,14 @@
 .gs-row .tag:hover, .gs-row .tag:focus-visible { background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.12); outline:none; }
 [data-theme="dark"] .gs-row .tag { color:#aaa; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.06); }
 [data-theme="dark"] .gs-row .tag:hover, [data-theme="dark"] .gs-row .tag:focus-visible { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
-/* v8.29：设置页平台标记（.plat-tag「仅安卓 / 仅 iPhone」）与「非本机平台」弱化。
-   平台标记故意不复用 .tag：settings-help.js 注入「功能说明」前会跳过行内已有 .tag 的行
-   （label.querySelector('.tag') 命中即 return），复用会让那几行的「功能说明」胶囊整条消失。
-   .plat-off 只弱化标签不 disabled 开关——device.js 的平台判定有 UA 伪装失手面（OPPO/Via
-   伪装 iPhone、桌面版网站模式），识别失手的用户必须仍能点到这个开关。 */
-.set-row .txt .plat-tag {
-  display:inline-block; margin:5px 0 0 6px; font-size:10.5px; font-weight:700; letter-spacing:.3px;
-  line-height:1.4; padding:2px 8px; border-radius:9px; white-space:nowrap;
-  color:#2f6fd0; border:1px solid rgba(47,111,208,.35); background:rgba(47,111,208,.1);
-}
-.gs-row .plat-tag {
-  display:inline-block; flex:none; font-size:10.5px; font-weight:700; letter-spacing:.3px;
-  line-height:1.4; padding:2px 8px; border-radius:9px; white-space:nowrap;
-  color:#2f6fd0; border:1px solid rgba(47,111,208,.35); background:rgba(47,111,208,.1);
-}
-[data-theme="dark"] .set-row .txt .plat-tag, [data-theme="dark"] .gs-row .plat-tag { color:#8ab4f8; border-color:rgba(138,180,248,.35); background:rgba(138,180,248,.12); }
+/* v8.29 #978：设置页「本机能不能用」的变灰与替代指引。原 #964 的静态平台胶囊（「仅安卓」/
+   「仅 iPhone」）已撤除——那三条胶囊的真实前提都不是手机系统（后台通知＝Chromium 内核 +
+   https + 通知权限；离线消息提醒＝Chromium + 添加到主屏幕；顶部避让修正＝添加到主屏幕的独立
+   应用形态），静态标平台两个方向都会误导：桌面 Chromium 用户被「仅安卓」劝退（其实能用），
+   iPhone 浏览器形态的用户被「仅 iPhone」叫去开一个空开关。现在只保留「本机不满足条件 →
+   变灰 + 给替代入口」，判定在 personalize.js 的 initUseMark。.plat-off 只变灰、绝不 disabled
+   开关——device.js 的平台 / 形态判定都有失手面（OPPO/Via 伪装 iPhone、桌面版网站模式），
+   识别失手的用户必须仍能点到这个开关。 */
 .set-row.plat-off .txt, .gs-row.plat-off > span { opacity:.6; }
 .plat-hint .plat-go {
   display:inline-block; margin-left:6px; padding:2px 9px; border-radius:9px; font-weight:700;

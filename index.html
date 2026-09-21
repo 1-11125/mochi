@@ -7832,17 +7832,6 @@ cursor:pointer; line-height:1.4; white-space:nowrap;
 .gs-row .tag:hover, .gs-row .tag:focus-visible { background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.12); outline:none; }
 [data-theme="dark"] .gs-row .tag { color:#aaa; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.06); }
 [data-theme="dark"] .gs-row .tag:hover, [data-theme="dark"] .gs-row .tag:focus-visible { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
-.set-row .txt .plat-tag {
-display:inline-block; margin:5px 0 0 6px; font-size:10.5px; font-weight:700; letter-spacing:.3px;
-line-height:1.4; padding:2px 8px; border-radius:9px; white-space:nowrap;
-color:#2f6fd0; border:1px solid rgba(47,111,208,.35); background:rgba(47,111,208,.1);
-}
-.gs-row .plat-tag {
-display:inline-block; flex:none; font-size:10.5px; font-weight:700; letter-spacing:.3px;
-line-height:1.4; padding:2px 8px; border-radius:9px; white-space:nowrap;
-color:#2f6fd0; border:1px solid rgba(47,111,208,.35); background:rgba(47,111,208,.1);
-}
-[data-theme="dark"] .set-row .txt .plat-tag, [data-theme="dark"] .gs-row .plat-tag { color:#8ab4f8; border-color:rgba(138,180,248,.35); background:rgba(138,180,248,.12); }
 .set-row.plat-off .txt, .gs-row.plat-off > span { opacity:.6; }
 .plat-hint .plat-go {
 display:inline-block; margin-left:6px; padding:2px 9px; border-radius:9px; font-weight:700;
@@ -10435,9 +10424,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789995950539">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789996339162">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 21:05<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 21:12<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11727,10 +11716,10 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              需重新关掉网页打开并重新打开功能；别的 App 刷视频/听音乐会占用音频截断保活，也要写清楚」）。
              红色视觉复用 #961 红条族；完整口径见本组「功能说明」胶囊与 使用说明 第 10 节 -->
         <div class="gs-sub dict-lock-hint" id="bg-keep-sub">⚠️ <b>两条必知限制（手机/浏览器限制，不是故障）</b>：① <b>别的 App 刷视频、听音乐会把保活截断</b>——它们占用手机音频通道，保活音频被暂停＝保活失效，回到本页才自动恢复，截断期间后台消息收不到；② <b>后台挂久了会失效</b>——系统省电/内存策略会把挂久的页面冻结甚至丢弃重载（Edge「睡眠标签页」/Chrome「内存节省程序」约 30 分钟），<b>失效后请彻底关闭网页重新打开，再把「后台保活」「后台弹窗」开关重新打开</b>。</div>
-        <div class="gs-row"><span style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;"><span>后台通知</span><span class="plat-tag" data-plat="android">仅安卓</span></span><label class="toggle"><input type="checkbox" id="bg-notify"><span class="tk"></span></label><button class="bg-notify-test" id="bg-notify-test">测试</button></div>
+        <div class="gs-row"><span>后台通知</span><label class="toggle"><input type="checkbox" id="bg-notify"><span class="tk"></span></label><button class="bg-notify-test" id="bg-notify-test">测试</button></div>
         <!-- v3.26.x：后台弹窗使用说明——要点直接铺在行下（用户直派「后台弹窗要有使用说明、详细说清楚」），
              完整步骤见本行「功能说明」胶囊（settings-help.js #bg-notify）与 使用说明 → 第 10 节 -->
-        <div class="gs-sub" id="bg-notify-sub"><b>后台弹窗＝页面切到后台（锁屏 / 切到别的应用）时，TA 发消息用系统通知弹横幅。</b>必备：① 安卓 Chrome / Edge 且 https 打开；② 允许通知权限（地址栏左侧图标 → 网站设置 → 通知）；③ 本开关（会自动开启「后台保活」——后台不产生消息就无从弹起）；④ 系统设置里给浏览器允许通知、且不限制其后台运行/省电（小米 / 红米还要开「在屏幕上方显示 / 悬浮通知」）。<b>iPhone 的网页拿不到系统通知，本开关在 iPhone 上无效</b>，请用「桌面消息弹窗」的应用内横幅。点本行「功能说明」看完整步骤与「收不到」的排查，点右侧「测试」可一键体检。<b>⚠ 后台弹窗跟着保活一起：保活被截断/页面被丢弃＝后台弹窗一起停摆</b>（别的 App 刷视频、听歌占用音频；挂后台太久被系统冻结——见上方红字）；失效后彻底关闭网页重新打开，再把两个开关重新打开。</div>
+        <div class="gs-sub" id="bg-notify-sub"><b>后台弹窗＝页面切到后台（锁屏 / 切到别的应用）时，TA 发消息用系统通知弹横幅。</b>必备：① 安卓或电脑上的 Chrome / Edge（Chromium 内核）且 https 打开——小米 / vivo / OPPO 自带浏览器、UC、夸克这些没有通知能力，开不起来；② 允许通知权限（地址栏左侧图标 → 网站设置 → 通知）；③ 本开关（会自动开启「后台保活」——后台不产生消息就无从弹起）；④ 系统设置里给浏览器允许通知、且不限制其后台运行/省电（小米 / 红米还要开「在屏幕上方显示 / 悬浮通知」）。<b>iPhone / iPad 的网页拿不到系统通知（添加到主屏幕也不保证），本开关在 iPhone / iPad 上无效</b>，请用「桌面消息弹窗」的应用内横幅。点本行「功能说明」看完整步骤与「收不到」的排查，点右侧「测试」可一键体检。<b>⚠ 后台弹窗跟着保活一起：保活被截断/页面被丢弃＝后台弹窗一起停摆</b>（别的 App 刷视频、听歌占用音频；挂后台太久被系统冻结——见上方红字）；失效后彻底关闭网页重新打开，再把两个开关重新打开。</div>
         <!-- FIX 2026-09-20 #927：本段的「全屏模式（隐藏手机状态栏）」行（#sf-fullscreen 及其说明小字）已整体搬到
              「通用」段首位独立成组（用户点名要放最前面显眼处）；本段只留下方「全屏边缘防误触」等配套开关。 -->
         <!-- v3.26.x：布局手动兜底——浏览器「桌面版网站」模式会把 UA / screen / 触摸能力 /
@@ -11749,10 +11738,12 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <!-- v3.5.104：桌面消息弹窗开关（独立设置项）——非聊天页时 TA 新消息在桌面顶部弹横幅 -->
         <div class="gs-row"><span>桌面消息弹窗</span><label class="toggle"><input type="checkbox" id="desk-msg-en"><span class="tk"></span></label></div>
         <!-- v3.15.x：离线消息提醒（Periodic Background Sync）——页面全关后浏览器定期唤醒
-             Service Worker，用本地快照弹一条 TA 的消息（零后端）；仅安卓 Chromium 且
-             添加到桌面后生效，调度频率由系统决定；状态见下方说明行 -->
+             Service Worker，用本地快照弹一条 TA 的消息（零后端）；门槛是 Chromium 内核
+             （安卓 / 电脑的 Chrome、Edge，不是「安卓」这个系统）且添加到桌面后生效，
+             调度频率由系统决定；状态见下方说明行（#978 撤掉了静态「仅安卓」胶囊：
+             桌面版 Chrome 同样可用，而安卓自带浏览器多数没有这个能力） -->
         <div class="set-row">
-          <div class="txt">离线消息提醒<span class="tag" id="psync-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span><span class="plat-tag" data-plat="android">仅安卓</span></div>
+          <div class="txt">离线消息提醒<span class="tag" id="psync-help" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></div>
           <label class="toggle"><input type="checkbox" id="psync-en"><span class="tk"></span></label>
         </div>
         <div class="gs-row" style="display:block"><span id="psync-status" style="font-size:11px;color:var(--muted,#999);line-height:1.5;white-space:normal">…</span></div>
@@ -11850,9 +11841,12 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              （顶部空白/双倍避让/底部裁切/缩放异常），device.js 采集+自动判定 -->
         <!-- v3.26.x #185：顶部避让修正——「系统保留/覆盖」两形态 JS 无法区分（信号相同），
              不同机型各属其一：开启=声明本机为覆盖形态（恢复 env 顶部避让+全屏高度含 env），
-             修「Mochi 行与系统时间重叠」；默认关=系统保留形态（修「底部白带」）。 -->
+             修「Mochi 行与系统时间重叠」；默认关=系统保留形态（修「底部白带」）。
+             #978：本项真实门槛是「添加到主屏幕后的独立应用形态」（执行器 forceCover 的
+             standalone 就是 ios-pwa-standalone 类），不是「iPhone」这个平台——iPhone 用
+             Safari 直接打开时开关同样无效，故撤掉静态「仅 iPhone」胶囊，改由 JS 按形态提示。 -->
         <div class="set-row">
-          <div class="txt">顶部避让修正<span class="plat-tag" data-plat="ios">仅 iPhone</span><span class="sub">顶部 Mochi 行与手机时间重叠时建议开启；底部出现白带时关闭（改后自动刷新）</span></div>
+          <div class="txt">顶部避让修正<span class="sub">只在「添加到主屏幕」后打开（iPhone / iPad 独立应用形态）才有意义；顶部 Mochi 行与手机时间重叠时建议开启，底部出现白带时关闭（改后自动刷新）。浏览器里直接打开时本开关无效果，安卓请用「屏幕适配微调」</span></div>
           <label class="toggle"><input type="checkbox" id="safe-top-force"><span class="tk"></span></label>
         </div>
         <!-- v3.27.x #764：原「屏幕位置设置」行（#707）已合并升级为工具区首位的「屏幕适配微调」独立组，本组只留诊断两行 -->
@@ -13049,7 +13043,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>全屏会掉</b>：切到后台再切回、或在浏览器里切换页面，全屏会失效，需手动重新打开。</div>
               <div class="lic-li"><b>方向</b>：iOS 不支持屏幕方向锁定，不会自动锁竖屏，也不会纠正横屏（iPad 横屏是正常姿势，布局会自适应）。</div>
               <div class="lic-li"><b>声音</b>：iOS 要求先与页面互动（点 / 滑一下）才允许播放有声内容，本站已在首次点击时自动解锁；如果全程没有任何操作，定时触发的来电铃声 / 消息音效可能不响。</div>
-              <div class="lic-li"><b>系统通知</b>：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓 Chrome / Edge 且添加到桌面后可用，iPhone 不支持。</div>
+              <div class="lic-li"><b>系统通知</b>：iPhone 浏览器内不支持系统通知；「离线消息提醒」（页面全部关闭后仍能收到 TA 的消息）只在安卓或电脑上的 Chrome / Edge 且添加到桌面后可用，iPhone / iPad 不支持。</div>
               <div class="lic-li"><b>导出 / 导入</b>：从主屏幕打开时 iPhone 没有下载管理器，导出会走系统「分享」面板，请保存到「文件」App；导入时也会打开系统「文件」App 选备份文件。</div>
               <div class="lic-li"><b>语音</b>：录音格式由系统决定，安卓录制的语音在 iPhone 上可能无法播放；iOS 的「文件」选择器会按类型过滤，导入字卡 / 语音等时个别文件可能灰显、选不中（系统限制）。</div>
               <div class="lic-li"><b>其他</b>：iOS 没有振动反馈；Safari 会忽略网页设置的音量大小；字卡库 / 图片过多时更容易被系统回收内存、导致页面重新加载（用 设置 → 信息诊断 →「卡顿自检 · 一键优化」缓解）。</div>
@@ -13098,7 +13092,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>上传的音乐播不了？</b>通过网易云链接上传的 VIP / 付费歌曲无法播放（仅免费歌曲可播），歌单导入会自动移除这类歌曲；外链失效或有防盗链也会播放失败；网易云「分享短链」解析受解析服务影响，失败时先用浏览器打开那条链接、把地址栏里 music.163.com/song?id=数字 的完整链接或数字粘贴导入。<b>本机上传的文件放不了</b>则多半是加密格式或无损 m4a（ALAC 编码）——音乐 App 里下载 / 缓存的歌曲文件大多带加密，即使扩展名是 .mp3 / .flac / .m4a 也解不开，转成 mp3 再上传即可。</div>
               <div class="lic-li"><b>QQ音乐 / 酷狗 / B站等其他 App 的歌能导入吗？</b>不能。音乐只支持三种来源：本机音频文件（上传音乐）、网易云歌曲 ID / 链接 / 歌单、音频文件直链。其他 App 的「分享」链接打开是网页而不是音频文件，导进来也放不出声；想在这里听，得先把音频文件存到手机里再用「上传音乐」添加。</div>
               <div class="lic-li"><b>图片传不上去 / 变模糊？</b>超大图片上传时会被自动压缩，过大的会被拒绝（防止解码拖崩 iOS 页面），请换小一点的图。</div>
-              <div class="lic-li"><b>收不到通知 / 后台弹窗？</b>需允许系统通知权限并开启「后台保活」；「离线消息提醒」仅安卓 Chrome / Edge 且添加到桌面后可用。逐条对照（含 iPhone 为什么不行、开着却收不到的三种原因）见第 10 节「后台弹窗 · 怎么用（安卓）」。</div>
+              <div class="lic-li"><b>收不到通知 / 后台弹窗？</b>需允许系统通知权限并开启「后台保活」；「离线消息提醒」仅安卓 / 电脑上的 Chrome、Edge 且添加到桌面后可用。逐条对照（含 iPhone 为什么不行、开着却收不到的三种原因）见第 10 节「后台弹窗 · 怎么用（安卓 / 电脑）」。</div>
               <div class="lic-li"><b>开了后台保活后，其他声音变小或受影响？</b>保活要在后台一直播放一段音频，手机同一时间通常只允许一路音频占用通道，所以会互相影响（别的 App 出声时保活也会被暂停再自动抢回）。这不是故障，是手机 / 浏览器的限制；不想受影响就到 设置 → 系统 关掉「后台保活」。若关掉后本页仍发出异常声音（电流声 / 嗡鸣）那才是 bug，请带机型 + 浏览器反馈。</div>
               <div class="lic-li"><b>全屏失效？</b>切到后台或切换页面会退出全屏，手动重新打开即可；iPhone 顶部系统状态栏无法隐藏。</div>
               <div class="lic-li"><b>用着卡顿？</b>数据体积过大（图片是内联存储的）是常见原因之一，再叠上后台保活、浏览器标签页过多、系统省电等因素；<b>谁占得最多因人而异</b>，先到 设置 → 工具 →「查看存储」看清你这台手机哪一块最大，再用「卡顿自检 · 一键优化」，并精简超大图片和字卡库。按顺序做的一整套清单见第 11 节「手机卡顿怎么办（安卓 / iPhone）」。</div>
@@ -13125,7 +13119,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <details class="lic-grp">
             <summary><span class="lg-num">9</span><span class="lg-name">权限、隐私与反馈</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
-              <div class="lic-li"><b>通知权限</b>：要收到「后台弹窗」，需允许系统通知（浏览器地址栏的网站设置 + 手机系统设置里给浏览器开通知）；「离线消息提醒」仅安卓 Chrome / Edge 且添加到桌面后支持。开箱步骤与「收不到」的排查见第 10 节；iPhone 拿不到系统通知，请用「桌面消息弹窗」。</div>
+              <div class="lic-li"><b>通知权限</b>：要收到「后台弹窗」，需允许系统通知（浏览器地址栏的网站设置 + 手机系统设置里给浏览器开通知）；「离线消息提醒」仅安卓 / 电脑上的 Chrome、Edge 且添加到桌面后支持。开箱步骤与「收不到」的排查见第 10 节；iPhone / iPad 拿不到系统通知，请用「桌面消息弹窗」。</div>
               <div class="lic-li"><b>麦克风权限</b>：发语音需要允许麦克风；被拒绝后到浏览器 / 系统设置里重新允许。</div>
               <div class="lic-li"><b>耗电</b>：开启「后台保活」会让页面在后台持续运行，比较耗电；不需要时到 设置 → 系统 关闭。</div>
               <div class="lic-li"><b>隐私</b>：本站无后端、数据全部保存在本机、不上传服务器；但系统通知/锁屏上可能显示消息内容，介意可在系统里关闭本应用通知。</div>
@@ -13140,11 +13134,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
                ⚠️ 本节写的机制数字与行为以 src/js/bg-keep.js 为准（切后台 15 秒闸门 NOTIFY_HIDDEN_MIN_MS、
                内容去重窗口 5 分/2 分/3 分、开启通知自动开保活、测试按钮的体检项），改代码时同步本节。 -->
           <details class="lic-grp">
-            <summary><span class="lg-num">10</span><span class="lg-name">后台弹窗 · 怎么用（安卓）</span><span class="lg-count">15</span></summary>
+            <summary><span class="lg-num">10</span><span class="lg-name">后台弹窗 · 怎么用（安卓 / 电脑）</span><span class="lg-count">15</span></summary>
             <div class="lg-body">
               <div class="lic-li"><b>它是什么</b>：页面切到后台（锁屏、切到别的应用、回到桌面）时，TA 发来新消息就用<b>系统通知</b>弹一条横幅，不用一直守着聊天页；锁屏和下拉通知栏里也能看到内容。开关在 <b>设置 → 系统 →「后台通知」</b>，同一行右边的「测试」可一键体检。</div>
               <div class="lic-li"><b>它不是什么</b>：不是真推送。消息是本机按概率随机生成的——「后台弹窗」只负责在页面处于后台时把它弹出来；不联网、不上传任何内容，也不代表对方真实在线。</div>
-              <div class="lic-li"><b>前提 1 · 环境</b>：用安卓 <b>Chrome / Edge</b> 打开，并且是 <b>https://</b> 访问（本站 GitHub Pages 地址本身就是 HTTPS）。http:// 访问、或国产手机自带浏览器，多数拿不到通知能力。</div>
+              <div class="lic-li"><b>前提 1 · 环境</b>：用安卓或电脑上的 <b>Chrome / Edge</b> 打开，并且是 <b>https://</b> 访问（本站 GitHub Pages 地址本身就是 HTTPS）。http:// 访问、或国产手机自带浏览器，多数拿不到通知能力。</div>
               <div class="lic-li"><b>前提 2 · 通知权限</b>：地址栏左侧图标 → 网站设置 → <b>通知 → 允许</b>。第一次打开「后台通知」开关时也会弹一次授权，点「允许」即可；若点了「拒绝」，开关会自动弹回关闭——这是防止「显示开着却实际无效」，不是坏了。</div>
               <div class="lic-li"><b>前提 3 · 后台保活要开着</b>：打开「后台通知」会<b>自动</b>把「后台保活」一起打开。原因：TA 的消息由页面定时器产生，页面在后台被系统冻结就没消息可生成，也就无从弹起。若你后来手动关了保活，后台弹窗会静默失效（切回前台时会提示你）。</div>
               <div class="lic-li"><b>前提 4 · 系统层面允许通知</b>：手机 系统设置 → 应用 → Chrome / Edge → 通知：允许。<b>小米 / 红米（MIUI、HyperOS）等系统</b>还要在「通知类别」里打开「在屏幕上方显示 / 悬浮通知」，否则通知只进下拉栏、不弹横幅。</div>
@@ -13154,9 +13148,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>收不到 ① iPhone / iPad</b>：iOS 的网页方式基本拿不到系统通知，<b>本开关在 iPhone 上无效</b>（不是网站坏了）。iPhone 请靠 <b>设置 → 系统 →「桌面消息弹窗」</b>：不在聊天页时新消息弹应用内横幅，切回应用时还会提示「你不在的时候收到 N 条新消息」。</div>
               <div class="lic-li"><b>收不到 ② 后台本来就没消息</b>：TA 的聊天消息是按 <b>回复设置 → 主动发送</b> 的「间隔 + 概率」随机产生的。关掉「主动发送」、概率调成 0、或开着「免打扰」，后台就没有东西可弹（这与通知权限无关）。</div>
               <div class="lic-li"><b>收不到 ③ 被去重闸门拦了</b>：刚切到后台的 <b>15 秒内</b>不发通知（多半是你刚看完的消息在补触发）；内容上也会去重——与最近 5 分钟聊过、最近 2 分钟弹过、或你刚在前台看过的同一条内容不再重复弹。TA 的字卡池重复率高，同一句被吞掉属正常，不是坏了。</div>
-              <div class="lic-li"><b>和「离线消息提醒」的区别</b>：两者完全独立、互不影响。后台弹窗＝<b>页面还在后台运行时</b> TA 发消息弹通知（本开关 + 后台保活 + 通知权限）；离线消息提醒＝<b>页面全部关掉后</b>浏览器隔几小时唤醒一次、随机抽一条想念文案弹通知（仅安卓 Chrome / Edge 且添加到主屏幕）。哪个不开都不影响另一个。</div>
+              <div class="lic-li"><b>和「离线消息提醒」的区别</b>：两者完全独立、互不影响。后台弹窗＝<b>页面还在后台运行时</b> TA 发消息弹通知（本开关 + 后台保活 + 通知权限）；离线消息提醒＝<b>页面全部关掉后</b>浏览器隔几小时唤醒一次、随机抽一条想念文案弹通知（仅安卓 / 电脑上的 Chrome、Edge 且添加到主屏幕）。哪个不开都不影响另一个。</div>
               <div class="lic-li"><b>代价</b>：开着后台保活＝页面在后台持续运行，比较耗电、也可能发热，不需要时到 设置 → 系统 关掉；通知会在锁屏 / 通知栏显示消息内容，介意就在系统设置里关掉本应用的通知。</div>
-              <div class="lic-li"><b>一句话路径</b>：安卓 Chrome / Edge 打开本站 → 允许通知 → 设置 → 系统 打开「后台通知」（自动带上「后台保活」）→ 去系统设置给浏览器开通知、且不限制后台 → 点「测试」看到横幅即成功。</div>
+              <div class="lic-li"><b>一句话路径</b>：安卓或电脑上的 Chrome / Edge 打开本站 → 允许通知 → 设置 → 系统 打开「后台通知」（自动带上「后台保活」）→ 去系统设置给浏览器开通知、且不限制后台 → 点「测试」看到横幅即成功。</div>
             </div>
           </details>
           <!-- v3.26.x：手机卡顿说明与用户可做的优化（用户直派「安卓和 iOS 卡顿也要给说明和优化建议」）。
@@ -20869,4 +20863,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub9dex7 -->
+<!-- __MOCHI_EOF__ mub9lqsa -->

@@ -1281,12 +1281,15 @@
   function requestNotifyPermission(cb, failCb) {
     if (!('Notification' in window)) {
       // v3.7.x：按平台区分文案——安卓阉割 WebView（OPPO 自带/Via 等）也无 Notification API，
-      //   原文案硬编码"iPhone"对安卓用户很困惑。iOS 仍引导装主屏（iOS PWA 也不支持本地通知）
+      //   原文案硬编码"iPhone"对安卓用户很困惑。
+      // FIX 2026-09-21 #978：iOS 那支原文案暗示「装到主屏幕后由系统接管」，与同一功能另外两处
+      //   口径矛盾（行下说明「本开关在 iPhone 上无效」、#924c「不保证弹出」）——iOS WebKit 的
+      //   网页通知只认推送服务通道，装到主屏幕也不保证。统一为「改用桌面消息弹窗」。
       // v3.16.x：设备判定统一读 device.js（mochiDevice）
       const _isIOS = !!(window.mochiDevice || {}).isIOS;
       toast(_isIOS
-        ? 'iPhone 网页版不支持系统通知\n请安装到主屏幕后由系统接管'
-        : '当前浏览器不支持系统通知\n请改用 Chrome/Edge，或添加到主屏幕后由系统接管');
+        ? 'iPhone / iPad 的网页拿不到系统通知\n（添加到主屏幕也不保证）请用「桌面消息弹窗」'
+        : '当前浏览器不支持系统通知\n请改用 Chrome/Edge 打开本站（安卓或电脑都行）');
       if (failCb) failCb();
       return;
     }
@@ -1438,10 +1441,24 @@
       toast('正在检查通知环境…');
       const env = [];
       if (!('Notification' in window)) {
+        // FIX 2026-09-21 #978：原实现把「浏览器没有通知能力」一律说成「必须 HTTPS 访问」——
+        //   命中这一支的恰恰是 iPhone 浏览器形态、以及小米 / vivo / OPPO 自带、UC、夸克、Via
+        //   这些安卓壳（本机就没有 Notification 对象），照着提示去改 https 一辈子也没用；而
+        //   同一功能的开关那条路（requestNotifyPermission）对同一种情况是分平台说的，同一台
+        //   机器点开关与点「测试」得到两种解释。改为三分支：非安全上下文（Chromium 只在
+        //   https / localhost 暴露 Notification）→ HTTPS；iOS → 平台限制；其余 → 本机浏览器
+        //   没有通知能力，改用 Chrome / Edge。
         env.push('✗ 当前浏览器不支持 Notification API');
-        env.push('原因：安卓 Chrome 必须 HTTPS 访问才有通知');
-        env.push('当前：' + location.protocol + '//' + location.host);
-        env.push('解决：用 https:// 部署访问（GitHub Pages 即是 HTTPS）');
+        if (!window.isSecureContext) {
+          env.push('原因：' + location.protocol + '//' + location.host + ' 不是安全上下文，浏览器不开放通知能力');
+          env.push('解决：用 https:// 部署访问（GitHub Pages 即是 HTTPS）');
+        } else if (kaIsIOS()) {
+          env.push('原因：iPhone / iPad 的网页拿不到系统通知（添加到主屏幕也不保证）');
+          env.push('解决：改用 设置 → 系统 →「桌面消息弹窗」的应用内横幅');
+        } else {
+          env.push('原因：本机浏览器没有通知能力（小米 / vivo / OPPO 等自带浏览器、UC、夸克、Via 常见如此）');
+          env.push('解决：改用 Chrome / Edge 打开本站（安卓或电脑都行）');
+        }
         toast('环境检查：\n' + env.join('\n'));
         return;
       }
@@ -2180,8 +2197,8 @@
     const isIOS = !!(window.mochiDevice || {}).isIOS;
     if (!psyncSupported()) {
       el.textContent = isIOS
-        ? '此浏览器不支持离线提醒（iPhone 只能靠系统通知/保活；安卓请用 Chrome/Edge，并把应用添加到主屏幕）'
-        : '此浏览器不支持离线提醒（请用安卓 Chrome/Edge，并把应用添加到主屏幕后重开此开关）';
+        ? '此浏览器不支持离线提醒（iPhone / iPad 拿不到；请靠「后台保活」+「桌面消息弹窗」的应用内横幅）'
+        : '此浏览器不支持离线提醒（需要 Chromium 内核：安卓或电脑上的 Chrome / Edge，并把应用添加到主屏幕后重开此开关）';
       return;
     }
     if (!psyncEnabled()) { el.textContent = '已关闭 · 页面全关后不再收到 TA 的消息提醒'; return; }

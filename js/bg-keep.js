@@ -882,8 +882,8 @@ function requestNotifyPermission(cb, failCb) {
 if (!('Notification' in window)) {
 const _isIOS = !!(window.mochiDevice || {}).isIOS;
 toast(_isIOS
-? 'iPhone 网页版不支持系统通知\n请安装到主屏幕后由系统接管'
-: '当前浏览器不支持系统通知\n请改用 Chrome/Edge，或添加到主屏幕后由系统接管');
+? 'iPhone / iPad 的网页拿不到系统通知\n（添加到主屏幕也不保证）请用「桌面消息弹窗」'
+: '当前浏览器不支持系统通知\n请改用 Chrome/Edge 打开本站（安卓或电脑都行）');
 if (failCb) failCb();
 return;
 }
@@ -998,9 +998,16 @@ toast('正在检查通知环境…');
 const env = [];
 if (!('Notification' in window)) {
 env.push('✗ 当前浏览器不支持 Notification API');
-env.push('原因：安卓 Chrome 必须 HTTPS 访问才有通知');
-env.push('当前：' + location.protocol + '//' + location.host);
+if (!window.isSecureContext) {
+env.push('原因：' + location.protocol + '//' + location.host + ' 不是安全上下文，浏览器不开放通知能力');
 env.push('解决：用 https:// 部署访问（GitHub Pages 即是 HTTPS）');
+} else if (kaIsIOS()) {
+env.push('原因：iPhone / iPad 的网页拿不到系统通知（添加到主屏幕也不保证）');
+env.push('解决：改用 设置 → 系统 →「桌面消息弹窗」的应用内横幅');
+} else {
+env.push('原因：本机浏览器没有通知能力（小米 / vivo / OPPO 等自带浏览器、UC、夸克、Via 常见如此）');
+env.push('解决：改用 Chrome / Edge 打开本站（安卓或电脑都行）');
+}
 toast('环境检查：\n' + env.join('\n'));
 return;
 }
@@ -1512,8 +1519,8 @@ if (!el) return;
 const isIOS = !!(window.mochiDevice || {}).isIOS;
 if (!psyncSupported()) {
 el.textContent = isIOS
-? '此浏览器不支持离线提醒（iPhone 只能靠系统通知/保活；安卓请用 Chrome/Edge，并把应用添加到主屏幕）'
-: '此浏览器不支持离线提醒（请用安卓 Chrome/Edge，并把应用添加到主屏幕后重开此开关）';
+? '此浏览器不支持离线提醒（iPhone / iPad 拿不到；请靠「后台保活」+「桌面消息弹窗」的应用内横幅）'
+: '此浏览器不支持离线提醒（需要 Chromium 内核：安卓或电脑上的 Chrome / Edge，并把应用添加到主屏幕后重开此开关）';
 return;
 }
 if (!psyncEnabled()) { el.textContent = '已关闭 · 页面全关后不再收到 TA 的消息提醒'; return; }

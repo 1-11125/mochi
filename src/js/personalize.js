@@ -2769,13 +2769,13 @@ try {
       '应用锁': '密码 锁 隐私',
       '开屏问答门': '问答 暗号 验证 提问',
       '手机布局': '布局 适配 模式',
-      '离线消息提醒': '通知 推送 通知提醒 新消息',
+      '离线消息提醒': '通知 推送 通知提醒 新消息 安卓 电脑 主屏幕 iPhone Chrome Edge',
       '使用说明': '教程 帮助 常见问题 安装',
       '导出数据': '备份 保存 导出',
       '导入数据': '恢复 还原 迁移 换机',
       '修改摸鱼天数': '恢复 找回 补回 归零 重来 已摸鱼',
       '设备兼容诊断': '诊断 兼容 报错 环境',
-      '顶部避让修正': '安全区 白带 重叠 刘海',
+      '顶部避让修正': '安全区 白带 重叠 刘海 添加到主屏幕 独立应用 电脑',
       '屏幕适配诊断': '适配 屏幕 空白 裁切',
       '屏幕适配微调': '微调 字号 文字大小 放大 变小 偏移 遮挡 裁切 留白 白带 状态栏 手势条 屏幕错位 位置',
       '功能诊断': '检测 测试',
@@ -4369,32 +4369,52 @@ try {
     show(tabs[0] ? tabs[0].dataset.tab : 'basic');
   })();
 
-  // ===== 设置页平台标记（v8.29）：iOS / 安卓专属项一眼看清 + 非本机平台给替代入口 =====
-  // 用户问「设置里好多 iOS / 安卓专属功能，要不要单独分一类」——结论是不分类：按平台切
-  // 会把两个系统都要用的行（全屏模式 / 后台保活 / 手机布局强制 / 屏幕适配）藏起来，而且
-  // 平台判定本身有 UA 伪装失手面（OPPO/Via 伪装 iPhone、iPad 伪装、桌面版网站模式整套
-  // 伪装成桌面）。改为行级标记：静态胶囊在 template（.plat-tag[data-plat]），这里只做
-  // 「明确判定为另一平台」时弱化 + 给替代入口。判定不明（桌面 / 伪装 / 失手）一律原样，
-  // 且只弱化标签、绝不 disabled 开关——否则识别失手的用户会被挡在唯一能修好自己问题的
-  // 开关外面（「手机布局（强制）」本身就是为这种失手准备的）。
-  (function initPlatTags() {
+  // ===== 设置页「本机能不能用」标记（v8.29 #978）：按真实前提标记，不按手机系统 =====
+  // 沿革：用户先问「设置里好多 iOS / 安卓专属功能，要不要单独分一类」→ 结论不分类、改行级标记
+  // （#964）；随后用户指出两处静态胶囊都误导——「后台通知」行右的「仅安卓」与「顶部避让修正」
+  // 行的「仅 iPhone」。实测三条胶囊的真实前提没有一条是「手机系统」：
+  //   后台通知   = Chromium 内核 + https + 通知权限（电脑版 Chrome / Edge 同样可用；而小米 /
+  //                vivo / OPPO 自带、UC、夸克、Via 这些安卓壳本机没有 Notification 对象）
+  //   离线消息提醒 = Chromium 内核（PeriodicSyncManager）+ 添加到主屏幕（电脑版 Chrome 也可以）
+  //   顶部避让修正 = 添加到主屏幕的独立应用形态 + 用户自己声明形态（执行器 forceCover 的
+  //                standalone 就是 ios-pwa-standalone 类，只在 iOS 独立应用形态加；iPhone 用
+  //                Safari 直接打开时这个开关是空的，开了不生效）
+  // 静态胶囊把「平台」当成门槛，两个方向都错：桌面 Chromium 用户被「仅安卓」劝退（其实能用），
+  // iPhone 浏览器形态用户被「仅 iPhone」叫去开一个空开关。故撤掉静态胶囊，改为按本机实测条件
+  // 标记：不满足条件才变灰 + 给替代入口，满足条件不加任何标记。判定保守口径不变（判定不明 /
+  // 桌面 / UA 伪装一律不误伤），且只变灰、绝不 disabled 开关——识别失手的用户必须仍能点到
+  // 唯一能修好自己问题的开关。
+  (function initUseMark() {
     const page = document.getElementById('page-setting');
     if (!page) return;
-    const tags = page.querySelectorAll('.plat-tag[data-plat]');
-    if (!tags.length) return;
     const d = window.mochiDevice || {};
-    // 非本机平台的替代指引：key = 该行开关 input 的 id（无开关的行只弱化不给指引）
-    const ALT = {
-      'bg-notify': { text: '本机是 iPhone：网页拿不到系统通知，请改用应用内横幅「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
-      'psync-en': { text: '本机是 iPhone：离线消息提醒只有安卓 Chrome / Edge 可用，请改用「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' },
-      'safe-top-force': { text: '本机是安卓：本项只修 iPhone 顶部状态栏重叠；安卓要调顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' }
+    const isIOS = function () { return d.isIOS === true; };
+    // 本机有没有网页通知能力（Chromium 只在 https / localhost 才暴露 Notification 对象）
+    const hasNotify = function () { try { return 'Notification' in window; } catch (e) { return false; } };
+    // 是不是「添加到主屏幕后的独立应用形态」——与 fullscreen.js 加 ios-pwa-standalone 类同口径
+    // （fullscreen.js 在 personalize.js 之后加载，故先读类、读不到再按同式自算）
+    const isIosStandalone = function () {
+      if (!isIOS()) return false;
+      if (document.documentElement.classList.contains('ios-pwa-standalone')) return true;
+      try {
+        return navigator.standalone === true ||
+          !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      } catch (e) { return false; }
     };
-    // 只有明确判定为「另一平台」才弱化：desktop / 伪装 / 判定失手一律不动
-    function offPlatform(plat) {
-      if (plat === 'android') return d.isIOS === true;
-      if (plat === 'ios') return d.isAndroid === true;
-      return false;
-    }
+    // 每行一个判定器：返回 null＝本机可用（不加任何标记）；返回 { text, go? }＝本机用不了，
+    // 变灰 + 替代指引。key 取该行开关 input 的 id。
+    const RULES = [
+      { input: 'bg-notify', off: function () {
+        if (isIOS()) return { text: '本机是 iPhone / iPad：网页拿不到系统通知（添加到主屏幕也不保证），请改用应用内横幅「桌面消息弹窗」。', go: '#desk-msg-en', goText: '去开启' };
+        if (!hasNotify()) return { text: '本机浏览器没有通知能力（小米 / vivo / OPPO 等自带浏览器、UC、夸克常见如此）：请改用 Chrome / Edge 打开本站，安卓或电脑都行。' };
+        return null;
+      } },
+      { input: 'safe-top-force', off: function () {
+        if (isIosStandalone()) return null; // 本机就是它要修的形态
+        if (isIOS()) return { text: '本项只在「添加到主屏幕」后打开（独立应用形态）才生效：浏览器里直接打开时开关无效果，顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' };
+        return { text: '本项只修 iPhone / iPad 独立应用形态的顶部避让（安卓没有这个形态）：安卓要调顶部遮挡 / 底部裁切请用「屏幕适配微调」。', go: '#row-screen-adj', goText: '去调整' };
+      } }
+    ];
     function jumpTo(sel) {
       const target = document.querySelector(sel);
       if (!target) return;
@@ -4414,14 +4434,15 @@ try {
       row.classList.add('plat-flash');
       setTimeout(function () { row.classList.remove('plat-flash'); }, 1500);
     }
-    Array.prototype.forEach.call(tags, function (tag) {
-      if (!offPlatform(tag.getAttribute('data-plat'))) return;
-      const row = tag.closest('.set-row, .gs-row');
+    RULES.forEach(function (rule) {
+      const inp = document.getElementById(rule.input);
+      if (!inp) return;
+      const row = inp.closest('.set-row, .gs-row');
       if (!row) return;
-      row.classList.add('plat-off');
-      const inp = row.querySelector('input[type="checkbox"]');
-      const alt = ALT[(inp && inp.id) || ''];
+      let alt = null;
+      try { alt = rule.off(); } catch (e) { alt = null; }
       if (!alt) return;
+      row.classList.add('plat-off');
       const hint = document.createElement('div');
       hint.className = 'gs-sub plat-hint';
       hint.textContent = alt.text;
@@ -4436,12 +4457,9 @@ try {
         go.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') fire(e); });
         hint.appendChild(go);
       }
-      // 插在该行自己的说明小字之后（先看说明、再看「你这台该怎么用」）；后面紧跟的是别的行
-      // （如「离线消息提醒」下面那条状态行）就贴在行下
-      let anchor = row;
-      while (anchor.nextElementSibling && anchor.nextElementSibling.classList &&
-             anchor.nextElementSibling.classList.contains('gs-sub')) anchor = anchor.nextElementSibling;
-      if (anchor.parentNode) anchor.parentNode.insertBefore(hint, anchor.nextSibling);
+      // #978：提示插在该行【紧后面】。原 #964 是插在该行下面所有 .gs-sub 说明之后——「后台通知」
+      // 那行的说明有六百多字，替代入口被压在整段说明底下，本机用不了的用户根本看不到该点哪里。
+      if (row.parentNode) row.parentNode.insertBefore(hint, row.nextSibling);
     });
   })();
 

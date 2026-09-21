@@ -4267,10 +4267,17 @@ const FIX_SENTINELS = [
   { name: '#961g 三条常见问题弹窗接线（删＝点行无反应、弹不出说明）', file: 'js/personalize.js', needle: "bind('row-faq-noacct'" },
   // ---- 设置页平台标记（v8.29）：iOS / 安卓专属项一眼看清 + 非本机平台给替代入口 ----
   // 用户问「设置里好多 iOS / 安卓专属功能，要不要单独分一类」——定为「不分类、只做行级标记」。
-  { name: '#plat1 安卓专属行的平台胶囊（删＝用户又分不清哪项是给哪个系统的，也没了非本机平台的替代指引）', file: 'template.html', needle: '<span class="plat-tag" data-plat="android">仅安卓</span>' },
-  { name: '#plat2 iOS 专属行的平台胶囊（删＝同上；「顶部避让修正」在安卓上被当成本机功能反复试）', file: 'template.html', needle: '<span class="plat-tag" data-plat="ios">仅 iPhone</span>' },
-  { name: '#plat3 平台胶囊样式（复用 .tag 样式类＝settings-help.js 注入器跳过该行＝那几行的「功能说明」胶囊整条消失）', file: 'css/setting.css', needle: '.gs-row .plat-tag {\ndisplay:inline-block; flex:none;' },
-  { name: '#plat4 只在明确判定为另一平台时弱化（改成「不是本平台就弱化」＝UA 伪装 / 桌面版网站失手时把用户挡在唯一修复开关外）', file: 'js/personalize.js', needle: "if (plat === 'android') return d.isIOS === true;" },
+  { name: '#978a 静态平台胶囊不得回流（删＝桌面 Chromium 用户又被「仅安卓」劝退、iPhone 浏览器形态用户又被叫去开空开关）', file: 'template.html', needle: 'class="plat-tag" data-plat="android">仅安卓', absent: true },
+  { name: '#978b iOS 侧静态胶囊同样不得回流（真实门槛是独立应用形态，不是 iPhone）', file: 'template.html', needle: 'class="plat-tag" data-plat="ios">仅 iPhone', absent: true },
+  { name: '#978c 静态平台胶囊样式整体退役（回来＝有人把按手机系统标平台又加回来了）', file: 'css/setting.css', needle: '.gs-row .plat-tag', absent: true },
+  { name: '#978d 本机能力标记：后台通知的门槛是「Chromium + 通知能力」不是「安卓」（删＝退回按手机系统标）', file: 'js/personalize.js', needle: 'if (!hasNotify()) return {' },
+  { name: '#978e 顶部避让修正的门槛＝独立应用形态（删＝iPhone 浏览器形态又被叫去开一个空开关）', file: 'js/personalize.js', needle: 'if (isIosStandalone()) return null;' },
+  { name: '#978f 替代指引插在该行紧后面（退回插在整段说明之后＝六百字说明把「去开启」压在底下看不见）', file: 'js/personalize.js', needle: 'insertBefore(hint, row.nextSibling);' },
+  { name: '#978g 测试按钮三分支：非安全上下文才说 HTTPS，iPhone / 安卓壳说本机没有通知能力（删＝又被误诊成 https）', file: 'js/bg-keep.js', needle: 'if (!window.isSecureContext) {' },
+  { name: '#978h 离线提醒状态行不再对 iPhone 说「只能靠系统通知」（与同段「iPhone 拿不到通知」矛盾）', file: 'js/bg-keep.js', needle: 'iPhone / iPad 拿不到' },
+  { name: '#978k 通知授权失败文案不再暗示「装到主屏幕就能拿到」（iOS WebKit 只认推送服务通道）', file: 'js/bg-keep.js', needle: '添加到主屏幕也不保证）请用「桌面消息弹窗」' },
+  { name: '#978i 顶部避让修正胶囊口径＝独立应用形态（删＝又写成「iOS 专用 / 仅影响 iOS」）', file: 'js/settings-help.js', needle: '独立应用（添加到主屏幕）形态专用修正' },
+  { name: '#978j 离线消息提醒口径＝Chromium 内核（安卓 / 电脑），不是「仅安卓」', file: 'template.html', needle: '仅安卓 / 电脑上的 Chrome、Edge 且添加到桌面后可用' },
   /* ==== 2026-09-21 #967 回前台/读库失败时聊天永久空屏无提示（用户实报「挂后台切回来会卡，聊天里什么也看不到」）：
      进度条判定认「权威到没到」而不是「保险丝跳没跳」＋快重试耗尽转慢重试看门狗＋回前台补读 ==== */
   { name: '#967a 进度条并入权威未达标记（删＝armReadyFuse 的 15s 保险丝一跳就收进度条，而屏上一条消息都没有＝空屏无提示）', file: 'js/chat.js', needle: '(!chatDbReady || chatRebuilding || chatAuthPending)' },

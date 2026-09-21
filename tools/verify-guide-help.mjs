@@ -35,7 +35,7 @@ const A = (name, ok, extra) => { total++; console.log((ok ? 'PASS' : 'FAIL') + '
 // ---- S 静态断言：内容锚点在 src 里（不用起浏览器） ----
 const sh = read('js/settings-help.js');
 A('S1 settings-help 后台弹窗长文在位（使用说明 + 收不到排查）',
-  sh.includes('后台弹窗 · 使用说明') && sh.includes('【收不到怎么办】') && sh.includes('【开启步骤（安卓）】'));
+  sh.includes('后台弹窗 · 使用说明') && sh.includes('【收不到怎么办】') && sh.includes('【开启步骤（安卓 / 电脑）】'));
 A('S2 settings-help 卡顿长文在位（原因分几类 + 谁最占地方看用户自己的 + 按顺序优化清单）',
   sh.includes('手机卡顿怎么办（安卓 / iPhone）· 使用说明') && sh.includes('【按这个顺序优化') && sh.includes('不要用「清除本地数据」来治卡顿')
   && sh.includes('没有统一答案，看你自己的') && sh.includes('别照别人的排序删自己的数据') && sh.includes('别误会：不是让你少存图'));
@@ -43,7 +43,7 @@ A('S3 settings-help 使用说明行已登记（#row-guide 说明可被设置搜�
 A('S4 settings-help 设备限制清单入口挂在设备兼容诊断行',
   sh.includes('像 bug 的问题') && sh.includes('使用说明 第 12 节'));
 A('S5 使用说明页三节标题在位',
-  tpl.includes('后台弹窗 · 怎么用（安卓）') && tpl.includes('手机卡顿怎么办（安卓 / iPhone）') && tpl.includes('设备与浏览器限制（看着像 bug，其实不是）'));
+  tpl.includes('后台弹窗 · 怎么用（安卓 / 电脑）') && tpl.includes('手机卡顿怎么办（安卓 / iPhone）') && tpl.includes('设备与浏览器限制（看着像 bug，其实不是）'));
 A('S6 设置页两条可见提示（后台通知行 / 卡顿自检行）在位',
   tpl.includes('id="bg-notify-sub"') && tpl.includes('id="perf-help-sub"'));
 
@@ -162,7 +162,7 @@ await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=t
 await clickCapsule('#row-guide'); await sleep(200);
 mt = await modalText();
 const stillSetting = await ev(`(()=>{ const g=document.getElementById('page-guide'); const s=document.getElementById('page-setting'); return (!!g && g.hidden) && (!!s && !s.hidden); })()`);
-A('P4 使用说明「功能说明」列全 14 节，且点胶囊不会跳页', mt.includes('后台弹窗 · 怎么用（安卓）') && mt.includes('设备与浏览器限制') && stillSetting, 'jump=' + !stillSetting);
+A('P4 使用说明「功能说明」列全 14 节，且点胶囊不会跳页', mt.includes('后台弹窗 · 怎么用（安卓 / 电脑）') && mt.includes('设备与浏览器限制') && stillSetting, 'jump=' + !stillSetting);
 await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=true; })()`);
 
 await clickCapsule('#row-diagnostics'); await sleep(200);

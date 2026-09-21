@@ -37,7 +37,7 @@ chk('S4 红条复用红色视觉类', has('src/template.html', 'class="gs-sub di
 chk('S5 后台通知行补失效停摆口径', has('src/template.html', '保活被截断/页面被丢弃＝后台弹窗一起停摆'));
 chk('S6 后台通知行补恢复口径', has('src/template.html', '失效后彻底关闭网页重新打开，再把两个开关重新打开'));
 chk('S7 使用说明第10节补「挂久了会截断/失效」条', has('src/template.html', '挂久了会截断/失效，怎么恢复'));
-chk('S8 第10节计数 14→15', has('src/template.html', '后台弹窗 · 怎么用（安卓）</span><span class="lg-count">15</span>'));
+chk('S8 第10节计数 14→15', has('src/template.html', '后台弹窗 · 怎么用（安卓 / 电脑）</span><span class="lg-count">15</span>'));
 chk('S9 开启即弹限制弹窗的调用在手动开启分支', has('src/js/bg-keep.js', 'if (keepEnabled) { startKeepAlive(true); kaOpenEnableHints(); }'));
 chk('S10 限制弹窗函数在位且走全站 openModal', has('src/js/bg-keep.js', "window.openModal('后台保活已开启 · 两条必知限制'"));
 chk('S11 弹窗文案含音频截断限制', has('src/js/bg-keep.js', '① 别的 App 会把保活截断：刷视频、听歌等会占用手机音频通道'));
