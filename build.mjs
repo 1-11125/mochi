@@ -4363,7 +4363,12 @@ const FIX_SENTINELS = [
   { name: '#987c 通话中点「打开来电弹窗」＝展开真实通话面板（删/改回只 toast＝用户点它看不到那个框，只剩一句「当前正在通话中」）', file: 'js/call.js', needle: "toast('通话中·已展开通话面板');" },
   { name: '#987d 删除型：半框背景不得再涂设置用的半屏面板（回流＝#641 旧落点回来，用户点上传后自己的设置面板变成壁纸）', file: 'js/call.js', absent: true, needle: 'half.style.backgroundImage' },
   { name: '#987e 设置页口径指向方形通话弹窗（删/改回「作用于通话小框」＝文案与落点不符，用户按文案又会找不到图去了哪）', file: 'template.html', needle: '作用于「联系人打给你 / 你打给联系人」时弹出的那个方形通话弹窗' },
-  { name: '#987f 功能页「打开来电弹窗」行说明含通话中行为（删＝用户不知道通话中点它是展开面板，又以为点了没反应）', file: 'template.html', needle: '通话中点击＝展开通话面板' }
+  { name: '#987f 功能页「打开来电弹窗」行说明含通话中行为（删＝用户不知道通话中点它是展开面板，又以为点了没反应）', file: 'template.html', needle: '通话中点击＝展开通话面板' },
+  // ===== #988「后台通知」开关点第一下被拦回去、点第二下才开（红米 K80 Chrome 实报，用户明说其他型号也有）=====
+  { name: '#988a 手势闸以「近期真实输入」为主判据（删/改回只认 userActivation 读数＝内核读数异常时真点按又被吃掉，主诉复发）', file: 'js/bg-keep.js', needle: 'if (Date.now() - kaInputAt <= 1200) return true;' },
+  { name: '#988b 待决(default) 路径按用户意图保持开关并收口（删＝又变成「requestPermission 一 resolve 非 granted 就回弹」＝点一次被拦、点第二次才开）', file: 'js/bg-keep.js', needle: 'nbSettleStart(my, false);' },
+  { name: '#988c 权限结果分「还没决定 / 被拒绝」（删＝pending 又被当成拒绝处理）', file: 'js/bg-keep.js', needle: "fail('pending')" },
+  { name: '#988d 删除型：旧「未获得通知权限」回弹提示不得回流（回来＝待决又被当失败，主诉复发）', file: 'js/bg-keep.js', absent: true, needle: "toast('未获得通知权限，后台消息无法弹窗')" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

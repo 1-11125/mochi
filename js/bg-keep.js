@@ -637,9 +637,20 @@ staticText: '保活＝页面在后台持续播放一段近无声音频，让系�
 }
 const kaBtn = document.getElementById('bg-keepalive');
 function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
+let kaInputAt = 0;
+try {
+const kaMarkInput = function (e) {
+try { if (e && e.isTrusted === false) return; } catch (er) {}
+kaInputAt = Date.now();
+};
+['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown'].forEach(function (t) {
+try { document.addEventListener(t, kaMarkInput, { passive: true, capture: true }); } catch (err) {}
+});
+} catch (e) {}
 function kaUserGesture(e) {
 try {
 if (e && e.isTrusted === false) return false;
+if (Date.now() - kaInputAt <= 1200) return true;
 if (navigator.userActivation && navigator.userActivation.hasBeenActive === false) return false;
 } catch (er) {}
 return true;
@@ -878,37 +889,60 @@ pageFallback();
 } catch (e) { note('none'); resolve(false); }
 });
 }
-function requestNotifyPermission(cb, failCb) {
+function requestNotifyPermission(cb, failCb, opts) {
+const quiet = !!(opts && opts.quiet);
+const say = function (m) { if (!quiet) toast(m); };
+const fail = function (why) { if (failCb) failCb(why); };
 if (!('Notification' in window)) {
 const _isIOS = !!(window.mochiDevice || {}).isIOS;
-toast(_isIOS
+say(_isIOS
 ? 'iPhone / iPad 的网页拿不到系统通知\n（添加到主屏幕也不保证）请用「桌面消息弹窗」'
 : '当前浏览器不支持系统通知\n请改用 Chrome/Edge 打开本站（安卓或电脑都行）');
-if (failCb) failCb();
+fail('unsupported');
 return;
 }
 if (Notification.permission === 'granted') { if (cb) cb(); return; }
-if (Notification.permission === 'default') {
-Notification.requestPermission().then(function (p) {
-if (p === 'granted') { if (cb) cb(); }
-else {
-toast('未获得通知权限，后台消息无法弹窗');
-if (failCb) failCb();
+if (Notification.permission !== 'default') {
+say('通知权限被拒绝，请在浏览器设置中允许通知');
+fail('denied');
+return;
 }
-}).catch(function () { if (failCb) failCb(); });
-} else {
-toast('通知权限被拒绝，请在浏览器设置中允许通知');
-if (failCb) failCb();
+try {
+let settled = false;
+const once = function (p) {
+if (settled) return;
+settled = true;
+if (p === 'granted') { if (cb) cb(); return; }
+if (p === 'denied') { say('通知权限被拒绝，请在浏览器设置中允许通知'); fail('denied'); return; }
+say('还没拿到通知权限：请在浏览器弹窗里点「允许」（地址栏左侧图标 → 网站设置 → 通知）');
+fail('pending');
+};
+const ret = Notification.requestPermission(once);
+if (ret && typeof ret.then === 'function') {
+ret.then(function (p) { once(p); }, function () { once('error'); });
 }
+} catch (e) { fail('error'); }
 }
 const nbBtn = document.getElementById('bg-notify');
 function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
-if (nbBtn) {
-nbBtn.addEventListener('change', function (e) {
-if (!kaUserGesture(e)) { syncNotifyUI(); try { nbBtn.checked = notifyEnabled; } catch (er) {} return; }
-notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
-if (nbBtn.checked) {
-requestNotifyPermission(function () {
+function nbPermState() {
+try { return ('Notification' in window) ? Notification.permission : 'unsupported'; } catch (e) { return 'unsupported'; }
+}
+const NB_SETTLE_MS = 12000; // 待决等待上限：覆盖「系统弹窗弹着、用户过几秒才点允许」的正常窗口
+let nbAttempt = 0;          // 每轮「用户动开关」的代号：回调/轮询只认自己那一轮，过期即弃
+let nbSettleTimer = null;
+let nbSettlePoke = null;    // 待决轮询的「探一脚」入口（回前台/重新聚焦时立刻补查）
+let nbAppliedFor = 0;       // 已落地的轮次（granted 可能从回调与轮询两边同时到）
+function nbAttemptNext() {
+nbAttempt++;
+if (nbSettleTimer) { clearTimeout(nbSettleTimer); nbSettleTimer = null; }
+nbSettlePoke = null;
+return nbAttempt;
+}
+function nbRevertOff() { notifyEnabled = false; gSet('bg-notify', '0'); syncNotifyUI(); }
+function nbApplyOn(my) {
+if (my !== nbAttempt || nbAppliedFor === my) return;
+nbAppliedFor = my;
 notifyEnabled = true;
 gSet('bg-notify', '1');
 syncNotifyUI();
@@ -933,16 +967,76 @@ if (location.protocol !== 'https:' && location.hostname !== 'localhost' && locat
 toast('提醒：需 HTTPS 访问，浏览器才允许通知');
 }
 }, 400);
-}, function () {
-notifyEnabled = false;
-gSet('bg-notify', '0');
-syncNotifyUI();
-});
-} else {
-notifyEnabled = false;
-gSet('bg-notify', '0');
-syncNotifyUI();
 }
+function nbSettleStart(my, quiet) {
+const start = Date.now();
+const tick = function () {
+if (my !== nbAttempt) return;
+if (nbSettleTimer) { clearTimeout(nbSettleTimer); nbSettleTimer = null; }
+const p = nbPermState();
+if (p === 'granted') { nbSettlePoke = null; nbApplyOn(my); return; }
+if (p === 'denied') {
+nbSettlePoke = null;
+toast('通知权限被拒绝，请在浏览器设置中允许通知');
+nbAttemptNext(); nbRevertOff();
+return;
+}
+if (Date.now() - start < NB_SETTLE_MS) {
+nbSettleTimer = setTimeout(tick, (Date.now() - start) < 3000 ? 600 : 2000);
+return;
+}
+nbSettlePoke = null;
+if (!quiet) toast('通知权限还没定下来：地址栏左侧图标 → 网站设置 → 通知 → 允许；开关已为你保持开启，允许后自动生效');
+nbArmRetry(my);
+};
+nbSettlePoke = tick;
+nbSettleTimer = setTimeout(tick, 600);
+}
+function nbArmRetry(my) {
+const onTap = function () {
+document.removeEventListener('pointerdown', onTap, true);
+document.removeEventListener('keydown', onTap, true);
+if (my !== nbAttempt) return;
+const p = nbPermState();
+if (p === 'granted') { nbApplyOn(my); return; }
+if (p === 'denied') { nbAttemptNext(); nbRevertOff(); return; }
+requestNotifyPermission(null, function () {}, { quiet: true });
+nbSettleStart(my, true);
+};
+document.addEventListener('pointerdown', onTap, true);
+document.addEventListener('keydown', onTap, true);
+}
+function nbPermRecheck() { try { if (nbSettlePoke) nbSettlePoke(); } catch (e) {} }
+try { window.addEventListener('focus', nbPermRecheck); } catch (e) {}
+if (nbBtn) {
+nbBtn.addEventListener('change', function (e) {
+if (!kaUserGesture(e)) { syncNotifyUI(); try { nbBtn.checked = notifyEnabled; } catch (er) {} return; }
+notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
+const my = nbAttemptNext();
+if (nbBtn.checked) {
+if (nbPermState() === 'default') {
+notifyEnabled = true;
+gSet('bg-notify', '1');
+syncNotifyUI();
+requestNotifyPermission(function () {
+if (my !== nbAttempt) return;
+nbApplyOn(my);
+}, function (why) {
+if (my !== nbAttempt) return;
+if (why === 'denied') { nbAttemptNext(); nbRevertOff(); return; }
+});
+nbSettleStart(my, false);
+return;
+}
+requestNotifyPermission(function () { nbApplyOn(my); }, function () {
+if (my !== nbAttempt) return;
+nbAttemptNext(); nbRevertOff();
+});
+return;
+}
+notifyEnabled = false;
+gSet('bg-notify', '0');
+syncNotifyUI();
 });
 }
 (function () {
@@ -1144,6 +1238,7 @@ hiddenSentName = '';
 return;
 }
 if (vis !== 'visible') return;
+nbPermRecheck();
 const saved = gGet('bg-notify');
 if (saved === '1') {
 const keepOn = keepEnabled;

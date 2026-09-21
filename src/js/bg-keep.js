@@ -928,11 +928,31 @@
   }
   const kaBtn = document.getElementById('bg-keepalive');
   function syncKeepUI() { if (kaBtn) kaBtn.checked = keepEnabled; }
-  // #921f：change 事件的用户手势闸（保活/通知开关共用）——环境不支持 userActivation 时放行
-  //（老内核无此 API，也不会有丢弃唤醒重载那类伪 change）；拿不到读数按真手势处理，不误伤。
+  // #921f：change 事件的用户手势闸（保活/通知开关共用）
+  // FIX 2026-09-21 #988：判据改为「以输入事件为准」，不再把 navigator.userActivation 当唯一裁判。
+  //   原判据 `hasBeenActive === false` 是全局一次性标记，由内核按自己的「用户激活」定义维护——
+  //   内核对触摸点按的激活判定与我们对「用户点按」的期望并不总是一致（定制内核 / 套壳 / 无头
+  //   环境都有先例），一旦它把真点按算成「从未激活」，开关就表现为「点第一下被静默吃掉、点第二
+  //   下才生效」（用户实报红米 K80 Chrome，明说其他型号也有）。现在先看证据：change 之前 1.2s 内
+  //   有过真实输入（pointerdown/up、touchstart/end、mouse*、click、keydown——真点按、长按、键盘
+  //   操作全覆盖，与内核 API 无关、零机型分支）即判为用户操作；#921f 要拦的唤醒重载伪 change 只
+  //   派发 change、前面没有任何输入事件，照旧被拦。userActivation 只在「完全没有输入证据」时起
+  //   二次否决作用，拿不到读数按真手势处理，不误伤。
+  let kaInputAt = 0;
+  try {
+    const kaMarkInput = function (e) {
+      // 只认真实输入：脚本造的 click/tap 不算手势证据（否则页面自身合成点击会把伪 change 放行）
+      try { if (e && e.isTrusted === false) return; } catch (er) {}
+      kaInputAt = Date.now();
+    };
+    ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown'].forEach(function (t) {
+      try { document.addEventListener(t, kaMarkInput, { passive: true, capture: true }); } catch (err) {}
+    });
+  } catch (e) {}
   function kaUserGesture(e) {
     try {
       if (e && e.isTrusted === false) return false;
+      if (Date.now() - kaInputAt <= 1200) return true;
       if (navigator.userActivation && navigator.userActivation.hasBeenActive === false) return false;
     } catch (er) {}
     return true;
@@ -1278,7 +1298,15 @@
   }
   // v3.5.114：请求权限（支持成功/失败回调）——失败时开关要弹回关闭，
   //   否则 iOS 不支持 / 权限被拒时开关显示"开"但实际无效，误导用户
-  function requestNotifyPermission(cb, failCb) {
+  // FIX 2026-09-21 #988：失败回调补「原因」并把「还没决定」与「被拒绝」分开——
+  //   'unsupported' 环境不支持 / 'denied' 明确被拒 / 'pending' 用户还没在系统弹窗里做出选择
+  //   （安卓 Chrome 与国产 ROM 上弹窗挂着未答复时 requestPermission 就 resolve 成 'default'）/
+  //   'error' 调用异常。调用方据此区分「该回弹」与「该继续等」，不再把待决当失败。
+  //   opts.quiet＝不打任何 toast（供轮询重试这类不该重复打扰的场合）。
+  function requestNotifyPermission(cb, failCb, opts) {
+    const quiet = !!(opts && opts.quiet);
+    const say = function (m) { if (!quiet) toast(m); };
+    const fail = function (why) { if (failCb) failCb(why); };
     if (!('Notification' in window)) {
       // v3.7.x：按平台区分文案——安卓阉割 WebView（OPPO 自带/Via 等）也无 Notification API，
       //   原文案硬编码"iPhone"对安卓用户很困惑。
@@ -1287,79 +1315,182 @@
       //   网页通知只认推送服务通道，装到主屏幕也不保证。统一为「改用桌面消息弹窗」。
       // v3.16.x：设备判定统一读 device.js（mochiDevice）
       const _isIOS = !!(window.mochiDevice || {}).isIOS;
-      toast(_isIOS
+      say(_isIOS
         ? 'iPhone / iPad 的网页拿不到系统通知\n（添加到主屏幕也不保证）请用「桌面消息弹窗」'
         : '当前浏览器不支持系统通知\n请改用 Chrome/Edge 打开本站（安卓或电脑都行）');
-      if (failCb) failCb();
+      fail('unsupported');
       return;
     }
     if (Notification.permission === 'granted') { if (cb) cb(); return; }
-    if (Notification.permission === 'default') {
-      Notification.requestPermission().then(function (p) {
-        if (p === 'granted') { if (cb) cb(); }
-        else {
-          toast('未获得通知权限，后台消息无法弹窗');
-          if (failCb) failCb();
-        }
-      }).catch(function () { if (failCb) failCb(); });
-    } else {
-      toast('通知权限被拒绝，请在浏览器设置中允许通知');
-      if (failCb) failCb();
+    if (Notification.permission !== 'default') {
+      say('通知权限被拒绝，请在浏览器设置中允许通知');
+      fail('denied');
+      return;
     }
+    try {
+      let settled = false;
+      const once = function (p) {
+        if (settled) return;
+        settled = true;
+        if (p === 'granted') { if (cb) cb(); return; }
+        if (p === 'denied') { say('通知权限被拒绝，请在浏览器设置中允许通知'); fail('denied'); return; }
+        say('还没拿到通知权限：请在浏览器弹窗里点「允许」（地址栏左侧图标 → 网站设置 → 通知）');
+        fail('pending');
+      };
+      // 两种 API 形态都接：返回 Promise 的内核走 then；老回调形态（部分 iOS WebView）返回
+      //   undefined、结果只从回调进——原写法直接 .then 会抛 TypeError，表现为「点了毫无反应」
+      const ret = Notification.requestPermission(once);
+      if (ret && typeof ret.then === 'function') {
+        ret.then(function (p) { once(p); }, function () { once('error'); });
+      }
+    } catch (e) { fail('error'); }
   }
   const nbBtn = document.getElementById('bg-notify');
   function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
+  function nbPermState() {
+    try { return ('Notification' in window) ? Notification.permission : 'unsupported'; } catch (e) { return 'unsupported'; }
+  }
+  // ===== FIX 2026-09-21 #988：开启「后台通知」的流程重写 =====
+  //   用户实报：红米 K80 Chrome 点第一下开关被「拦回去」、点第二下才开（明说其他型号也有）。
+  //   根因（零机型分支）：旧实现把 requestNotifyPermission 的回调当成成/败二值——resolve 不是
+  //   'granted' 就走失败分支（toast「未获得通知权限」＋notifyEnabled=false＋开关弹回关闭）。
+  //   而安卓 Chrome / 国产 ROM 上「系统授权弹窗已经弹出、用户还没点允许」时，requestPermission
+  //   就会先 resolve 成 'default'（'default' ＝ 还没决定，不是拒绝）——用户那一下点按就这样被
+  //   吃掉、开关自己弹了回去；等他第二下点开关时权限其实已经在系统弹窗里被允许了 ⇒「第二下才开」。
+  //   同一文件里启动恢复（#921g）与回填重读本就按「'default' ＝ 瞬态，不落 0、开关照常开」处理，
+  //   只有这条手动开启路径口径不一致，本批把两者统一（不碰 #601d/#921f 语义、零机型分支）。
+  //   新语义：granted ＝ 当场生效；denied ＝ 明确被拒，回弹开关（沿用原口径：显示开着却无效会误导）；
+  //   unsupported ＝ 环境不支持，回弹；default ＝ 先按用户意图把开关亮着（不丢这一下），再把结果
+  //   等出来（轮询 + 回前台/重新聚焦补查 + 用户下次点按借手势再请求一次），全程不再要求点第二下。
+  const NB_SETTLE_MS = 12000; // 待决等待上限：覆盖「系统弹窗弹着、用户过几秒才点允许」的正常窗口
+  let nbAttempt = 0;          // 每轮「用户动开关」的代号：回调/轮询只认自己那一轮，过期即弃
+  let nbSettleTimer = null;
+  let nbSettlePoke = null;    // 待决轮询的「探一脚」入口（回前台/重新聚焦时立刻补查）
+  let nbAppliedFor = 0;       // 已落地的轮次（granted 可能从回调与轮询两边同时到）
+  function nbAttemptNext() {
+    nbAttempt++;
+    if (nbSettleTimer) { clearTimeout(nbSettleTimer); nbSettleTimer = null; }
+    nbSettlePoke = null;
+    return nbAttempt;
+  }
+  function nbRevertOff() { notifyEnabled = false; gSet('bg-notify', '0'); syncNotifyUI(); }
+  function nbApplyOn(my) {
+    if (my !== nbAttempt || nbAppliedFor === my) return;
+    nbAppliedFor = my;
+    notifyEnabled = true;
+    gSet('bg-notify', '1');
+    syncNotifyUI();
+    showSysNotification('通知已开启', { body: '后台消息提醒将正常弹窗' });
+    // FIX 2026-09-20 #924c：iPhone 如实告知能力边界——iOS WebKit 的系统通知只认
+    //   「推送服务」通道（App Store 级推送服务端），纯本地应用没有推送服务，
+    //   保活期间的后台弹窗不保证弹出＝平台限制、代码无法绕过；消息本身不丢，
+    //   回前台有迟到补弹（#915 bgLateCatchup）与聊天记录兜底。
+    if (kaIsIOS()) setTimeout(function () { toast('iPhone 提示：受系统限制，后台弹窗不保证弹出；消息不会丢，回来自动补看'); }, 1600);
+    // v3.5.132：开启通知时自动联动开启后台保活——后台消息要"到达"必须
+    //   页面定时器在后台仍运行（静音音频保活）；否则开关开了但页面休眠，
+    //   消息根本不产生，通知永远不会弹（旧版只 toast 提醒，用户容易漏开）
+    setTimeout(function () {
+      const keep = document.getElementById('bg-keepalive');
+      const keepOn = keepEnabled;
+      // FIX 2026-09-16 #601d：用户已手动关过保活（存储 '0' 或标记 __ka-user-off=1）时
+      // 不再强行打开——尊重用户选择，只提醒「通知要靠保活才收得到后台消息」。
+      const userWantsKeepOff = gGet('bg-keepalive') === '0' || gGet('__ka-user-off') === '1';
+      if (!keepOn && userWantsKeepOff) {
+        toast('你已手动关闭「后台保活」，保持你的设置；但后台消息可能收不到通知，需要时请手动开启');
+      } else if (!keepOn) {
+        if (keep) keep.checked = true;
+        keepEnabled = true;
+        gSet('bg-keepalive', '1');
+        gSet('__ka-user-off', '0');
+        startKeepAlive(false);
+        syncKeepUI();
+        toast('已自动开启后台保活（后台消息必需）');
+      }
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        toast('提醒：需 HTTPS 访问，浏览器才允许通知');
+      }
+    }, 400);
+  }
+  // 待决结果轮询：#988 本体——不回弹，把「用户还没点允许」这段窗口等出来（先密后疏，最长 NB_SETTLE_MS）
+  function nbSettleStart(my, quiet) {
+    const start = Date.now();
+    const tick = function () {
+      if (my !== nbAttempt) return;
+      if (nbSettleTimer) { clearTimeout(nbSettleTimer); nbSettleTimer = null; }
+      const p = nbPermState();
+      if (p === 'granted') { nbSettlePoke = null; nbApplyOn(my); return; }
+      if (p === 'denied') {
+        nbSettlePoke = null;
+        toast('通知权限被拒绝，请在浏览器设置中允许通知');
+        nbAttemptNext(); nbRevertOff();
+        return;
+      }
+      if (Date.now() - start < NB_SETTLE_MS) {
+        nbSettleTimer = setTimeout(tick, (Date.now() - start) < 3000 ? 600 : 2000);
+        return;
+      }
+      // 一直没决定：开关保持开启（用户的意图留着），如实指路＋挂「下次点按再请求一次」
+      nbSettlePoke = null;
+      if (!quiet) toast('通知权限还没定下来：地址栏左侧图标 → 网站设置 → 通知 → 允许；开关已为你保持开启，允许后自动生效');
+      nbArmRetry(my);
+    };
+    nbSettlePoke = tick;
+    nbSettleTimer = setTimeout(tick, 600);
+  }
+  // 借用户下一次点按的手势再请求一次授权（Chrome 要求 requestPermission 带手势）——
+  //   把旧版的「再点一次开关」变成「回来随手点哪都行」，且失败不重复弹打扰
+  function nbArmRetry(my) {
+    const onTap = function () {
+      document.removeEventListener('pointerdown', onTap, true);
+      document.removeEventListener('keydown', onTap, true);
+      if (my !== nbAttempt) return;
+      const p = nbPermState();
+      if (p === 'granted') { nbApplyOn(my); return; }
+      if (p === 'denied') { nbAttemptNext(); nbRevertOff(); return; }
+      requestNotifyPermission(null, function () {}, { quiet: true });
+      nbSettleStart(my, true);
+    };
+    document.addEventListener('pointerdown', onTap, true);
+    document.addEventListener('keydown', onTap, true);
+  }
+  function nbPermRecheck() { try { if (nbSettlePoke) nbSettlePoke(); } catch (e) {} }
+  // 有些内核从后台切回只发 focus 不发 visibilitychange（同 #153/#724 族的自愈口径），补一路
+  try { window.addEventListener('focus', nbPermRecheck); } catch (e) {}
   if (nbBtn) {
     nbBtn.addEventListener('change', function (e) {
-      // #921f：无手势 change 忽略并回弹（同保活闸——丢弃唤醒重载的伪翻转不得写 '0'）
+      // #921f / #988：无真实输入的 change 忽略并回弹（丢弃唤醒重载的伪翻转不得写 '0'）
       if (!kaUserGesture(e)) { syncNotifyUI(); try { nbBtn.checked = notifyEnabled; } catch (er) {} return; }
       notifyUserTouched = true; // #88：手动动过 → 回填后不再重读覆盖
+      const my = nbAttemptNext();
       if (nbBtn.checked) {
-        requestNotifyPermission(function () {
+        if (nbPermState() === 'default') {
+          // 还没决定：先把开关亮起来（＝不丢用户这一下，也不回弹），结果交给回调/轮询收口
           notifyEnabled = true;
           gSet('bg-notify', '1');
           syncNotifyUI();
-          showSysNotification('通知已开启', { body: '后台消息提醒将正常弹窗' });
-          // FIX 2026-09-20 #924c：iPhone 如实告知能力边界——iOS WebKit 的系统通知只认
-          //   「推送服务」通道（App Store 级推送服务端），纯本地应用没有推送服务，
-          //   保活期间的后台弹窗不保证弹出＝平台限制、代码无法绕过；消息本身不丢，
-          //   回前台有迟到补弹（#915 bgLateCatchup）与聊天记录兜底。
-          if (kaIsIOS()) setTimeout(function () { toast('iPhone 提示：受系统限制，后台弹窗不保证弹出；消息不会丢，回来自动补看'); }, 1600);
-          // v3.5.132：开启通知时自动联动开启后台保活——后台消息要"到达"必须
-          //   页面定时器在后台仍运行（静音音频保活）；否则开关开了但页面休眠，
-          //   消息根本不产生，通知永远不会弹（旧版只 toast 提醒，用户容易漏开）
-          setTimeout(function () {
-            const keep = document.getElementById('bg-keepalive');
-            const keepOn = keepEnabled;
-            // FIX 2026-09-16 #601d：用户已手动关过保活（存储 '0' 或标记 __ka-user-off=1）时
-            // 不再强行打开——尊重用户选择，只提醒「通知要靠保活才收得到后台消息」。
-            const userWantsKeepOff = gGet('bg-keepalive') === '0' || gGet('__ka-user-off') === '1';
-            if (!keepOn && userWantsKeepOff) {
-              toast('你已手动关闭「后台保活」，保持你的设置；但后台消息可能收不到通知，需要时请手动开启');
-            } else if (!keepOn) {
-              if (keep) keep.checked = true;
-              keepEnabled = true;
-              gSet('bg-keepalive', '1');
-              gSet('__ka-user-off', '0');
-              startKeepAlive(false);
-              syncKeepUI();
-              toast('已自动开启后台保活（后台消息必需）');
-            }
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-              toast('提醒：需 HTTPS 访问，浏览器才允许通知');
-            }
-          }, 400);
-        }, function () {
-          // 失败：弹回开关
-          notifyEnabled = false;
-          gSet('bg-notify', '0');
-          syncNotifyUI();
+          requestNotifyPermission(function () {
+            // 直接在系统弹窗里点了「允许」：当场收口（轮询只是兜底，别让用户多等/再点一下）
+            if (my !== nbAttempt) return;
+            nbApplyOn(my);
+          }, function (why) {
+            if (my !== nbAttempt) return;
+            if (why === 'denied') { nbAttemptNext(); nbRevertOff(); return; }
+            // pending / error：保持开启，等轮询或下次点按
+          });
+          nbSettleStart(my, false);
+          return;
+        }
+        // granted / denied / unsupported / 异常：沿用原口径（granted 当场生效；其余回弹＋指路）
+        requestNotifyPermission(function () { nbApplyOn(my); }, function () {
+          if (my !== nbAttempt) return;
+          nbAttemptNext(); nbRevertOff();
         });
-      } else {
-        notifyEnabled = false;
-        gSet('bg-notify', '0');
-        syncNotifyUI();
+        return;
       }
+      // 关闭：立即落 '0'，并把在途的授权请求/轮询作废（迟到的授权不得把开关又打开）
+      notifyEnabled = false;
+      gSet('bg-notify', '0');
+      syncNotifyUI();
     });
   }
   (function () {
@@ -1632,6 +1763,9 @@
       return;
     }
     if (vis !== 'visible') return;
+    // FIX 2026-09-21 #988：通知授权弹窗挂着时用户常切出去看/点「允许」——回前台立刻重查一次
+    // 权限状态，待决的那一轮当场收口（不必等轮询到点，更不必让用户再点一次开关）
+    nbPermRecheck();
     const saved = gGet('bg-notify');
     if (saved === '1') {
       const keepOn = keepEnabled;
