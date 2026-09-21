@@ -2435,6 +2435,8 @@ const FIX_SENTINELS = [
   { name: '#544 刷新归一化豁免（normCollapseRange，删则刷新后带标记答案仍会被相邻合并回吞＝屏上所见≠刷新后所见）', file: 'js/chat.js', needle: 'if (a.dedupExempt || b.dedupExempt) continue; // FIX 2026-09-15 #544' },
   { name: '#544 帮我决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果' },
   { name: '#544 多人决定答案带豁免标记发送（删则决策结果重新裸奔进去重窗＝吞答案复发）', file: 'js/group-decision.js', needle: '{ enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 多人决定结果' },
+  { name: '#968a 帮我决定单聊结果补响收消息音效（删＝结果发到聊天一声不响，退回「发了消息没音效」；silent 的横幅语义保留不动）', file: 'js/decision.js', needle: "window.playSfx('in'); } catch (e) {} // FIX 2026-09-21 #968 帮我决定结果响收消息音效" },
+  { name: '#968b 多人决定单聊结果补响收消息音效（同 #968a 口径；群聊那一路 gcSendDecisionText 本就响 playSfxGc(\'in\')）', file: 'js/group-decision.js', needle: "window.playSfx('in'); } catch (e) {} // FIX 2026-09-21 #968 多人决定结果响收消息音效" },
   // ==== 2026-09-16 #547 表情包面板「每次打开都重新加载」复发 + 拍卖会页面显示不全（小米15Pro Chrome 等多机型同发，用户明说其他设备型号也有）：
   // ①表情面板：#457 内容指纹短路被「令牌化翻转」废掉——池视图卡被 ccTokenizeGiantMedia 异步令牌化
   //  （dataURL→@@m:token）后原文变了、显示没变，按原文签名误判内容变化→整面板 innerHTML 重建+全部图

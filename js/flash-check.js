@@ -11,7 +11,7 @@ var JANK_MS = 50;      // 手机 60fps 下 >50ms 视为肉眼可见的跳帧
 var _on = false;
 var _clicks = [], _ev = [], _flips = [], _frames = [];
 var _styleHooks = [], _obs = [], _origRemove = null, _chip = null, _onClick = null;
-var _seen = 0, _seenIn = 0;   // #963：屏幕点击总数 / 其中落在抽屉内的次数（报障时区分「没点」与「点错地方」）
+var _seen = 0, _seenIn = 0;   // #966：屏幕点击总数 / 其中落在抽屉内的次数（报障时区分「没点」与「点错地方」）
 function now() { try { return performance.now(); } catch (e) { return Date.now(); } }
 function appVer() {
 try { var el = document.getElementById('about-ver-val'); var t = el && String(el.textContent || '').trim(); if (t && t.indexOf('__') < 0) return t; } catch (e) {}
