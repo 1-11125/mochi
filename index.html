@@ -10499,9 +10499,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790002263791">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790002471667">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 22:51<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 22:54<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -11643,6 +11643,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <button class="cc-tool" id="cc-import-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 5v12"/></svg>导入数据</button>
         <button class="cc-tool cc-tool-danger" id="cc-clear-all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>清除全部</button>
       </div>
+      <div id="cc-import-hint" style="font-size:11px;line-height:1.6;color:var(--muted);margin:-4px 0 8px">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
       <div class="cc-groups-bar" id="cc-groups-bar">
         <span class="cc-g-chip sel" data-g="">全部</span>
       </div>
@@ -12078,7 +12079,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="gs-title">帮助与支持</div>
         <div class="set-row" id="row-guide">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11.2 12h1.2v4.6"/></svg></div>
-          <div class="txt">使用说明<span class="sub">快速开始 · 安装方式 · iPhone / iOS 限制 · 后台弹窗 · 手机卡顿 · 设备与浏览器限制 · 数据备份 · 常见问题</span></div>
+          <div class="txt">使用说明<span class="sub">快速开始 · 安装方式 · iPhone / iOS 限制 · 后台弹窗 · 手机卡顿 · 设备与浏览器限制 · 只是网页（前端网站） · 数据备份 · 常见问题</span></div>
           <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
         </div>
         <div class="gs-sub" id="guide-sub">第一次用建议先看「快速开始」和「数据备份」。iPhone 推荐用 <b>Safari</b> 打开本站 → 底部「分享」→「添加到主屏幕」，再从桌面图标打开使用（无浏览器栏、全屏更完整、也不跟一堆标签页抢内存）；用 Edge / Chrome 添加只会建快捷方式。</div>
@@ -12455,7 +12456,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
         <div class="set-row" id="row-icon-batch">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10.5 10.5h3M12 9v3" stroke-linecap="round"/></svg></div>
-          <div class="txt">批量上传图标图片<span class="sub">一次选多张 → 到桌面按顺序点图标，每点一个换一张</span></div>
+          <div class="txt">批量上传图标图片<span class="sub">一次选多张 → 到桌面按顺序点图标，每点一个换一张 · 选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</span></div>
         </div>
         <!-- FIX 2026-09-16 #581：图标图片位置调整入口（用户「上传了图标按钮图片后，需要可以只移动
              按钮里图片的位置，不用重新上传」）——进装修模式后点图标即可调该图标的缩放/位置 -->
@@ -13248,7 +13249,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
                设置 → 信息诊断 →「卡顿自检 · 一键优化」行的「功能说明」胶囊（settings-help.js
                #row-perf-optimize）是同一口径的要点版；本节是长文版，改一处记得同步另一处。 -->
           <details class="lic-grp">
-            <summary><span class="lg-num">11</span><span class="lg-name">手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">19</span></summary>
+            <summary><span class="lg-num">11</span><span class="lg-name">手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span></summary>
             <div class="lg-body">
               <div class="lic-li"><b>先记住两句话</b>：<b>iPhone</b>——用 Safari 把本站加到桌面、从桌面图标打开，另外别让东西存太多（<b>图片最占地方</b>）；<b>安卓</b>——同样的情况好很多，但用久了也要清。</div>
               <div class="lic-li"><b>先说清楚两种「卡」</b>：<b>刚打开慢几秒</b>是正常的——整个网站（所有页面、功能、字卡）装在一个文件里，约 5.5MB，第一次打开要整份读一遍，老手机慢几秒很正常，之后会快；<b>用着一直卡、越用越卡</b>，多半是手机里存的东西太多。</div>
@@ -13301,7 +13302,20 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             </div>
           </details>
           <details class="lic-grp">
-            <summary><span class="lg-num">13</span><span class="lg-name">应用锁与开屏问答门</span><span class="lg-count">7</span></summary>
+            <summary><span class="lg-num">13</span><span class="lg-name">本站只是一个网页（前端网站）· 很多做不到是设备限制</span><span class="lg-count">8</span></summary>
+            <div class="lg-body">
+              <div class="lic-li"><b>本站是一个网页，不是 App，也没有服务器</b>：代码、字卡、图片、聊天记录全部只存在你自己手机里——没有账号、没有云端，作者收不到你的任何数据，也没法远程改动你这边的任何东西。所以网页能做什么，不是网站自己说了算，而是<b>浏览器给不给这个能力</b>；浏览器不给的，网站怎么写也做不到，这不是坏了。</div>
+              <div class="lic-li"><b>网页没有「相册权限 / 存储权限」这回事</b>：你点「上传图片」，弹出来的是<b>浏览器的文件选择器或手机系统相册</b>——是浏览器在弹，不是网站在翻你的相册。你不选、不点确定，网站一个文件都拿不到；选完也只有你挑中的那几个文件交给网页，其它照片网站看不到。</div>
+              <div class="lic-li"><b>网站能提的建议只有两条</b>：要什么类型（图片 / 音频）、能不能多选。浏览器可以听、也可以不听——所以「能不能一次选多张」最终由浏览器（或你所在 App 的内置浏览器）决定，网站这边只负责把选中的文件全部收下。</div>
+              <div class="lic-li"><b>批量上传只能选一张、或点了完全没反应，多半是设备 / 浏览器的限制，不是你操作错了</b>：先换 <b>Chrome / Edge</b> 再试一次；在微信 / QQ / 钉钉里打开的要先点右上角「<b>在浏览器打开</b>」；iPhone 用 <b>Safari</b>，或把本站「<b>添加到主屏幕</b>」后从图标进。换过仍然只能选一张，那就是这台设备 / 这个浏览器本身不支持多选，不是网站的 bug。</div>
+              <div class="lic-li"><b>全站支持「一次选多张」的地方</b>（这些入口都会尽量一次收下你选的全部文件）：聊天发图、聊天「<b>批量发送</b>」面板的插入图片、我的表情、群聊发图、信件插图、朋友圈、字卡库导入图片 / 表情包、桌面「<b>批量上传图标图片</b>」、壁纸图库、头像 / 昵称互动里的头像库、塔罗牌面批量上传、音乐「<b>批量导入歌曲</b>」。上面任何一处只能选一张，都按上一条处理。</div>
+              <div class="lic-li"><b>网页做不到的事还有一大串，都不是网站偷懒</b>：系统通知、隐藏手机系统状态栏、振动、调音量、锁定屏幕方向、下载 / 分享面板、跨系统的录音格式……这些接口浏览器根本没给网页，任何网站都做不到。逐条对照见上一节（第 12 节「设备与浏览器限制」）。</div>
+              <div class="lic-li"><b>⚠ 换浏览器 / 装到主屏幕不会带走数据</b>：浏览器标签页与「添加到主屏幕」后的独立应用<b>可能各用一套存储</b>，看着就像「数据丢了」。要换浏览器或装到主屏幕，务必先「<b>导出数据</b>」备份，装好后再「导入数据」；两边不要同时打开使用（详见第 4 节「数据与备份」）。</div>
+              <div class="lic-li"><b>一句话</b>：本站是纯前端网页，能用的能力都是浏览器借给它的。遇到「做不到」的事，按「<b>换 Chrome / Edge → 在浏览器打开 → 添加到主屏幕</b>」三步各试一遍；仍然不行，再按【手机型号 + 浏览器 + 具体现象】报修（附 设置 → 工具 →「设备兼容诊断」复制的信息）。</div>
+            </div>
+          </details>
+          <details class="lic-grp">
+            <summary><span class="lg-num">14</span><span class="lg-name">应用锁与开屏问答门</span><span class="lg-count">7</span></summary>
             <div class="lg-body">
               <div class="lic-li"><b>应用锁</b>：设置 → 系统 →「应用锁」开启，设置 4-6 位数字密码；之后每次打开本站需输密码（同一标签解过一次即可，刷新不重锁）。</div>
               <div class="lic-li">建议同时设置「<b>安全问题</b>」：忘记密码时可用它重置密码。</div>
@@ -13313,7 +13327,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             </div>
           </details>
           <details class="lic-grp">
-            <summary><span class="lg-num">14</span><span class="lg-name">许可与免责</span><span class="lg-count">6</span></summary>
+            <summary><span class="lg-num">15</span><span class="lg-name">许可与免责</span><span class="lg-count">6</span></summary>
             <div class="lg-body">
               <div class="lic-li">本站<b>完全免费</b>：作者只有两个账号——小红书 @言序（1842523578）、抖音 @言序（58334080131）。如有任何收费情况，均为诈骗，注意防止被骗。</div>
               <div class="lic-li">开放<b>二传二改</b>，但必须保留作者署名（小红书 @言序（1842523578），禁止删除或修改）并注明原作者；<b>禁止商用、禁止以盈利为目的</b>（详见 设置 → 关于 →「功能介绍与可二传二改许可」）。</div>
@@ -15004,6 +15018,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg>插入图片
           </button>
         </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);padding:6px 2px 0" id="batch-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
       </div>
       <div class="poke-card-scroll batch-list" id="batch-list"></div>
       <div class="batch-foot">
@@ -16163,6 +16178,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
             清空头像池
           </button>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:8px 0 0" id="avlib-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
         </div>
         <div id="avlib-pane-b" hidden>
           <div class="avlib-toggle">
@@ -16182,6 +16198,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
             清空我的头像池
           </button>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:8px 0 0" id="avlib-me-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
         </div>
         <div id="avlib-pane-c" hidden>
           <div class="avlib-toggle">
@@ -21001,4 +21018,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubd4q9b -->
+<!-- __MOCHI_EOF__ mubd96nn -->

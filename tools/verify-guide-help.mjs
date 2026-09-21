@@ -8,6 +8,11 @@
 //      ③ 系统分区的「后台通知」行与工具分区的「卡顿自检」行下各加一条可见提示（gs-sub），
 //         不点开弹窗也能看到要点。
 // 断言分两层：静态锚（src 文本）＋ 无头 Chrome 实跑（节数/计数/页内搜索/胶囊弹窗/设置搜索）。
+// #997 追加：用户直派「批量上传图片的地方要小字说明＝浏览器限制、可换浏览器；网站没有那么大权限，
+//   打开的只是手机相册 / 应用，与网站无关」→ ① 使用说明新增第 13 节「本站只是一个网页（前端网站）·
+//   很多做不到是设备限制」（原 13/14 顺延为 14/15）；② 六处批量上传入口就地小字（桌面批量上传图标 /
+//   聊天批量发送面板 / 两个头像库 / 字卡库批量导入 / 壁纸图库 / 塔罗牌面批量上传）；③ 入口副文案与
+//   设置页「功能说明」口径同步（四节长文 + 设备兼容诊断指向第 13 节）；④ 顺手校正第 11 节 lg-count 漂移。
 // 用法：node tools/verify-guide-help.mjs（需本机 Chrome/Edge）
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -67,6 +72,31 @@ A('S9 第 11 节写明 iPhone / 安卓两句差异，且不再出现「装到桌
   tpl.includes('先记住两句话') && tpl.includes('用久了也要清')
   && tpl.includes('这不是「能多用内存」') && tpl.includes('长期用也要定期清')
   && !tpl.includes('更不容易被系统清内存') && !tpl.includes('内存表现也更稳'));
+
+// ---- #997：批量上传＝设备限制（入口小字 + 独立一节 + 口径同步）----
+const pj = read('js/personalize.js');
+const dj = read('js/divination.js');
+A('S10 #997 桌面「批量上传图标图片」行小字＝选不了多张是浏览器限制 + 指向第 13 节',
+  tpl.includes('每点一个换一张 · 选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S11 #997 聊天「批量发送」面板插入图片行小字在位',
+  tpl.includes('id="batch-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S12 #997 两个头像库 pane（TA 的 / 我的）都有小字',
+  tpl.includes('id="avlib-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）') && tpl.includes('id="avlib-me-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S13 #997 字卡库批量导入按钮下小字在位',
+  tpl.includes('id="cc-import-hint"') && tpl.includes('选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S14 #997 壁纸图库「＋ 上传新图（可多选）」下小字在位（personalize）',
+  pj.includes("bgHint.id = 'phonebg-upload-hint';") && pj.includes('选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S15 #997 塔罗牌面批量上传小字在位（divination）',
+  dj.includes('<div class="divf-hint" id="divf-batch-hint">') && dj.includes('选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S16 #997 入口副文案 + 功能说明四节长文 + 设备兼容诊断指向第 13 节',
+  tpl.includes('设备与浏览器限制 · 只是网页（前端网站） · 数据备份') && sh.includes('再到四节长文——')
+  && sh.includes('第 13 节「本站只是一个网页」'));
+A('S17 #997 独立一节讲清能力边界（无服务器 / 网页没有相册权限 / 只提建议 / 换浏览器不带走数据）',
+  tpl.includes('本站是一个网页，不是 App，也没有服务器') && tpl.includes('网页没有「相册权限 / 存储权限」这回事')
+  && tpl.includes('网站能提的建议只有两条') && tpl.includes('换浏览器 / 装到主屏幕不会带走数据')
+  && tpl.includes('本站是纯前端网页，能用的能力都是浏览器借给它的'));
+A('S18 #997 第 11 节计数漂移已校正（19→20，与实际条目一致）',
+  tpl.includes('手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span>'));
 
 // ---- 起本地服务 + 无头 Chrome ----
 const server = createServer((req, res) => {
@@ -162,7 +192,7 @@ await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=t
 await clickCapsule('#row-guide'); await sleep(200);
 mt = await modalText();
 const stillSetting = await ev(`(()=>{ const g=document.getElementById('page-guide'); const s=document.getElementById('page-setting'); return (!!g && g.hidden) && (!!s && !s.hidden); })()`);
-A('P4 使用说明「功能说明」列全 14 节，且点胶囊不会跳页', mt.includes('后台弹窗 · 怎么用（安卓 / 电脑）') && mt.includes('设备与浏览器限制') && stillSetting, 'jump=' + !stillSetting);
+A('P4 使用说明「功能说明」列全 15 节，且点胶囊不会跳页', mt.includes('后台弹窗 · 怎么用（安卓 / 电脑）') && mt.includes('设备与浏览器限制') && stillSetting, 'jump=' + !stillSetting);
 await ev(`(()=>{ const m=document.getElementById('modal-mask'); if(m) m.hidden=true; })()`);
 
 await clickCapsule('#row-diagnostics'); await sleep(200);
@@ -220,7 +250,7 @@ const secInfo = () => ev(`(()=>[...document.querySelectorAll('#page-guide .lic-g
 })))()`);
 
 const secs = await secInfo();
-A('G1 说明页共 14 节、编号 1..14 连续', secs.length === 14 && secs.every((s, i) => s.num === String(i + 1)), 'n=' + secs.length + ' nums=' + secs.map(s => s.num).join(','));
+A('G1 说明页共 15 节、编号 1..15 连续', secs.length === 15 && secs.every((s, i) => s.num === String(i + 1)), 'n=' + secs.length + ' nums=' + secs.map(s => s.num).join(','));
 const badCount = secs.filter(s => s.count !== s.items);
 A('G2 每节 lg-count 与实际条目数一致', badCount.length === 0, badCount.map(s => s.name + ':' + s.count + '≠' + s.items).join(' '));
 const byName = (kw) => secs.find(s => s.name.indexOf(kw) >= 0);
@@ -251,7 +281,38 @@ gs = await guideSearch('语音');
 A('G7 说明页搜「语音」仍能命中（既有行为未破坏）', gs.some(s => !s.hidden && s.shown > 0), 'visSecs=' + gs.filter(s => !s.hidden).length);
 
 gs = await guideSearch('');
-A('G8 清空搜索 → 14 节全部恢复可见', gs.length === 14 && gs.every(s => !s.hidden), 'n=' + gs.length);
+A('G8 清空搜索 → 15 节全部恢复可见', gs.length === 15 && gs.every(s => !s.hidden), 'n=' + gs.length);
+
+// ---- #997：独立一节（第 13 节）渲染面 + 原 13/14 顺延 + 六处小字在 DOM 里 ----
+const secsAll = await secInfo();
+const pick = (kw) => secsAll.filter((x) => x.name.indexOf(kw) >= 0)[0];
+const n13 = pick('本站只是一个网页');
+A('G9 #997 说明页有独立一节「本站只是一个网页」（编号 13、计数与条目一致＝8）',
+  !!n13 && n13.num === '13' && n13.items === 8 && n13.count === n13.items,
+  n13 ? 'num=' + n13.num + ' count=' + n13.count + ' items=' + n13.items : 'none');
+A('G10 #997 原 13/14 节顺延（应用锁＝14、许可与免责＝15）',
+  (pick('应用锁') || {}).num === '14' && (pick('许可与免责') || {}).num === '15',
+  'applock=' + (pick('应用锁') || {}).num + ' license=' + (pick('许可与免责') || {}).num);
+const sec13 = await ev(`(()=>{const g=[...document.querySelectorAll('#page-guide .lic-grp')][12]; return g?g.textContent:'';})()`);
+A('G11 #997 第 13 节写明「网页没有相册权限 / 网站只能提建议 / 换 Chrome·Edge / 在浏览器打开 / 导出数据」',
+  sec13.includes('网页没有「相册权限 / 存储权限」这回事') && sec13.includes('网站能提的建议只有两条')
+  && sec13.includes('在浏览器打开') && sec13.includes('Chrome / Edge') && sec13.includes('导出数据')
+  && sec13.includes('设备与浏览器限制'), 'len=' + sec13.length);
+const deskNote = await ev(`(()=>{const r=document.getElementById('row-icon-batch'); const t=r&&r.querySelector('.sub'); return t?t.textContent:'';})()`);
+A('G12 #997 设置页「批量上传图标图片」行小字实际渲染含口径（渲染面，非仅 src）',
+  deskNote.indexOf('选不了多张或点了没反应') >= 0 && deskNote.indexOf('第 13 节') >= 0, 'len=' + deskNote.length);
+const hintOk = await ev(`(()=>{const ids=['batch-upload-hint','avlib-upload-hint','avlib-me-upload-hint','cc-import-hint'];
+  return ids.every(id=>{const el=document.getElementById(id); return !!el && el.textContent.indexOf('Chrome / Edge')>=0 && el.textContent.indexOf('第 13 节')>=0;});})()`);
+A('G13 #997 聊天批量面板 / 两个头像库 / 字卡库四处小字节点在位且有文案', hintOk);
+const gsBatch = await guideSearch('批量上传');
+const g13h = gsBatch.filter((x) => x.name.indexOf('本站只是一个网页') >= 0)[0];
+A('G14 #997 说明页搜「批量上传」→ 第 13 节命中并展开', !!g13h && !g13h.hidden && g13h.shown >= 1,
+  'shown=' + (g13h ? g13h.shown : -1));
+const gsNoPerm = await guideSearch('相册权限');
+const g13p = gsNoPerm.filter((x) => x.name.indexOf('本站只是一个网页') >= 0)[0];
+A('G15 #997 说明页搜「相册权限」→ 第 13 节命中（用户原话关键词可搜到）', !!g13p && !g13p.hidden && g13p.shown >= 1,
+  'shown=' + (g13p ? g13p.shown : -1));
+await guideSearch('');
 
 const jsErr = await ev('window.__jsErrors ? window.__jsErrors.length : -1');
 A('E1 全程无 JS 异常', jsErr === 0 || jsErr === -1, 'jsErrors=' + jsErr);

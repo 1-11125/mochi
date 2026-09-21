@@ -1023,6 +1023,11 @@ if (document.getElementById('phone-bg-gallery-panel') && document.getElementById
 });
 });
 wrap.appendChild(upBtn);
+const bgHint = document.createElement('div');
+bgHint.id = 'phonebg-upload-hint';
+bgHint.style.cssText = 'font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 8px';
+bgHint.textContent = '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）';
+wrap.appendChild(bgHint);
 if (cur) {
 const rmBtn = document.createElement('button');
 rmBtn.textContent = '清除当前壁纸（图库保留）';

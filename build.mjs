@@ -4452,7 +4452,16 @@ const FIX_SENTINELS = [
   { name: '#1000i 静态兜底章节改用 4 位日期（删/回退＝页 1 章节又写 8.15，用户没法一眼对上 4 位密码）', file: 'index.html', needle: '0812 开搓，0815~0829 内测' },
   { name: '#1000j 在线权威源同口径（联网用户开屏生效的那份章节）', file: 'pwa/notice.json', needle: '"0812 开搓，0815~0829 内测，谢谢参与内测的各位；Mochi字卡 0829 已完全公开，可二传二改。",' },
   { name: '#1000k 删除型：在线源不得退回点号写法（回退＝4 位口径丢，用户又拿 8.15 去凑）', file: 'pwa/notice.json', needle: '"8.12 开搓', absent: true },
-  { name: '#1000l 删除型：静态兜底不得退回点号写法', file: 'index.html', needle: '8.12 开搓', absent: true }
+  { name: '#1000l 删除型：静态兜底不得退回点号写法', file: 'index.html', needle: '8.12 开搓', absent: true },
+  // ===== #997 批量上传图片「只能选一张 / 点了没反应」＝设备限制（用户直派：小字要写清是浏览器限制、可换浏览器；网站没有那么大权限，打开的只是手机相册 / 应用，与网站无关），并新增「本站只是一个网页（前端网站）」独立一节（第 13 节，原 13/14 节顺延为 14/15）=====
+  { name: '#997a 使用说明新增独立一节「本站只是一个网页」（删＝用户又只能从「网站坏了」理解设备限制）', file: 'template.html', needle: '本站只是一个网页（前端网站）· 很多做不到是设备限制' },
+  { name: '#997b 桌面「批量上传图标图片」行小字＝选不了多张是浏览器限制、换 Chrome / Edge（删＝用户以为网站不支持批量）', file: 'template.html', needle: '一次选多张 → 到桌面按顺序点图标，每点一个换一张 · 选不了多张或点了没反应' },
+  { name: '#997c 聊天「批量发送」面板插入图片行小字（删＝该入口又只剩按钮，用户不知道只能选一张是浏览器的事）', file: 'template.html', needle: 'id="batch-upload-hint">选不了多张或点了没反应' },
+  { name: '#997d 头像库「添加头像」小字（删＝头像批量上传入口无浏览器限制说明）', file: 'template.html', needle: 'id="avlib-upload-hint">选不了多张或点了没反应' },
+  { name: '#997e 壁纸图库「＋ 上传新图（可多选）」下小字（删＝壁纸批量上传入口无浏览器限制说明）', file: 'js/personalize.js', needle: "bgHint.id = 'phonebg-upload-hint';" },
+  { name: '#997f 塔罗牌面批量上传小字（删＝牌面批量上传入口无浏览器限制说明）', file: 'js/divination.js', needle: 'id="divf-batch-hint"' },
+  { name: '#997g 使用说明「功能说明」列全四节长文（删/改回三节＝新章节没进入口说明，用户看不到它）', file: 'js/settings-help.js', needle: '再到四节长文——' },
+  { name: '#997h 说明页第 11 节计数与条目数对齐（漂移＝章标题上的条数与实际条数不符；HEAD 起 19≠20）', file: 'template.html', needle: '手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span>' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
