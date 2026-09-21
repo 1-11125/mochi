@@ -6800,7 +6800,7 @@ const c = relCat();
 return c === 'family' ? '亲情纪念日' : c === 'friend' ? '友情纪念日' : '恋爱纪念日';
 }
 function updateLove() {
-const start = store.get('love-start');
+const start = normDateStr(store.get('love-start'));
 const daysEl = document.getElementById('love-days');
 const dateEl = document.getElementById('love-date');
 const mDays = document.getElementById('mem-love-days');
@@ -6834,13 +6834,34 @@ const cd = Math.ceil((ann - now) / 864e5);
 if (mNext) mNext.textContent = '还有 ' + cd + ' 天 · ' + (ann.getMonth() + 1) + ' 月 ' + ann.getDate() + ' 日';
 }
 updateLove();
-const dateInput = document.getElementById('love-date-input');
 const dateBtnTxt = document.getElementById('love-date-btn-txt');
 const dateBtn = document.getElementById('love-date-btn');
+function normDateStr(v) {
+const s = String(v == null ? '' : v).trim();
+let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+if (!m) m = /^(\d{4})(\d{2})(\d{2})$/.exec(s);
+if (!m) m = /^(\d{4})[./](\d{1,2})[./](\d{1,2})$/.exec(s);
+if (!m) return '';
+const y = +m[1], mo = +m[2], d = +m[3];
+if (y < 1900 || y > 2999 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+const dt = new Date(y, mo - 1, d);
+if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return '';
+return y + '-' + pad2(mo) + '-' + pad2(d);
+}
+function setLoveStart(v) {
+const ds = normDateStr(v);
+if (!ds) return false;
+store.set('love-start', ds);
+syncLoveDateBtn(ds);
+updateLove();
+try { renderDeskAnniv(); } catch (e) {}
+return true;
+}
 function syncLoveDateBtn(val) {
 if (!dateBtnTxt || !dateBtn) return;
-if (val) {
-const parts = val.split('-');
+const ds = normDateStr(val);
+if (ds) {
+const parts = ds.split('-');
 dateBtnTxt.textContent = parts[0] + ' 年 ' + parts[1] + ' 月 ' + parts[2] + ' 日';
 dateBtn.setAttribute('data-set', '1');
 } else {
@@ -6848,18 +6869,8 @@ dateBtnTxt.textContent = '点击设置日期';
 dateBtn.setAttribute('data-set', '0');
 }
 }
-if (dateInput) {
-const saved = store.get('love-start');
-if (saved) dateInput.value = saved;
-syncLoveDateBtn(dateInput.value);
-dateInput.addEventListener('change', () => {
-if (dateInput.value) {
-store.set('love-start', dateInput.value);
-syncLoveDateBtn(dateInput.value);
-updateLove();
-}
-});
-}
+syncLoveDateBtn(store.get('love-start'));
+if (dateBtn) dateBtn.addEventListener('click', openLoveDateModal);
 const REL_ICONS = {
 love: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.7-9.3-9A5.3 5.3 0 0112 6.4a5.3 5.3 0 019.3 5.6c-1.8 4.3-9.3 9-9.3 9z"/></svg>',
 family: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>',
@@ -6945,42 +6956,57 @@ const memAdd = document.getElementById('mem-add');
 if (memAdd) {
 memAdd.addEventListener('click', openMemAddModal);
 }
-let memMask = null;      // 弹层单例
+let memMask = null;      // 添加纪念日弹层单例
 let memSelDate = '';     // 选中日期 'YYYY-MM-DD'
 let memSelType = 'auto'; // auto/ann/count
-let mvY = 0, mvM = -1;   // 弹层当前查看的年/月（-1=本月）
+const mvYM = { y: 0, m: -1 }; // 弹层当前查看的年/月（m=-1 表示「本月」，首帧落到当前年月）
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 function memToday() {
 const d = new Date();
 return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 }
-function renderMemCal() {
-if (!memMask) return;
-const now = new Date();
-if (mvM < 0) { mvY = now.getFullYear(); mvM = now.getMonth(); }
-const y = mvY, m = mvM;
-memMask.querySelector('.mem-cal-title').textContent = y + ' 年 ' + (m + 1) + ' 月';
-const first = new Date(y, m, 1);
-const days = new Date(y, m + 1, 0).getDate();
-const startWd = first.getDay();
+const MEM_CAL_NAV_HTML =
+'<div class="mem-cal-nav">' +
+'<button class="mem-cal-btn" data-nav="-12" title="上一年"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg></button>' +
+'<button class="mem-cal-btn" data-nav="-1" title="上个月"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg></button>' +
+'<span class="mem-cal-title"></span>' +
+'<button class="mem-cal-btn" data-nav="1" title="下个月"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M9 18l6-6-6-6"/></svg></button>' +
+'<button class="mem-cal-btn" data-nav="12" title="下一年"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M13 7l5 5-5 5"/><path d="M6 7l5 5-5 5"/></svg></button>' +
+'</div>';
+function memCalPaint(panel, ym, selDate, onPick) {
+while (ym.m < 0) { ym.m += 12; ym.y--; }
+while (ym.m > 11) { ym.m -= 12; ym.y++; }
+const title = panel.querySelector('.mem-cal-title');
+const grid = panel.querySelector('.mem-cal-grid');
+if (!title || !grid) return;
+title.textContent = ym.y + ' 年 ' + (ym.m + 1) + ' 月';
+const days = new Date(ym.y, ym.m + 1, 0).getDate();
+const startWd = new Date(ym.y, ym.m, 1).getDay();
 const wds = ['日', '一', '二', '三', '四', '五', '六'];
 const t = memToday();
 let html = wds.map(w => '<span class="mem-cal-wd">' + w + '</span>').join('');
 for (let i = 0; i < startWd; i++) html += '<span class="mem-cal-cell blank"></span>';
 for (let d = 1; d <= days; d++) {
-const ds = y + '-' + pad2(m + 1) + '-' + pad2(d);
-const isToday = ds === t;
-const isSel = ds === memSelDate;
-html += '<span class="mem-cal-cell' + (isToday ? ' today' : '') + (isSel ? ' sel' : '') + '" data-d="' + ds + '">' + d + '</span>';
+const ds = ym.y + '-' + pad2(ym.m + 1) + '-' + pad2(d);
+html += '<span class="mem-cal-cell' + (ds === t ? ' today' : '') + (ds === selDate ? ' sel' : '') + '" data-d="' + ds + '">' + d + '</span>';
 }
-const grid = memMask.querySelector('.mem-cal-grid');
 grid.innerHTML = html;
 grid.querySelectorAll('.mem-cal-cell[data-d]').forEach(cell => {
-cell.addEventListener('click', () => {
-memSelDate = cell.getAttribute('data-d');
-renderMemCal();
+cell.addEventListener('click', () => { onPick(cell.getAttribute('data-d')); });
 });
-});
+}
+function memCalNavBind(panel, ym, onChange) {
+panel.querySelectorAll('.mem-cal-btn').forEach(b => b.addEventListener('click', () => {
+ym.m += parseInt(b.getAttribute('data-nav'), 10) || 0;
+while (ym.m < 0) { ym.m += 12; ym.y--; }
+while (ym.m > 11) { ym.m -= 12; ym.y++; }
+onChange();
+}));
+}
+function renderMemCal() {
+if (!memMask) return;
+if (mvYM.m < 0) { const now = new Date(); mvYM.y = now.getFullYear(); mvYM.m = now.getMonth(); }
+memCalPaint(memMask, mvYM, memSelDate, (d) => { memSelDate = d; renderMemCal(); });
 }
 function closeMemAdd() {
 if (memMask) memMask.hidden = true;
@@ -6994,14 +7020,7 @@ memMask.innerHTML =
 '<div class="mg-panel mem-add-panel">' +
 '<div class="mg-head"><span>添加纪念日 / 倒数日</span><button class="mg-close">✕</button></div>' +
 '<input type="text" class="mem-add-input" placeholder="名称（如：在一起一周年 / 生日）" maxlength="24">' +
-'<div class="mem-cal">' +
-'<div class="mem-cal-nav">' +
-'<button class="mem-cal-btn" data-nav="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg></button>' +
-'<span class="mem-cal-title"></span>' +
-'<button class="mem-cal-btn" data-nav="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M9 18l6-6-6-6"/></svg></button>' +
-'</div>' +
-'<div class="mem-cal-grid"></div>' +
-'</div>' +
+'<div class="mem-cal">' + MEM_CAL_NAV_HTML + '<div class="mem-cal-grid"></div></div>' +
 '<div class="mem-type-row">' +
 '<button class="mem-type-pill sel" data-type="auto">自动</button>' +
 '<button class="mem-type-pill" data-type="ann">纪念日</button>' +
@@ -7017,12 +7036,7 @@ document.body.appendChild(memMask);
 memMask.querySelector('.mg-close').addEventListener('click', closeMemAdd);
 memMask.addEventListener('click', (e) => { if (e.target === memMask) closeMemAdd(); });
 memMask.querySelector('.mem-add-cancel').addEventListener('click', closeMemAdd);
-memMask.querySelectorAll('.mem-cal-btn').forEach(b => b.addEventListener('click', () => {
-mvM += parseInt(b.getAttribute('data-nav'), 10);
-if (mvM < 0) { mvM = 11; mvY--; }
-if (mvM > 11) { mvM = 0; mvY++; }
-renderMemCal();
-}));
+memCalNavBind(memMask, mvYM, renderMemCal);
 memMask.querySelectorAll('.mem-type-pill').forEach(b => b.addEventListener('click', () => {
 memSelType = b.getAttribute('data-type');
 memMask.querySelectorAll('.mem-type-pill').forEach(x => x.classList.toggle('sel', x === b));
@@ -7048,9 +7062,49 @@ memSelType = 'auto';
 const nameInput = memMask.querySelector('input.mem-add-input');
 nameInput.value = '';
 memMask.querySelectorAll('.mem-type-pill').forEach(x => x.classList.toggle('sel', x.getAttribute('data-type') === 'auto'));
-mvY = 0; mvM = -1;
+mvYM.y = 0; mvYM.m = -1;
 renderMemCal();
 setTimeout(() => nameInput.focus(), 80);
+}
+let memDateMask = null;
+let mdSel = '';
+const mdYM = { y: 0, m: 0 };
+function renderMemDateCal() {
+if (!memDateMask) return;
+memCalPaint(memDateMask, mdYM, mdSel, (d) => { mdSel = d; renderMemDateCal(); });
+}
+function closeMemDateModal() { if (memDateMask) memDateMask.hidden = true; }
+function openLoveDateModal() {
+if (!memDateMask) {
+memDateMask = document.createElement('div');
+memDateMask.id = 'mem-date-mask';
+memDateMask.className = 'mg-mask';
+memDateMask.innerHTML =
+'<div class="mg-panel mem-add-panel">' +
+'<div class="mg-head"><span>选择日期</span><button class="mg-close">✕</button></div>' +
+'<div class="mem-cal">' + MEM_CAL_NAV_HTML + '<div class="mem-cal-grid"></div></div>' +
+'<div class="mem-type-hint">‹ › 按月换，‹‹ ›› 按年换；点日期选中后按「确定」</div>' +
+'<div class="mem-add-foot">' +
+'<button class="mem-add-cancel">取消</button>' +
+'<button class="mem-add-ok">确定</button>' +
+'</div>' +
+'</div>';
+document.body.appendChild(memDateMask);
+memCalNavBind(memDateMask, mdYM, renderMemDateCal);
+memDateMask.querySelector('.mg-close').addEventListener('click', closeMemDateModal);
+memDateMask.addEventListener('click', (e) => { if (e.target === memDateMask) closeMemDateModal(); });
+memDateMask.querySelector('.mem-add-cancel').addEventListener('click', closeMemDateModal);
+memDateMask.querySelector('.mem-add-ok').addEventListener('click', () => {
+if (!setLoveStart(mdSel)) { toast('日期没选上，请再点一次'); return; }
+closeMemDateModal();
+});
+}
+const cur = normDateStr(store.get('love-start')) || memToday();
+mdSel = cur;
+const cp = cur.split('-');
+mdYM.y = +cp[0]; mdYM.m = +cp[1] - 1;
+memDateMask.hidden = false;
+renderMemDateCal();
 }
 const memApp = document.querySelector('.app[data-app="memory"]');
 const memPage = document.getElementById('page-memory');
@@ -8549,7 +8603,7 @@ const nameEl = document.getElementById('da-name');
 if (!daysEl || !nameEl) return;
 const now = new Date();
 const cands = [];
-const start = store.get('love-start');
+const start = normDateStr(store.get('love-start'));
 if (start) {
 const d = new Date(start + 'T00:00:00');
 if (!isNaN(d.getTime())) {

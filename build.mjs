@@ -4287,12 +4287,6 @@ const FIX_SENTINELS = [
   { name: '#973b 红卡红色警示形态（删/改回灰底灰条＝最顶端这张卡退回普通卡，不再显眼）', file: 'css/base.css', needle: 'background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left;' },
   { name: '#973c 红卡暗色主题（删＝暗色下红卡按亮底深红字渲染，字看不清）', file: 'css/base.css', needle: '[data-theme="dark"] .splash-bigwarn {' },
   { name: '#973d 必读摘要同口径一条（在线 notice.json 会用 summary 整段替换静态列表，静态兜底丢了＝离线看到的是旧口径摘要）', file: 'template.html', needle: '【本站内容非常多，不适用建议不使用】' },
-
-  // ==== 2026-09-21 #978 切后台再切回「聊天记录不贴底、最新消息整块顶到上半屏、下半全空」（用户实报附截图；#871/#933「几何变动中途写 scrollTop ⇒ 滚动树停旧偏移＝内容整块上移、下方留白」同族第三发，触发面＝回前台）——回场复核固定 350ms 当场裸写 scrollChatBottom()，正打在回场几何恢复风暴（系统栏回归/瓦片重建/视口复核）中段；且撕裂态 scrollTop 读数 ≥ max−8，「离底>8」判据与 #706 看门狗双双失明 ⇒ 停在坏态只有轻点屏幕救得回。修复＝回场这一枪改「几何落定后同值重落一枪」，无条件写的行为面由 tools/verify-chat-resume-realign.mjs 兜住 ====
-  { name: '#978a 回场贴底重对齐入口（删＝回前台撕裂修复整枪消失，坏态只能轻点屏幕救）', file: 'js/chat.js', needle: 'function chatResumeRealign() {' },
-  { name: '#978b 回场复核改排班落定枪（删＝退回 350ms 当场裸写＝撕裂源回归）', file: 'js/chat.js', needle: 'chatResumeRealign();' },
-  { name: '#978c 落定闸未静默续等（删＝不等几何/滚动静默就写，回场风暴期裸写回归）', file: 'js/chat.js', needle: 'if (!chatRepinQuietEnough(now)) { if (now < _rsResumeDeadline) _rsResumeT = setTimeout(chatResumeRealignStep, 120); return; }' },
-  { name: '#978d 删除型：旧「回场 350ms 当场裸写」已拆除（回流＝撕裂源原样回归）', file: 'js/chat.js', needle: 'if (chatScrollMax() - body.scrollTop > 8) { scrollChatBottom(); chatEntrySettle(); }', absent: true },
   /* ==== 2026-09-21 #975 开屏两页「问 AI」建议补免责口径（用户直派：「可以问AI只是使用建议，但实际问题问AI也不无法保证100%正确，AI也会出错和骗人，请自行甄别」）====
      落点三处：第一页开屏公告两处「建议直接问 AI」下方各补一条（在线权威源 notice.json ＋ 离线兜底 template.html 两份同步）；
      第二页强制公告（进入前 · 作者必读公告）底部 note 补同口径（「让 AI 修 / 问 AI」都只是使用建议，答案自行甄别）。==== */
@@ -4323,6 +4317,16 @@ const FIX_SENTINELS = [
   { name: '#976e 防倒卖回填宿主＝必读卡组、旧副本回退公告卡（删/改回只认 #splash-notice＝卡片搬走后回填找不到宿主，二传副本被删后不重建）', file: 'js/clock.js', needle: "return document.getElementById('splash-mustread') || document.getElementById('splash-notice');" },
   { name: '#976f 5s 看门狗作用域同步必读卡组（删/改回只查 #splash-notice＝卡被删后看门狗认不出、补回锚点也错位）', file: 'js/pwa.js', needle: "const n = document.getElementById('splash-mustread') || document.getElementById('splash-notice');" },
   { name: '#976g 免责声明保留红色（删/换色＝第二条使用红线丢失，用户选定的「顶卡 + 免责声明红」被改掉）', file: 'css/base.css', needle: '.splash-alert.splash-disclaimer .splash-alert-t { color:#c22b27;' },
+  // ===== #984 恋爱纪念日「点击设置日期无反应」（iPhone X / iOS16.7 / 夸克实报，同族机型同现）=====
+  // 原实现＝透明的原生 date 控件铺满 pointer-events:none 的假按钮：按钮无点击处理器，点按生效与否、
+  // 取回的日期字符串形态全看内核（date 回落 text 的内核给的是无连字符串，落库即脏值）。改站内月历弹层。
+  { name: '#984a 按钮自己接点击并打开站内月历弹层（删＝退回「点按钮没反应」，功能大全链式点击也一并死）', file: 'js/personalize.js', needle: 'if (dateBtn) dateBtn.addEventListener(\'click\', openLoveDateModal);' },
+  { name: '#984b 日期字符串严格校验（删＝脏值/非法日期直接落库，界面出现「undefined 月」破相文案）', file: 'js/personalize.js', needle: "if (y < 1900 || y > 2999 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';" },
+  { name: '#984c 月历「确定」经 setLoveStart 单一写入口落库（删/改直写＝校验被绕过，脏值又能进存储）', file: 'js/personalize.js', needle: "if (!setLoveStart(mdSel)) { toast('日期没选上，请再点一次'); return; }" },
+  { name: '#984d 恋爱纪念日弹层接共用月历导航（删＝弹层里换不了年月，选几年前的纪念日做不到）', file: 'js/personalize.js', needle: 'memCalNavBind(memDateMask, mdYM, renderMemDateCal);' },
+  { name: '#984e 纪念日按钮＝真的弹层触发器（改回无 aria-haspopup 的假按钮形态＝回归信号）', file: 'template.html', needle: '<button type="button" class="mem-date-btn" id="love-date-btn" aria-haspopup="dialog">' },
+  { name: '#984f 删除型：透明原生 date 覆盖控件不得回流（回来＝点按又交给内核转发，本族「点了没反应」复发）', file: 'template.html', needle: 'id="love-date-input"', absent: true },
+  { name: '#984g 删除型：覆盖式原生控件 CSS 不得回流（回来＝按钮区又被透明控件盖住，假按钮再次接不到点击）', file: 'css/chat-pages.css', needle: '#love-date-input.mem-date', absent: true },
   // ===== #980（2026-09-21 用户直派「关于提醒备份里 iOS 需要添加在主屏幕使用的相关的」）=====
   { name: '#980a 使用说明「数据与备份」新增 iPhone/iPad 必做条（删＝备份章不再告诉 iPhone 用户：不装到主屏幕会被系统连续 7 天规则清空）', file: 'template.html', needle: 'iPhone / iPad 必做</b>：把本站<b>「添加到主屏幕」</b>' },
   { name: '#980b 该章计数随新条同步（漂移＝说明页计数与实际条目数不符，按计数找条找不到）', file: 'template.html', needle: '数据与备份</span><span class="lg-count">8</span>' },

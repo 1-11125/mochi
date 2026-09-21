@@ -8223,7 +8223,9 @@ try {
     return c === 'family' ? '亲情纪念日' : c === 'friend' ? '友情纪念日' : '恋爱纪念日';
   }
   function updateLove() {
-    const start = store.get('love-start');
+    // v8.29 #984：统一经 normDateStr 收口——历史脏值（如内核 date 回落 text 时落库的
+    // 「20260601」）不再渲染成「20260601 年 undefined 月 undefined 日」
+    const start = normDateStr(store.get('love-start'));
     const daysEl = document.getElementById('love-days');
     const dateEl = document.getElementById('love-date');
     const mDays = document.getElementById('mem-love-days');
@@ -8260,15 +8262,45 @@ try {
   }
   updateLove();
 
-  // 设置页恋爱纪念日：原生日期选择器（任何浏览器/手机上都能点开）
-  const dateInput = document.getElementById('love-date-input');
+  // 设置页恋爱纪念日：站内月历弹层（openLoveDateModal）
+  // v8.29 #984：原实现是「透明的原生 date 控件铺满假按钮」——按钮本身 pointer-events:none
+  //   且无任何点击处理，点按能否生效、取回的日期字符串是什么形态，全看内核把触摸转发给
+  //   原生控件的行为与内核的 date 支持（date 回落 text 的内核给的是「20260601」这类无连字
+  //   符串，落库即脏值）。iPhone X / iOS16.7 / 夸克实报「点击设置恋爱纪念日无反应」，同族
+  //   机型同现；功能大全「纪念 · 恋爱纪念日」的链式 .click() 也正落在这个没有处理器的按钮
+  //   上（点了没反应）。改为纯 DOM 月历（与「添加纪念日」共用 .mem-cal 渲染），点击、取值、
+  //   校验全在自己手里，零机型分支。
   const dateBtnTxt = document.getElementById('love-date-btn-txt');
   const dateBtn = document.getElementById('love-date-btn');
-  // 把已选的日期显示到按钮文字上（原生 date input 本身被覆盖为不可见）
+  // 日期字符串收口：只接受 YYYY-MM-DD，并容忍内核/历史数据里的无连字符与点/斜杠形态
+  function normDateStr(v) {
+    const s = String(v == null ? '' : v).trim();
+    let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+    if (!m) m = /^(\d{4})(\d{2})(\d{2})$/.exec(s);
+    if (!m) m = /^(\d{4})[./](\d{1,2})[./](\d{1,2})$/.exec(s);
+    if (!m) return '';
+    const y = +m[1], mo = +m[2], d = +m[3];
+    if (y < 1900 || y > 2999 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+    const dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return '';
+    return y + '-' + pad2(mo) + '-' + pad2(d);
+  }
+  // 纪念日起值的唯一写入口（月历「确定」与任何外部赋值都走它）：非法值一律不落库
+  function setLoveStart(v) {
+    const ds = normDateStr(v);
+    if (!ds) return false;
+    store.set('love-start', ds);
+    syncLoveDateBtn(ds);
+    updateLove();
+    try { renderDeskAnniv(); } catch (e) {}
+    return true;
+  }
+  // 把已选的日期显示到按钮文字上
   function syncLoveDateBtn(val) {
     if (!dateBtnTxt || !dateBtn) return;
-    if (val) {
-      const parts = val.split('-');
+    const ds = normDateStr(val);
+    if (ds) {
+      const parts = ds.split('-');
       dateBtnTxt.textContent = parts[0] + ' 年 ' + parts[1] + ' 月 ' + parts[2] + ' 日';
       dateBtn.setAttribute('data-set', '1');
     } else {
@@ -8276,18 +8308,8 @@ try {
       dateBtn.setAttribute('data-set', '0');
     }
   }
-  if (dateInput) {
-    const saved = store.get('love-start');
-    if (saved) dateInput.value = saved;
-    syncLoveDateBtn(dateInput.value);
-    dateInput.addEventListener('change', () => {
-      if (dateInput.value) {
-        store.set('love-start', dateInput.value);
-        syncLoveDateBtn(dateInput.value);
-        updateLove();
-      }
-    });
-  }
+  syncLoveDateBtn(store.get('love-start'));
+  if (dateBtn) dateBtn.addEventListener('click', openLoveDateModal);
 
   // v3.26.x：主纪念日关系类型（爱情向/亲情向/友情向）+ 关系称呼（选填）
   // 桌面双方头像之间的图标随类型切换：爱情=爱心 / 亲情=家 / 友情=两人
@@ -8382,44 +8404,63 @@ try {
     memAdd.addEventListener('click', openMemAddModal);
   }
 
-  // ================= 添加纪念日 / 倒数日：日历选择弹层 =================
+  // ================= 纪念日日期选择：月历（「添加纪念日」与「恋爱纪念日」共用） =================
   // v3.5.29：从"文本输入名称+日期"改为可视化月历点选（更直观美观）
-  let memMask = null;      // 弹层单例
+  // v8.29 #984：渲染与导航抽成共用件——两个弹层同一实现，日期控件族的坑只修一处，
+  //   不再逐入口手抄（手抄必漏是本族反复复发的结构性原因）。
+  let memMask = null;      // 添加纪念日弹层单例
   let memSelDate = '';     // 选中日期 'YYYY-MM-DD'
   let memSelType = 'auto'; // auto/ann/count
-  let mvY = 0, mvM = -1;   // 弹层当前查看的年/月（-1=本月）
+  const mvYM = { y: 0, m: -1 }; // 弹层当前查看的年/月（m=-1 表示「本月」，首帧落到当前年月）
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
   function memToday() {
     const d = new Date();
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
-  function renderMemCal() {
-    if (!memMask) return;
-    const now = new Date();
-    if (mvM < 0) { mvY = now.getFullYear(); mvM = now.getMonth(); }
-    const y = mvY, m = mvM;
-    memMask.querySelector('.mem-cal-title').textContent = y + ' 年 ' + (m + 1) + ' 月';
-    const first = new Date(y, m, 1);
-    const days = new Date(y, m + 1, 0).getDate();
-    const startWd = first.getDay();
+  // 月历导航条：‹‹ ›› 按年跳（选几年前的纪念日不必点几十下），‹ › 按月跳
+  const MEM_CAL_NAV_HTML =
+    '<div class="mem-cal-nav">' +
+      '<button class="mem-cal-btn" data-nav="-12" title="上一年"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg></button>' +
+      '<button class="mem-cal-btn" data-nav="-1" title="上个月"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg></button>' +
+      '<span class="mem-cal-title"></span>' +
+      '<button class="mem-cal-btn" data-nav="1" title="下个月"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M9 18l6-6-6-6"/></svg></button>' +
+      '<button class="mem-cal-btn" data-nav="12" title="下一年"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M13 7l5 5-5 5"/><path d="M6 7l5 5-5 5"/></svg></button>' +
+    '</div>';
+  // 画一个月（ym={y,m} 会被就地修正为合法月份；selDate 打选中态、今天打 today 态）
+  function memCalPaint(panel, ym, selDate, onPick) {
+    while (ym.m < 0) { ym.m += 12; ym.y--; }
+    while (ym.m > 11) { ym.m -= 12; ym.y++; }
+    const title = panel.querySelector('.mem-cal-title');
+    const grid = panel.querySelector('.mem-cal-grid');
+    if (!title || !grid) return;
+    title.textContent = ym.y + ' 年 ' + (ym.m + 1) + ' 月';
+    const days = new Date(ym.y, ym.m + 1, 0).getDate();
+    const startWd = new Date(ym.y, ym.m, 1).getDay();
     const wds = ['日', '一', '二', '三', '四', '五', '六'];
     const t = memToday();
     let html = wds.map(w => '<span class="mem-cal-wd">' + w + '</span>').join('');
     for (let i = 0; i < startWd; i++) html += '<span class="mem-cal-cell blank"></span>';
     for (let d = 1; d <= days; d++) {
-      const ds = y + '-' + pad2(m + 1) + '-' + pad2(d);
-      const isToday = ds === t;
-      const isSel = ds === memSelDate;
-      html += '<span class="mem-cal-cell' + (isToday ? ' today' : '') + (isSel ? ' sel' : '') + '" data-d="' + ds + '">' + d + '</span>';
+      const ds = ym.y + '-' + pad2(ym.m + 1) + '-' + pad2(d);
+      html += '<span class="mem-cal-cell' + (ds === t ? ' today' : '') + (ds === selDate ? ' sel' : '') + '" data-d="' + ds + '">' + d + '</span>';
     }
-    const grid = memMask.querySelector('.mem-cal-grid');
     grid.innerHTML = html;
     grid.querySelectorAll('.mem-cal-cell[data-d]').forEach(cell => {
-      cell.addEventListener('click', () => {
-        memSelDate = cell.getAttribute('data-d');
-        renderMemCal();
-      });
+      cell.addEventListener('click', () => { onPick(cell.getAttribute('data-d')); });
     });
+  }
+  function memCalNavBind(panel, ym, onChange) {
+    panel.querySelectorAll('.mem-cal-btn').forEach(b => b.addEventListener('click', () => {
+      ym.m += parseInt(b.getAttribute('data-nav'), 10) || 0;
+      while (ym.m < 0) { ym.m += 12; ym.y--; }
+      while (ym.m > 11) { ym.m -= 12; ym.y++; }
+      onChange();
+    }));
+  }
+  function renderMemCal() {
+    if (!memMask) return;
+    if (mvYM.m < 0) { const now = new Date(); mvYM.y = now.getFullYear(); mvYM.m = now.getMonth(); }
+    memCalPaint(memMask, mvYM, memSelDate, (d) => { memSelDate = d; renderMemCal(); });
   }
   function closeMemAdd() {
     if (memMask) memMask.hidden = true;
@@ -8433,14 +8474,7 @@ try {
         '<div class="mg-panel mem-add-panel">' +
           '<div class="mg-head"><span>添加纪念日 / 倒数日</span><button class="mg-close">✕</button></div>' +
           '<input type="text" class="mem-add-input" placeholder="名称（如：在一起一周年 / 生日）" maxlength="24">' +
-          '<div class="mem-cal">' +
-            '<div class="mem-cal-nav">' +
-              '<button class="mem-cal-btn" data-nav="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg></button>' +
-              '<span class="mem-cal-title"></span>' +
-              '<button class="mem-cal-btn" data-nav="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M9 18l6-6-6-6"/></svg></button>' +
-            '</div>' +
-            '<div class="mem-cal-grid"></div>' +
-          '</div>' +
+          '<div class="mem-cal">' + MEM_CAL_NAV_HTML + '<div class="mem-cal-grid"></div></div>' +
           '<div class="mem-type-row">' +
             '<button class="mem-type-pill sel" data-type="auto">自动</button>' +
             '<button class="mem-type-pill" data-type="ann">纪念日</button>' +
@@ -8456,13 +8490,8 @@ try {
       memMask.querySelector('.mg-close').addEventListener('click', closeMemAdd);
       memMask.addEventListener('click', (e) => { if (e.target === memMask) closeMemAdd(); });
       memMask.querySelector('.mem-add-cancel').addEventListener('click', closeMemAdd);
-      // 月份切换
-      memMask.querySelectorAll('.mem-cal-btn').forEach(b => b.addEventListener('click', () => {
-        mvM += parseInt(b.getAttribute('data-nav'), 10);
-        if (mvM < 0) { mvM = 11; mvY--; }
-        if (mvM > 11) { mvM = 0; mvY++; }
-        renderMemCal();
-      }));
+      // 月份/年份切换（共用件：‹ › 按月、‹‹ ›› 按年）
+      memCalNavBind(memMask, mvYM, renderMemCal);
       // 类型切换
       memMask.querySelectorAll('.mem-type-pill').forEach(b => b.addEventListener('click', () => {
         memSelType = b.getAttribute('data-type');
@@ -8494,9 +8523,54 @@ try {
     const nameInput = memMask.querySelector('input.mem-add-input');
     nameInput.value = '';
     memMask.querySelectorAll('.mem-type-pill').forEach(x => x.classList.toggle('sel', x.getAttribute('data-type') === 'auto'));
-    mvY = 0; mvM = -1;
+    mvYM.y = 0; mvYM.m = -1;
     renderMemCal();
     setTimeout(() => nameInput.focus(), 80);
+  }
+
+  // ================= 恋爱纪念日：选日期弹层（#984） =================
+  // 与「添加纪念日」同一套月历渲染，但只做一件事：选一个日期写进 love-start。
+  // 纯 DOM、按钮自己接点击——不再依赖任何内核的原生日期控件行为。
+  let memDateMask = null;
+  let mdSel = '';
+  const mdYM = { y: 0, m: 0 };
+  function renderMemDateCal() {
+    if (!memDateMask) return;
+    memCalPaint(memDateMask, mdYM, mdSel, (d) => { mdSel = d; renderMemDateCal(); });
+  }
+  function closeMemDateModal() { if (memDateMask) memDateMask.hidden = true; }
+  function openLoveDateModal() {
+    if (!memDateMask) {
+      memDateMask = document.createElement('div');
+      memDateMask.id = 'mem-date-mask';
+      memDateMask.className = 'mg-mask';
+      memDateMask.innerHTML =
+        '<div class="mg-panel mem-add-panel">' +
+          '<div class="mg-head"><span>选择日期</span><button class="mg-close">✕</button></div>' +
+          '<div class="mem-cal">' + MEM_CAL_NAV_HTML + '<div class="mem-cal-grid"></div></div>' +
+          '<div class="mem-type-hint">‹ › 按月换，‹‹ ›› 按年换；点日期选中后按「确定」</div>' +
+          '<div class="mem-add-foot">' +
+            '<button class="mem-add-cancel">取消</button>' +
+            '<button class="mem-add-ok">确定</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(memDateMask);
+      memCalNavBind(memDateMask, mdYM, renderMemDateCal);
+      memDateMask.querySelector('.mg-close').addEventListener('click', closeMemDateModal);
+      memDateMask.addEventListener('click', (e) => { if (e.target === memDateMask) closeMemDateModal(); });
+      memDateMask.querySelector('.mem-add-cancel').addEventListener('click', closeMemDateModal);
+      memDateMask.querySelector('.mem-add-ok').addEventListener('click', () => {
+        if (!setLoveStart(mdSel)) { toast('日期没选上，请再点一次'); return; }
+        closeMemDateModal();
+      });
+    }
+    // 每次打开：已设过就停在那一天（选中态 + 视图年月），没设过就以今天为初始
+    const cur = normDateStr(store.get('love-start')) || memToday();
+    mdSel = cur;
+    const cp = cur.split('-');
+    mdYM.y = +cp[0]; mdYM.m = +cp[1] - 1;
+    memDateMask.hidden = false;
+    renderMemDateCal();
   }
 
   // 纪念页：桌面【纪念】图标进入
@@ -10251,7 +10325,7 @@ try {
     if (!daysEl || !nameEl) return;
     const now = new Date();
     const cands = [];
-    const start = store.get('love-start');
+    const start = normDateStr(store.get('love-start'));
     if (start) {
       const d = new Date(start + 'T00:00:00');
       if (!isNaN(d.getTime())) {

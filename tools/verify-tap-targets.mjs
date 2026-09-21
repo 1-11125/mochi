@@ -9,8 +9,9 @@
 // 检查项：A 形态判定（iPad 含 Macintosh 伪装同款 /iPad/ 分支 → html.tablet 手机路径不误挂）；
 //         B ≥901 平板浮层=视口贴边/全宽（RED 判别面：修复前=幽灵外壳 390 值）；
 //         C 全页面 elementFromPoint 命中测试（每形态 44 页全部可点元素，命中物非自身/子孙
-//           =被别的层盖住即 FAIL；白名单仅三类设计内行为：tabbar 半透明叠加可滚出 /
-//           纪念日原生 date input 覆盖假按钮 / 每日问候浮层自动消散）；
+//           =被别的层盖住即 FAIL；白名单仅两类设计内行为：tabbar 半透明叠加可滚出 /
+//           每日问候浮层自动消散）。原第三类「纪念日原生 date input 覆盖假按钮」随 #978
+//           撤除——恋爱纪念日改站内月历弹层（#mem-date-mask），那个覆盖层已不存在。
 //         D 开屏问答门在自动化环境必须保持关（它弹开=全屏遮罩盖死一切，仪器失真即报）。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -197,8 +198,8 @@ const PAGE_HIT_FN = `(function(){
   return JSON.stringify(out);
 })`;
 
-// 设计内白名单：命中物是这三类＝非缺陷（半透明 tabbar 叠加可滚动露出 / 原生日期 input 盖假按钮 / 每日问候自动消散）
-const HIT_ALLOW = [/tabbar/, /#love-date-input/, /#daily-greet/];
+// 设计内白名单：命中物是这两类＝非缺陷（半透明 tabbar 叠加可滚动露出 / 每日问候自动消散）
+const HIT_ALLOW = [/tabbar/, /#daily-greet/];
 
 for (const cfg of CONFIGS) {
   await loadApp(cfg);

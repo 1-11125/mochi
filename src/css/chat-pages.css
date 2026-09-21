@@ -516,7 +516,11 @@
   box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
 .mem-card-label { font-size:12px; color:var(--muted); letter-spacing:1px; margin-bottom:10px; }
-/* 恋爱纪念日日期按钮：原生 date input 覆盖整个按钮，点击任意位置唤起手机日期选择器 */
+/* 恋爱纪念日日期按钮：点击打开站内月历弹层（#mem-date-mask）。
+   v8.29 #984：原方案是「透明原生 date 控件铺满按钮、靠内核把点按转发给原生控件」——
+   点按是否有效、取回的日期字符串形态全由内核决定（date 回落 text 的内核给的是无连字符
+   串，落库即脏值）；iPhone 夸克实报点了没反应、同族机型同现。改纯 DOM 月历，按钮自己
+   接点击，零机型分支。 */
 .mem-date-wrap { position:relative; display:flex; align-items:center; margin-top:6px; }
 .mem-date-btn {
   display:flex; align-items:center; justify-content:center; gap:8px;
@@ -524,15 +528,12 @@
   border:1px solid rgba(0,0,0,.14); border-radius:14px;
   background:rgba(0,0,0,.04); color:var(--ink);
   font-size:15px; font-weight:600; cursor:pointer; font-family:inherit;
-  pointer-events:none; /* 视觉层不接点击，由覆盖其上的原生 date input 接收 */
+  -webkit-tap-highlight-color:transparent;
 }
+.mem-date-btn:active { background:rgba(0,0,0,.09); }
 .mem-date-btn-ico { width:20px; height:20px; color:var(--ink); opacity:.75; flex-shrink:0; }
 .mem-date-btn-ico svg { width:100%; height:100%; display:block; }
 .mem-date-btn[data-set="1"] { color:var(--ink); font-weight:700; }
-#love-date-input.mem-date {
-  position:absolute; inset:0; width:100%; height:100%;
-  opacity:0; cursor:pointer; border:none; outline:none;
-}
 .mem-days { font-size:44px; font-weight:800; color:var(--ink); margin-top:8px; }
 .mem-days b { font-size:52px; }
 .mem-date-txt { font-size:13px; color:var(--muted); margin-top:6px; }
