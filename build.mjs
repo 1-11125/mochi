@@ -4462,6 +4462,12 @@ const FIX_SENTINELS = [
   { name: '#997f 塔罗牌面批量上传小字（删＝牌面批量上传入口无浏览器限制说明）', file: 'js/divination.js', needle: 'id="divf-batch-hint"' },
   { name: '#997g 使用说明「功能说明」列全四节长文（删/改回三节＝新章节没进入口说明，用户看不到它）', file: 'js/settings-help.js', needle: '再到四节长文——' },
   { name: '#997h 说明页第 11 节计数与条目数对齐（漂移＝章标题上的条数与实际条数不符；HEAD 起 19≠20）', file: 'template.html', needle: '手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span>' },
+  { name: '#997i 头像库小字在「添加头像」按钮上方（挪回按钮下方＝360×640 上落在滚动区折叠线以下，用户看不到）', file: 'template.html', needle: '还没有头像，点击下方按钮添加</div>\n          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 8px" id="avlib-upload-hint">' },
+  { name: '#997j 我的表情「添加」行小字（删＝表情图片批量导入入口无浏览器限制说明）', file: 'template.html', needle: 'id="myemoji-add-hint">选不了多张或点了没反应' },
+  { name: '#997k 朋友圈发动态配图行小字（删＝一次最多 9 张的入口无浏览器限制说明）', file: 'template.html', needle: 'id="feed-pick-hint-note">选不了多张或点了没反应' },
+  { name: '#997l 写信工具栏小字（删＝信件插图多选入口无浏览器限制说明）', file: 'template.html', needle: 'id="mail-write-img-hint">选不了多张或点了没反应' },
+  { name: '#997m 回信工具栏小字（同写信，回信页独立工具栏）', file: 'template.html', needle: 'id="mail-reply-img-hint">选不了多张或点了没反应' },
+  { name: '#997n 功能大全「使用说明」条目列全章节并补关键词（删/退回 5 章版＝用户搜「批量上传」「设备限制」找不到入口）', file: 'js/feature-hub.js', needle: '设备限制 浏览器限制 批量上传' },
   /* ==== 2026-09-21 #999 「你希望我以后多做一些什么？」选项人称错位（用户直派「多关心你应该是多关心我，
      人称错了」＋要求排查同类；同批排查了询问单选/查岗单选/好奇快答/互动动作四类）。
      口径：选项＝用户自答，题干「你」＝用户 → 选项里的「我」才是用户自己、「你」＝TA。

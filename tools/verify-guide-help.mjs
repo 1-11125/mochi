@@ -97,6 +97,18 @@ A('S17 #997 独立一节讲清能力边界（无服务器 / 网页没有相册�
   && tpl.includes('本站是纯前端网页，能用的能力都是浏览器借给它的'));
 A('S18 #997 第 11 节计数漂移已校正（19→20，与实际条目一致）',
   tpl.includes('手机卡顿怎么办（安卓 / iPhone）</span><span class="lg-count">20</span>'));
+const fhAlready = read('js/feature-hub.js');
+A('S19 #997 功能大全「使用说明」条目列全章节并补关键词（搜「批量上传 / 设备限制」要能找到入口）',
+  fh.includes('设备限制 浏览器限制 批量上传') && fh.includes('本站只是一个网页（批量上传图片只能选一张')
+  && fh.includes('设备与浏览器限制 / 本站只是一个网页'));
+A('S20 #997 我的表情 / 朋友圈发动态 / 写信 / 回信 四处多选上传也补了小字',
+  tpl.includes('id="myemoji-add-hint">' + '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）')
+  && tpl.includes('id="feed-pick-hint-note">' + '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）')
+  && tpl.includes('id="mail-write-img-hint">' + '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）')
+  && tpl.includes('id="mail-reply-img-hint">' + '选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）'));
+A('S21 #997 头像库小字排在「添加头像」按钮之前（原先在按钮之后＝小屏落在滚动区折叠线以下）',
+  tpl.includes('还没有头像，点击下方按钮添加</div>\n          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 8px" id="avlib-upload-hint">')
+  && tpl.includes('还没有头像，点击下方按钮添加</div>\n          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 8px" id="avlib-me-upload-hint">'));
 
 // ---- 起本地服务 + 无头 Chrome ----
 const server = createServer((req, res) => {
@@ -301,9 +313,9 @@ A('G11 #997 第 13 节写明「网页没有相册权限 / 网站只能提建议 
 const deskNote = await ev(`(()=>{const r=document.getElementById('row-icon-batch'); const t=r&&r.querySelector('.sub'); return t?t.textContent:'';})()`);
 A('G12 #997 设置页「批量上传图标图片」行小字实际渲染含口径（渲染面，非仅 src）',
   deskNote.indexOf('选不了多张或点了没反应') >= 0 && deskNote.indexOf('第 13 节') >= 0, 'len=' + deskNote.length);
-const hintOk = await ev(`(()=>{const ids=['batch-upload-hint','avlib-upload-hint','avlib-me-upload-hint','cc-import-hint'];
+const hintOk = await ev(`(()=>{const ids=['batch-upload-hint','avlib-upload-hint','avlib-me-upload-hint','cc-import-hint','myemoji-add-hint','feed-pick-hint-note','mail-write-img-hint','mail-reply-img-hint'];
   return ids.every(id=>{const el=document.getElementById(id); return !!el && el.textContent.indexOf('Chrome / Edge')>=0 && el.textContent.indexOf('第 13 节')>=0;});})()`);
-A('G13 #997 聊天批量面板 / 两个头像库 / 字卡库四处小字节点在位且有文案', hintOk);
+A('G13 #997 聊天批量面板 / 两个头像库 / 字卡库 / 我的表情 / 朋友圈 / 写信 / 回信 八处小字节点在位且有文案', hintOk);
 const gsBatch = await guideSearch('批量上传');
 const g13h = gsBatch.filter((x) => x.name.indexOf('本站只是一个网页') >= 0)[0];
 A('G14 #997 说明页搜「批量上传」→ 第 13 节命中并展开', !!g13h && !g13h.hidden && g13h.shown >= 1,
@@ -313,6 +325,22 @@ const g13p = gsNoPerm.filter((x) => x.name.indexOf('本站只是一个网页') >
 A('G15 #997 说明页搜「相册权限」→ 第 13 节命中（用户原话关键词可搜到）', !!g13p && !g13p.hidden && g13p.shown >= 1,
   'shown=' + (g13p ? g13p.shown : -1));
 await guideSearch('');
+
+// ---- #997 收尾：头像库小字必须在「添加头像」按钮之前，且 360×640 下不被滚动区折叠线切掉 ----
+await ev(`(()=>{document.querySelectorAll('.page').forEach(p=>p.hidden=true); const c=document.getElementById('page-chat'); if(c) c.hidden=false;
+  const k=document.getElementById('avlib-card'); if(k){k.hidden=false; const a=document.getElementById('avlib-pane-a'); if(a) a.hidden=false;}
+  const m=document.getElementById('modal-mask'); if(m) m.hidden=true; return 1;})()`);
+await cdp('Emulation.setDeviceMetricsOverride', { width: 360, height: 640, deviceScaleFactor: 1, mobile: true });
+await sleep(300);
+const avPos = await ev(`(()=>{const hint=document.getElementById('avlib-upload-hint'), btn=document.getElementById('avlib-upload'), sc=document.getElementById('avlib-scroll');
+  if(!hint||!btn||!sc) return {missing:true};
+  const hr=hint.getBoundingClientRect(), sr=sc.getBoundingClientRect();
+  return { before: !!(hint.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING),
+    belowFold: hr.bottom > sr.bottom + 1, hintBottom: Math.round(hr.bottom), scrollBottom: Math.round(sr.bottom) };})()`);
+A('G16 #997 头像库小字在按钮之前 且 360×640 下不被滚动区折叠（空池首屏可见）',
+  !!(avPos && avPos.before) && avPos.belowFold === false,
+  JSON.stringify(avPos));
+await cdp('Emulation.clearDeviceMetricsOverride');
 
 const jsErr = await ev('window.__jsErrors ? window.__jsErrors.length : -1');
 A('E1 全程无 JS 异常', jsErr === 0 || jsErr === -1, 'jsErrors=' + jsErr);

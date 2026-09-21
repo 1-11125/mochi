@@ -10499,9 +10499,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790005382057">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790005567385">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 23:43<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 23:46<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -14922,6 +14922,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <button class="mail-tb mail-tb-sticker" title="表情包"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5l.01.01M15 9.5l.01.01"/></svg></button>
             <button class="mail-tb mail-tb-image" title="插入图片"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg></button>
           </div>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 0" id="mail-write-img-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
           <div class="mail-paper">
             <div class="mail-paper-head"><span class="mail-paper-author">我</span><span class="mail-paper-date">正在写…</span></div>
             <textarea id="mail-input" class="mail-compose-input" rows="12" placeholder="亲爱的，&#10;&#10;今天想跟你说..."></textarea>
@@ -14951,6 +14952,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <button class="mail-tb mail-tb-sticker" title="表情包"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5l.01.01M15 9.5l.01.01"/></svg></button>
             <button class="mail-tb mail-tb-image" title="插入图片"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg></button>
           </div>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 0" id="mail-reply-img-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
           <div class="mail-paper">
             <div class="mail-paper-head"><span class="mail-paper-author">我的回信</span><span class="mail-paper-date">正在写…</span></div>
             <textarea id="mail-reply-input" class="mail-compose-input" rows="10" placeholder="亲爱的，&#10;&#10;今天想跟你说..."></textarea>
@@ -14981,6 +14983,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <button class="emoji-tool" id="mye-batch">批量管理</button>
         <button class="emoji-tool" id="mye-add">添加</button>
         <button class="emoji-tool" id="mye-add-link">链接导入</button>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);flex:1 0 100%;margin:2px 0 0" id="myemoji-add-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
       </div>
       <!-- 顶部分组切换栏（全部 / 各分组） -->
       <div class="emoji-groups" id="emoji-groups"></div>
@@ -15102,6 +15105,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <span class="feed-preview" id="feed-preview" hidden></span>
             <!-- FIX 2026-09-18 #755：原 #feed-pick-file 静态 input（hidden）已删除，改走统一入口 -->
           </div>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 0" id="feed-pick-hint-note">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
           <button class="ta-add-btn" style="width:100%;margin-top:10px" id="feed-publish">发布</button>
         </div>
         <div id="feed-list"></div>
@@ -16170,6 +16174,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           </div>
           <div class="avlib-grid" id="avlib-grid"></div>
           <div class="div-result-empty" id="avlib-empty" hidden>还没有头像，点击下方按钮添加</div>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 8px" id="avlib-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
           <button class="div-draw" id="avlib-upload">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
             添加头像
@@ -16178,7 +16183,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
             清空头像池
           </button>
-          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:8px 0 0" id="avlib-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
         </div>
         <div id="avlib-pane-b" hidden>
           <div class="avlib-toggle">
@@ -16190,6 +16194,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           </div>
           <div class="avlib-grid" id="avlib-me-grid"></div>
           <div class="div-result-empty" id="avlib-me-empty" hidden>还没有头像，点击下方按钮添加</div>
+          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:6px 0 8px" id="avlib-me-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
           <button class="div-draw" id="avlib-me-upload">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
             添加我的头像
@@ -16198,7 +16203,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
             清空我的头像池
           </button>
-          <div style="font-size:11px;line-height:1.6;color:var(--muted);margin:8px 0 0" id="avlib-me-upload-hint">选不了多张或点了没反应，是浏览器 / 所在 App 的限制：换 Chrome / Edge 再试（详见 使用说明第 13 节）</div>
         </div>
         <div id="avlib-pane-c" hidden>
           <div class="avlib-toggle">
@@ -21080,4 +21084,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubezkbt -->
+<!-- __MOCHI_EOF__ mubf3jbt -->
