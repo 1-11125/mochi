@@ -86,15 +86,6 @@ box-sizing:border-box; text-align:center; padding:30px 18px 18px;
 scrollbar-width:none; -ms-overflow-style:none;
 }
 .splash-box::-webkit-scrollbar { display:none; }
-.splash-bigwarn { width:min(324px, 100%); box-sizing:border-box; margin:0 0 14px; padding:13px 15px 14px 16px; background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left; animation:splash-fade-up .6s ease 0s backwards; }
-.splash-bigwarn .splash-bigwarn-t { font-size:13.5px; font-weight:800; color:#c22b27; letter-spacing:.6px; margin-bottom:7px; line-height:1.6; }
-.splash-bigwarn p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
-.splash-bigwarn p + p { margin-top:7px; }
-.splash-bigwarn strong { color:#c22b27; font-weight:800; }
-[data-theme="dark"] .splash-bigwarn { background:rgba(210,52,48,.20); border-color:#ff6b6b; }
-[data-theme="dark"] .splash-bigwarn .splash-bigwarn-t { color:#ff8f8f; }
-[data-theme="dark"] .splash-bigwarn p { color:#f0c6c6; }
-[data-theme="dark"] .splash-bigwarn strong { color:#ff8f8f; }
 .splash-brandcard {
 width:min(324px, 100%); box-sizing:border-box;
 padding:30px 22px 24px;
@@ -10186,27 +10177,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
   <!-- 开屏加载动画 -->
   <div class="splash" id="splash">
     <div class="splash-box" id="splash-box">
-      <!-- v8.29 #973（用户 2026-09-21 直派「开屏顶部最显眼还需要标红提醒」，并把文案改写定稿为：「网站本质只是工具，
-           使用取决于个人，各种原因都需要适应和调整。网站内置内容非常非常多，不适用建议不使用这个网站，或给一定时间
-           适应。回复设置概率。非常多功能的时间和概率，全部都是公开的可以自己调。一些功能也可以自己设置关闭。聊天字卡
-           也可以单独关闭某个分组或关闭某个单独的字卡。【这个放最顶。】」）——
-           放置口径：.splash-box 的**首个子节点**＝开屏顶部最显眼处（整页滚动容器最顶端、在品牌卡之上，进页第一眼
-           即见，比 #793/#864 的「品牌卡内署名行下」更靠前）；红色警示形态（同 #315b 免责卡 / #793 停更公告的红）。
-           顶卡只留三句（实测 ≈250px）：顶卡加长到 740px 会把 #864「公告已精简」指引条挤出首屏滚动区（top 984 > vh 844），
-           现在 250px 版本下指引条 top=641（仍 < vh、仍在品牌卡内紧跟署名，但被底部卡片压住一截，要完整看需轻微下滑）；
-           四条可调入口的明细落到下方必读摘要第 2 条，顶卡末句指过去。
-           静态 DOM（独立 .splash-bigwarn 类 + data-content-warn 标记，不占 data-anti-scam / data-browser-warn /
-           data-stop-update / data-about-tip 命名空间，与 clock.js 的置顶卡回填、pwa.js 的 5s 看门狗互不干扰）；
-           在线 notice.json 覆盖只改公告标题/摘要列表/章节，覆盖不到此处，故 notice.json 的 summary 同步补同口径一条
-           （两份同步：静态兜底 + 在线权威源）。口径全部指向已存在的设置入口，不新增行为：各类概率与功能时间/间隔
-           （设置 → 回复设置，0 = 不触发）、系统预设字卡逐张/分类开关与「整体概率（总档）」调 0、各项功能开关与桌面
-           隐藏池、聊天字卡分组标题右侧「整组停用」开关与逐张开关、设置页顶部搜索框。 -->
-      <div class="splash-bigwarn" data-content-warn="1">
-        <div class="splash-bigwarn-t">使用前必看 · 本站内容非常多，不适用建议不使用本站</div>
-        <p><strong>网站本质只是工具，使用取决于个人</strong>，各种原因都需要适应和调整。</p>
-        <p><strong>本站内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。</strong>回复设置里的概率、很多功能的时间与概率，<strong>全部都是公开的、可以自己调</strong>；一些功能也可以自己设置关闭；<strong>聊天字卡也可以单独关闭某个分组，或关闭某一张字卡</strong>。</p>
-        <p>各项在哪里调：见下方「必读摘要」。</p>
-      </div>
       <!-- v3.8.y：顶部品牌区统一装进一个卡片框（logo/标题/署名/原作信息成一个整体，更端庄精致） -->
       <div class="splash-brandcard">
         <div class="splash-logo">
@@ -10309,33 +10279,13 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         <div class="splash-notice-list">
           <div class="splash-summary">
             <p class="splash-summary-title">必读摘要</p>
-            <!-- v8.29 #973：与开屏最顶端红卡（.splash-bigwarn）同口径的一条——离线兜底一份，
-                 在线权威源在 src/pwa/notice.json 的 summary，两份同步（renderNotice 会用在线列表整段替换本段） -->
             <p class="splash-hl">【有问题先去「关于」找答案，再去报修】原公告里大部分解答过的问题已移动至【设置 → 关于】：数据丢失 / 浏览器自动清数据 / 存储权限 / 无痕模式 / 备份恢复 / 会不会做成 App / 全屏失效等。打开路径：设置 → 关于 →「数据与存储（重要）」「常见问题」「使用说明」。</p>
-            <!-- v8.29 #973：与开屏最顶端红卡（.splash-bigwarn）同口径的详细一条——离线兜底一份，
-                 在线权威源在 src/pwa/notice.json 的 summary，两份同步（renderNotice 会用在线列表整段替换本段）。
-                 明细放这里、顶卡只留三句：顶卡加长会把 #864 的「公告已精简」指引条挤出首屏（实测 984>844），
-                 故顶卡压到三句（≈270px），四条可调入口的细节落到本条。 -->
-            <p class="splash-hl">【本站内容非常多，不适用建议不使用】网站本质只是工具、使用取决于个人，各种原因都需要适应和调整；内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。觉得不好用的地方基本都能自己调、自己关，所有设置一直都是全部公开的：各类概率与很多功能的时间/间隔（设置 → 回复设置，调 0 = 不触发）、系统预设字卡可逐张或按分类开关（回复设置 →「系统预设字卡 · 聊天触发概率」把整体概率总档调到 0，聊天里所有系统预设字卡都不再触发）、一些功能可以自己设置关闭（设置里的各项开关，或收进桌面隐藏池）、聊天字卡可以单独关闭某个分组（分组标题右侧的「整组停用」开关）或关闭某一张字卡（逐张开关）；找不到就用设置页顶部的搜索框搜关键词。</p>
             <p class="splash-hl">本站完全免费，个人出资搭建、代码开源，开放二传二改但禁止以盈利为目的；二传、分享必须标注署名：小红书 @言序（1842523578），严禁收费倒卖。作者已决定月底停更、互助群月底解散（详见「互助群公告」章）。</p>
             <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
             <p class="splash-hl">关于二级验证密码（暗号）：6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（生日写在开屏目录里，不是最底下的部署时间）。解开后请勿二传。</p>
             <p class="splash-hl">数据丢失属浏览器正常概率，请定期备份：本机不保留任何自动副本，你导出的文件就是唯一备份。TA 的主动消息、字卡等均按概率随机触发，嫌频繁可在 设置 → 回复设置 或 字卡库 → 其他互动功能字卡 调低（0 = 不触发）。</p>
             <p class="splash-hl" id="splash-ios-pwa-tip">#916 建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮 → 添加到主屏幕，之后从桌面图标打开）：浏览器里直接打开的网页是手机清数据时的头号受害者，数据说没就没；从桌面图标用耐用得多。再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。详见 设置 → 关于 →「减少数据被手机清掉的几率」。</p>
-            <!-- #661：开屏慢≠bug——用户直派「不用写在 bug 公告里，单独写、放显眼的地方」，
-                 故独立成章并置于目录第一位（renderSplashSections expandFirst，默认展开＝最显眼），
-                 另在必读摘要补一条高亮。离线兜底一份；在线权威源在 src/pwa/notice.json，两份同步 -->
-            <p class="splash-hl">开屏 / 打开时偶尔慢几秒是正常的，不是 bug：打开时要读完整个网站的代码、再取回存在你本机的数据，这两件事跟网速基本无关（手机旧、数据多就会慢）；需要联网的只有公告文案和版本检测。详见下方『开屏偶尔慢一下，是正常的』章。</p>
             <p>完整说明在各章节内，可点上方目录跳转查看。</p>
-          </div>
-          <div class="splash-sec-wrap">
-            <p class="splash-sec">开屏偶尔慢一下，是正常的（不是 bug）</p>
-            <p class="splash-item">先把结论说在前面：开屏偶尔慢几秒是正常的，不是坏了。下面把原因写清楚，看完就不用再猜了。</p>
-            <p class="splash-bullet">慢的原因基本是两个：① 打开时要把整站代码一次性读完（所有功能都打包在同一个网页里，约 5.5MB）；② 要把你本机的数据读回来（聊天记录、字卡、图片都只存在你自己手机上，没有服务器账号，数据越多读得越久）。这两件事跟网速基本无关——手机旧、数据多就会慢几秒，属正常。</p>
-            <p class="splash-bullet">数据多时底部会显示「数据较多，仍在加载…」，并在下面补一行说明，等它读完就行；不要反复关掉重开，重开等于从头再读一遍，只会更慢。</p>
-            <p class="splash-bullet">需要联网的只有「开屏公告文案」和「版本检测」两小块：信号差时会慢几秒、或短暂显示上一次的公告文案，都属正常；断网也能进（公告有本地兜底文案）。想尽快看到最新公告，可在信号好的时候用流量多刷新几次。</p>
-            <p class="splash-bullet">进去之后如果还一直卡（打字、滑动、点按钮都卡），那多半是数据体积的问题、不是开屏的问题：设置 → 信息诊断 →「卡顿自检 · 一键优化」，详见使用说明里的「手机卡顿」。</p>
-            <p class="splash-bullet"><b>按手机分</b>：<b>iPhone</b>——建议用 Safari「添加到主屏幕」，从桌面图标打开使用；另外别存太多数据，<b>图片最占地方</b>。<b>安卓</b>——同样的情况好很多，但长期使用也需要清理数据。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">互助群公告</p>
@@ -10439,9 +10389,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1789988651795">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1789988571285">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.29</b></span>
-        <span class="sv-deploy">部署于 2026-09-21 19:04<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-21 19:02<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20864,4 +20814,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mub50z6b -->
+<!-- __MOCHI_EOF__ mub4z91x -->
