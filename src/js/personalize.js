@@ -7782,15 +7782,29 @@ try {
   // display-tune.css 只叠加气泡/输入框/设置行等文字组，零 zoom/scale）。
   // 偏移存根命名空间 LS，跨桌面共用（屏幕是设备属性）；mobile-adapt.js mochiScreenAdj 落层。
   (function () {
+    // #990：每轴带 group 字段＝它「管哪一页」，渲染时按组加小标题（原七轴平铺一列，用户看不出
+    // 哪根滑杆管桌面、哪根管聊天；顺序也按组排：通用位置轴 → 桌面页专有 → 聊天文字）
     const AXES = [
-      { k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
-      { k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
-      { k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
-      { k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
-      { k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
-      { k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' },
-      { k: 'side', name: '左右安全边', min: 0, max: 12, hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' }
+      { k: 'top', name: '顶部', min: -80, max: 80, group: 'pos', hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
+      { k: 'bottom', name: '底部', min: -80, max: 80, group: 'pos', hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
+      { k: 'h', name: '页面高度', min: -80, max: 80, group: 'pos', hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
+      { k: 'shift', name: '整体位移', min: -60, max: 60, group: 'pos', hint: '整页位置偏了：正=整页下移、负=上移' },
+      { k: 'side', name: '左右安全边', min: 0, max: 12, group: 'pos', hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' },
+      { k: 'desk', name: '桌面图标区', min: -60, max: 60, group: 'desk', hint: '全屏时桌面图标/按钮整体偏上=往正拉回（只影响桌面页）' },
+      { k: 'text', name: '文字大小', min: 0, max: 12, group: 'text', hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
     ];
+    // 组表＝「哪根滑杆管哪一页」的单一事实源（新增轴只要给 group 字段即可归类）
+    const AXIS_GROUPS = {
+      pos: '通用位置轴（桌面 / 聊天 / 设置都生效）',
+      desk: '只影响「桌面页」',
+      text: '只影响「聊天页」正文文字（气泡 / 输入框）'
+    };
+    function groupIsCurrent(g) {
+      const nm = adjPageName();
+      if (g === 'desk') return nm === '桌面';
+      if (g === 'text') return nm === '聊天' || nm === '群聊';
+      return false;
+    }
     let panel = null;
     let elGrip = null, elHead = null, elBody = null, elMini = null; // 面板四块（收起态只留胶囊）
     // #940（用户 2026-09-20：「不是和边看边调一样半透明的，而且不能拖动滑动，不能预览其他页面」）
@@ -7803,7 +7817,14 @@ try {
     // 被整条盖死，用户在设置里开了面板就再也走不到桌面/聊天页，只能对着设置列表盲调。
     // 修法三条，零机型分支：①面板与胶囊自动停在底部操作区之上（量出来再让开）；
     // ②收起＝一枚小胶囊（不再横贯底边，点一下展开、拖走可让位），带着它就能切页看现场；
-    // ③面板顶部显示「正在调：桌面/聊天」并给「看桌面 / 看聊天」直达按钮，桌面与聊天各自有入口。
+    // ③面板顶部显示「正在调：桌面/聊天」并给两枚切页按钮（#990 起＝带选中态的页签），桌面与聊天各自有入口。
+    // #990（用户 2026-09-21：「屏幕适配打开了这个功能…没有把调桌面和聊天里的屏幕的功能分开，
+    // 这样用户不知道点哪一个才是」「拖动说明那句没说清在挪什么」）修法：①两枚裸按钮改带选中态
+    // 的页签（当前页那枚反色高亮＝一眼看出在调哪页，点另一枚＝切过去看现场）；②七轴按生效页面
+    // 分三组加小标题，当前页那组打「你正在这一页」标记；③拖动说明从标题行（被按钮挤到省略号，
+    // 用户根本没看到）移到标题下的用法段，标题行只留「按住这行标题上下拖＝把面板挪开」。
+    // 注：本段注释刻意不照抄被替换掉的旧文案（旧句原文会命中 verify-962 的 S22/S24 删除型断言，
+    // 也会命中 #982c 那类 absent 哨兵——注释里的裸标识符会被合并进产物）。
     let adjMini = false;   // true＝收起态小胶囊
     let adjBottom = null;  // null＝自动让开底部操作区；否则＝距视口底 px（用户拖过的位置）
     const toast = (msg) => { if (typeof window.toast === 'function') window.toast(msg); };
@@ -7844,6 +7865,33 @@ try {
       if (pg) pg.textContent = nm;
       const ctx = panel.querySelector('[data-adj-ctx]');
       if (ctx) ctx.textContent = '正在调：' + nm;
+      syncPageSeg();
+    }
+    // #990：页签选中态与分组标记——当前在调的那一页＝页签反色高亮、该页专有的那组滑杆＝
+    // 打「你正在这一页」标记；切页（桌面↔聊天↔设置）随时跟着变，用户不必猜哪一根滑杆管哪页
+    function syncPageSeg() {
+      if (!panel) return;
+      const nm = adjPageName();
+      panel.querySelectorAll('[data-adj-goto]').forEach(function (b) {
+        const on = (b.getAttribute('data-adj-goto') === 'chat') ? (nm === '聊天' || nm === '群聊') : (nm === '桌面');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.style.background = on ? '#111' : 'var(--btn-cancel-bg,#fafafa)';
+        b.style.color = on ? '#fff' : 'var(--ink,#111)';
+        b.style.borderColor = on ? '#111' : 'var(--card-border,#ddd)';
+        b.style.fontWeight = on ? '800' : '600';
+      });
+      panel.querySelectorAll('[data-adj-group]').forEach(function (h) {
+        const mk = h.querySelector('[data-adj-group-mine]');
+        if (mk) mk.style.display = groupIsCurrent(h.getAttribute('data-adj-group')) ? 'inline-block' : 'none';
+      });
+      // 说明行随当前页改写：在设置/其它页开面板时两枚页签都不高亮（那两页都不是当前页），
+      // 这里必须直说「点哪一枚切过去」，否则用户又会问「为什么两个都不亮、我该点哪个」
+      const ch = panel.querySelector('[data-adj-ctxhint]');
+      if (ch) {
+        if (nm === '桌面') ch.textContent = '反色高亮的「桌面」＝你现在正在调的页面；点「聊天」就切到聊天页看现场（面板自动收成小胶囊）。';
+        else if (nm === '聊天' || nm === '群聊') ch.textContent = '反色高亮的「聊天」＝你现在正在调的页面；点「桌面」就切到桌面页看现场（面板自动收成小胶囊）。';
+        else ch.textContent = '当前不在桌面/聊天页（' + nm + '）：点「桌面」或「聊天」切过去看现场（面板自动收成小胶囊），调完点胶囊展开继续。';
+      }
     }
     // 收起/展开：只切四块的显隐与外壳形态（全内联，不依赖新增 CSS 文件）
     function setMini(on) {
@@ -7948,13 +7996,26 @@ try {
       bindAdjDrag(grip, false);
       elGrip = grip;
       const head = document.createElement('div');
-      head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
-      head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">拖标题行可上移 · 本机永久保存</span>';
+      head.style.cssText = 'display:flex;flex-direction:column;gap:5px;flex:none;padding:2px 0 4px';
+      // #990：标题与说明分两行——原来挤成一行时那句拖动提示被右侧按钮压成省略号
+      // （390px 实测只剩不到 40px），用户看不到＝「没有写清楚」；现在这行完整可读
+      const headTop = document.createElement('div');
+      headTop.style.cssText = 'display:flex;align-items:center;gap:8px';
+      headTop.innerHTML = '<b style="font-size:14px;flex:1;min-width:0">屏幕适配微调</b><span style="font-size:11px;color:#666;flex:none">本机永久保存</span>';
+      head.appendChild(headTop);
+      const headTool = document.createElement('div');
+      headTool.style.cssText = 'display:flex;align-items:center;gap:8px';
+      head.appendChild(headTool);
+      const headHint = document.createElement('span');
+      headHint.setAttribute('data-adj-draghint', '');
+      headHint.style.cssText = 'font-size:11px;color:#666;flex:1;min-width:0;line-height:1.3';
+      headHint.textContent = '按住这行标题上下拖＝把面板挪开';
+      headTool.appendChild(headHint);
       const done = document.createElement('button');
       done.textContent = '完成';
       done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
       done.addEventListener('click', closePanel);
-      head.appendChild(done);
+      headTop.appendChild(done);
       // #794：按住看默认（A/B 对比）——按住期间全部轴临时归零预览出厂形态，
       // 松手恢复按住前的值；拖方向拿不准时按一下就知道该往哪边拖
       const holdBtn = document.createElement('button');
@@ -7976,7 +8037,7 @@ try {
       };
       holdBtn.addEventListener('pointerdown', holdOn);
       ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { holdBtn.addEventListener(ev, holdOff); });
-      head.insertBefore(holdBtn, done);
+      headTool.insertBefore(holdBtn, headHint);
       // #940：收起＝只剩 grip＋标题行，露出 tabbar 可切到桌面/聊天等页面看六轴现场（同抽屉口径）
       const foldBtn = document.createElement('button');
       foldBtn.textContent = '收起';
@@ -7987,7 +8048,7 @@ try {
       elBody = adjBody;
       // #962：收起＝整块收成小胶囊（原实现只折正文区，外壳仍横贯底边 70px 高、照样盖住底部导航）
       foldBtn.addEventListener('click', () => { setMini(true); });
-      head.insertBefore(foldBtn, holdBtn);
+      headTool.insertBefore(foldBtn, holdBtn);
       panel.appendChild(head);
       elHead = head;
       bindAdjDrag(head, false); // grip 只有 4px 高，标题行才是主拖拽把手
@@ -8000,11 +8061,16 @@ try {
       bindAdjDrag(mini, true);
       panel.appendChild(mini);
       elMini = mini;
+      // #990：用法写在面板最上面（用户报拖动那句没说清在挪什么——原句还被右侧按钮挤成
+      // 省略号）。拖动这条现已挪到标题行那行明说，这里只讲「切页」与「哪根滑杆管哪页」这两件
+      // 最容易点错的事，避免把滑杆挤出首屏
       const tip = document.createElement('div');
-      tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
-      tip.textContent = '拖动滑杆边看边调，双击滑杆回默认 0；「收起」变成小胶囊、不挡底部导航与输入栏，点「看桌面 / 看聊天」切到现场接着调；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
+      tip.setAttribute('data-adj-usage', '');
+      tip.style.cssText = 'font-size:11px;color:#666;flex:none;line-height:1.5';
+      tip.textContent = '想调哪一页，就点「正在调」旁边那一枚页签——切过去看现场（面板自动收成小胶囊）。下面滑杆按「哪一页生效」分三组，标着「你正在这一页」的那组才是当前页要调的；拖动当场生效、双击滑杆回默认 0。';
       adjBody.appendChild(tip);
-      // #962：现场行——显示当前在给哪一页调，并可一键切到桌面/聊天（切完自动收成胶囊）
+      // #962 现场行 → #990：原来两枚裸按钮（分别写着「看桌面」与「看聊天」）分不出哪一枚是
+      // 「我现在要调的」，用户报「不知道点哪一个才是」——改成带选中态的页签（当前页反色高亮）＋ 一行说明
       const ctx = document.createElement('div');
       ctx.style.cssText = 'flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--card-border,#eee);border-radius:10px;padding:7px 10px;font-size:12px';
       const ctxTxt = document.createElement('span');
@@ -8012,14 +8078,22 @@ try {
       ctxTxt.style.cssText = 'flex:1;min-width:0;font-weight:600';
       ctxTxt.textContent = '正在调：' + adjPageName();
       ctx.appendChild(ctxTxt);
-      [['page-phone', '看桌面'], ['chat', '看聊天']].forEach(function (pair) {
+      [['page-phone', '桌面'], ['chat', '聊天']].forEach(function (pair) {
         const pb = document.createElement('button');
+        pb.setAttribute('data-adj-goto', pair[0]);
+        pb.setAttribute('aria-pressed', 'false');
+        pb.title = '切到「' + pair[1] + '」页看现场（面板自动收成小胶囊）';
         pb.textContent = pair[1];
-        pb.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:5px 12px;cursor:pointer';
+        pb.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:5px 14px;cursor:pointer';
         pb.addEventListener('click', function () { goPage(pair[0]); });
         ctx.appendChild(pb);
       });
       adjBody.appendChild(ctx);
+      const ctxHint = document.createElement('div');
+      ctxHint.setAttribute('data-adj-ctxhint', '');
+      ctxHint.style.cssText = 'font-size:11px;color:#666;flex:none;line-height:1.4;margin-top:-2px';
+      ctxHint.textContent = '点「桌面」或「聊天」切过去看现场（面板自动收成小胶囊），调完点胶囊展开继续。'; // syncPageSeg 随后按当前页改写
+      adjBody.appendChild(ctxHint);
       // #794：诊断建议行——打开面板即现场探测一次（device.js 只读采集+判定同源），
       // 有可修项才显示；点「一键修正」直接写入对应轴，不用再跑诊断报告
       try {
@@ -8046,7 +8120,22 @@ try {
         }
       } catch (eSug) {}
       const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+      let lastGroup = '';
       AXES.forEach(ax => {
+        // #990：换组就插一个小标题＝「这根滑杆管哪一页」的唯一说明位，当前页那组带「你正在这一页」
+        if (ax.group !== lastGroup) {
+          lastGroup = ax.group;
+          const gh = document.createElement('div');
+          gh.setAttribute('data-adj-group', ax.group);
+          gh.style.cssText = 'flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#444;padding-top:7px';
+          gh.textContent = AXIS_GROUPS[ax.group] || '';
+          const mine = document.createElement('span');
+          mine.setAttribute('data-adj-group-mine', '');
+          mine.style.cssText = 'display:none;background:#111;color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px';
+          mine.textContent = '你正在这一页';
+          gh.appendChild(mine);
+          adjBody.appendChild(gh);
+        }
         const row = document.createElement('div');
         row.style.cssText = 'flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
         const line = document.createElement('div');
@@ -8158,7 +8247,7 @@ try {
       watchAdjPages();
     }
     function closePanel() { if (panel) { panel.remove(); panel = null; unwindAdjPages(); } }
-    // #962：切到桌面/聊天现场（面板里的「看桌面 / 看聊天」用）——切完自动收成胶囊，一眼看到那一页
+    // #962：切到桌面/聊天现场（面板里那两枚切页页签用）——切完自动收成胶囊，一眼看到那一页
     function goPage(which) {
       try {
         if (which === 'chat') { if (typeof window.enterChat === 'function') window.enterChat(); }

@@ -6399,14 +6399,25 @@ staticText: HINT
 })();
 (function () {
 const AXES = [
-{ k: 'top', name: '顶部', min: -80, max: 80, hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
-{ k: 'bottom', name: '底部', min: -80, max: 80, hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
-{ k: 'h', name: '页面高度', min: -80, max: 80, hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
-{ k: 'desk', name: '桌面图标区', min: -60, max: 60, hint: '全屏时桌面图标/按钮整体偏上=往正拉回' },
-{ k: 'shift', name: '整体位移', min: -60, max: 60, hint: '整页位置偏了：正=整页下移、负=上移' },
-{ k: 'text', name: '文字大小', min: 0, max: 12, hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' },
-{ k: 'side', name: '左右安全边', min: 0, max: 12, hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' }
+{ k: 'top', name: '顶部', min: -80, max: 80, group: 'pos', hint: '顶部内容被状态栏遮挡=往正拖；离得太远=往负拖' },
+{ k: 'bottom', name: '底部', min: -80, max: 80, group: 'pos', hint: '底部被手势条裁掉=往正拖；悬空离底太远=往负拖' },
+{ k: 'h', name: '页面高度', min: -80, max: 80, group: 'pos', hint: '页面底部留白=往正撑满；内容超出屏幕被裁=往负收短' },
+{ k: 'shift', name: '整体位移', min: -60, max: 60, group: 'pos', hint: '整页位置偏了：正=整页下移、负=上移' },
+{ k: 'side', name: '左右安全边', min: 0, max: 12, group: 'pos', hint: '曲面屏/瀑布屏内容贴到屏幕弧边=往正加（两侧同时内收）；0=默认' },
+{ k: 'desk', name: '桌面图标区', min: -60, max: 60, group: 'desk', hint: '全屏时桌面图标/按钮整体偏上=往正拉回（只影响桌面页）' },
+{ k: 'text', name: '文字大小', min: 0, max: 12, group: 'text', hint: '聊天气泡/输入框/设置列表等正文文字整体加大（只放大文字组，非整页缩放）；0=默认' }
 ];
+const AXIS_GROUPS = {
+pos: '通用位置轴（桌面 / 聊天 / 设置都生效）',
+desk: '只影响「桌面页」',
+text: '只影响「聊天页」正文文字（气泡 / 输入框）'
+};
+function groupIsCurrent(g) {
+const nm = adjPageName();
+if (g === 'desk') return nm === '桌面';
+if (g === 'text') return nm === '聊天' || nm === '群聊';
+return false;
+}
 let panel = null;
 let elGrip = null, elHead = null, elBody = null, elMini = null; // 面板四块（收起态只留胶囊）
 let adjMini = false;   // true＝收起态小胶囊
@@ -6446,6 +6457,29 @@ const pg = panel.querySelector('[data-adj-page]');
 if (pg) pg.textContent = nm;
 const ctx = panel.querySelector('[data-adj-ctx]');
 if (ctx) ctx.textContent = '正在调：' + nm;
+syncPageSeg();
+}
+function syncPageSeg() {
+if (!panel) return;
+const nm = adjPageName();
+panel.querySelectorAll('[data-adj-goto]').forEach(function (b) {
+const on = (b.getAttribute('data-adj-goto') === 'chat') ? (nm === '聊天' || nm === '群聊') : (nm === '桌面');
+b.setAttribute('aria-pressed', on ? 'true' : 'false');
+b.style.background = on ? '#111' : 'var(--btn-cancel-bg,#fafafa)';
+b.style.color = on ? '#fff' : 'var(--ink,#111)';
+b.style.borderColor = on ? '#111' : 'var(--card-border,#ddd)';
+b.style.fontWeight = on ? '800' : '600';
+});
+panel.querySelectorAll('[data-adj-group]').forEach(function (h) {
+const mk = h.querySelector('[data-adj-group-mine]');
+if (mk) mk.style.display = groupIsCurrent(h.getAttribute('data-adj-group')) ? 'inline-block' : 'none';
+});
+const ch = panel.querySelector('[data-adj-ctxhint]');
+if (ch) {
+if (nm === '桌面') ch.textContent = '反色高亮的「桌面」＝你现在正在调的页面；点「聊天」就切到聊天页看现场（面板自动收成小胶囊）。';
+else if (nm === '聊天' || nm === '群聊') ch.textContent = '反色高亮的「聊天」＝你现在正在调的页面；点「桌面」就切到桌面页看现场（面板自动收成小胶囊）。';
+else ch.textContent = '当前不在桌面/聊天页（' + nm + '）：点「桌面」或「聊天」切过去看现场（面板自动收成小胶囊），调完点胶囊展开继续。';
+}
 }
 function setMini(on) {
 if (!panel) return;
@@ -6544,13 +6578,24 @@ panel.appendChild(grip);
 bindAdjDrag(grip, false);
 elGrip = grip;
 const head = document.createElement('div');
-head.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding:2px 0 4px';
-head.innerHTML = '<b style="font-size:14px">屏幕适配微调</b><span style="font-size:11px;color:#888;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">拖标题行可上移 · 本机永久保存</span>';
+head.style.cssText = 'display:flex;flex-direction:column;gap:5px;flex:none;padding:2px 0 4px';
+const headTop = document.createElement('div');
+headTop.style.cssText = 'display:flex;align-items:center;gap:8px';
+headTop.innerHTML = '<b style="font-size:14px;flex:1;min-width:0">屏幕适配微调</b><span style="font-size:11px;color:#666;flex:none">本机永久保存</span>';
+head.appendChild(headTop);
+const headTool = document.createElement('div');
+headTool.style.cssText = 'display:flex;align-items:center;gap:8px';
+head.appendChild(headTool);
+const headHint = document.createElement('span');
+headHint.setAttribute('data-adj-draghint', '');
+headHint.style.cssText = 'font-size:11px;color:#666;flex:1;min-width:0;line-height:1.3';
+headHint.textContent = '按住这行标题上下拖＝把面板挪开';
+headTool.appendChild(headHint);
 const done = document.createElement('button');
 done.textContent = '完成';
 done.style.cssText = 'flex:none;border:none;background:#111;color:#fff;font-size:12px;font-weight:700;border-radius:99px;padding:6px 16px;cursor:pointer';
 done.addEventListener('click', closePanel);
-head.appendChild(done);
+headTop.appendChild(done);
 const holdBtn = document.createElement('button');
 holdBtn.textContent = '按住看默认';
 holdBtn.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;border-radius:99px;padding:6px 12px;cursor:pointer';
@@ -6570,7 +6615,7 @@ refreshVals();
 };
 holdBtn.addEventListener('pointerdown', holdOn);
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { holdBtn.addEventListener(ev, holdOff); });
-head.insertBefore(holdBtn, done);
+headTool.insertBefore(holdBtn, headHint);
 const foldBtn = document.createElement('button');
 foldBtn.textContent = '收起';
 foldBtn.title = '收成一枚小胶囊（不挡底部导航/输入栏），切到桌面或聊天继续调';
@@ -6579,7 +6624,7 @@ const adjBody = document.createElement('div');
 adjBody.style.cssText = 'display:flex;flex-direction:column;gap:6px;flex:none';
 elBody = adjBody;
 foldBtn.addEventListener('click', () => { setMini(true); });
-head.insertBefore(foldBtn, holdBtn);
+headTool.insertBefore(foldBtn, holdBtn);
 panel.appendChild(head);
 elHead = head;
 bindAdjDrag(head, false); // grip 只有 4px 高，标题行才是主拖拽把手
@@ -6591,8 +6636,9 @@ bindAdjDrag(mini, true);
 panel.appendChild(mini);
 elMini = mini;
 const tip = document.createElement('div');
-tip.style.cssText = 'font-size:11px;color:#888;flex:none;line-height:1.5';
-tip.textContent = '拖动滑杆边看边调，双击滑杆回默认 0；「收起」变成小胶囊、不挡底部导航与输入栏，点「看桌面 / 看聊天」切到现场接着调；配合「屏幕适配诊断」——先诊断差多少 px，再来拖对应轴。';
+tip.setAttribute('data-adj-usage', '');
+tip.style.cssText = 'font-size:11px;color:#666;flex:none;line-height:1.5';
+tip.textContent = '想调哪一页，就点「正在调」旁边那一枚页签——切过去看现场（面板自动收成小胶囊）。下面滑杆按「哪一页生效」分三组，标着「你正在这一页」的那组才是当前页要调的；拖动当场生效、双击滑杆回默认 0。';
 adjBody.appendChild(tip);
 const ctx = document.createElement('div');
 ctx.style.cssText = 'flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--card-border,#eee);border-radius:10px;padding:7px 10px;font-size:12px';
@@ -6601,14 +6647,22 @@ ctxTxt.setAttribute('data-adj-ctx', '');
 ctxTxt.style.cssText = 'flex:1;min-width:0;font-weight:600';
 ctxTxt.textContent = '正在调：' + adjPageName();
 ctx.appendChild(ctxTxt);
-[['page-phone', '看桌面'], ['chat', '看聊天']].forEach(function (pair) {
+[['page-phone', '桌面'], ['chat', '聊天']].forEach(function (pair) {
 const pb = document.createElement('button');
+pb.setAttribute('data-adj-goto', pair[0]);
+pb.setAttribute('aria-pressed', 'false');
+pb.title = '切到「' + pair[1] + '」页看现场（面板自动收成小胶囊）';
 pb.textContent = pair[1];
-pb.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:5px 12px;cursor:pointer';
+pb.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:12px;font-weight:600;border-radius:99px;padding:5px 14px;cursor:pointer';
 pb.addEventListener('click', function () { goPage(pair[0]); });
 ctx.appendChild(pb);
 });
 adjBody.appendChild(ctx);
+const ctxHint = document.createElement('div');
+ctxHint.setAttribute('data-adj-ctxhint', '');
+ctxHint.style.cssText = 'font-size:11px;color:#666;flex:none;line-height:1.4;margin-top:-2px';
+ctxHint.textContent = '点「桌面」或「聊天」切过去看现场（面板自动收成小胶囊），调完点胶囊展开继续。'; // syncPageSeg 随后按当前页改写
+adjBody.appendChild(ctxHint);
 try {
 const sug = (window.mochiScreenFixSuggest ? window.mochiScreenFixSuggest() : []) || [];
 if (sug.length) {
@@ -6633,7 +6687,21 @@ adjBody.appendChild(srow);
 }
 } catch (eSug) {}
 const cur0 = window.mochiScreenAdj ? window.mochiScreenAdj.all() : {};
+let lastGroup = '';
 AXES.forEach(ax => {
+if (ax.group !== lastGroup) {
+lastGroup = ax.group;
+const gh = document.createElement('div');
+gh.setAttribute('data-adj-group', ax.group);
+gh.style.cssText = 'flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#444;padding-top:7px';
+gh.textContent = AXIS_GROUPS[ax.group] || '';
+const mine = document.createElement('span');
+mine.setAttribute('data-adj-group-mine', '');
+mine.style.cssText = 'display:none;background:#111;color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px';
+mine.textContent = '你正在这一页';
+gh.appendChild(mine);
+adjBody.appendChild(gh);
+}
 const row = document.createElement('div');
 row.style.cssText = 'flex:none;border-top:1px solid var(--card-border,#eee);padding:7px 0';
 const line = document.createElement('div');

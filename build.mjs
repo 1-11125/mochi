@@ -4228,7 +4228,7 @@ const FIX_SENTINELS = [
 { name: '#962c 面板默认落在留白之上（删＝落位回贴底，底部操作区又被盖）', file: 'js/personalize.js', needle: 'function applyAdjPos() { if (panel) panel.style.bottom = (adjBottom == null ? bottomReserve() : adjBottom) + \'px\'; }' },
 { name: '#962d 收起＝小胶囊（删＝收起态仍横贯底边 70px 高、照样挡住底部导航）', file: 'js/personalize.js', needle: 'function setMini(on) {' },
 { name: '#962e 胶囊点一下展开（删＝收起后再也回不到滑杆）', file: 'js/personalize.js', needle: 'if (tapToOpen && !moved) { setMini(false); return; }' },
-{ name: '#962f 「看桌面 / 看聊天」直达（删＝只能靠自己找路切页，现场调回流）', file: 'js/personalize.js', needle: 'pb.addEventListener(\'click\', function () { goPage(pair[0]); });' },
+{ name: '#962f 「桌面 / 聊天」页签直达（删＝只能靠自己找路切页，现场调回流；#990 起两枚按钮带选中态）', file: 'js/personalize.js', needle: 'pb.addEventListener(\'click\', function () { goPage(pair[0]); });' },
 { name: '#962g 「正在调：桌面/聊天」页面名（删＝又分不清在给哪一页调）', file: 'js/personalize.js', needle: "ctx.textContent = '正在调：' + nm;" },
 { name: '#982a 聊天侧入口改挂「聊天设置 → 美化」（删＝聊天里没入口、只剩设置一条路；原 #962h 是「更多 → 工具」按钮，用户 2026-09-21 直派挪出更多面板）', file: 'template.html', needle: 'id="cs-screen-adj"' },
 { name: '#962i 桌面页入口按钮（删＝桌面上没入口，只剩设置一条路）', file: 'template.html', needle: 'id="decor-fit"' },
@@ -4369,6 +4369,16 @@ const FIX_SENTINELS = [
   { name: '#988b 待决(default) 路径按用户意图保持开关并收口（删＝又变成「requestPermission 一 resolve 非 granted 就回弹」＝点一次被拦、点第二次才开）', file: 'js/bg-keep.js', needle: 'nbSettleStart(my, false);' },
   { name: '#988c 权限结果分「还没决定 / 被拒绝」（删＝pending 又被当成拒绝处理）', file: 'js/bg-keep.js', needle: "fail('pending')" },
   { name: '#988d 删除型：旧「未获得通知权限」回弹提示不得回流（回来＝待决又被当失败，主诉复发）', file: 'js/bg-keep.js', absent: true, needle: "toast('未获得通知权限，后台消息无法弹窗')" },
+,  // ==== 2026-09-21 #990 屏幕适配微调「分不清在调哪一页 / 拖动说明被挤成省略号」根治（用户直派「屏幕适配打开了这个功能…没有把调桌面和聊天里的屏幕的功能分开，这样用户不知道点哪一个才是」「托标题行可上移移动功能位置。没有写清楚」）====
+{ name: '#990a 页签选中态（删＝两枚裸按钮又分不出哪一枚是「我现在要调的」＝用户原话复发）', file: 'js/personalize.js', needle: "b.setAttribute('aria-pressed', on ? 'true' : 'false');" },
+{ name: '#990b 当前页那组打「你正在这一页」标记（删＝看不出哪根滑杆管哪一页）', file: 'js/personalize.js', needle: "if (mk) mk.style.display = groupIsCurrent(h.getAttribute('data-adj-group')) ? 'inline-block' : 'none';" },
+{ name: '#990c 轴→生效页面 组表（删＝分组说明丢失，七轴又平铺成一列）', file: 'js/personalize.js', needle: "desk: '只影响「桌面页」'," },
+{ name: '#990d 分组小标题渲染（删＝没有「哪根滑杆管哪页」的小标题）', file: 'js/personalize.js', needle: "gh.setAttribute('data-adj-group', ax.group);" },
+{ name: '#990e 标题行拖动说明（用户原话「托标题行可上移…没有写清楚」的落点；删＝说明又丢，或又被右侧按钮挤成省略号）', file: 'js/personalize.js', needle: "headHint.textContent = '按住这行标题上下拖＝把面板挪开';" },
+{ name: '#990f 用法段（删＝切页与三组滑杆怎么用又没人说）', file: 'js/personalize.js', needle: '想调哪一页，就点「正在调」旁边那一枚页签' },
+{ name: '#990g 设置页下说明行直说点哪一枚（删＝两枚都不高亮时用户又不知道点哪个）', file: 'js/personalize.js', needle: "else ch.textContent = '当前不在桌面/聊天页（' + nm + '）：点「桌面」或「聊天」切过去看现场" },
+{ name: '#990h 设置行小字写明「反色高亮那枚＝正在调的页面」（删＝设置页小字与面板新交互对不上）', file: 'template.html', needle: '反色高亮的那一枚＝你正在调的页面' },
+{ name: '#990i 使用说明与功能介绍口径同步（删＝开屏「使用前必看」与功能介绍又写回六轴滑杆 / ±2px 步进旧 UI，用户对着面板看会以为功能变了）', file: 'template.html', needle: '滑杆按「哪一页生效」分三组' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
