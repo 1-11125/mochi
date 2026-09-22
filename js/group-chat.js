@@ -3699,34 +3699,66 @@ const gcPokeNameEl = document.getElementById('gc-poke-name');
 const gcPokeCloseBtn = document.getElementById('gc-poke-close');
 let gcPokeCid = null;
 const GC_POKE_PRESETS = ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀'];
-function gcPokeActions() {
-const out = GC_POKE_PRESETS.slice();
-const _pkOk = function (x) {
+function gcPokeTextOnly(x) {
 if (typeof x !== 'string' || !x.trim()) return false;
 if (x.indexOf('data:') === 0 || x.indexOf('|||') >= 0 || x.indexOf('@@m:') >= 0) return false;
 if (/^https?:\/\//i.test(x)) return false;
 return true;
-};
-try { (window.getPokeCards() || []).forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); } catch (e) {}
-[['poke-groups-mine', false], ['poke-user-mine', true]].forEach(([k, flat]) => {
-try {
-const v = JSON.parse(window.activeStore().get(k) || 'null');
-if (flat && Array.isArray(v)) {
-v.forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); });
-} else if (Array.isArray(v)) {
-v.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) g[1].forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); });
 }
-} catch (e) {}
+const gcPokeBar = document.createElement('div');
+gcPokeBar.className = 'poke-groups';
+if (gcPokeCard && gcPokeList) gcPokeCard.insertBefore(gcPokeBar, gcPokeList);
+let gcPokeCur = '';
+function gcPokePrefGet() { try { return window.activeStore().get('gc-poke-group') || ''; } catch (e) { return ''; } }
+function gcPokePrefSet(k) { try { window.activeStore().set('gc-poke-group', k); } catch (e) {} }
+function gcPokeJson(key) {
+try {
+const v = JSON.parse(window.activeStore().get(key) || 'null');
+return Array.isArray(v) ? v : [];
+} catch (e) { return []; }
+}
+function gcPokeGroups() {
+const seen = new Set();
+const out = [];
+const push = (scope, label, cards) => {
+const list = (cards || []).filter(x => {
+if (!gcPokeTextOnly(x) || seen.has(x)) return false;
+seen.add(x);
+return true;
 });
+if (list.length) out.push({ key: scope + '|' + label, label, cards: list });
+};
+push('preset', '预设', GC_POKE_PRESETS);
+let lib = [];
+try { lib = (window.getPokeGroups && window.getPokeGroups()) || []; } catch (e) {}
+lib.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1]) && g[0]) push('lib', String(g[0]), g[1]); });
+gcPokeJson('poke-groups-mine').forEach(g => { if (Array.isArray(g) && Array.isArray(g[1]) && g[0]) push('mine', String(g[0]), g[1]); });
+push('legacy', '我的新增', gcPokeJson('poke-user-mine'));
 return out;
 }
 function gcClosePokeCard() { if (gcPokeCard) gcPokeCard.hidden = true; gcPokeCid = null; }
+function renderGcPokeBar(groups) {
+if (!gcPokeBar) return;
+gcPokeBar.innerHTML = '';
+if (groups.length < 2) { gcPokeBar.style.display = 'none'; return; }
+gcPokeBar.style.display = '';
+groups.forEach(g => {
+const c = document.createElement('span');
+c.className = 'emoji-g-chip' + (gcPokeCur === g.key ? ' sel' : '');
+c.textContent = g.label + g.cards.length;
+c.addEventListener('click', (e) => { e.stopPropagation(); gcPokeCur = g.key; gcPokePrefSet(g.key); renderGcPokeList(); });
+gcPokeBar.appendChild(c);
+});
+}
 function renderGcPokeList() {
 if (!gcPokeList) return;
+const groups = gcPokeGroups();
+if (!groups.some(g => g.key === gcPokeCur)) gcPokeCur = groups.length ? groups[0].key : '';
+renderGcPokeBar(groups);
 gcPokeList.innerHTML = '';
-const acts = gcPokeActions();
-if (!acts.length) { gcPokeList.innerHTML = '<div class="cc-empty">暂无拍一拍文字</div>'; return; }
-acts.forEach((a) => {
+const cur = groups.find(g => g.key === gcPokeCur);
+if (!cur) { gcPokeList.innerHTML = '<div class="cc-empty">暂无拍一拍文字</div>'; return; }
+cur.cards.forEach((a) => {
 const d = document.createElement('div');
 d.className = 'cc-item glass';
 d.innerHTML = '<div class="cc-txt"><div class="t">' + escapeHtml(a) + '</div></div>';
@@ -3738,6 +3770,7 @@ function gcOpenPokeCard(cid) {
 if (!gcPokeCard || !gcPokeList) return;
 closeGcMsgActions(); // 菜单开着时先收，防双浮层叠着（stopPropagation 会跳过 document 收菜单那条路）
 gcPokeCid = cid;
+gcPokeCur = gcPokePrefGet(); // 键按桌面命名空间存，切桌面后开面板要重新落位
 if (gcPokeNameEl) gcPokeNameEl.textContent = memberName(cid);
 renderGcPokeList();
 gcPokeCard.hidden = false;

@@ -4363,36 +4363,76 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   const gcPokeCloseBtn = document.getElementById('gc-poke-close');
   let gcPokeCid = null;
   const GC_POKE_PRESETS = ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀'];
-  function gcPokeActions() {
-    const out = GC_POKE_PRESETS.slice();
-    // FIX 2026-09-17 #648g 拍一拍短语池媒体守卫（与 chat.js pokeTextOnly 同口径）——
-    // 自建分组/字卡库【拍一拍】里混入的令牌/图链/||| 卡不进面板、不被发出
-    const _pkOk = function (x) {
-      if (typeof x !== 'string' || !x.trim()) return false;
-      if (x.indexOf('data:') === 0 || x.indexOf('|||') >= 0 || x.indexOf('@@m:') >= 0) return false;
-      if (/^https?:\/\//i.test(x)) return false;
-      return true;
+  // FIX 2026-09-17 #648g 拍一拍短语池媒体守卫（与 chat.js pokeTextOnly 同口径）——
+  // 自建分组/字卡库【拍一拍】里混入的令牌/图链/||| 卡不进面板、不被发出
+  function gcPokeTextOnly(x) {
+    if (typeof x !== 'string' || !x.trim()) return false;
+    if (x.indexOf('data:') === 0 || x.indexOf('|||') >= 0 || x.indexOf('@@m:') >= 0) return false;
+    if (/^https?:\/\//i.test(x)) return false;
+    return true;
+  }
+  // #1027 分组条：原面板把「预设 + 字卡库【拍一拍】各分组 + 我的自建分组」摊平成一条
+  // 长列表，分组名在群聊里整个丢失（用户反馈「群聊的拍一拍功能没有分组 tag」）。改为与单聊
+  // 同款 .poke-groups chip 条按分组筛选——chip 与暗色样式复用聊天页现成规则，零 CSS 新增。
+  // 合集口径不变：同一批卡、同样全局去重（先到先得），只是按来源拆开摆。
+  const gcPokeBar = document.createElement('div');
+  gcPokeBar.className = 'poke-groups';
+  if (gcPokeCard && gcPokeList) gcPokeCard.insertBefore(gcPokeBar, gcPokeList);
+  let gcPokeCur = '';
+  function gcPokePrefGet() { try { return window.activeStore().get('gc-poke-group') || ''; } catch (e) { return ''; } }
+  function gcPokePrefSet(k) { try { window.activeStore().set('gc-poke-group', k); } catch (e) {} }
+  function gcPokeJson(key) {
+    try {
+      const v = JSON.parse(window.activeStore().get(key) || 'null');
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+  function gcPokeGroups() {
+    const seen = new Set();
+    const out = [];
+    const push = (scope, label, cards) => {
+      const list = (cards || []).filter(x => {
+        if (!gcPokeTextOnly(x) || seen.has(x)) return false;
+        seen.add(x);
+        return true;
+      });
+      if (list.length) out.push({ key: scope + '|' + label, label, cards: list });
     };
-    try { (window.getPokeCards() || []).forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); } catch (e) {}
-    [['poke-groups-mine', false], ['poke-user-mine', true]].forEach(([k, flat]) => {
-      try {
-        const v = JSON.parse(window.activeStore().get(k) || 'null');
-        if (flat && Array.isArray(v)) {
-          v.forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); });
-        } else if (Array.isArray(v)) {
-          v.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1])) g[1].forEach(x => { if (_pkOk(x) && out.indexOf(x) < 0) out.push(x); }); });
-        }
-      } catch (e) {}
-    });
+    push('preset', '预设', GC_POKE_PRESETS);
+    // 字卡库【拍一拍】分类（公用 + 当前桌面专属的合并视图，与 getPokeCards 同一批卡）
+    let lib = [];
+    try { lib = (window.getPokeGroups && window.getPokeGroups()) || []; } catch (e) {}
+    lib.forEach(g => { if (Array.isArray(g) && Array.isArray(g[1]) && g[0]) push('lib', String(g[0]), g[1]); });
+    // 当前桌面「我的拍一拍」自建分组 + 存量扁平列表（同 chat.js pokeUserGroupsInit 的读法）
+    gcPokeJson('poke-groups-mine').forEach(g => { if (Array.isArray(g) && Array.isArray(g[1]) && g[0]) push('mine', String(g[0]), g[1]); });
+    push('legacy', '我的新增', gcPokeJson('poke-user-mine'));
     return out;
   }
   function gcClosePokeCard() { if (gcPokeCard) gcPokeCard.hidden = true; gcPokeCid = null; }
+  function renderGcPokeBar(groups) {
+    if (!gcPokeBar) return;
+    gcPokeBar.innerHTML = '';
+    // 只有一个来源时不占一行（没有可切换的对象）；.poke-groups 自带 display:flex，
+    // 会盖掉 [hidden] 的 UA 规则，所以这里用行内样式收
+    if (groups.length < 2) { gcPokeBar.style.display = 'none'; return; }
+    gcPokeBar.style.display = '';
+    groups.forEach(g => {
+      const c = document.createElement('span');
+      c.className = 'emoji-g-chip' + (gcPokeCur === g.key ? ' sel' : '');
+      c.textContent = g.label + g.cards.length;
+      c.addEventListener('click', (e) => { e.stopPropagation(); gcPokeCur = g.key; gcPokePrefSet(g.key); renderGcPokeList(); });
+      gcPokeBar.appendChild(c);
+    });
+  }
   function renderGcPokeList() {
     if (!gcPokeList) return;
+    const groups = gcPokeGroups();
+    if (!groups.some(g => g.key === gcPokeCur)) gcPokeCur = groups.length ? groups[0].key : '';
+    renderGcPokeBar(groups);
     gcPokeList.innerHTML = '';
-    const acts = gcPokeActions();
-    if (!acts.length) { gcPokeList.innerHTML = '<div class="cc-empty">暂无拍一拍文字</div>'; return; }
-    acts.forEach((a) => {
+    const cur = groups.find(g => g.key === gcPokeCur);
+    if (!cur) { gcPokeList.innerHTML = '<div class="cc-empty">暂无拍一拍文字</div>'; return; }
+    cur.cards.forEach((a) => {
       const d = document.createElement('div');
       d.className = 'cc-item glass';
       d.innerHTML = '<div class="cc-txt"><div class="t">' + escapeHtml(a) + '</div></div>';
@@ -4404,6 +4444,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     if (!gcPokeCard || !gcPokeList) return;
     closeGcMsgActions(); // 菜单开着时先收，防双浮层叠着（stopPropagation 会跳过 document 收菜单那条路）
     gcPokeCid = cid;
+    gcPokeCur = gcPokePrefGet(); // 键按桌面命名空间存，切桌面后开面板要重新落位
     if (gcPokeNameEl) gcPokeNameEl.textContent = memberName(cid);
     renderGcPokeList();
     gcPokeCard.hidden = false;
