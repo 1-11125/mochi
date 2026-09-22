@@ -799,6 +799,26 @@
   // 每件礼物一次 JSON.parse 变成每轮一次），所有写入路径都 invalidate。
   let _boxMeta = null;
   function boxMetaInvalidate() { _boxMeta = null; }
+  // #1029：同一条回复被写两遍留下的**历史脏数据**清理（用户 2026-09-22 实报「送礼物后联系人追加
+  // 回复，同样的回复内容，礼物卡片里会重复变成两次」，红米 K70 Via 浏览器）。旧实现同一拍里连写
+  // 两次（同 who、同文本、ts 差 0~1ms），存量心意柜记录里就留着这样的成对条目；本批已修写入侧，
+  // 但**已经写进去的那一对**不会自己消失，卡片与心意柜仍会显示两行。判据收得很紧：只吞「相邻、
+  // 同 who、同文本、时间差 ≤1s」的条目——用户自己连回两句一样的话、TA 两次独立回话（间隔都以秒
+  // 计）都不会被吞。读侧（卡片经 giftGiftMeta、心意柜经 boxReplies）过滤；写侧 boxAttachReply 顺
+  // 手归一化，所以存量数据一旦再有新回复就彻底干净了。
+  function boxDedupeReplies(list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r) continue;
+      const prev = out.length ? out[out.length - 1] : null;
+      if (prev && prev.who === r.who && String(prev.text) === String(r.text) &&
+          Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= 1000) continue;
+      out.push(r);
+    }
+    return out;
+  }
   function boxMetaMap() {
     if (_boxMeta) return _boxMeta;
     const m = {};
@@ -806,7 +826,7 @@
       const list = boxLoad();
       if (Array.isArray(list)) list.forEach(function (it) {
         if (!it || !it.id) return;
-        m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: Array.isArray(it.replies) ? it.replies : [] };
+        m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: boxDedupeReplies(it.replies) };
       });
     } catch (e) {}
     _boxMeta = m;
@@ -1057,6 +1077,8 @@
       const it = box[i];
       if (it && it.id === boxId) {
         if (!Array.isArray(it.replies)) it.replies = [];
+        // #1029：写入前顺手把旧版「同拍双写」留下的成对重复归一化——存量记录借这一次追加自我愈合
+        it.replies = boxDedupeReplies(it.replies);
         it.replies.push({ who: who === 'me' ? 'me' : 'ta', text: String(text), ts: Date.now() });
         try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
         boxMetaInvalidate();
@@ -1883,7 +1905,8 @@
   // who='ta' 显示联系人名、who='me' 显示「我」；只认有正文字段的项，脏数据不渲染。
   function boxReplies(it) {
     if (!it || !Array.isArray(it.replies)) return [];
-    return it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+    // #1029：心意柜侧同样过一遍去重（与卡片侧 giftGiftMeta 共用 boxDedupeReplies＝同一口径）
+    return boxDedupeReplies(it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; }));
   }
   function boxWhoLabel(who) { return who === 'me' ? '我' : partnerName(); }
   function boxReplyRows(it) {

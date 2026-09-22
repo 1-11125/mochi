@@ -109,6 +109,9 @@ console.log('S 层：源码口径');
     'S28 导入/回填完成即作废（删＝导入备份后卡片仍按导入前的心意柜渲染）');
   ok(/if \(!meta\) return '';/.test(cj),
     'S29 心意柜记录读不到＝整块动作区不给（删＝留下「点了回复却无处存」的死按钮）');
+  // #1029 附：历史脏数据（旧版同拍双写）去重口径必须三处齐
+  ok(/function boxDedupeReplies\(list\) \{/.test(gs) && /replies: boxDedupeReplies\(it\.replies\)/.test(gs) && /boxDedupeReplies\(it\.replies\.filter/.test(gs) && /it\.replies = boxDedupeReplies\(it\.replies\);/.test(gs),
+    'S31 回复去重三处齐（卡片读侧 / 心意柜读侧 / 写入归一化）——删＝同拍双写留在存量记录里的两条又在卡片上显示两行');
 }
 
 // ---------------- B 层：无头 Chrome 行为 ----------------
@@ -585,6 +588,47 @@ await sleep(300);
   ok(injected === 1 && probe && probe.converted && probe.boxText === '初始文案在HTML里' && probe.value === probe.boxText,
     'B8c 通用：HTML 里写死内容的 textarea 转换后可见框与取值都在（经期备注/我的礼物默认留言同型）', JSON.stringify(probe));
   await evalJs("(function(){ var d=document.getElementById('ce-probe-wrap'); if(d && d.parentNode) d.parentNode.removeChild(d); return 1; })()");
+}
+
+// ---- B9：#1029 附 历史脏数据——旧版「同拍双写」留下的成对重复，读侧按一条显示、写侧自愈 ----
+// 用户 2026-09-22 实报（红米 K70 Via 浏览器）「送礼物后联系人追加回复，同样的回复内容，礼物卡片里
+// 会重复变成两次」——那是本批已修的双写留下的存量数据，不会再新产生，但已存进去的那一对必须先能
+// 看少一条，否则用户升级后照样看到两行。
+{
+  const ART = '谢谢你送我';
+  const dupId = await evalJs(`(function(){
+    var g = { id:'g_dup_probe', name:'重复探针', emoji:'\\uD83C\\uDF81', img:'', price:10, cat:'gcare', wish:'原本文案' };
+    var e = window.recordGiftBox(g, 'in', g.wish);
+    var s = window.activeStore();
+    var box = []; try { box = JSON.parse(s.get('giftbox-items') || '[]'); } catch (x) {}
+    for (var i = 0; i < box.length; i++) if (box[i].id === e.id) {
+      var t = Date.now();
+      box[i].replies = [
+        { who:'ta', text:${JSON.stringify(ART)}, ts:t },        // 旧版同拍双写的形态（ts 差 1ms）
+        { who:'ta', text:${JSON.stringify(ART)}, ts:t + 1 },
+        { who:'ta', text:${JSON.stringify(ART)}, ts:t + 60000 } // 防修过头：相隔 60s＝两次独立回话，必须保留
+      ];
+    }
+    s.set('giftbox-items', JSON.stringify(box));
+    window.chatAddGift({ side:'in', special:'gift', giftId:g.id, giftName:g.name, giftEmoji:g.emoji, giftImg:'', giftPrice:g.price, giftWish:g.wish, giftCat:g.cat, giftBoxId:e.id, ts:Date.now() });
+    return e.id;
+  })()`);
+  await sleep(800);
+  const meta = J(await evalJs(`(function(){ var m = window.giftGiftMeta(${JSON.stringify(dupId)}); return JSON.stringify(m || null); })()`));
+  const dom = J(await cardDom('重复探针')) || {};
+  const hits = String(dom.replText || '').split(ART).length - 1;
+  ok(meta && Array.isArray(meta.replies) && meta.replies.length === 2,
+    'B9 存量脏数据：同拍双写的两条按一条算，相隔 60s 的两条独立回话都保留（防修过头）', JSON.stringify(meta && meta.replies));
+  ok(hits === 2, 'B9b 卡片上这句只出现两次（脏重复被吞 + 独立回话照旧）', JSON.stringify({ hits, replText: dom.replText }));
+  await evalJs(`(function(){ window.giftBoxAttachReply(${JSON.stringify(dupId)}, 'me', '我也想说这句'); return 1; })()`);
+  await sleep(400);
+  const stored = J(await evalJs(`(function(){
+    var s = window.activeStore(); var b = []; try { b = JSON.parse(s.get('giftbox-items') || '[]'); } catch (e) {}
+    var e = null; for (var i = 0; i < b.length; i++) if (b[i].id === ${JSON.stringify(dupId)}) e = b[i];
+    return JSON.stringify(e ? e.replies : null);
+  })()`));
+  ok(Array.isArray(stored) && stored.length === 3,
+    'B9c 写侧自愈：再追加一条后存盘只剩 3 条（脏重复被清除，独立回话与我这条回复都在）', JSON.stringify(stored));
   // 复位 UA（后续若加段落仍按默认环境跑）
   await cdp('Emulation.setUserAgentOverride', { userAgent: '' });
   await cdp('Emulation.clearDeviceMetricsOverride');

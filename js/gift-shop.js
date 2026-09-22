@@ -699,6 +699,19 @@ function boxLoad() { try { const s = store(); if (!s) return []; return JSON.par
 function boxSave(a) { const s = store(); if (s) s.set(BOX_KEY, JSON.stringify(a)); }
 let _boxMeta = null;
 function boxMetaInvalidate() { _boxMeta = null; }
+function boxDedupeReplies(list) {
+if (!Array.isArray(list)) return [];
+const out = [];
+for (let i = 0; i < list.length; i++) {
+const r = list[i];
+if (!r) continue;
+const prev = out.length ? out[out.length - 1] : null;
+if (prev && prev.who === r.who && String(prev.text) === String(r.text) &&
+Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= 1000) continue;
+out.push(r);
+}
+return out;
+}
 function boxMetaMap() {
 if (_boxMeta) return _boxMeta;
 const m = {};
@@ -706,7 +719,7 @@ try {
 const list = boxLoad();
 if (Array.isArray(list)) list.forEach(function (it) {
 if (!it || !it.id) return;
-m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: Array.isArray(it.replies) ? it.replies : [] };
+m[it.id] = { claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null), replies: boxDedupeReplies(it.replies) };
 });
 } catch (e) {}
 _boxMeta = m;
@@ -890,6 +903,7 @@ for (let i = 0; i < box.length; i++) {
 const it = box[i];
 if (it && it.id === boxId) {
 if (!Array.isArray(it.replies)) it.replies = [];
+it.replies = boxDedupeReplies(it.replies);
 it.replies.push({ who: who === 'me' ? 'me' : 'ta', text: String(text), ts: Date.now() });
 try { s.set(BOX_KEY, JSON.stringify(box)); } catch (e2) {}
 boxMetaInvalidate();
@@ -1604,7 +1618,7 @@ if (gwBtn) gwBtn.textContent = '看看 ' + pn + ' 的心愿单';
 }
 function boxReplies(it) {
 if (!it || !Array.isArray(it.replies)) return [];
-return it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; });
+return boxDedupeReplies(it.replies.filter(function (r) { return r && typeof r.text === 'string' && r.text; }));
 }
 function boxWhoLabel(who) { return who === 'me' ? '我' : partnerName(); }
 function boxReplyRows(it) {

@@ -4316,6 +4316,7 @@ const FIX_SENTINELS = [
   { name: '#1029a 礼物原本文案改为只读展示（删＝用户口径「原本礼物的文案就显示」丢失；它只许出现在说明里，不许进输入框）', file: 'js/chat.js', needle: "'这件礼物原本的文案：「'" },
   { name: '#1029b TA 回话只落一份（删/改回「chatGiftAttachReplyTo ＋ 无条件 boxAttachReply」＝同一句话在心意柜记录里被记两遍、重进聊天后卡片上也是两行）', file: 'js/gift-shop.js', needle: "if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true;" },
   { name: '#1029c 安卓 ce-box 转换前先抓原生值（删＝HTML 里写死内容的 textarea 在安卓上回显空框：送礼弹窗看不到礼物默认文案、空着送出＝只使用礼物的默认文案）', file: 'js/mobile-adapt.js', needle: "var preVal = inp.getAttribute('value');" },
+  { name: '#1029d 存量脏数据去重（旧版同拍双写留下的成对回复）三处齐：卡片读侧 / 心意柜读侧 / 写入归一化（删＝升级后老礼物卡上那两条一模一样的回复照旧显示两行，用户红米 K70 Via 实报）', file: 'js/gift-shop.js', needle: "function boxDedupeReplies(list) {" },
   /* ==== 2026-09-21 #989 桌面页竖向滚动护栏（红米 K80 Chrome 浏览器模式实报「桌面的第一页和第二页的图标按钮和文字没有完全对齐，第二页和第三页完全对齐」，追报「第三页也没有对齐了」＝错位换页出现）＝桌面页内容 636px 在浏览器模式桌面区（~610px）下溢出 26px，而溢出全是不可见尾垫（最深实心盒下沿 604）⇒ 每页都成了可竖滚容器：斜滑翻页被内核轴锁判成竖向，滚动量落在起手那一页且无人复位 ⇒ 该页图标+文字整块上移几像素与另两页错开；旧验证全跑 390×844（桌面区 714>636，根本不可滚）⇒ 结构性看不见。护栏＝溢出全在不可见区就裁掉并归零滚动量，真溢出保持可滚 ==== */
   { name: '#989a 判据：最深实心盒下沿仍在可视区内才算「翻下去什么也看不到」（删＝护栏不再裁不可见溢出，残留滚动量又留在页上；#1013 起该判据以未滚动内容坐标为基准）', file: 'js/desktop-slider.js', needle: 'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
   { name: '#989b 落刀：该页设 overflow-y:hidden 并归零滚动量（删＝页面仍是可竖滚容器，斜滑又能顶出滚动量）', file: 'js/desktop-slider.js', needle: "if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';" },
