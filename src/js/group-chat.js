@@ -1427,13 +1427,17 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   }
   // 投递一条回复到指定群：同群走原路径（渲染+音效），跨群只落存储。返回该消息在
   // 来源群数组中的下标（供撤回定时器定位），失败返回 -1
-  function gcDeliverReply(gid, rec, sfx) {
+  // forceFollow：用户当刻主动要的回应（#1023 点「继续说」）——本函数是群聊侧「成员回复落地」
+  //   的唯一出口，跟底在此收口；该传参加工成 followGcBottom(true)，绕过「用户已接管滚动就不
+  //   打扰」的闸（gcUserGcScrollTouched），落地即贴底并把接管标记清掉（后续成员回复照常跟底）。
+  //   与单聊 #492 的 chatUserFollowScroll 同一语义；TA 自发回复不传，闸语义零改动。
+  function gcDeliverReply(gid, rec, sfx, forceFollow) {
     if (!gcGroupAlive(gid)) return -1;
     if (gid === curGid) {
       msgs.push(rec);
       saveMsgs();
       renderMsg(rec, msgs.length - 1);
-      followGcBottom();
+      followGcBottom(!!forceFollow);
       if (sfx && window.playSfxGc) window.playSfxGc(sfx);
       return msgs.length - 1;
     }
@@ -1557,7 +1561,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       // 拍一拍分支（同聊天页：命中则不回文字，直接拍）
       if (hit(c['gc-touch-prob'])) {
         const rec = { side: 'in', cid: cid, name: name, text: gcPokeText(cid), special: 'poke', ts: Date.now() };
-        gcDeliverReply(gid, rec, 'in'); // FIX 串群 #242：落回来源群
+        gcDeliverReply(gid, rec, 'in', continuation); // FIX 串群 #242：落回来源群 · #1023 continuation＝用户点「继续说」要的回应，落地强制贴底
         return;
       }
       // 回复条数（min/max 调反时兜底至少 1 条）
@@ -1590,7 +1594,7 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
               if (window.addChatCount) window.addChatCount();
             } catch (e) {}
           }
-          const myIdx = gcDeliverReply(gid, rec, 'in'); // FIX 串群 #242：落回来源群
+          const myIdx = gcDeliverReply(gid, rec, 'in', continuation); // FIX 串群 #242：落回来源群 · #1023 continuation＝用户点「继续说」要的回应，落地强制贴底（上翻态也滑过来）
           if (i < count - 1 && gid === curGid) showTyping(name);
           // 撤回 + 撤回补发
           if (hit(c['gc-rc-prob'])) {

@@ -1598,6 +1598,15 @@ const FIX_SENTINELS = [
   // ==== 2026-09-15 #492 帮我决定/多人决定结果发到聊天后不滑到最新消息（多机型同报）：决策结果是用户主动触发，与 out 侧（自己发消息必跟底）和群聊 followGcBottom(true) 同权；chatAddIn({follow:true}) 一次性标记 + maybeScrollChatBottom 消费，TA 自发消息 #162/#378/#416 不打扰契约零改动 ====
   { name: '#492 follow 一次性消费+跟底闸放行（删则决策结果在解钉态永不跟底＝症状复发）', file: 'js/chat.js', needle: 'const userFollow = !out && chatUserFollowScroll;' },
   { name: '#492 chatAddIn 用户主动通道入口（删则 decision/group-decision 的 follow 传参失效）', file: 'js/chat.js', needle: 'if (opts && opts.follow) chatUserFollowScroll = true;' },
+  // ==== 2026-09-22 #1023 点「让对方继续说」后聊天记录不自动滑到最新（用户实报，单聊与群聊同现）：
+  //   点「继续说」是用户当刻主动要的回应（同 #492 决策结果 / 拍一拍），此前却只吃 in 侧「TA 自发
+  //   消息不打扰」的钉住闸 ⇒ 上翻看过历史＝解钉/接管态时 TA 的回复落在视口下方、永远不滑过来。
+  //   单聊走既有一次性标记 chatUserFollowScroll（continueChat 内每条回复投递前置位）；群聊把
+  //   continuation 透传进唯一投递出口 gcDeliverReply、由它 followGcBottom(!!forceFollow)。
+  //   TA 自发消息的闸语义零改动（verify-1023 的 B2/D2 两条反向对照断言钉住它）。 ====
+  { name: '#1023a 单聊「继续说」置一次性跟底标记（删＝上翻态点继续说后 TA 回复落在视口下方不滑过来＝报障复发）', file: 'js/chat.js', needle: 'chatUserFollowScroll = true; // #1023' },
+  { name: '#1023b 群聊投递出口收 forceFollow 并透传 followGcBottom（删＝群聊侧强制贴底失效）', file: 'js/group-chat.js', needle: 'followGcBottom(!!forceFollow);' },
+  { name: '#1023c 群聊成员回复把 continuation 带进投递（删＝群聊侧强制贴底永不触发）', file: 'js/group-chat.js', needle: "const myIdx = gcDeliverReply(gid, rec, 'in', continuation);" },
   { name: '#492 帮我决定结果发送接 follow 通道（删则发到聊天后不滑到最新复发；#544 该行追加 dedupExempt，锚点随契约同步）', file: 'js/decision.js', needle: 'window.chatAddIn(replyText, { enter: true, silent: true, follow: true, dedupExempt: true, nightAllow: true }); // FIX 2026-09-15 #492 帮我决定结果' },
   // ==== 2026-09-17 拍一拍发出后不自动滑到最新消息（用户报）：sendPoke 是用户主动触发的 in 侧消息，置 #492 同款 chatUserFollowScroll 一次性跟底标记；TA 自发消息与 TA 回拍不受影响 ====
   { name: '拍一拍发出跟底标记（删则上翻历史后发拍一拍不自动滑到最新复发；#876 该行追加 nightAllow 夜间放行标记，needle 随之换锚）', file: 'js/chat.js', needle: "chatUserFollowScroll = true;\naddRec({ side: 'in', text: text, special: 'poke', nightAllow: true });" },

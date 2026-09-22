@@ -7490,6 +7490,15 @@ for (let i = 0; i < count; i++) {
 setTimeout(() => {
 if (!sameCid()) return;
 hideTyping();
+// FIX 2026-09-22 #1023（用户实报「点击【让对方继续说】的功能，聊天记录没有自动滑动」，单聊与
+// 群聊同现）：点「继续说」是**用户当刻主动要的回应**，与 #492 决策结果、拍一拍同族——置一次性
+// 跟底标记（chatUserFollowScroll），由 maybeScrollChatBottom 在本条 in 侧落地时消费。此前它没走
+// 这条通道，只吃 in 侧「TA 自发消息不打扰」的钉住闸：用户上翻看过历史＝解钉态
+//（chatPinnedBottom=false）时 TA 的回复气泡落在视口下方、永远不滑过来，正是报障形态（无头实测：
+// 解钉态 gap 400→486px、气泡底边在消息区下方 +458px；贴底态本就在底部故看不出问题）。每轮回复
+// 各置一次（多字卡连发时后面几条也跟）；TA 自发消息的 #162/#378/#416 不打扰契约零改动——此键
+// 只在本函数内置位，别处不受影响。
+chatUserFollowScroll = true; // #1023 用户主动要的回应：本条落地即贴底（上翻态也滑过来）
 replyOnce(c, null, i > 0);
 if (i < count - 1) showTyping();
 if (i === count - 1) setTimeout(() => { if (!sameCid()) return; if (window.maybeMusicRequest) window.maybeMusicRequest(); }, 2000);

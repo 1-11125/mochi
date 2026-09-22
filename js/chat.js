@@ -5711,6 +5711,7 @@ for (let i = 0; i < count; i++) {
 setTimeout(() => {
 if (!sameCid()) return;
 hideTyping();
+chatUserFollowScroll = true; // #1023 用户主动要的回应：本条落地即贴底（上翻态也滑过来）
 replyOnce(c, null, i > 0);
 if (i < count - 1) showTyping();
 if (i === count - 1) setTimeout(() => { if (!sameCid()) return; if (window.maybeMusicRequest) window.maybeMusicRequest(); }, 2000);

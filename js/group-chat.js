@@ -1143,13 +1143,13 @@ const data = JSON.stringify(arr);
 localStorage.setItem(groupMsgKey(gid), data);
 try { if (window.idbSet) window.idbSet(groupMsgKey(gid), data); } catch (e) {}
 }
-function gcDeliverReply(gid, rec, sfx) {
+function gcDeliverReply(gid, rec, sfx, forceFollow) {
 if (!gcGroupAlive(gid)) return -1;
 if (gid === curGid) {
 msgs.push(rec);
 saveMsgs();
 renderMsg(rec, msgs.length - 1);
-followGcBottom();
+followGcBottom(!!forceFollow);
 if (sfx && window.playSfxGc) window.playSfxGc(sfx);
 return msgs.length - 1;
 }
@@ -1250,7 +1250,7 @@ setTimeout(() => {
 if (gid === curGid) hideTyping();
 if (hit(c['gc-touch-prob'])) {
 const rec = { side: 'in', cid: cid, name: name, text: gcPokeText(cid), special: 'poke', ts: Date.now() };
-gcDeliverReply(gid, rec, 'in'); // FIX 串群 #242：落回来源群
+gcDeliverReply(gid, rec, 'in', continuation); // FIX 串群 #242：落回来源群 · #1023 continuation＝用户点「继续说」要的回应，落地强制贴底
 return;
 }
 const rpMin = Math.max(1, Number(c['gc-reply-min']) || 1);
@@ -1276,7 +1276,7 @@ rec.mood = chain.map(it => ({ tag: typeName[it.type] || '情绪', label: it.cont
 if (window.addChatCount) window.addChatCount();
 } catch (e) {}
 }
-const myIdx = gcDeliverReply(gid, rec, 'in'); // FIX 串群 #242：落回来源群
+const myIdx = gcDeliverReply(gid, rec, 'in', continuation); // FIX 串群 #242：落回来源群 · #1023 continuation＝用户点「继续说」要的回应，落地强制贴底（上翻态也滑过来）
 if (i < count - 1 && gid === curGid) showTyping(name);
 if (hit(c['gc-rc-prob'])) {
 setTimeout(() => {
