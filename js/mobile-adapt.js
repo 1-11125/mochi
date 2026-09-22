@@ -8,10 +8,12 @@ if (d) { isMobile = !!d.isMobile; isTablet = !!d.isTablet; isIOS = !!d.isIOS; }
 if (!isTablet) { try { if (document.documentElement.classList.contains('tablet')) isTablet = true; } catch (e) {} }
 if (!isMobile && !isTablet) return;
 const FLOAT_PANEL_SELECTORS = ['#chat-more-panel', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-ask-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-rp-panel', '#chat-rps-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#ck-panel', '#chat-search', '#gc-more-panel', '#voice-panel'];
+var IOS_VP_A = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content';
+var IOS_VP_B = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content';
 if (isIOS) {
 try {
 document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+m.setAttribute('content', IOS_VP_A);
 });
 } catch (e) {}
 }
@@ -787,12 +789,21 @@ try {
 var d = document.documentElement; // FIX 2026-09-05 #189
 syncVvFit();
 syncSafeBottom();
-if (d.classList.contains('ios-pwa-standalone') && _vv && _vv.scale && _vv.scale < 0.95) {
+var _zoomKbNow = false;
+try {
+if (_kbActive || _kbNowLike()) _zoomKbNow = true;
+else {
+var _aeZ = document.activeElement;
+if (_aeZ && (_aeZ.tagName === 'INPUT' || _aeZ.tagName === 'TEXTAREA' || _aeZ.isContentEditable)) _zoomKbNow = true;
+}
+} catch (eZ) {}
+if (_vv && _vv.scale && _vv.scale < 0.95 && !_zoomKbNow) {
 var _now = Date.now();
 if (_zoomFixCnt < 3 && _now - _zoomFixAt > 4000) {
 _zoomFixCnt++; _zoomFixAt = _now;
+var _zMeta = (_zoomFixCnt % 2) ? IOS_VP_B : IOS_VP_A;
 document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-m.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+m.setAttribute('content', _zMeta);
 });
 }
 }

@@ -4681,6 +4681,10 @@ const FIX_SENTINELS = [
   { name: '#1039d 进聊天首帧就贴底（删＝首帧画在窗口顶部＝两百条前的旧记录，真机数秒后才跳到底＝「刚进聊天就跳」复发）', file: 'js/chat.js', needle: "scrollChatBottom();\nchatEnterPaintThen(function () {" },
   { name: '#1038a 字卡库令牌化写盘失败闸门（删＝mochiMediaFlush 返回 false 仍写令牌库键，低端大库机 idbSetAll 超时+被系统回收即「令牌入库而池缺数据」＝本地上传表情包/图片字卡变『图片丢失』、重导后再次自动瘦身又复发，同 #186 家族）', file: 'js/chatcard.js', needle: "skipped: '媒体池写盘失败（存储繁忙），本库保持不变" },
   { name: '#1038b 收藏令牌化写盘失败闸门（删＝同样忽略 mochiMediaFlush 返回值照写令牌收藏＝收藏图片丢失，与 #1038a 同一根因的收藏面）', file: 'js/chat.js', needle: "_favPoolOk !== true" },
+  /* ==== 2026-09-22 #1043 iOS 页面被系统缩到 scale<1 的根治（viewport 缩放下限被自愈链自己丢掉 + 自愈只认主屏幕形态）==== */
+  { name: '#1043a iOS 启动串补回 minimum-scale 缩放下限（删＝template.html/device.js 都有的缩放下限在 iOS 改写时被整串手写覆盖掉，Safari 浏览器形态会被系统缩到 scale=0.85 且此后无人自愈＝底部少填白带/底部导航栏悬空/整页缩小三条同源）', file: 'js/mobile-adapt.js', needle: 'minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content' },
+  { name: '#1043b 缩放自愈判据去掉 ios-pwa-standalone 前置（改回 standalone-only＝Safari 浏览器形态（本批报障机）缩小后零自愈；同时必须保留 !_zoomKbNow，去掉＝键盘聚焦期合法缩放被当成异常反复重写 meta）', file: 'js/mobile-adapt.js', needle: '_vv.scale < 0.95 && !_zoomKbNow' },
+  { name: '#1043c 自愈重写用 A/B 等价串交替（改回单串＝启动串已含 minimum-scale 后与自愈串逐字相同，setAttribute 不是真实变更、Safari 不重新解析＝自愈空转）', file: 'js/mobile-adapt.js', needle: 'var _zMeta = (_zoomFixCnt % 2) ? IOS_VP_B : IOS_VP_A;' },
   /* ==== 2026-09-22 #1036 OPPO Pad 4 Pro 四报障根因修复（朋友圈改名无变化 / 通话小框拖动不连贯 / 音乐库歌曲自己失效 / 换头像背景偶发无反应；用户点名「不要按机型分支、别的型号也有这问题」——全部零机型分支）==== */
   { name: '#1036a 朋友圈改名回扫存量快照函数（删＝改昵称只改设置键，存量动态/评论/点赞仍显示旧名＝「修改昵称无变化」复发）', file: 'js/feed.js', needle: 'function sweepFeedNameSnapshots(role, cid, prevName, newName) {' },
   { name: '#1036b 朋友圈读图 20 秒看门狗（删＝解码挂起时 Promise 永久悬空＝「选了图没反应」）', file: 'js/feed.js', needle: "const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);" },

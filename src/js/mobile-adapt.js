@@ -32,16 +32,33 @@
   // #301：补游乐室半框（同族登记）
   const FLOAT_PANEL_SELECTORS = ['#chat-more-panel', '#chat-decision-panel', '#chat-gdecision-panel', '#chat-divine-panel', '#chat-ask-panel', '#poke-card', '#gc-poke-card', '#emoji-panel', '#chat-rp-panel', '#chat-rps-panel', '#chat-pong-panel', '#chat-snake-panel', '#chat-brick-panel', '#chat-c4-panel', '#chat-ms-panel', '#chat-fish-panel', '#chat-memory-panel', '#chat-gift-panel', '#chat-gomoku-panel', '#chat-linkup-panel', '#chat-match3-panel', '#chat-auction-panel', '#chat-arcade-panel', '#ck-panel', '#chat-search', '#gc-more-panel', '#voice-panel'];
 
+  // FIX 2026-09-22 #1043：viewport 串的两个等价写法（差别只有 scale 数值的 1.0 ↔ 1 写法）。
+  // 为什么必须有两个：①「初始 1 倍 + 下限 1 倍 + 上限 1 倍」才真正锁死缩放——iOS 自 iOS 10
+  // 起忽略 user-scalable=no（Safari 明确不支持），还能拦住「被缩小」的只剩 minimum-scale；
+  // ②iOS 只在 content **真的变了**时才重新解析 viewport，自愈重写若与当前串逐字相同就是空转
+  //（本批把 minimum-scale 补回启动串之后，自愈串会与它一字不差 ⇒ 必须靠 A/B 交替制造真实变更，
+  //  #810 安卓分支同款手法）。两串语义完全等价，唯一目的就是「能变」。
+  var IOS_VP_A = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content';
+  var IOS_VP_B = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content';
+
   // v3.10.x：iOS 用 interactive-widget=resizes-content，安卓用 resizes-visual。
   // template.html 默认 resizes-visual（安卓：visualViewport 收缩可检测键盘 + layout
   // viewport 不变无白闪）。但 iOS Safari 在 resizes-visual 下 syncIosKb 收缩 .phone
   // 异常（挤压不见），而 resizes-content 下 layout viewport 自动收缩、.phone 100dvh
   // 跟着收缩、输入栏天然停靠键盘上方（0ab2c49 之前一直正常）。iOS Safari 收键盘
   // 无安卓红米 K80 那种白闪，resizes-content 安全。此处 iOS 改写 viewport meta。
+  // FIX 2026-09-22 #1043：本串原先是手写整串，**漏掉了 template.html 本来声明着的
+  // minimum-scale=1.0** —— 而 iOS 唯一还认的「缩放下限」正是它，漏掉＝把 template.html
+  // 已经声明好的缩放锁在启动时自己拆掉（user-scalable=no 自 iOS 10 起被 Safari 忽略）。
+  // 后果（本批报障机 iPhone 15 / iOS 18.7 / **Safari 浏览器形态**，同族 13 mini 亦现）：
+  // 页面被系统缩到 scale=0.85、innerWidth 462 对可视 393，而 .phone 仍按布局像素撑高
+  // ⇒「底部少填 58px 白带 + 底部导航栏悬空 76px + 整页缩小」三条同源，且屏幕适配采集器
+  // 每隔几秒要重新量一遍（每次都是强制布局）。改写本串的唯一目的是换 interactive-widget
+  //（见上），其余一律按 template.html 原样带回。
   if (isIOS) {
     try {
       document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-        m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+        m.setAttribute('content', IOS_VP_A);
       });
     } catch (e) {}
   }
@@ -1361,19 +1378,35 @@
           var d = document.documentElement; // FIX 2026-09-05 #189
           syncVvFit();
           syncSafeBottom();
-          // v3.26.x #174：独立应用缩放异常自愈——iOS 26.x 个别更新在主屏幕形态会把
-          // 页面缩到 scale≈0.85（iPhone 15 Pro 实测 visualViewport 462×932@0.85，
-          // 物理可见只剩 393×792，盖不满 852 高的屏幕 → 顶部状态栏区域露出白底、
-          // UI 整体缩小），maximum-scale=1 也拦不住。苹果没有 API 直接设置缩放，
-          // 重写 viewport meta（content 变化强制 Safari 重新解析并按 initial-scale
-          // 吸附）是唯一恢复手段；meta 已含 minimum-scale=1（#174）锁定缩放下限，
+          // v3.26.x #174：独立应用缩放异常自愈——iOS 26.x 个别更新会把页面缩到 scale≈0.85
+          //（iPhone 15 Pro 实测 visualViewport 462×932@0.85，物理可见只剩 393×792，盖不满
+          // 852 高的屏幕 → 顶部状态栏区域露出白底、UI 整体缩小），maximum-scale=1 也拦不住。
+          // 苹果没有 API 直接设置缩放，重写 viewport meta（content 变化强制 Safari 重新解析
+          // 并按 initial-scale 吸附）是唯一恢复手段；meta 含 minimum-scale=1 锁定缩放下限，
           // 重写后缩放吸附回 1。每会话最多 3 次 + 间隔 4s 防循环。
-          if (d.classList.contains('ios-pwa-standalone') && _vv && _vv.scale && _vv.scale < 0.95) {
+          // FIX 2026-09-22 #1043：判据去掉 `ios-pwa-standalone` 前置——原先只有「主屏幕形态」
+          // 会自愈，**Safari 浏览器形态（本批报障机）缩到 0.85 后全程无人自愈**，页面就永久
+          // 停在缩小态（诊断里「页面缩放 / 底部少填 58px / 底部导航栏悬空 76px」三条同源；
+          // 同族 iPhone 13 mini 也报过同一签名）。判据仍是内核可观测事实（visualViewport.scale），
+          // 零机型 / 零 UA 分支——按机型放行正是本族「修一台、另一台复发」的老路。
+          // 排除键盘 / 文本聚焦会话：WebKit 在聚焦期缩放是合法瞬态，与它对着干会打架
+          //（#810 安卓分支已证），那一路仍交给下方原逻辑处理。
+          var _zoomKbNow = false;
+          try {
+            if (_kbActive || _kbNowLike()) _zoomKbNow = true;
+            else {
+              var _aeZ = document.activeElement;
+              if (_aeZ && (_aeZ.tagName === 'INPUT' || _aeZ.tagName === 'TEXTAREA' || _aeZ.isContentEditable)) _zoomKbNow = true;
+            }
+          } catch (eZ) {}
+          if (_vv && _vv.scale && _vv.scale < 0.95 && !_zoomKbNow) {
             var _now = Date.now();
             if (_zoomFixCnt < 3 && _now - _zoomFixAt > 4000) {
               _zoomFixCnt++; _zoomFixAt = _now;
+              // A/B 交替＝保证 setAttribute 是一次真实内容变更（理由见 IOS_VP_A/IOS_VP_B 定义处）
+              var _zMeta = (_zoomFixCnt % 2) ? IOS_VP_B : IOS_VP_A;
               document.querySelectorAll('meta[name="viewport"]').forEach(function (m) {
-                m.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+                m.setAttribute('content', _zMeta);
               });
             }
           }
