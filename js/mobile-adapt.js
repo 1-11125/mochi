@@ -661,6 +661,7 @@ _iProvDock();
 }
 var _vvFitOn = false;
 var _envTopCache = -1; // #148：env(safe-area-inset-top) 探针缓存（-1=未测）；旋转/#277 矛盾自愈时失效
+var _envBottomCache = -1; // #1048：env(safe-area-inset-bottom) 探针缓存（与 top 同一探针同建同失效）
 var _envTopCacheAt = 0; // #277：缓存写入时刻（矛盾重探 5s 节流，防 1s 自愈循环频繁建探针 DOM）
 var _zoomFixCnt = 0, _zoomFixAt = 0; // #174：缩放异常自愈计数（每会话 ≤3 次，间隔 4s）
 function syncVvFit() {
@@ -672,6 +673,7 @@ var _vh2 = _vv ? Math.round(_vv.height * ((_vv.scale && _vv.scale > 0.5) ? _vv.s
 var _sig0 = {
 standalone: d.classList.contains('ios-pwa-standalone'),
 envTop: _envTopCache >= 0 ? _envTopCache : 0,
+envBottom: _envBottomCache >= 0 ? _envBottomCache : 0,
 innerH: _ih2, screenH: _sh2, iosMajor: 0, safeTopForce: false
 };
 try {
@@ -686,20 +688,22 @@ var _diff0 = _sh2 - _ih2;
 if (_sig0.standalone && _diff0 >= 20 && _envTopCache >= 0
 && (_envTopCache === 0 || Math.abs(_envTopCache - _diff0) > 8)
 && Date.now() - _envTopCacheAt > 5000) {
-_envTopCache = -1; _envTopCacheAt = Date.now();
+_envTopCache = -1; _envBottomCache = -1; _envTopCacheAt = Date.now();
 }
 } catch (eE5) {}
 var _f0 = window.mochiViewportForm(_sig0);
 if (_f0.needEnvProbe && _envTopCache < 0 && _sh2 > 0 && _vh2 > 0) {
 try {
 var _probe = document.createElement('div');
-_probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none;';
+_probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
 document.body.appendChild(_probe);
 _envTopCache = parseFloat(getComputedStyle(_probe).paddingTop) || 0;
+_envBottomCache = parseFloat(getComputedStyle(_probe).paddingBottom) || 0;
 document.body.removeChild(_probe);
-} catch (e4) { _envTopCache = 0; }
+} catch (e4) { _envTopCache = 0; _envBottomCache = 0; }
 _envTopCacheAt = Date.now(); // #277：探回值连同时刻一起入账（重探节流基准）
 _sig0.envTop = _envTopCache;
+_sig0.envBottom = _envBottomCache;
 }
 var _f = window.mochiViewportForm(_sig0);
 var _safeTop = _f.safeTop;
@@ -870,7 +874,7 @@ _vv.addEventListener('resize', onIosVvEvent);
 }
 window.addEventListener('resize', onIosVvEvent);
 window.addEventListener('orientationchange', onIosVvEvent);
-window.addEventListener('orientationchange', function () { try { _envTopCache = -1; } catch (e) {} });
+window.addEventListener('orientationchange', function () { try { _envTopCache = -1; _envBottomCache = -1; } catch (e) {} });
 var _vvLog = [];
 function vvLogPush() {
 try {

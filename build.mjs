@@ -625,7 +625,7 @@ const FIX_SENTINELS = [
   { name: '#141 悬浮键盘推定收口（用户键入 1200ms 内即放行推顶，不等 2200ms 无活动自愈）', file: 'js/mobile-adapt.js', needle: 'if (!tgt || Date.now() - _aUserTypos > 1200) return;' },
   { name: '#144 isIOS 补 iPadOS 伪装 UA 分支（Macintosh+触摸屏，修 iPad Air 全屏开关无反应/ios-pwa-standalone 类不加）', file: 'js/device.js', needle: "((navigator.platform === 'MacIntel' || /Macintosh/i.test(ua)) && navigator.maxTouchPoints > 1 && 'ontouchstart' in window);" },
   { name: '#144 armFgIdbReset 补 touchMac 分支（伪装 UA 的 iPad 回前台重建 IDB 连接；收口第二批改读 mochiDevice.isIOS——device.js isIOS 含 Macintosh 伪装分支，删门=伪装 iPad 断连不重建）', file: 'js/idb.js', needle: 'if (!((window.mochiDevice || {}).isIOS)) return;' },
-  { name: '#148 syncVvFit 顶部避让改 env() 探针实测（iOS26 已避让形态 env=0 不再加页面 padding，修 Mochi 行上方大空白）', file: 'js/mobile-adapt.js', needle: 'padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none;' },
+  { name: '#148 syncVvFit 顶部避让改 env() 探针实测（iOS26 已避让形态 env=0 不再加页面 padding，修 Mochi 行上方大空白）', file: 'js/mobile-adapt.js', needle: 'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;' },
   { name: '#148 fs 态写 --mochi-ios-h（判定器 expBase：envTop+inner min 屏高，覆盖=整屏/已避让=inner；#210 起公式收敛到共享判定器）', file: 'js/mobile-adapt.js', needle: 'Math.round(_f.expBase) : 0' },
   { name: '#148 fs 态 .phone 高度用 --mochi-ios-h（回 100vh 兜底）', file: 'css/base.css', needle: 'height:var(--mochi-ios-h, 100vh);' },
   { name: '#175 屏幕适配诊断入口（设置页 row-screen-diag，与信息诊断分开）', file: 'template.html', needle: 'id="row-screen-diag"' },
@@ -1112,7 +1112,7 @@ const FIX_SENTINELS = [
   { name: '#199 浏览器覆盖形态·状态栏顶部避让（特异性夺回被 .statusbar{padding:4px} 压死的 env 避让，#114 同根因；删此规则该形态顶位回 4px 钻系统栏）', file: 'css/base.css', needle: 'html.mochi-cover-top .phone .statusbar' },
   { name: '#199 Gecko 滚动锚定关闭（锚定自行调 scrollTop 与 #162 贴底钉住对打=删消息/回消息屏幕上移；删此行雨见/Firefox 复发）', file: 'css/base.css', needle: '.chat-body { overflow-anchor: none; }' },
   { name: '#199/#236 判定器·浏览器覆盖形态期望底边=可视区底（.phone 刻意不超 inner，仍按 envTop+inner 判则修好后误报 #179 少填；#210 起判式收敛到共享判定器；#236 扩安卓壳 sig.andr——删扩展 HeyTapBrowser 类壳回退 covered/期望 envTop+inner 误报少填）', file: 'js/device.js', needle: 'const coverBrowser = !standalone && envTop >= 20 && (diff <= 2 || !!sig.andr);' },
-  { name: '#236 诊断③覆盖形态有效顶位（元素顶+实测 padding：该形态 .statusbar 靠自身 padding 抬升、.phone 无 padding 兜底链，单量元素顶恒 0=顶部重叠误报/漏报双向失真。锚点随 #537 扩 iosCover、2026-09-18 #719 再扩 e2eBrowser 换锚——逻辑扩为「浏览器覆盖壳 OR iOS 独立应用覆盖形态 OR e2e 浏览器」，都靠自身 padding 抬升；判式被改掉/退回单条件即失配）', file: 'js/device.js', needle: 'const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;' },
+  { name: '#236 诊断③覆盖形态有效顶位（元素顶+实测 padding：该形态 .statusbar 靠自身 padding 抬升、.phone 无 padding 兜底链，单量元素顶恒 0=顶部重叠误报/漏报双向失真。锚点随 #537 扩 iosCover、2026-09-18 #719 再扩 e2eBrowser 换锚——逻辑扩为「浏览器覆盖壳 OR iOS 独立应用覆盖形态 OR e2e 浏览器」，都靠自身 padding 抬升；判式被改掉/退回单条件即失配）', file: 'js/device.js', needle: 'const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser || Fm.envTopFallback) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;' },
   { name: '#236 安卓浏览器覆盖形态执行器（env 探针→共享判定器→写 --mochi-safe-top+挂 mochi-cover-top：执行侧此前整体在 isIOS 分支，安卓壳 #114 形态永无修复；摘除即回归；2026-09-18 #719 补 innerW/screenW/e2eLatch 参数，登记同步）', file: 'js/mobile-adapt.js', needle: 'var _fc = window.mochiViewportForm({ standalone: false, envTop: _aCoverEnvCache, innerH: _ih, screenH: _sh, innerW: window.innerWidth || 0, screenW: (window.screen && window.screen.width) || 0, iosMajor: 0, safMajor: 0, andr: true, safeTopForce: false, e2eLatch: !!window.__mochiE2eLatch });' },
   { name: '#236 安卓键盘会话卡死自愈判据（HeyTapBrowser 收键盘 vv 恒卡 inner−底栏：缩幅落残留带 13~22%+inner 回基准+会话超 1.5s+vv 稳 1.2s 才清 _aKb 置 _aVvStale——真键盘缩幅>22% 永不误清）', file: 'js/mobile-adapt.js', needle: '&& Date.now() - _aKbAt > 1500 && Date.now() - _aVvChgAt > 1200' },
   { name: '#236 open 判定残留闩门（_aVvStale 抑制纯 vv 收缩再触发键盘会话，防 652↔720 抖动把 .phone 来回抽；触摸/聚焦/回基准解除。#479 同批同步：判定式追加 _focNow 焦点闸——改这里必须连 #479 语境一起看。#657 同批同步：追加 _aKbMute 几何反证静音闩；本锚与 #479 原为同一整行，改取闩门半段以免两条共用同一 needle 判哑哨兵）', file: 'js/mobile-adapt.js', needle: '(!_aVvStale && !_aKbMute && h < _aH - 60' },
@@ -4717,6 +4717,11 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-22 #1042 词典「逐条连发」不响收件音效（用户实报「词典逐条连发时没有触发音效」；根因＝逐卡连发写 silent: si>0?true:…，而这枚 silent 在 addIn 里连音效闸门一起摁掉＝#968 同族。实测：三张卡只响 1 声，落在「多字卡回复」第 2 条及以后时整批零声） ==== */
   { name: '#1042a addIn 音效闸门与横幅解耦（改回 !opts.silent＝连发/追加类「免横幅」通道又把音效一起摁掉）', file: 'js/chat.js', needle: "(!opts.silent || opts.sfx === true)" },
   { name: '#1042b 词典逐条连发每条按条响（删＝连发又只剩首条一声＝用户报障复发）', file: 'js/chat.js', needle: "sfx: !willRetractR," },
+  /* ==== 2026-09-22 #1048 iPhone17+Edge 独立应用「灵动岛这里不显示图标了」（用户实报 + 诊断 docx 实证 vv=874=screen 全出血、--mochi-safe-top 恒未设）：env-top 说谎报 <20 时判定器判 plain、全站顶部避让链回落 env(0)＝模拟状态栏整行（Mochi/时钟/信号/电量图标）钻进灵动岛/系统状态栏底下，#114 同根因复发。修法＝bottom inset 反证（有手势条 inset 的设备顶部必有 inset）→ 按 bottom+18 折算避让下限写回既有 var 链，零机型分支；已避让/健康覆盖/无 inset 设备零触发 ==== */
+  { name: '#1048a env-top 说谎矛盾检测（删＝iPhone17+Edge 全出血形态顶部避让瘫痪复发、模拟状态栏钻进灵动岛下；判式必含 bottom 反证与 diff≤2 双门，改宽＝已避让形态被误加双倍避让）', file: 'index.html', needle: 'envTop < 20 && envBottom >= 20 && diff <= 2' },
+  { name: '#1048b 探针同时量 bottom inset（删＝判定器拿不到反证信号、#1048a 恒不触发＝修复整批哑火）', file: 'js/mobile-adapt.js', needle: 'padding-bottom:env(safe-area-inset-bottom,0px)' },
+  /* ==== 2026-09-22 #1047 更新入口「点了没反应」（用户实报「有时候那里仍是旧版点更新还点不动」；根因＝手动通道只在点击那一刻发一次 PRECACHE_NOW，iOS WebKit 冻结空闲 SW 实例时消息没人收、PRECACHE_DONE 永不到来，按钮顶着「正在下载…」且 _prBusy 静默吞后续点击最长 180s。修法＝12s 一发重发同消息唤醒/重试，DONE 即停、12 发封顶与 VER_DL_WAIT 对齐；自动通道 2.5s 兜底口径不变） ==== */
+  { name: '#1047a 下载通道 12s 重发（删＝SW 冻结/消息丢失时按钮死等 180s＝「点更新还点不动」复发；改密＝弱网重复预取风暴）', file: 'index.html', needle: 'if (++_prPingN > 12) { clearInterval(_prPing); _prPing = 0; return; }'},
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -100,6 +100,26 @@ const cases = [
     sig: { standalone: true, envTop: 200, innerH: 793, screenH: 993, iosMajor: 18, safMajor: 18 },
     want: { form: 'covered', safeTop: 0, px: '', expBase: 993, expTop: 200 }
   },
+  {
+    n: 'iPhone 17 · Edge 独立应用全出血 env-top 说谎（#1048，docx 实测 vv=874=screen、--mochi-safe-top 恒未设、模拟状态栏钻进灵动岛下＝「灵动岛这里不显示图标了」；bottom=34 手势条实证＝顶部必有 inset 的反证）→ 按 bottom+18 折算避让下限 52，高度不变',
+    sig: { standalone: true, envTop: 0, envBottom: 34, innerH: 874, screenH: 874, iosMajor: 18, safMajor: 27 },
+    want: { form: 'plain', safeTop: 52, px: '52px', expBase: 874, expTop: 66 }
+  },
+  {
+    n: '#1048 零回归闸：top/bottom 一起说谎（bottom=0 无法反证，SE 家族同签名）→ 维持旧判 safeTop0 零变化',
+    sig: { standalone: true, envTop: 0, envBottom: 0, innerH: 874, screenH: 874, iosMajor: 18, safMajor: 27 },
+    want: { form: 'plain', safeTop: 0, px: '', expBase: 874, expTop: 12 }
+  },
+  {
+    n: '#1048 零回归闸：已避让形态（16 Pro/26.1 diff=62、页面被系统垫在状态栏下方）即使 bottom≥20 也不触发——顶位 0 正确',
+    sig: { standalone: true, envTop: 0, envBottom: 34, innerH: 812, screenH: 874, iosMajor: 26, safMajor: 26 },
+    want: { form: 'avoided', safeTop: 0, px: '', expBase: 812, expTop: 12 }
+  },
+  {
+    n: '#1048 零回归闸：健康覆盖形态（env-top=59 报真值）不触发——env-top 赢，折算值不覆盖真值',
+    sig: { standalone: true, envTop: 59, envBottom: 34, innerH: 793, screenH: 852, iosMajor: 26, safMajor: 26 },
+    want: { form: 'covered', safeTop: 59, px: '59px', expBase: 852, expTop: 59 }
+  },
 ];
 for (const c of cases) {
   const f = mochiViewportForm(c.sig);
@@ -125,6 +145,10 @@ for (const c of cases) {
 console.log('[B] 接线锚点');
 ok(/var _f = window\.mochiViewportForm\(_sig0\);/.test(ma), 'syncVvFit 调用共享判定器');
 ok(/var _f0 = window\.mochiViewportForm\(_sig0\);/.test(ma), 'syncVvFit 探针门槛走判定器 needEnvProbe');
+ok(/padding-bottom:env\(safe-area-inset-bottom,0px\)/.test(ma), '#1048 探针同时量 bottom inset');
+ok(/envBottom: _envBottomCache >= 0 \? _envBottomCache : 0/.test(ma), '#1048 执行器把 envBottom 传进判定器');
+ok(/_envTopCache = -1; _envBottomCache = -1/.test(ma), '#1048 旋转/矛盾失效时 bottom 缓存同清');
+ok(/Fm\.envTopFallback/.test(device), '#1048 诊断有效顶位计入 envTopFallback（不误报双倍避让）');
 ok(/vh = _f\.expBase;/.test(ma), '非全屏高度=判定器 expBase');
 ok(/Math\.round\(_f\.expBase\) : 0/.test(ma), '全屏高度=判定器 expBase');
 ok(/const Fm = window\.mochiViewportForm\(\{ standalone: !!inp\.standalone/.test(device), 'screenDiagJudge 调用共享判定器');

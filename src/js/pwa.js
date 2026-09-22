@@ -135,6 +135,7 @@
   let _prMsg = null;
   let _prBusy = false; // 手动下载进行中（防重复点击叠监听/叠计时器）
   const VER_DL_WAIT = 180000; // 手动通道等 PRECACHE_DONE 的上限（弱网慢路径实测 50~130s，取宽裕值）
+  let _prPing = 0, _prPingN = 0; // #1047：下载通道重发循环（见 refreshNow 手动分支注释）
   function refreshNow(auto, autoTs, ackTs) {
     const doReload = function () {
       // #279/#965：自动升级（auto=true）落地前复核——用户已操作且在前台时绝不打断会话，
@@ -163,6 +164,7 @@
         _prMsg = function (e) {
           if (e.data && e.data.type === 'PRECACHE_DONE') {
             done = true; _prBusy = false;
+            if (_prPing) { clearInterval(_prPing); _prPing = 0; }
             try { window.__mochiVerDlBusy = false; } catch (x) {}
             // #944：新版已确认落进缓存，此刻才写 ack（下载失败不写＝本版本还会再次提醒）
             if (!auto && ackTs > 0) verMarkAck(ackTs);
@@ -177,7 +179,23 @@
           setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');
         }
         // PERF-PLAN 阶段 1：带上外置 js/ 清单——弱网点「刷新使用新版」时 ext 一并预取落新缓存，防旧 index 配新 ext 的混合版本（SW 侧零改动，urls 数组本就支持）
-        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: ['./index.html', './version.json'].concat(window.__mochiExtFiles || []) });
+        const prUrls = ['./index.html', './version.json'].concat(window.__mochiExtFiles || []);
+        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: prUrls });
+        if (!auto) {
+          // #1047：「点更新没反应」根治——手动通道原来只在点击那一刻发一次 PRECACHE_NOW；
+          // iOS WebKit 会把空闲的 SW 实例整只冻结（controller 引用还在），那一刻的消息可能
+          // 没人收，PRECACHE_DONE 永不到来 ⇒ 按钮顶着「正在下载…」、_prBusy 把后续点击全部
+          // 静默吞掉，最长干等 180s＝用户所见「点更新还点不动」。改 12s 一发重发同一条消息
+          // （投递到已停实例＝浏览器先唤醒它；SW 侧重复收到只是重复回执，幂等）；DONE 即停、
+          // 12 发封顶与 VER_DL_WAIT 对齐，超时路径一并清。自动通道不加（2.5s 兜底口径不变）。
+          _prPingN = 0;
+          if (_prPing) clearInterval(_prPing);
+          _prPing = setInterval(function () {
+            if (done || !navigator.serviceWorker || !navigator.serviceWorker.controller) { clearInterval(_prPing); _prPing = 0; return; }
+            if (++_prPingN > 12) { clearInterval(_prPing); _prPing = 0; return; }
+            try { navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: prUrls }); } catch (e) {}
+          }, 12000);
+        }
         if (auto) {
           setTimeout(function () { if (!done) doReload(); }, 2500); // 自动通道保持 2.5s 兜底（#273 时代行为）
         } else {
@@ -187,6 +205,7 @@
           setTimeout(function () {
             if (done) return;
             _prBusy = false;
+            if (_prPing) { clearInterval(_prPing); _prPing = 0; }
             try { window.__mochiVerDlBusy = false; } catch (x) {}
             if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
             try {

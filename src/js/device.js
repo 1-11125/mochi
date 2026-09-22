@@ -2666,6 +2666,7 @@
 //（无 DOM/存储），tools/verify-viewport-form.mjs 按真机台账直接单测。
 window.mochiViewportForm = function (sig) {
   const envTop = sig.envTop || 0;
+  const envBottom = sig.envBottom || 0;
   const innerH = sig.innerH || 0;
   const screenH = sig.screenH || 0;
   const iosMajor = sig.iosMajor || 0;
@@ -2721,6 +2722,21 @@ window.mochiViewportForm = function (sig) {
   // 钳 [20,40]；估不准的部分留给 屏幕位置设置·顶部轴 本机精调（#707 双层包装照常叠加）。
   else safeTop = ((standalone || coverBrowser) && envTop >= 20 && envTop <= 160) ? envTop
     : (e2eBrowser ? Math.min(40, Math.max(20, Math.round(e2eZ > 0 ? 28 / e2eZ : 28))) : 0);
+  // #1048：env-top 说谎矛盾检测——standalone 全出血（diff≤2）时页面画进了系统状态栏区，
+  // 任何有底部手势条 inset（env-bottom≥20）的设备顶部必然有刘海/灵动岛 inset（iPhone X 起
+  // 硬件事实），env-top 仍报 <20 只能是内核没把顶部安全区透传给网页（iPhone17 + Edge 独立
+  // 应用实测：--mochi-safe-top 恒未设、模拟状态栏整行（Mochi/时钟/信号/电量图标）钻进灵动岛/
+  // 系统状态栏底下＝用户报「灵动岛这里不显示图标了」，#114 同根因复发；诊断 docx 实证
+  // vv=874=screen、var 未设）。按 bottom 折算顶部避让下限（bottom+18，钳 [40,72]），写入
+  // 既有 var(--mochi-safe-top) 全链（普通态 .statusbar / 全屏态 .phone padding-top 消费方
+  // 不动）；已避让（diff≥20）/健康覆盖（env-top≥20）/无 inset 设备（bottom=0，SE 家族）
+  // 均不触发＝零回归。env-top/env-bottom 一起说谎的内核无法程序反证，留给既有
+  // 【顶部避让修正】手动开关（__safe-top-force）。
+  let envTopFallback = false;
+  if (safeTop === 0 && standalone && envTop < 20 && envBottom >= 20 && diff <= 2) {
+    safeTop = Math.min(72, Math.max(40, envBottom + 18));
+    envTopFallback = true;
+  }
   // 期望 .phone 底边 / 全屏期望屏高：保留/iPad/浏览器壳贴 inner（超 inner=文档
   // 滚动量=与自愈 pin 对打）；#186 force 声明=屏高（safeTop+inner 补满屏底，修
   // 18.3 底部白边的正确期望，原实现误写 innerH）；覆盖形态=envTop+inner、min 屏高
@@ -2740,7 +2756,7 @@ window.mochiViewportForm = function (sig) {
   // 期望状态栏顶位（诊断 ③）：保留形态系统已避让=12 兜底；其余=max(env,12)。
   // force 时 resStand=false → forced 设备（如 14 Pro/26.6 sbTop≈73）不再被
   // expect=12+60 误判「顶部双倍避让」；#719 e2e=自动避让估式自身。
-  const expTop = resStand ? 12 : (e2eBrowser ? safeTop : Math.max(envTop, 12));
+  const expTop = envTopFallback ? (safeTop + 14) : resStand ? 12 : (e2eBrowser ? safeTop : Math.max(envTop, 12));
   // #537：iOS 独立应用·覆盖形态（非保留/非 iPad/非 force 的 standalone + env∈[20,160]；
   // 16Pro/26.1、17/26.6 等实测均落此支）= 执行器要让模拟状态栏自身抬升到系统状态栏下方
   // （base.css html.ios-cover-top 规则消费）+ 非全屏高度须含顶部安全区（expBase=整屏）。
@@ -2754,6 +2770,7 @@ window.mochiViewportForm = function (sig) {
     : (envTop >= 20 ? 'covered' : (diff >= 20 ? 'avoided' : 'plain'));
   return { form: form, resStand: resStand, ipadForm: ipadForm, coverBrowser: coverBrowser,
     forceCover: forceCover, iosCover: iosCover, needEnvProbe: needEnvProbe, safeTop: safeTop,
+    envTopFallback: envTopFallback, envBottom: envBottom,
     // #719：e2e 底部避让估式（手势条高 16/z，钳 [12,28]）——安卓执行器
     // syncSafeBottomA 键盘收起回落时消费；非 e2e 恒 0（零回归）。
     safeBottom: e2eBrowser ? Math.min(28, Math.max(12, Math.round(e2eZ > 0 ? 16 / e2eZ : 16))) : 0,
@@ -2899,7 +2916,7 @@ window.mochiViewportForm = function (sig) {
       // 改由 html.ios-cover-top 规则抬 .statusbar 自身 padding；仍按「元素顶」判会
       // 恒报 ✗顶部重叠（修好也红），故与浏览器壳一并取有效顶位；#719 e2e 同理
       // （mochi-cover-top 类已挂、避让在状态栏自身 padding）。
-      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser || Fm.envTopFallback) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
       // #917：顶部避让轴非 0＝用户手动加过顶部留白（该轴唯一用途），有效顶位偏大是
       // 用户所求，不再判「双倍避让」；顶部重叠（顶位偏小）与手调方向相反，照常判。
       if (adjTop && sbEffTop > expect + 60) add(true, '顶部避让·已手动微调 top=' + adjTop + 'px', '跳过「顶部双倍避让」判定（该轴即用于手动加顶部留白；实测有效顶位 ' + sbEffTop + 'px / 自动期望 ' + expect + 'px，如需恢复自动判定请在 屏幕位置设置 里把「顶部避让」归零）');
@@ -3326,7 +3343,7 @@ window.mochiViewportForm = function (sig) {
       const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {};
       const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()) || {};
       // 顶部：状态栏有效顶位（浏览器壳/独立覆盖/e2e 形态含状态栏自身 padding，与判定器 ③ 同口径）
-      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+      const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser || Fm.envTopFallback) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
       if (inp.sbTop != null && cur.top === 0) {
         if (!Fm.resStand && inp.envTop >= 20 && inp.diff >= inp.envTop - 8 && sbEffTop < inp.envTop - 5) {
           out.push({ axis: 'top', delta: Math.min(80, Math.round(inp.envTop - sbEffTop)), why: '顶部重叠 ' + Math.round(inp.envTop - sbEffTop) + 'px' });

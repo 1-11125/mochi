@@ -10561,9 +10561,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790087233364">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790088417787">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 22:27<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 22:46<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -19389,6 +19389,7 @@ else window.addEventListener('load', function () { setTimeout(checkDoc, 60000); 
 })();
 window.mochiViewportForm = function (sig) {
 const envTop = sig.envTop || 0;
+const envBottom = sig.envBottom || 0;
 const innerH = sig.innerH || 0;
 const screenH = sig.screenH || 0;
 const iosMajor = sig.iosMajor || 0;
@@ -19410,16 +19411,22 @@ if (forceCover) safeTop = (envTop >= 20) ? envTop : ((diff >= 20 && diff <= 160)
 else if (resStand) safeTop = 0;
 else safeTop = ((standalone || coverBrowser) && envTop >= 20 && envTop <= 160) ? envTop
 : (e2eBrowser ? Math.min(40, Math.max(20, Math.round(e2eZ > 0 ? 28 / e2eZ : 28))) : 0);
+let envTopFallback = false;
+if (safeTop === 0 && standalone && envTop < 20 && envBottom >= 20 && diff <= 2) {
+safeTop = Math.min(72, Math.max(40, envBottom + 18));
+envTopFallback = true;
+}
 const expBase = (coverBrowser || resStand || ipadForm || e2eBrowser) ? innerH
 : (forceCover ? ((screenH >= innerH ? screenH : 0) || (safeTop + innerH))
 : Math.min((screenH >= innerH ? screenH : 0) || (envTop + innerH), envTop + innerH));
-const expTop = resStand ? 12 : (e2eBrowser ? safeTop : Math.max(envTop, 12));
+const expTop = envTopFallback ? (safeTop + 14) : resStand ? 12 : (e2eBrowser ? safeTop : Math.max(envTop, 12));
 const iosCover = standalone && !forceCover && !resStand && !ipadForm && envTop >= 20 && envTop <= 160;
 const form = forceCover ? 'force-cover' : resStand ? 'reserved' : ipadForm ? 'ipad'
 : coverBrowser ? 'cover-browser' : e2eBrowser ? 'e2e-browser'
 : (envTop >= 20 ? 'covered' : (diff >= 20 ? 'avoided' : 'plain'));
 return { form: form, resStand: resStand, ipadForm: ipadForm, coverBrowser: coverBrowser,
 forceCover: forceCover, iosCover: iosCover, needEnvProbe: needEnvProbe, safeTop: safeTop,
+envTopFallback: envTopFallback, envBottom: envBottom,
 safeBottom: e2eBrowser ? Math.min(28, Math.max(12, Math.round(e2eZ > 0 ? 16 / e2eZ : 16))) : 0,
 e2eBrowser: e2eBrowser,
 expBase: expBase, expTop: expTop, envTop: envTop, diff: diff,
@@ -19525,7 +19532,7 @@ if (Fm.resStand && !Fm.forceCover) add(true, '歧义形态提示：若顶部 Moc
 if (inp.sbTop == null) add(true, '状态栏隐藏（聊天等全屏页），跳过顶位判定');
 if (inp.sbTop != null) {
 const expect = Fm.expTop;
-const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser || Fm.envTopFallback) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
 if (adjTop && sbEffTop > expect + 60) add(true, '顶部避让·已手动微调 top=' + adjTop + 'px', '跳过「顶部双倍避让」判定（该轴即用于手动加顶部留白；实测有效顶位 ' + sbEffTop + 'px / 自动期望 ' + expect + 'px，如需恢复自动判定请在 屏幕位置设置 里把「顶部避让」归零）');
 else if (sbEffTop > expect + 60) add(false, '顶部双倍避让', '✗ 状态栏实测顶位 ' + sbEffTop + 'px，明显超过安全区顶部 ' + expect + 'px（#148 修复的双倍白带形态复发，连本条反馈）');
 else if (!Fm.resStand && envTop >= 20 && diff >= envTop - 8 && sbEffTop < envTop - 5) add(false, '顶部重叠', '✗ 状态栏顶位 ' + sbEffTop + 'px 钻进系统状态栏区（应 ≥ ' + envTop + 'px，#114 形态）');
@@ -19840,7 +19847,7 @@ const out = [];
 try {
 const Fm = window.mochiViewportForm({ standalone: !!inp.standalone, envTop: inp.envTop, innerH: inp.innerH, screenH: inp.screenH, innerW: inp.innerW || 0, screenW: inp.screenW || 0, iosMajor: inp.iosMajor || 0, safMajor: inp.safMajor || 0, andr: !!inp.andr, safeTopForce: !!inp.force }) || {};
 const cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()) || {};
-const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
+const sbEffTop = (Fm.coverBrowser || Fm.iosCover || Fm.e2eBrowser || Fm.envTopFallback) ? inp.sbTop + (parseFloat(inp.sbPadTop) || 0) : inp.sbTop;
 if (inp.sbTop != null && cur.top === 0) {
 if (!Fm.resStand && inp.envTop >= 20 && inp.diff >= inp.envTop - 8 && sbEffTop < inp.envTop - 5) {
 out.push({ axis: 'top', delta: Math.min(80, Math.round(inp.envTop - sbEffTop)), why: '顶部重叠 ' + Math.round(inp.envTop - sbEffTop) + 'px' });
@@ -20555,6 +20562,7 @@ arm: function () { armAutoReloadWhenHidden(); }
 let _prMsg = null;
 let _prBusy = false; // 手动下载进行中（防重复点击叠监听/叠计时器）
 const VER_DL_WAIT = 180000; // 手动通道等 PRECACHE_DONE 的上限（弱网慢路径实测 50~130s，取宽裕值）
+let _prPing = 0, _prPingN = 0; // #1047：下载通道重发循环（见 refreshNow 手动分支注释）
 function refreshNow(auto, autoTs, ackTs) {
 const doReload = function () {
 if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
@@ -20576,6 +20584,7 @@ if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
 _prMsg = function (e) {
 if (e.data && e.data.type === 'PRECACHE_DONE') {
 done = true; _prBusy = false;
+if (_prPing) { clearInterval(_prPing); _prPing = 0; }
 try { window.__mochiVerDlBusy = false; } catch (x) {}
 if (!auto && ackTs > 0) verMarkAck(ackTs);
 doReload();
@@ -20588,13 +20597,24 @@ _prBusy = true;
 try { window.__mochiVerDlBusy = true; } catch (x) {}
 setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');
 }
-navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: ['./index.html', './version.json'].concat(window.__mochiExtFiles || []) });
+const prUrls = ['./index.html', './version.json'].concat(window.__mochiExtFiles || []);
+navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: prUrls });
+if (!auto) {
+_prPingN = 0;
+if (_prPing) clearInterval(_prPing);
+_prPing = setInterval(function () {
+if (done || !navigator.serviceWorker || !navigator.serviceWorker.controller) { clearInterval(_prPing); _prPing = 0; return; }
+if (++_prPingN > 12) { clearInterval(_prPing); _prPing = 0; return; }
+try { navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_NOW', urls: prUrls }); } catch (e) {}
+}, 12000);
+}
 if (auto) {
 setTimeout(function () { if (!done) doReload(); }, 2500); // 自动通道保持 2.5s 兜底（#273 时代行为）
 } else {
 setTimeout(function () {
 if (done) return;
 _prBusy = false;
+if (_prPing) { clearInterval(_prPing); _prPing = 0; }
 try { window.__mochiVerDlBusy = false; } catch (x) {}
 if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
 try {
@@ -21393,4 +21413,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mucrpx78 -->
+<!-- __MOCHI_EOF__ mucsfb3v -->
