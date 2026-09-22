@@ -65,6 +65,11 @@
      「宽高优先于 right/bottom」吃掉，模糊边缘重新发虚（#240 修过的症状）。 */
   width:auto !important; height:auto !important;
 }
+/* #976：滑页/切页期间暂停壁纸模糊——`#phone-bg-layer` 虽已提层，但全屏 blur 在滚动/页面切换
+   时仍会被引擎重新栅格化（iPhone 14PM 实测桌面翻页平均 271ms/帧、切页后单帧 2787ms）。
+   动起来时把模糊摘掉（运动中肉眼几乎无感），停下 150ms 后自动恢复，观感与静态一致。
+   仅作用在用户自己开了「背景模糊」的桌面（.desk-blur-on），未开模糊者零影响。 */
+html.desk-swiping .phone.desk-blur-on #phone-bg-layer { filter:none !important; -webkit-filter:none !important; }
 /* v3.6.x：桌面字号/卡片大小可调。
    ⚠️ iOS 卡顿红线（AGENTS.md / WORKLOG）：zoom 是 WebKit 已知卡顿源，会把元素踢出
    GPU 合成路径、滚动时每帧 CPU 重排重绘——只在桌面（>900px 模拟器/浏览器）生效，
@@ -233,7 +238,10 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
   position:relative; /* v3.13.x：连击角标 .we-combo 绝对定位锚点 */
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   border-radius:16px; padding:9px 12px; margin:0 0 14px; flex-shrink:0;
-  height:66px; box-sizing:border-box; overflow:hidden;
+  height:66px; box-sizing:border-box;
+  /* 连击角标 .we-combo 用 top:-9px 探出卡片上沿做「挂在圆角上」的观感，被 overflow:hidden 削掉上半截＝数值弹窗显示不全。
+     改用 overflow:clip + overflow-clip-margin：越界 16px 内可见（含角标阴影），溢出内容在边距外照常裁；老内核不认 clip→保留上行 hidden 回退（仅退回旧观感，不破功能） */
+  overflow:hidden; overflow:clip; overflow-clip-margin:16px;
   background:var(--widget-bg);
   box-shadow:0 4px 14px rgba(0,0,0,.05);
   opacity:var(--widget-opacity);

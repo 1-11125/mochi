@@ -253,12 +253,19 @@
   // v3.27.x（#580）：滚动中每帧跟随——手指滑到哪，圆点跟到哪（原来只在松手后 120ms 才动）
   let rafId = 0;
   let settleTimer = null;
+  let swipeBlurTimer = null; // #976：滑页暂停壁纸模糊的收尾计时
   function syncFrame() {
     rafId = 0;
     sync();
   }  pages.addEventListener('scroll', () => {
     if (!rafId) rafId = requestAnimationFrame(syncFrame);
     perfSample(); // #690：翻页现场记一段帧耗时（静止时不跑）
+    // #976：滑页期间挂 desk-swiping（暂停壁纸全屏模糊，见 home.css 注释），停下 150ms 后摘
+    try {
+      document.documentElement.classList.add('desk-swiping');
+      clearTimeout(swipeBlurTimer);
+      swipeBlurTimer = setTimeout(function () { document.documentElement.classList.remove('desk-swiping'); }, 150);
+    } catch (e0) {}
     // 吸附/回弹终点再校一次：末次 scroll 事件与 snap 终点可能差一帧亚像素；
     // 对不派 rAF 的内核（后台标签页/被节流）也是兜底。跟随本身由上面的 rAF 负责。
     clearTimeout(settleTimer);

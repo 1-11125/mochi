@@ -151,12 +151,18 @@ requestAnimationFrame(tick);
 let swOn = false;
 let rafId = 0;
 let settleTimer = null;
+let swipeBlurTimer = null; // #976：滑页暂停壁纸模糊的收尾计时
 function syncFrame() {
 rafId = 0;
 sync();
 }  pages.addEventListener('scroll', () => {
 if (!rafId) rafId = requestAnimationFrame(syncFrame);
 perfSample(); // #690：翻页现场记一段帧耗时（静止时不跑）
+try {
+document.documentElement.classList.add('desk-swiping');
+clearTimeout(swipeBlurTimer);
+swipeBlurTimer = setTimeout(function () { document.documentElement.classList.remove('desk-swiping'); }, 150);
+} catch (e0) {}
 clearTimeout(settleTimer);
 settleTimer = setTimeout(sync, 80);
 }, { passive: true });

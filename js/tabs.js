@@ -46,6 +46,11 @@ tabs.forEach(t => t.classList.remove('active'));
 tab.classList.add('active');
 hideAllPages();
 target.hidden = false;
+try {
+document.documentElement.classList.add('desk-swiping');
+clearTimeout(window.__mochiBlurT);
+window.__mochiBlurT = setTimeout(function () { document.documentElement.classList.remove('desk-swiping'); }, 400);
+} catch (e0) {}
 });
 });
 const FULL_PAGES = ['page-chat', 'page-group-chat', 'page-chat-settings', 'page-custom-cards', 'page-default-cards', 'page-fun-cards', 'page-mood-cards', 'page-reply-cards', 'page-theme', 'page-fav', 'page-fav-settings', 'page-memory', 'page-calendar', 'page-period', 'page-accounting', 'page-garden', 'page-divine', 'page-music', 'page-stats', 'page-interact', 'page-checkin', 'page-ta-ask', 'page-ta-ask-survey', 'page-ta-choose', 'page-ta-curious', 'page-ta-roast', 'page-ta-checkin', 'page-ta-invite', 'page-checkin-cards', 'page-quote-cards', 'page-home', 'page-mail', 'page-mail-write', 'page-mail-reply', 'page-feed', 'page-feed-all', 'page-feed-friends', 'page-license', 'page-about', 'page-guide', 'page-featurehub', 'page-reply-settings', 'page-call-settings', 'page-sfx-settings', 'page-memo-arc', 'page-cjian', 'page-room', 'page-drift', 'page-my-arc', 'page-mood'];

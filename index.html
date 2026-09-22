@@ -968,6 +968,7 @@ filter:blur(var(--desk-bg-blur,0px));
 top:-24px !important; left:-24px !important; right:-24px !important; bottom:-24px !important;
 width:auto !important; height:auto !important;
 }
+html.desk-swiping .phone.desk-blur-on #phone-bg-layer { filter:none !important; -webkit-filter:none !important; }
 html.desk-zoom-font .page-slide { zoom:var(--desk-font-scale, 1); }
 html.desk-zoom-card .deco-widget, html.desk-zoom-card .mini-row, html.desk-zoom-card .checkin,
 html.desk-zoom-card .weekend-box, html.desk-zoom-card .music-widget,
@@ -1065,7 +1066,8 @@ font-family:inherit; -webkit-tap-highlight-color:transparent;
 .weekend-box {
 position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px;
 border-radius:16px; padding:9px 12px; margin:0 0 14px; flex-shrink:0;
-height:66px; box-sizing:border-box; overflow:hidden;
+height:66px; box-sizing:border-box;
+overflow:hidden; overflow:clip; overflow-clip-margin:16px;
 background:var(--widget-bg);
 box-shadow:0 4px 14px rgba(0,0,0,.05);
 opacity:var(--widget-opacity);
@@ -10551,9 +10553,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790085695992">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790086484220">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 22:01<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 22:14<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10643,6 +10645,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              拆两张卡＝顺着原文本自带的「还有个问题就是」换题过渡（主题一＝尊重 / 署名 / 免费公开，主题二＝澄清「收费」传闻），
              **原文一字未删**，只补标题与分卡（页 2 的卡片体例＝日期 + 标题 + 正文段）；末段（「用了非常多的精力和心血…互相尊重彼此」，
              作者在同一批里追加的「最后一段话」）按原话顺序放在整段的最后＝第二张卡末尾。
+             2026-09-22 追记（#1045，作者本人给出修改稿）：第二卡第二段中段改写——「有人不清楚现状却对外说…这不是自相矛盾吗？
+             网站本来就是免费的，为什么还要说这种话。也是力竭了。」→「有人不清楚现状有对外说类似…完全自相矛盾，这网站本来就是免费的，
+             一直是免费的，请不要在外面乱传。」＝语气收敛、口径不变（一直免费/没收过钱/怕停更后被传成收费）；两卡其余各段一字未动。
              纯静态 DOM：不改门控（clock.js 的 mandBottom / finishEnter 一字未动，仍须滑到底才能确认进入）、
              不进 notice.json（强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。 -->
         <div class="splash-mandatory-card" id="splash-mandatory-respect">
@@ -10662,7 +10667,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="splash-mandatory-h">关于「收费」，一并说清楚</div>
           <div class="splash-mandatory-body">
             <p>还有个问题就是，不管是 2026 年 7 月搓的星言字卡，还是 8 月搓的 mochi 字卡，作者一直都是自费制作的。这两个字卡网站都是免费网站，没有收过任何人一分钱，有人想悄悄给我塞钱，我也都拒绝了。</p>
-            <p>我一直都说这是免费网站，有人不清楚现状却对外说「网站是免费的，但除了作者谁都不要给钱」——这不是自相矛盾吗？网站本来就是免费的，为什么还要说这种话。也是力竭了。我真怕有人在外面乱传，明明网站一直是免费的，却被说成「免费但作者私下收费」之类的话。</p>
+            <p>我一直都说这是免费网站，有人不清楚现状有对外说类似「网站是免费的，但除了作者谁都不要给钱」——完全自相矛盾，这网站本来就是免费的，一直是免费的，请不要在外面乱传。我真怕有人在外面乱传，明明网站一直是免费的，却被说成「免费但作者私下收费」之类的话。</p>
             <p>还有更怕永久停更后有人借着这个网站的名义收费，到时候真传成「这网站收费」，也是说不清了。</p>
             <p>说实话，这个网站是我用了非常多的精力和心血做成的，我做不到对外面那些话语完全零反应。就算对我的网站，我的话不认可，也请互相尊重彼此。</p>
           </div>
@@ -21380,4 +21385,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mucqsyyg -->
+<!-- __MOCHI_EOF__ mucr9v5o -->

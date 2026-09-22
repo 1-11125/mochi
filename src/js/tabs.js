@@ -71,6 +71,13 @@
       tab.classList.add('active');
       hideAllPages();
       target.hidden = false;
+      // #976：切页瞬间暂停壁纸全屏模糊（真机实测「切页后」单帧 2787ms），400ms 后自动恢复；
+      // 与桌面滑页（desktop-slider #976）共用同一类名与同一个收尾计时，重叠时后者说了算，无副作用
+      try {
+        document.documentElement.classList.add('desk-swiping');
+        clearTimeout(window.__mochiBlurT);
+        window.__mochiBlurT = setTimeout(function () { document.documentElement.classList.remove('desk-swiping'); }, 400);
+      } catch (e0) {}
     });
   });
 
