@@ -6246,6 +6246,7 @@ if (window.applyChatSettings) window.applyChatSettings();
 clearChatUnread();
 chatRebuilding = true; // #841i：进页即有一段「屏上还没有任何列表」的空窗（LS/权威异步读取、首帧未渲），进度条顶上，renderWindow 接手时由 #841e/f 交接、同步收尾就地交回
 updateChatLoading(); // #703：先于 loadMsgs 置位——loadMsgs 里同步 parse LS 快照可能上百毫秒，先让进度条就位
+scrollChatBottom();
 chatEnterPaintThen(function () {
 try { if (window.hydrateLibScopes) window.hydrateLibScopes(['own', 'public']); } catch (e) {}
 loadMsgs();

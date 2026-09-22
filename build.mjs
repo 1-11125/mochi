@@ -4418,6 +4418,9 @@ const FIX_SENTINELS = [
   { name: '#968b 多人决定单聊结果补响收消息音效（同 #968a 口径；群聊那一路 gcSendDecisionText 本就响 playSfxGc(\'in\')）', file: 'js/group-decision.js', needle: "window.playSfx('in'); } catch (e) {} // FIX 2026-09-21 #968 多人决定结果响收消息音效" },
   { name: '#974c 删除型：指向该章的必读摘要高亮条已删·离线兜底（回流＝摘要指向不存在的章节）', file: 'template.html', needle: 'splash-hl">开屏 / 打开时偶尔慢几秒', absent: true },
   { name: '#974d 删除型：指向该章的必读摘要高亮条已删·在线权威源（回流＝摘要指向不存在的章节）', file: 'pwa/notice.json', needle: '"hl": "开屏 / 打开时偶尔慢几秒', absent: true },
+  { name: '#730a 屏幕上方弹出·前台/后台如实归因＋引导复核（删掉＝自检又只凭进队列就报成功，证明不了屏幕上方真弹横幅）', file: 'js/bg-keep.js', needle: '要验「屏幕上方弹出」：按 Home 切后台（或锁屏），即可看到通知从屏幕顶部弹出' },
+  { name: '#761b 版本行落定前不出结果（删掉 Promise.all＝版本比对没回来就弹结果，旧包告警迟到或被截断）', file: 'js/bg-keep.js', needle: 'Promise.all([queueCheck, verP]).then(showResult);' },
+  { name: '#761d 确认只在 SW 通道真成功时触发（改成无条件弹＝页面通道/失败也追问，自欺负人；删掉＝结果与追问脱钩）', file: 'js/bg-keep.js', needle: "if (testChan === 'sw' && testOk) askSeen();" },
   { name: '#739h 警示卡专属色样式（删＝开屏警示卡退化成普通灰卡、与陈述卡混在一起；#976 起为须知橙）', file: 'css/base.css', needle: '.splash-alert.splash-browser .splash-alert-t { color:#c2410c;' },
   { name: '#876a addRec 收件总闸（删＝换头像/红包/战绩等直调通道夜里照发，回归「开了夜间模式还发」主诉）', file: 'js/chat.js', needle: "!rec.nightAllow && !(window.__nightReplyOpen" },
   { name: '#876b addIn 音效前守卫（删＝夜里响一声没消息；音效在 addRec 之前播，必须前置换闸）', file: 'js/chat.js', needle: "!opts.nightAllow && !(window.__nightReplyOpen" },
@@ -4431,6 +4434,7 @@ const FIX_SENTINELS = [
   { name: '#878a 卡片入场动画类在挂载前补加（#878 报障：礼物/互动卡无动画突兀出现。根因=renderMsg 建节点时加 msg-enter、随后所有分支 m.className=… 整体覆盖抹掉；needle=补类与挂载同行的接线锚——类加回建节点处即失效消失）', file: 'js/chat.js', needle: "if (!batchRendering) m.classList.add('msg-enter');" },
   { name: '#919a 分帧整窗路径空洞守卫（删＝构建途中 renderMsg 抛错断链、frag 永不换装＝看不到最新消息复发）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919a" },
   { name: '#919b 同步整窗路径空洞守卫（删＝异常一路上抛、调用方贴底收尾整段跳过）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919b 同 #919a：同步整窗路径也不得被单条空记录打断" },
+  { name: '#921g 通知自动关闭只认 denied（改回 ===granted 即落 0＝瞬态 default 误读把授权用户的开关永久关掉复发）', file: 'js/bg-keep.js', needle: "Notification.permission !== 'denied'" },
   { name: '#982a 聊天侧入口改挂「聊天设置 → 美化」（删＝聊天里没入口、只剩设置一条路；原 #962h 是「更多 → 工具」按钮，用户 2026-09-21 直派挪出更多面板）', file: 'template.html', needle: 'id="cs-screen-adj"' },
   { name: '#982b 聊天设置入口接线（删＝点行没反应；原 #962j 接的是 more-screen-adj）', file: 'js/personalize.js', needle: "const chatSetEntry = document.getElementById('cs-screen-adj');" },
   { name: '#961a 设置页「信息诊断」独立 tag（重放 #957；删＝诊断/自测行退回「工具」大组，用户又找不到诊断入口）', file: 'template.html', needle: 'data-sec="diag"' },
@@ -4668,6 +4672,10 @@ const FIX_SENTINELS = [
   { name: "#1034d 行下红条补白名单动作与自动恢复口径（删＝「失效后重开开关」被理解成功能又坏了）", file: "template.html", needle: "止住它最有效的一步＝Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034e 功能说明补「装桌面图标＋离线消息提醒」兜底层（删＝页面被回收后连一条兜底通知都没有）", file: "js/settings-help.js", needle: "页面被回收甚至全部关掉后，浏览器也会定时唤醒弹一条" },
   { name: "#1034f 口径量化「内存紧张时几分钟也会被丢」（删＝用户拿「约 30 分钟」对不上自己的几分钟，以为网站坏了）", file: "js/settings-help.js", needle: "手机内存紧张时更快——本页越重，几分钟也可能被丢" },
+  { name: '#1039a 进聊天页「先上屏一帧再跑重活」（原 #1017a 号被 bg-keep 那批占用、本侧锚点曾被并行批抹掉，本条为重挂；删＝进度条置位与撤销又落回同一任务＝「没有加载动画缓冲」复发）', file: 'js/chat.js', needle: "requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });" },
+  { name: '#1039b 进聊天页重活挂在首帧之后（改回当场同步跑 loadMsgs/重建＝置位即撤销、进度条再次从未上屏）', file: 'js/chat.js', needle: "chatEnterPaintThen(function () {" },
+  { name: '#1039c 重活保险丝（删＝后台标签/不可见页面 rAF 不派发时进聊天永不渲染）', file: 'js/chat.js', needle: "setTimeout(run, 120);" },
+  { name: '#1039d 进聊天首帧就贴底（删＝首帧画在窗口顶部＝两百条前的旧记录，真机数秒后才跳到底＝「刚进聊天就跳」复发）', file: 'js/chat.js', needle: "scrollChatBottom();\nchatEnterPaintThen(function () {" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
