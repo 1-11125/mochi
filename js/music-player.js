@@ -136,6 +136,14 @@ if (isSeed) { try { if (window.idbDelete) window.idbDelete(MUSIC_PREFIX + ':musi
 }
 });
 {
+let httpsUpgraded = false;
+library.forEach(m => {
+if (!m || m.neteaseId || m.source !== 'url' || !m.url) return;
+if (/^http:\/\//i.test(m.url)) { m.url = m.url.replace(/^http:\/\//i, 'https://'); httpsUpgraded = true; }
+});
+if (httpsUpgraded) saveLibrary();
+}
+{
 const before = library.length;
 library = library.filter(m => !(m && m.id && m.id.indexOf('sm_seed_') === 0));
 if (library.length !== before) {
@@ -1178,6 +1186,7 @@ if (neteaseId) {
 url = neteaseMetingUrl(neteaseId);
 if (!nm) nm = '网易云音乐-' + neteaseId;
 }
+if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
 if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
 const id = 'sm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + li;
 const item = { id: id, neteaseId: neteaseId || '', name: nm, artist: batchMode ? '' : artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
@@ -1315,6 +1324,7 @@ const fn = (url.match(/\/([^/?#]+?)(?:\.[^/.?#]+)?$/) || [])[1];
 name = fn || '链接音乐';
 }
 if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
+if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
 const nid = 'sm_batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + ui;
 const item = { id: nid, neteaseId: neteaseId || '', name: name, artist: artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
 library.push(item);
@@ -1581,7 +1591,7 @@ const icon = active && audio && !audio.paused
 ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
 : '<path d="M8 5.5v13l11-6.5z"/>';
 const badge = m.source === 'local'
-? '<span class="sm-src sm-src-local">本地</span>' + (m.probeFail ? '<span class="sm-src sm-src-bad">放不了</span>' : '')
+? '<span class="sm-src sm-src-local">本地</span>' + (m.fileLost ? '<span class="sm-src sm-src-bad">文件丢失</span>' : m.probeFail ? '<span class="sm-src sm-src-bad">放不了</span>' : '')
 : '<span class="sm-src">网络</span>';
 const checked = musicBatch && batchSel.has(m.id) ? ' sel' : '';
 const chk = musicBatch ? '<span class="sm-batch-chk"></span>' : '';
@@ -2414,9 +2424,11 @@ if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
 updatePlayerBar();
 if (m.source === 'local' || (!m.url && m.source !== 'url')) {
 const key = MUSIC_PREFIX + ':music-file:' + m.id;
+const markFileLost = () => { try { if (!m.fileLost) { m.fileLost = 1; saveLibrary(); } } catch (e) {} };
 const loadLocal = (v) => {
 if (currentId !== m.id) return;
 if (plausibleLocalValue(v)) {
+if (m.fileLost) { m.fileLost = 0; try { saveLibrary(); } catch (e) {} }
 playLocal(m, v);
 return;
 }
@@ -2426,6 +2438,7 @@ if (idx >= 0) {
 playDemoFor(m, idx);
 return;
 }
+markFileLost();
 toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary();
 };
 {
@@ -2450,7 +2463,7 @@ if (currentId !== m.id) return;
 if (v2 !== undefined && v2 !== null && v2 !== '') loadLocal(v2);
 else failLocal();
 };
-const failLocal = () => { toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary(); };
+const failLocal = () => { markFileLost(); toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary(); };
 const oldLs = localStorage.getItem(legacyKey);
 if (oldLs) { legacyFallback(oldLs); return; }
 if (MUSIC_PREFIX !== 'xy-home-v2') {

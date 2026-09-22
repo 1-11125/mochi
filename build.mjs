@@ -4681,6 +4681,19 @@ const FIX_SENTINELS = [
   { name: '#1039d 进聊天首帧就贴底（删＝首帧画在窗口顶部＝两百条前的旧记录，真机数秒后才跳到底＝「刚进聊天就跳」复发）', file: 'js/chat.js', needle: "scrollChatBottom();\nchatEnterPaintThen(function () {" },
   { name: '#1038a 字卡库令牌化写盘失败闸门（删＝mochiMediaFlush 返回 false 仍写令牌库键，低端大库机 idbSetAll 超时+被系统回收即「令牌入库而池缺数据」＝本地上传表情包/图片字卡变『图片丢失』、重导后再次自动瘦身又复发，同 #186 家族）', file: 'js/chatcard.js', needle: "skipped: '媒体池写盘失败（存储繁忙），本库保持不变" },
   { name: '#1038b 收藏令牌化写盘失败闸门（删＝同样忽略 mochiMediaFlush 返回值照写令牌收藏＝收藏图片丢失，与 #1038a 同一根因的收藏面）', file: 'js/chat.js', needle: "_favPoolOk !== true" },
+  /* ==== 2026-09-22 #1036 OPPO Pad 4 Pro 四报障根因修复（朋友圈改名无变化 / 通话小框拖动不连贯 / 音乐库歌曲自己失效 / 换头像背景偶发无反应；用户点名「不要按机型分支、别的型号也有这问题」——全部零机型分支）==== */
+  { name: '#1036a 朋友圈改名回扫存量快照函数（删＝改昵称只改设置键，存量动态/评论/点赞仍显示旧名＝「修改昵称无变化」复发）', file: 'js/feed.js', needle: 'function sweepFeedNameSnapshots(role, cid, prevName, newName) {' },
+  { name: '#1036b 朋友圈读图 20 秒看门狗（删＝解码挂起时 Promise 永久悬空＝「选了图没反应」）', file: 'js/feed.js', needle: "const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);" },
+  { name: '#1036c 通话小框拖拽期 document 级防手势被抢（删＝平板内核把触摸判成滚动、pointercancel 打断拖拽＝「只能一下一下拖」复发；#1012 同口径）', file: 'js/call.js', needle: 'const stopPan = (ev) => { if (dragging && ev.cancelable) ev.preventDefault(); };' },
+  { name: '#1036d 音乐库启动自愈 http→https（删＝https 页下 http 直链被混合内容永久拦截＝「上传的歌曲会自己失效」复发）', file: 'js/music-player.js', needle: "if (/^http:\\/\\//i.test(m.url)) { m.url = m.url.replace(/^http:\\/\\//i, 'https://'); httpsUpgraded = true; }" },
+  { name: '#1036e 本地音乐文件确认丢失即打标落库（删＝文件被系统清理后仍显示「本地」，用户反复点播误判歌曲自己坏了）', file: 'js/music-player.js', needle: 'if (!m.fileLost) { m.fileLost = 1; saveLibrary(); }' },
+  { name: '#1036f 聊天头像压缩失败口径含「读取超时」（删＝解码挂起静默无反馈＝「换头像没反应、重开好几次」；配套 compressHead 看门狗）', file: 'js/chat-settings.js', needle: "if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }" },
+  { name: '#1036g 聊天背景压缩 20 秒看门狗（删＝多选入库链在挂起图处卡死，后续图全不入库且零提示）', file: 'js/chat-settings.js', needle: 'const watchdog = setTimeout(function () { once(null); }, 20000);' },
+  { name: '#1036h 聊天背景多选失败计数收口（删＝全失败静默＝「换了背景没反应」）', file: 'js/chat-settings.js', needle: "else if (fail) { toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试'); }" },
+  { name: '#1036i 桌面图片压缩 20 秒看门狗（personalize compressImage；删＝头像/背景/图标解码挂起永久无响应）', file: 'js/personalize.js', needle: 'const watchdog = setTimeout(() => once(null), 20000);' },
+  { name: '#1036j 桌面壁纸图库多选失败计数收口（删＝全失败静默）', file: 'js/personalize.js', needle: "else if (fail) toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试');" },
+  { name: '#1036k 头像池 normalizeAvSize 解码看门狗（删＝>180KB 头像解码挂起＝选完头像永久无回调）', file: 'js/avatar-lib.js', needle: 'const watchdog = setTimeout(() => once(data), 20000);' },
+  { name: '#1036l 头像池批量上传每文件看门狗（删＝一张挂起图让整批 finish 永不执行＝池子静默不落库）', file: 'js/avatar-lib.js', needle: 'const fileTimer = setTimeout(() => settle(false), 30000);' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

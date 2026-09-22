@@ -20,21 +20,24 @@ resolve(null);
 return;
 }
 const img = new Image();
+let settled = false;
+const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+const watchdog = setTimeout(() => once(null), 20000);
 img.onload = () => {
 try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
+if (img.width * img.height > 26000000) { once(null); return; }
 const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
 const w = Math.max(1, Math.round(img.width * scale));
 const h = Math.max(1, Math.round(img.height * scale));
 const c = document.createElement('canvas');
 c.width = w; c.height = h;
 c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.85));
+once(c.toDataURL('image/jpeg', 0.85));
 } catch (e) {
-resolve(null);
+once(null);
 }
 };
-img.onerror = () => resolve(null);
+img.onerror = () => once(null);
 img.src = dataUrl;
 });
 }
@@ -94,10 +97,11 @@ if (!f) return;
 const reader = new FileReader();
 reader.onload = () => {
 compressImage(reader.result, 256).then(data => {
-if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
 if (cb) cb(data);
 });
 };
+reader.onerror = () => toast('图片读取失败，请重试');
 reader.readAsDataURL(f);
 }
 avatarPickInput.onchange = () => {
@@ -949,7 +953,7 @@ if (full) compressImage(full, 240).then((th) => { if (th) { store.set('phone-bg-
 cell.appendChild(im);
 cell.addEventListener('click', () => {
 const full = store.get('phone-bg-item-' + id);
-if (!full) return;
+if (!full) { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return; }
 applyPhoneBg(full);
 store.set('phone-bg', full);
 store.set(PBG_ACTIVE, id);
@@ -1020,19 +1024,20 @@ window.mochiFilePick({
 id: 'mochi-phonebg-gallery-pick', accept: 'image/*', multiple: true, btn: upBtn,
 onFiles: (fs) => {
 if (!fs.length) { toast('没有取到图片，请再选一次'); return; }
-let ok = 0;
+let ok = 0, fail = 0;
 toast('正在处理 ' + fs.length + ' 张图片…');
 let chain = Promise.resolve();
 fs.forEach((f) => {
 chain = chain.then(() => new Promise((res) => {
 const reader = new FileReader();
-reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; res(); }); };
-reader.onerror = () => res();
+reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); }); };
+reader.onerror = () => { fail++; res(); };
 reader.readAsDataURL(f);
 }));
 });
 chain.then(() => {
-if (ok) toast('已加入 ' + ok + ' 张壁纸');
+if (ok) toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : ''));
+else if (fail) toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试');
 if (document.getElementById('phone-bg-gallery-panel') && document.getElementById('phone-bg-gallery-panel').style.display === 'flex') openPhoneBgPanel();
 });
 }

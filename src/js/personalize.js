@@ -38,23 +38,29 @@
         return;
       }
       const img = new Image();
+      // FIX 2026-09-22 #1036：解码看门狗——部分内核大图解码偶发既不回调 onload 也不回调
+      // onerror（挂起），原 Promise 永久悬空＝「换头像/背景没反应、重开好几次」；超时按
+      // 失败返回 null，由调用方给用户可感反馈。零机型分支（与 chat-settings 同批同口径）。
+      let settled = false;
+      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+      const watchdog = setTimeout(() => once(null), 20000);
       img.onload = () => {
         try {
           // 解码后像素拦截：高压缩格式小文件也可能是超大图（48MP HEIC 约 5-8MB）
-          if (img.width * img.height > 26000000) { resolve(null); return; }
+          if (img.width * img.height > 26000000) { once(null); return; }
           const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
           const w = Math.max(1, Math.round(img.width * scale));
           const h = Math.max(1, Math.round(img.height * scale));
           const c = document.createElement('canvas');
           c.width = w; c.height = h;
           c.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(c.toDataURL('image/jpeg', 0.85));
+          once(c.toDataURL('image/jpeg', 0.85));
         } catch (e) {
           // 压缩失败不再回退存原图（原图可能超大，存进去会让后续每次渲染重新崩溃）
-          resolve(null);
+          once(null);
         }
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => once(null);
       img.src = dataUrl;
     });
   }
@@ -162,10 +168,12 @@
     reader.onload = () => {
       compressImage(reader.result, 256).then(data => {
         // v3.6.x：压缩失败/图片过大返回 null——不再存原图（防 iOS 解码崩溃），提示换图
-        if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+        if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
         if (cb) cb(data);
       });
     };
+    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝桌面头像读取失败静默无反馈）
+    reader.onerror = () => toast('图片读取失败，请重试');
     reader.readAsDataURL(f);
   }
   avatarPickInput.onchange = () => {
@@ -1263,7 +1271,9 @@ try {
       cell.addEventListener('click', () => {
         // 只读被点中的这一张全图（active-id 对账保证高亮一致）
         const full = store.get('phone-bg-item-' + id);
-        if (!full) return;
+        // FIX 2026-09-22 #1036：全图数据丢失（存储被系统清理）时原本点格静默无响应，
+        // 用户表现为「点了没反应要按好几次」——改为明确提示重传
+        if (!full) { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return; }
         applyPhoneBg(full);
         store.set('phone-bg', full);
         store.set(PBG_ACTIVE, id);
@@ -1340,19 +1350,22 @@ try {
         id: 'mochi-phonebg-gallery-pick', accept: 'image/*', multiple: true, btn: upBtn,
         onFiles: (fs) => {
           if (!fs.length) { toast('没有取到图片，请再选一次'); return; }
-          let ok = 0;
+          let ok = 0, fail = 0;
           toast('正在处理 ' + fs.length + ' 张图片…');
           let chain = Promise.resolve();
           fs.forEach((f) => {
             chain = chain.then(() => new Promise((res) => {
               const reader = new FileReader();
-              reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; res(); }); };
-              reader.onerror = () => res();
+              // FIX 2026-09-22 #1036：失败图原本既不计成功也不给反馈（全失败＝整批静默
+              // 无响应＝「换了背景没反应」），现在计数收口并明确提示原因
+              reader.onload = () => { pbgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); }); };
+              reader.onerror = () => { fail++; res(); };
               reader.readAsDataURL(f);
             }));
           });
           chain.then(() => {
-            if (ok) toast('已加入 ' + ok + ' 张壁纸');
+            if (ok) toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : ''));
+            else if (fail) toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试');
             if (document.getElementById('phone-bg-gallery-panel') && document.getElementById('phone-bg-gallery-panel').style.display === 'flex') openPhoneBgPanel();
           });
         }

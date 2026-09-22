@@ -252,6 +252,46 @@
     if (v && typeof v === 'string' && v.length > 500 * 1024) return '';
     return v || '';
   }
+  // FIX 2026-09-22 #1036：朋友圈改昵称必须回改存量内容快照（OPPO Pad4Pro 实报「修改昵称
+  //   无变化」，与机型/内核无关——动态/评论/贴纸写入时钉死 authorName 昵称快照，展示端
+  //   「快照优先、实时名只作缺数据回退」（postCardHtml/评论/点赞），旧版只改封面键＝
+  //   存量内容一律还是旧名）。改名成功时按人（role+owner 桌面）回改：该作者动态与
+  //   评论/回复/贴纸签名、TA 动态上的 taName 栏、点赞名单里的旧名字串（likes 只存显示名、
+  //   无归属标记，按 prevName 精确串替换；通知栏/聊天系统消息是历史事实文本，不动）。
+  function sweepFeedNameSnapshots(role, cid, prevName, newName) {
+    try {
+      const list = load();
+      let dirty = false;
+      const mine = (x) => !!x && (x.role || x.by) === role
+        && ((x.owner || 'default') === cid || (role === 'me' && x.owner === 'me'));
+      const fixTree = (arr) => {
+        (arr || []).forEach(x => {
+          if (!x) return;
+          if (mine(x) && x.authorName && x.authorName !== newName) { x.authorName = newName; dirty = true; }
+          if (Array.isArray(x.replies)) fixTree(x.replies);
+        });
+      };
+      list.forEach(p => {
+        if (!p) return;
+        if (role === 'ta' && (p.owner || 'default') === cid && p.taName === prevName && prevName !== newName) { p.taName = newName; dirty = true; }
+        fixTree(p.comments);
+        fixTree(p.stickers);
+        if (Array.isArray(p.likes) && prevName && prevName !== newName) {
+          for (let i = 0; i < p.likes.length; i++) {
+            if (p.likes[i] === prevName) { p.likes[i] = newName; dirty = true; }
+          }
+        }
+        if (mine(p) && p.authorName && p.authorName !== newName) { p.authorName = newName; dirty = true; }
+      });
+      if (dirty) save(list);
+      return dirty;
+    } catch (e) { return false; }
+  }
+  // 改名后按当前可见页面刷新（主列表/全部朋友圈/好友列表各自的重绘入口）
+  function rerenderFeedAfterRename() {
+    try { const fa = document.getElementById('page-feed-all'); if (fa && !fa.hidden) { renderFeedAll(); } else render(); } catch (e) {}
+    try { const ff = document.getElementById('page-feed-friends'); if (ff && !ff.hidden) renderFeedFriends(); } catch (e) {}
+  }
   function toast(msg) {
     let t = document.getElementById('cc-toast');
     if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -892,7 +932,14 @@
   }
   // 压缩图片（最长边 800px，JPEG 0.82，避免撑爆 localStorage 配额）
   function compressImage(file, cb) {
+    // FIX 2026-09-22 #1036：读图三条腿收口——FileReader 补 onerror、解码加看门狗，
+    // 失败/超时统一回调 null（国产平板内核偶发解码不回调＝「选了图没反应」的原型，
+    // 与 chat-settings #813 系列同族，零机型分支）。
+    let done = false;
+    const once = (v) => { if (done) return; done = true; clearTimeout(timer); cb(v); };
+    const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);
     const reader = new FileReader();
+    reader.onerror = () => { toast('图片读取失败'); once(null); };
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
@@ -905,9 +952,9 @@
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        cb(cv.toDataURL('image/jpeg', 0.82));
+        once(cv.toDataURL('image/jpeg', 0.82));
       };
-      img.onerror = () => { toast('图片读取失败'); };
+      img.onerror = () => { toast('图片读取失败'); once(null); };
       img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
@@ -2353,6 +2400,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
           if (pickedImgs.length + files.length > MAX_PICK) { toast('最多发布 ' + MAX_PICK + ' 张图片'); }
           files.slice(0, MAX_PICK - pickedImgs.length).forEach(f => {
             compressImage(f, (dataUrl) => {
+              if (!dataUrl) return;
               pickedImgs.push(dataUrl);
               renderPreview();
             });
@@ -2378,6 +2426,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         const f = files && files[0];
         if (!f) return;
         compressImage(f, (dataUrl) => {
+          if (!dataUrl) return;
           window.activeStore().set('feed-cover-bg', dataUrl);
           renderCover();
           toast('朋友圈背景已更新');
@@ -2435,6 +2484,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       img.onerror = () => toast('图片读取失败');
       img.src = reader.result;
     };
+    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝读取失败静默无反馈）
+    reader.onerror = () => toast('图片读取失败');
     reader.readAsDataURL(f);
   };
   if (coverAvEl) {
@@ -2461,8 +2512,12 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改朋友圈昵称', window.activeStore().get('feed-user-name') || window.activeStore().get('lbl-user') || '我', (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：改昵称前先取旧名，落库后回扫存量动态/评论/表情/点赞快照
+            const prev = feedUserName();
             window.activeStore().set('feed-user-name', val);
+            sweepFeedNameSnapshots('me', window.__activeCid || 'default', prev, val);
             renderCover();
+            rerenderFeedAfterRename();
             toast('朋友圈昵称已更新');
           }
         }, { maxlength: 12 });
@@ -2876,6 +2931,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
             const f = files && files[0];
             if (!f) { toast('没有取到图片，请再选一次'); return; }
             compressImage(f, (dataUrl) => {
+              if (!dataUrl) return;
               feedAllStore().set(key, dataUrl);
               renderFeedAllCover();
               toast('朋友圈背景已更新');
@@ -2932,8 +2988,11 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改昵称', cur, (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：全部朋友圈页改名同样回扫存量快照（role/cid 按当前查看对象）
             feedAllStore().set(key, val);
+            sweepFeedNameSnapshots(feedAllWho === 'me' ? 'me' : 'ta', feedAllCid, cur, val);
             renderFeedAllCover();
+            rerenderFeedAfterRename();
             toast('昵称已更新');
           }
         }, { maxlength: 12 });
@@ -3064,8 +3123,10 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改朋友圈昵称', cur, (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：好友列表行改名也回扫该联系人桌面的存量快照
             st.set(key, val);
-            renderFeedFriends();
+            sweepFeedNameSnapshots(isMe ? 'me' : 'ta', cid, cur, val);
+            rerenderFeedAfterRename();
             toast('朋友圈昵称已更新');
           }
         }, { maxlength: 12 });

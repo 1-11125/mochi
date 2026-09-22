@@ -1065,6 +1065,13 @@
     // 转布局视口统一相减，避免 visualViewport 被浏览器条偏移时拖拽错位（同样兼容多机型）
     function vpX(e) { const vv = window.visualViewport; return e.clientX + ((vv && vv.offsetLeft) || 0); }
     function vpY(e) { const vv = window.visualViewport; return e.clientY + ((vv && vv.offsetTop) || 0); }
+    // FIX 2026-09-22 #1036：平板内核把小框触摸抢判成页面滚动手势→拖拽中途 pointercancel，
+    // 且 setPointerCapture 未包 try/catch（抛错会打断整个 pointerdown）——表现为「只能一下一下拖」。
+    // 套用 #1012 已验证口径：拖拽存续期挂 document 级非被动 touchmove preventDefault，
+    // pointermove/up/cancel 移到 document（capture 失败/手势被抢后 mini 收不到后续事件也能继续跟手）。
+    const stopPan = (ev) => { if (dragging && ev.cancelable) ev.preventDefault(); };
+    const stopPanOn = () => document.addEventListener('touchmove', stopPan, { passive: false });
+    const stopPanOff = () => document.removeEventListener('touchmove', stopPan);
     mini.addEventListener('pointerdown', (e) => {
       if (e.target.closest('#call-mini-hang')) { pressOnHang = true; return; } // 挂断按钮不触发拖动
       pressOnHang = false;
@@ -1073,10 +1080,11 @@
       const r = mini.getBoundingClientRect();
       pressLX = vpX(e); pressLY = vpY(e);
       startLeft = r.left; startTop = r.top; // 按下瞬间小框左上角的屏幕（布局）位
-      mini.setPointerCapture && mini.setPointerCapture(e.pointerId);
+      try { mini.setPointerCapture && mini.setPointerCapture(e.pointerId); } catch (err) {}
+      stopPanOn();
       e.preventDefault();
     });
-    mini.addEventListener('pointermove', (e) => {
+    document.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       if (!moved) {
         // 首次移动：切换为拖动态（清除 bottom，避免与 top 同时存在导致拉伸）。
@@ -1101,11 +1109,8 @@
       const c = mini.getBoundingClientRect();
       mini.style.left = ((mini.offsetLeft || 0) + (tx - c.left)) + 'px';
       mini.style.top = ((mini.offsetTop || 0) + (ty - c.top)) + 'px';
-    });
-    const endDrag = () => { dragging = false; };
-    mini.addEventListener('pointerup', endDrag);
-    mini.addEventListener('pointercancel', () => { dragging = false; pressOnHang = false; });
-    mini.addEventListener('pointerup', () => {
+    }, { passive: false });
+    const persistPos = () => {
       // 只有真实拖动过才保存（位置有效；left/top 已按元素自身坐标空间写出，
       // 重新加载 restore 路径照常读回，不会被误当作屏幕坐标）
       if (moved && mini.style.left && mini.style.top) {
@@ -1113,10 +1118,24 @@
         else miniPos = { left: mini.style.left, top: mini.style.top };
         store.set('call-mini-pos', JSON.stringify(miniPos));
       }
+    };
+    document.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      persistPos();
       // #830：没拖动过＝轻点（挂断键那一下由按钮自己的 click 处理）
       const tap = !moved && !pressOnHang;
       pressOnHang = false;
+      dragging = false;
+      stopPanOff();
       if (tap) openCallHalfFromMini();
+    });
+    document.addEventListener('pointercancel', () => {
+      if (!dragging) return;
+      // 手势被系统抢走（来电/通知栏等）也保住已拖出的位置，不丢半程
+      persistPos();
+      pressOnHang = false;
+      dragging = false;
+      stopPanOff();
     });
   }
 

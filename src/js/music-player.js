@@ -186,6 +186,18 @@
         if (isSeed) { try { if (window.idbDelete) window.idbDelete(MUSIC_PREFIX + ':music-file:' + m.id); } catch (e) {} }
       }
     });
+    // FIX 2026-09-22 #1036：存量自愈——所有非网易云的 http:// 直链升级为 https。
+    // https 页面（GitHub Pages）下 http 音频被混合内容拦截＝「上传的歌曲会自己失效」
+    // 的主因（诊断包实锤 q4.v2i.cc / c1.zhuanwenzi.com 的 http 直链全部加载失败）；
+    // 导入侧已同口径收口，这里负责旧库/备份恢复后的存量清洗。
+    {
+      let httpsUpgraded = false;
+      library.forEach(m => {
+        if (!m || m.neteaseId || m.source !== 'url' || !m.url) return;
+        if (/^http:\/\//i.test(m.url)) { m.url = m.url.replace(/^http:\/\//i, 'https://'); httpsUpgraded = true; }
+      });
+      if (httpsUpgraded) saveLibrary();
+    }
     // v3.9.x：移除内置种子歌——旧版本自动放入的默认歌曲（id 以 sm_seed_ 开头）在
     // 升级后自动删除；原「种子歌自愈补回」逻辑同步移除，默认歌单不再自动补任何歌曲
     {
@@ -1481,6 +1493,9 @@
               url = neteaseMetingUrl(neteaseId);
               if (!nm) nm = '网易云音乐-' + neteaseId;
             }
+            // FIX 2026-09-22 #1036：http:// 直链入库前先升 https——https 页面下 http 资源
+            // 必被混合内容拦截永久「自己失效」，原链若不支持 https 也只是从必死变试一把
+            if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
             if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
             const id = 'sm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + li;
             const item = { id: id, neteaseId: neteaseId || '', name: nm, artist: batchMode ? '' : artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
@@ -1637,6 +1652,8 @@
             name = fn || '链接音乐';
           }
           if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
+          // FIX 2026-09-22 #1036：批量导入同样先升级 http→https（与单条链接添加同口径）
+          if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
           const nid = 'sm_batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + ui;
           const item = { id: nid, neteaseId: neteaseId || '', name: name, artist: artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
           library.push(item);
@@ -1926,8 +1943,9 @@
             ? '<path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z"/>'
             : '<path d="M8 5.5v13l11-6.5z"/>';
           // #700：导入时探测解不动的本地歌出「放不了」徽标（真播出来过一次就自动消失）
+          // FIX 2026-09-22 #1036：点播时确认文件已从存储丢失 → 持久「文件丢失」徽标
           const badge = m.source === 'local'
-            ? '<span class="sm-src sm-src-local">本地</span>' + (m.probeFail ? '<span class="sm-src sm-src-bad">放不了</span>' : '')
+            ? '<span class="sm-src sm-src-local">本地</span>' + (m.fileLost ? '<span class="sm-src sm-src-bad">文件丢失</span>' : m.probeFail ? '<span class="sm-src sm-src-bad">放不了</span>' : '')
             : '<span class="sm-src">网络</span>';
           const checked = musicBatch && batchSel.has(m.id) ? ' sel' : '';
           const chk = musicBatch ? '<span class="sm-batch-chk"></span>' : '';
@@ -3036,11 +3054,16 @@
     if (m.source === 'local' || (!m.url && m.source !== 'url')) {
       // 本地文件：从 IndexedDB 读取 Blob（新版）或 dataURL 字符串（旧版数据）
       const key = MUSIC_PREFIX + ':music-file:' + m.id;
+      // FIX 2026-09-22 #1036：本地文件确认丢失时在条目上打标并落库——列表徽标持久显示
+      // 「文件丢失」（原仅一次性 toast，刷完仍显示「本地」，用户反复点播误判为歌曲自己坏了）
+      const markFileLost = () => { try { if (!m.fileLost) { m.fileLost = 1; saveLibrary(); } } catch (e) {} };
       const loadLocal = (v) => {
         // v3.5.129：守卫——异步加载期间用户已切到别的歌（currentId 变了）→ 丢弃本次结果，
         // 否则旧歌的 audio 会继续创建播放，出现两首歌同时响
         if (currentId !== m.id) return;
         if (plausibleLocalValue(v)) {
+          // 曾误标/文件又回来了：播成功即清标（自愈）
+          if (m.fileLost) { m.fileLost = 0; try { saveLibrary(); } catch (e) {} }
           // v3.6.x：统一转 Blob + 对象 URL 播放（兼容旧 dataURL 字符串 / 新 Blob 存储）
           playLocal(m, v);
           return;
@@ -3054,6 +3077,7 @@
           playDemoFor(m, idx);
           return;
         }
+        markFileLost();
         toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary();
       };
       // v3.29.x：优先同步查内存缓存/localStorage——idbGet 异步丢用户手势上下文，play()
@@ -3088,7 +3112,7 @@
               if (v2 !== undefined && v2 !== null && v2 !== '') loadLocal(v2);
               else failLocal();
             };
-            const failLocal = () => { toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary(); };
+            const failLocal = () => { markFileLost(); toast('音乐文件加载失败，可能已被清理'); wantPlay = false; clearBgResume(); currentId = null; updatePlayerBar(); renderLibrary(); };
             const oldLs = localStorage.getItem(legacyKey);
             if (oldLs) { legacyFallback(oldLs); return; }
             if (MUSIC_PREFIX !== 'xy-home-v2') {

@@ -66,6 +66,9 @@ const AV_TARGET = 180 * 1024;
 function normalizeAvSize(data, cb) {
 if (!data || typeof data !== 'string' || data.indexOf('data:image') !== 0 || data.length <= AV_TARGET) { cb(data); return; }
 try {
+let settled = false;
+const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); cb(v); };
+const watchdog = setTimeout(() => once(data), 20000);
 const img = new Image();
 img.onload = function () {
 try {
@@ -84,10 +87,10 @@ w = Math.max(48, Math.round(w * 0.8));
 h = Math.max(48, Math.round(h * 0.8));
 q = Math.max(0.5, q - 0.1);
 }
-cb(out && out.length < data.length ? out : data);
-} catch (e) { cb(data); }
+once(out && out.length < data.length ? out : data);
+} catch (e) { once(data); }
 };
-img.onerror = function () { cb(data); };
+img.onerror = function () { once(data); };
 img.src = data;
 } catch (e) { cb(data); }
 }
@@ -569,11 +572,20 @@ if (!files.length) return;
 const list = listFn();
 let done = 0, okCount = 0, failCount = 0;
 files.forEach(f => {
+let settled = false;
+const settle = (okFlag) => {
+if (settled) return; settled = true; clearTimeout(fileTimer);
+done++;
+if (okFlag) okCount++; else failCount++;
+if (done === files.length) finish();
+};
+const fileTimer = setTimeout(() => settle(false), 30000);
 const reader = new FileReader();
-reader.onerror = () => { done++; failCount++; if (done === files.length) finish(); };
+reader.onerror = () => settle(false);
 reader.onload = () => {
 const img = new Image();
 img.onload = () => {
+if (settled) return; // 看门狗已按失败收口，迟到的解码结果不再塞池
 try {
 const c = document.createElement('canvas');
 const scale = Math.min(1, 256 / Math.max(img.width, img.height));
@@ -581,15 +593,13 @@ c.width = Math.max(1, Math.round(img.width * scale));
 c.height = Math.max(1, Math.round(img.height * scale));
 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
 list.push(c.toDataURL('image/jpeg', 0.85));
-okCount++;
+settle(true);
 } catch (e) {
 list.push(reader.result);
-okCount++;
+settle(true);
 }
-done++;
-if (done === files.length) finish();
 };
-img.onerror = () => { done++; failCount++; if (done === files.length) finish(); };
+img.onerror = () => settle(false);
 img.src = reader.result;
 };
 reader.readAsDataURL(f);

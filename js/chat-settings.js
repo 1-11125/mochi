@@ -405,6 +405,9 @@ img.src = dataUrl;
 }
 function csBgCompress(dataUrl) {
 return new Promise((resolve) => {
+let settled = false;
+const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+const watchdog = setTimeout(function () { once(null); }, 20000);
 const img = new Image();
 img.onload = () => {
 try {
@@ -416,10 +419,10 @@ const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
 c.width = Math.max(1, Math.round(img.width * scale));
 c.height = Math.max(1, Math.round(img.height * scale));
 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-resolve(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { resolve(null); }
+once(c.toDataURL('image/jpeg', 0.85));
+} catch (e) { once(null); }
 };
-img.onerror = () => resolve(null);
+img.onerror = () => once(null);
 img.src = dataUrl;
 });
 }
@@ -445,21 +448,22 @@ accept: 'image/*',
 multiple: true,
 onFiles: (fs) => {
 if (!fs.length) return;
-let ok = 0;
+let ok = 0, fail = 0;
 toast('正在处理 ' + fs.length + ' 张图片…');
 let chain = Promise.resolve();
 fs.forEach((f) => {
 chain = chain.then(() => new Promise((res) => {
 const reader = new FileReader();
 reader.onload = () => {
-csBgAdd(reader.result).then((id) => { if (id) ok++; res(); });
+csBgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); });
 };
-reader.onerror = () => res();
+reader.onerror = () => { fail++; res(); };
 reader.readAsDataURL(f);
 }));
 });
 chain.then(() => {
-if (ok) { toast('已加入 ' + ok + ' 张壁纸'); }
+if (ok) { toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : '')); }
+else if (fail) { toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试'); }
 if (document.getElementById('cs-bg-panel') && document.getElementById('cs-bg-panel').style.display === 'flex') openCsBgPanel();
 });
 }
@@ -510,6 +514,7 @@ cell.appendChild(im);
 cell.addEventListener('click', () => {
 const full = store.get('cs-bg-item-' + id);
 if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
+else { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }
 });
 const del = document.createElement('div');
 del.textContent = '×';
@@ -810,6 +815,9 @@ csPosRow('cs-time-pos', 'cs-time-pos-val', '时间轴位置', 'cs-time-x', 'cs-t
 function compressHead(dataUrl, maxSide) {
 return new Promise((resolve) => {
 if (typeof dataUrl === 'string' && dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
+let settled = false;
+const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+const watchdog = setTimeout(() => once(null), 20000);
 const img = new Image();
 img.onload = () => {
 try {
@@ -819,10 +827,10 @@ const h = Math.max(1, Math.round(img.height * scale));
 const c = document.createElement('canvas');
 c.width = w; c.height = h;
 c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { resolve(null); }
+once(c.toDataURL('image/jpeg', 0.85));
+} catch (e) { once(null); }
 };
-img.onerror = () => resolve(null);
+img.onerror = () => once(null);
 img.src = dataUrl;
 });
 }
@@ -838,10 +846,11 @@ const cb = headCb; headCb = null;
 const reader = new FileReader();
 reader.onload = () => {
 compressHead(reader.result, 256).then(data => {
-if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
 if (cb) cb(data);
 });
 };
+reader.onerror = () => toast('图片读取失败，请重试');
 reader.readAsDataURL(f);
 }
 headInput.onchange = () => {

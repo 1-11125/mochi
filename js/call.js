@@ -752,6 +752,9 @@ if (mini) {
 let dragging = false, moved = false, pressOnHang = false, pressLX = 0, pressLY = 0, startLeft = 0, startTop = 0;
 function vpX(e) { const vv = window.visualViewport; return e.clientX + ((vv && vv.offsetLeft) || 0); }
 function vpY(e) { const vv = window.visualViewport; return e.clientY + ((vv && vv.offsetTop) || 0); }
+const stopPan = (ev) => { if (dragging && ev.cancelable) ev.preventDefault(); };
+const stopPanOn = () => document.addEventListener('touchmove', stopPan, { passive: false });
+const stopPanOff = () => document.removeEventListener('touchmove', stopPan);
 mini.addEventListener('pointerdown', (e) => {
 if (e.target.closest('#call-mini-hang')) { pressOnHang = true; return; } // 挂断按钮不触发拖动
 pressOnHang = false;
@@ -760,10 +763,11 @@ moved = false;
 const r = mini.getBoundingClientRect();
 pressLX = vpX(e); pressLY = vpY(e);
 startLeft = r.left; startTop = r.top; // 按下瞬间小框左上角的屏幕（布局）位
-mini.setPointerCapture && mini.setPointerCapture(e.pointerId);
+try { mini.setPointerCapture && mini.setPointerCapture(e.pointerId); } catch (err) {}
+stopPanOn();
 e.preventDefault();
 });
-mini.addEventListener('pointermove', (e) => {
+document.addEventListener('pointermove', (e) => {
 if (!dragging) return;
 if (!moved) {
 mini.style.bottom = 'auto';
@@ -782,19 +786,29 @@ ty = Math.max(Math.max(miniSafeTop(), voT), Math.min(voT + vh - mh - 4, ty));
 const c = mini.getBoundingClientRect();
 mini.style.left = ((mini.offsetLeft || 0) + (tx - c.left)) + 'px';
 mini.style.top = ((mini.offsetTop || 0) + (ty - c.top)) + 'px';
-});
-const endDrag = () => { dragging = false; };
-mini.addEventListener('pointerup', endDrag);
-mini.addEventListener('pointercancel', () => { dragging = false; pressOnHang = false; });
-mini.addEventListener('pointerup', () => {
+}, { passive: false });
+const persistPos = () => {
 if (moved && mini.style.left && mini.style.top) {
 if (miniPos) { miniPos.left = mini.style.left; miniPos.top = mini.style.top; }
 else miniPos = { left: mini.style.left, top: mini.style.top };
 store.set('call-mini-pos', JSON.stringify(miniPos));
 }
+};
+document.addEventListener('pointerup', () => {
+if (!dragging) return;
+persistPos();
 const tap = !moved && !pressOnHang;
 pressOnHang = false;
+dragging = false;
+stopPanOff();
 if (tap) openCallHalfFromMini();
+});
+document.addEventListener('pointercancel', () => {
+if (!dragging) return;
+persistPos();
+pressOnHang = false;
+dragging = false;
+stopPanOff();
 });
 }
 function toast(msg) {

@@ -591,6 +591,12 @@
   // 在 2-3x 高分屏（物理宽 1080-1440）铺满时被放大发糊
   function csBgCompress(dataUrl) {
     return new Promise((resolve) => {
+      // FIX 2026-09-22 #1036：解码看门狗——内核偶发大图解码挂起（onload/onerror 都不回）
+      // 时原 Promise 永久悬空＝多选链卡死＝「换聊天背景没反应、重开好几次」；超时按失败
+      // 回流由调用方提示。零机型分支（与 #1036 chat-settings 头像 compressHead 同口径）。
+      let settled = false;
+      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+      const watchdog = setTimeout(function () { once(null); }, 20000);
       const img = new Image();
       img.onload = () => {
         try {
@@ -602,10 +608,10 @@
           c.width = Math.max(1, Math.round(img.width * scale));
           c.height = Math.max(1, Math.round(img.height * scale));
           c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) { resolve(null); }
+          once(c.toDataURL('image/jpeg', 0.85));
+        } catch (e) { once(null); }
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => once(null);
       img.src = dataUrl;
     });
   }
@@ -637,21 +643,24 @@
       multiple: true,
       onFiles: (fs) => {
         if (!fs.length) return;
-        let ok = 0;
+        let ok = 0, fail = 0;
         toast('正在处理 ' + fs.length + ' 张图片…');
         let chain = Promise.resolve();
         fs.forEach((f) => {
           chain = chain.then(() => new Promise((res) => {
             const reader = new FileReader();
+            // FIX 2026-09-22 #1036：失败图原本不计成功也不提示（全失败＝整批静默无响应），
+            // 现在计数收口并给可感反馈（与 personalize 桌面壁纸同口径）
             reader.onload = () => {
-              csBgAdd(reader.result).then((id) => { if (id) ok++; res(); });
+              csBgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); });
             };
-            reader.onerror = () => res();
+            reader.onerror = () => { fail++; res(); };
             reader.readAsDataURL(f);
           }));
         });
         chain.then(() => {
-          if (ok) { toast('已加入 ' + ok + ' 张壁纸'); }
+          if (ok) { toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : '')); }
+          else if (fail) { toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试'); }
           if (document.getElementById('cs-bg-panel') && document.getElementById('cs-bg-panel').style.display === 'flex') openCsBgPanel();
         });
       }
@@ -707,6 +716,8 @@
         // 只在此刻读被点中的那一张全图（active-id 判断已由对账保证一致）
         const full = store.get('cs-bg-item-' + id);
         if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
+        // FIX 2026-09-22 #1036：全图数据丢失（存储被系统清理）时原本点格静默无响应＝「点了没反应」
+        else { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }
       });
       const del = document.createElement('div');
       del.textContent = '×';
@@ -1047,6 +1058,12 @@
       // 4800/5000 万像素手机主摄原图误拒 → 头像选完不生效，而同文件聊天背景上传无此
       // 限制能传）。drawImage 缩放到 maxSide 小 canvas 不会 OOM，try-catch + onerror 兜底。
       if (typeof dataUrl === 'string' && dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
+      // FIX 2026-09-22 #1036：解码看门狗——平板/国产内核偶发既不放 onload 也不放 onerror
+      // （大图解码挂起）时，原 Promise 永久悬空＝「换了头像没反应、重开好几次」原型；
+      // 超时按失败回流，调用方照常给用户可感反馈。零机型分支。
+      let settled = false;
+      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
+      const watchdog = setTimeout(() => once(null), 20000);
       const img = new Image();
       img.onload = () => {
         try {
@@ -1056,10 +1073,10 @@
           const c = document.createElement('canvas');
           c.width = w; c.height = h;
           c.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) { resolve(null); }
+          once(c.toDataURL('image/jpeg', 0.85));
+        } catch (e) { once(null); }
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => once(null);
       img.src = dataUrl;
     });
   }
@@ -1083,10 +1100,12 @@
     const reader = new FileReader();
     reader.onload = () => {
       compressHead(reader.result, 256).then(data => {
-        if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
+        if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
         if (cb) cb(data);
       });
     };
+    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝读取失败静默无回调＝「没反应」）
+    reader.onerror = () => toast('图片读取失败，请重试');
     reader.readAsDataURL(f);
   }
   headInput.onchange = () => {
