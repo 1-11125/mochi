@@ -1163,6 +1163,7 @@ return c.toLowerCase();
 }
 function render() {
 const token = ++renderToken;
+try { if (window.__mochiPhase) window.__mochiPhase('cc-render'); } catch (e0) {}
 rendering = true;
 renderTabCounts();
 let mediaHelp = document.getElementById('cc-media-help');
@@ -1267,19 +1268,40 @@ openEditCard(it.gname, it.i);
 attachCardDrag(el, it.gname, it.i);
 }
 };
-const step = () => {
+const IDLE_BATCH = 40;
+const scheduleNext = (fn) => {
+try {
+if (typeof window.requestIdleCallback === 'function') {
+window.requestIdleCallback(function () { fn(); }, { timeout: 300 });
+return;
+}
+} catch (e) {}
+setTimeout(fn, 60);
+};
+const step = (batch) => {
 if (token !== renderToken) { rendering = false; return; } // 新渲染已开始，废弃本批次
-const end = Math.min(pos + RENDER_BATCH, flat.length);
+const n = batch || RENDER_BATCH;
+const end = Math.min(pos + n, flat.length);
 for (; pos < end; pos++) {
 const el = document.createElement('div');
 build(el, flat[pos]);
 frag.appendChild(el);
 }
 list.appendChild(frag);
-if (pos < flat.length) requestAnimationFrame(step);
-else rendering = false;
+if (pos < flat.length) {
+if (document.hidden) {
+var _onVis = function () {
+document.removeEventListener('visibilitychange', _onVis);
+if (token !== renderToken) { rendering = false; return; }
+scheduleNext(function () { step(IDLE_BATCH); });
 };
-step(); // 首帧同步跑第一批（小列表一次完成，行为与原一致）
+document.addEventListener('visibilitychange', _onVis);
+return;
+}
+scheduleNext(function () { step(IDLE_BATCH); });
+} else rendering = false;
+};
+step(); // 首批同步跑（小列表一次完成，行为与原一致）
 }
 tabsWrap.querySelectorAll('.cc-tab').forEach(tab => {
 tab.addEventListener('click', () => {
@@ -1327,6 +1349,7 @@ searchResultEl.style.cssText = 'padding:0 12px';
 searchResultEl.hidden = true;
 (function () { const w = document.querySelector('#page-chatcard .tc-search-wrap'); if (w && w.parentNode) w.parentNode.insertBefore(searchResultEl, w.nextSibling); })();
 function renderSearchResult(kw) {
+try { if (window.__mochiPhase) window.__mochiPhase('cc-search'); } catch (e0) {}
 if (!kw) { searchResultEl.hidden = true; searchResultEl.innerHTML = ''; return; }
 searchResultEl.hidden = false;
 kw = window.mochiSearch ? window.mochiSearch.qnorm(kw) : kw; // #573 查询侧标点归一：「晚安。」＝「晚安」
@@ -3710,6 +3733,7 @@ boot();
 });
 })();
 function hydrateCurScope() {
+try { if (window.__mochiPhase) window.__mochiPhase('cc-hydrate'); } catch (e0) {}
 if (!window.idbHydrateKey) return Promise.resolve(false);
 try { if (curStore().get(curKey())) return Promise.resolve(false); } catch (e) {}
 let fk = '';
@@ -3809,6 +3833,7 @@ staticText: '当前字卡库约 ' + mb + ' MB，过大时添加字卡容易让 i
 });
 }
 function openCcPage(scope, startTab) {
+try { if (window.__mochiPhase) window.__mochiPhase('cc-open'); } catch (e0) {}
 flushCcSave();
 ccScope = scope === 'public' ? 'public' : 'own';
 pubInvalidate();
