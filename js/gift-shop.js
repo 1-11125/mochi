@@ -699,6 +699,9 @@ function boxLoad() { try { const s = store(); if (!s) return []; return JSON.par
 function boxSave(a) { const s = store(); if (s) s.set(BOX_KEY, JSON.stringify(a)); }
 let _boxMeta = null;
 function boxMetaInvalidate() { _boxMeta = null; }
+const GIFT_REPLY_DUP_MS = 1000;
+const GIFT_REPLY_TA_DUP_MS = 10 * 60 * 1000;
+function boxReplyDupWindow(who) { return who === 'me' ? GIFT_REPLY_DUP_MS : GIFT_REPLY_TA_DUP_MS; }
 function boxDedupeReplies(list) {
 if (!Array.isArray(list)) return [];
 const out = [];
@@ -707,7 +710,7 @@ const r = list[i];
 if (!r) continue;
 const prev = out.length ? out[out.length - 1] : null;
 if (prev && prev.who === r.who && String(prev.text) === String(r.text) &&
-Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= 1000) continue;
+Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= boxReplyDupWindow(r.who)) continue;
 out.push(r);
 }
 return out;
@@ -940,7 +943,6 @@ try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
 };
 const GIFT_REPLY_GENERIC = ['哇，谢谢亲爱的～', '你怎么知道我想要这个！', '收到啦，超喜欢❤', '破费啦，我好好收着', '嘿嘿，被你宠到了', '这份我喜欢，收下啦', '已经摆进心意柜最上层了'];
 const GIFT_REPLY_WISH = ['我的心愿被你实现啦！', '真的买下啦…说好不让你乱花钱的', '许愿时没想过真能收到，谢谢～', '心愿单少了一件，开心值满格', '你记得我的心愿，这个最戳我'];
-const GIFT_REPLY_DUP_MS = 1500;
 function boxReplyDup(cid, boxId, who, text) {
 if (!boxId || !text) return false;
 try {
@@ -954,7 +956,7 @@ if (!it || it.id !== boxId) continue;
 const list = boxDedupeReplies(it.replies);
 const last = list.length ? list[list.length - 1] : null;
 if (last && last.who === want && String(last.text) === String(text) &&
-Math.abs(Date.now() - (Number(last.ts) || 0)) <= GIFT_REPLY_DUP_MS) return true;
+Math.abs(Date.now() - (Number(last.ts) || 0)) <= boxReplyDupWindow(want)) return true;
 return false;
 }
 } catch (e) {}
