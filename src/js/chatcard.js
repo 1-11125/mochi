@@ -1679,20 +1679,47 @@
         attachCardDrag(el, it.gname, it.i);
       }
     };
-    const step = () => {
+    // #974：续批改「空闲期调度」——原实现每帧都续批（requestAnimationFrame），上万条的大分类
+    // （默认聊天字卡 4576 / 词典 14839）会连续几十帧占满主线程，与用户滑动/点按抢 CPU，
+    // 真机表现＝字卡库页持续 3~4fps、单帧冻结 3.3~3.6s（iPhone 13 实测）。改为：
+    // ①页面不可见（切走/后台）就暂停续批，回来再续；②可见时用 requestIdleCallback（缺失回退
+    // 60ms 定时）只在空闲跑；③空闲批更小（IDLE_BATCH）。渲染结果与顺序完全不变，只是不再抢主线程。
+    const IDLE_BATCH = 40;
+    const scheduleNext = (fn) => {
+      try {
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(function () { fn(); }, { timeout: 300 });
+          return;
+        }
+      } catch (e) {}
+      setTimeout(fn, 60);
+    };
+    const step = (batch) => {
       if (token !== renderToken) { rendering = false; return; } // 新渲染已开始，废弃本批次
-      const end = Math.min(pos + RENDER_BATCH, flat.length);
+      const n = batch || RENDER_BATCH;
+      const end = Math.min(pos + n, flat.length);
       for (; pos < end; pos++) {
         const el = document.createElement('div');
         build(el, flat[pos]);
         frag.appendChild(el);
       }
-      // 每帧挂载一批：列表渐进出现，首屏立即可滚动
+      // 每批挂载一次：列表渐进出现，首屏立即可滚动
       list.appendChild(frag);
-      if (pos < flat.length) requestAnimationFrame(step);
-      else rendering = false;
+      if (pos < flat.length) {
+        if (document.hidden) {
+          // 不可见＝先停（不浪费 CPU），**回前台一次性续完**——不能就此丢弃，否则列表永久残缺
+          var _onVis = function () {
+            document.removeEventListener('visibilitychange', _onVis);
+            if (token !== renderToken) { rendering = false; return; }
+            scheduleNext(function () { step(IDLE_BATCH); });
+          };
+          document.addEventListener('visibilitychange', _onVis);
+          return;
+        }
+        scheduleNext(function () { step(IDLE_BATCH); });
+      } else rendering = false;
     };
-    step(); // 首帧同步跑第一批（小列表一次完成，行为与原一致）
+    step(); // 首批同步跑（小列表一次完成，行为与原一致）
   }
 
   // 分类切换
