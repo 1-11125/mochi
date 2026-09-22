@@ -325,7 +325,7 @@ if (!lotActive() || !walletOk() || typeof window.openModal !== 'function') retur
 const minFen = st.cur + STEP1;
 const ctl = window.openModal('自定义出价', String(minFen / 100), function (v) {
 const fen = Math.round(parseFloat(String(v).replace(/[^\d.]/g, '')) * 100);
-if (!fen || fen < minFen) { ctl.stay(); ctl.val(''); ctl.ph('至少要比当前价多 ¥1（≥' + yuanC(minFen) + '）'); return; }
+if (!fen || fen < minFen) { ctl.stay(); ctl.text(''); ctl.ph('至少要比当前价多 ¥1（≥' + yuanC(minFen) + '）'); return; }
 placeBid(fen);
 }, { inputmode: 'decimal', placeholder: '直接压上这个价（≥' + yuanC(minFen) + '）' });
 try { if (ctl) ctl.okText('压价'); } catch (e) {}
@@ -604,17 +604,17 @@ if (!s) return;
 const cur = loadCustom();
 const idx = cur.findIndex((c) => c.name === s);
 if (idx >= 0) { cur.splice(idx, 1); saveCustom(cur); taSay(pick(['这件……不拍了？', '行吧，收回仓库'])); return; }
-if (cur.length >= 20) { ctl.stay(); ctl.val(''); ctl.ph('自制拍品已满 20 个，先删再加'); return; }
+if (cur.length >= 20) { ctl.stay(); ctl.text(''); ctl.ph('自制拍品已满 20 个，先删再加'); return; }
 pendingName = s; stage = 2;
-ctl.stay(); ctl.val(''); ctl.ph('底价（元，如 20）'); ctl.okText('下一步');
+ctl.stay(); ctl.text(''); ctl.ph('底价（元，如 20）'); ctl.okText('下一步');
 return;
 }
 if (stage === 2) {
 const yuanV = parseFloat(s.replace(/[^\d.]/g, ''));
-if (!yuanV || yuanV <= 0) { ctl.stay(); ctl.val(''); ctl.ph('请输入大于 0 的金额'); return; }
+if (!yuanV || yuanV <= 0) { ctl.stay(); ctl.text(''); ctl.ph('请输入大于 0 的金额'); return; }
 pendingName = { name: pendingName, base: Math.max(100, Math.round(yuanV * 100)) };
 stage = 3;
-ctl.stay(); ctl.val(''); ctl.ph('拍下后的一句话彩蛋（可空）'); ctl.okText('完成');
+ctl.stay(); ctl.text(''); ctl.ph('拍下后的一句话彩蛋（可空）'); ctl.okText('完成');
 return;
 }
 const a = loadCustom();

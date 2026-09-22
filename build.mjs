@@ -4666,6 +4666,9 @@ const FIX_SENTINELS = [
   { name: '#1032b 空态「开始拍卖」直达接线（删＝空态退化为纯文字，用户看到的仍是没设计的空页）', file: 'js/auction.js', needle: "e.target.closest('.au-bag-empty-btn')) { e.stopPropagation(); hideOverlay(); newSession();" },
   { name: '#1032c 落槌入库即落成色（删＝新入库条目无 rarity，卡片徽章与真实成色脱节）', file: 'js/auction.js', needle: 'ts: Date.now(), rarity: rarityOf(item).label });' },
   { name: '#1032d 两列网格 CSS 规则本体（改成别的布局＝卡片网格复发；needle＝minify 后单行规则前缀）', file: 'css/chat-pages.css', needle: '.au-bag-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));' },
+  /* ==== 2026-09-22 #1033 拍卖会「自制拍品点了没反应」（用户实报；根因＝五处调用 openModal ctl 上不存在的取/设值方法——正确名是 text——stay() 已置不关窗后抛 TypeError 掐断推进回调，全机型必现） ==== */
+  { name: '#1033a 自制拍品三步推进就地切换在位（改回不存在的设值方法＝名称点确定卡死复发＝用户报的「点了没反应」）', file: 'js/auction.js', needle: "ctl.stay(); ctl.text(''); ctl.ph('底价（元，如 20）'); ctl.okText('下一步');" },
+  { name: '#1033b 自定义出价校验失败仍就地换提示（删/回退＝压价填小后弹窗原地冻结，同款死法第二落点）', file: 'js/auction.js', needle: "ctl.stay(); ctl.text(''); ctl.ph('至少要比当前价多" },
   { name: "#1034a 诊断回收警告补「止住它最有效」动作（删＝用户只知道被回收，不知道怎么止住）", file: "js/device.js", needle: "止住它最有效：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034b 回收提示条补动作与恢复口径（删＝提示只说明成因不给出路）", file: "js/bg-keep.js", needle: "止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉" },
   { name: "#1034c 功能说明补「止住回收最有效的一步」章（删＝挂几分钟就被丢的用户无解可循）", file: "js/settings-help.js", needle: "【止住回收最有效的一步】Chrome：设置 → 性能 →「内存节省程序」关掉" },
