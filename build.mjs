@@ -4685,6 +4685,9 @@ const FIX_SENTINELS = [
   { name: '#1043a iOS 启动串补回 minimum-scale 缩放下限（删＝template.html/device.js 都有的缩放下限在 iOS 改写时被整串手写覆盖掉，Safari 浏览器形态会被系统缩到 scale=0.85 且此后无人自愈＝底部少填白带/底部导航栏悬空/整页缩小三条同源）', file: 'js/mobile-adapt.js', needle: 'minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content' },
   { name: '#1043b 缩放自愈判据去掉 ios-pwa-standalone 前置（改回 standalone-only＝Safari 浏览器形态（本批报障机）缩小后零自愈；同时必须保留 !_zoomKbNow，去掉＝键盘聚焦期合法缩放被当成异常反复重写 meta）', file: 'js/mobile-adapt.js', needle: '_vv.scale < 0.95 && !_zoomKbNow' },
   { name: '#1043c 自愈重写用 A/B 等价串交替（改回单串＝启动串已含 minimum-scale 后与自愈串逐字相同，setAttribute 不是真实变更、Safari 不重新解析＝自愈空转）', file: 'js/mobile-adapt.js', needle: 'var _zMeta = (_zoomFixCnt % 2) ? IOS_VP_B : IOS_VP_A;' },
+  /* ==== 2026-09-22 #1040 字卡库「批量导入」真·可点 surface 层（iPhone 15 / iOS 18.7 Safari 实报「字卡库传图依然完全没反应」；#677→#920 同族第十波；本会话作为构建者代为收口并补 #1040d 语音 accept 修）==== */
+  { name: '#1040a 批量导入按钮的铺/撤层接线（删＝媒体分类回到程序化激活腿，iOS Safari 静默无视 showPicker/click＝「传图完全没反应」复发）', file: 'js/chatcard.js', needle: 'impBtn.__ccSyncSurface = syncCcImportSurface;' },
+  { name: '#1040b surface 的 accept 必须按分类刷新（删/改回只铺不刷＝语音分类残留 image/*，iOS 文件选择器把语音文件灰显不可选＝「语音传不上去」复发，v3.16.x 同坑）', file: 'js/chatcard.js', needle: "_ccSurf.accept = cur === 'voice' ? '' : 'image/*'" },
   /* ==== 2026-09-22 #1036 OPPO Pad 4 Pro 四报障根因修复（朋友圈改名无变化 / 通话小框拖动不连贯 / 音乐库歌曲自己失效 / 换头像背景偶发无反应；用户点名「不要按机型分支、别的型号也有这问题」——全部零机型分支）==== */
   { name: '#1036a 朋友圈改名回扫存量快照函数（删＝改昵称只改设置键，存量动态/评论/点赞仍显示旧名＝「修改昵称无变化」复发）', file: 'js/feed.js', needle: 'function sweepFeedNameSnapshots(role, cid, prevName, newName) {' },
   { name: '#1036b 朋友圈读图 20 秒看门狗（删＝解码挂起时 Promise 永久悬空＝「选了图没反应」）', file: 'js/feed.js', needle: "const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);" },

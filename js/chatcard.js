@@ -1165,6 +1165,10 @@ function render() {
 const token = ++renderToken;
 try { if (window.__mochiPhase) window.__mochiPhase('cc-render'); } catch (e0) {}
 rendering = true;
+try {
+var _ccImpSync = document.getElementById('cc-import');
+if (_ccImpSync && _ccImpSync.__ccSyncSurface) _ccImpSync.__ccSyncSurface();
+} catch (e1) {}
 renderTabCounts();
 let mediaHelp = document.getElementById('cc-media-help');
 const showMediaHelp = cur === 'sticker' || cur === 'image';
@@ -2903,10 +2907,8 @@ b.remove();
 }
 const impBtn = document.getElementById('cc-import');
 if (impBtn) {
-impBtn.addEventListener('click', () => {
-if (IMG_TYPES[cur]) {
-pickFiles(cur === 'voice' ? '' : 'image/*', true, (files) => {
-if (!files.length) return;
+function ccImportMedia(files) {
+if (!files || !files.length) return;
 if (!groups[cur]) groups[cur] = [];
 let g = null;
 if (curGroup) {
@@ -2920,14 +2922,16 @@ if (!g) { g = [defName, []]; groups[cur].push(g); }
 let done = 0;
 let skipped = 0;
 let notAudio = 0;
+let badResolve = 0; // 解析/解码失败的图片计数（旧版静默「加载不出来」）
 let gifSaved = 0;  // 动图直存（跳过压缩）计数
 let cmpSaved = 0;  // 静态图压缩成功计数
 const sizeLimit = cur === 'voice' ? 10 * 1024 * 1024 : 20 * 1024 * 1024;
 files.forEach((f) => {
+const settleOne = () => { if (done === files.length) finishUpload(done - skipped - notAudio - badResolve, skipped, notAudio, badResolve); };
 if (f.size > sizeLimit) {
 skipped++;
 done++;
-if (done === files.length) finishUpload(done - skipped, skipped);
+settleOne();
 return;
 }
 const reader = new FileReader();
@@ -2940,13 +2944,13 @@ const isAudio = audioMimeFromName(f.name) || (f.type && f.type.indexOf('audio/')
 if (isVideo || !isAudio) {
 notAudio++;
 done++;
-if (done === files.length) finishUpload(done - skipped - notAudio, skipped, notAudio);
+settleOne();
 return;
 }
 }
 const process = (data) => {
 const val = cur === 'voice' ? ((f.name || '音频').replace(/\.[^.]+$/, '') + '|||' + data) : data;
-const commit = (v) => { g[1].push(v); done++; if (done === files.length) finishUpload(done - skipped, skipped); };
+const commit = (v) => { g[1].push(v); done++; settleOne(); };
 if (cur !== 'voice' && window.mochiMediaTokenize && typeof data === 'string' && data.length >= CC_CC_TOK_MIN) {
 try { window.mochiMediaTokenize(data).then((tok) => commit(tok || val)).catch(() => commit(val)); return; } catch (e) { commit(val); return; }
 }
@@ -2954,28 +2958,31 @@ commit(val);
 };
 if (cur === 'voice') process(normalizeAudioDataURL(reader.result, f));
 else {
-const isGif = /image\/gif/i.test(f.type || '') || /\.gif$/i.test(f.name || '');
+let src = String(reader.result || '');
+try { const mime = window.chatFixNoMimeImg ? window.chatFixNoMimeImg(src) : ''; if (mime) src = mime; } catch (e0) {}
+const isGif = /image\/gif/i.test(f.type || '') || /\.gif$/i.test(f.name || '') || /^data:image\/gif;/i.test(src);
 if (isGif) {
 if (String(reader.result || '').length > CC_GIF_MAX_B64) {
 skipped++; done++;
-if (done === files.length) finishUpload(done - skipped, skipped);
+settleOne();
 toast('GIF「' + ((f && f.name) || '动图') + '」超过 380KB，已跳过');
 return;
 }
 gifSaved++;
-process(reader.result); return;
+process(src); return;
 }
 const isImg = cur === 'image';
-compressImage(reader.result, isImg ? 720 : 480, isImg ? 'image/jpeg' : 'image/png', isImg ? 0.85 : undefined).then((data) => {
-if (!data) { skipped++; done++; if (done === files.length) finishUpload(done - skipped, skipped); return; }
+compressImage(src, isImg ? 720 : 480, isImg ? 'image/jpeg' : 'image/png', isImg ? 0.85 : undefined).then((data) => {
+if (!data) { badResolve++; done++; settleOne(); return; }
 cmpSaved++;
 process(data);
 });
 }
 };
+reader.onerror = () => { badResolve++; done++; settleOne(); toast('有图片读取失败，已跳过（可换一张再试）'); };
 reader.readAsDataURL(f);
 });
-function finishUpload(ok, skip, skipNotAudio) {
+function finishUpload(ok, skip, skipNotAudio, bad) {
 scheduleSave();
 renderGroupsBar();
 render();
@@ -2985,10 +2992,37 @@ if (gifSaved > 0) msgs.push('动图无法压缩，「' + gifSaved + '」个按�
 if (cmpSaved > 0) msgs.push('已自动压缩 ' + cmpSaved + ' 个静态图');
 if (skip > 0) msgs.push('跳过 ' + skip + ' 个超大文件（' + (cur === 'voice' ? '音频>10MB' : '图片>20MB') + '）');
 if (skipNotAudio > 0) msgs.push('跳过 ' + skipNotAudio + ' 个视频/非音频（语音分类只支持音频）');
+if (bad > 0) msgs.push(bad + ' 个图片无法解析/已跳过（可能是格式不受支持或已损坏）');
 if (!msgs.length) msgs.push('没有可上传的文件');
 toast(msgs.join('，'));
 }
+}
+function syncCcImportSurface() {
+try {
+if (!impBtn) return;
+const media = !!IMG_TYPES[cur];
+const inp = impBtn.querySelector('input[data-file-pick-surface]');
+if (!media) { if (inp) try { inp.remove(); } catch (e) {} return; }
+if (inp) {
+try { inp.accept = cur === 'voice' ? '' : 'image/*'; inp.multiple = true; } catch (e) {}
+return; // 已铺，复用（幂等，不随 render 堆积节点）
+}
+if (window.mochiFilePickSurface) {
+var _ccSurf = window.mochiFilePickSurface(impBtn, {
+id: 'cc-import-media-surf',
+accept: cur === 'voice' ? '' : 'image/*',
+multiple: true,
+onFiles: ccImportMedia
 });
+try { if (_ccSurf) _ccSurf.accept = cur === 'voice' ? '' : 'image/*'; } catch (e) {}
+}
+} catch (e) {}
+}
+impBtn.__ccSyncSurface = syncCcImportSurface;
+syncCcImportSurface(); // 初始同步一次（打开页默认文本分类＝撤层）
+impBtn.addEventListener('click', () => {
+if (IMG_TYPES[cur]) {
+pickFiles(cur === 'voice' ? '' : 'image/*', true, (files) => { ccImportMedia(files); });
 return;
 }
 if (window.openModal) {
