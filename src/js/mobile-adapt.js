@@ -157,6 +157,13 @@
     // 依赖原生 picker 的输入会彻底失效（安卓 Chrome/Edge 上无法设置、桌面组件不更新）
     if (t === 'checkbox' || t === 'range' || t === 'file' || t === 'color' || t === 'hidden' ||
         t === 'date' || t === 'time' || t === 'datetime-local' || t === 'month' || t === 'week') return;
+    // #1029（用户 2026-09-22 实报安卓「送礼只使用礼物的默认文案」根治）：**原生值必须在装 value
+    // 代理之前抓**。下方 value 代理一装上，inp.value 读的就是新 box 的文本（此刻恒为空），于是
+    // 「HTML 里写死内容的 textarea」（心意集市送礼弹窗「写给 TA 的话」= 礼物默认文案、同类回填框）
+    // 在安卓上回显为空框：用户看不到已有文案、空着点送出，后端只能回落到礼物默认文案＝用户所见
+    // 「只使用礼物的默认文案」。input 因为有 value attribute（getAttribute 那条路）才侥幸没踩到。
+    var preVal = inp.getAttribute('value');
+    if (preVal === null && inp.value !== undefined) preVal = inp.value;
     inp.dataset.ceDone = '1';
     // v3.26.x #118：先抓原始 className 再加 ce-ghost——避免可见的 ce-box div 继承到
     // ce-ghost 类别名（CSS 当前只对 input/textarea 生效未致视觉异常，但逻辑 bug：
@@ -433,9 +440,8 @@
     // 初始文本：input 若已有 value（如编辑回填），同步进 box
     // v3.5.130：textarea 的 value 是 JS 属性（无 value attribute）——getAttribute 取不到，
     // 导致打开面板后回显为空、点"应用"即清空内容；回退读 .value
-    var initV = inp.getAttribute('value');
-    if (initV === null && inp.value !== undefined) initV = inp.value;
-    if (initV) box.textContent = initV;
+    // #1029：取值挪到函数开头（preVal）——此处 value 代理已装好，再读 inp.value 只会读回空 box
+    if (preVal) box.textContent = preVal;
   }
   // 启动转换：页面现有文本输入框 + 动态创建（MutationObserver 兜底）
   // v3.6.x：仅非 iOS 启用（iOS Safari 保留原生输入框，见上方说明）

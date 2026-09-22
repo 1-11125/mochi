@@ -943,8 +943,15 @@ if (useChatStyle && window.genChatStyleReply) txt = String(window.genChatStyleRe
 if (!txt) txt = preset();
 if (!txt) return;
 var boxId = chatRec && chatRec.giftBoxId;
-try { if (window.chatGiftAttachReplyTo && chatRec) window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRA) {}
-try { if (boxId) boxAttachReply(cid, boxId, 'ta', txt); } catch (eRB) {}
+var sameDesk = (window.__activeCid || 'default') === cid;
+var wrote = false;
+if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
+}
+try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
+if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
+}
 try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
 if ((window.__activeCid || 'default') === cid) {
 if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });

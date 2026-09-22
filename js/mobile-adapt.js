@@ -76,6 +76,8 @@ if (!inp || inp.dataset.ceDone || inp.readOnly) return;
 var t = inp.type;
 if (t === 'checkbox' || t === 'range' || t === 'file' || t === 'color' || t === 'hidden' ||
 t === 'date' || t === 'time' || t === 'datetime-local' || t === 'month' || t === 'week') return;
+var preVal = inp.getAttribute('value');
+if (preVal === null && inp.value !== undefined) preVal = inp.value;
 inp.dataset.ceDone = '1';
 var origClass = inp.className || '';
 inp.classList.add('ce-ghost');
@@ -278,9 +280,7 @@ ceChangeVal = null;
 });
 box.addEventListener('focus', function () { try { inp.dispatchEvent(new Event('focus', { bubbles: true })); } catch (e) {} });
 box.addEventListener('blur', function () { try { inp.dispatchEvent(new Event('blur', { bubbles: true })); } catch (e) {} });
-var initV = inp.getAttribute('value');
-if (initV === null && inp.value !== undefined) initV = inp.value;
-if (initV) box.textContent = initV;
+if (preVal) box.textContent = preVal;
 }
 try { if (!isIOS) initCeAll(); } catch (e) {}
 try {

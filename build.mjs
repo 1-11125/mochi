@@ -4309,9 +4309,13 @@ const FIX_SENTINELS = [
   { name: '#985d 记忆化映射的 0/1/null 迁移口径（删/改回 falsy 判定＝存量礼物全被翻成待领取）', file: 'js/gift-shop.js', needle: 'claimed: it.claimed === 0 ? 0 : (it.claimed === 1 ? 1 : null)' },
   { name: '#985e TA 收礼后的回话同时贴到卡片与心意柜（删＝用户报障原样回流：这个回复没有加到联系人领取礼物的卡片里/心意柜的卡片里）', file: 'js/gift-shop.js', needle: "window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec)" },
   { name: '#985f 心意柜待领取口径＝只认显式 claimed===0（删/放宽＝心意柜把存量礼物也标成待领取）', file: 'js/gift-shop.js', needle: "function boxPending(it) { return !!(it && it.side === 'in' && it.claimed === 0); }" },
-  { name: '#985g 回复输入框预填礼物原本文案并切出新增段（删/改回整段当回复＝聊天里把礼物原文也当我的消息发出去，用户口径「聊天只显示追加回复」被破坏）', file: 'js/chat.js', needle: "const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;" },
-  { name: '#985h 聊天里只发新增的那句（删＝原文与回复两条都进聊天）', file: 'js/chat.js', needle: "addOut(added);" },
+  { name: '#985g 回复框不预填送礼人的文案（#1029 换锚：用户原话「里面本来就是联系人的文案，为什么我要用联系人的文案」；改回预填＝又把对方那句塞进我的输入框）', file: 'js/chat.js', needle: "window.openModal('回复 ' + chatPartnerName(), ''" },
+  { name: '#985h 聊天里只发我写的那句（删/改回「原文与回复两条都进聊天」＝把礼物原文也当我的消息发出去）', file: 'js/chat.js', needle: "addOut(text);" },
   { name: '#985i 卡片动作区只对真·联系人送我的礼物且必须有心意柜指针（删/放宽＝TA 自己买的礼物卡与存量卡也长出【领取】【回复】，而后者的状态无处可写）', file: 'js/chat.js', needle: "function giftIsIncoming(rec) { return !!(rec && rec.side === 'in' && !rec.giftSelf && rec.giftBoxId); }" },
+  /* ==== 2026-09-22 #1029 礼物「追加回复」口径修正（用户实报：送的礼物只用默认文案 / 没收到联系人的追加回复 / 领取后发现回复框里是联系人的文案，「完全理解错了」）==== */
+  { name: '#1029a 礼物原本文案改为只读展示（删＝用户口径「原本礼物的文案就显示」丢失；它只许出现在说明里，不许进输入框）', file: 'js/chat.js', needle: "'这件礼物原本的文案：「'" },
+  { name: '#1029b TA 回话只落一份（删/改回「chatGiftAttachReplyTo ＋ 无条件 boxAttachReply」＝同一句话在心意柜记录里被记两遍、重进聊天后卡片上也是两行）', file: 'js/gift-shop.js', needle: "if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true;" },
+  { name: '#1029c 安卓 ce-box 转换前先抓原生值（删＝HTML 里写死内容的 textarea 在安卓上回显空框：送礼弹窗看不到礼物默认文案、空着送出＝只使用礼物的默认文案）', file: 'js/mobile-adapt.js', needle: "var preVal = inp.getAttribute('value');" },
   /* ==== 2026-09-21 #989 桌面页竖向滚动护栏（红米 K80 Chrome 浏览器模式实报「桌面的第一页和第二页的图标按钮和文字没有完全对齐，第二页和第三页完全对齐」，追报「第三页也没有对齐了」＝错位换页出现）＝桌面页内容 636px 在浏览器模式桌面区（~610px）下溢出 26px，而溢出全是不可见尾垫（最深实心盒下沿 604）⇒ 每页都成了可竖滚容器：斜滑翻页被内核轴锁判成竖向，滚动量落在起手那一页且无人复位 ⇒ 该页图标+文字整块上移几像素与另两页错开；旧验证全跑 390×844（桌面区 714>636，根本不可滚）⇒ 结构性看不见。护栏＝溢出全在不可见区就裁掉并归零滚动量，真溢出保持可滚 ==== */
   { name: '#989a 判据：最深实心盒下沿仍在可视区内才算「翻下去什么也看不到」（删＝护栏不再裁不可见溢出，残留滚动量又留在页上；#1013 起该判据以未滚动内容坐标为基准）', file: 'js/desktop-slider.js', needle: 'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
   { name: '#989b 落刀：该页设 overflow-y:hidden 并归零滚动量（删＝页面仍是可竖滚容器，斜滑又能顶出滚动量）', file: 'js/desktop-slider.js', needle: "if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';" },

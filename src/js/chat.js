@@ -6577,23 +6577,22 @@ function giftReplyNow(idx) {
   const rec = msgs[idx];
   if (!giftIsIncoming(rec)) return false;
   if (!window.openModal) return false;
-  // #985（用户追加口径 2026-09-21）：「原本礼物的文案要显示，我可以自己选择删除或者保留，直接
-  // 追加回复。聊天里只显示追加回复，卡片里显示礼物原本文案和追加回复」——输入框**预填这件礼物
-  // 原本的文案**（送礼人写的那句留言）：留着它就是「引用原文回一句」，删掉就直接写自己的。
-  // 成交时按「原文是否仍留在开头」切出真正新增的那段：added＝聊天里发出去的那句，卡片上则是
-  // 「原本文案（卡片正文本来就一直在）＋ 追加回复」两处都在；原文被删/被改写则整段都算我的回复。
+  // #1029（用户 2026-09-22 实报，原话「里面的内容错了啊，里面本来就是联系人的文案，为什么我要
+  // 用联系人的文案」）：回复框**不再预填送礼人的文案**——追加回复必须是我自己写的那一句。旧口径
+  // （#985③ 的「预填原文→删掉它／留着它接在后面」）把**对方的话**塞进我的输入框，用户视角＝
+  // 「要我拿 TA 那句当我的回复」，已当场否掉，勿回退。
+  // 礼物原本的文案改为在输入框上方**只读展示**（#985③「原本礼物的文案就显示」照旧成立，卡片上
+  // 本来就一直显示着）；聊天里只发我新写的这句，卡片上「原本文案 ＋ 我的回复」两处都在。
   const orig = String(rec.giftWish || '').trim();
-  window.openModal('回复 ' + chatPartnerName(), orig, function (v) {
-    const full = String(v == null ? '' : v).trim();
-    if (!full) return;
-    const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;
-    if (!added) return;   // 原文一字未动＝这次没追加任何内容，不产生空回复
-    addOut(added);                                 // ① 只把新增的这句发进聊天消息
+  window.openModal('回复 ' + chatPartnerName(), '', function (v) {
+    const text = String(v == null ? '' : v).trim();
+    if (!text) return;   // 没写＝这次不追加任何内容，不产生空回复
+    addOut(text);                                  // ① 只把我写的这句发进聊天消息
     // ② 写进心意柜那件礼物（唯一存处，同步可靠）→ 卡片按同一份数据重画，原文与回复并排显示
-    try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', added); } catch (e) {}
+    try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', text); } catch (e) {}
     giftPatchCard(idx);
     try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
-  }, { placeholder: '接着写你的回复', staticText: '上面是这件礼物原本的文案：删掉它～就直接回一句自己的；留着它～接在后面就是「引用着原文回」。聊天里只发你新加的那句，卡片上原文与回复都在。' });
+  }, { placeholder: '写一句你的回复', staticText: '这件礼物原本的文案：「' + (orig || '心意') + '」——这句是送礼人写的，卡片上会一直显示。\n在下面写你自己的一句就好：聊天里只发你这句，卡片上「原本文案 ＋ 你的回复」两处都在。' });
   return true;
 }
 // #985：给 gift-shop 的 TA 回话贴卡用（回话只写那件礼物的心意柜记录＝卡片渲染的数据源）。

@@ -4961,16 +4961,14 @@ const rec = msgs[idx];
 if (!giftIsIncoming(rec)) return false;
 if (!window.openModal) return false;
 const orig = String(rec.giftWish || '').trim();
-window.openModal('回复 ' + chatPartnerName(), orig, function (v) {
-const full = String(v == null ? '' : v).trim();
-if (!full) return;
-const added = (orig && full.indexOf(orig) === 0) ? full.slice(orig.length).trim() : full;
-if (!added) return;   // 原文一字未动＝这次没追加任何内容，不产生空回复
-addOut(added);                                 // ① 只把新增的这句发进聊天消息
-try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', added); } catch (e) {}
+window.openModal('回复 ' + chatPartnerName(), '', function (v) {
+const text = String(v == null ? '' : v).trim();
+if (!text) return;   // 没写＝这次不追加任何内容，不产生空回复
+addOut(text);                                  // ① 只把我写的这句发进聊天消息
+try { if (rec.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply(rec.giftBoxId, 'me', text); } catch (e) {}
 giftPatchCard(idx);
 try { if (window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (e) {}
-}, { placeholder: '接着写你的回复', staticText: '上面是这件礼物原本的文案：删掉它～就直接回一句自己的；留着它～接在后面就是「引用着原文回」。聊天里只发你新加的那句，卡片上原文与回复都在。' });
+}, { placeholder: '写一句你的回复', staticText: '这件礼物原本的文案：「' + (orig || '心意') + '」——这句是送礼人写的，卡片上会一直显示。\n在下面写你自己的一句就好：聊天里只发你这句，卡片上「原本文案 ＋ 你的回复」两处都在。' });
 return true;
 }
 window.chatGiftAttachReplyTo = function (cid, giftTs, who, text, recRef) {

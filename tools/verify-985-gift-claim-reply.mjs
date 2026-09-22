@@ -8,13 +8,17 @@
 //      自己选择删除或者保留。直接追加回复。聊天里是只显示追加回复，卡片里是显示礼物原本文案和
 //      追加回复。」
 // 设计定案（用户在两问里选定）：领取＝「数据不丢＋状态仪式」（礼物立刻进心意柜，点了才转
-// 「已领取」，没点标待领取）；回复＝点卡片弹输入框自己写，输入框预填礼物原本文案可删可留。
+// 「已领取」，没点标待领取）；回复＝点卡片弹输入框自己写一句。
+// #1029（2026-09-22 用户实报「里面的内容错了啊，里面本来就是联系人的文案，为什么我要用联系人的
+// 文案」「完全理解错了」）：③ 的**预填对方文案**口径被用户当场否掉——输入框必须是**空白自写**，
+// 礼物原本的文案只在弹窗说明里只读展示（卡片上本来就一直显示着），聊天里只发我写的那句。
+// 本脚本的 S18/S19/S20 与 B3 随之换锚（语义＝不许回退成预填），并补 B5e/B8 两条新护栏。
 // 断言组：
-//   S  源码口径（心意柜字段/互指、聊天卡动作区、预填与切分、迁移口径、样式）
+//   S  源码口径（心意柜字段/互指、聊天卡动作区、空白自写＋只读展示、迁移口径、样式）
 //   B1 联系人送我礼物 → 卡片出【领取】+【回复】、记录 giftClaimed:0 + giftBoxId、心意柜 claimed:0
 //   B2 点【领取】→ 卡片就地转「✓ 已领取」、记录/心意柜同步 1、聊天留痕「你收下了 …」
-//   B3 点【回复】→ 输入框**预填原本文案**；留着原文往后接一句 ⇒ 聊天只发新加那句、卡片原文与
-//      回复并存；删掉原文直接写 ⇒ 整段算我的回复
+//   B3 点【回复】→ 输入框**空白**（说明里只读展示礼物原本文案）⇒ 我写的那句原样进聊天、卡片
+//      「原本文案 ＋ 我的回复」并存
 //   B4 心意柜页面：卡片上能看到回复；未领取的那件带「待领取」
 //   B5 我送礼 → TA 回话同时贴到「我送出」那张卡与心意柜那件（原缺口）
 //   B6 迁移口径：存量记录（无 giftClaimed/giftBoxId、柜子无 claimed）不出【领取】也不标待领取
@@ -60,7 +64,10 @@ console.log('S 层：源码口径');
   ok(/const entryAt = recordBoxAt\(cid, gift, 'in', wish\);[\s\S]{0,120}rec\.giftBoxId = entryAt\.id;/.test(gs),
     'S6 跨桌面投递（deliverInGift 另一半）同样互指');
   ok(/window\.chatGiftAttachReplyTo\(cid, chatRec\.ts, 'ta', txt, chatRec\)/.test(gs), 'S7 TA 收礼回话贴到「我送出」那张卡');
-  ok(/if \(boxId\) boxAttachReply\(cid, boxId, 'ta', txt\)/.test(gs), 'S8 TA 收礼回话同时写进心意柜那件礼物');
+  // #1029 换锚：旧锚是「无条件再写一次心意柜」（`if (boxId) boxAttachReply(...)`）——那正是
+  // 同一句话被记两遍的来源。现在钉「写一次就够」的形态：卡片侧成功即止，失败才按 giftBoxId 兜底。
+  ok(/if \(!wrote && boxId\) wrote = boxAttachReply\(cid, boxId, 'ta', txt\) === true;/.test(gs) && !/^\s*if \(boxId\) boxAttachReply\(cid, boxId, 'ta', txt\)/m.test(gs),
+    'S8 TA 收礼回话仍会写进心意柜那件礼物，但只写一次（无条件双写＝一句被记两遍）');
   ok(/function boxAttachReply\(cid, boxId, who, text\)/.test(gs) && /window\.giftBoxAttachReply = function/.test(gs),
     'S9 心意柜侧回复写入接口（跨桌面按 cid + boxId 定位）');
   ok(/function boxPending\(it\) \{ return !!\(it && it\.side === 'in' && it\.claimed === 0\); \}/.test(gs),
@@ -78,10 +85,14 @@ console.log('S 层：源码口径');
   ok(/'<button class="msg-gift-reply" type="button">回复<\/button>'/.test(cj), 'S15 卡片上有【回复】按钮');
   ok(/giftCardReplHtml\(rec\) \+\s*giftCardActsHtml\(rec\) \+/.test(cj), 'S16 渲染分支同时挂回复区与动作区');
   ok(/function giftPatchCard\(idx\)/.test(cj), 'S17 领取/回复就地打补丁（不整窗重建）');
-  ok(/const orig = String\(rec\.giftWish \|\| ''\)\.trim\(\);/.test(cj), 'S18 回复输入框预填礼物原本文案');
-  ok(/const added = \(orig && full\.indexOf\(orig\) === 0\) \? full\.slice\(orig\.length\)\.trim\(\) : full;/.test(cj),
-    'S19 原文留在开头 ⇒ 只把新加的那段当回复；删掉/改写 ⇒ 整段算回复');
-  ok(/addOut\(added\);\s*\/\/ ① 只把新增的这句发进聊天消息/.test(cj), 'S20 聊天里只发新增的那句（原文不重复进聊天）');
+  // #1029 换锚：旧口径是「预填对方文案 ＋ 按原文前缀切出新增段」，用户 2026-09-22 明确否掉
+  // （「里面本来就是联系人的文案，为什么我要用联系人的文案」）——现在锚「空白自写」这三条。
+  ok(/window\.openModal\('回复 ' \+ chatPartnerName\(\), ''/.test(cj),
+    'S18 回复框不预填送礼人的文案（第二参为空串；改回 orig＝又把对方那句塞进我的输入框）');
+  ok(/staticText: '这件礼物原本的文案：「' \+ \(orig \|\| '心意'\)/.test(cj),
+    'S19 礼物原本文案改为只读展示（说明里带上送礼人写的那句；卡片上也一直显示）');
+  ok(/addOut\(text\);\s*\/\/ ① 只把我写的这句发进聊天消息/.test(cj) && !/indexOf\(orig\) === 0/.test(cj),
+    'S20 聊天里只发我写的那句，且不再按原文前缀切分（改回切分＝原文又被当成我的消息）');
   ok(/giftWhoLabel\(r\.who\)/.test(cj) && /mg-repl-tx/.test(cj), 'S21 卡片上回复行按 who 标「我/联系人」');
   ok(/window\.chatGiftAttachReplyTo = function/.test(cj) && /window\.giftBoxAttachReply\(rec\.giftBoxId, whoNorm, text, cid\)/.test(cj),
     'S22 暴露给 gift-shop 的贴卡接口（TA 回话也写心意柜；跨桌面走 chatDeskCardReply 认指针）');
@@ -324,41 +335,43 @@ await sleep(300);
     'B2d 聊天留痕「你收下了 …」', JSON.stringify(J(await chatState()).pokes));
 }
 
-// ---- B3：点【回复】→ 预填原本文案；保留原文往后接 ↔ 删掉原文直接写 ----
+// ---- B3：点【回复】→ 输入框空白（说明里只读展示原文）→ 我写的那句原样进聊天与卡片 ----
 {
-  const KEEP = '给你暖暖的 谢谢你呀，我很喜欢';
-  const st = await clickReplyThenType(KEEP);
+  const MINE = '谢谢你呀，我很喜欢';
+  const st = await clickReplyThenType(MINE);
   const dLive = J(await cardDom()) || {};
   await waitBoxReplies('in', 1);
-  await waitOutText('谢谢你呀，我很喜欢');           // 我发的这条走聊天追加通道（快照写入有延迟）
+  await waitOutText(MINE);                            // 我发的这条走聊天追加通道（快照写入有延迟）
   const c = J(await chatState());
   const d = J(await cardDom()) || {};
   const b = J(await boxState());
   const inBox = b.filter((x) => x.side === 'in');
   ok(st.open && !st.hiddenInput, 'B3 点【回复】弹出输入框（不是纯提示弹窗）', JSON.stringify({ open: st.open, hidden: st.hiddenInput }));
-  ok(st.value === '给你暖暖的', 'B3b 输入框预填礼物原本的文案（可删可留）', JSON.stringify(st.value));
-  ok(dLive.replHidden === false && String(dLive.replText).indexOf('谢谢你呀，我很喜欢') >= 0,
-    'B3c 卡片当场出现追加回复（就地补丁，不等落库）', JSON.stringify({ hidden: dLive.replHidden, text: dLive.replText }));
-  ok(c.outTexts.indexOf('给你暖暖的 谢谢你呀，我很喜欢') < 0 && c.outTexts.indexOf('谢谢你呀，我很喜欢') >= 0,
-    'B3d 聊天只发新加的那句（原文保留在输入框里也不重复发）', JSON.stringify(c.outTexts));
+  ok(st.value === '', 'B3b 输入框是空白的——不预填送礼人那句（#1029 用户口径「为什么我要用联系人的文案」）', JSON.stringify(st.value));
+  ok(String(st.static).indexOf('给你暖暖的') >= 0,
+    'B3b2 礼物原本的文案在说明里只读展示（原文照样看得见，只是不进我的输入框）', String(st.static).slice(0, 70));
+  ok(dLive.replHidden === false && String(dLive.replText).indexOf(MINE) >= 0,
+    'B3c 卡片当场出现我的回复（就地补丁，不等落库）', JSON.stringify({ hidden: dLive.replHidden, text: dLive.replText }));
+  ok(c.outTexts.indexOf(MINE) >= 0, 'B3d 我写的那句原样发进聊天', JSON.stringify(c.outTexts));
   ok(c.outTexts.indexOf('给你暖暖的') < 0, 'B3e 聊天里没有把礼物原文当消息发出去（用户口径：聊天只显示追加回复）', JSON.stringify(c.outTexts));
-  ok(d.replHidden === false && String(d.replText).indexOf('谢谢你呀，我很喜欢') >= 0, 'B3f 落库后卡片上仍是这条追加回复', JSON.stringify({ hidden: d.replHidden, text: d.replText }));
-  ok(String(d.wish).indexOf('给你暖暖的') >= 0 && String(d.replText).indexOf('谢谢你呀，我很喜欢') >= 0,
-    'B3g 卡片同时显示礼物原本文案与追加回复', JSON.stringify({ wish: d.wish, repl: d.replText }));
-  ok(c.lastReplies.length === 0 && inBox.length === 1 && inBox[0].replies.length === 1 && inBox[0].replies[0].who === 'me' && inBox[0].replies[0].text === '谢谢你呀，我很喜欢',
-    'B3h 回复只落在心意柜那件（内容＝纯「追加的那句」，原文不重复入记录；聊天记录不带副本）', JSON.stringify({ rec: c.lastReplies, box: inBox[0] && inBox[0].replies }));
+  ok(d.replHidden === false && String(d.replText).indexOf(MINE) >= 0, 'B3f 落库后卡片上仍是这条回复', JSON.stringify({ hidden: d.replHidden, text: d.replText }));
+  ok(String(d.wish).indexOf('给你暖暖的') >= 0 && String(d.replText).indexOf(MINE) >= 0,
+    'B3g 卡片同时显示礼物原本文案与我的回复', JSON.stringify({ wish: d.wish, repl: d.replText }));
+  ok(c.lastReplies.length === 0 && inBox.length === 1 && inBox[0].replies.length === 1 && inBox[0].replies[0].who === 'me' && inBox[0].replies[0].text === MINE,
+    'B3h 回复只落在心意柜那件（内容＝我写的那句；聊天记录不带副本）', JSON.stringify({ rec: c.lastReplies, box: inBox[0] && inBox[0].replies }));
 
-  // 删掉原文直接写自己的 ⇒ 整段算我的回复
-  const st2 = await clickReplyThenType('换个说法：我很喜欢这件');
+  // 再回一条：输入框仍是空的，写什么就存什么
+  const MINE2 = '换个说法：我很喜欢这件';
+  const st2 = await clickReplyThenType(MINE2);
   await waitBoxReplies('in', 2);
-  await waitOutText('换个说法：我很喜欢这件');
+  await waitOutText(MINE2);
   const c2 = J(await chatState());
   const d2 = J(await cardDom()) || {};
   const b2 = J(await boxState()).filter((x) => x.side === 'in');
   const rs2 = (b2[0] && b2[0].replies) || [];
-  ok(st2.value === '给你暖暖的', 'B3i 再次点【回复】仍预填原本文案（可再次选择删或留）', JSON.stringify(st2.value));
-  ok(c2.outTexts.indexOf('换个说法：我很喜欢这件') >= 0, 'B3j 删掉原文直接写 ⇒ 整段作为回复发进聊天', JSON.stringify(c2.outTexts));
-  ok(rs2.length === 2 && rs2[1].text === '换个说法：我很喜欢这件' && rs2[0].text === '谢谢你呀，我很喜欢',
+  ok(st2.value === '', 'B3i 再次点【回复】输入框依旧是空白的', JSON.stringify(st2.value));
+  ok(c2.outTexts.indexOf(MINE2) >= 0, 'B3j 第二条也原样发进聊天', JSON.stringify(c2.outTexts));
+  ok(rs2.length === 2 && rs2[1].text === MINE2 && rs2[0].text === MINE,
     'B3k 两条回复都留在心意柜那件上（顺序＝先第一条，后追加的）', JSON.stringify(rs2));
   ok(String(d2.wish).indexOf('给你暖暖的') >= 0 && String(d2.replText).indexOf('谢谢你呀') >= 0 && String(d2.replText).indexOf('换个说法') >= 0,
     'B3l 卡片上原文与两条回复同时在场', JSON.stringify({ wish: d2.wish, repl: d2.replText }));
@@ -403,6 +416,7 @@ await sleep(300);
     const bb = J(await boxState()).filter((x) => x.side === 'out');
     return bb.length > 0 && Array.isArray(bb[0].replies) && bb[0].replies.length >= 1;
   }, 8000);                                          // TA 回话延迟 0.9~2.4s + 写入
+  await sleep(700);                                   // 给「重复写」留出发生窗口（旧实现是同一拍连写两次）
   const c = J(await chatState());
   const b = J(await boxState());
   const outBox = b.filter((x) => x.side === 'out');
@@ -414,6 +428,10 @@ await sleep(300);
     'B5c 同一句话也贴到了「我送出」那张卡片上（卡片从心意柜记录读，不再只是聊天里飘过一句）',
     JSON.stringify({ hidden: d.replHidden, text: d.replText, ta: taTxt }));
   ok(outBox.length === 1 && outBox[0].replies[0].who === 'ta', 'B5d 回复归属标为 TA', JSON.stringify(outBox[0] && outBox[0].replies));
+  // #1029：旧实现把这句回话写了两遍（chatGiftAttachReplyTo 内部已写心意柜，紧跟又无条件 boxAttachReply），
+  // 心意柜记录里两条一模一样的回复、重进聊天后卡片上也是两行。这里钉「只落一份」。
+  ok(outBox.length === 1 && outBox[0].replies.length === 1,
+    'B5e TA 的回话只落一份（#1029 修掉重复写：一句被记两遍／卡片上两行）', JSON.stringify(outBox[0] && outBox[0].replies));
 }
 
 // ---- C：换联系人（跨桌面）后，卡片状态必须按各自桌面的心意柜渲染 ----
@@ -511,6 +529,47 @@ await sleep(300);
   const pendCard = domBox.find((x) => x.name === '验证围巾') || {};
   ok(legacyCard.pending === false, 'B7f 存量礼物在心意柜里不标「待领取」（不把历史礼物翻成待领取）', JSON.stringify(legacyCard));
   ok(pendCard.pending === true, 'B7g 新送未领的那件仍标「待领取」（重载后按记录判定）', JSON.stringify(pendCard));
+}
+
+// ---- B8：#1029「送礼弹窗里的文案看不见」——ce-box 转换吃掉 HTML 里写死的值（安卓/桌面 Chrome 同病） ----
+// 现象链：openBuyDialog 把礼物默认文案写进 textarea 的 HTML，mobile-adapt 把它转成 ce-box 时只认
+// value attribute（textarea 没有）→ 可见框空着，用户看不到已有文案、空着点送出，后端回落礼物默认
+// 文案＝用户报「给联系人送礼物，只使用礼物的默认文案」。修法＝转换前先抓原生值。
+{
+  // 必须用安卓 UA 走 ce-box 转换那条路（桌面 UA 下这条链不成立，会假绿——本脚本踩过）
+  await cdp('Emulation.setUserAgentOverride', {
+    userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+    platform: 'Linux armv8l', acceptLanguage: 'zh-CN,zh;q=0.9'
+  });
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 3, mobile: true });
+  await cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  if (!(await goto())) { console.error('安卓 UA 冷启动未就绪'); finish(); process.exit(1); }
+  await sleep(1300);
+  await openChat();
+  await sleep(400);
+  await evalJs("(function(){ var m=document.getElementById('tc-mask'); if(m) m.hidden=true; var b=document.getElementById('more-gift'); if(b) b.click(); return !!b; })()");
+  await sleep(800);
+  await evalJs("(function(){ var b=document.querySelector('#gift-grid .gift-item'); if(b){ b.click(); return 1; } return 0; })()");
+  await sleep(800);
+  const w = J(await evalJs(`(function(){
+    var ta = document.getElementById('gb-wish');
+    if (!ta) return JSON.stringify({ missing: true });
+    var box = null;
+    document.querySelectorAll('#tc-body .ce-box').forEach(function (x) { if (x.dataset && x.dataset.for === 'gb-wish') box = x; });
+    var desc = document.querySelector('#tc-body .gb-desc');
+    return JSON.stringify({ value: String(ta.value || ''), boxText: box ? String(box.textContent) : '',
+      converted: !!box, desc: desc ? String(desc.textContent || '').trim() : '' });
+  })()`));
+  ok(w && !w.missing && w.value === w.desc && w.value.length > 0,
+    'B8 送礼弹窗「写给 TA 的话」带着礼物的文案（空框＝用户看到空着、送出的却是默认文案）', JSON.stringify(w));
+  ok(w && (!w.converted || w.boxText === w.value),
+    'B8b 转换后的可见框与取值同源（ce-box 不再吃掉既有值）', JSON.stringify({ box: w && w.boxText, v: w && w.value }));
+  await evalJs("(function(){ var b=document.getElementById('gb-cancel'); if(b) b.click(); var m=document.getElementById('tc-mask'); if(m) m.hidden=true; return 1; })()");
+  await sleep(400);
+  // 复位 UA（后续若加段落仍按默认环境跑）
+  await cdp('Emulation.setUserAgentOverride', { userAgent: '' });
+  await cdp('Emulation.clearDeviceMetricsOverride');
+  await cdp('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
 }
 
 } catch (eB) {

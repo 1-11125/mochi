@@ -1122,11 +1122,21 @@
         if (!txt) return;
         // #985：这句回话不只是聊天里的一条消息——同时贴到「我送出」那张礼物卡与心意柜那件礼物上
         // （用户直派「这个回复没有加到联系人领取礼物的卡片里，也没有加到心意柜的卡片里」）。
-        // 跨桌面时 chatGiftAttachReplyTo 走 chatDeskCardReply 的读改写（含 #127 增量日志合并），
-        // 心意柜侧按 cid 写回原桌面——两处都不因为切了桌面而丢这条回复。
+        // #1029：这句回话**只落一份**——旧实现先走 chatGiftAttachReplyTo（它内部已经写过心意柜）
+        // 又紧跟一次 boxAttachReply，实测心意柜记录里出现两条一模一样的回复、重进聊天后卡片上也是
+        // 同样的两行（用户视角＝「一句话被记了两遍」）。现在：同一桌面交给 chatGiftAttachReplyTo
+        // （写柜＋就地补卡片），它认不出那张卡时才按已知的 giftBoxId 兜底写柜；已切桌面时直接用
+        // giftBoxId 写柜（卡片下次渲染从柜里读，照样看得见），不再多走一趟跨桌面读改写。
         var boxId = chatRec && chatRec.giftBoxId;
-        try { if (window.chatGiftAttachReplyTo && chatRec) window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRA) {}
-        try { if (boxId) boxAttachReply(cid, boxId, 'ta', txt); } catch (eRB) {}
+        var sameDesk = (window.__activeCid || 'default') === cid;
+        var wrote = false;
+        if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+          try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
+        }
+        try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
+        if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+          try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
+        }
         try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
         if ((window.__activeCid || 'default') === cid) {
           // 聊天式那档带「正在输入…」过渡，观感与普通回复一致（同红包领后捎话）
