@@ -827,13 +827,24 @@
 // 进 __mochiExtFail（error 是终态、原标签绝不会再执行 ⇒ 按这份清单重注入不会双执行；「没在
 // __mochiLoaded」的还可能只是仍在慢下载中，不重注入）；② load 后 1.5s/6s/15s 三波自动重注入
 // （s.src 保持裸路径，同 URL 才能命中 SW 预缓存/HTTP 缓存；同一文件两次尝试间隔 ≥4s，防对仍在
-// 途的上一发重复补枪）；③ 三波后仍有缺口 → 顶部恢复条（复用 ver-update-bar 样式），点＝立即再试，
-// 全部到位自动撤条，诊断环补一条（设备兼容诊断可见）便于远程排查。执行期异常（script onload 而
+// 途的上一发重复补枪）；③ 三波后仍有缺口 → 顶部恢复条（复用 ver-update-bar 样式），点＝换址再试，
+// 全部到位自动撤条，诊断环补一条（设备兼容诊断可见）便于远程排查；条上带「知道了」，本次会话可关。执行期异常（script onload 而
 // IIFE 抛错）不归这里管：那类在 __jsErrors 有记录，重注入同一份代码只会再抛一次，双绑定风险大于收益。
 (function () {
   if (!window.__mochiExtFiles || !window.__mochiExtFiles.length) return;
-  let waves = 0, bar = null, barTxt = null, reported = false;
+  let waves = 0, bar = null, barTxt = null, reported = false, barOff = 0;
   const lastTry = {};
+  // #1035（iQOO+Edge 实报「功能包未加载成功」永挂，其他机型同现；零机型/零内核分支）：
+  // 三波重注入刻意用「同一个裸地址」（同 URL 才命中 SW 预缓存/HTTP 缓存）——代价是一旦失败原因
+  // 按 URL 生效（浏览器 HTTP 缓存 / CDN 边缘节点 / 中间代理里的一条坏响应），每波重注入、每次
+  // 点「点此重试」、甚至下次开页都取回同一份坏响应＝永远修不好，顶部条还会因无法关闭而常驻。
+  // 故裸址三波之后改走「换址逃生」：地址带一次一变与会话一变的戳（?mb=<会话戳>.<第几次>）＋
+  // cache:'reload'，绕开所有按 URL 命中的缓存层；字节先验真（防代理塞回的 HTML 错误页被当真代码跑）
+  // 再就地执行，sw.js 把取回的好字节按裸路径写回缓存＝一次修好、下次开页直接命中、离线也在。
+  const HEAL_NS = Date.now().toString(36);
+  const HEAL_MAX = 3;
+  const bust = {}, healing = {};
+  try { barOff = sessionStorage.getItem('mochi-ext-bar-off') === '1' ? 1 : 0; } catch (e0) {}
   function failList() {
     const fail = window.__mochiExtFail || [], loaded = window.__mochiLoaded || [], out = [];
     for (let i = 0; i < fail.length; i++) if (loaded.indexOf(fail[i]) < 0 && out.indexOf(fail[i]) < 0) out.push(fail[i]);
@@ -852,19 +863,65 @@
       document.head.appendChild(s);
     }
   }
+  // 外置产物一律是 build.mjs 包的 `(function () { try {` 开头；代理/门户的坏响应是 HTML
+  // （`<!doctype`/`<html`）或以状态文案开头的裸文本，长度也对不上——验真不过就当没取到。
+  function looksLikeJs(txt) {
+    return typeof txt === 'string' && txt.length > 64 && !/^\s*<\w/.test(txt);
+  }
+  function healByBypass(list) {
+    const now = Date.now();
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      if (healing[f] || (bust[f] || 0) >= HEAL_MAX) continue;
+      if (lastTry[f] && now - lastTry[f] < 4000) continue;
+      lastTry[f] = now;
+      healing[f] = 1;
+      bust[f] = (bust[f] || 0) + 1;
+      fetch('js/' + f + '?mb=' + HEAL_NS + '.' + bust[f], { cache: 'reload' }).then(function (res) {
+        if (!res || !res.ok) throw new Error('status');
+        return res.text();
+      }).then(function (txt) {
+        healing[f] = 0;
+        if (!looksLikeJs(txt)) throw new Error('bad-body');
+        // 等字节这段时间里原标签可能只是慢、终于跑完了（或前一次换址已成功）＝不再执行第二遍
+        if ((window.__mochiLoaded || []).indexOf(f) >= 0) return;
+        const s = document.createElement('script');
+        s.textContent = txt;
+        s.onerror = function () { try { window.__mochiExtFail = (window.__mochiExtFail || []).concat(f); } catch (x) {} };
+        document.head.appendChild(s);
+      }).catch(function () {
+        healing[f] = 0;
+        try { window.__mochiExtFail = (window.__mochiExtFail || []).concat(f); } catch (x) {}
+      });
+    }
+  }
   function syncBar(miss) {
     if (!miss.length) { if (bar) bar.hidden = true; return; }
-    if (waves < 3) return; // 前三波静默自动重试，不打扰
+    if (waves < 3 || barOff) return;
     if (!bar) {
       bar = document.createElement('div');
       bar.className = 'ver-update-bar';
       bar.id = 'ext-recovery-bar';
       bar.style.cursor = 'pointer';
-      bar.innerHTML = '<span class="vub-txt"></span><b>点此重试</b>';
+      // #1035：两条按钮＝窄屏（320px 级）一行放不下会被截出屏外「知道了点不到」——#939f/#980f
+      // 同款处置，只在本条内联换行，共用样式零影响。
+      bar.style.cssText += 'flex-wrap:wrap;row-gap:6px;';
+      bar.innerHTML = '<span class="vub-txt"></span><b>点此重试</b><b class="vub-act" id="ext-heal-off">知道了</b>';
       bar.addEventListener('click', function () {
         const miss2 = failList();
-        if (miss2.length) reinject(miss2);
+        if (miss2.length) {
+          // 手动重试＝用户主动要求，放开换址次数上限再试一轮（自动波只用 HEAL_MAX 次）
+          for (let i = 0; i < miss2.length; i++) bust[miss2[i]] = 0;
+          healByBypass(miss2);
+        }
         setTimeout(function () { syncBar(failList()); }, 4000);
+      });
+      const x = bar.querySelector('#ext-heal-off');
+      if (x) x.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        barOff = 1;
+        try { sessionStorage.setItem('mochi-ext-bar-off', '1'); } catch (e6) {}
+        bar.hidden = true;
       });
       document.body.appendChild(bar);
       barTxt = bar.querySelector('.vub-txt');
@@ -885,10 +942,21 @@
       syncBar(left);
     }, 4000);
   }
+  // #1035 换址波：裸址三波（1.5/6/15s）全灭后的第四波起，间隔逐步拉开（26/55/100s）——
+  // 既给「按 URL 生效的坏响应」换一个取不到的键，也给弱网留出「上一发其实还在途」的余量。
+  function healPass() {
+    waves++;
+    const miss = failList();
+    if (miss.length) healByBypass(miss);
+    setTimeout(function () { syncBar(failList()); }, 4000);
+  }
   function boot() {
     setTimeout(pass, 1500);
     setTimeout(pass, 6000);
     setTimeout(pass, 15000);
+    setTimeout(healPass, 26000);
+    setTimeout(healPass, 55000);
+    setTimeout(healPass, 100000);
   }
   if (document.readyState === 'complete') boot();
   else window.addEventListener('load', boot);

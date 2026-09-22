@@ -626,17 +626,21 @@
   // 成片 onerror，随后 #802 自愈引擎（pwa.js）按波重注入多半又全部到位。此前每条都照常
   // pushErr，一次波动 18 条塞满 20 条错误环、把真错误整批顶出（vivo X200S+Edge 实报：
   // 同一秒 18 条「资源加载失败 <script> …/js/xxx.js」，健康检查 82/82 全到位＝已自愈）。
-  // 现改为：首拉失败只登记不记环，20s 静默窗（#802 三波 1.5/6/15s + 4s 落定）后汇总
-  // 一条——全自愈 → 一条「已自愈」如实留痕；仍有缺口 → 一条「真失败」点名文件
+  // 现改为：首拉失败只登记不记环，静默窗后汇总一条——全自愈 → 一条「已自愈」如实留痕；
+  // 仍有缺口 → 一条「真失败」点名文件
   //（#802 自身同时把 [ext-recovery] 写进 __jsErrors，报障双向可查）。判定口径与
   // #802 failList() 逐字一致：在 __mochiExtFail 且不在 __mochiLoaded 才算真没到位，
   // 名单外的「慢下载中」不算失败。零机型/零浏览器分支。
+  // #1035：窗口 20s → 34s。自愈阶梯在裸址三波（1.5/6/15s）之后接了「换址逃生」首波（26s＋4s
+  // 落定）——20s 汇总会在逃生波出手**之前**就写下「真失败」，而 a.seen 一经点名不再复核，
+  // 于是「其实 30s 后自己修好了」的机子照样在诊断列表/报障 docx 里挂着一条
+  // 「N 个功能包未加载成功」（iQOO Z7+Edge 实报的「一直出现」有一半就是这个）。
   function extFailNote(name) {
     try {
       var a = window.__mochiExtFailAgg;
       if (!a) a = window.__mochiExtFailAgg = { names: [], timer: 0, seen: {} };
       if (a.names.indexOf(name) < 0) a.names.push(name);
-      if (!a.timer) a.timer = setTimeout(extFailFlush, 20000);
+      if (!a.timer) a.timer = setTimeout(extFailFlush, 34000);
     } catch (e) {}
   }
   function extFailFlush() {
@@ -654,7 +658,7 @@
       if (still.length && !fresh.length) return;
       if (still.length) {
         still.forEach(function (f) { a.seen[f] = 1; });
-        pushErr('[外置包·真失败] ' + still.length + ' 个功能包未加载成功: ' + still.slice(0, 6).join('、') + (still.length > 6 ? ' 等' : '') + '（网络持续异常，#802 自愈重试三波仍未到位；可刷新页面或稍后重进）');
+        pushErr('[外置包·真失败] ' + still.length + ' 个功能包未加载成功: ' + still.slice(0, 6).join('、') + (still.length > 6 ? ' 等' : '') + '（网络持续异常，#802 裸址三波＋#1035 换址逃生到点仍未到位；可点顶部「点此重试」或稍后重进）');
       } else {
         pushErr('[外置包·已自愈] ' + names.length + ' 个功能包首拉失败（网络波动），自愈重试后已全部到位，功能不受影响');
       }

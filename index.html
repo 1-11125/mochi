@@ -10551,9 +10551,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790080085718">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790080669926">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 20:28<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 20:37<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -17767,7 +17767,7 @@ try {
 var a = window.__mochiExtFailAgg;
 if (!a) a = window.__mochiExtFailAgg = { names: [], timer: 0, seen: {} };
 if (a.names.indexOf(name) < 0) a.names.push(name);
-if (!a.timer) a.timer = setTimeout(extFailFlush, 20000);
+if (!a.timer) a.timer = setTimeout(extFailFlush, 34000);
 } catch (e) {}
 }
 function extFailFlush() {
@@ -17784,7 +17784,7 @@ var fresh = still.filter(function (f) { return !a.seen[f]; });
 if (still.length && !fresh.length) return;
 if (still.length) {
 still.forEach(function (f) { a.seen[f] = 1; });
-pushErr('[外置包·真失败] ' + still.length + ' 个功能包未加载成功: ' + still.slice(0, 6).join('、') + (still.length > 6 ? ' 等' : '') + '（网络持续异常，#802 自愈重试三波仍未到位；可刷新页面或稍后重进）');
+pushErr('[外置包·真失败] ' + still.length + ' 个功能包未加载成功: ' + still.slice(0, 6).join('、') + (still.length > 6 ? ' 等' : '') + '（网络持续异常，#802 裸址三波＋#1035 换址逃生到点仍未到位；可点顶部「点此重试」或稍后重进）');
 } else {
 pushErr('[外置包·已自愈] ' + names.length + ' 个功能包首拉失败（网络波动），自愈重试后已全部到位，功能不受影响');
 }
@@ -21049,8 +21049,12 @@ n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild
 })();
 (function () {
 if (!window.__mochiExtFiles || !window.__mochiExtFiles.length) return;
-let waves = 0, bar = null, barTxt = null, reported = false;
+let waves = 0, bar = null, barTxt = null, reported = false, barOff = 0;
 const lastTry = {};
+const HEAL_NS = Date.now().toString(36);
+const HEAL_MAX = 3;
+const bust = {}, healing = {};
+try { barOff = sessionStorage.getItem('mochi-ext-bar-off') === '1' ? 1 : 0; } catch (e0) {}
 function failList() {
 const fail = window.__mochiExtFail || [], loaded = window.__mochiLoaded || [], out = [];
 for (let i = 0; i < fail.length; i++) if (loaded.indexOf(fail[i]) < 0 && out.indexOf(fail[i]) < 0) out.push(fail[i]);
@@ -21069,19 +21073,59 @@ s.onerror = function () { try { window.__mochiExtFail = (window.__mochiExtFail |
 document.head.appendChild(s);
 }
 }
+function looksLikeJs(txt) {
+return typeof txt === 'string' && txt.length > 64 && !/^\s*<\w/.test(txt);
+}
+function healByBypass(list) {
+const now = Date.now();
+for (let i = 0; i < list.length; i++) {
+const f = list[i];
+if (healing[f] || (bust[f] || 0) >= HEAL_MAX) continue;
+if (lastTry[f] && now - lastTry[f] < 4000) continue;
+lastTry[f] = now;
+healing[f] = 1;
+bust[f] = (bust[f] || 0) + 1;
+fetch('js/' + f + '?mb=' + HEAL_NS + '.' + bust[f], { cache: 'reload' }).then(function (res) {
+if (!res || !res.ok) throw new Error('status');
+return res.text();
+}).then(function (txt) {
+healing[f] = 0;
+if (!looksLikeJs(txt)) throw new Error('bad-body');
+if ((window.__mochiLoaded || []).indexOf(f) >= 0) return;
+const s = document.createElement('script');
+s.textContent = txt;
+s.onerror = function () { try { window.__mochiExtFail = (window.__mochiExtFail || []).concat(f); } catch (x) {} };
+document.head.appendChild(s);
+}).catch(function () {
+healing[f] = 0;
+try { window.__mochiExtFail = (window.__mochiExtFail || []).concat(f); } catch (x) {}
+});
+}
+}
 function syncBar(miss) {
 if (!miss.length) { if (bar) bar.hidden = true; return; }
-if (waves < 3) return; // 前三波静默自动重试，不打扰
+if (waves < 3 || barOff) return;
 if (!bar) {
 bar = document.createElement('div');
 bar.className = 'ver-update-bar';
 bar.id = 'ext-recovery-bar';
 bar.style.cursor = 'pointer';
-bar.innerHTML = '<span class="vub-txt"></span><b>点此重试</b>';
+bar.style.cssText += 'flex-wrap:wrap;row-gap:6px;';
+bar.innerHTML = '<span class="vub-txt"></span><b>点此重试</b><b class="vub-act" id="ext-heal-off">知道了</b>';
 bar.addEventListener('click', function () {
 const miss2 = failList();
-if (miss2.length) reinject(miss2);
+if (miss2.length) {
+for (let i = 0; i < miss2.length; i++) bust[miss2[i]] = 0;
+healByBypass(miss2);
+}
 setTimeout(function () { syncBar(failList()); }, 4000);
+});
+const x = bar.querySelector('#ext-heal-off');
+if (x) x.addEventListener('click', function (ev) {
+ev.stopPropagation();
+barOff = 1;
+try { sessionStorage.setItem('mochi-ext-bar-off', '1'); } catch (e6) {}
+bar.hidden = true;
 });
 document.body.appendChild(bar);
 barTxt = bar.querySelector('.vub-txt');
@@ -21102,10 +21146,19 @@ try { window.__jsErrors = window.__jsErrors || []; window.__jsErrors.push('[ext-
 syncBar(left);
 }, 4000);
 }
+function healPass() {
+waves++;
+const miss = failList();
+if (miss.length) healByBypass(miss);
+setTimeout(function () { syncBar(failList()); }, 4000);
+}
 function boot() {
 setTimeout(pass, 1500);
 setTimeout(pass, 6000);
 setTimeout(pass, 15000);
+setTimeout(healPass, 26000);
+setTimeout(healPass, 55000);
+setTimeout(healPass, 100000);
 }
 if (document.readyState === 'complete') boot();
 else window.addEventListener('load', boot);
@@ -21327,4 +21380,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mucngq1i -->
+<!-- __MOCHI_EOF__ mucnt8ti -->

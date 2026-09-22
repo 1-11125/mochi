@@ -10,8 +10,18 @@
 //     R3 诊断环补了 [ext-recovery] 一条；
 //     R4 点「点此重试」→ 放开的 200 被重新注入执行：差集清零、window.openDecision 变 function；
 //     R5 全部到位后恢复条自动撤下。
+//   P 阶段（#1035 按 URL 钉死的坏响应：裸地址一律 404、带 ?mb= 的换址请求 200）：
+//     P1 裸址三波全灭后「换址逃生」把缺口清零（功能入口当场复活，无需刷新）；
+//     P2 每次换址的键都不同（会话戳.次数）＝不会复用同一条坏缓存；
+//     P3 到位后恢复条自动撤下；
+//     P4 同一上下文再开一次页面：脚本零失败、零缺口、不必再走换址＝好字节已按裸路径写回 SW 缓存
+//        （一次修好长期有效，而不是每次开页赌 26s 的换址波）。
+//   B 阶段（换址也只拿回一段 HTML 错误页＝门户/代理塞回的坏体）：
+//     B1 验真拦下＝坏体绝不执行（openDecision 仍不是函数、不多一处假 SyntaxError），条如实挂着；
+//     B2 条上有「知道了」；B3 点它＝本会话不再出现该条（只关提醒，不拦后台自愈）；
+//     B4 之后网络恢复＝一次开页即全好＝坏体从没被写进缓存（防「修好了却 permanently 更坏」）。
 // 用法：node tools/verify-ext-recovery.mjs（需 playwright；MOCHI_ROOT 可指仓外副本做红/绿基线：
-//       纯 HEAD 副本（无修复）应在 R1/R2/R4 处红＝判别力在）。
+//       纯 HEAD 副本（无修复）应在 R4/R5＋P1~P4＋B1~B4 处红＝判别力在）。
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, normalize, extname, dirname, sep } from 'node:path';
@@ -25,13 +35,29 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const isJsArtifact = (p) => extname(p) === '.js' && p.indexOf(sep + 'js' + sep) >= 0;
 
 let jsFailMode = false; // true：/js/* 一律 404（故障注入）
-const stat = { js200: 0, js404: 0 };
+// #1035 P 阶段：坏响应「按 URL 生效」——裸地址永远拿不到，带 ?mb= 的换址地址正常 200。
+// 这正是旧自愈修不好的那一类：三波重注入与用户点重试用的是同一个裸地址＝每波取回同一份坏响应。
+let pinBareFail = false;
+// #1035 B 阶段：换址地址也只拿回一段 HTML 错误页（门户/代理塞回的坏体）＝验真必须拦下
+let badBodyMode = false;
+const stat = { js200: 0, js404: 0, pin404: 0, bustSeen: new Set(), badBodyServed: 0 };
 const srv = createServer((req, res) => {
   let p = '';
   try {
     p = normalize(join(SERVE_ROOT, decodeURIComponent(req.url.split('?')[0])));
     if (!p.startsWith(SERVE_ROOT)) { res.writeHead(403); res.end(); return; }
-    if (jsFailMode && isJsArtifact(p)) { stat.js404++; res.writeHead(404); res.end('nf'); return; }
+    const hasQuery = req.url.indexOf('?') >= 0;
+    if (isJsArtifact(p)) {
+      if (jsFailMode) { stat.js404++; res.writeHead(404); res.end('nf'); return; }
+      if (pinBareFail && !hasQuery) { stat.pin404++; res.writeHead(404); res.end('nf'); return; }
+      if (hasQuery) stat.bustSeen.add(req.url);
+      if (badBodyMode && hasQuery) {
+        stat.badBodyServed++;
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<!doctype html><html><head><title>503 Backend Fetch Failure</title></head><body>origin unreachable</body></html>');
+        return;
+      }
+    }
     const body = readFileSync(p);
     if (isJsArtifact(p)) stat.js200++;
     res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
@@ -132,8 +158,114 @@ const browser = await chromium.launch();
   await ctx.close();
 }
 
+// ===== P 阶段（#1035）：坏响应「按 URL 生效」＝裸址永远 404、换址地址 200 =====
+// 旧自愈在这种故障下永远修不好：三波重注入与用户点「点此重试」用的都是同一个裸地址，
+// 每一发都取回同一份坏响应（iQOO+Edge 实报的 fullscreen.js 连续两天每次开页必报＝同形）。
+{
+  jsFailMode = false; pinBareFail = true; badBodyMode = false;
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await newState(ctx);
+  await page.goto(base + '/index.html', { waitUntil: 'load', timeout: 30000 });
+  const st0 = await page.evaluate(() => (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length);
+  check('P0', '裸址钉死时 ext 整批没到位（正是旧自愈修不好的那一类）', st0 >= 30, '缺 ' + st0);
+  const healed = await poll(page, async () => page.evaluate(() =>
+    (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length === 0 &&
+    typeof window.openDecision === 'function'
+  ), 60000, 500);
+  const st1 = await page.evaluate(() => ({
+    missing: (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length,
+    openDecision: typeof window.openDecision
+  }));
+  check('P1', '裸址三波全灭后「换址逃生」清零缺口、功能入口当场复活（无需刷新）', healed && st1.missing === 0 && st1.openDecision === 'function',
+    '缺 ' + st1.missing + ' openDecision=' + st1.openDecision + ' 裸址404=' + stat.pin404);
+  const keys = Array.from(stat.bustSeen);
+  check('P2', '换址请求带「会话戳.次数」且一发一键（不复用任何可能已被钉死的键）',
+    keys.length >= 30 && keys.every((u) => /[?&]mb=[a-z0-9]+\.\d+$/.test(u)), keys.length + ' 个不同地址');
+  const barGoneP = await poll(page, async () => page.evaluate(() => {
+    const b = document.getElementById('ext-recovery-bar');
+    return !b || b.hidden === true;
+  }), 15000, 300);
+  check('P3', '换址到位后恢复条自动撤下', barGoneP);
+  //  durable：换址取回的好字节按**裸路径**写回 SW 缓存＝同会话再开一次页面直接命中缓存，
+  //  脚本标签零失败、也不必再走 26s 的换址波（判据取页面侧事实：SW 每次命中后仍会按 #802c
+  //  后台刷新发一发裸址请求，那是既有设计、不算自愈失败，故只看「页面有没有再报错」）。
+  const pinBefore = stat.pin404;
+  const bustBefore = stat.bustSeen.size;
+  await page.goto(base + '/index.html', { waitUntil: 'load', timeout: 30000 });
+  await sleep(6000);
+  const st2 = await page.evaluate(() => ({
+    missing: (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length,
+    extFail: (window.__mochiExtFail || []).length
+  }));
+  check('P4', '好字节已按裸路径写回缓存：再开一次页面脚本零失败、不必再走换址（一次修好长期有效）',
+    st2.missing === 0 && st2.extFail === 0 && stat.bustSeen.size === bustBefore,
+    '缺=' + st2.missing + ' 脚本失败标记=' + st2.extFail + ' 新增换址请求=' + (stat.bustSeen.size - bustBefore) +
+    ' 新增裸址请求=' + (stat.pin404 - pinBefore));
+  await ctx.close();
+}
+
+// ===== B 阶段（#1035）：换址也只拿回一段 HTML 错误页（门户/代理塞回的坏体） =====
+{
+  jsFailMode = false; pinBareFail = true; badBodyMode = true;
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await newState(ctx);
+  await page.goto(base + '/index.html', { waitUntil: 'load', timeout: 30000 });
+  const barShownB = await poll(page, async () => page.evaluate(() => {
+    const b = document.getElementById('ext-recovery-bar');
+    return !!b && b.hidden === false && /个功能包/.test(b.textContent || '');
+  }), 40000, 400);
+  // 换址波排在裸址三波之后（26s），条出现在 ~19s——只等条出现就判会被「还没走到换址」骗过去，
+  // 这里再等服务器真切回过一段坏体（验真这一闸才有现场可判）。
+  const badSeen = await poll(null, async () => stat.badBodyServed > 0, 40000, 500);
+  const stb = await page.evaluate(() => ({
+    missing: (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length,
+    openDecision: typeof window.openDecision,
+    hasOff: !!document.querySelector('#ext-heal-off'),
+    syntax: (window.__jsErrors || []).filter((s) => /SyntaxError|Unexpected token/i.test(String(s))).length
+  }));
+  check('B1', '坏体被验真拦下：绝不执行（不假复活、不多一处 SyntaxError），条也如实挂着',
+    stb.missing >= 30 && stb.openDecision !== 'function' && stb.syntax === 0 && badSeen && stat.badBodyServed > 0 && barShownB,
+    '缺 ' + stb.missing + ' badBody=' + stat.badBodyServed + ' 假语法错=' + stb.syntax + ' 条在=' + barShownB);
+  check('B2', '条上有「知道了」（修不好时用户能关掉提醒，不必被常驻提示纠缠）', stb.hasOff);
+  const offClicked = await page.evaluate(() => {
+    const x = document.querySelector('#ext-heal-off');
+    if (!x) return false;
+    x.click();
+    const b = document.getElementById('ext-recovery-bar');
+    return !!b && b.hidden === true;
+  });
+  await page.goto(base + '/index.html', { waitUntil: 'load', timeout: 30000 });
+  await sleep(25000); // 盖过「三波＋条出现」（~19s）：本会话已关过提醒就不得再出现
+  const reShown = await page.evaluate(() => {
+    const b = document.getElementById('ext-recovery-bar');
+    return !!b && b.hidden === false;
+  });
+  check('B3', '点「知道了」后本会话不再出现该条（只关提醒，不拦后台自愈）', offClicked && !reShown,
+    '点击即隐藏=' + offClicked + ' 重开又出现=' + reShown);
+  // B4：坏体绝不进缓存（sw.js 写缓存侧的验真闸）。#1035 之后裸键是逃生写回的目标，一旦把
+  // 门户/代理的 200 + text/html 错误页缓存下来＝下次开页直接命中坏体、脚本 parse 期就死
+  // （连 onerror 都不触发，页面侧自愈根本记不到它）＝「修好了却 permanently 更坏」。
+  pinBareFail = false; badBodyMode = false;
+  const bustB = stat.bustSeen.size;
+  await page.goto(base + '/index.html', { waitUntil: 'load', timeout: 30000 });
+  const okB4 = await poll(page, async () => page.evaluate(() =>
+    (window.__mochiExtFiles || []).length > 30 &&
+    (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length === 0
+  ), 20000, 400);
+  const stb4 = await page.evaluate(() => ({
+    missing: (window.__mochiExtFiles || []).filter((f) => (window.__mochiLoaded || []).indexOf(f) < 0).length,
+    syntax: (window.__jsErrors || []).filter((s) => /SyntaxError|Unexpected token/i.test(String(s))).length
+  }));
+  check('B4', '网络恢复后一次开页即全好＝坏体从没被缓存过（不需换址、无假 SyntaxError）',
+    okB4 && stb4.missing === 0 && stb4.syntax === 0 && stat.bustSeen.size === bustB,
+    '缺=' + stb4.missing + ' 假语法错=' + stb4.syntax + ' 换址请求=' + (stat.bustSeen.size - bustB));
+  await ctx.close();
+}
+
+jsFailMode = false; pinBareFail = false; badBodyMode = false;
 await browser.close();
 srv.close();
-console.log('服务器 /js/*：200=' + stat.js200 + ' 404=' + stat.js404 + '（服务根：' + SERVE_ROOT + '）');
+console.log('服务器 /js/*：200=' + stat.js200 + ' 404=' + stat.js404 + ' 裸址钉死404=' + stat.pin404 +
+  ' 换址请求=' + stat.bustSeen.size + ' 坏体=' + stat.badBodyServed + '（服务根：' + SERVE_ROOT + '）');
 console.log(fails ? '✗ verify-ext-recovery 失败 ' + fails + ' 条' : '✓ verify-ext-recovery 全部通过');
 process.exit(fails ? 1 : 0);

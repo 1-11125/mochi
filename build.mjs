@@ -4694,6 +4694,16 @@ const FIX_SENTINELS = [
   { name: '#1036j 桌面壁纸图库多选失败计数收口（删＝全失败静默）', file: 'js/personalize.js', needle: "else if (fail) toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试');" },
   { name: '#1036k 头像池 normalizeAvSize 解码看门狗（删＝>180KB 头像解码挂起＝选完头像永久无回调）', file: 'js/avatar-lib.js', needle: 'const watchdog = setTimeout(() => once(data), 20000);' },
   { name: '#1036l 头像池批量上传每文件看门狗（删＝一张挂起图让整批 finish 永不执行＝池子静默不落库）', file: 'js/avatar-lib.js', needle: 'const fileTimer = setTimeout(() => settle(false), 30000);' },
+/* ==== 2026-09-22 #1035 外置功能包「未加载成功」永挂根治（用户实报 iQOO Z7+Edge 诊断：81 件外置包里连续两天、跨 v3.26→v8.29 只有 fullscreen.js 一件每次开页都报「1 个功能包未加载成功」，#802 三波重注入与用户点「点此重试」全部无效；明说其他机型同现、要求别做机型分支）。根因＝自愈重注入刻意用**同一个裸地址**（同 URL 才命中预缓存），失败原因一旦按 URL 生效（浏览器 HTTP 缓存 / CDN 边缘节点 / 中间代理里的一条坏响应），每一波、每次重试、下次开页都取回同一份坏响应＝永远修不好；恢复条又没有「知道了」＝提醒常驻＝用户看到的「一直出现」。修＝裸址三波仍缺后改走「换址逃生」：`?mb=<会话戳>.<第几次>` ＋ cache:'reload' 绕开所有按 URL 命中的缓存层，取回字节验真（防代理塞回的 HTML 错误页被当真代码跑）后就地执行，并由 sw.js 把它**写回裸路径缓存键**＝一次修好、下次开页直接命中、离线也在（写回前 sw 侧再过一道 content-type 闸＝门户的 200 错误页绝不进缓存）；恢复条补「知道了」（只关提醒不拦自愈，与 #939e 同款口径）；device.js 的 #917 失败汇总窗 20s→34s，挪到换址逃生首波之后（否则「其实 30s 后自己修好了」的机子也在诊断里写死一条「N 个功能包未加载成功」，而这正是用户报「一直出现」的可见面之一）。零机型/零内核/零浏览器分支：只有裸址已确定失败的文件才会走到换址。 ==== */
+  { name: '#1035a 换址逃生真发带戳地址（删＝回到只认裸 URL，某层缓存按 URL 钉死坏响应时永远修不好、「功能包未加载成功」永挂复发）', file: 'js/pwa.js', needle: "'?mb=' + HEAL_NS" },
+  { name: '#1035b 换址取回的字节先验真（删＝代理塞回的 HTML 错误页被当代码执行，功能没修好还多一处假 SyntaxError）', file: 'js/pwa.js', needle: "if (!looksLikeJs(txt)) throw new Error('bad-body');" },
+  { name: '#1035c 执行前复查「已到位就不重复执行」（删＝换址那一发与原慢标签可双双跑完＝该文件的全局监听双绑定）', file: 'js/pwa.js', needle: "if ((window.__mochiLoaded || []).indexOf(f) >= 0) return;" },
+  { name: '#1035d 换址波接在裸址三波之后（删＝阶梯没接线，#1035a 的换址函数成死码）', file: 'js/pwa.js', needle: "if (miss.length) healByBypass(miss);" },
+  { name: '#1035e 恢复条带「知道了」本会话关闭（删＝修不好时用户关不掉一条常驻提醒＝本次实报「一直出现」的另一半）', file: 'js/pwa.js', needle: "sessionStorage.setItem('mochi-ext-bar-off', '1')" },
+  { name: '#1035f 换址取回按裸路径写回缓存（删＝带 query 的键下次没人再请求，修好的包下次开页仍赌坏地址、离线仍缺）', file: 'pwa/sw.js', needle: "const healKey = /[?&]mb=/.test(u.search) ? u.pathname : req;" },
+  { name: '#1035g 未命中链的两发成功都落缓存（删＝弱网「其实传完了」那一发白拿，下次开页再赌一次网络）', file: 'pwa/sw.js', needle: "m2 || fetch(req).then(cachePut)" },
+  { name: '#1035h 写缓存侧验「确实是 js」（删＝门户/代理的 200＋text/html 错误页被写进裸键＝下次开页直接命中坏体、parse 期就死，页面侧自愈根本记不到）', file: 'pwa/sw.js', needle: "const isJsBody = (res) => !!res && res.ok && !/text\\/html/i.test(" },
+  { name: '#1035i 诊断汇总窗挪到换址首波之后（改回 20000＝在逃生波出手前就写死「真失败」，报障 docx 里「N 个功能包未加载成功」永挂复发＝用户看到的「一直出现」）', file: 'js/device.js', needle: 'setTimeout(extFailFlush, 34000)' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

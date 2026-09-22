@@ -260,22 +260,33 @@ self.addEventListener('fetch', (e) => {
   // CACHE 名 + 新 SW 预缓存，代内后台刷新与 #157 的 index 同一代价）；未命中（首装预缓存
   // 缺文件）保持原网络优先 3.5s → 自身/全局缓存 → 无超时重试链不变。
   if (/\/js\/[a-zA-Z0-9._-]+\.js$/.test(u.pathname)) {
+    // #1035（iQOO+Edge 实报「功能包未加载成功」永挂；与机型无关）：页面裸址三波重注入仍失败后
+    // 改发「换址」请求（?mb=<会话戳>.<次数> ＋ cache:'reload'，绕开任何按 URL 生效的坏缓存）。
+    // 这类请求按 query 键必然缓存未命中＝真走网络，取回的好字节**写回裸路径键**——带 query 的键
+    // 下次没人再请求（戳一次一变），只有落裸键才能让修好的包下次开页直接命中、离线也在。
+    const healKey = /[?&]mb=/.test(u.search) ? u.pathname : req;
+    // 写缓存前先验「这确实是一份 js」：门户/代理习惯把错误页配成 200 + text/html 塞回来。
+    // #1035 之后裸键成了换址逃生写回的目标，一旦让 HTML 进缓存＝下次开页直接命中坏体，
+    // 脚本在 parse 期就死、连 onerror 都不触发（页面侧 __mochiExtFail 记不到＝比 404 更难自愈），
+    // 所以「写」这一侧必须自己把关（缓存命中后的后台刷新同一条闸，否则它照样能污染好条目）。
+    const isJsBody = (res) => !!res && res.ok && !/text\/html/i.test(String((res.headers && res.headers.get('content-type')) || ''));
+    const cachePut = (res) => {
+      if (isJsBody(res)) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c2) => c2.put(healKey, copy));
+      }
+      return res;
+    };
     e.respondWith(
       caches.open(CACHE).then((c) => c.match(req)).then((m) => {
         if (m) {
-          e.waitUntil(fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
-            if (res && res.ok) return caches.open(CACHE).then((c2) => c2.put(req, res.clone()));
-            return undefined;
-          }).catch(() => {}));
+          e.waitUntil(fetchWithTimeout(req, NETWORK_TIMEOUT).then(cachePut).catch(() => {}));
           return m;
         }
-        return fetchWithTimeout(req, NETWORK_TIMEOUT).then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c2) => c2.put(req, copy));
-          }
-          return res;
-        }).catch(() => caches.match(req).then((m2) => m2 || fetch(req)));
+        // #1035：未命中时的两条链（3.5s 内成功／超时后补的那一发）都过 cachePut——以前弱网首访
+        // 「其实传完了」的那一发不写缓存＝下次开页还得再赌一次网络，好字节白拿。
+        return fetchWithTimeout(req, NETWORK_TIMEOUT).then(cachePut, () =>
+          caches.match(req).then((m2) => m2 || fetch(req).then(cachePut)));
       })
     );
     return;

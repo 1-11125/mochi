@@ -1,5 +1,5 @@
 // ===== 专项验证：#917 信息诊断「显示有很多错误」去噪（vivo X200S+Edge 独立应用实报，零机型分支） =====
-// verify-suite:timeout=420000（B5 两拍配对确认 + B6 两段 21s 静默窗，全程约 2~4 分钟）
+// verify-suite:timeout=420000（B5 两拍配对确认 + B6 两段「轮询到汇总条出现为止」（窗长随自愈阶梯演进：20s→#1035 后 34s），全程约 2~4 分钟）
 // 用户实证三类假错误（第二份华为 NOH-AN01 Edge 诊断同形）：
 //  ① 4 条 [屏幕适配]「phone底=714/766」= inner∓26——恰是本机「屏幕位置设置」手调轴值，
 //     判定器/自动采集不知道手调轴存在，把用户亲手调的几何当布局缺陷每 5s 刷错误环；
@@ -53,10 +53,15 @@ const chromePath = candidates.find((p) => { try { return statSync(p).isFile(); }
 if (!chromePath) { console.error('找不到 Chrome/Edge，跳过 B 组'); process.exit(fail ? 1 : 0); }
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+let pinJsFail = null; // B6 期间置为某个外置包文件名＝它的裸地址与换址地址一律 404
 const server = createServer((req, res) => {
   try {
     let p = normalize(join(target, decodeURIComponent(req.url.split('?')[0])));
     if (!p.startsWith(target)) { res.writeHead(403); res.end(); return; }
+    // #1035：B6 用——把某件外置包的**真身**地址也钉成 404。汇总窗挪到换址逃生波之后（34s）后，
+    // 人为「摘掉 __mochiLoaded」的文件会被真阶梯在 26s 那波重新取回并跑完＝「真失败」场景自己
+    // 愈合、B6c 判不到条；只有让它的地址持续取不到，才复现「按 URL 钉死、怎么试都不回来」那一类。
+    if (pinJsFail && decodeURIComponent(req.url.split('?')[0]) === '/js/' + pinJsFail) { res.writeHead(404); res.end('nf'); return; }
     if (statSync(p).isDirectory()) p = join(p, 'index.html');
     const body = readFileSync(p);
     res.writeHead(200, { 'Content-Type': types[extname(p)] || 'application/octet-stream' });
@@ -222,24 +227,37 @@ try {
       s.onerror=function(){window.__mochiExtFail=(window.__mochiExtFail||[]).concat(n);};
       document.head.appendChild(s);});
     return true;})()`);
-  // 波 1：chat.js 自愈到位（进 __mochiLoaded）、feed.js 真失败（从 loaded 摘掉＝模拟从未加载成功）
+  // 波 1：chat.js 自愈到位（进 __mochiLoaded）、feed.js 真失败（从 loaded 摘掉＋把它真身地址钉成
+  // 404＝模拟从未加载成功且怎么重试都取不到；#1035 后真阶梯会在 26s 那波把裸址成功的文件真取回，
+  // 只摘 loaded 已经造不出「真失败」了）
+  pinJsFail = 'feed.js';
   await evalJs("(function(){window.__mochiLoaded=(window.__mochiLoaded||[]).filter(function(f){return f!=='feed.js';});return true;})()");
   await inject(['chat.js', 'feed.js']);
   await sleep(1500);
   const r6a = await ringOf(ERR_KEY, '资源加载失败');
   const r6b = await ringOf(ERR_KEY, '[外置包');
   ok('B6a 首拉失败不逐条进错误环（无「资源加载失败 <script>」条目）', r6a.length === 0, JSON.stringify(r6a).slice(0, 200));
-  ok('B6b 静默窗内不出汇总条（20s 聚合，不打扰）', r6b.length === 0, JSON.stringify(r6b).slice(0, 200));
-  await sleep(21000);
-  const r6c = await ringOf(ERR_KEY, '[外置包');
+  ok('B6b 静默窗内不出汇总条（聚合窗未到时不打扰）', r6b.length === 0, JSON.stringify(r6b).slice(0, 200));
+  // 汇总窗长度随自愈阶梯演进（#802 三波 20s → #1035 加换址逃生首波后 34s），这里不写死睡到某个
+  // 秒数，只「等到条出现为止」——同一条断言在两种窗口下都成立，红/绿副本共用一份脚本。
+  let r6c = [];
+  for (let i = 0; i < 90; i++) {
+    r6c = await ringOf(ERR_KEY, '[外置包');
+    if (r6c.length) break;
+    await sleep(500);
+  }
   ok('B6c 汇总恰一条「真失败」且只点名未到位文件（feed.js；chat.js 已自愈不点名）',
     r6c.length === 1 && /真失败/.test(r6c[0] || '') && /feed\.js/.test(r6c[0] || '') && !/chat\.js/.test(r6c[0] || ''),
     JSON.stringify(r6c).slice(0, 240));
+  pinJsFail = null; // 波 1 判完即放开：feed.js 回到「正常可取」，后面波次/还原按真实状态走
   // 波 2：两个早已加载到位的外置包「首拉失败后又自愈」→ 汇总一条「已自愈」
   const healed = JSON.parse(await evalJs("JSON.stringify((window.__mochiExtFiles||[]).filter(function(f){return (window.__mochiLoaded||[]).indexOf(f)>=0;}).slice(0,2))") || '[]');
   await inject(healed);
-  await sleep(21000);
-  const r6d = await ringOf(ERR_KEY, '[外置包');
+  let r6d = await ringOf(ERR_KEY, '[外置包');
+  for (let i = 0; i < 90 && r6d.length < 2; i++) {
+    await sleep(500);
+    r6d = await ringOf(ERR_KEY, '[外置包');
+  }
   ok('B6d 自愈路径汇总一条「已自愈」且条数不随文件数膨胀（2 文件 = 1 条）',
     r6d.length === 2 && /已自愈/.test(r6d[1] || '') && /2 个功能包/.test(r6d[1] || ''),
     JSON.stringify(r6d).slice(0, 300));
