@@ -4665,6 +4665,12 @@ const FIX_SENTINELS = [
   { name: '#1032b 空态「开始拍卖」直达接线（删＝空态退化为纯文字，用户看到的仍是没设计的空页）', file: 'js/auction.js', needle: "e.target.closest('.au-bag-empty-btn')) { e.stopPropagation(); hideOverlay(); newSession();" },
   { name: '#1032c 落槌入库即落成色（删＝新入库条目无 rarity，卡片徽章与真实成色脱节）', file: 'js/auction.js', needle: 'ts: Date.now(), rarity: rarityOf(item).label });' },
   { name: '#1032d 两列网格 CSS 规则本体（改成别的布局＝卡片网格复发；needle＝minify 后单行规则前缀）', file: 'css/chat-pages.css', needle: '.au-bag-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));' },
+  { name: "#1034a 诊断回收警告补「止住它最有效」动作（删＝用户只知道被回收，不知道怎么止住）", file: "js/device.js", needle: "止住它最有效：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
+  { name: "#1034b 回收提示条补动作与恢复口径（删＝提示只说明成因不给出路）", file: "js/bg-keep.js", needle: "止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉" },
+  { name: "#1034c 功能说明补「止住回收最有效的一步」章（删＝挂几分钟就被丢的用户无解可循）", file: "js/settings-help.js", needle: "【止住回收最有效的一步】Chrome：设置 → 性能 →「内存节省程序」关掉" },
+  { name: "#1034d 行下红条补白名单动作与自动恢复口径（删＝「失效后重开开关」被理解成功能又坏了）", file: "template.html", needle: "止住它最有效的一步＝Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
+  { name: "#1034e 功能说明补「装桌面图标＋离线消息提醒」兜底层（删＝页面被回收后连一条兜底通知都没有）", file: "js/settings-help.js", needle: "页面被回收甚至全部关掉后，浏览器也会定时唤醒弹一条" },
+  { name: "#1034f 口径量化「内存紧张时几分钟也会被丢」（删＝用户拿「约 30 分钟」对不上自己的几分钟，以为网站坏了）", file: "js/settings-help.js", needle: "手机内存紧张时更快——本页越重，几分钟也可能被丢" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

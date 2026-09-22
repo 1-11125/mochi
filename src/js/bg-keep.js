@@ -685,7 +685,7 @@
       b.id = 'mem-warn-bar';
       b.style.cursor = 'pointer';
       b.innerHTML = '<span class="vub-txt"></span><b>去看怎么清</b>';
-      b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了';
+      b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了。止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单；被回收后回到本页会自动重载，保活在你碰一下页面时自动接上';
       b.addEventListener('click', function () {
         try {
           const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
