@@ -724,11 +724,18 @@
   }
   function nbPermPendingNotice() {
     try { if (!notifyEnabled) return; } catch (e) { return; }
-    try { if (nbPermState() !== 'default') return; } catch (e) { return; }  // 已授权/已拒绝都不提示
+    let p = 'default';
+    try { p = nbPermState(); } catch (e) { return; }
+    // FIX 2026-09-22 #1017：本提示原来只认「还没决定（default）」。#1014 起开关在权限被浏览器
+    //   挡着（denied）时也留在开启位（不再自己关掉），那种状态同样「开关开着却收不到弹窗」——
+    //   一起讲清，否则用户只看到一个开着的开关，更容易以为坏了。
+    if (p !== 'default' && p !== 'denied') return;   // 已授权 / 本机无通知能力（unsupported）都不在此提示
     if (kaNoticeCool('__nb-perm-note-at', 12 * 3600 * 1000)) return;
     try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
     kaNoticeStamp('__nb-perm-note-at');
-    toast('⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
+    toast(p === 'denied'
+      ? '⚠「后台通知」开关开着，但浏览器还挡着本站的通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（允许后自动生效，不用再点开关）\n这是权限限制，不是开关坏了'
+      : '⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
   }
   try {
     if (kaDiedNotice) kaNoticeAfterSplash(tryShowKaDiedNotice);
@@ -1670,17 +1677,41 @@
   }
   // 借用户下一次点按的手势再请求一次授权（Chrome 要求 requestPermission 带手势）——
   //   把旧版的「再点一次开关」变成「回来随手点哪都行」，且失败不重复弹打扰
+  // FIX 2026-09-22 #1017：本机制必须**单例**、只在「还没决定（default）」时挂、且**每轮至多一次**。
+  //   ①实测（无头）：每次收口都会调它一次（权限请求回调 / 600ms 待决轮询 / 上一次点按的回调），
+  //     各挂一份 pointerdown 监听 ⇒ 同一记点按被多份监听同时接住，实测一次点按发出 **2 次**
+  //     Notification.requestPermission，且份数随轮次继续翻倍。
+  //   ②待决窗（12s）结束时还会再挂一份 ⇒ 权限一直待决时用户**每点一下又弹一次授权框**；授权框
+  //     反复出现正是浏览器判「骚扰」并自动挡掉通知权限的成因，与用户报的「首次显示被浏览器拒绝」同族。
+  //   ③已明确被挡（denied）时再请求不会出现任何授权框，挂着只会在每次点按时空转＋续挂。
+  //   现在：一记点按至多产生一次「再请求」，且同一轮只借一次手势（用户再动一次开关才换新的一轮）；
+  //   剩下的交给行下标红说明 ＋ nbArmWatch 的自动生效（用户去站点设置允许后自动兑现）。
+  let nbRetryTap = null;
+  let nbRetryUsed = 0;   // 哪一轮已经用过「下一次点按」这次机会
   function nbArmRetry(my) {
+    if (nbRetryTap) {   // 单例：先撤掉上一份（同轮重复收口不得叠加监听）
+      try {
+        document.removeEventListener('pointerdown', nbRetryTap, true);
+        document.removeEventListener('keydown', nbRetryTap, true);
+      } catch (e) {}
+      nbRetryTap = null;
+    }
+    if (my !== nbAttempt || !notifyEnabled || nbPermState() !== 'default') return;
+    if (nbRetryUsed === my) return;
     const onTap = function () {
       document.removeEventListener('pointerdown', onTap, true);
       document.removeEventListener('keydown', onTap, true);
+      if (nbRetryTap === onTap) nbRetryTap = null;
       if (my !== nbAttempt) return;
       const p = nbPermState();
       if (p === 'granted') { nbApplyOn(my); return; }
       if (p === 'denied') { nbHoldOn(my, 'denied'); return; }   // FIX #1014：同上，不回弹
+      if (p !== 'default') return;
+      nbRetryUsed = my;   // 这一轮的机会用掉了（用户再动一次开关才会换新的一轮）
       requestNotifyPermission(null, function () {}, { quiet: true });
       nbSettleStart(my, true);
     };
+    nbRetryTap = onTap;
     document.addEventListener('pointerdown', onTap, true);
     document.addEventListener('keydown', onTap, true);
   }
@@ -1939,16 +1970,21 @@
     //   旧测试只能在前台发通知，然后把「切后台再测一次」推给用户自己判断。这一段由页面自己在
     //   隐藏态真发一条：点「现在测」→ 按 Home（可锁屏）→ 后台 5 秒后自动发 → 回前台给结论并
     //   问本人看到没有。只在第一段发送成功（SW 通道）时才提供，避免把坏链路的结论混进第二段。
-    const bgT2 = { armed: false, sent: false, ok: false, chan: '', reported: false, hideT: null, disarmT: null };
+    // FIX 2026-09-22 #1017：done＝「发送链已落定」。#1014 首版只看 sent（已发起）就给结论，
+    //   实测：用户切后台 5 秒（发送刚发起、showNotification 还没落定）就切回本页时，页面当场报
+    //   「✗ 页面切到后台后没能发出通知（通道未就绪）」——而那条通知其实**已经提交**；等发送真落定
+    //   时报告闸（reported）已关，错的结论再也纠正不回来。现在两处报告都以 done 为前提。
+    const bgT2 = { armed: false, sent: false, done: false, ok: false, chan: '', reported: false, hideT: null, disarmT: null };
     const bgT2Arm = function () {
       if (bgT2.armed && !bgT2.sent) return;
-      bgT2.armed = true; bgT2.sent = false; bgT2.ok = false; bgT2.chan = ''; bgT2.reported = false;
+      if (bgT2.hideT) { clearTimeout(bgT2.hideT); bgT2.hideT = null; }
+      bgT2.armed = true; bgT2.sent = false; bgT2.done = false; bgT2.ok = false; bgT2.chan = ''; bgT2.reported = false;
       toast('第二段已就绪：按 Home 把页面切到后台（可锁屏），5 秒后自动发一条；回到本页看结论', 7000);
       if (bgT2.disarmT) clearTimeout(bgT2.disarmT);
       bgT2.disarmT = setTimeout(function () { if (!bgT2.sent) bgT2.armed = false; }, 180000); // 3 分钟没切后台就作废
     };
     const bgT2Report = function () {
-      if (!bgT2.armed || !bgT2.sent || bgT2.reported) return;
+      if (!bgT2.armed || !bgT2.sent || !bgT2.done || bgT2.reported) return;   // #1017：未落定不下结论
       if (document.visibilityState === 'hidden') return;   // 后台弹的 toast 用户看不见，等回前台再说
       bgT2.reported = true;
       bgT2.armed = false;
@@ -1989,8 +2025,8 @@
           try {
             const nm = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
             showSysNotification('后台通知测试（后台阶段）', { body: '这条是在页面切到后台之后发出的 · 来自 ' + nm }, function (ch) { bgT2.chan = ch; })
-              .then(function (ok) { bgT2.ok = !!ok; bgT2Report(); });
-          } catch (e) { bgT2.ok = false; bgT2Report(); }
+              .then(function (ok) { bgT2.ok = !!ok; bgT2.done = true; bgT2Report(); });
+          } catch (e) { bgT2.ok = false; bgT2.done = true; bgT2Report(); }
         }, 5000);
         return;
       }

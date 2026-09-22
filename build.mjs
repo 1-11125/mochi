@@ -4369,6 +4369,13 @@ const FIX_SENTINELS = [
   { name: '#1016a 三点菜单「新建群聊」并列项接线（删＝右上角又只剩群聊设置，入口回到列表最底下）', file: 'js/group-chat.js', needle: "document.getElementById('gc-more-newgroup')" },
   { name: '#1016b 列表里「新建群聊」置顶（改回末尾 appendChild＝用户所报「在最底下，不在最上面」复发）', file: 'js/group-chat.js', needle: 'el.insertBefore(newRow, el.firstChild);' },
   { name: '#1016c 三点菜单静态锚点「新建群聊」排在「群聊设置」之前（删＝并列位丢失）', file: 'template.html', needle: 'id="gc-more-newgroup"' },
+  { name: "#1017a 「下次点按再请求一次」单例（删＝同轮重复收口叠加监听，一记点按发出多次 requestPermission）", file: "js/bg-keep.js", needle: "nbRetryTap = onTap;" },
+  { name: "#1017g 每轮至多借一次手势重试（删＝权限一直待决时每次点按都再弹授权框＝浏览器判骚扰自动挡）", file: "js/bg-keep.js", needle: "if (nbRetryUsed === my) return;" },
+  { name: "#1017b 只在「还没决定(default)」时才挂点按重试（删/放宽＝已明确被挡时每次点按空转请求）", file: "js/bg-keep.js", needle: "if (my !== nbAttempt || !notifyEnabled || nbPermState() !== 'default') return;" },
+  { name: "#1017c 第二段结论以「发送已落定」为前提（删＝发送未落定就报「没能发出」，而通知其实已提交且错结论不再纠正）", file: "js/bg-keep.js", needle: "!bgT2.done || bgT2.reported" },
+  { name: "#1017d 落定标记在成功/异常两条路径都落（删＝异常时永远不出结论）", file: "js/bg-keep.js", needle: "bgT2.done = true;" },
+  { name: "#1017e 权限被挡时的如实提示（删＝开关开着却收不到弹窗时用户只看到一个开着的开关）", file: "js/bg-keep.js", needle: "但浏览器还挡着本站的通知权限" },
+  { name: "#1017f 信息诊断【保活现场】报「后台服务/最近通知通道」（删＝「测试说发了系统没弹」又缺分层判据）", file: "js/device.js", needle: "最近通知通道=" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

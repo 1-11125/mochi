@@ -49,13 +49,14 @@ const prodHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const prodOf = (rel) => { try { return readFileSync(join(root, rel), 'utf8'); } catch (e) { return prodHtml; } };
 const prodBk = prodOf('js/bg-keep.js');
 A('S1 两条提示在源码与产物在位（丢弃提示 + 权限待决提示）',
-  srcBk.indexOf('上次挂着后台的那段会话被系统丢弃/关闭了') >= 0 &&
+  srcBk.indexOf('系统刚把本站整个关掉过一次') >= 0 &&   // #1017 换锚：文案被并行批改写（原「上次挂着后台的那段会话被系统丢弃/关闭了」）
   srcBk.indexOf('但浏览器还没给通知权限') >= 0 &&
-  prodBk.indexOf('上次挂着后台的那段会话被系统丢弃/关闭了') >= 0 &&
+  prodBk.indexOf('系统刚把本站整个关掉过一次') >= 0 &&   // #1017 换锚（同上）
   prodBk.indexOf('但浏览器还没给通知权限') >= 0);
-A('S2 丢弃提示只在「保活/通知开着」且开屏已关时弹（闸门 + 开屏等待在位）',
-  srcBk.indexOf('function kaLivenessOn()') >= 0 && srcBk.indexOf('function kaNoticeAfterSplash(') >= 0 &&
-  srcBk.indexOf("if (!kaLivenessOn()) { kaDiedNotice = false; return; }") >= 0);
+A('S2 丢弃提示在开屏关掉后才弹（开屏等待 + 12h 冷却在位；#1017 换锚：并行批已取消「只在保活开着时提示」的 kaLivenessOn 门控，改为没开保活也要解释）',
+  srcBk.indexOf('function kaNoticeAfterSplash(') >= 0 &&
+  srcBk.indexOf('kaNoticeAfterSplash(tryShowKaDiedNotice)') >= 0 &&
+  srcBk.indexOf("kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)") >= 0);
 A('S3 设置行红条补「开着保活不会在后台自动换新版」',
   srcTpl.indexOf('开着「后台保活」或「后台通知」时，页面不会在后台自动换新版') >= 0);
 A('S4 使用说明两处口径（权限待决 + 一直是旧版）',
@@ -103,8 +104,11 @@ async function boot(opts) {
     return 'ok';})()`);
   await sleep(1600);
 }
-const hasDiedToast = (s) => s.toastShown && /被系统丢弃\/关闭/.test(s.toast);
-const hasPermToast = (s) => s.toastShown && /还没给通知权限/.test(s.toast);
+// #1017 换锚：判「提示出现了吗」改看**文案**——并行批改写了触发时机（开屏一关就弹，不再等保活门控），
+//   1.6s 后的 .show 采样会错过（实测元素里正是那条提示、toastShown 却已 false）；每个场景 boot() 先跳
+//   about:blank 重建 DOM，所以按文案判与按 .show 判等价。toastShown 仍一并看，二者取或。
+const hasDiedToast = (s) => /关掉过一次|被系统丢弃/.test(s.toast);
+const hasPermToast = (s) => /还没给通知权限/.test(s.toast);
 
 // B1 暴毙 + 保活开着 → 提示
 await boot({ keep: true, died: true });

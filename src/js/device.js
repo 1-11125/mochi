@@ -1301,6 +1301,15 @@
         else kpParts.push('音频=无（保活未起）');
         if (kp.ms) kpParts.push('媒体条=' + (kp.ms.metadata ? '有' : '无') + ' ' + kp.ms.state);
         kpParts.push('WebRTC=' + kp.pc);
+        // FIX 2026-09-22 #1017：把「通知这一侧」的现场也摊开——开关/权限在开头那行早就有了，但
+        //   「后台服务有没有接管本页」与「最近一次通知实际走的哪条通道」从来没进诊断，而这两项正是
+        //   「测试说发了、系统没弹」的分层判据（用户每次报「后台弹窗没了」都缺这两行）。
+        try {
+          const ctrl = ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.controller)
+            ? '已接管（可发系统通知）' : '未接管（SW 尚未生效或刚被系统回收）';
+          const lc = (typeof window.bgNotifyLastChannel === 'function') ? (window.bgNotifyLastChannel() || '本会话还没发过') : '未接入';
+          kpParts.push('后台服务=' + ctrl + ' · 最近通知通道=' + lc + '（sw＝切后台也能弹 / page＝仅前台可见 / none＝没发出去）');
+        } catch (e) {}
         // #780：WebRTC 停在 new 时把采集状态一起打出——本次真机取证就是「WebRTC=new」
         // 却看不出卡在 SDP 还是 ICE（实为候选 flush 早于 gather 完成，第二豁免恒死）。
         if (kp.pc && kp.pc !== 'connected' && kp.pc !== 'off' && kp.pcGathering) {

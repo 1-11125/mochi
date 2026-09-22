@@ -134,6 +134,10 @@ A('S7 自测报出「后台通知开关」本身的状态', srcBk.includes("'✓
 A('S8 自测第二段·后台阶段在位（隐藏态真发一条＋入口）', srcBk.includes("'后台通知测试（后台阶段）'") && srcBk.includes("'现在测（切后台）'"));
 A('S9 结果先出、后续证据原地补行（不再被网络 gate）', srcBk.includes('if (resultShown) showResult();'));
 A('S10 追问只在 SW 通道真成功时才提供', srcBk.includes("if (testChan === 'sw') offerPhase2();"));
+A('S12 #1017 点按重试单例＋每轮至多一次（删＝一次点按多次 requestPermission／每次都再弹授权框）', srcBk.includes('nbRetryTap = onTap;') && srcBk.includes('if (nbRetryUsed === my) return;') && srcBk.includes('nbRetryUsed = my;'));
+A('S13 #1017 点按重试只在「还没决定」时挂起', srcBk.includes("!notifyEnabled || nbPermState() !== 'default') return;"));
+A('S14 #1017 第二段结论以「发送已落定」为前提', srcBk.includes('!bgT2.done || bgT2.reported') && srcBk.includes('bgT2.done = true;'));
+A('S15 #1017 权限被挡时也有当面提示＋诊断补通知通道', srcBk.includes('但浏览器还挡着本站的通知权限') && (() => { try { return readFileSync(join(root, 'src/js/device.js'), 'utf8').includes('最近通知通道='); } catch (e) { return false; } })());
 A('S11 说明同口径（功能说明胶囊＋行下说明都改了）', (() => { try { const h = readFileSync(join(root, 'src/js/settings-help.js'), 'utf8'); return h.includes('不用再点第二次开关') && h.includes('第二段（后台阶段）'); } catch (e) { return false; } })() && tpl.includes('现在测（切后台）'));
 
 // ============ B1：一次瞬态 denied 读数不得吃掉存量意图（且权限到位自动生效） ============
@@ -229,6 +233,57 @@ await setVis('visible');
 await sleep(2600);
 const tlog = JSON.parse((await ev('JSON.stringify(window.__tlog || [])')) || '[]');
 A('B5d 回前台给出「第二段（后台阶段）结果」结论', tlog.some((t) => String(t).includes('第二段（后台阶段）结果')), JSON.stringify(tlog.map((t) => String(t).slice(0, 40))));
+
+// ============ B6（#1017）：一记点按只产生一次「再请求」，不得随收口次数翻倍 ============
+console.log('【B6 待决(default) 下点按重试不多发请求】');
+const STUB_PENDING = `(function(){
+  window.__req = 0;
+  try { Object.defineProperty(Notification,'permission',{ configurable:true, get:function(){ return 'default'; } }); } catch(e){}
+  try { Notification.requestPermission = function(){ window.__req++; return Promise.resolve('default'); }; } catch(e){}
+})();`;
+await fresh(STUB_PENDING); await passSplash();
+r = await openRow();
+await mtap(r.x, r.y);
+await sleep(13000);                       // 等过 12s 待决窗（窗末会挂一次点按重试）
+const req0 = await ev('window.__req');
+for (let i = 0; i < 3; i++) { await mtap(60, 300 + i * 40); await sleep(400); }
+await sleep(800);
+const req1 = await ev('window.__req');
+// 旧实现：一记点按被 2 份监听同时接住＝多出 2 次请求，且待决窗结束会再挂一份（每点一下又弹一次）
+A('B6 待决时连点 3 下，额外请求 ≤1 次（一记点按至多一次）', (req1 - req0) <= 1, 'req0=' + req0 + ' req1=' + req1);
+
+// ============ B7（#1017）：第二段发送未落定就回前台，不得给出错误结论 ============
+console.log('【B7 第二段：未落定不下结论】');
+const STUB_SW_SLOW = `(function(){
+  try { localStorage.removeItem('xy-home-v2:bg-notify'); } catch(e){}
+  try { Object.defineProperty(Notification,'permission',{ configurable:true, get:function(){ return 'granted'; } }); } catch(e){}
+  try { Notification.requestPermission = function(){ return Promise.resolve('granted'); }; } catch(e){}
+  window.__notif = [];
+  try {
+    var reg = { active: { state:'activated' },
+      showNotification: function(t){ window.__notif.push(t); return new Promise(function(res){ setTimeout(res, 1500); }); },
+      getNotifications: function(){ return Promise.resolve([]); } };
+    Object.defineProperty(navigator.serviceWorker, 'getRegistration', { configurable:true, value: function(){ return Promise.resolve(reg); } });
+  } catch(e){}
+})();`;
+await fresh(STUB_SW_SLOW); await passSplash();
+await ev(`(function(){ window.__tlog=[]; var seen=''; setInterval(function(){ var e=document.getElementById('cc-toast'); var t=e?e.textContent:''; if(t&&t!==seen){seen=t;window.__tlog.push(t);} },60); })()`);
+await clickTest();
+await sleep(3000);
+const p2 = await ev(`(function(){ var ps=document.querySelectorAll('#modal-pills .pill, #modal-pills button'); for(var i=0;i<ps.length;i++){ if(/切后台/.test(ps[i].textContent)) { ps[i].click(); return 1; } } return 0; })()`);
+A('B7 第二段入口可点', p2 === 1, 'pillClick=' + p2);
+await sleep(700);
+await setVis('hidden');
+await sleep(5200);                        // 后台 5s 后发送，此刻 showNotification 仍差 ~1.3s 落定
+await setVis('visible');
+await sleep(1000);
+const early = JSON.parse((await ev('JSON.stringify(window.__tlog || [])')) || '[]');
+const falseNeg = early.some((t) => String(t).indexOf('第二段（后台阶段）结果') >= 0 && String(t).indexOf('✗') >= 0);
+A('B7b 发送未落定时不得报「没能发出」（实测旧版此处误报 ✗）', falseNeg === false, JSON.stringify(early.map((t) => String(t).slice(0, 34))));
+await sleep(2500);
+const settled = JSON.parse((await ev('JSON.stringify(window.__tlog || [])')) || '[]');
+const okLine = settled.filter((t) => String(t).indexOf('第二段（后台阶段）结果') >= 0 && String(t).indexOf('✓') >= 0);
+A('B7c 落定后给出正确结论（已提交系统）', okLine.length > 0, JSON.stringify(settled.map((t) => String(t).slice(0, 34))));
 
 // ============ Z：零 JS 异常 ============
 s = await probe();

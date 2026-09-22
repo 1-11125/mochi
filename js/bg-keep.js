@@ -513,11 +513,15 @@ toast('⚠ 系统刚把本站整个关掉过一次（手机内存不够时 iOS �
 }
 function nbPermPendingNotice() {
 try { if (!notifyEnabled) return; } catch (e) { return; }
-try { if (nbPermState() !== 'default') return; } catch (e) { return; }  // 已授权/已拒绝都不提示
+let p = 'default';
+try { p = nbPermState(); } catch (e) { return; }
+if (p !== 'default' && p !== 'denied') return;   // 已授权 / 本机无通知能力（unsupported）都不在此提示
 if (kaNoticeCool('__nb-perm-note-at', 12 * 3600 * 1000)) return;
 try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
 kaNoticeStamp('__nb-perm-note-at');
-toast('⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
+toast(p === 'denied'
+? '⚠「后台通知」开关开着，但浏览器还挡着本站的通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（允许后自动生效，不用再点开关）\n这是权限限制，不是开关坏了'
+: '⚠「后台通知」开关开着，但浏览器还没给通知权限\n地址栏左侧图标 → 网站设置 → 通知 → 允许（没允许之前，后台消息不会弹窗）\n这是权限限制，不是开关坏了', 7000);
 }
 try {
 if (kaDiedNotice) kaNoticeAfterSplash(tryShowKaDiedNotice);
@@ -1170,17 +1174,32 @@ nbArmRetry(my);
 nbSettlePoke = tick;
 nbSettleTimer = setTimeout(tick, 600);
 }
+let nbRetryTap = null;
+let nbRetryUsed = 0;   // 哪一轮已经用过「下一次点按」这次机会
 function nbArmRetry(my) {
+if (nbRetryTap) {   // 单例：先撤掉上一份（同轮重复收口不得叠加监听）
+try {
+document.removeEventListener('pointerdown', nbRetryTap, true);
+document.removeEventListener('keydown', nbRetryTap, true);
+} catch (e) {}
+nbRetryTap = null;
+}
+if (my !== nbAttempt || !notifyEnabled || nbPermState() !== 'default') return;
+if (nbRetryUsed === my) return;
 const onTap = function () {
 document.removeEventListener('pointerdown', onTap, true);
 document.removeEventListener('keydown', onTap, true);
+if (nbRetryTap === onTap) nbRetryTap = null;
 if (my !== nbAttempt) return;
 const p = nbPermState();
 if (p === 'granted') { nbApplyOn(my); return; }
 if (p === 'denied') { nbHoldOn(my, 'denied'); return; }   // FIX #1014：同上，不回弹
+if (p !== 'default') return;
+nbRetryUsed = my;   // 这一轮的机会用掉了（用户再动一次开关才会换新的一轮）
 requestNotifyPermission(null, function () {}, { quiet: true });
 nbSettleStart(my, true);
 };
+nbRetryTap = onTap;
 document.addEventListener('pointerdown', onTap, true);
 document.addEventListener('keydown', onTap, true);
 }
@@ -1380,16 +1399,17 @@ pills: [{ label: '看到了，顶部弹出', value: 'seen' }, { label: '没看�
 pillSubmit: true
 });
 };
-const bgT2 = { armed: false, sent: false, ok: false, chan: '', reported: false, hideT: null, disarmT: null };
+const bgT2 = { armed: false, sent: false, done: false, ok: false, chan: '', reported: false, hideT: null, disarmT: null };
 const bgT2Arm = function () {
 if (bgT2.armed && !bgT2.sent) return;
-bgT2.armed = true; bgT2.sent = false; bgT2.ok = false; bgT2.chan = ''; bgT2.reported = false;
+if (bgT2.hideT) { clearTimeout(bgT2.hideT); bgT2.hideT = null; }
+bgT2.armed = true; bgT2.sent = false; bgT2.done = false; bgT2.ok = false; bgT2.chan = ''; bgT2.reported = false;
 toast('第二段已就绪：按 Home 把页面切到后台（可锁屏），5 秒后自动发一条；回到本页看结论', 7000);
 if (bgT2.disarmT) clearTimeout(bgT2.disarmT);
 bgT2.disarmT = setTimeout(function () { if (!bgT2.sent) bgT2.armed = false; }, 180000); // 3 分钟没切后台就作废
 };
 const bgT2Report = function () {
-if (!bgT2.armed || !bgT2.sent || bgT2.reported) return;
+if (!bgT2.armed || !bgT2.sent || !bgT2.done || bgT2.reported) return;   // #1017：未落定不下结论
 if (document.visibilityState === 'hidden') return;   // 后台弹的 toast 用户看不见，等回前台再说
 bgT2.reported = true;
 bgT2.armed = false;
@@ -1425,8 +1445,8 @@ bgT2.sent = true;
 try {
 const nm = store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');
 showSysNotification('后台通知测试（后台阶段）', { body: '这条是在页面切到后台之后发出的 · 来自 ' + nm }, function (ch) { bgT2.chan = ch; })
-.then(function (ok) { bgT2.ok = !!ok; bgT2Report(); });
-} catch (e) { bgT2.ok = false; bgT2Report(); }
+.then(function (ok) { bgT2.ok = !!ok; bgT2.done = true; bgT2Report(); });
+} catch (e) { bgT2.ok = false; bgT2.done = true; bgT2Report(); }
 }, 5000);
 return;
 }
