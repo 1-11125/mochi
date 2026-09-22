@@ -806,6 +806,14 @@
   // 同 who、同文本、时间差 ≤1s」的条目——用户自己连回两句一样的话、TA 两次独立回话（间隔都以秒
   // 计）都不会被吞。读侧（卡片经 giftGiftMeta、心意柜经 boxReplies）过滤；写侧 boxAttachReply 顺
   // 手归一化，所以存量数据一旦再有新回复就彻底干净了。
+  // 判据按 who 分档（#1029 附4 收紧：用户实报「卡片里回复变成两条内容且重复」，而旧版那次双写的
+  // 第二笔走的是跨桌面异步链，实测可能隔几秒才落，1 秒窗口会漏）：
+  //  · who='ta'：TA 对**这件礼物**的自动回话设计上只有一条 ⇒ 同文本相邻即视为同一次投递的重复，
+  //    窗口放到 10 分钟（覆盖任何延迟写入），不再要求「1 秒内」。
+  //  · who='me'：我自己写的回复可能有意重复（同一句写两遍）⇒ 只吞 1 秒内的双提交。
+  const GIFT_REPLY_DUP_MS = 1000;
+  const GIFT_REPLY_TA_DUP_MS = 10 * 60 * 1000;
+  function boxReplyDupWindow(who) { return who === 'me' ? GIFT_REPLY_DUP_MS : GIFT_REPLY_TA_DUP_MS; }
   function boxDedupeReplies(list) {
     if (!Array.isArray(list)) return [];
     const out = [];
@@ -814,7 +822,7 @@
       if (!r) continue;
       const prev = out.length ? out[out.length - 1] : null;
       if (prev && prev.who === r.who && String(prev.text) === String(r.text) &&
-          Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= 1000) continue;
+          Math.abs((Number(prev.ts) || 0) - (Number(r.ts) || 0)) <= boxReplyDupWindow(r.who)) continue;
       out.push(r);
     }
     return out;
@@ -1129,8 +1137,7 @@
   // 重复投递一律整条吞掉、只留第一条。为什么要再加这层：boxDedupeReplies 只管记录侧（卡片与心意
   // 柜），聊天气泡不在它的范围内——这条链一旦被触发两次（旧版同拍双写、内核上点按/定时器重复触发），
   // 聊天里就会出现两条一模一样的气泡（用户实报「联系人是直接追加回复了两条，而且是一模一样的，
-  // 就是消息重复了啊」）。判据＝同一件礼物（同一个 giftBoxId）、同 who、同文本、1.5s 内。
-  const GIFT_REPLY_DUP_MS = 1500;
+  // 就是消息重复了啊」）。判据＝同一件礼物（同一个 giftBoxId）、同 who、同文本，窗口见 boxReplyDupWindow。
   function boxReplyDup(cid, boxId, who, text) {
     if (!boxId || !text) return false;
     try {
@@ -1144,7 +1151,7 @@
         const list = boxDedupeReplies(it.replies);
         const last = list.length ? list[list.length - 1] : null;
         if (last && last.who === want && String(last.text) === String(text) &&
-            Math.abs(Date.now() - (Number(last.ts) || 0)) <= GIFT_REPLY_DUP_MS) return true;
+            Math.abs(Date.now() - (Number(last.ts) || 0)) <= boxReplyDupWindow(want)) return true;
         return false;
       }
     } catch (e) {}

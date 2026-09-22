@@ -609,9 +609,12 @@ await sleep(300);
     for (var i = 0; i < box.length; i++) if (box[i].id === e.id) {
       var t = Date.now();
       box[i].replies = [
-        { who:'ta', text:${JSON.stringify(ART)}, ts:t },        // 旧版同拍双写的形态（ts 差 1ms）
+        { who:'ta', text:${JSON.stringify(ART)}, ts:t },          // 旧版同拍双写（ts 差 1ms）
         { who:'ta', text:${JSON.stringify(ART)}, ts:t + 1 },
-        { who:'ta', text:${JSON.stringify(ART)}, ts:t + 60000 } // 防修过头：相隔 60s＝两次独立回话，必须保留
+        { who:'ta', text:${JSON.stringify(ART)}, ts:t + 60000 },  // #1029 附4：跨桌面异步链可能隔几秒才落第二笔，
+                                                                  // TA 对这件礼物设计上只有一条 ⇒ 60s 也按重复吞
+        { who:'me', text:${JSON.stringify(ART)}, ts:t + 60001 },  // 防修过头：我自己写的回复同文本 60s 后仍保留
+        { who:'me', text:${JSON.stringify(ART)}, ts:t + 120000 }
       ];
     }
     s.set('giftbox-items', JSON.stringify(box));
@@ -622,9 +625,9 @@ await sleep(300);
   const meta = J(await evalJs(`(function(){ var m = window.giftGiftMeta(${JSON.stringify(dupId)}); return JSON.stringify(m || null); })()`));
   const dom = J(await cardDom('重复探针')) || {};
   const hits = String(dom.replText || '').split(ART).length - 1;
-  ok(meta && Array.isArray(meta.replies) && meta.replies.length === 2,
-    'B9 存量脏数据：同拍双写的两条按一条算，相隔 60s 的两条独立回话都保留（防修过头）', JSON.stringify(meta && meta.replies));
-  ok(hits === 2, 'B9b 卡片上这句只出现两次（脏重复被吞 + 独立回话照旧）', JSON.stringify({ hits, replText: dom.replText }));
+  ok(meta && Array.isArray(meta.replies) && meta.replies.length === 3,
+    'B9 存量脏数据：TA 这句（同拍双写／隔 60s 的延迟写）都按一条算；我自己写的同文本两条保留（防修过头）', JSON.stringify(meta && meta.replies));
+  ok(hits === 3, 'B9b 卡片上这句出现三次（TA 那侧并成一条 + 我写的两条）', JSON.stringify({ hits, replText: dom.replText }));
   await evalJs(`(function(){ window.giftBoxAttachReply(${JSON.stringify(dupId)}, 'me', '我也想说这句'); return 1; })()`);
   await sleep(400);
   const stored = J(await evalJs(`(function(){
@@ -632,8 +635,8 @@ await sleep(300);
     var e = null; for (var i = 0; i < b.length; i++) if (b[i].id === ${JSON.stringify(dupId)}) e = b[i];
     return JSON.stringify(e ? e.replies : null);
   })()`));
-  ok(Array.isArray(stored) && stored.length === 3,
-    'B9c 写侧自愈：再追加一条后存盘只剩 3 条（脏重复被清除，独立回话与我这条回复都在）', JSON.stringify(stored));
+  ok(Array.isArray(stored) && stored.length === 4,
+    'B9c 写侧自愈：再追加一条后存盘 4 条（脏重复被清除，我写的两条与我这条新回复都在）', JSON.stringify(stored));
 }
 
 // ---- B10：#1029 附3 同一次回话只投一次（写入＋聊天那条消息同一条命）----
