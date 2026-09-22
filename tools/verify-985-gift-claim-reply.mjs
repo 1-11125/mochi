@@ -566,6 +566,25 @@ await sleep(300);
     'B8b 转换后的可见框与取值同源（ce-box 不再吃掉既有值）', JSON.stringify({ box: w && w.boxText, v: w && w.value }));
   await evalJs("(function(){ var b=document.getElementById('gb-cancel'); if(b) b.click(); var m=document.getElementById('tc-mask'); if(m) m.hidden=true; return 1; })()");
   await sleep(400);
+  // B8c 通用护栏（同一根因的其它落点：经期备注 dp-note、我的礼物「默认留言」gm-wish 都是
+  // 「HTML 里写死内容的 textarea ＋ 保存时读 .value」，旧转换器一律回显空框、保存即静默改写/清空）。
+  // 直接注入一个同形态的 textarea，断言转换后可见框与取值都带着那份初始文案。
+  const injected = await evalJs(`(function(){
+    var d = document.createElement('div'); d.id = 'ce-probe-wrap';
+    d.innerHTML = '<textarea id="ce-probe">初始文案在HTML里</textarea>';
+    document.body.appendChild(d); return 1;
+  })()`);
+  await sleep(500);
+  const probe = J(await evalJs(`(function(){
+    var ta = document.getElementById('ce-probe');
+    if (!ta) return JSON.stringify({ missing: true });
+    var box = null;
+    document.querySelectorAll('.ce-box').forEach(function (x) { if (x.dataset && x.dataset.for === 'ce-probe') box = x; });
+    return JSON.stringify({ converted: !!box, boxText: box ? String(box.textContent) : '', value: String(ta.value || '') });
+  })()`));
+  ok(injected === 1 && probe && probe.converted && probe.boxText === '初始文案在HTML里' && probe.value === probe.boxText,
+    'B8c 通用：HTML 里写死内容的 textarea 转换后可见框与取值都在（经期备注/我的礼物默认留言同型）', JSON.stringify(probe));
+  await evalJs("(function(){ var d=document.getElementById('ce-probe-wrap'); if(d && d.parentNode) d.parentNode.removeChild(d); return 1; })()");
   // 复位 UA（后续若加段落仍按默认环境跑）
   await cdp('Emulation.setUserAgentOverride', { userAgent: '' });
   await cdp('Emulation.clearDeviceMetricsOverride');
