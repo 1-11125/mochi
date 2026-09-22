@@ -1548,6 +1548,7 @@
 
   function render() {
     const token = ++renderToken;
+    try { if (window.__mochiPhase) window.__mochiPhase('cc-render'); } catch (e0) {}
     rendering = true;
     renderTabCounts();
     let mediaHelp = document.getElementById('cc-media-help');
@@ -1755,6 +1756,7 @@
   searchResultEl.hidden = true;
   (function () { const w = document.querySelector('#page-chatcard .tc-search-wrap'); if (w && w.parentNode) w.parentNode.insertBefore(searchResultEl, w.nextSibling); })();
   function renderSearchResult(kw) {
+    try { if (window.__mochiPhase) window.__mochiPhase('cc-search'); } catch (e0) {}
     if (!kw) { searchResultEl.hidden = true; searchResultEl.innerHTML = ''; return; }
     searchResultEl.hidden = false;
     kw = window.mochiSearch ? window.mochiSearch.qnorm(kw) : kw; // #573 查询侧标点归一：「晚安。」＝「晚安」
@@ -4623,6 +4625,7 @@
   // 像「数据丢了」。打开管理页=用户正在看这份数据，先按需取回再渲染列表；
   // 只对「被挂起且确实读不到」的键生效，正常设备零等待。
   function hydrateCurScope() {
+    try { if (window.__mochiPhase) window.__mochiPhase('cc-hydrate'); } catch (e0) {}
     if (!window.idbHydrateKey) return Promise.resolve(false);
     try { if (curStore().get(curKey())) return Promise.resolve(false); } catch (e) {}
     // v3.25.x：不再要求键在挂起名单——回填链被打断（iOS 挂后台杀 IDB 连接等）时
@@ -4746,6 +4749,7 @@
     });
   }
   function openCcPage(scope, startTab) {
+    try { if (window.__mochiPhase) window.__mochiPhase('cc-open'); } catch (e0) {}
     // v3.29.x：先落盘上一作用域的未保存变更——原 clearTimeout 会静默丢弃 120ms
     // 防抖窗口内刚上传/编辑的内容（切到另一作用域后刷新即丢）
     flushCcSave();
