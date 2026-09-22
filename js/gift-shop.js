@@ -940,6 +940,51 @@ try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
 };
 const GIFT_REPLY_GENERIC = ['哇，谢谢亲爱的～', '你怎么知道我想要这个！', '收到啦，超喜欢❤', '破费啦，我好好收着', '嘿嘿，被你宠到了', '这份我喜欢，收下啦', '已经摆进心意柜最上层了'];
 const GIFT_REPLY_WISH = ['我的心愿被你实现啦！', '真的买下啦…说好不让你乱花钱的', '许愿时没想过真能收到，谢谢～', '心愿单少了一件，开心值满格', '你记得我的心愿，这个最戳我'];
+const GIFT_REPLY_DUP_MS = 1500;
+function boxReplyDup(cid, boxId, who, text) {
+if (!boxId || !text) return false;
+try {
+const s = boxStoreFor(cid);
+let box = []; try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { return false; }
+if (!Array.isArray(box)) return false;
+const want = who === 'me' ? 'me' : 'ta';
+for (let i = 0; i < box.length; i++) {
+const it = box[i];
+if (!it || it.id !== boxId) continue;
+const list = boxDedupeReplies(it.replies);
+const last = list.length ? list[list.length - 1] : null;
+if (last && last.who === want && String(last.text) === String(text) &&
+Math.abs(Date.now() - (Number(last.ts) || 0)) <= GIFT_REPLY_DUP_MS) return true;
+return false;
+}
+} catch (e) {}
+return false;
+}
+function deliverGiftReply(cid, chatRec, txt, useChatStyle) {
+if (!txt) return false;
+const boxId = chatRec && chatRec.giftBoxId;
+const sameDesk = (window.__activeCid || 'default') === cid;
+if (boxId && boxReplyDup(cid, boxId, 'ta', txt)) return false;   // 这次投递已经投过 → 连聊天那条一起吞
+var wrote = false;
+if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
+}
+try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
+if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
+}
+try { if (boxId && sameDesk && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
+if (sameDesk) {
+if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
+else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
+} else if (window.chatAppendDeskRec) {
+window.chatAppendDeskRec(cid, { side: 'in', text: txt });
+}
+return true;
+}
+window.__giftDeliverReply = function (cid, chatRec, txt, useChatStyle) {
+try { return deliverGiftReply(cid || (window.__activeCid || 'default'), chatRec, txt, useChatStyle); } catch (e) { return false; }
+};
 function giftReplyFeedback(gift, chatRec) {
 const st = wlSettings();
 if (!st.giftReplyOn) return;
@@ -956,23 +1001,7 @@ let txt = '';
 if (useChatStyle && window.genChatStyleReply) txt = String(window.genChatStyleReply() || '').trim();
 if (!txt) txt = preset();
 if (!txt) return;
-var boxId = chatRec && chatRec.giftBoxId;
-var sameDesk = (window.__activeCid || 'default') === cid;
-var wrote = false;
-if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
-try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
-}
-try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
-if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
-try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
-}
-try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
-if ((window.__activeCid || 'default') === cid) {
-if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
-else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
-} else if (window.chatAppendDeskRec) {
-window.chatAppendDeskRec(cid, { side: 'in', text: txt });
-}
+deliverGiftReply(cid, chatRec, txt, useChatStyle);
 } catch (e) {}
 }, randInt(900, 2400));
 }
@@ -1116,8 +1145,11 @@ if (!wishMyAdd(gift)) { toast('已在心愿单里啦'); return; }
 wishBtn.textContent = '✓ 已在心愿单';
 toast('已加入我的心愿单');
 });
+let sentOnce = false;
 if (okBtn) okBtn.addEventListener('click', function () {
+if (sentOnce) return;
 const wish = (wishEl && wishEl.value || '').trim() || (gift.wish || '心意');
+sentOnce = true;
 if (buyAndSend(gift, 'out', wish)) {
 wishTaRemove(gift.id);
 closeTc(); if (!chatOnScreen()) toast('已送出');

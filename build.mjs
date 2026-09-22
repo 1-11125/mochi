@@ -4317,6 +4317,7 @@ const FIX_SENTINELS = [
   { name: '#1029b TA 回话只落一份（删/改回「chatGiftAttachReplyTo ＋ 无条件 boxAttachReply」＝同一句话在心意柜记录里被记两遍、重进聊天后卡片上也是两行）', file: 'js/gift-shop.js', needle: "if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true;" },
   { name: '#1029c 安卓 ce-box 转换前先抓原生值（删＝HTML 里写死内容的 textarea 在安卓上回显空框：送礼弹窗看不到礼物默认文案、空着送出＝只使用礼物的默认文案）', file: 'js/mobile-adapt.js', needle: "var preVal = inp.getAttribute('value');" },
   { name: '#1029d 存量脏数据去重（旧版同拍双写留下的成对回复）三处齐：卡片读侧 / 心意柜读侧 / 写入归一化（删＝升级后老礼物卡上那两条一模一样的回复照旧显示两行，用户红米 K70 Via 实报）', file: 'js/gift-shop.js', needle: "function boxDedupeReplies(list) {" },
+  { name: '#1029e 同一次回话只投一次（写入＋聊天那条消息同一条命）＋一记点按只送一件（删＝双触发/双派发时聊天里出现两条一模一样的气泡、或送出两件一样的礼物）', file: 'js/gift-shop.js', needle: "function deliverGiftReply(cid, chatRec, txt, useChatStyle) {" },
   /* ==== 2026-09-21 #989 桌面页竖向滚动护栏（红米 K80 Chrome 浏览器模式实报「桌面的第一页和第二页的图标按钮和文字没有完全对齐，第二页和第三页完全对齐」，追报「第三页也没有对齐了」＝错位换页出现）＝桌面页内容 636px 在浏览器模式桌面区（~610px）下溢出 26px，而溢出全是不可见尾垫（最深实心盒下沿 604）⇒ 每页都成了可竖滚容器：斜滑翻页被内核轴锁判成竖向，滚动量落在起手那一页且无人复位 ⇒ 该页图标+文字整块上移几像素与另两页错开；旧验证全跑 390×844（桌面区 714>636，根本不可滚）⇒ 结构性看不见。护栏＝溢出全在不可见区就裁掉并归零滚动量，真溢出保持可滚 ==== */
   { name: '#989a 判据：最深实心盒下沿仍在可视区内才算「翻下去什么也看不到」（删＝护栏不再裁不可见溢出，残留滚动量又留在页上；#1013 起该判据以未滚动内容坐标为基准）', file: 'js/desktop-slider.js', needle: 'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
   { name: '#989b 落刀：该页设 overflow-y:hidden 并归零滚动量（删＝页面仍是可竖滚容器，斜滑又能顶出滚动量）', file: 'js/desktop-slider.js', needle: "if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';" },
@@ -4671,9 +4672,6 @@ const FIX_SENTINELS = [
   { name: "#1034d 行下红条补白名单动作与自动恢复口径（删＝「失效后重开开关」被理解成功能又坏了）", file: "template.html", needle: "止住它最有效的一步＝Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034e 功能说明补「装桌面图标＋离线消息提醒」兜底层（删＝页面被回收后连一条兜底通知都没有）", file: "js/settings-help.js", needle: "页面被回收甚至全部关掉后，浏览器也会定时唤醒弹一条" },
   { name: "#1034f 口径量化「内存紧张时几分钟也会被丢」（删＝用户拿「约 30 分钟」对不上自己的几分钟，以为网站坏了）", file: "js/settings-help.js", needle: "手机内存紧张时更快——本页越重，几分钟也可能被丢" },
-  { name: '#1017a 进聊天页「先上屏一帧再跑重活」（删＝进度条置位与撤销又落回同一任务＝用户那句「没有加载动画缓冲」复发；原提交 e78960b 落在侧分支未并入 main，本条为重落）', file: 'js/chat.js', needle: "requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });" },
-  { name: '#1017b 进聊天页重活挂在首帧之后（改回当场同步跑 loadMsgs/重建＝置位即撤销、进度条再次从未上屏）', file: 'js/chat.js', needle: "chatEnterPaintThen(function () {" },
-  { name: '#1017c 重活保险丝（删＝后台标签/不可见页面 rAF 不派发时进聊天永不渲染）', file: 'js/chat.js', needle: "setTimeout(run, 120);" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

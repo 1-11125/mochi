@@ -1125,6 +1125,61 @@
   // + giftReplyMode 内容来源（0=系统预设话术 / 1=和正常聊天一样回复 / 2=混合，默认 1）。
   // 聊天式那一档走 window.genChatStyleReply（与互动卡「接聊天字卡」同一管线：字卡→兜底→词典拼字），
   // 生成失败回落到预设池，绝不发空气泡。
+  // #1029 附3：同一次回话只投一次。写入（礼物卡＋心意柜）与**聊天里那条消息**算同一次投递，
+  // 重复投递一律整条吞掉、只留第一条。为什么要再加这层：boxDedupeReplies 只管记录侧（卡片与心意
+  // 柜），聊天气泡不在它的范围内——这条链一旦被触发两次（旧版同拍双写、内核上点按/定时器重复触发），
+  // 聊天里就会出现两条一模一样的气泡（用户实报「联系人是直接追加回复了两条，而且是一模一样的，
+  // 就是消息重复了啊」）。判据＝同一件礼物（同一个 giftBoxId）、同 who、同文本、1.5s 内。
+  const GIFT_REPLY_DUP_MS = 1500;
+  function boxReplyDup(cid, boxId, who, text) {
+    if (!boxId || !text) return false;
+    try {
+      const s = boxStoreFor(cid);
+      let box = []; try { box = JSON.parse(s.get(BOX_KEY) || '[]'); } catch (e) { return false; }
+      if (!Array.isArray(box)) return false;
+      const want = who === 'me' ? 'me' : 'ta';
+      for (let i = 0; i < box.length; i++) {
+        const it = box[i];
+        if (!it || it.id !== boxId) continue;
+        const list = boxDedupeReplies(it.replies);
+        const last = list.length ? list[list.length - 1] : null;
+        if (last && last.who === want && String(last.text) === String(text) &&
+            Math.abs(Date.now() - (Number(last.ts) || 0)) <= GIFT_REPLY_DUP_MS) return true;
+        return false;
+      }
+    } catch (e) {}
+    return false;
+  }
+  function deliverGiftReply(cid, chatRec, txt, useChatStyle) {
+    if (!txt) return false;
+    const boxId = chatRec && chatRec.giftBoxId;
+    const sameDesk = (window.__activeCid || 'default') === cid;
+    if (boxId && boxReplyDup(cid, boxId, 'ta', txt)) return false;   // 这次投递已经投过 → 连聊天那条一起吞
+    var wrote = false;
+    if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+      try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
+    }
+    try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
+    if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
+      try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
+    }
+    try { if (boxId && sameDesk && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
+    if (sameDesk) {
+      // 聊天式那档带「正在输入…」过渡，观感与普通回复一致（同红包领后捎话）
+      if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
+      else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
+    } else if (window.chatAppendDeskRec) {
+      // 投递延迟窗里切了桌面：回应属于原桌面的聊天，切回即可见（同 deliverInGift 跨桌面补投口径）
+      window.chatAppendDeskRec(cid, { side: 'in', text: txt });
+    }
+    return true;
+  }
+  // 回归脚本入口（同 window.chatAddInTyped 口径）：产品里没有任何入口能对同一件礼物重复投递，
+  // 所以「同一次只发一次」这条只能从这里驱动验证。
+  window.__giftDeliverReply = function (cid, chatRec, txt, useChatStyle) {
+    try { return deliverGiftReply(cid || (window.__activeCid || 'default'), chatRec, txt, useChatStyle); } catch (e) { return false; }
+  };
+
   function giftReplyFeedback(gift, chatRec) {
     const st = wlSettings();
     if (!st.giftReplyOn) return;
@@ -1149,25 +1204,7 @@
         // 同样的两行（用户视角＝「一句话被记了两遍」）。现在：同一桌面交给 chatGiftAttachReplyTo
         // （写柜＋就地补卡片），它认不出那张卡时才按已知的 giftBoxId 兜底写柜；已切桌面时直接用
         // giftBoxId 写柜（卡片下次渲染从柜里读，照样看得见），不再多走一趟跨桌面读改写。
-        var boxId = chatRec && chatRec.giftBoxId;
-        var sameDesk = (window.__activeCid || 'default') === cid;
-        var wrote = false;
-        if (sameDesk && window.chatGiftAttachReplyTo && chatRec) {
-          try { wrote = window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec) === true; } catch (eRA) {}
-        }
-        try { if (!wrote && boxId) wrote = boxAttachReply(cid, boxId, 'ta', txt) === true; } catch (eRB) {}
-        if (!wrote && !sameDesk && window.chatGiftAttachReplyTo && chatRec) {
-          try { window.chatGiftAttachReplyTo(cid, chatRec.ts, 'ta', txt, chatRec); } catch (eRD) {}
-        }
-        try { if (boxId && (window.__activeCid || 'default') === cid && window.giftBoxLiveRefresh) window.giftBoxLiveRefresh(); } catch (eRC) {}
-        if ((window.__activeCid || 'default') === cid) {
-          // 聊天式那档带「正在输入…」过渡，观感与普通回复一致（同红包领后捎话）
-          if (useChatStyle && window.chatAddInTyped) window.chatAddInTyped(txt, { silent: true });
-          else if (window.chatAddIn) window.chatAddIn(txt, { silent: true });
-        } else if (window.chatAppendDeskRec) {
-          // 投递延迟窗里切了桌面：回应属于原桌面的聊天，切回即可见（同 deliverInGift 跨桌面补投口径）
-          window.chatAppendDeskRec(cid, { side: 'in', text: txt });
-        }
+        deliverGiftReply(cid, chatRec, txt, useChatStyle);
       } catch (e) {}
     }, randInt(900, 2400));
   }
@@ -1352,8 +1389,13 @@
       wishBtn.textContent = '✓ 已在心愿单';
       toast('已加入我的心愿单');
     });
+    // #1029 附3：一记点按只送一件——部分国产内核/触屏上同一次点按会派发两次 click（同 #1017 实测
+    // 一记点按触发两次的口径），那会送出两件一模一样的礼物、顺带换来两句一模一样的 TA 回话。
+    let sentOnce = false;
     if (okBtn) okBtn.addEventListener('click', function () {
+      if (sentOnce) return;
       const wish = (wishEl && wishEl.value || '').trim() || (gift.wish || '心意');
+      sentOnce = true;
       if (buyAndSend(gift, 'out', wish)) {
         // 任何途径买下 TA 正许愿的礼物都算心愿兑现：送出即从 TA 心愿单移除（礼物进 TA 的心意柜「收到的」）
         wishTaRemove(gift.id);

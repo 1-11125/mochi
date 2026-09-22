@@ -112,6 +112,11 @@ console.log('S 层：源码口径');
   // #1029 附：历史脏数据（旧版同拍双写）去重口径必须三处齐
   ok(/function boxDedupeReplies\(list\) \{/.test(gs) && /replies: boxDedupeReplies\(it\.replies\)/.test(gs) && /boxDedupeReplies\(it\.replies\.filter/.test(gs) && /it\.replies = boxDedupeReplies\(it\.replies\);/.test(gs),
     'S31 回复去重三处齐（卡片读侧 / 心意柜读侧 / 写入归一化）——删＝同拍双写留在存量记录里的两条又在卡片上显示两行');
+  // #1029 附3：同一次回话只投一次（写入＋聊天消息同一条命）＋ 一次点按只送一件
+  ok(/function deliverGiftReply\(cid, chatRec, txt, useChatStyle\) \{/.test(gs) &&
+     /if \(boxId && boxReplyDup\(cid, boxId, 'ta', txt\)\) return false;/.test(gs) &&
+     /window\.__giftDeliverReply = function/.test(gs) && /if \(sentOnce\) return;/.test(gs),
+    'S32 同一次回话只投一次＋一次点按只送一件（删＝双触发时聊天里出现两条一模一样的气泡）');
 }
 
 // ---------------- B 层：无头 Chrome 行为 ----------------
@@ -629,6 +634,37 @@ await sleep(300);
   })()`));
   ok(Array.isArray(stored) && stored.length === 3,
     'B9c 写侧自愈：再追加一条后存盘只剩 3 条（脏重复被清除，独立回话与我这条回复都在）', JSON.stringify(stored));
+}
+
+// ---- B10：#1029 附3 同一次回话只投一次（写入＋聊天那条消息同一条命）----
+// 用户实报「联系人是直接追加回复了两条，而且是一模一样的，就是消息重复了啊」——记录侧已有去重，
+// 但**聊天里那条气泡**不在其范围内；这里直接驱动投递链（产品里没有第二个入口能对同一件礼物重复投），
+// 断言：同内容重放整条被吞（聊天也只有一条），换内容照常投（防修过头）。
+{
+  const T1 = '同一次投递只该有一条';
+  const T2 = '换了内容就该是第二条';
+  const onceId = await evalJs(`(function(){
+    var g = { id:'g_once_probe', name:'一次探针', emoji:'\\uD83C\\uDF81', img:'', price:9, cat:'gcare', wish:'探针文案' };
+    var e = window.recordGiftBox(g, 'in', g.wish);
+    return e.id;
+  })()`);
+  const R = JSON.stringify({ side: 'in', special: 'gift', giftBoxId: onceId, ts: Date.now() });
+  const call = (txt) => evalJs(`window.__giftDeliverReply('default', ${R}, ${JSON.stringify(txt)}, false)`);
+  const chatN = (txt) => evalJs(`(function(){ var s=window.activeStore(); var msgs=[]; try{msgs=JSON.parse(s.get('chat-msgs')||'[]');}catch(e){} return msgs.filter(function(m){return m&&m.side==='in'&&!m.special&&String(m.text)===${JSON.stringify(txt)};}).length; })()`);
+  const boxN = (txt) => evalJs(`(function(){ var s=window.activeStore(); var box=[]; try{box=JSON.parse(s.get('giftbox-items')||'[]');}catch(e){} var e=null; for(var i=0;i<box.length;i++) if(box[i].id===${JSON.stringify(onceId)}) e=box[i]; return e&&Array.isArray(e.replies)? e.replies.filter(function(r){return String(r.text)===${JSON.stringify(txt)};}).length : -1; })()`);
+  const r1 = await call(T1);
+  const r2 = await call(T1);                     // 立即重放同一次投递
+  await waitFor(async () => (await chatN(T1)) >= 1, 6000);
+  const r3 = await call(T2);                     // 换内容
+  await waitFor(async () => (await chatN(T2)) >= 1, 6000);
+  await sleep(500);
+  const c1 = await chatN(T1), c2 = await chatN(T2), b1 = await boxN(T1), b2 = await boxN(T2);
+  ok(r1 === true && r2 === false,
+    'B10 同一次回话重放被整条吞掉（第二次返回 false）', JSON.stringify({ r1, r2 }));
+  ok(c1 === 1 && b1 === 1,
+    'B10b 聊天里只有一条、心意柜里也只有一条（改前会在聊天里留下两条一模一样的气泡）', JSON.stringify({ c1, b1 }));
+  ok(r3 === true && c2 === 1 && b2 === 1,
+    'B10c 换了内容照常投第二条（防修过头）', JSON.stringify({ r3, c2, b2 }));
   // 复位 UA（后续若加段落仍按默认环境跑）
   await cdp('Emulation.setUserAgentOverride', { userAgent: '' });
   await cdp('Emulation.clearDeviceMetricsOverride');
