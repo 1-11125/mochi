@@ -495,6 +495,12 @@ arr.sort(function (a, b) { return b.len - a.len; });
 return { n: arr.length, bytes: total, top: arr.slice(0, topN || 6) };
 } catch (e) { return { n: 0, bytes: 0, top: [] }; }
 };
+window.idbMemoDrop = function (key) {
+try {
+if (memoryCache) delete memoryCache[key];
+if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
+} catch (e) {}
+};
 window.idbGetCached = function (key) {
 if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
 return undefined;

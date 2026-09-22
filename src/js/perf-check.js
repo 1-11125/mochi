@@ -295,11 +295,16 @@
                 // #907 冻结归因：回查冻结起点（wall 时钟≈现在−d）之前最近一条相位标记——
                 // 「冻结前最后在做什么」直接点名（大键写 IDB／小键写日志／聊天落盘／表情包落盘…）
                 try {
-                  var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)';
+                  var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)', _dl = -1;
                   var _startWall = Date.now() - Math.round(d);
-                  for (var _pi = _pl.length - 1; _pi >= 0; _pi--) { if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; break; } }
+                  for (var _pi = _pl.length - 1; _pi >= 0; _pi--) {
+                    if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; _dl = _startWall - _pl[_pi].t; break; }
+                  }
                   if (!rep.fzBy) rep.fzBy = {};
                   rep.fzBy[_hit] = (rep.fzBy[_hit] || 0) + 1;
+                  // #960 续：记「标记距冻结起点的时间差」——高频标记（如保活 5s 拍）天然最常出现在
+                  // 冻结前；只有差值接近 0（冻结紧跟该标记后）才是因果证据，差几秒只是恰好排在前面。
+                  if (_dl >= 0) { if (!rep.fzD) rep.fzD = {}; (rep.fzD[_hit] = rep.fzD[_hit] || []).push(_dl); if (rep.fzD[_hit].length > 60) rep.fzD[_hit].shift(); }
                 } catch (e7) {}
               }
               rep.janky++;
@@ -363,7 +368,11 @@
     if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
     // #906：后台/锁屏占比过高时点名——剔除机制保证判定不受污染，但占比太高＝测的不是刚才的卡
     // #934：占比改按「实测时长」算（原＝冻结段数与有效帧数比大小，量纲不同＝恒不触发）
-    if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
+    // #975：窗口有效性判定——前台有效时间太少（整段被系统挂起/杀掉）时结论不可用，
+    // 不能给「中度 x%」这类会误导的判定（真机实测：60s 窗口前台不足 1 秒、最慢一帧 20118ms＝被回收）
+    var _fgMs = Math.max(0, (r.ms || 0) - (r.bgMs || 0));
+    if (r.ms > 0 && _fgMs < r.ms * 0.2) L.push('· ⚠ 本次窗口前台有效时间仅 ' + Math.round(_fgMs / 1000) + ' 秒（其余在后台/被系统挂起），**结论不可用**——请保持亮屏、在应用内操作时重测');
+    if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + Math.min(100, pct(r.bgMs, r.ms)) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
     // #961：系统回收（内存压力＝白屏/重载实锤）——与是否掉帧无关，独立成行
     try {
       var _kp3 = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
@@ -378,7 +387,16 @@
       if (r.fzBy) {
         var _fk = Object.keys(r.fzBy).sort(function (a, b) { return r.fzBy[b] - r.fzBy[a]; }).slice(0, 4);
         if (_fk.length && r.fzBy[_fk[0]] > 0) {
-          L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) { return k + ' ×' + r.fzBy[k]; }).join('、'));
+          L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) {
+            var ds = (r.fzD && r.fzD[k]) || [];
+            var med = '';
+            if (ds.length) {
+              var sd = ds.slice().sort(function (a, b) { return a - b; });
+              med = '（距冻结起点中位 ' + sd[Math.floor(sd.length / 2)] + 'ms' + (sd[Math.floor(sd.length / 2)] <= 150 ? '·紧邻＝高危' : '·较远＝仅是最后一条标记') + '）';
+            }
+            return k + ' ×' + r.fzBy[k] + med;
+          }).join('、'));
+          L.push('  （判读：中位差值 ≤150ms 才说明冻结紧跟该操作＝真凶；差几秒的只是高频标记恰好排在最后）');
         }
       }
       if (concOk(r)) {

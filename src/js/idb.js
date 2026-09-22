@@ -702,6 +702,15 @@
       return { n: arr.length, bytes: total, top: arr.slice(0, topN || 6) };
     } catch (e) { return { n: 0, bytes: 0, top: [] }; }
   };
+  // #975：内存副本释放口——大键（朋友圈 feed-posts 32MB、自动备份快照 17MB…）在 memoryCache 里
+  // 常驻，是 iOS「内存压力→回收页面」的主因（iPhone 17 实测常驻 66MB / 被回收 93 次）。
+  // 本接口只丢内存副本（LS/IDB 持久层不动）：切后台时释放、回来按需从 IDB 重读。
+  window.idbMemoDrop = function (key) {
+    try {
+      if (memoryCache) delete memoryCache[key];
+      if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
+    } catch (e) {}
+  };
   window.idbGetCached = function (key) {
     if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
     return undefined;

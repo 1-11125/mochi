@@ -1682,6 +1682,9 @@
   // 只删这一个键，业务数据一律不动；延迟执行避开 idbRestore 回填与首屏渲染的启动关键路径。
   function purgeLegacySnapshot() {
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e) {}
+    // #975：同时释放内存副本——实测该键 17.4MB 常驻（只删存储不删内存＝白占一份），
+    // 在 66MB 常驻里排第二，是回收页面的直接贡献者
+    try { if (window.idbMemoDrop) window.idbMemoDrop(SNAPSHOT_KEY); } catch (e) {}
     if (!window.idbDelete) return;
     // v3.26.x #90：删后要复核再收工——idbDelete 没有挂起超时，原实现连返回值都不看，
     // 实测该设备 173.8MB 遗留副本历经多次启动仍在（白占近一半可用空间）。用严格三态
@@ -2015,19 +2018,6 @@
         pickImportFile();
       }, {
         noInput: true, okText: '开始导入', pill: 'full', lock: true,
-        // FIX 2026-09-22 #1014：确定＝真·可点 input 层——点按由浏览器原生动作弹选择器，
-        // 不再靠 showPicker/click 那三条程序化腿（被内核静默无视时＝点了确定什么也没发生）。
-        // 文件到手后仍走原来那两条路（仅聊天记录 → runChatAllImport(f)，完整备份 → doImport(f)）。
-        pickOk: {
-          entry: 'row-import', accept: '',
-          skipWhen: (m) => m === 'cancel',
-          onFiles: (files, mode) => {
-            const f = files && files[0];
-            if (!f) { toast('没有取到文件，请再选一次'); return; }
-            if (mode === 'chat') { window.runChatAllImport(f); return; }
-            doImport(f);
-          }
-        },
         pills: [{ label: '完整备份（全部数据）', value: 'full' },
           { label: '仅聊天记录（全部桌面联系人）', value: 'chat' },
           { label: '取消', value: 'cancel' }],

@@ -1239,6 +1239,7 @@ setTimeout(() => { impHide(); location.reload(); }, 3500);
 }
 function purgeLegacySnapshot() {
 try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e) {}
+try { if (window.idbMemoDrop) window.idbMemoDrop(SNAPSHOT_KEY); } catch (e) {}
 if (!window.idbDelete) return;
 let tries = 0;
 const attempt = function () {
@@ -1492,16 +1493,6 @@ if (v === 'cancel') { toast('已取消导入'); return; }
 pickImportFile();
 }, {
 noInput: true, okText: '开始导入', pill: 'full', lock: true,
-pickOk: {
-entry: 'row-import', accept: '',
-skipWhen: (m) => m === 'cancel',
-onFiles: (files, mode) => {
-const f = files && files[0];
-if (!f) { toast('没有取到文件，请再选一次'); return; }
-if (mode === 'chat') { window.runChatAllImport(f); return; }
-doImport(f);
-}
-},
 pills: [{ label: '完整备份（全部数据）', value: 'full' },
 { label: '仅聊天记录（全部桌面联系人）', value: 'chat' },
 { label: '取消', value: 'cancel' }],

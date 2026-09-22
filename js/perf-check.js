@@ -195,11 +195,14 @@ var fz = d > BG_GAP ? 1 : 0;
 if (fz) {
 rep.fz++; if (d > rep.fzWorst) rep.fzWorst = Math.round(d);
 try {
-var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)';
+var _pl = window.__mochiPhaseLog || [], _hit = '(无标记)', _dl = -1;
 var _startWall = Date.now() - Math.round(d);
-for (var _pi = _pl.length - 1; _pi >= 0; _pi--) { if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; break; } }
+for (var _pi = _pl.length - 1; _pi >= 0; _pi--) {
+if (_pl[_pi].t <= _startWall) { _hit = _pl[_pi].tag; _dl = _startWall - _pl[_pi].t; break; }
+}
 if (!rep.fzBy) rep.fzBy = {};
 rep.fzBy[_hit] = (rep.fzBy[_hit] || 0) + 1;
+if (_dl >= 0) { if (!rep.fzD) rep.fzD = {}; (rep.fzD[_hit] = rep.fzD[_hit] || []).push(_dl); if (rep.fzD[_hit].length > 60) rep.fzD[_hit].shift(); }
 } catch (e7) {}
 }
 rep.janky++;
@@ -253,7 +256,9 @@ majors.sort(function (a, b) { return b[1] - a[1]; });
 var mtxt = majors.slice(0, 2).map(function (m) { return pageName(m[0]) + ' ' + pct(m[1], r.frames) + '%'; }).join('、');
 if (mtxt) L.push('· 采样期间主要在：' + mtxt);
 if (r.frames < 120) L.push('· 有效样本偏少（可能大部分时间在后台），建议亮屏状态下重测');
-if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + pct(r.bgMs, r.ms) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
+var _fgMs = Math.max(0, (r.ms || 0) - (r.bgMs || 0));
+if (r.ms > 0 && _fgMs < r.ms * 0.2) L.push('· ⚠ 本次窗口前台有效时间仅 ' + Math.round(_fgMs / 1000) + ' 秒（其余在后台/被系统挂起），**结论不可用**——请保持亮屏、在应用内操作时重测');
+if (r.frames > 0 && r.bgMs > r.ms * 0.5) L.push('· 采样期间约 ' + Math.min(100, pct(r.bgMs, r.ms)) + '% 时间在后台/锁屏（已剔除、不影响判定）；想测刚才的卡，建议亮屏状态下重测');
 try {
 var _kp3 = (typeof window.__kaProbe === 'function') ? window.__kaProbe() : null;
 var _diedN = (_kp3 && _kp3.ev) ? (_kp3.ev.died || 0) : 0;
@@ -265,7 +270,16 @@ if (r.fz > 0) L.push('· 前台冻结 ' + r.fz + ' 次（亮屏下主线程被�
 if (r.fzBy) {
 var _fk = Object.keys(r.fzBy).sort(function (a, b) { return r.fzBy[b] - r.fzBy[a]; }).slice(0, 4);
 if (_fk.length && r.fzBy[_fk[0]] > 0) {
-L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) { return k + ' ×' + r.fzBy[k]; }).join('、'));
+L.push('· 冻结前序操作（取证）：' + _fk.map(function (k) {
+var ds = (r.fzD && r.fzD[k]) || [];
+var med = '';
+if (ds.length) {
+var sd = ds.slice().sort(function (a, b) { return a - b; });
+med = '（距冻结起点中位 ' + sd[Math.floor(sd.length / 2)] + 'ms' + (sd[Math.floor(sd.length / 2)] <= 150 ? '·紧邻＝高危' : '·较远＝仅是最后一条标记') + '）';
+}
+return k + ' ×' + r.fzBy[k] + med;
+}).join('、'));
+L.push('  （判读：中位差值 ≤150ms 才说明冻结紧跟该操作＝真凶；差几秒的只是高频标记恰好排在最后）');
 }
 }
 if (concOk(r)) {

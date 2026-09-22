@@ -176,39 +176,6 @@ let v = s.get('feed-user-avatar') || store.get('feed-user-avatar') || myAv();
 if (v && typeof v === 'string' && v.length > 500 * 1024) return '';
 return v || '';
 }
-function sweepFeedNameSnapshots(role, cid, prevName, newName) {
-try {
-const list = load();
-let dirty = false;
-const mine = (x) => !!x && (x.role || x.by) === role
-&& ((x.owner || 'default') === cid || (role === 'me' && x.owner === 'me'));
-const fixTree = (arr) => {
-(arr || []).forEach(x => {
-if (!x) return;
-if (mine(x) && x.authorName && x.authorName !== newName) { x.authorName = newName; dirty = true; }
-if (Array.isArray(x.replies)) fixTree(x.replies);
-});
-};
-list.forEach(p => {
-if (!p) return;
-if (role === 'ta' && (p.owner || 'default') === cid && p.taName === prevName && prevName !== newName) { p.taName = newName; dirty = true; }
-fixTree(p.comments);
-fixTree(p.stickers);
-if (Array.isArray(p.likes) && prevName && prevName !== newName) {
-for (let i = 0; i < p.likes.length; i++) {
-if (p.likes[i] === prevName) { p.likes[i] = newName; dirty = true; }
-}
-}
-if (mine(p) && p.authorName && p.authorName !== newName) { p.authorName = newName; dirty = true; }
-});
-if (dirty) save(list);
-return dirty;
-} catch (e) { return false; }
-}
-function rerenderFeedAfterRename() {
-try { const fa = document.getElementById('page-feed-all'); if (fa && !fa.hidden) { renderFeedAll(); } else render(); } catch (e) {}
-try { const ff = document.getElementById('page-feed-friends'); if (ff && !ff.hidden) renderFeedFriends(); } catch (e) {}
-}
 function toast(msg) {
 let t = document.getElementById('cc-toast');
 if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -369,7 +336,12 @@ snapTimer = setTimeout(() => { flushSnap(); }, 800);
 }
 try {
 window.addEventListener('pagehide', function () { flushFeedWrite(); flushSnap(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { flushFeedWrite(); flushSnap(); } });
+document.addEventListener('visibilitychange', () => {
+if (document.visibilityState === 'hidden') {
+flushFeedWrite(); flushSnap();
+try { feedMem = null; if (window.idbMemoDrop) window.idbMemoDrop('feed-posts'); } catch (e) {}
+}
+});
 } catch (e) {}
 const FEED_WRITE_MIN_GAP = 2500;   // 两次实际落盘的最小间隔（ms）
 let feedWriteTimer = null;         // 排队中标记（rIdle/timeout）
@@ -652,7 +624,6 @@ const myNameStr = feedUserName();
 if (myAvEl) {
 myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
 try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(myAvEl, feedAvPickInput); } catch (e) {}
-try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(myAvEl, { id: 'feed-myav-tap', accept: 'image/*', owner: feedAvPickInput }); } catch (e) {}
 }
 if (myNameEl) myNameEl.textContent = myNameStr;
 const cover = document.getElementById('feed-cover');
@@ -668,11 +639,7 @@ cover.classList.remove('has-bg');
 }
 }
 function compressImage(file, cb) {
-let done = false;
-const once = (v) => { if (done) return; done = true; clearTimeout(timer); cb(v); };
-const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);
 const reader = new FileReader();
-reader.onerror = () => { toast('图片读取失败'); once(null); };
 reader.onload = (ev) => {
 const img = new Image();
 img.onload = () => {
@@ -685,9 +652,9 @@ w = Math.round(w * r); h = Math.round(h * r);
 const cv = document.createElement('canvas');
 cv.width = w; cv.height = h;
 cv.getContext('2d').drawImage(img, 0, 0, w, h);
-once(cv.toDataURL('image/jpeg', 0.82));
+cb(cv.toDataURL('image/jpeg', 0.82));
 };
-img.onerror = () => { toast('图片读取失败'); once(null); };
+img.onerror = () => { toast('图片读取失败'); };
 img.src = ev.target.result;
 };
 reader.readAsDataURL(file);
@@ -1175,7 +1142,6 @@ const list = load();
 const p = list.find(x => x.id === pid);
 if (!p) { toast('这条动态不存在了'); return; }
 p.stickers = Array.isArray(p.stickers) ? p.stickers : [];
-if (p.stickers.length >= 5) { toast('这条动态上贴纸够多啦（最多 5 张）'); return; }
 const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
 ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
 : feedRandStickerPos();
@@ -1190,7 +1156,6 @@ const l2 = load();
 const p2 = l2.find(x => x.id === pid);
 if (!p2) return;
 p2.stickers = Array.isArray(p2.stickers) ? p2.stickers : [];
-if (p2.stickers.length >= 5) return;
 const taSt = feedTaPickSticker();
 const pos2 = feedRandStickerPos();
 const nm = p2.taName || taFeedNameFor(cid);
@@ -1385,7 +1350,6 @@ const comInput = document.getElementById('feed-comment-input');
 const comSend = document.getElementById('feed-comment-send');
 const comSticker = document.getElementById('feed-comment-sticker');
 const comImg = document.getElementById('feed-comment-img');
-if (comImg && window.mochiFilePickSurface) window.mochiFilePickSurface(comImg, { id: 'feed-com-tap', accept: 'image/*', owner: 'mochi-com-img-pick' });
 if (comInput) comInput.dataset.ceDone = '1';
 let comPid = null;
 let comReplyTarget = null; // v3.5.58：回复模式 { pid, ci }
@@ -1629,7 +1593,7 @@ if (comSticker) comSticker.addEventListener('click', (e) => { e.stopPropagation(
 let comImgBusy = false;
 if (comImg) {
 comImg.addEventListener('click', (e) => {
-if (!(e.target && e.target.closest && e.target.closest('input[data-file-pick-surface]'))) e.preventDefault();
+e.preventDefault();
 e.stopPropagation();
 if (comImgBusy) return;
 comImgBusy = true;
@@ -1852,7 +1816,6 @@ if (window.viewChatImage) window.viewChatImage(t.src);
 const feedInput = document.getElementById('feed-input');
 if (feedInput) feedInput.dataset.ceDone = '1';
 const pickBtn = document.getElementById('feed-pick-img');
-if (pickBtn && window.mochiFilePickSurface) window.mochiFilePickSurface(pickBtn, { id: 'feed-pick-tap', accept: 'image/*', multiple: true, owner: 'dev-feed-pick-img' });
 const preview = document.getElementById('feed-preview');
 let pickedImgs = [];
 const MAX_PICK = 9;
@@ -1890,7 +1853,6 @@ if (!files.length) return;
 if (pickedImgs.length + files.length > MAX_PICK) { toast('最多发布 ' + MAX_PICK + ' 张图片'); }
 files.slice(0, MAX_PICK - pickedImgs.length).forEach(f => {
 compressImage(f, (dataUrl) => {
-if (!dataUrl) return;
 pickedImgs.push(dataUrl);
 renderPreview();
 });
@@ -1910,7 +1872,6 @@ onFiles: (files) => {
 const f = files && files[0];
 if (!f) return;
 compressImage(f, (dataUrl) => {
-if (!dataUrl) return;
 window.activeStore().set('feed-cover-bg', dataUrl);
 renderCover();
 toast('朋友圈背景已更新');
@@ -1961,12 +1922,10 @@ toast('朋友圈头像已更新');
 img.onerror = () => toast('图片读取失败');
 img.src = reader.result;
 };
-reader.onerror = () => toast('图片读取失败');
 reader.readAsDataURL(f);
 };
 if (coverAvEl) {
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
-if (window.mochiFilePickSurface) window.mochiFilePickSurface(coverAvEl, { id: 'feed-myav-tap', accept: 'image/*', owner: feedAvPickInput });
 coverAvEl.addEventListener('click', (e) => {
 e.stopPropagation();
 var _fb = () => { window.mochiFilePickFire(feedAvPickInput, { onFail: () => toast('无法打开相册，请重试') }); };
@@ -1981,11 +1940,8 @@ if (window.openModal) {
 window.openModal('修改朋友圈昵称', window.activeStore().get('feed-user-name') || window.activeStore().get('lbl-user') || '我', (v) => {
 const val = (v || '').trim();
 if (val) {
-const prev = feedUserName();
 window.activeStore().set('feed-user-name', val);
-sweepFeedNameSnapshots('me', window.__activeCid || 'default', prev, val);
 renderCover();
-rerenderFeedAfterRename();
 toast('朋友圈昵称已更新');
 }
 }, { maxlength: 12 });
@@ -2140,7 +2096,6 @@ return;
 if (window.chatAppendToDeskMsg) { window.chatAppendToDeskMsg(cid, taName + ' 发布了一条朋友圈动态'); }
 }
 function maybeAutoPostFor(cid) {
-if (window.nightModeActive && window.nightModeActive()) return;
 try {
 const cs = window.storeFor(cid);
 const now = Date.now();
@@ -2207,7 +2162,6 @@ else { cover.style.backgroundImage = ''; cover.classList.remove('has-bg'); }
 if (feedAllWho === 'me') {
 if (avEl) { const mav = feedUserAv(); avEl.innerHTML = mav ? '<img src="' + attrEsc(mav) + '" alt="">' : ''; }
 if (nameEl) nameEl.textContent = feedUserName();
-try { if (avEl && window.mochiFilePickSurface) window.mochiFilePickSurface(avEl, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' }); } catch (e) {}
 return;
 }
 const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
@@ -2220,7 +2174,6 @@ if (!av) av = s.get('avatar-partner') || '';
 avEl.innerHTML = av ? '<img src="' + attrEsc(av) + '" alt="">' : '';
 }
 if (nameEl) nameEl.textContent = c.name || feedAllCid;
-try { if (avEl && window.mochiFilePickSurface) window.mochiFilePickSurface(avEl, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' }); } catch (e) {}
 }
 function postCardHtmlAll(p) {
 const isMine = (p.role || p.by) === 'me';
@@ -2289,7 +2242,6 @@ render();
 const feedAllCover = document.getElementById('feed-all-cover');
 const feedAllAv = document.getElementById('feed-all-av');
 const feedAllName = document.getElementById('feed-all-name');
-if (feedAllAv && window.mochiFilePickSurface) window.mochiFilePickSurface(feedAllAv, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' });
 if (feedAllCover) {
 feedAllCover.addEventListener('click', (e) => {
 if (feedAllAv && (e.target === feedAllAv || feedAllAv.contains(e.target))) return;
@@ -2312,7 +2264,6 @@ onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
 compressImage(f, (dataUrl) => {
-if (!dataUrl) return;
 feedAllStore().set(key, dataUrl);
 renderFeedAllCover();
 toast('朋友圈背景已更新');
@@ -2367,9 +2318,7 @@ window.openModal('修改昵称', cur, (v) => {
 const val = (v || '').trim();
 if (val) {
 feedAllStore().set(key, val);
-sweepFeedNameSnapshots(feedAllWho === 'me' ? 'me' : 'ta', feedAllCid, cur, val);
 renderFeedAllCover();
-rerenderFeedAfterRename();
 toast('昵称已更新');
 }
 }, { maxlength: 12 });
@@ -2494,8 +2443,7 @@ window.openModal('修改朋友圈昵称', cur, (v) => {
 const val = (v || '').trim();
 if (val) {
 st.set(key, val);
-sweepFeedNameSnapshots(isMe ? 'me' : 'ta', cid, cur, val);
-rerenderFeedAfterRename();
+renderFeedFriends();
 toast('朋友圈昵称已更新');
 }
 }, { maxlength: 12 });
