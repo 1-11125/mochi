@@ -2816,8 +2816,39 @@ window.mochiViewportForm = function (sig) {
     const F = [];
     const add = (ok, name, detail) => F.push({ ok: !!ok, name: name, detail: detail || '' });
     // ① 页面缩放：scale<0.95 = 页面被整体缩小（#174，顶部露白/UI 变小）
+    // #971：被缩小时先做「横向溢出体检」——页面被自动缩小（scale<1）的典型成因是内容横向溢出
+    // （长 URL／超宽卡片／固定宽面板把文档撑宽，iOS 为容纳它把整页缩到能装下）。只报现场、不猜：
+    // 找出右缘超出视口的元素 top3，让下一次反馈直接指名，避免「多机型同现、逐个机型打补丁」。
+    let _ovf = '';
+    try {
+      const de = document.documentElement;
+      const wide = de.scrollWidth - de.clientWidth;
+      if (wide > 1 || (inp.scale && inp.scale < 0.95)) {
+        const iw = window.innerWidth || de.clientWidth;
+        const off = [];
+        const all = document.querySelectorAll('body *');
+        for (let i = 0; i < all.length; i++) {
+          const el = all[i];
+          try {
+            if (el.hidden || el.offsetParent === null) continue;
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && r.right > iw + 2) {
+              const cls = (typeof el.className === 'string' && el.className.trim()) ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+              off.push({ t: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + cls, right: Math.round(r.right), w: Math.round(r.width) });
+            }
+          } catch (e2) {}
+        }
+        off.sort(function (a, b) { return b.right - a.right; });
+        _ovf = '文档横向溢出 ' + wide + 'px' + (off.length
+          ? '；超宽元素 top3：' + off.slice(0, 3).map(function (o) { return o.t + '（右缘 ' + o.right + '、宽 ' + o.w + '）'; }).join('、')
+          : '（未定位到超宽元素：多为系统/手势残留的缩放，非内容撑宽）');
+      }
+    } catch (e) {}
     add(inp.scale >= 0.95 || !inp.scale, '页面缩放 scale=' + (inp.scale || 1).toFixed(2),
-      (inp.scale && inp.scale < 0.95) ? '✗ 页面被缩小（#174：meta minimum-scale=1 + 自愈应已恢复；若仍<0.95 请连本条反馈）' : '✓ 正常');
+      (inp.scale && inp.scale < 0.95)
+        ? '✗ 页面被缩小：先两指捏合放大回 100%（或从后台切回来再试）；本条同时体检横向溢出——' + (_ovf || '（未检出溢出）')
+        : '✓ 正常');
+    if (_ovf) add(false, '横向溢出体检', _ovf);
     // ② 顶部安全区三源 → 形态判定走共享判定器（#209 单一事实源，执行器 syncVvFit
     // 同源，新形态只改判定器一处）。force 现场由 collectFitInp 传入——#186 曾漏传，
     // 「用户已声明覆盖形态」分支在真实采集路径永不命中（死分支）
