@@ -2007,7 +2007,11 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
       '</div><span class="gc-mp-name">新建群聊</span>';
     newRow.addEventListener('click', startCreateGroup);
-    el.appendChild(newRow);
+    // FIX 2026-09-22 #1016（用户直派「添加群聊功能图层的位置不对，在最底下，不在最上面」）：
+    // 「新建群聊」行置顶（原为末尾 appendChild）——fillGroupsList 是三点菜单列表面板与设置面板
+    // 「群聊」tag 内嵌段共用的同一份渲染，两处一起置顶。
+    // 同 #1016 的菜单项接线：本行也是 #1018 批从产物回填到 src（原批只提了产物，src 缺失）。
+    el.insertBefore(newRow, el.firstChild);
   }
   function renderGroupsPanel() {
     if (gpBody) { gpBody.innerHTML = ''; fillGroupsList(gpBody); }
@@ -2154,6 +2158,17 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     showMoreMenu(moreMenu.hidden);
   });
   document.addEventListener('click', () => showMoreMenu(false));
+  // FIX 2026-09-22 #1016（用户直派「添加群聊…没有放在点击群聊右上角 群聊设置 tag 的并列」）：
+  // 三点菜单里与「群聊设置」并列补一项「新建群聊」（静态锚点 #gc-more-newgroup，位次在其之前），
+  // 走的就是设置面板里那条同一个 startCreateGroup()——不新开第二条建群链。
+  // 本代码块是 2026-09-22 #1018 批从产物回填到 src 的：#1016 当时只把产物（index.html /
+  // js/group-chat.js）与 build.mjs 提了，src 侧缺失 ⇒ 任何一次从 src 的重新构建都会静默删掉
+  // 这个入口（它的哨兵 #1016a~c 也因此常红）。回填内容逐字对齐产物行为（见 WORKLOG）。
+  const moreNewGroup = document.getElementById('gc-more-newgroup');
+  if (moreNewGroup) moreNewGroup.addEventListener('click', () => {
+    showMoreMenu(false);
+    startCreateGroup();
+  });
   const moreSettings = document.getElementById('gc-more-settings');
   if (moreSettings) moreSettings.addEventListener('click', () => {
     showMoreMenu(false);

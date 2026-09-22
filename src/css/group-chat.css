@@ -203,11 +203,18 @@
 #page-group-chat.cs-time-hidden .msg-time { display: none; }
 
 /* ---- 成员列表面板（居中弹层） ---- */
+/* #1018（用户实报「无法新建群聊，功能失效」）：本组浮层＝成员列表 / 群聊列表 / 头像昵称互动 /
+   成员选择器。它们当前唯一的入口都开在「群聊设置」整页面板**内部**——#816 精简三点菜单时把
+   「群成员」「切换群聊」两个菜单项 remove() 掉，设置面板就成了唯一门（renderGroupsPanel /
+   renderMembersPanel 只做内嵌段同步）。而设置面板 z-index 210 > 本组 200，且两者同在
+   #page-group-chat 这个 .page（z-index:2 自成层叠上下文）里 ⇒ 本组被设置面板整块盖住：
+   群名弹窗照常弹出（.modal-mask 是 .page 的兄弟、不参与这里的比较），点「确定」后选择器
+   在面板背后渲染＝用户看到「点了没反应、什么都没发生」。故本组必须恒在设置面板之上：230。 */
 .gc-members-panel {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
   width: 86%; max-width: 340px; max-height: 70vh;
   background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.18);
-  z-index: 200; overflow: hidden; display: flex; flex-direction: column;
+  z-index: 230; overflow: hidden; display: flex; flex-direction: column;
 }
 .gc-members-panel[hidden] { display: none; }
 .gc-mp-head {

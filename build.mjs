@@ -4376,6 +4376,8 @@ const FIX_SENTINELS = [
   { name: "#1017d 落定标记在成功/异常两条路径都落（删＝异常时永远不出结论）", file: "js/bg-keep.js", needle: "bgT2.done = true;" },
   { name: "#1017e 权限被挡时的如实提示（删＝开关开着却收不到弹窗时用户只看到一个开着的开关）", file: "js/bg-keep.js", needle: "但浏览器还挡着本站的通知权限" },
   { name: "#1017f 信息诊断【保活现场】报「后台服务/最近通知通道」（删＝「测试说发了系统没弹」又缺分层判据）", file: "js/device.js", needle: "最近通知通道=" },
+  /* ==== 2026-09-22 #1018 群聊「群聊设置」面板内的建群/加成员/头像互动点了没反应（用户实报「聊里的默认群聊无法删除和管理里面的成员」＋「无法新建群聊，功能失效」）：.gc-members-panel 这一族浮层里有三条入口开在「群聊设置」整页面板内部（群聊 tag 的新建群聊行 / 成员 tag 的 ＋添加成员 / 形象 tag 的头像互动·昵称互动），而设置面板 z-index 210 > 本组 200、两者又同在 #page-group-chat 这个 .page（z-index:2 自成层叠上下文）里 ⇒ 本组被整块盖住＝选择器开在面板背后（群名弹窗照常弹，因为 .modal-mask 是 .page 的兄弟）。修法＝本组恒在设置面板之上（230）；顺序不变式由 tools/verify-1018-gc-picker-above-settings.mjs 按「浮层 z-index > 设置面板 z-index」相对判据钉住。本批同时把 #1016 的 src 侧缺失补回（它当时只提了产物，见 WORKLOG）。 ==== */
+  { name: '#1018a 群聊浮层恒在群聊设置整页面板之上（改回 200＝设置面板盖住成员选择器，设置面板内的建群/加成员/头像互动「点了没反应」整族复发）', file: 'css/group-chat.css', needle: 'z-index: 230; overflow: hidden; display: flex; flex-direction: column;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

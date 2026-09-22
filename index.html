@@ -7633,7 +7633,7 @@ opacity: .6; letter-spacing: .3px;
 position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
 width: 86%; max-width: 340px; max-height: 70vh;
 background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.18);
-z-index: 200; overflow: hidden; display: flex; flex-direction: column;
+z-index: 230; overflow: hidden; display: flex; flex-direction: column;
 }
 .gc-members-panel[hidden] { display: none; }
 .gc-mp-head {
@@ -10475,9 +10475,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790037506434">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790038563016">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 08:38<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 08:56<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -16439,6 +16439,14 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16M15 4v16"/></svg>
           <span>切换群聊</span>
         </div>
+        <!-- FIX 2026-09-22 #1016（用户直派「添加群聊…没有放在点击群聊右上角 群聊设置 tag 的并列」）：
+             #816 曾把三点菜单精简到只剩「群聊设置」，本批把「新建群聊」按**并列位**补回、且排在
+             「群聊设置」之上（用户口径：位置不对、在最底下、不在最上面）。菜单节点保留给 JS 接线，
+             不在这里写死行为。 -->
+        <div class="gc-more-item" id="gc-more-newgroup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M18 8v6M15 11h6"/></svg>
+          <span>新建群聊</span>
+        </div>
         <div class="gc-more-item" id="gc-more-settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           <span>群聊设置</span>
@@ -21077,4 +21085,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ muby43nm -->
+<!-- __MOCHI_EOF__ mubyqqx4 -->
