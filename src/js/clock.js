@@ -746,7 +746,10 @@ function buildSplashToc(list) {
             sum.appendChild(sumTitle);
             data.summary.forEach(function (s) {
               const p = document.createElement('p');
-              if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl'; p.textContent = String(s.hl); }
+              // #1024 观感：摘要条目默认仍是橙色加粗（作者点名要显眼的那几条不动），
+              // 只有 notice.json 标了 "lv":"plain" 的条目标 splash-plain＝普通墨色小字——
+              // 改前实测 9 条全是同一橙色同字重，等于没有重点。类名仍带 splash-hl（DOM 查询面不变）。
+              if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl' + (s.lv === 'plain' ? ' splash-plain' : ''); p.textContent = String(s.hl); }
               else p.textContent = String(s);
               sum.appendChild(p);
             });

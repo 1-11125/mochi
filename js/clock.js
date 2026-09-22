@@ -552,7 +552,7 @@ sumTitle.textContent = '必读摘要';
 sum.appendChild(sumTitle);
 data.summary.forEach(function (s) {
 const p = document.createElement('p');
-if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl'; p.textContent = String(s.hl); }
+if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl' + (s.lv === 'plain' ? ' splash-plain' : ''); p.textContent = String(s.hl); }
 else p.textContent = String(s);
 sum.appendChild(p);
 });

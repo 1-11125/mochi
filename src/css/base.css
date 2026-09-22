@@ -196,7 +196,7 @@ html { margin:0; padding:0; }
 /* v3.8.y：底部统一卡片框——版本/加载/提示/按钮装进一个白卡片，与顶部品牌卡片呼应 */
 .splash-footcard {
   width:min(324px, 100%); box-sizing:border-box;
-  padding:16px 20px calc(16px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));
+  padding:10px 18px calc(12px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));
   background:var(--card-bg); border:1px solid var(--sp-line);
   border-radius:22px;
   box-shadow:0 10px 32px rgba(0,0,0,.05);
@@ -206,11 +206,11 @@ html { margin:0; padding:0; }
 }
 /* v3.8.y：底部版本块——两行：名称+版本(加粗) / 部署时间+实时秒数，去等宽字体、字号加大适配手机 */
 .splash-ver {
-  display:flex; flex-direction:column; align-items:center; gap:3px;
-  line-height:1.5;
+  display:flex; flex-flow:row wrap; align-items:baseline; justify-content:center; gap:1px 8px;
+  line-height:1.4;
 }
-.splash-ver .sv-app { font-size:11.5px; font-weight:700; color:var(--ink); letter-spacing:.5px; }
-.splash-ver .sv-deploy { font-size:10.5px; color:var(--hint-ink); }
+.splash-ver .sv-app { font-size:11px; font-weight:700; color:var(--ink); letter-spacing:.5px; }
+.splash-ver .sv-deploy { font-size:10px; color:var(--hint-ink); }
 /* #570：开屏新版检测行（ver-check.js）——检测中/失败灰、已是最新绿、有新版红加粗下划线可点 */
 .splash-ver .sv-check { font-size:10.5px; color:var(--hint-ink); }
 .splash-ver .sv-check.ok { color:#1f9d55; }
@@ -408,6 +408,11 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 /* 高亮条目：关键提醒用显眼橙色加粗标出（如「基础疑问可直接问 AI」）；
    双选择器压过 .splash-notice-list p / .splash-summary p 的软墨色 */
 .splash-notice-list .splash-hl, .splash-summary .splash-hl { color:#e8590c; font-weight:800; }
+/* #1024 观感（用户 2026-09-22 选定「必读摘要不再全部橙色」）——改前实测摘要 9 条全是同一橙色
+   #e8590c / 同字重 800，同色同重等于没有重点、整块像警告墙。现在只保留三条红线（防倒卖 /
+   转载侵权 / 18 禁）为橙色加粗，其余条目标 splash-plain＝普通墨色小字（正文原字号不变）。
+   三条红线的 DOM 一字不动（build.mjs #613 的锚点仍逐字命中），章节正文里的 .splash-hl 不受影响。 */
+.splash-summary .splash-hl.splash-plain { color:var(--ink); font-weight:400; }
 /* 子列表项：黑色 · 前缀，与编号条目文字对齐 */
 .splash-bullet { position:relative; padding-left:24px; margin-bottom:7px; line-height:1.75; }
 .splash-bullet::before {
@@ -418,7 +423,7 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
    v3.5.120：数据加载完成前按钮 hidden 不显示（clock.js 控制），
    加载期间显示 .splash-loading 提示，就绪后按钮才出现 */
 .splash-enter {
-  display:inline-block; margin-top:16px; padding:13px 44px;
+  display:inline-block; margin-top:16px; padding:11px 44px;
   background:var(--btn-bg); color:var(--btn-ink); font-size:13px; font-weight:700;
   border-radius:99px; letter-spacing:3px; cursor:pointer;
   -webkit-tap-highlight-color:transparent; user-select:none;
@@ -431,14 +436,14 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 .splash-enter[hidden] { display:none; }
 /* 未滑到底时的提示文字（按钮置灰 + 提示滑动） */
 .splash-enter-hint {
-  margin-top:16px; font-size:11px; color:var(--hint-ink); letter-spacing:1px;
+  margin-top:8px; font-size:11px; color:var(--hint-ink); letter-spacing:1px;
 }
 .splash-enter-hint[hidden] { display:none; }
 /* #315c：年龄确认勾选行——label 包裹整行可点，checkbox 原生控件保证可访问性与举证形态 */
 .splash-age {
   display:flex; align-items:flex-start; gap:7px;
-  margin-top:12px; padding:0 6px;
-  font-size:11px; line-height:1.5; color:var(--hint-ink);
+  margin-top:8px; padding:0 6px;
+  font-size:11px; line-height:1.4; color:var(--hint-ink);
   cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;
 }
 .splash-age input[type="checkbox"] {
@@ -449,12 +454,12 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 /* v3.8.y：底部操作区——「点击进入」按钮（居中，间距由卡片 padding 控制） */
 .splash-btns {
   display:flex; align-items:center; justify-content:center; gap:10px;
-  margin-top:14px;
+  margin-top:10px;
 }
 .splash-btns .splash-enter { margin-top:0; }
 /* 加载提示（非按钮，不可点） */
 .splash-loading {
-  margin-top:16px; font-size:12px; color:var(--hint-ink); letter-spacing:1px;
+  margin-top:10px; font-size:12px; color:var(--hint-ink); letter-spacing:1px;
 }
 /* #716：加载中省略号步进动画——大数据桌面（IDB 41MB 级）恢复期给「缓冲感」，
    纯 width 步进不触发重排层级、开销可忽略；数据就绪该行 hidden 后动画随之无成本 */
