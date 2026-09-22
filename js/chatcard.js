@@ -1908,8 +1908,10 @@ if ((replaced & 15) === 0) await yieldUI();
 }
 if (failed) { seenTok.clear(); out.libs.push({ label: L.label, skipped: '令牌化不可用，本库未改动' }); continue; }
 if (!largeTotal) continue;
+let _poolOk = false;
+try { _poolOk = await window.mochiMediaFlush(); } catch (e) { _poolOk = false; }
+if (_poolOk !== true) { out.libs.push({ label: L.label, skipped: '媒体池写盘失败（存储繁忙），本库保持不变，稍后自动重试' }); continue; }
 out.images += largeTotal;
-try { await window.mochiMediaFlush(); } catch (e) {}
 outStr += raw.slice(last);
 if (!replaced || outStr.length >= raw.length) continue;
 try { window.xyStore(L.prefix).set(L.key, outStr); } catch (eW) { out.libs.push({ label: L.label, skipped: '写回失败' }); continue; }

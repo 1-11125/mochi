@@ -4676,6 +4676,8 @@ const FIX_SENTINELS = [
   { name: '#1039b 进聊天页重活挂在首帧之后（改回当场同步跑 loadMsgs/重建＝置位即撤销、进度条再次从未上屏）', file: 'js/chat.js', needle: "chatEnterPaintThen(function () {" },
   { name: '#1039c 重活保险丝（删＝后台标签/不可见页面 rAF 不派发时进聊天永不渲染）', file: 'js/chat.js', needle: "setTimeout(run, 120);" },
   { name: '#1039d 进聊天首帧就贴底（删＝首帧画在窗口顶部＝两百条前的旧记录，真机数秒后才跳到底＝「刚进聊天就跳」复发）', file: 'js/chat.js', needle: "scrollChatBottom();\nchatEnterPaintThen(function () {" },
+  { name: '#1038a 字卡库令牌化写盘失败闸门（删＝mochiMediaFlush 返回 false 仍写令牌库键，低端大库机 idbSetAll 超时+被系统回收即「令牌入库而池缺数据」＝本地上传表情包/图片字卡变『图片丢失』、重导后再次自动瘦身又复发，同 #186 家族）', file: 'js/chatcard.js', needle: "skipped: '媒体池写盘失败（存储繁忙），本库保持不变" },
+  { name: '#1038b 收藏令牌化写盘失败闸门（删＝同样忽略 mochiMediaFlush 返回值照写令牌收藏＝收藏图片丢失，与 #1038a 同一根因的收藏面）', file: 'js/chat.js', needle: "_favPoolOk !== true" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

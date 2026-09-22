@@ -2423,11 +2423,14 @@
         }
         if (failed) { seenTok.clear(); out.libs.push({ label: L.label, skipped: '令牌化不可用，本库未改动' }); continue; }
         if (!largeTotal) continue;
+        // FIX 2026-09-22 #1038 写盘失败闸门（vivo/红米等低端大库机实报「本地上传的表情包忽然缺失、重新导入过不了多久又出现」，多机型同现）：mochiMediaFlush 返回 false＝本批池值没落进 IDB（idbSetAll 超时/连接丢失后回队重试，#226/#665a）。旧实现 await 后忽略返回值照写令牌库键——令牌库串小而必成、池值大而最易超时＝「令牌入库而池缺数据」；低端机后台被系统频繁回收（writeBuf 只在内存，一被杀即永久丢）＝图片丢失。同聊天 normalize #186 口径，零机型分支。
+        let _poolOk = false;
+        try { _poolOk = await window.mochiMediaFlush(); } catch (e) { _poolOk = false; }
+        if (_poolOk !== true) { out.libs.push({ label: L.label, skipped: '媒体池写盘失败（存储繁忙），本库保持不变，稍后自动重试' }); continue; }
         out.images += largeTotal;
         // 池先令牌后（对齐聊天 normalize「先 mochiMediaFlush 再 saveMsgs」契约）：池写缓冲
         // 是 300ms 延迟批量落盘，不强制冲刷的话库键令牌可能先于池数据入 IDB——崩溃窗口
         // 变成「令牌入库而池缺数据」＝图片丢失。这里显式 flush 后才允许写库键。
-        try { await window.mochiMediaFlush(); } catch (e) {}
         // ③ 补齐尾段并一次写回（此刻池数据已强制落 IDB；不变小不写＝保险丝）
         outStr += raw.slice(last);
         if (!replaced || outStr.length >= raw.length) continue;

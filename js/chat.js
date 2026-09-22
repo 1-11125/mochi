@@ -8960,7 +8960,8 @@ const compressed = await compressFavListImages(list);
 const tokened = await tokenizeFavList(compressed || list);
 if (!compressed && !tokened) return true;
 const out = tokened || compressed;
-await window.mochiMediaFlush(); // #142：池数据先落盘，收藏里的令牌才有据可查
+const _favPoolOk = await window.mochiMediaFlush(); // #142：池数据先落盘，收藏里的令牌才有据可查
+if (_favPoolOk !== true) { scheduleFavImgPass(8000); return false; }
 const rawNow = store.get('fav-msgs');
 if (rawNow !== rawSnap) {
 if (++_favImgPassRetries < 5) { scheduleFavImgPass(5000); return false; }

@@ -11157,7 +11157,9 @@ const compressed = await compressFavListImages(list);
 const tokened = await tokenizeFavList(compressed || list);
 if (!compressed && !tokened) return true;
 const out = tokened || compressed;
-await window.mochiMediaFlush(); // #142：池数据先落盘，收藏里的令牌才有据可查
+const _favPoolOk = await window.mochiMediaFlush(); // #142：池数据先落盘，收藏里的令牌才有据可查
+// FIX 2026-09-22 #1038 写盘失败闸门（同聊天 normalize #186 / 字卡库令牌化 #554 口径）：mochiMediaFlush 返回 false＝池值没落进 IDB（idbSetAll 超时/连接丢失回队，#226/#665a）；旧实现忽略返回值照写令牌收藏＝「令牌入库而池缺数据」＝收藏图片丢失。没落盘则本批作废、排程重试、保留内联原图。
+if (_favPoolOk !== true) { scheduleFavImgPass(8000); return false; }
 const rawNow = store.get('fav-msgs');
 if (rawNow !== rawSnap) {
 // 压缩期间收藏被写过——以最新数据重排（最多 5 次，防极端高频写入空转）
