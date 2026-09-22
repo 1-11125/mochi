@@ -280,6 +280,11 @@ setVar(root, '--msg-time-dx', timeDX + 'px');
 setVar(root, '--msg-time-dy', timeDY + 'px');
 const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
 setVar(root, '--typing-ink', typingInk);
+const phInk = store.get('cs-ph-ink') || '';
+if (phInk) setVar(root, '--chat-ph-ink', phInk); else delVar(root, '--chat-ph-ink');
+const phHide = store.get('cs-ph-show') === 'hide';
+if (phHide) setVar(root, '--chat-ph-visibility', 'hidden'); else delVar(root, '--chat-ph-visibility');
+set('cs-ph-ink-val', phInk || '默认（跟随主题）');
 const sendBg = store.get('cs-send-bg') || DEF.sendBg;
 setVar(root, '--send-bg', sendBg);
 const sendInk = store.get('cs-send-ink') || DEF.sendInk;
@@ -1041,6 +1046,7 @@ bindChatSurfaceGroup('cs-bar-pos', '选择要微调的位置（仅当前桌面�
 const bubbleOpacityRow = row('cs-bubble-op');
 if (bubbleOpacityRow) bubbleOpacityRow.addEventListener('click', () => editChatSurface(2));
 bindBubbleColorRow('cs-typing-ink', 'cs-typing-ink', '#8a8a8a', '对方正在输入文字颜色', [{ color: '#8a8a8a', label: '默认灰' }].concat(BUBBLE_INK_COLORS));
+bindBubbleColorRow('cs-ph-ink', 'cs-ph-ink', '#b5b5b5', '输入框提示文字颜色', [{ color: '#b5b5b5', label: '默认灰' }].concat(BUBBLE_INK_COLORS));
 bindBubbleColorRow('cs-out-bg', 'cs-out-bg', '#111111', '我的气泡颜色', BUBBLE_BG_COLORS);
 bindBubbleColorRow('cs-out-ink', 'cs-out-ink', '#ffffff', '我的消息文字颜色', BUBBLE_INK_COLORS);
 bindBubbleColorRow('cs-in-bg', 'cs-in-bg', '#ffffff', '联系人气泡颜色', BUBBLE_BG_COLORS);
@@ -1060,6 +1066,20 @@ applySettings();
 toast(csSendShow.checked ? '发送按钮已隐藏：仍可按回车键发送消息' : '发送按钮已显示');
 });
 document.addEventListener('contact-switched', syncCsSendShow);
+}
+const csPhShow = document.getElementById('cs-ph-show');
+if (csPhShow) {
+const phGet = () => { try { return store.get('cs-ph-show') === 'hide'; } catch (e) { return false; } };
+const phSet = (hide) => { try { store.set('cs-ph-show', hide ? 'hide' : 'show'); } catch (e) {} };
+const syncCsPhShow = () => { const v = phGet(); if (v !== csPhShow.checked) csPhShow.checked = v; };
+syncCsPhShow();
+csPhShow.addEventListener('change', () => {
+if (csPhShow.checked === phGet()) return;
+phSet(csPhShow.checked);
+applySettings();
+toast(csPhShow.checked ? '已隐藏「说点什么…」：输入栏空着时不再显示提示文字' : '已恢复显示提示文字');
+});
+document.addEventListener('contact-switched', syncCsPhShow);
 }
 const csEnterSend = document.getElementById('cs-enter-send');
 if (csEnterSend) {
@@ -1463,6 +1483,7 @@ const CHAT_BEAUTY_KEYS = [
 'cs-bubble-radius', 'cs-av-shape', 'cs-time-style', 'cs-time-ink', 'cs-typing-ink',
 'cs-out-bg', 'cs-out-ink', 'cs-in-bg', 'cs-in-ink',
 'cs-send-bg', 'cs-send-ink', 'cs-send-show',
+'cs-ph-ink', 'cs-ph-show',
 'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset',
 'cs-bg-fit', 'cs-bg-fullbars', 'cs-bg-pos-x', 'cs-bg-pos-y', 'cs-bg-size'
 ];
@@ -2208,7 +2229,8 @@ order.forEach((t) => {
 if (t === 'input') {
 const iw = document.createElement('div');
 iw.textContent = '说点什么…';
-iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--hint-ink,#b5b5b5);padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
+iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--chat-ph-ink, var(--hint-ink,#b5b5b5));padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
+if (store.get('cs-ph-show') === 'hide') iw.style.visibility = 'hidden';
 prev.appendChild(iw);
 return;
 }
@@ -3009,7 +3031,8 @@ wrap.appendChild(mkNote('图被裁掉的部分靠这两条位置滑杆找回来�
 wrap.appendChild(mkGrid([
 mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
 mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
-mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS)
+mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS),
+mkColorItem('提示文字色', 'cs-ph-ink', '#b5b5b5', [{ color: '#b5b5b5', label: '默认灰' }].concat(BUBBLE_INK_COLORS))
 ]));
 paletteHost = document.createElement('div');
 wrap.appendChild(paletteHost);

@@ -489,8 +489,15 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 }
 .chat-input::-webkit-scrollbar { display:none; }
 /* 绌哄唴瀹规椂鏄剧ず placeholder锛坈ontenteditable 鏃?placeholder 灞炴€э紝鐢?:empty 浼厓绱狅級 */
-.chat-input:empty::before {
-  content:attr(data-ph); color:#b5b5b5; pointer-events:none;
+.chat-input:empty::before,
+#page-chat .chat-input:empty::before,
+#page-group-chat .chat-input:empty::before {
+  /* v8.35 #1026：提示文字颜色/显隐交给聊天设置（:root 上的 --chat-ph-ink / --chat-ph-visibility，单聊与群聊共用一份）。
+     两条 id 前缀选择器不是冗余——dark.css 的 [data-theme="dark"] .chat-input:empty::before 与
+     group-chat.css 的 .gc-input:empty:before 权重都不低于裸类选择器且加载在后，不带 id 压不住它们。
+     隐藏用 visibility 而非 display：占位符继续占位，输入栏这一排的几何一字不动。 */
+  content:attr(data-ph); color:var(--chat-ph-ink, var(--hint-ink)); pointer-events:none;
+  visibility:var(--chat-ph-visibility, visible);
 }
 .chat-send {
   outline:none; cursor:pointer; flex-shrink:0;

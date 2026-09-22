@@ -1979,8 +1979,11 @@ white-space:pre-wrap; word-break:break-word; caret-color:var(--ink);
 scrollbar-width:none; -ms-overflow-style:none;
 }
 .chat-input::-webkit-scrollbar { display:none; }
-.chat-input:empty::before {
-content:attr(data-ph); color:#b5b5b5; pointer-events:none;
+.chat-input:empty::before,
+#page-chat .chat-input:empty::before,
+#page-group-chat .chat-input:empty::before {
+content:attr(data-ph); color:var(--chat-ph-ink, var(--hint-ink)); pointer-events:none;
+visibility:var(--chat-ph-visibility, visible);
 }
 .chat-send {
 outline:none; cursor:pointer; flex-shrink:0;
@@ -10531,9 +10534,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790060106326">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790060669665">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 14:55<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 15:04<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -16924,6 +16927,15 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="txt">对方正在输入文字颜色<span class="sub">调整聊天中「对方正在输入…」提示的颜色</span></div>
           <div class="val" id="cs-typing-ink-val">#8a8a8a</div>
         </div>
+        <!-- v8.35 #1026：输入框提示文字（「说点什么…」）颜色与显隐，每联系人独立；单聊与群聊两排输入栏共用 -->
+        <div class="set-row" id="cs-ph-ink">
+          <div class="txt">输入框提示文字颜色<span class="sub">输入栏空着时那行灰色的「说点什么…」；默认跟随主题（浅色浅灰、深色深灰）</span></div>
+          <div class="val" id="cs-ph-ink-val">默认（跟随主题）</div>
+        </div>
+        <div class="set-row" id="cs-ph-show-row">
+          <div class="txt">隐藏输入框提示文字<span class="sub">打开后输入栏空着时不再显示「说点什么…」，输入框位置与大小不变</span></div>
+          <label class="toggle"><input type="checkbox" id="cs-ph-show"><span class="tk"></span></label>
+        </div>
         <div class="set-row" id="cs-bar-pos">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
           <div class="txt">顶栏 / 底栏位置微调<span class="sub">上下各 ±80px（顶栏正=下移、底栏正=上移，负值反向）；设为 0 恢复默认</span></div>
@@ -21270,4 +21282,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mucbkhue -->
+<!-- __MOCHI_EOF__ mucbwkip -->

@@ -402,6 +402,15 @@
     // 正在输入中颜色（默认灰）
     const typingInk = store.get('cs-typing-ink') || '#8a8a8a';
     setVar(root, '--typing-ink', typingInk);
+    // #1026：输入框提示文字（「说点什么…」）颜色 + 显隐。写在 :root 上，单聊与群聊两排输入栏共用；
+    // 未设置时删掉变量，让 CSS 回落到主题默认灰（浅色 #b5b5b5 / 深色 #666）——不写死值，
+    // 否则切换联系人/深浅色会把另一套主题的默认色覆盖掉。
+    // 隐藏走 visibility 而非 display：占位符仍占位，输入栏这一排的宽度一字不动（用户要的是「不显示那几个字」，不是改版）。
+    const phInk = store.get('cs-ph-ink') || '';
+    if (phInk) setVar(root, '--chat-ph-ink', phInk); else delVar(root, '--chat-ph-ink');
+    const phHide = store.get('cs-ph-show') === 'hide';
+    if (phHide) setVar(root, '--chat-ph-visibility', 'hidden'); else delVar(root, '--chat-ph-visibility');
+    set('cs-ph-ink-val', phInk || '默认（跟随主题）');
     // 发送按钮颜色（默认黑/深色模式白）
     const sendBg = store.get('cs-send-bg') || DEF.sendBg;
     setVar(root, '--send-bg', sendBg);
@@ -1329,6 +1338,8 @@
   const bubbleOpacityRow = row('cs-bubble-op');
   if (bubbleOpacityRow) bubbleOpacityRow.addEventListener('click', () => editChatSurface(2));
   bindBubbleColorRow('cs-typing-ink', 'cs-typing-ink', '#8a8a8a', '对方正在输入文字颜色', [{ color: '#8a8a8a', label: '默认灰' }].concat(BUBBLE_INK_COLORS));
+  // #1026：输入框提示文字颜色（「说点什么…」那几个灰字）。色板首项＝主题默认灰，选它等价于不覆盖。
+  bindBubbleColorRow('cs-ph-ink', 'cs-ph-ink', '#b5b5b5', '输入框提示文字颜色', [{ color: '#b5b5b5', label: '默认灰' }].concat(BUBBLE_INK_COLORS));
   // 我的气泡（out 深色系）/ 联系人气泡（in 浅色系）与各自文字色
   bindBubbleColorRow('cs-out-bg', 'cs-out-bg', '#111111', '我的气泡颜色', BUBBLE_BG_COLORS);
   bindBubbleColorRow('cs-out-ink', 'cs-out-ink', '#ffffff', '我的消息文字颜色', BUBBLE_INK_COLORS);
@@ -1351,6 +1362,21 @@
       toast(csSendShow.checked ? '发送按钮已隐藏：仍可按回车键发送消息' : '发送按钮已显示');
     });
     document.addEventListener('contact-switched', syncCsSendShow);
+  }
+  // #1026：隐藏输入框提示文字开关（勾选＝隐藏，默认显示）。每联系人独立；单聊与群聊两排输入栏一起生效。
+  const csPhShow = document.getElementById('cs-ph-show');
+  if (csPhShow) {
+    const phGet = () => { try { return store.get('cs-ph-show') === 'hide'; } catch (e) { return false; } };
+    const phSet = (hide) => { try { store.set('cs-ph-show', hide ? 'hide' : 'show'); } catch (e) {} };
+    const syncCsPhShow = () => { const v = phGet(); if (v !== csPhShow.checked) csPhShow.checked = v; };
+    syncCsPhShow();
+    csPhShow.addEventListener('change', () => {
+      if (csPhShow.checked === phGet()) return;
+      phSet(csPhShow.checked);
+      applySettings();
+      toast(csPhShow.checked ? '已隐藏「说点什么…」：输入栏空着时不再显示提示文字' : '已恢复显示提示文字');
+    });
+    document.addEventListener('contact-switched', syncCsPhShow);
   }
   // 回车键发送开关（默认开；关闭后按回车不发送，改为换行/不动作）。每联系人独立。
   const csEnterSend = document.getElementById('cs-enter-send');
@@ -1847,6 +1873,8 @@
     'cs-bubble-radius', 'cs-av-shape', 'cs-time-style', 'cs-time-ink', 'cs-typing-ink',
     'cs-out-bg', 'cs-out-ink', 'cs-in-bg', 'cs-in-ink',
     'cs-send-bg', 'cs-send-ink', 'cs-send-show',
+    // #1026：输入框提示文字（颜色 + 显隐）——观感项，方案切换时要一起走
+    'cs-ph-ink', 'cs-ph-show',
     'cs-head-opacity', 'cs-input-opacity', 'cs-bubble-opacity', 'cs-head-inset', 'cs-input-inset',
     // #731：壁纸铺满方式 + 壁纸延伸到栏位（同一份美化方案应记住这两个观感开关）
     // #782：壁纸位置与缩放三键（方案/备份/导入必须一起走，否则换桌面图就跳位）
@@ -2731,7 +2759,9 @@
       if (t === 'input') {
         const iw = document.createElement('div');
         iw.textContent = '说点什么…';
-        iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--hint-ink,#b5b5b5);padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
+        iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--chat-ph-ink, var(--hint-ink,#b5b5b5));padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
+        // #1026：预览照实反映「隐藏提示文字」开关（框还在、字不见）
+        if (store.get('cs-ph-show') === 'hide') iw.style.visibility = 'hidden';
         prev.appendChild(iw);
         return;
       }
@@ -3675,7 +3705,9 @@
         wrap.appendChild(mkGrid([
           mkColorItem('发送按钮色', 'cs-send-bg', DEF.sendBg, SEND_BG_COLORS),
           mkColorItem('发送文字色', 'cs-send-ink', DEF.sendInk, BUBBLE_INK_COLORS),
-          mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS)
+          mkColorItem('正在输入颜色', 'cs-typing-ink', '#8a8a8a', BUBBLE_INK_COLORS),
+          // #1026：输入框提示文字色（调色盘里的「恢复默认」＝回到主题灰）
+          mkColorItem('提示文字色', 'cs-ph-ink', '#b5b5b5', [{ color: '#b5b5b5', label: '默认灰' }].concat(BUBBLE_INK_COLORS))
         ]));
         paletteHost = document.createElement('div');
         wrap.appendChild(paletteHost);

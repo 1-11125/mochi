@@ -6730,6 +6730,15 @@
           <div class="txt">对方正在输入文字颜色<span class="sub">调整聊天中「对方正在输入…」提示的颜色</span></div>
           <div class="val" id="cs-typing-ink-val">#8a8a8a</div>
         </div>
+        <!-- v8.35 #1026：输入框提示文字（「说点什么…」）颜色与显隐，每联系人独立；单聊与群聊两排输入栏共用 -->
+        <div class="set-row" id="cs-ph-ink">
+          <div class="txt">输入框提示文字颜色<span class="sub">输入栏空着时那行灰色的「说点什么…」；默认跟随主题（浅色浅灰、深色深灰）</span></div>
+          <div class="val" id="cs-ph-ink-val">默认（跟随主题）</div>
+        </div>
+        <div class="set-row" id="cs-ph-show-row">
+          <div class="txt">隐藏输入框提示文字<span class="sub">打开后输入栏空着时不再显示「说点什么…」，输入框位置与大小不变</span></div>
+          <label class="toggle"><input type="checkbox" id="cs-ph-show"><span class="tk"></span></label>
+        </div>
         <div class="set-row" id="cs-bar-pos">
           <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
           <div class="txt">顶栏 / 底栏位置微调<span class="sub">上下各 ±80px（顶栏正=下移、底栏正=上移，负值反向）；设为 0 恢复默认</span></div>

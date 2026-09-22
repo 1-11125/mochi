@@ -4650,7 +4650,11 @@ const FIX_SENTINELS = [
   { name: '#1006l 存钱罐「回一句给TA」走用户发送侧（改回 chatAddIn＝用户的话又落在 TA 气泡）', file: 'js/p2-features.js', needle: "if (t && window.chatSendMsg) { try { window.chatSendMsg(t); } catch (e) {} toast('已回复'); }" },
   { name: '#1006m 吃什么「问 TA」走用户发送侧（改回 chatAddIn＝变成 TA 问用户）', file: 'js/p2-features.js', needle: 'if (window.chatSendMsg) { try { window.chatSendMsg(msg); }' },
   { name: '#1006n 摸鱼小结信 TA 口吻（改回「你俩…（我 +x · 名字 +y）」＝TA 把自己算在外、把用户标成「我」）', file: 'js/mail.js', needle: "'你和我一共摸鱼 ' + totalFish + ' 点（你 +' + fm + ' · 我 +' + ft + '）。'" },
-  { name: '#1006o 市集标语送给 TA（改回「送给你」＝收礼人写成用户）', file: 'js/gift-shop.js', needle: '挑一份心意，跨越两个世界送给 TA' }
+  { name: '#1006o 市集标语送给 TA（改回「送给你」＝收礼人写成用户）', file: 'js/gift-shop.js', needle: '挑一份心意，跨越两个世界送给 TA' },
+  /* ==== 2026-09-22 #1026 输入框提示文字（「说点什么…」）颜色与显隐可控（用户直派「聊天设置里【说点什么...】这一行输入栏的文字无法更换颜色或关闭」）：那行字由 .chat-input:empty::before 画，原颜色写死（单聊 #b5b5b5、群聊 #aaa）且设置里没有入口——唯一相近的「对方正在输入文字颜色」管的是气泡上方那条提示，与它无关。新增 cs-ph-ink / cs-ph-show 两键（每联系人独立、随聊天美化方案走），applySettings 写 :root 的 --chat-ph-ink / --chat-ph-visibility，未设置即删变量回落主题灰；隐藏走 visibility 不走 display，输入栏几何一字不动。 ==== */
+  { name: '#1026a 占位符取用户色变量（改回写死色＝设置里换色无效）', file: 'css/chat-main.css', needle: 'content:attr(data-ph); color:var(--chat-ph-ink, var(--hint-ink)); pointer-events:none;' },
+  { name: '#1026b 占位符显隐接线（删＝「隐藏提示文字」开关失效）', file: 'js/chat-settings.js', needle: "setVar(root, '--chat-ph-visibility', 'hidden')" },
+  { name: '#1026c 设置页两行入口在位（删＝功能没有入口，用户仍会报「无法更换颜色或关闭」）', file: 'template.html', needle: '<label class="toggle"><input type="checkbox" id="cs-ph-show"><span class="tk"></span></label>' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
