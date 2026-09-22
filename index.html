@@ -10209,13 +10209,22 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
            在线 notice.json 覆盖只改公告标题/摘要列表/章节，覆盖不到此处，故 notice.json 的 summary 同步补同口径一条
            （两份同步：静态兜底 + 在线权威源）。口径全部指向已存在的设置入口，不新增行为：各类概率与功能时间/间隔
            （设置 → 回复设置，0 = 不触发）、系统预设字卡逐张/分类开关与「整体概率（总档）」调 0、各项功能开关与桌面
-           隐藏池、聊天字卡分组标题右侧「整组停用」开关与逐张开关、设置页顶部搜索框。 -->
+           隐藏池、聊天字卡分组标题右侧「整组停用」开关与逐张开关、设置页顶部搜索框。
+           v8.35 #1019（用户 2026-09-22 直派，逐字追加第 5 段）——本段三句：①字卡回复与来电两条「高频」都可自行调整（字卡
+           回复频率＝设置 → 回复设置；来电频率＝设置 → 通话设置，两条在「功能说明」里都有行说明，末句指路因此成立）；
+           ②作者对人当面说明：他一直在帮人修的是不同手机型号的设备兼容问题，别把他的功能与设计当成 bug（与品牌卡内停更
+           公告里那句同口径）；③指路功能说明自行查看。只是文案：不新增行为、不改任何设置入口。
+           本注释刻意不逐字复述那三句——HTML 注释会被合进产物，逐字复述会让 build.mjs 的 #1019a/#1019b 哨兵变成哑哨兵
+           （段落被删也照样命中）。
+           几何实测（390×844）：顶卡 252→357px（限 420px）、#864 指引条 top 607→712（vh 844，仍在首屏内），S5/S6
+           两条跨批边界断言照旧通过，故不压缩字号/间距。 -->
       <div class="splash-bigwarn" data-content-warn="1">
         <div class="splash-bigwarn-t">使用前必看 · 本站内容非常多，不适用建议不使用本站</div>
         <p><strong>网站本质只是工具，使用效果取决于个人使用和个人理解</strong>，各种原因都需要适应和调整。</p>
         <p><strong>网站内置内容非常非常多，需给一定时间适应和根据个人使用习惯调整</strong>，或不适用建议不使用这个网站。</p>
         <p><strong>回复设置概率，非常多功能的时间和概率，全部都是公开的可以自己调</strong>，功能也可以自己设置关闭。</p>
         <p><strong>聊天字卡也可以单独关闭某个分组或关闭某个单独的字卡。</strong>默认聊天字卡的词典字卡太多，不适用建议关闭。</p>
+        <p><strong>字卡回复高频和通话高频都可以自行调整。</strong>不要因为我之前一直在帮人修设备bug和强调可以帮人修不同手机型号的设备兼容bug，就把我的功能和设计也当成bug啊。已无力解释，可自行在功能说明里查看。</p>
       </div>
       <!-- v8.29 #976（用户 2026-09-21 直派「开屏里的颜色太乱，内容也很乱，怎么优化一下？」＋两条约束：
            「不要删除我的内容」「必读卡挪到品牌卡前」）——
@@ -10475,9 +10484,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790038563016">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790055546851">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-22 08:56<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-22 13:39<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21085,4 +21094,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 </body>
 </html>
 
-<!-- __MOCHI_EOF__ mubyqqx4 -->
+<!-- __MOCHI_EOF__ muc8urqb -->
