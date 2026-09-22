@@ -1635,7 +1635,7 @@ newRow.innerHTML = '<div class="gc-mp-av gc-gp-ico add">' +
 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
 '</div><span class="gc-mp-name">新建群聊</span>';
 newRow.addEventListener('click', startCreateGroup);
-el.appendChild(newRow);
+el.insertBefore(newRow, el.firstChild);
 }
 function renderGroupsPanel() {
 if (gpBody) { gpBody.innerHTML = ''; fillGroupsList(gpBody); }
@@ -1772,6 +1772,11 @@ e.stopPropagation();
 showMoreMenu(moreMenu.hidden);
 });
 document.addEventListener('click', () => showMoreMenu(false));
+const moreNewGroup = document.getElementById('gc-more-newgroup');
+if (moreNewGroup) moreNewGroup.addEventListener('click', () => {
+showMoreMenu(false);
+startCreateGroup();
+});
 const moreSettings = document.getElementById('gc-more-settings');
 if (moreSettings) moreSettings.addEventListener('click', () => {
 showMoreMenu(false);

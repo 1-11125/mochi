@@ -4365,6 +4365,10 @@ const FIX_SENTINELS = [
   { name: '#1014g 数据导入接上确定层（删＝数据导入回到「点了确定什么都没发生」）', file: 'js/data-backup.js', needle: "entry: 'row-import'" },
   { name: '#1014h 字卡库「导入数据」接上确定层', file: 'js/chatcard.js', needle: "entry: 'cc-import-data'" },
   { name: '#1014i 字卡库「完整导入」接上确定层且两条路汇入同一份管线（删＝解析/自救管线分叉）', file: 'js/chatcard.js', needle: 'function ccFullImportFile(f, mode) {' },
+  /* ==== 2026-09-22 #1016 群聊右上角「新建群聊」并列到「群聊设置」之上＋列表置顶（用户直派「添加群聊功能图层的位置不对，在最底下，不在最上面。而且这个功能没有放在点击群聊右上角 群聊设置tag的并列」）：#816 曾把三点菜单精简到只剩「群聊设置」，新建群聊只藏在设置面板「群聊」tag 列表的最底下。 ==== */
+  { name: '#1016a 三点菜单「新建群聊」并列项接线（删＝右上角又只剩群聊设置，入口回到列表最底下）', file: 'js/group-chat.js', needle: "document.getElementById('gc-more-newgroup')" },
+  { name: '#1016b 列表里「新建群聊」置顶（改回末尾 appendChild＝用户所报「在最底下，不在最上面」复发）', file: 'js/group-chat.js', needle: 'el.insertBefore(newRow, el.firstChild);' },
+  { name: '#1016c 三点菜单静态锚点「新建群聊」排在「群聊设置」之前（删＝并列位丢失）', file: 'template.html', needle: 'id="gc-more-newgroup"' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
