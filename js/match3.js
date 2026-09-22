@@ -26,18 +26,33 @@ if (fsBtn) fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleF
 const diffSel = document.getElementById('m3-diff');
 const modeSel = document.getElementById('m3-mode'); // #453 简单/道具模式
 const partnerNameEl = document.getElementById('m3-partner-name');
-const N = 8, KIND_N = 6;
+let N = 8, KIND_N = 6;
 const GAP = 3;                 // 格间距（fitBoard 哨兵表达式依赖）
 const SWAP_MS = 170, POP_MS = 220, FALL_MS = 300;  // 交换/消除/下落动画时长
-const KINDS = ['🍓', '🍋', '🍇', '🔔', '⭐', '🎈'];
+const KINDS = ['🍓', '🍋', '🍇', '🔔', '⭐', '🎈', '🍀', '💎'];   // 前 6 款顺序不动（旧档牌面），后 2 款供王者/传奇
 const BOMB_BASE = 10;    // 10+c = 该色炸弹（💥，被消除炸 3×3）
 const RAINBOW = 20;      // 彩虹（🌈）
 const LINE_H = 30, LINE_V = 40; // 30+c / 40+c = 该色直线道具（↔️被消除清整行 / ↕️清整列）#453
 const DIFFS = {
-casual: { target: 300, coin: 520, label: '🌱 休闲 · 300 分' },
-normal: { target: 600, coin: 1314, label: '🌙 普通 · 600 分' },
-hard:   { target: 1000, coin: 5200, label: '⭐ 挑战 · 1000 分' }
+casual: { target: 300, coin: 520, size: 8, kinds: 6, label: '🌱 休闲 · 300 分' },
+normal: { target: 600, coin: 1314, size: 8, kinds: 6, label: '🌙 普通 · 600 分' },
+hard:   { target: 1000, coin: 5200, size: 8, kinds: 6, label: '⭐ 挑战 · 1000 分' },
+king:   { target: 2000, coin: 13140, size: 10, kinds: 7, label: '👑 王者 · 10×10 · 2000 分' },
+legend: { target: 3500, coin: 33440, size: 12, kinds: 8, label: '🏆 传奇 · 12×12 · 3500 分' }
 };
+function syncDiffSel() {
+if (!diffSel) return;
+const want = String(diffSel.value || 'normal');
+diffSel.innerHTML = '';
+for (const k in DIFFS) {
+const o = document.createElement('option');
+o.value = k; o.textContent = DIFFS[k].label;
+if (k === want) o.selected = true;
+diffSel.appendChild(o);
+}
+if (!DIFFS[want]) diffSel.value = 'normal';
+}
+syncDiffSel();
 const THINK_LINES = ['TA正在找能消的……', 'TA扫视着棋盘', 'TA歪头想了想'];
 const TURN_MIN = 900, TURN_VAR = 800;
 const T = window.taFit || function (x) { return x; };
@@ -79,9 +94,12 @@ const sfxWin = () => { beep(660, 0.14, 0.2); setTimeout(() => beep(880, 0.2, 0.2
 let st = null;
 let thinkT = null;
 function newState(diff, mode) {
+const d = DIFFS[diff] || DIFFS.normal;
+N = d.size; KIND_N = d.kinds;   // 「更多牌」扩展批：棋盘边长/配色数随难度（KINDS 前 6 款顺序不变，旧档牌面零漂移）
 return {
 diff: diff,
-target: DIFFS[diff].target,
+target: d.target,
+size: d.size, kinds: d.kinds,
 grid: [],                // grid[r][c]：0..5 颜色 / 10+c 炸弹 / 20 彩虹 / 30+c,40+c 直线道具
 mode: mode === 'item' ? 'item' : 'simple', // #453 简单(默认,无道具)/道具
 taMode: null,            // #301 TA 出手风格 serious/normal/sandbag/blunder（FIX 2026-09-15 #481 与 st.mode 道具开关分家）
@@ -107,6 +125,7 @@ return d;
 }
 function saveStats(s) { try { localStorage.setItem(statsKey(), JSON.stringify(s)); } catch (e) {} }
 function findRuns(grid) {
+const N = grid.length;
 const runs = [];
 for (let r = 0; r < N; r++) {
 let run = 1;
@@ -139,12 +158,15 @@ return runs;
 function findMatches(grid) {
 const runs = findRuns(grid);
 if (!runs.length) return null;
+const N = grid.length;
 const mark = [];
 for (let r = 0; r < N; r++) mark.push(new Array(N).fill(false));
 runs.forEach((run) => run.cells.forEach((p) => { mark[p[0]][p[1]] = true; }));
 return mark;
 }
 function clearWithSpecials(grid, seeds) {
+const N = grid.length;
+const inb = (r, c) => r >= 0 && r < N && c >= 0 && c < N;
 const cleared = [];
 const seen = [];
 for (let r = 0; r < N; r++) seen.push(new Array(N).fill(false));
@@ -152,7 +174,7 @@ const queue = seeds.slice();
 seeds.forEach((p) => { seen[p[0]][p[1]] = true; });
 while (queue.length) {
 const p = queue.shift();
-if (!inBoard(p[0], p[1]) || seen[p[0]][p[1]] === 'done') continue;
+if (!inb(p[0], p[1]) || seen[p[0]][p[1]] === 'done') continue;
 seen[p[0]][p[1]] = 'done';
 cleared.push([p[0], p[1]]);
 const v = grid[p[0]][p[1]];
@@ -163,13 +185,14 @@ for (let cc = 0; cc < N; cc++) { if (!seen[p[0]][cc]) { seen[p[0]][cc] = true; q
 } else if (v >= BOMB_BASE && v < RAINBOW) {
 for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
 const rr = p[0] + dr, cc = p[1] + dc;
-if (inBoard(rr, cc) && !seen[rr][cc]) { seen[rr][cc] = true; queue.push([rr, cc]); }
+if (inb(rr, cc) && !seen[rr][cc]) { seen[rr][cc] = true; queue.push([rr, cc]); }
 }
 }
 }
 return cleared;
 }
 function collapse(grid) {
+const N = grid.length;
 let moved = false;
 for (let c = 0; c < N; c++) {
 let write = N - 1;
@@ -201,6 +224,7 @@ if (chain > 20) break;
 return total;
 }
 function allMoves(grid) {
+const N = grid.length;
 const out = [];
 const dirs = [[0, 1], [1, 0]];
 for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
@@ -619,7 +643,9 @@ const other = s.grid[a[0]][a[1]] >= RAINBOW ? b : a;
 const seeds = [[rbPos[0], rbPos[1]]];
 const colors = [];
 if (both) {
-const pool = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5).slice(0, 2);
+const poolAll = [];
+for (let i = 0; i < KIND_N; i++) poolAll.push(i);
+const pool = poolAll.sort(() => Math.random() - 0.5).slice(0, 2);
 pool.forEach((c2) => colors.push(c2));
 seeds.push([other[0], other[1]]);
 } else {

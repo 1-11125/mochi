@@ -4394,6 +4394,11 @@ const FIX_SENTINELS = [
   { name: '#1028a 砖块结算卡专属类在位（删＝砖块正文回退到共用 15px，长文案折行复发）', file: 'js/chat.js', needle: "m.className = 'msg-pong msg-brick'" },
   { name: '#1028c 结算卡正文剥重复句首（删＝旧记录带「双人打砖块 · …」长句回两行、字号收窄前功尽弃）', file: 'js/chat.js', needle: 'replace(/^双人打砖块\\s*·\\s*/' },
   { name: '#1028b 砖块结算卡 12.5px 收窄规则在位（改回共用 15px＝折行复发；needle 为规则本体＝逻辑锚点）', file: 'css/chat-pages.css', needle: '.msg-brick .msg-pong-result { font-size:12.5px; }' },
+  /* ==== 2026-09-22 #1025 三小游戏「更多牌」扩展批（用户直派「记忆翻牌没有更多牌，只有3个小模式太少；连连看和消消乐也是」）：记忆翻牌加王者 6×5/传奇 7×6 两档＋牌面 3 主题×24 款；连连看加史诗 12×9＋动物/繁花主题（各主题扩到 27 款）；消消乐棋盘边长/配色数随难度＋王者 10×10/传奇 12×12 两档。三游戏难度下拉改由 JS 按 DIFFS 生成（template.html 被并行批占用，档位清单以各游戏文件为唯一事实源）。旧档数值全部原样保留。 ==== */
+  { name: '#1025a 记忆翻牌传奇档在位（删＝难度下拉回退、7×6 大棋盘局消失）', file: 'js/memory-game.js', needle: "legend: { label: '传奇', opt: '🏆 传奇 6×7',  cols: 7, rows: 6, pairs: 21" },
+  { name: '#1025b 连连看史诗 12×9 档在位（删＝108 张大棋盘局消失，回退五档）', file: 'js/linkup.js', needle: "epic:   { rows: 9, cols: 12, kinds: 27, pairPerKind: 2, label: '🌋 史诗 12×9'" },
+  { name: '#1025c 消消乐传奇档在位（删＝12×12/3500 分大盘局消失）', file: 'js/match3.js', needle: 'legend: { target: 3500, coin: 33440, size: 12, kinds: 8' },
+  { name: '#1025d 消消乐棋盘边长/配色随难度接线（删＝新档永远开成 8×8/6 色＝档位名存实亡；N 仍被 fitBoard 哨兵表达式引用）', file: 'js/match3.js', needle: 'N = d.size; KIND_N = d.kinds;' },
   /* ==== 2026-09-22 #1027 群聊拍一拍面板补分组 chip 条（用户反馈「群聊的拍一拍功能没有分组tag」）：#287 那版群聊面板把「预设 + 字卡库【拍一拍】各分组 + 我的自建分组 + 存量扁平列表」全局去重后摊平成一条长列表，分组名在群聊里整个丢失（单聊面板一直有 .poke-groups chip 条可按组筛选）。修法＝在 #gc-poke-card 里挂同款 .poke-groups 条（chip 与暗色样式复用聊天页现成规则＝零 CSS 新增、零 template 新增），gcPokeGroups() 按来源出组、全局去重与 #648g 媒体守卫口径一字未动，选中组按桌面命名空间记在 gc-poke-group。 ==== */
   { name: '#1027a 群聊拍一拍面板挂上分组条（删＝面板退回一条摊平长列表，用户报的「没有分组 tag」复发）', file: 'js/group-chat.js', needle: 'gcPokeCard.insertBefore(gcPokeBar, gcPokeList)' },
   { name: '#1027b 群聊拍一拍按选中分组出卡（删＝chip 点不动/不再筛选，分组条退成装饰）', file: 'js/group-chat.js', needle: 'g.key === gcPokeCur' },

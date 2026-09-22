@@ -40,12 +40,62 @@ function pick(arr) { return arr.length ? arr[Math.floor(Math.random() * arr.leng
 function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function storeKey(suf) { return (window.activePrefix ? window.activePrefix() : 'xy-home-v2:default') + ':' + suf; }
 const DIFFS = {
-casual: { label: '休闲', cols: 4, rows: 3, pairs: 6,  memory: 0.60, pause: [520, 900] },
-normal: { label: '普通', cols: 4, rows: 4, pairs: 8,  memory: 0.80, pause: [460, 780] },
-hard:   { label: '挑战', cols: 5, rows: 4, pairs: 10, memory: 0.95, pause: [400, 660] }
+casual: { label: '休闲', opt: '🌱 休闲 3×4',  cols: 4, rows: 3, pairs: 6,  memory: 0.60, pause: [520, 900] },
+normal: { label: '普通', opt: '🌙 普通 4×4',  cols: 4, rows: 4, pairs: 8,  memory: 0.80, pause: [460, 780] },
+hard:   { label: '挑战', opt: '⭐ 挑战 4×5',  cols: 5, rows: 4, pairs: 10, memory: 0.95, pause: [400, 660] },
+king:   { label: '王者', opt: '👑 王者 6×5',  cols: 6, rows: 5, pairs: 15, memory: 0.97, pause: [360, 600] },
+legend: { label: '传奇', opt: '🏆 传奇 6×7',  cols: 7, rows: 6, pairs: 21, memory: 0.98, pause: [320, 540] }
 };
 function curDiff() { return DIFFS[(diffSel && diffSel.value) || 'normal'] || DIFFS.normal; }
-const FACE_POOL = ['🌙', '⭐', '🌸', '🍓', '🐟', '🍀', '☁️', '🦋', '🍑', '🌊', '✨', '🔮'];
+function syncDiffSel() {
+if (!diffSel) return;
+const want = String(diffSel.value || 'normal');
+diffSel.innerHTML = '';
+for (const k in DIFFS) {
+const o = document.createElement('option');
+o.value = k; o.textContent = DIFFS[k].opt;
+if (k === want) o.selected = true;
+diffSel.appendChild(o);
+}
+if (!DIFFS[want]) diffSel.value = 'normal';
+}
+syncDiffSel();
+const THEMES = {
+night:   { ico: '🌙', name: '星夜', faces: ['🌙', '⭐', '🌸', '🍓', '🐟', '🍀', '☁️', '🦋', '🍑', '🌊', '✨', '🔮', '🧸', '🎈', '🍭', '🐰', '🐱', '🦄', '🌈', '💌', '🍩', '🐥', '⛄', '🍬'] },
+dessert: { ico: '🧁', name: '甜品', faces: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮'] },
+ocean:   { ico: '🌊', name: '海洋', faces: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧'] }
+};
+const THEME_ORDER = Object.keys(THEMES);
+let themeKey = 'night';
+function themeFaces() { return (THEMES[themeKey] || THEMES.night).faces; }
+function loadTheme() {
+try { const t = localStorage.getItem(storeKey('memory-theme')); if (THEMES[t]) themeKey = t; } catch (e) {}
+}
+const themeBtnEl = (function () {
+if (!soundBtn || !soundBtn.parentNode) return null;
+const b = document.createElement('button');
+b.type = 'button';
+b.className = 'snake-icon-btn';
+b.id = 'memory-theme';
+b.addEventListener('click', (e) => {
+e.stopPropagation();
+themeKey = THEME_ORDER[(THEME_ORDER.indexOf(themeKey) + 1) % THEME_ORDER.length];
+try { localStorage.setItem(storeKey('memory-theme'), themeKey); } catch (e2) {}
+syncThemeBtn();
+if (!game) buildPreview();   // 未开局换预览牌墙；对局中不换面（防读牌记忆串图案）
+beep(520, 0.06, 0.07);
+});
+soundBtn.parentNode.insertBefore(b, soundBtn);
+return b;
+})();
+function syncThemeBtn() {
+if (!themeBtnEl) return;
+const th = THEMES[themeKey] || THEMES.night;
+themeBtnEl.textContent = th.ico;
+themeBtnEl.title = '牌面主题：' + th.name + '（点击切换）';
+}
+loadTheme();
+syncThemeBtn();
 const YUAN = 100;
 const COIN_CLEAR = 5;      // 完成一局 +5
 const COIN_STREAK = 1;     // 连续配对每次 +1
@@ -123,7 +173,7 @@ let game = null;
 let timers = [];
 function newGame(diff) {
 const d = DIFFS[diff] || DIFFS.normal;
-const faces = shuffle(FACE_POOL).slice(0, d.pairs);
+const faces = shuffle(themeFaces()).slice(0, d.pairs);
 const cards = shuffle(faces.concat(faces)).map((face, idx) => ({
 id: idx, face: face, matched: false, flipped: false, owner: null
 }));
@@ -146,7 +196,7 @@ lastPlayerFace: null, lastTaFace: null
 function applyBoardLayout(d) {
 if (!boardEl) return;
 boardEl.style.gridTemplateColumns = 'repeat(' + d.cols + ', 1fr)';
-boardEl.style.setProperty('--mgm-fs', d.cols <= 3 ? '32px' : d.cols === 4 ? '27px' : '23px');
+boardEl.style.setProperty('--mgm-fs', d.cols <= 3 ? '32px' : d.cols === 4 ? '27px' : d.cols === 5 ? '23px' : d.cols === 6 ? '20px' : '18px');
 }
 function fitBoard() {
 if (!boardEl || !panel || panel.hidden || !stageEl) return;
@@ -184,7 +234,7 @@ fitBoard();
 function buildPreview() {
 if (!boardEl) return;
 const d = curDiff();
-const faces = shuffle(FACE_POOL).slice(0, d.pairs);
+const faces = shuffle(themeFaces()).slice(0, d.pairs);
 const cards = shuffle(faces.concat(faces));
 applyBoardLayout(d);
 boardEl.innerHTML = '';

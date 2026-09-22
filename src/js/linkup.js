@@ -48,17 +48,37 @@
     // #489 大棋盘：rows×cols 必须 = kinds×pairPerKind×2（每款张数为偶）才可清盘；
     // 12 列是窄屏可玩上限（再宽则半框格子 <20px 读不清图案）
     king:   { rows: 7, cols: 12, kinds: 21, pairPerKind: 2, label: '👑 王者 12×7', coin: 13140 },
-    legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 }
+    legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 },
+    // 「更多牌」扩展批：史诗 12×9＝108 张＝27 款×2 对（依赖主题扩到 27 款）。
+    // 半框下 fitBoard 按实宽收格（#489 floor24），窄屏变小不溢出
+    epic:   { rows: 9, cols: 12, kinds: 27, pairPerKind: 2, label: '🌋 史诗 12×9', coin: 52000 }
   };
-  // #301 图案主题包：水果 / 甜品 / 海洋（头部 🎨 循环切换，按联系人桌面记住选择）
-  // #489 扩到 24 款（王者 21 / 传奇 24 用）——新图案只许追加在尾部，前 10/12/15 顺序
+  // 难度下拉由 DIFFS 生成（并行批常占用 template.html；档位清单以本文件为唯一事实源）
+  function syncDiffSel() {
+    if (!diffSel) return;
+    const want = String(diffSel.value || 'normal');
+    diffSel.innerHTML = '';
+    for (const k in DIFFS) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = DIFFS[k].label;
+      if (k === want) o.selected = true;
+      diffSel.appendChild(o);
+    }
+    if (!DIFFS[want]) diffSel.value = 'normal';
+  }
+  // #301 图案主题包：水果 / 甜品 / 海洋 / 动物 / 繁花（头部 🎨 循环切换，按联系人桌面记住选择）
+  // #489 扩到 24 款（王者 21 / 传奇 24 用）；「更多牌」扩展批扩到 27 款（史诗 27 用）。
+  // 新图案只许追加在尾部，前 10/12/15 顺序
   // 不能动（休闲/普通/挑战的牌面依赖既有顺序）；同主题内禁止重复图案（重复=异种同形，误配）
   const THEMES = {
-    fruit:   { ico: '🍎', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬', '🥑', '🍋', '🥭', '🫐', '🥥', '🌰', '🫒', '🎃', '🌻'] },
-    dessert: { ico: '🧁', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮'] },
-    ocean:   { ico: '🌊', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧'] }
+    fruit:   { ico: '🍎', name: '水果', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬', '🥑', '🍋', '🥭', '🫐', '🥥', '🌰', '🫒', '🎃', '🌻', '🥕', '🌶️', '🍄'] },
+    dessert: { ico: '🧁', name: '甜品', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮', '🍹', '🥤', '🍧'] },
+    ocean:   { ico: '🌊', name: '海洋', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧', '🧜', '🐋', '🦩'] },
+    animal:  { ico: '🦊', name: '动物', kinds: ['🐰', '🐱', '🐶', '🐭', '🐹', '🐻', '🐼', '🐨', '🦁', '🐮', '🐷', '🐸', '🐵', '🦊', '🐔', '🦆', '🦉', '🐧', '🦄', '🐝', '🦋', '🐞', '🐌', '🐢', '🐬', '🦜', '🐾'] },
+    bloom:   { ico: '🌷', name: '繁花', kinds: ['🌸', '🌹', '🌷', '🌻', '🌺', '💐', '🌼', '🌿', '🍀', '🌱', '🌵', '🎋', '🍁', '🍂', '🍃', '🌾', '🪷', '🪻', '🌴', '🌳', '🌲', '🍄', '🌰', '🥀', '🏵️', '💮', '🎄'] }
   };
-  const THEME_ORDER = ['fruit', 'dessert', 'ocean'];
+  const THEME_ORDER = Object.keys(THEMES);
+  syncDiffSel();
   let themeKey = 'fruit';
   function themeKinds() { return (THEMES[themeKey] || THEMES.fruit).kinds; }
   function themeBtn() { return document.getElementById('lk-theme'); }
@@ -726,7 +746,7 @@
     themeKey = THEME_ORDER[(THEME_ORDER.indexOf(themeKey) + 1) % THEME_ORDER.length];
     try { localStorage.setItem(prefix() + ':linkup-theme', themeKey); } catch (e2) {}
     themeBtnEl.textContent = THEMES[themeKey].ico;
-    themeBtnEl.title = '图案主题：' + { fruit: '水果', dessert: '甜品', ocean: '海洋' }[themeKey] + '（点击切换）';
+    themeBtnEl.title = '图案主题：' + (THEMES[themeKey].name || themeKey) + '（点击切换）';
     if (st && st.started) renderBoard();
     beep(520, 0.06, 0.12);
   });

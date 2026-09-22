@@ -31,14 +31,30 @@ casual: { rows: 5, cols: 6, kinds: 10, pairPerKind: 3, label: '🌱 休闲 6×5'
 normal: { rows: 6, cols: 8, kinds: 12, pairPerKind: 2, label: '🌙 普通 8×6', coin: 1314 },
 hard:   { rows: 6, cols: 10, kinds: 15, pairPerKind: 2, label: '⭐ 挑战 10×6', coin: 5200 },
 king:   { rows: 7, cols: 12, kinds: 21, pairPerKind: 2, label: '👑 王者 12×7', coin: 13140 },
-legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 }
+legend: { rows: 8, cols: 12, kinds: 24, pairPerKind: 2, label: '🏆 传奇 12×8', coin: 33440 },
+epic:   { rows: 9, cols: 12, kinds: 27, pairPerKind: 2, label: '🌋 史诗 12×9', coin: 52000 }
 };
+function syncDiffSel() {
+if (!diffSel) return;
+const want = String(diffSel.value || 'normal');
+diffSel.innerHTML = '';
+for (const k in DIFFS) {
+const o = document.createElement('option');
+o.value = k; o.textContent = DIFFS[k].label;
+if (k === want) o.selected = true;
+diffSel.appendChild(o);
+}
+if (!DIFFS[want]) diffSel.value = 'normal';
+}
 const THEMES = {
-fruit:   { ico: '🍎', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬', '🥑', '🍋', '🥭', '🫐', '🥥', '🌰', '🫒', '🎃', '🌻'] },
-dessert: { ico: '🧁', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮'] },
-ocean:   { ico: '🌊', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧'] }
+fruit:   { ico: '🍎', name: '水果', kinds: ['🍎', '🍐', '🍇', '🍒', '🍓', '🍑', '🍍', '🥝', '🍉', '🍌', '🧁', '🍰', '🍀', '🌈', '🐬', '🥑', '🍋', '🥭', '🫐', '🥥', '🌰', '🫒', '🎃', '🌻', '🥕', '🌶️', '🍄'] },
+dessert: { ico: '🧁', name: '甜品', kinds: ['🍰', '🧁', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍦', '🧇', '🥞', '🍓', '🍯', '🫖', '☕', '🧋', '🥐', '🥨', '🥯', '🧈', '🍞', '🍥', '🍡', '🥮', '🍹', '🥤', '🍧'] },
+ocean:   { ico: '🌊', name: '海洋', kinds: ['🐬', '🐟', '🐠', '🦈', '🐙', '🦀', '🐡', '🦐', '🐳', '🐚', '🌊', '⛵', '🪸', '⭐', '🫧', '🦞', '🦑', '🦦', '🦭', '🐢', '⚓', '🎣', '🚤', '💧', '🧜', '🐋', '🦩'] },
+animal:  { ico: '🦊', name: '动物', kinds: ['🐰', '🐱', '🐶', '🐭', '🐹', '🐻', '🐼', '🐨', '🦁', '🐮', '🐷', '🐸', '🐵', '🦊', '🐔', '🦆', '🦉', '🐧', '🦄', '🐝', '🦋', '🐞', '🐌', '🐢', '🐬', '🦜', '🐾'] },
+bloom:   { ico: '🌷', name: '繁花', kinds: ['🌸', '🌹', '🌷', '🌻', '🌺', '💐', '🌼', '🌿', '🍀', '🌱', '🌵', '🎋', '🍁', '🍂', '🍃', '🌾', '🪷', '🪻', '🌴', '🌳', '🌲', '🍄', '🌰', '🥀', '🏵️', '💮', '🎄'] }
 };
-const THEME_ORDER = ['fruit', 'dessert', 'ocean'];
+const THEME_ORDER = Object.keys(THEMES);
+syncDiffSel();
 let themeKey = 'fruit';
 function themeKinds() { return (THEMES[themeKey] || THEMES.fruit).kinds; }
 function themeBtn() { return document.getElementById('lk-theme'); }
@@ -639,7 +655,7 @@ e.stopPropagation();
 themeKey = THEME_ORDER[(THEME_ORDER.indexOf(themeKey) + 1) % THEME_ORDER.length];
 try { localStorage.setItem(prefix() + ':linkup-theme', themeKey); } catch (e2) {}
 themeBtnEl.textContent = THEMES[themeKey].ico;
-themeBtnEl.title = '图案主题：' + { fruit: '水果', dessert: '甜品', ocean: '海洋' }[themeKey] + '（点击切换）';
+themeBtnEl.title = '图案主题：' + (THEMES[themeKey].name || themeKey) + '（点击切换）';
 if (st && st.started) renderBoard();
 beep(520, 0.06, 0.12);
 });
