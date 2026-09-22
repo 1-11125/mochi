@@ -4671,6 +4671,9 @@ const FIX_SENTINELS = [
   { name: "#1034d 行下红条补白名单动作与自动恢复口径（删＝「失效后重开开关」被理解成功能又坏了）", file: "template.html", needle: "止住它最有效的一步＝Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034e 功能说明补「装桌面图标＋离线消息提醒」兜底层（删＝页面被回收后连一条兜底通知都没有）", file: "js/settings-help.js", needle: "页面被回收甚至全部关掉后，浏览器也会定时唤醒弹一条" },
   { name: "#1034f 口径量化「内存紧张时几分钟也会被丢」（删＝用户拿「约 30 分钟」对不上自己的几分钟，以为网站坏了）", file: "js/settings-help.js", needle: "手机内存紧张时更快——本页越重，几分钟也可能被丢" },
+  { name: '#1017a 进聊天页「先上屏一帧再跑重活」（删＝进度条置位与撤销又落回同一任务＝用户那句「没有加载动画缓冲」复发；原提交 e78960b 落在侧分支未并入 main，本条为重落）', file: 'js/chat.js', needle: "requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });" },
+  { name: '#1017b 进聊天页重活挂在首帧之后（改回当场同步跑 loadMsgs/重建＝置位即撤销、进度条再次从未上屏）', file: 'js/chat.js', needle: "chatEnterPaintThen(function () {" },
+  { name: '#1017c 重活保险丝（删＝后台标签/不可见页面 rAF 不派发时进聊天永不渲染）', file: 'js/chat.js', needle: "setTimeout(run, 120);" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
