@@ -3909,10 +3909,10 @@ maybeScrollChatBottom(rec.side);
 return m;
 }
 if (rec.special === 'brick') {
-m.className = 'msg-pong';
+m.className = 'msg-pong msg-brick';
 m.innerHTML = '<div class="msg-pong-card">' +
 '<div class="msg-pong-label">🧱 ' + T('双人打砖块') + '</div>' +
-'<div class="msg-pong-result">' + escTxt(T(rec.text || '')) + '</div>' +
+'<div class="msg-pong-result">' + escTxt(T((rec.text || '').replace(/^双人打砖块\s*·\s*/, ''))) + '</div>' +
 '</div>';
 appendMsg(m);
 maybeScrollChatBottom(rec.side);

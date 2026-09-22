@@ -5280,10 +5280,11 @@ maybeScrollChatBottom(rec.side);
 return m;
 }
 if (rec.special === 'brick') {
-m.className = 'msg-pong';
+m.className = 'msg-pong msg-brick';
+// #1028：正文剥掉与卡片标签重复的「双人打砖块 · 」句首（存值不改，旧记录同样生效）
 m.innerHTML = '<div class="msg-pong-card">' +
 '<div class="msg-pong-label">🧱 ' + T('双人打砖块') + '</div>' +
-'<div class="msg-pong-result">' + escTxt(T(rec.text || '')) + '</div>' +
+'<div class="msg-pong-result">' + escTxt(T((rec.text || '').replace(/^双人打砖块\s*·\s*/, ''))) + '</div>' +
 '</div>';
 appendMsg(m);
 maybeScrollChatBottom(rec.side);
