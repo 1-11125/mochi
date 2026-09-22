@@ -4704,6 +4704,9 @@ const FIX_SENTINELS = [
   { name: '#1035g 未命中链的两发成功都落缓存（删＝弱网「其实传完了」那一发白拿，下次开页再赌一次网络）', file: 'pwa/sw.js', needle: "m2 || fetch(req).then(cachePut)" },
   { name: '#1035h 写缓存侧验「确实是 js」（删＝门户/代理的 200＋text/html 错误页被写进裸键＝下次开页直接命中坏体、parse 期就死，页面侧自愈根本记不到）', file: 'pwa/sw.js', needle: "const isJsBody = (res) => !!res && res.ok && !/text\\/html/i.test(" },
   { name: '#1035i 诊断汇总窗挪到换址首波之后（改回 20000＝在逃生波出手前就写死「真失败」，报障 docx 里「N 个功能包未加载成功」永挂复发＝用户看到的「一直出现」）', file: 'js/device.js', needle: 'setTimeout(extFailFlush, 34000)' },
+  /* ==== 2026-09-22 #1042 词典「逐条连发」不响收件音效（用户实报「词典逐条连发时没有触发音效」；根因＝逐卡连发写 silent: si>0?true:…，而这枚 silent 在 addIn 里连音效闸门一起摁掉＝#968 同族。实测：三张卡只响 1 声，落在「多字卡回复」第 2 条及以后时整批零声） ==== */
+  { name: '#1042a addIn 音效闸门与横幅解耦（改回 !opts.silent＝连发/追加类「免横幅」通道又把音效一起摁掉）', file: 'js/chat.js', needle: "(!opts.silent || opts.sfx === true)" },
+  { name: '#1042b 词典逐条连发每条按条响（删＝连发又只剩首条一声＝用户报障复发）', file: 'js/chat.js', needle: "sfx: !willRetractR," },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

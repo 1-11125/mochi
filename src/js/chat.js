@@ -6368,7 +6368,9 @@ opts = opts || {};
   // v3.26.x：联系人发消息音效——TA 主动消息/系统通知统一在 addIn 触发「联系人发送和回复消息」音效
   // （sfx-in）。此前只有群聊播 in 音效、单聊从未触发，所有手机单聊收 TA 消息都静音（红米 Turbo4Pro
   // + Via 反馈）。silent（小游戏互动/后台批量/静默通知）与已读回执（special:'read'）不打扰，不播放。
-  if (window.playSfx && !opts.silent && opts.special !== 'read') {
+  // #1042：opts.sfx === true 单独放开音效闸门——silent 的既有语义是「免桌面横幅/系统通知」，
+  // 但它顺手把音效一起摁掉了（#968 同族根因）。词典逐条连发每条气泡都是一条独立收件：免横幅不免音效。
+  if (window.playSfx && (!opts.silent || opts.sfx === true) && opts.special !== 'read') {
     try { window.playSfx('in'); } catch (e) {}
   }
   // v3.14.x：opts.tag = 来源标注（如「经期关心/喝水提醒/吃饭提醒」）——系统功能直接发进
@@ -7351,6 +7353,12 @@ qidx: (si === 0 && quote) ? quoteIdx : undefined,
 type: 'text',
 parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
 silent: si > 0 ? true : (silent || willRetractR),
+// #1042 逐条连发＝一条气泡一条收件（卡与卡之间还各走一次「正在输入」），收件音效按条响：
+// 旧写法 si>0 一律 silent ⇒ 三张卡只响首条一声；当本批落在「多字卡回复」第 2 条及以后
+// （replyOnce 自身带 silent = i > 0）时整批一声都不响＝用户实报「词典逐条连发没有触发音效」。
+// silent 原样保留（横幅/系统通知仍整批只承诺一次，不刷屏）；命中撤回（willRetractR）时
+// 整批照旧全静默落地，#553「内容会消失的本条不播音效」契约不受本批改影响。
+ sfx: !willRetractR,
 // #350/#843：逐卡连发的每条气泡只装一张词典字卡，按「一条消息一张卡」口径挂「词典」tag，
 // 玩法标记「词典逐卡连发」用 tagExtra 并列（chip 随消息持久化重进聊天仍在）
 // FIX 2026-09-18 #726 本路不挂「多字卡回复」来源 chip（#677 曾挂在本批首条）：逐卡连发

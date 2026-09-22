@@ -4815,7 +4815,7 @@ return el;
 function addIn(text, opts) {
 opts = opts || {};
 if (nightBlocksIn(opts.initiative, opts.nightAllow)) return null;
-if (window.playSfx && !opts.silent && opts.special !== 'read') {
+if (window.playSfx && (!opts.silent || opts.sfx === true) && opts.special !== 'read') {
 try { window.playSfx('in'); } catch (e) {}
 }
 const _tagMood = opts.tag ? [{ tag: String(opts.tag), label: opts.tagNoDup ? '' : String(text) }] : null;
@@ -5591,6 +5591,7 @@ qidx: (si === 0 && quote) ? quoteIdx : undefined,
 type: 'text',
 parts: si === rep.spell.length - 1 ? spellPartsSync(rep.spell[si], spellImgParts) : null,
 silent: si > 0 ? true : (silent || willRetractR),
+sfx: !willRetractR,
 tag: '词典',
 tagExtra: [{ tag: '词典逐卡连发', label: '' }],
 tagNoDup: true
