@@ -117,10 +117,12 @@ html { margin:0; padding:0; }
 /* v8.29 #973：开屏最顶端「使用前必看」红卡——.splash-box 首个子节点（在品牌卡之上，开屏第一眼），
    红左竖条 + 淡红底，与 #315b 免责卡 / #793 停更公告同一红色警示族但更靠前、左竖条更粗（4px）；
    宽度与品牌卡一致 min(324px,100%) 保持整页左右对齐 */
-.splash-bigwarn { width:min(324px, 100%); box-sizing:border-box; margin:0 0 14px; padding:13px 15px 14px 16px; background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left; animation:splash-fade-up .6s ease 0s backwards; }
-.splash-bigwarn .splash-bigwarn-t { font-size:13.5px; font-weight:800; color:#c22b27; letter-spacing:.6px; margin-bottom:7px; line-height:1.6; }
-.splash-bigwarn p { font-size:12.5px; line-height:1.8; color:#7a1d1a; font-weight:700; }
-.splash-bigwarn p + p { margin-top:7px; }
+/* #1046（2026-09-22）：顶卡加到 6 段后 495px 会把 #864 指引条挤出首屏（top 885 > vh 844），行距/留白按此收紧
+   （字号 12.5px、颜色、加粗、内容一字不动；#973b 哨兵 needle 的 background/border 段原样保留） */
+.splash-bigwarn { width:min(324px, 100%); box-sizing:border-box; margin:0 0 10px; padding:11px 15px 12px 16px; background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left; animation:splash-fade-up .6s ease 0s backwards; }
+.splash-bigwarn .splash-bigwarn-t { font-size:13.5px; font-weight:800; color:#c22b27; letter-spacing:.6px; margin-bottom:6px; line-height:1.6; }
+.splash-bigwarn p { font-size:12.5px; line-height:1.6; color:#7a1d1a; font-weight:700; }
+.splash-bigwarn p + p { margin-top:5px; }
 .splash-bigwarn strong { color:#c22b27; font-weight:800; }
 /* v8.29 #976：必读卡组容器——7 张必读卡从「品牌卡内 2 张 + 公告卡内 5 张」整组前移到品牌卡之前，
    宽度与品牌卡/公告卡一致（min(324px,100%)）保持整页左右对齐；组内统一 14px 节奏（搬进来的两张卡原本是
