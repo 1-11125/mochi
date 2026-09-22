@@ -4659,6 +4659,11 @@ const FIX_SENTINELS = [
   { name: '#1026a 占位符取用户色变量（改回写死色＝设置里换色无效）', file: 'css/chat-main.css', needle: 'content:attr(data-ph); color:var(--chat-ph-ink, var(--hint-ink)); pointer-events:none;' },
   { name: '#1026b 占位符显隐接线（删＝「隐藏提示文字」开关失效）', file: 'js/chat-settings.js', needle: "setVar(root, '--chat-ph-visibility', 'hidden')" },
   { name: '#1026c 设置页两行入口在位（删＝功能没有入口，用户仍会报「无法更换颜色或关闭」）', file: 'template.html', needle: '<label class="toggle"><input type="checkbox" id="cs-ph-show"><span class="tk"></span></label>' },
+  /* ==== 2026-09-22 #1032 拍卖藏品页改版（用户直派「拍卖会ui里的【拍卖藏品】功能页面没有设计ui」；三方案静态对比后选定方案 A 卡片网格）：🎒 拍品收藏页原是一行行 pong-end-stat 裸文本＝没有任何设计。改版＝顶部统计条（件数/累计花费/TA 寄回数）+ 两列卡片网格（成色描边：SSR 金框内发光/稀有蓝框、展台区大图标、名称、落槌价+日期或 📬 来源、「送TA」整行按钮），空态新做（🎒 + 引导文案 + 「开始拍卖」直达）。数据侧仅加一行：新拍品入库即记成色 rarity 字段，旧条目由 bagRarity 按名反查拍品池、查不到按落槌价档估兜底。转赠委托仍走 .au-send-btn + data-i（verify-auction-overlay G3 同口径）。「拍卖记录/自制拍品」浮层未在本批面（用户只点名藏品页）。 ==== */
+  { name: '#1032a 藏品页卡片网格容器渲染锚点（删＝裸文本行复发＝藏品页又回到没有设计）', file: 'js/auction.js', needle: `'</div><div class="au-bag-grid">' +` },
+  { name: '#1032b 空态「开始拍卖」直达接线（删＝空态退化为纯文字，用户看到的仍是没设计的空页）', file: 'js/auction.js', needle: "e.target.closest('.au-bag-empty-btn')) { e.stopPropagation(); hideOverlay(); newSession();" },
+  { name: '#1032c 落槌入库即落成色（删＝新入库条目无 rarity，卡片徽章与真实成色脱节）', file: 'js/auction.js', needle: 'ts: Date.now(), rarity: rarityOf(item).label });' },
+  { name: '#1032d 两列网格 CSS 规则本体（改成别的布局＝卡片网格复发；needle＝minify 后单行规则前缀）', file: 'css/chat-pages.css', needle: '.au-bag-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

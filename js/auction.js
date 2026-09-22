@@ -457,7 +457,7 @@ const s = loadStats();
 s.myWins = (s.myWins || 0) + 1;
 s.spentFen = (s.spentFen || 0) + st.cur;
 const bag = loadBag();
-bag.push({ ico: item.ico, name: item.name, fen: st.cur, ts: Date.now() });
+bag.push({ ico: item.ico, name: item.name, fen: st.cur, ts: Date.now(), rarity: rarityOf(item).label });
 if (!persist(bagKey(), bag) || !persist(statsKey(), s)) {
 walletDeduct(-st.cur);
 st.myWins--; st.spent -= st.cur;
@@ -539,14 +539,44 @@ if (startBtn) startBtn.textContent = '再来一场';
 if (endBtn) endBtn.hidden = false;
 setStatus('本场结束，点击「再来一场」');
 }
+function bagRarity(it) {
+if (it.rarity) return { label: it.rarity, cls: it.rarity === 'SSR' ? 'au-r2' : it.rarity === '稀有' ? 'au-r1' : 'au-r0' };
+let src = null;
+try { src = POOL.concat(loadCustom()).find((c) => c.name === it.name) || null; } catch (e) {}
+const r = rarityOf(src || { base: it.fen || 0 });
+return { label: r.label, cls: r.cls };
+}
+function bagDate(ts) { try { const d = new Date(ts); return (d.getMonth() + 1) + '月' + d.getDate() + '日'; } catch (e) { return ''; } }
 function showBag() {
 bagOpen = true;
 const bag = loadBag();
-const body = bag.length
-? bag.map((it, i) =>
-'<div class="pong-end-stat au-bag-row">' + it.ico + ' ' + esc(it.name) + ' · ' + (it.from === 'ta' ? esc(T('TA')) + ' 寄来的' : yuan(it.fen)) +
-(it.from === 'ta' ? '' : ' <button class="pong-overlay-btn au-send-btn" data-i="' + i + '" type="button">送' + esc(T('TA')) + '</button>') + '</div>').join('')
-: '<div class="pong-end-stat">还什么都没拍到</div>';
+let body;
+if (!bag.length) {
+body = '<div class="au-bag-empty">' +
+'<div class="au-bag-empty-ico">🎒</div>' +
+'<div class="au-bag-empty-t">还什么都没拍到</div>' +
+'<div class="au-bag-empty-s">开一场拍卖会，把第一件宝贝抱回来</div>' +
+'<button class="pong-overlay-btn au-bag-empty-btn" type="button">开始拍卖</button></div>';
+} else {
+const s = loadStats();
+let taCnt = 0;
+bag.forEach((it) => { if (it.from === 'ta') taCnt++; });
+const stat = '共 <b>' + bag.length + '</b> 件 · 累计花费 <b>' + yuan(s.spentFen || 0) + '</b>' +
+(taCnt ? ' · ' + esc(T('TA')) + ' 寄回 <b>' + taCnt + '</b> 件' : '');
+body = '<div class="au-bag-stat">' + stat + '</div><div class="au-bag-grid">' +
+bag.map((it, i) => {
+const rt = bagRarity(it);
+const frame = rt.cls === 'au-r2' ? ' au-bag-ssr' : rt.cls === 'au-r1' ? ' au-bag-rare' : '';
+const foot = it.from === 'ta'
+? '<div class="au-bag-meta au-bag-from-ta">📬 ' + esc(T('TA')) + ' 寄来的</div>'
+: '<div class="au-bag-meta">' + yuan(it.fen) + ' 拍下 · ' + bagDate(it.ts) + '</div>' +
+'<button class="pong-overlay-btn au-send-btn au-bag-send" data-i="' + i + '" type="button">送' + esc(T('TA')) + '</button>';
+return '<div class="au-bag-card' + frame + '">' +
+'<span class="au-rare ' + rt.cls + ' au-bag-badge">' + rt.label + '</span>' +
+'<div class="au-bag-tile">' + it.ico + '</div>' +
+'<div class="au-bag-name">' + esc(it.name) + '</div>' + foot + '</div>';
+}).join('') + '</div>';
+}
 showOverlay('🎒 拍品收藏（' + bag.length + '）', body, '返回', '', true);
 if (startBtn) startBtn.textContent = '返回'; // #346 统一返回语义：场次中回竞价、结算后回本场汇总
 if (endBtn) endBtn.hidden = !(st && st.started && !st.over);
@@ -692,6 +722,7 @@ if (bagBtn) bagBtn.addEventListener('click', (e) => { e.stopPropagation(); showB
 if (historyBtn) historyBtn.addEventListener('click', (e) => { e.stopPropagation(); showHistory(); });
 if (addBtn) addBtn.addEventListener('click', (e) => { e.stopPropagation(); addCustomModal(); });
 if (ovBodyEl) ovBodyEl.addEventListener('click', (e) => {
+if (e.target.closest('.au-bag-empty-btn')) { e.stopPropagation(); hideOverlay(); newSession(); return; }
 const sendBtn = e.target.closest('.au-send-btn');
 if (!sendBtn) return;
 e.stopPropagation();
