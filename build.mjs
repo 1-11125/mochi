@@ -855,7 +855,7 @@ const FIX_SENTINELS = [
   { name: '#101 askTs 关联键透传进 chat-msgs（chatAddSystem 白名单补 askTs，修 pending 永不关联→幽灵待回答+重复记录）', file: 'js/chat.js', needle: 'askTs: opts.askTs' },
   { name: '#101 提问记录跨桌面汇总（allDeskHistories，修联系人桌面答过题切回主页提问记录看不到）', file: 'js/ta-ask.js', needle: 'allDeskHistories' },
 
-  { name: '#86 遗留副本清理墙钟兜底 + 幂等（restore 整轮挂起、mochi-restore-done 永不到达时 20s 后仍清理；purgeOnce 保证 #90 的重试链只起一套）', file: 'js/data-backup.js', needle: 'function purgeOnce()' },
+  { name: '#86 遗留副本清理墙钟兜底 + 幂等（restore 整轮挂起、mochi-restore-done 永不到达时 20s 后仍处理；幂等闸防重复弹/重复清。#1050 起清理改「当面弹窗点清理」，兜底函数随批换锚为 snapCleanPrompt——改回无条件静默删或删掉 20s 兜底即失配）', file: 'js/data-backup.js', needle: 'function snapCleanPrompt()' },
   { name: '#86 LS 大键迁移排除已下线副本键（不把几百 MB 遗留副本整包读进内存/写回 IDB/常驻 memoryCache，防清理后被复活）', file: 'js/idb.js', needle: "if (k === 'xy-home-v2:__auto-backup-snapshot') continue;" },
   { name: '#101 查看存储明细只列最大 5 项 + 占比条 + 百分比（其余折进「其他 N 项合计」，回归成流水账即报警）', file: 'js/personalize.js', needle: 'function pctOf(size, total)' },
   { name: '#101 展开区存储键名按桌面名显示（cid 命名空间换成联系人/桌面名，用户读得懂「谁的聊天记录」）', file: 'js/personalize.js', needle: 'function labelKey(k, names)' },
@@ -4729,6 +4729,8 @@ const FIX_SENTINELS = [
   { name: '#1049a 历史分页按钮（删＝renderHistory 回退全量 innerHTML 重建＝内存受压设备退页/白屏类症状推手复发）', file: 'js/divination.js', needle: 'id="div-h-more"' },
   { name: '#1049b 加载更多增量挂载（删＝点一次「显示更早」把已展开的全部重建一遍＝分页白做）', file: 'js/divination.js', needle: "insertAdjacentHTML('beforebegin'" },
   { name: '#1049c 历史不封顶（回流任何条数截断＝用户历史被静默丢弃；needle 是判式本体，描述里不出现它）', file: 'js/divination.js', needle: 'list.length > 500', absent: true },
+  { name: '#1050a 遗留快照当面清·3 天冷却闸（owner 直派「提醒用户，修复弹窗点击后自动清理」；删掉＝点过「下次再说」每次启动都被弹窗纠缠；改回静默删＝用户永远不知道有这份占用。#1049 批号被占卜分页批占用，本批重编号 #1050）', file: 'js/data-backup.js', needle: 'if (deferred > 0 && Date.now() - deferred < 3 * 24 * 60 * 60 * 1000) return;' },
+  { name: '#1050b 遗留快照当面清·弹窗本体（删掉＝探测到快照在也不提醒，回到「静默删删不干净、用户不知情」的老路；needle 为 openModal 触发行）', file: 'js/data-backup.js', needle: "window.openModal('发现旧版备份留底副本'" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

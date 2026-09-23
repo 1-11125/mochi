@@ -1237,39 +1237,66 @@ setTimeout(() => { impHide(); location.reload(); }, 3500);
 });
 });
 }
-function purgeLegacySnapshot() {
+function purgeLegacySnapshot(onDone) {
 try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e) {}
 try { if (window.idbMemoDrop) window.idbMemoDrop(SNAPSHOT_KEY); } catch (e) {}
-if (!window.idbDelete) return;
+if (!window.idbDelete) { if (onDone) onDone(false); return; }
 let tries = 0;
 const attempt = function () {
 tries++;
 Promise.resolve(window.idbDelete(SNAPSHOT_KEY)).then(function () {
-if (!window.idbHasKey) return;
+if (!window.idbHasKey) { if (onDone) onDone(false); return; }
 setTimeout(function () {
 try {
 Promise.resolve(window.idbHasKey(SNAPSHOT_KEY)).then(function (has) {
-if (has !== false && tries < 5) attempt();
-}).catch(function () { if (tries < 5) attempt(); });
-} catch (e) {}
+if (has === false) { if (onDone) onDone(true); return; }
+if (tries < 5) attempt();
+else if (onDone) onDone(false);
+}).catch(function () { if (tries < 5) attempt(); else if (onDone) onDone(false); });
+} catch (e) { if (onDone) onDone(false); }
 }, 1500);
-}).catch(function () {});
+}).catch(function () { if (onDone) onDone(false); });
 };
 attempt();
 }
-let _purgeStarted = false;
-function purgeOnce() {
-if (_purgeStarted) return;
-_purgeStarted = true;
-purgeLegacySnapshot();
+const SNAP_DEFER_KEY = 'xy-home-v2:__snap-clean-defer';
+let _snapPromptShown = false;
+function snapCleanPrompt() {
+try {
+if (_snapPromptShown) return;
+if (!window.idbHasKey || !window.openModal || typeof toast !== 'function') return;
+let deferred = 0;
+try { deferred = Number(localStorage.getItem(SNAP_DEFER_KEY)) || 0; } catch (eF1) {}
+if (deferred > 0 && Date.now() - deferred < 3 * 24 * 60 * 60 * 1000) return;
+Promise.resolve(window.idbHasKey(SNAPSHOT_KEY)).then(function (has) {
+if (_snapPromptShown) return;
+if (has !== true) return; // 不在＝已清/从没有＝零打扰
+_snapPromptShown = true;
+window.openModal('发现旧版备份留底副本', '', function (v) {
+if (v !== 'ok') { // 「下次再说」/关掉：3 天内不再问
+try { localStorage.setItem(SNAP_DEFER_KEY, String(Date.now())); } catch (eF2) {}
+return;
 }
-if (window.__mochiDataReady) { setTimeout(purgeOnce, 1500); }
+purgeLegacySnapshot(function (gone) {
+toast(gone
+? '已清理完成，这份占用已释放（不影响你现在的任何数据）'
+: '这次没删干净（存储忙），下次启动会再试；也可到 设置→查看存储 手动清');
+});
+}, {
+noInput: true, pillSubmit: true,
+pills: [{ label: '立即清理', value: 'ok' }, { label: '下次再说', value: 'later' }],
+staticText: '检测到一份旧版本程序留下的「备份留底副本」（通常占几十 MB，键名 __auto-backup-snapshot）。\n\n它是某个旧版本在你做备份时顺手复制的全量数据拷贝，早已过期、不再更新。删掉它不影响你现在的任何数据——聊天记录、字卡、图片都存在另外的位置；你真正的备份是「导出数据」保存的那份文件。\n\n点「立即清理」即释放这份占用；清理会自动复核，没删干净下次启动会再提醒。'
+});
+}).catch(function () {});
+} catch (e) {}
+}
+if (window.__mochiDataReady) { setTimeout(snapCleanPrompt, 12000); }
 else {
 document.addEventListener('mochi-restore-done', function h() {
 document.removeEventListener('mochi-restore-done', h);
-setTimeout(purgeOnce, 1500);
+setTimeout(snapCleanPrompt, 12000);
 });
-setTimeout(purgeOnce, 20000);
+setTimeout(snapCleanPrompt, 20000);
 }
 window.runBackupExport = function () {
 try { if (window.chatFlushSave) window.chatFlushSave(); } catch (e) {}

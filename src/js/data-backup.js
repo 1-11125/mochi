@@ -1677,15 +1677,18 @@
   }
 
   // v3.29.x：清理历史遗留的自动备份副本。副本写入已下线（见 doExport 上方说明），旧版本留在
-  // IndexedDB / localStorage 的那一份变成永远刷不了新的纯冗余占用（实测有 700MB+，约占用户存储一半），
-  // 任何读取它的路径都要整包 JSON.parse，风险大于收益。启动时静默删掉即可回收空间。
-  // 只删这一个键，业务数据一律不动；延迟执行避开 idbRestore 回填与首屏渲染的启动关键路径。
-  function purgeLegacySnapshot() {
+  // IndexedDB / localStorage 的那一份变成永远刷不了新的纯冗余占用（实测 33.9MB～700MB+），
+  // 任何读取它的路径都要整包 JSON.parse，风险大于收益。只删这一个键，业务数据一律不动。
+  // #1050：清理从「启动静默删」改为「探测到仍在 → 当面弹窗 → 点「立即清理」就地清」——
+  // 静默删在部分内核（iOS WebKit 实测）上反复删不干净、用户永远不知道有这份占用（真机诊断
+  // 「IndexedDB 大键明细」常年挂着它）；owner 直派「提醒用户，修复弹窗点击后自动清理」。
+  // onDone(gone)：复核结束回告，true＝确认已删净，false＝没删干净/环境不支持（下次启动会再弹）。
+  function purgeLegacySnapshot(onDone) {
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e) {}
     // #975：同时释放内存副本——实测该键 17.4MB 常驻（只删存储不删内存＝白占一份），
     // 在 66MB 常驻里排第二，是回收页面的直接贡献者
     try { if (window.idbMemoDrop) window.idbMemoDrop(SNAPSHOT_KEY); } catch (e) {}
-    if (!window.idbDelete) return;
+    if (!window.idbDelete) { if (onDone) onDone(false); return; }
     // v3.26.x #90：删后要复核再收工——idbDelete 没有挂起超时，原实现连返回值都不看，
     // 实测该设备 173.8MB 遗留副本历经多次启动仍在（白占近一半可用空间）。用严格三态
     // 探测 idbHasKey 复核：false＝确认已删；true＝还在 → 再删一次（最多 5 次）；
@@ -1696,36 +1699,67 @@
     const attempt = function () {
       tries++;
       Promise.resolve(window.idbDelete(SNAPSHOT_KEY)).then(function () {
-        if (!window.idbHasKey) return;
+        if (!window.idbHasKey) { if (onDone) onDone(false); return; }
         setTimeout(function () {
           try {
             Promise.resolve(window.idbHasKey(SNAPSHOT_KEY)).then(function (has) {
-              if (has !== false && tries < 5) attempt();
-            }).catch(function () { if (tries < 5) attempt(); });
-          } catch (e) {}
+              if (has === false) { if (onDone) onDone(true); return; }
+              if (tries < 5) attempt();
+              else if (onDone) onDone(false);
+            }).catch(function () { if (tries < 5) attempt(); else if (onDone) onDone(false); });
+          } catch (e) { if (onDone) onDone(false); }
         }, 1500);
-      }).catch(function () {});
+      }).catch(function () { if (onDone) onDone(false); });
     };
     attempt();
   }
-  // 幂等包装：事件路径与墙钟路径共用，保证 #90 的「删→复核→重试」链只起一套。
-  let _purgeStarted = false;
-  function purgeOnce() {
-    if (_purgeStarted) return;
-    _purgeStarted = true;
-    purgeLegacySnapshot();
+  // ===== #1050 遗留备份快照「当面清」提示 =====
+  // 启动后探测（两拍：数据就绪 +12s、墙钟保险丝 +20s，都过幂等闸），键仍在才弹窗：
+  // ① 探不到＝已清/从没有（绝大多数设备）＝零弹窗零请求；② 弹过本会话不重复；
+  // ③ 点「下次再说」（含关掉弹窗）记 3 天冷却，不反复打扰；④ 点「立即清理」走上面
+  // 「删→复核→重试」链并 toast 回告结果；清理失败不写冷却＝下次启动继续当面提醒。
+  const SNAP_DEFER_KEY = 'xy-home-v2:__snap-clean-defer';
+  let _snapPromptShown = false;
+  function snapCleanPrompt() {
+    try {
+      if (_snapPromptShown) return;
+      if (!window.idbHasKey || !window.openModal || typeof toast !== 'function') return;
+      let deferred = 0;
+      try { deferred = Number(localStorage.getItem(SNAP_DEFER_KEY)) || 0; } catch (eF1) {}
+      if (deferred > 0 && Date.now() - deferred < 3 * 24 * 60 * 60 * 1000) return;
+      Promise.resolve(window.idbHasKey(SNAPSHOT_KEY)).then(function (has) {
+        if (_snapPromptShown) return;
+        if (has !== true) return; // 不在＝已清/从没有＝零打扰
+        _snapPromptShown = true;
+        window.openModal('发现旧版备份留底副本', '', function (v) {
+          if (v !== 'ok') { // 「下次再说」/关掉：3 天内不再问
+            try { localStorage.setItem(SNAP_DEFER_KEY, String(Date.now())); } catch (eF2) {}
+            return;
+          }
+          purgeLegacySnapshot(function (gone) {
+            toast(gone
+              ? '已清理完成，这份占用已释放（不影响你现在的任何数据）'
+              : '这次没删干净（存储忙），下次启动会再试；也可到 设置→查看存储 手动清');
+          });
+        }, {
+          noInput: true, pillSubmit: true,
+          pills: [{ label: '立即清理', value: 'ok' }, { label: '下次再说', value: 'later' }],
+          staticText: '检测到一份旧版本程序留下的「备份留底副本」（通常占几十 MB，键名 __auto-backup-snapshot）。\n\n它是某个旧版本在你做备份时顺手复制的全量数据拷贝，早已过期、不再更新。删掉它不影响你现在的任何数据——聊天记录、字卡、图片都存在另外的位置；你真正的备份是「导出数据」保存的那份文件。\n\n点「立即清理」即释放这份占用；清理会自动复核，没删干净下次启动会再提醒。'
+        });
+      }).catch(function () {});
+    } catch (e) {}
   }
-  if (window.__mochiDataReady) { setTimeout(purgeOnce, 1500); }
+  if (window.__mochiDataReady) { setTimeout(snapCleanPrompt, 12000); }
   else {
     document.addEventListener('mochi-restore-done', function h() {
       document.removeEventListener('mochi-restore-done', h);
-      setTimeout(purgeOnce, 1500);
+      setTimeout(snapCleanPrompt, 12000);
     });
     // v3.29.x 兜底：#83 之后 12 秒保险丝不再设 __mochiDataReady（只派发 mochi-restore-slow），
-    // 所以 IDB 整轮挂起的设备上 mochi-restore-done 永不到达 → 清理一次都不跑，几百 MB 副本原地
+    // 所以 IDB 整轮挂起的设备上 mochi-restore-done 永不到达 → 探测一次都不跑，几百 MB 副本原地
     // 留着；而 IDB 最慢、遗留副本最大的恰好是同一批机型。与 idb.js 里 wrjMergeFromIdb 的
-    // 「restore 整体挂起时的兜底」同理补一条墙钟兜底：清理只碰副本键，restore 完成与否不影响安全性。
-    setTimeout(purgeOnce, 20000);
+    // 「restore 整体挂起时的兜底」同理补一条墙钟兜底：探测只读副本键是否存在，restore 完成与否不影响安全性。
+    setTimeout(snapCleanPrompt, 20000);
   }
 
   // 入口绑定
