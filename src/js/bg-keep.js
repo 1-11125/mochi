@@ -16,6 +16,10 @@
     try { const v = window.xyStore ? window.xyStore(GNS).get(k) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
     try { return store.get(k); } catch (e) { return null; }
   }
+  // #1059：通知逐条弹（关闭内容去重）——默认关闭＝保留去重；打开后每条消息都弹系统通知。
+  function bgNoDedup() {
+    try { return gGet('bg-notify-nodedup') === '1'; } catch (e) { return false; }
+  }
   function gSet(k, v) {
     try { if (window.xyStore) window.xyStore(GNS).set(k, v); } catch (e) {}
   }
@@ -1501,6 +1505,20 @@
       }
     } catch (e) { fail('error'); }
   }
+  // #1059：通知逐条弹（关闭去重）开关——默认关闭（存储 '0'/空＝去重生效）；只影响系统通知弹不弹
+  const ndBtn = document.getElementById('bg-notify-nodedup');
+  let ndUserTouched = false;
+  function syncNoDedupUI() { if (ndBtn) ndBtn.checked = (gGet('bg-notify-nodedup') === '1'); }
+  if (ndBtn) {
+    syncNoDedupUI();
+    ndBtn.addEventListener('change', function (e) {
+      // 与保活/通知同款手势闸：无手势的伪翻转忽略并回弹
+      if (!kaUserGesture(e)) { syncNoDedupUI(); return; }
+      ndUserTouched = true;
+      if (ndBtn.checked) { gSet('bg-notify-nodedup', '1'); toast('已开启：以后每条消息都单独弹通知（内容重复时会连环弹）'); }
+      else { gSet('bg-notify-nodedup', '0'); toast('已关闭：恢复去重（内容相同或近期弹过的只弹一条）'); }
+    });
+  }
   const nbBtn = document.getElementById('bg-notify');
   function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
   function nbPermState() {
@@ -1804,6 +1822,7 @@
   // 所以三个触发点（含回填挂起设备的定时兜底）都直接调它，不做「只跑一次」的状态机。
   // 边界：用户本会话手动动过某个开关 → 该开关不再重读覆盖（他的操作就是最新值）。
   function reheatBgSwitches() {
+    try { if (!ndUserTouched) syncNoDedupUI(); } catch (e) {}
     if (!keepUserTouched) {
       const wantKeep = gGet('bg-keepalive') === '1' && gGet('__ka-user-off') !== '1';
       if (wantKeep !== keepEnabled) {
@@ -2469,15 +2488,16 @@
     //   NOTIFY_FRESH_CHAT_DUP_MS），但不再连这 15 秒内真正新产生的消息一起吞掉
     //   （用户报障形态：发完消息就切出去，TA 在 1~40 秒随机延迟内回复 → 落在窗内 →
     //   聊天有、通知栏没有）。force（来电等一次性事件）照旧绕过。
-    if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+    // #1059：开关打开时跳过内容类去重（每条都弹）；消息身份重放闸 #780 不受影响。
+    if (!force && !bgNoDedup() && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
         recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }
     // v3.23.x：回退 v3.22.x 的 batchBurst（30 秒内同文案放行）——实测是重放放大器：
     // 切后台后 15 秒过渡期一过，撞车内容在上一条通知 30 秒内可绕过全部去重再次弹出，
     // 正是「切后台马上弹几分钟前看过的消息」的组成来源。v3.22.x 想解决的「批量连发
     // 撞车只弹一条」从未有用户反馈，属于臆造场景；真正的批量连发各条内容不同，
     // 本就不会被内容去重拦截
-    if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
-    if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
+    if (!force && !bgNoDedup() && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
+    if (!force && !bgNoDedup() && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
     // FIX 2026-09-19 #800：受理记账从「发送成功回调」提前到「决定发送」的同步点——
     // markNotified 原在 showSysNotification().then(ok) 里才落账，而发送链前段还有头像
     // 裁剪（Image onload，#673 起最长 1200ms 截止）等异步段。同一条消息在**同一同步任务**

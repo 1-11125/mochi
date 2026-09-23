@@ -6,7 +6,7 @@ const EXCLUDE = ['contacts', 'active-contact', 'feed-posts', 'migrated-v1', 'js-
 'incoming-requests', 'desk-checkin-en', 'desk-call-en', 'desk-freq-mode', 'call-hold',
 'night-mode-en',
 'group-chat-msgs',
-'bg-keepalive', 'bg-notify',
+'bg-keepalive', 'bg-notify', 'bg-notify-nodedup',
 'gift-wallet', 'wallet-global-migrated',
 'gc-profiles', 'gc-beauty', 'group-chat-enabled',
 '__last-backup', '__last-backup-remind', '__onboard-done', '__guide-done', '__edge-backup-hint-done', '__auto-backup-snapshot',
@@ -292,7 +292,7 @@ function migrateLegacy() {
 const def = window.xyStore(G + ':default');
 const root = window.xyStore(G);
 try {
-['bg-keepalive', 'bg-notify', 'group-chat-enabled'].forEach(function (k) {
+['bg-keepalive', 'bg-notify', 'bg-notify-nodedup', 'group-chat-enabled'].forEach(function (k) {
 const v = def.get(k);
 if (v !== null && v !== undefined && v !== '') {
 try { if (root.get(k) === null || root.get(k) === undefined) root.set(k, v); } catch (e) {}

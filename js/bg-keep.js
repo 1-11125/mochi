@@ -7,6 +7,9 @@ function gGet(k) {
 try { const v = window.xyStore ? window.xyStore(GNS).get(k) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
 try { return store.get(k); } catch (e) { return null; }
 }
+function bgNoDedup() {
+try { return gGet('bg-notify-nodedup') === '1'; } catch (e) { return false; }
+}
 function gSet(k, v) {
 try { if (window.xyStore) window.xyStore(GNS).set(k, v); } catch (e) {}
 }
@@ -1044,6 +1047,18 @@ ret.then(function (p) { once(p); }, function () { once('error'); });
 }
 } catch (e) { fail('error'); }
 }
+const ndBtn = document.getElementById('bg-notify-nodedup');
+let ndUserTouched = false;
+function syncNoDedupUI() { if (ndBtn) ndBtn.checked = (gGet('bg-notify-nodedup') === '1'); }
+if (ndBtn) {
+syncNoDedupUI();
+ndBtn.addEventListener('change', function (e) {
+if (!kaUserGesture(e)) { syncNoDedupUI(); return; }
+ndUserTouched = true;
+if (ndBtn.checked) { gSet('bg-notify-nodedup', '1'); toast('已开启：以后每条消息都单独弹通知（内容重复时会连环弹）'); }
+else { gSet('bg-notify-nodedup', '0'); toast('已关闭：恢复去重（内容相同或近期弹过的只弹一条）'); }
+});
+}
 const nbBtn = document.getElementById('bg-notify');
 function syncNotifyUI() { if (nbBtn) nbBtn.checked = notifyEnabled; }
 function nbPermState() {
@@ -1258,6 +1273,7 @@ nbSyncPermWarn();
 if (notifyEnabled) nbArmWatch(nbAttempt);
 })();
 function reheatBgSwitches() {
+try { if (!ndUserTouched) syncNoDedupUI(); } catch (e) {}
 if (!keepUserTouched) {
 const wantKeep = gGet('bg-keepalive') === '1' && gGet('__ka-user-off') !== '1';
 if (wantKeep !== keepEnabled) {
@@ -1739,10 +1755,10 @@ if (d && (d.vis || d.nAt)) { gateStats.replay++; return; }
 }
 gateStats.total++;
 const force = !!extra.force;
-if (!force && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
+if (!force && !bgNoDedup() && lastHiddenAt > 0 && Date.now() - lastHiddenAt < NOTIFY_HIDDEN_MIN_MS &&
 recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }
-if (!force && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
-if (!force && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
+if (!force && !bgNoDedup() && (notifiedDup(nkey) || seenDup(nkey))) { gateStats.dup++; return; }
+if (!force && !bgNoDedup() && recentChatDup(nkey, ts)) { gateStats.dup++; return; }
 gateStats.sent++; markNotified(nkey);
 hiddenSentCount++;
 hiddenSentName = extra.name || store.get('lbl-partner') || (window.taWord ? window.taWord() : 'TA');

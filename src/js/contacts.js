@@ -36,7 +36,7 @@
     // 不是旧顶层业务键，绝不能迁移进 default 桌面。此前漏排除导致每次刷新
     // migrateLegacy 把 bg-keepalive/bg-notify 迁进 default 并删全局键，非 default
     // 桌面刷新后开关读不到全局值自动变关（用户反馈「后台保活/后台弹窗自己关了」）。
-    'bg-keepalive', 'bg-notify',
+    'bg-keepalive', 'bg-notify', 'bg-notify-nodedup',
     // v3.15.x：心意币全局一本账（根键 gift-wallet）与其一次性迁移标记——
     // 红包/市集/游戏/花园共用，跨桌面不隔离；漏排除会被 migrateLegacy 搬进 default 并删根键
     'gift-wallet', 'wallet-global-migrated',
@@ -594,7 +594,7 @@
     // 桌面刷新后开关读不到全局值自动变关。这里检测 default 桌面的这些键，写回根
     // 命名空间并删除 default 副本，一次性修复存量坏数据（幂等：根键已有则不覆盖）。
     try {
-      ['bg-keepalive', 'bg-notify', 'group-chat-enabled'].forEach(function (k) {
+      ['bg-keepalive', 'bg-notify', 'bg-notify-nodedup', 'group-chat-enabled'].forEach(function (k) {
         const v = def.get(k);
         if (v !== null && v !== undefined && v !== '') {
           try { if (root.get(k) === null || root.get(k) === undefined) root.set(k, v); } catch (e) {}
