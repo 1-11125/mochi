@@ -1264,6 +1264,14 @@
   background:transparent; color:#bbb; font-size:11px; cursor:pointer; padding:0;
 }
 .div-h-del:active { color:#e05555; }
+/* #1049 历史分页「显示更早的记录」按钮（与 .div-h-view 同一观感语言，块级占满一行） */
+.div-h-more {
+  display:block; width:100%; margin-top:8px; border:none; border-radius:10px;
+  padding:9px 0; font-size:11px; font-weight:700; letter-spacing:1px;
+  background:rgba(0,0,0,.05); color:var(--muted); cursor:pointer; font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+}
+.div-h-more:active { opacity:.7; }
 
 /* v3.7.x：开关行（自动发送到聊天）——桌面占卜页 + 聊天占卜半框共用 */
 .div-switch-row {

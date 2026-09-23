@@ -865,34 +865,73 @@
     const p = (n) => (n < 10 ? '0' + n : '' + n);
     return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
+  // #1049 历史分页渲染（用户拍板：历史要全量保留，不封顶；性能改由「不打开不全量渲染」解决）
+  // 每次只画 HIST_PAGE 条，更早的靠「显示更早的记录」按钮增量挂载（每页 ≤30 行，与记录总数无关）；
+  // 查看/删除/加载更多走容器上绑一次的委托监听（data-hi 是全量列表的绝对索引，翻页不错位）。
+  const HIST_PAGE = 30;
+  let histShown = HIST_PAGE;
+  function histRowHtml(h, i) {
+    return '<div class="div-h-item" data-hi="' + i + '">' +
+      '<div class="div-h-main"><div class="div-h-title">' + (h.mode === 'tarot' ? '塔罗' : '雷诺曼') + ' · ' + h.count + ' 张' +
+      (h.question ? ' · 问：' + String(h.question).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : '') + '</div>' +
+      '<div class="div-h-sub">' + fmtDT(h.ts) + ' · ' + (Array.isArray(h.cards) ? h.cards.map(c => ((c && c.name) || '') + (c && c.rev ? '(逆)' : '')).join('、') : '') + '</div></div>' +
+      '<button class="div-h-view" data-hi="' + i + '">查看</button>' +
+      '<button class="div-h-del" data-hi="' + i + '">✕</button>' +
+      '</div>';
+  }
+  function histMoreRest(list) { return list.length - histShown; }
   function renderHistory() {
     const el = document.getElementById('div-history');
     if (!el) return;
     const list = histLoad();
-    el.innerHTML = list.length
-      ? '<div class="div-label">占卜记录</div>' + list.map((h, i) =>
-          '<div class="div-h-item" data-hi="' + i + '">' +
-          '<div class="div-h-main"><div class="div-h-title">' + (h.mode === 'tarot' ? '塔罗' : '雷诺曼') + ' · ' + h.count + ' 张' +
-          (h.question ? ' · 问：' + String(h.question).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : '') + '</div>' +
-          '<div class="div-h-sub">' + fmtDT(h.ts) + ' · ' + (Array.isArray(h.cards) ? h.cards.map(c => ((c && c.name) || '') + (c && c.rev ? '(逆)' : '')).join('、') : '') + '</div></div>' +
-          '<button class="div-h-view" data-hi="' + i + '">查看</button>' +
-          '<button class="div-h-del" data-hi="' + i + '">✕</button>' +
-          '</div>').join('')
-      : '';
     // v3.27.x：无记录时连同外层白卡一起隐藏——原来 innerHTML 清空后外层 .div-card.glass
     // 仍在（padding 撑出一块空白白框，用户反馈「抽牌按钮下面一个莫名其妙的白色框」）
     const hcard = el.closest ? el.closest('.div-card') : null;
     if (hcard) hcard.hidden = !list.length;
-    el.querySelectorAll('.div-h-view').forEach(b => b.addEventListener('click', () => {
-      const h = histLoad()[parseInt(b.dataset.hi, 10)];
-      if (h && Array.isArray(h.cards)) renderDrawResult(h.cards, h.mode, h.question, h.summary);
-    }));
-    el.querySelectorAll('.div-h-del').forEach(b => b.addEventListener('click', () => {
-      const list = histLoad();
-      list.splice(parseInt(b.dataset.hi, 10), 1);
-      histSave(list);
-      renderHistory();
-    }));
+    histShown = Math.min(histShown, HIST_PAGE);   // 重渲（开页/新抽牌/删除）回到第一页，新记录在最上
+    if (!list.length) { el.innerHTML = ''; return; }
+    let html = '<div class="div-label">占卜记录</div>';
+    for (let i = 0; i < histShown; i++) html += histRowHtml(list[i], i);
+    if (histMoreRest(list) > 0) html += '<button type="button" class="div-h-more" id="div-h-more">显示更早的记录（还有 ' + histMoreRest(list) + ' 条）</button>';
+    el.innerHTML = html;
+    if (!el.dataset.histBound) {
+      el.dataset.histBound = '1';
+      el.addEventListener('click', function (e) {
+        const more = e.target.closest && e.target.closest('.div-h-more');
+        if (more) { histLoadMore(); return; }
+        const del = e.target.closest && e.target.closest('.div-h-del');
+        if (del) {
+          const list2 = histLoad();
+          list2.splice(parseInt(del.dataset.hi, 10), 1);
+          histSave(list2);
+          renderHistory();
+          return;
+        }
+        const view = e.target.closest && e.target.closest('.div-h-view');
+        if (view) {
+          const h = histLoad()[parseInt(view.dataset.hi, 10)];
+          if (h && Array.isArray(h.cards)) renderDrawResult(h.cards, h.mode, h.question, h.summary);
+        }
+      });
+    }
+  }
+  function histLoadMore() {
+    const el = document.getElementById('div-history');
+    if (!el) return;
+    const list = histLoad();
+    const start = histShown, end = Math.min(histShown + HIST_PAGE, list.length);
+    if (end <= start) return;
+    let frag = '';
+    for (let i = start; i < end; i++) frag += histRowHtml(list[i], i);
+    const moreBtn = document.getElementById('div-h-more');
+    if (moreBtn) moreBtn.insertAdjacentHTML('beforebegin', frag);
+    else el.insertAdjacentHTML('beforeend', frag);
+    histShown = end;
+    const btn2 = document.getElementById('div-h-more');
+    if (btn2) {
+      if (histMoreRest(list) > 0) btn2.textContent = '显示更早的记录（还有 ' + histMoreRest(list) + ' 条）';
+      else btn2.remove();
+    }
   }
   // 渲染抽牌结果（灰底正方形牌面 + 动画、综合解读、发送按钮）
   function renderDrawResult(cards, m, question, summary) {
@@ -1036,11 +1075,8 @@
           if (snapTarget) record.target = targetName(snapTarget);
           const list = histLoad();
           list.unshift(record);
-          // #1044 历史封顶：占卜记录此前无上限（每条含全部牌面+解读，几百条即数百 KB），
-          // renderHistory 每次开页/抽牌都把全量记录 innerHTML 重建——低端机上这是随使用
-          // 年限线性恶化的常驻负担，也是内存受压回收（白屏/退出类症状）的推手之一。
-          // 封顶 500 条丢最旧；「查看」单条语义不变。
-          if (list.length > 500) list.length = 500;
+          // #1049 用户拍板：历史全量保留，不做条数上限（性能问题已由分页渲染解决——
+          // 不打开历史区就不渲染，打开也只画第一页；抽完牌 renderHistory 只画 30 行）。
           histSave(list);
           renderHistory();
           // v3.27.x：写入占卜对象的主页「占卜记录」（不选＝当前桌面）
