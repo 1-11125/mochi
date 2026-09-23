@@ -3195,12 +3195,14 @@ const FIX_SENTINELS = [
   //   都要有 iOS/安卓这两句；notice.json 是联网用户实际看到的权威源，只改静态 DOM ＝ 线上看不到。
   { name: '#672e 开屏离线兜底 DOM 带上 iOS/安卓两句卡顿建议（删掉＝断网/兜底路径的用户看不到）', file: 'template.html', needle: '另外别存太多数据' },
   { name: '#672f 开屏在线权威源 notice.json 同章同内容（删掉＝联网用户实际看到的开屏没有这两句，静态 DOM 改了也白改）', file: 'pwa/notice.json', needle: '图片最占地方。安卓' },
-  // ===== #674（2026-09-17 用户直派）群聊页顶部加「让对方继续说」入口 =====
-  //   编号避让：同日的 #673 已被并行会话占用（音乐互动台词静默通道），本批取 #674。
-  //   用户原话：「群聊设置的图标按钮的左边新增一个让对方继续说的功能」。群聊昵称点击已被「切换群聊」
-  //   占用，顶部只能另起一枚图标；动作复用 group-chat.js 的 gcContinueSay（与输入栏那枚同一动作、同防重入）。
-  { name: '#674a 群聊页顶部三点菜单左侧的「让对方继续说」按钮（删掉＝入口消失，用户只能去输入栏找开关打开）', file: 'template.html', needle: 'id="gc-head-continue"' },
-  { name: '#674b 顶部继续说按钮接线走 gcCsFireContinue（换成别的调用＝丢掉 pointerdown 按下即触发 / 防键盘吞 click）', file: 'js/group-chat.js', needle: "gcHeadContinueBtn.addEventListener('pointerdown'" },
+  // ===== #674（2026-09-17 用户直派）群聊页顶部加「让对方继续说」入口 → #797（2026-09-19 用户直派）撤销：
+  //   入口统一到底部输入栏（与单聊同位置、同显隐口径）；#797 批当时只落了 JS/面板侧，顶栏 DOM 与两条
+  //   在位哨兵一直没拆（2026-09-23 用户再次直派「彻底移除」后由本批补完），换为删除型防回流。====
+  { name: '#674 撤销（群聊顶部恒显继续说按钮不得回流：回流＝与单聊两套入口两个位置，用户已两次要求统一）', file: 'template.html', needle: 'gc-head-continue', absent: true },
+  // #797 撤销批配套两锚（FIX-REGRESSION 该节「交收口者执行」欠账，2026-09-23 补登；#797a/b 号已被
+  // 结构闸批占用故取 c/d）：群聊侧复用单聊同一份输入栏排序面板，复制出第二套 UI 或删掉共享入口都会红。
+  { name: '#797c 群聊设置复用同一份输入栏排序面板（删/改成自建第二套＝群聊里排不了按钮位置，#797 复发）', file: 'js/group-chat.js', needle: 'window.mochiInputOrderPanel.open()' },
+  { name: '#797d 排序面板对外暴露成共享入口（删＝群聊侧调用变 undefined，点行没反应）', file: 'js/chat-settings.js', needle: 'window.mochiInputOrderPanel = {' },
   // ===== #127（TASKS 待认领·2026-09-17 本会话实现）聊天记录分片：新消息先写增量日志，基准包低频重写 =====
   //   根因：chat-msgs 单键可达数百 MB，发 1KB 文字也整包重写（写放大数百倍）＝iOS OOM/读写超时的上游。
   //   锚点守的是「分片成立且安全闸还在」，删任一＝退回每次整包重写（或丢掉安全闸导致错数据落盘）。
@@ -4027,7 +4029,8 @@ const FIX_SENTINELS = [
   { name: '#938h 设置项回显文本真变了才写（删＝每次点击为十几个回显标签各拆建一次文本子树）', file: 'js/chat-settings.js', needle: "if (el && el.textContent !== s) el.textContent = s;" },
   /* ==== 2026-09-20 #930 回前台贴底复核闸（Vivo Y35/摩托罗拉 G100 等 Android Edge 独立应用实报「打开聊天/回到应用，停在几分钟前的消息，看不到现在的消息」；与 #912/#874/#918/#919 同症状家族独立通道；纯时序判据零机型分支） ==== */
   { name: '#930a 回场贴底复核闸声明（删＝回前台/bfcache 恢复永不复核贴底，停在几分钟前的消息复发）', file: 'js/chat.js', needle: 'function chatResumeRepin() {' },
-  { name: '#930b 长离场视同重新进聊天的复位（删＝离场前解钉的用户重开应用永远停在旧位置）', file: 'js/chat.js', needle: 'if (gone > CHAT_RESUME_FRESH_MS) {' },
+  // FIX 2026-09-23 #1067：本行 needle 按「换锚而非删除」改指长离场判据本体（原 needle 被 #1067 的 awaitLongAway 判据改写后永不成立＝哑哨兵；判据整块删掉本行照样消失，语义不变）
+  { name: '#930b 长离场视同重新进聊天的复位（删＝离场前解钉的用户重开应用永远停在旧位置）', file: 'js/chat.js', needle: 'const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;' },
   { name: '#930c 回场分派（删＝闸永不触发）', file: 'js/chat.js', needle: 'else chatResumeRepin();' },
 // #945 「换了 Chrome 还是无法导出/下载 docx、显示被浏览器拦截」（红米 K70 实报）：追问弹窗「换一种方式」的换路在分享面板不可用的壳里只剩 data: 直下，而它写死 >2MB 直接放弃＝真实备份（几乎都 >2MB）必落「拦住了网页下载」死 toast，且 toast 承诺的「点【复制】」按钮从不存在＝用户彻底没辙（截图顶栏 X＋网址条＝内置小窗/壳，非 Chrome 本体，一并提供自救指引）。修法零机型分支：①data: 直下上限 2MB→30MB；②data: 失败后补一发 blob: a[download]（两条取数路径互补）；③全灭改弹求救弹窗（分辨内置小窗 vs 系统浏览器真身＋真【复制网址和设备信息】钮）。验证 tools/verify-docx-export.mjs E13 换锚 30MB。
 { name: '#945a data: 直下上限放宽（删＝换路对 >2MB 真实备份必失败，退回死 toast）', file: 'js/data-backup.js', needle: 'blob.size > 30 * 1024 * 1024' },
@@ -4777,6 +4780,7 @@ const FIX_SENTINELS = [
   { name: '#1151a 消息入场动画播完摘掉 .msg-enter（删掉＝退出聊天回桌面再进时屏上所有当场新增过的气泡集体重播淡入上浮＝真机「聊天记录弹闪一下才恢复正常」，红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: "m.classList.remove('msg-enter');" },
   { name: '#1151b 入场动画只在聊天页可见时挂（退回隐藏态挂类＝攒成回场一帧集体弹，且摘类接线被拆回原地 add 时本行必消失）', file: 'js/chat.js', needle: 'if (!batchRendering && chatVisible()) enterMsgOnce(m);' },
   { name: '#1151c 回聊天页时把窗口内在重播的一次性 CSS 动画直接落终态（摘类只治 .msg-enter，挂在身份类上的 rpsFadeIn/flowerFloat/msg-flash 摘不得；删掉本行＝「退出聊天回桌面再进、或从聊天设置返回」时的重播弹闪复发）', file: 'js/chat.js', needle: 'try { a.finish(); n++; } catch (e) {}' },
+  { name: '#1067a 长离场回前台补一发强制权威重读（删掉＝挂后台/锁屏后回前台，其他上下文在后台落库的新消息永不上屏、要刷新才正常：红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: 'if (awaitLongAway && chatDbReady) loadMsgs(true);' },
 
 ];
 try {
