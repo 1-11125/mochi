@@ -309,7 +309,7 @@
       '<div class="gs-sub">未开启时，点击后联系人立即回复</div>' +
       '<div class="gs-row"><span>点顶部昵称触发</span><label class="toggle"><input type="checkbox" id="gc-cs-trigger-name"><span class="tk"></span></label></div>' +
       '<div class="gs-row"><span>底部聊天栏按钮触发</span><label class="toggle"><input type="checkbox" id="gc-cs-trigger-bar"><span class="tk"></span></label></div>' +
-      '<div class="gs-sub">点顶部昵称（群名）/底部按钮会触发新一轮回复，条数仍按上面设置抽取，会叠在正常回复之外。顶部设置左侧的继续说按钮始终可用，也遵循这里的回复时间；开启昵称触发后，切换群聊请用右上角菜单的「切换群聊」。</div></div>';
+      '<div class="gs-sub">点顶部昵称（群名）/底部按钮会触发新一轮回复，条数仍按上面设置抽取，会叠在正常回复之外；顶部已无独立的继续说按钮（与单聊同口径，只看这两枚开关），开启昵称触发后，切换群聊请用右上角菜单的「切换群聊」。</div></div>';
     gcContinuePanel.insertBefore(section, gcContinuePanel.lastElementChild);
   }
 

@@ -71,13 +71,11 @@ check('A13 面板对外暴露成共享入口（群聊设置复用同一份，不
   cs.includes('window.mochiInputOrderPanel = {') && cs.includes('open: openInputOrderPanel') && cs.includes('valueText:'));
 check('A14 群聊设置「通用」里有「输入栏按钮位置」一行并打开同一个面板',
   gc.includes("id = 'gc-input-order-row'") && gc.includes('window.mochiInputOrderPanel.open()'));
-// A15 原口径「群聊顶部继续说入口已撤走」自 #674 起作废：那枚入口按用户需求复活，并由哨兵
-// #674a/b 钉住。它长期挂红＝把下面 20 条 B 轴全部 gate 掉（本批收口时发现并纠正）。
-// 现口径＝入口在 template 里（哨兵 #674a 钉的就是这行）。它原来的 JS 接线（gcHeadContinueBtn
-// + gcCsFireContinue，哨兵 #674b）在 HEAD 产物里已经找不到，属存量缺失、登记在哨兵红名单里
-// （group-chat.js 侧待对方处理），这里不替它断言不存在的代码。
-check('A15 群聊顶部「让对方继续说」入口在 template 里（#674 复活口径，哨兵 #674a 同锚）',
-  tpl.includes('id="gc-head-continue"'));
+// A15 群聊顶部那枚恒显继续说（#674）已按用户要求彻底撤销（#797 定口径＋2026-09-23 二次直派补完）：
+// 唯一入口＝底部输入栏那枚，位置/显隐与单聊同源（verify-gc-continue A2/A3 钉住）。此针与删除型
+// 哨兵 #674（absent）同位——template 里回流一个 DOM 节点就报红。
+check('A15 群聊顶部继续说入口已彻底移除、不得回流（与删除型哨兵 #674 同位）',
+  !tpl.includes('gc-head-continue') && !gc.includes('gc-head-continue') && !gc.includes('gcHeadContinueBtn'));
 if (results.some(r => !r.ok)) {
   console.log('----');
   console.log('A 轴有 FAIL：源码锚缺失（功能被覆盖或未接入），B 轴跳过');
