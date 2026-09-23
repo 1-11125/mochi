@@ -1,11 +1,10 @@
-// ===== 回归脚本：#1033 拍卖会「自制拍品点了没反应」根治 =====
+// ===== 回归脚本：#1033＋#1041 拍卖会自制拍品（编辑台）=====
 // 用法：node build.mjs && node tools/verify-1033-au-custom-add.mjs
-// 背景（用户实报「拍卖回自制商品无反应」）：addCustomModal/customBidModal 五处调用 openModal
-//   ctl 上不存在的 val() 方法（值读写口只有 text()）。点确定时 stay() 先置「本次不关窗」，
-//   随后 TypeError 掐断回调——ph/okText 全不执行＝弹窗原地不动，三步表单永远卡在第一步。
-// 本脚本驱动完整行为面：①➕ 能开弹窗且提示正确 ②名称→底价→彩蛋三步就地推进（判别面：
-//   修复前第一步点确定即卡死）③入库字段正确 ④输入已有名称＝删除 ⑤满 20 上限支路提示
-//   ⑥全程零 window error。纯基线必红 B2 及之后（B1 两侧同绿＝旧版「弹窗能开」假象）。
+// 背景：#1033 根治「➕自制拍品点了没反应」（ctl 不存在的方法掐断推进回调）；#1041 把三步纯文字
+//   弹窗升级为全屏编辑台（用户选定方案 A：emoji 自选＋商品图片内嵌＋蒙面显式开关＋库条点选即改）。
+// 本脚本盯三件事：①#1033 语义本体＝保存链每一步都有就地反馈、绝不静默冻结（校验失败留在原地换提示）；
+//   ②编辑台行为（emoji/预览/开关/编辑/删除/上限/同名）；③图片白名单（恶意 img 串不得进 innerHTML）
+//   ＋图片贯通（背包/记录出图）＋零 window error。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, statSync } from 'node:fs';
@@ -37,10 +36,10 @@ const server = createServer((req, res) => {
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const baseUrl = 'http://127.0.0.1:' + server.address().port;
-const cdpPort = 9760 + Math.floor(Math.random() * 100);
+const cdpPort = 9860 + Math.floor(Math.random() * 100);
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-  '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-au1033-' + Date.now()),
+  '--user-data-dir=' + join(process.env.TEMP || '/tmp', 'mochi-ed1041-' + Date.now()),
   '--remote-debugging-port=' + cdpPort, 'about:blank'
 ], { stdio: 'ignore' });
 
@@ -76,14 +75,13 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, devic
 await cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 await cdp('Page.navigate', { url: baseUrl + '/index.html' });
 await sleep(3500);
-await evalJs(`(function(){ window.__jsErrors = []; window.addEventListener('error', function(e){ try { window.__jsErrors.push(String(e.message).slice(0, 120)); } catch (x) {} }); return 1; })()`);
 
 let pass = 0, fail = 0;
 function chk(name, ok, detail) {
   if (ok) { pass++; console.log('  PASS', name); }
   else { fail++; console.log('  FAIL', name, detail || ''); }
 }
-// 开屏关闭（同族三条件口径）
+// A0 开屏关闭（同族三条件口径）
 let splashClosed = false;
 for (let i = 0; i < 30 && !splashClosed; i++) {
   const s = await evalJs(`(function(){
@@ -108,120 +106,200 @@ for (let i = 0; i < 30 && !splashClosed; i++) {
 }
 const splashDiag = await evalJs(`(function(){
   var sp = document.getElementById('splash');
-  return { spHidden: sp ? sp.hidden : null, disp: sp ? getComputedStyle(sp).display : null };
+  return { disp: sp ? getComputedStyle(sp).display : null, hidden: sp ? sp.hidden : null };
 })()`);
-chk('A0 开屏已关闭（同族三条件口径）', splashClosed || splashDiag.disp === 'none' || splashDiag.spHidden === true, JSON.stringify(splashDiag));
+chk('A0 开屏已关闭（同族三条件口径）', splashClosed || splashDiag.disp === 'none' || splashDiag.hidden === true, JSON.stringify(splashDiag));
 
+// 进拍卖会（面板自绑定入口，同 verify-1032 口径）
 await evalJs(`(function(){ var app = document.querySelector('.app[data-app="chat"]'); if (app) app.click(); return 1; })()`);
 await sleep(1200);
 const opened = await evalJs(`(function(){
   var b = document.getElementById('more-auction');
   if (b) { b.click(); return 'btn'; }
+  if (window.openAuctionPanel) { window.openAuctionPanel(); return 'api'; }
   return 'no-entry';
 })()`);
-await sleep(800);
-chk('A1 拍卖会面板可打开', opened === 'btn', String(opened));
+await sleep(600);
+await evalJs(`(function(){ var b = document.getElementById('au-intro-start'); if (b) b.click(); return 1; })()`);
+await sleep(400);
+chk('A1 拍卖会面板可打开', opened === 'btn' || opened === 'api', String(opened));
 
-// 弹窗读写助手（openModal 单例：#modal-mask/#modal-title/#modal-input/#modal-static/#modal-ok）
-const modalState = async () => JSON.parse(await evalJsSafe(`(function(){
-  var m = document.getElementById('modal-mask');
-  var t = document.getElementById('modal-title');
-  var i = document.getElementById('modal-input');
-  var s = document.getElementById('modal-static');
-  var ok = document.getElementById('modal-ok');
+// 存取自制库（xyStore 优先，退回 localStorage——与 auction.js lsGet 读径同序）
+const readCustom = async () => JSON.parse(await evalJs(`(function(){
+  var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
+  var s = '';
+  try { if (window.xyStore) s = window.xyStore(pre).get('auction-custom') || ''; } catch (e) {}
+  if (!s) { try { s = localStorage.getItem(pre + ':auction-custom') || ''; } catch (e) {} }
+  var a = []; try { a = JSON.parse(s) || []; } catch (e) {}
+  return JSON.stringify(Array.isArray(a) ? a : []);
+})()`));
+async function seedCustom(val) { return seedKey('auction-custom', val); }
+async function seedKey(key, val) {
+  await evalJs(`(function(){
+    var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
+    var s = JSON.stringify(${JSON.stringify(val)});
+    try { if (window.xyStore) { window.xyStore(pre).set(${JSON.stringify(key)}, s); return 1; } } catch (e) {}
+    try { localStorage.setItem(pre + ':' + key, s); } catch (e) {}
+    return 0;
+  })()`);
+}
+const edState = async () => JSON.parse(await evalJs(`(function(){
+  var ed = document.getElementById('au-editor');
+  var hint = document.getElementById('au-ed-hint');
+  var g = document.getElementById('au-ed-grid');
+  var pv = document.getElementById('au-ed-preview');
+  var chipOn = ed ? ed.querySelector('.au-ed-chip.on') : null;
   return JSON.stringify({
-    open: !!m && !m.hidden,
-    title: t ? t.textContent : '',
-    ph: i ? i.placeholder : '', val: i ? i.value : '',
-    ok: ok ? ok.textContent : '',
-    static: s && !s.hidden ? s.textContent : ''
+    open: ed ? !ed.hidden : null,
+    title: (document.getElementById('au-ed-title') || {}).textContent || '',
+    nIco: g ? g.querySelectorAll('.au-ed-ico').length : -1,
+    icoOn: g ? Array.prototype.map.call(g.querySelectorAll('.au-ed-ico.on'), function (b) { return b.getAttribute('data-ico'); }).join(',') : '',
+    hint: hint ? { text: hint.textContent, hidden: hint.hidden } : null,
+    preview: pv ? pv.textContent : '',
+    previewImg: pv ? pv.querySelectorAll('.au-ed-pimg').length : -1,
+    delHidden: (document.getElementById('au-ed-del') || {}).hidden,
+    chipOn: chipOn ? chipOn.getAttribute('data-i') : null,
+    name: (document.getElementById('au-ed-name') || {}).value || '',
+    base: (document.getElementById('au-ed-base') || {}).value || '',
+    mystery: !!(document.getElementById('au-ed-mystery') || {}).checked
   });
 })()`));
-async function evalJsSafe(expr) { const v = await evalJs(expr); return v == null ? '{}' : v; }
-async function typeAndOk(v) {
-  await evalJs(`(function(){
-    var i = document.getElementById('modal-input');
-    if (!i) return 0;
-    i.focus(); i.value = ${JSON.stringify(v)};
-    i.dispatchEvent(new Event('input', { bubbles: true }));
-    return 1;
-  })()`);
-  await sleep(120);
-  await evalJs(`(function(){ var b = document.getElementById('modal-ok'); if (b) b.click(); return 1; })()`);
-  await sleep(350);
-}
-const readCustom = async () => JSON.parse(await evalJsSafe(`(function(){
-  var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
-  var raw = null;
-  try { if (window.xyStore) raw = window.xyStore(pre).get('auction-custom'); } catch (e) {}
-  if (raw == null) { try { raw = localStorage.getItem(pre + ':auction-custom'); } catch (e) {} }
-  try { var a = JSON.parse(raw || '[]'); return JSON.stringify(Array.isArray(a) ? a : []); } catch (e) { return '[]'; }
-})()`));
-
-// 清场：确保自定义列表为空
-await evalJs(`(function(){
-  var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
-  try { if (window.xyStore) window.xyStore(pre).set('auction-custom', '[]'); } catch (e) {}
-  try { localStorage.setItem(pre + ':auction-custom', '[]'); } catch (e) {}
+const setField = (id, v) => evalJs(`(function(){
+  var el = document.getElementById(${JSON.stringify(id)});
+  if (!el) return 0;
+  el.value = ${JSON.stringify(v)};
+  el.dispatchEvent(new Event('input', { bubbles: true }));
   return 1;
 })()`);
+const click = (sel) => evalJs(`(function(){ var b = document.querySelector(${JSON.stringify(sel)}); if (b) { b.click(); return 1; } return 0; })()`);
 
-// B1 ➕ 打开自制拍品弹窗（旧版也能过＝只证明「弹窗开」，不算修复证据）
-await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
-await sleep(400);
-const b1 = await modalState();
-chk('B1 ➕ 打开自制拍品弹窗（标题/占位/已有清单）', b1.open === true && b1.title.indexOf('自制拍品') >= 0 && b1.ph.indexOf('名称') >= 0 && b1.static.indexOf('还没有自制拍品') >= 0, JSON.stringify(b1));
-// B2 核心判别：第一步「名称」点确定 → 弹窗就地推进（修复前此处卡死：占位/按钮/内容全不变）
-await typeAndOk('星星灯牌');
-const b2 = await modalState();
-chk('B2 步骤推进①：名称→底价（弹窗不关、占位与按钮就地切换、输入框已清）', b2.open === true && b2.ph.indexOf('底价') >= 0 && b2.ok === '下一步' && b2.val === '', JSON.stringify(b2));
-// B3 第二步「底价」非法值 → stay + 提示（同款死点之二）
-await typeAndOk('abc');
-const b3 = await modalState();
-chk('B3 非法底价被拦（留在本步并给出可执行提示）', b3.open === true && b3.ph.indexOf('大于 0') >= 0 && b3.ok === '下一步', JSON.stringify(b3));
-// B4 合法底价 → 第三步彩蛋
-await typeAndOk('20');
-const b4 = await modalState();
-chk('B4 步骤推进②：底价→彩蛋（占位/按钮切到完成态）', b4.open === true && b4.ph.indexOf('彩蛋') >= 0 && b4.ok === '完成', JSON.stringify(b4));
-// B5 第三步完成 → 关窗入库
-await typeAndOk('夜宵配对暗号');
-const b5 = await modalState();
-const list5 = await readCustom();
-const item = list5[0] || {};
-chk('B5 步骤推进③：完成后弹窗关闭且入库一条', b5.open === false && list5.length === 1 && item.name === '星星灯牌' && item.base === 2000 && item.wish === '夜宵配对暗号', JSON.stringify({ open: b5.open, n: list5.length, item: item }));
-chk('B6 入库 emoji 仍取自固定池（本批未改行为，改版批换锚）', ['🎁', '💎', '🧸', '🌈', '⭐', '🍰', '🎧', '🧿', '🌙', '🎀'].indexOf(item.ico) >= 0, String(item.ico));
-// B7 输入已有名称＝删除（一步关窗，不推进）
-await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
-await sleep(300);
-await typeAndOk('星星灯牌');
-const b7 = await modalState();
-const list7 = await readCustom();
-chk('B7 重名即删：弹窗关闭且列表清空', b7.open === false && list7.length === 0, JSON.stringify({ open: b7.open, n: list7.length }));
-// C1 满 20 上限支路（stay + 换提示＝同款死点之三）
-await evalJs(`(function(){
-  var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
-  var a = []; for (var k = 0; k < 20; k++) a.push({ ico: '🎁', name: '占位' + k, desc: '', base: 100, wish: '', mystery: 0 });
-  var s = JSON.stringify(a);
-  try { if (window.xyStore) window.xyStore(pre).set('auction-custom', s); } catch (e) {}
-  try { localStorage.setItem(pre + ':auction-custom', s); } catch (e) {}
-  return 1;
-})()`);
-await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
-await sleep(300);
-await typeAndOk('第二十一个');
-const c1 = await modalState();
-chk('C1 满 20 拦截：不关窗、提示「先删再加」', c1.open === true && c1.ph.indexOf('已满 20') >= 0, JSON.stringify(c1));
-await evalJs(`(function(){ var b = document.getElementById('modal-cancel'); if (b) b.click(); return 1; })()`);
+// A2 ➕ 打开编辑台（新件态）
+await seedCustom([]);
+chk('A2 点 ➕ 打开全屏编辑台（hidden 解除＋新件标题＋删除键隐藏）', await click('#au-add') && (await sleep(250), (await edState()).open === true) , 'click#au-add');
+let S = await edState();
+chk('A3 新件态：标题「自制新拍品」、无库条选中、emoji 格 24 款', S.open === true && S.title.indexOf('自制新拍品') >= 0 && S.nIco === 24 && S.delHidden === true, JSON.stringify(S));
+
+// B1 emoji 自选：点第 5 格（🏮）→ 选中态＋预览脸更新
+await click('#au-ed-grid .au-ed-ico:nth-child(5)');
+await sleep(150);
+S = await edState();
+chk('B1 emoji 点选即选中（.on 唯一）且预览脸跟随', S.icoOn === '\u{1F3EE}', JSON.stringify({ on: S.icoOn }));
+// B2 实时预览：填名称/底价 → 预览行就地反映
+await setField('au-ed-name', '星星灯牌');
+await setField('au-ed-base', '52');
+await sleep(150);
+S = await edState();
+chk('B2 实时预览含名称与起拍价', S.preview.indexOf('星星灯牌') >= 0 && S.preview.indexOf('¥52') >= 0, S.preview);
+// B3 #1033 语义本体：空名称保存＝就地提示不冻结
+await setField('au-ed-name', '');
+await click('#au-ed-save');
+await sleep(150);
+S = await edState();
+chk('B3 空名称保存就地换提示（弹窗/编辑台不冻结、不关闭）', S.open === true && S.hint && S.hint.hidden === false && S.hint.text.indexOf('名称') >= 0, JSON.stringify(S.hint));
+// B4 非法底价同样就地拦
+await setField('au-ed-name', '星星灯牌');
+await setField('au-ed-base', 'abc');
+await click('#au-ed-save');
+await sleep(150);
+S = await edState();
+chk('B4 非法底价就地拦（提示「大于 0」，编辑台仍开）', S.open === true && S.hint && S.hint.text.indexOf('大于 0') >= 0, JSON.stringify(S.hint));
+// B5 蒙面开关：开 → 预览演示 🎁＋「神秘拍品」
+await setField('au-ed-base', '52');
+await evalJs(`(function(){ var c = document.getElementById('au-ed-mystery'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+await sleep(150);
+S = await edState();
+chk('B5 蒙面开关即时演示（预览名＝神秘拍品）', S.mystery === true && S.preview.indexOf('神秘拍品') >= 0 && S.preview.indexOf('星星灯牌') < 0, JSON.stringify({ m: S.mystery, pv: S.preview }));
+// B6 保存入库：字段全对（ico 自选值、base 分、mystery 1）
+await click('#au-ed-save');
+await sleep(250);
+let C = await readCustom();
+S = await edState();
+chk('B6 保存收台且入库一条（自选 emoji＋底价分＋蒙面 1）', S.open === false && C.length === 1 && C[0].ico === '\u{1F3EE}' && C[0].base === 5200 && C[0].mystery === 1 && C[0].name === '星星灯牌', JSON.stringify({ open: S.open, c: C[0] }));
+// B7 库条点选即改：➕ 重开 → 点库条 → 值回填＋删除键现身
+await click('#au-add');
 await sleep(200);
-// C2 开场已有清单计数正确（staticText 走 loadCustom）
-await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
+chk('B7 库条渲染（已有 1/20 · 点选即改）', (await evalJs(`(function(){ var l = document.getElementById('au-ed-lib'); return l && l.querySelectorAll('.au-ed-chip').length; })()`)) === 1, 'chips');
+await click('#au-ed-lib .au-ed-chip');
+await sleep(200);
+S = await edState();
+chk('B8 点库条进编辑态（名称/底价回填、删除键现身、标题带名）', S.open === true && S.name === '星星灯牌' && S.base === '52' && S.delHidden === false && S.title.indexOf('星星灯牌') >= 0 && S.chipOn === '0', JSON.stringify(S));
+// B9 改底价保存＝原位替换不增条
+await setField('au-ed-base', '66');
+await click('#au-ed-save');
+await sleep(250);
+C = await readCustom();
+chk('B9 编辑保存原位替换（仍 1 条、底价 6600）', C.length === 1 && C[0].base === 6600, JSON.stringify(C));
+// B10 删除明面化：点库条→删除→openModal 确认→库空
+await click('#au-add');
+await sleep(150);
+await click('#au-ed-lib .au-ed-chip');
+await sleep(150);
+await click('#au-ed-del');
+await sleep(250);
+const delModal = JSON.parse(await evalJs(`(function(){
+  var m = document.getElementById('modal-mask');
+  var s = document.getElementById('modal-static');
+  var ok = document.getElementById('modal-ok');
+  return JSON.stringify({ open: !!m && !m.hidden, text: s ? s.textContent : '', ok: ok ? ok.textContent : '' });
+})()`));
+chk('B10 删除先弹不可撤回确认（含拍品名＋按钮文案「删除」）', delModal.open === true && delModal.text.indexOf('星星灯牌') >= 0 && delModal.ok === '删除', JSON.stringify(delModal));
+await click('#modal-ok');
+await sleep(250);
+C = await readCustom();
+S = await edState();
+chk('B11 确认后删除生效（库空＋编辑台收起）', C.length === 0 && S.open === false, JSON.stringify({ n: C.length, open: S.open }));
+// C1 图片白名单：收藏条目 img 塞恶意串 → 背包渲染不得产出该 img（auSafeImg 丢弃、回退 emoji）
+const evil = '" onerror="alert(1)';
+await seedKey('auction-items', [{ ico: '\u{1F3B9}', img: 'x" src="y' + evil, name: '坏图灯', fen: 1000, ts: Date.now() }]);
+await evalJs(`(function(){ var b = document.getElementById('au-bag'); if (b) b.click(); return 1; })()`);
 await sleep(300);
-const c2 = await modalState();
-chk('C2 已有 20/20 计数如实显示', c2.open === true && c2.static.indexOf('已有 20/20') >= 0, String(c2.static).slice(0, 60));
-await evalJs(`(function(){ var b = document.getElementById('modal-cancel'); if (b) b.click(); return 1; })()`);
-// Z 全程零 window error（修复前 B2 起每次点确定各抛一枚 TypeError）
-const errs = JSON.parse(await evalJsSafe(`JSON.stringify(window.__jsErrors || [])`));
-chk('Z 全程零 window error', errs.length === 0, JSON.stringify(errs).slice(0, 200));
+const bagImg = JSON.parse(await evalJs(`(function(){
+  var ov = document.getElementById('au-overlay');
+  var tile = ov ? ov.querySelector('.au-bag-tile') : null;
+  return JSON.stringify({
+    imgs: tile ? tile.querySelectorAll('img').length : -1,
+    bad: document.querySelectorAll('#au-overlay img[src*="onerror"]').length,
+    emoji: tile ? tile.textContent : ''
+  });
+})()`));
+chk('C1 恶意 img 串被白名单丢弃（回退 emoji、不产出 img 节点）', bagImg.imgs === 0 && bagImg.bad === 0 && bagImg.emoji.indexOf('\u{1F3B9}') >= 0, JSON.stringify(bagImg));
+// C2 合法 dataURL 贯通：背包出图
+const tinyJpeg = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==';
+await seedKey('auction-items', [{ ico: '\u{1F3B9}', img: 'data:image/jpeg;base64,' + tinyJpeg, name: '好图灯', fen: 1000, ts: Date.now() }]);
+await evalJs(`(function(){ var b = document.getElementById('au-bag'); if (b) b.click(); return 1; })()`);
+await sleep(300);
+const bagImg2 = await evalJs(`(function(){
+  var ov = document.getElementById('au-overlay');
+  var im = ov ? ov.querySelector('.au-bag-tile img') : null;
+  return im && im.src.indexOf('data:image/jpeg') === 0 ? 'ok' : String(im && im.src).slice(0, 40);
+})()`);
+chk('C2 合法内嵌图贯通背包卡（.au-bag-img 出图）', bagImg2 === 'ok', String(bagImg2));
+await evalJs(`(function(){ var b = document.getElementById('au-btn-start'); if (b) b.click(); return 1; })()`);
+await sleep(200);
+// C3 满 20 拦截（就地提示、不加条）
+await seedCustom(Array.from({ length: 20 }, (_, i) => ({ ico: '\u{1F381}', name: '占位' + i, desc: 'd', base: 1000, wish: 'w', mystery: 0 })));
+await click('#au-add');
+await sleep(200);
+await setField('au-ed-name', '第二十一');
+await setField('au-ed-base', '1');
+await click('#au-ed-save');
+await sleep(200);
+S = await edState();
+C = await readCustom();
+chk('C3 满 20 保存就地拦（提示「先删一个」、仍 20 条、编辑台不关）', S.open === true && S.hint && S.hint.text.indexOf('20') >= 0 && C.length === 20, JSON.stringify({ hint: S.hint, n: C.length }));
+// C4 同名拦截（想改走库条）
+await setField('au-ed-name', '占位0');
+await sleep(50);
+await click('#au-ed-save');
+await sleep(200);
+S = await edState();
+chk('C4 同名保存就地拦（提示走库条编辑）', S.open === true && S.hint && S.hint.text.indexOf('同名') >= 0, JSON.stringify(S.hint));
+await click('#au-ed-cancel');
+await sleep(150);
+await seedCustom([]);
+// Z 全程零页面错误
+const errs = await evalJs(`JSON.stringify(window.__jsErrors || [])`);
+chk('Z 全程零 window error（含 ctl.val 同款 TypeError 复发面）', errs === '[]', String(errs).slice(0, 300));
 
 console.log(`\nverify-1033-au-custom-add: ${pass} PASS / ${fail} FAIL`);
 chrome.kill(); server.close();

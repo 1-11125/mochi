@@ -4140,13 +4140,6 @@ flex-shrink:0; width:22px; height:22px; border:none; border-radius:50%;
 background:transparent; color:#bbb; font-size:11px; cursor:pointer; padding:0;
 }
 .div-h-del:active { color:#e05555; }
-.div-h-more {
-display:block; width:100%; margin-top:8px; border:none; border-radius:10px;
-padding:9px 0; font-size:11px; font-weight:700; letter-spacing:1px;
-background:rgba(0,0,0,.05); color:var(--muted); cursor:pointer; font-family:inherit;
--webkit-tap-highlight-color:transparent;
-}
-.div-h-more:active { opacity:.7; }
 .div-switch-row {
 display:flex; align-items:center; justify-content:space-between; gap:10px;
 }
@@ -5596,6 +5589,20 @@ font-size:10px; color:var(--muted); text-align:center; opacity:.6;
 .dc-h-options { font-size:11px; color:var(--muted); margin-top:3px; }
 .dc-h-result { font-size:13px; font-weight:700; color:var(--ink); margin-top:4px; }
 .dc-h-time { font-size:10px; color:var(--muted); margin-top:3px; }
+.dc-h-more { margin-top:6px; border:1px solid rgba(0,0,0,.1); border-radius:10px; overflow:hidden; }
+.dc-h-more-sum {
+list-style:none; display:flex; align-items:center; justify-content:space-between; gap:6px;
+padding:10px 12px; font-size:12px; font-weight:700; color:var(--ink);
+cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.dc-h-more-sum::-webkit-details-marker { display:none; }
+.dc-h-more-sum::after { content:'▾'; font-size:11px; color:var(--muted); transition:transform .15s ease; }
+.dc-h-more[open] .dc-h-more-sum::after { transform:rotate(180deg); }
+.dc-h-more-cnt { font-size:11px; font-weight:400; color:var(--muted); margin-left:auto; }
+.dc-h-more-body { padding:2px 0 6px; }
+.dc-h-day { padding:2px 0; }
+.dc-h-day-label { font-size:11px; font-weight:700; color:var(--muted); padding:6px 12px 2px; }
+.dc-h-day-empty { font-size:11px; color:var(--muted); padding:4px 2px 6px; }
 .gd-members {
 border:1px solid rgba(0,0,0,.1); border-radius:12px;
 padding:10px; margin-bottom:12px;
@@ -7195,6 +7202,56 @@ padding:max(env(safe-area-inset-top, 0px), 22px) 18px max(env(safe-area-inset-bo
 .au-bag-empty-t { font-size:14px; font-weight:600; color:rgba(255,255,255,.85); }
 .au-bag-empty-s { font-size:12px; color:rgba(255,255,255,.5); }
 .au-bag-empty-btn { margin-top:8px; }
+.au-ico-img { width:76px; height:76px; border-radius:16px; object-fit:cover; vertical-align:middle; background:#fff; }
+.au-bag-tile .au-bag-img { width:100%; height:100%; border-radius:10px; object-fit:cover; background:#fff; }
+.au-hist-img { width:18px; height:18px; border-radius:4px; object-fit:cover; vertical-align:-3px; margin-right:2px; background:#fff; }
+#au-editor {
+position:fixed; inset:0; z-index:1335; border-radius:0;
+display:flex; align-items:center; justify-content:center;
+padding:max(env(safe-area-inset-top, 0px), 14px) 14px max(env(safe-area-inset-bottom, 0px), 14px);
+background:rgba(12,16,26,.94); overflow-y:auto;
+justify-content:safe center;
+}
+#au-editor[hidden] { display:none; }
+.au-ed-card { width:100%; max-width:380px; max-height:100%; display:flex; flex-direction:column; gap:10px; box-sizing:border-box; }
+.au-ed-head { display:flex; align-items:center; gap:8px; }
+.au-ed-title { flex:1; font-size:15.5px; font-weight:800; color:#fff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-preview { display:flex; align-items:center; gap:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
+.au-ed-pface { width:56px; height:56px; flex:0 0 auto; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:32px; background:radial-gradient(circle at 50% 38%, rgba(255,255,255,.14), rgba(255,255,255,.03) 70%); overflow:hidden; }
+.au-ed-pface .au-ed-pimg { width:100%; height:100%; object-fit:cover; background:#fff; }
+.au-ed-pinfo { flex:1; min-width:0; }
+.au-ed-pname { font-size:14px; font-weight:700; color:#fff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-pdesc { font-size:11.5px; color:rgba(255,255,255,.6); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-pbase { font-size:11.5px; color:#ffd479; margin-top:2px; }
+.au-ed-body { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:2px; }
+.au-ed-label { font-size:11px; font-weight:700; color:rgba(255,255,255,.55); margin-top:4px; }
+.au-ed-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.au-ed-ico { aspect-ratio:1; border:1px solid rgba(255,255,255,.1); border-radius:10px; background:rgba(255,255,255,.06); font-size:21px; line-height:1; color:#fff; padding:0; cursor:pointer; }
+.au-ed-ico.on { border-color:#ff6b9d; background:rgba(255,107,157,.16); }
+.au-ed-imgrow { display:flex; align-items:center; gap:8px; }
+.au-ed-imgprev { width:44px; height:44px; flex:0 0 auto; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); overflow:hidden; }
+.au-ed-imgprev img { width:100%; height:100%; object-fit:cover; }
+.au-ed-imgbtn { border:1px solid rgba(255,255,255,.16); border-radius:99px; padding:7px 14px; font-size:12px; font-weight:600; color:rgba(255,255,255,.88); background:rgba(255,255,255,.08); cursor:pointer; }
+.au-ed-inp { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:10px 12px; font-size:13.5px; font-family:inherit; color:#fff; background:rgba(255,255,255,.07); }
+.au-ed-inp::placeholder { color:rgba(255,255,255,.38); }
+.au-ed-row2 { display:grid; grid-template-columns:minmax(0,1fr) 104px; gap:8px; }
+.au-ed-price { text-align:right; }
+.au-ed-switch { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.05); font-size:12.5px; color:rgba(255,255,255,.85); }
+.au-ed-switch input { appearance:none; -webkit-appearance:none; flex:0 0 auto; width:40px; height:22px; margin:0; border-radius:99px; background:rgba(255,255,255,.18); position:relative; cursor:pointer; transition:background .15s; }
+.au-ed-switch input::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
+.au-ed-switch input:checked { background:#ff6b9d; }
+.au-ed-switch input:checked::after { left:21px; }
+.au-ed-hint { font-size:11.5px; line-height:1.5; color:#ffb37a; }
+.au-ed-lib:empty { display:none; }
+.au-ed-lib-t { font-size:11px; color:rgba(255,255,255,.5); margin:2px 0 4px; }
+.au-ed-lib { display:flex; flex-wrap:wrap; gap:6px; }
+.au-ed-chip { display:flex; align-items:center; gap:5px; border:1px solid rgba(255,255,255,.1); border-radius:99px; padding:5px 11px; font-size:11.5px; color:rgba(255,255,255,.85); background:rgba(255,255,255,.06); cursor:pointer; max-width:100%; }
+.au-ed-chip.on { border-color:#ff6b9d; }
+.au-ed-chip img { width:18px; height:18px; border-radius:5px; object-fit:cover; background:#fff; }
+.au-ed-chip span, .au-ed-chip { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-foot { display:flex; align-items:center; justify-content:center; gap:10px; padding-bottom:2px; }
+.au-ed-foot .pong-overlay-btn { min-width:0; flex:1; }
+.au-ed-del { color:#ff8f8f !important; }
 .msg-gift { align-self: center; width: 100%; display: flex; justify-content: center; margin: 8px 0; }
 .msg-gift-card {
 width: min(260px, 80vw); padding: 22px 18px 14px; border-radius: 20px; box-sizing: border-box;
@@ -10568,9 +10625,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790143549781">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790144744929">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-23 14:05<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-23 14:25<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -16030,7 +16087,8 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
                   <b>·</b> TA 最高价 → 点<b>「放弃这件」</b>＝这件归 TA，不扣你的钱。<br>
                   <b>·</b> 双方都不要 → <b>流拍</b>，收回仓库。<br>
                   <b>⑤&nbsp;彩蛋</b>：TA 拍走的拍品过几天会寄回给你。<br>
-                  <b>⑥&nbsp;暗价</b>：TA 每件的心理价位是暗的（志在必得/常规/抠门/虚张声势），猜不准才好玩。
+                  <b>⑥&nbsp;暗价</b>：TA 每件的心理价位是暗的（志在必得/常规/抠门/虚张声势），猜不准才好玩。<br>
+                  <b>⑦&nbsp;自制拍品</b>：点顶部 ➕ 打开编辑台——选一枚 emoji 或上传一张商品图，填名称/起拍价（还能留一句拍下彩蛋、勾「神秘拍品」蒙面上拍），你们的小宝贝就进奖池；编辑台底部的库条点一下即可改，删除要先确认。
                 </div>
                 <div class="pong-overlay-btns">
                   <button class="pong-overlay-btn" id="au-help-close" type="button">知道啦</button>
@@ -16045,6 +16103,43 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
                   <button class="pong-overlay-btn pong-overlay-btn2" id="au-intro-help" type="button">详细玩法</button>
                   <!-- #341 教学浮层是全屏的、盖住头部 ✕，没有这个出口用户想走只能先开局 -->
                   <button class="pong-overlay-btn pong-overlay-btn2" id="au-intro-exit" type="button">先不玩</button>
+                </div>
+              </div>
+              <!-- #1041 自制拍品全屏编辑台（方案 A，用户选定）：所见即所得预览卡＋emoji 自选＋商品图片＋
+                   名称/介绍/底价/彩蛋＋蒙面开关；库条＝已有自制拍品点选即改。静态锚点在此、内容由 auction.js 渲染。 -->
+              <div class="au-fs-overlay au-editor" id="au-editor" hidden>
+                <div class="au-ed-card">
+                  <div class="au-ed-head">
+                    <div class="au-ed-title" id="au-ed-title">✏️ 自制拍品</div>
+                    <button class="snake-icon-btn" id="au-ed-close" type="button" title="关闭">✕</button>
+                  </div>
+                  <div class="au-ed-preview" id="au-ed-preview"></div>
+                  <div class="au-ed-body">
+                    <div class="au-ed-label">图标 · 选一个 emoji</div>
+                    <div class="au-ed-grid" id="au-ed-grid"></div>
+                    <div class="au-ed-label">商品图片（可选，盖过 emoji）</div>
+                    <div class="au-ed-imgrow">
+                      <div class="au-ed-imgprev" id="au-ed-imgprev">🖼️</div>
+                      <button class="au-ed-imgbtn" id="au-ed-imgbtn" type="button">上传图片</button>
+                      <button class="au-ed-imgbtn" id="au-ed-imgclear" type="button" hidden>移除</button>
+                    </div>
+                    <div class="au-ed-label">名称与底价</div>
+                    <input class="au-ed-inp" id="au-ed-name" maxlength="24" placeholder="名称（如：我们的灯笼）">
+                    <div class="au-ed-row2">
+                      <input class="au-ed-inp" id="au-ed-desc" maxlength="40" placeholder="一句话介绍（可选）">
+                      <input class="au-ed-inp au-ed-price" id="au-ed-base" inputmode="decimal" placeholder="¥20">
+                    </div>
+                    <div class="au-ed-label">拍下后的一句话彩蛋（可空）</div>
+                    <input class="au-ed-inp" id="au-ed-wish" maxlength="30" placeholder="例：第一盏留给你点">
+                    <label class="au-ed-switch"><span>神秘拍品（🎁 蒙面登场，落槌才揭晓）</span><input type="checkbox" id="au-ed-mystery"><i></i></label>
+                    <div class="au-ed-hint" id="au-ed-hint" hidden></div>
+                  </div>
+                  <div class="au-ed-lib" id="au-ed-lib"></div>
+                  <div class="au-ed-foot">
+                    <button class="pong-overlay-btn pong-overlay-btn2 au-ed-del" id="au-ed-del" type="button" hidden>删除</button>
+                    <button class="pong-overlay-btn pong-overlay-btn2" id="au-ed-cancel" type="button">取消</button>
+                    <button class="pong-overlay-btn" id="au-ed-save" type="button">保存</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -21420,4 +21515,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mudp8z85 -->
+<!-- __MOCHI_EOF__ mudpylep -->

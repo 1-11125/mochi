@@ -4676,8 +4676,12 @@ const FIX_SENTINELS = [
   { name: '#1032c 落槌入库即落成色（删＝新入库条目无 rarity，卡片徽章与真实成色脱节）', file: 'js/auction.js', needle: 'ts: Date.now(), rarity: rarityOf(item).label });' },
   { name: '#1032d 两列网格 CSS 规则本体（改成别的布局＝卡片网格复发；needle＝minify 后单行规则前缀）', file: 'css/chat-pages.css', needle: '.au-bag-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));' },
   /* ==== 2026-09-22 #1033 拍卖会「自制拍品点了没反应」（用户实报；根因＝五处调用 openModal ctl 上不存在的取/设值方法——正确名是 text——stay() 已置不关窗后抛 TypeError 掐断推进回调，全机型必现） ==== */
-  { name: '#1033a 自制拍品三步推进就地切换在位（改回不存在的设值方法＝名称点确定卡死复发＝用户报的「点了没反应」）', file: 'js/auction.js', needle: "ctl.stay(); ctl.text(''); ctl.ph('底价（元，如 20）'); ctl.okText('下一步');" },
+  { name: '#1033a 自制拍品保存链就地校验换提示在位（#1041 换锚：旧三步弹窗退役后，本针盯「点保存必有就地反馈、不静默冻结」这一 #1033 语义本体；needle＝edSave 名称校验行）', file: 'js/auction.js', needle: "if (!name) { edHint('先给拍品起个名称'); return; }" },
   { name: '#1033b 自定义出价校验失败仍就地换提示（删/回退＝压价填小后弹窗原地冻结，同款死法第二落点）', file: 'js/auction.js', needle: "ctl.stay(); ctl.text(''); ctl.ph('至少要比当前价多" },
+  /* ==== 2026-09-22 #1041 自制拍品全屏编辑台（用户选定方案 A；emoji 自选＋商品图片内嵌＋蒙面显式开关） ==== */
+  { name: '#1041a 商品图白名单闸门（删＝任意串可进 innerHTML src，转义面复发；needle＝auSafeImg 长度上限＋dataURL 正则）', file: 'js/auction.js', needle: "s.length <= 1200000 && /^data:image\\/(jpeg|png|webp);base64,[A-Za-z0-9+\\/=]+$/.test(s)" },
+  { name: '#1041b 蒙面开关显式化在位（回退成随机 20%＝用户所选开关复发）', file: 'js/auction.js', needle: "mystery: edMysteryEl && edMysteryEl.checked ? 1 : 0" },
+  { name: '#1041c 竞价台图片贯通在位（删＝背包有图、开拍回退 emoji，图非所见复发）', file: 'js/auction.js', needle: "const auImg = item.mystery ? '' : auSafeImg(item.img);" },
   { name: "#1034a 诊断回收警告补「止住它最有效」动作（删＝用户只知道被回收，不知道怎么止住）", file: "js/device.js", needle: "止住它最有效：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034b 回收提示条补动作与恢复口径（删＝提示只说明成因不给出路）", file: "js/bg-keep.js", needle: "止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉" },
   { name: "#1034c 功能说明补「止住回收最有效的一步」章（删＝挂几分钟就被丢的用户无解可循）", file: "js/settings-help.js", needle: "【止住回收最有效的一步】Chrome：设置 → 性能 →「内存节省程序」关掉" },

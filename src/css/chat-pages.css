@@ -1264,14 +1264,6 @@
   background:transparent; color:#bbb; font-size:11px; cursor:pointer; padding:0;
 }
 .div-h-del:active { color:#e05555; }
-/* #1049 历史分页「显示更早的记录」按钮（与 .div-h-view 同一观感语言，块级占满一行） */
-.div-h-more {
-  display:block; width:100%; margin-top:8px; border:none; border-radius:10px;
-  padding:9px 0; font-size:11px; font-weight:700; letter-spacing:1px;
-  background:rgba(0,0,0,.05); color:var(--muted); cursor:pointer; font-family:inherit;
-  -webkit-tap-highlight-color:transparent;
-}
-.div-h-more:active { opacity:.7; }
 
 /* v3.7.x：开关行（自动发送到聊天）——桌面占卜页 + 聊天占卜半框共用 */
 .div-switch-row {
@@ -2941,6 +2933,21 @@ body.mail-emoji-mode #emoji-panel { bottom: calc(64px + var(--mochi-safe-bottom,
 .dc-h-options { font-size:11px; color:var(--muted); margin-top:3px; }
 .dc-h-result { font-size:13px; font-weight:700; color:var(--ink); margin-top:4px; }
 .dc-h-time { font-size:10px; color:var(--muted); margin-top:3px; }
+/* #1053：决定历史「当天直显、更早默认折叠」——更早记录块用原生 details/summary，零 JS */
+.dc-h-more { margin-top:6px; border:1px solid rgba(0,0,0,.1); border-radius:10px; overflow:hidden; }
+.dc-h-more-sum {
+  list-style:none; display:flex; align-items:center; justify-content:space-between; gap:6px;
+  padding:10px 12px; font-size:12px; font-weight:700; color:var(--ink);
+  cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.dc-h-more-sum::-webkit-details-marker { display:none; }
+.dc-h-more-sum::after { content:'▾'; font-size:11px; color:var(--muted); transition:transform .15s ease; }
+.dc-h-more[open] .dc-h-more-sum::after { transform:rotate(180deg); }
+.dc-h-more-cnt { font-size:11px; font-weight:400; color:var(--muted); margin-left:auto; }
+.dc-h-more-body { padding:2px 0 6px; }
+.dc-h-day { padding:2px 0; }
+.dc-h-day-label { font-size:11px; font-weight:700; color:var(--muted); padding:6px 12px 2px; }
+.dc-h-day-empty { font-size:11px; color:var(--muted); padding:4px 2px 6px; }
 
 /* ===== 多人决定 ===== */
 /* 成员选择块：胶囊 chip（checkbox 藏进 label，勾选态由 JS 上 .on 类） */
@@ -4809,3 +4816,56 @@ select.mochi-custom-select-native { display:none; }
 .au-bag-empty-t { font-size:14px; font-weight:600; color:rgba(255,255,255,.85); }
 .au-bag-empty-s { font-size:12px; color:rgba(255,255,255,.5); }
 .au-bag-empty-btn { margin-top:8px; }
+/* #1041 拍卖藏品图贯通：自制拍品带商品图时，竞价台/背包卡/记录行/转赠与实物同图（emoji 位换成圆角小图）。 */
+.au-ico-img { width:76px; height:76px; border-radius:16px; object-fit:cover; vertical-align:middle; background:#fff; }
+.au-bag-tile .au-bag-img { width:100%; height:100%; border-radius:10px; object-fit:cover; background:#fff; }
+.au-hist-img { width:18px; height:18px; border-radius:4px; object-fit:cover; vertical-align:-3px; margin-right:2px; background:#fff; }
+/* #1041 自制拍品全屏编辑台（方案 A）：恒深底（与 #au-intro/#au-help 同族，取色写死不随明暗主题）。
+   ID 特异性 display:flex 会压掉 UA 的 [hidden]（#331 同因），[hidden] 救援必须有。 */
+#au-editor {
+  position:fixed; inset:0; z-index:1335; border-radius:0;
+  display:flex; align-items:center; justify-content:center;
+  padding:max(env(safe-area-inset-top, 0px), 14px) 14px max(env(safe-area-inset-bottom, 0px), 14px);
+  background:rgba(12,16,26,.94); overflow-y:auto;
+  justify-content:safe center;
+}
+#au-editor[hidden] { display:none; }
+.au-ed-card { width:100%; max-width:380px; max-height:100%; display:flex; flex-direction:column; gap:10px; box-sizing:border-box; }
+.au-ed-head { display:flex; align-items:center; gap:8px; }
+.au-ed-title { flex:1; font-size:15.5px; font-weight:800; color:#fff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-preview { display:flex; align-items:center; gap:12px; padding:12px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
+.au-ed-pface { width:56px; height:56px; flex:0 0 auto; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:32px; background:radial-gradient(circle at 50% 38%, rgba(255,255,255,.14), rgba(255,255,255,.03) 70%); overflow:hidden; }
+.au-ed-pface .au-ed-pimg { width:100%; height:100%; object-fit:cover; background:#fff; }
+.au-ed-pinfo { flex:1; min-width:0; }
+.au-ed-pname { font-size:14px; font-weight:700; color:#fff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-pdesc { font-size:11.5px; color:rgba(255,255,255,.6); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-pbase { font-size:11.5px; color:#ffd479; margin-top:2px; }
+.au-ed-body { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:2px; }
+.au-ed-label { font-size:11px; font-weight:700; color:rgba(255,255,255,.55); margin-top:4px; }
+.au-ed-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.au-ed-ico { aspect-ratio:1; border:1px solid rgba(255,255,255,.1); border-radius:10px; background:rgba(255,255,255,.06); font-size:21px; line-height:1; color:#fff; padding:0; cursor:pointer; }
+.au-ed-ico.on { border-color:#ff6b9d; background:rgba(255,107,157,.16); }
+.au-ed-imgrow { display:flex; align-items:center; gap:8px; }
+.au-ed-imgprev { width:44px; height:44px; flex:0 0 auto; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); overflow:hidden; }
+.au-ed-imgprev img { width:100%; height:100%; object-fit:cover; }
+.au-ed-imgbtn { border:1px solid rgba(255,255,255,.16); border-radius:99px; padding:7px 14px; font-size:12px; font-weight:600; color:rgba(255,255,255,.88); background:rgba(255,255,255,.08); cursor:pointer; }
+.au-ed-inp { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:10px 12px; font-size:13.5px; font-family:inherit; color:#fff; background:rgba(255,255,255,.07); }
+.au-ed-inp::placeholder { color:rgba(255,255,255,.38); }
+.au-ed-row2 { display:grid; grid-template-columns:minmax(0,1fr) 104px; gap:8px; }
+.au-ed-price { text-align:right; }
+.au-ed-switch { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.05); font-size:12.5px; color:rgba(255,255,255,.85); }
+.au-ed-switch input { appearance:none; -webkit-appearance:none; flex:0 0 auto; width:40px; height:22px; margin:0; border-radius:99px; background:rgba(255,255,255,.18); position:relative; cursor:pointer; transition:background .15s; }
+.au-ed-switch input::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
+.au-ed-switch input:checked { background:#ff6b9d; }
+.au-ed-switch input:checked::after { left:21px; }
+.au-ed-hint { font-size:11.5px; line-height:1.5; color:#ffb37a; }
+.au-ed-lib:empty { display:none; }
+.au-ed-lib-t { font-size:11px; color:rgba(255,255,255,.5); margin:2px 0 4px; }
+.au-ed-lib { display:flex; flex-wrap:wrap; gap:6px; }
+.au-ed-chip { display:flex; align-items:center; gap:5px; border:1px solid rgba(255,255,255,.1); border-radius:99px; padding:5px 11px; font-size:11.5px; color:rgba(255,255,255,.85); background:rgba(255,255,255,.06); cursor:pointer; max-width:100%; }
+.au-ed-chip.on { border-color:#ff6b9d; }
+.au-ed-chip img { width:18px; height:18px; border-radius:5px; object-fit:cover; background:#fff; }
+.au-ed-chip span, .au-ed-chip { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.au-ed-foot { display:flex; align-items:center; justify-content:center; gap:10px; padding-bottom:2px; }
+.au-ed-foot .pong-overlay-btn { min-width:0; flex:1; }
+.au-ed-del { color:#ff8f8f !important; }

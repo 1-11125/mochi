@@ -5807,7 +5807,8 @@
                   <b>·</b> TA 最高价 → 点<b>「放弃这件」</b>＝这件归 TA，不扣你的钱。<br>
                   <b>·</b> 双方都不要 → <b>流拍</b>，收回仓库。<br>
                   <b>⑤&nbsp;彩蛋</b>：TA 拍走的拍品过几天会寄回给你。<br>
-                  <b>⑥&nbsp;暗价</b>：TA 每件的心理价位是暗的（志在必得/常规/抠门/虚张声势），猜不准才好玩。
+                  <b>⑥&nbsp;暗价</b>：TA 每件的心理价位是暗的（志在必得/常规/抠门/虚张声势），猜不准才好玩。<br>
+                  <b>⑦&nbsp;自制拍品</b>：点顶部 ➕ 打开编辑台——选一枚 emoji 或上传一张商品图，填名称/起拍价（还能留一句拍下彩蛋、勾「神秘拍品」蒙面上拍），你们的小宝贝就进奖池；编辑台底部的库条点一下即可改，删除要先确认。
                 </div>
                 <div class="pong-overlay-btns">
                   <button class="pong-overlay-btn" id="au-help-close" type="button">知道啦</button>
@@ -5822,6 +5823,43 @@
                   <button class="pong-overlay-btn pong-overlay-btn2" id="au-intro-help" type="button">详细玩法</button>
                   <!-- #341 教学浮层是全屏的、盖住头部 ✕，没有这个出口用户想走只能先开局 -->
                   <button class="pong-overlay-btn pong-overlay-btn2" id="au-intro-exit" type="button">先不玩</button>
+                </div>
+              </div>
+              <!-- #1041 自制拍品全屏编辑台（方案 A，用户选定）：所见即所得预览卡＋emoji 自选＋商品图片＋
+                   名称/介绍/底价/彩蛋＋蒙面开关；库条＝已有自制拍品点选即改。静态锚点在此、内容由 auction.js 渲染。 -->
+              <div class="au-fs-overlay au-editor" id="au-editor" hidden>
+                <div class="au-ed-card">
+                  <div class="au-ed-head">
+                    <div class="au-ed-title" id="au-ed-title">✏️ 自制拍品</div>
+                    <button class="snake-icon-btn" id="au-ed-close" type="button" title="关闭">✕</button>
+                  </div>
+                  <div class="au-ed-preview" id="au-ed-preview"></div>
+                  <div class="au-ed-body">
+                    <div class="au-ed-label">图标 · 选一个 emoji</div>
+                    <div class="au-ed-grid" id="au-ed-grid"></div>
+                    <div class="au-ed-label">商品图片（可选，盖过 emoji）</div>
+                    <div class="au-ed-imgrow">
+                      <div class="au-ed-imgprev" id="au-ed-imgprev">🖼️</div>
+                      <button class="au-ed-imgbtn" id="au-ed-imgbtn" type="button">上传图片</button>
+                      <button class="au-ed-imgbtn" id="au-ed-imgclear" type="button" hidden>移除</button>
+                    </div>
+                    <div class="au-ed-label">名称与底价</div>
+                    <input class="au-ed-inp" id="au-ed-name" maxlength="24" placeholder="名称（如：我们的灯笼）">
+                    <div class="au-ed-row2">
+                      <input class="au-ed-inp" id="au-ed-desc" maxlength="40" placeholder="一句话介绍（可选）">
+                      <input class="au-ed-inp au-ed-price" id="au-ed-base" inputmode="decimal" placeholder="¥20">
+                    </div>
+                    <div class="au-ed-label">拍下后的一句话彩蛋（可空）</div>
+                    <input class="au-ed-inp" id="au-ed-wish" maxlength="30" placeholder="例：第一盏留给你点">
+                    <label class="au-ed-switch"><span>神秘拍品（🎁 蒙面登场，落槌才揭晓）</span><input type="checkbox" id="au-ed-mystery"><i></i></label>
+                    <div class="au-ed-hint" id="au-ed-hint" hidden></div>
+                  </div>
+                  <div class="au-ed-lib" id="au-ed-lib"></div>
+                  <div class="au-ed-foot">
+                    <button class="pong-overlay-btn pong-overlay-btn2 au-ed-del" id="au-ed-del" type="button" hidden>删除</button>
+                    <button class="pong-overlay-btn pong-overlay-btn2" id="au-ed-cancel" type="button">取消</button>
+                    <button class="pong-overlay-btn" id="au-ed-save" type="button">保存</button>
+                  </div>
                 </div>
               </div>
             </div>

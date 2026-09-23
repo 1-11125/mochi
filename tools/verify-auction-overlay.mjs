@@ -370,14 +370,17 @@ const h1st = await evalJs(`(function(){ var s = window.__auDebug.st(); return JS
 chk('H1 长按出价键弹出「自定义出价」', (() => { try { const o = JSON.parse(h1modal); return o.open === true && o.title.indexOf('自定义出价') >= 0; } catch (e) { return false; } })(), h1modal);
 chk('H1 确认后价格压到自定义价且 leader=you', (() => { try { const o = JSON.parse(h1st); return o.leader === 'you' && o.cur === h1before; } catch (e) { return false; } })(), h1st + ' wantCur=' + h1before);
 
-// H2) #348 自制拍品：三段式添加 → 奖池合并 → idb 双写 → 输入同名删除
+// H2) #348 自制拍品：编辑台添加 → 奖池合并 → idb 双写 → 库条删除（#1041 起三步纯文字弹窗退役，改走全屏编辑台）
 await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
 await sleep(250);
-await evalJs(`(function(){ document.getElementById('modal-input').value = '自定义拍品A'; document.getElementById('modal-ok').click(); return 1; })()`);
-await sleep(200);
-await evalJs(`(function(){ document.getElementById('modal-input').value = '12.34'; document.getElementById('modal-ok').click(); return 1; })()`);
-await sleep(200);
-await evalJs(`(function(){ document.getElementById('modal-input').value = '测试彩蛋'; document.getElementById('modal-ok').click(); return 1; })()`);
+await evalJs(`(function(){
+  var n = document.getElementById('au-ed-name'); if (!n) return 0;
+  n.value = '自定义拍品A'; n.dispatchEvent(new Event('input', { bubbles: true }));
+  var d = document.getElementById('au-ed-desc'); d.value = '一句话介绍'; d.dispatchEvent(new Event('input', { bubbles: true }));
+  var p = document.getElementById('au-ed-base'); p.value = '12.34'; p.dispatchEvent(new Event('input', { bubbles: true }));
+  var w = document.getElementById('au-ed-wish'); w.value = '测试彩蛋'; w.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('au-ed-save').click(); return 1;
+})()`);
 await sleep(400);
 const h2a = JSON.parse(await evalJs(`(async function(){
   var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
@@ -386,16 +389,21 @@ const h2a = JSON.parse(await evalJs(`(async function(){
   try { var v = await window.idbGet(pre + ':auction-custom'); idbN = Array.isArray(v) ? v.length : -1; } catch (e) {}
   return JSON.stringify({ loc: loc, idb: idbN, pool: window.__auDebug.poolSize() });
 })()`));
+// 再开编辑台 → 点库条 chip 进编辑态 → 删除 → 确认弹窗点「删除」
 await evalJs(`(function(){ var b = document.getElementById('au-add'); if (b) b.click(); return 1; })()`);
 await sleep(250);
-await evalJs(`(function(){ document.getElementById('modal-input').value = '自定义拍品A'; document.getElementById('modal-ok').click(); return 1; })()`);
+await evalJs(`(function(){ var c = document.querySelector('#au-ed-lib .au-ed-chip'); if (c) c.click(); return 1; })()`);
+await sleep(200);
+await evalJs(`(function(){ var d = document.getElementById('au-ed-del'); if (d) d.click(); return 1; })()`);
+await sleep(300);
+await evalJs(`(function(){ var b = document.getElementById('modal-ok'); if (b) b.click(); return 1; })()`);
 await sleep(300);
 const h2b = JSON.parse(await evalJs(`(function(){
   var pre = (window.activePrefix && window.activePrefix()) || 'xy-home-v2';
   return JSON.stringify({ loc: JSON.parse(localStorage.getItem(pre + ':auction-custom') || '[]').length, pool: window.__auDebug.poolSize() });
 })()`));
-chk('H2 自制拍品添加成功（本地+idb 双写+奖池 12→13）', h2a.loc === 1 && h2a.idb === 1 && h2a.pool === 13, JSON.stringify(h2a));
-chk('H2 输入同名删除（奖池回落 12）', h2b.loc === 0 && h2b.pool === 12, JSON.stringify(h2b));
+chk('H2 自制拍品编辑台添加成功（本地+idb 双写+奖池 12→13）', h2a.loc === 1 && h2a.idb === 1 && h2a.pool === 13, JSON.stringify(h2a));
+chk('H2 库条点选删除（确认后奖池回落 12）', h2b.loc === 0 && h2b.pool === 12, JSON.stringify(h2b));
 
 // H3) #348 拍卖记录页：评级标签 + 明细渲染
 await evalJs(`(function(){
