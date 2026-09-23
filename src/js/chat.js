@@ -3932,8 +3932,25 @@ let appendTarget = null;
 // 本轮作废则整队丢弃（新一轮按 msgs 全量重画）。判据只有「下标 ≥ 开轮时的 msgs.length」这一个
 // 与设备/内核无关的量。
 let batchDefer = null;
+// FIX 2026-09-23 #1151 一次性入场动画「播完就摘类」＋只在页面可见时挂：
+// CSS 动画在元素 display:none → block 时会**从头重播**（全内核一致行为，与机型无关），而切页面
+// 正是整页 hidden 翻转。原实现给节点挂上 .msg-enter 后永不摘除，于是「退出聊天回桌面 → 再进聊天」
+// 那一瞬，屏上所有曾当场新增的气泡集体重放淡入+上浮（from{opacity:0;translateY(8px)scale(.98)}）
+// ＝用户实报「聊天记录弹闪一下然后恢复正常」；DOM 一字未动，所以历次针对重渲链的修复与
+// MutationObserver 探针全都看不见这一面（无头实证：重进首帧 4 条动画 currentTime 由 400/finished
+// 归零成 0/running）。第二处＝页面藏着时到达的消息本不该有「入场」可言（用户没看着），原先会攒成
+// 回场那一帧几十条同时弹，同一条报障的另一形态，故挂类前加可见闸。摘类只可能在动画播完后发生，
+// 播完态与 .msg-enter 的 to 帧逐像素相同＝对正在播放的动画零影响。
+function enterMsgOnce(m) {
+m.classList.add('msg-enter');
+m.addEventListener('animationend', function onEnterEnd(e) {
+if (e.target !== m) return; // 子节点动画（语音波形/小花/抽卡）冒泡上来不算
+m.classList.remove('msg-enter'); // #1151a 摘类＝重播向量归零
+m.removeEventListener('animationend', onEnterEnd);
+});
+}
 function appendMsg(m) {
-if (!batchRendering) m.classList.add('msg-enter');
+if (!batchRendering && chatVisible()) enterMsgOnce(m); // #1151b
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
 if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
@@ -8194,6 +8211,38 @@ if (!window.requestAnimationFrame) { setTimeout(run, 16); return; }
 requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });
 setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被节流甚至不派发，重活不能因此不跑
 }
+// FIX 2026-09-23 #1151c 回场「一次性动画重播」总闸（与 #1151a/b 摘类互补，兜住摘不得的那一类）：
+// 整页 hidden → 可见时内核会把窗口内**所有** CSS 动画从头重播（全内核一致的行为，与机型无关）。挂在
+// .msg-enter 这类纯动画类上的已由摘类消掉，但挂在「身份类」上的一次性动画摘不得——类一掉样式就丢
+// （猜拳 .msg-rps 的 rpsFadeIn .35s both、拍小花 .msg-flower-emoji 的 flowerFloat 3s×3、搜索跳转
+// 高亮 .msg.highlight 的 msg-flash 1.2s×2），从聊天设置/市集/桌面图标回到聊天时看到的还是那一下。
+// 本闸在 hidden 翻回可见的同一任务里（变异观察器回调＝微任务，绘制之前）把这些动画直接落到终态：
+// 终态与「动画正常播完」逐像素相同＝对播放中的动画零影响；无限循环动画（语音波形、打字点、加载圈）
+// 必须跳过——finish() 对 infinite 时间轴会抛，且它们本就每帧重画、不构成「闪一下」。
+function settleReplayedChatAnim() {
+if (!document.getAnimations) return 0;
+const all = document.getAnimations();
+let n = 0;
+for (let i = 0; i < all.length; i++) {
+const a = all[i];
+if (typeof a.animationName !== 'string') continue; // 只管 CSS 动画：过渡不会在显隐切换时重播，别去动它
+const ef = a.effect;
+const tg = ef && ef.target;
+if (!tg || !(tg === body || body.contains(tg))) continue; // 只管聊天窗口内（含窗口自身）
+let iter = Infinity;
+try { iter = ef.getComputedTiming().iterations; } catch (e) {}
+if (iter === Infinity) continue; // #1151c：无限循环者不落终态（波形/打点/加载圈）
+try { a.finish(); n++; } catch (e) {}
+}
+return n;
+}
+if (chatPage) {
+new MutationObserver(function () {
+if (!chatVisible()) return;
+settleReplayedChatAnim(); // #1151c：回场一帧在绘制之前落终态＝看不见这一帧
+}).observe(chatPage, { attributes: true, attributeFilter: ['hidden'] });
+}
+
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');

@@ -2930,8 +2930,16 @@ let batchRendering = false;
 let pendingOutScroll = false;
 let appendTarget = null;
 let batchDefer = null;
+function enterMsgOnce(m) {
+m.classList.add('msg-enter');
+m.addEventListener('animationend', function onEnterEnd(e) {
+if (e.target !== m) return; // 子节点动画（语音波形/小花/抽卡）冒泡上来不算
+m.classList.remove('msg-enter'); // #1151a 摘类＝重播向量归零
+m.removeEventListener('animationend', onEnterEnd);
+});
+}
 function appendMsg(m) {
-if (!batchRendering) m.classList.add('msg-enter');
+if (!batchRendering && chatVisible()) enterMsgOnce(m); // #1151b
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
 if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
@@ -6233,6 +6241,29 @@ const run = function () { if (ran) return; ran = true; fn(); }; // 不吞异常�
 if (!window.requestAnimationFrame) { setTimeout(run, 16); return; }
 requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });
 setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被节流甚至不派发，重活不能因此不跑
+}
+function settleReplayedChatAnim() {
+if (!document.getAnimations) return 0;
+const all = document.getAnimations();
+let n = 0;
+for (let i = 0; i < all.length; i++) {
+const a = all[i];
+if (typeof a.animationName !== 'string') continue; // 只管 CSS 动画：过渡不会在显隐切换时重播，别去动它
+const ef = a.effect;
+const tg = ef && ef.target;
+if (!tg || !(tg === body || body.contains(tg))) continue; // 只管聊天窗口内（含窗口自身）
+let iter = Infinity;
+try { iter = ef.getComputedTiming().iterations; } catch (e) {}
+if (iter === Infinity) continue; // #1151c：无限循环者不落终态（波形/打点/加载圈）
+try { a.finish(); n++; } catch (e) {}
+}
+return n;
+}
+if (chatPage) {
+new MutationObserver(function () {
+if (!chatVisible()) return;
+settleReplayedChatAnim(); // #1151c：回场一帧在绘制之前落终态＝看不见这一帧
+}).observe(chatPage, { attributes: true, attributeFilter: ['hidden'] });
 }
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

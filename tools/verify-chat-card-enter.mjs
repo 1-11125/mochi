@@ -3,7 +3,7 @@
 //   m.className = 'msg-gift'/'msg-ask'/'msg …' 整体覆盖 className＝类在挂载前被抹掉，动画从未触发。
 // 修复：类的补加挪到 appendMsg 挂载前（恒在各分支覆盖之后），batchRendering 闸口径不变。
 // 断言：
-//   S1 静态锚：appendMsg 单行接线（补类＋挂载同行）在 src/js/chat.js
+//   S1 静态锚：appendMsg 函数体内、appendChild 之前必补入场动画（#1151 换锚，见下方注释）
 //   S2 全文件 classList.add('msg-enter') 恰一处（建节点处旧死代码已除，防两处并存假象）
 //   B1 礼物卡：新挂载的 .msg-gift 带 msg-enter 且 computed animation-name = msgPopIn
 //   B2 互动卡（ask 提问卡）：.msg-ask 同上
@@ -41,8 +41,16 @@ function check(desc, ok, detail) {
 
 // ---- S 组：静态锚（对 src/js/chat.js） ----
 const src = readFileSync(join(root, 'src', 'js', 'chat.js'), 'utf8');
-check('S1 appendMsg 挂载前补类接线在位',
-  src.includes("function appendMsg(m) { if (!batchRendering) m.classList.add('msg-enter'); (appendTarget || body).appendChild(m); }"));
+// #1151 换锚：原写法把「补类＋挂载」钉成同一行，而 #972 起 appendMsg 就是多行体——此后两侧恒红＝哑锚。
+// 改认逻辑本体：从 appendMsg 头部到「第一次真正挂进聊天窗口」之间＝挂载前那段，必须有入场动画的补类动作
+// （直挂类，或走 #1151 的 enterMsgOnce 包装，都算——被改回在建节点处挂类才是本脚本要拦的）。
+const amStart = src.indexOf('function appendMsg(m) {');
+const amPre = amStart < 0 ? '' : src.slice(amStart, amStart + 1200);
+const amMount = amPre.indexOf('.appendChild(m);');
+const amAttach = ["m.classList.add('msg-enter')", 'enterMsgOnce(m)'].map((k) => amPre.indexOf(k)).filter((i) => i >= 0);
+check('S1 appendMsg 在挂载前补入场动画（#1151 换锚：认「挂载行之前必有 msg-enter 补类／enterMsgOnce」，两种形态均可）',
+  amStart >= 0 && amMount >= 0 && amAttach.length > 0 && Math.min(...amAttach) < amMount,
+  JSON.stringify({ attach: amAttach, mount: amMount, head: amPre.slice(0, 46) }));
 check('S2 classList.add(\'msg-enter\') 全文件恰一处（旧建节点处死代码已除）',
   (src.match(/classList\.add\('msg-enter'\)/g) || []).length === 1);
 

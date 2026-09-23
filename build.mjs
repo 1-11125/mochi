@@ -4440,7 +4440,7 @@ const FIX_SENTINELS = [
   { name: '#876i TA 自动送礼源头闸（删＝扣款已发生而礼物消息被总闸拦＝扣了钱没礼物）', file: 'js/gift-shop.js', needle: "nightModeActive && window.nightModeActive()) return;\nconst st = wlSettings();" },
   { name: '#876j 朋友圈自动动态夜间不生成（删＝夜里照发动态+聊天提示）', file: 'js/feed.js', needle: "nightModeActive && window.nightModeActive()) return;\nconst cs = window.storeFor(cid);" },
   { name: '#876l 夜间模式说明改「完全静默」口径（退回旧「只拦主动」文案＝用户再被误导「为什么回复还在发」）', file: 'js/settings-help.js', needle: "这段时间内 TA 完全静默" },
-  { name: '#878a 卡片入场动画类在挂载前补加（#878 报障：礼物/互动卡无动画突兀出现。根因=renderMsg 建节点时加 msg-enter、随后所有分支 m.className=… 整体覆盖抹掉；needle=补类与挂载同行的接线锚——类加回建节点处即失效消失）', file: 'js/chat.js', needle: "if (!batchRendering) m.classList.add('msg-enter');" },
+  { name: '#878a 卡片入场动画类在挂载前补加（#878 报障：礼物/互动卡无动画突兀出现。根因=renderMsg 建节点时加 msg-enter、随后所有分支 m.className=… 整体覆盖抹掉；needle=补类与挂载同行的接线锚——类加回建节点处即失效消失；#1151 换锚：挂载行改写为「仅页面可见时 enterMsgOnce」，原两语句同行 needle 自此在产物里永不成立，改指 enterMsgOnce 内的补类行）', file: 'js/chat.js', needle: "m.classList.add('msg-enter');" },
   { name: '#919a 分帧整窗路径空洞守卫（删＝构建途中 renderMsg 抛错断链、frag 永不换装＝看不到最新消息复发）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919a" },
   { name: '#919b 同步整窗路径空洞守卫（删＝异常一路上抛、调用方贴底收尾整段跳过）', file: 'js/chat.js', needle: "if (!_rm || typeof _rm !== 'object') { skippedIdx.push(i); continue; } // #919b 同 #919a：同步整窗路径也不得被单条空记录打断" },
   { name: '#921g 通知自动关闭只认 denied（改回 ===granted 即落 0＝瞬态 default 误读把授权用户的开关永久关掉复发）', file: 'js/bg-keep.js', needle: "Notification.permission !== 'denied'" },
@@ -4769,6 +4769,9 @@ const FIX_SENTINELS = [
   { name: "#1120c 让位后按抽屉自身 zIndex 回正（写死 csDrawerBaseZ＝io 抽屉被压低后回不来）", file: "js/chat-settings.js", needle: "const want = low ? String(Math.max(1, low - 1)) : (d.dataset.csBaseZ || csDrawerBaseZ || '95');" },
   { name: "#1120d 滚动锁登记随面板改名同步到抽屉（旧遮罩 id 回流＝抽屉开着底层设置页仍可滑）", file: "js/mobile-adapt.js", needle: "'#io-order-drawer'," },
   { name: "#1052a 排序面板图标只取图标本体，剥掉隐形文件选择激活层（退回整份 innerHTML＝点面板弹相册）", file: "js/chat-settings.js", needle: "ic.querySelectorAll('label[data-file-pick-for]').forEach((l) => l.remove());" },
+  { name: '#1151a 消息入场动画播完摘掉 .msg-enter（删掉＝退出聊天回桌面再进时屏上所有当场新增过的气泡集体重播淡入上浮＝真机「聊天记录弹闪一下才恢复正常」，红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: "m.classList.remove('msg-enter');" },
+  { name: '#1151b 入场动画只在聊天页可见时挂（退回隐藏态挂类＝攒成回场一帧集体弹，且摘类接线被拆回原地 add 时本行必消失）', file: 'js/chat.js', needle: 'if (!batchRendering && chatVisible()) enterMsgOnce(m);' },
+  { name: '#1151c 回聊天页时把窗口内在重播的一次性 CSS 动画直接落终态（摘类只治 .msg-enter，挂在身份类上的 rpsFadeIn/flowerFloat/msg-flash 摘不得；删掉本行＝「退出聊天回桌面再进、或从聊天设置返回」时的重播弹闪复发）', file: 'js/chat.js', needle: 'try { a.finish(); n++; } catch (e) {}' },
 
 ];
 try {
