@@ -384,9 +384,11 @@
         else if (r < 0.15) { this.phase = 'daze'; this.until = now + rand(2000, 5000); this.next = now + rand(5000, 9000); }
         else if (r < 0.25) { this.phase = 'shift'; this.until = now + rand(1500, 3500); this.next = now + rand(2500, 4500); }
         else {
-          // 钓鱼：抛竿 → 等待（随机时长）→ 咬钩 → 收竿
-          this.phase = 'casting'; this.until = now + rand(800, 1500);
-          this.castAt = now; this.biteAt = now + rand(3000, 8000);
+          // 抛竿 → 等待（随机时长）→ 咬钩 → 收竿
+          // FIX 2026-09-22 #1031：抛竿分支原先不设 next，它停在上一拍的过去值 ⇒ taStep 守卫「非 rest/waiting/biting
+          // 且 now>=next 即重决策」每拍为真，casting 被反复重 roll（实测 4000 拍 988 拍白抛、链长 21+），TA 进不了
+          // waiting（用户所见＝只有自己在钓）。next 取 biteAt 覆盖抛竿+等待整段；写 next=until 反而更糟——会被同一条守卫抢走。
+          this.phase = 'casting'; this.until = now + rand(800, 1500); this.castAt = now; this.biteAt = now + rand(3000, 8000); this.next = this.biteAt;
         }
       },
       resolve: function (now) {
@@ -602,9 +604,11 @@
   }
 
   // ---- 渲染 ----
+  let lastNotice = '';
   function statusText(t) {
     if (!statusEl) return;
     statusEl.textContent = t;
+    lastNotice = t;
     // FIX 2026-09-16：收竿/跑鱼/TA 钓到的结算文案原先被随后的 render() 同帧清空
     // （idle+today 分支），用户根本看不到——设 keep 保留 2.5s 后自动恢复常规提示
     statusEl.dataset.keep = '1';
@@ -644,7 +648,10 @@
     // 默认状态提示
     if (statusEl && !statusEl.dataset.keep) {
       if (mine.phase === 'waiting') statusEl.textContent = '鱼漂已下水，等 TA 咬钩…';
-      else if (mine.phase === 'idle' && curTab === 'today') statusEl.textContent = '';
+      // FIX 2026-09-22 #1031：keep 到期后原来把整行写成空串——TA 的「钓到了…」是随机事件，
+      // 2.5s 窗口基本赶不上（实测 300s 里 93% 的时间这行是空的），改成留在最近一条播报上；
+      // 同值不重写（render 每 1.2s 心跳一次，避免白写 DOM）
+      else if (mine.phase === 'idle' && curTab === 'today') { if (statusEl.textContent !== lastNotice) statusEl.textContent = lastNotice; }
     }
     renderPage();
   }

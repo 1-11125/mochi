@@ -505,13 +505,32 @@
       '<span>💕 ' + chemNow() + '</span>' +
       (st.started && !st.over && firstProp()
         ? '<span class="m3-prop-live">⚡ ' + PROP_TIP[firstProp()].ico + ' 在场上·' + PROP_TIP[firstProp()].use + '即引爆</span>' : '') +
-      (st.started && !st.over && st.mode !== nextMode()
-        ? '<span class="m3-mode-pending">⚠ 已选' + modeLabel(nextMode()) + '，重开一局才换</span>' : '');
+      (st.started && !st.over && (st.mode !== nextMode() || st.diff !== nextDiff())
+        ? '<span class="m3-mode-pending">⚠ 已选' + pendingLabels().join(' · ') + '，点这里立刻重开一局换上</span>' : '');
     syncPropBtns();
   }
-  // 头部下拉所指的「下一局」模式（未接入下拉时按简单模式）
+  // #1030 「重开一局才换」以前是一句执行不了的指令：对局中面板上没有任何别的重开入口
+  // （开局覆盖层已隐藏、结束游戏只在通关结算出现、✕ 只关面板不清棋局），用户切完下拉
+  // 除了打满目标分或换联系人，永远进不了道具模式（实测：切 item → ✕ → 重进，st.mode 仍 simple
+  // 且开局按钮不可达）。所以把这句红字做成按钮：点它就按当前下拉就地重开一局。
+  // 难度下拉同属这个陷阱（切了也只对下一局生效），一并挂进同一颗红字。
+  if (infoEl) infoEl.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest && e.target.closest('.m3-mode-pending');
+    if (!t) return;
+    e.stopPropagation();
+    newGame();
+  });
+  // 头部下拉所指的「下一局」难度（值不在 DIFFS 里就当作没改，不挂红字）
+  function nextDiff() { return diffSel && DIFFS[diffSel.value] ? diffSel.value : st.diff; }
   function nextMode() { return modeSel && modeSel.value === 'item' ? 'item' : 'simple'; }
   function modeLabel(m) { return m === 'item' ? '💣 道具模式' : '🌿 简单模式'; }
+  // 红字要列出「下一局和现在不一样的那几项」（可能只切了难度、也可能两个都切）
+  function pendingLabels() {
+    const out = [];
+    if (st.mode !== nextMode()) out.push(modeLabel(nextMode()));
+    if (st.diff !== nextDiff()) out.push(DIFFS[nextDiff()].label);
+    return out;
+  }
   // 道具按钮：手机端没有 title 悬浮提示，余量与用法写进可点的按钮本身
   function syncPropBtns() {
     if (hintBtn) {
@@ -1002,6 +1021,11 @@
   if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closePanel(); });
   if (diffSel) diffSel.addEventListener('change', () => {
     const s = loadStats(); s.lastDiff = diffSel.value; saveStats(s);
+    // #1030 难度切完以前只写档、零回响（和 #799 之前的模式下拉同一个毛病）：对局中必须当场看到红字
+    if (st && st.started && !st.over) {
+      setStatus('下一局是' + ((DIFFS[diffSel.value] || DIFFS.normal).label) + '，点信息条红字立刻重开换');
+      updateInfo();
+    }
   });
   if (modeSel) {
     // #799 「💣 道具」四个字太容易被读成「点这里使用道具」
@@ -1012,7 +1036,7 @@
       setStatus(s.lastMode === 'item'
         ? '💣 道具模式已选：凑四连/L·T 交叉/五连时自动掉 ↔️↕️ 💥 🌈，再把它交换进三连就引爆（不是手动点用）'
         : '🌿 简单模式已选：纯经典三消，不生成任何道具');
-      if (st && st.started && !st.over) { taSay('本局是' + modeLabel(st.mode) + '，重开才换'); updateInfo(); }
+      if (st && st.started && !st.over) { taSay('本局是' + modeLabel(st.mode) + '，点红字立刻重开换'); updateInfo(); }
       else if (overlayEl && !overlayEl.hidden) showStartOverlay();   // 覆盖层开着：说明文字跟着模式换
     });
   }

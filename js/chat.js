@@ -12249,7 +12249,7 @@ mapped = _mapBc(mapped, ['mb.self'], OUT_B);
 mapped = _mapBc(mapped, ['mb.other'], IN_B);
 mapped = _mapBc(mapped, OUT_NAMES, OUT_B);
 mapped = _mapBc(mapped, IN_NAMES, IN_B);
-mapped = _mapBc(mapped, SH_NAMES, scope + '.msg-bubble');
+mapped = _mapBc(mapped, SH_NAMES, scope + '.msg-bubble.msg-bubble');
 if (/\.msg-bubble|\.msg-out|\.msg-in/.test(mapped)) {
 out += mapped + '{' + decls + '}';
 hasMapped = true;

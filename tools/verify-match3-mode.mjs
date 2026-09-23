@@ -86,7 +86,12 @@ try {
   await browser.close();
   process.exit(1);
 }
-await page.evaluate(() => { try { const s = document.getElementById('splash'); if (s) s.click(); } catch (e) {} });
+// 必须走 splash-enter（同 verify.mjs）：只点 #splash 不解除开屏，整棵 .phone 仍 visibility:hidden，
+// 而 innerText 对隐形子树返回空串 → A2/A3 一直在读空说明文字判红（#1027 批同修）。
+await page.evaluate(() => {
+  const e = document.getElementById('splash-enter'); if (e && !e.hidden) e.click();
+  const s = document.getElementById('splash'); if (s && !s.classList.contains('hide')) { s.classList.add('hide'); s.hidden = true; }
+});
 await page.waitForTimeout(800);
 await page.evaluate(() => {
   document.querySelectorAll('.page').forEach((p) => { p.hidden = (p.id !== 'page-chat'); });

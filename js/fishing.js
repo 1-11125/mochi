@@ -326,8 +326,7 @@ if (r < 0.05) { this.phase = 'rest'; this.until = now + rand(4000, 9000); this.n
 else if (r < 0.15) { this.phase = 'daze'; this.until = now + rand(2000, 5000); this.next = now + rand(5000, 9000); }
 else if (r < 0.25) { this.phase = 'shift'; this.until = now + rand(1500, 3500); this.next = now + rand(2500, 4500); }
 else {
-this.phase = 'casting'; this.until = now + rand(800, 1500);
-this.castAt = now; this.biteAt = now + rand(3000, 8000);
+this.phase = 'casting'; this.until = now + rand(800, 1500); this.castAt = now; this.biteAt = now + rand(3000, 8000); this.next = this.biteAt;
 }
 },
 resolve: function (now) {
@@ -525,9 +524,11 @@ box.splice(boxIdx, 1); saveBox(box);
 if (window.giftWalletChange) window.giftWalletChange(eatPrice, 0, '吃掉收到的菜');
 sfxSell(); toast('吃掉 ' + item.name + '，心意币 +¥' + fenToStr(eatPrice)); render();
 }
+let lastNotice = '';
 function statusText(t) {
 if (!statusEl) return;
 statusEl.textContent = t;
+lastNotice = t;
 statusEl.dataset.keep = '1';
 clearTimeout(statusEl._keepT);
 statusEl._keepT = setTimeout(function () {
@@ -561,7 +562,7 @@ if (reelBtn) reelBtn.hidden = !bitting;
 if (timingWrapEl) timingWrapEl.hidden = !bitting;
 if (statusEl && !statusEl.dataset.keep) {
 if (mine.phase === 'waiting') statusEl.textContent = '鱼漂已下水，等 TA 咬钩…';
-else if (mine.phase === 'idle' && curTab === 'today') statusEl.textContent = '';
+else if (mine.phase === 'idle' && curTab === 'today') { if (statusEl.textContent !== lastNotice) statusEl.textContent = lastNotice; }
 }
 renderPage();
 }

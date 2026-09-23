@@ -443,12 +443,25 @@ if (infoEl) infoEl.innerHTML =
 '<span>💕 ' + chemNow() + '</span>' +
 (st.started && !st.over && firstProp()
 ? '<span class="m3-prop-live">⚡ ' + PROP_TIP[firstProp()].ico + ' 在场上·' + PROP_TIP[firstProp()].use + '即引爆</span>' : '') +
-(st.started && !st.over && st.mode !== nextMode()
-? '<span class="m3-mode-pending">⚠ 已选' + modeLabel(nextMode()) + '，重开一局才换</span>' : '');
+(st.started && !st.over && (st.mode !== nextMode() || st.diff !== nextDiff())
+? '<span class="m3-mode-pending">⚠ 已选' + pendingLabels().join(' · ') + '，点这里立刻重开一局换上</span>' : '');
 syncPropBtns();
 }
+if (infoEl) infoEl.addEventListener('click', (e) => {
+const t = e.target && e.target.closest && e.target.closest('.m3-mode-pending');
+if (!t) return;
+e.stopPropagation();
+newGame();
+});
+function nextDiff() { return diffSel && DIFFS[diffSel.value] ? diffSel.value : st.diff; }
 function nextMode() { return modeSel && modeSel.value === 'item' ? 'item' : 'simple'; }
 function modeLabel(m) { return m === 'item' ? '💣 道具模式' : '🌿 简单模式'; }
+function pendingLabels() {
+const out = [];
+if (st.mode !== nextMode()) out.push(modeLabel(nextMode()));
+if (st.diff !== nextDiff()) out.push(DIFFS[nextDiff()].label);
+return out;
+}
 function syncPropBtns() {
 if (hintBtn) {
 hintBtn.title = '道具·提示：点亮当前最赚的一步（本局剩 ' + st.hints + '/3 次）';
@@ -899,6 +912,10 @@ if (endBtn) endBtn.addEventListener('click', (e) => { e.stopPropagation(); close
 if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closePanel(); });
 if (diffSel) diffSel.addEventListener('change', () => {
 const s = loadStats(); s.lastDiff = diffSel.value; saveStats(s);
+if (st && st.started && !st.over) {
+setStatus('下一局是' + ((DIFFS[diffSel.value] || DIFFS.normal).label) + '，点信息条红字立刻重开换');
+updateInfo();
+}
 });
 if (modeSel) {
 modeSel.title = '模式开关（不是道具按钮）：切成「💣 道具」后，新开的这局才会消出道具；道具要靠交换引爆';
@@ -907,7 +924,7 @@ const s = loadStats(); s.lastMode = modeSel.value === 'item' ? 'item' : 'simple'
 setStatus(s.lastMode === 'item'
 ? '💣 道具模式已选：凑四连/L·T 交叉/五连时自动掉 ↔️↕️ 💥 🌈，再把它交换进三连就引爆（不是手动点用）'
 : '🌿 简单模式已选：纯经典三消，不生成任何道具');
-if (st && st.started && !st.over) { taSay('本局是' + modeLabel(st.mode) + '，重开才换'); updateInfo(); }
+if (st && st.started && !st.over) { taSay('本局是' + modeLabel(st.mode) + '，点红字立刻重开换'); updateInfo(); }
 else if (overlayEl && !overlayEl.hidden) showStartOverlay();   // 覆盖层开着：说明文字跟着模式换
 });
 }

@@ -99,5 +99,15 @@ console.log('场景 6：空值安全');
   ok(map('/* only comment */', '').out === '', '纯注释不出样式');
 }
 
+console.log('场景 7：#气泡css 通用气泡类映射必须提特异到双类（收口批补的判别面）');
+{
+  const a = map('.bubble{background:red}', '');
+  ok(a.out === '.msg-bubble.msg-bubble{background:red}', 'SH 类 .bubble 映射成双类（单类＝底色被 app 表面规则盖回）', a.out);
+  const b = map('.chat-bubble{background:#0f0}', '');
+  ok(b.out === '.msg-bubble.msg-bubble{background:#0f0}', 'SH 类 .chat-bubble 同口径', b.out);
+  const c = map('.message{background:blue}', '#page-group-chat ');
+  ok(c.out === '#page-group-chat .msg-bubble.msg-bubble{background:blue}', '群聊作用域同样双类', c.out);
+}
+
 console.log('\n结果: ' + pass + ' 通过 / ' + fail + ' 失败');
 process.exit(fail ? 1 : 0);

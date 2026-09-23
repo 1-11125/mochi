@@ -3,7 +3,7 @@
 // 那容易被读成「点一下就在使用道具」，实际是切换模式（新对局生效、道具靠消除生成、
 // 再交换引爆），玩家不知道怎么用。本脚本按用户视角断言：
 //   A 消消乐：开局说明含道具用法；信息条常驻「当前模式 + 💡 余量」；提示用满灰化且再点出声；
-//            对局中切下拉→常驻「重开一局才换」且本局模式不变；重开→模式 chip 跟着换；
+//            对局中切下拉→常驻「点这里立刻重开一局换上」且本局模式不变、点这句红字真的就地重开成道具模式；重开→模式 chip 跟着换；
 //            场上留有道具时，玩家回合状态行直接说清怎么用（↔️/↕️/💥/🌈 各一条）。
 //   B 连连看：开局说明含道具；信息条把 💡/🔀 标成「提示×N / 洗牌×N」（原先只有裸数字）；
 //            玩家回合状态行带道具提醒；提示/洗使用满→按钮灰化 + 再点有回应；道具全用完→状态行改口；
@@ -46,7 +46,12 @@ async function openPanel(fn, panelId) {
 
 await page.goto(url);
 await page.waitForFunction(() => typeof window.openMatch3Panel === 'function', null, { timeout: 20000 });
-await page.evaluate(() => { try { document.getElementById('splash').click(); } catch (e) {} });
+// 必须走 splash-enter（同 verify.mjs）：只点 #splash 不解除开屏，整棵 .phone 仍是
+// visibility:hidden —— 真 page.click 会被判「element is not visible」，溢出/命中类断言全在空跑。
+await page.evaluate(() => {
+  const e = document.getElementById('splash-enter'); if (e && !e.hidden) e.click();
+  const s = document.getElementById('splash'); if (s && !s.classList.contains('hide')) { s.classList.add('hide'); s.hidden = true; }
+});
 await page.waitForTimeout(600);
 
 // ================= A 消消乐 =================
@@ -103,16 +108,64 @@ info = await txt('#m3-info');
 const pend = await txt('.m3-mode-pending');
 const a4 = await page.evaluate(() => ({ mode: window.__m3Debug.st().mode, info: document.getElementById('m3-info').textContent }));
 check('A4a 对局中切模式：本局模式仍是 simple 且 chip 未偷改', a4.mode === 'simple' && /🌿 简单模式/.test(a4.info), JSON.stringify(a4));
-check('A4b 信息条常驻「重开一局才换」警示', /已选💣 道具模式/.test(pend) && /重开一局才换/.test(pend), JSON.stringify(pend));
+check('A4b 信息条常驻「点这里立刻重开」警示（#1030：不再是执行不了的「重开一局才换」）', /已选💣 道具模式/.test(pend) && /点这里立刻重开/.test(pend), JSON.stringify(pend));
 check('A4c 切模式当场状态行回显用法（不是点一下就用道具）', /道具模式已选/.test(await txt('#m3-status')) && /交换/.test(await txt('#m3-status')), JSON.stringify(await txt('#m3-status')));
 
-// A5 重开一局：模式 chip 跟着换成道具模式
-await page.evaluate(() => { window.__m3Debug.newGame(); });
-await page.waitForFunction(() => window.__m3Debug.st() && window.__m3Debug.st().started && !window.__m3Debug.st().lock, null, { timeout: 8000 });
+// A4d #1030 用户真实路径：对局中切道具后，面板上必须真有能点的东西把新模式落地。
+// 旧断言只验「程序里调 newGame 会变成道具模式」，而用户能摸到的入口一个都没有
+// （开局覆盖层已隐藏、结束游戏只在通关结算出现、✕ 只关面板不清棋局）→ 红字必须自身可点。
+// tapPendingChip：真 page.click 红字并等重开落地；红基线（无接线）时不崩、只判红。
+async function tapPendingChip(want) {
+  let clicked = true;
+  try { await page.click('.m3-mode-pending', { timeout: 4000 }); } catch (e) { clicked = false; }
+  let landed = true;
+  try {
+    await page.waitForFunction((w) => {
+      const s = window.__m3Debug.st();
+      return s && !s.lock && (w.mode == null || s.mode === w.mode) && (w.diff == null || s.diff === w.diff);
+    }, want, { timeout: 8000 });
+  } catch (e) { landed = false; }
+  const after = await page.evaluate(() => {
+    const s = window.__m3Debug.st();
+    return { mode: s.mode, diff: s.diff, score: s.score, hints: s.hints, target: s.target, pending: !!document.querySelector('.m3-mode-pending') };
+  });
+  return { clicked, landed, after };
+}
+const beforeChip = await page.evaluate(() => ({ score: window.__m3Debug.st().score, hints: window.__m3Debug.st().hints }));
+const chip1 = await tapPendingChip({ mode: 'item' });
+check('A4d 点红字就地重开：本局模式变 item', chip1.clicked && chip1.landed && chip1.after.mode === 'item', JSON.stringify(chip1));
+// 进这一屏时提示已被 A2/A3 用满（0/3）；真重开才会回到 3/3 —— 红基线点了没反应照样是 0
+check('A4e 点红字是真的开新局（提示余量 0/3 → 3/3）', beforeChip.hints === 0 && chip1.after.hints === 3, JSON.stringify({ before: beforeChip, after: chip1.after }));
+check('A4f 重开后「点这里重开」红字自动收回', chip1.after.pending === false, JSON.stringify(chip1.after));
+
+// A5 反方向：再切回「🌿 简单」并点红字 → 真的重开成本局简单模式（分数清零＝确实换了局）
+await page.evaluate(() => {
+  const m = document.getElementById('m3-mode');
+  m.value = 'simple'; m.dispatchEvent(new Event('change'));
+  window.__m3Debug.st().score = 123;   // 给本局留个非零分，重开必须清零（否则换回简单也可能只是巧合）
+});
+const chip2 = await tapPendingChip({ mode: 'simple' });
+check('A5 再点红字换回 🌿 简单模式且真的换了局（分数 123→0）', chip2.clicked && chip2.after.mode === 'simple' && chip2.after.score === 0 && chip2.after.pending === false, JSON.stringify(chip2));
 info = await txt('#m3-info');
-check('A5 重开后信息条显示 💣 道具模式', /💣 道具模式/.test(info) && !/重开一局才换/.test(info), JSON.stringify(info));
+check('A5b 信息条 chip 跟着换成 🌿 简单模式', /🌿 简单模式/.test(info), JSON.stringify(info));
+
+// A5c #1030 难度下拉是同一个陷阱（切了只对下一局生效，而面板上原本没有任何重开入口）：
+// 对局中切难度也要挂出同一颗可点红字，点它本局真的换成新难度（目标分跟着变）。
+await page.evaluate(() => {
+  const d = document.getElementById('m3-diff');
+  d.value = 'casual'; d.dispatchEvent(new Event('change'));
+});
+const pendDiff = await txt('.m3-mode-pending');
+check('A5c 对局中切难度也挂出「点这里立刻重开」红字', /休闲/.test(pendDiff) && /点这里立刻重开/.test(pendDiff), JSON.stringify(pendDiff));
+const chip3 = await tapPendingChip({ diff: 'casual' });
+check('A5d 点红字后本局难度变 casual（目标分 600→300）', chip3.clicked && chip3.landed && chip3.after.diff === 'casual' && chip3.after.target === 300, JSON.stringify(chip3));
 
 // A6 场上留有未引爆道具 → 玩家回合状态行直接说清怎么用（四种道具各一条）
+// 前置：场上有道具只在「💣 道具模式」成立，A5 结束时本局是简单模式，这里显式带回道具模式
+await page.evaluate(() => {
+  document.getElementById('m3-mode').value = 'item';
+  window.__m3Debug.st().mode = 'item';
+});
 const useTips = await page.evaluate(() => {
   const d = window.__m3Debug, s = d.st();
   const out = {};
