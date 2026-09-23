@@ -4740,6 +4740,10 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-22 #1031（钓鱼 TA 抛竿节拍＋状态行留存，owner 登记在途；本会话收口 #1032 时覆盖 build.mjs 误伤其两行，按 FIX-REGRESSION 台账以 fishing.js 在树原文重建，owner 收口时如与原文有出入以其为准） ==== */
   { name: '#1031a 抛竿分支 next 推到 biteAt（删/改成 until＝casting 每拍重 roll 反复白抛，TA 中鱼密度回退一半）', file: 'js/fishing.js', needle: 'this.castAt = now; this.biteAt = now + rand(3000, 8000); this.next = this.biteAt;' },
   { name: '#1031b idle+今日状态行留在最近一条播报（改回写空串＝TA 播报藏回 2.5s 窗口，用户所见「只有我在钓」复发）', file: 'js/fishing.js', needle: 'if (statusEl.textContent !== lastNotice) statusEl.textContent = lastNotice;' },
+  /* ==== 2026-09-23 #1051（聊天末尾颜文字「没有换行＝显示不全」根治：连接符空格→硬换行 \n→<br>，全内核强制断行；多机型实报、零机型分支） ==== */
+  { name: '#1051a 单聊末尾颜文字卡硬换行相接（改回空格＝软换行点内核不拆行、末尾颜文字被裁复发；needle 含 replyCards 行＝判据本体）', file: 'js/chat.js', needle: "if (kj) { reply += '\\n' + kj; replyCards = 2; }" },
+  { name: '#1051b chip 自愈切分集恒含硬换行（删掉＝换行相接的两卡气泡切不出两段，合法「多字卡回复」chip 被误摘＝#851 同款事故换连接符复发）', file: 'js/chat.js', needle: "if (seps.indexOf('\\n') < 0) seps.push('\\n');" },
+  { name: '#1051c 群聊末尾颜文字卡同口径硬换行（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "t += '\\n' + pick(pool.kaomoji);" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

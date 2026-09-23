@@ -7188,7 +7188,7 @@ reply = pickNonBlank(pool.text) || pick(FALLBACK_REPLY_POOL);
 }
 if (type === 'text' && pool.kaomoji.length && hit(c['kaomoji-prob'])) {
 const kj = pickNonBlank(pool.kaomoji);
-if (kj) { reply += ' ' + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡
+if (kj) { reply += '\n' + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 连接符空格→硬换行（escTxtBr \n→<br>）：多台真机实报末尾颜文字「不换行＝显示不全」，软换行点部分内核不拆行，<br> 强制换行全内核遵守
 }
 return { text: reply, type: type, cards: replyCards };
 }
@@ -7676,10 +7676,13 @@ try { const pyc = JSON.parse(c['py-punct-custom'] || '[]'); if (Array.isArray(py
 if (!seps.length) seps = null;
 }
 if (!seps) seps = [' '];
-// FIX 2026-09-19 #851 空格恒在切分集内：颜文字卡/连接词卡/经期温柔卡固定用空格相接（不走「拼接
+// FIX 2026-09-19 #851 空格恒在切分集内：连接词卡/经期温柔卡固定用空格相接（不走「拼接
 // 随机标点」池），用户取消空格或该形态绕开符号池时，只按现池切分会把两张卡切成一段＝误判一张卡、
 // 把刚挂上的合法 chip 摘掉。判据方向不变＝宁残留不误摘。
 else if (seps.indexOf(' ') < 0) seps.push(' ');
+// FIX 2026-09-23 #1051 硬换行恒在切分集内：末尾颜文字卡改 '\n' 相接（根治「末行显示不全」）后，
+// 它同样绕开符号池——不把 '\n' 放进切分集，颜文字两卡气泡会被自愈误摘 chip（verify D3）。
+if (seps.indexOf('\n') < 0) seps.push('\n');
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const pieces = t.split(new RegExp(seps.map(esc).sort((a, b) => b.length - a.length).join('|')));
 let n = 0;

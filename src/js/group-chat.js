@@ -1353,7 +1353,7 @@
       }
     }
 if (type === 'text' && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
-t += ' ' + pick(pool.kaomoji);
+t += '\n' + pick(pool.kaomoji); // #1051 同单聊 genReplyText：末尾颜文字卡改硬换行相接（\n→<br>），软换行点部分内核不拆行＝末尾显示不全
 }
 // v3.26.x #163：文本回复按成员所在桌面混入默认字卡（同聊天页 genOneReply 的
 // getDefaultCards 覆盖语义，dc-overall-chat 概率+分类占比+各开关内部同源生效）——

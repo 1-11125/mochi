@@ -12,6 +12,8 @@
 //   B 组（#773c 存量错标签自愈）：脏历史直推独立测试桌内存 → 切走收口落包 → 切回权威读库跑归一化自愈。
 //   绿根＝B1/B3/B4 摘标、B2/B5 真两张不误摘、B3b 其它 chip 保留；红根（纯 HEAD 无自愈）恰红 B1/B3/B4，
 //   B2/B3b/B5 两侧皆绿＝对照组（旧码不动 mood，标签原样留着）。
+// #1051 增：C1b＝末尾颜文字前必有 <br>（连接符由空格改硬换行，根治「最末不换行＝显示不全」）；
+//   D3＝'\n' 相接两卡气泡 chip 不被误摘（切分集恒含硬换行）。纯基线（空格相接/切分集无 \n）应恰红 C1b/D3。
 // 冻结 Math.random=0.3 做确定性对照：hit(100) 命中、randInt(2,2)=2、randInt(1,1)=1、hit(0) 不中。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -181,6 +183,17 @@ try {
   await sendOnce('C1 文字卡＋颜文字卡（两张）→ 挂「多字卡回复」', ['C1文字一张卡', '(◕‿◕)'],
     { 'py-en': 0, 'kaomoji-prob': 100, 'csp-cust': 100 },
     { tag: true, has: 'C1文字一张卡' });
+  // #1051 末尾颜文字换行形态：连接符必须是硬换行（\n→<br>）——多台真机实报「颜文字在最末没有
+  // 换行＝显示不全」，软换行点部分内核不拆行；纯基线（空格相接、无 <br>）此处应红。
+  {
+    const br = await evalJs("(function(){var sp=document.querySelectorAll('#chat-body .msg-in .msg-bubble span');" +
+      "for(var i=sp.length-1;i>=0;i--){var h=sp[i].innerHTML;if(h.indexOf('C1文字一张卡')>=0){" +
+      "var bi=h.indexOf('<br>');return JSON.stringify({br:bi,ka:h.indexOf('◕‿◕')});}}" +
+      "return null;})()");
+    const r = br ? JSON.parse(br) : null;
+    t('C1b 末尾颜文字前必有 <br>（颜文字落在次行，非软换行点）',
+      !!r && r.br >= 0 && r.ka > r.br, 'br=' + (r ? r.br : 'null') + ' ka=' + (r ? r.ka : 'null'));
+  }
   await sendOnce('C2 文字卡＋连接词卡（两张）→ 挂「多字卡回复」', ['C2文字一张卡'],
     { 'py-en': 0, 'cf-prob': 100, 'csp-cust': 100 },
     { tag: true, has: 'C2文字一张卡' });
@@ -253,18 +266,23 @@ try {
   // 取消（只留句号等），#773c 按现池切分只会切出一段＝判成一张卡，把刚挂上的合法 chip 摘掉。
   // D1＝空格相接的两张卡（chip 必须在），D2＝真一张卡（chip 必须照摘＝#773c 不回归）。
   const D1 = '甲号文字卡 (◕‿◕)', D2 = '独苗历史一张卡';
+  // #1051 D3＝硬换行相接的两张卡（genReplyText 末尾颜文字卡的新形态）：切分集若不恒含 '\n'，
+  // 只按空格/标点池切会切成一段＝合法 chip 被自愈误摘（纯基线无 '\n' 分支，此处应红 D3）。
+  const D3 = '甲号文字卡\n(◕‿◕)';
   const dCid = await mkDesk();
   await sleep(1800);
   await evalJs('(function(){window.saveReplyCfg("py-punct-en",1);window.saveReplyCfg("py-punct-space",0);' +
     'var ms=window.getChatMsgs();var now=Date.now();' +
     'ms.push({side:"in",text:' + JSON.stringify(D1) + ',ts:now+1,mood:[{tag:"多字卡回复",label:""}]});' +
     'ms.push({side:"in",text:' + JSON.stringify(D2) + ',ts:now+2,mood:[{tag:"多字卡回复",label:""}]});' +
+    'ms.push({side:"in",text:' + JSON.stringify(D3) + ',ts:now+3,mood:[{tag:"多字卡回复",label:""}]});' +
     'return true;})()');
   await goDesk('default'); await sleep(1500); // 切走收口落包
   await goDesk(dCid); await sleep(4500); // 切回跑归一化自愈
   await goDesk('default'); await sleep(1200); await goDesk(dCid); await sleep(4500); // 同 B 组补一轮周期
   bCheck('D1 空格相接的两张卡 → 合法 chip 不被自愈摘掉', await waitChip(D1, false, 12000), true, '期望保留 tag');
   bCheck('D2 一张卡仍照常摘标（#773c 不回归）', await waitChip(D2, true, 12000), false, '期望摘掉 tag');
+  bCheck('D3 硬换行相接的两张卡（#1051 新形态）→ 合法 chip 不被自愈摘掉', await waitChip(D3, false, 12000), true, '期望保留 tag');
 
   console.log(pass + ' 通过 / ' + fail + ' 失败');
 } finally {

@@ -1085,7 +1085,7 @@ t = pick(pool.text) || FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPL
 }
 }
 if (type === 'text' && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
-t += ' ' + pick(pool.kaomoji);
+t += '\n' + pick(pool.kaomoji); // #1051 同单聊 genReplyText：末尾颜文字卡改硬换行相接（\n→<br>），软换行点部分内核不拆行＝末尾显示不全
 }
 if (type === 'text') {
 try {
