@@ -126,7 +126,9 @@
     if (window.openModal) {
       window.openModal('竖屏全屏提示', '', () => {}, { noInput: true, staticText: msg });
     } else {
-      try { new Notification('竖屏全屏提示', { body: msg }); } catch (e) {}
+      // #1056：兜底不再走系统通知——通知权限被拒/被浏览器自动挡的设备上这里会静默失败
+      //   （本站用户实报过权限被 Chrome 记成「屏蔽」），这些都是页面内提示，改走站内 toast。
+      try { if (window.toast) window.toast(msg.split('\n')[0]); } catch (e) {}
     }
   }
   let _fsFailTipShown = false;
@@ -137,7 +139,7 @@
     if (window.openModal) {
       window.openModal('无法进入全屏', '', () => {}, { noInput: true, staticText: msg });
     } else {
-      try { new Notification('无法进入全屏', { body: msg }); } catch (e) {}
+      try { if (window.toast) window.toast('无法进入全屏：当前浏览器未允许，已自动关闭该开关'); } catch (e) {}
     }
   }
   let _rotTipShown = false;
@@ -148,7 +150,7 @@
     if (window.openModal) {
       window.openModal('请恢复竖屏', '', () => {}, { noInput: true, staticText: msg });
     } else {
-      try { new Notification('请恢复竖屏', { body: msg }); } catch (e) {}
+      try { if (window.toast) window.toast('屏幕仍是横屏，本应用已尝试自动恢复竖屏'); } catch (e) {}
     }
   }
   // v3.6.x：已安装应用以 display_override fullscreen 直启（系统级全屏）时，
@@ -158,7 +160,7 @@
     if (window.openModal) {
       window.openModal('全屏模式已关闭', '', () => {}, { noInput: true, staticText: msg });
     } else {
-      try { new Notification('全屏模式已关闭', { body: msg }); } catch (e) {}
+      try { if (window.toast) window.toast('全屏模式已关闭：当前是系统级全屏，需退出应用重开才显示地址栏'); } catch (e) {}
     }
   }
   // v3.6.x：把方向锁回竖屏。浏览器退出全屏后不一定自动回竖屏
@@ -337,7 +339,7 @@
     if (window.openModal) {
       window.openModal('iOS 全屏说明', '', () => {}, { noInput: true, staticText: msg });
     } else {
-      try { new Notification('iOS 全屏说明', { body: msg }); } catch (e) {}
+      try { if (window.toast) window.toast('iOS 全屏说明：推荐 Safari 添加到主屏幕后从桌面图标打开'); } catch (e) {}
     }
   }
   // v3.26.x：iOS 真全屏——旧实现在 isIOS 分支直接拒绝调用 Fullscreen API（注释写的
@@ -435,7 +437,7 @@
         if (!fsSupported()) {
           // 非 iOS 且不支持全屏 API（老 WebView）：无法全屏，回滚并提示
           fsToggle.checked = false;
-          try { new Notification('当前浏览器不支持全屏', { body: '请使用 Chrome/Edge 浏览器，或添加到主屏幕后从桌面图标打开' }); } catch (e) {}
+          try { if (window.toast) window.toast('当前浏览器不支持全屏：请使用 Chrome/Edge，或添加到主屏幕后从桌面图标打开'); } catch (e) {}
           return;
         }
         // v3.6.x：无方向锁 API 的老/阉割 WebView——网页全屏必转横屏且锁不回来，

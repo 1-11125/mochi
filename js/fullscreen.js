@@ -84,7 +84,7 @@ const msg = isVia
 if (window.openModal) {
 window.openModal('竖屏全屏提示', '', () => {}, { noInput: true, staticText: msg });
 } else {
-try { new Notification('竖屏全屏提示', { body: msg }); } catch (e) {}
+try { if (window.toast) window.toast(msg.split('\n')[0]); } catch (e) {}
 }
 }
 let _fsFailTipShown = false;
@@ -95,7 +95,7 @@ const msg = '当前浏览器未允许进入全屏，已自动关闭该开关。\
 if (window.openModal) {
 window.openModal('无法进入全屏', '', () => {}, { noInput: true, staticText: msg });
 } else {
-try { new Notification('无法进入全屏', { body: msg }); } catch (e) {}
+try { if (window.toast) window.toast('无法进入全屏：当前浏览器未允许，已自动关闭该开关'); } catch (e) {}
 }
 }
 let _rotTipShown = false;
@@ -106,7 +106,7 @@ const msg = '屏幕当前仍是横屏，本应用已尝试自动恢复竖屏。\
 if (window.openModal) {
 window.openModal('请恢复竖屏', '', () => {}, { noInput: true, staticText: msg });
 } else {
-try { new Notification('请恢复竖屏', { body: msg }); } catch (e) {}
+try { if (window.toast) window.toast('屏幕仍是横屏，本应用已尝试自动恢复竖屏'); } catch (e) {}
 }
 }
 function showSystemFsNote() {
@@ -114,7 +114,7 @@ const msg = '全屏模式已关闭，下次启动不会自动进入全屏。\n\n
 if (window.openModal) {
 window.openModal('全屏模式已关闭', '', () => {}, { noInput: true, staticText: msg });
 } else {
-try { new Notification('全屏模式已关闭', { body: msg }); } catch (e) {}
+try { if (window.toast) window.toast('全屏模式已关闭：当前是系统级全屏，需退出应用重开才显示地址栏'); } catch (e) {}
 }
 }
 function forcePortrait(tries, cb) {
@@ -243,7 +243,7 @@ msg = '当前浏览器未允许本页进入全屏，开关已回滚。\n\niPhone
 if (window.openModal) {
 window.openModal('iOS 全屏说明', '', () => {}, { noInput: true, staticText: msg });
 } else {
-try { new Notification('iOS 全屏说明', { body: msg }); } catch (e) {}
+try { if (window.toast) window.toast('iOS 全屏说明：推荐 Safari 添加到主屏幕后从桌面图标打开'); } catch (e) {}
 }
 }
 let _iosFsSettled = false;
@@ -311,7 +311,7 @@ return;
 }
 if (!fsSupported()) {
 fsToggle.checked = false;
-try { new Notification('当前浏览器不支持全屏', { body: '请使用 Chrome/Edge 浏览器，或添加到主屏幕后从桌面图标打开' }); } catch (e) {}
+try { if (window.toast) window.toast('当前浏览器不支持全屏：请使用 Chrome/Edge，或添加到主屏幕后从桌面图标打开'); } catch (e) {}
 return;
 }
 if (!orientLockable()) {

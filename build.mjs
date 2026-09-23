@@ -4744,6 +4744,13 @@ const FIX_SENTINELS = [
   { name: '#1051a 单聊末尾颜文字卡硬换行相接（改回空格＝软换行点内核不拆行、末尾颜文字被裁复发；needle 含 replyCards 行＝判据本体）', file: 'js/chat.js', needle: "if (kj) { reply += '\\n' + kj; replyCards = 2; }" },
   { name: '#1051b chip 自愈切分集恒含硬换行（删掉＝换行相接的两卡气泡切不出两段，合法「多字卡回复」chip 被误摘＝#851 同款事故换连接符复发）', file: 'js/chat.js', needle: "if (seps.indexOf('\\n') < 0) seps.push('\\n');" },
   { name: '#1051c 群聊末尾颜文字卡同口径硬换行（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "t += '\\n' + pick(pool.kaomoji);" },
+  { name: '#1056a 经期提醒权限被拒不再空发请求＋就地指路（删＝denied 时每次开开关都空发一次授权请求＝再喂浏览器「反复弹授权」自动屏蔽，且提醒静默失效无任何提示）', file: 'js/period.js', needle: "if (Notification.permission === 'denied') { toast(periodPermHint()); return; }" },
+  { name: '#1056b 经期权限指引函数在位（删＝denied/default 时整条静默失效无提示）', file: 'js/period.js', needle: 'function periodPermHint()' },
+  { name: '#1056c 全屏提示兜底不得走系统通知（回来＝通知被拒设备上这段提示静默失败；改走站内 toast）', file: 'js/fullscreen.js', needle: 'try { new Notification(', absent: true },
+  { name: '#1056d 测试结果补「列表里没有本站就手动添加」（删＝Chrome 静默拒绝不落记录时，用户按指路走到网站设置仍无处可点——红米 K80 + Chrome 151 实报）', file: 'js/bg-keep.js', needle: "在「允许」里手动添加 ' + location.origin" },
+  { name: '#1056e 标红条口径写明「自动挡、多半不是你点了拒绝」＋手动添加（删＝退回旧文案＝用户以为是自己点坏的）', file: 'js/bg-keep.js', needle: '浏览器已把本站通知记成「屏蔽」' },
+  { name: '#1056f 使用说明前提2 撤「拒绝后开关自动弹回」旧口径＋补手动添加（回来＝与 #1014「开关只记意图」行为矛盾）', file: 'template.html', needle: '列表里没有本站，就在 Chrome 设置 → 网站设置 → 通知 的「允许」里' },
+  { name: '#1056g 胶囊开启步骤②补静默拒绝与手动添加＋权限共用说明（删＝授权框不出现时用户无路可走）', file: 'js/settings-help.js', needle: '此权限与「经期提醒」共用' },
 /* ==== 2026-09-23 #1120（输入栏按钮位置改「边看边调」底部抽屉）+ #1052（面板图标剥掉文件选择激活层）==== */
   { name: "#1120a 输入栏抽屉并入 csDrawerLayerTick 泛化轮询（删＝抽屉不随离页自动收起、弹窗时不让位）", file: "js/chat-settings.js", needle: "['chat-beauty-drawer', 'io-order-drawer'].forEach((id) => {" },
   { name: "#1120b 抽屉落位＝键盘抬升与拖动偏移合并计算（退回单一口径＝键盘盖住抽屉/拖动失效复发）", file: "js/chat-settings.js", needle: "const bot = Math.max(0, Math.max(ioDockBot, lift) + ioDragBot);" },

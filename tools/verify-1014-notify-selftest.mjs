@@ -191,7 +191,7 @@ await mtap(r.x, r.y);
 await sleep(2500);
 s = await probe();
 A('B4 请求被弹回后开关不自己关、存储不写 0', s.notify === true && s.notifyStored === '1', JSON.stringify(s));
-A('B4b 行下标红如实说明缺哪一步（开关开着也不是「已生效」）', s.warnShown === true && /挡着|还没给/.test(s.warnText), JSON.stringify(s.warnText.slice(0, 80)));
+A('B4b 行下标红如实说明缺哪一步（开关开着也不是「已生效」）', s.warnShown === true && /挡着|还没给|记成「屏蔽」/.test(s.warnText), JSON.stringify(s.warnText.slice(0, 80)));
 await ev(`(function(){ window.__p='granted'; })()`);
 await sleep(7000);
 s = await probe();

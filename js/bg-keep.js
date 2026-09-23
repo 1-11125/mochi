@@ -1102,8 +1102,8 @@ return (window.mochiDevice || {}).isIOS
 : '⚠ 本机浏览器没有通知能力（小米 / vivo / OPPO 自带浏览器、UC、夸克、Via 常见如此）：请改用 Chrome / Edge 打开本站';
 }
 if (!notifyEnabled) return '';
-if (p === 'denied') return '⚠ 浏览器还挡着本站的通知权限：地址栏左侧图标 → 网站设置 → 通知 → 允许（开关已记住你的选择，允许后自动生效，不用再点一次开关）';
-if (p === 'default') return '⚠ 还没给本站通知权限：地址栏左侧图标 → 网站设置 → 通知 → 允许（开关已记住你的选择，允许后自动生效）';
+if (p === 'denied') return '⚠ 浏览器已把本站通知记成「屏蔽」（授权框反复弹出后 Chrome 会自动挡，多半不是你点了拒绝）：地址栏左侧图标 → 网站设置 → 通知 → 允许；列表里没有本站，就在通知设置的「允许」里手动添加本站网址（开关已记住你的选择，允许后自动生效）';
+if (p === 'default') return '⚠ 还没给本站通知权限：点「测试」或开关会请求一次；没弹授权框多半是 Chrome 对弹过多次的站静默拒绝——请到 地址栏左侧图标 → 网站设置 → 通知 → 允许；列表里没有本站就在「允许」里手动添加本站网址（允许后自动生效）';
 return '';
 }
 function nbSyncPermWarn() {
@@ -1147,7 +1147,7 @@ nbSyncPermWarn();
 nbArmWatch(my);
 if (why === 'denied') {
 nbNoticeOnce('__nb-denied-note-at',
-'⚠ 浏览器这次没放行通知权限（可能没弹授权框就直接挡了）\n地址栏左侧图标 → 网站设置 → 通知 → 允许\n开关已记住你的选择：允许后自动生效，不用再点一次开关');
+'⚠ 浏览器这次没放行通知权限（可能没弹授权框就直接挡了）\n地址栏左侧图标 → 网站设置 → 通知 → 允许；列表里没有本站就在「允许」里手动添加本站网址\n开关已记住你的选择：允许后自动生效，不用再点一次开关');
 }
 nbArmRetry(my);
 }
@@ -1519,6 +1519,7 @@ if (my !== testSeq) return;
 if (p === 'granted') { envCheck(); runTest(my); return; }
 pushLine('✗ 通知权限：这次没能拿到' + (p === 'denied' ? '（浏览器没放行——可能没弹授权框就直接挡了）' : '（还没在弹窗里做选择）'));
 pushLine('解决：地址栏左侧图标 → 网站设置 → 通知 → 允许（开关已记住你的选择，允许后自动生效）');
+pushLine('若上一步列表里没有本站：Chrome 设置 → 网站设置 → 通知 → 在「允许」里手动添加 ' + location.origin);
 showResult();
 }).catch(function () {
 if (my !== testSeq) return;

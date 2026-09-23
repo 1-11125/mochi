@@ -1345,6 +1345,19 @@ var pop = document.getElementById('period-settings-pop');
 if (pop) pop.remove();
 document.body.classList.remove('scroll-lock');
 }
+function periodPermHint() {
+try {
+if (!('Notification' in window)) {
+return (window.mochiDevice || {}).isIOS
+? '⚠ 本机拿不到系统通知（iPhone / iPad 平台限制）：提醒只会在打开应用时以站内形式出现'
+: '⚠ 本机浏览器没有通知能力（小米 / vivo / OPPO 自带、UC、夸克常见如此）：请改用 Chrome / Edge 打开本站';
+}
+var p = Notification.permission;
+if (p === 'denied') return '⚠ 浏览器已把本站通知记成「屏蔽」（授权框反复弹出后 Chrome 会自动挡，多半不是你点了拒绝）：地址栏左侧图标 → 网站设置 → 通知 → 允许；列表里没有本站，就在通知设置的「允许」里手动添加本站网址（此权限与设置→系统→「后台通知」共用，允许后两边一起恢复）';
+if (p === 'default') return '⚠ 还没给本站通知权限：地址栏左侧图标 → 网站设置 → 通知 → 允许；没弹授权框多半是 Chrome 对弹过多次的站静默拒绝，同样到网站设置里手动允许（此权限与「后台通知」共用）';
+return '';
+} catch (e) { return ''; }
+}
 function openNotifyPop() {
 var existing = document.getElementById('period-notify-pop');
 if (existing) existing.remove();
@@ -1368,6 +1381,8 @@ pop.innerHTML =
 '<div class="dp-actions"><button class="dp-save period-btn primary">保存</button></div>' +
 '</div>';
 appendPop(pop);
+var _pph = periodPermHint();
+if (_pph) pop.querySelector('.dp-tip').textContent = _pph;
 document.body.classList.add('scroll-lock');
 pop.querySelector('.dp-mask').addEventListener('click', closeNotifyPop);
 pop.querySelector('.dp-close').addEventListener('click', closeNotifyPop);
@@ -1376,9 +1391,13 @@ toggleBtn.addEventListener('click', function () {
 notifyCfg.enabled = !notifyCfg.enabled;
 toggleBtn.textContent = notifyCfg.enabled ? '已开启' : '已关闭';
 toggleBtn.classList.toggle('on', notifyCfg.enabled);
-if (notifyCfg.enabled && 'Notification' in window && Notification.permission === 'default') {
-try { Notification.requestPermission(); } catch (e) {}
-}
+if (!notifyCfg.enabled) return;
+if (!('Notification' in window)) { toast(periodPermHint()); return; }
+if (Notification.permission === 'granted') return;
+if (Notification.permission === 'denied') { toast(periodPermHint()); return; }
+try {
+Notification.requestPermission().then(function () { var h = periodPermHint(); if (h) toast(h); }).catch(function () { var h2 = periodPermHint(); if (h2) toast(h2); });
+} catch (e) { toast(periodPermHint()); }
 });
 var careBtn = pop.querySelector('.care-toggle');
 if (careBtn) careBtn.addEventListener('click', function () {
@@ -1400,7 +1419,8 @@ notifyCfg.advanceDays = advs;
 notifyCfg.hour = isNaN(h) ? 9 : Math.min(23, Math.max(0, h));
 saveNotify(notifyCfg);
 closeNotifyPop();
-toast('已保存');
+var _svh = periodPermHint();
+toast(_svh || '已保存');
 checkNotify();
 checkCare();
 });
