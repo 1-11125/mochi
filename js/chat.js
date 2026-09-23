@@ -2057,9 +2057,10 @@ out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
 return out;
 }
 const CHAT_READABLE_RE = /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/;
+const CHAT_KAOMOJI_FACE_RE = /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/;
 function chatLooksKaomoji(c) {
-if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
-return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+if (chatIsBracketedKaomojiCard(c)) return true;
+return CHAT_KAOMOJI_FACE_RE.test(c);
 }
 function chatIsEmojiCard(c) {
 if (/[\uD800-\uDBFF]/.test(c)) return true;
@@ -2072,10 +2073,15 @@ if ((cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF) || (cp >=
 return false;
 }
 function chatIsKaomojiCard(c) {
-if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+if (chatIsBracketedKaomojiCard(c)) return true;
 if (CHAT_READABLE_RE.test(c)) return false;
-return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+return CHAT_KAOMOJI_FACE_RE.test(c);
 }
+function chatIsBracketedKaomojiCard(c) {
+return /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
+}
+window.chatIsKaomojiCard = chatIsKaomojiCard; // 专项验证与展示面共用（同一判据各写一份＝复发土壤）
+window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard; // 群聊/默认字卡分池借用
 function chatHasReadableTextCard(arr) {
 return arr.some(s => typeof s === 'string' && CHAT_READABLE_RE.test(s));
 }
@@ -2213,7 +2219,7 @@ arr.forEach(c => {
 if (isOff && isOff('main', c)) return;
 if (typeof c !== 'string' || !c) return;
 if (/[\uD800-\uDBFF]/.test(c)) emoji.push(c);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
+else if (chatIsBracketedKaomojiCard(c)) kaomoji.push(c); // FIX #1152 与自建字卡同一判据（旧写法把「……（好像有谁轻轻应了一声）」这类默认卡也当颜文字）
 else text.push(c);
 });
 });
