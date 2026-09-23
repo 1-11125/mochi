@@ -2852,9 +2852,10 @@ return out;
 // 判定顺序：含 astral emoji 一律 emoji（保持原行为）→ 含中文/假名/字母/数字＝可读卡按原样
 // 归 text/颜文字 → 无可读字符才按符号区/颜文字特征归 emoji/kaomoji。
 const CHAT_READABLE_RE = /[A-Za-z0-9\u4e00-\u9fff\u3041-\u3096\u30a1-\u30fa]/;
+const CHAT_KAOMOJI_FACE_RE = /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/;
 function chatLooksKaomoji(c) {
-if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
-return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+if (chatIsBracketedKaomojiCard(c)) return true;
+return CHAT_KAOMOJI_FACE_RE.test(c);
 }
 function chatIsEmojiCard(c) {
 if (/[\uD800-\uDBFF]/.test(c)) return true;
@@ -2867,10 +2868,20 @@ if ((cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF) || (cp >=
 return false;
 }
 function chatIsKaomojiCard(c) {
-if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) return true;
+if (chatIsBracketedKaomojiCard(c)) return true;
 if (CHAT_READABLE_RE.test(c)) return false;
-return /[｡◕‿・▽´｀￣﹏◠◡≧≦ω＾￢¬^•˙˘๑٩۶ฅヽノ]/.test(c);
+return CHAT_KAOMOJI_FACE_RE.test(c);
 }
+// FIX 2026-09-23 #1152 括号成对只证明「带括号」，不证明「是颜文字」：旧判定把括号规则放在可读性
+// 规则之前，于是「远(离我很远、或感觉疏离)」这类戴括号的中文句子被归进颜文字池，被 #1051 的 '\n'
+// 硬换行接在文字卡后面＝句子从中间断开（用户实报「我之前只要颜文字不被截断换行」）。判据收成一条：
+// 含中文/假名等可读文字、且不含颜文字面部符号＝它是文字卡，不是颜文字卡。纯符号颜文字与
+// （^o^）（( ˘ ˘ )zZ）这类带字母/无面部符号但含符号字符的形态判定结果不变。
+function chatIsBracketedKaomojiCard(c) {
+return /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
+}
+window.chatIsKaomojiCard = chatIsKaomojiCard; // 专项验证与展示面共用（同一判据各写一份＝复发土壤）
+window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard; // 群聊/默认字卡分池借用
 // 「文字」池是否至少有一张可读句子卡（中文/假名/字母/数字）。FIX 2026-09-15 #531：全是颜文字/符号
 // /emoji 时视为「没有可用的自定义文本回复源」——#157 的默认主字卡兜底据此触发，否则用户只加了
 // 颜文字/符号卡时池里没有任何句子，联系人只能反复发那几张符号（用户报「消息和信都是连续发颜表情，
@@ -3063,7 +3074,7 @@ arr.forEach(c => {
 if (isOff && isOff('main', c)) return;
 if (typeof c !== 'string' || !c) return;
 if (/[\uD800-\uDBFF]/.test(c)) emoji.push(c);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
+else if (chatIsBracketedKaomojiCard(c)) kaomoji.push(c); // FIX #1152 与自建字卡同一判据（旧写法把「……（好像有谁轻轻应了一声）」这类默认卡也当颜文字）
 else text.push(c);
 });
 });

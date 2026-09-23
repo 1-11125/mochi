@@ -1030,7 +1030,7 @@ if (window.chatHasMediaPayload ? window.chatHasMediaPayload(c)
 : (c.indexOf('data:') === 0 || c.indexOf('|||') >= 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(c)))) return;
 if (/^https?:\/\//i.test(c)) return; // 图链卡不进群聊文字池
 if (/[\uD800-\uDBFF]/.test(c) || /^[😀-🙏🌀-🫿]/u.test(c)) emoji.push(c);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c)) kaomoji.push(c);
+else if (window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(c) : (/[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c))) kaomoji.push(c); // FIX #1152 与单聊同一判据
 else text.push(c);
 });
 } catch (e) {}
@@ -1048,7 +1048,7 @@ defGrps.forEach(g => {
 if (isOff && isOff('main', card)) return;
 if (typeof card !== 'string' || !card) return;
 if (/[\uD800-\uDBFF]/.test(card)) emoji.push(card);
-else if (/[\(（｡◕(◕)(づ｡(¬)]/.test(card) && /[\)）】)]/.test(card)) kaomoji.push(card);
+else if (window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(card) : (/[\(（｡◕(◕)(づ｡(¬)]/.test(card) && /[\)）】)]/.test(card))) kaomoji.push(card); // FIX #1152 默认字卡兜底同判据
 else text.push(card);
 });
 });

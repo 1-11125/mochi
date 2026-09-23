@@ -3195,14 +3195,12 @@ const FIX_SENTINELS = [
   //   都要有 iOS/安卓这两句；notice.json 是联网用户实际看到的权威源，只改静态 DOM ＝ 线上看不到。
   { name: '#672e 开屏离线兜底 DOM 带上 iOS/安卓两句卡顿建议（删掉＝断网/兜底路径的用户看不到）', file: 'template.html', needle: '另外别存太多数据' },
   { name: '#672f 开屏在线权威源 notice.json 同章同内容（删掉＝联网用户实际看到的开屏没有这两句，静态 DOM 改了也白改）', file: 'pwa/notice.json', needle: '图片最占地方。安卓' },
-  // ===== #674（2026-09-17 用户直派）群聊页顶部加「让对方继续说」入口 → #797（2026-09-19 用户直派）撤销：
-  //   入口统一到底部输入栏（与单聊同位置、同显隐口径）；#797 批当时只落了 JS/面板侧，顶栏 DOM 与两条
-  //   在位哨兵一直没拆（2026-09-23 用户再次直派「彻底移除」后由本批补完），换为删除型防回流。====
-  { name: '#674 撤销（群聊顶部恒显继续说按钮不得回流：回流＝与单聊两套入口两个位置，用户已两次要求统一）', file: 'template.html', needle: 'gc-head-continue', absent: true },
-  // #797 撤销批配套两锚（FIX-REGRESSION 该节「交收口者执行」欠账，2026-09-23 补登；#797a/b 号已被
-  // 结构闸批占用故取 c/d）：群聊侧复用单聊同一份输入栏排序面板，复制出第二套 UI 或删掉共享入口都会红。
-  { name: '#797c 群聊设置复用同一份输入栏排序面板（删/改成自建第二套＝群聊里排不了按钮位置，#797 复发）', file: 'js/group-chat.js', needle: 'window.mochiInputOrderPanel.open()' },
-  { name: '#797d 排序面板对外暴露成共享入口（删＝群聊侧调用变 undefined，点行没反应）', file: 'js/chat-settings.js', needle: 'window.mochiInputOrderPanel = {' },
+  // ===== #674（2026-09-17 用户直派）群聊页顶部加「让对方继续说」入口 =====
+  //   编号避让：同日的 #673 已被并行会话占用（音乐互动台词静默通道），本批取 #674。
+  //   用户原话：「群聊设置的图标按钮的左边新增一个让对方继续说的功能」。群聊昵称点击已被「切换群聊」
+  //   占用，顶部只能另起一枚图标；动作复用 group-chat.js 的 gcContinueSay（与输入栏那枚同一动作、同防重入）。
+  { name: '#674a 群聊页顶部三点菜单左侧的「让对方继续说」按钮（删掉＝入口消失，用户只能去输入栏找开关打开）', file: 'template.html', needle: 'id="gc-head-continue"' },
+  { name: '#674b 顶部继续说按钮接线走 gcCsFireContinue（换成别的调用＝丢掉 pointerdown 按下即触发 / 防键盘吞 click）', file: 'js/group-chat.js', needle: "gcHeadContinueBtn.addEventListener('pointerdown'" },
   // ===== #127（TASKS 待认领·2026-09-17 本会话实现）聊天记录分片：新消息先写增量日志，基准包低频重写 =====
   //   根因：chat-msgs 单键可达数百 MB，发 1KB 文字也整包重写（写放大数百倍）＝iOS OOM/读写超时的上游。
   //   锚点守的是「分片成立且安全闸还在」，删任一＝退回每次整包重写（或丢掉安全闸导致错数据落盘）。
@@ -4750,6 +4748,11 @@ const FIX_SENTINELS = [
   { name: '#1051a 单聊末尾颜文字卡硬换行相接（改回空格＝软换行点内核不拆行、末尾颜文字被裁复发；needle 含 replyCards 行＝判据本体）', file: 'js/chat.js', needle: "if (kj) { reply += '\\n' + kj; replyCards = 2; }" },
   { name: '#1051b chip 自愈切分集恒含硬换行（删掉＝换行相接的两卡气泡切不出两段，合法「多字卡回复」chip 被误摘＝#851 同款事故换连接符复发）', file: 'js/chat.js', needle: "if (seps.indexOf('\\n') < 0) seps.push('\\n');" },
   { name: '#1051c 群聊末尾颜文字卡同口径硬换行（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "t += '\\n' + pick(pool.kaomoji);" },
+  { name: '#1152a 括号规则的「戴括号的中文句子」排除闸（删掉＝「远(离我很远、或感觉疏离)」又被判成颜文字卡、被 #1051 的硬换行从句子中间断开）', file: 'js/chat.js', needle: "!(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c))" },
+  { name: '#1152b 括号判据导出为单一口径（删掉＝群聊/默认字卡各自再写一份括号规则＝本次误判的复发土壤）', file: 'js/chat.js', needle: "window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard;" },
+  { name: '#1152c 单聊默认字卡兜底走同一判据（改回裸括号规则＝默认「……（好像有谁轻轻应了一声）」这类卡又进颜文字池）', file: 'js/chat.js', needle: "else if (chatIsBracketedKaomojiCard(c)) kaomoji.push(c);" },
+  { name: '#1152d 群聊自建字卡分池走同一判据（只改单聊＝群里同款句子被断开）', file: 'js/group-chat.js', needle: "window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(c) :" },
+  { name: '#1152e 群聊默认字卡兜底同判据（同上，另一条入池路径）', file: 'js/group-chat.js', needle: "window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(card) :" },
   { name: '#1060a 开屏公告末章「关于后台通知相关设置」（用户直派放公告最后；删＝后台通知的设置/排障口径在开屏消失）', file: 'template.html', needle: '>关于后台通知相关设置（怎么开、收不到怎么办）</p>' },
   { name: '#1060b 在线权威源同口径一条（删＝联网用户看不到该章，只剩余离线兜底）', file: 'pwa/notice.json', needle: '"h": "关于后台通知相关设置（怎么开、收不到怎么办）"' },
   { name: '#1059a 通知逐条弹（关闭去重）开关行在位（删＝用户点名的「多条消息都要看到弹窗」没有入口）', file: 'template.html', needle: 'id="bg-notify-nodedup"' },

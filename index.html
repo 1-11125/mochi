@@ -10636,9 +10636,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790162863564">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790163267365">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-23 19:27<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-23 19:34<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -13093,7 +13093,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <div class="lg-body">
           <div class="lic-li">设置开启「群聊模式」后桌面第一页出现群聊入口：所有联系人桌面的成员聚在一个窗口聊天；<b>同一时间桌面占卜图标会收起</b>（第一页留给群聊入口），要占卜走 <b>设置 → 工具 → 占卜</b>，两者不是互斥的功能，关闭群聊模式占卜图标就回来</div>
           <div class="lic-li">你发言后随机成员回复，@某成员昵称则 TA 必定回复；回复内容由公用字卡 + 各自桌面专属字卡 + 默认字卡三层决定</div>
-          <div class="lic-li">群聊页底部输入栏那一排有<b>「让对方继续说」</b>按钮（与单聊同位置；开关：回复设置 → 群聊 → 让对方继续说 / 本联系人桌面的聊天栏继续说按钮）：点一下让成员接着当前话题再说一段（输入框 @ 了谁就由谁接着说，没 @ 时随机 1-2 位），不必等你先发言</div>
+          <div class="lic-li">群聊页右上角三点菜单左侧有<b>「让对方继续说」</b>按钮：点一下让成员接着当前话题再说一段（输入框 @ 了谁就由谁接着说，没 @ 时随机 1-2 位），不必等你先发言</div>
           <div class="lic-li">成员管理：群成员列表查看，给自己和每位成员设群聊专属昵称 / 头像（覆盖桌面形象，可重置）</div>
           <div class="lic-li">成员回复参数独立可调：回复概率 / 速度 / 条数、拍一拍、表情包、emoji、图片、语音、颜文字、引用、撤回补发（回复设置 → 群聊）</div>
           <div class="lic-li">独立的群聊美化：壁纸 / 双方气泡色 / 字体大小 / 头像形状 / 时间轴等只作用于群聊页；表情包、多图、引用、语音、拍一拍与主聊天对齐</div>
@@ -16659,6 +16659,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <svg viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </span>
         <span class="ch-name gc-name" id="gc-name" title="点击切换群聊">群聊</span>
+        <!-- #674：顶部「让对方继续说」快捷按钮（三点菜单左侧）——群聊里昵称点击已给「切换群聊」，
+             继续说的顶部入口只能另起一枚图标；语义与聊天页点昵称 / 输入栏「继续说」同一套（group-chat.js gcContinueSay）。 -->
+        <span class="ch-settings gc-head-continue" id="gc-head-continue" title="让对方继续说">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/><path d="M9 11h6M9 14h4"/></svg>
+        </span>
         <!-- v3.9.x：右上角三点菜单（群成员 / 切换群聊 / 群聊设置） -->
         <span class="ch-settings gc-more-btn" id="gc-more-btn" title="更多">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
@@ -21525,4 +21530,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mue0qxu4 -->
+<!-- __MOCHI_EOF__ mue0zlet -->
