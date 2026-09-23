@@ -45,7 +45,10 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const ADJ_CSS = '#page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:max(100vh, var(--cs-bg-h, 0px)); min-height:max(100lvh, var(--cs-bg-h, 0px)); }';
 const ADJ_JS = "const psWanted = adj.x + '% ' + adj.y + '%';";
 // #783 的两条逻辑锚点（src 与产物同形，各 1 处）：抽屉给浮层让位 / 壁纸身份变了重渲染分区
-const YIELD_JS = "const want = low ? String(Math.max(1, low - 1)) : csDrawerBaseZ;";
+// #1120 把这条轮询泛化成「两个抽屉共用」（聊天美化 + 输入栏按钮位置）：回正值改从元素自身
+// zIndex 读回（csBaseZ 是聊天美化抽屉专属值，直接复用会把 io 抽屉压到 1 层再也回不来）。
+// 让位口径（最低浮层减一）没动，锚点跟着换成新那一行——仍是逻辑锚：去掉让位即断。
+const YIELD_JS = "const want = low ? String(Math.max(1, low - 1)) : (d.dataset.csBaseZ || csDrawerBaseZ || '95');";
 const RESIG_JS = "if (s !== csLastBgSig) { csLastBgSig = s; try { renderSec(csDrawerSec); } catch (e) {} }";
 // 离开聊天页就地收起（G7 的靶心：短路它＝抽屉留在 body 上盖住目标页与底部导航）
 const AUTOHIDE_JS = 'if (chat && chat.hidden) {';

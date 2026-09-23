@@ -57,11 +57,11 @@ check('A6 改完即时重排接线 + 切联系人/回填后就绪重排',
   chat.includes("document.addEventListener('chat-input-order-changed', applyInputBtnOrder);")
   && chat.includes("document.addEventListener('contact-switched', applyInputBtnOrder);"));
 check('A7 面板把调整写回 cs-input-order 存档', cs.includes('window.mochiInputOrder.write(order);'));
-check('A8 面板开合同步 hidden（滚动锁监听 hidden，只改 display 要等 1s 看门狗）',
-  cs.includes('m.hidden = false;') && cs.includes('m.hidden = true;'));
+check('A8 抽屉开合同步 hidden（滚动锁监听 hidden，只改 display 要等 1s 看门狗）',
+  cs.includes('d.hidden = false;') && cs.includes('m.hidden = true;'));
 check('A9 面板有稳定钩子（回归/自动化按令牌定位移向按钮）',
   cs.includes("rowEl.setAttribute('data-io-row', t);") && cs.includes("mv.setAttribute('data-io-move', String(dir));"));
-check('A10 面板登记进移动端浮层清单（否则面板期底层设置页仍可滑动）', ma.includes("'#cs-input-order-panel'"));
+check('A10 面板登记进移动端浮层清单（否则面板期底层设置页仍可滑动；#1120 起登记名＝抽屉 id）', ma.includes("'#io-order-drawer',"));
 check('A11 功能介绍页有条目', hub.includes("'#cs-input-order'"));
 check('A12 #660附 数据就绪后补算三个开关按钮显隐（删掉＝「继续说」开着却在冷启动后不显示）',
   chat.includes("try { syncMicBtn(); } catch (e) {}\ntry { syncBatchBtn(); } catch (e) {}\ntry { if (window.applyContinueSayUI) window.applyContinueSayUI(); } catch (e) {}"));
@@ -71,8 +71,13 @@ check('A13 面板对外暴露成共享入口（群聊设置复用同一份，不
   cs.includes('window.mochiInputOrderPanel = {') && cs.includes('open: openInputOrderPanel') && cs.includes('valueText:'));
 check('A14 群聊设置「通用」里有「输入栏按钮位置」一行并打开同一个面板',
   gc.includes("id = 'gc-input-order-row'") && gc.includes('window.mochiInputOrderPanel.open()'));
-check('A15 群聊顶部那枚恒显继续说入口已撤走（template 与 js 里都不残留）',
-  !tpl.includes('gc-head-continue') && !gc.includes('gc-head-continue') && !gc.includes('gcHeadContinueBtn'));
+// A15 原口径「群聊顶部继续说入口已撤走」自 #674 起作废：那枚入口按用户需求复活，并由哨兵
+// #674a/b 钉住。它长期挂红＝把下面 20 条 B 轴全部 gate 掉（本批收口时发现并纠正）。
+// 现口径＝入口在 template 里（哨兵 #674a 钉的就是这行）。它原来的 JS 接线（gcHeadContinueBtn
+// + gcCsFireContinue，哨兵 #674b）在 HEAD 产物里已经找不到，属存量缺失、登记在哨兵红名单里
+// （group-chat.js 侧待对方处理），这里不替它断言不存在的代码。
+check('A15 群聊顶部「让对方继续说」入口在 template 里（#674 复活口径，哨兵 #674a 同锚）',
+  tpl.includes('id="gc-head-continue"'));
 if (results.some(r => !r.ok)) {
   console.log('----');
   console.log('A 轴有 FAIL：源码锚缺失（功能被覆盖或未接入），B 轴跳过');
@@ -186,7 +191,9 @@ const openPanel = async () => {
   await evalJs("(function(){var t=document.querySelector('#cs-func-tags .them-tab[data-ft=\"msg\"]'); if(t) t.click(); return 1;})()");
   await sleep(150);
   await evalJs("(function(){var r=document.getElementById('cs-input-order'); if(r) r.click(); return 1;})()");
-  await sleep(300);
+  // #1120：点行＝切到聊天页并开底部抽屉；滚动锁由 mobile-adapt 巡检补挂（hidden 未变化＝
+  // 观察器不触发），所以这里等过 1s 看门狗再判 B4/B5。
+  await sleep(1300);
 };
 // 视觉顺序：按实际布局的 left 排序可见令牌 + 全体令牌的 order 值 + 发送按钮是否仍在最后
 const VISUAL = `(function(){
@@ -248,7 +255,7 @@ try {
   // B4/B5 设置行 → 面板：列表 7 项 + 说明 + 面板期背景被锁
   await openPanel();
   const b45 = await evalJs(`(function(){
-    var m=document.getElementById('cs-input-order-panel');
+    var m=document.getElementById('io-order-drawer');
     if (!m || m.style.display !== 'flex' || m.hidden) return 'panel-closed';
     var rows=m.querySelectorAll('[data-io-row]');
     var txt=(m.textContent||'');
@@ -266,16 +273,16 @@ try {
   check('B4 面板打开且按当前顺序列出全部 7 项（含开关型按钮与输入框）+ 说明在位',
     !!o && o.n === 7 && o.seq === DEF.join(',') && o.hasSend && o.hint, b45);
   check('B5 面板打开时背景立刻被锁（hidden 同步＝不等 1s 看门狗；锁的正是本面板）',
-    !!o && o.lock === true && o.overflow === 'hidden' && o.openList.indexOf('#cs-input-order-panel') >= 0, b45);
+    !!o && o.lock === true && o.overflow === 'hidden' && o.openList.indexOf('#io-order-drawer') >= 0, b45);
 
   // B6 把「插入图片」左移 3 次 → 越过输入框到左侧；存档与面板列表同步
   for (let i = 0; i < 3; i++) {
-    await evalJs(`(function(){var r=document.querySelector('#cs-input-order-panel [data-io-row="img"] [data-io-move="-1"]'); if(r){r.click(); return 1;} return 0;})()`);
+    await evalJs(`(function(){var r=document.querySelector('#io-order-drawer [data-io-row="img"] [data-io-move="-1"]'); if(r){r.click(); return 1;} return 0;})()`);
     await sleep(150);
   }
   const AFTER_IMG = ['mic', 'continue', 'img', 'more', 'emoji', 'input', 'batch'];
   let b6 = await evalJs(`(function(){
-    var p=document.getElementById('cs-input-order-panel');
+    var p=document.getElementById('io-order-drawer');
     return JSON.stringify({
       perCid: localStorage.getItem('xy-home-v2:default:cs-input-order'),
       seq: Array.prototype.map.call(p.querySelectorAll('[data-io-row]'), function(r){ return r.getAttribute('data-io-row'); }).join(','),
@@ -289,7 +296,7 @@ try {
 
   // B7 把「麦克风」右移 6 次到最右 → 位置管理连开关型按钮一起管
   for (let i = 0; i < 6; i++) {
-    await evalJs(`(function(){var r=document.querySelector('#cs-input-order-panel [data-io-row="mic"] [data-io-move="1"]'); if(r){r.click(); return 1;} return 0;})()`);
+    await evalJs(`(function(){var r=document.querySelector('#io-order-drawer [data-io-row="mic"] [data-io-move="1"]'); if(r){r.click(); return 1;} return 0;})()`);
     await sleep(150);
   }
   const AFTER_MIC = ['continue', 'img', 'more', 'emoji', 'input', 'batch', 'mic'];
@@ -299,7 +306,7 @@ try {
     !!(saved && saved.join(',') === AFTER_MIC.join(',')), b7);
 
   // B8 关面板回聊天页 → 那排真的换位、发送仍在最后、群聊同步
-  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
+  await evalJs("(function(){var m=document.getElementById('io-order-drawer'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
   await backToChat();
   b = await evalJs(VISUAL);
   o = null; try { o = JSON.parse(b); } catch (e) {}
@@ -346,7 +353,7 @@ try {
   // B13 恢复默认 → 存档键被清掉 + 设置行回显 + 两排回默认
   await openPanel();
   await evalJs(`(function(){
-    var m=document.getElementById('cs-input-order-panel');
+    var m=document.getElementById('io-order-drawer');
     var bs=m.querySelectorAll('button');
     for (var i=0;i<bs.length;i++) { if (bs[i].textContent === '恢复默认排列') { bs[i].click(); return 1; } }
     return 0;
@@ -356,7 +363,7 @@ try {
   o = null; try { o = JSON.parse(b13); } catch (e) {}
   check('B13 恢复默认：存档键被清掉 + 设置行回显「默认排列」',
     !!o && !o.perCid && o.rowVal === '默认排列', b13);
-  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
+  await evalJs("(function(){var m=document.getElementById('io-order-drawer'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
   await backToChat();
   b = await evalJs(VISUAL);
   o = null; try { o = JSON.parse(b); } catch (e) {}
@@ -368,12 +375,12 @@ try {
   //     这条断言就是查「藏着也是可点的」，同时覆盖「面板不是只在设置页里能打开」。
   await evalJs("(function(){var b=document.getElementById('cs-back'); if(b) b.click(); return 1;})()");
   await sleep(300);
-  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
+  await evalJs("(function(){var m=document.getElementById('io-order-drawer'); if(m){ m.hidden=true; m.style.display='none'; } return 1;})()");
   await sleep(150);
   await evalJs("(function(){var a=document.querySelector('.app[data-app=\"chat\"]'); if(a) a.click(); var s=document.getElementById('chat-settings-btn'); if(s) s.click(); var r=document.getElementById('cs-input-order'); if(r) r.click(); return 1;})()");
   await sleep(400);
   const b15 = await evalJs(`(function(){
-    var m=document.getElementById('cs-input-order-panel');
+    var m=document.getElementById('io-order-drawer');
     if (!m || m.style.display !== 'flex' || m.hidden) return 'panel-closed';
     return JSON.stringify({ seq: Array.prototype.map.call(m.querySelectorAll('[data-io-row]'), function(r){ return r.getAttribute('data-io-row'); }).join(',') });
   })()`);
@@ -388,10 +395,10 @@ try {
   //     contact-switched（就是切桌面时那条事件），断言面板被收掉。
   await evalJs("(function(){var r=document.getElementById('cs-input-order'); if(r) r.click(); return 1;})()");
   await sleep(250);
-  const openedForSwitch = await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); return !!(m && m.style.display==='flex' && !m.hidden);})()");
+  const openedForSwitch = await evalJs("(function(){var m=document.getElementById('io-order-drawer'); return !!(m && m.style.display==='flex' && !m.hidden);})()");
   await evalJs("document.dispatchEvent(new Event('contact-switched')); 1");
   await sleep(250);
-  const afterSwitch = await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); return JSON.stringify({ hidden: !!m.hidden, display: m.style.display, lock: document.body.classList.contains('scroll-lock') }); })()");
+  const afterSwitch = await evalJs("(function(){var m=document.getElementById('io-order-drawer'); return JSON.stringify({ hidden: !!m.hidden, display: m.style.display, lock: document.body.classList.contains('scroll-lock') }); })()");
   o = null; try { o = JSON.parse(afterSwitch); } catch (e) {}
   check('B17 切联系人后面板自动收掉（不留僵尸浮层）+ 背景解锁',
     openedForSwitch === true && !!o && o.hidden === true && o.display === 'none' && o.lock === false, afterSwitch);
@@ -400,7 +407,7 @@ try {
   //     群聊页 → 三点菜单 → 群聊设置 → 「通用」tag → 「输入栏按钮位置」，点开必须就是同一个
   //     面板（不是第二套 UI），且在这里移一次群聊输入栏立刻跟着换位（两页共用一份 cs-input-order）。
   //     每步都带空值判断：旧产物里没有这一行时只让 B18/B18b 报红，不抛异常（否则污染 B16 零异常判定）。
-  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ m.hidden=true; m.style.display='none'; } document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-group-chat');}); return 1;})()");
+  await evalJs("(function(){var m=document.getElementById('io-order-drawer'); if(m){ m.hidden=true; m.style.display='none'; } document.querySelectorAll('.page').forEach(function(p){p.hidden=(p.id!=='page-group-chat');}); return 1;})()");
   await sleep(250);
   await evalJs("(function(){var mo=document.getElementById('gc-more-btn'); if(mo) mo.click(); return 1;})()");
   await sleep(200);
@@ -413,7 +420,7 @@ try {
     var p=document.getElementById('gc-settings-panel');
     if (!r) return JSON.stringify({ row: false, settingsOpen: !!p && p.hidden === false });
     r.click();
-    var m=document.getElementById('cs-input-order-panel');
+    var m=document.getElementById('io-order-drawer');
     return JSON.stringify({
       row: true,
       settingsOpen: !!p && p.hidden === false,
@@ -427,7 +434,7 @@ try {
   check('B18 群聊设置「通用」里的入口点开同一个排序面板（列全 7 项 + 回显当前排列）',
     !!o && o.row === true && o.settingsOpen === true && o.open === true && o.n === 7 && o.seq === DEF.join(',') && o.val === '默认排列', b18a);
   const b18b = await evalJs(`(function(){
-    var m=document.getElementById('cs-input-order-panel');
+    var m=document.getElementById('io-order-drawer');
     var r=m && m.querySelector('[data-io-row="img"]');
     var mv=r && r.querySelector('[data-io-move="-1"]');
     if (mv) mv.click();
@@ -438,9 +445,12 @@ try {
   })()`);
   await sleep(300);
   o = null; try { o = JSON.parse(b18b); } catch (e) {}
+  // 期望值按 chat.js 的 10+下标*10 现算：默认序里 img 在下标 5＝60，左移一次与输入框换位
+  // → img 下标 4＝50、more 仍下标 2＝30。（这条原先写死 '20'，是 #660 早期口径；A15 长期挂红
+  //  把 B 轴整段 gate 掉了，所以一直没人看见它也对不上。）
   check('B18b 在群聊侧面板里移一次：群聊输入栏立刻换位 + 行内回显转「已自定义」',
-    !!o && o.img === '20' && o.more === '30' && o.val === '已自定义', b18b);
-  await evalJs("(function(){var m=document.getElementById('cs-input-order-panel'); if(m){ var bs=m.querySelectorAll('button'); for(var i=0;i<bs.length;i++){ if(bs[i].textContent==='恢复默认排列'){ bs[i].click(); break; } } m.hidden=true; m.style.display='none'; } return 1;})()");
+    !!o && o.img === '50' && o.more === '30' && o.val === '已自定义', b18b);
+  await evalJs("(function(){var m=document.getElementById('io-order-drawer'); if(m){ var bs=m.querySelectorAll('button'); for(var i=0;i<bs.length;i++){ if(bs[i].textContent==='恢复默认排列'){ bs[i].click(); break; } } m.hidden=true; m.style.display='none'; } return 1;})()");
   await sleep(250);
 } catch (e) {
   check('B 轴执行异常：' + (e && e.message), false);

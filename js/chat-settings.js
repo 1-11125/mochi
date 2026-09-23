@@ -2192,7 +2192,7 @@ const IO_SWITCHED = { mic: 1, continue: 1, batch: 1 }; // 带独立开关的项�
 const IO_BTN_STYLE = 'width:34px;height:34px;flex-shrink:0;border:1px solid var(--card-border,#e0e0e0);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;line-height:1;font-family:inherit;cursor:pointer';
 const inputOrderRead = () => (window.mochiInputOrder ? window.mochiInputOrder.read() : []);
 function inputOrderPanelOpen() {
-const m = document.getElementById('cs-input-order-panel');
+const m = document.getElementById('io-order-drawer');
 return !!(m && m.style.display === 'flex');
 }
 function inputOrderSync() {
@@ -2202,7 +2202,13 @@ if (el) el.textContent = (window.mochiInputOrder && !window.mochiInputOrder.isDe
 function inputOrderIcon(token) {
 if (token === 'input') return '';
 const src = document.querySelector('#page-chat .chat-input-row [data-io="' + token + '"]');
-return src ? src.innerHTML : '';
+if (!src) return '';
+const ic = src.cloneNode(true);
+try {
+ic.querySelectorAll('label[data-file-pick-for]').forEach((l) => l.remove());
+ic.querySelectorAll('input[type="file"]').forEach((i) => i.remove());
+} catch (e) {}
+return ic.innerHTML;
 }
 function inputOrderHidden(token) {
 if (!IO_SWITCHED[token]) return false;
@@ -2218,49 +2224,23 @@ order[i] = order[j];
 order[j] = token;
 window.mochiInputOrder.write(order);
 inputOrderSync();
-renderInputOrderPanel();
+renderInputOrderPanel(token);
 }
-function renderInputOrderPanel() {
-const m = document.getElementById('cs-input-order-panel');
-const box = m && m.firstChild;
+function renderInputOrderPanel(hlToken) {
+const box = document.getElementById('io-order-drawer-body');
 if (!box) return;
 const order = inputOrderRead();
 box.innerHTML = '';
-const hd = document.createElement('div');
-hd.innerHTML = '<div style="font-size:16px;font-weight:600">输入栏按钮位置</div>'
-+ '<div style="font-size:12px;color:var(--muted,#888);margin-top:5px;line-height:1.5">'
-+ '点 ← → 调整左右顺序（列表自上而下＝从最左到最右）；「发送」按钮固定在最右端，不参与排序。'
-+ '此项只影响排列位置，不影响各按钮的开关与显隐。</div>';
-box.appendChild(hd);
-const prev = document.createElement('div');
-prev.style.cssText = 'display:flex;align-items:center;gap:6px;padding:10px;margin:10px 0 12px;border-radius:12px;background:var(--bg-b,#f5f5f5);overflow-x:auto';;
-order.forEach((t) => {
-if (t === 'input') {
-const iw = document.createElement('div');
-iw.textContent = '说点什么…';
-iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--chat-ph-ink, var(--hint-ink,#b5b5b5));padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
-if (store.get('cs-ph-show') === 'hide') iw.style.visibility = 'hidden';
-prev.appendChild(iw);
-return;
-}
-const ic = document.createElement('div');
-ic.innerHTML = inputOrderIcon(t);
-ic.style.cssText = 'width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);color:var(--ink,#111);'
-+ (inputOrderHidden(t) ? 'opacity:.35' : '');
-const svg = ic.querySelector('svg');
-if (svg) { svg.style.width = '16px'; svg.style.height = '16px'; }
-prev.appendChild(ic);
-});
-const sendChip = document.createElement('div');
-sendChip.textContent = '发送';
-sendChip.style.cssText = 'flex-shrink:0;font-size:11px;font-weight:600;color:#fff;background:var(--ink,#111);border-radius:99px;padding:5px 12px';
-prev.appendChild(sendChip);
-box.appendChild(prev);
+const note = document.createElement('div');
+note.style.cssText = 'font-size:11.5px;color:var(--muted,#888);line-height:1.5;margin-bottom:8px';
+note.textContent = '下方输入栏＝实时预览：点 ← / →，输入栏里的按钮当场重排（不必关抽屉或切页面）。列表自上而下＝从最左到最右；「发送」固定在最右端，不参与排序。此项只影响位置，不影响各按钮的开关与显隐。';
+box.appendChild(note);
 order.forEach((t, idx) => {
 const meta = IO_META[t] || { label: t };
 const rowEl = document.createElement('div');
 rowEl.setAttribute('data-io-row', t); // 稳定钩子：回归脚本按令牌定位「某按钮的左/右移」
-rowEl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(0,0,0,.07);border-radius:11px;margin-bottom:8px';
+rowEl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(0,0,0,.07);border-radius:11px;margin-bottom:8px'
++ (t === hlToken ? ';border-color:var(--accent,#4a90d9);background:rgba(74,144,217,.08)' : '');
 const ic = document.createElement('div');
 ic.innerHTML = inputOrderIcon(t);
 ic.style.cssText = 'width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--ink,#111)';
@@ -2330,32 +2310,139 @@ box.appendChild(syncBtn);
 }
 const closeBtn = document.createElement('button');
 closeBtn.type = 'button';
-closeBtn.textContent = '关闭';
+closeBtn.textContent = '完成';
 closeBtn.style.cssText = 'width:100%;padding:10px;border:1px solid var(--card-border,#eee);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--btn-cancel-ink,#555);font-size:13px;font-family:inherit;cursor:pointer';
 closeBtn.addEventListener('click', closeInputOrderPanel);
 box.appendChild(closeBtn);
 }
-function closeInputOrderPanel() {
-const m = document.getElementById('cs-input-order-panel');
+let ioDrawerEl = null;
+let ioPrevPage = 'page-chat-settings'; // 打开前的可见页，关闭时回那儿（聊天设置行 / 群聊设置行入口不同）
+let ioDockBot = 0;    // 视口底边到 #page-chat 真实输入栏顶的距离(px)：抽屉默认停在其上方，不盖输入栏
+let ioDragBot = 0;    // 标题行拖动偏移：正＝往上抬(露更多输入栏上方的聊天)，负＝往下压(露出完整列表)
+let ioWatchTimer = 0;
+let ioResizeBound = false;
+function ioRebuildDock() {
+const bar = document.querySelector('#page-chat > .chat-input-row');
+if (!bar) return;
+const top = bar.getBoundingClientRect().top;
+let dock = window.innerHeight - top;
+if (!(dock > 0) || dock > window.innerHeight) dock = 120;
+ioDockBot = Math.max(24, Math.round(dock));
+}
+function ioApplyPos() {
+const d = ioDrawerEl;
+if (!d) return;
+const vv = window.visualViewport;
+const h = vv ? vv.height : window.innerHeight;
+const lift = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+const bot = Math.max(0, Math.max(ioDockBot, lift) + ioDragBot);
+d.style.bottom = Math.min(Math.round(h * 0.92), Math.round(bot)) + 'px';
+}
+function ioBindResize() {
+if (ioResizeBound || !window.visualViewport) return;
+ioResizeBound = true;
+const f = () => { try { ioRebuildDock(); ioApplyPos(); } catch (e) {} };
+try { window.visualViewport.addEventListener('resize', f); } catch (e) {}
+window.addEventListener('resize', f);
+}
+function ioBindDockDrag(handle) {
+handle.style.touchAction = 'none';
+let sy = 0, sb = 0, drag = false;
+handle.addEventListener('pointerdown', (e) => {
+if (e.target.closest('button')) return;
+if (e.pointerType === 'mouse' && e.button !== 0) return;
+drag = true; sy = e.clientY; sb = ioDragBot;
+try { handle.setPointerCapture(e.pointerId); } catch (er) {}
+e.preventDefault();
+});
+handle.addEventListener('pointermove', (e) => {
+if (!drag) return;
+const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+ioDragBot = Math.max(-ioDockBot, Math.min(Math.round(h * 0.55), Math.round(sb - (e.clientY - sy))));
+ioApplyPos();
+e.preventDefault();
+});
+const up = () => { if (drag) { drag = false; ioApplyPos(); } };
+handle.addEventListener('pointerup', up);
+handle.addEventListener('pointercancel', up);
+handle.style.cursor = 'grab';
+}
+function closeInputOrderPanel(nav) {
+clearInterval(ioWatchTimer); ioWatchTimer = 0;
+const m = document.getElementById('io-order-drawer');
 if (!m) return;
 m.hidden = true;
 m.style.display = 'none';
+if (nav === false) return;
+try {
+document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+const pg = document.getElementById(ioPrevPage);
+if (pg) pg.hidden = false;
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+const st = document.querySelector('.tab[data-page="' + ioPrevPage + '"]');
+if (st) st.classList.add('active');
+} catch (e) {}
 }
 function openInputOrderPanel() {
-let m = document.getElementById('cs-input-order-panel');
-if (!m) {
-m = document.createElement('div');
-m.id = 'cs-input-order-panel';
-m.style.cssText = 'position:fixed;inset:0;z-index:89;align-items:center;justify-content:center;background:rgba(0,0,0,.4);display:none';
-document.body.appendChild(m);
-m.addEventListener('click', (e) => { if (e.target === m) closeInputOrderPanel(); });
-const box = document.createElement('div');
-box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
-m.appendChild(box);
+try {
+const cur = document.querySelector('.page:not([hidden])');
+if (cur && cur.id) ioPrevPage = cur.id;
+} catch (e) {}
+try {
+document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+const chat = document.getElementById('page-chat');
+if (chat) chat.hidden = false;
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+const ct = document.querySelector('.tab[data-page="page-chat"]');
+if (ct) ct.classList.add('active');
+} catch (e) {}
+let d = document.getElementById('io-order-drawer');
+if (!d) {
+d = document.createElement('div');
+d.id = 'io-order-drawer';
+d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:95;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 74%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:0 0 16px 16px;display:flex;flex-direction:column;padding:6px 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;overflow:hidden';
+document.body.appendChild(d);
 }
+ioDrawerEl = d;
+d.dataset.csBaseZ = String(parseInt(getComputedStyle(d).zIndex, 10) || 95);
+d.innerHTML = '';
+const mkMini = (label, fn, cssExtra) => {
+const b = document.createElement('button');
+b.type = 'button'; b.textContent = label;
+b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:6px 11px;cursor:pointer' + (cssExtra || '');
+b.addEventListener('click', fn);
+return b;
+};
+const grip = document.createElement('div');
+grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:6px auto 0;flex:none';
+d.appendChild(grip);
+ioBindDockDrag(grip);
+const hd = document.createElement('div');
+hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding-top:6px';
+const hdTxt = document.createElement('span');
+hdTxt.textContent = '输入栏按钮位置 · 边看边调（即时生效）';
+hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const foldBtn = mkMini('收起', () => {
+const willFold = panelBody.style.display !== 'none';
+panelBody.style.display = willFold ? 'none' : 'flex';
+foldBtn.textContent = willFold ? '展开' : '收起';
+});
+const closeBtn = mkMini('\u2715', closeInputOrderPanel, ';padding:6px 10px');
+hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+d.appendChild(hd);
+ioBindDockDrag(hd);
+const panelBody = document.createElement('div');
+panelBody.id = 'io-order-drawer-body';
+panelBody.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;margin-top:6px;padding-bottom:2px';
+d.appendChild(panelBody);
 renderInputOrderPanel();
-m.hidden = false;
-m.style.display = 'flex';
+d.style.display = 'flex';
+d.hidden = false;
+ioRebuildDock();
+ioApplyPos();
+ioBindResize();
+clearInterval(ioWatchTimer);
+ioWatchTimer = setInterval(() => { try { csDrawerLayerTick(); } catch (e) {} }, 240);
 }
 const csIo = row('cs-input-order');
 if (csIo) {
@@ -2363,7 +2450,7 @@ inputOrderSync();
 csIo.addEventListener('click', openInputOrderPanel);
 document.addEventListener('contact-switched', () => {
 inputOrderSync();
-closeInputOrderPanel();
+closeInputOrderPanel(false);
 });
 document.addEventListener('chat-input-order-changed', inputOrderSync);
 document.addEventListener('batch-send-changed', () => { if (inputOrderPanelOpen()) renderInputOrderPanel(); });
@@ -2650,13 +2737,14 @@ return d;
 let csDrawerBaseZ = '';
 const CS_DRAWER_OVERLAYS = ['.modal-mask', '#cs-bg-panel', '#cs-bg-adj-panel', '#qa-mask', '#tc-mask', '#chat-ask-panel'];
 function csDrawerLayerTick() {
-const d = document.getElementById('chat-beauty-drawer');
+['chat-beauty-drawer', 'io-order-drawer'].forEach((id) => {
+const d = document.getElementById(id);
 if (!d || d.style.display === 'none') return;
 const chat = document.getElementById('page-chat');
 if (chat && chat.hidden) {
-clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0;
+if (id === 'chat-beauty-drawer') { clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0; try { csDemoBubbles(false); } catch (e) {} }
+else { clearInterval(ioWatchTimer); ioWatchTimer = 0; }
 d.style.display = 'none';
-try { csDemoBubbles(false); } catch (e) {}
 return;
 }
 let low = 0;
@@ -2672,8 +2760,9 @@ const z = parseInt(cs.zIndex, 10) || 0;
 if (z && (!low || z < low)) low = z;
 });
 });
-const want = low ? String(Math.max(1, low - 1)) : csDrawerBaseZ;
+const want = low ? String(Math.max(1, low - 1)) : (d.dataset.csBaseZ || csDrawerBaseZ || '95');
 if (d.style.zIndex !== want) d.style.zIndex = want;
+});
 }
 let csDrawerWatchTimer = 0;
 const csDrawerBgSig = () => {

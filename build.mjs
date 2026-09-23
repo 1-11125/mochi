@@ -4744,6 +4744,13 @@ const FIX_SENTINELS = [
   { name: '#1051a 单聊末尾颜文字卡硬换行相接（改回空格＝软换行点内核不拆行、末尾颜文字被裁复发；needle 含 replyCards 行＝判据本体）', file: 'js/chat.js', needle: "if (kj) { reply += '\\n' + kj; replyCards = 2; }" },
   { name: '#1051b chip 自愈切分集恒含硬换行（删掉＝换行相接的两卡气泡切不出两段，合法「多字卡回复」chip 被误摘＝#851 同款事故换连接符复发）', file: 'js/chat.js', needle: "if (seps.indexOf('\\n') < 0) seps.push('\\n');" },
   { name: '#1051c 群聊末尾颜文字卡同口径硬换行（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "t += '\\n' + pick(pool.kaomoji);" },
+/* ==== 2026-09-23 #1120（输入栏按钮位置改「边看边调」底部抽屉）+ #1052（面板图标剥掉文件选择激活层）==== */
+  { name: "#1120a 输入栏抽屉并入 csDrawerLayerTick 泛化轮询（删＝抽屉不随离页自动收起、弹窗时不让位）", file: "js/chat-settings.js", needle: "['chat-beauty-drawer', 'io-order-drawer'].forEach((id) => {" },
+  { name: "#1120b 抽屉落位＝键盘抬升与拖动偏移合并计算（退回单一口径＝键盘盖住抽屉/拖动失效复发）", file: "js/chat-settings.js", needle: "const bot = Math.max(0, Math.max(ioDockBot, lift) + ioDragBot);" },
+  { name: "#1120c 让位后按抽屉自身 zIndex 回正（写死 csDrawerBaseZ＝io 抽屉被压低后回不来）", file: "js/chat-settings.js", needle: "const want = low ? String(Math.max(1, low - 1)) : (d.dataset.csBaseZ || csDrawerBaseZ || '95');" },
+  { name: "#1120d 滚动锁登记随面板改名同步到抽屉（旧遮罩 id 回流＝抽屉开着底层设置页仍可滑）", file: "js/mobile-adapt.js", needle: "'#io-order-drawer'," },
+  { name: "#1052a 排序面板图标只取图标本体，剥掉隐形文件选择激活层（退回整份 innerHTML＝点面板弹相册）", file: "js/chat-settings.js", needle: "ic.querySelectorAll('label[data-file-pick-for]').forEach((l) => l.remove());" },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

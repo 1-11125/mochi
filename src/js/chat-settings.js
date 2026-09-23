@@ -2728,7 +2728,7 @@
   const IO_BTN_STYLE = 'width:34px;height:34px;flex-shrink:0;border:1px solid var(--card-border,#e0e0e0);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:15px;line-height:1;font-family:inherit;cursor:pointer';
   const inputOrderRead = () => (window.mochiInputOrder ? window.mochiInputOrder.read() : []);
   function inputOrderPanelOpen() {
-    const m = document.getElementById('cs-input-order-panel');
+    const m = document.getElementById('io-order-drawer');
     return !!(m && m.style.display === 'flex');
   }
   function inputOrderSync() {
@@ -2737,10 +2737,21 @@
   }
   // 取一排里某个令牌的实时图标：直接借用聊天页输入栏上那个真按钮里的 SVG——
   // 面板不维护第二份图标，按钮换图这里自然跟着换。输入框是 div，没有图标。
+  // FIX 2026-09-22 #1052：**不能整个 innerHTML 拿过来**。device.js mochiFilePickLabel 会给
+  //   插入图片按钮 `appendChild` 一枚 `<label for="chat-img-pick">`（1px 裁剪、opacity:0 的
+  //   隐形文件选择激活层）——直接复制 innerHTML 等于把「点击即弹文件/相册选择器」的隐形
+  //   击穿层也带进排序面板，iPhone 11 Safari 及多机型实报「点面板想调顺序，手机却弹出上传
+  //   图片按钮」。这里克隆后只剥掉 label 激活层（与文件输入有关的一切隐形元素），只取图标本身。
   function inputOrderIcon(token) {
     if (token === 'input') return '';
     const src = document.querySelector('#page-chat .chat-input-row [data-io="' + token + '"]');
-    return src ? src.innerHTML : '';
+    if (!src) return '';
+    const ic = src.cloneNode(true);
+    try {
+      ic.querySelectorAll('label[data-file-pick-for]').forEach((l) => l.remove());
+      ic.querySelectorAll('input[type="file"]').forEach((i) => i.remove());
+    } catch (e) {}
+    return ic.innerHTML;
   }
   // 该按钮现在是否被开关藏起来了（只看聊天页那排的实时显示态——它就是 chat.js 按开关写的）
   function inputOrderHidden(token) {
@@ -2755,54 +2766,31 @@
     if (i < 0 || j < 0 || j >= order.length) return;
     order[i] = order[j];
     order[j] = token;
+    // 边看边调：write 内部会派发 chat-input-order-changed，聊天页/群聊两排输入栏即时重排
+    //（不必关面板或切页面）。面板内重画时把「刚才那一格」高亮，移动看得见跟着走。
     window.mochiInputOrder.write(order);
     inputOrderSync();
-    renderInputOrderPanel();
+    renderInputOrderPanel(token);
   }
-  function renderInputOrderPanel() {
-    const m = document.getElementById('cs-input-order-panel');
-    const box = m && m.firstChild;
+  function renderInputOrderPanel(hlToken) {
+    const box = document.getElementById('io-order-drawer-body');
     if (!box) return;
     const order = inputOrderRead();
     box.innerHTML = '';
-    const hd = document.createElement('div');
-    hd.innerHTML = '<div style="font-size:16px;font-weight:600">输入栏按钮位置</div>'
-      + '<div style="font-size:12px;color:var(--muted,#888);margin-top:5px;line-height:1.5">'
-      + '点 ← → 调整左右顺序（列表自上而下＝从最左到最右）；「发送」按钮固定在最右端，不参与排序。'
-      + '此项只影响排列位置，不影响各按钮的开关与显隐。</div>';
-    box.appendChild(hd);
-    // 预览条：按当前顺序把这一排画出来（含输入框与固定的发送按钮）
-    const prev = document.createElement('div');
-    prev.style.cssText = 'display:flex;align-items:center;gap:6px;padding:10px;margin:10px 0 12px;border-radius:12px;background:var(--bg-b,#f5f5f5);overflow-x:auto';;
-    order.forEach((t) => {
-      if (t === 'input') {
-        const iw = document.createElement('div');
-        iw.textContent = '说点什么…';
-        iw.style.cssText = 'flex:1;min-width:46px;font-size:11px;color:var(--chat-ph-ink, var(--hint-ink,#b5b5b5));padding:5px 9px;border-radius:99px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);white-space:nowrap;overflow:hidden';
-        // #1026：预览照实反映「隐藏提示文字」开关（框还在、字不见）
-        if (store.get('cs-ph-show') === 'hide') iw.style.visibility = 'hidden';
-        prev.appendChild(iw);
-        return;
-      }
-      const ic = document.createElement('div');
-      ic.innerHTML = inputOrderIcon(t);
-      ic.style.cssText = 'width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.08);color:var(--ink,#111);'
-        + (inputOrderHidden(t) ? 'opacity:.35' : '');
-      const svg = ic.querySelector('svg');
-      if (svg) { svg.style.width = '16px'; svg.style.height = '16px'; }
-      prev.appendChild(ic);
-    });
-    const sendChip = document.createElement('div');
-    sendChip.textContent = '发送';
-    sendChip.style.cssText = 'flex-shrink:0;font-size:11px;font-weight:600;color:#fff;background:var(--ink,#111);border-radius:99px;padding:5px 12px';
-    prev.appendChild(sendChip);
-    box.appendChild(prev);
+    // 抽屉下方就是真实输入栏（切到了聊天页），实时重排即「预览」，这里只放一句提示，不再画假预览条
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11.5px;color:var(--muted,#888);line-height:1.5;margin-bottom:8px';
+    note.textContent = '下方输入栏＝实时预览：点 ← / →，输入栏里的按钮当场重排（不必关抽屉或切页面）。列表自上而下＝从最左到最右；「发送」固定在最右端，不参与排序。此项只影响位置，不影响各按钮的开关与显隐。';
+    box.appendChild(note);
     // 排序列表：每行一个按钮 ＋ ←／→（到两端时对应方向置灰）
     order.forEach((t, idx) => {
       const meta = IO_META[t] || { label: t };
       const rowEl = document.createElement('div');
       rowEl.setAttribute('data-io-row', t); // 稳定钩子：回归脚本按令牌定位「某按钮的左/右移」
-      rowEl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(0,0,0,.07);border-radius:11px;margin-bottom:8px';
+      rowEl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(0,0,0,.07);border-radius:11px;margin-bottom:8px'
+        // 边看边调：刚移动的那一格用主题蓝描边＋浅蓝底高亮（写死 rgba，不引入 color-mix 等
+        // 新旧 iOS 兼容性问题），移动跟着走（重画时由外部传入 hlToken）
+        + (t === hlToken ? ';border-color:var(--accent,#4a90d9);background:rgba(74,144,217,.08)' : '');
       const ic = document.createElement('div');
       ic.innerHTML = inputOrderIcon(t);
       ic.style.cssText = 'width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--ink,#111)';
@@ -2873,35 +2861,162 @@
     }
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.textContent = '关闭';
+    closeBtn.textContent = '完成';
     closeBtn.style.cssText = 'width:100%;padding:10px;border:1px solid var(--card-border,#eee);border-radius:10px;background:var(--btn-cancel-bg,#fafafa);color:var(--btn-cancel-ink,#555);font-size:13px;font-family:inherit;cursor:pointer';
     closeBtn.addEventListener('click', closeInputOrderPanel);
     box.appendChild(closeBtn);
   }
+  // ===== #1120：输入栏按钮位置 → 「边看边调」底部抽屉（套用聊天美化 csDrawer 的范式） =====
+  // 用户反馈：原来那条是包裹设置页的居中弹层，改 ←/→ 时根本看不到聊天输入栏，等于「不能边看边调」。
+  // 这里改成与 chat-beauty-drawer 同款思路：点开＝切到聊天页（真实输入栏即为「预览」）、底部抽屉、
+  // 标题行/grip 可拖动让位、折叠/关闭即时生效、无需确认、不切页面。真实输入栏就露在抽屉下方，
+  // 一点 ←/→ 就经 window.mochiInputOrder.write → chat-input-order-changed → applyInputBtnOrder
+  // 让聊天页与群聊两排输入栏当场重排——改哪看哪。
+  let ioDrawerEl = null;
+  let ioPrevPage = 'page-chat-settings'; // 打开前的可见页，关闭时回那儿（聊天设置行 / 群聊设置行入口不同）
+  let ioDockBot = 0;    // 视口底边到 #page-chat 真实输入栏顶的距离(px)：抽屉默认停在其上方，不盖输入栏
+  let ioDragBot = 0;    // 标题行拖动偏移：正＝往上抬(露更多输入栏上方的聊天)，负＝往下压(露出完整列表)
+  let ioWatchTimer = 0;
+  let ioResizeBound = false;
+  function ioRebuildDock() {
+    const bar = document.querySelector('#page-chat > .chat-input-row');
+    if (!bar) return;
+    const top = bar.getBoundingClientRect().top;
+    // ioDockBot 是 CSS bottom 语义＝距视口底边的距离；输入栏顶在 top(距顶) 处，
+    // 抽屉底边要和它齐平就得用 视口高 - top。
+    let dock = window.innerHeight - top;
+    if (!(dock > 0) || dock > window.innerHeight) dock = 120;
+    ioDockBot = Math.max(24, Math.round(dock));
+  }
+  function ioApplyPos() {
+    const d = ioDrawerEl;
+    if (!d) return;
+    const vv = window.visualViewport;
+    const h = vv ? vv.height : window.innerHeight;
+    // 键盘/地址栏抬升：底部输入栏该移到多高、抽屉就跟着停在哪（同一公式，避免被键盘盖住）
+    const lift = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    const bot = Math.max(0, Math.max(ioDockBot, lift) + ioDragBot);
+    d.style.bottom = Math.min(Math.round(h * 0.92), Math.round(bot)) + 'px';
+  }
+  function ioBindResize() {
+    if (ioResizeBound || !window.visualViewport) return;
+    ioResizeBound = true;
+    const f = () => { try { ioRebuildDock(); ioApplyPos(); } catch (e) {} };
+    try { window.visualViewport.addEventListener('resize', f); } catch (e) {}
+    window.addEventListener('resize', f);
+  }
+  // 拖动让位：与聊天美化一致的 pointer 系列逻辑（setPointerCapture 夺回触摸，否则被内核抢成滚动）。
+  // 往下拖＝抽屉下移露出完整列表（盖住输入栏）；往上抬＝抽屉上移让出输入栏上方更多聊天。
+  function ioBindDockDrag(handle) {
+    handle.style.touchAction = 'none';
+    let sy = 0, sb = 0, drag = false;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      drag = true; sy = e.clientY; sb = ioDragBot;
+      try { handle.setPointerCapture(e.pointerId); } catch (er) {}
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      ioDragBot = Math.max(-ioDockBot, Math.min(Math.round(h * 0.55), Math.round(sb - (e.clientY - sy))));
+      ioApplyPos();
+      e.preventDefault();
+    });
+    const up = () => { if (drag) { drag = false; ioApplyPos(); } };
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+    handle.style.cursor = 'grab';
+  }
   // 开合同时改 hidden 属性与 display：mobile-adapt 的浮层滚动锁只监听 hidden
   //（attributeFilter:['hidden']），只改 display 的话要等它 1s 看门狗才补挂锁——那 1 秒里
-  // 面板开着、底层设置页还能被滑动。hidden 一起改＝插入时即命中锁，无空窗。
-  function closeInputOrderPanel() {
-    const m = document.getElementById('cs-input-order-panel');
+  // 抽屉开着、底层还能被滑动。hidden 一起改＝插入时即命中锁，无空窗。
+  // 抽屉默认停在真实输入栏上方（不盖住它），半透明底透出下方消息，符合「改哪看哪」。
+  function closeInputOrderPanel(nav) {
+    clearInterval(ioWatchTimer); ioWatchTimer = 0;
+    const m = document.getElementById('io-order-drawer');
     if (!m) return;
     m.hidden = true;
     m.style.display = 'none';
+    // 回到打开前的页（入口行所属页），与 csDrawerClose 的导航口径一致但更通用（单聊/群聊原文路返回）。
+    // nav=false＝被动收起（如切联系人），只就地关、不把人拽回设置页（对齐 csDrawerLayerTick 的
+    // 离页自动收起语义，避免「正在聊天却突然被切回设置页」）。
+    if (nav === false) return;
+    try {
+      document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+      const pg = document.getElementById(ioPrevPage);
+      if (pg) pg.hidden = false;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const st = document.querySelector('.tab[data-page="' + ioPrevPage + '"]');
+      if (st) st.classList.add('active');
+    } catch (e) {}
   }
   function openInputOrderPanel() {
-    let m = document.getElementById('cs-input-order-panel');
-    if (!m) {
-      m = document.createElement('div');
-      m.id = 'cs-input-order-panel';
-      m.style.cssText = 'position:fixed;inset:0;z-index:89;align-items:center;justify-content:center;background:rgba(0,0,0,.4);display:none';
-      document.body.appendChild(m);
-      m.addEventListener('click', (e) => { if (e.target === m) closeInputOrderPanel(); });
-      const box = document.createElement('div');
-      box.style.cssText = 'width:min(90vw,400px);max-height:82vh;overflow-y:auto;background:var(--card-bg,#fff);color:var(--ink,#111);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.2)';
-      m.appendChild(box);
+    // 0) 记下打开前的可见页，关闭时原路返回（单聊/群聊入口打开同一份抽屉）
+    try {
+      const cur = document.querySelector('.page:not([hidden])');
+      if (cur && cur.id) ioPrevPage = cur.id;
+    } catch (e) {}
+    // 1) 切到聊天页——真实输入栏即「预览」，改哪看哪（与聊天美化同一套导航口径）
+    try {
+      document.querySelectorAll('.page').forEach(pg => { if (!pg.hidden) pg.hidden = true; });
+      const chat = document.getElementById('page-chat');
+      if (chat) chat.hidden = false;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const ct = document.querySelector('.tab[data-page="page-chat"]');
+      if (ct) ct.classList.add('active');
+    } catch (e) {}
+    let d = document.getElementById('io-order-drawer');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'io-order-drawer';
+      d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:95;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 74%, transparent);color:var(--ink,#111);box-shadow:0 -6px 24px rgba(0,0,0,.18);border-radius:0 0 16px 16px;display:flex;flex-direction:column;padding:6px 12px calc(10px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box;overflow:hidden';
+      document.body.appendChild(d);
     }
+    ioDrawerEl = d;
+    // 层级让位回正值：以元素实测 zIndex 为准（base.css 那套 89/90/95 的口径，见 csDrawerLayerTick）
+    d.dataset.csBaseZ = String(parseInt(getComputedStyle(d).zIndex, 10) || 95);
+    d.innerHTML = '';
+    const mkMini = (label, fn, cssExtra) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.style.cssText = 'flex:none;border:1px solid var(--card-border,#ddd);background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;border-radius:8px;padding:6px 11px;cursor:pointer' + (cssExtra || '');
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const grip = document.createElement('div');
+    grip.style.cssText = 'width:36px;height:4px;border-radius:2px;background:var(--card-border,#ddd);margin:6px auto 0;flex:none';
+    d.appendChild(grip);
+    ioBindDockDrag(grip);
+    const hd = document.createElement('div');
+    hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex:none;padding-top:6px';
+    const hdTxt = document.createElement('span');
+    hdTxt.textContent = '输入栏按钮位置 · 边看边调（即时生效）';
+    hdTxt.style.cssText = 'font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    const foldBtn = mkMini('收起', () => {
+      const willFold = panelBody.style.display !== 'none';
+      panelBody.style.display = willFold ? 'none' : 'flex';
+      foldBtn.textContent = willFold ? '展开' : '收起';
+    });
+    const closeBtn = mkMini('\u2715', closeInputOrderPanel, ';padding:6px 10px');
+    hd.appendChild(hdTxt); hd.appendChild(foldBtn); hd.appendChild(closeBtn);
+    d.appendChild(hd);
+    ioBindDockDrag(hd);
+    const panelBody = document.createElement('div');
+    panelBody.id = 'io-order-drawer-body';
+    panelBody.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;margin-top:6px;padding-bottom:2px';
+    d.appendChild(panelBody);
     renderInputOrderPanel();
-    m.hidden = false;
-    m.style.display = 'flex';
+    d.style.display = 'flex';
+    d.hidden = false;
+    ioRebuildDock();
+    ioApplyPos();
+    ioBindResize();
+    // 离页自动收起 / 抽屉内点「同步到全部联系人」开 openModal(mask 90) 时层级让位，都由
+    // csDrawerLayerTick 的 240ms 轮询统一处理（已泛化到 io-order-drawer）
+    clearInterval(ioWatchTimer);
+    ioWatchTimer = setInterval(() => { try { csDrawerLayerTick(); } catch (e) {} }, 240);
   }
   const csIo = row('cs-input-order');
   if (csIo) {
@@ -2911,7 +3026,7 @@
       inputOrderSync();
       // 面板是挂在 body 上的固定浮层（不在 .page 里，切页面不会跟着隐藏）：切了联系人还留着
       // 就是「盖在桌面上、内容是上一个联系人」的僵尸层，直接收掉，回来再点开即是新桌面的顺序
-      closeInputOrderPanel();
+      closeInputOrderPanel(false);
     });
     document.addEventListener('chat-input-order-changed', inputOrderSync);
     // 面板开着时开关被改（本页下方就有「批量发送消息」「我可发送语音」两行）→ 重画一遍，
@@ -3272,20 +3387,24 @@
   let csDrawerBaseZ = '';
   const CS_DRAWER_OVERLAYS = ['.modal-mask', '#cs-bg-panel', '#cs-bg-adj-panel', '#qa-mask', '#tc-mask', '#chat-ask-panel'];
   function csDrawerLayerTick() {
-    const d = document.getElementById('chat-beauty-drawer');
-    if (!d || d.style.display === 'none') return;
-    // 抽屉是挂在 body 上的固定层（z-index 95 / 最高 40vh），离开聊天页时它自己不会收——
-    // 实测切到桌面页后抽屉仍占 508~846，而底部导航在 740~804、z-index 只有 2＝整条导航被盖住。
-    // 这里只就地收起、不回聊天设置页（用户是自己走开的，csDrawerClose 那套导航会把人拽回去）。
-    const chat = document.getElementById('page-chat');
-    if (chat && chat.hidden) {
-      clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0;
-      d.style.display = 'none';
-      try { csDemoBubbles(false); } catch (e) {}
-      return;
-    }
-    let low = 0;
-    CS_DRAWER_OVERLAYS.forEach((sel) => {
+    // 泛化：本轮询同时服务两个底层抽屉——聊天美化（chat-beauty-drawer）与
+    // 输入栏按钮位置（io-order-drawer，见下「边看边调抽屉」）。它们都是挂 body 的
+    // 固定层（z-index 95），两者互斥打开，但离页自动收起、浮层让位的口径完全一致。
+    ['chat-beauty-drawer', 'io-order-drawer'].forEach((id) => {
+      const d = document.getElementById(id);
+      if (!d || d.style.display === 'none') return;
+      // 抽屉是挂在 body 上的固定层（z-index 95 / 最高 40vh），离开聊天页时它自己不会收——
+      // 实测切到桌面页后抽屉仍占 508~846，而底部导航在 740~804、z-index 只有 2＝整条导航被盖住。
+      // 这里只就地收起、不回聊天设置页（用户是自己走开的，csDrawerClose 那套导航会把人拽回去）。
+      const chat = document.getElementById('page-chat');
+      if (chat && chat.hidden) {
+        if (id === 'chat-beauty-drawer') { clearInterval(csDrawerWatchTimer); csDrawerWatchTimer = 0; try { csDemoBubbles(false); } catch (e) {} }
+        else { clearInterval(ioWatchTimer); ioWatchTimer = 0; }
+        d.style.display = 'none';
+        return;
+      }
+      let low = 0;
+      CS_DRAWER_OVERLAYS.forEach((sel) => {
       document.querySelectorAll(sel).forEach((el) => {
         // 先用零成本属性判掉收起的（.modal-mask 靠 [hidden]、各面板靠内联 display:none）：
         // getComputedStyle 会强制样式重算，而这个闸门是 240ms 常驻轮询（iOS 性能批 #765d 口径），
@@ -3302,9 +3421,10 @@
         const z = parseInt(cs.zIndex, 10) || 0;
         if (z && (!low || z < low)) low = z;
       });
+      });
+      const want = low ? String(Math.max(1, low - 1)) : (d.dataset.csBaseZ || csDrawerBaseZ || '95');
+      if (d.style.zIndex !== want) d.style.zIndex = want;
     });
-    const want = low ? String(Math.max(1, low - 1)) : csDrawerBaseZ;
-    if (d.style.zIndex !== want) d.style.zIndex = want;
   }
   // #783 ②：壁纸身份（有没有图 + 当前用图库里哪张）变了就重渲染当前分区——抽屉里刚上传/刚
   // 换图，那三条「壁纸 水平/垂直/缩放」滑杆（挂在「有壁纸」条件下）当场出现，不用关开抽屉。

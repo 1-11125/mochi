@@ -2787,11 +2787,13 @@
     '#pc-sheet-mask',
     // FIX 2026-09-15 #527：边看边调底部抽屉——盖在桌面上的固定层，打开时同样要锁背景滚动
     //（此前未登记，抽屉打开后底层桌面仍可被滑动）
-    // FIX 2026-09-17 #660：聊天设置「输入栏按钮位置」排序面板同族（chat-settings.js
-    //   openInputOrderPanel 建的整屏遮罩，#cs-bg-panel 同款结构）——未登记＝面板开着时
-    //   底层设置页仍可被滑动。单独占一行登记：末行 '  #beauty-drawer', '#icon-fit-panel'];'
+    // FIX 2026-09-17 #660 / 改 @ #1120：聊天设置「输入栏按钮位置」排序面板同族（原 #660
+    //   openInputOrderPanel 建的整屏遮罩 #cs-input-order-panel，已在 #1120 改为「边看边调」
+    //   底部抽屉 #io-order-drawer）——未登记＝面板开着时底层设置页仍可被滑动。抽屉与
+    //   #chat-beauty-drawer 同结构（固定层、openInputOrderPanel 切换 hidden+display）。
+    //   单独占一行登记：末行 '  #beauty-drawer', '#icon-fit-panel'];'
     //   整段是 #581f 哨兵的 needle 原文，直接往那行追加会改掉它、把别人的锚点弄哑。
-    '#cs-input-order-panel',
+    '#io-order-drawer',
     // FIX 2026-09-16 #581：图标图片位置调整面板同族（personalize.js openIconFitPanel 建的固定底半框）
     // FIX 2026-09-18 #707：屏幕位置设置面板（personalize.js 建的底部半框）——同族登记防滚动穿透；
     //   本行插在 #581f 锚点行之前（那行原文一个字都不能动）
