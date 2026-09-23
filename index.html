@@ -10625,9 +10625,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790144744929">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790151003343">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-23 14:25<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-23 16:10<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -13395,7 +13395,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
               <div class="lic-li"><b>它是什么</b>：页面切到后台（锁屏、切到别的应用、回到桌面）时，TA 发来新消息就用<b>系统通知</b>弹一条横幅，不用一直守着聊天页；锁屏和下拉通知栏里也能看到内容。开关在 <b>设置 → 系统 →「后台通知」</b>，同一行右边的「测试」可一键体检。</div>
               <div class="lic-li"><b>它不是什么</b>：不是真推送。消息是本机按概率随机生成的——「后台弹窗」只负责在页面处于后台时把它弹出来；不联网、不上传任何内容，也不代表对方真实在线。</div>
               <div class="lic-li"><b>前提 1 · 环境</b>：用安卓或电脑上的 <b>Chrome / Edge</b> 打开，并且是 <b>https://</b> 访问（本站 GitHub Pages 地址本身就是 HTTPS）。http:// 访问、或国产手机自带浏览器，多数拿不到通知能力。</div>
-              <div class="lic-li"><b>前提 2 · 通知权限</b>：地址栏左侧图标 → 网站设置 → <b>通知 → 允许</b>。第一次打开「后台通知」开关时会请求一次授权，点「允许」即可。<b>若没弹授权框、或被静默拒绝</b>（Chrome 对授权框反复弹过的站会自动挡，多半不是你点了拒绝），就在网站设置里手动改「允许」；列表里没有本站，就在 Chrome 设置 → 网站设置 → 通知 的「允许」里<b>手动添加本站网址</b>。如果你还没在弹窗里做出选择（弹窗挂着没点、或直接切走了），开关会保持开启并提示你去允许：这时通知还不会来，等你在「网站设置 → 通知」里允许后自动生效，不用再点第二次开关。</div>
+              <div class="lic-li"><b>前提 2 · 通知权限</b>：地址栏左侧图标 → 网站设置 → <b>通知 → 允许</b>。第一次打开「后台通知」开关时会请求一次授权，点「允许」即可。<b>若没弹授权框、或被静默拒绝</b>（Chrome 对授权框反复弹过的站会自动挡，多半不是你点了拒绝），就在网站设置里手动改「允许」；列表里没有本站，就在 Chrome 设置 → 网站设置 → 通知 里<b>「添加网站例外」→ 手动输入本站网址</b>（或 地址栏左侧图标 → 权限 → 通知 → 允许）。<b>若改了仍不弹</b>＝Chrome 对本站的自动屏蔽无法解除，换 Edge / 电脑打开本站即可，聊天记录在 设置 → 通用 导出 / 导入 迁移。如果你还没在弹窗里做出选择（弹窗挂着没点、或直接切走了），开关会保持开启并提示你去允许：这时通知还不会来，等你在「网站设置 → 通知」里允许后自动生效，不用再点第二次开关。</div>
               <div class="lic-li"><b>前提 3 · 后台保活要开着</b>：打开「后台通知」会<b>自动</b>把「后台保活」一起打开。原因：TA 的消息由页面定时器产生，页面在后台被系统冻结就没消息可生成，也就无从弹起。若你后来手动关了保活，后台弹窗会静默失效（切回前台时会提示你）。</div>
               <div class="lic-li"><b>前提 4 · 系统层面允许通知</b>：手机 系统设置 → 应用 → Chrome / Edge → 通知：允许。<b>小米 / 红米（MIUI、HyperOS）等系统</b>还要在「通知类别」里打开「在屏幕上方显示 / 悬浮通知」，否则通知只进下拉栏、不弹横幅。</div>
               <div class="lic-li"><b>前提 5 · 别限制后台</b>：系统省电 / 后台管理里不要把该浏览器设成「限制后台运行」，否则页面会被系统杀掉，保活与通知都会断。建议设为「不受限制 / 允许后台运行」。</div>
@@ -21515,4 +21515,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mudpylep -->
+<!-- __MOCHI_EOF__ mudtoqfj -->

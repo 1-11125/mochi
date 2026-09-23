@@ -38,11 +38,13 @@ ok(!/Notification\.requestPermission\(\);\s*\} catch/.test(per), 'S3 裸调授�
 ok(per.includes('此权限与设置→系统→「后台通知」共用'), 'S4 经期指路写明权限与后台通知共用');
 ok(per.includes('手动添加本站网址'), 'S5 经期指路补「手动添加」');
 ok(!fsJs.includes('new Notification('), 'S6 fullscreen.js 六处系统通知兜底已全部改站内 toast', '残留=' + (fsJs.match(/new Notification\(/g) || []).length);
-ok(bgk.includes("在「允许」里手动添加 ' + location.origin"), 'S7 测试结果补「手动添加本站网址」行（带真实网址）');
+ok(bgk.includes("「添加网站例外」→ 输入 ' + location.origin"), 'S7 测试结果补「添加网站例外」＋真实网址行');
 ok(bgk.includes('浏览器已把本站通知记成「屏蔽」'), 'S8 标红条写明「自动挡、多半不是你点了拒绝」');
+    ok(bgk.includes('两条路恢复：① 地址栏左侧图标 → 权限 → 通知 → 改「允许」；② Chrome 右上角 ⋮ → 设置 → 网站设置 → 通知 → 「添加网站例外」'), 'S8b 标红条含两条完整恢复路径（ⓘ 与 添加网站例外）');
+    ok(bgk.includes('换 Edge / 电脑打开本站'), 'S8c 第三层出口在位（自动屏蔽无法解除时换浏览器＋数据迁移）');
 ok(bgk.includes('列表里没有本站就在「允许」里手动添加本站网址'), 'S9 被拒弹条补「手动添加」');
 ok(!tpl.includes('开关会自动弹回关闭'), 'S10 使用说明撤「拒绝后开关自动弹回」旧口径（与 #1014 行为矛盾）');
-ok(tpl.includes('手动添加本站网址'), 'S11 使用说明前提2 补「手动添加」');
+ok(tpl.includes('手动输入本站网址'), 'S11 使用说明前提2 补「添加网站例外→手动输入本站网址」');
 ok(shelp.includes('此权限与「经期提醒」共用'), 'S12 后台通知胶囊写明与经期提醒共用权限');
 
 // ===== B 行为：真实构建页 + Notification 桩（permission='denied'）=====
