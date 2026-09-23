@@ -10617,6 +10617,17 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-bullet">不同设备的服务器节点可能还没更新。如果设备没同步到最新版本，可以用流量多刷新几次，或者晚几个小时再试。</p>
             <p class="splash-bullet">刚刷完新版时新旧版本正在交接，也可能重复提醒一次；不想现在更新可点「稍后」，下次打开网页会自动同步。</p>
           </div>
+          <!-- #1060（2026-09-23 用户直派「关于后台通知相关设置也放在公告里，放在公告的最后新增一个目录」）：
+               与在线权威源 src/pwa/notice.json 的 sections 末条同口径（在线整段替换本段；此处为断网/弱网兜底） -->
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">关于后台通知相关设置（怎么开、收不到怎么办）</p>
+            <p class="splash-bullet"><b>三个开关都在 设置 → 系统</b>：「后台通知」＝页面在后台时 TA 发消息弹系统通知（打开它会自动把「后台保活」一起打开，保活是通知的前提）；「通知逐条弹（关闭去重）」＝默认关闭（连发内容相同或近期弹过的消息只弹一条），<b>打开后联系人每条消息都单独弹</b>（字卡重复率高时会连环弹同句，按需开）；「后台保活」＝让页面在后台继续运行。</p>
+            <p class="splash-bullet"><b>怎么确认通了</b>：点「后台通知」行右边的「测试」——当场体检（开关 / 通知权限 / 后台保活与锚点 / 后台服务通道 / 历史冻结与断流取证）并真发一条通知、回读系统通知队列，卡在哪一环直接写在结果里；结果里还有第二段可测「后台阶段」。</p>
+            <p class="splash-bullet"><b>收不到①·浏览器权限</b>：地址栏左侧图标 → 权限 → 通知 → 允许；若列表里没有本站、或授权框从不出现（浏览器会把反复弹过授权框的站自动挡掉）→ Chrome ⋮ → 设置 → 网站设置 → 通知 →「添加网站例外」→ 输入本站网址。若你是从桌面图标（已安装应用）打开的，通知权限由应用自己管理、Chrome 网站设置里不显示本站属正常：<b>长按图标卸载后重新「添加到主屏幕」，安装时允许通知即可重置</b>。</p>
+            <p class="splash-bullet"><b>收不到②·页面在后台被冻结或回收</b>：保活靠页面在后台运行，系统省电/内存策略会把挂久的页面冻结甚至丢弃（Chrome「内存节省程序」约 30 分钟，手机内存紧张时更快），别的 App 刷视频/听音乐也会占用音频通道把保活截断——表现就是「弹一下就停了」。恢复：彻底关闭网页重新打开，再把「后台保活」「后台通知」重新打开；并把 Chrome 加入「始终保持活动」、省电策略设「无限制」，到 设置 → 工具 → 查看存储 清掉最占地方的数据（页越轻越不容易被丢）。</p>
+            <p class="splash-bullet"><b>收不到③·设计内不弹</b>：你正在前台看着聊天时不弹（聊天里直接可见）；切后台头 15 秒内的旧内容不弹（防刚看完的又弹一遍，打开「通知逐条弹」后此项不再拦）；跨桌面补投递的历史旧消息不弹。</p>
+            <p class="splash-bullet"><b>换浏览器 / 换网址要重新允许</b>：通知权限按「浏览器 + 网址」记，Chrome 与 Edge 各自独立；同一台手机换了浏览器，按上面「收不到①」重做一遍即可。</p>
+          </div>
         </div>
       </div>
     </div>
@@ -10625,9 +10636,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790153095603">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790155219508">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-23 16:44<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-23 17:20<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21519,4 +21530,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ muduxktv -->
+<!-- __MOCHI_EOF__ mudw73n8 -->
