@@ -4722,6 +4722,10 @@ const FIX_SENTINELS = [
   { name: '#1048b 探针同时量 bottom inset（删＝判定器拿不到反证信号、#1048a 恒不触发＝修复整批哑火）', file: 'js/mobile-adapt.js', needle: 'padding-bottom:env(safe-area-inset-bottom,0px)' },
   /* ==== 2026-09-22 #1047 更新入口「点了没反应」（用户实报「有时候那里仍是旧版点更新还点不动」；根因＝手动通道只在点击那一刻发一次 PRECACHE_NOW，iOS WebKit 冻结空闲 SW 实例时消息没人收、PRECACHE_DONE 永不到来，按钮顶着「正在下载…」且 _prBusy 静默吞后续点击最长 180s。修法＝12s 一发重发同消息唤醒/重试，DONE 即停、12 发封顶与 VER_DL_WAIT 对齐；自动通道 2.5s 兜底口径不变） ==== */
   { name: '#1047a 下载通道 12s 重发（删＝SW 冻结/消息丢失时按钮死等 180s＝「点更新还点不动」复发；改密＝弱网重复预取风暴）', file: 'index.html', needle: 'if (++_prPingN > 12) { clearInterval(_prPing); _prPing = 0; return; }'},
+  /* ==== 2026-09-22 #1044 占卜「抽一张牌退出页面」（红米 K70/Via 实报、用户点名其他机型也有；无头全链复现不出＝真机现场专属，本批三件套＝牌堆增量移除＋历史封顶＋抽牌期被切走取证。注册的是行为锚点非函数名：#1044a 增量移除判式（回退整堆重建即消失）、#1044b 封顶判式、#1044c 取证文案串（console.error 进诊断错误环）） ==== */
+  { name: '#1044a 牌堆增量移除（退回整堆重建＝低端机每抽一张全量销毁重建剩余牌背的卡顿峰值复发；改回按索引闭包＝重排后抽错牌）', file: 'js/divination.js', needle: 'pileEls.splice(idx, 1);' },
+  { name: '#1044b 占卜历史封顶 500（删＝记录随年限无上限增长、renderHistory 每次全量 innerHTML 重建＝内存受压设备退页/白屏类症状推手复发）', file: 'js/divination.js', needle: 'if (list.length > 500) list.length = 500;' },
+  { name: '#1044c 抽牌期被切走取证（删＝「抽牌退出页面」真机现场永远无 JS 错误可查＝诊断盲区复原）', file: 'js/divination.js', needle: '[div-draw] 抽牌进行中页面被切走' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

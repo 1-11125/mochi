@@ -612,29 +612,35 @@ if (cancelled) return;
 if (!remaining.length) hint.textContent = '牌库已空';
 else hint.textContent = '左右滑动牌面 · 点击牌背抽取 · 剩 ' + remaining.length + ' 张 · 已抽 ' + results.length + ' / ' + count + ' 张';
 };
+let pileEls = [];   // #1044：与 remaining 平行的牌背元素表（增量移除用）
 const renderGrid = function () {
 row1.innerHTML = ''; row2.innerHTML = '';
+pileEls = [];
 const total = remaining.length;
 if (!total) { updateHint(); return; }
 const half = Math.ceil(total / 2);
 for (let i = 0; i < total; i++) {
 const el = document.createElement('div');
 el.className = 'div-pile-card';
-el.addEventListener('click', function () { pick(i); });
+el.addEventListener('click', function () { pick(el); });
 (i < half ? row1 : row2).appendChild(el);
+pileEls.push(el);
 }
 updateHint();
 };
-const pick = function (idx) {
+const pick = function (el) {
 if (cancelled) return;
+const idx = pileEls.indexOf(el);
 if (idx < 0 || idx >= remaining.length) return;
 if (results.length >= count) return;
 const c = remaining[idx];
-remaining = remaining.slice(0, idx).concat(remaining.slice(idx + 1));
+remaining.splice(idx, 1);
 let rev = false, meaning = c.meaning;
 if (isTarot) { rev = Math.random() > 0.5; meaning = rev ? c.neg : c.pos; }
 results.push({ name: c.name, icon: c.icon, rev: rev, meaning: meaning, detail: c.detail || '' });
-renderGrid();
+pileEls.splice(idx, 1);
+if (el.parentNode) el.parentNode.removeChild(el);
+updateHint();
 const dc = document.createElement('div');
 dc.className = 'div-drawn-card';
 dc.innerHTML =
@@ -888,6 +894,19 @@ const deck = snapMode === 'tarot' ? TAROT : lenoDeck();
 if (!deck.length) { r.innerHTML = '<div class="div-result-empty">占卜牌库加载中…</div>'; return; }
 const labels = (MODE_LABELS[snapMode] && MODE_LABELS[snapMode][snapCount]) || [];
 drawBtn.textContent = '抽牌中…';
+try {
+const pdp = document.getElementById('page-divine');
+if (pdp && !pdp.__divDrawWatch) {
+pdp.__divDrawWatch = true;
+new MutationObserver(function () {
+if (pdp.hidden && window.__divActiveDraw) {
+let vis = '';
+document.querySelectorAll('.page').forEach(function (p) { if (!p.hidden) vis = p.id || ''; });
+console.error('[div-draw] 抽牌进行中页面被切走：当前可见页=' + (vis || '无') + '（若非你主动按返回，此行即「抽牌退出页面」现场）');
+}
+}).observe(pdp, { attributes: true, attributeFilter: ['hidden'] });
+}
+} catch (e) {}
 window.__divActiveDraw = startDivineDraw(r, {
 deck: deck,
 count: snapCount,
@@ -903,6 +922,7 @@ const record = { ts: Date.now(), mode: snapMode, count: snapCount, question: que
 if (snapTarget) record.target = targetName(snapTarget);
 const list = histLoad();
 list.unshift(record);
+if (list.length > 500) list.length = 500;
 histSave(list);
 renderHistory();
 try { saveToHome(record, snapTarget); } catch (e) {}

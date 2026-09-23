@@ -682,8 +682,10 @@
         if (!remaining.length) hint.textContent = '牌库已空';
         else hint.textContent = '左右滑动牌面 · 点击牌背抽取 · 剩 ' + remaining.length + ' 张 · 已抽 ' + results.length + ' / ' + count + ' 张';
       };
+      let pileEls = [];   // #1044：与 remaining 平行的牌背元素表（增量移除用）
       const renderGrid = function () {
         row1.innerHTML = ''; row2.innerHTML = '';
+        pileEls = [];
         const total = remaining.length;
         if (!total) { updateHint(); return; }
         const half = Math.ceil(total / 2);
@@ -691,21 +693,30 @@
           const el = document.createElement('div');
           el.className = 'div-pile-card';
           // v3.7.x：牌背图形由 CSS ::after 绘制（✦ 星徽），不再用文本子元素
-          el.addEventListener('click', function () { pick(i); });
+          // #1044：闭包改传元素本身——增量移除后 remaining 会重排，按创建序号找牌必错位
+          el.addEventListener('click', function () { pick(el); });
           (i < half ? row1 : row2).appendChild(el);
+          pileEls.push(el);
         }
         updateHint();
       };
-      const pick = function (idx) {
+      const pick = function (el) {
         if (cancelled) return;
+        const idx = pileEls.indexOf(el);
         if (idx < 0 || idx >= remaining.length) return;
         if (results.length >= count) return;
         const c = remaining[idx];
-        remaining = remaining.slice(0, idx).concat(remaining.slice(idx + 1));
+        remaining.splice(idx, 1);
         let rev = false, meaning = c.meaning;
         if (isTarot) { rev = Math.random() > 0.5; meaning = rev ? c.neg : c.pos; }
         results.push({ name: c.name, icon: c.icon, rev: rev, meaning: meaning, detail: c.detail || '' });
-        renderGrid();
+        // #1044 牌堆增量移除：只摘走被抽中的那张，不再整堆重建。老实现每抽一张就把剩余
+        // 全部牌背销毁重建（78 张牌阵一记点按≈上百个节点销毁+重建+监听器重挂），低端机
+        // 与内存受压设备（诊断实测「本页被系统回收 15 次」一类）在这里吃出可感知的卡顿
+        // 峰值；剩余牌照原顺序留在原位，视觉结果与全量重建完全一致。
+        pileEls.splice(idx, 1);
+        if (el.parentNode) el.parentNode.removeChild(el);
+        updateHint();
         // 已抽牌：翻牌动画展示（图标 + 牌名 + 正/逆位 + 位置标签）
         const dc = document.createElement('div');
         dc.className = 'div-drawn-card';
@@ -992,6 +1003,23 @@
       if (!deck.length) { r.innerHTML = '<div class="div-result-empty">占卜牌库加载中…</div>'; return; }
       const labels = (MODE_LABELS[snapMode] && MODE_LABELS[snapMode][snapCount]) || [];
       drawBtn.textContent = '抽牌中…';
+      // #1044 取证：「抽一张牌就退出页面」类报障在真机上抓不到 JS 错误（诊断错误环全是
+      // 资源噪声）。这里给 page-divine 挂一次性观察：抽牌流程进行中（__divActiveDraw 非空）
+      // 页面被隐藏就把「当时可见的是哪一页」写进 console.error——随 device.js 错误环进诊断
+      // docx（LS 写满设备也有 IDB 双写兜底）。只记不拦，不改变任何切页行为。
+      try {
+        const pdp = document.getElementById('page-divine');
+        if (pdp && !pdp.__divDrawWatch) {
+          pdp.__divDrawWatch = true;
+          new MutationObserver(function () {
+            if (pdp.hidden && window.__divActiveDraw) {
+              let vis = '';
+              document.querySelectorAll('.page').forEach(function (p) { if (!p.hidden) vis = p.id || ''; });
+              console.error('[div-draw] 抽牌进行中页面被切走：当前可见页=' + (vis || '无') + '（若非你主动按返回，此行即「抽牌退出页面」现场）');
+            }
+          }).observe(pdp, { attributes: true, attributeFilter: ['hidden'] });
+        }
+      } catch (e) {}
       window.__divActiveDraw = startDivineDraw(r, {
         deck: deck,
         count: snapCount,
@@ -1008,6 +1036,11 @@
           if (snapTarget) record.target = targetName(snapTarget);
           const list = histLoad();
           list.unshift(record);
+          // #1044 历史封顶：占卜记录此前无上限（每条含全部牌面+解读，几百条即数百 KB），
+          // renderHistory 每次开页/抽牌都把全量记录 innerHTML 重建——低端机上这是随使用
+          // 年限线性恶化的常驻负担，也是内存受压回收（白屏/退出类症状）的推手之一。
+          // 封顶 500 条丢最旧；「查看」单条语义不变。
+          if (list.length > 500) list.length = 500;
           histSave(list);
           renderHistory();
           // v3.27.x：写入占卜对象的主页「占卜记录」（不选＝当前桌面）
