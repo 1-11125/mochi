@@ -2808,8 +2808,33 @@ if (!out && !userFollow && !chatPinnedBottom && !chatAtBottom()) return;
 	setTimeout(() => { if (chatVisible() && chatPinnedBottom) scrollChatBottomSmooth(); }, 150);
 	}
 }
+// FIX 2026-09-23 #1180（用户直派「回复条数最少1最多2，加上撤回补发和其他功能发的消息，聊天里联系人发送的消息非常多，怎么限制」）：TA 消息总量限流（默认关闭）。
+// 「回复条数」只管被动回复的基础条数，逐卡连发/撤回补发/心情分享/红包捎话/邀请/主动发送全都绕过它，所以调到 1~2 也照样刷屏——本闸管的是「总量」：任意 rl-win 分钟内、TA 已送达的收件最多 rl-max 条，超出的那几条不再投递，窗口滑过去自动恢复。
+// 计数源＝msgs 自身（in 侧），零新增存储键：重载/切桌面/跨页补投都按消息 ts 落回同一个窗口，天然复原；豁免位与 #1015 夜间总闸同源（rec.nightAllow＝用户当刻操作引发的记录、special:'read' 已读回执都不占额度也不拦）。零机型分支。
+function rateLimitFull() {
+try {
+const c = cfg();
+if (cfgn(c, 'rl-en', 0) !== 1) return false;
+const win = Math.max(1, cfgn(c, 'rl-win', 5)) * 60000;
+const max = Math.max(1, cfgn(c, 'rl-max', 15));
+const now = Date.now();
+let n = 0;
+for (let i = msgs.length - 1, k = 0; i >= 0 && k < 400; i--, k++) {
+const p = msgs[i];
+if (!p || (p.side || '') !== 'in' || p.nightAllow || p.special === 'read') continue;
+if (now - (p.ts || 0) > win) continue;
+if (++n >= max) return true;
+}
+return false;
+} catch (e) { return false; }
+}
+function rateBlocksIn(side, special, nightAllow) {
+if (side !== 'in' || nightAllow || special === 'read') return false;
+return rateLimitFull();
+}
 function showTyping() {
 if (!typingEl) return;
+if (rateLimitFull()) return; // #1180：额度已满＝TA 不会再发出来了，就别再演「正在输入」（否则每条都变成「打了字又没消息」）
 typingOn = true;
 if (chatVisible()) {
 typingEl.hidden = false; // FIX 2026-09-15 #514 只切可见性、不写 scrollTop（#334 守钉加强版：连钉住态也不抢滚动权）
@@ -6195,6 +6220,7 @@ if (window.nightModeActive && window.nightModeActive()) window.__nightReplyOpen 
 }
 function addRec(rec) {
 if (rec.side === 'in' && nightBlocksIn(rec.initiative, rec.nightAllow)) return null;
+if (rateBlocksIn(rec.side, rec.special, rec.nightAllow)) return null; // #1180 总量限流兜底（chatAddGift 等不过 addIn 的入口也走这里）
 if (!rec.ts) rec.ts = Date.now();
 chatRecStampUid(rec); // FIX #776：出生号——同一条消息被哪条通道克隆回去，认号不认正文
 const len = msgs.length;
@@ -6393,6 +6419,9 @@ opts = opts || {};
   // #1015 夜间静默：音效在本函数开头就播、早于 addRec 的收件总闸，必须在最前面拦——
   // 否则夜里「响一声却没有消息」（收件被总闸拦掉、音效已经响了）。判据与总闸同源。
   if (nightBlocksIn(opts.initiative, opts.nightAllow)) return null;
+  // #1180：音效在本函数里、addRec 之前播，所以限流闸必须与夜间闸一样在这儿再拦一次——
+  // 否则超额的那条「响一声却没有消息」（addRec 里的兜底闸来得太晚）。判据同源。
+  if (rateBlocksIn('in', opts.special, opts.nightAllow)) return null;
   // v3.26.x：联系人发消息音效——TA 主动消息/系统通知统一在 addIn 触发「联系人发送和回复消息」音效
   // （sfx-in）。此前只有群聊播 in 音效、单聊从未触发，所有手机单聊收 TA 消息都静音（红米 Turbo4Pro
   // + Via 反馈）。silent（小游戏互动/后台批量/静默通知）与已读回执（special:'read'）不打扰，不播放。

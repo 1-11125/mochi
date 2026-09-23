@@ -337,6 +337,13 @@
             <p class="splash-bullet">不同设备的服务器节点可能还没更新。如果设备没同步到最新版本，可以用流量多刷新几次，或者晚几个小时再试。</p>
             <p class="splash-bullet">刚刷完新版时新旧版本正在交接，也可能重复提醒一次；不想现在更新可点「稍后」，下次打开网页会自动同步。</p>
           </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">关于 TA 发消息太多（「回复条数」为什么管不住，以及新增的总量限流）</p>
+            <p class="splash-bullet"><b>「回复条数最少/最多」＝你每发 1 条消息，TA 跟着回你几条</b>，它只管这一件事，<b>不是 TA 一天最多发几条</b>。所以把它调成 1~2 之后，你还是可能收到很多条。</p>
+            <p class="splash-bullet"><b>这几类不占「回复条数」的名额、会额外多发</b>：词典拼字的「多回复逐卡连发」（默认不受条数限制）、撤回后补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（连发几条由「主动发送 → 发送条数」单独控制）。位置都在 聊天 → 更多 → 回复设置 → 聊天 →「回复与主动」。</p>
+            <p class="splash-bullet"><b>新增「总量限流」（同面板下方，默认关闭）</b>：打开后，任意「限流窗口」这段时间里 TA 最多发「窗口内最多条数」条，超出的直接不再发出，窗口滑过去自动恢复。<b>上面那些额外多发的类型在这里全部一起计数、一起拦，谁也不豁免</b>，只有已读回执和你当刻操作引发的记录（决定结果、游戏战绩、存钱罐结算等）不占额度也不会被拦。</p>
+            <p class="splash-bullet"><b>怎么配</b>：嫌刷屏就开限流、窗口 5 分钟／上限 15 条起步（还是多就把上限往下调、窗口往上调）；只想让每句话的回应变短，就把「回复条数」两项都调成 1 并关掉「多字卡回复」。限流按联系人独立生效，改动即时保存。</p>
+          </div>
           <!-- #1060（2026-09-23 用户直派「关于后台通知相关设置也放在公告里，放在公告的最后新增一个目录」）：
                与在线权威源 src/pwa/notice.json 的 sections 末条同口径（在线整段替换本段；此处为断网/弱网兜底） -->
           <div class="splash-sec-wrap">
@@ -3294,7 +3301,7 @@
             <div class="gs-row"><span>回复条数最少</span><div class="stepper" data-k="reply-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>回复条数最多</span><div class="stepper" data-k="reply-max" data-min="1" data-max="20" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="reply-max-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub"><b>这两项＝你每发 1 条消息，TA 就跟着回你几条（在最少~最多之间随机）。</b>默认 1~2 ＝ 你发一句、TA 回一两句。<b>注意：这是「每条消息」的条数，不是 TA 一天最多发几条，所以不建议调大</b>——调到 5 ＝ TA 每次都一口气连发 5 条、直接刷屏；你连着发的每句话还会各自触发一批（调到 5、你连发 3 句 ＝ 最多收到 15 条）。嫌 TA 话多就把这两项都调成 1；想彻底只回一条，去下方「字卡与概率」组关掉「多字卡回复」（关闭后这里设几条都只回 1 条）。</div>
-            <div class="gs-sub"><b>为什么有时收到的比上面设的还多</b>：这几类消息不占「回复条数」的名额、会额外多发——词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断，「词典拼字」组的「逐卡连发不受条数限制」默认开，手动关闭后才按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由下方「主动发送」组的「发送条数」单独控制）。所以把上面调到 N 只是限定「每发一条消息的基础回复」，不代表 TA 一天最多发 N 条。</div>
+            <div class="gs-sub"><b>为什么有时收到的比上面设的还多</b>：这几类消息不占「回复条数」的名额、会额外多发——词典拼字的「多回复逐卡连发」（命中时一次连发数条，默认不受本上限截断，「词典拼字」组的「逐卡连发不受条数限制」默认开，手动关闭后才按本上限截断）、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送的消息（一次连发几条由下方「主动发送」组的「发送条数」单独控制）。所以把上面调到 N 只是限定「每发一条消息的基础回复」，不代表 TA 一天最多发 N 条。<b>想让上面这些一起被管住，打开本面板下方「总量限流」</b>（只有它能限住 TA 发消息的总量）。</div>
             <div class="gs-row"><span>已读不回概率</span><div class="stepper" data-k="rn-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rn-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">命中已读不回时，本次发送只显示回执、不再回复；但不会拦截之前发送已排入的回复</div>
             <div class="gs-row"><span>拍一拍概率</span><div class="stepper" data-k="touch-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="touch-prob-val" readonly><button class="stp-max">+</button></div></div>
@@ -3308,6 +3315,13 @@
             <div class="gs-row"><span>撤回概率</span><div class="stepper" data-k="rc-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rc-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>撤回补发概率</span><div class="stepper" data-k="rc-refix" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rc-refix-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-sub">撤回后补发总开关（默认开）。效果举例：TA 发「今晚一起去吃火锅好不好」→ 撤回了一半 → 按「撤回补发概率」再发一条新的（如「明天去逛街吧」）。把本开关关闭＝TA 撤回后什么都不再发；开着＝TA 撤回后有「撤回补发概率」的机会补一条新消息（这条不计入「回复条数」上限）</div>
+          </div>
+          <div class="gs-title">总量限流（管住 TA 一共发多少条）</div>
+          <div class="set-group glass">
+            <div class="gs-row"><span>TA 消息限流</span><label class="toggle"><input type="checkbox" id="rl-en"><span class="tk"></span></label></div>
+            <div class="gs-row"><span>限流窗口（分钟）</span><div class="stepper" data-k="rl-win" data-min="1" data-max="60" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rl-win-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-row"><span>窗口内最多条数</span><div class="stepper" data-k="rl-max" data-min="1" data-max="100" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="rl-max-val" readonly><button class="stp-max">+</button></div></div>
+            <div class="gs-sub"><b>默认关闭（关闭时一切照旧）。</b>打开后：任意「限流窗口」这段时间里，TA 最多发「窗口内最多条数」条消息，超出的那几条直接不再发出，窗口滑过去自动恢复。<b>这是唯一能管住总量的开关</b>——上面「回复条数」只管「你每发 1 条消息 TA 回几条」，管不住额外多发的那几类（词典拼字逐卡连发、撤回补发、TA 的心情分享、红包/心意币/听歌邀请、TA 主动发送）；本限流把它们<b>全部一起计数、一起拦，谁也不豁免</b>。只有两类不占额度也不会被拦：已读回执、你当刻操作引发的记录（帮我决定/多人决定的结果、游戏战绩、存钱罐结算等）。举例：窗口 5 分钟、上限 15 条＝TA 一口气发满 15 条后就先安静下来，直到最早那条满 5 分钟才继续。按联系人独立生效，改动即时保存。</div>
           </div>
           <div class="gs-title">主动发送（联系人找你）</div>
           <div class="set-group glass">

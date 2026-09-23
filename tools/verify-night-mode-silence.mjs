@@ -95,14 +95,20 @@ function runFn(fnSrc, sandbox) {
 
 // B1 addIn/addRec 总闸：每条都成「对照对」（正反两侧一起判），保证在纯 HEAD 上必红
 const gateSrc = tryExtract(srcChat, 'function nightBlocksIn(initiative, nightAllow) {');
+// #1180：addIn 里同族又挂了一道总量限流闸（rateBlocksIn→rateLimitFull→cfg/cfgn＋msgs），
+// 沙箱不补齐符号就会 ReferenceError。这里按「限流关闭」态补桩（本脚本测的是夜间闸），
+// 限流本体的行为断言在 verify-1180-ta-rate-limit.mjs。
+const rlSrc = [tryExtract(srcChat, 'function rateLimitFull() {'),
+  tryExtract(srcChat, 'function rateBlocksIn(side, special, nightAllow) {'),
+  tryExtract(srcChat, 'function cfg() {'), tryExtract(srcChat, 'function cfgn(c, k, d) {')].map((s) => s || '').join('\n');
 const addInSrc = tryExtract(srcChat, 'function addIn(text, opts)');
 if (gateSrc && addInSrc) {
   const mk = (nm, openAgoMs) => {
     const recs = []; let sfx = 0;
-    const w = { playSfx: () => { sfx++; }, nightModeActive: nm };
+    const w = { playSfx: () => { sfx++; }, nightModeActive: nm, replyCfg: () => ({ 'rl-en': 0 }) };
     if (openAgoMs != null) w.__nightReplyOpen = Date.now() - openAgoMs;
-    const sb = { window: w, console, Date, String, Array, addRec: (r) => { recs.push(r); return r; } };
-    const fn = vm.runInContext('(function () { ' + gateSrc + '\n' + addInSrc + '\n return addIn; })()', vm.createContext(sb));
+    const sb = { window: w, console, Date, String, Array, msgs: [], addRec: (r) => { recs.push(r); return r; } };
+    const fn = vm.runInContext('(function () { ' + gateSrc + '\n' + rlSrc + '\n' + addInSrc + '\n return addIn; })()', vm.createContext(sb));
     return { fn, recs, sfx: () => sfx };
   };
   // ① 夜间：TA 主动（initiative）必拦；被动回复（无 initiative）必放行
