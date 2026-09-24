@@ -13,8 +13,13 @@
 // 断言（每场景全新存储；4× CPU 节流＝中低端机等效慢速，把重活拉长以便稳定采样）：
 //  F 组（用户报障的那条路：启动落在桌面 → 点聊天图标；屏上窗口已预渲＝走同窗补丁快路）
 //    F1 前提：点击前 进度条隐藏 + 聊天页隐藏 + 桌面可见（防「跑在别的状态上」的假绿）
-//    F2 ★主判据：点击后**至少有一帧**真的把进度条画到屏上（可见＝非 hidden＋有几何框）
-//       —— HEAD 恒 0 帧（置位与撤销同任务）＝红；修后 ≥1 帧＝绿
+//    F2 ★主判据（2026-09-23 随 #1051 换口径）：点击后必须有「反馈帧」——
+//       · 暖路（点击前屏上已带着本桌面这一窗＝#951 预渲落定）：首个聊天可见帧就要带着气泡，
+//         此时**不该**再挂加载条（#1051 量到旧行为：屏上明明已有内容还白挂 950ms 条＝用户报的
+//         「来回切换看着像 bug」）；
+//       · 冷路（屏上还拿不出本桌面这一窗）：进度条至少画到屏上 1 帧（＝本脚本原主判据、#1017 本体）。
+//       HEAD(纯 origin/main) 在本场景走冷路分支 ⇒ 原判据仍生效（实测条可见帧=2 首现@+516ms）。
+//    F2e 「聊天页已可见、既无条又无气泡」的裸帧必须为 0（#1017「全程零反馈」的不变量，两侧同检）
 //    F3 进度条不许卡死：点击后 3s 内收起，且随后 1.5s 保持收起
 //    F4 内容照常到达：点击后出现气泡
 //    F5 收尾不回归：贴底（gap≤8）且窗口尾贴最新（lastIdx===maxIdx）、data-idx 升序无重复
@@ -259,8 +264,13 @@ const F = await withFreshBrowser(4, () => scenario('warm'));
   check('F1b 前提：点击命中聊天图标', F.tapped === true);
   check('F1c 前提：种子真的到了（屏上已预渲出 200 条＝冷启动读到权威历史，非空库态）', F.pre.seeded > 50 && F.pre.dbReady === true,
     '预渲条数=' + F.pre.seeded + ' chatDbReady=' + F.pre.dbReady);
-  check('F2 ★ 点击后进度条至少被画到屏上 1 帧（用户要的「加载动画缓冲」）', barCount >= 1,
-    '可见帧=' + barCount + (firstBar ? ' 首现@+' + relF(firstBar.t) + 'ms' : '') + ' 采样帧=' + Ff.length + ' 最大帧间隔=' + maxGap + 'ms');
+  const firstChat = Ff.find((f) => f.chat === 1);
+  const naked = Ff.filter((f) => f.chat === 1 && f.bar !== 1 && !(f.bubbles > 0)).length;
+  const warmPre = F.pre.seeded > 50 && F.pre.dbReady === true; // F1c 同一判据：点击前屏上已带着本桌面这一窗
+  check('F2 ★ 点击后有反馈帧：暖路（屏上已预渲）＝首个聊天可见帧就带气泡、不必再挂加载条（#1051 撤掉「白挂假条」）；冷路（屏上还拿不出本桌面这一窗）＝进度条必须画到屏上 ≥1 帧（#1017 本体）',
+    warmPre ? (!!firstContent && !!firstChat && firstContent.t <= firstChat.t) : barCount >= 1,
+    '暖路=' + warmPre + ' 条可见帧=' + barCount + (firstBar ? ' 条首现@+' + relF(firstBar.t) + 'ms' : '') + ' 首内容@+' + (firstContent ? relF(firstContent.t) : '-') + 'ms 采样帧=' + Ff.length + ' 最大帧间隔=' + maxGap + 'ms');
+  check('F2e 不许出现「聊天页已可见、既无进度条又无气泡」的裸帧（#1017 的「全程零反馈」本体）', naked === 0, '裸帧=' + naked);
   check('F3 进度条不卡死（9s 内已收起且随后 1.5s 保持收起）', F.barAfter === 'true' && F.barStays === 'true', 'barAfter=' + F.barAfter);
   check('F4 内容照常到达（气泡出现）', !!firstContent && F.list.count > 0, '首内容@+' + (firstContent ? relF(firstContent.t) : '-') + 'ms 气泡=' + F.list.count);
   check('F5 收尾不回归：贴底 + 窗口尾贴最新 + 下标升序', F.list.gap <= 8 && F.list.lastIdx === F.list.maxIdx && ok(F.list.asc),

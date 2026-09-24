@@ -4244,6 +4244,12 @@ const FIX_SENTINELS = [
   { name: '#951f 后台归一化作废屏上凭据后在隐藏态补做预渲（删＝作废只在用户点开那一瞬兑现成整窗重建）', file: 'js/chat.js', needle: 'scheduleChatPrewarm(myPre); } catch (e) {} // #951f' },
   { name: '#951g 确认空库同样调度预渲（删＝新桌面为空时屏上残留上个桌面的气泡，直到点开聊天才清）', file: 'js/chat.js', needle: 'try { scheduleChatPrewarm(myPrefix); } catch (e) {} // #951g' },
   { name: '#951h 分帧构建在飞时同窗补丁让路（删＝预渲正把列表清空逐块重建的那一瞬，enterChat 判定「同窗同貌」直接返回＝把半截/空屏交给用户，闪屏换个面孔复发）', file: 'js/chat.js', needle: 'if (batchRendering) return false; // #951h' },
+  // ===== #1057 切桌面来回切「加载进度条还是不完整、像 bug」根治（进度条按屏上凭据显隐＋遮残留＋淡出收场）=====
+  { name: '#1057a 进度条并入「屏上有没有本桌面这一窗」凭据（删回＝同桌面退出再进照挂 1208ms、#951 预渲成果被浪费，进度条重新变成「标志位复读机」）', file: 'js/chat.js', needle: 'const ownWin = chatScreenHasOwnWindow(); // #1057a' },
+  { name: '#1057b 加载中遮掉非本桌面的残留消息区（删＝进度条浮在上一个桌面的气泡上 915ms＝用户说的「闪一下」本体复发）', file: 'css/chat-main.css', needle: '#page-chat.chat-loading-cover .chat-body { visibility:hidden; }' },
+  { name: '#1057c 进度条收场走淡出（删＝内容画好那一刻 hidden 瞬间撤＝「弹一下没了」）', file: 'js/chat.js', needle: "chatLoadingEl.classList.add('chat-loading-out'); // #1057c" },
+  { name: '#1057d 加载卡片内幽灵气泡占位在位（删＝只剩一根小条浮在空底上，「不完整」观感复发）', file: 'index.html', needle: '<div class="chat-loading-ghost" aria-hidden="true">' },
+  { name: '#1057e 屏上有窗但视口仍有未解码图时不许撤条（删回＝本批把 #1010「进度条持有到媒体落地」的契约削掉，verify-1010 B1 当场红）', file: 'js/chat.js', needle: 'if (withdraw && flagsUp && chatMediaPendingCount() > 0)' },
   // ===== #952 此间【去找TA】切桌面进聊天「正在加载聊天记录」反复出现/整窗清空重建/长时间卡顿根治（＝读库链×2 并发恶性循环；#695/#841 同症状家族收尾通道）=====
 ,  // ==== 2026-09-21 #962 屏幕适配微调「只能在设置里盲调」根治（用户直派「现在只能在这个设置里面调、不能在桌面的页面调，需要区分在桌面页面调和在聊天页面里调，现在是盲调什么也看不见」；#940 从未入库，本批一并收口）====
 { name: '#940a 面板半透明底＋40vh（删回不透明 62vh＝用户报「挡住看不见」复发；z-index:96 使本 needle 与桌面抽屉那行区分、personalize.js 内唯一）', file: 'js/personalize.js', needle: 'z-index:96;max-height:40vh;background:var(--card-bg,#fff);background:color-mix(in srgb, var(--card-bg,#fff) 72%, transparent);' },

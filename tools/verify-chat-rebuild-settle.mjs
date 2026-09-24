@@ -187,16 +187,17 @@ let m3 = measure(await runScenario(ENTER, 7000));
 ok('A3 撤回联系人冷进：无连续漂移帧（最长连击≤1）', m3[0] <= 1, '连续漂移帧 ' + m3[0]);
 ok('A3x 撤回联系人冷进：旧记录连续帧=0 / 空窗无进度条=0', m3[1] === 0 && m3[2] === 0, JSON.stringify(m3));
 
-// ---- 锚点（chat.js 属内联 core，产物 = index.html） ----
+// ---- 锚点（chat.js 已外置：产物锚点在 index.html 与 js/chat.js 两处，合并后再查） ----
 let art = '';
 try { art = readFileSync(join(root, 'index.html'), 'utf8'); } catch (e) { console.error('产物缺失：' + join(root, 'index.html')); process.exit(2); }
+try { art += '\n' + readFileSync(join(root, 'js/chat.js'), 'utf8'); } catch (e) { /* 单文件产物形态：内容仍在 index.html 内 */ }
 const anchors = [
   ['S1 分帧重建置空窗标志', 'chatRebuilding = true; // #841f'],
   ['S2 换装落定交回标志', 'chatRebuilding = false; // #841a'],
   ['S3 新轮渲染先复位', 'chatRebuilding = false; // #841e'],
   ['S4 进页即武装空窗', 'chatRebuilding = true; // #841i'],
   ['S5 同窗补丁就地交回', 'if (inplacePatchIfSameWindow()) { chatRebuilding = false; updateChatLoading(); }'],
-  ['S6 加载条认重建空窗', 'chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding) && !chatKnownEmpty)'],
+  ['S6 加载条认重建空窗', '!chatDbReady || chatRebuilding || chatAuthPending'],
   ['S7 换装后重开稳定窗', 'if (chatPinnedBottom) chatEntrySettle(); // #841b'],
   ['S8 lite 升级后重开', 'if (chatPinnedBottom) chatEntrySettle(); // #841c'],
   ['S9 原位补丁后重开', 'if (chatPinnedBottom) chatEntrySettle(); // #841d'],

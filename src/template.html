@@ -5248,6 +5248,9 @@
            chat.js 读库完成后自动隐藏 -->
       <div class="chat-loading" id="chat-loading" hidden>
         <div class="chat-loading-card">
+          <!-- FIX 2026-09-23 #1057：三行幽灵气泡占位（左右错落＋呼吸动画）＋进度条＋文案，
+               把「读库中的空白」画成一个有意的加载态；实际显隐与遮罩见 chat.js 的 setChatLoadingUI -->
+          <div class="chat-loading-ghost" aria-hidden="true"><i></i><i></i><i></i></div>
           <div class="chat-loading-bar"><i></i></div>
           <span class="chat-loading-txt">正在加载聊天记录…</span>
         </div>

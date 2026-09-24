@@ -2669,9 +2669,50 @@ return;
 }
 if (!chatSettleHoldT) chatSettleHoldT = setTimeout(chatSettleHoldPoll, 120);
 }
+// FIX 2026-09-23 #1057（用户报障：#951 上线后「问题依旧没有解决。那这个加载进度条还是不完整啊，
+// 就是因为这样切换，来回切换用户就会以为是 bug」）：15× 节流逐帧取证量出三处「像 bug」的形态——
+// ①同桌面「退出→再点开」进度条照挂 1208ms，而屏上明明已经有本桌面这一窗（#951 预渲的成果被浪费）：
+//   enterChat 无条件 chatRebuilding=true，把「将要重画」的标志当成了「屏上什么都没有」；
+// ②切桌面后 120ms 内点开：进度条浮在**上一个桌面**的 123 条气泡上 915ms（#489 清 msgs 不清 DOM，
+//   预渲 600ms 后才落地）＝「闪一下」本体，拿别人的聊天记录当加载背景绝不是诚实反馈；
+// ③内容画好后条再挂 1190ms 然后瞬间消失（无收场）。
+// 三处共同根因＝进度条只回答「标志位有没有置起」，从不回答「屏上现在是什么」。本批把判据补齐：
+// A 显隐加一层屏上凭据；B 真在加载且屏上不是本桌面的窗 → 遮掉消息区（visibility 保留滚动几何，
+// 不伤 #1039 首帧贴底）；C 收场走 160ms 淡出。零机型分支：判据全是屏上凭据与既有标志。
+// 屏上这一窗是否属于「当前桌面」：DOM 有节点 + 凭据已登记 + 未作废 + 命名空间对得上。
+function chatScreenHasOwnWindow() {
+if (!body || !body.children.length) return false;
+if (windowRenderedN === 0) return false; // 无屏上凭据（首渲前）
+if (windowStale) return false; // 渲染后数据被归一化/合并改过＝屏上已落后
+try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
+return true;
+}
+let chatLoadingOutT = null;
+// 进度条唯一的显隐出口：show＝要不要顶着，cover＝要不要连消息区一起遮掉（屏上没有本桌面的窗才遮）
+function setChatLoadingUI(show, cover) {
+if (chatLoadingOutT) { clearTimeout(chatLoadingOutT); chatLoadingOutT = null; }
+if (show) {
+chatLoadingEl.hidden = false;
+chatLoadingEl.classList.remove('chat-loading-out');
+} else if (!chatLoadingEl.hidden) {
+chatLoadingEl.classList.add('chat-loading-out'); // #1057c：不撤 DOM 先淡出，160ms 后再真撤（瞬间消失＝用户眼里的「闪」）
+chatLoadingOutT = setTimeout(function () { chatLoadingOutT = null; chatLoadingEl.hidden = true; chatLoadingEl.classList.remove('chat-loading-out'); }, 160);
+}
+const host = chatLoadingEl.parentElement; // #chat-loading 是 #page-chat 的直接子节点
+if (host) host.classList.toggle('chat-loading-cover', !!cover);
+}
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending || chatSettleHoldOn()) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）· #1010：收尾媒体解码未落地同样显示（否则「弹窗先消失、记录再闪一下」）
+const ownWin = chatScreenHasOwnWindow(); // #1057a：屏上已有本桌面这一窗＝用户已经在看内容，#967 的「空屏必须有提示」不再成立（标志位照旧置着，只是它不代表空屏）；只有 #1010 的收尾媒体窗还能在它之上顶着
+const flagsUp = (!chatDbReady || chatRebuilding || chatAuthPending || batchRendering || chatSettleHoldOn()) && !chatKnownEmpty; // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）· #1010：收尾媒体解码未落地同样显示（否则「弹窗先消失、记录再闪一下」）
+let withdraw = ownWin && !chatSettleHoldOn(); // #1057：判据从「标志位」补上「屏上拿不拿得出本桌面这一窗」
+// #1057 不许削掉 #1010 的契约：窗在位、但视口内还有未解码的图＝用户其实还没看到内容，条照旧顶着。
+// 这里直接借用 #1010 的收尾窗把条放下来（Arm 自带 deadline、Settle 排 120ms 轮询并在落地那帧重判），
+// 免得本批另起一台「永挂没人收」的定时器；遮罩仍只看 ownWin，同桌面重进时消息区不被遮＝与 #1010 原行为逐帧一致。
+// flagsUp 短路在前＝稳态浏览不会逐次量 DOM（本函数有 14 处调用点）。
+if (withdraw && flagsUp && chatMediaPendingCount() > 0) { withdraw = false; chatSettleHoldArm(); chatSettleHoldSettle(); }
+const show = chatVisible() && flagsUp && !withdraw;
+setChatLoadingUI(show, show && !ownWin); // #1057b：遮罩只在「屏上不是本桌面的窗」时挂（切桌面/预渲未落地/整窗重建中途）；CSS 侧规则见 chat-main.css 的 #1057b 哨兵
 }
 // FIX #162（iPad Air 7 / iPadOS 26 Safari：对方回一条消息视图就向上漂一次，不贴最新消息）
 // 贴底钉住态：程序化滚到底时置真，用户手动触摸/滚轮滚动即解除；复写与图片补滚只在钉住时进行

@@ -207,11 +207,29 @@ async function scenario(mode) {
 // batchRendering 永久 true（进度条卡死、上翻/回钉看门狗全被闸死）＝「看不到最新消息、退出重进才恢复」。
 // 种子条数刻意取 ≤ RENDER_MAX(200)：渲染窗＝整段历史，空洞无论落在哪种位置（原下标 /
 // 被权威合并按 ts 排序后挪到队首）都必在窗内，红侧崩溃不依赖附加消息们造成的窗口滑动。
+// 定长 sleep 当判据＝拿机器速度当尺子：本机同时挂着并行 Chrome 实例时，124 条在 15× 节流下 9s 内渲不完，
+// D2/D3/D4 会成片假红（#1057 收口实测同一份产物连跑 g 18/2·17/3·15/5·20/0，r 侧同样翻）。
+// 改成「渲到不动为止」（节点数连续两拍不变且条已收起＝真落定），上限 45s；超上限照原样读数，
+// 那时该红还是红——削掉的只是「采样太早」这一族假红，不是缺陷面。
+async function waitListSettle(maxMs) {
+  const budget = maxMs || 45000;
+  const t0 = Date.now();
+  let last = -1, stable = 0;
+  while (Date.now() - t0 <= budget) {
+    const st = JSON.parse(await evalJs(`(function(){var b=document.getElementById('chat-body');var p=document.getElementById('chat-loading');
+      return JSON.stringify({kids:b?b.children.length:-1,bar:!!(p&&!p.hidden)});})()`));
+    if (st.kids > 0 && st.kids === last && !st.bar) { if (++stable >= 2) return st.kids; } else stable = 0;
+    last = st.kids;
+    await sleep(600);
+  }
+  return last;
+}
 async function scenarioHole(holeIdx, n) {
   await resetAndSeed(holeIdx, n);
   const holeOk = !!(await evalJs(`(function(){try{var a=JSON.parse(window.activeStore().get('chat-msgs'));return Array.isArray(a)&&a.length===${n}&&a[${holeIdx}]===null;}catch(e){return false;}})()`));
   await clickChat();
-  await sleep(9000); // 15× 节流下构建＋权威回读全部落定
+  await sleep(1500); // 先让首进链起步（装批/读权威），再交给落定轮询
+  await waitListSettle();
   const r = await readList();
   const loadingVisible = !!(await evalJs("(function(){var p=document.getElementById('chat-loading');return !!(p&&!p.hidden);})()"));
   return { holeOk, r, loadingVisible };

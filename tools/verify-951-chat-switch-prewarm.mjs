@@ -269,12 +269,16 @@ async function scenarioSwitch(opts) {
   }
   const before = await screenTail();
   await clickChat();
-  await waitUntil(HASB_FULL, 30000, 500); // 慢设备上第 2/3 次重读要等够，别把「还没读到」当成「画坏了」
+  const tFull = Date.now();
+  // 上限 60s（原 30s）：本机同时挂着并行 Chrome 时，第 2/3 次权威重读在 15× 节流下可以跨过 30s，
+  // 那时 after.hasB=false 是「还没读到」而不是「画坏了」（#1057 收口实测同产物 g 侧 15/1 即此形态）。
+  const fullLanded = await waitUntil(HASB_FULL, Number(process.env.FULL_WAIT) || 60000, 500);
+  const fullWaitMs = Date.now() - tFull;
   await sleep(1200); // #504 稳定窗落定
   const after = await screenTail();
   const p = await probe();
   await stopProbe();
-  return { cid, okProbe, prewarmLanded, a1, before, after, p };
+  return { cid, okProbe, prewarmLanded, fullLanded, fullWaitMs, a1, before, after, p };
 }
 
 // ---- S 组：源锚（读被服务产物文本；不依赖浏览器，红绿对照时最先见分晓）----
@@ -303,8 +307,15 @@ async function scenarioSwitch(opts) {
 // ---- B 组：防修过头（大历史未预读＝权威未就绪，预渲一律不动作）----
 {
   const s = await scenarioSwitch({ lazyB: true });
-  check('B1 大包懒读桌面：点开前屏上仍是旧桌面（A）记录、尚无新桌面记录＝预渲没拿旧画面冒充新桌面', s.before.hasA === true && s.before.hasB === false && s.after.hasB === true, JSON.stringify({ before: { kids: s.before.kids, hasA: s.before.hasA, hasB: s.before.hasB }, after: { hasB: s.after.hasB } }));
-  check('B2 大包懒读桌面：点开聊天后进度条在可见期亮过＝真在读数据的诚实反馈没被削掉', s.p && s.p.barVisFrames >= 1, JSON.stringify({ barVisFrames: s.p && s.p.barVisFrames }));
+  // B1/B2 原口径＝「固定 sleep(2500) 内预渲必然还没落地」，那是拿机器速度当判据：同一份产物两侧都会随机翻
+  //（#1057 收口实测同 tip 连跑：g 14/2·16/0·16/0、r 16/0·15/1·16/0）。改成竞态无关的分支判据，牙齿不削：
+  // 点开那一刻屏上只有两种合法形态——①仍是旧桌面（A）＝预渲未落地 ⇒ 这分支里 B2 照旧要求「必须亮过条」；
+  // ②已是完整 B 窗（kids 达标）＝预渲提前落地 ⇒ 可以没有条，但必须证得「内容真的齐了」而不是屏上还空着。
+  // 非法形态照旧拦：A/B 混屏（拿旧桌面冒充新桌面）、点开后屏上不是 B 的记录。
+  const landedAtClick = s.before.hasB === true && s.before.hasA === false && s.before.kids >= N - 5;
+  const staleAtClick = s.before.hasA === true && s.before.hasB === false;
+  check('B1 大包懒读桌面：点开那一刻屏上要么仍是旧桌面（预渲未落地）要么已是完整 B 窗（提前落地），不得混屏冒充', (landedAtClick || staleAtClick) && s.after.hasB === true, JSON.stringify({ landedAtClick, staleAtClick, fullLanded: s.fullLanded, fullWaitMs: s.fullWaitMs, before: { kids: s.before.kids, hasA: s.before.hasA, hasB: s.before.hasB }, after: { hasB: s.after.hasB } }));
+  check('B2 大包懒读桌面：预渲未落地时点开必须有进度条（真在读的诚实反馈没被削掉）；已落地则须证内容真齐（kids 达标）', !!s.p && (staleAtClick ? s.p.barVisFrames >= 1 : s.before.kids >= N - 5), JSON.stringify({ staleAtClick, barVisFrames: s.p && s.p.barVisFrames, kids: s.before.kids }));
 }
 // ---- C 组：既有契约不回归（两侧同过）----
 {

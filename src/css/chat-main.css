@@ -59,13 +59,26 @@
 .chat-loading {
   position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
   z-index:5; pointer-events:none;
+  transition:opacity .16s ease;
 }
+/* FIX 2026-09-23 #1057：加载提示收场走淡出（原先 hidden 瞬间撤＝用户眼里的「闪一下」）；
+   且真在加载而屏上又是上一个桌面的残留时，整块遮掉消息区——visibility 而非 display/opacity，
+   保留滚动几何（不伤 #1039 进页首帧贴底），用户看到的是「加载卡片＋干净底」。 */
+.chat-loading-out { opacity:0; }
+#page-chat.chat-loading-cover .chat-body { visibility:hidden; }
 .chat-loading-card {
   background:rgba(255,255,255,.95); border:1px solid rgba(0,0,0,.1);
   border-radius:12px; padding:14px 18px; min-width:190px;
   display:flex; flex-direction:column; gap:8px; align-items:center;
   box-shadow:0 4px 16px rgba(0,0,0,.08);
 }
+/* 幽灵气泡：三行左右错落的占位条（呼吸动画），让加载态读起来像设计而不是卡住的进度条 */
+.chat-loading-ghost { display:flex; flex-direction:column; gap:6px; width:150px; }
+.chat-loading-ghost i { display:block; height:16px; border-radius:9px; background:#e6e6e6; animation:chatGhostPulse 1.4s ease-in-out infinite; }
+.chat-loading-ghost i:nth-child(1) { width:62%; }
+.chat-loading-ghost i:nth-child(2) { width:80%; align-self:flex-end; animation-delay:.18s; }
+.chat-loading-ghost i:nth-child(3) { width:44%; animation-delay:.36s; }
+@keyframes chatGhostPulse { 0%, 100% { opacity:.45; } 50% { opacity:.95; } }
 .chat-loading-bar {
   width:150px; height:5px; border-radius:3px; background:#e9e9e9; overflow:hidden; position:relative;
 }

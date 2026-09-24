@@ -1958,9 +1958,34 @@ return;
 }
 if (!chatSettleHoldT) chatSettleHoldT = setTimeout(chatSettleHoldPoll, 120);
 }
+function chatScreenHasOwnWindow() {
+if (!body || !body.children.length) return false;
+if (windowRenderedN === 0) return false; // 无屏上凭据（首渲前）
+if (windowStale) return false; // 渲染后数据被归一化/合并改过＝屏上已落后
+try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
+return true;
+}
+let chatLoadingOutT = null;
+function setChatLoadingUI(show, cover) {
+if (chatLoadingOutT) { clearTimeout(chatLoadingOutT); chatLoadingOutT = null; }
+if (show) {
+chatLoadingEl.hidden = false;
+chatLoadingEl.classList.remove('chat-loading-out');
+} else if (!chatLoadingEl.hidden) {
+chatLoadingEl.classList.add('chat-loading-out'); // #1057c：不撤 DOM 先淡出，160ms 后再真撤（瞬间消失＝用户眼里的「闪」）
+chatLoadingOutT = setTimeout(function () { chatLoadingOutT = null; chatLoadingEl.hidden = true; chatLoadingEl.classList.remove('chat-loading-out'); }, 160);
+}
+const host = chatLoadingEl.parentElement; // #chat-loading 是 #page-chat 的直接子节点
+if (host) host.classList.toggle('chat-loading-cover', !!cover);
+}
 function updateChatLoading() {
 if (!chatLoadingEl) return;
-chatLoadingEl.hidden = !(chatVisible() && (!chatDbReady || chatRebuilding || chatAuthPending || chatSettleHoldOn()) && !chatKnownEmpty); // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）· #1010：收尾媒体解码未落地同样显示（否则「弹窗先消失、记录再闪一下」）
+const ownWin = chatScreenHasOwnWindow(); // #1057a：屏上已有本桌面这一窗＝用户已经在看内容，#967 的「空屏必须有提示」不再成立（标志位照旧置着，只是它不代表空屏）；只有 #1010 的收尾媒体窗还能在它之上顶着
+const flagsUp = (!chatDbReady || chatRebuilding || chatAuthPending || batchRendering || chatSettleHoldOn()) && !chatKnownEmpty; // #703：去掉「msgs 为空」前置 · #841：重建空窗期同样显示 · #967：权威未达同样显示（保险丝置真不代表数据到了，空屏必须一直有提示）· #1010：收尾媒体解码未落地同样显示（否则「弹窗先消失、记录再闪一下」）
+let withdraw = ownWin && !chatSettleHoldOn(); // #1057：判据从「标志位」补上「屏上拿不拿得出本桌面这一窗」
+if (withdraw && flagsUp && chatMediaPendingCount() > 0) { withdraw = false; chatSettleHoldArm(); chatSettleHoldSettle(); }
+const show = chatVisible() && flagsUp && !withdraw;
+setChatLoadingUI(show, show && !ownWin); // #1057b：遮罩只在「屏上不是本桌面的窗」时挂（切桌面/预渲未落地/整窗重建中途）；CSS 侧规则见 chat-main.css 的 #1057b 哨兵
 }
 let chatPinnedBottom = true;
 function chatScrollMax() {
