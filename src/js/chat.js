@@ -11009,11 +11009,15 @@ if (chatAskClose) chatAskClose.addEventListener('click', (e) => { e.stopPropagat
 // FIX 2026-09-20 #906：底部半框「点半框外关闭」收口成一分派器（用户报【帮我决定】【群聊决定】点屏幕其他地方关不掉）
 // 现状：拍一拍/表情包/更多功能/批量/语音/寻踪/消息菜单/群聊两菜单早在各自文件手挂了 document click 点外关闭（#481/#529），
 // 占卜、问问TA、聊天记录、猜拳、红包、帮我决定、多人决定这几枚同族底半框从来没挂＝点外没有任何关闭路径，只能点 ✕。
-// 三条判据（各家手挂版没有的兜底，收在一起）：
+// 四条判据（各家手挂版没有的兜底，收在一起）：
 // ①「刚打开那一击」不算点外——入口 click 与本监听同批派发（部分入口没 stopPropagation、touch 直驱还补发合成 click），
 //    无此闩＝刚开即关（同 #522 弹窗 350ms 判据）；打开时刻用 hidden 属性观察器取，不侵入各面板的 open 函数；
 // ②落在上层弹窗遮罩 .modal-mask 上不算点外（openModal 是全站唯一弹窗，点它＝关弹窗，不该连底下半框一起收）；
 // ③走各面板自己的关闭函数（红包收设置区、问问TA 清键盘合成层），与点 ✕ 完全同一条路。
+// ④（#1207）「在框内」按事件派发那一刻的路径算，不读实时 contains——被点的元素可能在同一记点击的
+//    处理器里就被移出 DOM（占卜抽牌：牌背在抽中那一刻 removeChild 自己），那时 contains 已为假，
+//    「点牌背抽一张」就被误判成「点半框外」＝用户实报「聊天里打开占卜，抽牌的时候自动退出」。
+//    composedPath() 取派发开始时定下的路径链，不受中途 DOM 变更影响；取不到路径才回落旧口径。
 // 刻意不接入：通话半框 #chat-call-panel 与小游戏对局半框——它们外面就是聊天气泡，
 // 长按气泡要弹的消息菜单一点就把通话关掉/把对局弃掉，代价大于便利（✕ 仍是显式出口）。
 window.mochiSheetOutsideClose = function (panel, close) {
@@ -11027,8 +11031,15 @@ document.addEventListener('click', (e) => {
 if (panel.hidden) return;
 if (Date.now() - openedAt < 400) return;
 const t = e.target;
-if (!t || panel.contains(t)) return;
-if (t.closest && t.closest('.modal-mask')) return;
+if (!t) return;
+// #1207 判据④：路径取派发那一刻的 composedPath()，被点元素在同一记点击里被摘走也不算点外
+const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+if (path && path.length) {
+for (let i = 0; i < path.length; i++) {
+const n = path[i];
+if (n === panel || (n.nodeType === 1 && n.classList && n.classList.contains('modal-mask'))) return;
+}
+} else if (panel.contains(t) || (t.closest && t.closest('.modal-mask'))) return;
 close();
 });
 };

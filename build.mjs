@@ -4880,6 +4880,9 @@ const FIX_SENTINELS = [
   { name: '#1203c 经期温柔前缀/后缀收进多字卡总开关（删掉闸门＝经期里每条回复又被拼一张温柔卡、关了开关照样「多字卡」）', file: 'js/chat.js', needle: "if (rep && c['py-en'] === 1 && rep.type === 'text'" },
   { name: '#1203d 群聊成员回复末尾颜文字卡同口径（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {" },
   { name: '#1203e 单聊总开关文案写明「三处拼卡一并停用＋词典/梦角各认自己开关」（删掉＝用户仍按旧口径理解，关了就又报「没关干净」）', file: 'index.html', needle: '词典拼字、梦角自由造句各认自己的开关' },
+  /* ==== 2026-09-24 #1207 聊天里打开占卜「抽牌时半框自动退出」（用户实报；根因零机型分支：#906 的点外关闭分派器在事件冒泡到 document 那刻实时读 panel.contains(e.target) 判内外，而占卜牌背的点击处理器在同一记派发里就把被点节点 removeChild 摘走 ⇒ contains 恒假 ⇒「点牌抽一张」被误判成「点半框外」，整框当场收掉；400ms 刚开闩拦不住，牌堆最早 1750ms 后才出现。修法＝点外判定改按派发那一刻的 composedPath()，取不到路径才回落旧口径；一处收口＝同族九枚底半框全修）==== */
+  { name: '#1207a 点外判定取派发时路径（删＝回到实时 contains，被点元素同刻自我摘除即误判点外＝占卜抽牌关框复发，且全族同病）', file: 'js/chat.js', needle: "const path = typeof e.composedPath === 'function' ? e.composedPath() : null;" },
+  { name: '#1207b 路径命中面板或弹窗遮罩即算框内（删这行＝分派器只认路径不认面板，半框永远点不关；改坏＝抽牌那一击又把框收掉）', file: 'js/chat.js', needle: "if (n === panel || (n.nodeType === 1 && n.classList && n.classList.contains('modal-mask'))) return;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

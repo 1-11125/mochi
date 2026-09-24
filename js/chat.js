@@ -8766,8 +8766,14 @@ document.addEventListener('click', (e) => {
 if (panel.hidden) return;
 if (Date.now() - openedAt < 400) return;
 const t = e.target;
-if (!t || panel.contains(t)) return;
-if (t.closest && t.closest('.modal-mask')) return;
+if (!t) return;
+const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+if (path && path.length) {
+for (let i = 0; i < path.length; i++) {
+const n = path[i];
+if (n === panel || (n.nodeType === 1 && n.classList && n.classList.contains('modal-mask'))) return;
+}
+} else if (panel.contains(t) || (t.closest && t.closest('.modal-mask'))) return;
 close();
 });
 };
