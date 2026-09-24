@@ -385,6 +385,7 @@ if (_ev && typeof _ev === 'object') kaEv = Object.assign(kaEv, _ev);
 }
 } catch (e) {}
 function kaEvSave() { try { gSet('__ka-ev', JSON.stringify(kaEv)); } catch (e) {} }
+let kaDiedNotice = false; // #1199 TDZ 闸：必须声明在 sessBootCheck() 之前
 const SESS_KEY = '__sess-alive';
 function sessMark(closed) { try { gSet(SESS_KEY, JSON.stringify({ t: Date.now(), closed: !!closed })); } catch (e) {} }
 function sessBootCheck() {
@@ -394,7 +395,7 @@ if (prev && typeof prev.t === 'number' && !prev.closed && (Date.now() - prev.t) 
 kaEv.died++;
 kaEv.diedAt = kaEv.diedAt || [];
 kaEv.diedAt.push(Date.now());
-if (kaEv.diedAt.length > 10) kaEv.diedAt.shift();
+if (kaEv.diedAt.length > 30) kaEv.diedAt.shift();
 kaEvSave();
 kaDiedNotice = true;
 }
@@ -425,8 +426,13 @@ kaHbStop();
 try {
 sessBootCheck(); // #961：通用存活标记启动判定（含正常收尾标记，与保活开关无关）
 if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
+if (kaDiedNotice) return;
 if (old && old.n > 0 && !old.resumed && !old.bye) {
-kaEv.died++; kaEvSave();
+kaEv.died++;
+kaEv.diedAt = kaEv.diedAt || [];
+kaEv.diedAt.push(Date.now());
+if (kaEv.diedAt.length > 30) kaEv.diedAt.shift();
+kaEvSave();
 kaDiedNotice = true;
 tryShowKaDiedNotice();
 }
@@ -437,7 +443,6 @@ if (!kaHb) return;
 kaHb.bye = 1;
 try { if (window.idbSet) window.idbSet(KA_HB_KEY, kaHb); } catch (e) {}
 });
-let kaDiedNotice = false;
 let kaPermNoticeArmed = false;
 function kaLivenessOn() {
 try { return !!keepEnabled || !!notifyEnabled; } catch (e) { return false; }
@@ -469,16 +474,19 @@ try { moBody.observe(document.body, { childList: true }); } catch (e) {}
 tmr = setTimeout(cleanup, 90000);
 } catch (e) { try { fn(); } catch (e2) {} }
 }
-function showMemWarnBar(total, recent) {
+const MEM_NOTE_OFF = '__ka-mem-note-off';
+function memNoteOff() { try { return gGet(MEM_NOTE_OFF) === '1'; } catch (e) { return false; } }
+function recentDiedCount() {
 try {
-if (document.getElementById('mem-warn-bar')) return;
-const b = document.createElement('div');
-b.className = 'ver-update-bar';
-b.id = 'mem-warn-bar';
-b.style.cursor = 'pointer';
-b.innerHTML = '<span class="vub-txt"></span><b>去看怎么清</b>';
-b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了。止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单；被回收后回到本页会自动重载，保活在你碰一下页面时自动接上';
-b.addEventListener('click', function () {
+const cut = Date.now() - 48 * 3600 * 1000;
+const list = Array.isArray(kaEv.diedAt) ? kaEv.diedAt : [];
+const keep = list.filter(function (t) { return typeof t === 'number' && t >= cut; });
+if (keep.length !== list.length) { kaEv.diedAt = keep; kaEvSave(); }
+return keep.length;
+} catch (e) { return 0; }
+}
+const MEM_HOW_TO = '页面在后台被手机收回，是系统的省电与后台管控在做主，网站拦不住——但下面几条是真能少发生：\n\n① 别从「最近任务」把本站划掉（划掉＝你亲手关掉，回来一样要重载）。\n② 系统设置 → 应用 → 你用的浏览器 → 省电/电池 → 选「无限制 / 允许后台活动」；有「后台管理 / 自启动」的也一并设为允许。\n③ 最近任务里长按本站卡片选「锁定」（或小锁图标），一键清理后台时会跳过它。\n④ 不用时把 设置→系统 的「后台保活」关掉（它靠一直放近无声音频续命，本身也吃内存）。\n⑤ 设置→工具→「查看存储」清掉最占地方的一项（表情包大图/旧聊天记录，删前先导出备份）——页面越轻，越不容易被系统挑中收回。\n\n被收回不会丢数据：回到本页会自动重载接上，保活在你碰一下页面时自动恢复。';
+function gotoStorageView() {
 try {
 const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
 if (t) t.click();
@@ -492,27 +500,60 @@ try { const r = document.getElementById('row-storage-view'); if (r && r.scrollIn
 }, 300);
 }, 350);
 } catch (e) {}
+}
+function showMemWarnBar(recent) {
+try {
+if (memNoteOff()) return;
+if (document.getElementById('mem-warn-bar')) return;
+const b = document.createElement('div');
+b.className = 'ver-update-bar';
+b.id = 'mem-warn-bar';
+b.innerHTML = '<span class="vub-txt"></span>'
++ '<span class="vub-act" id="mem-warn-how">怎么清</span>'
++ '<span class="vub-act" id="mem-warn-off">不再提示</span>'
++ '<span class="vub-act vub-close" id="mem-warn-x" role="button" aria-label="关闭本条提示">×</span>';
+b.querySelector('.vub-txt').textContent = '近两天有 ' + recent + ' 次，这个页面在后台被手机收回后重新加载——切回来白一下/自动刷新就是它。是系统的省电与内存管控在做主，不是网站坏了，数据不会丢';
+const close = function () { try { b.hidden = true; } catch (e) {} };
+const how = b.querySelector('#mem-warn-how');
+if (how) how.addEventListener('click', function (ev) {
+try { ev.stopPropagation(); } catch (e) {}
+try {
+const ctl = window.openModal('怎么让它少被收回', '', function () { gotoStorageView(); }, { noInput: true, staticText: MEM_HOW_TO, big: true });
+if (ctl && ctl.okText) ctl.okText('去清存储');
+} catch (e) {}
+});
+const off = b.querySelector('#mem-warn-off');
+if (off) off.addEventListener('click', function (ev) {
+try { ev.stopPropagation(); } catch (e) {}
+try { gSet(MEM_NOTE_OFF, '1'); } catch (e) {}
+close();
+});
+const x = b.querySelector('#mem-warn-x');
+if (x) x.addEventListener('click', function (ev) {
+try { ev.stopPropagation(); } catch (e) {}
+kaNoticeStamp('__ka-mem-note-at'); // 明确关掉＝这一轮冷却重新计时，不再当场复弹
+close();
 });
 (document.body || document.documentElement).appendChild(b);
-setTimeout(function () { try { b.hidden = true; } catch (e) {} }, 60000); // 60s 自动收起，不常驻
+setTimeout(close, 60000); // 60s 自动收起，不常驻
 } catch (e) {}
 }
 function tryShowKaDiedNotice() {
 if (!kaDiedNotice) return;
+if (memNoteOff()) { kaDiedNotice = false; return; }
 try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
-const total = kaEv.died || 0;
-const recent = (kaEv.diedAt || []).filter(function (t) { return Date.now() - t < 48 * 3600 * 1000; }).length;
-if (recent >= 3 || total >= 10) {
-if (kaNoticeCool('__ka-mem-note-at', 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
+const recent = recentDiedCount();
+if (recent >= 3) {
+if (kaNoticeCool('__ka-mem-note-at', 7 * 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
 kaDiedNotice = false;
 kaNoticeStamp('__ka-mem-note-at');
-kaNoticeAfterSplash(function () { showMemWarnBar(total, recent); });
+kaNoticeAfterSplash(function () { showMemWarnBar(recent); });
 return;
 }
 if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
 kaDiedNotice = false;
 kaNoticeStamp('__ka-died-note-at');
-toast('⚠ 系统刚把本站整个关掉过一次（手机内存不够时 iOS 会这样做）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项。');
+toast('⚠ 刚才这个页面在后台被手机收回过一次（系统的省电/内存管控在做主）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①别从最近任务划掉本站 ②设置→系统 关掉「后台保活」③设置→工具→「查看存储」清掉最占地方的一项。');
 }
 function nbPermPendingNotice() {
 try { if (!notifyEnabled) return; } catch (e) { return; }

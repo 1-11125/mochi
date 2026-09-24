@@ -888,6 +888,10 @@ background:var(--card-bg); color:var(--ink); font-weight:700; cursor:pointer;
 -webkit-tap-highlight-color:transparent;
 }
 .ver-update-bar .vub-act:active { opacity:.8; }
+.ver-update-bar > b { flex:none; white-space:nowrap; }
+#mem-warn-bar { flex-wrap:wrap; padding-right:48px; }
+#mem-warn-bar .vub-txt { flex:1 1 100%; }
+#mem-warn-bar #mem-warn-x { position:absolute; top:calc(9px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))); right:10px; min-width:30px; text-align:center; font-size:18px; line-height:26px; }
 #backup-remind-bar { background:linear-gradient(90deg,#e8382c,#f26a1b); box-shadow:0 4px 18px rgba(232,56,44,.45); }
 #backup-remind-bar .vub-txt { color:#fff; font-weight:800; }
 #backup-remind-bar .vub-act { background:#fff; color:#c92a1f; }
@@ -10665,9 +10669,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790230789827">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790233661627">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.35</b></span>
-        <span class="sv-deploy">部署于 2026-09-24 14:19<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-24 15:07<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -18500,7 +18504,7 @@ kpParts.push('在场信号矛盾：音乐标志说在播·元素实为暂停（�
 if (kp.ev && (kp.ev.stall > 0 || kp.ev.died > 0)) {
 kpParts.push('历史取证：断流' + kp.ev.stall + '次/后台终止' + kp.ev.died + '次（>0＝保活曾被冻结或页面曾被系统回收）');
 if (kp.ev.died >= 5) {
-kpParts.push('⚠ 本页被系统回收过 ' + kp.ev.died + ' 次（内存压力）：建议①不用时关掉后台保活（更省内存）②按 设置→查看存储 清掉最占地方的一项 ③别同开太多标签页/网页应用 ④止住它最有效：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单（被回收后回到本页会自动重载，保活在你碰一下页面时自动接上，数据不会丢）');
+kpParts.push('⚠ 本页被系统回收过 ' + kp.ev.died + ' 次（累计：系统在后台收回网页、省电管控、从最近任务划掉都会算进来）：①别从最近任务划掉本站，改为在系统设置→应用→本浏览器→省电里选「无限制/允许后台活动」，最近任务里再把它「锁定」②不用时关掉后台保活（更省内存）③按 设置→查看存储 清掉最占地方的一项。注意：Chrome/Edge 的「内存节省程序 / 睡眠标签页」只管浏览器标签页，桌面快捷方式与独立 PWA 不受它约束，改那里没用。数据不会丢：回到本页自动重载，保活碰一下页面即接上');
 }
 }
 if (kp.hb) {
@@ -21581,4 +21585,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ muf56u2r -->
+<!-- __MOCHI_EOF__ muf6wdyz -->

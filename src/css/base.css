@@ -1438,6 +1438,17 @@ html.ios-cover-top .phone .statusbar {
   -webkit-tap-highlight-color:transparent;
 }
 .ver-update-bar .vub-act:active { opacity:.8; }
+/* #1199：顶条里的裸 <b>（pwa.js「点此重试」等动态条）不参与 flex 压缩——中文按字断行，
+   被压到 min-content 就是一列竖排字（用户实报「去看怎么清」竖在屏幕边上、后面的关闭键整个
+   被挤出屏幕＝「弹窗无法关闭」）。同 chat-main.css:808 #306 那条「竖排字的根因」一个形状。 */
+.ver-update-bar > b { flex:none; white-space:nowrap; }
+/* #1199 内存回收警告条：文案长＋三个动作，横排必然挤爆。改成文案独占一行、动作另起一行，
+   「×」绝对定位钉右上角（不进 flex 流），任何字号/机型下都可见可点。
+   ⚠ 这里刻意不重写 display/width：#mem-warn-bar 的 ID 权重高于 .ver-update-bar[hidden]，
+   一旦在本条里写 display 就会打掉「点 × 收起」的能力（＝本次要修的 bug 原地复发）。 */
+#mem-warn-bar { flex-wrap:wrap; padding-right:48px; }
+#mem-warn-bar .vub-txt { flex:1 1 100%; }
+#mem-warn-bar #mem-warn-x { position:absolute; top:calc(9px + var(--mochi-safe-top, env(safe-area-inset-top, 0px))); right:10px; min-width:30px; text-align:center; font-size:18px; line-height:26px; }
 
 /* v3.3x.x：备份提醒顶条醒目配色——「数据被设备自动清空」是唯一没法用代码挽回的风险，
    这条必须比版本更新条更抢眼（用户直派：人话提醒颜色要显眼）。红橙渐变底＋白字加粗＋

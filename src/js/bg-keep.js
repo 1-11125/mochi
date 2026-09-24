@@ -567,6 +567,11 @@
   // 旧实现只在开着保活时靠后台心跳察觉（kaLivenessOn 门控），没开保活的用户永远得不到解释，
   // 而 17PM 实报「严重时聊天完全白屏动不了」正是这一类（该机累计被回收 43 次）。
   // 标记极小：切后台/离开时写 {t, closed}；下次启动若上次不是正常收尾且时间很近 ⇒ 记一次回收。
+  // #1199：声明必须在使用它的第一段（下面的 sessBootCheck / 上面的会话取证）之前。原来它和
+  //   #1001 那批监听器代码写在一起（本 IIFE 后半），而 sessBootCheck() 在更早的启动块里就同步
+  //   给它的 `let` 赋值——TDZ ReferenceError 被外层 try{}catch{} 吞掉，于是通用路径永远抬不起
+  //   这个标记，顶条只能等异步心跳那条路（没开保活的用户＝永远不弹）。
+  let kaDiedNotice = false; // #1199 TDZ 闸：必须声明在 sessBootCheck() 之前
   const SESS_KEY = '__sess-alive';
   function sessMark(closed) { try { gSet(SESS_KEY, JSON.stringify({ t: Date.now(), closed: !!closed })); } catch (e) {} }
   function sessBootCheck() {
@@ -576,7 +581,9 @@
         kaEv.died++;
         kaEv.diedAt = kaEv.diedAt || [];
         kaEv.diedAt.push(Date.now());
-        if (kaEv.diedAt.length > 10) kaEv.diedAt.shift();
+        // #1199：上限从 10 放宽到 30——原来「近两天几次」直接数这个定长数组，留 10 条＝计数
+        // 永远封顶在 10，屏幕上报出「近两天 10 次」其实是饱和值而不是实测值。
+        if (kaEv.diedAt.length > 30) kaEv.diedAt.shift();
         kaEvSave();
         kaDiedNotice = true;
       }
@@ -622,8 +629,18 @@
   try {
     sessBootCheck(); // #961：通用存活标记启动判定（含正常收尾标记，与保活开关无关）
     if (window.idbGet) window.idbGet(KA_HB_KEY).then(function (old) {
+      // #1199（吸收未构建的 #1063b）：同一次回收会在两条取证路上各记一次账——sessBootCheck
+      // 已在本次启动同步记过（kaDiedNotice=true）时这条不能再 ++，否则实际 2 次累计成 4 次，
+      // 门槛被虚高提前踩中＝「明明没几次却弹了」。
+      if (kaDiedNotice) return;
       if (old && old.n > 0 && !old.resumed && !old.bye) {
-        kaEv.died++; kaEvSave();
+        kaEv.died++;
+        // #1199：这条路上以前只加总数、不进 diedAt 时间表，而新门槛只看 diedAt（近两天）——
+        // 不补时间戳就会漏计，两条取证路的口径必须一致。
+        kaEv.diedAt = kaEv.diedAt || [];
+        kaEv.diedAt.push(Date.now());
+        if (kaEv.diedAt.length > 30) kaEv.diedAt.shift();
+        kaEvSave();
         kaDiedNotice = true;
         tryShowKaDiedNotice();
       }
@@ -641,7 +658,6 @@
   //      开关亮着却不弹窗，用户最容易报「功能坏了」，其实只是还没允许通知。
   //   两条都只在「用户确实开着保活/通知」且页面在前台、开屏已关（#900 教训：开屏 z-999 之下
   //   弹＝弹在看不见的地方）时提示；各自 12h 冷却，避免唠叨。
-  let kaDiedNotice = false;
   let kaPermNoticeArmed = false;
   function kaLivenessOn() {
     // try 包住：notifyEnabled 在文件更后面才声明（同一 IIFE 内同步执行完毕后才会有异步回调），
@@ -678,53 +694,101 @@
     } catch (e) { try { fn(); } catch (e2) {} }
   }
   // #961 升级：①不再要求「开着保活/通知」才提示——回收是系统行为、谁都可能遇到；
-  // ②文案讲人话（内存不够→系统关掉页面→白屏/重试，不是网站坏了、不丢数据）并给两条具体方法；
-  // ③回收频繁（近两天 ≥3 次或累计 ≥10 次）时升级为顶部警告条（可点，跳设置去清）＋ 24h 冷却，
-  // 平时仍是 12h 冷却的一次 toast，避免唠叨。
-  function showMemWarnBar(total, recent) {
+  // ②文案讲人话（系统收回页面→白屏/重开，不是网站坏了、不丢数据）并给具体方法；
+  // ③回收频繁时升级为顶部警告条＋冷却，平时只是一次 toast，避免唠叨。
+  // #1199 本条三处一起咬人（用户实报「弹窗无法关闭，并且总是错误出现，上面写的方法也没有用」）：
+  //   ①整条没有任何关闭键，只能干等 60s 自动收起；
+  //   ②门槛用了「累计 ≥10 次」这个永不衰减的数，且 diedAt 固定只留 10 条（「近两天」被顶成假 10 次），
+  //     老设备一旦跨过就每天复弹＝「总是出现」；
+  //   ③方法给的是 Chrome「内存节省程序 / 始终保持活动」——那是**标签页**开关，桌面快捷方式与独立
+  //     PWA 进程不受它约束，安卓端真正收回后台的是系统省电与后台管控，照做自然没用。
+  // 现在：门槛只看近两天、给「不再提示」永久静音、关闭键用全站共享的 .vub-act 芯片形态
+  //   （长文案独占一行、芯片另起一行，见 base.css 的 #mem-warn-bar），方法换成真能生效的那几条。
+  const MEM_NOTE_OFF = '__ka-mem-note-off';
+  function memNoteOff() { try { return gGet(MEM_NOTE_OFF) === '1'; } catch (e) { return false; } }
+  // #1199：「近两天几次」按时间窗算，不再靠定长数组（留 10 条＝计数上限被洗成 10）
+  function recentDiedCount() {
     try {
+      const cut = Date.now() - 48 * 3600 * 1000;
+      const list = Array.isArray(kaEv.diedAt) ? kaEv.diedAt : [];
+      const keep = list.filter(function (t) { return typeof t === 'number' && t >= cut; });
+      if (keep.length !== list.length) { kaEv.diedAt = keep; kaEvSave(); }
+      return keep.length;
+    } catch (e) { return 0; }
+  }
+  const MEM_HOW_TO = '页面在后台被手机收回，是系统的省电与后台管控在做主，网站拦不住——但下面几条是真能少发生：\n\n① 别从「最近任务」把本站划掉（划掉＝你亲手关掉，回来一样要重载）。\n② 系统设置 → 应用 → 你用的浏览器 → 省电/电池 → 选「无限制 / 允许后台活动」；有「后台管理 / 自启动」的也一并设为允许。\n③ 最近任务里长按本站卡片选「锁定」（或小锁图标），一键清理后台时会跳过它。\n④ 不用时把 设置→系统 的「后台保活」关掉（它靠一直放近无声音频续命，本身也吃内存）。\n⑤ 设置→工具→「查看存储」清掉最占地方的一项（表情包大图/旧聊天记录，删前先导出备份）——页面越轻，越不容易被系统挑中收回。\n\n被收回不会丢数据：回到本页会自动重载接上，保活在你碰一下页面时自动恢复。';
+  // 跳到 设置→工具→查看存储（原「点整条」的路径，现在挂在「怎么清」弹窗的确认键上）
+  function gotoStorageView() {
+    try {
+      const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
+      if (t) t.click();
+      setTimeout(function () {
+        try {
+          const tg = document.querySelector('#set-tabs .them-tab[data-sec="tools"]');
+          if (tg) tg.click();
+        } catch (e) {}
+        setTimeout(function () {
+          try { const r = document.getElementById('row-storage-view'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' }); } catch (e) {}
+        }, 300);
+      }, 350);
+    } catch (e) {}
+  }
+  function showMemWarnBar(recent) {
+    try {
+      if (memNoteOff()) return;
       if (document.getElementById('mem-warn-bar')) return;
       const b = document.createElement('div');
       b.className = 'ver-update-bar';
       b.id = 'mem-warn-bar';
-      b.style.cursor = 'pointer';
-      b.innerHTML = '<span class="vub-txt"></span><b>去看怎么清</b>';
-      b.querySelector('.vub-txt').textContent = '手机内存不够，系统已把本站关掉重载 ' + total + ' 次（近两天 ' + recent + ' 次）——白屏/重开就因为这个，不是网站坏了。止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单；被回收后回到本页会自动重载，保活在你碰一下页面时自动接上';
-      b.addEventListener('click', function () {
+      b.innerHTML = '<span class="vub-txt"></span>'
+        + '<span class="vub-act" id="mem-warn-how">怎么清</span>'
+        + '<span class="vub-act" id="mem-warn-off">不再提示</span>'
+        + '<span class="vub-act vub-close" id="mem-warn-x" role="button" aria-label="关闭本条提示">×</span>';
+      b.querySelector('.vub-txt').textContent = '近两天有 ' + recent + ' 次，这个页面在后台被手机收回后重新加载——切回来白一下/自动刷新就是它。是系统的省电与内存管控在做主，不是网站坏了，数据不会丢';
+      const close = function () { try { b.hidden = true; } catch (e) {} };
+      const how = b.querySelector('#mem-warn-how');
+      if (how) how.addEventListener('click', function (ev) {
+        try { ev.stopPropagation(); } catch (e) {}
         try {
-          const t = document.querySelector('.tabbar .tab[data-page="page-setting"]');
-          if (t) t.click();
-          setTimeout(function () {
-            try {
-              const tg = document.querySelector('#set-tabs .them-tab[data-sec="tools"]');
-              if (tg) tg.click();
-            } catch (e) {}
-            setTimeout(function () {
-              try { const r = document.getElementById('row-storage-view'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' }); } catch (e) {}
-            }, 300);
-          }, 350);
+          const ctl = window.openModal('怎么让它少被收回', '', function () { gotoStorageView(); }, { noInput: true, staticText: MEM_HOW_TO, big: true });
+          if (ctl && ctl.okText) ctl.okText('去清存储');
         } catch (e) {}
       });
+      const off = b.querySelector('#mem-warn-off');
+      if (off) off.addEventListener('click', function (ev) {
+        try { ev.stopPropagation(); } catch (e) {}
+        try { gSet(MEM_NOTE_OFF, '1'); } catch (e) {}
+        close();
+      });
+      const x = b.querySelector('#mem-warn-x');
+      if (x) x.addEventListener('click', function (ev) {
+        try { ev.stopPropagation(); } catch (e) {}
+        kaNoticeStamp('__ka-mem-note-at'); // 明确关掉＝这一轮冷却重新计时，不再当场复弹
+        close();
+      });
       (document.body || document.documentElement).appendChild(b);
-      setTimeout(function () { try { b.hidden = true; } catch (e) {} }, 60000); // 60s 自动收起，不常驻
+      setTimeout(close, 60000); // 60s 自动收起，不常驻
     } catch (e) {}
   }
   function tryShowKaDiedNotice() {
     if (!kaDiedNotice) return;
+    if (memNoteOff()) { kaDiedNotice = false; return; }
     try { if (document.visibilityState !== 'visible') return; } catch (e) { return; }
-    const total = kaEv.died || 0;
-    const recent = (kaEv.diedAt || []).filter(function (t) { return Date.now() - t < 48 * 3600 * 1000; }).length;
-    if (recent >= 3 || total >= 10) {
-      if (kaNoticeCool('__ka-mem-note-at', 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
+    const recent = recentDiedCount();
+    // #1199：门槛只看「近两天」——累计 died 是历史值、永不衰减，原来「累计 ≥10 次」让老设备
+    // 一旦到过 10 就每天复弹（用户实报「总是错误出现」），且计数本身把「自己划掉/厂商省电杀后台」
+    // 也算了进来，虚高到几十次并不奇怪，所以它只配进诊断当线索，不配当弹条的门槛。
+    if (recent >= 3) {
+      if (kaNoticeCool('__ka-mem-note-at', 7 * 24 * 3600 * 1000)) { kaDiedNotice = false; return; }
       kaDiedNotice = false;
       kaNoticeStamp('__ka-mem-note-at');
-      kaNoticeAfterSplash(function () { showMemWarnBar(total, recent); });
+      kaNoticeAfterSplash(function () { showMemWarnBar(recent); });
       return;
     }
     if (kaNoticeCool('__ka-died-note-at', 12 * 3600 * 1000)) { kaDiedNotice = false; return; }
     kaDiedNotice = false;
     kaNoticeStamp('__ka-died-note-at');
-    toast('⚠ 系统刚把本站整个关掉过一次（手机内存不够时 iOS 会这样做）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①设置→系统 关掉「后台保活」②设置→工具→「查看存储」清掉最占地方的一项。');
+    toast('⚠ 刚才这个页面在后台被手机收回过一次（系统的省电/内存管控在做主）——所以切回来会白一下、重新加载。这不是网站坏了，也不会丢数据。想少发生：①别从最近任务划掉本站 ②设置→系统 关掉「后台保活」③设置→工具→「查看存储」清掉最占地方的一项。');
   }
   function nbPermPendingNotice() {
     try { if (!notifyEnabled) return; } catch (e) { return; }

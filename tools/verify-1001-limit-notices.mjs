@@ -39,6 +39,12 @@ let pass = 0, fail = 0; const fails = [];
 const A = (n, ok, extra) => { if (ok) pass++; else { fail++; fails.push(n + (extra ? ' | ' + extra : '')); } };
 await cdp('Page.enable'); await cdp('Runtime.enable');
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+// #1199：本脚本测的是「上个后台会话**暴毙**」（预置 __ka-hb 那条取证路）。boot() 每次都是「载一次→
+// 改预置→再导航一次」，而导航前页面会先 visibilitychange→hidden（#961 的标记写成 closed:false），
+// 于是 #961 的通用存活判定会把**测试自己的这次重载**也算成一次后台回收——B5 这类「本不该提示」的
+// 场景就假红（HEAD 上因 TDZ 恰好没暴露，见 verify-1199 的 S16）。每次导航前统一留「正常收尾」标记，
+// 让各场景只由自己预置的那条路触发。
+await cdp('Page.addScriptToEvaluateOnNewDocument', { source: "try{localStorage.setItem('xy-home-v2:__sess-alive',JSON.stringify({t:Date.now(),closed:true}));}catch(e){}" });
 
 // ===== S 组：源码 / 产物锚点 =====
 const srcBk = readFileSync(join(root, 'src/js/bg-keep.js'), 'utf8');
@@ -48,10 +54,10 @@ const prodHtml = readFileSync(join(root, 'index.html'), 'utf8');
 // bg-keep.js / settings-help.js 是外置产物（js/<file>），模板文案才在 index.html——查产物按文件分派
 const prodOf = (rel) => { try { return readFileSync(join(root, rel), 'utf8'); } catch (e) { return prodHtml; } };
 const prodBk = prodOf('js/bg-keep.js');
-A('S1 两条提示在源码与产物在位（丢弃提示 + 权限待决提示）',
-  srcBk.indexOf('系统刚把本站整个关掉过一次') >= 0 &&   // #1017 换锚：文案被并行批改写（原「上次挂着后台的那段会话被系统丢弃/关闭了」）
+A('S1 两条提示在源码与产物在位（丢弃提示 + 权限待决提示；#1199 换锚：原文案「系统刚把本站整个关掉过一次（手机内存不够，iOS 会这样做）」被用户判为误指成因，现文案不再指控内存、改口「在后台被手机收回」）',
+  srcBk.indexOf('刚才这个页面在后台被手机收回过一次') >= 0 &&   // #1017 换锚：文案被并行批改写（原「上次挂着后台的那段会话被系统丢弃/关闭了」）
   srcBk.indexOf('但浏览器还没给通知权限') >= 0 &&
-  prodBk.indexOf('系统刚把本站整个关掉过一次') >= 0 &&   // #1017 换锚（同上）
+  prodBk.indexOf('刚才这个页面在后台被手机收回过一次') >= 0 &&   // #1017 换锚（同上）
   prodBk.indexOf('但浏览器还没给通知权限') >= 0);
 A('S2 丢弃提示在开屏关掉后才弹（开屏等待 + 12h 冷却在位；#1017 换锚：并行批已取消「只在保活开着时提示」的 kaLivenessOn 门控，改为没开保活也要解释）',
   srcBk.indexOf('function kaNoticeAfterSplash(') >= 0 &&
@@ -107,7 +113,9 @@ async function boot(opts) {
 // #1017 换锚：判「提示出现了吗」改看**文案**——并行批改写了触发时机（开屏一关就弹，不再等保活门控），
 //   1.6s 后的 .show 采样会错过（实测元素里正是那条提示、toastShown 却已 false）；每个场景 boot() 先跳
 //   about:blank 重建 DOM，所以按文案判与按 .show 判等价。toastShown 仍一并看，二者取或。
-const hasDiedToast = (s) => /关掉过一次|被系统丢弃/.test(s.toast);
+// #1199 换锚：文案不再写「手机内存不够，iOS 会这样做」（用户判为误指成因），改口「在后台被手机收回过一次」；
+//   三种历史写法一并认，红绿两侧跑同一套脚本才有判别力。
+const hasDiedToast = (s) => /被手机收回过一次|关掉过一次|被系统丢弃/.test(s.toast);
 const hasPermToast = (s) => /还没给通知权限/.test(s.toast);
 
 // B1 暴毙 + 保活开着 → 提示
@@ -116,6 +124,9 @@ let s = await probe();
 A('B1 上个后台会话被丢弃 → 当面提示', hasDiedToast(s), JSON.stringify(s));
 
 // B2 开关都关 → 不提示
+// ⚠ 存量红（#961 起两侧同红，非本批引入）：#961 有意把「页面被回收」的解释做成**不依赖保活/通知开关**
+//   （"没开保活的用户永远得不到解释"正是那条批要修的），与本断言的「不打扰没开后台功能的用户」直接冲突。
+//   谁裁定口径谁改这条：要么 B2 跟改成「关着也解释一次（12h 冷却）」，要么给 #961 补回开关门控——本批只换锚不改判据。
 await boot({ died: true });
 s = await probe();
 A('B2 没开保活/通知 → 不提示（不打扰）', !hasDiedToast(s) && !hasPermToast(s), JSON.stringify(s));

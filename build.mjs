@@ -4142,7 +4142,7 @@ const FIX_SENTINELS = [
    { name: '#960e 媒体会话去重复写（删＝每 5s 无条件重写同一 playbackState，iOS 上纯重复 IPC）', file: 'js/bg-keep.js', needle: "navigator.mediaSession.playbackState !== 'playing'" },
   /* ==== 2026-09-21 #961 用户直派「iOS 要明确提醒用户发生了什么（被系统回收 43 次），直接检测并给解决方法」：①通用会话存活标记 __sess-alive（不依赖保活/通知开关；pagehide 记正常收尾、visibilitychange 记后台中，启动判定「上次非正常收尾且很近」＝回收一次，rolling diedAt 保留 10 条）——旧实现只在开着保活时靠心跳察觉，没开保活的用户永远得不到解释；②回收提醒升级：不再要求开关、讲人话（内存不够→iOS 关页面→白屏/重载、不是网站坏了不丢数据）＋两条具体方法；回收频繁（近两天≥3 或累计≥10）时升级为顶部警告条（可点，跳设置→工具→查看存储）24h 冷却，平时 12h 一次 toast；③卡顿报告独立成行点名回收次数与两条方法（与是否掉帧无关）==== */ 
   { name: '#961a 通用存活标记与启动判定（删＝不开保活的机型回收后永远得不到解释）', file: 'js/bg-keep.js', needle: 'sessBootCheck(); // #961' }, 
-  { name: '#961b 回收提醒升级：不讲门控＋给方法（删＝回到只有开关开着才提示、且无操作方法）', file: 'js/bg-keep.js', needle: '手机内存不够时 iOS 会这样做' }, 
+  { name: '#961b 回收提醒升级：不讲门控＋给方法（删＝回到只有开关开着才提示、且无操作方法；#1199 换锚：旧 needle 是「手机内存不够时 iOS 会这样做」，该说法被用户判为误指成因，现锚 toast 的可行动建议本体）', file: 'js/bg-keep.js', needle: '想少发生：①别从最近任务划掉本站' }, 
   { name: '#961c 高频回收顶部警告条（删＝43 次级设备只留一条 12h 冷却 toast）', file: 'js/bg-keep.js', needle: 'mem-warn-bar' }, 
   { name: '#961d 报告独立点名回收次数与方法（删＝白屏实锤在卡顿报告里隐身）', file: 'js/perf-check.js', needle: '本页已被系统回收过' }, 
  
@@ -4685,8 +4685,8 @@ const FIX_SENTINELS = [
   { name: '#1041a 商品图白名单闸门（删＝任意串可进 innerHTML src，转义面复发；needle＝auSafeImg 长度上限＋dataURL 正则）', file: 'js/auction.js', needle: "s.length <= 1200000 && /^data:image\\/(jpeg|png|webp);base64,[A-Za-z0-9+\\/=]+$/.test(s)" },
   { name: '#1041b 蒙面开关显式化在位（回退成随机 20%＝用户所选开关复发）', file: 'js/auction.js', needle: "mystery: edMysteryEl && edMysteryEl.checked ? 1 : 0" },
   { name: '#1041c 竞价台图片贯通在位（删＝背包有图、开拍回退 emoji，图非所见复发）', file: 'js/auction.js', needle: "const auImg = item.mystery ? '' : auSafeImg(item.img);" },
-  { name: "#1034a 诊断回收警告补「止住它最有效」动作（删＝用户只知道被回收，不知道怎么止住）", file: "js/device.js", needle: "止住它最有效：Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
-  { name: "#1034b 回收提示条补动作与恢复口径（删＝提示只说明成因不给出路）", file: "js/bg-keep.js", needle: "止住它最有效的一步：Chrome 设置→性能→「内存节省程序」关掉" },
+  { name: "#1034a 诊断回收警告补可行动作（删＝用户只知道被回收，不知道怎么止住；#1199 换锚：旧 needle 的 Chrome「内存节省程序/始终保持活动」只管标签页、对桌面快捷方式与独立 PWA 无效，用户实报「上面写的方法也没有用」，现锚真有效的系统省电/后台管控那条；device.js 是内联件，文件归 index.html）", file: "index.html", needle: "别从最近任务划掉本站，改为在系统设置→应用→本浏览器→省电" },
+  { name: "#1034b 回收提示条「怎么清」给出真能生效的方法（删＝提示只说明成因不给出路；#1199 换锚同 #1034a：旧文案的 Chrome 标签页开关对 PWA 无效）", file: "js/bg-keep.js", needle: "系统设置 → 应用 → 你用的浏览器 → 省电/电池" },
   { name: "#1034c 功能说明补「止住回收最有效的一步」章（删＝挂几分钟就被丢的用户无解可循）", file: "js/settings-help.js", needle: "【止住回收最有效的一步】Chrome：设置 → 性能 →「内存节省程序」关掉" },
   { name: "#1034d 行下红条补白名单动作与自动恢复口径（删＝「失效后重开开关」被理解成功能又坏了）", file: "template.html", needle: "止住它最有效的一步＝Chrome 设置→性能→「内存节省程序」关掉、或把本站加入「始终保持活动」名单" },
   { name: "#1034e 功能说明补「装桌面图标＋离线消息提醒」兜底层（删＝页面被回收后连一条兜底通知都没有）", file: "js/settings-help.js", needle: "页面被回收甚至全部关掉后，浏览器也会定时唤醒弹一条" },
@@ -4850,6 +4850,19 @@ const FIX_SENTINELS = [
   { name: "#1198k 信箱「信件拼接随机标点」开关行在位（删掉＝信箱侧无入口）", file: "template.html", needle: "id=\"ml-punct-en\"" },
   { name: "#1198l 朋友圈「拼接随机标点」开关行在位（删掉＝朋友圈侧无入口）", file: "template.html", needle: "id=\"fd-punct-en\"" },
   { name: "#1198m 朋友圈评论容器 pre-wrap（删掉＝抽到「换行」在朋友圈里被折回同一行，功能只剩聊天可见）", file: "css/chat-pages.css", needle: ".feed-comment { font-size:12px; color:#555; line-height:1.7; padding:3px 0; cursor:pointer; white-space:pre-wrap; }" },
+
+  /* ==== 2026-09-24 #1199 内存回收警告条三处一起咬人（用户实报「图上弹窗无法关闭，并且总是错误出现这个弹窗」「而且这上面写的方法也没有用啊」；截图＝线上 v8.35 那条「手机内存不够，系统已把本站关掉重载 72 次（近两天 10 次）」，右侧「去看怎么清」竖成一列）。根因三条：①线上这条**根本没有关闭键**——#1063 加的「×」从未构建入库（HEAD/origin 的 src 与产物里都查无 mem-warn-x），只能干等 60s 自动收起；②门槛含「累计 ≥10 次」这个永不衰减的历史值，且 diedAt 定长只留 10 条（「近两天 10 次」是饱和值不是实测值）＝老设备一旦跨过每天复弹，而计数把「自己从最近任务划掉/厂商省电杀后台」也算成「内存不够」；③方法给的是 Chrome「内存节省程序/始终保持活动」——那是标签页开关，桌面快捷方式与独立 PWA 进程不受它约束，照做自然没用。修＝关闭键＋「不再提示」永久静音＋门槛只看近两天（冷却 24h→7 天）＋两条取证路同事件去重（吸收未构建的 #1063b）＋文案不再指控内存、方法换成系统省电/后台管控那几条真做得到的。零机型分支。 ==== */
+  { name: '#1199a 回收警告条带关闭键（删＝回到「只能干等 60s、想关关不掉」＝本次报障第一句复发）', file: 'js/bg-keep.js', needle: 'id="mem-warn-x"' },
+  { name: '#1199b 「不再提示」永久静音闸（删＝用户明确关掉后仍按冷却周期复弹＝「总是出现」复发）', file: 'js/bg-keep.js', needle: 'if (memNoteOff()) { kaDiedNotice = false; return; }' },
+  { name: '#1199c 顶条门槛只看近两天（改回带「|| 累计 ≥10」＝历史值永不衰减，老设备每天复弹＝本次报障第二句复发）', file: 'js/bg-keep.js', needle: 'if (recent >= 3) {' },
+  { name: '#1199d 顶条冷却 24h→7 天（改回 24 * 3600 * 1000＝每天一弹的老设备复弹节奏没变）', file: 'js/bg-keep.js', needle: "kaNoticeCool('__ka-mem-note-at', 7 * 24 * 3600 * 1000)" },
+  { name: '#1199e 两条取证路同事件去重（删＝同一次回收记两次账，实际 2 次累计 4 次＝门槛被虚高提前踩中）', file: 'js/bg-keep.js', needle: 'if (kaDiedNotice) return;' },
+  { name: '#1199f 近两天计数按 48h 时间窗算（删＝回到数定长数组，「近两天 10 次」是饱和值、老记录还混进计数）', file: 'js/bg-keep.js', needle: 'const cut = Date.now() - 48 * 3600 * 1000;' },
+  { name: '#1199g 顶条文案独占一行（删＝长文案与芯片同排互相挤压＝「去看怎么清」竖成一列、关闭键被挤出屏幕外＝报障第一句的另一半复发）', file: 'index.html', needle: '#mem-warn-bar .vub-txt { flex:1 1 100%; }' },
+  { name: '#1199h 关闭键绝对定位钉右上角（改成参与 flex 流＝又被挤出屏幕；写进 display 会打掉 [hidden] 收起能力）', file: 'index.html', needle: '#mem-warn-bar #mem-warn-x { position:absolute;' },
+  { name: '#1199i 顶条里的裸 <b> 不参与压缩（删＝pwa.js「点此重试」同族动态条又竖排字，中文按字断行被压到 min-content）', file: 'index.html', needle: '.ver-update-bar > b { flex:none; white-space:nowrap; }' },
+  { name: '#1199j 存活标记声明位置（挪到 sessBootCheck 之后＝TDZ，赋值被外层 try 吞掉，通用路径永远弹不出顶条，只剩开了保活的心跳那条）', file: 'js/bg-keep.js', needle: 'let kaDiedNotice = false; // #1199 TDZ' },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
