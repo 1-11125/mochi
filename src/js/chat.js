@@ -7686,7 +7686,12 @@ lastMineIdx = -1;
 // #650 段），只取 on=1 入池。总开关关或池意外全空＝回退单个空格（原行为）。消费点：
 // genOneReply（多字卡回复）/ replyOnce 词典拼字单气泡 / genChatStyleReply（ta-ask 同源回应）；
 // 设置 UI 在 reply-settings.js #650 段。
-function pyJoinCards(segs, c) {
+// #1198 新增内置「换行」（py-punct-nl，默认关）：抽中即下一张字卡另起一行。同一套符号池自本批起
+// 被信箱（ml-punct-en）/朋友圈（fd-punct-en）共用，但各场景自带开关、不吃聊天的 py-en 闸门＝
+// 走第三个参数 sceneOn（true＝用符号池 / false＝只用空格）。
+// 媒体段（表情包/图片：dataURL、@@m 令牌、sticker:/image: 前缀、http 链接）两侧恒用空格：
+// 内联图正则按 [^\s"'<>]+ 取 URL，把标点或换行贴到 URL 尾部会一起吞进去＝图裂。
+function pyJoinCards(segs, c, sceneOn) {
 if (!Array.isArray(segs) || !segs.length) return '';
 if (segs.length === 1) return String(segs[0] == null ? '' : segs[0]);
 let pool = null;
@@ -7694,7 +7699,9 @@ let pool = null;
 //（退回单个空格）。旧口径只看 py-punct-en＝关掉「多字卡回复」后，词典拼字单气泡等形态仍按
 // 标点池拼卡＝用户实报「多字卡回复关闭了、拼接随机标点没关，还是能触发多字卡回复」。
 const pyJoinOn = !!(c && c['py-en'] === 1 && c['py-punct-en'] === 1); // #956a
-if (pyJoinOn) {
+// #1198 调用方给了第三参＝本场景自带开关（信箱/朋友圈），不再叠聊天的 py-en/py-punct-en
+const usePool = sceneOn === undefined ? pyJoinOn : !!sceneOn;
+if (usePool) {
 pool = [];
 if (c['py-punct-space'] === 1) pool.push(' ');
 if (c['py-punct-dou'] === 1) pool.push('，');
@@ -7703,6 +7710,7 @@ if (c['py-punct-ex'] === 1) pool.push('！');
 if (c['py-punct-q'] === 1) pool.push('？');
 if (c['py-punct-el'] === 1) pool.push('......');
 if (c['py-punct-dash'] === 1) pool.push('——'); // #712 内置「——」（默认开）
+if (c['py-punct-nl'] === 1) pool.push('\n'); // #1198 内置「换行」（默认关）
 // #712 用户自定义符号（reply-py-punct-custom＝[{s,on}] JSON 串；只取 on=1，
 // 关掉的自定义符号不进随机池）
 let pyc = null;
@@ -7710,8 +7718,9 @@ try { pyc = JSON.parse(c['py-punct-custom'] || '[]'); } catch (e) {}
 if (Array.isArray(pyc)) pyc.forEach(it => { if (it && typeof it.s === 'string' && it.s && it.on === 1) pool.push(it.s); });
 }
 if (!pool || !pool.length) pool = [' '];
+const isMediaSeg = s => typeof s === 'string' && (s.indexOf('data:') === 0 || s.indexOf('http') === 0 || s.indexOf('sticker:') === 0 || s.indexOf('image:') === 0 || s.indexOf('@@m:') === 0 || (typeof window !== 'undefined' && !!(window.mochiMediaIsToken && window.mochiMediaIsToken(s))));
 let out = String(segs[0] == null ? '' : segs[0]);
-for (let i = 1; i < segs.length; i++) out += pool[Math.floor(Math.random() * pool.length)] + String(segs[i] == null ? '' : segs[i]);
+for (let i = 1; i < segs.length; i++) out += (isMediaSeg(segs[i]) || isMediaSeg(segs[i - 1]) ? ' ' : pool[Math.floor(Math.random() * pool.length)]) + String(segs[i] == null ? '' : segs[i]);
 return out;
 }
 window.pyJoinCards = pyJoinCards; // 各文件独立作用域：ta-ask.js 互动卡回应/文字题同源复用走 window

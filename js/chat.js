@@ -5840,12 +5840,13 @@ lastMineText = '';
 lastMineQuote = '';
 lastMineIdx = -1;
 }
-function pyJoinCards(segs, c) {
+function pyJoinCards(segs, c, sceneOn) {
 if (!Array.isArray(segs) || !segs.length) return '';
 if (segs.length === 1) return String(segs[0] == null ? '' : segs[0]);
 let pool = null;
 const pyJoinOn = !!(c && c['py-en'] === 1 && c['py-punct-en'] === 1); // #956a
-if (pyJoinOn) {
+const usePool = sceneOn === undefined ? pyJoinOn : !!sceneOn;
+if (usePool) {
 pool = [];
 if (c['py-punct-space'] === 1) pool.push(' ');
 if (c['py-punct-dou'] === 1) pool.push('，');
@@ -5854,13 +5855,15 @@ if (c['py-punct-ex'] === 1) pool.push('！');
 if (c['py-punct-q'] === 1) pool.push('？');
 if (c['py-punct-el'] === 1) pool.push('......');
 if (c['py-punct-dash'] === 1) pool.push('——'); // #712 内置「——」（默认开）
+if (c['py-punct-nl'] === 1) pool.push('\n'); // #1198 内置「换行」（默认关）
 let pyc = null;
 try { pyc = JSON.parse(c['py-punct-custom'] || '[]'); } catch (e) {}
 if (Array.isArray(pyc)) pyc.forEach(it => { if (it && typeof it.s === 'string' && it.s && it.on === 1) pool.push(it.s); });
 }
 if (!pool || !pool.length) pool = [' '];
+const isMediaSeg = s => typeof s === 'string' && (s.indexOf('data:') === 0 || s.indexOf('http') === 0 || s.indexOf('sticker:') === 0 || s.indexOf('image:') === 0 || s.indexOf('@@m:') === 0 || (typeof window !== 'undefined' && !!(window.mochiMediaIsToken && window.mochiMediaIsToken(s))));
 let out = String(segs[0] == null ? '' : segs[0]);
-for (let i = 1; i < segs.length; i++) out += pool[Math.floor(Math.random() * pool.length)] + String(segs[i] == null ? '' : segs[i]);
+for (let i = 1; i < segs.length; i++) out += (isMediaSeg(segs[i]) || isMediaSeg(segs[i - 1]) ? ' ' : pool[Math.floor(Math.random() * pool.length)]) + String(segs[i] == null ? '' : segs[i]);
 return out;
 }
 window.pyJoinCards = pyJoinCards; // 各文件独立作用域：ta-ask.js 互动卡回应/文字题同源复用走 window

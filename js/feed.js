@@ -555,7 +555,8 @@ if (!pushed && o.emoP > 0 && pool.emoji.length && r < o.emoP) { parts.push(pick.
 if (!pushed && o.kaoP > 0 && pool.kaomoji.length && r < o.kaoP) { parts.push(pick.kaomoji()); pushed = true; }
 if (!pushed) parts.push(pool.text.length ? pick.text() : pick.fb());
 }
-return parts.join(' ');
+const rcf = window.replyCfgFor ? window.replyCfgFor(cid) : null;
+return (window.pyJoinCards && rcf) ? window.pyJoinCards(parts, rcf, rcf['fd-punct-en'] === 1) : parts.join(' ');
 }
 function genPostContent(cfg, cid) {
 const pool = cardPool(cid);
@@ -579,7 +580,9 @@ if (!pushed && cfg.postEmoji > 0 && pool.emoji.length && Math.random() * 100 < c
 if (!pushed && cfg.postKaomoji > 0 && pool.kaomoji.length && Math.random() * 100 < cfg.postKaomoji) { textParts.push(pick.kaomoji()); pushed = true; }
 if (!pushed) textParts.push(pool.text.length ? pick.text() : pick.fb());
 }
-return { content: textParts.join(' '), imgs: imgs };
+const rcf = window.replyCfgFor ? window.replyCfgFor(cid) : null;
+const body = (window.pyJoinCards && rcf) ? window.pyJoinCards(textParts, rcf, rcf['fd-punct-en'] === 1) : textParts.join(' ');
+return { content: body, imgs: imgs };
 }
 function contentHtmlFor(p) {
 let content = String(p.content || '');
@@ -1734,7 +1737,7 @@ else addNotice('comment', p2.id, taName2 + ' 回复了你的评论：' + noticeT
 if (comSend) comSend.addEventListener('click', submitComment);
 if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitComment(); } });
 function noticeTextClean(s) {
-return String(s || '').replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[表情包]').replace(/@@m:[0-9a-f]{32}/g, '[表情包]');
+return String(s || '').replace(/\s*\n\s*/g, ' ').replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[表情包]').replace(/@@m:[0-9a-f]{32}/g, '[表情包]');
 }
 function notices() { try { return JSON.parse(store.get('feed-notices') || '[]'); } catch (e) { return []; } }
 function saveNotices(list) { store.set('feed-notices', JSON.stringify(list)); }

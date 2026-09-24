@@ -86,12 +86,12 @@ const A = await ev(`(function(){
   var chips=[].map.call(box.querySelectorAll('.ppy-chip[data-k]'),function(c){return c.dataset.k+':'+(c.classList.contains('sel')?'1':'0');});
   var cfg=window.replyCfg?window.replyCfg():{};
   return JSON.stringify({ n:box.querySelectorAll('.ppy-chip[data-k]').length, chips:chips.join(','),
-    def:['py-punct-space','py-punct-dou','py-punct-per','py-punct-ex','py-punct-q','py-punct-el','py-punct-dash'].map(function(k){return cfg[k];}).join(','),
+    def:['py-punct-space','py-punct-dou','py-punct-per','py-punct-ex','py-punct-q','py-punct-el','py-punct-dash','py-punct-nl'].map(function(k){return cfg[k];}).join(','),
     en:cfg['py-punct-en'] });
 })()`);
 const oA = JSON.parse(String(A));
-chk('A1 七枚符号 chip 顺序为 空格/，/。/！/？/....../——', oA.n === 7 && oA.chips === 'py-punct-space:1,py-punct-dou:1,py-punct-per:1,py-punct-ex:1,py-punct-q:1,py-punct-el:1,py-punct-dash:1', A);
-chk('A2 默认配置七键全为 1（含句号 py-punct-per、「——」py-punct-dash）', oA.def === '1,1,1,1,1,1,1', A);
+chk('A1 八枚符号 chip 顺序为 空格/，/。/！/？/....../——/换行（#1198 末枚默认关）', oA.n === 8 && oA.chips === 'py-punct-space:1,py-punct-dou:1,py-punct-per:1,py-punct-ex:1,py-punct-q:1,py-punct-el:1,py-punct-dash:1,py-punct-nl:0', A);
+chk('A2 默认配置：七键全为 1（含句号 py-punct-per、「——」py-punct-dash）＋#1198「换行」默认 0', oA.def === '1,1,1,1,1,1,1,0', A);
 chk('A3 拼接随机标点总开关默认开', oA.en === 1, A);
 
 // ---- C1. 真实悬停：选中态不被 hover 压掉 ----

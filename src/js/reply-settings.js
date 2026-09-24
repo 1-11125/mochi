@@ -33,6 +33,10 @@
     // #712：内置「——」（默认开，用户直派「拼接符号新增一个：—— 默认开启」）——未写盘设备
     // 走本默认 1；已写盘设备的 0/1 是用户自己的选择，无迁移（同 #694 口径）
     'py-punct-dash': 1,
+    // #1198：内置「换行」（用户直派「多字卡回复和标点符号 需要新增联系人自己随机选择是否换行」）——
+    // 默认关＝存量设备观感零变化，点亮后每两条字卡中间随机抽，抽到它才另起一行。与其余符号同池，
+    // 消费在 chat.js pyJoinCards
+    'py-punct-nl': 0,
     // v3.40.x #370c：csp-cust 回复文本「自定义字卡占比」（%，默认 50）——联系人回话里的
     // 纯文字卡，多大比例保留「你自定义的字卡」、其余让系统默认聊天字卡覆盖（默认字卡本身还
     // 受默认字卡「聊天使用」概率与分类权重控制）。0=尽量用默认字卡，100=全用自定义。chat.js
@@ -168,6 +172,9 @@
     'ml-kaomoji-en': 1, 'ml-emoji-en': 1, 'ml-sticker-en': 1,
     // #645：每周摸鱼小结寄信开关（默认开）——关闭后 TA 不再寄「本周摸鱼小结」（含周一~周三补发窗口）
     'ml-fish-week-en': 1,
+    // #1198：信件「拼接随机标点」（默认关＝一封信里各张字卡仍用空格相连）——开则信件正文的每两条
+    // 字卡中间从聊天那套「拼接符号」池随机抽一个（含「换行」）。消费在 mail.js taLetterContent
+    'ml-punct-en': 0,
     // 动态（星言朋友圈设置）
     'fd-like-prob': 60, 'fd-like-speed-min': 1, 'fd-like-speed-max': 60,
     'fd-comment-prob': 70, 'fd-comment-speed-min': 1, 'fd-comment-speed-max': 60,
@@ -185,6 +192,10 @@
     //   设多少。修前「TA 发布内容类型」概率只管得住动态，评论/回复的颜文字/emoji 是写死
     //   15%，用户设了「把颜文字和表情包都禁了」评论里照样出现。
     'fd-kaomoji-en': 1, 'fd-emoji-en': 1, 'fd-sticker-en': 1, 'fd-image-en': 1,
+    // #1198：朋友圈「拼接随机标点」（默认关＝评论/回复与 TA 动态里的各张字卡仍用空格相连）——开则
+    // 每两条字卡中间从聊天那套「拼接符号」池随机抽一个（含「换行」，媒体卡两侧仍固定空格防图裂）。
+    // 消费在 feed.js genMixedCards（评论/回复）・genPostContent（TA 发动态）
+    'fd-punct-en': 0,
     // 通话（星言通话设置）
     // v3.6.x：对方挂断默认 5% → 2%——挂断检查已放宽为「接通满 3 分钟后每 60 秒掷一次」：
     // 原 5% + 每 30 秒掷一次的实际效果远超设置字面值（3 分钟累计 ~23%、10 分钟累计 ~62%），
@@ -412,7 +423,7 @@
       }
     });
     // 开关
-    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+    ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
       const el = document.getElementById(k);
       if (el) el.checked = cfg[k] === 1;
     });
@@ -527,6 +538,7 @@
     'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
     'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
     'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
+    'ml-punct-en': '信件拼接随机标点', 'fd-punct-en': '朋友圈拼接随机标点',
     'ml-fish-week-en': '摸鱼小结寄信',
     'fd-kaomoji-en': '朋友圈颜文字', 'fd-emoji-en': '朋友圈emoji', 'fd-sticker-en': '朋友圈表情包', 'fd-image-en': '朋友圈图片',
     'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
@@ -560,7 +572,7 @@
       clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
     } catch (e) {}
   }
-  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+  ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
     const el = document.getElementById(k);
     if (el) {
       el.addEventListener('change', () => {
@@ -586,9 +598,9 @@
   // 「至少保留一个」拦）。自定义存 reply-py-punct-custom＝JSON [{s,on}]（不进 DEFAULTS，
   // 随 getCfg/replyCfgFor 附带原串，join 消费在 chat.js pyJoinCards）。
   (function () {
-    const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——']];
-    // #712 内置符号实际值（去重判定用；空格的 chip 文案是「空格」、真值是 ' '）
-    const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——'];
+    const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——'], ['py-punct-nl', '换行']];
+    // #712 内置符号实际值（去重判定用；空格的 chip 文案是「空格」、真值是 ' '；#1198「换行」真值是 '\n'）
+    const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——', '\n'];
     const CUST_KEY = 'reply-py-punct-custom';
     const box = document.getElementById('ppy-chips');
     function ppyToast(msg, ms) {
@@ -1365,7 +1377,7 @@
           window.saveReplyCfg(k, v);
         }
       });
-      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+      ['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
         const el = document.getElementById(k);
         if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
       });

@@ -14,6 +14,7 @@ const DEFAULTS = {
 'py-punct-en': 1,
 'py-punct-space': 1, 'py-punct-dou': 1, 'py-punct-per': 1, 'py-punct-ex': 1, 'py-punct-q': 1, 'py-punct-el': 1,
 'py-punct-dash': 1,
+'py-punct-nl': 0,
 'csp-cust': 50,
 'dcp-all': 100,
 'ic-freq': 0,
@@ -43,6 +44,7 @@ const DEFAULTS = {
 'ml-reply-prob': 80, 'ml-reply-min': 1, 'ml-reply-max': 480,
 'ml-kaomoji-en': 1, 'ml-emoji-en': 1, 'ml-sticker-en': 1,
 'ml-fish-week-en': 1,
+'ml-punct-en': 0,
 'fd-like-prob': 60, 'fd-like-speed-min': 1, 'fd-like-speed-max': 60,
 'fd-comment-prob': 70, 'fd-comment-speed-min': 1, 'fd-comment-speed-max': 60,
 'fd-reply-prob': 60, 'fd-reply-speed-min': 1, 'fd-reply-speed-max': 60,
@@ -54,6 +56,7 @@ const DEFAULTS = {
 'fd-min-cards-post': 4, 'fd-max-cards-post': 15,
 'fd-post-kaomoji': 10, 'fd-post-emoji': 10, 'fd-post-sticker': 30, 'fd-post-image': 30,
 'fd-kaomoji-en': 1, 'fd-emoji-en': 1, 'fd-sticker-en': 1, 'fd-image-en': 1,
+'fd-punct-en': 0,
 'call-incoming': 15, 'call-pickup': 70, 'call-busy': 15, 'call-reject': 15, 'call-hangup': 2,
 'call-resume': 1,
 'call-no-hangup': 0,
@@ -214,7 +217,7 @@ val.value = str;
 val.setAttribute('value', str);
 }
 });
-['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) el.checked = cfg[k] === 1;
 });
@@ -309,6 +312,7 @@ const TOGGLE_NAMES = {
 'gc-py-en': '群聊多字卡回复', 'ai-rps-en': '猜拳邀请', 'ai-game-en': '游戏邀请', 'ai-cuddle-en': '贴贴邀请',
 'ai-cc-en': 'TA分享字卡', 'ckq-en': 'TA主动查岗', 'call-resume': '刷新恢复通话', 'call-no-hangup': '禁止联系人挂断',
 'ml-write-en': '联系人主动写信', 'fd-post-en': '联系人主动发朋友圈',
+'ml-punct-en': '信件拼接随机标点', 'fd-punct-en': '朋友圈拼接随机标点',
 'ml-fish-week-en': '摸鱼小结寄信',
 'fd-kaomoji-en': '朋友圈颜文字', 'fd-emoji-en': '朋友圈emoji', 'fd-sticker-en': '朋友圈表情包', 'fd-image-en': '朋友圈图片',
 'qs-en': '词典拼字', 'qs-cc': '混用自定义字卡', 'qs-one': '单气泡拼字', 'qs-multi': '多回复逐卡连发',
@@ -338,7 +342,7 @@ d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) {
 el.addEventListener('change', () => {
@@ -351,8 +355,8 @@ try { if (window.applyContinueSayUI) window.applyContinueSayUI(); } catch (e) {}
 }
 });
 (function () {
-const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——']];
-const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——'];
+const POOL = [['py-punct-space', '空格'], ['py-punct-dou', '，'], ['py-punct-per', '。'], ['py-punct-ex', '！'], ['py-punct-q', '？'], ['py-punct-el', '......'], ['py-punct-dash', '——'], ['py-punct-nl', '换行']];
+const BUILTIN_VALS = [' ', '，', '。', '！', '？', '......', '——', '\n'];
 const CUST_KEY = 'reply-py-punct-custom';
 const box = document.getElementById('ppy-chips');
 function ppyToast(msg, ms) {
@@ -1022,7 +1026,7 @@ v = Math.min(max, Math.max(min, v));
 window.saveReplyCfg(k, v);
 }
 });
-['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'fd-post-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
+['py-en', 'py-punct-en', 'as-en', 'dnd-en', 'as-badge', 'as-badge-heart', 'as-badge-star', 'as-badge-moon', 'as-badge-spark', 'as-badge-paw', 'as-badge-rand', 'ml-kaomoji-en', 'ml-emoji-en', 'ml-sticker-en', 'cs-normal', 'cs-trigger-name', 'cs-trigger-bar', 'gc-cs-normal', 'gc-cs-trigger-name', 'gc-cs-trigger-bar', 'gc-py-en', 'ai-rps-en', 'ai-game-en', 'ai-cuddle-en', 'ai-cc-en', 'ckq-en', 'call-resume', 'call-no-hangup', 'ml-write-en', 'ml-fish-week-en', 'ml-punct-en', 'fd-post-en', 'fd-punct-en', 'fd-kaomoji-en', 'fd-emoji-en', 'fd-sticker-en', 'fd-image-en', 'qs-en', 'qs-cc', 'qs-one', 'qs-multi', 'qs-noLimit', 'mjf-en', 'mjf-src-cc', 'mjf-src-def', 'mjf-src-dict', 'mjf-mix', 'mjf-punct', 'rc-en', 'rl-en', 'fish-en', 'work-en', 'fish-grab-en', 'rp-thx-en'].forEach(k => {
 const el = document.getElementById(k);
 if (el) window.saveReplyCfg(k, el.checked ? 1 : 0);
 });

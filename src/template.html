@@ -2516,7 +2516,7 @@
             <summary><span class="lg-num">01</span><span class="lg-name">聊天传讯</span><span class="lg-count">26</span></summary>
             <div class="lg-body">
           <div class="lic-li">字卡交流：文字、情绪、心意、交流意图四种字卡回复，联系人所有内容均为字卡回复</div>
-          <div class="lic-li">每条消息使用多字卡回复：可开启、调触发概率与最少/最多条数</div>
+          <div class="lic-li">每条消息使用多字卡回复：可开启、调触发概率与最少/最多条数；两条字卡中间的连接符可在「拼接符号」里随机抽（空格 / ，。！？...... / —— / 换行，「换行」默认关）</div>
           <div class="lic-li">联系人发送的消息可额外触发聊天情绪字卡（情绪 / 心意 / 交流意图）</div>
           <div class="lic-li">联系人偶尔主动分享自己的心情/近况/状态（TA的心情字卡库，可调触发概率）</div>
           <div class="lic-li">撤回与补发、已读不回、拍一拍、颜文字附加</div>
@@ -2935,10 +2935,10 @@
             <summary><span class="lg-num">29</span><span class="lg-name">回复设置</span><span class="lg-count">9</span></summary>
             <div class="lg-body">
           <div class="lic-li">六面板 tab：聊天 / 群聊 / 信箱 / 朋友圈 / 查岗 / 其他，参数按联系人独立保存（群聊面板全局共用）</div>
-          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 标识可换可自定义）</div>
+          <div class="lic-li">聊天：被动回复（回复速度 / 条数 / 已读不回 / 拍一拍 / 表情包 / emoji / 图片 / 语音 / 颜文字 / 引用 / 撤回 / 补发概率）、多字卡回复（触发概率 / 最少最多条数 / 拼接符号池含「换行」）、主动发送（概率 / 间隔 / 条数 / 免打扰 / 标识可换可自定义）</div>
           <div class="lic-li"><b>主动发送标识</b>：TA 主动找你的消息，气泡左上角那个小标识以前固定是爱心，现在可以换、也可以自己加——设置 → 回复设置 → 聊天 → 主动发送（联系人找你）→「标识」。内置五枚都能点亮（爱心 ♥ / 星星 ★ / 月亮 ☾ / 闪光 ✦ / 小爪 🐾），系统自带的只能开关、不能删除；点「＋」可以添加自己的标识，emoji 和文字都可以（最长 4 个字符、最多 8 个），自定义的点本体开关、点「×」删除。点亮一枚＝每条主动消息都用它；点亮多枚＝多出「抽取方式」一行，可选「每次随机」或「按顺序轮换」；关掉「主动发送标识」总开关＝一枚都不显示</div>
-          <div class="lic-li">信箱：信件内容字卡条数、联系人主动写信（每天最多 / 概率 / 最短最长时间）、联系人回信（概率 / 最短最长时间）、写信内容类型</div>
-          <div class="lic-li">朋友圈：互动设置（点赞 / 评论 / 回复概率及速度 / 回赞概率）、回复内容设置（多字卡概率 / 最多字卡数 / 表情包概率）、TA 发朋友圈设置（主动发概率 / 每天最多 / 冷却 / 间隔 / 字卡条数 / 内容类型）、清除所有朋友圈数据</div>
+          <div class="lic-li">信箱：信件内容字卡条数、联系人主动写信（每天最多 / 概率 / 最短最长时间）、联系人回信（概率 / 最短最长时间）、写信内容类型、信件拼接随机标点（共用聊天的符号池）</div>
+          <div class="lic-li">朋友圈：互动设置（点赞 / 评论 / 回复概率及速度 / 回赞概率）、回复内容设置（多字卡概率 / 最多字卡数 / 表情包概率 / 拼接随机标点）、TA 发朋友圈设置（主动发概率 / 每天最多 / 冷却 / 间隔 / 字卡条数 / 内容类型）、清除所有朋友圈数据</div>
           <div class="lic-li">群聊：每个成员回复概率 / 速度 / 条数与各类附加行为概率，独立于主聊天设置</div>
           <div class="lic-li">查岗：TA 主动查岗的开关 / 概率 / 冷却 / 自动弹窗概率</div>
           <div class="lic-li">概率的生效链：系统预设字卡走「<b>总档 × 分类档</b>」两级相乘——先乘回复设置里的系统预设字卡总档（默认 100），再乘各分类自己的设定值，任一级为 0 即不触发；总档只作用于系统预设字卡，信箱 / 朋友圈不套总档。设置页里显示的始终是分类自己的存盘值（不显示相乘后的结果），所以总档调到 0 时各分类的数字看起来没变、但都不触发了，属正常。</div>
@@ -3428,11 +3428,15 @@
                  FIX 2026-09-18 #712 用户直派「拼接符号新增一个：—— 默认开启」＋「系统自带的不变，
                  只能开关，但是用户可以自己添加」：点「＋」添加自定义符号、自定义 chip 点「×」删除）；
                  关闭＝只用空格（原样）。
+                 FIX 2026-09-24 #1198 用户直派「多字卡回复和标点符号 需要新增联系人自己随机选择是否换行」
+                 ＋「也需要增加信箱和朋友圈，也加上这个功能，也在回复设置里」：内置第八枚「换行」
+                 （py-punct-nl，默认关＝存量设备零变化，点亮后抽到它才另起一行）；同一套符号池由
+                 信箱（ml-punct-en）/朋友圈（fd-punct-en）共用，两者各带默认关的开关、互不叠聊天的闸门。
                  符号池状态由 reply-settings.js #650 段渲染（ppy-chips），join 逻辑在 chat.js pyJoinCards -->
             <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="py-punct-en"><span class="tk"></span></label></div>
-            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
+            <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" data-k="py-punct-nl">换行</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
             <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
-            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池。关闭上方「多字卡回复」后本组一并失效：拼接随机标点不再生效、符号池回退空格</div>
+            <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池。关闭上方「多字卡回复」后本组一并失效：拼接随机标点不再生效、符号池回退空格<br><b>「换行」（默认关）</b>＝点亮后随机抽到它时，下一张字卡另起一行（抽到别的符号仍照常连在同一行里）。<b>这套符号池是三处共用</b>：聊天（上面的「拼接随机标点」）、信箱（回复设置 → 信箱 →「信件拼接随机标点」）、朋友圈（回复设置 → 朋友圈 →「朋友圈拼接随机标点」），后两者默认关，各自只由自家开关决定——上方聊天开关置灰不影响它们。表情包/图片这类卡片两侧永远用空格相接（标点或换行贴进图片网址尾部会让图显示不出来）</div>
           </div>
           </div>
           <!-- 拼字造句组：词典拼字 / 梦角自由造句 -->
@@ -3524,6 +3528,9 @@
           <div class="set-group glass">
             <div class="gs-row"><span>最少字卡条数</span><div class="stepper" data-k="ml-min-cards" data-min="1" data-max="500" data-step="10"><button class="stp-min">−</button><input class="stp-val" id="ml-min-cards-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最多字卡条数</span><div class="stepper" data-k="ml-max-cards" data-min="1" data-max="500" data-step="10"><button class="stp-min">−</button><input class="stp-val" id="ml-max-cards-val" readonly><button class="stp-max">+</button></div></div>
+            <!-- #1198 信件正文也走「拼接随机标点」：共用聊天那套符号池（含内置「换行」），自家开关默认关 -->
+            <div class="gs-row"><span>信件拼接随机标点</span><label class="toggle"><input type="checkbox" id="ml-punct-en"><span class="tk"></span></label></div>
+            <div class="gs-sub">默认关＝一封信里各张字卡之间只用空格相连（老样子）。打开后每两条字卡中间随机抽一个连接符，抽到「换行」时下一张字卡另起一行，信纸会一段一段分开。符号用的是聊天那一套：回复设置 → 聊天 →「字卡与概率」→「拼接符号」（把「换行」点亮即可，只勾「换行」＋「空格」＝要么换行要么空一格）。表情/图片卡两侧仍固定用空格。本开关只看自己，与聊天页的「多字卡回复／拼接随机标点」互不影响；来信与 TA 的回信都用它</div>
           </div>
           <div class="gs-title">联系人主动写信</div>
           <div class="set-group glass">
@@ -3583,6 +3590,9 @@
             <div class="gs-row"><span>一条评论使用多个字卡概率</span><div class="stepper" data-k="fd-card-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="fd-card-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最多字卡数</span><div class="stepper" data-k="fd-max-cards" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="fd-max-cards-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>使用表情包概率</span><div class="stepper" data-k="fd-image-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="fd-image-prob-val" readonly><button class="stp-max">+</button></div></div>
+            <!-- #1198 朋友圈也走「拼接随机标点」：共用聊天那套符号池（含内置「换行」），自家开关默认关 -->
+            <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="fd-punct-en"><span class="tk"></span></label></div>
+            <div class="gs-sub">默认关＝评论/回复与 TA 动态里的各张字卡之间只用空格相连（老样子）。打开后每两条字卡中间随机抽一个连接符，抽到「换行」时下一张字卡另起一行（评论会一条一段）。符号用的是聊天那一套：回复设置 → 聊天 →「字卡与概率」→「拼接符号」（把「换行」点亮即可）。表情包/图片卡两侧仍固定用空格（标点贴进图片网址尾部会让图显示不出来）。本开关只看自己，与聊天页的「多字卡回复／拼接随机标点」互不影响</div>
           </div>
           <div class="gs-title">TA 发朋友圈设置</div>
           <div class="set-group glass">

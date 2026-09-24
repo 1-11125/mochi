@@ -658,7 +658,8 @@ const dq = window.dictQuoteOne();
 if (dq) parts.push(dq);
 }
 } catch (eDQ) {}
-let t = parts.join(' ');
+const rcf = window.replyCfgFor ? window.replyCfgFor(cid) : null;
+let t = (window.pyJoinCards && rcf) ? window.pyJoinCards(parts, rcf, rcf['ml-punct-en'] === 1) : parts.join(' ');
 const kp = pool.kaomoji.length ? pool.kaomoji : pool.defKaomoji;
 const ep = pool.emoji.length ? pool.emoji : pool.defEmoji;
 if (cfg.kaomojiEn && kp.length && Math.random() * 100 < 30) t += ' ' + kp[Math.floor(Math.random() * kp.length)];

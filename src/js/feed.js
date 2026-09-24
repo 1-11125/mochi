@@ -783,7 +783,10 @@
       if (!pushed && o.kaoP > 0 && pool.kaomoji.length && r < o.kaoP) { parts.push(pick.kaomoji()); pushed = true; }
       if (!pushed) parts.push(pool.text.length ? pick.text() : pick.fb());
     }
-    return parts.join(' ');
+    // #1198 评论/回复里每两条字卡中间走「拼接符号」池（回复设置 → 朋友圈「拼接随机标点」，默认关
+    // ＝仍用空格＝老样子）；符号池与聊天共用同一套（含内置「换行」），按【动态所属桌面】读设置。
+    const rcf = window.replyCfgFor ? window.replyCfgFor(cid) : null;
+    return (window.pyJoinCards && rcf) ? window.pyJoinCards(parts, rcf, rcf['fd-punct-en'] === 1) : parts.join(' ');
   }
   // v3.5.94：TA 发布动态专用生成器——文字（主字卡/颜文字/emoji）与图片（表情包/图片）
   // 分离：图片进 imgs 数组独立展示（与我的发布一致），不再混插在文字中间
@@ -811,7 +814,10 @@
       if (!pushed && cfg.postKaomoji > 0 && pool.kaomoji.length && Math.random() * 100 < cfg.postKaomoji) { textParts.push(pick.kaomoji()); pushed = true; }
       if (!pushed) textParts.push(pool.text.length ? pick.text() : pick.fb());
     }
-    return { content: textParts.join(' '), imgs: imgs };
+    // #1198 与评论/回复同一口径：TA 发动态的文字卡中间走「拼接符号」池（自家开关默认关＝原样空格）
+    const rcf = window.replyCfgFor ? window.replyCfgFor(cid) : null;
+    const body = (window.pyJoinCards && rcf) ? window.pyJoinCards(textParts, rcf, rcf['fd-punct-en'] === 1) : textParts.join(' ');
+    return { content: body, imgs: imgs };
   }
   // 动态正文 HTML：文字混排 + 独立图片区（九宫格）
   // v3.5.95：兼容旧数据 p.img 字段
@@ -2212,7 +2218,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   // ================= 通知提醒（TA 点赞/评论/发布动态 → 未读角标 + 列表 + 点击跳转） =================
   // v3.5.81：通知文本里的 dataURL（表情包/图片）清洗为 [表情包]，避免乱码长串；面板显示缩略图
   function noticeTextClean(s) {
-    return String(s || '').replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[表情包]').replace(/@@m:[0-9a-f]{32}/g, '[表情包]');
+    // #1198 换行折成空格：通知条里若带上拼接用的 '\n'，展示会断层
+    return String(s || '').replace(/\s*\n\s*/g, ' ').replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[表情包]').replace(/@@m:[0-9a-f]{32}/g, '[表情包]');
   }
   function notices() { try { return JSON.parse(store.get('feed-notices') || '[]'); } catch (e) { return []; } }
   function saveNotices(list) { store.set('feed-notices', JSON.stringify(list)); }

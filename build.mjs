@@ -4836,6 +4836,20 @@ const FIX_SENTINELS = [
   { name: '#1197c 取消胶囊仍走普通确定（skipWhen；删＝点「取消」变成弹文件选择器，取消不成取消）', file: 'js/data-backup.js', needle: "skipWhen: (m) => m === 'cancel'," },
   { name: '#1197d 切后台按体积释放大键内存副本（同 #1195e；删＝回到 #975 的逐键点名，壁纸/美化方案等 MB 级键仍常驻＝iOS 内存压力下回收页面⇒多秒帧冻结+白屏复发）', file: 'js/idb.js', needle: 'window.idbMemoReleaseBig = function (minBytes) {' },
 
+  // ==== 2026-09-24 #1198 多字卡「拼接符号」新增内置「换行」＋信箱/朋友圈共用同一套符号池（用户直派「多字卡回复和标点符号 需要新增联系人自己随机选择是否换行」＋「也需要增加信箱和朋友圈，也加上这个功能。也在回复设置里」）——第八枚内置符号 py-punct-nl（默认关＝存量设备观感零变化），点亮后每两条字卡中间随机抽、抽中它才另起一行；同一套池经 chat.js pyJoinCards 第三参 sceneOn 开放给信箱（ml-punct-en）/朋友圈（fd-punct-en），两者各带默认关的自家开关、不叠聊天的 py-en 闸门 ====
+  { name: "#1198a 内置「换行」入池（删掉＝设置页点亮「换行」也永远抽不到，功能等于不存在；默认关所以只能靠本针证明逻辑在位）", file: "js/chat.js", needle: "if (c['py-punct-nl'] === 1) pool.push('\\n');" },
+  { name: "#1198b 信箱/朋友圈的拼卡走第三参自带开关（改回只看 pyJoinOn＝ML/FD 自家开关失效；删掉整个 sceneOn 形参＝信件又回到写死空格）", file: "js/chat.js", needle: "const usePool = sceneOn === undefined ? pyJoinOn : !!sceneOn;" },
+  { name: "#1198c 媒体段两侧恒用空格（删掉＝标点/换行能贴进表情包图片网址尾部，内联图正则把尾巴一起当 URL 吞掉＝朋友圈混排卡图裂）", file: "js/chat.js", needle: "const isMediaSeg = s => typeof s === 'string' && (s.indexOf('data:') === 0" },
+  { name: "#1198d 「换行」默认值登记（不登记＝老设备键缺失读到 undefined，chip 点不亮/关不掉）", file: "js/reply-settings.js", needle: "'py-punct-nl': 0," },
+  { name: "#1198e 信件拼接开关默认值（同口径；删掉＝ml-punct-en 无默认值）", file: "js/reply-settings.js", needle: "'ml-punct-en': 0," },
+  { name: "#1198f 朋友圈拼接开关默认值（同口径；删掉＝fd-punct-en 无默认值）", file: "js/reply-settings.js", needle: "'fd-punct-en': 0," },
+  { name: "#1198g 信件正文接入符号池（改回 parts.join 空格＝信箱那行开关形同虚设，用户点名要的功能没落地）", file: "js/mail.js", needle: "window.pyJoinCards(parts, rcf, rcf['ml-punct-en'] === 1)" },
+  { name: "#1198h 朋友圈评论/回复接入符号池（改回 parts.join＝朋友圈那行开关形同虚设）", file: "js/feed.js", needle: "rcf['fd-punct-en'] === 1) : parts.join(' ');" },
+  { name: "#1198i TA 发动态正文接入符号池（动态与评论是两条生成链，漏一条＝开关只管得住一半）", file: "js/feed.js", needle: "window.pyJoinCards(textParts, rcf, rcf['fd-punct-en'] === 1)" },
+  { name: "#1198j 设置页「换行」chip 在位（删掉＝用户没有入口点亮它）", file: "template.html", needle: "data-k=\"py-punct-nl\"" },
+  { name: "#1198k 信箱「信件拼接随机标点」开关行在位（删掉＝信箱侧无入口）", file: "template.html", needle: "id=\"ml-punct-en\"" },
+  { name: "#1198l 朋友圈「拼接随机标点」开关行在位（删掉＝朋友圈侧无入口）", file: "template.html", needle: "id=\"fd-punct-en\"" },
+  { name: "#1198m 朋友圈评论容器 pre-wrap（删掉＝抽到「换行」在朋友圈里被折回同一行，功能只剩聊天可见）", file: "css/chat-pages.css", needle: ".feed-comment { font-size:12px; color:#555; line-height:1.7; padding:3px 0; cursor:pointer; white-space:pre-wrap; }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
