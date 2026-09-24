@@ -432,6 +432,26 @@ body.cs-time-divider .msg-time-divider { display:flex; }
 }
 .chat-ask-actions { display:flex; gap:8px; }
 .chat-ask-actions .cc-tool { flex:1; }
+/* ===== #1188 邀请记录（「邀请TA」半框顶部）：今天直列、更早按日折叠、日期组分页 ===== */
+.chat-ask-hist { margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed rgba(0,0,0,.12); }
+.chat-ask-hist[hidden] { display:none; } /* 只靠 hidden 收起，别让别的规则盖掉 */
+.chat-ask-hist-bar { display:flex; align-items:center; justify-content:space-between; }
+.chat-ask-hist-toggle { font-size:13px; font-weight:700; color:var(--ink); cursor:pointer; user-select:none; padding:6px 4px; }
+.chat-ask-hist-toggle:active { opacity:.7; }
+.chat-ask-hist-clear { font-size:11px; color:var(--muted); cursor:pointer; border:none; background:none; padding:6px 6px; font-family:inherit; }
+.chat-ask-hist-clear:active { color:#a33; }
+.chat-ask-hist-list { margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+.chat-ask-hist-list[hidden] { display:none; } /* display:flex 会覆盖 hidden，需补此规则才能折叠（同 .div-chat-hist-list 教训） */
+.chat-ask-hist-list .tc-listitem { padding:8px 10px; margin-bottom:0; }
+.ih-day { font-size:11px; font-weight:700; color:var(--muted); }
+.ih-day-btn { display:block; width:100%; text-align:left; border:1px solid rgba(0,0,0,.09); border-radius:10px; padding:9px 12px; background:rgba(255,255,255,.6); color:var(--ink); font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ih-day-btn:active { background:rgba(0,0,0,.05); }
+.ih-caret { float:right; font-weight:400; color:var(--muted); }
+.ih-more { display:block; width:100%; border:1px dashed rgba(0,0,0,.18); border-radius:10px; padding:10px 12px; background:none; color:var(--ink); font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ih-more:active { background:rgba(0,0,0,.05); }
+.ih-ok { color:#2e7d32; font-weight:600; }
+.ih-no { color:#a33; font-weight:600; }
+.ih-nu { color:var(--muted); }
 
 /* 鑱婂ぉ椤靛崰鍗滃崐妗嗭紙v3.5.53锛夛細妯″紡/寮犳暟鍒囨崲 + 鎶界墝缁撴灉锛屽鐢?.div-* 鍗＄墖鏍峰紡 */
 #chat-divine-body .div-modes-wrap,

@@ -2529,6 +2529,7 @@
           <div class="lic-li">可搜索聊天记录并跳转到对应位置</div>
           <div class="lic-li">聊天 + 按钮展开更多功能面板（互动 / 小游戏 / 工具 / TA的提问 四分类）：互动类——邀请TA、通话、拍一拍、红包、心意集市、心意柜、头像和昵称互动、漂流瓶</div>
           <div class="lic-li">「邀请TA」半框内置【我的邀请】字卡库：预设 + 自定义分组，可存入 / 修改 / 删除邀请字卡，点字卡即可重复发送</div>
+          <div class="lic-li">「邀请TA」半框顶部【📜 邀请记录】：查自己发出过的邀请与 TA 的回应（接受 / 拒绝 / 未回应）。<b>今天</b>的直接列出，更早的按日期折成一行、点日期展开，一次只露 5 天、点「加载更多」翻页；「清空记录」只清本桌面的邀请记录，问问TA 的记录不受影响</div>
           <div class="lic-li">小游戏类——猜拳、Pong、贪吃蛇、打砖块、钓鱼、四子棋、扫雷、记忆翻牌、五子棋、连连看、消消乐、拍卖会；工具类——帮我决定、多人决定、问问TA、搜索记录、占卜、寻踪、此间、房间、心情日记</div>
           <div class="lic-li">朋友圈贴纸回复：配图动态下点「贴纸」，选表情包贴到照片上（每张照片最多 5 张，自己贴的可点撤回），TA 会按评论概率回贴一张并进朋友圈通知</div>
           <div class="lic-li">回忆闪回：打开朋友圈时，「那年今天」的旧动态会以记忆卡置顶，点击定位到原动态并高亮，✕ 当天不再显示</div>
@@ -6027,6 +6028,14 @@
         </div>
         <div class="poke-groups" id="invite-groups" hidden></div>
         <div class="poke-card-scroll chat-ask-body">
+          <!-- #1188：邀请记录（仅「邀请TA」模式显示）——今天直接列出，更早按自然日折叠、日期组分页加载 -->
+          <div class="chat-ask-hist" id="chat-ask-hist" hidden>
+            <div class="chat-ask-hist-bar">
+              <span class="chat-ask-hist-toggle" id="chat-ask-hist-toggle">📜 邀请记录 ▾</span>
+              <button type="button" class="chat-ask-hist-clear" id="chat-ask-hist-clear">清空记录</button>
+            </div>
+            <div class="chat-ask-hist-list" id="chat-ask-hist-list" hidden></div>
+          </div>
           <div class="invite-list" id="invite-list" hidden></div>
           <div class="dec-inp-wrap chat-ask-inp-wrap"><input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="dec-inp-clear" data-clear="chat-ask-input" aria-label="清空" title="清空">✕</button></div>
           <button type="button" class="chat-ask-bulk" id="chat-ask-bulk" hidden>批量设置问卷</button>

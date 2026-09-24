@@ -10136,6 +10136,17 @@ const isInvite = chatAskMode === 'invite';
 	// v3.26.x：批量设置问卷按钮只在「问问TA」模式显示（邀请TA 模式隐藏）
 	const bulkBtn = document.getElementById('chat-ask-bulk');
 	if (bulkBtn) bulkBtn.hidden = isInvite;
+	// #1188：邀请记录块只在「邀请TA」模式显示（问问TA 模式与批量问卷按钮同款收法）；
+	// 每次打开都复位成「列表收起 + 只准备露最近 5 个历史日期组 + 历史日期全部收起」
+	const invHist = document.getElementById('chat-ask-hist');
+	if (invHist) invHist.hidden = !isInvite;
+	if (isInvite) {
+	  const ihList = document.getElementById('chat-ask-hist-list');
+	  if (ihList) ihList.hidden = true;
+	  ihPastShown = IH_PAGE_DAYS;
+	  Object.keys(ihOpenDays).forEach(k => { delete ihOpenDays[k]; });
+	  renderInviteHist();
+	}
 if (isInvite) {
 myInviteAdoptFromIdb().then(() => { if (chatAskMode === 'invite') renderInviteBank(); });
 }
@@ -10320,7 +10331,7 @@ setTimeout(() => {
 // v3.26.x #489：决定落地时已切桌面——跨桌面补投递（接受/拒绝的回应气泡一并落库）
 if (!sameCid()) {
 window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus', function (rec) { rec.inviteStatus = 'answered'; rec.inviteAnswer = answer; }, reply ? [{ side: 'in', text: reply }] : [], applyInviteResult);
-try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, ts: recTs }); } catch (err) {}
+try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, st: status, ts: recTs }); } catch (err) {}
 return;
 }
 function applyInviteResult() {
@@ -10342,7 +10353,7 @@ try {
 const list = JSON.parse(store.get(histKey) || '[]');
 // v3.26.x #489：按 ts 去重——跨桌面补投递路径可能已记过同一条
 if (!list.some(x => x && x.ts === recTs)) {
-list.unshift({ type: 'invite', q: content, a: reply || status, ts: recTs });
+list.unshift({ type: 'invite', q: content, a: reply || status, st: status, ts: recTs });
 if (list.length > 200) list.length = 200;
 store.set(histKey, JSON.stringify(list));
 }
@@ -10353,6 +10364,128 @@ setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
 applyInviteResult();
 }, 1500 + Math.random() * 2500);
 }
+// ===================== #1188 邀请记录（「邀请TA」半框顶部） =====================
+// 需求（用户直派）：「邀请卡片功能缺少邀请历史记录」＋「当天的历史记录只显示当天的，其他时间的
+// 记录默认折叠，分页加载」。
+// 数据源＝既有本桌面键 invite-ask-history 里 type==='invite' 的那些（我发出的邀请，由
+// sendInviteContent 在 TA 的决定落地时写入），不新开键、不复制第二份——同一条记录在
+// 「提问记录 → 邀请/问问」tab 里本来就有，本块只是把它按「今天 / 更早」分日收纳进半框。
+// 展示口径：①今天（自然日）直接列出；②更早的按天各折成一行，点日期展开/收起；③日期组分页，
+// 一次露 IH_PAGE_DAYS 组，其余藏在「加载更多（还有 N 天 · M 条）」后面；④「清空记录」只摘掉
+// type==='invite' 的条目，同键里问问TA 的记录原样保留。
+const IH_PAGE_DAYS = 5;
+let ihPastShown = IH_PAGE_DAYS; // 已露出的「更早」日期组数（不含今天）
+const ihOpenDays = {};          // 手动展开的更早日期组（key = 年-月-日）
+function ihDayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function ihDayLabel(key) {
+  const now = Date.now();
+  if (key === ihDayKey(now)) return '今天';
+  if (key === ihDayKey(now - 86400000)) return '昨天';
+  const p = String(key).split('-');
+  return Number(p[1]) + '月' + Number(p[2]) + '日';
+}
+// 读库 → 只留邀请 → ts 新→旧 → 按自然日分组（分组顺序跟随首次出现＝新日在前）
+function ihGroups() {
+  let list = [];
+  try {
+    const raw = JSON.parse(store.get('invite-ask-history') || '[]');
+    if (Array.isArray(raw)) list = raw.filter(x => x && x.type === 'invite' && Number(x.ts));
+  } catch (e) { list = []; }
+  list.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+  const groups = [];
+  const byKey = {};
+  list.forEach(x => {
+    const k = ihDayKey(Number(x.ts));
+    if (!byKey[k]) { byKey[k] = { key: k, items: [] }; groups.push(byKey[k]); }
+    byKey[k].items.push(x);
+  });
+  return { groups, total: list.length };
+}
+function ihClock(ts) {
+  const d = new Date(ts);
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+}
+// 一条记录：邀请内容 + 结果（老记录没有 st，就只展示 TA 的话）+ 时刻
+function ihItemHtml(x) {
+  const st = (x.st === '接受' || x.st === '拒绝' || x.st === '未回应') ? x.st : '';
+  const words = x.a && String(x.a) !== st ? String(x.a) : '';
+  const verdict = !st ? '' : (st === '接受' ? '<span class="ih-ok">✓ TA 接受了</span>'
+    : st === '拒绝' ? '<span class="ih-no">✕ TA 拒绝了</span>'
+    : '<span class="ih-nu">… TA 未回应</span>');
+  const tail = verdict && words ? ' · ' : '';
+  const ta = words ? escTxt(window.taFit ? window.taFit(words) : words) : '';
+  return '<div class="tc-listitem"><div class="tc-li-q">' + escTxt(x.q) + '</div>' +
+    (verdict || ta ? '<div class="tc-li-line">' + verdict + tail + ta + '</div>' : '') +
+    '<div class="tc-li-time">' + ihClock(Number(x.ts)) + '</div></div>';
+}
+function renderInviteHist() {
+  const listEl = document.getElementById('chat-ask-hist-list');
+  const toggle = document.getElementById('chat-ask-hist-toggle');
+  if (!listEl || !toggle) return;
+  const g = ihGroups();
+  const todayKey = ihDayKey(Date.now());
+  const today = g.groups.filter(x => x.key === todayKey);
+  const past = g.groups.filter(x => x.key !== todayKey);
+  const shown = past.slice(0, ihPastShown);
+  const rest = past.slice(ihPastShown);
+  const restItems = rest.reduce((n, x) => n + x.items.length, 0);
+  toggle.textContent = '📜 邀请记录' + (g.total ? '（' + g.total + '）' : '') + (listEl.hidden ? ' ▾' : ' ▴');
+  if (!g.total) {
+    listEl.innerHTML = '<div class="ta-empty">还没有邀请记录——在下方点字卡或写一条发出去，就会留在这里</div>';
+    return;
+  }
+  let html = '';
+  // 今天：直接列出（今天一条都没有时给一行说明，避免打开后只见折叠行）
+  html += today.length
+    ? '<div class="ih-day ih-day-today">' + ihDayLabel(todayKey) + ' · ' + today[0].items.length + ' 条</div>' + today[0].items.map(ihItemHtml).join('')
+    : '<div class="ih-day ih-day-today">' + ihDayLabel(todayKey) + ' · 0 条</div>';
+  shown.forEach(x => {
+    const open = !!ihOpenDays[x.key];
+    html += '<button type="button" class="ih-day-btn" data-ihday="' + escTxt(x.key) + '">' + ihDayLabel(x.key) + ' · ' + x.items.length + ' 条<span class="ih-caret">' + (open ? '▴' : '▾') + '</span></button>';
+    if (open) html += x.items.map(ihItemHtml).join('');
+  });
+  if (rest.length) html += '<button type="button" class="ih-more" id="ih-more">加载更多（还有 ' + rest.length + ' 天 · ' + restItems + ' 条）</button>';
+  listEl.innerHTML = html;
+  listEl.querySelectorAll('[data-ihday]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const k = b.getAttribute('data-ihday');
+    if (ihOpenDays[k]) delete ihOpenDays[k]; else ihOpenDays[k] = 1;
+    renderInviteHist();
+  }));
+  const more = document.getElementById('ih-more');
+  if (more) more.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ihPastShown += IH_PAGE_DAYS;
+    renderInviteHist();
+  });
+}
+const chatAskHistToggle = document.getElementById('chat-ask-hist-toggle');
+if (chatAskHistToggle) chatAskHistToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const listEl = document.getElementById('chat-ask-hist-list');
+  if (!listEl) return;
+  listEl.hidden = !listEl.hidden;
+  renderInviteHist();
+});
+const chatAskHistClear = document.getElementById('chat-ask-hist-clear');
+if (chatAskHistClear) chatAskHistClear.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!window.openModal) { toast('弹窗组件未就绪'); return; }
+  window.openModal('清空本桌面的全部邀请记录？（不可恢复，问问TA 的记录不受影响）', '', () => {
+    try {
+      const all = JSON.parse(store.get('invite-ask-history') || '[]');
+      const keep = Array.isArray(all) ? all.filter(x => x && x.type !== 'invite') : [];
+      store.set('invite-ask-history', JSON.stringify(keep));
+    } catch (err) {}
+    ihPastShown = IH_PAGE_DAYS;
+    Object.keys(ihOpenDays).forEach(k => { delete ihOpenDays[k]; });
+    renderInviteHist();
+    if (window.renderAskRecords) window.renderAskRecords(); // #625 汇总页同口径刷新
+    toast('邀请记录已清空');
+  }, { noInput: true });
+});
+
 // ===================== 我的邀请（邀请TA 字卡库，仿「我的拍一拍」） =====================
 // v3.26.x：邀请TA 半框内置「我的邀请」——预设 + 用户分组存邀请字卡，点卡即发送（可重复），
 // 输入框可「存入」当前分组；数据按当前桌面联系人命名空间隔离（activePrefix），

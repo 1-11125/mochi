@@ -4799,6 +4799,12 @@ const FIX_SENTINELS = [
 
   { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
   { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },
+  { name: '#1188a 邀请记录落库带结果口径（删 st＝记录只剩 TA 的话、看不出接受还是拒绝，跨桌面补投递那路）', file: 'js/chat.js', needle: "window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, st: status, ts: recTs });" },
+  { name: '#1188b 同上·本桌面直写那路（两路都写才不留空洞）', file: 'js/chat.js', needle: "list.unshift({ type: 'invite', q: content, a: reply || status, st: status, ts: recTs });" },
+  { name: '#1188c 今天那组直接列出、更早的进折叠组（删＝按日折叠分组口径整体回流成流水一屏）', file: 'js/chat.js', needle: "const today = g.groups.filter(x => x.key === todayKey);" },
+  { name: '#1188d 更早日期组分页（一次 IH_PAGE_DAYS 组＋「加载更多」；删＝日期组无限铺开，用户点名要的折叠失效）', file: 'js/chat.js', needle: "const shown = past.slice(0, ihPastShown);" },
+  { name: '#1188e 清空只摘邀请、留住同键的问问记录（删＝清邀请记录顺带把「问问TA」的历史一起清掉）', file: 'js/chat.js', needle: "const keep = Array.isArray(all) ? all.filter(x => x && x.type !== 'invite') : [];" },
+  { name: '#1188f 邀请记录块只在邀请TA 模式显示（删＝问问TA 半框顶上也挂一枚无关的邀请记录行）', file: 'js/chat.js', needle: "if (invHist) invHist.hidden = !isInvite;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

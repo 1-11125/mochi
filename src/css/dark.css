@@ -109,6 +109,13 @@
 [data-theme="dark"] .chat-ask-opts { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
 [data-theme="dark"] .chat-ask-opts:focus { border-color:var(--ink); }
 [data-theme="dark"] .chat-ask-bulk { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
+/* #1188 邀请记录（暗色同构：折叠行/翻页钮的浅底浅框在暗色下要翻过来） */
+[data-theme="dark"] .chat-ask-hist { border-bottom-color:rgba(255,255,255,.14); }
+[data-theme="dark"] .ih-day-btn { border-color:rgba(255,255,255,.09); background:rgba(255,255,255,.04); color:var(--ink); }
+[data-theme="dark"] .ih-day-btn:active { background:var(--dark-hover); }
+[data-theme="dark"] .ih-more { border-color:rgba(255,255,255,.18); color:var(--ink); }
+[data-theme="dark"] .ih-more:active { background:var(--dark-hover); }
+[data-theme="dark"] .ih-ok { color:#7cc47f; }
 [data-theme="dark"] .chat-input-row { background:var(--dark-card-92); border-color:var(--dark-border); }
 [data-theme="dark"] .chat-input { color:var(--ink); }
 [data-theme="dark"] .chat-input:empty::before { color:var(--hint-ink); }

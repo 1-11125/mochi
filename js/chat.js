@@ -7993,6 +7993,15 @@ if (invList) invList.hidden = !isInvite;
 if (invSave) invSave.hidden = !isInvite;
 const bulkBtn = document.getElementById('chat-ask-bulk');
 if (bulkBtn) bulkBtn.hidden = isInvite;
+const invHist = document.getElementById('chat-ask-hist');
+if (invHist) invHist.hidden = !isInvite;
+if (isInvite) {
+const ihList = document.getElementById('chat-ask-hist-list');
+if (ihList) ihList.hidden = true;
+ihPastShown = IH_PAGE_DAYS;
+Object.keys(ihOpenDays).forEach(k => { delete ihOpenDays[k]; });
+renderInviteHist();
+}
 if (isInvite) {
 myInviteAdoptFromIdb().then(() => { if (chatAskMode === 'invite') renderInviteBank(); });
 }
@@ -8139,7 +8148,7 @@ answer = myName + ' 暂时没有回应';
 setTimeout(() => {
 if (!sameCid()) {
 window.chatDeskCardReply(myCid, 'invite', inviteRecTs, 'inviteStatus', function (rec) { rec.inviteStatus = 'answered'; rec.inviteAnswer = answer; }, reply ? [{ side: 'in', text: reply }] : [], applyInviteResult);
-try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, ts: recTs }); } catch (err) {}
+try { window.chatDeskHistPush(myCid, { type: 'invite', q: content, a: reply || status, st: status, ts: recTs }); } catch (err) {}
 return;
 }
 function applyInviteResult() {
@@ -8160,7 +8169,7 @@ if (reply) addInTyped(reply, null, randInt(800, 1400));
 try {
 const list = JSON.parse(store.get(histKey) || '[]');
 if (!list.some(x => x && x.ts === recTs)) {
-list.unshift({ type: 'invite', q: content, a: reply || status, ts: recTs });
+list.unshift({ type: 'invite', q: content, a: reply || status, st: status, ts: recTs });
 if (list.length > 200) list.length = 200;
 store.set(histKey, JSON.stringify(list));
 }
@@ -8171,6 +8180,115 @@ setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
 applyInviteResult();
 }, 1500 + Math.random() * 2500);
 }
+const IH_PAGE_DAYS = 5;
+let ihPastShown = IH_PAGE_DAYS; // 已露出的「更早」日期组数（不含今天）
+const ihOpenDays = {};          // 手动展开的更早日期组（key = 年-月-日）
+function ihDayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function ihDayLabel(key) {
+const now = Date.now();
+if (key === ihDayKey(now)) return '今天';
+if (key === ihDayKey(now - 86400000)) return '昨天';
+const p = String(key).split('-');
+return Number(p[1]) + '月' + Number(p[2]) + '日';
+}
+function ihGroups() {
+let list = [];
+try {
+const raw = JSON.parse(store.get('invite-ask-history') || '[]');
+if (Array.isArray(raw)) list = raw.filter(x => x && x.type === 'invite' && Number(x.ts));
+} catch (e) { list = []; }
+list.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+const groups = [];
+const byKey = {};
+list.forEach(x => {
+const k = ihDayKey(Number(x.ts));
+if (!byKey[k]) { byKey[k] = { key: k, items: [] }; groups.push(byKey[k]); }
+byKey[k].items.push(x);
+});
+return { groups, total: list.length };
+}
+function ihClock(ts) {
+const d = new Date(ts);
+const p = (n) => (n < 10 ? '0' + n : '' + n);
+return p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function ihItemHtml(x) {
+const st = (x.st === '接受' || x.st === '拒绝' || x.st === '未回应') ? x.st : '';
+const words = x.a && String(x.a) !== st ? String(x.a) : '';
+const verdict = !st ? '' : (st === '接受' ? '<span class="ih-ok">✓ TA 接受了</span>'
+: st === '拒绝' ? '<span class="ih-no">✕ TA 拒绝了</span>'
+: '<span class="ih-nu">… TA 未回应</span>');
+const tail = verdict && words ? ' · ' : '';
+const ta = words ? escTxt(window.taFit ? window.taFit(words) : words) : '';
+return '<div class="tc-listitem"><div class="tc-li-q">' + escTxt(x.q) + '</div>' +
+(verdict || ta ? '<div class="tc-li-line">' + verdict + tail + ta + '</div>' : '') +
+'<div class="tc-li-time">' + ihClock(Number(x.ts)) + '</div></div>';
+}
+function renderInviteHist() {
+const listEl = document.getElementById('chat-ask-hist-list');
+const toggle = document.getElementById('chat-ask-hist-toggle');
+if (!listEl || !toggle) return;
+const g = ihGroups();
+const todayKey = ihDayKey(Date.now());
+const today = g.groups.filter(x => x.key === todayKey);
+const past = g.groups.filter(x => x.key !== todayKey);
+const shown = past.slice(0, ihPastShown);
+const rest = past.slice(ihPastShown);
+const restItems = rest.reduce((n, x) => n + x.items.length, 0);
+toggle.textContent = '📜 邀请记录' + (g.total ? '（' + g.total + '）' : '') + (listEl.hidden ? ' ▾' : ' ▴');
+if (!g.total) {
+listEl.innerHTML = '<div class="ta-empty">还没有邀请记录——在下方点字卡或写一条发出去，就会留在这里</div>';
+return;
+}
+let html = '';
+html += today.length
+? '<div class="ih-day ih-day-today">' + ihDayLabel(todayKey) + ' · ' + today[0].items.length + ' 条</div>' + today[0].items.map(ihItemHtml).join('')
+: '<div class="ih-day ih-day-today">' + ihDayLabel(todayKey) + ' · 0 条</div>';
+shown.forEach(x => {
+const open = !!ihOpenDays[x.key];
+html += '<button type="button" class="ih-day-btn" data-ihday="' + escTxt(x.key) + '">' + ihDayLabel(x.key) + ' · ' + x.items.length + ' 条<span class="ih-caret">' + (open ? '▴' : '▾') + '</span></button>';
+if (open) html += x.items.map(ihItemHtml).join('');
+});
+if (rest.length) html += '<button type="button" class="ih-more" id="ih-more">加载更多（还有 ' + rest.length + ' 天 · ' + restItems + ' 条）</button>';
+listEl.innerHTML = html;
+listEl.querySelectorAll('[data-ihday]').forEach(b => b.addEventListener('click', (e) => {
+e.stopPropagation();
+const k = b.getAttribute('data-ihday');
+if (ihOpenDays[k]) delete ihOpenDays[k]; else ihOpenDays[k] = 1;
+renderInviteHist();
+}));
+const more = document.getElementById('ih-more');
+if (more) more.addEventListener('click', (e) => {
+e.stopPropagation();
+ihPastShown += IH_PAGE_DAYS;
+renderInviteHist();
+});
+}
+const chatAskHistToggle = document.getElementById('chat-ask-hist-toggle');
+if (chatAskHistToggle) chatAskHistToggle.addEventListener('click', (e) => {
+e.stopPropagation();
+const listEl = document.getElementById('chat-ask-hist-list');
+if (!listEl) return;
+listEl.hidden = !listEl.hidden;
+renderInviteHist();
+});
+const chatAskHistClear = document.getElementById('chat-ask-hist-clear');
+if (chatAskHistClear) chatAskHistClear.addEventListener('click', (e) => {
+e.stopPropagation();
+if (!window.openModal) { toast('弹窗组件未就绪'); return; }
+window.openModal('清空本桌面的全部邀请记录？（不可恢复，问问TA 的记录不受影响）', '', () => {
+try {
+const all = JSON.parse(store.get('invite-ask-history') || '[]');
+const keep = Array.isArray(all) ? all.filter(x => x && x.type !== 'invite') : [];
+store.set('invite-ask-history', JSON.stringify(keep));
+} catch (err) {}
+ihPastShown = IH_PAGE_DAYS;
+Object.keys(ihOpenDays).forEach(k => { delete ihOpenDays[k]; });
+renderInviteHist();
+if (window.renderAskRecords) window.renderAskRecords(); // #625 汇总页同口径刷新
+toast('邀请记录已清空');
+}, { noInput: true });
+});
 const MY_INVITE_PRESETS = ['想和你猜拳，来一局？', '想和你玩一局 Pong，来吗？', '想和你玩双人贪吃蛇，来吗？', '想和你一起听歌'];
 let myInviteDirty = false;
 let myInviteCurGroup = '__preset';
