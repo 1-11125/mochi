@@ -1264,13 +1264,12 @@
     if (genRow) genRow.addEventListener('click', () => { try { dcpSyncUI(); } catch (e) {} });
   })();
 
-  // ===== #1153：互动卡频率档（原频率 + 往下三档）=====
+  // ===== #1153：互动卡频率档（原频率 + 往下三档）=====（#1154/#1155 改了行的落位，见下方注释）
   // 用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」，随后补充
   // 「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档」——档位全部 ≤ 原频率。
-  // 行落在「系统预设字卡 · 聊天触发概率」组里、紧贴四类互动卡分类档之上；右侧档位胶囊点开弹 pills
-  //（复用 #848 .gs-pick + openModal pills，不新增全局 CSS）。档位倍数与掷签侧消费全在
-  // src/js/ta-ask.js（IC_MODES / icProb / icCool / interactGateMs），本页只负责读写同一个键
-  // reply-ic-freq（随联系人桌面隔离，与 ta-ask 的 activeStore 是同一份）。
+  // 档位倍数与掷签侧消费全在 src/js/ta-ask.js（IC_MODES / icProb / icCool / interactGateMs），
+  // 本页只负责读写同一个键 reply-ic-freq（随联系人桌面隔离，与 ta-ask 的 activeStore 是同一份）。
+  // 交互用 #848 的 .gs-pick 档位胶囊 + openModal pills，不新增全局 CSS。
   (function () {
     const IC_LABEL = { '0': '原频率', '1': '稍安静', '2': '安静', '3': '很安静' };
     const IC_PILLS = [
@@ -1284,10 +1283,10 @@
       + '\n· 稍安静：概率 ×0.6、提问卡冷却 ×1.5、跨类型间隔 ×1.5；'
       + '\n· 安静：概率 ×0.4、提问卡冷却 ×2、跨类型间隔 ×2；'
       + '\n· 很安静：概率 ×0.2、提问卡冷却 ×3、跨类型间隔 ×3。'
-      + '\n\n「概率」是在各类型自己的触发概率（默认 5%，可在下方分类档或 字卡库 对应页单独调）与「整体概率（总档）」之上再乘一个倍数；'
+      + '\n\n「概率」是在各类型自己的触发概率（默认 5%，可在【字卡与概率】子面板或 字卡库 对应页单独调）与「整体概率（总档）」之上再乘一个倍数；'
       + '「跨类型间隔」＝任意一张提问卡发出后、其余类型多久内不再自动触发（基准 60 分钟）。'
       + '原值 ≥1% 时不会被档位抹成 0（选「很安静」也不会变成永不触发）。'
-      + '\n\n按联系人桌面独立保存，选档后即时生效。想完全不触发：把下面四类概率或总档调到 0，或关掉 字卡库 里对应页的开关。';
+      + '\n\n按联系人桌面独立保存，选档后即时生效。想完全不触发：把【字卡与概率】里的四类概率或总档调到 0，或关掉 字卡库 里对应页的开关。';
     function icVal() {
       let v = 0;
       try { v = Number((window.replyCfg && window.replyCfg())['ic-freq']); } catch (e) {}
@@ -1308,20 +1307,48 @@
         clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
       } catch (e) {}
     }
-    const anchorStepper = document.getElementById('dcp-ta-ask-prob');
-    const anchorRow = (anchorStepper && anchorStepper.closest) ? anchorStepper.closest('.gs-row') : null;
-    if (anchorRow && anchorRow.parentNode) {
+    // #1154（用户实报「我在回复设置里没有看到这个啊」→#1155 追派「这个应该放在一个独立 tag」）：
+    // #1153 首版把这行挂在「系统预设字卡 · 聊天触发概率」组里、TA的询问 四行分类档之上——那一整块
+    // 在回复设置页的【字卡与概率】子面板内，而默认显示的是【回复与主动】子面板，且该组还要往下滚
+    // 一千多像素才到这行；#1154 改挂到默认面板的「主动发送（联系人找工作）」分组之后，用户仍嫌要
+    // 翻半页。现按用户要求**单开一个二级 tag**：回复设置页的二级分类是
+    // `.rps-tabs` 里的 `.rps-tab[data-rps]` + 同级 `.rps-panel[data-rps]`（v3.44.x 机制），
+    // 切 tab 的处理器是通用的（只按 dataset 配对），且本段执行在处理器绑定之前——所以这里
+    // 直接注入一枚新 tab + 一枚新 panel，处理器会自动接管，**不改 template.html、不动 CSS**
+    // （.rps-tabs 是 overflow-x:auto 的横排，第四枚 tab 挤不下时横向滚动，不影响前三枚）。
+    const rpsTabs = document.querySelector('#page-reply-settings .rps-tabs');
+    const rpsHost = rpsTabs ? rpsTabs.parentNode : null;
+    if (rpsTabs && rpsHost) {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'rps-tab';
+      tab.setAttribute('data-rps', 'interact');
+      tab.textContent = '互动频率';
+      rpsTabs.appendChild(tab);
+      const panel = document.createElement('div');
+      panel.className = 'rps-panel';
+      panel.setAttribute('data-rps', 'interact');
+      panel.hidden = true;
+      const group = document.createElement('div');
+      group.className = 'set-group glass';
+      group.id = 'ic-freq-group';
+      const title = document.createElement('div');
+      title.className = 'gs-title';
+      title.textContent = '互动卡频率';
+      group.appendChild(title);
       const row = document.createElement('div');
       row.className = 'gs-row';
       row.id = 'ic-freq-row';
-      row.innerHTML = '<span>互动卡频率<span class="tag" id="ic-freq-tag" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span>'
+      row.innerHTML = '<span>联系人主动发卡/邀请的频率<span class="tag" id="ic-freq-tag" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span>'
         + '<div class="gs-pick" id="ic-freq-btn" data-v="0">原频率</div>';
-      anchorRow.parentNode.insertBefore(row, anchorRow);
+      group.appendChild(row);
       const sub = document.createElement('div');
       sub.className = 'gs-sub';
       sub.id = 'ic-freq-sub';
-      sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类 / 邀请三类 / 音乐邀请）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。点右侧档位切换。';
-      row.parentNode.insertBefore(sub, row.nextSibling);
+      sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类：询问/小问题/好奇/吐槽/分享你的字卡；邀请三类：猜拳/游戏/贴贴；音乐「一起去听」）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。各类互动卡的单项概率在【字卡与概率】里逐项调。点右侧档位切换。';
+      group.appendChild(sub);
+      panel.appendChild(group);
+      rpsHost.insertBefore(panel, rpsTabs.nextSibling);
       const btn = document.getElementById('ic-freq-btn');
       if (btn && window.openModal) {
         btn.addEventListener('click', function () {
