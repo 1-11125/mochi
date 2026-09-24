@@ -4893,6 +4893,20 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-24 #1207 聊天里打开占卜「抽牌时半框自动退出」（用户实报；根因零机型分支：#906 的点外关闭分派器在事件冒泡到 document 那刻实时读 panel.contains(e.target) 判内外，而占卜牌背的点击处理器在同一记派发里就把被点节点 removeChild 摘走 ⇒ contains 恒假 ⇒「点牌抽一张」被误判成「点半框外」，整框当场收掉；400ms 刚开闩拦不住，牌堆最早 1750ms 后才出现。修法＝点外判定改按派发那一刻的 composedPath()，取不到路径才回落旧口径；一处收口＝同族九枚底半框全修）==== */
   { name: '#1207a 点外判定取派发时路径（删＝回到实时 contains，被点元素同刻自我摘除即误判点外＝占卜抽牌关框复发，且全族同病）', file: 'js/chat.js', needle: "const path = typeof e.composedPath === 'function' ? e.composedPath() : null;" },
   { name: '#1207b 路径命中面板或弹窗遮罩即算框内（删这行＝分派器只认路径不认面板，半框永远点不关；改坏＝抽牌那一击又把框收掉）', file: 'js/chat.js', needle: "if (n === panel || (n.nodeType === 1 && n.classList && n.classList.contains('modal-mask'))) return;" },
+  /* ==== 2026-09-24 #1210 「写了＝到了」静默失败族首批（只读审计排到用户可感知度最高的两处，零机型分支，均为 AI-B 域文件）。
+   ① js/contacts.js migrateLegacy：搬运旧顶层键时 xyStore.set 之后【无条件】cleanupOld（聊天还连 IDB 根键一起删）。
+     而 set 内部 LS 写失败只打脏标记、IDB 写是 fire-and-forget，get 又优先读内存缓存（刚 set 完必然读得到）＝证不了落盘
+     ⇒「新键没落成、两份旧键已删」的空窗＝整段聊天记录物理消失的出口。修＝set 后按新键确认落了盘（小键认 LS、大键认
+     idbHasKey 三态的 true）才删旧键；证不到就保留旧键下次启动重试（迁移本身幂等），宁可重复搬一次。
+   ② js/data-backup.js 导入：a) 兜底写 IDB 的返回值只喂给一个从没被读过的计数器，提示语按「发起过写入的件数」说
+     「大文件 N 项已存入 IndexedDB」＝存储繁忙/事务挂起时当场假成功；b) clearLs 已清掉旧值，这类键的新值又没落成＝
+     两头空，而文件头承诺的「写入失败逐条回滚」那个整包 rollback() 根本没有调用点。修＝只报确认落成（ok）的件数与字节、
+     未落成的键逐条还原导入前的旧值（LS 仍写不进就放回本会话内存缓存），提示按真实结果说，死函数删除、空头承诺改口。 ==== */
+  { name: '#1210a 旧键只在确认落盘后才删（删掉＝set 完无条件 cleanupOld，聊天记录「新键没落、旧键已删」的空窗复发）', file: 'js/contacts.js', needle: 'const landed = function (durable) { if (durable) cleanupOld(); next(); };' },
+  { name: '#1210b 大键落盘走 IDB 三态探测（改回 !existing／只看 idbGet 真假值＝把「读不到」当成「库里没有」，删掉＝旧键被误删）', file: 'js/contacts.js', needle: 'Promise.resolve(window.idbHasKey(newKey)).then(function (has) {' },
+  { name: '#1210c 兜底写入按结果分账（改回只 fallsOk++ 不记失败键＝「已存入 IndexedDB」又是数发起次数报出来的）', file: 'js/data-backup.js', needle: 'else fallsBad.push(f.k);' },
+  { name: '#1210d 提示语按确认落成的件数/字节说（改回 idbFalls.length＝假成功文案，用户以为大文件已导入）', file: 'js/data-backup.js', needle: "parts.push('大文件 ' + fallsOk + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');" },
+  { name: '#1210e 两头落空的键逐条还原旧值（删掉＝clearLs 清完、兜底又没写成的键新数据没进旧数据没了，报障里那句「导入后数据全空」的机制）', file: 'js/data-backup.js', needle: 'try { localStorage.setItem(k, old); rolledBack++; } catch (e) {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

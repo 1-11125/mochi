@@ -388,31 +388,35 @@ const cleanupOld = function () {
 try { localStorage.removeItem(k); } catch (e) {}
 if (isChat && window.idbDelete) { try { window.idbDelete(k); } catch (e) {} }
 };
+const settle = function (payload) {
+try { window.xyStore(G + ':default').set(rest, payload); } catch (e) {}
+const landed = function (durable) { if (durable) cleanupOld(); next(); };
+try { if (localStorage.getItem(newKey) !== null) { landed(true); return; } } catch (e) {}
+if (window.idbHasKey) {
+Promise.resolve(window.idbHasKey(newKey)).then(function (has) {
+landed(has === true);
+}).catch(function () { landed(false); });
+} else landed(false);
+};
 let v = null; try { v = localStorage.getItem(k); } catch (e) {}
 if (v !== null) {
 const hasNew = window.xyStore(G + ':default').get(rest);
 if (hasNew) { cleanupOld(); next(); return; }
 if (window.idbGet) {
 window.idbGet(newKey).then(function (existing) {
-if (!existing) { try { window.xyStore(G + ':default').set(rest, v); } catch (e) {} }
-cleanupOld();
-next();
-}).catch(function () { try { window.xyStore(G + ':default').set(rest, v); } catch (e) {} cleanupOld(); next(); });
-} else {
-try { window.xyStore(G + ':default').set(rest, v); } catch (e) {}
-cleanupOld();
-next();
-}
+if (existing) { cleanupOld(); next(); return; }
+settle(v);
+}).catch(function () { settle(v); });
+} else settle(v);
 } else if (window.idbGet) {
 window.idbGet(k).then(r => {
 if (r !== undefined && r !== null) {
 const hasNew = window.xyStore(G + ':default').get(rest);
 if (hasNew) { cleanupOld(); next(); return; }
 window.idbGet(newKey).then(function (existing) {
-if (!existing) { try { window.xyStore(G + ':default').set(rest, r); } catch (e) {} }
-cleanupOld();
-next();
-}).catch(function () { try { window.xyStore(G + ':default').set(rest, r); } catch (e) {} cleanupOld(); next(); });
+if (existing) { cleanupOld(); next(); return; }
+settle(r);
+}).catch(function () { settle(r); });
 } else {
 cleanupOld();
 next();

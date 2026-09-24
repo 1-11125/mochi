@@ -4,7 +4,8 @@
 // v3.5.24 修复手机端导入丢数据：
 //  - 写 localStorage 前先按字节估算总大小，超出配额的大键（聊天图片/头像库等）自动删掉并计数，
 //    保证昵称/设置/聊天文字记录等小键全部恢复成功（不再因超配额静默丢数据）
-//  - 写入失败逐条回滚（还原被清掉的旧值），不会出现"清空后写一半"的情况
+//  - 写入失败先转 IndexedDB 兜底；兜底也没落成的键逐条还原导入前的旧值（#1210 起这条真的会执行，
+//    此前的整包 rollback() 无人调用＝注释空头承诺），不会出现"清空后写一半、旧数据也没了"的情况
 //  - IndexedDB 改为逐条顺序写入（不再用 Promise.all 一拥而上，手机内存压力大时容易失败）
 //  - 兼容旧 iOS 的 <input type=file> 读取（File.text() 老版本不支持时改用 FileReader）
 (function () {
@@ -1521,15 +1522,8 @@
           .forEach(k => localStorage.removeItem(k));
       } catch (e) {}
     }
-    // 回滚：还原导入前的旧数据
-    function rollback() {
-      clearLs();
-      if (backup) {
-        try {
-          Object.keys(backup).forEach(k => localStorage.setItem(k, backup[k]));
-        } catch (e) {}
-      }
-    }
+    // 回滚逐条做在下面的兜底写入链里（#1210）：整包 rollback() 从来没有调用点，而「清空后写一半」
+    // 的真实出口是单键两条写路（LS／IDB 兜底）全断，故按键还原旧值，见 fallsBad 一段。
 
     idbRestored.then((idbOk) => {
       // v3.6.x：IDB 原子替换失败 → 数据已由事务回滚保持原样，这里中止后续——
@@ -1608,22 +1602,47 @@
         }
       }
       // 等待 IDB 兜底写入全部完成后，再提示 + 刷新
+      // #1210：只报【确认落成】的件数/体积。原实现把「发起过写入的件数」idbFalls.length 当
+      // 「已存入 IndexedDB」说给用户，而 idbSet 的返回值只喂给一个从没被读过的 fallsOk——
+      // 存储繁忙/事务挂起时 idbSet 返回 false，界面照样是「N 项已存入 IndexedDB」＝假成功。
       let fallsOk = 0;
+      let fallsBytes = 0;
+      const fallsBad = [];
       let p = Promise.resolve();
       idbFalls.forEach(f => {
         p = p.then(() => (window.idbSet ? window.idbSet(f.k, f.v) : Promise.resolve(false)))
-          .then(ok => { if (ok) fallsOk++; });
+          .then(ok => {
+            if (ok) { fallsOk++; fallsBytes += byteLen(f.v); }
+            else fallsBad.push(f.k);
+          });
       });
       p.then(async () => {
         impShow('正在导入…', '写入完成，正在核对数据', 95);
+        // #1210：兜底也没落成的键＝新值既不在 LS 也不在 IDB，而上面 clearLs 已经把旧值清掉。
+        // 逐条回滚：还原导入前那份旧值（新值仍在用户手里的备份文件里，重导即可；旧值清掉就
+        // 找不回来了）。LS 多半仍是满的（这条键当初正是因为写不进 LS 才走兜底），那时把旧值
+        // 放回本会话内存缓存，至少不让页面当场读到空；刷新后仍缺，提示按「未还原」口径说。
+        let rolledBack = 0;
+        if (fallsBad.length && backup) {
+          fallsBad.forEach(k => {
+            const old = backup[k];
+            if (old === undefined || old === null) return;
+            try { localStorage.setItem(k, old); rolledBack++; } catch (e) {
+              try { if (window.idbMemoSet) window.idbMemoSet(k, old); } catch (e2) {}
+            }
+          });
+        }
         const parts = [];
         if (idbOk) parts.push('音乐/字卡/查岗等大文件已恢复');
         else if (data.idb && Object.keys(data.idb).length) parts.push('⚠ IndexedDB 恢复失败，字卡/音乐/查岗等大文件可能缺失，建议重新导入');
         if (chatMoved) parts.push('聊天记录已存入 IndexedDB（不占浏览器小存储）');
         if (writeFailed.length) parts.push(writeFailed.length + ' 项写入失败（存储空间满）');
-        if (idbFalls.length) {
-          const mb = (idbFalls.reduce((s, f) => s + byteLen(f.v), 0) / 1048576).toFixed(1);
-          parts.push('大文件 ' + idbFalls.length + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');
+        if (fallsOk) {
+          const mb = (fallsBytes / 1048576).toFixed(1);
+          parts.push('大文件 ' + fallsOk + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');
+        }
+        if (fallsBad.length) {
+          parts.push('⚠ ' + fallsBad.length + ' 项未能存入 IndexedDB' + (rolledBack ? '（其中 ' + rolledBack + ' 项已还原为导入前的旧数据）' : '（这些键导入前也没有留底）') + '，这部分新数据没导入成功，清出空间后用完整备份重新导入');
         }
         if (!parts.length) parts.push('导入成功');
         // v3.5.101：导入后核对关键数据是否真的恢复（避免"提示成功但数据缺失"）

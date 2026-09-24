@@ -730,6 +730,23 @@
         try { localStorage.removeItem(k); } catch (e) {}
         if (isChat && window.idbDelete) { try { window.idbDelete(k); } catch (e) {} }
       };
+      // #1210：旧键只有在【新键确认落了盘】之后才删。xyStore.set 里 LS 写失败只打脏标记、
+      // IDB 写是 fire-and-forget，而 xyStore.get 优先读内存缓存（刚 set 完必然读得到）＝证不了
+      // 落盘。原实现 set 之后无条件 cleanupOld（聊天还要连 IDB 根键一起删）＝「新键没落成、
+      // 两份旧键已删」的空窗，正是「没删没清却整段聊天记录消失」的出口。证不到就保留旧键、
+      // 下次启动重试（本迁移幂等），宁可重复搬一次也不留下空窗。
+      const settle = function (payload) {
+        try { window.xyStore(G + ':default').set(rest, payload); } catch (e) {}
+        const landed = function (durable) { if (durable) cleanupOld(); next(); };
+        // 小键 LS 有副本即算落盘；大键（chat-msgs 等）按设计不进 LS，只认 IDB 三态探测：
+        // true＝库里确有，false＝没有 / null＝这次读不到（存储繁忙）都不删旧键。
+        try { if (localStorage.getItem(newKey) !== null) { landed(true); return; } } catch (e) {}
+        if (window.idbHasKey) {
+          Promise.resolve(window.idbHasKey(newKey)).then(function (has) {
+            landed(has === true);
+          }).catch(function () { landed(false); });
+        } else landed(false);
+      };
       let v = null; try { v = localStorage.getItem(k); } catch (e) {}
       if (v !== null) {
         // 幂等：default 命名空间已有此键（LS/memoryCache/IDB）则不重复写
@@ -737,15 +754,10 @@
         if (hasNew) { cleanupOld(); next(); return; }
         if (window.idbGet) {
           window.idbGet(newKey).then(function (existing) {
-            if (!existing) { try { window.xyStore(G + ':default').set(rest, v); } catch (e) {} }
-            cleanupOld();
-            next();
-          }).catch(function () { try { window.xyStore(G + ':default').set(rest, v); } catch (e) {} cleanupOld(); next(); });
-        } else {
-          try { window.xyStore(G + ':default').set(rest, v); } catch (e) {}
-          cleanupOld();
-          next();
-        }
+            if (existing) { cleanupOld(); next(); return; }
+            settle(v);
+          }).catch(function () { settle(v); });
+        } else settle(v);
       } else if (window.idbGet) {
         window.idbGet(k).then(r => {
           if (r !== undefined && r !== null) {
@@ -753,10 +765,9 @@
             const hasNew = window.xyStore(G + ':default').get(rest);
             if (hasNew) { cleanupOld(); next(); return; }
             window.idbGet(newKey).then(function (existing) {
-              if (!existing) { try { window.xyStore(G + ':default').set(rest, r); } catch (e) {} }
-              cleanupOld();
-              next();
-            }).catch(function () { try { window.xyStore(G + ':default').set(rest, r); } catch (e) {} cleanupOld(); next(); });
+              if (existing) { cleanupOld(); next(); return; }
+              settle(r);
+            }).catch(function () { settle(r); });
           } else {
             cleanupOld();
             next();

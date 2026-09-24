@@ -1115,14 +1115,6 @@ Object.keys(localStorage)
 .forEach(k => localStorage.removeItem(k));
 } catch (e) {}
 }
-function rollback() {
-clearLs();
-if (backup) {
-try {
-Object.keys(backup).forEach(k => localStorage.setItem(k, backup[k]));
-} catch (e) {}
-}
-}
 idbRestored.then((idbOk) => {
 if (!idbOk) {
 try { window.__resetting = false; } catch (e2) {}
@@ -1179,21 +1171,39 @@ idbFalls.push({ k: e.k, v: data.ls[e.k] });
 }
 }
 let fallsOk = 0;
+let fallsBytes = 0;
+const fallsBad = [];
 let p = Promise.resolve();
 idbFalls.forEach(f => {
 p = p.then(() => (window.idbSet ? window.idbSet(f.k, f.v) : Promise.resolve(false)))
-.then(ok => { if (ok) fallsOk++; });
+.then(ok => {
+if (ok) { fallsOk++; fallsBytes += byteLen(f.v); }
+else fallsBad.push(f.k);
+});
 });
 p.then(async () => {
 impShow('正在导入…', '写入完成，正在核对数据', 95);
+let rolledBack = 0;
+if (fallsBad.length && backup) {
+fallsBad.forEach(k => {
+const old = backup[k];
+if (old === undefined || old === null) return;
+try { localStorage.setItem(k, old); rolledBack++; } catch (e) {
+try { if (window.idbMemoSet) window.idbMemoSet(k, old); } catch (e2) {}
+}
+});
+}
 const parts = [];
 if (idbOk) parts.push('音乐/字卡/查岗等大文件已恢复');
 else if (data.idb && Object.keys(data.idb).length) parts.push('⚠ IndexedDB 恢复失败，字卡/音乐/查岗等大文件可能缺失，建议重新导入');
 if (chatMoved) parts.push('聊天记录已存入 IndexedDB（不占浏览器小存储）');
 if (writeFailed.length) parts.push(writeFailed.length + ' 项写入失败（存储空间满）');
-if (idbFalls.length) {
-const mb = (idbFalls.reduce((s, f) => s + byteLen(f.v), 0) / 1048576).toFixed(1);
-parts.push('大文件 ' + idbFalls.length + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');
+if (fallsOk) {
+const mb = (fallsBytes / 1048576).toFixed(1);
+parts.push('大文件 ' + fallsOk + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');
+}
+if (fallsBad.length) {
+parts.push('⚠ ' + fallsBad.length + ' 项未能存入 IndexedDB' + (rolledBack ? '（其中 ' + rolledBack + ' 项已还原为导入前的旧数据）' : '（这些键导入前也没有留底）') + '，这部分新数据没导入成功，清出空间后用完整备份重新导入');
 }
 if (!parts.length) parts.push('导入成功');
 let ok = [];
