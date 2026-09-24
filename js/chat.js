@@ -2099,8 +2099,9 @@ if (chatIsBracketedKaomojiCard(c)) return true;
 if (CHAT_READABLE_RE.test(c)) return false;
 return CHAT_KAOMOJI_FACE_RE.test(c);
 }
+const CHAT_BRACKET_SHELL_RE = /^[\s()（）[\]【】<>《》]+$/;
 function chatIsBracketedKaomojiCard(c) {
-return /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
+return !CHAT_BRACKET_SHELL_RE.test(c) && /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
 }
 window.chatIsKaomojiCard = chatIsKaomojiCard; // 专项验证与展示面共用（同一判据各写一份＝复发土壤）
 window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard; // 群聊/默认字卡分池借用

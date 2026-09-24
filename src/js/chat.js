@@ -2902,8 +2902,13 @@ return CHAT_KAOMOJI_FACE_RE.test(c);
 // 硬换行接在文字卡后面＝句子从中间断开（用户实报「我之前只要颜文字不被截断换行」）。判据收成一条：
 // 含中文/假名等可读文字、且不含颜文字面部符号＝它是文字卡，不是颜文字卡。纯符号颜文字与
 // （^o^）（( ˘ ˘ )zZ）这类带字母/无面部符号但含符号字符的形态判定结果不变。
+// FIX 2026-09-24 #1191 括号壳里空无一物也不是颜文字：#1152 只挡住了「括号里装着中文句子」，而
+// 「()」「（）」「( )」这类空壳既无可读文字也无面部符号，旧判据仍按「括号成对」把它收进颜文字池，
+// 于是被 #1051 的硬换行接在文字卡后面＝用户实报「【背包 / ()】这个内容也自动换行」。
+// 判据＝把括号与空白全剥掉后什么都不剩＝壳不是脸：回落成普通文字卡（颜文字池空＝没有末尾卡可另起一行）。
+const CHAT_BRACKET_SHELL_RE = /^[\s()（）[\]【】<>《》]+$/;
 function chatIsBracketedKaomojiCard(c) {
-return /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
+return !CHAT_BRACKET_SHELL_RE.test(c) && /[\(（｡◕(◕)(づ｡(¬)]/.test(c) && /[\)）】)]/.test(c) && !(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c));
 }
 window.chatIsKaomojiCard = chatIsKaomojiCard; // 专项验证与展示面共用（同一判据各写一份＝复发土壤）
 window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard; // 群聊/默认字卡分池借用
