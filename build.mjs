@@ -512,7 +512,7 @@ const FIX_SENTINELS = [
   { name: '#355b 仅聊天记录导出不更新全量备份时间（data-backup.js cfg.mode!==chat 守卫，逻辑锚）', file: 'js/data-backup.js', needle: "if (cfg.mode !== 'chat')" },
   { name: '#356 收藏页媒体池令牌渲染（收藏令牌化后 @@m:hash 按图片出，不再把令牌串当文字直出＝不明代码；判定表达式改掉即消失。#943 起该判定收口到统一口径 chatIsImgSrcLike，锚点随新写法同步、逻辑未变）', file: 'js/chat.js', needle: 'chatIsImgSrcLike(f.text)' },
   { name: '#357 语音播放挂载 DOM（playVoiceInChat 挂到 body 再 play、停播即卸；删则安卓 WebView 未挂载 Audio 静默空放/播放失败，收藏与聊天语音同链路复发）', file: 'js/chat.js', needle: "if (!a.parentNode) { a.style.display = 'none'; document.body.appendChild(a); }" },
-  { name: '#358 跨桌面投递空库账本矛盾守卫（探测说谎时 writeArr([一条]) 会把该联系人全部历史覆盖成一条＝旧记录只剩互动卡片；守卫函数删掉即消失）', file: 'js/chat.js', needle: 'function deskAppendMissGuard(cid, tries, onRetry, writeOne)' },
+  { name: '#358 跨桌面投递空库账本矛盾守卫（探测说谎时 writeArr([一条]) 会把该联系人全部历史覆盖成一条＝旧记录只剩互动卡片；守卫核心判据删掉即消失。2026-09-24 #1200 换锚：签名加了可选第 5 参 onExhaust，旧 needle 钉死 4 参尾括号＝假红，改钉「账本>0 绝不 writeOne」这条不变的行为判据）', file: 'js/chat.js', needle: 'if (ledN > 0) { if (tries < 5) setTimeout(onRetry, 2000);' },
   { name: '#358 loadMsgs 空库二次复核（账本缺失时单次探测说谎会把 LS 有损快照晋升为权威顶掉老历史；2.5s 双复核删掉即消失）', file: 'js/chat.js', needle: 'function enterConfirmedEmpty() {' },
   { name: '#478 loadMsgs 权威读库成功必须补写 LS 快照（OOM 批 !hasLocal 快路径令 changed 恒 false 不再进 if(changed)，快照被 removeItem 后永不重写＝切走再切回遇 IDB 事务挂起时记录失去唯一兜底副本整窗不可见，TASKS #131① 真缺陷；删掉未变更路径的延迟补写即复发。#477 编号已让位给并行会话 tabbar 掉出 .phone 回归）', file: 'js/chat.js', needle: 'if (window.activePrefix() === myPrefix) writeLsSnapshot(msgs, myPrefix, true);' },
   { name: '聊天页半框「批量设置问卷」入口锚点（template.html），供更多功能查必（用户多次反馈缺少批量问卷按钮）', file: 'template.html', needle: 'id="chat-ask-bulk"' },
@@ -4869,6 +4869,11 @@ const FIX_SENTINELS = [
   { name: '#1199i 顶条里的裸 <b> 不参与压缩（删＝pwa.js「点此重试」同族动态条又竖排字，中文按字断行被压到 min-content）', file: 'index.html', needle: '.ver-update-bar > b { flex:none; white-space:nowrap; }' },
   { name: '#1199j 存活标记声明位置（挪到 sessBootCheck 之后＝TDZ，赋值被外层 try 吞掉，通用路径永远弹不出顶条，只剩开了保活的心跳那条）', file: 'js/bg-keep.js', needle: 'let kaDiedNotice = false; // #1199 TDZ' },
 
+  // ==== 2026-09-24 #1200 弹窗提示「联系人发来互动卡片」、点进聊天却空无一物根治（用户实报＋「这个问题其他设备型号也有出现」；根因零机型分支：#722 分块后整包键 :chat-msgs 被删、读侧只认 :chat-blk-idx，而跨桌面追加只会读写整包键＝写进读侧永不看的键，deskAppendMissGuard 重试耗尽后静默丢，而弹窗/系统通知那一刻已先发）====
+  // 修法＝持久中转箱 xy-home-v2:<cid>:chat-desk-inbox（IDB+LS 双写·容量 200）接住三处「整包面不可写」出口＋loadMsgs 权威落定处去重回填。验证＝node tools/verify-1200-desk-inbox.mjs（绿 7/7 vs 同 tip 纯基线红 3/7）
+  { name: '#1200a 整包面不可写时落持久中转箱（函数体删掉＝分块桌面的互动卡又被静默丢，「弹窗有卡、点进聊天空」当场复发）', file: 'js/chat.js', needle: 'function deskAppendInbox(cid, recs)' },
+  { name: '#1200b loadMsgs 权威落定处回填中转箱（与 chatTailMerge 同点位；删调用＝卡落箱后永远没人取，切进聊天仍是空屏）', file: 'js/chat.js', needle: 'try { chatDeskInboxMerge(myPrefix); } catch (e) {}' },
+  { name: '#1200c 追加前检出该桌面已分块即转中转箱（删＝退回重试 5 次后静默丢；#358 防覆盖与全新空桌面直建整包两条护栏由 verify-1200 的 A2/B1 守住）', file: 'js/chat.js', needle: "idbGet('xy-home-v2:' + cid + ':chat-blk-idx').then(function (bv) {" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

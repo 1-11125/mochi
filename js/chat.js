@@ -1566,6 +1566,7 @@ authLoadedPrefix = myPrefix;
 idbRetryCount = 0;
 _lmChainBusy = null; // #952：本桌读库链成功收尾，放行后续 loadMsgs
 try { if (chatTailMerge(myPrefix) > 0) changed = true; } catch (e) {} // #180：权威就绪后回放尾巴日志（上次会话未落盘的最近消息）；FIX #407 回放插入=下标位移，并入 changed 走重渲，防屏上 data-idx 陈旧串条；FIX #766 传入 myPrefix＝日志必须与这份 msgs 同命名空间才回放
+try { chatDeskInboxMerge(myPrefix); } catch (e) {} // #1200：权威落定后回填跨桌面中转箱（分块桌面整包写不进的两端互通，去重合并＋就地重渲）
 try { chatLedgerSave(myPrefix, chatBlkTotal || idbArr.length, chatBlkTotal ? Math.max(msgsBytes(idbArr), chatLedgerBytes[myPrefix] || 0) : msgsBytes(idbArr)); } catch (e) {} // #722 分块格式：账本记全量条数（热片读时 idbArr 只是尾部，全量条数以 idx.total 为准，缩水守卫才不会误判）
 if (!chatBlkIdx && msgsBytes(idbArr) > CHAT_BLK_MIN) {
 setTimeout(function () {
@@ -5061,7 +5062,7 @@ if (hit && hit.giftBoxId && window.giftBoxAttachReply) window.giftBoxAttachReply
 return true;
 } catch (e) { return false; }
 };
-function deskAppendMissGuard(cid, tries, onRetry, writeOne) {
+function deskAppendMissGuard(cid, tries, onRetry, writeOne, onExhaust) {
 const ledKey = 'xy-home-v2:' + cid + ':chat-meta';
 window.idbGet(ledKey).then(function (lv) {
 let ledN = 0;
@@ -5070,9 +5071,74 @@ const o = typeof lv === 'string' ? JSON.parse(lv) : lv;
 if (o && typeof o.n === 'number') ledN = o.n;
 } catch (e) {}
 try { ledN = Math.max(ledN, chatLedger['xy-home-v2:' + cid] || 0); } catch (e) {}
-if (ledN > 0) { if (tries < 5) setTimeout(onRetry, 2000); return; }
+if (ledN > 0) { if (tries < 5) setTimeout(onRetry, 2000); else if (onExhaust) onExhaust(); return; }
 writeOne();
-}).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); });
+}).catch(function () { if (tries < 3) setTimeout(onRetry, 1500); else if (onExhaust) onExhaust(); });
+}
+const CHAT_DESK_INBOX_MAX = 200; // #1200：中转箱容量上限（异常堆积时保最近 200 条）
+function deskAppendInbox(cid, recs) {
+const key = 'xy-home-v2:' + cid + ':chat-desk-inbox';
+let list = [];
+try { const raw = localStorage.getItem(key); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) list = a; } } catch (e) {}
+const persist = function () {
+list = list.slice(-CHAT_DESK_INBOX_MAX);
+const s = JSON.stringify(list);
+try { window.idbSet(key, s); } catch (e) {}
+try { localStorage.setItem(key, s); } catch (e) {} // 小记录；IDB 读不到时排空侧回退 LS 副本
+if ((window.__activeCid || 'default') === cid && chatDbReady) { try { chatDeskInboxMerge('xy-home-v2:' + cid); } catch (e) {} } // #1200：写箱时该桌面已切回且权威就绪＝就地排空，不等下次进聊天
+};
+if (list.length || !window.idbGet) { list = list.concat(recs); persist(); return; }
+window.idbGet(key).then(function (v) {
+try {
+if (v !== undefined && v !== null) {
+const a = typeof v === 'string' ? JSON.parse(v) : v;
+if (Array.isArray(a) && a.length > list.length) list = a;
+}
+} catch (e) {}
+list = list.concat(recs);
+persist();
+}).catch(function () { list = list.concat(recs); persist(); });
+}
+function chatDeskInboxMerge(forPrefix) {
+try {
+const prefix = forPrefix || window.activePrefix();
+const key = prefix + ':chat-desk-inbox';
+let cand = [];
+try {
+const raw = localStorage.getItem(key);
+if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) cand = a; }
+} catch (e) {}
+const consume = function (arr) {
+cand = cand.concat(arr || []).filter(function (m) { return m && typeof m === 'object'; });
+const seenC = new Set();
+cand = cand.filter(function (m) { const s = chatTailId(m); if (seenC.has(s)) return false; seenC.add(s); return true; });
+const clearAll = function () {
+try { localStorage.removeItem(key); } catch (e) {}
+if (cand.length && window.idbDelete) { try { window.idbDelete(key); } catch (e) {} }
+};
+if (!cand.length) { clearAll(); return; }
+if (window.activePrefix() !== prefix || !chatDbReady || !Array.isArray(msgs)) return; // 条件未齐＝不清箱，下次权威加载再兜
+const haveId = new Set(msgs.map(chatTailId));
+const copies = new Set();
+msgs.forEach(function (m) { chatRecKeysAdd(copies, m); });
+const add = cand.filter(function (m) { return !haveId.has(chatTailId(m)) && !chatRecKeysHit(copies, m); });
+clearAll();
+if (!add.length) return;
+msgs = msgs.concat(add).sort(function (a, b) { return ((a && a.ts) || 0) - ((b && b.ts) || 0); });
+saveMsgs();
+try {
+if (chatVisible() && chatNearBottom()) {
+if (!inplacePatchIfSameWindow()) { renderWindow(false, true); scrollChatBottom(); }
+} else if (chatVisible()) windowStale = true;
+} catch (e) {}
+};
+if (!window.idbGet) { consume([]); return; }
+window.idbGet(key).then(function (v) {
+let a = [];
+try { if (v !== undefined && v !== null) { a = typeof v === 'string' ? JSON.parse(v) : v; } } catch (e) { a = []; }
+consume(Array.isArray(a) ? a : []);
+}).catch(function () { consume([]); });
+} catch (e) {}
 }
 window.chatAppendToDeskMsg = function (cid, text, opts) {
 opts = opts || {};
@@ -5089,8 +5155,10 @@ try { window.idbSet(key, JSON.stringify(arr)); } catch (e) {}
 try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
 try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (e) {}
 };
+const mkRec = function () { return { side: 'in', special: opts.special || 'poke', text: text, ts: Date.now(), mailNotice: !!opts.mailNotice }; };
 const attempt = function () {
 tries++;
+if (tries > 5) { deskAppendInbox(cid, [mkRec()]); return; } // #1200：重试预算耗尽改落中转箱，不再静默丢（弹窗已发＝消息必须可达）
 window.idbGet(key).then(function (v) {
 if (v !== undefined && v !== null) {
 let arr = [];
@@ -5098,7 +5166,7 @@ let readOk = true;
 try { arr = typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { arr = []; readOk = false; }
 if (!Array.isArray(arr)) { arr = []; readOk = false; }
 if (!readOk) return;
-arr.push({ side: 'in', special: opts.special || 'poke', text: text, ts: Date.now(), mailNotice: !!opts.mailNotice });
+arr.push(mkRec());
 writeArr(arr);
 return;
 }
@@ -5111,11 +5179,12 @@ return !(keys || []).some(function (k) { return k === key; });
 : Promise.resolve(true));
 confirmMiss.then(function (isMiss) {
 if (!isMiss) { if (tries < 3) setTimeout(attempt, 1500); return; }
-deskAppendMissGuard(cid, tries, attempt, function () {
-writeArr([{ side: 'in', special: opts.special || 'poke', text: text, ts: Date.now(), mailNotice: !!opts.mailNotice }]);
+window.idbGet('xy-home-v2:' + cid + ':chat-blk-idx').then(function (bv) {
+if (bv !== undefined && bv !== null) { deskAppendInbox(cid, [mkRec()]); return; }
+deskAppendMissGuard(cid, tries, attempt, function () { writeArr([mkRec()]); }, function () { deskAppendInbox(cid, [mkRec()]); });
+}).catch(function () { deskAppendMissGuard(cid, tries, attempt, function () { writeArr([mkRec()]); }, function () { deskAppendInbox(cid, [mkRec()]); }); });
 });
-});
-}).catch(function () { if (tries < 3) setTimeout(attempt, 1500); });
+}).catch(function () { if (tries < 3) setTimeout(attempt, 1500); else deskAppendInbox(cid, [mkRec()]); }); // #1200：读键连续抛错＝整包面不可写，同落中转箱
 };
 attempt();
 };
@@ -5134,6 +5203,7 @@ try { chatLedgerSave('xy-home-v2:' + cid, arr.length, msgsBytes(arr)); } catch (
 };
 const attempt = function () {
 tries++;
+if (tries > 5) { deskAppendInbox(cid, [rec]); return; } // #1200：重试预算耗尽改落中转箱，不再静默丢
 window.idbGet(key).then(function (v) {
 if (v !== undefined && v !== null) {
 let arr = [];
@@ -5154,9 +5224,12 @@ return !(keys || []).some(function (k) { return k === key; });
 : Promise.resolve(true));
 confirmMiss.then(function (isMiss) {
 if (!isMiss) { if (tries < 3) setTimeout(attempt, 1500); return; }
-deskAppendMissGuard(cid, tries, attempt, function () { writeArr([rec]); });
+window.idbGet('xy-home-v2:' + cid + ':chat-blk-idx').then(function (bv) {
+if (bv !== undefined && bv !== null) { deskAppendInbox(cid, [rec]); return; }
+deskAppendMissGuard(cid, tries, attempt, function () { writeArr([rec]); }, function () { deskAppendInbox(cid, [rec]); });
+}).catch(function () { deskAppendMissGuard(cid, tries, attempt, function () { writeArr([rec]); }, function () { deskAppendInbox(cid, [rec]); }); });
 });
-}).catch(function () { if (tries < 3) setTimeout(attempt, 1500); });
+}).catch(function () { if (tries < 3) setTimeout(attempt, 1500); else deskAppendInbox(cid, [rec]); }); // #1200：读键连续抛错＝同落中转箱
 };
 attempt();
 };
