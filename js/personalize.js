@@ -721,6 +721,65 @@ b.style.backgroundAttachment = '';
 } catch (e) {}
 };
 const bgPosOf = () => ({ x: store.get('phone-bg-pos-x') || '50', y: store.get('phone-bg-pos-y') || '50', s: store.get('phone-bg-size') || 'cover' });
+let deskBlurPx = 0;           // 当前模糊半径（0~20，bg-blur 键原值）
+let deskWallSrc = null;       // 壁纸原图 dataURL（null＝渐变/纯色预设/无壁纸 → 旧滤镜路径）
+let deskLayerMode = 'none';   // 图层当前内容形态：'img' 原图壁纸 / 'css' 预设 / 'none'
+let deskBlurBaked = null;     // 最近一次烘焙结果（已模糊小图 dataURL）
+let deskBlurBakedFor = null;  // 烘焙结果对应的原图（=== 当前 deskWallSrc 才可用）
+let deskBlurFallback = false; // true＝当前壁纸烘焙失败 → 维持旧 CSS filter（.desk-blur-on）
+let deskBlurBakeSeq = 0;      // 烘焙序号：滑杆连改/换图时迟到的旧结果一律丢弃
+let deskBlurTimer = null;
+const setDeskBlurClass = (on) => {
+const ph = document.querySelector('.phone');
+if (ph) ph.classList.toggle('desk-blur-on', !!on);
+};
+const deskBlurReady = () => deskBlurPx > 0 && deskLayerMode === 'img' && !deskBlurFallback && !!deskBlurBaked && deskBlurBakedFor === deskWallSrc;
+const deskBlurRender = () => {
+if (deskLayerMode !== 'img') { setDeskBlurClass(deskBlurPx > 0); return; } // 预设/空：旧滤镜路径
+setDeskBlurClass(deskBlurPx > 0 && !deskBlurReady()); // 未烘好前原图＋旧滤镜＝始终有糊，不闪清晰裸图
+paintBgLayerImage(deskBlurReady() ? deskBlurBaked : deskWallSrc);
+};
+const deskBlurSchedule = () => {
+if (deskBlurTimer) { clearTimeout(deskBlurTimer); deskBlurTimer = null; }
+deskBlurRender();
+if (deskBlurPx > 0 && deskLayerMode === 'img' && deskWallSrc && deskBlurBakedFor !== deskWallSrc) {
+deskBlurTimer = setTimeout(() => { deskBlurTimer = null; deskBlurBake(deskWallSrc, deskBlurPx); }, 120); // 滑杆防抖：逐步触发合并烘焙
+}
+};
+const deskBlurBake = (src, px) => {
+const seq = ++deskBlurBakeSeq;
+let done = false;
+const once = (out) => {
+if (done) return; done = true;
+if (seq !== deskBlurBakeSeq) return; // 更新的一次改动已发出，本结果作废（由新一轮处理）
+if (out && src === deskWallSrc) { deskBlurBaked = out; deskBlurBakedFor = src; deskBlurFallback = false; }
+else { deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true; }
+deskBlurRender();
+};
+try {
+const img = new Image();
+img.onload = () => { try { once(deskBlurCanvas(img, px)); } catch (e) { once(null); } };
+img.onerror = () => once(null);
+setTimeout(() => once(null), 5000); // 解码挂起（异常内核/巨型 dataURL）→ 判烘焙不可用，回旧路径
+img.src = src;
+} catch (e) { once(null); }
+};
+const deskBlurCanvas = (img, px) => {
+const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+if (!iw || !ih || !(px > 0)) return null;
+const cw = Math.max(6, Math.min(iw, Math.round(950 / px)));
+const ch = Math.max(4, Math.round(ih * cw / iw));
+const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+const g = c.getContext('2d'); if (!g) return null;
+g.fillStyle = '#ffffff'; g.fillRect(0, 0, cw, ch); // jpeg 输出：透明 PNG 壁纸白底（全屏背景语义不变）
+const m = Math.min(0.12, (px * 1.2) / 380);
+g.imageSmoothingEnabled = true;
+try { g.imageSmoothingQuality = 'high'; } catch (e) {}
+try { if ('filter' in g) g.filter = 'blur(' + (190 / cw).toFixed(2) + 'px)'; } catch (e) {} // 小尺度再轻抹一道去马赛克感（老内核无 ctx.filter 则仅靠降采样，仍成立）
+g.drawImage(img, iw * m, ih * m, iw * (1 - 2 * m), ih * (1 - 2 * m), 0, 0, cw, ch);
+const out = c.toDataURL('image/jpeg', 0.85);
+return out && out.indexOf('data:image') === 0 ? out : null;
+};
 let bgLayer = null;
 const ensureBgLayer = () => {
 if (bgLayer || !phoneEl) return bgLayer;
@@ -730,7 +789,7 @@ bgLayer.style.cssText = 'position:absolute;inset:0;top:0;right:0;bottom:0;left:0
 phoneEl.insertBefore(bgLayer, phoneEl.firstChild);
 return bgLayer;
 };
-const setBgLayerImage = (data) => {
+const paintBgLayerImage = (data) => {
 const l = ensureBgLayer(); if (!l) return;
 const want = data ? 'url("' + data + '")' : '';
 if (l.style.backgroundImage !== want) l.style.backgroundImage = want;
@@ -741,13 +800,22 @@ const psWanted = pos.x + '% ' + pos.y + '%';
 if (l.style.backgroundSize !== szWanted) l.style.backgroundSize = szWanted;
 if (l.style.backgroundPosition !== psWanted) l.style.backgroundPosition = psWanted;
 };
+const setBgLayerImage = (data) => {
+deskWallSrc = data || null;
+deskLayerMode = data ? 'img' : 'none';
+deskBlurSchedule();
+};
 const setBgLayerPreset = (css) => {
+deskWallSrc = null;
+deskLayerMode = 'css';
+if (deskBlurTimer) { clearTimeout(deskBlurTimer); deskBlurTimer = null; }
 const l = ensureBgLayer(); if (!l) return;
 if (l.style.backgroundImage !== css) {
 l.style.backgroundImage = css;
 l.style.backgroundSize = 'cover';
 l.style.backgroundPosition = 'center';
 }
+setDeskBlurClass(deskBlurPx > 0);
 };
 const setBgLayerVisible = (on) => {
 const l = ensureBgLayer(); if (!l) return;
@@ -2831,14 +2899,11 @@ pills: [
 const bgBlurRow = document.getElementById('row-bg-blur');
 const bgBlurVal = document.getElementById('bg-blur-val');
 const getBgBlur = () => { const v = store.get('bg-blur'); if (v) { const n = parseInt(v, 10); if (!isNaN(n)) return Math.max(0, Math.min(20, n)); } return 0; };
-const setBgBlurClass = (px) => {
-const ph = document.querySelector('.phone');
-if (ph) ph.classList.toggle('desk-blur-on', px > 0);
-};
 const applyBgBlur = (px) => {
+deskBlurPx = px;
 document.documentElement.style.setProperty('--desk-bg-blur', px + 'px');
-setBgBlurClass(px);
 if (bgBlurVal) bgBlurVal.textContent = px === 0 ? '关闭' : px + 'px';
+deskBlurSchedule();
 };
 applyBgBlur(getBgBlur());
 if (bgBlurRow) {

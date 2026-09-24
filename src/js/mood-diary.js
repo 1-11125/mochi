@@ -143,6 +143,10 @@
       btn.addEventListener('click', () => {
         if (!selMood) { toast('先选一个今天的心情吧'); return; }
         const dd = loadAll();
+        // #1162（#850 同款防护）：回填未完成且现读为空＝历史记录还在 IDB 里没回到本机快照。
+        // 此刻整包落盘会用「只含今天」的对象打穿 LS＋IDB 权威值＝历史记录被抹掉（真丢，
+        // 事后导出只会说「没有数据」）。pending 期让位，回填完成后 mochiOnDataReady 已重渲，再记即可。
+        if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending()) { toast('数据还在从本机数据库读取，稍等几秒再记，免得盖掉更早的日记'); return; }
         dd.d[dkey(new Date())] = { m: selMood, n: (document.getElementById('mood-note') || {}).value || '', ts: Date.now() };
         saveAll(dd);
         toast('今天的心情记下啦 ' + selMood);

@@ -4789,6 +4789,11 @@ const FIX_SENTINELS = [
   { name: '#1180g 「为什么比设的还多」说明指向限流出口（删掉＝用户读完仍不知道只有总量限流能管住这些额外多发，#869 同族报障复发）', file: 'template.html', needle: '想让上面这些一起被管住，打开本面板下方「总量限流」' },
   { name: '#1180h 开屏公告新增「关于 TA 发消息太多」一章（离线兜底源；删＝用户找不到「回复条数管不住这些」的官方解释）', file: 'template.html', needle: '>关于 TA 发消息太多（「回复条数」为什么管不住，以及新增的总量限流）</p>' },
   { name: '#1180i 在线权威源同口径一章（删＝联网用户只看到旧章节，两份必须同改）', file: 'pwa/notice.json', needle: '"h": "关于 TA 发消息太多' },
+  { name: '#1161a 壁纸模糊烘焙画布在位（删＝回到「运行时全屏 filter:blur 照片纹理」老路，滑动暂停/恢复整幅重栅格化＝vivo X200s/Edge 实报「背景模糊闪失几秒」复发；本行为烘焙画布白底行，块被整删必随删）', file: 'js/personalize.js', needle: "g.fillStyle = '#ffffff'; g.fillRect(0, 0, cw, ch);" },
+  { name: '#1161b applyBgBlur 收进烘焙漏斗（删/改回本地 toggle 类＝「滑杆只挂滤镜」旧机制回流，闪失复发；deskBlurPx 赋值行是该漏斗的唯一接线，滑杆联动失效前必先消失）', file: 'js/personalize.js', needle: 'deskBlurPx = px;' },
+  { name: '#1161c 图层显示哪份纹理由烘焙状态裁决（删＝烘好的小纹理永远不铺或原图直铺无兜底，任一方向都破坏「不闪清晰裸图」语义）', file: 'js/personalize.js', needle: 'paintBgLayerImage(deskBlurReady() ? deskBlurBaked : deskWallSrc);' },
+  { name: '#1162a IDB 键清单严格读到 null 时退避重试一次（#1162 报障「这个桌面没有数据」误报根因之一：idbListKeys 契约 null＝本次未读到而不是没有；删重试＝大项占用数据库期间导出/清空按空清单走＝假「没数据」甚至误导清空范围）', file: 'js/feature-data.js', needle: 'setTimeout(function () { res(window.idbListKeys()); }, 800);' },
+  { name: '#1162b 心情日记写入前挡回填未齐（删＝#850 同族事故复发：IDB 回填未完时读到空包、点保存整包盖回数据库＝更早日记真丢，用户实报「日记数据丢失」的写侧通道）', file: 'js/mood-diary.js', needle: 'if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending())' },
 
 ];
 try {

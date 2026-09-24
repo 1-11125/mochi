@@ -233,6 +233,11 @@
   }
 
   // ================= 键枚举与取值 =================
+  // #1162（用户实报 vivo X200s/Edge「心情日记想导出，说这个桌面没有数据」）：IDB 清单是
+  // 严格语义——idbListKeys() 返回数组＝权威清单，返回 null＝这次没读到（大键写入占用连接、
+  // 探测超时，重度数据机型高发）。原实现把 null 折叠成空清单静默降级：键只存在于 IDB
+  // （LS 配额满/被逐出/大键不进 LS）时，导出/计数会把它误报成「没有数据」。
+  // 现在：null → 有界重试一次；仍没读到 → 清单挂 incomplete 标记，消费方不得据此断言「无数据」。
   function allKeys() {
     var set = Object.create(null);
     try {
@@ -241,15 +246,24 @@
         if (k && k.indexOf(G + ':') === 0) set[k] = 1;
       }
     } catch (e) {}
-    var p = (window.idbListKeys ? window.idbListKeys() : Promise.resolve([]));
-    return Promise.resolve(p).then(function (keys) {
-      (keys || []).forEach(function (k) { if (k && String(k).indexOf(G + ':') === 0) set[String(k)] = 1; });
-      return Object.keys(set);
-    }).catch(function () { return Object.keys(set); });
+    function gather(idbKeys) {
+      (idbKeys || []).forEach(function (k) { if (k && String(k).indexOf(G + ':') === 0) set[String(k)] = 1; });
+      var out = Object.keys(set);
+      out.incomplete = idbKeys === null;
+      return out;
+    }
+    if (!window.idbListKeys) return Promise.resolve(gather([]));
+    return window.idbListKeys().then(function (keys) {
+      if (keys !== null) return gather(keys);
+      return new Promise(function (res) { setTimeout(function () { res(window.idbListKeys()); }, 800); })
+        .then(function (k2) { return gather(k2 === undefined ? null : k2); });
+    }).catch(function () { return gather(null); });
   }
   function keysOf(f, cid) {
     return allKeys().then(function (all) {
-      return all.filter(function (k) { var o = featureOfKey(k, cid); return o && o.id === f.id; });
+      var out = all.filter(function (k) { var o = featureOfKey(k, cid); return o && o.id === f.id; });
+      out.incomplete = all.incomplete;
+      return out;
     });
   }
   // 取值优先级：IDB 权威值 → xyStore（内存缓存 + LS 快照）
@@ -321,7 +335,7 @@
     var cid = curCid();
     keysOf(f, cid).then(function (keys) {
       return readValues(keys).then(function (values) {
-        if (!keys.length) { toast('「' + f.name + '」在本桌面还没有数据'); if (cb) cb(false); return; }
+        if (!keys.length) { toast(keys.incomplete ? '这次没能读到本机数据库的键清单（数据库可能正被大项占用），不代表没有数据——稍等片刻再导出' : '「' + f.name + '」在本桌面还没有数据'); if (cb) cb(false); return; }
         var media = mediaRefsOf(values);
         return readValues(media).then(function (mv) {
           Object.keys(mv).forEach(function (k) { values[k] = mv[k]; });
@@ -500,7 +514,7 @@
   function clearFeature(f, cb) {
     var cid = curCid();
     keysOf(f, cid).then(function (keys) {
-      if (!keys.length) { toast('「' + f.name + '」在本桌面没有可清空的数据'); if (cb) cb(false); return; }
+      if (!keys.length) { toast(keys.incomplete ? '这次没能读到本机数据库的键清单，先不清空——稍等片刻重试' : '「' + f.name + '」在本桌面没有可清空的数据'); if (cb) cb(false); return; }
       return readValues(keys).then(function (values) {
         var st = summarize(values);
         var lines = ['将删除「' + f.name + '」的 ' + st.keyCount + ' 项数据' + (st.items ? '（约 ' + st.items + ' 条记录）' : '') +
@@ -586,7 +600,7 @@
       keysOf(f, cid).then(function (keys) {
         if (el.dataset.done) return;
         el.dataset.done = '1';
-        if (!keys.length) { el.textContent = '无数据'; el.classList.add('empty'); return; }
+        if (!keys.length) { el.textContent = keys.incomplete ? '本机数据库未读到 · 稍候重开本页' : '无数据'; if (!keys.incomplete) el.classList.add('empty'); return; }
         return readValues(keys).then(function (values) {
           var st = summarize(values);
           el.textContent = st.keyCount + ' 项 · ' + fmtSize(st.bytes) + (st.items ? ' · 约 ' + st.items + ' 条' : '');
@@ -684,7 +698,7 @@
     keysOf(f, curCid()).then(function (keys) {
       if (el.dataset.done) return;
       el.dataset.done = '1';
-      if (!keys.length) { el.textContent = '本桌面暂无数据'; el.classList.add('empty'); return; }
+      if (!keys.length) { el.textContent = keys.incomplete ? '本机数据库未读到 · 稍候重试' : '本桌面暂无数据'; if (!keys.incomplete) el.classList.add('empty'); return; }
       return readValues(keys).then(function (values) {
         var st = summarize(values);
         el.textContent = st.keyCount + ' 项 · ' + fmtSize(st.bytes) + (st.items ? ' · 约 ' + st.items + ' 条' : '');

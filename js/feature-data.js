@@ -194,15 +194,24 @@ var k = localStorage.key(i);
 if (k && k.indexOf(G + ':') === 0) set[k] = 1;
 }
 } catch (e) {}
-var p = (window.idbListKeys ? window.idbListKeys() : Promise.resolve([]));
-return Promise.resolve(p).then(function (keys) {
-(keys || []).forEach(function (k) { if (k && String(k).indexOf(G + ':') === 0) set[String(k)] = 1; });
-return Object.keys(set);
-}).catch(function () { return Object.keys(set); });
+function gather(idbKeys) {
+(idbKeys || []).forEach(function (k) { if (k && String(k).indexOf(G + ':') === 0) set[String(k)] = 1; });
+var out = Object.keys(set);
+out.incomplete = idbKeys === null;
+return out;
+}
+if (!window.idbListKeys) return Promise.resolve(gather([]));
+return window.idbListKeys().then(function (keys) {
+if (keys !== null) return gather(keys);
+return new Promise(function (res) { setTimeout(function () { res(window.idbListKeys()); }, 800); })
+.then(function (k2) { return gather(k2 === undefined ? null : k2); });
+}).catch(function () { return gather(null); });
 }
 function keysOf(f, cid) {
 return allKeys().then(function (all) {
-return all.filter(function (k) { var o = featureOfKey(k, cid); return o && o.id === f.id; });
+var out = all.filter(function (k) { var o = featureOfKey(k, cid); return o && o.id === f.id; });
+out.incomplete = all.incomplete;
+return out;
 });
 }
 function readFallback(full) {
@@ -268,7 +277,7 @@ function exportFeature(f, cb) {
 var cid = curCid();
 keysOf(f, cid).then(function (keys) {
 return readValues(keys).then(function (values) {
-if (!keys.length) { toast('「' + f.name + '」在本桌面还没有数据'); if (cb) cb(false); return; }
+if (!keys.length) { toast(keys.incomplete ? '这次没能读到本机数据库的键清单（数据库可能正被大项占用），不代表没有数据——稍等片刻再导出' : '「' + f.name + '」在本桌面还没有数据'); if (cb) cb(false); return; }
 var media = mediaRefsOf(values);
 return readValues(media).then(function (mv) {
 Object.keys(mv).forEach(function (k) { values[k] = mv[k]; });
@@ -431,7 +440,7 @@ setTimeout(function () { try { location.reload(); } catch (e) {} }, 600);
 function clearFeature(f, cb) {
 var cid = curCid();
 keysOf(f, cid).then(function (keys) {
-if (!keys.length) { toast('「' + f.name + '」在本桌面没有可清空的数据'); if (cb) cb(false); return; }
+if (!keys.length) { toast(keys.incomplete ? '这次没能读到本机数据库的键清单，先不清空——稍等片刻重试' : '「' + f.name + '」在本桌面没有可清空的数据'); if (cb) cb(false); return; }
 return readValues(keys).then(function (values) {
 var st = summarize(values);
 var lines = ['将删除「' + f.name + '」的 ' + st.keyCount + ' 项数据' + (st.items ? '（约 ' + st.items + ' 条记录）' : '') +
@@ -513,7 +522,7 @@ if (!el) return;
 keysOf(f, cid).then(function (keys) {
 if (el.dataset.done) return;
 el.dataset.done = '1';
-if (!keys.length) { el.textContent = '无数据'; el.classList.add('empty'); return; }
+if (!keys.length) { el.textContent = keys.incomplete ? '本机数据库未读到 · 稍候重开本页' : '无数据'; if (!keys.incomplete) el.classList.add('empty'); return; }
 return readValues(keys).then(function (values) {
 var st = summarize(values);
 el.textContent = st.keyCount + ' 项 · ' + fmtSize(st.bytes) + (st.items ? ' · 约 ' + st.items + ' 条' : '');
@@ -599,7 +608,7 @@ if (!el || el.dataset.done) return;
 keysOf(f, curCid()).then(function (keys) {
 if (el.dataset.done) return;
 el.dataset.done = '1';
-if (!keys.length) { el.textContent = '本桌面暂无数据'; el.classList.add('empty'); return; }
+if (!keys.length) { el.textContent = keys.incomplete ? '本机数据库未读到 · 稍候重试' : '本桌面暂无数据'; if (!keys.incomplete) el.classList.add('empty'); return; }
 return readValues(keys).then(function (values) {
 var st = summarize(values);
 el.textContent = st.keyCount + ' 项 · ' + fmtSize(st.bytes) + (st.items ? ' · 约 ' + st.items + ' 条' : '');

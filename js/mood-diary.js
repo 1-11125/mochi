@@ -123,6 +123,7 @@ btn.dataset.bound = '1';
 btn.addEventListener('click', () => {
 if (!selMood) { toast('先选一个今天的心情吧'); return; }
 const dd = loadAll();
+if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending()) { toast('数据还在从本机数据库读取，稍等几秒再记，免得盖掉更早的日记'); return; }
 dd.d[dkey(new Date())] = { m: selMood, n: (document.getElementById('mood-note') || {}).value || '', ts: Date.now() };
 saveAll(dd);
 toast('今天的心情记下啦 ' + selMood);

@@ -994,6 +994,79 @@ try {
   };
   // v3.27.x：壁纸定位/缩放可调（phone-bg-pos-x/y/size），默认 cover+center，旧数据无键时完全兼容
   const bgPosOf = () => ({ x: store.get('phone-bg-pos-x') || '50', y: store.get('phone-bg-pos-y') || '50', s: store.get('phone-bg-size') || 'cover' });
+  // ===== #1161：桌面壁纸模糊烘焙进纹理（修「滑动时背景模糊闪失、过几秒才恢复」——vivo X200s/Edge 实报，零机型分支）=====
+  // 旧机制（#240）：壁纸层常驻挂全屏 filter:blur(0~20px)。大半径全屏模糊在 Chromium 系引擎
+  // 每次「暂停摘除（#976 滑页期 filter:none）→ 恢复」都要整幅重新栅格化纹理，弱机/高 DPR 下
+  // 数百毫秒到数秒——观感＝「一滑动模糊就没了，停下几秒才糊回来」；不暂停则滑动掉帧（#976
+  // 当初为之）。两条都是「运行时全屏 filter」这一个根的果。
+  // 新机制：blur>0 时把壁纸原图经 canvas 降采样＋轻度模糊烘焙成几十~几百 px 宽的小纹理，
+  // 壁纸层直接显示「已经糊好的图」，运行时不挂任何 filter——滑动/翻页零重算、无中间态；
+  // 烘焙未完成/失败（渐变纯色预设、canvas 不可用、解码超时）时保持旧 CSS filter 路径显示
+  // 模糊，成功后才切纹理，任何时刻画面不出现「清晰裸图」闪烁。
+  let deskBlurPx = 0;           // 当前模糊半径（0~20，bg-blur 键原值）
+  let deskWallSrc = null;       // 壁纸原图 dataURL（null＝渐变/纯色预设/无壁纸 → 旧滤镜路径）
+  let deskLayerMode = 'none';   // 图层当前内容形态：'img' 原图壁纸 / 'css' 预设 / 'none'
+  let deskBlurBaked = null;     // 最近一次烘焙结果（已模糊小图 dataURL）
+  let deskBlurBakedFor = null;  // 烘焙结果对应的原图（=== 当前 deskWallSrc 才可用）
+  let deskBlurFallback = false; // true＝当前壁纸烘焙失败 → 维持旧 CSS filter（.desk-blur-on）
+  let deskBlurBakeSeq = 0;      // 烘焙序号：滑杆连改/换图时迟到的旧结果一律丢弃
+  let deskBlurTimer = null;
+  const setDeskBlurClass = (on) => {
+    // FIX 2026-09-07 #240：模糊载体＝壁纸层自滤（.desk-blur-on 挂 .phone，见 home.css）。
+    // #1161 后它只服务「烘焙不可用」的回退路径与渐变/纯色预设（无原图可烘）。
+    const ph = document.querySelector('.phone');
+    if (ph) ph.classList.toggle('desk-blur-on', !!on);
+  };
+  const deskBlurReady = () => deskBlurPx > 0 && deskLayerMode === 'img' && !deskBlurFallback && !!deskBlurBaked && deskBlurBakedFor === deskWallSrc;
+  const deskBlurRender = () => {
+    if (deskLayerMode !== 'img') { setDeskBlurClass(deskBlurPx > 0); return; } // 预设/空：旧滤镜路径
+    setDeskBlurClass(deskBlurPx > 0 && !deskBlurReady()); // 未烘好前原图＋旧滤镜＝始终有糊，不闪清晰裸图
+    paintBgLayerImage(deskBlurReady() ? deskBlurBaked : deskWallSrc);
+  };
+  const deskBlurSchedule = () => {
+    if (deskBlurTimer) { clearTimeout(deskBlurTimer); deskBlurTimer = null; }
+    deskBlurRender();
+    if (deskBlurPx > 0 && deskLayerMode === 'img' && deskWallSrc && deskBlurBakedFor !== deskWallSrc) {
+      deskBlurTimer = setTimeout(() => { deskBlurTimer = null; deskBlurBake(deskWallSrc, deskBlurPx); }, 120); // 滑杆防抖：逐步触发合并烘焙
+    }
+  };
+  const deskBlurBake = (src, px) => {
+    const seq = ++deskBlurBakeSeq;
+    let done = false;
+    const once = (out) => {
+      if (done) return; done = true;
+      if (seq !== deskBlurBakeSeq) return; // 更新的一次改动已发出，本结果作废（由新一轮处理）
+      if (out && src === deskWallSrc) { deskBlurBaked = out; deskBlurBakedFor = src; deskBlurFallback = false; }
+      else { deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true; }
+      deskBlurRender();
+    };
+    try {
+      const img = new Image();
+      img.onload = () => { try { once(deskBlurCanvas(img, px)); } catch (e) { once(null); } };
+      img.onerror = () => once(null);
+      setTimeout(() => once(null), 5000); // 解码挂起（异常内核/巨型 dataURL）→ 判烘焙不可用，回旧路径
+      img.src = src;
+    } catch (e) { once(null); }
+  };
+  const deskBlurCanvas = (img, px) => {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih || !(px > 0)) return null;
+    // 画布宽 ≈ 参考屏 380 CSS px ÷（模糊半径/2.5）：20px→48、8px→119、1px→950（≈不降采样），
+    // 双线性放大后每个纹素≈可见模糊斑大小，观感与 CSS blur 同级；用户在滑杆所见即所得自校正。
+    const cw = Math.max(6, Math.min(iw, Math.round(950 / px)));
+    const ch = Math.max(4, Math.round(ih * cw / iw));
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const g = c.getContext('2d'); if (!g) return null;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, cw, ch); // jpeg 输出：透明 PNG 壁纸白底（全屏背景语义不变）
+    // 源图内缩采样（边上约 1.2×半径 的屏幕比例，封顶 12%）防透明/暗缘渗入＝旧方案「四边外扩 24px」的等价
+    const m = Math.min(0.12, (px * 1.2) / 380);
+    g.imageSmoothingEnabled = true;
+    try { g.imageSmoothingQuality = 'high'; } catch (e) {}
+    try { if ('filter' in g) g.filter = 'blur(' + (190 / cw).toFixed(2) + 'px)'; } catch (e) {} // 小尺度再轻抹一道去马赛克感（老内核无 ctx.filter 则仅靠降采样，仍成立）
+    g.drawImage(img, iw * m, ih * m, iw * (1 - 2 * m), ih * (1 - 2 * m), 0, 0, cw, ch);
+    const out = c.toDataURL('image/jpeg', 0.85);
+    return out && out.indexOf('data:image') === 0 ? out : null;
+  };
   // ===== v3.26.x #147：壁纸常驻图层（修 iPhone16 Pro「退聊天回桌面巨卡」）=====
   // 此前壁纸直写 .phone，applyBgVisibility 在每次进出桌面时清空/重设 backgroundImage：
   // 2MB 级 dataURL 壁纸在 iOS 上每次重设都要主线程重新解码整张大图；且 chat-back 直挂
@@ -1018,7 +1091,7 @@ try {
     phoneEl.insertBefore(bgLayer, phoneEl.firstChild);
     return bgLayer;
   };
-  const setBgLayerImage = (data) => {
+  const paintBgLayerImage = (data) => {
     const l = ensureBgLayer(); if (!l) return;
     const want = data ? 'url("' + data + '")' : '';
     // FIX 2026-09-04 #151 backgroundImage 仍「值变才写」（#147 防 iOS 重复解码语义不变），
@@ -1033,13 +1106,26 @@ try {
     if (l.style.backgroundSize !== szWanted) l.style.backgroundSize = szWanted;
     if (l.style.backgroundPosition !== psWanted) l.style.backgroundPosition = psWanted;
   };
+  const setBgLayerImage = (data) => {
+    // #1161：这里只记「原图」，图层实际显示哪份纹理由 deskBlurRender 决定
+    //（模糊开着且已烘好＝已模糊小纹理；否则＝原图，旧滤镜兜底）。
+    deskWallSrc = data || null;
+    deskLayerMode = data ? 'img' : 'none';
+    deskBlurSchedule();
+  };
   const setBgLayerPreset = (css) => {
+    // #1161：渐变/纯色预设没有「原图」可烘（canvas 画不了任意 CSS 渐变）——记为 'css' 形态，
+    // 模糊维持旧滤镜路径（渐变瓦片光栅远便宜于全屏照片纹理，#976 的暂停对它仍然适用）。
+    deskWallSrc = null;
+    deskLayerMode = 'css';
+    if (deskBlurTimer) { clearTimeout(deskBlurTimer); deskBlurTimer = null; }
     const l = ensureBgLayer(); if (!l) return;
     if (l.style.backgroundImage !== css) {
       l.style.backgroundImage = css;
       l.style.backgroundSize = 'cover';
       l.style.backgroundPosition = 'center';
     }
+    setDeskBlurClass(deskBlurPx > 0);
   };
   const setBgLayerVisible = (on) => {
     const l = ensureBgLayer(); if (!l) return;
@@ -3477,17 +3563,15 @@ try {
   const bgBlurRow = document.getElementById('row-bg-blur');
   const bgBlurVal = document.getElementById('bg-blur-val');
   const getBgBlur = () => { const v = store.get('bg-blur'); if (v) { const n = parseInt(v, 10); if (!isNaN(n)) return Math.max(0, Math.min(20, n)); } return 0; };
-  const setBgBlurClass = (px) => {
-    // FIX 2026-09-07 #240：模糊改画在壁纸常驻图层自身（.desk-blur-on 挂 .phone，
-    // 见 home.css 同日注）——原 .phone-bg-mask.blur-on 的 backdrop-filter 在
-    // 小米15Pro/Chrome 151 真机上采样不生效（#219 提层后仍无感），不再挂。
-    const ph = document.querySelector('.phone');
-    if (ph) ph.classList.toggle('desk-blur-on', px > 0);
-  };
+  // #1161：本函数不再是「挂/摘全屏 filter」的开关——那条路是滑动闪失的根。
+  // 现在只记录半径并交给 deskBlurSchedule：能烘纹理就走已烘好的小纹理（运行时零
+  // filter）；不能烘（预设/失败）时由 deskBlurRender 兜底切 .desk-blur-on 旧滤镜。
+  // --desk-bg-blur 仍要写：home.css 的 #240/#976 规则只在回退路径消费它。
   const applyBgBlur = (px) => {
+    deskBlurPx = px;
     document.documentElement.style.setProperty('--desk-bg-blur', px + 'px');
-    setBgBlurClass(px);
     if (bgBlurVal) bgBlurVal.textContent = px === 0 ? '关闭' : px + 'px';
+    deskBlurSchedule();
   };
   applyBgBlur(getBgBlur());
   if (bgBlurRow) {
