@@ -3991,7 +3991,7 @@ m.removeEventListener('animationend', onEnterEnd);
 });
 }
 function appendMsg(m) {
-if (!batchRendering && chatVisible()) enterMsgOnce(m); // #1151b
+if (!batchRendering && chatVisible() && !document.hidden) enterMsgOnce(m); // #1151b · #1181a：闸口从「页面没被切走」补成「用户真的看得见」——浏览器后台期 chatVisible() 仍为真，而 #913 的暂停类会把这些气泡的入场动画冻在第 0 帧（fill:both＝opacity:0、动画永不结束、类永不摘除），攒一整段后台后在回前台那一瞬集体补播＝用户实报「切回来记录弹跳闪一下才恢复正常」
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
 if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
@@ -8275,13 +8275,14 @@ setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被�
 // 本闸在 hidden 翻回可见的同一任务里（变异观察器回调＝微任务，绘制之前）把这些动画直接落到终态：
 // 终态与「动画正常播完」逐像素相同＝对播放中的动画零影响；无限循环动画（语音波形、打字点、加载圈）
 // 必须跳过——finish() 对 infinite 时间轴会抛，且它们本就每帧重画、不构成「闪一下」。
-function settleReplayedChatAnim() {
+function settleReplayedChatAnim(onlyPaused) {
 if (!document.getAnimations) return 0;
 const all = document.getAnimations();
 let n = 0;
 for (let i = 0; i < all.length; i++) {
 const a = all[i];
 if (typeof a.animationName !== 'string') continue; // 只管 CSS 动画：过渡不会在显隐切换时重播，别去动它
+if (onlyPaused && a.playState !== 'paused') continue; // #1181b：回前台这一路只收「被 #913 暂停类冻住」的那批，正在正常播的（用户可能看得见）一律不动
 const ef = a.effect;
 const tg = ef && ef.target;
 if (!tg || !(tg === body || body.contains(tg))) continue; // 只管聊天窗口内（含窗口自身）
@@ -8298,6 +8299,18 @@ if (!chatVisible()) return;
 settleReplayedChatAnim(); // #1151c：回场一帧在绘制之前落终态＝看不见这一帧
 }).observe(chatPage, { attributes: true, attributeFilter: ['hidden'] });
 }
+// FIX 2026-09-24 #1181b 回前台总闸（#1151c 的同族补口，触发面换成「浏览器切后台再切回」）：
+// #1151c 只挂在 chatPage 的 hidden 属性变异上＝只覆盖站内切页；浏览器整页进后台不碰这个属性，
+// 而 #913 在 document.hidden 时给全站挂 `animation-play-state: paused`，于是聊天窗口里每一个
+// 未播完的一次性动画都被冻在冻结那一刻，回前台摘类的同一瞬集体补播＝用户实报「把浏览器切到
+// 后台再切回来，聊天消息会闪屏弹跳一下然后恢复正常」。这里在回前台事件里（本文件注册早于
+// mobile-adapt.js 摘类，同一任务内、绘制之前）把**仍处 paused** 的一次性动画直接 finish 到终态：
+// 只收冻住的、正常在播的一律不动（避免从别的窗口点回来时误掐用户看得见的动画）；无限循环者由
+// 下面既有守卫跳过（波形/打字点/加载圈本就该继续跑）。零机型分支——判据全取动画自身状态。
+function chatResumeSettleAnim() { try { settleReplayedChatAnim(true); } catch (e) {} }
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeSettleAnim(); });
+document.addEventListener('mochi-fg-resume', chatResumeSettleAnim); // bg-keep 统一信号：覆盖「只发 focus / bfcache 恢复」的内核（与 #967 同款双通道）
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeSettleAnim(); });
 
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
