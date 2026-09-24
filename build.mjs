@@ -4029,7 +4029,8 @@ const FIX_SENTINELS = [
   { name: '#938h 设置项回显文本真变了才写（删＝每次点击为十几个回显标签各拆建一次文本子树）', file: 'js/chat-settings.js', needle: "if (el && el.textContent !== s) el.textContent = s;" },
   /* ==== 2026-09-20 #930 回前台贴底复核闸（Vivo Y35/摩托罗拉 G100 等 Android Edge 独立应用实报「打开聊天/回到应用，停在几分钟前的消息，看不到现在的消息」；与 #912/#874/#918/#919 同症状家族独立通道；纯时序判据零机型分支） ==== */
   { name: '#930a 回场贴底复核闸声明（删＝回前台/bfcache 恢复永不复核贴底，停在几分钟前的消息复发）', file: 'js/chat.js', needle: 'function chatResumeRepin() {' },
-  { name: '#930b 长离场视同重新进聊天的复位（删＝离场前解钉的用户重开应用永远停在旧位置）', file: 'js/chat.js', needle: 'if (gone > CHAT_RESUME_FRESH_MS) {' },
+  // FIX 2026-09-23 #1067：本行 needle 按「换锚而非删除」改指长离场判据本体（原 needle 被 #1067 的 awaitLongAway 判据改写后永不成立＝哑哨兵；判据整块删掉本行照样消失，语义不变）
+  { name: '#930b 长离场视同重新进聊天的复位（删＝离场前解钉的用户重开应用永远停在旧位置）', file: 'js/chat.js', needle: 'const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;' },
   { name: '#930c 回场分派（删＝闸永不触发）', file: 'js/chat.js', needle: 'else chatResumeRepin();' },
 // #945 「换了 Chrome 还是无法导出/下载 docx、显示被浏览器拦截」（红米 K70 实报）：追问弹窗「换一种方式」的换路在分享面板不可用的壳里只剩 data: 直下，而它写死 >2MB 直接放弃＝真实备份（几乎都 >2MB）必落「拦住了网页下载」死 toast，且 toast 承诺的「点【复制】」按钮从不存在＝用户彻底没辙（截图顶栏 X＋网址条＝内置小窗/壳，非 Chrome 本体，一并提供自救指引）。修法零机型分支：①data: 直下上限 2MB→30MB；②data: 失败后补一发 blob: a[download]（两条取数路径互补）；③全灭改弹求救弹窗（分辨内置小窗 vs 系统浏览器真身＋真【复制网址和设备信息】钮）。验证 tools/verify-docx-export.mjs E13 换锚 30MB。
 { name: '#945a data: 直下上限放宽（删＝换路对 >2MB 真实备份必失败，退回死 toast）', file: 'js/data-backup.js', needle: 'blob.size > 30 * 1024 * 1024' },
@@ -4794,6 +4795,7 @@ const FIX_SENTINELS = [
   { name: '#1161c 图层显示哪份纹理由烘焙状态裁决（删＝烘好的小纹理永远不铺或原图直铺无兜底，任一方向都破坏「不闪清晰裸图」语义）', file: 'js/personalize.js', needle: 'paintBgLayerImage(deskBlurReady() ? deskBlurBaked : deskWallSrc);' },
   { name: '#1162a IDB 键清单严格读到 null 时退避重试一次（#1162 报障「这个桌面没有数据」误报根因之一：idbListKeys 契约 null＝本次未读到而不是没有；删重试＝大项占用数据库期间导出/清空按空清单走＝假「没数据」甚至误导清空范围）', file: 'js/feature-data.js', needle: 'setTimeout(function () { res(window.idbListKeys()); }, 800);' },
   { name: '#1162b 心情日记写入前挡回填未齐（删＝#850 同族事故复发：IDB 回填未完时读到空包、点保存整包盖回数据库＝更早日记真丢，用户实报「日记数据丢失」的写侧通道）', file: 'js/mood-diary.js', needle: 'if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending())' },
+  { name: '#1067a 长离场回前台补一发强制权威重读（删掉＝挂后台/锁屏后回前台，其他上下文在后台落库的新消息永不上屏、要刷新才正常：红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: 'if (awaitLongAway && chatDbReady) loadMsgs(true);' },
 
   { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
   { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },

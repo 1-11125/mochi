@@ -6222,7 +6222,8 @@ const CHAT_RESUME_FRESH_MS = 60000; // 离场超过此值＝长离场，回场�
 function chatResumeRepin() {
 if (document.visibilityState !== 'visible' || !chatVisible()) return;
 const gone = (typeof window.__chatHiddenAgeMs === 'number') ? window.__chatHiddenAgeMs : (chatHiddenAt ? Date.now() - chatHiddenAt : 0); // override 仅供 verify 脚本注入
-if (gone > CHAT_RESUME_FRESH_MS) {
+const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;
+if (awaitLongAway) {
 chatPinnedBottom = true;
 body.classList.remove('scroll-anchor-auto');
 }
@@ -6231,6 +6232,7 @@ if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
+try { if (awaitLongAway && chatDbReady) loadMsgs(true); } catch (e) {}
 chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
 chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);

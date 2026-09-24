@@ -8174,7 +8174,8 @@ const CHAT_RESUME_FRESH_MS = 60000; // 离场超过此值＝长离场，回场�
 function chatResumeRepin() {
 if (document.visibilityState !== 'visible' || !chatVisible()) return;
 const gone = (typeof window.__chatHiddenAgeMs === 'number') ? window.__chatHiddenAgeMs : (chatHiddenAt ? Date.now() - chatHiddenAt : 0); // override 仅供 verify 脚本注入
-if (gone > CHAT_RESUME_FRESH_MS) {
+const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;
+if (awaitLongAway) {
 chatPinnedBottom = true;
 body.classList.remove('scroll-anchor-auto');
 }
@@ -8183,6 +8184,16 @@ if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
+// FIX 2026-09-23 #1067（用户实报，红米 K80 Chrome，明说其他机型同现）：长挂后台/锁屏后回前台，
+// 聊天里「后台期落库的新消息」不显示、要刷新重新进入才正常。根因＝后台/锁屏期本 tab 的 JS 被冻结，
+// 新消息由别的上下文落进同一 origin 的聊天存储（另一标签页 / 主屏图标实例：LS 尾巴日志 <cid>:chat-tail
+// 与 IDB 整包都会写；SW 的离线提醒走独立的 psync-queue，回场本就有补投递链，见 bg-keep），而回前台
+// 只走 chatResumeRepin（贴底复核）与 chatResumeRearmRead（#967：仅「权威未达」才补读），权威早已在手
+// 时没有任何重读入口，普通 loadMsgs() 又被 IDB_RELOAD_MIN_GAP(8s) 时间闸跳过 ⇒ 后台落库的新消息永远
+// 不上屏。数据一直在库里、只是内存没重读。修＝长离场（>60s）回前台在既有回场闸内补一发强制权威重读
+// （forceIdb 绕开 8s 时间闸，大历史只重读 blk-idx + 热片），合并新消息并走既有增量渲染；无新消息则
+// changed=false 只补快照、零副作用。短离场（≤60s）一字不动＝不抢主线程（见 verify-1067 的 C1 契约）。
+try { if (awaitLongAway && chatDbReady) loadMsgs(true); } catch (e) {}
 chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
 chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);
