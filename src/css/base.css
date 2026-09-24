@@ -525,10 +525,13 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 .splash-mandatory-title { font-size:15px; font-weight:800; color:var(--ink); letter-spacing:1.5px; }
 .splash-mandatory-sub { margin-top:6px; font-size:10.5px; font-weight:600; color:var(--muted); letter-spacing:1px; line-height:1.6; }
 /* 公告卡片：深色卡片 + 左侧竖条（复用 --sp-ink/--sp-soft 语义变量，明暗主题自适应） */
+/* v8.35 #1182 白屏根治：本卡原带 splash-fade-up 入场淡入（0% 帧＝全透明）。#911 后台暂停
+   （body.mochi-bg-pause 把所有动画 paused）会把「点击后才显示」的本页动画冻在 0% 帧＝5 张卡
+   恒透明＝第二页整页白屏且滑不到底进不去（部分内核 hidden 误判时前台也中招）。强制阅读页
+   观感零价值、可见性却成了硬依赖，入场动画整行移除；勿回流（build.mjs 配 absent 哨兵）。 */
 .splash-mandatory-card {
   margin-bottom:14px; padding:13px 15px 14px;
   background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:10px;
-  animation:splash-fade-up .5s ease backwards;
 }
 .splash-mandatory-date { font-size:10px; font-weight:700; color:var(--hint-ink); letter-spacing:1px; margin-bottom:6px; }
 .splash-mandatory-h { font-size:13.5px; font-weight:800; color:var(--ink); letter-spacing:.5px; margin-bottom:9px; }

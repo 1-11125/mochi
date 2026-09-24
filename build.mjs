@@ -4805,6 +4805,8 @@ const FIX_SENTINELS = [
   { name: '#1188d 更早日期组分页（一次 IH_PAGE_DAYS 组＋「加载更多」；删＝日期组无限铺开，用户点名要的折叠失效）', file: 'js/chat.js', needle: "const shown = past.slice(0, ihPastShown);" },
   { name: '#1188e 清空只摘邀请、留住同键的问问记录（删＝清邀请记录顺带把「问问TA」的历史一起清掉）', file: 'js/chat.js', needle: "const keep = Array.isArray(all) ? all.filter(x => x && x.type !== 'invite') : [];" },
   { name: '#1188f 邀请记录块只在邀请TA 模式显示（删＝问问TA 半框顶上也挂一枚无关的邀请记录行）', file: 'js/chat.js', needle: "if (invHist) invHist.hidden = !isInvite;" },
+  /* ==== 2026-09-24 #1182 开屏第二页（进入前·作者必读公告）整页白屏（用户实报「为什么开屏第二页的公告变成白屏了」；#913 全站后台暂停类同族——本页是 hidden 元素点进才现播淡入，被冻在全透明第 0 帧＝5 张卡全隐＝白屏且滑不到底进不去；部分内核 hidden 误判时前台也中招。强制阅读页入场动效零价值、可见性却依赖动画播完＝整行删除，配删除型哨兵防回流。验证＝node tools/verify-1182-splash-p2-white.mjs）==== */
+  { name: '#1182a 第二页必读卡入场淡入已删（回流＝后台暂停类把刚显示的动画冻在全透明第 0 帧＝开屏第二页白屏复发，用户实报）', file: 'index.html', needle: 'animation:splash-fade-up .5s ease backwards;', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
