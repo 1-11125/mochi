@@ -1252,7 +1252,7 @@
     if (genRow) genRow.addEventListener('click', () => { try { dcpSyncUI(); } catch (e) {} });
   })();
 
-  // ===== #1153：互动卡频率档（原频率 + 往下三档）=====（#1154 改了行的落位，见下方注释）
+  // ===== #1153：互动卡频率档（原频率 + 往下三档）=====（#1154/#1155 改了行的落位，见下方注释）
   // 用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」，随后补充
   // 「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档」——档位全部 ≤ 原频率。
   // 档位倍数与掷签侧消费全在 src/js/ta-ask.js（IC_MODES / icProb / icCool / interactGateMs），
@@ -1295,16 +1295,28 @@
         clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
       } catch (e) {}
     }
-    // #1154（用户实报「我在回复设置里没有看到这个啊」）：#1153 首版把这行挂在
-    // 「系统预设字卡 · 聊天触发概率」组里、TA的询问 四行分类档之上——那一整块在回复设置页的
-    //【字卡与概率】子面板内，而默认显示的是【回复与主动】子面板，且该组还要往下滚一千多像素
-    // 才到这行。行确实渲染了（无头实测 top≈1287px），但用户按「回复设置」进去根本看不到，
-    // 等于白做。现改挂到**默认的【回复与主动】面板**里、「主动发送（联系人找你）」分组之后
-    // 单开一组——语义正合（这一档管的就是「联系人多久主动找你一次」），且不用切子面板。
-    // 各类互动卡的单项概率仍在【字卡与概率】里逐项调，gs-sub 里点明去处。
-    const asEn = document.getElementById('as-en');
-    const asGroup = (asEn && asEn.closest) ? asEn.closest('.set-group') : null;
-    if (asGroup && asGroup.parentNode) {
+    // #1154（用户实报「我在回复设置里没有看到这个啊」→#1155 追派「这个应该放在一个独立 tag」）：
+    // #1153 首版把这行挂在「系统预设字卡 · 聊天触发概率」组里、TA的询问 四行分类档之上——那一整块
+    // 在回复设置页的【字卡与概率】子面板内，而默认显示的是【回复与主动】子面板，且该组还要往下滚
+    // 一千多像素才到这行；#1154 改挂到默认面板的「主动发送（联系人找工作）」分组之后，用户仍嫌要
+    // 翻半页。现按用户要求**单开一个二级 tag**：回复设置页的二级分类是
+    // `.rps-tabs` 里的 `.rps-tab[data-rps]` + 同级 `.rps-panel[data-rps]`（v3.44.x 机制），
+    // 切 tab 的处理器是通用的（只按 dataset 配对），且本段执行在处理器绑定之前——所以这里
+    // 直接注入一枚新 tab + 一枚新 panel，处理器会自动接管，**不改 template.html、不动 CSS**
+    // （.rps-tabs 是 overflow-x:auto 的横排，第四枚 tab 挤不下时横向滚动，不影响前三枚）。
+    const rpsTabs = document.querySelector('#page-reply-settings .rps-tabs');
+    const rpsHost = rpsTabs ? rpsTabs.parentNode : null;
+    if (rpsTabs && rpsHost) {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'rps-tab';
+      tab.setAttribute('data-rps', 'interact');
+      tab.textContent = '互动频率';
+      rpsTabs.appendChild(tab);
+      const panel = document.createElement('div');
+      panel.className = 'rps-panel';
+      panel.setAttribute('data-rps', 'interact');
+      panel.hidden = true;
       const group = document.createElement('div');
       group.className = 'set-group glass';
       group.id = 'ic-freq-group';
@@ -1323,7 +1335,8 @@
       sub.id = 'ic-freq-sub';
       sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类：询问/小问题/好奇/吐槽/分享你的字卡；邀请三类：猜拳/游戏/贴贴；音乐「一起去听」）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。各类互动卡的单项概率在【字卡与概率】里逐项调。点右侧档位切换。';
       group.appendChild(sub);
-      asGroup.parentNode.insertBefore(group, asGroup.nextSibling);
+      panel.appendChild(group);
+      rpsHost.insertBefore(panel, rpsTabs.nextSibling);
       const btn = document.getElementById('ic-freq-btn');
       if (btn && window.openModal) {
         btn.addEventListener('click', function () {

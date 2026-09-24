@@ -961,9 +961,19 @@ d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className =
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-const asEn = document.getElementById('as-en');
-const asGroup = (asEn && asEn.closest) ? asEn.closest('.set-group') : null;
-if (asGroup && asGroup.parentNode) {
+const rpsTabs = document.querySelector('#page-reply-settings .rps-tabs');
+const rpsHost = rpsTabs ? rpsTabs.parentNode : null;
+if (rpsTabs && rpsHost) {
+const tab = document.createElement('button');
+tab.type = 'button';
+tab.className = 'rps-tab';
+tab.setAttribute('data-rps', 'interact');
+tab.textContent = '互动频率';
+rpsTabs.appendChild(tab);
+const panel = document.createElement('div');
+panel.className = 'rps-panel';
+panel.setAttribute('data-rps', 'interact');
+panel.hidden = true;
 const group = document.createElement('div');
 group.className = 'set-group glass';
 group.id = 'ic-freq-group';
@@ -982,7 +992,8 @@ sub.className = 'gs-sub';
 sub.id = 'ic-freq-sub';
 sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类：询问/小问题/好奇/吐槽/分享你的字卡；邀请三类：猜拳/游戏/贴贴；音乐「一起去听」）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。各类互动卡的单项概率在【字卡与概率】里逐项调。点右侧档位切换。';
 group.appendChild(sub);
-asGroup.parentNode.insertBefore(group, asGroup.nextSibling);
+panel.appendChild(group);
+rpsHost.insertBefore(panel, rpsTabs.nextSibling);
 const btn = document.getElementById('ic-freq-btn');
 if (btn && window.openModal) {
 btn.addEventListener('click', function () {

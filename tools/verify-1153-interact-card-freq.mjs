@@ -214,18 +214,26 @@ await sleep(200);
 check('E1 档位行在位且默认显「原频率」', (await ev("(function(){var b=document.getElementById('ic-freq-btn');return b?b.textContent:null;})()")) === '原频率',
   String(await ev("(function(){var b=document.getElementById('ic-freq-btn');return b?b.textContent:null;})()")));
 check('E2 功能说明胶囊在位', (await ev("!!document.getElementById('ic-freq-tag')")) === true);
-// #1154（用户实报「我在回复设置里没有看到这个啊」）：#1153 首版把这行挂在【字卡与概率】子面板里、
-// TA的询问 四行分类档之上——那一整块不在默认显示的子面板、还要往下滚一千多像素，行确实渲染了但
-// 用户按「回复设置」进去根本看不到。现要求：行落在**默认的【回复与主动】面板**内、紧跟在
-// 「主动发送（联系人找你）」分组之后，且打开回复设置（不切子面板）时已布局可见。
-check('E3a 行在默认子面板【回复与主动】内（不在字卡与概率面板）',
-  (await ev("(function(){var g=document.getElementById('ic-freq-group');if(!g)return false;var p=g.closest('.rps-panel');return !!p&&p.dataset.rps==='reply';})()")) === true);
-check('E3b 独立成组且紧跟在「主动发送（联系人找你）」分组之后',
-  (await ev("(function(){var g=document.getElementById('ic-freq-group');var as=document.getElementById('as-en');if(!g||!as)return false;var ag=as.closest('.set-group');if(!ag||ag.parentNode!==g.parentNode)return false;return !!(ag.compareDocumentPosition(g)&Node.DOCUMENT_POSITION_FOLLOWING);})()")) === true);
+// #1154（用户实报「我在回复设置里没有看到这个啊」）→ #1155 追派「这个应该放在一个独立 tag」：
+// #1153 首版挂在【字卡与概率】子面板深处（不在默认面板、还要往下滚 1287px），#1154 改挂默认面板的
+// 「主动发送」分组之后（用户仍嫌要翻半页）。现要求：单开一枚二级 tag 承载它。
+// 先真的进到回复设置页——否则 .page[hidden] 是 display:none，任何 getBoundingClientRect 都量成 0×0。
 await ev("(function(){var t=document.querySelector('.tab[data-page=\"page-setting\"]');if(t)t.click();var r=document.getElementById('row-general');if(r)r.click();return true;})()");
 await sleep(800);
-const e3c = await ev("(function(){var r=document.getElementById('ic-freq-row');if(!r)return 'no row';var q=r.getBoundingClientRect();if(!q.width||!q.height)return '0x0';var n=r;while(n&&n!==document.body){if(n.hidden===true||getComputedStyle(n).display==='none')return 'ancestor hidden';n=n.parentElement;}return 'visible '+Math.round(q.width)+'x'+Math.round(q.height);})()");
-check('E3c 打开回复设置（不切子面板）时该行已布局可见', String(e3c).indexOf('visible') === 0, String(e3c));
+check('E3a 回复设置页存在独立的「互动频率」二级 tag',
+  (await ev("(function(){var t=document.querySelector('#page-reply-settings .rps-tabs .rps-tab[data-rps=\"interact\"]');return t?t.textContent:null;})()")) === '互动频率',
+  String(await ev("(function(){var t=document.querySelector('#page-reply-settings .rps-tabs .rps-tab[data-rps=\"interact\"]');return t?t.textContent:null;})()")));
+check('E3b 该 tag 有配对的独立面板（rps-panel[data-rps=interact]），且默认收起不抢默认面板',
+  (await ev("(function(){var p=document.querySelector('#page-reply-settings .rps-panel[data-rps=\"interact\"]');if(!p)return false;if(!p.hidden)return false;var d=document.querySelector('#page-reply-settings .rps-panel[data-rps=\"reply\"]');return !!(d&&!d.hidden);})()")) === true);
+check('E3c 档位组在该面板内、不在别的面板',
+  (await ev("(function(){var g=document.getElementById('ic-freq-group');if(!g)return false;var p=g.closest('.rps-panel');return !!p&&p.dataset.rps==='interact';})()")) === true);
+await ev("(function(){var t=document.querySelector('#page-reply-settings .rps-tabs .rps-tab[data-rps=\"interact\"]');if(t)t.click();return true;})()");
+await sleep(500);
+const e3d = await ev("(function(){var r=document.getElementById('ic-freq-row');if(!r)return 'no row';var q=r.getBoundingClientRect();if(!q.width||!q.height)return '0x0';var n=r;while(n&&n!==document.body){if(n.hidden===true||getComputedStyle(n).display==='none')return 'ancestor hidden';n=n.parentElement;}return 'visible '+Math.round(q.width)+'x'+Math.round(q.height);})()");
+check('E3d 点开「互动频率」tag 后该行已布局可见（无需再翻页）', String(e3d).indexOf('visible') === 0, String(e3d));
+check('E3e 切走 tag 后该面板收起、默认面板复位',
+  (await ev("(function(){var t=document.querySelector('#page-reply-settings .rps-tabs .rps-tab[data-rps=\"reply\"]');if(t)t.click();return true;})()")) === true && (await sleep(400)) === undefined &&
+  (await ev("(function(){var i=document.querySelector('#page-reply-settings .rps-panel[data-rps=\"interact\"]');var r=document.querySelector('#page-reply-settings .rps-panel[data-rps=\"reply\"]');return !!(i&&i.hidden&&r&&!r.hidden);})()")) === true);
 await ev("(function(){var b=document.getElementById('ic-freq-btn');if(b)b.click();return true;})()");
 await sleep(250);
 const pillCount = await ev("(function(){var p=document.getElementById('modal-pills');if(!p||p.hidden)return 0;return p.children.length;})()");
