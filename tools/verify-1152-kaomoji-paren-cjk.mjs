@@ -143,7 +143,9 @@ try {
   const NOISE = { 'rn-prob': 0, 'touch-prob': 0, 'sticker-prob': 0, 'emoji-prob': 0, 'image-prob': 0, 'voice-prob': 0,
     'quote-prob': 0, 'rc-prob': 0, 'rc-refix': 0, 'cf-prob': 0, 'as-en': 0, 'call-incoming': 0,
     'ckq-en': 0, 'ai-rps-en': 0, 'ai-game-en': 0, 'ai-cuddle-en': 0, 'ai-cc-en': 0, 'desk-call-prob': 0,
-    'py-punct-en': 0, 'py-en': 0, 'rs-min': 1, 'rs-max': 2, 'reply-min': 1, 'reply-max': 1, 'kaomoji-prob': 100, 'csp-cust': 100 };
+    // #1203：本组测的是「颜文字卡的判别与硬换行相接」，而末尾追加颜文字卡已收进「多字卡回复」总开关
+    //（关＝根本不追加＝C2 量不到 <br）。故开总开关、只把抽卡概率归零来锁住「一条气泡一张文字卡」形态，判据口径不变。
+    'py-punct-en': 0, 'py-en': 1, 'py-prob': 0, 'rs-min': 1, 'rs-max': 2, 'reply-min': 1, 'reply-max': 1, 'kaomoji-prob': 100, 'csp-cust': 100 };
   const setup = (cards) => evalJs('(function(){var o=' + JSON.stringify(NOISE) + ';' +
     'for(var k in o)window.saveReplyCfg(k,o[k]);' +
     'window.getCustomCards=function(){return ' + JSON.stringify(cards) + ';};' +

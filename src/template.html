@@ -3435,7 +3435,7 @@
                  符号池状态由 reply-settings.js #650 段渲染（ppy-chips），join 逻辑在 chat.js pyJoinCards -->
             <div class="gs-row"><span>拼接随机标点</span><label class="toggle"><input type="checkbox" id="py-punct-en"><span class="tk"></span></label></div>
             <div class="gs-row"><span>拼接符号</span><div class="ppy-chips" id="ppy-chips"><span class="tag ppy-chip" data-k="py-punct-space">空格</span><span class="tag ppy-chip" data-k="py-punct-dou">，</span><span class="tag ppy-chip" data-k="py-punct-per">。</span><span class="tag ppy-chip" data-k="py-punct-ex">！</span><span class="tag ppy-chip" data-k="py-punct-q">？</span><span class="tag ppy-chip" data-k="py-punct-el">......</span><span class="tag ppy-chip" data-k="py-punct-dash">——</span><span class="tag ppy-chip" data-k="py-punct-nl">换行</span><span class="tag ppy-chip" id="ppy-add" title="添加自定义拼接符号">＋</span></div></div>
-            <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
+            <div class="gs-sub">多条字卡回复总开关：关闭后每条消息只回一条、每条只用一张字卡——「颜文字附加概率」「连接词追加概率」「经期温柔前缀/后缀」也不再往同一条气泡里拼第二张字卡，气泡下不再出现「多字卡回复」标签（词典拼字、梦角自由造句各认自己的开关，不受本项约束）；开启后回复拆成几条由上方「回复条数」控制、每条拼几张由下方「最少/最多条数」控制</div>
             <div class="gs-sub">拼接随机标点：开启后每两条字卡的中间在「拼接符号」里随机抽一个相连（可多选，每处独立随机）。默认＝空格、，。！？......、—— 七种全部点亮（不想要的点一下取消、再点一下恢复）；只选「空格」＝原来的效果、只选标点＝不再有空格；关闭总开关＝固定只用空格。系统自带的符号只能开关、不能删除；点「＋」可添加自己的符号（最长 6 个字符、最多 8 个），自定义符号点本体开关、点「×」删除。符号至少保留一个；「词典拼字」的单气泡形态也用同一套符号池。关闭上方「多字卡回复」后本组一并失效：拼接随机标点不再生效、符号池回退空格<br><b>「换行」（默认关）</b>＝点亮后随机抽到它时，下一张字卡另起一行（抽到别的符号仍照常连在同一行里）。<b>这套符号池是三处共用</b>：聊天（上面的「拼接随机标点」）、信箱（回复设置 → 信箱 →「信件拼接随机标点」）、朋友圈（回复设置 → 朋友圈 →「朋友圈拼接随机标点」），后两者默认关，各自只由自家开关决定——上方聊天开关置灰不影响它们。表情包/图片这类卡片两侧永远用空格相接（标点或换行贴进图片网址尾部会让图显示不出来）</div>
           </div>
           </div>
@@ -3516,7 +3516,7 @@
           <div class="gs-title">每条消息使用多字卡回复</div>
           <div class="set-group glass">
             <div class="gs-row"><span>多字卡回复</span><label class="toggle"><input type="checkbox" id="gc-py-en"><span class="tk"></span></label></div>
-            <div class="gs-sub">总开关：关闭后每个成员每条消息只回一条、只用一张字卡；开启后条数由上方「回复条数」与下方「最少/最多条数」控制</div>
+            <div class="gs-sub">总开关：关闭后每个成员每条消息只回一条、只用一张字卡（「颜文字附加概率」也不再往同一条气泡里拼第二张字卡）；开启后条数由上方「回复条数」与下方「最少/最多条数」控制</div>
             <div class="gs-row"><span>触发概率</span><div class="stepper" data-k="gc-py-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="gc-py-prob-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最少条数</span><div class="stepper" data-k="gc-py-min" data-min="1" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-py-min-val" readonly><button class="stp-max">+</button></div></div>
             <div class="gs-row"><span>最多条数</span><div class="stepper" data-k="gc-py-max" data-min="2" data-max="10" data-step="1"><button class="stp-min">−</button><input class="stp-val" id="gc-py-max-val" readonly><button class="stp-max">+</button></div></div>
@@ -4137,7 +4137,7 @@
         <div class="gs-row"><span>回应字卡使用概率</span><div class="stepper" id="rcard-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="rcard-prob-val" readonly><button class="stp-max">+</button></div></div>
         <div class="gs-row"><span>连接词追加概率</span><div class="stepper" id="cf-prob" data-min="0" data-max="100" data-step="5"><button class="stp-min">−</button><input class="stp-val" id="cf-prob-val" readonly><button class="stp-max">+</button></div></div>
       </div>
-      <div class="sm-set-hint" id="rc-prob-hint" style="padding:2px 16px 4px">说明：本页字卡是「逻辑连接词」，TA 回话时有两种用法——①按「回应字卡使用概率」整条回复换成一张连接词字卡（默认 30%）；②按「连接词追加概率」在回复末尾再补一句连接词（默认 20%，与回复设置里的连接词概率是同一项，改任意一处都生效）。两个概率都调到 0% 等于不用回应字卡（也可直接用上方总开关）。</div>
+      <div class="sm-set-hint" id="rc-prob-hint" style="padding:2px 16px 4px">说明：本页字卡是「逻辑连接词」，TA 回话时有两种用法——①按「回应字卡使用概率」整条回复换成一张连接词字卡（默认 30%）；②按「连接词追加概率」在回复末尾再补一句连接词（默认 20%，与回复设置里的连接词概率是同一项，改任意一处都生效）。两个概率都调到 0% 等于不用回应字卡（也可直接用上方总开关）；「连接词追加」另受回复设置里的「多字卡回复」总开关约束——它关闭时这条不再追加（追加＝一条气泡两张字卡）。</div>
       <div class="gs-title">回应字卡分类</div>
       <div class="cc-groups-bar" id="rc-groups-bar"></div>
       <div class="card-search glass" id="rc-search">

@@ -7365,7 +7365,9 @@ reply = pickNonBlank(pool.voice); type = 'voice';
 } else {
 reply = pickNonBlank(pool.text) || pick(FALLBACK_REPLY_POOL);
 }
-if (type === 'text' && pool.kaomoji.length && hit(c['kaomoji-prob'])) {
+// #1203 「多字卡回复」总开关关闭＝这条气泡只用一张字卡：颜文字卡不再追加（旧写法只认 kaomoji-prob
+// ＝关了总开关仍有 5% 的回复被拼成两张卡并挂「多字卡回复」chip＝用户实报「全关了还是有多字卡回复」）
+if (type === 'text' && c['py-en'] === 1 && pool.kaomoji.length && hit(c['kaomoji-prob'])) {
 const kj = pickNonBlank(pool.kaomoji);
 if (kj) { reply += '\n' + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 连接符空格→硬换行（escTxtBr \n→<br>）：多台真机实报末尾颜文字「不换行＝显示不全」，软换行点部分内核不拆行，<br> 强制换行全内核遵守
 }
@@ -7433,7 +7435,8 @@ let rep = genOneReply(c);
 // 每条气泡只装一张卡、来源即词典，该形态不挂此 chip）
 // FIX 2026-09-19 #851 温柔前缀/动作本身是一张独立字卡（与正文空格相接）＝这条气泡两张卡，
 // 故在取用判定之前置位 pyMultiDrawn（与下方 py-en 抽卡分支同口径挂来源 tag）。
-if (rep && rep.type === 'text' && typeof rep.text === 'string' && rep.text.indexOf('data:') !== 0 && window.periodWarmText) {
+// #1203 温柔前缀/后缀本身也是一张独立字卡（空格相接）＝两张卡同挂此 chip，故一并收进总开关：关时不改写
+if (rep && c['py-en'] === 1 && rep.type === 'text' && typeof rep.text === 'string' && rep.text.indexOf('data:') !== 0 && window.periodWarmText) {
 try { const _w0 = rep.text, _w = window.periodWarmText(rep.text); if (_w) { rep.text = _w; if (_w !== _w0) pyMultiDrawn = true; } } catch (e) {}
 }
 // FIX 2026-09-19 #851 口径从「抽卡分支命中」改为「这条气泡实际拼了 ≥2 张文字字卡」：颜文字卡/
@@ -7964,7 +7967,9 @@ t = replyWord; pyMultiDrawn = false; // FIX 2026-09-18 #773 同上：聊天回�
 //（#185 原行一字未动＝其哨兵 needle 仍钉在原形态上）
 if (pyMultiDrawn && (typeof t !== 'string' || !t.trim())) pyMultiDrawn = false;
 if (typeof t !== 'string' || !t.trim()) t = pick(FALLBACK_REPLY_POOL);
-if (hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) { // FIX 2026-09-15 #518 连接词追加套系统预设字卡总档
+// #1203 总开关关闭＝这条气泡只用一张字卡：末尾不再追加连接词卡（旧写法只认 cf-prob＝关了总开关仍有 20%
+// 的回复被拼上第二张、还挂「多字卡回复」chip＝本次报障主因，每五条中一次）；「整条替换成一张回应字卡」不受影响
+if (c['py-en'] === 1 && hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) { // FIX 2026-09-15 #518 连接词追加套系统预设字卡总档
 const w = (window.getFollowupWord && window.getFollowupWord(t)) || '';
 // FIX 2026-09-19 #851 连接词是一张独立字卡（空格相接）＝这条气泡两张卡，同口径挂来源 tag
 if (w) { t += ' ' + w; pyMultiDrawn = true; }

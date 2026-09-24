@@ -4874,6 +4874,12 @@ const FIX_SENTINELS = [
   { name: '#1200a 整包面不可写时落持久中转箱（函数体删掉＝分块桌面的互动卡又被静默丢，「弹窗有卡、点进聊天空」当场复发）', file: 'js/chat.js', needle: 'function deskAppendInbox(cid, recs)' },
   { name: '#1200b loadMsgs 权威落定处回填中转箱（与 chatTailMerge 同点位；删调用＝卡落箱后永远没人取，切进聊天仍是空屏）', file: 'js/chat.js', needle: 'try { chatDeskInboxMerge(myPrefix); } catch (e) {}' },
   { name: '#1200c 追加前检出该桌面已分块即转中转箱（删＝退回重试 5 次后静默丢；#358 防覆盖与全新空桌面直建整包两条护栏由 verify-1200 的 A2/B1 守住）', file: 'js/chat.js', needle: "idbGet('xy-home-v2:' + cid + ':chat-blk-idx').then(function (bv) {" },
+  /* ==== 2026-09-24 #1203 「多字卡回复」总开关关了还是收到多字卡（用户实报「多字卡回复关掉了、词典拼字全部关掉，联系人发送的消息还是有多字卡回复」，多台设备同现、零机型分支）。根因＝这颗开关的文案承诺「关闭后每条消息只回一条、每条只用一张字卡」，但生成链上有三处「往同一条气泡里拼第二张字卡」的分支从不读它：①genReplyText 末尾追加颜文字卡（只认 kaomoji-prob 5%）、②genOneReplyDraw 尾部追加连接词卡（只认 cf-prob 20% ← 报障主因，每五条中一次）、③replyOnce 的经期温柔前缀/后缀（只认经期分类概率 25%）；三处都按 #851「气泡里有几张卡就挂几张」置位 pyMultiDrawn，于是关掉总开关的气泡照样拼两张、照样挂「多字卡回复」来源 chip。群聊 gcGenReply 的颜文字追加同款。修＝三处生成侧收进 py-en / gc-py-en 闸门（词典拼字、梦角自由造句按既有口径继续认自己的开关，本次不动；#167 条数闸 / #956a 符号池闸 / #773 张数判据与自愈哨兵原样不动）。行为断言见 tools/verify-py-multicard-tag.mjs C 组（成对：关＝不拼不标 / 开＝拼两张并标）；纯 HEAD 基线实测恰红 C1/C2/C5，修复副本 24/0 ==== */
+  { name: '#1203a 普通回复末尾颜文字卡收进多字卡总开关（删掉闸门＝关了「多字卡回复」仍有 5% 回复拼成两张字卡）', file: 'js/chat.js', needle: "if (type === 'text' && c['py-en'] === 1 && pool.kaomoji.length && hit(c['kaomoji-prob'])) {" },
+  { name: '#1203b 连接词追加收进多字卡总开关（删掉闸门＝关了总开关仍有 20% 回复被拼第二张连接词卡并挂「多字卡回复」chip＝本次报障主因）', file: 'js/chat.js', needle: "if (c['py-en'] === 1 && hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) {" },
+  { name: '#1203c 经期温柔前缀/后缀收进多字卡总开关（删掉闸门＝经期里每条回复又被拼一张温柔卡、关了开关照样「多字卡」）', file: 'js/chat.js', needle: "if (rep && c['py-en'] === 1 && rep.type === 'text'" },
+  { name: '#1203d 群聊成员回复末尾颜文字卡同口径（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {" },
+  { name: '#1203e 单聊总开关文案写明「三处拼卡一并停用＋词典/梦角各认自己开关」（删掉＝用户仍按旧口径理解，关了就又报「没关干净」）', file: 'index.html', needle: '词典拼字、梦角自由造句各认自己的开关' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

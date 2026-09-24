@@ -1352,7 +1352,8 @@
         t = pick(pool.text) || FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
       }
     }
-if (type === 'text' && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
+// #1203 同单聊口径：群聊「多字卡回复」总开关关闭＝每个成员每条消息只用一张字卡，颜文字卡不再追加
+if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
 t += '\n' + pick(pool.kaomoji); // #1051 同单聊 genReplyText：末尾颜文字卡改硬换行相接（\n→<br>），软换行点部分内核不拆行＝末尾显示不全
 }
 // v3.26.x #163：文本回复按成员所在桌面混入默认字卡（同聊天页 genOneReply 的

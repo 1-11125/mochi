@@ -14,6 +14,9 @@
 //   B2/B3b/B5 两侧皆绿＝对照组（旧码不动 mood，标签原样留着）。
 // #1051 增：C1b＝末尾颜文字前必有 <br>（连接符由空格改硬换行，根治「最末不换行＝显示不全」）；
 //   D3＝'\n' 相接两卡气泡 chip 不被误摘（切分集恒含硬换行）。纯基线（空格相接/切分集无 \n）应恰红 C1b/D3。
+// #1203 改：C 组改「成对」断言＝py-en 关时颜文字/连接词/经期温柔三处都不拼第二张卡、无 chip（C1/C2/C5），
+//   开时照旧拼两张并挂标（C1+/C2+/C5+）。只断言「关＝不拼」会漏掉「干脆删掉这三种卡」这种假修好。
+//   红根（#1203 之前的纯 HEAD）应恰红 C1/C2/C5 三条＝实测 21 通过/3 失败。
 // 冻结 Math.random=0.3 做确定性对照：hit(100) 命中、randInt(2,2)=2、randInt(1,1)=1、hit(0) 不中。
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -174,32 +177,43 @@ try {
   await sendOnce('A5 空白池空文兜底换一张 → 不挂 tag', [' ', '  ', '   '], { 'csp-cust': 100, __noSys: true },
     { tag: false, has: '好～' });
 
-  // ===== C 组 #851「一条气泡 ≥2 张文字字卡就挂来源 tag」（纯 HEAD 应恰红 C1/C2/C3/C5）=====
-  // 四种拼卡链路过去都只认「多字卡抽卡分支命中」，气泡明明两张卡却不标：
-  //   C1 文字卡＋颜文字卡（kaomoji-prob 追加）、C2 文字卡＋连接词卡（cf-prob 追加）、
-  //   C5 文字卡＋经期温柔卡（periodWarmText 前缀）、C3 词典拼字单气泡（spellOne 两张卡）。
-  // C4 是对照组：词典逐卡连发每条气泡只装一张卡，两枚 chip 都不该有「多字卡回复」（#726/#738 口径）。
-  // 各例都把 py-en 关掉＝底层抽卡分支不命中，只有「按实际张数挂标」的新口径才会出 chip。
-  await sendOnce('C1 文字卡＋颜文字卡（两张）→ 挂「多字卡回复」', ['C1文字一张卡', '(◕‿◕)'],
+  // ===== C 组 #851 + #1203「一条气泡 ≥2 张文字字卡才挂来源 tag，且只有总开关开着才拼多张」=====
+  // 四种拼卡链路（C1 颜文字追加 / C2 连接词追加 / C5 经期温柔前缀 / C3 词典拼字单气泡）＋ C4 逐卡连发对照。
+  // #1203 口径（用户实报「多字卡回复关掉了、词典拼字也全关，联系人发的消息还是有多字卡」）：
+  //   py-en 关闭时前三处一律不拼第二张字卡、自然无 chip；py-en 开着（用 py-prob=0 关掉抽卡分支，
+  //   只留各自追加链路）时照旧拼两张并挂 chip。词典拼字与梦角自由造句继续认自己的开关（#1203 不动）。
+  // C4＝对照：逐卡连发每条气泡只装一张卡，两枚 chip 都不该有「多字卡回复」（#726/#738 口径）。
+  const OPEN = { 'py-prob': 0 }; // 总开关开、抽卡分支不命中＝只测「追加链路」这一条路
+  await sendOnce('C1 总开关关 → 颜文字卡不追加、不挂「多字卡回复」', ['C1文字一张卡', '(◕‿◕)'],
     { 'py-en': 0, 'kaomoji-prob': 100, 'csp-cust': 100 },
-    { tag: true, has: 'C1文字一张卡' });
+    { tag: false, has: 'C1文字一张卡', notHas: '◕‿◕' });
+  await sendOnce('C1+ 总开关开 → 颜文字卡追加成两张并挂「多字卡回复」', ['C1p文字一张卡', '(◕‿◕)'],
+    { 'py-en': 1, 'kaomoji-prob': 100, 'csp-cust': 100, ...OPEN },
+    { tag: true, has: 'C1p文字一张卡' });
   // #1051 末尾颜文字换行形态：连接符必须是硬换行（\n→<br>）——多台真机实报「颜文字在最末没有
   // 换行＝显示不全」，软换行点部分内核不拆行；纯基线（空格相接、无 <br>）此处应红。
+  // #1203 后这一形态只在总开关开着时出现，故量在上一条（C1+）落地的那口气泡上。
   {
     const br = await evalJs("(function(){var sp=document.querySelectorAll('#chat-body .msg-in .msg-bubble span');" +
-      "for(var i=sp.length-1;i>=0;i--){var h=sp[i].innerHTML;if(h.indexOf('C1文字一张卡')>=0){" +
+      "for(var i=sp.length-1;i>=0;i--){var h=sp[i].innerHTML;if(h.indexOf('C1p文字一张卡')>=0){" +
       "var bi=h.indexOf('<br>');return JSON.stringify({br:bi,ka:h.indexOf('◕‿◕')});}}" +
       "return null;})()");
     const r = br ? JSON.parse(br) : null;
     t('C1b 末尾颜文字前必有 <br>（颜文字落在次行，非软换行点）',
       !!r && r.br >= 0 && r.ka > r.br, 'br=' + (r ? r.br : 'null') + ' ka=' + (r ? r.ka : 'null'));
   }
-  await sendOnce('C2 文字卡＋连接词卡（两张）→ 挂「多字卡回复」', ['C2文字一张卡'],
+  await sendOnce('C2 总开关关 → 连接词卡不追加、不挂「多字卡回复」', ['C2文字一张卡'],
     { 'py-en': 0, 'cf-prob': 100, 'csp-cust': 100 },
-    { tag: true, has: 'C2文字一张卡' });
-  await sendOnce('C5 文字卡＋经期温柔卡（两张）→ 挂「多字卡回复」', ['C5文字一张卡'],
+    { tag: false, has: 'C2文字一张卡' });
+  await sendOnce('C2+ 总开关开 → 连接词卡追加成两张并挂「多字卡回复」', ['C2p文字一张卡'],
+    { 'py-en': 1, 'cf-prob': 100, 'csp-cust': 100, ...OPEN },
+    { tag: true, has: 'C2p文字一张卡' });
+  await sendOnce('C5 总开关关 → 经期温柔卡不拼、不挂「多字卡回复」', ['C5文字一张卡'],
     { 'py-en': 0, 'csp-cust': 100, __warm: '抱抱' },
-    { tag: true, has: 'C5文字一张卡' });
+    { tag: false, has: 'C5文字一张卡', notHas: '抱抱' });
+  await sendOnce('C5+ 总开关开 → 经期温柔卡拼成两张并挂「多字卡回复」', ['C5p文字一张卡'],
+    { 'py-en': 1, 'csp-cust': 100, ...OPEN, __warm: '抱抱' },
+    { tag: true, has: 'C5p文字一张卡' });
   await sendOnce('C3 词典拼字单气泡（两张卡一条气泡）→ 并列挂「多字卡回复」', ['C3文字一张卡'],
     { 'py-en': 0, 'csp-cust': 100, __spell: { segs: ['语录一号卡', '语录二号卡'], one: true } },
     { tag: true, has: '语录一号卡' });
