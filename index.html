@@ -415,7 +415,6 @@ scrollbar-width:none; -ms-overflow-style:none;
 .splash-mandatory-card {
 margin-bottom:14px; padding:13px 15px 14px;
 background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:10px;
-animation:splash-fade-up .5s ease backwards;
 }
 .splash-mandatory-date { font-size:10px; font-weight:700; color:var(--hint-ink); letter-spacing:1px; margin-bottom:6px; }
 .splash-mandatory-h { font-size:13.5px; font-weight:800; color:var(--ink); letter-spacing:.5px; margin-bottom:9px; }
@@ -1937,6 +1936,23 @@ max-height:150px; overflow-y:auto; overscroll-behavior:contain;
 }
 .chat-ask-actions { display:flex; gap:8px; }
 .chat-ask-actions .cc-tool { flex:1; }
+.chat-ask-hist { margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed rgba(0,0,0,.12); }
+.chat-ask-hist[hidden] { display:none; } .chat-ask-hist-bar { display:flex; align-items:center; justify-content:space-between; }
+.chat-ask-hist-toggle { font-size:13px; font-weight:700; color:var(--ink); cursor:pointer; user-select:none; padding:6px 4px; }
+.chat-ask-hist-toggle:active { opacity:.7; }
+.chat-ask-hist-clear { font-size:11px; color:var(--muted); cursor:pointer; border:none; background:none; padding:6px 6px; font-family:inherit; }
+.chat-ask-hist-clear:active { color:#a33; }
+.chat-ask-hist-list { margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+.chat-ask-hist-list[hidden] { display:none; } .chat-ask-hist-list .tc-listitem { padding:8px 10px; margin-bottom:0; }
+.ih-day { font-size:11px; font-weight:700; color:var(--muted); }
+.ih-day-btn { display:block; width:100%; text-align:left; border:1px solid rgba(0,0,0,.09); border-radius:10px; padding:9px 12px; background:rgba(255,255,255,.6); color:var(--ink); font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ih-day-btn:active { background:rgba(0,0,0,.05); }
+.ih-caret { float:right; font-weight:400; color:var(--muted); }
+.ih-more { display:block; width:100%; border:1px dashed rgba(0,0,0,.18); border-radius:10px; padding:10px 12px; background:none; color:var(--ink); font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ih-more:active { background:rgba(0,0,0,.05); }
+.ih-ok { color:#2e7d32; font-weight:600; }
+.ih-no { color:#a33; font-weight:600; }
+.ih-nu { color:var(--muted); }
 #chat-divine-body .div-modes-wrap,
 #chat-divine-body .div-counts-wrap {
 display:flex; gap:8px; margin-bottom:10px;
@@ -8251,6 +8267,12 @@ html.tablet .tabbar .tab { padding:14px 8px; border-radius:16px; }
 [data-theme="dark"] .chat-ask-opts { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
 [data-theme="dark"] .chat-ask-opts:focus { border-color:var(--ink); }
 [data-theme="dark"] .chat-ask-bulk { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
+[data-theme="dark"] .chat-ask-hist { border-bottom-color:rgba(255,255,255,.14); }
+[data-theme="dark"] .ih-day-btn { border-color:rgba(255,255,255,.09); background:rgba(255,255,255,.04); color:var(--ink); }
+[data-theme="dark"] .ih-day-btn:active { background:var(--dark-hover); }
+[data-theme="dark"] .ih-more { border-color:rgba(255,255,255,.18); color:var(--ink); }
+[data-theme="dark"] .ih-more:active { background:var(--dark-hover); }
+[data-theme="dark"] .ih-ok { color:#7cc47f; }
 [data-theme="dark"] .chat-input-row { background:var(--dark-card-92); border-color:var(--dark-border); }
 [data-theme="dark"] .chat-input { color:var(--ink); }
 [data-theme="dark"] .chat-input:empty::before { color:var(--hint-ink); }
@@ -10643,9 +10665,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790223625738">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790225594056">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.42</b></span>
-        <span class="sv-deploy">部署于 2026-09-24 12:20<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-24 12:53<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -12809,6 +12831,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <div class="lic-li">可搜索聊天记录并跳转到对应位置</div>
           <div class="lic-li">聊天 + 按钮展开更多功能面板（互动 / 小游戏 / 工具 / TA的提问 四分类）：互动类——邀请TA、通话、拍一拍、红包、心意集市、心意柜、头像和昵称互动、漂流瓶</div>
           <div class="lic-li">「邀请TA」半框内置【我的邀请】字卡库：预设 + 自定义分组，可存入 / 修改 / 删除邀请字卡，点字卡即可重复发送</div>
+          <div class="lic-li">「邀请TA」半框顶部【📜 邀请记录】：查自己发出过的邀请与 TA 的回应（接受 / 拒绝 / 未回应）。<b>今天</b>的直接列出，更早的按日期折成一行、点日期展开，一次只露 5 天、点「加载更多」翻页；「清空记录」只清本桌面的邀请记录，问问TA 的记录不受影响</div>
           <div class="lic-li">小游戏类——猜拳、Pong、贪吃蛇、打砖块、钓鱼、四子棋、扫雷、记忆翻牌、五子棋、连连看、消消乐、拍卖会；工具类——帮我决定、多人决定、问问TA、搜索记录、占卜、寻踪、此间、房间、心情日记</div>
           <div class="lic-li">朋友圈贴纸回复：配图动态下点「贴纸」，选表情包贴到照片上（每张照片最多 5 张，自己贴的可点撤回），TA 会按评论概率回贴一张并进朋友圈通知</div>
           <div class="lic-li">回忆闪回：打开朋友圈时，「那年今天」的旧动态会以记忆卡置顶，点击定位到原动态并高亮，✕ 当天不再显示</div>
@@ -16307,6 +16330,14 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
         </div>
         <div class="poke-groups" id="invite-groups" hidden></div>
         <div class="poke-card-scroll chat-ask-body">
+          <!-- #1188：邀请记录（仅「邀请TA」模式显示）——今天直接列出，更早按自然日折叠、日期组分页加载 -->
+          <div class="chat-ask-hist" id="chat-ask-hist" hidden>
+            <div class="chat-ask-hist-bar">
+              <span class="chat-ask-hist-toggle" id="chat-ask-hist-toggle">📜 邀请记录 ▾</span>
+              <button type="button" class="chat-ask-hist-clear" id="chat-ask-hist-clear">清空记录</button>
+            </div>
+            <div class="chat-ask-hist-list" id="chat-ask-hist-list" hidden></div>
+          </div>
           <div class="invite-list" id="invite-list" hidden></div>
           <div class="dec-inp-wrap chat-ask-inp-wrap"><input type="text" class="chat-ask-input" id="chat-ask-input" placeholder="想邀请TA做什么？" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="dec-inp-clear" data-clear="chat-ask-input" aria-label="清空" title="清空">✕</button></div>
           <button type="button" class="chat-ask-bulk" id="chat-ask-bulk" hidden>批量设置问卷</button>
@@ -21539,4 +21570,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ muf0xa8a -->
+<!-- __MOCHI_EOF__ muf23gzs -->
