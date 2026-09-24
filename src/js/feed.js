@@ -252,6 +252,46 @@
     if (v && typeof v === 'string' && v.length > 500 * 1024) return '';
     return v || '';
   }
+  // FIX 2026-09-22 #1036：朋友圈改昵称必须回改存量内容快照（OPPO Pad4Pro 实报「修改昵称
+  //   无变化」，与机型/内核无关——动态/评论/贴纸写入时钉死 authorName 昵称快照，展示端
+  //   「快照优先、实时名只作缺数据回退」（postCardHtml/评论/点赞），旧版只改封面键＝
+  //   存量内容一律还是旧名）。改名成功时按人（role+owner 桌面）回改：该作者动态与
+  //   评论/回复/贴纸签名、TA 动态上的 taName 栏、点赞名单里的旧名字串（likes 只存显示名、
+  //   无归属标记，按 prevName 精确串替换；通知栏/聊天系统消息是历史事实文本，不动）。
+  function sweepFeedNameSnapshots(role, cid, prevName, newName) {
+    try {
+      const list = load();
+      let dirty = false;
+      const mine = (x) => !!x && (x.role || x.by) === role
+        && ((x.owner || 'default') === cid || (role === 'me' && x.owner === 'me'));
+      const fixTree = (arr) => {
+        (arr || []).forEach(x => {
+          if (!x) return;
+          if (mine(x) && x.authorName && x.authorName !== newName) { x.authorName = newName; dirty = true; }
+          if (Array.isArray(x.replies)) fixTree(x.replies);
+        });
+      };
+      list.forEach(p => {
+        if (!p) return;
+        if (role === 'ta' && (p.owner || 'default') === cid && p.taName === prevName && prevName !== newName) { p.taName = newName; dirty = true; }
+        fixTree(p.comments);
+        fixTree(p.stickers);
+        if (Array.isArray(p.likes) && prevName && prevName !== newName) {
+          for (let i = 0; i < p.likes.length; i++) {
+            if (p.likes[i] === prevName) { p.likes[i] = newName; dirty = true; }
+          }
+        }
+        if (mine(p) && p.authorName && p.authorName !== newName) { p.authorName = newName; dirty = true; }
+      });
+      if (dirty) save(list);
+      return dirty;
+    } catch (e) { return false; }
+  }
+  // 改名后按当前可见页面刷新（主列表/全部朋友圈/好友列表各自的重绘入口）
+  function rerenderFeedAfterRename() {
+    try { const fa = document.getElementById('page-feed-all'); if (fa && !fa.hidden) { renderFeedAll(); } else render(); } catch (e) {}
+    try { const ff = document.getElementById('page-feed-friends'); if (ff && !ff.hidden) renderFeedFriends(); } catch (e) {}
+  }
   function toast(msg) {
     let t = document.getElementById('cc-toast');
     if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
@@ -881,6 +921,8 @@
       myAvEl.innerHTML = myAvStr ? '<img src="' + attrEsc(myAvStr) + '" alt="">' : '';
       // FIX 2026-09-18 #739：innerHTML 重建会把 label 激活层冲掉，渲染后补挂（幂等）
       try { if (window.mochiFilePickLabel) window.mochiFilePickLabel(myAvEl, feedAvPickInput); } catch (e) {}
+      // FIX 2026-09-21 #1002：同一处补挂「真·可点 input 层」（layers 是按钮的子节点，innerHTML 重建一并冲掉）
+      try { if (window.mochiFilePickSurface) window.mochiFilePickSurface(myAvEl, { id: 'feed-myav-tap', accept: 'image/*', owner: feedAvPickInput }); } catch (e) {}
     }
     if (myNameEl) myNameEl.textContent = myNameStr;
     const cover = document.getElementById('feed-cover');
@@ -897,7 +939,14 @@
   }
   // 压缩图片（最长边 800px，JPEG 0.82，避免撑爆 localStorage 配额）
   function compressImage(file, cb) {
+    // FIX 2026-09-22 #1036：读图三条腿收口——FileReader 补 onerror、解码加看门狗，
+    // 失败/超时统一回调 null（国产平板内核偶发解码不回调＝「选了图没反应」的原型，
+    // 与 chat-settings #813 系列同族，零机型分支）。
+    let done = false;
+    const once = (v) => { if (done) return; done = true; clearTimeout(timer); cb(v); };
+    const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);
     const reader = new FileReader();
+    reader.onerror = () => { toast('图片读取失败'); once(null); };
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
@@ -910,9 +959,9 @@
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        cb(cv.toDataURL('image/jpeg', 0.82));
+        once(cv.toDataURL('image/jpeg', 0.82));
       };
-      img.onerror = () => { toast('图片读取失败'); };
+      img.onerror = () => { toast('图片读取失败'); once(null); };
       img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
@@ -1750,6 +1799,11 @@ const comInput = document.getElementById('feed-comment-input');
 const comSend = document.getElementById('feed-comment-send');
 const comSticker = document.getElementById('feed-comment-sticker');
 const comImg = document.getElementById('feed-comment-img');
+// FIX 2026-09-21 #1002（第九波续）：朋友圈各上传入口铺「真·可点 input」层——手指物理落在真 input 上，
+// 选择器由浏览器原生默认动作弹出，不再依赖 label 转发 / JS 合成 click / showPicker 任何一条腿。
+// owner 写统一入口的 input id（那个 input 点按时才建，这里只登记 id、选完文件时才解析），
+// 选中文件转交它并派发 change ⇒ 下面的压缩/落库管线一字未改（同一入口仍只有一条管线）。
+if (comImg && window.mochiFilePickSurface) window.mochiFilePickSurface(comImg, { id: 'feed-com-tap', accept: 'image/*', owner: 'mochi-com-img-pick' });
 // v3.7.x：OPPO Edge 对 ce-box(contenteditable 转换框)聚焦/输入失效——与回复设置
 // stp-val 同源（见 WORKLOG 2026-08 OPPO Edge 修复记录），评论输入框保持原生
 // textarea：预标记 ceDone 让 mobile-adapt.js 转换器跳过（原生仅弹自动填充条，
@@ -2027,7 +2081,11 @@ if (comSticker) comSticker.addEventListener('click', (e) => { e.stopPropagation(
 let comImgBusy = false;
 if (comImg) {
   comImg.addEventListener('click', (e) => {
-    e.preventDefault();
+    // FIX 2026-09-21 #1002：这次点击若落在「真·可点 input 层」上（本入口已铺），**不能再 preventDefault**
+    // ——preventDefault 会取消这次 click 的默认动作，而「弹系统选择器」正是真 input 的默认动作
+    // ⇒ 内核（尤其国产）会照此静默不弹＝用户看到的「点了没反应」。只对非 surface 的点击保留原抑制
+    //（原用途：防移动端选择器关闭后补发的二次 click 重复弹窗）。
+    if (!(e.target && e.target.closest && e.target.closest('input[data-file-pick-surface]'))) e.preventDefault();
     e.stopPropagation();
     if (comImgBusy) return;
     comImgBusy = true;
@@ -2304,6 +2362,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   const feedInput = document.getElementById('feed-input');
   if (feedInput) feedInput.dataset.ceDone = '1';
   const pickBtn = document.getElementById('feed-pick-img');
+  // FIX 2026-09-21 #1002：发布框「添加图片」铺真·可点 input 层（owner＝统一入口那个多选 input）
+  if (pickBtn && window.mochiFilePickSurface) window.mochiFilePickSurface(pickBtn, { id: 'feed-pick-tap', accept: 'image/*', multiple: true, owner: 'dev-feed-pick-img' });
   const preview = document.getElementById('feed-preview');
   let pickedImgs = [];
   const MAX_PICK = 9;
@@ -2345,6 +2405,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
           if (pickedImgs.length + files.length > MAX_PICK) { toast('最多发布 ' + MAX_PICK + ' 张图片'); }
           files.slice(0, MAX_PICK - pickedImgs.length).forEach(f => {
             compressImage(f, (dataUrl) => {
+              if (!dataUrl) return;
               pickedImgs.push(dataUrl);
               renderPreview();
             });
@@ -2370,6 +2431,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         const f = files && files[0];
         if (!f) return;
         compressImage(f, (dataUrl) => {
+          if (!dataUrl) return;
           window.activeStore().set('feed-cover-bg', dataUrl);
           renderCover();
           toast('朋友圈背景已更新');
@@ -2427,11 +2489,16 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       img.onerror = () => toast('图片读取失败');
       img.src = reader.result;
     };
+    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝读取失败静默无反馈）
+    reader.onerror = () => toast('图片读取失败');
     reader.readAsDataURL(f);
   };
   if (coverAvEl) {
     // FIX 2026-09-18 #738：原生 label 激活兜底（小米浏览器对 JS 合成 click 静默不弹选择器）
     if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
+    // FIX 2026-09-21 #1002：封面头像铺真·可点 input 层（owner＝上面那个 feed-av-pick 常驻 input；
+    // 它的 onchange 管线一字未改，仍负责 256px 压缩 + 落库 + 重绘）
+    if (window.mochiFilePickSurface) window.mochiFilePickSurface(coverAvEl, { id: 'feed-myav-tap', accept: 'image/*', owner: feedAvPickInput });
     coverAvEl.addEventListener('click', (e) => {
       e.stopPropagation();
       // FIX 2026-09-18 #756：原 fromLabel 早退在「label 存在但国产内核不转发」时连 JS 兜底
@@ -2450,8 +2517,12 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改朋友圈昵称', window.activeStore().get('feed-user-name') || window.activeStore().get('lbl-user') || '我', (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：改昵称前先取旧名，落库后回扫存量动态/评论/表情/点赞快照
+            const prev = feedUserName();
             window.activeStore().set('feed-user-name', val);
+            sweepFeedNameSnapshots('me', window.__activeCid || 'default', prev, val);
             renderCover();
+            rerenderFeedAfterRename();
             toast('朋友圈昵称已更新');
           }
         }, { maxlength: 12 });
@@ -2731,6 +2802,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     if (feedAllWho === 'me') {
       if (avEl) { const mav = feedUserAv(); avEl.innerHTML = mav ? '<img src="' + attrEsc(mav) + '" alt="">' : ''; }
       if (nameEl) nameEl.textContent = feedUserName();
+      // FIX 2026-09-21 #1002：头像节点被重写后补挂「真·可点 input 层」（幂等，见 device.js）
+      try { if (avEl && window.mochiFilePickSurface) window.mochiFilePickSurface(avEl, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' }); } catch (e) {}
       return;
     }
     const c = (window.getContacts && window.getContacts().find(x => x.id === feedAllCid)) || { name: feedAllCid };
@@ -2744,6 +2817,8 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       avEl.innerHTML = av ? '<img src="' + attrEsc(av) + '" alt="">' : '';
     }
     if (nameEl) nameEl.textContent = c.name || feedAllCid;
+    // FIX 2026-09-21 #1002：同上——重写头像节点后幂等补挂真·可点 input 层
+    try { if (avEl && window.mochiFilePickSurface) window.mochiFilePickSurface(avEl, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' }); } catch (e) {}
   }
   // v3.7.x：全部朋友圈页渲染（从 openFeedAll 拆出，供点赞/评论/回复后局部刷新——
   // 原实现渲染只绑删除/图片，页面上没有评论按钮、点评论也无回复绑定，用户在该页
@@ -2830,6 +2905,10 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   const feedAllCover = document.getElementById('feed-all-cover');
   const feedAllAv = document.getElementById('feed-all-av');
   const feedAllName = document.getElementById('feed-all-name');
+  // FIX 2026-09-21 #1002：全部朋友圈页头像铺真·可点 input 层（owner＝统一入口那个 input id；
+  // 该 input 点按时才建，这里只登记 id）。注意封面容器 #feed-all-cover 内还有头像与昵称两个可点元素，
+  // 不给它铺层（铺了会吞掉头像/昵称的点击）——只铺头像本身。
+  if (feedAllAv && window.mochiFilePickSurface) window.mochiFilePickSurface(feedAllAv, { id: 'feed-allav-tap', accept: 'image/*', owner: 'mochi-feed-allav-pick' });
   if (feedAllCover) {
     feedAllCover.addEventListener('click', (e) => {
       if (feedAllAv && (e.target === feedAllAv || feedAllAv.contains(e.target))) return;
@@ -2854,6 +2933,7 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
             const f = files && files[0];
             if (!f) { toast('没有取到图片，请再选一次'); return; }
             compressImage(f, (dataUrl) => {
+              if (!dataUrl) return;
               feedAllStore().set(key, dataUrl);
               renderFeedAllCover();
               toast('朋友圈背景已更新');
@@ -2910,8 +2990,11 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改昵称', cur, (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：全部朋友圈页改名同样回扫存量快照（role/cid 按当前查看对象）
             feedAllStore().set(key, val);
+            sweepFeedNameSnapshots(feedAllWho === 'me' ? 'me' : 'ta', feedAllCid, cur, val);
             renderFeedAllCover();
+            rerenderFeedAfterRename();
             toast('昵称已更新');
           }
         }, { maxlength: 12 });
@@ -3042,8 +3125,10 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         window.openModal('修改朋友圈昵称', cur, (v) => {
           const val = (v || '').trim();
           if (val) {
+            // FIX 2026-09-22 #1036：好友列表行改名也回扫该联系人桌面的存量快照
             st.set(key, val);
-            renderFeedFriends();
+            sweepFeedNameSnapshots(isMe ? 'me' : 'ta', cid, cur, val);
+            rerenderFeedAfterRename();
             toast('朋友圈昵称已更新');
           }
         }, { maxlength: 12 });
