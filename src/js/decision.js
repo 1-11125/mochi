@@ -389,19 +389,44 @@
     }, thinkTime * 1000);
   }
 
+  // #1053：历史「当天直显、更早默认折叠」——数据层仍全量保存，仅渲染层按天分组：
+  // 当天的记录平铺展示；更早的记录收进可点开折叠的「更早记录」块（原生 details/summary。
+  // 历史很长时先只露当天、其余收起，需要时点开看，避免一进记录页整屏刷出几百条。
+  function fmtDayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function fmtDayLabel(ts) {
+    const d = new Date(ts); const now = new Date();
+    const md = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    return d.getFullYear() === now.getFullYear() ? md : d.getFullYear() + '年' + md;
+  }
+  function histItemHtml(r) {
+    return '<div class="tc-listitem">' +
+      '<div class="tc-li-q">' + esc(r.question) + '</div>' +
+      (r.options && r.options.length ? '<div class="dc-h-options">选项：' + r.options.map((o, i) => (i + 1) + '. ' + esc(o)).join('，') + '</div>' : '') +
+      '<div class="dc-h-result">→ ' + esc(r.result) + '</div>' +
+      '<div class="dc-h-time">' + fmtDT(r.ts) + '</div></div>';
+  }
   function renderHistory() {
     const el = document.getElementById('dec-history');
     if (!el) return;
     const h = loadHistory();
-    el.innerHTML = h.length
-      ? h.map(r =>
-          '<div class="tc-listitem">' +
-          '<div class="tc-li-q">' + esc(r.question) + '</div>' +
-          (r.options && r.options.length ? '<div class="dc-h-options">选项：' + r.options.map((o, i) => (i + 1) + '. ' + esc(o)).join('，') + '</div>' : '') +
-          '<div class="dc-h-result">→ ' + esc(r.result) + '</div>' +
-          '<div class="dc-h-time">' + fmtDT(r.ts) + '</div></div>'
-        ).join('')
-      : ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('决定记录') : '<div class="ta-empty">暂无帮我决定记录</div>');
+    if (!h.length) { el.innerHTML = ((window.mochiDataPending && window.mochiDataPending()) ? window.mochiLoadingHtml('决定记录') : '<div class="ta-empty">暂无帮我决定记录</div>'); return; }
+    const today = fmtDayKey(Date.now());
+    const todayItems = [], pastDays = {}, pastKeys = [];
+    h.forEach(r => {
+      if (!r || r.ts === undefined) return;
+      const k = fmtDayKey(r.ts);
+      if (k === today) { todayItems.push(r); return; }
+      if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }
+      pastDays[k].items.push(r);
+    });
+    const pastCount = pastKeys.reduce((n, k) => n + pastDays[k].items.length, 0);
+    let html = todayItems.length ? todayItems.map(histItemHtml).join('') : '<div class="dc-h-day-empty">今天暂无记录</div>';
+    if (pastCount) {
+      html += '<details class="dc-h-more"><summary class="dc-h-more-sum">更早记录<span class="dc-h-more-cnt">' + pastCount + ' 条</span></summary><div class="dc-h-more-body">' +
+        pastKeys.map(k => '<div class="dc-h-day"><div class="dc-h-day-label">' + pastDays[k].label + '</div>' + pastDays[k].items.map(histItemHtml).join('') + '</div>').join('') +
+        '</div></details>';
+    }
+    el.innerHTML = html;
   }
   // #797：回填完成补渲一次（renderHistory 现读现画幂等；只写文本，页面关着也无害）
   if (window.mochiOnDataReady) window.mochiOnDataReady(function () { try { renderHistory(); } catch (e) {} });

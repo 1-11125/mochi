@@ -4795,6 +4795,8 @@ const FIX_SENTINELS = [
   { name: '#1162a IDB 键清单严格读到 null 时退避重试一次（#1162 报障「这个桌面没有数据」误报根因之一：idbListKeys 契约 null＝本次未读到而不是没有；删重试＝大项占用数据库期间导出/清空按空清单走＝假「没数据」甚至误导清空范围）', file: 'js/feature-data.js', needle: 'setTimeout(function () { res(window.idbListKeys()); }, 800);' },
   { name: '#1162b 心情日记写入前挡回填未齐（删＝#850 同族事故复发：IDB 回填未完时读到空包、点保存整包盖回数据库＝更早日记真丢，用户实报「日记数据丢失」的写侧通道）', file: 'js/mood-diary.js', needle: 'if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending())' },
 
+  { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
+  { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
