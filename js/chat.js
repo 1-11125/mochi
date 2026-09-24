@@ -2967,7 +2967,7 @@ m.removeEventListener('animationend', onEnterEnd);
 });
 }
 function appendMsg(m) {
-if (!batchRendering && chatVisible()) enterMsgOnce(m); // #1151b
+if (!batchRendering && chatVisible() && !document.hidden) enterMsgOnce(m); // #1151b · #1181a：闸口从「页面没被切走」补成「用户真的看得见」——浏览器后台期 chatVisible() 仍为真，而 #913 的暂停类会把这些气泡的入场动画冻在第 0 帧（fill:both＝opacity:0、动画永不结束、类永不摘除），攒一整段后台后在回前台那一瞬集体补播＝用户实报「切回来记录弹跳闪一下才恢复正常」
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
 if (Number.isFinite(ix) && ix >= batchDefer.len) { batchDefer.q.push(m); return; }
@@ -6274,13 +6274,14 @@ if (!window.requestAnimationFrame) { setTimeout(run, 16); return; }
 requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(run, 0); }); });
 setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被节流甚至不派发，重活不能因此不跑
 }
-function settleReplayedChatAnim() {
+function settleReplayedChatAnim(onlyPaused) {
 if (!document.getAnimations) return 0;
 const all = document.getAnimations();
 let n = 0;
 for (let i = 0; i < all.length; i++) {
 const a = all[i];
 if (typeof a.animationName !== 'string') continue; // 只管 CSS 动画：过渡不会在显隐切换时重播，别去动它
+if (onlyPaused && a.playState !== 'paused') continue; // #1181b：回前台这一路只收「被 #913 暂停类冻住」的那批，正在正常播的（用户可能看得见）一律不动
 const ef = a.effect;
 const tg = ef && ef.target;
 if (!tg || !(tg === body || body.contains(tg))) continue; // 只管聊天窗口内（含窗口自身）
@@ -6297,6 +6298,10 @@ if (!chatVisible()) return;
 settleReplayedChatAnim(); // #1151c：回场一帧在绘制之前落终态＝看不见这一帧
 }).observe(chatPage, { attributes: true, attributeFilter: ['hidden'] });
 }
+function chatResumeSettleAnim() { try { settleReplayedChatAnim(true); } catch (e) {} }
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeSettleAnim(); });
+document.addEventListener('mochi-fg-resume', chatResumeSettleAnim); // bg-keep 统一信号：覆盖「只发 focus / bfcache 恢复」的内核（与 #967 同款双通道）
+window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeSettleAnim(); });
 function enterChat() {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 const phoneTab = document.querySelector('.tab[data-page="page-phone"]');

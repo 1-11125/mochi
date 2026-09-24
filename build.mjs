@@ -4778,7 +4778,7 @@ const FIX_SENTINELS = [
   { name: "#1120d 滚动锁登记随面板改名同步到抽屉（旧遮罩 id 回流＝抽屉开着底层设置页仍可滑）", file: "js/mobile-adapt.js", needle: "'#io-order-drawer'," },
   { name: "#1052a 排序面板图标只取图标本体，剥掉隐形文件选择激活层（退回整份 innerHTML＝点面板弹相册）", file: "js/chat-settings.js", needle: "ic.querySelectorAll('label[data-file-pick-for]').forEach((l) => l.remove());" },
   { name: '#1151a 消息入场动画播完摘掉 .msg-enter（删掉＝退出聊天回桌面再进时屏上所有当场新增过的气泡集体重播淡入上浮＝真机「聊天记录弹闪一下才恢复正常」，红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: "m.classList.remove('msg-enter');" },
-  { name: '#1151b 入场动画只在聊天页可见时挂（退回隐藏态挂类＝攒成回场一帧集体弹，且摘类接线被拆回原地 add 时本行必消失）', file: 'js/chat.js', needle: 'if (!batchRendering && chatVisible()) enterMsgOnce(m);' },
+  { name: '#1151b 入场动画只在聊天页可见时挂（退回隐藏态挂类＝攒成回场一帧集体弹，且摘类接线被拆回原地 add 时本行必消失。#1181a 在同一行尾部追加了 !document.hidden 后台闸，原整行 needle 不再逐字存在——按「换锚而非删除」把 needle 收到该行前段：摘掉 chatVisible() 可见性闸即红）', file: 'js/chat.js', needle: '!batchRendering && chatVisible() && !document.hidden' },
   { name: '#1151c 回聊天页时把窗口内在重播的一次性 CSS 动画直接落终态（摘类只治 .msg-enter，挂在身份类上的 rpsFadeIn/flowerFloat/msg-flash 摘不得；删掉本行＝「退出聊天回桌面再进、或从聊天设置返回」时的重播弹闪复发）', file: 'js/chat.js', needle: 'try { a.finish(); n++; } catch (e) {}' },
   // ==== 2026-09-23 #1180 TA 消息总量限流（用户直派「回复条数只管基础回复，撤回补发/逐卡连发/心情分享/红包捎话/主动发送全都绕过上限，怎么限制」；默认关闭）====
   { name: '#1180a 限流闸接在 addRec（删掉＝不过 addIn 的入口如 chatAddGift 完全绕开限流，总量闸漏一半）', file: 'js/chat.js', needle: "if (rateBlocksIn(rec.side, rec.special, rec.nightAllow)) return null;" },
@@ -4799,6 +4799,11 @@ const FIX_SENTINELS = [
 
   { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
   { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },
+  /* ==== 2026-09-24 #1181 浏览器切后台再切回＝聊天记录集体补播入场动画闪一下（用户实报「把浏览器切到后台，再从后台切回来，聊天里聊天消息会闪屏弹跳一下然后恢复正常」；#913 后台暂停类把后台期到达气泡的动画冻在全透明第 0 帧，回前台摘类同一瞬集体补播；#1151 家族三针的触发面全在站内切页上＝浏览器级后台绕过）==== */
+  { name: '#1181a 后台期到达的消息不挂入场动画（删 !document.hidden＝后台攒的一批气泡在回前台同一瞬集体补播 msgInPop＝用户实报「切回来记录弹跳闪一下才恢复正常」复发）', file: 'js/chat.js', needle: 'document.hidden) enterMsgOnce(m);' },
+  { name: '#1181b 回前台总闸只收「被暂停类冻住」的一次性动画（删 onlyPaused 形参闸＝把用户正看得见的正常播放动画也 finish 掉，红包拆卡/翻面瞬跳终态）', file: 'js/chat.js', needle: "if (onlyPaused && a.playState !== 'paused') continue;" },
+  { name: '#1181c 回前台接线 visibilitychange→visible 走落终态（删＝浏览器级后台这一入口重新无人收口，#1151c 只挂 chatPage[hidden] 覆盖不到；不替换那条，两条各管一面）', file: 'js/chat.js', needle: "if (document.visibilityState === 'visible') chatResumeSettleAnim();" },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

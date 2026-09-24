@@ -146,8 +146,8 @@ const srcChat = readFileSync(join(root, 'src', 'js', 'chat.js'), 'utf8');
 const artChat = readFileSync(join(root, 'js', 'chat.js'), 'utf8');
 check("S1 入场动画播完摘类接线在位（m.classList.remove('msg-enter')）",
   srcChat.includes("m.classList.remove('msg-enter');") && artChat.includes("m.classList.remove('msg-enter');"));
-check('S2 入场动画只在聊天页可见时挂（!batchRendering && chatVisible() → enterMsgOnce）',
-  srcChat.includes('if (!batchRendering && chatVisible()) enterMsgOnce(m);') && artChat.includes('if (!batchRendering && chatVisible()) enterMsgOnce(m);'));
+check('S2 入场动画只在聊天页可见时挂（!batchRendering && chatVisible() → enterMsgOnce；#1181a 在同一行尾部追加 !document.hidden 后台闸，锚随之换到该行前段——摘掉可见闸即红）',
+  srcChat.includes('!batchRendering && chatVisible() && !document.hidden') && artChat.includes('!batchRendering && chatVisible() && !document.hidden'));
 check('S3 回场动画总闸在位（回聊天页时把窗口内在重播的一次性 CSS 动画落终态）',
   srcChat.includes('try { a.finish(); n++; } catch (e) {}') && artChat.includes('try { a.finish(); n++; } catch (e) {}'));
 console.log('  [环境] root=' + root + ' 产物含 #1151a=' + artChat.includes("m.classList.remove('msg-enter');") +
