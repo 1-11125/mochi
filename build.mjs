@@ -4824,6 +4824,18 @@ const FIX_SENTINELS = [
   { name: '#1153h 音乐「一起去听」邀请随互动卡频率档缩放（删＝音乐邀请不跟着档位变）', file: 'js/music-player.js', needle: 'window.icProb ? window.icProb(prob) : prob' },
   { name: '#1153i 跨桌面查岗档位行＝原频率/安静/更安静/最安静（删/加回 freq＝高频率档回流，用户明确「不要高频率」）', file: 'js/incoming-requests.js', needle: "const DMODE_PILLS = ['std', 'quiet', 'quiet2', 'quiet3'];" },
 
+  /* ==== 2026-09-24 #1197（iPhone 16 / iOS 26.4 实报「无法导入完整数据，只有字卡里仅导入字卡是正常的，其他数据都不能导入导出」＋「ios卡顿问题」）====
+  ① 导入：#1014 给「选择导入范围」弹窗铺的「确定＝真·可点 file input 层」被 4b052ae（#975 内存削峰）整文件回写抹掉，
+     该入口退回 showPicker/合成 click——iOS 26/27 对 sr-only input 静默拒绝（不抛异常）＝点了确定什么也没发生。
+     #1014g 那根针早在 2026-09-22 就登记在册（needle `entry: 'row-import'`），却被「存量债＝与基线逐条相同」的口径洗掉，
+     所以这里补的是**它罩不到的那一半**（onFiles 的分流与文件参数）＋行为电池，而不是再补一根同名针。零机型分支。
+  ② 卡顿：#1195 的切后台大键内存通用闸（原批只登记了 #1195e 这一针，#1195a~d 属其余个性化入口、尚未收口）。
+  验证＝node tools/verify-1197-import-pick-and-memo.mjs ＋ tools/verify-1014-import-pick-native.mjs ==== */
+  { name: '#1197a 导入范围弹窗确定层拿到文件后按模式分流（删/改回无参 runChatAllImport()＝「仅聊天记录」这条腿又回到二次程序化激活＝iOS 上点了没反应；#1014g 只盯 entry 那一行，罩不住这里）', file: 'js/data-backup.js', needle: "if (mode === 'chat') { window.runChatAllImport(f); return; }" },
+  { name: '#1197b 完整备份这条腿把文件交给 doImport（删＝选「完整备份」后文件到手也没人读＝用户实报的本体）', file: 'js/data-backup.js', needle: 'doImport(f);' },
+  { name: '#1197c 取消胶囊仍走普通确定（skipWhen；删＝点「取消」变成弹文件选择器，取消不成取消）', file: 'js/data-backup.js', needle: "skipWhen: (m) => m === 'cancel'," },
+  { name: '#1197d 切后台按体积释放大键内存副本（同 #1195e；删＝回到 #975 的逐键点名，壁纸/美化方案等 MB 级键仍常驻＝iOS 内存压力下回收页面⇒多秒帧冻结+白屏复发）', file: 'js/idb.js', needle: 'window.idbMemoReleaseBig = function (minBytes) {' },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

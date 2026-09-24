@@ -2052,6 +2052,23 @@
         pickImportFile();
       }, {
         noInput: true, okText: '开始导入', pill: 'full', lock: true,
+        // FIX 2026-09-22 #1014 · 回归重挂 2026-09-24 #1197（iPhone 16 / iOS 26.4 实报「无法导入完整数据，
+        // 只有字卡里导入字卡正常」）：确定＝真·可点 input 层——点按由浏览器原生动作弹选择器，不再靠
+        // showPicker/click 那三条程序化腿（iOS 26/27 对 sr-only input 静默拒绝＝点了确定什么也没发生；
+        // 同机取证：字卡入口走铺层拿到 files=1，本入口两条 leg:fire 全无 files 回执）。
+        // 文件到手后仍走原来那两条路（仅聊天记录 → runChatAllImport(f)，完整备份 → doImport(f)）。
+        // ⚠ 本段曾被 4b052ae（#975 内存削峰）重写本文件时整块抹掉（当时哨兵 #1014a~h 保的是 bg-keep
+        // 同名批次，未罩住这里）——再动这段请先读 tools/verify-1014-import-pick-native.mjs S7。
+        pickOk: {
+          entry: 'row-import', accept: '',
+          skipWhen: (m) => m === 'cancel',
+          onFiles: (files, mode) => {
+            const f = files && files[0];
+            if (!f) { toast('没有取到文件，请再选一次'); return; }
+            if (mode === 'chat') { window.runChatAllImport(f); return; }
+            doImport(f);
+          }
+        },
         pills: [{ label: '完整备份（全部数据）', value: 'full' },
           { label: '仅聊天记录（全部桌面联系人）', value: 'chat' },
           { label: '取消', value: 'cancel' }],

@@ -501,6 +501,26 @@ if (memoryCache) delete memoryCache[key];
 if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
 } catch (e) {}
 };
+var MEMO_BG_DROP_BYTES = 256 * 1024; // 单键 ≥256KB 即在切后台时放掉；与 lsBig 同一量级
+window.idbMemoReleaseBig = function (minBytes) {
+try {
+if (!memoryCache) return 0;
+var lim = (typeof minBytes === 'number' && minBytes > 0) ? minBytes : MEMO_BG_DROP_BYTES;
+var dropped = 0;
+for (var k in memoryCache) {
+if (!Object.prototype.hasOwnProperty.call(memoryCache, k)) continue;
+var v = memoryCache[k];
+var len = (typeof v === 'string') ? v.length : (_bigIdx[k] || -1);
+if (len > 0 && len >= lim) { delete memoryCache[k]; dropped++; }
+}
+return dropped;
+} catch (e) { return 0; }
+};
+(function () {
+var onBg = function () { try { if (window.idbMemoReleaseBig) window.idbMemoReleaseBig(); } catch (e1) {} };
+try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') onBg(); }); } catch (e2) {}
+try { window.addEventListener('pagehide', onBg); } catch (e3) {}
+})();
 window.idbGetCached = function (key) {
 if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
 return undefined;

@@ -711,6 +711,45 @@
       if (_bigIdx[key] !== undefined) { delete _bigIdx[key]; bigIdxSave(); }
     } catch (e) {}
   };
+  // #1195e：把 #975 的「逐个点名释放」补成**通用闸**——切后台时按体积自动放掉所有大键的
+  // 内存副本。依据是本机诊断（iPhone 17 Pro / iOS 27，v8.35）的两条实锤：
+  //   ① 300s 采样里「长任务（>50ms）：无」，却有 159 次 >250ms 的前台冻结、最长 2959ms
+  //      ⇒ 帧冻结**不是 JS 长任务**，是 iOS 内存压力下把整个渲染进程挂起/回收；
+  //   ② 同一份报告「本页已被系统回收过 69 次」，内存体检「驻留 159 键 ≈45.7MB」，
+  //      其中 phone-bg / cs-bg-item / chat-beauty-schemes 等键各占 0.7~1.9MB，且
+  //      每个都是全屏底图（402×874@3x 解码后单张约 12MB 位图）。
+  // 关键性质：memoryCache 是**纯缓存**——idbGet 在键不在缓存时本来就走 LS→IDB 重新读，
+  // 唯一读缓存口的 data-backup.js 导出兜底在读不到时也照常从 IDB 取值。所以按体积丢缓存
+  // 不改任何持久数据、不改任何读语义，回前台后首次读自动回填（唯一代价是那次读多一次
+  // IDB 往返，且只在切后台时发生一次，不在任何交互帧上）。
+  // 不设机型/UA 分支：iOS 回收、Android 低内存杀进程、Web 与 PWA 行为一致，判据只有体积。
+  var MEMO_BG_DROP_BYTES = 256 * 1024; // 单键 ≥256KB 即在切后台时放掉；与 lsBig 同一量级
+  window.idbMemoReleaseBig = function (minBytes) {
+    try {
+      if (!memoryCache) return 0;
+      var lim = (typeof minBytes === 'number' && minBytes > 0) ? minBytes : MEMO_BG_DROP_BYTES;
+      var dropped = 0;
+      for (var k in memoryCache) {
+        if (!Object.prototype.hasOwnProperty.call(memoryCache, k)) continue;
+        var v = memoryCache[k];
+        // 体积口径与 idbMemoStats 同源：字符串按长度、非字符串按 big-idx 的写入时估算值。
+        // 估算拿不到（-1/缺项）时**保守跳过**——宁可不放，也不误判一个其实很小的键。
+        var len = (typeof v === 'string') ? v.length : (_bigIdx[k] || -1);
+        if (len > 0 && len >= lim) { delete memoryCache[k]; dropped++; }
+      }
+      // 刻意**不**清 _bigIdx：它只存「键 → 字节数」的小账（不是那份大 payload），留着才能让
+      // 下次切后台、以及设置页内存体检继续按同一口径判断这个键有多大；清掉反而丢判断依据。
+      return dropped;
+    } catch (e) { return 0; }
+  };
+  // 切后台统一跑一次。挂 visibilitychange + pagehide 双事件：pagehide 是 iOS 真正冻结/
+  // 回收页面前的最后机会（此时 visibilityState 未必已翻转），visibilitychange 覆盖普通切后台。
+  // 只在 idb.js 内部跑，不经各业务文件——省得每个模块各挂一个监听器（#969 常驻高频任务的教训）。
+  (function () {
+    var onBg = function () { try { if (window.idbMemoReleaseBig) window.idbMemoReleaseBig(); } catch (e1) {} };
+    try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') onBg(); }); } catch (e2) {}
+    try { window.addEventListener('pagehide', onBg); } catch (e3) {}
+  })();
   window.idbGetCached = function (key) {
     if (memoryCache && Object.prototype.hasOwnProperty.call(memoryCache, key)) return memoryCache[key];
     return undefined;
