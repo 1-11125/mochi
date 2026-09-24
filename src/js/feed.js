@@ -1552,12 +1552,13 @@
     const timer = setInterval(() => { if (!box.isConnected) feedCancelPickSticker(); }, 250);
     feedPickCtx = { box, onPick, hint, timer, blank: made.blank };
   }
-  // 我贴一张：每条动态贴纸数量不限；贴完 TA 有概率（评论回应概率同源）回贴一张并进通知
+  // 我贴一张：每条动态上限 5 张；贴完 TA 有概率（评论回应概率同源）回贴一张并进通知
   function addFeedSticker(pid, st) {
     const list = load();
     const p = list.find(x => x.id === pid);
     if (!p) { toast('这条动态不存在了'); return; }
     p.stickers = Array.isArray(p.stickers) ? p.stickers : [];
+    if (p.stickers.length >= 5) { toast('这条动态上贴纸够多啦（最多 5 张）'); return; }
     // v3.36.x：位置自定义——st 带 x/y（点照片选位置的落点）就用它，否则随机
     const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
       ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
@@ -1573,6 +1574,7 @@
         const p2 = l2.find(x => x.id === pid);
         if (!p2) return;
         p2.stickers = Array.isArray(p2.stickers) ? p2.stickers : [];
+        if (p2.stickers.length >= 5) return;
         const taSt = feedTaPickSticker();
         const pos2 = feedRandStickerPos();
         const nm = p2.taName || taFeedNameFor(cid);
@@ -2714,6 +2716,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
   }
   // 单个联系人的 TA 自动发动态（用该联系人自己的字卡 + TA 身份）
   function maybeAutoPostFor(cid) {
+    // #1015 夜间静默：TA 自动发动态夜间不生成——不写 feed-last/计数（周期保持到期），
+    // 7:00 后下一个轮询照常补发；聊天提示另由 addRec 总闸兜底。
+    if (window.nightModeActive && window.nightModeActive()) return;
     try {
       const cs = window.storeFor(cid);
       const now = Date.now();
