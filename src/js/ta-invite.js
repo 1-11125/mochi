@@ -126,7 +126,14 @@
   // c 为联系人回复设置对象（cfg()），缺字段回退默认值（与 reply-settings 默认一致）。
   function gn(c, k, def) { try { const v = c ? c[k] : undefined; return (typeof v === 'number' && !isNaN(v)) ? v : def; } catch (e) { return def; } }
   // #518：hit 出口统一套「系统预设字卡总档」缩放（本文件 hit 仅用于猜拳/游戏/贴贴三道邀请门）
-  function hit(p) { return Math.random() * 100 < (window.dcpEff ? window.dcpEff(p) : p); }
+  // #1153：再套一层「互动卡频率」档（用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 /
+  //   原来的频率也保留」——邀请三类与提问卡同属「聊天里 TA 主动发的卡」，一起随档缩放）。
+  //   倍数与档位表在 src/js/ta-ask.js（icProb/IC_MODES，键 reply-ic-freq 随联系人桌面隔离）；
+  //   原频率档 ×1＝原值直通。手动「让 TA 邀请我」不走本函数（走 taInvitePickAny，不受档位影响）。
+  function hit(p) {
+    const eff = window.dcpEff ? window.dcpEff(p) : p;
+    return Math.random() * 100 < (window.icProb ? window.icProb(eff) : eff);
+  }
   window.taInviteDraw = function (c) {
     try {
       const d = tiLoad();

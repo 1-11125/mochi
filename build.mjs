@@ -2277,7 +2277,7 @@ const FIX_SENTINELS = [
   { name: '#518c dcf 19 类折叠块末行「TA主动提问」锚（data-dcfkey 由 default-cards bindDcfProb 自动接管）', file: 'template.html', needle: 'id="dcf-prob-ask-rs"' },
   { name: '#518d 总档 API 暴露 dcpEff（生效=设定值×总档÷100；未设键=100 原值直通）', file: 'js/dcp-master.js', needle: 'window.dcpEff = dcpEff;' },
   { name: '#518e 总档 API 暴露 dcpAll（键 reply-dcp-all per-cid，未设/坏值回 100）', file: 'js/dcp-master.js', needle: 'window.dcpAll = dcpAll;' },
-  { name: '#518f 邀请三道门 hit 出口套总档（删包裹＝猜拳/游戏/贴贴不受总档缩放）', file: 'js/ta-invite.js', needle: 'Math.random() * 100 < (window.dcpEff ? window.dcpEff(p) : p)' },
+  { name: '#518f 邀请三道门 hit 出口套总档（删包裹＝猜拳/游戏/贴贴不受总档缩放）', file: 'js/ta-invite.js', needle: 'const eff = window.dcpEff ? window.dcpEff(p) : p;' },
   { name: '#518g 词典拼字 qs-prob 套总档（退回裸 Number(c[\'qs-prob\'])＝词典不受总档缩放）', file: 'js/quote-spell.js', needle: "window.dcpEff ? window.dcpEff(Number(c['qs-prob'])) : Number(c['qs-prob'])" },
   { name: '#518h TA的心情掷签套总档（退回裸 getProb()＝心情不受总档缩放；显示读点保持存盘值）', file: 'js/ta-mood.js', needle: 'window.dcpEff ? window.dcpEff(getProb()) : getProb()' },
   { name: '#518i 查岗概率套总档（退回裸 c[\'ckq-prob\']＝查岗不受总档缩放）', file: 'js/ck-question.js', needle: "window.dcpEff ? window.dcpEff(c['ckq-prob']) : c['ckq-prob']" },
@@ -4812,6 +4812,17 @@ const FIX_SENTINELS = [
   { name: '#1181a 后台期到达的消息不挂入场动画（删 !document.hidden＝后台攒的一批气泡在回前台同一瞬集体补播 msgInPop＝用户实报「切回来记录弹跳闪一下才恢复正常」复发）', file: 'js/chat.js', needle: 'document.hidden) enterMsgOnce(m);' },
   { name: '#1181b 回前台总闸只收「被暂停类冻住」的一次性动画（删 onlyPaused 形参闸＝把用户正看得见的正常播放动画也 finish 掉，红包拆卡/翻面瞬跳终态）', file: 'js/chat.js', needle: "if (onlyPaused && a.playState !== 'paused') continue;" },
   { name: '#1181c 回前台接线 visibilitychange→visible 走落终态（删＝浏览器级后台这一入口重新无人收口，#1151c 只挂 chatPage[hidden] 覆盖不到；不替换那条，两条各管一面）', file: 'js/chat.js', needle: "if (document.visibilityState === 'visible') chatResumeSettleAnim();" },
+
+  /* ==== 2026-09-23 #1153（互动卡频率档：原频率 + 往下三档；用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」→「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档。跨桌面查岗也是帮我做原频率调低几档」）==== */
+  { name: '#1153a 频率档表在位（删＝互动卡只剩写死节奏，「原来的频率也保留」没有载体）', file: 'js/ta-ask.js', needle: 'const IC_MODES = [' },
+  { name: '#1153b 概率倍数漏斗（退回裸 prob＝往下三档只改冷却不改出卡密度，实测观感几乎不变）', file: 'js/ta-ask.js', needle: 'function icProb(v) {' },
+  { name: '#1153c TA的询问冷却走 icCool（退回 45 * 60000 写死＝询问冷却不随档位变）', file: 'js/ta-ask.js', needle: 'if (Date.now() - (d.lastAskAt || 0) < icCool(45) * 60000) return;' },
+  { name: '#1153d 跨类型总闸门按档位缩放（退回常量 INTERACT_GATE_MS＝闸门恒 60 分钟，往下调档也压不住出卡密度）', file: 'js/ta-ask.js', needle: 'return Date.now() - last >= interactGateMs();' },
+  { name: '#1153e 频率档键进回复设置 DEFAULTS 默认 0＝原频率（删＝设置页读不到值、档位行恒显原频率且选了不保存）', file: 'js/reply-settings.js', needle: "'ic-freq': 0," },
+  { name: '#1153f 设置页档位行注入（删＝用户没有入口可调；行落在四类互动卡分类档之上）', file: 'js/reply-settings.js', needle: "row.id = 'ic-freq-row';" },
+  { name: '#1153g 邀请三类（猜拳/游戏/贴贴）随互动卡频率档缩放（删＝邀请不跟着档位变，用户「全部卡/邀请」只覆盖一半）', file: 'js/ta-invite.js', needle: 'window.icProb ? window.icProb(eff) : eff' },
+  { name: '#1153h 音乐「一起去听」邀请随互动卡频率档缩放（删＝音乐邀请不跟着档位变）', file: 'js/music-player.js', needle: 'window.icProb ? window.icProb(prob) : prob' },
+  { name: '#1153i 跨桌面查岗档位行＝原频率/安静/更安静/最安静（删/加回 freq＝高频率档回流，用户明确「不要高频率」）', file: 'js/incoming-requests.js', needle: "const DMODE_PILLS = ['std', 'quiet', 'quiet2', 'quiet3'];" },
 
 ];
 try {

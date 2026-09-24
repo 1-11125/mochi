@@ -3503,7 +3503,8 @@ const now = Date.now();
 const cooling = now - cooldownAt < settings.cooldownMs;
 if (!cooling) {
 const prob = (typeof settings.reqProb === 'number' ? settings.reqProb : 5);
-if (Math.random() * 100 < prob) {
+const effProb = window.icProb ? window.icProb(prob) : prob;
+if (Math.random() * 100 < effProb) {
 console.log('[music-req] TRIGGER');
 cooldownAt = now;
 const candidates = library.slice();

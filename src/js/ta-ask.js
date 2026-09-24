@@ -1,6 +1,8 @@
 // ===== 功能：TA的询问 =====
 // 题库 3 分类（日常/关心/互动），可添加/删除/开关问题；
 // 联系人随机触发向你提问（v3.12.x：冷却 45 分钟、概率 10%——用户反馈发卡太频繁，原 25 分钟/20%；启动 60 秒后首次检查、每 4 分钟轮询）；
+// #1153：五类互动卡（询问/小问题/好奇/吐槽/分享你的字卡）整体频率可按「互动卡频率」三档缩放
+//（频繁/原频率/安静，回复设置页可调）；原频率＝全部 ×1、行为不变。详见下方 IC_MODES 段。
 // 聊天里显示"TA想问你一个问题。" + 询问卡片，点击卡片可回答；
 // 回答后显示"我的回答" + "收到你的回答。"，并记入历史（最多 50 条）；
 // 管理页可"让TA现在问一次"（无视冷却/概率），并可清空问答历史
@@ -492,7 +494,58 @@
   // 任意互动卡发出后 INTERACT_GATE_MS 内，其余类型一律不再自动触发
   //（手动「现在问一次 / 让TA现在查岗一次」不受限）。键按联系人桌面隔离（activeStore 同惯例）。
   const INTERACT_GATE_KEY = 'interact-card-last';
-  const INTERACT_GATE_MS = 60 * 60000;
+  const INTERACT_GATE_MS = 60 * 60000; // 基准值（原频率档）；实际闸门 = 基准 × 频率档 gateMul
+
+  // ---- #1153：互动卡频率档（原频率 + 往下三档）----
+  // 用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」，随后补充
+  // 「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档」——所以档位全部 ≤ 原频率，
+  // 没有比原频率更高的档。作用面＝聊天里 TA 主动发的卡与邀请：
+  //   · 五类提问卡（询问 / 小问题 / 好奇 / 吐槽 / 分享你的字卡）：概率 × probMul、
+  //     各自冷却 × coolMul（基准 询问 45 / 小问题 30 / 好奇 30 / 吐槽 30 / 分享字卡 90 分钟）、
+  //     跨类型总闸门（基准 60 分钟）× gateMul（查岗卡共用本闸门，一并随之缩放）；
+  //   · 邀请三类（猜拳 / 游戏 / 贴贴，ta-invite.js 的 hit）与音乐邀请（music-player.js 的
+  //     「一起去听」）：只套概率 × probMul（它们没有硬编码冷却，音乐邀请的冷却按音乐设置里的档位）。
+  // 档位键 reply-ic-freq 随联系人桌面隔离，与回复设置页「互动卡频率」行是同一份；
+  // 未设/坏值回退 0（原频率）＝全部倍数 ×1 ＝ 行为与加本功能之前逐位相同（「原来的频率也保留」）。
+  // 手动「现在问一次 / 让 TA 现在查岗一次 / 让 TA 邀请我」不经过这些倍数，不受影响。
+  const IC_FREQ_KEY = 'reply-ic-freq';
+  const IC_MODES = [
+    { id: 'orig', label: '原频率', probMul: 1,   coolMul: 1,   gateMul: 1   },
+    { id: 'low1', label: '稍安静', probMul: 0.6, coolMul: 1.5, gateMul: 1.5 },
+    { id: 'low2', label: '安静',   probMul: 0.4, coolMul: 2,   gateMul: 2   },
+    { id: 'low3', label: '很安静', probMul: 0.2, coolMul: 3,   gateMul: 3   }
+  ];
+  function icMode() {
+    let k = 0;
+    try {
+      // 注意 Number(null) === 0：键不存在时必须先挡掉空值，否则「未设键」会被读成 0（本档恰好是
+      // 原频率，看着没事），但 ''/null 的语义必须是「未设」而不是「用户选了第 0 档」——两者在
+      // 迁移与显示上要分得清，故照旧先挡空值。
+      const raw = store.get(IC_FREQ_KEY);
+      if (raw !== null && raw !== undefined && raw !== '') {
+        const v = Number(raw);
+        if (v >= 0 && v < IC_MODES.length) k = v;
+      }
+    } catch (e) {}
+    return IC_MODES[k] || IC_MODES[0];
+  }
+  window.icMode = icMode;
+  window.icModes = IC_MODES;
+  // 概率倍数：在 dcpEff（总档）之后套用；原频率档 probMul=1，整数原值直通（round 后不变）
+  function icProb(v) {
+    const n = Number(v);
+    if (!isFinite(n)) return 0;
+    const r = Math.round(n * icMode().probMul);
+    // 原值 ≥1 时不许被档位抹成 0——否则用户设的 1% 选了「很安静」就静默变成「永不触发」
+    return Math.max(0, Math.min(100, (r < 1 && n >= 1) ? 1 : r));
+  }
+  window.icProb = icProb;
+  // 冷却分钟数倍数（至少 1 分钟，防取整成 0＝冷却失效）
+  function icCool(min) { return Math.max(1, Math.round(min * icMode().coolMul)); }
+  window.icCool = icCool;
+  // 跨类型总闸门毫秒数（基准 60 分钟 × gateMul）
+  function interactGateMs() { return Math.round(INTERACT_GATE_MS * icMode().gateMul); }
+  window.interactGateMs = interactGateMs;
   function interactGateOk() {
     // #1015 夜间静默：夜间任意互动卡（询问/小问题/好奇/吐槽/查岗卡）一律不自动触发——
     // 五类触发器与 ck-question 自动查岗都经本闸门，此处一处收口；被拦的当次不写冷却时间戳
@@ -501,7 +554,7 @@
     if (window.nightModeActive && window.nightModeActive()) return false;
     try {
       const last = Number(store.get(INTERACT_GATE_KEY)) || 0;
-      return Date.now() - last >= INTERACT_GATE_MS;
+      return Date.now() - last >= interactGateMs();
     } catch (e) { return true; }
   }
   function interactGateMark() {
@@ -517,7 +570,7 @@
   window.__interactGateInfo = function () {
     let last = 0;
     try { last = Number(store.get(INTERACT_GATE_KEY)) || 0; } catch (e) {}
-    return { key: INTERACT_GATE_KEY, lastAt: last, gateMs: INTERACT_GATE_MS, open: interactGateOk(), waitMs: Math.max(0, last + INTERACT_GATE_MS - Date.now()) };
+    return { key: INTERACT_GATE_KEY, lastAt: last, gateMs: interactGateMs(), open: interactGateOk(), waitMs: Math.max(0, last + interactGateMs() - Date.now()) };
   };
 
   // ---- v3.14.x：后台收到互动卡片 → 回前台补弹 + 补触发 ----
@@ -885,11 +938,11 @@
       if (s.enabled === false) return;
       // v3.26.x #291：过了问卷答题结束时间后不再自动发出新询问
       if (askDeadlinePassed(d)) return;
-      if (Date.now() - (d.lastAskAt || 0) < 45 * 60000) return;
+      if (Date.now() - (d.lastAskAt || 0) < icCool(45) * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
       if (!taAskDcfOk()) return;
-      if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+      if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
       const q = taAskPick(d);
       if (!q) return;
       d.lastAskAt = Date.now();
@@ -1854,11 +1907,11 @@ const TC_DEFAULT = [
       const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
       if (s.enabled === false) return;
       if (_tcSessionTriggered) return;
-      if (Date.now() - (d.lastChoiceAt || 0) < 30 * 60000) return;
+      if (Date.now() - (d.lastChoiceAt || 0) < icCool(30) * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
       if (!taAskDcfOk()) return;
-      if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+      if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
       const q = tcPick(d);
       if (!q) return;
       interactGateMark();
@@ -2661,11 +2714,11 @@ window.openTCPanel = openTCPanel;
       const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
       if (s.enabled === false) return;
       if (_tcuSessionTriggered) return;
-      if (Date.now() - (d.lastCuriousAt || 0) < 30 * 60000) return;
+      if (Date.now() - (d.lastCuriousAt || 0) < icCool(30) * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
       if (!taAskDcfOk()) return;
-      if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+      if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
       const q = tcuPick(d);
       if (!q) return;
       interactGateMark();
@@ -3257,11 +3310,11 @@ window.openTCPanel = openTCPanel;
       const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
       if (s.enabled === false) return;
       if (_trSessionTriggered) return;
-      if (Date.now() - (d.lastRoastAt || 0) < 30 * 60000) return;
+      if (Date.now() - (d.lastRoastAt || 0) < icCool(30) * 60000) return;
       // v3.13.x：全局闸门——任一互动卡发出后 60 分钟内不再自动触发
       if (!interactGateOk()) return;
       if (!taAskDcfOk()) return;
-      if (Math.random() * 100 < (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) { // #518 套总档
+      if (Math.random() * 100 < icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) { // #518 套总档 → #1153 再套频率档
         const q = trPick(d, lastUserMsg());
         if (q) { interactGateMark(); trPush(q, { popupProb: askPopupProb(s) }); }
       }
@@ -3308,8 +3361,8 @@ window.openTCPanel = openTCPanel;
       if (!interactGateOk()) return;
       if (!taAskDcfOk()) return;
       const st = ccStateLoad();
-      if (Date.now() - (st.lastCcAt || 0) < 90 * 60000) return;
-      if (Math.random() * 100 >= ccCfg('ai-cc-prob', 4)) return;
+      if (Date.now() - (st.lastCcAt || 0) < icCool(90) * 60000) return;
+      if (Math.random() * 100 >= icProb(ccCfg('ai-cc-prob', 4))) return; // #1153：分享你的字卡同套频率档
       const pool = window.__taCcPool();
       if (!pool.length) return;
       const recent = Array.isArray(st.recent) ? st.recent : [];

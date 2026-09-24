@@ -99,7 +99,10 @@ const useDefault = (d.settings || {}).useDefault !== false;
 return d.questions.filter(q => q && q.enabled !== false && q.text && kinds.indexOf(q.kind) >= 0 && (useDefault || q.isPreset !== true));
 }
 function gn(c, k, def) { try { const v = c ? c[k] : undefined; return (typeof v === 'number' && !isNaN(v)) ? v : def; } catch (e) { return def; } }
-function hit(p) { return Math.random() * 100 < (window.dcpEff ? window.dcpEff(p) : p); }
+function hit(p) {
+const eff = window.dcpEff ? window.dcpEff(p) : p;
+return Math.random() * 100 < (window.icProb ? window.icProb(eff) : eff);
+}
 window.taInviteDraw = function (c) {
 try {
 const d = tiLoad();

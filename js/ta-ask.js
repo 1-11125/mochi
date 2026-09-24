@@ -402,12 +402,43 @@ return Date.now() - schedAt > 4000;
 }
 window.interactPopupStale = autoPopupStale;
 const INTERACT_GATE_KEY = 'interact-card-last';
-const INTERACT_GATE_MS = 60 * 60000;
+const INTERACT_GATE_MS = 60 * 60000; // 基准值（原频率档）；实际闸门 = 基准 × 频率档 gateMul
+const IC_FREQ_KEY = 'reply-ic-freq';
+const IC_MODES = [
+{ id: 'orig', label: '原频率', probMul: 1,   coolMul: 1,   gateMul: 1   },
+{ id: 'low1', label: '稍安静', probMul: 0.6, coolMul: 1.5, gateMul: 1.5 },
+{ id: 'low2', label: '安静',   probMul: 0.4, coolMul: 2,   gateMul: 2   },
+{ id: 'low3', label: '很安静', probMul: 0.2, coolMul: 3,   gateMul: 3   }
+];
+function icMode() {
+let k = 0;
+try {
+const raw = store.get(IC_FREQ_KEY);
+if (raw !== null && raw !== undefined && raw !== '') {
+const v = Number(raw);
+if (v >= 0 && v < IC_MODES.length) k = v;
+}
+} catch (e) {}
+return IC_MODES[k] || IC_MODES[0];
+}
+window.icMode = icMode;
+window.icModes = IC_MODES;
+function icProb(v) {
+const n = Number(v);
+if (!isFinite(n)) return 0;
+const r = Math.round(n * icMode().probMul);
+return Math.max(0, Math.min(100, (r < 1 && n >= 1) ? 1 : r));
+}
+window.icProb = icProb;
+function icCool(min) { return Math.max(1, Math.round(min * icMode().coolMul)); }
+window.icCool = icCool;
+function interactGateMs() { return Math.round(INTERACT_GATE_MS * icMode().gateMul); }
+window.interactGateMs = interactGateMs;
 function interactGateOk() {
 if (window.nightModeActive && window.nightModeActive()) return false;
 try {
 const last = Number(store.get(INTERACT_GATE_KEY)) || 0;
-return Date.now() - last >= INTERACT_GATE_MS;
+return Date.now() - last >= interactGateMs();
 } catch (e) { return true; }
 }
 function interactGateMark() {
@@ -419,7 +450,7 @@ function taAskDcfOk() { try { return Math.random() * 100 < (window.dcfGet ? wind
 window.__interactGateInfo = function () {
 let last = 0;
 try { last = Number(store.get(INTERACT_GATE_KEY)) || 0; } catch (e) {}
-return { key: INTERACT_GATE_KEY, lastAt: last, gateMs: INTERACT_GATE_MS, open: interactGateOk(), waitMs: Math.max(0, last + INTERACT_GATE_MS - Date.now()) };
+return { key: INTERACT_GATE_KEY, lastAt: last, gateMs: interactGateMs(), open: interactGateOk(), waitMs: Math.max(0, last + interactGateMs() - Date.now()) };
 };
 const _pendingPops = [];
 function _enqueuePop(idx, openFnName) {
@@ -684,10 +715,10 @@ const d = taAskLoad();
 const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
 if (s.enabled === false) return;
 if (askDeadlinePassed(d)) return;
-if (Date.now() - (d.lastAskAt || 0) < 45 * 60000) return;
+if (Date.now() - (d.lastAskAt || 0) < icCool(45) * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
 const q = taAskPick(d);
 if (!q) return;
 d.lastAskAt = Date.now();
@@ -1564,10 +1595,10 @@ const d = tcLoad();
 const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
 if (s.enabled === false) return;
 if (_tcSessionTriggered) return;
-if (Date.now() - (d.lastChoiceAt || 0) < 30 * 60000) return;
+if (Date.now() - (d.lastChoiceAt || 0) < icCool(30) * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
 const q = tcPick(d);
 if (!q) return;
 interactGateMark();
@@ -2314,10 +2345,10 @@ const d = tcuLoad();
 const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
 if (s.enabled === false) return;
 if (_tcuSessionTriggered) return;
-if (Date.now() - (d.lastCuriousAt || 0) < 30 * 60000) return;
+if (Date.now() - (d.lastCuriousAt || 0) < icCool(30) * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 >= (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档
+if (Math.random() * 100 >= icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) return; // #518 套总档 → #1153 再套频率档
 const q = tcuPick(d);
 if (!q) return;
 interactGateMark();
@@ -2863,10 +2894,10 @@ const d = trLoad();
 const s = d.settings || { enabled: true, prob: 5, popupProb: 70 };
 if (s.enabled === false) return;
 if (_trSessionTriggered) return;
-if (Date.now() - (d.lastRoastAt || 0) < 30 * 60000) return;
+if (Date.now() - (d.lastRoastAt || 0) < icCool(30) * 60000) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
-if (Math.random() * 100 < (window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) { // #518 套总档
+if (Math.random() * 100 < icProb(window.dcpEff ? window.dcpEff(typeof s.prob === 'number' ? s.prob : 5) : (typeof s.prob === 'number' ? s.prob : 5))) { // #518 套总档 → #1153 再套频率档
 const q = trPick(d, lastUserMsg());
 if (q) { interactGateMark(); trPush(q, { popupProb: askPopupProb(s) }); }
 }
@@ -2904,8 +2935,8 @@ if (ccCfg('ai-cc-en', 1) !== 1) return;
 if (!interactGateOk()) return;
 if (!taAskDcfOk()) return;
 const st = ccStateLoad();
-if (Date.now() - (st.lastCcAt || 0) < 90 * 60000) return;
-if (Math.random() * 100 >= ccCfg('ai-cc-prob', 4)) return;
+if (Date.now() - (st.lastCcAt || 0) < icCool(90) * 60000) return;
+if (Math.random() * 100 >= icProb(ccCfg('ai-cc-prob', 4))) return; // #1153：分享你的字卡同套频率档
 const pool = window.__taCcPool();
 if (!pool.length) return;
 const recent = Array.isArray(st.recent) ? st.recent : [];

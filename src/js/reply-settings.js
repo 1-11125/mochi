@@ -42,6 +42,14 @@
     // 触发概率」组首行；生效缩放见 src/js/dcp-master.js 的 dcpEff（生效 = 各分类设定值 × 总档 ÷ 100）。
     // 未设键 = 100 = 各类按自身值生效、行为完全不变（「未设键回退原写死值」硬规）
     'dcp-all': 100,
+    // #1153：互动卡频率档（0 原频率 / 1 稍安静 / 2 安静 / 3 很安静，默认 0）——用户直派
+    // 「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」，随后补充
+    // 「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档」——档位全部 ≤ 原频率。
+    // 作用面＝聊天里 TA 主动发的卡与邀请（五类提问卡 / 邀请三类 / 音乐邀请）：概率、提问卡冷却、
+    // 跨类型总闸门按档整体往下缩放；默认 0（原频率）＝全部倍数 ×1 ＝行为与加本功能之前逐位相同。
+    // 档位倍数定义与消费点见 src/js/ta-ask.js 的 IC_MODES / icProb / icCool / interactGateMs
+    //（键同为 reply-ic-freq）。
+    'ic-freq': 0,
     // v3.28.x #298：词典拼字——qs-en 总开关、qs-prob 拼字概率（%）、qs-cc 混用自定义字卡
     //（1=字卡池+词典语录合并抽句；0=只用词典语录）。逻辑与词库数据见 quote-spell.js +
     // v3.40.x #388：qs-cc 默认改回 1（用户点名「混用自定义字卡需要默认开启」）——
@@ -1242,6 +1250,97 @@
     // 进页即刷新（row-general 已有 syncUI 监听，这里补分类档自己的）
     const genRow = document.getElementById('row-general');
     if (genRow) genRow.addEventListener('click', () => { try { dcpSyncUI(); } catch (e) {} });
+  })();
+
+  // ===== #1153：互动卡频率档（原频率 + 往下三档）=====
+  // 用户直派「联系人在聊天里发送互动卡片的频率需要可以调整 / 原来的频率也保留」，随后补充
+  // 「其实原频率就已经很频繁了。不要高频率，帮我做原频率调低几档」——档位全部 ≤ 原频率。
+  // 行落在「系统预设字卡 · 聊天触发概率」组里、紧贴四类互动卡分类档之上；右侧档位胶囊点开弹 pills
+  //（复用 #848 .gs-pick + openModal pills，不新增全局 CSS）。档位倍数与掷签侧消费全在
+  // src/js/ta-ask.js（IC_MODES / icProb / icCool / interactGateMs），本页只负责读写同一个键
+  // reply-ic-freq（随联系人桌面隔离，与 ta-ask 的 activeStore 是同一份）。
+  (function () {
+    const IC_LABEL = { '0': '原频率', '1': '稍安静', '2': '安静', '3': '很安静' };
+    const IC_PILLS = [
+      { label: '原频率', value: '0' }, { label: '稍安静', value: '1' },
+      { label: '安静', value: '2' }, { label: '很安静', value: '3' }
+    ];
+    const IC_DETAIL = '聊天里 TA 主动发的卡与邀请多久来一次，按这一档整体往下调（没有比「原频率」更高的档）。'
+      + '覆盖：五类提问卡（询问 / 小问题 / 好奇 / 吐槽 / 分享你的字卡）、邀请三类（猜拳 / 游戏 / 贴贴）、音乐「一起去听」邀请。'
+      + '不影响查岗自己的开关 / 概率 / 冷却，也不影响你自己发的卡。'
+      + '\n\n· 原频率：全部 ×1，完全保持现在的节奏（默认）；'
+      + '\n· 稍安静：概率 ×0.6、提问卡冷却 ×1.5、跨类型间隔 ×1.5；'
+      + '\n· 安静：概率 ×0.4、提问卡冷却 ×2、跨类型间隔 ×2；'
+      + '\n· 很安静：概率 ×0.2、提问卡冷却 ×3、跨类型间隔 ×3。'
+      + '\n\n「概率」是在各类型自己的触发概率（默认 5%，可在下方分类档或 字卡库 对应页单独调）与「整体概率（总档）」之上再乘一个倍数；'
+      + '「跨类型间隔」＝任意一张提问卡发出后、其余类型多久内不再自动触发（基准 60 分钟）。'
+      + '原值 ≥1% 时不会被档位抹成 0（选「很安静」也不会变成永不触发）。'
+      + '\n\n按联系人桌面独立保存，选档后即时生效。想完全不触发：把下面四类概率或总档调到 0，或关掉 字卡库 里对应页的开关。';
+    function icVal() {
+      let v = 0;
+      try { v = Number((window.replyCfg && window.replyCfg())['ic-freq']); } catch (e) {}
+      return (v >= 0 && v <= 3) ? String(v) : '0';
+    }
+    function icSync() {
+      const btn = document.getElementById('ic-freq-btn');
+      if (!btn) return;
+      const v = icVal();
+      btn.textContent = IC_LABEL[v];
+      btn.dataset.v = v;
+    }
+    function icToast(msg) {
+      try {
+        const d = ccToastEnsure();
+        if (!d) return;
+        d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className = 'cc-toast show';
+        clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
+      } catch (e) {}
+    }
+    const anchorStepper = document.getElementById('dcp-ta-ask-prob');
+    const anchorRow = (anchorStepper && anchorStepper.closest) ? anchorStepper.closest('.gs-row') : null;
+    if (anchorRow && anchorRow.parentNode) {
+      const row = document.createElement('div');
+      row.className = 'gs-row';
+      row.id = 'ic-freq-row';
+      row.innerHTML = '<span>互动卡频率<span class="tag" id="ic-freq-tag" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span>'
+        + '<div class="gs-pick" id="ic-freq-btn" data-v="0">原频率</div>';
+      anchorRow.parentNode.insertBefore(row, anchorRow);
+      const sub = document.createElement('div');
+      sub.className = 'gs-sub';
+      sub.id = 'ic-freq-sub';
+      sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类 / 邀请三类 / 音乐邀请）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。点右侧档位切换。';
+      row.parentNode.insertBefore(sub, row.nextSibling);
+      const btn = document.getElementById('ic-freq-btn');
+      if (btn && window.openModal) {
+        btn.addEventListener('click', function () {
+          window.openModal('互动卡频率', '', function (v) {
+            const n = Number(v);
+            if (!(n >= 0 && n <= 3)) return;
+            window.saveReplyCfg('ic-freq', n);
+            icSync();
+            icToast('已设置：互动卡频率＝' + IC_LABEL[String(n)]);
+          }, { noInput: true, pill: icVal(), pills: IC_PILLS });
+        });
+      }
+      const tag = document.getElementById('ic-freq-tag');
+      if (tag && window.openModal) {
+        const showDetail = function (e) {
+          if (e) { e.stopPropagation(); e.preventDefault(); }
+          window.openModal('互动卡频率', '', function () {}, { noInput: true, staticText: IC_DETAIL });
+        };
+        tag.addEventListener('click', showDetail);
+        tag.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showDetail(); }
+        });
+      }
+      icSync();
+      // 切桌面 / 备份回填 / 写日志修正三时机重读显示（与 #515 三页概率行同口径）
+      ['contact-switched', 'mochi-restore-done', 'mochi-wrj-heal'].forEach(ev => {
+        document.addEventListener(ev, () => { try { icSync(); } catch (e) {} });
+      });
+      const genRow2 = document.getElementById('row-general');
+      if (genRow2) genRow2.addEventListener('click', () => { try { icSync(); } catch (e) {} });
+    }
   })();
 
   // v3.6.x：「保存设置」按钮——把当前页面上所有概率/开关一次性写入本地并提示。

@@ -4337,7 +4337,11 @@
       // v3.x：「一起去听」请求（弹窗）——触发后直接 return，同一次调用不再判断「预订下一首」
       if (!cooling) {
         const prob = (typeof settings.reqProb === 'number' ? settings.reqProb : 5);
-        if (Math.random() * 100 < prob) {
+        // #1153：「一起去听」邀请同属聊天里 TA 主动发的卡，随「互动卡频率」档缩放概率
+        //（档位表/倍数在 ta-ask.js 的 IC_MODES，键 reply-ic-freq；原频率档 ×1＝原值直通）。
+        // 冷却仍按音乐设置里的档位（那是用户在音乐设置里明确选的显示值，不随档缩放）。
+        const effProb = window.icProb ? window.icProb(prob) : prob;
+        if (Math.random() * 100 < effProb) {
           console.log('[music-req] TRIGGER');
           cooldownAt = now;
           const candidates = library.slice();

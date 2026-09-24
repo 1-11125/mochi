@@ -66,14 +66,33 @@
   // 这三档模式是权威值：无论各桌面回复设置里概率/冷却怎么改，跨桌面查岗与来电都按当前模式算；
   // 只作用于「跨桌面」查岗/来电，不影响桌面上 TA 主动查岗（ck-question.js 仍读各自 ckq-prob/ckq-cool）。
   const DMODE_KEY = 'desk-freq-mode';
+  // #1153：档位改为「原频率 + 往下三档」——用户直派「其实原频率就已经很频繁了。不要高频率，
+  //   帮我做原频率调低几档。跨桌面查岗也是帮我加做原频率调低几档」。
+  //   · 键名沿用（std/quiet 等）：存量存储、回归脚本（verify-desk-incoming 钉 std=2%/30min、
+  //     verify-call-busy-gate 种 'freq'）与诊断文本都按这些键读，改名会连带动一片。
+  //   · 'std' 只是标签从「标准」改为「原频率」＝历史默认节奏（各桌面 reply 的 ckq-prob/ckq-cool
+  //     默认 2%/30min），数值一字未动。
+  //   · 'freq' 保留在表里（存量/脚本仍能解析），但不再出现在档位行上（用户「不要高频率」）；
+  //     存量选了它的设备在 deskFreqMode() 里一次性顺手迁到 'std'（原频率），避免出现「四个档
+  //     位一个都没高亮」的悬空态。
+  //   · 默认仍是 'quiet'（安静 1%/3h）——没有比原频率更高的档，但默认值不动＝谁都没碰过的设备
+  //     行为完全不变。
   const DMODES = {
-    freq:  { label: '频繁', prob: 6,  cool: 15 },   // 概率 6% · 冷却 15 分钟
-    std:   { label: '标准', prob: 2,  cool: 30 },   // 概率 2% · 冷却 30 分钟
-    quiet: { label: '安静', prob: 1,  cool: 180 }   // 概率 1% · 冷却 3 小时（默认，最低打扰）
+    std:    { label: '原频率', prob: 2,   cool: 30 },   // 概率 2% · 冷却 30 分钟（＝旧「标准」，历史默认节奏）
+    quiet:  { label: '安静',   prob: 1,   cool: 180 },  // 概率 1% · 冷却 3 小时（默认）
+    quiet2: { label: '更安静', prob: 0.5, cool: 360 },  // 概率 0.5% · 冷却 6 小时
+    quiet3: { label: '最安静', prob: 0.2, cool: 720 },  // 概率 0.2% · 冷却 12 小时
+    freq:   { label: '频繁',   prob: 6,   cool: 15 }    // 概率 6% · 冷却 15 分钟（不再出现在档位行，仅兼容存量/脚本）
   };
+  // 档位行上可选的档（顺序＝展示顺序）；'freq' 刻意不在其中。
+  const DMODE_PILLS = ['std', 'quiet', 'quiet2', 'quiet3'];
   function deskFreqMode() {
     try {
       const v = window.xyStore(ROOT).get(DMODE_KEY);
+      if (v === 'freq') { // #1153：存量「频繁」一次性迁到「原频率」（用户要求不再提供高频率档）
+        try { window.xyStore(ROOT).set(DMODE_KEY, 'std'); } catch (e) {}
+        return 'std';
+      }
       if (v && DMODES[v]) return v;
     } catch (e) {}
     return 'quiet';
@@ -156,7 +175,7 @@
       title: '联系人跨桌面查岗',
       subTag: '功能说明',
       tagTitle: '联系人跨桌面查岗',
-      detail: '其他桌面的联系人是各自独立触发、互不影响：TA 每 60 秒「探测」一次你是否还醒着，触发频率按「跨桌面查岗频率」三档模式全局统一控制（频繁/标准/安静，下方可选，含来电）；同一联系人触发后有冷却、不重复打扰。你回复后 TA 会现场回应。关闭后其他桌面的 TA 不再来查岗、也不再找你聊天。想立刻来一次：聊天 →「更多功能 → TA的提问 → 跨桌面查岗」（不看概率与冷却；本开关关着时只提示、不触发）。',
+      detail: '其他桌面的联系人是各自独立触发、互不影响：TA 每 60 秒「探测」一次你是否还醒着，触发频率按「跨桌面查岗频率」档位全局统一控制（原频率/安静/更安静/最安静，下方可选，含来电；没有比「原频率」更高的档）；同一联系人触发后有冷却、不重复打扰。你回复后 TA 会现场回应。关闭后其他桌面的 TA 不再来查岗、也不再找你聊天。想立刻来一次：聊天 →「更多功能 → TA的提问 → 跨桌面查岗」（不看概率与冷却；本开关关着时只提示、不触发）。',
       get: deskCheckinEn,
       set: window.setDeskCheckinEn,
       toast: function (en) { return en ? '已开启：其他桌面的TA会来查岗、找你聊天' : '已关闭：其他桌面的TA不再来查岗打扰'; }
@@ -167,7 +186,7 @@
       title: '联系人跨桌面打电话',
       subTag: '功能说明',
       tagTitle: '联系人跨桌面打电话',
-      detail: '开启后，其他桌面的联系人会主动给你打语音电话（本开关默认关闭，需要用请在下方手动打开；#448）；概率与冷却由下方「跨桌面查岗频率」三档全局统一生效（频繁 6%/15min、标准 2%/30min、安静 1%/3h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
+      detail: '开启后，其他桌面的联系人会主动给你打语音电话（本开关默认关闭，需要用请在下方手动打开；#448）；概率与冷却由下方「跨桌面查岗频率」档位全局统一生效（原频率 2%/30min、安静 1%/3h、更安静 0.5%/6h、最安静 0.2%/12h，对所有桌面联系人同时生效），不再逐个联系人在回复设置里单独调。来电弹出后点「接听」，会先自动跳到来电联系人的桌面再响铃——这是刻意的设计：通话、聊天系统消息和主页通话记录都归属 TA 自己的桌面，方便按联系人分账，切回原桌面不会留下这条记录；若正在通话中，接听会自动挂断当前通话再转接。点「稍后」或弹窗未接，也会在 TA 的桌面留一条未接来电记录。关闭后不再有跨桌面来电。',
       get: deskCallEn,
       set: window.setDeskCallEn,
       toast: function (en) { return en ? '已开启：其他桌面的TA会主动给你打电话' : '已关闭：其他桌面的TA不再主动来电'; }
@@ -223,13 +242,14 @@
     } catch (e) { return null; }
   }
 
-  // 频率模式选择行：三档 pill（频繁/标准/安静），全局统一生效；点击即切换并存根键。
+  // 频率模式选择行：#1153 起为四档 pill（原频率/安静/更安静/最安静），全局统一生效；点击即切换并存根键。
   // 复用 .set-row + .pill/.pill.on（base.css/setting.css 既有样式），不新增全局 CSS。
   var freqDetail = '「跨桌面查岗 / 来电」的频率按全局档位统一生效（对所有桌面联系人同时生效）：' +
-    '\n· 频繁：概率 6%、冷却 15 分钟；' +
-    '\n· 标准：概率 2%、冷却 30 分钟；' +
-    '\n· 安静：概率 1%、冷却 3 小时（默认）。' +
-    '\n\n选档后立即对所有桌面的联系人生效，改一次全绿。只影响「联系人跨桌面查岗 / 来电」的触发频率，不影响桌面上 TA 主动查岗（主动查岗仍按回复设置里各自的概率/冷却）。';
+    '\n· 原频率：概率 2%、冷却 30 分钟（＝历史默认节奏，想恢复原样选这档）；' +
+    '\n· 安静：概率 1%、冷却 3 小时（默认）；' +
+    '\n· 更安静：概率 0.5%、冷却 6 小时；' +
+    '\n· 最安静：概率 0.2%、冷却 12 小时。' +
+    '\n\n没有比「原频率」更高的档（用户要求不再提供高频率档）。选档后立即对所有桌面的联系人生效，改一次全绿。只影响「联系人跨桌面查岗 / 来电」的触发频率，不影响桌面上 TA 主动查岗（主动查岗仍按回复设置里各自的概率/冷却）。';
   function syncFreqPills() {
     try {
       const cur = deskFreqMode();
@@ -256,7 +276,7 @@
       const row = document.createElement('div');
       row.className = 'set-row';
       row.id = 'sf-desk-freq';
-      // 两行式布局避免窄屏换行：第一行标题+功能说明，第二行三个档位按钮横排铺满
+      // 两行式布局避免窄屏换行：第一行标题+功能说明，第二行档位按钮横排铺满（#1153：四档）
       row.style.cssText = 'flex-direction:column;align-items:stretch;gap:10px;';
       row.innerHTML =
         '<div class="freq-head" style="display:flex;align-items:center;gap:12px;min-width:0;">' +
@@ -265,7 +285,7 @@
         '</div>' +
         '<div class="freq-pills" style="display:flex;gap:8px;flex-wrap:nowrap;padding-left:34px;"></div>';
       const wrap = row.querySelector('.freq-pills');
-      ['freq', 'std', 'quiet'].forEach(function (m) {
+      DMODE_PILLS.forEach(function (m) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'pill';
