@@ -4342,6 +4342,13 @@ const FIX_SENTINELS = [
   { name: '#989f 回桌面当帧复核（删＝进桌面时残留错位仍在，用户一眼就看到没对齐）', file: 'js/desktop-slider.js', needle: 'pageScrollGuard.later(60);' },
   { name: '#1013a 判据基准＝未滚动内容坐标（删 − scrollTop＝真溢出页滚到底被误判成「看不到东西」而弹回顶部＝用户报「桌面滑动会回拉，无法滑到下面」）', file: 'js/desktop-slider.js', needle: 'getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1' },
   { name: '#1013b 异步载荷到位后复核一次（删＝桌面图片组件解码前那一拍被误裁，之后没人再复核＝有内容在下方却永远滚不动）', file: 'js/desktop-slider.js', needle: "pages.addEventListener('load', () => pageScrollGuard.later(400), true);" },
+  /* ==== 2026-09-24 #1201 iPhone 17 / iOS 26.4 实报「切页面、滑动时最卡」（perfcheck：桌面翻页平均 91ms·最慢 1513ms、切回桌面 p90 702ms）＝#989/#1013 那条桌面滚动护栏挂在每次交互上、旧写法每 run 把三页子树整个走一遍（实测 1 次滚动落定＝2030 次 getComputedStyle＋1658 次 getBoundingClientRect＋3 遍全子树遍历，连续三次落定每次照扫）；修法＝按页记忆化裁决＋inkBottom 早退＋结构/resize/restore 走 force 档。判据本体（#989a/#1013a）一字未动 ==== */
+  { name: '#1201a 按页记忆化裁决（删＝每次滚动落定/切回桌面又回到整棵子树重扫，「切页·滑动最卡」原样回来）', file: 'js/desktop-slider.js', needle: 'if (!force && seen && seen.sh === sh && seen.ch === ch) {' },
+  { name: '#1201b 裁决随该页几何写回（缺＝没有可复用的上次结论，记忆化形同虚设）', file: 'js/desktop-slider.js', needle: 'verdicts.set(sl, { sh: sh, ch: ch, blind: blind });' },
+  { name: '#1201c inkBottom 早退（删＝已经证明真溢出仍要把整棵子树扫完；改回无条件遍历即失效）', file: 'js/desktop-slider.js', needle: 'if (maxB > stopAt) return maxB;' },
+  { name: '#1201d 结构变更档＝强制重扫（删成 later(400)＝组件增删/图标注入后照抄旧裁决，#989/#1013 都可能被旧结论钉死）', file: 'js/desktop-slider.js', needle: 'new MutationObserver(() => pageScrollGuard.later(400, true))' },
+  { name: '#1201e resize 档＝强制重扫（几何随视口变，缓存必须作废；删成 later(120)＝转屏/收起键盘后沿用旧裁决）', file: 'js/desktop-slider.js', needle: "window.addEventListener('resize', () => pageScrollGuard.later(120, true));" },
+  { name: '#1201f 只有真扫子树才打点（删＝下份 perfcheck 里「desk-guard ×N」失准，无法分辨护栏是否在咬人）', file: 'js/desktop-slider.js', needle: "window.__mochiPhase('desk-guard')" },
   /* ==== 2026-09-21 #994 听歌邀请「同意后没小框也没播放」第二次实报（红米 K80 Chrome PWA；接受链路静默死亡出口再收口） ==== */
   { name: '#994a 邀请面板唯一实现（渲染+接线成对；删＝又出现「只渲染没接线」的死面板＝点了同意零反应）', file: 'js/music-player.js', needle: 'function openMusicInvitePanel(trackId, switching) {' },
   { name: '#994b 诊断邀请入口改走同一面板实现（删＝「诊断邀请→强制触发一次」又是死按钮）', file: 'js/music-player.js', needle: 'openMusicInvitePanel(track.id, false)' },

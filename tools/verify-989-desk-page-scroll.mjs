@@ -127,7 +127,7 @@ const prodSlider = readProd('js/desktop-slider.js');
 // 逻辑锚（不是名字）：判据整行 + 归零整行 + 事件接线整行
 const NEEDLES = [
   ['S1 判据：溢出为 0 或「翻下去什么也看不到」才裁（删＝护栏失效，残留滚动量又留在页上）',
-    "const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;"],
+    "blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;"], // #1201 起该行改成先 `let blind;` 再赋值（记忆化两条分支共用一个变量），故锚去掉 `const ` 前缀＝两侧同一判据本体
   ['S7 #1013 判据基准＝未滚动内容坐标（缺 − scrollTop＝页越滚到底越像「看不到东西」，滚到底被弹回顶部）',
     'inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop)'],
   ['S8 #1013 异步载荷到位后复核（缺＝图片组件解码前那一拍被误裁，之后没人再复核＝有内容却滚不动）',

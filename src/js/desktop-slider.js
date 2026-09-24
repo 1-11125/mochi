@@ -141,24 +141,35 @@
     // 只取没有子元素的叶子盒（容器的 padding 不是内容），跳过隐藏项与绝对/固定定位装饰
     // （角标 .app-badge、连击 .we-combo 这类负偏移装饰不参与，免得把「没内容」误判成「有内容」）
     function inkBottom(sl, pageTop) {
+      const stopAt = sl.clientHeight + 1; // 与调用方那句比较共用同一阈值，早退才等价
       let maxB = 0;
       const all = sl.querySelectorAll('*');
       for (let i = 0; i < all.length; i++) {
         const el = all[i];
-        if (el.children.length) continue;
+        if (el.firstElementChild) continue;
+        const r = el.getBoundingClientRect();
+        const b = r.bottom - pageTop;
+        if (r.height <= 0 || b <= maxB) continue;
         const c = getComputedStyle(el);
         if (c.display === 'none' || c.visibility === 'hidden') continue;
         if (c.position === 'absolute' || c.position === 'fixed') continue;
-        const r = el.getBoundingClientRect();
-        if (r.height <= 0) continue;
-        const b = r.bottom - pageTop;
-        if (b > maxB) maxB = b;
+        maxB = b;
+        if (maxB > stopAt) return maxB; // 已经证明「有看得见的内容越过可视底」＝不用再扫
       }
       return maxB;
     }
+    // FIX 2026-09-24 #1201（iPhone 17 / iOS 26.4 实报「切页面、滑动时最卡」，perfcheck：桌面翻页
+    //   平均 91ms·最慢 1513ms、切回桌面 p90 702ms）：这条护栏挂在桌面每一次「滚动落定 / 切回桌面 /
+    //   回前台」上，旧写法每次都要把三页子树整个走一遍（默认小桌面实测一次 run＝380 次
+    //   getComputedStyle ＋ 356 次 getBoundingClientRect；用户桌面越满越贵）。而它要的结论只随
+    //   **该页自身几何**变化——scrollHeight 与 clientHeight 都不变，溢出量和「内容有没有越过可视底」
+    //   就不变。于是按页记忆化裁决：几何没变＝照抄上次结论、不碰子树；组件增删/图标注入/图片解码
+    //   完成/restore/resize 这些**内容真的到位**的触发点带 force 强制重扫（见下方接线）。
+    //   #989（残留滚动量复位）与 #1013（真溢出一律可滚）的判据一字未动。
+    const verdicts = new WeakMap();
     let timer = null, retries = 0;
-    function later(ms) { clearTimeout(timer); timer = setTimeout(run, ms); }
-    function run() {
+    function later(ms, force) { clearTimeout(timer); timer = setTimeout(function () { run(force); }, ms); }
+    function run(force) {
       const slides = getSlides();
       let skipped = false;
       for (let i = 0; i < slides.length; i++) {
@@ -167,12 +178,22 @@
         // 盖住时页内每个盒子都算「不可见」＝量出来的 inkBottom 恒 0，会被误判成「翻下去什么也
         // 看不到」而错误裁掉真溢出——两种都跳过（读数何时可得见下方的有界重试）。
         if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }
-        const over = sl.scrollHeight - sl.clientHeight;
-        // FIX 2026-09-22 #1013（回拉）：基准必须是**未滚动**的内容坐标——pageTop 减掉 scrollTop，
-        // 否则页滚到越靠下、量到的「最深实心盒下沿」越浅（每个盒子都被整体上移了 scrollTop），
-        // 真溢出页滚到底时必然落进 ch+1 以内＝误判成「翻下去什么也看不到」→ 归零滚动量。
-        // 用户所见＝「在桌面滑动屏幕会回拉，无法滑到下面」（vivo S30/Edge 实报，同族多机型）。
-        const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
+        const sh = sl.scrollHeight, ch = sl.clientHeight, over = sh - ch;
+        const seen = verdicts.get(sl);
+        let blind;
+        if (!force && seen && seen.sh === sh && seen.ch === ch) {
+          blind = seen.blind; // 几何没变＝裁决没变，省掉整棵子树
+        } else {
+          // #960 取证口径：只有真扫了子树才打点——下份 perfcheck 里「desk-guard ×N」的 N
+          // 就是全量遍历次数，能直接分辨「护栏还在咬人」与「不是它」。
+          try { if (window.__mochiPhase) window.__mochiPhase('desk-guard'); } catch (e0) {}
+          // FIX 2026-09-22 #1013（回拉）：基准必须是**未滚动**的内容坐标——pageTop 减掉 scrollTop，
+          // 否则页滚到越靠下、量到的「最深实心盒下沿」越浅（每个盒子都被整体上移了 scrollTop），
+          // 真溢出页滚到底时必然落进 ch+1 以内＝误判成「翻下去什么也看不到」→ 归零滚动量。
+          // 用户所见＝「在桌面滑动屏幕会回拉，无法滑到下面」（vivo S30/Edge 实报，同族多机型）。
+          blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
+          verdicts.set(sl, { sh: sh, ch: ch, blind: blind });
+        }
         if (blind) {
           if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';
           if (sl.scrollTop) sl.scrollTop = 0;
@@ -188,7 +209,7 @@
     }
     return { run: run, later: later };
   })();
-  pageScrollGuard.run();
+  pageScrollGuard.run(true);
   // 页自身的竖向滚动事件不冒泡，捕获相才能收到（外层 #desktop-pages 的横向翻页不受影响）
   pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);
   // FIX 2026-09-22 #1013（锁死）：护栏按「当下量到的几何」裁决，而桌面图片组件
@@ -197,17 +218,17 @@
   // #desktop-pages 的子节点（上面那个 MutationObserver 只收 childList）也不派 scroll ⇒ 没人复核，
   // 该页就永久停在「有内容在下方却滚不动」＝用户说的「无法滑到下面」。资源 load 同样不冒泡，走捕获相。
   pages.addEventListener('load', () => pageScrollGuard.later(400), true);
-  window.addEventListener('resize', () => pageScrollGuard.later(120));
+  window.addEventListener('resize', () => pageScrollGuard.later(120, true));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pageScrollGuard.later(80); });
   // 组件增删/图标注入/切桌面重建都会动 DOM，统一在这里复核（拖动组件期间每帧多次也只在停手后跑一次）
   try {
-    new MutationObserver(() => pageScrollGuard.later(400)).observe(pages, { childList: true, subtree: true });
+    new MutationObserver(() => pageScrollGuard.later(400, true)).observe(pages, { childList: true, subtree: true });
   } catch (e) {}
   // 开屏消失/数据回填/图标注入都不动 #desktop-pages 的子节点（开屏是它的兄弟），补两个启动期
   // 复核点：数据就绪事件 + 两次定时（开屏收起后各设备快慢不一，早跑那次会因整页不可见被跳过）
-  try { document.addEventListener('mochi-restore-done', () => pageScrollGuard.later(400)); } catch (e) {}
-  pageScrollGuard.later(900);
-  setTimeout(() => pageScrollGuard.run(), 2600);
+  try { document.addEventListener('mochi-restore-done', () => pageScrollGuard.later(400, true)); } catch (e) {}
+  pageScrollGuard.later(900, true);
+  setTimeout(() => pageScrollGuard.run(true), 2600);
 
   // ===== #884：切回桌面帧耗时现场采样 =====
   // 用户主诉「聊天返回主页面卡、主页面切换卡」（iPhone 15 Pro / 16 Pro 实报，iOS 18.7 PWA），

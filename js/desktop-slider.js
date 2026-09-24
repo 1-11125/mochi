@@ -71,31 +71,42 @@ requestAnimationFrame(tick);
 }
 const pageScrollGuard = (function () {
 function inkBottom(sl, pageTop) {
+const stopAt = sl.clientHeight + 1; // 与调用方那句比较共用同一阈值，早退才等价
 let maxB = 0;
 const all = sl.querySelectorAll('*');
 for (let i = 0; i < all.length; i++) {
 const el = all[i];
-if (el.children.length) continue;
+if (el.firstElementChild) continue;
+const r = el.getBoundingClientRect();
+const b = r.bottom - pageTop;
+if (r.height <= 0 || b <= maxB) continue;
 const c = getComputedStyle(el);
 if (c.display === 'none' || c.visibility === 'hidden') continue;
 if (c.position === 'absolute' || c.position === 'fixed') continue;
-const r = el.getBoundingClientRect();
-if (r.height <= 0) continue;
-const b = r.bottom - pageTop;
-if (b > maxB) maxB = b;
+maxB = b;
+if (maxB > stopAt) return maxB; // 已经证明「有看得见的内容越过可视底」＝不用再扫
 }
 return maxB;
 }
+const verdicts = new WeakMap();
 let timer = null, retries = 0;
-function later(ms) { clearTimeout(timer); timer = setTimeout(run, ms); }
-function run() {
+function later(ms, force) { clearTimeout(timer); timer = setTimeout(function () { run(force); }, ms); }
+function run(force) {
 const slides = getSlides();
 let skipped = false;
 for (let i = 0; i < slides.length; i++) {
 const sl = slides[i];
 if (!sl.clientHeight || getComputedStyle(sl).visibility === 'hidden') { skipped = true; continue; }
-const over = sl.scrollHeight - sl.clientHeight;
-const blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
+const sh = sl.scrollHeight, ch = sl.clientHeight, over = sh - ch;
+const seen = verdicts.get(sl);
+let blind;
+if (!force && seen && seen.sh === sh && seen.ch === ch) {
+blind = seen.blind; // 几何没变＝裁决没变，省掉整棵子树
+} else {
+try { if (window.__mochiPhase) window.__mochiPhase('desk-guard'); } catch (e0) {}
+blind = over > 0 && inkBottom(sl, sl.getBoundingClientRect().top - sl.scrollTop) <= sl.clientHeight + 1;
+verdicts.set(sl, { sh: sh, ch: ch, blind: blind });
+}
 if (blind) {
 if (sl.style.overflowY !== 'hidden') sl.style.overflowY = 'hidden';
 if (sl.scrollTop) sl.scrollTop = 0;
@@ -108,17 +119,17 @@ if (skipped && retries < 8) { retries++; later(800); } else if (!skipped) retrie
 }
 return { run: run, later: later };
 })();
-pageScrollGuard.run();
+pageScrollGuard.run(true);
 pages.addEventListener('scroll', () => pageScrollGuard.later(300), true);
 pages.addEventListener('load', () => pageScrollGuard.later(400), true);
-window.addEventListener('resize', () => pageScrollGuard.later(120));
+window.addEventListener('resize', () => pageScrollGuard.later(120, true));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pageScrollGuard.later(80); });
 try {
-new MutationObserver(() => pageScrollGuard.later(400)).observe(pages, { childList: true, subtree: true });
+new MutationObserver(() => pageScrollGuard.later(400, true)).observe(pages, { childList: true, subtree: true });
 } catch (e) {}
-try { document.addEventListener('mochi-restore-done', () => pageScrollGuard.later(400)); } catch (e) {}
-pageScrollGuard.later(900);
-setTimeout(() => pageScrollGuard.run(), 2600);
+try { document.addEventListener('mochi-restore-done', () => pageScrollGuard.later(400, true)); } catch (e) {}
+pageScrollGuard.later(900, true);
+setTimeout(() => pageScrollGuard.run(true), 2600);
 const SW_KEY = 'xy-home-v2:__diag-swperf';
 const SW_FRAMES = 30;
 function swSample() {
