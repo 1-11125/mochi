@@ -937,10 +937,10 @@ const IC_DETAIL = '聊天里 TA 主动发的卡与邀请多久来一次，按这
 + '\n· 稍安静：概率 ×0.6、提问卡冷却 ×1.5、跨类型间隔 ×1.5；'
 + '\n· 安静：概率 ×0.4、提问卡冷却 ×2、跨类型间隔 ×2；'
 + '\n· 很安静：概率 ×0.2、提问卡冷却 ×3、跨类型间隔 ×3。'
-+ '\n\n「概率」是在各类型自己的触发概率（默认 5%，可在下方分类档或 字卡库 对应页单独调）与「整体概率（总档）」之上再乘一个倍数；'
++ '\n\n「概率」是在各类型自己的触发概率（默认 5%，可在【字卡与概率】子面板或 字卡库 对应页单独调）与「整体概率（总档）」之上再乘一个倍数；'
 + '「跨类型间隔」＝任意一张提问卡发出后、其余类型多久内不再自动触发（基准 60 分钟）。'
 + '原值 ≥1% 时不会被档位抹成 0（选「很安静」也不会变成永不触发）。'
-+ '\n\n按联系人桌面独立保存，选档后即时生效。想完全不触发：把下面四类概率或总档调到 0，或关掉 字卡库 里对应页的开关。';
++ '\n\n按联系人桌面独立保存，选档后即时生效。想完全不触发：把【字卡与概率】里的四类概率或总档调到 0，或关掉 字卡库 里对应页的开关。';
 function icVal() {
 let v = 0;
 try { v = Number((window.replyCfg && window.replyCfg())['ic-freq']); } catch (e) {}
@@ -961,20 +961,28 @@ d.textContent = msg; d.className = 'cc-toast'; void d.offsetWidth; d.className =
 clearTimeout(d._timer); d._timer = setTimeout(() => { d.className = 'cc-toast'; }, 1800);
 } catch (e) {}
 }
-const anchorStepper = document.getElementById('dcp-ta-ask-prob');
-const anchorRow = (anchorStepper && anchorStepper.closest) ? anchorStepper.closest('.gs-row') : null;
-if (anchorRow && anchorRow.parentNode) {
+const asEn = document.getElementById('as-en');
+const asGroup = (asEn && asEn.closest) ? asEn.closest('.set-group') : null;
+if (asGroup && asGroup.parentNode) {
+const group = document.createElement('div');
+group.className = 'set-group glass';
+group.id = 'ic-freq-group';
+const title = document.createElement('div');
+title.className = 'gs-title';
+title.textContent = '互动卡频率';
+group.appendChild(title);
 const row = document.createElement('div');
 row.className = 'gs-row';
 row.id = 'ic-freq-row';
-row.innerHTML = '<span>互动卡频率<span class="tag" id="ic-freq-tag" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span>'
+row.innerHTML = '<span>联系人主动发卡/邀请的频率<span class="tag" id="ic-freq-tag" role="button" tabindex="0" aria-haspopup="dialog">功能说明</span></span>'
 + '<div class="gs-pick" id="ic-freq-btn" data-v="0">原频率</div>';
-anchorRow.parentNode.insertBefore(row, anchorRow);
+group.appendChild(row);
 const sub = document.createElement('div');
 sub.className = 'gs-sub';
 sub.id = 'ic-freq-sub';
-sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类 / 邀请三类 / 音乐邀请）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。点右侧档位切换。';
-row.parentNode.insertBefore(sub, row.nextSibling);
+sub.textContent = 'TA 在聊天里主动发的卡与邀请（提问卡五类：询问/小问题/好奇/吐槽/分享你的字卡；邀请三类：猜拳/游戏/贴贴；音乐「一起去听」）整体频率；「原频率」＝完全保持现在的节奏，往右都是调低。各类互动卡的单项概率在【字卡与概率】里逐项调。点右侧档位切换。';
+group.appendChild(sub);
+asGroup.parentNode.insertBefore(group, asGroup.nextSibling);
 const btn = document.getElementById('ic-freq-btn');
 if (btn && window.openModal) {
 btn.addEventListener('click', function () {

@@ -4823,6 +4823,7 @@ const FIX_SENTINELS = [
   { name: '#1153g 邀请三类（猜拳/游戏/贴贴）随互动卡频率档缩放（删＝邀请不跟着档位变，用户「全部卡/邀请」只覆盖一半）', file: 'js/ta-invite.js', needle: 'window.icProb ? window.icProb(eff) : eff' },
   { name: '#1153h 音乐「一起去听」邀请随互动卡频率档缩放（删＝音乐邀请不跟着档位变）', file: 'js/music-player.js', needle: 'window.icProb ? window.icProb(prob) : prob' },
   { name: '#1153i 跨桌面查岗档位行＝原频率/安静/更安静/最安静（删/加回 freq＝高频率档回流，用户明确「不要高频率」）', file: 'js/incoming-requests.js', needle: "const DMODE_PILLS = ['std', 'quiet', 'quiet2', 'quiet3'];" },
+  { name: '#1154a 档位行独立成组并挂在默认「回复与主动」面板（退回挂进【字卡与概率】子面板＝用户按回复设置进去根本看不到，首版就是这么白做的）', file: 'js/reply-settings.js', needle: "group.id = 'ic-freq-group';" },
 
 ];
 try {

@@ -214,8 +214,18 @@ await sleep(200);
 check('E1 档位行在位且默认显「原频率」', (await ev("(function(){var b=document.getElementById('ic-freq-btn');return b?b.textContent:null;})()")) === '原频率',
   String(await ev("(function(){var b=document.getElementById('ic-freq-btn');return b?b.textContent:null;})()")));
 check('E2 功能说明胶囊在位', (await ev("!!document.getElementById('ic-freq-tag')")) === true);
-check('E3 档位行落在四类互动卡分类档之上（同一分组内、TA的询问行之前）',
-  (await ev("(function(){var r=document.getElementById('ic-freq-row'),a=document.getElementById('dcp-ta-ask-prob');if(!r||!a)return false;var ar=a.closest('.gs-row');if(!ar||ar.parentNode!==r.parentNode)return false;return !!(r.compareDocumentPosition(ar)&Node.DOCUMENT_POSITION_FOLLOWING);})()")) === true);
+// #1154（用户实报「我在回复设置里没有看到这个啊」）：#1153 首版把这行挂在【字卡与概率】子面板里、
+// TA的询问 四行分类档之上——那一整块不在默认显示的子面板、还要往下滚一千多像素，行确实渲染了但
+// 用户按「回复设置」进去根本看不到。现要求：行落在**默认的【回复与主动】面板**内、紧跟在
+// 「主动发送（联系人找你）」分组之后，且打开回复设置（不切子面板）时已布局可见。
+check('E3a 行在默认子面板【回复与主动】内（不在字卡与概率面板）',
+  (await ev("(function(){var g=document.getElementById('ic-freq-group');if(!g)return false;var p=g.closest('.rps-panel');return !!p&&p.dataset.rps==='reply';})()")) === true);
+check('E3b 独立成组且紧跟在「主动发送（联系人找你）」分组之后',
+  (await ev("(function(){var g=document.getElementById('ic-freq-group');var as=document.getElementById('as-en');if(!g||!as)return false;var ag=as.closest('.set-group');if(!ag||ag.parentNode!==g.parentNode)return false;return !!(ag.compareDocumentPosition(g)&Node.DOCUMENT_POSITION_FOLLOWING);})()")) === true);
+await ev("(function(){var t=document.querySelector('.tab[data-page=\"page-setting\"]');if(t)t.click();var r=document.getElementById('row-general');if(r)r.click();return true;})()");
+await sleep(800);
+const e3c = await ev("(function(){var r=document.getElementById('ic-freq-row');if(!r)return 'no row';var q=r.getBoundingClientRect();if(!q.width||!q.height)return '0x0';var n=r;while(n&&n!==document.body){if(n.hidden===true||getComputedStyle(n).display==='none')return 'ancestor hidden';n=n.parentElement;}return 'visible '+Math.round(q.width)+'x'+Math.round(q.height);})()");
+check('E3c 打开回复设置（不切子面板）时该行已布局可见', String(e3c).indexOf('visible') === 0, String(e3c));
 await ev("(function(){var b=document.getElementById('ic-freq-btn');if(b)b.click();return true;})()");
 await sleep(250);
 const pillCount = await ev("(function(){var p=document.getElementById('modal-pills');if(!p||p.hidden)return 0;return p.children.length;})()");
