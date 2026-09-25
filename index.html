@@ -10690,9 +10690,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790340158812">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790344247105">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 20:42<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 21:50<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20332,7 +20332,7 @@ const FUNC_ITEMS = [
 { n: '梦角档案', app: 'memo-arc', page: 'page-memo-arc', open: true },
 { n: '我的档案', app: 'my-arc', page: 'page-my-arc', open: true },
 { n: '音乐', app: 'music', page: 'page-music', open: true },
-{ n: '群聊', app: 'group-chat', page: 'page-group-chat', open: true, gated: '可能未开启群聊' },
+{ n: '群聊', app: 'group-chat', page: 'page-group-chat', open: true },   // #1280 「开启群聊」开关只把桌面图标收进组件库、不拦打开（group-chat.js enterGroupChat 无门控，无头实测默认未开启时图标照样开页）：打不开＝真故障照实报 ✗，本行不再给不存在的原因
 { n: '帮我决定', fn: 'openDecision' },
 { n: '多人决定', fn: 'openGroupDecision' },
 { n: 'TA 询问', fn: 'openAskReply' },
@@ -21874,4 +21874,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugyazq4 -->
+<!-- __MOCHI_EOF__ muh0qm9t -->

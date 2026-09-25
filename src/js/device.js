@@ -3666,7 +3666,7 @@ window.mochiViewportForm = function (sig) {
     { n: '梦角档案', app: 'memo-arc', page: 'page-memo-arc', open: true },
     { n: '我的档案', app: 'my-arc', page: 'page-my-arc', open: true },
     { n: '音乐', app: 'music', page: 'page-music', open: true },
-    { n: '群聊', app: 'group-chat', page: 'page-group-chat', open: true, gated: '可能未开启群聊' },
+    { n: '群聊', app: 'group-chat', page: 'page-group-chat', open: true },   // #1280 「开启群聊」开关只把桌面图标收进组件库、不拦打开（group-chat.js enterGroupChat 无门控，无头实测默认未开启时图标照样开页）：打不开＝真故障照实报 ✗，本行不再给不存在的原因
     { n: '帮我决定', fn: 'openDecision' },
     { n: '多人决定', fn: 'openGroupDecision' },
     { n: 'TA 询问', fn: 'openAskReply' },

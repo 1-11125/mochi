@@ -3,6 +3,9 @@
 //   缺省被测根＝本脚本所在仓库的上一级（A/B 双副本时务必显式传根，别让两版跑同一产物）
 // 覆盖：src/产物锚点（B1 图标真开寻踪页／B2~B3 诊断行给「打开✓」且不再出现「绑定 TA·授权定位」
 //       B4~B5 关掉总开关后改口说真门控／C1 重新开启仍打开✓／Z1 零未捕获异常）
+//   #1280 第二段（同族第二处）：S6~S7 两处静态锚点（群聊行不得再挂「群聊没开」门槛）＋
+//       G1 点群聊图标真开 page-group-chat（默认未开启群聊时也照样开）／G2 诊断行给「打开✓」
+//       G3 该行不再给「未开启」这种不存在的原因
 import { readFileSync, statSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
@@ -12,6 +15,7 @@ const root = normalize(process.argv[2] ? process.argv[2] : dirname(fileURLToPath
 console.log('被测根目录 = ' + root);
 if (!existsSync(join(root, 'index.html'))) { console.log('FAIL  根目录没有 index.html（喂错产物）'); process.exit(1); }
 const FAKE = '可能需先绑定 TA/授权定位';
+const FAKE_GC = '可能未开启群聊';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 function check(d, ok, detail) { results.push(ok); console.log((ok ? 'PASS' : 'FAIL') + '  ' + d + (detail ? '  [' + detail + ']' : '')); return ok; }
@@ -23,6 +27,9 @@ check('S2 src 里那句假授权措辞已清零', !srcDev.includes(FAKE));
 const built = readFileSync(join(root, 'index.html'), 'utf8');
 check('S3 产物（device.js 留内联）同一条锚点仍在', built.includes("app: 'checkin', page: 'page-checkin', open: true"), '命中 ' + (built.split("app: 'checkin', page: 'page-checkin', open: true").length - 1) + ' 次');
 check('S4 产物里不再有「绑定 TA/授权定位」', !built.includes(FAKE));
+// #1280：同一张表的「群聊」行——「开启群聊」开关只收图标不拦打开，gated 那句是凭空原因，已删
+check('S6 src 群聊行在场且不再挂 gated 门槛', srcDev.includes("app: 'group-chat', page: 'page-group-chat', open: true") && !srcDev.includes(FAKE_GC));
+check('S7 产物同一条锚点在场且无那句门槛', built.includes("app: 'group-chat', page: 'page-group-chat', open: true") && !built.includes(FAKE_GC));
 
 // ---- 无头真跑 ----
 const exe = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find((p) => { try { return statSync(p).isFile(); } catch (e) { return false; } });
@@ -96,6 +103,20 @@ await sleep(300);
 await ev("document.querySelector('.app[data-app=\"checkin\"]').click()");
 await sleep(500);
 check('C1 重新开启总开关后图标照常打开寻踪页', (await ev(vis)) === true, 'visible=' + (await ev(vis)));
+
+// ---- #1280 群聊行：开关只收图标不拦打开，行内不得再给不存在的门槛 ----
+await ev("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!=='page-phone';});var m=document.getElementById('modal-mask');if(m)m.hidden=true;return true;})()");
+await sleep(200);
+await ev("document.querySelector('.app[data-app=\"group-chat\"]').click()");
+await sleep(500);
+const visGc = "(function(){var p=document.getElementById('page-group-chat');return !!(p&&!p.hidden);})()";
+check('G1 点群聊图标 → page-group-chat 可见（默认未开启群聊时也照样打开）', (await ev(visGc)) === true, 'visible=' + (await ev(visGc)));
+await ev("(function(){document.querySelectorAll('.page').forEach(function(p){p.hidden=p.id!=='page-phone';});var m=document.getElementById('modal-mask');if(m)m.hidden=true;return true;})()");
+await sleep(200);
+const gcRows = await evAsync('window.__collectFuncDiag().then(function(x){return x.rows;})');
+const gcLine = (Array.isArray(gcRows) ? gcRows : []).filter((x) => x.indexOf('群聊') >= 0)[0] || '';
+check('G2 群聊那行给「打开✓」', /打开✓/.test(gcLine), gcLine);
+check('G3 群聊那行不再给「未开启」这种不存在的原因', gcLine.indexOf('未开启') < 0 && gcLine.indexOf(FAKE_GC) < 0, gcLine);
 
 const errN = await ev("(window.__jsErrors||[]).length");
 check('Z1 全程零未捕获 JS 异常', !errN, 'jsErrors=' + errN);

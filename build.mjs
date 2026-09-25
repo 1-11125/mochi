@@ -5166,6 +5166,11 @@ const FIX_SENTINELS = [
       修法＝一行内同时纠正「量哪个页」与「打不开时说什么」（gated 用冒号，外层打印已有 打开未生效（…） 一对）。零机型／零 UA 分支不变，判据仍是「点图标 → 目标页是否可见」这一个 DOM 事实。行为断言＝tools/verify-1279-func-diag-checkin-row.mjs（g/r 两侧同尺）。 ==== */
   { name: "#1279a 功能诊断「寻踪」量的是寻踪页本身（换回 page-ta-checkin＝诊断去量字卡库那页，图标点开的是寻踪页，恒判「打开未生效」＝用户实报的那行假读数复发）", file: "js/device.js", needle: "app: 'checkin', page: 'page-checkin', open: true" },
   { name: "#1279z 诊断不得再凭空报「绑定 TA/授权定位」（项目里没有这一步也没有那项权限；回流＝给用户指一个不存在的门槛，用户会去系统设置里找本站没有的定位权限）", file: "js/device.js", needle: "可能需先绑定 TA/授权定位", absent: true },
+  /* ==== 2026-09-25 #1280（用户问「帮检查还有没有这种错误？」＝#1279 同族全表扫一遍时发现的第二处）：功能诊断表的「群聊」行也挂着 gated: '可能未开启群聊' 这句门槛，而 group-chat.js 的 enterGroupChat() 里根本没有开关判断——「开启群聊」开关只决定图标放桌面还是收进组件库（personalize.js applyGroupChatMode），无头真点实测（默认未开启群聊）图标照样打开 page-group-chat。
+      这句只在「打开失败」时才打印，那种情况下真因永远是模块没加载/别的故障，不会是没开群聊＝又一句凭空原因把排查带偏。修法＝删掉该行 gated，打不开就照实报「✗ 点击图标后页面未打开」。
+      同批把全站四张登记表对 HEAD 机械对账（功能诊断 FUNC_ITEMS 25 条无头真点 25/25；功能大全 feature-data 31 条页面/按钮锚点零缺失、8 条动态页确认为 JS 建；HUB 319 条 126 个跳转选择器零缺失；设置页 51 条功能说明选择器零缺失）。行为断言并入 tools/verify-1279-func-diag-checkin-row.mjs 第二段（G1~G3）。 ==== */
+  { name: "#1280a 「群聊」行仍在场上做真开测试（删掉整行＝群聊不再被诊断覆盖；改回 gated 形态＝这一针当场变红）", file: "js/device.js", needle: "app: 'group-chat', page: 'page-group-chat', open: true" },
+  { name: "#1280b 诊断不得再给「群聊没开」这种不存在的原因（enterGroupChat 无门控、开关只收图标不拦打开；回流＝打不开时把人指向一个不是原因的开关）", file: "js/device.js", needle: "可能未开启群聊", absent: true },
   /* ==== 2026-09-25 #1222＋#1271 iPhone 16 Pro Max / Safari 实报「最近异常卡顿（来回切换卡顿）」＋同族 iPhone 15 Pro Max「切到添加字卡页面最卡」（perfcheck：最慢帧 2393ms 在字卡库、自定义字卡占采样 25.3%；诊断：cc-groups-public 头号驻留 14.5M 字符、本页被回收 91→115 次）＝字卡库列表页每次显示都盲清池视图＋整库同步 JSON.parse（#1222 三处收口＝比对两把键原文串，没变不重建）；#1271＝收口时补的配套闸：#1222 把原文串押在闭包里，切后台时 #1195e 通用闸放掉 memoryCache 大键副本、这份引用却原地不放＝头号驻留换个口袋继续挂着，回收照旧。零机型／零 UA 分支＝判据只有「数据变没变」「页面可见性」。验证：tools/verify-1222-lib-reparse.mjs 14 断言＋本批 A/B。 ==== */
   { name: '#1222a 原文串记账的初始哨兵与两个槽（整族删除＝角标闸没了，进页每次盲清整库 parse 复发）', file: 'js/chatcard.js', needle: 'let poolSrcPub = NO_SRC, poolSrcOwn = NO_SRC;' },
   { name: '#1222b 内容比对本体（改成比长度/对象身份＝等长改字漏判或 memoryCache 未命中恒判「变了」，闸门形同虚设）', file: 'js/chatcard.js', needle: 'poolSrcPub !== rp || poolSrcOwn !== ro' },
