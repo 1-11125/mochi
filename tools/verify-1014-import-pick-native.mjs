@@ -99,6 +99,12 @@ async function boot() {
   page.on('pageerror', (e) => st.jsErrors.push(String(e.message).slice(0, 200)));
   await page.addInitScript(() => {
     try { localStorage.setItem('xy-home-v2:__last-backup-remind', String(Date.now())); } catch (e) {}
+    // #1263 夹具收口：#1250「存储修复引导」在数据就绪 +4s 无条件 openModal——弹窗是单例
+    // （#modal-mask/#modal-ok 全站共用），本脚本跑数十秒、中途停在任意用户弹窗时都可能被引导
+    // 抢走那一层，造成跨断言的时序不确定。夹具预置送达键让引导全程静默＝保持确定性；
+    // 产品侧「让路不抢」闸本身由 verify-1263 独立断言。（注：B2 在含/不含引导抑制下都恒红，
+    // 经探针实证是「取消」模式下确定按钮物理命中/关闭的存量问题，与本抑制无关，见 WORKLOG。）
+    try { localStorage.setItem('xy-home-v2:storage-guide-shown', '1250'); } catch (e) {}
   });
   await page.addInitScript(() => {
     // 顽固内核仿真（同 #991/#1002 口径）：label 转发被吞 + showPicker 抛 NotAllowedError +

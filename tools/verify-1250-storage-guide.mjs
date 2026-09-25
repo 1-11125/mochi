@@ -33,7 +33,10 @@ function makeEnv({ lsSeed = {}, idbVal, idbMode = 'resolve' } = {}) {
     setItem: (k, v) => { lsMap.set(k, v); },
     removeItem: (k) => { lsMap.delete(k); },
   };
-  const document = { addEventListener: () => {} };
+  // #1263 环境建模：让路闸到点会读 document.getElementById('modal-mask') 的可见态——
+  // 本文件测的是「无其它弹窗占用」这一常规环境 ⇒ 桩返回 null（=没有弹窗开着），引导照旧弹；
+  // 「弹窗被占用时让路重试」的行为由 verify-1263 在真无头浏览器里独立断言，不在此文件重复。
+  const document = { addEventListener: () => {}, getElementById: () => null };
   const window = {
     localStorage,
     toast: (m) => { toasts.push(m); },

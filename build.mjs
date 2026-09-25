@@ -5069,6 +5069,8 @@ const FIX_SENTINELS = [
   { name: '#1250a 引导送达标记键（删＝每次启动都弹，引导变骚扰）', file: 'js/storage-guide.js', needle: "const FLAG_KEY = G + 'storage-guide-shown';" },
   { name: '#1250b 一键自愈按钮的可用态判据（删＝按钮接不上 mochiMediaRebuild 或环境不支持时仍装可点＝点了没反应复发）', file: 'js/storage-guide.js', needle: "const canRebuild = typeof window.mochiMediaRebuild === 'function';" },
   { name: '#1250c 数据就绪挂钩走 mochiOnDataReady 双层契约（换回裸 addEventListener＝空库/快恢复时事件先于脚本派发，引导永不弹＝#797 同族复发）', file: 'js/storage-guide.js', needle: 'if (window.mochiOnDataReady) window.mochiOnDataReady(gate);' },
+  /* ==== 2026-09-25 #1263 iPhone 15 Pro Max 报障取证发现：#1250 引导到点（数据就绪+4s）无条件 openModal，而弹窗是全站单例（#modal-mask/#modal-ok）——用户此刻停在「导入数据→选择范围」弹窗（#1014/#1197 一族入口）时引导把那一层连流程一起抢走＝「备份导入无反应」新变体。改法＝proceed 前看 modal-mask 可见态，可见则 2.5s 让路重试；零机型／零 UA 分支，判定只取 DOM 可见事实。验证：tools/verify-1263-guide-modal-yield.mjs（绿 9/0，纯基线恰红 S1/S2/B1/B2）。 ==== */
+  { name: '#1263a 引导让路闸（删＝用户弹窗里被单例引导抢走流程＝「导入点了没反应」复发）', file: 'js/storage-guide.js', needle: 'if (mask && !mask.hidden) { setTimeout(proceed, 2500); return; }' },
   /* ==== 2026-09-25 #1236 iPhone 17 Pro / iOS 27 实报「多字卡回复和梦角自由造句关不掉」（诊断里存储 `多字卡py=关` 已存成 0，屏上照旧）＝两条：①词典拼字的旧口径明写「不依赖 py-en」（#323/#350），总开关关着仍逐卡连发/单气泡拼接；②历史气泡上持久化的来源 chip 与开关无关，看着像没关。用户直派口径「全封死」：py-en 关＝两种拼字形态一并不触发；mjf-en 关＝造句＋标签全停。方案＝出牌口加总闸（quote-spell.js）、显示层按三闸收敛 chip（chat.js srcTagSig/srcTagHidden，数据一字不动，重新打开标签回来），链路自检/字卡体检/设置页文案同步改口。零机型／零 UA 分支，判定只取开关值。验证：tools/verify-1236-py-master-gate.mjs（纯 HEAD 副本 9/19 红 → 本批 34/34 绿）。 ==== */
   { name: '#1236a 词典拼字受「多字卡回复」总闸约束（删回旧口径＝关掉总开关照样拼字，用户所见「关不掉」复发）', file: 'js/quote-spell.js', needle: "if (c['py-en'] !== 1) return null;" },
   { name: '#1236b 来源标签显示闸本体（删＝历史气泡的拼字/造句 chip 与开关无关，永远看着像没关）', file: 'js/chat.js', needle: 'function srcTagHidden(tag) {' },

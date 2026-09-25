@@ -57,6 +57,8 @@ if (!window.openModal) return;
 try { if (localStorage.getItem(FLAG_KEY) === GUIDE_ID) { doneThisSession = true; return; } } catch (e) {}
 const proceed = () => {
 if (doneThisSession) return;
+const mask = document.getElementById('modal-mask');
+if (mask && !mask.hidden) { setTimeout(proceed, 2500); return; }
 doneThisSession = true;
 try { showGuide(); } catch (e) {}
 };

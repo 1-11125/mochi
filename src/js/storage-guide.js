@@ -69,6 +69,11 @@
     // 复核为异步：idbGet 读不到（含挂起 undefined）按「没送达」处理，宁可多弹一次也不错过。
     const proceed = () => {
       if (doneThisSession) return;
+      // 弹窗是单例（#modal-ok/#modal-mask 全站共用）：用户此刻正在某个弹窗里操作（例：
+      // 「导入数据」的范围弹窗＋确定层文件选择＝#1014/#1197 那一族入口）时开引导＝把那一层
+      // 连流程一起抢走，落点还会打在换上的按钮上（无头实测 B2 假象同形）。让路重试，不抢。
+      const mask = document.getElementById('modal-mask');
+      if (mask && !mask.hidden) { setTimeout(proceed, 2500); return; }
       doneThisSession = true;
       try { showGuide(); } catch (e) {}
     };

@@ -23,7 +23,7 @@
 // 用法（RED 基线/隔离根）：SERVE_ROOT=<目录> node tools/verify-file-pick-all.mjs
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -234,7 +234,10 @@ ok((c4.toast || '').indexOf('没有取到图片') >= 0, 'C4 空 FileList 时给�
 
 // ===== D 组：源码级引用计数（防并行会话把某入口改回手抄写法）=====
 // 用运行时能取到的构建产物文本做一次粗核：统一入口被多处引用即可证明各入口已收编。
-const js = readFileSync(join(root, 'index.html'), 'utf8');
+// #1263 尺子自身收口：JS 外置化（#785b 起）后各入口调用点在 js/*.js，只 grep index.html
+// 的旧口径恒 count≈1＝D1 恒红假象（在含 #1230 的产物上实测复现）。改为整产物聚合。
+let js = readFileSync(join(root, 'index.html'), 'utf8');
+try { for (const f of readdirSync(join(root, 'js'))) js += '\n' + readFileSync(join(root, 'js', f), 'utf8'); } catch (e1) {}
 const refCount = (js.match(/mochiFilePick\(\{/g) || []).length;
 ok(refCount >= 14, 'D1 统一入口在产物中被 14 处以上入口引用（少于＝有入口被改回各自手抄的 file input 写法）', 'count=' + refCount);
 const detachBad = /createElement\('input'\)[\s\S]{0,120}?\.click\(\)/.test(js) ? true : false;
