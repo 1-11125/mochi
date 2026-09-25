@@ -91,13 +91,68 @@
   function csBgReconcileActive() {
     const list = csBgList();
     const cur = store.get('cs-bg');
-    if (!cur) { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); return ''; }
+    // FIX 2026-09-25 #1218：读空不等于「壁纸没了」（聊天背景同样是 >200KB 的 IDB 大键，会被
+    // 启动回填按预算挂起）。原来这里顺手 store.remove(CS_BG_ACTIVE)＝把 active-id 指针删掉，
+    // 等原图稍后取回来，面板高亮/删除判定已经找不到当初生效的是哪张；只在内核确认「库里查无
+    // 此图」时才清指针（见 csBgHydrateOnce）。
+    if (!cur) return '';
     const aid = csBgActiveId();
     if (aid && list.indexOf(aid) >= 0 && store.get('cs-bg-item-' + aid) === cur) return aid;
     for (let i = 0; i < list.length; i++) {
       if (store.get('cs-bg-item-' + list[i]) === cur) { store.set(CS_BG_ACTIVE, list[i]); return list[i]; }
     }
     return '';
+  }
+  // FIX 2026-09-25 #1218（用户实报「小米15 / edge 清理数据后再导入显示背景被清除，上传图片显示
+  // 原图已丢失请重新上传」；同族症状：OPPO K13 Turbo Pro + edge「背景图显示被清理需要重启才能
+  // 显示」、红米 K80 + chrome「从通知弹窗点开进聊天页，聊天背景与桌面背景一起莫名消失，刷新又
+  // 恢复正常」）：三态判定与按需取回取数据层唯一一份 window.idbEnsureBigKey（批注在 idb.js，
+  // 根因链与阈值都在那里），本文件只用薄包装。零机型／零 UA 分支＝判据只有内核回执。
+  const ensureBigKey = (k) => (window.idbEnsureBigKey ? window.idbEnsureBigKey(k) : Promise.resolve('unknown'));
+  // 读空 → 按需取回 → { v: 值, st: 'ready'|'absent'|'unknown' }：只有 'absent' 才允许说「已丢失」
+  const readBigKey = (k) => ensureBigKey(k).then((st) => {
+    let v = '';
+    try { v = store.get(k) || ''; } catch (e) {}
+    return { v: v, st: v ? 'ready' : st };
+  });
+  // 两种「读不到」必须说两种话：确认没有＝请重传；没确认＝别让用户白重传一遍
+  const bigKeyMissToast = (st, what) => toast(st === 'absent'
+    ? what + '的原图库里已经查不到了（可能被浏览器清理），请重新上传'
+    : what + '的原图这次没读出来（存储正忙），稍后再点一次即可，不需要重新上传');
+  // FIX 2026-09-25 #1218 写侧（用户实报「有的手机重新上传图片也不行」）：xyStore.set 对大键
+  // 只写内存缓存 + 一个发完不管结果的 IDB 写（LS 那份还被大键规则当场删掉），所以配额满的机器上
+  // 上传是「当场成功、重开就没」——新键在库里根本不存在，重开后被读侧判成「已丢失请重传」，
+  // 用户照做、再传、再丢，转圈。这里取 count(键) 的真回执，两次确认库里没有才报警；
+  // 问不出结果（unknown）闭嘴，不吓正常设备。判据一份来自数据层 window.idbBigKeyLanded。
+  const confirmBigKeys = (keys, what) => {
+    const landed = window.idbBigKeyLanded;
+    if (typeof landed !== 'function') return;
+    try {
+      Promise.all(keys.map((k) => landed(k))).then((sts) => {
+        if (sts.indexOf('missing') < 0) return;
+        toast(what + '没能存进本机存储（存储空间可能已满）：现在能看见，重开就没了。请先去「设置 → 数据备份」导出备份，删掉一些数据后再传一次');
+      }).catch(() => {});
+    } catch (e) {}
+  };
+  // 「这张壁纸本该还在」的判据：active-id 指针仍指向图库里的某一张。用户删掉正被使用的那张
+  //（见删除/清除入口）时 id 已不在清单里 ⇒ 不再取回，避免把刚删的图从 IDB 又捞回内存。
+  function csBgExpectBg() {
+    const aid = csBgActiveId();
+    return !!aid && csBgList().indexOf(aid) >= 0;
+  }
+  // 聊天背景被挂起时的补取回：同一次只跑一份，落地后重跑 applySettings 自己把层铺回来。
+  // 返回 true ＝「这一轮先别拆层，等回执」。
+  let csBgHydrating = false;
+  function csBgHydrateOnce() {
+    if (csBgHydrating || !window.idbEnsureBigKey) return false;
+    try { if (store.get('cs-bg')) return false; } catch (e) { return false; }
+    csBgHydrating = true;
+    readBigKey('cs-bg').then((r) => {
+      csBgHydrating = false;
+      if (r.v) { try { applySettings(); } catch (e) {} return; }
+      if (r.st === 'absent') { try { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); } catch (e) {} }
+    }).catch(() => { csBgHydrating = false; });
+    return true;
   }
 
   const FONT_SIZES = [
@@ -471,7 +526,11 @@
     // 正常压缩产物（2160-4096px JPEG 0.85）≤6MB，>6MB 判定为异常存量，清除回默认
     let bg = store.get('cs-bg');
     if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
-      try { store.remove('cs-bg'); } catch (e) {}
+      // FIX 2026-09-25 #1218：对齐 personalize.sanitizeBg 的 v3.10.x 口径——超限只跳过本次渲染，
+      // 不再 store.remove。remove 走 activeStore 会把内存+localStorage+IndexedDB 三处的图一起删掉，
+      // 正常压缩产物偶尔略超 6MB 就变成「设置成功、重启后背景被清掉回默认、每次都要重设」。
+      // 只有旧版绕过压缩塞进来的毒数据（>12MB，渲染会拖垮 iOS Safari）才清除自愈。
+      if (bg.length > 12 * 1024 * 1024) { try { store.remove('cs-bg'); } catch (e) {} }
       bg = null;
     }
     // #731：铺满方式由 cs-bg-fit 决定；#762：写在常驻图层 #cs-bg-layer 上，尺寸交回 CSS 关键字。
@@ -502,11 +561,14 @@
       // #938：本分支每次 applySettings 都跑（＝无壁纸设备点一下抽屉控件也会跑到），原实现的
       // display/backgroundImage 同值重写 + 两记空 remove 每次共脏化 #page-chat 4 个属性＝壁纸层与
       // 数百条气泡的共同祖先整棵重算。全部改成「先比对、真变了才动」。
-      if (bgLayer) {
+      // FIX 2026-09-25 #1218：该有壁纸（active-id 指针在）却读空＝大概率被启动回填挂起，这一轮
+      // 先把层原样留着并踢一次按需取回；拆层正是「聊天背景莫名其妙消失、刷新又回来」的可见形态。
+      const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();
+      if (bgLayer && !waitBg) {
         if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
         if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
       }
-      if (chatPage) {
+      if (chatPage && !waitBg) {
         if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
         if (chatPage.classList.contains('cs-bg-on')) chatPage.classList.remove('cs-bg-on');
         // 清壁纸时把铺满方式残影一并抹掉（含 #750~#756 期间直接写在页面身上的内联样式）
@@ -630,6 +692,7 @@
     store.set('cs-bg', data);
     store.set(CS_BG_ACTIVE, id);
     applySettings();
+    confirmBigKeys(['cs-bg-item-' + id, 'cs-bg'], '这张壁纸');
     return id;
   }
   // 持久化多选 input：一次可加多张，逐张按序入库（压缩本身异步，串行防内存叠加）
@@ -706,39 +769,58 @@
       if (thb) { im.src = thb; }
       else {
         // 缩略图缺失（旧迁移/上次生成被打断）：读这一张全图现生成再回填，本次先用小占位
-        const full = store.get('cs-bg-item-' + id);
         im.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
         cell.style.background = 'var(--muted,#888)';
-        if (full) csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+        const paint = (full) => {
+          if (!full) return;
+          csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+        };
+        const full0 = store.get('cs-bg-item-' + id);
+        // #1218：灰格＝「原图这会儿没读到」（大键被回填挂起），不等于「这张没了」——
+        // 清库导入后整屏壁纸一起变灰，就是用户看到的「背景被清除」；先按需取回再补缩略图。
+        if (full0) paint(full0);
+        else readBigKey('cs-bg-item-' + id).then((r) => { paint(r.v); });
       }
       cell.appendChild(im);
       cell.addEventListener('click', () => {
         // 只在此刻读被点中的那一张全图（active-id 判断已由对账保证一致）
+        const useFull = (full) => { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; };
         const full = store.get('cs-bg-item-' + id);
-        if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
-        // FIX 2026-09-22 #1036：全图数据丢失（存储被系统清理）时原本点格静默无响应＝「点了没反应」
-        else { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }
+        if (full) { useFull(full); return; }
+        // FIX 2026-09-22 #1036：全图读不到时原本点格静默无响应＝「点了没反应」，改为明确提示；
+        // FIX 2026-09-25 #1218：提示前先按需取回一次，且只有内核确认「库里查无此图」才说已丢失
+        readBigKey('cs-bg-item-' + id).then((r) => {
+          if (r.v) { useFull(r.v); return; }
+          bigKeyMissToast(r.st, '这张壁纸');
+        });
       });
       const del = document.createElement('div');
       del.textContent = '×';
       del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:18px;text-align:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px';
       del.addEventListener('click', (e) => {
         e.stopPropagation();
-        const full = store.get('cs-bg-item-' + id);
-        const thb2 = store.get('cs-bg-item-thb-' + id);
-        const wasActive = id === aid;
-        csBgSaveList(csBgList().filter(x => x !== id));
-        store.remove('cs-bg-item-' + id);
-        store.remove('cs-bg-item-thb-' + id);
-        if (wasActive) { store.remove('cs-bg'); applySettings(); }
-        // 优化⑤：留底 5 秒，面板底部出「撤销」条；每次删除覆盖上一条留底（只保最近一张）
-        if (full) {
-          m.__undoItem = { id, full, thb: thb2, wasActive };
-          if (m.__undoTimer) clearTimeout(m.__undoTimer);
-          m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 'flex') openCsBgPanel(); }, 5000);
-        }
-        toast('已删除，5 秒内可撤销');
-        openCsBgPanel();
+        // #1218：删除要留 5 秒可撤销的底，而底只能从「手里有值」来——原图被挂起时 store.get
+        // 是空的，留底也是空的＝一次读空把「可撤销的删除」变成不可逆删除。先取回再删
+        //（取不回照删，用户要的就是删掉，只是撤销条诚实出现不了）。
+        const doDelete = (full) => {
+          const thb2 = store.get('cs-bg-item-thb-' + id);
+          const wasActive = id === aid;
+          csBgSaveList(csBgList().filter(x => x !== id));
+          store.remove('cs-bg-item-' + id);
+          store.remove('cs-bg-item-thb-' + id);
+          if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }
+          // 优化⑤：留底 5 秒，面板底部出「撤销」条；每次删除覆盖上一条留底（只保最近一张）
+          if (full) {
+            m.__undoItem = { id, full, thb: thb2, wasActive };
+            if (m.__undoTimer) clearTimeout(m.__undoTimer);
+            m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 'flex') openCsBgPanel(); }, 5000);
+          }
+          toast('已删除，5 秒内可撤销');
+          openCsBgPanel();
+        };
+        const has = store.get('cs-bg-item-' + id);
+        if (has) { doDelete(has); return; }
+        readBigKey('cs-bg-item-' + id).then((r) => { doDelete(r.v); });
       });
       cell.appendChild(del);
       grid.appendChild(cell);
@@ -1767,6 +1849,13 @@
   migrateFontBlobs();
   // #787：回填完成清补读计数（预算重置）再补应用一次——restore 可能刚把 blob 带回可读状态
   try { document.addEventListener('mochi-restore-done', () => { _fontHydrateTries = {}; migrateFontBlobs(); applyFont(); }); } catch (e) {}
+  // #1218：备份导入/恢复会整库换血——上一轮「健康连接确认库里没有」的留底当场作废，重置探针
+  // 再补一次聊天背景（用户流程正是「清库 → 导入 → 打开显示背景被清除」，与 #787 字体同口径）
+  try { document.addEventListener('mochi-restore-done', () => {
+    try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
+    csBgHydrating = false;
+    csBgHydrateOnce();
+  }); } catch (e) {}
   applyFont();
 
   // ================= 气泡 CSS（自定义样式，极简黑白灰） =================

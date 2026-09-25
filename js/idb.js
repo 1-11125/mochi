@@ -772,6 +772,64 @@ if (Array.isArray(di)) { const i = di.indexOf(key); if (i >= 0) di.splice(i, 1);
 return true;
 }).catch(() => false);
 };
+const bigHydInflight = {};   // 完整键名 -> 进行中的取回（同键并发合流，不重复读 MB 级值）
+const bigHydAbsent = {};     // 完整键名 -> 健康连接确认库里确实没有（本会话不再空读）
+window.idbBigKeyCandidates = function (relKey) {
+let prefix = 'xy-home-v2:default';
+try { if (window.activePrefix) prefix = window.activePrefix() || prefix; } catch (e) {}
+const out = [prefix + ':' + relKey];
+try {
+const legacy = 'xy-home-v2:' + relKey;
+if ((!window.__activeCid || window.__activeCid === 'default') && out.indexOf(legacy) < 0) out.push(legacy);
+} catch (e) {}
+return out;
+};
+window.idbEnsureBigKey = function (relKey) {
+if (typeof relKey !== 'string' || !relKey) return Promise.resolve('unknown');
+const hyd = window.idbHydrateKey;
+if (typeof hyd !== 'function') return Promise.resolve('unknown');
+const cands = window.idbBigKeyCandidates(relKey);
+let sawAbsent = false, sawUnknown = false;
+const step = (i) => {
+if (i >= cands.length) return Promise.resolve(sawAbsent && !sawUnknown ? 'absent' : 'unknown');
+const full = cands[i];
+if (bigHydAbsent[full]) { sawAbsent = true; return step(i + 1); }
+const settle = (r) => {
+if (r === 'ok') return 'ok';
+if (r === 'absent') sawAbsent = true; else sawUnknown = true;
+return step(i + 1);
+};
+if (bigHydInflight[full]) return bigHydInflight[full].then(settle);
+bigHydInflight[full] = Promise.resolve(hyd(full)).then((v) => {
+delete bigHydInflight[full];
+if (v === true) return 'ok';
+if (v === null) { bigHydAbsent[full] = true; return 'absent'; }
+return 'unknown';
+}).catch(() => { delete bigHydInflight[full]; return 'unknown'; });
+return bigHydInflight[full].then(settle);
+};
+return step(0);
+};
+window.idbResetBigKeyProbe = function () {
+try { for (const k in bigHydAbsent) delete bigHydAbsent[k]; } catch (e) {}
+try { for (const k in bigHydInflight) delete bigHydInflight[k]; } catch (e) {}
+};
+window.idbBigKeyLanded = function (relKey, gap) {
+if (typeof relKey !== 'string' || !relKey || typeof window.idbHasKey !== 'function') return Promise.resolve('unknown');
+let full = '';
+try { full = (window.idbBigKeyCandidates(relKey) || [])[0] || ''; } catch (e) {}
+if (!full) return Promise.resolve('unknown');
+const lsHeld = (() => {
+try { return _bigIdx[full] === undefined && localStorage.getItem(full) !== null && !(_lsDirtyKeys && _lsDirtyKeys.has(full)); } catch (e) { return false; }
+})();
+if (lsHeld) return Promise.resolve('landed');
+const once = () => Promise.resolve(window.idbHasKey(full)).then(
+(h) => (h === true ? 'landed' : (h === false ? 'missing' : 'unknown')), () => 'unknown');
+return once().then((r) => {
+if (r !== 'missing') return r;
+return new Promise((res) => { setTimeout(() => res(once()), gap || 1200); });
+});
+};
 const WRJ_KEY = 'xy-home-v2:__wr-journal';
 const WRJ_MARK = 'xy-home-v2:__wr-j:';
 const WRJ_MAX = 24;              // 条数上限（#960：40→24，覆盖窗口仍远大于 IDB 标记 150ms 冲刷节奏）

@@ -4987,6 +4987,53 @@ const FIX_SENTINELS = [
      填了也不再渲染。两支针都取删除型：这套机制被谁补回来时当场报红（补回＝第三份必读口径，必然与顶卡/目录分叉）。 ==== */
   { name: '#1216j 必读摘要建块代码已删（回流＝notice.json 的 summary 又渲染出一块必读摘要，与开屏顶卡＋目录章节三份口径分叉）', file: 'js/clock.js', needle: 'if (Array.isArray(data.summary) && data.summary.length) {', absent: true },
   { name: '#1216k 必读摘要样式已删（回流＝那块卡片带着自己的深色置顶皮回来，样式与类名同批删的，缺一半就是被人为补回）', file: 'css/base.css', needle: '.splash-summary {', absent: true },
+  /* ==== 2026-09-25 #1218 大键「读空」被当成「数据已丢失」族收口（零机型／零 UA 分支＝判定只取内核回执三态）。
+        用户实报三例：① 小米15 + Edge「清理数据后再导入显示背景被清除，上传图片显示原图已丢失请重新上传」；
+        ② OPPO K13 Turbo Pro + Edge「聊天记录被吞，背景图显示被清理需要重启才能显示」（随附诊断：chat-msgs 单键 107.7MB
+        远超 24MB 回填预算、启动长任务 1432ms、cs-bg 348KB 属 IDB-only 大键）；③ 红米 K80 + Chrome「从通知弹窗点开进
+        聊天页，聊天背景与桌面背景一起莫名消失，刷新又恢复正常」。
+        根因（代码事实）：>200KB 的图片键只进 IndexedDB，xyStore.get 只查 memoryCache+LS、从不回退 IDB；启动回填按预算
+        流式恢复，超预算/被挂起的键这一轮就是空值。所有消费方把「一次读空」当「永久丢失」：拆图层、删 active-id 指针、
+        宣布请重新上传，chat-settings 还把 cs-bg >6MB 三处齐删＝真的把背景清掉了。
+        收口：数据层唯一一份 window.idbEnsureBigKey 三态按需取回（ok/absent/unknown）＋「没拿到 absent 回执不许认丢失」
+        ＋取回落地/导入完成后重铺 ＋破坏性删除前先取回留底。（「聊天记录被吞」那一条经查是 #1202，本批不含其代码。） */
+  { name: "#1218a 数据层唯一一份「读空先按需取回」出口（删＝三态判定又散回各消费方自己写，回到「一次读超时＝宣布数据没了」）", file: "js/idb.js", needle: "window.idbEnsureBigKey = function (relKey) {" },
+  { name: "#1218b 三态收口：只有候选键全部被健康连接确认不存在才判 absent，其余一律 unknown（删＝读失败/超时重新被说成丢失，用户被误导去重传库里的图）", file: "js/idb.js", needle: "if (i >= cands.length) return Promise.resolve(sawAbsent && !sawUnknown ? 'absent' : 'unknown');" },
+  { name: "#1218c 取回候选含 default 桌面的旧顶层键（与 defaultStore().get 同口径；删＝未迁移老数据的原图永远取不回，只剩「已丢失」）", file: "js/idb.js", needle: "if ((!window.__activeCid || window.__activeCid === 'default') && out.indexOf(legacy) < 0) out.push(legacy);" },
+  { name: "#1218d 备份导入/恢复后作废「库里没有」留底（删＝「清库→导入→再打开」仍照旧说已丢失，因为假证被缓存了一整轮）", file: "js/idb.js", needle: "try { for (const k in bigHydAbsent) delete bigHydAbsent[k]; } catch (e) {}" },
+  { name: "#1218e 同键取回合流：一次 MB 级读只发一遍，重复调用等同一个回执", file: "js/idb.js", needle: "if (bigHydInflight[full]) return bigHydInflight[full].then(settle);" },
+  { name: "#1218f 桌面壁纸薄包装：读空→取回→再复核 store 是否真读到（删＝又是裸 idbGet 定死超时、失败静默）", file: "js/personalize.js", needle: "const readBigKey = (k) => ensureBigKey(k).then((st) => {" },
+  { name: "#1218g 桌面该有壁纸却读空时踢一次按需取回（删＝「背景图显示被清理、需要重启才显示」原样复发）", file: "js/personalize.js", needle: "if (!customBg && pbgActiveId()) pbgHydrateBgOnce();" },
+  { name: "#1218h 只有内核确认查无此图才清 active-id 指针（删＝一次空读把生效指针删掉，稍后图取回来了面板已不知该高亮哪张）", file: "js/personalize.js", needle: "if (r.st === 'absent') { try { store.remove(PBG_ACTIVE); } catch (e) {} }" },
+  { name: "#1218i 两种「读不到」说两种话：确认没有才让重传，没确认只说稍后再点（删＝又把读超时讲成数据没了）", file: "js/personalize.js", needle: "const bigKeyMissToast = (st, what) => toast(st === 'absent'" },
+  { name: "#1218j 删除壁纸前先取回原图＝5 秒撤销的留底不为空（删＝一次读空把「可撤销的删除」变成不可逆删除）", file: "js/personalize.js", needle: "readBigKey('phone-bg-item-' + id).then((r) => { doDelete(r.v); });" },
+  { name: "#1218k 桌面壁纸对账读空不再顺手删指针（与 #1218h 同口径：未确认不得动指针）", file: "js/personalize.js", needle: "if (!cur) return '';\nconst aid = pbgActiveId();" },
+  { name: "#1218l 导入/恢复完成后再补一次桌面壁纸（与 #787 字体同口径；删＝导完不重启就一直白板）", file: "js/personalize.js", needle: "pbgBgHydrating = false;\npbgHydrateBgOnce();" },
+  { name: "#1218m 聊天背景该有却读空时先取回、这一轮不拆层（删＝「从通知点开进聊天页背景莫名消失、刷新又回来」原样复发）", file: "js/chat-settings.js", needle: "const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();" },
+  { name: "#1218n 等待回执期不许把壁纸层打回隐藏（删＝取回还没落地就先拆层，用户看到的「背景被清除」正是这一刀）", file: "js/chat-settings.js", needle: "if (bgLayer && !waitBg) {" },
+  { name: "#1218o 聊天背景超 6MB 只跳过渲染、仅超 12MB 毒数据才清除（对齐 personalize 的 v3.10.x 口径；删＝正常略超标的图被三处齐删＝「设置成功、重启后背景被清掉」）", file: "js/chat-settings.js", needle: "if (bg.length > 12 * 1024 * 1024) { try { store.remove('cs-bg'); } catch (e) {} }" },
+  { name: "#1218p 删掉正被使用的一张时同步清 cs-bg 与 cs-bg-active-id（否则 #1218m 的取回会把刚删的图从 IDB 又捞回内存）", file: "js/chat-settings.js", needle: "if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }" },
+  { name: "#1218q 聊天背景对账读空不再顺手删指针（与 #1218k 同口径）", file: "js/chat-settings.js", needle: "if (!cur) return '';\nconst aid = csBgActiveId();" },
+  { name: "#1218r 导入/恢复完成后再补一次聊天背景（与 #1218l 同口径；用户流程正是「清库→导入→打开说背景没了」）", file: "js/chat-settings.js", needle: "csBgHydrating = false;\ncsBgHydrateOnce();" },
+  { name: "#1218s 删除型：桌面壁纸点格不得再无条件宣布「原图已丢失」（回流＝又把读超时当丢失，正是本批用户实报的那句话）", file: "js/personalize.js", needle: "这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return;", absent: true },
+  { name: "#1218t 删除型：聊天壁纸点格不得再无条件宣布「原图已丢失」（回流同上）", file: "js/chat-settings.js", needle: "这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }", absent: true },
+  /* ==== #1218 写侧（用户补报「有的手机重新上传图片也不行」）。
+        读侧收口只解决「库里有图却被说没了」；这一条是镜像问题：图**根本没进库**。
+        xyStore.set 对 >200KB 的值只写内存缓存 + 发一个不管结果的 window.idbSet，LS 那份还被大键
+        分支当场 removeItem ⇒ 配额满／事务被杀时写失败零回执，上传「当场成功、重开就没」。而新键
+        在库里不存在 ⇒ 重开后被读侧判成 absent＝「原图已丢失，请重新上传」，用户照做、再传、再丢，
+        原地转圈（诊断实证：某机单聊天 chat-msgs 107.7MB 把配额挤爆）。
+        收口：数据层 window.idbBigKeyLanded 取 count(键) 真回执（'landed'/'missing'/'unknown'，
+        'missing' 要连续两次确认——idbSet 与 count 各自挂在 open() 之后、事务入队顺序不保证，
+        只问一遍会把「还没写完」冤枉成「没写进去」）；两个壁纸入口入库后各验一次，只在确认没落盘
+        时报警，unknown 闭嘴。零机型／零 UA 分支＝判据只有内核回执。 */
+  { name: "#1218u 写完验真出口 window.idbBigKeyLanded（删＝上传又回到「内存里成功、库里失败、永远报成功」，用户按提示重传照样丢）", file: "js/idb.js", needle: "window.idbBigKeyLanded = function (relKey, gap) {" },
+  { name: "#1218v 落盘判定要连续两次确认（删＝把「MB 级写入还在排队」当成「没写进去」，正常设备每次上传都误报存储已满）", file: "js/idb.js", needle: "return new Promise((res) => { setTimeout(() => res(once()), gap || 1200); });" },
+  { name: "#1218w 桌面壁纸入库后验真落盘（删＝配额满的机器上「＋上传新图」照旧假成功）", file: "js/personalize.js", needle: "confirmBigKeys(['phone-bg-item-' + id, 'phone-bg'], '这张壁纸');" },
+  { name: "#1218x 桌面侧验真的取回执一份来自数据层（删＝本文件自己裸调 idbHasKey＝把两次确认/unknown 闭嘴那套规则写第二遍）", file: "js/personalize.js", needle: "Promise.all(keys.map((k) => window.idbBigKeyLanded(k))).then((sts) => {" },
+  { name: "#1218y 聊天背景入库后验真落盘（与 #1218w 同口径；删＝聊天壁纸上传假成功原样复发）", file: "js/chat-settings.js", needle: "confirmBigKeys(['cs-bg-item-' + id, 'cs-bg'], '这张壁纸');" },
+  { name: "#1218z 聊天侧验真的取回执（与 #1218x 同口径）", file: "js/chat-settings.js", needle: "Promise.all(keys.map((k) => landed(k))).then((sts) => {" },
+  { name: "#1218ab 落盘判定先看 LS 副本（≤200KB 的键 set 已同步写进 localStorage＝本身就是落盘证据；删＝小图上传碰上 IDB 不可用（隐私模式）会被误报「存储已满」，正常设备被吓）", file: "js/idb.js", needle: "if (lsHeld) return Promise.resolve('landed');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

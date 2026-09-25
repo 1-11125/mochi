@@ -935,6 +935,25 @@ m.innerHTML = ''; m.appendChild(wrap); m.style.display = 'flex';
 if (bgPresetRow) {
 bgPresetRow.addEventListener('click', openBgPanel);
 }
+const ensureBigKey = (k) => (window.idbEnsureBigKey ? window.idbEnsureBigKey(k) : Promise.resolve('unknown'));
+const bigKeyReady = (k) => { try { return !!store.get(k); } catch (e) { return false; } };
+const readBigKey = (k) => ensureBigKey(k).then((st) => {
+let v = '';
+try { v = store.get(k) || ''; } catch (e) {}
+return { v: v, st: v ? 'ready' : st };
+});
+const bigKeyMissToast = (st, what) => toast(st === 'absent'
+? what + '的原图库里已经查不到了（可能被浏览器清理），请重新上传'
+: what + '的原图这次没读出来（存储正忙），稍后再点一次即可，不需要重新上传');
+const confirmBigKeys = (keys, what) => {
+if (!window.idbBigKeyLanded) return;
+try {
+Promise.all(keys.map((k) => window.idbBigKeyLanded(k))).then((sts) => {
+if (sts.indexOf('missing') < 0) return;
+toast(what + '没能存进本机存储（存储空间可能已满）：现在能看见，重开就没了。请先去「设置 → 数据备份」导出备份，删掉一些数据后再传一次');
+}).catch(() => {});
+} catch (e) {}
+};
 const PBG_GLIST = 'phone-bg-glist';
 const PBG_MAX = 12; // 图库容量上限
 const pbgList = () => {
@@ -946,7 +965,7 @@ const pbgActiveId = () => store.get(PBG_ACTIVE) || '';
 function pbgReconcileActive() {
 const list = pbgList();
 const cur = store.get('phone-bg');
-if (!cur) { if (pbgActiveId()) store.remove(PBG_ACTIVE); return ''; }
+if (!cur) return '';
 const aid = pbgActiveId();
 if (aid && list.indexOf(aid) >= 0 && store.get('phone-bg-item-' + aid) === cur) return aid;
 for (let i = 0; i < list.length; i++) {
@@ -980,6 +999,7 @@ store.remove('phone-bg-preset');
 syncBgUI();
 syncBgPresetUI();
 applyBgVisibility();
+confirmBigKeys(['phone-bg-item-' + id, 'phone-bg'], '这张壁纸');
 return id;
 });
 const openPhoneBgPanel = () => {
@@ -1011,17 +1031,21 @@ if (id === aid) cell.style.borderColor = 'var(--btn-bg,#111)';
 const im = document.createElement('img');
 im.alt = '';
 im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+const paintThb = (full) => {
+if (!full) return;
+compressImage(full, 240).then((th) => { if (th) { store.set('phone-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+};
 if (thb) { im.src = thb; }
 else {
-const full = store.get('phone-bg-item-' + id);
 im.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
 cell.style.background = 'var(--muted,#888)';
-if (full) compressImage(full, 240).then((th) => { if (th) { store.set('phone-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+const full0 = store.get('phone-bg-item-' + id);
+if (full0) paintThb(full0);
+else readBigKey('phone-bg-item-' + id).then((r) => { paintThb(r.v); });
 }
 cell.appendChild(im);
 cell.addEventListener('click', () => {
-const full = store.get('phone-bg-item-' + id);
-if (!full) { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return; }
+const useFull = (full) => {
 applyPhoneBg(full);
 store.set('phone-bg', full);
 store.set(PBG_ACTIVE, id);
@@ -1031,13 +1055,20 @@ syncBgPresetUI();
 applyBgVisibility();
 toast('已切换壁纸');
 m.style.display = 'none';
+};
+const full = store.get('phone-bg-item-' + id);
+if (full) { useFull(full); return; }
+readBigKey('phone-bg-item-' + id).then((r) => {
+if (r.v) { useFull(r.v); return; }
+bigKeyMissToast(r.st, '这张壁纸');
+});
 });
 const del = document.createElement('div');
 del.textContent = '×';
 del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:18px;text-align:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px';
 del.addEventListener('click', (e) => {
 e.stopPropagation();
-const full = store.get('phone-bg-item-' + id);
+const doDelete = (full) => {
 const thb2 = store.get('phone-bg-item-thb-' + id);
 const wasActive = id === aid;
 pbgSaveList(pbgList().filter(x => x !== id));
@@ -1051,6 +1082,10 @@ m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 
 }
 toast('已删除，5 秒内可撤销');
 openPhoneBgPanel();
+};
+const has = store.get('phone-bg-item-' + id);
+if (has) { doDelete(has); return; }
+readBigKey('phone-bg-item-' + id).then((r) => { doDelete(r.v); });
 });
 cell.appendChild(del);
 grid.appendChild(cell);
@@ -1225,6 +1260,16 @@ if (!n) return '';
 const p = BG_PRESETS.find(b => b.name === n);
 return p ? p.css : '';
 };
+let pbgBgHydrating = false;
+const pbgHydrateBgOnce = () => {
+if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return;
+pbgBgHydrating = true;
+readBigKey('phone-bg').then((r) => {
+pbgBgHydrating = false;
+if (r.v) { applyBgVisibility(); return; }
+if (r.st === 'absent') { try { store.remove(PBG_ACTIVE); } catch (e) {} }
+}).catch(() => { pbgBgHydrating = false; });
+};
 const applyBgVisibility = () => {
 if (!phoneEl) return;
 const home = document.getElementById('page-phone');
@@ -1243,6 +1288,7 @@ else if (presetCss) applyPhoneBgPreset(presetCss);
 else setBgLayerImage(null);
 setBgLayerVisible(!!(customBg || (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) || presetCss));
 if (!customBg && !(solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) && !presetCss) applyBodyBg(null);
+if (!customBg && pbgActiveId()) pbgHydrateBgOnce();
 };
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', applyBgVisibility));
 document.querySelectorAll('.app[data-app="chat"]').forEach(a => a.addEventListener('click', applyBgVisibility));
@@ -1253,15 +1299,13 @@ const mo = new MutationObserver(applyBgVisibility);
 mo.observe(homePage, { attributes: true, attributeFilter: ['hidden'] });
 }
 applyBgVisibility();
+pbgHydrateBgOnce();
 try {
-if (window.idbGet) {
-window.idbGet(window.activePrefix() + ':phone-bg').then(v => {
-if (v && typeof v === 'string' && v.length > 2 && !store.get('phone-bg')) {
-store.set('phone-bg', v);
-applyBgVisibility();
-}
+document.addEventListener('mochi-restore-done', () => {
+try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
+pbgBgHydrating = false;
+pbgHydrateBgOnce();
 });
-}
 } catch (e) {}
 const grids = document.querySelectorAll('.app-grid');
 const ICON_HOME_GRID = {};

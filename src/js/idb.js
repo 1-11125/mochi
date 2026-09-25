@@ -1138,6 +1138,101 @@
       return true;
     }).catch(() => false);
   };
+  // FIX 2026-09-25 #1218（用户实报「小米15 / edge：清理数据后再导入显示背景被清除，上传图片显示
+  // 原图已丢失请重新上传」；同族症状在别的机型/浏览器同样出现——OPPO K13 Turbo Pro + edge「背景图
+  // 显示被清理需要重启才能显示」、红米 K80 + chrome「从通知弹窗点开进聊天页，聊天背景与桌面背景
+  // 一起莫名消失，刷新又恢复正常」）：
+  // 这类 >200KB 的原图（桌面/聊天壁纸及其图库条目）只存在 IndexedDB —— xyStore.get 只认内存缓存与
+  // localStorage，永不回退 IDB；启动回填按内存预算（≤4GB 取 12MB，否则 24MB）逐键流式补，用的又是
+  // 定死 4s+4s、不按体积放大的 idbGetMany ⇒ 刚清库整包导入的那一轮、或启动期被秒级长任务占住主线程
+  // 时（OPPO 诊断实测：chat-msgs 单键 107.7MB 远超整轮预算、启动长任务 1432ms、JS 堆 1020MB），
+  // MB 级原图常常读不完就被判「挂起」进 __xyIdbDeferredKeys。挂起/超时都不等于数据没了，可每个消费
+  // 方一读空就直接宣布「原图已丢失，请重新上传」、把生效指针 store.remove 掉、把已铺好的图层拆掉
+  // ——用户被告知要重传，其实图就在库里；刷新一次时序变了就又显示，正是「重启才显示」。
+  // 方案：把「读空先按需取回（idbHydrateKey：6s+8s、挂起时重建连接、不受回填预算限制），再按内核
+  // 回执三态定性」收成数据层唯一一份。字卡库 chatcard.hydrateScope（#193）与音乐库 bootMusic（#1208）
+  // 已是同口径的两个先例，这里只是给没做这件事的那批键补上；消费方只允许在 'absent' 时说「已丢失」。
+  // 零机型／零 UA 分支：判据只有内核回执的三态。
+  const bigHydInflight = {};   // 完整键名 -> 进行中的取回（同键并发合流，不重复读 MB 级值）
+  const bigHydAbsent = {};     // 完整键名 -> 健康连接确认库里确实没有（本会话不再空读）
+  // 一个相对键名在「当前桌面」的候选完整键名：命名空间键 + default 桌面的旧顶层键
+  //（defaultStore().get 就有这条回退，取回路径必须同口径，否则未迁移老数据上的原图永远取不回）
+  window.idbBigKeyCandidates = function (relKey) {
+    let prefix = 'xy-home-v2:default';
+    try { if (window.activePrefix) prefix = window.activePrefix() || prefix; } catch (e) {}
+    const out = [prefix + ':' + relKey];
+    try {
+      const legacy = 'xy-home-v2:' + relKey;
+      if ((!window.__activeCid || window.__activeCid === 'default') && out.indexOf(legacy) < 0) out.push(legacy);
+    } catch (e) {}
+    return out;
+  };
+  // → Promise<'ok'|'absent'|'unknown'>
+  //   'ok'      已取回进内存缓存，此后 store.get(relKey) 可读（调用方仍要自己复核，见 bigKeyReady）
+  //   'absent'  健康连接确认所有候选键在库里都不存在 ⇒ 这才是真的「原图已丢失」
+  //   'unknown' 读取失败/超时，或本环境没有按需取回能力 ⇒ 任何情况下都不许当成丢失
+  window.idbEnsureBigKey = function (relKey) {
+    if (typeof relKey !== 'string' || !relKey) return Promise.resolve('unknown');
+    const hyd = window.idbHydrateKey;
+    if (typeof hyd !== 'function') return Promise.resolve('unknown');
+    const cands = window.idbBigKeyCandidates(relKey);
+    let sawAbsent = false, sawUnknown = false;
+    const step = (i) => {
+      // 三态里最要紧的一条：只要有任何一个候选键这一轮没问出结果（读失败/超时），就绝不许退成
+      // 'absent'——default 桌面有两个候选键，命名空间键读失败而旧顶层键「确认没有」时说「已丢失」，
+      // 就是把一次超时讲成数据没了（用户据此去重传，甚至眼看着图被判死刑）。
+      if (i >= cands.length) return Promise.resolve(sawAbsent && !sawUnknown ? 'absent' : 'unknown');
+      const full = cands[i];
+      if (bigHydAbsent[full]) { sawAbsent = true; return step(i + 1); }
+      const settle = (r) => {
+        if (r === 'ok') return 'ok';
+        if (r === 'absent') sawAbsent = true; else sawUnknown = true;
+        return step(i + 1);
+      };
+      if (bigHydInflight[full]) return bigHydInflight[full].then(settle);
+      bigHydInflight[full] = Promise.resolve(hyd(full)).then((v) => {
+        delete bigHydInflight[full];
+        if (v === true) return 'ok';
+        if (v === null) { bigHydAbsent[full] = true; return 'absent'; }
+        return 'unknown';
+      }).catch(() => { delete bigHydInflight[full]; return 'unknown'; });
+      return bigHydInflight[full].then(settle);
+    };
+    return step(0);
+  };
+  // 备份导入/恢复之后必须重探一次：上一轮「确认库里没有」是按当时的库做的，导入把数据带回来时
+  // 那份留底就成了假证（用户流程正是「清库 → 导入 → 打开看到已丢失」）。与 #787 字体补读同口径。
+  window.idbResetBigKeyProbe = function () {
+    try { for (const k in bigHydAbsent) delete bigHydAbsent[k]; } catch (e) {}
+    try { for (const k in bigHydInflight) delete bigHydInflight[k]; } catch (e) {}
+  };
+  // #1218u 写完验真（大键落盘回执）。上面管的是「读」，这一份管「写」：xyStore.set 对 >200KB 的值
+  // 只写内存缓存 + 发一个不管结果的 idbSet（LS 那份被大键分支主动 removeItem 掉了），所以配额满、
+  // 事务被内核杀掉时写失败**没有任何回执**——当场看着「已设置」，重开那张图就没了。用户实报
+  // 「按提示重新上传壁纸也不行」正是这条：存储被别的大键（实测某机单聊天库 107MB）挤爆后，
+  // 每次上传都在内存里成功、在库里失败，而且永远报成功。判据取 count(键) 的真回执，零机型分支。
+  // → Promise<'landed' | 'missing' | 'unknown'>：'missing' 要求连续两次确认库里没有（见下），
+  // 因为 idbSet 与本次 count 各自挂在 open() 之后，事务入队顺序不保证——只问一遍会把「还没写完」
+  // 冤枉成「没写进去」。'unknown' 绝不报警（问不出结果时宁可闭嘴，不许吓用户）。
+  window.idbBigKeyLanded = function (relKey, gap) {
+    if (typeof relKey !== 'string' || !relKey || typeof window.idbHasKey !== 'function') return Promise.resolve('unknown');
+    let full = '';
+    try { full = (window.idbBigKeyCandidates(relKey) || [])[0] || ''; } catch (e) {}
+    if (!full) return Promise.resolve('unknown');
+    // 只有「大键」才需要问库：xyStore.set 对 ≤200KB 的值本来就同步写了 localStorage（LS 有值且没
+    // 标脏＝它本身就是落盘证据），此时 IDB 恰好不可用（隐私模式）也不该报「存储已满」。大键索引
+    // _bigIdx 由 set 同步维护，认它；LS 写失败被标进 _lsDirtyKeys 的键，那份 LS 是旧值，不算数。
+    const lsHeld = (() => {
+      try { return _bigIdx[full] === undefined && localStorage.getItem(full) !== null && !(_lsDirtyKeys && _lsDirtyKeys.has(full)); } catch (e) { return false; }
+    })();
+    if (lsHeld) return Promise.resolve('landed');
+    const once = () => Promise.resolve(window.idbHasKey(full)).then(
+      (h) => (h === true ? 'landed' : (h === false ? 'missing' : 'unknown')), () => 'unknown');
+    return once().then((r) => {
+      if (r !== 'missing') return r;
+      return new Promise((res) => { setTimeout(() => res(once()), gap || 1200); });
+    });
+  };
   // ===== v3.26.x：小键写日志（Edge/荣耀杀进程丢最近提交 → 设置开关回退）=====
   // 现象：荣耀 200 Pro Edge 反馈「系统预设字卡朋友圈/写信使用、我方发语音」关掉后
   // 退出浏览器重进又变回开启（Via/雨见正常）。根因链：切换开关后很快退出浏览器时，

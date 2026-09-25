@@ -44,13 +44,48 @@ const csBgActiveId = () => store.get(CS_BG_ACTIVE) || '';
 function csBgReconcileActive() {
 const list = csBgList();
 const cur = store.get('cs-bg');
-if (!cur) { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); return ''; }
+if (!cur) return '';
 const aid = csBgActiveId();
 if (aid && list.indexOf(aid) >= 0 && store.get('cs-bg-item-' + aid) === cur) return aid;
 for (let i = 0; i < list.length; i++) {
 if (store.get('cs-bg-item-' + list[i]) === cur) { store.set(CS_BG_ACTIVE, list[i]); return list[i]; }
 }
 return '';
+}
+const ensureBigKey = (k) => (window.idbEnsureBigKey ? window.idbEnsureBigKey(k) : Promise.resolve('unknown'));
+const readBigKey = (k) => ensureBigKey(k).then((st) => {
+let v = '';
+try { v = store.get(k) || ''; } catch (e) {}
+return { v: v, st: v ? 'ready' : st };
+});
+const bigKeyMissToast = (st, what) => toast(st === 'absent'
+? what + '的原图库里已经查不到了（可能被浏览器清理），请重新上传'
+: what + '的原图这次没读出来（存储正忙），稍后再点一次即可，不需要重新上传');
+const confirmBigKeys = (keys, what) => {
+const landed = window.idbBigKeyLanded;
+if (typeof landed !== 'function') return;
+try {
+Promise.all(keys.map((k) => landed(k))).then((sts) => {
+if (sts.indexOf('missing') < 0) return;
+toast(what + '没能存进本机存储（存储空间可能已满）：现在能看见，重开就没了。请先去「设置 → 数据备份」导出备份，删掉一些数据后再传一次');
+}).catch(() => {});
+} catch (e) {}
+};
+function csBgExpectBg() {
+const aid = csBgActiveId();
+return !!aid && csBgList().indexOf(aid) >= 0;
+}
+let csBgHydrating = false;
+function csBgHydrateOnce() {
+if (csBgHydrating || !window.idbEnsureBigKey) return false;
+try { if (store.get('cs-bg')) return false; } catch (e) { return false; }
+csBgHydrating = true;
+readBigKey('cs-bg').then((r) => {
+csBgHydrating = false;
+if (r.v) { try { applySettings(); } catch (e) {} return; }
+if (r.st === 'absent') { try { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); } catch (e) {} }
+}).catch(() => { csBgHydrating = false; });
+return true;
 }
 const FONT_SIZES = [
 { label: '小', value: '13px' },
@@ -319,7 +354,7 @@ set('cs-mark-pos-val', fmtOff(markDX, markDY));
 set('cs-time-pos-val', fmtOff(timeDX, timeDY));
 let bg = store.get('cs-bg');
 if (bg && typeof bg === 'string' && bg.length > 6 * 1024 * 1024) {
-try { store.remove('cs-bg'); } catch (e) {}
+if (bg.length > 12 * 1024 * 1024) { try { store.remove('cs-bg'); } catch (e) {} }
 bg = null;
 }
 const bgLayer = csBgLayer();
@@ -339,11 +374,12 @@ chatPage.classList.toggle('cs-bg-on', true);
 chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
 csBgStableLater();
 } else {
-if (bgLayer) {
+const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();
+if (bgLayer && !waitBg) {
 if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
 if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
 }
-if (chatPage) {
+if (chatPage && !waitBg) {
 if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
 if (chatPage.classList.contains('cs-bg-on')) chatPage.classList.remove('cs-bg-on');
 if (chatPage.style.backgroundImage) {
@@ -439,6 +475,7 @@ csBgMakeThumb(data, 240).then(th => { if (th) store.set('cs-bg-item-thb-' + id, 
 store.set('cs-bg', data);
 store.set(CS_BG_ACTIVE, id);
 applySettings();
+confirmBigKeys(['cs-bg-item-' + id, 'cs-bg'], '这张壁纸');
 return id;
 }
 function csBgPickFiles() {
@@ -505,29 +542,38 @@ im.alt = '';
 im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
 if (thb) { im.src = thb; }
 else {
-const full = store.get('cs-bg-item-' + id);
 im.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
 cell.style.background = 'var(--muted,#888)';
-if (full) csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+const paint = (full) => {
+if (!full) return;
+csBgMakeThumb(full, 240).then((th) => { if (th) { store.set('cs-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+};
+const full0 = store.get('cs-bg-item-' + id);
+if (full0) paint(full0);
+else readBigKey('cs-bg-item-' + id).then((r) => { paint(r.v); });
 }
 cell.appendChild(im);
 cell.addEventListener('click', () => {
+const useFull = (full) => { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; };
 const full = store.get('cs-bg-item-' + id);
-if (full) { store.set('cs-bg', full); store.set(CS_BG_ACTIVE, id); applySettings(); toast('已切换壁纸'); m.style.display = 'none'; }
-else { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }
+if (full) { useFull(full); return; }
+readBigKey('cs-bg-item-' + id).then((r) => {
+if (r.v) { useFull(r.v); return; }
+bigKeyMissToast(r.st, '这张壁纸');
+});
 });
 const del = document.createElement('div');
 del.textContent = '×';
 del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:18px;text-align:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px';
 del.addEventListener('click', (e) => {
 e.stopPropagation();
-const full = store.get('cs-bg-item-' + id);
+const doDelete = (full) => {
 const thb2 = store.get('cs-bg-item-thb-' + id);
 const wasActive = id === aid;
 csBgSaveList(csBgList().filter(x => x !== id));
 store.remove('cs-bg-item-' + id);
 store.remove('cs-bg-item-thb-' + id);
-if (wasActive) { store.remove('cs-bg'); applySettings(); }
+if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }
 if (full) {
 m.__undoItem = { id, full, thb: thb2, wasActive };
 if (m.__undoTimer) clearTimeout(m.__undoTimer);
@@ -535,6 +581,10 @@ m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 
 }
 toast('已删除，5 秒内可撤销');
 openCsBgPanel();
+};
+const has = store.get('cs-bg-item-' + id);
+if (has) { doDelete(has); return; }
+readBigKey('cs-bg-item-' + id).then((r) => { doDelete(r.v); });
 });
 cell.appendChild(del);
 grid.appendChild(cell);
@@ -1396,6 +1446,11 @@ document.getElementById('cs-font-sync').addEventListener('click', () => { syncFo
 demoteFontGlobal();
 migrateFontBlobs();
 try { document.addEventListener('mochi-restore-done', () => { _fontHydrateTries = {}; migrateFontBlobs(); applyFont(); }); } catch (e) {}
+try { document.addEventListener('mochi-restore-done', () => {
+try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
+csBgHydrating = false;
+csBgHydrateOnce();
+}); } catch (e) {}
 applyFont();
 const csCss = row('cs-css');
 const CSS_KEY = 'cs-bubble-css';

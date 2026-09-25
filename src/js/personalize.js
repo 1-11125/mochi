@@ -1260,6 +1260,38 @@ try {
   //   phone-bg-item-thb-<id> = 240px 缩略图（面板只解码小图，防 N 张 4MB 原图同时解码卡顿）。
   // 当前生效壁纸仍是 phone-bg（常驻图层/定位缩放/预设互斥/方案导入等既有链路零改动）。
   // 旧数据自动迁移：phone-bg 有值而图库为空时，首次打开面板把当前壁纸收为第 1 张。
+  // FIX 2026-09-25 #1218（用户实报「小米15 edge 清理数据后再导入显示背景被清除，上传图片显示
+  // 原图已丢失请重新上传」；同族症状在别的机型/浏览器同样出现）：壁纸原图 >200KB 只存 IndexedDB，
+  // 启动回填按内存预算逐键流式补（超预算＝进 __xyIdbDeferredKeys 挂起名单），而回填用的
+  // idbGetMany 是定死的 4s+4s、不按体积放大 ⇒ 刚清库整包导入的那一轮里，排在几十个已入库大键
+  // 后面的 MB 级原图常常读不完就被判「挂起」。挂起 ≠ 丢失，可此前每条读空路径都直接宣布
+  // 「原图已丢失，请重新上传」。三态判定与按需取回收成数据层唯一一份 window.idbEnsureBigKey
+  //（批注在 idb.js），本文件只留薄包装——与字卡库 #193、音乐库 #1208 同口径。零机型／零 UA 分支。
+  const ensureBigKey = (k) => (window.idbEnsureBigKey ? window.idbEnsureBigKey(k) : Promise.resolve('unknown'));
+  // 取回成功后当前桌面读到值了吗（'ok' 却读不到＝键名/命名空间不对，按未取回处理，不判丢失）
+  const bigKeyReady = (k) => { try { return !!store.get(k); } catch (e) { return false; } };
+  // 读空 → 按需取回 → { v: 值, st: 'ready'|'absent'|'unknown' }：只有 'absent' 才允许说「已丢失」
+  const readBigKey = (k) => ensureBigKey(k).then((st) => {
+    let v = '';
+    try { v = store.get(k) || ''; } catch (e) {}
+    return { v: v, st: v ? 'ready' : st };
+  });
+  // 两种「读不到」必须说两种话：确认没有＝请重传；没确认＝别让用户白重传一遍
+  const bigKeyMissToast = (st, what) => toast(st === 'absent'
+    ? what + '的原图库里已经查不到了（可能被浏览器清理），请重新上传'
+    : what + '的原图这次没读出来（存储正忙），稍后再点一次即可，不需要重新上传');
+  // 写完验真：大键在 xyStore.set 里只落内存缓存 + 一个不管结果的 IDB 写（LS 那份还被大键规则删掉），
+  // 所以存储配额满时上传是「当场成功、重开就没」——用户按提示重传还是不行，因为每次都没落盘。
+  // 这里取 count(键) 的真回执，两次确认库里没有才报警；问不出结果（unknown）闭嘴，不吓正常设备。
+  const confirmBigKeys = (keys, what) => {
+    if (!window.idbBigKeyLanded) return;
+    try {
+      Promise.all(keys.map((k) => window.idbBigKeyLanded(k))).then((sts) => {
+        if (sts.indexOf('missing') < 0) return;
+        toast(what + '没能存进本机存储（存储空间可能已满）：现在能看见，重开就没了。请先去「设置 → 数据备份」导出备份，删掉一些数据后再传一次');
+      }).catch(() => {});
+    } catch (e) {}
+  };
   const PBG_GLIST = 'phone-bg-glist';
   const PBG_MAX = 12; // 图库容量上限
   const pbgList = () => {
@@ -1274,7 +1306,9 @@ try {
   function pbgReconcileActive() {
     const list = pbgList();
     const cur = store.get('phone-bg');
-    if (!cur) { if (pbgActiveId()) store.remove(PBG_ACTIVE); return ''; }
+    // #1218：读空不等于「壁纸没了」（大键可能被回填挂起）。原来这里顺手 store.remove(PBG_ACTIVE)
+    // ＝把 active-id 指针删掉，等原图稍后取回来，面板高亮/删除判定已经找不到当初生效的是哪张。
+    if (!cur) return '';
     const aid = pbgActiveId();
     if (aid && list.indexOf(aid) >= 0 && store.get('phone-bg-item-' + aid) === cur) return aid;
     for (let i = 0; i < list.length; i++) {
@@ -1311,6 +1345,7 @@ try {
     // v3.5.111：上传后立即同步一次桌面可见性，确保回桌面时壁纸已应用
     //（配合内存缓存修复：大壁纸不写 localStorage，靠内存缓存当前会话内读回）
     applyBgVisibility();
+    confirmBigKeys(['phone-bg-item-' + id, 'phone-bg'], '这张壁纸');
     return id;
   });
   // 壁纸图库面板：缩略图网格（点图切换 / × 删除两击确认）+ 多选上传 + 清除当前
@@ -1346,50 +1381,71 @@ try {
       const im = document.createElement('img');
       im.alt = '';
       im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+      const paintThb = (full) => {
+        if (!full) return;
+        compressImage(full, 240).then((th) => { if (th) { store.set('phone-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+      };
       if (thb) { im.src = thb; }
       else {
-        const full = store.get('phone-bg-item-' + id);
         im.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=';
         cell.style.background = 'var(--muted,#888)';
-        if (full) compressImage(full, 240).then((th) => { if (th) { store.set('phone-bg-item-thb-' + id, th); im.src = th; cell.style.background = ''; } });
+        // #1218：灰格＝「原图这会儿没读到」，不等于「这张没了」。清库导入后回填常常只补上
+        // 前几个键，其余整屏壁纸一起变灰＝用户看到的「背景被清除」。先按需取回再补缩略图。
+        const full0 = store.get('phone-bg-item-' + id);
+        if (full0) paintThb(full0);
+        else readBigKey('phone-bg-item-' + id).then((r) => { paintThb(r.v); });
       }
       cell.appendChild(im);
       cell.addEventListener('click', () => {
         // 只读被点中的这一张全图（active-id 对账保证高亮一致）
+        const useFull = (full) => {
+          applyPhoneBg(full);
+          store.set('phone-bg', full);
+          store.set(PBG_ACTIVE, id);
+          store.remove('phone-bg-preset');
+          syncBgUI();
+          syncBgPresetUI();
+          applyBgVisibility();
+          toast('已切换壁纸');
+          m.style.display = 'none';
+        };
         const full = store.get('phone-bg-item-' + id);
-        // FIX 2026-09-22 #1036：全图数据丢失（存储被系统清理）时原本点格静默无响应，
-        // 用户表现为「点了没反应要按好几次」——改为明确提示重传
-        if (!full) { toast('这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return; }
-        applyPhoneBg(full);
-        store.set('phone-bg', full);
-        store.set(PBG_ACTIVE, id);
-        store.remove('phone-bg-preset');
-        syncBgUI();
-        syncBgPresetUI();
-        applyBgVisibility();
-        toast('已切换壁纸');
-        m.style.display = 'none';
+        if (full) { useFull(full); return; }
+        // FIX 2026-09-22 #1036：全图读不到时原本点格静默无响应，用户表现为「点了没反应要按
+        // 好几次」——改为明确提示；FIX 2026-09-25 #1218：提示之前先按需取回一次，并且只有
+        // 内核「健康连接确认库里没有」才说「已丢失请重传」，读失败/超时说「稍后再点一次」
+        readBigKey('phone-bg-item-' + id).then((r) => {
+          if (r.v) { useFull(r.v); return; }
+          bigKeyMissToast(r.st, '这张壁纸');
+        });
       });
       const del = document.createElement('div');
       del.textContent = '×';
       del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:18px;text-align:center;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px';
       del.addEventListener('click', (e) => {
         e.stopPropagation();
-        const full = store.get('phone-bg-item-' + id);
-        const thb2 = store.get('phone-bg-item-thb-' + id);
-        const wasActive = id === aid;
-        pbgSaveList(pbgList().filter(x => x !== id));
-        store.remove('phone-bg-item-' + id);
-        store.remove('phone-bg-item-thb-' + id);
-        if (wasActive) { clearPhoneBg(); store.remove('phone-bg-pos-x'); store.remove('phone-bg-pos-y'); store.remove('phone-bg-size'); }
-        // 优化⑤：留底 5 秒，面板底部出「撤销」条；每次删除覆盖上一条留底（只保最近一张）
-        if (full) {
-          m.__undoItem = { id, full, thb: thb2, wasActive };
-          if (m.__undoTimer) clearTimeout(m.__undoTimer);
-          m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 'flex') openPhoneBgPanel(); }, 5000);
-        }
-        toast('已删除，5 秒内可撤销');
-        openPhoneBgPanel();
+        // #1218：删除要留 5 秒可撤销的底，而底只能从「手里有值」来——原图被回填挂起时
+        // store.get 是空的，留底也就是空的：一次读空把「可撤销的删除」变成不可逆删除。
+        // 所以先按需取回再删（取不回照删，用户要的就是删掉，只是撤销条诚实出现不了）。
+        const doDelete = (full) => {
+          const thb2 = store.get('phone-bg-item-thb-' + id);
+          const wasActive = id === aid;
+          pbgSaveList(pbgList().filter(x => x !== id));
+          store.remove('phone-bg-item-' + id);
+          store.remove('phone-bg-item-thb-' + id);
+          if (wasActive) { clearPhoneBg(); store.remove('phone-bg-pos-x'); store.remove('phone-bg-pos-y'); store.remove('phone-bg-size'); }
+          // 优化⑤：留底 5 秒，面板底部出「撤销」条；每次删除覆盖上一条留底（只保最近一张）
+          if (full) {
+            m.__undoItem = { id, full, thb: thb2, wasActive };
+            if (m.__undoTimer) clearTimeout(m.__undoTimer);
+            m.__undoTimer = setTimeout(() => { m.__undoItem = null; if (m.style.display === 'flex') openPhoneBgPanel(); }, 5000);
+          }
+          toast('已删除，5 秒内可撤销');
+          openPhoneBgPanel();
+        };
+        const has = store.get('phone-bg-item-' + id);
+        if (has) { doDelete(has); return; }
+        readBigKey('phone-bg-item-' + id).then((r) => { doDelete(r.v); });
       });
       cell.appendChild(del);
       grid.appendChild(cell);
@@ -1581,6 +1637,21 @@ try {
     const p = BG_PRESETS.find(b => b.name === n);
     return p ? p.css : '';
   };
+  // #1218：桌面壁纸原图 >200KB 只存 IndexedDB，启动回填可能把它判成「挂起」（预算/超时），
+  // 于是 store.get('phone-bg') 读空、桌面白板——而图其实就在库里，刷新一次时序变了又显示，
+  // 这正是用户说的「背景图显示被清理，需要重启才能显示」。这里改成：读空就按需取回一次，
+  // 落地后自己重铺；只有内核确认库里没有，才认这张真没了。
+  let pbgBgHydrating = false;
+  const pbgHydrateBgOnce = () => {
+    if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return;
+    pbgBgHydrating = true;
+    readBigKey('phone-bg').then((r) => {
+      pbgBgHydrating = false;
+      if (r.v) { applyBgVisibility(); return; }
+      // 确认查无此图＝指针指向的那张真的没了（被系统清理/换机没带过来），此时才按既有语义清指针
+      if (r.st === 'absent') { try { store.remove(PBG_ACTIVE); } catch (e) {} }
+    }).catch(() => { pbgBgHydrating = false; });
+  };
   const applyBgVisibility = () => {
     if (!phoneEl) return;
     const home = document.getElementById('page-phone');
@@ -1606,6 +1677,9 @@ try {
     else setBgLayerImage(null);
     setBgLayerVisible(!!(customBg || (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) || presetCss));
     if (!customBg && !(solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) && !presetCss) applyBodyBg(null);
+    // #1218：桌面该有自己的壁纸（active-id 指针在）却读空＝大概率被回填挂起，不是用户没设壁纸。
+    // 触发一次按需取回，落地后本函数会自己再跑一遍把壁纸铺回来（不用重启）。
+    if (!customBg && pbgActiveId()) pbgHydrateBgOnce();
   };
   // 页面切换时同步壁纸显示
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', applyBgVisibility));
@@ -1618,17 +1692,17 @@ try {
     mo.observe(homePage, { attributes: true, attributeFilter: ['hidden'] });
   }
   applyBgVisibility();
-  // v3.5.93：桌面壁纸大键可能只存在 IndexedDB（导入兜底写入/大键只进 IDB）——
-  // 启动时从 IDB 补读后重新应用
+  // v3.5.93：桌面壁纸大键可能只存在 IndexedDB（导入兜底写入/大键只进 IDB）——启动时补读后重新应用
+  // FIX 2026-09-25 #1218：把「裸 idbGet（超时定死、失败静默、读空就当没有）」换成数据层的三态
+  // 按需取回：取回成功才重铺，确认查无才认丢失，读失败保持可重试（下一次进桌面 applyBgVisibility
+  // 会再踢一次）。备份导入/恢复整库换血后旧留底作废，重置探针再补一次＝「导入完不必重启」。
+  pbgHydrateBgOnce();
   try {
-    if (window.idbGet) {
-      window.idbGet(window.activePrefix() + ':phone-bg').then(v => {
-        if (v && typeof v === 'string' && v.length > 2 && !store.get('phone-bg')) {
-          store.set('phone-bg', v);
-          applyBgVisibility();
-        }
-      });
-    }
+    document.addEventListener('mochi-restore-done', () => {
+      try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
+      pbgBgHydrating = false;
+      pbgHydrateBgOnce();
+    });
   } catch (e) {}
 
   // 自定义手机桌面图标：点击设置项切到手机页进入编辑模式，再点击目标 app 上传替换
