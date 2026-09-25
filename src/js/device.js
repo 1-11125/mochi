@@ -3656,7 +3656,7 @@ window.mochiViewportForm = function (sig) {
     { n: '收藏', app: 'note', page: 'page-fav', open: true },
     { n: '统计', app: 'stats', page: 'page-stats', open: true },
     { n: '提问记录', app: 'interact', page: 'page-interact', open: true },
-    { n: '寻踪打卡', app: 'checkin', page: 'page-ta-checkin', open: true, gated: '可能需先绑定 TA/授权定位，会先弹引导' },
+    { n: '寻踪打卡', app: 'checkin', page: 'page-checkin', open: true, gated: '寻踪总开关已关闭：设置 → 工具 → 寻踪 可重新开启' },   // #1279 图标开的是寻踪页 page-checkin（不是字卡库题库页），gated 只写代码里真存在的那道门
     { n: '占卜', app: 'divination', page: 'page-divine', open: true },
     { n: '花园', app: 'garden', page: 'page-garden', open: true },
     { n: '此间', app: 'cjian', page: 'page-cjian', open: true },

@@ -5161,6 +5161,11 @@ const FIX_SENTINELS = [
   { name: "#1273j 组件一到位自己重渲整卡（删＝一次加载失败永久定格，只能整页刷新赌网络；换成无限轮询＝后台常驻计时器）", file: "js/clock.js", needle: "if (cardLockFixTimer) return;" },
   { name: "#1273l 整卡重渲染不吃掉刚写下的真话（删＝远程公告回写那次 run() 把状态行清空，用户看到的仍是「点了没反应」——无头实测点完 0.8s 后状态行为空）", file: "js/clock.js", needle: "if (cardLockMissMsg && !cardLockReady()) state.textContent = cardLockMissMsg;" },
   { name: "#1273k 动作区容器禁选（删＝长按识别候选/双击缩放等待把这一次点按吃掉，与①同族症状复发；针取 minify 后的产物形态）", file: "css/base.css", needle: ".cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; user-select:none;" },
+  /* ==== 2026-09-25 #1279（用户拿诊断单截图实报「图上这个写错了，没有这种授权」）：设置→诊断→功能诊断 的「寻踪打卡」一行读数自相矛盾——「页面✓，图标✓，打开未生效（可能需先绑定 TA/授权定位，会先弹引导）」。
+      根因＝src/js/device.js 的 FUNC_ITEMS 那一行错两处：① page 填 page-ta-checkin（字卡库「TA的查岗」题库管理页），而桌面 data-app="checkin" 图标实际打开 page-checkin（p2-features.js 的 openCheckinPage）＝诊断量错了页，pageVisible() 恒假；② 恒假后走 it.gated 分支（本意「该功能有前置条件，打不开不算异常」），那句凭空写的 gated 文案被当结论打印——全站零 geolocation 调用、也没有「绑定 TA」这一步，真实门控只有 checkin-en 总开关（关掉时 openCheckinPage 直接 toast 返回）。
+      修法＝一行内同时纠正「量哪个页」与「打不开时说什么」（gated 用冒号，外层打印已有 打开未生效（…） 一对）。零机型／零 UA 分支不变，判据仍是「点图标 → 目标页是否可见」这一个 DOM 事实。行为断言＝tools/verify-1279-func-diag-checkin-row.mjs（g/r 两侧同尺）。 ==== */
+  { name: "#1279a 功能诊断「寻踪」量的是寻踪页本身（换回 page-ta-checkin＝诊断去量字卡库那页，图标点开的是寻踪页，恒判「打开未生效」＝用户实报的那行假读数复发）", file: "js/device.js", needle: "app: 'checkin', page: 'page-checkin', open: true" },
+  { name: "#1279z 诊断不得再凭空报「绑定 TA/授权定位」（项目里没有这一步也没有那项权限；回流＝给用户指一个不存在的门槛，用户会去系统设置里找本站没有的定位权限）", file: "js/device.js", needle: "可能需先绑定 TA/授权定位", absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
