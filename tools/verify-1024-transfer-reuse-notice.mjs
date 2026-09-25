@@ -4,8 +4,9 @@
 // 落点：开屏第一页公告（#splash-notice）的**首个章节**（顶部最显眼的一章）＋ 必读摘要新增一条高亮；
 //   两份同步——联网用户看 src/pwa/notice.json 的 sections[0]/summary（在线权威源），
 //   断网/弱网用户看 src/template.html 的静态兜底 DOM（renderNotice 用在线列表整段替换静态段）。
-// 为什么必须是首个章节：用户口径是「开屏第一页要写」＝第一眼可见；静态兜底章节默认折叠，
-//   只在摘要里出现会让「不点章节就看不到」的老问题重现（#661d 同族），故摘要同步补一条高亮。
+// v8.44 #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：摘要块在两份源同批撤除，
+//   本脚本原判「摘要里有转载高亮条 / 首条未被顶掉」的三条断言随之改口为「summary 已空 ＋ 静态无 .splash-summary 块 ＋
+//   转载内容仍落在首章」；「为什么必须是首个章节」的理由（不点章节就看不到）在摘要撤除后更成立——章节是唯一落点。
 // 不进 build.mjs 哨兵：内容型批次（同 #1022 口径），行为断言由本脚本承担。
 // 用法：node tools/verify-1024-transfer-reuse-notice.mjs
 //   MOCHI_SERVE_ROOT=<仓外隔离副本目录> 可指向隔离产物（默认 = 本仓根）
@@ -56,8 +57,10 @@ ok(flat[0] === LEAD, '首句＝开放二传二改原则 + 请遵守以下要求�
 RULES.forEach((r, i) => ok(flat[i + 1] === r, '第 ' + (i + 1) + ' 条要求逐字在位', flat[i + 1]));
 ok(flat[5] === TAIL, '收尾＝未署名视为侵权（逐字在位）', flat[5]);
 ok(!!s0 && Array.isArray(s0.p) && s0.p[5] && s0.p[5].hl === TAIL, '侵权声明走 hl 高亮条目（与页面红线口径一致）');
-ok(!!j && j.summary.some((x) => x && x.hl && x.hl.indexOf('【转载 · 二次创作】') === 0), '摘要新增转载高亮条（不点章节也看得到）');
-ok(!!j && j.summary[0] && j.summary[0].hl.indexOf('【有问题先去「关于」找答案') === 0, '摘要第一条未被顶掉（#864/about 断言面不变）');
+// v8.44 #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：summary 整段清空，
+//   原「摘要新增转载高亮条 / 第一条未被顶掉」两条判据改口为「summary 已空」＋「转载章仍在首位」（本章即落点）。
+ok(!!j && Array.isArray(j.summary) && j.summary.length === 0, '在线 summary 已随 #1216 整段清空（残留一条＝联网用户仍看到半块摘要，与静态兜底两份分叉）', JSON.stringify(j.summary || null).slice(0, 40));
+ok(!!j && j.sections.length >= 12 && j.sections[0].h === TITLE, '转载公告落在线首章（摘要撤除后它才是唯一落点）', j && j.sections.length + ' 章');
 ok(!!j && (j.sections.find((x) => String(x.h).indexOf('四、许可') === 0) || {}).h !== undefined, '四、许可 · 署名 · 灵感来源 章仍在（未被我方替换/删除）');
 
 console.log('\n== B 离线兜底 src/template.html ==');
@@ -66,8 +69,8 @@ ok(tpl.indexOf('<p class="splash-sec">' + TITLE + '</p>') >= 0, '兜底章节标
 ok(tpl.indexOf('<p class="splash-item">' + LEAD + '</p>') >= 0, '兜底首句在位');
 RULES.forEach((r, i) => ok(tpl.indexOf('<p class="splash-bullet">' + r + '</p>') >= 0, '兜底第 ' + (i + 1) + ' 条要求在位'));
 ok(tpl.indexOf('<p class="splash-item splash-hl">' + TAIL + '</p>') >= 0, '兜底侵权声明（高亮）在位');
-ok(tpl.indexOf('【转载 · 二次创作】所有字卡内容开放二传二改') >= 0, '兜底摘要高亮条在位');
-ok(tpl.indexOf('<p class="splash-hl">本站完全免费，个人出资搭建') >= 0, '原有免费/署名摘要条未被删（用户原文保全）');
+ok(tpl.indexOf('<div class="splash-summary"') < 0, '静态兜底的「必读摘要」块已随 #1216 整块撤除（复活＝与开屏最顶必读卡组两份口径各说各话；哨兵 #1216a/#613 同判）');
+ok((tpl.match(/<p class="splash-sec">网站公告 · 关于转载与二次创作<\/p>/g) || []).length === 1, '转载章标题在静态兜底里恰好一处（.splash-sec 唯一，摘要撤除后不存在第二份复述）');
 ok(tpl.indexOf('<p class="splash-sec">互助群公告</p>') >= 0, '互助群公告章仍在（只插入、未替换）');
 const o = (tpl.match(/<!--/g) || []).length, c = (tpl.match(/-->/g) || []).length;
 ok(o === c, 'HTML 注释配平（未闭合注释会连锁打碎 .phone 结构，#301）', o + '/' + c);
@@ -94,9 +97,9 @@ const r = await page.evaluate((title) => {
     firstText: norm(first ? first.textContent : ''),
     tocHasIt: toc.some((x) => x.indexOf(title) >= 0),
     tocCount: toc.length,
-    inSummary: norm(document.querySelector('.splash-summary') ? document.querySelector('.splash-summary').textContent : '').indexOf('【转载·二次创作】') >= 0,
+    hasSummaryEl: !!document.querySelector('.splash-summary'),
     noticeHasTail: norm(notice.textContent).indexOf(norm('未经署名转载视为侵权，作者保留追究权利。')) >= 0,
-    keepDisclaimer: norm(notice.textContent).indexOf(norm('本站禁止未满 18 周岁的未成年人使用')) >= 0,
+    keepDisclaimer: norm(document.querySelector('.splash-disclaimer') ? document.querySelector('.splash-disclaimer').textContent : '').indexOf(norm('本站禁止未满 18 周岁的未成年人使用')) >= 0,
     keepPermit: norm(notice.textContent).indexOf(norm('Mochi字卡为原创独立作品（即原版）')) >= 0,
     firstHasAll: ['网站公告·关于转载与二次创作', '本网站所有字卡内容遵循「开放二传二改」原则，欢迎分享与再创作。但请遵守以下要求：',
       '转载或二传链接，必须保留作者署名（言序）；', '二次创作作品请注明「基于言序作品修改」；',
@@ -105,13 +108,13 @@ const r = await page.evaluate((title) => {
     ncharsFirst: nchars(first ? first.textContent : ''),
   };
 }, TITLE);
-ok(r.chapterCount >= 12, '第一页公告章节数 ≥ 12（在线源 11 → 12）', r.chapterCount);
+ok(r.chapterCount >= 12, '第一页公告章节数 ≥ 12（#1024 起 12，#1216 又并进四章＝在线源现 16）', r.chapterCount);
 ok(r.firstTitle === TITLE, '渲染后首章就是该公告（第一眼可见）', r.firstTitle);
 ok(r.firstHasAll, '首章七段原文（首句 + 四条 + 侵权声明）全部渲染到位');
 ok(r.tocHasIt, '目录里能跳转到该章', r.tocCount + ' 章');
-ok(r.inSummary, '必读摘要里渲染出转载高亮条');
+ok(!r.hasSummaryEl, '必读摘要块已整块撤除（#1216 用户直派；渲染侧也不该再出现 .splash-summary）');
 ok(r.noticeHasTail, '侵权声明在页面上可见');
-ok(r.keepDisclaimer, '免责声明内容未被覆盖（只增不改）');
+ok(r.keepDisclaimer, '免责声明卡的 18 周岁红线未被覆盖（摘要撤除后它的权威落点＝开屏必读卡组 .splash-disclaimer，只增不改）');
 ok(r.keepPermit, '四、许可章的原文仍在（未被新增章替换）');
 ok(errs.length === 0, '全程无未捕获 JS 异常', errs.slice(0, 3));
 await browser.close();

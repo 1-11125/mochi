@@ -10531,27 +10531,11 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
              卡整块撤除（DOM 与 .splash-onboard 样式同批删除）。不再补回——开屏只留公告/必读摘要，
              新手引导走 onboarding.js 的弹层（首次使用的全新环境自动弹一次，可跳转、设置内可重看）。 -->
         <div class="splash-notice-list">
-          <div class="splash-summary">
-            <p class="splash-summary-title">必读摘要</p>
-            <!-- v8.29 #973：与开屏最顶端红卡（.splash-bigwarn）同口径的一条——离线兜底一份，
-                 在线权威源在 src/pwa/notice.json 的 summary，两份同步（renderNotice 会用在线列表整段替换本段） -->
-            <p class="splash-hl splash-plain">【有问题先去「关于」找答案，再去报修】原公告里大部分解答过的问题已移动至【设置 → 关于】：数据丢失 / 浏览器自动清数据 / 存储权限 / 无痕模式 / 备份恢复 / 会不会做成 App / 全屏失效等。打开路径：设置 → 关于 →「数据与存储（重要）」「常见问题」「使用说明」。</p>
-            <!-- v8.29 #973：与开屏最顶端红卡（.splash-bigwarn）同口径的详细一条——离线兜底一份，
-                 在线权威源在 src/pwa/notice.json 的 summary，两份同步（renderNotice 会用在线列表整段替换本段）。
-                 明细放这里、顶卡只留三句：顶卡加长会把 #864 的「公告已精简」指引条挤出首屏（实测 984>844），
-                 故顶卡压到三句（≈270px），四条可调入口的细节落到本条。 -->
-            <p class="splash-hl splash-plain">【本站内容非常多，不适用建议不使用】网站本质只是工具、使用取决于个人，各种原因都需要适应和调整；内置内容非常非常多，不适用建议不使用这个网站，或给一定时间适应。觉得不好用的地方基本都能自己调、自己关，所有设置一直都是全部公开的：各类概率与很多功能的时间/间隔（设置 → 回复设置，调 0 = 不触发）、系统预设字卡可逐张或按分类开关（回复设置 →「系统预设字卡 · 聊天触发概率」把整体概率总档调到 0，聊天里所有系统预设字卡都不再触发）、一些功能可以自己设置关闭（设置里的各项开关，或收进桌面隐藏池）、聊天字卡可以单独关闭某个分组（分组标题右侧的「整组停用」开关）或关闭某一张字卡（逐张开关）；默认聊天字卡的词典字卡太多：字卡库 → 词典（与默认聊天字卡同属系统预设）可把不用的分组整组停用、或逐张关闭（该页顶部也有同款标红提醒）。找不到就用设置页顶部的搜索框搜关键词。</p>
-            <p class="splash-hl">本站完全免费，个人出资搭建、代码开源，开放二传二改但禁止以盈利为目的；二传、分享必须标注署名：小红书 @言序（1842523578），严禁收费倒卖。作者已决定月底停更、互助群月底解散（详见「互助群公告」章）。</p>
-            <!-- #1024（2026-09-22 用户直派「开屏第一页要写：网站公告 / 关于转载与二次创作」）：
-                 与在线权威源 src/pwa/notice.json 的 summary 同口径一条（在线会整段替换本段，这里保证断网/弱网兜底也看得到）；
-                 详细四条要求落在下方首个章节「网站公告 · 关于转载与二次创作」 -->
-            <p class="splash-hl">【转载 · 二次创作】所有字卡内容开放二传二改，但必须保留作者署名：小红书 @言序（1842523578）；二次创作请注明「基于言序作品修改」；禁止抹除署名、伪装原创、或将内容用于恶意引流。未署名转载视为侵权（详见『网站公告 · 关于转载与二次创作』章）。</p>
-            <p class="splash-hl">本站禁止未满 18 周岁的未成年人使用；字卡回复均为随机代码生成、纯属虚构娱乐，不能替代真实人际交往与专业心理帮助；点击进入即视为已阅读并同意本页全部说明，使用后果由使用者本人自行承担，作者不承担任何责任。</p>
-            <p class="splash-hl splash-plain">关于二级验证密码（暗号）：6 位数字，前两位是 99，后 4 位是 mochi 字卡生日的字面数字（生日写在开屏第一页的章节目录里——点开第一页顶部的「目录」逐章翻一下就能找到；不是第二页「进入前 · 作者必读公告」上那两个日期，也不是最底下的部署时间）。解开后请勿二传。</p>
-            <p class="splash-hl splash-plain">数据丢失属浏览器正常概率，请定期备份：本机不保留任何自动副本，你导出的文件就是唯一备份。TA 的主动消息、字卡等均按概率随机触发，嫌频繁可在 设置 → 回复设置 或 字卡库 → 其他互动功能字卡 调低（0 = 不触发）。</p>
-            <p class="splash-hl splash-plain" id="splash-ios-pwa-tip">#916 建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮 → 添加到主屏幕，之后从桌面图标打开）：浏览器里直接打开的网页是手机清数据时的头号受害者，数据说没就没；从桌面图标用耐用得多。再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。详见 设置 → 关于 →「减少数据被手机清掉的几率」。</p>
-            <p>完整说明在各章节内，可点上方目录跳转查看。</p>
-          </div>
+          <!-- #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：本容器内原有的「必读摘要」整块已撤除，
+             勿复活——它复述的九条在下面三处各有权威版本：①开屏最顶的必读卡组（防倒卖／公告已精简／停更／安卓浏览器／
+             iPhone 装主屏幕／使用前提／免责声明／系统内置字卡锁）；②本目录各章（含本批新增的两章，另把「建议都装主屏幕
+             ＋配合三点」并进 iPhone 章）；③设置 → 关于（数据与存储／常见问题／使用说明）。在线源 notice.json 的 summary
+             同批改空（clock.js 判 length 才建块，空数组＝不渲染）。被这次删除摘掉的七支针一律转成删除型重锚，不退役。 -->
           <div class="splash-sec-wrap">
             <!-- #1024（2026-09-22 用户直派，原文逐字）——开屏第一页公告的首个章节＝顶部最显眼的一章；
                  在线权威源在同名章节（src/pwa/notice.json sections[0]），两份逐字一致，
@@ -10563,6 +10547,36 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-bullet">禁止抹除署名、伪装原创、或将内容用于恶意引流；</p>
             <p class="splash-bullet">仅分享网站聊天记录、不涉及搬运字卡的，只需标注 mochi 字卡 tag 即可。</p>
             <p class="splash-item splash-hl">未经署名转载视为侵权，作者保留追究权利。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">停更公告 · 2026年9月底后永久停更</p>
+            <p class="splash-item">mochi字卡 2026年9月底后永久停更。停更后不会再帮人调不同人的设备型号的兼容 bug。</p>
+            <p class="splash-item">作者自己的手机使用无异常情况；其他人的设备上的问题，不报出来作者手机碰不到、也无法发现——不同手机型号的情况就是不同。</p>
+            <p class="splash-item splash-hl">永久停更以后，建议自己拿代码给 AI 调（代码已在 GitHub 完全开源，可自行下载修改）。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">公告已精简 · 大量使用说明已移到「设置 → 关于」</p>
+            <p class="splash-item">原公告里的大量使用说明已移到【设置 → 关于】（数据与存储 / 常见问题 / 使用说明）。有问题先去那里找答案，再去报修。</p>
+            <p class="splash-bullet">原公告里大部分解答过的问题已移动至【设置 → 关于】：数据丢失 / 浏览器自动清数据 / 存储权限 / 无痕模式 / 备份恢复 / 会不会做成 App / 全屏失效等。</p>
+            <p class="splash-bullet">打开路径：设置 → 关于 →「数据与存储（重要）」「常见问题」「使用说明」。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">浏览器兼容提醒（安卓用户必读）</p>
+            <p class="splash-item">安卓手机不建议使用手机自带的浏览器打开本站（小米 / 华为 / OPPO / vivo / 荣耀 / 夸克等），自带浏览器兼容问题多。</p>
+            <p class="splash-bullet">已实测出现的兼容问题：点「导入 / 添加头像」等按钮没反应（系统相册弹不出来）、页面显示错位、卡顿等；同一部手机换 Chrome 或 Edge 后即恢复正常。</p>
+            <p class="splash-bullet">建议做法（二选一）：① 用 Chrome 或 Edge 浏览器打开本站；② 在浏览器菜单里选「添加到主屏幕 / 安装应用」，之后从桌面图标进入。</p>
+            <p class="splash-item">若某个功能点了没反应，先换 Chrome/Edge 试一次再反馈——多数「点了没反应」都是自带浏览器兼容问题，不是网站坏了。</p>
+          </div>
+          <div class="splash-sec-wrap">
+            <p class="splash-sec">iPhone 用户必读：把本站「添加到主屏幕」再用（数据会一直被清）</p>
+            <p class="splash-item">iPhone 上「数据总是丢」多半不是网站坏了，是系统在清网页数据：①Safari 会在连续 7 天没打开本站后自动清空它的全部本地数据（Apple 的隐私策略 ITP，任何网站都躲不过）；②手机存储紧张、清理软件一键优化、无痕模式、系统升级、换机换浏览器时，也会把网页数据一起清掉。</p>
+            <p class="splash-bullet">把本站「添加到主屏幕」、之后从桌面图标打开，能明显改善这一点：主屏幕应用不计入那条 7 天规则，也不跟一堆标签页抢内存（无浏览器栏、更接近 App 的用法）。做法：用 Safari 打开本站 → 点底部中间的「分享」按钮（方框加箭头）→「添加到主屏幕」→ 再从手机桌面点新图标进入。</p>
+            <p class="splash-bullet">注意：主屏幕应用与 Safari 是两套独立存储，切过去等于换个地方存数据。请按顺序做：①先在 Safari 里 设置 → 通用 →「导出数据」导一份完整备份；②再「添加到主屏幕」；③从桌面图标打开，走 设置 → 通用 →「导入数据」恢复；④以后平时都从桌面图标用。</p>
+            <p class="splash-bullet">不管哪种手机、哪种浏览器，本地数据都可能被系统清掉：定期「导出数据」备份才是唯一可靠的防线（导出的文件别只留一个地方：文件 App / 云盘 / 微信收藏各留一份）。</p>
+            <p class="splash-bullet">iPhone 上用 Edge / Chrome 的「添加到主屏幕」只会生成一个快捷方式，打开仍是带工具栏的浏览器页面，拿不到独立应用与那条 7 天豁免——请用 Safari 添加。</p>
+            <p class="splash-bullet">不只 iPhone：建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮 → 添加到主屏幕，之后从桌面图标打开）——浏览器里直接打开的网页是手机清数据时的头号受害者，数据说没就没；从桌面图标用耐用得多。</p>
+            <p class="splash-bullet">再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。</p>
+            <p class="splash-bullet">详见 设置 → 关于 →「减少数据被手机清掉的几率」。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">互助群公告</p>
@@ -10584,11 +10598,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-item">0812 开搓，0815~0829 内测，谢谢参与内测的各位；Mochi字卡 0829 已完全公开，可二传二改。</p>
             <p class="splash-item">网站与我更新修复问题是同步的：边修边部署，修一天部署一天；开屏有最新部署时间。</p>
             <p class="splash-item">如果浏览器还没进入新版，可以关掉浏览器再打开，多试几次流量刷新，或者过一段时间再打开。</p>
-            <p class="splash-sub">关于反馈与建议：</p>
-            <p class="splash-item">有问题可以在互助群艾特我，但我精力有限，不一定全部回复也不一定及时回复。</p>
-            <p class="splash-item">网站首先是做给我自己用的，不需要的细节不做，所以不一定采纳建议；许愿的功能按我自己的节奏和需求调整。</p>
-            <p class="splash-item">做这个网站花了我非常多的时间、精力和心血，自己做过网站的都能明白。本站完全免费，用不用随你——我不是客服，没有义务按任何人的标准修改。</p>
-            <p class="splash-bullet">提建议欢迎，指手画脚免谈。无法接受的请使用其他网站，或自行修改代码（已公开全部代码且开放二传二改权限）。谢谢配合。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">二、关于 Bug、报修与适配</p>
@@ -10603,7 +10612,6 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p class="splash-bullet">补充方式：设置 → 信息诊断 →「设备兼容诊断」，把自动生成的本机诊断文本（含版本号）一并贴上，能更快定位。</p>
             <p class="splash-item">问「为什么会出现这个问题」这类基础疑问，建议直接问 AI，比作者回复快。</p>
             <p class="splash-item">注意：AI 的回答无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。</p>
-            <p class="splash-item">关于数据丢失：有可能有 bug，也有可能是浏览器触发丢失。不是高频率丢失就是正常情况（浏览器自身有正常概率丢数据），需要定期备份；提示有新版本需要刷新时，先备份数据。注意：本机不保留任何自动备份副本（v3.29 起该机制已下线，历史遗留副本会在启动时自动清理），你下载并保存好的导出文件就是唯一备份——请存到不会被浏览器清理的地方。</p>
           </div>
           <div class="splash-sec-wrap">
             <p class="splash-sec">三、关于浏览器使用与桌面快捷方式</p>
@@ -10689,9 +10697,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790308994045">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790311936657">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.44</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 12:03<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 12:52<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21653,4 +21661,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugfr0u5 -->
+<!-- __MOCHI_EOF__ mughi3dd -->

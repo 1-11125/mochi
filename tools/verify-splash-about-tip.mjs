@@ -47,9 +47,12 @@ ok(build.includes('#864a') && build.includes('#864b'), 'S3c 哨兵 #864a/#864b �
 ok(countOf(build, '#864a') === 1 && countOf(build, '#864b') === 1, 'S3d 哨兵编号在本仓库内唯一（无并行批撞号）', 'a=' + countOf(build, '#864a') + ' b=' + countOf(build, '#864b'));
 // 指向必须是真的：设置→关于 里确实有被「移过去」的那批内容（指引条不许指向空气）
 ok(tpl.includes('id="about-storage-note"') && ['lose', 'perm', 'incog', 'backup', 'bug'].every((k) => tpl.includes('id="row-faq-st-' + k + '"')), 'S4 指向的「设置 → 关于 · 数据与存储（重要）」5 行确实在位（指引条不指向空气）');
-// 在线公告侧（notice.json 覆盖链路）的必读摘要首条同样指向关于（双份口径一致）
-const firstHL = notice && Array.isArray(notice.summary) && notice.summary[0] ? String(notice.summary[0].hl || '') : '';
-ok(firstHL.includes('关于') && firstHL.includes('设置'), 'S5 在线公告必读摘要首条同样指向设置→关于（在线覆盖链路口径一致）');
+// 在线公告侧（notice.json 覆盖链路）同样指向关于。v8.44 #1216（2026-09-25 用户直派）把「必读摘要」整块撤除，
+// 这条口径的在线落点随之改为目录里的「公告已精简」章——判据从 summary[0] 平移到该章正文，指向性不变。
+const slimSec = ((notice && notice.sections) || []).find((x) => String(x.h).indexOf('公告已精简') === 0);
+const slimTxt = slimSec ? JSON.stringify(slimSec.p || '') : '';
+ok(Array.isArray(notice.summary) && notice.summary.length === 0, 'S5a 在线 summary 已随 #1216 清空（残留＝联网用户仍看到半块摘要，与静态兜底分叉）');
+ok(!!slimSec && slimTxt.includes('设置 → 关于'), 'S5 在线公告「公告已精简」章同样指向设置→关于（摘要撤除后它是唯一在线落点）', slimTxt.slice(0, 40));
 
 // ===== 行为：自组装页（只用 base.css，开屏是静态 DOM，不需要业务脚本）=====
 const styles = readSrc('css/base.css');

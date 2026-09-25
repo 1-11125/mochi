@@ -7,8 +7,8 @@
 //   缺失重建插最顶、文案被改（标题+全部特征词 marks 不在位）重写回官方版。
 // 用例（模拟二传者各种删改手段）：
 //   1) 官方正常加载：合并声明卡在必读区最顶（#976 前为公告区最顶）、文案官方版、
-//      #613 免费声明（没有收过任何人一分钱…禁止以盈利为目的）在合并卡 + 必读摘要、设置页声明含署名禁倒卖句
-//      （#620 起必读摘要首条为「原公告已移动至设置→关于」提示）
+//      #613 免费声明（没有收过任何人一分钱…禁止以盈利为目的）在合并卡里（#1216 起开屏只剩这一处权威落点）、设置页声明含署名禁倒卖句
+//      （#620 起摘要首条曾是「原公告已移动至设置→关于」提示；#1216 整块摘要撤除，该条改判「摘要块不存在」）
 //   2) 静态条被整体删除（二传改 HTML）→ 回填重建合并卡到最顶
 //   3) 静态条文案被篡改成收费内容 → 回填重写回官方版
 //   4) 官方 notice.json 不可达（断网/被墙）→ 静态兜底仍在
@@ -147,8 +147,11 @@ const B1_TOP = "(function(){var n=document.getElementById('splash-mustread');var
 // #613 免费声明（「本站完全免费，没有收过任何人一分钱…禁止以盈利为目的」）在合并卡里 + 必读摘要内，其余位置不再重复
 const B1_FREE = "(function(){var b=document.querySelector('#splash-mustread .splash-alert[data-anti-scam=\"1\"]');if(!b)return false;var t=b.textContent;return t.indexOf('没有收过任何人一分钱')>-1&&t.indexOf('禁止以盈利为目的')>-1&&t.indexOf('个人出资和花费时间搭建的')>-1;})()";
 // #620 起必读摘要首条为「原公告部分内容已移动至设置→关于」提示，免费声明移到其后：两条都在摘要内
-const SUM_FIRST = "(function(){var s=document.querySelector('.splash-summary');if(!s)return false;var t=s.textContent;return t.indexOf('原公告')>-1&&t.indexOf('已移动至')>-1&&t.indexOf('没有收过任何人一分钱')>-1;})()";
-const FREE_ONLY_TWO = "(function(){var t=document.getElementById('splash-box');if(!t)return false;var ps=t.querySelectorAll('p'),n=0;for(var i=0;i<ps.length;i++){if(ps[i].textContent.indexOf('没有收过任何人一分钱')>-1)n++;}return n===2;})()";
+// v8.44 #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：必读摘要块在两份源同批撤除，
+//   #620 那条「摘要含原公告已移动 + 免费声明」的判据改口为「摘要块不存在」；免费声明的权威落点只剩合并卡一处，
+//   计数断言相应从「恰好两处」收到「恰好一处」（原两处里的那处正是被撤除的摘要）。
+const NO_SUMMARY = "(function(){return !document.querySelector('.splash-summary');})()";
+const FREE_ONLY_ONE = "(function(){var t=document.getElementById('splash-box');if(!t)return false;var ps=t.querySelectorAll('p'),n=0;for(var i=0;i<ps.length;i++){if(ps[i].textContent.indexOf('没有收过任何人一分钱')>-1)n++;}return n===1;})()";
 const SET_OK = "(function(){var b=document.querySelector('#page-setting .set-alert');var t=b?b.textContent:'';return !!b&&t.indexOf('小红书@言序（1842523578）')>-1&&t.indexOf('免费')>-1&&t.indexOf('倒卖')>-1;})()";
 // 拦截官方 notice.json：mode='abort' 模拟断网/官方源不可达；mode=对象 → 用假官方应答 fulfill（测 bulletin 远程下发）
 async function interceptOfficial(mode) {
@@ -179,8 +182,8 @@ await load();
 check('合并置顶条在位且文案官方版（免费/署名/防倒卖）', await waitCond(B1_OK));
 check('合并声明卡位于必读区最顶（第一个元素子节点）', await ev(B1_TOP) === true);
 check('#613 合并卡正文含免费声明（没有收过任何人一分钱 / 个人出资 / 禁止以盈利为目的）', await waitCond(B1_FREE));
-check('#620 必读摘要含「原公告已移动」提示与免费声明（在线 notice.json 渲染后）', await waitCond(SUM_FIRST));
-check('#613 免费声明全文只出现两处（合并卡 + 必读摘要；旧位置无重复）', await waitCond(FREE_ONLY_TWO));
+check('#1216 必读摘要块已整块撤除（静态与在线同批清空；原 #620 判据改口）', await waitCond(NO_SUMMARY));
+check('#613 免费声明全文只出现一处（合并卡；#1216 撤除摘要后旧的第二处不复存在，也不得复述到别处）', await waitCond(FREE_ONLY_ONE));
 check('设置页底部声明含署名+免费+禁倒卖', await waitCond(SET_OK));
 
 // ============ 用例 2：二传副本删掉静态置顶条 → 回填重建 ============

@@ -1004,7 +1004,7 @@ const FIX_SENTINELS = [
   { name: '防倒卖第二锚点·pwa.js在位看门狗（clock.js回填被删时的独立兜底,5s补回缺失声明；#621 起两张声明合并为「免费·署名·防倒卖」一张，补回公告区最顶）', file: 'js/pwa.js', needle: "n.insertBefore(mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild)" },
   // ==== 2026-09-16 #613 防骗提醒卡提到开屏第 1 张 + 免费声明「本站完全免费…禁止以盈利为目的」并进防骗卡与必读摘要首条（用户：「这个要放在前面醒目的位置，现在太靠后了」「放在开屏的防骗提醒里吧」）====
   { name: '#613 防骗卡（第 1 张）正文新增免费声明加粗句在 template 静态 DOM（删则退回只有防骗账号文案，用户要求的免费声明在首屏消失）', file: 'template.html', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。</strong>' },
-  { name: '#613/#620 免费声明进「必读摘要」并高亮（删则回落到折叠区/章节，用户原话「太靠后」重现；#620 口径改写后锚点同步）', file: 'template.html', needle: '<p class="splash-hl">本站完全免费，个人出资搭建' },
+  { name: '#613/#620 免费声明进「必读摘要」并高亮（删则回落到折叠区/章节，用户原话「太靠后」重现；#620 口径改写后锚点同步）', file: 'template.html', needle: '<p class="splash-hl">本站完全免费，个人出资搭建', absent: true }, // #1216 摘要块整块撤除＝转删除型
   { name: '#613 防骗卡重建锚点＝公告区最顶（改回免责卡/锁卡之后＝用户「防骗提醒位置太靠后」回归）', file: 'js/clock.js', needle: 'ensureBar(BARS[0], null)' },
   { name: '#621 pwa.js 看门狗补回合并声明卡也落到公告区最顶（与 clock.js/静态顺序一致）', file: 'js/pwa.js', needle: "mkWatchBar('1', '免费 · 署名 · 防倒卖', W), n.firstChild" },
   { name: '#613 在线公告源 notice.json alert 同含免费声明句（静态/远程双源一致，删则联网用户看到的防骗卡少这句）', file: 'pwa/notice.json', needle: '个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费。' },
@@ -4229,7 +4229,7 @@ const FIX_SENTINELS = [
   { name: '#924e iPhone 开通知如实告知能力边界（删＝用户继续拿「必弹」预期对 iOS 反复报失效）', file: 'js/bg-keep.js', needle: 'iPhone 提示：受系统限制' },
   /* ==== 2026-09-20 #926 系统预设字卡「整组停用/启用」（用户直派：默认聊天字卡与词典只有关闭单独字卡、缺少关闭某个分组；零机型分支）——存 <桌面>:dc-groups-off = { 分类: [分组名] }，生效收在 apiFor(st).isOff 这一个消费端总闸（单卡闸 OR 分组闸），聊天/群聊/写信/朋友圈/日历/词典拼字/梦角造句/各功能同源池全部自动跟上；分组开关只叠一层，组内 dc-off-* 单卡存值一字不改。UI 在共用工厂 mountCardView（四页：默认聊天字卡/功能字卡/词典/查岗），容器打 .preset-list 限定样式。验证 tools/verify-dc-group-off.mjs 绿 23/23、纯 HEAD 红 13 条全落缺陷面。 ==== */
   { name: '#929a 关于页防清数据四条警示条在位（删＝用户再问「怎么减少数据被清」，#914 缓解面回流）', file: 'template.html', needle: '<div class="set-alert" id="about-storage-reduce">' },
-  { name: '#929b 开屏「建议添加到主屏幕」提示行在位（删＝iOS 浏览器内用户继续裸奔在最高清数据风险档，本批报障复发）', file: 'template.html', needle: 'id="splash-ios-pwa-tip"' },
+  { name: '#929b 开屏「建议添加到主屏幕」提示行在位（删＝iOS 浏览器内用户继续裸奔在最高清数据风险档，本批报障复发）', file: 'template.html', needle: 'id="splash-ios-pwa-tip"', absent: true }, // #1216 该条已并入 iPhone 章（正锚见 #1216f/g）＝提示行本身转删除型
   /* ==== 2026-09-20 #932 字卡状态自检纳入「整组停用」（#926 的 dc-groups-off）：此前本页只按 dc-off-* 逐张统计＝整组停用清空分类时自检报「未发现明显问题」、一键修复也不接管 ==== */
   // #937 功能探索提醒（fhub-seen 埋点 + 「还没试过」横幅/角标 + contacts 全局键登记与存量找回）
   { name: '#937a fhub 统计键全局根键登记（漏登记＝migrateLegacy 每次刷新把 fhub-freq/fhub-seen 迁进 default 并删根键，跨桌面常用行/到达标记全丢）', file: 'js/contacts.js', needle: "'fhub-freq', 'fhub-seen'];" },
@@ -4517,7 +4517,7 @@ const FIX_SENTINELS = [
   { name: '#973a 开屏最顶端红卡挂在 .splash-box 首个子节点（删＝用户直派的「开屏顶部最显眼标红提醒」整块消失）', file: 'template.html', needle: '使用前必看 · 本站内容非常多' },
   { name: '#973b 红卡红色警示形态（删/改回灰底灰条＝最顶端这张卡退回普通卡，不再显眼）', file: 'css/base.css', needle: 'background:#fdecec; border-left:4px solid #d23430; border-radius:12px; text-align:left;' },
   { name: '#973c 红卡暗色主题（删＝暗色下红卡按亮底深红字渲染，字看不清）', file: 'css/base.css', needle: '[data-theme="dark"] .splash-bigwarn {' },
-  { name: '#973d 必读摘要同口径一条（在线 notice.json 会用 summary 整段替换静态列表，静态兜底丢了＝离线看到的是旧口径摘要）', file: 'template.html', needle: '【本站内容非常多，不适用建议不使用】' },
+  { name: '#973d 必读摘要同口径一条（在线 notice.json 会用 summary 整段替换静态列表，静态兜底丢了＝离线看到的是旧口径摘要）', file: 'template.html', needle: '【本站内容非常多，不适用建议不使用】', absent: true }, // #1216 摘要块整块撤除＝转删除型（同口径正文仍在开屏最顶红卡）
   { name: '#975a 互助群公告章「问 AI」免责·在线权威源（删＝用户直派的「AI 会出错会骗人请自行甄别」口径从联网用户开屏消失）', file: 'pwa/notice.json', needle: '「可以问 AI」只是使用建议：实际问题时去问 AI' },
   { name: '#975b 报修章「问 AI」免责·在线权威源（删＝报修章只剩「比作者回复快」却看不到甄别提醒，同口径仅剩互助群章一处）', file: 'pwa/notice.json', needle: '注意：AI 的回答无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。' },
   { name: '#975c 互助群公告章「问 AI」免责·离线兜底（删＝断网/弱网用户看到的开屏没有该免责条）', file: 'template.html', needle: '也无法保证 100% 正确——AI 也会出错和骗人，请自行甄别。</p>' },
@@ -4553,7 +4553,7 @@ const FIX_SENTINELS = [
   { name: '#1010i 媒体窗只算视口内（删＝视口外 lazy 图永不 complete，进度条被白拖到 deadline）', file: 'js/chat.js', needle: 'if (r.bottom < top || r.top > bot) continue;' },
   { name: '#1010j 分帧换装在飞时顺延判定（删＝换装途中被判成「收尾已落地」，进度条先撤、图再落地）', file: 'js/chat.js', needle: 'if (batchRendering) { chatSettleHoldDefer(); return; } // 换装未落定：等 finishSwap 再判' },
   { name: '#981a 顶卡新增「词典字卡太多，不适用建议关闭」口径（删＝用户新稿的这一句丢失；字卡库→词典页顶部另有同款标红提醒 #961）', file: 'template.html', needle: '默认聊天字卡的词典字卡太多，不适用建议关闭' },
-  { name: '#981b 必读摘要补词典字卡入口（删＝顶卡说了建议关闭却没告诉在哪关；两份同步：静态 + notice.json）', file: 'template.html', needle: '字卡库 → 词典（与默认聊天字卡同属系统预设）可把不用的分组整组停用' },
+  { name: '#981b 必读摘要补词典字卡入口（删＝顶卡说了建议关闭却没告诉在哪关；两份同步：静态 + notice.json）', file: 'template.html', needle: '字卡库 → 词典（与默认聊天字卡同属系统预设）可把不用的分组整组停用', absent: true }, // #1216 摘要块整块撤除＝转删除型（入口口径仍在 字卡库→词典 页顶提醒与 设置→关于）
   { name: '#987a 半框背景涂来电/去电弹窗卡片（删/改回＝图又涂到设置用的半屏面板上，用户报的「上传错地方」复发）', file: 'js/call.js', needle: "paintCallBg(document.querySelector('.call-panel'), hbg || cbg);" },
   { name: '#987b 弹窗背景回落通话背景＋通话小框只认通话背景（删＝只设过通话背景的老用户来电弹窗突然变空白，或半框图串到小框上）', file: 'js/call.js', needle: "paintCallBg(document.getElementById('call-mini'), cbg);" },
   { name: '#987c 通话中点「打开来电弹窗」＝展开真实通话面板（删/改回只 toast＝用户点它看不到那个框，只剩一句「当前正在通话中」）', file: 'js/call.js', needle: "toast('通话中·已展开通话面板');" },
@@ -4581,7 +4581,7 @@ const FIX_SENTINELS = [
   { name: '#991i 开屏新增 iPhone「添加到主屏幕」提示卡（删＝iPhone 用户继续不知道数据被清的根因与装法；与 notice.json 摘要/章节两份同步）', file: 'template.html', needle: '<div class="splash-alert splash-ioshome" data-ios-home="1">' },
   { name: '#991j 该卡琥珀形态（#976 定的「需要你操作」族；改色＝占用橙/红名额、打乱四色语义）', file: 'css/base.css', needle: '.splash-alert.splash-ioshome { background:#fdf3e0; border-left:3px solid #c07f1f; border-radius:12px; padding:13px 15px 14px 16px; }' },
   { name: '#991k surface 层原生「选择文件」按钮藏掉（删＝入口上浮出一个原生按钮破相）', file: 'css/base.css', needle: 'input.mochi-pick-surface::-webkit-file-upload-button { display:none; }' },
-  { name: '#991l 在线公告摘要补 iPhone 主屏幕一条（删＝只读在线公告的用户看不到这条；与开屏静态卡两份同步）', file: 'pwa/notice.json', needle: '【iPhone 用户必读】请把本站「添加到主屏幕」后再用' },
+  { name: '#991l 在线公告摘要补 iPhone 主屏幕一条（删＝只读在线公告的用户看不到这条；与开屏静态卡两份同步）', file: 'pwa/notice.json', needle: '【iPhone 用户必读】请把本站「添加到主屏幕」后再用', absent: true }, // #1216 summary 整段清空＝转删除型（章内同口径由 #991 系列与 #1216f~i 把守）
   { name: '#995a 开屏二页新增卡片锚点（删＝「AI 不要 100% 依赖」整卡从强制公告页消失）', file: 'template.html', needle: 'id="splash-mandatory-aicaveat"' },
   { name: '#995b 新卡第一段（删＝「建议用 AI 但不要 100% 依赖和信任」口径丢，只剩页 1 的短句。needle 取核心从句：整段被改写但这句话还在＝口径未丢，不算回归；这句话被删/改写即报警）', file: 'template.html', needle: '但建议不要 100% 依赖和信任 AI' },
   { name: '#995c 新卡第二段（删＝「停更后不解答任何问题、代码全开源可看可学可二改」口径丢）', file: 'template.html', needle: '可查看、可学习、可二改' },
@@ -4592,11 +4592,11 @@ const FIX_SENTINELS = [
   { name: '#992b 自动通道已在后台也不换版（删＝后台预取完成时页面恰在后台就照样重载）', file: 'js/pwa.js', needle: 'if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }' },
   { name: '#992c 闸门读的是全局键 bg-keepalive / bg-notify（改读别的键/内存变量＝开关开着也拦不住）', file: 'js/pwa.js', needle: "return st.get('bg-keepalive') === '1' || st.get('bg-notify') === '1';" },
   { name: '#1000a 开屏锁卡静态兜底提示明确指路第一页章节（删/回退成「答案就在开屏里可以找到」＝用户又去第二页公告的日期里猜）', file: 'index.html', needle: '答案就在开屏第一页的章节目录里' },
-  { name: '#1000b 必读摘要高亮条指路第一页章节＋排除第二页日期（删＝摘要退回只说「开屏目录」、第二页日期误导复发）', file: 'index.html', needle: '生日写在开屏第一页的章节目录里——点开第一页顶部的「目录」' },
+  { name: '#1000b 必读摘要高亮条指路第一页章节＋排除第二页日期（删＝摘要退回只说「开屏目录」、第二页日期误导复发）', file: 'index.html', needle: '生日写在开屏第一页的章节目录里——点开第一页顶部的「目录」', absent: true }, // #1216 摘要块整块撤除＝转删除型（暗号口径仍在锁卡 tip 与「许可」章）
   { name: '#1000c 锁定态 tip 的密码指路口径（删＝开屏锁卡又只说「开屏公告的目录」，用户分不清是哪个公告）', file: 'js/clock.js', needle: '生日写在开屏第一页的章节目录里（点开第一页顶部的「目录」逐章翻一下就能找到）' },
   { name: '#1000d 进入后提醒弹窗按「在应用内」改写指路（删＝应用内提醒只在讲公式，用户不知道要回开屏第一页找）', file: 'js/clock.js', needle: '要回开屏第一页的章节里找' },
   { name: '#1000e 暗号入口（跳过开屏问答）指路口径', file: 'js/applock.js', needle: 'mochi 字卡的生日写在开屏第一页的章节目录里' },
-  { name: '#1000f 摘要高亮条·在线权威源同口径（联网用户开屏生效的那份）', file: 'pwa/notice.json', needle: '不是第二页「进入前 · 作者必读公告」上那两个日期，也不是最底下的部署时间' },
+  { name: '#1000f 摘要高亮条·在线权威源同口径（联网用户开屏生效的那份）', file: 'pwa/notice.json', needle: '不是第二页「进入前 · 作者必读公告」上那两个日期，也不是最底下的部署时间', absent: true }, // #1216 summary 整段清空＝转删除型
   { name: '#1000g 删除型：暗号提示不得退回把答案指向「开屏公告」（第二页公告标题正是「作者必读公告」，用户会去那儿找日期）', file: 'js/applock.js', needle: '生日写在开屏公告的目录里，不是开屏最底下的部署时间', absent: true },
   { name: '#1000h 删除型：密码提示不得退回把答案指向「开屏公告」（同 #1000g，密码侧；needle 取三处旧文案共有的那一截）', file: 'js/clock.js', needle: '生日写在开屏公告的目录里——注意不是', absent: true },
   { name: '#1000i 静态兜底章节改用 4 位日期（删/回退＝页 1 章节又写 8.15，用户没法一眼对上 4 位密码）', file: 'index.html', needle: '0812 开搓，0815~0829 内测' },
@@ -4967,6 +4967,18 @@ const FIX_SENTINELS = [
   { name: '#1215f 「只讲操作流程、不讲角色名」的提醒在位（删＝读者照旧把梦角名字丢给 AI，报修无效）', file: 'template.html', needle: '要说你的操作流程和哪个功能异常' },
   { name: '#1215g 停更后口径收口句在位（删＝与页 1／互助群公告的「月底停更、不处理任何事务、代码一直开源」脱节）', file: 'template.html', needle: '月底后永久停更，不处理任何事务' },
   { name: '#1215h 页 2「更早的公告」折叠块锚点（#1215b：删＝默认展开的只剩全部七张卡＝用户要的「其他折叠起来」被撤销；针只证块在，「默认收起」由 verify-1215 的 S12（静态精确标签）＋B4（无头实测 checkVisibility）断言）', file: 'template.html', needle: 'id="splash-mandatory-older"' },
+  /* ==== 2026-09-25 #1216（用户直派四件事：①开屏四张横幅卡「公告已精简／停更公告／安卓自带浏览器／iPhone 添加到主屏幕」的文案要放进开屏第一页的目录；②#916「建议都把本站添加到主屏幕＋配合三点」那条也进目录；③删「关于反馈与建议」小节与「关于数据丢失」一行；④「必读摘要删掉，这些内容在开屏最顶已经有了」）：
+     必读摘要在两份源（静态 template + 在线 notice.json 的 summary）同批撤除，summary 置空数组即不渲染（clock.js 判 length 才建块）；被摘掉的七支针一律**转删除型重锚**（名字与 needle 逐字不动，只加 absent: true）——摘要里任一行被复活时各自报红，不退役、不缩尺（#1214 口径）。
+     下面九针把「新的落点」钉住：目录新增两章与并入 iPhone 章的条目按「两份逐字一致」的既有铁律各钉静态/在线两针。零机型／零 UA 分支＝纯文案与位置。 ==== */
+  { name: '#1216a 必读摘要整块撤除·静态兜底勿复活（复＝与开屏最顶必读卡组两份口径分叉——用户 2026-09-25 直派「这些内容在开屏最顶已经有了」）', file: 'template.html', needle: '<div class="splash-summary">', absent: true },
+  { name: '#1216b 停更公告进目录章节·静态兜底（删＝断网用户只剩顶部红卡，目录里查不到停更三条）', file: 'template.html', needle: '<p class="splash-sec">停更公告 · 2026年9月底后永久停更</p>' },
+  { name: '#1216c 停更公告进目录章节·在线权威源（删＝联网用户目录少一章，与静态两份分叉）', file: 'pwa/notice.json', needle: '"h": "停更公告 · 2026年9月底后永久停更"' },
+  { name: '#1216d 「公告已精简」进目录章节·静态兜底（删＝顶部指引条只有一句话，目录里无处看三条明细）', file: 'template.html', needle: '<p class="splash-sec">公告已精简 · 大量使用说明已移到「设置 → 关于」</p>' },
+  { name: '#1216e 同章·在线权威源（删＝联网用户目录少这一章）', file: 'pwa/notice.json', needle: '"h": "公告已精简 · 大量使用说明已移到「设置 → 关于」"' },
+  { name: '#1216f 「建议都把本站添加到主屏幕」并进 iPhone 章·静态兜底（删＝摘要已撤、目录也没有＝这条彻底没了）', file: 'template.html', needle: '<p class="splash-bullet">不只 iPhone：建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮' },
+  { name: '#1216g 同条·在线权威源（删＝只读在线公告的用户目录里少这句）', file: 'pwa/notice.json', needle: '"不只 iPhone：建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮' },
+  { name: '#1216h 「再配合三点」并进 iPhone 章·静态兜底（删＝三条操作指引随摘要一起消失＝用户按不到做任何改善）', file: 'template.html', needle: '<p class="splash-bullet">再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。' },
+  { name: '#1216i 同条·在线权威源', file: 'pwa/notice.json', needle: '"再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

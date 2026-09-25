@@ -14,6 +14,9 @@
 //   ＋追补两条：「加上：系统预设字卡觉得不好用，也可以自己关闭，一直都是全部公开的，全部都可以自己调。」
 //               「加上：抱着必定好用的想法是不可能实现的，都需要适应和调整。」
 // 结构（本批定型）：顶卡只留三句（≈270px 高，压在首屏内、不挤掉 #864 指引条），四条可调入口的明细落在必读摘要第 2 条。
+// v8.44 #1216（2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）：那块「必读摘要」整块撤除（静态 DOM +
+//   在线 notice.json 的 summary 同批清空），本脚本原 S14/S15/S17/S18/S23/S24/S25 的判据随之改口——同一口径现在只由
+//   ①顶卡自己、②#864 指引条、③目录四章（停更公告／公告已精简／浏览器兼容提醒／iPhone 用户必读）、④设置里的功能说明 四处承担。
 // #976（2026-09-21）：7 张必读卡整组前移到品牌卡之前（#splash-mustread），本脚本 B1 的五张卡选择器随口径平移
 //   （只关心「一张不少」，组内次序与颜色语义由 tools/verify-976-splash-order-colors.mjs 专判）。
 // 无头实机断言：红卡在开屏顶部（.splash-box 首个子节点、排在品牌卡之前、首屏内完整可见）、红色形态（亮/暗主题）、
@@ -52,6 +55,7 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const page = await ctx.newPage();
 
 const probe = () => page.evaluate(() => {
+  const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
   const box = document.getElementById('splash-box');
   const card = document.querySelector('.splash-bigwarn');
   const brand = document.querySelector('.splash-brandcard');
@@ -61,7 +65,17 @@ const probe = () => page.evaluate(() => {
   const r = card ? card.getBoundingClientRect() : null;
   const at = abouttip ? abouttip.getBoundingClientRect() : null;
   const hls = Array.from(document.querySelectorAll('.splash-summary .splash-hl')).map((p) => p.textContent || '');
+  const secTitles = Array.from(document.querySelectorAll('.splash-sec-wrap > .splash-sec')).map((e) => norm(e.textContent));
+  const secBodies = Array.from(document.querySelectorAll('.splash-sec-wrap')).map((w) => norm(w.textContent));
+  const secOf = function (t) { var i = secTitles.findIndex(function (x) { return x.indexOf(t) === 0; }); return i < 0 ? '' : secBodies[i]; };
   return {
+    noSummary: !document.querySelector('.splash-summary'),
+    secTitles: secTitles,
+    abouttipText: abouttip ? norm(abouttip.textContent) : '',
+    stopChapter: secOf('停更公告'),
+    slimChapter: secOf('公告已精简'),
+    iosChapter: secOf('iPhone 用户必读'),
+    androidChapter: secOf('浏览器兼容提醒'),
     hasCard: !!card,
     firstChild: !!(box && card && box.firstElementChild === card),
     beforeBrand: !!(card && brand && (card.compareDocumentPosition(brand) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
@@ -120,12 +134,17 @@ ok(/如果说任何设置都没有自己调整/.test(s.text) && /开屏里已经
 const paras = await page.evaluate(() => document.querySelectorAll('.splash-bigwarn > p').length);
 ok(paras === 6, 'S14 顶卡正文恰好 6 段（#981 用户四段 ＋ #1019 第 5 段 ＋ #1046 第 6 段，逐字照抄、未增未删）', 'p=' + paras);
 
-// ===== 明细：必读摘要第 2 条（在线渲染 + 静态兜底同口径） =====
-const sum2 = s.hls[1] || '';
-ok(s.hls[0] && /有问题先去「关于」找答案/.test(s.hls[0]), 'S14 摘要首条仍是 #620 的「先去关于找答案」（顶卡插在第 2 条，不动首条口径）', (s.hls[0] || '').slice(0, 24));
-ok(/不适用建议不使用/.test(sum2) && /本质只是工具/.test(sum2), 'S15 摘要第 2 条＝顶卡同口径（不适用建议不使用 + 本质只是工具）', sum2.slice(0, 30));
-ok(/回复设置/.test(sum2) && /调 0 = 不触发/.test(sum2) && /总档/.test(sum2) && /隐藏池/.test(sum2) && /整组停用/.test(sum2) && /搜索框/.test(sum2), 'S17 摘要第 2 条含可调入口明细（回复设置 / 总档 / 隐藏池 / 整组停用 / 搜索框）');
-ok(/默认聊天字卡的词典字卡太多/.test(sum2) && /字卡库 → 词典/.test(sum2), 'S18 摘要第 2 条补了「词典字卡在哪关」（字卡库 → 词典；哨兵 #981b）');
+// ===== 明细落点（v8.44 #1216，2026-09-25 用户直派「必读摘要删掉，这些内容在开屏最顶已经有了」）=====
+// 原 S14/S15/S17/S18 判的是「必读摘要第 1/2 条」——那块 DOM 已整块撤除，判据改落到内容现在的权威落点：
+//   「先去关于找答案」＝#864 指引条 +「公告已精简」章；「不适用建议不使用／本质只是工具」＝顶卡自己；
+//   「词典字卡在哪关」＝顶卡第 4 段（整组停用口径仍在 设置 → 关于 与字卡库页，不再复述于开屏摘要）。
+ok(s.noSummary && s.hls.length === 0, 'S14 必读摘要块已整块撤除（在线渲染后 DOM 里也没有 .splash-summary；复活＝与顶卡两份口径各说各话）', 'hls=' + s.hls.length);
+ok(/公告已精简/.test(s.abouttipText) && /有问题先去那里找答案，再去报修/.test(s.abouttipText), 'S14b「先去关于找答案」由 #864 指引条承担（顶卡旁的权威一句）', s.abouttipText.slice(0, 30));
+ok(/不适用建议不使用/.test(s.text) && /本质只是工具/.test(s.text), 'S15 顶卡自身＝「不适用建议不使用 + 本质只是工具」口径（摘要删除后开屏只剩这一处，更要求它在）', s.text.slice(0, 30));
+ok(/数据与存储/.test(s.slimChapter) && /常见问题/.test(s.slimChapter) && /使用说明/.test(s.slimChapter), 'S17 「设置 → 关于」三条明细路径落在目录「公告已精简」章（#1216 进目录）', s.slimChapter.slice(0, 40));
+ok(/默认聊天字卡的词典字卡太多/.test(s.text), 'S18a 词典字卡「不适用建议关闭」仍在顶卡第 4 段（哨兵 #981a）');
+const helpSrc = readFileSync(join(root, 'js', 'settings-help.js'), 'utf8');
+ok(/整组停用/.test(helpSrc), 'S18b「整组停用」的入口口径没随摘要一起丢：权威落点＝设置里的功能说明（#1216 后开屏不复述，哨兵 #981b 转删除型）');
 
 // ===== 形态：标红（亮色 + 暗色） =====
 ok(s.borderWidth === '4px' && s.borderColor === 'rgb(210, 52, 48)', 'S17 红色左竖条 4px（#d23430）', s.borderWidth + ' / ' + s.borderColor);
@@ -150,18 +169,26 @@ const after = await probe();
 ok(after.hasCard && after.firstChild && after.beforeBrand, 'B3 开屏回填与 5s 看门狗跑过后，红卡仍在 .splash-box 首位');
 
 // ===== 在线 notice.json（权威源）与静态兜底两份同步 =====
+// v8.44 #1216：summary 整段清空（clock.js 判 length 才建块，空数组＝联网用户也不渲染摘要）；
+// 四张横幅卡的口径改为两份源的**目录章节**，故这里判「summary 空」＋「章节在位」。
 const json = JSON.parse(readFileSync(join(root, 'notice.json'), 'utf8'));
-const j = (json.summary || []).map((x) => x.hl || '');
-ok(/有问题先去「关于」找答案/.test(j[0] || ''), 'S23 notice.json summary 首条未动（仍是「先去关于找答案」）', (j[0] || '').slice(0, 24));
-ok(/不适用建议不使用/.test(j[1] || '') && /本质只是工具/.test(j[1] || '') && /整组停用/.test(j[1] || ''), 'S24 notice.json summary 第 2 条＝同口径（不适用建议不使用 + 本质只是工具 + 字卡整组停用）', (j[1] || '').slice(0, 30));
+ok(Array.isArray(json.summary) && json.summary.length === 0, 'S23 notice.json summary 已整段清空（#1216 与静态摘要块同批撤除；两份不同步＝联网/断网用户看到的开屏各不相同）', JSON.stringify(json.summary));
+const jsec = json.sections || [];
+const jt = (t) => (jsec.find((x) => String(x.h).indexOf(t) === 0) || { p: [] }).p.map((x) => (typeof x === 'string' ? x : x.b || x.hl || x.h || '')).join(' ');
+ok(/有问题先去那里找答案|先去「关于」找答案|数据与存储/.test(jt('公告已精简')), 'S24 在线「公告已精简」章同口径（哨兵 #1216e）', jt('公告已精简').slice(0, 40));
+ok(/永久停更/.test(jt('停更公告')) && /拿代码给 AI 调/.test(jt('停更公告')), 'S24b 在线「停更公告」章三条齐全（哨兵 #1216c）', jt('停更公告').slice(0, 40));
+ok(/添加到主屏幕/.test(jt('iPhone 用户必读')) && /给手机留几个 GB 空闲存储/.test(jt('iPhone 用户必读')), 'S24c #916「建议都装主屏幕＋配合三点」并进在线 iPhone 章（哨兵 #1216g/#1216i）', jt('iPhone 用户必读').slice(0, 40));
+ok(/自带浏览器/.test(jt('浏览器兼容提醒')) && /Chrome/.test(jt('浏览器兼容提醒')), 'S24d 在线安卓兼容章在位（哨兵 #738/#991 系列）', jt('浏览器兼容提醒').slice(0, 40));
 
-// 离线兜底：掐掉 notice.json 后重载，静态列表第 2 条必须仍是同口径
+// 离线兜底：掐掉 notice.json 后重载，静态侧的顶卡与目录四章必须各自成立
 await page.route('**/notice.json*', (r) => r.abort());
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => !!document.querySelector('.splash-bigwarn'), null, { timeout: 20000 }).catch(() => {});
 await sleep(1800);
 const off = await probe();
-ok(/不适用建议不使用/.test((off.hls[1] || '')) && /本质只是工具/.test((off.hls[1] || '')), 'S25 离线兜底（notice.json 拉不到）时静态摘要第 2 条仍是同口径', (off.hls[1] || '').slice(0, 30));
+ok(/不适用建议不使用/.test(off.text) && /本质只是工具/.test(off.text), 'S25 离线兜底（notice.json 拉不到）时顶卡仍自带「不适用建议不使用 + 本质只是工具」口径（摘要撤除后开屏只有这一处）', off.text.slice(0, 30));
+ok(off.noSummary, 'S25b 离线兜底侧也没有必读摘要块（静态 DOM 与在线 summary 同批撤除）');
+ok(/数据与存储/.test(off.slimChapter) && /永久停更/.test(off.stopChapter) && /给手机留几个 GB 空闲存储/.test(off.iosChapter) && /Chrome/.test(off.androidChapter), 'S25c 离线兜底目录四章文案齐全（与在线两份逐字一致的落点）', JSON.stringify(off.secTitles.slice(0, 5)));
 ok(off.hasCard && off.firstChild, 'S26 离线兜底时红卡本身照常在最顶端');
 await page.unroute('**/notice.json*');
 
