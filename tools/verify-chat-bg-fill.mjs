@@ -357,9 +357,17 @@ await evalJs("(function(){(window.__lvhBak||[]).forEach(function(p){var st=docum
 await sleep(300);
 
 console.log('== B10/B11 收尾 ==');
-const cleared = await evalJs("(function(){try{localStorage.removeItem('xy-home-v2:default:cs-bg');}catch(e){}try{window.applyChatSettings();}catch(e){}var L=document.getElementById('cs-bg-layer'),pc=document.getElementById('page-chat');return JSON.stringify({disp:L?getComputedStyle(L).display:'none-el',img:L?(L.style.backgroundImage||''):'',pcImg:pc.style.backgroundImage||''});})()");
-const cc = JSON.parse(String(cleared));
-ok('B10 清壁纸后图层收起、无残留', cc.disp !== 'block' && cc.img === '' && cc.pcImg === '', JSON.stringify(cc));
+await evalJs("(function(){try{localStorage.removeItem('xy-home-v2:default:cs-bg');}catch(e){}try{window.applyChatSettings();}catch(e){}return 1;})()");
+// #1258 改了这一项的口径：值读空的那一轮**不许**当场判「用户没设壁纸」（指针/大键索引任一还在、或尚未裁决
+// 时先留层并踢一趟按需取回——真机上「退出重进背景图就没了」正是这一刀）。断言因此改成「结算后必须收起、
+// 无残留」：库里确认没有（本夹具只写过 LS，IDB 里根本没有这一行 → absent）图层就得下来，不许变成永久留层。
+let cc = { disp: 'block', img: 'pending', pcImg: '' };
+for (let t = 0; t < 20; t++) {
+  await sleep(300);
+  cc = JSON.parse(String(await evalJs("(function(){var L=document.getElementById('cs-bg-layer'),pc=document.getElementById('page-chat');return JSON.stringify({disp:L?getComputedStyle(L).display:'none-el',img:L?(L.style.backgroundImage||''):'',pcImg:pc.style.backgroundImage||''});})()")));
+  if (cc.disp !== 'block' && cc.img === '' && cc.pcImg === '') break;
+}
+ok('B10 清壁纸后图层收起、无残留（裁决结算后 ≤6s；#1258 允许读空当轮先留层，不许留成永久）', cc.disp !== 'block' && cc.img === '' && cc.pcImg === '', JSON.stringify(cc));
 ok('B11 全程零 JS 异常', jsErrs.length === 0, jsErrs.slice(0, 3).join(' || '));
 
 console.log('---- ' + (fail ? '❌' : '✅') + ' verify-chat-bg-fill: ' + pass + ' 通过 / ' + fail + ' 失败（基线盒 ' + b0.box + ' 绘制 ' + b0.painted + ' 层 ' + b0.layer + ' lvh ' + b0.lvh + '）----');

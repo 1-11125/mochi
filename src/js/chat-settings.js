@@ -134,25 +134,102 @@
       }).catch(() => {});
     } catch (e) {}
   };
-  // 「这张壁纸本该还在」的判据：active-id 指针仍指向图库里的某一张。用户删掉正被使用的那张
-  //（见删除/清除入口）时 id 已不在清单里 ⇒ 不再取回，避免把刚删的图从 IDB 又捞回内存。
-  function csBgExpectBg() {
-    const aid = csBgActiveId();
-    return !!aid && csBgList().indexOf(aid) >= 0;
+  // ===== FIX 2026-09-25 #1258「聊天背景图卡住没显示、退出重进就没了」（OPPO A5 Pro + Edge 实报，
+  // 用户明说其他机型同现；零机型／零 UA 分支＝判据只取本机存储事实）=====
+  // #1218 把「MB 级原图只进 IndexedDB、读空先按需取回」收了口，但它的闸门 csBgExpectBg 只认
+  // active-id 指针这一条证据，而指针和大键尺寸索引（__big-idx）、图库清单（cs-bg-glist）**全都落在
+  // localStorage**。Edge/安卓的「杀进程回滚 LS 提交」是已登记的病灶（idb.js 小键写日志那一族的立项
+  // 原因，荣耀 200 Pro + Edge 实报），本机 LS 又被实测撑到 542 键 ≈5.9MB（早已越过 5MB 配额线）——
+  // 于是这三种真实现场都会「指针读空」：①LS 那批小键被回滚；②配额满时那次 setItem 根本没落进去；
+  // ③#1218 之前的旧版把「暂时读空」当永久丢失时顺手删过它。指针一没，闸门就判「用户压根没设壁纸」
+  // ＝当场拆掉铺好的壁纸层＋从此没人再去库里取回＝**背景图真的没了，重开也没有**（用户原话「退出重进
+  // 背景图就没了」；在聊天页里那一阵「卡没」＝切后台释放内存副本后同一条拆层路径）。原图其实一直好
+  // 好躺在库里——库里那份不受 LS 回滚影响，这正是「图没了但占着空间」的错位。
+  // 改法＝判据从「一条 LS 小键」换成「三条独立证据任一成立」，并把库里那份当最终权威：
+  //   S1 指针仍指向图库里某一张（原口径一字不动）；
+  //   S2 大键尺寸索引里还留着 cs-bg 那一行（set 同步记账、remove 同步销账、回填与取回自愈补记）；
+  //   S3 前两条都读空时（＝LS 那批小键整批被回滚／写不进的本机形态）不认死：先别拆层，并就该桌面
+  //      踢一趟数据层的按需取回（#1218 的 idbEnsureBigKey：库里有过就把 MB 级原图读回来、健康连接
+  //      确认没有才认死）＝专治这台机器「重开就没了、从此没人再去库里找」的那一刀。
+  // 问不出结果（'unknown'／内核忙）＝一直停在「未裁决」＝继续留层，绝不据此宣布丢失（旧写法每会话
+  // 封顶两次，第三次就回到拆层那条路＝把同一台机器的症状又放出来一遍）。只有「健康连接确认库里
+  // 没有」与「用户亲手删除」才允许拆层。三条证据都随命名空间（桌面）各自成立：换桌面＝对新联系人
+  // 重新裁决，绝不沿用上一位的结论，也不拿「未裁决」当幌子把别人的壁纸留在这一位脸上。
+  function csBgIdxWitness() {
+    try {
+      const idx = window.idbBigIdxSize;
+      return typeof idx === 'function' && idx('cs-bg') !== undefined;
+    } catch (e) { return false; }
   }
-  // 聊天背景被挂起时的补取回：同一次只跑一份，落地后重跑 applySettings 自己把层铺回来。
-  // 返回 true ＝「这一轮先别拆层，等回执」。
-  let csBgHydrating = false;
-  function csBgHydrateOnce() {
-    if (csBgHydrating || !window.idbEnsureBigKey) return false;
+  const csBgCurNs = () => { try { return String(window.activePrefix() || ''); } catch (e) { return ''; } };
+  let csBgHydrating = false;   // 一次只跑一份取回
+  let csBgAskedNs = '';        // 已为哪个桌面踢过问库（每桌面每会话一次，不空转；restore-done 重置）
+  let csBgGoneNs = '';         // 该桌面「库里确认没有／用户亲手删」⇒ 允许拆层（换桌面自动失效）
+  let csBgPaintedNs = '';      // 壁纸层当前画的是哪个桌面的图
+  // 「这张壁纸本该还在」的判据（三条证据任一成立；见上）
+  function csBgExpectBg(ns) {
+    const cur = ns || csBgCurNs();
+    const aid = csBgActiveId();
+    if (!!aid && csBgList().indexOf(aid) >= 0) return true;
+    if (csBgIdxWitness()) return true;
+    return csBgGoneNs !== cur;
+  }
+  // 用户亲手删除/清除壁纸时调它：这个桌面就此认死「没有壁纸」，既不再留层也不再问库
+  // （否则「清除」要点完等一次往返才生效＝看起来像「按了没反应」）
+  function csBgForgetThisSession() { csBgGoneNs = csBgCurNs(); }
+  // 指针丢了但原图取回来了 ⇒ 就地把指针重建（优先认图库里内容相同的那张；认不出就用一个只为
+  // 「下次别再走空判」的库侧锚点——它不在清单里，因此不参与面板高亮与删除判定，S1 自然不认它，
+  // 下一轮由 S2/S3 说话，用户真删图时也不会被它复活）。
+  function csBgRebindPointer() {
+    try {
+      if (csBgActiveId()) return;
+      const rec = csBgReconcileActive();
+      if (rec) return;
+      store.set(CS_BG_ACTIVE, '__idb');
+    } catch (e) {}
+  }
+  // 聊天背景被挂起时的补取回：同一个桌面一次会话只踢一趟（同一次只跑一份），落地后重跑
+  // applySettings 自己把层铺回来。返回 true ＝「这一轮先别拆层，等回执」。
+  function csBgHydrateOnce(ns) {
+    const cur = ns || csBgCurNs();
+    if (csBgHydrating || csBgAskedNs === cur || !window.idbEnsureBigKey) return false;
     try { if (store.get('cs-bg')) return false; } catch (e) { return false; }
     csBgHydrating = true;
+    csBgAskedNs = cur;
     readBigKey('cs-bg').then((r) => {
       csBgHydrating = false;
-      if (r.v) { try { applySettings(); } catch (e) {} return; }
-      if (r.st === 'absent') { try { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); } catch (e) {} }
+      // 这一趟等回执期间用户亲手清掉了壁纸／库里确认没有 ⇒ 这份结果作废：绝不把刚删的图抢回来
+      if (csBgGoneNs === cur) return;
+      if (r.v) {
+        try { csBgRebindPointer(); applySettings(); } catch (e) {}
+        return;
+      }
+      // 'absent'（健康连接确认库里没有）是唯一允许拆层／销指针的那一态；销指针之前仍要过一遍 S2——
+      // Edge 上 LS 被回滚的那一轮指针本来就不在，再销一次等于把「下一轮还能靠索引认回来」的
+      // 路也堵死。索引也记着没有，才算真丢。
+      // 'unknown'（内核忙/超时/隐私模式）则只认「未裁决」：绝不宣布丢失，层原地留着，等下一次
+      // mochi-restore-done 或换桌面重新裁决（asked 标记随之重置）。真丢才重跑 applySettings 拆层；
+      // 未裁决时不跑＝裁决没变，白刷一轮全局样式（#938 那笔账）。
+      if (r.st === 'absent') {
+        csBgGoneNs = cur;
+        try {
+          if (csBgActiveId() && !csBgIdxWitness()) store.remove(CS_BG_ACTIVE);
+        } catch (e) {}
+        try { applySettings(); } catch (e) {}
+      }
     }).catch(() => { csBgHydrating = false; });
     return true;
+  }
+  // 「读不到壁纸」时的统一裁决：该等的等（取回），库里确认没有／用户亲手删除的才允许拆层。
+  // 返回 true ＝ 本轮保留现有壁纸层不动。拆层判据只此一处，applySettings 不再各自表达。
+  function csBgHoldLayer() {
+    const cur = csBgCurNs();
+    // 层上正画着**别人**桌面的图：跟这一位无关，照常拆掉（不让「未裁决」变成跨桌面残留壁纸）
+    if (csBgPaintedNs && csBgPaintedNs !== cur) return false;
+    if (!csBgExpectBg(cur)) return false;
+    if (csBgHydrating) return true;
+    if (csBgHydrateOnce(cur)) return true;
+    return csBgExpectBg(cur);
   }
 
   const FONT_SIZES = [
@@ -556,6 +633,7 @@
       // 两条下限分工：下面这条 .cs-bg-fill 是 #762 的（纯视口单位，只有铺满档享受）；
       // #781 的 .cs-bg-on 那条才是四档共用、且取 max(视口单位, --cs-bg-h)（规则都在 chat-main.css）。
       chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
+      csBgPaintedNs = csBgCurNs();   // #1258：记下这层图属于哪个桌面（跨桌面切换时的拆层依据）
       csBgStableLater();
     } else {
       // #938：本分支每次 applySettings 都跑（＝无壁纸设备点一下抽屉控件也会跑到），原实现的
@@ -563,10 +641,14 @@
       // 数百条气泡的共同祖先整棵重算。全部改成「先比对、真变了才动」。
       // FIX 2026-09-25 #1218：该有壁纸（active-id 指针在）却读空＝大概率被启动回填挂起，这一轮
       // 先把层原样留着并踢一次按需取回；拆层正是「聊天背景莫名其妙消失、刷新又回来」的可见形态。
-      const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();
+      // FIX 2026-09-25 #1258：这一判据从「只看指针」换成三条独立证据（指针／大键尺寸索引／库里
+      // count 问证），裁决收进 csBgHoldLayer 一处——指针那条 LS 小键被 Edge 回滚或配额写空时，
+      // 旧判定会把「库里明明还有的背景」当场拆掉且无人再取回＝「退出重进背景就没了」。
+      const waitBg = !bg && csBgHoldLayer();
       if (bgLayer && !waitBg) {
         if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
         if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
+        csBgPaintedNs = '';   // #1258：当场拆掉了就销账，别让下一位桌面替这张图「留层」
       }
       if (chatPage && !waitBg) {
         if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
@@ -808,7 +890,7 @@
           csBgSaveList(csBgList().filter(x => x !== id));
           store.remove('cs-bg-item-' + id);
           store.remove('cs-bg-item-thb-' + id);
-          if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }
+          if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); csBgForgetThisSession(); applySettings(); }
           // 优化⑤：留底 5 秒，面板底部出「撤销」条；每次删除覆盖上一条留底（只保最近一张）
           if (full) {
             m.__undoItem = { id, full, thb: thb2, wasActive };
@@ -862,7 +944,7 @@
       const rmBtn = document.createElement('button');
       rmBtn.textContent = '清除当前壁纸（图库保留）';
       rmBtn.style.cssText = 'width:100%;padding:10px;border:1px solid rgba(163,45,45,.35);border-radius:10px;background:var(--danger-soft,#fff5f5);color:var(--danger-ink,#a32d2d);font-size:13px;margin-bottom:8px';
-      rmBtn.addEventListener('click', () => { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); toast('已清除，图库里的图还在'); openCsBgPanel(); });
+      rmBtn.addEventListener('click', () => { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); csBgForgetThisSession(); applySettings(); toast('已清除，图库里的图还在'); openCsBgPanel(); });
       box.appendChild(rmBtn);
     }
     // 优化②：聊天壁纸/图库是 per-联系人独立的——一键同步到其他联系人桌面，
@@ -934,6 +1016,7 @@
     csBgRm.addEventListener('click', () => {
       store.remove('cs-bg');
       try { store.remove(CS_BG_ACTIVE); } catch (e) {}
+      csBgForgetThisSession();
       applySettings();
     });
   }
@@ -1851,10 +1934,14 @@
   try { document.addEventListener('mochi-restore-done', () => { _fontHydrateTries = {}; migrateFontBlobs(); applyFont(); }); } catch (e) {}
   // #1218：备份导入/恢复会整库换血——上一轮「健康连接确认库里没有」的留底当场作废，重置探针
   // 再补一次聊天背景（用户流程正是「清库 → 导入 → 打开显示背景被清除」，与 #787 字体同口径）
+  // #1258：同处把本桌面的三态留底（「已经问过库」「库里确认没有」）一起清掉——那两条结论都是按
+  // 导入前的库做的，导入把原图带回来时必须允许再问，否则「清库→导入→重开」这一条路仍然修不好。
   try { document.addEventListener('mochi-restore-done', () => {
     try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
     csBgHydrating = false;
-    csBgHydrateOnce();
+    csBgAskedNs = '';
+    csBgGoneNs = '';
+    if (!csBgHydrateOnce()) { try { applySettings(); } catch (e) {} }
   }); } catch (e) {}
   applyFont();
 

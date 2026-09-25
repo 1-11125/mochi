@@ -1213,6 +1213,20 @@
     } catch (e) {}
     return out;
   };
+  // #1258同批：大键尺寸索引的同步查询口（零 IDB 往返，只读 localStorage 里那份 __big-idx）。
+  // 消费方据此判「这个大键本该还在」：_bigIdx 由 xyStore.set 同步维护、remove 时同步删除、
+  // 启动回填与按需取回还会自愈补记（#907 清扫同源），也不受切后台释放内存副本（#1195e）影响，
+  // 是「指针已丢」设备上唯一还活着的旁证。返回字节数；查不到 = undefined。
+  window.idbBigIdxSize = function (relKey) {
+    if (typeof relKey !== 'string' || !relKey) return undefined;
+    let cands = [];
+    try { cands = window.idbBigKeyCandidates(relKey) || []; } catch (e) {}
+    for (let i = 0; i < cands.length; i++) {
+      const n = _bigIdx[cands[i]];
+      if (typeof n === 'number' && n > 0) return n;
+    }
+    return undefined;
+  };
   // → Promise<'ok'|'absent'|'unknown'>
   //   'ok'      已取回进内存缓存，此后 store.get(relKey) 可读（调用方仍要自己复核，见 bigKeyReady）
   //   'absent'  健康连接确认所有候选键在库里都不存在 ⇒ 这才是真的「原图已丢失」

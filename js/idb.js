@@ -804,6 +804,16 @@ if ((!window.__activeCid || window.__activeCid === 'default') && out.indexOf(leg
 } catch (e) {}
 return out;
 };
+window.idbBigIdxSize = function (relKey) {
+if (typeof relKey !== 'string' || !relKey) return undefined;
+let cands = [];
+try { cands = window.idbBigKeyCandidates(relKey) || []; } catch (e) {}
+for (let i = 0; i < cands.length; i++) {
+const n = _bigIdx[cands[i]];
+if (typeof n === 'number' && n > 0) return n;
+}
+return undefined;
+};
 window.idbEnsureBigKey = function (relKey) {
 if (typeof relKey !== 'string' || !relKey) return Promise.resolve('unknown');
 const hyd = window.idbHydrateKey;

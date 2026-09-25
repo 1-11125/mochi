@@ -5020,12 +5020,12 @@ const FIX_SENTINELS = [
   { name: "#1218j 删除壁纸前先取回原图＝5 秒撤销的留底不为空（删＝一次读空把「可撤销的删除」变成不可逆删除）", file: "js/personalize.js", needle: "readBigKey('phone-bg-item-' + id).then((r) => { doDelete(r.v); });" },
   { name: "#1218k 桌面壁纸对账读空不再顺手删指针（与 #1218h 同口径：未确认不得动指针）", file: "js/personalize.js", needle: "if (!cur) return '';\nconst aid = pbgActiveId();" },
   { name: "#1218l 导入/恢复完成后再补一次桌面壁纸（与 #787 字体同口径；删＝导完不重启就一直白板）", file: "js/personalize.js", needle: "pbgBgHydrating = false;\npbgHydrateBgOnce();" },
-  { name: "#1218m 聊天背景该有却读空时先取回、这一轮不拆层（删＝「从通知点开进聊天页背景莫名消失、刷新又回来」原样复发）", file: "js/chat-settings.js", needle: "const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();" },
+  { name: "#1218m 聊天背景该有却读空时先取回、这一轮不拆层（删＝「从通知点开进聊天页背景莫名消失、刷新又回来」原样复发）", file: "js/chat-settings.js", needle: "const waitBg = !bg && csBgHoldLayer();" },
   { name: "#1218n 等待回执期不许把壁纸层打回隐藏（删＝取回还没落地就先拆层，用户看到的「背景被清除」正是这一刀）", file: "js/chat-settings.js", needle: "if (bgLayer && !waitBg) {" },
   { name: "#1218o 聊天背景超 6MB 只跳过渲染、仅超 12MB 毒数据才清除（对齐 personalize 的 v3.10.x 口径；删＝正常略超标的图被三处齐删＝「设置成功、重启后背景被清掉」）", file: "js/chat-settings.js", needle: "if (bg.length > 12 * 1024 * 1024) { try { store.remove('cs-bg'); } catch (e) {} }" },
-  { name: "#1218p 删掉正被使用的一张时同步清 cs-bg 与 cs-bg-active-id（否则 #1218m 的取回会把刚删的图从 IDB 又捞回内存）", file: "js/chat-settings.js", needle: "if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }" },
+  { name: "#1218p 删掉正被使用的一张时同步清 cs-bg 与 cs-bg-active-id（否则 #1218m 的取回会把刚删的图从 IDB 又捞回内存）", file: "js/chat-settings.js", needle: "if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); csBgForgetThisSession(); applySettings(); }" },
   { name: "#1218q 聊天背景对账读空不再顺手删指针（与 #1218k 同口径）", file: "js/chat-settings.js", needle: "if (!cur) return '';\nconst aid = csBgActiveId();" },
-  { name: "#1218r 导入/恢复完成后再补一次聊天背景（与 #1218l 同口径；用户流程正是「清库→导入→打开说背景没了」）", file: "js/chat-settings.js", needle: "csBgHydrating = false;\ncsBgHydrateOnce();" },
+  { name: "#1218r 导入/恢复完成后再补一次聊天背景（与 #1218l 同口径；用户流程正是「清库→导入→打开说背景没了」）", file: "js/chat-settings.js", needle: "if (!csBgHydrateOnce()) { try { applySettings(); } catch (e) {} }" },
   { name: "#1218s 删除型：桌面壁纸点格不得再无条件宣布「原图已丢失」（回流＝又把读超时当丢失，正是本批用户实报的那句话）", file: "js/personalize.js", needle: "这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); return;", absent: true },
   { name: "#1218t 删除型：聊天壁纸点格不得再无条件宣布「原图已丢失」（回流同上）", file: "js/chat-settings.js", needle: "这张壁纸原图已丢失（可能被浏览器清理），请重新上传'); }", absent: true },
   /* ==== #1218 写侧（用户补报「有的手机重新上传图片也不行」）。
@@ -5088,6 +5088,15 @@ const FIX_SENTINELS = [
   { name: '#1235e 点击查看大图与网格同源·分块渲染路径（同上；两条渲染路径各持一份点击判定，少一条＝首屏正常、下滑后复发）', file: 'js/chatcard.js', needle: 'const cm = ccCardMedia(it.c);' },
   { name: '#1235e 列表内联搜索按同源判据挡载荷（改回 #680 三条精确前缀＝变体卡整串 base64 进搜索结果列表）', file: 'js/chatcard.js', needle: 'if (ccCardMedia(c) || c.indexOf(\'@@m:\') >= 0) return \'\';' },
   { name: '#1235e 卡体内嵌名称兜底进名称标签（删＝修完乱码后「名称|||令牌」卡连名字一起没了）', file: 'js/chatcard.js', needle: 'const nm = ccCardName(c) || fallback || \'\';' },
+  /* ==== 2026-09-25 #1258 OPPO A5 Pro / Edge 实报「聊天界面背景图一直卡没，退出重进背景图就没了」（用户明说其他机型同现；诊断单实测：LS 542 键 ≈5.9MB 早已越过配额线，IDB 大键明细里根本没有 cs-bg 那一行）＝#1218 的闸门 csBgExpectBg 只认 active-id 这一条 localStorage 小键，而 Edge/安卓「杀进程回滚 LS 提交」＋配额满写不进正是这条小键的病灶：指针读空＝判「用户压根没设壁纸」＝当场拆掉铺好的壁纸层且从此没人再去库里取回（原图一直好躺在 IndexedDB，库里那份不受 LS 回滚影响）。方案＝判据从「一条 LS 小键」换成三条独立证据任一成立，并把库里那份当最终权威：S1 指针仍在图库清单里（原口径一字不动）；S2 大键尺寸索引 __big-idx 还记着 cs-bg（新增同步查询口 window.idbBigIdxSize，零 IDB 往返）；S3 两条都读空时不认死，按桌面（命名空间）各踢一趟 #1218 的按需取回，只有健康连接确认 absent／用户亲手删除才允许拆层（旧写法每会话封顶两次＝第三次回到拆层那条路，等于把症状又放出来一遍）。跨桌面互不沿用结论：层上画着别人的图照拆，未裁决不替别人留壁纸；诊断侧把 cs-bg 补进大键候选清单，下次这类报障单看得见最该看的那一行。零机型／零 UA 分支，判定只取本机存储事实与内核回执三态。验证：tools/verify-1258-chat-bg-witness.mjs。 ==== */
+  { name: '#1258a 大键尺寸索引的同步查询口（删＝S2 旁证没了，指针被 LS 回滚时本机再无任何证据说「壁纸本该还在」，拆层照旧）', file: 'js/idb.js', needle: 'window.idbBigIdxSize = function (relKey) {' },
+  { name: '#1258b 判据第二条＝索引旁证（删回只看指针＝本批症状原样复发）', file: 'js/chat-settings.js', needle: 'if (csBgIdxWitness()) return true;' },
+  { name: '#1258c 无旁证时按桌面各认死一次（换成布尔＝换桌面沿用上一位结论，跨桌面壁纸残留／误拆同时复发）', file: 'js/chat-settings.js', needle: 'return csBgGoneNs !== cur;' },
+  { name: '#1258d 每个命名空间只踢一趟按需取回（删掉 asked 闸＝每轮 applySettings 都发一次 MB 级读；换成计数上限＝问不出结果时照样拆层，症状回归）', file: 'js/chat-settings.js', needle: 'if (csBgHydrating || csBgAskedNs === cur || !window.idbEnsureBigKey) return false;' },
+  { name: '#1258e 层上画着别的桌面的图照常拆（删＝未裁决变成跨桌面残留壁纸，切联系人还挂着上一位的背景）', file: 'js/chat-settings.js', needle: 'if (csBgPaintedNs && csBgPaintedNs !== cur) return false;' },
+  { name: '#1258f 取回后就地重建指针（删＝图铺回来了但指针还空着，面板不高亮、删除判定找不到张，下一轮又是一次空判）', file: 'js/chat-settings.js', needle: "store.set(CS_BG_ACTIVE, '__idb');" },
+  { name: '#1258g 用户亲手清除＝本桌面当场认死（删＝清除要点完等一次往返才生效，看起来像按了没反应；也等于把刚删的图从库里抢回来）', file: 'js/chat-settings.js', needle: 'function csBgForgetThisSession() { csBgGoneNs = csBgCurNs(); }' },
+  { name: '#1258h 诊断大键候选清单补聊天背景（删＝「背景图没了」的报障单里看不到最该看的那一行，判不出原图还在不在库里）', file: 'js/device.js', needle: 'if (/:(cs-bg)$/.test(k)) return true;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

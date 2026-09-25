@@ -1560,6 +1560,13 @@
             if (/:chat-msgs$/.test(k)) return true;
             if (/avatar-(lib|me-lib)$/.test(k)) return true;
             if (/:(phone-bg|wallpaper|chat-bg|page-bg|desk-bg|bg)$/.test(k)) return true;
+            // FIX 2026-09-25 #1258：候选清单原来漏掉聊天背景——上面那条要求冒号后整段是 `bg`，
+            // 而聊天背景的键名是 `<cid>:cs-bg`（旧顶层键 `xy-home-v2:cs-bg` 同形），永远匹配不上 ⇒
+            // 「背景图没了」的报障单里恰恰看不到最该看的那一行（本轮 OPPO A5 Pro + Edge 实测：明细
+            // 只列了 chat-msgs 与 phone-bg，判不出原图到底还在不在库里）。
+            // 只补 cs-bg 本体：图库镜像 cs-bg-item-* 是最多 12 张同尺寸大图，全列进候选会让诊断这
+            // 一次 idbGetMany 变成几十 MB 的整库读（报障单常年卡在「读取中…」）。
+            if (/:(cs-bg)$/.test(k)) return true;
             if (k.indexOf('__auto-backup-snapshot') >= 0) return true;
             return false;
           });

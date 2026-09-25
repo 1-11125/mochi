@@ -71,21 +71,63 @@ toast(what + '没能存进本机存储（存储空间可能已满）：现在能
 }).catch(() => {});
 } catch (e) {}
 };
-function csBgExpectBg() {
-const aid = csBgActiveId();
-return !!aid && csBgList().indexOf(aid) >= 0;
+function csBgIdxWitness() {
+try {
+const idx = window.idbBigIdxSize;
+return typeof idx === 'function' && idx('cs-bg') !== undefined;
+} catch (e) { return false; }
 }
-let csBgHydrating = false;
-function csBgHydrateOnce() {
-if (csBgHydrating || !window.idbEnsureBigKey) return false;
+const csBgCurNs = () => { try { return String(window.activePrefix() || ''); } catch (e) { return ''; } };
+let csBgHydrating = false;   // 一次只跑一份取回
+let csBgAskedNs = '';        // 已为哪个桌面踢过问库（每桌面每会话一次，不空转；restore-done 重置）
+let csBgGoneNs = '';         // 该桌面「库里确认没有／用户亲手删」⇒ 允许拆层（换桌面自动失效）
+let csBgPaintedNs = '';      // 壁纸层当前画的是哪个桌面的图
+function csBgExpectBg(ns) {
+const cur = ns || csBgCurNs();
+const aid = csBgActiveId();
+if (!!aid && csBgList().indexOf(aid) >= 0) return true;
+if (csBgIdxWitness()) return true;
+return csBgGoneNs !== cur;
+}
+function csBgForgetThisSession() { csBgGoneNs = csBgCurNs(); }
+function csBgRebindPointer() {
+try {
+if (csBgActiveId()) return;
+const rec = csBgReconcileActive();
+if (rec) return;
+store.set(CS_BG_ACTIVE, '__idb');
+} catch (e) {}
+}
+function csBgHydrateOnce(ns) {
+const cur = ns || csBgCurNs();
+if (csBgHydrating || csBgAskedNs === cur || !window.idbEnsureBigKey) return false;
 try { if (store.get('cs-bg')) return false; } catch (e) { return false; }
 csBgHydrating = true;
+csBgAskedNs = cur;
 readBigKey('cs-bg').then((r) => {
 csBgHydrating = false;
-if (r.v) { try { applySettings(); } catch (e) {} return; }
-if (r.st === 'absent') { try { if (csBgActiveId()) store.remove(CS_BG_ACTIVE); } catch (e) {} }
+if (csBgGoneNs === cur) return;
+if (r.v) {
+try { csBgRebindPointer(); applySettings(); } catch (e) {}
+return;
+}
+if (r.st === 'absent') {
+csBgGoneNs = cur;
+try {
+if (csBgActiveId() && !csBgIdxWitness()) store.remove(CS_BG_ACTIVE);
+} catch (e) {}
+try { applySettings(); } catch (e) {}
+}
 }).catch(() => { csBgHydrating = false; });
 return true;
+}
+function csBgHoldLayer() {
+const cur = csBgCurNs();
+if (csBgPaintedNs && csBgPaintedNs !== cur) return false;
+if (!csBgExpectBg(cur)) return false;
+if (csBgHydrating) return true;
+if (csBgHydrateOnce(cur)) return true;
+return csBgExpectBg(cur);
 }
 const FONT_SIZES = [
 { label: '小', value: '13px' },
@@ -372,12 +414,14 @@ if (bgLayer.style.backgroundPosition !== psWanted) bgLayer.style.backgroundPosit
 if (bgLayer.style.display !== 'block') bgLayer.style.display = 'block';
 chatPage.classList.toggle('cs-bg-on', true);
 chatPage.classList.toggle('cs-bg-fill', fit === 'fill');
+csBgPaintedNs = csBgCurNs();   // #1258：记下这层图属于哪个桌面（跨桌面切换时的拆层依据）
 csBgStableLater();
 } else {
-const waitBg = !bg && csBgExpectBg() && csBgHydrateOnce();
+const waitBg = !bg && csBgHoldLayer();
 if (bgLayer && !waitBg) {
 if (bgLayer.style.display !== 'none') bgLayer.style.display = 'none';
 if (bgLayer.style.backgroundImage) bgLayer.style.backgroundImage = '';
+csBgPaintedNs = '';   // #1258：当场拆掉了就销账，别让下一位桌面替这张图「留层」
 }
 if (chatPage && !waitBg) {
 if (chatPage.classList.contains('cs-bg-fill')) chatPage.classList.remove('cs-bg-fill');
@@ -573,7 +617,7 @@ const wasActive = id === aid;
 csBgSaveList(csBgList().filter(x => x !== id));
 store.remove('cs-bg-item-' + id);
 store.remove('cs-bg-item-thb-' + id);
-if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); }
+if (wasActive) { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); csBgForgetThisSession(); applySettings(); }
 if (full) {
 m.__undoItem = { id, full, thb: thb2, wasActive };
 if (m.__undoTimer) clearTimeout(m.__undoTimer);
@@ -621,7 +665,7 @@ if (cur) {
 const rmBtn = document.createElement('button');
 rmBtn.textContent = '清除当前壁纸（图库保留）';
 rmBtn.style.cssText = 'width:100%;padding:10px;border:1px solid rgba(163,45,45,.35);border-radius:10px;background:var(--danger-soft,#fff5f5);color:var(--danger-ink,#a32d2d);font-size:13px;margin-bottom:8px';
-rmBtn.addEventListener('click', () => { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); applySettings(); toast('已清除，图库里的图还在'); openCsBgPanel(); });
+rmBtn.addEventListener('click', () => { store.remove('cs-bg'); store.remove(CS_BG_ACTIVE); csBgForgetThisSession(); applySettings(); toast('已清除，图库里的图还在'); openCsBgPanel(); });
 box.appendChild(rmBtn);
 }
 if (list.length && window.getContacts && window.xyStore && window.openModal) {
@@ -684,6 +728,7 @@ if (csBgRm) {
 csBgRm.addEventListener('click', () => {
 store.remove('cs-bg');
 try { store.remove(CS_BG_ACTIVE); } catch (e) {}
+csBgForgetThisSession();
 applySettings();
 });
 }
@@ -1449,7 +1494,9 @@ try { document.addEventListener('mochi-restore-done', () => { _fontHydrateTries 
 try { document.addEventListener('mochi-restore-done', () => {
 try { if (window.idbResetBigKeyProbe) window.idbResetBigKeyProbe(); } catch (e) {}
 csBgHydrating = false;
-csBgHydrateOnce();
+csBgAskedNs = '';
+csBgGoneNs = '';
+if (!csBgHydrateOnce()) { try { applySettings(); } catch (e) {} }
 }); } catch (e) {}
 applyFont();
 const csCss = row('cs-css');
