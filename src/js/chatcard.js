@@ -1131,9 +1131,9 @@
   };
   try {
     window.addEventListener('beforeunload', flushCcSave);
-    window.addEventListener('pagehide', flushCcSave);
+    window.addEventListener('pagehide', function () { flushCcSave(); poolSrcRelease(); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') flushCcSave();
+      if (document.visibilityState === 'hidden') { flushCcSave(); poolSrcRelease(); }
     });
   } catch (e) {}
 
@@ -1142,6 +1142,30 @@
   // 带缓存：render→updateCountsOnly 高频触发，不重复 JSON.parse 大库，变更方强制刷新
   // v3.32.x：fun=专属库功能字卡数；pubFun=公用库功能字卡数（与 pub 同缓存节奏）
   const libCounts = { pub: -1, own: -1, fun: -1, pubFun: -1 };
+  // FIX 2026-09-25 #1222（iPhone 15 Pro Max / iOS 26 perfcheck 实锤：字卡库页前台冻结 10 次、最慢帧 1292ms，掉帧 91.7% 集中在字卡库）：
+  // 字卡库列表页每显示一次，上方 MutationObserver 就 refreshLibCounts(true) → pubInvalidate() 盲清池视图 →
+  // 下一手读取把公用+专属两库原文整份同步 JSON.parse，只为刷 4 个角标数字（大库机型 MB~百 MB 级＝秒级冻结）。
+  // 数据变更的唯一入口是 xyStore.set，故比对两把键**原文串**即可判断池视图是否仍新鲜：没变＝跳过
+  // 失效（计数照常走 countOf 轻遍历），变了＝照旧整清重建。零机型分支、语义等价。
+  // 比较必须按**内容**而不是对象身份：memoryCache 未命中时 get 落到 localStorage.getItem，同一份
+  // 数据每次返回**新字符串实例**（#975/#1195e 切后台释放内存副本后正是这条路）；JS 里字符串 !==
+  // 本就是内容比较（先比长度再逐字符），比整库 JSON.parse 便宜几个量级。
+  const NO_SRC = {}; // 初始哨兵：任何真实读数（含 null=键缺失）都不等于它
+  let poolSrcPub = NO_SRC, poolSrcOwn = NO_SRC;
+  function poolSrcChanged() {
+    let rp = NO_SRC, ro = NO_SRC;
+    try { rp = pubStore().get(PUB_KEY); } catch (e) {}
+    try { ro = store.get('cc-groups'); } catch (e) {}
+    const ch = poolSrcPub !== rp || poolSrcOwn !== ro;
+    poolSrcPub = rp; poolSrcOwn = ro;
+    return ch;
+  }
+  // FIX 2026-09-25 #1271（给 #1222 配套；释放口径与 #975/#1195e 一致，零机型分支）：
+  // 切后台/离页时 #1195e 通用闸会放掉 memoryCache 里的大键副本，但本闸把原文串还押在闭包里——
+  // cc-groups-public 是诊断【内存体检】头号驻留项（报障机实测 14.5M 字符），不放＝释放闸原地
+  // 打转＝回收次数降不下来、「来回切换卡顿」依旧。只丢引用不碰持久层；回前台首读会重新裁决，
+  // NO_SRC≠任何真实读数＝按「变过」失效一次，与切后台前的既有行为同向、只会更省。
+  function poolSrcRelease() { poolSrcPub = NO_SRC; poolSrcOwn = NO_SRC; }
   function countOf(g) {
     let n = 0;
     try { Object.keys(g || {}).forEach(t => (g[t] || []).forEach(grp => { if (Array.isArray(grp) && Array.isArray(grp[1])) n += grp[1].length; })); } catch (e) {}
@@ -1154,7 +1178,8 @@
     return n;
   }
   function refreshLibCounts(force) {
-    if (force) { libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1; pubInvalidate(); }
+    // #1222：force 不再无条件 pubInvalidate()——原文串没变＝池视图仍是最新，只重算计数
+    if (force) { libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1; if (poolSrcChanged()) pubInvalidate(); }
     // v3.25.x：计数 0 不再缓存——iOS 慢回填场景角标先算成 0 并缓存，之后数据落进
     // 内存缓存也没人失效它，列表页两行角标永远 0（点进作用域页却能看到字卡，真机反馈）。
     // 空库重复 countOf 只是解析 null 零负担；大库计数 >0 仍走缓存，不会反复 JSON.parse。
@@ -4880,7 +4905,9 @@
     // 防抖窗口内刚上传/编辑的内容（切到另一作用域后刷新即丢）
     flushCcSave();
     ccScope = scope === 'public' ? 'public' : 'own';
-    pubInvalidate();
+    // #1222：同 refreshLibCounts 口径——库原文串没变＝池视图仍是最新，不再每次开管理页
+    // 把公用+专属库重新整份 JSON.parse（大库机型「点开字卡库必卡」的组成之一）
+    if (poolSrcChanged()) pubInvalidate(); // #1222：原文串没变＝池视图仍新鲜，不重建
     namesInvalidate(); // #680：名称缓存分作用域，切作用域必须重读
     // v3.32.x：startTab 可指定起始分类（其他互动功能字卡入口直接落到第一个功能 tab）
     cur = (startTab && CC_ALL_TYPES.indexOf(startTab) >= 0) ? startTab : 'text';

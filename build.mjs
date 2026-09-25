@@ -5166,6 +5166,13 @@ const FIX_SENTINELS = [
       修法＝一行内同时纠正「量哪个页」与「打不开时说什么」（gated 用冒号，外层打印已有 打开未生效（…） 一对）。零机型／零 UA 分支不变，判据仍是「点图标 → 目标页是否可见」这一个 DOM 事实。行为断言＝tools/verify-1279-func-diag-checkin-row.mjs（g/r 两侧同尺）。 ==== */
   { name: "#1279a 功能诊断「寻踪」量的是寻踪页本身（换回 page-ta-checkin＝诊断去量字卡库那页，图标点开的是寻踪页，恒判「打开未生效」＝用户实报的那行假读数复发）", file: "js/device.js", needle: "app: 'checkin', page: 'page-checkin', open: true" },
   { name: "#1279z 诊断不得再凭空报「绑定 TA/授权定位」（项目里没有这一步也没有那项权限；回流＝给用户指一个不存在的门槛，用户会去系统设置里找本站没有的定位权限）", file: "js/device.js", needle: "可能需先绑定 TA/授权定位", absent: true },
+  /* ==== 2026-09-25 #1222＋#1271 iPhone 16 Pro Max / Safari 实报「最近异常卡顿（来回切换卡顿）」＋同族 iPhone 15 Pro Max「切到添加字卡页面最卡」（perfcheck：最慢帧 2393ms 在字卡库、自定义字卡占采样 25.3%；诊断：cc-groups-public 头号驻留 14.5M 字符、本页被回收 91→115 次）＝字卡库列表页每次显示都盲清池视图＋整库同步 JSON.parse（#1222 三处收口＝比对两把键原文串，没变不重建）；#1271＝收口时补的配套闸：#1222 把原文串押在闭包里，切后台时 #1195e 通用闸放掉 memoryCache 大键副本、这份引用却原地不放＝头号驻留换个口袋继续挂着，回收照旧。零机型／零 UA 分支＝判据只有「数据变没变」「页面可见性」。验证：tools/verify-1222-lib-reparse.mjs 14 断言＋本批 A/B。 ==== */
+  { name: '#1222a 原文串记账的初始哨兵与两个槽（整族删除＝角标闸没了，进页每次盲清整库 parse 复发）', file: 'js/chatcard.js', needle: 'let poolSrcPub = NO_SRC, poolSrcOwn = NO_SRC;' },
+  { name: '#1222b 内容比对本体（改成比长度/对象身份＝等长改字漏判或 memoryCache 未命中恒判「变了」，闸门形同虚设）', file: 'js/chatcard.js', needle: 'poolSrcPub !== rp || poolSrcOwn !== ro' },
+  { name: '#1222c force 分支不再盲清池视图（改回无条件 pubInvalidate()＝列表页每显示一次整库重 parse，本批症状原样回归）', file: 'js/chatcard.js', needle: 'libCounts.fun = -1; libCounts.pubFun = -1; if (poolSrcChanged()) pubInvalidate();' },
+  { name: '#1222d openCcPage 调用点同闸（只保留这一处＝refreshLibCounts 那处被抄回无条件版，进管理页照卡；两处共用串在文件里唯一靠行尾注释）', file: 'js/chatcard.js', needle: 'if (poolSrcChanged()) pubInvalidate(); // #1222：原文串没变＝池视图仍新鲜，不重建' },
+  { name: '#1271a 切后台释放闭包原文串引用（删＝cc-groups-public 头号大键被闭包钉住，#1195e 通用闸对它原地打转＝回收/来回切换卡顿不降）', file: 'js/chatcard.js', needle: 'function poolSrcRelease() { poolSrcPub = NO_SRC; poolSrcOwn = NO_SRC; }' },
+  { name: '#1271b 释放挂在既有 hidden/离页链上（只留定义不接线＝死代码，症状照旧；挪去别的事件＝切后台不释放）', file: 'js/chatcard.js', needle: "if (document.visibilityState === 'hidden') { flushCcSave(); poolSrcRelease(); }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

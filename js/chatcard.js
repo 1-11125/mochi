@@ -814,12 +814,23 @@ refreshLibCounts(true);
 };
 try {
 window.addEventListener('beforeunload', flushCcSave);
-window.addEventListener('pagehide', flushCcSave);
+window.addEventListener('pagehide', function () { flushCcSave(); poolSrcRelease(); });
 document.addEventListener('visibilitychange', function () {
-if (document.visibilityState === 'hidden') flushCcSave();
+if (document.visibilityState === 'hidden') { flushCcSave(); poolSrcRelease(); }
 });
 } catch (e) {}
 const libCounts = { pub: -1, own: -1, fun: -1, pubFun: -1 };
+const NO_SRC = {}; // 初始哨兵：任何真实读数（含 null=键缺失）都不等于它
+let poolSrcPub = NO_SRC, poolSrcOwn = NO_SRC;
+function poolSrcChanged() {
+let rp = NO_SRC, ro = NO_SRC;
+try { rp = pubStore().get(PUB_KEY); } catch (e) {}
+try { ro = store.get('cc-groups'); } catch (e) {}
+const ch = poolSrcPub !== rp || poolSrcOwn !== ro;
+poolSrcPub = rp; poolSrcOwn = ro;
+return ch;
+}
+function poolSrcRelease() { poolSrcPub = NO_SRC; poolSrcOwn = NO_SRC; }
 function countOf(g) {
 let n = 0;
 try { Object.keys(g || {}).forEach(t => (g[t] || []).forEach(grp => { if (Array.isArray(grp) && Array.isArray(grp[1])) n += grp[1].length; })); } catch (e) {}
@@ -831,7 +842,7 @@ try { (keys || []).forEach(t => (g[t] || []).forEach(grp => { if (Array.isArray(
 return n;
 }
 function refreshLibCounts(force) {
-if (force) { libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1; pubInvalidate(); }
+if (force) { libCounts.pub = -1; libCounts.own = -1; libCounts.fun = -1; libCounts.pubFun = -1; if (poolSrcChanged()) pubInvalidate(); }
 if (libCounts.pub < 0) {
 const n = countOf(pubGroupsRaw());
 libCounts.pub = n > 0 ? n : -1;
@@ -3889,7 +3900,7 @@ function openCcPage(scope, startTab) {
 try { if (window.__mochiPhase) window.__mochiPhase('cc-open'); } catch (e0) {}
 flushCcSave();
 ccScope = scope === 'public' ? 'public' : 'own';
-pubInvalidate();
+if (poolSrcChanged()) pubInvalidate(); // #1222：原文串没变＝池视图仍新鲜，不重建
 namesInvalidate(); // #680：名称缓存分作用域，切作用域必须重读
 cur = (startTab && CC_ALL_TYPES.indexOf(startTab) >= 0) ? startTab : 'text';
 q = ''; curGroup = '';
