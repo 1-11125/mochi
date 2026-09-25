@@ -225,7 +225,22 @@
     showFsFallbackTip();
     forcePortrait(5, showRotateTip);
   }
+  // #1282 一次点按只允许一次全屏事务：在途闸＋「已是全屏」短路。
+  // 真机上每一次 requestFullscreen 都开一段系统级全屏切换（收系统栏＋窗口尺寸重排＋
+  // 整页重布），同一段里发两次＝用户所见「点『全屏模式』闪一下、接着黑屏 2~3 秒才进去」。
+  // 判据只有「有没有进行中的请求／是不是已经在全屏里」这两个 API 事实，零机型、零 UA 分支。
+  let _fsFlight = null, _fsFlightTimer = 0;
+  function closeFsFlight() { clearTimeout(_fsFlightTimer); _fsFlight = null; }
+  function openFsFlight(p) {
+    _fsFlight = p || true;
+    clearTimeout(_fsFlightTimer);
+    // 有界释放：内核不返回 promise（老 webkit 前缀路径）或落定事件缺失时，闸最长压 1.5s
+    //（与既有「进入全屏 1500ms 复核」同一口径），绝不把全屏永久锁死
+    _fsFlightTimer = setTimeout(closeFsFlight, 1500);
+    if (p && p.then) p.then(closeFsFlight, closeFsFlight);
+  }
   function enterFs() {
+    if (_fsFlight || isFullscreen()) return _fsFlight; // #1282 在途/已全屏＝不再另开一次切换事务
     try {
       const el = document.documentElement;
       let p;
@@ -242,12 +257,14 @@
       // 进入后锁竖屏（需全屏态，此时已满足）并启动方向监视（iOS 经 Safe 入口跳过）；
       // 无论锁屏 API 是否报成功，监视器都会复核视口方向
       const tryLock = () => { lockFsOrient(); startFsMonitorSafe(); };
-      if (p && p.then) { p.then(tryLock, tryLock); return p; }
+      if (p && p.then) { openFsFlight(p); p.then(tryLock, tryLock); return p; } // #1282 请求落定前挂闸
+      openFsFlight(null);
       setTimeout(tryLock, 300);
     } catch (e) {}
     return null;
   }
   function exitFs() {
+    closeFsFlight(); // #1282 主动退出＝撤闸，别让在途的进入请求挡住随后的恢复
     try {
       unlockFsOrient();
       stopFsMonitor();
@@ -622,8 +639,20 @@
     document.removeEventListener('click', retryClick, true);
     document.removeEventListener('touchstart', retryTouch, true);
   }
-  function retryClick(e) { if (!e.isTrusted) return; doRetry(); }
-  function retryTouch(e) { if (!e.isTrusted) return; doRetry(); }
+  // #1282 让路闸：这一次点按正落在「全屏模式」开关上（设置页 #sf-fullscreen／聊天设置
+  // 镜像 #cs-fullscreen，含包住 input 的 label 装饰层），就交还给开关自己的 change 流程。
+  // 否则同一手势两路各发一次全屏请求（实测温差＝两次请求相隔约 116ms）；更糟的是点「关」
+  // 时 FS_KEY 尚未被写回 0，这句会抢先把全屏又开回来＝开关弹回、全屏关不掉。
+  // 判据是事件落点这一个 DOM 事实，零机型、零 UA 分支。
+  function onFsSwitch(t) {
+    if (!t || typeof t.closest !== 'function') return false;
+    if (t.closest('#sf-fullscreen, #cs-fullscreen')) return true;
+    const lb = t.closest('label');
+    return !!(lb && (lb.htmlFor === 'sf-fullscreen' || lb.htmlFor === 'cs-fullscreen' ||
+      lb.querySelector('#sf-fullscreen, #cs-fullscreen')));
+  }
+  function retryClick(e) { if (!e.isTrusted || onFsSwitch(e.target)) return; doRetry(); }
+  function retryTouch(e) { if (!e.isTrusted || onFsSwitch(e.target)) return; doRetry(); }
   function doRetry() {
     disarmRetry();
     if (store.get(FS_KEY) !== '1' || isFullscreen()) return; // 用户已关闭/已全屏 → 放弃

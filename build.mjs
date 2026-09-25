@@ -392,6 +392,11 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-26 #1282 点「全屏模式」闪屏→黑屏 2~3 秒才进全屏（红米 K80 + Chrome 实报，用户明说其他设备型号也有出现、勿覆盖式修补；零机型／零 UA 分支＝判据只取「有没有进行中的全屏请求／是不是已经在全屏」与事件落点三个事实）。根因＝同一次点按里 requestFullscreen 被发两次：armRetry 的文档捕获期 touchstart/click 手势重入兜底（v3.8.x 为「切后台被系统退出全屏后首次触摸重试」而设）不认目标，用户点开关那一下先被它吃掉发了 enterFs#1，约 116ms 后开关自己的 change 分支又发 enterFs#2（无头实测 armed=FS_KEY'1' 两次、fresh 一次＝红米现场）。真机上每一发都开一段系统级全屏切换事务（收系统栏＋窗口尺寸重排），两发连着来＝闪一下再黑屏才进去；同一根因还有第二种更糟表现：点「关」时 FS_KEY 尚未写回 0，这句抢先把全屏又开回来＝开关弹回、全屏关不掉。修法＝enterFs 单点闸（在途或未落定 promise 期间、以及已是全屏时不再另发请求；promise 缺失走 1500ms 有界释放＝与既有复核窗口同口径，绝不把全屏锁死）＋ exitFs 撤闸 ＋ doRetry 让路闸（事件落在 #sf-fullscreen／镜像 #cs-fullscreen 或其 label 装饰层上即交还给开关自己的 change 流程）。行为验证：tools/verify-1282-fs-one-request.mjs ==== */
+  { name: '#1282a 全屏请求单点闸（在途或已全屏不再另发一次 requestFullscreen；删＝一次点按两段全屏切换事务＝红米所见闪屏后黑屏 2~3 秒）', file: 'js/fullscreen.js', needle: 'if (_fsFlight || isFullscreen()) return _fsFlight;' },
+  { name: '#1282b 闸的有界释放（内核不返回 promise／落定缺失时最长压 1.5s；删掉这句＝闸可能被永久挂住，全屏再也开不了）', file: 'js/fullscreen.js', needle: '_fsFlightTimer = setTimeout(closeFsFlight, 1500);' },
+  { name: '#1282c 手势重入认目标让路（点开关那一下交还给开关自己的 change 流程；删＝touchstart 抢先发一次，点「关」还会被开回来＝全屏关不掉/开关弹回）', file: 'js/fullscreen.js', needle: 'function retryTouch(e) { if (!e.isTrusted || onFsSwitch(e.target)) return; doRetry(); }' },
+  { name: '#1282d 让路判据取事件落点（开关本体或其 label 装饰层；不是机型/UA 分支，删＝判据失效退回「任何触摸都抢发全屏」）', file: 'js/fullscreen.js', needle: "if (t.closest('#sf-fullscreen, #cs-fullscreen')) return true;" },
   /* ==== 2026-09-25 #1266 经期页暗色填色整段被压平＋功能自检盲区收口（iPhone 12 Pro Max／iOS 16.6 Safari 实报「无法正常显示填色的图标」「记录排卵按钮按不动但功能自检不报」，多机型同现；零机型／零 UA 分支＝判据只取 data-theme 特异度与命中测试/计算样式两个结构事实） ==== */
   { name: '#1266a 暗色阶段图标填色回收（删＝通用 .period-status-ico 底 #555 回流压平 phase-period/fertile/safe，「填色的图标无法正常显示」复发）', file: 'index.html', needle: '[data-theme="dark"] .period-status-ico.phase-period { background:#e85a8f; }' },
   { name: '#1266b 暗色日历经期格填色回收（删＝ph-period 与空白格同为 --dark-card 底色，日历整月无色）', file: 'index.html', needle: '[data-theme="dark"] .period-grid .pc-cell.ph-period { background:#e85a8f; color:#fff; border-color:#e85a8f; }' },
