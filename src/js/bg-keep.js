@@ -1397,6 +1397,15 @@
   function swLaterFlush(reg) {
     if (!swLaterTimer) return; // 已 flush 过（ready 与 60s 到点谁先到都只跑一次）
     clearTimeout(swLaterTimer); swLaterTimer = null;
+    // #1291（原 #1218 通知批，撞号已改）：回前台后才就绪的补发不再执行——这批「就绪即补发」是为
+    //   「SW 掉线的隐藏态」补投的，页面已回前台时用户已在应用内看到消息本体（聊天记录/横幅都在），
+    //   可见态再补发＝把旧消息或已结束的通话通知又炸一遍（「提示电话挂了结果还在打」）。
+    //   可见态一律 skip，通道记 none（通知未真正提交显示，不记 markNotified、也不记通道故障账）。
+    if (document.visibilityState !== 'hidden') {
+      for (let i = 0; i < swLaterQueue.length; i++) swNotifyNote('none', swLaterQueue[i].chanOut);
+      swLaterQueue = [];
+      return;
+    }
     const q = swLaterQueue; swLaterQueue = [];
     if (!reg) {
       for (let i = 0; i < q.length; i++) swNotifyNote('none', q[i].chanOut);
@@ -1500,7 +1509,10 @@
           kaSWReady().then(function (reg) {
             // #673：SW 未就绪（被回收/弱网注册中）时先挂「就绪即补发」——隐藏态下
             // 页面通道根本不会显示，不补发就是整条丢；前台则直接走页面通道（可见即能弹）
-            if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }
+            // #1291（原 #1218 通知批，撞号已改）：隐藏态只走「就绪即补发」单通道，不再同时调
+            //   pageFallback——页面通道在隐藏态根本不会显示（#673 已证），叠发的唯一效果是
+            //   SW 一旦就绪再由补发弹一条＝同一条消息交出去两次。前台仍走页面通道（可见即能弹）。
+            if (!reg) { if (hidden) { swNotifyLater(title, opts, chanOut); note('none'); resolve(false); } else { pageFallback(); } return; }
             // v3.14.x：逐级降级重发——带 image 失败 → 去 image；仍失败 → 去 badge；
             // 最后连 icon 也去掉只发纯文字。保证文字通知不因任一媒体字段异常整条丢失
             const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];

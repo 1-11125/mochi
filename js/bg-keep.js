@@ -960,6 +960,11 @@ if (typeof chanOut === 'function') { try { chanOut(ch); } catch (e) {} }
 function swLaterFlush(reg) {
 if (!swLaterTimer) return; // 已 flush 过（ready 与 60s 到点谁先到都只跑一次）
 clearTimeout(swLaterTimer); swLaterTimer = null;
+if (document.visibilityState !== 'hidden') {
+for (let i = 0; i < swLaterQueue.length; i++) swNotifyNote('none', swLaterQueue[i].chanOut);
+swLaterQueue = [];
+return;
+}
 const q = swLaterQueue; swLaterQueue = [];
 if (!reg) {
 for (let i = 0; i < q.length; i++) swNotifyNote('none', q[i].chanOut);
@@ -1036,7 +1041,7 @@ const swOpts = Object.assign({}, opts);
 if (!swOpts.urgency) swOpts.urgency = 'high';
 if (!swOpts.badge) swOpts.badge = BADGE_DATAURL || NOTIFY_ICON || undefined;
 kaSWReady().then(function (reg) {
-if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }
+if (!reg) { if (hidden) { swNotifyLater(title, opts, chanOut); note('none'); resolve(false); } else { pageFallback(); } return; }
 const STRIP_LADDER = [[], ['image'], ['image', 'badge'], ['image', 'badge', 'icon']];
 let ladderIdx = 0;
 const tryNext = function () {

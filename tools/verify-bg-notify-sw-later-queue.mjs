@@ -29,13 +29,15 @@ function check(name, ok) {
   if (!ok) fails++;
 }
 
-function makeSandbox(swStub) {
+function makeSandbox(swStub, visState) {
   const sandbox = {
     console, setTimeout, clearTimeout, Promise, Error, Date, JSON, Object,
     navigator: swStub,
     window: {},
     document: {
-      visibilityState: 'visible',
+      // #1291：补发只在「页面仍隐藏」时执行——回前台后才就绪的那一批按新契约作废，
+      //   所以可见性必须可控（默认 hidden＝#921 原始场景：SW 掉线期间用户在后台）
+      visibilityState: visState || 'hidden',
       addEventListener: function () {},
       getElementById: function () { return null; }
     },
@@ -67,7 +69,7 @@ check('S2 存在队列容器 swLaterQueue', src.indexOf('swLaterQueue.push(') >=
         get ready() { return sleep(80).then(function () { return { showNotification: function (t, o) { shown.push({ t: t, o: o }); return Promise.resolve(); } }; }); }
       }
     };
-    const api = makeSandbox(swStub);
+    const api = makeSandbox(swStub, 'hidden');
     const chans = [[], [], []];
     api.swNotifyLater('A', { body: '1', icon: 'data:image/png;base64,xxx', image: 'data:image/png;base64,yyy' }, function (c) { chans[0].push(c); });
     api.swNotifyLater('B', { body: '2', badge: 'data:image/png;base64,zzz' }, function (c) { chans[1].push(c); });
@@ -81,7 +83,7 @@ check('S2 存在队列容器 swLaterQueue', src.indexOf('swLaterQueue.push(') >=
   // B2 ready reject：三条全部报 none（不再像修前那样第 2 条起连回报都没有）
   {
     const swStub = { serviceWorker: { get ready() { return Promise.reject(new Error('no-sw')); } } };
-    const api = makeSandbox(swStub);
+    const api = makeSandbox(swStub, 'hidden');
     const chans = [[], [], []];
     api.swNotifyLater('A', {}, function (c) { chans[0].push(c); });
     api.swNotifyLater('B', {}, function (c) { chans[1].push(c); });
@@ -93,7 +95,7 @@ check('S2 存在队列容器 swLaterQueue', src.indexOf('swLaterQueue.push(') >=
   {
     let n = 0;
     const swStub = { serviceWorker: { get ready() { n++; return sleep(20).then(function () { return { showNotification: function () {} }; }); } } };
-    const api = makeSandbox(swStub);
+    const api = makeSandbox(swStub, 'hidden');
     api.swNotifyLater('R1', {}, function () {});
     await sleep(100);
     api.swNotifyLater('R2', {}, function () {});
@@ -106,6 +108,25 @@ check('S2 存在队列容器 swLaterQueue', src.indexOf('swLaterQueue.push(') >=
     const chans = [];
     api.swNotifyLater('X', {}, function (c) { chans.push(c); });
     check('B6 无 SW 环境立即报 none', chans.length === 1 && chans[0] === 'none');
+  }
+  // B5 #1291 新契约：回前台后才就绪＝这批补发作废（用户已在应用内看到消息本体），
+  //    一条都不许再交出去、通道如实报 none（旧写法＝回前台又把旧消息/已结束通话通知炸一遍）
+  {
+    let shown = [];
+    const swStub = {
+      serviceWorker: {
+        get ready() { return sleep(80).then(function () { return { showNotification: function (t, o) { shown.push({ t: t, o: o }); return Promise.resolve(); } }; }); }
+      }
+    };
+    const api = makeSandbox(swStub, 'visible');
+    const chans = [[], [], []];
+    api.swNotifyLater('V1', { body: '1' }, function (c) { chans[0].push(c); });
+    api.swNotifyLater('V2', { body: '2' }, function (c) { chans[1].push(c); });
+    api.swNotifyLater('V3', { body: '3' }, function (c) { chans[2].push(c); });
+    await sleep(300);
+    check('B7 回前台后就绪：一条都不补发（RED 本体，旧写法＝3）', shown.length === 0);
+    check('B8 作废的每条通道如实报 none（不当成通道故障、不记已弹）',
+      chans.every(function (c) { return c.length === 1 && c[0] === 'none'; }));
   }
 
   console.log(fails === 0 ? 'ALL PASS' : fails + ' FAILED');

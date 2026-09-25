@@ -717,6 +717,11 @@
   function holdIncomingCall(name, cid, avOverride, msgWritten) {
     let prev = null;
     try { prev = readCallHold(); } catch (e) {}
+    // #1291（原 #1218 通知批，撞号已改）：同一次响铃经「切后台→回前台重响→再切后台」会反复触发
+    //   holdIncomingCall，每次都无条件 bgCallNotify → 同名「XX 来电了」通知跟着前后台来回攒
+    //   （配 SW 就绪补发＝一条来电攒出一串重复通知，「延迟+重复」的来源之一）。短窗（6s）内已有
+    //   同一联系人的挂起且刚通知过 → 只重建挂起、不再重复发系统通知（不影响挂起语义）。
+    const justNotified = prev && prev.name === name && Date.now() - prev.ts < 6000;
     // 覆盖前先处理上一条已超时未处理的挂起（页面冻结期间第二次来电的场景）。
     // FIX 2026-09-18 #722：只补写「本运行期写下」的过期挂起；跨运行期读到的旧挂起是
     //   墓碑 flush 竞态/LS 回填孤儿（见 HOLD_SID 注释），其未接语义不可信，静默让位
@@ -732,7 +737,8 @@
     const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten, sid: HOLD_SID };
     try { localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h)); } catch (e) {}
     if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
-    bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
+    // #1291：仅当短窗内没刚通知过同一联系人的来电时才发系统通知（见上方 justNotified）
+    if (!justNotified) bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
   }
   // #204：暴露给 incoming-requests.js——跨桌面来电后台命中时同走「响铃挂起」（原只发
   // 通知即丢弃，切回应用无来电 UI 也无未接记录）；avOverride 用归属联系人头像

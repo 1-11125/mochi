@@ -392,14 +392,6 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
-  /* ==== 2026-09-25 #1266 经期页暗色填色整段被压平＋功能自检盲区收口（iPhone 12 Pro Max／iOS 16.6 Safari 实报「无法正常显示填色的图标」「记录排卵按钮按不动但功能自检不报」，多机型同现；零机型／零 UA 分支＝判据只取 data-theme 特异度与命中测试/计算样式两个结构事实） ==== */
-  { name: '#1266a 暗色阶段图标填色回收（删＝通用 .period-status-ico 底 #555 回流压平 phase-period/fertile/safe，「填色的图标无法正常显示」复发）', file: 'index.html', needle: '[data-theme="dark"] .period-status-ico.phase-period { background:#e85a8f; }' },
-  { name: '#1266b 暗色日历经期格填色回收（删＝ph-period 与空白格同为 --dark-card 底色，日历整月无色）', file: 'index.html', needle: '[data-theme="dark"] .period-grid .pc-cell.ph-period { background:#e85a8f; color:#fff; border-color:#e85a8f; }' },
-  { name: '#1266c 暗色主按钮品牌底回收（删＝「标记今天来了」primary 被通用 .period-btn 压成卡面灰底）', file: 'index.html', needle: '[data-theme="dark"] .period-btn.primary { background:#e85a8f; border-color:#e85a8f; color:#fff; }' },
-  { name: '#1266d 自检返回按钮命中测试（删回程序化 click 只看 pageVisible＝全屏浮层下用户点不动而自检恒绿；device.js 为内联件故钉 index.html）', file: 'index.html', needle: 'if (hit && (hit === el || el.contains(hit))) return true;' },
-  { name: '#1266e 自检经期填色断言（删＝暗色压平不再有第二把尺在场内点名；三阶段品牌色白名单与 CSS 同源）', file: 'index.html', needle: "const PHASE_BG = { period: 'rgb(232, 90, 143)', fertile: 'rgb(245, 166, 35)', safe: 'rgb(126, 198, 158)' };" },
-  { name: '#1266f 弹窗正文框高度上限（删＝长说明弹窗把胶囊行与「确定」推出 .modal 裁剪区、滚动条按偏好隐藏＝遮罩长期在场、页面按钮按不动；与 v3.23 .modal-textarea／#295 胶囊行同族）', file: 'index.html', needle: '.modal-static { max-height:38vh; overflow-y:auto; overscroll-behavior:auto; }' },
-
   /* ==== 2026-09-25 #1257 三症状批②③（OPPO Reno16 Chrome 实报「朋友圈一发图就消失＋收藏数据丢失」，多机型同现＝纯存储收支缺陷、零机型分支）＝②发布配图改「池先落盘、引用后落库」（feed-posts 主键不再被原图顶过 200KB 大键线）；③wrj 标记改挂值事务提交回执（掐灭「旧值+新标记」让 wrjMergeFromIdb 自愈反噬成数据回退）==== */
   { name: '#1257a 池未落盘绝不放引用（删＝写池失败仍令牌化＝#186 永久空白图回归；回退原件＝旧行为不更坏）', file: 'js/feed.js', needle: 'return ok ? out : raw;' },
   { name: '#1257b 发布先 await 池回执再落引用（删回 imgs: pickedImgs.slice()＝原图直存主键顶过大键线，回收杀未提交 IDB 事务后只剩无图快照＝「一发图就没」复发）', file: 'js/feed.js', needle: 'try { imgsArr = await feedTokImgs(rawImgs); } catch (e) {}' },
@@ -2923,7 +2915,7 @@ const FIX_SENTINELS = [
   { name: '#612 弹窗多行框滚动链放行·contain→auto（改回 contain 则框内滚到底后手指落在框上整个弹窗滚不动＝链接导入无法下滑导入复发）', file: 'css/base.css', needle: 'max-height:38vh;\noverflow-y:auto;\noverscroll-behavior:auto;' },
   { name: '#612 弹窗目标分组胶囊行滚动链放行·contain→auto（同族第二处；改回 contain 则胶囊行到边界后弹窗同样滚不动）', file: 'css/base.css', needle: 'max-height:36vh; overflow-y:auto;\noverscroll-behavior:auto;' },
   { name: '#614 通知发送链 SW.ready 超时兜底（删掉＝SW 被回收/注册失败时 ready 永不落地，后台通知「点测试没反应」+ 弹窗不发复发）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(navigator.serviceWorker.ready, 4000)' },
-  { name: '#614/#673 ready 拿不到现役 SW 时回退页面通知路径（隐藏态先挂「就绪即补发」，删掉＝不可用时永远 pending、测试按钮无反馈）', file: 'js/bg-keep.js', needle: 'if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }' },
+  { name: '#614/#673 ready 拿不到现役 SW 时回退页面通知路径（隐藏态先挂「就绪即补发」，删掉＝不可用时永远 pending、测试按钮无反馈；#1291 起同处重锚：隐藏态不再双跑 pageFallback 且必然 settle）', file: 'js/bg-keep.js', needle: 'if (!reg) { if (hidden) { swNotifyLater(title, opts, chanOut); note(\'none\'); resolve(false); } else { pageFallback(); } return; }' },
   { name: '#614/#673 showNotification 超时用 thunk 形式（删掉 thunk 退回先求值写法＝同步 throw 穿透回调，发送链卡死且降级重发不跑）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)' },
   // ==== 2026-09-25 #1241 通知发送链「超时＝失败」假象收口（realme GT Neo6 SE／雨见浏览器实报「同一个消息通知四次、后台弹窗也弹 4 次」，多机型同族；判据只取内核回执三态、零机型／零 UA 分支） ====
   { name: '#1241a 回执未落地不再重发（删掉＝退回无条件 tryNext，四级剥媒体阶梯被「Promise 永不 settle 但通知已挂出」的内核整踩一遍＝同一条消息弹 4 次复发）', file: 'js/bg-keep.js', needle: "if (e && e.kaTimeout) { notifyUnsettled++; note('sw'); resolve(true); return; }" },
@@ -5071,6 +5063,9 @@ const FIX_SENTINELS = [
   { name: "#1218y 聊天背景入库后验真落盘（与 #1218w 同口径；删＝聊天壁纸上传假成功原样复发）", file: "js/chat-settings.js", needle: "confirmBigKeys(['cs-bg-item-' + id, 'cs-bg'], '这张壁纸');" },
   { name: "#1218z 聊天侧验真的取回执（与 #1218x 同口径）", file: "js/chat-settings.js", needle: "Promise.all(keys.map((k) => landed(k))).then((sts) => {" },
   { name: "#1218ab 落盘判定先看 LS 副本（≤200KB 的键 set 已同步写进 localStorage＝本身就是落盘证据；删＝小图上传碰上 IDB 不可用（隐私模式）会被误报「存储已满」，正常设备被吓）", file: "js/idb.js", needle: "if (lsHeld) return Promise.resolve('landed');" },
+  /* ==== 2026-09-25 #1291 后台通知「延迟+重复」收口（用户追问「为什么联系人发送的后台消息的弹窗还是会重复」；#1241 收的是「回执不落地→四级阶梯＝一条弹 4 次」，本条收它没覆盖的另外三源：①隐藏态 SW 未就绪＝swNotifyLater 与 pageFallback 双通道同跑 ②swLaterFlush 无回前台闸＝用户已回前台还把旧消息/已结束通话通知补发 ③同名来电短窗内反复发通知。原草稿批号 #1218 与已入库的存储批（44872e9，#1218a~ab）撞号，收口时整体改号 #1291；①改动的那一行正是既有 #614/#673 针的 needle 行＝同名重锚，不单立针 ====*/
+  { name: '#1291a 回前台后就绪的补发不再执行（删＝你刚回来就被旧消息/已结束通话通知炸一遍＝「提示电话挂了结果还在打」；隐藏态照旧补发）', file: 'js/bg-keep.js', needle: 'swLaterQueue[i].chanOut' },
+  { name: '#1291b 同一次响铃短窗内不重复发来电通知（删＝切后台来回攒一串同名「XX 来电了」＝重复）', file: 'js/call.js', needle: "if (!justNotified) bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);" },
   { name: "#1230a 统一入口激活前搬层（手指底下没有真·可点 input 就把常驻 input 搬到落点；删＝回退成「只程序化点 sr-only clip 的 input」，iOS 26 静默拒绝＝上传/导入「点了没反应」原样复发）", file: "js/device.js", needle: "if (tap && !touchable && window.mochiPickFallback) {" },
   { name: "#1230b 「真被渲染」判据（isConnected＋有盒子＋没被 clip/clip-path 裁掉；删＝搬层腿失去触发条件，等于没有这条修复）", file: "js/device.js", needle: "window.mochiFileInputRendered = function (input) {" },
   { name: "#1230c 选完文件只派发 change、不派发 click（删/改回派发 click＝点按冒回入口按钮，双开或递归）", file: "js/device.js", needle: "orig.dispatchEvent(new Event('change'))" },

@@ -510,13 +510,14 @@ return '<svg class="st-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor
 function holdIncomingCall(name, cid, avOverride, msgWritten) {
 let prev = null;
 try { prev = readCallHold(); } catch (e) {}
+const justNotified = prev && prev.name === name && Date.now() - prev.ts < 6000;
 if (prev && prev.cid && prev.sid === HOLD_SID && Date.now() - prev.ts > CALL_HOLD_MS) {
 notifyCallEnd(prev.cid, heldMissedHtml(prev.name || partnerName()), 'in', '未接听');
 }
 const h = { ts: Date.now(), name: name, cid: cid || (window.__activeCid || 'default'), msg: !!msgWritten, sid: HOLD_SID };
 try { localStorage.setItem(CALL_HOLD_KEY, JSON.stringify(h)); } catch (e) {}
 if (window.idbSet) { try { window.idbSet(CALL_HOLD_KEY, h); } catch (e) {} }
-bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
+if (!justNotified) bgCallNotify(name, '快回来接听，对方会等你几分钟', avOverride);
 }
 window.callHoldIncoming = holdIncomingCall;
 window.callRecordMissed = function (cid, name) {
