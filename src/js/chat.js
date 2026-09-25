@@ -9477,12 +9477,12 @@ store.set(RP_WALLET_KEY, JSON.stringify(w));
 }
 const RP_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const RP_SPECIAL_FEN = [520, 5200, 52000, 520000, 1314, 131400]; // 5.2/52/520/5200/13.14/1314 元
+function rpDailyKey() { return RP_DAILY_PREFIX + rpLocalDay(); } // FIX 2026-09-25 #1256：日计数改本地日期键（UTC 口径「每天」实际早 8 点才翻篇；同 FIX 2026-09-16 游戏奖励口径，rpLocalDay 声明在下、函数整体提升）
 function rpDailyCount() {
-const k = RP_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
-return Number(store.get(k)) || 0;
+return Number(store.get(rpDailyKey())) || 0;
 }
 function rpDailyIncr() {
-const k = RP_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
+const k = rpDailyKey();
 store.set(k, String((Number(store.get(k)) || 0) + 1));
 }
 // v3.15.x：小游戏联动心意币——按日封顶发放（fen），返回实际入账分值（0=今日已到顶）
@@ -9557,7 +9557,7 @@ function trySystemAutoSend() {
 // #1015 夜间静默：TA 自动红包夜间不生成——钱包扣款发生在投递前，必须在源头拦（总闸拦消息
 // 会造成「扣了钱没红包」）。同口径：trySystemAskMochi / gift-shop 的 maybeAutoGift。
 if (window.nightModeActive && window.nightModeActive()) return;
-if (rpDailyCount() >= rpDailyMax()) return;
+const rpMax = rpDailyMax(); if (rpMax > 0 && rpDailyCount() >= rpMax) return; // FIX 2026-09-25 #1256：0＝不限是设置页承诺——旧式 max=0 时 0>=0 恒真＝自动红包被整日封死（同 trySystemAskMochi 的 askMax>0 守卫）
 // v3.6.x：TA 自动红包概率可调——读对话设置「红包-自动发红包概率」cs-rp-auto-prob（每联系人独立，默认 4%）
 let baseRate = 0.04;
 try { const ap = window.activeStore ? window.activeStore().get('cs-rp-auto-prob') : null; const pv = parseFloat(ap); if (pv !== null && isFinite(pv)) baseRate = Math.max(0, Math.min(100, pv)) / 100; } catch (e) {}

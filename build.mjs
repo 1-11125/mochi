@@ -392,6 +392,9 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-25 #1256 红包「自动发概率设 100% 也一个不发」（OPPO Reno16 Chrome 实报，多机型同现＝纯逻辑缺陷与设备无关）＝每日上限 0=不限 未做守卫、count>=0 恒真整日封死；同日计数 UTC 口径一并收口 ==== */
+  { name: '#1256a 每日上限按「0=不限」放行（删回 rpDailyCount()>=rpDailyMax()＝用户设 0 表示不限时 0>=0 恒真＝自动红包整日被封死，概率 100% 也救不回）', file: 'js/chat.js', needle: 'if (rpMax > 0 && rpDailyCount() >= rpMax) return;' },
+  { name: '#1256b 红包日计数走本地日期键（删回 toISOString＝UTC 口径「每天」北京时间早 8 点才翻篇，同 FIX 2026-09-16 游戏奖励已收口的同族）', file: 'js/chat.js', needle: 'return RP_DAILY_PREFIX + rpLocalDay();' },
   /* ==== 2026-09-25 #1221 导入备份「无效的数据文件」死胡同拆开说＋空读/BOM 兜底（vivo X200s Edge 实报，其他机型同族；零机型分支，判据只取代码事实与内核回执） ==== */
   { name: '#1221a 空读换 FileReader 重读（删＝个别安卓内核 file.text() 对大文件静默空串，误判「不是 mochi 导出的数据文件」复发）', file: 'js/data-backup.js', needle: "if (t === '' && file.size > 0) readViaReader();" },
   { name: '#1221b 解析失败分档亮真实原因（删回笼统「无效的数据文件」＝截断/损坏/选错文件无从诊断、用户没法带原因反馈）', file: 'js/data-backup.js', needle: "if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {" },

@@ -7323,12 +7323,12 @@ store.set(RP_WALLET_KEY, JSON.stringify(w));
 }
 const RP_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const RP_SPECIAL_FEN = [520, 5200, 52000, 520000, 1314, 131400]; // 5.2/52/520/5200/13.14/1314 元
+function rpDailyKey() { return RP_DAILY_PREFIX + rpLocalDay(); } // FIX 2026-09-25 #1256：日计数改本地日期键（UTC 口径「每天」实际早 8 点才翻篇；同 FIX 2026-09-16 游戏奖励口径，rpLocalDay 声明在下、函数整体提升）
 function rpDailyCount() {
-const k = RP_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
-return Number(store.get(k)) || 0;
+return Number(store.get(rpDailyKey())) || 0;
 }
 function rpDailyIncr() {
-const k = RP_DAILY_PREFIX + new Date().toISOString().slice(0, 10);
+const k = rpDailyKey();
 store.set(k, String((Number(store.get(k)) || 0) + 1));
 }
 function rpLocalDay() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
@@ -7390,7 +7390,7 @@ return 5;
 }
 function trySystemAutoSend() {
 if (window.nightModeActive && window.nightModeActive()) return;
-if (rpDailyCount() >= rpDailyMax()) return;
+const rpMax = rpDailyMax(); if (rpMax > 0 && rpDailyCount() >= rpMax) return; // FIX 2026-09-25 #1256：0＝不限是设置页承诺——旧式 max=0 时 0>=0 恒真＝自动红包被整日封死（同 trySystemAskMochi 的 askMax>0 守卫）
 let baseRate = 0.04;
 try { const ap = window.activeStore ? window.activeStore().get('cs-rp-auto-prob') : null; const pv = parseFloat(ap); if (pv !== null && isFinite(pv)) baseRate = Math.max(0, Math.min(100, pv)) / 100; } catch (e) {}
 const qixi = isQixiToday();
