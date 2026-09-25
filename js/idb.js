@@ -476,7 +476,8 @@ const key = prefix + ':' + k;
 if (!memoryCache) memoryCache = {};
 memoryCache[key] = v;
 try { bigIdxTrack(key, v); } catch (e) {}
-try { wrjRecord(key, v); } catch (e) {}
+let _wrjT = null; // FIX 2026-09-25 #1257c：标记不再随写同步落——值事务提交回执到点才补记（见下方 idbSet 处与 wrjRecord 尾注）
+try { _wrjT = wrjRecord(key, v); } catch (e) {}
 const big = typeof v === 'string' && v.length > LS_BIG_LIMIT;
 if (!big) {
 try {
@@ -489,7 +490,13 @@ lsDirtyAdd(key); // 写失败 → 标记：回填时该键以 IDB 为准
 try { if (window.__mochiPhase) window.__mochiPhase('idb-big:' + String(k).slice(0, 18)); } catch (e0) {}
 try { localStorage.removeItem(key); } catch (e) {}
 }
-try { if (window.idbSet) window.idbSet(key, v); } catch (e) {}
+try {
+if (window.idbSet) {
+const _p = window.idbSet(key, v);
+if (_wrjT && _p && _p.then) _p.then(function (ok) { if (ok) wrjMark(key, _wrjT); }, function () {});
+else if (_wrjT) wrjMark(key, _wrjT);
+}
+} catch (e) {}
 },
 remove(k) {
 const key = prefix + ':' + k;
@@ -930,7 +937,7 @@ if (i >= WRJ_MAX || chars > WRJ_BUDGET) { cut = i; break; }
 if (cut < _wrj.length) _wrj.length = cut;
 _wrjTimes[key] = t;
 wrjPersist();
-wrjMark(key, t);
+return t; // FIX 2026-09-25 #1257b：只报时间戳、不再当场 wrjMark——标记由调用方在值事务提交回执后补记（见 xyStore.set）；删掉这层交接＝「旧值+新标记」自愈反噬复发
 }
 function wrjForget(key) {
 if (!_wrj) _wrj = wrjLoad(wrjLsRaw());

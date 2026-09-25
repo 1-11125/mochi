@@ -392,6 +392,12 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-25 #1257 三症状批②③（OPPO Reno16 Chrome 实报「朋友圈一发图就消失＋收藏数据丢失」，多机型同现＝纯存储收支缺陷、零机型分支）＝②发布配图改「池先落盘、引用后落库」（feed-posts 主键不再被原图顶过 200KB 大键线）；③wrj 标记改挂值事务提交回执（掐灭「旧值+新标记」让 wrjMergeFromIdb 自愈反噬成数据回退）==== */
+  { name: '#1257a 池未落盘绝不放引用（删＝写池失败仍令牌化＝#186 永久空白图回归；回退原件＝旧行为不更坏）', file: 'js/feed.js', needle: 'return ok ? out : raw;' },
+  { name: '#1257b 发布先 await 池回执再落引用（删回 imgs: pickedImgs.slice()＝原图直存主键顶过大键线，回收杀未提交 IDB 事务后只剩无图快照＝「一发图就没」复发）', file: 'js/feed.js', needle: 'try { imgsArr = await feedTokImgs(rawImgs); } catch (e) {}' },
+  { name: '#1257c wrjRecord 只报时间戳不当场落标记（回潮成尾部 wrjMark＝「旧值+新标记」自愈反噬复发：值写失败标记照落，下次启动合并信旧 IDB 值覆掉更新的 LS 真值＝收藏/设置回退）', file: 'js/idb.js', needle: 'return t; // FIX 2026-09-25 #1257b' },
+  { name: '#1257d 写值→标记的句柄交接（删＝回执链路断，标记永不落＝#229 自愈通道失效）', file: 'js/idb.js', needle: 'try { _wrjT = wrjRecord(key, v); } catch (e) {}' },
+  { name: '#1257e 标记只在值事务提交回执 true 后补记（本批根治针；删回无条件 wrjMark＝收藏丢失 bug 本体）', file: 'js/idb.js', needle: 'if (_wrjT && _p && _p.then) _p.then(function (ok) { if (ok) wrjMark(key, _wrjT); }, function () {});' },
   /* ==== 2026-09-25 #1256 红包「自动发概率设 100% 也一个不发」（OPPO Reno16 Chrome 实报，多机型同现＝纯逻辑缺陷与设备无关）＝每日上限 0=不限 未做守卫、count>=0 恒真整日封死；同日计数 UTC 口径一并收口 ==== */
   { name: '#1256a 每日上限按「0=不限」放行（删回 rpDailyCount()>=rpDailyMax()＝用户设 0 表示不限时 0>=0 恒真＝自动红包整日被封死，概率 100% 也救不回）', file: 'js/chat.js', needle: 'if (rpMax > 0 && rpDailyCount() >= rpMax) return;' },
   { name: '#1256b 红包日计数走本地日期键（删回 toISOString＝UTC 口径「每天」北京时间早 8 点才翻篇，同 FIX 2026-09-16 游戏奖励已收口的同族）', file: 'js/chat.js', needle: 'return RP_DAILY_PREFIX + rpLocalDay();' },

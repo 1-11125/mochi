@@ -699,7 +699,8 @@
         if (!memoryCache) memoryCache = {};
         memoryCache[key] = v;
         try { bigIdxTrack(key, v); } catch (e) {}
-        try { wrjRecord(key, v); } catch (e) {}
+        let _wrjT = null; // FIX 2026-09-25 #1257c：标记不再随写同步落——值事务提交回执到点才补记（见下方 idbSet 处与 wrjRecord 尾注）
+        try { _wrjT = wrjRecord(key, v); } catch (e) {}
         // 大键跳过 localStorage（只进 IDB + 内存缓存）
         const big = typeof v === 'string' && v.length > LS_BIG_LIMIT;
         if (!big) {
@@ -715,7 +716,20 @@
           try { if (window.__mochiPhase) window.__mochiPhase('idb-big:' + String(k).slice(0, 18)); } catch (e0) {}
           try { localStorage.removeItem(key); } catch (e) {}
         }
-        try { if (window.idbSet) window.idbSet(key, v); } catch (e) {}
+        // FIX 2026-09-25 #1257 收藏/设置「改完回来又变旧」的自愈反噬（OPPO Reno16 Chrome 实报
+        //   fav-msgs LS 4.0KB vs IDB 3.9KB，多机型同现；零机型分支）：旧写法 wrjRecord 同步
+        //   wrjMark——值事务提交失败（挂起内核/回收杀事务，idbSet 3 试后 resolve false）标记照落，
+        //   库里留下【旧值+新标记】；下次启动 wrjMergeFromIdb 见「标记比已知写入新」就信 IDB，
+        //   把 LS 里更新的真值整键覆写回旧值＝自愈通道反噬成数据回退。改：标记只在值事务
+        //   最终提交回执（#1227 语义，resolve true＝oncomplete 已到）后才补记；写失败＝无新标记，
+        //   合并端天然不信旧值，LS/内存里更新的那份保住。回放/合并的修复通道一字未动。
+        try {
+          if (window.idbSet) {
+            const _p = window.idbSet(key, v);
+            if (_wrjT && _p && _p.then) _p.then(function (ok) { if (ok) wrjMark(key, _wrjT); }, function () {});
+            else if (_wrjT) wrjMark(key, _wrjT);
+          }
+        } catch (e) {}
       },
       remove(k) {
         const key = prefix + ':' + k;
@@ -1393,7 +1407,7 @@
     if (cut < _wrj.length) _wrj.length = cut;
     _wrjTimes[key] = t;
     wrjPersist();
-    wrjMark(key, t);
+    return t; // FIX 2026-09-25 #1257b：只报时间戳、不再当场 wrjMark——标记由调用方在值事务提交回执后补记（见 xyStore.set）；删掉这层交接＝「旧值+新标记」自愈反噬复发
   }
   function wrjForget(key) {
     if (!_wrj) _wrj = wrjLoad(wrjLsRaw());

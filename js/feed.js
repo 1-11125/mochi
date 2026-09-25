@@ -2000,22 +2000,45 @@ toast('朋友圈昵称已更新');
 }
 });
 }
-function publish() {
+async function feedTokImgs(arr) {
+const raw = (arr || []).slice();
+if (!raw.length || !window.mochiMediaTokenize) return raw;
+const out = [];
+let tok = 0;
+for (let i = 0; i < raw.length; i++) {
+const u = typeof raw[i] === 'string' ? raw[i].trim() : '';
+let t = null;
+if (u.indexOf('data:') === 0) { try { t = await window.mochiMediaTokenize(u); } catch (e) {} }
+if (t) { tok++; out.push(t); } else out.push(raw[i]);
+}
+if (!tok) return raw;
+let ok = false;
+try { ok = await window.mochiMediaFlush(); } catch (e) {}
+return ok ? out : raw; // 池未持久＝引用绝不先落库，退回内联原件
+}
+let _feedPubBusy = false;
+async function publish() {
 const input = document.getElementById('feed-input');
 const content = input ? input.value.trim() : '';
 if (!content && !pickedImgs.length) { toast('写点什么再发布吧'); return; }
+if (_feedPubBusy) return;
+_feedPubBusy = true;
+const rawImgs = pickedImgs.slice();
+pickedImgs = [];
+renderPreview();
+if (input) input.value = '';
+let imgsArr = rawImgs;
+try { imgsArr = await feedTokImgs(rawImgs); } catch (e) {}
+_feedPubBusy = false;
 const list = load();
 const id = 'f_' + Date.now();
 const me = activeMe();
 const cs = window.activeStore();
 const taName = cs.get('lbl-partner') || 'TA';
 const taAv = cs.get('avatar-partner') || '';
-const post = { id: id, role: 'me', owner: me.owner, authorName: me.authorName, authorAv: '', taName: taName, taAv: '', content: content, imgs: pickedImgs.slice(), ts: Date.now(), likes: [], comments: [] };
+const post = { id: id, role: 'me', owner: me.owner, authorName: me.authorName, authorAv: '', taName: taName, taAv: '', content: content, imgs: imgsArr, ts: Date.now(), likes: [], comments: [] };
 list.unshift(post);
 save(list);
-pickedImgs = [];
-renderPreview();
-if (input) input.value = '';
 renderVisible();
 if (!document.getElementById('feed-post-' + id)) {
 feedGuardWrite(JSON.stringify(list));

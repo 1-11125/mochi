@@ -2539,10 +2539,44 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     });
   }
   // 发布
-  function publish() {
+  // FIX 2026-09-25 #1257 发布配图「一发图就消失」（OPPO Reno16 Chrome 实报，多机型同形；零机型分支）：
+  //   旧写法把原图 dataURL 直接存进 post.imgs——单图几 MB 就把主键 feed-posts 顶过 200KB 大键线
+  //   （idb.js xyStore.set：大键只进 IDB+内存、不进 localStorage），而剥图快照 stripPostImg 把
+  //   imgs 恒置空，本机诊断记录该页被系统回收 83 次＝未提交的 IDB 值事务随进程一起没了；
+  //   刷新/回收后 load() 读 LS 主键落空 → 只剩无图快照兜底 → 「动态还在、图没了」。
+  //   改法＝聊天半框同款纪律（chat.js mediaNormalizePass / #186）：图体进媒体池（内容寻址
+  //   media:<hash> 单键小事务、GC 引用面本就含 feed-posts），动态里只留 @@m: 令牌——主键恒为
+  //   小键走 LS+IDB 双写；先等池落盘成功再让引用落库，写池失败则整批发回原 dataURL（＝旧行为，不更坏）。
+  async function feedTokImgs(arr) {
+    const raw = (arr || []).slice();
+    if (!raw.length || !window.mochiMediaTokenize) return raw;
+    const out = [];
+    let tok = 0;
+    for (let i = 0; i < raw.length; i++) {
+      const u = typeof raw[i] === 'string' ? raw[i].trim() : '';
+      let t = null;
+      if (u.indexOf('data:') === 0) { try { t = await window.mochiMediaTokenize(u); } catch (e) {} }
+      if (t) { tok++; out.push(t); } else out.push(raw[i]);
+    }
+    if (!tok) return raw;
+    let ok = false;
+    try { ok = await window.mochiMediaFlush(); } catch (e) {}
+    return ok ? out : raw; // 池未持久＝引用绝不先落库，退回内联原件
+  }
+  let _feedPubBusy = false;
+  async function publish() {
     const input = document.getElementById('feed-input');
     const content = input ? input.value.trim() : '';
     if (!content && !pickedImgs.length) { toast('写点什么再发布吧'); return; }
+    if (_feedPubBusy) return;
+    _feedPubBusy = true;
+    const rawImgs = pickedImgs.slice();
+    pickedImgs = [];
+    renderPreview();
+    if (input) input.value = '';
+    let imgsArr = rawImgs;
+    try { imgsArr = await feedTokImgs(rawImgs); } catch (e) {}
+    _feedPubBusy = false;
     // v3.5.95：图片独立存 imgs 数组（九宫格展示，与 TA 动态一致），不再混排进文字
     const list = load();
     const id = 'f_' + Date.now();
@@ -2554,12 +2588,9 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     //   实时读当前头像即可。原实现把头像 base64 塞进每条动态，哪怕正文纯文字，
     //   头像稍大就把主键撑到 >200KB → 只进 IndexedDB 不进 localStorage → Edge 丢 IDB
     //   后纯文字动态也丢（OPPO Reno6 Edge 实现）。去掉后纯文字主键真的 <200KB 能写 LS。
-    const post = { id: id, role: 'me', owner: me.owner, authorName: me.authorName, authorAv: '', taName: taName, taAv: '', content: content, imgs: pickedImgs.slice(), ts: Date.now(), likes: [], comments: [] };
+    const post = { id: id, role: 'me', owner: me.owner, authorName: me.authorName, authorAv: '', taName: taName, taAv: '', content: content, imgs: imgsArr, ts: Date.now(), likes: [], comments: [] };
     list.unshift(post);
     save(list);
-    pickedImgs = [];
-    renderPreview();
-    if (input) input.value = '';
     renderVisible();
     // v3.7.x 兜底：render 后若列表没出现刚发布的动态（Edge 上 IDB 慢/门槛暂存时序异常），
     //   强制把 list 直接落盘 + 重渲染，确保发布后立刻可见。用户主动发布应立即持久化，
