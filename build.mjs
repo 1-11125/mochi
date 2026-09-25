@@ -5076,6 +5076,18 @@ const FIX_SENTINELS = [
   { name: '#1236d 主渲染逐条 chip 走显示闸（删＝srcTagHidden 只剩空函数，历史标签照旧铺出）', file: 'js/chat.js', needle: 'if (srcTagHidden(md && md.tag)) return;' },
   { name: "#1236e 链路自检把总闸算进拼字前置（删＝自检报「词典拼字正常」而用户明明关着，指路说谎）", file: 'js/reply-settings.js', needle: "const pyOk = c['py-en'] === 1;" },
   { name: '#1236f 字卡体检 qs 漏斗含总闸（删＝体检把「总开关关着」判成通过，一键修复空转）', file: 'js/card-audit.js', needle: "{ t: '多字卡总闸', ok: pyEn }" },
+  { name: '#1235 信箱图片判定借 chat.js#948 统一口径（mailIsImgRef 自写一份精确前缀＝荣耀/OPPO/红米多机型乱码复发的直接土壤）', file: 'js/mail.js', needle: 'if (window.chatIsImgSrcLike) return window.chatIsImgSrcLike(s);' },
+  { name: '#1235 信件落库口规范化（删掉这个收口＝无 MIME/大写 MIME 变体以正文形态铺出＝用户所见乱码）', file: 'js/mail.js', needle: 'return mailCanonPayload(t);' },
+  { name: '#1235 选卡闸门兜内联载荷切片（删则 sticker:data:;base64,… 这类紧邻前缀、无空格的媒体卡被当文字抽进信件正文并持久化）', file: 'js/mail.js', needle: 'if (c.search(MAIL_PAYLOAD_RE) >= 0) return false;' },
+  { name: '#1235 横幅/兜底摘要合一走 mailPlainDesc（两处弹窗各写一份窄正则＝变体载荷直接铺进通知条）', file: 'js/mail.js', needle: 'const stripImg = (s) => mailPlainDesc(s);' },
+  { name: '#1235e 字卡库网格媒体判定借道 #948 判据族（改回自写串头判定＝「名称|||@@m:令牌」与载荷变体重新直出乱码令牌，荣耀 100+Edge 实报）', file: 'js/chatcard.js', needle: 'return { name: sp.name, src: b, img: true };' },
+  { name: '#1235e 内联载荷识别交 chatIsInlineDataSrc（退回精确前缀＝大写 MIME／前导空白变体卡再当正文铺 base64）', file: 'js/chatcard.js', needle: 'const inline = window.chatIsInlineDataSrc ? window.chatIsInlineDataSrc(b) : b.indexOf(\'data:\') === 0;' },
+  { name: '#1235e 无 MIME 图片渲染前补正 MIME（删＝data:;base64, 卡纯靠内核嗅探＝部分内核白块；补正本体在 chat.js，这里只钉接线）', file: 'js/chatcard.js', needle: 'return { name: sp.name, src: (window.chatFixNoMimeImg && window.chatFixNoMimeImg(b)) || b, img: true };' },
+  { name: '#1235e 非图片内联载荷收成「[语音]/[附件]」标注（删＝音频/未知载荷整串 base64 铺进格子＝用户所见乱码）', file: 'js/chatcard.js', needle: 'const label = (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(m.src)) ? \'[语音]\' : \'[附件]\';' },
+  { name: '#1235e 点击查看大图与网格同源·同步渲染路径（删＝变体载荷卡点开文字编辑弹窗，几十万字节的 base64 进编辑器）', file: 'js/chatcard.js', needle: 'const cm = ccCardMedia(c);' },
+  { name: '#1235e 点击查看大图与网格同源·分块渲染路径（同上；两条渲染路径各持一份点击判定，少一条＝首屏正常、下滑后复发）', file: 'js/chatcard.js', needle: 'const cm = ccCardMedia(it.c);' },
+  { name: '#1235e 列表内联搜索按同源判据挡载荷（改回 #680 三条精确前缀＝变体卡整串 base64 进搜索结果列表）', file: 'js/chatcard.js', needle: 'if (ccCardMedia(c) || c.indexOf(\'@@m:\') >= 0) return \'\';' },
+  { name: '#1235e 卡体内嵌名称兜底进名称标签（删＝修完乱码后「名称|||令牌」卡连名字一起没了）', file: 'js/chatcard.js', needle: 'const nm = ccCardName(c) || fallback || \'\';' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

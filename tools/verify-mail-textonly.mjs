@@ -30,8 +30,14 @@ function extractFn(name) {
   }
   return out;
 }
-const mailTextOnly = new Function('return ' + extractFn('mailTextOnly'))();
-const mailCleanDisplay = new Function('return ' + extractFn('mailCleanDisplay'))();
+// #1235 起 mailTextOnly/mailCleanDisplay 依赖文件顶部的统一判据常量块（MAIL_PAYLOAD_RE + mailIsImgRef，
+// 借 chat.js #948 那一份），单抽函数会 ReferenceError ⇒ 一并抽出常量块并喂一个带令牌口径的 window。
+const blkStart = src.indexOf('const MAIL_DATAURL_SRC =');
+const blk = blkStart < 0 ? '' : src.slice(blkStart, src.indexOf('// v3.27.x 性能：load()', blkStart));
+const win1235 = { mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s) };
+const mkMail = (names) => new Function('window', blk + '\n' + names.map(extractFn).join('\n') +
+  '\nreturn { ' + names.map((n) => n + ': ' + n).join(', ') + ' };')(win1235);
+const { mailTextOnly, mailCleanDisplay } = mkMail(['mailTextOnly', 'mailCleanDisplay']);
 
 // --- mailTextOnly：纯文字放行（信件正文/颜文字/emoji 池共用） ---
 ok('T1 普通文本字卡放行', mailTextOnly('今晚的月色真温柔') === true);

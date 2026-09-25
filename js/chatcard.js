@@ -642,6 +642,25 @@ tog.title = off ? '启用该分组' : '停用该分组';
 tog.innerHTML = off ? ICON_EYE_OFF : ICON_EYE_ON;
 }
 }
+function ccCardSplit(c) {
+const s = typeof c === 'string' ? c : '';
+const bar = s.indexOf('|||');
+return bar > 0 ? { name: s.slice(0, bar), body: s.slice(bar + 3) } : { name: '', body: s };
+}
+function ccCardMedia(c) {
+const sp = ccCardSplit(c), b = sp.body;
+if (!b) return null;
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(b)) return { name: sp.name, src: b, img: true };
+const inline = window.chatIsInlineDataSrc ? window.chatIsInlineDataSrc(b) : b.indexOf('data:') === 0;
+if (inline) {
+if (!(window.chatIsImgSrcLike ? window.chatIsImgSrcLike(b) : b.indexOf('data:image') === 0)) {
+return { name: sp.name, src: b, img: false };
+}
+return { name: sp.name, src: (window.chatFixNoMimeImg && window.chatFixNoMimeImg(b)) || b, img: true };
+}
+if (!sp.name && /^https?:\/\//i.test(b)) return { name: '', src: b, img: true };
+return null;
+}
 function cardItemHtml(c) {
 if (typeof c === 'string' && c.indexOf('|||') > 0) {
 const pIdx = c.indexOf('|||');
@@ -656,22 +675,24 @@ return '<div class="cc-ico" style="background:rgba(0,0,0,.05)"><svg viewBox="0 0
 '<span class="cc-play-bars"><i></i><i></i><i></i></span></button>';
 }
 }
-if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
-if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) {
+const m = ccCardMedia(c);
+if (m) {
+if (!m.img) {
+const label = (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(m.src)) ? '[语音]' : '[附件]';
+return '<div class="cc-txt"><div class="t" style="color:var(--muted)">' + esc(m.name ? m.name + ' ' + label : label) + '</div></div>';
+}
+if (window.mochiMediaIsToken && window.mochiMediaIsToken(m.src) && window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(m.src)) {
 return '<div class="cc-txt"><div class="t" style="color:var(--muted)">[图片丢失]</div></div>';
 }
-return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
-}
-if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) {
-return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
+return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(m.src) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c, m.name);
 }
 return '<div class="cc-txt"><div class="t">' + esc(c) + '</div></div>';
 }
-function ccNameBadgeHtml(c) {
+function ccNameBadgeHtml(c, fallback) {
 try {
 if (manageMode) return ''; // 管理模式整格用于勾选，不叠加名称按钮
 if (cur !== 'sticker' && cur !== 'image') return '';
-const nm = ccCardName(c);
+const nm = ccCardName(c) || fallback || '';
 return '<button type="button" class="cc-name-edit" title="' + (nm ? '编辑名称' : '添加名称') + '" style="' + CC_NAME_BTN_CSS + '">' + (nm ? '改' : '＋') + '</button>'
 + (nm ? '<div class="cc-name-cap" style="' + CC_NAME_CAP_CSS + '">' + esc(nm) + '</div>' : '');
 } catch (e) { return ''; }
@@ -997,6 +1018,13 @@ viewImage(v || c);
 return;
 }
 if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) { viewImage(c); return; }
+const cm = ccCardMedia(c);
+if (cm && cm.img) {
+const v2 = window.mochiMediaExpand ? window.mochiMediaExpand(cm.src) : null;
+viewImage(v2 || cm.src);
+return;
+}
+if (cm) return; // 非图片内联载荷：占位格不给开文字编辑器（打开就是几十万字节的 base64，改一下即毁卡）
 openEditCard(gname, i);
 });
 attachCardDrag(d, gname, i);
@@ -1154,10 +1182,12 @@ if (typeof c !== 'string' || !c) return '';
 if (t === 'sticker' || t === 'image') return ccCardName(c).toLowerCase();
 if (t === 'voice') {
 const bar = c.indexOf('|||');
-if (bar > 0 && c.slice(bar + 3).indexOf('data:audio') === 0) return c.slice(0, bar).toLowerCase();
+const body = bar > 0 ? c.slice(bar + 3) : '';
+if (bar > 0 && (window.chatIsDataAudioSrc ? window.chatIsDataAudioSrc(body) : body.indexOf('data:audio') === 0)) return c.slice(0, bar).toLowerCase();
+if (ccCardMedia(c)) return ''; // 变体音频（大写 MIME/前导空白）按名称前缀匹配，载荷不进正文
 return c.toLowerCase();
 }
-if (c.indexOf('data:') === 0 || c.indexOf('@@m:') === 0 || /^https?:\/\//i.test(c)) return '';
+if (ccCardMedia(c) || c.indexOf('@@m:') >= 0) return '';
 return c.toLowerCase();
 } catch (e) { return ''; }
 }
@@ -1267,6 +1297,13 @@ if (typeof it.c === 'string' && (it.c.indexOf('data:') === 0 || /^https?:\/\//i.
 viewImage(it.c);
 return;
 }
+const cm = ccCardMedia(it.c);
+if (cm && cm.img) {
+const v2 = window.mochiMediaExpand ? window.mochiMediaExpand(cm.src) : null;
+viewImage(v2 || cm.src);
+return;
+}
+if (cm) return;
 openEditCard(it.gname, it.i);
 });
 attachCardDrag(el, it.gname, it.i);

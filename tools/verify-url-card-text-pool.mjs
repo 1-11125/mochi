@@ -45,19 +45,26 @@ function extractFn(src, startMarker, endMarker) {
 }
 
 // mailTextOnly / calTextOnly 都是自包含纯函数（无闭包依赖），直接取函数体执行
-function buildFn(src, name, stopAt) {
+// #1235 起 mailTextOnly 依赖 mail.js 顶部的统一判据常量块（MAIL_PAYLOAD_RE + mailIsImgRef，借 chat.js #948
+// 那一份），单抽函数体会 ReferenceError ⇒ 与 verify-mail-textonly.mjs 同法：连同常量块一起抽，并喂一个令牌口径的 window。
+const MAIL_BLK_START = 'const MAIL_DATAURL_SRC =';
+const MAIL_BLK_END = '// v3.27.x 性能：load()';
+const winMail = { mochiMediaIsToken: (s) => typeof s === 'string' && /^@@m:[0-9a-f]{32}$/.test(s) };
+function buildFn(src, name, stopAt, mailBlock) {
   const a = src.indexOf('function ' + name + '(');
   if (a < 0) return null;
   const b = src.indexOf(stopAt, a);
   if (b < 0) return null;
+  const bs = mailBlock ? src.indexOf(MAIL_BLK_START) : -1;
+  const blk = bs < 0 ? '' : src.slice(bs, src.indexOf(MAIL_BLK_END, bs)) + '\n';
   try {
-    return new Function(src.slice(a, b) + '\nreturn ' + name + ';')();
+    return new Function('window', blk + src.slice(a, b) + '\nreturn ' + name + ';')(winMail);
   } catch (e) { return null; }
 }
 
 const mailSrc = read('src/js/mail.js');
 const calSrc = read('src/js/calendar.js');
-const mailTextOnly = buildFn(mailSrc, 'mailTextOnly', '  // 渲染端剥「名称|||」前缀残留');
+const mailTextOnly = buildFn(mailSrc, 'mailTextOnly', '  // 渲染端剥「名称|||」前缀残留', true);
 const calTextOnly = buildFn(calSrc, 'calTextOnly', '  function calCleanMsg');
 
 // RED 对照：git HEAD 里的同名函数（修复前应放行 URL＝bug 存在）
@@ -65,7 +72,7 @@ let mailTextOnlyHead = null, calTextOnlyHead = null;
 let headMail = '';
 try {
   headMail = execSync('git show HEAD:src/js/mail.js', { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  mailTextOnlyHead = buildFn(headMail, 'mailTextOnly', '  // 渲染端剥「名称|||」前缀残留');
+  mailTextOnlyHead = buildFn(headMail, 'mailTextOnly', '  // 渲染端剥「名称|||」前缀残留', true);
 } catch (e) {}
 try {
   const headCal = execSync('git show HEAD:src/js/calendar.js', { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
@@ -84,15 +91,21 @@ t('A6 calTextOnly 放行普通文字卡（不误伤正常字卡）', calTextOnly
 t('A7 拒非 http(s) 的其他链接形态（防误伤含 URL 字样的普通句子）',
   mailTextOnly && mailTextOnly('想你的第 ftp://x 天') === true && mailTextOnly && mailTextOnly('看这个 example.com/a.png') === true);
 
-if (mailTextOnlyHead) {
-  t('A8 RED 对照：HEAD 版 mailTextOnly 放行 URL（证明修复有判别力）', mailTextOnlyHead(URL_STICKER) === true);
-} else {
+// RED 对照的参照物是「#533 之前那一版」。守卫入库后 HEAD 本身就拒 URL，
+// 再断言「HEAD 放行」＝拿已修好的当旧版，恒假——那时按 SKIP 计（判定力由 A1/A2 与仓外旧副本承担）。
+if (!mailTextOnlyHead) {
   console.log('SKIP  A8 RED 对照（git show HEAD:src/js/mail.js 不可用）');
-}
-if (calTextOnlyHead) {
-  t('A9 RED 对照：HEAD 版 calTextOnly 放行 URL（证明修复有判别力）', calTextOnlyHead(URL_STICKER) === true);
+} else if (mailTextOnlyHead(URL_STICKER) === false) {
+  console.log('SKIP  A8 RED 对照（HEAD 已含 #533 URL 守卫，旧版参照物不在了）');
 } else {
+  t('A8 RED 对照：HEAD 版 mailTextOnly 放行 URL（证明修复有判别力）', true);
+}
+if (!calTextOnlyHead) {
   console.log('SKIP  A9 RED 对照（git show HEAD:src/js/calendar.js 不可用）');
+} else if (calTextOnlyHead(URL_STICKER) === false) {
+  console.log('SKIP  A9 RED 对照（HEAD 已含 #533 URL 守卫，旧版参照物不在了）');
+} else {
+  t('A9 RED 对照：HEAD 版 calTextOnly 放行 URL（证明修复有判别力）', true);
 }
 
 /* ================= B 段：无头浏览器 + src 自组装页 ================= */

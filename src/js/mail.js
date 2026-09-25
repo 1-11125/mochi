@@ -38,6 +38,44 @@
   function csFor(cid) { return cid ? window.storeFor(cid) : store; }
   function prefixFor(cid) { return cid ? ('xy-home-v2:' + cid) : window.activePrefix(); }
   function snapKey(cid) { return prefixFor(cid) + ':' + SNAP_KEY; }
+  // ================= 媒体载荷形态：统一口径（FIX 2026-09-25 #1235） =================
+  // 荣耀 100 + Edge 实报「回信 / 主动发信 / 联系人来信有乱码＝字卡库图片变成乱码与乱码令牌」，
+  // 且明说多机型同现、此问题早年修过又回来了。根因不是机型，是信箱自己另写了一份「串首小写
+  // data:image/」判定（#429/#386/#533 那批各补一种形态），而载荷形态由内核给出、无法约束：
+  //   · File.type 为空时 FileReader 产出 "data:;base64,…"（无 MIME）；
+  //   · 相册/文件管理器给 "data:application/octet-stream;base64,…"；
+  //   · 导入备份与老库里是大写 MIME / 前导空白 / 「名称|||」前缀残留。
+  // 变体既不被 renderBody 认作图、也不被 mailCleanDisplay 剥掉 ⇒ 整段 base64 当正文铺出＝所见
+  // 乱码；令牌前挂着没剥净的名称串＝所见「乱码令牌」。chat.js #948 已把这件事收口成一份判据，
+  // 判据不留第二份（BUGS #948 勿踩），下面四处消费者全部借它。
+  const MAIL_DATAURL_SRC = '[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[^\\s"\'<>]+';
+  // 「内联载荷切片」＝dataURL ∪ 媒体池令牌（清洗与摘要用；g 标志只配 replace，别配 test）
+  const MAIL_PAYLOAD_RE = new RegExp(MAIL_DATAURL_SRC + '|@@m:[0-9a-f]{32}', 'g');
+  // 「图片 dataURL」＝剥图/摘要里要收成 [图片] 的那些（媒体池令牌不在内：#681 快照必须留住令牌）
+  const MAIL_IMGREF_RE = new RegExp(MAIL_DATAURL_SRC, 'g');
+  // 摘要口径：连附图标记前缀一起摘（列表摘要不留「sticker:」这类半截标记）
+  const MAIL_DESC_SLICE_RE = new RegExp('(?:sticker:|image:)?' + MAIL_DATAURL_SRC + '|(?:sticker:|image:)?@@m:[0-9a-f]{32}', 'g');
+  // 是不是「可直接喂给 <img src> 的图片引用」（令牌 / image\/* / 内核会嗅探成图的无类型载荷）
+  function mailIsImgRef(s) {
+    if (window.chatIsImgSrcLike) return window.chatIsImgSrcLike(s);
+    return (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) || /^data:image\//i.test(String(s || ''));
+  }
+  // 落库口规范化（只改「写进去的形态」，逗号后的载荷一个字都不动）：
+  //   无 MIME 的图片补回 MIME（chatFixNoMimeImg 按魔数定夺，认不出的原样交给清洗层收标注）；
+  //   大写 data:/MIME 折成小写（renderBody、快照剥图与下游消费者都以小写形态为锚）。
+  function mailCanonPayload(s) {
+    if (typeof s !== 'string' || !/[dD][aA][tT][aA]:/.test(s)) return s;
+    return s.replace(new RegExp(MAIL_DATAURL_SRC, 'g'), function (m) {
+      const comma = m.indexOf(',');
+      if (comma < 0) return m;
+      const head = m.slice(0, comma);
+      if (/^data:;/i.test(head) && window.chatFixNoMimeImg) {
+        const fixed = window.chatFixNoMimeImg(m);
+        if (fixed) return fixed;
+      }
+      return head.toLowerCase() + m.slice(comma);
+    });
+  }
   // v3.27.x 性能：load()/loadSnap 解析缓存——信件含 dataURL 时主键可达数百 KB，一次交互里
   // openMailPage（render+updateBadge）、openLetter（重查最新+标已读）会反复 JSON.parse 全量
   // 列表，是手机端信箱卡顿主因。原始串未变 ⇒ 复用上次的解析结果；返回时逐封浅拷贝——调用方
@@ -75,7 +113,7 @@
     //   令牌 44 字符不占快照预算，却是「图在哪」的唯一线索：权威主键（IDB）读不到时 load() 只剩
     //   快照，令牌留住才能由 media-pool 观察器解回真图（#665 软占位/有界重读可自愈），否则图永久
     //   退化成「[图片]」文字（同 #667 朋友圈快照口径）。通知/摘要处的令牌清洗保持不变。
-    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]'); t = mailCleanDisplay(t); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
+    const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]'); t = mailCleanDisplay(t); t = t.replace(MAIL_IMGREF_RE, '[图片]'); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
     c.content = strip(c.content);
     if (c.myReply) { c.myReply = Object.assign({}, c.myReply); c.myReply.content = strip(c.myReply.content); }
     if (c.partnerReply) { c.partnerReply = Object.assign({}, c.partnerReply); c.partnerReply.content = strip(c.partnerReply.content); }
@@ -231,12 +269,20 @@
       t = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       return (fit && window.taFit) ? window.taFit(t) : t;
     };
-    const RE = /((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+|@@m:[0-9a-f]{32})/g;
+    // FIX 2026-09-25 #1235 dataURL 分支不再赌「小写 image/ ＋带 MIME」这一种形态：File.type 为空
+    //   时 FileReader 产出 "data:;base64,…"，相册/文件管理器给 "application/octet-stream"，导入与
+    //   老库还有大写 MIME——旧写法一概不认＝整段 base64 当正文铺出＝用户所见乱码。判据借 chat.js
+    //   #948 那份（唯一口径，见文件顶部）：是图片引用才渲 <img>，其余内联载荷收成标注。
+    const RE = /((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[^\s"'<>]+|@@m:[0-9a-f]{32})/g;
     return s.replace(RE, function (all, pre, src) {
       if (src.indexOf('http') === 0 && pre !== 'sticker:' && pre !== 'image:') {
         return seg(all); // 普通网址（无附图前缀）按文本保留
       }
-      const attrs = String(src).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      // 清洗层已把非图片载荷收成 [附件]；走到这里仍不是图片引用的（旁路进来的存量/导入）
+      // 一律不再铺载荷——渲染端兜底，与聊天侧 mochiInlineTextHtml 同口径。
+      if (!mailIsImgRef(src)) return seg(window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(src) ? '[语音]' : '[附件]');
+      const real = (window.chatFixNoMimeImg && window.chatFixNoMimeImg(src)) || src; // 无 MIME 图片补正 MIME（引擎嗅探不可依赖）
+      const attrs = String(real).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       // v3.27.x 性能：decoding="async"——dataURL 图默认同步解码占弹层首帧（点开带图
       // 信件时的迟滞来源），异步解码让位主线程；与桌面/聊天/朋友圈图片同款做法。
       // 不加 loading="lazy"（dataURL 无网络请求，lazy 无效）。
@@ -248,11 +294,10 @@
   //   可被含 < > 的信件内容注入 HTML（导入恶意备份 XSS）
   function shortDesc(s, fit) {
     // FIX 2026-09-13 #429 补「名称|||」前缀残留与非图片 base64 剥除（同 renderBody 口径）
+    // FIX 2026-09-25 #1235 载荷切片改走 MAIL_PAYLOAD_RE（大小写/无 MIME/前导空白变体一并收口）
     const str = mailCleanDisplay(String(s || ''));
     const cleaned = str
-      .replace(/(?:sticker|image):data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
-      .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
-      .replace(/@@m:[0-9a-f]{32}/g, '')
+      .replace(MAIL_DESC_SLICE_RE, '')
       .replace(/\s+/g, ' ').trim();
     let out = escHtml((cleaned || '（图片）').slice(0, 30));
     if (fit && window.taFit) out = window.taFit(out);
@@ -352,7 +397,7 @@
       }
     } catch (e) {}
     if (!panelOpened && window.openModal) {
-      const stripImg = (s) => String(s == null ? '' : s).replace(/(?:sticker|image:)?data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '［图片］');
+      const stripImg = (s) => mailPlainDesc(s); // FIX #1235 统一走 mailPlainDesc（旧写法只认小写 image/ 前缀）
       let txt = (l.tt ? '【' + l.tt + '】\n' : '') + stripImg(l.content);
       if (l.myReply && l.type !== 'sent') txt += '\n\n—— 我的回信 ——\n' + stripImg(l.myReply.content);
       if (l.partnerReply) txt += '\n\n—— 对方的回信 ——\n' + stripImg(l.partnerReply.content);
@@ -407,7 +452,7 @@
     if (!l) return;
     // v3.6.x：保留 sticker:/image: 标记前缀（区分图片/表情包类型），不再剥掉
     // v3.10.x：读值走 readMailVal（安卓 ce-box 代理读空兜底）
-    const val = readMailVal(document.getElementById('mail-reply-input')).trim();
+    const val = mailCanonPayload(readMailVal(document.getElementById('mail-reply-input')).trim());
     if (!val) { toast('回信内容不能为空'); return; }
     const name = partnerName();
     const list = load();
@@ -516,7 +561,7 @@
         // v3.5.107：TA 回信且不在信箱页 → 前台桌面弹窗（仅当前激活桌面才弹，用户能看到）
         if (cid === (window.__activeCid || 'default') && window.showDeskPopup && !mailPageVisible()) {
           // FIX 2026-09-13 #403 弹窗正文剥媒体池令牌/附件（原样传信件正文＝通知横幅直出乱码）
-window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String(p.content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封信：' + String(p.content || '')), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
         }
         changed = true;
       });
@@ -600,7 +645,7 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     const input = document.getElementById('mail-input');
     // v3.6.x：保留 sticker:/image: 标记前缀（区分图片/表情包类型），不再剥掉
     // v3.10.x：读值走 readMailVal（安卓 ce-box 代理读空兜底，防「信没寄出去」）
-    const content = input ? readMailVal(input).trim() : '';
+    const content = input ? mailCanonPayload(readMailVal(input)).trim() : '';
     if (!content) { toast('信件内容不能为空'); return; }
     const name = partnerName();
     const title = TITLES[Math.floor(Math.random() * TITLES.length)];
@@ -730,14 +775,40 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     // 另一个会变成文字 URL，信箱里也是这样」）。renderBody 本就把带 sticker:/image:
     // 前缀的外链当缩略图，这里只是不再把裸链接当句子拼进正文。
     if (/^https?:\/\//i.test(c)) return false;
+    // FIX 2026-09-25 #1235 上面五条全是「串首小写」口径，变体形态（无 MIME 的 data:;base64、大写
+    // MIME、前导空白、夹在正文中间的载荷）一概测不出——这类卡被当文字卡抽进信件正文并落库，
+    // 就是用户所见「联系人来信/回信里一长串乱码」的产生现场。判据不重写第三份，借 chat.js
+    // #948 收口后的那一份（chatHasMediaPayload 覆盖内联夹带与「名称|||」形态）。
+    if (window.chatHasMediaPayload && window.chatHasMediaPayload(c)) return false;
+    // chatHasMediaPayload 的「正文中间夹带」口径要求载荷前有空格；带 sticker:/image: 紧邻前缀
+    // 的卡（"sticker:data:;base64,…"）没有空格——这里按 MAIL_PAYLOAD_RE 再兜一层：串里出现任何
+    // 内联载荷切片就不是文字卡（search 不吃 g 标志的 lastIndex，不像 test 会漏判）。
+    if (c.search(MAIL_PAYLOAD_RE) >= 0) return false;
     return true;
   }
   // 渲染端剥「名称|||」前缀残留 + 非图片 dataURL（语音等）成 [附件]——只洗显示
   function mailCleanDisplay(s) {
     if (typeof s !== 'string') return s;
-    return s.replace(/[^\s|]{0,40}\|\|\|/g, '')
-      .replace(/(data:)?audio\/?[a-zA-Z0-9.+-]*;base64,[A-Za-z0-9+/=]+/g, '[附件]')
-      .replace(/data:(?!image\/)[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+    // FIX 2026-09-25 #1235 ①「名称|||」旧规则不吃空格，带空格的文件名（"my cat.png|||@@m:…"）会
+    //   剩一截残名挂在信纸上＝用户所见的另一半「乱码」；补一条按扩展名收口的规则排在它前面
+    //   （只吃「文件名.扩展名|||」，不吃整句正文）。②剩下的所有内联载荷统一交 chat.js #948 那份
+    //   判据分类：图片引用（含无 MIME 的大写/空白变体）留下给 renderBody 渲图，其余（语音、
+    //   octet-stream 里的非图等）一律收 [附件]，绝不再以正文形态铺出。
+    //   旧写法只认三条精确前缀＝本次多机型复发的直接土壤。
+    let t = s.replace(/[^\s|][^|\n]{0,59}?\.[a-z0-9]{1,5}\|\|\|/gi, '')
+      .replace(/[^\s|]{0,40}\|\|\|/g, '')
+      .replace(/(data:)?audio\/?[a-zA-Z0-9.+-]*;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+    return t.replace(MAIL_PAYLOAD_RE, function (m) {
+      if (!mailIsImgRef(m)) return '[附件]';
+      const fixed = window.chatFixNoMimeImg ? window.chatFixNoMimeImg(m) : '';
+      return fixed || m;
+    });
+  }
+  // FIX 2026-09-25 #1235 桌面横幅/通知口径：信件正文里任何形式的图片引用（令牌、规范 dataURL、
+  //   无 MIME 或大写 MIME 变体）都收成 [图片]，非图载荷由 mailCleanDisplay 收 [附件]——通知条
+  //   原先各写一份精确前缀正则，变体载荷直接铺进横幅＝手机上看到一长串乱码（同 #403 那族的口径）。
+  function mailPlainDesc(s) {
+    return mailCleanDisplay(String(s == null ? '' : s)).replace(MAIL_DESC_SLICE_RE, '[图片]');
   }
   function mailCardPool(cid) {
     const custom = cid ? (window.getCustomCardsFor ? window.getCustomCardsFor(cid) : []) : ((window.getCustomCards && window.getCustomCards()) || []);
@@ -919,7 +990,10 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
     // v3.11.x：只收 dataURL 媒体——信件正文按 sticker:/data:image 正则识别内联图片，
     //   链接导入的 http(s) 字卡拼进信纸只会显示成一段 URL 文字，先过滤掉
     // FIX 2026-09-13 #386 媒体池令牌卡放行（renderBody 已认 @@m:hash 渲内联图）
-    const st = pool.sticker.concat(pool.image).filter(s => typeof s === 'string' && (s.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s))));
+    // FIX 2026-09-25 #1235 附图池按统一口径选（旧写法只认串首小写 data: 与裸令牌：FileReader 在
+    //   File.type 为空时给的 "data:;base64,…"、大写 MIME 变体抽不到＝带图的表情包写信没图）；
+    //   http 直链仍排除（#533：拼进信纸只会显示成一段 URL 文字）。
+    const st = pool.sticker.concat(pool.image).filter(s => typeof s === 'string' && s.indexOf('http') !== 0 && mailIsImgRef(s));
     if (cfg.stickerEn && st.length && Math.random() * 100 < 20) {
       // v3.26.x：TA 自动写信/回信选中的表情包如果超大（>阈值），在这里同步换一张
       //   小图（避免几百 KB 原图拼进 content 触发信箱主键 200KB 剥图成「图片」）。
@@ -928,7 +1002,10 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       const small = (window._shrunkStickerCache && window._shrunkStickerCache[orig]) || orig;
       t += ' ' + small;
     }
-    return t;
+    // FIX 2026-09-25 #1235 落库口规范化：无 MIME / 大写 MIME 的图片载荷补正形态后再写信件正文，
+    //   下游（信纸、横幅、剥图快照、#403 那几处历史正则）都以小写 data:image 形态为锚，堵住变体
+    //   被当正文铺出的来路（历史存量仍由 mailCleanDisplay + renderBody 兜底）。
+    return mailCanonPayload(t);
   }
   function letterLast(cid) { const v = parseInt(csFor(cid).get('mail-letter-last'), 10); return isNaN(v) ? 0 : v; }
   function letterNext(cid) { const v = parseFloat(csFor(cid).get('mail-letter-next')); return isNaN(v) ? 0 : v; }
@@ -990,7 +1067,7 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
         updateBadge();
         render();
         if (window.showDeskPopup && !mailPageVisible()) {
-          window.showDeskPopup({ name: '信箱', text: '给你寄来了一封信：' + String(content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+          window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你寄来了一封信：' + String(content || '')), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
         }
       }
     } catch (e) {}
@@ -1273,7 +1350,9 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
                 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
                 mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
               } catch (err) {
-                mailInsertInto(textarea, 'image:' + reader.result);
+                // canvas 被拒（内存紧张/跨源污染）时回退原图：File.type 为空时这条腿给出的是
+                // "data:;base64,…"，不规范化就会以「认不出的变体」落进信纸正文与隐藏 span
+                mailInsertInto(textarea, 'image:' + mailCanonPayload(reader.result));
               }
             };
             img.onerror = () => toast('图片读取失败');
@@ -1300,8 +1379,10 @@ window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String
       // #636：kind==='text' 是颜文字/emoji 文字卡，按纯文本插入信纸（不走 sticker: 标记）
       if (window.openEmojiPanelForInsert) window.openEmojiPanelForInsert((src, kind) => {
         if (kind === 'text') { mailInsertInto(textarea, src); return; }
-        try { if (window.shrinkMediaUrl) { window.shrinkMediaUrl(src, (small) => { mailInsertInto(textarea, 'sticker:' + (small || src)); }); return; } } catch (e) {}
-        mailInsertInto(textarea, 'sticker:' + src);
+        // 压缩成功/失败两条腿都要过落库口：shrinkMediaUrl 对认不出的形态原样直传，
+        // allowUrl 的网图 src 则根本不是 dataURL（mailCanonPayload 对非串原样返回）
+        try { if (window.shrinkMediaUrl) { window.shrinkMediaUrl(src, (small) => { mailInsertInto(textarea, 'sticker:' + (mailCanonPayload(small) || mailCanonPayload(src))); }); return; } } catch (e) {}
+        mailInsertInto(textarea, 'sticker:' + mailCanonPayload(src));
       }, { allowUrl: true });
     });
     const upImg = root.querySelector('.mail-tb-image');

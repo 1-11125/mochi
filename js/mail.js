@@ -24,6 +24,27 @@ t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 function csFor(cid) { return cid ? window.storeFor(cid) : store; }
 function prefixFor(cid) { return cid ? ('xy-home-v2:' + cid) : window.activePrefix(); }
 function snapKey(cid) { return prefixFor(cid) + ':' + SNAP_KEY; }
+const MAIL_DATAURL_SRC = '[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[^\\s"\'<>]+';
+const MAIL_PAYLOAD_RE = new RegExp(MAIL_DATAURL_SRC + '|@@m:[0-9a-f]{32}', 'g');
+const MAIL_IMGREF_RE = new RegExp(MAIL_DATAURL_SRC, 'g');
+const MAIL_DESC_SLICE_RE = new RegExp('(?:sticker:|image:)?' + MAIL_DATAURL_SRC + '|(?:sticker:|image:)?@@m:[0-9a-f]{32}', 'g');
+function mailIsImgRef(s) {
+if (window.chatIsImgSrcLike) return window.chatIsImgSrcLike(s);
+return (window.mochiMediaIsToken && window.mochiMediaIsToken(s)) || /^data:image\//i.test(String(s || ''));
+}
+function mailCanonPayload(s) {
+if (typeof s !== 'string' || !/[dD][aA][tT][aA]:/.test(s)) return s;
+return s.replace(new RegExp(MAIL_DATAURL_SRC, 'g'), function (m) {
+const comma = m.indexOf(',');
+if (comma < 0) return m;
+const head = m.slice(0, comma);
+if (/^data:;/i.test(head) && window.chatFixNoMimeImg) {
+const fixed = window.chatFixNoMimeImg(m);
+if (fixed) return fixed;
+}
+return head.toLowerCase() + m.slice(comma);
+});
+}
 const _loadCache = new Map();
 function cachedParse(k, raw) {
 let list;
@@ -49,7 +70,7 @@ return [];
 function stripLetterImg(l) {
 if (!l || typeof l !== 'object') return l;
 const c = Object.assign({}, l);
-const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]'); t = mailCleanDisplay(t); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
+const strip = (s) => { if (typeof s !== 'string') return s; let t = s.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[图片]'); t = mailCleanDisplay(t); t = t.replace(MAIL_IMGREF_RE, '[图片]'); if (t.length > 8192) t = t.slice(0, 8192) + '…'; return t; };
 c.content = strip(c.content);
 if (c.myReply) { c.myReply = Object.assign({}, c.myReply); c.myReply.content = strip(c.myReply.content); }
 if (c.partnerReply) { c.partnerReply = Object.assign({}, c.partnerReply); c.partnerReply.content = strip(c.partnerReply.content); }
@@ -157,21 +178,21 @@ const seg = (t) => {
 t = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 return (fit && window.taFit) ? window.taFit(t) : t;
 };
-const RE = /((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+|@@m:[0-9a-f]{32})/g;
+const RE = /((?:sticker|image):)?(https?:\/\/[^\s"'<>]+|[Dd][Aa][Tt][Aa]:[a-zA-Z0-9.+-]*(?:\/[a-zA-Z0-9.+-]+)?(?:;[^,]*)?,[^\s"'<>]+|@@m:[0-9a-f]{32})/g;
 return s.replace(RE, function (all, pre, src) {
 if (src.indexOf('http') === 0 && pre !== 'sticker:' && pre !== 'image:') {
 return seg(all); // 普通网址（无附图前缀）按文本保留
 }
-const attrs = String(src).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+if (!mailIsImgRef(src)) return seg(window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(src) ? '[语音]' : '[附件]');
+const real = (window.chatFixNoMimeImg && window.chatFixNoMimeImg(src)) || src; // 无 MIME 图片补正 MIME（引擎嗅探不可依赖）
+const attrs = String(real).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 return '<img class="mail-body-img" decoding="async" src="' + attrs + '" alt="表情"> ';
 });
 }
 function shortDesc(s, fit) {
 const str = mailCleanDisplay(String(s || ''));
 const cleaned = str
-.replace(/(?:sticker|image):data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
-.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '')
-.replace(/@@m:[0-9a-f]{32}/g, '')
+.replace(MAIL_DESC_SLICE_RE, '')
 .replace(/\s+/g, ' ').trim();
 let out = escHtml((cleaned || '（图片）').slice(0, 30));
 if (fit && window.taFit) out = window.taFit(out);
@@ -249,7 +270,7 @@ tcb.innerHTML = html + footer;
 }
 } catch (e) {}
 if (!panelOpened && window.openModal) {
-const stripImg = (s) => String(s == null ? '' : s).replace(/(?:sticker|image:)?data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '［图片］');
+const stripImg = (s) => mailPlainDesc(s); // FIX #1235 统一走 mailPlainDesc（旧写法只认小写 image/ 前缀）
 let txt = (l.tt ? '【' + l.tt + '】\n' : '') + stripImg(l.content);
 if (l.myReply && l.type !== 'sent') txt += '\n\n—— 我的回信 ——\n' + stripImg(l.myReply.content);
 if (l.partnerReply) txt += '\n\n—— 对方的回信 ——\n' + stripImg(l.partnerReply.content);
@@ -300,7 +321,7 @@ showPage('page-mail-reply');
 function submitReply() {
 const l = viewLetter;
 if (!l) return;
-const val = readMailVal(document.getElementById('mail-reply-input')).trim();
+const val = mailCanonPayload(readMailVal(document.getElementById('mail-reply-input')).trim());
 if (!val) { toast('回信内容不能为空'); return; }
 const name = partnerName();
 const list = load();
@@ -375,7 +396,7 @@ list[idx].partnerReply = { content: p.content, tm: now };
 landed = true;
 notifyMailToChat(cid, name + ' 给你回了信', { mailNotice: true });
 if (cid === (window.__activeCid || 'default') && window.showDeskPopup && !mailPageVisible()) {
-window.showDeskPopup({ name: '信箱', text: '给你回了一封信：' + String(p.content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封信：' + String(p.content || '')), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
 }
 changed = true;
 });
@@ -435,7 +456,7 @@ if (el) el.addEventListener('click', mailListItemClick);
 });
 function sendLetter() {
 const input = document.getElementById('mail-input');
-const content = input ? readMailVal(input).trim() : '';
+const content = input ? mailCanonPayload(readMailVal(input)).trim() : '';
 if (!content) { toast('信件内容不能为空'); return; }
 const name = partnerName();
 const title = TITLES[Math.floor(Math.random() * TITLES.length)];
@@ -523,13 +544,23 @@ if (c.indexOf('data:') === 0) return false;
 if (c.indexOf('|||') >= 0) return false;
 if (c.indexOf('@@m:') >= 0) return false;
 if (/^https?:\/\//i.test(c)) return false;
+if (window.chatHasMediaPayload && window.chatHasMediaPayload(c)) return false;
+if (c.search(MAIL_PAYLOAD_RE) >= 0) return false;
 return true;
 }
 function mailCleanDisplay(s) {
 if (typeof s !== 'string') return s;
-return s.replace(/[^\s|]{0,40}\|\|\|/g, '')
-.replace(/(data:)?audio\/?[a-zA-Z0-9.+-]*;base64,[A-Za-z0-9+/=]+/g, '[附件]')
-.replace(/data:(?!image\/)[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+let t = s.replace(/[^\s|][^|\n]{0,59}?\.[a-z0-9]{1,5}\|\|\|/gi, '')
+.replace(/[^\s|]{0,40}\|\|\|/g, '')
+.replace(/(data:)?audio\/?[a-zA-Z0-9.+-]*;base64,[A-Za-z0-9+/=]+/g, '[附件]');
+return t.replace(MAIL_PAYLOAD_RE, function (m) {
+if (!mailIsImgRef(m)) return '[附件]';
+const fixed = window.chatFixNoMimeImg ? window.chatFixNoMimeImg(m) : '';
+return fixed || m;
+});
+}
+function mailPlainDesc(s) {
+return mailCleanDisplay(String(s == null ? '' : s)).replace(MAIL_DESC_SLICE_RE, '[图片]');
 }
 function mailCardPool(cid) {
 const custom = cid ? (window.getCustomCardsFor ? window.getCustomCardsFor(cid) : []) : ((window.getCustomCards && window.getCustomCards()) || []);
@@ -664,13 +695,13 @@ const kp = pool.kaomoji.length ? pool.kaomoji : pool.defKaomoji;
 const ep = pool.emoji.length ? pool.emoji : pool.defEmoji;
 if (cfg.kaomojiEn && kp.length && Math.random() * 100 < 30) t += ' ' + kp[Math.floor(Math.random() * kp.length)];
 if (cfg.emojiEn && ep.length && Math.random() * 100 < 15) t += ' ' + ep[Math.floor(Math.random() * ep.length)];
-const st = pool.sticker.concat(pool.image).filter(s => typeof s === 'string' && (s.indexOf('data:') === 0 || (window.mochiMediaIsToken && window.mochiMediaIsToken(s))));
+const st = pool.sticker.concat(pool.image).filter(s => typeof s === 'string' && s.indexOf('http') !== 0 && mailIsImgRef(s));
 if (cfg.stickerEn && st.length && Math.random() * 100 < 20) {
 const orig = st[Math.floor(Math.random() * st.length)];
 const small = (window._shrunkStickerCache && window._shrunkStickerCache[orig]) || orig;
 t += ' ' + small;
 }
-return t;
+return mailCanonPayload(t);
 }
 function letterLast(cid) { const v = parseInt(csFor(cid).get('mail-letter-last'), 10); return isNaN(v) ? 0 : v; }
 function letterNext(cid) { const v = parseFloat(csFor(cid).get('mail-letter-next')); return isNaN(v) ? 0 : v; }
@@ -720,7 +751,7 @@ if (cid === (window.__activeCid || 'default')) {
 updateBadge();
 render();
 if (window.showDeskPopup && !mailPageVisible()) {
-window.showDeskPopup({ name: '信箱', text: '给你寄来了一封信：' + String(content || '').replace(/@@m:[0-9a-f]{32}/g, '[图片]').replace(/data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, '[附件]'), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
+window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你寄来了一封信：' + String(content || '')), onClick: openMailPage, isHidden: document.visibilityState === 'hidden' });
 }
 }
 } catch (e) {}
@@ -947,7 +978,7 @@ c.height = Math.max(1, Math.round(img.height * scale));
 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
 mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
 } catch (err) {
-mailInsertInto(textarea, 'image:' + reader.result);
+mailInsertInto(textarea, 'image:' + mailCanonPayload(reader.result));
 }
 };
 img.onerror = () => toast('图片读取失败');
@@ -968,8 +999,8 @@ if (stickerBtn) stickerBtn.addEventListener('click', (e) => {
 e.stopPropagation();
 if (window.openEmojiPanelForInsert) window.openEmojiPanelForInsert((src, kind) => {
 if (kind === 'text') { mailInsertInto(textarea, src); return; }
-try { if (window.shrinkMediaUrl) { window.shrinkMediaUrl(src, (small) => { mailInsertInto(textarea, 'sticker:' + (small || src)); }); return; } } catch (e) {}
-mailInsertInto(textarea, 'sticker:' + src);
+try { if (window.shrinkMediaUrl) { window.shrinkMediaUrl(src, (small) => { mailInsertInto(textarea, 'sticker:' + (mailCanonPayload(small) || mailCanonPayload(src))); }); return; } } catch (e) {}
+mailInsertInto(textarea, 'sticker:' + mailCanonPayload(src));
 }, { allowUrl: true });
 });
 const upImg = root.querySelector('.mail-tb-image');

@@ -878,6 +878,39 @@
   }
 
   // 字卡项 HTML：图片 dataURL 显示缩略图，否则文字（删除统一走【管理字卡】）
+  // FIX 2026-09-25 #1235e 卡体媒体判定收口到 #948 判据族（chat.js 那份唯一口径），不再自写精确前缀：
+  // 本函数旧实现只有 `c.indexOf('@@m:') === 0` 与 `c.indexOf('data:') === 0` 两条串头判定，
+  // 于是四类实测在库的形态全部掉进末行文字分支＝网格直出「@@m:hex32」或几百 KB base64
+  // （荣耀 100+Edge 实报「字卡库的图片变成了乱码和乱码令牌」，多机型同族，与信箱 #1235a~d 同根）：
+  //   ①② #554 令牌化保留名称前缀的「名称|||@@m:hash」（＝所见乱码令牌）与「名称|||<内联载荷>」；
+  //   ③④ 备份/老库里的大写 MIME 与前导空白载荷。另两条小写串头形态（File.type 空的 data:;base64,、
+  // 相册/文件管理器的 octet-stream）旧分支虽认，但无 MIME 那条不补 MIME、纯靠内核嗅探＝部分内核白块，
+  // 本批一并交 chatFixNoMimeImg 补正。判定一份不写：是图交 chatIsImgSrcLike（令牌∪内联图∪图直链，
+  // 无 MIME 按魔数），非图的内联载荷交 chatIsDataAudioSrc 分语音/附件。红绿对照（同一份 chat.js 判据、
+  // 八形态逐一喂 cardItemHtml）：HEAD 4/8 直出乱码 → 工作树 0/8，且八形态全部仍渲成 <img>（不是把乱码藏起来）。
+  // 刻意不动 isMediaImg／ccFuncTextOnly：那两条决定回复池／文字话术池的成员，爆炸半径跨文件。
+  function ccCardSplit(c) {
+    const s = typeof c === 'string' ? c : '';
+    const bar = s.indexOf('|||');
+    return bar > 0 ? { name: s.slice(0, bar), body: s.slice(bar + 3) } : { name: '', body: s };
+  }
+  // 返回 null＝文字卡；否则 { name, src, img }——src 已补正 MIME 或就是令牌/裸图链，img=false＝非图片内联载荷
+  function ccCardMedia(c) {
+    const sp = ccCardSplit(c), b = sp.body;
+    if (!b) return null;
+    if (window.mochiMediaIsToken && window.mochiMediaIsToken(b)) return { name: sp.name, src: b, img: true };
+    const inline = window.chatIsInlineDataSrc ? window.chatIsInlineDataSrc(b) : b.indexOf('data:') === 0;
+    if (inline) {
+      if (!(window.chatIsImgSrcLike ? window.chatIsImgSrcLike(b) : b.indexOf('data:image') === 0)) {
+        return { name: sp.name, src: b, img: false };
+      }
+      return { name: sp.name, src: (window.chatFixNoMimeImg && window.chatFixNoMimeImg(b)) || b, img: true };
+    }
+    // 链接导入的字卡存原始 http(s) 链接（图床不允许跨域转存时的回退形态），按图渲染；
+    // 带「名称|||」前缀的链卡仍走文字分支（与旧行为一致，链接本身可读、不是乱码）
+    if (!sp.name && /^https?:\/\//i.test(b)) return { name: '', src: b, img: true };
+    return null;
+  }
   function cardItemHtml(c) {
     // 语音字卡：文件名|||data:audio 音频数据（播放按钮：播放中显示动态波形 + 高亮）
     // v3.6.x：显示时也去掉 mp3/mp4 后缀（旧上传的语音仍带后缀）
@@ -897,35 +930,32 @@
           '<span class="cc-play-bars"><i></i><i></i><i></i></span></button>';
       }
     }
-    // FIX 2026-09-15 #493 媒体池令牌卡按图渲染——#377 大库内存瘦身把超大贴纸/图片卡体换成
-    // @@m:hash 令牌后，本函数只有 data:/http(s) 分支认识图片，令牌卡掉进末行文字分支
-    // ＝字卡库网格直出「@@m:hex32」乱码/空白块（聊天气泡与表情面板各自有令牌路径故正常，
-    // 多机型同报）。令牌即图片载荷：data-src 照写令牌，懒加载补 src 后由 media-pool
-    // 文档观察器（media-pool.js resolveImg）解回真图；池里确认缺失的令牌按 #387 同口径
-    // 显示文字占位，不发白块。
-    if (typeof c === 'string' && c.indexOf('@@m:') === 0 && window.mochiMediaIsToken && window.mochiMediaIsToken(c)) {
-      if (window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(c)) {
+    // FIX 2026-09-25 #1235e 网格媒体判定借道 #948 判据族（见 ccCardMedia 上方说明）：
+    // 令牌卡（#493）／data:、http(s) 规范形态卡（v3.11.x）走图缩略图（data-src 懒加载，
+    // observer 只做 data-src→src 拷贝，对令牌与链接天然兼容；audio dataURL 不嵌进按钮防 HTML 膨胀），
+    // 其它内联载荷收成「[语音]/[附件]」标注，绝不再当正文铺出几百 KB base64。
+    const m = ccCardMedia(c);
+    if (m) {
+      if (!m.img) {
+        const label = (window.chatIsDataAudioSrc && window.chatIsDataAudioSrc(m.src)) ? '[语音]' : '[附件]';
+        return '<div class="cc-txt"><div class="t" style="color:var(--muted)">' + esc(m.name ? m.name + ' ' + label : label) + '</div></div>';
+      }
+      // 池里确认缺失的令牌按 #387 同口径显示文字占位，不发白块
+      if (window.mochiMediaIsToken && window.mochiMediaIsToken(m.src) && window.mochiMediaTokenMissing && window.mochiMediaTokenMissing(m.src)) {
         return '<div class="cc-txt"><div class="t" style="color:var(--muted)">[图片丢失]</div></div>';
       }
-      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
-    }
-    // v3.11.x：链接导入的字卡存原始 http(s) 链接（图床不允许跨域转存时的回退形态），
-    // 缩略图同样按图片渲染；懒加载 observer 只做 data-src→src 拷贝，对链接天然兼容
-    if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) {
-      // 图片字卡：缩略图 + 点击查看大图（无文字标签）
-      // v3.6.x：data-src 懒加载——表情包/图片多时不一次性解码全部 dataURL，
-      // 只解码进入视口的图（render 里用 IntersectionObserver 补 src），
-      // 删除/重渲染也不再有全量解码开销
-      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(c) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c);
+      return '<div class="cc-ico cc-imgbox"><img class="cc-img" data-src="' + esc(m.src) + '" alt="图片" decoding="async"></div>' + ccNameBadgeHtml(c, m.name);
     }
     return '<div class="cc-txt"><div class="t">' + esc(c) + '</div></div>';
   }
   // #680：图片/表情包格的名称标签 + 名称编辑按钮（仅这两类显示；文字/语音有自己的文本）
-  function ccNameBadgeHtml(c) {
+  // #1235e：fallback 传卡体内嵌的「名称|||」前缀——库内名称只登记在 names 映射里，
+  // 而「名称|||@@m:令牌」这类历史形态的名称只在卡体上（映射里没有），不兜则修完乱码后名称一并消失。
+  function ccNameBadgeHtml(c, fallback) {
     try {
       if (manageMode) return ''; // 管理模式整格用于勾选，不叠加名称按钮
       if (cur !== 'sticker' && cur !== 'image') return '';
-      const nm = ccCardName(c);
+      const nm = ccCardName(c) || fallback || '';
       return '<button type="button" class="cc-name-edit" title="' + (nm ? '编辑名称' : '添加名称') + '" style="' + CC_NAME_BTN_CSS + '">' + (nm ? '改' : '＋') + '</button>'
         + (nm ? '<div class="cc-name-cap" style="' + CC_NAME_CAP_CSS + '">' + esc(nm) + '</div>' : '');
     } catch (e) { return ''; }
@@ -1360,6 +1390,16 @@
           return;
         }
         if (typeof c === 'string' && (c.indexOf('data:') === 0 || /^https?:\/\//i.test(c))) { viewImage(c); return; }
+        // FIX 2026-09-25 #1235e 上面两条是「规范形态」串头判定：变体形态（名称|||令牌、无 MIME、
+        // octet-stream、大写 MIME、前导空白）在旧口径下点开的是文字编辑弹窗（弹窗里仍是整串乱码）。
+        // 网格既然画的是图／[语音]／[附件]，点击口径就必须与它同源＝交回 ccCardMedia（#948 判据族）。
+        const cm = ccCardMedia(c);
+        if (cm && cm.img) {
+          const v2 = window.mochiMediaExpand ? window.mochiMediaExpand(cm.src) : null;
+          viewImage(v2 || cm.src);
+          return;
+        }
+        if (cm) return; // 非图片内联载荷：占位格不给开文字编辑器（打开就是几十万字节的 base64，改一下即毁卡）
         openEditCard(gname, i);
       });
       attachCardDrag(d, gname, i);
@@ -1538,10 +1578,16 @@
       if (t === 'sticker' || t === 'image') return ccCardName(c).toLowerCase();
       if (t === 'voice') {
         const bar = c.indexOf('|||');
-        if (bar > 0 && c.slice(bar + 3).indexOf('data:audio') === 0) return c.slice(0, bar).toLowerCase();
+        const body = bar > 0 ? c.slice(bar + 3) : '';
+        if (bar > 0 && (window.chatIsDataAudioSrc ? window.chatIsDataAudioSrc(body) : body.indexOf('data:audio') === 0)) return c.slice(0, bar).toLowerCase();
+        if (ccCardMedia(c)) return ''; // 变体音频（大写 MIME/前导空白）按名称前缀匹配，载荷不进正文
         return c.toLowerCase();
       }
-      if (c.indexOf('data:') === 0 || c.indexOf('@@m:') === 0 || /^https?:\/\//i.test(c)) return '';
+      // FIX 2026-09-25 #1235e：#680 这三条精确前缀判定只认规范形态，「名称|||令牌」与四种
+      // 载荷变体（无 MIME/octet-stream/大写 MIME/前导空白）照样掉进下一行＝几十万字节的 base64
+      // 进搜索结果列表（与网格同一处乱码的第二个展示面）。收口到 ccCardMedia（#948 判据族）；
+      // 残令牌（@@m: 开头但不是完整 32 hex）按 #426 教训用 indexOf 兜住，全串锚定测不出它。
+      if (ccCardMedia(c) || c.indexOf('@@m:') >= 0) return '';
       return c.toLowerCase();
     } catch (e) { return ''; }
   }
@@ -1680,6 +1726,14 @@
             viewImage(it.c);
             return;
           }
+          // FIX 2026-09-25 #1235e 与同步渲染路径同源：变体载荷点开不再落进文字编辑弹窗（判据见 ccCardMedia）
+          const cm = ccCardMedia(it.c);
+          if (cm && cm.img) {
+            const v2 = window.mochiMediaExpand ? window.mochiMediaExpand(cm.src) : null;
+            viewImage(v2 || cm.src);
+            return;
+          }
+          if (cm) return;
           openEditCard(it.gname, it.i);
         });
         attachCardDrag(el, it.gname, it.i);
