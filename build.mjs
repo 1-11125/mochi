@@ -392,6 +392,15 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-25 #1285/#1292/#1293 桌面壁纸「无法铺满」＋全屏图标区偏上自己调不到＋适配轴根键被迁移吃掉（iPhone 添加到桌面独立应用实报「ios桌面壁纸无法铺满」，追问＝图片本身四周留边；同场问「全屏模式下桌面的图标整体位置都会偏上，能设置自己调整吗」＝不知道有入口，请挪到手边；接线时探针实测 screen-adj-* 七轴根键第二次冷启静默归零。零机型／零 UA 分支＝判据只取 CSS 规范语义与存储收支两个结构事实） ==== */
+  { name: '#1285a 缩放档改由图层盒等比外扩承担（删回把档位写进 background-size＝横构图壁纸一过 100% 上下各留一条底色＝「壁纸无法铺满」本体，任何内核照规范都留白，与机型无关）', file: 'js/personalize.js', needle: 'bgLayerGeom(l, zoomed > 100 ? zoomed / 100 : 1);' },
+  { name: '#1285b 尺寸恒交 CSS 关键字 cover（删回 (pos.s + \'%\')＝又变成「宽=百分比、高按原图自动」的错语义，放大即露底复发）', file: 'js/personalize.js', needle: "const szWanted = 'cover';" },
+  { name: '#1285c 预设/清档时收回上一张图留下的外扩盒（删＝切渐变预设后壁纸层仍卡在 1.5×，桌面观感错位）', file: 'js/personalize.js', needle: 'bgLayerGeom(l, 1);' },
+  { name: '#1285d 放大档文案写明「铺满后放大」（删回只写「缩放」＝用户读成百分比放大，正是露底的来源）', file: 'js/personalize.js', needle: '100%＝铺满裁剪；往大拖＝在铺满的基础上放大裁切，不会露出底色' },
+  { name: '#1292a 桌面图标区轴进「边看边调」抽屉背景分区（走 mochiScreenAdj 同一份数据、同一个写入口；删＝用户找不到那根轴）', file: 'js/personalize.js', needle: "mkAdjRow('图标区上下', 'desk', '--mochi-desk-adj', -60, 60" },
+  { name: '#1292b 抽屉里直达壁纸定位/缩放面板（唤起既有那一行，不另实现一份读同一组键；删＝抽屉里够不着放大档）', file: 'js/personalize.js', needle: "d.style.display = 'none'; row.click();" },
+  { name: '#1293a 适配七轴根键挡在 migrateLegacy 之外（删＝每次启动把 screen-adj-* 迁进 default 桌面并删根键，读取方只认根键＝用户调的偏移下一次冷启静默归零）', file: 'js/contacts.js', needle: "if (r.indexOf('screen-adj-') === 0) return true;" },
+  { name: '#1293b 存量误迁副本写回根键找回（删＝修复前已被搬进 default: 的偏移永久无人读）', file: 'js/contacts.js', needle: "'screen-adj-shift', 'screen-adj-text', 'screen-adj-side'].forEach(function (k) {" },
   /* ==== 2026-09-26 #1282 点「全屏模式」闪屏→黑屏 2~3 秒才进全屏（红米 K80 + Chrome 实报，用户明说其他设备型号也有出现、勿覆盖式修补；零机型／零 UA 分支＝判据只取「有没有进行中的全屏请求／是不是已经在全屏」与事件落点三个事实）。根因＝同一次点按里 requestFullscreen 被发两次：armRetry 的文档捕获期 touchstart/click 手势重入兜底（v3.8.x 为「切后台被系统退出全屏后首次触摸重试」而设）不认目标，用户点开关那一下先被它吃掉发了 enterFs#1，约 116ms 后开关自己的 change 分支又发 enterFs#2（无头实测 armed=FS_KEY'1' 两次、fresh 一次＝红米现场）。真机上每一发都开一段系统级全屏切换事务（收系统栏＋窗口尺寸重排），两发连着来＝闪一下再黑屏才进去；同一根因还有第二种更糟表现：点「关」时 FS_KEY 尚未写回 0，这句抢先把全屏又开回来＝开关弹回、全屏关不掉。修法＝enterFs 单点闸（在途或未落定 promise 期间、以及已是全屏时不再另发请求；promise 缺失走 1500ms 有界释放＝与既有复核窗口同口径，绝不把全屏锁死）＋ exitFs 撤闸 ＋ doRetry 让路闸（事件落在 #sf-fullscreen／镜像 #cs-fullscreen 或其 label 装饰层上即交还给开关自己的 change 流程）。行为验证：tools/verify-1282-fs-one-request.mjs ==== */
   { name: '#1282a 全屏请求单点闸（在途或已全屏不再另发一次 requestFullscreen；删＝一次点按两段全屏切换事务＝红米所见闪屏后黑屏 2~3 秒）', file: 'js/fullscreen.js', needle: 'if (_fsFlight || isFullscreen()) return _fsFlight;' },
   { name: '#1282b 闸的有界释放（内核不返回 promise／落定缺失时最长压 1.5s；删掉这句＝闸可能被永久挂住，全屏再也开不了）', file: 'js/fullscreen.js', needle: '_fsFlightTimer = setTimeout(closeFsFlight, 1500);' },
@@ -4272,7 +4281,9 @@ const FIX_SENTINELS = [
   /* ==== 2026-09-20 #932 字卡状态自检纳入「整组停用」（#926 的 dc-groups-off）：此前本页只按 dc-off-* 逐张统计＝整组停用清空分类时自检报「未发现明显问题」、一键修复也不接管 ==== */
   // #937 功能探索提醒（fhub-seen 埋点 + 「还没试过」横幅/角标 + contacts 全局键登记与存量找回）
   { name: '#937a fhub 统计键全局根键登记（漏登记＝migrateLegacy 每次刷新把 fhub-freq/fhub-seen 迁进 default 并删根键，跨桌面常用行/到达标记全丢）', file: 'js/contacts.js', needle: "'fhub-freq', 'fhub-seen'];" },
-  { name: '#937b fhub-freq 存量误迁副本写回根键（删＝修复前滞留在 default 的点击计数找不回，「常用」行白丢）', file: 'js/contacts.js', needle: "'full-beauty-schemes', 'fhub-freq', 'fhub-seen'].forEach" },
+  // #937b 换锚（#1293）：本批把回收列表尾追加 screen-adj-* 后，旧的「].forEach」行尾形态失配，
+  // 改取列表中段的三项连写（同 #4187 那次的处置口径：同名换 needle，条目不缩）。
+  { name: '#937b fhub-freq 存量误迁副本写回根键（删＝修复前滞留在 default 的点击计数找不回，「常用」行白丢）', file: 'js/contacts.js', needle: "'full-beauty-schemes', 'fhub-freq', 'fhub-seen'," },
   { name: '#937c 条目到达埋点总开关（删＝fhub-seen 不再记录，「还没试过」名单永远全量、横幅成摆设）', file: 'js/feature-hub.js', needle: "const SEEN_KEY = 'xy-home-v2:fhub-seen';" },
   { name: '#937d 「还没试过」横幅渲染（删＝首页提醒面消失）', file: 'js/feature-hub.js', needle: "'还没试过：' + n" },
   { name: '#937e 横幅样式规则在位（删＝横幅退化成裸文本行无底色无圆角）', file: 'js/feature-hub.js', needle: '.fhub-seen-bar{display:flex;align-items:center;gap:10px;' },

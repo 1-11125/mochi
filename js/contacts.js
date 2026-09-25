@@ -60,6 +60,7 @@ if (r.indexOf('music-file:') === 0) return true;
 if (r.indexOf('font-blob-') === 0) return true;
 if (r.indexOf('narc-') === 0) return true;
 if (r.indexOf('myarc') === 0) return true;
+if (r.indexOf('screen-adj-') === 0) return true;
 const m = r.match(/^([^:]+):/);
 if (m) {
 const head = m[1];
@@ -315,7 +316,9 @@ try { def.remove(k); } catch (e) {}
 ['pomo-cfg', 'pomo-today', 'pomo-total', 'pomo-msgs', 'pomo-send-chat', 'pomo-bell',
 'pomo-companion', 'pomo-companion-log', 'pomo-cmp-usecards',
 'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker', 'desk-freq-mode',
-'full-beauty-schemes', 'fhub-freq', 'fhub-seen'].forEach(function (k) {
+'full-beauty-schemes', 'fhub-freq', 'fhub-seen',
+'screen-adj-top', 'screen-adj-bottom', 'screen-adj-h', 'screen-adj-desk',
+'screen-adj-shift', 'screen-adj-text', 'screen-adj-side'].forEach(function (k) {
 const v = def.get(k);
 if (v !== null && v !== undefined && v !== '') {
 try { if (root.get(k) === null || root.get(k) === undefined) root.set(k, v); } catch (e) {}

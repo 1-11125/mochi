@@ -759,16 +759,34 @@ bgLayer.style.cssText = 'position:absolute;inset:0;top:0;right:0;bottom:0;left:0
 phoneEl.insertBefore(bgLayer, phoneEl.firstChild);
 return bgLayer;
 };
+const bgLayerGeom = (l, k) => {
+const set = (p, v, imp) => { try { if (imp) l.style.setProperty(p, v, 'important'); else l.style[p] = v; } catch (e) {} };
+const ext = deskBlurPx > 0 ? 24 : 0;
+if (k > 1) {
+const half = ((1 - k) * 50).toFixed(3) + '%';
+set('top', ext ? 'calc(' + half + ' - ' + ext + 'px)' : half, true);
+set('left', ext ? 'calc(' + half + ' - ' + ext + 'px)' : half, true);
+set('width', ext ? 'calc(' + (k * 100).toFixed(3) + '% + ' + ext * 2 + 'px)' : (k * 100).toFixed(3) + '%', true);
+set('height', ext ? 'calc(' + (k * 100).toFixed(3) + '% + ' + ext * 2 + 'px)' : (k * 100).toFixed(3) + '%', true);
+return;
+}
+set('top', '0');
+set('left', '0');
+set('width', '100%');
+set('height', '100%');
+};
 const paintBgLayerImage = (data) => {
 const l = ensureBgLayer(); if (!l) return;
 const want = data ? 'url("' + data + '")' : '';
 if (l.style.backgroundImage !== want) l.style.backgroundImage = want;
 if (!data) return;
 const pos = bgPosOf();
-const szWanted = (pos.s === 'cover' || !pos.s) ? 'cover' : (pos.s + '%');
+const zoomed = parseInt(pos.s, 10);
+const szWanted = 'cover'; // #1285：尺寸恒交 CSS 关键字，放大改由图层盒承担（见 bgLayerGeom）
 const psWanted = pos.x + '% ' + pos.y + '%';
 if (l.style.backgroundSize !== szWanted) l.style.backgroundSize = szWanted;
 if (l.style.backgroundPosition !== psWanted) l.style.backgroundPosition = psWanted;
+bgLayerGeom(l, zoomed > 100 ? zoomed / 100 : 1);
 };
 const setBgLayerImage = (data) => {
 deskWallSrc = data || null;
@@ -785,6 +803,7 @@ l.style.backgroundImage = css;
 l.style.backgroundSize = 'cover';
 l.style.backgroundPosition = 'center';
 }
+bgLayerGeom(l, 1); // #1285：预设渐变/纯色没有「放大」一档，把上一张图留下的外扩盒收回来
 setDeskBlurClass(deskBlurPx > 0);
 };
 const setBgLayerVisible = (on) => {
@@ -1213,7 +1232,11 @@ const applyBgPos = (x, y, sz) => { store.set('phone-bg-pos-x', String(x)); store
 let cx = sx, cy = sy, cs = ss;
 wrap.appendChild(mkSlider('水平位置', sx, 0, 100, (v) => { cx = v; applyBgPos(cx, cy, cs); }));
 wrap.appendChild(mkSlider('垂直位置', sy, 0, 100, (v) => { cy = v; applyBgPos(cx, cy, cs); }));
-wrap.appendChild(mkSlider('缩放', ss, 100, 300, (v) => { cs = v; applyBgPos(cx, cy, cs); }));
+wrap.appendChild(mkSlider('缩放（铺满后放大）', ss, 100, 300, (v) => { cs = v; applyBgPos(cx, cy, cs); }));
+const zoomHint = document.createElement('div');
+zoomHint.style.cssText = 'font-size:11px;color:var(--muted,#888);line-height:1.5;margin:-4px 0 12px';
+zoomHint.textContent = '100%＝铺满裁剪；往大拖＝在铺满的基础上放大裁切，不会露出底色';
+wrap.appendChild(zoomHint);
 const act = document.createElement('div'); act.style.cssText = 'display:flex;gap:8px;margin-top:8px';
 const reset = document.createElement('button'); reset.textContent = '重置'; reset.style.cssText = 'flex:1;padding:9px;border:1px solid var(--card-border,#eee);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
 reset.addEventListener('click', () => { store.remove('phone-bg-pos-x'); store.remove('phone-bg-pos-y'); store.remove('phone-bg-size'); const d = bgData(); if (d) applyPhoneBg(d); m.style.display = 'none'; toast('已重置为居中铺满'); });
@@ -2054,6 +2077,35 @@ inp.addEventListener('change', () => { doPersist(inp.value); });
 row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
 return row;
 };
+const mkAdjRow = (label, axis, varName, min, max, hint) => {
+const row = document.createElement('div');
+row.style.cssText = 'display:flex;align-items:center;gap:8px';
+const lb = document.createElement('span');
+lb.textContent = label;
+lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+const inp = document.createElement('input');
+inp.type = 'range'; inp.min = min; inp.max = max; inp.step = 1;
+let cur = 0;
+try { cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[axis]) || 0; } catch (e) {}
+inp.value = String(cur);
+inp.style.cssText = 'flex:1;min-width:0';
+const vv = document.createElement('span');
+vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
+vv.textContent = cur + 'px';
+inp.addEventListener('input', () => {
+vv.textContent = inp.value + 'px';
+try { document.documentElement.style.setProperty(varName, parseInt(inp.value, 10) + 'px'); } catch (e) {}
+});
+inp.addEventListener('change', () => { try { window.mochiScreenAdj && window.mochiScreenAdj.set(axis, inp.value); } catch (e) {} });
+const hp = document.createElement('div');
+hp.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+hp.textContent = hint;
+row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+const box = document.createElement('div');
+box.style.cssText = 'display:flex;flex-direction:column;gap:3px';
+box.appendChild(row); box.appendChild(hp);
+return box;
+};
 const PALETTE = ['#111111', '#ffffff', '#e05555', '#ff8800', '#ffd54f', '#4a9d5e', '#3a7bd5', '#8e5bd5', '#e055a0', '#8a8a8a'];
 let colorItems = [];
 let paletteHost = null;
@@ -2190,6 +2242,16 @@ applyBgBlur(parseInt(v, 10)); // 写 --desk-bg-blur + toggle .desk-blur-on（旧
 wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--desk-bg-mask-op', 0, 80, 5, '%', 0, (v) => {
 applyBgMaskOp(parseInt(v, 10)); // 写 --desk-bg-mask-op（旧代码写死 --bg-mask-op 无人消费）
 }, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op'); }));
+wrap.appendChild(mkAdjRow('图标区上下', 'desk', '--mochi-desk-adj', -60, 60, '开全屏后桌面图标整体偏上＝往正拖下移；只影响桌面页，本机保存'));
+const bgZoomRow = document.createElement('button');
+bgZoomRow.textContent = '壁纸缩放 / 定位（铺满后放大，不露底色）';
+bgZoomRow.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+bgZoomRow.addEventListener('click', () => {
+const row = document.getElementById('row-bg-adjust');
+if (!row) { try { window.toast && window.toast('请先在壁纸图库里选一张壁纸'); } catch (e) {} return; }
+d.style.display = 'none'; row.click();
+});
+wrap.appendChild(bgZoomRow);
 const bgBtn = document.createElement('button');
 bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
 bgBtn.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';

@@ -1058,6 +1058,36 @@ try {
     phoneEl.insertBefore(bgLayer, phoneEl.firstChild);
     return bgLayer;
   };
+  // ===== #1285：缩放轴＝「铺满之后再放大」，任何档位都不许露出页面底色 =====
+  // 旧写法把档位数字原样写进 background-size（'150%'），那是「宽度=150%、高度按原图
+  // 比例自动」——横构图壁纸（4:3 插画/截图）一拖过 100% 就上下各留一条底色，
+  // 竖构图则左右留＝用户报「iOS 桌面壁纸无法铺满」。这不是机型/内核差异，是语义错
+  //（任何内核按 CSS 规范都会留白），所以修法也不许碰机型。
+  // 现在的做法：background-size 恒为 cover，放大由**图层盒等比外扩**承担——盒边长
+  // =k×.phone（k=档位/100），top/left 按 (1−k)/2 回中心，多出去的部分由 .phone 的
+  // overflow:clip 裁掉＝裁切式放大。尺寸仍全部交浏览器算，零量原图、零量盒高
+  //（#750/#751 那条「JS 折算显式像素」路线正是靠运行期读数而在各内核上反复出错，
+  //  #762 已把它清算掉，勿在此重走）。
+  // 背景模糊开着时另需一并外扩 24px（#240 防模糊边缘发虚）；那四边与 width/height
+  // 在 home.css 里是 !important（#690 要求它配 width/height:auto 让位），故本函数在
+  // k>1 时用内联 !important 同写盒尺寸＋top/left（内联 important 优先于作者 important），
+  // 回到 100% 档时写回与 ensureBgLayer 基线逐字相同的普通值＝把模糊外扩让还给 CSS。
+  const bgLayerGeom = (l, k) => {
+    const set = (p, v, imp) => { try { if (imp) l.style.setProperty(p, v, 'important'); else l.style[p] = v; } catch (e) {} };
+    const ext = deskBlurPx > 0 ? 24 : 0;
+    if (k > 1) {
+      const half = ((1 - k) * 50).toFixed(3) + '%';
+      set('top', ext ? 'calc(' + half + ' - ' + ext + 'px)' : half, true);
+      set('left', ext ? 'calc(' + half + ' - ' + ext + 'px)' : half, true);
+      set('width', ext ? 'calc(' + (k * 100).toFixed(3) + '% + ' + ext * 2 + 'px)' : (k * 100).toFixed(3) + '%', true);
+      set('height', ext ? 'calc(' + (k * 100).toFixed(3) + '% + ' + ext * 2 + 'px)' : (k * 100).toFixed(3) + '%', true);
+      return;
+    }
+    set('top', '0');
+    set('left', '0');
+    set('width', '100%');
+    set('height', '100%');
+  };
   const paintBgLayerImage = (data) => {
     const l = ensureBgLayer(); if (!l) return;
     const want = data ? 'url("' + data + '")' : '';
@@ -1068,10 +1098,12 @@ try {
     if (l.style.backgroundImage !== want) l.style.backgroundImage = want;
     if (!data) return;
     const pos = bgPosOf();
-    const szWanted = (pos.s === 'cover' || !pos.s) ? 'cover' : (pos.s + '%');
+    const zoomed = parseInt(pos.s, 10);
+    const szWanted = 'cover'; // #1285：尺寸恒交 CSS 关键字，放大改由图层盒承担（见 bgLayerGeom）
     const psWanted = pos.x + '% ' + pos.y + '%';
     if (l.style.backgroundSize !== szWanted) l.style.backgroundSize = szWanted;
     if (l.style.backgroundPosition !== psWanted) l.style.backgroundPosition = psWanted;
+    bgLayerGeom(l, zoomed > 100 ? zoomed / 100 : 1);
   };
   const setBgLayerImage = (data) => {
     // #1161：这里只记「原图」，图层实际显示哪份纹理由 deskBlurRender 决定
@@ -1092,6 +1124,7 @@ try {
       l.style.backgroundSize = 'cover';
       l.style.backgroundPosition = 'center';
     }
+    bgLayerGeom(l, 1); // #1285：预设渐变/纯色没有「放大」一档，把上一张图留下的外扩盒收回来
     setDeskBlurClass(deskBlurPx > 0);
   };
   const setBgLayerVisible = (on) => {
@@ -1585,7 +1618,13 @@ try {
       let cx = sx, cy = sy, cs = ss;
       wrap.appendChild(mkSlider('水平位置', sx, 0, 100, (v) => { cx = v; applyBgPos(cx, cy, cs); }));
       wrap.appendChild(mkSlider('垂直位置', sy, 0, 100, (v) => { cy = v; applyBgPos(cx, cy, cs); }));
-      wrap.appendChild(mkSlider('缩放', ss, 100, 300, (v) => { cs = v; applyBgPos(cx, cy, cs); }));
+      wrap.appendChild(mkSlider('缩放（铺满后放大）', ss, 100, 300, (v) => { cs = v; applyBgPos(cx, cy, cs); }));
+      // #1285：一句说明写清这一档在做什么（旧实现的「150%」是宽度百分比，横构图壁纸
+      // 拖它会在上下露出页面底色＝用户读成「壁纸无法铺满」；现在任何档位都先铺满再裁切放大）
+      const zoomHint = document.createElement('div');
+      zoomHint.style.cssText = 'font-size:11px;color:var(--muted,#888);line-height:1.5;margin:-4px 0 12px';
+      zoomHint.textContent = '100%＝铺满裁剪；往大拖＝在铺满的基础上放大裁切，不会露出底色';
+      wrap.appendChild(zoomHint);
       const act = document.createElement('div'); act.style.cssText = 'display:flex;gap:8px;margin-top:8px';
       const reset = document.createElement('button'); reset.textContent = '重置'; reset.style.cssText = 'flex:1;padding:9px;border:1px solid var(--card-border,#eee);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111)';
       reset.addEventListener('click', () => { store.remove('phone-bg-pos-x'); store.remove('phone-bg-pos-y'); store.remove('phone-bg-size'); const d = bgData(); if (d) applyPhoneBg(d); m.style.display = 'none'; toast('已重置为居中铺满'); });
@@ -2665,6 +2704,40 @@ try {
         row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
         return row;
       };
+      // #1292：本机手调轴滑杆——数据与生效值只有一份：window.mochiScreenAdj（mobile-adapt.js
+      // 的屏幕适配微调，按设备存根命名空间落库、跨桌面共用）。这里只是把「桌面图标区」这根
+      // 挪到用户真的在看桌面的抽屉里（同一键、同一写入口，不复制第二份实现）。
+      // 拖动期只写生效变量（mochiScreenAdj.set 会连带同步写 localStorage，一次拖动几百次＝
+      // mkSlider 刻意把 apply/persist 分到 input/change 两个事件的原因），松手才落库。
+      const mkAdjRow = (label, axis, varName, min, max, hint) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px';
+        const lb = document.createElement('span');
+        lb.textContent = label;
+        lb.style.cssText = 'font-size:11.5px;color:var(--muted,#888);flex:none;width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        const inp = document.createElement('input');
+        inp.type = 'range'; inp.min = min; inp.max = max; inp.step = 1;
+        let cur = 0;
+        try { cur = (window.mochiScreenAdj && window.mochiScreenAdj.all()[axis]) || 0; } catch (e) {}
+        inp.value = String(cur);
+        inp.style.cssText = 'flex:1;min-width:0';
+        const vv = document.createElement('span');
+        vv.style.cssText = 'font-size:11px;color:var(--muted,#999);flex:none;width:40px;text-align:right';
+        vv.textContent = cur + 'px';
+        inp.addEventListener('input', () => {
+          vv.textContent = inp.value + 'px';
+          try { document.documentElement.style.setProperty(varName, parseInt(inp.value, 10) + 'px'); } catch (e) {}
+        });
+        inp.addEventListener('change', () => { try { window.mochiScreenAdj && window.mochiScreenAdj.set(axis, inp.value); } catch (e) {} });
+        const hp = document.createElement('div');
+        hp.style.cssText = 'font-size:10.5px;color:var(--muted,#999);line-height:1.5';
+        hp.textContent = hint;
+        row.appendChild(lb); row.appendChild(inp); row.appendChild(vv);
+        const box = document.createElement('div');
+        box.style.cssText = 'display:flex;flex-direction:column;gap:3px';
+        box.appendChild(row); box.appendChild(hp);
+        return box;
+      };
       const PALETTE = ['#111111', '#ffffff', '#e05555', '#ff8800', '#ffd54f', '#4a9d5e', '#3a7bd5', '#8e5bd5', '#e055a0', '#8a8a8a'];
       let colorItems = [];
       let paletteHost = null;
@@ -2811,6 +2884,22 @@ try {
           wrap.appendChild(mkSlider('背景遮罩', 'bg-mask-op', '--desk-bg-mask-op', 0, 80, 5, '%', 0, (v) => {
             applyBgMaskOp(parseInt(v, 10)); // 写 --desk-bg-mask-op（旧代码写死 --bg-mask-op 无人消费）
           }, (v) => { const n = parseInt(v, 10); if (n > 0) store.set('bg-mask-op', String(n)); else store.remove('bg-mask-op'); }));
+          // #1292：桌面图标区上下位置——与「设置 → 屏幕适配微调」里那根「桌面图标区」同一份
+          // 数据、同一个生效值（window.mochiScreenAdj → --mochi-desk-adj），只是挪到用户真的在
+          // 看桌面的这个抽屉里。全屏（隐藏模拟状态栏）后桌面图标/小组件整体偏上，各机型安全区
+          // 不同，这一根自己拉回；只影响桌面页、按设备本机保存。
+          wrap.appendChild(mkAdjRow('图标区上下', 'desk', '--mochi-desk-adj', -60, 60, '开全屏后桌面图标整体偏上＝往正拖下移；只影响桌面页，本机保存'));
+          // #1285：壁纸放大入口（原面板在 设置→美化→壁纸定位与缩放，抽屉里够不着）——
+          // 不另实现一份，直接唤起那一行，读写的仍是同一组 phone-bg-pos-* 键。
+          const bgZoomRow = document.createElement('button');
+          bgZoomRow.textContent = '壁纸缩放 / 定位（铺满后放大，不露底色）';
+          bgZoomRow.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';
+          bgZoomRow.addEventListener('click', () => {
+            const row = document.getElementById('row-bg-adjust');
+            if (!row) { try { window.toast && window.toast('请先在壁纸图库里选一张壁纸'); } catch (e) {} return; }
+            d.style.display = 'none'; row.click();
+          });
+          wrap.appendChild(bgZoomRow);
           const bgBtn = document.createElement('button');
           bgBtn.textContent = '更换壁纸 / 内置预设 / 上传图片';
           bgBtn.style.cssText = 'padding:8px;border:1px solid var(--card-border,#ddd);border-radius:9px;background:var(--btn-cancel-bg,#fafafa);color:var(--ink,#111);font-size:11.5px;cursor:pointer';

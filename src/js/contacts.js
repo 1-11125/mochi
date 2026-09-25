@@ -232,6 +232,14 @@
     if (r.indexOf('narc-') === 0) return true;
     // 我的档案：myarc 根键（全局唯一 JSON，my-arc.js）同理不可迁移
     if (r.indexOf('myarc') === 0) return true;
+    // FIX 2026-09-25 #1293：屏幕适配微调七轴（mobile-adapt.js #707/#764/#794）出生即根命名空间
+    // ——屏幕是设备属性、跨桌面共用，读取方 loadAdj 只认 xy-home-v2:screen-adj-<axis>。此前整族
+    // 既不在 EXCLUDE 也没有前缀守卫 → migrateLegacy 每次启动把根键当旧顶层业务键迁进 default 桌面
+    // 并删根键：第一次刷新「刚调的值」照常生效（mobile-adapt 在迁移之前就读完落层），**下一次冷启
+    // 归零**（实测探针：T2 desk=12 / padding-top 12px → T3 desk=0 / 0px，default 副本无人读）。
+    // 用户所见＝「调了当时有效，回头又偏回去了」，且「屏幕适配诊断→一键修正」写进去的值同样蒸发。
+    // 后缀是轴名（top/bottom/h/desk/shift/text/side，将来还会加轴），按前缀挡，同 #642 口径。
+    if (r.indexOf('screen-adj-') === 0) return true;
     // v3.6.x：命名空间键（default:* / <cid>:*）不是"旧顶层键"，绝不能迁移——
     // 否则会把 xy-home-v2:default:avatar-user 再迁成 xy-home-v2:default:default:avatar-user
     // 并删除原键（刷新后头像/壁纸/聊天壁纸丢失 + default:default: 双重前缀垃圾键）。
@@ -629,7 +637,12 @@
       'beauty-schemes', 'chat-beauty-schemes', 'hide-ta-sticker', 'desk-freq-mode',
       // #937：fhub-freq 此前一直漏排除，被每次刷新迁进 default——把滞留副本写回根键找回
       // （fhub-seen 出生即排除，无存量可回收，列入只为口径一致）。
-      'full-beauty-schemes', 'fhub-freq', 'fhub-seen'].forEach(function (k) {
+      'full-beauty-schemes', 'fhub-freq', 'fhub-seen',
+      // #1293：屏幕适配微调七轴的存量——被旧 migrateLegacy 迁进 default 的副本写回根键找回
+      // （根键已有值时只删副本不覆盖，与 pomo-*/fhub-* 同一处理）；配合上面的前缀守卫，
+      // 找回后不会再被迁走。用户下一次冷启即恢复自己调过的偏移。
+      'screen-adj-top', 'screen-adj-bottom', 'screen-adj-h', 'screen-adj-desk',
+      'screen-adj-shift', 'screen-adj-text', 'screen-adj-side'].forEach(function (k) {
       // FIX 2026-09-15 #527：beauty-undo-stack 已自本回收列表移除（改 per-cid 存储）——
       // 若继续把 default 副本写回根键并删副本，会让新的按桌面隔离存储每次启动被搬空，
       // 撤销栈重新变回「跨桌面共用」（=本修复被这条逻辑反向回滚）。
