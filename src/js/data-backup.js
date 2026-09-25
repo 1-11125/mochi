@@ -85,10 +85,16 @@
   }
 
   // 兼容旧 iOS：读取文件文本（File.text() 不支持时退回 FileReader）
+  // 跨内核兜底：个别安卓内核上 file.text() 对大文件会静默 resolve 空串（文件实际非空）——空串进
+  // JSON.parse('null') 会误判成「不是 mochi 导出的数据文件」；读回空且文件非空时换 FileReader 再读
+  // 一次（零机型分支，判据只取代码事实）。
   function readFileText(file) {
     return new Promise((resolve) => {
       if (typeof file.text === 'function') {
-        file.text().then(resolve).catch(() => readViaReader());
+        file.text().then((t) => {
+          if (t === '' && file.size > 0) readViaReader();
+          else resolve(t);
+        }).catch(() => readViaReader());
       } else readViaReader();
       function readViaReader() {
         const r = new FileReader();
@@ -1252,7 +1258,8 @@
     let data;
     try {
       const text = await readFileText(file);
-      data = JSON.parse(text || 'null');
+      // UTF-8 BOM 兜底剥除（个别内核/传输工具会在文件头带 BOM，JSON.parse 不认，误报「无效的数据文件」）
+      data = JSON.parse((text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text) || 'null');
     } catch (e) {
       impHide();
       // v3.32.x #104：备份文件再大也「导得出去」，但读取侧要把整个文件读成一个字符串再
@@ -1271,7 +1278,29 @@
         }
         return;
       }
-      toast('无效的数据文件');
+      // #1221：把「文件真坏了」与「读不动」分开说——JSON 语法类错误（截断/损坏/选错文件）此前一律
+      // 归到死胡同「无效的数据文件」，用户分不清是文件问题还是操作问题，也没法带着原因反馈。
+      if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {
+        if (window.openModal) {
+          window.openModal('这份备份文件读不出来', '', function () {}, {
+            noInput: true, okText: '知道了', big: true,
+            staticText: '原因：' + msg + '\n\n多半是文件本身不完整（导出或传输过程被截断/损坏），或选错了文件（不是「导出数据」产生的备份）。\n' +
+              '本机数据没有被改动。\n建议回到原设备重新「导出数据」，用微信文件/云盘等完整传输一份再导入；数据较大时改选「不含音乐文件」或「只备份文字」。'
+          });
+        } else {
+          toast('备份文件不完整或损坏（' + msg + '），请重新导出并完整传输后再导入');
+        }
+        return;
+      }
+      // 其他未知读取/解析错误：把真实原因亮出来，不再给「无效的数据文件」死胡同
+      if (window.openModal) {
+        window.openModal('读不了这份数据文件', '', function () {}, {
+          noInput: true, okText: '知道了', big: true,
+          staticText: '原因：' + msg + '\n\n本机数据没有被改动。请确认选的是「导出数据」产生的备份文件后重试；反复失败可先重启浏览器（释放被占满的内存）再试。'
+        });
+      } else {
+        toast('读不了这份数据文件：' + msg);
+      }
       return;
     }
     impHide();

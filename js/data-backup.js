@@ -62,7 +62,10 @@ return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 function readFileText(file) {
 return new Promise((resolve) => {
 if (typeof file.text === 'function') {
-file.text().then(resolve).catch(() => readViaReader());
+file.text().then((t) => {
+if (t === '' && file.size > 0) readViaReader();
+else resolve(t);
+}).catch(() => readViaReader());
 } else readViaReader();
 function readViaReader() {
 const r = new FileReader();
@@ -912,7 +915,7 @@ impShow('正在读取数据文件…', '大备份（上百 MB）解析需要几�
 let data;
 try {
 const text = await readFileText(file);
-data = JSON.parse(text || 'null');
+data = JSON.parse((text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text) || 'null');
 } catch (e) {
 impHide();
 const msg = (e && (e.message || String(e))) || '';
@@ -928,7 +931,26 @@ toast('这份备份太大，本机读不进去——请在原设备上改选更�
 }
 return;
 }
-toast('无效的数据文件');
+if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {
+if (window.openModal) {
+window.openModal('这份备份文件读不出来', '', function () {}, {
+noInput: true, okText: '知道了', big: true,
+staticText: '原因：' + msg + '\n\n多半是文件本身不完整（导出或传输过程被截断/损坏），或选错了文件（不是「导出数据」产生的备份）。\n' +
+'本机数据没有被改动。\n建议回到原设备重新「导出数据」，用微信文件/云盘等完整传输一份再导入；数据较大时改选「不含音乐文件」或「只备份文字」。'
+});
+} else {
+toast('备份文件不完整或损坏（' + msg + '），请重新导出并完整传输后再导入');
+}
+return;
+}
+if (window.openModal) {
+window.openModal('读不了这份数据文件', '', function () {}, {
+noInput: true, okText: '知道了', big: true,
+staticText: '原因：' + msg + '\n\n本机数据没有被改动。请确认选的是「导出数据」产生的备份文件后重试；反复失败可先重启浏览器（释放被占满的内存）再试。'
+});
+} else {
+toast('读不了这份数据文件：' + msg);
+}
 return;
 }
 impHide();

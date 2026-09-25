@@ -77,7 +77,7 @@ const buildStamp = buildTime.getTime().toString(36); // sw 缓存名版本号（
 // 每提交 10 次 +0.1（258 → v8.25，260 → v8.26，300 → v8.30）。
 // SW 缓存刷新依赖的是上面的 buildStamp（每次构建必变），与 APP_VERSION 无关。
 // 非 git 环境（脚本被拷贝/CI 无 git）回退 v8.0 兜底。
-let APP_VERSION = 'v8.44'; // 仓外隔离副本兜底直置（主树 execSync 自动取；#1011 批按 git rev-list --count 现值对齐，勿回退）
+let APP_VERSION = 'v8.45'; // 仓外隔离副本兜底直置（主树 execSync 自动取；#1011 批按 git rev-list --count 现值对齐，勿回退）
 try {
   const cnt = execSync('git rev-list --count HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v8.' + Math.floor(parseInt(cnt, 10) / 10);
@@ -392,6 +392,9 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-25 #1221 导入备份「无效的数据文件」死胡同拆开说＋空读/BOM 兜底（vivo X200s Edge 实报，其他机型同族；零机型分支，判据只取代码事实与内核回执） ==== */
+  { name: '#1221a 空读换 FileReader 重读（删＝个别安卓内核 file.text() 对大文件静默空串，误判「不是 mochi 导出的数据文件」复发）', file: 'js/data-backup.js', needle: "if (t === '' && file.size > 0) readViaReader();" },
+  { name: '#1221b 解析失败分档亮真实原因（删回笼统「无效的数据文件」＝截断/损坏/选错文件无从诊断、用户没法带原因反馈）', file: 'js/data-backup.js', needle: "if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {" },
   /* ==== 2026-09-19 #860 iOS 全机型「打开就卡、零数据也卡」根治＝PERF-PLAN 阶段 1b core 全外置：index 只留 静态HTML+CSS+3 件系统件（device/pwa/ver-check，~176KB）+≤4KB boot 段，其余 79 件走 <script defer src="js/…">（一文件一资源，消融实证合成大块把单次冻结峰值 308→481ms）；顺序=jsFiles 原序（D2，执行时序回单包语义）；sw install 分波预缓存；device.js 模块体检瞬态豁免只认启动后 15s；boot 看门狗 3s/8s 查 __mochiDataReady 挂重试条（弱网首访开屏不再永久定格）。六份 iOS 诊断共同形态：DCL 1.8~8.3s、与数据量无关；消融实测内联搬出即 DCL −513ms / index 4534→1223KB ====*/
   { name: '#860a 开屏看门狗在位（删＝全外置后弱网首访开屏永久定格、无「点此重试」逃生口）', file: 'index.html', needle: 'window.__mochiBootRetry' },
   { name: '#860b core 全外置主锚（chat.js 必须是 defer 外置标签；回退＝2.9MB 内联塞回 HTML，iOS 解析期整段同步编译、打开就卡复发）', file: 'index.html', needle: '<script defer src="js/chat.js"' },
