@@ -49,7 +49,7 @@ const buildStamp = buildTime.getTime().toString(36); // sw 缓存名版本号（
 // 每提交 10 次 +0.1（258 → v8.25，260 → v8.26，300 → v8.30）。
 // SW 缓存刷新依赖的是上面的 buildStamp（每次构建必变），与 APP_VERSION 无关。
 // 非 git 环境（脚本被拷贝/CI 无 git）回退 v8.0 兜底。
-let APP_VERSION = 'v8.35'; // 仓外隔离副本兜底直置（主树 execSync 自动取；#1011 批按 git rev-list --count 现值对齐，勿回退）
+let APP_VERSION = 'v8.44'; // 仓外隔离副本兜底直置（主树 execSync 自动取；#1011 批按 git rev-list --count 现值对齐，勿回退）
 try {
   const cnt = execSync('git rev-list --count HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   if (cnt && /^\d+$/.test(cnt)) APP_VERSION = 'v8.' + Math.floor(parseInt(cnt, 10) / 10);
@@ -4761,9 +4761,9 @@ const FIX_SENTINELS = [
   { name: '#1031a 抛竿分支 next 推到 biteAt（删/改成 until＝casting 每拍重 roll 反复白抛，TA 中鱼密度回退一半）', file: 'js/fishing.js', needle: 'this.castAt = now; this.biteAt = now + rand(3000, 8000); this.next = this.biteAt;' },
   { name: '#1031b idle+今日状态行留在最近一条播报（改回写空串＝TA 播报藏回 2.5s 窗口，用户所见「只有我在钓」复发）', file: 'js/fishing.js', needle: 'if (statusEl.textContent !== lastNotice) statusEl.textContent = lastNotice;' },
   /* ==== 2026-09-23 #1051（聊天末尾颜文字「没有换行＝显示不全」根治：连接符空格→硬换行 \n→<br>，全内核强制断行；多机型实报、零机型分支） ==== */
-  { name: '#1051a 单聊末尾颜文字卡硬换行相接（改回空格＝软换行点内核不拆行、末尾颜文字被裁复发；needle 含 replyCards 行＝判据本体）', file: 'js/chat.js', needle: "if (kj) { reply += '\\n' + kj; replyCards = 2; }" },
+  { name: '#1051a 单聊末尾颜文字卡与文字卡相接、连接符由实测决定（写死换行＝放得下也换行，#1212 报障复发；写死空格＝末行被裁，#1051 原报障复发）', file: 'js/chat.js', needle: "if (kj) { reply += chatKaoJoinSep(reply, kj) + kj; replyCards = 2; }" },
   { name: '#1051b chip 自愈切分集恒含硬换行（删掉＝换行相接的两卡气泡切不出两段，合法「多字卡回复」chip 被误摘＝#851 同款事故换连接符复发）', file: 'js/chat.js', needle: "if (seps.indexOf('\\n') < 0) seps.push('\\n');" },
-  { name: '#1051c 群聊末尾颜文字卡同口径硬换行（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "t += '\\n' + pick(pool.kaomoji);" },
+  { name: '#1051c 群聊末尾颜文字卡同口径相接（只改单聊＝群聊同款报障原样留着；#1212 后连接符同样走实测，写死换行或写死空格都算回归）', file: 'js/group-chat.js', needle: "t += (window.chatKaoJoinSep ? window.chatKaoJoinSep(t, gkj, page, body) : '\\n') + gkj;" },
   { name: '#1152a 括号规则的「戴括号的中文句子」排除闸（删掉＝「远(离我很远、或感觉疏离)」又被判成颜文字卡、被 #1051 的硬换行从句子中间断开）', file: 'js/chat.js', needle: "!(CHAT_READABLE_RE.test(c) && !CHAT_KAOMOJI_FACE_RE.test(c))" },
   { name: '#1152b 括号判据导出为单一口径（删掉＝群聊/默认字卡各自再写一份括号规则＝本次误判的复发土壤）', file: 'js/chat.js', needle: "window.chatIsBracketedKaomojiCard = chatIsBracketedKaomojiCard;" },
   { name: '#1152c 单聊默认字卡兜底走同一判据（改回裸括号规则＝默认「……（好像有谁轻轻应了一声）」这类卡又进颜文字池）', file: 'js/chat.js', needle: "else if (chatIsBracketedKaomojiCard(c)) kaomoji.push(c);" },
@@ -4907,6 +4907,13 @@ const FIX_SENTINELS = [
   { name: '#1210c 兜底写入按结果分账（改回只 fallsOk++ 不记失败键＝「已存入 IndexedDB」又是数发起次数报出来的）', file: 'js/data-backup.js', needle: 'else fallsBad.push(f.k);' },
   { name: '#1210d 提示语按确认落成的件数/字节说（改回 idbFalls.length＝假成功文案，用户以为大文件已导入）', file: 'js/data-backup.js', needle: "parts.push('大文件 ' + fallsOk + ' 项（约 ' + mb + ' MB）已存入 IndexedDB，不占小存储');" },
   { name: '#1210e 两头落空的键逐条还原旧值（删掉＝clearLs 清完、兜底又没写成的键新数据没进旧数据没了，报障里那句「导入后数据全空」的机制）', file: 'js/data-backup.js', needle: 'try { localStorage.setItem(k, old); rolledBack++; } catch (e) {' },
+  /* ==== 2026-09-24 #1212（用户实报「(இωஇ) 这种末尾颜文字明明放得下也另起一行；要的是行末放不下、防止截断才换行」）：
+     #1051 的无条件硬换行改成「让同一个排版引擎实测一次」——行数没多且气泡没横向溢出＝放得下，用空格相接；
+     否则仍走 '
+'→<br> 强制换行。零机型/零 UA 分支；聊天页还没布局（量不到宽）一律回安全形态。 ==== */
+  { name: '#1212a 换行判据＝实测出来的「多出一行或气泡溢出」（改成恒返回换行＝#1212 报障复发；恒返回空格＝#1051 末行被裁复发）', file: 'js/chat.js', needle: "return (h2 > h1 || o2 > o1 + 1) ? '\\n' : ' ';" },
+  { name: '#1212b 量不到真实宽度时回安全形态硬换行（删掉这道闸＝拿 0 宽判「放得下」，后台生成的主动消息把颜文字挤在行末被裁＝#1051 换个入口复发）', file: 'js/chat.js', needle: "if (!page || !(bw > 0)) return '\\n';" },
+  { name: '#1212c 群聊借单聊同一份测量（各写一份＝两侧判据必漂，#1152 的括号正则当年就是这么漏修的）', file: 'js/chat.js', needle: 'window.chatKaoJoinSep = chatKaoJoinSep;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -7336,6 +7336,50 @@ let v = '', g = 0;
 do { v = pick(arr); g++; } while (g < 20 && !(typeof v === 'string' && v.trim()));
 return (typeof v === 'string' && v.trim()) ? v : '';
 }
+// FIX 2026-09-24 #1212（用户实报「(இωஇ) 这种末尾颜文字明明放得下也另起一行；我的意思是行末放不下、
+// 防止截断才换行」）：#1051 的连接符是**无条件**硬换行——只要命中「文字卡＋颜文字卡」就顶到下一行，
+// 完全不看行末放不放得下，短颜文字也跟着换行。本函数把这一判交回排版引擎实测：拿当前气泡的真实
+// 可用宽排一次「文字卡␣颜文字卡」，行数没多、气泡也没横向溢出＝放得下，用空格相接（同一行）；
+// 多出一行、或溢出气泡宽（＝#1051 实报的「末行显示不全」形态，软换行点被内核无视时就是这个样子）
+// 才回硬换行。零机型/零 UA 分支：判据是同内核自己量出的几何结果，不是猜哪台机器宽容；聊天页还没
+// 布局（后台生成的主动消息、切在别的页面）量不到时保持 #1051 的安全形态＝硬换行。
+// 探针节点用完即摘（同一任务内插入→量→移除，不上屏），所以既不参与滚动高度、也不被贴底/加载条
+// 那套按 #chat-body 子树计数的逻辑看见。群聊借 window.chatKaoJoinSep 同一份测量，不再各写一份。
+let kaoProbeEl = null;
+function chatKaoJoinSep(text, kj, pageEl, boxEl) {
+if (!text || !kj) return '\n';
+const box = boxEl || body;
+const page = pageEl || document.getElementById('page-chat');
+const bw = box.clientWidth;
+if (!page || !(bw > 0)) return '\n'; // 拿不出真实宽度＝不赌排版，走安全形态
+const bcs = getComputedStyle(box);
+const avail = Math.floor(bw - (parseFloat(bcs.paddingLeft) || 0) - (parseFloat(bcs.paddingRight) || 0));
+if (!(avail > 80)) return '\n';
+if (!kaoProbeEl) {
+kaoProbeEl = document.createElement('div');
+kaoProbeEl.setAttribute('aria-hidden', 'true');
+kaoProbeEl.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none';
+kaoProbeEl.innerHTML = '<div class="msg msg-in"><div class="msg-side"><div class="msg-av"></div></div>' +
+'<div class="msg-bubble"><span style="opacity:.85;word-break:break-word"></span></div></div>';
+}
+const probe = kaoProbeEl;
+const bub = probe.querySelector('.msg-bubble');
+const sp = bub.querySelector('span');
+probe.style.width = avail + 'px';
+page.appendChild(probe);
+try {
+sp.textContent = text;
+const h1 = bub.offsetHeight, o1 = bub.scrollWidth - bub.clientWidth;
+sp.textContent = text + ' ' + kj;
+const h2 = bub.offsetHeight, o2 = bub.scrollWidth - bub.clientWidth;
+return (h2 > h1 || o2 > o1 + 1) ? '\n' : ' ';
+} catch (e) {
+return '\n';
+} finally {
+if (probe.parentNode === page) page.removeChild(probe);
+}
+}
+window.chatKaoJoinSep = chatKaoJoinSep; // group-chat.js 同源共用
 function genReplyText(c) {
 const pool = getPool();
 let reply = '', type = 'text';
@@ -7369,7 +7413,7 @@ reply = pickNonBlank(pool.text) || pick(FALLBACK_REPLY_POOL);
 // ＝关了总开关仍有 5% 的回复被拼成两张卡并挂「多字卡回复」chip＝用户实报「全关了还是有多字卡回复」）
 if (type === 'text' && c['py-en'] === 1 && pool.kaomoji.length && hit(c['kaomoji-prob'])) {
 const kj = pickNonBlank(pool.kaomoji);
-if (kj) { reply += '\n' + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 连接符空格→硬换行（escTxtBr \n→<br>）：多台真机实报末尾颜文字「不换行＝显示不全」，软换行点部分内核不拆行，<br> 强制换行全内核遵守
+if (kj) { reply += chatKaoJoinSep(reply, kj) + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 行末会被裁＝放不下才换；#1212 「放得下」交给实测（chatKaoJoinSep），放不下/量不到才回 '\n'→<br> 硬换行
 }
 return { text: reply, type: type, cards: replyCards };
 }

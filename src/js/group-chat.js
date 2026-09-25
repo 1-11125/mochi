@@ -1354,7 +1354,8 @@
     }
 // #1203 同单聊口径：群聊「多字卡回复」总开关关闭＝每个成员每条消息只用一张字卡，颜文字卡不再追加
 if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
-t += '\n' + pick(pool.kaomoji); // #1051 同单聊 genReplyText：末尾颜文字卡改硬换行相接（\n→<br>），软换行点部分内核不拆行＝末尾显示不全
+const gkj = pick(pool.kaomoji);
+t += (window.chatKaoJoinSep ? window.chatKaoJoinSep(t, gkj, page, body) : '\n') + gkj; // #1051 同单聊：行末放不下才硬换行；#1212 「放得下」借单聊同一份实测（群聊页/群聊容器各传各的，量不到时回 '\n'）
 }
 // v3.26.x #163：文本回复按成员所在桌面混入默认字卡（同聊天页 genOneReply 的
 // getDefaultCards 覆盖语义，dc-overall-chat 概率+分类占比+各开关内部同源生效）——

@@ -5586,6 +5586,41 @@ let v = '', g = 0;
 do { v = pick(arr); g++; } while (g < 20 && !(typeof v === 'string' && v.trim()));
 return (typeof v === 'string' && v.trim()) ? v : '';
 }
+let kaoProbeEl = null;
+function chatKaoJoinSep(text, kj, pageEl, boxEl) {
+if (!text || !kj) return '\n';
+const box = boxEl || body;
+const page = pageEl || document.getElementById('page-chat');
+const bw = box.clientWidth;
+if (!page || !(bw > 0)) return '\n'; // 拿不出真实宽度＝不赌排版，走安全形态
+const bcs = getComputedStyle(box);
+const avail = Math.floor(bw - (parseFloat(bcs.paddingLeft) || 0) - (parseFloat(bcs.paddingRight) || 0));
+if (!(avail > 80)) return '\n';
+if (!kaoProbeEl) {
+kaoProbeEl = document.createElement('div');
+kaoProbeEl.setAttribute('aria-hidden', 'true');
+kaoProbeEl.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none';
+kaoProbeEl.innerHTML = '<div class="msg msg-in"><div class="msg-side"><div class="msg-av"></div></div>' +
+'<div class="msg-bubble"><span style="opacity:.85;word-break:break-word"></span></div></div>';
+}
+const probe = kaoProbeEl;
+const bub = probe.querySelector('.msg-bubble');
+const sp = bub.querySelector('span');
+probe.style.width = avail + 'px';
+page.appendChild(probe);
+try {
+sp.textContent = text;
+const h1 = bub.offsetHeight, o1 = bub.scrollWidth - bub.clientWidth;
+sp.textContent = text + ' ' + kj;
+const h2 = bub.offsetHeight, o2 = bub.scrollWidth - bub.clientWidth;
+return (h2 > h1 || o2 > o1 + 1) ? '\n' : ' ';
+} catch (e) {
+return '\n';
+} finally {
+if (probe.parentNode === page) page.removeChild(probe);
+}
+}
+window.chatKaoJoinSep = chatKaoJoinSep; // group-chat.js 同源共用
 function genReplyText(c) {
 const pool = getPool();
 let reply = '', type = 'text';
@@ -5612,7 +5647,7 @@ reply = pickNonBlank(pool.text) || pick(FALLBACK_REPLY_POOL);
 }
 if (type === 'text' && c['py-en'] === 1 && pool.kaomoji.length && hit(c['kaomoji-prob'])) {
 const kj = pickNonBlank(pool.kaomoji);
-if (kj) { reply += '\n' + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 连接符空格→硬换行（escTxtBr \n→<br>）：多台真机实报末尾颜文字「不换行＝显示不全」，软换行点部分内核不拆行，<br> 强制换行全内核遵守
+if (kj) { reply += chatKaoJoinSep(reply, kj) + kj; replyCards = 2; } // #851 文字卡＋颜文字卡＝一条气泡两张卡；#1051 行末会被裁＝放不下才换；#1212 「放得下」交给实测（chatKaoJoinSep），放不下/量不到才回 '\n'→<br> 硬换行
 }
 return { text: reply, type: type, cards: replyCards };
 }

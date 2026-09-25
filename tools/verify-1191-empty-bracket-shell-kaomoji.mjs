@@ -9,12 +9,15 @@
 //   群聊两处入池路径借同一导出判据（window.chatIsBracketedKaomojiCard），本批不写第二份括号规则。
 // 断言面：
 //   S1＝产物里壳闸在位；S2＝壳闸与 #1152 中文句子闸同条判据里的先后次序；S3＝#1152 闸未被本批换掉；
-//   S4＝#1051 硬换行仍在（单聊＋群聊，两侧皆绿的对照组，不许回退）；S5＝群聊仍借同一判据；
+//   S4＝末尾颜文字与文字卡相接的接线在位（#1212 后连接符为实测值，只拦「写死空格」，两侧皆绿）；
+//   S5＝群聊仍借同一判据；
 //   B1~B12＝判据行为（空壳/中文卡→false；真颜文字各种形态→true 且结果与改前逐条不变）；
 //   C1＝用户实报形态端到端（「背包」＋"()" 同池 → 气泡「背包」零 <br>）；
-//   C2＝全角空括号（）同口径；C3＝对照组：文字卡＋真颜文字仍单独一行（#1051 不回退）。
+//   C2＝全角空括号（）同口径；C3＝对照组：文字卡＋真颜文字仍相接成一条气泡、末尾未被裁。
 // 纯基线（HEAD 无本批）应恰红 S1/S2 ＋ B1~B3（"()"、"（）"、"( )" 被判 true）＋ C1 ＋ C2；
 //   判别主力＝S1/S2 锚与 C1/C2 行为面。
+// 本脚本经 #1212 改口径：原 S4/C3 把「连接符写死 '\n'」当判据，而 #1212 按用户澄清（「行末放不下、
+//   防止截断才换行」）把连接符交给实测——写死换行与写死空格同样是错的，故两条改为形态无关的对照。
 // 用法：node tools/verify-1191-empty-bracket-kaomoji.mjs
 //   红对照：MOCHI_ROOT=<纯 HEAD 副本> node tools/verify-1191-empty-bracket-kaomoji.mjs
 import { spawn } from 'node:child_process';
@@ -104,9 +107,16 @@ t('S2 壳闸与 #1152 中文句子闸同在这条判据里（先后次序＝两�
   art.chat.indexOf(N_SHELL) > 0 && art.chat.indexOf(N_CJK) > art.chat.indexOf(N_SHELL), '');
 t('S3 #1152 的「戴括号中文句子」闸仍在（本批不许把它换掉）', count(art.chat, N_CJK) === 1,
   '命中=' + count(art.chat, N_CJK));
-t('S4 #1051 末尾颜文字硬换行未被本批打回（单聊＋群聊）',
-  count(art.chat, "reply += '\\n' + kj") === 1 && count(art.gc, "t += '\\n' + pick(pool.kaomoji)") === 1,
-  'chat=' + count(art.chat, "reply += '\\n' + kj") + ' gc=' + count(art.gc, "t += '\\n' + pick(pool.kaomoji)"));
+// #1212 口径：连接符从「写死硬换行」改成「实测决定」（放得下同行空格、放不下才 '\n'）。
+// 本条只证「末尾颜文字仍接在文字卡后面、连接符由代码决定」，两种形态都算在位；
+// 唯一判红＝写死空格相接（#1051 原报障形态：软换行点被部分内核无视 → 末行显示不全）。
+const JOIN_CHAT = ["reply += chatKaoJoinSep(reply, kj) + kj;", "reply += '\\n' + kj;"];
+const JOIN_GC = ["t += (window.chatKaoJoinSep ? window.chatKaoJoinSep(t, gkj, page, body) : '\\n') + gkj;", "t += '\\n' + pick(pool.kaomoji);"];
+const hasJoin = (art, forms) => forms.some((n) => count(art, n) === 1);
+t('S4 末尾颜文字与文字卡相接的接线在位（#1212 后连接符为实测值；写死空格＝#1051 复发判红）',
+  hasJoin(art.chat, JOIN_CHAT) && hasJoin(art.gc, JOIN_GC)
+    && count(art.chat, "reply += ' ' + kj") === 0 && count(art.gc, "t += ' ' + pick") === 0,
+  'chat=' + JOIN_CHAT.map((n) => count(art.chat, n)).join('/') + ' gc=' + JOIN_GC.map((n) => count(art.gc, n)).join('/'));
 t('S5 群聊借同一判据（本批不写第二份括号规则）', count(art.gc, 'window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(c) :') === 1,
   '命中=' + count(art.gc, 'window.chatIsBracketedKaomojiCard ? window.chatIsBracketedKaomojiCard(c) :'));
 
@@ -187,11 +197,16 @@ try {
     !!c2 && c2.text === '背包' && c2.html.indexOf('<br>') < 0,
     c2 ? 'text=' + JSON.stringify(c2.text) + ' br=' + c2.html.indexOf('<br>') : '未取到最新一条 in 气泡');
 
-  // C3 对照组：文字卡＋真颜文字卡仍以硬换行相接（#1051「末尾颜文字单独一行」不许回退）
+  // C3 对照组：文字卡＋真颜文字卡仍是一张气泡两张卡（#851/#1051 不许回退成丢卡）。
+  // #1212 后连接符不再写死：行末放得下＝同行、放不下才换行，两种形态都算对；判红＝颜文字没接上、
+  // 或同行把气泡撑到横向溢出（＝#1051 的「末尾显示不全」）。
   const c3 = await send(['背包', '(◕‿◕)']);
-  t('C3 文字卡＋真颜文字卡仍硬换行相接（#1051 不回退）',
-    !!c3 && c3.text === '背包\n(◕‿◕)' && c3.html.indexOf('<br>') >= 0,
-    c3 ? 'text=' + JSON.stringify(c3.text) + ' br=' + c3.html.indexOf('<br>') : '未取到最新一条 in 气泡');
+  const c3over = await evalJs("(function(){var sp=document.querySelectorAll('#chat-body .msg-in .msg-bubble');" +
+    "for(var i=sp.length-1;i>=0;i--){if(sp[i].textContent.indexOf('背包')>=0)" +
+    "return String(sp[i].scrollWidth-sp[i].clientWidth);}return '-1';})()");
+  t('C3 文字卡＋真颜文字卡仍相接成一条气泡，且末尾颜文字未被裁（#1051 口径＋#1212 实测连接符）',
+    !!c3 && /^背包[ \n]\(◕‿◕\)$/.test(c3.text) && Number(c3over) <= 1,
+    c3 ? 'text=' + JSON.stringify(c3.text) + ' overflow=' + c3over : '未取到最新一条 in 气泡');
 
   console.log(pass + ' 通过 / ' + fail + ' 失败');
 } finally {

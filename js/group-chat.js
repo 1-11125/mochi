@@ -1085,7 +1085,8 @@ t = pick(pool.text) || FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPL
 }
 }
 if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {
-t += '\n' + pick(pool.kaomoji); // #1051 同单聊 genReplyText：末尾颜文字卡改硬换行相接（\n→<br>），软换行点部分内核不拆行＝末尾显示不全
+const gkj = pick(pool.kaomoji);
+t += (window.chatKaoJoinSep ? window.chatKaoJoinSep(t, gkj, page, body) : '\n') + gkj; // #1051 同单聊：行末放不下才硬换行；#1212 「放得下」借单聊同一份实测（群聊页/群聊容器各传各的，量不到时回 '\n'）
 }
 if (type === 'text') {
 try {
