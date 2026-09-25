@@ -5,6 +5,12 @@
 //   ③关于上面推荐的那两个可以白嫖一点点的 AI：是目前的额度，以后不知道，仅供参考。
 // 落点：src/template.html 的 #splash-mandatory（页 2 强制公告）正文尾，排在 2026.09.14 建议卡之后、
 //   「—— 公告完 ——」之前；纯静态 DOM，门控（clock.js mandBottom/finishEnter）与 notice.json 均未动。
+// ⚠️ 2026-09-25 #1215b 改了本页的排布口径（用户：「把今天最新的刚刚叫你加的内容放在第二页的公告放在最顶上，默认打开，
+//   其他的折叠起来」）：本卡连同 09.12 / 09.14 / 09.22×2 一起被包进默认收起的 <details id="splash-mandatory-older">，
+//   页 2 顶部换成「最新一批默认展开」。故 B5/B6/B9 的判据从「本卡是最后一张 / offsetTop 紧贴公告完 / 滑到底时本卡在视口内」
+//   改为「相对顺序未乱 / DOM 序在公告完之前 / 到底时读到折叠块标题，展开后本卡才进视口（B9b）」。
+//   **别照旧口径回滚这三条**——旧口径现在只会误报。S7 与 S14（钉「本卡末尾三行 + 公告完」的 #995e 顺序针）
+//   是 #1022 追加时就已经断掉的**存量红**，与本次改口径无关，本批刻意未动（重锚或退役请另批决定）。
 // 断言面：src 三段逐字在位 ／ 位置（页 2 正文内、两张旧卡之后、公告完之前） ／ 旧内容一字未删 ／
 //   notice.json 零夹带 ／ 哨兵 #995a~e 登记与 needle 唯一性 ／ 产物已接入 ／ 无头真机走完进入流程后可见且门控未被绕过。
 // 用法：node tools/verify-995-splash-mandatory-ai-caveat.mjs
@@ -149,10 +155,25 @@ const geom = await page.evaluate(() => {
   const iNew = cards.findIndex((c) => c.id === 'splash-mandatory-aicaveat');
   const end = sc.querySelector('.splash-mandatory-end');
   const c = document.getElementById('splash-mandatory-aicaveat');
-  return { n: cards.length, iNew, newH: c ? c.offsetHeight : 0, newTop: c ? c.offsetTop : -1, endTop: end ? end.offsetTop : -1, scrollH: sc.scrollHeight, clientH: sc.clientHeight };
+  const sum = sc.querySelector('.splash-mandatory-fold-sum');
+  const sr = sc.getBoundingClientRect();
+  const sumRect = sum ? sum.getBoundingClientRect() : null;
+  return {
+    n: cards.length, iNew: iNew,
+    nextIds: cards.slice(iNew + 1, iNew + 3).map((x) => x.id),
+    newH: c ? c.offsetHeight : 0,
+    // 尾相邻的 offsetTop 比较自 #1215b 起不再成立（卡片可能整块被包进折叠块，收起时 offsetTop 仍算得出却并不在滚动流里
+    // 露着），改判「DOM 文档序在公告完之前」——那才是「没被挪出正文」的原意
+    domBeforeEnd: !!c && !!end && !!(c.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING),
+    inFold: !!c && !!c.closest('details'),
+    foldedClosed: !!c && c.checkVisibility() === false,
+    summaryVisible: !!(sumRect && sumRect.top < sr.bottom && sumRect.bottom > sr.top && sum.closest('details').open === false),
+    scrollH: sc.scrollHeight, clientH: sc.clientHeight
+  };
 });
-ok(geom.n >= 3 && geom.iNew === geom.n - 1, 'B5 新卡是页 2 最后一张卡（排在两张旧卡之后，不与旧卡穿插）', JSON.stringify(geom));
-ok(geom.newH > 60 && geom.newTop > 0 && geom.newTop < geom.endTop, 'B6 新卡在正文滚动流里占据真实高度、且位于「公告完」之前', JSON.stringify({ h: geom.newH, top: geom.newTop, end: geom.endTop }));
+ok(geom.n >= 5 && geom.iNew >= 2 && geom.nextIds[0] === 'splash-mandatory-respect' && geom.nextIds[1] === 'splash-mandatory-fee-rumor',
+  'B5 新卡仍排在 09.12/09.14 两张旧卡之后、且后面紧跟 #1022 那两张＝相对顺序未被打乱（#1215b 起页 2 顶部是默认展开的最新一批，「最后一张」不再是判据）', JSON.stringify(geom));
+ok(geom.newH > 60 && geom.domBeforeEnd, 'B6 新卡在正文 DOM 序里、位于「公告完」之前（折叠后真实高度见 B9b 展开实测）', JSON.stringify({ h: geom.newH, before: geom.domBeforeEnd, inFold: geom.inFold }));
 ok(geom.scrollH > geom.clientH + 20, 'B7 页 2 仍是可滚动长页（内容高于视口，门控仍需要滑动）', geom.scrollH + '/' + geom.clientH);
 
 await page.evaluate(() => { const sc = document.getElementById('splash-mandatory-scroll'); if (sc) sc.scrollTop = sc.scrollHeight; });
@@ -160,12 +181,54 @@ const gate1 = await page.waitForFunction(() => { const e = document.getElementBy
 ok(gate1, 'B8 滑到底后确认按钮转为可点（门控链路完好）');
 const cardSeen = await page.evaluate(() => {
   const sc = document.getElementById('splash-mandatory-scroll');
+  const sum = sc.querySelector('.splash-mandatory-fold-sum');
   const c = document.getElementById('splash-mandatory-aicaveat');
   if (!sc || !c) return { bottomVisible: false, inScroll: false, why: 'card missing' };
-  const sr = sc.getBoundingClientRect(), cr = c.getBoundingClientRect();
-  return { bottomVisible: cr.bottom <= sr.bottom + 2, inScroll: sc.scrollTop > 0 };
+  const sr = sc.getBoundingClientRect();
+  const fold = c.closest('details');
+  if (fold && !fold.open) {
+    // #1215b：更早公告默认收起＝到底时读者看到的是「更早的公告」这一行，本卡须展开后才进视口
+    const rr = sum ? sum.getBoundingClientRect() : null;
+    return { mode: 'folded', bottomVisible: !!(rr && rr.bottom <= sr.bottom + 2 && rr.top >= sr.top - 2), inScroll: sc.scrollTop > 0, closedFold: true };
+  }
+  const cr = c.getBoundingClientRect();
+  return { mode: 'flat', bottomVisible: cr.bottom <= sr.bottom + 2, inScroll: sc.scrollTop > 0 };
 });
-ok(cardSeen.bottomVisible && cardSeen.inScroll, 'B9 滑到底时新卡已在视口内读得到（读者确认进入前确实看得到这张卡）', JSON.stringify(cardSeen));
+ok(cardSeen.bottomVisible && cardSeen.inScroll, 'B9 滑到底时读得到东西：默认收起时是折叠块标题（提示还有更早公告）、未折叠时是本卡', JSON.stringify(cardSeen));
+// B9b：把折叠块展开、滚到本卡——必须真的进视口且三段可读（「折叠起来」≠「藏起来不给看」）；
+//   再滑到底门控要重新咬合（正文变长≠一劳永逸解锁）。注意本卡在折叠块里并不处于页面末尾（后面还有 #1022 两张），
+//   所以判据是「滚到它时它在视口内」而不是「滑到底时它在视口内」——后者在旧布局里成立、在新布局里必然误报。
+const afterOpen = await page.evaluate((ps) => {
+  const fold = document.querySelector('#splash-mandatory-older');
+  if (fold) fold.open = true;
+  const sc = document.getElementById('splash-mandatory-scroll');
+  const c = document.getElementById('splash-mandatory-aicaveat');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const flat = (s) => String(s || '').replace(/\s+/g, '');
+  return (async () => {
+    await wait(350);
+    const visible = c.checkVisibility();
+    c.scrollIntoView({ block: 'center' });
+    await wait(350);
+    const sr = sc.getBoundingClientRect(), cr = c.getBoundingClientRect();
+    const txt = flat(c.textContent);
+    sc.scrollTop = sc.scrollHeight;
+    await wait(450);
+    return JSON.stringify({
+      hasFold: !!fold, visible,
+      inViewport: cr.top < sr.bottom && cr.bottom > sr.top,
+      textOk: ps.every((t) => txt.includes(flat(t))),
+      disabled: document.getElementById('splash-mandatory-enter').classList.contains('is-disabled')
+    });
+  })();
+}, [T.p1, T.p2, T.p3]);
+const ao = JSON.parse(afterOpen || '{}');
+if (geom.inFold) {
+  ok(ao.visible === true && ao.inViewport === true && ao.textOk === true && ao.disabled === false,
+    'B9b 展开折叠块后滚到本卡：真的可见、进视口且三段原文逐字在位；再滑到底门控重新解禁（折叠只改默认视野，不删阅读路径）', afterOpen);
+} else {
+  ok(true, 'B9b 本副本无折叠块（旧布局）＝跳过展开实测');
+}
 ok(pageErrors.length === 0, 'Z1 全程零 JS 异常', pageErrors.slice(0, 2).join(' | '));
 
 await browser.close();

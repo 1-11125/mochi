@@ -30,8 +30,13 @@ function check(desc, ok, detail) { results.push({ desc, ok: !!ok }); console.log
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 check('A1 产物里第二页卡的入场淡入行已删（absent 面，与 build.mjs #1182a 同锚）',
   !html.includes('animation:splash-fade-up .5s ease backwards;'));
-check('A2 第二页结构完整：5 张必读卡仍在（防「整块删卡」假绿）',
-  (html.slice(html.indexOf('id="splash-mandatory"'), html.indexOf('splash-mandatory-foot', html.indexOf('id="splash-mandatory"'))).match(/splash-mandatory-card/g) || []).length === 5);
+check('A2 第二页结构完整：必读卡一张没少（防「整块删卡」假绿；张数会随内容批次增长，故按「至少五张＋五张原始标题都在」判）',
+  (() => {
+    const seg = html.slice(html.indexOf('id="splash-mandatory"'), html.indexOf('splash-mandatory-foot', html.indexOf('id="splash-mandatory"')));
+    const n = (seg.match(/splash-mandatory-card/g) || []).length;
+    const titles = ['月底停更，说点心里话', '关于不再更新网站后的建议', '关于让 AI 修，先说清楚几句', '一些其他事情', '关于「收费」，一并说清楚'];
+    return n >= 5 && titles.every((t) => seg.includes(t));
+  })(), 'card=' + (html.slice(html.indexOf('id="splash-mandatory"'), html.indexOf('splash-mandatory-foot', html.indexOf('id="splash-mandatory"'))).match(/splash-mandatory-card/g) || []).length);
 check('A3 splash-fade-up 关键帧与 #913 暂停机制未被动过（只摘本页依赖，不伤别处入场/省电）',
   html.includes('@keyframes splash-fade-up') && html.includes('body.mochi-bg-pause *'));
 
@@ -82,8 +87,8 @@ const paused = await evalJs(`(function(){
   }, 900); });
 })()`);
 let ops = []; try { ops = JSON.parse(paused || '[]'); } catch (e) {}
-check('B1 暂停类挂上时显示第二页：5 张卡 opacity 全为 1（白屏复现面＝红侧为 0）',
-  ops.length === 5 && ops.every((o) => Number(o) === 1), (ops.join(',') || 'no-data'));
+check('B1 暂停类挂上时显示第二页：所有必读卡 opacity 全为 1（白屏复现面＝红侧为 0；#1215b 起卡片张数随批次增长，按 ≥5 判，折叠块内的卡收起时不渲染但仍须为 1）',
+  ops.length >= 5 && ops.every((o) => Number(o) === 1), (ops.join(',') || 'no-data'));
 
 // B2 到底判定可用：滑到底后确认按钮解除置灰（白屏时用户卡死的那道门）
 const gate = await evalJs(`(function(){

@@ -542,6 +542,21 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 .splash-mandatory-body .mnum::before { content:"·"; position:absolute; left:3px; top:0; color:var(--sp-ink); font-weight:800; }
 /* 落款标签（右对齐小灰字） */
 .splash-mandatory-body .mtag { text-align:right; font-size:10.5px; color:var(--hint-ink); margin-top:10px; }
+/* v8.44 #1215b（2026-09-25 用户「最新的放最顶上默认打开，其他的折叠起来」）：更早公告的整体折叠块。
+   原生 details/summary，零 JS、零动画——本页可见性绝不许再依赖动画播完（#1182 白屏教训，build.mjs 有 absent 哨兵）；
+   收起时正文仍在 DOM 里（textContent / 页内查找都拿得到），只是不占阅读高度；
+   左侧竖条用次级灰（--hint-ink）＝视觉上让位于默认展开的最新一批；变量与 .splash-mandatory-card 同一套，明暗主题自适应。 */
+.splash-mandatory-fold { margin-bottom:14px; }
+.splash-mandatory-fold-sum {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:12px 15px; font-size:11.5px; font-weight:700; letter-spacing:.3px; color:var(--ink);
+  background:var(--sp-soft); border-left:3px solid var(--hint-ink); border-radius:10px;
+  cursor:pointer; list-style:none; -webkit-tap-highlight-color:transparent;
+}
+.splash-mandatory-fold-sum::-webkit-details-marker { display:none; }
+.splash-mandatory-fold-sum::after { content:"▾"; font-size:11px; color:var(--hint-ink); }
+.splash-mandatory-fold[open] > .splash-mandatory-fold-sum { margin-bottom:12px; }
+.splash-mandatory-fold[open] > .splash-mandatory-fold-sum::after { content:"▴"; }
 .splash-mandatory-end { text-align:center; font-size:11px; color:var(--hint-ink); letter-spacing:2px; padding:2px 0 4px; }
 .splash-mandatory-note { margin-top:14px; padding:10px 12px; font-size:11px; line-height:1.7; color:var(--hint-ink); background:var(--card-soft, rgba(0,0,0,0.03)); border-radius:8px; }
 /* 底部确认区（常驻不随内容滚动）：提示 + 确认按钮 */

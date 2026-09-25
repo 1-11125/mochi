@@ -423,6 +423,17 @@ background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:10
 .splash-mandatory-body .mnum { padding-left:14px; position:relative; font-weight:700; color:var(--ink); }
 .splash-mandatory-body .mnum::before { content:"·"; position:absolute; left:3px; top:0; color:var(--sp-ink); font-weight:800; }
 .splash-mandatory-body .mtag { text-align:right; font-size:10.5px; color:var(--hint-ink); margin-top:10px; }
+.splash-mandatory-fold { margin-bottom:14px; }
+.splash-mandatory-fold-sum {
+display:flex; align-items:center; justify-content:space-between; gap:8px;
+padding:12px 15px; font-size:11.5px; font-weight:700; letter-spacing:.3px; color:var(--ink);
+background:var(--sp-soft); border-left:3px solid var(--hint-ink); border-radius:10px;
+cursor:pointer; list-style:none; -webkit-tap-highlight-color:transparent;
+}
+.splash-mandatory-fold-sum::-webkit-details-marker { display:none; }
+.splash-mandatory-fold-sum::after { content:"▾"; font-size:11px; color:var(--hint-ink); }
+.splash-mandatory-fold[open] > .splash-mandatory-fold-sum { margin-bottom:12px; }
+.splash-mandatory-fold[open] > .splash-mandatory-fold-sum::after { content:"▴"; }
 .splash-mandatory-end { text-align:center; font-size:11px; color:var(--hint-ink); letter-spacing:2px; padding:2px 0 4px; }
 .splash-mandatory-note { margin-top:14px; padding:10px 12px; font-size:11px; line-height:1.7; color:var(--hint-ink); background:var(--card-soft, rgba(0,0,0,0.03)); border-radius:8px; }
 .splash-mandatory-foot {
@@ -10678,9 +10689,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790304018185">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790308994045">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.44</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 10:40<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 12:03<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -10717,6 +10728,50 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
           <!-- #315c：进入前最后一屏补年龄红线——与开屏免责卡口径一致，防御链收口 -->
           <div class="splash-mandatory-sub">本站禁止未满 18 周岁的未成年人使用；以下为作者停更公告，请阅读（滑到底部后可确认进入）</div>
         </div>
+        <!-- v8.44 #1215（用户 2026-09-25 直派「开屏公告的第二页新增内容：关于设备兼容问题和自己修bug」并给定稿原文）
+             ＋同日追改 #1215b（用户：「把今天最新的刚刚叫你加的内容放在第二页的公告放在最顶上，默认打开，其他的折叠起来」）——
+             两张卡＝顺作者给的主题行在「方法清单」那一句处换题拆开（前半＝设备兼容，后半＝自修方法），
+             卡标题即取自该主题行的两半（不另拟文案）；**原文一字未删**，只补日期/标题与分卡（页 2 体例＝日期 + 标题 + 正文段）。
+             排版处理（不改口径）：① 正文里的小写 ios/ai 统一为 iOS/AI、中英文间补空格，与本页 #995、#1022 两段既有卡片同口径；
+             ② 方法清单那五条借用页 2 已有、此前一直空着的 .mnum 列表样式（base.css 里定义在位，零新增）；
+             ③ 清单第一条原文末尾无句号，与同组其余四条对齐补「。」。
+             ⚠️ 页 2 的阅读顺序自本批改口径：**最新一批置顶、默认展开**，更早的五张（09.12 / 09.14 / 09.21 / 09.22×2）
+             整体包进下面那个原生 details（默认收起，点标题展开）。这**刻意覆盖**了 #995、#1022 注释里
+             「按日期顺序追加在页 2 最末」的旧口径（那句 today 已不成立，别照它回滚）：
+             下一批若也要默认展开，接在 fix-guide 卡之后、`<details` 之前；否则加进 details 内末尾按日期排。
+             折叠用原生 details/summary，零 JS；**不要给它加默认展开的属性**（＝撤销用户要的「其他折叠起来」）。
+             门控一字未动（clock.js 的 mandBottom / finishEnter 仍只看滚动容器）：展开后内容变长，
+             「未滑到底」会重新成立＝确认按钮重新置灰、提示条重新出现，须再滑到底才能进入——这是设计不是故障。
+             不进 notice.json（#995 起既定口径：强制页从不在线覆盖，notice.json 只覆盖页 1 公告列表与摘要）。
+             ⚠️ 本注释刻意不复述任何正文原句（连 needle 也不写）：注释会随构建进产物，写了等于把哨兵钉在自己身上，
+             而且会让「按原话顺序排列」这类顺序断言先在注释里命中一次（本批实测踩过，见 tools/verify-1215 的 S3）。 -->
+        <div class="splash-mandatory-card" id="splash-mandatory-device-bug">
+          <div class="splash-mandatory-date">2026.09.25</div>
+          <div class="splash-mandatory-h">关于设备兼容问题</div>
+          <div class="splash-mandatory-body">
+            <p>关于设备 bug 的问题，已经解释过很多次了：大多是不同手机型号导致的。作者自己的手机使用一直是正常的，正常使用下网站本身没什么 bug，大功能小功能都是正常的。</p>
+            <p>因为我没有其他人的手机型号，一直以来帮修都是盲修。再加上手机型号差异非常多，问题会反复出现。这个网站功能太多，不同手机型号可能在某个功能上出现小 bug，但一般正常聊天和大部分功能都没问题。</p>
+            <p>iOS 更是因为设备限制会卡顿，但我没有 iOS 手机，无法测出问题，而且不同型号可能有不同的卡顿问题。主要就是 iOS 的问题我修不了，安卓目前出现的都是小问题还好，就是一些不同设备导致出现的各种奇奇怪怪的小问题。</p>
+            <p>不是不帮，我已经修尽力了。从开始内测至今，网站已经部署更新七百多次，除了前几天在医院陪护，每天除了吃饭睡觉都在调整网站功能和帮修问题，一直在熬夜，然后这两天实在是撑不住了睡觉去了。如果不信，github 库里也有代码上传的记录。</p>
+            <p>如果因为手机型号问题觉得这个网站 bug 很多——代码都是开源的，可以自己调。永久停更后也建议有能力的朋友自己修，有自己的真机验证，会好修很多很多。</p>
+          </div>
+        </div>
+        <div class="splash-mandatory-card" id="splash-mandatory-fix-guide">
+          <div class="splash-mandatory-date">2026.09.25</div>
+          <div class="splash-mandatory-h">和自己修 bug 的方法</div>
+          <div class="splash-mandatory-body">
+            <p>自己修 bug 的方法：</p>
+            <p class="mnum">把代码和文件夹全部下载到电脑本地。</p>
+            <p class="mnum">按【设备型号 + 浏览器 + 问题 + 设备诊断 docx】的格式报给 AI。</p>
+            <p class="mnum">不清楚怎么报，就把问题描述得越详细越好。</p>
+            <p class="mnum">注意：不要跟 AI 说「梦角什么什么」，要说你的操作流程和哪个功能异常。</p>
+            <p class="mnum">设备诊断信息我设置了几个自测功能，就是你遇到什么问题，就导出什么文件，一起给 AI。</p>
+            <p>推荐 AI 修问题，但建议不要 100% 依赖 AI，AI 会出错和骗人，也需要一直调整。</p>
+            <p>之前一直都是尽力帮修，月底后永久停更，不处理任何事务。建议要么凑合用，要么自己调，代码一直是开源的。</p>
+          </div>
+        </div>
+        <details class="splash-mandatory-fold" id="splash-mandatory-older">
+          <summary class="splash-mandatory-fold-sum">更早的公告 · 2026.09.12 ~ 09.22</summary>
         <div class="splash-mandatory-card">
           <div class="splash-mandatory-date">2026.09.12</div>
           <div class="splash-mandatory-h">月底停更，说点心里话</div>
@@ -10797,6 +10852,7 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
             <p>说实话，这个网站是我用了非常多的精力和心血做成的，我做不到对外面那些话语完全零反应。就算对我的网站，我的话不认可，也请互相尊重彼此。</p>
           </div>
         </div>
+        </details>
         <div class="splash-mandatory-end">—— 公告完 ——</div>
         <div class="splash-mandatory-note">使用之前请先看第一页的开屏公告，很多问题上面都写了。说实话是公告越来越长了，但是大部分人就是不看，我也没有办法。另：本页说的「让 AI 修」和开屏公告里的「问 AI」都只是使用建议——AI 无法保证 100% 正确，AI 也会出错和骗人，AI 给的答案请自行甄别。</div>
       </div>
@@ -21597,4 +21653,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugcsdft -->
+<!-- __MOCHI_EOF__ mugfr0u5 -->
