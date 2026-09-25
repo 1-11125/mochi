@@ -90,17 +90,30 @@ await page.waitForTimeout(300);
 
 const pending = [];
 page.on('filechooser', (fc) => { pending.push(fc); });
-await page.evaluate(() => {
+// 无头负载高时首屏渲染会拖过默认 30s 缺省超时（实测整支脚本被 TimeoutError 抛穿＝看不到任何读数）。
+// 这里把每一步都收成「断言＋继续」，慢只慢、不崩；重试两次仍不动才判红。
+async function tap(fn, what) {
+  for (let i = 0; i < 3; i++) {
+    try { await fn(); return true; } catch (e) { await page.waitForTimeout(1500); }
+  }
+  ok(false, what);
+  return false;
+}
+await tap(() => page.evaluate(() => {
   const c = document.getElementById('feed-publish-card'); if (c) c.hidden = false;
   document.getElementById('feed-pick-img').scrollIntoView();
-});
-await page.click('#feed-pick-img', { timeout: 5000 }).catch(() => {});
-await page.waitForTimeout(400);
+}), 'E0 发布卡片可露出（无头负载/渲染超时）');
+await tap(() => page.click('#feed-pick-img', { timeout: 8000 }), 'E0 点「添加图片」有响应');
+await page.waitForTimeout(600);
 ok(pending.length === 1, 'E0a 点「添加图片」弹出了文件选择器', 'pending=' + pending.length + ' chooser=' + st.chooser);
-await pending[0].setFiles({ name: 'shot.png', mimeType: 'image/png', buffer: PNG });
+if (!pending.length) {
+  ok(false, 'E1 发布成功且动态出现在列表', '无文件选择器＝后续步骤无从执行');
+} else {
+  await tap(() => pending[0].setFiles({ name: 'shot.png', mimeType: 'image/png', buffer: PNG }), 'E0b 文件落进选择器');
+}
 await page.waitForTimeout(1200);
-await page.fill('#feed-input', 'e2e-1257 发布配图');
-await page.click('#feed-publish');
+await tap(() => page.fill('#feed-input', 'e2e-1257 发布配图', { timeout: 8000 }), 'E0c 正文可填入');
+await tap(() => page.click('#feed-publish', { timeout: 8000 }), 'E0d 点「发布」有响应');
 await page.waitForTimeout(2500);
 
 const r1 = await page.evaluate(async () => {
