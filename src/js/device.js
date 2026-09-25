@@ -1293,6 +1293,22 @@
         L.push('文件选择取证（旧→新）：(无——本页还没点过「选择文件」类入口)');
       }
     } catch (e) {}
+    // #1272：数据导入回执出账——上一环活在内存里、随页面回收清零（这批设备一次诊断实测回收 25 次，
+    // 四份报告的取证行全是空）；导入链路的关键动作已持久在 mochiImportLog，这里随报告带出（旧→新）。
+    try {
+      var _il = window.__mochiImportLog || [];
+      if (_il.length) {
+        var _is = [];
+        for (var _ii = 0; _ii < _il.length; _ii++) {
+          var _id = new Date(_il[_ii].t || 0);
+          _is.push(('0' + _id.getHours()).slice(-2) + ':' + ('0' + _id.getMinutes()).slice(-2) + ':' + ('0' + _id.getSeconds()).slice(-2)
+            + ' ' + _il[_ii].w);
+        }
+        L.push('数据导入回执（旧→新）：' + _is.join(' | '));
+      } else {
+        L.push('数据导入回执（旧→新）：(无——本机还没记录过数据导入动作)');
+      }
+    } catch (e) {}
     // #260：保活现场——「后台保活失败/收不到通知」类报障直接出证据，不再靠口述猜。
     // 心跳 = bg-keep.js 在页面隐藏期每 30s 写 IDB 的计数/时间戳轨迹：相邻拍间隔
     // >90s = 心跳断流 = 页面被冻结的实锤（保活豁免失效）；30s 连续节奏 = 后台未被冻结。
@@ -3932,6 +3948,27 @@ window.mochiPickLog = function (entry, step) {
     var arr = window.__mochiPickLog;
     arr.push({ t: Date.now(), e: String(entry || '').slice(0, 22), s: String(step || '').slice(0, 22) });
     if (arr.length > 6) arr.splice(0, arr.length - 6);
+  } catch (e) {}
+};
+// ===== #1272：数据导入回执环（localStorage 持久，扛页面回收）=====
+// #1014 取证环的困局在导入场景被放大：vivo X200s 实报一份诊断里页面被回收 25 次，内存日志
+// 随每次回收清零——用户四份诊断报告「文件选择取证」全是空，导入失败没留下任何证据。
+// 这里把导入链路的关键动作（读回执三态/拒绝分支/聊天文件指路/写库结算）写进 localStorage，
+// 最多 8 笔，随诊断报告出账（旧→新）。键名与 data-backup.js 的 IMPORT_LOG_KEY 同值，
+// 导出侧已跳过该键（取证不外传）。零机型分支、纯取证，不参与任何业务读取。
+window.mochiImportLogKey = function () { return 'xy-home-v2:__import-log'; };
+window.__mochiImportLog = (function () {
+  try {
+    var a = JSON.parse(localStorage.getItem(window.mochiImportLogKey()) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+})();
+window.mochiImportLog = function (what) {
+  try {
+    var arr = window.__mochiImportLog;
+    arr.push({ t: Date.now(), w: String(what || '').slice(0, 180) });
+    if (arr.length > 8) arr.splice(0, arr.length - 8);
+    localStorage.setItem(window.mochiImportLogKey(), JSON.stringify(arr));
   } catch (e) {}
 };
 

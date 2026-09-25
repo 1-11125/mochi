@@ -15,6 +15,9 @@
   // 一份进 IndexedDB，供「数据几乎全空」时启动弹窗恢复。现已彻底不再写入，本常量只剩两个用途：
   //  ① 导出时排除该键（防自包含无限增长）；② 启动时清理旧版本遗留的那份副本（purgeLegacySnapshot）。
   const SNAPSHOT_KEY = 'xy-home-v2:__auto-backup-snapshot';
+  // #1272：数据导入回执环（device.js mochiImportLog）的 localStorage 键。它是本机取证、不是用户
+  // 数据——两个导出循环各跳过一行，绝不随备份文件传播到别的设备。
+  const IMPORT_LOG_KEY = 'xy-home-v2:__import-log';
 
   function toast(msg) {
     let t = document.getElementById('cc-toast');
@@ -88,22 +91,43 @@
   // 跨内核兜底：个别安卓内核上 file.text() 对大文件会静默 resolve 空串（文件实际非空）——空串进
   // JSON.parse('null') 会误判成「不是 mochi 导出的数据文件」；读回空且文件非空时换 FileReader 再读
   // 一次（零机型分支，判据只取代码事实）。
+  // #1272：读文件从「只回字符串」升级为「回一张回执」{text, err, why}——原实现第一腿 file.text()
+  // 抛错（大备份超浏览器单串上限时的 RangeError: Invalid string length）被 .catch(() => readViaReader())
+  // 整个吞掉，FileReader 再失败就 resolve('')，真错误永远到不了 #104「太大」分档，用户看到的是
+  // 「不是 mochi 导出的数据文件」（vivo X200s + Edge 实报「上传数据文件显示无效数据」）。
+  // 回执保住内核真错误，判定交回调用方：有文本照用；读空且带错误 → 抛错误走既有分档线；
+  // 读空且无错误 → 空读专属文案。零机型分支＝判据只取内核回执与 file.size 两个结构事实。
   function readFileText(file) {
     return new Promise((resolve) => {
+      const rd = { text: '', err: null, why: '' };
+      function done(why) { rd.why = why; resolve(rd); }
       if (typeof file.text === 'function') {
         file.text().then((t) => {
           if (t === '' && file.size > 0) readViaReader();
-          else resolve(t);
-        }).catch(() => readViaReader());
+          else { rd.text = String(t); done(t === '' ? 'zero-byte' : 'text-ok'); }
+        }).catch((e) => { rd.err = e; readViaReader(); });
       } else readViaReader();
       function readViaReader() {
         const r = new FileReader();
-        r.onload = () => resolve(String(r.result || ''));
-        r.onerror = () => resolve('');
+        r.onload = () => {
+          rd.text = String(r.result || '');
+          // 第二腿读出内容 → 第一腿的错误就此了结（与旧行为一致：换腿成功就不再追责）
+          if (rd.text !== '') { rd.err = null; done('reader-ok'); }
+          else done(rd.err ? 'unreadable' : 'reader-empty');
+        };
+        r.onerror = () => {
+          // reader 的进度事件不带原因，保住第一腿真错误；两腿都无声失败时给一个可读的兜底错误
+          if (!rd.err) rd.err = new Error('读取失败：FileReader 无法读出文件内容');
+          done('unreadable');
+        };
         r.readAsText(file, 'utf-8');
       }
     });
   }
+
+  // #1272：导入链路记账 → device.js 的持久回执环（localStorage，扛得住页面回收——这批设备一次诊断
+  // 实测回收 25 次，内存取证随回收丢失，用户四份诊断报告里「文件选择取证」全是空）。纯取证，不参与业务。
+  function impLog(w) { try { if (window.mochiImportLog) window.mochiImportLog('backup:' + w); } catch (e) {} }
 
   // v3.31.x：Blob → base64 分块转换——旧实现把整块二进制先拼成一个巨大的二进制字符串再
   // 一次性 btoa（大音乐/图片文件上临时内存 ≈ 文件体积 × 2），且 String.fromCharCode.apply
@@ -633,6 +657,7 @@
         const k = localStorage.key(i);
         if (!k || k.indexOf('xy-home-v2:') !== 0) continue;
         if (k === SNAPSHOT_KEY) continue; // v3.7.0：副本键不进导出文件（防自包含无限增长）
+        if (k === IMPORT_LOG_KEY) continue; // #1272：LS 侧跳过导入回执键（本机取证不进备份文件）
         if (cfg.skip(k)) continue; // #275 范围外键（文字模式的媒体池等）同样不进小键段，防 strip 剥成空串入库
         const v = localStorage.getItem(k);
         if (byteLen(v) > LS_SMALL_LIMIT) lsBig[k] = v; // 大键：留待 IndexedDB 权威读取
@@ -704,6 +729,7 @@
         try {
           if (k.indexOf('xy-home-v2:') !== 0) continue;
           if (k === SNAPSHOT_KEY) continue; // v3.7.0：副本键不进导出文件
+          if (k === IMPORT_LOG_KEY) continue; // #1272：IDB 侧同样跳过导入回执键
           // 权威键不跳过（LS 有损快照不能代替 IDB 权威值）；双写一致键 LS 小键已收录则跳过
           if (k in small && !isAuthorityKey(k)) continue;
           if (cfg.skip(k)) { skipped++; if (MEDIA_POOL_KEY_RE.test(k)) skippedMedia++; continue; } // 所选范围之外的键（本地音乐文件/文字模式媒体池）
@@ -1257,7 +1283,16 @@
     impShow('正在读取数据文件…', '大备份（上百 MB）解析需要几秒，请稍候', null);
     let data;
     try {
-      const text = await readFileText(file);
+      const rd = await readFileText(file);
+      impLog('read:' + rd.why + ' size=' + (file && file.size) + ' name=' + ((file && file.name) || '').slice(0, 24));
+      const text = rd.text;
+      // #1272：不再吞内核读取错误——第一腿抛的错误（大备份超单串上限的 RangeError 最常见）换腿后
+      // 仍读空时原样上抛，让下面的 #104「太大」/#1221「坏了」分档看见真原因，
+      // 而不是落到 JSON.parse('null') 被误诊成「不是 mochi 导出的数据文件」
+      if (!text && rd.err) throw rd.err;
+      // #1272：两腿都回空且内核没抛错（0 字节文件 / 传输还没写完）——文件根本没进到解析这一步，
+      // 不能说「坏了」也不能说「不是 mochi 文件」，走空读专属分档
+      if (!text) throw new Error('读空：内核回读内容为空（' + (rd.why === 'zero-byte' ? '文件是 0 字节' : '两条读取腿都回空') + '，size=' + (file && file.size) + '）');
       // UTF-8 BOM 兜底剥除（个别内核/传输工具会在文件头带 BOM，JSON.parse 不认，误报「无效的数据文件」）
       data = JSON.parse((text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text) || 'null');
     } catch (e) {
@@ -1267,6 +1302,7 @@
       // 是把用户往错误方向带（文件没坏，是这台设备读不动这么大的一份）。
       const msg = (e && (e.message || String(e))) || '';
       if (/string length|out of memory|ArrayBuffer length|memory/i.test(msg)) {
+        impLog('fail:too-large');
         if (window.openModal) {
           window.openModal('这份备份太大，本机读不进去', '', function () {}, {
             noInput: true, okText: '知道了', big: true,
@@ -1278,9 +1314,25 @@
         }
         return;
       }
+      // #1272：「读空/读取失败」单独一档——与「JSON 解析不了」不是一回事：前者是内核根本没把
+      // 文件内容交回来（0 字节/传输不完整），说「文件损坏」或「不是 mochi 文件」都是误导
+      if (/读空|读取失败/i.test(msg)) {
+        impLog('fail:empty-read');
+        if (window.openModal) {
+          window.openModal('没有从这份文件读出内容', '', function () {}, {
+            noInput: true, okText: '知道了', big: true,
+            staticText: '原因：' + msg + '\n\n浏览器从你选的文件里一个字都没读到（多半是传输/下载不完整，或选到了还没写完的空文件）。\n' +
+              '本机数据没有被改动。\n请回到原设备重新「导出数据」，用云盘/数据线完整传到这台设备（微信发送会压缩改名，容易传坏），再选新文件导入。'
+          });
+        } else {
+          toast('没有从这份文件读出内容，请重新导出并完整传输后再导入');
+        }
+        return;
+      }
       // #1221：把「文件真坏了」与「读不动」分开说——JSON 语法类错误（截断/损坏/选错文件）此前一律
       // 归到死胡同「无效的数据文件」，用户分不清是文件问题还是操作问题，也没法带着原因反馈。
       if (/unexpected (end of|token)|expected .*json|invalid or unexpected token|invalid character|unterminated/i.test(msg)) {
+        impLog('fail:syntax');
         if (window.openModal) {
           window.openModal('这份备份文件读不出来', '', function () {}, {
             noInput: true, okText: '知道了', big: true,
@@ -1293,6 +1345,7 @@
         return;
       }
       // 其他未知读取/解析错误：把真实原因亮出来，不再给「无效的数据文件」死胡同
+      impLog('fail:read ' + msg.slice(0, 60));
       if (window.openModal) {
         window.openModal('读不了这份数据文件', '', function () {}, {
           noInput: true, okText: '知道了', big: true,
@@ -1304,10 +1357,35 @@
       return;
     }
     impHide();
-    if (!data || typeof data !== 'object' || !data.ls || typeof data.ls !== 'object') {
+    if (!data || typeof data !== 'object') {
+      impLog('reject:not-object');
       toast('不是 mochi 导出的数据文件');
       return;
     }
+    // #1272：单桌「仅聊天记录」导出文件（{app:'mochi-zika-chat', msgs:[…]}／裸数组）此前在完整备份
+    // 闸口被「不是 mochi 导出的数据文件」挡死——它其实是合法的 mochi 文件，只是该喂给「仅聊天记录」
+    // 入口（用户原话「之前只能上传导入聊天记录数据」＝那条路认这个格式，完整备份这条路不认）。
+    // 文件已到手，一键直交给 runChatAllImport（它自带预览与二次确认，语义不变、只是不再走死胡同）。
+    if (Array.isArray(data) || Array.isArray(data.msgs)) {
+      impLog('route:chat-file');
+      if (window.openModal && window.runChatAllImport) {
+        window.openModal('这份是「聊天记录」备份文件', '', function () { window.runChatAllImport(file); }, {
+          noInput: true, okText: '去导入这份聊天记录', big: true,
+          staticText: '它的内容是单个桌面的聊天记录，不是「导出数据 → 完整备份」产生的整包文件，完整备份入口不会导入它。\n' +
+            '点「去导入这份聊天记录」走「仅聊天记录」通道：先预览条数再确认，只覆盖聊天记录，设置/字卡/音乐都不动。\n' +
+            '（若想恢复全部数据，请在原设备选「导出数据 → 完整备份」。）'
+        });
+      } else {
+        toast('这份是聊天记录文件，请改用「导入数据 → 仅聊天记录」');
+      }
+      return;
+    }
+    // #1272：校验判据收口成一份——此处曾有两把尺子：老硬闸要求 data.ls 必须存在且是对象，
+    // 而下面的 lsLooksMochi 说「ls/idb 任一段有 xy-home-v2: 键就算 mochi」。v3.5.93+ 大键迁 IDB、
+    // IDB 权威备份的 ls 段可以合法缺席，却会被硬闸在这里误拒。现在 ls 段缺席归一成空对象，
+    // 唯一拒绝判据＝lsLooksMochi（两处判据同源）；归一后的 ls 段同时保住 doImportGo 的
+    // Object.keys(data.ls)（那里没有防御，之前靠硬闸挡着）。
+    if (data.ls == null || typeof data.ls !== 'object') data.ls = {};
     // v3.6.x：备份结构强校验——① app 标识不匹配直接拒绝（防误导其他应用的 json）；
     // ② 键前缀完全不匹配 mochi（xy-home-v2:）视为无效文件——原实现 {ls:{},idb:{}}
     // 空结构也能通过校验，配合先清空再写入，会把用户数据全清掉
@@ -1319,6 +1397,7 @@
     // 覆盖 fork 版/手改 app 字段的 mochi 备份（数据本身是 mochi 结构）；只有 app 与键
     // 都不像 mochi 才拒绝（防别的应用 json 误导入）
     if (data.app && data.app !== 'mochi-zika' && !lsLooksMochi) {
+      impLog('reject:app-mismatch');
       toast('不是 mochi 导出的数据文件');
       return;
     }
@@ -1336,6 +1415,7 @@
         if (adjKeys.length) adjNote = '\n\n⚠ 这份备份带有屏幕适配偏移（' + adjKeys.length + ' 项，属于原来的那台设备）。换设备恢复后若出现错位/裁切，到 设置→屏幕适配微调 点「全部恢复默认」再重新拖，或用「屏幕适配诊断→一键修正」。';
       } catch (eA) {}
       window.openModal('确定导入数据？将覆盖当前所有数据，且无法恢复。', '', () => {
+        impLog('confirm:go');
         doImportGo(d);
       }, { noInput: true, staticText: summary + adjNote });
     }
@@ -1345,11 +1425,13 @@
       // 原实现直接 toast 拒绝，导致前缀被改过的备份（手动编辑/旧版 fork）无法导入。
       const allKeys = Object.keys(data.ls || {}).concat(Object.keys(data.idb || {}));
       if (!allKeys.length) {
+        impLog('reject:empty-backup');
         toast('备份文件是空的（无任何数据键），没有可导入的数据');
         return;
       }
       const firstColon = allKeys[0].indexOf(':');
       if (firstColon < 0) {
+        impLog('reject:key-format');
         toast('备份文件键格式异常（无冒号分隔），无法导入');
         return;
       }
@@ -1424,6 +1506,7 @@
   }
 
   function doImportGo(data) {
+    impLog('write:start idbKeys=' + Object.keys((data && data.idb) || {}).length + ' lsKeys=' + Object.keys((data && data.ls) || {}).length);
     // #814：导入＝整库替换（IDB 原子替换 + LS clear 重写）＋完成后整页刷新——与「清除本地数据」
     //（personalize.js __resetting 同款屏障）一样必须先落屏障：否则刷新触发的 beforeunload
     // flushSave（chat.js :954 既有闸）会把本会话内存里的**旧**聊天记录（含 chatConsolidate 收口）
@@ -1555,6 +1638,7 @@
     // 的真实出口是单键两条写路（LS／IDB 兜底）全断，故按键还原旧值，见 fallsBad 一段。
 
     idbRestored.then((idbOk) => {
+      impLog('write:idb=' + (!!idbOk ? 'ok' : 'fail'));
       // v3.6.x：IDB 原子替换失败 → 数据已由事务回滚保持原样，这里中止后续——
       // 不再继续写 localStorage，否则会出现「localStorage 新数据 + IndexedDB 旧数据」混合态
       if (!idbOk) {

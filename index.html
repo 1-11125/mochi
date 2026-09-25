@@ -10690,9 +10690,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790333254654">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790333970422">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 18:47<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 18:59<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -18551,6 +18551,20 @@ L.push('文件选择取证（旧→新）：(无——本页还没点过「选�
 }
 } catch (e) {}
 try {
+var _il = window.__mochiImportLog || [];
+if (_il.length) {
+var _is = [];
+for (var _ii = 0; _ii < _il.length; _ii++) {
+var _id = new Date(_il[_ii].t || 0);
+_is.push(('0' + _id.getHours()).slice(-2) + ':' + ('0' + _id.getMinutes()).slice(-2) + ':' + ('0' + _id.getSeconds()).slice(-2)
++ ' ' + _il[_ii].w);
+}
+L.push('数据导入回执（旧→新）：' + _is.join(' | '));
+} else {
+L.push('数据导入回执（旧→新）：(无——本机还没记录过数据导入动作)');
+}
+} catch (e) {}
+try {
 if (typeof window.__kaProbe === 'function') {
 const kp = window.__kaProbe();
 const kpParts = ['保活=' + (kp.keep ? '开' : '关'),
@@ -20546,6 +20560,21 @@ arr.push({ t: Date.now(), e: String(entry || '').slice(0, 22), s: String(step ||
 if (arr.length > 6) arr.splice(0, arr.length - 6);
 } catch (e) {}
 };
+window.mochiImportLogKey = function () { return 'xy-home-v2:__import-log'; };
+window.__mochiImportLog = (function () {
+try {
+var a = JSON.parse(localStorage.getItem(window.mochiImportLogKey()) || '[]');
+return Array.isArray(a) ? a : [];
+} catch (e) { return []; }
+})();
+window.mochiImportLog = function (what) {
+try {
+var arr = window.__mochiImportLog;
+arr.push({ t: Date.now(), w: String(what || '').slice(0, 180) });
+if (arr.length > 8) arr.splice(0, arr.length - 8);
+localStorage.setItem(window.mochiImportLogKey(), JSON.stringify(arr));
+} catch (e) {}
+};
 window.mochiModalPickOk = function (cfg) {
 var o = cfg || {};
 var okBtn = o.okBtn;
@@ -21798,4 +21827,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugu70fy -->
+<!-- __MOCHI_EOF__ mugumcqe -->

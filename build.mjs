@@ -5105,6 +5105,14 @@ const FIX_SENTINELS = [
   { name: '#1258f 取回后就地重建指针（删＝图铺回来了但指针还空着，面板不高亮、删除判定找不到张，下一轮又是一次空判）', file: 'js/chat-settings.js', needle: "store.set(CS_BG_ACTIVE, '__idb');" },
   { name: '#1258g 用户亲手清除＝本桌面当场认死（删＝清除要点完等一次往返才生效，看起来像按了没反应；也等于把刚删的图从库里抢回来）', file: 'js/chat-settings.js', needle: 'function csBgForgetThisSession() { csBgGoneNs = csBgCurNs(); }' },
   { name: '#1258h 诊断大键候选清单补聊天背景（删＝「背景图没了」的报障单里看不到最该看的那一行，判不出原图还在不在库里）', file: 'js/device.js', needle: 'if (/:(cs-bg)$/.test(k)) return true;' },
+  /* ==== 2026-09-25 #1272 「上传数据文件显示无效数据」（用户报 vivo X200s + Edge，明说其他机型也有、勿覆盖式修补）：读文件回执三态保住内核真错误（RangeError 不再被换腿吞掉→ #104「太大」分档恢复可见）；空读单独一档；校验判据同源（idb-only 权威备份不再被 !data.ls 硬闸误拒）；单桌聊天文件指路进「仅聊天记录」；导入回执持久化进 localStorage 扛页面回收。验证 tools/verify-1272-import-receipt.mjs ==== */
+  { name: '#1272a 内核读取错误不再被吞（删＝大备份超限的 RangeError 又被换腿吞掉、空读落回「不是 mochi 导出的数据文件」误诊复发）', file: 'js/data-backup.js', needle: 'if (!text && rd.err) throw rd.err;' },
+  { name: '#1272b 「读空/读取失败」单独分档（删＝0 字节/传输不完整又被并进「坏了」或「不是 mochi 文件」死胡同）', file: 'js/data-backup.js', needle: 'if (/读空|读取失败/i.test(msg)) {' },
+  { name: '#1272c 单桌聊天文件在完整备份入口被认出没走死胡同（删＝{msgs:[…]}/裸数组又被「不是 mochi 导出的数据文件」挡死，用户只能自己摸到「仅聊天记录」）', file: 'js/data-backup.js', needle: 'if (Array.isArray(data) || Array.isArray(data.msgs)) {' },
+  { name: '#1272d 校验判据同源·ls 段归一（删回双尺子：IDB 权威备份的合法空 ls 段又被硬闸误拒；留＝同时保住 doImportGo 无防御的 Object.keys(data.ls)）', file: 'js/data-backup.js', needle: "if (data.ls == null || typeof data.ls !== 'object') data.ls = {};" },
+  { name: '#1272e 导入回执键定义（删＝导出排除与 device.js 回执环两侧同失锚，取证随备份文件传播到别的设备复发）', file: 'js/data-backup.js', needle: "const IMPORT_LOG_KEY = 'xy-home-v2:__import-log';" },
+  { name: '#1272f 数据导入回执环本体（删＝导入失败又只剩内存取证，页面回收 25 次的现场四份报告全空、无从诊断）', file: 'js/device.js', needle: 'window.mochiImportLog = function (what) {' },
+  { name: '#1272g 诊断报告导入回执出账行（删＝回执写了也看不见，报障单里仍没有这一步的现场）', file: 'js/device.js', needle: "L.push('数据导入回执（旧→新）：' + _is.join(' | '));" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
