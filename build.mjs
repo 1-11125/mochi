@@ -2912,6 +2912,9 @@ const FIX_SENTINELS = [
   { name: '#1241b 超时那一下带 kaTimeout 旗标（删旗标＝上面那条收手闸恒不成立，重复弹照旧；明确拒绝仍走阶梯的语义同时失去区分依据）', file: 'js/bg-keep.js', needle: "const te = new Error('ka-timeout'); te.kaTimeout = true; reject(te);" },
   { name: '#1241c 未落地次数对外可读（删掉＝诊断读不到，下次真机报告再遇这类内核只能靠猜；与本批收手闸同一批代码）', file: 'js/bg-keep.js', needle: 'window.bgNotifyUnsettled = function () { return notifyUnsettled; };' },
   { name: '#1241d 诊断【保活现场】点名「通知回执未落地」（删掉＝本批唯一取证出口没了，行为断言见 tools/verify-1241-notify-settle-once.mjs）', file: 'js/device.js', needle: "kpParts.push('通知回执未落地=' + nu + '次" },
+  // ==== 2026-09-25 #1255 安卓 ce-box 令牌表情包双写收口（vivo X200s + Edge 实报「发出去分裂成两个、几分钟后变 image:文字」，多机型同族；零机型／零 UA 分支＝判据只取 span 令牌×img 载荷的结构事实） ====
+  { name: '#1255a 令牌展开等价判据（删＝media-pool 把 img 解回真图后 covered 错位复发，整段真图重建进信件正文＋span 再写一遍令牌＝双表情包）', file: 'js/mobile-adapt.js', needle: 'window.mochiMediaExpand(tk[0]) === n.src' },
+  { name: '#1255b 缺图占位判据（删＝#665d 占位 SVG 被当信件内容写成 image:文字＋令牌残留＝用户所见「几分钟后变 image:」形态复发）', file: 'js/mobile-adapt.js', needle: "n.classList.contains('media-tok-missing')" },
   { name: '#614 测试按钮点击即时反馈（删掉＝要等发送链 settle 才有提示，SW 卡住时用户看到「点了没反应」）', file: 'js/bg-keep.js', needle: "toast('正在检查通知环境…');" },
   // ==== 2026-09-17 #673 后台弹窗「又收不到」：过渡期不再整条吞新消息 + 发送链静默丢失口子（红米K80 Chrome 等多机型） ====
   { name: '#673 过渡期（切后台头15秒）由「一律不弹」改为按内容判定（退回无条件 return 则 TA 回复在 1~40 秒延迟内落窗＝聊天有、通知栏没有复发）', file: 'js/bg-keep.js', needle: 'recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }' },

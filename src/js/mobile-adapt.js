@@ -329,10 +329,24 @@
                   // （安卓写信/回信插入表情包/图片后，信件里同一张图出现两次的 bug）
                   // v3.6.x：兼容「用户在图片后点光标输入文字」（文本被插到 img 与
                   // span 之间，紧邻判断失效）——改为整框查找包含该 src 的隐藏标记
+                  // FIX 2026-09-25 #1255 令牌卡表情包（vivo X200s + Edge 实报「发出去表情包
+                  //   分裂成两个、几分钟后变 image:文字」，零机型／零 UA 分支）：media-pool
+                  //   观察器会把 img 的 src 解回真图（map 命中）或 #665d 缺图占位 SVG，而配对
+                  //   span 仍持 "sticker:@@m:hash" 令牌文本——字面包含判据在这两种形态下永错位
+                  //   ⇒ img 走重建分支写 image:<解回载荷>，span 又写一遍令牌＝双写。补两条结构判据：
+                  //   ① span 里的令牌经 mochiMediaExpand 展开恰等于 img.src＝同一载荷的两种形态；
+                  //   ② img 正挂 media-tok-missing 占位（令牌未解回/读失败）＝占位不是信件内容，
+                  //   令牌才是真身，等池自愈后由渲染端解回。
                   let covered = false;
                   try {
                     box.querySelectorAll('span.mail-media-mark').forEach(function (sp) {
                       if (!covered && sp.textContent && sp.textContent.indexOf(n.src) >= 0) covered = true;
+                      if (!covered && sp.textContent) {
+                        const t = sp.textContent;
+                        const tk = /@@m:[0-9a-f]{32}/.exec(t);
+                        if (tk && ((window.mochiMediaExpand && window.mochiMediaExpand(tk[0]) === n.src) ||
+                          (n.classList && n.classList.contains('media-tok-missing')))) covered = true;
+                      }
                     });
                   } catch (e) {}
                   if (!covered) {

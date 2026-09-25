@@ -190,6 +190,12 @@ let covered = false;
 try {
 box.querySelectorAll('span.mail-media-mark').forEach(function (sp) {
 if (!covered && sp.textContent && sp.textContent.indexOf(n.src) >= 0) covered = true;
+if (!covered && sp.textContent) {
+const t = sp.textContent;
+const tk = /@@m:[0-9a-f]{32}/.exec(t);
+if (tk && ((window.mochiMediaExpand && window.mochiMediaExpand(tk[0]) === n.src) ||
+(n.classList && n.classList.contains('media-tok-missing')))) covered = true;
+}
 });
 } catch (e) {}
 if (!covered) {
