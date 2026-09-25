@@ -1803,28 +1803,6 @@ t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
 clearTimeout(t._timer);
 t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
 }
-function compressHead(dataUrl, maxSide) {
-return new Promise((resolve) => {
-try {
-if (typeof dataUrl !== 'string' || !dataUrl || dataUrl.length > 8 * 1024 * 1024) { resolve(null); return; }
-const img = new Image();
-img.onload = () => {
-try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-} catch (e) { resolve(null); }
-});
-}
 let gcAvatarPickCb = null;
 const gcAvatarPickInput = document.createElement('input');
 gcAvatarPickInput.type = 'file'; gcAvatarPickInput.accept = 'image/*';
@@ -1836,14 +1814,11 @@ const f = gcAvatarPickInput.files && gcAvatarPickInput.files[0];
 gcAvatarPickInput.value = ''; // 允许重选同一文件
 if (!f) return;
 const cb = gcAvatarPickCb; gcAvatarPickCb = null;
-const reader = new FileReader();
-reader.onload = () => {
-compressHead(reader.result, 256).then(data => {
-if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-if (cb) cb(data);
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'gc-head' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '群头像')); return; }
+if (cb) cb(r.data);
 });
-};
-reader.readAsDataURL(f);
 };
 function pickAvatarFile(cb) {
 gcAvatarPickCb = cb;
@@ -2431,28 +2406,14 @@ id: 'mochi-gc-wallpaper-pick', accept: 'image/*',
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
 const dpr = Math.max(1, window.devicePixelRatio || 1);
 const screenH = (window.screen && window.screen.height) || 1920;
-const maxSide = Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
-const c = document.createElement('canvas');
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-gcBeautySet('bg', c.toDataURL('image/jpeg', 0.85));
+window.mochiImgIngest(f, { maxSide: Math.min(4096, Math.max(2160, Math.round(screenH * dpr))), quality: 0.85, tag: 'gc-wall' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '群聊壁纸')); return; }
+gcBeautySet('bg', r.data);
 toast('群聊壁纸已应用');
-} catch (e) { toast('壁纸处理失败，请换一张'); }
-};
-img.onerror = () => { toast('图片读取失败，请换一张'); };
-img.src = reader.result;
-};
-reader.onerror = () => { toast('图片读取失败，请换一张'); };
-reader.readAsDataURL(f);
+});
 }
 });
 }
@@ -3473,34 +3434,17 @@ fi.onchange = () => {
 const files = Array.prototype.slice.call(fi.files || []);
 fi.value = ''; // 允许重选同一张
 if (!files.length) { toast('没有取到图片，请再选一次'); return; }
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+let gcImgMiss = 0;
+let gcImgChain = Promise.resolve();
 files.forEach(f => {
-const reader = new FileReader();
-reader.onerror = () => { toast('图片读取失败，请换一张再试'); };
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-const out = c.toDataURL('image/jpeg', 0.85);
-if (out && out.indexOf('data:image/') === 0 && out.length > 128) gcDraftImgs.push(out);
-else gcDraftImgs.push(reader.result);
-} catch (err) {
-gcDraftImgs.push(reader.result);
-}
+gcImgChain = gcImgChain.then(() => window.mochiImgIngest(f, { maxSide: 720, quality: 0.85, tag: 'gc-draft' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { gcImgMiss++; return; }
+gcDraftImgs.push(r.data);
 renderGcDraft();
-};
-img.onerror = () => {
-gcDraftImgs.push(reader.result);
-renderGcDraft();
-};
-img.src = reader.result;
-};
-reader.readAsDataURL(f);
+}));
 });
+gcImgChain.then(() => { if (gcImgMiss) toast('有 ' + gcImgMiss + ' 张图片没能导入，请换一张小图或用系统相机重拍'); });
 };
 document.body.appendChild(fi);
 gcImgInput = fi;

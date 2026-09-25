@@ -113,7 +113,7 @@ function minifyCss(code) {
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'ver-check.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'ver-check.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
 
 // ===== PERF-PLAN 阶段 1：JS 外置化（2026-09-18）=====
 // 首开「3.8MB 内联 JS 主线程整段解析执行」是 iOS/中低端安卓卡顿的结构性大头
@@ -628,7 +628,11 @@ const FIX_SENTINELS = [
   { name: '新文件接入产物（TA的心情）', file: 'index.html', needle: 'ta-mood' },
   { name: '多联系人切换渲染修复（applyAvatars）', file: 'js/contacts.js', needle: 'applyAvatars' },
   { name: '信箱数据丢失防护（mailDbReady）', file: 'js/mail.js', needle: 'mailDbReady' },
-  { name: '大图崩溃防护（>8MB 拦截）', file: 'js/personalize.js', needle: '8 * 1024 * 1024' },
+  // #1270 重锚（名字按 #1214 一字不改）：原针＝personalize.js 里那句「base64 长度 >8MB 直接拒」，
+  // 这一族「按字符串长度判图太大」把现代手机照片一律误拒（用户实报「无法导入任何照片」），且放行时
+  // 的整幅解码（48MP＝192MB 位图）本身又是 iOS 回收页面的元凶。同一防护语义搬进统一解码闸：先嗅文件
+  // 头像素，超预算＋内核不支持边解边缩才明确报「换图」，支持就按目标尺寸解——针落在判定那一行。
+  { name: '大图崩溃防护（>8MB 拦截）', file: 'js/img-ingest.js', needle: 'if (px && px.w > 0 && px.h > 0 && px.w * px.h > budget) {' },
   { name: '情绪字卡总开关（triggerEmotionChain 总闸）', file: 'js/mood-reply-cards.js', needle: 'if (!enabled(\'mood\')) return null' },
   { name: '通知图标降级（noMedia）', file: 'js/bg-keep.js', needle: 'noMedia' },
   { name: '引用快照防 base64 霸屏（quoteTextOf/quoteSnapOf）', file: 'js/chat.js', needle: 'function quoteTextOf' },
@@ -3309,7 +3313,10 @@ const FIX_SENTINELS = [
   { name: '#677d 导出前报告空则现取一次（删掉＝未打开过自检页直接导出时 report 又是空串）', file: 'js/card-audit.js', needle: 'if (!lastText) { try { render(); } catch (e) {} }' },
   { name: '#677e 一键修复按实际落地数回报（改回无条件 return true＝全部空转也报「已修复」的假反馈）', file: 'js/card-audit.js', needle: 'bulkFixes.forEach(function (id) { try { if (fixMap[id]) { var r = fixMap[id](); if (r !== false && r !== \'fail\') n++; } } catch (e) {} });' },
   { name: '#677f 图片选择器 input 常驻并挂进文档再 click（改回 detached／每次新建＝iOS Safari 选完图不派发 change、图片进不了聊天复发）', file: 'js/chat.js', needle: "document.body.appendChild(fi);\nchatImgInput = fi;" },
-  { name: '#677g 选图链路失败可见（删掉 reader.onerror/解码超时＝读取或解码失败时彻底静默，用户只看到「加了图片但没了」）', file: 'js/chat.js', needle: "reader.onerror = () => { settled = true; toast('图片读取失败，请换一张再试'); };" },
+  // #1270 重锚（名字一字不改）：原针是 chat.js 里 FileReader 的 onerror 腿；这一批把「先读成 base64
+  // 再解码」整条换成统一解码闸后，失败可见性改由回执三态承担（太慢/解不出/读不出说三种话），针落在
+  // 「没落地就 settled＋按回执说话」那一行。删除型配套见 #1270z（「图片解码较慢，已按原图添加」永不许回流）。
+  { name: '#677g 选图链路失败可见（删掉 reader.onerror/解码超时＝读取或解码失败时彻底静默，用户只看到「加了图片但没了」）', file: 'js/chat.js', needle: "settled = true; toast(window.mochiImgIngestMiss(r, '图片'))" },
   { name: '#677h 空 FileList 可见反馈（改回 if (!files.length) return;＝iOS 选完没带上文件时一点提示都没有）', file: 'js/chat.js', needle: "if (!files.length) { toast('没有取到图片，请再选一次'); return; }" },
   // ===== #680（2026-09-17 用户直派）字卡库顶部搜索直出图片令牌乱码 ＋ 图片/表情包名称 =====
   // 用户原话：「为什么在字卡库的顶部搜索栏里搜索字卡还能看到里面的图片的令牌乱码 例如
@@ -4767,17 +4774,22 @@ const FIX_SENTINELS = [
   { name: '#1040b surface 的 accept 必须按分类刷新（删/改回只铺不刷＝语音分类残留 image/*，iOS 文件选择器把语音文件灰显不可选＝「语音传不上去」复发，v3.16.x 同坑）', file: 'js/chatcard.js', needle: "_ccSurf.accept = cur === 'voice' ? '' : 'image/*'" },
   /* ==== 2026-09-22 #1036 OPPO Pad 4 Pro 四报障根因修复（朋友圈改名无变化 / 通话小框拖动不连贯 / 音乐库歌曲自己失效 / 换头像背景偶发无反应；用户点名「不要按机型分支、别的型号也有这问题」——全部零机型分支）==== */
   { name: '#1036a 朋友圈改名回扫存量快照函数（删＝改昵称只改设置键，存量动态/评论/点赞仍显示旧名＝「修改昵称无变化」复发）', file: 'js/feed.js', needle: 'function sweepFeedNameSnapshots(role, cid, prevName, newName) {' },
-  { name: '#1036b 朋友圈读图 20 秒看门狗（删＝解码挂起时 Promise 永久悬空＝「选了图没反应」）', file: 'js/feed.js', needle: "const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);" },
+  // ==== 2026-09-25 #1270 重锚（下面 #1036b/g/i/k/l 四条名字一字不改，只换 file/needle）：
+  //   原四针各钉一份「本地 20 秒/30 秒看门狗」，这一批把全站照片导入收进 src/js/img-ingest.js 后，
+  //   看门狗只剩一份（DECODE_WATCHDOG_MS＝20s，见 #1270w），各入口的「不会永久悬空」改由回执结算
+  //   承担：每个针落在该入口「只认 st==='ok'、其余按回执说话并照契约收尾」那一行——把逻辑改回
+  //   「等一个可能永远不来的回调」时这些行必然消失。 ====
+  { name: '#1036b 朋友圈读图 20 秒看门狗（删＝解码挂起时 Promise 永久悬空＝「选了图没反应」）', file: 'js/feed.js', needle: "window.mochiImgIngest(file, { maxSide: 800, quality: 0.82, tag: 'feed-800' }).then((r) => {" },
   { name: '#1036c 通话小框拖拽期 document 级防手势被抢（删＝平板内核把触摸判成滚动、pointercancel 打断拖拽＝「只能一下一下拖」复发；#1012 同口径）', file: 'js/call.js', needle: 'const stopPan = (ev) => { if (dragging && ev.cancelable) ev.preventDefault(); };' },
   { name: '#1036d 音乐库启动自愈 http→https（删＝https 页下 http 直链被混合内容永久拦截＝「上传的歌曲会自己失效」复发）', file: 'js/music-player.js', needle: "if (/^http:\\/\\//i.test(m.url)) { m.url = m.url.replace(/^http:\\/\\//i, 'https://'); httpsUpgraded = true; }" },
   { name: '#1036e 本地音乐文件确认丢失即打标落库（删＝文件被系统清理后仍显示「本地」，用户反复点播误判歌曲自己坏了）', file: 'js/music-player.js', needle: 'if (!m.fileLost) { m.fileLost = 1; saveLibrary(); }' },
   { name: '#1036f 聊天头像压缩失败口径含「读取超时」（删＝解码挂起静默无反馈＝「换头像没反应、重开好几次」；配套 compressHead 看门狗）', file: 'js/chat-settings.js', needle: "if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }" },
-  { name: '#1036g 聊天背景压缩 20 秒看门狗（删＝多选入库链在挂起图处卡死，后续图全不入库且零提示）', file: 'js/chat-settings.js', needle: 'const watchdog = setTimeout(function () { once(null); }, 20000);' },
+  { name: '#1036g 聊天背景压缩 20 秒看门狗（删＝多选入库链在挂起图处卡死，后续图全不入库且零提示）', file: 'js/chat-settings.js', needle: "csIngestTo(src, { maxSide: csBgMaxSide()" },
   { name: '#1036h 聊天背景多选失败计数收口（删＝全失败静默＝「换了背景没反应」）', file: 'js/chat-settings.js', needle: "else if (fail) { toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试'); }" },
-  { name: '#1036i 桌面图片压缩 20 秒看门狗（personalize compressImage；删＝头像/背景/图标解码挂起永久无响应）', file: 'js/personalize.js', needle: 'const watchdog = setTimeout(() => once(null), 20000);' },
+  { name: '#1036i 桌面图片压缩 20 秒看门狗（personalize compressImage；删＝头像/背景/图标解码挂起永久无响应）', file: 'js/personalize.js', needle: "ingestTo(src, { maxSide: maxSide, tag: 'pz-' + maxSide })" },
   { name: '#1036j 桌面壁纸图库多选失败计数收口（删＝全失败静默）', file: 'js/personalize.js', needle: "else if (fail) toast('图片太大、格式不支持或读取超时，没能加入，请换一张重试');" },
-  { name: '#1036k 头像池 normalizeAvSize 解码看门狗（删＝>180KB 头像解码挂起＝选完头像永久无回调）', file: 'js/avatar-lib.js', needle: 'const watchdog = setTimeout(() => once(data), 20000);' },
-  { name: '#1036l 头像池批量上传每文件看门狗（删＝一张挂起图让整批 finish 永不执行＝池子静默不落库）', file: 'js/avatar-lib.js', needle: 'const fileTimer = setTimeout(() => settle(false), 30000);' },
+  { name: '#1036k 头像池 normalizeAvSize 解码看门狗（删＝>180KB 头像解码挂起＝选完头像永久无回调）', file: 'js/avatar-lib.js', needle: "byteLimit: AV_TARGET, tag: 'avlib-norm'" },
+  { name: '#1036l 头像池批量上传每文件看门狗（删＝一张挂起图让整批 finish 永不执行＝池子静默不落库）', file: 'js/avatar-lib.js', needle: "if (!r || r.st !== 'ok' || !r.data) { settle(false); return; }" },
 /* ==== 2026-09-22 #1035 外置功能包「未加载成功」永挂根治（用户实报 iQOO Z7+Edge 诊断：81 件外置包里连续两天、跨 v3.26→v8.29 只有 fullscreen.js 一件每次开页都报「1 个功能包未加载成功」，#802 三波重注入与用户点「点此重试」全部无效；明说其他机型同现、要求别做机型分支）。根因＝自愈重注入刻意用**同一个裸地址**（同 URL 才命中预缓存），失败原因一旦按 URL 生效（浏览器 HTTP 缓存 / CDN 边缘节点 / 中间代理里的一条坏响应），每一波、每次重试、下次开页都取回同一份坏响应＝永远修不好；恢复条又没有「知道了」＝提醒常驻＝用户看到的「一直出现」。修＝裸址三波仍缺后改走「换址逃生」：`?mb=<会话戳>.<第几次>` ＋ cache:'reload' 绕开所有按 URL 命中的缓存层，取回字节验真（防代理塞回的 HTML 错误页被当真代码跑）后就地执行，并由 sw.js 把它**写回裸路径缓存键**＝一次修好、下次开页直接命中、离线也在（写回前 sw 侧再过一道 content-type 闸＝门户的 200 错误页绝不进缓存）；恢复条补「知道了」（只关提醒不拦自愈，与 #939e 同款口径）；device.js 的 #917 失败汇总窗 20s→34s，挪到换址逃生首波之后（否则「其实 30s 后自己修好了」的机子也在诊断里写死一条「N 个功能包未加载成功」，而这正是用户报「一直出现」的可见面之一）。零机型/零内核/零浏览器分支：只有裸址已确定失败的文件才会走到换址。 ==== */
   { name: '#1035a 换址逃生真发带戳地址（删＝回到只认裸 URL，某层缓存按 URL 钉死坏响应时永远修不好、「功能包未加载成功」永挂复发）', file: 'js/pwa.js', needle: "'?mb=' + HEAL_NS" },
   { name: '#1035b 换址取回的字节先验真（删＝代理塞回的 HTML 错误页被当代码执行，功能没修好还多一处假 SyntaxError）', file: 'js/pwa.js', needle: "if (!looksLikeJs(txt)) throw new Error('bad-body');" },
@@ -5105,6 +5117,25 @@ const FIX_SENTINELS = [
   { name: '#1258f 取回后就地重建指针（删＝图铺回来了但指针还空着，面板不高亮、删除判定找不到张，下一轮又是一次空判）', file: 'js/chat-settings.js', needle: "store.set(CS_BG_ACTIVE, '__idb');" },
   { name: '#1258g 用户亲手清除＝本桌面当场认死（删＝清除要点完等一次往返才生效，看起来像按了没反应；也等于把刚删的图从库里抢回来）', file: 'js/chat-settings.js', needle: 'function csBgForgetThisSession() { csBgGoneNs = csBgCurNs(); }' },
   { name: '#1258h 诊断大键候选清单补聊天背景（删＝「背景图没了」的报障单里看不到最该看的那一行，判不出原图还在不在库里）', file: 'js/device.js', needle: 'if (/:(cs-bg)$/.test(k)) return true;' },
+  /* ==== 2026-09-25 #1270 「照片相关彻底崩溃」收口（iPhone 17 Pro Max / iOS 26.6.1，Safari 添加到桌面实报「无法导入任何照片，特别是朋友圈背景和未联系人单独添加的表情包和照片，会严重卡顿白屏，唯一方法只能大退」＋「壁纸每隔几分钟就会崩掉」；本机诊断：本页被系统回收 122 次）。两条根因：
+     ① 全站 14 个照片入口各写一套导入，分成两派——「按 base64 字符串长度判太大（8MB）＋解出来再判 2600 万像素」的**误拒派**（现代手机照片动辄 8MB/48MP＝任何照片都被判「图片过大」＝用户说的「无法导入任何照片」），和「一个闸都没有、new Image() 整幅解码」的**裸解码派**（48MP＝192MB 位图＝iOS 直接回收整个页面＝白屏大退，唯一自救只能杀进程）；外加「解码失败/画布给出空图就把整张原图塞进存储」的兜底（＝照片相关越用越坏）。修＝新建 src/js/img-ingest.js 唯一解码闸：先嗅文件头像素（JPEG SOFn／PNG IHDR／GIF LSD／WebP VP8·VP8X）→ 用一次真解码做**能力探测**（造 32×16 要求解成 8×4，量回来的是不是 8×4；不是 UA 猜）决定能否 createImageBitmap 边解边缩 → 产物再过字节收敛 → 五种回执说五种话，且闸自身永不 reject；14 个入口一律只认 st==='ok'，所有「回退存原图」删除，File 直接进闸不再拼多 MB base64 字符串。
+     ② #1195e 每次切后台按体积放掉 ≥256KB 大键的内存副本（那是 iOS 内存压力下的正解，一字未动），而 store.get 是同步读、大键在 localStorage 那份本来就被剥掉 ⇒ 回到桌面这一轮必然读空，旧写法当场把常驻壁纸层拆掉＝「过几分钟壁纸崩一次」。修＝聊天背景 #1218 的 waitBg 口径搬到桌面（指针说这张本该在就保留最后一帧不拆层，只踢一次按需取回），并补回前台双通道（visibilitychange／bg-keep 的 mochi-fg-resume）自己复核一次，不必再等用户点标签页。
+     零机型／零 UA 分支＝判据只有文件头像素、内核能力回执、大键回执三态与页面可见性。验证：tools/verify-1270-img-ingest.mjs（无头真跑产物：合成 48MP JPEG 过真入口，绿侧 vs 纯 HEAD 基线 A/B）。 ==== */
+  { name: '#1270a 统一解码闸唯一入口在场（删＝14 个照片入口回退到各自 new Image() 整幅解码，48MP＝192MB 位图白屏大退复发）', file: 'js/img-ingest.js', needle: 'window.mochiImgIngest = function (src, opts) {' },
+  { name: '#1270b 解码前先嗅文件头像素（删＝又回到「解出来才知道多大」＝误拒派与裸解码派二选一）', file: 'js/img-ingest.js', needle: 'const px = await probePixels(blob);' },
+  { name: '#1270c 边解边缩按真解码实测而非 UA 猜（改回机型分支＝误放老内核整幅解码／误拒新内核，「无法导入任何照片」复发）', file: 'js/img-ingest.js', needle: 'subCapable = !!(bm && bm.width === 8 && bm.height === 4);' },
+  { name: '#1270d 空图产物绝不入库（iOS 画布超限回 "data:," 那一条；删＝草稿/收藏塞进零像素图，「加了图片却是空白」复发）', file: 'js/img-ingest.js', needle: "data !== 'data:,'" },
+  { name: '#1270e 解码看门狗全站唯一一份（删＝闸可能永不结算，在 .then 里结算的入口整条链悬空＝「选了图没反应」；#1036b/g/i/k/l 四条入口针的语义都挂在这一份上）', file: 'js/img-ingest.js', needle: 'const DECODE_WATCHDOG_MS = 20000;' },
+  { name: '#1270f 闸自身永不 reject（末端 catch 兜成 read-failed 回执；删＝URL/异常路径上调用方等不到回执）', file: 'js/img-ingest.js', needle: "})().catch(() => noteOut({ st: 'read-failed' }, t0, null, o.tag));" },
+  { name: '#1270g 两种「没导入成功」说两种话（删＝超限/超时/读不出全糊成「图片处理失败」，用户照着假话去换小图甚至白重传）', file: 'js/img-ingest.js', needle: 'window.mochiImgIngestMiss = function (r, what) {' },
+  { name: '#1270h 朋友圈发图只认 ok 回执并按回执收尾（本批报障点名入口；删回「解不出来就把原图塞进动态」＝存储被整张原图撑爆＋白屏大退同源复发）', file: 'js/feed.js', needle: "if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '图片')); cb(null); return; }" },
+  { name: '#1270i 聊天表情包按回执分两条路结算（GIF 保原字节规则不动；删＝动图与静图糊成同一句提示，或动图重新被压成静图）', file: 'js/chat.js', needle: "return window.mochiImgCompressTo(src, { maxSide: maxSide, mime: 'image/png', tag: 'myemoji' });" },
+  { name: '#1270j 字卡图白底语义随迁移保留（opaque 只在 JPEG 铺白＝迁移前后产物逐字节一致；删掉＝透明字卡转 JPEG 落黑底复发）', file: 'js/chatcard.js', needle: "quality: quality, opaque: mime === 'image/jpeg', tag: 'cc-img'" },
+  { name: '#1270k 群聊草稿多图逐张串行过闸＋漏失汇总（删＝多选照片同时整幅解码＝内存尖峰复发，或失败又被静默吞掉）', file: 'js/group-chat.js', needle: "if (gcImgMiss) toast('有 ' + gcImgMiss + ' 张图片没能导入" },
+  { name: '#1270l 桌面壁纸「该有却读空」时保留最后一帧不拆层（删＝#1195e 放掉内存副本后，回桌面当场把常驻层清空＝「壁纸每隔几分钟崩掉一次」复发）', file: 'js/personalize.js', needle: 'else { waitBg = pbgExpectBg() && pbgHydrateBgOnce(); if (!waitBg) setBgLayerImage(null); }' },
+  { name: '#1270m 回前台主动复核桌面壁纸（双通道含 bg-keep 统一信号；删＝上一轮只问出 unknown 的机器非得再点一次标签页才恢复）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-fg-resume', applyBgVisibility);" },
+  { name: '#1270n 回前台把聊天背景的裁决重跑一遍（删＝聊天背景崩掉后要等下一次切页/改设置才自愈；走 #1258 的统一裁决口＝不该问库的设备依旧零额外往返）', file: 'js/chat-settings.js', needle: 'if (chatPage && !chatPage.hidden) csBgHoldLayer();' },
+  { name: '#1270z 删除型：草稿/批量图永不许「按原图添加」（旧兜底文案；回流＝解码失败就把整张原图塞进存储，照片越用越坏＋存储被撑爆同源复发）', file: 'js/chat.js', needle: '已按原图添加', absent: true },
   /* ==== 2026-09-25 #1272 「上传数据文件显示无效数据」（用户报 vivo X200s + Edge，明说其他机型也有、勿覆盖式修补）：读文件回执三态保住内核真错误（RangeError 不再被换腿吞掉→ #104「太大」分档恢复可见）；空读单独一档；校验判据同源（idb-only 权威备份不再被 !data.ls 硬闸误拒）；单桌聊天文件指路进「仅聊天记录」；导入回执持久化进 localStorage 扛页面回收。验证 tools/verify-1272-import-receipt.mjs ==== */
   { name: '#1272a 内核读取错误不再被吞（删＝大备份超限的 RangeError 又被换腿吞掉、空读落回「不是 mochi 导出的数据文件」误诊复发）', file: 'js/data-backup.js', needle: 'if (!text && rd.err) throw rd.err;' },
   { name: '#1272b 「读空/读取失败」单独分档（删＝0 字节/传输不完整又被并进「坏了」或「不是 mochi 文件」死胡同）', file: 'js/data-backup.js', needle: 'if (/读空|读取失败/i.test(msg)) {' },

@@ -693,32 +693,16 @@
   // 图片压缩（上传图片表情用）
   // v3.6.x：失败/超大图不再回退存原图——iOS Safari 解码超大 dataURL 会拖崩渲染进程
   //（画面正常但点击无响应），失败返回 null 由调用方提示换图
-  function compressImage(dataUrl, maxSide, format, quality) {
-    return new Promise((resolve) => {
-      // 解码前拦截：>8MB base64 不解码不存储（48MP/ProRAW 级别）
-      if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-        resolve(null);
-        return;
-      }
-      const img = new Image();
-      img.onload = () => {
-        try {
-          // 解码后像素拦截：高压缩格式小文件也可能是超大图（48MP HEIC）
-          if (img.width * img.height > 26000000) { resolve(null); return; }
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          const ctx = c.getContext('2d');
-          // v3.7.x：JPEG 无透明通道，先填白底避免透明区域变黑
-          if (format === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(c.toDataURL(format || 'image/png', quality));
-        } catch (e) { resolve(null); }
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
+  // #1270：解码走统一解码闸（img-ingest.js）。这一处是「带闸的一派」：>8MB base64 直接拒、
+  // >2600 万像素在整幅解码之后才拒——本机主摄一张 8000×6000 高细节 JPEG 就是 10.6MB
+  // base64，两张闸前后夹击＝字卡库/表情包「导入任何照片都失败」，而晚的那张已经付过
+  // ≈192MB 位图。现在先用文件头算尺寸、超预算边解边缩，产物口径（maxSide/format/quality
+  // ＋ JPEG 铺白底）一字未动。
+  function compressImage(src, maxSide, format, quality) {
+    if (!window.mochiImgCompressTo) return Promise.resolve(null);
+    const mime = format === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+    return window.mochiImgCompressTo(src, {
+      maxSide: maxSide, mime: mime, quality: quality, opaque: mime === 'image/jpeg', tag: 'cc-img'
     });
   }
 

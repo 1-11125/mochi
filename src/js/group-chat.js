@@ -2206,33 +2206,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     clearTimeout(t._timer);
     t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
   }
-  // 头像压缩（与聊天设置一致：最长边 256、JPEG 0.85）
-  function compressHead(dataUrl, maxSide) {
-    return new Promise((resolve) => {
-      try {
-        if (typeof dataUrl !== 'string' || !dataUrl || dataUrl.length > 8 * 1024 * 1024) { resolve(null); return; }
-        const img = new Image();
-        img.onload = () => {
-          try {
-            if (img.width * img.height > 26000000) { resolve(null); return; }
-            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-            const w = Math.max(1, Math.round(img.width * scale));
-            const h = Math.max(1, Math.round(img.height * scale));
-            const c = document.createElement('canvas');
-            c.width = w; c.height = h;
-            c.getContext('2d').drawImage(img, 0, 0, w, h);
-            resolve(c.toDataURL('image/jpeg', 0.85));
-          } catch (e) { resolve(null); }
-        };
-        img.onerror = () => resolve(null);
-        img.src = dataUrl;
-      } catch (e) { resolve(null); }
-    });
-  }
+  // FIX 2026-09-25 #1270：群头像压缩原先是「base64 超 8MB 先拒 ＋ 解码后超 2600 万像素再拒」——
+  // 所有现代手机照片一律判成「图片过大」（＝换群头像怎么传都失败），而那次整幅解码本身又是
+  // 白屏大退的内存来源（48MP＝192MB 位图）。现由 img-ingest.js 统一收口：先嗅文件头像素，支持
+  // 边解边缩的内核按目标尺寸解，不支持才明确报「换图」。最长边 256 口径不变。
   // FIX 2026-09-18 #717：群聊头像选择器改「常驻挂文档」（#677 同族）——原本点击时动态创建、
   // 未挂进文档就 click()：红米/真我等 Android Edge 系静默忽略不弹选择器（点了没反应）、iOS
-  // Safari 选完不保证派发 change。与 chat-settings.js headInput 已验证套路一致；压缩管线
-  // compressHead 256 一字不动。
+  // Safari 选完不保证派发 change。与 chat-settings.js headInput 已验证套路一致；压缩口径
+  // 最长边 256 不变（#1270 只把实现换进统一解码闸）。
   let gcAvatarPickCb = null;
   const gcAvatarPickInput = document.createElement('input');
   gcAvatarPickInput.type = 'file'; gcAvatarPickInput.accept = 'image/*';
@@ -2245,14 +2226,12 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
     gcAvatarPickInput.value = ''; // 允许重选同一文件
     if (!f) return;
     const cb = gcAvatarPickCb; gcAvatarPickCb = null;
-    const reader = new FileReader();
-    reader.onload = () => {
-      compressHead(reader.result, 256).then(data => {
-        if (!data) { toast('图片过大或格式不支持，请换一张小图'); return; }
-        if (cb) cb(data);
-      });
-    };
-    reader.readAsDataURL(f);
+    if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+    // FIX 2026-09-25 #1270：File 直接进闸，不再 readAsDataURL 造多 MB base64 字符串
+    window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'gc-head' }).then((r) => {
+      if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '群头像')); return; }
+      if (cb) cb(r.data);
+    });
   };
   function pickAvatarFile(cb) {
     gcAvatarPickCb = cb;
@@ -2940,28 +2919,17 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       onFiles: (files) => {
       const f = files && files[0];
       if (!f) { toast('没有取到图片，请再选一次'); return; }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const dpr = Math.max(1, window.devicePixelRatio || 1);
-            const screenH = (window.screen && window.screen.height) || 1920;
-            const maxSide = Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
-            const c = document.createElement('canvas');
-            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-            c.width = Math.max(1, Math.round(img.width * scale));
-            c.height = Math.max(1, Math.round(img.height * scale));
-            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-            gcBeautySet('bg', c.toDataURL('image/jpeg', 0.85));
-            toast('群聊壁纸已应用');
-          } catch (e) { toast('壁纸处理失败，请换一张'); }
-        };
-        img.onerror = () => { toast('图片读取失败，请换一张'); };
-        img.src = reader.result;
-      };
-      reader.onerror = () => { toast('图片读取失败，请换一张'); };
-      reader.readAsDataURL(f);
+      if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+      // FIX 2026-09-25 #1270：原实现 readAsDataURL + 整幅解码（48MP 照片＝192MB 位图）后画到最高
+      // 4096px 的画布上＝iOS 直接回收页面（壁纸导入白屏大退）。同一口径交给统一解码闸：
+      // 嗅到超预算就按目标边长边解边缩，产物照样过字节收敛。
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const screenH = (window.screen && window.screen.height) || 1920;
+      window.mochiImgIngest(f, { maxSide: Math.min(4096, Math.max(2160, Math.round(screenH * dpr))), quality: 0.85, tag: 'gc-wall' }).then((r) => {
+        if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '群聊壁纸')); return; }
+        gcBeautySet('bg', r.data);
+        toast('群聊壁纸已应用');
+      });
       }
     });
   }
@@ -4091,37 +4059,21 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
       fi.value = ''; // 允许重选同一张
       // 空 FileList：与聊天页同口径给可见反馈，不再静默吞掉（#677h）
       if (!files.length) { toast('没有取到图片，请再选一次'); return; }
+      // FIX 2026-09-25 #1270：原来是「每张各自先读成 base64 → 整幅解码 → 解码失败或画布给出空图
+      // 就把整张原图 dataURL 推进草稿」——多选几张现代手机照片＝几十 MB base64 字符串
+      // 加 192MB 位图同时压在渲染进程（＝发图白屏大退），塞进草稿的原图还会把本地存储撑爆。
+      // 现改为逐张串行过统一解码闸（同一时刻只有一张在解），没成功的这张如实跳过并给一句提示。
+      if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+      let gcImgMiss = 0;
+      let gcImgChain = Promise.resolve();
       files.forEach(f => {
-        const reader = new FileReader();
-        // 读取失败必须可见（#677g 同口径）
-        reader.onerror = () => { toast('图片读取失败，请换一张再试'); };
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const c = document.createElement('canvas');
-              const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              // iOS 画布超限时 toDataURL 回 "data:,"（空图）——绝不把空图当图片塞进草稿（#677 同口径）
-              const out = c.toDataURL('image/jpeg', 0.85);
-              if (out && out.indexOf('data:image/') === 0 && out.length > 128) gcDraftImgs.push(out);
-              else gcDraftImgs.push(reader.result);
-            } catch (err) {
-              gcDraftImgs.push(reader.result);
-            }
-            renderGcDraft();
-          };
-          // 解码失败（HEIC/损坏图）按原图兜底，不静默丢失
-          img.onerror = () => {
-            gcDraftImgs.push(reader.result);
-            renderGcDraft();
-          };
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(f);
+        gcImgChain = gcImgChain.then(() => window.mochiImgIngest(f, { maxSide: 720, quality: 0.85, tag: 'gc-draft' }).then((r) => {
+          if (!r || r.st !== 'ok' || !r.data) { gcImgMiss++; return; }
+          gcDraftImgs.push(r.data);
+          renderGcDraft();
+        }));
       });
+      gcImgChain.then(() => { if (gcImgMiss) toast('有 ' + gcImgMiss + ' 张图片没能导入，请换一张小图或用系统相机重拍'); });
     };
     document.body.appendChild(fi);
     gcImgInput = fi;

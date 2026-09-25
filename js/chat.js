@@ -7633,23 +7633,9 @@ try { store.remove(k); } catch (e) {}
 try { if (window.idbSet) window.idbSet(window.activePrefix() + ':' + k, ''); } catch (e) {}
 }
 }
-function rpCompressCover(dataUrl) {
-return new Promise((resolve) => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 400 / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.8));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-});
+function rpCompressCover(src) {
+if (!window.mochiImgCompressTo) return Promise.resolve(null);
+return window.mochiImgCompressTo(src, { maxSide: 400, quality: 0.8, tag: 'rp-cover' });
 }
 const rpCoverPreview = document.getElementById('rp-cover-preview');
 const rpCoverUploadBtn = document.getElementById('rp-cover-upload');
@@ -7682,17 +7668,13 @@ id: 'mochi-rp-cover-pick', accept: 'image/*', btn: rpCoverUploadBtn,
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-rpCompressCover(reader.result).then(data => {
-if (!data) { toast('图片处理失败'); return; }
+if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+rpCompressCover(f).then(data => {
+if (!data) { toast('这张图本机浏览器处理不了，请换一张小图或用系统相机默认尺寸重拍'); return; }
 rpCoverSet(rpSide, data);
 rpRenderCover();
 toast('封面已设置');
 });
-};
-reader.onerror = () => toast('图片读取失败，请换一张再试');
-reader.readAsDataURL(f);
 }
 });
 });
@@ -11418,30 +11400,12 @@ renderBatchList();
 }
 function batchAddImages(files) {
 files.forEach(f => {
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-batchItems.push({ type: 'img', src: c.toDataURL('image/jpeg', 0.85) });
-} catch (err) {
-batchItems.push({ type: 'img', src: reader.result });
-}
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 720, quality: 0.85, tag: 'chat-batch' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '图片')); return; }
+batchItems.push({ type: 'img', src: r.data });
 renderBatchList();
-};
-img.onerror = () => {
-batchItems.push({ type: 'img', src: reader.result });
-renderBatchList();
-toast('部分图片无法压缩，已按原图添加');
-};
-img.src = reader.result;
-};
-reader.readAsDataURL(f);
+});
 });
 }
 function sendBatchItem(it) {
@@ -11916,28 +11880,9 @@ saveEmojiGroupPref();
 renderEmojiPanel();
 try { t.blur(); } catch (err) {}
 }));
-function compressMyEmoji(dataUrl, maxSide) {
-return new Promise((resolve) => {
-if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-resolve(null);
-return;
-}
-const img = new Image();
-img.onload = () => {
-try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/png'));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-});
+function compressMyEmoji(src, maxSide) {
+if (!window.mochiImgCompressTo) return Promise.resolve(null);
+return window.mochiImgCompressTo(src, { maxSide: maxSide, mime: 'image/png', tag: 'myemoji' });
 }
 const myeNew = document.getElementById('mye-new');
 if (myeNew) {
@@ -11973,34 +11918,9 @@ if (!g && myGroups.length) g = myGroups[0];
 if (!g) { g = ['默认', []]; myGroups.unshift(g); }
 let done = 0, okCount = 0;
 files.forEach(f => {
-const reader = new FileReader();
-reader.onload = () => {
 const isGif = /image\/gif/i.test(f.type || '') || /\.gif$/i.test(f.name || '');
-if (isGif) {
-if (reader.result.length > 8 * 1024 * 1024) {
-done++;
-if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('动图过大，已跳过（请用 10MB 以内的 GIF）'); }
-return;
-}
-g[1].push(reader.result);
-okCount++;
-done++;
-if (done === files.length) {
-const ok = myEmojiSave();
-myCurGroup = g[0];
-saveEmojiGroupPref();
-renderEmojiPanel();
-if (!ok) toast('存储空间不足：表情已用备用存储，刷新后恢复。请清理不用的表情');
-else toast('已添加 ' + okCount + ' 个表情');
-}
-return;
-}
-compressMyEmoji(reader.result, 260).then(data => {
-if (!data) {
-done++;
-if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('图片过大或格式不支持，已跳过'); }
-return;
-}
+const miss = (msg) => { done++; if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast(msg); } };
+const hit = (data) => {
 g[1].push(data);
 okCount++;
 done++;
@@ -12012,9 +11932,20 @@ renderEmojiPanel();
 if (!ok) toast('存储空间不足：表情已用备用存储，刷新后恢复。请清理不用的表情');
 else toast('已添加 ' + okCount + ' 个表情');
 }
-});
 };
-reader.onerror = () => { done++; if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('部分图片读取失败'); } };
+if (!isGif) {
+compressMyEmoji(f, 260).then(data => {
+if (data) hit(data);
+else miss(window.mochiImgCompressTo ? '图片过大或格式不支持，已跳过' : '图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试');
+});
+return;
+}
+const reader = new FileReader();
+reader.onload = () => {
+if (reader.result.length > 8 * 1024 * 1024) { miss('动图过大，已跳过（请用 10MB 以内的 GIF）'); return; }
+hit(reader.result);
+};
+reader.onerror = () => miss('部分图片读取失败');
 reader.readAsDataURL(f);
 });
 } catch (err) { toast('添加表情失败，请重试'); }
@@ -12402,32 +12333,11 @@ draftImgs.push(src);
 renderDraft();
 if (msg) toast(msg);
 };
-const reader = new FileReader();
-reader.onerror = () => { settled = true; toast('图片读取失败，请换一张再试'); };
-reader.onload = () => {
-const raw = reader.result;
-const img = new Image();
-const settleTimer = setTimeout(() => accept(raw, '图片解码较慢，已按原图添加'), 3000);
-img.onload = () => {
-clearTimeout(settleTimer);
-if (settled) return;
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-const out = c.toDataURL('image/jpeg', 0.85);
-if (out && out.indexOf('data:image/') === 0 && out.length > 128) accept(out);
-else accept(raw, '图片压缩失败，已按原图添加');
-} catch (err) {
-accept(raw, '图片压缩失败，已按原图添加');
-}
-};
-img.onerror = () => { clearTimeout(settleTimer); accept(raw, '部分图片无法压缩，已按原图添加'); };
-img.src = raw;
-};
-try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片读取失败，请换一张再试'); }
+if (!window.mochiImgIngest) { settled = true; toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(file, { maxSide: 720, quality: 0.85, tag: 'chat-draft' }).then((r) => {
+if (!r || r.st !== 'ok') { settled = true; toast(window.mochiImgIngestMiss(r, '图片')); return; }
+accept(r.data);
+});
 }
 chatImgSurfaceEnsure();
 imgBtn.addEventListener('click', (e) => {

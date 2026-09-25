@@ -28,56 +28,23 @@
   // v3.6.x：失败/超大图不再回退存原图——iOS Safari 对超大 dataURL（48MP/ProRAW 级别）
   // 的 img 解码会占数百 MB 位图内存，直接把渲染进程拖崩（表现：画面正常但所有按钮
   // 点击无响应，且刷新后 idbRestore 恢复该 dataURL 再次渲染又崩，「刷新后依然失效」）。
-  // 解码前按 base64 长度、解码后按像素双重拦截，失败返回 null 由调用方提示换图。
-  function compressImage(dataUrl, maxSide) {
-    return new Promise((resolve) => {
-      // 解码前拦截：>8MB base64（≈6MB 原图，48MP/ProRAW 级别）不解码不存储；
-      // 1200 万像素普通照片（2-6MB base64）不受影响
-      if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-        resolve(null);
-        return;
-      }
-      const img = new Image();
-      // FIX 2026-09-22 #1036：解码看门狗——部分内核大图解码偶发既不回调 onload 也不回调
-      // onerror（挂起），原 Promise 永久悬空＝「换头像/背景没反应、重开好几次」；超时按
-      // 失败返回 null，由调用方给用户可感反馈。零机型分支（与 chat-settings 同批同口径）。
-      let settled = false;
-      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-      const watchdog = setTimeout(() => once(null), 20000);
-      img.onload = () => {
-        try {
-          // 解码后像素拦截：高压缩格式小文件也可能是超大图（48MP HEIC 约 5-8MB）
-          if (img.width * img.height > 26000000) { once(null); return; }
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          once(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) {
-          // 压缩失败不再回退存原图（原图可能超大，存进去会让后续每次渲染重新崩溃）
-          once(null);
-        }
-      };
-      img.onerror = () => once(null);
-      img.src = dataUrl;
-    });
+  // #1270 收口：这一族判定（>8MB 拦截、>2600 万像素拦截、#1036 解码看门狗、字节收敛）
+  // 全站只留 img-ingest.js 一份。原来「先整幅解码再说」的两派在这里是误拒派——实测
+  // iPhone 主摄 8000×6000 高细节 JPEG ≈ 8.0MB 文件 / 10.6MB base64，字节闸和像素闸双双
+  // 命中＝用户看到的「无法导入任何照片」；而这台手机的照片本来就不需要整幅解码：
+  // 统一解码闸先用文件头算尺寸、超预算走 createImageBitmap 边解边缩（产物只有目标
+  // 尺寸那一份位图），内核不认这个能力时才退回原来的「拒」。零机型／零 UA 分支。
+  const ingestTo = (src, opts) => (window.mochiImgCompressTo ? window.mochiImgCompressTo(src, opts)
+    : (toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'), Promise.resolve(null)));
+  function compressImage(src, maxSide) {
+    return ingestTo(src, { maxSide: maxSide, tag: 'pz-' + maxSide });
   }
   // v3.10.x：压缩并保证产物体积达标——细节丰富的照片压到目标边长后 JPEG 仍可能超过
   // 渲染防护阈值（如卡片背景 1000px 可 >500KB），旧流程照常入库后，启动渲染时会被
   // sanitizeBg 判为超大值，表现为「设置成功、退出重进后变回默认白板，每次都要重新设置」。
-  // 这里在上传端按 0.75 倍率逐级降边长重压（始终从原图压，避免二次 JPEG 糊化），
-  // 确保产物 <= limit 才入库；压到 320px 仍超限的极端图返回最小一版由调用方提示。
-  function compressImageFit(dataUrl, maxSide, limit) {
-    let side = maxSide;
-    const step = (data) => {
-      if (!data) return Promise.resolve(null);
-      if (data.length <= limit || side < 320) return Promise.resolve(data);
-      side = Math.round(side * 0.75);
-      return compressImage(dataUrl, side).then(step);
-    };
-    return compressImage(dataUrl, side).then(step);
+  // #1270：0.75 逐级降边长的收敛搬进统一解码闸（byteLimit），仍然始终从原图压、避免二次 JPEG 糊化。
+  function compressImageFit(src, maxSide, limit) {
+    return ingestTo(src, { maxSide: maxSide, byteLimit: limit, tag: 'pzfit-' + maxSide });
   }
   // v3.5.107：手机壁纸清晰度——按设备物理像素计算压缩上限。
   // 之前固定压到最长边 1000px，在 2-3x 高分屏（物理宽 1080-1440）上会被放大发糊；
@@ -1642,8 +1609,12 @@ try {
   // 这正是用户说的「背景图显示被清理，需要重启才能显示」。这里改成：读空就按需取回一次，
   // 落地后自己重铺；只有内核确认库里没有，才认这张真没了。
   let pbgBgHydrating = false;
+  // 「这张壁纸本该还在」的判据：active-id 指针仍在图库清单里（与聊天背景 csBgExpectBg 同口径）。
+  // 用户真删掉/清掉壁纸时指针已随之移除，这里就会认「确实没壁纸」而不是无限等一次永远不会来的图。
+  const pbgExpectBg = () => { try { const aid = pbgActiveId(); return !!aid && pbgList().indexOf(aid) >= 0; } catch (e) { return false; } };
+  // 返回值给 applyBgVisibility 用：true＝这一轮发起了按需取回，先别拆层（等回执自己重铺）。
   const pbgHydrateBgOnce = () => {
-    if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return;
+    if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return false;
     pbgBgHydrating = true;
     readBigKey('phone-bg').then((r) => {
       pbgBgHydrating = false;
@@ -1651,6 +1622,7 @@ try {
       // 确认查无此图＝指针指向的那张真的没了（被系统清理/换机没带过来），此时才按既有语义清指针
       if (r.st === 'absent') { try { store.remove(PBG_ACTIVE); } catch (e) {} }
     }).catch(() => { pbgBgHydrating = false; });
+    return true;
   };
   const applyBgVisibility = () => {
     if (!phoneEl) return;
@@ -1670,13 +1642,21 @@ try {
     // 现在自定义图优先、其次内置预设，都没有才清空。
     const customBg = bgData();
     const solidCss = store.get('phone-bg-solid') || '';
+    const solidOk = !!solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss);
     const presetCss = bgPresetCss();
+    // FIX 2026-09-25 #1270（壁纸「每隔几分钟就崩掉一次」的可见形态）：#1195e 每次切后台会按体积
+    // 放掉 ≥256KB 大键的内存副本（那是 iOS 内存压力下的正解，不动它），于是回到桌面这一轮
+    // store.get('phone-bg') 必然同步读空——旧写法当场把常驻图层拆掉（清空 backgroundImage＋隐藏层），
+    // 等异步取回落地才铺回来；取回只问出 'unknown'（这台机器 30s 内被系统回收十几次的常态）就一直
+    // 白着，非得用户再点一次标签页才恢复＝「过几分钟壁纸崩一次」。改成聊天背景 #1218 的 waitBg 口径：
+    // 指针说「这张图本该在」就保留最后一帧不拆，只踢一次按需取回，落地后自己重铺。
+    let waitBg = false;
     if (customBg) applyPhoneBg(customBg);
-    else if (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) applyPhoneBgPreset(solidCss);
+    else if (solidOk) applyPhoneBgPreset(solidCss);
     else if (presetCss) applyPhoneBgPreset(presetCss);
-    else setBgLayerImage(null);
-    setBgLayerVisible(!!(customBg || (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) || presetCss));
-    if (!customBg && !(solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) && !presetCss) applyBodyBg(null);
+    else { waitBg = pbgExpectBg() && pbgHydrateBgOnce(); if (!waitBg) setBgLayerImage(null); }
+    setBgLayerVisible(!!(customBg || solidOk || presetCss || waitBg));
+    if (!customBg && !solidOk && !presetCss && !waitBg) applyBodyBg(null);
     // #1218：桌面该有自己的壁纸（active-id 指针在）却读空＝大概率被回填挂起，不是用户没设壁纸。
     // 触发一次按需取回，落地后本函数会自己再跑一遍把壁纸铺回来（不用重启）。
     if (!customBg && pbgActiveId()) pbgHydrateBgOnce();
@@ -1692,6 +1672,16 @@ try {
     mo.observe(homePage, { attributes: true, attributeFilter: ['hidden'] });
   }
   applyBgVisibility();
+  // FIX 2026-09-25 #1270：回前台主动复核一次。#1195e 每次切后台会放掉壁纸大键的内存副本，而
+  // store.get 是同步读（内存→localStorage），大键那份 localStorage 本来就被剥掉——旧写法只能等用户
+  // 点标签页走到 applyBgVisibility 才发现「图在库里、内存里没了」。挂 visible 后：这一轮按 waitBg
+  // 保留最后一帧不拆层，同时踢一次按需取回，落地即自行重铺；上一轮只问出 'unknown' 的机器不必再
+  // 等一次手势才恢复。零机型／零 UA 分支＝判据只有页面可见性与内核回执。
+  try {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') applyBgVisibility(); });
+    // bg-keep 的回前台统一信号（#967 同款双通道）：部分内核只发 focus/pageshow、不发 visibilitychange
+    document.addEventListener('mochi-fg-resume', applyBgVisibility);
+  } catch (e) {}
   // v3.5.93：桌面壁纸大键可能只存在 IndexedDB（导入兜底写入/大键只进 IDB）——启动时补读后重新应用
   // FIX 2026-09-25 #1218：把「裸 idbGet（超时定死、失败静默、读空就当没有）」换成数据层的三态
   // 按需取回：取回成功才重铺，确认查无才认丢失，读失败保持可重试（下一次进桌面 applyBgVisibility

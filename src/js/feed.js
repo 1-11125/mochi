@@ -944,33 +944,18 @@
     }
   }
   // 压缩图片（最长边 800px，JPEG 0.82，避免撑爆 localStorage 配额）
+  // #1270：解码走统一解码闸（img-ingest.js）。这条是「没闸」那一派：800×0.82 的产物很
+  // 小，但旧链为了得到它先把用户相册里的 4800 万像素原图整幅解出来（iOS 上 ≈192MB 位图
+  // ＋一条 ≈10MB 的 base64 字符串），朋友圈发图/换封面＝一次白屏大退。现在先用文件头
+  // 算尺寸、超预算边解边缩，产物尺寸与画质口径（800px / JPEG 0.82）一字未动。
+  // FIX 2026-09-22 #1036：读图三条腿（FileReader onerror ＋ 20 秒解码看门狗 ＋ 失败统一
+  // 回调 null）随之内沉到闸里，闸没加载上时这里补最后一声，仍然不会静默。
   function compressImage(file, cb) {
-    // FIX 2026-09-22 #1036：读图三条腿收口——FileReader 补 onerror、解码加看门狗，
-    // 失败/超时统一回调 null（国产平板内核偶发解码不回调＝「选了图没反应」的原型，
-    // 与 chat-settings #813 系列同族，零机型分支）。
-    let done = false;
-    const once = (v) => { if (done) return; done = true; clearTimeout(timer); cb(v); };
-    const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);
-    const reader = new FileReader();
-    reader.onerror = () => { toast('图片读取失败'); once(null); };
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 800;
-        let w = img.width, h = img.height;
-        if (Math.max(w, h) > max) {
-          const r = max / Math.max(w, h);
-          w = Math.round(w * r); h = Math.round(h * r);
-        }
-        const cv = document.createElement('canvas');
-        cv.width = w; cv.height = h;
-        cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        once(cv.toDataURL('image/jpeg', 0.82));
-      };
-      img.onerror = () => { toast('图片读取失败'); once(null); };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); cb(null); return; }
+    window.mochiImgIngest(file, { maxSide: 800, quality: 0.82, tag: 'feed-800' }).then((r) => {
+      if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '图片')); cb(null); return; }
+      cb(r.data);
+    });
   }
   // v3.5.63：联系人在朋友圈展示的昵称/头像/背景（可独立于聊天修改）
   // v3.6.x：多桌面——按当前桌面独立存储，回退全局旧键（老数据兼容）
@@ -1898,23 +1883,12 @@ function hideCommentBar() {
   if (panel) panel.hidden = true;
 }
 // v3.5.56：评论内容支持 dataURL 图片（压缩 240px，同字卡库表情包规格）
-function compressCommentImg(dataUrl, maxSide) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/png'));
-      } catch (e) { resolve(dataUrl); }
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
+// #1270：评论配图走同一道闸（PNG 口径未动）。旧实现在解码失败/画布异常时 `resolve(dataUrl)`
+// ＝把用户相册里的原图整张存进评论——48MP 原图进库后每次渲染再整幅解码，就是「发完图之后
+// 越用越卡」的那份存量。现在失败一律给 null 由调用方提示，绝不回退存原图。
+function compressCommentImg(src, maxSide) {
+  if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return Promise.resolve(null); }
+  return window.mochiImgCompressTo(src, { maxSide: maxSide, mime: 'image/png', tag: 'feed-cmt' });
 }
 // 表情包选择半框（v3.5.70 完全复刻聊天表情面板：双 tab「TA 的表情包/我的表情包」+ 顶部分组栏 + 4 列网格）
 let comStickerPanel = null;
@@ -2480,27 +2454,16 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
     const f = feedAvPickInput.files && feedAvPickInput.files[0];
     feedAvPickInput.value = ''; // 允许重选同一文件
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-          const c = document.createElement('canvas');
-          c.width = Math.max(1, Math.round(img.width * scale));
-          c.height = Math.max(1, Math.round(img.height * scale));
-          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          window.activeStore().set('feed-user-avatar', c.toDataURL('image/jpeg', 0.85));
-          renderCover();
-          toast('朋友圈头像已更新');
-        } catch (err) { toast('图片处理失败'); }
-      };
-      img.onerror = () => toast('图片读取失败');
-      img.src = reader.result;
-    };
-    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝读取失败静默无反馈）
-    reader.onerror = () => toast('图片读取失败');
-    reader.readAsDataURL(f);
+    // #1270：压成 256px 头像这件事本来不需要先把相册原图整幅解出来（旧链一张 48MP 照片
+    // ＝≈192MB 位图＋≈10MB base64 字符串，产物只有 256px）。口径（256px／JPEG 0.85／
+    // 落 feed-user-avatar／提示文案）一字未动，只换「怎么解出来」。
+    if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+    window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-av' }).then((r) => {
+      if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+      window.activeStore().set('feed-user-avatar', r.data);
+      renderCover();
+      toast('朋友圈头像已更新');
+    });
   };
   if (coverAvEl) {
     // FIX 2026-09-18 #738：原生 label 激活兜底（小米浏览器对 JS 合成 click 静默不弹选择器）
@@ -2997,26 +2960,14 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
         onFiles: (files) => {
           const f = files && files[0];
           if (!f) { toast('没有取到图片，请再选一次'); return; }
-          const reader = new FileReader();
-          reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-              try {
-                const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-                const c = document.createElement('canvas');
-                c.width = Math.max(1, Math.round(img.width * scale));
-                c.height = Math.max(1, Math.round(img.height * scale));
-                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                feedAllStore().set(key, c.toDataURL('image/jpeg', 0.85));
-                renderFeedAllCover();
-                toast('头像已更新');
-              } catch (err) { toast('图片处理失败'); }
-            };
-            img.onerror = () => toast('图片读取失败');
-            img.src = reader.result;
-          };
-          reader.onerror = () => toast('图片读取失败');
-          reader.readAsDataURL(f);
+          // #1270：同上，走统一解码闸（256px／JPEG 0.85 口径不变）
+          if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+          window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-all-av' }).then((r) => {
+            if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+            feedAllStore().set(key, r.data);
+            renderFeedAllCover();
+            toast('头像已更新');
+          });
         }
       });
     });
@@ -3058,26 +3009,14 @@ if (comInput) comInput.addEventListener('keydown', (e) => { if (e.key === 'Enter
       onFiles: (files) => {
         const f = files && files[0];
         if (!f) { toast('没有取到图片，请再选一次'); return; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-              const c = document.createElement('canvas');
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              st.set(key, c.toDataURL('image/jpeg', 0.85));
-              renderFeedFriends();
-              toast('朋友圈头像已更新');
-            } catch (err) { toast('图片处理失败'); }
-          };
-          img.onerror = () => toast('图片读取失败');
-          img.src = reader.result;
-        };
-        reader.onerror = () => toast('图片读取失败');
-        reader.readAsDataURL(f);
+        // #1270：同上，走统一解码闸（256px／JPEG 0.85 口径不变）
+        if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+        window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-friend-av' }).then((r) => {
+          if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+          st.set(key, r.data);
+          renderFeedFriends();
+          toast('朋友圈头像已更新');
+        });
       }
     });
   }

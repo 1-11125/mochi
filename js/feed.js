@@ -676,29 +676,11 @@ cover.classList.remove('has-bg');
 }
 }
 function compressImage(file, cb) {
-let done = false;
-const once = (v) => { if (done) return; done = true; clearTimeout(timer); cb(v); };
-const timer = setTimeout(() => { toast('图片读取超时，请重试'); once(null); }, 20000);
-const reader = new FileReader();
-reader.onerror = () => { toast('图片读取失败'); once(null); };
-reader.onload = (ev) => {
-const img = new Image();
-img.onload = () => {
-const max = 800;
-let w = img.width, h = img.height;
-if (Math.max(w, h) > max) {
-const r = max / Math.max(w, h);
-w = Math.round(w * r); h = Math.round(h * r);
-}
-const cv = document.createElement('canvas');
-cv.width = w; cv.height = h;
-cv.getContext('2d').drawImage(img, 0, 0, w, h);
-once(cv.toDataURL('image/jpeg', 0.82));
-};
-img.onerror = () => { toast('图片读取失败'); once(null); };
-img.src = ev.target.result;
-};
-reader.readAsDataURL(file);
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); cb(null); return; }
+window.mochiImgIngest(file, { maxSide: 800, quality: 0.82, tag: 'feed-800' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '图片')); cb(null); return; }
+cb(r.data);
+});
 }
 function taFeedName() { return window.activeStore().get('feed-ta-name') || store.get('feed-ta-name') || partnerName(); }
 function taFeedAv() { return window.activeStore().get('feed-ta-avatar') || store.get('feed-ta-avatar') || partnerAv(); }
@@ -1469,23 +1451,9 @@ renderComPv();
 const panel = document.getElementById('feed-comment-panel');
 if (panel) panel.hidden = true;
 }
-function compressCommentImg(dataUrl, maxSide) {
-return new Promise((resolve) => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/png'));
-} catch (e) { resolve(dataUrl); }
-};
-img.onerror = () => resolve(dataUrl);
-img.src = dataUrl;
-});
+function compressCommentImg(src, maxSide) {
+if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return Promise.resolve(null); }
+return window.mochiImgCompressTo(src, { maxSide: maxSide, mime: 'image/png', tag: 'feed-cmt' });
 }
 let comStickerPanel = null;
 let comStickerTab = 'ta';   // 'ta' | 'mine'
@@ -1951,26 +1919,13 @@ feedAvPickInput.onchange = () => {
 const f = feedAvPickInput.files && feedAvPickInput.files[0];
 feedAvPickInput.value = ''; // 允许重选同一文件
 if (!f) return;
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-const c = document.createElement('canvas');
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-window.activeStore().set('feed-user-avatar', c.toDataURL('image/jpeg', 0.85));
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-av' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+window.activeStore().set('feed-user-avatar', r.data);
 renderCover();
 toast('朋友圈头像已更新');
-} catch (err) { toast('图片处理失败'); }
-};
-img.onerror = () => toast('图片读取失败');
-img.src = reader.result;
-};
-reader.onerror = () => toast('图片读取失败');
-reader.readAsDataURL(f);
+});
 };
 if (coverAvEl) {
 if (window.mochiFilePickLabel) window.mochiFilePickLabel(coverAvEl, feedAvPickInput);
@@ -2362,26 +2317,13 @@ id: 'mochi-feed-allav-pick', accept: 'image/*',
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-const c = document.createElement('canvas');
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-feedAllStore().set(key, c.toDataURL('image/jpeg', 0.85));
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-all-av' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+feedAllStore().set(key, r.data);
 renderFeedAllCover();
 toast('头像已更新');
-} catch (err) { toast('图片处理失败'); }
-};
-img.onerror = () => toast('图片读取失败');
-img.src = reader.result;
-};
-reader.onerror = () => toast('图片读取失败');
-reader.readAsDataURL(f);
+});
 }
 });
 });
@@ -2417,26 +2359,13 @@ id: 'mochi-feed-av-pick', accept: 'image/*',
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-const c = document.createElement('canvas');
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-st.set(key, c.toDataURL('image/jpeg', 0.85));
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'feed-friend-av' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '头像')); return; }
+st.set(key, r.data);
 renderFeedFriends();
 toast('朋友圈头像已更新');
-} catch (err) { toast('图片处理失败'); }
-};
-img.onerror = () => toast('图片读取失败');
-img.src = reader.result;
-};
-reader.onerror = () => toast('图片读取失败');
-reader.readAsDataURL(f);
+});
 }
 });
 }

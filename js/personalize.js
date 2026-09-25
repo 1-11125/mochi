@@ -13,43 +13,13 @@ const hasContent = Array.prototype.slice.call(slide.querySelectorAll('[data-desk
 !!slide.querySelector('[data-desk-image]');
 hint.style.display = hasContent ? 'none' : '';
 };
-function compressImage(dataUrl, maxSide) {
-return new Promise((resolve) => {
-if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-resolve(null);
-return;
+const ingestTo = (src, opts) => (window.mochiImgCompressTo ? window.mochiImgCompressTo(src, opts)
+: (toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'), Promise.resolve(null)));
+function compressImage(src, maxSide) {
+return ingestTo(src, { maxSide: maxSide, tag: 'pz-' + maxSide });
 }
-const img = new Image();
-let settled = false;
-const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-const watchdog = setTimeout(() => once(null), 20000);
-img.onload = () => {
-try {
-if (img.width * img.height > 26000000) { once(null); return; }
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-once(c.toDataURL('image/jpeg', 0.85));
-} catch (e) {
-once(null);
-}
-};
-img.onerror = () => once(null);
-img.src = dataUrl;
-});
-}
-function compressImageFit(dataUrl, maxSide, limit) {
-let side = maxSide;
-const step = (data) => {
-if (!data) return Promise.resolve(null);
-if (data.length <= limit || side < 320) return Promise.resolve(data);
-side = Math.round(side * 0.75);
-return compressImage(dataUrl, side).then(step);
-};
-return compressImage(dataUrl, side).then(step);
+function compressImageFit(src, maxSide, limit) {
+return ingestTo(src, { maxSide: maxSide, byteLimit: limit, tag: 'pzfit-' + maxSide });
 }
 function phoneBgMaxSide() {
 const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -1261,14 +1231,16 @@ const p = BG_PRESETS.find(b => b.name === n);
 return p ? p.css : '';
 };
 let pbgBgHydrating = false;
+const pbgExpectBg = () => { try { const aid = pbgActiveId(); return !!aid && pbgList().indexOf(aid) >= 0; } catch (e) { return false; } };
 const pbgHydrateBgOnce = () => {
-if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return;
+if (pbgBgHydrating || !window.idbEnsureBigKey || bigKeyReady('phone-bg')) return false;
 pbgBgHydrating = true;
 readBigKey('phone-bg').then((r) => {
 pbgBgHydrating = false;
 if (r.v) { applyBgVisibility(); return; }
 if (r.st === 'absent') { try { store.remove(PBG_ACTIVE); } catch (e) {} }
 }).catch(() => { pbgBgHydrating = false; });
+return true;
 };
 const applyBgVisibility = () => {
 if (!phoneEl) return;
@@ -1281,13 +1253,15 @@ return;
 }
 const customBg = bgData();
 const solidCss = store.get('phone-bg-solid') || '';
+const solidOk = !!solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss);
 const presetCss = bgPresetCss();
+let waitBg = false;
 if (customBg) applyPhoneBg(customBg);
-else if (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) applyPhoneBgPreset(solidCss);
+else if (solidOk) applyPhoneBgPreset(solidCss);
 else if (presetCss) applyPhoneBgPreset(presetCss);
-else setBgLayerImage(null);
-setBgLayerVisible(!!(customBg || (solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) || presetCss));
-if (!customBg && !(solidCss && /^#[0-9a-fA-F]{6}$/.test(solidCss)) && !presetCss) applyBodyBg(null);
+else { waitBg = pbgExpectBg() && pbgHydrateBgOnce(); if (!waitBg) setBgLayerImage(null); }
+setBgLayerVisible(!!(customBg || solidOk || presetCss || waitBg));
+if (!customBg && !solidOk && !presetCss && !waitBg) applyBodyBg(null);
 if (!customBg && pbgActiveId()) pbgHydrateBgOnce();
 };
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', applyBgVisibility));
@@ -1299,6 +1273,10 @@ const mo = new MutationObserver(applyBgVisibility);
 mo.observe(homePage, { attributes: true, attributeFilter: ['hidden'] });
 }
 applyBgVisibility();
+try {
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') applyBgVisibility(); });
+document.addEventListener('mochi-fg-resume', applyBgVisibility);
+} catch (e) {}
 pbgHydrateBgOnce();
 try {
 document.addEventListener('mochi-restore-done', () => {

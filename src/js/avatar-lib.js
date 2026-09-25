@@ -115,37 +115,14 @@
   const AV_TARGET = 180 * 1024;
   function normalizeAvSize(data, cb) {
     if (!data || typeof data !== 'string' || data.indexOf('data:image') !== 0 || data.length <= AV_TARGET) { cb(data); return; }
-    try {
-      // FIX 2026-09-22 #1036：解码看门狗——内核偶发大图解码既不 onload 也不 onerror（挂起）
-      // 时原回调永久悬空＝「换头像没反应、重开好几次」；超时按「解码失败」口径原样放行，
-      // 头像照常落库。零机型分支（与 #1036 chat-settings/personalize 同批同口径）。
-      let settled = false;
-      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); cb(v); };
-      const watchdog = setTimeout(() => once(data), 20000);
-      const img = new Image();
-      img.onload = function () {
-        try {
-          const iw = img.width || 256, ih = img.height || 256;
-          const scale = Math.min(1, 256 / Math.max(iw, ih));
-          let w = Math.max(1, Math.round(iw * scale));
-          let h = Math.max(1, Math.round(ih * scale));
-          let q = 0.85, out = '';
-          for (let tries = 0; tries < 4; tries++) {
-            const c = document.createElement('canvas');
-            c.width = w; c.height = h;
-            c.getContext('2d').drawImage(img, 0, 0, w, h);
-            out = c.toDataURL('image/jpeg', q);
-            if (out.length <= AV_TARGET) break;
-            w = Math.max(48, Math.round(w * 0.8));
-            h = Math.max(48, Math.round(h * 0.8));
-            q = Math.max(0.5, q - 0.1);
-          }
-          once(out && out.length < data.length ? out : data);
-        } catch (e) { once(data); }
-      };
-      img.onerror = function () { once(data); };
-      img.src = data;
-    } catch (e) { cb(data); }
+    // #1270：解码走统一解码闸（img-ingest.js）。三个口径与旧实现逐字对齐：256px／JPEG 0.85／
+    // ≤AV_TARGET（旧链是「压 4 档、每档边长 ×0.8 且降质」，闸内是同一件事的字节收敛循环）。
+    // 语义不变的两条：①只有压完真的更小才采用，否则原样放行；②解码失败/超时也原样放行
+    // （头像宁可大一点也不能丢）。#1036 的 20 秒看门狗随之内沉到闸里，回调仍然必到。
+    if (!window.mochiImgCompressTo) { cb(data); return; }
+    window.mochiImgCompressTo(data, { maxSide: 256, quality: 0.85, byteLimit: AV_TARGET, tag: 'avlib-norm' }).then((out) => {
+      cb(out && out.length < data.length ? out : data);
+    });
   }
 
   // ===== v3.14.x：聊天头像显示收敛兜底 =====
@@ -740,41 +717,26 @@
       if (!files.length) return;
       const list = listFn();
       let done = 0, okCount = 0, failCount = 0;
+      if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
       files.forEach(f => {
-        // FIX 2026-09-22 #1036：每文件看门狗——解码/读取挂起（内核偶发不放任何回调）时
-        // 原实现 done 永不齐平＝finish 永不执行＝整批静默不落库（「换了没反应」原型）；
-        // 30 秒按失败计数收口，其余文件照常入库。零机型分支。
+        // FIX 2026-09-22 #1036：每文件都必须收口一次（成功或失败都算），否则 done 永不齐平
+        // ＝finish 永不执行＝整批静默不落库（「换了没反应」原型）。
+        // #1270：解码走统一解码闸（256px／JPEG 0.85 口径不变），20 秒看门狗随之内沉到闸里
+        // （原来的 30 秒外层计时器就是为它兜底的）；File 直接进闸，不再先读成 base64。
+        // 同时去掉「画布异常 → push(reader.result)」那发回退＝把相册原图整张烤进头像池，
+        // 池子被 MB 级原图撑爆后每次随机选头像都要重新解码。
         let settled = false;
         const settle = (okFlag) => {
-          if (settled) return; settled = true; clearTimeout(fileTimer);
+          if (settled) return; settled = true;
           done++;
           if (okFlag) okCount++; else failCount++;
           if (done === files.length) finish();
         };
-        const fileTimer = setTimeout(() => settle(false), 30000);
-        const reader = new FileReader();
-        reader.onerror = () => settle(false);
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            if (settled) return; // 看门狗已按失败收口，迟到的解码结果不再塞池
-            try {
-              const c = document.createElement('canvas');
-              const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-              list.push(c.toDataURL('image/jpeg', 0.85));
-              settle(true);
-            } catch (e) {
-              list.push(reader.result);
-              settle(true);
-            }
-          };
-          img.onerror = () => settle(false);
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(f);
+        window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'avlib-pool' }).then((r) => {
+          if (!r || r.st !== 'ok' || !r.data) { settle(false); return; }
+          list.push(r.data);
+          settle(true);
+        });
       });
       function finish() {
         saveFn(list);

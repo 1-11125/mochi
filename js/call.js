@@ -58,29 +58,14 @@ id: 'mochi-call-bg-pick', accept: 'image/*',
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 600 / Math.max(img.width, img.height));
-const c = document.createElement('canvas');
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-const data = c.toDataURL('image/jpeg', 0.85);
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 600, quality: 0.85, tag: 'call-bg' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '通话背景')); return; }
+const data = r.data;
 store.set(bgKey, data);
 if (bgKey === CALL_HALF_BG_KEY) applyCallHalfBg(); else applyCallBg();
 toast(msg || '通话背景已设置');
-} catch (e) {
-toast('图片处理失败');
-}
-};
-img.onerror = () => toast('图片读取失败');
-img.src = reader.result;
-};
-reader.onerror = () => toast('图片读取失败');
-reader.readAsDataURL(f);
+});
 }
 });
 }

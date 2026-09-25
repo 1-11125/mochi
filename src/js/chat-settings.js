@@ -695,6 +695,21 @@
   // #762：这里原有的 resize 重跑（#750 为「按新盒高重算冻结尺寸」而加）整块删除——壁纸尺寸
   // 不再由 JS 折算，resize 期重跑 applySettings 只是白白在每次键盘/旋转时重写一遍样式。
   applySettings();
+  // FIX 2026-09-25 #1270（聊天背景「过几分钟自己没了一张」）：#1195e 每次切后台会按体积放掉 cs-bg
+  // 这类 ≥256KB 大键的内存副本（iOS 内存压力下的正解，不动它），而 store.get 是同步读（内存→
+  // localStorage），大键那份 localStorage 本来就被剥掉 ⇒ 回前台后聊天页读空。旧写法要等用户切页面/
+  // 动一下设置再触发 applySettings 才走到 waitBg＋按需取回。这里回前台把 #1258 那套统一裁决自己
+  // 重跑一遍（该等的等、该取回的取回、确认没有的才拆层），落地后 applySettings 把层铺回来。
+  // 双通道＝visibilitychange 之外还接 bg-keep 的 mochi-fg-resume（部分内核只发 focus/pageshow）。
+  const csBgFgRecheck = () => {
+    try {
+      if (chatPage && !chatPage.hidden) csBgHoldLayer();
+    } catch (e) {}
+  };
+  try {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') csBgFgRecheck(); });
+    document.addEventListener('mochi-fg-resume', csBgFgRecheck);
+  } catch (e) {}
   // v3.11.x：深色/浅色切换时重算默认配色（personalize.js 切换 html data-theme，
   // 这里监听属性变化即时重写内联变量，不用跨模块调用）
   try {
@@ -712,52 +727,27 @@
   //   cs-bg（聊天页 applySettings / 美化方案导出 / 渲染防护等既有链路零改动）。
   //   旧数据自动迁移：cs-bg 有值而图库为空时，首次打开面板把 cs-bg 收为第 1 张。
   // 240px JPEG 缩略图：面板网格渲染专用（与全图分开存，抽屉/面板只碰小图）
+  // #1270：三处「先整幅解码再说」的读图链统一交给 img-ingest.js（文件头算尺寸 →
+  // createImageBitmap 边解边缩 → 解码看门狗 → 字节收敛）。这一处原本是「打开壁纸面板
+  // 时把库里最多 12 张全尺寸壁纸各整幅解码一遍」＝48MP 时代的一张图 33MB 位图×12，
+  // 面板一开就把渲染进程压崩；现在解码产物只有 240px 那一份。零机型／零 UA 分支。
+  const csIngestTo = (src, opts) => (window.mochiImgCompressTo ? window.mochiImgCompressTo(src, opts)
+    : (toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'), Promise.resolve(null)));
   function csBgMakeThumb(dataUrl, maxSide) {
-    return new Promise((resolve) => {
-      if (typeof dataUrl !== 'string' || dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(c.toDataURL('image/jpeg', 0.8));
-        } catch (e) { resolve(null); }
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    });
+    return csIngestTo(dataUrl, { maxSide: maxSide, quality: 0.8, tag: 'cs-thb' });
   }
   // 压缩：v3.5.126 按设备物理像素定上限——之前固定 900px，
   // 在 2-3x 高分屏（物理宽 1080-1440）铺满时被放大发糊
-  function csBgCompress(dataUrl) {
-    return new Promise((resolve) => {
-      // FIX 2026-09-22 #1036：解码看门狗——内核偶发大图解码挂起（onload/onerror 都不回）
-      // 时原 Promise 永久悬空＝多选链卡死＝「换聊天背景没反应、重开好几次」；超时按失败
-      // 回流由调用方提示。零机型分支（与 #1036 chat-settings 头像 compressHead 同口径）。
-      let settled = false;
-      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-      const watchdog = setTimeout(function () { once(null); }, 20000);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const dpr = Math.max(1, window.devicePixelRatio || 1);
-          const screenH = (window.screen && window.screen.height) || 1920;
-          const maxSide = Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
-          const c = document.createElement('canvas');
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          c.width = Math.max(1, Math.round(img.width * scale));
-          c.height = Math.max(1, Math.round(img.height * scale));
-          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          once(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) { once(null); }
-      };
-      img.onerror = () => once(null);
-      img.src = dataUrl;
-    });
+  // #1270：maxSide 口径一字未动，只把「怎么解出来」换成统一解码闸（旧实现没有任何像素
+  // 拦截＝48MP 原图整幅解码占 ≈192MB 位图，正是本机「换聊天背景严重卡顿白屏、只能大退」
+  // 那一发；#1036 的 20 秒看门狗随之下沉到闸内，超时仍按失败回流由调用方提示）。
+  function csBgMaxSide() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const screenH = (window.screen && window.screen.height) || 1920;
+    return Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
+  }
+  function csBgCompress(src) {
+    return csIngestTo(src, { maxSide: csBgMaxSide(), quality: 0.85, tag: 'cs-bg' });
   }
   // 入库一张并设为当前壁纸（上传/迁移共用）；返回 null 表示压缩失败
   async function csBgAdd(dataRaw) {
@@ -792,16 +782,11 @@
         toast('正在处理 ' + fs.length + ' 张图片…');
         let chain = Promise.resolve();
         fs.forEach((f) => {
-          chain = chain.then(() => new Promise((res) => {
-            const reader = new FileReader();
-            // FIX 2026-09-22 #1036：失败图原本不计成功也不提示（全失败＝整批静默无响应），
-            // 现在计数收口并给可感反馈（与 personalize 桌面壁纸同口径）
-            reader.onload = () => {
-              csBgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); });
-            };
-            reader.onerror = () => { fail++; res(); };
-            reader.readAsDataURL(f);
-          }));
+          // #1270：File 直接进统一解码闸（旧写法每张先 FileReader 读成 ≈10MB 的 dataURL 再解，
+          // 多选时几份大字符串叠加＝「换聊天背景严重卡顿白屏」的一半成因）。
+          // FIX 2026-09-22 #1036：失败图原本不计成功也不提示（全失败＝整批静默无响应），
+          // 现在计数收口并给可感反馈（与 personalize 桌面壁纸同口径）
+          chain = chain.then(() => csBgAdd(f).then((id) => { if (id) ok++; else fail++; }));
         });
         chain.then(() => {
           if (ok) { toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : '')); }
@@ -1217,33 +1202,12 @@
   // v3.9.x：聊天昵称/头像未单独设置时**跟随桌面**（聊天页回退读桌面键）——设置后聊天域
   // 全部显示聊天专用值；设置页未设时右侧提示「跟随桌面（xx）」，明确当前生效来源。
   // 头像压缩与桌面 bindAvatar 一致（256px JPEG 0.85），内联实现避免依赖 personalize.js 导出。
-  function compressHead(dataUrl, maxSide) {
-    return new Promise((resolve) => {
-      // v3.26.x：放宽 dataURL 上限 8MB→50MB、移除原图总像素上限（原 2600万像素把
-      // 4800/5000 万像素手机主摄原图误拒 → 头像选完不生效，而同文件聊天背景上传无此
-      // 限制能传）。drawImage 缩放到 maxSide 小 canvas 不会 OOM，try-catch + onerror 兜底。
-      if (typeof dataUrl === 'string' && dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
-      // FIX 2026-09-22 #1036：解码看门狗——平板/国产内核偶发既不放 onload 也不放 onerror
-      // （大图解码挂起）时，原 Promise 永久悬空＝「换了头像没反应、重开好几次」原型；
-      // 超时按失败回流，调用方照常给用户可感反馈。零机型分支。
-      let settled = false;
-      const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-      const watchdog = setTimeout(() => once(null), 20000);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          once(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) { once(null); }
-      };
-      img.onerror = () => once(null);
-      img.src = dataUrl;
-    });
+  // #1270：解码走统一解码闸（img-ingest.js）。这一处原本是 v3.26.x 主动「放宽 8MB→50MB、
+  // 删掉原图像素上限」的产物——为了修「4800 万像素原图被误拒」把整幅解码的代价留下了：
+  // 一张 8000×6000 在 iOS 上要 ≈192MB 位图，只为缩成 256px 头像。现在先用文件头算尺寸、
+  // 超预算边解边缩，既不误拒也不赌进程。#1036 的 20 秒看门狗随之内沉，失败口径不变。
+  function compressHead(src, maxSide) {
+    return csIngestTo(src, { maxSide: maxSide, quality: 0.85, tag: 'cs-head' });
   }
   // v3.9.x：红米/真我等 Android Edge 对「点击时动态创建 + 立即 click()」的 file input
   // 会静默忽略（不弹系统选择器）。改为持久化 input：初始化时创建一次、永久挂 body、
@@ -1262,16 +1226,14 @@
   function headPickFile(f) {
     if (!f) return;
     const cb = headCb; headCb = null;
-    const reader = new FileReader();
-    reader.onload = () => {
-      compressHead(reader.result, 256).then(data => {
-        if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
-        if (cb) cb(data);
-      });
-    };
-    // FIX 2026-09-22 #1036：补 reader.onerror（原缺＝读取失败静默无回调＝「没反应」）
-    reader.onerror = () => toast('图片读取失败，请重试');
-    reader.readAsDataURL(f);
+    // #1270：File 直接进统一解码闸——旧写法先 FileReader 读成 dataURL（8000×6000 照片
+    // ≈10.6MB base64，解成字符串又是 ≈21MB）只为喂给解码器，白付两份大内存；现在整条链
+    // 不产生大字符串。#1036 的三条腿（失败必有声）语义原样保留：闸内已含读失败/解码超时
+    // 两种回执，这里统一按「没出来」提示，不再出现「选了图但静默什么都没发生」。
+    compressHead(f, 256).then(data => {
+      if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
+      if (cb) cb(data);
+    });
   }
   headInput.onchange = () => {
     const f = headInput.files && headInput.files[0];

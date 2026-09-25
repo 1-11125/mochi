@@ -56,31 +56,10 @@ return '<span class="sm-song-ico has-cov" style="background-image:url(\'' + esc(
 return '<span class="sm-song-ico"><svg viewBox="0 0 24 24" fill="currentColor">' + (icon || '<path d="M8 5.5v13l11-6.5z"/>') + '</svg></span>';
 }
 function compressCover(file, cb) {
-let url = null;
-try { url = URL.createObjectURL(file); } catch (e) {}
-if (!url) {
-const r = new FileReader();
-r.onload = () => cb(r.result);
-r.onerror = () => cb('');
-try { r.readAsDataURL(file); } catch (e) { cb(''); }
-return;
-}
-const img = new Image();
-img.onload = function () {
-try { URL.revokeObjectURL(url); } catch (e) {}
-let w = img.width, h = img.height;
-if (!w || !h) { cb(''); return; }
-const k = Math.min(1, 512 / Math.max(w, h));
-w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-const ctx = c.getContext('2d');
-if (!ctx) { cb(''); return; }
-try { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h); } catch (e) { cb(''); return; }
-try { cb(c.toDataURL('image/jpeg', 0.82)); } catch (e) { cb(''); }
-};
-img.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} cb(''); };
-img.src = url;
+if (!window.mochiImgIngest) { cb(''); return; }
+window.mochiImgIngest(file, { maxSide: 512, quality: 0.82, mime: 'image/jpeg', opaque: true, tag: 'pl-cover' }).then((r) => {
+cb(r && r.st === 'ok' && r.data ? r.data : '');
+});
 }
 function saveLibrary() { saveArr('music-library', library); }
 let _saveLibTimer = null;

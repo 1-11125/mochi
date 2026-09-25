@@ -82,33 +82,15 @@
     }
     return '<span class="sm-song-ico"><svg viewBox="0 0 24 24" fill="currentColor">' + (icon || '<path d="M8 5.5v13l11-6.5z"/>') + '</svg></span>';
   }
-  // 封面图片压缩到最长边 512px JPEG（几十 KB，不撑爆存储；画布失败回退原图 dataURL）
+  // 封面图片压缩到最长边 512px JPEG（几十 KB，不撑爆存储）
   function compressCover(file, cb) {
-    let url = null;
-    try { url = URL.createObjectURL(file); } catch (e) {}
-    if (!url) {
-      const r = new FileReader();
-      r.onload = () => cb(r.result);
-      r.onerror = () => cb('');
-      try { r.readAsDataURL(file); } catch (e) { cb(''); }
-      return;
-    }
-    const img = new Image();
-    img.onload = function () {
-      try { URL.revokeObjectURL(url); } catch (e) {}
-      let w = img.width, h = img.height;
-      if (!w || !h) { cb(''); return; }
-      const k = Math.min(1, 512 / Math.max(w, h));
-      w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const ctx = c.getContext('2d');
-      if (!ctx) { cb(''); return; }
-      try { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h); } catch (e) { cb(''); return; }
-      try { cb(c.toDataURL('image/jpeg', 0.82)); } catch (e) { cb(''); }
-    };
-    img.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} cb(''); };
-    img.src = url;
+    // FIX 2026-09-25 #1270：旧写法①拿不到 objectURL 时把整张原图 base64 直接回投给调用方（＝几 MB
+    // 图片进歌单库，还会被写进 music-playlists 主键）；②解码没有像素预算（48MP 照片＝192MB 位图）。
+    // 两条都交给统一解码闸，契约一字不变：成功给 dataURL，没导入成功给 ''（提示仍归调用方）。
+    if (!window.mochiImgIngest) { cb(''); return; }
+    window.mochiImgIngest(file, { maxSide: 512, quality: 0.82, mime: 'image/jpeg', opaque: true, tag: 'pl-cover' }).then((r) => {
+      cb(r && r.st === 'ok' && r.data ? r.data : '');
+    });
   }
 
   // ================= 存储 =================

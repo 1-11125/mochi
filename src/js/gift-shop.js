@@ -1838,40 +1838,16 @@
     gmImgInput.value = '';
     if (!f) return;
     if (!/^image\//.test(f.type || '')) { toast('请选择图片文件'); return; }
-    const reader = new FileReader();
-    reader.onload = function () {
-      compressGiftImg(String(reader.result || '')).then(function (data) {
-        if (!data) { toast('图片处理失败，换一张试试'); return; }
-        gmImg = data;
-        renderGmImgRow();
-      });
-    };
-    reader.onerror = function () { toast('图片读取失败'); };
-    reader.readAsDataURL(f);
-  };
-  // 压缩到 480px JPEG（白底防透明变黑），失败返回 null（同字卡库口径：不回退存原图）
-  function compressGiftImg(dataUrl) {
-    return new Promise(function (resolve) {
-      if (typeof dataUrl !== 'string' || dataUrl.length > 8 * 1024 * 1024) { resolve(null); return; }
-      const img = new Image();
-      img.onload = function () {
-        try {
-          if (img.width * img.height > 26000000) { resolve(null); return; }
-          const scale = Math.min(1, 480 / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          const ctx = c.getContext('2d');
-          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(c.toDataURL('image/jpeg', 0.85));
-        } catch (e) { resolve(null); }
-      };
-      img.onerror = function () { resolve(null); };
-      img.src = dataUrl;
+    if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+    // FIX 2026-09-25 #1270：File 直接进闸（不再先读成多 MB base64 字符串），失败按回执分说
+    window.mochiImgIngest(f, { maxSide: 480, quality: 0.85, mime: 'image/jpeg', opaque: true, tag: 'gm-img' }).then((r) => {
+      if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '礼物图片')); return; }
+      gmImg = r.data;
+      renderGmImgRow();
     });
-  }
+  };
+  // 旧 compressGiftImg（480px JPEG 白底、内含「base64 超 8MB 先拒 ＋ 解码后超 2600 万像素再拒」）
+  // 已由 #1270 的统一解码闸取代（口径不变：480px／JPEG 0.85／白底），此处不再留第二份实现。
   function gmImgRowHtml() {
     return '<div class="gm-img-row">' +
       '<div class="gm-img-prev" id="gm-img-prev">' + (gmImg ? '<img src="' + esc(gmImg) + '" alt="">' : '🖼️') + '</div>' +

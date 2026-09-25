@@ -459,52 +459,32 @@ try { applyCssEnforce(); } catch (e) {}
 window.applyChatSettings = applySettings;
 window.applyCsCssEnforce = applyCssEnforce; // #732：供抽屉侧滑块即时刷新
 applySettings();
+const csBgFgRecheck = () => {
+try {
+if (chatPage && !chatPage.hidden) csBgHoldLayer();
+} catch (e) {}
+};
+try {
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') csBgFgRecheck(); });
+document.addEventListener('mochi-fg-resume', csBgFgRecheck);
+} catch (e) {}
 try {
 new MutationObserver(() => { try { applySettings(); } catch (e) {} })
 .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 } catch (e) {}
 const row = (id) => document.getElementById(id);
+const csIngestTo = (src, opts) => (window.mochiImgCompressTo ? window.mochiImgCompressTo(src, opts)
+: (toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'), Promise.resolve(null)));
 function csBgMakeThumb(dataUrl, maxSide) {
-return new Promise((resolve) => {
-if (typeof dataUrl !== 'string' || dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.8));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-});
+return csIngestTo(dataUrl, { maxSide: maxSide, quality: 0.8, tag: 'cs-thb' });
 }
-function csBgCompress(dataUrl) {
-return new Promise((resolve) => {
-let settled = false;
-const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-const watchdog = setTimeout(function () { once(null); }, 20000);
-const img = new Image();
-img.onload = () => {
-try {
+function csBgMaxSide() {
 const dpr = Math.max(1, window.devicePixelRatio || 1);
 const screenH = (window.screen && window.screen.height) || 1920;
-const maxSide = Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
-const c = document.createElement('canvas');
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-once(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { once(null); }
-};
-img.onerror = () => once(null);
-img.src = dataUrl;
-});
+return Math.min(4096, Math.max(2160, Math.round(screenH * dpr)));
+}
+function csBgCompress(src) {
+return csIngestTo(src, { maxSide: csBgMaxSide(), quality: 0.85, tag: 'cs-bg' });
 }
 async function csBgAdd(dataRaw) {
 const data = await csBgCompress(dataRaw);
@@ -533,14 +513,7 @@ let ok = 0, fail = 0;
 toast('正在处理 ' + fs.length + ' 张图片…');
 let chain = Promise.resolve();
 fs.forEach((f) => {
-chain = chain.then(() => new Promise((res) => {
-const reader = new FileReader();
-reader.onload = () => {
-csBgAdd(reader.result).then((id) => { if (id) ok++; else fail++; res(); });
-};
-reader.onerror = () => { fail++; res(); };
-reader.readAsDataURL(f);
-}));
+chain = chain.then(() => csBgAdd(f).then((id) => { if (id) ok++; else fail++; }));
 });
 chain.then(() => {
 if (ok) { toast('已加入 ' + ok + ' 张壁纸' + (fail ? '，' + fail + ' 张失败（太大/格式不支持/读取超时）' : '')); }
@@ -907,27 +880,8 @@ toast(label + '已保存：左右 ' + nx + 'px / 上下 ' + ny + 'px');
 };
 csPosRow('cs-mark-pos', 'cs-mark-pos-val', '主动发送标识位置', 'cs-mark-x', 'cs-mark-y');
 csPosRow('cs-time-pos', 'cs-time-pos-val', '时间轴位置', 'cs-time-x', 'cs-time-y');
-function compressHead(dataUrl, maxSide) {
-return new Promise((resolve) => {
-if (typeof dataUrl === 'string' && dataUrl.length > 50 * 1024 * 1024) { resolve(null); return; }
-let settled = false;
-const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); resolve(v); };
-const watchdog = setTimeout(() => once(null), 20000);
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-once(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { once(null); }
-};
-img.onerror = () => once(null);
-img.src = dataUrl;
-});
+function compressHead(src, maxSide) {
+return csIngestTo(src, { maxSide: maxSide, quality: 0.85, tag: 'cs-head' });
 }
 let headCb = null;
 const headInput = document.createElement('input');
@@ -938,15 +892,10 @@ document.body.appendChild(headInput);
 function headPickFile(f) {
 if (!f) return;
 const cb = headCb; headCb = null;
-const reader = new FileReader();
-reader.onload = () => {
-compressHead(reader.result, 256).then(data => {
+compressHead(f, 256).then(data => {
 if (!data) { toast('图片过大、格式不支持或读取超时，请换一张小图'); return; }
 if (cb) cb(data);
 });
-};
-reader.onerror = () => toast('图片读取失败，请重试');
-reader.readAsDataURL(f);
 }
 headInput.onchange = () => {
 const f = headInput.files && headInput.files[0];

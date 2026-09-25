@@ -419,26 +419,13 @@
     try { gStore.remove(thbKey(m, n)); } catch (e) {}
     faceThb.delete(m + '|' + n);
   }
-  // 压缩（失败返回 null；超大图在解码前拦截，与 personalize.js 同口径）
-  function compressImg(dataUrl, maxSide, quality) {
-    return new Promise((resolve) => {
-      if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) { resolve(null); return; }
-      const img = new Image();
-      img.onload = () => {
-        try {
-          if (img.width * img.height > 26000000) { resolve(null); return; }
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const cv = document.createElement('canvas');
-          cv.width = w; cv.height = h;
-          cv.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(cv.toDataURL('image/jpeg', quality));
-        } catch (e) { resolve(null); }
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    });
+  // 压缩（失败返回 null）
+  // FIX 2026-09-25 #1270：原来「base64 超 8MB 先拒 ＋ 解码后超 2600 万像素再拒」（与 personalize
+  // 同口径）＝现代手机拍一张就 8MB 以上，自定义牌面怎么传都报「图片过大」；而放行时那次整幅
+  // 解码（48MP＝192MB 位图）又是白屏大退的内存来源。现统一交给 img-ingest.js。
+  function compressImg(src, maxSide, quality) {
+    if (!window.mochiImgCompressTo) return Promise.resolve(null);
+    return window.mochiImgCompressTo(src, { maxSide: maxSide, quality: quality, tag: 'div-face' });
   }
 
   // ---- 雷诺曼 36 / 40 体系 ----
@@ -1347,20 +1334,18 @@
         if (!f || !pendingUpload) { pendingUpload = null; return; }
         const target = pendingUpload;
         pendingUpload = null;
-        const rd = new FileReader();
-        rd.onload = () => {
-          compressImg(rd.result, 720, 0.85).then((full) => {
-            if (!full) { toast('图片过大或无法读取，请换一张'); return; }
-            compressImg(rd.result, 200, 0.82).then((thb) => {
-              if (!thb) { toast('图片处理失败，请换一张'); return; }
-              storeFaceFromDataUrls(target.m, target.n, full, thb);
-              renderFaceList(); renderFaceGallery();
-              toast('已设为「' + target.n + '」的牌面');
-            });
+        if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+        // FIX 2026-09-25 #1270：File 直接进闸（不再 readAsDataURL 造多 MB base64）；缩略图从已压好
+        // 的整图再缩一遍——旧写法把同一张原图整幅解码两遍。
+        compressImg(f, 720, 0.85).then((full) => {
+          if (!full) { toast('这张图本机浏览器处理不了，请换一张小图或用系统相机重拍'); return; }
+          compressImg(full, 200, 0.82).then((thb) => {
+            if (!thb) { toast('图片处理失败，请换一张'); return; }
+            storeFaceFromDataUrls(target.m, target.n, full, thb);
+            renderFaceList(); renderFaceGallery();
+            toast('已设为「' + target.n + '」的牌面');
           });
-        };
-        rd.onerror = () => toast('图片读取失败');
-        rd.readAsDataURL(f);
+        });
       }
     });
   }
@@ -1478,6 +1463,7 @@
   function handleBatchFiles(files) {
     const list = Array.prototype.slice.call(files || []);
     if (!list.length) return;
+    if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
     const defaultMode = facePanelCid || 'tarot';
     const oneBased = faceOneBased;
     const skipped = [];
@@ -1501,22 +1487,18 @@
       const f = list[i];
       const hit = matchFaceFile(f.name, defaultMode, oneBased);
       if (!hit) { skipped.push(f.name); step(i + 1); return; }
-      const rd = new FileReader();
-      rd.onload = () => {
-        compressImg(rd.result, 720, 0.85).then((full) => {
-          if (!full) { skipped.push(f.name); step(i + 1); return; }
-          compressImg(rd.result, 200, 0.82).then((thb) => {
-            if (!thb) { skipped.push(f.name); step(i + 1); return; }
-            storeFaceFromDataUrls(hit.m, hit.n, full, thb);
-            const key = hit.m + '|' + hit.n;
-            if (existing.has(key) || doneSet.has(key)) overwritten.add(key);
-            doneSet.add(key);
-            step(i + 1);
-          });
+      // FIX 2026-09-25 #1270：File 直接进闸，缩略图从已压好的整图再缩＝同一张原图整幅解码由两遍降到一遍
+      compressImg(f, 720, 0.85).then((full) => {
+        if (!full) { skipped.push(f.name); step(i + 1); return; }
+        compressImg(full, 200, 0.82).then((thb) => {
+          if (!thb) { skipped.push(f.name); step(i + 1); return; }
+          storeFaceFromDataUrls(hit.m, hit.n, full, thb);
+          const key = hit.m + '|' + hit.n;
+          if (existing.has(key) || doneSet.has(key)) overwritten.add(key);
+          doneSet.add(key);
+          step(i + 1);
         });
-      };
-      rd.onerror = () => { skipped.push(f.name); step(i + 1); };
-      rd.readAsDataURL(f);
+      });
     };
     step(0);
   }

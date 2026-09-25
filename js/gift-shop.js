@@ -1546,39 +1546,13 @@ const f = gmImgInput.files && gmImgInput.files[0];
 gmImgInput.value = '';
 if (!f) return;
 if (!/^image\//.test(f.type || '')) { toast('请选择图片文件'); return; }
-const reader = new FileReader();
-reader.onload = function () {
-compressGiftImg(String(reader.result || '')).then(function (data) {
-if (!data) { toast('图片处理失败，换一张试试'); return; }
-gmImg = data;
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 480, quality: 0.85, mime: 'image/jpeg', opaque: true, tag: 'gm-img' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { toast(window.mochiImgIngestMiss(r, '礼物图片')); return; }
+gmImg = r.data;
 renderGmImgRow();
 });
 };
-reader.onerror = function () { toast('图片读取失败'); };
-reader.readAsDataURL(f);
-};
-function compressGiftImg(dataUrl) {
-return new Promise(function (resolve) {
-if (typeof dataUrl !== 'string' || dataUrl.length > 8 * 1024 * 1024) { resolve(null); return; }
-const img = new Image();
-img.onload = function () {
-try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
-const scale = Math.min(1, 480 / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-const ctx = c.getContext('2d');
-ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
-ctx.drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.85));
-} catch (e) { resolve(null); }
-};
-img.onerror = function () { resolve(null); };
-img.src = dataUrl;
-});
-}
 function gmImgRowHtml() {
 return '<div class="gm-img-row">' +
 '<div class="gm-img-prev" id="gm-img-prev">' + (gmImg ? '<img src="' + esc(gmImg) + '" alt="">' : '🖼️') + '</div>' +

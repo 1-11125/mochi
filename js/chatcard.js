@@ -490,29 +490,11 @@ window.cardLockCustomCount = function () {
 try { return totalCount(ownPoolRaw()) + totalCount(pubGroupsRaw()); }
 catch (e) { return 0; }
 };
-function compressImage(dataUrl, maxSide, format, quality) {
-return new Promise((resolve) => {
-if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-resolve(null);
-return;
-}
-const img = new Image();
-img.onload = () => {
-try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-const ctx = c.getContext('2d');
-if (format === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
-ctx.drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL(format || 'image/png', quality));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
+function compressImage(src, maxSide, format, quality) {
+if (!window.mochiImgCompressTo) return Promise.resolve(null);
+const mime = format === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+return window.mochiImgCompressTo(src, {
+maxSide: maxSide, mime: mime, quality: quality, opaque: mime === 'image/jpeg', tag: 'cc-img'
 });
 }
 function renderGroupsBar() {

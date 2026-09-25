@@ -9827,23 +9827,11 @@ function rpCoverSet(side, dataUrl) {
 		try { if (window.idbSet) window.idbSet(window.activePrefix() + ':' + k, ''); } catch (e) {}
 	}
 }
-function rpCompressCover(dataUrl) {
-return new Promise((resolve) => {
-const img = new Image();
-img.onload = () => {
-try {
-const scale = Math.min(1, 400 / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/jpeg', 0.8));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-});
+function rpCompressCover(src) {
+	// FIX 2026-09-25 #1270：原实现 new Image() 直接整幅解码 reader 的多 MB base64（48MP 照片＝192MB
+	// 位图）且没有任何像素闸，就是「导入照片白屏大退」的那条路；改走统一解码闸，File 直接进闸。
+	if (!window.mochiImgCompressTo) return Promise.resolve(null);
+	return window.mochiImgCompressTo(src, { maxSide: 400, quality: 0.8, tag: 'rp-cover' });
 }
 const rpCoverPreview = document.getElementById('rp-cover-preview');
 const rpCoverUploadBtn = document.getElementById('rp-cover-upload');
@@ -9879,17 +9867,14 @@ id: 'mochi-rp-cover-pick', accept: 'image/*', btn: rpCoverUploadBtn,
 onFiles: (files) => {
 const f = files && files[0];
 if (!f) { toast('没有取到图片，请再选一次'); return; }
-const reader = new FileReader();
-reader.onload = () => {
-rpCompressCover(reader.result).then(data => {
-if (!data) { toast('图片处理失败'); return; }
+if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+// FIX 2026-09-25 #1270：不再先 readAsDataURL 造多 MB base64 字符串（UTF-16 下再翻一倍内存）；File 直接进闸
+rpCompressCover(f).then(data => {
+if (!data) { toast('这张图本机浏览器处理不了，请换一张小图或用系统相机默认尺寸重拍'); return; }
 rpCoverSet(rpSide, data);
 rpRenderCover();
 toast('封面已设置');
 });
-};
-reader.onerror = () => toast('图片读取失败，请换一张再试');
-reader.readAsDataURL(f);
 }
 });
 });
@@ -14110,31 +14095,18 @@ batchText.value = '';
 renderBatchList();
 }
 function batchAddImages(files) {
+// #1270：走统一解码闸（720px／JPEG 0.85 口径不变）。两处收口：①旧链每张先 FileReader
+// 读成 base64 再整幅解码（48MP 照片＝≈10.6MB 字符串＋≈192MB 位图，多选时逐张叠加＝
+// 「发图片就卡死白屏」）；②解码失败/画布异常时把 reader 的原始结果整条推进批量条目
+// ＝把整张原图塞进聊天记录，下次渲染再解一遍，卡死从此变成常态（与 personalize v3.6.x
+// 「失败不再回退存原图」同口径）。现在失败就是失败：给一句实话，不再存那颗雷。
 files.forEach(f => {
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-batchItems.push({ type: 'img', src: c.toDataURL('image/jpeg', 0.85) });
-} catch (err) {
-batchItems.push({ type: 'img', src: reader.result });
-}
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(f, { maxSide: 720, quality: 0.85, tag: 'chat-batch' }).then((r) => {
+if (!r || r.st !== 'ok') { toast(window.mochiImgIngestMiss(r, '图片')); return; }
+batchItems.push({ type: 'img', src: r.data });
 renderBatchList();
-};
-img.onerror = () => {
-batchItems.push({ type: 'img', src: reader.result });
-renderBatchList();
-toast('部分图片无法压缩，已按原图添加');
-};
-img.src = reader.result;
-};
-reader.readAsDataURL(f);
+});
 });
 }
 function sendBatchItem(it) {
@@ -14672,28 +14644,14 @@ saveEmojiGroupPref();
 renderEmojiPanel();
 try { t.blur(); } catch (err) {}
 }));
-function compressMyEmoji(dataUrl, maxSide) {
-return new Promise((resolve) => {
-if (typeof dataUrl === 'string' && dataUrl.length > 8 * 1024 * 1024) {
-resolve(null);
-return;
-}
-const img = new Image();
-img.onload = () => {
-try {
-if (img.width * img.height > 26000000) { resolve(null); return; }
-const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-const w = Math.max(1, Math.round(img.width * scale));
-const h = Math.max(1, Math.round(img.height * scale));
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-resolve(c.toDataURL('image/png'));
-} catch (e) { resolve(null); }
-};
-img.onerror = () => resolve(null);
-img.src = dataUrl;
-});
+// #1270：表情包导入走统一解码闸（img-ingest.js）。旧实现是「带闸的一派」——base64 >8MB
+// 直接拒、>2600 万像素在整幅解码之后才拒：这台机子主摄随便一张就是 8000×6000／10.6MB
+// base64，两张闸双双命中＝用户报的「给联系人单独添加的表情包和照片没办法导入」；而
+// 「解码后才判」那一发已经先付了 ≈192MB 位图＝卡顿白屏。现在先用文件头算尺寸、超预算
+// 边解边缩，产物口径（260px／PNG）一字未动。
+function compressMyEmoji(src, maxSide) {
+if (!window.mochiImgCompressTo) return Promise.resolve(null);
+return window.mochiImgCompressTo(src, { maxSide: maxSide, mime: 'image/png', tag: 'myemoji' });
 }
 const myeNew = document.getElementById('mye-new');
 if (myeNew) {
@@ -14732,34 +14690,9 @@ if (!g && myGroups.length) g = myGroups[0];
 if (!g) { g = ['默认', []]; myGroups.unshift(g); }
 let done = 0, okCount = 0;
 files.forEach(f => {
-const reader = new FileReader();
-reader.onload = () => {
 const isGif = /image\/gif/i.test(f.type || '') || /\.gif$/i.test(f.name || '');
-if (isGif) {
-if (reader.result.length > 8 * 1024 * 1024) {
-done++;
-if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('动图过大，已跳过（请用 10MB 以内的 GIF）'); }
-return;
-}
-g[1].push(reader.result);
-okCount++;
-done++;
-if (done === files.length) {
-const ok = myEmojiSave();
-myCurGroup = g[0];
-saveEmojiGroupPref();
-renderEmojiPanel();
-if (!ok) toast('存储空间不足：表情已用备用存储，刷新后恢复。请清理不用的表情');
-else toast('已添加 ' + okCount + ' 个表情');
-}
-return;
-}
-compressMyEmoji(reader.result, 260).then(data => {
-if (!data) {
-done++;
-if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('图片过大或格式不支持，已跳过'); }
-return;
-}
+const miss = (msg) => { done++; if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast(msg); } };
+const hit = (data) => {
 g[1].push(data);
 okCount++;
 done++;
@@ -14771,9 +14704,23 @@ renderEmojiPanel();
 if (!ok) toast('存储空间不足：表情已用备用存储，刷新后恢复。请清理不用的表情');
 else toast('已添加 ' + okCount + ' 个表情');
 }
-});
 };
-reader.onerror = () => { done++; if (done === files.length) { myEmojiSave(); renderEmojiPanel(); toast('部分图片读取失败'); } };
+// #1270：静态图不再先 FileReader 读成 base64（4800 万像素照片一份就是 ≈10.6MB 字符串，
+// 多选时按张叠加），File 直接进统一解码闸；动图（GIF）保持原样整张存——压成 PNG 会丢掉
+// 动画，那条链的 8MB 上限与提示文案一字未动。失败口径仍分两句话：图本身的问题 vs 组件没加载上。
+if (!isGif) {
+compressMyEmoji(f, 260).then(data => {
+if (data) hit(data);
+else miss(window.mochiImgCompressTo ? '图片过大或格式不支持，已跳过' : '图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试');
+});
+return;
+}
+const reader = new FileReader();
+reader.onload = () => {
+if (reader.result.length > 8 * 1024 * 1024) { miss('动图过大，已跳过（请用 10MB 以内的 GIF）'); return; }
+hit(reader.result);
+};
+reader.onerror = () => miss('部分图片读取失败');
 reader.readAsDataURL(f);
 });
 } catch (err) { toast('添加表情失败，请重试'); }
@@ -15184,8 +15131,8 @@ const fi = chatImgPicker();
 try { if (window.mochiFilePickLabel && imgBtn) window.mochiFilePickLabel(imgBtn, fi); } catch (e) {}
 return fi;
 }
-// 单张图片：读取 → 解码 → 压缩。任何一步失败都必须【可见】，且必须落一张进草稿——
-// 原来 reader.onerror 没接线、img.onload 也不会有超时，任何异常都是彻底静默的空手而归。
+// 单张图片：读取 → 解码 → 压缩。任何一步失败都必须【可见】（#677）；#1270 起不再
+// 「失败也落一张进草稿」——那一发把原图烤进聊天记录，正是越用越卡的存量雷，见函数内说明。
 function addDraftImg(file) {
 let settled = false;
 const accept = (src, msg) => {
@@ -15195,34 +15142,17 @@ draftImgs.push(src);
 renderDraft();
 if (msg) toast(msg);
 };
-const reader = new FileReader();
-reader.onerror = () => { settled = true; toast('图片读取失败，请换一张再试'); };
-reader.onload = () => {
-const raw = reader.result;
-const img = new Image();
-// 解码既不 onload 也不 onerror（iOS 超大图/异常编码）时草稿会永远空着 ⇒ 3s 兜底按原图落地
-const settleTimer = setTimeout(() => accept(raw, '图片解码较慢，已按原图添加'), 3000);
-img.onload = () => {
-clearTimeout(settleTimer);
-if (settled) return;
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-const out = c.toDataURL('image/jpeg', 0.85);
-// iOS 画布超限时 toDataURL 会回 "data:,"（空图）——绝不能把空图当图片塞进草稿
-if (out && out.indexOf('data:image/') === 0 && out.length > 128) accept(out);
-else accept(raw, '图片压缩失败，已按原图添加');
-} catch (err) {
-accept(raw, '图片压缩失败，已按原图添加');
-}
-};
-img.onerror = () => { clearTimeout(settleTimer); accept(raw, '部分图片无法压缩，已按原图添加'); };
-img.src = raw;
-};
-try { reader.readAsDataURL(file); } catch (err) { settled = true; toast('图片读取失败，请换一张再试'); }
+// FIX 2026-09-18 #677：失败一律可见（原实现 reader.onerror 没接线、解码无超时＝彻底静默空手而归）
+// #1270：解码走统一解码闸（720px／JPEG 0.85 口径不变），并收掉这一族里最伤的一颗雷——
+// 旧链有 3 条「按原图添加」的回退（解码超时／画布异常／解码报错），把 48MP 原图整张
+// （base64 ≈10MB）塞进草稿随后落库；那张图每次渲染都要重新整幅解码，于是「发一次图
+// 之后越来越卡、只能大退」变成常态。闸内已含 20 秒看门狗与「空画布不算成功」判定，
+// 真解不出来时只提示、不再拿原图兜底。
+if (!window.mochiImgIngest) { settled = true; toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+window.mochiImgIngest(file, { maxSide: 720, quality: 0.85, tag: 'chat-draft' }).then((r) => {
+if (!r || r.st !== 'ok') { settled = true; toast(window.mochiImgIngestMiss(r, '图片')); return; }
+accept(r.data);
+});
 }
 // FIX 2026-09-21 #1002：**绑定时**就铺一次（放在点按处理器里＝第一次点按永远赶不上，用户第一下仍然没反应）
 chatImgSurfaceEnsure();

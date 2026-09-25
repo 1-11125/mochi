@@ -155,19 +155,22 @@ const b4 = J(await evalJs(`(async function(){
 })()`));
 ok((b4.toast || '').indexOf('没有取到图片') >= 0, 'B4 没取到文件时给可见提示（旧实现静默无反应）', JSON.stringify(b4));
 
-// B5 选到坏图（声明 image/png 但内容非法）→ 解码失败也必须落一张进草稿 + 有提示
+// B5 选到坏图（声明 image/png 但内容非法）→ 必须有可见提示；#1270 起「绝不静默丢图」不再等于
+//   「把整张原图塞进草稿」：解码失败的图就此不进草稿（旧兜底＝照片越用越坏＋存储被撑爆同源复发）。
+//   B5a 提示＝对照组（两侧皆绿，防把「如实说话」修没了）；B5b 不落草稿＝#1270 新契约（旧侧红）。
 const b5 = J(await evalJs(`(async function(){
   var inp=document.getElementById('chat-img-pick');if(!inp)return JSON.stringify({err:'no-input'});
   var t=document.getElementById('cc-toast');if(t)t.textContent='';
   var f=new File([new Uint8Array([1,2,3,4,5,6,7,8,9,10])],'bad.png',{type:'image/png'});
   var dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
   inp.dispatchEvent(new Event('change',{bubbles:true}));
-  await new Promise(function(r){setTimeout(r,1200);});
-  var tt=document.getElementById('cc-toast');
+  var tt=null;
+  for(var i=0;i<40;i++){ await new Promise(function(r){setTimeout(r,150);}); tt=document.getElementById('cc-toast'); if(tt&&tt.textContent)break; }
   var items=document.querySelectorAll('#chat-draft-items .chat-draft-item');
   return JSON.stringify({toast:tt?tt.textContent:'',items:items.length});
 })()`));
-ok(b5.items >= 1 && (b5.toast || '').length > 0, 'B5 图片解码失败也落草稿并给提示（绝不静默丢图）', JSON.stringify(b5));
+ok((b5.toast || '').length > 0, 'B5a 图片解码失败给可见提示（绝不静默丢图）', JSON.stringify(b5));
+ok(b5.items === 0, 'B5b 解码失败这张不进草稿＝不再「按原图添加」兜底（#1270：旧兜底＝整张原图入库）', JSON.stringify(b5));
 
 // B6 选择器不随点按堆积（常驻单个隐藏 input；基线含其他模块启动时就挂着的 file input）
 await sleep(1500);

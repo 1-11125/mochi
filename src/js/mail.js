@@ -1337,30 +1337,19 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
       id: 'mochi-mail-img-pick', accept: 'image/*', multiple: true,
       onFiles: (files) => {
         if (!files.length) { toast('没有取到图片，请再选一次'); return; }
+        if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+        // FIX 2026-09-25 #1270：旧写法每张各自 readAsDataURL ＋ 整幅解码（48MP 照片＝192MB 位图＝
+        // 选一张信纸配图就白屏大退），且解码失败/画布异常时把整张原图 base64 塞进信纸正文。
+        // 现逐张串行过统一解码闸（多选时同一时刻只有一张在解），没成功的这张如实跳过并汇总提示。
+        let mailImgMiss = 0;
+        let mailImgChain = Promise.resolve();
         files.forEach(f => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-              try {
-                const c = document.createElement('canvas');
-                const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-                c.width = Math.max(1, Math.round(img.width * scale));
-                c.height = Math.max(1, Math.round(img.height * scale));
-                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
-              } catch (err) {
-                // canvas 被拒（内存紧张/跨源污染）时回退原图：File.type 为空时这条腿给出的是
-                // "data:;base64,…"，不规范化就会以「认不出的变体」落进信纸正文与隐藏 span
-                mailInsertInto(textarea, 'image:' + mailCanonPayload(reader.result));
-              }
-            };
-            img.onerror = () => toast('图片读取失败');
-            img.src = reader.result;
-          };
-          reader.onerror = () => toast('图片读取失败');
-          reader.readAsDataURL(f);
+          mailImgChain = mailImgChain.then(() => window.mochiImgIngest(f, { maxSide: 720, mime: 'image/png', tag: 'mail-img' }).then((r) => {
+            if (!r || r.st !== 'ok' || !r.data) { mailImgMiss++; return; }
+            mailInsertInto(textarea, 'image:' + r.data);
+          }));
         });
+        mailImgChain.then(() => { if (mailImgMiss) toast('有 ' + mailImgMiss + ' 张图片没能插入，请换一张小图或用系统相机重拍'); });
       }
     });
   }

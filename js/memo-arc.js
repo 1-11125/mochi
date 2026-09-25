@@ -660,6 +660,7 @@ const f = inp.files && inp.files[0];
 const tgt = imgTarget; imgTarget = null; inp.value = '';
 if (!f || !tgt || !tgt.id) { if (!f) toast('没有取到图片，请再选一次'); return; }
 compressImg(f, function (dataURL) {
+if (!dataURL) return; // #1270：没导入成功（闸已给过提示）就别把空图写进手账
 const arc = ensureArc(cur);
 const it = imgListOf(tgt.kind, arc).find(x => x.id === tgt.id);
 if (!it) return;
@@ -670,21 +671,11 @@ document.body.appendChild(inp);
 return inp;
 }
 function compressImg(file, cb) {
-const fr = new FileReader();
-fr.onload = function () {
-const im = new Image();
-im.onload = function () {
-const M = 640; let w = im.width, ih = im.height;
-if (w > M || ih > M) { const r = Math.min(M / w, M / ih); w = Math.round(w * r); ih = Math.round(ih * r); }
-const cv = document.createElement('canvas');
-cv.width = w; cv.height = ih;
-cv.getContext('2d').drawImage(im, 0, 0, w, ih);
-cb(cv.toDataURL('image/jpeg', 0.72));
-};
-im.onerror = function () { toast('这张图读不出来，换一张试试'); };
-im.src = fr.result;
-};
-fr.readAsDataURL(file);
+if (!window.mochiImgCompressTo) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); cb(null); return; }
+window.mochiImgCompressTo(file, { maxSide: 640, quality: 0.72, tag: 'memo-img' }).then((out) => {
+if (!out) toast('这张图本机浏览器处理不了，换一张小图试试');
+cb(out || null);
+});
 }
 function tabLabelOf(group, arc, id) { const t = tabsOf(group, arc).find(t2 => t2[0] === id); return t ? t[1] : ''; }
 function searchScan(arc) {

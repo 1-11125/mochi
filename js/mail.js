@@ -965,28 +965,16 @@ window.mochiFilePick({
 id: 'mochi-mail-img-pick', accept: 'image/*', multiple: true,
 onFiles: (files) => {
 if (!files.length) { toast('没有取到图片，请再选一次'); return; }
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
+let mailImgMiss = 0;
+let mailImgChain = Promise.resolve();
 files.forEach(f => {
-const reader = new FileReader();
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 720 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-mailInsertInto(textarea, 'image:' + c.toDataURL('image/png'));
-} catch (err) {
-mailInsertInto(textarea, 'image:' + mailCanonPayload(reader.result));
-}
-};
-img.onerror = () => toast('图片读取失败');
-img.src = reader.result;
-};
-reader.onerror = () => toast('图片读取失败');
-reader.readAsDataURL(f);
+mailImgChain = mailImgChain.then(() => window.mochiImgIngest(f, { maxSide: 720, mime: 'image/png', tag: 'mail-img' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { mailImgMiss++; return; }
+mailInsertInto(textarea, 'image:' + r.data);
+}));
 });
+mailImgChain.then(() => { if (mailImgMiss) toast('有 ' + mailImgMiss + ' 张图片没能插入，请换一张小图或用系统相机重拍'); });
 }
 });
 }

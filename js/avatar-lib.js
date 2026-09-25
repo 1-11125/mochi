@@ -65,34 +65,10 @@ return String(h);
 const AV_TARGET = 180 * 1024;
 function normalizeAvSize(data, cb) {
 if (!data || typeof data !== 'string' || data.indexOf('data:image') !== 0 || data.length <= AV_TARGET) { cb(data); return; }
-try {
-let settled = false;
-const once = (v) => { if (settled) return; settled = true; clearTimeout(watchdog); cb(v); };
-const watchdog = setTimeout(() => once(data), 20000);
-const img = new Image();
-img.onload = function () {
-try {
-const iw = img.width || 256, ih = img.height || 256;
-const scale = Math.min(1, 256 / Math.max(iw, ih));
-let w = Math.max(1, Math.round(iw * scale));
-let h = Math.max(1, Math.round(ih * scale));
-let q = 0.85, out = '';
-for (let tries = 0; tries < 4; tries++) {
-const c = document.createElement('canvas');
-c.width = w; c.height = h;
-c.getContext('2d').drawImage(img, 0, 0, w, h);
-out = c.toDataURL('image/jpeg', q);
-if (out.length <= AV_TARGET) break;
-w = Math.max(48, Math.round(w * 0.8));
-h = Math.max(48, Math.round(h * 0.8));
-q = Math.max(0.5, q - 0.1);
-}
-once(out && out.length < data.length ? out : data);
-} catch (e) { once(data); }
-};
-img.onerror = function () { once(data); };
-img.src = data;
-} catch (e) { cb(data); }
+if (!window.mochiImgCompressTo) { cb(data); return; }
+window.mochiImgCompressTo(data, { maxSide: 256, quality: 0.85, byteLimit: AV_TARGET, tag: 'avlib-norm' }).then((out) => {
+cb(out && out.length < data.length ? out : data);
+});
 }
 let appliedPh = null, appliedUh = null;
 function convergeAvatars() {
@@ -571,38 +547,20 @@ input.value = '';
 if (!files.length) return;
 const list = listFn();
 let done = 0, okCount = 0, failCount = 0;
+if (!window.mochiImgIngest) { toast('图片处理组件没加载上（缓存过旧或离线），请重新打开页面再试'); return; }
 files.forEach(f => {
 let settled = false;
 const settle = (okFlag) => {
-if (settled) return; settled = true; clearTimeout(fileTimer);
+if (settled) return; settled = true;
 done++;
 if (okFlag) okCount++; else failCount++;
 if (done === files.length) finish();
 };
-const fileTimer = setTimeout(() => settle(false), 30000);
-const reader = new FileReader();
-reader.onerror = () => settle(false);
-reader.onload = () => {
-const img = new Image();
-img.onload = () => {
-if (settled) return; // 看门狗已按失败收口，迟到的解码结果不再塞池
-try {
-const c = document.createElement('canvas');
-const scale = Math.min(1, 256 / Math.max(img.width, img.height));
-c.width = Math.max(1, Math.round(img.width * scale));
-c.height = Math.max(1, Math.round(img.height * scale));
-c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-list.push(c.toDataURL('image/jpeg', 0.85));
+window.mochiImgIngest(f, { maxSide: 256, quality: 0.85, tag: 'avlib-pool' }).then((r) => {
+if (!r || r.st !== 'ok' || !r.data) { settle(false); return; }
+list.push(r.data);
 settle(true);
-} catch (e) {
-list.push(reader.result);
-settle(true);
-}
-};
-img.onerror = () => settle(false);
-img.src = reader.result;
-};
-reader.readAsDataURL(f);
+});
 });
 function finish() {
 saveFn(list);
