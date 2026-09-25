@@ -392,6 +392,13 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  /* ==== 2026-09-25 #1266 经期页暗色填色整段被压平＋功能自检盲区收口（iPhone 12 Pro Max／iOS 16.6 Safari 实报「无法正常显示填色的图标」「记录排卵按钮按不动但功能自检不报」，多机型同现；零机型／零 UA 分支＝判据只取 data-theme 特异度与命中测试/计算样式两个结构事实） ==== */
+  { name: '#1266a 暗色阶段图标填色回收（删＝通用 .period-status-ico 底 #555 回流压平 phase-period/fertile/safe，「填色的图标无法正常显示」复发）', file: 'index.html', needle: '[data-theme="dark"] .period-status-ico.phase-period { background:#e85a8f; }' },
+  { name: '#1266b 暗色日历经期格填色回收（删＝ph-period 与空白格同为 --dark-card 底色，日历整月无色）', file: 'index.html', needle: '[data-theme="dark"] .period-grid .pc-cell.ph-period { background:#e85a8f; color:#fff; border-color:#e85a8f; }' },
+  { name: '#1266c 暗色主按钮品牌底回收（删＝「标记今天来了」primary 被通用 .period-btn 压成卡面灰底）', file: 'index.html', needle: '[data-theme="dark"] .period-btn.primary { background:#e85a8f; border-color:#e85a8f; color:#fff; }' },
+  { name: '#1266d 自检返回按钮命中测试（删回程序化 click 只看 pageVisible＝全屏浮层下用户点不动而自检恒绿；device.js 为内联件故钉 index.html）', file: 'index.html', needle: 'if (hit && (hit === el || el.contains(hit))) return true;' },
+  { name: '#1266e 自检经期填色断言（删＝暗色压平不再有第二把尺在场内点名；三阶段品牌色白名单与 CSS 同源）', file: 'index.html', needle: "const PHASE_BG = { period: 'rgb(232, 90, 143)', fertile: 'rgb(245, 166, 35)', safe: 'rgb(126, 198, 158)' };" },
+  { name: '#1266f 弹窗正文框高度上限（删＝长说明弹窗把胶囊行与「确定」推出 .modal 裁剪区、滚动条按偏好隐藏＝遮罩长期在场、页面按钮按不动；与 v3.23 .modal-textarea／#295 胶囊行同族）', file: 'index.html', needle: '.modal-static { max-height:38vh; overflow-y:auto; overscroll-behavior:auto; }' },
   /* ==== 2026-09-25 #1257 三症状批②③（OPPO Reno16 Chrome 实报「朋友圈一发图就消失＋收藏数据丢失」，多机型同现＝纯存储收支缺陷、零机型分支）＝②发布配图改「池先落盘、引用后落库」（feed-posts 主键不再被原图顶过 200KB 大键线）；③wrj 标记改挂值事务提交回执（掐灭「旧值+新标记」让 wrjMergeFromIdb 自愈反噬成数据回退）==== */
   { name: '#1257a 池未落盘绝不放引用（删＝写池失败仍令牌化＝#186 永久空白图回归；回退原件＝旧行为不更坏）', file: 'js/feed.js', needle: 'return ok ? out : raw;' },
   { name: '#1257b 发布先 await 池回执再落引用（删回 imgs: pickedImgs.slice()＝原图直存主键顶过大键线，回收杀未提交 IDB 事务后只剩无图快照＝「一发图就没」复发）', file: 'js/feed.js', needle: 'try { imgsArr = await feedTokImgs(rawImgs); } catch (e) {}' },
