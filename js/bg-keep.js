@@ -924,7 +924,7 @@ finish();
 function kaWithTimeout(p, ms) {
 return new Promise(function (resolve, reject) {
 let done = false;
-const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
+const t = setTimeout(function () { if (!done) { done = true; const te = new Error('ka-timeout'); te.kaTimeout = true; reject(te); } }, ms);
 try {
 const pr = (typeof p === 'function') ? p() : p;
 Promise.resolve(pr).then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
@@ -949,6 +949,8 @@ return kaWithTimeout(start(), 5000).catch(function () { return null; });
 }
 let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
 window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
+let notifyUnsettled = 0;      // FIX 2026-09-25 #1241：本会话「通知已交出、内核回执未落地」的次数（诊断点名用）
+window.bgNotifyUnsettled = function () { return notifyUnsettled; };
 let swLaterQueue = [];        // FIX 2026-09-20 #921：待补发队列——原单发闸在等待窗内只收第一条，
 let swLaterTimer = null;      // 「就绪即补发」等待窗（同时只挂一个定时器，到点统一 flush）
 function swNotifyNote(ch, chanOut) {
@@ -1043,7 +1045,10 @@ const attempt = Object.assign({}, swOpts);
 STRIP_LADDER[ladderIdx++].forEach(function (k) { delete attempt[k]; });
 prepMediaBlobs(attempt, function () {
 kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
-.then(function () { note('sw'); resolve(true); }, tryNext);
+.then(function () { note('sw'); resolve(true); }, function (e) {
+if (e && e.kaTimeout) { notifyUnsettled++; note('sw'); resolve(true); return; } // #1241 回执未落地＝按已挂出收手，绝不重发（旧写法退回 tryNext＝四级阶梯弹四条）
+tryNext();
+});
 });
 };
 tryNext();

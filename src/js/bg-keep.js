@@ -1334,7 +1334,10 @@
   function kaWithTimeout(p, ms) {
     return new Promise(function (resolve, reject) {
       let done = false;
-      const t = setTimeout(function () { if (!done) { done = true; reject(new Error('ka-timeout')); } }, ms);
+      // FIX 2026-09-25 #1241：超时那一下 reject 带上 kaTimeout 旗标——「内核始终没给回执」与「内核明确
+      //   说失败」是两种回执（三态：落地成功 / 明确拒绝 / 未落地）。此前两者同一个 Error('ka-timeout')，
+      //   调用方只能一律按失败处理，才有下面 STRIP_LADDER 的「超时也算失败→重发」重复弹通知。
+      const t = setTimeout(function () { if (!done) { done = true; const te = new Error('ka-timeout'); te.kaTimeout = true; reject(te); } }, ms);
       try {
         // FIX 2026-09-17 #705 兼容 thunk——#673 把 showNotification 调用改成本函数不支持的
         //   thunk 形态（传 function 而非 Promise），而这里仍直接 p.then：函数没有 .then →
@@ -1381,6 +1384,8 @@
   //   ④ lastNotifyChannel 如实记录本次实际走的通道——测试按钮据此说真话，诊断不再指错层。
   let lastNotifyChannel = '';   // 'sw' | 'page' | 'none'：最近一次实际通道
   window.bgNotifyLastChannel = function () { return lastNotifyChannel; };
+  let notifyUnsettled = 0;      // FIX 2026-09-25 #1241：本会话「通知已交出、内核回执未落地」的次数（诊断点名用）
+  window.bgNotifyUnsettled = function () { return notifyUnsettled; };
   let swLaterQueue = [];        // FIX 2026-09-20 #921：待补发队列——原单发闸在等待窗内只收第一条，
                                 //   后续到达的通知整条静默吞掉（弱网/SW 被回收/刚更新完的窗口里
                                 //   连着来几条消息＝只弹第一条），表现为「时不时收不到后台弹窗」。
@@ -1509,7 +1514,18 @@
                 // #673：thunk 形式——同步 throw 也必须落进超时器的 reject 通道（原写法先求值，
                 //   异常直接穿透回调＝发送链卡死、降级重发不跑）
                 kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)
-                  .then(function () { note('sw'); resolve(true); }, tryNext);
+                  .then(function () { note('sw'); resolve(true); }, function (e) {
+                    // FIX 2026-09-25 #1241：区分「内核明确拒绝」与「内核始终没给回执」——旧写法两者都
+                    //   走 tryNext＝把四级剥媒体阶梯整踩一遍。而雨见浏览器（realme GT Neo6 SE 实报）这类
+                    //   第三方 Chromium 内核的现实是：通知**已经挂到系统**、返回的 Promise 却永不 settle
+                    //   ⇒ 每 4 秒重发一条，四级阶梯＝同一条消息弹 4 次（＝用户原话「同一个消息手机通知
+                    //   四次、后台弹窗也会通知 4 次」；阶梯长度与 4 恰好相等，零机型分支：判据只取内核
+                    //   回执形态，任何不 settle 的内核都同病、也都一并收口）。明确拒绝（媒体字段被内核
+                    //   挑掉）仍是阶梯的正题，照旧逐级剥；未落地＝按「已挂出」结算并就此收手，不再重发。
+                    //   同族双向假象见 #1218（大键读空＝已丢失）、#1227（idbSet 超时＝失败）。
+                    if (e && e.kaTimeout) { notifyUnsettled++; note('sw'); resolve(true); return; } // #1241 回执未落地＝按已挂出收手，绝不重发（旧写法退回 tryNext＝四级阶梯弹四条）
+                    tryNext();
+                  });
               });
             };
             tryNext();

@@ -2904,6 +2904,11 @@ const FIX_SENTINELS = [
   { name: '#614 通知发送链 SW.ready 超时兜底（删掉＝SW 被回收/注册失败时 ready 永不落地，后台通知「点测试没反应」+ 弹窗不发复发）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(navigator.serviceWorker.ready, 4000)' },
   { name: '#614/#673 ready 拿不到现役 SW 时回退页面通知路径（隐藏态先挂「就绪即补发」，删掉＝不可用时永远 pending、测试按钮无反馈）', file: 'js/bg-keep.js', needle: 'if (!reg) { if (hidden) swNotifyLater(title, opts, chanOut); pageFallback(); return; }' },
   { name: '#614/#673 showNotification 超时用 thunk 形式（删掉 thunk 退回先求值写法＝同步 throw 穿透回调，发送链卡死且降级重发不跑）', file: 'js/bg-keep.js', needle: 'kaWithTimeout(function () { return reg.showNotification(title, attempt); }, 4000)' },
+  // ==== 2026-09-25 #1241 通知发送链「超时＝失败」假象收口（realme GT Neo6 SE／雨见浏览器实报「同一个消息通知四次、后台弹窗也弹 4 次」，多机型同族；判据只取内核回执三态、零机型／零 UA 分支） ====
+  { name: '#1241a 回执未落地不再重发（删掉＝退回无条件 tryNext，四级剥媒体阶梯被「Promise 永不 settle 但通知已挂出」的内核整踩一遍＝同一条消息弹 4 次复发）', file: 'js/bg-keep.js', needle: "if (e && e.kaTimeout) { notifyUnsettled++; note('sw'); resolve(true); return; }" },
+  { name: '#1241b 超时那一下带 kaTimeout 旗标（删旗标＝上面那条收手闸恒不成立，重复弹照旧；明确拒绝仍走阶梯的语义同时失去区分依据）', file: 'js/bg-keep.js', needle: "const te = new Error('ka-timeout'); te.kaTimeout = true; reject(te);" },
+  { name: '#1241c 未落地次数对外可读（删掉＝诊断读不到，下次真机报告再遇这类内核只能靠猜；与本批收手闸同一批代码）', file: 'js/bg-keep.js', needle: 'window.bgNotifyUnsettled = function () { return notifyUnsettled; };' },
+  { name: '#1241d 诊断【保活现场】点名「通知回执未落地」（删掉＝本批唯一取证出口没了，行为断言见 tools/verify-1241-notify-settle-once.mjs）', file: 'js/device.js', needle: "kpParts.push('通知回执未落地=' + nu + '次" },
   { name: '#614 测试按钮点击即时反馈（删掉＝要等发送链 settle 才有提示，SW 卡住时用户看到「点了没反应」）', file: 'js/bg-keep.js', needle: "toast('正在检查通知环境…');" },
   // ==== 2026-09-17 #673 后台弹窗「又收不到」：过渡期不再整条吞新消息 + 发送链静默丢失口子（红米K80 Chrome 等多机型） ====
   { name: '#673 过渡期（切后台头15秒）由「一律不弹」改为按内容判定（退回无条件 return 则 TA 回复在 1~40 秒延迟内落窗＝聊天有、通知栏没有复发）', file: 'js/bg-keep.js', needle: 'recentChatDup(nkey, ts, NOTIFY_FRESH_CHAT_DUP_MS)) { gateStats.tooFresh++; return; }' },

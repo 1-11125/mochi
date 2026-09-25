@@ -1313,6 +1313,8 @@
             ? '已接管（可发系统通知）' : '未接管（SW 尚未生效或刚被系统回收）';
           const lc = (typeof window.bgNotifyLastChannel === 'function') ? (window.bgNotifyLastChannel() || '本会话还没发过') : '未接入';
           kpParts.push('后台服务=' + ctrl + ' · 最近通知通道=' + lc + '（sw＝切后台也能弹 / page＝仅前台可见 / none＝没发出去）');
+          const nu = (typeof window.bgNotifyUnsettled === 'function') ? (window.bgNotifyUnsettled() || 0) : 0; // #1241：回执未落地计数——下次真机报告直接点名这类内核
+          if (nu > 0) kpParts.push('通知回执未落地=' + nu + '次（该内核把通知挂出去之后 Promise 永不 settle；本站已按「已挂出」收手、不再重发＝一条消息只弹一次）');
         } catch (e) {}
         // #780：WebRTC 停在 new 时把采集状态一起打出——本次真机取证就是「WebRTC=new」
         // 却看不出卡在 SDP 还是 ICE（实为候选 flush 早于 gather 完成，第二豁免恒死）。
