@@ -10689,9 +10689,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790316003260">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790318204486">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 14:00<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 14:36<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20627,16 +20627,35 @@ input.__mochiSurface = { owner: null, onFiles: null };
 try { input.accept = o.accept || 'image/*'; } catch (e) {}
 input.multiple = !!o.multiple;
 var rec = input.__mochiSurface = input.__mochiSurface || { owner: null, onFiles: null };
-if (o.owner) rec.owner = o.owner;
+var newOwner = o.owner;
+if (typeof newOwner === 'string') { try { newOwner = document.getElementById(newOwner); } catch (eO) { newOwner = null; } }
+if (newOwner) rec.owner = newOwner;
+if (typeof o.owner === 'string' && o.owner) rec.ownerId = o.owner;
+if (rec.host && rec.host !== btn) rec.owner = null;
+rec.host = btn;
 if (typeof o.onFiles === 'function') rec.onFiles = o.onFiles;
+if (typeof o.owner === 'string' && o.owner && typeof rec.onFiles !== 'function' && window.mochiFilePickBindHost) {
+try {
+var preHost = window.mochiFilePickBindHost(o.owner, btn);
+if (preHost && !rec.owner) rec.owner = preHost;
+} catch (eB) {}
+}
+if (!input.__mochiNativeHooked) {
+input.__mochiNativeHooked = 1;
+input.addEventListener('pointerdown', function () {
+if (window.mochiPickLog) window.mochiPickLog((btn && btn.id) || (input.id || 'surf'), 'surf:hit');
+}, { capture: true, passive: true });
+}
 input.onchange = function () {
 var files = Array.prototype.slice.call(input.files || []);
 try { input.value = ''; } catch (e) {} // 允许重选同一文件
+if (window.mochiPickLog) window.mochiPickLog((btn && btn.id) || (input.id || 'surf'), files.length ? ('surf:files=' + files.length) : 'surf:files=0');
 if (!files.length) return;
 if (typeof rec.onFiles === 'function') { try { rec.onFiles(files); } catch (e) {} return; }
 var owner = rec.owner;
+if (!owner && rec.ownerId) { try { owner = document.getElementById(rec.ownerId); } catch (e3) { owner = null; } }
 if (typeof owner === 'string') { try { owner = document.getElementById(owner); } catch (e2) { owner = null; } }
-if (!owner) return;
+if (!owner) { if (window.mochiPickLog) window.mochiPickLog((btn && btn.id) || (input.id || 'surf'), 'surf:nopipe'); return; }
 try {
 var dt = new DataTransfer();
 for (var i = 0; i < files.length; i++) dt.items.add(files[i]);
@@ -20660,15 +20679,123 @@ try {
 var all = document.querySelectorAll('input[data-file-pick-surface]');
 for (var i = 0; i < all.length; i++) {
 var rec = all[i].__mochiSurface;
-if (rec && (rec.owner === input || (typeof rec.owner === 'string' && rec.owner === input.id))) out.push(all[i]);
+if (rec && (rec.owner === input || (typeof rec.owner === 'string' && rec.owner === input.id) || (rec.ownerId && rec.ownerId === input.id))) out.push(all[i]);
 }
 } catch (e) {}
 return out;
+};
+window.__mochiLastTap = { x: 0, y: 0, t: 0 };
+(function () {
+var mark = function (ev) {
+try {
+var p = (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]) || ev;
+if (typeof p.clientX !== 'number') return;
+if (p.target && p.target.id === 'mochi-file-pick-fallback') return;
+window.__mochiLastTap = { x: p.clientX, y: p.clientY, t: Date.now() };
+} catch (e) {}
+};
+try {
+document.addEventListener('pointerdown', mark, { capture: true, passive: true });
+document.addEventListener('touchstart', mark, { capture: true, passive: true });
+document.addEventListener('mousedown', function (e) { if (e && e.isTrusted) mark(e); }, { capture: true, passive: true });
+} catch (e2) {}
+})();
+window.mochiFileInputRendered = function (input) {
+try {
+if (!input || !input.isConnected) return false;
+if (!input.getClientRects || input.getClientRects().length === 0) return false;
+var cs = getComputedStyle(input);
+if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+var r = input.getBoundingClientRect();
+if (r.width < 2 || r.height < 2) return false;
+if ((cs.clipPath && cs.clipPath !== 'none') || (cs.clip && cs.clip.indexOf('0px 0px 0px 0px') >= 0)) return false;
+return true;
+} catch (e) { return false; }
+};
+window.mochiPickFallback = function (input, tap) {
+var ov = document.getElementById('mochi-file-pick-fallback');
+if (!ov) {
+ov = document.createElement('input');
+ov.type = 'file';
+ov.id = 'mochi-file-pick-fallback';
+ov.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:24px;height:24px;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;font-size:0;appearance:none;-webkit-appearance:none;z-index:2147483600;pointer-events:none;opacity:1;';
+document.body.appendChild(ov);
+try {
+var st = document.createElement('style');
+st.textContent = 'input#mochi-file-pick-fallback::file-selector-button,input#mochi-file-pick-fallback::-webkit-file-upload-button{display:none;}';
+document.head.appendChild(st);
+} catch (e0) {}
+ov.addEventListener('click', function () {
+ov.style.pointerEvents = 'none';
+}, true);
+var off = function () { try { ov.style.pointerEvents = 'none'; } catch (eO2) {} };
+try {
+document.addEventListener('pointerup', off, { capture: true, passive: true });
+document.addEventListener('touchend', off, { capture: true, passive: true });
+document.addEventListener('mouseup', off, { capture: true, passive: true });
+} catch (eO3) {}
+window.__mochiPickFbOff = off;
+ov.addEventListener('change', function () {
+var files = Array.prototype.slice.call(ov.files || []);
+try { ov.value = ''; } catch (e1) {}
+var orig = window.__mochiPickFbTarget;
+if (!orig) return;
+window.__mochiPickFbTarget = null;
+if (window.mochiPickLog) window.mochiPickLog((orig.id || 'pick'), files.length ? ('fb:files=' + files.length) : 'fb:files=0');
+if (!files.length) return;
+try {
+var dt = new DataTransfer();
+for (var i = 0; i < files.length; i++) dt.items.add(files[i]);
+orig.files = dt.files;
+orig.dispatchEvent(new Event('change'));
+} catch (e2) {}
+});
+}
+try {
+var r = input && input.getBoundingClientRect ? input.getBoundingClientRect() : null;
+var vw = window.innerWidth || 360, vh = window.innerHeight || 640;
+var w = (r && r.width >= 24) ? Math.min(r.width, vw - 8) : 120;
+var h = (r && r.height >= 24) ? Math.min(r.height, vh - 8) : 44;
+var x = tap ? (tap.x - w / 2) : (r ? r.left : (vw - w) / 2);
+var y = tap ? (tap.y - h / 2) : (r ? r.top : (vh - h) / 2);
+x = Math.max(0, Math.min(x, vw - w));
+y = Math.max(0, Math.min(y, vh - h));
+try { ov.accept = input && input.accept ? input.accept : ''; } catch (e3) {}
+try { ov.multiple = !!(input && input.multiple); } catch (e4) {}
+ov.style.left = Math.round(x) + 'px';
+ov.style.top = Math.round(y) + 'px';
+ov.style.width = Math.round(w) + 'px';
+ov.style.height = Math.round(h) + 'px';
+ov.style.pointerEvents = 'auto';
+window.__mochiPickFbTarget = input;
+try { setTimeout(window.__mochiPickFbOff, 1200); } catch (e6) {}
+} catch (e5) { return null; }
+return ov;
 };
 window.mochiFilePickFire = function (input, opts) {
 var o = opts || {};
 if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', 'leg:fire');
 if (window.mochiFilePickSurfaceTap && window.mochiFilePickSurfaceTap()) return true;
+var tap = (window.__mochiLastTap && (Date.now() - window.__mochiLastTap.t) < 1200) ? window.__mochiLastTap : null;
+var touchable = false;
+if (window.mochiFileInputRendered(input)) {
+try {
+if (!tap) touchable = true;
+else {
+var under = document.elementFromPoint(tap.x, tap.y);
+touchable = !!(under && (under === input || input.contains(under) || (under.contains && under.contains(input))));
+}
+} catch (eT) { touchable = false; }
+}
+if (tap && !touchable && window.mochiPickFallback) {
+var fb = window.mochiPickFallback(input, tap);
+if (fb) {
+if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', 'fb:onscreen');
+if (typeof fb.showPicker === 'function') { try { fb.showPicker(); } catch (eFb1) {} }
+try { fb.click(); } catch (eFb2) {}
+return true;
+}
+}
 var fired = false;
 if (input && typeof input.showPicker === 'function') {
 try { input.showPicker(); fired = true; } catch (e) {}
@@ -20689,19 +20816,25 @@ input.id = id;
 input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:1;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
 document.body.appendChild(input);
 }
-try { input.accept = o.accept || ''; } catch (e) {}
-input.multiple = !!o.multiple;
+try { input.accept = (o.accept != null && o.accept !== '') ? o.accept : (input.accept || ''); } catch (e) {}
+if (typeof o.multiple === 'boolean') input.multiple = o.multiple;
+if (typeof o.onFiles === 'function') input.__mochiOnFiles = o.onFiles;
 input.onchange = function () {
 var files = Array.prototype.slice.call(input.files || []);
 try { input.value = ''; } catch (e) {} // 允许重选同一文件
 if (window.mochiPickLog) window.mochiPickLog((input && input.id) || 'pick', files.length ? ('files=' + files.length) : 'files=0');
-if (o.onFiles) { try { o.onFiles(files); } catch (e) {} }
+if (input.__mochiOnFiles) { try { input.__mochiOnFiles(files); } catch (e) {} }
 };
 if (o.btn && window.mochiFilePickLabel) window.mochiFilePickLabel(o.btn, input);
-if (o.btn && window.mochiFilePickSurfaceAll && typeof o.onFiles === 'function') {
+if (window.mochiFilePickSurfaceAll && typeof o.onFiles === 'function') {
 try {
 var surfs = window.mochiFilePickSurfaceAll(input);
-for (var si = 0; si < surfs.length; si++) { surfs[si].__mochiSurface.onFiles = o.onFiles; }
+for (var si = 0; si < surfs.length; si++) {
+var srec = surfs[si].__mochiSurface;
+if (!srec) continue;
+srec.onFiles = o.onFiles;
+if (!srec.owner) srec.owner = input;
+}
 } catch (e) {}
 }
 var activate = function () {
@@ -20716,6 +20849,12 @@ if (o.btn && window.mochiFilePickGuard) window.mochiFilePickGuard(input, activat
 else activate();
 }
 return input;
+};
+window.mochiFilePickBindHost = function (id, btn) {
+try {
+if (!id || document.getElementById(id)) return document.getElementById(id);
+return window.mochiFilePick({ id: id, noClick: true, btn: btn || null });
+} catch (e) { return null; }
 };
 if (window.__mochiLoaded) window.__mochiLoaded.push("device.js");
 } catch (__e) { if (window.__mochiErrLoaded) window.__mochiErrLoaded.push("device.js"); try { console.error("[JS] device.js", __e && __e.message || __e); } catch (x) {} if (window.__jsErrors) window.__jsErrors.push("[device.js] " + String(__e && __e.message || __e)); } })();
@@ -21653,4 +21792,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugjx96k -->
+<!-- __MOCHI_EOF__ mugl8fnq -->

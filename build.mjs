@@ -5034,6 +5034,16 @@ const FIX_SENTINELS = [
   { name: "#1218y 聊天背景入库后验真落盘（与 #1218w 同口径；删＝聊天壁纸上传假成功原样复发）", file: "js/chat-settings.js", needle: "confirmBigKeys(['cs-bg-item-' + id, 'cs-bg'], '这张壁纸');" },
   { name: "#1218z 聊天侧验真的取回执（与 #1218x 同口径）", file: "js/chat-settings.js", needle: "Promise.all(keys.map((k) => landed(k))).then((sts) => {" },
   { name: "#1218ab 落盘判定先看 LS 副本（≤200KB 的键 set 已同步写进 localStorage＝本身就是落盘证据；删＝小图上传碰上 IDB 不可用（隐私模式）会被误报「存储已满」，正常设备被吓）", file: "js/idb.js", needle: "if (lsHeld) return Promise.resolve('landed');" },
+  { name: "#1230a 统一入口激活前搬层（手指底下没有真·可点 input 就把常驻 input 搬到落点；删＝回退成「只程序化点 sr-only clip 的 input」，iOS 26 静默拒绝＝上传/导入「点了没反应」原样复发）", file: "js/device.js", needle: "if (tap && !touchable && window.mochiPickFallback) {" },
+  { name: "#1230b 「真被渲染」判据（isConnected＋有盒子＋没被 clip/clip-path 裁掉；删＝搬层腿失去触发条件，等于没有这条修复）", file: "js/device.js", needle: "window.mochiFileInputRendered = function (input) {" },
+  { name: "#1230c 选完文件只派发 change、不派发 click（删/改回派发 click＝点按冒回入口按钮，双开或递归）", file: "js/device.js", needle: "orig.dispatchEvent(new Event('change'))" },
+  { name: "#1230d 搬层只活到这一下手势结束（pointerup/touchend/mouseup 收窗；删＝常驻层吃掉用户下一次落在同一格的点击）", file: "js/device.js", needle: "document.addEventListener('pointerup', off, { capture: true, passive: true });" },
+  { name: "#1230e 常驻 input 的 accept「本次没提就保留」（裸登记抹空＝图片入口变全文件选择器，#753 口径回流）", file: "js/device.js", needle: "input.accept = (o.accept != null && o.accept !== '') ? o.accept : (input.accept || '');" },
+  { name: "#1230f 回调粘性登记（只本次真给了 onFiles 才覆盖；删＝后一个入口把前一个入口的回调写没，选回来的文件被静默丢弃）", file: "js/device.js", needle: "if (typeof o.onFiles === 'function') input.__mochiOnFiles = o.onFiles;" },
+  { name: "#1230g 铺层时预建宿主后回头补解析（顺序反了＝聊天壁纸原生层选完文件「无管线可交」，图片被丢掉）", file: "js/device.js", needle: "if (preHost && !rec.owner) rec.owner = preHost;" },
+  { name: "#1230h 补登记管线不再要求调用方传 btn（壁纸面板/抽屉正是不传 btn 只按 id 登记宿主的入口；删＝这批入口重新掉出手势白名单）", file: "js/device.js", needle: "if (window.mochiFilePickSurfaceAll && typeof o.onFiles === 'function') {" },
+  { name: "#1230i 预建宿主走统一入口同一实现（noClick 绝不激活选择器；删＝样式/单例/accept 口径与入口分叉，或预建即弹选择器）", file: "js/device.js", needle: "window.mochiFilePickBindHost = function (id, btn) {" },
+  { name: "#1230j 原生腿取证（surf:hit／surf:files=N／surf:nopipe；删＝下次报障又只剩 leg:fire，弹没弹全靠猜）", file: "js/device.js", needle: "mochiPickLog((btn && btn.id) || (input.id || 'surf'), 'surf:hit')" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
