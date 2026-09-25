@@ -209,7 +209,7 @@ background:#fdecec; border-left:3px solid #d23430; border-radius:12px;
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }
 .splash-alert.splash-cardlock .splash-alert-t::before { background:#9a6410; }
 .splash-alert.splash-cardlock p { color:#6b4a0e; }
-.cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; }
+.cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:manipulation; }
 .cardlock-btn {
 appearance:none; border:1.5px solid #9a6410; background:#9a6410; color:#fff;
 font-size:12.5px; font-weight:800; padding:7px 14px; border-radius:8px; letter-spacing:.5px;
@@ -10690,9 +10690,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790333970422">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790336226294">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 18:59<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 19:37<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20718,6 +20718,52 @@ if (rec && (rec.owner === input || (typeof rec.owner === 'string' && rec.owner =
 } catch (e) {}
 return out;
 };
+window.mochiTapOn = function (el, fn) {
+if (!el || typeof fn !== 'function') return false;
+var tDown = null;   // touch 路布点
+var pDown = null;   // pointer 路布点
+var tapGuard = 0;   // 三路共用防重入闸
+function tapIsTap(dx, dy, dt) { return dt <= 450 && dx * dx + dy * dy <= 144; }
+function tapFire() {
+var now = Date.now();
+if (now < tapGuard) return;
+tapGuard = now + 800;
+fn();
+}
+try {
+el.addEventListener('touchstart', function (e) {
+var t = e.changedTouches && e.changedTouches[0];
+if (!t) return;
+tDown = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };
+}, { passive: true });
+el.addEventListener('touchend', function (e) {
+var t = e.changedTouches && e.changedTouches[0];
+if (!tDown || !t || t.identifier !== tDown.id) return;
+var dx = t.clientX - tDown.x, dy = t.clientY - tDown.y, dt = Date.now() - tDown.t;
+tDown = null;
+if (!tapIsTap(dx, dy, dt)) return;
+tapFire();
+}, { passive: true });
+el.addEventListener('touchcancel', function () { tDown = null; }, { passive: true });
+el.addEventListener('pointerdown', function (e) {
+if (e.pointerType === 'mouse') return;
+pDown = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+});
+el.addEventListener('pointerup', function (e) {
+if (!pDown || e.pointerId !== pDown.id || e.pointerType === 'mouse') return;
+var dx = e.clientX - pDown.x, dy = e.clientY - pDown.y, dt = Date.now() - pDown.t;
+pDown = null;
+if (!tapIsTap(dx, dy, dt)) return;
+tapFire();
+});
+el.addEventListener('pointercancel', function () { pDown = null; });
+el.addEventListener('click', function (e) {
+if (Date.now() < tapGuard) { e.preventDefault(); e.stopPropagation(); return; }
+tapFire();
+});
+} catch (e) { return false; }
+return true;
+};
 window.__mochiLastTap = { x: 0, y: 0, t: 0 };
 (function () {
 var mark = function (ev) {
@@ -21827,4 +21873,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mugumcqe -->
+<!-- __MOCHI_EOF__ mugvypdi -->

@@ -126,6 +126,53 @@
     ensureBulletin();
     setupCardLockCard();
   }
+  // ===== #1273 开屏解锁入口的三件地基（零机型／零 UA 分支，判据只取「组件在不在场」与事件形态）=====
+  // ① cardLockStateKnown：锁卡状态问得到才算数，问不到按默认锁定态渲染（见 setupCardLockCard）。
+  // ② cardLockTap：轻点走 device.js 的 touch/pointer/click 三路共用防重入原语 mochiTapOn——这颗按钮
+  //    原本只绑 click，而「长按候选判定／滚动回弹／点按期重渲」吞掉合成 click 的内核上，手指真的点了、
+  //    界面上什么都不会发生（本批无头真跑：捕获阶段吞 click 后真实触摸＝弹窗 0 次）。原语不在才回退裸
+  //    click，老语义保底可用。
+  // ③ cardLockMissingNote：解锁要用的外置件没在场时不再静默 return，把「缺的是哪件、怎么办」写进卡上
+  //    看得见的状态行，并挂一条有界复核（≤20s，件一到位整卡重渲染，用户再点就正常走）。
+  function cardLockStateKnown() {
+    try { return typeof window.cardLockOpen === 'function' ? !!window.cardLockOpen() : false; } catch (e) { return false; }
+  }
+  function cardLockTap(el, fn) {
+    if (window.mochiTapOn && window.mochiTapOn(el, fn)) return;
+    el.addEventListener('click', fn);
+  }
+  let cardLockFixTimer = null;
+  // 缺件真话要有「留底」：setupCardLockCard 是 actions.innerHTML='' 整卡重渲染，远程公告回写
+  // （clock.js 顶部 fetch 落地后 run() 补刷）等会把刚写上的那句抹掉——无头实测点完 0.8s 后状态行
+  // 又是空的，用户看到的仍是一句「点了没反应」。留底在组件补齐前由每次重渲染自己补回。
+  let cardLockMissMsg = '';
+  function cardLockReady() { return !!(window.cardLockTryUnlock && window.openModal); }
+  function cardLockMissingNote(miss, okState) {
+    let host = okState;
+    if (!host) {
+      const actions = document.getElementById('splash-cardlock-actions');
+      if (actions) {
+        host = actions.querySelector('.cardlock-state');
+        if (!host) { host = document.createElement('div'); host.className = 'cardlock-state'; actions.appendChild(host); }
+      }
+    }
+    const msg = '解锁要用的 ' + miss + ' 这次没加载成功（不是密码不对）——顶部若出现「点此重试」点它，或重开一次页面；组件一到位这里自己恢复。';
+    cardLockMissMsg = msg;
+    if (host) host.textContent = msg;
+    else if (window.toast) window.toast(msg); // 开屏已隐藏（进入后的提醒弹窗那条路）时至少给一句真话
+    if (cardLockFixTimer) return;
+    let waited = 0;
+    cardLockFixTimer = setInterval(function () {
+      waited += 1200;
+      if (window.cardLockOpen && window.cardLockTryUnlock && window.openModal) {
+        clearInterval(cardLockFixTimer); cardLockFixTimer = null;
+        cardLockMissMsg = '';
+        setupCardLockCard(); // 整卡重渲染＝按钮接回真流程，状态行随之消失
+        return;
+      }
+      if (waited >= 20000) { clearInterval(cardLockFixTimer); cardLockFixTimer = null; }
+    }, 1200);
+  }
   // ===== #319 防未成年人·系统内置字卡锁：开屏锁卡状态渲染 + 解锁/上锁交互 =====
   // 闸门本体在 card-lock.js（jsFiles 靠前加载）；这里只管开屏这张卡的 UI。
   // 解锁成功：提示后自动刷新页面，让回复池/字卡库/词典拼字按解锁态重建。
@@ -133,11 +180,16 @@
   //   「进入前 · 作者必读公告」上的两个日期（用户直派「时间就在开屏第一页的某个目录，不要看第二页」）。
   function setupCardLockCard() {
     const card = document.getElementById('splash-cardlock');
-    if (!card || !window.cardLockOpen) return;
+    // #1273：入口本体不再要求闸门模块在场。原写法 `if (!card || !window.cardLockOpen) return;` 在
+    //   js/card-lock.js 没加载成功（外置包首拉失败、#802 自愈也没补回来）时整张卡一个按钮都不出＝
+    //   用户所见「点『输入密码解锁』点不了」（无头真跑复现：拦掉该文件后 actions 容器空、点按零反馈）。
+    //   现在状态问得到就照状态渲染、问不到按默认锁定态渲染（#319 默认本就是 locked），按钮照常出现，
+    //   点下去给的是真话而不是沉默。
+    if (!card) return;
     const tip = document.getElementById('splash-cardlock-tip');
     const actions = document.getElementById('splash-cardlock-actions');
     if (!actions) return;
-    const open = window.cardLockOpen();
+    const open = cardLockStateKnown();
     if (tip) tip.textContent = open
       ? '系统内置字卡已解锁（成年人验证已通过）。如需恢复未成年人保护，可重新上锁。'
       : '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。豁免说明（#499）：聊天情绪字卡、TA 的心情、聊天回应字卡这三大互动链不受锁定影响，未解锁也照常触发与抽取。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会更单薄（情绪/回应字卡仍在，但少了系统预设内容），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏第一页的章节目录里（点开第一页顶部的「目录」逐章翻一下就能找到）——不是第二页「进入前 · 作者必读公告」上那两个日期，也不是开屏最底下的部署时间（那只是用来判断有没有更新到新版本）。这个密码与开屏问答页的「暗号」是同一个。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
@@ -149,7 +201,7 @@
       relock.className = 'cardlock-btn cardlock-btn-ghost';
       relock.type = 'button';
       relock.textContent = '重新上锁';
-      relock.addEventListener('click', function () {
+      cardLockTap(relock, function () {
         window.cardLockRelock();
         state.textContent = '已重新上锁，页面即将刷新…';
         // #404 同款：等 'locked' 确认落进 IDB 再刷新（重锁丢失＝未成年人保护失效，更不能容忍）
@@ -163,12 +215,14 @@
       unlock.className = 'cardlock-btn';
       unlock.type = 'button';
       unlock.textContent = '输入密码解锁';
-      unlock.addEventListener('click', function () {
+      cardLockTap(unlock, function () {
         promptCardUnlock(state);
       });
       actions.appendChild(unlock);
     }
     actions.appendChild(state);
+    // 重渲染不许吃掉刚写下的真话（组件仍缺位时补回同一句）
+    if (cardLockMissMsg && !cardLockReady()) state.textContent = cardLockMissMsg;
   }
   // #XXX 二级验证·输入解锁密码：开屏锁卡与「进入后强制提醒弹窗」共用同一解锁流程（拆出来避免
   // 两处重复）。okState 可选：解锁成功时写入「验证通过」提示文本的元素（开屏锁卡用，页面随后
@@ -178,7 +232,11 @@
   // #812：staticText 末尾补「与开屏问答页暗号同码」互指说明——两入口同码（card-lock 校验
   // mochi#990815 散列、applock QA_SKIP_CODE='990815'），此前两边只讲公式互不通气＝用户各自猜码。
   function promptCardUnlock(okState) {
-    if (!window.openModal || !window.cardLockTryUnlock) return;
+    // #1273：原来这里是「openModal 与 cardLockTryUnlock 任一缺失就直接 return」＝缺件时点了像没反应
+    //   （无头真跑：删掉 window.openModal 后按钮的 click 真的到了处理函数，弹窗 0 次、状态行空）。
+    //   现在把「缺的是哪件」写在卡上，并在件到位后自己重渲整卡。
+    const miss = !window.cardLockTryUnlock ? 'js/card-lock.js' : (!window.openModal ? 'js/personalize.js' : '');
+    if (miss) { cardLockMissingNote(miss, okState); return; }
     const splash = document.getElementById('splash');
     const mask = document.getElementById('modal-mask');
     const splashVisible = splash && !splash.classList.contains('hide');

@@ -4206,6 +4206,65 @@ window.mochiFilePickSurfaceAll = function (input) {
   return out;
 };
 
+// ===== #1273 「轻点」共用绑定原语：touch 路 ＋ pointer 路 ＋ click 兜底，三路共用防重入 =====
+// 需求/根因（用户 2026-09-25 直派「开屏的二级密码【点击密码解锁】的功能，还是有手机型号点击不了，
+// 这个问题其他设备型号也有出现」；零机型／零 UA 分支＝判据只取事件形态，不认内核名字）：那颗按钮只绑
+// 一个 click 监听，而纯 click 在部分内核/内嵌浏览器上不可靠——长按候选判定吞 click、滚动回弹期按位漂移、
+// 点按期 DOM 重渲把目标拆走，合成 click 就永远到不了监听器（chat.js #511/#152 拍一族已实测多机型；本批
+// 无头真跑同一形态：捕获阶段吞掉 click 后真实触摸该按钮＝弹窗一次都不出＝用户所见「点了没反应」）。
+// 三路口径与 #511 一致：① touch 路——只派发 touch 事件的旧内核/壳唯一可靠入口；② pointer 路——现代内核
+// 轻点判定（位移 ≤12px 且 ≤450ms，滑动／长按不算点；鼠标不参与，click 路本就覆盖它）；③ click 路——
+// 鼠标与以上两路都失效时的兜底。任一路触发即置 800ms 闸，其余路当场让位（杜绝双开）；落在闸内的合成
+// click 顺手吞掉——否则「touchend 开弹窗」后补发的那一发会按新布局命中遮罩，把弹窗刚开即关（#522 同源）。
+// **绝不在 touch/pointer 上 preventDefault**（#991 勿踩：那会压掉兼容鼠标事件，各内核是否补发 click
+// 不一致＝把修复做成新的机型差异）。原语放 device.js：它是唯一内联的系统基座，外置包没加载成功时它也在。
+window.mochiTapOn = function (el, fn) {
+  if (!el || typeof fn !== 'function') return false;
+  var tDown = null;   // touch 路布点
+  var pDown = null;   // pointer 路布点
+  var tapGuard = 0;   // 三路共用防重入闸
+  function tapIsTap(dx, dy, dt) { return dt <= 450 && dx * dx + dy * dy <= 144; }
+  function tapFire() {
+    var now = Date.now();
+    if (now < tapGuard) return;
+    tapGuard = now + 800;
+    fn();
+  }
+  try {
+    el.addEventListener('touchstart', function (e) {
+      var t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      tDown = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      var t = e.changedTouches && e.changedTouches[0];
+      if (!tDown || !t || t.identifier !== tDown.id) return;
+      var dx = t.clientX - tDown.x, dy = t.clientY - tDown.y, dt = Date.now() - tDown.t;
+      tDown = null;
+      if (!tapIsTap(dx, dy, dt)) return;
+      tapFire();
+    }, { passive: true });
+    el.addEventListener('touchcancel', function () { tDown = null; }, { passive: true });
+    el.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse') return;
+      pDown = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+    });
+    el.addEventListener('pointerup', function (e) {
+      if (!pDown || e.pointerId !== pDown.id || e.pointerType === 'mouse') return;
+      var dx = e.clientX - pDown.x, dy = e.clientY - pDown.y, dt = Date.now() - pDown.t;
+      pDown = null;
+      if (!tapIsTap(dx, dy, dt)) return;
+      tapFire();
+    });
+    el.addEventListener('pointercancel', function () { pDown = null; });
+    el.addEventListener('click', function (e) {
+      if (Date.now() < tapGuard) { e.preventDefault(); e.stopPropagation(); return; }
+      tapFire();
+    });
+  } catch (e) { return false; }
+  return true;
+};
+
 // ===== 激活腿统一实现（FIX 2026-09-20 #920 第八波）——showPicker → click → 可反馈提示 =====
 // 用户（小米14 自带浏览器 MiuiBrowser 20.27 / Android16 / Chrome135 内核实报「照片、壁纸上传不了，
 // 所有上传图片的地方上传无反应」，明说其他机型也有；#677→#717→#738→#753→#755→#756→#813→#877 同族

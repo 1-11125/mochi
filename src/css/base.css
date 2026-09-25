@@ -276,7 +276,11 @@ html { margin:0; padding:0; }
 .splash-alert.splash-cardlock .splash-alert-t { color:#9a6410; }
 .splash-alert.splash-cardlock .splash-alert-t::before { background:#9a6410; }
 .splash-alert.splash-cardlock p { color:#6b4a0e; }
-.cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; }
+/* #1273：禁选手势收在动作区容器上（一行覆盖两颗按钮，且与并行批 #1220 挂在 .cardlock-btn 内的
+   那两行不撞 needle）。判据是 CSS 生效事实：user-select / -webkit-touch-callout 可继承，
+   touch-action 虽不继承但按规范会与各祖先的值求交＝容器上的 manipulation 对子树里的按钮同样生效
+   （禁掉双击缩放等待与长按识别候选，长按不再吞掉这一次点按）。 */
+.cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:manipulation; }
 .cardlock-btn {
   appearance:none; border:1.5px solid #9a6410; background:#9a6410; color:#fff;
   font-size:12.5px; font-weight:800; padding:7px 14px; border-radius:8px; letter-spacing:.5px;

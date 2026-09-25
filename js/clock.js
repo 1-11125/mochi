@@ -102,13 +102,49 @@ ensureSettings();
 ensureBulletin();
 setupCardLockCard();
 }
+function cardLockStateKnown() {
+try { return typeof window.cardLockOpen === 'function' ? !!window.cardLockOpen() : false; } catch (e) { return false; }
+}
+function cardLockTap(el, fn) {
+if (window.mochiTapOn && window.mochiTapOn(el, fn)) return;
+el.addEventListener('click', fn);
+}
+let cardLockFixTimer = null;
+let cardLockMissMsg = '';
+function cardLockReady() { return !!(window.cardLockTryUnlock && window.openModal); }
+function cardLockMissingNote(miss, okState) {
+let host = okState;
+if (!host) {
+const actions = document.getElementById('splash-cardlock-actions');
+if (actions) {
+host = actions.querySelector('.cardlock-state');
+if (!host) { host = document.createElement('div'); host.className = 'cardlock-state'; actions.appendChild(host); }
+}
+}
+const msg = '解锁要用的 ' + miss + ' 这次没加载成功（不是密码不对）——顶部若出现「点此重试」点它，或重开一次页面；组件一到位这里自己恢复。';
+cardLockMissMsg = msg;
+if (host) host.textContent = msg;
+else if (window.toast) window.toast(msg); // 开屏已隐藏（进入后的提醒弹窗那条路）时至少给一句真话
+if (cardLockFixTimer) return;
+let waited = 0;
+cardLockFixTimer = setInterval(function () {
+waited += 1200;
+if (window.cardLockOpen && window.cardLockTryUnlock && window.openModal) {
+clearInterval(cardLockFixTimer); cardLockFixTimer = null;
+cardLockMissMsg = '';
+setupCardLockCard(); // 整卡重渲染＝按钮接回真流程，状态行随之消失
+return;
+}
+if (waited >= 20000) { clearInterval(cardLockFixTimer); cardLockFixTimer = null; }
+}, 1200);
+}
 function setupCardLockCard() {
 const card = document.getElementById('splash-cardlock');
-if (!card || !window.cardLockOpen) return;
+if (!card) return;
 const tip = document.getElementById('splash-cardlock-tip');
 const actions = document.getElementById('splash-cardlock-actions');
 if (!actions) return;
-const open = window.cardLockOpen();
+const open = cardLockStateKnown();
 if (tip) tip.textContent = open
 ? '系统内置字卡已解锁（成年人验证已通过）。如需恢复未成年人保护，可重新上锁。'
 : '系统内置字卡已全部锁定，这是面向未成年人的保护措施，不是 bug。锁定影响：默认聊天字卡、词典（含词典拼字）、其他系统预设互动字卡全部停用；你自建的字卡与情绪 / 心意 / 意图字卡不受影响。豁免说明（#499）：聊天情绪字卡、TA 的心情、聊天回应字卡这三大互动链不受锁定影响，未解锁也照常触发与抽取。所以若发现「某功能开关都开了却没效果」，先看是不是锁定中。不输密码也能正常使用全部功能，密码只管两件事：解锁系统内置字卡、跳过开屏的 2 个问答。注意：锁定时若自定义字卡（含 mj 字卡）一张都没添加，回复会更单薄（情绪/回应字卡仍在，但少了系统预设内容），自己在自定义字卡里添加几张即可。密码一共 6 位数字：前两位是 99，后 4 位是 mochi 字卡生日的字面数字（把生日日期原样写成 4 位数），生日写在开屏第一页的章节目录里（点开第一页顶部的「目录」逐章翻一下就能找到）——不是第二页「进入前 · 作者必读公告」上那两个日期，也不是开屏最底下的部署时间（那只是用来判断有没有更新到新版本）。这个密码与开屏问答页的「暗号」是同一个。解开密码请勿二传（不要告诉别人），一旦有人二传，密码就会被重新设置。';
@@ -120,7 +156,7 @@ const relock = document.createElement('button');
 relock.className = 'cardlock-btn cardlock-btn-ghost';
 relock.type = 'button';
 relock.textContent = '重新上锁';
-relock.addEventListener('click', function () {
+cardLockTap(relock, function () {
 window.cardLockRelock();
 state.textContent = '已重新上锁，页面即将刷新…';
 const goReloadAfterPersist = function () { setTimeout(function () { location.reload(); }, 300); };
@@ -133,15 +169,17 @@ const unlock = document.createElement('button');
 unlock.className = 'cardlock-btn';
 unlock.type = 'button';
 unlock.textContent = '输入密码解锁';
-unlock.addEventListener('click', function () {
+cardLockTap(unlock, function () {
 promptCardUnlock(state);
 });
 actions.appendChild(unlock);
 }
 actions.appendChild(state);
+if (cardLockMissMsg && !cardLockReady()) state.textContent = cardLockMissMsg;
 }
 function promptCardUnlock(okState) {
-if (!window.openModal || !window.cardLockTryUnlock) return;
+const miss = !window.cardLockTryUnlock ? 'js/card-lock.js' : (!window.openModal ? 'js/personalize.js' : '');
+if (miss) { cardLockMissingNote(miss, okState); return; }
 const splash = document.getElementById('splash');
 const mask = document.getElementById('modal-mask');
 const splashVisible = splash && !splash.classList.contains('hide');

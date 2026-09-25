@@ -5113,6 +5113,23 @@ const FIX_SENTINELS = [
   { name: '#1272e 导入回执键定义（删＝导出排除与 device.js 回执环两侧同失锚，取证随备份文件传播到别的设备复发）', file: 'js/data-backup.js', needle: "const IMPORT_LOG_KEY = 'xy-home-v2:__import-log';" },
   { name: '#1272f 数据导入回执环本体（删＝导入失败又只剩内存取证，页面回收 25 次的现场四份报告全空、无从诊断）', file: 'js/device.js', needle: 'window.mochiImportLog = function (what) {' },
   { name: '#1272g 诊断报告导入回执出账行（删＝回执写了也看不见，报障单里仍没有这一步的现场）', file: 'js/device.js', needle: "L.push('数据导入回执（旧→新）：' + _is.join(' | '));" },
+  /* ==== 2026-09-25 #1273 开屏二级密码「输入密码解锁」在有手机上点不动收口（用户实报「还是有手机型号点击不了／其他设备型号也有出现」，并明令不得因覆盖式修改让不同型号浏览器的 bug 反复出现；零机型／零 UA 分支＝判据只取事件形态与「组件在不在场」两个可观测事实）。无头真跑（真触摸派发，不是 .click()）实测到三条互相独立的死法：
+      ① 这颗按钮原本只绑 click——在长按起选字/滚动回弹/点按期重渲染的内核上合成 click 被吞，手指真的点了、界面零反馈（捕获阶段吞 click 的对照场景：弹窗 0 次）；
+      ② 入口压根没渲染——`if (!card || !window.cardLockOpen) return;` 让 js/card-lock.js 没加载成功（外置包首拉失败、#802 自愈没补回来）时整张卡一个按钮都不出（拦掉该文件的对照场景：actions 容器空）；
+      ③ 渲染了但静默——promptCardUnlock 开头「两个组件任一缺失就 return」，删掉 window.openModal 后 click 确实到了处理函数，弹窗 0 次、状态行空，用户看到的仍是「点不动」。
+      方案：① 轻点原语收进常驻内联的 device.js（mochiTapOn：touch／pointer／click 三路顺序都走＋800ms 共用防重入闸，口径照抄 chat.js #511/#152 已验证的那套，全程 passive 不 preventDefault＝#991 勿踩），开屏两颗按钮统一走它；② 状态问得到就照状态渲染、问不到按默认锁定态渲染（#319 默认本就 locked），按钮照常出现；③ 缺件时在卡上写「缺的是哪件、怎么办」这句真话，并挂一条有界复核（≤20s，件一到位整卡重渲染）。CSS 侧把禁选/长按识别收在 .cardlock-actions 容器一行（user-select 与 -webkit-touch-callout 可继承，touch-action 与祖先求交），并行批 #1220 挂在 .cardlock-btn 里的那两行未连带、其登记表行仍可在最新底上直接重放。行为断言＝tools/verify-1273-cardlock-tap.mjs（g/r 两侧同尺）。 ==== */
+  { name: "#1273a 轻点原语出口（删＝全站又没有「三路都走＋共用防重入」的单点实现，回到每入口手抄两条腿＝本族反复复发的结构性原因）", file: "js/device.js", needle: "window.mochiTapOn = function (el, fn) {" },
+  { name: "#1273b 轻点判据＝位移 ≤12px 且时长 ≤450ms（改成无条件放行＝长按/滑动也触发解锁；删＝吞 click 的内核上又只剩一条腿）", file: "js/device.js", needle: "function tapIsTap(dx, dy, dt) { return dt <= 450 && dx * dx + dy * dy <= 144; }" },
+  { name: "#1273c 指针路只认非鼠标（去掉 pointerType 判定＝鼠标按下抬起与 click 各触发一次，桌面预览上双击）", file: "js/device.js", needle: "if (e.pointerType === 'mouse') return;" },
+  { name: "#1273d click 腿只兜底、不补枪（删掉防重入闸＝touch 内核一次点按弹两个窗；把它修成无条件 return＝又只剩 click 一条腿，本批症状原样复发）", file: "js/device.js", needle: "if (Date.now() < tapGuard) { e.preventDefault(); e.stopPropagation(); return; }" },
+  { name: "#1273e 锁卡状态「问得到才算数」（删＝问不到时按 open 渲染成「重新上锁」，未成年人保护在状态未明的机器上被默认解除）", file: "js/clock.js", needle: "function cardLockStateKnown() {" },
+  { name: "#1273f 渲染走状态探测（改回裸调 window.cardLockOpen()＝闸门模块缺席时整段抛错/不渲染，「一个按钮都不出」复发）", file: "js/clock.js", needle: "const open = cardLockStateKnown();" },
+  { name: "#1273g 解锁按钮绑到三路原语（改回 addEventListener('click')＝吞掉合成 click 的内核上手指真的点了而界面什么都不发生，正是用户实报的那句「点击不了」）", file: "js/clock.js", needle: "cardLockTap(unlock, function () {" },
+  { name: "#1273h 原语不在才回退裸 click（删掉回退＝内联底座也没加载成功的极端机器上一个绑都没有；把它写成唯一路径＝又回到单腿）", file: "js/clock.js", needle: "if (window.mochiTapOn && window.mochiTapOn(el, fn)) return;" },
+  { name: "#1273i 缺哪个组件说哪个（改回「任一缺失就静默 return」＝click 到了处理函数、弹窗 0 次、屏幕上一句反馈都没有，用户看到的仍是「点不动」）", file: "js/clock.js", needle: "const miss = !window.cardLockTryUnlock ? 'js/card-lock.js'" },
+  { name: "#1273j 组件一到位自己重渲整卡（删＝一次加载失败永久定格，只能整页刷新赌网络；换成无限轮询＝后台常驻计时器）", file: "js/clock.js", needle: "if (cardLockFixTimer) return;" },
+  { name: "#1273l 整卡重渲染不吃掉刚写下的真话（删＝远程公告回写那次 run() 把状态行清空，用户看到的仍是「点了没反应」——无头实测点完 0.8s 后状态行为空）", file: "js/clock.js", needle: "if (cardLockMissMsg && !cardLockReady()) state.textContent = cardLockMissMsg;" },
+  { name: "#1273k 动作区容器禁选（删＝长按识别候选/双击缩放等待把这一次点按吃掉，与①同族症状复发；针取 minify 后的产物形态）", file: "css/base.css", needle: ".cardlock-actions { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; user-select:none;" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
