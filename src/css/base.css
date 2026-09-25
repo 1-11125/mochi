@@ -1395,6 +1395,14 @@ html.ios-cover-top .phone .statusbar {
   margin-bottom:14px; white-space:pre-wrap; word-break:break-word;
 }
 .modal-static[hidden] { display:none; }
+/* FIX 2026-09-25 #1266：长说明弹窗的正文框也要「高度上限 + 框内滚动」——备份提醒（pwa.js 每天
+   进桌面必弹的那一层）正文实量 715px，而弹窗整体被 .modal 的 max-height:min(78vh,100%-24px) 截断，
+   胶囊行与「确定」排在正文之后落在裁剪区外（390×844 实测胶囊 rect.top 873、「确定」923 ＞ 视口 844，
+   elementFromPoint 取不到＝点不着），而 v3.25.x 按用户偏好隐藏了 .modal 的滚动条＝看不见也滑不着，
+   于是这一层遮罩长期在场＝用户所见「整屏发灰、页面按钮按不动」（iPhone 12 Pro Max／iOS 16.6 Safari
+   实报，多机型同现＝纯布局事实，零机型／零 UA 分支）。与 .modal-textarea.ce-box（v3.23.x）、
+   .modal-group-chips（#295）同一族做法；#612 口径保留 overscroll-behavior:auto，框内滚到边界仍放行给 .modal */
+.modal-static { max-height:38vh; overflow-y:auto; overscroll-behavior:auto; }
 
 /* ===== PWA 安装按钮 / iOS 提示 ===== */
 .pwa-install {

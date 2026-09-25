@@ -855,6 +855,7 @@ background:var(--static-bg); border-radius:12px; padding:12px 14px;
 margin-bottom:14px; white-space:pre-wrap; word-break:break-word;
 }
 .modal-static[hidden] { display:none; }
+.modal-static { max-height:38vh; overflow-y:auto; overscroll-behavior:auto; }
 .pwa-install {
 position:fixed; right:16px; bottom:calc(16px + var(--mochi-safe-bottom,env(safe-area-inset-bottom,0px))); z-index:900;
 display:flex; align-items:center; gap:6px;
@@ -8730,6 +8731,10 @@ color-scheme:dark;
 [data-theme="dark"] .cal-grid .cal-cell.sel.cal-water::after { background:rgba(17,17,17,.85); box-shadow:0 0 0 1px rgba(255,255,255,.2); }
 [data-theme="dark"] .period-card { background:var(--dark-card-92); border-color:var(--dark-border); }
 [data-theme="dark"] .period-status-ico { background:#555; }
+[data-theme="dark"] .period-status-ico.phase-period { background:#e85a8f; }
+[data-theme="dark"] .period-status-ico.phase-fertile { background:#f5a623; }
+[data-theme="dark"] .period-status-ico.phase-safe { background:#7ec69e; }
+[data-theme="dark"] .period-status-ico.phase-unknown { background:#555; }
 [data-theme="dark"] .period-phase-bar .seg { color:#999; background:var(--static-bg); }
 [data-theme="dark"] .period-phase-bar .seg-0 { background:rgba(232,90,143,.18); color:#ff9ec4; }
 [data-theme="dark"] .period-phase-bar .seg-1 { background:rgba(245,166,35,.16); color:#ffc76e; }
@@ -8738,6 +8743,7 @@ color-scheme:dark;
 [data-theme="dark"] .pms-badge.pms-mid { background:rgba(245,166,35,.15); color:#ffb74d; }
 [data-theme="dark"] .pms-badge.pms-heavy { background:rgba(232,90,143,.16); color:#f48fb1; }
 [data-theme="dark"] .period-btn { border-color:var(--dark-border-12); background:var(--dark-card-92); }
+[data-theme="dark"] .period-btn.primary { background:#e85a8f; border-color:#e85a8f; color:#fff; }
 [data-theme="dark"] .period-month-btn { border-color:var(--dark-border-12); background:var(--dark-card); color:var(--ink); }
 [data-theme="dark"] .period-month-btn:active { background:var(--dark-hover); }
 [data-theme="dark"] .period-legend .lg { color:#999; }
@@ -8745,6 +8751,13 @@ color-scheme:dark;
 [data-theme="dark"] .period-grid .pc-cell { color:#999; background:var(--dark-card); border-color:var(--dark-border); }
 [data-theme="dark"] .period-grid .pc-cell.ph-predict { background:rgba(232,90,143,.14); color:#f48fb1; border-color:#b04a67; }
 [data-theme="dark"] .period-grid .pc-cell.band.ph-predict { color:#ef7fa4; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period { background:#e85a8f; color:#fff; border-color:#e85a8f; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-spot { background:#f8b0c4; color:#7a2b48; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-light { background:#f48aa8; color:#6d203f; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-heavy { background:#d6336c; color:#fff; }
+[data-theme="dark"] .period-grid .pc-cell.ph-fertile { background:rgba(245,166,35,.18); color:#ffc76e; border-color:#f5a623; }
+[data-theme="dark"] .period-grid .pc-cell.band.ph-predict { background:rgba(232,90,143,calc(0.10 + 0.34 * var(--conf))); border-color:rgba(232,90,143,calc(0.35 + 0.45 * var(--conf))); }
+[data-theme="dark"] .period-legend .lg-fertile::before { background:rgba(245,166,35,.24); border-color:#f5a623; }
 [data-theme="dark"] .period-hist-row { background:var(--dark-card-92); border-color:rgba(255,255,255,.09); }
 [data-theme="dark"] .reg-badge.reg-good { background:rgba(58,155,90,.16); color:#7ed6a2; }
 [data-theme="dark"] .reg-badge.reg-mid { background:rgba(245,166,35,.15); color:#ffb74d; }
@@ -10690,9 +10703,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790344247105">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790345102479">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-25 21:50<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-25 22:05<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -20327,7 +20340,26 @@ const FUNC_ITEMS = [
 { n: '花园', app: 'garden', page: 'page-garden', open: true },
 { n: '此间', app: 'cjian', page: 'page-cjian', open: true },
 { n: '房间', app: 'room', page: 'page-room', open: true },
-{ n: '经期记录', app: 'period', page: 'page-period', open: true },
+{ n: '经期记录', app: 'period', page: 'page-period', open: true, audit: function (pg) {
+const out = [];
+try {
+const ico = document.getElementById('period-status-ico');
+if (ico) {
+const m = /phase-(\w+)/.exec(ico.className || '');
+const PHASE_BG = { period: 'rgb(232, 90, 143)', fertile: 'rgb(245, 166, 35)', safe: 'rgb(126, 198, 158)' };
+const want = m && PHASE_BG[m[1]];
+const got = getComputedStyle(ico).backgroundColor;
+out.push(!want ? '状态图标✓(该阶段无填色要求)' : (got === want ? '状态图标填色✓' : '✗ 状态图标填色被压平(' + m[1] + ' 期应 ' + want + ' 实 ' + got + ')'));
+}
+const cell = pg.querySelector('#period-grid .pc-cell.ph-period, #period-grid .pc-cell.ph-fertile');
+if (cell) {
+const blank = pg.querySelector('#period-grid .pc-cell.ph-none');
+const same = !!blank && getComputedStyle(cell).backgroundColor === getComputedStyle(blank).backgroundColor;
+out.push(same ? '✗ 日历格填色与空白格同色(' + getComputedStyle(cell).backgroundColor + ')' : '日历填色✓');
+} else out.push('日历填色-无样本(还没记过经期)');
+} catch (eA0) { out.push('日历填色-读取异常(不计失败)'); }
+return out;
+} },
 { n: '记账', app: 'accounting', page: 'page-accounting', open: true },
 { n: '梦角档案', app: 'memo-arc', page: 'page-memo-arc', open: true },
 { n: '我的档案', app: 'my-arc', page: 'page-my-arc', open: true },
@@ -20383,6 +20415,25 @@ document.querySelectorAll('.tab').forEach(function (tb) { if (tb.dataset) tb.cla
 } catch (e) {}
 }
 function pageVisible(id) { var p = document.getElementById(id); return !!(p && !p.hidden); }
+function blockerOverlay() {
+const sels = ['#modal-mask', '#qa-mask', '#splash', '.splash'];
+for (let i = 0; i < sels.length; i++) {
+try {
+const el = document.querySelector(sels[i]);
+if (el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0) return sels[i];
+} catch (e) {}
+}
+return null;
+}
+function hittable(el) {
+try {
+const r = el.getBoundingClientRect();
+if (r.width < 2 || r.height < 2) return 'invisible';
+const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+if (hit && (hit === el || el.contains(hit))) return true;
+return hit ? (hit.tagName + '.' + String(hit.className || '').slice(0, 24)) : 'offscreen';
+} catch (e) { return 'error'; }
+}
 async function collectFuncDiag() {
 const L = [];
 const rows = [];
@@ -20416,13 +20467,27 @@ if (!ic) warn = true;
 if (it.open && it.page && document.getElementById(it.page)) {
 try {
 const icon = document.querySelector('.app[data-app="' + it.app + '"], [data-desk-widget="app-' + it.app + '"]');
+const blk0 = blockerOverlay();
+if (blk0) {
+det.push('⚠ 开测时有全屏浮层在场(' + blk0 + ')＝该时刻用户点不动，已撤除后复测');
+warn = true;
+closeFloats();
+try { ['#qa-mask', '#splash'].forEach(function (s) { const q = document.querySelector(s); if (q) q.hidden = true; }); } catch (eQ) {}
+}
 const t0 = Date.now();
 if (icon) icon.click();
 await sleep(450);
 const opened = pageVisible(it.page);
 if (opened) {
-const back = document.getElementById(it.page).querySelector('.ch-back');
-if (back) back.click();
+const pg = document.getElementById(it.page);
+if (it.audit) { try { (it.audit(pg) || []).forEach(function (s) { det.push(s); if (String(s).indexOf('✗') === 0) ok = false; }); } catch (eA) {} }
+const back = pg.querySelector('.ch-back');
+if (back) {
+const hit = hittable(back);
+if (hit === true) det.push('可点✓');
+else { ok = false; det.push('✗ 返回按钮不可命中(' + hit + ')＝用户点不动'); }
+back.click();
+}
 await sleep(230);
 const closedOk = !pageVisible(it.page);
 det.push('打开✓ ' + (Date.now() - t0) + 'ms，关闭' + (closedOk ? '✓' : '⚠'));
@@ -21874,4 +21939,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ muh0qm9t -->
+<!-- __MOCHI_EOF__ muh18ya7 -->

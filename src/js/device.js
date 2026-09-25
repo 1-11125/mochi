@@ -3661,7 +3661,29 @@ window.mochiViewportForm = function (sig) {
     { n: '花园', app: 'garden', page: 'page-garden', open: true },
     { n: '此间', app: 'cjian', page: 'page-cjian', open: true },
     { n: '房间', app: 'room', page: 'page-room', open: true },
-    { n: '经期记录', app: 'period', page: 'page-period', open: true },
+    { n: '经期记录', app: 'period', page: 'page-period', open: true, audit: function (pg) {
+      // #1266：阶段填色断言——暗色整段压平（特异度打架）时浅色读数正常、旧自检全绿，
+      // 用户实报「填色的图标无法显示」自检却查不出。判据只取计算样式两个结构事实：
+      // ①状态图标底色＝当前 phase 的品牌填色；②有填色的日历格不得与空白格同色。
+      const out = [];
+      try {
+        const ico = document.getElementById('period-status-ico');
+        if (ico) {
+          const m = /phase-(\w+)/.exec(ico.className || '');
+          const PHASE_BG = { period: 'rgb(232, 90, 143)', fertile: 'rgb(245, 166, 35)', safe: 'rgb(126, 198, 158)' };
+          const want = m && PHASE_BG[m[1]];
+          const got = getComputedStyle(ico).backgroundColor;
+          out.push(!want ? '状态图标✓(该阶段无填色要求)' : (got === want ? '状态图标填色✓' : '✗ 状态图标填色被压平(' + m[1] + ' 期应 ' + want + ' 实 ' + got + ')'));
+        }
+        const cell = pg.querySelector('#period-grid .pc-cell.ph-period, #period-grid .pc-cell.ph-fertile');
+        if (cell) {
+          const blank = pg.querySelector('#period-grid .pc-cell.ph-none');
+          const same = !!blank && getComputedStyle(cell).backgroundColor === getComputedStyle(blank).backgroundColor;
+          out.push(same ? '✗ 日历格填色与空白格同色(' + getComputedStyle(cell).backgroundColor + ')' : '日历填色✓');
+        } else out.push('日历填色-无样本(还没记过经期)');
+      } catch (eA0) { out.push('日历填色-读取异常(不计失败)'); }
+      return out;
+    } },
     { n: '记账', app: 'accounting', page: 'page-accounting', open: true },
     { n: '梦角档案', app: 'memo-arc', page: 'page-memo-arc', open: true },
     { n: '我的档案', app: 'my-arc', page: 'page-my-arc', open: true },
@@ -3717,6 +3739,30 @@ window.mochiViewportForm = function (sig) {
     } catch (e) {}
   }
   function pageVisible(id) { var p = document.getElementById(id); return !!(p && !p.hidden); }
+  // #1266 收口自检盲区：旧版打开测试用程序化 .click()——穿透一切全屏遮罩、不走命中
+  // 测试，页面又只查 pageVisible，于是「用户全屏浮层下按钮按不动」这类故障自检恒绿
+  // （iPhone 12 Pro Max 实报）。此后打开测试加两条纯结构判据：①开测时若有任何可见
+  // 全屏拦截浮层，点名并先行撤除再复测（它就是按不动的根因）；②返回按钮必须能被
+  // elementFromPoint 真命中。零机型／零 UA 分支。
+  function blockerOverlay() {
+    const sels = ['#modal-mask', '#qa-mask', '#splash', '.splash'];
+    for (let i = 0; i < sels.length; i++) {
+      try {
+        const el = document.querySelector(sels[i]);
+        if (el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0) return sels[i];
+      } catch (e) {}
+    }
+    return null;
+  }
+  function hittable(el) {
+    try {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return 'invisible';
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (hit && (hit === el || el.contains(hit))) return true;
+      return hit ? (hit.tagName + '.' + String(hit.className || '').slice(0, 24)) : 'offscreen';
+    } catch (e) { return 'error'; }
+  }
   async function collectFuncDiag() {
     const L = [];
     const rows = [];
@@ -3750,13 +3796,27 @@ window.mochiViewportForm = function (sig) {
       if (it.open && it.page && document.getElementById(it.page)) {
         try {
           const icon = document.querySelector('.app[data-app="' + it.app + '"], [data-desk-widget="app-' + it.app + '"]');
+          const blk0 = blockerOverlay();
+          if (blk0) {
+            det.push('⚠ 开测时有全屏浮层在场(' + blk0 + ')＝该时刻用户点不动，已撤除后复测');
+            warn = true;
+            closeFloats();
+            try { ['#qa-mask', '#splash'].forEach(function (s) { const q = document.querySelector(s); if (q) q.hidden = true; }); } catch (eQ) {}
+          }
           const t0 = Date.now();
           if (icon) icon.click();
           await sleep(450);
           const opened = pageVisible(it.page);
           if (opened) {
-            const back = document.getElementById(it.page).querySelector('.ch-back');
-            if (back) back.click();
+            const pg = document.getElementById(it.page);
+            if (it.audit) { try { (it.audit(pg) || []).forEach(function (s) { det.push(s); if (String(s).indexOf('✗') === 0) ok = false; }); } catch (eA) {} }
+            const back = pg.querySelector('.ch-back');
+            if (back) {
+              const hit = hittable(back);
+              if (hit === true) det.push('可点✓');
+              else { ok = false; det.push('✗ 返回按钮不可命中(' + hit + ')＝用户点不动'); }
+              back.click();
+            }
             await sleep(230);
             const closedOk = !pageVisible(it.page);
             det.push('打开✓ ' + (Date.now() - t0) + 'ms，关闭' + (closedOk ? '✓' : '⚠'));

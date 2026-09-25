@@ -605,6 +605,15 @@
 /* ---- chat-pages.css 补齐：经期页（整页白底大区） ---- */
 [data-theme="dark"] .period-card { background:var(--dark-card-92); border-color:var(--dark-border); }
 [data-theme="dark"] .period-status-ico { background:#555; }
+/* #1266 阶段填色回收（iPhone 12 Pro Max／iOS 16.6 Safari 实报「经期页无法正常显示填色的图标」，
+   用户明说多机型同现）：本段通用图标/格子规则与浅色侧同特异度或更高，把
+   chat-pages.css 的 phase-* 阶段色和 ph-period/ph-fertile 日历填色整体压平
+   （实报读数：状态图标 rgb(85,85,85)、经期/排卵格 rgb(30,30,30) 与空白格同色＝整页无色）。
+   补齐按阶段逐个恢复，零机型／零 UA 分支——判定只取 data-theme 与选择器特异度。 */
+[data-theme="dark"] .period-status-ico.phase-period { background:#e85a8f; }
+[data-theme="dark"] .period-status-ico.phase-fertile { background:#f5a623; }
+[data-theme="dark"] .period-status-ico.phase-safe { background:#7ec69e; }
+[data-theme="dark"] .period-status-ico.phase-unknown { background:#555; }
 [data-theme="dark"] .period-phase-bar .seg { color:#999; background:var(--static-bg); }
 [data-theme="dark"] .period-phase-bar .seg-0 { background:rgba(232,90,143,.18); color:#ff9ec4; }
 [data-theme="dark"] .period-phase-bar .seg-1 { background:rgba(245,166,35,.16); color:#ffc76e; }
@@ -613,6 +622,7 @@
 [data-theme="dark"] .pms-badge.pms-mid { background:rgba(245,166,35,.15); color:#ffb74d; }
 [data-theme="dark"] .pms-badge.pms-heavy { background:rgba(232,90,143,.16); color:#f48fb1; }
 [data-theme="dark"] .period-btn { border-color:var(--dark-border-12); background:var(--dark-card-92); }
+[data-theme="dark"] .period-btn.primary { background:#e85a8f; border-color:#e85a8f; color:#fff; }
 [data-theme="dark"] .period-month-btn { border-color:var(--dark-border-12); background:var(--dark-card); color:var(--ink); }
 [data-theme="dark"] .period-month-btn:active { background:var(--dark-hover); }
 [data-theme="dark"] .period-legend .lg { color:#999; }
@@ -620,6 +630,15 @@
 [data-theme="dark"] .period-grid .pc-cell { color:#999; background:var(--dark-card); border-color:var(--dark-border); }
 [data-theme="dark"] .period-grid .pc-cell.ph-predict { background:rgba(232,90,143,.14); color:#f48fb1; border-color:#b04a67; }
 [data-theme="dark"] .period-grid .pc-cell.band.ph-predict { color:#ef7fa4; }
+/* #1266 续：日历格填色回收——经期实色（含经量热力四档，深浅对比换到深底可读的字色）、
+   排卵格按本段 seg-1 的暗色语汇恢复；置信度高斯带沿用浅色侧 calc 形态。 */
+[data-theme="dark"] .period-grid .pc-cell.ph-period { background:#e85a8f; color:#fff; border-color:#e85a8f; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-spot { background:#f8b0c4; color:#7a2b48; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-light { background:#f48aa8; color:#6d203f; }
+[data-theme="dark"] .period-grid .pc-cell.ph-period.pc-flow-heavy { background:#d6336c; color:#fff; }
+[data-theme="dark"] .period-grid .pc-cell.ph-fertile { background:rgba(245,166,35,.18); color:#ffc76e; border-color:#f5a623; }
+[data-theme="dark"] .period-grid .pc-cell.band.ph-predict { background:rgba(232,90,143,calc(0.10 + 0.34 * var(--conf))); border-color:rgba(232,90,143,calc(0.35 + 0.45 * var(--conf))); }
+[data-theme="dark"] .period-legend .lg-fertile::before { background:rgba(245,166,35,.24); border-color:#f5a623; }
 [data-theme="dark"] .period-hist-row { background:var(--dark-card-92); border-color:rgba(255,255,255,.09); }
 [data-theme="dark"] .reg-badge.reg-good { background:rgba(58,155,90,.16); color:#7ed6a2; }
 [data-theme="dark"] .reg-badge.reg-mid { background:rgba(245,166,35,.15); color:#ffb74d; }
