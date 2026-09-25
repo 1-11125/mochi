@@ -233,14 +233,9 @@ html { margin:0; padding:0; }
    章节标题(黑竖条+加粗) > 子标题 > 编号条目(浅灰圆标) > 子列表项(·前缀) */
 .splash { --sp-ink:#111111; --sp-soft:rgba(17,17,17,.055); --sp-line:rgba(17,17,17,.08); --sp-glow:rgba(17,17,17,.045); }
 [data-theme="dark"] .splash { --sp-ink:#e8e8e8; --sp-soft:rgba(255,255,255,.075); --sp-line:rgba(255,255,255,.12); --sp-glow:rgba(255,255,255,.05); }
-/* v3.8.z：必读摘要——深色卡片置顶，承载必读内容，视觉上最醒目 */
-.splash-summary {
-  margin:0 0 16px; padding:14px 15px 15px 16px;
-  background:var(--sp-soft); border-left:3px solid var(--sp-ink); border-radius:12px;
-}
-.splash-summary-title { font-size:12px; font-weight:800; color:var(--ink); margin-bottom:9px; letter-spacing:.8px; }
-.splash-summary p { font-size:12px; line-height:1.8; color:var(--soft-ink); }
-.splash-summary p + p { margin-top:7px; }
+/* v8.44 #1216（2026-09-25 用户直派「必读摘要全部删掉」）：那份置顶「必读摘要」卡片连同样式整块删除，
+   渲染侧的同批拆掉（见 clock.js）。必读口径从此只有两处——开屏最顶必读卡组 ＋ 第一页目录章节；
+   补回第三份必然分叉，勿再添加。 */
 /* v3.26.x #575（用户 2026-09-16 反馈）：开屏「新手上路 3 步」蓝色引导卡已整块删除（DOM 在 template.html
    同批撤除），此处 .splash-onboard* 样式一并清掉。新手引导改由 onboarding.js 弹层承担，勿再补回。 */
 /* v3.27.x：防骗置顶声明——固定在公告最顶部，防收费诈骗醒目提示；
@@ -407,14 +402,10 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
   background:var(--sp-soft); color:var(--sp-ink);
   font-size:10px; font-weight:800;
 }
-/* 高亮条目：关键提醒用显眼橙色加粗标出（如「基础疑问可直接问 AI」）；
-   双选择器压过 .splash-notice-list p / .splash-summary p 的软墨色 */
-.splash-notice-list .splash-hl, .splash-summary .splash-hl { color:#e8590c; font-weight:800; }
-/* #1024 观感（用户 2026-09-22 选定「必读摘要不再全部橙色」）——改前实测摘要 9 条全是同一橙色
-   #e8590c / 同字重 800，同色同重等于没有重点、整块像警告墙。现在只保留三条红线（防倒卖 /
-   转载侵权 / 18 禁）为橙色加粗，其余条目标 splash-plain＝普通墨色小字（正文原字号不变）。
-   三条红线的 DOM 一字不动（build.mjs #613 的锚点仍逐字命中），章节正文里的 .splash-hl 不受影响。 */
-.splash-summary .splash-hl.splash-plain { color:var(--ink); font-weight:400; }
+/* 高亮条目：关键提醒用显眼橙色加粗标出（如「基础疑问可直接问 AI」）；压过 .splash-notice-list p 的软墨色 */
+.splash-notice-list .splash-hl { color:#e8590c; font-weight:800; }
+/* #1024 观感（用户 2026-09-22 选定「橙色加粗只留给真正的红线，同色同重等于没有重点」）口径不变：
+   章节正文里要显眼就写 .splash-hl，其余保持正文墨色。 */
 /* 子列表项：黑色 · 前缀，与编号条目文字对齐 */
 .splash-bullet { position:relative; padding-left:24px; margin-bottom:7px; line-height:1.75; }
 .splash-bullet::before {

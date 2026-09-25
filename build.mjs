@@ -4982,6 +4982,11 @@ const FIX_SENTINELS = [
   { name: '#1216g 同条·在线权威源（删＝只读在线公告的用户目录里少这句）', file: 'pwa/notice.json', needle: '"不只 iPhone：建议都把本站「添加到主屏幕」用（iPhone：Safari 底部分享按钮' },
   { name: '#1216h 「再配合三点」并进 iPhone 章·静态兜底（删＝三条操作指引随摘要一起消失＝用户按不到做任何改善）', file: 'template.html', needle: '<p class="splash-bullet">再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。' },
   { name: '#1216i 同条·在线权威源', file: 'pwa/notice.json', needle: '"再配合三点：①给手机留几个 GB 空闲存储；②别点 Safari 的「清除历史记录与网站数据」；③导出的备份文件存多处（微信/云盘/文件各留一份）。' },
+  /* ==== 2026-09-25 #1216c（用户直派「把开屏公告的【必读摘要】全部删掉」，选定「拆干净机制」口径）：
+     内容层已在前两笔撤除（54ae3a8/267ff0e），本批连渲染侧与样式侧一起拆掉——在线 notice.json 的 summary 字段就此废弃，
+     填了也不再渲染。两支针都取删除型：这套机制被谁补回来时当场报红（补回＝第三份必读口径，必然与顶卡/目录分叉）。 ==== */
+  { name: '#1216j 必读摘要建块代码已删（回流＝notice.json 的 summary 又渲染出一块必读摘要，与开屏顶卡＋目录章节三份口径分叉）', file: 'js/clock.js', needle: 'if (Array.isArray(data.summary) && data.summary.length) {', absent: true },
+  { name: '#1216k 必读摘要样式已删（回流＝那块卡片带着自己的深色置顶皮回来，样式与类名同批删的，缺一半就是被人为补回）', file: 'css/base.css', needle: '.splash-summary {', absent: true },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

@@ -713,7 +713,8 @@ function buildSplashToc(list) {
 // ===== 开屏公告远程化：notice.json 在线覆盖公告文案 =====
 // 用法：改 src/pwa/notice.json 内容 → 构建部署，开屏公告即更新（无需改代码）。
 // 字段：title / sub / tip（前置提示块，数组，元素可为字符串或 {h:块标题,p:[段落]}）
-//       / sections（[{h:章节标题,p:[条目]}]，优先于旧 list）；
+//       / sections（[{h:章节标题,p:[条目]}]，优先于旧 list）；notice.json 的 summary 字段自 v8.44 #1216
+//       起废弃（用户直派「必读摘要全部删掉」）：填了也不再渲染，必读内容只有开屏顶卡＋第一页目录两份口径。
 //       条目支持四种：字符串=自动编号条目；{h:"子标题"}；{b:"子列表项"}；{hl:"高亮条目"}（橙色加粗显眼标出）。
 //       sections 为空数组 / hide:true 时隐藏整个公告区。
 // 失败（离线/无网络）静默保留 template.html 写死的默认文案兜底。
@@ -736,25 +737,6 @@ function buildSplashToc(list) {
         if (!data.sections.length || data.hide) { notice.style.display = 'none'; return; }
         if (list) {
           list.innerHTML = '';
-          // v3.8.z：必读摘要——固定展示在公告最顶部，承担"强读必读"内容，各章节折叠靠目录跳转
-          if (Array.isArray(data.summary) && data.summary.length) {
-            const sum = document.createElement('div');
-            sum.className = 'splash-summary';
-            const sumTitle = document.createElement('p');
-            sumTitle.className = 'splash-summary-title';
-            sumTitle.textContent = '必读摘要';
-            sum.appendChild(sumTitle);
-            data.summary.forEach(function (s) {
-              const p = document.createElement('p');
-              // #1024 观感：摘要条目默认仍是橙色加粗（作者点名要显眼的那几条不动），
-              // 只有 notice.json 标了 "lv":"plain" 的条目标 splash-plain＝普通墨色小字——
-              // 改前实测 9 条全是同一橙色同字重，等于没有重点。类名仍带 splash-hl（DOM 查询面不变）。
-              if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl' + (s.lv === 'plain' ? ' splash-plain' : ''); p.textContent = String(s.hl); }
-              else p.textContent = String(s);
-              sum.appendChild(p);
-            });
-            list.appendChild(sum);
-          }
           // 章节：字符串=自动编号条目；{h}=子标题；{b}=子列表项
           // v3.8.y：开屏公告折叠成章节索引，点标题展开细节
           renderSplashSections(list, data.sections, { collapsible: true, expandFirst: true });

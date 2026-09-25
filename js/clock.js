@@ -543,21 +543,6 @@ if (Array.isArray(data.sections)) {
 if (!data.sections.length || data.hide) { notice.style.display = 'none'; return; }
 if (list) {
 list.innerHTML = '';
-if (Array.isArray(data.summary) && data.summary.length) {
-const sum = document.createElement('div');
-sum.className = 'splash-summary';
-const sumTitle = document.createElement('p');
-sumTitle.className = 'splash-summary-title';
-sumTitle.textContent = '必读摘要';
-sum.appendChild(sumTitle);
-data.summary.forEach(function (s) {
-const p = document.createElement('p');
-if (s && typeof s === 'object' && s.hl !== undefined) { p.className = 'splash-hl' + (s.lv === 'plain' ? ' splash-plain' : ''); p.textContent = String(s.hl); }
-else p.textContent = String(s);
-sum.appendChild(p);
-});
-list.appendChild(sum);
-}
 renderSplashSections(list, data.sections, { collapsible: true, expandFirst: true });
 buildSplashToc(list);
 }
