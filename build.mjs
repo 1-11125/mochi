@@ -4837,7 +4837,12 @@ const FIX_SENTINELS = [
   { name: '#1161c 图层显示哪份纹理由烘焙状态裁决（删＝烘好的小纹理永远不铺或原图直铺无兜底，任一方向都破坏「不闪清晰裸图」语义）', file: 'js/personalize.js', needle: 'paintBgLayerImage(deskBlurReady() ? deskBlurBaked : deskWallSrc);' },
   { name: '#1162a IDB 键清单严格读到 null 时退避重试一次（#1162 报障「这个桌面没有数据」误报根因之一：idbListKeys 契约 null＝本次未读到而不是没有；删重试＝大项占用数据库期间导出/清空按空清单走＝假「没数据」甚至误导清空范围）', file: 'js/feature-data.js', needle: 'setTimeout(function () { res(window.idbListKeys()); }, 800);' },
   { name: '#1162b 心情日记写入前挡回填未齐（删＝#850 同族事故复发：IDB 回填未完时读到空包、点保存整包盖回数据库＝更早日记真丢，用户实报「日记数据丢失」的写侧通道）', file: 'js/mood-diary.js', needle: 'if (!Object.keys(dd.d).length && window.mochiDataPending && window.mochiDataPending())' },
-  { name: '#1067a 长离场回前台补一发强制权威重读（删掉＝挂后台/锁屏后回前台，其他上下文在后台落库的新消息永不上屏、要刷新才正常：红米K80 Chrome 实报、多机型同现）', file: 'js/chat.js', needle: 'if (awaitLongAway && chatDbReady) loadMsgs(true);' },
+  { name: '#1067a 长离场回前台补一发强制权威重读（删掉＝挂后台/锁屏后回前台，其他上下文在后台落库的新消息永不上屏、要刷新才正常：红米K80 Chrome 实报、多机型同现；#1202 起这一发改挂在有界复核状态机②上，锚点随之移到那里）', file: 'js/chat.js', needle: 'try { if (chatDbReady) loadMsgs(true); } catch (e) {}' },
+  // ==== 2026-09-24 #1202 用户实报「把浏览器放在后台一段时间再切回来，聊天里新的聊天消息无法显示」＝#1067 上线后仍复发（明说多机型同现）。零机型分支取证（tools/verify-1202-resume-reconcile.mjs，纯 HEAD 红侧）：#1067 那一发挂在 chatResumeRepin 的 350ms 一次性回调里，回调开头 `|| batchRendering) return;` 撞上后台冻结/深度节流留下的那半轮 renderWindow 分帧构建＝重读连同贴底一起作废，而 chatResumeRepinT 已清空、同一次离场不会有第二次 visibilitychange ⇒ 零补口，障碍清除后权威键读取次数实测 = 0、新消息 20s 内永不上屏。第二面：读库真跑成时若撞上回场几何风暴，loadMsgs 收尾只置 windowStale＝消息进内存、屏上不画，此后无任何重画入口。修法＝一次性一枪换成「等障碍清 → forceIdb 真读一发 → 等落地 → 屏/模型一致性复核」的有界状态机（250ms 步进／6s 死线／三通道去重），并补 mochi-fg-resume 第三报到路（只发 focus 不发 visibilitychange 的内核）。#1067「短离场≤60s 零重读」、#162、#416、#930、#978 契约零改动 ====
+  { name: '#1202a 长离场改为挂有界复核闸（删＝回场复核整轮没人开，#1067 那一发重新变成一次性子弹）', file: 'js/chat.js', needle: 'chatResumeReconcileArm(awaitLongAway);' },
+  { name: '#1202b 复核②真读一发权威前先记落地凭据（删＝无法确认这发读库是否落地就往下走，读侧竞态回来）', file: 'js/chat.js', needle: '_rcReadAt = lastIdbLoadAt;' },
+  { name: '#1202c ④屏/模型一致性复核：已追平且无作废标记才零动作（删＝要么每次都整窗重建＝回场闪屏复发，要么 windowStale/落后一大截永不再画＝「切回来才加载」复发）', file: 'js/chat.js', needle: 'if (lastIdx >= len - 1 && !windowStale) return;' },
+  { name: '#1202d mochi-fg-resume 第三报到路（删＝只发 focus 不发 visibilitychange 的内核整条回场闸都不跑，多机型同现的那一半症状无解）', file: 'js/chat.js', needle: 'chatResumeReconcileArm(window.bgLateCatchup(CHAT_RESUME_FRESH_MS) === true);' },
 
   { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
   { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },

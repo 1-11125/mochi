@@ -8360,23 +8360,100 @@ chatPinnedBottom = true;
 body.classList.remove('scroll-anchor-auto');
 }
 if (!chatPinnedBottom) return;
+// FIX 2026-09-24 #1202（用户实报「把浏览器放在后台一段时间再切回来，聊天里新的聊天消息无法显示」，
+// 明说其他设备型号也有出现——#1067 上线后仍复发的就是下面这一面）：#1067 那一发强制重读挂在本函数
+// 350ms 的一次性回调里，而回调开头是 `if (!chatVisible() || !chatPinnedBottom || batchRendering) return;`。
+// 真机回场最常撞上的就是 batchRendering：后台/锁屏期本 tab 被冻结或深度节流（隐藏标签里链式
+// setTimeout(fn,0) 被压到约 1 次/分钟），那半轮 renderWindow 分帧构建根本没跑完，解冻后它还要再飞
+// 一会儿 ⇒ 350ms 到点时构建仍在飞＝重读连同贴底一起作废；而 chatResumeRepinT 此刻已清空、同一次离场
+// 不会再有第二次 visibilitychange ⇒ **没有任何补口**，后台落库的新消息永远进不了内存。无头实证（纯
+// HEAD 红侧，tools/verify-1202-resume-reconcile.mjs）：构建在飞→障碍清除之后，权威键读取次数 = 0，
+// 新消息 20s 内始终不上屏（只有退出重进/刷新才画＝用户原话）。
+// 第二面：就算这发读库跑成了，它落地那一眼若正撞回场几何风暴（用户被判定为「不在底部」），loadMsgs
+// 收尾只走 `windowStale = true`＝消息进了内存、屏上不画，而此后没有任何重画入口（#951 的窗口自愈只
+// 跑 6×250ms 就永久放弃）。
+// 修法＝「一次性一枪」换成**有界复核状态机**（轮询口径同 #978 chatResumeRealign）：①等障碍（在飞的
+// 整窗构建）清 → ②真读一发权威（就是 #1067 那发 forceIdb 子弹，绕开 8s 时间闸）→ ③等它落地
+// （lastIdbLoadAt 前移）→ ④屏/模型一致性复核：只在「屏上尾部确实落后于权威尾部／空屏／被 windowStale
+// 判成作废」时补画（差几条走 #918 幂等增量补尾，落后一大截或空屏才整窗重建），已追平则零动作。
+// 250ms 步进、6s 死线、一次离场只开一轮；#162（解钉态不拽底）、#416、#1067「短离场≤60s 零重读」
+// 契约一字不动。纯时序判据、零机型/UA 分支。
+chatResumeReconcileArm(awaitLongAway);
 if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
-// FIX 2026-09-23 #1067（用户实报，红米 K80 Chrome，明说其他机型同现）：长挂后台/锁屏后回前台，
-// 聊天里「后台期落库的新消息」不显示、要刷新重新进入才正常。根因＝后台/锁屏期本 tab 的 JS 被冻结，
-// 新消息由别的上下文落进同一 origin 的聊天存储（另一标签页 / 主屏图标实例：LS 尾巴日志 <cid>:chat-tail
-// 与 IDB 整包都会写；SW 的离线提醒走独立的 psync-queue，回场本就有补投递链，见 bg-keep），而回前台
-// 只走 chatResumeRepin（贴底复核）与 chatResumeRearmRead（#967：仅「权威未达」才补读），权威早已在手
-// 时没有任何重读入口，普通 loadMsgs() 又被 IDB_RELOAD_MIN_GAP(8s) 时间闸跳过 ⇒ 后台落库的新消息永远
-// 不上屏。数据一直在库里、只是内存没重读。修＝长离场（>60s）回前台在既有回场闸内补一发强制权威重读
-// （forceIdb 绕开 8s 时间闸，大历史只重读 blk-idx + 热片），合并新消息并走既有增量渲染；无新消息则
-// changed=false 只补快照、零副作用。短离场（≤60s）一字不动＝不抢主线程（见 verify-1067 的 C1 契约）。
-try { if (awaitLongAway && chatDbReady) loadMsgs(true); } catch (e) {}
 chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
 chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);
+}
+let _rcTimer = null;
+let _rcDeadline = 0;
+let _rcArmAt = 0;
+let _rcPhase = 0; // 0=等构建在飞清 1=读已开枪等落地 2=等几何落定 3=已复核（本轮结束）
+let _rcReadAt = 0;
+const CHAT_RESUME_RECONCILE_MS = 6000; // 整轮复核预算（障碍清得掉就用不到，清不掉到点也要做一致性复核）
+function chatResumeReconcileArm(longAway) {
+if (!longAway) return; // 短离场（≤60s）行为零变化＝不抢主线程（#1067 C1 契约）
+const now = Date.now();
+if (now - _rcArmAt < 5000) return; // 一次离场只开一轮：visibilitychange／pageshow／mochi-fg-resume 三通道重复报到不叠加
+_rcArmAt = now;
+_rcPhase = 0;
+if (_rcTimer) clearTimeout(_rcTimer);
+_rcDeadline = now + CHAT_RESUME_RECONCILE_MS;
+_rcTimer = setTimeout(chatResumeReconcileStep, 250);
+}
+function chatResumeReconcileStep() {
+_rcTimer = null;
+if (document.visibilityState !== 'visible' || !chatVisible() || !chatPinnedBottom) return; // 又离场／用户已翻历史＝这轮作废（#162）
+const now = Date.now();
+const overdue = now >= _rcDeadline;
+if (_rcPhase === 0) {
+if (batchRendering) { // ① 那半轮整窗构建还在飞＝等它清（旧写法在这里直接 return 且永不再来）
+if (!overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
+_rcPhase = 2;
+} else {
+_rcPhase = 1;
+_rcReadAt = lastIdbLoadAt;
+// FIX 2026-09-23 #1067（长挂后台/锁屏回前台，后台期由别的上下文落进同一 origin 聊天存储的新消息不显示、
+// 要刷新才正常）：本状态机的②就是那一发子弹——forceIdb 绕开 IDB_RELOAD_MIN_GAP(8s) 时间闸，大历史只重读
+// blk-idx + 热片，合并新消息后走既有渲染；无新消息则 changed=false 只补快照、零副作用。
+try { if (chatDbReady) loadMsgs(true); } catch (e) {} // 权威未达时由 #967 chatResumeRearmRead 那条路负责
+}
+}
+if (_rcPhase === 1) {
+if (lastIdbLoadAt === _rcReadAt && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
+_rcPhase = 2;
+_rcDeadline = Date.now() + 3000; // 下面要写 DOM＝按 #978 同口径再给 3s 让几何落定
+}
+if (_rcPhase === 2) {
+if (!overdue && !chatRepinQuietEnough(now)) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
+_rcPhase = 3;
+chatResumeReconcileHeal();
+}
+}
+// ④ 屏/模型一致性复核：权威已在内存里、屏上却还停在旧窗口（#1067 之后仍然复发的那一半）。
+// 判据只用「屏上最后一条 data-idx vs 权威条数」＋ windowStale 凭据，二者都对＝零动作。
+function chatResumeReconcileHeal() {
+try {
+if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // #162／换装期不写 DOM
+const len = msgs.length;
+if (!len) return;
+let lastIdx = -1;
+const kids = body.children;
+for (let i = kids.length - 1; i >= 0; i--) {
+const v = kids[i] && kids[i].dataset ? parseInt(kids[i].dataset.idx, 10) : NaN;
+if (isFinite(v)) { lastIdx = v; break; }
+}
+if (lastIdx >= len - 1 && !windowStale) return; // 屏上尾部＝权威尾部且无作废标记＝什么都不做
+chatSettleHoldArm(); // #1010：补画期间视口媒体解码由进度条兜住
+if (windowStale || lastIdx < 0 || len - 1 - lastIdx > LOAD_STEP) renderWindow(false, true); // 空屏／整窗落后一大截／凭据作废＝整窗重建（与「长离场视同重新进聊天」同语义）
+else loadNewerIncremental(len); // 只差尾部几条＝#918 幂等增量补尾，不闪
+scrollChatBottom();
+chatSettleHoldSettle();
+chatResumeRealign(); // 补画改了几何＝交回 #978 落定闸同值重落一枪
+chatEntrySettle(); // #841h：迟到长高当帧回钉
+} catch (e) {}
 }
 // FIX 2026-09-21 #978（用户实报附截图「切后台然后再切回浏览器页面，聊天记录不贴底部输入栏上面了、
 // 最新消息整块顶到上半屏、下半全空」；同族第三发：#871 几何变动中途写⇒内核滚动树停旧偏移、#933
@@ -8422,6 +8499,17 @@ loadMsgs(true);
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeRearmRead(); });
 document.addEventListener('mochi-fg-resume', chatResumeRearmRead); // bg-keep 回前台统一信号（与 ta-ask/memo 同款通道）
 window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRearmRead(); });
+// FIX 2026-09-24 #1202：复核闸的第三条报到路。部分内核回前台只发 focus/pageshow、不发 visibilitychange
+// （bg-keep 正因如此才有 mochi-fg-resume 统一信号，#967 也挂了三通道）——那种设备上 chatResumeRepin
+// 整条路都不跑，本批的闸也就无从挂起。这里只认 bg-keep 实测的「真后台时长」判据（≥60s 才算长离场，
+// 与 CHAT_RESUME_FRESH_MS 同口径），短停留照旧零动作。
+document.addEventListener('mochi-fg-resume', function () {
+try {
+if (chatHiddenAt || !window.bgLateCatchup) return; // visibilitychange 报过到＝由上面那条路负责，本路只兜「内核不发 visibilitychange」的设备
+if (!chatVisible() || !chatPinnedBottom) return; // #162：用户离场前在翻历史＝不打扰
+chatResumeReconcileArm(window.bgLateCatchup(CHAT_RESUME_FRESH_MS) === true);
+} catch (e) {}
+});
 // FIX 2026-09-22 #1017（用户实报：「进入桌面，然后点击进入聊天，还是没有加载动画缓冲啊，导致页面卡几秒」；
 // 同批原提交 e78960b 落在侧分支 fix-1015-selfcheck-durations 上、从未并入 main ⇒ 用户 2026-09-22 复报
 // 「首次加载进入开屏，打开聊天页面……依旧没有动画缓冲」＝本条）：

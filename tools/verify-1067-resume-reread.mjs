@@ -11,6 +11,10 @@
 // 修法：长离场（>CHAT_RESUME_FRESH_MS 60s）回前台时在既有回场闸内补一发强制权威重读
 //   （loadMsgs(true)＝forceIdb 绕过 8s 时间闸），合并后台落库的新消息并走既有增量渲染。
 //   ≤60s 的短离场一字不动（不重读＝不抢主线程，见 C1）。
+//   2026-09-24 #1202 起这一发子弹搬进「回场一致性复核状态机」的 ② 阶段（旧写法挂在 350ms 一次性
+//   回调里，撞上后台冻结留下的半轮 renderWindow＝`batchRendering` 一挡，重读连同贴底一起作废且再无
+//   补口——本脚本 C2 在那个形态下实测仍红，见 verify-1202-resume-reconcile）。S2/S4 两根锚随之
+//   换形为 `try { if (chatDbReady) loadMsgs(true); } catch (e) {}`，语义不变。
 // 用例：
 //   S1~S4  静态锚（src 源与产物各两处）
 //   C1 【契约】短离场（2s）回场不强制重读权威（chat 历史键读取次数 = 0）
@@ -52,9 +56,9 @@ let src = '', prod = '';
 try { src = readFileSync(join(root, 'src', 'js', 'chat.js'), 'utf8'); } catch (e) {}
 try { prod = readFileSync(join(root, 'js', 'chat.js'), 'utf8'); } catch (e) {}
 A_('S1 长离场判据变量在位（源）', src.includes('const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;'));
-A_('S2 长离场回场补强制权威重读（源）', src.includes('if (awaitLongAway && chatDbReady) loadMsgs(true);'));
+A_('S2 长离场回场补强制权威重读（源）', src.includes("try { if (chatDbReady) loadMsgs(true); } catch (e) {}")); // #1202 换锚：这一发子弹已搬进回场复核状态机
 A_('S3 长离场判据变量在位（产物）', prod.includes('const awaitLongAway = gone > CHAT_RESUME_FRESH_MS;'));
-A_('S4 长离场回场补强制权威重读（产物）', prod.includes('if (awaitLongAway && chatDbReady) loadMsgs(true);'));
+A_('S4 长离场回场补强制权威重读（产物）', prod.includes("try { if (chatDbReady) loadMsgs(true); } catch (e) {}")); // #1202 换锚：同上（产物侧）
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const server = createServer((req, res) => {

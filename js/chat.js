@@ -6365,14 +6365,77 @@ chatPinnedBottom = true;
 body.classList.remove('scroll-anchor-auto');
 }
 if (!chatPinnedBottom) return;
+chatResumeReconcileArm(awaitLongAway);
 if (chatResumeRepinT) clearTimeout(chatResumeRepinT);
 chatResumeRepinT = setTimeout(function () {
 chatResumeRepinT = null;
 if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // 回场期用户已翻页/已解钉＝不抢
-try { if (awaitLongAway && chatDbReady) loadMsgs(true); } catch (e) {}
 chatResumeRealign(); // #978：回场贴底改「几何落定后同值重落一枪」——350ms 当场裸写正打在回场几何恢复风暴中段＝撕裂源
 chatEntrySettle(); // #930 保留：迟到长高（懒加载图/字体回填）当帧回钉
 }, 350);
+}
+let _rcTimer = null;
+let _rcDeadline = 0;
+let _rcArmAt = 0;
+let _rcPhase = 0; // 0=等构建在飞清 1=读已开枪等落地 2=等几何落定 3=已复核（本轮结束）
+let _rcReadAt = 0;
+const CHAT_RESUME_RECONCILE_MS = 6000; // 整轮复核预算（障碍清得掉就用不到，清不掉到点也要做一致性复核）
+function chatResumeReconcileArm(longAway) {
+if (!longAway) return; // 短离场（≤60s）行为零变化＝不抢主线程（#1067 C1 契约）
+const now = Date.now();
+if (now - _rcArmAt < 5000) return; // 一次离场只开一轮：visibilitychange／pageshow／mochi-fg-resume 三通道重复报到不叠加
+_rcArmAt = now;
+_rcPhase = 0;
+if (_rcTimer) clearTimeout(_rcTimer);
+_rcDeadline = now + CHAT_RESUME_RECONCILE_MS;
+_rcTimer = setTimeout(chatResumeReconcileStep, 250);
+}
+function chatResumeReconcileStep() {
+_rcTimer = null;
+if (document.visibilityState !== 'visible' || !chatVisible() || !chatPinnedBottom) return; // 又离场／用户已翻历史＝这轮作废（#162）
+const now = Date.now();
+const overdue = now >= _rcDeadline;
+if (_rcPhase === 0) {
+if (batchRendering) { // ① 那半轮整窗构建还在飞＝等它清（旧写法在这里直接 return 且永不再来）
+if (!overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
+_rcPhase = 2;
+} else {
+_rcPhase = 1;
+_rcReadAt = lastIdbLoadAt;
+try { if (chatDbReady) loadMsgs(true); } catch (e) {} // 权威未达时由 #967 chatResumeRearmRead 那条路负责
+}
+}
+if (_rcPhase === 1) {
+if (lastIdbLoadAt === _rcReadAt && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
+_rcPhase = 2;
+_rcDeadline = Date.now() + 3000; // 下面要写 DOM＝按 #978 同口径再给 3s 让几何落定
+}
+if (_rcPhase === 2) {
+if (!overdue && !chatRepinQuietEnough(now)) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
+_rcPhase = 3;
+chatResumeReconcileHeal();
+}
+}
+function chatResumeReconcileHeal() {
+try {
+if (!chatVisible() || !chatPinnedBottom || batchRendering) return; // #162／换装期不写 DOM
+const len = msgs.length;
+if (!len) return;
+let lastIdx = -1;
+const kids = body.children;
+for (let i = kids.length - 1; i >= 0; i--) {
+const v = kids[i] && kids[i].dataset ? parseInt(kids[i].dataset.idx, 10) : NaN;
+if (isFinite(v)) { lastIdx = v; break; }
+}
+if (lastIdx >= len - 1 && !windowStale) return; // 屏上尾部＝权威尾部且无作废标记＝什么都不做
+chatSettleHoldArm(); // #1010：补画期间视口媒体解码由进度条兜住
+if (windowStale || lastIdx < 0 || len - 1 - lastIdx > LOAD_STEP) renderWindow(false, true); // 空屏／整窗落后一大截／凭据作废＝整窗重建（与「长离场视同重新进聊天」同语义）
+else loadNewerIncremental(len); // 只差尾部几条＝#918 幂等增量补尾，不闪
+scrollChatBottom();
+chatSettleHoldSettle();
+chatResumeRealign(); // 补画改了几何＝交回 #978 落定闸同值重落一枪
+chatEntrySettle(); // #841h：迟到长高当帧回钉
+} catch (e) {}
 }
 let _rsResumeT = null;
 let _rsResumeDeadline = 0;
@@ -6404,6 +6467,13 @@ loadMsgs(true);
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') chatResumeRearmRead(); });
 document.addEventListener('mochi-fg-resume', chatResumeRearmRead); // bg-keep 回前台统一信号（与 ta-ask/memo 同款通道）
 window.addEventListener('pageshow', function (e) { if (e.persisted) chatResumeRearmRead(); });
+document.addEventListener('mochi-fg-resume', function () {
+try {
+if (chatHiddenAt || !window.bgLateCatchup) return; // visibilitychange 报过到＝由上面那条路负责，本路只兜「内核不发 visibilitychange」的设备
+if (!chatVisible() || !chatPinnedBottom) return; // #162：用户离场前在翻历史＝不打扰
+chatResumeReconcileArm(window.bgLateCatchup(CHAT_RESUME_FRESH_MS) === true);
+} catch (e) {}
+});
 function chatEnterPaintThen(fn) {
 let ran = false;
 const run = function () { if (ran) return; ran = true; fn(); }; // 不吞异常：重活里抛错照旧冒到 window.onerror/__jsErrors（#939 口径），诊断链不断
