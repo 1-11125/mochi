@@ -29,6 +29,7 @@ return p.length ? p[Math.floor(Math.random() * p.length)] : null;
 window.quoteSpellPick = function (c) {
 try {
 if (!c || c['qs-en'] !== 1) return null;
+if (c['py-en'] !== 1) return null;
 if (window.dictUse && window.dictUse('chat') === false) return null;
 if (window.dictOverall && Math.random() * 100 >= window.dictOverall('chat')) return null;
 const prob = (window.dcpEff ? window.dcpEff(Number(c['qs-prob'])) : Number(c['qs-prob'])); // #518 套总档

@@ -4925,7 +4925,7 @@ const FIX_SENTINELS = [
   { name: '#1203b 连接词追加收进多字卡总开关（删掉闸门＝关了总开关仍有 20% 回复被拼第二张连接词卡并挂「多字卡回复」chip＝本次报障主因）', file: 'js/chat.js', needle: "if (c['py-en'] === 1 && hit(window.dcpEff ? window.dcpEff(c['cf-prob']) : c['cf-prob'])) {" },
   { name: '#1203c 经期温柔前缀/后缀收进多字卡总开关（删掉闸门＝经期里每条回复又被拼一张温柔卡、关了开关照样「多字卡」）', file: 'js/chat.js', needle: "if (rep && c['py-en'] === 1 && rep.type === 'text'" },
   { name: '#1203d 群聊成员回复末尾颜文字卡同口径（只改单聊＝群聊同款报障原样留着）', file: 'js/group-chat.js', needle: "if (type === 'text' && c['gc-py-en'] === 1 && pool.kaomoji.length && hit(c['gc-kaomoji-prob'])) {" },
-  { name: '#1203e 单聊总开关文案写明「三处拼卡一并停用＋词典/梦角各认自己开关」（删掉＝用户仍按旧口径理解，关了就又报「没关干净」）', file: 'index.html', needle: '词典拼字、梦角自由造句各认自己的开关' },
+  { name: '#1203e 单聊总开关文案写明「三处拼卡一并停用＋词典/梦角各认自己开关」（删掉＝用户仍按旧口径理解，关了就又报「没关干净」）', file: 'index.html', needle: '#1236 起词典拼字也归本项管' },
   /* ==== 2026-09-24 #1207 聊天里打开占卜「抽牌时半框自动退出」（用户实报；根因零机型分支：#906 的点外关闭分派器在事件冒泡到 document 那刻实时读 panel.contains(e.target) 判内外，而占卜牌背的点击处理器在同一记派发里就把被点节点 removeChild 摘走 ⇒ contains 恒假 ⇒「点牌抽一张」被误判成「点半框外」，整框当场收掉；400ms 刚开闩拦不住，牌堆最早 1750ms 后才出现。修法＝点外判定改按派发那一刻的 composedPath()，取不到路径才回落旧口径；一处收口＝同族九枚底半框全修）==== */
   { name: '#1207a 点外判定取派发时路径（删＝回到实时 contains，被点元素同刻自我摘除即误判点外＝占卜抽牌关框复发，且全族同病）', file: 'js/chat.js', needle: "const path = typeof e.composedPath === 'function' ? e.composedPath() : null;" },
   { name: '#1207b 路径命中面板或弹窗遮罩即算框内（删这行＝分派器只认路径不认面板，半框永远点不关；改坏＝抽牌那一击又把框收掉）', file: 'js/chat.js', needle: "if (n === panel || (n.nodeType === 1 && n.classList && n.classList.contains('modal-mask'))) return;" },
@@ -5058,6 +5058,13 @@ const FIX_SENTINELS = [
   { name: '#1250a 引导送达标记键（删＝每次启动都弹，引导变骚扰）', file: 'js/storage-guide.js', needle: "const FLAG_KEY = G + 'storage-guide-shown';" },
   { name: '#1250b 一键自愈按钮的可用态判据（删＝按钮接不上 mochiMediaRebuild 或环境不支持时仍装可点＝点了没反应复发）', file: 'js/storage-guide.js', needle: "const canRebuild = typeof window.mochiMediaRebuild === 'function';" },
   { name: '#1250c 数据就绪挂钩走 mochiOnDataReady 双层契约（换回裸 addEventListener＝空库/快恢复时事件先于脚本派发，引导永不弹＝#797 同族复发）', file: 'js/storage-guide.js', needle: 'if (window.mochiOnDataReady) window.mochiOnDataReady(gate);' },
+  /* ==== 2026-09-25 #1236 iPhone 17 Pro / iOS 27 实报「多字卡回复和梦角自由造句关不掉」（诊断里存储 `多字卡py=关` 已存成 0，屏上照旧）＝两条：①词典拼字的旧口径明写「不依赖 py-en」（#323/#350），总开关关着仍逐卡连发/单气泡拼接；②历史气泡上持久化的来源 chip 与开关无关，看着像没关。用户直派口径「全封死」：py-en 关＝两种拼字形态一并不触发；mjf-en 关＝造句＋标签全停。方案＝出牌口加总闸（quote-spell.js）、显示层按三闸收敛 chip（chat.js srcTagSig/srcTagHidden，数据一字不动，重新打开标签回来），链路自检/字卡体检/设置页文案同步改口。零机型／零 UA 分支，判定只取开关值。验证：tools/verify-1236-py-master-gate.mjs（纯 HEAD 副本 9/19 红 → 本批 34/34 绿）。 ==== */
+  { name: '#1236a 词典拼字受「多字卡回复」总闸约束（删回旧口径＝关掉总开关照样拼字，用户所见「关不掉」复发）', file: 'js/quote-spell.js', needle: "if (c['py-en'] !== 1) return null;" },
+  { name: '#1236b 来源标签显示闸本体（删＝历史气泡的拼字/造句 chip 与开关无关，永远看着像没关）', file: 'js/chat.js', needle: 'function srcTagHidden(tag) {' },
+  { name: '#1236c 翻动总闸作废同窗补丁（删＝改了开关屏上标签不刷新，得重进聊天才变＝「有的手机关得掉有的关不掉」）', file: 'js/chat.js', needle: 'if (windowRenderedSrcTags !== srcTagSig()) return false;' },
+  { name: '#1236d 主渲染逐条 chip 走显示闸（删＝srcTagHidden 只剩空函数，历史标签照旧铺出）', file: 'js/chat.js', needle: 'if (srcTagHidden(md && md.tag)) return;' },
+  { name: "#1236e 链路自检把总闸算进拼字前置（删＝自检报「词典拼字正常」而用户明明关着，指路说谎）", file: 'js/reply-settings.js', needle: "const pyOk = c['py-en'] === 1;" },
+  { name: '#1236f 字卡体检 qs 漏斗含总闸（删＝体检把「总开关关着」判成通过，一键修复空转）', file: 'js/card-audit.js', needle: "{ t: '多字卡总闸', ok: pyEn }" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

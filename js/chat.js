@@ -2933,7 +2933,7 @@ if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="msg-img msg-img-
 if (isVoice) html += '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
 else if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + (window.mochiInlineTextHtml ? window.mochiInlineTextHtml(quoteDisplayFit(text, rec.side)) : escTxtBr(quoteDisplayFit(text, rec.side))) + '</span>'; // FIX 2026-09-17 #648 撤回无快照兜底同走内嵌令牌助手（混排令牌不再直出，与 #385 撤回段同口径）
 const moods = (rec && Array.isArray(rec.mood)) ? rec.mood : [];
-const liveMoods = moods.filter((md, mi) => md && String(md.tag || '').trim() && !(rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0));
+const liveMoods = moods.filter((md, mi) => md && String(md.tag || '').trim() && !srcTagHidden(md.tag) && !(rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0));
 if (liveMoods.length) {
 html += '<div class="msg-moods">' + liveMoods.map(md => {
 const tg = escTxt(String(md.tag == null ? '' : md.tag));
@@ -3019,6 +3019,10 @@ let windowRenderedNicks = '';
 function chatNickSig() {
 try { return chatPartnerName() + '\u0001' + chatUserName(); } catch (e) { return ''; }
 }
+let windowRenderedSrcTags = '';
+function srcTagSig() {
+try { return store.get('reply-py-en') + '\u0001' + store.get('reply-qs-en') + '\u0001' + store.get('reply-mjf-en'); } catch (e) { return windowRenderedSrcTags; }
+}
 let normChangedIdxs = null;
 let normChangedRecs = [];
 let normRemovedRecs = [];
@@ -3075,6 +3079,7 @@ renderEnd = len; // 整窗重建渲染到最新，窗口终点复位（裁剪状
 windowRenderedN = len;
 windowRenderedPrefix = window.activePrefix();
 windowRenderedNicks = chatNickSig(); // #775b：整窗渲染＝屏上昵称已刷新，登记当时的昵称签名
+windowRenderedSrcTags = srcTagSig(); // #1236：同一次整窗渲染＝屏上来源 chip 也是当时的闸态，一并登记
 windowStale = false;
 chatWinKeysSync(); // #1010：登记屏上窗口首/尾记录身份（收尾据此判前缀 / 尾部切片）
 collectInplaceDrafts();
@@ -3183,6 +3188,7 @@ if (batchRendering) return false; // #951h 分帧构建在飞＝屏上是空/半
 if (windowStale) return false;
 try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch (e) { return false; }
 if (windowRenderedNicks !== chatNickSig()) return false;
+if (windowRenderedSrcTags !== srcTagSig()) return false; // #1236 三个总闸在屏上渲染之后被改过＝标签已过期，整窗重建才摘得掉
 const grown = len - windowRenderedN;
 if (grown < 0) return false; // 屏上比权威多＝数据被裁/回滚，整窗重建兜底
 if (windowRenderedN === 0) return false; // 无屏上凭据（首渲场景）走原整窗渲染
@@ -4318,6 +4324,7 @@ mm.className = 'msg-moods';
 const recalled = [];
 rec.mood.forEach((md, mi) => {
 if (rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0) { recalled.push(md); return; }
+if (srcTagHidden(md && md.tag)) return; // #1236 总闸关着＝这枚来源 chip 不显示（数据不动）
 const mt = escTxt(T(md.tag)), ml = escTxt(T(md.label));
 const dupBody = md.label != null && String(md.label) !== '' && String(md.label) === String(rec.text == null ? '' : rec.text);
 if (md.tag === '交流意图') {
@@ -6033,6 +6040,17 @@ if (!pyChipSingleCardText(r.text, cfg())) return false;
 const kept = r.mood.filter(md => !(md && md.tag === '多字卡回复'));
 r.mood = kept.length ? kept : undefined;
 return true;
+} catch (e) { return false; }
+}
+function srcTagHidden(tag) {
+if (tag !== '梦角自由造句' && tag !== '多字卡回复' && tag !== '词典' && tag !== '词典拼字' &&
+tag !== '词典拼句' && tag !== '词典拼词' && tag !== '词典逐卡连发') return false;
+try {
+const n = (k, d) => { const v = store.get('reply-' + k); if (v === null || v === undefined || v === '') return d; const x = Number(v); return isNaN(x) ? d : x; };
+const pyOn = n('py-en', 1) === 1, qsOn = n('qs-en', 1) === 1, mjfOn = n('mjf-en', 1) === 1;
+if (tag === '梦角自由造句') return !mjfOn;
+if (tag === '多字卡回复') return !pyOn;
+return !qsOn || !pyOn;
 } catch (e) { return false; }
 }
 let pyMultiDrawn = false;

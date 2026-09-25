@@ -1011,6 +1011,11 @@
         if (gate(useOk, '词典聊天使用', useOk ? '开（' + ov + '% 概率）' : '关') && !blocked) blocked = '词典「聊天使用」被关（词典独立页里打开）';
         if (useOk && !(typeof ov === 'number' && isFinite(ov) && ov > 0) && !blocked) blocked = '词典「聊天使用概率」为 0（词典独立页调高）';
         // ④ 拼字总开关/概率（本页）
+        // FIX 2026-09-25 #1236：「多字卡回复」（py-en）自本批起是词典拼字的总闸——它关闭时
+        //   quoteSpellPick 整体不返回（单气泡拼字与逐卡连发都不触发）。自检必须把它摆出来，
+        //   否则会出现「各道全绿、屏上却永远不出拼字」的谎报（同 #998/#1000「指路不许说谎」口径）。
+        const pyOk = c['py-en'] === 1;
+        if (gate(pyOk, '多字卡回复总闸', pyOk ? '开' : '关·拼字整体停用') && !blocked) blocked = '「每条消息使用多字卡回复」总开关关着——#1236 起它是词典拼字的总闸，关了就两种形态都不再触发（要拼字就把它打开）';
         const enOk = c['qs-en'] === 1;
         const prob = Number(c['qs-prob']);
         if (gate(enOk, '拼字总开关', enOk ? '开（' + (isFinite(prob) ? prob : 0) + '% 概率）' : '关') && !blocked) blocked = '「词典拼字」总开关被关（本组第一行打开）';
@@ -1041,7 +1046,7 @@
     }
     qsDiagRender();
     // 状态变化即刷新：本组任一开关/词典页场景开关/二级锁解锁与重锁事件
-    ['qs-en', 'qs-one', 'qs-multi', 'qs-cc'].forEach(k => {
+    ['qs-en', 'qs-one', 'qs-multi', 'qs-cc', 'py-en'].forEach(k => { // #1236：py-en 现在是拼字总闸，翻它必须同步刷新自检
       const el = document.getElementById(k);
       if (el) el.addEventListener('change', () => setTimeout(qsDiagRender, 50));
     });

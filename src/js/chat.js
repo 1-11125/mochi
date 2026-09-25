@@ -3935,7 +3935,7 @@ if (imgs.length) html += imgs.slice(0, 3).map(s => '<img class="msg-img msg-img-
 if (isVoice) html += '<span style="opacity:.85">[语音] ' + escTxt(raw.split('|||')[0] || '') + '</span>';
 else if (!textIsImg && text.trim()) html += '<span style="opacity:.85;word-break:break-word">' + (window.mochiInlineTextHtml ? window.mochiInlineTextHtml(quoteDisplayFit(text, rec.side)) : escTxtBr(quoteDisplayFit(text, rec.side))) + '</span>'; // FIX 2026-09-17 #648 撤回无快照兜底同走内嵌令牌助手（混排令牌不再直出，与 #385 撤回段同口径）
 const moods = (rec && Array.isArray(rec.mood)) ? rec.mood : [];
-const liveMoods = moods.filter((md, mi) => md && String(md.tag || '').trim() && !(rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0));
+const liveMoods = moods.filter((md, mi) => md && String(md.tag || '').trim() && !srcTagHidden(md.tag) && !(rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0));
 if (liveMoods.length) {
 html += '<div class="msg-moods">' + liveMoods.map(md => {
 const tg = escTxt(String(md.tag == null ? '' : md.tag));
@@ -4075,6 +4075,15 @@ let windowRenderedNicks = '';
 function chatNickSig() {
 try { return chatPartnerName() + '\u0001' + chatUserName(); } catch (e) { return ''; }
 }
+// FIX 2026-09-25 #1236「关不掉」观感收口（与 #775b 昵称签名同一套机制）：来源 chip 的显示跟随
+//   总闸（见 srcTagHidden），而「回复设置 → 聊天」里关掉「多字卡回复 / 词典拼字 / 梦角自由造句」
+//   再回聊天页时，屏上气泡若走同窗补丁就不会重画 → 旧标签还挂着＝用户判定「开关没用」。
+//   整窗渲染时记下当时三个闸的存储值，值变了＝屏上标签已过期，作废同窗补丁、走整窗重建。
+let windowRenderedSrcTags = '';
+function srcTagSig() {
+try { return store.get('reply-py-en') + '\u0001' + store.get('reply-qs-en') + '\u0001' + store.get('reply-mjf-en'); } catch (e) { return windowRenderedSrcTags; }
+}
+
 // FIX 2026-09-13 #402（进聊天跳动一下·多机型偶发）：归一化窗口内改动的下标清单。
 // runDeferredNormalization 的 tick 逐 chunk 填写（无结构删除时下标全程稳定），
 // finish 收尾据此对命中下标原位换节点（patchChangedInPlace），不再整窗重建。
@@ -4187,6 +4196,7 @@ renderEnd = len; // 整窗重建渲染到最新，窗口终点复位（裁剪状
 windowRenderedN = len;
 windowRenderedPrefix = window.activePrefix();
 windowRenderedNicks = chatNickSig(); // #775b：整窗渲染＝屏上昵称已刷新，登记当时的昵称签名
+windowRenderedSrcTags = srcTagSig(); // #1236：同一次整窗渲染＝屏上来源 chip 也是当时的闸态，一并登记
 windowStale = false;
 chatWinKeysSync(); // #1010：登记屏上窗口首/尾记录身份（收尾据此判前缀 / 尾部切片）
 collectInplaceDrafts();
@@ -4333,6 +4343,7 @@ try { if (windowRenderedPrefix !== window.activePrefix()) return false; } catch 
 // 原地补丁只补下标、不改文字，必须让调用方走整窗重建（含备份导入、聊天设置改名、昵称池换名、
 // 联系人管理改名等所有入口，比逐个入口挂钩子可靠）
 if (windowRenderedNicks !== chatNickSig()) return false;
+if (windowRenderedSrcTags !== srcTagSig()) return false; // #1236 三个总闸在屏上渲染之后被改过＝标签已过期，整窗重建才摘得掉
 const grown = len - windowRenderedN;
 if (grown < 0) return false; // 屏上比权威多＝数据被裁/回滚，整窗重建兜底
 if (windowRenderedN === 0) return false; // 无屏上凭据（首渲场景）走原整窗渲染
@@ -5759,6 +5770,7 @@ mm.className = 'msg-moods';
 const recalled = [];
 rec.mood.forEach((md, mi) => {
 if (rec.retractedMood && rec.retractedMood.indexOf(mi) >= 0) { recalled.push(md); return; }
+if (srcTagHidden(md && md.tag)) return; // #1236 总闸关着＝这枚来源 chip 不显示（数据不动）
       // #349/#843：不再做统一映射——tag 按「词典/词典拼句/词典拼词/词典逐卡连发」原样渲染
       //（词典=一条消息只装一张字卡；词典拼句=多张卡全部 >4 字整句；词典拼词=多张卡含 1~4 字短卡）
       const mt = escTxt(T(md.tag)), ml = escTxt(T(md.label));
@@ -7490,7 +7502,7 @@ const pyMultiHit = pyMultiDrawn;
 // #323 双形态混合（共用同一拼字概率，各自可开关，双开 50/50 掷币）：
 //   one:true  = 单气泡形态——几张字卡空格连成一条消息发进同一个聊天气泡；
 //   one:false = 多回复形态——每张字卡单独一条气泡逐条连发（不受「回复条数」限制，
-//   py-en 关没触发多字卡回复时也会触发，一条气泡带「词典拼字」tag）。
+//   #1236 起本模块整体受 py-en 约束（py-en 关＝两种形态都不触发），一条气泡带「词典拼字」tag）。
 // 旧版返回纯数组仍兼容为逐卡连发。
 let spellSegs = null;
 let spellOne = false;
@@ -7934,6 +7946,24 @@ r.mood = kept.length ? kept : undefined;
 return true;
 } catch (e) { return false; }
 }
+// FIX 2026-09-25 #1236「关不掉」观感收口（用户 iPhone17Pro/iOS27 直派「关掉＝造句与标签全停」）：
+//   来源 chip 的**显示**跟随各自的总闸——总闸关着时，历史气泡上残留的「多字卡回复 / 词典系列 /
+//   梦角自由造句」标签不再渲染出来（此前只有开关开着时才看得到，用户关掉开关仍满屏这些标签，
+//   就判定「关不掉」）。只在显示层过滤、不改写 rec.mood 存储：把开关再打开，旧标签原样回来。
+//   词典系列 tag 在 qs-en 或 py-en 任一关闭时隐藏＝与 quoteSpellPick 的出牌口径一致（#1236 起
+//   py-en 是拼字总闸）。判据只取存储值，零机型／零 UA 分支。
+function srcTagHidden(tag) {
+if (tag !== '梦角自由造句' && tag !== '多字卡回复' && tag !== '词典' && tag !== '词典拼字' &&
+tag !== '词典拼句' && tag !== '词典拼词' && tag !== '词典逐卡连发') return false;
+try {
+const n = (k, d) => { const v = store.get('reply-' + k); if (v === null || v === undefined || v === '') return d; const x = Number(v); return isNaN(x) ? d : x; };
+const pyOn = n('py-en', 1) === 1, qsOn = n('qs-en', 1) === 1, mjfOn = n('mjf-en', 1) === 1;
+if (tag === '梦角自由造句') return !mjfOn;
+if (tag === '多字卡回复') return !pyOn;
+return !qsOn || !pyOn;
+} catch (e) { return false; }
+}
+
 // v3.43.x #677 「多字卡回复」来源 tag 判定：genOneReply 内 多字卡回复(py-en) 抽卡分支命中且掷到
 // ≥2 张时置位（每次生成先重置），replyOnce 据此给本条（批）气泡挂 tag；与词典/词典拼字 tag 共存
 let pyMultiDrawn = false;

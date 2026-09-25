@@ -4,6 +4,7 @@
 //  A 数据：DEFAULT_CARD_DATA.dict「词典」分类存在，语录/词库规模与纯净度
 //  B 语录：语录池完整、单行、可独立成卡
 //  C 闸门：qs-en / qs-prob / qs-cc / qs-one 行为
+//  C 闸门（#1236 起）：py-en 是拼字总闸，夹具 cfg 一律显式带 'py-en': 1（生产走 replyCfg()＝DEFAULTS 全键，不会缺）
 //  D 接线：chat.js / reply-settings.js / template.html / default-cards.js / build.mjs
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -61,44 +62,44 @@ const POOLSET = new Set(quotes.filter(q => typeof q === 'string' && q.length >= 
   && q.indexOf('data:') !== 0 && q.indexOf('|||') < 0 && !/[\uD800-\uDBFF]/.test(q)
   && (q.match(/[\u4e00-\u9fff]/g) || []).length >= 2));
 const pick = w.quoteSpellPick;
-ok(pick({ 'qs-en': 0, 'qs-prob': 100 }) === null, 'C1 qs-en=0 → 不拼字');
-ok(pick({ 'qs-en': 1, 'qs-prob': 0 }) === null, 'C2 qs-prob=0 → 不拼字');
+ok(pick({ 'py-en': 1, 'qs-en': 0, 'qs-prob': 100 }) === null, 'C1 qs-en=0 → 不拼字');
+ok(pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 0 }) === null, 'C2 qs-prob=0 → 不拼字');
 ok(pick(null) === null, 'C3 cfg 缺失 → 不拼字（原样回复）');
 let got = null;
-for (let i = 0; i < 50 && !got; i++) got = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0 });
+for (let i = 0; i < 50 && !got; i++) got = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0 });
 ok(got && Array.isArray(got.segs) && typeof got.one === 'boolean', 'C4 概率 100% 必中且返回 {segs, one:boolean} 形态', JSON.stringify(got));
 ok(got && got.segs.length >= 2 && got.segs.length <= 5, 'C5 抽卡条数 2~5 张（复用 py-min/py-max）', got ? got.segs.length : 'null');
 ok(got && got.segs.every(sg => POOLSET.has(sg)), 'C6 每张卡都是完整语录字卡（不拆分）', got ? JSON.stringify(got.segs) : 'null');
 // #323 双形态选择：只开单气泡=全 one:true；只开多回复=全 one:false；双开≈50/50
 let oneCnt = 0;
-for (let i = 0; i < 60; i++) { const r = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 1, 'qs-multi': 0 }); if (r && r.one === true) oneCnt++; }
+for (let i = 0; i < 60; i++) { const r = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 1, 'qs-multi': 0 }); if (r && r.one === true) oneCnt++; }
 ok(oneCnt === 60, 'C9 qs-one=1&qs-multi=0 全部单气泡形态（60/60）', String(oneCnt));
 let multiCnt = 0;
-for (let i = 0; i < 60; i++) { const r = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 0, 'qs-multi': 1 }); if (r && r.one === false) multiCnt++; }
+for (let i = 0; i < 60; i++) { const r = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 0, 'qs-multi': 1 }); if (r && r.one === false) multiCnt++; }
 ok(multiCnt === 60, 'C10 qs-multi=1&qs-one=0 全部逐卡多回复形态（60/60）', String(multiCnt));
 let mix = 0;
-for (let i = 0; i < 120; i++) { const r = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 1, 'qs-multi': 1 }); if (r) mix += (r.one === true ? 1 : 2); }
+for (let i = 0; i < 120; i++) { const r = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 1, 'qs-multi': 1 }); if (r) mix += (r.one === true ? 1 : 2); }
 ok(mix > 120 && mix < 360, 'C11 双开混合 50/50（单气泡+逐卡都出现）', 'mix=' + mix);
 let fb = 0;
-for (let i = 0; i < 30; i++) { const r = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 0, 'qs-multi': 0 }); if (r && r.one === false) fb++; }
+for (let i = 0; i < 30; i++) { const r = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'qs-one': 0, 'qs-multi': 0 }); if (r && r.one === false) fb++; }
 ok(fb === 30, 'C12 双关兜底逐卡形态（30/30）', String(fb));
 got = null;
-for (let i = 0; i < 50 && !got; i++) got = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 1 });
+for (let i = 0; i < 50 && !got; i++) got = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 1 });
 ok(got && Array.isArray(got.segs) && got.segs.length >= 2, 'C7 qs-cc=1 混用自定义字卡池同样可抽中');
 ok(got && got.segs.every(sg => typeof sg === 'string' && sg.trim()), 'C8 混池抽中的每张卡也是完整内容（不拆分）');
 // #330→#351 默认（qs-noLimit=1）逐卡不受 reply-max 限：恒按 py 2~5；noLimit=0 时收口到 reply-max
 let maxMulti = 0, maxOne2 = 0;
 for (let i = 0; i < 100; i++) {
-  const rm = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 0, 'qs-multi': 1, 'qs-noLimit': 0 });
+  const rm = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 0, 'qs-multi': 1, 'qs-noLimit': 0 });
   if (rm && rm.one === false) maxMulti = Math.max(maxMulti, rm.segs.length);
-  const ro = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 1, 'qs-multi': 0 });
+  const ro = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 1, 'qs-multi': 0 });
   if (ro && ro.one === true) maxOne2 = Math.max(maxOne2, ro.segs.length);
 }
 ok(maxMulti <= 2 && maxMulti >= 2, 'C9 #351 noLimit=0 时逐卡受回复条数最多上限（reply-max=2 → 恒 2，实测 ' + maxMulti + '）');
 ok(maxOne2 === 5, 'C10 #330 单气泡形态不受 reply-max 限（仍拼满 2~5，实测最大 ' + maxOne2 + '）');
 let maxFree = 0;
 for (let i = 0; i < 100; i++) {
-  const rf = pick({ 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 0, 'qs-multi': 1 });
+  const rf = pick({ 'py-en': 1, 'qs-en': 1, 'qs-prob': 100, 'qs-cc': 0, 'py-min': 2, 'py-max': 5, 'reply-max': 2, 'qs-one': 0, 'qs-multi': 1 });
   if (rf && rf.one === false) maxFree = Math.max(maxFree, rf.segs.length);
 }
 ok(maxFree === 5, 'C11 #351 默认 noLimit=1 逐卡不受 reply-max 限（仍拼满 2~5，实测最大 ' + maxFree + '）');
@@ -108,6 +109,13 @@ const chat = readFileSync(join(root, 'src/js/chat.js'), 'utf8');
 const rs = readFileSync(join(root, 'src/js/reply-settings.js'), 'utf8');
 const tpl = readFileSync(join(root, 'src/template.html'), 'utf8');
 const bm = readFileSync(join(root, 'build.mjs'), 'utf8');
+// C13 #1236「多字卡回复」总闸：py-en 关闭＝拼字整体不触发（单气泡与逐卡连发都停）
+let c13 = 0;
+for (let i = 0; i < 60; i++) { if (pick({ 'qs-en': 1, 'qs-prob': 100, 'py-en': 0, 'qs-one': 1, 'qs-multi': 1 })) c13++; }
+ok(c13 === 0, 'C13 py-en=0 → 两种形态 60 掷全部不拼字（实得 ' + c13 + '）');
+let c13b = 0;
+for (let i = 0; i < 60 && !c13b; i++) c13b = pick({ 'qs-en': 1, 'qs-prob': 100, 'py-en': 1, 'qs-one': 1, 'qs-multi': 0 }) ? 1 : 0;
+ok(!!c13b, 'C13b py-en=1 同配置照常出牌（未被总闸误关）');
 ok(chat.includes('(window.quoteSpellPick && window.quoteSpellPick(c))'), 'D1 chat.js replyOnce 已接抽句门');
 // ⚠️ 过期期望校准（2026-09-15）：D2/D3b 原断言沿用 v3.28.x #310 的「qs-cc 默认 0 + 迁移写 0」
 // 口径，v3.40.x #388 已把该默认翻回 1（migrateQsCcOld 改反向迁移写 '1'）——两条长期假红，

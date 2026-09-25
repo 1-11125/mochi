@@ -494,7 +494,7 @@
     if (!mjfEn) addIssue('warn', '「梦角自由造句」总开关关闭。');
     else if (mjfProb === 0) addIssue('warn', '「梦角自由造句」概率为 0%。');
     else if (!mjfSrcOn.length) addIssue('warn', '「梦角自由造句」开着，但三个语料来源（自定义字卡/默认聊天字卡/词典）全关或权重全为 0——不会触发。');
-    if (!pyEn) addIssue('warn', '「多字卡回复」总开关关闭：每条消息只回一条、每条只用一张字卡。');
+    if (!pyEn) addIssue('warn', '「多字卡回复」总开关关闭：每条消息只回一条、每条只用一张字卡；#1236 起它同时是词典拼字的总闸（关掉＝单气泡拼字与逐卡连发都不触发）。');
     if (cspCust === 0) addIssue('warn', '「自定义字卡占比」为 0%：TA 的纯文字回复会尽量让系统预设默认字卡覆盖，你自己建的字卡基本不出现（想反过来就把它调高）。');
     if (!attachOn.length) addIssue('warn', '拍一拍/表情包/emoji/图片/语音/颜文字/引用 七项附加概率全为 0：回复只剩纯文字（回复设置→聊天 的被动回复组）。');
     else if (mediaOff) addIssue('warn', '「表情包概率」「图片概率」都为 0：字卡库里的表情包与图片字卡不会在聊天里出现（这两项是命中后往同一条回复里加图，不是独立机制，所以平时不容易联想到它们卡住了媒体字卡）。');
@@ -584,11 +584,22 @@
     }
     var MECH = [
       {
-        id: 'qs', name: '词典拼字', key: 'qs-en · qs-prob', ok: !lock && qsEn && qsProbEff > 0 && dictUseChat && dictOvChat > 0 && dictPoolN > 0,
+        id: 'qs', name: '词典拼字', key: 'qs-en · qs-prob', ok: !lock && pyEn && qsEn && qsProbEff > 0 && dictUseChat && dictOvChat > 0 && dictPoolN > 0,
         txt: '存盘 ' + qsProbRaw + '% · 生效 ' + qsProbEff + '%（' + humanProb(qsProbEff, 'reply') + '）',
         extra: '池 ' + dictPoolN + ' 条 · ' + (qsCc ? '混用自定义字卡' : '只用词典语录'),
-        gates: [{ t: '锁', ok: !lock }, { t: '拼字开关', ok: qsEn }, { t: '拼字概率', ok: qsProbEff > 0 }, { t: '词典聊天使用', ok: dictUseChat }, { t: '词典概率', ok: dictOvChat > 0 }, { t: '抽卡池', ok: dictPoolN > 0 }],
-        fix: !qsEn ? { kind: 'en', key: 'qs-en', label: '打开' } : (qsProbRaw === 0 ? { kind: 'num', key: 'qs-prob', v: 25, label: '恢复概率' } : null)
+        // FIX 2026-09-25 #1236：pyEn 自本批起是词典拼字的总闸（关掉它两种形态都不触发）——体检的
+        //   ok 与漏斗必须摆出它，否则「全绿却永不出拼字」＝体检说谎（#998/#1000 同族）。
+        gates: [{ t: '锁', ok: !lock }, { t: '多字卡总闸', ok: pyEn }, { t: '拼字开关', ok: qsEn }, { t: '拼字概率', ok: qsProbEff > 0 }, { t: '词典聊天使用', ok: dictUseChat }, { t: '词典概率', ok: dictOvChat > 0 }, { t: '抽卡池', ok: dictPoolN > 0 }],
+        fix: (!qsEn || !pyEn || qsProbRaw === 0) ? {
+          kind: 'fn', label: (!qsEn ? '打开' : (!pyEn ? '开多字卡' : '恢复概率')), run: function () {
+            // 三颗闸同一颗按钮收口（同 py 行的取舍）：只写 qs-en 而 py-en 还关着＝点了没反应
+            var n = 0;
+            if (!boolOf(store('qs-en'), true)) { storeSet('qs-en', '1'); n++; }
+            if (!boolOf(store('py-en'), true)) { storeSet('py-en', '1'); n++; }
+            if (num(store('qs-prob'), 25) === 0) { storeSet('qs-prob', 25); n++; }
+            return n > 0;
+          }
+        } : null
       },
       {
         id: 'mjf', name: '梦角自由造句', key: 'mjf-en · mjf-prob', ok: mjfEn && mjfProb > 0 && mjfSrcOn.length > 0,
