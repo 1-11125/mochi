@@ -6,9 +6,11 @@ const STORE = 'kv';
 let dbPromise = null;
 function open() {
 if (dbPromise) return dbPromise;
-dbPromise = new Promise((resolve, reject) => {
+const self = new Promise((resolve, reject) => {
+let settled = false;
+let hangFired = false;
 try {
-if (!window.indexedDB) { reject(new Error('no idb')); return; }
+if (!window.indexedDB) { settled = true; reject(new Error('no idb')); return; }
 const req = indexedDB.open(DB_NAME, DB_VERSION);
 req.onupgradeneeded = () => {
 const db = req.result;
@@ -17,18 +19,24 @@ db.createObjectStore(STORE);
 }
 };
 req.onblocked = () => {
-try { dbPromise = null; } catch (e1) {}
+settled = true;
 reject(new Error('idb open blocked'));
 };
-req.onsuccess = () => resolve(req.result);
-req.onerror = () => reject(req.error);
-} catch (e) { reject(e); }
+req.onsuccess = () => {
+settled = true;
+if (hangFired) { try { req.result.close(); } catch (e0) {} return; }
+resolve(req.result);
+};
+req.onerror = () => { settled = true; reject(req.error); };
+} catch (e) { settled = true; reject(e); }
 setTimeout(function () {
-try { dbPromise = null; } catch (e2) {}
+if (settled) return; // #1227：请求已落地＝本计时器作废，绝不拆健康连接的缓存
+hangFired = true;
 reject(new Error('idb open hang'));
 }, 8000);
 });
-dbPromise.catch(() => { dbPromise = null; });
+self.catch(() => { if (dbPromise === self) dbPromise = null; });
+dbPromise = self;
 return dbPromise;
 }
 function connLost(e) {
@@ -74,7 +82,7 @@ const platTip = md.isIOS
 : (md.isAndroid ? '安卓的写入配额与手机系统存储挂钩，请确保系统存储有足够剩余空间。' : '');
 const ctl = window.openModal('存储异常', '', null, {
 noInput: true,
-staticText: '近期数据多次写入失败，数据可能没有存上。建议按顺序处理：\n\n'
+staticText: '近期数据多次写入失败（最后一次内核回执：' + (_idbFailLastErr || '事务超时未落地') + '），数据可能没有存上。建议按顺序处理：\n\n'
 + '① 先导出一份备份（下方「去导出备份」直达；数据量大可改选「只备份文字」，文件更小）\n'
 + '② 查看存储占用并瘦身（下方「查看存储」直达：字卡图去重 / 图片压缩 / 清理本地音乐）\n'
 + (platTip ? '③ ' + platTip + '\n' : '')
@@ -105,9 +113,15 @@ try { if (ctl && ctl.hint) ctl.hint('入口暂不可达，请手动前往：' + 
 }
 }
 window.idbSet = function (key, value) {
+let lateReceipt = null; // Promise<true|false|null>：上一次超时尝试的最终内核回执（null=等满放弃）
 function tryOnce() {
+const wait = lateReceipt || Promise.resolve(null);
+lateReceipt = null;
+return wait.then((lateOk) => {
+if (lateOk === true) return true; // 上一事务最终写成功＝本值已落盘，不重复排队
 return open().then(db => new Promise((resolve) => {
 let done = false;
+let lateRes = null; // 超时落地后置为回执投递器
 let lim = 4000;
 try {
 let est = 0;
@@ -132,16 +146,22 @@ if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
 const t = setTimeout(function () {
 if (done) return; done = true;
 dbPromise = null; // 连接疑似挂起，下次 open 重建
+lateReceipt = new Promise((res) => {
+lateRes = res;
+setTimeout(() => res(null), lim); // #1227：再等一个 lim 仍无回执＝按挂起处理（真我/荣耀 Edge 形态）
+});
 resolve(false);
 }, lim);
+const deliverLate = (v) => { if (lateRes) { const r = lateRes; lateRes = null; if (v) _idbFailCnt = 0; r(v); } };
 try {
 const tx = db.transaction(STORE, 'readwrite');
 tx.objectStore(STORE).put(value, key);
-tx.oncomplete = () => { if (done) return; done = true; clearTimeout(t); resolve(true); };
-tx.onerror = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
-tx.onabort = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
+tx.oncomplete = () => { if (done) { deliverLate(true); return; } done = true; clearTimeout(t); resolve(true); };
+tx.onerror = () => { _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; if (done) { deliverLate(false); return; } done = true; clearTimeout(t); resolve(false); };
+tx.onabort = () => { _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; if (done) { deliverLate(false); return; } done = true; clearTimeout(t); resolve(false); };
 } catch (e) { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (e && e.name) || 'error'; if (connLost(e)) dbPromise = null; resolve(false); }
 })).catch(() => false);
+});
 }
 return (async () => {
 let ok = await tryOnce();

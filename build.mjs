@@ -5038,6 +5038,12 @@ const FIX_SENTINELS = [
   { name: "#1230b 「真被渲染」判据（isConnected＋有盒子＋没被 clip/clip-path 裁掉；删＝搬层腿失去触发条件，等于没有这条修复）", file: "js/device.js", needle: "window.mochiFileInputRendered = function (input) {" },
   { name: "#1230c 选完文件只派发 change、不派发 click（删/改回派发 click＝点按冒回入口按钮，双开或递归）", file: "js/device.js", needle: "orig.dispatchEvent(new Event('change'))" },
   { name: "#1230d 搬层只活到这一下手势结束（pointerup/touchend/mouseup 收窗；删＝常驻层吃掉用户下一次落在同一格的点击）", file: "js/device.js", needle: "document.addEventListener('pointerup', off, { capture: true, passive: true });" },
+  /* ==== 2026-09-25 #1227 「存储异常」假警报＋大键写风暴收口（iPhone 15 Pro Max + Safari 实报每次打开都弹；本机诊断实证 default:chat-msgs 单键 32.8MB、翻页帧均值 1091ms、页面被系统回收 85 次）：旧实现把「本地超时」当「写失败」——事务还活着且最终写成功，却盲排重试＋调用方回退整包重写（一次逻辑保存最多 6 个全量写事务＝structured clone 风暴，卡顿与弹窗同根）；open() 的 8s 挂起兜底计时器又无条件拆健康连接缓存（每 8s 换一条连接、旧连接不 close）。判定只取内核回执三态，零机型／零 UA 分支。行为断言＝tools/verify-1227-idb-write-receipt.mjs（25 断言含新旧对照） ====*/
+  { name: '#1227a idbSet 重试先等上一事务回执（删＝超时后盲排全量重写复发，32.8MB 级大键＝克隆风暴＋连环误判＝「存储异常」每次打开都弹）', file: 'js/idb.js', needle: 'if (lateOk === true) return true;' },
+  { name: '#1227b 迟到 oncomplete 清零连续失败计数（删＝「其实写成功」被计成失败凑满 5 连败弹假警报）', file: 'js/idb.js', needle: 'if (v) _idbFailCnt = 0;' },
+  { name: '#1227c 挂起等待有上限（删＝真挂起内核上重试链永久押后，防丢告警链被掐死）', file: 'js/idb.js', needle: 'lateReceipt = new Promise((res) => {' },
+  { name: '#1227d open() settled 闸（删回无条件计时器＝每 8s 拆一次健康连接缓存，IDB 连接泄漏＋churn，iOS 冷启动逼近 8s 时更甚）', file: 'js/idb.js', needle: 'if (settled) return; // #1227' },
+  { name: '#1227e 迟到 open 孤儿连接当场 close（删＝判挂起后迟到的连接被晾着不 close，同族泄漏）', file: 'js/idb.js', needle: 'if (hangFired) { try { req.result.close(); } catch (e0) {} return; }' },
   { name: "#1230e 常驻 input 的 accept「本次没提就保留」（裸登记抹空＝图片入口变全文件选择器，#753 口径回流）", file: "js/device.js", needle: "input.accept = (o.accept != null && o.accept !== '') ? o.accept : (input.accept || '');" },
   { name: "#1230f 回调粘性登记（只本次真给了 onFiles 才覆盖；删＝后一个入口把前一个入口的回调写没，选回来的文件被静默丢弃）", file: "js/device.js", needle: "if (typeof o.onFiles === 'function') input.__mochiOnFiles = o.onFiles;" },
   { name: "#1230g 铺层时预建宿主后回头补解析（顺序反了＝聊天壁纸原生层选完文件「无管线可交」，图片被丢掉）", file: "js/device.js", needle: "if (preHost && !rec.owner) rec.owner = preHost;" },

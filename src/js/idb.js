@@ -10,9 +10,19 @@
   let dbPromise = null;
   function open() {
     if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
+    const self = new Promise((resolve, reject) => {
+      // FIX 2026-09-25 #1227（iPhone 15 Pro Max + Safari 实报「存储异常」每次打开都弹；
+      // 该弹窗家族此前已在 iPhone 16 Pro Safari 修过两轮，本轮根因之一是这段兜底计时器）：
+      // 原实现 8s 挂起兜底计时器**无条件**执行——open 早已成功落地它照样把 dbPromise 置空，
+      // 于是下一次调用又开一条新连接、上一条没人 close（连接泄漏）。iOS 挂后台会杀 IDB
+      // 服务进程、冷启动 open 常逼近 8s，前后台一切换就累积一批僵尸连接＋无谓重开。
+      // 现在计时器只在「请求尚未落地」时生效（settled 闸）；若 open 在判挂起之后才迟到，
+      // 迟到的连接是孤儿（Promise 已 rejected、无人使用），当场 close 掉不再泄漏。
+      // 零机型／零 UA 分支：判据只有本内核请求的落地状态。
+      let settled = false;
+      let hangFired = false;
       try {
-        if (!window.indexedDB) { reject(new Error('no idb')); return; }
+        if (!window.indexedDB) { settled = true; reject(new Error('no idb')); return; }
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = () => {
           const db = req.result;
@@ -26,27 +36,36 @@
         // 新旧页面并存时高发（iPad 7 + Edge 实测卡开屏）。收到 blocked 主动失败本次
         // open（下次调用重建）；旧连接方随后释放或关闭旧标签页后自然恢复。
         req.onblocked = () => {
-          try { dbPromise = null; } catch (e1) {}
+          settled = true;
           reject(new Error('idb open blocked'));
         };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      } catch (e) { reject(e); }
+        req.onsuccess = () => {
+          settled = true;
+          if (hangFired) { try { req.result.close(); } catch (e0) {} return; }
+          resolve(req.result);
+        };
+        req.onerror = () => { settled = true; reject(req.error); };
+      } catch (e) { settled = true; reject(e); }
       // v3.26.x #135：open() 兜底落地——iOS/Edge 内核存在「open 请求既不 success
       // 也不 error 也不 blocked」的挂起形态（IDB 服务进程被杀瞬间发起的请求）。原实现
       // 各事务超时计时器都注册在 open().then 里，open 不落地则计时器永不启动 →
       // idbGet/idbGetMany/idbListKeys/idbRestore 全部永久挂起，开屏永远停在
-      // 「正在加载数据…」（iPad 7 + Edge 实测）。8s 未落地判失败：清 dbPromise 让
-      // 下次调用重建连接，调用方 catch 走 LS 兜底/慢保险丝，开屏永不卡死。
+      // 「正在加载数据…」（iPad 7 + Edge 实测）。8s 未落地判失败：本次 open 失败，
+      // 调用方 catch 走 LS 兜底/慢保险丝，开屏永不卡死；#1227 后连接缓存的清退
+      // 统一交给下方带身份核对的 catch（旧实现计时器无条件拆缓存＝泄漏＋churn）。
       setTimeout(function () {
-        try { dbPromise = null; } catch (e2) {}
+        if (settled) return; // #1227：请求已落地＝本计时器作废，绝不拆健康连接的缓存
+        hangFired = true;
         reject(new Error('idb open hang'));
       }, 8000);
     });
     // v3.6.x 修复（open 失败永久不可用）：失败时清 dbPromise 允许下次重试——
     // 原实现缓存 rejected Promise，整个会话 IDB 永久不可用（隐私模式/配额耗尽/
     // 浏览器临时禁用 IDB 后恢复时无法自愈）
-    dbPromise.catch(() => { dbPromise = null; });
+    // #1227：仅当缓存仍指向本条 promise 才清——原闭包直接引用变量，一条旧挂起请求
+    // 的迟到 reject 会把期间已重建好的健康连接再踢掉一次。
+    self.catch(() => { if (dbPromise === self) dbPromise = null; });
+    dbPromise = self;
     return dbPromise;
   }
   // v3.25.x（修 iOS「字卡数据没有加载」高发）：iOS Safari/PWA 挂后台后会杀掉
@@ -134,7 +153,7 @@
           : (md.isAndroid ? '安卓的写入配额与手机系统存储挂钩，请确保系统存储有足够剩余空间。' : '');
         const ctl = window.openModal('存储异常', '', null, {
           noInput: true,
-          staticText: '近期数据多次写入失败，数据可能没有存上。建议按顺序处理：\n\n'
+          staticText: '近期数据多次写入失败（最后一次内核回执：' + (_idbFailLastErr || '事务超时未落地') + '），数据可能没有存上。建议按顺序处理：\n\n'
             + '① 先导出一份备份（下方「去导出备份」直达；数据量大可改选「只备份文字」，文件更小）\n'
             + '② 查看存储占用并瘦身（下方「查看存储」直达：字卡图去重 / 图片压缩 / 清理本地音乐）\n'
             + (platTip ? '③ ' + platTip + '\n' : '')
@@ -174,50 +193,77 @@
   // 开关退出重进"变回去"），启动回填以 IDB 为准就成了旧值回退。现与 idbGet 同款：
   // 单次事务 4s 未完成即判挂起 → 置空连接重建重试（外层重试骨架最多再试 2 次）。
   window.idbSet = function (key, value) {
+    // FIX 2026-09-25 #1227（iPhone 15 Pro Max + Safari「存储异常」每次打开都弹；与 open()
+    // 的 settled 闸同批，根因之二）：原实现把「本地超时」直接当「写失败」——超时时事务
+    // 其实还活着（iOS 大键整包写常超本地判定窗；本机诊断实证 default:chat-msgs 单键 32.8MB），
+    // 于是同一 idbSet 调用内盲目再排 2 次重试、调用方（chat.js persistMsgsToIdb 数组失败
+    // 回退整包字符串）又追一轮 → 一次逻辑保存最多 6 个全量写事务：每个 put() 的 structured
+    // clone 都在主线程付费（卡顿），排队事务又挤慢彼此（更多超时），最终 5 连败弹「存储异常」
+    // ——而所有事务其实都陆续写成功了（假警报）。现改「读回执再裁决」：超时只判「本次没等到」，
+    // 事务的最终回执留着；下一次尝试先等它——迟到 oncomplete＝值已落盘，直接按成功收场，
+    // 不再重复排队；迟到 error/abort 才照常走新事务。真挂起内核（荣耀/Edge 无回执形态）
+    // 等满一个 lim 后行为与旧版一致，防丢语义不变。零机型／零 UA 分支：判定只取事务回执。
+    // 已知取舍：重试链共享同一 value 引用，若在等待回执期间数组被追加（新消息进来），
+    // 迟到成功会跳过对更新快照的重写——LS 快照＋memoryCache＋下次防抖保存会补上，与旧版
+    // 事务排队竞态同级。
+    let lateReceipt = null; // Promise<true|false|null>：上一次超时尝试的最终内核回执（null=等满放弃）
     function tryOnce() {
-      return open().then(db => new Promise((resolve) => {
-        let done = false;
-        // v3.26.x：超时按值体积放大（大包误报修复，见 _idbFailNotify 上方说明）。
-        // v3.26.x OOM：聊天记录改 IDB 直存数组（structured clone，免整包 JSON.stringify）——
-        // 数组也按估算体积放大超时，否则 150MB 级数组在慢设备上 >4s 被判挂起、误触发回退重写。
-        let lim = 4000;
-        try {
-          let est = 0;
-          if (typeof value === 'string') est = value.length;
-          else if (Array.isArray(value)) {
-            // FIX 2026-09-21 #950：估算器支持嵌套数组（表情包 my-emoji-groups 直存数组＝
-            // [[分组名,[dataURL...]],...]，原循环对内层元素只计 64 字节/个，30MB 级包被
-            // 估成几百字节＝超时不放大，慢设备上 structured clone 未完成就被判挂起、
-            // 误触发 #434 退避重发循环）。通用递归：字符串计长、嵌套数组/对象下钻，深度封顶。
-            const est950 = (v, d) => {
-              if (typeof v === 'string') return v.length;
-              if (!v || typeof v !== 'object') return 32;
-              if (d > 4) return 64;
-              let n = 0;
-              if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) n += est950(v[i], d + 1); return n + 16; }
-              if (typeof v.text === 'string') n += v.text.length;
-              if (typeof v.img === 'string') n += v.img.length;
-              if (typeof v.voice === 'string') n += v.voice.length;
-              if (Array.isArray(v.parts)) { for (let j = 0; j < v.parts.length; j++) { const p = v.parts[j]; if (p && typeof p.v === 'string') n += p.v.length; } }
-              return n + 64;
-            };
-            for (let i = 0; i < value.length; i++) est += est950(value[i], 0);
-          }
-          if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
-        } catch (e) {}
-        const t = setTimeout(function () {
-          if (done) return; done = true;
-          dbPromise = null; // 连接疑似挂起，下次 open 重建
-          resolve(false);
-        }, lim);
-        try {
-          const tx = db.transaction(STORE, 'readwrite');
-          tx.objectStore(STORE).put(value, key);
-          tx.oncomplete = () => { if (done) return; done = true; clearTimeout(t); resolve(true); };
-          tx.onerror = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
-          tx.onabort = () => { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; resolve(false); };
-        } catch (e) { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (e && e.name) || 'error'; if (connLost(e)) dbPromise = null; resolve(false); }
-      })).catch(() => false);
+      const wait = lateReceipt || Promise.resolve(null);
+      lateReceipt = null;
+      return wait.then((lateOk) => {
+        if (lateOk === true) return true; // 上一事务最终写成功＝本值已落盘，不重复排队
+        return open().then(db => new Promise((resolve) => {
+          let done = false;
+          let lateRes = null; // 超时落地后置为回执投递器
+          // v3.26.x：超时按值体积放大（大包误报修复，见 _idbFailNotify 上方说明）。
+          // v3.26.x OOM：聊天记录改 IDB 直存数组（structured clone，免整包 JSON.stringify）——
+          // 数组也按估算体积放大超时，否则 150MB 级数组在慢设备上 >4s 被判挂起、误触发回退重写。
+          let lim = 4000;
+          try {
+            let est = 0;
+            if (typeof value === 'string') est = value.length;
+            else if (Array.isArray(value)) {
+              // FIX 2026-09-21 #950：估算器支持嵌套数组（表情包 my-emoji-groups 直存数组＝
+              // [[分组名,[dataURL...]],...]，原循环对内层元素只计 64 字节/个，30MB 级包被
+              // 估成几百字节＝超时不放大，慢设备上 structured clone 未完成就被判挂起、
+              // 误触发 #434 退避重发循环）。通用递归：字符串计长、嵌套数组/对象下钻，深度封顶。
+              const est950 = (v, d) => {
+                if (typeof v === 'string') return v.length;
+                if (!v || typeof v !== 'object') return 32;
+                if (d > 4) return 64;
+                let n = 0;
+                if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) n += est950(v[i], d + 1); return n + 16; }
+                if (typeof v.text === 'string') n += v.text.length;
+                if (typeof v.img === 'string') n += v.img.length;
+                if (typeof v.voice === 'string') n += v.voice.length;
+                if (Array.isArray(v.parts)) { for (let j = 0; j < v.parts.length; j++) { const p = v.parts[j]; if (p && typeof p.v === 'string') n += p.v.length; } }
+                return n + 64;
+              };
+              for (let i = 0; i < value.length; i++) est += est950(value[i], 0);
+            }
+            if (est > 262144) lim = 4000 + Math.min(26000, Math.ceil(est / 262144) * 2000);
+          } catch (e) {}
+          const t = setTimeout(function () {
+            if (done) return; done = true;
+            dbPromise = null; // 连接疑似挂起，下次 open 重建
+            lateReceipt = new Promise((res) => {
+              lateRes = res;
+              setTimeout(() => res(null), lim); // #1227：再等一个 lim 仍无回执＝按挂起处理（真我/荣耀 Edge 形态）
+            });
+            resolve(false);
+          }, lim);
+          // #1227：done 之后事务仍可能落地——最终回执经 deliverLate 投给重试链；
+          // 迟到的 oncomplete 同时清零连续失败计数（写其实成功了，不许计成失败）。
+          const deliverLate = (v) => { if (lateRes) { const r = lateRes; lateRes = null; if (v) _idbFailCnt = 0; r(v); } };
+          try {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.objectStore(STORE).put(value, key);
+            tx.oncomplete = () => { if (done) { deliverLate(true); return; } done = true; clearTimeout(t); resolve(true); };
+            tx.onerror = () => { _idbFailLastErr = (tx.error && tx.error.name) || 'error'; if (connLost(tx.error)) dbPromise = null; if (done) { deliverLate(false); return; } done = true; clearTimeout(t); resolve(false); };
+            tx.onabort = () => { _idbFailLastErr = (tx.error && tx.error.name) || 'abort'; if (connLost(tx.error)) dbPromise = null; if (done) { deliverLate(false); return; } done = true; clearTimeout(t); resolve(false); };
+          } catch (e) { if (done) return; done = true; clearTimeout(t); _idbFailLastErr = (e && e.name) || 'error'; if (connLost(e)) dbPromise = null; resolve(false); }
+        })).catch(() => false);
+      });
     }
     return (async () => {
       let ok = await tryOnce();
