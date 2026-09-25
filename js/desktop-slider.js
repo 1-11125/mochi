@@ -186,10 +186,27 @@ window.addEventListener('resize', () => {
 refreshCache(); // 视口变了重算 gap 缓存（clientWidth 每帧现读，无需缓存）
 if (pages.clientWidth) pages.scrollLeft = idx * pageStep();
 });
+const DESK_COLD_MS = 60000;
+let deskColdT = 0;
+function setDeskCold(on) {
+let cur = false;
+try { cur = document.documentElement.classList.contains('desk-layer-cold'); } catch (e0) { return; }
+if (cur === !!on) return;
+try { document.documentElement.classList.toggle('desk-layer-cold', !!on); } catch (e1) {}
+try { if (window.__mochiPhase) window.__mochiPhase(on ? 'desk-layer-cold' : 'desk-layer-warm'); } catch (e2) {}
+}
+function deskColdArm(arm) {
+if (deskColdT) { clearTimeout(deskColdT); deskColdT = 0; }
+if (!arm) { setDeskCold(false); return; }
+if (typeof document !== 'undefined' && document.hidden) return; // 后台期不计时（见上）
+deskColdT = setTimeout(function () { deskColdT = 0; setDeskCold(true); }, DESK_COLD_MS);
+}
 const phonePage = document.getElementById('page-phone');
 if (phonePage) {
 const mo = new MutationObserver(() => {
-if (!phonePage.hidden && pages.clientWidth) {
+if (phonePage.hidden) { deskColdArm(true); return; }
+deskColdArm(false);
+if (pages.clientWidth) {
 refreshCache();
 pages.scrollLeft = idx * pageStep();
 sync();
@@ -198,6 +215,11 @@ swSample(); // #884：从聊天/其他页切回桌面那一刻现场采一段帧
 }
 });
 mo.observe(phonePage, { attributes: true, attributeFilter: ['hidden'] });
+document.addEventListener('visibilitychange', function () {
+if (document.hidden) return;
+if (phonePage.hidden) deskColdArm(true); else deskColdArm(false);
+});
+deskColdArm(!!phonePage.hidden);
 }
 window.deskRebuild = function () {
 const slides = getSlides();

@@ -403,7 +403,18 @@ html.desk-zoom-card .week-card, html.desk-zoom-card .desk-period, html.desk-zoom
    ⚠️ 门控说明（防跨机型回归）：①仅触屏设备（hover:none + pointer:coarse）——电脑端外壳
    布局与图层行为零变化；②无整页背景图不挂类＝零额外显存（纯文字/图标页无收益故不付代价）。 */
 @media (hover: none) and (pointer: coarse) {
+  /* FIX 2026-09-25 #1225：`html.desk-layer-cold` 时释放这三张全屏合成层（类由 desktop-slider.js
+     按「亮屏且离开桌面 ≥60s」挂上、回到桌面前摘掉）。提升的唯一受益窗口是**桌面可见时**的左右
+     翻页（#754 实测翻页 平均186ms→17ms 就是它的功劳），而 perfcheck 实证用户 76% 的帧在 设置、
+     桌面只占 17%——人不在桌面时这层纹理纯属白占：440×956@3x 每张 ≈15MB、三张 ≈45MB。
+     这台 iPhone 16 Pro Max 的诊断正是「本页被系统回收过 28 次」→ 每次回收＝切回来整站冷启动
+     （5.2MB 脚本重编＋十几 MB 本地数据重回填）→ 报告里那串「前台冻结 32 次／最慢一帧 2449ms／
+     切回桌面 p90 764ms」，同时也是一次把未提交的写库窗口掐掉的机会（聊天记录丢失同源）。
+     零视觉变化：整页背景图画在 .page-slide 自己身上，桌面页 hidden 时这三张层根本不上屏；
+     回到桌面那一帧前类已摘掉＝#147「退聊天回桌面巨卡」那条常驻语义在正常来回里一字未动。
+     零机型／零 UA 分支：判据只有「亮屏离开桌面多久」。 */
   .desktop-pages.has-page-bg .page-slide { will-change: transform; }
+  html.desk-layer-cold .desktop-pages.has-page-bg .page-slide { will-change: auto; }
 }
 
 /* 分页指示器（v3.6.x：不再占一整行——悬浮在桌面底部中央，不挤占/遮挡功能图标） */

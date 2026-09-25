@@ -5050,6 +5050,10 @@ const FIX_SENTINELS = [
   { name: "#1230h 补登记管线不再要求调用方传 btn（壁纸面板/抽屉正是不传 btn 只按 id 登记宿主的入口；删＝这批入口重新掉出手势白名单）", file: "js/device.js", needle: "if (window.mochiFilePickSurfaceAll && typeof o.onFiles === 'function') {" },
   { name: "#1230i 预建宿主走统一入口同一实现（noClick 绝不激活选择器；删＝样式/单例/accept 口径与入口分叉，或预建即弹选择器）", file: "js/device.js", needle: "window.mochiFilePickBindHost = function (id, btn) {" },
   { name: "#1230j 原生腿取证（surf:hit／surf:files=N／surf:nopipe；删＝下次报障又只剩 leg:fire，弹没弹全靠猜）", file: "js/device.js", needle: "mochiPickLog((btn && btn.id) || (input.id || 'surf'), 'surf:hit')" },
+  /* ==== 2026-09-25 #1225 iPhone 16 Pro Max / iOS 18.7 实报「滑动切页面最卡＋聊天记录丢失」（perfcheck 30s：掉帧率 34%、前台冻结 32 次·最长 2449ms、切回桌面 p90 764ms；诊断：本页被系统回收 28 次）＝#754 提升的三张全屏合成层（440×956@3x 每张≈15MB、共≈45MB）在**人不在桌面时**也常驻显存，把 iOS 推到整页回收＝每次切回来整站冷启动（5.2MB 脚本重编＋十几 MB 本地数据重回填），同时掐掉未提交的写库窗口。方案＝只加一个「亮屏且离开桌面满 60 秒」的计时闸：命中给 <html> 挂 desk-layer-cold、home.css 在该类下把 will-change 收回 auto；回到桌面当场撤闸，后台期不计时（#147 的正常来回常驻语义一字未动）。零机型／零 UA 分支，判据只有「桌面这一页可见与否＋亮屏多久」。 ==== */
+  { name: '#1225a 桌面合成层冷启动释放闸·CSS（删＝离开桌面后三张全屏纹理仍常驻，回收/切回冻结原样复发）', file: 'css/home.css', needle: 'html.desk-layer-cold .desktop-pages.has-page-bg .page-slide { will-change: auto; }' },
+  { name: '#1225b 释放闸计时器本体（删＝离开桌面永不释放，闸形同虚设）', file: 'js/desktop-slider.js', needle: 'deskColdT = setTimeout(function () { deskColdT = 0; setDeskCold(true); }, DESK_COLD_MS);' },
+  { name: '#1225c 只在离开桌面时起表、回到桌面立刻撤闸（删成无条件计时＝用户正看着桌面时掉纹理＝#147 复发）', file: 'js/desktop-slider.js', needle: 'if (phonePage.hidden) { deskColdArm(true); return; }' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

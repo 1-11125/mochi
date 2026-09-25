@@ -306,12 +306,47 @@
     if (pages.clientWidth) pages.scrollLeft = idx * pageStep();
   });
 
+  // ===== #1225：亮屏离开桌面 ≥60s 就释放桌面的全屏合成层 =====
+  // 为什么：#754 把三张 .page-slide 提到独立合成层（`will-change: transform`）治的是**桌面翻页**
+  // 每帧重栅格整屏大图；代价是三张常驻全屏纹理＝440×956@3x 每张约 15MB、共约 45MB 显存，
+  // 而且**人不在桌面时也照样常驻**。本机两份诊断实证：perfcheck 30 秒里 76% 的帧在 设置、桌面只
+  // 占 17%，同时「本页被系统回收过 28 次」——回收一次＝切回来整站冷启动（全部脚本重编＋十几 MB
+  // 本地数据重回填），正是「切回桌面 平均114ms／最慢 1452ms」「最慢一帧 2449ms」那串读数的来源，
+  // 也是把未提交的写库窗口掐掉的机会（聊天记录丢失同源）。
+  // 怎么做：只加一个「亮屏且离开桌面满 60 秒」的计时闸，命中就给 <html> 挂 desk-layer-cold
+  // （home.css 里把 will-change 收回 auto）。①正常「退聊天回桌面」的来回（几十秒内）完全不摘，
+  // #147 那条「回桌面巨卡」的常驻语义一字未动；②真挂上时人本来就不在桌面＝零视觉变化；
+  // ③回到桌面（hidden 翻回 false / 从后台回前台且当前就是桌面）当场收回，且**后台期不计时**——
+  // iOS 挂起时 GPU 资源本就作废，没必要把重新提升的成本压进用户报的那个「切回来」窗口。
+  // 判据只有「桌面这一页可见与否 ＋ 亮屏多久」，零机型、零 UA 分支。
+  const DESK_COLD_MS = 60000;
+  let deskColdT = 0;
+  function setDeskCold(on) {
+    let cur = false;
+    try { cur = document.documentElement.classList.contains('desk-layer-cold'); } catch (e0) { return; }
+    if (cur === !!on) return;
+    try { document.documentElement.classList.toggle('desk-layer-cold', !!on); } catch (e1) {}
+    // 给 perf-check 留证：下一份报告里「桌面层已释放」这个现场指纹有没有出现＝这条闸到底
+    // 在真机上咬合过没有，不用靠猜。（相位点缺失时 perf-check 自带守卫，不报错）
+    try { if (window.__mochiPhase) window.__mochiPhase(on ? 'desk-layer-cold' : 'desk-layer-warm'); } catch (e2) {}
+  }
+  function deskColdArm(arm) {
+    if (deskColdT) { clearTimeout(deskColdT); deskColdT = 0; }
+    if (!arm) { setDeskCold(false); return; }
+    if (typeof document !== 'undefined' && document.hidden) return; // 后台期不计时（见上）
+    deskColdT = setTimeout(function () { deskColdT = 0; setDeskCold(true); }, DESK_COLD_MS);
+  }
+
   // v3.6.x：桌面页隐藏时（切到聊天/设置等）旋转，resize 里 clientWidth=0 会跳过——
   // 返回桌面时按新宽度重设一次，避免 scrollLeft 停在两页之间、圆点与内容错位
   const phonePage = document.getElementById('page-phone');
   if (phonePage) {
     const mo = new MutationObserver(() => {
-      if (!phonePage.hidden && pages.clientWidth) {
+      // #1225：先做显存闸的收支（离开桌面起算／回到桌面当场收回，回调在绘制之前），
+      // 再跑原有的位置校正——两者互不依赖，校正逻辑一字未动。
+      if (phonePage.hidden) { deskColdArm(true); return; }
+      deskColdArm(false);
+      if (pages.clientWidth) {
         refreshCache();
         pages.scrollLeft = idx * pageStep();
         sync();
@@ -320,6 +355,14 @@
       }
     });
     mo.observe(phonePage, { attributes: true, attributeFilter: ['hidden'] });
+    // #1225：从后台回到前台时重新裁决——当前就在桌面就把释放收回来（后台期本就不计时），
+    // 停在别的页则重新起一轮 60s（旧计时可能整段花在挂起期，不作数）。
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) return;
+      if (phonePage.hidden) deskColdArm(true); else deskColdArm(false);
+    });
+    // 首屏就不在桌面（深链/上次停在别的页）时补起一轮；在桌面则不计时。
+    deskColdArm(!!phonePage.hidden);
   }
 
   // v3.6.x：外部（新增/删除桌面页后）调用，重建圆点数量 + 校正当前索引
