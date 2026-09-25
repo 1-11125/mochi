@@ -38,6 +38,34 @@ try {
   }
 } catch (e) { /* 非 git 环境 / git 不可用：跳过检查 */ }
 
+// ===== 构建前「打回体检」（#1213，写产物之前的硬闸）=====
+// 上一块只看「工作区脏不脏」，看不出「脏的那份是不是旧底」。并行批把工作树当公共草稿区，
+// 谁在停在旧底的工作树上 build，就把别人**已入库**的修复整块抹回产物（实测 2026-09-25 主树
+// 一次构建会打回 132 条已登记锚点／43 个批次），而构建照报成功、`--check-sentinels` 也照绿——
+// 因为它用本地登记表当尺子，而本地 build.mjs 自己就可能正是旧底（同一实测里本地登记比 HEAD 少
+// 127 条）。体检逻辑在 tools/verify-worktree-revert.mjs（登记表强制取 HEAD 的 build.mjs），
+// 这里只负责在写文件前拦住。
+// 放行：--allow-revert（确认过差异无碍）/ MOCHI_BUILD_FORCE=1；跳过：非 git 工作树根（archive
+// 副本）或登记表解析不出——跳过一律显式打印，绝不静默放行。
+if (!CHECK_SENTINELS && !process.argv.includes('--allow-revert') && !process.env.MOCHI_BUILD_FORCE) {
+  try {
+    const rv = execSync('node "' + join(root, 'tools', 'verify-worktree-revert.mjs') + '"',
+      { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log(rv.trim());
+  } catch (e) {
+    const st = e && e.status;
+    if (st === 2) {
+      console.log(((e.stdout || '') + (e.stderr || '')).trim());
+    } else if (st === 1) {
+      console.error(((e.stdout || '') + (e.stderr || '')).trim());
+      console.error('⛔ 构建已中止（未写任何产物）。确认这些差异无碍后：node build.mjs --allow-revert');
+      process.exit(1);
+    } else {
+      console.warn('⚠️  打回体检未执行（' + String((e && (e.stderr || e.message)) || e).split('\n')[0].slice(0, 100) + '）——不阻断构建，但这次构建没有打回防线。');
+    }
+  }
+}
+
 // ===== 构建信息（开屏显示 + sw 缓存版本号，v3.5.54） =====
 const buildTime = new Date();
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
