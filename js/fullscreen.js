@@ -560,7 +560,23 @@ function _gfsSchedule() {
 if (_gfsRaf) return;
 _gfsRaf = requestAnimationFrame(function () { _gfsRaf = 0; applyGameFsElevate(); });
 }
-var _gfsObs = new MutationObserver(_gfsSchedule);
+function _gfsHitOne(n, deep) {
+if (!n || n.nodeType !== 1) return false;
+if (n.classList && n.classList.contains('poke-card')) return true;
+if (!deep) return false;
+try { return !!n.querySelector('.poke-card'); } catch (e) { return false; }
+}
+function _gfsHit(muts) {
+for (var i = 0; i < muts.length; i++) {
+var m = muts[i];
+if (m.type === 'attributes') { if (_gfsHitOne(m.target, false)) return true; continue; }
+var a = m.addedNodes, r = m.removedNodes, k;
+for (k = 0; k < a.length; k++) if (_gfsHitOne(a[k], true)) return true;
+for (k = 0; k < r.length; k++) if (_gfsHitOne(r[k], true)) return true;
+}
+return false;
+}
+var _gfsObs = new MutationObserver(function (muts) { if (_gfsHit(muts)) _gfsSchedule(); });
 _gfsObs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
 applyGameFsElevate();
 })();

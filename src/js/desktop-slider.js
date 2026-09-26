@@ -9,8 +9,9 @@
 // 变形动画 250ms，合计约 0.4s 的滞后感。
 // ⚠️ 性能红线（用户要求：安卓 / iOS 都不能卡）——本文件从此跑在滚动的每一帧上：
 //   ① rAF 节流：一帧最多算一次，索引没变不碰 DOM；
-//   ② 每帧零 DOM 查询、零样式读取——页步长(gap) 与圆点数组缓存在增删页/resize 时
-//      重算（refreshCache），每帧只剩 scrollLeft / clientWidth 两个布局读 + 一次取整；
+//   ② 每帧零 DOM 查询、零样式读取——页步长(gap) 与圆点数组缓存，圆点在增删页时重算
+//      （refreshCache）、gap 只在增删页/resize 这类真会改它的地方作废（#1301），每帧只剩
+//      scrollLeft / clientWidth 两个布局读 + 一次取整；
 //   ③ 不引入 smooth 滚动、不读写会触发布局的样式属性，只切 class。
 (function () {
   const pages = document.getElementById('desktop-pages');
@@ -28,9 +29,16 @@
   let dotsCache = [];
   let gapCache = null;
 
+  // #1301：refreshCache 只换圆点数组，不再顺手作废 gap 缓存。
+  // 旧写法每次「点圆点 / resize / 切回桌面 / 重建桌面」都调 refreshCache，而它把
+  // gapCache 一起清空 ⇒ 下一次 pageStep() 必做一次 getComputedStyle(#desktop-pages)。
+  // 在切回桌面那条路径上（page-phone 的 hidden 翻回 false 那一帧）这次样式读取是
+  // 在 display:none→block 之后立刻发生的＝样式树还是脏的，等于把一次强制样式重算
+  // 塞进用户报「切页面最卡」的那一帧。gap 来自 .desktop-pages 的 CSS 常量
+  // （var(--desk-page-gap, 8px)，全仓无任何运行时改写），它只可能随视口媒体查询或
+  // 重建桌面而变——作废点因此挪到那两处（见 resize 处理器与 deskRebuild）。
   function refreshCache() {
     dotsCache = getDots();
-    gapCache = null;
   }
 
   // v3.6.x：页间有 gap 缝隙，每页滚动步长 = clientWidth + gap
@@ -39,6 +47,18 @@
   function pageStep() {
     if (gapCache === null) gapCache = parseFloat(getComputedStyle(pages).columnGap) || 0;
     return pages.clientWidth + gapCache;
+  }
+
+  // #1301：把「按当前 idx 落位」收成一个函数，且**只在确实不在位时**写 scrollLeft。
+  // 旧写法在四个位置无条件写，其中最热的是「切回桌面」那一帧（page-phone 的 hidden 翻回
+  // false）：刚 display:none→block 就赋值滚动位置，在 WebKit 上等于把一次同步布局＋一次
+  // 滚动位置突变压进用户正看着的那一帧，而绝大多数情况下位置本来就已经是对的（用户只是
+  // 去聊天看了一眼回来）。真正需要重设的是「旋转后页宽变了」「重建过桌面」——那些改动之后
+  // 读数与目标值差得远，条件写入照常生效；已经在位时（>1px 容差吸收 snap 的亚像素终点）
+  // 一次都不写。393×852 DPR3＋6× 节流实测：本观察器闭包在 20 次切页里自耗 934ms。
+  function snapToIdx() {
+    const want = idx * pageStep();
+    if (Math.abs(pages.scrollLeft - want) > 1) pages.scrollLeft = want;
   }
 
   // 只切 class，不读任何样式（每帧只走到这里，见 syncFrame）
@@ -65,7 +85,7 @@
     // v3.5.132：页面隐藏（display:none）时 clientWidth=0，直接赋值会产生 Infinity 下标
     if (!pages.clientWidth) return;
     // 直接赋值 scrollLeft 立即切换（scroll-snap 会自动吸附），避免 smooth 滚动被 snap 打断
-    pages.scrollLeft = idx * pageStep();
+    snapToIdx();
     for (let k = 0; k < dotsCache.length; k++) dotsCache[k].classList.toggle('active', k === idx);
   }
 
@@ -319,8 +339,9 @@
 
   // v3.5.132：旋转后按新宽度重设 scrollLeft（否则停在 1.x 页位置，圆点与内容不符）
   window.addEventListener('resize', () => {
-    refreshCache(); // 视口变了重算 gap 缓存（clientWidth 每帧现读，无需缓存）
-    if (pages.clientWidth) pages.scrollLeft = idx * pageStep();
+    refreshCache();
+    gapCache = null; // #1301：作废点从 refreshCache 挪到这里——视口变了页宽与媒体查询都可能变
+    if (pages.clientWidth) snapToIdx();
   });
 
   // ===== #1225：亮屏离开桌面 ≥60s 就释放桌面的全屏合成层 =====
@@ -365,7 +386,7 @@
       deskColdArm(false);
       if (pages.clientWidth) {
         refreshCache();
-        pages.scrollLeft = idx * pageStep();
+        snapToIdx(); // #1301：已经在位就不写（旧写法每次切回桌面必写一次＝把同步布局压进这一帧）
         sync();
         pageScrollGuard.later(60); // #989：回桌面复核一次（残留滚动量在进桌面当帧就修掉）
         swSample(); // #884：从聊天/其他页切回桌面那一刻现场采一段帧耗时
@@ -402,6 +423,7 @@
     }
     // 圆点已重建：缓存必须换成新节点（旧节点已脱离文档，继续改等于改了个空）
     refreshCache();
+    gapCache = null; // #1301：增删页＝结构性变更点，gap 在此作废（refreshCache 已不再顺手清）
     if (pages.clientWidth) {
       pages.scrollLeft = idx * pageStep();
       sync();

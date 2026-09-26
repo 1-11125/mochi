@@ -835,7 +835,34 @@
     if (_gfsRaf) return;
     _gfsRaf = requestAnimationFrame(function () { _gfsRaf = 0; applyGameFsElevate(); });
   }
-  var _gfsObs = new MutationObserver(_gfsSchedule);
+  // #1301 观察器只对本该它管的变化醒：#338/#970 把「每次评估」的成本一路压低（活集合 +
+  // 无面板直返回 + rAF 合帧），但**触发评估**的条件仍是「body 整树任何一次 class／hidden／
+  // 子节点变化」。而本应用 91% 的 DOM 住在隐藏页里（无头实测 16405/18040 节点），切页与
+  // 页面内每次渲染都会把整批 MutationRecord 推进来——每批都要过一遍 applyGameFsElevate，
+  // 那趟 `document.getElementsByClassName('poke-card').length` 是**全文档**活集合取长
+  // （集合缓存随每次 DOM 变更失效，等于每批重扫整棵树）。393×852 DPR3＋6× 节流实测：
+  // 20 次切页里本观察器自耗时 506ms，另带 ~1.8s 的选择器查询。
+  // 现在改为先在 MutationRecord 上判「这一批里到底有没有碰 .poke-card」：属性记录只看
+  // 被改的那个元素自身，childList 记录只进「新插入／移除的那棵子树」做局部 querySelector
+  // （作用域是那一小段子树，不是整篇文档）。真碰到了才 _gfsSchedule()，评估逻辑一字未动。
+  // 零机型分支：判据是「记录里有没有这个类名」，与内核、UA、型号无关。
+  function _gfsHitOne(n, deep) {
+    if (!n || n.nodeType !== 1) return false;
+    if (n.classList && n.classList.contains('poke-card')) return true;
+    if (!deep) return false;
+    try { return !!n.querySelector('.poke-card'); } catch (e) { return false; }
+  }
+  function _gfsHit(muts) {
+    for (var i = 0; i < muts.length; i++) {
+      var m = muts[i];
+      if (m.type === 'attributes') { if (_gfsHitOne(m.target, false)) return true; continue; }
+      var a = m.addedNodes, r = m.removedNodes, k;
+      for (k = 0; k < a.length; k++) if (_gfsHitOne(a[k], true)) return true;
+      for (k = 0; k < r.length; k++) if (_gfsHitOne(r[k], true)) return true;
+    }
+    return false;
+  }
+  var _gfsObs = new MutationObserver(function (muts) { if (_gfsHit(muts)) _gfsSchedule(); });
   _gfsObs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
   applyGameFsElevate();
 })();

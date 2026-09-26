@@ -9,11 +9,14 @@ let dotsCache = [];
 let gapCache = null;
 function refreshCache() {
 dotsCache = getDots();
-gapCache = null;
 }
 function pageStep() {
 if (gapCache === null) gapCache = parseFloat(getComputedStyle(pages).columnGap) || 0;
 return pages.clientWidth + gapCache;
+}
+function snapToIdx() {
+const want = idx * pageStep();
+if (Math.abs(pages.scrollLeft - want) > 1) pages.scrollLeft = want;
 }
 function paint(cur) {
 if (cur === idx) return;
@@ -32,7 +35,7 @@ refreshCache(); // 圆点可能刚被重建过（点击落在 deskRebuild 之后
 const slides = getSlides();
 idx = Math.max(0, Math.min(slides.length - 1, i));
 if (!pages.clientWidth) return;
-pages.scrollLeft = idx * pageStep();
+snapToIdx();
 for (let k = 0; k < dotsCache.length; k++) dotsCache[k].classList.toggle('active', k === idx);
 }
 const PERF_KEY = 'xy-home-v2:__diag-deskperf';
@@ -197,8 +200,9 @@ if (!dot) return;
 go(getDots().indexOf(dot));
 });
 window.addEventListener('resize', () => {
-refreshCache(); // 视口变了重算 gap 缓存（clientWidth 每帧现读，无需缓存）
-if (pages.clientWidth) pages.scrollLeft = idx * pageStep();
+refreshCache();
+gapCache = null; // #1301：作废点从 refreshCache 挪到这里——视口变了页宽与媒体查询都可能变
+if (pages.clientWidth) snapToIdx();
 });
 const DESK_COLD_MS = 60000;
 let deskColdT = 0;
@@ -222,7 +226,7 @@ if (phonePage.hidden) { deskColdArm(true); return; }
 deskColdArm(false);
 if (pages.clientWidth) {
 refreshCache();
-pages.scrollLeft = idx * pageStep();
+snapToIdx(); // #1301：已经在位就不写（旧写法每次切回桌面必写一次＝把同步布局压进这一帧）
 sync();
 pageScrollGuard.later(60); // #989：回桌面复核一次（残留滚动量在进桌面当帧就修掉）
 swSample(); // #884：从聊天/其他页切回桌面那一刻现场采一段帧耗时
@@ -248,6 +252,7 @@ dotsBox.appendChild(d);
 }
 }
 refreshCache();
+gapCache = null; // #1301：增删页＝结构性变更点，gap 在此作废（refreshCache 已不再顺手清）
 if (pages.clientWidth) {
 pages.scrollLeft = idx * pageStep();
 sync();
