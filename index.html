@@ -10703,9 +10703,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790415892925">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790418091878">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-26 17:44<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-26 18:21<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -21425,9 +21425,18 @@ if (!bar) return;
 const G = 'xy-home-v2:';
 const DAY = 86400000;
 const startedAt = Date.now();
-function ts(key) { try { return Number(localStorage.getItem(G + key)) || 0; } catch (e) { return 0; } }
+const flagStore = window.xyStore ? window.xyStore('xy-home-v2') : null;
+function flagGet(key) {
+try { const v = flagStore ? flagStore.get(key) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
+try { return localStorage.getItem(G + key); } catch (e) { return null; }
+}
+function flagSet(key, val) {
+try { if (flagStore) { flagStore.set(key, val); return; } } catch (e) {}
+try { localStorage.setItem(G + key, val); } catch (e) {}
+}
+function ts(key) { try { return Number(flagGet(key)) || 0; } catch (e) { return 0; } }
 function dayKey(t) { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
-function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
+function markReminded() { flagSet('__last-backup-remind', String(Date.now())); }
 function splashGone() {
 const s = document.getElementById('splash');
 return !s || !s.isConnected || s.classList.contains('hide');
@@ -21496,7 +21505,7 @@ bar.hidden = false;
 return bar.getClientRects().length > 0;
 }
 function due() {
-try { if (!localStorage.getItem(G + 'contacts')) return false; } catch (e) { return false; }
+try { if (!flagGet('contacts')) return false; } catch (e) { return false; }
 const lastRemind = ts('__last-backup-remind');
 if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;
 const lastBackup = ts('__last-backup');
@@ -21623,8 +21632,13 @@ for (let i = 0; i < localStorage.length; i++) {
 const k = localStorage.key(i);
 if (k && k.indexOf(G) === 0 && k !== G + '__onboard-done' && k !== G + '__edge-backup-hint-done') { hasData = true; break; }
 }
-if (isEdgeAndroid && !isStandalone && hasData && !localStorage.getItem(G + '__last-backup') && !localStorage.getItem(G + '__edge-backup-hint-done')) {
-try { localStorage.setItem(G + '__edge-backup-hint-done', String(Date.now())); } catch (e) {}
+const hintFlag = window.xyStore ? window.xyStore('xy-home-v2') : null;
+const hintGet = function (k) {
+try { const v = hintFlag ? hintFlag.get(k) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
+try { return localStorage.getItem(G + k); } catch (e) { return null; }
+};
+if (isEdgeAndroid && !isStandalone && hasData && !hintGet('__last-backup') && !hintGet('__edge-backup-hint-done')) {
+try { if (hintFlag) hintFlag.set('__edge-backup-hint-done', String(Date.now())); else localStorage.setItem(G + '__edge-backup-hint-done', String(Date.now())); } catch (e) {}
 if (window.openModal) {
 window.openModal('安装前建议先导出备份', '', () => {
 try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {}
@@ -22081,4 +22095,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mui7e8jh -->
+<!-- __MOCHI_EOF__ mui8pd9i -->

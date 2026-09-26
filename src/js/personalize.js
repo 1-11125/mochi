@@ -10963,6 +10963,25 @@ try {
   }
   renderDeskWidgets();
 
+  // FIX 2026-09-26 #1307：「我们在一起 N 天」在回填完成之后再重放一次。
+  //   love-start 是 per-cid 小键，正常设备上一次同步写就落进 localStorage，故上方 8858 行的
+  //   一次性求值够用；但同源配额被兄弟站点吃满的设备（一加 Ace5/Edge 实报 LS 写入失败，导出件
+  //   里「localStorage 整域 187 键 ≈10.0 MB，非本项目 94 键 ≈9.4 MB」）每一次 xyStore.set 的 LS
+  //   那档都会抛并被吞，值只活在 IndexedDB——本模块求值那一刻 idbRestore 还没跑完，读出来是空，
+  //   于是桌面纪念日卡与设置页日期按钮渲染成「请先设置」，之后数据补齐也没有代码回头再刷＝用户
+  //   所见「在一起的天数没有了」。这与 #289（打卡按钮同一空窗、当场收口为 restore-done + wrj-heal
+  //   重放）是同一把尺子，照抄那条已验证的路；三处渲染都幂等（只按当前 store 读数重写文本），
+  //   重复触发不改数据、不抖动态。刻意不含 renderDeskCalendar/renderDeskClock 等：它们不读业务键。
+  const replayDeskAnnivAfterRestore = () => {
+    try { syncLoveDateBtn(store.get('love-start')); } catch (e) {}
+    try { updateLove(); } catch (e) {}
+    try { renderDeskAnniv(); } catch (e) {}
+  };
+  try {
+    document.addEventListener('mochi-restore-done', replayDeskAnnivAfterRestore);
+    document.addEventListener('mochi-wrj-heal', replayDeskAnnivAfterRestore);
+  } catch (e) {}
+
   // v3.6.x：多桌面——切换联系人后刷新桌面外观（壁纸/自定义图标/打卡/摸鱼展示）。
   // store 是动态绑定当前联系人的，restoreAppIcons/applyBgVisibility 会读新桌面的值；
   // 打卡按钮状态按新桌面的 checkin 键重新判断。

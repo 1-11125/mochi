@@ -656,7 +656,12 @@ coverText += '\n⚠ 这个文件约 ' + fmtSize(blob.size) + '，新设备导入
 const fname = (cfg.mode === 'chat' ? 'mochi聊天记录_' : 'mochi数据备份_') + localDateStr(new Date()) + '.json';
 const sizeStr = fmtSize(blob.size);
 const doneText = '数据已导出（' + sizeStr + '，' + cfg.note + '）';
-if (cfg.mode !== 'chat') { try { localStorage.setItem('xy-home-v2:__last-backup', String(Date.now())); } catch (e) {} }
+if (cfg.mode !== 'chat') {
+try {
+if (window.xyStore) window.xyStore('xy-home-v2').set('__last-backup', String(Date.now()));
+else localStorage.setItem('xy-home-v2:__last-backup', String(Date.now()));
+} catch (e) {}
+}
 impShow('正在导出…', '正在准备保存文件', 92);
 const saveRes = await saveBackupFile(blob, fname);
 impHide();

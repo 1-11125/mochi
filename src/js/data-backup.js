@@ -894,7 +894,19 @@
     // v3.6.x：记录最近一次成功导出时间——备份提醒条（pwa.js）据此判断是否该提醒。
     // v3.3x.x：#355b 「仅聊天记录」导出只算部分备份，不更新 __last-backup——否则会压制
     // 全量备份提醒，让用户误以为数据已整体备份完（音乐/图片/设置等都还没备份）。
-    if (cfg.mode !== 'chat') { try { localStorage.setItem('xy-home-v2:__last-backup', String(Date.now())); } catch (e) {} }
+    // FIX 2026-09-26 #1307：这条"最近成功导出"时间戳原来只裸写 localStorage——一加 Ace5/Edge
+    //   实报「已经备份了，还在不断弹备份弹窗」的当场证据是同一份导出件写着
+    //   「localStorage 状态：写入失败(QuotaExceededError)」＋整域 10MB 里 9.4MB 是同源兄弟站点
+    //   的键（GitHub Pages 一个源一个 localStorage）。写失败被 catch 吞掉 ⇒ 标记永远是 0 ⇒
+    //   pwa.js 的 due() 永远判「该提醒」。改走 xyStore（内存缓存 + LS 快照 + IndexedDB 三层），
+    //   LS 写不进时内存与 IDB 各留一份，启动回填（idbRestore 对本键无排除规则）把它带回内存。
+    //   xyStore 不在（理论不会：idb.js 先于本文件加载）才退回裸 LS，保持老行为可用。
+    if (cfg.mode !== 'chat') {
+      try {
+        if (window.xyStore) window.xyStore('xy-home-v2').set('__last-backup', String(Date.now()));
+        else localStorage.setItem('xy-home-v2:__last-backup', String(Date.now()));
+      } catch (e) {}
+    }
     // v3.29.x：自动备份副本已下线——导出不再把整包 JSON 复制进 IndexedDB。
     //   旧实现有 ≤3MB 才写的阈值（为修 iOS Safari 导出闪退 / 小米 14U Edge 导出后本地存储被写坏而加），
     //   结果是真正需要备份的大数据量用户永远拿不到副本，副本只留存在旧版本里变成纯冗余占用

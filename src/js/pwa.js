@@ -428,11 +428,28 @@
     const G = 'xy-home-v2:';
     const DAY = 86400000;
     const startedAt = Date.now();
-    function ts(key) { try { return Number(localStorage.getItem(G + key)) || 0; } catch (e) { return 0; } }
+    // FIX 2026-09-26 #1307：冷却标记改走 xyStore（内存缓存 + LS 快照 + IndexedDB），不再裸写 localStorage。
+    //   一加 Ace5/Edge 实报「已经备份了，还是不断弹出备份的弹窗」而同一台机的导出件写着
+    //   「localStorage 状态：写入失败(QuotaExceededError)」＋「整域 187 键 ≈10.0 MB，其中非本项目
+    //   94 键 ≈9.4 MB」＝同源（GitHub Pages 一个源一个 localStorage，兄弟站点把配额吃满）时，
+    //   下面这三处裸写各自被 catch 静默吞掉，标记永远是 0 ⇒ due() 永远为真、上面那条 2s 快轮询
+    //   每 2 秒把用户刚关掉的弹窗再弹一次——「明明备份过了还在弹」。裸写点的失败在 #1305 之前
+    //   根本没有现场，本批把该族里唯一「失败即改变用户可见行为」的标记收到持久层这一侧。
+    //   取值仍要兼容旧设备：老数据只在 localStorage，xyStore.get 读空时回落裸 LS 一次。
+    const flagStore = window.xyStore ? window.xyStore('xy-home-v2') : null;
+    function flagGet(key) {
+      try { const v = flagStore ? flagStore.get(key) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
+      try { return localStorage.getItem(G + key); } catch (e) { return null; }
+    }
+    function flagSet(key, val) {
+      try { if (flagStore) { flagStore.set(key, val); return; } } catch (e) {}
+      try { localStorage.setItem(G + key, val); } catch (e) {}
+    }
+    function ts(key) { try { return Number(flagGet(key)) || 0; } catch (e) { return 0; } }
     // 冷却按「自然日」判定而非「距今满 24 小时」：按 24h 计时时，每天比前一天早一秒打开
     // 就永远凑不满 24 小时（提醒会无限往后漂＝用户所见「从来没弹过」）。
     function dayKey(t) { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
-    function markReminded() { try { localStorage.setItem(G + '__last-backup-remind', String(Date.now())); } catch (e) {} }
+    function markReminded() { flagSet('__last-backup-remind', String(Date.now())); }
     // 开屏是否已关闭（clock.js：点击进入 → 加 .hide → 400ms 后移除节点）。
     // modal-mask 在 .phone 内（开屏期间 .phone 整棵 visibility:hidden）、提醒条 z-998 也低于
     // splash z-999 ⇒ 开屏期间弹＝弹在看不见的地方，旧版却照样写冷却，于是当天再也不会第二次弹。
@@ -517,7 +534,9 @@
     }
     // 是否到了该提醒的时候（今日未提醒 + 不是刚备份过 + 本地确有数据可备）
     function due() {
-      try { if (!localStorage.getItem(G + 'contacts')) return false; } catch (e) { return false; }
+      // #1307：contacts 是 xyStore 键（contacts.js regStore 写）——裸读 LS 在配额满的设备上
+      // 会读空并把提醒整族静默掐掉（＝与「不断弹」同一根因的反向症状：标记写不进＝永远不弹）
+      try { if (!flagGet('contacts')) return false; } catch (e) { return false; }
       const lastRemind = ts('__last-backup-remind');
       if (lastRemind && dayKey(lastRemind) === dayKey(Date.now())) return false;
       const lastBackup = ts('__last-backup');
@@ -527,7 +546,7 @@
     function tryShow() {
       if (window.__resetting || document.hidden) return;
       // 数据就绪才判；IDB 整轮挂起的设备上 __mochiDataReady 永不置位，60s 后按已就绪处理
-      //（这里只读 localStorage 的小键，回填没完成也不会读到脏值）
+      //（标记只有 KB 级小键，回填没完成时最坏是多弹一次，不会读到脏值）
       if (!window.__mochiDataReady && Date.now() - startedAt < 60000) return;
       if (!splashGone()) return;
       if (!due()) return;
@@ -688,8 +707,15 @@
           const k = localStorage.key(i);
           if (k && k.indexOf(G) === 0 && k !== G + '__onboard-done' && k !== G + '__edge-backup-hint-done') { hasData = true; break; }
         }
-        if (isEdgeAndroid && !isStandalone && hasData && !localStorage.getItem(G + '__last-backup') && !localStorage.getItem(G + '__edge-backup-hint-done')) {
-          try { localStorage.setItem(G + '__edge-backup-hint-done', String(Date.now())); } catch (e) {}
+        // FIX 2026-09-26 #1307：这条「安装前先导出」的已提示标记同样是裸写 localStorage——
+        // 同源配额被兄弟站点吃满时写失败被吞，每次点安装按钮都重弹一遍（与备份弹窗同一根因）。
+        const hintFlag = window.xyStore ? window.xyStore('xy-home-v2') : null;
+        const hintGet = function (k) {
+          try { const v = hintFlag ? hintFlag.get(k) : null; if (v !== null && v !== undefined) return v; } catch (e) {}
+          try { return localStorage.getItem(G + k); } catch (e) { return null; }
+        };
+        if (isEdgeAndroid && !isStandalone && hasData && !hintGet('__last-backup') && !hintGet('__edge-backup-hint-done')) {
+          try { if (hintFlag) hintFlag.set('__edge-backup-hint-done', String(Date.now())); else localStorage.setItem(G + '__edge-backup-hint-done', String(Date.now())); } catch (e) {}
           if (window.openModal) {
             window.openModal('安装前建议先导出备份', '', () => {
               try { if (window.runBackupExport) window.runBackupExport(); } catch (e) {}

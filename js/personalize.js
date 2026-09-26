@@ -9016,6 +9016,15 @@ try { renderDeskAnniv(); } catch (e) {}
 try { window.periodRenderDeskWidget && window.periodRenderDeskWidget(); } catch (e) {}
 }
 renderDeskWidgets();
+const replayDeskAnnivAfterRestore = () => {
+try { syncLoveDateBtn(store.get('love-start')); } catch (e) {}
+try { updateLove(); } catch (e) {}
+try { renderDeskAnniv(); } catch (e) {}
+};
+try {
+document.addEventListener('mochi-restore-done', replayDeskAnnivAfterRestore);
+document.addEventListener('mochi-wrj-heal', replayDeskAnnivAfterRestore);
+} catch (e) {}
 document.addEventListener('contact-switched', function () {
 try { applyBgVisibility(); } catch (e) {}
 try { restoreAppIcons(); } catch (e) {}

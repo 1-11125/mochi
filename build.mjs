@@ -5246,6 +5246,13 @@ const FIX_SENTINELS = [
   { name: '#1308e 气泡播放失败按 MediaError.code 分流（退回一句「语音播放失败」＝存量坏件与自动播放被拒混在一起，用户只能当成播放功能坏了；判据只此一处，试听那条借用同一函数）', file: 'js/chat.js', needle: "chatVoiceWitness(dead ? 'play' : 'play-load'" },
   { name: '#1308f 试听那一路同样分流（这是「还没发出去」的最后一次机会，不说清当场重录就会变成发进聊天记录的永久坏件）', file: 'js/chat.js', needle: "chatVoiceWitness(dead ? 'preview' : 'preview-load'" },
   { name: '#1308g 诊断【数据】段回吐语音载荷体检（次数＋最近一条的容器/体积/内核码；删＝报障时【最近错误】里那几条截断的 data:audio 依然只能挨个猜）', file: 'js/device.js', needle: "L.push('语音载荷体检：' + window.__voiceDiag())" },
+  /* ==== 2026-09-26 #1307 一加 Ace5/Edge 实报「已经备份了，还是不断弹出备份的弹窗」＋「字卡/表情包/在一起的天数都没有了」，导出件同时写「localStorage 状态：写入失败(QuotaExceededError)」＋整域 10MB 里 9.4MB 是同源兄弟站点的键（GitHub Pages 一个源一份 localStorage）。本批把「只写 LS 的冷却标记」搬进 xyStore（内存＋LS＋IDB），并给只在 IDB 的天数补回填后重放。零机型／零 UA 分支＝判据只取「这一发写进了哪一层」 ==== */
+  { name: '#1307a 备份弹窗冷却标记走 xyStore（退回裸写＝LS 满时被内核拒绝那一发被 catch 吞掉，标记永远读成 0 ⇒ 2s 快轮询把刚关掉的弹窗再弹一次＝「备份过了还在弹」本体）', file: 'js/pwa.js', needle: "flagSet('__last-backup-remind', String(Date.now()));" },
+  { name: '#1307b contacts 按 xyStore 键读（裸读 LS 在满库设备上读空＝整族静默不弹，与「不断弹」同一根因的反向症状，两个方向都要拦）', file: 'js/pwa.js', needle: "if (!flagGet('contacts')) return false;" },
+  { name: '#1307c 导出成功标记落进持久层（这一枚是「我已经备份过了」的唯一凭据；裸写被吞＝due() 永远为真）', file: 'js/data-backup.js', needle: "window.xyStore('xy-home-v2').set('__last-backup', String(Date.now()));" },
+  { name: '#1307d 在一起天数在回填完成后重放（#289 同一条路；删＝只在 IDB 里的 love-start 永远渲染成「请先设置」，用户读成天数没了）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-restore-done', replayDeskAnnivAfterRestore);" },
+  { name: '#1307e 写日志合并自愈那一刀也重放（wrj-merge 覆盖 LS/内存后读数会变，漏这条＝自愈回来的天数还是空的）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-wrj-heal', replayDeskAnnivAfterRestore);" },
+  { name: '#1307f 删除型：冷却标记不得退回裸 localStorage 直写（回流＝本批整块被旧缓冲打回，满库设备重新天天弹）', file: 'js/pwa.js', needle: "localStorage.setItem(G + '__last-backup-remind'", absent: true },
 
 ];
 try {
