@@ -356,6 +356,49 @@
     }
   } catch (e) {}
 
+  // ===== #1295 桌面图层现场读数 =====
+  // 背景：iPhone 11 / iOS 18.7.5 实报「桌面翻页 平均114ms／p90 832ms／最慢1665ms、切回桌面
+  // p90 1640ms」，#690/#884 两把帧耗时尺子只能证「慢」、#907 相位账本只能说「冻结前最后一条
+  // 标记是什么」——而桌面卡顿嫌疑人族（壁纸大纹理、CSS 模糊兜底未烘成 #1161、#1285 缩放外扩
+  // 盒、#754 未提升的整页背景、标签栏毛玻璃每帧重采样）各自的判据全在本机 DOM/样式里，
+  // 旧诊断一条都不报，每次报障只能挨个猜。本读数＝纯类名＋内联样式＋计算样式读取，
+  // 零机型／零 UA 分支；被三处共用：诊断【性能】「桌面图层现场」行、#690/#884 采样收尾随附
+  // 快照、卡顿自检建议段（perf-check.js）。返回对象供程序判定，txt 供人读。
+  window.__mochiDeskScene = function () {
+    var out = { txt: '', blurCss: false, blurPx: 0, texKB: 0, zoom: 1, pageBg: false, tabBlur: false, mode: '无' };
+    try {
+      var ph = document.querySelector('.phone');
+      var bl = document.getElementById('phone-bg-layer');
+      if (ph && bl) {
+        var bi = bl.style.backgroundImage || '';
+        var dpos = bi.indexOf('data:');
+        if (dpos >= 0) { out.mode = '图'; out.texKB = Math.round((bi.length - dpos) / 1024); }
+        else if (bi && bi !== 'none') out.mode = '渐变';
+        else out.mode = bl.style.opacity === '1' ? '底色' : '无';
+        var bs = getComputedStyle(bl);
+        // 模糊态：.desk-blur-on 在＝CSS filter 兜底路径在跑（img 未烘成或渐变壁纸，见 #1161
+        // deskBlurRender 的挂类语义）；不在而 --desk-bg-blur>0 且形态=图＝小纹理已烘好（便宜）。
+        out.blurCss = ph.classList.contains('desk-blur-on');
+        var bv = parseInt(bs.getPropertyValue('--desk-bg-blur'), 10);
+        out.blurPx = isNaN(bv) ? 0 : bv;
+        var rp = ph.getBoundingClientRect();
+        if (rp.width > 0) {
+          var rb = bl.getBoundingClientRect();
+          out.zoom = Math.round(rb.width / rp.width * 100) / 100;
+        }
+      }
+      var dp = document.querySelector('.desktop-pages');
+      out.pageBg = !!(dp && dp.classList.contains('has-page-bg'));
+      out.tabBlur = !!document.querySelector('.tabbar-blur-on');
+      out.txt = '壁纸=' + out.mode + (out.texKB ? (out.texKB >= 1024 ? '≈' + (out.texKB / 1024).toFixed(1) + 'MB' : '≈' + out.texKB + 'KB') : '')
+        + (out.zoom > 1.02 ? '·外扩盒×' + out.zoom : '')
+        + ' 模糊=' + (out.blurCss ? 'CSS滤镜' + out.blurPx + 'px(兜底)' : (out.blurPx > 0 ? '已烘' : '关'))
+        + ' 整页背景=' + (out.pageBg ? '有' : '无') + ' 标签栏毛玻璃=' + (out.tabBlur ? '开' : '关')
+        + ' DPR=' + (window.devicePixelRatio || 1);
+    } catch (e) { out.txt = '读数失败'; }
+    return out;
+  };
+
   window.mochiDevice = {
     isMobile: !!isMobile,
     isTablet: !!isTablet,
@@ -1397,6 +1440,9 @@
           + '平均 ' + dp.mean + 'ms / p90 ' + dp.p90 + 'ms / 最慢 ' + dp.worst + 'ms'
           // #707：采样已剔除切后台/锁屏冻结帧（否则一条 144s 的后台间隙会把均值拉成假「严重卡顿」）
           + (dp.hid ? '（已剔除后台帧 ' + dp.hid + '）' : '')
+          // #1295：采样收尾随附的桌面图层现场（desktop-slider.js 写入）——帧号证「慢」，现场证「为什么慢」
+          + (dp.sc ? '（当时现场：' + dp.sc + '）' : '')
+          + (dp.ph ? '（采样前近操作：' + dp.ph + '）' : '')
           + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
       } else {
         L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');
@@ -1412,9 +1458,27 @@
         L.push('切回桌面帧耗时（' + sp.n + ' 帧现场采样 · ' + when + '）：'
           + '平均 ' + sp.mean + 'ms / p90 ' + sp.p90 + 'ms / 最慢 ' + sp.worst + 'ms'
           + (sp.hid ? '（已剔除后台帧 ' + sp.hid + '）' : '')
+          + (sp.sc ? '（当时现场：' + sp.sc + '）' : '')
+          + (sp.ph ? '（采样前近操作：' + sp.ph + '）' : '')
           + (sp.mean > 100 ? '（严重卡顿）' : sp.mean > 33 ? '（掉帧）' : '（流畅）'));
       } else {
         L.push('切回桌面帧耗时：尚无记录（从聊天页点返回到桌面一次即可采到）');
+      }
+    } catch (e) {}
+    // #1295：桌面图层现场——上面两行帧耗时只证「桌面慢」，这行报「这台桌面此刻是什么配置」：
+    // 壁纸纹理大小／#1285 缩放外扩盒倍率／模糊走烘焙还是 CSS 滤镜兜底（#1161）／整页背景（#754）／
+    // 标签栏毛玻璃（tabbar.css）。桌面卡顿家族（#690/#754/#884/#976/#1161/#1201）报障必带此行。
+    try { L.push('桌面图层现场：' + (window.__mochiDeskScene ? window.__mochiDeskScene().txt : '未接入')); } catch (e) {}
+    // #1295：近操作账本——__mochiPhase 环形日志尾部 8 条＋相邻间隔（Δ≈上一条操作的耗时上界）。
+    // iOS WebKit 没有 longtask 观测通道（#1226①），这是唯一能逐操作计时的取证；与卡顿自检
+    // 「冻结前序操作」对读：账本里 Δ 异常大的那条，就是下一次冻结点名前要防的那类活。
+    try {
+      const _pl = window.__mochiPhaseLog || [];
+      if (_pl.length) {
+        L.push('近操作账本（旧→新，Δ＝距上一条标记的间隔）：');
+        for (let _pi = Math.max(0, _pl.length - 8); _pi < _pl.length; _pi++) {
+          L.push('· ' + (_pi ? 'Δ+' + (_pl[_pi].t - _pl[_pi - 1].t) + 'ms ' : '') + _pl[_pi].tag + ' @' + new Date(_pl[_pi].t).toLocaleTimeString());
+        }
       }
     } catch (e) {}
     let memTxt = '不支持（仅 Chrome 系）';

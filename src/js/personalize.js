@@ -1004,7 +1004,12 @@ try {
       if (done) return; done = true;
       if (seq !== deskBlurBakeSeq) return; // 更新的一次改动已发出，本结果作废（由新一轮处理）
       if (out && src === deskWallSrc) { deskBlurBaked = out; deskBlurBakedFor = src; deskBlurFallback = false; }
-      else { deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true; }
+      else {
+        deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true;
+        // #1295：烘焙失败＝壁纸退回「原图 + CSS backdrop 模糊」整层滤镜路径，这是桌面
+        // 合成开销最大的一档（#976/#1161 都在躲它）。进账本点名，诊断时能分清「已烘」与「兜底」。
+        try { if (window.__mochiPhase) window.__mochiPhase('bg-blur-fallback'); } catch (e0) {}
+      }
       deskBlurRender();
     };
     try {
@@ -1095,7 +1100,13 @@ try {
     // 但 backgroundSize/Position 必须每次刷新（各自值变才写、不盲写）：原实现把尺寸/定位
     // 也锁进「图变才写」守卫——壁纸定位/缩放（phone-bg-pos-*）改键后图层不重应用（滑杆
     // 实时预览失效）、两桌面同图不同 pos 时互相串用 → 「背景图片没有按正常比例铺满」。
-    if (l.style.backgroundImage !== want) l.style.backgroundImage = want;
+    if (l.style.backgroundImage !== want) {
+      // #1295：壁纸真换＝iOS 主线程同步重解码一张 dataURL 纹理，是「切回桌面 1.6s」最
+      // 可疑的一刀，但旧账本只看得到 persist(watch)——进账本留名（大小一并写入，事后能
+      // 判「1.7s 那一刀离这张 ~2MB 壁纸重绘有多近」）。
+      if (data && data.indexOf('data:') === 0) { try { if (window.__mochiPhase) window.__mochiPhase('bg-paint~' + Math.round(data.length / 1024) + 'KB'); } catch (e0) {} }
+      l.style.backgroundImage = want;
+    }
     if (!data) return;
     const pos = bgPosOf();
     const zoomed = parseInt(pos.s, 10);

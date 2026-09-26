@@ -723,7 +723,10 @@ const once = (out) => {
 if (done) return; done = true;
 if (seq !== deskBlurBakeSeq) return; // 更新的一次改动已发出，本结果作废（由新一轮处理）
 if (out && src === deskWallSrc) { deskBlurBaked = out; deskBlurBakedFor = src; deskBlurFallback = false; }
-else { deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true; }
+else {
+deskBlurBaked = null; deskBlurBakedFor = null; deskBlurFallback = true;
+try { if (window.__mochiPhase) window.__mochiPhase('bg-blur-fallback'); } catch (e0) {}
+}
 deskBlurRender();
 };
 try {
@@ -778,7 +781,10 @@ set('height', '100%');
 const paintBgLayerImage = (data) => {
 const l = ensureBgLayer(); if (!l) return;
 const want = data ? 'url("' + data + '")' : '';
-if (l.style.backgroundImage !== want) l.style.backgroundImage = want;
+if (l.style.backgroundImage !== want) {
+if (data && data.indexOf('data:') === 0) { try { if (window.__mochiPhase) window.__mochiPhase('bg-paint~' + Math.round(data.length / 1024) + 'KB'); } catch (e0) {} }
+l.style.backgroundImage = want;
+}
 if (!data) return;
 const pos = bgPosOf();
 const zoomed = parseInt(pos.s, 10);

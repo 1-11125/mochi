@@ -81,6 +81,19 @@
   //      设置→诊断【性能】段读出。同一秒内不重复起采（perfOn 闸）。
   const PERF_KEY = 'xy-home-v2:__diag-deskperf';
   const PERF_FRAMES = 60;
+  // #1295 采样现场快照：帧耗时落键那一刻随附「这台桌面此刻什么配置＋最近跑了哪些活」——
+  // #690/#884 两把尺子从前只能证「慢」，配上现场才能分辨是壁纸大纹理、CSS 模糊兜底、
+  // 缩放外扩盒还是标签栏毛玻璃。只跑在采样收尾一次，读取零失败兜底、字符串截长。
+  function sampleWitness() {
+    const w = { sc: '', ph: '' };
+    try { if (window.__mochiDeskScene) w.sc = window.__mochiDeskScene().txt.slice(0, 160); } catch (e) {}
+    try {
+      const l = window.__mochiPhaseLog || [], o = [];
+      for (let i = Math.max(1, l.length - 6); i < l.length; i++) o.push(l[i].tag + '+' + (l[i].t - l[i - 1].t) + 'ms');
+      w.ph = o.join('|').slice(0, 220);
+    } catch (e) {}
+    return w;
+  }
   let perfOn = false;
   function perfSample() {
     if (perfOn) return;
@@ -107,12 +120,14 @@
       gaps.sort((a, b) => a - b);
       const sum = gaps.reduce((a, b) => a + b, 0);
       try {
+        const _w690 = sampleWitness();
         localStorage.setItem(PERF_KEY, JSON.stringify({
           t: Date.now(), n: gaps.length, hid: hid,
           mean: Math.round(sum / gaps.length),
           p90: Math.round(gaps[Math.floor(gaps.length * 0.9)]),
           worst: Math.round(gaps[gaps.length - 1]),
-          pages: dotsCache.length // 圆点数＝桌面页数（随手可得，不额外查 DOM）
+          pages: dotsCache.length, // 圆点数＝桌面页数（随手可得，不额外查 DOM）
+          sc: _w690.sc, ph: _w690.ph // #1295 现场快照（诊断行随帧耗时一并读出）
         }));
       } catch (e) {}
     };
@@ -258,12 +273,14 @@
       swOn = false;
       gaps.sort((a, b) => a - b);
       const sum = gaps.reduce((a, b) => a + b, 0);
+      const _w884 = sampleWitness();
       try {
         localStorage.setItem(SW_KEY, JSON.stringify({
           t: Date.now(), n: gaps.length, hid: hid,
           mean: Math.round(sum / gaps.length),
           p90: Math.round(gaps[Math.floor(gaps.length * 0.9)]),
-          worst: Math.round(gaps[gaps.length - 1])
+          worst: Math.round(gaps[gaps.length - 1]),
+          sc: _w884.sc, ph: _w884.ph // #1295 现场快照（切回桌面那一刀当时壁纸/模糊/近操作是什么）
         }));
       } catch (e) {}
     };

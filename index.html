@@ -10703,9 +10703,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790389257095">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790394088964">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-26 10:20<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-26 11:41<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -17837,6 +17837,38 @@ l.push({ t: Date.now(), tag: String(tag) });
 };
 }
 } catch (e) {}
+window.__mochiDeskScene = function () {
+var out = { txt: '', blurCss: false, blurPx: 0, texKB: 0, zoom: 1, pageBg: false, tabBlur: false, mode: '无' };
+try {
+var ph = document.querySelector('.phone');
+var bl = document.getElementById('phone-bg-layer');
+if (ph && bl) {
+var bi = bl.style.backgroundImage || '';
+var dpos = bi.indexOf('data:');
+if (dpos >= 0) { out.mode = '图'; out.texKB = Math.round((bi.length - dpos) / 1024); }
+else if (bi && bi !== 'none') out.mode = '渐变';
+else out.mode = bl.style.opacity === '1' ? '底色' : '无';
+var bs = getComputedStyle(bl);
+out.blurCss = ph.classList.contains('desk-blur-on');
+var bv = parseInt(bs.getPropertyValue('--desk-bg-blur'), 10);
+out.blurPx = isNaN(bv) ? 0 : bv;
+var rp = ph.getBoundingClientRect();
+if (rp.width > 0) {
+var rb = bl.getBoundingClientRect();
+out.zoom = Math.round(rb.width / rp.width * 100) / 100;
+}
+}
+var dp = document.querySelector('.desktop-pages');
+out.pageBg = !!(dp && dp.classList.contains('has-page-bg'));
+out.tabBlur = !!document.querySelector('.tabbar-blur-on');
+out.txt = '壁纸=' + out.mode + (out.texKB ? (out.texKB >= 1024 ? '≈' + (out.texKB / 1024).toFixed(1) + 'MB' : '≈' + out.texKB + 'KB') : '')
++ (out.zoom > 1.02 ? '·外扩盒×' + out.zoom : '')
++ ' 模糊=' + (out.blurCss ? 'CSS滤镜' + out.blurPx + 'px(兜底)' : (out.blurPx > 0 ? '已烘' : '关'))
++ ' 整页背景=' + (out.pageBg ? '有' : '无') + ' 标签栏毛玻璃=' + (out.tabBlur ? '开' : '关')
++ ' DPR=' + (window.devicePixelRatio || 1);
+} catch (e) { out.txt = '读数失败'; }
+return out;
+};
 window.mochiDevice = {
 isMobile: !!isMobile,
 isTablet: !!isTablet,
@@ -18636,6 +18668,8 @@ const when = dp.t ? new Date(dp.t).toLocaleString() : '?';
 L.push('桌面翻页帧耗时（' + dp.n + ' 帧现场采样 · ' + when + ' · ' + (dp.pages || '?') + ' 页）：'
 + '平均 ' + dp.mean + 'ms / p90 ' + dp.p90 + 'ms / 最慢 ' + dp.worst + 'ms'
 + (dp.hid ? '（已剔除后台帧 ' + dp.hid + '）' : '')
++ (dp.sc ? '（当时现场：' + dp.sc + '）' : '')
++ (dp.ph ? '（采样前近操作：' + dp.ph + '）' : '')
 + (dp.mean > 100 ? '（严重卡顿）' : dp.mean > 33 ? '（掉帧）' : '（流畅）'));
 } else {
 L.push('桌面翻页帧耗时：尚无记录（去桌面左右滑一次再回来即可采到）');
@@ -18648,9 +18682,21 @@ const when = sp.t ? new Date(sp.t).toLocaleString() : '?';
 L.push('切回桌面帧耗时（' + sp.n + ' 帧现场采样 · ' + when + '）：'
 + '平均 ' + sp.mean + 'ms / p90 ' + sp.p90 + 'ms / 最慢 ' + sp.worst + 'ms'
 + (sp.hid ? '（已剔除后台帧 ' + sp.hid + '）' : '')
++ (sp.sc ? '（当时现场：' + sp.sc + '）' : '')
++ (sp.ph ? '（采样前近操作：' + sp.ph + '）' : '')
 + (sp.mean > 100 ? '（严重卡顿）' : sp.mean > 33 ? '（掉帧）' : '（流畅）'));
 } else {
 L.push('切回桌面帧耗时：尚无记录（从聊天页点返回到桌面一次即可采到）');
+}
+} catch (e) {}
+try { L.push('桌面图层现场：' + (window.__mochiDeskScene ? window.__mochiDeskScene().txt : '未接入')); } catch (e) {}
+try {
+const _pl = window.__mochiPhaseLog || [];
+if (_pl.length) {
+L.push('近操作账本（旧→新，Δ＝距上一条标记的间隔）：');
+for (let _pi = Math.max(0, _pl.length - 8); _pi < _pl.length; _pi++) {
+L.push('· ' + (_pi ? 'Δ+' + (_pl[_pi].t - _pl[_pi - 1].t) + 'ms ' : '') + _pl[_pi].tag + ' @' + new Date(_pl[_pi].t).toLocaleTimeString());
+}
 }
 } catch (e) {}
 let memTxt = '不支持（仅 Chrome 系）';
@@ -21939,4 +21985,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ muhrjc7b -->
+<!-- __MOCHI_EOF__ muhuewhw -->

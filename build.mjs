@@ -5207,6 +5207,16 @@ const FIX_SENTINELS = [
   { name: '#1222d openCcPage 调用点同闸（只保留这一处＝refreshLibCounts 那处被抄回无条件版，进管理页照卡；两处共用串在文件里唯一靠行尾注释）', file: 'js/chatcard.js', needle: 'if (poolSrcChanged()) pubInvalidate(); // #1222：原文串没变＝池视图仍新鲜，不重建' },
   { name: '#1271a 切后台释放闭包原文串引用（删＝cc-groups-public 头号大键被闭包钉住，#1195e 通用闸对它原地打转＝回收/来回切换卡顿不降）', file: 'js/chatcard.js', needle: 'function poolSrcRelease() { poolSrcPub = NO_SRC; poolSrcOwn = NO_SRC; }' },
   { name: '#1271b 释放挂在既有 hidden/离页链上（只留定义不接线＝死代码，症状照旧；挪去别的事件＝切后台不释放）', file: 'js/chatcard.js', needle: "if (document.visibilityState === 'hidden') { flushCcSave(); poolSrcRelease(); }" },
+  /* ==== 2026-09-26 #1295 iPhone 11／iOS 18.7 桌面卡顿「报告证得了慢、证不了为什么慢」取证收口（实报：桌面翻页平均 114ms／p90 832／最慢 1665ms，切回桌面平均 236ms／最慢 1667ms，卡顿自检 120s 前台冻结 22 次、最慢帧全落在手机桌面，但 IDB 聊天数据仅 22KB＝persist 一类落盘根本吃不满 1.7s，旧仪器没有一条通道能把「那一刀」定名）。零机型／零 UA 分支＝取证只取计算样式、类名与既有账本三个事实。三件收口：① __mochiDeskScene() 桌面图层现场读数（壁纸形态与 dataURL 纹理体积／#1285 外扩盒倍率／模糊走烘焙还是 CSS 滤镜兜底／整页背景／标签栏毛玻璃），诊断【性能】单独成行、并随 #690/#884 两处帧耗时采样收尾写进样本（sc/ph 两字段），事后能问「那 1.6s 的桌面是什么配置」；② 壁纸重解码与模糊烘焙失败兜底进 __mochiPhase 账本（bg-paint~NKB／bg-blur-fallback），诊断尾部再列「近操作账本」8 条带 Δ；③ 卡顿自检出报告读同一现场（桌面现场行＋blurCss/texKB/zoom/tabBlur 四条可对照 A/B 的建议），用户下次导出的 docx 里就带着证据。 ==== */
+  { name: '#1295a 桌面图层现场读数函数体（纹理体积测算被删＝报告只剩「什么慢」没有「多大」，1.7s 无法定责；改回读 store 拼字符串＝脱离真实 DOM 计算样式，判据失效）', file: 'js/device.js', needle: 'out.texKB = Math.round((bi.length - dpos) / 1024);' },
+  { name: '#1295b 诊断【性能】「桌面图层现场」行（删＝桌面卡顿家族 #690/#754/#884/#976/#1161/#1201 报障又回到只有帧号没有配置的半截证据）', file: 'js/device.js', needle: "L.push('桌面图层现场：' + (window.__mochiDeskScene ? window.__mochiDeskScene().txt : '未接入'));" },
+  { name: '#1295c 采样收尾现场快照取样器（删＝两处 sc/ph 字段一起成死引用，样本回到裸帧号形态）', file: 'js/desktop-slider.js', needle: "const w = { sc: '', ph: '' };" },
+  { name: '#1295d 翻页样本随帧耗时写入现场（删掉这两个字段＝「平均 114ms」再次无从对质当时壁纸/模糊档位）', file: 'js/desktop-slider.js', needle: 'sc: _w690.sc, ph: _w690.ph' },
+  { name: '#1295e 切回桌面样本写入现场（#1295d 的姊妹字段；一次收口只留一处＝另一半被回退时症状只在另一条路径上复发）', file: 'js/desktop-slider.js', needle: 'sc: _w884.sc, ph: _w884.ph' },
+  { name: '#1295f 壁纸 dataURL 真重绘进账本并带体积（删＝「切回桌面卡 1.7s」与「~2MB 壁纸重解码」的邻近关系再也无法在报告里对质；写进值变才写守卫之外＝每次刷新都记一条，账本被灌满假线索）', file: 'js/personalize.js', needle: "__mochiPhase('bg-paint~' + Math.round(data.length / 1024) + 'KB')" },
+  { name: '#1295g 模糊烘焙失败兜底点名（删＝报告分不清「已烘小纹理」与「整层 CSS 滤镜」两档，而后者才是合成开销最大的一档）', file: 'js/personalize.js', needle: "__mochiPhase('bg-blur-fallback')" },
+  { name: '#1295h 卡顿自检读同一桌面现场成行（删＝导出的 perfcheck docx 依旧只有掉帧计数，用户端证据永远缺「配置」半边）', file: 'js/perf-check.js', needle: "if (_ds && _ds.txt !== '读数失败') L.push('· 桌面现场（出报告这一刻）：' + _ds.txt);" },
+  { name: '#1295i 现场驱动的 A/B 建议闸（r.janky>0 才开腔＝流畅时无事生非；整块删＝blurCss/texKB/zoom/tabBlur 四条可执行建议没了）', file: 'js/perf-check.js', needle: 'if (r.janky > 0 && _ds) {' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

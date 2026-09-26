@@ -342,6 +342,9 @@ if (r.storage) {
 L.push('· 本地数据画像：字卡库 ' + r.storage.libs + ' 个作用域 约 ' + r.storage.mb + ' MB（' + (r.storage.level === '重' ? '较重' : r.storage.level === '中' ? '中度' : '轻量') + '）');
 }
 L.push('');
+var _ds = null;
+try { if (window.__mochiDeskScene) _ds = window.__mochiDeskScene(); } catch (e) {}
+if (_ds && _ds.txt !== '读数失败') L.push('· 桌面现场（出报告这一刻）：' + _ds.txt);
 L.push('建议：');
 var adv = [];
 if (r.storage && r.storage.level === '重') adv.push('本地数据过大（字卡库等）是本应用最常见的间歇卡顿主因——先做旁边「卡顿自检 · 一键优化」（不删数据）');
@@ -359,6 +362,12 @@ if (concOk(r)) adv.push('掉帧集中在「' + pageName(r.topPage) + '」——�
 if (r.int && r.int.slow > 0) adv.push('点按响应最慢 ' + r.int.worst + 'ms（在「' + pageName(r.int.worstPg) + '」）：掉帧集中在操作瞬间，优先排查该页的大图/长列表/数据落盘时机');
 if (r.lp && r.verdict === '流畅') adv.push('本机在约 30fps 档运行＝iOS 低电量模式减半帧率（系统行为），关闭低电量模式即可恢复，无需其他处理');
 if (r.kbJanky > 0 && r.kbPct >= 30) adv.push('掉帧多发生在键盘弹出期（iOS 视口变形属系统行为）：收起键盘复测对照，若明显好转则无需处理');
+if (r.janky > 0 && _ds) {
+if (_ds.blurCss) adv.push('背景模糊正走「整层 CSS 滤镜」兜底档（小纹理烘焙失败，毛玻璃每帧都在重新合成）——去美化里关掉「背景模糊」或重选一次壁纸让它重烘，复测对照');
+if (_ds.texKB >= 3072) adv.push('桌面壁纸纹理约 ' + (_ds.texKB / 1024).toFixed(1) + 'MB（每次换壁纸/重烘都要主线程重解码一遍）——换小图或把「放大」退回 100% 复测对照');
+if (_ds.zoom > 1.02) adv.push('壁纸「放大」在 ×' + _ds.zoom + ' 档（外扩图层盒让纹理栅格化面积按比例变大）——退回 100% 复测对照');
+if (_ds.tabBlur) adv.push('标签栏毛玻璃开着：关掉复测可分辨「屏幕底部常驻合成开销」是否来自它');
+}
 if (r.verdict !== '流畅' && (!r.storage || r.storage.level !== '重')) adv.push('可按 设置→「手机卡顿说明」的顺序清一遍存量（先「查看存储」看哪项最大）；别用「清除本地数据」治卡顿');
 if (!adv.length) adv.push('保持现状即可');
 adv.forEach(function (a, i) { L.push((i + 1) + '. ' + a); });
