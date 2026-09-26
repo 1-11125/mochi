@@ -8577,7 +8577,17 @@ setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被�
 // 必须跳过——finish() 对 infinite 时间轴会抛，且它们本就每帧重画、不构成「闪一下」。
 function settleReplayedChatAnim(onlyPaused) {
 if (!document.getAnimations) return 0;
-const all = document.getAnimations();
+// FIX 2026-09-26 #1300b 枚举面从「整篇文档」收到「聊天消息列表子树」：回前台那一路原本每次
+//   document.getAnimations() 取全站动画＋对每条 target 跑 body.contains()。本机 430×932 真机
+//   诊断现场 DOM=35388 节点、img 931 张，全站枚举＋祖先链判定＝#1151c/#1181b 这闸**自己**成了
+//   回场一帧的耗时项（它和摘 #913 暂停类、#1195e 大键释放、iOS 重开 IDB 连接全落在同一次可见性
+//   翻转里）。容器沿用既有的 body（=chat-body，第 6 行）＝被收的集合与旧写法逐条相同，只是不再
+//   先问全站要一遍，零机型／零 UA 分支。老内核不认 {subtree:true} 时 body 那次只会问出空表，
+//   空表证不了「窗内确实没有」——落回 document 那份再数一遍（＝旧行为，宁多走一步也不静默不修）。
+let all;
+const sub = body.getAnimations ? body.getAnimations({ subtree: true }) : null;
+if (sub && sub.length) all = sub;
+else all = body.getAnimations && body.getAnimations().length ? sub : document.getAnimations();
 let n = 0;
 for (let i = 0; i < all.length; i++) {
 const a = all[i];

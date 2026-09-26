@@ -4565,6 +4565,25 @@ if (!isNaN(n)) return Math.max(0, Math.min(85, n)) / 100;
 return 0.5;
 };
 const maskPctOf = (type) => Math.round(maskAlphaOf(type) * 100);
+const deskBgHydrating = {};
+const deskBgMissed = {};
+const hydrateDeskBgOnce = (key, el, after) => {
+if (!window.idbEnsureBigKey) return false;
+if (!el || !el.style.backgroundImage) return false;
+if (deskBgHydrating[key]) return true; // 同键的在途取回已在跑：这一帧同样先不拆
+if (store.get(key)) { delete deskBgMissed[key]; return false; }
+if (deskBgMissed[key]) return false;
+deskBgHydrating[key] = 1;
+readBigKey(key).then((r) => {
+delete deskBgHydrating[key];
+const v = (r && r.v) || '';
+if (v.length > BG_HARD_LIMIT) { try { store.remove(key); } catch (e) {} }
+if (!v && r && r.st === 'unknown') return;
+if (!v) deskBgMissed[key] = 1;
+try { after(); } catch (e) {}
+}).catch(() => { delete deskBgHydrating[key]; });
+return true;
+};
 const applyCardBg = (type) => {
 const sel = cardBgSel(type);
 if (!sel) return;
@@ -4583,6 +4602,7 @@ el.style.backgroundSize = 'cover';
 el.style.backgroundPosition = 'center';
 el.style.backgroundRepeat = 'no-repeat';
 } else {
+if (hydrateDeskBgOnce('card-bg-' + type, el, () => applyCardBg(type))) return;
 if (!el.style.backgroundImage) return;
 el.style.backgroundImage = '';
 el.style.backgroundSize = '';
@@ -4934,6 +4954,7 @@ s.style.backgroundImage = want;
 s.style.backgroundSize = 'cover';
 s.style.backgroundPosition = 'center';
 } else {
+if (hydrateDeskBgOnce('page-bg-' + i, s, applyPageBgs)) continue;
 if (!s.style.backgroundImage) continue;
 s.style.backgroundImage = '';
 s.style.backgroundSize = '';
@@ -4944,6 +4965,15 @@ var anyPageBg = false;
 for (var j = 0; j < slides.length; j++) { if (slides[j] && slides[j].style.backgroundImage) { anyPageBg = true; break; } }
 if (pagesBox.classList.contains('has-page-bg') !== anyPageBg) pagesBox.classList.toggle('has-page-bg', anyPageBg);
 };
+const resumeDeskBgJob = () => {
+try { applyAllCardBgs(); } catch (e) {}
+try { applyPageBgs(); } catch (e) {}
+};
+const resumeDeskBgWatch = () => { try { whenDeskVisible(resumeDeskBgJob); } catch (e) {} };
+try {
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeDeskBgWatch(); });
+document.addEventListener('mochi-fg-resume', resumeDeskBgWatch);
+} catch (e) {}
 const deskLayout = () => {
 let a = null;
 try {

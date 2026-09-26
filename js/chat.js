@@ -6498,7 +6498,10 @@ setTimeout(run, 120); // 保险丝：后台标签/页面不可见时 rAF 会被�
 }
 function settleReplayedChatAnim(onlyPaused) {
 if (!document.getAnimations) return 0;
-const all = document.getAnimations();
+let all;
+const sub = body.getAnimations ? body.getAnimations({ subtree: true }) : null;
+if (sub && sub.length) all = sub;
+else all = body.getAnimations && body.getAnimations().length ? sub : document.getAnimations();
 let n = 0;
 for (let i = 0; i < all.length; i++) {
 const a = all[i];

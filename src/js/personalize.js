@@ -5554,6 +5554,46 @@ try {
     return 0.5;
   };
   const maskPctOf = (type) => Math.round(maskAlphaOf(type) * 100);
+  // FIX 2026-09-26 #1300c 卡片背景／整页背景的大键按需取回闸（#1270 桌面壁纸／#1218 聊天壁纸
+  //   那一族做法补到这两处漏网的大键上）。根因：#1195e 每次切后台按体积放掉 ≥256KB 大键的内存
+  //   副本（iOS 内存压力下的正解，不动它），而这些键 >200KB 时 localStorage 那份本就被大键规则
+  //   剥掉（LS_BIG_LIMIT）——于是回前台／回桌面这一轮 store.get 必然同步读空，旧写法当场把已画好
+  //   的背景内联拆掉（清空 backgroundImage），等异步取回落地才铺回来；只问出 'unknown'（本机诊断
+  //   实测 30s 内被系统回收 96 次的常态）就一直白着，非得杀一次进程重开才恢复＝用户口径的「背景
+  //   图要重启才显示／卡片是空的」。判据只取两个结构事实，零机型／零 UA 分支，且不新增任何存储键：
+  //   ① 内存／LS 读空；② 这个节点上**还挂着一张上一帧留下的背景图**＝用户看得见它、而值却读不到。
+  //   成立即不拆层（保留最后一帧），只踢一次按需取回，落地后自己重铺。
+  const deskBgHydrating = {};
+  const deskBgMissed = {};
+  // el＝这一帧的证人：它身上还挂着背景图＝这张图确实被画给用户看过，而此刻同步读却空了。
+  // 没有这张帧（用户从没设过该卡片背景）就一个键都不敲——否则每次回前台都要对几十个空键
+  // 各发一次 IDB 存在性查询＋重跑一遍应用函数，恰好把要治的这一帧弄得更重（#1227 写风暴同族教训）。
+  const hydrateDeskBgOnce = (key, el, after) => {
+    if (!window.idbEnsureBigKey) return false;
+    if (!el || !el.style.backgroundImage) return false;
+    if (deskBgHydrating[key]) return true; // 同键的在途取回已在跑：这一帧同样先不拆
+    // 读得到值＝不是「读空」（含超限不画的老口径），交回原流程；顺带销掉上一轮的「库里没有」
+    // 结论——用户重新上传过就该重新问一次，不能让旧回话把新图的最后一帧拆掉。
+    if (store.get(key)) { delete deskBgMissed[key]; return false; }
+    // 库里确切回话「这张图没了」＝只回一次头：再敲一遍还是「没有」，而每一轮都先保帧＝那一帧
+    // 永远钉在屏上（幽灵图）＋反复敲库。这一条不许写成 `if (deskBgMissed[key]) return false`
+    // 之外的形态：漏了它「保帧→取回→仍没有→保帧」会跑成死循环（无头 C5 实测 10s 都拆不掉）。
+    if (deskBgMissed[key]) return false;
+    deskBgHydrating[key] = 1;
+    readBigKey(key).then((r) => {
+      delete deskBgHydrating[key];
+      const v = (r && r.v) || '';
+      // 只有超硬上限的毒数据才清库（iOS 解码会拖垮整页）；略超软阈值的按既有口径「留在库里、
+      // 这一轮不画」。两种都交给 after()：sanitizeBg 不许画时它自己把这一帧拆回默认，不会把
+      // 一张永远不该画的图钉在屏上。
+      if (v.length > BG_HARD_LIMIT) { try { store.remove(key); } catch (e) {} }
+      // 没问出结果（存储正忙/事务挂起）＝既不说「已丢失」，也不拆用户看得见的这一帧。
+      if (!v && r && r.st === 'unknown') return;
+      if (!v) deskBgMissed[key] = 1;
+      try { after(); } catch (e) {}
+    }).catch(() => { delete deskBgHydrating[key]; });
+    return true;
+  };
   const applyCardBg = (type) => {
     const sel = cardBgSel(type);
     if (!sel) return;
@@ -5578,6 +5618,12 @@ try {
         el.style.backgroundRepeat = 'no-repeat';
       } else {
         // 无图：恢复默认（清内联，回落到 --widget-bg 变量）
+        // FIX 2026-09-26 #1300c：读空但这一帧还挂着用户设过的背景＝大键被 #1195e 放掉了内存副本
+        //   （不是用户没设），保留最后一帧不拆，只踢一次按需取回，落地后自己重铺。
+        //   after 必须带 type 闭包：applyCardBg(type) 直接传引用会让落地回调以 undefined 调用，
+        //   cardBgSel(undefined) 空转返回＝「重铺」根本没跑（无头 C5 实测：库里确切回话 absent 之后
+        //   那一帧 10s 拆不掉＝幽灵帧）。
+        if (hydrateDeskBgOnce('card-bg-' + type, el, () => applyCardBg(type))) return;
         if (!el.style.backgroundImage) return;
         el.style.backgroundImage = '';
         el.style.backgroundSize = '';
@@ -6027,6 +6073,9 @@ try {
         s.style.backgroundSize = 'cover';
         s.style.backgroundPosition = 'center';
       } else {
+        // FIX 2026-09-26 #1300c：整页背景同是大键（>200KB 只存 IDB）——读空但这一页还挂着一张
+        //   上一帧留下的背景图＝被 #1195e 放了内存副本，保留它不拆，踢一次按需取回后自己重铺。
+        if (hydrateDeskBgOnce('page-bg-' + i, s, applyPageBgs)) continue;
         if (!s.style.backgroundImage) continue;
         s.style.backgroundImage = '';
         s.style.backgroundSize = '';
@@ -6042,6 +6091,25 @@ try {
     for (var j = 0; j < slides.length; j++) { if (slides[j] && slides[j].style.backgroundImage) { anyPageBg = true; break; } }
     if (pagesBox.classList.contains('has-page-bg') !== anyPageBg) pagesBox.classList.toggle('has-page-bg', anyPageBg);
   };
+  // FIX 2026-09-26 #1300c：回前台主动复核一次（与 #1270 给桌面壁纸的那一枪同口径）。
+  //   store.get 是同步读（内存→localStorage），#1195e 切后台放掉的卡片／整页背景大键在 LS 里
+  //   本来就没有那份——旧写法只能等用户走进 refreshDeskVisuals 的那条路（回桌面/切联系人/restore
+  //   完成）才发现「图在库里、内存里没了」，而那一帧恰是它把已经画好的背景拆掉再重解码的时刻。
+  //   这里当场走一遍应用函数：读到值就按 #249 恒等短路重写（零成本），读空但节点还挂着图＝命中
+  //   #1300c 的「保留最后一帧＋踢一次按需取回」。零机型／零 UA 分支＝判据只有页面可见性与内核回执。
+  //   经 #695 whenDeskVisible 调度：主页不可见时（用户回前台落在聊天/设置）不抢这一帧的解码预算，
+  //   改登记待办、主页真正显示前补跑——那一帧恰是「卡片空着」被看见的时刻。作业函数取固定引用＝
+  //   Set 去重，反复切前后台不会攒出一串待办。
+  const resumeDeskBgJob = () => {
+    try { applyAllCardBgs(); } catch (e) {}
+    try { applyPageBgs(); } catch (e) {}
+  };
+  const resumeDeskBgWatch = () => { try { whenDeskVisible(resumeDeskBgJob); } catch (e) {} };
+  try {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeDeskBgWatch(); });
+    // bg-keep 的回前台统一信号（#967 同款双通道）：部分内核只发 focus/pageshow、不发 visibilitychange
+    document.addEventListener('mochi-fg-resume', resumeDeskBgWatch);
+  } catch (e) {}
   // FIX 2026-09-15 #495：deskLayout 定义自 4397 行处上移至此——冷启动 personalize.js 顶层
   // 4288 行同步调用 buildDeskPages()，其删页收缩分支（原 4104 行）调用 deskLayout() 时该
   // const 尚未初始化＝TDZ「Cannot access 'deskLayout' before initialization」每次冷启动必抛

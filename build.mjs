@@ -5223,6 +5223,15 @@ const FIX_SENTINELS = [
   { name: '#1301a 抬层观察器先在 MutationRecord 上判类名（改回 new MutationObserver(_gfsSchedule)＝无关变更也全文档扫描，本批症状原样回来）', file: 'js/fullscreen.js', needle: 'var _gfsObs = new MutationObserver(function (muts) { if (_gfsHit(muts)) _gfsSchedule(); });' },
   { name: '#1301b 桌面落位只在真不在位时写 scrollLeft（改回无条件 pages.scrollLeft = idx * pageStep()＝每次切回桌面一次同步布局＋打断吸附动画）', file: 'js/desktop-slider.js', needle: 'if (Math.abs(pages.scrollLeft - want) > 1) pages.scrollLeft = want;' },
   { name: '#1301c 删除型：refreshCache 不得再顺手作废 gapCache（回流＝每次回桌面/点圆点都重读一次 getComputedStyle，强制样式重算回到切页那一帧）', file: 'js/desktop-slider.js', needle: 'dotsCache = getDots();\ngapCache = null;', absent: true },
+  /* ==== 2026-09-26 #1300 iPhone 15 Pro Max + Safari 实报「iOS 卡顿」：回前台／回桌面那一帧的两处结构耗时（聊天回场动画闸自己扫全站 35k 节点；#1195e 放掉大键后卡片／整页背景被当场拆层，非得重启才显示）。零机型／零 UA 分支＝判据只取「动画目标在不在聊天消息列表子树内」「这个节点上是否还挂着上一帧留下的背景图」两个结构事实 ==== */
+  { name: '#1300a 回场动画闸枚举面收在聊天消息列表（chat-body）子树（删回 document.getAnimations()＋body.contains()＝真机 35388 节点上这道闸自己成了回前台一帧的耗时项）', file: 'js/chat.js', needle: 'const sub = body.getAnimations ? body.getAnimations({ subtree: true }) : null;' },
+  { name: '#1300b 老内核不认 {subtree:true} 时落回全站枚举（问出空表证不了「窗内确实没有」；删＝静默不修，#1151c/#1181b 的落终态在老内核整块失效）', file: 'js/chat.js', needle: 'all = body.getAnimations && body.getAnimations().length ? sub : document.getAnimations();' },
+  { name: '#1300c 卡片背景读空但这一帧还挂着图＝保留最后一帧＋踢一次按需取回，落地回调带 type 重跑本卡片（删回「读空即清内联」＝#1195e 每次切后台放掉大键后卡片背景被拆＝用户口径「背景图要重启才显示」；把回调写成裸 applyCardBg 引用＝落地时以 undefined 调用、cardBgSel 空转，那一帧永远拆不掉＝幽灵帧）', file: 'js/personalize.js', needle: "hydrateDeskBgOnce('card-bg-' + type, el, () => applyCardBg(type))" },
+  { name: '#1300d 整页背景同款闸（页背景同为 >200KB 只存 IDB 的大键；删＝整页背景回前台被拆成默认底色）', file: 'js/personalize.js', needle: "hydrateDeskBgOnce('page-bg-' + i, s, applyPageBgs)" },
+  { name: '#1300e 回前台双通道主动复核桌面大键背景（visibilitychange→visible ＋ bg-keep 的 mochi-fg-resume，#1270 壁纸那一枪的同族补口；删＝只能等用户走进 refreshDeskVisuals 才发现「图在库里、内存里没了」）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-fg-resume', resumeDeskBgWatch);" },
+  { name: '#1300f 取回只由「这一帧还挂着图」触发（删证人判断＝每次回前台对几十个从没设过的背景键各敲一次 IDB＋重跑应用函数，回场那帧被自己拖重）', file: 'js/personalize.js', needle: 'if (!el || !el.style.backgroundImage) return false;' },
+  { name: '#1300g 回前台复核经 #695 调度（改成直跑＝用户回前台落在聊天页时照样解码桌面大图，抢走那一帧预算；删掉固定引用作业＝反复切前后台攒出一串待办）', file: 'js/personalize.js', needle: 'whenDeskVisible(resumeDeskBgJob);' },
+  { name: '#1300h 库里确切回话「没这张图」只回一次头（删＝「保帧→取回→仍没有→保帧」跑成死循环：幽灵帧永远钉在屏上＋每次重铺再敲一遍库；读得到值时销账，重新上传的图照旧能取回）', file: 'js/personalize.js', needle: 'if (deskBgMissed[key]) return false;' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');
