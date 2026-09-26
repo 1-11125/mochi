@@ -10703,9 +10703,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790403686893">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790408035850">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-26 14:21<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-26 15:33<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -17837,6 +17837,84 @@ l.push({ t: Date.now(), tag: String(tag) });
 };
 }
 } catch (e) {}
+(function () {
+if (window.__mochiStorRej) return;
+var rej = [];
+window.__mochiStorRej = rej;
+window.__mochiStorRejN = 0;
+var frameOf = function (err) {
+try {
+var ls = String((err && err.stack) || '').split('\n');
+for (var i = 0; i < ls.length; i++) {
+var f = (ls[i] || '').trim();
+if (!f || f.indexOf('__mochiLsSetItemWitness') >= 0) continue;
+if (f.indexOf('@') < 0 && !/\bat\s+\S/.test(f)) continue;
+return f.slice(0, 120);
+}
+} catch (e) {}
+return '';
+};
+var lastSnap = { t: 0 };
+var snapshot = function () {
+if (Date.now() - lastSnap.t < 2000) return lastSnap;
+var o = { keys: 0, bytes: 0, maxK: '', maxB: 0, trunc: 0 };
+try {
+for (var i = 0; i < localStorage.length; i++) {
+var k = localStorage.key(i);
+if (!k) continue;
+var v = '';
+try { v = localStorage.getItem(k) || ''; } catch (e) { o.trunc = 1; }
+var b = (k.length + v.length) * 2; // UTF-16 估算，与【数据】段同一把尺
+o.keys++; o.bytes += b;
+if (b > o.maxB) { o.maxB = b; o.maxK = String(k).slice(0, 30); }
+}
+} catch (e2) { o.trunc = 1; }
+o.t = Date.now();
+lastSnap = o;
+return o;
+};
+var record = function (storeName, key, val, err) {
+try {
+window.__mochiStorRejN++;
+var s = snapshot();
+var bytes = 0;
+try { bytes = (val == null ? 0 : String(val).length) * 2; } catch (e0) {}
+var bg = 0;
+try { bg = document.hidden ? 1 : 0; } catch (e1) {}
+var item = {
+t: Date.now(), store: storeName, k: String(key).slice(0, 40), bytes: bytes,
+err: (err && err.name) || '异常', at: frameOf(err),
+keys: s.keys, lsBytes: s.bytes, maxK: s.maxK, maxB: s.maxB, trunc: s.trunc, bg: bg
+};
+rej.push(item);
+if (rej.length > 12) rej.shift();
+if (window.__mochiPhase) window.__mochiPhase('ls-rej:' + item.k.slice(0, 18));
+return item;
+} catch (e2) { return null; }
+};
+window.__mochiStorRejLast = function () { return rej.length ? rej[rej.length - 1] : null; };
+var wrap = function (host, name) {
+try {
+if (!host || typeof host.setItem !== 'function') return;
+var orig = host.setItem;
+if (orig.__mochiLsWitness) return;
+var wrapped = function __mochiLsSetItemWitness(k, v) {
+try {
+return orig.call(this, k, v);
+} catch (e) {
+record(name, k, v, e);
+throw e; // 照原样抛：调用方的 catch／降级逻辑一字不变
+}
+};
+try { wrapped.__mochiLsWitness = 1; } catch (e0) {}
+Object.defineProperty(host, 'setItem', {
+value: wrapped, writable: true, configurable: true, enumerable: false
+});
+} catch (e2) {}
+};
+try { if (window.localStorage) wrap(window.localStorage, 'local'); } catch (e3) {}
+try { if (window.sessionStorage) wrap(window.sessionStorage, 'session'); } catch (e4) {}
+})();
 window.__mochiDeskScene = function () {
 var out = { txt: '', blurCss: false, blurPx: 0, texKB: 0, zoom: 1, pageBg: false, tabBlur: false, mode: '无' };
 try {
@@ -18810,6 +18888,22 @@ L.push('localStorage 状态：' + (back === 'p' ? '正常（可写可读回）' 
 } catch (e) {
 L.push('localStorage 状态：写入失败(' + ((e && e.name) || '异常') + ')——配额满或库已损坏，设置/桌面需靠 IndexedDB 校正');
 }
+try {
+const rej = window.__mochiStorRej || [];
+if (window.__mochiStorRejN) {
+L.push('localStorage 写入拒绝 ' + window.__mochiStorRejN + ' 次（本会话，现场账留最近 ' + rej.length + ' 条）——这条与上面「状态：正常」不矛盾：被拒的调用方已自行降级，LS 随后又能写了');
+rej.slice(-5).reverse().forEach(function (it, ix) {
+let when = '?';
+try { when = new Date(it.t).toLocaleTimeString(); } catch (e) {}
+L.push('  ·[' + (rej.length - ix) + '] ' + when + ' ' + it.store + ' 写 ' + it.k +
+'（' + usageStr(it.bytes) + '）被拒(' + it.err + ')' +
+' · 当时整域 ' + it.keys + ' 键≈' + usageStr(it.lsBytes) +
+'，最大键 ' + (it.maxK || '?') + '=' + usageStr(it.maxB) +
+' · ' + (it.bg ? '后台' : '前台') + (it.trunc ? '（部分键读不到）' : ''));
+if (it.at) L.push('      出自 ' + it.at);
+});
+}
+} catch (e) {}
 items.sort(function (a, b) { return b.size - a.size; });
 L.push('数据总占用≈' + usageStr(total));
 const tops = items.slice(0, 8).map(function (it) { return it.k + '=' + usageStr(it.size); }).join('、');
@@ -19219,6 +19313,7 @@ else if (/^模块加载体检 .*未加载 /.test(s)) { const mm = /未加载 ([^
 else if ((m = /^功能入口缺失：(.+)/.exec(s))) issues.push('功能入口缺失 ' + m[1].replace(/（[^）]*）.*$/, '').trim());
 else if ((m = /^最近错误 (\d+) 条/.exec(s))) issues.push('最近错误 ' + m[1] + ' 条');
 else if (/^localStorage 状态：/.test(s) && !/正常/.test(s)) issues.push('localStorage 状态异常');
+else if ((m = /^localStorage 写入拒绝 (\d+) 次/.exec(s))) issues.push('localStorage 本会话写入被拒 ' + m[1] + ' 次（【数据】段有现场账：哪条键、多大、出自哪个文件哪一行）');
 }
 conclScreenBad().forEach(function (n) { issues.push('屏幕适配 ' + n); });
 if (!issues.length) return '未发现明显异常；若仍有故障，请连同下方明细整段发送。';
@@ -21985,4 +22080,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mui04mb1 -->
+<!-- __MOCHI_EOF__ mui2ptze -->

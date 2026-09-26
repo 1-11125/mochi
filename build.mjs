@@ -5232,6 +5232,12 @@ const FIX_SENTINELS = [
   { name: '#1300f 取回只由「这一帧还挂着图」触发（删证人判断＝每次回前台对几十个从没设过的背景键各敲一次 IDB＋重跑应用函数，回场那帧被自己拖重）', file: 'js/personalize.js', needle: 'if (!el || !el.style.backgroundImage) return false;' },
   { name: '#1300g 回前台复核经 #695 调度（改成直跑＝用户回前台落在聊天页时照样解码桌面大图，抢走那一帧预算；删掉固定引用作业＝反复切前后台攒出一串待办）', file: 'js/personalize.js', needle: 'whenDeskVisible(resumeDeskBgJob);' },
   { name: '#1300h 库里确切回话「没这张图」只回一次头（删＝「保帧→取回→仍没有→保帧」跑成死循环：幽灵帧永远钉在屏上＋每次重铺再敲一遍库；读得到值时销账，重新上传的图照旧能取回）', file: 'js/personalize.js', needle: 'if (deskBgMissed[key]) return false;' },
+  /* ==== 2026-09-26 #1305 iPhone 15 Pro Max + Safari 实报「系统一直说储存空间不足」而导出件写「localStorage 状态：正常」＝被拒那一刻无人留证。本批只在入口包一次（全库 128 个 localStorage.setItem 直写点、零 Storage.prototype/.call 用法），异常照原样抛＝调用方 catch／降级语义一字不变。零机型／零 UA 分支＝判据只有「内核有没有抛」 ==== */
+  { name: '#1305a 看护安装幂等（同一 host 二次安装直接返回；删＝重复包装把 record 串成链，一次拒绝记多条现场、账本自己造假）', file: 'js/device.js', needle: 'if (orig.__mochiLsWitness) return;' },
+  { name: '#1305b 包装装成不可枚举自身属性（idb.js #139 大键清扫／data-backup.js／personalize.js 三处 Object.keys(localStorage) 会把可枚举的 setItem 当成一条真键数进去；改成裸赋值＝给 LS 键清单掺假键）', file: 'js/device.js', needle: 'value: wrapped, writable: true, configurable: true, enumerable: false' },
+  { name: '#1305c 被拒当场记账后照原样抛出（删掉 record＝现场账永远是空的、下次报障还得猜；改成吞掉不抛＝调用方的 IDB/内存降级全被破坏）', file: 'js/device.js', needle: 'record(name, k, v, e);' },
+  { name: '#1305d 诊断【数据】段回吐写拒绝现场（键名／体积／错误名／当时整域／前后台／出自哪一帧；删＝「状态：正常」继续掩盖报障当时的那一拒）', file: 'js/device.js', needle: "'localStorage 写入拒绝 ' + window.__mochiStorRejN + ' 次" },
+  { name: '#1305e 结论段把「曾被拒 N 次」点名成一条问题（与「状态：正常」并列不互斥；删＝用户只看结论时这件事等于没发生）', file: 'js/device.js', needle: '/^localStorage 写入拒绝 (\\d+) 次/' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

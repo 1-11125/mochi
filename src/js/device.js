@@ -356,6 +356,109 @@
     }
   } catch (e) {}
 
+  // ===== #1305 localStorage 写入拒绝现场账 =====
+  // 背景：iPhone 15 Pro Max / Safari 实报「系统一直说储存空间不足」，可同一台机器导出的诊断单
+  // 却写着「localStorage 状态：正常（可写可读回）」——因为那一拒发生在**当时**：某个调用方整包
+  // 直写几 MB 被内核拒掉，它自己 catch 住并降级到 IDB/内存，LS 随后就能写了。旧诊断只在导出
+  // 当场探一次写（＝必然正常），谁写的、写了多大、当时整域占了多少、在不在后台，一条都没留下
+  // ＝每次报障只能挨个猜。而全库 128 个 localStorage.setItem 直写点散在几十个文件（含并行批次
+  // 正在改的 music-player.js / idb.js），逐点插桩既撞车也漏。
+  // 本账本只在**入口那一层包一次**：全库零 `Storage.prototype.setItem`／`.setItem.call()` 用法
+  // （grep 实证）＝包实例属性即覆盖全部 128 个点；异常照原样抛出＝调用方的 catch／降级语义
+  // 一字不变；成功路径零额外开销（不读值、不算长度、不建对象）。
+  // 两条硬约束：① 用 defineProperty 装成**不可枚举**——三处 `Object.keys(localStorage)`（idb.js
+  //   #139 大键清扫、data-backup.js、personalize.js）会把可枚举的自身属性当成一条真键数进去；
+  //   装不上就干脆不装（宁可没现场，也不给 LS 键清单掺假键）。② 记账只在真抛时进。
+  // 零机型／零 UA 分支：判据只有「内核有没有抛」这一个事实。
+  (function () {
+    if (window.__mochiStorRej) return;
+    var rej = [];
+    window.__mochiStorRej = rej;
+    window.__mochiStorRejN = 0;
+    // 出错那一帧（跳过本包装自己的帧）＝下一批要改哪个文件的哪一行，从这里直接拿。
+    // 各家 stack 形态不同：V8 首行是「错误名: 消息」（不是帧）、WebKit/Safari 首行就是帧
+    // ＝只认真正带位置的行（含 @ 或 at …(…)），别把错误消息当成帧报出去。
+    var frameOf = function (err) {
+      try {
+        var ls = String((err && err.stack) || '').split('\n');
+        for (var i = 0; i < ls.length; i++) {
+          var f = (ls[i] || '').trim();
+          if (!f || f.indexOf('__mochiLsSetItemWitness') >= 0) continue;
+          if (f.indexOf('@') < 0 && !/\bat\s+\S/.test(f)) continue;
+          return f.slice(0, 120);
+        }
+      } catch (e) {}
+      return '';
+    };
+    // 失败当场才量一次 LS（错误路径，一次遍历换一条能定责的现场；成功路径不进来）
+    // 但 LS 被填满时调用方会连着重试（xyStore 标脏、写日志、快照…每发都抛）＝每发都整库扫一遍
+    // 反而把要取证的那一段弄得更卡（#1300 同一课）。2 秒内的连续拒绝复用上一轮的整域读数，
+    // 键名／体积／那一帧照旧逐条如实记（那些本来就是单条数据，不需要扫库）。
+    var lastSnap = { t: 0 };
+    var snapshot = function () {
+      if (Date.now() - lastSnap.t < 2000) return lastSnap;
+      var o = { keys: 0, bytes: 0, maxK: '', maxB: 0, trunc: 0 };
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (!k) continue;
+          var v = '';
+          try { v = localStorage.getItem(k) || ''; } catch (e) { o.trunc = 1; }
+          var b = (k.length + v.length) * 2; // UTF-16 估算，与【数据】段同一把尺
+          o.keys++; o.bytes += b;
+          if (b > o.maxB) { o.maxB = b; o.maxK = String(k).slice(0, 30); }
+        }
+      } catch (e2) { o.trunc = 1; }
+      o.t = Date.now();
+      lastSnap = o;
+      return o;
+    };
+    var record = function (storeName, key, val, err) {
+      try {
+        window.__mochiStorRejN++;
+        var s = snapshot();
+        var bytes = 0;
+        try { bytes = (val == null ? 0 : String(val).length) * 2; } catch (e0) {}
+        var bg = 0;
+        try { bg = document.hidden ? 1 : 0; } catch (e1) {}
+        var item = {
+          t: Date.now(), store: storeName, k: String(key).slice(0, 40), bytes: bytes,
+          err: (err && err.name) || '异常', at: frameOf(err),
+          keys: s.keys, lsBytes: s.bytes, maxK: s.maxK, maxB: s.maxB, trunc: s.trunc, bg: bg
+        };
+        rej.push(item);
+        if (rej.length > 12) rej.shift();
+        // 同一条塞进 #907 相位账本：卡顿自检点名「冻结前最后在做什么」时顺带看得见这一刀
+        if (window.__mochiPhase) window.__mochiPhase('ls-rej:' + item.k.slice(0, 18));
+        return item;
+      } catch (e2) { return null; }
+    };
+    // 供 verify 与后续批次读最近一次现场（返回副本引用即可，不暴露写入口）
+    window.__mochiStorRejLast = function () { return rej.length ? rej[rej.length - 1] : null; };
+    var wrap = function (host, name) {
+      try {
+        if (!host || typeof host.setItem !== 'function') return;
+        var orig = host.setItem;
+        if (orig.__mochiLsWitness) return;
+        var wrapped = function __mochiLsSetItemWitness(k, v) {
+          try {
+            return orig.call(this, k, v);
+          } catch (e) {
+            record(name, k, v, e);
+            throw e; // 照原样抛：调用方的 catch／降级逻辑一字不变
+          }
+        };
+        try { wrapped.__mochiLsWitness = 1; } catch (e0) {}
+        // 不可枚举＋装不上就放弃（见上：可枚举会给 Object.keys(localStorage) 掺假键）
+        Object.defineProperty(host, 'setItem', {
+          value: wrapped, writable: true, configurable: true, enumerable: false
+        });
+      } catch (e2) {}
+    };
+    try { if (window.localStorage) wrap(window.localStorage, 'local'); } catch (e3) {}
+    try { if (window.sessionStorage) wrap(window.sessionStorage, 'session'); } catch (e4) {}
+  })();
+
   // ===== #1295 桌面图层现场读数 =====
   // 背景：iPhone 11 / iOS 18.7.5 实报「桌面翻页 平均114ms／p90 832ms／最慢1665ms、切回桌面
   // p90 1640ms」，#690/#884 两把帧耗时尺子只能证「慢」、#907 相位账本只能说「冻结前最后一条
@@ -1605,6 +1708,25 @@
       } catch (e) {
         L.push('localStorage 状态：写入失败(' + ((e && e.name) || '异常') + ')——配额满或库已损坏，设置/桌面需靠 IndexedDB 校正');
       }
+      // v3.36.x #1305：写拒绝现场账——上面那行「状态」是**导出当场**探的一次写，正常与否都不
+      // 代表报障当时；本会话真被内核拒过的每一次写在这里如实回吐（键名／体积／错误名／出错那一帧
+      // 的文件:行／当时整域多少键多少体积／前后台）。下一次导出件就能直接定名，不必再来回猜。
+      try {
+        const rej = window.__mochiStorRej || [];
+        if (window.__mochiStorRejN) {
+          L.push('localStorage 写入拒绝 ' + window.__mochiStorRejN + ' 次（本会话，现场账留最近 ' + rej.length + ' 条）——这条与上面「状态：正常」不矛盾：被拒的调用方已自行降级，LS 随后又能写了');
+          rej.slice(-5).reverse().forEach(function (it, ix) {
+            let when = '?';
+            try { when = new Date(it.t).toLocaleTimeString(); } catch (e) {}
+            L.push('  ·[' + (rej.length - ix) + '] ' + when + ' ' + it.store + ' 写 ' + it.k +
+              '（' + usageStr(it.bytes) + '）被拒(' + it.err + ')' +
+              ' · 当时整域 ' + it.keys + ' 键≈' + usageStr(it.lsBytes) +
+              '，最大键 ' + (it.maxK || '?') + '=' + usageStr(it.maxB) +
+              ' · ' + (it.bg ? '后台' : '前台') + (it.trunc ? '（部分键读不到）' : ''));
+            if (it.at) L.push('      出自 ' + it.at);
+          });
+        }
+      } catch (e) {}
       items.sort(function (a, b) { return b.size - a.size; });
       L.push('数据总占用≈' + usageStr(total));
       const tops = items.slice(0, 8).map(function (it) { return it.k + '=' + usageStr(it.size); }).join('、');
@@ -2113,6 +2235,7 @@
         else if ((m = /^功能入口缺失：(.+)/.exec(s))) issues.push('功能入口缺失 ' + m[1].replace(/（[^）]*）.*$/, '').trim());
         else if ((m = /^最近错误 (\d+) 条/.exec(s))) issues.push('最近错误 ' + m[1] + ' 条');
         else if (/^localStorage 状态：/.test(s) && !/正常/.test(s)) issues.push('localStorage 状态异常');
+        else if ((m = /^localStorage 写入拒绝 (\d+) 次/.exec(s))) issues.push('localStorage 本会话写入被拒 ' + m[1] + ' 次（【数据】段有现场账：哪条键、多大、出自哪个文件哪一行）');
       }
       conclScreenBad().forEach(function (n) { issues.push('屏幕适配 ' + n); });
       if (!issues.length) return '未发现明显异常；若仍有故障，请连同下方明细整段发送。';
