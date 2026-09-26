@@ -9312,8 +9312,104 @@ let activeMsgEl = null;   // 当前操作的消息 DOM
 let activeMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
-function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
-function saveFav(list) { store.set('fav-msgs', JSON.stringify(list)); try { scheduleFavImgPass(2500); } catch (e) {} }
+const favAuth = {};      // cid → 'pending'＝这一键权威未回话（写闸关着）／'ok'＝回过话或按旧语义放行
+const favPending = {};   // cid → 权威回话前用户写进来的整包收藏（只在内存，绝不落盘）
+let favAuthTries = 0;
+const FAV_AUTH_BACKOFF = [800, 2000, 5000, 12000, 25000];
+function favCid() { return window.__activeCid || 'default'; }
+function favHold(cid) { return favAuth[cid] === 'pending'; }
+function favUnion(base, extra) {
+const seen = {};
+const out = [];
+[base || [], extra || []].forEach(function (arr) {
+if (!Array.isArray(arr)) return;
+arr.forEach(function (x) { if (!x) return; const k = favItemKey(x); if (seen[k]) return; seen[k] = 1; out.push(x); });
+});
+return out;
+}
+function favDrain(cid, idbRaw) {
+const pend = favPending[cid];
+if (!pend) return;
+delete favPending[cid];
+if (!pend.length) return;
+try {
+const cs = cid === favCid() ? store : (window.storeFor ? window.storeFor(cid) : store);
+let localRaw = null;
+try { localRaw = cs.get('fav-msgs'); } catch (e) {}
+const baseRaw = (localRaw && localRaw.length > 2) ? localRaw : ((idbRaw && idbRaw.length > 2) ? idbRaw : '[]');
+let cur = [];
+try { cur = JSON.parse(baseRaw); } catch (e) { cur = []; }
+cs.set('fav-msgs', JSON.stringify(favUnion(Array.isArray(cur) ? cur : [], pend)));
+try { scheduleFavImgPass(2500); } catch (e) {}
+} catch (e) {}
+}
+function favSeal(cid, idbRaw) { favAuth[cid] = 'ok'; favDrain(cid, idbRaw); }
+function favDrainAll() { Object.keys(favPending).forEach(function (c) { favAuth[c] = 'ok'; favDrain(c, null); }); }
+function favNoteAuth(v, info) {
+const cid = favCid();
+if (info && info.ambiguous) {
+if (!window.idbHasKey) { favAuthDelay(); return; }
+const myPrefix = window.activePrefix();
+try {
+window.idbHasKey(myPrefix + ':fav-msgs').then(function (exists) {
+if (window.activePrefix() !== myPrefix) return;
+if (exists === false) { favSeal(cid, null); return; } // 库里确无此键（新装）＝开门，第一收藏直接落盘
+favAuthDelay(); // 库里「有」这一键却读不回值：关着闸重试，绝不整包覆盖
+});
+} catch (e) { favAuthDelay(); }
+return;
+}
+favSeal(cid, typeof v === 'string' ? v : null);
+}
+function favAskAuth() {
+const cid = favCid();
+const myPrefix = window.activePrefix();
+favAuth[cid] = 'pending';
+if (!window.idbGet) { favSeal(cid, null); return; }
+const info = {};
+try {
+Promise.resolve(window.idbGet(myPrefix + ':fav-msgs', info)).then(function (v) {
+if (window.activePrefix() !== myPrefix) return; // 已切走：新桌面自己会重新发起
+favNoteAuth(v, info);
+}, function () { if (window.activePrefix() === myPrefix) favAuthDelay(); });
+} catch (e) { favSeal(cid, null); }
+}
+function favAuthDelay() {
+if (favAuthTries >= FAV_AUTH_BACKOFF.length) {
+Object.keys(favAuth).forEach(function (c) { favAuth[c] = 'ok'; });
+favDrainAll();
+return;
+}
+const wait = FAV_AUTH_BACKOFF[favAuthTries++];
+try { if (window.__mochiPhase) window.__mochiPhase('fav-auth-retry:' + favAuthTries); } catch (e) {}
+setTimeout(favAskAuth, wait);
+}
+favAuth[favCid()] = 'pending';
+if (!window.idbGet) favAuth[favCid()] = 'ok';
+document.addEventListener('contact-switched', function () {
+if (!window.__mochiDataReady) { try { favAskAuth(); } catch (e) {} }
+});
+if (window.mochiOnDataReady) window.mochiOnDataReady(favDrainAll);
+else document.addEventListener('mochi-restore-done', favDrainAll);
+setTimeout(favDrainAll, 45000); // 兜底：restore-done 与权威回话都到不了（IDB 彻底不可用）时按旧语义落盘
+function getFav() {
+try {
+const base = JSON.parse(store.get('fav-msgs') || '[]');
+const cid = favCid();
+if (favHold(cid) && favPending[cid]) return favUnion(base, favPending[cid]);
+return base;
+} catch (e) { return []; }
+}
+function saveFav(list) {
+const cid = favCid();
+if (favHold(cid)) {
+try { favPending[cid] = (list || []).slice(); } catch (e) {}
+try { if (window.__mochiPhase) window.__mochiPhase('fav-hold:' + ((list || []).length)); } catch (e) {}
+return;
+}
+store.set('fav-msgs', JSON.stringify(list));
+try { scheduleFavImgPass(2500); } catch (e) {}
+}
 function favItemKey(f) {
 return (f.by || 'me') + '|' + (f.kind || 'msg') + '|' + (f.ts || 0) + '|' +
 String(f.q || '').slice(0, 120) + '|' + String(f.text || '').slice(0, 120) + '|' +
@@ -12616,8 +12712,10 @@ return addRec({ side: fromTA ? 'in' : 'out', special: 'flower', flEmoji: emoji, 
 try {
 if (window.idbGet) {
 const myPrefix = window.activePrefix();
-window.idbGet(myPrefix + ':fav-msgs').then(v => {
+const favAuthInfo = {}; // #1309c：这一发同时充当「fav-msgs 这一键回没回话」的证人（写闸见上方 saveFav）
+window.idbGet(myPrefix + ':fav-msgs', favAuthInfo).then(v => {
 if (window.activePrefix() !== myPrefix) return;
+try { favNoteAuth(v, favAuthInfo); } catch (e) {}
 if (v && typeof v === 'string' && v.length > 2) {
 let cur = null;
 try { cur = store.get('fav-msgs'); } catch (e) {}

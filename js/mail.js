@@ -86,7 +86,7 @@ let list = [];
 const raw = cs.get(KEY);
 if (raw !== null) list = cachedParse(prefixFor(cid) + ':' + KEY, raw);
 if (!list.length) { try { const v = loadSnap(cid); if (v.length) list = v; } catch (e) {} }
-if (!cid && !mailDbReady && mailPending && mailPending.length) {
+if (!cid && !mailWriteOpen() && mailPending && mailPending.length) {
 const map = {};
 list.forEach(x => { if (x && x.id) map[x.id] = x; });
 mailPending.forEach(x => { if (x && x.id) map[x.id] = x; });
@@ -136,8 +136,57 @@ return Object.keys(map).map(k => map[k]).sort((x, y) => (y.tm || 0) - (x.tm || 0
 }
 let mailDbReady = false;
 let mailPending = null;
+let mailAuthOk = false;   // 权威真回过话：读到值 / count 探针证实库里没有 / 重试预算耗尽按旧语义放行
+let mailAuthTries = 0;
+const MAIL_AUTH_BACKOFF = [600, 1500, 4000, 9000, 20000];
+function mailWriteOpen() { return mailDbReady && mailAuthOk; }
+function mailEmptyIsLie() { return !mailAuthOk || !!(window.mochiDataPending && window.mochiDataPending()); }
+function mailFuseFlush(cb) {
+if (mailAuthOk || !window.idbHasKey) { cb(); return; }
+try {
+window.idbHasKey(window.activePrefix() + ':' + KEY).then(function (exists) {
+if (exists === true) { try { render(); updateBadge(); } catch (e) {} return; }
+cb();
+});
+} catch (e) { cb(); }
+}
+function mailAuthAsk(cid, guard, after) {
+if (!window.idbGet) { mailAuthOk = true; mailDbReady = true; after(); return; }
+const myPrefix = window.activePrefix();
+const info = {};
+const stale = function () { return (guard && guard() === false) || window.activePrefix() !== myPrefix; };
+const answered = function (v) {
+if (stale()) return;
+if (!info.ambiguous) {
+mailAuthOk = true;
+mailMergeFromIdb(v, cid);
+mailDbReady = true;
+after();
+return;
+}
+if (!window.idbHasKey) { mailAuthDelay(cid, guard, after); return; }
+window.idbHasKey(myPrefix + ':' + KEY).then(function (exists) {
+if (stale()) return;
+if (exists === false) { mailAuthOk = true; mailDbReady = true; after(); return; }
+mailAuthDelay(cid, guard, after);
+});
+};
+try {
+Promise.resolve(window.idbGet(myPrefix + ':' + KEY, info)).then(answered, function () {
+if (!stale()) mailAuthDelay(cid, guard, after);
+});
+} catch (e) { mailAuthOk = true; mailDbReady = true; after(); }
+}
+function mailAuthDelay(cid, guard, after) {
+if (mailAuthTries >= MAIL_AUTH_BACKOFF.length) {
+mailAuthOk = true; mailDbReady = true; after(); return;
+}
+const wait = MAIL_AUTH_BACKOFF[mailAuthTries++];
+try { if (window.__mochiPhase) window.__mochiPhase('mail-auth-retry:' + mailAuthTries); } catch (e) {}
+setTimeout(function () { mailAuthAsk(cid, guard, after); }, wait);
+}
 function save(list, cid) {
-if (!cid && !mailDbReady) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
+if (!cid && !mailWriteOpen()) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
 csFor(cid).set(KEY, JSON.stringify(list));
 writeSnap(list, cid);
 }
@@ -429,7 +478,7 @@ const outEl = document.getElementById('mail-out-list');
 const inList = list.filter(l => l.type === 'received');
 if (inEl) {
 const inHtml = inList.map(l => mailItemHtml(l, 'in', name)).join('');
-inEl.innerHTML = inHtml || ((window.mochiDataPending && window.mochiDataPending())
+inEl.innerHTML = inHtml || (mailEmptyIsLie() && window.mochiLoadingHtml
 ? window.mochiLoadingHtml('收到的信')
 : '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>');
 if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length) inEl.innerHTML = inHtml;
@@ -437,7 +486,7 @@ if (inList.length && inEl.querySelectorAll('.mail-item').length < inList.length)
 const outList = list.filter(l => l.type === 'sent');
 if (outEl) {
 const outHtml = outList.map(l => mailItemHtml(l, 'out', name)).join('');
-outEl.innerHTML = outHtml || ((window.mochiDataPending && window.mochiDataPending())
+outEl.innerHTML = outHtml || (mailEmptyIsLie() && window.mochiLoadingHtml
 ? window.mochiLoadingHtml('寄出的信')
 : '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>');
 if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) outEl.innerHTML = outHtml;
@@ -1116,73 +1165,59 @@ if (merged.length) { csFor(cid).set(KEY, JSON.stringify(merged)); writeSnap(merg
 } catch (e) { /* 解析失败：仍置就绪，避免下次启动重复合并 */ }
 }
 try {
-if (window.idbGet) {
-const myPrefix = window.activePrefix();
-window.idbGet(myPrefix + ':' + KEY).then(v => {
-if (window.activePrefix() !== myPrefix) return;
-mailMergeFromIdb(v);
-mailDbReady = true;
+mailAuthAsk(undefined, null, function () {
 checkPendingReply(); // v3.9.x：权威就绪立即补查到期回信（启动即到的回信不再等 20~60s）
 render();
 updateBadge();
 });
-} else {
-mailDbReady = true;
-}
-} catch (e) { mailDbReady = true; }
+} catch (e) { mailAuthOk = true; mailDbReady = true; }
 setTimeout(function () {
-if (mailDbReady) return;
+if (mailWriteOpen()) return;
+mailFuseFlush(function () {
 try {
 const all = load();
 if (all.length) store.set(KEY, JSON.stringify(all));
 } catch (e) {}
+mailAuthOk = true;
 mailDbReady = true;
 checkPendingReply(); // v3.9.x：保险丝就绪同样补查（权威加载挂起场景）
 render();
 updateBadge();
+});
 }, 15000);
 document.addEventListener('contact-switched', function () {
 try {
 const switchedCid = window.__activeCid || 'default';
 mailDbReady = false;
+mailAuthOk = false;
+mailAuthTries = 0; // #1309b：新桌面另给一份重试预算（与 mailPending 一样按桌面重置）
 mailPending = null;
 let fuseFired = false;
 const fuse = setTimeout(function () {
-if (fuseFired || mailDbReady) return;
+if (fuseFired || mailWriteOpen()) return;
 if ((window.__activeCid || 'default') !== switchedCid) return; // 已切走：本保险丝作废
+mailFuseFlush(function () {
 fuseFired = true;
 try {
 const all = load(switchedCid);
 if (all.length) csFor(switchedCid).set(KEY, JSON.stringify(all));
 } catch (e) {}
+mailAuthOk = true;
 mailDbReady = true;
 checkPendingReply(); // v3.9.x：切桌面权威就绪补查（新桌面到期的回信立即落地）
 render();
 updateBadge();
+});
 }, 15000);
-if (window.idbGet) {
-window.idbGet(window.activePrefix() + ':' + KEY).then(v => {
-if (fuseFired) return; // 保险丝已先就绪，idbGet 迟到则跳过（load 已含暂存）
-if ((window.__activeCid || 'default') !== switchedCid) return; // 已切走：作废，不合并不置就绪
+mailAuthAsk(switchedCid, function () {
+return !fuseFired && (window.__activeCid || 'default') === switchedCid;
+}, function () {
 clearTimeout(fuse);
-mailMergeFromIdb(v, switchedCid);
-mailDbReady = true;
 checkPendingReply(); // v3.9.x：切桌面权威就绪补查
 render();
 updateBadge();
-}).catch(() => {
-if (fuseFired) return;
-if ((window.__activeCid || 'default') !== switchedCid) return;
-clearTimeout(fuse);
-mailDbReady = true; render(); updateBadge();
 });
-} else {
-clearTimeout(fuse);
-mailDbReady = true;
-render();
-updateBadge();
-}
-} catch (e) { mailDbReady = true; }
+} catch (e) { mailAuthOk = true; mailDbReady = true; }
 });
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("mail.js");

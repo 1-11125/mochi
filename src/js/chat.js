@@ -11680,8 +11680,119 @@ let activeMsgEl = null;   // 当前操作的消息 DOM
 let activeMsgSnap = null; // FIX 2026-09-13 #407：菜单打开时的消息身份快照（防 msgs 重排后 data-idx 错位）
 let activeSide = 'in';    // 当前操作消息方向
 let lastQuote = null;     // 待引用内容
-function getFav() { try { return JSON.parse(store.get('fav-msgs') || '[]'); } catch (e) { return []; } }
-function saveFav(list) { store.set('fav-msgs', JSON.stringify(list)); try { scheduleFavImgPass(2500); } catch (e) {} }
+// FIX 2026-09-26 #1309c：收藏的整包写入要等「这一键的权威」回话（同一台小米 14U/Edge 还报
+//   「之前的收藏也没了」）。这条连一次读故障都不需要：那台机的 localStorage 整层写不进
+//   （诊断单实读整域 192 键 ≈10MB 全是同源兄弟站点占的、站内 0 键），xyStore.get 的三路回落
+//   （内存→LS→null）就只剩内存一路；启动回填还没轮到 fav-msgs（库里 chat-msgs 实报 26.4MB）
+//   时 store.get 读出的就是 null。旧 saveFav 把 null 当成「一条收藏都没有」，用户此刻点一次
+//   收藏 → store.set → xyStore.set 当场 window.idbSet 落盘 → IDB 里全部旧收藏被这一条整包抹掉
+//   （永久救不回；本批电池在纯 HEAD 产物上实测 2 条 → 1 条）。
+//   判据只取「这一键回没回话」这一个内核事实：idbGet 的 info.ambiguous ＋ idbHasKey 三态
+//   （同 #90 严格清单契约、#187 feed 写闸、#229 有界重试、#785 就绪三态），零机型／零 UA 分支。
+//   按 cid 分开暂存并在权威回话后才并集落盘＝切桌面不把 A 桌面的收藏并进 B（同 mail v3.8.x
+//   串桌面教训）；本地优先、库里其次＝保住 #456/iOS「IDB 落后不许把最新收藏回滚成旧快照」语义。
+const favAuth = {};      // cid → 'pending'＝这一键权威未回话（写闸关着）／'ok'＝回过话或按旧语义放行
+const favPending = {};   // cid → 权威回话前用户写进来的整包收藏（只在内存，绝不落盘）
+let favAuthTries = 0;
+const FAV_AUTH_BACKOFF = [800, 2000, 5000, 12000, 25000];
+function favCid() { return window.__activeCid || 'default'; }
+function favHold(cid) { return favAuth[cid] === 'pending'; }
+function favUnion(base, extra) {
+  const seen = {};
+  const out = [];
+  [base || [], extra || []].forEach(function (arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function (x) { if (!x) return; const k = favItemKey(x); if (seen[k]) return; seen[k] = 1; out.push(x); });
+  });
+  return out;
+}
+function favDrain(cid, idbRaw) {
+  const pend = favPending[cid];
+  if (!pend) return;
+  delete favPending[cid];
+  if (!pend.length) return;
+  try {
+    const cs = cid === favCid() ? store : (window.storeFor ? window.storeFor(cid) : store);
+    let localRaw = null;
+    try { localRaw = cs.get('fav-msgs'); } catch (e) {}
+    const baseRaw = (localRaw && localRaw.length > 2) ? localRaw : ((idbRaw && idbRaw.length > 2) ? idbRaw : '[]');
+    let cur = [];
+    try { cur = JSON.parse(baseRaw); } catch (e) { cur = []; }
+    cs.set('fav-msgs', JSON.stringify(favUnion(Array.isArray(cur) ? cur : [], pend)));
+    try { scheduleFavImgPass(2500); } catch (e) {}
+  } catch (e) {}
+}
+function favSeal(cid, idbRaw) { favAuth[cid] = 'ok'; favDrain(cid, idbRaw); }
+function favDrainAll() { Object.keys(favPending).forEach(function (c) { favAuth[c] = 'ok'; favDrain(c, null); }); }
+// 权威回话登记：v＝库里这一键的原值；info.ambiguous＝这一发没读到（≠库里没有）
+function favNoteAuth(v, info) {
+  const cid = favCid();
+  if (info && info.ambiguous) {
+    if (!window.idbHasKey) { favAuthDelay(); return; }
+    const myPrefix = window.activePrefix();
+    try {
+      window.idbHasKey(myPrefix + ':fav-msgs').then(function (exists) {
+        if (window.activePrefix() !== myPrefix) return;
+        if (exists === false) { favSeal(cid, null); return; } // 库里确无此键（新装）＝开门，第一收藏直接落盘
+        favAuthDelay(); // 库里「有」这一键却读不回值：关着闸重试，绝不整包覆盖
+      });
+    } catch (e) { favAuthDelay(); }
+    return;
+  }
+  favSeal(cid, typeof v === 'string' ? v : null);
+}
+function favAskAuth() {
+  const cid = favCid();
+  const myPrefix = window.activePrefix();
+  favAuth[cid] = 'pending';
+  if (!window.idbGet) { favSeal(cid, null); return; }
+  const info = {};
+  try {
+    Promise.resolve(window.idbGet(myPrefix + ':fav-msgs', info)).then(function (v) {
+      if (window.activePrefix() !== myPrefix) return; // 已切走：新桌面自己会重新发起
+      favNoteAuth(v, info);
+    }, function () { if (window.activePrefix() === myPrefix) favAuthDelay(); });
+  } catch (e) { favSeal(cid, null); }
+}
+function favAuthDelay() {
+  if (favAuthTries >= FAV_AUTH_BACKOFF.length) {
+    // 有界重试耗尽＝这一会话读不回来了：按旧语义放行（宁可退回旧行为，也不把用户新收藏永久卡在内存）
+    Object.keys(favAuth).forEach(function (c) { favAuth[c] = 'ok'; });
+    favDrainAll();
+    return;
+  }
+  const wait = FAV_AUTH_BACKOFF[favAuthTries++];
+  try { if (window.__mochiPhase) window.__mochiPhase('fav-auth-retry:' + favAuthTries); } catch (e) {}
+  setTimeout(favAskAuth, wait);
+}
+favAuth[favCid()] = 'pending';
+if (!window.idbGet) favAuth[favCid()] = 'ok';
+document.addEventListener('contact-switched', function () {
+  // 回填还没跑完就切了桌面：新桌面同样先发权威读再开门；已就绪时不发这一读（稳态零额外开销）
+  if (!window.__mochiDataReady) { try { favAskAuth(); } catch (e) {} }
+});
+if (window.mochiOnDataReady) window.mochiOnDataReady(favDrainAll);
+else document.addEventListener('mochi-restore-done', favDrainAll);
+setTimeout(favDrainAll, 45000); // 兜底：restore-done 与权威回话都到不了（IDB 彻底不可用）时按旧语义落盘
+function getFav() {
+  try {
+    const base = JSON.parse(store.get('fav-msgs') || '[]');
+    const cid = favCid();
+    if (favHold(cid) && favPending[cid]) return favUnion(base, favPending[cid]);
+    return base;
+  } catch (e) { return []; }
+}
+function saveFav(list) {
+  const cid = favCid();
+  if (favHold(cid)) {
+    // 权威没回话：只暂存内存，绝不 store.set——xyStore.set 会当场 window.idbSet 把整包覆盖进 IDB
+    try { favPending[cid] = (list || []).slice(); } catch (e) {}
+    try { if (window.__mochiPhase) window.__mochiPhase('fav-hold:' + ((list || []).length)); } catch (e) {}
+    return;
+  }
+  store.set('fav-msgs', JSON.stringify(list));
+  try { scheduleFavImgPass(2500); } catch (e) {}
+}
 // v3.31.x #314 批量管理勾选身份：收藏无稳定 id，用「归属+类型+内容+时间戳」指纹做 key
 // （与 favDup 判重同源）——getFav() 每次返回新解析的全新对象，按对象引用勾选会在
 // renderFav 重渲染（点全选/切分类/切页签都触发）后全部失配，勾选静默清零＝多选失效
@@ -15560,8 +15671,10 @@ return addRec({ side: fromTA ? 'in' : 'out', special: 'flower', flEmoji: emoji, 
 try {
 if (window.idbGet) {
 const myPrefix = window.activePrefix();
-window.idbGet(myPrefix + ':fav-msgs').then(v => {
+const favAuthInfo = {}; // #1309c：这一发同时充当「fav-msgs 这一键回没回话」的证人（写闸见上方 saveFav）
+window.idbGet(myPrefix + ':fav-msgs', favAuthInfo).then(v => {
 if (window.activePrefix() !== myPrefix) return;
+try { favNoteAuth(v, favAuthInfo); } catch (e) {}
 if (v && typeof v === 'string' && v.length > 2) {
 // v3.26.x 修复（iOS 收藏丢失）：只在本地无收藏时从 IDB 补入，不再无条件覆盖——
 // idbSet 是异步 fire-and-forget，iOS 杀后台时 IDB 可能落后于 localStorage，

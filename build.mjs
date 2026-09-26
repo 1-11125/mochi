@@ -5254,6 +5254,16 @@ const FIX_SENTINELS = [
   { name: '#1307e 写日志合并自愈那一刀也重放（wrj-merge 覆盖 LS/内存后读数会变，漏这条＝自愈回来的天数还是空的）', file: 'js/personalize.js', needle: "document.addEventListener('mochi-wrj-heal', replayDeskAnnivAfterRestore);" },
   { name: '#1307f 删除型：冷却标记不得退回裸 localStorage 直写（回流＝本批整块被旧缓冲打回，满库设备重新天天弹）', file: 'js/pwa.js', needle: "localStorage.setItem(G + '__last-backup-remind'", absent: true },
 
+  /* ==== 2026-09-26 #1309 小米 14U + Edge 实报「信箱里的信都没了、朋友圈也没有了、之前的收藏也没了，一直会丢数据」，用户明说其他机型也有出现、要求不要覆盖式修补。同一台机导出的诊断单：LS 整域 192 键 ≈10MB 全是同源兄弟站点占的、站内 0 键＋「写入失败(QuotaExceededError)」＝localStorage 这一层在本机永久不存在，全站只剩 IndexedDB 一份拷贝，而 xyStore.get 的三路回落（内存→LS→null）只剩内存一路。三处放大同一条判据错误「没读到＝没有」（回填总闸／信箱权威读／收藏整包写）；零机型／零 UA 分支＝判据只取「内核回没回话」这一个事实，尺子同 #90 严格三态清单、#187 feed 写闸、#229 有界重试、#785 数据就绪三态。验证＝tools/verify-1309-ls-dead-single-copy.mjs（真把 LS 填到连 8 字节都写不进＋真让 IDB 那一发读报错）：同尺 A/B 绿 31/0 · 纯 HEAD 21/10，红的恰全本批新契约 ==== */
+  { name: "#1309a 启动回填的键清单读到 null＝「这次没读到」，绝不派发数据已就绪（旧版走折叠版 idbGetAllKeys→[]→finish()＝全站空态当场从「还在读取」翻成「还没有」，并把「读空→照常整包写回」的口子开给所有业务页；#785 数据就绪三态在总闸处说谎）", file: "js/idb.js", needle: "if (keys === null) return;" },
+  { name: "#1309b 清单未知走有界退避重试（删＝一发 getAllKeys 被内核中止就永久停在「正在读取」；改成无限立即重试＝把要回填的那一段弄得更卡，与 #1300/#1305 同一课）", file: "js/idb.js", needle: "const LIST_BACKOFF = [4000, 10000, 20000, 40000, 70000];" },
+  { name: "#1309c 信箱权威加载分「读失败」与「库里确无此键」（idbGet 两种都回 undefined，唯一证人 info.ambiguous；旧写法读到 undefined 也照样开门→空列表→下一次寄信把 IDB 全部旧信整包抹掉＝报障本体，纯 HEAD 实测 5 封→1 封）", file: "js/mail.js", needle: "if (!info.ambiguous) {" },
+  { name: "#1309d 信箱写闸要两把锁都在（mailDbReady＝暂存期结束＋mailAuthOk＝权威真回话；只认前一把＝本批病灶，保险丝也能单独开门放行整包覆盖）", file: "js/mail.js", needle: "function mailWriteOpen() { return mailDbReady && mailAuthOk; }" },
+  { name: "#1309e 权威未证实前信箱空态不许陈述「还没有收到信」（改成只问 mochiDataPending＝回填跑完而这一键没读到的那台机仍然当面说谎）", file: "js/mail.js", needle: "return !mailAuthOk || !!(window.mochiDataPending && window.mochiDataPending());" },
+  { name: "#1309f 15s 保险丝放行前先问 idbHasKey（库里确有这一键却读不回值时把读空列表落盘＝整包抹掉旧信；删这道闸＝本批的有界重试被一个定时器无声解除）", file: "js/mail.js", needle: "if (mailAuthOk || !window.idbHasKey) { cb(); return; }" },
+  { name: "#1309g 收藏整包写入要等这一键的权威回话（LS 整层写不进＋回填没轮到 fav-msgs 时 store.get 读空，旧 saveFav 当成「一条收藏都没有」→xyStore.set 当场 idbSet 抹掉 IDB 全部旧收藏＝报障「之前的收藏也没了」；纯 HEAD 实测 2 条→1 条，且这一条不需要任何读故障）", file: "js/chat.js", needle: "return favAuth[cid] === 'pending';" },
+  { name: "#1309h 收藏权威读失败走有界重试、预算耗尽才按旧语义放行（删＝一次读失败永久关闸，新收藏只活在内存里、刷新即丢；改成立刻放行＝本批症状复发）", file: "js/chat.js", needle: "const FAV_AUTH_BACKOFF = [800, 2000, 5000, 12000, 25000];" },
+  { name: "#1309i 补齐暂存时本地优先、库里其次（改成库里无条件覆盖＝#456/iOS「IDB 落后把最新收藏回滚成旧快照」复发；删掉整行＝权威回话前用户写进来的那一包收藏再也并不回来）", file: "js/chat.js", needle: "const baseRaw = (localRaw && localRaw.length > 2) ? localRaw : ((idbRaw && idbRaw.length > 2) ? idbRaw : '[]');" },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

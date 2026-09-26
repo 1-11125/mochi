@@ -608,7 +608,18 @@ if (finished) return;
 try { window.__mochiDataSlow = true; } catch (e) {}
 try { document.dispatchEvent(new Event('mochi-restore-slow')); } catch (e) {}
 }, 12000);
-Promise.all([window.idbGetAllKeys(), window.idbGet(LS_DIRTY_KEY)]).then(res => {
+let listTries = 0;
+const LIST_BACKOFF = [4000, 10000, 20000, 40000, 70000];
+const readKeyList = function () {
+return window.idbListKeys().then(function (keys) {
+if (keys !== null) return keys;
+if (finished || listTries >= LIST_BACKOFF.length) return null;
+const wait = LIST_BACKOFF[listTries++];
+try { if (window.__mochiPhase) window.__mochiPhase('restore-list-retry:' + listTries); } catch (e) {}
+return new Promise(function (r) { setTimeout(r, wait); }).then(readKeyList);
+});
+};
+Promise.all([readKeyList(), window.idbGet(LS_DIRTY_KEY)]).then(res => {
 const keys = res[0];
 try {
 const arr = JSON.parse(res[1] || '[]');
@@ -618,7 +629,8 @@ arr.forEach(k => { if (k) _lsDirtyKeys.add(k); });
 try { sessionStorage.setItem(LS_DIRTY_KEY, JSON.stringify(Array.from(_lsDirtyKeys))); } catch (e) {}
 }
 } catch (e) {}
-if (!keys || !keys.length) { finish(); return; }
+if (keys === null) return;
+if (!keys.length) { finish(); return; }
 const need = (keys || []).filter(k =>
 k.indexOf(uidPrefix) === 0 &&
 k !== LS_DIRTY_KEY && // 脏键索引自身不回填

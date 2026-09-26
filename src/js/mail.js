@@ -133,7 +133,7 @@
     if (!list.length) { try { const v = loadSnap(cid); if (v.length) list = v; } catch (e) {} }
     // v3.7.x：暂存合并仅对当前桌面（cid undefined）生效——mailPending 是当前桌面
     //   contact-switched 时的暂存，后台遍历其它 cid 时不并入（避免串桌面）
-    if (!cid && !mailDbReady && mailPending && mailPending.length) {
+    if (!cid && !mailWriteOpen() && mailPending && mailPending.length) {
       const map = {};
       list.forEach(x => { if (x && x.id) map[x.id] = x; });
       mailPending.forEach(x => { if (x && x.id) map[x.id] = x; });
@@ -198,6 +198,72 @@
   // 权威未从 IDB 读回前，save 只暂存内存、绝不落盘。
   let mailDbReady = false;
   let mailPending = null;
+  // FIX 2026-09-26 #1309b：「这一键没读到」与「库里确无此键」必须分开（小米 14U/Edge 实报
+  //   「信箱里的信都没有了」＋「一直会丢数据」，用户明说其他机型同现）。idbGet 对这两种情况
+  //   都回 undefined，唯一证人＝info.ambiguous；旧写法读到 undefined 也照样 mailDbReady = true，
+  //   于是 load() 交出空列表 → 用户下一次再正常不过的寄信把 IDB 里全部旧信整包抹掉
+  //   （本批电池在纯 HEAD 产物上实测：5 封 → 1 封，且丢了就永久救不回来）。
+  //   尺子同源、零机型／零 UA 分支：idbListKeys/idbHasKey 的「null＝这次没读到」契约（#90）、
+  //   feed.js 的 #187 写闸、#229 有界重试、#785 数据就绪三态——判据只取「内核回没回话」。
+  let mailAuthOk = false;   // 权威真回过话：读到值 / count 探针证实库里没有 / 重试预算耗尽按旧语义放行
+  let mailAuthTries = 0;
+  const MAIL_AUTH_BACKOFF = [600, 1500, 4000, 9000, 20000];
+  // 写闸＝两把锁都在：mailDbReady（暂存期结束）＋ mailAuthOk（权威确实回过话）。
+  // 只认前一把＝本批要收口的病灶（保险丝也能单独开门，见 mailFuseFlush）。
+  function mailWriteOpen() { return mailDbReady && mailAuthOk; }
+  function mailEmptyIsLie() { return !mailAuthOk || !!(window.mochiDataPending && window.mochiDataPending()); }
+  // 15s 保险丝同样不许把「读不到」当成「没有」：库里确实有这一键却读不回值时落盘＝用读空的
+  // 列表整包抹掉那些读不到的旧信；此时保持关闸，让有界重试继续跑（重试预算耗尽才放行）。
+  function mailFuseFlush(cb) {
+    if (mailAuthOk || !window.idbHasKey) { cb(); return; }
+    try {
+      window.idbHasKey(window.activePrefix() + ':' + KEY).then(function (exists) {
+        if (exists === true) { try { render(); updateBadge(); } catch (e) {} return; }
+        cb();
+      });
+    } catch (e) { cb(); }
+  }
+  // 三态权威加载（启动与切桌面共用）：confirmed 才交 mailMergeFromIdb 合并并开门；
+  // ambiguous 先让 idbHasKey（count 单键，比取值轻得多，MB 级写入排队时也挤得进去）分辨
+  // 「有却读不回」与「确无此键」——前者关闸重试，后者按「库里没有」开门（新装用户第一封信
+  // 必须直接落盘，C3 对照）。guard 返回 false＝本次作废（已切走／保险丝已抢先）。
+  function mailAuthAsk(cid, guard, after) {
+    if (!window.idbGet) { mailAuthOk = true; mailDbReady = true; after(); return; }
+    const myPrefix = window.activePrefix();
+    const info = {};
+    const stale = function () { return (guard && guard() === false) || window.activePrefix() !== myPrefix; };
+    const answered = function (v) {
+      if (stale()) return;
+      if (!info.ambiguous) {
+        mailAuthOk = true;
+        mailMergeFromIdb(v, cid);
+        mailDbReady = true;
+        after();
+        return;
+      }
+      if (!window.idbHasKey) { mailAuthDelay(cid, guard, after); return; }
+      window.idbHasKey(myPrefix + ':' + KEY).then(function (exists) {
+        if (stale()) return;
+        if (exists === false) { mailAuthOk = true; mailDbReady = true; after(); return; }
+        mailAuthDelay(cid, guard, after);
+      });
+    };
+    try {
+      Promise.resolve(window.idbGet(myPrefix + ':' + KEY, info)).then(answered, function () {
+        if (!stale()) mailAuthDelay(cid, guard, after);
+      });
+    } catch (e) { mailAuthOk = true; mailDbReady = true; after(); }
+  }
+  function mailAuthDelay(cid, guard, after) {
+    if (mailAuthTries >= MAIL_AUTH_BACKOFF.length) {
+      // 有界重试耗尽＝这台机这一会话读不回来了。按旧语义放行（宁可退回旧行为，也不把用户的
+      // 来信永久卡在内存里——那才是「弹窗说有信、信箱是空的」那一族 iQOO/X5 实报的根因）
+      mailAuthOk = true; mailDbReady = true; after(); return;
+    }
+    const wait = MAIL_AUTH_BACKOFF[mailAuthTries++];
+    try { if (window.__mochiPhase) window.__mochiPhase('mail-auth-retry:' + mailAuthTries); } catch (e) {}
+    setTimeout(function () { mailAuthAsk(cid, guard, after); }, wait);
+  }
   function save(list, cid) {
     // v3.7.x：cid undefined = 当前桌面，走 mailDbReady 门槛（防启动早期 save([]) 覆盖 IDB）；
     //   cid 指定 = 后台遍历该联系人来信，直接写（maybeIncomingLetterFor 已确认该桌面
@@ -207,7 +273,7 @@
     //   而聊天通知已持久化 → 用户看到「联系人来信」信箱却是空的（iQOO Neo5 SE +
     //   QQ浏览器 X5 IDB 挂起实测）。快照仅文本兜底，IDB 权威读回后 mailMergeFromIdb
     //   按 id 合并恢复完整数据（含图片），不破坏权威防护（主键 store.set 仍等就绪）。
-    if (!cid && !mailDbReady) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
+    if (!cid && !mailWriteOpen()) { try { mailPending = (list || []).slice(); } catch (e) {} writeSnap(list, cid); return; }
     csFor(cid).set(KEY, JSON.stringify(list));
     writeSnap(list, cid);
   }
@@ -605,7 +671,7 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
     const inList = list.filter(l => l.type === 'received');
     if (inEl) {
       const inHtml = inList.map(l => mailItemHtml(l, 'in', name)).join('');
-      inEl.innerHTML = inHtml || ((window.mochiDataPending && window.mochiDataPending())
+      inEl.innerHTML = inHtml || (mailEmptyIsLie() && window.mochiLoadingHtml
         ? window.mochiLoadingHtml('收到的信')
         : '<div class="ta-empty">' + (window.taFit ? window.taFit('还没有收到信，等等 TA 吧') : '还没有收到信，等等 TA 吧') + '</div>');
       // v3.26.x：防御 innerHTML 未生效——个别安卓内核（红米 K80 Chrome）对 hidden 元素
@@ -616,7 +682,7 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
     const outList = list.filter(l => l.type === 'sent');
     if (outEl) {
       const outHtml = outList.map(l => mailItemHtml(l, 'out', name)).join('');
-      outEl.innerHTML = outHtml || ((window.mochiDataPending && window.mochiDataPending())
+      outEl.innerHTML = outHtml || (mailEmptyIsLie() && window.mochiLoadingHtml
         ? window.mochiLoadingHtml('寄出的信')
         : '<div class="ta-empty">还没有寄出任何信，提笔写一封吧</div>');
       if (outList.length && outEl.querySelectorAll('.mail-item').length < outList.length) outEl.innerHTML = outHtml;
@@ -1529,35 +1595,32 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
     } catch (e) { /* 解析失败：仍置就绪，避免下次启动重复合并 */ }
   }
   try {
-    if (window.idbGet) {
-      const myPrefix = window.activePrefix();
-      window.idbGet(myPrefix + ':' + KEY).then(v => {
-        if (window.activePrefix() !== myPrefix) return;
-        mailMergeFromIdb(v);
-        mailDbReady = true;
-        checkPendingReply(); // v3.9.x：权威就绪立即补查到期回信（启动即到的回信不再等 20~60s）
-        render();
-        updateBadge();
-      });
-    } else {
-      mailDbReady = true;
-    }
-  } catch (e) { mailDbReady = true; }
+    mailAuthAsk(undefined, null, function () {
+      checkPendingReply(); // v3.9.x：权威就绪立即补查到期回信（启动即到的回信不再等 20~60s）
+      render();
+      updateBadge();
+    });
+  } catch (e) { mailAuthOk = true; mailDbReady = true; }
   // v3.6.x：权威读取保险丝——IndexedDB 打开/读取在个别手机（OPPO 雨见浏览器后台
   // 挂起/存储异常）可能迟迟不返回，mailDbReady 一直为 false，来信只进内存暂存：
   // 弹窗提示了「给你寄来了一封信」信箱却空白、刷新后信件丢失。15 秒后强制就绪并
   // 把暂存信件落盘（与 idbRestore 的 12s 保险同理；正常情况 idbGet 早已返回，
   // 该保险只在病理场景触发，mailDbReady 已真时直接跳过）
+  // v3.26.x #1309b：保险丝放行前要先问 idbHasKey——「读不到值」而库里确有这一键时把读空的
+  //   列表落盘＝整包抹掉旧信（＝本批报障本体）。探不到东西/证实没有才按旧语义放行。
   setTimeout(function () {
-    if (mailDbReady) return;
-    try {
-      const all = load();
-      if (all.length) store.set(KEY, JSON.stringify(all));
-    } catch (e) {}
-    mailDbReady = true;
-    checkPendingReply(); // v3.9.x：保险丝就绪同样补查（权威加载挂起场景）
-    render();
-    updateBadge();
+    if (mailWriteOpen()) return;
+    mailFuseFlush(function () {
+      try {
+        const all = load();
+        if (all.length) store.set(KEY, JSON.stringify(all));
+      } catch (e) {}
+      mailAuthOk = true;
+      mailDbReady = true;
+      checkPendingReply(); // v3.9.x：保险丝就绪同样补查（权威加载挂起场景）
+      render();
+      updateBadge();
+    });
   }, 15000);
 
   // v3.6.x：多桌面——切换联系人后重置信箱状态并重新从新桌面的 IDB 权威加载。
@@ -1574,6 +1637,8 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
       // 回调先校验归属，已切走则作废——新桌面的切换监听会重新发起权威加载。
       const switchedCid = window.__activeCid || 'default';
       mailDbReady = false;
+      mailAuthOk = false;
+      mailAuthTries = 0; // #1309b：新桌面另给一份重试预算（与 mailPending 一样按桌面重置）
       mailPending = null;
       // v3.7.x：补 15s 保险丝（与启动 line 798 同理）——切换联系人后 idbGet 在
       // 个别手机（华为/edge/OPPO 后台挂起）可能不返回，mailDbReady 永远 false →
@@ -1583,40 +1648,32 @@ window.showDeskPopup({ name: '信箱', text: mailPlainDesc('给你回了一封�
       // 避免旧桌面的保险丝误把新桌面的 mailDbReady 置真（新桌面权威加载还在飞）。
       let fuseFired = false;
       const fuse = setTimeout(function () {
-        if (fuseFired || mailDbReady) return;
+        if (fuseFired || mailWriteOpen()) return;
         if ((window.__activeCid || 'default') !== switchedCid) return; // 已切走：本保险丝作废
-        fuseFired = true;
-        try {
-          const all = load(switchedCid);
-          if (all.length) csFor(switchedCid).set(KEY, JSON.stringify(all));
-        } catch (e) {}
-        mailDbReady = true;
-        checkPendingReply(); // v3.9.x：切桌面权威就绪补查（新桌面到期的回信立即落地）
-        render();
-        updateBadge();
-      }, 15000);
-      if (window.idbGet) {
-        window.idbGet(window.activePrefix() + ':' + KEY).then(v => {
-          if (fuseFired) return; // 保险丝已先就绪，idbGet 迟到则跳过（load 已含暂存）
-          if ((window.__activeCid || 'default') !== switchedCid) return; // 已切走：作废，不合并不置就绪
-          clearTimeout(fuse);
-          mailMergeFromIdb(v, switchedCid);
+        // #1309b：与启动保险丝同一条闸门——读不到值≠没有，库里确有这一键时不许把读空的列表落盘
+        mailFuseFlush(function () {
+          fuseFired = true;
+          try {
+            const all = load(switchedCid);
+            if (all.length) csFor(switchedCid).set(KEY, JSON.stringify(all));
+          } catch (e) {}
+          mailAuthOk = true;
           mailDbReady = true;
-          checkPendingReply(); // v3.9.x：切桌面权威就绪补查
+          checkPendingReply(); // v3.9.x：切桌面权威就绪补查（新桌面到期的回信立即落地）
           render();
           updateBadge();
-        }).catch(() => {
-          if (fuseFired) return;
-          if ((window.__activeCid || 'default') !== switchedCid) return;
-          clearTimeout(fuse);
-          mailDbReady = true; render(); updateBadge();
         });
-      } else {
+      }, 15000);
+      // v3.26.x #1309b：权威加载走与启动同一条三态路（读失败＝关闸＋有界重试，不再当场开门）。
+      // guard 保留原「保险丝已抢先／已切走则作废」两条语义：切走时新桌面自己的切换监听会重新发起。
+      mailAuthAsk(switchedCid, function () {
+        return !fuseFired && (window.__activeCid || 'default') === switchedCid;
+      }, function () {
         clearTimeout(fuse);
-        mailDbReady = true;
+        checkPendingReply(); // v3.9.x：切桌面权威就绪补查
         render();
         updateBadge();
-      }
-    } catch (e) { mailDbReady = true; }
+      });
+    } catch (e) { mailAuthOk = true; mailDbReady = true; }
   });
 })();

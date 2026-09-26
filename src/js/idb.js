@@ -928,7 +928,28 @@
     }, 12000);
     // v3.16.x：先恢复「LS 写失败脏键」集合（持久化在 IDB，跨浏览器重启仍有效）——
     // 必须在业务键回填之前读，回填时才能避开 LS 已损坏（残留旧值）的键、信 IDB 权威值
-    Promise.all([window.idbGetAllKeys(), window.idbGet(LS_DIRTY_KEY)]).then(res => {
+    // FIX 2026-09-26 #1309a：启动回填的「清单」那一发读失败，不许折叠成「库里没数据」
+    //   （小米 14U/Edge 实报「信/收藏/朋友圈全没了、一直丢数据」；诊断单同屏：LS 整域 192 键 ≈10MB
+    //   全是同源兄弟站点占的、站内 0 键＝localStorage 这一层在本机永久不存在，全站只剩 IDB 一份拷贝）
+    //   旧写法走 idbGetAllKeys()（兼容版：失败折叠成 []），于是一发 getAllKeys 被内核中止＝
+    //   「库里没数据」→ 当场 finish() 派发「数据已就绪」→ #785 三态在此说谎：各页空态从「还在读取」
+    //   翻成「还没有」，同时把所有业务页「读空→照常整包写回」的口子开开（信箱 5 封→1 封即这条链）。
+    //   现改取严格三态 idbListKeys()：数组＝权威清单（[]=确认空库，可信），null＝这次没读到＝未知；
+    //   未知→有界退避重试（同 #1162a/feature-data、#229/wrjMerge 两处的既有口径），且重试期间
+    //   一律不派发就绪（12s 保险丝照旧放行开屏并显示「仍要进入」，用户不会被钉在开屏）。
+    //   判据只取「内核回没回话」这一个事实，零机型／零 UA 分支。
+    let listTries = 0;
+    const LIST_BACKOFF = [4000, 10000, 20000, 40000, 70000];
+    const readKeyList = function () {
+      return window.idbListKeys().then(function (keys) {
+        if (keys !== null) return keys;
+        if (finished || listTries >= LIST_BACKOFF.length) return null;
+        const wait = LIST_BACKOFF[listTries++];
+        try { if (window.__mochiPhase) window.__mochiPhase('restore-list-retry:' + listTries); } catch (e) {}
+        return new Promise(function (r) { setTimeout(r, wait); }).then(readKeyList);
+      });
+    };
+    Promise.all([readKeyList(), window.idbGet(LS_DIRTY_KEY)]).then(res => {
       const keys = res[0];
       try {
         const arr = JSON.parse(res[1] || '[]');
@@ -938,7 +959,10 @@
           try { sessionStorage.setItem(LS_DIRTY_KEY, JSON.stringify(Array.from(_lsDirtyKeys))); } catch (e) {}
         }
       } catch (e) {}
-      if (!keys || !keys.length) { finish(); return; }
+      // #1309a：null＝未知，绝不是「没有」——这一行是全站空态不再说谎的总闸（宁可停在「正在读取」，
+      //   也不要把没读到的东西陈述成「还没有」再被下一次写入整包抹掉）
+      if (keys === null) return;
+      if (!keys.length) { finish(); return; }
       const need = (keys || []).filter(k =>
         k.indexOf(uidPrefix) === 0 &&
         k !== LS_DIRTY_KEY && // 脏键索引自身不回填
