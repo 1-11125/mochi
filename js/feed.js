@@ -79,10 +79,21 @@ return [];
 }
 const SNAP_MEDIA_RE = /data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g;
 function stripMediaBody(s) { return String(s == null ? '' : s).replace(SNAP_MEDIA_RE, '[图片]'); }
+function isSnapPayload(u) { return typeof u === 'string' && u.indexOf('data:') === 0; }
 function stripPostImg(p) {
 if (!p || typeof p !== 'object') return p;
 const c = Object.assign({}, p);
-if (Array.isArray(c.imgs)) c.imgs = [];
+if (Array.isArray(c.imgs)) c.imgs = c.imgs.filter(u => !isSnapPayload(u));
+if (Array.isArray(c.stickers)) {
+c.stickers = c.stickers.reduce(function (acc, s) {
+if (!s || typeof s !== 'object') { acc.push(s); return acc; }
+if (!isSnapPayload(s.src)) { acc.push(s); return acc; }
+const s2 = Object.assign({}, s);
+s2.src = '';
+if (s2.emoji) acc.push(s2);
+return acc;
+}, []);
+}
 c.authorAv = '';
 c.taAv = '';
 if (typeof c.content === 'string') {
@@ -293,6 +304,24 @@ const out = [], seen = {};
 (a || []).concat(b || []).forEach(s => { if (typeof s === 'string' && !seen[s]) { seen[s] = 1; out.push(s); } });
 return out;
 }
+function stkKey(s) {
+return (s.ts || 0) + '|' + (s.role || s.owner || '') + '|' + (s.x || 0) + '|' + (s.y || 0) + '|' + (s.emoji || '');
+}
+function unionStickers(a, b) {
+if (!Array.isArray(a) && !Array.isArray(b)) return undefined;
+const byKey = {};
+const out = [];
+[a, b].forEach(function (arr) {
+(Array.isArray(arr) ? arr : []).forEach(function (s) {
+if (!s || typeof s !== 'object') return;
+const k = stkKey(s);
+const prev = byKey[k];
+if (!prev) { const o = Object.assign({}, s); byKey[k] = o; out.push(o); return; }
+if (!prev.src && s.src) prev.src = s.src;   // 载荷择优：剥空的一侧不许盖掉带图的一侧
+});
+});
+return out;
+}
 function deepMergePost(a, b) {
 const newer = (b.ts || 0) >= (a.ts || 0) ? b : a;
 const older = newer === a ? b : a;
@@ -300,6 +329,8 @@ const out = Object.assign({}, older, newer);
 const oMedia = hasMediaBody(older.content), nMedia = hasMediaBody(newer.content);
 if (oMedia !== nMedia ? oMedia : (older.content || '').length > (newer.content || '').length) out.content = older.content;
 out.imgs = (newer.imgs && newer.imgs.length) ? newer.imgs : (older.imgs || []);
+const stkUnion = unionStickers(older.stickers, newer.stickers);
+if (stkUnion) out.stickers = stkUnion;
 if (!out.authorAv && older.authorAv) out.authorAv = older.authorAv;
 if (!out.taAv && older.taAv) out.taAv = older.taAv;
 out.likes = unionStrArr(older.likes, newer.likes);
@@ -1169,9 +1200,11 @@ if (p.stickers.length >= 5) { toast('这条动态上贴纸够多啦（最多 5 �
 const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
 ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
 : feedRandStickerPos();
-p.stickers.push({ src: st.src || '', emoji: st.emoji || '', x: pos.x, y: pos.y, ts: Date.now(), role: 'me', owner: 'me', authorName: feedUserName() });
+const rec = { src: (st && st.src) || '', emoji: (st && st.emoji) || '', x: pos.x, y: pos.y, ts: Date.now(), role: 'me', owner: 'me', authorName: feedUserName() };
+p.stickers.push(rec);
 save(list);
 refreshPostCard(pid);
+feedStickerTokUpgrade(pid, rec);
 const cid = p.owner || 'default';
 const cfg = feedCfgFor(cid);
 if (Math.random() * 100 < cfg.commentProb) {
@@ -1184,12 +1217,28 @@ if (p2.stickers.length >= 5) return;
 const taSt = feedTaPickSticker();
 const pos2 = feedRandStickerPos();
 const nm = p2.taName || taFeedNameFor(cid);
-p2.stickers.push({ src: taSt.src || '', emoji: taSt.emoji || '', x: pos2.x, y: pos2.y, ts: Date.now(), role: 'ta', owner: cid, authorName: nm });
+const rec2 = { src: taSt.src || '', emoji: taSt.emoji || '', x: pos2.x, y: pos2.y, ts: Date.now(), role: 'ta', owner: cid, authorName: nm };
+p2.stickers.push(rec2);
 save(l2);
 refreshPostCard(pid);
+feedStickerTokUpgrade(pid, rec2);
 addNotice('comment', pid, nm + ' 在配图上贴了一张贴纸', cid);
 }, (cfg.commentSpeedMin + Math.random() * Math.max(1, cfg.commentSpeedMax - cfg.commentSpeedMin)) * 1000);
 }
+}
+function feedStickerTokUpgrade(pid, rec) {
+if (!rec || !isSnapPayload(rec.src)) return;
+const inline = rec.src;
+feedTokImgs([inline]).then(function (tk) {
+const t = tk && tk[0];
+if (!t || t === inline || rec.src !== inline) return;
+rec.src = t;
+try {
+const l = load();
+const p = l.find(function (x) { return x.id === pid; });
+if (p) { save(l); refreshPostCard(pid); }
+} catch (e) {}
+}).catch(function () {});
 }
 function feedTaPickSticker() {
 const saved = comStickerTab;

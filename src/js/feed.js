@@ -125,11 +125,36 @@
   //   媒体池观察器本就认令牌（#386），保留它不引入新形态。
   const SNAP_MEDIA_RE = /data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9.+-]*(?:=[^;,]*)?)*,[^\s"'<>]+/g;
   function stripMediaBody(s) { return String(s == null ? '' : s).replace(SNAP_MEDIA_RE, '[图片]'); }
+  // FIX 2026-09-26 #1219 快照「剥什么」要按载荷形态判，不能整组清空（vivo X200s/Edge 实报
+  //   「朋友圈用了贴纸功能，把贴纸贴在配图上则图片会消失、只剩贴纸」，多机型同报；零机型／
+  //   零 UA 分支＝判据只取「这一栏里存的是可自愈引用还是巨型载荷」这一个事实）：
+  //   ①配图侧：#1257 已把发布配图搬进媒体池、动态里只剩 44 字符的 @@m: 令牌（池里读得回真图），
+  //     旧写法 `c.imgs = []` 把令牌和 dataURL 同罪抹掉——于是这份剥图快照本身就成了「照片没了、
+  //     贴纸还在」的元凶本体：主键读空（大键不进 LS／#975 切后台释放内存副本／IDB 挂起）时
+  //     load() 唯一拿得到的就是它。#667 早就给正文内联图定了同一口径（SNAP_MEDIA_RE 只剥
+  //     data:image、保留令牌），这里把同一把尺子接到 imgs／stickers 两栏。
+  //   ②贴纸侧正相反：旧写法一个字没动，src 原样是 dataURL。实测（纯 HEAD 产物）一张 80KB 的
+  //     贴纸连贴 3 张就把主键从 316 推到 240,672 字符 > LS_BIG_LIMIT ⇒ xyStore.set 大键分支
+  //     把 LS 副本 removeItem 掉（动态整包变 IDB-only＝正好落进①的触发条件），同时快照里这一条
+  //     因单条超预算被裁剪成 "[]"（兜底层当场归零）。快照的定义是「只保文本＋可自愈引用」，
+  //     巨型载荷不分配图／贴纸都得剥。
+  function isSnapPayload(u) { return typeof u === 'string' && u.indexOf('data:') === 0; }
   // 剥图：动态/评论/回复里的图片 dataURL 换占位文本，头像清空（快照只保文本历史）
   function stripPostImg(p) {
     if (!p || typeof p !== 'object') return p;
     const c = Object.assign({}, p);
-    if (Array.isArray(c.imgs)) c.imgs = [];
+    if (Array.isArray(c.imgs)) c.imgs = c.imgs.filter(u => !isSnapPayload(u));
+    if (Array.isArray(c.stickers)) {
+      c.stickers = c.stickers.reduce(function (acc, s) {
+        if (!s || typeof s !== 'object') { acc.push(s); return acc; }
+        if (!isSnapPayload(s.src)) { acc.push(s); return acc; }
+        const s2 = Object.assign({}, s);
+        s2.src = '';
+        // 纯图片贴纸剥空后没有任何可显示形态（渲染端 src 空会回落到 ❤️＝说谎），这一格不写进快照
+        if (s2.emoji) acc.push(s2);
+        return acc;
+      }, []);
+    }
     c.authorAv = '';
     c.taAv = '';
     if (typeof c.content === 'string') {
@@ -416,6 +441,29 @@
     (a || []).concat(b || []).forEach(s => { if (typeof s === 'string' && !seen[s]) { seen[s] = 1; out.push(s); } });
     return out;
   }
+  // FIX 2026-09-26 #1219 贴纸并集——旧写法没有这一栏的合并：Object.assign 让 ts 较大的一侧
+  //   整组盖掉另一侧。剥图快照的 stickers 与权威侧的 stickers 谁新谁赢＝快照那一侧可能带着
+  //   上一时刻的三张贴纸把 IDB 里「第四张刚贴的」整组抹掉，反过来也会让快照里被剥空的格子
+  //   盖掉完整载荷。按「同一格」认人（出生号＋落点＋emoji，刻意不含 src——src 正是会被剥的那一栏），
+  //   同格取「还带得回图的那一版」。
+  function stkKey(s) {
+    return (s.ts || 0) + '|' + (s.role || s.owner || '') + '|' + (s.x || 0) + '|' + (s.y || 0) + '|' + (s.emoji || '');
+  }
+  function unionStickers(a, b) {
+    if (!Array.isArray(a) && !Array.isArray(b)) return undefined;
+    const byKey = {};
+    const out = [];
+    [a, b].forEach(function (arr) {
+      (Array.isArray(arr) ? arr : []).forEach(function (s) {
+        if (!s || typeof s !== 'object') return;
+        const k = stkKey(s);
+        const prev = byKey[k];
+        if (!prev) { const o = Object.assign({}, s); byKey[k] = o; out.push(o); return; }
+        if (!prev.src && s.src) prev.src = s.src;   // 载荷择优：剥空的一侧不许盖掉带图的一侧
+      });
+    });
+    return out;
+  }
   function deepMergePost(a, b) {
     const newer = (b.ts || 0) >= (a.ts || 0) ? b : a;
     const older = newer === a ? b : a;
@@ -426,6 +474,8 @@
     const oMedia = hasMediaBody(older.content), nMedia = hasMediaBody(newer.content);
     if (oMedia !== nMedia ? oMedia : (older.content || '').length > (newer.content || '').length) out.content = older.content;
     out.imgs = (newer.imgs && newer.imgs.length) ? newer.imgs : (older.imgs || []);
+    const stkUnion = unionStickers(older.stickers, newer.stickers);
+    if (stkUnion) out.stickers = stkUnion;
     if (!out.authorAv && older.authorAv) out.authorAv = older.authorAv;
     if (!out.taAv && older.taAv) out.taAv = older.taAv;
     out.likes = unionStrArr(older.likes, newer.likes);
@@ -1544,6 +1594,14 @@
     feedPickCtx = { box, onPick, hint, timer, blank: made.blank };
   }
   // 我贴一张：每条动态上限 5 张；贴完 TA 有概率（评论回应概率同源）回贴一张并进通知
+  // FIX 2026-09-26 #1219 贴纸载荷与配图同罪同罚：#1257 只给「发布配图」接了媒体池令牌化，
+  //   贴纸这一路一直把整张 dataURL 原样塞进 post.stickers[].src。于是一屏贴纸就把权威键
+  //   feed-posts 顶过 200KB 大键线（LS 副本被剥掉、只剩 IDB），而剥图快照又会把配图那一栏
+  //   清空（见 stripPostImg #1219）——两个方向同时坏：快照兜底时「照片消失、贴纸还在」，
+  //   快照自己也因单条超预算被裁成 "[]"（实测读数 snapLen=2＝LS 侧最后一层兜底当场归零）。
+  //   修法＝复用发布那把尺子（feedTokImgs：池落盘成功才认令牌，失败原样退回 dataURL＝旧行为，
+  //   不更坏），差别只在「点照片落位」这一发要即时可见，所以先按内联上屏、池确认后就地把引
+  //   换成令牌（见 feedStickerTokUpgrade）。
   function addFeedSticker(pid, st) {
     const list = load();
     const p = list.find(x => x.id === pid);
@@ -1554,9 +1612,11 @@
     const pos = (st && Number.isFinite(Number(st.x)) && Number.isFinite(Number(st.y)))
       ? { x: Math.min(92, Math.max(0, Math.round(Number(st.x)))), y: Math.min(92, Math.max(0, Math.round(Number(st.y)))) }
       : feedRandStickerPos();
-    p.stickers.push({ src: st.src || '', emoji: st.emoji || '', x: pos.x, y: pos.y, ts: Date.now(), role: 'me', owner: 'me', authorName: feedUserName() });
+    const rec = { src: (st && st.src) || '', emoji: (st && st.emoji) || '', x: pos.x, y: pos.y, ts: Date.now(), role: 'me', owner: 'me', authorName: feedUserName() };
+    p.stickers.push(rec);
     save(list);
     refreshPostCard(pid);
+    feedStickerTokUpgrade(pid, rec);
     const cid = p.owner || 'default';
     const cfg = feedCfgFor(cid);
     if (Math.random() * 100 < cfg.commentProb) {
@@ -1569,12 +1629,31 @@
         const taSt = feedTaPickSticker();
         const pos2 = feedRandStickerPos();
         const nm = p2.taName || taFeedNameFor(cid);
-        p2.stickers.push({ src: taSt.src || '', emoji: taSt.emoji || '', x: pos2.x, y: pos2.y, ts: Date.now(), role: 'ta', owner: cid, authorName: nm });
+        const rec2 = { src: taSt.src || '', emoji: taSt.emoji || '', x: pos2.x, y: pos2.y, ts: Date.now(), role: 'ta', owner: cid, authorName: nm };
+        p2.stickers.push(rec2);
         save(l2);
         refreshPostCard(pid);
+        feedStickerTokUpgrade(pid, rec2);
         addNotice('comment', pid, nm + ' 在配图上贴了一张贴纸', cid);
       }, (cfg.commentSpeedMin + Math.random() * Math.max(1, cfg.commentSpeedMax - cfg.commentSpeedMin)) * 1000);
     }
+  }
+  // #1219 「先上屏、后换令牌」：feedMem 持有同一批对象，池确认落盘后就地改 src，下一次
+  //   stringify（#496 的 ≥2.5s 合并写窗口）自然带上令牌；这一格若在此期间被撤回／改贴
+  //   （rec.src 已不是当初那份内联载荷）就什么都不做，绝不拿旧回执动新数据。
+  function feedStickerTokUpgrade(pid, rec) {
+    if (!rec || !isSnapPayload(rec.src)) return;
+    const inline = rec.src;
+    feedTokImgs([inline]).then(function (tk) {
+      const t = tk && tk[0];
+      if (!t || t === inline || rec.src !== inline) return;
+      rec.src = t;
+      try {
+        const l = load();
+        const p = l.find(function (x) { return x.id === pid; });
+        if (p) { save(l); refreshPostCard(pid); }
+      } catch (e) {}
+    }).catch(function () {});
   }
   function feedTaPickSticker() {
     const saved = comStickerTab;
