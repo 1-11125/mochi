@@ -2233,6 +2233,65 @@ window.chatIsDataAudioSrc = chatIsDataAudioSrc;
 window.chatIsInlineDataSrc = chatIsInlineDataSrc;
 window.chatIsMediaPayload = chatIsMediaPayload;
 window.chatHasMediaPayload = chatHasMediaPayload;
+const VOICE_PROBE_MS = 1600;
+const VOICE_DEAD_MSG = '这条语音里没有可播放的声音（当时就没录进去），需要重新录一条';
+window.__mochiVoiceDead = window.__mochiVoiceDead || [];
+window.__mochiVoiceDeadN = 0;
+function chatVoiceWitness(where, detail) {
+try {
+const ring = window.__mochiVoiceDead;
+const it = Object.assign({ t: Date.now(), where: String(where) }, detail || {});
+ring.push(it);
+if (ring.length > 8) ring.shift();
+window.__mochiVoiceDeadN++;
+if (window.__mochiPhase) window.__mochiPhase('voice-' + it.where);
+} catch (e) {}
+}
+function chatVoiceSrcInfo(src) {
+try {
+const s = String(src || '');
+const m = /^data:([^;,]+)/i.exec(s);
+return { kind: m ? m[1].toLowerCase() : (s.indexOf('blob:') === 0 ? 'blob' : '?'), bytes: s.length };
+} catch (e) { return { kind: '?', bytes: 0 }; }
+}
+function chatVoiceUnopenable(a) {
+return !!(a && a.error && a.error.code === 4);
+}
+window.chatVoiceUnopenable = chatVoiceUnopenable;
+window.chatVoiceReceipt = function (src, ms) {
+return new Promise((resolve) => {
+let done = false;
+let a = null;
+const fin = (v) => {
+if (done) return;
+done = true;
+try { if (a && a.parentNode) a.parentNode.removeChild(a); } catch (e) {}
+a = null;
+resolve(v);
+};
+try {
+a = new Audio();
+a.preload = 'metadata';
+a.style.display = 'none';
+document.body.appendChild(a);
+a.addEventListener('loadedmetadata', () => fin('ok'));
+a.addEventListener('error', () => fin('no'));
+a.src = src;
+a.load();
+} catch (e) { fin('unknown'); return; }
+setTimeout(() => fin('unknown'), Math.max(120, ms || VOICE_PROBE_MS));
+});
+};
+window.__voiceDiag = function () {
+try {
+const ring = window.__mochiVoiceDead || [];
+if (!ring.length) return '本会话没遇到打不开的语音（0 次）';
+const last = ring[ring.length - 1] || {};
+return '遇到打不开的语音 ' + window.__mochiVoiceDeadN + ' 次（录音闸拦下／播放被内核拒）· 最近: '
++ (last.where || '?') + ' ' + (last.kind || '?') + ' ' + (last.bytes || '?') + 'B'
++ (last.code ? ' 内核码' + last.code : '') + ' @' + new Date(last.t).toLocaleTimeString();
+} catch (e) { return '语音体检读数失败'; }
+};
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -2433,9 +2492,19 @@ const detachA = () => { try { if (a.parentNode) a.parentNode.removeChild(a); } c
 chatVoiceAudio = a;
 chatVoiceBtn = btn;
 btn.classList.add('playing');
-a.addEventListener('ended', () => { detachA(); stopChatVoice(); });
-a.addEventListener('error', () => { detachA(); stopChatVoice(); toast('语音播放失败'); });
-a.play().then(() => {}).catch(() => { detachA(); stopChatVoice(); toast('语音播放失败'); });
+let failed = false;
+const fail = () => {
+if (failed) return;
+failed = true;
+const dead = chatVoiceUnopenable(a);
+chatVoiceWitness(dead ? 'play' : 'play-load', Object.assign({ code: a.error ? a.error.code : 0 }, chatVoiceSrcInfo(src)));
+detachA();
+stopChatVoice();
+toast(dead ? VOICE_DEAD_MSG : '语音播放失败');
+};
+a.addEventListener('ended', () => { failed = true; detachA(); stopChatVoice(); });
+a.addEventListener('error', fail);
+a.play().catch(fail);
 }
 function voicePartsOf(text) {
 const raw = String(text || '');
@@ -11556,6 +11625,7 @@ const VOICE_MAX_MS = 60000;
 let voiceStream = null, voiceRec = null, voiceChunks = [], voiceTimer = null, voiceStarting = false; // FIX 2026-09-05 #169 录音启动进行中闸门
 let voiceStartTs = 0, voiceDataUrl = '', voiceDur = 0, voiceSilent = false, voicePreviewAudio = null, voiceVisHandler = null;
 let voiceStopping = false, voiceStopWatchdog = null, voiceStopSettled = false, voiceMimeFallback = false;
+let voiceProbeSeq = 0; // FIX #1308 回执闸轮次号：内核那一窗的回话迟到时，只有「还是当前这一轮」才允许动面板
 let voiceStopTs = 0; // FIX #6xx 停止时刻钉死：慢壳 onstop 迟到/看门狗收尾时用「点停止那一刻」算时长，不再按结账瞬间 Date.now() 虚涨（报障：录 3 秒点结束卡住后变 20 秒）
 function voiceEnabled() {
 try { return store.get('cs-voice-send') === '1'; } catch (e) { return false; }
@@ -11676,6 +11746,7 @@ try { await startVoiceRecInner(); } finally { voiceStarting = false; }
 }
 async function startVoiceRecInner() {
 voiceStopSettled = false; // FIX #228 新一轮录音：停止结账闩复位
+voiceProbeSeq++; // FIX #1308 新一轮录音作废上一轮迟到的内核回执
 voiceStopTs = 0; // FIX #6xx 新一轮录音：停止时刻清零，待 stop 时钉住
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
 toast('当前浏览器不支持录音'); return;
@@ -11793,7 +11864,30 @@ toast('录音失败：本浏览器没返回声音数据，请再录一次');
 return; // 关闭面板打断的录音直接丢弃（原语义保留）
 }
 if (stopTs - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
-voiceMimeFallback = false; // FIX #228 本容器录到了数据：清兜底标记，沿用当前 mime 选择策略
+let _vu = '';
+try { _vu = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(blob) : ''; } catch (e) {}
+const _seq = voiceProbeSeq;
+(_vu ? window.chatVoiceReceipt(_vu, VOICE_PROBE_MS) : Promise.resolve('unknown')).then((verdict) => {
+if (_vu) { try { URL.revokeObjectURL(_vu); } catch (e) {} }
+if (_seq !== voiceProbeSeq) return; // 期间已开新一轮录音：这份回执属于上一轮，不许再动面板
+if (verdict === 'no') {
+chatVoiceWitness('gate', { kind: blob.type || '?', bytes: blob.size });
+voiceMimeFallback = true; // FIX #228 同一条退路：这个容器在这台机子上吐了空壳，下一轮交浏览器自选
+voiceDataUrl = ''; voiceDur = 0;
+const sbG = document.getElementById('voice-send-btn');
+if (sbG) sbG.disabled = true;
+const stG = document.getElementById('voice-status');
+if (stG) stG.textContent = '这次没录到可播放的声音，请重录';
+if (rb) rb.textContent = '开始录音';
+toast('录音没成功：这次录到的文件里没有声音，请再录一次（下一轮已改用浏览器默认录音格式）');
+return;
+}
+if (verdict === 'unknown') chatVoiceWitness('probe-unknown', { kind: blob.type || '?', bytes: blob.size });
+voiceAcceptBlob(blob, durSec);
+});
+}
+function voiceAcceptBlob(blob, durSec) {
+voiceMimeFallback = false; // FIX #228 本容器录到了可用数据：清兜底标记，沿用当前 mime 选择策略
 const fr = new FileReader();
 fr.onload = () => {
 voiceDataUrl = String(fr.result || '');
@@ -11831,9 +11925,18 @@ const detached = () => { try { if (a.parentNode) a.parentNode.removeChild(a); } 
 const pb = document.getElementById('voice-play-btn');
 if (pb) pb.classList.add('playing');
 const cleanup = () => { detached(); voiceStopPreview(); };
-a.addEventListener('ended', () => { detached(); voiceStopPreview(); });
-a.addEventListener('error', () => { cleanup(); toast('语音播放失败'); });
-a.play().then(() => {}).catch(() => { cleanup(); toast('语音播放失败'); });
+let failed = false;
+const fail = () => {
+if (failed) return;
+failed = true;
+const dead = chatVoiceUnopenable(a);
+chatVoiceWitness(dead ? 'preview' : 'preview-load', Object.assign({ code: a.error ? a.error.code : 0 }, chatVoiceSrcInfo(voiceDataUrl)));
+cleanup();
+toast(dead ? VOICE_DEAD_MSG : '语音播放失败');
+};
+a.addEventListener('ended', () => { failed = true; detached(); voiceStopPreview(); });
+a.addEventListener('error', fail);
+a.play().catch(fail);
 }
 let voiceSendTarget = null; // 群聊等外部页面打开语音面板时设置：function(dataUrl, durSec) 把录好的语音发到自己的消息列表
 function sendVoiceMsg() {

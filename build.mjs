@@ -5238,6 +5238,15 @@ const FIX_SENTINELS = [
   { name: '#1305c 被拒当场记账后照原样抛出（删掉 record＝现场账永远是空的、下次报障还得猜；改成吞掉不抛＝调用方的 IDB/内存降级全被破坏）', file: 'js/device.js', needle: 'record(name, k, v, e);' },
   { name: '#1305d 诊断【数据】段回吐写拒绝现场（键名／体积／错误名／当时整域／前后台／出自哪一帧；删＝「状态：正常」继续掩盖报障当时的那一拒）', file: 'js/device.js', needle: "'localStorage 写入拒绝 ' + window.__mochiStorRejN + ' 次" },
   { name: '#1305e 结论段把「曾被拒 N 次」点名成一条问题（与「状态：正常」并列不互斥；删＝用户只看结论时这件事等于没发生）', file: 'js/device.js', needle: '/^localStorage 写入拒绝 (\\d+) 次/' },
+  // ==== 2026-09-26 #1308 语音「播不了」＝录进来的字节里没有声音（华为畅享70Pro/红米等 Chrome 实报，多机型同现；零机型/零 UA 分支）====
+  { name: '#1308a 录音结账后的内核回执闸：内核明确解不开就不进聊天记录（删回只看 blob.size＝几十 KB 空壳照样发出，坏件永久留在历史里；改成超时也拦＝慢壳被当成坏数据，违反 #1241 三态口径）', file: 'js/chat.js', needle: "chatVoiceWitness('gate', { kind: blob.type || '?', bytes: blob.size });" },
+  { name: '#1308b 探针三态之「内核当场报错＝解不开」（删掉 error→no 这条＝闸门永远只可能给 ok/unknown，坏件照样发出去）', file: 'js/chat.js', needle: "a.addEventListener('error', () => fin('no'));" },
+  { name: '#1308c 窗口内没回话＝unknown 照旧放行（改成 no 即在慢壳/被冻结的页面上把正常录音一起拦死；改成永不超时＝面板卡死在发送键灰着）', file: 'js/chat.js', needle: 'setTimeout(() => fin(\'unknown\'), Math.max(120, ms || VOICE_PROBE_MS));' },
+  { name: '#1308d 回执迟到要先对轮次（用户已开新一轮录音时旧回执不许再动面板；删＝#169/#228 同族的「旧句柄偷走新录音」在异步回执上重来一遍）', file: 'js/chat.js', needle: 'if (_seq !== voiceProbeSeq) return;' },
+  { name: '#1308e 气泡播放失败按 MediaError.code 分流（退回一句「语音播放失败」＝存量坏件与自动播放被拒混在一起，用户只能当成播放功能坏了；判据只此一处，试听那条借用同一函数）', file: 'js/chat.js', needle: "chatVoiceWitness(dead ? 'play' : 'play-load'" },
+  { name: '#1308f 试听那一路同样分流（这是「还没发出去」的最后一次机会，不说清当场重录就会变成发进聊天记录的永久坏件）', file: 'js/chat.js', needle: "chatVoiceWitness(dead ? 'preview' : 'preview-load'" },
+  { name: '#1308g 诊断【数据】段回吐语音载荷体检（次数＋最近一条的容器/体积/内核码；删＝报障时【最近错误】里那几条截断的 data:audio 依然只能挨个猜）', file: 'js/device.js', needle: "L.push('语音载荷体检：' + window.__voiceDiag())" },
+
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

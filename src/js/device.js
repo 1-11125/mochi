@@ -1734,6 +1734,10 @@
     } catch (e) { L.push('localStorage 不可访问'); }
     // v3.26.x：跨域名（device.js=AI-B）——回复字卡池诊断，报障「联系人只发【收到～】」直接定位
     try { if (window.__replyPoolDiag) L.push('回复字卡池：' + window.__replyPoolDiag()); } catch (e2) {}
+    // FIX 2026-09-26 #1308：跨域名（device.js=AI-B）——语音载荷体检（chat.js 挂 __voiceDiag）。
+    // 「我方发的语音没有办法播放」报障时「最近错误」里只有几条截断的 data:audio，证不了是同一批空壳；
+    // 这一行直接给次数＋最近一条的容器/体积/内核码（拦下与放行都记，成功路径不记）。
+    try { if (window.__voiceDiag) L.push('语音载荷体检：' + window.__voiceDiag()); } catch (e3) {}
     // v3.26.x：跨域名（device.js=AI-B）——字卡/回复/收藏 存储明细诊断（chatcard.js 挂 __ccStorageDiag）
     // 报障「该分类 583MB 是否正常」一眼定位大键/LS 残留双倍/旧各桌面 my-emoji-groups 遗留
     try {

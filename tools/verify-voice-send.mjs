@@ -102,6 +102,16 @@ async function evalJs(expr) {
 const INIT = `(function(){
 try { localStorage.setItem('xy-home-v2:cs-voice-send','1'); localStorage.setItem('xy-home-v2:default:cs-voice-send','1'); } catch(e){}
 window.__v = { mode:'ok', recorders:[], streams:[], hangRes:null, toasts:[] };
+// #1308 夹具更正：旧桩把 ondataavailable 的 data 给成 {size:2048,type:'audio/test'} 这个「形状像数据」
+// 的假对象，进 new Blob() 会被转成字符串 "[object Object]"（15 字节、根本不是音频）。旧结账只看 size>0
+// 所以照过；现在结账前多问内核一句「这段字节你解得开吗」，这种假字节当场被判打不开＝R4/R5 变红。
+// 本脚本验的是停止链路时序，不是载荷真伪，所以把桩喂的换成一段真的、内核解得开的 200ms 静音 WAV。
+window.__v.good = function(){ var sr=8000,n=Math.round(sr*0.2),buf=new ArrayBuffer(44+n*2),v=new DataView(buf);
+  function ws(o,s){for(var i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));}
+  ws(0,'RIFF');v.setUint32(4,36+n*2,true);ws(8,'WAVE');ws(12,'fmt ');v.setUint32(16,16,true);
+  v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);
+  v.setUint16(32,2,true);v.setUint16(34,16,true);ws(36,'data');v.setUint32(40,n*2,true);
+  return new Blob([new Uint8Array(buf)],{type:'audio/wav'}); };
 window.__v._lt=''; setInterval(function(){ var t=document.getElementById('cc-toast'); var x=t?(t.textContent||''):''; if(x&&x!==window.__v._lt){ window.__v._lt=x; window.__v.toasts.push(x); } },50);
 navigator.mediaDevices.getUserMedia = function(){
   if (window.__v.mode === 'hang') {
@@ -124,7 +134,7 @@ Rec.prototype.stop = function(){
   if (mode==='no-stop') return; // 模拟慢壳 onstop 永不来
   var delay = (mode==='late-stop') ? 1200 : 20;
   setTimeout(function(){
-    if (mode!=='empty' && self.ondataavailable) self.ondataavailable({ data:{ size:2048, type:'audio/test' } });
+    if (mode!=='empty' && self.ondataavailable) self.ondataavailable({ data: window.__v.good() });
     if (self.onstop) self.onstop();
   }, delay);
 };

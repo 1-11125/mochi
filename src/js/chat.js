@@ -3097,6 +3097,82 @@ window.chatIsDataAudioSrc = chatIsDataAudioSrc;
 window.chatIsInlineDataSrc = chatIsInlineDataSrc;
 window.chatIsMediaPayload = chatIsMediaPayload;
 window.chatHasMediaPayload = chatHasMediaPayload;
+// FIX 2026-09-26 #1308 语音载荷的内核回执体检（华为畅享70Pro／红米等 Chrome 实报「我方发的语音没有
+// 办法播放」，用户明说其他机型同现、要求不许按机型打补丁）：导出件里那条 data:audio/webm;codecs=opus
+// 解出来＝36 字节 EBML 容器头 + 一长串 0 字节（MediaRecorder 只交出头、一帧音频都没写进来），
+// 而旧结账闸只看 `!blob.size`（这种空壳有几 KB）与「录满 1 秒」，于是坏件被永久存进聊天记录，
+// 每次点播放内核回一句 MEDIA_ERR_SRC_NOT_SUPPORTED，用户看到的永远是一句不带原因的「语音播放失败」。
+// 判据只取「内核有没有回话」「内核报的是哪个 code」两个事实，零机型／零 UA 分支。
+const VOICE_PROBE_MS = 1600;
+const VOICE_DEAD_MSG = '这条语音里没有可播放的声音（当时就没录进去），需要重新录一条';
+window.__mochiVoiceDead = window.__mochiVoiceDead || [];
+window.__mochiVoiceDeadN = 0;
+// 现场留证（环 8）：哪条链路／容器／体积／内核错误码——#1305 同一课，被拦那一刻没人记账，
+// 下一张诊断单照样只能挨个猜。只记不判：任何读数都不参与放行／拦截的决定。
+function chatVoiceWitness(where, detail) {
+try {
+const ring = window.__mochiVoiceDead;
+const it = Object.assign({ t: Date.now(), where: String(where) }, detail || {});
+ring.push(it);
+if (ring.length > 8) ring.shift();
+window.__mochiVoiceDeadN++;
+if (window.__mochiPhase) window.__mochiPhase('voice-' + it.where);
+} catch (e) {}
+}
+function chatVoiceSrcInfo(src) {
+try {
+const s = String(src || '');
+const m = /^data:([^;,]+)/i.exec(s);
+return { kind: m ? m[1].toLowerCase() : (s.indexOf('blob:') === 0 ? 'blob' : '?'), bytes: s.length };
+} catch (e) { return { kind: '?', bytes: 0 }; }
+}
+// 内核明确说「这份字节解不开音频」＝4（MEDIA_ERR_SRC_NOT_SUPPORTED）。与「加载不到／被自动播放策略
+// 拦下」是两件事，判据只有 MediaError.code 这一个内核事实，两处消费点共用本函数。
+function chatVoiceUnopenable(a) {
+return !!(a && a.error && a.error.code === 4);
+}
+window.chatVoiceUnopenable = chatVoiceUnopenable;
+// 三态回执：'ok'＝内核解得开；'no'＝内核当场说解不开；'unknown'＝窗口内内核没回话（慢壳／被系统冻结／
+// 拿不到 createObjectURL 的壳）——按 #1241 口径 unknown 不许认死，只留证不改行为。
+// ⚠️ 不许拿 duration 当判据：MediaRecorder 吐出的 webm 不带 Cues 索引，真录音在 loadedmetadata 那一刻
+// duration 恒为 Infinity（无头实测读数见 tools/verify-1308-voice-empty-gate.mjs），要求「有限正时长」
+// 会把每一段正常录音都判成坏件。
+window.chatVoiceReceipt = function (src, ms) {
+return new Promise((resolve) => {
+let done = false;
+let a = null;
+const fin = (v) => {
+if (done) return;
+done = true;
+try { if (a && a.parentNode) a.parentNode.removeChild(a); } catch (e) {}
+a = null;
+resolve(v);
+};
+try {
+a = new Audio();
+a.preload = 'metadata';
+a.style.display = 'none';
+// #358 同款：未挂载的 Audio 在部分安卓壳上对什么都不回话＝恒判 unknown，挂进 DOM 才走标准解码管线
+document.body.appendChild(a);
+a.addEventListener('loadedmetadata', () => fin('ok'));
+a.addEventListener('error', () => fin('no'));
+a.src = src;
+a.load();
+} catch (e) { fin('unknown'); return; }
+setTimeout(() => fin('unknown'), Math.max(120, ms || VOICE_PROBE_MS));
+});
+};
+// 诊断回读（device.js 【数据】节调用）：这一会话拦到／遇到几次，最近一次是谁
+window.__voiceDiag = function () {
+try {
+const ring = window.__mochiVoiceDead || [];
+if (!ring.length) return '本会话没遇到打不开的语音（0 次）';
+const last = ring[ring.length - 1] || {};
+return '遇到打不开的语音 ' + window.__mochiVoiceDeadN + ' 次（录音闸拦下／播放被内核拒）· 最近: '
++ (last.where || '?') + ' ' + (last.kind || '?') + ' ' + (last.bytes || '?') + 'B'
++ (last.code ? ' 内核码' + last.code : '') + ' @' + new Date(last.t).toLocaleTimeString();
+} catch (e) { return '语音体检读数失败'; }
+};
 function getPool() {
 const cards = (window.getCustomCards && window.getCustomCards()) || [];
 const pokeSet = (function () {
@@ -3357,9 +3433,22 @@ const detachA = () => { try { if (a.parentNode) a.parentNode.removeChild(a); } c
 chatVoiceAudio = a;
 chatVoiceBtn = btn;
 btn.classList.add('playing');
-a.addEventListener('ended', () => { detachA(); stopChatVoice(); });
-a.addEventListener('error', () => { detachA(); stopChatVoice(); toast('语音播放失败'); });
-a.play().then(() => {}).catch(() => { detachA(); stopChatVoice(); toast('语音播放失败'); });
+// FIX #1308 失败分流：过去 error 事件与 play() 落空都汇到同一句「语音播放失败」，而「内核解不开这份
+// 字节」和「这一秒没允许我播」是两件事——前者是存量坏件（当时就没录到声音），后者重推一下就好的。
+// 只按 MediaError.code 分（自动播放被拒时 error 是空的，绝不误判成坏件）；两路事件同源时只报一次。
+let failed = false;
+const fail = () => {
+if (failed) return;
+failed = true;
+const dead = chatVoiceUnopenable(a);
+chatVoiceWitness(dead ? 'play' : 'play-load', Object.assign({ code: a.error ? a.error.code : 0 }, chatVoiceSrcInfo(src)));
+detachA();
+stopChatVoice();
+toast(dead ? VOICE_DEAD_MSG : '语音播放失败');
+};
+a.addEventListener('ended', () => { failed = true; detachA(); stopChatVoice(); });
+a.addEventListener('error', fail);
+a.play().catch(fail);
 }
 function voicePartsOf(text) {
 // FIX 2026-09-13 #395 防御：裸令牌（无主形态漏切）/ 令牌被当名字时不得把令牌串显成名称
@@ -14299,6 +14388,7 @@ let voiceStartTs = 0, voiceDataUrl = '', voiceDur = 0, voiceSilent = false, voic
 // voiceStopWatchdog=onstop 迟到/丢失 3s 自行结账；voiceStopSettled=本次停止已结账闩（onstop/看门狗/异常
 // 三路只走一路）；voiceMimeFallback=指定容器录出空数据后下次改用浏览器默认容器（isTypeSupported 谎报的壳唯一退路）
 let voiceStopping = false, voiceStopWatchdog = null, voiceStopSettled = false, voiceMimeFallback = false;
+let voiceProbeSeq = 0; // FIX #1308 回执闸轮次号：内核那一窗的回话迟到时，只有「还是当前这一轮」才允许动面板
 let voiceStopTs = 0; // FIX #6xx 停止时刻钉死：慢壳 onstop 迟到/看门狗收尾时用「点停止那一刻」算时长，不再按结账瞬间 Date.now() 虚涨（报障：录 3 秒点结束卡住后变 20 秒）
 function voiceEnabled() {
 try { return store.get('cs-voice-send') === '1'; } catch (e) { return false; }
@@ -14446,6 +14536,7 @@ try { await startVoiceRecInner(); } finally { voiceStarting = false; }
 }
 async function startVoiceRecInner() {
 voiceStopSettled = false; // FIX #228 新一轮录音：停止结账闩复位
+voiceProbeSeq++; // FIX #1308 新一轮录音作废上一轮迟到的内核回执
 voiceStopTs = 0; // FIX #6xx 新一轮录音：停止时刻清零，待 stop 时钉住
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
 toast('当前浏览器不支持录音'); return;
@@ -14572,7 +14663,35 @@ toast('录音失败：本浏览器没返回声音数据，请再录一次');
 return; // 关闭面板打断的录音直接丢弃（原语义保留）
 }
 if (stopTs - voiceStartTs < 800) { toast('录音太短，请录满 1 秒以上'); return; }
-voiceMimeFallback = false; // FIX #228 本容器录到了数据：清兜底标记，沿用当前 mime 选择策略
+// FIX #1308 发送前的内核回执闸：先问一句「这段字节你解得开吗」，解不开就不许进聊天记录。旧结账只看
+// `blob.size`，而「只有 36 字节容器头 + 零填充」的空壳有好几 KB＝本次报障那条播不了的语音的真身；
+// 一旦发出去就永久坏在历史里，用户每次点播放只得到一句不带原因的提示。三态口径见 chatVoiceReceipt：
+// 'no' 才拦（并走 #228 的换容器退路），'unknown'（慢壳这一窗没回话）不许认死、照旧放行只留证。
+let _vu = '';
+try { _vu = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(blob) : ''; } catch (e) {}
+const _seq = voiceProbeSeq;
+(_vu ? window.chatVoiceReceipt(_vu, VOICE_PROBE_MS) : Promise.resolve('unknown')).then((verdict) => {
+if (_vu) { try { URL.revokeObjectURL(_vu); } catch (e) {} }
+if (_seq !== voiceProbeSeq) return; // 期间已开新一轮录音：这份回执属于上一轮，不许再动面板
+if (verdict === 'no') {
+chatVoiceWitness('gate', { kind: blob.type || '?', bytes: blob.size });
+voiceMimeFallback = true; // FIX #228 同一条退路：这个容器在这台机子上吐了空壳，下一轮交浏览器自选
+voiceDataUrl = ''; voiceDur = 0;
+const sbG = document.getElementById('voice-send-btn');
+if (sbG) sbG.disabled = true;
+const stG = document.getElementById('voice-status');
+if (stG) stG.textContent = '这次没录到可播放的声音，请重录';
+if (rb) rb.textContent = '开始录音';
+toast('录音没成功：这次录到的文件里没有声音，请再录一次（下一轮已改用浏览器默认录音格式）');
+return;
+}
+if (verdict === 'unknown') chatVoiceWitness('probe-unknown', { kind: blob.type || '?', bytes: blob.size });
+voiceAcceptBlob(blob, durSec);
+});
+}
+// 回执过了闸才把数据交给面板（原 voiceFinalizeStop 尾段，一字未改语义）：读成 dataURL、点亮试听/发送
+function voiceAcceptBlob(blob, durSec) {
+voiceMimeFallback = false; // FIX #228 本容器录到了可用数据：清兜底标记，沿用当前 mime 选择策略
 const fr = new FileReader();
 fr.onload = () => {
 voiceDataUrl = String(fr.result || '');
@@ -14612,9 +14731,20 @@ const detached = () => { try { if (a.parentNode) a.parentNode.removeChild(a); } 
 const pb = document.getElementById('voice-play-btn');
 if (pb) pb.classList.add('playing');
 const cleanup = () => { detached(); voiceStopPreview(); };
-a.addEventListener('ended', () => { detached(); voiceStopPreview(); });
-a.addEventListener('error', () => { cleanup(); toast('语音播放失败'); });
-a.play().then(() => {}).catch(() => { cleanup(); toast('语音播放失败'); });
+// FIX #1308 与气泡播放同一分流、同一判据（chatVoiceUnopenable）：试听是「还没发出去」的那一次机会，
+// 说清「这次没录到声音」用户就会当场重录，而不是发进聊天记录后再永远播不了。
+let failed = false;
+const fail = () => {
+if (failed) return;
+failed = true;
+const dead = chatVoiceUnopenable(a);
+chatVoiceWitness(dead ? 'preview' : 'preview-load', Object.assign({ code: a.error ? a.error.code : 0 }, chatVoiceSrcInfo(voiceDataUrl)));
+cleanup();
+toast(dead ? VOICE_DEAD_MSG : '语音播放失败');
+};
+a.addEventListener('ended', () => { failed = true; detached(); voiceStopPreview(); });
+a.addEventListener('error', fail);
+a.play().catch(fail);
 }
 let voiceSendTarget = null; // 群聊等外部页面打开语音面板时设置：function(dataUrl, durSec) 把录好的语音发到自己的消息列表
 function sendVoiceMsg() {

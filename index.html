@@ -10703,9 +10703,9 @@ font-family:inherit; padding:4px 2px; cursor:pointer; -webkit-tap-highlight-colo
     <div class="splash-footcard">
       <!-- v3.8.y：底部版本块——两行：名称+版本 / 部署时间+实时秒数（实时秒写入 #splash-ver-live） -->
       <!-- #570：第三行开屏新版检测（ver-check.js 渲染）：检测中 / ✓已是最新 / ⇩有新版本可点更新 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1790408035850">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1790415892925">
         <span class="sv-app">Mochi 字卡传讯 <b>v8.45</b></span>
-        <span class="sv-deploy">部署于 2026-09-26 15:33<span id="splash-ver-live"></span></span>
+        <span class="sv-deploy">部署于 2026-09-26 17:44<span id="splash-ver-live"></span></span>
         <span class="sv-check" id="splash-ver-check" hidden></span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -18910,6 +18910,7 @@ const tops = items.slice(0, 8).map(function (it) { return it.k + '=' + usageStr(
 if (tops) L.push('最大键：' + tops);
 } catch (e) { L.push('localStorage 不可访问'); }
 try { if (window.__replyPoolDiag) L.push('回复字卡池：' + window.__replyPoolDiag()); } catch (e2) {}
+try { if (window.__voiceDiag) L.push('语音载荷体检：' + window.__voiceDiag()); } catch (e3) {}
 try {
 if (window.__ccStorageDiag) {
 const ccIdx = L.length; L.push('字卡/回复/收藏明细：读取中…');
@@ -22080,4 +22081,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mui2ptze -->
+<!-- __MOCHI_EOF__ mui7e8jh -->
