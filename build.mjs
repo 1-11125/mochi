@@ -5217,6 +5217,8 @@ const FIX_SENTINELS = [
   { name: '#1295g 模糊烘焙失败兜底点名（删＝报告分不清「已烘小纹理」与「整层 CSS 滤镜」两档，而后者才是合成开销最大的一档）', file: 'js/personalize.js', needle: "__mochiPhase('bg-blur-fallback')" },
   { name: '#1295h 卡顿自检读同一桌面现场成行（删＝导出的 perfcheck docx 依旧只有掉帧计数，用户端证据永远缺「配置」半边）', file: 'js/perf-check.js', needle: "if (_ds && _ds.txt !== '读数失败') L.push('· 桌面现场（出报告这一刻）：' + _ds.txt);" },
   { name: '#1295i 现场驱动的 A/B 建议闸（r.janky>0 才开腔＝流畅时无事生非；整块删＝blurCss/texKB/zoom/tabBlur 四条可执行建议没了）', file: 'js/perf-check.js', needle: 'if (r.janky > 0 && _ds) {' },
+  /* ==== 2026-09-26 #1302 红米 K80 Chrome 实报「生理期的历史记录里，周期显示是错误的」＝经期页两把尺子互相矛盾：历史记录行报两次开始日的真实间隔（31 天），而状态卡/日历预测/桌面小组件走 effCycleLen——它要求攒满 3 段实际间隔才采纳中位数，只记过 1~2 次时静默回落到设置里的周期长度（默认 28）。用户选定口径＝历史行保留真实间隔、预测跟实际间隔走。零机型／零 UA 分支＝判据只取「有没有实际间隔」这一个数据事实。验证：tools/verify-1302-cycle-ruler.mjs（A/B 双副本同一把尺子）。 ==== */
+  { name: '#1302a 经期周期长度有一段实际间隔即用其中位数（改回 s.n >= 3 才生效＝只记过 1~2 次的用户，历史行说 31 天、页面按设置 28 天预测，同一页两把尺子对着打＝本批症状原样回归）', file: 'js/period.js', needle: 's.n >= 1 ? Math.round(s.median) : cfg.cycleLen' },
 ];
 try {
   const built = CHECK_SENTINELS ? '' : readFileSync(join(root, 'index.html'), 'utf8');

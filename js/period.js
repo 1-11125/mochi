@@ -213,7 +213,7 @@ var variance = recent.reduce(function (s, x) { return s + (x - mean) * (x - mean
 var std = Math.sqrt(variance);
 return { n: n, median: med, mean: mean, std: std, cv: mean ? std / mean : 0, diffs: diffs };
 }
-function effCycleLen() { var s = cycleStats(); return s.n >= 3 ? s.median : cfg.cycleLen; }
+function effCycleLen() { var s = cycleStats(); return s.n >= 1 ? Math.round(s.median) : cfg.cycleLen; }
 function effStd() { var s = cycleStats(); return s.n >= 3 ? s.std : 0; }
 function effLuteal() {
 var norm = normalize(recs);

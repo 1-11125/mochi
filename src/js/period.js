@@ -260,7 +260,11 @@
     var std = Math.sqrt(variance);
     return { n: n, median: med, mean: mean, std: std, cv: mean ? std / mean : 0, diffs: diffs };
   }
-  function effCycleLen() { var s = cycleStats(); return s.n >= 3 ? s.median : cfg.cycleLen; }
+  // FIX #1302：只要有一段实际间隔就用其中位数（原 s.n >= 3 才生效）——历史记录行报的是两次
+  // 开始日的真实间隔，而状态卡/日历预测/趋势图在只记过 1~2 次时回落到设置里的周期长度，
+  // 同一页两把尺子互相矛盾（红米 K80 Chrome 实报「历史记录里周期显示是错误的」：历史行 31 天、
+  // 页面按设置的 28 天预测）。设置值只在零间隔时兜底。零机型／零 UA 分支＝判据只取「有没有实际间隔」。
+  function effCycleLen() { var s = cycleStats(); return s.n >= 1 ? Math.round(s.median) : cfg.cycleLen; }
   function effStd() { var s = cycleStats(); return s.n >= 3 ? s.std : 0; }
   // 黄体期反推：若 daily 标记了排卵症状日，luteal = 周期 - 排卵日，取近 3 次中位数
   function effLuteal() {
