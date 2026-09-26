@@ -4898,6 +4898,9 @@ const FIX_SENTINELS = [
   { name: '#1202b 复核②真读一发权威前先记落地凭据（删＝无法确认这发读库是否落地就往下走，读侧竞态回来）', file: 'js/chat.js', needle: '_rcReadAt = lastIdbLoadAt;' },
   { name: '#1202c ④屏/模型一致性复核：已追平且无作废标记才零动作（删＝要么每次都整窗重建＝回场闪屏复发，要么 windowStale/落后一大截永不再画＝「切回来才加载」复发）', file: 'js/chat.js', needle: 'if (lastIdx >= len - 1 && !windowStale) return;' },
   { name: '#1202d mochi-fg-resume 第三报到路（删＝只发 focus 不发 visibilitychange 的内核整条回场闸都不跑，多机型同现的那一半症状无解）', file: 'js/chat.js', needle: 'chatResumeReconcileArm(window.bgLateCatchup(CHAT_RESUME_FRESH_MS) === true);' },
+  { name: '#1294a 回场复核①构建在飞只让路到软死线、到点仍开权威重读（删回旧形态＝解冻风暴拖过 6s 时整发掉弹，后台落库的新消息永不上屏、只有刷新/重进才画＝红米K80 Chrome 第三次复报的根因）', file: 'js/chat.js', needle: 'if (batchRendering && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }' },
+  { name: '#1294b 软死线到点但读库链仍在飞＝按硬顶有界续期（删回旧形态＝大历史十几秒真读撞 6s 死线，④拿旧模型复核出「已追平」假绿后无主）', file: 'js/chat.js', needle: '_lmChainBusy === window.activePrefix() && now < _rcArmAt + CHAT_RESUME_RECONCILE_HARD_MS' },
+
 
   { name: '#1053a 帮我决定历史「当天直显、更早默认折叠」渲染（历史重写 renderHistory 当天才直铺、更早收进 details；锚在「当天/更早」分流这一句，整段回退成全量 join 即报警）', file: 'js/decision.js', needle: 'if (k === today) { todayItems.push(r); return; }' },
   { name: '#1053b 多人决定历史「当天直显、更早默认折叠」渲染（同 #1053a 口径；锚在更早记录按天建组这一句）', file: 'js/group-decision.js', needle: 'if (!pastDays[k]) { pastDays[k] = { label: fmtDayLabel(r.ts), items: [] }; pastKeys.push(k); }' },

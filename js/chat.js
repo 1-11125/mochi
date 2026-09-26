@@ -6398,6 +6398,7 @@ let _rcArmAt = 0;
 let _rcPhase = 0; // 0=等构建在飞清 1=读已开枪等落地 2=等几何落定 3=已复核（本轮结束）
 let _rcReadAt = 0;
 const CHAT_RESUME_RECONCILE_MS = 6000; // 整轮复核预算（障碍清得掉就用不到，清不掉到点也要做一致性复核）
+const CHAT_RESUME_RECONCILE_HARD_MS = 15000; // #1294b 硬顶：软死线后只给「读库链仍在飞」续期到这里（大历史真读十几秒＝#716 实测形态），到点仍收尾
 function chatResumeReconcileArm(longAway) {
 if (!longAway) return; // 短离场（≤60s）行为零变化＝不抢主线程（#1067 C1 契约）
 const now = Date.now();
@@ -6414,17 +6415,13 @@ if (document.visibilityState !== 'visible' || !chatVisible() || !chatPinnedBotto
 const now = Date.now();
 const overdue = now >= _rcDeadline;
 if (_rcPhase === 0) {
-if (batchRendering) { // ① 那半轮整窗构建还在飞＝等它清（旧写法在这里直接 return 且永不再来）
-if (!overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
-_rcPhase = 2;
-} else {
+if (batchRendering && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ① 那半轮整窗构建还在飞＝死线前让路（旧写法在这里连子弹一起丢掉）
 _rcPhase = 1;
 _rcReadAt = lastIdbLoadAt;
 try { if (chatDbReady) loadMsgs(true); } catch (e) {} // 权威未达时由 #967 chatResumeRearmRead 那条路负责
 }
-}
 if (_rcPhase === 1) {
-if (lastIdbLoadAt === _rcReadAt && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
+if (lastIdbLoadAt === _rcReadAt && (!overdue || (_lmChainBusy === window.activePrefix() && now < _rcArmAt + CHAT_RESUME_RECONCILE_HARD_MS))) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
 _rcPhase = 2;
 _rcDeadline = Date.now() + 3000; // 下面要写 DOM＝按 #978 同口径再给 3s 让几何落定
 }

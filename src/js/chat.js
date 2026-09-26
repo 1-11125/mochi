@@ -8423,6 +8423,7 @@ let _rcArmAt = 0;
 let _rcPhase = 0; // 0=等构建在飞清 1=读已开枪等落地 2=等几何落定 3=已复核（本轮结束）
 let _rcReadAt = 0;
 const CHAT_RESUME_RECONCILE_MS = 6000; // 整轮复核预算（障碍清得掉就用不到，清不掉到点也要做一致性复核）
+const CHAT_RESUME_RECONCILE_HARD_MS = 15000; // #1294b 硬顶：软死线后只给「读库链仍在飞」续期到这里（大历史真读十几秒＝#716 实测形态），到点仍收尾
 function chatResumeReconcileArm(longAway) {
 if (!longAway) return; // 短离场（≤60s）行为零变化＝不抢主线程（#1067 C1 契约）
 const now = Date.now();
@@ -8439,10 +8440,14 @@ if (document.visibilityState !== 'visible' || !chatVisible() || !chatPinnedBotto
 const now = Date.now();
 const overdue = now >= _rcDeadline;
 if (_rcPhase === 0) {
-if (batchRendering) { // ① 那半轮整窗构建还在飞＝等它清（旧写法在这里直接 return 且永不再来）
-if (!overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; }
-_rcPhase = 2;
-} else {
+// FIX 2026-09-26 #1294a（用户第三次复报同一症状，红米 K80 Chrome，明说其他设备型号也有出现）：
+// 旧形态在 6s 软死线到点时若那半轮整窗构建仍在飞，就直接跳过这一发权威重读（_rcPhase=2 只补画）。
+// 而真机解冻风暴（回前台重排＋数百气泡分帧构建在慢机上）恰恰最常拖过 6s ⇒ 子弹掉弹、屏/模型复核
+// 又因 batchRendering 在 heal 开头早退＝这一轮零重读；同一次离场不会有第二次 visibilitychange，
+// 后台落库的新消息永远进不了内存（无头实证见 tools/verify-1294-resume-deadline.mjs 红侧 D1 reads=[]）。
+// 修＝数据重读与构建在飞无关（loadMsgs 不直写 DOM，落地渲染收尾自带 #220/#951h 的在飞作废闸），
+// 让路的只该是补画那一半：死线到点照开枪，然后照样进 ①→③ 等落地。短离场契约与「软死线前让路」零改动。
+if (batchRendering && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ① 那半轮整窗构建还在飞＝死线前让路（旧写法在这里连子弹一起丢掉）
 _rcPhase = 1;
 _rcReadAt = lastIdbLoadAt;
 // FIX 2026-09-23 #1067（长挂后台/锁屏回前台，后台期由别的上下文落进同一 origin 聊天存储的新消息不显示、
@@ -8450,9 +8455,11 @@ _rcReadAt = lastIdbLoadAt;
 // blk-idx + 热片，合并新消息后走既有渲染；无新消息则 changed=false 只补快照、零副作用。
 try { if (chatDbReady) loadMsgs(true); } catch (e) {} // 权威未达时由 #967 chatResumeRearmRead 那条路负责
 }
-}
 if (_rcPhase === 1) {
-if (lastIdbLoadAt === _rcReadAt && !overdue) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
+// FIX 2026-09-26 #1294b：软死线到点但读库链仍在飞（#716 红米 K80 实报 41.2MB 历史、真读可达十几秒）＝
+// 有界续期到硬顶，别让④拿旧模型复核出「已追平」的假绿；到硬顶仍按现形态收尾（子弹落地时 loadMsgs
+// 收尾自带渲染兜底）。
+if (lastIdbLoadAt === _rcReadAt && (!overdue || (_lmChainBusy === window.activePrefix() && now < _rcArmAt + CHAT_RESUME_RECONCILE_HARD_MS))) { _rcTimer = setTimeout(chatResumeReconcileStep, 250); return; } // ③ 读库链是异步的：等它真落地
 _rcPhase = 2;
 _rcDeadline = Date.now() + 3000; // 下面要写 DOM＝按 #978 同口径再给 3s 让几何落定
 }
