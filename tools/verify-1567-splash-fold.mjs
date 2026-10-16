@@ -3,7 +3,7 @@
 //   A 静态锚（构建产物）：折叠收起规则（css）／回填＋写入（js/clock.js）／根键登记 migrateLegacy EXCLUDE（js/contacts.js）。
 //   B 行为面（无头 Chromium 同一 profile 连续冷启真跑开屏）：
 //     B1 首开＝全文展开、折叠按钮未勾选时隐藏；
-//     B2 勾选年龄后按钮出现，点折叠写偏好 '1' 且只留「防倒卖/使用前提/免责声明」三卡与品牌卡；
+//     B2 勾选年龄后按钮出现，点折叠写偏好 '1' 且只留「防倒卖/使用前提/免责声明」三卡（品牌卡整体收起，#1574）；
 //     B3 第二次冷启（restore-done 后 migrateLegacy 已真跑）＝根键未被迁进 default、开屏直接是折叠态；
 //     B4 第三次冷启＝偏好仍在（「不用重复点」成立）；
 //     B5 点展开写 '0' → 重开＝全文展开（正文一字未删地回来）；
@@ -31,6 +31,7 @@ const read = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch 
 const idx = read('index.html'), clk = read('js/clock.js'), ct = read('js/contacts.js');
 ok(idx.includes('.splash-box.splash-folded .splash-cardlock { display:none; }'), 'A1 折叠后收起其余必读卡的规则在位（顶卡/精简条/备份/不互通/停更/字卡锁）');
 ok(idx.includes('.splash-box.splash-folded .splash-brandcard .splash-source { display:none; }'), 'A6 #1570 品牌卡子块（设计与开发/许可长块/原作部署/原版说明）折叠态全收（作者两次圈卡反馈；删＝折叠视图又露长块）');
+ok(idx.includes('.splash-box.splash-folded .splash-brandcard { display:none; }'), 'A6b #1574 品牌卡整体折叠态收起（作者直派「一并收起」；删＝折叠视图又露品牌卡头部 logo＋标题＋署名）');
 ok(idx.includes('.splash-box.splash-folded .splash-notice { display:none; }'), 'A2 折叠仍收公告章节（旧口径未被拆掉）');
 ok(clk.includes("folded = localStorage.getItem(FOLD_KEY) === '1'"), 'A3 偏好回填逻辑在位');
 ok(clk.includes("localStorage.setItem(FOLD_KEY, folded ? '1' : '0')"), 'A4 点折叠/展开写入偏好在位');
@@ -88,8 +89,8 @@ s = J(await ev(snap));
 ok(s.root === '1' && s.folded === true && s.label === '展开公告详情' &&
   s.bigwarn === 'none' && s.abouttip === 'none' && s.backup === 'none' && s.storesplit === 'none' && s.stopupdate === 'none' &&
   s.cardlock === 'none' && s.notice === 'none' && s.lic === 'none' && s.srcs.length === 4 && s.srcs.every(function (x) { return x === 'none'; }) &&
-  s.keep1 !== 'none' && s.keep2 !== 'none' && s.keep3 !== 'none' && s.brand !== 'none',
-  'B2b 点折叠＝写偏好 1、只留「防倒卖/使用前提/免责声明」三卡与品牌卡头部（四个子块同批收起）', JSON.stringify(s).slice(0, 260));
+  s.keep1 !== 'none' && s.keep2 !== 'none' && s.keep3 !== 'none' && s.brand === 'none',
+  'B2b 点折叠＝写偏好 1、只留「防倒卖/使用前提/免责声明」三卡（品牌卡整体同批收起，#1574）', JSON.stringify(s).slice(0, 260));
 
 await load(9000);
 s = J(await ev(snap));

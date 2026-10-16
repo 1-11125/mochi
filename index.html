@@ -389,6 +389,7 @@ user-select:none;
 .splash-box.splash-folded .splash-stopupdate,
 .splash-box.splash-folded .splash-cardlock { display:none; }
 .splash-box.splash-folded .splash-brandcard .splash-source { display:none; }
+.splash-box.splash-folded .splash-brandcard { display:none; }
 .splash-btns {
 display:flex; align-items:center; justify-content:center; gap:10px;
 margin-top:10px;
@@ -11191,7 +11192,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1792139120025" data-version="v8.67">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1792139933832" data-version="v8.67">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -22906,4 +22907,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvapcz2x -->
+<!-- __MOCHI_EOF__ mvapuf0o -->

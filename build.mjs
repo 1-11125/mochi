@@ -412,6 +412,7 @@ const FIX_SENTINELS = [
   // ==== 2026-10-16 #1570（作者两次圈卡反馈「没有折叠」）：#1567 折叠视图的品牌卡只留头部（logo＋标题＋署名账号），
   //   四个子块（设计与开发 /「许可 · 署名 · 灵感来源」长块 / 本人原作部署＋双链接 / 原版说明）折叠态一并收起。
   { name: '#1570a 品牌卡子块折叠态全收（删＝折叠视图又露「设计与开发/许可/部署链接/原版说明」长块＝作者圈卡反馈回流）', file: 'css/base.css', needle: '.splash-box.splash-folded .splash-brandcard .splash-source { display:none; }' },
+  { name: '#1574 品牌卡整体进折叠收起（删＝折叠视图又露品牌卡头部 logo＋标题＋署名＝作者直派回流；署名仅剩防倒卖卡一处）', file: 'css/base.css', needle: '.splash-box.splash-folded .splash-brandcard { display:none; }' },
   // ==== 2026-10-16 #1557 收口补登记：工作树 build.mjs 是旧底，HEAD 已入库的 #1546/#1545 八针按 HEAD 原文补回（代码在 js/feed.js 均在位）====
   { name: '#1546a TA 发这条动态时主动贴一张的闸（该桌面 sticker 池非空＋朋友圈表情包类型闸开着＋掷中 fd-post-sticker；删＝作者点名的主动贴从贴纸层消失）', file: 'js/feed.js', needle: "if (g.stPool && g.stPool.length && feedTypeOn(cid, 'sticker') && Math.random() * 100 < cfg.postSticker) {" },
   { name: '#1546b 主动贴的载荷接 #1219 令牌升级链（漏接＝整张 dataURL 顶进权威键 feed-posts，过大键线后被剥图＝「照片消失只剩贴纸」那一族回流）', file: 'js/feed.js', needle: 'if (taStk) feedStickerTokUpgrade(post.id, taStk);' },

@@ -511,6 +511,9 @@ input.mochi-pick-surface::-webkit-file-upload-button { display:none; }
 .splash-box.splash-folded .splash-stopupdate,
 .splash-box.splash-folded .splash-cardlock { display:none; }
 .splash-box.splash-folded .splash-brandcard .splash-source { display:none; }
+/* #1574（作者直派）：品牌卡头部（logo＋标题＋署名账号）也一并收起＝品牌卡整体折叠态不显示；
+   折叠视图只留「免费 · 署名 · 防倒卖」「使用前提」「免责声明」三卡，署名由防倒卖卡继续醒目。 */
+.splash-box.splash-folded .splash-brandcard { display:none; }
 /* v3.8.y：底部操作区——「点击进入」按钮（居中，间距由卡片 padding 控制） */
 .splash-btns {
   display:flex; align-items:center; justify-content:center; gap:10px;
