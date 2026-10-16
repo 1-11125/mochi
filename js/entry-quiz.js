@@ -18,7 +18,7 @@ window.mochiEntryQuizGate(finishEnter)；已放行则原样放行，未放行则
 'use strict';
 const G = 'xy-home-v2';
 const K_PASS = 'entry-quiz-pass';
-const QUIZ_VER = '2026-10-16b';
+const QUIZ_VER = '2026-10-16c';
 const IS_AUTOMATION = (typeof navigator !== 'undefined') &&
 (navigator.webdriver === true || /Headless/i.test(String(navigator.userAgent)));
 function gGet(k) {
@@ -69,7 +69,7 @@ o: ['本站是完全免费、作者个人出资和花费时间搭建的非盈利
 k: 'multi', q: '关于手机上遇到问题怎么处理、以及「会不会做成 App」，公告的说法是？', a: [0, 1, 2],
 o: [
 '安卓手机不要用自带的浏览器（如小米、华为自带），改用 Chrome 或 Edge；若仍有问题，可自行下载开源代码，根据个人设备自行调整',
-'「会不会做成 App」：暂不考虑，但可以用桌面快捷方式',
+'「会不会做成 App」：不会做，本站已永久停更；可以用桌面快捷方式',
 '不做 App 的原因：网站功能非常多，做成 App 可能出现的 Bug 只会更多，且不同手机适配难，没有这种精力和金钱',
 '手机坏了，换新手机',
 'App 已经在开发中，马上就会出',
