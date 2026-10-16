@@ -213,17 +213,21 @@
     el.className = 'eqz-page';
     el.id = 'entry-quiz-page';
     el.innerHTML =
+      // #1566（作者反馈）：页头说明改为随内容滚动——固定页头补了第二段说明后占掉大半屏，挡住题目；
+      // 「已答 X/24」进度移到底部提交区保持常显
+      '<div class="eqz-view" id="eqz-view-quiz">' +
+      '<div class="eqz-scroll" id="eqz-scroll">' +
       '<div class="eqz-head">' +
       // #1556（作者直派）：左上角随时可返回开屏（放弃本次作答，重进即全新问卷）
       '<button type="button" class="eqz-back" id="eqz-back">‹ 返回开屏</button>' +
       '<div class="eqz-title">入站问卷 · 答对全部题目才能进入</div>' +
       '<div class="eqz-sub">2026.10.16：本来已永久停更，不该再更改任何内容，但mochi 的密码早已被大范围泄露（有人私传、二传链接时把密码一起传、确认成年就直接传密码），违规使用、不遵守使用规则的情况越来越多。密码暂不修改，但新增入站问卷：答对全部题目才能恢复使用。题目都是公告与使用规则里的内容，答对一次本机永久放行（问卷更新后需重新作答）。</div>' +
       '<div class="eqz-sub">问卷是在开屏内容里提取的，如果有人选项实在是不会，可以稍微提示，但禁止泄露问卷答案。如果问卷答案也被泄露将换更难的题目。一直都说过，密码只是用来锁系统内置字卡的，对其他使用不影响。并不是针对想正常使用的人，只是网站人流量越来越多，满打满算这个网站也才诞生两个月而已，现在不加以管控，未来可能出现的情况更难以控制，已把入站问卷列入使用前必答条件。</div>' +
-      '<div class="eqz-progress" id="eqz-progress">已答 0 / ' + total + '</div>' +
       '</div>' +
-      '<div class="eqz-view" id="eqz-view-quiz">' +
-      '<div class="eqz-scroll" id="eqz-scroll">' + rows + '</div>' +
+      rows +
+      '</div>' +
       '<div class="eqz-foot">' +
+      '<div class="eqz-progress" id="eqz-progress">已答 0 / ' + total + '</div>' +
       '<div class="eqz-note">答题过程中不显示对错；点「提交答案」后跳到结果页，才知道哪些题没答对（多选题会提示共有几个正确答案）。</div>' +
       '<button type="button" class="eqz-btn" id="eqz-submit">提交答案</button>' +
       '</div></div>' +

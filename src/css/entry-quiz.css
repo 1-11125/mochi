@@ -12,8 +12,9 @@
   display: flex; flex-direction: column;
   text-align: left;
 }
+/* #1566：页头移入 .eqz-scroll 随内容滚动（不再固定挡屏），自身不再需要横向/顶部内边距（滚动区已带） */
 .eqz-head {
-  padding: 14px 18px 12px;
+  padding: 0 0 12px;
   border-bottom: 1px solid var(--sp-line, rgba(0, 0, 0, .08));
 }
 .eqz-back {
