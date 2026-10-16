@@ -184,14 +184,13 @@ return;
 }
 if (pageEl && pageEl.parentNode) { sp.classList.add('eqz-active'); return; } // 已打开则不重绘
 const total = QUESTIONS.length;
+const picks = QUESTIONS.map(function () { return []; });
 let rows = '';
 QUESTIONS.forEach(function (it, i) {
-const type = it.k === 'multi' ? 'checkbox' : 'radio';
 let opts = '';
 it.o.forEach(function (txt, j) {
-opts += '<label class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '">' +
-'<input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
-'<span class="eqz-opt-t">' + esc(txt) + '</span></label>';
+opts += '<button type="button" class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '" data-i="' + i + '" data-j="' + j + '">' +
+'<span class="eqz-opt-t">' + esc(txt) + '</span></button>';
 });
 rows += '<div class="eqz-q" data-i="' + i + '">' +
 '<div class="eqz-qh"><span class="eqz-idx">' + (i + 1) + '.</span>' +
@@ -225,20 +224,27 @@ pageEl = el;
 const progressEl = el.querySelector('#eqz-progress');
 function refreshProgress() {
 let n = 0;
-QUESTIONS.forEach(function (it, i) {
-if (el.querySelectorAll('input[name="eqz-q' + i + '"]:checked').length) n++;
-});
+picks.forEach(function (p) { if (p.length) n++; });
 if (progressEl) progressEl.textContent = '已答 ' + n + ' / ' + total;
 }
-el.addEventListener('change', function (e) {
-const t = e.target;
-if (!t || t.tagName !== 'INPUT') return;
-const q = t.closest('.eqz-q');
-if (!q) return;
-Array.prototype.forEach.call(q.querySelectorAll('.eqz-opt'), function (o) {
-const inp = o.querySelector('input');
-o.classList.toggle('is-sel', !!(inp && inp.checked));
+el.addEventListener('click', function (e) {
+const o = e.target && e.target.closest ? e.target.closest('.eqz-opt') : null;
+if (!o || !el.contains(o)) return;
+const i = parseInt(o.getAttribute('data-i'), 10);
+const j = parseInt(o.getAttribute('data-j'), 10);
+const it = QUESTIONS[i];
+if (!it || isNaN(i) || isNaN(j)) return;
+if (it.k === 'multi') {
+const at = picks[i].indexOf(j);
+if (at >= 0) picks[i].splice(at, 1); else picks[i].push(j);
+o.classList.toggle('is-sel', at < 0);
+} else {
+if (picks[i][0] === j) return; // 重点已选的单选项＝维持原选，不抖动
+picks[i] = [j];
+Array.prototype.forEach.call(o.parentNode.querySelectorAll('.eqz-opt'), function (s) {
+s.classList.toggle('is-sel', s === o);
 });
+}
 refreshProgress();
 });
 const scrollEl = el.querySelector('#eqz-scroll');
@@ -252,7 +258,7 @@ if (scrollEl) scrollEl.scrollTop = 0;
 }
 function backToSplash() { pendingNext = null; cleanup(); }
 function retryQuiz() {
-Array.prototype.forEach.call(el.querySelectorAll('input[type="checkbox"],input[type="radio"]'), function (inp) { inp.checked = false; });
+picks.forEach(function (p, i) { picks[i] = []; });
 Array.prototype.forEach.call(el.querySelectorAll('.eqz-opt.is-sel'), function (o) { o.classList.remove('is-sel'); });
 refreshProgress();
 switchView(false);
@@ -260,11 +266,7 @@ switchView(false);
 function submit() {
 const bads = [];
 QUESTIONS.forEach(function (it, i) {
-const sel = [];
-Array.prototype.forEach.call(el.querySelectorAll('input[name="eqz-q' + i + '"]:checked'), function (inp) {
-sel.push(parseInt(inp.value, 10));
-});
-sel.sort(function (x, y) { return x - y; });
+const sel = picks[i].slice().sort(function (x, y) { return x - y; });
 if (!sameSet(sel, it.a)) bads.push({ n: i + 1, multi: it.k === 'multi', cnt: it.a.length });
 });
 const vr = el.querySelector('#eqz-view-result');

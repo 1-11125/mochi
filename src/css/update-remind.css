@@ -24,6 +24,15 @@
   font-size: 14px; font-weight: 700; cursor: pointer; touch-action: manipulation;
 }
 .ur-go:active { transform: scale(.98); opacity: .9; }
+.ur-go[disabled] { opacity: .55; transform: none; cursor: default; }
+/* #1577 刷新状态行（点击后才出现）：开屏期间 toast 被 splash 盖住看不见，过程反馈必须在卡内 */
+.ur-st {
+  display: none; margin-top: 10px; padding: 8px 10px; box-sizing: border-box;
+  background: var(--static-bg, rgba(0, 0, 0, .04)); border-radius: 10px;
+  font-size: 11.5px; line-height: 1.65; color: var(--soft-ink, #555);
+  white-space: normal; word-break: break-word; text-align: left;
+}
+.ur-st.show { display: block; }
 .ur-later {
   width: 100%; margin-top: 8px; padding: 8px; background: none; border: none;
   font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: manipulation;

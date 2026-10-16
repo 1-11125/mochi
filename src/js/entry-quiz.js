@@ -212,16 +212,19 @@
     if (pageEl && pageEl.parentNode) { sp.classList.add('eqz-active'); return; } // 已打开则不重绘
 
     const total = QUESTIONS.length;
+    // #1576：选项本体不再用任何表单控件（label+input 全部退役）——用户机型内核连视觉隐藏的
+    // input 都会当文本框渲染（选项前冒 value 数字＋点击聚焦弹输入法），CSS 隐藏治不了它；
+    // 选中状态全由 picks 管（radio 单选覆盖 / multi 点选切换），判分/进度/重答全走 picks，
+    // 页面里没有 input 可渲染、没有文本框可聚焦，数字与键盘问题从根上消失
+    const picks = QUESTIONS.map(function () { return []; });
     let rows = '';
     QUESTIONS.forEach(function (it, i) {
-      const type = it.k === 'multi' ? 'checkbox' : 'radio';
       let opts = '';
       it.o.forEach(function (txt, j) {
-        // #1571：label 带类型 class（eqz-radio/eqz-check）——选中指示器改 CSS 自绘（见 entry-quiz.css），
-        // 部分安卓内核会把选中的原生 radio 渲染成 value 数字，不再依赖原生控件外观
-        opts += '<label class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '">' +
-          '<input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
-          '<span class="eqz-opt-t">' + esc(txt) + '</span></label>';
+        // #1571：label 带类型 class（eqz-radio/eqz-check）——选中指示器为 CSS 自绘（见 entry-quiz.css），
+        // #1576 起元素从 label 换成 button（type="button" 防任何表单语义），data-i/data-j 供点选委托
+        opts += '<button type="button" class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '" data-i="' + i + '" data-j="' + j + '">' +
+          '<span class="eqz-opt-t">' + esc(txt) + '</span></button>';
       });
       rows += '<div class="eqz-q" data-i="' + i + '">' +
         '<div class="eqz-qh"><span class="eqz-idx">' + (i + 1) + '.</span>' +
@@ -262,20 +265,28 @@
     const progressEl = el.querySelector('#eqz-progress');
     function refreshProgress() {
       let n = 0;
-      QUESTIONS.forEach(function (it, i) {
-        if (el.querySelectorAll('input[name="eqz-q' + i + '"]:checked').length) n++;
-      });
+      picks.forEach(function (p) { if (p.length) n++; });
       if (progressEl) progressEl.textContent = '已答 ' + n + ' / ' + total;
     }
-    el.addEventListener('change', function (e) {
-      const t = e.target;
-      if (!t || t.tagName !== 'INPUT') return;
-      const q = t.closest('.eqz-q');
-      if (!q) return;
-      Array.prototype.forEach.call(q.querySelectorAll('.eqz-opt'), function (o) {
-        const inp = o.querySelector('input');
-        o.classList.toggle('is-sel', !!(inp && inp.checked));
-      });
+    // #1576：点选委托（原生 input 的 change 监听随表单控件一起退役）
+    el.addEventListener('click', function (e) {
+      const o = e.target && e.target.closest ? e.target.closest('.eqz-opt') : null;
+      if (!o || !el.contains(o)) return;
+      const i = parseInt(o.getAttribute('data-i'), 10);
+      const j = parseInt(o.getAttribute('data-j'), 10);
+      const it = QUESTIONS[i];
+      if (!it || isNaN(i) || isNaN(j)) return;
+      if (it.k === 'multi') {
+        const at = picks[i].indexOf(j);
+        if (at >= 0) picks[i].splice(at, 1); else picks[i].push(j);
+        o.classList.toggle('is-sel', at < 0);
+      } else {
+        if (picks[i][0] === j) return; // 重点已选的单选项＝维持原选，不抖动
+        picks[i] = [j];
+        Array.prototype.forEach.call(o.parentNode.querySelectorAll('.eqz-opt'), function (s) {
+          s.classList.toggle('is-sel', s === o);
+        });
+      }
       refreshProgress();
     });
 
@@ -293,7 +304,7 @@
     function backToSplash() { pendingNext = null; cleanup(); }
     // 「再答一次」＝清空全部已选、从头重答（不是留在原页改错题，防试错）
     function retryQuiz() {
-      Array.prototype.forEach.call(el.querySelectorAll('input[type="checkbox"],input[type="radio"]'), function (inp) { inp.checked = false; });
+      picks.forEach(function (p, i) { picks[i] = []; });
       Array.prototype.forEach.call(el.querySelectorAll('.eqz-opt.is-sel'), function (o) { o.classList.remove('is-sel'); });
       refreshProgress();
       switchView(false);
@@ -301,11 +312,7 @@
     function submit() {
       const bads = [];
       QUESTIONS.forEach(function (it, i) {
-        const sel = [];
-        Array.prototype.forEach.call(el.querySelectorAll('input[name="eqz-q' + i + '"]:checked'), function (inp) {
-          sel.push(parseInt(inp.value, 10));
-        });
-        sel.sort(function (x, y) { return x - y; });
+        const sel = picks[i].slice().sort(function (x, y) { return x - y; });
         if (!sameSet(sel, it.a)) bads.push({ n: i + 1, multi: it.k === 'multi', cnt: it.a.length });
       });
       const vr = el.querySelector('#eqz-view-result');

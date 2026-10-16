@@ -10563,14 +10563,15 @@ font-size: 10px; font-weight: 700; vertical-align: 1px;
 color: var(--soft-ink, #555); background: var(--static-bg, rgba(0, 0, 0, .06));
 }
 .eqz-opt {
-display: flex; gap: 8px; align-items: flex-start;
+display: flex; gap: 8px; align-items: flex-start; width: 100%;
 padding: 9px 11px; margin-bottom: 6px;
 border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 11px;
 background: var(--card-bg-97, transparent);
 font-size: 12.5px; line-height: 1.65; color: var(--soft-ink, #555);
-cursor: pointer; position: relative;
+font-family: inherit; text-align: left; cursor: pointer; position: relative;
+appearance: none; -webkit-appearance: none; touch-action: manipulation;
+-webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
 }
-.eqz-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 .eqz-opt::before {
 content: ''; flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; box-sizing: border-box;
 border: 1.5px solid var(--card-border, rgba(0, 0, 0, .25)); background: transparent;
@@ -10640,6 +10641,14 @@ background: var(--btn-bg, #111); color: var(--btn-ink, #fff);
 font-size: 14px; font-weight: 700; cursor: pointer; touch-action: manipulation;
 }
 .ur-go:active { transform: scale(.98); opacity: .9; }
+.ur-go[disabled] { opacity: .55; transform: none; cursor: default; }
+.ur-st {
+display: none; margin-top: 10px; padding: 8px 10px; box-sizing: border-box;
+background: var(--static-bg, rgba(0, 0, 0, .04)); border-radius: 10px;
+font-size: 11.5px; line-height: 1.65; color: var(--soft-ink, #555);
+white-space: normal; word-break: break-word; text-align: left;
+}
+.ur-st.show { display: block; }
 .ur-later {
 width: 100%; margin-top: 8px; padding: 8px; background: none; border: none;
 font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: manipulation;
@@ -11192,7 +11201,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1792139933832" data-version="v8.67">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1792142148876" data-version="v8.67">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -22907,4 +22916,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvapuf0o -->
+<!-- __MOCHI_EOF__ mvar5w5o -->

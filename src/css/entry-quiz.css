@@ -50,18 +50,20 @@
   color: var(--soft-ink, #555); background: var(--static-bg, rgba(0, 0, 0, .06));
 }
 .eqz-opt {
-  display: flex; gap: 8px; align-items: flex-start;
+  display: flex; gap: 8px; align-items: flex-start; width: 100%;
   padding: 9px 11px; margin-bottom: 6px;
   border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 11px;
   background: var(--card-bg-97, transparent);
   font-size: 12.5px; line-height: 1.65; color: var(--soft-ink, #555);
-  cursor: pointer; position: relative;
+  font-family: inherit; text-align: left; cursor: pointer; position: relative;
+  appearance: none; -webkit-appearance: none; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
 }
-/* #1571：选中指示器 CSS 自绘——部分安卓内核（国产壳/X5）会把选中的原生 radio 渲染成
-   value 数字（选项前冒出 0/1/2…）。原生控件只留状态（label 点击/键盘切换、:checked、
-   change 事件全不变），视觉隐藏；圆点/勾由 ::before/::after 画，任何内核不再显示 value。
+/* #1576：选项本体已从 label+input 换成纯 button（选中状态由 JS 的 picks 管）——
+   用户机型内核连视觉隐藏的 input 都会当文本框渲染（冒 value 数字＋点击弹输入法），
+   页面里不再放任何表单控件；下面的圆点/勾仍是 CSS 自绘（#1571 引入），照常生效 */
+/* #1571：选中指示器 CSS 自绘——圆点/勾由 ::before/::after 画，不依赖原生控件外观。
    填充/描边走 .splash 的 --sp-ink（浅 #111 / 深 #e8e8e8 自动适配）；勾色用 --btn-ink 与填充对撞 */
-.eqz-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 .eqz-opt::before {
   content: ''; flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; box-sizing: border-box;
   border: 1.5px solid var(--card-border, rgba(0, 0, 0, .25)); background: transparent;
