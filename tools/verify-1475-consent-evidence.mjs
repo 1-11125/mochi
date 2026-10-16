@@ -5,7 +5,7 @@
 //   B 行为面（无头 Chromium 真跑开屏闸门）：
 //     B1 空记录＝未勾；B2 旧格式 '1'＝未勾（视为旧版同意，本版重确认）；B3 旧版本 JSON＝未勾；
 //     B4 当前版本 JSON＝自动勾上；B5 勾选动作落库存证 JSON（v＝当前版本、t＝时间戳）；
-//     B6 免责卡条数＝12 段（首段＋1~11 条）。
+//     B6 免责卡条数＝9 段（首段＋1~7 条＋日期行；2026-10-16 #1569 由 12 段精简）。
 // 用法：node tools/verify-1475-consent-evidence.mjs（MOCHI_SERVE_ROOT= 指定仓外副本根）
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -52,7 +52,7 @@ ok(idx.includes('作者未因你的使用收取任何费用或获取任何对价
 ok(idx.includes('不作任何形式的明示或默示保证，包括但不限于持续可用'), 'A9 「按现状提供＋无担保」条款在位');
 ok(idx.includes('因第三方托管服务（如 GitHub Pages）'), 'A10 第三方托管免责在位');
 ok(idx.includes('本声明任何条款被认定全部或部分无效的，不影响其余条款的效力'), 'A11 可分割性条款在位');
-ok(idx.includes('11. 本免责声明最后更新：2026-09-30。'), 'A12 最后更新日期推进到 2026-09-30');
+ok(idx.includes('本免责声明最后更新：2026-09-30。</p>'), 'A12 最后更新日期推进到 2026-09-30（#1569 起日期行去条号、独立成段）');
 ok(!idx.includes('9. 本免责声明最后更新：2026-09-29。'), 'A13 旧条号＋旧日期已退役');
 ok(idx.includes('本站将在你的设备浏览器本地记录确认时间与声明版本，不上传'), 'A14 设置→关于同源存证披露在位');
 ok(idx.includes('不作任何形式的明示或默示保证（持续可用'), 'A15 设置→关于「按现状无担保」镜像条在位');
@@ -67,6 +67,8 @@ ok(rd.includes('不影响其余条款的效力'), 'A19 README 同源：可分割
 let ct = '';
 try { ct = readFileSync(join(root, 'js/contacts.js'), 'utf8'); } catch (e) {}
 ok(ct.includes("'age-confirmed']"), 'A20 同意记录根键在 migrateLegacy EXCLUDE 名单（漏登记＝每次启动被迁进 default 并删根键）');
+ok(ct.includes("'splash-folded', 'age-confirmed'"), 'A21 #1567 开屏折叠偏好根键同在 EXCLUDE（漏登记＝冷启一次即被迁走，偏好第三次打开就没了）');
+ok(idx.includes('作者亦不承担责任。本声明任何条款被认定全部或部分无效的'), 'A22 #1569 免责声明精简后的合并条在位（原第 3/4/10 条并成「开屏卡同一条」，若被拆回多条此锚点消失）');
 
 console.log('\n== B 行为面（无头真跑开屏闸门）==');
 const browser = await chromium.launch();
@@ -84,11 +86,11 @@ const mk = async (seed) => {
   return { ctx, page, errs };
 };
 
-// B6 免责卡条数（首段＋1~11 条＝12 段）
+// B6 免责卡条数（首段＋1~7 条＋日期行＝9 段；2026-10-16 #1569 由 12 段精简）
 {
   const { ctx, page, errs } = await mk();
   const n = await page.evaluate(() => document.querySelectorAll('#splash-disclaimer p').length);
-  ok(n === 12, 'B6 免责卡 12 段（首段＋1~11 条）', 'n=' + n);
+  ok(n === 9, 'B6 免责卡 9 段（首段＋1~7 条＋日期行；#1569 精简后）', 'n=' + n);
   ok(errs.length === 0, 'B6a 加载零 JS 异常', errs.join('|').slice(0, 120));
   // B1 空记录＝未勾
   const b1 = await page.evaluate((k) => {

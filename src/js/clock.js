@@ -378,6 +378,11 @@
   //   旧格式 '1' 视为对旧版声明的一次确认、本版不认：存量用户升级后首次进入会重新勾选一次，属预期。
   const AGE_KEY = 'xy-home-v2:age-confirmed';
   const AGE_VER = '2026-09-30';
+  // #1567（2026-10-16 作者直派「点【折叠公告】后每次重开网站都保存这个状态，不用重复点折叠/展开」）：
+  //   折叠偏好按设备记住（xy-home-v2: 根键、不随联系人——开屏在选桌面之前，键域同 age-confirmed）。
+  //   只在「本版声明已确认」（ageOk，折叠按钮才可见）时回填：声明改版需要重新勾选时保持全文展开，
+  //   不让上一次的折叠把要重新确认的内容藏起来。
+  const FOLD_KEY = 'xy-home-v2:splash-folded';
   let ageOk = false;
   try {
     const raw = localStorage.getItem(AGE_KEY);
@@ -393,6 +398,7 @@
     ageCheck.addEventListener('change', function () {
       ageOk = !!ageCheck.checked;
       try { if (ageOk) localStorage.setItem(AGE_KEY, JSON.stringify({ t: Date.now(), v: AGE_VER })); } catch (e) {}
+      applyFoldState(); // #1567：勾上＝按上次选择回填折叠态；取消勾选＝回到全文展开
       updateEnterState();
     });
   }
@@ -423,6 +429,17 @@
   const loaded = () => windowLoaded || (typeof document !== 'undefined' && document.readyState === 'complete');
   // v3.8.y：整页一体滚动——滚动判定用 .splash-box（顶部+公告一起滚，需滚到整页底部）
   const splashBox = document.getElementById('splash-box');
+  // #1567：按上次选择回填折叠态（顺带把按钮文案写成对应的反动作）——见 FOLD_KEY 处注释；
+  //   未确认声明（ageOk 假）时一律全文展开，折叠按钮本身也要 ageOk 才显示（updateEnterState）。
+  function applyFoldState() {
+    if (!splashBox || !foldToggleEl) return;
+    let folded = false;
+    try { folded = localStorage.getItem(FOLD_KEY) === '1'; } catch (e) {}
+    if (!ageOk) folded = false;
+    splashBox.classList.toggle('splash-folded', folded);
+    foldToggleEl.textContent = folded ? '展开公告详情' : '折叠公告详情';
+  }
+  applyFoldState();
   // v3.8.x：开屏即公告1页——原「开屏公告 + 进入后的报修确认层」两页合并为一页，
   //   全部说明已直接展示在开屏上，点【点击进入】即进入（点击即视为已阅读知晓），不再弹二次确认层。
   //   只允许点按钮进入（长公告需滚动阅读，避免误触整屏直接跳过）。
@@ -605,7 +622,14 @@
   if (splashBox) splashBox.addEventListener('scroll', checkScrolled, { passive: true });
   if (enterEl) enterEl.addEventListener('click', (e) => { e.stopPropagation(); enter(); });
   if (forceEnterEl) forceEnterEl.addEventListener('click', (e) => { e.stopPropagation(); forceEnter(); });
-  if (foldToggleEl) foldToggleEl.addEventListener('click', function (e) { e.stopPropagation(); if (splashBox) { splashBox.classList.toggle('splash-folded'); foldToggleEl.textContent = splashBox.classList.contains('splash-folded') ? '展开公告详情' : '折叠公告详情'; } });
+  // #1567：点折叠/展开即写 FOLD_KEY，下次打开按这里的选择回填（applyFoldState）
+  if (foldToggleEl) foldToggleEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (!splashBox) return;
+    const folded = splashBox.classList.toggle('splash-folded');
+    foldToggleEl.textContent = folded ? '展开公告详情' : '折叠公告详情';
+    try { localStorage.setItem(FOLD_KEY, folded ? '1' : '0'); } catch (e) {}
+  });
   // v3.26.x：强制公告页——滑到底才可确认进入（mandBottom 未到底时按钮 is-disabled 不可点）
   if (mandEnter) mandEnter.addEventListener('click', (e) => { e.stopPropagation(); if (mandBottom) finishEnter(); });
   if (mandScroll) mandScroll.addEventListener('scroll', checkMandScrolled, { passive: true });

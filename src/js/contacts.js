@@ -226,7 +226,12 @@
     // EXCLUDE ⇒ migrateLegacy 每次数据就绪把它当旧顶层业务键迁进 default 并删根键＝#315c 的
     // 「确认一次永久记住」自上线起就被每次启动吃掉（用户每次开屏都要重新勾选）。#1475 起该键
     // 存「时间戳＋声明版本」JSON（改版自动重确认），是同意举证链的本体，必须留在根命名空间。
-    'age-confirmed'];
+    // #1567（2026-10-16）：开屏折叠/展开公告的偏好键 splash-folded——同 #1475 一族，出生即根域全局键
+    // （按设备记，开屏在选桌面之前写读，读取方 clock.js 只认根键）。探针实测漏登记的后果：首开点折叠写根键 '1'
+    // → 第二次冷启 restore-done 后 migrateLegacy 把它当旧顶层业务键迁进 default 并删根键（root:null、default:'1'）
+    // → 第三次打开偏好就没了（副本还污染 default 桌面）。排在本行末尾那个 age-confirmed 条目之前接入，
+    // （注释里不复述数组结尾的原文形态：verify-1475 A20 拿它当断言锚点，注释写进去会变成永远为真的哑断言）
+    'splash-folded', 'age-confirmed'];
   function isExcluded(k) {
     const r = k.slice(G.length + 1);
     // #233：__ 前缀＝系统键（idb.js 根命名空间专用：__wr-journal 写日志＝LS 回滚自愈

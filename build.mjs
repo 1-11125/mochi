@@ -392,6 +392,26 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-10-16 #1567（作者直派「点【折叠公告】后每次重开网站都保存这个状态，不用重复点折叠/展开」＋折叠视图只留
+  //   「免费·署名·防倒卖」「使用前提」「免责声明」三张卡与品牌卡）:折叠偏好落 xy-home-v2:splash-folded 根键（按设备、
+  //   不随联系人），开屏按 ageOk 回填（声明改版需重新勾选时保持全文展开）；折叠时收起顶卡/公告已精简条/备份/
+  //   数据不互通/停更公告/字卡锁与公告章节（正文一字未删，只收起）；根键按 #1541/#1475 老坑登记进 contacts.js
+  //   EXCLUDE（探针实测漏登记＝冷启一次即被 migrateLegacy 迁进 default 并删根键）。四条针：回填逻辑、点按写入、
+  //   CSS 收起规则、EXCLUDE 登记。
+  { name: '#1567a 折叠偏好回填逻辑（删＝折叠过的人每次重开又被展开＝作者直派的行为回流）', file: 'js/clock.js', needle: "folded = localStorage.getItem(FOLD_KEY) === '1'" },
+  { name: '#1567b 点折叠/展开写入偏好（删＝本次会话有效、重开即失效＝「不用重复点」落空）', file: 'js/clock.js', needle: "localStorage.setItem(FOLD_KEY, folded ? '1' : '0')" },
+  { name: '#1567c 折叠后收起其余必读卡（删＝折叠视图又退回「只收公告章节、满屏必读卡」旧口径）', file: 'css/base.css', needle: '.splash-box.splash-folded .splash-cardlock { display:none; }' },
+  { name: '#1567d 折叠根键登记 migrateLegacy EXCLUDE（删＝冷启一次就被迁进 default 并删根键，偏好第三次打开即失效）', file: 'js/contacts.js', needle: "'splash-folded', 'age-confirmed'" },
+  // ==== 2026-10-16 #1569（作者直派「免责声明写那么多有的没的，优化一下」并按作者确认草案落地）：免责声明 12 段精简为
+  //   9 段——原第 3/4/10 条并成一条（自愿使用＋后果自担＋最大范围内免责 ＋ 按现状无担保＋第三方托管 ＋ 可分割性）、
+  //   原第 6/8 条并成一条、日期行去条号独立成段；语义一字未减、历史锚句保持原样。三处落点（开屏卡 / 设置→关于 /
+  //   README）同批同步；README.md 是仓库文档不进 index.html，故不发针（由 verify-1475 的 A16~A19 在 README 上判）。
+  { name: '#1569a 免责声明日期行去条号、独立成段（删/改回「11. 本免责声明最后更新…」＝#1569 精简口径回流为 11 条旧形态）', file: 'template.html', needle: '<p>本免责声明最后更新：2026-09-30。</p>' },
+  { name: '#1569b 免责声明「自担＋最大范围免责」与「按现状无担保＋第三方托管＋可分割性」合并进同一条（删＝拆回分离的原第 3/4/10 条＝精简口径回流；开屏卡用句号相连、关于页落点用分号，故本锚点在 template.html 内唯一）', file: 'template.html', needle: '作者亦不承担责任。本声明任何条款被认定全部或部分无效的' },
+  { name: '#1569c 设置→关于免责落点随批精简（①-⑪ → ①-⑦＋日期行；删＝关于页退回 11 条旧口径、三源不再同批）', file: 'template.html', needle: '也不承诺任何内容永不失效。本免责声明最后更新：2026-09-30。</div>' },
+  // ==== 2026-10-16 #1570（作者两次圈卡反馈「没有折叠」）：#1567 折叠视图的品牌卡只留头部（logo＋标题＋署名账号），
+  //   四个子块（设计与开发 /「许可 · 署名 · 灵感来源」长块 / 本人原作部署＋双链接 / 原版说明）折叠态一并收起。
+  { name: '#1570a 品牌卡子块折叠态全收（删＝折叠视图又露「设计与开发/许可/部署链接/原版说明」长块＝作者圈卡反馈回流）', file: 'css/base.css', needle: '.splash-box.splash-folded .splash-brandcard .splash-source { display:none; }' },
   // ==== 2026-10-16 #1557 收口补登记：工作树 build.mjs 是旧底，HEAD 已入库的 #1546/#1545 八针按 HEAD 原文补回（代码在 js/feed.js 均在位）====
   { name: '#1546a TA 发这条动态时主动贴一张的闸（该桌面 sticker 池非空＋朋友圈表情包类型闸开着＋掷中 fd-post-sticker；删＝作者点名的主动贴从贴纸层消失）', file: 'js/feed.js', needle: "if (g.stPool && g.stPool.length && feedTypeOn(cid, 'sticker') && Math.random() * 100 < cfg.postSticker) {" },
   { name: '#1546b 主动贴的载荷接 #1219 令牌升级链（漏接＝整张 dataURL 顶进权威键 feed-posts，过大键线后被剥图＝「照片消失只剩贴纸」那一族回流）', file: 'js/feed.js', needle: 'if (taStk) feedStickerTokUpgrade(post.id, taStk);' },

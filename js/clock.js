@@ -274,6 +274,7 @@ const loadingSubEl = document.getElementById('splash-loading-sub');
 const hintEl = document.getElementById('splash-enter-hint');
 const AGE_KEY = 'xy-home-v2:age-confirmed';
 const AGE_VER = '2026-09-30';
+const FOLD_KEY = 'xy-home-v2:splash-folded';
 let ageOk = false;
 try {
 const raw = localStorage.getItem(AGE_KEY);
@@ -289,6 +290,7 @@ ageRow.hidden = false;
 ageCheck.addEventListener('change', function () {
 ageOk = !!ageCheck.checked;
 try { if (ageOk) localStorage.setItem(AGE_KEY, JSON.stringify({ t: Date.now(), v: AGE_VER })); } catch (e) {}
+applyFoldState(); // #1567：勾上＝按上次选择回填折叠态；取消勾选＝回到全文展开
 updateEnterState();
 });
 }
@@ -308,6 +310,15 @@ try { if (window.__mochiDataSlow) slow = true; } catch (e) {} // 事件先于监
 let windowLoaded = false;
 const loaded = () => windowLoaded || (typeof document !== 'undefined' && document.readyState === 'complete');
 const splashBox = document.getElementById('splash-box');
+function applyFoldState() {
+if (!splashBox || !foldToggleEl) return;
+let folded = false;
+try { folded = localStorage.getItem(FOLD_KEY) === '1'; } catch (e) {}
+if (!ageOk) folded = false;
+splashBox.classList.toggle('splash-folded', folded);
+foldToggleEl.textContent = folded ? '展开公告详情' : '折叠公告详情';
+}
+applyFoldState();
 const mandEl = document.getElementById('splash-mandatory');
 const mandScroll = document.getElementById('splash-mandatory-scroll');
 const mandEnter = document.getElementById('splash-mandatory-enter');
@@ -437,7 +448,13 @@ updateEnterState();
 if (splashBox) splashBox.addEventListener('scroll', checkScrolled, { passive: true });
 if (enterEl) enterEl.addEventListener('click', (e) => { e.stopPropagation(); enter(); });
 if (forceEnterEl) forceEnterEl.addEventListener('click', (e) => { e.stopPropagation(); forceEnter(); });
-if (foldToggleEl) foldToggleEl.addEventListener('click', function (e) { e.stopPropagation(); if (splashBox) { splashBox.classList.toggle('splash-folded'); foldToggleEl.textContent = splashBox.classList.contains('splash-folded') ? '展开公告详情' : '折叠公告详情'; } });
+if (foldToggleEl) foldToggleEl.addEventListener('click', function (e) {
+e.stopPropagation();
+if (!splashBox) return;
+const folded = splashBox.classList.toggle('splash-folded');
+foldToggleEl.textContent = folded ? '展开公告详情' : '折叠公告详情';
+try { localStorage.setItem(FOLD_KEY, folded ? '1' : '0'); } catch (e) {}
+});
 if (mandEnter) mandEnter.addEventListener('click', (e) => { e.stopPropagation(); if (mandBottom) finishEnter(); });
 if (mandScroll) mandScroll.addEventListener('scroll', checkMandScrolled, { passive: true });
 window.addEventListener('resize', checkMandScrolled);
