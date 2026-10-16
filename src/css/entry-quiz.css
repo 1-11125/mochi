@@ -55,9 +55,29 @@
   border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 11px;
   background: var(--card-bg-97, transparent);
   font-size: 12.5px; line-height: 1.65; color: var(--soft-ink, #555);
-  cursor: pointer;
+  cursor: pointer; position: relative;
 }
-.eqz-opt input { flex: 0 0 auto; margin: 2px 0 0; width: 15px; height: 15px; accent-color: var(--ink, #111); }
+/* #1571：选中指示器 CSS 自绘——部分安卓内核（国产壳/X5）会把选中的原生 radio 渲染成
+   value 数字（选项前冒出 0/1/2…）。原生控件只留状态（label 点击/键盘切换、:checked、
+   change 事件全不变），视觉隐藏；圆点/勾由 ::before/::after 画，任何内核不再显示 value。
+   填充/描边走 .splash 的 --sp-ink（浅 #111 / 深 #e8e8e8 自动适配）；勾色用 --btn-ink 与填充对撞 */
+.eqz-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.eqz-opt::before {
+  content: ''; flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; box-sizing: border-box;
+  border: 1.5px solid var(--card-border, rgba(0, 0, 0, .25)); background: transparent;
+}
+.eqz-opt.eqz-check::before { border-radius: 4px; }
+.eqz-opt.eqz-radio::before { border-radius: 50%; }
+.eqz-opt.is-sel::before { border-color: var(--sp-ink, #111); }
+.eqz-opt.eqz-radio.is-sel::before {
+  background: radial-gradient(circle, var(--sp-ink, #111) 0, var(--sp-ink, #111) 2.5px, transparent 3px);
+}
+.eqz-opt.eqz-check.is-sel::before { background: var(--sp-ink, #111); }
+.eqz-opt.eqz-check.is-sel::after {
+  content: ''; position: absolute; left: 15px; top: 14px; width: 8px; height: 4px; box-sizing: border-box;
+  border-left: 2px solid var(--btn-ink, #fff); border-bottom: 2px solid var(--btn-ink, #fff);
+  transform: rotate(-45deg); transform-origin: center;
+}
 .eqz-opt-t { flex: 1; white-space: normal; word-break: break-word; }
 .eqz-opt.is-sel { border-color: var(--sp-ink, #111); background: var(--sp-soft, rgba(17, 17, 17, .055)); color: var(--ink, #111); }
 

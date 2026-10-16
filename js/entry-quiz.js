@@ -178,7 +178,8 @@ QUESTIONS.forEach(function (it, i) {
 const type = it.k === 'multi' ? 'checkbox' : 'radio';
 let opts = '';
 it.o.forEach(function (txt, j) {
-opts += '<label class="eqz-opt"><input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
+opts += '<label class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '">' +
+'<input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
 '<span class="eqz-opt-t">' + esc(txt) + '</span></label>';
 });
 rows += '<div class="eqz-q" data-i="' + i + '">' +

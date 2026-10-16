@@ -10567,9 +10567,25 @@ padding: 9px 11px; margin-bottom: 6px;
 border: 1px solid var(--card-border, rgba(0, 0, 0, .1)); border-radius: 11px;
 background: var(--card-bg-97, transparent);
 font-size: 12.5px; line-height: 1.65; color: var(--soft-ink, #555);
-cursor: pointer;
+cursor: pointer; position: relative;
 }
-.eqz-opt input { flex: 0 0 auto; margin: 2px 0 0; width: 15px; height: 15px; accent-color: var(--ink, #111); }
+.eqz-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.eqz-opt::before {
+content: ''; flex: 0 0 auto; width: 16px; height: 16px; margin: 2px 0 0; box-sizing: border-box;
+border: 1.5px solid var(--card-border, rgba(0, 0, 0, .25)); background: transparent;
+}
+.eqz-opt.eqz-check::before { border-radius: 4px; }
+.eqz-opt.eqz-radio::before { border-radius: 50%; }
+.eqz-opt.is-sel::before { border-color: var(--sp-ink, #111); }
+.eqz-opt.eqz-radio.is-sel::before {
+background: radial-gradient(circle, var(--sp-ink, #111) 0, var(--sp-ink, #111) 2.5px, transparent 3px);
+}
+.eqz-opt.eqz-check.is-sel::before { background: var(--sp-ink, #111); }
+.eqz-opt.eqz-check.is-sel::after {
+content: ''; position: absolute; left: 15px; top: 14px; width: 8px; height: 4px; box-sizing: border-box;
+border-left: 2px solid var(--btn-ink, #fff); border-bottom: 2px solid var(--btn-ink, #fff);
+transform: rotate(-45deg); transform-origin: center;
+}
 .eqz-opt-t { flex: 1; white-space: normal; word-break: break-word; }
 .eqz-opt.is-sel { border-color: var(--sp-ink, #111); background: var(--sp-soft, rgba(17, 17, 17, .055)); color: var(--ink, #111); }
 .eqz-foot {
@@ -11148,7 +11164,7 @@ white-space: normal; word-break: break-word;
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1792136533255" data-version="v8.67">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1792138001664" data-version="v8.67">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -22850,4 +22866,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvantj47 -->
+<!-- __MOCHI_EOF__ mvaop05c -->

@@ -992,6 +992,8 @@ const FIX_SENTINELS = [
   { name: '#1556 入站问卷答题页不显示对错＋结果页可再答一次（作者直派防本页试错；删掉＝提交后在题目上标对错、可改答案作弊）', file: 'js/entry-quiz.js', needle: '会清空全部已选、从头重答' },
   { name: '#1556 入站问卷页头左上角返回开屏（删掉＝进了问卷只能硬答、无法退出）', file: 'js/entry-quiz.js', needle: '‹ 返回开屏</button>' },
   { name: '#1556 入站问卷通过页明示「只需答一次，以后不再出现」（删掉＝作者要求的放行说明丢失）', file: 'js/entry-quiz.js', needle: '此答题只需答一次' },
+  { name: '#1571 问卷选项控件视觉隐藏改 CSS 自绘指示器（部分安卓内核把选中 radio 渲染成 value 数字；删掉＝原生控件回秤又冒数字）', file: 'css/entry-quiz.css', needle: '.eqz-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }' },
+  { name: '#1571 问卷选项 label 带类型 class（自绘指示器靠 eqz-radio/eqz-check 区分圆点与勾；删掉＝自绘失效）', file: 'js/entry-quiz.js', needle: "eqz-check' : 'eqz-radio" },
   { name: '#319 cardlock-state 进 migrateLegacy 排除清单（解锁状态全局根键不被迁进 default 并删根键，否则输对密码刷新后闸门仍全锁）', file: 'js/contacts.js', needle: "'cardlock-state'," },
   { name: '#319 card-lock 存量自愈（被误迁进 default 的解锁状态启动时搬回根键，老用户不用重输密码）', file: 'js/card-lock.js', needle: "localStorage.getItem('xy-home-v2:default:cardlock-state')" },
   { name: '#389 cardlock 解锁状态走 xyStore（写日志+IDB+每键标记+自愈链，修 Edge/荣耀杀进程回滚 localStorage 解锁态退回 locked→密码框重弹，多机型同因零机型分支）', file: 'js/card-lock.js', needle: "addEventListener('mochi-wrj-heal'" },

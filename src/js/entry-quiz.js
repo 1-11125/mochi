@@ -200,7 +200,10 @@
       const type = it.k === 'multi' ? 'checkbox' : 'radio';
       let opts = '';
       it.o.forEach(function (txt, j) {
-        opts += '<label class="eqz-opt"><input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
+        // #1571：label 带类型 class（eqz-radio/eqz-check）——选中指示器改 CSS 自绘（见 entry-quiz.css），
+        // 部分安卓内核会把选中的原生 radio 渲染成 value 数字，不再依赖原生控件外观
+        opts += '<label class="eqz-opt ' + (it.k === 'multi' ? 'eqz-check' : 'eqz-radio') + '">' +
+          '<input type="' + type + '" name="eqz-q' + i + '" value="' + j + '">' +
           '<span class="eqz-opt-t">' + esc(txt) + '</span></label>';
       });
       rows += '<div class="eqz-q" data-i="' + i + '">' +
