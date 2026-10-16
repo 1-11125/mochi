@@ -3235,6 +3235,21 @@ m.removeEventListener('animationend', onEnterEnd);
 });
 }
 function appendMsg(m) {
+if (!m.__favTagDone && m.dataset && m.dataset.mk) {
+m.__favTagDone = 1;
+try {
+const _mk = m.dataset.mk;
+const _rec = msgs.find(x => msgKeyOf(x) === _mk);
+if (_rec) {
+const _tag = msgFavTagHtml(_rec);
+if (_tag) {
+const _side = m.querySelector('.msg-side');
+if (_side && _side.parentNode === m) m.insertBefore(document.createRange().createContextualFragment(_tag), _side);
+else m.appendChild(document.createRange().createContextualFragment(_tag));
+}
+}
+} catch (e) {}
+}
 if (!batchRendering && chatVisible() && !document.hidden) enterMsgOnce(m); // #1151b · #1181a：闸口从「页面没被切走」补成「用户真的看得见」——浏览器后台期 chatVisible() 仍为真，而 #913 的暂停类会把这些气泡的入场动画冻在第 0 帧（fill:both＝opacity:0、动画永不结束、类永不摘除），攒一整段后台后在回前台那一瞬集体补播＝用户实报「切回来记录弹跳闪一下才恢复正常」
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
@@ -6340,8 +6355,9 @@ if (mm.parts && mm.parts.length) favParts = mm.parts.map(p => ({ k: p.k, v: p.v,
 break;
 }
 }
-fav.push({ side: 'out', text: lastMineText, type: favType, ts: Date.now(), by: 'ta', parts: favParts });
+fav.push({ side: 'out', text: lastMineText, type: favType, ts: Date.now(), by: 'ta', parts: favParts, reason: (window.favReasonPick ? window.favReasonPick() : '') });
 saveFav(fav);
+try { favTagSyncDOM(msgKeyOf({ ts: fav[fav.length - 1].ts, side: 'out', type: favType, text: lastMineText })); } catch (e2) {}
 setTimeout(() => { if (!sameCid()) return; toast('TA 收藏了你的一条消息'); }, 1200);
 }
 }
@@ -10180,6 +10196,7 @@ return base;
 } catch (e) { return []; }
 }
 function saveFav(list) {
+try { if (typeof favTagInvalidate === 'function') favTagInvalidate(); } catch (e) {}
 const cid = favCid();
 if (favHold(cid)) {
 try { favPending[cid] = (list || []).slice(); } catch (e) {}
@@ -10390,10 +10407,12 @@ return it;
 });
 q = '问卷 · ' + sqs.length + ' 题' + (qarr.length && qarr[0].t ? '：' + qarr[0].t : '');
 return { kind: 'card', special: special, q: q, mine: '', ta: '', ts: rec.ts || Date.now(),
-qarr: qarr, aarr: sans.slice(0, 99).map(a => String(a || '').slice(0, 300)) };
+qarr: qarr, aarr: sans.slice(0, 99).map(a => String(a || '').slice(0, 300)),
+mtext: String(rec.text || '').slice(0, 120) };
 }
 else return null;
-return { kind: 'card', special: special, q: q, mine: mine, ta: ta, ts: rec.ts || Date.now() };
+return { kind: 'card', special: special, q: q, mine: mine, ta: ta, ts: rec.ts || Date.now(),
+mtext: String(rec.text || '').slice(0, 120) };
 }
 window.favCardFromMsg = function (idx) {
 const rec = msgs[idx];
@@ -10417,7 +10436,227 @@ const _favProbCard = (window.favCfg ? window.favCfg().taCard : 30);
 if (!rec || Math.random() * 100 >= _favProbCard) return;
 const f = cardSnapshot(rec);
 if (!f) return;
-if (window.addTaFavItem(f)) setTimeout(() => toast('TA 收藏了你们的互动卡片'), 1200);
+f.reason = (window.favReasonPick ? window.favReasonPick() : '');
+if (window.addTaFavItem(f)) {
+setTimeout(() => toast('TA 收藏了你们的互动卡片'), 1200);
+try { favTagSyncDOM(msgKeyOf(rec)); } catch (e) {}
+}
+}
+let chatMulti = false;
+const chatSel = new Set();
+function chatMultiBar() { return document.getElementById('chat-multisel-bar'); }
+function chatSelSync() {
+const bar = chatMultiBar();
+if (!bar) return;
+try {
+const pg = document.getElementById('page-chat');
+if (pg) pg.classList.toggle('msg-multisel-on', !!chatMulti);
+} catch (e) {}
+bar.hidden = !chatMulti;
+const favBtn = document.getElementById('chat-multisel-fav');
+if (favBtn) { favBtn.textContent = chatSel.size ? '收藏(' + chatSel.size + ')' : '收藏'; favBtn.disabled = !chatSel.size; }
+const allBtn = document.getElementById('chat-multisel-all');
+if (allBtn) {
+const body = document.getElementById('chat-body');
+let vis = 0;
+if (body) body.querySelectorAll('.msg[data-mk]').forEach(el => {
+if (chatMultiPickable(el)) vis++;
+});
+allBtn.textContent = (vis && chatSel.size === vis) ? '取消全选' : '全选';
+}
+}
+function chatMultiPickable(el) {
+if (!el || !el.dataset || !el.dataset.mk) return false;
+if (el.classList.contains('msg-poke')) return false;
+const b = el.querySelector('.msg-bubble');
+const txt = (b || el).textContent || '';
+if (txt.indexOf('撤回了一条消息') >= 0 || txt.indexOf('已读不回') >= 0) return false;
+return true;
+}
+function chatSelRender() {
+const body = document.getElementById('chat-body');
+if (!body) return;
+body.querySelectorAll('.msg[data-mk]').forEach(el => {
+if (!chatMultiPickable(el)) { el.classList.remove('msg-picked'); return; }
+el.classList.toggle('msg-picked', chatMulti && chatSel.has(el.dataset.mk));
+});
+chatSelSync();
+}
+function chatMultiStart(seedMk) {
+chatMulti = true;
+chatSel.clear();
+const seedEl = seedMk && document.querySelector('.msg[data-mk="' + (window.CSS && CSS.escape ? CSS.escape(seedMk) : seedMk) + '"]');
+if (seedEl && chatMultiPickable(seedEl)) chatSel.add(seedMk);
+try {
+const ir = document.querySelector('#page-chat .chat-input-row');
+if (ir) ir.hidden = true;
+} catch (e) {}
+chatSelRender();
+}
+function chatMultiEnd() {
+chatMulti = false;
+chatSel.clear();
+const body = document.getElementById('chat-body');
+if (body) body.querySelectorAll('.msg-picked').forEach(el => el.classList.remove('msg-picked'));
+try {
+const ir = document.querySelector('#page-chat .chat-input-row');
+if (ir) ir.hidden = false;
+} catch (e) {}
+chatSelSync();
+}
+function favItemOfMsg(rec) {
+return { side: rec.side, text: rec.text, type: rec.type || 'text', ts: rec.ts || Date.now(), by: 'me',
+mood: (rec.mood || []).slice(),
+parts: rec.parts && rec.parts.length ? rec.parts.map(p => ({ k: p.k, v: p.v, sub: p.sub })) : undefined };
+}
+function chatMultiFav() {
+if (!chatSel.size) return;
+const fav = getFav();
+let added = 0, dup = 0, cardAdded = 0;
+const byMk = {};
+msgs.forEach((m, i) => { const mk = msgKeyOf(m); if (mk && !byMk[mk]) byMk[mk] = { m: m, i: i }; });
+chatSel.forEach(mk => {
+const hit = byMk[mk];
+if (!hit) return;
+const rec = hit.m;
+if (rec.special) {
+const f = cardSnapshot(rec);
+if (!f) { dup++; return; }
+if (favDup(fav, f, 'me')) { dup++; return; }
+fav.push(Object.assign({ by: 'me' }, f));
+added++; cardAdded++;
+return;
+}
+if (fav.some(f => (f.by || 'me') !== 'ta' && f.side === rec.side && (f.text || '') === (rec.text || '') && (!rec.ts || f.ts === rec.ts))) { dup++; return; }
+fav.push(favItemOfMsg(rec));
+added++;
+});
+if (added) saveFav(fav);
+const parts = [];
+if (added) parts.push('已收藏 ' + added + ' 条');
+if (cardAdded) parts.push('含互动卡片 ' + cardAdded + ' 条');
+if (dup) parts.push('跳过已收藏 ' + dup + ' 条');
+toast(parts.length ? parts.join('，') : '没有可收藏的新消息');
+chatMultiEnd();
+}
+if (document.getElementById('chat-body')) {
+document.addEventListener('click', (e) => {
+if (!chatMulti) return;
+const el = e.target.closest ? e.target.closest('.msg[data-mk]') : null;
+if (!el) return;
+if (!chatMultiPickable(el)) return;
+e.preventDefault();
+e.stopPropagation();
+const mk = el.dataset.mk;
+if (chatSel.has(mk)) chatSel.delete(mk); else chatSel.add(mk);
+chatSelRender();
+}, true);
+const cancelBtn = document.getElementById('chat-multisel-cancel');
+if (cancelBtn) cancelBtn.addEventListener('click', () => { closeMsgActions(); chatMultiEnd(); });
+const favBtn = document.getElementById('chat-multisel-fav');
+if (favBtn) favBtn.addEventListener('click', () => chatMultiFav());
+const allBtn = document.getElementById('chat-multisel-all');
+if (allBtn) allBtn.addEventListener('click', () => {
+const body = document.getElementById('chat-body');
+if (!body) return;
+const vis = [];
+body.querySelectorAll('.msg[data-mk]').forEach(el => { if (chatMultiPickable(el)) vis.push(el.dataset.mk); });
+const allSel = vis.length && vis.every(k => chatSel.has(k));
+vis.forEach(k => { if (allSel) chatSel.delete(k); else chatSel.add(k); });
+chatSelRender();
+});
+}
+document.addEventListener('contact-switched', function () { try { if (typeof chatMultiEnd === 'function') chatMultiEnd(); } catch (e) {} });
+function favTagShow() {
+try { return store.get('fav-tag-show') !== '0'; } catch (e) { return true; }
+}
+let favTagMap = null;
+function favTagIndex() {
+if (favTagMap) return favTagMap;
+const map = {};
+try {
+getFav().forEach(f => {
+if ((f.by || 'me') !== 'ta') return;
+const kd = f.kind || 'msg';
+if (kd !== 'msg' && kd !== 'card') return;
+if (!f.ts) return;
+map[msgKeyOf({ ts: f.ts, side: f.side, type: f.type || 'text',
+text: (kd === 'card') ? (f.mtext || '') : (f.text || ''), special: f.special })] = f.reason || '';
+});
+} catch (e) {}
+favTagMap = map;
+return map;
+}
+function favTagInvalidate() { favTagMap = null; }
+function favTagSyncDOM(mk) {
+try {
+const body = document.getElementById('chat-body');
+if (!body) return;
+const idx = favTagIndex();
+const sel = mk ? ('.msg[data-mk="' + (window.CSS && CSS.escape ? CSS.escape(mk) : mk) + '"]') : '.msg[data-mk]';
+body.querySelectorAll(sel).forEach(el => {
+const has = !!el.querySelector('.msg-fav-tag');
+const want = favTagShow() && Object.prototype.hasOwnProperty.call(idx, el.dataset.mk || '');
+if (has === want) return;
+if (!want) { const t = el.querySelector('.msg-fav-tag'); if (t) t.remove(); return; }
+if (el.__favTagDone) { el.__favTagDone = 0; } // 允许 appendMsg 的幂等标记重新走一遍
+const rec = msgs.find(x => msgKeyOf(x) === el.dataset.mk);
+if (!rec) return;
+const html = msgFavTagHtml(rec);
+if (!html) return;
+const frag = document.createRange().createContextualFragment(html);
+const side = el.querySelector('.msg-side');
+if (side && side.parentNode === el) el.insertBefore(frag, side); else el.appendChild(frag);
+el.__favTagDone = 1;
+});
+} catch (e) {}
+}
+function msgFavTagHtml(rec) {
+if (!favTagShow()) return '';
+const mk = msgKeyOf(rec);
+if (!mk) return '';
+const idx = favTagIndex();
+if (!Object.prototype.hasOwnProperty.call(idx, mk)) return '';
+return '<button class="msg-fav-tag" data-mk="' + attrEsc(mk) + '" title="TA 收藏了这条消息">' +
+'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+'已收藏</button>';
+}
+if (document.getElementById('chat-body')) {
+document.addEventListener('click', (e) => {
+const btn = e.target.closest ? e.target.closest('.msg-fav-tag') : null;
+if (!btn) return;
+e.preventDefault();
+e.stopPropagation();
+const mk = btn.getAttribute('data-mk') || '';
+const reason = favTagIndex()[mk];
+const pn = chatPartnerName();
+try {
+if (window.openModal) {
+window.openModal((pn || 'TA') + ' 收藏了这条消息', '', function () {}, {
+noInput: true,
+staticText: reason ? ('「' + reason + '」') : '这条是之前收藏的，没有写原因。'
+});
+}
+} catch (e) {}
+}, true);
+}
+function favSetNote(fk, note) {
+const fav = getFav();
+const t = String(note == null ? '' : note).slice(0, 200);
+let hit = false;
+fav.forEach(f => { if (favItemKey(f) === fk) { f.note = t; hit = true; } });
+if (!hit) return false;
+saveFav(fav);
+return true;
+}
+function favNoteEdit(f) {
+const fk = favItemKey(f);
+const cur = f.note || '';
+window.openModal('收藏备注', cur, function (v) {
+const val = String(v == null ? '' : v).slice(0, 200);
+favSetNote(fk, val);
+try { renderFav(); } catch (e) {}
+}, { maxlength: 200, placeholder: '写点什么，比如：这句话我当时看了很久' });
 }
 function closeMsgActions() {
 if (msgActions && typeof msgActions.__maFollowStop === 'function') { try { msgActions.__maFollowStop(); } catch (e) {} } // FIX 2026-09-16 #642 摘跟随监听
@@ -10578,6 +10817,7 @@ bar.__maFollowStop = stop;
 return place;
 };
 function msgActionEligible(t) {
+if (chatMulti) return null;
 const b = t.closest('.msg-bubble');
 if (!b) return null;
 if (t.closest('.msg-voice-play')) return null;
@@ -10734,6 +10974,10 @@ toast('已收藏到我的收藏');
 }
 }
 closeMsgActions();
+} else if (act === 'multisel') {
+const _msMk = (activeMsgSnap && activeMsgSnap.mk) || (activeMsgEl && activeMsgEl.dataset ? activeMsgEl.dataset.mk : '');
+closeMsgActions();
+chatMultiStart(_msMk);
 } else if (act === 'copy') {
 if (rec) {
 const qsnap = quoteTextOf(rec);
@@ -11067,6 +11311,33 @@ renderFav();
 }, { noInput: true });
 }
 });
+if (!favBatch) {
+const noteTxt = String(f.note || '');
+const reasonTxt = String(f.reason || '');
+{
+const box = document.createElement('div');
+box.className = 'fav-item-notes';
+if (reasonTxt) {
+const rEl = document.createElement('div');
+rEl.className = 'fav-item-reason';
+rEl.textContent = (window.taFit ? window.taFit(chatPartnerName() + '：') : 'TA：') + reasonTxt;
+box.appendChild(rEl);
+}
+if (noteTxt) {
+const nEl = document.createElement('div');
+nEl.className = 'fav-item-note';
+nEl.textContent = '备注：' + noteTxt;
+box.appendChild(nEl);
+}
+const btn = document.createElement('button');
+btn.className = 'fav-item-notebtn';
+btn.type = 'button';
+btn.textContent = noteTxt ? '编辑备注' : '＋ 写备注';
+btn.addEventListener('click', (e) => { e.stopPropagation(); favNoteEdit(f); });
+box.appendChild(btn);
+m.appendChild(box);
+}
+}
 favList.appendChild(m);
 }
 }

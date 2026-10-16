@@ -25,16 +25,16 @@ chk('S5 慢路径重试体不带超时（catch 后 fetch(url)）', /return fetch
 chk('S6 build.mjs 登记 #942a~f 六条哨兵', (buildSrc.match(/#942[a-f] /g) || []).length === 6, '');
 chk('S7 产物侧 swNeedles 列表同步换锚（防哑哨兵）', buildSrc.includes("'fetchIndexRes(u, isIndexUrl(u) ? INDEX_NETWORK_TIMEOUT : NETWORK_TIMEOUT)'") && buildSrc.includes('"fetchIndexRes(\'./index.html\', INDEX_NETWORK_TIMEOUT)"'), '');
 
-// —— P 组：页面侧「正在下载」全程反馈与失败如实告知（#944，src/js/pwa.js）——
+// —— P 组：页面侧「正在下载」全程反馈与失败如实告知（#944，src/js/pwa.js；#1542 起反馈改 toast）——
 const pwa = (() => { try { return readFileSync(join(__root, 'src', 'js', 'pwa.js'), 'utf8'); } catch (e) { return ''; } })();
-chk('P1 点击即出进度文案（弱网可能要一两分钟）', pwa.includes("setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');"), '');
-chk('P2 失败如实告知＋重试入口（不再无声停旧版）', pwa.includes("setUi('新版没下载完（网络太慢）。已取消本次刷新，网络好转后会再次提醒；也可点「重试刷新」再试', '重试刷新');"), '');
-chk('P3 ack 挪到下载确认成功后（下载失败不写「已确认」）', pwa.includes('if (!auto && ackTs > 0) verMarkAck(ackTs);'), '');
+chk('P1 点击即出进度提示（弱网可能要一两分钟）', pwa.includes("toast('开始下载新版，完成后会自动刷新…网络慢时可能需要一两分钟，请保持页面打开');"), '');
+chk('P2 失败如实告知＋可再试（不再无声停旧版）', pwa.includes("toast('新版没下载完（网络太慢），已取消本次刷新；稍后可到 设置 → 关于 →「检查更新」再试');"), '');
+chk('P3 ack/notify 记账一族已随更新条整块删除（#1542，不再有任何弹条免打扰逻辑）', !pwa.includes('verMarkAck') && !pwa.includes('ver-update-notify') && !pwa.includes('showVerBar'), '');
 chk('P4 手动通道不再 2.5s 无条件重载（仅自动通道保留）', /if \(auto\) \{\s*\n\s*setTimeout\(function \(\) \{ if \(!done\) doReload\(\); \}, 2500\);/.test(pwa) && (pwa.match(/, 2500\)/g) || []).length === 1, '');
 chk('P5 手动等待上限 180s 常量在位', /const VER_DL_WAIT = 180000;/.test(pwa), '');
-chk('P6 点击传入版本 ts（成功时写 ack 用）', pwa.includes('refreshNow(false, 0, onlineTs)'), '');
-chk('P7 失败回滚 notify 记录（本版本之后还能再提醒）', pwa.includes("localStorage.removeItem('xy-home-v2:ver-update-notify');"), '');
-chk('P8 build.mjs 登记 #944a~f 六条哨兵', (buildSrc.match(/#944[a-f] /g) || []).length === 6, '');
+chk('P6 手动入口＝设置→关于→检查更新（mochiRefreshNow 暴露同一条预取刷新链）', pwa.includes('window.mochiRefreshNow = function () { refreshNow(); };'), '');
+chk('P7 手动等满上限不重载（重载只会回旧缓存）', /setTimeout\(function \(\) \{\s*\n\s*if \(done\) return;/.test(pwa), '');
+chk('P8 build.mjs 登记 #944a/b/f 三条哨兵（#944c/d/e 随 ack/notify 记账退役，有案 FIX-REGRESSION）', (buildSrc.match(/#944[a-f] /g) || []).length === 3, '');
 
 // —— U 组：行为断言（把 fetchWithTimeout/fetchIndexRes 两个函数的源码提出来，
 //      注入受控 mock fetch 真跑：慢＝第一次到点超时 reject、第二次慢慢成功）——
@@ -108,46 +108,45 @@ const rnSrc = pwa ? extractSlice(pwa, 'let _prMsg = null;', '\n  }' + '\n  // #5
 chk('U5 refreshNow 段源码可提取', !!rnSrc, '');
 function runRefreshNow(stub, waitMs) {
   const code = rnSrc.replace('const VER_DL_WAIT = 180000;', 'const VER_DL_WAIT = ' + (waitMs || 180000) + ';');
-  return new Function('navigator', 'document', 'location', 'window', 'localStorage', 'verMarkAck', 'showVerBar', 'autoReloadAllowed', `
+  return new Function('navigator', 'document', 'location', 'window', 'localStorage', 'toast', 'autoReloadAllowed', `
     ${code}
     return refreshNow;`).call(null,
-    stub.navigator, stub.document, stub.location, stub.window, stub.localStorage, stub.verMarkAck, stub.showVerBar, stub.autoReloadAllowed);
+    stub.navigator, stub.document, stub.location, stub.window, stub.localStorage, stub.toast, stub.autoReloadAllowed);
 }
 if (rnSrc) {
   const makeStub = () => {
     const st = {
-      reloaded: 0, acked: [], posted: [], listeners: [],
+      reloaded: 0, toasts: [], posted: [], listeners: [],
       navigator: { serviceWorker: { controller: { postMessage: (m) => st.posted.push(m) }, addEventListener: (t, f) => st.listeners.push(f), removeEventListener: () => {} } },
-      document: { getElementById: (id) => id === 'ver-update-bar' ? st.bar : (id === 'ver-update-refresh' ? st.btn : null) },
+      document: { getElementById: () => null },
       location: { reload: () => { st.reloaded++; } },
       window: {},
-      localStorage: { _m: { 'xy-home-v2:ver-update-notify': '999|456' }, getItem(k) { return this._m[k] || null; }, setItem(k, v) { this._m[k] = String(v); }, removeItem(k) { delete this._m[k]; } },
-      verMarkAck: (ts) => st.acked.push(ts),
-      showVerBar: () => {},
+      localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+      toast: (m) => st.toasts.push(String(m)),
       autoReloadAllowed: () => true
     };
-    st.bar = { querySelector: () => st.txt }; st.txt = { textContent: '' }; st.btn = { textContent: '', onclick: null };
     return st;
   };
   const fire = (st) => st.listeners.forEach((f) => f({ data: { type: 'PRECACHE_DONE' } }));
-  // U6 快成功：点击出进度、不立刻重载；收到 PRECACHE_DONE 才写 ack＋重载
+  const lastToast = (st) => st.toasts[st.toasts.length - 1] || '';
+  // U6 快成功：点击出 toast 进度、不立刻重载；收到 PRECACHE_DONE 才重载
   {
     const st = makeStub();
     const rn = runRefreshNow(st, 60000);
-    rn(false, 0, 999);
-    const early = { reloaded: st.reloaded, txt: st.txt.textContent, btn: st.btn.textContent };
+    rn(false);
+    const early = { reloaded: st.reloaded, toast: lastToast(st) };
     fire(st);
     await new Promise((r) => setTimeout(r, 30));
-    chk('U6a 点击出进度且未立刻重载', early.reloaded === 0 && /正在下载新版/.test(early.txt) && early.btn === '正在下载…', JSON.stringify(early));
-    chk('U6b 回执后才写 ack 并重载（且只重载一次）', st.acked.includes(999) && st.reloaded === 1, JSON.stringify({ acked: st.acked, reloaded: st.reloaded }));
+    chk('U6a 点击出 toast 进度且未立刻重载', early.reloaded === 0 && /开始下载新版/.test(early.toast), JSON.stringify(early));
+    chk('U6b 回执后才重载（且只重载一次）', st.reloaded === 1, JSON.stringify({ reloaded: st.reloaded, toasts: st.toasts.length }));
   }
-  // U7 超时：不重载、如实告知、按钮变重试、notify 记录回滚
+  // U7 超时：不重载、toast 如实告知
   {
     const st = makeStub();
     const rn = runRefreshNow(st, 80);
-    rn(false, 0, 999);
+    rn(false);
     await new Promise((r) => setTimeout(r, 250));
-    chk('U7 超时不重载＋如实文案＋重试按钮＋notify 回滚', st.reloaded === 0 && /新版没下载完/.test(st.txt.textContent) && st.btn.textContent === '重试刷新' && st.localStorage.getItem('xy-home-v2:ver-update-notify') === null, JSON.stringify({ reloaded: st.reloaded, txt: st.txt.textContent, btn: st.btn.textContent, ls: st.localStorage._m }));
+    chk('U7 超时不重载＋toast 如实告知', st.reloaded === 0 && /新版没下载完/.test(lastToast(st)), JSON.stringify({ reloaded: st.reloaded, toast: lastToast(st) }));
   }
 }
 

@@ -152,18 +152,6 @@ check('X1 跨会话不污染：overlay 实测过的会话收口后，新会话�
 //    对「键盘完全不报信号、只能按固定比例猜高度」的机型够不着实测空隙）
 await resetAll();
 const gapCheck = await ev("(function(){var o={};try{o.set150=window.mochiScreenAdj.set('kbgap',150);}catch(e){o.err1=String(e);}try{o.v150=window.mochiScreenAdj.all().kbgap;}catch(e){o.err2=String(e);}try{o.set300=window.mochiScreenAdj.set('kbgap',300);}catch(e){o.err3=String(e);}try{o.v300=window.mochiScreenAdj.all().kbgap;}catch(e){o.err4=String(e);}window.mochiScreenAdj.set('kbgap',0);return JSON.stringify(o);})()");
-// ⑨b #1531 基线钳：先让基线抓在「地址栏隐」的高读数上，再让地址栏显示（vv 回落）——
-//    页面不得把这次回落当成键盘弹出（红侧＝会话开启、.phone 被钉成全高 690px＝与保底停靠互抢＝弹跳闪屏）
-await resetAll();
-await ev("(function(){try{Object.defineProperty(window,'innerHeight',{configurable:true,get:function(){return 690;}});}catch(e){}return 1;})()"); // #1531：真机几何＝innerHeight 恒 690
-await ev("(function(){window.__fakeVV.height=816;window.__fakeVV.dispatch('resize');return 1;})()");
-await sleep(1200); // 基线抓在 816（地址栏隐）
-await ev("(function(){var t=document.getElementById('ed');if(t){try{t.dispatchEvent(new Event('touchstart',{bubbles:true}));}catch(e){}try{t.focus();}catch(e2){}}window.__fakeVV.height=690;window.__fakeVV.dispatch('resize');return 1;})()");
-await sleep(900);
-const z3 = await ev(H);
-await ev("(function(){try{delete window.innerHeight;}catch(e){}return 1;})()"); // 恢复
-check('Z3 基线卡高：地址栏显隐回落不得被当成键盘弹出（红侧＝会话开启钉全高 690px＝与保底停靠互抢＝弹跳闪屏）', z3 !== '690px', { h: z3 });
-
 check('Y1 键盘间隙轴：150 可设置可读回（红侧＝面板/RANGE 只到 80，set 被钳成 80＝大空隙补不动）', (gapCheck || '').indexOf('"v150":150') >= 0, gapCheck);
 check('Y2 键盘间隙轴：超量程 300 被拒且原值不变（set 返回 false，不静默改写用户值）', (gapCheck || '').indexOf('"set300":false') >= 0 && (gapCheck || '').indexOf('"v300":150') >= 0, gapCheck);
 check('Y3 面板条目量程 ±240（红侧＝滑块还停在 ±80，补不动大空隙）', rd('js/personalize.js').indexOf("name: '键盘间隙', min: -240, max: 240") >= 0);

@@ -4401,6 +4401,25 @@ m.removeEventListener('animationend', onEnterEnd);
 });
 }
 function appendMsg(m) {
+// 【已收藏】tag 统一在此注入：renderMsg 有 13 处分支各自 appendMsg + return（#1326 口径），
+// 逐分支改必漏；而 appendMsg 是所有分支（含 batchDefer 早退）的唯一必经点。
+// 身份用节点上的 data-mk（渲染期写入的 msgKeyOf 指纹，#491）反查 msgs 里的真记录——
+// batchDefer 早退那条会走 batchDefer.q 二次挂载，故幂等按已注入标记防重复。
+if (!m.__favTagDone && m.dataset && m.dataset.mk) {
+m.__favTagDone = 1;
+try {
+const _mk = m.dataset.mk;
+const _rec = msgs.find(x => msgKeyOf(x) === _mk);
+if (_rec) {
+const _tag = msgFavTagHtml(_rec);
+if (_tag) {
+const _side = m.querySelector('.msg-side');
+if (_side && _side.parentNode === m) m.insertBefore(document.createRange().createContextualFragment(_tag), _side);
+else m.appendChild(document.createRange().createContextualFragment(_tag));
+}
+}
+} catch (e) {}
+}
 if (!batchRendering && chatVisible() && !document.hidden) enterMsgOnce(m); // #1151b · #1181a：闸口从「页面没被切走」补成「用户真的看得见」——浏览器后台期 chatVisible() 仍为真，而 #913 的暂停类会把这些气泡的入场动画冻在第 0 帧（fill:both＝opacity:0、动画永不结束、类永不摘除），攒一整段后台后在回前台那一瞬集体补播＝用户实报「切回来记录弹跳闪一下才恢复正常」
 if (batchDefer) {
 const ix = Number(m.dataset.idx);
@@ -8509,8 +8528,12 @@ if (mm.parts && mm.parts.length) favParts = mm.parts.map(p => ({ k: p.k, v: p.v,
 break;
 }
 }
-fav.push({ side: 'out', text: lastMineText, type: favType, ts: Date.now(), by: 'ta', parts: favParts });
+// reason = TA 收藏这句的理由（fav-reason.js 从系统预设收藏原因字卡池抽一句；抽不到就存 ''，
+// 抽不到不能连带收藏失败——收藏是主功能、理由是加分项）
+fav.push({ side: 'out', text: lastMineText, type: favType, ts: Date.now(), by: 'ta', parts: favParts, reason: (window.favReasonPick ? window.favReasonPick() : '') });
 saveFav(fav);
+// 这条消息此刻已在屏上（我刚发的）→ 立刻补上【已收藏】tag，不必等整窗重渲
+try { favTagSyncDOM(msgKeyOf({ ts: fav[fav.length - 1].ts, side: 'out', type: favType, text: lastMineText })); } catch (e2) {}
 setTimeout(() => { if (!sameCid()) return; toast('TA 收藏了你的一条消息'); }, 1200);
 }
 }
@@ -13013,7 +13036,9 @@ function getFav() {
   } catch (e) { return []; }
 }
 function saveFav(list) {
-  const cid = favCid();
+// 收藏包变了 → 作废【已收藏】tag 索引缓存（否则本次收藏/删除要等下次整窗重渲才生效）
+try { if (typeof favTagInvalidate === 'function') favTagInvalidate(); } catch (e) {}
+const cid = favCid();
   if (favHold(cid)) {
     // 权威没回话：只暂存内存，绝不 store.set——xyStore.set 会当场 window.idbSet 把整包覆盖进 IDB
     try { favPending[cid] = (list || []).slice(); } catch (e) {}
@@ -13230,6 +13255,10 @@ fav.push(Object.assign({ by: 'ta' }, f));
 saveFav(fav);
 return true;
 };
+// 返回 { kind: 'card', special, q, mine, ta, ts } —— 另有 mtext 存原消息的 text：
+// 聊天气泡的身份锚 msgKeyOf 用的是「消息原文 text + 卡片 extra 字段」，而 q 是提炼后的问句
+// （"问卷 · 3 题：…"），两者对不上 ⇒ 不存 mtext 的话聊天里给卡片打【已收藏】tag 永远不命中。
+// mtext 只用于身份匹配，不参与收藏页渲染（收藏页仍按 q 显示）。
 function cardSnapshot(rec) {
 if (!rec) return null;
 let q = '', mine = '', ta = '', special = rec.special;
@@ -13260,10 +13289,12 @@ return it;
 });
 q = '问卷 · ' + sqs.length + ' 题' + (qarr.length && qarr[0].t ? '：' + qarr[0].t : '');
 return { kind: 'card', special: special, q: q, mine: '', ta: '', ts: rec.ts || Date.now(),
-qarr: qarr, aarr: sans.slice(0, 99).map(a => String(a || '').slice(0, 300)) };
+qarr: qarr, aarr: sans.slice(0, 99).map(a => String(a || '').slice(0, 300)),
+mtext: String(rec.text || '').slice(0, 120) };
 }
 else return null;
-return { kind: 'card', special: special, q: q, mine: mine, ta: ta, ts: rec.ts || Date.now() };
+return { kind: 'card', special: special, q: q, mine: mine, ta: ta, ts: rec.ts || Date.now(),
+mtext: String(rec.text || '').slice(0, 120) };
 }
 window.favCardFromMsg = function (idx) {
 const rec = msgs[idx];
@@ -13290,7 +13321,269 @@ const _favProbCard = (window.favCfg ? window.favCfg().taCard : 30);
 if (!rec || Math.random() * 100 >= _favProbCard) return;
 const f = cardSnapshot(rec);
 if (!f) return;
-if (window.addTaFavItem(f)) setTimeout(() => toast('TA 收藏了你们的互动卡片'), 1200);
+// reason 同 TA 自动收藏消息：抽一句收藏原因（失败不阻断收藏）
+f.reason = (window.favReasonPick ? window.favReasonPick() : '');
+if (window.addTaFavItem(f)) {
+setTimeout(() => toast('TA 收藏了你们的互动卡片'), 1200);
+// 卡片此刻在屏上 → 立刻补【已收藏】tag（按原消息身份锚匹配，见 favTagIndex 的 mtext 口径）
+try { favTagSyncDOM(msgKeyOf(rec)); } catch (e) {}
+}
+}
+// ===== 聊天消息多选 · 批量收藏 =====
+// 入口：长按/右键气泡 → 菜单「多选」。进入后点气泡即勾选（再点取消），底部操作栏可全选/收藏/取消。
+// 与菜单链路的关系：多选态下轻点气泡**不开菜单**（msgActionEligible 在多选时直接返回 null，
+// 由本模块的捕获阶段 click 处理），否则勾一下会同时弹出操作栏＝勾不干净。
+// 勾选身份用 mk（消息渲染期写入的 msgKeyOf 指纹）而非 data-idx：msgs 重排后 data-idx 会位移，
+// 与 #407/#491 菜单身份重定位同源，避免「勾的是A、收藏的是B」。
+let chatMulti = false;
+const chatSel = new Set();
+function chatMultiBar() { return document.getElementById('chat-multisel-bar'); }
+function chatSelSync() {
+const bar = chatMultiBar();
+if (!bar) return;
+// 聊天页根 class 驱动勾选圈 CSS（见 chat-pages.css 的 #page-chat.msg-multisel-on）
+try {
+const pg = document.getElementById('page-chat');
+if (pg) pg.classList.toggle('msg-multisel-on', !!chatMulti);
+} catch (e) {}
+bar.hidden = !chatMulti;
+const favBtn = document.getElementById('chat-multisel-fav');
+if (favBtn) { favBtn.textContent = chatSel.size ? '收藏(' + chatSel.size + ')' : '收藏'; favBtn.disabled = !chatSel.size; }
+const allBtn = document.getElementById('chat-multisel-all');
+if (allBtn) {
+const body = document.getElementById('chat-body');
+let vis = 0;
+if (body) body.querySelectorAll('.msg[data-mk]').forEach(el => {
+if (chatMultiPickable(el)) vis++;
+});
+allBtn.textContent = (vis && chatSel.size === vis) ? '取消全选' : '全选';
+}
+}
+// 多选态下哪些气泡可勾：与 msgActionEligible 同口径（撤回/拍一拍/引用气泡/语音按钮不可选），
+// 但**互动卡片可勾**（用户要求「所有被 TA 收藏的内容都打 tag」，收藏入口要覆盖卡片）
+function chatMultiPickable(el) {
+if (!el || !el.dataset || !el.dataset.mk) return false;
+if (el.classList.contains('msg-poke')) return false;
+const b = el.querySelector('.msg-bubble');
+const txt = (b || el).textContent || '';
+if (txt.indexOf('撤回了一条消息') >= 0 || txt.indexOf('已读不回') >= 0) return false;
+return true;
+}
+function chatSelRender() {
+const body = document.getElementById('chat-body');
+if (!body) return;
+body.querySelectorAll('.msg[data-mk]').forEach(el => {
+if (!chatMultiPickable(el)) { el.classList.remove('msg-picked'); return; }
+el.classList.toggle('msg-picked', chatMulti && chatSel.has(el.dataset.mk));
+});
+chatSelSync();
+}
+function chatMultiStart(seedMk) {
+chatMulti = true;
+chatSel.clear();
+// 进多选时把长按的那条直接勾上（用户预期：刚点的这条就是要选的）
+const seedEl = seedMk && document.querySelector('.msg[data-mk="' + (window.CSS && CSS.escape ? CSS.escape(seedMk) : seedMk) + '"]');
+if (seedEl && chatMultiPickable(seedEl)) chatSel.add(seedMk);
+// 多选时收起输入栏：底部被操作栏占了，输入栏留着会挤掉操作栏（两个 fixed 底栏重叠）
+try {
+const ir = document.querySelector('#page-chat .chat-input-row');
+if (ir) ir.hidden = true;
+} catch (e) {}
+chatSelRender();
+}
+function chatMultiEnd() {
+chatMulti = false;
+chatSel.clear();
+const body = document.getElementById('chat-body');
+if (body) body.querySelectorAll('.msg-picked').forEach(el => el.classList.remove('msg-picked'));
+try {
+const ir = document.querySelector('#page-chat .chat-input-row');
+if (ir) ir.hidden = false;
+} catch (e) {}
+chatSelSync();
+}
+// 单条消息 → 我的收藏项（与长按单条收藏同构造、同判重口径，见 maRunAction 的 'fav' 分支）
+function favItemOfMsg(rec) {
+return { side: rec.side, text: rec.text, type: rec.type || 'text', ts: rec.ts || Date.now(), by: 'me',
+mood: (rec.mood || []).slice(),
+parts: rec.parts && rec.parts.length ? rec.parts.map(p => ({ k: p.k, v: p.v, sub: p.sub })) : undefined };
+}
+function chatMultiFav() {
+if (!chatSel.size) return;
+const fav = getFav();
+let added = 0, dup = 0, cardAdded = 0;
+// 按 mk 反查真实消息（同 #491 的锚点口径：msgs 可能已重排，data-idx 不可信）
+const byMk = {};
+msgs.forEach((m, i) => { const mk = msgKeyOf(m); if (mk && !byMk[mk]) byMk[mk] = { m: m, i: i }; });
+chatSel.forEach(mk => {
+const hit = byMk[mk];
+if (!hit) return;
+const rec = hit.m;
+// 互动卡片走卡片快照（与点卡片心形收藏同一入口），其余走消息快照
+if (rec.special) {
+const f = cardSnapshot(rec);
+if (!f) { dup++; return; }
+if (favDup(fav, f, 'me')) { dup++; return; }
+fav.push(Object.assign({ by: 'me' }, f));
+added++; cardAdded++;
+return;
+}
+if (fav.some(f => (f.by || 'me') !== 'ta' && f.side === rec.side && (f.text || '') === (rec.text || '') && (!rec.ts || f.ts === rec.ts))) { dup++; return; }
+fav.push(favItemOfMsg(rec));
+added++;
+});
+if (added) saveFav(fav);
+const parts = [];
+if (added) parts.push('已收藏 ' + added + ' 条');
+if (cardAdded) parts.push('含互动卡片 ' + cardAdded + ' 条');
+if (dup) parts.push('跳过已收藏 ' + dup + ' 条');
+toast(parts.length ? parts.join('，') : '没有可收藏的新消息');
+chatMultiEnd();
+}
+// 多选态下的气泡点击：捕获阶段抢先于 body 的开菜单逻辑（msgActionEligible 在多选时返回 null）
+if (document.getElementById('chat-body')) {
+document.addEventListener('click', (e) => {
+if (!chatMulti) return;
+const el = e.target.closest ? e.target.closest('.msg[data-mk]') : null;
+if (!el) return;
+if (!chatMultiPickable(el)) return;
+// 图片/表情有自己的查看大图等 click 语义（renderFavItem 同款分界），多选时一律当勾选
+e.preventDefault();
+e.stopPropagation();
+const mk = el.dataset.mk;
+if (chatSel.has(mk)) chatSel.delete(mk); else chatSel.add(mk);
+chatSelRender();
+}, true);
+const cancelBtn = document.getElementById('chat-multisel-cancel');
+if (cancelBtn) cancelBtn.addEventListener('click', () => { closeMsgActions(); chatMultiEnd(); });
+const favBtn = document.getElementById('chat-multisel-fav');
+if (favBtn) favBtn.addEventListener('click', () => chatMultiFav());
+const allBtn = document.getElementById('chat-multisel-all');
+if (allBtn) allBtn.addEventListener('click', () => {
+const body = document.getElementById('chat-body');
+if (!body) return;
+const vis = [];
+body.querySelectorAll('.msg[data-mk]').forEach(el => { if (chatMultiPickable(el)) vis.push(el.dataset.mk); });
+const allSel = vis.length && vis.every(k => chatSel.has(k));
+vis.forEach(k => { if (allSel) chatSel.delete(k); else chatSel.add(k); });
+chatSelRender();
+});
+}
+// 切联系人必须清多选态：chatSel 里是 mk 指纹，跨桌面后同一 mk 可能指向别的桌面的消息
+// （且旧 DOM 已随 msgs 清空重渲），不清＝下次批量收藏把上一个桌面的消息收进来
+document.addEventListener('contact-switched', function () { try { if (typeof chatMultiEnd === 'function') chatMultiEnd(); } catch (e) {} });
+// ===== 【已收藏】标记：聊天内展示 + 点开看 TA 的收藏原因 =====
+// 需求：联系人（TA）收藏过的消息，在聊天里原消息上打一个【已收藏】tag，点 tag 能看到
+// TA 收藏它的理由；tag 是否显示由「收藏设置 → 聊天内显示已收藏标记」控制（fav-tag-show）。
+// 身份口径：TA 收藏项存的是消息快照（ts/side/type/text + 卡片 extra），与 msgKeyOf 同构，
+//   故直接按 msgKeyOf(快照) 建索引、以渲染期写入的 data-mk 命中——不用 data-idx（会随重排位移，
+//   同 #407/#491 的口径）。
+// 显隐由 favTagShow() 统一判定，关闭时**完全不注入** DOM（不是注入后 display:none——
+//   那样每次渲染仍要拼 tag 字符串，白花开销，且关闭后消息结构与开启时不一致）。
+function favTagShow() {
+try { return store.get('fav-tag-show') !== '0'; } catch (e) { return true; }
+}
+// 由 TA 收藏快照建 mk → 收藏原因 的索引（每轮渲染重建一次，收藏量级下开销可忽略）
+let favTagMap = null;
+function favTagIndex() {
+if (favTagMap) return favTagMap;
+const map = {};
+try {
+getFav().forEach(f => {
+if ((f.by || 'me') !== 'ta') return;
+// 用户口径：所有被 TA 收藏的内容都打 tag（含互动卡片 kind:'card'）。
+// 信件/朋友圈（mail/feed）不在聊天消息区内，索引不收（否则 mk 恒不命中，纯浪费）。
+const kd = f.kind || 'msg';
+if (kd !== 'msg' && kd !== 'card') return;
+if (!f.ts) return;
+map[msgKeyOf({ ts: f.ts, side: f.side, type: f.type || 'text',
+text: (kd === 'card') ? (f.mtext || '') : (f.text || ''), special: f.special })] = f.reason || '';
+});
+} catch (e) {}
+favTagMap = map;
+return map;
+}
+function favTagInvalidate() { favTagMap = null; }
+// 收藏包变化后，对**已在屏上**的那几条补/撤 tag（不必整窗重渲）。
+// 只认已渲染且带 data-mk 的节点：TA 收藏的是「我刚发的那条」，它必然在屏上；
+// 反过来（tag 关→开）由设置页回调用它全量补一遍。
+function favTagSyncDOM(mk) {
+try {
+const body = document.getElementById('chat-body');
+if (!body) return;
+const idx = favTagIndex();
+const sel = mk ? ('.msg[data-mk="' + (window.CSS && CSS.escape ? CSS.escape(mk) : mk) + '"]') : '.msg[data-mk]';
+body.querySelectorAll(sel).forEach(el => {
+const has = !!el.querySelector('.msg-fav-tag');
+const want = favTagShow() && Object.prototype.hasOwnProperty.call(idx, el.dataset.mk || '');
+if (has === want) return;
+if (!want) { const t = el.querySelector('.msg-fav-tag'); if (t) t.remove(); return; }
+if (el.__favTagDone) { el.__favTagDone = 0; } // 允许 appendMsg 的幂等标记重新走一遍
+const rec = msgs.find(x => msgKeyOf(x) === el.dataset.mk);
+if (!rec) return;
+const html = msgFavTagHtml(rec);
+if (!html) return;
+const frag = document.createRange().createContextualFragment(html);
+const side = el.querySelector('.msg-side');
+if (side && side.parentNode === el) el.insertBefore(frag, side); else el.appendChild(frag);
+el.__favTagDone = 1;
+});
+} catch (e) {}
+}
+// tag 的 HTML 片段（挂在气泡外层行内，见 msgFavTagHtml 调用处）
+function msgFavTagHtml(rec) {
+if (!favTagShow()) return '';
+const mk = msgKeyOf(rec);
+if (!mk) return '';
+const idx = favTagIndex();
+if (!Object.prototype.hasOwnProperty.call(idx, mk)) return '';
+return '<button class="msg-fav-tag" data-mk="' + attrEsc(mk) + '" title="TA 收藏了这条消息">' +
+'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+'已收藏</button>';
+}
+// 点 tag → 弹 TA 的收藏原因（没有原因文案时说明是旧收藏无原因）
+if (document.getElementById('chat-body')) {
+document.addEventListener('click', (e) => {
+const btn = e.target.closest ? e.target.closest('.msg-fav-tag') : null;
+if (!btn) return;
+e.preventDefault();
+e.stopPropagation();
+const mk = btn.getAttribute('data-mk') || '';
+const reason = favTagIndex()[mk];
+const pn = chatPartnerName();
+try {
+if (window.openModal) {
+window.openModal((pn || 'TA') + ' 收藏了这条消息', '', function () {}, {
+noInput: true,
+staticText: reason ? ('「' + reason + '」') : '这条是之前收藏的，没有写原因。'
+});
+}
+} catch (e) {}
+}, true);
+}
+
+// ===== 收藏项备注（用户手写「为什么收藏这条」）=====
+// 存在收藏项自身的 note 字段（不另开键）：跟着收藏项走、随删除一起消失，
+// 也不会和 TA 的 reason 混（同一条可能两边都有字，要分得清谁写的）。
+// 定位用 favItemKey 指纹（与批量管理同一套身份口径）。
+function favSetNote(fk, note) {
+const fav = getFav();
+const t = String(note == null ? '' : note).slice(0, 200);
+let hit = false;
+fav.forEach(f => { if (favItemKey(f) === fk) { f.note = t; hit = true; } });
+if (!hit) return false;
+saveFav(fav);
+return true;
+}
+// 点收藏项写备注：回填原备注（空则占位提示），确定写入并回渲染
+function favNoteEdit(f) {
+const fk = favItemKey(f);
+const cur = f.note || '';
+window.openModal('收藏备注', cur, function (v) {
+const val = String(v == null ? '' : v).slice(0, 200);
+favSetNote(fk, val);
+try { renderFav(); } catch (e) {}
+}, { maxlength: 200, placeholder: '写点什么，比如：这句话我当时看了很久' });
 }
 function closeMsgActions() {
 if (msgActions && typeof msgActions.__maFollowStop === 'function') { try { msgActions.__maFollowStop(); } catch (e) {} } // FIX 2026-09-16 #642 摘跟随监听
@@ -13489,6 +13782,9 @@ bar.__maFollowStop = stop;
 return place;
 };
 function msgActionEligible(t) {
+// 多选态：轻点气泡是「勾选」而不是「开菜单」——返回 null 把点击让给 chatMulti 的捕获监听
+// （已在 document 捕获阶段 stopPropagation，这里再挡一道是防 touch 直驱路 #480 直开菜单）
+if (chatMulti) return null;
 // 沿用原「点气泡弹菜单」的判定规则：可弹返回 {item, b}，不可弹返回 null（引用气泡/拍一拍/撤回/已读不回等）
 // FIX 2026-09-15 #507 语音播放按钮不算「点气泡」——否则轻点/长按播放按钮都会布气泡轻点/长按
 // （touchend 开消息菜单+布吞 click 窗口），播放按钮的 click 被吞（吞 click 族内核补发 click 根本
@@ -13691,6 +13987,12 @@ toast('已收藏到我的收藏');
 }
 }
 closeMsgActions();
+} else if (act === 'multisel') {
+// 多选：把刚长按的这条直接勾上并进入选择态（长按的这条正是用户想选的那条）。
+// 注意取 mk 必须在 closeMsgActions 之前——它会清空 activeMsgSnap（#407 的身份快照）
+const _msMk = (activeMsgSnap && activeMsgSnap.mk) || (activeMsgEl && activeMsgEl.dataset ? activeMsgEl.dataset.mk : '');
+closeMsgActions();
+chatMultiStart(_msMk);
 } else if (act === 'copy') {
 // 复制消息文字：复用 quoteTextOf（语音取名称、图片/表情只回文字），令牌先展开成原 dataURL 判空
 if (rec) {
@@ -14061,6 +14363,37 @@ renderFav();
 }, { noInput: true });
 }
 });
+// 备注区 + TA 收藏理由：所有 kind 通用，挂在卡片/气泡下方。
+// 我的收藏 → 展示用户自己写的 note（点它可改）；联系人的收藏 → 展示 TA 的 reason
+// （只读：那是 TA 写的，用户改不了也不该改，用户自己想写就写自己的 note）。
+if (!favBatch) {
+const noteTxt = String(f.note || '');
+const reasonTxt = String(f.reason || '');
+// 备注入口常驻（哪怕现在是空的）——否则用户看到没字就不知道这里能写
+{
+const box = document.createElement('div');
+box.className = 'fav-item-notes';
+if (reasonTxt) {
+const rEl = document.createElement('div');
+rEl.className = 'fav-item-reason';
+rEl.textContent = (window.taFit ? window.taFit(chatPartnerName() + '：') : 'TA：') + reasonTxt;
+box.appendChild(rEl);
+}
+if (noteTxt) {
+const nEl = document.createElement('div');
+nEl.className = 'fav-item-note';
+nEl.textContent = '备注：' + noteTxt;
+box.appendChild(nEl);
+}
+const btn = document.createElement('button');
+btn.className = 'fav-item-notebtn';
+btn.type = 'button';
+btn.textContent = noteTxt ? '编辑备注' : '＋ 写备注';
+btn.addEventListener('click', (e) => { e.stopPropagation(); favNoteEdit(f); });
+box.appendChild(btn);
+m.appendChild(box);
+}
+}
 favList.appendChild(m);
 }
 }

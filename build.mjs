@@ -1,4 +1,4 @@
-﻿// ===== 组装脚本 =====
+// ===== 组装脚本 =====
 // 把 src/ 下的模板 + 按页面拆分的 CSS + 按功能拆分的 JS
 // 拼装成单个可直接双击打开的 index.html（完整功能）。
 // 用法：在 mochi 目录下运行  node build.mjs
@@ -112,8 +112,8 @@ function minifyCss(code) {
 }
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
-const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
+const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css', 'entry-quiz.css'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'entry-quiz.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'fav-reason-data.js', 'fav-reason.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
 
 // ===== PERF-PLAN 阶段 1：JS 外置化（2026-09-18）=====
 // 首开「3.8MB 内联 JS 主线程整段解析执行」是 iOS/中低端安卓卡顿的结构性大头
@@ -392,6 +392,7 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-10-16 #1557 收口补登记：工作树 build.mjs 是旧底，HEAD 已入库的 #1546/#1545 八针按 HEAD 原文补回（代码在 js/feed.js 均在位）====
   { name: '#1546a TA 发这条动态时主动贴一张的闸（该桌面 sticker 池非空＋朋友圈表情包类型闸开着＋掷中 fd-post-sticker；删＝作者点名的主动贴从贴纸层消失）', file: 'js/feed.js', needle: "if (g.stPool && g.stPool.length && feedTypeOn(cid, 'sticker') && Math.random() * 100 < cfg.postSticker) {" },
   { name: '#1546b 主动贴的载荷接 #1219 令牌升级链（漏接＝整张 dataURL 顶进权威键 feed-posts，过大键线后被剥图＝「照片消失只剩贴纸」那一族回流）', file: 'js/feed.js', needle: 'if (taStk) feedStickerTokUpgrade(post.id, taStk);' },
   { name: '#1546c 取生成器这一轮已算好的 sticker 池（零额外扫库，#931 卡顿族口径；改成再调一次 cardPool＝每次发动态多扫一遍全库）', file: 'js/feed.js', needle: 'stPool: uniqArr(pool.sticker)' },
@@ -811,10 +812,7 @@ const FIX_SENTINELS = [
   { name: '消息长按打开操作菜单（openMsgActionsAt 长按+轻点）', file: 'js/chat.js', needle: 'openMsgActionsAt' },
   { name: '群聊消息长按打开引用菜单（gcOpenMsgActions 长按+轻点）', file: 'js/group-chat.js', needle: 'gcOpenMsgActions' },
   { name: '错误记录双写 IndexedDB（readErrs 回退读取，防"最近错误：无"丢线索）', file: 'js/device.js', needle: 'idbSet(ERR_KEY' },
-  { name: '更新条防重复（ver-update-ack-ts 按版本免打扰 + showVerBar 跨通道收口）', file: 'js/pwa.js', needle: 'ver-update-ack-ts' },
-  { name: '#225 更新条一直重复提醒收口v2（showVerBar 弹条门加 verSeen 一版一弹：同版本只弹一次不按时间过期+弱网无 ts 不绕过；新版本立即弹无任何时间窗——站点主口径一天可部署十几次，v1 的 24h 时间窗已废）', file: 'js/pwa.js', needle: '!verShouldNotify(onlineTs) || verSeen(onlineTs)' },
-  { name: '#273 普通刷新自愈进新版（pageshow 冷加载对比云端版本，更新且本会话未尝试时 tryAutoUpgrade 走 PRECACHE_NOW+reload 自动进新版；session 守卫防死循环，失败退回更新条；字符串键压缩后仍在产物，比函数名锚稳）', file: 'js/pwa.js', needle: "'xy-home-v2:auto-upgrade-session'" },
-  { name: '#273 弱网刷新兜底（拉 version.json 连败弹「网络异常」更新条+重试刷新入口，防弱网下顶部刷新按钮消失）；字符串锚压缩后仍在产物', file: 'js/pwa.js', needle: "'网络异常，未能确认最新版本'" },
+  { name: '#273 普通刷新自愈进新版（pageshow 冷加载对比云端版本，更新且本会话未尝试时 tryAutoUpgrade 走 PRECACHE_NOW+reload 自动进新版；session 守卫防死循环；字符串键压缩后仍在产物，比函数名锚稳）', file: 'js/pwa.js', needle: "'xy-home-v2:auto-upgrade-session'" },
   { name: '#279 自动升级防打断（重载落地前复核用户活动：auto 且用户已交互且前台时放弃重载退回更新条，防弱网预取几十秒后砸进会话中途「页面自己重开」；删/改该条件即断）', file: 'js/pwa.js', needle: 'auto && !autoReloadAllowed()' },
   { name: '公用拍一拍选中态去虚线统一（poke-tab-pub.sel 实心）', file: 'css/dark.css', needle: 'poke-tab-pub.sel { background:var(--ink)' },
   { name: '吃什么切菜单可直接选指定菜单（eatSwitchRenderChips 直选，不复用转盘）', file: 'js/p2-features.js', needle: 'function eatSwitchRenderChips' },
@@ -962,6 +960,18 @@ const FIX_SENTINELS = [
   { name: '应用锁设置页开关行（template.html #applock-en，防并行会话把设置入口改丢）', file: 'template.html', needle: 'id="applock-en"' },
   { name: '开屏问答门（applock.js 问答题门禁，防并行会话删除——隐私门即失效）', file: 'js/applock.js', needle: 'applock-qaskip' },
   { name: '开屏问答门设置行（template.html #applock-qa-en，防并行会话把入口改丢）', file: 'template.html', needle: 'id="applock-qa-en"' },
+  { name: '#1550 入站问卷闸门本体（开屏点击进入后跳转的整页问卷，答对全部题目才放行；删掉即泄露密码者可直接进入）', file: 'js/entry-quiz.js', needle: 'window.mochiEntryQuizGate = function' },
+  { name: '#1550 入站问卷接入开屏收尾（clock.js finishEnter 里未放行则先跳问卷，锚在逻辑不在名字）', file: 'js/clock.js', needle: 'window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()' },
+  { name: '#1550 入站问卷页与开屏同层（显示期间收起 .splash-box/.splash-footcard，防问卷被开屏内容盖住或另起遮罩改图层）', file: 'css/entry-quiz.css', needle: '.splash.eqz-active .splash-footcard { display: none; }' },
+  { name: '#1550 入站问卷放行根键进 migrateLegacy 排除清单（entry-quiz-pass 全局根键不被迁进 default 并删根键，否则每次刷新都要重答）', file: 'js/contacts.js', needle: "'entry-quiz-pass'," },
+  { name: '#1551 公告第 8 章「电子网站会连上鬼」传闻改写（在线权威源 notice.json，回到「不存在这种事」旧口径＝作者改写被回退）', file: 'pwa/notice.json', needle: '"b": "本站没有灵异机制。' },
+  { name: '#1551 公告第 8 章离线兜底同口径（template.html 静态块，两源必须同改）', file: 'template.html', needle: '<b>本站没有灵异机制。</b>' },
+  { name: '#1551 入站问卷新增第 8 章传闻准入题（entry-quiz.js 末位题，删掉＝泄露密码者不答该章也能进）', file: 'js/entry-quiz.js', needle: '关于「电子网站会连上鬼」的传闻' },
+  { name: '#1553 入站问卷第 8 章传闻题已删「传闻当事实」干扰项（作者直派，回流＝那条否认机制、说不能退出的选项又出现）', file: 'js/entry-quiz.js', needle: '本站确实存在灵异机制', absent: true },
+  { name: '#1553 入站问卷答错时写明（含多选「本题共 N 个正确答案」；#1556 起提示统一放提交后的结果页，删掉＝只报题号、用户不知道多选要选几项）', file: 'js/entry-quiz.js', needle: '个正确答案' },
+  { name: '#1556 入站问卷答题页不显示对错＋结果页可再答一次（作者直派防本页试错；删掉＝提交后在题目上标对错、可改答案作弊）', file: 'js/entry-quiz.js', needle: '会清空全部已选、从头重答' },
+  { name: '#1556 入站问卷页头左上角返回开屏（删掉＝进了问卷只能硬答、无法退出）', file: 'js/entry-quiz.js', needle: '‹ 返回开屏</button>' },
+  { name: '#1556 入站问卷通过页明示「只需答一次，以后不再出现」（删掉＝作者要求的放行说明丢失）', file: 'js/entry-quiz.js', needle: '此答题只需答一次' },
   { name: '#319 cardlock-state 进 migrateLegacy 排除清单（解锁状态全局根键不被迁进 default 并删根键，否则输对密码刷新后闸门仍全锁）', file: 'js/contacts.js', needle: "'cardlock-state'," },
   { name: '#319 card-lock 存量自愈（被误迁进 default 的解锁状态启动时搬回根键，老用户不用重输密码）', file: 'js/card-lock.js', needle: "localStorage.getItem('xy-home-v2:default:cardlock-state')" },
   { name: '#389 cardlock 解锁状态走 xyStore（写日志+IDB+每键标记+自愈链，修 Edge/荣耀杀进程回滚 localStorage 解锁态退回 locked→密码框重弹，多机型同因零机型分支）', file: 'js/card-lock.js', needle: "addEventListener('mochi-wrj-heal'" },
@@ -3611,14 +3621,18 @@ const FIX_SENTINELS = [
   { name: '#1536c 备份卡琥珀形态（#976 定的「需要你操作」族；改色＝占用橙/红名额、打乱四色语义）', file: 'css/base.css', needle: '.splash-alert.splash-backup { background:#fdf3e0;' },
   { name: '#1536d 数据不互通卡橙形态（#976 定的「须知/提醒」族）', file: 'css/base.css', needle: '.splash-alert.splash-storesplit .splash-alert-t { color:#c2410c;' },
   { name: '#1536e milk 澄清句（缩短版并入许可块；删或改回长版＝作者直派的排版变更回流）', file: 'template.html', needle: '本站不是 milk 字卡代码的二改版本，是从零开始独立编写的字卡传讯二创作品。' },
+  // ==== 2026-10-16 #1557 收口补登记（续）：HEAD 已入库的 #1543/#1544/#1547 六针按 HEAD 原文补回（代码在 css/base.css 与 src/template.html 均在位）====
   { name: '#1543a 开屏解锁弹窗可见性修复（删＝开屏点【输入密码解锁】弹层被启动期 visibility:hidden 的 .phone 连带藏掉＝图层不在开屏）', file: 'css/base.css', needle: '.splash.under-modal ~ .phone { visibility:visible;' },
   { name: '#1544a 开屏灵感处星言雏形说明（删＝「部分功能雏形参考星言」标注从开屏灵感块消失，作者直派补全）', file: 'template.html', needle: '参考了7月时我做的第一个字卡——星言' },
-  /* ==== 2026-10-13 #1547（作者直派「你为什么把我的公告里灵感借鉴里的内容删减了」）：#1503 搬品牌卡时把灵感来源清单压成一行摘要，四类明细从站内消失。
-     四针＝被压掉的四类各钉一枚（编号／两条领句／落款话），任一被再次「摘要化」即红。needle 均取正文行片段，注释里不复读（防哑针）==== */
   { name: '#1547a 灵感清单里「换头像」一条（摘要版整条没写；删＝这条出处在站内又消失）', file: 'template.html', needle: '换头像：灵感来自看到网络上有人提议' },
   { name: '#1547b 灵感清单「网络已有类似想法」领句（删＝借鉴与独立设计两层区分又并成一句）', file: 'template.html', needle: '以下功能源于网络上已有的类似想法，但设计均由我独立完成' },
   { name: '#1547c 灵感清单落款「尊重出处」句（作者原文收尾；删＝署名条款里那句最基本的尊重又被压掉）', file: 'template.html', needle: '标注来源是对创作者最基本的尊重' },
   { name: '#1547d 公用＋专享字卡模式带来源小红书号（摘要版只留名字不留号；删＝编号又没了）', file: 'template.html', needle: '公用字卡+专享字卡模式：借鉴自小红书 @默玉（8012400317）' },
+  // ==== 2026-10-16 #1557（作者直派「开屏的以下内容，没有设计排版啊，很丑」）：品牌卡「许可 · 署名 · 灵感来源」块排版重做
+  //   ＝标题徽记行＋条款/清单两段浅底面板＋来源行圆点标记＋落款虚线段；内容零改动（verify-976 S8.brandcard 与 #1547a~d 仍守句子），
+  //   两针守排版结构本身（选择器链为逻辑锚点：换回平铺一行行即消失）。见 FIX-REGRESSION.md #1557。
+  { name: '#1557a 许可块排版面板结构（删＝许可条款/灵感清单退回 9px 居中灰字平铺，排版重做回流）', file: 'template.html', needle: 'class="splash-lic-panel splash-lic-credits"' },
+  { name: '#1557b 许可块清单圆点标记（删/改平＝来源清单失去层级标记，#1557 排版重做回流）', file: 'css/base.css', needle: '.splash-license .splash-lic-credits .splash-lic-item::before' },
   // #1455 退役：#976 起配色由红(#c22b27)改橙(#c2410c)，live 版 #739h 已在位（build.mjs:4574，needle ".splash-alert.splash-browser .splash-alert-t { color:#c2410c;"），本条为旧底副本
   // ===== #753（2026-09-18 用户直派：iPhone 13 Pro Max Safari「聊天界面发不了图片，点插入图片打开的是
   //   文件管理页面而不是相册」，明说其他机型也有）——#677/#717/#738 同族的**第四波**，本次是「聊天图片
@@ -4201,8 +4215,8 @@ const FIX_SENTINELS = [
   { name: '#958b 周期取「反复出现的间隔」（删/改回直接 min＝4ms 伪周期回流；样本不足仍回退最小值）', file: 'js/perf-check.js', needle: 'minD = repMin || anyMin;' },
   /* ==== #965 「用户一直用旧版本、拿旧版 bug 反馈」根治＝自动升级不再依赖用户点更新条：用户已交互时不再放弃自动升级，改为「待换版」登记、页面转后台（切走/回桌面/锁屏）时 reload 落地；前台轮询发现新版也走自动通道；会话守卫改按版本 ts ==== */
   { name: '#968a 待换版登记函数（删＝用户已交互时自动升级又退回更新条，多数用户不点＝长期旧版回流）', file: 'js/pwa.js', needle: 'function armAutoReloadWhenHidden()' },
-  { name: '#968b 自动通道落地时登记待换版而非只弹条（删/改回只 showVerBar＝不打断但也永远不自动升）', file: 'js/pwa.js', needle: 'if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }' },
-  { name: '#968c 前台轮询发现新版也走自动通道（删＝长开会话只能等用户点条，几天不关就几天旧版）', file: 'js/pwa.js', needle: 'if (ts > baseTs) { if (!tryAutoUpgrade(ts)) showVerBar(ts); }' },
+  { name: '#968b 自动通道落地时登记待换版而非只弹条（删/改回只 showVerBar＝不打断但也永远不自动升）', file: 'js/pwa.js', needle: 'if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); return; }' },
+  { name: '#968c 前台轮询发现新版也走自动通道（删＝长开会话只能等用户点条，几天不关就几天旧版）', file: 'js/pwa.js', needle: 'if (ts > baseTs) tryAutoUpgrade(ts);' },
   { name: '#968d 自动升级守卫按版本 ts（改回每会话一次＝同一会话第二次部署不自动升）', file: 'js/pwa.js', needle: 'if (_ts > 0 && last >= _ts) return false;' },
 /* ==== 2026-09-20 #931 朋友圈【贴纸】面板「点开非常卡顿」根治（用户直派，明说多机型同现、勿机型分支）：原实现把当前视图全部贴纸一次性 img.src=<20~68KB dataURL> 同步挂进 DOM（150 张库实测冷开同步 175ms、点「全部」365ms、面板标记 3.03MB、关掉再开 0/150 节点被复用＝每次从零重解码，重开 292ms），而聊天表情面板同一环境同一库走 #435 进视口补 src+分批泵 / #662 同身份节点回收 / #457 内容签名短路只要 60ms/8ms。修法＝把聊天侧那套已实证机制接到本面板（feed.js 自持 IntersectionObserver、图源只挂 JS 引用不进 DOM 属性、一条委托代替上百监听、内容未变整格不重建），零 UA/机型/内核判断。验证 tools/verify-feed-sticker-perf.mjs 绿 16/16、纯 HEAD 红 10 条全落缺陷面；相邻回归 verify-feed-sticker-panel 21/21、verify-feed-sticker-always 20/20、verify-sticker-dup 35/35、verify-feed-comment-media 18/18、verify-feed-personal-page 14/14、verify-hide-ta-sticker/verify-sticker-retract/verify-feed-sticker-pos/verify-sticker-double-send 与 HEAD 逐项同值。 ==== */
 { name: '#931a 贴纸图交给聊天侧同一条分批泵（删＝回到一次性全量挂 src，「点开卡顿」当场复发）', file: 'js/feed.js', needle: 'window.mochiEmojiLazyEnqueue(img, src)' },
@@ -4426,11 +4440,8 @@ const FIX_SENTINELS = [
 { name: '#942f activate 补拉走慢路径（删＝新 SW 激活后当前缓存仍缺 index、导航回退退回旧缓存）', file: 'pwa/sw.js', needle: "fetchIndexRes('./index.html', INDEX_NETWORK_TIMEOUT)" },
 // #944 「正在下载新版」全程反馈＋失败如实告知（用户直派「碰到了还是没有进入新版需要用户〔提示〕，不然用户永远停到旧版，以为新版又有bug」）：#942 让 SW 弱网慢慢传完后，PRECACHE_DONE 可能一两分钟后才来——旧 refreshNow 却在 2.5s 无条件重载（总在下载完成前把用户重载回旧缓存）且点击即写「本版本已确认」ack＋弹条即记 notify＝下载失败后本版本永不再提醒＝静默卡旧版、用户以为新版有 bug。修法＝手动通道①点击即出进度（按钮「正在下载…」＋条文案写明弱网可能要一两分钟）；②删 2.5s 假重载、等 PRECACHE_DONE（上限 180s），超时如实告知「新版没下载完」＋按钮变「重试刷新」＋回滚 notify 记录让本版本之后能再次提醒；③ack 挪到下载确认成功后才写。自动通道保持 #273 时代 2.5s 静默行为。验证 tools/verify-sw-slow-update.mjs（P 组）。
 // #944 「正在下载新版」全程反馈＋失败如实告知（用户直派「碰到了还是没有进入新版需要用户〔提示〕，不然用户永远停到旧版，以为新版又有bug」）：#942 让 SW 弱网慢慢传完后，PRECACHE_DONE 可能一两分钟后才来——旧 refreshNow 却在 2.5s 无条件重载（总在下载完成前把用户重载回旧缓存）且点击即写「本版本已确认」ack＋弹条即记 notify＝下载失败后本版本永不再提醒＝静默卡旧版、用户以为新版有 bug。修法＝手动通道①点击即出进度（按钮「正在下载…」＋条文案写明弱网可能要一两分钟）；②删 2.5s 假重载、等 PRECACHE_DONE（上限 180s），超时如实告知「新版没下载完」＋按钮变「重试刷新」＋回滚 notify 记录让本版本之后能再次提醒；③ack 挪到下载确认成功后才写。自动通道保持 #273 时代 2.5s 静默行为。验证 tools/verify-sw-slow-update.mjs（P 组）。
-{ name: '#944a 进度文案（删＝点了没反应，用户以为新版有 bug）', file: 'js/pwa.js', needle: "setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');" },
-{ name: '#944b 失败如实告知＋可重试（删＝超时后无声无息停在旧版）', file: 'js/pwa.js', needle: "setUi('新版没下载完（网络太慢）。已取消本次刷新，网络好转后会再次提醒；也可点「重试刷新」再试', '重试刷新');" },
-{ name: '#944c ack 挪到下载确认成功后（删＝下载失败也写「已确认」，本版本从此不再提醒）', file: 'js/pwa.js', needle: 'if (!auto && ackTs > 0) verMarkAck(ackTs);' },
-{ name: '#944d 失败回滚 notify 记录（删＝verSeen 把本版本记成已提醒，静默卡旧版）', file: 'js/pwa.js', needle: "localStorage.removeItem('xy-home-v2:ver-update-notify');" },
-{ name: '#944e 手动点击传入版本 ts（删＝成功路径拿不到 ackTs，ack 永不写＝每次刷新都重弹）', file: 'js/pwa.js', needle: 'refreshNow(false, 0, onlineTs)' },
+{ name: '#944a 进度文案（删＝点了没反应，用户以为新版有 bug）', file: 'js/pwa.js', needle: "toast('开始下载新版，完成后会自动刷新…网络慢时可能需要一两分钟，请保持页面打开');" },
+{ name: '#944b 失败如实告知＋可重试（删＝超时后无声无息停在旧版）', file: 'js/pwa.js', needle: "toast('新版没下载完（网络太慢），已取消本次刷新；稍后可到 设置 → 关于 →「检查更新」再试');" },
 { name: '#944f 手动等待上限常量（删＝回到 2.5s 假重载，总在下载完成前落回旧缓存）', file: 'js/pwa.js', needle: 'const VER_DL_WAIT = 180000;' },
 // #945 「换了 Chrome 还是无法导出/下载 docx、显示被浏览器拦截」（红米 K70 实报）：追问弹窗「换一种方式」的换路在分享面板不可用的壳里只剩 data: 直下，而它写死 >2MB 直接放弃＝真实备份（几乎都 >2MB）必落「拦住了网页下载」死 toast，且 toast 承诺的「点【复制】」按钮从不存在＝用户彻底没辙（截图顶栏 X＋网址条＝内置小窗/壳，非 Chrome 本体，一并提供自救指引）。修法零机型分支：①data: 直下上限 2MB→30MB；②data: 失败后补一发 blob: a[download]（两条取数路径互补）；③全灭改弹求救弹窗（分辨内置小窗 vs 系统浏览器真身＋真【复制网址和设备信息】钮）。验证 tools/verify-docx-export.mjs E13 换锚 30MB。
   // ===== #951 切换桌面联系人后进聊天仍闪一下（＝#893 症状家族新通道；权威预读已落定却把整窗重建留到点开那一瞬）=====
@@ -4610,9 +4621,10 @@ const FIX_SENTINELS = [
   { name: "#1017f 信息诊断【保活现场】报「后台服务/最近通知通道」（删＝「测试说发了系统没弹」又缺分层判据）", file: "js/device.js", needle: "最近通知通道=" },
   /* ==== 2026-09-22 #1018 群聊「群聊设置」面板内的建群/加成员/头像互动点了没反应（用户实报「聊里的默认群聊无法删除和管理里面的成员」＋「无法新建群聊，功能失效」）：.gc-members-panel 这一族浮层里有三条入口开在「群聊设置」整页面板内部（群聊 tag 的新建群聊行 / 成员 tag 的 ＋添加成员 / 形象 tag 的头像互动·昵称互动），而设置面板 z-index 210 > 本组 200、两者又同在 #page-group-chat 这个 .page（z-index:2 自成层叠上下文）里 ⇒ 本组被整块盖住＝选择器开在面板背后（群名弹窗照常弹，因为 .modal-mask 是 .page 的兄弟）。修法＝本组恒在设置面板之上（230）；顺序不变式由 tools/verify-1018-gc-picker-above-settings.mjs 按「浮层 z-index > 设置面板 z-index」相对判据钉住。本批同时把 #1016 的 src 侧缺失补回（它当时只提了产物，见 WORKLOG）。 ==== */
   { name: '#1018a 群聊浮层恒在群聊设置整页面板之上（改回 200＝设置面板盖住成员选择器，设置面板内的建群/加成员/头像互动「点了没反应」整族复发）', file: 'css/group-chat.css', needle: 'z-index: 230; overflow: hidden; display: flex; flex-direction: column;' },
-  /* ==== 2026-09-22 #1019 顶卡新增第 5 段（用户直派文案，逐字照抄）：①「字卡回复高频和通话高频都可以自行调整」把两条常被当成故障的频率入口一次讲清（字卡回复频率＝设置 → 回复设置；来电频率＝设置 → 通话设置，两条都在「功能说明」的入口说明里），②「不要因为我一直在帮人修设备bug和强调可以帮人修不同手机型号的设备兼容bug，就把我的功能和设计也当成bug」＝作者对「把自己的功能与设计当 bug 报／当 bug 改」的当面说明（与停更公告「停更后不会再帮人调不同人的设备型号的兼容 bug」同口径），③「可自行在功能说明里查看」指向已存在的说明页（settings-help.js 的「回复设置」「通话设置」两行）。本段只是文案：不新增行为、不改任何设置入口，顶卡仍是 .splash-bigwarn 静态 DOM。 ==== */
-  { name: '#1019a 顶卡第 5 段在位（删/改写＝用户直派文案被覆盖，「字卡回复高频和通话高频都可以自行调整」与「不要把功能和设计当成 bug」两层口径同时消失）', file: 'template.html', needle: '字卡回复高频和通话高频都可以自行调整。' },
-  { name: '#1019b 顶卡第 5 段守住作者原文（删＝「设备兼容bug」那半句被当成多余话删掉，作者点名要说的意思丢了）', file: 'template.html', needle: '就把我的功能和设计也当成bug啊。已无力解释，可自行在功能说明里查看。' },
+  /* ==== 2026-09-22 #1019 顶卡新增第 5 段（用户直派文案，逐字照抄）：①「字卡回复高频和通话高频都可以自行调整」把两条常被当成故障的频率入口一次讲清（字卡回复频率＝设置 → 回复设置；来电频率＝设置 → 通话设置，两条都在「功能说明」的入口说明里），②「不要因为我一直在帮人修设备bug和强调可以帮人修不同手机型号的设备兼容bug，就把我的功能和设计也当成bug」＝作者对「把自己的功能与设计当 bug 报／当 bug 改」的当面说明（与停更公告「停更后不会再帮人调不同人的设备型号的兼容 bug」同口径），③「可自行在功能说明里查看」指向已存在的说明页（settings-help.js 的「回复设置」「通话设置」两行）。本段只是文案：不新增行为、不改任何设置入口，顶卡仍是 .splash-bigwarn 静态 DOM。
+     2026-10-16 用户直派改写第 5 段：②整句删去（作者明确那半句不要了），①保留并句内补指路、末尾点明可查功能说明；同批 #1019a/#1019b 合法重锚到新文案（同名换 needle，详见 FIX-REGRESSION.md #1019b 行）。 ==== */
+  { name: '#1019a 顶卡第 5 段在位（删/改写＝用户直派文案被覆盖，「字卡回复高频和通话高频都可以自行调整」与「不要把功能和设计当成 bug」两层口径同时消失）', file: 'template.html', needle: '字卡回复高频和通话高频都可以自行调整</strong>' },
+  { name: '#1019b 顶卡第 5 段守住作者原文（删＝「设备兼容bug」那半句被当成多余话删掉，作者点名要说的意思丢了）', file: 'template.html', needle: '可自行在功能说明里查看详细。' },
   /* ==== 2026-09-22 #1046 顶卡新增第 6 段（用户直派文案，逐字照抄，同 #1019 追加法）：①重申工具属性与「好不好用取决于个人」；②对「任何设置都没自己调整就说不好用/混乱」的统一当面答复＝开屏里已经提示和强调过、需按个人使用自行设置（可调入口即本卡第 3/4 段与必读摘要第 2 条，不新增行为）。同批把顶卡行距/留白轻微收紧（字号/颜色/内容不动），否则 6 段卡高 495px 会把 #864 指引条挤出首屏（top 885 > vh 844，verify-973 S6 与 verify-splash-about-tip B6 双红）。==== */
   { name: '#1046a 顶卡第 6 段在位（删/改写＝「没自己调整任何设置就报不好用/混乱」的当面答复口径消失）', file: 'template.html', needle: '如果说任何设置都没有自己调整' },
   { name: '#1046b 顶卡第 6 段守住作者原文收尾（删＝「开屏里已经提示和强调过」那半句被当成多余话删掉，答复的依据没了）', file: 'template.html', needle: '开屏里已经提示和强调过了需按个人使用自行设置' },
@@ -4750,7 +4762,7 @@ const FIX_SENTINELS = [
   { name: '#995e 新卡仍排在「公告完」之前（挪出滚动正文尾＝读者滑到页尾才看的那段落点丢失，卡片被挤出强制页）', file: 'template.html', needle: '<div class="splash-mandatory-end">—— 公告完 ——</div>' },
   // #1447 退役：本条是 #1013「换锚为以未滚动内容坐标为基准」时的重锚残留——旧 needle 已不在 src、也不在产物里（旧写法缺 scrollTop 那一项），故长期同时触发「锚点指错」与「产物缺失」两条假红。活锚见上方那条 name 带「#1013 起」后缀的 #989a
   { name: '#992a 转后台那一刻先看保活/通知开关（删＝一开保活切走就被换版重载，保活音频被拆、回开屏问答门，主诉复发）', file: 'js/pwa.js', needle: 'if (bgLivenessOn()) return;' },
-  { name: '#992b 自动通道已在后台也不换版（删＝后台预取完成时页面恰在后台就照样重载）', file: 'js/pwa.js', needle: 'if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }' },
+  { name: '#992b 自动通道已在后台也不换版（删＝后台预取完成时页面恰在后台就照样重载）', file: 'js/pwa.js', needle: 'if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); return; }' },
   { name: '#992c 闸门读的是全局键 bg-keepalive / bg-notify（改读别的键/内存变量＝开关开着也拦不住）', file: 'js/pwa.js', needle: "return st.get('bg-keepalive') === '1' || st.get('bg-notify') === '1';" },
   { name: '#1000a 开屏锁卡静态兜底提示明确指路第一页章节（删/回退成「答案就在开屏里可以找到」＝用户又去第二页公告的日期里猜）', file: 'index.html', needle: '答案就在开屏第一页的章节目录里' },
   { name: '#1000b 必读摘要高亮条指路第一页章节＋排除第二页日期（删＝摘要退回只说「开屏目录」、第二页日期误导复发）', file: 'index.html', needle: '生日写在开屏第一页的章节目录里——点开第一页顶部的「目录」', absent: true }, // #1216 摘要块整块撤除＝转删除型（暗号口径仍在锁卡 tip 与「许可」章）
@@ -4775,6 +4787,23 @@ const FIX_SENTINELS = [
   { name: '#1449e 二传二改说明标题升为四点·离线兜底', file: 'template.html', needle: '「二传与二改说明」卡' },
   { name: '#1449f 第四条·离线兜底（开屏章内）', file: 'template.html', needle: '作者只有两个账号：小红书@言序' },
   { name: '#1449g 第四条·设置 → 关于「二传与二改说明」卡', file: 'template.html', needle: '四、二改可以自加云存储，但请不要公开云存储</b>——这个网站的存储都是保存在个人设备本地的' },
+  // ==== #1548 开屏公告第 1 章补「关于二改 · 作者态度」段（2026-10-15 作者直派「开屏公告里还缺少关于二改 作者的态度，帮我捋捋文字加进公告」）====
+  //   两处落点：① 开屏公告第 1 章「关于转载与二次创作」末尾追加（在线权威源 pwa/notice.json ＋ 离线兜底 template.html 逐字一致，同 #1449 两源各钉）；
+  //   ② 设置 → 关于「二传与二改说明」卡在四点要求之后补同口径一段。
+  //   a 删＝联网用户开屏看不到这段态度，「停止公开代码 / 收回二改权限」的底线整条落空；b 删＝断网/弱网用户看不到（两源分叉）；c 删＝设置 → 关于那份同口径丢。
+  { name: '#1548a 开屏公告第 1 章「二改态度」段·在线权威源', file: 'pwa/notice.json', needle: '"hl": "现在借鉴和二改都是随意开放的，我一直都说可以用、也没有管过。' },
+  { name: '#1548b 「二改态度」段·离线兜底静态 DOM', file: 'template.html', needle: '<p class="splash-item splash-hl">现在借鉴和二改都是随意开放的，我一直都说可以用、也没有管过。' },
+  { name: '#1548c 设置 → 关于「二传与二改说明」卡同口径段', file: 'template.html', needle: '另外 · 关于二改的态度</b></div>' },
+  // ==== #1549 开屏「免费 · 署名 · 防倒卖」卡文案改写（2026-10-15 作者直派「修改为：…」）====
+  //   改动两点：① 账号事实「作者不玩抖音、不回消息」→「作者不常看抖音」；② 末段拆成两行——「搬运、二传本站链接到公开平台（如小红书、抖音等）时，必须标注作者署名：…」
+  //   ＋「仅分享网站聊天记录、不涉及搬运字卡链接的随意。禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——…」
+  //   同批落点：① 在线权威源 pwa/notice.json（alert/alert2）；② 离线兜底静态卡 template.html（四处 <p>，含新增独立一行）；③ clock.js 兜底常量 texts.alert/alert2
+  //   （同时是 设置页底部 set-alert 块的文案源）；④ pwa.js 看门狗常量 W；⑤ 设置 → 关于「联系作者 / 反馈」卡（personalize.js 同步「不常看抖音」事实）。
+  //   ③④ 属机制兜底、文案与①逐字相同（无法在各自文件里取到唯一 needle），改由 verify-anti-scam-backfill 的 OFFICIAL_JSON 底稿同批对齐后覆盖，故不单钉。
+  //   a 删＝联网用户与回填重建的「搬运到公开平台必须署名」整条落空；b 删＝断网/弱网用户看不到新排版（两源分叉）；c 删＝关于页又写回「不玩抖音」。
+  { name: '#1549a 防倒卖卡末段「搬运到公开平台必须署名」·在线权威源', file: 'pwa/notice.json', needle: '"alert2": "搬运、二传本站链接到公开平台（如小红书、抖音等）时，必须标注作者署名' },
+  { name: '#1549b 防倒卖卡新增「搬运必须署名」独立行·离线兜底静态 DOM', file: 'template.html', needle: '<p><strong>搬运、二传本站链接到公开平台（如小红书、抖音等）时，必须标注作者署名：小红书 @言序（1842523578）</strong></p>' },
+  { name: '#1549c 设置 → 关于「联系作者 / 反馈」卡「不玩抖音」事实修正为「不常看抖音」', file: 'js/personalize.js', needle: '作者不常看抖音，账号仅用于发布本站链接。' },
   { name: '#1373a 停更时间线卡在第二页最顶（删＝作者停更口径与「两页都写着」那句指路同时失去落点）', file: 'index.html', needle: 'id="splash-mandatory-timeline"' },
   { name: '#1373b 停更后的使用建议卡在（删＝作者定稿那段建议从产物里消失）', file: 'index.html', needle: 'id="splash-mandatory-usage-advice"' },
   { name: '#1373c 删除型：旧的「排除第二页日期」句式不得回流静态兜底（回流＝与第二页顶上写着的答案自相矛盾）', file: 'index.html', needle: '不是第二页「进入前 · 作者必读公告」上那两个日期', absent: true },
@@ -5716,7 +5745,7 @@ const FIX_SENTINELS = [
   { name: '#1351d 统一入口那条腿的回调异常如实出账', file: 'index.html', needle: "(input && input.id) || 'pick', eCb2, files.length" },
   { name: '#1351e 弹窗「确定」那条腿的回调异常如实出账', file: 'index.html', needle: "o.entry || 'modal-ok', e9, files.length" },
   { name: '#1351f 判出线上有新版就去请 sw.js 重装一次（全站此前没有一处 registration.update()：新包只能等浏览器自己的更新检查，规范上限 24h 且只在导航时做，而桌面 PWA 一开几天不重新导航＝上一批修好的门对这台手机等于没修过）', file: 'js/pwa.js', needle: "if (r && typeof r.update === 'function') r.update();" },
-  { name: '#1351g 换版落地时机一字未动（#965 待换版登记／#992 保活闸门／手动更新条照旧；本批只把「取新包」这一脚补上，改回恒 update＝后台保活被反复打断，删掉＝送达这一半又回到赌用户点条）', file: 'js/pwa.js', needle: 'if (ts > baseTs) askSwUpdate();' },
+  { name: '#1351g 换版落地时机一字未动（#965 待换版登记／#992 保活闸门／手动更新条照旧；本批只把「取新包」这一脚补上，改回恒 update＝后台保活被反复打断，删掉＝送达这一半又回到赌用户点条）', file: 'js/pwa.js', needle: 'askSwUpdate(); // FIX 2026-09-28 #1351c' },
   { name: '#1358a 桌面「我/TA」两格昵称列进回填后重绘清单（删＝昵称只剩库里一份的设备上那一格整场停在模板字面量＝OPPO Reno14 实报「退出就刷新成原始状态」）', file: 'js/personalize.js', needle: "paintDeskNames(); } catch (e) {} // #1358a" },
   { name: '#1358b 桌面昵称的回退值问 taWord()（改回写死「TA」＝称呼设了他/她主页永远看不到，实报「设置了但是没用，每次都是TA」）', file: 'js/personalize.js', needle: "return key === 'lbl-partner' ? (window.taWord ? window.taWord() : 'TA') : '我';" },
   { name: '#1358c 称呼变更当场重绘桌面昵称（删＝要切一次桌面才跟随）', file: 'js/personalize.js', needle: "document.addEventListener('ta-word-changed', function (ev) {" },

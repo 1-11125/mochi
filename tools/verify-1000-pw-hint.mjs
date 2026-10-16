@@ -45,7 +45,7 @@ const buildSrc = read('build.mjs');
 const OLD_JS_HINT = '生日写在开屏公告的目录里';
 const OLD_TPL_HINT = '生日写在开屏目录里';
 const OLD_EXCL = '不是第二页「进入前 · 作者必读公告」上那两个日期';
-const PAGE2 = '第二页最顶那张时间线卡都写着';
+const PAGE2 = '第 2 章「时间线与自修方法」';
 
 check('S1 旧口径已从密码侧源码消失（删除型：把答案指向「开屏公告」的说法不得回流）',
   count(clockSrc, OLD_JS_HINT) === 0 && count(appSrc, OLD_JS_HINT) === 0,
@@ -81,8 +81,8 @@ const exclHits = { template: count(tpl, OLD_EXCL), notice: count(noticeSrc, OLD_
 check('S7a 旧那句「排除第二页日期」在四个源里归零（2026-09-28 换口径：时间线卡上了第二页顶，这句会变成误导）',
   exclHits.template === 0 && exclHits.notice === 0 && exclHits.clock === 0 && exclHits.applock === 0,
   JSON.stringify(exclHits));
-check('S7b 每个入口都写明「第一页的章节目录里和第二页最顶那张时间线卡都写着」（#1501 起提醒面摘除＝clock 2 / applock 3 定点；摘要侧随底本有无，取区间）',
-  page2Hits.clock === 2 && page2Hits.applock === 3 && page2Hits.template >= 2 && page2Hits.notice <= 1,
+check('S7b 每个入口都写明「第 2 章「时间线与自修方法」」（合并两页后指路改为章节编号；clock 2 / applock 3 定点；template 侧锁卡 tip ≥ 1；notice 侧不含指路文案）',
+  page2Hits.clock === 2 && page2Hits.applock === 3 && page2Hits.template >= 1 && page2Hits.notice === 0,
   JSON.stringify(page2Hits));
 check('S8 密码与暗号互指仍在（同一串 6 位数字，两个入口都用它）',
   clockSrc.includes('这个密码与开屏问答页的「暗号」是同一个（同一串 6 位数字）：在开屏问答页点「输暗号跳过问答」用的也是它。') &&
@@ -145,8 +145,8 @@ const tip = await page.evaluate(() => {
   const t = document.getElementById('splash-cardlock-tip');
   return t ? t.textContent : '';
 });
-check('B1 开屏锁卡 tip 渲染出来就带指路（第一页章节 + 两页都写着 + 两个入口同码）',
-  tip.includes('开屏第一页的章节目录里') && tip.includes('第二页最顶那张时间线卡都写着') && tip.includes('「暗号」是同一个'),
+check('B1 开屏锁卡 tip 渲染出来就带指路（第一页章节 + 第 2 章时间线 + 两个入口同码）',
+  tip.includes('开屏第一页的章节目录里') && tip.includes('第 2 章「时间线与自修方法」') && tip.includes('「暗号」是同一个'),
   tip.slice(0, 46));
 
 const summary = await page.evaluate(() => {
@@ -163,14 +163,14 @@ check('B2 必读摘要块在渲染后的开屏里不存在（#1216 用户直派�
 const page1Text = await page.evaluate(() => { const b = document.getElementById('splash-box'); return (b ? b.textContent : '').replace(/\s+/g, ''); });
 check('B3 第一页正文里确实写着那个日期、且是 4 位写法（0815 内测起）＝「在第一页的章节里找」与「原样写成 4 位数」都说谎不得',
   page1Text.includes('0815') && page1Text.includes('0812') && !/8\.15/.test(page1Text));
-// 提示不说谎②（2026-09-28 换口径后翻面）：既然九处指路都说「第二页最顶那张时间线卡也写着」，第二页顶上就必须真能看到那个日期
+// 提示不说谎②（合并两页后翻面）：指路说「第 2 章「时间线与自修方法」写着」，第一页第 2 章就必须真能看到那个日期
 const page2 = await page.evaluate(() => {
-  const m = document.getElementById('splash-mandatory');
-  return m ? m.textContent : '';
+  const b = document.getElementById('splash-box');
+  return b ? b.textContent : '';
 });
-check('B4 第二页最顶那张卡确实写着 2026.08.12（＝「两页都写着」不说谎；旧写法判的是「第二页只有诱饵日期」，随换口径作废）',
-  page2.includes('2026.08.12') && page2.indexOf('2026.08.12') < page2.indexOf('2026.09.12'),
-  '页2 长度 ' + page2.length + '，含 08.12＝' + page2.includes('2026.08.12'));
+check('B4 第一页第 2 章确实写着 2026.08.12（＝指路「第 2 章」不说谎；合并两页后时间线在第一页）',
+  page2.includes('2026.08.12'),
+  '页1 长度 ' + page2.length + '，含 08.12＝' + page2.includes('2026.08.12'));
 
 // 输入解锁弹窗：仍带公式与指路；错码只提示不关窗（行为零回归）
 const btn = await page.$('#splash-cardlock-actions button');
@@ -181,8 +181,8 @@ const modal = await page.evaluate(() => {
   const mask = document.getElementById('modal-mask');
   return { text: st && !st.hidden ? st.textContent : '', open: !!mask && !mask.hidden };
 });
-check('B5 点「输入密码解锁」弹窗带指路（第一页章节＋两页都写着＋与暗号同码）',
-  modal.open && modal.text.includes('开屏第一页的章节目录里') && modal.text.includes('第二页最顶那张时间线卡都写着') && modal.text.includes('「暗号」是同一个'),
+check('B5 点「输入密码解锁」弹窗带指路（第一页章节＋第 2 章时间线＋与暗号同码）',
+  modal.open && modal.text.includes('开屏第一页的章节目录里') && modal.text.includes('第 2 章「时间线与自修方法」') && modal.text.includes('「暗号」是同一个'),
   modal.text.slice(0, 46));
 await page.evaluate(() => {
   const inp = document.getElementById('modal-input');

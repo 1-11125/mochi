@@ -25,9 +25,9 @@ const jsMA = rd('js/mobile-adapt.js');
 const jsPe = rd('js/personalize.js');
 check('S1 打字活动窗口·主链（900/650 皆认）', jsMA.includes('_aUserTypos < 900)) { var _hHold') || jsMA.includes('_aUserTypos < 650)) { var _hHold'));
 check('S2 vk 归零绕过毛刺窗', jsMA.includes('&& !(_aVkHonest && _aVkH >= 0 && _aVkH < 80))'));
-check('S3 轴量程 ±80·装载钳', jsMA.includes('kbgap: [-240, 240]'));
-check('S4 轴量程 ±80·安卓消费钳', jsMA.includes('return a ? Math.max(-240, Math.min(240, Math.round(+a.kbgap || 0))) : 0;'));
-check('S5 轴量程 ±80·面板滑杆', jsPe.includes("min: -240, max: 240,"));
+check('S3 轴量程 ±80·装载钳', jsMA.includes('kbgap: [-80, 80]'));
+check('S4 轴量程 ±80·安卓消费钳', jsMA.includes('return a ? Math.max(-80, Math.min(80, Math.round(+a.kbgap || 0))) : 0;'));
+check('S5 轴量程 ±80·面板滑杆', jsPe.includes("min: -80, max: 80,"));
 
 const candidates = [
   process.env.CHROME_PATH,

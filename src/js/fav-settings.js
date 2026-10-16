@@ -32,6 +32,16 @@
   window.saveFavCfg = function (k, v) { ls.set('fav-' + k, String(v)); };
 
   // ---- 设置页 UI ----
+  // toast 本文件私用（各功能页各自私有一份，与 chat-settings/accounting 等同构，不挂全局）
+  function toast(msg) {
+    let t = document.getElementById('cc-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+  }
+
   function showPage(id) {
     document.querySelectorAll('.page').forEach(p => p.hidden = true);
     const el = document.getElementById(id);
@@ -167,6 +177,26 @@
       if (page && !page.hidden) { syncUI(); renderStats(); }
     });
   } catch (e) {}
+
+  // ===== 【已收藏】标记显示开关（键 fav-tag-show，默认开）=====
+  // 关掉后聊天里不再注入 tag（见 chat.js 的 favTagShow/msgFavTagHtml：关闭时根本不进 DOM，
+  // 不是注入后隐藏——那样每次渲染仍要拼字符串，且开/关两态消息结构不一致）。
+  // 切换后要立刻把已在屏上的消息同步一次（不必等整窗重渲）。
+  const tagSw = document.getElementById('fav-tag-show');
+  function favTagOn() {
+    try { return ls.get('fav-tag-show') !== '0'; } catch (e) { return true; }
+  }
+  if (tagSw) {
+    tagSw.checked = favTagOn();
+    tagSw.addEventListener('change', function () {
+      ls.set('fav-tag-show', tagSw.checked ? '1' : '0');
+      try {
+        if (window.favTagInvalidate) window.favTagInvalidate();
+        if (window.favTagSyncDOM) window.favTagSyncDOM();
+      } catch (e) {}
+      toast(tagSw.checked ? '聊天里会显示【已收藏】标记' : '已隐藏聊天里的【已收藏】标记');
+    });
+  }
 
   syncUI();
 })();

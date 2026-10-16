@@ -669,6 +669,10 @@
 .fb-btn.fb-del { border:none; background:#e05555; color:#fff; }
 .fb-btn.fb-del:active { background:#c94444; }
 .fb-btn.fb-del[disabled] { opacity:.4; }
+/* 批量栏主操作（收藏）：实心主色，与 .fb-del 的红色删除语义区分开 */
+.fb-btn.fb-primary { border:none; background:var(--btn-bg,#111); color:var(--btn-ink,#fff); }
+.fb-btn.fb-primary:active { opacity:.85; }
+.fb-btn.fb-primary[disabled] { opacity:.4; }
 .fav-check {
   width:22px; height:22px; border-radius:50%; align-self:center; flex-shrink:0;
   border:1.5px solid rgba(0,0,0,.28); background:rgba(255,255,255,.92);
@@ -678,6 +682,71 @@
 .fav-check svg { width:13px; height:13px; opacity:0; }
 .fav-check.on { background:var(--ink); border-color:var(--ink); }
 .fav-check.on svg { opacity:1; }
+
+/* ===== 收藏项备注区 =====
+   一条收藏的底部：TA 的收藏理由（只读，来自字卡池）+ 自己的备注（可点编辑）。
+   语气分层靠颜色/字号区分，不靠整块 opacity（会把文字一起压灰）。 */
+.fav-item-notes {
+  margin-top:8px; padding-top:7px;
+  border-top:1px dashed rgba(0,0,0,.1);
+  display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+}
+.fav-item-reason {
+  font-size:12px; line-height:1.55; color:var(--ink); word-break:break-word;
+  padding-left:8px; border-left:2px solid rgba(0,0,0,.18);
+}
+.fav-item-note {
+  font-size:12px; line-height:1.55; color:var(--muted); word-break:break-word;
+  padding-left:8px; border-left:2px solid rgba(0,0,0,.08);
+}
+.fav-item-notebtn {
+  margin-top:2px; padding:3px 0; border:0; background:none;
+  font-size:11px; font-family:inherit; color:var(--muted);
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.fav-item-notebtn:active { opacity:.6; }
+
+/* ===== 【已收藏】tag（聊天内）=====
+   挂在消息行内、气泡外侧（appendMsg 注入）。用户点它看 TA 的收藏原因。 */
+.msg-fav-tag {
+  display:inline-flex; align-items:center; gap:3px;
+  align-self:center; flex-shrink:0;
+  margin:0 4px; padding:2px 8px; border-radius:99px;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.05); color:var(--muted);
+  font-size:10px; font-weight:600; line-height:1.6; font-family:inherit;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.msg-fav-tag:active { background:rgba(0,0,0,.1); }
+.msg-fav-tag svg { width:10px; height:10px; }
+
+/* ===== 聊天消息多选（长按气泡 → 菜单「多选」）=====
+   勾选圈用 .msg 的 ::before 伪元素画，不往消息 DOM 里插元素——消息气泡结构
+   极敏感（多处按 .msg > .msg-bubble 取节点、聊天美化 CSS 还按层级选），插子节点
+   风险高于样式成本；定位用 .msg 的 position 相对上下文。 */
+#page-chat.msg-multisel-on .msg[data-mk] { position:relative; }
+#page-chat.msg-multisel-on .msg[data-mk]::before {
+  content:''; position:absolute; top:50%; left:2px;
+  width:20px; height:20px; margin-top:-10px; border-radius:50%;
+  border:1.5px solid rgba(0,0,0,.28); background:rgba(255,255,255,.92);
+  box-shadow:0 1px 3px rgba(0,0,0,.08); z-index:2;
+}
+#page-chat.msg-multisel-on .msg-out[data-mk]::before { left:auto; right:2px; }
+/* 勾中态：实心 + 对勾（对勾用 ::after 的 border 旋转画，不引 svg 省一次布局） */
+#page-chat.msg-multisel-on .msg[data-mk].msg-picked::before {
+  background:var(--ink); border-color:var(--ink);
+}
+#page-chat.msg-multisel-on .msg[data-mk].msg-picked::after {
+  content:''; position:absolute; top:50%; left:6px; z-index:3;
+  width:5px; height:9px; margin-top:-5px;
+  border:2px solid #fff; border-top:0; border-left:0;
+  transform:rotate(43deg); pointer-events:none;
+}
+#page-chat.msg-multisel-on .msg-out[data-mk].msg-picked::after { left:auto; right:6px; }
+/* 选中时给整行一层极淡的底，勾选范围一眼可见（不用 opacity 压暗整行，只加底色） */
+#page-chat.msg-multisel-on .msg[data-mk].msg-picked > .msg-bubble {
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.14);
+}
 
 /* ===== 收藏设置页 ===== */
 .fs-stat-box { padding:4px 14px; }

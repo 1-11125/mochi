@@ -67,8 +67,8 @@
   // #273 冷加载自动升级的 reload 在 PRECACHE_NOW 预取完成那一刻无条件落地，弱网（GitHub
   // Pages 国内 3.6MB+ 产物）预取可达几十秒，正好砸进用户已开始的会话（打字/切页/答问答门）。
   // 通用根因修复、零机型分支：捕获级记本页面首次交互（触摸/按下/按键）时刻，自动重载
-  // 落地前复核——用户已操作且页面在前台就放弃重载、退回常驻更新条；页面在后台时照常重载
-  //（回前台即新版）。手动点「刷新使用新版」不受此限。与 v3.5.114 撤销 SW 通道自动刷新
+  // 落地前复核——用户已操作且页面在前台就放弃重载、登记待换版（转后台落地）；页面在后台时照常重载
+  //（回前台即新版）。手动「检查更新」不受此限。与 v3.5.114 撤销 SW 通道自动刷新
   //（「刚进入桌面就被打断回到开屏」）同一设计取向。
   let _userActTs = 0;
   function markUserAct() { if (!_userActTs) _userActTs = Date.now(); }
@@ -84,9 +84,9 @@
   //   自动刷新了，后台保活功能失效」）——这两个开关的存在意义就是页面在后台继续运行，而 #965 的
   //   待换版落地时刻恰好选在「页面转入后台那一刻」⇒ 一开保活、切走就被重载。无头实证：重载把
   //   运行中的保活音频拆掉（__kaProbe().ev.died +1）、页面重新回到开屏问答门，后台期间消息与
-  //   通知全停，用户回来只看到「页面自己刷新了」。修法：换版落地前先看这两个开关——开着就只弹
-  //   更新条、后台不落地，等用户哪次把开关关掉再切后台（或下次冷启动，开屏版本检查每次都会跑）
-  //   自然换版；手动点「刷新使用新版」不受此限（与 #279 同口径）。
+  //   通知全停，用户回来只看到「页面自己刷新了」。修法：换版落地前先看这两个开关——开着就不落地、
+  //   只登记待换版，等用户哪次把开关关掉再切后台（或下次冷启动，开屏版本检查每次都会跑）
+  //   自然换版；手动「检查更新」不受此限（与 #279 同口径）。
   function bgLivenessOn() {
     try {
       if (!window.xyStore) return false;
@@ -120,42 +120,30 @@
     arm: function () { armAutoReloadWhenHidden(); }
   };
 
-  // v3.10.x：点「刷新使用新版」——先让 SW 预取最新 index.html 写入当前缓存
-  //（PRECACHE_NOW），收到回执后再 reload；弱网下 reload 的导航请求若直接走网络
+  // v3.10.x：手动/自动换版共用的「先让 SW 预取最新 index.html 写入当前缓存
+  //（PRECACHE_NOW），收到回执后再 reload」链；弱网下 reload 的导航请求若直接走网络
   // 优先仍可能超时回退旧缓存 → 永远卡旧版。
   // #944：SW 侧（#942）弱网会走不带超时的慢路径慢慢传完（实测 ~30KB/s 传 1.4~4MB 需
-  // 50~130s），PRECACHE_DONE 因此可能一两分钟后才来——本函数随之改三处：
-  // ① 手动通道全程有反馈：按钮变「正在下载…」、条文案写明「弱网可能需要一两分钟」，
-  //    不再让用户点了没反应、以为新版有 bug；
-  // ② 手动通道删掉 2.5s 无条件重载的旧兜底（它总在下载完成前把用户重载回旧缓存），
-  //    改等 PRECACHE_DONE（上限 VER_DL_WAIT）；超时仍没等到＝下载没完成，如实告知并给
-  //    「重试刷新」，不再骗用户重载回旧版；
-  // ③ ack（「本版本已确认」免打扰记录）从按钮 onclick 挪到下载确认成功后写入——下载失败
-  //    时本版本之后仍会再次提醒，不再出现「点了刷新没刷上、从此再无提示」的静默卡旧版。
+  // 50~130s），PRECACHE_DONE 因此可能一两分钟后才来——手动通道因此删掉 2.5s 无条件
+  // 重载的旧兜底（它总在下载完成前把用户重载回旧缓存），改等 PRECACHE_DONE
+  //（上限 VER_DL_WAIT）；超时仍没等到＝下载没完成，如实告知，不再骗用户重载回旧版。
+  // #1542：顶部「检测到新版本」更新条已随停更删除——本函数只剩两个入口：设置 → 关于 →
+  //「检查更新」（mochiRefreshNow，手动）与自动通道 tryAutoUpgrade（静默）；过程反馈从
+  // 更新条文案改为 toast。
   let _prMsg = null;
   let _prBusy = false; // 手动下载进行中（防重复点击叠监听/叠计时器）
   const VER_DL_WAIT = 180000; // 手动通道等 PRECACHE_DONE 的上限（弱网慢路径实测 50~130s，取宽裕值）
   let _prPing = 0, _prPingN = 0; // #1047：下载通道重发循环（见 refreshNow 手动分支注释）
-  function refreshNow(auto, autoTs, ackTs) {
+  function refreshNow(auto, autoTs) {
     const doReload = function () {
       // #279/#965：自动升级（auto=true）落地前复核——用户已操作且在前台时绝不打断会话，
-      // 但也不再「放弃」（旧行为＝只弹更新条，多数用户不点＝长期旧版）：改登记待换版，
-      // 页面下一次转后台时自动落地（切走/回桌面/锁屏），用户回来即新版。更新条照弹，
-      // 想立刻升级的用户仍可手动点。
-      if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
+      // 但也不再「放弃」：改登记待换版，页面下一次转后台时自动落地（切走/回桌面/锁屏），
+      // 用户回来即新版。#1542：不再弹更新条。
+      if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); return; }
       // #992：自动通道 + 保活/通知开着 ⇒ 就算此刻已经在后台也不换版（页面一重载＝后台保活/通知
-      //   当场失效、还要回开屏重过问答门）。登记待换版并弹更新条，让用户自己挑时机手动刷。
-      if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }
+      //   当场失效、还要回开屏重过问答门）。登记待换版，等关掉开关后那次转后台再落地。
+      if (auto && bgLivenessOn()) { armAutoReloadWhenHidden(); return; }
       try { location.reload(); } catch (e) {}
-    };
-    // #944：手动通道的过程反馈（自动通道静默，行为与 #273 时代一致）
-    const barEl = document.getElementById('ver-update-bar');
-    const txtEl = barEl ? barEl.querySelector('.vub-txt') : null;
-    const actEl = document.getElementById('ver-update-refresh');
-    const setUi = function (txt, btn) {
-      if (auto) return;
-      if (txtEl && txt) txtEl.textContent = txt;
-      if (actEl && btn) actEl.textContent = btn;
     };
     try {
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
@@ -166,8 +154,6 @@
             done = true; _prBusy = false;
             if (_prPing) { clearInterval(_prPing); _prPing = 0; }
             try { window.__mochiVerDlBusy = false; } catch (x) {}
-            // #944：新版已确认落进缓存，此刻才写 ack（下载失败不写＝本版本还会再次提醒）
-            if (!auto && ackTs > 0) verMarkAck(ackTs);
             doReload();
           }
         };
@@ -176,7 +162,7 @@
           if (_prBusy) return; // 下载已在进行：忽略重复点击（监听器/计时器都只有一份）
           _prBusy = true;
           try { window.__mochiVerDlBusy = true; } catch (x) {}
-          setUi('正在下载新版…网络慢时可能需要一两分钟，请保持页面打开', '正在下载…');
+          toast('开始下载新版，完成后会自动刷新…网络慢时可能需要一两分钟，请保持页面打开');
         }
         // PERF-PLAN 阶段 1：带上外置 js/ 清单——弱网点「刷新使用新版」时 ext 一并预取落新缓存，防旧 index 配新 ext 的混合版本（SW 侧零改动，urls 数组本就支持）
         const prUrls = ['./index.html', './version.json'].concat(window.__mochiExtFiles || []);
@@ -199,22 +185,15 @@
         if (auto) {
           setTimeout(function () { if (!done) doReload(); }, 2500); // 自动通道保持 2.5s 兜底（#273 时代行为）
         } else {
-          // #944：手动通道等满 VER_DL_WAIT 仍无回执＝下载没完成——如实告知＋可重试，
-          // 不再重载（重载只会回到旧缓存），并回滚「弹过条」记录让本版本之后能再次提醒
-          //（否则 verSeen 把本版本记成已提醒，用户从此收不到任何提示＝静默卡旧版）。
+          // #944：手动通道等满 VER_DL_WAIT 仍无回执＝下载没完成——如实告知，不再重载
+          //（重载只会回到旧缓存）；#1542 起无更新条可写，改 toast 告知可重新检查。
           setTimeout(function () {
             if (done) return;
             _prBusy = false;
             if (_prPing) { clearInterval(_prPing); _prPing = 0; }
             try { window.__mochiVerDlBusy = false; } catch (x) {}
             if (_prMsg) navigator.serviceWorker.removeEventListener('message', _prMsg);
-            try {
-              const last = localStorage.getItem('xy-home-v2:ver-update-notify');
-              const n = Number(String(last || '').split('|')[0]);
-              if (ackTs > 0 && n === ackTs) localStorage.removeItem('xy-home-v2:ver-update-notify');
-            } catch (x) {}
-            setUi('新版没下载完（网络太慢）。已取消本次刷新，网络好转后会再次提醒；也可点「重试刷新」再试', '重试刷新');
-            if (actEl) actEl.onclick = function () { refreshNow(false, 0, ackTs); };
+            toast('新版没下载完（网络太慢），已取消本次刷新；稍后可到 设置 → 关于 →「检查更新」再试');
           }, VER_DL_WAIT);
         }
       } else {
@@ -226,57 +205,10 @@
   // 直接裸 location.reload 在弱网/iOS 会拿到旧缓存＝「刷了还在旧版」，必须走这里。
   window.mochiRefreshNow = function () { refreshNow(); };
 
-  // ================= v3.26.x：更新条防重复（版本轮询 + SW 检测两通道共享） =================
-  // 用户反馈「刷新到新版后顶部还提醒」：根因是 SW 交接期（新 SW 刚装完接管）与弱网
-  // 旧缓存场景下，版本轮询 / SW updatefound 两条通道会在新页面上再次触发弹条。
-  // 这里统一收口：① 点「刷新使用新版」或「稍后」后，记下当时线上 version.json 的版本 ts，
-  // 之后只对「比这个版本更新」的部署再提醒——一天多次部署每次都会提醒一次，不会一天只弹一次；
-  // ② 弹条前若页面 data-build-ts 已等于线上 version.json ts，说明已是最新，跳过。
-  const VER_ACK_KEY = 'xy-home-v2:ver-update-ack-ts';
-  // FIX 2026-09-07 #225 顶部更新条「一直重复提醒」（v3.26.x 按版本 ack 后用户复发报障）。残留两洞：
-  // ① ack 只在点「刷新/稍后」时写——用户看到条不点（直接杀掉重开/切走），ack 不存在 → 同一版本每次打开都弹；
-  // ② SW 通道拉 version.json 失败时 showVerBar() 无 ts 照弹，ack 被整体绕过（GitHub Pages 弱网常态）。
-  // 收口（v2，按站点主口径修订：本站一天可能部署十几次，禁止任何按时间窗压制新版本提醒）：
-  // ver-update-notify 记「最近弹过的版本 ts」——弹条即记、永久有效：同一版本只弹一次（无论点没点
-  // 按钮、隔多久重开）；更新的版本（ts 更大）立即照弹，不受任何时间限制；ts 未知（拉版本失败）只在
-  // 从没弹过条时才照弹（宁多勿漏只留给全新用户；真正的新版本由轮询通道在网络恢复后正常提醒，不会漏）。
-  const VER_NOTIFY_KEY = 'xy-home-v2:ver-update-notify';
-  let _verBarShown = false;
-  // 用户上次已确认/已刷到的版本时间戳（0 = 从未确认过）
-  function verAckTs() {
-    try {
-      const v = localStorage.getItem(VER_ACK_KEY);
-      const n = Number(v);
-      return (v && !isNaN(n) && n > 0) ? n : 0;
-    } catch (e) { return 0; }
-  }
-  function verMarkAck(ts) {
-    try { localStorage.setItem(VER_ACK_KEY, String(ts > 0 ? ts : Date.now())); } catch (e) {}
-  }
-  // 是否提醒：线上 ts 比用户上次确认的版本更新才弹；ts 未知（拉版本文件失败）宁多勿漏照弹
-  function verShouldNotify(ts) {
-    const n = Number(ts);
-    if (!n || isNaN(n)) return true;
-    return n > verAckTs();
-  }
-  function verLsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function verLsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  // 弹条即记「ts|时刻」，不依赖用户点按钮——同版本只弹一次的依据（记录永久有效，不按时间过期）
-  function verMarkNotify(onlineTs) {
-    const n = Number(onlineTs);
-    verLsSet(VER_NOTIFY_KEY, (n > 0 ? n : 0) + '|' + Date.now());
-  }
-  // FIX 2026-09-07 #225v2 是否已提醒过：同版本（记录 ts ≥ 线上 ts）不再弹；
-  // ts 未知（拉版本失败）时只要弹过任何版本就不再照弹——「宁多勿漏」只保留给从没弹过条的
-  // 全新用户，弱网绕过免打扰的口子堵死；真正的新版本由轮询通道在网络恢复后立即提醒，不会漏。
-  function verSeen(onlineTs) {
-    const last = verLsGet(VER_NOTIFY_KEY);
-    if (!last) return false;
-    const n = Number(onlineTs);
-    if (!n || isNaN(n)) return true;
-    const lastTs = Number(String(last).split('|')[0]);
-    return lastTs >= n;
-  }
+  // #1542：顶部「检测到新版本」更新条及其防重复记账（ack/notify 两记帐键＋弹条/已提醒
+  // 判定一族）已随停更整块删除——检测到新版只走静默通道（tryAutoUpgrade 预取＋转后台
+  // 落地 / askSwUpdate 请 sw 重装），不再有任何更新弹条；旧设备残留的两记帐键仍在
+  // contacts.js EXCLUDE 名单里，防 migrateLegacy 误迁。
   // v3.10.x：带超时的 fetch（5s），弱网不挂起；失败由调用方快速重试
   function fetchJson(url, ms) {
     const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -285,33 +217,16 @@
       .then(function (r) { if (timer) clearTimeout(timer); if (!r.ok) throw new Error('bad'); return r.json(); })
       .catch(function (err) { if (timer) clearTimeout(timer); throw err; });
   }
-  // 显示更新条（版本轮询 + SW 检测共用）：跨通道一次性去重 + 已确认过本版本不再提醒
-  // FIX 2026-09-07 #225v2：追加 verSeen 一版一弹（同版本不重复弹；新版本立即弹，无任何时间窗）
-  function showVerBar(onlineTs) {
-    if (_verBarShown || !verShouldNotify(onlineTs) || verSeen(onlineTs)) return;
-    _verBarShown = true;
-    verMarkNotify(onlineTs);
-    const barEl = document.getElementById('ver-update-bar');
-    if (!barEl) { toast('已检测到新版本，刷新页面即可更新'); return; }
-    barEl.hidden = false;
-    const actEl = document.getElementById('ver-update-refresh');
-    if (actEl) actEl.onclick = function () { refreshNow(false, 0, onlineTs); }; // #944：ack 挪到下载确认成功后写（refreshNow 内）
-    // v3.5.134：可关闭（"稍后"）——不挡用户当前操作；关闭即记为已确认当前版本
-    const closeBtn = document.getElementById('ver-update-close');
-    if (closeBtn) closeBtn.onclick = function () { verMarkAck(onlineTs); barEl.hidden = true; };
-  }
 
   // ================= v3.6.x：新版本检测（版本文件轮询，iOS/安卓均可靠） =================
   // 纯 Service Worker 检测不可靠：sw 只在页面加载/导航时检查、iOS Safari 对 sw 更新
-  // 事件支持差——用户开着旧页面永远收不到「新版本」提醒。
-  // 方案：构建时在站点根目录生成 version.json（含构建时间戳），页面定期 fetch 对比；
-  // 服务器时间戳更新即认为有新版本，显示常驻提示条，点击「刷新使用新版」立即刷新。
-  // 当前页面读到的时间戳作为基线（首次 fetch 即最新 → 不误报）。
+  // 事件支持差——用户开着旧页面永远感知不到新版本。
+  // 方案：构建时在站点根目录生成 version.json（含构建时间戳），页面定期 fetch 对比。
+  // #1542：检出「线上比这一页新」只走静默通道——tryAutoUpgrade（后台预取＋转后台落地）
+  // ＋ askSwUpdate（请 sw 重装），更新条已删、不再有任何弹条提醒。
   (function () {
-    const bar = document.getElementById('ver-update-bar');
-    if (!bar) return;
     // #386：file:// 直开本地文件时浏览器禁止 fetch 同目录 json（origin 'null'），
-    // 版本轮询只会每 5s 刷一条 CORS 报错并误弹「网络异常」，直接跳过（线上 http/https 才启用）。
+    // 版本轮询只会每 5s 刷一条 CORS 报错，直接跳过（线上 http/https 才启用）。
     if (location.protocol === 'file:') return;
     // FIX 2026-09-28 #1351c「知道有线上新版，却从没去取过那个新包」——换版送达的那半件事
     //   （iPhone 15／iOS 17.6.1 复报「上次的大部分需要添加图片的功能都已修复，但……还是无法添加」，
@@ -322,7 +237,7 @@
     //   （规范上限 24h，且只在导航时做），而 PWA 桌面快捷方式一开就是几天不重新导航。
     //   本函数只在「线上 version.json 的 ts 比这一页的构建 ts 新」这一刻调用一次，
     //   判据零机型／零 UA；它只让新 sw 装上（新缓存就位、旧缓存按 sw 自己的 activate 清掉），
-    //   换版【落地】时机一字未动——#965 的待换版登记、#992 的保活闸门、手动更新条全照旧。
+    //   换版【落地】时机一字未动——#965 的待换版登记、#992 的保活闸门全照旧。
     function askSwUpdate() {
       try {
         if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistration) return;
@@ -342,7 +257,7 @@
       const t = sv && Number(sv.getAttribute('data-build-ts'));
       if (t > 0) { baseTs = t; baseGot = true; }
     })();
-    // 防抖：检查到新版本后只提示一次，避免每次轮询都闪（跨通道去重在主作用域 showVerBar）
+    // 防抖：检查到新版本后只走一次静默升级尝试，避免每次轮询重复预取
     let lastCheck = 0;
     let failCount = 0;
     function checkVersion() {
@@ -361,53 +276,15 @@
         .then(function (d) {
           failCount = 0;
           const ts = Number(d && d.ts);
-          if (!ts || isNaN(ts)) { healNetHint(); return; }
+          if (!ts || isNaN(ts)) return;
           // 老版本页面无 data-build-ts 注入时回退旧逻辑（首次 fetch 当基线）
-          if (!baseGot) { baseTs = ts; baseGot = true; healNetHint(); return; }
-          // v3.30.x FIX：每次成功拉取都撤销弱网误报（若曾显示）——网络恢复即自愈，
-          // 不再让「网络异常，未能确认最新版本」常驻顶部；随后发现有新版才弹更新条。
-          healNetHint();
-          // #965：前台轮询发现新版也走自动通道（不只弹条）——长开会话（用户几天不关）也能
-          // 后台预取，转后台即换版；tryAutoUpgrade 返回 false（无 controller／本版本已试过）才回更新条
-          if (ts > baseTs) { if (!tryAutoUpgrade(ts)) showVerBar(ts); }
+          if (!baseGot) { baseTs = ts; baseGot = true; return; }
+          // #965：前台轮询发现新版也走自动通道——长开会话（用户几天不关）也能
+          // 后台预取，转后台即换版；预取条件不满足时等下一轮/pageshow 再试（#1542 起无更新条兜底）
+          if (ts > baseTs) tryAutoUpgrade(ts);
           askSwUpdate(); // FIX 2026-09-28 #1351c：判出「线上比这一页新」这一刻就去请 sw.js 重新装一次（见函数注释）
         })
-        .catch(function () { failCount++; maybeNetHint(); });
-    }
-    // v3.29.x：#273 弱网兜底。拉 version.json 持续失败（连遭 3 次超时）时，顶部更新条
-    // 也给出「网络异常，未能确认最新版本」+「重试刷新」入口——否则弱网下页面常驻旧缓存、
-    // 又拉不到版本文件，用户永远收不到任何提示＝「顶部刷新按钮消失」。点击复用 refreshNow()
-    // （PRECACHE_NOW 预取最新 index 落盘 + reload），弱网也能尽量够到最新版；每页面加载只
-    // 提示一次（内存守卫），不随 5s 轮询反复闪。网络恢复且真有新版时，正常 then 分支的
-    // showVerBar 会覆盖本文案，不会与新版本提醒打架。
-    // v3.30.x FIX（红米K80 Chrome 等多机型「刷新顶部总显示『网络异常』」）：原误报两个根因，
-    // 一个都不在「真断网」：① 阈值过松（连 2 次 5s 超时即报）——GitHub Pages 国内弱网下
-    // 5000ms 时常差几秒才回，慢而不挂也被当成断网；② netHealed 单向位，一旦置真，之后哪怕
-    // 拉取成功也永不撤销文案 → 误报文案常驻顶部、刷新一次报一次。修复：阈值提到 3 次 +
-    // 每次成功拉取调用 healNetHint() 复位文案/位（网络恢复即自愈，位回 false 可重新触发）。
-    let netHealed = false;
-    function healNetHint() {
-      if (window.__mochiVerDlBusy) return; // #944：手动下载进行中，勿把「正在下载…」进度文案复位
-      if (!netHealed) return;
-      netHealed = false;
-      failCount = 0;
-      bar.hidden = true;
-      const txt = bar.querySelector('.vub-txt');
-      if (txt) txt.textContent = '检测到新版本';
-      const act = document.getElementById('ver-update-refresh');
-      if (act) act.textContent = '刷新使用新版';
-    }
-    function maybeNetHint() {
-      if (netHealed || failCount < 3) return;
-      netHealed = true;
-      const txt = bar.querySelector('.vub-txt');
-      if (txt) txt.textContent = '网络异常，未能确认最新版本';
-      const act = document.getElementById('ver-update-refresh');
-      const close = document.getElementById('ver-update-close');
-      if (act) act.textContent = '重试刷新';
-      bar.hidden = false;
-      if (act) act.onclick = function () { refreshNow(); };
-      if (close) close.onclick = function () { bar.hidden = true; };
+        .catch(function () { failCount++; });
     }
     checkVersion();
     setInterval(checkVersion, 5000); // 5s 触发一次，内部再按 15s/5s 节流
@@ -418,30 +295,29 @@
     // v3.29.x：#273 冷加载自愈。普通刷新 / 从桌面（standalone）启动 / 重进都触发
     // pageshow 且 persisted=false（b/f-cache 返回为 true，不升级）。做一次性版本对比：
     // 云端更新且本会话未尝试过 → tryAutoUpgrade 走 PRECACHE_NOW + reload 自动进新版；
-    // 预取异常刷新后仍回旧版时由 session 守卫兜底退回更新条，不反复刷。
+    // 预取异常刷新后仍回旧版时由 session 守卫兜底，等下一轮轮询再试，不反复刷。
     document.addEventListener('pageshow', function (e) {
       if (e.persisted) return;
       fetchJson('./version.json?v=' + Date.now(), 5000).then(function (d) {
         const ts = Number(d && d.ts);
         if (!ts || isNaN(ts)) return;
         if (!baseGot) { baseTs = ts; baseGot = true; return; }
-        if (ts > baseTs && !tryAutoUpgrade(ts)) showVerBar(ts);
-        if (ts > baseTs) askSwUpdate(); // FIX 2026-09-28 #1351c：冷启动/重进这一发同样顺手请一次
-      }).catch(function () { /* 网络不可用：不动静，等周期轮询网络恢复后弹条 */ });
+        if (ts > baseTs) { tryAutoUpgrade(ts); askSwUpdate(); } // FIX 2026-09-28 #1351c：冷启动/重进这一发同样顺手请一次
+      }).catch(function () { /* 网络不可用：不动静，等周期轮询网络恢复后再试 */ });
     });
   })();
 
   // ================= v3.6.x：定期备份提醒（本地数据只存在浏览器，Safari 可能意外清空） =================
   // iOS Safari 会因存储压力/系统 bug（WebKit#266559）清掉整个源的 localStorage+IDB，
   // 用户表现为「每次重开数据全丢」。代码无法阻止系统级清空，唯一防线是定期导出备份文件
-  //（存到 iOS「文件」App，清空后能一键恢复）。距上次成功导出超 1 天且今日未提醒过时，
-  // 在顶部显示提醒条（复用 ver-update-bar 样式，更新提示优先显示时让位）。
+  //（存到 iOS「文件」App，清空后能一键恢复）。距上次成功导出超 1 天且今日未提醒过时弹提醒。
   // v3.3x.x：应需求把冷却从 7 天 → 2 天 → 现为 1 天——用户反馈「现在什么时间都不会出现提醒」，
   // 期望每天在进桌面时弹一次（不是每次启动都弹的天天打扰、也不是 7 天才一次那么久）。
   // v3.3x.x：开屏直接弹说明弹窗（用户需求）——把「为什么必须备份」讲清楚：
   // ① 浏览器/设备可能自动清空本地数据，任何手机/浏览器（含网页套壳转 App）都无法规避；
   // ② 若数据总也存不住（每次打开像没保存、一刷新就丢），多半是本机存储没能写进去（设备/浏览器异常）。
   // 顶部提醒条保留作兜底：弹窗组件未就绪时退回原提醒条，保证提醒不丢。
+  // #1542：原「更新提示优先显示时让位」一条随更新条删除（ver-update-bar 已不存在）。
   (function () {
     const bar = document.getElementById('backup-remind-bar');
     if (!bar) return;
@@ -573,9 +449,6 @@
       if (!window.__mochiDataReady && Date.now() - startedAt < 60000) return;
       if (!splashGone()) return;
       if (!due()) return;
-      // 版本更新提示优先（避免同屏叠两个提醒）：本轮让路，下轮复查再弹
-      const upd = document.getElementById('ver-update-bar');
-      if (upd && !upd.hidden) return;
       const lastBackup = ts('__last-backup');
       const days = lastBackup ? Math.max(Math.floor((Date.now() - lastBackup) / DAY), 1) : 0;
       const r = openBackupModal(days, !!lastBackup);
@@ -617,30 +490,10 @@
         // v3.5.114：不再自动刷新页面——原逻辑在检测到新 sw 后清旧缓存并 FORCE_RELOAD，
         // 会导致用户刚进入桌面就被打断回到开屏（每次构建 sw.js 都会变，更新频繁时必现）。
         // 新版 sw 用 skipWaiting 安装即接管 + activate 自动清旧缓存，当前页面可继续使用，
-        // 下次刷新自然加载最新版；这里只轻提示一次（版本条已覆盖主要场景）。
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // v3.10.x：检测到新 SW 直接显示常驻更新条（原逻辑只 toast 一闪而过，
-              // 用户容易看不到）；与版本轮询（version.json）双通道互补，任一命中即提示。
-              // v3.26.x：防「刷新到新版后还提醒」——① 已确认过该版本（ack ts）不再弹；
-              // ② 页面已是线上最新（data-build-ts 等于 version.json ts）时，SW 交接期的
-              // updatefound 不再误报（新 SW 刚装完接管，页面其实已是最新）。
-              try {
-                const sv = document.getElementById('splash-ver');
-                const localTs = (sv && Number(sv.getAttribute('data-build-ts'))) || 0;
-                fetchJson('./version.json?v=' + Date.now(), 5000)
-                  .then(function (d) {
-                    const ts = Number(d && d.ts);
-                    if (!ts || isNaN(ts) || ts > localTs) showVerBar(ts);
-                  })
-                  .catch(function () { showVerBar(); }); // 拉不到版本文件也照弹（宁多勿漏）
-              } catch (e) {}
-            }
-          });
-        });
+        // 下次刷新自然加载最新版。
+        // #1542：updatefound 原在此弹更新条，条已删——SW 交接（新 SW 装完接管）本身就是
+        // 静默换版通道的一环，这里无需任何动作，保留监听只为语义完整（零打扰）。
+        reg.addEventListener('updatefound', () => {});
       }).catch(() => {});
     });
   }
@@ -649,9 +502,9 @@
   // 缓存优先 + 后台静默刷新下，手动刷新先命中旧缓存、后台拉取弱网易超时 → 用户
   // “反复刷新仍旧版”。这里：冷加载（普通刷新/重进/桌面启动）时发现云端有更新版本，
   // 本会话首次直接走 refreshNow()（PRECACHE_NOW 预取最新 index 落盘再 reload），一跳
-  // 进新版；session 守卫保证只尝试一次，预取失败刷新后仍回旧版时自动退回常驻更新条，
-  // 绝不无限循环。周期轮询（15s/5s）与 SW updatefound 通道不动，只弹更新条不自动刷新，
-  // 避免打断用户会话中途的操作（发消息/编辑中）。
+  // 进新版；session 守卫保证只尝试一次，预取失败就等下一轮轮询再试，绝不无限循环。
+  // #1542：更新条删除后全程静默——不打断用户会话中途的操作（发消息/编辑中），落地时机
+  // 仍受 #279/#965 待换版登记与 #992 保活闸门约束。
   const AUTO_UPGRADE_KEY = 'xy-home-v2:auto-upgrade-session';
   function tryAutoUpgrade(autoTs) {
     const _ts = Number(autoTs) || 0;
@@ -861,7 +714,7 @@
 // 缺失（二传者运行时删除、或 clock.js 回填整段被删），5 秒内用本地常量补回——想彻底去掉声明必须
 // 同时改 clock.js 与本文件两处。只补缺失、绝不改写已在位内容，与 clock.js 的 marked 判定互不干扰。
 (function () {
-  const W = '本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费，作者只有小红书这一个账号：小红书@言序（1842523578）。如有出现任何收费情况，均为诈骗，注意防止被骗。二传、分享本站链接必须标注作者署名：小红书 @言序（1842523578），禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
+  const W = '本站完全免费，没有收过任何人一分钱，个人出资和花费时间搭建的。开放二传二改但禁止以盈利为目的。Mochi字卡网站完全免费。作者只有两个账号：小红书@言序（1842523578）和抖音@言序（58334080131）。作者不常看抖音，是看到有人想花钱求网站才开的号，仅用于发布本站链接。本站不收取任何费用，如有出现任何收费情况，均为诈骗，注意防止被骗。 搬运、二传本站链接到公开平台（如小红书、抖音等）时，必须标注作者署名：小红书 @言序（1842523578） 仅分享网站聊天记录、不涉及搬运字卡链接的随意。禁止删除或修改。严禁冒为自己制作、删除篡改署名，或以任何形式收费倒卖本站链接、安装包——本站完全免费，收费即诈骗。如果你是花钱买来的链接：你被骗了，请拒付退款并举报卖家。';
   function mkWatchBar(tag, title, text) {
     const b = document.createElement('div');
     b.className = 'splash-alert';

@@ -45,7 +45,7 @@ const srcPwa = readFileSync(join(root, 'src/js/pwa.js'), 'utf8');
 const prodPwa = (() => { try { return readFileSync(join(root, 'js/pwa.js'), 'utf8'); } catch (e) { try { return readFileSync(join(root, 'index.html'), 'utf8'); } catch (e2) { return ''; } } })();
 A('S1 保活/通知开关作为换版闸门在位', srcPwa.indexOf('function bgLivenessOn()') >= 0 && srcPwa.indexOf('if (bgLivenessOn()) return;') >= 0);
 A('S2 自动通道「已在后台也不换版」分支在位', prodPwa.indexOf('if (auto && bgLivenessOn())') >= 0);
-A('S3 #965 既有形态未被改坏（已交互仍登记待换版）', prodPwa.indexOf('if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }') >= 0);
+A('S3 #965 既有形态未被改坏（已交互仍登记待换版；#1542 起不再弹条）', prodPwa.indexOf('if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); return; }') >= 0);
 
 async function openRow() {
   await cdp('Page.navigate', { url: 'about:blank' }); await sleep(400);

@@ -23,6 +23,14 @@ taFeed: readNum('ta-feed')
 }
 window.favCfg = getCfg;
 window.saveFavCfg = function (k, v) { ls.set('fav-' + k, String(v)); };
+function toast(msg) {
+let t = document.getElementById('cc-toast');
+if (!t) { t = document.createElement('div'); t.id = 'cc-toast'; document.body.appendChild(t); }
+t.textContent = msg;
+t.className = 'cc-toast'; void t.offsetWidth; t.className = 'cc-toast show';
+clearTimeout(t._timer);
+t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2000);
+}
 function showPage(id) {
 document.querySelectorAll('.page').forEach(p => p.hidden = true);
 const el = document.getElementById(id);
@@ -145,6 +153,21 @@ const page = document.getElementById('page-fav-settings');
 if (page && !page.hidden) { syncUI(); renderStats(); }
 });
 } catch (e) {}
+const tagSw = document.getElementById('fav-tag-show');
+function favTagOn() {
+try { return ls.get('fav-tag-show') !== '0'; } catch (e) { return true; }
+}
+if (tagSw) {
+tagSw.checked = favTagOn();
+tagSw.addEventListener('change', function () {
+ls.set('fav-tag-show', tagSw.checked ? '1' : '0');
+try {
+if (window.favTagInvalidate) window.favTagInvalidate();
+if (window.favTagSyncDOM) window.favTagSyncDOM();
+} catch (e) {}
+toast(tagSw.checked ? '聊天里会显示【已收藏】标记' : '已隐藏聊天里的【已收藏】标记');
+});
+}
 syncUI();
 })();
 if (window.__mochiLoaded) window.__mochiLoaded.push("fav-settings.js");

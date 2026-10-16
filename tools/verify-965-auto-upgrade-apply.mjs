@@ -34,11 +34,11 @@ check('S1 待换版登记函数与探针（pending/arm）在位',
   pwa.includes('pending: function () { return _pendingAutoReload; },') &&
   pwa.includes('arm: function () { armAutoReloadWhenHidden(); }'));
 
-check('S2 自动通道落地改为「登记待换版 + 弹条」',
-  pwa.includes('if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); showVerBar(autoTs); return; }'));
+check('S2 自动通道落地改为「登记待换版」（#1542 更新条删除后不再弹条）',
+  pwa.includes('if (auto && !autoReloadAllowed()) { armAutoReloadWhenHidden(); return; }'));
 
 check('S3 前台轮询发现新版也走自动通道（checkVersion → tryAutoUpgrade）',
-  pwa.includes('if (ts > baseTs) { if (!tryAutoUpgrade(ts)) showVerBar(ts); }'));
+  pwa.includes('if (ts > baseTs) tryAutoUpgrade(ts);'));
 
 check('S4 已交互不再早退 + 会话守卫按版本 ts',
   !pwa.includes('if (!autoReloadAllowed()) return false;') &&

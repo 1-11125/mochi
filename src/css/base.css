@@ -163,9 +163,26 @@ html { margin:0; padding:0; }
 .splash-source-line { font-size:9px; color:var(--hint-ink); line-height:1.9; letter-spacing:0; white-space:nowrap; }
 /* v3.26.x：置顶澄清行可换行——nowrap 仅供单行网址/署名，长句澄清不换行会超出手机屏幕 */
 .splash-source-line.splash-clarify { white-space:normal; padding:0 14px; line-height:1.95; }
-/* #1503：品牌卡「许可 · 署名 · 灵感来源」块是长句（署名 / 二传二改四点要求 / 借鉴来源清单），
-   默认 nowrap 会把开屏撑出横向滚动（#973 S20 / #976 S15 实测）→ 仅本块内放开换行，不影响其余品牌行 */
-.splash-license .splash-source-line { white-space:normal; padding:0 14px; }
+/* ==== v8.57 #1557（作者直派「开屏的以下内容，没有设计排版啊，很丑」）：品牌卡「许可 · 署名 · 灵感来源」块排版重做 ====
+   旧形态＝16 行 9px 居中灰字平铺一行行、没有层级；新形态＝标题徽记行（左右细线）＋两段浅底圆角面板
+   （许可条款 / 灵感来源清单，左对齐、字号 9→10px）＋清单来源行圆点标记＋四点要求独立描边小卡＋落款段虚线收口。
+   内容零改动（含标点）：verify-976 S8.brandcard 无删减判据与 #1536e / #1547a~d 哨兵 needle 钉在句子上，只动排版。
+   配色全走 .splash 变量（--sp-soft / --sp-line / --soft-ink），暗色主题自动跟随、不单独写暗色覆盖。 */
+.splash-license { border-top:0; padding-top:0; margin-top:18px; text-align:left; }
+.splash-lic-head { display:flex; align-items:center; gap:10px; width:100%; margin-bottom:10px; }
+.splash-lic-head::before, .splash-lic-head::after { content:''; flex:1; height:1px; background:var(--sp-line); }
+.splash-lic-head strong { font-size:11.5px; font-weight:800; color:var(--ink); letter-spacing:1px; white-space:nowrap; }
+.splash-lic-panel { width:100%; box-sizing:border-box; padding:10px 12px 11px; background:var(--sp-soft); border-radius:12px; }
+.splash-lic-panel + .splash-lic-panel { margin-top:8px; }
+.splash-license .splash-source-line { font-size:10px; line-height:1.75; color:var(--soft-ink); white-space:normal; padding:0; }
+.splash-license .splash-source-line + .splash-source-line { margin-top:5px; }
+.splash-license .splash-source-line strong { color:var(--ink); }
+.splash-license .splash-lic-lead strong { font-size:10.5px; }
+.splash-license .splash-lic-req { padding:7px 9px 8px; background:var(--card-bg); border:1px solid var(--sp-line); border-radius:9px; }
+.splash-license .splash-lic-credits .splash-lic-item { position:relative; padding-left:11px; }
+.splash-license .splash-lic-credits .splash-lic-item::before { content:''; position:absolute; left:1px; top:.6em; width:4px; height:4px; border-radius:50%; background:var(--muted); }
+.splash-lic-foot { width:100%; margin-top:9px; padding-top:8px; border-top:1px dashed var(--sp-line); }
+.splash-lic-foot .splash-source-line { font-weight:600; }
 .splash-source-url { color:var(--ink); font-weight:600; }
 /* v3.26.x #793：停更公告横幅（品牌卡内·署名行正下方，data-stop-update）——红色警示形态（同 #315b 免责卡红），
    开屏第一屏第一眼必见；品牌卡整体居中排版，横幅自身改左对齐保正文可读性；暗色主题同批适配 */

@@ -40,11 +40,22 @@ check('A6 chat.js syncMicBtn 读同一键控制显隐', chatSrc.includes("store.
 check('A7 chat.js 发送走既有语音格式（type:\'voice\' + 名称|||dataURL）', /addRec\(\{ side: 'out', text: name \+ '\|\|\|' \+ voiceDataUrl, type: 'voice' \}\)/.test(chatSrc));
 check('A8 mobile-adapt 两浮层列表均已登记 #voice-panel', maSrc.includes("'#voice-panel'") && (maSrc.match(/'#voice-panel'/g) || []).length >= 2);
 check('A9 chat-main.css 有 .voice-* 样式段 + 深色兜底 + reduced-motion', cmCss.includes('.voice-card') && cmCss.includes('[data-theme="dark"] .voice-preview') && cmCss.includes('prefers-reduced-motion'));
-check('A10 录音过短保护（<800ms 丢弃 + toast）', chatSrc.includes("Date.now() - voiceStartTs < 800") && chatSrc.includes("录音太短"));
+// #1496 重基线：旧断言锚的是 `Date.now() - voiceStartTs < 800`，而 #6xx 收口后时长已改按
+// 「点停止那一刻」的 stopTs 算（慢壳 onstop 迟到不再虚涨），变量名随之变化＝旧锚恒红。
+// 恒红的代价不是这一条本身，而是它触发下面那句「静态未全绿→停止运行时验证」＝整个 B 组
+// （真录音→试听→发送→重载→点播放）从来没被执行过（#1487 台账自述「A10/A14 两侧同红并早退」）。
+check('A10 录音过短保护（<800ms 丢弃 + toast）', chatSrc.includes("stopTs - voiceStartTs < 800") && chatSrc.includes("录音太短"));
 check('A11 到 60 秒自动停止提示', chatSrc.includes("已达最长 60 秒"));
 check('A12 录音中途切后台停止（visibilitychange 监听 + 清理）', chatSrc.includes('voiceVisHandler') && chatSrc.includes("addEventListener('visibilitychange', voiceVisHandler)") && chatSrc.includes("removeEventListener('visibilitychange', voiceVisHandler)"));
 check('A13 麦克风约束优先关回声消除（vivo/iQOO 安静音修复）且带 {audio:true} 兜底 + recorder.onerror 复位', /echoCancellation:\s*false/.test(chatSrc) && /\{ audio: true \}/.test(chatSrc) && chatSrc.includes('acquireVoiceStream') && chatSrc.includes('rec.onerror') && chatSrc.includes('renderVoiceIdle'));
-check('A14 录音 MIME 优先 mp4/aac（本机能录又能播）', /const list = \['audio\/mp4', 'audio\/aac', 'audio\/webm;codecs=opus'/.test(chatSrc));
+// #1496 重基线：旧断言写死一条 mp4 优先的单一列表；现源码按环境分成两条（标准安卓 Chromium
+// 走 webm/opus 优先＝不爆音，iOS/安卓 WebView 走 mp4/aac 优先＝唯一可录可播），两列表都要在、
+// 且必须经 MediaRecorder.isTypeSupported 逐个探测后择优（不许写死直接 new MediaRecorder(...,mime)）。
+check('A14 录音 MIME 按环境分档（安卓 opus 优先／iOS·WebView mp4 优先，均经 isTypeSupported 择优）',
+  chatSrc.includes("const list = voiceMimePreferOpus()") &&
+  chatSrc.includes("'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac'") &&
+  chatSrc.includes("'audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm'") &&
+  chatSrc.includes("MediaRecorder.isTypeSupported(list[i])"));
 check('A15 试听把 Audio 挂到 DOM 再播 + 出错清理（防止雨见等静默空放）', chatSrc.includes('document.body.appendChild(a)') && /a\.addEventListener\('error'/.test(chatSrc) && chatSrc.includes('语音播放失败'));
 
 if (!results.every(r => r.ok)) { console.log('\n静态断言未全绿，停止运行时验证'); process.exit(1); }
@@ -201,13 +212,13 @@ for (let t = 0; t < 12; t++) {
 }
 check('B9 重进聊天语音气泡仍在且带播放钮', persist.found === true && persist.srcOk === true && persist.hasPlayBtn === true, JSON.stringify(persist));
 
-// ---- B9b 视觉回归哨兵（#1487 重基线）：out 气泡上的播放钮／波形必须吃「气泡自己的字色」 ----
-// 旧断言写死「三处都得是 255,255,255」＝把「out 侧钉白」当成契约，而那枚钉白正是 #1487 的病灶：
+// ---- B9b 视觉回归哨兵（#1496 重基线）：out 气泡上的播放钮／波形必须吃「气泡自己的字色」 ----
+// 旧断言写死「三处都得是 255,255,255」＝把「out 侧钉白」当成契约，而那枚钉白正是 #1496 的病灶：
 // 用户把「我的消息底色」改成浅色时正文被 #536 自愈翻深、钮却仍是白的＝整块隐形（作者报障原文）。
 // 新口径两半都要成立：① 钮与波形＝气泡字色（默认深色气泡上仍是白，原「黑底不可见」不回退）；
 // ② 那层浅底由 currentColor 现算（挂在 ::before 上），钮自身不铺色。
 const b9b = JSON.parse(await evalJs("(function(){var v=document.querySelector('#chat-body .msg-out .msg-voice');if(!v)return '{}';var pb=v.querySelector('.msg-voice-play');var wi=v.querySelector('.msg-voice-wave i');var bub=v.closest('.msg-bubble');var cs=pb?getComputedStyle(pb):null;var cs2=wi?getComputedStyle(wi):null;var cf=pb?getComputedStyle(pb,'::before'):null;return JSON.stringify({bubColor:bub?getComputedStyle(bub).color:'',pbColor:cs?cs.color:'',pbBg:cs?cs.backgroundColor:'',fillBg:cf?cf.backgroundColor:'',fillOp:cf?cf.opacity:'',waveBg:cs2?cs2.backgroundColor:''});})()") || '{}');
-check('B9b out 气泡播放钮/波形＝气泡字色（#1487：不再钉死白）', b9b.pbColor === b9b.bubColor && b9b.waveBg === b9b.bubColor, JSON.stringify(b9b));
+check('B9b out 气泡播放钮/波形＝气泡字色（#1496：不再钉死白）', b9b.pbColor === b9b.bubColor && b9b.waveBg === b9b.bubColor, JSON.stringify(b9b));
 check('B9b2 默认深色 out 气泡上仍是白色系（原「黑底不可见」不回退）', /255,\s*255,\s*255/.test(String(b9b.bubColor)), JSON.stringify(b9b));
 check('B9b3 钮自身不铺色、浅底改由 currentColor 那层现算（拿回钉色＝这条先红）', String(b9b.pbBg).indexOf('rgba(0, 0, 0, 0') === 0 && b9b.fillBg === b9b.bubColor && parseFloat(b9b.fillOp) > 0 && parseFloat(b9b.fillOp) < 0.5, JSON.stringify(b9b));
 
