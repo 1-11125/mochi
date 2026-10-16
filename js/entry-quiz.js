@@ -29,13 +29,24 @@ function gSet(k, v) {
 try { if (window.xyStore) window.xyStore(G).set(k, v); else localStorage.setItem(G + ':' + k, v); }
 catch (e) { try { localStorage.setItem(G + ':' + k, v); } catch (e2) {} }
 }
+function quizVerCmp(a, b) {
+const sa = String(a == null ? '' : a), sb = String(b == null ? '' : b);
+if (sa === sb) return 0;
+const ma = sa.match(/^(\d{4}-\d{2}-\d{2})(.*)$/), mb = sb.match(/^(\d{4}-\d{2}-\d{2})(.*)$/);
+if (!ma || !mb) return sa > sb ? 1 : -1;
+if (ma[1] !== mb[1]) return ma[1] > mb[1] ? 1 : -1;
+const ta = ma[2] || '', tb = mb[2] || '';
+if (ta === tb) return 0;
+return ta > tb ? 1 : -1;
+}
 function passed() {
 if (IS_AUTOMATION) return true;
 try {
 const raw = gGet(K_PASS);
 if (!raw || String(raw).charAt(0) !== '{') return false;
 const o = JSON.parse(raw);
-return !!(o && o.v === QUIZ_VER);
+if (!o || typeof o.v !== 'string' || !o.v) return false;
+return quizVerCmp(o.v, QUIZ_VER) >= 0;
 } catch (e) { return false; }
 }
 function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

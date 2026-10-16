@@ -37,14 +37,31 @@
     try { if (window.xyStore) window.xyStore(G).set(k, v); else localStorage.setItem(G + ':' + k, v); }
     catch (e) { try { localStorage.setItem(G + ':' + k, v); } catch (e2) {} }
   }
-  // 本机已通过本版问卷？
+  // #1572：版本比较（放行判定不再用严格相等）——SW cache-first 下的「版本乒乓」：
+  // 用户在较新版页面答对（存 v=较新），普通刷新命中旧缓存页（页内 QUIZ_VER 较旧）时，
+  // 原来按严格相等＝弹问卷重答、且 markPassed 把记录降级回旧版；再硬刷新到新页又重问，
+  // 循环往复＝「明明答对了还反复答题」。改为：本机记录的版本 ≥ 本页版本＝已放行；
+  // 仅当本页问卷确实比记录新（真改版）才要求重答一次，「问卷更新后需重新作答」不变。
+  // 版本形态 'YYYY-MM-DD' + 可选小尾巴（如 'c'）：日期段先比，尾巴按字典序比，异构串退回字典序。
+  function quizVerCmp(a, b) {
+    const sa = String(a == null ? '' : a), sb = String(b == null ? '' : b);
+    if (sa === sb) return 0;
+    const ma = sa.match(/^(\d{4}-\d{2}-\d{2})(.*)$/), mb = sb.match(/^(\d{4}-\d{2}-\d{2})(.*)$/);
+    if (!ma || !mb) return sa > sb ? 1 : -1;
+    if (ma[1] !== mb[1]) return ma[1] > mb[1] ? 1 : -1;
+    const ta = ma[2] || '', tb = mb[2] || '';
+    if (ta === tb) return 0;
+    return ta > tb ? 1 : -1;
+  }
+  // 本机已通过本版问卷？（记录版本 ≥ 本页版本即放行，#1572）
   function passed() {
     if (IS_AUTOMATION) return true;
     try {
       const raw = gGet(K_PASS);
       if (!raw || String(raw).charAt(0) !== '{') return false;
       const o = JSON.parse(raw);
-      return !!(o && o.v === QUIZ_VER);
+      if (!o || typeof o.v !== 'string' || !o.v) return false;
+      return quizVerCmp(o.v, QUIZ_VER) >= 0;
     } catch (e) { return false; }
   }
   function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

@@ -1,0 +1,30 @@
+/* ===== 线上有新版 · 强制刷新提醒弹窗（update-remind.js）=====
+   #splash 内自绘遮罩卡（开屏期间 openModal 不可见，见 js 注释）；
+   配色全部走 base.css 变量 → 深浅主题自动适配（同 entry-quiz.css 口径）。 */
+.ur-wrap {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 22px; box-sizing: border-box;
+  background: rgba(0, 0, 0, .38);
+}
+.ur-card {
+  width: 100%; max-width: 330px; max-height: 80%;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;
+  padding: 18px 16px; box-sizing: border-box; text-align: left;
+  background: var(--card-bg-97, rgba(255, 255, 255, .97));
+  border: 1px solid var(--card-border, rgba(0, 0, 0, .1));
+  border-radius: 16px; box-shadow: 0 12px 34px rgba(0, 0, 0, .18);
+}
+.ur-card::-webkit-scrollbar { display: none; }
+.ur-t { font-size: 14.5px; font-weight: 800; color: var(--ink, #111); line-height: 1.5; letter-spacing: .5px; text-align: center; }
+.ur-d { margin-top: 10px; font-size: 12px; line-height: 1.75; color: var(--soft-ink, #555); white-space: normal; word-break: break-word; }
+.ur-go {
+  width: 100%; margin-top: 14px; padding: 12px; border: none; border-radius: 12px;
+  background: var(--btn-bg, #111); color: var(--btn-ink, #fff);
+  font-size: 14px; font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.ur-go:active { transform: scale(.98); opacity: .9; }
+.ur-later {
+  width: 100%; margin-top: 8px; padding: 8px; background: none; border: none;
+  font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: manipulation;
+}

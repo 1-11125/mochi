@@ -281,7 +281,22 @@
           if (!baseGot) { baseTs = ts; baseGot = true; return; }
           // #965：前台轮询发现新版也走自动通道——长开会话（用户几天不关）也能
           // 后台预取，转后台即换版；预取条件不满足时等下一轮/pageshow 再试（#1542 起无更新条兜底）
-          if (ts > baseTs) tryAutoUpgrade(ts);
+          // #1573：本页是旧缓存包时弹「强制刷新」提醒（update-remind.js；已是最新不弹）。
+          // 该文件是 defer 外置件而 pwa.js 内联先执行——首查回调可能跑在它就绪前，500ms 短重试等就绪再弹
+          //（弹窗侧有本会话去重，重试多弹无害）；约 20s 仍没就绪＝外置件加载失败，放弃本次。
+          if (ts > baseTs) {
+            tryAutoUpgrade(ts);
+            const urShow = window.mochiUpdateRemindShow;
+            if (urShow) urShow();
+            else {
+              let n = 0;
+              const rt = setInterval(function () {
+                const f = window.mochiUpdateRemindShow;
+                if (f) { clearInterval(rt); f(); }
+                else if (++n > 40) clearInterval(rt);
+              }, 500);
+            }
+          }
           askSwUpdate(); // FIX 2026-09-28 #1351c：判出「线上比这一页新」这一刻就去请 sw.js 重新装一次（见函数注释）
         })
         .catch(function () { failCount++; });
